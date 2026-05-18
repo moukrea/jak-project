@@ -1,0 +1,10 @@
+;; tags: control-flow, branches
+;; expect: positive
+;; Two-armed conditional. Exercises compare + branch + string return paths.
+(defun describe ((x int))
+  (if (> x 0)
+      "positive"
+      "non-positive"))
+
+(defun main ()
+  (format #t "~A~%" (describe 7)))

@@ -1,0 +1,95 @@
+# Phase plan for the OpenGOAL → Android port.
+# Every phase runs claude-opus-4-7 at max effort (hardcoded in orchestrator.py).
+# Retries are generous because stuck-detection (same-failure-3x-in-a-row)
+# halts useless loops automatically. So we'd rather give it room to learn
+# than artificially cap iterations.
+
+phases:
+  - id: "00-harness"
+    name: "Differential test harness"
+    prompt: prompts/phase-00-harness.md
+    validator: validators/phase-00-harness.sh
+    max_turns: 120
+    max_retries: 10
+
+  - id: "01-scaffold"
+    name: "AArch64 emitter scaffold"
+    prompt: prompts/phase-01-scaffold.md
+    validator: validators/phase-01-scaffold.sh
+    max_turns: 150
+    max_retries: 10
+
+  - id: "02-intarith"
+    name: "Integer arithmetic codegen"
+    prompt: prompts/phase-02-intarith.md
+    validator: validators/phase-02-intarith.sh
+    max_turns: 200
+    max_retries: 12
+
+  - id: "03-memops"
+    name: "Memory load/store codegen"
+    prompt: prompts/phase-03-memops.md
+    validator: validators/phase-03-memops.sh
+    max_turns: 200
+    max_retries: 12
+
+  - id: "04-controlflow"
+    name: "Branches, labels, comparisons"
+    prompt: prompts/phase-04-controlflow.md
+    validator: validators/phase-04-controlflow.sh
+    max_turns: 200
+    max_retries: 12
+
+  - id: "05-abi"
+    name: "Function calls and AArch64 ABI"
+    prompt: prompts/phase-05-abi.md
+    validator: validators/phase-05-abi.sh
+    max_turns: 300
+    max_retries: 15
+
+  - id: "06-float"
+    name: "Scalar floating point"
+    prompt: prompts/phase-06-float.md
+    validator: validators/phase-06-float.sh
+    max_turns: 200
+    max_retries: 12
+
+  - id: "07-neon"
+    name: "SIMD: SSE/AVX -> NEON"
+    prompt: prompts/phase-07-neon.md
+    validator: validators/phase-07-neon.sh
+    max_turns: 400
+    max_retries: 15
+
+  - id: "08-coroutines"
+    name: "GOAL kernel context switch"
+    prompt: prompts/phase-08-coroutines.md
+    validator: validators/phase-08-coroutines.sh
+    max_turns: 300
+    max_retries: 15
+
+  - id: "09-boot-linux-arm"
+    name: "Boot Jak 1 under qemu-aarch64"
+    prompt: prompts/phase-09-boot.md
+    validator: validators/phase-09-boot.sh
+    max_turns: 300
+    max_retries: 20
+
+  - id: "10-android-ndk"
+    name: "Android NDK cross-build"
+    prompt: prompts/phase-10-android.md
+    validator: validators/phase-10-android.sh
+    max_turns: 250
+    max_retries: 10
+
+  - id: "11-apk"
+    name: "APK packaging and emulator boot"
+    prompt: prompts/phase-11-apk.md
+    validator: validators/phase-11-apk.sh
+    max_turns: 250
+    max_retries: 10
+
+global:
+  git:
+    push_after_each_phase: true
+    branch_prefix: "autoport/"
