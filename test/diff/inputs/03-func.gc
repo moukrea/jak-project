@@ -1,0 +1,8 @@
+;; tags: basic, functions, int-arith
+;; expect: 12
+;; Define a helper and call it from main. Exercises function calls + arguments.
+(defun mul-by-three ((x int))
+  (* x 3))
+
+(defun main ()
+  (format #t "~D~%" (mul-by-three 4)))

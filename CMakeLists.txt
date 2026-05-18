@@ -300,6 +300,9 @@ include(GoogleTest)
 # build tests
 include(test/CMakeLists.txt)
 
+# differential test harness for the x86 ↔ aarch64 port (phase 00)
+add_subdirectory(test/diff)
+
 # build lzokay library
 build_third_party_lib(lzokay lzokay)
 

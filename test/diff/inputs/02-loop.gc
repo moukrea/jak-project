@@ -1,0 +1,10 @@
+;; tags: control-flow, recursion, int-arith
+;; expect: 55
+;; Sum 1..10 with a recursive helper. Exercises stack frames and tail position.
+(defun sum-to ((n int))
+  (if (<= n 0)
+      0
+      (+ n (sum-to (- n 1)))))
+
+(defun main ()
+  (format #t "~D~%" (sum-to 10)))
