@@ -1,0 +1,21 @@
+{
+  "current_phase_idx": 1,
+  "retries": {
+    "00-harness": 2
+  },
+  "fingerprints": {
+    "00-harness": [
+      "7d7c7a9d7189"
+    ]
+  },
+  "stuck_reasons": {},
+  "completed": [
+    "00-harness"
+  ],
+  "blocked": [],
+  "started_at": "2026-05-18T21:55:21.544892+00:00",
+  "phase_started_at": {
+    "00-harness": 1779141327.5929835
+  },
+  "last_update": "2026-05-18T22:14:54.025193+00:00"
+}
