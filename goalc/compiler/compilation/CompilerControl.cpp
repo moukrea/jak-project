@@ -135,11 +135,23 @@ Val* Compiler::compile_asm_file(const goos::Object& form, const goos::Object& re
 
   // parse arguments
   bool last_was_disasm = false;
+  bool last_was_output_file = false;
   for_each_in_list(rest, [&](const goos::Object& o) {
     if (last_was_disasm) {
       last_was_disasm = false;
       if (o.type == goos::ObjectType::STRING) {
         options.disassembly_output_file = as_string(o);
+        i++;
+        return;
+      }
+    }
+    if (last_was_output_file) {
+      last_was_output_file = false;
+      if (o.type == goos::ObjectType::STRING) {
+        options.output_file = as_string(o);
+        // :output-file implies :color :write — produce a real .o on disk.
+        options.color = true;
+        options.write = true;
         i++;
         return;
       }
@@ -163,6 +175,8 @@ Val* Compiler::compile_asm_file(const goos::Object& form, const goos::Object& re
         last_was_disasm = true;
       } else if (setting == ":disasm-code-only") {
         options.disasm_code_only = true;
+      } else if (setting == ":output-file") {
+        last_was_output_file = true;
       } else {
         throw_compiler_error(form, "The option {} was not recognized for asm-file.", setting);
       }
