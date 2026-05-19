@@ -1,21 +1,25 @@
 {
-  "current_phase_idx": 1,
+  "current_phase_idx": 2,
   "retries": {
-    "00-harness": 2
+    "00-harness": 2,
+    "01-scaffold": 1
   },
   "fingerprints": {
     "00-harness": [
       "7d7c7a9d7189"
-    ]
+    ],
+    "01-scaffold": []
   },
   "stuck_reasons": {},
   "completed": [
-    "00-harness"
+    "00-harness",
+    "01-scaffold"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
-    "00-harness": 1779141327.5929835
+    "00-harness": 1779141327.5929835,
+    "01-scaffold": 1779173704.1789694
   },
-  "last_update": "2026-05-18T22:14:54.025193+00:00"
+  "last_update": "2026-05-19T07:27:01.968811+00:00"
 }

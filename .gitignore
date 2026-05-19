@@ -12,6 +12,8 @@ cmake-build-debug--o0/*
 .idea/*
 build/
 build.master/
+build-x86/
+build-arm64/
 /decompiler_out*
 logs/*
 profile_data/*
