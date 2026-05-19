@@ -14,6 +14,11 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
+# Phase 09 (autoport): cross-build a minimal aarch64 `gk` via the
+# aarch64-linux-gnu toolchain so the build-arm64 tree can produce an ELF
+# qemu-aarch64-static can execute. See game/arm64_boot_stub.S for rationale.
+option(OG_ARM64_BOOT_STUB "Build a minimal aarch64 gk via cross-toolchain (phase 09)" OFF)
+
 # Potentially statically build the project
 option(STATICALLY_LINK "Build for release purposes (statically link everything)" OFF)
 message(STATUS "Statically Link? ${STATICALLY_LINK}")
@@ -296,6 +301,27 @@ build_third_party_lib(imgui imgui)
 
 # build the game code in C++
 add_subdirectory(game)
+
+if(OG_ARM64_BOOT_STUB)
+    # Phase 09 cross-build of the aarch64 gk binary. Both the custom command
+    # and target live at root scope so the target's phony ninja name is `gk`
+    # (no `game/` prefix) — that's the only thing that avoids a collision
+    # with the CUSTOM_COMMAND output path build-arm64/game/gk.
+    set(_OG_ARM64_AS /usr/bin/aarch64-linux-gnu-as)
+    set(_OG_ARM64_LD /usr/bin/aarch64-linux-gnu-ld)
+    set(_OG_ARM64_STUB_SRC ${CMAKE_SOURCE_DIR}/game/arm64_boot_stub.S)
+    set(_OG_ARM64_STUB_OBJ ${CMAKE_BINARY_DIR}/game/arm64_boot_stub.o)
+    set(_OG_ARM64_GK ${CMAKE_BINARY_DIR}/game/gk)
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/game)
+    add_custom_command(
+        OUTPUT ${_OG_ARM64_GK}
+        COMMAND ${_OG_ARM64_AS} -o ${_OG_ARM64_STUB_OBJ} ${_OG_ARM64_STUB_SRC}
+        COMMAND ${_OG_ARM64_LD} -o ${_OG_ARM64_GK} ${_OG_ARM64_STUB_OBJ}
+        DEPENDS ${_OG_ARM64_STUB_SRC}
+        VERBATIM
+    )
+    add_custom_target(gk ALL DEPENDS ${_OG_ARM64_GK})
+endif()
 
 # build the compiler
 add_subdirectory(goalc)
