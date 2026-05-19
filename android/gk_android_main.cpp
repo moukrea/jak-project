@@ -58,6 +58,17 @@ std::atomic<bool> g_runtime_booted{false};
 // complete before super.onCreate triggers the SDL thread.
 const char* g_selected_game = nullptr;
 const char* g_data_root = nullptr;
+
+// Phase 27 (autoport): emit a load marker at .so load time so the validator
+// can prove libgk.so reached dlopen() — the runtime's earliest observable
+// signal. Marked __attribute__((constructor)) so it runs before any other
+// libgk code, including the SDL JNI_OnLoad path. The validator greps
+// logcat for the literal "libgk.so loaded" string.
+__attribute__((constructor))
+void gk_load_marker() {
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "libgk.so loaded (%s)", kGkVersion);
+}
 }  // namespace
 
 extern "C" {
