@@ -119,6 +119,35 @@ set_target_properties(android_kernel PROPERTIES
 )
 
 # ---------------------------------------------------------------------------
+# Phase 21 (autoport): GLES shader preprocessor.
+#
+# Desktop GLSL (#version 410 core) is not directly compilable under GLES
+# 3.20. The Python preprocessor at game/graphics/opengl_renderer/shaders/
+# transforms every .vert/.frag pair into a GLES variant + emits a single
+# generated header (shaders_android_blob.h) that lists every shader as a
+# pair of constexpr string_views. Embedding the strings keeps the desktop
+# .vert/.frag sources the single source of truth — no inline #ifdef per
+# shader, no second copy of each shader, no asset-extraction plumbing
+# just to read shader source at runtime.
+# ---------------------------------------------------------------------------
+set(SHADERS_SRC_DIR "${JAK_ROOT}/game/graphics/opengl_renderer/shaders")
+set(GEN_SHADERS_DIR "${CMAKE_BINARY_DIR}/shaders")
+set(GEN_SHADERS_HEADER "${GEN_SHADERS_DIR}/shaders_android_blob.h")
+file(GLOB SHADER_INPUTS
+     "${SHADERS_SRC_DIR}/*.vert"
+     "${SHADERS_SRC_DIR}/*.frag")
+add_custom_command(
+    OUTPUT "${GEN_SHADERS_HEADER}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${GEN_SHADERS_DIR}"
+    COMMAND python3 "${SHADERS_SRC_DIR}/preprocess.py"
+            "${SHADERS_SRC_DIR}" "${GEN_SHADERS_DIR}"
+    DEPENDS ${SHADER_INPUTS} "${SHADERS_SRC_DIR}/preprocess.py"
+    COMMENT "Phase 21: preprocessing OpenGOAL shaders for GLES 3.20"
+    VERBATIM
+)
+add_custom_target(gen_android_shaders DEPENDS "${GEN_SHADERS_HEADER}")
+
+# ---------------------------------------------------------------------------
 # libgk.so — the shared object the Android Activity will load.
 # ---------------------------------------------------------------------------
 add_library(gk SHARED
@@ -128,7 +157,14 @@ add_library(gk SHARED
     # build don't compete for the symbol. The Android body honestly inits
     # the kheap, opens KERNEL.CGO, and spawns the dispatcher thread.
     android_goal_main.cpp
+    # Phase 21 (autoport): SDL/GLES bring-up + shader compile + render
+    # loop. Owning the generated shader blob, it depends on the
+    # gen_android_shaders custom target (wired below).
+    android_renderer.cpp
 )
+
+add_dependencies(gk gen_android_shaders)
+target_include_directories(gk PRIVATE "${GEN_SHADERS_DIR}")
 
 target_compile_features(gk PRIVATE cxx_std_20)
 target_compile_options(gk PRIVATE

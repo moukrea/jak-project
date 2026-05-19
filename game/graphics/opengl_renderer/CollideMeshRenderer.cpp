@@ -327,9 +327,15 @@ void CollideMeshRenderer::render(SharedRenderState* render_state, ScopedProfiler
       glUniform1i(glGetUniformLocation(shader, "wireframe"), 1);
       glDisable(GL_BLEND);
       glDepthMask(GL_FALSE);
+#ifndef __ANDROID__
+      // Phase 21 (autoport): glPolygonMode is desktop-only; GLES doesn't
+      // expose a wireframe raster mode.
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
       glDrawArrays(GL_TRIANGLES, 0, lev->level->collision.vertices.size());
+#ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
       glEnable(GL_BLEND);
       glDepthMask(GL_TRUE);
     }

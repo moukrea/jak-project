@@ -495,9 +495,14 @@ void Shadow2::draw_buffers(SharedRenderState* render_state,
     if (m_debug_draw_volume) {
       glDisable(GL_BLEND);
       glUniform4f(m_ogl.uniforms.color, 0., 0.0, 0., 0.5);
+#ifndef __ANDROID__
+      // Phase 21 (autoport): wireframe via glPolygonMode is desktop-only.
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
       glDrawElements(GL_TRIANGLE_STRIP, (m_front_index_buffer_used - 6), GL_UNSIGNED_INT, nullptr);
+#ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
       glEnable(GL_BLEND);
       prof.add_draw_call();
       prof.add_tri(m_front_index_buffer_used / 3);
@@ -520,9 +525,13 @@ void Shadow2::draw_buffers(SharedRenderState* render_state,
     if (m_debug_draw_volume) {
       glDisable(GL_BLEND);
       glUniform4f(m_ogl.uniforms.color, 0., 0.0, 0., 0.5);
+#ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
       glDrawElements(GL_TRIANGLE_STRIP, (m_back_index_buffer_used - 0), GL_UNSIGNED_INT, nullptr);
+#ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
       glEnable(GL_BLEND);
       prof.add_draw_call();
       prof.add_tri(m_back_index_buffer_used / 3);
