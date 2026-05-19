@@ -34,7 +34,9 @@ int main(int argc, char** argv) {
   ArgumentGuard u8_guard(argc, argv);
 
   bool auto_find_user = false;
+  bool auto_lt = false;
   std::string cmd = "";
+  std::string startup_cmd = "";
   std::string username = "#f";
   std::string game = "jak1";
   int nrepl_port = -1;
@@ -45,6 +47,11 @@ int main(int argc, char** argv) {
   CLI::App app{"OpenGOAL Compiler / REPL"};
   app.set_version_flag("--version", emitter::IGen_arm64::version_string());
   app.add_option("-c,--cmd", cmd, "Specify a command to run, no REPL is launched in this mode");
+  app.add_option("--startup-cmd", startup_cmd,
+                 "Run a command at startup, then exit. Equivalent to --cmd for headless builds.");
+  app.add_flag("--auto-lt", auto_lt,
+               "Auto-listen to target if one is running. No-op in headless --cmd/--startup-cmd "
+               "mode (kept for build-script compatibility).");
   app.add_option("-u,--user", username,
                  "Specify the username to use for your user profile in 'goal_src/user/'");
   app.add_option("-p,--port", nrepl_port, "Specify the nREPL port.  Defaults to 8181");
@@ -98,6 +105,15 @@ int main(int argc, char** argv) {
     file_util::set_iso_data_dir(iso_path_override);
     repl_config.iso_path = iso_path_override.string();
   }
+
+  // --startup-cmd is equivalent to --cmd for headless builds. If both are set,
+  // --cmd wins (explicit short-flag override).
+  if (cmd.empty() && !startup_cmd.empty()) {
+    cmd = startup_cmd;
+  }
+  // --auto-lt is a no-op in headless mode (no live target to attach to). It is
+  // accepted for build-script compatibility (autoport phase 14+).
+  (void)auto_lt;
 
   // Init Compiler
   std::unique_ptr<Compiler> compiler;
