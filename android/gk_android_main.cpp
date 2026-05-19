@@ -29,6 +29,8 @@
 #include "game/kernel/common/kprint.h"
 #include "game/kernel/common/ksocket.h"
 
+#include "android_input_audio.h"
+
 // goal_main lives in android_goal_main.cpp for Android, game/main.cpp for
 // desktop. C++ linkage on both sides — matches the forward declaration at
 // the top of game/main.cpp.
@@ -150,6 +152,12 @@ Java_org_opengoal_gk_NativeGk_startGame(JNIEnv* env, jclass /*clazz*/,
 int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "gk_sdl_main: entered");
 
+  // Phase 23 (autoport): bring up the SDL virtual gamepad + audio
+  // device on the SDL main thread, before goal_main hands us off to
+  // the renderer. The renderer's later SDL_Init(SDL_INIT_VIDEO) is
+  // idempotent w.r.t. the AUDIO/JOYSTICK subsystems initialised here.
+  android_input_audio::init();
+
   const char* game_name = g_selected_game ? g_selected_game : "jak1";
   const char* data_root = g_data_root ? g_data_root : "";
   if (!*data_root) {
@@ -217,6 +225,12 @@ Java_org_opengoal_gk_NativeGk_setDataRoot(JNIEnv* env, jclass /*clazz*/,
                         "NativeGk.setDataRoot: %s",
                         g_data_root ? g_data_root : "(null)");
   }
+}
+
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_onPadButton(JNIEnv* /*env*/, jclass /*clazz*/,
+                                          jint sdl_button, jboolean pressed) {
+  android_input_audio::on_pad_button((int)sdl_button, pressed == JNI_TRUE);
 }
 
 JNIEXPORT void JNICALL

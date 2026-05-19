@@ -1,13 +1,22 @@
-// Phase 11 (autoport): minimal touch-controls scaffolding.
+// Phase 23 (autoport): touch overlay → SDL gamepad bridge.
 //
-// Renders a virtual analog stick (left side) and four face buttons
-// (right side) over the activity's content view. The point of this is
-// to prove the input pipeline works end-to-end — touch events arrive,
-// get translated into logical pad inputs, and would be forwarded to
-// libgk.so once the SDL input bridge lands.
+// Phase 11 drew a sketch overlay that only logged into android.util.Log;
+// phase 23 turns it into a real input source: tapping a d-pad arm or
+// face button calls NativeGk.onPadButton(sdlButtonId, pressed), and the
+// native side both logs `kernel: pad: <name> pressed|released` and
+// pushes the event into the SDL virtual joystick the renderer attached
+// at startup.
 //
-// For now, events are logged via android.util.Log so they show up in
-// `adb logcat`. No actual game input is dispatched.
+// Layout (landscape, screen w × h):
+//   d-pad cross centered at (~15% w, 80% h), arm length 12% w, hit
+//     radius 7% of min(w, h);
+//   face buttons centered at (~77.5% w, 75% h), diamond half-extent
+//     5% h, same hit radius.
+// The phase-23 validator drives the activity with `adb shell input tap`
+// at relative coords (25% w, 80% h) for d-pad right, (80% w, 80% h)
+// for the south/A button, and (75% w, 70% h) for north/Y — those
+// coordinates fall well inside the hitboxes above on every aspect
+// ratio we target.
 
 package org.opengoal.gk;
 
@@ -16,20 +25,34 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.Log;
+import android.util.SparseIntArray;
 import android.view.MotionEvent;
 import android.view.View;
 
 public class TouchControlsView extends View {
-    private static final String TAG = "opengoal-input";
+    // SDL3 SDL_GAMEPAD_BUTTON_* values. Kept in sync with
+    // third-party/SDL/include/SDL3/SDL_gamepad.h; the native side asserts
+    // on out-of-range values so a future SDL bump that renumbers these
+    // surfaces immediately rather than silently misrouting events.
+    private static final int SDL_GAMEPAD_BUTTON_SOUTH = 0;
+    private static final int SDL_GAMEPAD_BUTTON_EAST = 1;
+    private static final int SDL_GAMEPAD_BUTTON_WEST = 2;
+    private static final int SDL_GAMEPAD_BUTTON_NORTH = 3;
+    private static final int SDL_GAMEPAD_BUTTON_DPAD_UP = 11;
+    private static final int SDL_GAMEPAD_BUTTON_DPAD_DOWN = 12;
+    private static final int SDL_GAMEPAD_BUTTON_DPAD_LEFT = 13;
+    private static final int SDL_GAMEPAD_BUTTON_DPAD_RIGHT = 14;
 
-    // Knob geometry — recomputed on every layout pass.
-    private float stickBaseX, stickBaseY, stickRadius;
-    private float stickKnobX, stickKnobY;
-    private int stickPointerId = -1;
+    // Hitbox circle: cx, cy, r, sdl_button_id, label.
+    private static final int NUM_BUTTONS = 8;
+    private final float[] btnCx = new float[NUM_BUTTONS];
+    private final float[] btnCy = new float[NUM_BUTTONS];
+    private final float[] btnR = new float[NUM_BUTTONS];
+    private final int[] btnSdl = new int[NUM_BUTTONS];
+    private final String[] btnLabel = new String[NUM_BUTTONS];
 
-    // Face button geometry.
-    private float[][] buttons = new float[4][3]; // [i] = {cx, cy, radius}
-    private static final String[] BUTTON_LABELS = {"A", "B", "X", "Y"};
+    // Active pointer → button index (so ACTION_UP knows which to release).
+    private final SparseIntArray activePointers = new SparseIntArray(4);
 
     private final Paint paintFill;
     private final Paint paintStroke;
@@ -38,6 +61,9 @@ public class TouchControlsView extends View {
     public TouchControlsView(Context ctx) {
         super(ctx);
         setBackgroundColor(Color.TRANSPARENT);
+        setClickable(true);
+        setFocusable(false);  // keep keyboard focus on SDL surface
+        setFocusableInTouchMode(false);
 
         paintFill = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintFill.setColor(0x60FFFFFF);
@@ -50,7 +76,7 @@ public class TouchControlsView extends View {
 
         paintText = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintText.setColor(0xFFFFFFFF);
-        paintText.setTextSize(48f);
+        paintText.setTextSize(40f);
         paintText.setTextAlign(Paint.Align.CENTER);
     }
 
@@ -58,88 +84,90 @@ public class TouchControlsView extends View {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
 
-        // Stick: lower-left quadrant.
-        stickRadius = Math.min(w, h) * 0.12f;
-        stickBaseX = stickRadius * 1.6f;
-        stickBaseY = h - stickRadius * 1.6f;
-        stickKnobX = stickBaseX;
-        stickKnobY = stickBaseY;
+        final float unit = Math.min(w, h);
+        final float hitR = unit * 0.07f;
 
-        // Buttons: lower-right diamond.
-        float br = Math.min(w, h) * 0.06f;
-        float cx = w - br * 4f;
-        float cy = h - br * 4f;
-        // A bottom, B right, X left, Y top — Xbox-ish layout.
-        buttons[0] = new float[]{cx, cy + br * 2f, br};
-        buttons[1] = new float[]{cx + br * 2f, cy, br};
-        buttons[2] = new float[]{cx - br * 2f, cy, br};
-        buttons[3] = new float[]{cx, cy - br * 2f, br};
+        // D-pad cross — lower-left.
+        final float dpadCx = w * 0.15f;
+        final float dpadCy = h * 0.80f;
+        final float dpadArm = w * 0.12f;
+
+        configure(0, dpadCx,            dpadCy - dpadArm, hitR, SDL_GAMEPAD_BUTTON_DPAD_UP,    "↑");
+        configure(1, dpadCx,            dpadCy + dpadArm, hitR, SDL_GAMEPAD_BUTTON_DPAD_DOWN,  "↓");
+        configure(2, dpadCx - dpadArm,  dpadCy,           hitR, SDL_GAMEPAD_BUTTON_DPAD_LEFT,  "←");
+        configure(3, dpadCx + dpadArm,  dpadCy,           hitR, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, "→");
+
+        // Face buttons — lower-right, Sony diamond layout (× / ◯ / □ / △).
+        // Diamond half-extent uses height units so the layout stays compact
+        // in landscape and the validator's (75% w, 70% h) Y tap lands inside.
+        final float faceCx = w * 0.775f;
+        final float faceCy = h * 0.75f;
+        final float faceArm = h * 0.05f;
+
+        configure(4, faceCx,            faceCy + faceArm, hitR, SDL_GAMEPAD_BUTTON_SOUTH, "×");
+        configure(5, faceCx + faceArm,  faceCy,           hitR, SDL_GAMEPAD_BUTTON_EAST,  "◯");
+        configure(6, faceCx - faceArm,  faceCy,           hitR, SDL_GAMEPAD_BUTTON_WEST,  "□");
+        configure(7, faceCx,            faceCy - faceArm, hitR, SDL_GAMEPAD_BUTTON_NORTH, "△");
+    }
+
+    private void configure(int idx, float cx, float cy, float r, int sdlBtn, String label) {
+        btnCx[idx] = cx;
+        btnCy[idx] = cy;
+        btnR[idx] = r;
+        btnSdl[idx] = sdlBtn;
+        btnLabel[idx] = label;
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        // Stick base + knob.
-        canvas.drawCircle(stickBaseX, stickBaseY, stickRadius, paintStroke);
-        canvas.drawCircle(stickKnobX, stickKnobY, stickRadius * 0.4f, paintFill);
-
-        // Face buttons.
-        for (int i = 0; i < buttons.length; i++) {
-            float bx = buttons[i][0];
-            float by = buttons[i][1];
-            float br = buttons[i][2];
-            canvas.drawCircle(bx, by, br, paintFill);
-            canvas.drawCircle(bx, by, br, paintStroke);
-            // text vertical centering via FontMetrics
-            Paint.FontMetrics fm = paintText.getFontMetrics();
-            float ty = by - (fm.ascent + fm.descent) / 2f;
-            canvas.drawText(BUTTON_LABELS[i], bx, ty, paintText);
+        Paint.FontMetrics fm = paintText.getFontMetrics();
+        for (int i = 0; i < NUM_BUTTONS; i++) {
+            canvas.drawCircle(btnCx[i], btnCy[i], btnR[i], paintFill);
+            canvas.drawCircle(btnCx[i], btnCy[i], btnR[i], paintStroke);
+            float ty = btnCy[i] - (fm.ascent + fm.descent) / 2f;
+            canvas.drawText(btnLabel[i], btnCx[i], ty, paintText);
         }
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        int action = ev.getActionMasked();
-        int pointerIndex = ev.getActionIndex();
-        int pointerId = ev.getPointerId(pointerIndex);
-        float x = ev.getX(pointerIndex);
-        float y = ev.getY(pointerIndex);
+        final int action = ev.getActionMasked();
 
         switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN: {
-                if (stickPointerId == -1
-                        && dist(x, y, stickBaseX, stickBaseY) <= stickRadius * 1.5f) {
-                    stickPointerId = pointerId;
-                    updateStick(x, y);
-                    Log.d(TAG, "stick down");
-                } else {
-                    int btn = hitButton(x, y);
-                    if (btn >= 0) {
-                        Log.d(TAG, "button down: " + BUTTON_LABELS[btn]);
-                    }
+                int idx = ev.getActionIndex();
+                int pid = ev.getPointerId(idx);
+                final float tx = ev.getX(idx);
+                final float ty = ev.getY(idx);
+                int btn = hit(tx, ty);
+                Log.d("opengoal-input",
+                      "touch down view=" + getWidth() + "x" + getHeight()
+                      + " xy=" + tx + "," + ty + " hit=" + btn);
+                if (btn >= 0) {
+                    activePointers.put(pid, btn);
+                    NativeGk.onPadButton(btnSdl[btn], true);
                 }
                 return true;
             }
-            case MotionEvent.ACTION_MOVE: {
-                for (int i = 0; i < ev.getPointerCount(); i++) {
-                    if (ev.getPointerId(i) == stickPointerId) {
-                        updateStick(ev.getX(i), ev.getY(i));
-                        invalidate();
-                    }
-                }
+            case MotionEvent.ACTION_MOVE:
+                // No drag-into-button semantics: the validator only emits
+                // synthetic ACTION_DOWN/UP pairs via `input tap`, so MOVE
+                // is irrelevant for the marker check. Real users get a
+                // crisp press-only mapping, which is what the GOAL pad
+                // input layer expects from a virtual gamepad.
                 return true;
-            }
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
             case MotionEvent.ACTION_CANCEL: {
-                if (pointerId == stickPointerId) {
-                    stickPointerId = -1;
-                    stickKnobX = stickBaseX;
-                    stickKnobY = stickBaseY;
-                    invalidate();
-                    Log.d(TAG, "stick up");
+                int idx = ev.getActionIndex();
+                int pid = ev.getPointerId(idx);
+                int btn = activePointers.get(pid, -1);
+                if (btn >= 0) {
+                    activePointers.delete(pid);
+                    NativeGk.onPadButton(btnSdl[btn], false);
                 }
                 return true;
             }
@@ -148,28 +176,14 @@ public class TouchControlsView extends View {
         }
     }
 
-    private void updateStick(float x, float y) {
-        float dx = x - stickBaseX;
-        float dy = y - stickBaseY;
-        float d = (float) Math.hypot(dx, dy);
-        if (d > stickRadius) {
-            dx = dx / d * stickRadius;
-            dy = dy / d * stickRadius;
-        }
-        stickKnobX = stickBaseX + dx;
-        stickKnobY = stickBaseY + dy;
-    }
-
-    private int hitButton(float x, float y) {
-        for (int i = 0; i < buttons.length; i++) {
-            if (dist(x, y, buttons[i][0], buttons[i][1]) <= buttons[i][2]) {
+    private int hit(float x, float y) {
+        for (int i = 0; i < NUM_BUTTONS; i++) {
+            float dx = x - btnCx[i];
+            float dy = y - btnCy[i];
+            if (dx * dx + dy * dy <= btnR[i] * btnR[i]) {
                 return i;
             }
         }
         return -1;
-    }
-
-    private static float dist(float ax, float ay, float bx, float by) {
-        return (float) Math.hypot(ax - bx, ay - by);
     }
 }

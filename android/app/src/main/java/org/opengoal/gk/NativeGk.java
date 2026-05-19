@@ -64,4 +64,19 @@ public final class NativeGk {
      *                MOVE=2, CANCEL=3).
      */
     public static native void onTouchEvent(int x, int y, int action);
+
+    /**
+     * Phase 23: deliver a button press/release from the on-screen pad
+     * overlay to the runtime. The native side logs every event as
+     * {@code kernel: pad: <name> pressed|released} (lowercase name) and
+     * pushes the state into the SDL virtual joystick that gk_sdl_main
+     * attached at startup, so the desktop input layer picks it up
+     * unmodified.
+     *
+     * @param sdlButton One of the SDL3 {@code SDL_GAMEPAD_BUTTON_*}
+     *                  values defined in SDL_gamepad.h. Out-of-range
+     *                  values are logged and dropped.
+     * @param pressed   true on ACTION_DOWN, false on ACTION_UP/CANCEL.
+     */
+    public static native void onPadButton(int sdlButton, boolean pressed);
 }

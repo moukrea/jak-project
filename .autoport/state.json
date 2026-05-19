@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 23,
+  "current_phase_idx": 24,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -23,7 +23,8 @@
     "19-emitter-stress": 1,
     "20-goal-main": 1,
     "21-gles-shaders": 1,
-    "22-bionic-portability": 1
+    "22-bionic-portability": 1,
+    "23-input-audio": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -68,7 +69,8 @@
     "19-emitter-stress",
     "20-goal-main",
     "21-gles-shaders",
-    "22-bionic-portability"
+    "22-bionic-portability",
+    "23-input-audio"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -95,9 +97,10 @@
     "19-emitter-stress": 1779214021.4242136,
     "20-goal-main": 1779215294.2732053,
     "21-gles-shaders": 1779216544.40365,
-    "22-bionic-portability": 1779218294.9513323
+    "22-bionic-portability": 1779218294.9513323,
+    "23-input-audio": 1779219781.1900616
   },
-  "last_update": "2026-05-19T19:42:58.433020+00:00",
+  "last_update": "2026-05-19T20:06:50.802106+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   }
