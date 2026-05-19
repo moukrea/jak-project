@@ -1,0 +1,8 @@
+;; tags: float, arith, sqrt
+;; expect: 4
+;; Float square root: sqrt(16.0) = 4.0. Pins the AArch64
+;; `fsqrt s, s` encoder. Chose a perfect square so the result
+;; doesn't depend on the FPU rounding mode (any of round-to-
+;; nearest-even, round-down, etc. all give 4.0 exactly).
+(defun main ()
+  (format #t "~D~%" (the int (sqrtf 16.0))))

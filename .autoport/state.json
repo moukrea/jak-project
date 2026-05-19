@@ -1,12 +1,13 @@
 {
-  "current_phase_idx": 6,
+  "current_phase_idx": 7,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
     "02-intarith": 1,
     "03-memops": 1,
     "04-controlflow": 1,
-    "05-abi": 1
+    "05-abi": 1,
+    "06-float": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -21,7 +22,8 @@
     "02-intarith",
     "03-memops",
     "04-controlflow",
-    "05-abi"
+    "05-abi",
+    "06-float"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -31,7 +33,8 @@
     "02-intarith": 1779175625.1189601,
     "03-memops": 1779176529.8171358,
     "04-controlflow": 1779177038.7213683,
-    "05-abi": 1779177381.7624545
+    "05-abi": 1779177381.7624545,
+    "06-float": 1779178017.5636694
   },
-  "last_update": "2026-05-19T08:06:54.788297+00:00"
+  "last_update": "2026-05-19T08:16:08.700229+00:00"
 }

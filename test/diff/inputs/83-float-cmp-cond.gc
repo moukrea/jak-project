@@ -1,0 +1,17 @@
+;; tags: float, compare, control-flow
+;; expect: B
+;; Float compare driving a multi-arm `cond`. Picks branch B
+;; based on the chain "is 4.5 < 3.0? no -> is 4.5 < 5.0? yes".
+;; Verifies that consecutive `fcmp` + `b.cc` sequences correctly
+;; reset the flags between arms -- a bug where the second fcmp
+;; reads the first's stale NZCV bits (e.g. if a `fmov` was
+;; mistakenly modeled as flag-setting) would pick the wrong arm.
+(defun pick ((x float))
+  (cond
+    ((< x 3.0) "A")
+    ((< x 5.0) "B")
+    ((< x 7.0) "C")
+    (else "D")))
+
+(defun main ()
+  (format #t "~A~%" (pick 4.5)))

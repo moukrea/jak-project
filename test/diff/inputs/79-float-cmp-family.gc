@@ -1,0 +1,18 @@
+;; tags: float, compare, branches
+;; expect: 4
+;; Exercise the full ordered-float compare family on the same
+;; (a=2.5, b=3.5) pair: <, <=, >, >=. The expected score of 4
+;; only happens if all four `fcmp` lowerings select the right
+;; condition code (MI/LS/GT/GE on the FP-flag interpretation
+;; -- NOT the integer LT/LE/GT/GE codes). A wrong code for any
+;; one of the four would yield 2 or 3.
+(defun score ((a float) (b float))
+  (let ((s 0))
+    (if (< a b)  (set! s (+ s 1)))
+    (if (<= a b) (set! s (+ s 1)))
+    (if (> b a)  (set! s (+ s 1)))
+    (if (>= b a) (set! s (+ s 1)))
+    s))
+
+(defun main ()
+  (format #t "~D~%" (score 2.5 3.5)))

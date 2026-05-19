@@ -1,0 +1,9 @@
+;; tags: float, arith, abs
+;; expect: 7
+;; Float absolute value: |-7.5| = 7.5, truncated to 7. The GOAL
+;; `fabs` primitive lowers on AArch64 to a single `fabs s, s`
+;; (sign-bit clear) -- no compare-and-conditional-negate dance
+;; like a naive lowering would generate. The truncating cast
+;; preserves the now-positive integer part.
+(defun main ()
+  (format #t "~D~%" (the int (fabs -7.5))))

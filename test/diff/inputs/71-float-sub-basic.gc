@@ -1,0 +1,7 @@
+;; tags: float, arith
+;; expect: 7
+;; Float subtraction: 10.0 - 2.5 = 7.5, truncated to 7. Pins
+;; `fsub s, s, s` and verifies the int-cast still rounds toward
+;; zero (AArch64 `fcvtzs`), matching x86's `cvttss2si` semantics.
+(defun main ()
+  (format #t "~D~%" (the int (- 10.0 2.5))))

@@ -1,0 +1,12 @@
+;; tags: float, arith
+;; expect: 100
+;; A short straight-line expression chaining add/sub/mul/div:
+;;   ((2.0 + 3.0) * 4.0 * 5.0) - 0.0  =  100.0
+;; Useful as a regression net: any single one of {fadd,fsub,
+;; fmul} returning a wrong value almost certainly perturbs the
+;; final integer cast off the expected 100, so a failure here
+;; localizes to "one of three encoders is broken" even before
+;; the more targeted tests above isolate which.
+(defun main ()
+  (format #t "~D~%"
+    (the int (- (* (+ 2.0 3.0) (* 4.0 5.0)) 0.0))))

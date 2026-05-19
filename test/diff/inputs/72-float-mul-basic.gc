@@ -1,0 +1,8 @@
+;; tags: float, arith
+;; expect: 12
+;; Float multiplication: 3.0 * 4.0 = 12.0. Pins `fmul s, s, s`.
+;; Result is an exact integer, so the truncating cast cannot
+;; mask a rounding bug in `fmul` (a precision drift would show
+;; up as 11 or 13 here, not a "close" 12.0).
+(defun main ()
+  (format #t "~D~%" (the int (* 3.0 4.0))))

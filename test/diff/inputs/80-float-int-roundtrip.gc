@@ -1,0 +1,10 @@
+;; tags: float, convert
+;; expect: 42
+;; Int -> float -> int roundtrip for a value that fits exactly
+;; in single-precision (24 bits of mantissa; 42 is well under).
+;; Pins both `scvtf s, w` (signed int to float) and `fcvtzs w, s`
+;; (float truncating to signed int) on the same value, so a bug
+;; in either direction shows up as a mismatch -- the test cannot
+;; pass with one half wrong.
+(defun main ()
+  (format #t "~D~%" (the int (the float 42))))

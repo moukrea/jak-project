@@ -1,0 +1,9 @@
+;; tags: float, arith, div
+;; expect: 5
+;; Float division: 20.0 / 4.0 = 5.0. Pins `fdiv s, s, s`. Unlike
+;; the integer `idiv` path (which on AArch64 needs `sdiv` + the
+;; `msub`-for-remainder dance), the FPU `fdiv` instruction
+;; computes the IEEE-754 quotient directly with no flag effects,
+;; and no scratch register is needed.
+(defun main ()
+  (format #t "~D~%" (the int (/ 20.0 4.0))))
