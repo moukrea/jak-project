@@ -80,9 +80,33 @@ fi
 
 # APK-vs-disk freshness: rebuild must have produced the APK we're testing.
 # Anyone (e.g., a stub fix) editing only the test fixtures and skipping
-# the build would have a stale APK.
+# the build would have a stale APK. Anchor on state.json's
+# phase_started_at (matches the project's validator time-anchor rule —
+# the orchestrator creates validator-NN.txt BEFORE this script runs, so
+# we cannot use that as a fence). Build artifacts under
+# android/app/build/ and android/.gradle/ are excluded — gradle touches
+# output-metadata.json + fileHashes.lock *after* writing the APK, so a
+# find -newer "$APK" sweep over android/ flags those legitimate build
+# outputs as suspicious sources.
 APK_MT=$(stat -c %Y "$APK")
-SRC_MT=$(find android/ game/kernel game/system game/overlord game/runtime.cpp -type f -newer "$APK" 2>/dev/null | head -5)
+PHASE_START=$(python3 -c "
+import json,sys
+try:
+    s = json.load(open('.autoport/state.json'))
+    print(int(s.get('phase_started_at', {}).get('27-runtime-port', 0)))
+except Exception:
+    print(0)
+")
+if [ "$APK_MT" -lt "$PHASE_START" ]; then
+    echo "FAIL: APK ($APK_MT) older than phase start ($PHASE_START) — rebuild was skipped"
+    exit 1
+fi
+SRC_MT=$(find android/ game/kernel game/system game/overlord game/runtime.cpp \
+    -type f -newer "$APK" \
+    -not -path 'android/app/build/*' \
+    -not -path 'android/.gradle/*' \
+    -not -path 'android/build/*' \
+    2>/dev/null | head -5)
 if [ -n "$SRC_MT" ]; then
     echo "FAIL: sources newer than APK (rebuild was skipped):"
     echo "$SRC_MT" | sed 's/^/    /'
