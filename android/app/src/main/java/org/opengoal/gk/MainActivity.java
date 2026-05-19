@@ -22,7 +22,6 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.FrameLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.File;
@@ -86,14 +85,21 @@ public class MainActivity extends AppCompatActivity {
 
         final String gameName = getString(R.string.game_name);
         final File isoDir = new File(getFilesDir(), ISO_DATA_SUBDIR + "/" + gameName);
-        if (!isoDir.isDirectory() || isoDir.list() == null || isoDir.list().length == 0) {
-            String msg = "Missing " + gameName + " data. Copy your PS2 ISO extract to:\n"
-                       + isoDir.getAbsolutePath();
-            Log.w(TAG, msg);
-            Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
-        } else {
-            Log.i(TAG, gameName + " iso_data present at " + isoDir.getAbsolutePath());
+
+        // LoaderActivity is the LAUNCHER; by the time we run, it has
+        // guaranteed extraction is complete. An empty dir here is not a
+        // user-facing condition any more — it's a Loader bug. Surface it
+        // and refuse to start the runtime against missing data.
+        String[] isoEntries = isoDir.list();
+        if (!isoDir.isDirectory() || isoEntries == null || isoEntries.length == 0) {
+            String msg = "FATAL: " + gameName + " iso_data missing at "
+                       + isoDir.getAbsolutePath()
+                       + "\nLoaderActivity did not extract — check logcat for opengoal-loader.";
+            Log.e(TAG, msg);
+            banner.setText(msg);
+            return;
         }
+        Log.i(TAG, gameName + " iso_data present at " + isoDir.getAbsolutePath());
 
         // Phase 13: the runtime boot is non-blocking. Even when phase 14+
         // makes startGame() block on a real game loop, the Activity stays

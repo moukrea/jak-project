@@ -33,22 +33,47 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.OpenGoal">
 
+        <!-- Phase 17: LoaderActivity is the LAUNCHER. It extracts the
+             APK-bundled iso_data to filesDir on first launch, then
+             startActivity()s MainActivity. Subsequent launches see the
+             sentinel and pass through in milliseconds. -->
+        <activity
+            android:name=".LoaderActivity"
+            android:exported="true"
+            android:configChanges="orientation|keyboardHidden|screenSize|screenLayout|uiMode"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|keyboardHidden|screenSize|screenLayout|uiMode"
             android:screenOrientation="landscape"
             android:launchMode="singleTask">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-
             <!-- Tell the framework which .so to load for SDL-style native
                  activities. The Java code loads libgk.so explicitly via
                  System.loadLibrary so this is only advisory metadata. -->
             <meta-data android:name="android.app.lib_name"
                        android:value="gk"/>
         </activity>
+
+        <!-- AGP rewrites the relative class name ".LoaderActivity"
+             against the build.gradle.kts `namespace` (org.opengoal.gk),
+             but `am start -n <applicationId>/.LoaderActivity` resolves
+             the leading-dot form against the *applicationId* (e.g.
+             org.opengoal.gk.jak1.LoaderActivity). Those don't match in
+             this project because namespace ≠ applicationId. This alias
+             exposes the applicationId-prefixed name the phase 17+
+             validators (and the launcher shortcut after install) use
+             to invoke LoaderActivity. ${applicationId} is substituted
+             per flavor by AGP's manifest merger. -->
+        <activity-alias
+            android:name="${applicationId}.LoaderActivity"
+            android:targetActivity="org.opengoal.gk.LoaderActivity"
+            android:exported="true"/>
     </application>
 </manifest>
