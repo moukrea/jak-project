@@ -131,6 +131,77 @@ phases:
     max_turns: 400
     max_retries: 20
 
+  # ---------- On-device runtime bring-up (phases 17-23) ----------
+  # Phases 12-16 produced shells and bundled data. Nothing has yet run a
+  # frame on the user's phone. Phases 17-23 close that gap. Most use the
+  # USB-attached device for every validator (no emulator, no "passes
+  # because the symbol exists" greens); phase 19 is a host-only emitter
+  # stress that runs jak1 CGOs under qemu-aarch64 to isolate codegen
+  # bugs from runtime-wiring bugs. The user's phone (Redmi Note 9 Pro /
+  # Adreno 618 / Android 12-ish MIUI) is the reference device target.
+  #
+  # Markers (in approximate order of progress):
+  #   17 → iso_data extract: ...           (APK assets auto-extract on launch)
+  #   18 → SDL_GL_CreateContext / eglSwapBuffers (window + GL ctx alive)
+  #   19 → emitter-stress: PASS            (host qemu-aarch64, real CGOs)
+  #   20 → goal_main argv / KERNEL.CGO loaded / dispatcher started
+  #   21 → engine: frame 1 submitted + sustained eglSwapBuffers
+  #   22 → engine: state=title + 5min crash-free + W^X clean
+  #   23 → kernel: pad: dpad_right + SDL_audio callback firing
+  #
+  # Retry budgets generous on the integration-heavy ones (18/20/21).
+  # STUCK_REPEAT_THRESHOLD=3 (same-failure-3x-in-a-row) still halts dead
+  # loops cheaply.
+
+  - id: "17-apk-assets"
+    name: "APK-bundled assets used at runtime (no manual push)"
+    prompt: prompts/phase-17-apk-assets.md
+    validator: validators/phase-17-apk-assets.sh
+    max_turns: 200
+    max_retries: 10
+
+  - id: "18-sdl3-bridge"
+    name: "SDL3 cross-build + Activity-SDL surface bridge"
+    prompt: prompts/phase-18-sdl3-bridge.md
+    validator: validators/phase-18-sdl3-bridge.sh
+    max_turns: 500
+    max_retries: 20
+
+  - id: "19-emitter-stress"
+    name: "AArch64 emitter stress against real jak1 CGOs (qemu-aarch64)"
+    prompt: prompts/phase-19-emitter-stress.md
+    validator: validators/phase-19-emitter-stress.sh
+    max_turns: 500
+    max_retries: 15
+
+  - id: "20-goal-main"
+    name: "Wire goal_main into gk_sdl_main; kernel boots on device"
+    prompt: prompts/phase-20-goal-main.md
+    validator: validators/phase-20-goal-main.sh
+    max_turns: 500
+    max_retries: 20
+
+  - id: "21-gles-shaders"
+    name: "GLES shader port + GL API audit; first frame rendered"
+    prompt: prompts/phase-21-gles-shaders.md
+    validator: validators/phase-21-gles-shaders.sh
+    max_turns: 500
+    max_retries: 20
+
+  - id: "22-bionic-portability"
+    name: "Bionic shims + W^X code mapping + 5-min longevity"
+    prompt: prompts/phase-22-bionic-portability.md
+    validator: validators/phase-22-bionic-portability.sh
+    max_turns: 400
+    max_retries: 10
+
+  - id: "23-input-audio"
+    name: "Touch input → GOAL pad mapping + audio output"
+    prompt: prompts/phase-23-input-audio.md
+    validator: validators/phase-23-input-audio.sh
+    max_turns: 400
+    max_retries: 8
+
 global:
   git:
     push_after_each_phase: true
