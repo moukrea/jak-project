@@ -101,3 +101,9 @@ android/app/build/
 android/build/
 android/app/src/main/jniLibs/
 android/local.properties
+
+# Per-flavor ISO data assets (autoport phase 14-16). These are produced
+# by `goalc --cmd "(mi)"` and staged into the APK at validator time.
+android/app/src/jak1/assets/iso_data/
+android/app/src/jak2/assets/iso_data/
+android/app/src/jak3/assets/iso_data/

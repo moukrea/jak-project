@@ -99,11 +99,14 @@ APK=$(find "app/build/outputs/apk/${GAME}/debug" -maxdepth 2 -name '*.apk' 2>/de
 echo "  apk: $APK ($(stat -c%s "$APK") bytes)"
 
 # Confirm the APK actually shipped the staged data.
-if ! unzip -l "$APK" | grep -q "assets/iso_data/${GAME}/"; then
+# Use grep -c (drains stdin) rather than grep -q here. The Jak 1 APK is
+# ~1.1 GB and `unzip -l` produces a huge listing, so `grep -q` exits on
+# the first match and the resulting SIGPIPE on unzip trips `set -o pipefail`.
+N_IN_APK=$(unzip -l "$APK" | grep -c "assets/iso_data/${GAME}/" || true)
+if [ "$N_IN_APK" -eq 0 ]; then
     echo "FAIL: APK does not contain assets/iso_data/${GAME}/ — flavor source set mis-wired?"
     exit 1
 fi
-N_IN_APK=$(unzip -l "$APK" | grep -c "assets/iso_data/${GAME}/")
 echo "  apk contains $N_IN_APK files under assets/iso_data/${GAME}/"
 
 # 7. Optional emulator smoke.
