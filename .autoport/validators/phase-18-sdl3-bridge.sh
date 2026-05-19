@@ -24,14 +24,24 @@ test -f "$APK_JAK1" || device_fail "APK missing at $APK_JAK1"
 # Sanity: libgk.so inside the APK exports SDL JNI symbols. Without these,
 # the SDLActivity Java side cannot call into native; the app launches
 # but stays at a black surface forever with no SDL events.
+#
+# Implementation note: don't pipe `llvm-nm | grep -q`. The producer side
+# is ~2300 lines; `grep -q` exits at the first match, which raises
+# SIGPIPE in llvm-nm and (under `set -o pipefail`) makes the pipeline
+# look non-zero even when the symbol IS present. Materialise the symbol
+# table on disk first, then grep the file — same strictness, no SIGPIPE.
 TMP_APKDIR="$(mktemp -d)"
-trap "rm -rf $TMP_APKDIR" RETURN
 unzip -p "$APK_JAK1" lib/arm64-v8a/libgk.so > "$TMP_APKDIR/libgk.so"
-if ! "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm \
-        --defined-only -D "$TMP_APKDIR/libgk.so" 2>/dev/null \
-        | grep -qE 'Java_org_libsdl_app_SDLActivity'; then
+"$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm \
+    --defined-only -D "$TMP_APKDIR/libgk.so" 2>/dev/null \
+    > "$TMP_APKDIR/symbols.txt"
+SDL_JNI_COUNT=$(grep -cE 'Java_org_libsdl_app_SDLActivity' "$TMP_APKDIR/symbols.txt" || true)
+if [ "${SDL_JNI_COUNT:-0}" -lt 1 ]; then
+    rm -rf "$TMP_APKDIR"
     device_fail "libgk.so missing Java_org_libsdl_app_SDLActivity_* JNI symbols. SDL3 not linked, or --exclude-libs hid them."
 fi
+echo "  SDL JNI symbols exported by libgk.so: ${SDL_JNI_COUNT}"
+rm -rf "$TMP_APKDIR"
 
 # Install & launch through LoaderActivity (Loader will transition to
 # MainActivity once iso_data is present, which it should be from phase 17).

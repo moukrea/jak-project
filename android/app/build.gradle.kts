@@ -112,14 +112,58 @@ dependencies {
     }
 }
 
-// Copy the phase-10/12 NDK output into jniLibs/ before the APK gets packaged.
-// This lets us keep the .so out of source control while still letting
-// real Gradle builds succeed in a dev environment that has built the
-// NDK target.
+// Phase 18 (autoport): native code now changes every phase (SDL3 wired
+// in, GOAL boot in 19, GLES shaders in 21…). Make Gradle drive the NDK
+// build itself so `./gradlew assembleJak1Debug` (what the per-phase
+// validators run) always reflects the current C++/CMake state.
+//
+// We can't use AGP's externalNativeBuild here because the upstream
+// CMakeLists at the repo root (which android/CMakeLists.txt is reached
+// through) has Linux/x86 logic that only runs on the desktop path —
+// AGP would try to configure that tree as if it were an Android module.
+// Instead we invoke cmake/ninja directly via Exec tasks. The build is
+// fully incremental: cmake reconfigures only when CMakeLists changes,
+// ninja only rebuilds the object files that depend on edited sources.
+
+val ndkBuildDir = rootProject.file("../build-android")
+val ndkOutLib = rootProject.file("../build-android/lib/arm64-v8a/libgk.so")
+
+val configureNativeLibs by tasks.registering(Exec::class) {
+    val toolchain = System.getenv("ANDROID_NDK_HOME")?.let {
+        "$it/build/cmake/android.toolchain.cmake"
+    } ?: ""
+    val repoRoot = rootProject.file("..").absolutePath
+    workingDir = rootProject.file("..")
+    commandLine(
+        "cmake", "-S", repoRoot, "-B", ndkBuildDir.absolutePath, "-G", "Ninja",
+        "-DCMAKE_TOOLCHAIN_FILE=$toolchain",
+        "-DANDROID_ABI=arm64-v8a",
+        "-DANDROID_PLATFORM=android-29",
+        "-DGOALC_BACKEND=arm64",
+        "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+    )
+    onlyIf {
+        // Reconfigure only if the cmake cache is absent. Subsequent
+        // edits to CMakeLists.txt are picked up automatically by the
+        // build step's reconfiguration; rerunning cmake every time
+        // forces a slow clean reconfigure we don't need.
+        !File(ndkBuildDir, "CMakeCache.txt").exists()
+    }
+}
+
+val buildNativeLibs by tasks.registering(Exec::class) {
+    dependsOn(configureNativeLibs)
+    workingDir = rootProject.file("..")
+    commandLine("cmake", "--build", ndkBuildDir.absolutePath, "--target", "gk")
+    // The output is the .so the next task picks up; declaring it as an
+    // output lets Gradle skip the task on an up-to-date incremental run.
+    outputs.file(ndkOutLib)
+}
+
 val copyNativeLibs by tasks.registering(Copy::class) {
-    val ndkOut = rootProject.file("../build-android/lib/arm64-v8a/libgk.so")
-    onlyIf { ndkOut.exists() }
-    from(ndkOut)
+    dependsOn(buildNativeLibs)
+    onlyIf { ndkOutLib.exists() }
+    from(ndkOutLib)
     into(layout.projectDirectory.dir("src/main/jniLibs/arm64-v8a"))
 }
 

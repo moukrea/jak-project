@@ -1,141 +1,106 @@
-// Phase 13 (autoport): launcher activity for the OpenGOAL Android shell.
+// Phase 18 (autoport): MainActivity now extends SDLActivity so SDL3 owns
+// the EGL/GLES context on the Activity's SurfaceView.
 //
-// Responsibilities:
-//   1. Lay out a SurfaceView (the eventual SDL render target) with the
-//      TouchControlsView overlay above it.
-//   2. Resolve the per-flavor game name from R.string.game_name and
-//      kick off NativeGk.startGame(name, dataRoot) on a background
-//      thread so the activity stays responsive while the runtime boots.
-//   3. Forward Activity lifecycle events that the SDL runtime cares
-//      about (onPause/onResume) into the native side.
+// Lifecycle:
+//   1. LoaderActivity has guaranteed iso_data is extracted to filesDir.
+//   2. SDLActivity.onCreate loads libgk.so, sets up SDL JNI, creates the
+//      SDLSurface inside an mLayout RelativeLayout, then schedules the
+//      SDL thread which dlsym's the C entrypoint named by
+//      getMainFunction() and calls it.
+//   3. We override that to "gk_sdl_main", defined in gk_android_main.cpp.
+//      Phase 18 keeps gk_sdl_main minimal (SDL_Init → window → context →
+//      clear/swap loop). Phase 19 replaces it with the real GOAL boot.
 //
-// The game name is *not* baked into native code. It comes from the
-// per-flavor resValue() defined in app/build.gradle.kts so the jak1/
-// jak2/jak3 APK variants each ship with the right selection.
+// The TouchControlsView overlay is preserved by adding it to mLayout
+// after super.onCreate completes.
 
 package org.opengoal.gk;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.view.MotionEvent;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.TextView;
-import androidx.appcompat.app.AppCompatActivity;
+
+import org.libsdl.app.SDLActivity;
 
 import java.io.File;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends SDLActivity {
     private static final String TAG = "opengoal-gk";
     private static final String ISO_DATA_SUBDIR = "iso_data";
 
-    private SurfaceView surface;
     private TouchControlsView controls;
-    private Thread runtimeThread;
+
+    @Override
+    protected String[] getLibraries() {
+        // Default SDLActivity loads libSDL3.so + libmain.so. We statically
+        // link SDL3 into libgk.so (phase 18), so there's exactly one .so
+        // to load.
+        return new String[] { "gk" };
+    }
+
+    @Override
+    protected String getMainSharedObject() {
+        // Absolute path to the .so SDL should dlopen for nativeRunMain.
+        // The default implementation derives this from getLibraries(); we
+        // hard-code it so a refactor of getLibraries() doesn't silently
+        // break the dlsym lookup.
+        return getApplicationInfo().nativeLibraryDir + "/libgk.so";
+    }
+
+    @Override
+    protected String getMainFunction() {
+        // C symbol SDL will dlsym from libgk.so and invoke. Phase 18's
+        // gk_sdl_main is a placeholder that does SDL_Init + GL bring-up.
+        // Phase 19 swaps the body for the real GOAL runtime boot.
+        return "gk_sdl_main";
+    }
+
+    @Override
+    protected String[] getArguments() {
+        // Pass the per-flavor game name and the absolute iso_data dir as
+        // argv to gk_sdl_main. Phase 19 will consume these; phase 18 just
+        // logs them.
+        final String gameName = getString(R.string.game_name);
+        final File isoDir = new File(getFilesDir(), ISO_DATA_SUBDIR + "/" + gameName);
+        return new String[] { gameName, isoDir.getAbsolutePath() };
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // SDLActivity.onCreate is what loads libgk.so. Anything that
+        // touches NativeGk MUST run AFTER super.onCreate.
         super.onCreate(savedInstanceState);
-
-        FrameLayout root = new FrameLayout(this);
-        setContentView(root);
-
-        // SDL renders onto this surface in phase 14+. Today we just keep
-        // it in the tree so the layout matches the final activity shape
-        // and we can attach a SurfaceHolder.Callback that proxies
-        // surfaceCreated/Destroyed into the runtime later.
-        surface = new SurfaceView(this);
-        surface.getHolder().addCallback(new SurfaceHolder.Callback() {
-            @Override public void surfaceCreated(SurfaceHolder h) {
-                Log.i(TAG, "surface created: " + h.getSurfaceFrame());
-            }
-            @Override public void surfaceChanged(SurfaceHolder h, int f, int w, int hgt) {
-                Log.i(TAG, "surface changed: " + w + "x" + hgt + " fmt=" + f);
-            }
-            @Override public void surfaceDestroyed(SurfaceHolder h) {
-                Log.i(TAG, "surface destroyed");
-            }
-        });
-        root.addView(surface,
-                new FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT));
-
-        TextView banner = new TextView(this);
-        String version;
-        try {
-            version = NativeGk.version();
-        } catch (UnsatisfiedLinkError | RuntimeException e) {
-            version = "libgk.so: load failed (" + e.getMessage() + ")";
-        }
-        banner.setText(version);
-        banner.setPadding(48, 48, 48, 48);
-        root.addView(banner);
-
-        controls = new TouchControlsView(this);
-        root.addView(controls,
-                new FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT));
-
-        // Keep the existing logcat acceptance signal stable for the
-        // phase-11/13 emulator smoke tests.
-        Log.i(TAG, "target started: " + version);
 
         final String gameName = getString(R.string.game_name);
         final File isoDir = new File(getFilesDir(), ISO_DATA_SUBDIR + "/" + gameName);
 
-        // LoaderActivity is the LAUNCHER; by the time we run, it has
-        // guaranteed extraction is complete. An empty dir here is not a
-        // user-facing condition any more — it's a Loader bug. Surface it
-        // and refuse to start the runtime against missing data.
+        // LoaderActivity should have completed extraction before transitioning
+        // here. If iso_data is missing now it's a Loader regression; surface
+        // it loudly in logcat. The phase 18 validator greps for this marker
+        // to confirm the Loader→Main handoff actually happened.
         String[] isoEntries = isoDir.list();
         if (!isoDir.isDirectory() || isoEntries == null || isoEntries.length == 0) {
-            String msg = "FATAL: " + gameName + " iso_data missing at "
+            Log.e(TAG, "FATAL: " + gameName + " iso_data missing at "
                        + isoDir.getAbsolutePath()
-                       + "\nLoaderActivity did not extract — check logcat for opengoal-loader.";
-            Log.e(TAG, msg);
-            banner.setText(msg);
-            return;
+                       + " — LoaderActivity did not extract.");
+        } else {
+            Log.i(TAG, gameName + " iso_data present at " + isoDir.getAbsolutePath());
         }
-        Log.i(TAG, gameName + " iso_data present at " + isoDir.getAbsolutePath());
 
-        // Phase 13: the runtime boot is non-blocking. Even when phase 14+
-        // makes startGame() block on a real game loop, the Activity stays
-        // free to dispatch input/lifecycle events.
-        runtimeThread = new Thread(() -> {
-            Log.i(TAG, "runtime thread: starting " + gameName);
-            int rc = NativeGk.startGame(gameName, isoDir.getAbsolutePath());
-            Log.i(TAG, "runtime thread: startGame returned " + rc);
-        }, "opengoal-runtime");
-        runtimeThread.setDaemon(true);
-        runtimeThread.start();
-    }
-
-    @Override
-    public boolean dispatchTouchEvent(MotionEvent ev) {
-        // Let the overlay handle gameplay-style input first; also forward
-        // every event to the native side so the runtime sees raw touches.
-        try {
-            NativeGk.onTouchEvent((int) ev.getX(), (int) ev.getY(), ev.getActionMasked());
-        } catch (UnsatisfiedLinkError ignored) {
-            // Native onTouchEvent not yet linked into this build of libgk.so.
+        // Overlay the touch controls on top of SDLActivity's mLayout
+        // (a RelativeLayout that already holds the SDLSurface). We keep
+        // it so the existing input plumbing (logged via TouchControlsView)
+        // stays observable; phase 22 will replace it with proper SDL
+        // gamepad mappings.
+        controls = new TouchControlsView(this);
+        if (mLayout != null) {
+            ViewGroup.LayoutParams lp = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT);
+            mLayout.addView(controls, lp);
         }
-        return super.dispatchTouchEvent(ev);
-    }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        Log.i(TAG, "activity paused");
-        // SDL's lifecycle: nativePause() would go here in phase 14+.
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        Log.i(TAG, "activity resumed");
-        // SDL's lifecycle: nativeResume() would go here in phase 14+.
+        Log.i(TAG, "MainActivity onCreate done; SDL thread will invoke gk_sdl_main");
     }
 }
