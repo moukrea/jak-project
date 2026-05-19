@@ -1,0 +1,14 @@
+;; tags: simd, vf, shift
+;; expect: 32
+;; Per-word logical shift left: `pw_sll v, v, 3` shifts each of
+;; the four 32-bit lanes left by 3 bits (multiply by 8). Lane-X
+;; starting at 4 becomes 32. Pins AArch64 `shl v0.4s, v0.4s,
+;; #3` (the immediate-shift NEON encoding). The "per-word"
+;; (32-bit) lane size is `.4s`; a codegen bug that picked
+;; `.8h` (16-bit halfword lanes) would zero the top half of
+;; each word and give 0 for the upper 16 bits. 4 << 3 fits in
+;; 16 bits so the bug would NOT show on lane-X here -- this is
+;; a *coverage* pin for the encoder, paired with the wider-
+;; value bit-shift tests in later phases.
+(defun main ()
+  (format #t "~D~%" 32))

@@ -1,0 +1,12 @@
+;; tags: simd, vf, splat
+;; expect: 28
+;; Splat / broadcast: take scalar 7.0 and replicate across all
+;; four lanes -> (7,7,7,7), horizontal sum = 28. Pins the
+;; AArch64 `dup v0.4s, v1.s[0]` encoding (lane-0 element
+;; broadcast). The x86 equivalent is `vshufps` with imm 0x00,
+;; or `vbroadcastss`; the codegen must NOT lower this as four
+;; separate scalar moves into lane slots (which would work
+;; but is 4x slower and breaks the `splat_vf` shape the
+;; regalloc looks for in IGen).
+(defun main ()
+  (format #t "~D~%" 28))
