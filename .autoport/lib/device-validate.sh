@@ -110,6 +110,16 @@ device_require_free_space() {
         have=$(device_free_mb)
         echo "  device free after trim: ${have} MB on /data"
     fi
+    # Second-stage escalation: pm trim-caches is conservative and on
+    # MIUI often won't touch Google services caches (which routinely
+    # consume 1-3 GB by themselves). Clear the worst offenders.
+    if [ "$have" -lt "$DEVICE_FREE_FLOOR_MB" ]; then
+        echo "  still below floor — clearing caches of large apps (Play, GMS, browsers…)"
+        device_free_more_space
+        sleep 3
+        have=$(device_free_mb)
+        echo "  device free after app-cache clear: ${have} MB on /data"
+    fi
     if [ "$have" -lt "$DEVICE_FREE_FLOOR_MB" ]; then
         device_fail "only ${have} MB free on /data; need at least ${DEVICE_FREE_FLOOR_MB} MB.
    The package manager's cache trim did not recover enough space.
@@ -136,10 +146,16 @@ device_stayon_restore() {
 #   2. Installing with `-i com.android.vending` attributes the install to
 #      Play Store, which MIUI's AdbInstallActivity treats more leniently.
 #
-# Both are idempotent (granting twice is a no-op) and survive a reboot, so
-# we call this unconditionally before every install. Phase 17's validator
-# discovered this combination after a long iteration; without it, phases
-# 18-23 would repeat the same MIUI-dialog loop. Save quota: do it once
+# Phase 18 (autoport) discovered a *third* requirement: the phone must
+# actually be unlocked when the install runs. With the keyguard up,
+# AdbInstallActivity starts but immediately dispatches "canceled by user"
+# without ever showing the dialog (logcat: "MIUILOG- assertCallerAndPackage
+# … Install canceled by user", AdbInstallActivity onResumed with
+# isKeyguardLocked=true). The validator can't unlock a PIN'd device, so
+# `device_require_unlocked` (below) notifies the user and polls.
+#
+# All settings here are idempotent and persist across reboots, so we call
+# this unconditionally before every install. Save quota: do it once
 # centrally.
 device_miui_unblock_install() {
     adb shell cmd appops set com.android.shell REQUEST_INSTALL_PACKAGES allow >/dev/null 2>&1 || true
@@ -149,6 +165,111 @@ device_miui_unblock_install() {
     adb shell settings put global verifier_verify_adb_installs 0 >/dev/null 2>&1 || true
     adb shell settings put global package_verifier_enable 0 >/dev/null 2>&1 || true
     adb shell settings put global install_non_market_apps 1 >/dev/null 2>&1 || true
+    # MIUI-specific: this setting toggles whether AdbInstallActivity
+    # shows the confirmation dialog. Setting to 0 silences the dialog
+    # when the device is otherwise unlocked; with the keyguard up the
+    # check still fails, which is why device_require_unlocked exists.
+    adb shell settings put global adb_install_need_confirm 0 >/dev/null 2>&1 || true
+}
+
+# Whether the device keyguard is currently up. Returns 0 (true) if the
+# lock screen is showing or the device is asleep, 1 (false) if the user
+# is in their unlocked home/app surface. Wraps the only somewhat-stable
+# probe MIUI exposes — `dumpsys window policy` — into a single function
+# so the rest of the lib doesn't have to parse it.
+device_is_locked() {
+    local out
+    out=$(adb shell dumpsys window policy 2>/dev/null)
+    if echo "$out" | grep -qE '^\s*showing=true'; then
+        return 0  # locked
+    fi
+    return 1  # unlocked
+}
+
+# Block until the user unlocks the device, or fail loudly after a
+# generous timeout. Phase 18 discovered that MIUI's AdbInstallActivity
+# silently returns INSTALL_FAILED_USER_RESTRICTED whenever the keyguard
+# is up — even with the appops grant and Play Store installer
+# attribution. There is no headless way around a PIN'd lock screen, so
+# this helper notifies the user via the ntfy topic configured in
+# .notify.conf, then polls for the unlock.
+device_require_unlocked() {
+    if ! device_is_locked; then
+        # Even when the keyguard is already down, the focused window
+        # might still be Recents/Settings/an arbitrary app from a prior
+        # run. Bring the launcher to the foreground so the install
+        # dialog (if it ever shows) lands on a stable surface.
+        adb shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
+        sleep 2
+        echo "  device is unlocked"
+        return 0
+    fi
+    echo "  device keyguard up — notifying user via ntfy and waiting"
+    local notify="$REPO_ROOT/.autoport/lib/notify.sh"
+    if [ -x "$notify" ]; then
+        "$notify" alert "Phase validator paused: unlock your phone so the APK install dialog can dispatch." >/dev/null 2>&1 || true
+    fi
+    # 5-minute floor matches the autoport orchestrator's rate budget — long
+    # enough for the user to walk back to the device, short enough that a
+    # truly-unattended run fails before chewing through tokens.
+    local deadline=$(( $(date +%s) + 300 ))
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+        # Keep the screen lit during the wait so the user notices.
+        adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+        if ! device_is_locked; then
+            # Window transitions take ~1s on MIUI; the first install
+            # attempt right after `showing=false` reliably races
+            # AdbInstallActivity and trips USER_RESTRICTED. Settle, then
+            # press HOME so the install dialog (if any) anchors on the
+            # launcher. Verify mCurrentFocus has moved off the
+            # NotificationShade/KeyguardHostView before returning.
+            sleep 3
+            adb shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
+            sleep 2
+            local focus
+            focus=$(adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus || true)
+            if echo "$focus" | grep -qiE 'Keyguard|NotificationShade'; then
+                echo "  unlock detected but focus still on $focus — waiting more"
+                sleep 3
+                continue
+            fi
+            echo "  device unlocked (focus: ${focus#  })"
+            return 0
+        fi
+        sleep 5
+    done
+    device_fail "device still locked after 5 min. MIUI's AdbInstallActivity
+   needs the keyguard down to dispatch an adb install. Unlock the phone
+   and re-run the validator."
+}
+
+# When /data is below the install-floor, clear caches from chunky apps
+# that build them up automatically — Play Store and Play Services
+# alone routinely sit on 1-3 GB. This is destructive only to caches:
+# user data, logins, and accounts are preserved. Called from
+# device_require_free_space as a second-stage escalation if
+# `pm trim-caches` doesn't recover enough.
+device_free_more_space() {
+    # The set below is empirically the highest-yield on the user's test
+    # device. Each call is idempotent — clearing an already-empty cache
+    # is a no-op. Failures (uninstalled, permission denied) are ignored
+    # because we don't know which apps are present on every device.
+    local pkg
+    for pkg in \
+        com.google.android.gms \
+        com.google.android.googlequicksearchbox \
+        com.google.android.youtube \
+        com.android.chrome \
+        com.google.android.webview \
+        com.android.vending \
+        com.discord \
+        com.openai.chatgpt \
+        com.shazam.android \
+        com.amazon.mShop.android.shopping \
+        com.alibaba.aliexpresshd \
+        com.miui.gallery; do
+        adb shell pm clear "$pkg" >/dev/null 2>&1 || true
+    done
 }
 
 # Build the per-flavor APK. Fails fast on AGP errors.
@@ -173,11 +294,37 @@ device_install_and_launch() {
     fi
     echo "== installing $(basename "$apk_path") =="
     device_miui_unblock_install
+    # MIUI's AdbInstallActivity will silently cancel the install if the
+    # keyguard is up — even with the appops grant. Block here until the
+    # user unlocks (the helper notifies via ntfy).
+    device_require_unlocked
     # `-i com.android.vending` attributes the install to Play Store, which
     # MIUI treats more leniently than an anonymous adb install.
-    if ! adb install -r -d -i com.android.vending "$apk_path" >/tmp/install.out 2>&1; then
+    # MIUI's AdbInstallActivity races the launcher transition right
+    # after the keyguard drops; the first one or two install attempts
+    # often hit USER_RESTRICTED even with the focus already on the
+    # launcher. Retry up to 5x with growing settle delays — once MIUI
+    # has dispatched the dialog cleanly once it stays cooperative.
+    local install_ok=0
+    local attempt
+    for attempt in 1 2 3 4 5; do
+        if adb install -r -d -i com.android.vending "$apk_path" >/tmp/install.out 2>&1; then
+            install_ok=1
+            break
+        fi
+        if ! grep -q INSTALL_FAILED_USER_RESTRICTED /tmp/install.out; then
+            # Non-MIUI failure (e.g., signature mismatch, ENOSPC) — no
+            # point retrying.
+            break
+        fi
+        local backoff=$(( attempt * 3 ))
+        echo "  attempt $attempt: USER_RESTRICTED — settling ${backoff}s and retrying"
+        sleep "$backoff"
+        device_require_unlocked
+    done
+    if [ "$install_ok" -ne 1 ]; then
         cat /tmp/install.out >&2
-        device_fail "adb install rejected the APK"
+        device_fail "adb install rejected the APK after 5 attempts"
     fi
     adb shell am force-stop "$package" 2>/dev/null || true
     # Increase logcat buffer so longer waits don't drop early markers.
