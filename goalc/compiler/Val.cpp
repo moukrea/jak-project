@@ -292,9 +292,11 @@ RegVal* BitFieldVal::to_reg(const goos::Object& form, Env* env) {
     RegVal* gpr = m_parent->to_gpr(form, env);
     env->emit(form, std::make_unique<IR_RegSet>(result, gpr));
   } else {
-    // we need to get the value as a 128-bit integer
-    auto xmm = m_parent->to_reg(form, env);
-    ASSERT(xmm->ireg().reg_class == RegClass::INT_128);
+    // we need to get the value as a 128-bit integer. Use to_xmm128 instead
+    // of to_reg so the parent is promoted to INT_128 if it isn't already
+    // (phase 25 — under -DGOALC_BACKEND=arm64 some upstream paths leave
+    // the parent in GPR_64; the original assertion is too strict).
+    auto xmm = m_parent->to_xmm128(form, env);
     auto xmm_temp = fe->make_ireg(TypeSpec("object"), RegClass::INT_128);
     env->emit_ir<IR_Int128Math3Asm>(form, true, xmm_temp, xmm, xmm,
                                     IR_Int128Math3Asm::Kind::PCPYUD);
