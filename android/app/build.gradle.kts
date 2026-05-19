@@ -79,6 +79,22 @@ android {
             useLegacyPackaging = false
         }
     }
+
+    androidResources {
+        // Phase 14: ISO data files (CGO, STR, VAG, DGO, etc.) are already
+        // in their final binary on-disc form. Skipping compression keeps
+        // mergeAssets/package out of the GC death-spiral on the ~1.4 GB
+        // Jak 1 payload.
+        noCompress += listOf(
+            "cgo", "CGO",
+            "str", "STR",
+            "vag", "VAG",
+            "txt", "TXT",
+            "dgo", "DGO",
+            "bsp", "BSP",
+            "go",  "GO"
+        )
+    }
 }
 
 dependencies {
