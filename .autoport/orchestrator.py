@@ -388,9 +388,15 @@ class PrettyState:
     last_tick_at: float = 0.0
     last_probe_at: float = 0.0
     last_session_pct: float | None = None    # last *probed* (authoritative)
-    # Anchor for token-based extrapolation: (pct, total_tokens_at_anchor)
-    session_pct_anchor: tuple[float, int] | None = None
-    estimated_pct: float | None = None       # extrapolated when probe is down
+    # In-subprocess probes for slope-based extrapolation. Each entry is
+    # (probed_pct, total_in_out_tokens_at_probe_time). Single-anchor
+    # extrapolation was wildly wrong: it assumes the session started at 0%
+    # when this claude subprocess began, but the 5-hour window accumulates
+    # across many subprocesses (including the orchestrator's own setup).
+    # Slope is meaningful only between two probes inside the SAME
+    # subprocess, where token deltas correspond to real session-pct deltas.
+    probes: list[tuple[float, int]] = field(default_factory=list)
+    probe_failures: int = 0                  # consecutive 429/timeout count; drives backoff
     last_claude_rate_status: str = ""        # from rate_limit_event payloads
     tool_use_names: dict[str, str] = field(default_factory=dict)  # id -> name
     kill_pending: bool = False               # set True when threshold crossed
@@ -447,20 +453,36 @@ def _accumulate_usage(state: PrettyState, usage: dict) -> None:
 
 
 def _current_pct(state: PrettyState) -> tuple[float | None, bool]:
-    """Return (pct, is_estimated). pct may be None if we have no anchor at all."""
-    if state.last_session_pct is not None and state.session_pct_anchor is not None:
-        anchor_pct, anchor_tokens = state.session_pct_anchor
-        now_tokens = state.tokens_in + state.tokens_out
-        if anchor_tokens > 0 and now_tokens > anchor_tokens:
-            # Linear extrapolation in %-space (token-weighted utilization).
-            est = anchor_pct * (now_tokens / anchor_tokens)
-            state.estimated_pct = est
-            # Trust the live extrapolation if it exceeds the last probe.
-            return (max(est, state.last_session_pct), est > state.last_session_pct)
-        return (state.last_session_pct, False)
+    """Return (pct, is_estimated_from_slope). pct is None if we've never seen a probe.
+
+    Rules — designed to avoid the phantom-105% bug:
+      - 0 in-subprocess probes: fall back to the (possibly cache-seeded)
+        last probed value. Mark as NOT estimated — it's the last actual
+        reading we have, not an extrapolation.
+      - 1 in-subprocess probe: same as above. We don't have a slope yet,
+        so any extrapolation would be inventing one (the prior formula's
+        bug was assuming the session started at 0% when this subprocess
+        began — wrong, because the 5-hour window accumulates across
+        subprocesses including the orchestrator's own setup).
+      - 2+ probes: compute the per-token slope between the last two
+        probes (real, in-subprocess data points), then extrapolate
+        forward from the latest. Marked estimated.
+    """
+    now_tokens = state.tokens_in + state.tokens_out
+    if len(state.probes) >= 2:
+        p1_pct, p1_tok = state.probes[-2]
+        p2_pct, p2_tok = state.probes[-1]
+        if p2_tok > p1_tok and now_tokens > p2_tok:
+            slope = (p2_pct - p1_pct) / (p2_tok - p1_tok)
+            est = p2_pct + (now_tokens - p2_tok) * slope
+            # Never report below the last actual probe (slope can be ≤0 if
+            # the session reset between probes; defend against weirdness).
+            return (max(est, p2_pct), True)
+        # No usable token delta — just report the last probe value.
+        return (p2_pct, False)
     if state.last_session_pct is not None:
         return (state.last_session_pct, False)
-    return (None, True)
+    return (None, False)
 
 
 def _maybe_emit_tick(state: PrettyState) -> None:
@@ -597,25 +619,38 @@ def pretty_print_event(ev: dict, state: PrettyState) -> None:
 def maybe_probe_inline(state: PrettyState) -> None:
     """If trigger conditions are met, probe the rate API and update state.
 
-    Called from the read loop on every event. The cache inside fetch_rate_status
-    means redundant calls within 60s are free, so this is cheap to call often.
+    On success: append (pct, tokens) to state.probes; with 2+ probes,
+    _current_pct() can slope-extrapolate honestly.
+
+    On failure (429, network blip): exponential back-off so we don't burn
+    the rate-probe endpoint when it's throttling us. Notably, we DO NOT
+    trigger a hard-kill from a single-probe extrapolation — that's the
+    bug that caused the phantom 105%. We only kill if the actual probed
+    value crosses HARD_KILL_PCT, or if a 2+ probe slope-extrapolation
+    crosses it (slope-extrapolation has real data behind it).
     """
     now = time.monotonic()
     if state.tool_calls_since_probe < PROBE_TOOL_CALLS_TRIGGER:
         return
-    if (now - state.last_probe_at) < PROBE_TIME_TRIGGER:
+    # Exponential back-off on consecutive failures: 60s → 120s → 240s →
+    # 480s, capped at 300s. Doubles on each failure; resets on success.
+    min_interval = min(PROBE_TIME_TRIGGER * (2 ** state.probe_failures), 300.0)
+    if (now - state.last_probe_at) < min_interval:
         return
-    st = fetch_rate_status()
+
     state.last_probe_at = now
     state.tool_calls_since_probe = 0
+
+    st = fetch_rate_status()
     if st is not None:
+        state.probe_failures = 0
         prev_pct = state.last_session_pct
         state.last_session_pct = st.session_pct
-        # Re-anchor for extrapolation.
-        state.session_pct_anchor = (
-            st.session_pct, state.tokens_in + state.tokens_out
-        )
-        # Show probed % when it lands.
+        # Append to the slope-extrapolation window. Use total in+out
+        # tokens at probe time as the x-axis. Cap memory at last 5.
+        state.probes.append((st.session_pct, state.tokens_in + state.tokens_out))
+        state.probes = state.probes[-5:]
+
         if not QUIET:
             arrow = ""
             if prev_pct is not None:
@@ -625,16 +660,28 @@ def maybe_probe_inline(state: PrettyState) -> None:
                 f"[dim]· probed session={st.session_pct:.1f}%{arrow} "
                 f"weekly={st.weekly_pct:.1f}%[/dim]"
             )
+
+        # Kill on the *probed* value crossing threshold. Always reliable.
         if st.session_pct >= HARD_KILL_PCT:
             state.kill_pending = True
         return
-    # Probe failed — fall back to extrapolation (already computed lazily).
-    pct, est = _current_pct(state)
-    if pct is not None and pct >= HARD_KILL_PCT:
-        # Trust extrapolation as a soft warning, but still set kill_pending
-        # since blowing past the hard cap mid-tool-call is worse than a
-        # spurious interrupt.
-        state.kill_pending = True
+
+    # Probe failed.
+    state.probe_failures += 1
+    if not QUIET:
+        next_interval = min(PROBE_TIME_TRIGGER * (2 ** state.probe_failures), 300.0)
+        console.print(
+            f"[dim]· rate probe failed ({state.probe_failures}x consecutive); "
+            f"next attempt in ≥{next_interval:.0f}s[/dim]"
+        )
+
+    # Only hard-kill on extrapolation when we have ≥2 in-subprocess probes
+    # (a real slope, not a single-anchor invented one). Otherwise the
+    # phantom-105% bug returns.
+    if len(state.probes) >= 2:
+        pct, est = _current_pct(state)
+        if pct is not None and est and pct >= HARD_KILL_PCT:
+            state.kill_pending = True
 
 
 def sleep_until(epoch: int, label: str) -> None:
@@ -837,14 +884,16 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     ]
 
     pstate = PrettyState(t0=time.monotonic())
-    # Seed from cache if we have a recent successful probe (from wait_for_quota
-    # just before this phase). Tokens-at-anchor is 0 here, so extrapolation
-    # only kicks in once we re-probe mid-phase and re-anchor with real tokens.
+    # Seed last_session_pct from the cache so the first live tick shows a
+    # value instead of "?". Do NOT push into pstate.probes — that list is
+    # exclusively for in-subprocess data points used to compute a
+    # token-vs-pct slope. The cache entry has the right pct but the wrong
+    # token reference frame (it predates this subprocess), so feeding it
+    # to the slope estimator would resurrect the phantom-105% bug.
     if _PROBE_CACHE is not None:
         cache_age = time.monotonic() - _PROBE_CACHE[0]
         if cache_age < PROBE_TTL_SEC:
             pstate.last_session_pct = _PROBE_CACHE[1].session_pct
-            pstate.session_pct_anchor = (_PROBE_CACHE[1].session_pct, 0)
             pstate.last_probe_at = _PROBE_CACHE[0]
 
     rate_interrupted = False
