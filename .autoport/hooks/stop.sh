@@ -8,6 +8,15 @@ set -euo pipefail
 STATE="$CLAUDE_PROJECT_DIR/.autoport/state.json"
 PLAN="$CLAUDE_PROJECT_DIR/.autoport/milestones.yaml"
 
+# Scope guard: this hook is meant for orchestrator-spawned Claude sessions
+# only (orchestrator.py sets AUTOPORT_PHASE_ID before exec'ing claude). For
+# regular interactive sessions in the same repo (user conversations, ad-hoc
+# debugging, etc.) we exit cleanly so the user isn't held hostage by a
+# phase validator they aren't trying to make pass.
+if [ -z "${AUTOPORT_PHASE_ID:-}" ]; then
+    exit 0
+fi
+
 # Read hook stdin (JSON from Claude Code) — we don't actually need it, but
 # consume it so the pipe doesn't break.
 INPUT=$(cat || true)

@@ -7,6 +7,14 @@ set -euo pipefail
 STATE="$CLAUDE_PROJECT_DIR/.autoport/state.json"
 PLAN="$CLAUDE_PROJECT_DIR/.autoport/milestones.yaml"
 
+# Scope guard: only inject the phase-context preamble into orchestrator-
+# spawned sessions (orchestrator.py sets AUTOPORT_PHASE_ID). Interactive
+# user sessions shouldn't be told "you are running headless with no human
+# in the loop" — that's misleading and confuses both Claude and the user.
+if [ -z "${AUTOPORT_PHASE_ID:-}" ]; then
+    exit 0
+fi
+
 if [ ! -f "$STATE" ] || [ ! -f "$PLAN" ]; then
     exit 0
 fi
