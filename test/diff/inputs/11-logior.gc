@@ -1,0 +1,7 @@
+;; tags: int-arith, bitwise
+;; expect: 255
+;; Bitwise OR. On aarch64 this is ORR Xd, Xn, Xm; on x86 OR r/m64, r64.
+;; Tests that the codegen does not accidentally clear high bits when
+;; the destination register is reused as a source.
+(defun main ()
+  (format #t "~D~%" (logior #xF0 #x0F)))

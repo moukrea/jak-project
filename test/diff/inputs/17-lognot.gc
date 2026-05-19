@@ -1,0 +1,6 @@
+;; tags: int-arith, bitwise
+;; expect: -1
+;; Bitwise NOT. AArch64 MVN is an alias of ORN Xd, XZR, Xm; x86 uses NOT r/m64.
+;; ~0 == -1 in two's-complement and that's what ~D prints.
+(defun main ()
+  (format #t "~D~%" (lognot 0)))

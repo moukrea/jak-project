@@ -1,0 +1,7 @@
+;; tags: int-arith, shifts
+;; expect: 32
+;; Logical shift left by an immediate amount. AArch64 LSL is an alias of
+;; UBFM with carefully computed immr/imms fields -- a common bug site.
+;; 1 << 5 == 32 in any sane implementation.
+(defun main ()
+  (format #t "~D~%" (shl 1 5)))
