@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 15,
+  "current_phase_idx": 16,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -15,7 +15,8 @@
     "11-apk": 1,
     "12-android-runtime": 1,
     "13-real-apk": 1,
-    "14-jak1": 1
+    "14-jak1": 1,
+    "15-jak2": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -24,6 +25,9 @@
     "01-scaffold": [],
     "09-boot-linux-arm": [
       "0c3d1a88c33c"
+    ],
+    "15-jak2": [
+      "b9ea99ffc08f"
     ]
   },
   "stuck_reasons": {},
@@ -42,7 +46,8 @@
     "11-apk",
     "12-android-runtime",
     "13-real-apk",
-    "14-jak1"
+    "14-jak1",
+    "15-jak2"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -61,7 +66,8 @@
     "11-apk": 1779181308.8975089,
     "12-android-runtime": 1779193011.368826,
     "13-real-apk": 1779193102.4881756,
-    "14-jak1": 1779194297.0693026
+    "14-jak1": 1779194297.0693026,
+    "15-jak2": 1779195761.1763167
   },
-  "last_update": "2026-05-19T13:02:38.273022+00:00"
+  "last_update": "2026-05-19T13:28:41.900824+00:00"
 }

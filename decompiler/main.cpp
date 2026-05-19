@@ -36,8 +36,8 @@ int main(int argc, char** argv) {
       ->required();
 
   app.add_option("--version", config_game_version,
-                 "The name of the game version to update the config with, ie. ntsc_v2")
-      ->required();
+                 "The name of the game version to update the config with, ie. ntsc_v2. "
+                 "Defaults to ntsc_v1 (or the first key in version_overrides) when omitted.");
   app.add_option("--config-override", config_override,
                  "JSON provided will be merged with the specified config, use to override options");
   define_common_cli_arguments(app);
