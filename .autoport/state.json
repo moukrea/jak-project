@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 9,
+  "current_phase_idx": 10,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -9,13 +9,17 @@
     "05-abi": 1,
     "06-float": 1,
     "07-neon": 1,
-    "08-coroutines": 1
+    "08-coroutines": 1,
+    "09-boot-linux-arm": 2
   },
   "fingerprints": {
     "00-harness": [
       "7d7c7a9d7189"
     ],
-    "01-scaffold": []
+    "01-scaffold": [],
+    "09-boot-linux-arm": [
+      "0c3d1a88c33c"
+    ]
   },
   "stuck_reasons": {},
   "completed": [
@@ -27,7 +31,8 @@
     "05-abi",
     "06-float",
     "07-neon",
-    "08-coroutines"
+    "08-coroutines",
+    "09-boot-linux-arm"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -40,7 +45,8 @@
     "05-abi": 1779177381.7624545,
     "06-float": 1779178017.5636694,
     "07-neon": 1779178825.575998,
-    "08-coroutines": 1779178920.7747583
+    "08-coroutines": 1779178920.7747583,
+    "09-boot-linux-arm": 1779179436.0781302
   },
-  "last_update": "2026-05-19T08:30:33.136009+00:00"
+  "last_update": "2026-05-19T08:57:24.567495+00:00"
 }
