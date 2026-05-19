@@ -1,0 +1,13 @@
+;; tags: abi, functions, calling-convention
+;; expect: 11
+;; One integer argument passed in x0, integer return in x0. Verifies
+;; the most basic argument-register mapping: GOAL's first arg slot
+;; lowers to AAPCS64 x0 (unlike SysV-x86-64's RDI). A miscompile that
+;; treated x0 as both arg and return without a copy would still give
+;; the right answer here, so this is *necessary but not sufficient*
+;; coverage -- pair with 56 (passthrough) to catch the case.
+(defun inc ((x int))
+  (+ x 1))
+
+(defun main ()
+  (format #t "~D~%" (inc 10)))

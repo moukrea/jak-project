@@ -1,0 +1,15 @@
+;; tags: abi, functions, calling-convention, recursion
+;; expect: 120
+;; 5! = 120, computed by self-recursion. Five recursive frames live
+;; on the stack at peak, each holding its own n in a callee-saved
+;; register across the recursive `bl`. Catches: missing prologue
+;; (lr lost in the deeper frame), missing callee-saved preservation
+;; (n changes under us), wrong return-value plumbing on the way back
+;; up the chain.
+(defun fact ((n int))
+  (if (zero? n)
+      1
+      (* n (fact (- n 1)))))
+
+(defun main ()
+  (format #t "~D~%" (fact 5)))

@@ -1,0 +1,18 @@
+;; tags: abi, functions, calling-convention
+;; expect: 50
+;; `(combine (sq 3) (sq 4))` -- both args are themselves call results.
+;; The first `sq` call returns 9 in x0. That value must be preserved
+;; across the second `sq` call (which clobbers x0 as both arg and
+;; return) and then re-marshalled into one of `combine`'s arg slots
+;; while the second `sq` result occupies the other. Classic
+;; "save-caller-saved-across-call" coverage. The exact lowering
+;; choice (spill to stack vs move to a callee-saved like x19) is
+;; the regalloc's call.
+(defun sq ((x int))
+  (* x x))
+
+(defun combine ((a int) (b int))
+  (+ (* a 2) (* b 2)))
+
+(defun main ()
+  (format #t "~D~%" (combine (sq 3) (sq 4))))

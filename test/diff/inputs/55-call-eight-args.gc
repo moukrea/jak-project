@@ -1,0 +1,14 @@
+;; tags: abi, functions, calling-convention, many-args
+;; expect: 36
+;; Eight integer arguments -- exactly fills the AAPCS64 GPR arg window
+;; (x0..x7). Every register is used, none spills to the stack.
+;; Order matters: the test value depends on the *positional*
+;; assignment (a=1 -> x0, b=2 -> x1, ..., h=8 -> x7). If the codegen
+;; reverses arg order or skips x4 (a bug we hit in an early iteration
+;; of the regalloc on a different target), the sum changes.
+(defun sum8 ((a int) (b int) (c int) (d int)
+             (e int) (f int) (g int) (h int))
+  (+ (+ (+ a b) (+ c d)) (+ (+ e f) (+ g h))))
+
+(defun main ()
+  (format #t "~D~%" (sum8 1 2 3 4 5 6 7 8)))

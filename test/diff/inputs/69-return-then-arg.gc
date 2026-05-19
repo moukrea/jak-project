@@ -1,0 +1,18 @@
+;; tags: abi, functions, calling-convention, regalloc
+;; expect: 14
+;; The return register (x0) and the first-arg register (x0) are the
+;; same physical register in AAPCS64. This pattern -- bind the result
+;; of one call, then pass *both* that value and a fresh constant into
+;; the next call -- forces a defensive copy of x0 into another reg
+;; before the second call sets up its own arg list. Catches a class
+;; of regalloc bug where return-binding and arg-marshalling fight
+;; over x0 and the wrong one wins.
+(defun produce ()
+  4)
+
+(defun consume ((a int) (b int))
+  (+ a (* b 5)))
+
+(defun main ()
+  (let ((p (produce)))
+    (format #t "~D~%" (consume p 2))))

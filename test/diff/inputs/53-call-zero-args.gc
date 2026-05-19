@@ -1,0 +1,13 @@
+;; tags: abi, functions, calling-convention
+;; expect: 7
+;; Simplest non-trivial call: callee takes no args and returns an integer
+;; in x0. The interesting bit is the prologue/epilogue -- even a leaf
+;; function with no locals must emit `stp x29, x30, [sp, #-16]!` /
+;; `ldp x29, x30, [sp], #16` / `ret` for callers that want a stack
+;; trace, and the SP delta must keep the 16-byte AAPCS64 alignment
+;; invariant. Asks the caller to print the constant the callee returned.
+(defun give-seven ()
+  7)
+
+(defun main ()
+  (format #t "~D~%" (give-seven)))
