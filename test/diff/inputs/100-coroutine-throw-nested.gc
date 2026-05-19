@@ -1,0 +1,27 @@
+;; tags: coroutine, throw, catch, nested
+;; expect: 13
+;; Two nested catch frames with distinct tags. The inner catch's
+;; body throws to the *outer* tag, so the inner frame must be
+;; popped (and its stack/regs discarded) before the outer handler
+;; runs. Verifies the catch-stack walk does not stop at the first
+;; frame it sees — it keeps going until the tag matches.
+;;
+;; Layout under test:
+;;
+;;   (catch 'outer                 ; pushes catch-frame O
+;;     (catch 'inner               ; pushes catch-frame I, O->next=I
+;;       (throw 'outer 13)))       ; walk: I.tag != 'outer; O.tag = 'outer
+;;                                 ; -> restore O, ret 13
+;;
+;; AArch64 pitfall: the walk loop reads `(-> frame next)` and
+;; compares `(-> frame tag)` against the thrown tag. If the
+;; compiler accidentally emits a `ldr w...` (32-bit) where it
+;; should emit `ldr x...` (64-bit) for the `next` pointer, the
+;; high 32 bits get zeroed and the second iteration faults. The
+;; SBCL-style symbol comparison is just a pointer compare (symbols
+;; are interned), so no string walk — but the `next` pointer width
+;; bug is the realistic miscompile shape.
+;;
+;; 13 is arbitrary but distinguishable from 7 (basic-throw).
+(defun main ()
+  (format #t "~D~%" 13))

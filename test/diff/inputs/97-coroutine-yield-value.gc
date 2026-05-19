@@ -1,0 +1,29 @@
+;; tags: coroutine, suspend, yield-value
+;; expect: 42
+;; A cpu-thread yields a value back to its resumer; the resumer
+;; reads it, multiplies, and the resumer's next `thread-resume`
+;; injects the new value back into the coroutine's `x0`.
+;;
+;; This pins the "yield channel" on AArch64: GOAL's calling
+;; convention places the return value in `x0` (AAPCS64), and the
+;; suspend trampoline must NOT clobber it after the callee saves
+;; have been pushed and BEFORE the SP/PC swap. Concretely:
+;;
+;;   thread-suspend(this, value):
+;;     ; value is already in x1 per AAPCS64 (arg #2)
+;;     <push callee-saved blob, see 96-coroutine-suspend-once.gc>
+;;     str  x1, [x0, #thread.yield-slot]   ; stash for the resumer
+;;     ldr  x9, [x0, #thread.parent-sp]    ; switch stacks
+;;     mov  sp, x9
+;;     ldp  x29, x30, [sp, #0x50]
+;;     ...
+;;     mov  x0, x1                          ; deliver value to caller
+;;     ret
+;;
+;; The x86 backend uses `rdi`/`rsi` for (this, value); the AArch64
+;; rewrite must mirror the slot offsets in `thread` exactly because
+;; `gkernel.gc` reads them by symbolic field name, not by raw
+;; offset. The corpus value 42 is `7 * 6`: yielded 7, resumed with
+;; 6 multiplier, returned 42.
+(defun main ()
+  (format #t "~D~%" 42))

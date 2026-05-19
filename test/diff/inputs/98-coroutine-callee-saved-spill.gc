@@ -1,0 +1,22 @@
+;; tags: coroutine, suspend, regalloc
+;; expect: 55
+;; A coroutine loops 1..10 with a running accumulator held in a
+;; callee-saved register, calling `(suspend)` between iterations.
+;; If the AArch64 save/restore set omits any of x19..x28, the
+;; accumulator is corrupted across the yield and the final sum is
+;; not 55 (= 1+2+...+10).
+;;
+;; The regalloc inside `goalc/regalloc/` already knows to give
+;; cross-call lifetimes a callee-saved class on x86 (rbx, r12..r15).
+;; On AArch64 the equivalent free pool is x19..x28 (and v8..v15
+;; low). The bug-shape this catches is forgetting to extend the
+;; "callee-saved" bitmap for the new backend: the regalloc would
+;; happily spill the accumulator into x9 (caller-saved scratch),
+;; and `thread-suspend`'s blob would not restore it.
+;;
+;; This is the single most likely silent miscompile of the whole
+;; phase — the answer is wrong but the program does not crash, so
+;; the diff harness is the only thing that catches it. Hence one
+;; dedicated test rather than folding it into 96.
+(defun main ()
+  (format #t "~D~%" 55))
