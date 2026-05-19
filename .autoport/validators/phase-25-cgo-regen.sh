@@ -9,15 +9,34 @@ cd "$(git rev-parse --show-toplevel)"
 
 echo "== Phase 25 validator (jak1 CGO regen, aarch64 verified) =="
 
-# Phase start marker — anything that was already on disk before this run
-# doesn't count. The orchestrator-managed validator-NN.txt mtime is the
-# truth; fall back to "5 minutes ago" if unavailable.
-PHASE_START=$(date +%s)
-PHASE_START=$((PHASE_START - 300))
-LATEST_VLOG=$(ls -t .autoport/logs/25-cgo-regen/validator-*.txt 2>/dev/null | head -1)
-if [ -n "$LATEST_VLOG" ]; then
-    PHASE_START=$(stat -c %Y "$LATEST_VLOG")
+# Phase start marker — anything that was already on disk before the
+# orchestrator first launched this phase doesn't count. The truth is in
+# state.json's `phase_started_at[<id>]` (set once, in the orchestrator,
+# *before* claude is spawned).
+#
+# The previous logic used `ls -t validator-*.txt | head -1` mtime — but
+# the orchestrator creates `validator-NN.txt` as its stdout redirect
+# target BEFORE invoking this script, so the "latest" file is the one
+# we're currently writing, with mtime ≈ now. Every CGO regenerated
+# during the attempt (mtime ≈ now - 90s) appeared "stale" by that
+# measure, the same fingerprint hit 3× in a row, and STUCK detection
+# halted the loop on a phantom failure. See feedback-phase25-freshness
+# memory for the post-mortem.
+PHASE_START=$(python3 -c "
+import json, sys
+try:
+    s = json.load(open('.autoport/state.json'))
+    ts = s.get('phase_started_at', {}).get('25-cgo-regen', 0)
+    print(int(ts))
+except Exception:
+    print(0)
+" 2>/dev/null)
+if [ "${PHASE_START:-0}" -eq 0 ]; then
+    # Fallback: 1 hour ago, generous to absorb a long claude session
+    # that may have started before this validator instance.
+    PHASE_START=$(($(date +%s) - 3600))
 fi
+echo "  phase_start_anchor: $PHASE_START ($(date -u -d "@$PHASE_START" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null))"
 
 ISO_DIR=out/jak1/iso
 test -d "$ISO_DIR" || { echo "FAIL: $ISO_DIR does not exist; pipeline didn't run"; exit 1; }
