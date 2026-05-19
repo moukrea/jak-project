@@ -1,0 +1,18 @@
+;; tags: control-flow, branches, compare, signed
+;; expect: -1
+;; Signed comparisons across the whole signed family: <, <=, >, >=.
+;; AArch64 condition codes used: LT, LE, GT, GE (these are the signed
+;; codes; the unsigned-equivalent codes are LO/LS/HI/HS, exercised in
+;; 41-cmp-unsigned.gc). Returns the cumulative score, which is -1 only
+;; if all four predicates fire with the signed (not unsigned)
+;; interpretation of -5 vs 3.
+(defun classify ((x int) (y int))
+  (let ((s 0))
+    (if (< x y) (set! s (+ s 1)))
+    (if (<= x y) (set! s (+ s 1)))
+    (if (> x y) (set! s (- s 1)))
+    (if (>= x y) (set! s (- s 1)))
+    s))
+
+(defun main ()
+  (format #t "~D~%" (classify -5 3)))

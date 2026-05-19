@@ -1,0 +1,14 @@
+;; tags: control-flow, loops, while
+;; expect: 1
+;; A `while` loop is the structural inverse of `dotimes`: the test runs
+;; *before* the body, so codegen emits `b <test>` to skip into the test
+;; first, then label-body, body, label-test, evaluate predicate, b.ne
+;; label-body. Two branches per iteration -- one forward (initial
+;; skip), one backward (loop edge). We repeatedly halve `n` with
+;; integer division until it hits 1, starting from 1000:
+;; 1000->500->250->125->62->31->15->7->3->1 (9 iterations).
+(defun main ()
+  (let ((n 1000))
+    (while (> n 1)
+      (set! n (/ n 2)))
+    (format #t "~D~%" n)))

@@ -1,0 +1,16 @@
+;; tags: control-flow, branches, cbz
+;; expect: 100
+;; The `zero?` predicate against a register operand is the canonical
+;; peephole target for AArch64 `cbz Xn, <label>` -- "compare and branch
+;; if zero" -- which fuses the cmp and conditional branch into one
+;; instruction. We test both directions: when the value really is zero
+;; (the early-return arm fires) and an outer call where it isn't (so
+;; the `cbnz` fallthrough adds 100). The sum 100 + 0 = 100 distinguishes
+;; the two outcomes for the diff harness.
+(defun pick ((n int))
+  (if (zero? n)
+      0
+      100))
+
+(defun main ()
+  (format #t "~D~%" (+ (pick 0) (pick 42))))

@@ -1,0 +1,16 @@
+;; tags: control-flow, branches, short-circuit
+;; expect: yes
+;; `(and a b c)` short-circuits: if `a` is false the codegen must skip
+;; evaluating `b` and `c`. That requires emitting a conditional branch
+;; on each clause to a common "result = #f" join label, with the final
+;; clause producing the result directly. This is forward-branch
+;; patching with many pending sites converging on one label. Inputs
+;; chosen so every clause is true and the join is not taken -- the
+;; complement is covered by 46-short-or.gc.
+(defun all-pos ((a int) (b int) (c int))
+  (if (and (> a 0) (> b 0) (> c 0))
+      "yes"
+      "no"))
+
+(defun main ()
+  (format #t "~A~%" (all-pos 1 2 3)))

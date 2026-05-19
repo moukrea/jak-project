@@ -1,0 +1,17 @@
+;; tags: control-flow, branches, nested
+;; expect: 2
+;; Two levels of nested `if`. The inner `if` lives in the "then" arm of
+;; the outer; its merge label must end up *inside* the outer's "then"
+;; region, not after the outer merge. This catches a label-stack bug
+;; where the codegen pops the wrong frame and the inner branch
+;; overshoots. Inputs are chosen so the path is then -> then -> else,
+;; printing 2.
+(defun classify ((x int) (y int))
+  (if (> x 0)
+      (if (> y 0)
+          (if (> x y) 1 2)
+          -1)
+      0))
+
+(defun main ()
+  (format #t "~D~%" (classify 3 5)))
