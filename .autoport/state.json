@@ -1,9 +1,10 @@
 {
-  "current_phase_idx": 3,
+  "current_phase_idx": 4,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
-    "02-intarith": 1
+    "02-intarith": 1,
+    "03-memops": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -15,14 +16,16 @@
   "completed": [
     "00-harness",
     "01-scaffold",
-    "02-intarith"
+    "02-intarith",
+    "03-memops"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
     "00-harness": 1779141327.5929835,
     "01-scaffold": 1779173704.1789694,
-    "02-intarith": 1779175625.1189601
+    "02-intarith": 1779175625.1189601,
+    "03-memops": 1779176529.8171358
   },
-  "last_update": "2026-05-19T07:42:07.173461+00:00"
+  "last_update": "2026-05-19T07:50:35.942215+00:00"
 }
