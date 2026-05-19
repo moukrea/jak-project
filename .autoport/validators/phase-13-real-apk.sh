@@ -78,7 +78,8 @@ BADGING=$(aapt2 dump badging "$APK" 2>/tmp/aapt2.err) || {
     cat /tmp/aapt2.err
     exit 1
 }
-PKG=$(echo "$BADGING" | grep "^package:" | head -1 | sed "s/.*name='\([^']*\)'.*/\1/")
+PKG=$(echo "$BADGING" | grep "^package:" | head -1 \
+        | sed -n "s/^package:[[:space:]]*name='\([^']*\)'.*/\1/p")
 echo "  pkg:  $PKG"
 case "$PKG" in
     "${EXPECTED_PKG_PREFIX}.jak1"|"${EXPECTED_PKG_PREFIX}")
@@ -95,16 +96,22 @@ apksigner verify --print-certs "$APK" > /tmp/apksigner.log 2>&1 || {
 echo "  signed: ok"
 
 # 6. Structural inventory.
+# Use here-strings (<<<) rather than `echo "$ZIPLS" | grep -q ...`. With
+# `set -o pipefail`, a fast `grep -q` exits early and the upstream `echo`
+# can hit SIGPIPE before the kernel has finished delivering the full
+# buffer, which makes pipefail report a non-zero status even though the
+# match succeeded. Here-strings feed grep through a temp file, with no
+# pipe and no race.
 ZIPLS=$(unzip -l "$APK")
-echo "$ZIPLS" | grep -q "^[[:space:]]*[0-9]\+.* classes.dex$" \
+grep -q "^[[:space:]]*[0-9]\+.* classes.dex$" <<< "$ZIPLS" \
     || { echo "FAIL: APK has no classes.dex"; exit 1; }
-echo "$ZIPLS" | grep -q "AndroidManifest.xml" \
+grep -q "AndroidManifest.xml" <<< "$ZIPLS" \
     || { echo "FAIL: APK has no AndroidManifest.xml"; exit 1; }
-echo "$ZIPLS" | grep -q "lib/arm64-v8a/libgk.so" \
+grep -q "lib/arm64-v8a/libgk.so" <<< "$ZIPLS" \
     || { echo "FAIL: APK is missing lib/arm64-v8a/libgk.so"; exit 1; }
 
 # 7. libgk.so size inside the APK (uncompressed).
-LIBGK_SIZE=$(echo "$ZIPLS" | awk '/lib\/arm64-v8a\/libgk\.so$/ {print $1; exit}')
+LIBGK_SIZE=$(awk '/lib\/arm64-v8a\/libgk\.so$/ {print $1; exit}' <<< "$ZIPLS")
 echo "  libgk.so inside APK: $LIBGK_SIZE bytes"
 if [ -z "$LIBGK_SIZE" ] || [ "$LIBGK_SIZE" -lt "$MIN_LIBGK_SIZE_BYTES" ]; then
     echo "FAIL: libgk.so inside APK is too small ($LIBGK_SIZE B). Confirm phase 12"
