@@ -9,6 +9,27 @@ include(CTest)
 # Include third-party modules
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/third-party/cmake/modules/)
 
+# Phase 10 (autoport): Android NDK cross-build entry point.
+# The NDK's android.toolchain.cmake sets CMAKE_SYSTEM_NAME=Android which
+# in turn makes CMake define ANDROID=1. When that's the case, divert to
+# the minimal android/ subdir which produces libgk.so for arm64-v8a using
+# NDK clang. None of the x86-specific compiler flags, NASM, AVX intrinsics
+# or host third-party libs below are reachable on this path — phase 11 will
+# fold the full runtime/SDL3/GLES/OpenAL stack into a proper APK build.
+if(ANDROID)
+    message(STATUS "Android NDK build: ABI=${ANDROID_ABI} platform=${ANDROID_PLATFORM} NDK=${ANDROID_NDK}")
+    if(NOT GOALC_BACKEND)
+        set(GOALC_BACKEND "arm64" CACHE STRING "GOAL compiler codegen backend" FORCE)
+    endif()
+    if(NOT GOALC_BACKEND STREQUAL "arm64")
+        message(WARNING "Android build forces GOALC_BACKEND=arm64 (was ${GOALC_BACKEND})")
+        set(GOALC_BACKEND "arm64" CACHE STRING "GOAL compiler codegen backend" FORCE)
+    endif()
+    add_compile_definitions(GOALC_BACKEND_ARM64 OG_ANDROID_NDK_BUILD=1)
+    add_subdirectory(android)
+    return()
+endif()
+
 # Default to Release mode
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")

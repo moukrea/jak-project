@@ -93,3 +93,4 @@ _new-all-types.gc.autoport/state.json
 .autoport/logs/
 .autoport/.notify.conf
 .claude/settings.local.json
+build-android
