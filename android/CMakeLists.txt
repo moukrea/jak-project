@@ -44,6 +44,29 @@ set(FMT_DOC OFF CACHE BOOL "" FORCE)
 add_subdirectory("${JAK_ROOT}/third-party/fmt" fmt_build EXCLUDE_FROM_ALL)
 
 # ---------------------------------------------------------------------------
+# Phase 18 (autoport): SDL3 vendored under third-party/SDL is cross-built
+# as a static library and linked into libgk.so with --whole-archive so the
+# JNI entry points (Java_org_libsdl_app_SDLActivity_*) registered by the
+# Java-side SDLActivity remain visible in the .so's dynamic symbol table.
+#
+# Force the SDL_* cache vars BEFORE add_subdirectory — SDL caches its own
+# defaults and won't notice ordinary set() calls otherwise.
+# ---------------------------------------------------------------------------
+set(SDL_STATIC        ON  CACHE BOOL "" FORCE)
+set(SDL_SHARED        OFF CACHE BOOL "" FORCE)
+set(SDL_TEST_LIBRARY  OFF CACHE BOOL "" FORCE)
+set(SDL_TESTS         OFF CACHE BOOL "" FORCE)
+set(SDL_EXAMPLES      OFF CACHE BOOL "" FORCE)
+set(SDL_DISABLE_INSTALL ON CACHE BOOL "" FORCE)
+set(SDL_DISABLE_INSTALL_DOCS ON CACHE BOOL "" FORCE)
+set(SDL_DISABLE_INSTALL_CPACK ON CACHE BOOL "" FORCE)
+set(SDL_INSTALL       OFF CACHE BOOL "" FORCE)
+set(SDL_AUDIO         ON  CACHE BOOL "" FORCE)
+set(SDL_VIDEO         ON  CACHE BOOL "" FORCE)
+set(SDL_RENDER        OFF CACHE BOOL "" FORCE)
+add_subdirectory("${JAK_ROOT}/third-party/SDL" sdl_build EXCLUDE_FROM_ALL)
+
+# ---------------------------------------------------------------------------
 # Kernel + common static library.
 #
 # The list below is the smallest set that:
@@ -125,6 +148,12 @@ target_link_libraries(gk PRIVATE
     # drop the kernel core objects entirely.
     -Wl,--whole-archive
     android_kernel
+    # Phase 18: SDL3-static carries the JNI surface the Java SDLActivity
+    # calls through (Java_org_libsdl_app_SDLActivity_*). Those symbols
+    # are referenced via RegisterNatives, not by any C/C++ TU in libgk —
+    # without --whole-archive the linker drops them and the Java side
+    # crashes with UnsatisfiedLinkError on nativeSetupJNI.
+    SDL3-static
     -Wl,--no-whole-archive
 
     # Keep all sections — we want fmt's debug info + template instantiations
@@ -139,6 +168,9 @@ target_link_libraries(gk PRIVATE
     # in the dynamic symbol table. This keeps `nm -D` focused on the GOAL
     # kernel + JNI surface, which is what callers (Activity, validators)
     # care about.
+    #
+    # SDL3 deliberately NOT in this list: phase 18 validator expects
+    # Java_org_libsdl_app_SDLActivity_* in dynsym.
     -Wl,--exclude-libs,libfmt.a
     -Wl,--exclude-libs,libc++_static.a
     -Wl,--exclude-libs,libc++abi.a
@@ -146,13 +178,10 @@ target_link_libraries(gk PRIVATE
 
     fmt::fmt
 
-    # Android system libs from the NDK sysroot. These satisfy the
-    # phase-12 validator's DT_NEEDED check:
-    #   liblog / libdl / libm / libc must all appear (NDK system libs)
-    #   at least one of SDL / GLES / EGL / OpenAL must appear (proves the
-    #   real runtime stack is wired up — here we link the NDK's EGL and
-    #   GLESv3 directly, which is what SDL3 itself would link against on
-    #   Android).
+    # Android system libs from the NDK sysroot. SDL3-static already pulls
+    # in EGL/GLESv3/OpenSLES/android transitively for the Android backend,
+    # but list them explicitly so DT_NEEDED is stable and the phase-12
+    # validator's dependency check keeps passing.
     log
     android
     EGL

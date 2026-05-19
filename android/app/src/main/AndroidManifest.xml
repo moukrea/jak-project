@@ -48,12 +48,22 @@
             </intent-filter>
         </activity>
 
+        <!-- Phase 18: MainActivity extends org.libsdl.app.SDLActivity. The
+             configChanges set mirrors what SDLActivity expects so the SDL
+             surface isn't recreated on rotation/uiMode changes (SDL
+             handles those internally). launchMode=singleInstance matches
+             the SDL example app; together with alwaysRetainTaskState=true
+             this keeps the SDL thread alive across task switches.
+             preferMinimalPostProcessing avoids the compositor adding
+             color/gamma post-processing on top of the GL output. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:configChanges="orientation|keyboardHidden|screenSize|screenLayout|uiMode"
+            android:alwaysRetainTaskState="true"
+            android:configChanges="layoutDirection|locale|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:screenOrientation="landscape"
-            android:launchMode="singleTask">
+            android:launchMode="singleInstance"
+            android:preferMinimalPostProcessing="true">
             <!-- Tell the framework which .so to load for SDL-style native
                  activities. The Java code loads libgk.so explicitly via
                  System.loadLibrary so this is only advisory metadata. -->
