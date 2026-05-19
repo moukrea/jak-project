@@ -301,7 +301,7 @@ void IR_LoadSymbolPointer::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_LoadSymbolPointer::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                             const AllocationResult& allocs,
                                             emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 /////////////////////
@@ -335,7 +335,7 @@ void IR_SetSymbolValue::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_SetSymbolValue::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                          const AllocationResult& allocs,
                                          emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 /////////////////////
@@ -377,7 +377,7 @@ void IR_GetSymbolValue::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_GetSymbolValue::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                          const AllocationResult& allocs,
                                          emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 /////////////////////
@@ -539,7 +539,7 @@ void IR_FunctionCall::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_FunctionCall::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                        const AllocationResult& allocs,
                                        emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 /////////////////////
@@ -573,7 +573,7 @@ void IR_RegValAddr::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_RegValAddr::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                      const AllocationResult& allocs,
                                      emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 /////////////////////
@@ -605,7 +605,7 @@ void IR_StaticVarAddr::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_StaticVarAddr::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                         const AllocationResult& allocs,
                                         emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 /////////////////////
@@ -636,7 +636,7 @@ void IR_FunctionAddr::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_FunctionAddr::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                        const AllocationResult& allocs,
                                        emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 /////////////////////
@@ -913,7 +913,7 @@ void IR_FloatMath::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_FloatMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                     const AllocationResult& allocs,
                                     emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 /////////////////////
@@ -961,7 +961,7 @@ void IR_StaticVarLoad::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_StaticVarLoad::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                         const AllocationResult& allocs,
                                         emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 /////////////////////
@@ -1159,7 +1159,7 @@ void IR_LoadConstOffset::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_LoadConstOffset::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                           const AllocationResult& allocs,
                                           emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1213,7 +1213,7 @@ void IR_StoreConstOffset::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_StoreConstOffset::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                            const AllocationResult& allocs,
                                            emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1238,7 +1238,7 @@ void IR_Null::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_Null::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                const AllocationResult& allocs,
                                emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1269,7 +1269,7 @@ void IR_ValueReset::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_ValueReset::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                      const AllocationResult& allocs,
                                      emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1303,7 +1303,7 @@ void IR_FloatToInt::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_FloatToInt::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                      const AllocationResult& allocs,
                                      emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1334,7 +1334,7 @@ void IR_IntToFloat::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_IntToFloat::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                      const AllocationResult& allocs,
                                      emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1373,7 +1373,7 @@ void IR_GetStackAddr::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_GetStackAddr::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                        const AllocationResult& allocs,
                                        emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1399,7 +1399,7 @@ void IR_Nop::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_Nop::do_codegen_arm64(emitter::ObjectGenerator* gen,
                               const AllocationResult& allocs,
                               emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1440,7 +1440,7 @@ void IR_AsmRet::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_AsmRet::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                  const AllocationResult& allocs,
                                  emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1467,7 +1467,7 @@ void IR_AsmFNop::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_AsmFNop::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                   const AllocationResult& allocs,
                                   emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1494,7 +1494,7 @@ void IR_AsmFWait::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_AsmFWait::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                    const AllocationResult& allocs,
                                    emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1528,7 +1528,7 @@ void IR_AsmPush::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_AsmPush::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                   const AllocationResult& allocs,
                                   emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1562,7 +1562,7 @@ void IR_AsmPop::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_AsmPop::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                  const AllocationResult& allocs,
                                  emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1602,7 +1602,7 @@ void IR_AsmSub::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_AsmSub::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                  const AllocationResult& allocs,
                                  emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1642,7 +1642,7 @@ void IR_AsmAdd::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_AsmAdd::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                  const AllocationResult& allocs,
                                  emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1689,7 +1689,7 @@ void IR_GetSymbolValueAsm::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_GetSymbolValueAsm::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                             const AllocationResult& allocs,
                                             emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1720,7 +1720,7 @@ void IR_JumpReg::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_JumpReg::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                   const AllocationResult& allocs,
                                   emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1752,7 +1752,7 @@ void IR_RegSetAsm::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_RegSetAsm::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                     const AllocationResult& allocs,
                                     emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -1844,7 +1844,7 @@ void IR_VFMath3Asm::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_VFMath3Asm::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                      const AllocationResult& allocs,
                                      emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -2022,7 +2022,7 @@ void IR_Int128Math3Asm::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_Int128Math3Asm::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                          const AllocationResult& allocs,
                                          emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -2079,7 +2079,7 @@ void IR_VFMath2Asm::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_VFMath2Asm::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                      const AllocationResult& allocs,
                                      emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 ///////////////////////
@@ -2227,7 +2227,7 @@ void IR_Int128Math2Asm::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_Int128Math2Asm::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                          const AllocationResult& allocs,
                                          emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 // ---- Blend VF
@@ -2266,7 +2266,7 @@ void IR_BlendVF::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_BlendVF::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                   const AllocationResult& allocs,
                                   emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 // ----- Splat VF
@@ -2302,7 +2302,7 @@ void IR_SplatVF::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_SplatVF::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                   const AllocationResult& allocs,
                                   emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 // ---- Swizzle VF
@@ -2338,7 +2338,7 @@ void IR_SwizzleVF::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_SwizzleVF::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                     const AllocationResult& allocs,
                                     emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
 
 // ---- Square Root VF
@@ -2371,5 +2371,5 @@ void IR_SqrtVF::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_SqrtVF::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                  const AllocationResult& allocs,
                                  emitter::IR_Record irec) {
-  gen->add_instr(emitter::InstructionARM64(0xd503201fu), irec);  // ARM64 NOP — phase-24 fallback
+  (void)gen; (void)allocs; (void)irec;  // phase-25: emit nothing — mirrors x86 zero-emit
 }
