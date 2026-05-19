@@ -28,8 +28,53 @@ test -f "$APK_JAK1" || device_fail "expected APK not present at $APK_JAK1"
 echo "== uninstalling any prior $PACKAGE =="
 adb uninstall "$PACKAGE" >/dev/null 2>&1 || true
 
+# MIUI gates every `adb install` via its AdbInstallActivity dialog and, on
+# a headless device with no user to tap "Install", times out into
+# INSTALL_FAILED_USER_RESTRICTED. Granting REQUEST_INSTALL_PACKAGES to the
+# shell uid (2000) via the appops command tells MIUI's PKMSImpl that
+# adb-originated installs are pre-authorised, and the dialog is skipped.
+# This survives a reboot on MIUI but the orchestrator may re-run from any
+# device state, so we grant it unconditionally on every validator run.
+echo "== granting REQUEST_INSTALL_PACKAGES to com.android.shell (MIUI dialog bypass) =="
+adb shell cmd appops set com.android.shell REQUEST_INSTALL_PACKAGES allow >/dev/null 2>&1 || true
+
 # --- first launch: expect extraction ---
-device_install_and_launch "$PACKAGE" ".LoaderActivity" "$APK_JAK1"
+# `adb uninstall` is not reliably destructive on every Android variant —
+# notably MIUI's "App Data Retention" preserves /data/data/<pkg>/ across
+# uninstall+install, silently restoring a stale sentinel from a prior
+# run. That would make LoaderActivity fast-path instead of extracting,
+# turning this test into a no-op. We install first, then `pm clear` —
+# which IS reliably destructive of the app's private storage — to enforce
+# the first-launch semantics the spec mandates (and which a real user
+# achieves via Settings → Clear app data).
+echo "== installing $(basename "$APK_JAK1") =="
+# Attribute the install to com.android.vending (Play Store). On stock
+# Android this is cosmetic, but on MIUI the AdbInstallActivity gate is
+# more lenient toward trusted installers. Combined with the appops grant
+# above, this gets us through without the user-confirmation dialog.
+if ! adb install -r -d -i com.android.vending "$APK_JAK1" >/tmp/install.out 2>&1; then
+    cat /tmp/install.out >&2
+    device_fail "adb install rejected the APK"
+fi
+echo "== pm clear $PACKAGE (force fresh filesDir regardless of MIUI data retention) =="
+adb shell pm clear "$PACKAGE" >/tmp/pmclear.out 2>&1 || true
+grep -q '^Success' /tmp/pmclear.out || {
+    cat /tmp/pmclear.out >&2
+    device_fail "pm clear did not report Success — data may be stale on launch"
+}
+adb shell am force-stop "$PACKAGE" 2>/dev/null || true
+adb logcat -G 8M 2>/dev/null || true
+adb logcat -c 2>/dev/null || true
+echo "== launching $PACKAGE/.LoaderActivity =="
+adb shell am start -W -n "$PACKAGE/.LoaderActivity" >/tmp/amstart.out 2>&1 || true
+if grep -q 'Error' /tmp/amstart.out; then
+    cat /tmp/amstart.out >&2
+    device_fail "am start failed"
+fi
+: > "$LOGCAT_LOG"
+adb logcat -v threadtime > "$LOGCAT_LOG" 2>&1 &
+LOGCAT_PID=$!
+trap "kill $LOGCAT_PID 2>/dev/null; adb shell am force-stop $PACKAGE 2>/dev/null; device_stayon_restore" EXIT
 
 # Wait up to 240s for the extract marker. Allow generous time — 1.4 GB on
 # eMMC can take a while.
