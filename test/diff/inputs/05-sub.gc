@@ -1,0 +1,7 @@
+;; tags: basic, int-arith
+;; expect: 17
+;; Integer subtraction: positive minus positive yielding positive.
+;; Exercises the SUB (subtract, shifted register) encoding on aarch64
+;; and SUB r/m64, r64 on x86. Result must round-trip through ~D formatter.
+(defun main ()
+  (format #t "~D~%" (- 25 8)))

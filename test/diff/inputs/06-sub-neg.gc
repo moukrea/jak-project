@@ -1,0 +1,7 @@
+;; tags: int-arith
+;; expect: -3
+;; Subtraction crossing zero into the negative range. On aarch64 SUB sets
+;; NZCV flags and the result is two's complement; on x86 it's the same.
+;; The ~D format directive must print the leading minus sign.
+(defun main ()
+  (format #t "~D~%" (- 5 8)))

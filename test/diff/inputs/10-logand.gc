@@ -1,0 +1,7 @@
+;; tags: int-arith, bitwise
+;; expect: 8
+;; Bitwise AND on two GPRs. AArch64 has both register-form (AND Xd, Xn, Xm)
+;; and a logical-immediate form with the bitmask encoding -- this test
+;; intentionally uses two register operands so the simple form is exercised.
+(defun main ()
+  (format #t "~D~%" (logand #xFC #x0A)))

@@ -1,0 +1,7 @@
+;; tags: int-arith
+;; expect: -42
+;; Negation. AArch64 has a NEG alias for SUB Xd, XZR, Xm; x86 uses NEG r/m64.
+;; Distinct from `(- 0 x)` in spirit because GOAL's `-` of one argument is
+;; expected to lower to a single NEG, not a SUB-from-zero load.
+(defun main ()
+  (format #t "~D~%" (- 42)))

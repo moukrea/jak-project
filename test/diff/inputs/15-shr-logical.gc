@@ -1,0 +1,7 @@
+;; tags: int-arith, shifts
+;; expect: 268435455
+;; Logical shift right by an immediate. AArch64 LSR is a UBFM alias and
+;; must zero-fill the high bits regardless of sign. 0x7FFFFFF8 >> 3 ==
+;; 0x0FFFFFFF == 268435455.
+(defun main ()
+  (format #t "~D~%" (shr 2147483640 3)))

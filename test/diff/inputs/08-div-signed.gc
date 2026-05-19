@@ -1,0 +1,7 @@
+;; tags: int-arith, division
+;; expect: -7
+;; Signed division with a negative dividend. AArch64 uses SDIV (which
+;; truncates toward zero) and x86 IDIV behaves the same with CQO sign
+;; extension. -50 / 7 truncates to -7, not -8.
+(defun main ()
+  (format #t "~D~%" (/ -50 7)))
