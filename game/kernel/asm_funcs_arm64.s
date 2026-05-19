@@ -258,17 +258,27 @@ _call_goal_on_stack_asm_arm64:
   ;; saved registers we need to modify for GOAL should be preserved
   ; ARM64 requires 16-byte stack pointer alignment
   stp x20, x21, [sp, #-16]!
-  ;; also stash the current stack pointer on the stack
-  ;; NOTE - you cannot directly store or load the `sp` register in arm64
-  mov x9, sp
-  stp x22, x9, [sp, #-16]!
+  ;; capture the OLD sp (after the pushes above) so we can restore it
+  ;; after the GOAL function returns. NOTE - you cannot directly store or
+  ;; load the `sp` register in arm64; round-trip through a GPR.
+  ;;
+  ;; Phase 26 (autoport) fix: the pre-phase-26 version of this code did:
+  ;;   stp x22, x9, [sp, #-16]!   ;; (on OLD sp)
+  ;;   mov sp, x0
+  ;;   ...
+  ;;   ldp x22, x9, [sp], #16     ;; (from NEW sp — UB, no matching push)
+  ;; The store-then-switch sequence pushed onto the OLD stack but the load
+  ;; after the call pops from the NEW stack, where nothing was stored. The
+  ;; popped x9 was garbage and the subsequent `mov sp, x9` blew up.
+  ;; The x86 sibling (_call_goal_on_stack_asm_systemv) gets this right by
+  ;; pushing AFTER the switch; we now mirror that on aarch64.
+  mov x9, sp                ;; x9 = OLD sp value to restore later
+  mov sp, x0                ;; switch to GOAL/process stack
+  stp x22, x9, [sp, #-16]!  ;; push x22 + saved OLD sp on the NEW stack
 
-  ;; switch to new stack
-  mov sp, x0
-
-  mov x20, x4 ;; set GOAL function pointer  
-  mov x21, x4 ;; symbol table
-  mov x22, x5 ;; offset
+  mov x20, x4 // set GOAL function pointer
+  mov x21, x4 // symbol table
+  mov x22, x5 // offset
   ;; call GOAL by function pointer
   blr x3
 

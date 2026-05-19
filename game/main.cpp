@@ -109,6 +109,12 @@ int goal_main(int argc, char** argv) {
   std::string gpu_test = "";
   std::string gpu_test_out_path = "";
   int port_number = -1;
+  // Phase 26 (autoport): wall-clock cap (in GOAL kernel frames) for stress
+  // / smoke runs under qemu. A value of -1 disables the cap (default).
+  // The desktop runtime does not enforce it directly here — it's exposed
+  // for cross-build harnesses (tools/arm64-stress) that pass the same
+  // argv shape and consume the value themselves.
+  int max_frames = -1;
   fs::path project_path_override;
   fs::path user_config_dir_override;
   std::vector<std::string> game_args;
@@ -134,6 +140,9 @@ int goal_main(int argc, char** argv) {
                  "Tests for minimum graphics requirements.  Valid Options are: [opengl]");
   app.add_option("--gpu-test-out-path", gpu_test_out_path,
                  "Where to store the gpu test result file");
+  app.add_option("--max-frames", max_frames,
+                 "Cap the run at N GOAL kernel frames (-1 = unbounded). "
+                 "Used by qemu cross-build stress harnesses.");
   app.add_option("--proj-path", project_path_override,
                  "Specify the location of the 'data/' folder");
   app.add_option("--config-path", user_config_dir_override,

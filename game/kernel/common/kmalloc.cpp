@@ -8,6 +8,7 @@
 #include "game/kernel/common/kprint.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/common/memory_layout.h"
+#include "game/kernel/common/runtime_trace.h"
 
 // global and debug kernel heaps
 Ptr<kheapinfo> kglobalheap;
@@ -107,6 +108,9 @@ Ptr<kheapinfo> kinitheap(Ptr<kheapinfo> heap, Ptr<u8> mem, s32 size) {
   heap->top = mem + size;
   heap->top_base = heap->top;
   std::memset(mem.c(), 0, size);
+  // Phase 26 trace hook: report the high-water mark right after init so
+  // the harness can establish a baseline for kheap-delta.
+  __goal_runtime_trace_kheap(reinterpret_cast<uint64_t>(heap->current.c()));
   return heap;
 }
 
@@ -165,6 +169,8 @@ Ptr<u8> kmalloc(Ptr<kheapinfo> heap, s32 size, u32 flags, char const* name) {
     heap->current.offset = memend;
     if (flags & KMALLOC_MEMSET)
       std::memset(Ptr<u8>(memstart).c(), 0, (size_t)size);
+    // Phase 26: bottom-allocator high-water mark moved.
+    __goal_runtime_trace_kheap(reinterpret_cast<uint64_t>(heap->current.c()));
     return Ptr<u8>(memstart);
   } else {
     // allocate from top
@@ -189,6 +195,10 @@ Ptr<u8> kmalloc(Ptr<kheapinfo> heap, s32 size, u32 flags, char const* name) {
 
     if (flags & KMALLOC_MEMSET)
       std::memset(Ptr<u8>(memstart).c(), 0, (size_t)size);
+
+    // Phase 26: top-allocator low-water mark moved. We report top so the
+    // harness can derive the symmetric "delta" from base.
+    __goal_runtime_trace_kheap(reinterpret_cast<uint64_t>(Ptr<u8>(memstart).c()));
 
     // this logging was added in Jak 3, but we port it back to all games:
     if ((heap == kglobalheap) && (kheaplogging != 0)) {
