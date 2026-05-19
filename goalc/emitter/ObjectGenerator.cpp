@@ -389,29 +389,50 @@ void ObjectGenerator::handle_temp_static_ptr_links(int seg) {
  */
 void ObjectGenerator::handle_temp_jump_links(int seg) {
   for (const auto& link : m_jump_temp_links_by_seg.at(seg)) {
-    // we need to compute three offsets, all relative to the start of data.
-    // 1). the location of the patch (the immediate of the opcode)
-    // 2). the value of RIP at the jump (the instruction after the jump, on x86)
-    // 3). the value of RIP we want
     const auto& function = m_function_data_by_seg.at(seg).at(link.jump_instr.func_id);
     ASSERT(link.jump_instr.func_id == link.dest.func_id);
     ASSERT(link.jump_instr.seg == seg);
     ASSERT(link.dest.seg == seg);
-    const auto& jump_instr = function.instructions.at(link.jump_instr.instr_id);
-    ASSERT(jump_instr.get_imm_size() == 4);
 
-    // 1). patch = instruction location + location of imm in instruction.
-    int patch_location = function.instruction_to_byte_in_data.at(link.jump_instr.instr_id) +
-                         jump_instr.offset_of_imm();
-
-    // 2). source rip = jump instr + 1 location
-    int source_rip = function.instruction_to_byte_in_data.at(link.jump_instr.instr_id + 1);
-
-    // 3). dest rip = first instruction of dest IR
-    int dest_rip =
+    int instr_byte = function.instruction_to_byte_in_data.at(link.jump_instr.instr_id);
+    int dest_byte =
         function.instruction_to_byte_in_data.at(function.ir_to_instruction.at(link.dest.ir_id));
 
-    patch_data<s32>(seg, patch_location, dest_rip - source_rip);
+    if (m_instruction_set == InstructionSet::ARM64) {
+      // AArch64 branches are PC-relative from the branch itself (not the
+      // following instruction) and the immediate is a word count, not a
+      // byte count. The opcode tells us which encoding to patch:
+      //   B   <label>   — bits 31..26 = 000101; imm26 in bits 0..25.
+      //   B.cond <label> — bits 31..24 = 01010100; imm19 in bits 5..23.
+      uint32_t enc;
+      const auto& data = m_data_by_seg.at(seg);
+      ASSERT(instr_byte + 4 <= (int)data.size());
+      memcpy(&enc, data.data() + instr_byte, 4);
+
+      int32_t disp_words = (dest_byte - instr_byte) / 4;
+
+      if ((enc & 0xFC000000u) == 0x14000000u) {
+        // B #imm26
+        enc = (enc & 0xFC000000u) | (static_cast<uint32_t>(disp_words) & 0x03FFFFFFu);
+      } else if ((enc & 0xFF000010u) == 0x54000000u) {
+        // B.cond #imm19 (keeps low cond nibble, bit 4 must remain 0)
+        uint32_t imm19 = static_cast<uint32_t>(disp_words) & 0x7FFFFu;
+        enc = (enc & 0xFF00001Fu) | (imm19 << 5);
+      } else {
+        ASSERT_MSG(false, "ARM64 jump-link patch: unrecognized branch opcode");
+      }
+      patch_data<uint32_t>(seg, instr_byte, enc);
+      continue;
+    }
+
+    // x86_64: 32-bit signed displacement embedded in the opcode at
+    // offset_of_imm(); the reference RIP is the instruction *after* the
+    // branch (hence + 1 in the instruction-to-byte lookup below).
+    const auto& jump_instr = function.instructions.at(link.jump_instr.instr_id);
+    ASSERT(jump_instr.get_imm_size() == 4);
+    int patch_location = instr_byte + jump_instr.offset_of_imm();
+    int source_rip = function.instruction_to_byte_in_data.at(link.jump_instr.instr_id + 1);
+    patch_data<s32>(seg, patch_location, dest_byte - source_rip);
   }
 }
 

@@ -448,6 +448,38 @@ InstructionARM64 movsx_r64_r32(Register dst, Register src);
  */
 InstructionARM64 cmp_gpr64_gpr64(Register a, Register b);
 
+// AArch64-only helpers (phase 24 minimum-viable backend).
+//
+// movz/movk in shift-of-16 increments — IR_LoadConstant64 emits a movz
+// at lsl=0 followed by up to three movks (at 16/32/48) to materialise a
+// full 64-bit immediate one ARM64 instruction at a time.
+InstructionARM64 movz_gpr64_imm16_lsl(Register dst, uint16_t imm, int shift_div16);
+InstructionARM64 movk_gpr64_imm16_lsl(Register dst, uint16_t imm, int shift_div16);
+
+// Placeholder branches for the jump-link patcher. Both encode a zero
+// displacement; ObjectGenerator::handle_temp_jump_links fills in the
+// imm26/imm19 field once function layout is known.
+InstructionARM64 b_uncond_placeholder();
+InstructionARM64 b_cond_placeholder(int cond);
+
+// AArch64 condition codes used with b_cond_placeholder.
+enum ArmCond : int {
+  ARM_COND_EQ = 0x0,
+  ARM_COND_NE = 0x1,
+  ARM_COND_CS = 0x2,
+  ARM_COND_CC = 0x3,
+  ARM_COND_MI = 0x4,
+  ARM_COND_PL = 0x5,
+  ARM_COND_VS = 0x6,
+  ARM_COND_VC = 0x7,
+  ARM_COND_HI = 0x8,
+  ARM_COND_LS = 0x9,
+  ARM_COND_GE = 0xA,
+  ARM_COND_LT = 0xB,
+  ARM_COND_GT = 0xC,
+  ARM_COND_LE = 0xD,
+};
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //   BIT STUFF
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
