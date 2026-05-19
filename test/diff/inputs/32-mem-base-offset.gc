@@ -1,0 +1,15 @@
+;; tags: mem-ops, addressing
+;; expect: 7
+;; Base+immediate-offset addressing. Exercises LDR Xt, [Xn, #imm] with
+;; the immediate inside the 12-bit unsigned-scaled range that the AArch64
+;; encoding allows directly (no need to materialize the offset into a
+;; temp register). x86 emits a single MOV r64, [reg + disp].
+;; We store four values at consecutive indices and read back element 3
+;; (offset = 3 * 8 = 24 bytes -- comfortably inside the immediate range).
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array int64 4)))
+    (set! (-> buf 0) 1)
+    (set! (-> buf 1) 3)
+    (set! (-> buf 2) 5)
+    (set! (-> buf 3) 7)
+    (format #t "~D~%" (-> buf 3))))

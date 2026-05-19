@@ -1,0 +1,21 @@
+;; tags: mem-ops, pair, functions
+;; expect: 100
+;; Cross-call register save/restore. The callee shadows two registers
+;; that main wants kept live across the call; on AArch64 the prologue
+;; should use STP X19, X20, [SP, #-16]! and the epilogue LDP X19, X20,
+;; [SP], #16 -- the canonical pair-with-writeback pattern. (x86 emits
+;; two PUSH/POP pairs.) The arithmetic confirms both saved values
+;; survive the call unchanged: 40 + 25 + (5 * 7) == 100.
+(defun mutate ((unused int))
+  ;; A black-box callee whose only purpose is to force the regalloc to
+  ;; pick callee-saved slots in main and round-trip them through the
+  ;; stack frame.
+  (let ((s 0))
+    (dotimes (i 10) (set! s (+ s i)))
+    s))
+
+(defun main ()
+  (let ((x 40)
+        (y 25))
+    (mutate 0)                  ;; forces save/restore around the call
+    (format #t "~D~%" (+ x y (* 5 7)))))

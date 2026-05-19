@@ -1,0 +1,11 @@
+;; tags: mem-ops, loads
+;; expect: 1099511627776
+;; 64-bit load. Exercises LDR Xd, [Xn] (x86: MOV r64, m64).
+;; The constant 2^40 (1099511627776) does not fit in 32 bits, so the
+;; codegen must actually issue a 64-bit-width load; if it accidentally
+;; emits the W-form the high 8 bits would drop and the printed result
+;; would collapse to 0.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array uint64 1)))
+    (set! (-> buf 0) (the uint64 1099511627776))
+    (format #t "~D~%" (-> buf 0))))

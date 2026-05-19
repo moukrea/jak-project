@@ -1,0 +1,17 @@
+;; tags: mem-ops, addressing
+;; expect: 30
+;; Base+register-offset addressing. A runtime index forces the codegen
+;; to pick LDR Xt, [Xn, Xm, LSL #3] (the scaled-register form) rather
+;; than a static immediate offset. x86 uses MOV r64, [base + idx*8].
+;; Without scaling the load would land on a non-element boundary and
+;; produce garbage -- so this case verifies the scale shift.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array int64 5))
+        (i 0))
+    (set! (-> buf 0) 10)
+    (set! (-> buf 1) 20)
+    (set! (-> buf 2) 30)
+    (set! (-> buf 3) 40)
+    (set! (-> buf 4) 50)
+    (set! i 2)                  ;; runtime index forces register addressing
+    (format #t "~D~%" (-> buf i))))

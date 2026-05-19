@@ -1,0 +1,10 @@
+;; tags: mem-ops, stores, roundtrip
+;; expect: 12345
+;; STRH-then-LDRH roundtrip. Exercises STRH Wt, [Xn] paired with LDRH.
+;; (x86: MOV WORD PTR [reg], r16 paired with MOVZX). 12345 fits in
+;; uint16, so the truncation done by STRH is a no-op for this value and
+;; we can verify the bytes survive the round-trip cleanly.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array uint16 1)))
+    (set! (-> buf 0) (the uint16 12345))
+    (format #t "~D~%" (-> buf 0))))

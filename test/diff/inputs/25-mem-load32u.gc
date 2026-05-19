@@ -1,0 +1,10 @@
+;; tags: mem-ops, loads
+;; expect: 4294967295
+;; Unsigned 32-bit load. Exercises LDR Wd, [Xn] -- the 32-bit form of
+;; LDR implicitly zero-extends into the 64-bit Xd, which matches x86's
+;; MOV r32, m32 semantics (writing to a 32-bit reg zeros the upper 32).
+;; 0xFFFFFFFF zero-extended must print as 4294967295, not -1.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array uint32 1)))
+    (set! (-> buf 0) (the uint32 #xffffffff))
+    (format #t "~D~%" (-> buf 0))))
