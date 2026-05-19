@@ -3,6 +3,7 @@
 #include "game/kernel/common/fileio.h"
 #include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/kprint.h"
+#include "game/kernel/common/runtime_trace.h"
 
 // total number of symbols in the table
 s32 NumSymbols;
@@ -83,8 +84,20 @@ u64 goal_malloc(u32 heap, u32 size, u32 flags, u32 name) {
 }
 
 extern "C" {
-// defined in asm_funcs.asm
-#ifdef __linux__
+// defined in asm_funcs.asm / asm_funcs_arm64.s
+#if defined(__linux__) && defined(__aarch64__)
+// Phase 26 (autoport): aarch64-linux dispatch uses the AArch64 trampoline
+// from game/kernel/asm_funcs_arm64.s. The symbol names differ from the
+// x86-64 SysV ones (no "_systemv" suffix); calling code below dispatches
+// via the same wrapper names.
+uint64_t _call_goal_asm_arm64(u64 a0, u64 a1, u64 a2, void* fptr, void* st_ptr, void* offset);
+uint64_t _call_goal_on_stack_asm_arm64(u64 rsp,
+                                       u64 u0,
+                                       u64 u1,
+                                       void* fptr,
+                                       void* st_ptr,
+                                       void* offset);
+#elif defined(__linux__)
 uint64_t _call_goal_asm_systemv(u64 a0, u64 a1, u64 a2, void* fptr, void* st_ptr, void* offset);
 uint64_t _call_goal_on_stack_asm_systemv(u64 rsp,
                                          u64 u0,
@@ -116,7 +129,11 @@ u64 call_goal(Ptr<Function> f, u64 a, u64 b, u64 c, u64 st, void* offset) {
   void* st_ptr = (void*)st;
 
   void* fptr = f.c();
-#ifdef __linux__
+  // Phase 26 trace hook: a dispatcher hand-off into GOAL is happening.
+  __goal_runtime_trace_goal_call();
+#if defined(__linux__) && defined(__aarch64__)
+  return _call_goal_asm_arm64(a, b, c, fptr, st_ptr, offset);
+#elif defined(__linux__)
   return _call_goal_asm_systemv(a, b, c, fptr, st_ptr, offset);
 #elif defined __APPLE__ && defined __x86_64__
   return _call_goal_asm_systemv(a, b, c, fptr, st_ptr, offset);
@@ -132,7 +149,11 @@ u64 call_goal_on_stack(Ptr<Function> f, u64 rsp, u64 st, void* offset) {
   void* st_ptr = (void*)st;
 
   void* fptr = f.c();
-#ifdef __linux__
+  // Phase 26 trace hook: a dispatcher hand-off into GOAL is happening.
+  __goal_runtime_trace_goal_call();
+#if defined(__linux__) && defined(__aarch64__)
+  return _call_goal_on_stack_asm_arm64(rsp, 0, 0, fptr, st_ptr, offset);
+#elif defined(__linux__)
   return _call_goal_on_stack_asm_systemv(rsp, 0, 0, fptr, st_ptr, offset);
 #elif defined __APPLE__ && defined __x86_64__
   return _call_goal_on_stack_asm_systemv(rsp, 0, 0, fptr, st_ptr, offset);

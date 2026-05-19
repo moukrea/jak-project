@@ -30,6 +30,20 @@ if(ANDROID)
     return()
 endif()
 
+# Phase 26 (autoport): aarch64-linux cross-build for the qemu stress
+# harness (tools/arm64-stress/goal_stress_arm64). Set OG_ARM64_STRESS=ON
+# in your CMake toolchain file (see cmake/aarch64-linux-toolchain.cmake)
+# and configure into a dedicated build dir (build-arm64-linux/). Diverts
+# straight into tools/arm64-stress/ to bypass the desktop dependency
+# tree (SDL3/GLES/imgui/discord/curl), none of which have an aarch64
+# sysroot here.
+option(OG_ARM64_STRESS "Build the phase-26 aarch64 stress harness (cross-toolchain)" OFF)
+if(OG_ARM64_STRESS)
+    message(STATUS "Phase 26 stress build: aarch64-linux cross-toolchain")
+    add_subdirectory(tools/arm64-stress)
+    return()
+endif()
+
 # Default to Release mode
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")

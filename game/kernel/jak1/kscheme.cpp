@@ -15,6 +15,7 @@
 #include "game/kernel/common/kmemcard.h"
 #include "game/kernel/common/kprint.h"
 #include "game/kernel/common/kscheme.h"
+#include "game/kernel/common/runtime_trace.h"
 #include "game/kernel/jak1/fileio.h"
 #include "game/kernel/jak1/kdgo.h"
 #include "game/kernel/jak1/klink.h"
@@ -612,6 +613,7 @@ Ptr<Symbol> set_fixed_symbol(u32 offset, const char* name, u32 value) {
   sym->value = value;
 
   NumSymbols++;
+  __goal_runtime_trace_symbol_intern();
   return sym;
 }
 
@@ -743,6 +745,8 @@ Ptr<Symbol> intern_from_c(const char* name) {
   info(symbol)->hash = hash;
 
   NumSymbols++;
+  // Phase 26 trace hook: a brand-new symbol was added to the table.
+  __goal_runtime_trace_symbol_intern();
   return symbol;
 }
 
@@ -864,6 +868,7 @@ Ptr<Type> set_fixed_type(u32 offset,
 
   // increment
   NumSymbols++;
+  __goal_runtime_trace_symbol_intern();
 
   // construct type if needed
   Ptr<Type> new_type;
