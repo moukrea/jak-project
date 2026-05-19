@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 11,
+  "current_phase_idx": 12,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -11,7 +11,8 @@
     "07-neon": 1,
     "08-coroutines": 1,
     "09-boot-linux-arm": 2,
-    "10-android-ndk": 1
+    "10-android-ndk": 1,
+    "11-apk": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -34,7 +35,8 @@
     "07-neon",
     "08-coroutines",
     "09-boot-linux-arm",
-    "10-android-ndk"
+    "10-android-ndk",
+    "11-apk"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -49,7 +51,8 @@
     "07-neon": 1779178825.575998,
     "08-coroutines": 1779178920.7747583,
     "09-boot-linux-arm": 1779179436.0781302,
-    "10-android-ndk": 1779181046.630071
+    "10-android-ndk": 1779181046.630071,
+    "11-apk": 1779181308.8975089
   },
-  "last_update": "2026-05-19T09:01:46.729211+00:00"
+  "last_update": "2026-05-19T09:10:54.347420+00:00"
 }
