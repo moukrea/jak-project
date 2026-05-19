@@ -396,12 +396,24 @@ Config read_config_file(const fs::path& path_to_config_file,
 
   // First, check if we need to update the JSON from the game versions overrides
   if (json.contains("version_overrides")) {
-    if (!json.at("version_overrides").contains(config_game_version)) {
-      throw std::runtime_error(fmt::format(
-          "'{}' provided which doesn't correspond with a 'version_overrides", config_game_version));
+    std::string version_to_use = config_game_version;
+    if (version_to_use.empty()) {
+      // No --version supplied: pick ntsc_v1 if present, otherwise the first
+      // key in version_overrides. This lets headless tooling (validators,
+      // CI) run the decompiler without having to thread a --version through.
+      if (json.at("version_overrides").contains("ntsc_v1")) {
+        version_to_use = "ntsc_v1";
+      } else if (!json.at("version_overrides").empty()) {
+        version_to_use = json.at("version_overrides").begin().key();
+      }
+      lg::info("No --version provided; defaulting to '{}'", version_to_use);
     }
-    lg::info("Game Config Overide: '{}'", config_game_version);
-    json.update(json.at("version_overrides").at(config_game_version));
+    if (!json.at("version_overrides").contains(version_to_use)) {
+      throw std::runtime_error(fmt::format(
+          "'{}' provided which doesn't correspond with a 'version_overrides", version_to_use));
+    }
+    lg::info("Game Config Overide: '{}'", version_to_use);
+    json.update(json.at("version_overrides").at(version_to_use));
   }
 
   // Then, update any config overrides
