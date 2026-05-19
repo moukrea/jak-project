@@ -1,0 +1,14 @@
+;; tags: float, arith, let
+;; expect: 9
+;; Float local with `let` binding: forces the codegen to spill
+;; or keep `x` in a SIMD/FP register across two uses. Exercises
+;; the regalloc's float-class assignment: the binding's type is
+;; `float`, so it must land in v0..v31 (not x0..x30), and the
+;; load/store-on-spill paths must use `str s, [sp, #imm]` /
+;; `ldr s, [sp, #imm]` rather than the integer-width `str w` /
+;; `ldr w` (which would corrupt the value on big-endian, and
+;; subtly miscompiles even on little-endian when the slot is
+;; later reloaded as a different width).
+(defun main ()
+  (let ((x 3.0))
+    (format #t "~D~%" (the int (* x x)))))

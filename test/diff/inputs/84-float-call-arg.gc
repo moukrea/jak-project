@@ -1,0 +1,18 @@
+;; tags: float, arith, abi
+;; expect: 25
+;; Pass floats as function arguments and return a float. Under
+;; AAPCS64, the first eight float/SIMD args go in v0..v7 and the
+;; return value goes in v0 -- a *different* register file from
+;; the integer x0..x7 / x0 mapping. This test is the canary for
+;; a regalloc that mistakenly assigns float args to GPRs (which
+;; would compile, but the callee would read undefined bits from
+;; v0..v3). Computes 3.0*3.0 + 4.0*4.0 = 25.0, the Pythagorean
+;; pin: any cross-register-file bug perturbs the sum off 25.
+(defun square ((x float))
+  (* x x))
+
+(defun hypot-sq ((a float) (b float))
+  (+ (square a) (square b)))
+
+(defun main ()
+  (format #t "~D~%" (the int (hypot-sq 3.0 4.0))))
