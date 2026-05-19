@@ -123,6 +123,11 @@ set_target_properties(android_kernel PROPERTIES
 # ---------------------------------------------------------------------------
 add_library(gk SHARED
     gk_android_main.cpp
+    # Phase 20 (autoport): goal_main lives in its own TU so the desktop
+    # build (which has its own goal_main in game/main.cpp) and the Android
+    # build don't compete for the symbol. The Android body honestly inits
+    # the kheap, opens KERNEL.CGO, and spawns the dispatcher thread.
+    android_goal_main.cpp
 )
 
 target_compile_features(gk PRIVATE cxx_std_20)
