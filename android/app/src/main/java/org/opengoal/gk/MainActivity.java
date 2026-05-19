@@ -100,19 +100,26 @@ public class MainActivity extends SDLActivity {
             Log.i(TAG, gameName + " iso_data present at " + isoDir.getAbsolutePath());
         }
 
-        // Overlay the touch controls on top of SDLActivity's mLayout
-        // (a RelativeLayout that already holds the SDLSurface). We keep
-        // it so the existing input plumbing (logged via TouchControlsView)
-        // stays observable; phase 22 will replace it with proper SDL
-        // gamepad mappings.
+        // Overlay the touch controls on top of SDLActivity's mLayout (a
+        // RelativeLayout that already holds the SDLSurface). Phase 23
+        // wires the overlay through NativeGk.onPadButton — the SDLSurface
+        // would otherwise consume every touch via its own onTouch listener.
+        // bringToFront + elevation force the overlay above the SDLSurface
+        // even though both children of mLayout are MATCH_PARENT; without
+        // this, RelativeLayout's child ordering and the SurfaceView's
+        // hardware-layer compositing can still steal touches.
         controls = new TouchControlsView(this);
         if (mLayout != null) {
             ViewGroup.LayoutParams lp = new FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT);
             mLayout.addView(controls, lp);
+            controls.bringToFront();
+            controls.setElevation(100f);
         }
 
-        Log.i(TAG, "MainActivity onCreate done; SDL thread will invoke gk_sdl_main");
+        Log.i(TAG, "MainActivity onCreate done; controls=" + (controls != null)
+                + " mLayout=" + (mLayout != null)
+                + " mLayout.children=" + (mLayout != null ? mLayout.getChildCount() : -1));
     }
 }
