@@ -1,0 +1,18 @@
+;; tags: control-flow, branches, dispatch
+;; expect: three
+;; A `cond` chain with several arms is the closest GOAL gets to a
+;; switch. Each arm lowers to a `cmp` + `b.eq` (or equivalent) with the
+;; non-matching arms chained by forward jumps that all need to land on
+;; the same merge label. Verifies forward-branch patching with multiple
+;; pending references to one label. Picking the middle arm (input 3)
+;; ensures we exercise both a fallthrough and a taken branch.
+(defun name-of ((n int))
+  (cond
+    ((= n 1) "one")
+    ((= n 2) "two")
+    ((= n 3) "three")
+    ((= n 4) "four")
+    (else "many")))
+
+(defun main ()
+  (format #t "~A~%" (name-of 3)))

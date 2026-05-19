@@ -1,0 +1,16 @@
+;; tags: control-flow, branches, cbnz
+;; expect: 7
+;; Mirror image of 42: `nonzero?` should lower to AArch64
+;; `cbnz Xn, <label>` -- compare-and-branch-if-nonzero. Crucially the
+;; encoding for cbz/cbnz only differs in one bit (op=0/1), so a sign
+;; mistake in the encoder would still produce a *valid* instruction
+;; that does the opposite thing -- which is exactly the bug class this
+;; test surfaces. Three calls, each contributing 0, 5, or 2 depending
+;; on the nonzero check.
+(defun bump ((n int))
+  (if (nonzero? n)
+      n
+      0))
+
+(defun main ()
+  (format #t "~D~%" (+ (bump 5) (bump 0) (bump 2))))

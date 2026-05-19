@@ -1,0 +1,13 @@
+;; tags: control-flow, functions, forward-branch
+;; expect: 42
+;; `main` calls `answer` which is defined *later* in the same file. At
+;; the time `main`'s body is emitted the callee address isn't known, so
+;; the codegen leaves a placeholder `bl` and records a fixup. When the
+;; ObjectGenerator finalizes, the imm26 field is patched. This is the
+;; same forward-fixup machinery as labels-within-a-function (45, 46) but
+;; at function-symbol granularity instead of label granularity.
+(defun main ()
+  (format #t "~D~%" (answer)))
+
+(defun answer ()
+  42)

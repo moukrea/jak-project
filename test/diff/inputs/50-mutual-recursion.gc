@@ -1,0 +1,20 @@
+;; tags: control-flow, functions, recursion
+;; expect: t
+;; Mutual recursion between `even?` and `odd?`. Each call site is a
+;; *forward* reference at the point of emission (the callee is defined
+;; later in the file for one direction), so the codegen must emit a
+;; `bl <unresolved>` placeholder and patch the imm26 field once the
+;; callee's address is fixed. The chain bottoms out at n=0 where
+;; `even?` returns #t. Asks: is 10 even?
+(defun my-even? ((n int))
+  (if (zero? n)
+      #t
+      (my-odd? (- n 1))))
+
+(defun my-odd? ((n int))
+  (if (zero? n)
+      #f
+      (my-even? (- n 1))))
+
+(defun main ()
+  (format #t "~A~%" (my-even? 10)))

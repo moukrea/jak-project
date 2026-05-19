@@ -1,0 +1,13 @@
+;; tags: control-flow, branches, compare, unsigned
+;; expect: hi
+;; Unsigned comparison. The two operands here are uint64. Read as
+;; signed, `0xFFFFFFFFFFFFFFFE` is -2 and would be "less than" 5; read
+;; as unsigned it is a huge positive number, hence the "hi" arm. This
+;; pins the codegen to emit `b.hi` (unsigned "higher"), not `b.gt`
+;; (signed "greater than"). Confusing the two is a classic AArch64
+;; cond-code bug and this test catches it.
+(defun cmp-u ((a uint) (b uint))
+  (if (> a b) "hi" "lo-or-eq"))
+
+(defun main ()
+  (format #t "~A~%" (cmp-u (the uint -2) (the uint 5))))
