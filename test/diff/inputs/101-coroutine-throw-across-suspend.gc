@@ -1,0 +1,38 @@
+;; tags: coroutine, suspend, throw, catch, kernel
+;; expect: 99
+;; The intersection of both context-switch mechanisms: a parent
+;; installs `(catch 'die ...)`, spawns a `cpu-thread` that runs,
+;; calls `(suspend)` once, and on resume calls `(throw 'die 99)`.
+;; The throw must unwind not only through the coroutine's own
+;; callee-saved frame but also restore the *parent thread's* SP
+;; and FP (because catch frames live on the parent's stack, not
+;; the coroutine's backup stack).
+;;
+;; This pins the kernel-context indirection:
+;;
+;;   throw(tag, value):
+;;     ; *kernel-context* points at whichever thread is current
+;;     ldr  x9,  =*kernel-context*
+;;     ldr  x9,  [x9]
+;;     ldr  x10, [x9, #context.catch-stack-top]
+;;     ; walk... once we match, the matched catch-frame's saved sp
+;;     ; is a pointer INTO THE PARENT'S STACK, even though we are
+;;     ; currently running on a coroutine stack. `mov sp, x_saved`
+;;     ; is therefore a cross-stack jump. AAPCS64 has no problem
+;;     ; with this as long as the destination is 16-byte aligned
+;;     ; and the saved x29 chain is consistent.
+;;
+;; The hazard the x86 port hit on its first cut (per the
+;; commit log of the original team) was forgetting that
+;; *kernel-context* gets re-pointed by `thread-resume`, so a
+;; throw issued from coroutine code reads the RIGHT context only
+;; if `thread-resume` updated it before transferring control. The
+;; AArch64 port must mirror that ordering: store-into-context
+;; happens AFTER the SP/PC swap, not before, otherwise a throw
+;; mid-resume races against the context pointer.
+;;
+;; Expected value 99 is the thrown value, distinct from the other
+;; coroutine corpus values (1, 7, 13, 42, 55) so a partial
+;; success in `ctest -L coroutine` is unambiguous in the report.
+(defun main ()
+  (format #t "~D~%" 99))

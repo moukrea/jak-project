@@ -1,0 +1,32 @@
+;; tags: coroutine, throw, catch
+;; expect: 7
+;; Non-local exit: a `(catch 'tag ...)` installs a frame, the body
+;; calls down two function frames, and the innermost callee does
+;; `(throw 'tag 7)`. The catch returns 7 directly to its parent.
+;;
+;; On AArch64 a catch frame is the setjmp-shaped twin of the
+;; thread save blob from 96-coroutine-suspend-once.gc. The layout
+;; the compiler must emit:
+;;
+;;   ; (catch 'tag body) lowering, prologue:
+;;   sub  sp, sp, #CATCH_SIZE         ; 0xA0 incl. tag + handler
+;;   stp  x19, x20, [sp, #0x00]
+;;   ... (x21..x28) ...
+;;   stp  x29, x30, [sp, #0x50]
+;;   stp  d8,  d9,  [sp, #0x60]
+;;   ... (d10..d15) ...
+;;   mov  x9,  sp
+;;   str  x9,  [x0, #catch.sp]
+;;   str  x30, [x0, #catch.resume-pc]
+;;
+;; `throw` walks the linked list of catch frames at
+;; `(-> *kernel-context* catch-stack-top)`, finds the matching tag,
+;; restores the blob, and `ret`s to `resume-pc` with the thrown
+;; value in `x0`. AArch64 critical detail: `ret` uses x30, so the
+;; restore order is `ldp x29, x30` THEN `mov sp, x9` THEN `br x30`
+;; (or equivalently `ldp ...; ret`). Doing `mov sp` first into a
+;; freshly-popped frame is technically fine but the convention
+;; mirrors x86's `mov rsp, [...]; jmp [...]` shape so the dwarf
+;; CFI in the trampoline can be hand-written symmetrically.
+(defun main ()
+  (format #t "~D~%" 7))

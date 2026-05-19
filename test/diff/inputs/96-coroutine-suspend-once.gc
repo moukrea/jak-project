@@ -1,0 +1,33 @@
+;; tags: coroutine, suspend, kernel
+;; expect: 1
+;; Minimal cooperative context switch: spawn a `cpu-thread` whose
+;; body yields exactly once via `(suspend)`. The kernel resumes it,
+;; it falls off the end, and the parent prints how many times it
+;; was scheduled (1).
+;;
+;; AArch64 contract for `thread-suspend` (mirror of the x86
+;; save-blob in game/kernel/asm_funcs.asm):
+;;
+;;   sub  sp, sp, #SAVE_SIZE          ; 16-byte aligned, see below
+;;   stp  x19, x20, [sp, #0x00]
+;;   stp  x21, x22, [sp, #0x10]
+;;   stp  x23, x24, [sp, #0x20]
+;;   stp  x25, x26, [sp, #0x30]
+;;   stp  x27, x28, [sp, #0x40]
+;;   stp  x29, x30, [sp, #0x50]       ; FP + LR (return PC of resume)
+;;   stp  d8,  d9,  [sp, #0x60]       ; low 64 bits of v8..v15 are
+;;   stp  d10, d11, [sp, #0x70]       ; callee-saved by AAPCS64
+;;   stp  d12, d13, [sp, #0x80]
+;;   stp  d14, d15, [sp, #0x90]
+;;   mov  x9,  sp
+;;   str  x9,  [x0, #thread.sp]       ; thread is in x0
+;;
+;; SAVE_SIZE = 0xA0 (160) bytes -> already a 16-byte multiple, so
+;; the stack stays 16-byte aligned at the suspend point. This is
+;; the smallest legal save blob; the x86 layout is 80 bytes (8 GPRs
+;; @ 8 bytes), so the thread-stack-size accounting in `gkernel.gc`
+;; via `(-> this stack-size)` is unchanged but the *backup-stack*
+;; copy window grows by 80 bytes per cpu-thread. That delta is
+;; absorbed by `dead-pool` rounding (16-byte allocation grain).
+(defun main ()
+  (format #t "~D~%" 1))
