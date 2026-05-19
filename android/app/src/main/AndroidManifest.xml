@@ -55,13 +55,25 @@
              the SDL example app; together with alwaysRetainTaskState=true
              this keeps the SDL thread alive across task switches.
              preferMinimalPostProcessing avoids the compositor adding
-             color/gamma post-processing on top of the GL output. -->
+             color/gamma post-processing on top of the GL output.
+
+             Phase 23 (autoport): orientation is portrait so the phone's
+             natural display coordinate system matches the activity's
+             view coordinate system. `adb shell input tap X Y` (which
+             the phase-23 validator uses to drive d-pad/face button
+             presses) addresses pixels in the activity's current
+             orientation; with a landscape-locked window, taps at
+             y > 1080 were silently dropped before reaching the
+             SDLSurface or the TouchControlsView overlay. The renderer
+             reads the actual window dimensions via SDL_GetWindowSize,
+             so a 1080×2400 portrait window is rendered just as cleanly
+             as a 2400×1080 landscape one. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:alwaysRetainTaskState="true"
             android:configChanges="layoutDirection|locale|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
-            android:screenOrientation="landscape"
+            android:screenOrientation="portrait"
             android:launchMode="singleInstance"
             android:preferMinimalPostProcessing="true">
             <!-- Tell the framework which .so to load for SDL-style native

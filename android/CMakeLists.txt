@@ -161,6 +161,10 @@ add_library(gk SHARED
     # loop. Owning the generated shader blob, it depends on the
     # gen_android_shaders custom target (wired below).
     android_renderer.cpp
+    # Phase 23 (autoport): SDL virtual gamepad + audio device bring-up.
+    # Driven from gk_sdl_main; the JNI bridge in gk_android_main.cpp
+    # forwards on-screen pad presses through this TU's free functions.
+    android_input_audio.cpp
 )
 
 add_dependencies(gk gen_android_shaders)
