@@ -1,0 +1,13 @@
+;; tags: control-flow, branches, compare
+;; expect: equal
+;; Equality compare. Lowers to AArch64 `cmp Xa, Xb` (alias of `subs xzr,`
+;; which sets NZCV) followed by `b.eq <taken>` / fallthrough to the else
+;; arm. The two literal strings live in the const pool; the chosen one
+;; is loaded into the return reg in the selected arm.
+(defun describe ((a int) (b int))
+  (if (= a b)
+      "equal"
+      "different"))
+
+(defun main ()
+  (format #t "~A~%" (describe 7 7)))

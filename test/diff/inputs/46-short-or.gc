@@ -1,0 +1,16 @@
+;; tags: control-flow, branches, short-circuit
+;; expect: any
+;; Companion to 45: `(or a b c)` short-circuits the other direction --
+;; the first true clause skips the rest and the codegen emits forward
+;; branches on the "true" path to a single accept label. Two of the
+;; three predicates are false here; the middle one fires, so the third
+;; must not be evaluated. (If it were evaluated and asserted, we'd
+;; never reach this comment -- but the harness would catch the diff in
+;; expected output, which is the actual verification.)
+(defun any-pos ((a int) (b int) (c int))
+  (if (or (> a 0) (> b 0) (> c 0))
+      "any"
+      "none"))
+
+(defun main ()
+  (format #t "~A~%" (any-pos -1 7 -3)))

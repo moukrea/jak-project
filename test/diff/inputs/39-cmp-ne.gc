@@ -1,0 +1,13 @@
+;; tags: control-flow, branches, compare
+;; expect: different
+;; Inverse of 38: same `cmp` instruction, but the codegen picks the
+;; opposite condition code -- `b.ne` -- so the "different" arm executes.
+;; Verifies the cond-code table is wired correctly for `!=` (not just
+;; "swap the arms of the if").
+(defun describe ((a int) (b int))
+  (if (!= a b)
+      "different"
+      "equal"))
+
+(defun main ()
+  (format #t "~A~%" (describe 7 9)))

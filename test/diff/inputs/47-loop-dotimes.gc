@@ -1,0 +1,13 @@
+;; tags: control-flow, loops, backward-branch
+;; expect: 45
+;; Iterative loop -- the canonical backward-branch pattern. `dotimes`
+;; emits: init counter, label L, body, increment, cmp counter limit,
+;; b.lt L. The `b.lt` is the backward edge; its offset is *negative*
+;; and known at the moment of emission (no patching needed for this
+;; direction, but the encoder must sign-extend correctly into the
+;; imm19 field of the conditional-branch encoding). Sum 0+1+...+9 = 45.
+(defun main ()
+  (let ((sum 0))
+    (dotimes (i 10)
+      (set! sum (+ sum i)))
+    (format #t "~D~%" sum)))

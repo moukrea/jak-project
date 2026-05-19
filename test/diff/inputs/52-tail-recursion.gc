@@ -1,0 +1,16 @@
+;; tags: control-flow, recursion, branches
+;; expect: 5050
+;; Tail-recursive accumulator: `go n acc` reduces by one each step
+;; until n hits zero. The recursive call is in tail position, so an
+;; optimizing backend *could* rewrite it as a branch-back instead of a
+;; `bl`. Either lowering is fine for correctness -- this test just
+;; checks that 100-deep recursion (or its loop equivalent) runs and
+;; that the final acc reaches 1+2+...+100 = 5050 without stack
+;; corruption or branch-range issues.
+(defun go ((n int) (acc int))
+  (if (zero? n)
+      acc
+      (go (- n 1) (+ acc n))))
+
+(defun main ()
+  (format #t "~D~%" (go 100 0)))
