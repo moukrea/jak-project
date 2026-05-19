@@ -25,6 +25,20 @@ else()
     set(BUILD_STATIC_LIBS OFF)
 endif()
 
+# GOAL compiler code-generation backend selection (Android port phase 01).
+# x86  -> the existing x86-64 emitter (default, current behavior)
+# arm64 -> the AArch64 scaffold (stubs only, no real codegen yet)
+set(GOALC_BACKEND "x86" CACHE STRING "GOAL compiler codegen backend: x86 or arm64")
+set_property(CACHE GOALC_BACKEND PROPERTY STRINGS "x86" "arm64")
+if(GOALC_BACKEND STREQUAL "arm64")
+    message(STATUS "GOALC backend: arm64 (scaffold)")
+    add_compile_definitions(GOALC_BACKEND_ARM64)
+elseif(GOALC_BACKEND STREQUAL "x86")
+    message(STATUS "GOALC backend: x86")
+else()
+    message(FATAL_ERROR "Unsupported GOALC_BACKEND=${GOALC_BACKEND}; expected x86 or arm64")
+endif()
+
 # For clangd
 if (EXISTS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json" )
     configure_file(

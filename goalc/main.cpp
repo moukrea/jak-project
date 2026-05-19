@@ -13,6 +13,7 @@
 #include "common/versions/versions.h"
 
 #include "goalc/compiler/Compiler.h"
+#include "goalc/emitter/IGen_arm64.h"
 
 #include "fmt/color.h"
 #include "fmt/format.h"
@@ -42,6 +43,7 @@ int main(int argc, char** argv) {
 
   // TODO - a lot of these flags could be deprecated and moved into `repl-config.json`
   CLI::App app{"OpenGOAL Compiler / REPL"};
+  app.set_version_flag("--version", emitter::IGen_arm64::version_string());
   app.add_option("-c,--cmd", cmd, "Specify a command to run, no REPL is launched in this mode");
   app.add_option("-u,--user", username,
                  "Specify the username to use for your user profile in 'goal_src/user/'");
