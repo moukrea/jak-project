@@ -22,8 +22,14 @@ cmake --build build-arm64 --target goalc > /tmp/build-arm.log 2>&1 || {
 echo "  ok: arm64 build"
 
 # IGen_arm64 symbols present
+# NOTE: must not pipe nm directly into `grep -q`. The goalc binary's nm output
+# is larger than the kernel pipe buffer (~64KB), so `grep -q` exits at the
+# first match while nm is still writing; nm then dies with SIGPIPE and
+# `set -o pipefail` turns that into a spurious failure. Capturing into a
+# variable lets grep drain the full pipe.
 GOALC_ARM=$(find build-arm64 -name 'goalc' -type f -executable | head -1)
-if ! nm "$GOALC_ARM" 2>/dev/null | grep -q IGen_arm64; then
+NM_MATCH=$(nm "$GOALC_ARM" 2>/dev/null | grep IGen_arm64 || true)
+if [ -z "$NM_MATCH" ]; then
     echo "FAIL: IGen_arm64 symbols not found in goalc"
     exit 1
 fi

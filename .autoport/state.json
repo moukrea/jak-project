@@ -6,7 +6,8 @@
   "fingerprints": {
     "00-harness": [
       "7d7c7a9d7189"
-    ]
+    ],
+    "01-scaffold": []
   },
   "stuck_reasons": {},
   "completed": [
@@ -15,7 +16,8 @@
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
-    "00-harness": 1779141327.5929835
+    "00-harness": 1779141327.5929835,
+    "01-scaffold": 1779173704.1789694
   },
-  "last_update": "2026-05-18T22:14:54.025193+00:00"
+  "last_update": "2026-05-19T06:55:04.178973+00:00"
 }

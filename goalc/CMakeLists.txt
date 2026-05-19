@@ -7,6 +7,7 @@ add_library(compiler
         emitter/IGen.cpp
         emitter/IGenARM64.cpp
         emitter/IGenX86.cpp
+        emitter/IGen_arm64.cpp
         debugger/disassemble.cpp
         build_level/common/build_level.cpp
         build_actor/common/animation_processing.cpp
