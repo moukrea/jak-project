@@ -1,0 +1,7 @@
+;; tags: int-arith, division
+;; expect: 3
+;; Signed modulo. AArch64 lacks a direct MOD instruction; codegen emits
+;; SDIV followed by MSUB (a*b - c). x86 reads the remainder out of RDX
+;; after IDIV. Both should produce 23 mod 5 == 3.
+(defun main ()
+  (format #t "~D~%" (mod 23 5)))

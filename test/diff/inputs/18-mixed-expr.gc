@@ -1,0 +1,8 @@
+;; tags: int-arith
+;; expect: 23
+;; Multiple arithmetic ops in a single expression. Exercises the register
+;; allocator's spill/reuse logic by forcing several live intermediates:
+;; (* 3 5) = 15, (- 20 12) = 8, sum = 23. The aarch64 backend should pick
+;; up MUL and SUB in adjacent slots and recycle the temporary GPR.
+(defun main ()
+  (format #t "~D~%" (+ (* 3 5) (- 20 12))))

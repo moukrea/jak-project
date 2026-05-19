@@ -1,0 +1,7 @@
+;; tags: int-arith
+;; expect: 4096
+;; Add with an immediate that fits in the AArch64 12-bit unsigned imm
+;; encoding (so codegen uses ADD Xd, Xn, #imm rather than materializing
+;; into a temp). 4095 + 1 == 4096 -- straddling the boundary on purpose.
+(defun main ()
+  (format #t "~D~%" (+ 4095 1)))

@@ -1,0 +1,7 @@
+;; tags: int-arith, shifts
+;; expect: -1
+;; Arithmetic shift right (sign-preserving). On aarch64 ASR is an alias
+;; of SBFM; on x86 it's SAR. The high bit must replicate, so -8 >> 3
+;; arithmetic == -1, not 0x1FFFFFFFFFFFFFFF.
+(defun main ()
+  (format #t "~D~%" (sar -8 3)))

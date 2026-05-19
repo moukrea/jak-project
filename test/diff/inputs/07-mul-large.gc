@@ -1,0 +1,7 @@
+;; tags: int-arith
+;; expect: 1000000
+;; 64-bit signed multiplication of two 32-bit operands whose product
+;; overflows 32 bits. On aarch64 we use MADD Xd, Xn, Xm, XZR (i.e. MUL);
+;; on x86 it's IMUL r64, r64. Validates that the upper half is kept.
+(defun main ()
+  (format #t "~D~%" (* 1000 1000)))

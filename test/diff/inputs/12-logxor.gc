@@ -1,0 +1,7 @@
+;; tags: int-arith, bitwise
+;; expect: 102
+;; Bitwise exclusive-or. AArch64 EOR Xd, Xn, Xm. 0xAA ^ 0xCC == 0x66 == 102.
+;; This pair has interesting carry/borrow behavior under add/sub so it
+;; doubles as a sanity check that XOR codegen doesn't lose to ADD.
+(defun main ()
+  (format #t "~D~%" (logxor #xAA #xCC)))

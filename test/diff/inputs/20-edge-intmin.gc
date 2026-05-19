@@ -1,0 +1,8 @@
+;; tags: int-arith
+;; expect: -2147483648
+;; Edge value: INT32_MIN. Important regression check because some signed
+;; codegen paths special-case INT_MIN/-1 (which would trap on x86 IDIV).
+;; Here we just print it through a couple of identity ops to make sure
+;; the bit pattern survives.
+(defun main ()
+  (format #t "~D~%" (+ -2147483647 -1)))
