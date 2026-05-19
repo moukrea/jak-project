@@ -93,14 +93,15 @@ void BlitDisplays::render(DmaFollower& dma,
   // the resolution/aspect/size changed, and there is a different letterbox than last frame.
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glClearColor(0.0, 0.0, 0.0, 0.0);
-  glClearDepth(0.0);
+  // Phase 21 (autoport): glClearDepthf is portable to GLES.
+  glClearDepthf(0.0f);
   glDepthMask(GL_TRUE);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   glDisable(GL_BLEND);
 
   glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
   glClearColor(0.0, 0.0, 0.0, 0.0);
-  glClearDepth(0.0);
+  glClearDepthf(0.0f);
   glClearStencil(0);
   glDepthMask(GL_TRUE);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);

@@ -44,6 +44,13 @@
 #include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/memory_layout.h"
 
+// Phase 21 (autoport): SDL/GLES bring-up + shader compile + render loop
+// lives in its own TU so this file stays focused on the kernel boot
+// sequence. Both are driven from goal_main below — kheap + CGO load run
+// first, then the dispatcher thread is detached, then the SDL main
+// thread enters android_renderer_run() until quit.
+#include "android_renderer.h"
+
 // Forward declaration matches the one at the top of game/main.cpp so the
 // desktop and Android boot entries share a single signature.
 int goal_main(int argc, char** argv);
@@ -233,13 +240,23 @@ int goal_main(int argc, char** argv) {
   std::thread dispatcher(dispatcher_thread_fn);
   dispatcher.detach();
 
-  // Block the SDL thread here so SDLActivity stays alive. Returning would
-  // tear the activity down and the validator would observe
-  // "goal_main: returned". Sleep in a tight-ish loop so a future phase can
-  // gracefully unblock us by toggling MasterExit.
-  while (MasterExit == RuntimeExitStatus::RUNNING) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  }
+  // ---------------------------------------------------------------------
+  // Phase 21 (autoport): hand the SDL main thread to the renderer. It
+  // brings up SDL_INIT_VIDEO + an EGL/GLES 3.20 context on the
+  // SDLActivity surface, compiles the curated shader subset, then loops
+  // submitting frames + swapping until SDL_EVENT_QUIT or MasterExit
+  // transitions out of RUNNING.
+  //
+  // The dispatcher thread above continues idling in parallel; phase 22+
+  // will replace that with the real GOAL kernel dispatch and have it
+  // talk to the renderer over the existing bucket-protocol queue. For
+  // now the renderer is self-driven — clear + a single full-screen
+  // solid_color draw per frame — which is enough to exercise the
+  // first-frame markers the validator asserts.
+  // ---------------------------------------------------------------------
+  const int renderer_rc = android_renderer_run();
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "android_renderer_run returned %d", renderer_rc);
 
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "goal_main: MasterExit set, exiting cleanly");

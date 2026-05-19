@@ -59,6 +59,13 @@
 //  This breaks the fade-out/thresholding, and likely the colors. But it still looks vaguely like
 //  clouds.
 void debug_save_opengl_texture(const std::string& out, GLuint texture) {
+#ifdef __ANDROID__
+  // Phase 21 (autoport): glGetTexImage is not in GLES. This is a debug
+  // texture dumper; on Android it's a no-op until someone wires a
+  // glReadPixels-via-FBO fallback (out of scope for phase 21).
+  (void)out;
+  (void)texture;
+#else
   glBindTexture(GL_TEXTURE_2D, texture);
   int w, h;
   glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
@@ -67,6 +74,7 @@ void debug_save_opengl_texture(const std::string& out, GLuint texture) {
   std::vector<u8> data(w * h * 4);
   glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, data.data());
   file_util::write_rgba_png(out, data.data(), w, h);
+#endif
 }
 
 /*!
@@ -2771,6 +2779,12 @@ int update_opengl_noise_texture(GLuint texture,
 }
 
 void debug_save_opengl_u8_texture(const std::string& out, GLuint texture) {
+#ifdef __ANDROID__
+  // Phase 21 (autoport): glGetTexImage is not in GLES — debug dumper
+  // is a no-op on Android.
+  (void)out;
+  (void)texture;
+#else
   glBindTexture(GL_TEXTURE_2D, texture);
   int w, h;
   glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
@@ -2786,6 +2800,7 @@ void debug_save_opengl_u8_texture(const std::string& out, GLuint texture) {
     data[i * 4 + 3] = 255;
   }
   file_util::write_rgba_png(out, data.data(), w, h);
+#endif
 }
 
 void TextureAnimator::setup_sky() {

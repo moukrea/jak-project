@@ -383,9 +383,14 @@ void ShadowRenderer::draw(SharedRenderState* render_state, ScopedProfilerNode& p
       glUniform4f(
           glGetUniformLocation(render_state->shaders[ShaderId::SHADOW].id(), "color_uniform"), 0.0f,
           0.0f, 0.0f, 0.5f);
+#ifndef __ANDROID__
+      // Phase 21 (autoport): wireframe via glPolygonMode is desktop-only.
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
       glDrawElements(GL_TRIANGLES, (m_next_front_index - 6), GL_UNSIGNED_INT, nullptr);
+#ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
       glEnable(GL_BLEND);
     }
     prof.add_draw_call();
@@ -408,9 +413,13 @@ void ShadowRenderer::draw(SharedRenderState* render_state, ScopedProfilerNode& p
       glUniform4f(
           glGetUniformLocation(render_state->shaders[ShaderId::SHADOW].id(), "color_uniform"), 0.0f,
           0.0f, 0.0f, 0.5f);
+#ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
       glDrawElements(GL_TRIANGLES, (m_next_back_index - 0), GL_UNSIGNED_INT, nullptr);
+#ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
       glEnable(GL_BLEND);
     }
 
