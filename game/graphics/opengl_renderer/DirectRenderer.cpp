@@ -310,9 +310,15 @@ void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfil
   if (m_debug_state.wireframe) {
     render_state->shaders[ShaderId::DEBUG_RED].activate();
     glDisable(GL_BLEND);
+#ifndef __ANDROID__
+    // Phase 21 (autoport): glPolygonMode is not in GLES — wireframe debug
+    // is a desktop-only feature.
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
     glDrawArrays(GL_TRIANGLES, 0, m_prim_buffer.vert_count);
+#ifndef __ANDROID__
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
     m_blend_state_needs_gl_update = true;
     m_prim_gl_state_needs_gl_update = true;
     draw_count++;
