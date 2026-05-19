@@ -1,0 +1,13 @@
+;; tags: abi, functions, calling-convention, control-flow
+;; expect: 21
+;; Call site that lives in one arm of an `if`. The merge label must
+;; not assume the call happened -- in particular the regalloc must
+;; treat the call-clobbered register set as "may have been clobbered"
+;; on the merged edge, not "was clobbered" (which would force needless
+;; spills on the non-call path).
+(defun add-three ((x int))
+  (+ x 3))
+
+(defun main ()
+  (let ((v 18))
+    (format #t "~D~%" (if (> v 0) (add-three v) v))))

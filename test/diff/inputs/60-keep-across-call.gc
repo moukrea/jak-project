@@ -1,0 +1,19 @@
+;; tags: abi, functions, calling-convention, regalloc
+;; expect: 100
+;; Bind `seed` to 10, then make a call that does *not* use `seed`,
+;; then read `seed` again. AAPCS64 x9..x15 are caller-saved -- if the
+;; regalloc parks `seed` in one of those, the call site must spill
+;; it (to stack or to a callee-saved x19..x28) before the `bl`.
+;; If it forgets, `seed` reads back as whatever junk `noisy` leaves
+;; in that register. The squared result of 10 is 100; any other
+;; answer means the spill was missed.
+(defun noisy ()
+  ;; Clobbers a bunch of temp regs but returns a fixed value.
+  (let* ((a 1) (b 2) (c 3) (d 4) (e 5)
+         (f (+ a b)) (g (+ c d)) (h (+ e f)))
+    (+ g h)))
+
+(defun main ()
+  (let ((seed 10))
+    (noisy)
+    (format #t "~D~%" (* seed seed))))

@@ -1,0 +1,15 @@
+;; tags: abi, functions, calling-convention, recursion
+;; expect: 55
+;; Fibonacci -- two recursive calls per non-base frame. The result of
+;; the *first* recursive call must survive the *second*. That value
+;; is the canonical "live across a call" case for recursive functions:
+;; it can't live in a caller-saved temp, and if the regalloc spills
+;; it to the stack it must allocate a stack slot in the prologue.
+;; fib(10) = 55.
+(defun fib ((n int))
+  (if (< n 2)
+      n
+      (+ (fib (- n 1)) (fib (- n 2)))))
+
+(defun main ()
+  (format #t "~D~%" (fib 10)))

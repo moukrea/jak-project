@@ -1,0 +1,11 @@
+;; tags: abi, functions, calling-convention, control-flow
+;; expect: ok
+;; The call result *is* the predicate -- `if` consumes x0 directly
+;; after `bl`. No reg shuffle between call and `cbz`/`cbnz` should
+;; be needed. (Some naive lowerings copy x0 to a fresh vreg just to
+;; immediately compare it; that's wasteful but not wrong.)
+(defun is-positive ((x int))
+  (> x 0))
+
+(defun main ()
+  (format #t "~A~%" (if (is-positive 5) 'ok 'fail)))
