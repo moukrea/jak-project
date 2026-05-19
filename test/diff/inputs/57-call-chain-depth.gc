@@ -1,0 +1,25 @@
+;; tags: abi, functions, calling-convention, stack
+;; expect: 5
+;; Five-deep static call chain: main -> a -> b -> c -> d -> leaf.
+;; Each frame must save and restore (x29, x30) so the unwound return
+;; chain lands back in main. With a broken prologue/epilogue this
+;; either crashes (lr clobbered) or returns garbage. The arithmetic
+;; is set up so the answer (5) is sensitive to every level executing
+;; once -- each non-leaf adds 1 to leaf's return value of 0.
+(defun leaf ()
+  0)
+
+(defun d ()
+  (+ 1 (leaf)))
+
+(defun c ()
+  (+ 1 (d)))
+
+(defun b ()
+  (+ 1 (c)))
+
+(defun a ()
+  (+ 1 (b)))
+
+(defun main ()
+  (format #t "~D~%" (+ 1 (a))))

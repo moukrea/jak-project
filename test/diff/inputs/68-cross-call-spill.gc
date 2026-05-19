@@ -1,0 +1,18 @@
+;; tags: abi, functions, calling-convention, regalloc, stack
+;; expect: 78
+;; Twelve live integer values bracket a call. Even after using every
+;; callee-saved register (x19..x28 = 10), at least two values must
+;; land in stack slots and be reloaded after the call. This exercises
+;; the spill path in the regalloc, not just register-to-register
+;; saving. Result is 1+2+3+...+12 = 78.
+(defun zero-call ()
+  0)
+
+(defun main ()
+  (let* ((a 1) (b 2) (c 3) (d 4) (e 5) (f 6)
+         (g 7) (h 8) (i 9) (j 10) (k 11) (l 12))
+    (zero-call)
+    (format #t "~D~%"
+            (+ (+ (+ a b) (+ c d))
+               (+ (+ e f) (+ g h))
+               (+ (+ i j) (+ k l))))))

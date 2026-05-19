@@ -1,0 +1,15 @@
+;; tags: abi, functions, calling-convention, recursion
+;; expect: 9
+;; Tiny Ackermann: A(2, 3) = 9. Three-way recursive nesting really
+;; stresses the call/return path -- not because the math is hard but
+;; because the call graph branches in a non-tail position on both
+;; arms. Picking m=2 keeps the recursion depth bounded so this is
+;; cheap to evaluate; the point of the test is the call structure.
+(defun ack ((m int) (n int))
+  (cond
+    ((zero? m) (+ n 1))
+    ((zero? n) (ack (- m 1) 1))
+    (#t        (ack (- m 1) (ack m (- n 1))))))
+
+(defun main ()
+  (format #t "~D~%" (ack 2 3)))

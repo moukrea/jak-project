@@ -1,0 +1,16 @@
+;; tags: abi, functions, calling-convention, stack
+;; expect: 6
+;; Function with an odd number (3) of stack-resident locals. Naive
+;; "one 8-byte slot per spill" would leave SP at 24 bytes below the
+;; caller-frame -- *not* 16-byte aligned, which AAPCS64 requires at
+;; every public-function boundary (and which the kernel enforces on
+;; the call into `main`). The codegen must round up to 32 bytes, or
+;; pair slots with `stp`. If it doesn't, an SP-relative `ldr` inside
+;; `helper` will fault or read garbage -- typically manifests as a
+;; SIGBUS only on a release build with optimization off.
+(defun helper ((a int) (b int) (c int))
+  (+ (+ a b) c))
+
+(defun main ()
+  (let* ((x 1) (y 2) (z 3))
+    (format #t "~D~%" (helper x y z))))

@@ -1,0 +1,20 @@
+;; tags: abi, functions, calling-convention, regalloc
+;; expect: 55
+;; Ten local values live across a single call. With only 8 GPR arg
+;; regs and a handful of caller-saved temps, the regalloc must park
+;; several of these into x19..x28 (AAPCS64 callee-saved). Every
+;; callee-saved register touched must appear in the prologue's `stp`
+;; sequence and be restored in the epilogue -- otherwise the *caller*
+;; of `main` (the runtime) sees a clobbered x19. Result is
+;; 1+2+...+10 = 55.
+(defun noop ()
+  0)
+
+(defun main ()
+  (let* ((a 1) (b 2) (c 3) (d 4) (e 5)
+         (f 6) (g 7) (h 8) (i 9) (j 10))
+    (noop)
+    (format #t "~D~%"
+            (+ (+ (+ a b) (+ c d))
+               (+ (+ e f) (+ g h))
+               (+ i j)))))

@@ -1,0 +1,17 @@
+;; tags: abi, functions, calling-convention
+;; expect: 30
+;; `(double (triple 5))` -- the inner call's return value (x0 = 15)
+;; is also the outer call's first-arg register. No intermediate copy
+;; is required if the regalloc notices the back-to-back x0 reuse;
+;; otherwise it should emit `mov x0, x0` (no-op) or `mov tmp, x0;
+;; mov x0, tmp` (wasteful but correct). Either lowering is fine for
+;; the test -- we only care that the value isn't clobbered by the
+;; outer call's prologue.
+(defun triple ((x int))
+  (* x 3))
+
+(defun double ((x int))
+  (* x 2))
+
+(defun main ()
+  (format #t "~D~%" (double (triple 5))))

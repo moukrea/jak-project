@@ -1,0 +1,17 @@
+;; tags: abi, functions, calling-convention
+;; expect: 42
+;; `outer` receives its arg in x0 and immediately calls `inner` with
+;; the same value. The "trivial" lowering would be `bl inner` with no
+;; reg move (x0 already holds the value) -- but only if the regalloc
+;; correctly tracks that the incoming arg-register binding is still
+;; live at the call site and that `inner`'s arg slot also maps to x0.
+;; If either fact is forgotten, the codegen will redundantly mov
+;; x0, x0 (harmless) or worse mov x0, <wrong-reg> (wrong answer).
+(defun inner ((v int))
+  v)
+
+(defun outer ((v int))
+  (inner v))
+
+(defun main ()
+  (format #t "~D~%" (outer 42)))
