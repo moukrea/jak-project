@@ -24,15 +24,18 @@ Lifecycle:
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
+import random
 import re
+import select
 import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -54,10 +57,32 @@ EFFORT = "max"
 # Safety net: per-phase git commits make any damage trivially revertable.
 
 # Rate-limit thresholds (0-100 percent)
-SESSION_PAUSE_PCT = 90.0   # 5h window: pause at this %
-WEEKLY_PAUSE_PCT = 95.0    # weekly: pause at this %
+SESSION_PAUSE_PCT = 90.0   # 5h window: pre-phase pause at this %
+WEEKLY_PAUSE_PCT = 95.0    # weekly: pre-phase pause at this %
+HARD_KILL_PCT = 98.0       # session: kill running claude at this % (mid-phase)
 RESET_BUFFER_SECONDS = 90  # wait this long after the API-reported reset
 POLL_INTERVAL_SECONDS = 300  # how often to re-check while sleeping (5 min)
+
+# Hardened rate probe behavior
+PROBE_PER_ATTEMPT_TIMEOUT = 8       # HTTP timeout per attempt (sec)
+PROBE_DEADLINE_SEC = 30             # total wall-clock budget for a probe
+PROBE_RETRY_DELAYS = (2, 4, 8, 16)  # backoff schedule (sec, jitter added)
+PROBE_TTL_SEC = 60                  # in-memory cache TTL for successful probes
+
+# Mid-phase probing triggers (inline, from the stream read loop)
+PROBE_TOOL_CALLS_TRIGGER = 5  # probe every N tool_use events
+PROBE_TIME_TRIGGER = 60.0     # AND at least this many seconds since last probe
+
+# Live verbosity: how often to emit the periodic usage/progress tick line
+LIVE_TICK_INTERVAL = 15.0  # seconds
+
+# Stall detection for the read loop. Claude Code in -p mode sometimes keeps
+# the process open after emitting `result` (terminal_reason=completed) when
+# background TaskCreate tasks generated notifications; the orchestrator was
+# then blocked on EOF that never arrived. We force-close in those cases.
+STALL_POST_RESULT_SEC = 45.0   # idle gap after a result event before we force-close
+STALL_HARD_SEC = 1800.0        # absolute max idle, regardless of session state
+READ_POLL_SEC = 5.0            # select timeout slice (drives ticks + stall checks)
 
 # Stuck detection: how many identical validator-failure fingerprints in a
 # row before we conclude the agent has stopped learning and is just burning
@@ -165,12 +190,30 @@ CREDENTIALS_PATH = Path.home() / ".claude" / ".credentials.json"
 
 console = Console()
 HALT = False
+QUIET = False  # set from argparse; suppresses live event rendering
+
+# Set inside run_phase while a claude subprocess is alive. The signal handler
+# forwards SIGTERM to its process group so Ctrl-C kills Claude promptly
+# instead of waiting up to 30 minutes for the current attempt to drain.
+_CURRENT_CHILD: subprocess.Popen | None = None
+
+# In-memory cache for the rate-limit probe. Keyed only by recency (TTL).
+_PROBE_CACHE: tuple[float, "RateStatus"] | None = None
 
 
 def _sig(_sig, _frame):
     global HALT
     console.print("\n[yellow]⚠ Received signal — finishing current step then halting.[/yellow]")
     HALT = True
+    # Forward to the running child so claude exits promptly. We use the
+    # process group (start_new_session=True in Popen) to cover claude's own
+    # child processes too.
+    child = _CURRENT_CHILD
+    if child is not None and child.poll() is None:
+        try:
+            os.killpg(child.pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            pass
 
 
 signal.signal(signal.SIGINT, _sig)
@@ -234,40 +277,364 @@ def get_oauth_token() -> str | None:
         return None
 
 
-def fetch_rate_status() -> RateStatus | None:
-    """Returns None if we can't reach the API; caller proceeds cautiously."""
+_RATE_URL = "https://api.anthropic.com/api/oauth/usage"
+
+
+def _parse_rate_payload(data: dict) -> RateStatus:
+    return RateStatus(
+        session_pct=float(data["five_hour"]["utilization"]),
+        session_reset=int(
+            datetime.fromisoformat(
+                data["five_hour"]["resets_at"].replace("Z", "+00:00")
+            ).timestamp()
+        ),
+        weekly_pct=float(data["seven_day"]["utilization"]),
+        weekly_reset=int(
+            datetime.fromisoformat(
+                data["seven_day"]["resets_at"].replace("Z", "+00:00")
+            ).timestamp()
+        ),
+        raw=data,
+    )
+
+
+def fetch_rate_status(force: bool = False) -> RateStatus | None:
+    """Probe /oauth/usage with retries, 429-aware backoff, and a 60s cache.
+
+    Returns None only when the API is truly unreachable inside the deadline
+    budget (no caller should treat None as 'all good' — the mid-phase logic
+    falls back to a token-based estimate when this is None).
+    """
+    global _PROBE_CACHE
+    now = time.monotonic()
+    if not force and _PROBE_CACHE is not None and (now - _PROBE_CACHE[0]) < PROBE_TTL_SEC:
+        return _PROBE_CACHE[1]
+
     token = get_oauth_token()
     if not token:
         return None
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "anthropic-beta": "oauth-2025-04-20",
+    }
+    deadline = now + PROBE_DEADLINE_SEC
+
+    last_error: str = ""
+    for i, base in enumerate(PROBE_RETRY_DELAYS):
+        if time.monotonic() >= deadline:
+            break
+        try:
+            r = requests.get(_RATE_URL, headers=headers, timeout=PROBE_PER_ATTEMPT_TIMEOUT)
+            if r.status_code == 429:
+                ra_hdr = r.headers.get("Retry-After")
+                try:
+                    wait = float(ra_hdr) if ra_hdr else float(base)
+                except ValueError:
+                    wait = float(base)
+                wait = min(wait, max(0.0, deadline - time.monotonic()))
+                if wait <= 0 or i == len(PROBE_RETRY_DELAYS) - 1:
+                    last_error = f"429 (Retry-After={ra_hdr or 'n/a'})"
+                    break
+                console.print(f"[dim]rate probe 429; sleeping {wait:.1f}s before retry[/dim]")
+                time.sleep(wait + random.uniform(0, 0.5))
+                continue
+            r.raise_for_status()
+            status = _parse_rate_payload(r.json())
+            _PROBE_CACHE = (now, status)
+            return status
+        except (requests.Timeout, requests.ConnectionError) as e:
+            last_error = f"{type(e).__name__}"
+            if i == len(PROBE_RETRY_DELAYS) - 1:
+                break
+            backoff = base + random.uniform(0, base * 0.25)
+            if time.monotonic() + backoff > deadline:
+                break
+            console.print(f"[dim]rate probe {last_error}; retry {i + 1}/{len(PROBE_RETRY_DELAYS)} in {backoff:.1f}s[/dim]")
+            time.sleep(backoff)
+            continue
+        except (ValueError, KeyError) as e:
+            last_error = f"bad-payload:{type(e).__name__}"
+            break
+        except Exception as e:
+            last_error = f"{type(e).__name__}: {e}"
+            break
+
+    console.print(f"[yellow]Rate-limit probe failed after retries: {last_error or 'budget exhausted'}[/yellow]")
+    return None
+
+
+# ============================================================
+# Live verbosity — smart-compact stream-json renderer + inline
+# mid-phase rate probing.
+# ============================================================
+
+@dataclass
+class PrettyState:
+    """Per-phase live-rendering and probing state.
+
+    Threaded between every event read off Claude's stdout. The orchestrator
+    must never raise out of the read loop on account of this state; the
+    printer wraps every render in try/except.
+    """
+    t0: float                                # phase start (monotonic)
+    session_id: str = ""
+    tool_calls: int = 0                      # cumulative tool_use events
+    tool_calls_since_probe: int = 0
+    tokens_in: int = 0                       # cumulative input tokens
+    tokens_out: int = 0                      # cumulative output tokens
+    cache_read: int = 0                      # cumulative cache-read tokens
+    cache_creation: int = 0
+    last_tick_at: float = 0.0
+    last_probe_at: float = 0.0
+    last_session_pct: float | None = None    # last *probed* (authoritative)
+    # Anchor for token-based extrapolation: (pct, total_tokens_at_anchor)
+    session_pct_anchor: tuple[float, int] | None = None
+    estimated_pct: float | None = None       # extrapolated when probe is down
+    last_claude_rate_status: str = ""        # from rate_limit_event payloads
+    tool_use_names: dict[str, str] = field(default_factory=dict)  # id -> name
+    kill_pending: bool = False               # set True when threshold crossed
+    init_printed: bool = False
+    dirty_since_tick: bool = False           # gate periodic tick on activity
+    result_seen: bool = False                # at least one result/* event arrived
+
+
+def _short_id(s: str, n: int = 7) -> str:
+    return s[:n] if isinstance(s, str) else ""
+
+
+def _truncate(s: str, n: int) -> str:
+    if not isinstance(s, str):
+        s = str(s)
+    s = s.replace("\n", " ").replace("\r", " ").strip()
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def _human_tokens(n: int) -> str:
+    if n < 1000:
+        return f"{n}"
+    if n < 1_000_000:
+        return f"{n / 1000:.1f}k"
+    return f"{n / 1_000_000:.2f}M"
+
+
+def _primary_arg(tool_name: str, tool_input: dict) -> str:
+    """Best single string to identify what the tool is doing."""
+    if not isinstance(tool_input, dict):
+        return ""
+    # Bash is special-cased so the shell command shows up.
+    if tool_name == "Bash":
+        return str(tool_input.get("command", ""))
+    # Common conventions: file_path / path / pattern / query / url / command
+    for key in ("file_path", "path", "pattern", "query", "url", "command",
+                "subject", "description", "old_string"):
+        if key in tool_input and tool_input[key]:
+            return str(tool_input[key])
+    # Fallback: first non-empty value
+    for v in tool_input.values():
+        if v:
+            return str(v)
+    return ""
+
+
+def _accumulate_usage(state: PrettyState, usage: dict) -> None:
+    if not isinstance(usage, dict):
+        return
+    state.tokens_in += int(usage.get("input_tokens", 0) or 0)
+    state.tokens_out += int(usage.get("output_tokens", 0) or 0)
+    state.cache_read += int(usage.get("cache_read_input_tokens", 0) or 0)
+    state.cache_creation += int(usage.get("cache_creation_input_tokens", 0) or 0)
+
+
+def _current_pct(state: PrettyState) -> tuple[float | None, bool]:
+    """Return (pct, is_estimated). pct may be None if we have no anchor at all."""
+    if state.last_session_pct is not None and state.session_pct_anchor is not None:
+        anchor_pct, anchor_tokens = state.session_pct_anchor
+        now_tokens = state.tokens_in + state.tokens_out
+        if anchor_tokens > 0 and now_tokens > anchor_tokens:
+            # Linear extrapolation in %-space (token-weighted utilization).
+            est = anchor_pct * (now_tokens / anchor_tokens)
+            state.estimated_pct = est
+            # Trust the live extrapolation if it exceeds the last probe.
+            return (max(est, state.last_session_pct), est > state.last_session_pct)
+        return (state.last_session_pct, False)
+    if state.last_session_pct is not None:
+        return (state.last_session_pct, False)
+    return (None, True)
+
+
+def _maybe_emit_tick(state: PrettyState) -> None:
+    if QUIET:
+        return
+    now = time.monotonic()
+    if not state.dirty_since_tick:
+        return
+    if (now - state.last_tick_at) < LIVE_TICK_INTERVAL:
+        return
+    state.last_tick_at = now
+    state.dirty_since_tick = False
+    elapsed = now - state.t0
+    mins, secs = divmod(int(elapsed), 60)
+    pct, estimated = _current_pct(state)
+    pct_str = "?" if pct is None else f"{'~' if estimated else ''}{pct:.0f}%"
+    tokens = state.tokens_in + state.tokens_out
+    console.print(
+        f"[dim][{mins}m{secs:02d}s · {state.tool_calls} calls · "
+        f"{_human_tokens(tokens)} tok · session {pct_str}][/dim]"
+    )
+
+
+def pretty_print_event(ev: dict, state: PrettyState) -> None:
+    """Render one stream-json event compactly. Never raises."""
     try:
-        r = requests.get(
-            "https://api.anthropic.com/api/oauth/usage",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "anthropic-beta": "oauth-2025-04-20",
-            },
-            timeout=15,
-        )
-        r.raise_for_status()
-        data = r.json()
-        return RateStatus(
-            session_pct=float(data["five_hour"]["utilization"]),
-            session_reset=int(
-                datetime.fromisoformat(
-                    data["five_hour"]["resets_at"].replace("Z", "+00:00")
-                ).timestamp()
-            ),
-            weekly_pct=float(data["seven_day"]["utilization"]),
-            weekly_reset=int(
-                datetime.fromisoformat(
-                    data["seven_day"]["resets_at"].replace("Z", "+00:00")
-                ).timestamp()
-            ),
-            raw=data,
-        )
+        t = ev.get("type")
+
+        if t == "system":
+            sub = ev.get("subtype", "")
+            if sub == "init" and not state.init_printed:
+                state.init_printed = True
+                state.session_id = ev.get("session_id", "")
+                if not QUIET:
+                    console.print(
+                        f"[cyan]▶ claude session {_short_id(state.session_id)} · "
+                        f"model={ev.get('model', '?')}[/cyan]"
+                    )
+            elif sub == "api_retry":
+                if not QUIET:
+                    n = ev.get("attempt"); mx = ev.get("max_retries")
+                    delay = ev.get("retry_delay_ms", 0)
+                    err = ev.get("error", "?")
+                    console.print(f"[yellow]· api_retry {n}/{mx} (delay {delay/1000:.1f}s, {err})[/yellow]")
+            # task_started, task_notification, hook_started/response: ignore
+            return
+
+        if t == "rate_limit_event":
+            info = ev.get("rate_limit_info", {}) or {}
+            if info.get("rateLimitType") == "five_hour":
+                state.last_claude_rate_status = str(info.get("status", ""))
+                # If Claude itself says we're disallowed, treat as critical.
+                if state.last_claude_rate_status not in ("allowed", ""):
+                    state.kill_pending = True
+                    if not QUIET:
+                        console.print(
+                            f"[red]⚠ claude rate_limit_event: {state.last_claude_rate_status}[/red]"
+                        )
+            return
+
+        if t == "assistant":
+            msg = ev.get("message", {}) or {}
+            usage = msg.get("usage")
+            if usage:
+                _accumulate_usage(state, usage)
+            for c in msg.get("content", []) or []:
+                ctype = c.get("type")
+                if ctype == "tool_use":
+                    state.tool_calls += 1
+                    state.tool_calls_since_probe += 1
+                    state.dirty_since_tick = True
+                    name = c.get("name", "?")
+                    state.tool_use_names[c.get("id", "")] = name
+                    if not QUIET:
+                        arg = _truncate(_primary_arg(name, c.get("input", {})), 100)
+                        console.print(f"[bold]🔧 {name}[/bold] [dim]{arg}[/dim]")
+                elif ctype == "text":
+                    text = (c.get("text") or "").strip()
+                    if text and not QUIET:
+                        # First sentence, max 120 chars.
+                        first = re.split(r'(?<=[.!?])\s', text, maxsplit=1)[0]
+                        console.print(f"[dim]{_truncate(first, 120)}[/dim]")
+                # thinking: silent (already costs tokens; no value to display)
+            return
+
+        if t == "user":
+            msg = ev.get("message", {}) or {}
+            for c in msg.get("content", []) or []:
+                if c.get("type") != "tool_result":
+                    continue
+                is_err = bool(c.get("is_error"))
+                content = c.get("content", "")
+                if isinstance(content, list):
+                    parts = []
+                    for blk in content:
+                        if isinstance(blk, dict) and blk.get("type") == "text":
+                            parts.append(blk.get("text", ""))
+                    content = "".join(parts) if parts else str(content)
+                content = str(content)
+                if not QUIET and is_err:
+                    head = _truncate(content, 100)
+                    console.print(f"   [red]↳ ERROR:[/red] [dim]{head}[/dim]")
+                # Successful tool_results are silent — they add no signal
+                # beyond what the next assistant turn shows. Byte counts and
+                # `ok` markers were pure clutter (per user feedback).
+            return
+
+        if t == "result":
+            state.result_seen = True
+            usage = ev.get("usage", {}) or {}
+            _accumulate_usage(state, usage)
+            if not QUIET:
+                dur_ms = ev.get("duration_ms", 0)
+                cost = ev.get("total_cost_usd", 0) or 0
+                turns = ev.get("num_turns", 0)
+                err = ev.get("is_error")
+                head = "[red]✗ result[/red]" if err else "[green]✓ result[/green]"
+                console.print(
+                    f"{head} [dim]turns={turns} · {dur_ms/1000:.1f}s · "
+                    f"in {_human_tokens(state.tokens_in)} out {_human_tokens(state.tokens_out)} "
+                    f"cache_r {_human_tokens(state.cache_read)} · ${cost:.3f}[/dim]"
+                )
+            return
+
+        # Anything else: silent (raw line still goes to JSONL log).
     except Exception as e:
-        console.print(f"[yellow]Rate-limit probe failed: {e}[/yellow]")
-        return None
+        # Printer must NEVER kill the orchestrator.
+        if not QUIET:
+            console.print(f"[dim]· print-err {type(e).__name__}[/dim]")
+    finally:
+        _maybe_emit_tick(state)
+
+
+def maybe_probe_inline(state: PrettyState) -> None:
+    """If trigger conditions are met, probe the rate API and update state.
+
+    Called from the read loop on every event. The cache inside fetch_rate_status
+    means redundant calls within 60s are free, so this is cheap to call often.
+    """
+    now = time.monotonic()
+    if state.tool_calls_since_probe < PROBE_TOOL_CALLS_TRIGGER:
+        return
+    if (now - state.last_probe_at) < PROBE_TIME_TRIGGER:
+        return
+    st = fetch_rate_status()
+    state.last_probe_at = now
+    state.tool_calls_since_probe = 0
+    if st is not None:
+        prev_pct = state.last_session_pct
+        state.last_session_pct = st.session_pct
+        # Re-anchor for extrapolation.
+        state.session_pct_anchor = (
+            st.session_pct, state.tokens_in + state.tokens_out
+        )
+        # Show probed % when it lands.
+        if not QUIET:
+            arrow = ""
+            if prev_pct is not None:
+                delta = st.session_pct - prev_pct
+                arrow = f" ({'+' if delta >= 0 else ''}{delta:.1f})"
+            console.print(
+                f"[dim]· probed session={st.session_pct:.1f}%{arrow} "
+                f"weekly={st.weekly_pct:.1f}%[/dim]"
+            )
+        if st.session_pct >= HARD_KILL_PCT:
+            state.kill_pending = True
+        return
+    # Probe failed — fall back to extrapolation (already computed lazily).
+    pct, est = _current_pct(state)
+    if pct is not None and pct >= HARD_KILL_PCT:
+        # Trust extrapolation as a soft warning, but still set kill_pending
+        # since blowing past the hard cap mid-tool-call is worse than a
+        # spurious interrupt.
+        state.kill_pending = True
 
 
 def sleep_until(epoch: int, label: str) -> None:
@@ -408,8 +775,15 @@ def git_push() -> None:
 # Phase execution
 # ============================================================
 
-def run_phase(phase: dict, state: dict) -> str:
-    """Returns 'pass', 'fail', or 'blocked'."""
+def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
+    """Run one phase attempt; return (result, reason, key_lines).
+
+    result is one of: 'pass', 'fail', 'blocked', 'stuck', 'rate-interrupted'.
+    'rate-interrupted' means we killed claude because session usage crossed
+    HARD_KILL_PCT mid-phase. The caller must wait_for_quota() and retry the
+    phase from scratch without incrementing retries or recording a fingerprint.
+    """
+    global _CURRENT_CHILD
     pid = phase["id"]
     log_dir = LOG_ROOT / pid
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -422,10 +796,10 @@ def run_phase(phase: dict, state: dict) -> str:
 
     if not prompt_path.exists():
         console.print(f"[red]Missing prompt: {prompt_path}[/red]")
-        return "blocked"
+        return "blocked", "missing prompt", []
     if not validator.exists():
         console.print(f"[red]Missing validator: {validator}[/red]")
-        return "blocked"
+        return "blocked", "missing validator", []
 
     # Assemble prompt. "ultrathink" keyword reinforces max thinking even if
     # CLAUDE_EFFORT env isn't honored by current build.
@@ -462,6 +836,19 @@ def run_phase(phase: dict, state: dict) -> str:
         "--dangerously-skip-permissions",
     ]
 
+    pstate = PrettyState(t0=time.monotonic())
+    # Seed from cache if we have a recent successful probe (from wait_for_quota
+    # just before this phase). Tokens-at-anchor is 0 here, so extrapolation
+    # only kicks in once we re-probe mid-phase and re-anchor with real tokens.
+    if _PROBE_CACHE is not None:
+        cache_age = time.monotonic() - _PROBE_CACHE[0]
+        if cache_age < PROBE_TTL_SEC:
+            pstate.last_session_pct = _PROBE_CACHE[1].session_pct
+            pstate.session_pct_anchor = (_PROBE_CACHE[1].session_pct, 0)
+            pstate.last_probe_at = _PROBE_CACHE[0]
+
+    rate_interrupted = False
+    rc = -1
     with attempt_log.open("w") as f:
         f.write(json.dumps({
             "event": "phase_start",
@@ -473,16 +860,171 @@ def run_phase(phase: dict, state: dict) -> str:
             "started_at": datetime.now(timezone.utc).isoformat(),
         }) + "\n")
         f.flush()
-        proc = subprocess.run(
-            cmd, cwd=REPO_ROOT, stdout=f, stderr=subprocess.STDOUT, env=env
+
+        proc = subprocess.Popen(
+            cmd,
+            cwd=REPO_ROOT,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=1,
+            text=True,
+            start_new_session=True,
         )
+        _CURRENT_CHILD = proc
+
+        stall_forced = False
+        last_event_at = time.monotonic()
+        try:
+            stdout_fd = proc.stdout
+            while True:
+                # Wait for stdout to be readable, or a 5s tick. The tick lets
+                # us check for stalls, emit the periodic usage line, and
+                # detect a child that already exited without us blocking
+                # forever on a never-arriving EOF.
+                try:
+                    ready, _, _ = select.select([stdout_fd], [], [], READ_POLL_SEC)
+                except (OSError, ValueError):
+                    # stdout was closed underneath us.
+                    break
+
+                if not ready:
+                    idle = time.monotonic() - last_event_at
+                    # Process is already gone — close out cleanly.
+                    if proc.poll() is not None:
+                        break
+                    # claude said `result` but won't actually exit (we saw
+                    # this with TaskCreate task-notification re-engagements:
+                    # claude keeps the process open in -p mode and never
+                    # closes its stdout). Force the issue.
+                    if pstate.result_seen and idle >= STALL_POST_RESULT_SEC:
+                        console.print(
+                            f"[yellow]· claude emitted result but hasn't exited "
+                            f"({idle:.0f}s idle); forcing close[/yellow]"
+                        )
+                        stall_forced = True
+                        try:
+                            os.killpg(proc.pid, signal.SIGTERM)
+                        except (ProcessLookupError, PermissionError):
+                            pass
+                        break
+                    # Defensive absolute cap: even without a result, we
+                    # should never wait silently forever.
+                    if idle >= STALL_HARD_SEC:
+                        console.print(
+                            f"[red]· no output from claude for {idle:.0f}s; killing[/red]"
+                        )
+                        stall_forced = True
+                        try:
+                            os.killpg(proc.pid, signal.SIGTERM)
+                        except (ProcessLookupError, PermissionError):
+                            pass
+                        break
+                    # Keep the live tick alive during quiet stretches.
+                    _maybe_emit_tick(pstate)
+                    continue
+
+                raw_line = stdout_fd.readline()
+                if not raw_line:
+                    # EOF.
+                    break
+                last_event_at = time.monotonic()
+
+                # Forensic log gets every byte unchanged.
+                f.write(raw_line)
+                f.flush()
+
+                line = raw_line.rstrip("\n")
+                if not line.strip():
+                    continue
+
+                # Parse + render.
+                ev: dict | None = None
+                try:
+                    ev = json.loads(line)
+                except json.JSONDecodeError:
+                    if not QUIET:
+                        console.print(f"[dim]{_truncate(line, 200)}[/dim]")
+                    continue
+
+                pretty_print_event(ev, pstate)
+                maybe_probe_inline(pstate)
+
+                # Kill at a safe point: just after a tool_result drained.
+                # Killing mid-tool-call is what we're explicitly avoiding.
+                if pstate.kill_pending and ev.get("type") == "user":
+                    pct, est = _current_pct(pstate)
+                    pct_str = "?" if pct is None else f"{'~' if est else ''}{pct:.1f}%"
+                    console.print(
+                        f"[bold red]🛑 session usage at {pct_str} — "
+                        f"hard-killing claude to avoid mid-tool-call cutoff[/bold red]"
+                    )
+                    rate_interrupted = True
+                    try:
+                        os.killpg(proc.pid, signal.SIGTERM)
+                    except (ProcessLookupError, PermissionError):
+                        pass
+                    break
+        except KeyboardInterrupt:
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+            raise
+        finally:
+            # Drain any remaining output so the pipe doesn't deadlock at exit.
+            if rate_interrupted:
+                try:
+                    rest = proc.stdout.read()
+                    if rest:
+                        f.write(rest); f.flush()
+                except Exception:
+                    pass
+
+            try:
+                rc = proc.wait(timeout=15 if rate_interrupted else None)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
+                rc = proc.wait()
+            _CURRENT_CHILD = None
+
         f.write(json.dumps({
             "event": "phase_end",
-            "exit_code": proc.returncode,
+            "exit_code": rc,
             "ended_at": datetime.now(timezone.utc).isoformat(),
+            "rate_interrupted": rate_interrupted,
+            "stall_forced": stall_forced,
+            "tool_calls": pstate.tool_calls,
+            "tokens_in": pstate.tokens_in,
+            "tokens_out": pstate.tokens_out,
+            "cache_read": pstate.cache_read,
         }) + "\n")
 
-    console.print(f"[dim]Claude Code exited {proc.returncode}. Running validator...[/dim]")
+    if rate_interrupted:
+        pct, est = _current_pct(pstate)
+        pct_str = "?" if pct is None else f"{'~' if est else ''}{pct:.1f}%"
+        state.setdefault("rate_interrupts", {})
+        state["rate_interrupts"][pid] = state["rate_interrupts"].get(pid, 0) + 1
+        save_state(state)
+        notify(
+            f"⏸ phase {pid} rate-interrupted at session {pct_str} "
+            f"(attempt {attempt} not counted; will retry after reset)",
+            level="alert",
+        )
+        if state["rate_interrupts"][pid] > 3:
+            notify(
+                f"⚠ phase {pid} has rate-interrupted {state['rate_interrupts'][pid]} times. "
+                f"Quota may be structurally too low for this phase.",
+                level="warn",
+            )
+        # Reason carries the percentage so the caller can log it; no key_lines
+        # because we never ran the validator.
+        return "rate-interrupted", f"session {pct_str}", []
+
+    console.print(f"[dim]Claude Code exited {rc}. Running validator...[/dim]")
 
     # Ground-truth validator pass: this is what decides pass/fail, not Claude's word.
     with validator_log.open("w") as f:
@@ -518,7 +1060,16 @@ def run_phase(phase: dict, state: dict) -> str:
 # Main loop
 # ============================================================
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    global QUIET
+    parser = argparse.ArgumentParser(description="Autoport orchestrator")
+    parser.add_argument(
+        "--quiet", action="store_true",
+        help="Suppress live event rendering (silent mode, like pre-verbose behavior)",
+    )
+    args = parser.parse_args(argv)
+    QUIET = bool(args.quiet)
+
     if not MILESTONES_PATH.exists():
         console.print(f"[red]Missing {MILESTONES_PATH}[/red]")
         return 1
@@ -577,6 +1128,17 @@ def main() -> int:
             )
 
         result, reason, key_lines = run_phase(phase, state)
+
+        if result == "rate-interrupted":
+            # We deliberately did not consume a retry, did not fingerprint,
+            # and did not run the validator. wait_for_quota() at the top of
+            # the next iteration will sleep until the session window resets,
+            # then we re-enter this phase from scratch.
+            console.print(
+                f"[yellow]Phase {pid} interrupted by rate-limit guard "
+                f"({reason}). Retrying after session reset.[/yellow]"
+            )
+            continue
 
         if result == "pass":
             elapsed = time.time() - state.get("phase_started_at", {}).get(pid, time.time())
@@ -668,4 +1230,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

@@ -89,6 +89,48 @@ phases:
     max_turns: 250
     max_retries: 10
 
+  # ---------- Strict phases added after auditing 10/11 scaffolding ----------
+  # Phases 10/11 only proved the *shape* of the pipeline. The real porting
+  # work (link the full runtime, produce a binary-manifest signed APK,
+  # compile each game's GOAL source for the AArch64 backend) lives below.
+  # Each of these validators is intentionally strict — a passing 12-16 is
+  # what "the autoport actually finished" looks like.
+
+  - id: "12-android-runtime"
+    name: "Full OpenGOAL runtime cross-built into libgk.so"
+    prompt: prompts/phase-12-android-runtime.md
+    validator: validators/phase-12-android-runtime.sh
+    max_turns: 600
+    max_retries: 25
+
+  - id: "13-real-apk"
+    name: "Real APK (AGP, binary manifest, debug-signed)"
+    prompt: prompts/phase-13-real-apk.md
+    validator: validators/phase-13-real-apk.sh
+    max_turns: 300
+    max_retries: 15
+
+  - id: "14-jak1"
+    name: "Jak 1: goalc-arm64 compile + stage into APK assets"
+    prompt: prompts/phase-14-jak1.md
+    validator: validators/phase-14-jak1.sh
+    max_turns: 400
+    max_retries: 20
+
+  - id: "15-jak2"
+    name: "Jak 2: goalc-arm64 compile + stage into APK assets"
+    prompt: prompts/phase-15-jak2.md
+    validator: validators/phase-15-jak2.sh
+    max_turns: 400
+    max_retries: 20
+
+  - id: "16-jak3"
+    name: "Jak 3: goalc-arm64 compile + stage into APK assets"
+    prompt: prompts/phase-16-jak3.md
+    validator: validators/phase-16-jak3.sh
+    max_turns: 400
+    max_retries: 20
+
 global:
   git:
     push_after_each_phase: true

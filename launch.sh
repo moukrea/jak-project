@@ -10,6 +10,30 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 VENV="$HOME/.venv/autoport"
 
+# Forward --quiet (and any future flags) to the orchestrator. Default is the
+# new smart-compact live view; --quiet brings back the pre-2026-05 black-box
+# behavior (only orchestrator status lines shown, claude's work silent).
+ORCH_ARGS=()
+VERBOSE_LABEL="live"
+for arg in "$@"; do
+    case "$arg" in
+        --quiet|-q)
+            ORCH_ARGS+=("--quiet")
+            VERBOSE_LABEL="silent"
+            ;;
+        --help|-h)
+            cat <<USAGE
+Usage: ./launch.sh [--quiet|-q]
+
+  --quiet, -q   suppress live event rendering from claude (silent mode).
+                Default is the live smart-compact view; raw JSONL is always
+                preserved in .autoport/logs/{phase}/attempt-NN.jsonl.
+USAGE
+            exit 0
+            ;;
+    esac
+done
+
 if ! [ -x "$VENV/bin/python" ]; then
     echo "ERROR: Python venv not found at $VENV" >&2
     echo "       Run sudo ./setup-fedora.sh first." >&2
@@ -34,6 +58,7 @@ cat <<EOF
   Model:     claude-opus-4-7
   Effort:    max
   Perms:     --dangerously-skip-permissions (full YOLO)
+  Verbose:   $VERBOSE_LABEL (use --quiet for silent)
 
   Live log:  $LOG
   Run log:   $RUN_LOG
@@ -72,7 +97,7 @@ source "$VENV/bin/activate"
 cd "$REPO_ROOT"
 
 # python -u for unbuffered output so tee captures live progress.
-python -u .autoport/orchestrator.py 2>&1 | tee -a "$LOG" "$RUN_LOG"
+python -u .autoport/orchestrator.py "${ORCH_ARGS[@]}" 2>&1 | tee -a "$LOG" "$RUN_LOG"
 EXIT_CODE=${PIPESTATUS[0]}
 
 echo
