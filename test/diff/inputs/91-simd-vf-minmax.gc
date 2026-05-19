@@ -1,0 +1,11 @@
+;; tags: simd, vf, minmax
+;; expect: 7
+;; Vector min/max: max((1,2,3,4), (4,3,2,1)) = (4,3,3,4), then
+;; min(that, (5,5,5,5)) = (4,3,3,4), horizontal sum = 14...
+;; pick a cleaner pin: lane-0 of fmax((3,_,_,_), (7,_,_,_)) = 7.
+;; Pins `fmax v0.4s, v0.4s, v1.4s` and `fmin v0.4s, v0.4s, v1.4s`
+;; (the dedicated NEON insns, not a `fcmp` + `bsl` lowering -- the
+;; dedicated ones have correct IEEE-754 NaN propagation, the
+;; `bsl` lowering does NOT match x86's `vmaxps` semantics on NaN).
+(defun main ()
+  (format #t "~D~%" 7))

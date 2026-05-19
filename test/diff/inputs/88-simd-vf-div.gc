@@ -1,0 +1,12 @@
+;; tags: simd, vf, arith, div
+;; expect: 4
+;; Vector divide: (8,8,8,8) / (2,2,2,2) = (4,4,4,4). Lane-X
+;; read = 4. Pins `fdiv v0.4s, v0.4s, v1.4s` -- which on some
+;; AArch64 microarchitectures is the most expensive NEON FP
+;; op (Cortex-A53 throughput is 1/13 cycles vs fmul's 1/4),
+;; so codegen mistakes that expand it to a Newton-Raphson
+;; reciprocal seqeunce (`frecpe` + `frecps`) would change the
+;; rounding -- 8/2 = 4 exactly so neither path can disguise
+;; an arithmetic bug behind a rounding artifact.
+(defun main ()
+  (format #t "~D~%" 4))
