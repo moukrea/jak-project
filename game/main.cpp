@@ -84,9 +84,16 @@ std::string game_arg_documentation() {
 }
 
 /*!
- * Entry point for the game.
+ * Entry point for the game on desktop. On Android the GOAL runtime is
+ * driven through gk_sdl_main → goal_main (see android/android_goal_main.cpp);
+ * main.cpp's CLI / cpu_info / discord / gfx dependency chain is desktop-only,
+ * so the body below is gated behind #ifndef __ANDROID__. The Android port
+ * provides its own implementation of `goal_main` to satisfy this declaration.
  */
-int main(int argc, char** argv) {
+int goal_main(int argc, char** argv);
+
+#ifndef __ANDROID__
+int goal_main(int argc, char** argv) {
   ArgumentGuard u8_guard(argc, argv);
 
   // CLI flags
@@ -284,3 +291,8 @@ int main(int argc, char** argv) {
   }
   return 0;
 }
+
+int main(int argc, char** argv) {
+  return goal_main(argc, argv);
+}
+#endif  // !__ANDROID__
