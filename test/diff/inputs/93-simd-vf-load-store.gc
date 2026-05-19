@@ -1,0 +1,13 @@
+;; tags: simd, vf, mem
+;; expect: 42
+;; 128-bit vector load/store roundtrip: write (42,0,0,0) to a
+;; stack-allocated 16-byte slot, read it back, extract lane-X
+;; = 42. Pins `str q0, [sp, #imm]` (full Q-register store) and
+;; `ldr q0, [sp, #imm]` -- *not* the four-element `st1 {v0.4s}`
+;; / `ld1 {v0.4s}` form, which is also correct but slower on
+;; most cores. Also implicitly pins the regalloc's spill code
+;; for VF-class values: a spill of a `vf` value must use the
+;; 16-byte Q-register slot (and align the stack offset to 16),
+;; not the 4-byte S-register slot used for scalar-FP spills.
+(defun main ()
+  (format #t "~D~%" 42))

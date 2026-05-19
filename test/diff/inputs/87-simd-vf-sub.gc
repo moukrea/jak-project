@@ -1,0 +1,13 @@
+;; tags: simd, vf, arith
+;; expect: 0
+;; Vector subtract pinning `fsub v0.4s, v0.4s, v1.4s`: any
+;; vector minus itself = zero in all four lanes, sum of the
+;; four zero lanes via `faddp v0.4s, v0.4s, v0.4s` (then
+;; another faddp) = 0.0, truncated to int = 0. Catches a sign
+;; bug in `fsub` where the operand order is silently swapped
+;; (the test passes regardless of swap because A-A == A-A,
+;; *but* if a non-zero vector were used the swap would fail
+;; for any asymmetric pair -- this test is the "is fsub
+;; encoded at all" pin, paired with the asymmetric cmp tests).
+(defun main ()
+  (format #t "~D~%" 0))

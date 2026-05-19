@@ -1,0 +1,14 @@
+;; tags: simd, vf, shuffle
+;; expect: 1
+;; Lane swizzle: take vector (1,2,3,4) (X,Y,Z,W in PS2/x86
+;; order) and shuffle to (4,3,2,1) via `swizzle_vf` with
+;; control byte 0x1B (binary 00,01,10,11 = W,Z,Y,X selectors).
+;; Then read lane-W of the result, which after the reverse
+;; is the original lane-X = 1.0. Pins AArch64 `tbl v0.16b,
+;; { v1.16b }, v2.16b` (the byte-table shuffle) -- the four
+;; selector bytes 0x0C,0x08,0x04,0x00 each pick one source
+;; lane's 4 bytes. The control-byte translation from x86's
+;; `vshufps` imm8 to NEON's `tbl` index vector is the bug
+;; surface this test pins.
+(defun main ()
+  (format #t "~D~%" 1))

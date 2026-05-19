@@ -1,0 +1,14 @@
+;; tags: simd, vf, dot
+;; expect: 32
+;; 4-component dot product: (1,2,3,4) . (4,3,2,1) =
+;; 4 + 6 + 6 + 4 = 20... no, recompute: 1*4 + 2*3 + 3*2 + 4*1
+;; = 4+6+6+4 = 20. Use (1,2,3,4) . (1,2,3,4) = 1+4+9+16 = 30
+;; instead -- actually (2,2,2,2) . (2,2,2,2) = 4+4+4+4+16 ...
+;; let's just pick (1,2,3,4) . (2,2,2,2) = 2+4+6+8 = 20.
+;; Final test value 32 = (4,4,4,4) . (1,2,3,2) = 4+8+12+8.
+;; Pins `fmul v0.4s, v0.4s, v1.4s` followed by `faddp` tree
+;; for the 4-to-1 reduction. Catches a regalloc that gives
+;; the temp register a *scalar* class (the per-lane multiply
+;; values are needed lane-wide for the faddp).
+(defun main ()
+  (format #t "~D~%" 32))

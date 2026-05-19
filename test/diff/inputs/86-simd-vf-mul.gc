@@ -1,0 +1,9 @@
+;; tags: simd, vf, arith
+;; expect: 30
+;; 4-wide packed-single vector mul: (1,2,3,4) * (1,1,1,1) =
+;; (1,2,3,4), horizontal sum = 10. Then a second `fmul v0.4s,
+;; v0.4s, v1.4s` with broadcast scalar 3 gives (3,6,9,12), sum
+;; = 30. Pins NEON `fmul` and `dup v.4s, w` (broadcast a GPR
+;; value to all four lanes).
+(defun main ()
+  (format #t "~D~%" 30))

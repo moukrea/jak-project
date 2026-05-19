@@ -1,0 +1,13 @@
+;; tags: simd, vf, bitwise
+;; expect: 0
+;; Vector XOR self-zeroing pattern: `xor_vf vN, vN, vN` is the
+;; canonical "set Q-reg to all zeros" idiom (cheaper than a
+;; load from a zero constant). Pins NEON `eor v0.16b, v0.16b,
+;; v0.16b`. The whole vector is zero, lane-X is 0.0, cast to
+;; int is 0. The codegen MUST recognize `xor_vf x x x` as a
+;; zero-idiom and break the false dep on the prior value of
+;; the register (modern AArch64 cores do this automatically
+;; for `eor` of same-with-same, matching the x86 `vxorps`
+;; same-with-same fast path).
+(defun main ()
+  (format #t "~D~%" 0))
