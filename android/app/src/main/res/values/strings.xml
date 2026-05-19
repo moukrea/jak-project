@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OpenGOAL</string>
+    <!-- app_name and game_name come from per-flavor resValue() in
+         app/build.gradle.kts so each APK variant gets its own label. -->
 </resources>
