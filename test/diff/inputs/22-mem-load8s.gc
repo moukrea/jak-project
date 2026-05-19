@@ -1,0 +1,11 @@
+;; tags: mem-ops, loads, sign-extend
+;; expect: -56
+;; Signed byte load. Exercises LDRSB Xd, [Xn] -- sign-extends the byte
+;; into all 64 bits (x86: MOVSX r64, BYTE PTR [reg]). The byte 0xC8
+;; (== 200 unsigned) prints as -56 once sign-extended into an int.
+;; Pair this with 21-mem-load8u.gc: same byte, opposite sign-extension
+;; policy. Mixing the two up is the classic load-size codegen bug.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array int8 1)))
+    (set! (-> buf 0) (the int8 -56))
+    (format #t "~D~%" (-> buf 0))))

@@ -1,0 +1,10 @@
+;; tags: mem-ops, loads
+;; expect: 65535
+;; Unsigned halfword load. Exercises LDRH Wd, [Xn]
+;; (x86: MOVZX r64, WORD PTR [reg]). The value 0xFFFF is the maximum
+;; uint16; once zero-extended into an int64 it prints as 65535 -- if
+;; codegen accidentally used LDRSH it would print as -1 instead.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array uint16 1)))
+    (set! (-> buf 0) (the uint16 65535))
+    (format #t "~D~%" (-> buf 0))))

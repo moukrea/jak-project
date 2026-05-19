@@ -1,0 +1,12 @@
+;; tags: mem-ops, addressing
+;; expect: 4242
+;; Large base+offset addressing. The byte offset (16 * 8 == 128) still
+;; encodes directly as LDR Xt, [Xn, #128] (uimm12 scaled by 8 covers up
+;; to 32760). On x86 this remains a single MOV r64, [reg + disp32].
+;; This is the regression check that the codegen actually scales the
+;; immediate by the access size and picks the correct addressing mode
+;; rather than naively shoving the byte offset in.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array int64 17)))
+    (set! (-> buf 16) 4242)
+    (format #t "~D~%" (-> buf 16))))

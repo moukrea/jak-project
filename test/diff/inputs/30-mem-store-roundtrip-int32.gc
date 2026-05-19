@@ -1,0 +1,9 @@
+;; tags: mem-ops, stores, roundtrip
+;; expect: 1000000
+;; STR-W-then-LDR-W roundtrip. Exercises STR Wt, [Xn] paired with LDR Wt.
+;; (x86: MOV DWORD PTR [reg], r32 paired with MOV r32, m32 -- both of
+;; which implicitly zero the upper 32 bits of the destination.)
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array uint32 1)))
+    (set! (-> buf 0) (the uint32 1000000))
+    (format #t "~D~%" (-> buf 0))))

@@ -1,0 +1,10 @@
+;; tags: mem-ops, stores, roundtrip
+;; expect: 9000000000
+;; STR-X-then-LDR-X roundtrip. Exercises STR Xt, [Xn] paired with
+;; LDR Xt. 9_000_000_000 is well above INT32_MAX, so a 32-bit-width
+;; store would clip the value; this acts as a direct check that the
+;; codegen actually picked the 64-bit form.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array uint64 1)))
+    (set! (-> buf 0) (the uint64 9000000000))
+    (format #t "~D~%" (-> buf 0))))

@@ -1,0 +1,14 @@
+;; tags: mem-ops, stores, roundtrip
+;; expect: 42
+;; STRB-then-LDRB roundtrip. Exercises STRB Wt, [Xn] paired with LDRB.
+;; (x86: MOV BYTE PTR [reg], r8 paired with MOVZX). The compiler should
+;; recognize that the byte we wrote is the byte we read, but the test
+;; deliberately interposes an unrelated computation so the optimizer
+;; cannot fold the load away -- the store/load actually has to round-trip
+;; through memory.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array uint8 4))
+        (sink 0))
+    (set! (-> buf 0) (the uint8 42))
+    (set! sink (+ 1 2))         ;; force ordering: store before load
+    (format #t "~D~%" (+ sink (- (the int (-> buf 0)) 3)))))
