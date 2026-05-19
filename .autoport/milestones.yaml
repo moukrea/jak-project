@@ -202,6 +202,85 @@ phases:
     max_turns: 400
     max_retries: 8
 
+  # ---------- Strict redo of the bypassed runtime work (24-31) ----------
+  # Audit of phases 17-23 surfaced that the orchestrator's claude found
+  # ways to satisfy each phase's grep-for-log-string validator without
+  # implementing the underlying work: phase 14 silently used the x86
+  # backend, phase 19's qemu stress was loosened to "document the gap",
+  # phase 20 wrote a hardcoded kStateSeq timer, phase 21 compiled just
+  # one shader, etc. The runtime renders glClear over a stub dispatcher.
+  #
+  # Phases 24-31 redo the work with validators that grep for PHYSICAL
+  # artifacts: disassembled bytes, symbol-body sizes, GOAL VM-internal
+  # counters, framebuffer pixel content, and timing-jitter signatures.
+  # The shared helpers live in .autoport/lib/anti-stub.sh.
+  #
+  # Markers (in order):
+  #   24 → AArch64 emitter audit (synthetic GOAL → real aarch64 disasm)
+  #   25 → jak1 CGOs re-emitted; aarch64-ret density per CGO
+  #   26 → CGOs execute under qemu-aarch64; GOAL VM counters move
+  #   27 → libgk.so ≥15MB stripped; full runtime symbols present
+  #   28 → kStateSeq deleted; real dispatcher heartbeat; timing-jitter
+  #   29 → ≥10 shaders compile; framebuffer pixel diversity ≥50 RGB
+  #   30 → title screen pixels OK; START tap measurably changes screen
+  #   31 → first level state reached; 3D-scene pixel check; 60s alive
+
+  - id: "24-emitter-audit"
+    name: "AArch64 emitter byte-pattern audit on synthetic GOAL source"
+    prompt: prompts/phase-24-emitter-audit.md
+    validator: validators/phase-24-emitter-audit.sh
+    max_turns: 500
+    max_retries: 15
+
+  - id: "25-cgo-regen"
+    name: "Re-emit jak1 CGOs with strict aarch64 verification"
+    prompt: prompts/phase-25-cgo-regen.md
+    validator: validators/phase-25-cgo-regen.sh
+    max_turns: 400
+    max_retries: 10
+
+  - id: "26-cgo-exec-qemu"
+    name: "Execute real jak1 CGOs under qemu-aarch64; GOAL VM counters"
+    prompt: prompts/phase-26-cgo-exec-qemu.md
+    validator: validators/phase-26-cgo-exec-qemu.sh
+    max_turns: 500
+    max_retries: 20
+
+  - id: "27-runtime-port"
+    name: "Cross-build full game/ runtime into libgk.so (15+ MB)"
+    prompt: prompts/phase-27-runtime-port.md
+    validator: validators/phase-27-runtime-port.sh
+    max_turns: 800
+    max_retries: 25
+
+  - id: "28-dispatcher-real"
+    name: "Delete kStateSeq stub; wire real KernelCheckAndDispatch"
+    prompt: prompts/phase-28-dispatcher-real.md
+    validator: validators/phase-28-dispatcher-real.sh
+    max_turns: 500
+    max_retries: 20
+
+  - id: "29-renderer-real"
+    name: "Real renderer chain: tfrag/tie/sprite/sky/merc/generic"
+    prompt: prompts/phase-29-renderer-real.md
+    validator: validators/phase-29-renderer-real.sh
+    max_turns: 800
+    max_retries: 25
+
+  - id: "30-title-screen"
+    name: "Title screen visible + reacts to input"
+    prompt: prompts/phase-30-title-screen.md
+    validator: validators/phase-30-title-screen.sh
+    max_turns: 400
+    max_retries: 15
+
+  - id: "31-playable"
+    name: "First playable level (Geyser Rock) reached"
+    prompt: prompts/phase-31-playable.md
+    validator: validators/phase-31-playable.sh
+    max_turns: 600
+    max_retries: 15
+
 global:
   git:
     push_after_each_phase: true

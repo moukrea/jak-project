@@ -1,0 +1,30 @@
+;; Phase 24 — AArch64 emitter byte-pattern audit synthetic source.
+;;
+;; Each defun below is intentionally minimal and exercises one specific
+;; pattern that a real codegen backend must handle:
+;;
+;;   fortytwo  — load-immediate + return value in v0 (smallest possible).
+;;   add1      — single GPR argument, integer add, return.
+;;   ifelse    — conditional branch on a register, two arms, phi/join.
+;;   loop10    — let-binding + dotimes + register reuse across a loop.
+;;
+;; Output of `(asm-file ... :color :write)` lands under
+;; `out/<game>/obj/emitter_smoke.o` and is consumed by
+;; `.autoport/lib/cgo_inspect.py --extract-function <name>`.
+;;
+;; DO NOT simplify these forms to coax a broken emitter into appearing
+;; healthy: each pattern is here because it covers a real codegen path.
+
+(defun fortytwo () 42)
+
+(defun add1 ((x int))
+  (+ x 1))
+
+(defun ifelse ((cond int))
+  (if (zero? cond) 10 20))
+
+(defun loop10 ()
+  (let ((acc 0))
+    (dotimes (i 10)
+      (set! acc (+ acc i)))
+    acc))

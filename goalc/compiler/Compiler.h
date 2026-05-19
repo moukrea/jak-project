@@ -31,6 +31,7 @@ enum class ReplStatus { OK, WANT_EXIT, WANT_RELOAD };
 struct CompilationOptions {
   std::string filename;                 // input file
   std::string disassembly_output_file;  // file to write, containing x86 assembly output
+  std::string output_file;              // explicit path for the binary .o; bypasses out/obj
   bool load = false;                    // send to target
   bool color = false;                   // do register allocation/code generation passes
   bool write = false;                   // write object file to out/obj
