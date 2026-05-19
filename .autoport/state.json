@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 16,
+  "current_phase_idx": 17,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -16,7 +16,8 @@
     "12-android-runtime": 1,
     "13-real-apk": 1,
     "14-jak1": 1,
-    "15-jak2": 2
+    "15-jak2": 2,
+    "16-jak3": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -47,7 +48,8 @@
     "12-android-runtime",
     "13-real-apk",
     "14-jak1",
-    "15-jak2"
+    "15-jak2",
+    "16-jak3"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -67,7 +69,8 @@
     "12-android-runtime": 1779193011.368826,
     "13-real-apk": 1779193102.4881756,
     "14-jak1": 1779194297.0693026,
-    "15-jak2": 1779195761.1763167
+    "15-jak2": 1779195761.1763167,
+    "16-jak3": 1779197326.1785657
   },
-  "last_update": "2026-05-19T13:28:41.900824+00:00"
+  "last_update": "2026-05-19T13:41:05.470635+00:00"
 }
