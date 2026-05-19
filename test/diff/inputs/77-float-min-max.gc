@@ -1,0 +1,10 @@
+;; tags: float, arith, minmax
+;; expect: 3
+;; Float fmin/fmax pair: fmax(5.0, 7.0) = 7.0, then fmin(3.0, 7.0) = 3.0.
+;; Pins both `fmax s, s, s` and `fmin s, s, s`. On AArch64 these
+;; are single instructions; the codegen should NOT lower them as
+;; `fcmp` + conditional `fcsel`, since the dedicated insns also
+;; have correct IEEE-754 NaN-propagation semantics that the
+;; compare-and-select version gets subtly wrong.
+(defun main ()
+  (format #t "~D~%" (the int (fmin 3.0 (fmax 5.0 7.0)))))

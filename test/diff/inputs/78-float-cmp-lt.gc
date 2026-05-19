@@ -1,0 +1,9 @@
+;; tags: float, compare, branches
+;; expect: 1
+;; Float less-than as a predicate: 2.5 < 3.5 -> #t -> 1. Pins
+;; the lowering of `<` on float operands to `fcmp s, s` followed
+;; by `b.mi` (the AArch64 "minus" condition, which on FP flags
+;; is the "less-than (ordered)" check -- it differs from `b.lt`
+;; on integer flags, which uses the N != V test instead).
+(defun main ()
+  (format #t "~D~%" (if (< 2.5 3.5) 1 0)))

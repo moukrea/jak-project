@@ -1,0 +1,10 @@
+;; tags: float, arith
+;; expect: 4
+;; Basic single-precision float addition: 1.5 + 2.5 = 4.0, then
+;; truncated back to int. Exercises `fadd s0, s0, s1` (the AArch64
+;; scalar-FP single-precision add) followed by `fcvtzs w0, s0` for
+;; the cast to int. The two literals are loaded into the SIMD/FP
+;; register bank with `fmov s, #imm` (or a static load if the imm8
+;; encoding can't represent them).
+(defun main ()
+  (format #t "~D~%" (the int (+ 1.5 2.5))))
