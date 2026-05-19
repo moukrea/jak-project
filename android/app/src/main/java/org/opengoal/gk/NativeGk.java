@@ -35,6 +35,24 @@ public final class NativeGk {
     public static native int startGame(String gameName, String dataRoot);
 
     /**
+     * Push the selected game name (e.g. "jak1") into a process-lifetime
+     * native global. Phase 20: gk_sdl_main reads it when assembling the
+     * argv handed to goal_main. MUST be called before SDLActivity.onCreate
+     * triggers the SDL thread, since the SDL thread will dlsym
+     * gk_sdl_main and consume the global synchronously.
+     */
+    public static native void setSelectedGame(String gameName);
+
+    /**
+     * Push the absolute path of the extracted iso_data directory (e.g.
+     * /data/data/org.opengoal.gk.jak1/files/iso_data/jak1) into a
+     * process-lifetime native global. Phase 20: goal_main opens
+     * "${dataRoot}/KERNEL.CGO" from this path. Same ordering requirement
+     * as {@link #setSelectedGame(String)}.
+     */
+    public static native void setDataRoot(String dataRoot);
+
+    /**
      * Forward an Android MotionEvent into the runtime. The native side
      * synthesizes the equivalent SDL_MOUSEBUTTON / SDL_MOUSEMOTION event
      * and pushes it onto SDL's event queue, so the existing input layer

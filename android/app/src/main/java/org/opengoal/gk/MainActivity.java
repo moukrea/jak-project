@@ -68,12 +68,24 @@ public class MainActivity extends SDLActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // SDLActivity.onCreate is what loads libgk.so. Anything that
-        // touches NativeGk MUST run AFTER super.onCreate.
-        super.onCreate(savedInstanceState);
-
+        // Phase 20: push the game name + data root into native BEFORE
+        // super.onCreate triggers SDLActivity's loadLibraries → SDL thread
+        // dispatch. The first NativeGk static reference here will run the
+        // class's static initializer, which System.loadLibrary("gk")'s
+        // libgk.so itself; once that's done, setSelectedGame /
+        // setDataRoot populate the process-lifetime globals that
+        // gk_sdl_main will read when the SDL thread dlsym's it.
         final String gameName = getString(R.string.game_name);
         final File isoDir = new File(getFilesDir(), ISO_DATA_SUBDIR + "/" + gameName);
+        NativeGk.setSelectedGame(gameName);
+        NativeGk.setDataRoot(isoDir.getAbsolutePath());
+
+        // SDLActivity.onCreate is what loads libgk.so. Anything that
+        // touches NativeGk MUST run AFTER super.onCreate. (The two calls
+        // above do touch NativeGk, but only the static initializer fires,
+        // which is harmless and just calls System.loadLibrary("gk")
+        // ahead of SDLActivity's own load.)
+        super.onCreate(savedInstanceState);
 
         // LoaderActivity should have completed extraction before transitioning
         // here. If iso_data is missing now it's a Loader regression; surface
