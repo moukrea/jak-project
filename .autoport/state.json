@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 23,
+  "current_phase_idx": 24,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -100,7 +100,7 @@
     "22-bionic-portability": 1779218294.9513323,
     "23-input-audio": 1779219781.1900616
   },
-  "last_update": "2026-05-19T19:43:01.190063+00:00",
+  "last_update": "2026-05-19T20:06:50.802106+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   }
