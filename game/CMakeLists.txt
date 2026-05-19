@@ -360,8 +360,13 @@ else()
     target_link_libraries(runtime pthread dl)
 endif()
 
-add_executable(gk main.cpp)
-target_link_libraries(gk runtime)
-if(WIN32)
-    set_target_properties(gk PROPERTIES VS_DPI_AWARE "PerMonitor")
+if(NOT OG_ARM64_BOOT_STUB)
+    add_executable(gk main.cpp)
+    target_link_libraries(gk runtime)
+    if(WIN32)
+        set_target_properties(gk PROPERTIES VS_DPI_AWARE "PerMonitor")
+    endif()
 endif()
+# When OG_ARM64_BOOT_STUB is on, the `gk` target is defined at the root scope
+# (see root CMakeLists.txt) so its phony ninja path is `gk`, not `game/gk` —
+# which avoids colliding with the CUSTOM_COMMAND output path build-arm64/game/gk.
