@@ -1,0 +1,17 @@
+;; tags: mem-ops, mixed-widths
+;; expect: 333
+;; Three accesses at three different widths into the same backing
+;; memory: an int8 write, an int16 write at +2, and an int32 write at
+;; +4. Then we read each back and sum them. This catches addressing-mode
+;; bugs where the codegen confuses the access size with the offset
+;; scaling (AArch64 scales the uimm12 immediate by the access size --
+;; the offset literal in the encoding is element-units, not bytes).
+;;   100 + 200 + 33 == 333
+(defun main ()
+  (let ((b8  (new 'stack-no-clear 'array uint8 1))
+        (b16 (new 'stack-no-clear 'array uint16 1))
+        (b32 (new 'stack-no-clear 'array uint32 1)))
+    (set! (-> b8  0) (the uint8  100))
+    (set! (-> b16 0) (the uint16 200))
+    (set! (-> b32 0) (the uint32 33))
+    (format #t "~D~%" (+ (-> b8 0) (-> b16 0) (-> b32 0)))))

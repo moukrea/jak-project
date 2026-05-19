@@ -1,0 +1,10 @@
+;; tags: mem-ops, loads, sign-extend
+;; expect: -1
+;; Signed halfword load. Exercises LDRSH Xd, [Xn]
+;; (x86: MOVSX r64, WORD PTR [reg]). Storing 0xFFFF and reading it
+;; back as int16 must produce -1 after sign extension across the full
+;; 64-bit register.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array int16 1)))
+    (set! (-> buf 0) (the int16 -1))
+    (format #t "~D~%" (-> buf 0))))

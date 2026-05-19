@@ -1,0 +1,14 @@
+;; tags: mem-ops, pair
+;; expect: 3
+;; Adjacent 64-bit slots in a stack array. The x86 backend emits two
+;; independent MOVs; on AArch64 the peephole optimizer (or the prologue
+;; emitter, in phase 05) is allowed to fold the consecutive 8-byte
+;; stores into a single STP Xs, Xt, [Xn] (and likewise LDP for the
+;; reads). Either codegen must produce a + b == 1 + 2 == 3.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array int64 2)))
+    (set! (-> buf 0) 1)
+    (set! (-> buf 1) 2)
+    (let ((a (-> buf 0))
+          (b (-> buf 1)))
+      (format #t "~D~%" (+ a b)))))

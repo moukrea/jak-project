@@ -1,0 +1,11 @@
+;; tags: mem-ops, loads, sign-extend
+;; expect: -1
+;; Signed 32-bit load. Exercises LDRSW Xd, [Xn]
+;; (x86: MOVSXD r64, m32). 0xFFFFFFFF interpreted as int32 is -1, and
+;; LDRSW sign-extends into the full 64-bit Xd so it stays -1.
+;; Boundary case opposite 25-mem-load32u.gc: same bytes in memory,
+;; opposite sign behaviour.
+(defun main ()
+  (let ((buf (new 'stack-no-clear 'array int32 1)))
+    (set! (-> buf 0) (the int32 -1))
+    (format #t "~D~%" (-> buf 0))))
