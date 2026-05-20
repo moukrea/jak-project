@@ -62,6 +62,47 @@ Both checks must pass.
    adb shell over a 10-second window and asserts it strictly increases
    (proving the real dispatcher runs, not a sleep loop).
 
+5. **Define the weak bridge symbols** (this phase's first pass shipped
+   a regression: the runtime declares
+   `extern "C" int weak_jak1_InitMachine() __attribute__((weak))` and
+   `extern "C" void weak_jak1_KernelCheckAndDispatch() __attribute__((weak))`
+   in `android/android_runtime_full.cpp:79-80`, but neither symbol is
+   defined anywhere — so the dispatcher's null check at line 189 / 212
+   falls back to a timer-only path that emits the right log strings
+   without running any GOAL code).
+
+   Add a small C++ bridge **under `game/kernel/jak1/`** (NOT under
+   `android/` — that file is for the JNI layer; the bridge belongs in
+   the jak1 kernel scope where InitMachine/KernelCheckAndDispatch live):
+
+   ```cpp
+   // game/kernel/jak1/android_bridge.cpp
+   #ifdef __ANDROID__
+   namespace jak1 {
+     int InitMachine();                  // forward decls
+     void KernelCheckAndDispatch();
+   }
+   extern "C" int weak_jak1_InitMachine() {
+     return jak1::InitMachine();
+   }
+   extern "C" void weak_jak1_KernelCheckAndDispatch() {
+     jak1::KernelCheckAndDispatch();
+   }
+   #endif
+   ```
+
+   The validator runs `llvm-nm --defined-only` on libgk.so and
+   demands both symbols appear with bodies. The fallback-canary log
+   line (`InitMachine: jak1 backend absent; bootstrap-only path
+   complete`) MUST NOT appear in logcat.
+
+   **Expect crashes.** The real `jak1::InitMachine` calls into
+   `InitVideo` / `InitIOP` / `InitHeapAndSymbol` — none of those have
+   been verified on Android. If the bridge crashes, that's the real
+   porting gap surfacing; fix it (or stub the prerequisite to no-op
+   safely on Android while logging what's missing), don't paper over
+   it by removing the bridge.
+
 ## Don't
 
 - Do not keep the `kStateSeq` array commented out. Delete it.

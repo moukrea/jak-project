@@ -207,6 +207,12 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/kernel/jak1/kprint.cpp"
     "${JAK_ROOT}/game/kernel/jak1/kscheme.cpp"
     "${JAK_ROOT}/game/kernel/jak1/ksound.cpp"
+    # Phase 28 (autoport): defines weak_jak1_InitMachine and
+    # weak_jak1_KernelCheckAndDispatch so the android_runtime_full
+    # wrapper's null-checked branches resolve to real bodies instead of
+    # falling through to the timer-only fallback path. See
+    # android_bridge.cpp's header comment for the full rationale.
+    "${JAK_ROOT}/game/kernel/jak1/android_bridge.cpp"
 
     # Kernel jak2 + jak3 subsets — same structural shape as jak1, sans
     # kmachine.cpp (which pulls discord_jak{2,3}.h + graphics deps). Their
