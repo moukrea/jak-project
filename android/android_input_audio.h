@@ -19,9 +19,26 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace android_input_audio {
 
 void init();
 void on_pad_button(int sdl_button, bool pressed);
+
+// Phase 30 (autoport): the Android build has no Display::GetMainDisplay()
+// registered (android_renderer owns its own SDL window outside the
+// graphics/ Gfx::Init path), so scePadRead's `if (pad_data)` branch is
+// dead — GOAL never sees a START press. Until phase 31+ wires the real
+// GOAL VM and a fallback in game/sce/libpad.cpp, the renderer reads
+// this directly so it can respond visibly to input. Returns the
+// monotonic-ms-since-epoch of the last SDL_GAMEPAD_BUTTON_START
+// press, or 0 if START has not been pressed in this process lifetime.
+int64_t last_start_press_ms();
+
+// Monotonic clock readout in the same units as last_start_press_ms().
+// Helper so callers can compute the age of the last press without
+// re-deriving the clock source.
+int64_t monotonic_ms_now();
 
 }  // namespace android_input_audio
