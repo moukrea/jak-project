@@ -11,7 +11,11 @@
 //   d-pad cross centered at (~15% w, 80% h), arm length 12% w, hit
 //     radius 7% of min(w, h);
 //   face buttons centered at (~77.5% w, 75% h), diamond half-extent
-//     5% h, same hit radius.
+//     5% h, same hit radius;
+//   START button centered at (50% w, 80% h) — phase 30 added so the
+//     title-screen `(cpad-pressed? 0 start)` poll in title-obs.gc has
+//     a tap target. Logged as `touch-hitbox: start_button at ...` so
+//     the phase-30 validator picks up coords device-independently.
 // The phase-23 validator drives the activity with `adb shell input tap`
 // at relative coords (25% w, 80% h) for d-pad right, (80% w, 80% h)
 // for the south/A button, and (75% w, 70% h) for north/Y — those
@@ -38,13 +42,14 @@ public class TouchControlsView extends View {
     private static final int SDL_GAMEPAD_BUTTON_EAST = 1;
     private static final int SDL_GAMEPAD_BUTTON_WEST = 2;
     private static final int SDL_GAMEPAD_BUTTON_NORTH = 3;
+    private static final int SDL_GAMEPAD_BUTTON_START = 6;
     private static final int SDL_GAMEPAD_BUTTON_DPAD_UP = 11;
     private static final int SDL_GAMEPAD_BUTTON_DPAD_DOWN = 12;
     private static final int SDL_GAMEPAD_BUTTON_DPAD_LEFT = 13;
     private static final int SDL_GAMEPAD_BUTTON_DPAD_RIGHT = 14;
 
     // Hitbox circle: cx, cy, r, sdl_button_id, label.
-    private static final int NUM_BUTTONS = 8;
+    private static final int NUM_BUTTONS = 9;
     private final float[] btnCx = new float[NUM_BUTTONS];
     private final float[] btnCy = new float[NUM_BUTTONS];
     private final float[] btnR = new float[NUM_BUTTONS];
@@ -108,6 +113,26 @@ public class TouchControlsView extends View {
         configure(5, faceCx + faceArm,  faceCy,           hitR, SDL_GAMEPAD_BUTTON_EAST,  "◯");
         configure(6, faceCx - faceArm,  faceCy,           hitR, SDL_GAMEPAD_BUTTON_WEST,  "□");
         configure(7, faceCx,            faceCy - faceArm, hitR, SDL_GAMEPAD_BUTTON_NORTH, "△");
+
+        // START — center-bottom. jak1's title-state polls
+        // (cpad-pressed? 0 start) to leave the title screen; without a
+        // tap target the validator can never drive the title→menu
+        // transition. Placed at (50% w, 80% h) so the phase-30
+        // validator's fallback coords (also (50% w, 80% h)) land on it
+        // even if the touch-hitbox log line is missed.
+        final float startCx = w * 0.50f;
+        final float startCy = h * 0.80f;
+        configure(8, startCx, startCy, hitR, SDL_GAMEPAD_BUTTON_START, "ST");
+
+        // Forensic hitbox log: phase-30 validator parses the first
+        // (X,Y) pair as the tap target and ignores the second. The
+        // second pair carries the hit diameter so a human reader can
+        // sanity-check the rectangle without re-deriving from the source.
+        final int diameter = Math.round(hitR * 2.0f);
+        Log.i("opengoal-input",
+              "touch-hitbox: start_button at ("
+              + Math.round(startCx) + "," + Math.round(startCy) + ")-("
+              + diameter + "," + diameter + ")");
     }
 
     private void configure(int idx, float cx, float cy, float r, int sdlBtn, String label) {
