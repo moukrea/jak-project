@@ -873,10 +873,17 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     env["AUTOPORT_PHASE_ID"] = pid
     env["AUTOPORT_PHASE_VALIDATOR"] = str(validator)
 
+    # `--effort max` is the CLI flag form of the CLAUDE_EFFORT env var set
+    # below. Recent Claude Code builds honor the flag; older ones fall back
+    # to the env. We pass both. The 'ultrathink' keyword prepended into
+    # `instructions` reinforces max thinking at the prompt level too, which
+    # works regardless of build version. See REDESIGN.md §5 on why
+    # ultrathink is mandatory for every phase.
     cmd = [
         "claude",
         "-p", instructions,
         "--model", MODEL,
+        "--effort", EFFORT,
         "--max-turns", str(phase.get("max_turns", 150)),
         "--output-format", "stream-json",
         "--verbose",

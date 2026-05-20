@@ -141,14 +141,41 @@ vocabulary.
 - **Oracle capture is broken.** Two distinct bugs:
   1. `.autoport/lib/capture_oracle.sh`'s `MILESTONES` array greps for
      the fictional `engine: state=...` strings. Must be rewritten to
-     match real log markers (`dkernel: boot mode`, `link finish:
-     gcommon`, `kernel: RPC port #N started`, plus whatever GOAL-VM
-     emissions exist after KERNEL.CGO link).
-  2. Desktop gk exits at ~5 seconds under the non-interactive launch.
-     Only 5 state-samples captured. Wayland warning at line 46 of the
-     trace: "wayland cannot position non-popup windows" may be
-     fatal. Needs investigation — probably needs an X11 fallback or
-     `--no-display` mode (if gk supports it) or running under Xvfb.
+     match real log markers (`dkernel: boot mode`, `InitIOP OK`,
+     `Initialized GOAL heap`, `Got DGO file header for KERNEL.CGO`,
+     `link finish: gcommon`, plus whatever the kernel emits after
+     gcommon — needs reading goal_src/jak1 to derive).
+  2. **Desktop gk SIGILLs at t≈5s on this machine.** `coredumpctl info`
+     for PID 3020563 confirms `Signal: 4 (ILL)` with command line
+     `build-x86/game/gk --game jak1 --portable -fakeiso --verbose
+     --disable-ansi -iso-data out/jak1/iso -- -boot -debug-mem`. The
+     crash fires right after `link finish: gcommon` so it's during
+     execution of the just-linked code.
+     - **Root cause**: build-x86/CMakeCache.txt has
+       `SDL_AVX512F:BOOL=ON`, but the host CPU is an Intel i7-10510U
+       (Comet Lake, AVX/AVX2 only — no AVX-512 in `/proc/cpuinfo`
+       flags). The first SDL codepath that hits an AVX-512 asm
+       routine (likely an audio resampler or YUV blit) SIGILLs.
+     - **Fix options**: (a) rebuild gk with `-DSDL_AVX512F=OFF`;
+       (b) rebuild with `-DCMAKE_CXX_FLAGS="-march=native"` so SDL
+       picks its assembly based on host caps; (c) skip the desktop
+       oracle entirely and derive milestones from source.
+     - Core dump preserved at
+       `/var/lib/systemd/coredump/core.gk.1000.aad4b5c9a7bf47d2b7b2565559aae1dc.3020563.1779306740000000.zst`
+       if a stack trace is wanted later.
+  3. **Pre-existing desktop-build breakage** uncovered by the
+     reconfigure: `runtime_trace.cpp` (added by phase 26) defines
+     `__goal_runtime_trace_kheap` and `__goal_runtime_trace_goal_call`
+     as weak no-ops. Phase 26 also added call sites in
+     `kmalloc.cpp:113,173,201` and `kscheme.cpp:133,153`. Phase 26
+     added the file to `android/CMakeLists.txt` but **forgot the
+     desktop x86 build at `game/CMakeLists.txt`**. The pre-existing
+     gk binary worked because it predated phase 26's changes; ninja
+     hadn't been forced to relink against the new symbol calls until
+     this supervisor's reconfigure. **Fix applied**: added
+     `kernel/common/runtime_trace.cpp` to `game/CMakeLists.txt`'s
+     runtime source list (next to `kscheme.cpp` / `ksocket.cpp` /
+     `ksound.cpp`).
 - **Stub renderer classes / shaders blob** still live in tree.
 - **`.autoport/lib/jak1_first_level_drive.sh`** is phase 31's drive
   script — only useful if jak1 ever actually reaches title. Can
