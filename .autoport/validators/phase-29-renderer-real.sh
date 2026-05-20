@@ -24,8 +24,14 @@ NM="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
 NM_OUT=$($NM --defined-only -D --demangle "$TMP/libgk.so" 2>/dev/null)
 
 REQUIRED=(TfragRenderer TieRenderer MercRenderer SpriteRenderer SkyRenderer ShadowRenderer DirectRenderer)
+# Phase 29 (autoport) fix: use a bash substring check rather than
+# `echo "$NM_OUT" | grep -qE`. With nm-output now ~300 KB (phase 27
+# widened libgk.so dramatically), `grep -q` closes the pipe after the
+# first match and SIGPIPE-kills the echo, which combined with the
+# script's `set -o pipefail` propagates as a false "not present"
+# negative even when the symbol *is* in NM_OUT.
 for pat in "${REQUIRED[@]}"; do
-    if ! echo "$NM_OUT" | grep -qE "$pat"; then
+    if [[ "$NM_OUT" != *"$pat"* ]]; then
         echo "FAIL: renderer class '$pat' not present in libgk.so"
         exit 1
     fi
