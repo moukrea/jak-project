@@ -79,7 +79,57 @@ def to_gles(src: str) -> str:
     src = src.replace("SCISSOR_HEIGHT", JAK1_SCISSOR_HEIGHT)
     src = src.replace("HEIGHT_SCALE", JAK1_HEIGHT_SCALE)
 
-    # 3. gl_FragDepth in GLES 3.x is built in — no extension required.
+    # 3. Phase 29 (autoport): promote bare integer literals used in `*` /
+    #    `/` arithmetic to float literals. Desktop GLSL (#version 410)
+    #    silently promotes `float * int_literal` to `float * float`;
+    #    GLES 3.20 strict-mode (Adreno) rejects the same expression with
+    #    `wrong operand types ... 'float' ... 'const int'`. Patterns
+    #    affected: `* 32`, `* 16`, `* 64`, `* 2`, `/ 16`, etc. — anywhere
+    #    a vertex shader scales a float coordinate by an int literal.
+    #    We skip integer-only operators (`&`, `|`, `^`, `<<`, `>>`, `%`)
+    #    so bit ops like `gl_VertexID & 1` remain valid. The negative
+    #    lookahead `(?![\d.uU])` keeps `* 1u`, `* 1.5`, `* 100` (when
+    #    immediately followed by another digit, i.e. `* 1000`) intact.
+    # `*`, `/`, `*=`, `/=`, `+=`, `-=` with zero-or-more whitespace
+    # before the int (tight `*2` and roomy `* 2` are equally common in
+    # jak1 shaders). The `+=`/`-=` cases catch lines like
+    # `transformed.z -= 1` in shadow2.vert.
+    src = re.sub(r"(\*=?|/=?|\+=|-=)(\s*)(\d+)(?![\d\.uU])", r"\1\2\3.0", src)
+
+    # Binary `-` and `+` between a float left-hand and an int literal
+    # right-hand. Two variants: tight (`2.0-1`, `.w-1`) and loose
+    # (`2.0 - 1`, `.w  - 1`). Both must skip unary `-1` in `vec4(-1, …)`,
+    # so we require a non-paren/non-comma/non-space char immediately
+    # before the operator (tight) or before the leading whitespace (loose).
+    src = re.sub(r"(?<=[\w\])])([-+])(\s*)(\d+)(?![\d\.uU])", r"\1\2\3.0", src)
+    src = re.sub(r"([\w\])])(\s+)([-+])(\s*)(\d+)(?![\d\.uU])",
+                 r"\1\2\3\4\5.0", src)
+
+    # `<int>`, `<= <int>`, `> <int>`, `>= <int>` comparisons: most appear
+    # in `coord.x < 0` / `frag.a <= 0` style float predicates. Promote
+    # the literal so GLES strict doesn't reject the comparison.
+    src = re.sub(r"([<>]=?)(\s*)(\d+)(?![\d\.uU])", r"\1\2\3.0", src)
+
+    # Promote bare `<int>` literals that appear as the LEFT operand of a
+    # `-` or `+` (e.g. `255 - position_in.w`), or that appear inside a
+    # negated paren `-(\d+)` or scalar paren `(\d+)`. The lookbehind
+    # restricts us to contexts that originate at an expression boundary
+    # (`=`, `,`, `(`, whitespace) so we don't touch `int idx = 255` etc.
+    src = re.sub(r"(?<=[=,(\s])(\d+)(\s*[-+]\s*)(?=[A-Za-z_(])", r"\1.0\2", src)
+
+    # Numerics inside paren-only scalar expressions like `(8388608)` or
+    # `(256)` used as divisor/subtrahend in float math. We rewrite the
+    # bare integer to a float literal so `transformed.z /= (8388608)`
+    # becomes `... /= (8388608.0)`.
+    src = re.sub(r"\((\d+)\)", r"(\1.0)", src)
+
+    # Assignment-to-float-builtin patterns. `gl_FragDepth = 1;` is
+    # `float = int` which Adreno strict rejects. We patch the two
+    # known-shadowed lvalues; anything else we miss falls back to the
+    # shader's own author writing `.0`.
+    src = re.sub(r"(gl_FragDepth\s*=\s*)(\d+)(?![\d\.uU])", r"\1\2.0", src)
+
+    # 4. gl_FragDepth in GLES 3.x is built in — no extension required.
     #    No transformation needed; left as a note for future readers.
 
     return src
