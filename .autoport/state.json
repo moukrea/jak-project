@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 30,
+  "current_phase_idx": 31,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -31,7 +31,7 @@
     "27-runtime-port": 1,
     "28-dispatcher-real": 1,
     "29-renderer-real": 1,
-    "30-title-screen": 4
+    "30-title-screen": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -125,7 +125,7 @@
     "29-renderer-real": 1779296510.0497034,
     "30-title-screen": 1779296806.2317502
   },
-  "last_update": "2026-05-20T17:09:36.704470+00:00",
+  "last_update": "2026-05-20T17:13:40.793709+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   }
