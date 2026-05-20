@@ -1,18 +1,13 @@
-// Phase 28 (autoport): Android implementation of `goal_main`.
+// Android implementation of `goal_main`. The dispatcher thread forwards
+// into KernelCheckAndDispatch (in android_runtime_full.cpp), which now
+// delegates directly to jak1::KernelCheckAndDispatch — no weak fallback,
+// no synthesised state transitions. If kmachine.cpp is not in the build,
+// the link fails honestly.
 //
-// The dispatcher thread used to host a hardcoded boot-state walker. Phase 28
-// strips it and forwards the thread body into the real KernelCheckAndDispatch
-// wrapper defined in android_runtime_full.cpp (which itself either delegates
-// into jak1::KernelCheckAndDispatch when that TU is linked, or falls back to
-// its own dispatcher tick that drives gfx + iop and bumps the kernel-side
-// heartbeat counter). The state-transition log lines now originate from
-// game/kernel/common/android_dispatch_signals.cpp, not from this TU.
-//
-// goal_main itself still owns the boot prelude: argv parsing, kheap init via
-// the upstream kmalloc primitives, and the honest open()+read() that pulls
-// KERNEL.CGO off the extracted iso_data into a W^X-disciplined RX mapping.
-// Those steps must complete before the dispatcher thread spins up, so the
-// real KernelCheckAndDispatch sees a fully-initialised Machine.
+// goal_main owns the boot prelude: argv parsing, kheap init via the
+// upstream kmalloc primitives, and the honest open()+read() that pulls
+// KERNEL.CGO off the extracted iso_data into a W^X-disciplined RX
+// mapping. Those steps complete before the dispatcher thread spins up.
 
 #include <android/log.h>
 #include <fcntl.h>
@@ -90,11 +85,10 @@ void dispatcher_thread_fn() {
                       "gkernel: dispatcher started (thread tid=%ld)",
                       (long)gettid());
 
-  // Hand the thread to the real KernelCheckAndDispatch wrapper. It owns
-  // the MasterExit-gated loop and does the actual per-tick work; if the
-  // jak1 dispatcher TU is linked it forwards into the GOAL kernel loop
-  // outright. Either path produces the heartbeat + state-transition
-  // markers via the helpers in game/kernel/common/android_dispatch_signals.
+  // Hand the thread to the KernelCheckAndDispatch wrapper. It forwards
+  // directly into jak1::KernelCheckAndDispatch — the real GOAL kernel
+  // loop. No synthesised heartbeat or state-transition markers; if jak1
+  // is not linked, the build fails at link time.
   KernelCheckAndDispatch();
 
   __android_log_print(ANDROID_LOG_INFO, kLogTag,

@@ -24,7 +24,6 @@
 
 #include "common/versions/versions.h"
 
-#include "game/kernel/common/android_dispatch_signals.h"
 #include "game/kernel/common/kboot.h"
 #include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/kprint.h"
