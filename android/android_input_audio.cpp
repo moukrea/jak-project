@@ -5,6 +5,7 @@
 #include <android/log.h>
 
 #include <atomic>
+#include <chrono>
 #include <cstring>
 #include <mutex>
 
@@ -36,6 +37,21 @@ std::mutex g_mu;
 // buffer sizes (1024 frames @ 48 kHz ≈ 21 ms) that's ~50 lines/sec,
 // well above the threshold and within logcat's bandwidth.
 std::atomic<uint64_t> g_audio_cb_count{0};
+
+// Phase 30: monotonic-ms timestamp of the most recent SDL_GAMEPAD_BUTTON_START
+// press edge. Read by the renderer so the framebuffer can change visibly
+// in response to a START tap until the real GOAL VM is wired (post phase
+// 31). 0 means "never pressed". Updated only on press edges, never on
+// release, so a one-shot `adb shell input tap` (which synthesises a
+// DOWN+UP pair) leaves a stable, queryable timestamp.
+std::atomic<int64_t> g_last_start_press_ms{0};
+
+int64_t monotonic_ms_internal() {
+  using namespace std::chrono;
+  return duration_cast<milliseconds>(
+             steady_clock::now().time_since_epoch())
+      .count();
+}
 
 // SDL3 numbers SDL_GAMEPAD_BUTTON_* contiguously from 0 with
 // SDL_GAMEPAD_BUTTON_COUNT as the sentinel. Keep that contract here —
@@ -229,6 +245,14 @@ void on_pad_button(int sdl_button, bool pressed) {
                       "kernel: pad: %s %s",
                       name, pressed ? "pressed" : "released");
 
+  // Phase 30: latch the START-press timestamp for the renderer to read.
+  // Only press edges advance it — UP events from `adb shell input tap`
+  // would otherwise wipe the value before the post-screencap fires.
+  if (pressed && sdl_button == SDL_GAMEPAD_BUTTON_START) {
+    g_last_start_press_ms.store(monotonic_ms_internal(),
+                                std::memory_order_release);
+  }
+
   // Push into the SDL virtual joystick if init has completed. Touch
   // events arriving before init() finishes are still logged above; the
   // GOAL kernel can't consume them yet either, so dropping the SDL side
@@ -244,6 +268,14 @@ void on_pad_button(int sdl_button, bool pressed) {
                           sdl_button, SDL_GetError());
     }
   }
+}
+
+int64_t last_start_press_ms() {
+  return g_last_start_press_ms.load(std::memory_order_acquire);
+}
+
+int64_t monotonic_ms_now() {
+  return monotonic_ms_internal();
 }
 
 }  // namespace android_input_audio
