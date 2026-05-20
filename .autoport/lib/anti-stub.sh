@@ -223,3 +223,53 @@ ok = (len(colors) >= 50) and (dominant_share < 0.70)
 sys.exit(0 if ok else 1)
 PYEOF
 }
+
+# ---- 3D-scene-like pixel-content check ----------------------------------
+# Tighter than count_pixel_diversity. The phase-31 brief says a real 3D
+# scene must look fundamentally different from a 2D menu: more unique
+# colors, less dominant fill, and a vertical color gradient (sky-to-
+# ground delta) that a flat menu doesn't have. A `glClear` + UI sprite
+# loop fails on the delta check even when it has hundreds of colors,
+# because menus tend to be vertically uniform.
+#
+# Criteria (matched to the phase-31 validator's inlined check so a
+# helper-vs-inline drift can't hide a regression):
+#   ≥150 unique RGB values in the upper-middle band,
+#   dominant color < 50% of the sampled region,
+#   top-third vs bottom-third average-color delta > 20 (sum across RGB).
+anti_stub_check_3d_scene_like() {
+    local png="$1"
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "  anti-stub: python3 unavailable; cannot run 3D-scene check" >&2
+        return 1
+    fi
+    python3 - "$png" <<'PYEOF'
+import sys
+from collections import Counter
+try:
+    from PIL import Image
+except ImportError:
+    print("PIL/Pillow not installed; pip install Pillow", file=sys.stderr)
+    sys.exit(2)
+img = Image.open(sys.argv[1]).convert("RGB")
+w, h = img.size
+# Upper-middle band: 10..90% horizontal, 20..60% vertical. Excludes the
+# system status bar (top 10%) and the touch overlay (bottom 25%).
+band = img.crop((int(w*0.1), int(h*0.2), int(w*0.9), int(h*0.6)))
+bw, bh = band.size
+cnt = Counter(band.getdata())
+unique = len(cnt)
+dom_share = cnt.most_common(1)[0][1] / (bw * bh)
+top = band.crop((0, 0, bw, bh // 3))
+bot = band.crop((0, bh * 2 // 3, bw, bh))
+def avg(im):
+    px = list(im.getdata())
+    return tuple(sum(c) / len(px) for c in zip(*px))
+ta = avg(top); ba = avg(bot)
+delta = sum(abs(a - b) for a, b in zip(ta, ba))
+print(f"  3D-scene: unique={unique} dominant={dom_share*100:.1f}% "
+      f"top-bot-delta={delta:.1f}", file=sys.stderr)
+ok = (unique >= 150) and (dom_share < 0.50) and (delta > 20)
+sys.exit(0 if ok else 1)
+PYEOF
+}

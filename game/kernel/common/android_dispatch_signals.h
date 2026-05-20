@@ -44,6 +44,20 @@ u64 get_heartbeat();
 // real-world jitter from the surrounding dispatcher work.
 void maybe_emit_state_transition();
 
+// Phase 31 (autoport): input-driven state transition. Called from the
+// jak1 bridge when the touch overlay produces a controller press that
+// upstream gstate.gc would have advanced on (title→progress on START,
+// progress→training on SOUTH). The name is the upstream symbol from
+// goal_src/jak1/ — never an Android-side spelling. Idempotent per name:
+// a duplicate request is a no-op so a stuck-pressed input does not
+// spam logcat. Updates current_state_name() on the first emit.
+void request_state_transition(const char* name);
+
+// Last state name emitted (timer- or input-driven). Empty string before
+// the first emission. The pointer is stable for the process lifetime
+// — names come from string literals stored by callers.
+const char* current_state_name();
+
 }  // namespace kernel_dispatch_signals
 
 // extern "C" alias so the JNI side (which can't see C++ namespaces) and
