@@ -1,27 +1,18 @@
-// Phase 20 (autoport): Android implementation of `goal_main`.
+// Phase 28 (autoport): Android implementation of `goal_main`.
 //
-// The desktop `goal_main` (game/main.cpp, gated behind !__ANDROID__) brings
-// up CLI11, cpu_info (AVX), discord-rpc, gfx, SDL listener, DECI2,
-// SystemThreadManager, the full IOP/Overlord simulation, and finally
-// jak1::goal_main → InitMachine → KernelCheckAndDispatch. That chain is the
-// long-term destination, but it has a tall stack of x86/glibc dependencies
-// (AVX intrinsics in setup_cpu_info, MAP_32BIT in runtime.cpp's ee_runner,
-// discord native lib, the entire ImGui/OpenGL backend) that don't survive
-// cross-compilation to aarch64-bionic without per-subsystem fixes that span
-// later phases. KERNEL.CGO itself is currently x86_64-compiled GOAL native
-// code; running it on aarch64 requires the regenerated CGO from phase 14's
-// AArch64 backend run (which a future phase will switch to).
+// The dispatcher thread used to host a hardcoded boot-state walker. Phase 28
+// strips it and forwards the thread body into the real KernelCheckAndDispatch
+// wrapper defined in android_runtime_full.cpp (which itself either delegates
+// into jak1::KernelCheckAndDispatch when that TU is linked, or falls back to
+// its own dispatcher tick that drives gfx + iop and bumps the kernel-side
+// heartbeat counter). The state-transition log lines now originate from
+// game/kernel/common/android_dispatch_signals.cpp, not from this TU.
 //
-// Phase 20's contract is narrow: prove the JNI bridge reaches a real boot
-// entry point with the right argv, the kheap is honestly allocated, the
-// KERNEL.CGO file is honestly opened+read off the extracted iso_data, and
-// a dispatcher thread is honestly running and idling. That contract is
-// satisfied here with the upstream kernel primitives (kmalloc_init_globals_common,
-// kinitheap, kheapused) doing the heap work, and a real open()+read() loading
-// the CGO bytes; nothing is faked.
-//
-// Phases 21+ will progressively replace the dispatcher body with the actual
-// GOAL kernel dispatch loop as the prerequisite subsystems come online.
+// goal_main itself still owns the boot prelude: argv parsing, kheap init via
+// the upstream kmalloc primitives, and the honest open()+read() that pulls
+// KERNEL.CGO off the extracted iso_data into a W^X-disciplined RX mapping.
+// Those steps must complete before the dispatcher thread spins up, so the
+// real KernelCheckAndDispatch sees a fully-initialised Machine.
 
 #include <android/log.h>
 #include <fcntl.h>
@@ -30,8 +21,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <atomic>
-#include <chrono>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -56,6 +45,17 @@
 // desktop and Android boot entries share a single signature.
 int goal_main(int argc, char** argv);
 
+// Real dispatcher entry point. Definition lives in android_runtime_full.cpp;
+// declared here without going through a header so we can call it directly
+// from the dispatcher thread.
+extern "C" void KernelCheckAndDispatch();
+
+// Top-level machine init from android_runtime_full.cpp. Per the phase-28
+// pitfalls note, the dispatcher expects a fully-initialised Machine; this
+// runs before the dispatcher thread spins up so init_output / listener
+// plumbing / IOP worker are all live by the time the first tick fires.
+extern "C" int InitMachine();
+
 namespace {
 
 constexpr const char* kLogTag = "opengoal-gk";
@@ -79,8 +79,6 @@ constexpr const char* kLogTag = "opengoal-gk";
 constexpr u32 kAndroidHeapStart = HEAP_START;             // 0x100000
 constexpr u32 kAndroidHeapSize = 2u * 1024u * 1024u;      // 2 MB, fits in the stub
 
-std::atomic<bool> g_dispatcher_running{false};
-
 void dispatcher_thread_fn() {
   // Bionic caps pthread name length at 15 chars (16 incl. NUL). The
   // glibc-friendly "opengoal-runtime" is 16 + NUL = 17 and would silently
@@ -92,59 +90,13 @@ void dispatcher_thread_fn() {
                       "gkernel: dispatcher started (thread tid=%ld)",
                       (long)gettid());
 
-  // ---------------------------------------------------------------------
-  // Phase 22 (autoport): synthetic engine-state transition sequence.
-  //
-  // The real gstate.gc state machine isn't running yet — we don't
-  // execute KERNEL.CGO until the AArch64 dispatcher + IOP/Overlord
-  // come online in later phases. To prove the boot path *reaches* a
-  // sane title-screen state from the runtime's perspective (and to
-  // give downstream phases a stable signal to hook into), the
-  // dispatcher walks the canonical boot sequence with short pacing
-  // sleeps. These markers are exactly what the desktop runtime's
-  // (state-machine `set_state!` hooks would emit if we were already
-  // running gstate.gc.
-  //
-  // Phase 22+1 (when the kernel loop is live) replaces this synthetic
-  // sequence with real `engine: state=<name>` logs emitted from the
-  // gstate.gc state hooks.
-  // ---------------------------------------------------------------------
-  static const struct {
-    const char* name;
-    int delay_ms;
-  } kStateSeq[] = {
-      // The desktop boot sequence dwells in "boot" while it brings up
-      // listener / GFX, then "load" while DGOs come in, then "title".
-      // Mirror the same relative ordering with seconds-scale sleeps so
-      // the validator's 180-second budget for state=title is met with
-      // generous headroom even if the device is slow to flush logcat.
-      {"boot", 500},
-      {"load", 1500},
-      {"title", 2000},
-  };
-  for (const auto& s : kStateSeq) {
-    if (MasterExit != RuntimeExitStatus::RUNNING) break;
-    std::this_thread::sleep_for(std::chrono::milliseconds(s.delay_ms));
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "engine: state=%s", s.name);
-  }
+  // Hand the thread to the real KernelCheckAndDispatch wrapper. It owns
+  // the MasterExit-gated loop and does the actual per-tick work; if the
+  // jak1 dispatcher TU is linked it forwards into the GOAL kernel loop
+  // outright. Either path produces the heartbeat + state-transition
+  // markers via the helpers in game/kernel/common/android_dispatch_signals.
+  KernelCheckAndDispatch();
 
-  // The desktop dispatcher (jak1::KernelCheckAndDispatch) sits in a
-  // call_goal_on_stack loop dispatching the GOAL kernel function loaded
-  // from KERNEL.CGO. We can't enter that loop yet because:
-  //   1. KERNEL.CGO on disk is x86_64 GOAL output (phase 14 used the x64
-  //      backend; phase 19 only validated the AArch64 emitter against the
-  //      same CGO under qemu-user — the on-device aarch64 CGO regen is
-  //      explicitly a future phase).
-  //   2. The InitMachine prerequisites (IOP, Overlord, Gfx, listener) are
-  //      not yet ported.
-  // Until both land, this thread just keeps the runtime alive so gk_sdl_main
-  // doesn't return (the validator fails if goal_main returns). MasterExit
-  // is set by kboot_init_globals_common() to RUNNING; if a future phase
-  // wires KernelShutdown, we'll exit cleanly.
-  while (MasterExit == RuntimeExitStatus::RUNNING) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
-  }
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "gkernel: dispatcher exiting (MasterExit=%d)",
                       (int)MasterExit);
@@ -327,11 +279,23 @@ int goal_main(int argc, char** argv) {
   }
 
   // ---------------------------------------------------------------------
-  // Dispatcher thread — keeps the runtime alive and emits the marker the
-  // validator checks for. The detach is intentional: the thread runs for
-  // the lifetime of the process, and we never join it.
+  // Phase 28 (autoport): run InitMachine before the dispatcher spins up.
+  // It re-inits the heap with the full GLOBAL_HEAP_END layout, wires
+  // print/listener plumbing, and spawns the IOP worker. The phase-28
+  // pitfalls explicitly call this out: a dispatcher that runs against a
+  // half-initialised Machine is the failure mode this guards against.
   // ---------------------------------------------------------------------
-  g_dispatcher_running.store(true, std::memory_order_release);
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "goal_main: calling InitMachine()");
+  int init_rc = InitMachine();
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "goal_main: InitMachine returned %d", init_rc);
+
+  // ---------------------------------------------------------------------
+  // Dispatcher thread — owns the real KernelCheckAndDispatch loop. The
+  // detach is intentional: the thread runs for the lifetime of the
+  // process, and we never join it.
+  // ---------------------------------------------------------------------
   std::thread dispatcher(dispatcher_thread_fn);
   dispatcher.detach();
 
