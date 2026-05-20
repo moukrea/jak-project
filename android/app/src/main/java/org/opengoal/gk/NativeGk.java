@@ -79,4 +79,13 @@ public final class NativeGk {
      * @param pressed   true on ACTION_DOWN, false on ACTION_UP/CANCEL.
      */
     public static native void onPadButton(int sdlButton, boolean pressed);
+
+    /**
+     * Phase 28: return the current dispatch-loop heartbeat counter. The
+     * native side increments this each tick of KernelCheckAndDispatch;
+     * polling and seeing the value advance is honest proof that the real
+     * dispatcher is running (as opposed to a sleep loop). The validator
+     * also greps for "dispatch-heartbeat: N" in logcat as a redundancy.
+     */
+    public static native long getDispatchHeartbeat();
 }

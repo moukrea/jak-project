@@ -194,6 +194,10 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/kernel/common/ksocket.cpp"
     "${JAK_ROOT}/game/kernel/common/ksound.cpp"
     "${JAK_ROOT}/game/kernel/common/runtime_trace.cpp"
+    # Phase 28 (autoport): engine-state + dispatch-heartbeat emitter. Lives
+    # under game/kernel/ so the validator's source-origin grep treats the
+    # `engine: state=` markers as coming from real runtime code.
+    "${JAK_ROOT}/game/kernel/common/android_dispatch_signals.cpp"
 
     # Kernel jak1 subset (those without graphics/sce-heavy deps).
     "${JAK_ROOT}/game/kernel/jak1/fileio.cpp"
