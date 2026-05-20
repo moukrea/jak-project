@@ -194,10 +194,6 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/kernel/common/ksocket.cpp"
     "${JAK_ROOT}/game/kernel/common/ksound.cpp"
     "${JAK_ROOT}/game/kernel/common/runtime_trace.cpp"
-    # Phase 28 (autoport): engine-state + dispatch-heartbeat emitter. Lives
-    # under game/kernel/ so the validator's source-origin grep treats the
-    # `engine: state=` markers as coming from real runtime code.
-    "${JAK_ROOT}/game/kernel/common/android_dispatch_signals.cpp"
 
     # Kernel jak1 subset (those without graphics/sce-heavy deps).
     "${JAK_ROOT}/game/kernel/jak1/fileio.cpp"
@@ -207,12 +203,6 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/kernel/jak1/kprint.cpp"
     "${JAK_ROOT}/game/kernel/jak1/kscheme.cpp"
     "${JAK_ROOT}/game/kernel/jak1/ksound.cpp"
-    # Phase 28 (autoport): defines weak_jak1_InitMachine and
-    # weak_jak1_KernelCheckAndDispatch so the android_runtime_full
-    # wrapper's null-checked branches resolve to real bodies instead of
-    # falling through to the timer-only fallback path. See
-    # android_bridge.cpp's header comment for the full rationale.
-    "${JAK_ROOT}/game/kernel/jak1/android_bridge.cpp"
 
     # Kernel jak2 + jak3 subsets — same structural shape as jak1, sans
     # kmachine.cpp (which pulls discord_jak{2,3}.h + graphics deps). Their
@@ -420,16 +410,14 @@ add_library(gk SHARED
     # build don't compete for the symbol. The Android body honestly inits
     # the kheap, opens KERNEL.CGO, and spawns the dispatcher thread.
     android_goal_main.cpp
-    # Phase 21 (autoport): SDL/GLES bring-up + shader compile + render
-    # loop. Owning the generated shader blob, it depends on the
-    # gen_android_shaders custom target (wired below).
+    # SDL/GLES bring-up + a placeholder render loop. The real OpenGL
+    # renderer chain (game/graphics/opengl_renderer/) is not yet ported
+    # to Android — supervisor rollback 2026-05-20 removed the phase-29
+    # gradient-quad stand-in. Until a real port lands, android_renderer
+    # only proves SDL_Init + window + GLES context + glClear/swap
+    # succeed; no game content is rendered.
     android_renderer.cpp
-    # Phase 29 (autoport): per-bucket renderer classes (TfragRenderer,
-    # TieRenderer, MercRenderer, SpriteRenderer, SkyRenderer,
-    # ShadowRenderer, DirectRenderer) + the ChainRenderer that compiles
-    # the curated shader set and dispatches the chain per frame.
-    android_renderer_classes.cpp
-    # Phase 23 (autoport): SDL virtual gamepad + audio device bring-up.
+    # SDL virtual gamepad + audio device bring-up.
     # Driven from gk_sdl_main; the JNI bridge in gk_android_main.cpp
     # forwards on-screen pad presses through this TU's free functions.
     android_input_audio.cpp

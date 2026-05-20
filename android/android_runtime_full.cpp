@@ -48,7 +48,6 @@
 #include "common/common_types.h"
 
 #include "game/kernel/common/Ptr.h"
-#include "game/kernel/common/android_dispatch_signals.h"
 #include "game/kernel/common/kboot.h"
 #include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/kprint.h"
@@ -71,13 +70,6 @@ namespace jak1 {
 int InitMachine();
 void KernelCheckAndDispatch();
 }  // namespace jak1
-
-// Mark as weak so the linker doesn't error if the jak1 TUs were dropped
-// from the build (e.g., because graphics/sce deps wouldn't compile yet).
-// On Android NDK clang, __attribute__((weak)) on a declaration lets a
-// missing definition resolve to nullptr instead of unresolved-symbol.
-extern "C" int weak_jak1_InitMachine() __attribute__((weak));
-extern "C" void weak_jak1_KernelCheckAndDispatch() __attribute__((weak));
 
 extern "C" {
 
@@ -183,61 +175,34 @@ int InitMachine() {
   extern void gfx_dispatcher();
   gfx_dispatcher();
 
-  // Step 8: forward into the jak1::InitMachine implementation if it was
-  // linked. The weak alias lets us tolerate a build configuration where the
-  // jak1 TU was dropped (e.g., its graphics/sce deps didn't compile).
-  if (weak_jak1_InitMachine) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "InitMachine: delegating to jak1::InitMachine");
-    int rc = weak_jak1_InitMachine();
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "InitMachine: jak1::InitMachine returned %d", rc);
-    return rc;
-  }
-
+  // Step 8: forward into the jak1::InitMachine implementation. Resolved at
+  // link time directly — no weak fallback. If game/kernel/jak1/kmachine.cpp
+  // is not in the source set, the link fails with an undefined reference,
+  // which is the honest engineering signal that the runtime port is
+  // incomplete. The supervisor (.autoport/SUPERVISOR_PROMPT.md) explicitly
+  // wants this — see the 2026-05-20 rollback entry in SUPERVISOR_JOURNAL.md.
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "InitMachine: jak1 backend absent; bootstrap-only path complete");
-  return 0;
+                      "InitMachine: delegating to jak1::InitMachine");
+  int rc = jak1::InitMachine();
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "InitMachine: jak1::InitMachine returned %d", rc);
+  return rc;
 }
 
 // ---------------------------------------------------------------------------
-// KernelCheckAndDispatch — top-level wrapper. Polls MasterExit then forwards
-// into jak1's dispatcher if it's available.
+// KernelCheckAndDispatch — top-level wrapper. Forwards directly into jak1's
+// dispatcher. Resolved at link time; no weak fallback. If kmachine.cpp is
+// not linked the build fails — that's the honest signal the runtime port
+// is not done. The previous fallback ran a timer loop that called into
+// kernel_dispatch_signals::{heartbeat_tick,maybe_emit_state_transition} and
+// was the relocated kStateSeq cheat. See SUPERVISOR_JOURNAL.md 2026-05-20.
 // ---------------------------------------------------------------------------
 void KernelCheckAndDispatch() {
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "KernelCheckAndDispatch: entered (top-level wrapper)");
-
-  // If jak1's dispatcher is linked, run it — it's the real GOAL kernel loop.
-  if (weak_jak1_KernelCheckAndDispatch) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "KernelCheckAndDispatch: delegating to jak1");
-    weak_jak1_KernelCheckAndDispatch();
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "KernelCheckAndDispatch: jak1 dispatcher returned");
-    return;
-  }
-
-  // Fallback: tick our own dispatch loop, exercising the gfx + iop entry
-  // points so the symbols stay live in the loaded image. Each tick also
-  // bumps the heartbeat counter and runs the engine-state pacer; both
-  // helpers live under game/kernel/ so the phase-28 validator's source-
-  // origin grep sees the log lines coming from real runtime code rather
-  // than an android/-side stub.
-  extern void gfx_dispatcher();
-  extern void make_iop_thread();
-  static std::atomic<bool> iop_started{false};
-  if (!iop_started.exchange(true)) {
-    make_iop_thread();
-  }
-  while (MasterExit == RuntimeExitStatus::RUNNING) {
-    gfx_dispatcher();
-    kernel_dispatch_signals::heartbeat_tick();
-    kernel_dispatch_signals::maybe_emit_state_transition();
-    std::this_thread::sleep_for(std::chrono::milliseconds(16));
-  }
+                      "KernelCheckAndDispatch: delegating to jak1");
+  jak1::KernelCheckAndDispatch();
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "KernelCheckAndDispatch: MasterExit set, returning");
+                      "KernelCheckAndDispatch: jak1 dispatcher returned");
 }
 
 // ---------------------------------------------------------------------------

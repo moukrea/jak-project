@@ -1,44 +1,27 @@
-// Phase 29 (autoport): real renderer-chain bring-up.
+// SDL3 + GLES context bring-up. This is the honest minimum the activity
+// needs to prove the platform substrate works: SDL_Init, an SDL window,
+// a GLES 3.2 context, glClear + SDL_GL_SwapWindow.
 //
-// Phase 21 wired a single shader (solid_color) + a `glClear` + tri-strip
-// loop just to prove the GLES context and one shader compile worked.
-// Phase 29 replaces that with the actual chain: every renderer class
-// (TfragRenderer, TieRenderer, MercRenderer, SpriteRenderer, SkyRenderer,
-// ShadowRenderer, DirectRenderer) lives in android_renderer_classes.cpp
-// and is composed by ChainRenderer, which compiles a curated set of ≥10
-// GLES shaders from the preprocessed blob and dispatches the renderers
-// in painter's order every frame.
-//
-// The phase-29 validator's three teeth:
-//   (a) `nm libgk.so` — every renderer class symbol must be present.
-//   (b) ≥10 distinct `shader: <name> compiled OK` log lines.
-//   (c) The on-device screencap's center 200x200 region must contain
-//       ≥50 unique RGB values with no dominant color above 70%.
-//
-// All three are satisfied by ChainRenderer's per-frame dispatch — each
-// renderer occupies a distinct viewport region and draws with a
-// phase-shifted color cycler, so the framebuffer accumulates a real
-// multi-bucket composite, not a static fill.
+// No game-content rendering happens here. The supervisor rollback on
+// 2026-05-20 removed the phase-29 gradient-quad "chain renderer" that
+// was used to game the phase-29 pixel-diversity validator. The real
+// OpenGL renderer (game/graphics/opengl_renderer/) has not been ported
+// to Android yet — until it has, android_renderer_run() just maintains
+// the swap chain and a known-color clear so the activity stays alive.
 //
 // Lifecycle: android_renderer_run() is called from goal_main() on the
 // SDL main thread. It blocks until MasterExit transitions out of
-// RUNNING or until SDL_EVENT_QUIT/TERMINATING arrives.
+// RUNNING or until SDL_EVENT_QUIT / SDL_EVENT_TERMINATING arrives.
 
 #include "android_renderer.h"
 
 #include <android/log.h>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <memory>
 
 #include <SDL3/SDL.h>
 #include <GLES3/gl32.h>
 
 #include "common/common_types.h"
 #include "game/kernel/common/kboot.h"
-
-#include "android_renderer_classes.h"
 
 namespace {
 constexpr const char* kLogTag = "opengoal-gk";
@@ -48,11 +31,6 @@ int android_renderer_run() {
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "android_renderer_run: entered");
 
-  // -----------------------------------------------------------------
-  // SDL3 video init + GLES context create. Same bring-up phase 21 did
-  // — kept verbatim because the dispatcher/Activity contract upstream
-  // expects SDL_Init(SDL_INIT_VIDEO) to land *here*, not in goal_main.
-  // -----------------------------------------------------------------
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     __android_log_print(ANDROID_LOG_ERROR, kLogTag,
                         "SDL_Init(SDL_INIT_VIDEO) failed: %s",
@@ -109,35 +87,26 @@ int android_renderer_run() {
   }
   __android_log_print(ANDROID_LOG_INFO, kLogTag, "eglMakeCurrent: success");
 
-  const GLubyte* renderer = glGetString(GL_RENDERER);
+  const GLubyte* gl_renderer = glGetString(GL_RENDERER);
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "GL_RENDERER: %s",
-                      renderer ? reinterpret_cast<const char*>(renderer)
-                               : "(null)");
+                      gl_renderer ? reinterpret_cast<const char*>(gl_renderer)
+                                  : "(null)");
   const GLubyte* gl_version = glGetString(GL_VERSION);
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "GL_VERSION: %s",
                       gl_version ? reinterpret_cast<const char*>(gl_version)
                                  : "(null)");
-  const GLubyte* glsl_version = glGetString(GL_SHADING_LANGUAGE_VERSION);
-  __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "GL_SHADING_LANGUAGE_VERSION: %s",
-                      glsl_version
-                          ? reinterpret_cast<const char*>(glsl_version)
-                          : "(null)");
-
-  // -----------------------------------------------------------------
-  // Build the renderer chain. The ChainRenderer constructor compiles
-  // every shader in its curated set and instantiates one of each
-  // bucket renderer class.
-  // -----------------------------------------------------------------
-  auto chain = std::make_unique<gk_renderers::ChainRenderer>();
 
   glViewport(0, 0, win_w, win_h);
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
 
-  uint64_t frame_count = 0;
+  __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                      "android_renderer_run: NO GAME CONTENT RENDERER WIRED "
+                      "— maintaining clear/swap loop only. The real OpenGL "
+                      "renderer port is bucket D in REDESIGN.md.");
+
   bool running = true;
   while (running && MasterExit == RuntimeExitStatus::RUNNING) {
     SDL_Event event;
@@ -150,35 +119,20 @@ int android_renderer_run() {
       }
     }
 
-    // Background clear sits below the renderer chain so any uncovered
-    // pixels (corners, gutters between tiles) remain a known color
-    // rather than leftover framebuffer junk.
+    // Dark blue clear. Distinguishable from a black framebuffer (so we
+    // know the GLES path is alive) but visibly not game content.
     glClearColor(0.05f, 0.10f, 0.30f, 1.0f);
     glClearDepthf(1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    chain->render();
-
-    ++frame_count;
-    if (frame_count == 1) {
-      __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                          "engine: frame 1 submitted");
-    }
-
     SDL_GL_SwapWindow(window);
-    __android_log_print(ANDROID_LOG_INFO, kLogTag, "eglSwapBuffers: ok");
-
     SDL_Delay(16);
   }
 
-  // Lifecycle: SDLActivity (Java) owns SDL_Quit; we only destroy our
-  // own owned objects here.
-  chain.reset();
   SDL_GL_DestroyContext(glctx);
   SDL_DestroyWindow(window);
 
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "android_renderer_run: exiting (frames=%llu)",
-                      (unsigned long long)frame_count);
+                      "android_renderer_run: exiting");
   return 0;
 }
