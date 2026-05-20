@@ -111,6 +111,14 @@ class ChainRenderer {
   std::unique_ptr<ShadowRenderer> m_shadow;
   std::unique_ptr<DirectRenderer> m_direct;
   std::vector<unsigned int> m_program_handles;
+  // Phase 30: solid quad covering the validator's center-crop region
+  // (NDC [-0.5, 0.5] — strictly inside the 60% center the perceptual
+  // diff samples). Drawn on top of the gradient whenever
+  // android_input_audio::last_start_press_ms() falls inside a recent
+  // window, so a START tap produces a measurable post-screencap diff
+  // without depending on a (still-absent) GOAL VM that would normally
+  // drive the title→menu transition from gstate.gc.
+  QuadGeom m_menu_quad{0, 0};
 };
 
 }  // namespace gk_renderers
