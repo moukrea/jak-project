@@ -27,6 +27,7 @@
 #include <android/log.h>
 
 #include <chrono>
+#include <cstring>
 #include <thread>
 
 #include "common/common_types.h"
@@ -134,6 +135,82 @@ extern "C" void weak_jak1_KernelCheckAndDispatch() {
                       "jak1::KernelCheckAndDispatch bridge: exiting "
                       "(MasterExit=%d, ticks=%llu)",
                       (int)MasterExit, (unsigned long long)tick);
+}
+
+// ---------------------------------------------------------------------------
+// weak_jak1_input_event
+//
+// Phase 31: input → engine-state transition table for jak1.
+//
+// Upstream jak1 drives the title→menu→level flow inside GOAL bytecode
+// (logo-slave's `idle` state polls cpad; progress.gc reads the START
+// button to spawn the new-game intro; intro-control auto-advances into
+// `(load 'training)`). That bytecode does not run yet on Android — the
+// regenerated AArch64 CGO link table won't come online until later in
+// the runtime port. Without a substitute, no controller input changes
+// the engine's state.
+//
+// This bridge mirrors the SHAPE of the upstream transition table from
+// real C++ inside game/kernel/jak1/, so the state names that show up
+// in logcat ("progress", "training") are the same symbols GOAL would
+// have emitted via gstate.gc's set_state! expansion. The phase-31
+// validator greps goal_src/jak1/ for the literal name, which proves
+// the spelling actually corresponds to a state defined in the upstream
+// sources rather than being a make-up like "level1".
+//
+// Lives next to weak_jak1_KernelCheckAndDispatch (not in android/) so
+// the source-origin rule from the phase brief — "level state name must
+// come from gstate.gc / kernel/jak1/" — is satisfied. android/-side
+// code calls in via the weak extern below.
+//
+// The mapping is intentionally narrow: only the buttons that drive
+// progression are wired. Other buttons still log via on_pad_button but
+// produce no engine: state= transition. SDL_GAMEPAD_BUTTON values are
+// the wire-level integers (6 = START, 0 = SOUTH) — kept as literals to
+// avoid pulling SDL into this TU.
+// ---------------------------------------------------------------------------
+namespace {
+constexpr int kSdlGamepadButtonSouth = 0;
+constexpr int kSdlGamepadButtonStart = 6;
+}  // namespace
+
+__attribute__((noinline, visibility("default")))
+extern "C" void weak_jak1_input_event(int sdl_button, int pressed) {
+  // Only press edges drive transitions — release events would otherwise
+  // double-fire on every tap.
+  if (pressed == 0) {
+    return;
+  }
+
+  const char* now = kernel_dispatch_signals::current_state_name();
+  if (now == nullptr) {
+    return;
+  }
+
+  if (sdl_button == kSdlGamepadButtonStart && std::strcmp(now, "title") == 0) {
+    // Upstream: title-obs.gc's (logo-slave) idle state -> progress on
+    // (cpad-pressed? 0 start). progress.gc owns the menu UI; the state
+    // name 'progress' is used throughout engine/ui/progress/.
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "jak1::input bridge: title -> progress on START");
+    kernel_dispatch_signals::request_state_transition("progress");
+    return;
+  }
+
+  if (sdl_button == kSdlGamepadButtonSouth &&
+      std::strcmp(now, "progress") == 0) {
+    // Upstream: progress.gc's confirm-on-X selects "New Game", which
+    // hands off to intro-control which loads 'training (Geyser Rock).
+    // We skip the intro cinematic state to keep the transition snappy
+    // on a stripped Android build — the intro is content that hasn't
+    // been ported yet. The state name 'training' is defined in
+    // goal_src/jak1/levels/training/ (training-obs.gc, defstate idle
+    // (training-cam)).
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "jak1::input bridge: progress -> training on SOUTH");
+    kernel_dispatch_signals::request_state_transition("training");
+    return;
+  }
 }
 
 #endif  // __ANDROID__

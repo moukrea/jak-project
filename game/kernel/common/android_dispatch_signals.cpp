@@ -14,6 +14,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstring>
+#include <mutex>
 
 namespace kernel_dispatch_signals {
 
@@ -22,6 +24,39 @@ namespace {
 constexpr const char* kLogTag = "opengoal-gk-kernel";
 
 std::atomic<u64> g_heartbeat{0};
+
+// Phase 31: tracks the last-emitted state name across both the timer
+// path (maybe_emit_state_transition) and the input path
+// (request_state_transition). Stored as const char* pointing into a
+// string literal owned by the caller — both call sites use literals.
+// The mutex serialises updates so the timer thread and the SDL input
+// thread can't race a half-formed name into current_state_name().
+std::mutex g_state_mu;
+const char* g_current_state = "";
+
+// Set of names already emitted, kept tiny on purpose: the full sequence
+// for jak1 first-level is boot, load, title, progress, training — five
+// names. A linear scan is more than fast enough and avoids dragging
+// std::unordered_set into a TU that links into a 28 KB symbol.
+constexpr size_t kMaxEmittedNames = 16;
+const char* g_emitted_names[kMaxEmittedNames] = {};
+size_t g_emitted_count = 0;
+
+bool already_emitted_locked(const char* name) {
+  for (size_t i = 0; i < g_emitted_count; ++i) {
+    if (std::strcmp(g_emitted_names[i], name) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void record_emit_locked(const char* name) {
+  if (g_emitted_count < kMaxEmittedNames) {
+    g_emitted_names[g_emitted_count++] = name;
+  }
+  g_current_state = name;
+}
 
 // Pacing thresholds for the engine-state markers, in milliseconds since
 // the first maybe_emit_state_transition() call (which is itself called
@@ -90,8 +125,36 @@ void maybe_emit_state_transition() {
       s.emitted = true;
       __android_log_print(ANDROID_LOG_INFO, kLogTag, "engine: state=%s",
                           s.name);
+      {
+        std::lock_guard<std::mutex> lk(g_state_mu);
+        if (!already_emitted_locked(s.name)) {
+          record_emit_locked(s.name);
+        }
+      }
     }
   }
+}
+
+void request_state_transition(const char* name) {
+  if (name == nullptr || name[0] == '\0') {
+    return;
+  }
+  {
+    std::lock_guard<std::mutex> lk(g_state_mu);
+    if (already_emitted_locked(name)) {
+      return;
+    }
+    record_emit_locked(name);
+  }
+  // Log outside the lock — __android_log_print is itself thread-safe and
+  // holding the mutex across a syscall would briefly serialise unrelated
+  // current-state queries from the renderer.
+  __android_log_print(ANDROID_LOG_INFO, kLogTag, "engine: state=%s", name);
+}
+
+const char* current_state_name() {
+  std::lock_guard<std::mutex> lk(g_state_mu);
+  return g_current_state;
 }
 
 }  // namespace kernel_dispatch_signals
