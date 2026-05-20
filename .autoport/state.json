@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 28,
+  "current_phase_idx": 29,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -28,7 +28,8 @@
     "24-emitter-audit": 3,
     "25-cgo-regen": 1,
     "26-cgo-exec-qemu": 1,
-    "27-runtime-port": 1
+    "27-runtime-port": 1,
+    "28-dispatcher-real": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -51,6 +52,9 @@
     "24-emitter-audit": [
       "406c598e6bc4",
       "e4834dde7e8a"
+    ],
+    "28-dispatcher-real": [
+      "910ba9dccfdb"
     ]
   },
   "stuck_reasons": {},
@@ -82,7 +86,8 @@
     "24-emitter-audit",
     "25-cgo-regen",
     "26-cgo-exec-qemu",
-    "27-runtime-port"
+    "27-runtime-port",
+    "28-dispatcher-real"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -114,9 +119,10 @@
     "24-emitter-audit": 1779222931.95883,
     "25-cgo-regen": 1779229364.248258,
     "26-cgo-exec-qemu": 1779229741.2593563,
-    "27-runtime-port": 1779232014.2232563
+    "27-runtime-port": 1779232014.2232563,
+    "28-dispatcher-real": 1779234661.0297275
   },
-  "last_update": "2026-05-19T23:50:59.113040+00:00",
+  "last_update": "2026-05-20T05:29:20.250879+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   }

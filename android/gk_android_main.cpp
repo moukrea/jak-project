@@ -24,6 +24,7 @@
 
 #include "common/versions/versions.h"
 
+#include "game/kernel/common/android_dispatch_signals.h"
 #include "game/kernel/common/kboot.h"
 #include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/kprint.h"
@@ -259,6 +260,15 @@ Java_org_opengoal_gk_NativeGk_onTouchEvent(JNIEnv* /*env*/, jclass /*clazz*/,
   }
   __android_log_print(ANDROID_LOG_DEBUG, kGkLogTag,
                       "touch[%u]: action=%s x=%d y=%d", n, action_str, x, y);
+}
+
+// Phase 28: expose the dispatch heartbeat counter. The Java side polls
+// this via NativeGk.getDispatchHeartbeat(); validator scripts can also
+// hit it through `adb shell am instrument` if logcat is unreliable.
+JNIEXPORT jlong JNICALL
+Java_org_opengoal_gk_NativeGk_getDispatchHeartbeat(JNIEnv* /*env*/,
+                                                   jclass /*clazz*/) {
+  return (jlong)kernel_get_dispatch_heartbeat();
 }
 
 }  // extern "C"
