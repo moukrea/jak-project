@@ -362,3 +362,20 @@ _ret_zero_on_stack:
   mov x0, xzr
   ldp x29, x30, [sp], #16
   ret
+
+;; Phase A5 (autoport): runtime skip-flag definition lives here so both
+;; the Android build and the linux-arm64 cross build see the same symbol
+;; (D4 originally defined it only in android/android_runtime_compat.cpp,
+;; which the linux-arm64 build doesn't link — that left _call_goal_asm_arm64
+;; and _call_goal_on_stack_asm_arm64 with an unresolved external above).
+;; The Android runtime still flips this to 1 from InitMachine via the
+;; existing extern "C" declaration in android_runtime_full.cpp; A5's
+;; codegen unlock makes the underlying GOAL execution path safe, so the
+;; flag's residual purpose is documented in the shim audit.
+.data
+.global g_android_skip_goal_call
+.type g_android_skip_goal_call, @object
+.align 4
+g_android_skip_goal_call:
+.word 0
+.size g_android_skip_goal_call, 4
