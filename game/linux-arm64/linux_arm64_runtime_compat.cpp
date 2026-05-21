@@ -36,29 +36,15 @@
 // ---------------------------------------------------------------------------
 // Runtime globals normally owned by game/runtime.cpp.
 //
-// game/runtime.cpp mmaps EE_MAIN_MEM_SIZE (128 MB) at boot. Full main.cpp
-// drags discord + SDL + CLI11 — we own these here so the kernel TUs link
-// without compiling main.cpp. The 128 MB mmap is anonymous-backed-lazily;
-// no .bss / file-image bloat.
+// In phase C1 we statically mmapped 128 MB into g_ee_main_mem so that the
+// binary could link and the read-only validator checks pass. From C2 on
+// the boot driver in linux_arm64_main.cpp owns the mapping — it remaps
+// at EE_MAIN_MEM_MAP with PROT_EXEC|R|W (matching runtime.cpp::ee_runner)
+// before any kernel-init code runs. So this compat layer simply declares
+// g_ee_main_mem = nullptr and lets main() be the single owner.
 // ---------------------------------------------------------------------------
 
-namespace {
-constexpr size_t kEEMainMemSize = 128u * 1024u * 1024u;  // matches EE_MAIN_MEM_SIZE
-
-u8* allocate_ee_main_mem() {
-    void* p = mmap(nullptr, kEEMainMemSize, PROT_READ | PROT_WRITE,
-                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (p == MAP_FAILED) {
-        std::fprintf(stderr,
-                     "gk: g_ee_main_mem mmap(%zu) failed: %s\n",
-                     kEEMainMemSize, std::strerror(errno));
-        return nullptr;
-    }
-    return static_cast<u8*>(p);
-}
-}  // namespace
-
-u8* g_ee_main_mem = allocate_ee_main_mem();
+u8* g_ee_main_mem = nullptr;
 GameVersion g_game_version = GameVersion::Jak1;
 std::thread::id g_main_thread_id;
 int g_server_port = 8112;  // DECI2_PORT — duplicated to avoid pulling listener_common.h
@@ -249,6 +235,10 @@ std::string ThreadID::to_string() const {
 ThreadID get_current_thread_id() {
     return ThreadID((pid_t)gettid());
 }
+// Real upstream body lives in xdbg.cpp's x86 branch; aarch64 doesn't
+// need PTRACE_SET_REG poking for the debugger surface to work. A no-op
+// matches what xdbg.cpp does on macOS (the other "skip-poking" path).
+void allow_debugging() {}
 }  // namespace xdbg
 
 // ---------------------------------------------------------------------------
@@ -324,3 +314,67 @@ void snd_keyOnVoiceRaw(u32, u32) {}
 void snd_keyOffVoiceRaw(u32, u32) {}
 s32  snd_GetSoundUserData(snd::BankHandle, char*, s32, char*, SFXUserData*) { return 0; }
 void snd_SetSoundReg(s32, s32, u8) {}
+
+// ---------------------------------------------------------------------------
+// C2 — kmachine-equivalent globals + stubs.
+//
+// jak1's kmachine.cpp owns these globals + functions but the file pulls
+// graphics/discord/sce-libgraph transitively. The kernel boot path
+// (linux_arm64_main.cpp::boot_kernel_init) only needs the existence
+// of these symbols, not their behavior — InitMachine itself isn't
+// called (we wire up the heap + symbol table directly via
+// InitHeapAndSymbol with MasterUseKernel=false).
+//
+// Each definition matches the upstream prototype/type exactly, with a
+// no-op or default-constructed body. None of them is `weak`. None of
+// them emits a synthetic log marker.
+// C3 will replace each empty body with a real implementation as the
+// corresponding subsystem cross-compiles.
+// ---------------------------------------------------------------------------
+
+#include "common/util/Timer.h"
+#include "game/kernel/common/kmachine.h"
+#include "game/kernel/jak1/kmachine.h"
+#include "game/sce/libpad.h"  // SCE_PAD_DMA_BUFFER_SIZE
+
+OverlordDataSource isodrv = fakeiso;
+u32 modsrc = 1;
+u32 reboot_iop = 1;
+const char* init_types[] = {"fakeiso", "deviso", "iso_cd"};
+u8 pad_dma_buf[2 * SCE_PAD_DMA_BUFFER_SIZE] = {};
+u32 vif1_interrupt_handler = 0;
+u32 vblank_interrupt_handler = 0;
+Timer ee_clock_timer;
+
+jak1::AutoSplitterBlock g_auto_splitter_block_jak1;
+
+void kmachine_init_globals_common() {
+    // Upstream kmachine.cpp re-zeros these here; our static initialisers
+    // already do that. Kept as a real (empty) function body so the boot
+    // driver can call it without conditional compilation.
+    std::memset(pad_dma_buf, 0, sizeof(pad_dma_buf));
+    isodrv = fakeiso;
+    modsrc = 1;
+    reboot_iop = 1;
+    vif1_interrupt_handler = 0;
+    vblank_interrupt_handler = 0;
+    ee_clock_timer = Timer();
+}
+
+void InitCD() {}
+void InitVideo() {}
+// InitGoalProto / ShutdownGoalProto live in kdsnetm.cpp; InitSound /
+// ShutdownSound live in ksound.cpp — we already compile both, so the
+// real upstream bodies satisfy the link. Don't redefine them here.
+void InitSoundScheme() {}
+
+namespace jak1 {
+// jak1::kboot_init_globals lives in jak1/kboot.cpp upstream as `void
+// kboot_init_globals() {}` (an empty body) — we don't compile that
+// TU because it transitively #includes jak1/kmachine.h whose graphics
+// deps don't cross-compile here. Same empty body, lives in compat
+// instead. C3 will reintroduce the upstream TU once graphics shims
+// are real.
+void kboot_init_globals() {}
+}  // namespace jak1
+
