@@ -1,0 +1,29 @@
+;; Phase A3 — asm cluster: differential test for inline-asm IRs
+;; IR_AsmAdd, IR_AsmSub, IR_AsmPush, IR_AsmPop, IR_AsmRet, IR_RegSetAsm.
+;;
+;; The rlet form gives us explicit register names; .mov / .add / .sub
+;; emit the corresponding asm IRs without going through the regalloc's
+;; spill paths. (.push / .pop) round-trip a register through the stack;
+;; this is sensitive to the load/store encoding choosing the wrong
+;; addressing mode, so a buggy backend will produce mismatching values.
+;;
+;; The (.ret :color #f) at the end is the IR_AsmRet witness; the compiler
+;; emits a real `ret` instruction. The normal function epilogue still
+;; runs after this asm-ret (the codegen does not collapse them); we
+;; accept the small redundancy in exchange for an isolated witness for
+;; the IR_AsmRet codepath.
+;;
+;; Expected: ((100 + 42) - 0) round-tripped through push/pop = 142.
+
+(defun test-A3-asm ()
+  (rlet ((r1 :class gpr)
+         (r2 :class gpr)
+         (r3 :class gpr))
+    (.mov r1 100)
+    (.mov r2 42)
+    (.add r1 r2)         ; r1 = 142
+    (.push r1)           ; save r1
+    (.mov r3 0)
+    (.sub r1 r3)         ; r1 = 142 - 0 = 142 (sanity)
+    (.pop r1)            ; restore r1 = 142
+    (the int r1)))

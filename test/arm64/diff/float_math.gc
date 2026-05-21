@@ -1,0 +1,20 @@
+;; Phase A3 — float cluster: differential test for IR_FloatMath,
+;; IR_IntToFloat, IR_FloatToInt.
+;;
+;; Strategy:
+;;   - Two integer arithmetic operations (the int 5 and the int 137)
+;;     are coerced to float via (the float ...) — this emits IR_IntToFloat
+;;     (SCVTF in arm64, cvtsi2ss in x86).
+;;   - The floats are added (IR_FloatMath ADD_SS → FADD on arm64,
+;;     ADDSS on x86).
+;;   - The result is coerced back to int via (the int ...) which emits
+;;     IR_FloatToInt (FCVTZS on arm64, CVTTSS2SI on x86). Truncation
+;;     toward zero is identical on both backends.
+;;
+;; Expected: 5 + 137 = 142.
+
+(defun test-A3-float ()
+  (let ((a (the float 5))
+        (b (the float 137)))
+    (let ((sum (+ a b)))
+      (the int sum))))

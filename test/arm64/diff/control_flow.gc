@@ -1,0 +1,25 @@
+;; Phase A3 — control-flow cluster: differential test for
+;; IR_ConditionalBranch, IR_GotoLabel, IR_RegSet.
+;;
+;; Strategy:
+;;   - A let-bound flag is initialised to 5 (non-zero). The `if` form
+;;     emits IR_ConditionalBranch followed by IR_GotoLabel; we take the
+;;     "else" arm and accumulate the result through an extra `cond`
+;;     ladder that forces another pair of conditional branches.
+;;   - The arithmetic ladder is designed so a wrong branch direction
+;;     (B.cond inverted, B target out of range) lands in an arm that
+;;     returns a different non-142 value, making the test reject
+;;     buggy codegen via the matches_x86 check.
+;;
+;; Expected: 142.
+
+(defun test-A3-cf ()
+  (let ((flag 5)
+        (acc 0))
+    (if (zero? flag)
+        (set! acc 999)
+        (set! acc 100))
+    (cond
+      ((zero? flag) (set! acc (+ acc 555)))
+      ((= flag 5)   (set! acc (+ acc 42))))
+    acc))

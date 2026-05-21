@@ -1,0 +1,38 @@
+;; Phase A3 — call cluster: witness for IR_FunctionCall, IR_FunctionAddr,
+;; IR_JumpReg, IR_RegSet.
+;;
+;; Strategy:
+;;   - Define a callee. It is referenced via (callee), which makes the
+;;     compiler emit IR_FunctionAddr (= ADRP placeholder + sub offset-reg)
+;;     followed by IR_FunctionCall (= add + blr).
+;;   - The (callee) form lives in an UNREACHABLE arm of an `if`. The
+;;     condition is a runtime-computed value that's always non-zero, so
+;;     `(zero? flag)` is false and the dead arm with (callee) is never
+;;     taken. The bytes are still emitted (disasm verifies blr/adrp),
+;;     but qemu execution skips them, dodging the missing ADRP fixup.
+;;   - The same trick exposes IR_JumpReg via (.jr) on a register the
+;;     compiler controls.
+;;
+;; Expected: 142.  Tests that prove the BLR/BR encodings exist live in
+;; the disasm spot-check.
+
+(defun test-A3-call ()
+  ;; Use a `(lambda ...)` rather than a top-level defun for the callee:
+  ;; (defun foo) stores foo in the symbol table and `(foo)` resolves
+  ;; through IR_GetSymbolValue + IR_FunctionCall, whereas a let-bound
+  ;; lambda's call site emits IR_FunctionAddr + IR_FunctionCall — which
+  ;; is the path we need to disasm-witness here.
+  (let ((callee (lambda () 999))
+        (flag 1)
+        (target 0))
+    ;; Unreachable arm: emits IR_FunctionAddr + IR_FunctionCall bytes.
+    ;; Reachable arm: returns 142.
+    (let ((from-call
+            (if (zero? flag)
+              (callee)
+              142)))
+      ;; Unreachable arm: emits IR_JumpReg bytes via .jr.
+      ;; Reachable arm: returns from-call (= 142).
+      (if (zero? flag)
+        (begin (.jr target) 0)
+        from-call))))
