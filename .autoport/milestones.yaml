@@ -324,6 +324,24 @@ phases:
     max_turns: 800
     max_retries: 25
 
+  # === C4 — klink arm64 ADRP+ADD execute (supervisor 2026-05-21) ===
+  # C3 reached `link finish: gstate` cleanly under qemu but had to
+  # disable LINK_FLAG_EXECUTE because klink.cpp's relocators
+  # (cross_seg_dist_link_v3 / ptr_link_v3 / symlink_v3 / typelink_v3)
+  # write patches as raw u32 stores. arm64 ADRP+ADD have non-byte-
+  # aligned imm21/imm12 fields; raw stores corrupt them. A4 fixed
+  # this for goalc's compile-time ObjectGenerator but klink is the
+  # gk runtime linker — different code, same shape of bug. C4 closes
+  # the gap so jak1's arm64 CGOs execute end-to-end under qemu, and
+  # by extension under Android.
+
+  - id: "C4-klink-arm64-execute"
+    name: "klink arm64 ADRP+ADD fixups + gcommon top-level GOAL executes under qemu"
+    prompt: prompts/phase-C4-klink-arm64-execute.md
+    validator: validators/phase-C4-klink-arm64-execute.sh
+    max_turns: 600
+    max_retries: 20
+
   # === Bucket D — Android port (Bionic + W^X + GLES + SurfaceView) ===
 
   - id: "D1-android-bionic-shims"

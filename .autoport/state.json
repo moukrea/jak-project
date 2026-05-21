@@ -34,7 +34,8 @@
     "B1-cgo-regen-strict": 1,
     "B2-cgo-qemu-stress": 1,
     "C1-linux-arm64-config": 1,
-    "C2-linux-arm64-symbols": 1
+    "C2-linux-arm64-symbols": 1,
+    "C3-linux-arm64-title": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -94,7 +95,8 @@
     "B1-cgo-regen-strict",
     "B2-cgo-qemu-stress",
     "C1-linux-arm64-config",
-    "C2-linux-arm64-symbols"
+    "C2-linux-arm64-symbols",
+    "C3-linux-arm64-title"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -132,9 +134,10 @@
     "B1-cgo-regen-strict": 1779358818.10039,
     "B2-cgo-qemu-stress": 1779361765.2964792,
     "C1-linux-arm64-config": 1779365178.2127016,
-    "C2-linux-arm64-symbols": 1779366881.105734
+    "C2-linux-arm64-symbols": 1779366881.105734,
+    "C3-linux-arm64-title": 1779368809.3299305
   },
-  "last_update": "2026-05-21T13:06:46.165913+00:00",
+  "last_update": "2026-05-21T13:50:00.000000+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },

@@ -855,6 +855,83 @@ documenting. It works HERE because the work was honest and the
 validator is strict; if a future orchestrator-claude attempts to
 self-author a softer validator, the supervisor's audit step will
 catch it.
+
+### [2026-05-21 15:50] C2 + C3 passed under continued self-authoring; C3 reframed honestly; C4 inserted
+
+C2 passed at ~14:18 (commits `46853e05f` / `ce60d7815`). Validator
+25/25 green. gk runs upstream `jak1::InitHeapAndSymbol` under qemu,
+NumSymbols=97.
+
+C3 passed at ~15:48 (commits `7ed86d8a1` / `dd164dafd`). Validator
+39/39 green BUT C3 was honestly REFRAMED from its original
+"reach title under qemu" spec to "relocations clean, execution
+deferred":
+
+  - All 8 KERNEL.CGO objects link under qemu (gcommon → gstring-h
+    → gkernel-h → gkernel → pskernel → gstring → dgo-h → gstate).
+    NumSymbols 97 → 317 (delta=+220 from type-link/symlink slot
+    allocations).
+  - The original "reach title" couldn't be reached because of a
+    real engineering bug claude found: `game/kernel/common/klink.cpp`'s
+    four relocators (cross_seg_dist_link_v3, ptr_link_v3,
+    symlink_v3, typelink_v3) write patches as raw u32 stores,
+    which corrupt arm64 ADRP+ADD instructions (those have
+    non-byte-aligned imm21/imm12 fields requiring bit-level patches).
+  - claude explicitly refused to mask this with LINK_FLAG_EXECUTE
+    workarounds. The C3 validator FORBIDS the EXECUTE flag and
+    grep-checks for signal-handler-trickery, Overlord-pretend
+    forgery, and synthetic markers.
+  - A4 fixed this exact pattern for the goalc compile-time linker
+    (ObjectGenerator). klink is the gk runtime linker — different
+    code, same shape of bug.
+
+Supervisor-side independent audit of C3:
+
+  - `jak1::InitHeapAndSymbol`, `init_output`, `kinitheap` all
+    present as real text-section symbols in the binary.
+  - Running gk under qemu-aarch64-static myself reproduces the
+    boot log: 8 `link finish: ...` markers, NumSymbols=317, exit 0.
+    Different qemu timing across runs (50:58 / 52:19) confirms real
+    execution, not cached output.
+  - `link finish:` strings ONLY appear in source COMMENTS in
+    linux-arm64/, not as forged log emissions. The marker comes
+    from upstream klink's `print_link_finish`.
+  - LINK_FLAG_EXECUTE is OFF (line 276: `LINK_FLAG_OUTPUT_LOAD |
+    LINK_FLAG_PRINT_LOGIN`); the EXECUTE flag appears only in a
+    commented-out planned-future line.
+
+**The C3 reframing is honest and strict.** The bar moved DOWN
+("reach gstate-link" instead of "reach title") but the work surface
+remains real and the anti-cheats are tighter than the original.
+Supervisor accepts it.
+
+### [2026-05-21 15:55] C4 inserted between C3 and D1
+
+User approved insertion. C4-klink-arm64-execute is the supervisor's
+new phase targeting exactly the bug C3 surfaced:
+
+  - Extend `game/kernel/common/klink.cpp`'s 4 relocators with
+    arm64 ADRP+ADD/LDR-imm12/STR-imm12 bit-level patching (mirror
+    of A4's ObjectGenerator work, but at runtime).
+  - Re-enable LINK_FLAG_EXECUTE in linux_arm64_main.cpp.
+  - Boot log must contain `C4 KERNEL.CGO execute complete
+    (NumSymbols=N, post-execute-delta=+M)` with N ≥ 517, 200 ≤ M
+    ≤ 2000 (gcommon's top-level allocates type slots + interns
+    symbols).
+  - No SIGILL/SIGSEGV anywhere; no signal-handler trickery
+    (validator greps for `signal\(.*SIGILL`); no per-object flag
+    conditionals; instruction-kind histogram ≥ 100 patches.
+
+Validator (16 checks) inherits ALL of C3's invariants (re-runs
+phase-C3-linux-arm64-title.sh as check #1), then adds the C4
+specifics. The codegen-lock since A4 expands slightly: klink.cpp
+is the ONE new file C4 touches. All other locked files
+(IR.cpp, IGenARM64.{cpp,h}, ObjectGenerator.{cpp,h}, CodeGenerator.{cpp,h},
+classify_ir_arm64.py) remain byte-identical to their baselines.
+
+Bucket C now has 4 phases (C1/C2/C3/C4). The "reach title" target
+moves to bucket D (D4-android-apk-title) where it would be needed
+anyway. milestones.yaml has 46 phases total (was 45).
   3. **Pre-existing desktop-build breakage** uncovered by the
      reconfigure: `runtime_trace.cpp` (added by phase 26) defines
      `__goal_runtime_trace_kheap` and `__goal_runtime_trace_goal_call`
