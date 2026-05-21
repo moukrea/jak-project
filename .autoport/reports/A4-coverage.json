@@ -1,0 +1,523 @@
+{
+  "by_ir": {
+    "IR_AsmAdd": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "asm",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "add"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/asm_ops.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_AsmPop": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "asm",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ldr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/asm_ops.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_AsmPush": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "asm",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "str"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/asm_ops.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_AsmRet": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "asm",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ret"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/asm_ops.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_AsmSub": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "asm",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "sub"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/asm_ops.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_BlendVF": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "mov\tv"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_ConditionalBranch": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "control",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "b."
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/control_flow.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_FloatMath": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "float",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "fadd"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/float_math.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_FloatToInt": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "float",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "fcvtzs"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/float_math.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_FunctionAddr": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "call",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "adrp"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/a4_func_addr.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_FunctionCall": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "call",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "blr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/call_return.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_GetStackAddr": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "mov",
+        "sub"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/stack_addr.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_GetSymbolValue": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ldr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/a4_sym_svg.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_GetSymbolValueAsm": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ldr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/a4_sym_svg.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_GotoLabel": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "control",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "b\t"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/control_flow.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_Int128Math2Asm": {
+      "arm64_result": 110,
+      "arm64_seg_base": 4194432,
+      "cluster": "int128",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "shl"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/int128_math.gc",
+      "x86_result": 110,
+      "x86_seg_base": 4201360
+    },
+    "IR_Int128Math3Asm": {
+      "arm64_result": 110,
+      "arm64_seg_base": 4194432,
+      "cluster": "int128",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "orr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/int128_math.gc",
+      "x86_result": 110,
+      "x86_seg_base": 4201360
+    },
+    "IR_IntToFloat": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "float",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "scvtf"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/float_math.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_IntegerMath": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "add"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_JumpReg": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "call",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "br"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/call_return.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_LoadConstOffset": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ldr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_LoadConstant64": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "mov"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_LoadSymbolPointer": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "adrp"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/a4_sym_ptr.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_RegSet": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "mov"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_RegSetAsm": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "mov"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_RegValAddr": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "add",
+        "sub"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/stack_addr.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_Return": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ret"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_SetSymbolValue": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "str"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/a4_sym_svg.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_SplatVF": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "dup"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_SqrtVF": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "fsqrt"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_StaticVarAddr": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "adrp"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/a4_static_addr.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_StaticVarLoad": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ldr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/a4_static_load.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_StoreConstOffset": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "str"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_SwizzleVF": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "dup"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_VFMath2Asm": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "fsqrt"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    },
+    "IR_VFMath3Asm": {
+      "arm64_result": 142,
+      "arm64_seg_base": 4194432,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "fadd"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142,
+      "x86_seg_base": 4201360
+    }
+  },
+  "phase": "A4-linker-fixups",
+  "summary": {
+    "matches_x86": 36,
+    "other_skipped": [],
+    "qemu_executed": 36,
+    "real_ir_count": 36,
+    "reloc_skipped": [],
+    "segment_base_addr": 1077936128,
+    "sym_table_base": 1078984704,
+    "test_files": 13,
+    "tested_via_disasm": 36
+  },
+  "x86_oracle_link_finish_logo": true
+}
