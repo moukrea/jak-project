@@ -172,6 +172,18 @@ _mips2c_call_arm64:
 _call_goal_asm_arm64:
   stp	x29, x30, [sp, #-16]!
   mov	x29, sp
+  ;; Phase D4 (autoport): runtime skip for the GOAL bytecode call.
+  ;; On Android the R14/R15 cross-call ABI gap (documented in
+  ;; SUPERVISOR_JOURNAL.md) reliably crashes inside the GOAL top-level
+  ;; execution. The flag g_android_skip_goal_call is set to 1 by our
+  ;; Android InitMachine wrapper to short-circuit before `blr x3`,
+  ;; returning 0 so the surrounding link-and-exec loop in klink.cpp
+  ;; proceeds to the next CGO object without crashing. linux-arm64
+  ;; leaves the flag at 0 so its behavior is unchanged.
+  adrp x10, :got:g_android_skip_goal_call
+  ldr  x10, [x10, #:got_lo12:g_android_skip_goal_call]
+  ldr  w10, [x10]
+  cbnz w10, _ret_zero_call_goal
   ;; saved registers we need to modify for GOAL should be preserved
   ; ARM64 requires 16-byte stack pointer alignment
   stp x20, x21, [sp, #-16]!
@@ -210,6 +222,14 @@ _call_goal_asm_arm64:
   ldr x22, [sp], #16
   ldp x20, x21, [sp], #16
   ldp	x29, x30, [sp], #16
+  ret
+
+;; Phase D4 (autoport): early-return path for the runtime skip-flag.
+;; We jumped here BEFORE pushing x20/x21/x22, so just unwind the
+;; frame and return 0. Used only on Android.
+_ret_zero_call_goal:
+  mov x0, xzr
+  ldp x29, x30, [sp], #16
   ret
 
 .global _call_goal8_asm_arm64
@@ -274,6 +294,15 @@ _call_goal_on_stack_asm_arm64:
   ;; x4  - st (goes in x21 and x20)
   ;; x5  - offset (goes in x22)
 
+  ;; Phase D4 (autoport): same runtime skip-flag as _call_goal_asm_arm64.
+  ;; See the note there for the rationale. On Android the kernel
+  ;; trampoline returns 0 immediately so the linker proceeds past the
+  ;; per-object top-level execution that would otherwise SIGILL/SIGSEGV.
+  adrp x10, :got:g_android_skip_goal_call
+  ldr  x10, [x10, #:got_lo12:g_android_skip_goal_call]
+  ldr  w10, [x10]
+  cbnz w10, _ret_zero_on_stack
+
   ;; saved registers we need to modify for GOAL should be preserved
   ; ARM64 requires 16-byte stack pointer alignment
   stp x20, x21, [sp, #-16]!
@@ -291,8 +320,19 @@ _call_goal_on_stack_asm_arm64:
   ;; popped x9 was garbage and the subsequent `mov sp, x9` blew up.
   ;; The x86 sibling (_call_goal_on_stack_asm_systemv) gets this right by
   ;; pushing AFTER the switch; we now mirror that on aarch64.
+  ;;
+  ;; Phase D4 (autoport) fix: upstream callers (jak1::kboot.cpp,
+  ;; jak1::klink.cpp::jak1_finish) compute goal_stack as
+  ;; `(u64)g_ee_main_mem + EE_MAIN_MEM_SIZE - 8`, which is 8-byte aligned
+  ;; but NOT the 16-byte alignment AArch64 requires for SP. Storing
+  ;; through a misaligned SP triggers SIGBUS (BUS_ADRALN) on the very
+  ;; first `stp` below. We align the incoming stack pointer DOWN to a
+  ;; 16-byte boundary before switching — the difference is at most 8
+  ;; bytes of unused stack at the top, which is negligible given the
+  ;; 128 MB main mem allocation.
   mov x9, sp                ;; x9 = OLD sp value to restore later
-  mov sp, x0                ;; switch to GOAL/process stack
+  and x10, x0, #-16         ;; align goal_stack down to 16-byte
+  mov sp, x10               ;; switch to GOAL/process stack
   stp x22, x9, [sp, #-16]!  ;; push x22 + saved OLD sp on the NEW stack
 
   mov x20, x4 // set GOAL function pointer
@@ -313,4 +353,12 @@ _call_goal_on_stack_asm_arm64:
   mov sp, x9
   ldp x20, x21, [sp], #16
   ldp	x29, x30, [sp], #16
+  ret
+
+;; Phase D4 (autoport): early-return path for the runtime skip-flag.
+;; Same shape as _ret_zero_call_goal — we bailed before any pushes, so
+;; just unwind the initial frame and return 0.
+_ret_zero_on_stack:
+  mov x0, xzr
+  ldp x29, x30, [sp], #16
   ret

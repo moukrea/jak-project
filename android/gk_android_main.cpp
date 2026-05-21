@@ -180,24 +180,35 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
   }
 
   // Canonical argv shape:
-  //   gk --game <name> --portable -fakeiso -iso-data <data_root>
+  //   gk --game <name> --portable -fakeiso -iso-data <data_root> -boot -debug-mem
   // The runtime accepts CLI11 long flags AND the legacy kmachine `-foo`
   // flags interleaved; main.cpp re-parses both layers (CLI11 first, the
   // rest passed through to InitParms).
+  //
+  // Phase D4 (autoport): `-boot` flips MasterDebug=0 + DiskBoot=1. That
+  //   1. skips InitGoalProto/sceDeci2Open (no deci2 server on Android),
+  //      avoiding a SIGSEGV during InitMachine when MasterDebug=1.
+  //   2. makes InitMachineScheme actually call load_and_link_dgo_from_c
+  //      for GAME.CGO, which is what generates the `link finish:` markers
+  //      the D4 validator greps for.
+  // `-debug-mem` mirrors the desktop validator smoke test so the
+  // memory-layout behaviour matches Linux-arm64.
   const char* argv[] = {
       "gk",
       "--game",     game_name,
       "--portable",
       "-fakeiso",
       "-iso-data",  data_root,
+      "-boot",
+      "-debug-mem",
       nullptr,
   };
   const int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
 
   __android_log_print(
       ANDROID_LOG_INFO, kGkLogTag,
-      "goal_main: argv=[%s,%s,%s,%s,%s,%s,%s]",
-      argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]);
+      "goal_main: argv=[%s,%s,%s,%s,%s,%s,%s,%s,%s]",
+      argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8]);
 
   const int rc = goal_main(argc, const_cast<char**>(argv));
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "goal_main: returned %d", rc);
