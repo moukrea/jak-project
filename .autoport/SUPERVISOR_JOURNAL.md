@@ -444,6 +444,92 @@ wakeup that's still pending). State summary:
 
 No intervention warranted. The next scheduled wakeup at 10:39 will
 catch any code edits that begin landing in the next ~30 minutes.
+
+### [2026-05-21 10:34] A2 PASSED + A3 authored + A4 inserted
+
+A2 attempt 1 completed in 42 min / ~190 turns. Validator green
+across all 10 checks. Two commits landed:
+`54993cdf0 [autoport/A2-emitter-implement] real arm64 codegen for
+every jak1 blocker` (the work) and
+`3899037b0 [autoport/A2-emitter-implement] Implement aarch64
+codegen for every IR cluster` (the orchestrator's marker commit).
+
+**A2 deep audit results (the work is genuinely honest):**
+
+- `IGenARM64.cpp`: +906 lines / -179 = +727 net new arm64 encoder
+  implementations (LDR/STR, BL/BLR/BR/CBZ, MUL/UDIV/SDIV/MSUB,
+  LSL/LSR/ASR, AND/ORR/EOR, FADD/FSUB/FMUL/FDIV/FSQRT/SCVTF/FCVTZS,
+  full NEON .4S/.16B/.8H families, USHR/SSHR/SHL imm, DUP, ZIP1/2).
+- `IR.cpp`: 478 +/- lines, all arm64-side (validator's hunk-walker
+  + `git diff 9ee66e113 HEAD -- IR.cpp | grep '^[+-].*do_codegen_x86'`
+  both confirm zero x86 modifications).
+- Inventory after A2: 36 real / 5 carved / 1 missing / 0 remaining
+  blockers. Carve-outs are the 5 documented exceptions (IR_Null,
+  IR_ValueReset, IR_Nop, IR_AsmFNop, IR_AsmFWait).
+- x86 CGO hashes byte-identical to the pre-A2 baseline at
+  `.autoport/reports/A2-baseline-x86-cgo-hashes.txt`. Desktop gk
+  reaches `link finish: logo`. No SIGILL.
+- Classifier byte-identical to A1 commit.
+
+**Two validator bugs claude fixed (legitimately) before passing**:
+
+1. Hunk-walker in check #3 now tracks function-scope braces
+   line-by-line instead of false-positive on any hunk where
+   `do_codegen_x86` appeared as plain context. The new walker is
+   strictly stricter — it correctly attributes each `+`/`-` line to
+   the function whose body actually contains it.
+2. Check #6's classifier-output parse was broken: original used
+   text splitlines/split which produced quoted keys like
+   `"IR_Foo":` that never matched the bare blocker names. Claude
+   switched to `json.loads(out)`. Now the check actually works.
+
+Both fixes make the validator more correct, not weaker. Claude
+called them out explicitly in the commit message and the
+`A2-carve-outs.json.notes` field. The validator-01.txt output
+shows all 10 checks green.
+
+**Honest disclosure in A2 carve-outs**: claude documented in
+`.autoport/reports/A2-carve-outs.json.notes.linker_followup` that
+seven IR bodies (`IR_GetSymbolValue`, `IR_SetSymbolValue`,
+`IR_LoadSymbolPointer`, `IR_GetSymbolValueAsm`, `IR_StaticVarLoad`,
+`IR_StaticVarAddr`, `IR_FunctionAddr`) emit the right arm64
+instruction shapes but deliberately skip `link_instruction_*()`
+because ObjectGenerator's existing fix-up path asserts
+`disp_size==4` (x86-specific). Until a follow-on phase widens the
+linker to know about arm64 imm12/imm19, arm64-emitted CGOs aren't
+runtime-valid for those forms. **This is the opposite of phase
+24/25's hidden gaps — claude proactively flagged the limitation
+in machine-readable form.**
+
+**Halt + A3 + A4 plan**: orchestrator advanced to A3 placeholder
+immediately after A2 passed. Halted to avoid wasted spend.
+State.json reset (A3 retries cleared).
+
+A3 authored (270-line prompt + 214-line validator):
+- Per-cluster differential: at least one synthetic GOAL test per
+  cluster, compiled both x86 and arm64, qemu-executed, results
+  compared.
+- Disasm-clean required for ALL 36 real IRs.
+- Qemu-execute required for all IRs EXCEPT the 7 reloc-skip list
+  A2 documented.
+- The validator enforces: schema, full IR coverage, bounded
+  reloc-skip set, reproducible harness (re-run + diff key fields),
+  no codegen modifications since A2, x86 oracle still works.
+
+A4 inserted between A3 and B1 in milestones.yaml (now 45 phases
+total). A4-linker-fixups will widen ObjectGenerator to support
+arm64 imm12/imm19 fix-up kinds. After A4, A3 can be re-run with
+an empty reloc-skip list. A4's prompt + validator are still
+placeholders to be authored after A3 passes.
+
+Five commits landed since session start:
+- `6cf85f096` chore(autoport/supervisor-rollback)
+- `b6f933ab1` fix(autoport): runtime_trace.cpp desktop wiring
+- `62de29d52` refactor(autoport): bucket A-F
+- `360c47c49` feat(autoport/A1): real A1 + oracle capture
+- `9ee66e113` / `9cc60191f` A1 attempt-1 pass
+- `7a9cd16b3` feat(autoport/A2): real A2 prompt + validator
+- `54993cdf0` / `3899037b0` A2 attempt-1 pass
   3. **Pre-existing desktop-build breakage** uncovered by the
      reconfigure: `runtime_trace.cpp` (added by phase 26) defines
      `__goal_runtime_trace_kheap` and `__goal_runtime_trace_goal_call`
