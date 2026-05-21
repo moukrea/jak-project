@@ -1,0 +1,7 @@
+{
+  "t_seconds": 2,
+  "gk_pid": 3087664,
+  "rss_kb": 396304,
+  "vsz_kb": 1718844,
+  "trace_tail": "[40:20:376] [info] InitIOP OK"
+}

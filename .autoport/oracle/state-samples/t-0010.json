@@ -1,0 +1,7 @@
+{
+  "t_seconds": 10,
+  "gk_pid": 3087664,
+  "rss_kb": 507724,
+  "vsz_kb": 2088304,
+  "trace_tail": "[40:27:784] [debug] link finish: ndi-intro"
+}

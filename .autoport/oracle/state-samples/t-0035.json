@@ -1,0 +1,7 @@
+{
+  "t_seconds": 35,
+  "gk_pid": 3087664,
+  "rss_kb": 515988,
+  "vsz_kb": 2175592,
+  "trace_tail": "[40:55:773] [debug]   PRI 3 elt 0 PlayVag @ #x9E4080"
+}
