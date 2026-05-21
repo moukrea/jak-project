@@ -74,7 +74,19 @@ uint32_t cross_seg_dist_link_v3(Ptr<uint8_t> link,
   // both 32-bit and 64-bit pointer links are supported, though 64-bit ones are no longer in use.
   // we still support it just in case we want to run ancient code.
   if (size == 4) {
-    *Ptr<int32_t>(offset_of_patch).c() = diff;
+    int32_t* slot_addr = Ptr<int32_t>(offset_of_patch).c();
+    // arm64 may have an ADRP / ADD / LDR / STR imm-carrying instruction at this
+    // patch slot — the runtime dispatcher rewrites only the immediate bits
+    // (computing page-delta from the slot PC and the target host address).
+    // For x86 (and arm64 data slots), the dispatcher returns kNotInstr and we
+    // fall back to the raw int32 store of `diff` below.
+    uintptr_t target_host =
+        reinterpret_cast<uintptr_t>(Ptr<int32_t>(tgt).c());
+    auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(slot_addr),
+                                       target_host);
+    if (rc == KlinkArm64PatchResult::kNotInstr) {
+      *slot_addr = diff;
+    }
   } else if (size == 8) {
     *Ptr<int64_t>(offset_of_patch).c() = diff;
   } else {
@@ -88,7 +100,16 @@ uint32_t ptr_link_v3(Ptr<u8> link, ObjectFileHeader* ofh, int current_seg) {
   auto* link_data = link.cast<u32>().c();
   u32 patch_loc = link_data[0] + ofh->code_infos[current_seg].offset;
   u32 patch_value = link_data[1] + ofh->code_infos[current_seg].offset;
-  *Ptr<u32>(patch_loc).c() = patch_value;
+  // arm64 ptr-link slots may be an ADRP/ADD pair materialising the target
+  // address into a GPR. The dispatcher patches the imm field; on x86 (or
+  // an arm64 data-segment ptr slot) it returns kNotInstr and we fall
+  // back to the raw u32 store.
+  uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<u8>(patch_value).c());
+  auto rc = klink_arm64_patch_pc_rel(
+      reinterpret_cast<uint32_t*>(Ptr<u32>(patch_loc).c()), target_host);
+  if (rc == KlinkArm64PatchResult::kNotInstr) {
+    *Ptr<u32>(patch_loc).c() = patch_value;
+  }
   return 8;
 }
 
@@ -122,7 +143,18 @@ uint32_t typelink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
 
   // write the type pointers into memory
   for (uint32_t i = 0; i < offset_count; i++) {
-    *(data + offsets.c()[i]).cast<int32_t>() = type_ptr.offset;
+    auto data_ptr = (data + offsets.c()[i]).cast<int32_t>();
+    // arm64 type-pointer references materialise via ADRP+ADD (host
+    // address of the type-vtable). The dispatcher rewrites only the
+    // imm field; arm64 data slots and the entire x86 path fall through
+    // to the raw 32-bit type-offset store below.
+    uintptr_t target_host =
+        reinterpret_cast<uintptr_t>(Ptr<u8>(type_ptr.offset).c());
+    auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(data_ptr.c()),
+                                       target_host);
+    if (rc == KlinkArm64PatchResult::kNotInstr) {
+      *data_ptr = type_ptr.offset;
+    }
     seek += 4;
   }
 
@@ -160,13 +192,25 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
     uint32_t offset = offsets.c()[i];
     seek += 4;
     auto data_ptr = (data + offset).cast<int32_t>();
+    int32_t pre = *data_ptr;
 
-    if (*data_ptr == -1) {
-      // a "-1" indicates that we should store the address.
-      *(data + offset).cast<int32_t>() = sym_addr;
-    } else {
-      // otherwise store the offset to st.  Eventually this should become an s16 instead.
-      *(data + offset).cast<int32_t>() = sym_offset;
+    // arm64 sym-load slots are ADRP / ADD / LDR / STR with the imm
+    // field carrying the symbol's host address. The dispatcher patches
+    // only the imm bits, leaving the opcode intact. A x86 patch slot
+    // (or an arm64 GOAL data word) returns kNotInstr — fall through
+    // to the existing sentinel-based logic: -1 → store sym_addr (full
+    // address), anything else → store sym_offset (offset from s7).
+    uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<u8>(sym_addr).c());
+    auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(data_ptr.c()),
+                                       target_host);
+    if (rc == KlinkArm64PatchResult::kNotInstr) {
+      if (pre == -1) {
+        // a "-1" indicates that we should store the address.
+        *(data + offset).cast<int32_t>() = sym_addr;
+      } else {
+        // otherwise store the offset to st.  Eventually this should become an s16 instead.
+        *(data + offset).cast<int32_t>() = sym_offset;
+      }
     }
   }
 
