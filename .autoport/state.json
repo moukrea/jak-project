@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 30,
+  "current_phase_idx": 31,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -30,7 +30,8 @@
     "A1-emitter-enumerate": 1,
     "A2-emitter-implement": 1,
     "A3-emitter-differential": 1,
-    "A4-linker-fixups": 1
+    "A4-linker-fixups": 1,
+    "B1-cgo-regen-strict": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -86,7 +87,8 @@
     "A1-emitter-enumerate",
     "A2-emitter-implement",
     "A3-emitter-differential",
-    "A4-linker-fixups"
+    "A4-linker-fixups",
+    "B1-cgo-regen-strict"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -123,7 +125,7 @@
     "A4-linker-fixups": 1779356020.64445,
     "B1-cgo-regen-strict": 1779358818.10039
   },
-  "last_update": "2026-05-21T10:20:18.100394+00:00",
+  "last_update": "2026-05-21T11:05:00.000000+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
