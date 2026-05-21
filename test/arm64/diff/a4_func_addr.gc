@@ -1,0 +1,17 @@
+;; Phase A4 — function-address witness.
+;;
+;; Covers IR_FunctionAddr in the LIVE arm of the program (A3's
+;; call_return.gc only had it in dead arms to keep qemu-execute happy).
+;; The let-bound lambda forces an IR_FunctionAddr emit at the let-binding
+;; site; the (callee) call then jumps through the GOAL pointer.
+;;
+;; The arm64 emit pattern is ADRP + ADD imm12 + SUB offset_reg (the SUB
+;; converts the absolute function-entry address to a GOAL pointer; in the
+;; harness offset_reg is zero so the GOAL pointer equals the absolute
+;; address). The arm64-aware ObjectGenerator fix-up writes the ADRP imm21
+;; (page diff) and ADD imm12 (within-page byte offset) so the call lands
+;; on the lambda's entry point. The lambda returns 142.
+
+(defun fortytwo ()
+  (let ((callee (lambda () 142)))
+    (callee)))

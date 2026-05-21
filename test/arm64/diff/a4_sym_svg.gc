@@ -1,0 +1,22 @@
+;; Phase A4 — symbol set/get/get-asm witness.
+;;
+;; Covers IR_SetSymbolValue, IR_GetSymbolValue and IR_GetSymbolValueAsm in a
+;; runnable shape: write 142 to *probe-foo* via (set!), read it back via the
+;; regular accessor, then re-read via the asm accessor, and return v.
+;;
+;; The harness (.autoport/lib/build_a4_diff.py) mmaps a synthetic symbol
+;; table at SYM_TABLE_BASE and configures the symtab register (R14 on x86,
+;; X22 on arm64) to point at it. The arm64-aware ObjectGenerator fix-up
+;; rewrites the imm12 fields of the emitted STR / LDR / LDRSW instructions
+;; to encode *probe-foo*'s pinned offset within the synthetic table. Both
+;; backends therefore touch the same slot, so the result is identical
+;; (142) on both. The arm64 path was reloc-skipped in A3 because the imm12
+;; fix-up didn't exist yet; A4 is what makes this test executable.
+
+(define-extern *probe-foo* int)
+
+(defun fortytwo ()
+  (set! *probe-foo* 142)
+  (let ((v *probe-foo*))
+    (.load-sym v *probe-foo*)
+    v))

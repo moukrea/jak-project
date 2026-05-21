@@ -112,6 +112,14 @@ class ObjectGenerator {
   void handle_temp_rip_func_links(int seg);
   void handle_temp_static_ptr_links(int seg);
 
+  // ARM64 link-time imm12 / imm21 / imm19 fix-up (phase A4-linker-fixups).
+  // Applies an intra-segment ADRP / ADD imm12 / LDR-imm12 / LDR-literal-imm19
+  // patch in place. Caller picks the byte offset of the patched instruction
+  // and the target byte offset; this routine decodes the opcode, computes the
+  // appropriate page-delta / page-offset / pc-relative word offset, and
+  // rewrites only the immediate field bits.
+  void apply_arm64_intra_seg_imm_patch(int seg, int byte_of_instr, int target_byte);
+
   void emit_link_table(int seg, const TypeSystem* ts);
   void emit_link_type_pointer(int seg, const TypeSystem* ts);
   void emit_link_symbol(int seg);

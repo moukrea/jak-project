@@ -436,10 +436,151 @@ void ObjectGenerator::handle_temp_jump_links(int seg) {
   }
 }
 
+// ============================================================================
+// ARM64 link-time fix-up helpers (phase A4-linker-fixups).
+//
+// AArch64 packs link-resolvable immediates inside the 4-byte instruction word
+// at non-byte-aligned bit positions. The ObjectGenerator therefore cannot rely
+// on the x86 "patch a contiguous 4-byte slot inside the instruction" approach;
+// every arm64 fix-up has to (a) classify the opcode, (b) decode the
+// pre-existing immediate field, (c) overwrite ONLY the immediate bits, and
+// (d) leave the rest of the instruction encoding untouched. The helpers
+// below centralise that bit-twiddling. They are intentionally small leaf
+// functions so the call sites stay readable.
+//
+// References: ARM ARM C6.2.93 (LDR imm12), C6.2.181 (STR imm12),
+// C6.2.4 (ADD imm), C6.2.10 (ADRP), C6.2.92 (LDR (literal)).
+namespace {
+
+constexpr uint32_t kArm64MaskTopByte = 0xFF000000u;
+constexpr uint32_t kArm64MaskOpcode10 = 0xFFC00000u;     // bits 31..22 (size + opc)
+constexpr uint32_t kArm64MaskADRP = 0x9F000000u;          // bits 31, 28..24
+
+// arm64 unsigned-offset LDR/STR family bases (imm12 in bits 21..10).
+constexpr uint32_t kArm64Op_LDR_Wt_imm = 0xB9400000u;
+constexpr uint32_t kArm64Op_LDRSW_Xt_imm = 0xB9800000u;
+constexpr uint32_t kArm64Op_STR_Wt_imm = 0xB9000000u;
+constexpr uint32_t kArm64Op_LDR_Xt_imm = 0xF9400000u;
+constexpr uint32_t kArm64Op_STR_Xt_imm = 0xF9000000u;
+constexpr uint32_t kArm64Op_LDR_St_imm = 0xBD400000u;
+constexpr uint32_t kArm64Op_LDR_Dt_imm = 0xFD400000u;
+constexpr uint32_t kArm64Op_LDR_Qt_imm = 0x3DC00000u;
+constexpr uint32_t kArm64Op_STR_Qt_imm = 0x3D800000u;
+constexpr uint32_t kArm64Op_ADD_Xd_imm = 0x91000000u;     // ADD (immediate), 64-bit, shift 0
+constexpr uint32_t kArm64Op_SUB_Xd_imm = 0xD1000000u;
+constexpr uint32_t kArm64Op_ADRP = 0x90000000u;           // ADRP (high-page is bit 31..ADRP family)
+constexpr uint32_t kArm64Op_LDR_lit_S = 0x1C000000u;       // LDR (literal, 32-bit SIMD)
+constexpr uint32_t kArm64Op_LDR_lit_D = 0x5C000000u;
+constexpr uint32_t kArm64Op_LDR_lit_Q = 0x9C000000u;
+constexpr uint32_t kArm64Op_LDR_lit_W = 0x18000000u;       // LDR (literal, 32-bit GPR)
+constexpr uint32_t kArm64Op_LDR_lit_X = 0x58000000u;       // LDR (literal, 64-bit GPR)
+
+// Returns the access-size scale (1/2/4/8/16) for a LDR/STR imm12 opcode, or 0
+// if the opcode is not a recognised LDR/STR. Used by the imm12 patcher to
+// scale the byte offset down to the encoding's word count.
+int arm64_ldr_str_scale(uint32_t enc) {
+  uint32_t top = enc & kArm64MaskOpcode10;
+  switch (top) {
+    case kArm64Op_LDR_Wt_imm:
+    case kArm64Op_LDRSW_Xt_imm:
+    case kArm64Op_STR_Wt_imm:
+    case kArm64Op_LDR_St_imm:
+      return 4;
+    case kArm64Op_LDR_Xt_imm:
+    case kArm64Op_STR_Xt_imm:
+    case kArm64Op_LDR_Dt_imm:
+      return 8;
+    case kArm64Op_LDR_Qt_imm:
+    case kArm64Op_STR_Qt_imm:
+      return 16;
+  }
+  // Byte/half-word loads (LDRB/STRB/LDRH/STRH) share a different opcode prefix
+  // and are not currently emitted with link-resolvable offsets by goalc.
+  return 0;
+}
+
+// Rewrites the imm12 bits of an LDR/STR (unsigned-offset) instruction.
+// Returns the new 32-bit encoding. `imm_bytes` is the byte-resolved offset;
+// caller is responsible for ensuring imm_bytes is a multiple of the scale.
+uint32_t arm64_patch_ldr_str_imm12(uint32_t enc, int32_t imm_bytes) {
+  int scale = arm64_ldr_str_scale(enc);
+  ASSERT_MSG(scale != 0, "arm64_patch_ldr_str_imm12: unrecognised opcode");
+  // unsigned imm12: 0..(4095 * scale)
+  ASSERT(imm_bytes >= 0);
+  ASSERT(imm_bytes <= 4095 * scale);
+  uint32_t imm12 = static_cast<uint32_t>(imm_bytes / scale) & 0xFFFu;
+  // Clear bits 21..10 then OR in the new imm12.
+  return (enc & ~(0xFFFu << 10)) | (imm12 << 10);
+}
+
+// Rewrites the imm12 bits of an ADD/SUB (immediate) instruction. The shift
+// bit (bit 22) is forced to 0 — goalc never emits the shift-12 variant for a
+// link-resolved ADD, so a non-zero shift would mean a bug somewhere.
+uint32_t arm64_patch_add_sub_imm12(uint32_t enc, uint32_t imm12) {
+  ASSERT(imm12 <= 0xFFFu);
+  // Clear bits 21..10 (imm12) AND bit 22 (shift). Then write imm12<<10.
+  return (enc & ~((0xFFFu << 10) | (1u << 22))) | (imm12 << 10);
+}
+
+// Rewrites the imm21 bits of an ADRP instruction. The 21-bit signed page
+// delta is split across immlo[1:0] = bits 30:29 and immhi[18:0] = bits 23:5.
+//   ADRP: 1 immlo 10000 immhi Rd → 0x90000000 base
+uint32_t arm64_patch_adrp_imm21(uint32_t enc, int32_t page_delta) {
+  // Sign-extend / range-check to 21 signed bits: -(2^20) .. (2^20 - 1).
+  ASSERT(page_delta >= -(1 << 20));
+  ASSERT(page_delta < (1 << 20));
+  uint32_t bits21 = static_cast<uint32_t>(page_delta) & 0x1FFFFFu;
+  uint32_t immlo = bits21 & 0x3u;          // bits 1..0 of page delta
+  uint32_t immhi = (bits21 >> 2) & 0x7FFFFu;  // bits 20..2 of page delta
+  // Clear bits 30..29 (immlo) and bits 23..5 (immhi) then write new values.
+  uint32_t cleared = enc & ~((0x3u << 29) | (0x7FFFFu << 5));
+  return cleared | (immlo << 29) | (immhi << 5);
+}
+
+// Rewrites the imm19 bits of an LDR (literal) instruction. imm19 is signed
+// and scaled by 4 — the encoded value is the PC-relative byte offset / 4.
+//   imm19 sits in bits 23..5.
+uint32_t arm64_patch_ldr_literal_imm19(uint32_t enc, int32_t pc_rel_bytes) {
+  ASSERT_MSG((pc_rel_bytes & 3) == 0, "arm64 LDR literal: byte offset must be 4-aligned");
+  int32_t imm19_signed = pc_rel_bytes / 4;
+  ASSERT(imm19_signed >= -(1 << 18));
+  ASSERT(imm19_signed < (1 << 18));
+  uint32_t imm19 = static_cast<uint32_t>(imm19_signed) & 0x7FFFFu;
+  return (enc & ~(0x7FFFFu << 5)) | (imm19 << 5);
+}
+
+// Page-aligned address (drops the low 12 bits). Used for ADRP.
+inline int32_t arm64_page_of(int32_t byte_offset) {
+  return byte_offset & ~0xFFF;
+}
+
+}  // namespace
+
 /*!
  * Convert:
  * m_symbol_instr_temp_links_by_seg -> m_sym_links_by_seg
  * after memory layout is done and before link tables are generated
+ *
+ * x86: a single disp32/imm32 slot inside the patched instruction holds the
+ * symbol's value at link time, so the recorded offset points into the middle
+ * of the instruction (offset_of_disp / offset_of_imm). The runtime linker
+ * writes 32 bits there directly.
+ *
+ * arm64: the symbol value (or symbol address, in the case of an ADRP+ADD pair)
+ * lives in imm12 / imm21 fields embedded in the 32-bit instruction word at
+ * various non-byte-aligned positions:
+ *   - LDR/STR (Wt, [Xn,#imm]):  imm12 << 10  (scaled by access size)
+ *   - LDRSW    (Xt, [Xn,#imm]):  imm12 << 10  (scaled by 4)
+ *   - ADD imm12 (Xd, Xn, #imm):  imm12 << 10
+ *   - ADRP imm21:                imm_hi19 << 5 | imm_lo2 << 29
+ * The arm64-aware runtime linker therefore reads the whole instruction word,
+ * decodes the opcode, and rewrites only the immediate bits. To support that
+ * we record the *instruction start* (not a sub-byte imm offset) and skip the
+ * x86-specific disp/imm size asserts. ObjectGenerator also rewrites the
+ * placeholder imm bits in-place at link time so the emitted instructions are
+ * well-formed and never carry the unstable 0x0afecafe / 0x0badbeef encoder
+ * placeholder out to the link table (which the diff-harness disasm spot-check
+ * — and any later arm64 kernel-side patcher — relies on).
  */
 void ObjectGenerator::handle_temp_instr_sym_links(int seg) {
   for (const auto& links : m_symbol_instr_temp_links_by_seg.at(seg)) {
@@ -449,16 +590,98 @@ void ObjectGenerator::handle_temp_instr_sym_links(int seg) {
       const auto& function = m_function_data_by_seg.at(seg).at(link.rec.func_id);
       const auto& instruction = function.instructions.at(link.rec.instr_id);
       int offset_of_instruction = function.instruction_to_byte_in_data.at(link.rec.instr_id);
-      int offset_in_instruction =
-          link.is_mem_access ? instruction.offset_of_disp() : instruction.offset_of_imm();
-      if (link.is_mem_access) {
+      int offset_in_instruction;
+      if (m_instruction_set == InstructionSet::ARM64) {
+        // arm64 imm12 / imm21 lives inside the 32-bit instruction word at
+        // non-byte-aligned bit positions — record the instruction start and
+        // let the runtime linker decode the encoding from the word itself.
+        offset_in_instruction = 0;
+        // Zero out the placeholder imm bits the encoder emitted (0x0badbeef
+        // truncated etc.) so the instruction word is well-formed and the
+        // disasm spot-check in the diff harness sees a clean opcode + zeroed
+        // imm field. The full symbol-table slot offset is the runtime
+        // linker's responsibility — recorded in m_sym_links_by_seg below.
+        auto& data = m_data_by_seg.at(seg);
+        ASSERT(offset_of_instruction + 4 <= (int)data.size());
+        uint32_t enc;
+        memcpy(&enc, data.data() + offset_of_instruction, 4);
+        if (arm64_ldr_str_scale(enc) != 0) {
+          // LDR/STR/LDRSW with imm12 — clear bits 21..10.
+          enc = arm64_patch_ldr_str_imm12(enc, 0);
+        } else if ((enc & kArm64MaskOpcode10) == kArm64Op_ADD_Xd_imm ||
+                   (enc & kArm64MaskOpcode10) == kArm64Op_SUB_Xd_imm) {
+          enc = arm64_patch_add_sub_imm12(enc, 0);
+        } else if ((enc & kArm64MaskADRP) == kArm64Op_ADRP) {
+          enc = arm64_patch_adrp_imm21(enc, 0);
+        }
+        // Other arm64 opcodes flow through unchanged (e.g. the link records
+        // an instruction that doesn't carry an arm64 imm field — currently
+        // only the LDR/STR/ADD/ADRP forms above are link-resolvable on arm64).
+        patch_data<uint32_t>(seg, offset_of_instruction, enc);
+      } else if (link.is_mem_access) {
         ASSERT(instruction.get_disp_size() == 4);
+        offset_in_instruction = instruction.offset_of_disp();
       } else {
         ASSERT(instruction.get_imm_size() == 4);
+        offset_in_instruction = instruction.offset_of_imm();
       }
       m_sym_links_by_seg.at(seg)[sym_name].push_back(offset_of_instruction + offset_in_instruction);
     }
   }
+}
+
+// Helper: applies the ADRP+ADD (or ADRP+LDR-literal) arm64 immediate
+// fix-up for a same-segment intra-object cross-reference. byte_of_instr is
+// where the patched instruction lives in the segment; target_byte is the
+// segment-relative offset of the referenced datum (static or function start).
+//
+// For ADRP we encode the signed 21-bit page delta; for ADD imm12 we encode
+// the low-12 byte offset within the target page; for LDR (literal) imm19 we
+// encode the signed 19-bit PC-relative word offset.
+//
+// The intra-object delta is fully determined at link time (we know both
+// byte offsets within the segment), so this is a true compile-time fix-up:
+// no runtime patching needed.
+void ObjectGenerator::apply_arm64_intra_seg_imm_patch(int seg,
+                                                      int byte_of_instr,
+                                                      int target_byte) {
+  auto& data = m_data_by_seg.at(seg);
+  ASSERT(byte_of_instr + 4 <= (int)data.size());
+  uint32_t enc;
+  memcpy(&enc, data.data() + byte_of_instr, 4);
+
+  if ((enc & kArm64MaskADRP) == kArm64Op_ADRP) {
+    // ADRP encodes the page delta. ARM's ADRP rounds the PC of the ADRP
+    // instruction down to a page (4 KB) boundary, so the delta is between
+    // the two pages — not byte counts.
+    int32_t page_delta = (arm64_page_of(target_byte) - arm64_page_of(byte_of_instr)) >> 12;
+    enc = arm64_patch_adrp_imm21(enc, page_delta);
+  } else if (arm64_ldr_str_scale(enc) != 0) {
+    // LDR/STR imm12 — the byte offset is the low 12 bits of the target
+    // address (the page is reached via the preceding ADRP). With an
+    // intra-object reference the imm12 is just (target_byte mod 4096),
+    // assuming the segment is page-aligned at load time. We always patch
+    // page-relative bytes (target_byte & 0xFFF) so the encoding is stable.
+    int32_t page_off = target_byte & 0xFFF;
+    enc = arm64_patch_ldr_str_imm12(enc, page_off);
+  } else if ((enc & kArm64MaskOpcode10) == kArm64Op_ADD_Xd_imm ||
+             (enc & kArm64MaskOpcode10) == kArm64Op_SUB_Xd_imm) {
+    // ADD/SUB imm12 — same as LDR imm12, page-low-12 of target.
+    int32_t page_off = target_byte & 0xFFF;
+    enc = arm64_patch_add_sub_imm12(enc, page_off & 0xFFF);
+  } else if ((enc & 0xFF000000u) == kArm64Op_LDR_lit_S ||
+             (enc & 0xFF000000u) == kArm64Op_LDR_lit_D ||
+             (enc & 0xFF000000u) == kArm64Op_LDR_lit_Q ||
+             (enc & 0xFF000000u) == kArm64Op_LDR_lit_W ||
+             (enc & 0xFF000000u) == kArm64Op_LDR_lit_X) {
+    // LDR (literal) imm19 — PC-relative word offset (signed).
+    int32_t pc_rel = target_byte - byte_of_instr;
+    enc = arm64_patch_ldr_literal_imm19(enc, pc_rel);
+  }
+  // Anything else falls through unchanged. The intent is forward-compat:
+  // future encoders that produce a new link-patchable shape will need a
+  // matching arm cluster here.
+  patch_data<uint32_t>(seg, byte_of_instr, enc);
 }
 
 void ObjectGenerator::handle_temp_rip_func_links(int seg) {
@@ -469,6 +692,16 @@ void ObjectGenerator::handle_temp_rip_func_links(int seg) {
     const auto& target_func = m_function_data_by_seg.at(link.target.seg).at(link.target.func_id);
     result.offset_in_segment = target_func.instruction_to_byte_in_data.at(0);
     m_rip_links_by_seg.at(seg).push_back(result);
+
+    if (m_instruction_set == InstructionSet::ARM64 && link.target.seg == seg) {
+      // Intra-segment function-address reference: ADRP / ADD imm12 / LDR
+      // literal pair points at the target function. Patch the imm fields
+      // at link time so the emitted bytes are correct without any runtime
+      // linker pass.
+      const auto& src_func = m_function_data_by_seg.at(seg).at(link.instr.func_id);
+      int byte_of_instr = src_func.instruction_to_byte_in_data.at(link.instr.instr_id);
+      apply_arm64_intra_seg_imm_patch(seg, byte_of_instr, result.offset_in_segment);
+    }
   }
 }
 
@@ -480,6 +713,14 @@ void ObjectGenerator::handle_temp_rip_data_links(int seg) {
     const auto& target = m_static_data_by_seg.at(link.data.seg).at(link.data.static_id);
     result.offset_in_segment = target.location + link.offset;
     m_rip_links_by_seg.at(seg).push_back(result);
+
+    if (m_instruction_set == InstructionSet::ARM64 && link.data.seg == seg) {
+      // Intra-segment static-data reference: ADRP / LDR-literal / ADD imm12.
+      // Same compile-time fix-up as functions.
+      const auto& src_func = m_function_data_by_seg.at(seg).at(link.instr.func_id);
+      int byte_of_instr = src_func.instruction_to_byte_in_data.at(link.instr.instr_id);
+      apply_arm64_intra_seg_imm_patch(seg, byte_of_instr, result.offset_in_segment);
+    }
   }
 }
 
@@ -568,26 +809,45 @@ void ObjectGenerator::emit_link_rip(int seg) {
   for (auto& rec : m_rip_links_by_seg.at(seg)) {
     // kind (u8)
     // target segment (u8)
-    // offset in current (u32)
+    // offset in current (u32) — the reference PC, computed by the runtime
+    //   linker as (mine_offset + this_segment_base). x86 RIP-relative
+    //   addressing measures from the byte *after* the patched instruction, so
+    //   x86 stores instruction_to_byte[instr_id + 1]. arm64 PC-relative
+    //   addressing (ADRP / LDR-literal / B / B.cond) measures from the byte
+    //   *of* the patched instruction itself, so arm64 stores
+    //   instruction_to_byte[instr_id].
     // offset into target (u32)
-    // patch loc (u32) (todo, make this a s8 offset from offset into current?)
+    // patch loc (u32) — where the runtime linker rewrites bits. x86 patches a
+    //   32-bit displacement field inside the instruction (offset_of_disp).
+    //   arm64 imm21 / imm12 / imm19 fields live at non-byte-aligned positions
+    //   inside the 32-bit instruction word, so patch_loc records the
+    //   instruction start and the runtime linker decodes the encoding and
+    //   rewrites only the immediate bits (ADRP, ADD imm12, LDR-literal imm19).
 
     // kind
     out.push_back(LINK_DISTANCE_TO_OTHER_SEG_32);
     // target segment
     out.push_back(rec.target_segment);
-    // offset into current
+    // offset into current + patch location
     const auto& src_func = m_function_data_by_seg.at(rec.instr.seg).at(rec.instr.func_id);
-    push_data<u32>(src_func.instruction_to_byte_in_data.at(rec.instr.instr_id + 1), out);
+    u32 source_rip_offset;
+    u32 patch_loc_offset;
+    if (m_instruction_set == InstructionSet::ARM64) {
+      source_rip_offset = src_func.instruction_to_byte_in_data.at(rec.instr.instr_id);
+      patch_loc_offset = src_func.instruction_to_byte_in_data.at(rec.instr.instr_id);
+    } else {
+      source_rip_offset = src_func.instruction_to_byte_in_data.at(rec.instr.instr_id + 1);
+      const auto& src_instr = src_func.instructions.at(rec.instr.instr_id);
+      ASSERT(src_instr.get_disp_size() == 4);
+      patch_loc_offset = src_func.instruction_to_byte_in_data.at(rec.instr.instr_id) +
+                         src_instr.offset_of_disp();
+    }
+    push_data<u32>(source_rip_offset, out);
     // offset into target
     ASSERT(rec.offset_in_segment >= 0);
     push_data<u32>(rec.offset_in_segment, out);
     // patch location
-    const auto& src_instr = src_func.instructions.at(rec.instr.instr_id);
-    ASSERT(src_instr.get_disp_size() == 4);
-    push_data<u32>(
-        src_func.instruction_to_byte_in_data.at(rec.instr.instr_id) + src_instr.offset_of_disp(),
-        out);
+    push_data<u32>(patch_loc_offset, out);
   }
 }
 
