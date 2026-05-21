@@ -266,6 +266,23 @@ phases:
     max_turns: 600
     max_retries: 15
 
+  # === A4 — arm64 linker fixups (inserted by supervisor 2026-05-21) ===
+  # A2 left a documented gap: arm64 IR bodies that need symbol/static/
+  # function-link relocations deliberately skip ObjectGenerator's
+  # link_instruction_*() because the existing fix-up path asserts on
+  # x86 disp_size==4 (arm64 immediates are imm12/imm19, not byte-
+  # displacement fields). A4 widens ObjectGenerator to know about
+  # arm64 fix-up kinds so the 7 reloc-needing IRs A3 skipped can be
+  # qemu-executed end-to-end and bucket B's CGO regen produces
+  # actually-loadable arm64 binaries.
+
+  - id: "A4-linker-fixups"
+    name: "Arm64 link-time fix-up support (LDR imm12, B/BL imm26, B.cond imm19)"
+    prompt: prompts/phase-A4-linker-fixups.md
+    validator: validators/phase-A4-linker-fixups.sh
+    max_turns: 800
+    max_retries: 20
+
   # === Bucket B — CGO regen with full emitter ===
 
   - id: "B1-cgo-regen-strict"
