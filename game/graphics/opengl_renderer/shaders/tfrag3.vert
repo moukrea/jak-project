@@ -37,13 +37,13 @@ void main() {
   // Step 3, the camera transform
   vec3 vert = position_in - cam_trans.xyz;
   vec4 transformed = -pc_camera[3];
-  transformed.w = 0;
+  transformed.w = 0.0;
   transformed -= pc_camera[0] * vert.x;
   transformed -= pc_camera[1] * vert.y;
   transformed -= pc_camera[2] * vert.z;
 
   // do fog!
-  fogginess = 255 - clamp(-transformed.w + hvdf_offset.w, fog_min, fog_max);
+  fogginess = 255.0 - clamp(-transformed.w + hvdf_offset.w, fog_min, fog_max);
 
   // scissoring area adjust
   transformed.y *= SCISSOR_ADJUST * HEIGHT_SCALE;
@@ -52,8 +52,8 @@ void main() {
   // time of day lookup
   fragment_color = texelFetch(tex_T10, time_of_day_index, 0);
   // color adjustment
-  fragment_color *= 2;
-  fragment_color.a *= 2;
+  fragment_color *= 2.0;
+  fragment_color.a *= 2.0;
 
   if (decal == 1) {
     // tfrag/tie always use TCC=RGB, so even with decal, alpha comes from fragment.

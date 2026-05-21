@@ -35,7 +35,7 @@ vec4 sample_tex(vec2 coord, uint unit) {
 
 void main() {
   vec4 T0 = sample_tex(tex_coord.xy, tex_info.x);
-  if (tex_info.y == 0) {
+  if (tex_info.y == 0u) {
     T0.w = 1.0;
   }
   vec4 tex_color = fragment_color * T0 * 2.0;

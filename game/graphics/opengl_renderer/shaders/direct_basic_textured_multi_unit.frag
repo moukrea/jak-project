@@ -49,8 +49,8 @@ vec4 sample_tex(vec2 coord, uint unit) {
 
 vec4 sample_tex_px(vec2 coordf, uint unit) {
   ivec2 coord;
-  coord.x = int(coordf.x / 16);
-  coord.y = int(coordf.y / 16);
+  coord.x = int(coordf.x / 16.0);
+  coord.y = int(coordf.y / 16.0);
   switch (unit) {
     case 0: return texelFetch(tex_T20, coord, 0);
     case 1: return texelFetch(tex_T21, coord, 0);
@@ -81,19 +81,19 @@ void main() {
   }
 
   vec4 T0;
-  if (use_uv == 1) {
+  if (use_uv == 1u) {
     T0 = sample_tex_px(tex_coord.xy, tex_info.x);
   } else {
     T0 = sample_tex(tex_coord.xy / tex_coord.z, tex_info.x);
   }
   // y is tcc
   // z is decal
-  if (T0.w == 0) {
+  if (T0.w == 0.0) {
     T0.w = ta0;
   }
 
-  if (tex_info.y == 0) {
-    if (tex_info.z == 0) {
+  if (tex_info.y == 0u) {
+    if (tex_info.z == 0u) {
       // modulate + no tcc
       color.xyz = fragment_color.xyz * T0.xyz;
       color.w = fragment_color.w;
@@ -103,7 +103,7 @@ void main() {
       color.w = fragment_color.w;
     }
   } else {
-    if (tex_info.z == 0) {
+    if (tex_info.z == 0u) {
       // modulate + tcc
       color = fragment_color * T0;
     } else {
@@ -112,14 +112,14 @@ void main() {
       color.w = T0.w;
     }
   }
-  color *= 2;
+  color *= 2.0;
   color.xyz *= color_mult;
   color.w *= alpha_mult;
   if (color.a < alpha_reject) {
     discard;
   }
-  if (tex_info.w == 1) {
-    color.xyz = mix(color.xyz, fog_color.rgb, clamp(fog_color.a * fog, 0, 1));
+  if (tex_info.w == 1u) {
+    color.xyz = mix(color.xyz, fog_color.rgb, clamp(fog_color.a * fog, 0.0, 1.0));
   }
 
 }
