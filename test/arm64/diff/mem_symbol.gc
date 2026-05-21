@@ -1,0 +1,28 @@
+;; Phase A3 — mem cluster (reloc-needing): disasm-only witness for
+;; IR_GetSymbolValue, IR_SetSymbolValue, IR_LoadSymbolPointer,
+;; IR_GetSymbolValueAsm.
+;;
+;; These IRs all emit a real arm64 instruction sequence whose immediate
+;; field needs to be patched by the object linker. A2 deliberately
+;; skipped the link_instruction_* calls (see A2-carve-outs.json's
+;; notes.linker_followup); making them actually executable is the
+;; work of phase A4-linker-fixups.
+;;
+;; Until A4 lands, qemu cannot execute this file's emitted code (the
+;; arm64 codegen produces `str w?, [x14, #placeholder]` which would
+;; dereference an unmapped page). The validator therefore marks
+;; these IRs with qemu_executed=false and skipped_ref pointing at
+;; A2-carve-outs.json. The disasm spot-check still verifies that the
+;; expected mnemonics (str, ldrsw, adrp) are emitted.
+;;
+;; We declare our own probe symbol with define-extern so the test does
+;; not depend on a bootstrapped runtime symbol table.
+
+(define-extern *probe-foo* int)
+
+(defun test-A3-symbol ()
+  (set! *probe-foo* 42)          ; IR_SetSymbolValue
+  (let ((v *probe-foo*))         ; IR_GetSymbolValue
+    (.load-sym v *probe-foo*)    ; IR_GetSymbolValueAsm
+    (let ((p (the-as int 'foo))) ; IR_LoadSymbolPointer (quoted symbol)
+      (+ v p))))

@@ -30,6 +30,9 @@ linux-default/
 # for Nix
 /result*
 
+# autoport: arm64 differential harness build artifacts
+test/arm64/build/
+
 \#*#
 .#*#
 *.pyc
