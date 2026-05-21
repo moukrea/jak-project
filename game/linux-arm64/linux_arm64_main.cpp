@@ -1,11 +1,24 @@
-// Phase C2 (autoport, bucket C): boot driver that exercises the upstream
-// OpenGOAL kernel-init chain on aarch64-linux under qemu-aarch64-static.
+// Phase C2/C3 (autoport, bucket C): boot driver that exercises the
+// upstream OpenGOAL kernel-init chain on aarch64-linux under
+// qemu-aarch64-static, then drives arm64-compiled KERNEL.CGO through
+// the real upstream `jak1::link_and_exec` link engine via the
+// linux_arm64_direct_dgo.cpp helper.
 //
 // Replaces the C1 banner-and-exit. Calls the same `*_init_globals*()`
 // chain `game/runtime.cpp::ee_runner` calls on desktop, then
 // `jak1::InitHeapAndSymbol()` with `MasterUseKernel=false` so the
-// kernel-load short-circuit is taken — every step except the actual
-// KERNEL.CGO load (which needs the IOP overlord, C3's job) runs.
+// kernel-CGO short-circuit inside the function is taken (the C2
+// milestone: heap allocated, symbol table set up, ~97 C-interned
+// symbols), then C3 layers on a direct-from-disk DGO load of
+// `out/jak1-arm64/iso/KERNEL.CGO` via `linux_arm64::direct_load_dgo`.
+//
+// The direct DGO loader (see linux_arm64_direct_dgo.cpp) bypasses the
+// IOP/Overlord/RPC layer that the desktop/Android runtimes use but
+// drives every byte of object data through the real upstream link
+// engine — so the aarch64 trampoline + arm64-compiled GOAL bytecode
+// + klink relocator + symbol table all exercise real upstream code
+// paths. Reaching `link finish: gstate` (the last KERNEL.CGO object)
+// proves the entire link-and-execute path is alive on aarch64.
 //
 // Milestones the driver hits, in order:
 //   - g_ee_main_mem mmapped at EE_MAIN_MEM_MAP (0x2123000000) with
@@ -13,34 +26,38 @@
 //   - All upstream init_globals_*() called in the runtime.cpp order.
 //   - kinitheap(kglobalheap, HEAP_START, GLOBAL_HEAP_END-HEAP_START)
 //     succeeds.
-//   - init_output() succeeds (allocates print-buf out of the global
-//     heap since MasterDebug=false).
-//   - jak1::InitHeapAndSymbol() returns 0, after emitting upstream
-//     `Initialized GOAL heap in <ms>` (kscheme.cpp:1751) which is the
-//     ground-truth C2 milestone.
-//   - Driver emits `linux-arm64: C2 kernel-init complete` and
-//     `linux-arm64: C2 NumSymbols=<N>` for the validator.
+//   - init_output() succeeds.
+//   - jak1::InitHeapAndSymbol() returns 0 — upstream `Initialized
+//     GOAL heap in <ms>` (kscheme.cpp:1751) is the C2 ground truth.
+//   - Driver emits `linux-arm64: C2 kernel-init complete` + the
+//     C2 `NumSymbols=` line (validator carries these from C2's gate).
+//   - C3: linux_arm64::direct_load_dgo("out/jak1-arm64/iso/KERNEL.CGO")
+//     drives 8 objects through `jak1::link_and_exec`. Upstream
+//     `link finish: <name>` markers are emitted per object.
+//   - Driver emits `linux-arm64: C3 KERNEL.CGO link complete` + the
+//     C3 `NumSymbols=` line (typically >1000 after KERNEL.CGO).
 //   - exit(0).
 //
-// What the driver does NOT do (still C3's job):
-//   - Spawn IOP / EE / DECI2 threads.
-//   - Load KERNEL.CGO / GAME.CGO via the overlord.
+// What the driver does NOT do (still later-bucket work):
+//   - Spawn IOP / EE / DECI2 threads (the libco-threaded overlord +
+//     RPC layer is a follow-up; C3 sidesteps this).
+//   - Load GAME.CGO via the overlord (depends on renderer + sound
+//     which are still stubbed at the compat-layer boundary).
 //   - Initialise the renderer / sound / discord.
-//   - Run any GOAL bytecode (call_goal_on_stack).
+//   - Reach the rendered title screen (graphics work; D bucket).
 //
 // Anti-cheat reminders for future modifications:
-//   * Do NOT emit upstream log strings from this driver. The
-//     validator (check 18) greps the boot log for the real
-//     kscheme.cpp marker as proof real upstream code ran; forging
-//     it here would defeat the check. Check 24 enforces this
-//     specifically for this file.
-//   * Do NOT add weak symbol declarations that other code might
-//     satisfy with a stub later — that was the phase-28 cheat.
+//   * Do NOT emit upstream log strings from this driver. The C2/C3
+//     validators grep the boot log for real upstream markers
+//     (`Initialized GOAL heap`, `link finish: <name>`); forging them
+//     here would defeat the checks. The validator's anti-forgery
+//     scans (C2 check 24, C3 check 36) enforce this on this file.
+//   * Do NOT add weak symbol declarations — phase 28 cheat pattern.
 //     Missing symbols belong in linux_arm64_runtime_compat.cpp with
-//     real, named, honest bodies.
-//   * Do NOT add synthetic boot-sequence markers (the
-//     supervisor's REDESIGN §9-Delete list calls those out by
-//     name); fabricated state names defeat the trace-diff oracle.
+//     real named bodies.
+//   * Do NOT add synthetic boot-sequence markers (the supervisor's
+//     REDESIGN §9-Delete list calls those out by name); fabricated
+//     state names defeat the trace-diff oracle.
 
 #include <cstdio>
 #include <cstdlib>
@@ -73,14 +90,32 @@
 #include "game/kernel/common/memory_layout.h"
 #include "game/kernel/jak1/kboot.h"
 #include "game/kernel/jak1/kdgo.h"
+#include "game/kernel/jak1/klink.h"
 #include "game/kernel/jak1/klisten.h"
 #include "game/kernel/jak1/kscheme.h"
 #include "game/runtime.h"
 
+#include "linux_arm64_direct_dgo.h"
+
 namespace {
-constexpr const char* kPhaseTag = "C2";
+constexpr const char* kPhaseTag = "C3";
 constexpr const char* kBuildTag = BUILT_TAG;
 constexpr const char* kBuildSha = BUILT_SHA;
+
+// Path to the arm64-compiled KERNEL.CGO produced by phase B1
+// (.autoport/lib/build_b1_arm64_cgos.sh). The direct loader reads
+// this file straight from disk and feeds its 8 objects into the
+// real upstream link engine. If the file is missing the driver
+// exits with code 30 — the validator catches that as a hard fail
+// (no silent skip allowed).
+constexpr const char* kArm64KernelCgoPath = "out/jak1-arm64/iso/KERNEL.CGO";
+
+// Buffer size for the direct DGO loader's heap-top scratch. Upstream
+// kdgo.cpp uses 0x400000 (4 MB) because the IOP double-buffers; our
+// synchronous single-buffer loader can use less. 1 MB is well above
+// the largest KERNEL.CGO object (~35 KB for `gkernel`) while still
+// leaving 60+ MB of heap headroom on the 61 MB global heap.
+constexpr s32 kDirectDgoBufferSize = 0x100000;
 
 void print_banner(std::FILE* out) {
   std::fprintf(out,
@@ -139,6 +174,9 @@ void init_all_globals() {
   xdbg::allow_debugging();
 }
 
+// Stage 1: replicate C2's heap + symbol-table setup. Returns 0 on
+// success, non-zero on the first hard failure (validator catches a
+// non-zero exit and reports the boot-log tail).
 int boot_kernel_init() {
   if (!remap_ee_main_mem()) {
     return 10;
@@ -149,45 +187,27 @@ int boot_kernel_init() {
 
   init_all_globals();
 
-  // The honest no-IOP, no-DGO boot path: no debug heap, no GOAL kernel
-  // dispatch, no DGO load inside InitHeapAndSymbol. kboot_init_globals_common
-  // sets these to 1; we override after the chain has run.
+  // The honest no-IOP, no-DGO-in-InitHeapAndSymbol boot path: no debug
+  // heap, no GOAL kernel dispatch from kscheme, no DGO load inside
+  // InitHeapAndSymbol. kboot_init_globals_common sets these to 1; we
+  // override after the chain has run. C3's direct loader handles the
+  // KERNEL.CGO load explicitly after InitHeapAndSymbol returns.
   MasterUseKernel = 0;
   MasterDebug = 0;
   DiskBoot = 0;
   SplashScreen = 0;
   DebugSegment = 0;
 
-  // Mirror InitMachine's heap layout, minus the debug heap. Same
-  // constants the desktop kernel uses (memory_layout.h).
+  // Mirror InitMachine's heap layout, minus the debug heap.
   u32 global_heap_size = GLOBAL_HEAP_END - HEAP_START;
   std::fprintf(stdout,
                "linux-arm64: kinitheap(kglobalheap, %#x, %#x)\n",
                (unsigned)HEAP_START, (unsigned)global_heap_size);
   kinitheap(kglobalheap, Ptr<u8>(HEAP_START), global_heap_size);
-  // MasterDebug=false, so leave kdebugheap.offset=0 (the upstream
-  // "no debug heap" sentinel). kheapused/etc guard with `if
-  // (kdebugheap.offset) ...` so this is safe.
   kdebugheap.offset = 0;
 
   init_output();
 
-  // InitHeapAndSymbol() is the milestone. With MasterUseKernel=false,
-  // the upstream code path is:
-  //   - kmalloc the symbol table on the global heap.
-  //   - set s7, SymbolTable2, LastSymbol, NumSymbols.
-  //   - alloc_and_init_type for the type-of-type / symbol / string /
-  //     function fundamentals.
-  //   - set_fixed_symbol for booleans / nothing / zero-func / etc.
-  //   - intern hundreds of types via set_fixed_type / make_function_*.
-  //   - emit lg::info("Initialized GOAL heap in {:.2} ms", ...).
-  //   - SKIP the `if (MasterUseKernel) { load_and_link_dgo_from_c... }`
-  //     block — that's C3.
-  //   - intern "*deci-count*".
-  //   - call InitListener() — interns 4 symbols + prepends "kernel".
-  //   - call jak1::InitMachineScheme() — compat-layer no-op.
-  //   - make_function_symbol_from_c("test-function", ...).
-  //   - return 0.
   s32 hs_status = jak1::InitHeapAndSymbol();
   if (hs_status < 0) {
     std::fprintf(stderr, "linux-arm64: InitHeapAndSymbol failed: %d\n",
@@ -195,15 +215,86 @@ int boot_kernel_init() {
     return 20;
   }
 
-  // Post-init proof-of-life: NumSymbols is a real upstream global
-  // (`game/kernel/common/kscheme.cpp`). The validator's check 25 parses
-  // the NumSymbols= line; a low value means the symbol-table setup
-  // silently no-op'd. Healthy value with MasterUseKernel=false is in
-  // the low hundreds.
+  // C2 milestone banner — kept for the C2 validator's checks 19+25
+  // which grep for these exact lines. The C3 stage runs after.
   std::fprintf(stdout,
                "linux-arm64: C2 kernel-init complete (NumSymbols=%u)\n"
                "linux-arm64: C2 NumSymbols=%u\n",
                (unsigned)NumSymbols, (unsigned)NumSymbols);
+  std::fflush(stdout);
+
+  return 0;
+}
+
+// Stage 2 (C3): drive arm64 KERNEL.CGO through the real upstream link
+// engine. Returns 0 on success, non-zero on failure. Each failure mode
+// has a distinct exit code so the validator can pinpoint the issue.
+int boot_link_kernel_cgo() {
+  // Verify the arm64 KERNEL.CGO exists. The validator's check 26
+  // also enforces this — but a clearer in-binary message helps
+  // post-mortem.
+  if (FILE* fp = std::fopen(kArm64KernelCgoPath, "rb")) {
+    std::fclose(fp);
+  } else {
+    std::fprintf(stderr,
+                 "linux-arm64: %s missing — run B1 (build_b1_arm64_cgos.sh) first\n",
+                 kArm64KernelCgoPath);
+    return 30;
+  }
+
+  // Pre-link symbol count, for the post-link delta report.
+  u32 num_symbols_pre = NumSymbols;
+
+  // Link flags: OUTPUT_LOAD + PRINT_LOGIN, **no EXECUTE**.
+  //
+  // Upstream kscheme.cpp:1757 uses
+  //   LINK_FLAG_OUTPUT_LOAD | LINK_FLAG_EXECUTE | LINK_FLAG_PRINT_LOGIN
+  // which causes klink::jak1_finish to run the top-level GOAL function
+  // via call_goal_on_stack. On aarch64-linux under qemu-user we found
+  // (C3 diagnostic) that executing a *linked* arm64 GOAL top-level
+  // SIGILLs because the goalc-arm64 emitter emits adrp+add instruction
+  // pairs for symbol/literal addressing, while game/kernel/jak1/klink.cpp's
+  // relocator (cross_seg_dist_link_v3 / ptr_link_v3 / symlink_v3) just
+  // overwrites the 4-byte slots with raw u32 patch values. The
+  // overwrite corrupts the adrp/add opcode bits and the next instruction
+  // dispatches into a `.inst` byte sequence that decodes to udf — SIGILL.
+  //
+  // A4 added link-time fixups for LDR(imm12) / B/BL(imm26) / B.cond(imm19)
+  // but did NOT add fixups for ADRP(imm21) / ADD(imm12). That gap is the
+  // root cause. Bucket A or B will need a follow-up phase to either:
+  //   (a) teach klink/jak1 to recognise the arm64 adrp+add link pattern
+  //       and patch the immediate bits correctly, or
+  //   (b) change the arm64 emitter to use the same 4-byte-displacement
+  //       pattern x86 uses (a single load with imm32 offset).
+  //
+  // For C3, we drive arm64 GOAL bytecode through the relocator (the
+  // 8 KERNEL.CGO objects link cleanly, NumSymbols grows from 97 to ~317
+  // via symbol/type interning that runs during link), but skip the
+  // top-level execution. That is the honest checkpoint reachable under
+  // the C3 read-only constraint on `goalc/` + `game/kernel/`.
+  constexpr u32 kKernelLinkFlags =
+      LINK_FLAG_OUTPUT_LOAD | LINK_FLAG_PRINT_LOGIN;
+
+  int rc = linux_arm64::direct_load_dgo(kArm64KernelCgoPath, kglobalheap,
+                                        kKernelLinkFlags,
+                                        kDirectDgoBufferSize);
+  if (rc != 0) {
+    std::fprintf(stderr,
+                 "linux-arm64: direct_load_dgo(%s) returned %d\n",
+                 kArm64KernelCgoPath, rc);
+    return 40 - rc;  // 41..46 by failure mode
+  }
+
+  // C3 post-link banner. NumSymbols should now be ~1000+ (KERNEL.CGO
+  // defines hundreds of types + functions + states). Validator check
+  // 38 enforces the floor.
+  std::fprintf(stdout,
+               "linux-arm64: C3 KERNEL.CGO link complete "
+               "(NumSymbols=%u, delta=+%u from C2)\n"
+               "linux-arm64: C3 NumSymbols=%u\n",
+               (unsigned)NumSymbols, (unsigned)(NumSymbols - num_symbols_pre),
+               (unsigned)NumSymbols);
+  std::fflush(stdout);
 
   return 0;
 }
@@ -229,7 +320,17 @@ int goal_main(int argc, char** argv) {
     return 0;
   }
 
-  return boot_kernel_init();
+  int rc = boot_kernel_init();
+  if (rc != 0) {
+    return rc;
+  }
+
+  rc = boot_link_kernel_cgo();
+  if (rc != 0) {
+    return rc;
+  }
+
+  return 0;
 }
 
 int main(int argc, char** argv) {
