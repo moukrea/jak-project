@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 25,
+  "current_phase_idx": 27,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -26,7 +26,8 @@
     "22-bionic-portability": 1,
     "23-input-audio": 1,
     "24-emitter-audit": 3,
-    "25-cgo-regen": 1
+    "25-cgo-regen": 1,
+    "A1-emitter-enumerate": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -78,7 +79,8 @@
     "22-bionic-portability",
     "23-input-audio",
     "24-emitter-audit",
-    "25-cgo-regen"
+    "25-cgo-regen",
+    "A1-emitter-enumerate"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -108,9 +110,10 @@
     "22-bionic-portability": 1779218294.9513323,
     "23-input-audio": 1779219781.1900616,
     "24-emitter-audit": 1779222931.95883,
-    "25-cgo-regen": 1779229364.248258
+    "25-cgo-regen": 1779229364.248258,
+    "A1-emitter-enumerate": 1779346873.0672002
   },
-  "last_update": "2026-05-20T19:53:00.000000+00:00",
+  "last_update": "2026-05-21T07:44:23.884809+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },

@@ -303,6 +303,44 @@ Current counts in tree (for orientation):
   arm64 body at all — will land as `missing` in the inventory)
 - An unknown subset of the 41 are NOP-fallback stubs per phase 24's
   own admission; the classifier identifies them.
+
+### [2026-05-21 09:01] Orchestrator spawned on A1
+
+`./launch.sh` started; orchestrator PID in
+`.autoport/logs/orchestrator.pid`. A1 attempt 1 is running with
+claude session 8035e1e.
+
+### [2026-05-21 09:30] Mid-attempt observation + small validator fix
+
+A1 progress check at 30 min in:
+
+- Inventory JSON written: 42 forms covered, 6 real / 35 stub /
+  1 missing. Real list = `{IR_Return, IR_LoadConstant64, IR_RegSet,
+  IR_IntegerMath, IR_GotoLabel, IR_ConditionalBranch}` — EXACT match
+  to what phase 24's commit message names. Good signal that the
+  classifier worked honestly rather than fabricating.
+- Top blockers by jak1 emit count: IR_LoadConstOffset (135K),
+  IR_GetSymbolValue (90K), IR_LoadSymbolPointer (83K),
+  IR_StoreConstOffset (60K), IR_FunctionCall (59K). These define
+  A2's work order.
+- goalc rebuilt at 09:21 with --ir-emit-stats wired; CGOs
+  regenerated at 09:23. No SIGILL.
+- **No cheating signatures**: `goalc/compiler/IR.cpp` untouched
+  (diff is empty). Counter instrumentation lives in CodeGenerator
+  + main.cpp only. Inventory built by a real Python script over a
+  real (mi) run, not hand-crafted JSON.
+
+**Supervisor intervention**: my A1 validator's smoke test used the
+Taskfile-default `gk -v --game jak1 -- -boot -fakeiso -debug`
+invocation, which does NOT reliably reach `link finish: logo` in 60s
+on a fresh repo (gk's fakeiso path resolves differently without
+--portable). Claude correctly diagnosed this and verified the same
+gk binary reaches the marker at line 856 when invoked with
+`--portable -iso-data out/jak1/iso`. I updated the validator's smoke
+test to use the proven-working capture_oracle.sh args. This is a
+test-method fix, not a relaxation — the intent (gk reaches logo)
+is unchanged. Orchestrator was not halted; claude will see the
+updated validator on their next read.
   3. **Pre-existing desktop-build breakage** uncovered by the
      reconfigure: `runtime_trace.cpp` (added by phase 26) defines
      `__goal_runtime_trace_kheap` and `__goal_runtime_trace_goal_call`

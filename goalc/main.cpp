@@ -12,6 +12,7 @@
 #include "common/util/unicode_util.h"
 #include "common/versions/versions.h"
 
+#include "goalc/compiler/CodeGenerator.h"
 #include "goalc/compiler/Compiler.h"
 #include "goalc/emitter/IGen_arm64.h"
 
@@ -54,6 +55,7 @@ int main(int argc, char** argv) {
   std::string startup_cmd = "";
   std::string username = "#f";
   std::string game = "jak1";
+  std::string ir_emit_stats_path;
   int nrepl_port = -1;
   fs::path project_path_override;
   fs::path iso_path_override;
@@ -76,6 +78,10 @@ int main(int argc, char** argv) {
   app.add_option("--proj-path", project_path_override,
                  "Specify the location of the 'data/' folder");
   app.add_option("--iso-path", iso_path_override, "Specify the location of the 'iso_data/' folder");
+  app.add_option(
+      "--ir-emit-stats", ir_emit_stats_path,
+      "Phase A1 inventory: dump a per-IR-class emit counter as JSON to this path when the "
+      "command (or REPL session) exits. Counters cover both x86 and arm64 dispatch sites.");
   define_common_cli_arguments(app);
   app.validate_positionals();
   CLI11_PARSE(app, argc, argv);
@@ -100,6 +106,10 @@ int main(int argc, char** argv) {
   } catch (const std::exception& e) {
     lg::error("Failed to setup logging: {}", e.what());
     return 1;
+  }
+
+  if (!ir_emit_stats_path.empty()) {
+    ir_emit_stats::set_output_path(ir_emit_stats_path);
   }
 
   // Figure out the username
@@ -138,6 +148,7 @@ int main(int argc, char** argv) {
     if (!cmd.empty()) {
       compiler = std::make_unique<Compiler>(game_version, kGoalcBackendInstructionSet);
       compiler->run_front_end_on_string(cmd);
+      ir_emit_stats::dump_to_file();
       return 0;
     }
   } catch (std::exception& e) {
@@ -215,5 +226,6 @@ int main(int argc, char** argv) {
     repl_server.shutdown_server();
     nrepl_thread.join();
   }
+  ir_emit_stats::dump_to_file();
   return 0;
 }
