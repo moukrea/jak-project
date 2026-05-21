@@ -28,6 +28,20 @@ if [ "$ALREADY" = "true" ]; then
     exit 0
 fi
 
+# Stale-session guard: each orchestrator-spawned session is supposed to make
+# ITS OWN phase pass (orchestrator.py sets AUTOPORT_PHASE_ID before exec'ing
+# claude). If state.json's `completed` list already contains this session's
+# AUTOPORT_PHASE_ID, the orchestrator has already accepted this phase as
+# done and possibly advanced state.json past it (spawning a new session for
+# the next phase). Holding the now-stale session hostage on the NEW phase's
+# validator is wrong: that's a different session's responsibility. Allow
+# stop so the stale session can exit cleanly.
+ALREADY_DONE=$(jq -r --arg id "$AUTOPORT_PHASE_ID" \
+    '(.completed // []) | index($id) != null' "$STATE" 2>/dev/null || echo "false")
+if [ "$ALREADY_DONE" = "true" ]; then
+    exit 0
+fi
+
 IDX=$(jq -r '.current_phase_idx // 0' "$STATE" 2>/dev/null || echo 0)
 PHASE_ID=$(yq -r ".phases[$IDX].id" "$PLAN" 2>/dev/null || echo "")
 VALIDATOR=$(yq -r ".phases[$IDX].validator" "$PLAN" 2>/dev/null || echo "")
