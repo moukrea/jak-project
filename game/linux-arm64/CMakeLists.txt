@@ -89,6 +89,11 @@ add_library(linux_arm64_kernel STATIC
     # curl externs the kernel + overlord call into.
     linux_arm64_runtime_compat.cpp
 
+    # C3 direct-from-disk DGO loader — wraps jak1::link_and_exec over
+    # objects parsed from an on-disk *.CGO file, bypassing IOP/Overlord/
+    # RPC. The link engine itself is real upstream code.
+    linux_arm64_direct_dgo.cpp
+
     # Common utilities — same subset Android picks.
     "${JAK_ROOT}/common/util/Assert.cpp"
     "${JAK_ROOT}/common/util/Timer.cpp"
