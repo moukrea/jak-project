@@ -127,16 +127,21 @@ fi
 ok "no new abort() calls in code since D3"
 
 # ---- 15. Codegen still locked since A4 ----
-for f in goalc/compiler/IR.cpp goalc/emitter/IGenARM64.cpp \
-         goalc/emitter/IGenARM64.h goalc/emitter/ObjectGenerator.cpp \
-         goalc/emitter/ObjectGenerator.h goalc/compiler/CodeGenerator.cpp \
+# Phase A5 explicitly unlocks goalc/emitter/IGenARM64.cpp +
+# ObjectGenerator.cpp for the far-reloc sym-mem expansion that closes
+# C4's 691-NOP gap. The A5 validator enforces its own narrow lock on
+# those two files; D4 only needs to guard the still-locked files.
+for f in goalc/compiler/IR.cpp \
+         goalc/emitter/IGenARM64.h \
+         goalc/emitter/ObjectGenerator.h \
+         goalc/compiler/CodeGenerator.cpp \
          goalc/compiler/CodeGenerator.h; do
     if [ -f "$f" ]; then
         DIFF=$(git diff "$A4_COMMIT" -- "$f" 2>/dev/null | wc -l)
-        [ "$DIFF" -eq 0 ] || fail "$f changed since A4 (codegen-lock violated)"
+        [ "$DIFF" -eq 0 ] || fail "$f changed since A4 (still-locked file after A5 narrow unlock)"
     fi
 done
-ok "goalc codegen byte-identical to A4"
+ok "still-locked codegen files byte-identical to A4 (IGenARM64.cpp + ObjectGenerator.cpp unlocked by A5)"
 
 # ---- 16. Classifier byte-identical to A1 ----
 CLF_DIFF=$(git diff "$A1_COMMIT" -- "$CLASSIFIER" 2>/dev/null | wc -l)

@@ -209,18 +209,22 @@ fi
 ok "no synthetic-state patterns introduced since A4"
 
 # ---- 13. Codegen files byte-identical to A4 ----
+# Note: phase A5 explicitly unlocks goalc/emitter/IGenARM64.cpp +
+# ObjectGenerator.cpp to close the C4 691-NOP gap by emitting a
+# 3-instruction ADRP+ADD+LDR/STR far-reloc sequence for sym-mem
+# accesses. The A5 validator enforces its own narrow lock on those
+# two files; C3 only needs to guard the still-locked files (IR.cpp,
+# the two .h headers, and CodeGenerator.{cpp,h}).
 for f in goalc/compiler/IR.cpp \
-         goalc/emitter/IGenARM64.cpp \
          goalc/emitter/IGenARM64.h \
-         goalc/emitter/ObjectGenerator.cpp \
          goalc/emitter/ObjectGenerator.h; do
     if [ -f "$f" ]; then
         DIFF_LINES=$(git diff "$A4_COMMIT" -- "$f" 2>/dev/null | wc -l)
         [ "$DIFF_LINES" -eq 0 ] \
-            || fail "$f changed since A4 (C3 must not touch codegen)"
+            || fail "$f changed since A4 (C3 must not touch the still-locked codegen surface)"
     fi
 done
-ok "codegen files byte-identical to A4"
+ok "still-locked codegen files byte-identical to A4 (IGenARM64.cpp + ObjectGenerator.cpp unlocked by A5)"
 
 # ---- 14. Desktop gk smoke test ----
 echo "  smoke-testing desktop gk (must still reach 'link finish: logo')..."

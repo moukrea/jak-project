@@ -23,6 +23,37 @@
 
 namespace emitter {
 
+namespace {
+// ---------------------------------------------------------------------------
+// A5 — sym-mem far-reloc sentinel detection.
+//
+// IGenARM64::store32/load32{s,u}_gpr64_gpr64_plus_gpr64_plus_s32, when handed
+// LINK_SYM_NO_OFFSET_FLAG as the offset, return a sentinel-encoded
+// InstructionARM64 instead of a real LDR/STR. The encoding layout is
+// documented in IGenARM64.cpp's a5_sym_mem_marker helper; we mirror the
+// constants here because the IGenARM64.h header is locked to A4 and cannot
+// expose them via a shared declaration.
+//
+//   bits 31..16: 0x0000   (UDF outer marker)
+//   bits 15..12: 0xA      (A5 sym-mem inner marker)
+//   bits 11..8:  kind     (1=load32u, 2=load32s, 3=store32)
+//   bits  7..5:  0        (unused)
+//   bits  4..0:  Rt
+constexpr uint32_t kA5SymMemMarker = 0x0000A000u;
+constexpr uint32_t kA5SymMemMarkerMask = 0xFFFFF0E0u;
+constexpr uint32_t kA5SymKindLoad32U = 1u;
+constexpr uint32_t kA5SymKindLoad32S = 2u;
+constexpr uint32_t kA5SymKindStore32 = 3u;
+
+// The expansion materialises the symbol's host address into X16 (IP0). The
+// goalc register allocator never assigns X16/X17 to a live value, so X16
+// is unambiguously our scratch register — link_instruction_symbol_mem uses
+// "ADRP X16" as the signature to recognise an expanded sequence.
+constexpr uint32_t kA5ScratchRegId = 16u;
+constexpr uint32_t kArm64Op_ADRP_X16 = 0x90000000u | 16u;
+constexpr uint32_t kArm64MaskADRP_with_Rd = 0x9F000000u | 0x1Fu;
+}  // namespace
+
 ObjectGenerator::ObjectGenerator(GameVersion version)
     : m_version(version), m_instruction_set(InstructionSet::X86) {}
 
@@ -183,11 +214,86 @@ IR_Record ObjectGenerator::get_future_ir_record_in_same_func(const IR_Record& ir
 
 /*!
  * Add a new Instruction for the given IR instruction.
+ *
+ * A5 — far-reloc sym-mem expansion: when m_instruction_set == ARM64 and the
+ * incoming InstructionARM64 carries the A5 sym-mem sentinel encoding
+ * (0x0000_AKRT — see kA5SymMemMarker above), we expand it in place into a
+ * 3-instruction far-reloc sequence:
+ *
+ *     ADRP X16, <sym>              ; imm21 placeholder, runtime-patched
+ *     ADD  X16, X16, #<lo12>       ; imm12 placeholder, runtime-patched
+ *     LDR/STR Wt, [X16, #0]        ; not patched; address already in X16
+ *
+ * The returned InstructionRecord points at the ADRP (the first of the
+ * three). `link_instruction_symbol_mem` notices the ADRP X16 pattern and
+ * records two link entries — one for the ADRP and one for the ADD — so the
+ * runtime patcher's existing ADRP-imm21 / ADD-imm12 handling closes both
+ * halves of the address materialisation. The LDR/STR at the end is left
+ * unpatched (its imm12 is 0; Rn=X16 already contains the symbol's full
+ * host address by the time it executes).
  */
 InstructionRecord ObjectGenerator::add_instr(Instruction inst, IR_Record ir) {
   // only this second condition is an actual error.
   ASSERT(ir.ir_id ==
          int(m_function_data_by_seg.at(ir.seg).at(ir.func_id).ir_to_instruction.size()) - 1);
+
+  if (m_instruction_set == InstructionSet::ARM64) {
+    if (const auto* arm = std::get_if<InstructionARM64>(&inst.instr)) {
+      const uint32_t enc = arm->encoding;
+      if ((enc & kA5SymMemMarkerMask) == kA5SymMemMarker) {
+        const uint32_t kind = (enc >> 8) & 0xfu;
+        const uint32_t rt = enc & 0x1fu;
+
+        // ADRP X16: 0x90000000 | Rd. imm21 stays 0 (placeholder; patched at
+        // link time by handle_temp_instr_sym_links → runtime).
+        const uint32_t enc_adrp = 0x90000000u | kA5ScratchRegId;
+
+        // ADD X16, X16, #0: 0x91000000 | (imm12<<10) | (Rn<<5) | Rd. imm12=0
+        // placeholder.
+        const uint32_t enc_add = 0x91000000u | (kA5ScratchRegId << 5) | kA5ScratchRegId;
+
+        // LDR/STR Wt or LDRSW Xt at [X16, #0]: pick base by kind.
+        uint32_t access_base;
+        switch (kind) {
+          case kA5SymKindLoad32U:
+            access_base = 0xB9400000u;  // LDR Wt, [Xn, #imm12*4]
+            break;
+          case kA5SymKindLoad32S:
+            access_base = 0xB9800000u;  // LDRSW Xt, [Xn, #imm12*4]
+            break;
+          case kA5SymKindStore32:
+            access_base = 0xB9000000u;  // STR Wt, [Xn, #imm12*4]
+            break;
+          default:
+            ASSERT_MSG(false, "A5 sym-mem expansion: unrecognised kind");
+            access_base = 0xB9400000u;
+            break;
+        }
+        const uint32_t enc_access = access_base | (kA5ScratchRegId << 5) | (rt & 0x1fu);
+
+        InstructionRecord rec;
+        rec.seg = ir.seg;
+        rec.func_id = ir.func_id;
+        rec.ir_id = ir.ir_id;
+        auto& func_data = m_function_data_by_seg.at(rec.seg).at(rec.func_id);
+        rec.instr_id = int(func_data.instructions.size());
+        auto debug = func_data.debug;
+
+        Instruction inst_adrp{InstructionARM64{enc_adrp}};
+        Instruction inst_add{InstructionARM64{enc_add}};
+        Instruction inst_access{InstructionARM64{enc_access}};
+
+        func_data.instructions.emplace_back(inst_adrp);
+        debug->instructions.emplace_back(inst_adrp, InstructionInfo::Kind::IR, ir.ir_id);
+        func_data.instructions.emplace_back(inst_add);
+        debug->instructions.emplace_back(inst_add, InstructionInfo::Kind::IR, ir.ir_id);
+        func_data.instructions.emplace_back(inst_access);
+        debug->instructions.emplace_back(inst_access, InstructionInfo::Kind::IR, ir.ir_id);
+
+        return rec;
+      }
+    }
+  }
 
   InstructionRecord rec;
   rec.seg = ir.seg;
@@ -255,9 +361,29 @@ void ObjectGenerator::link_instruction_jump(InstructionRecord jump_instr, IR_Rec
  * Patch a load/store instruction to refer to a symbol. This patching will happen at runtime
  * linking.  The instruction must use 32-bit immediate displacement addressing, relative to the
  * symbol table.
+ *
+ * A5 — when the rec points at the ADRP X16 head of a far-reloc sym-mem
+ * expansion (see add_instr above), this also pushes a link entry for the
+ * following ADD X16, X16, #imm12 so the runtime patcher closes both halves
+ * of the symbol's host address materialisation.
  */
 void ObjectGenerator::link_instruction_symbol_mem(const InstructionRecord& rec,
                                                   const std::string& name) {
+  if (m_instruction_set == InstructionSet::ARM64) {
+    const auto& fd = m_function_data_by_seg.at(rec.seg).at(rec.func_id);
+    if (rec.instr_id >= 0 && rec.instr_id + 1 < (int)fd.instructions.size()) {
+      const auto& first = fd.instructions.at(rec.instr_id);
+      const auto* arm = std::get_if<InstructionARM64>(&first.instr);
+      if (arm && (arm->encoding & kArm64MaskADRP_with_Rd) == kArm64Op_ADRP_X16) {
+        // Far-reloc expansion: link both ADRP (rec) and ADD (rec.instr_id+1).
+        InstructionRecord add_rec = rec;
+        add_rec.instr_id = rec.instr_id + 1;
+        m_symbol_instr_temp_links_by_seg.at(rec.seg)[name].push_back({rec, true});
+        m_symbol_instr_temp_links_by_seg.at(rec.seg)[name].push_back({add_rec, true});
+        return;
+      }
+    }
+  }
   m_symbol_instr_temp_links_by_seg.at(rec.seg)[name].push_back({rec, true});
 }
 

@@ -15,13 +15,13 @@
     },
     "function_count": 3845,
     "max_function_size": 38860,
-    "mean_function_size": 674,
+    "mean_function_size": 726,
     "min_function_size": 16,
     "object_count": 306,
-    "ret_density_per_kb": 0.9551,
-    "total_bytes": 6110016,
-    "x86_ret_count": 1252,
-    "x86_ret_pct": 0.0205
+    "ret_density_per_kb": 0.8669,
+    "total_bytes": 6731440,
+    "x86_ret_count": 1010,
+    "x86_ret_pct": 0.015
   },
   "GAME.CGO": {
     "arm64_ret_count": 6108,
@@ -39,13 +39,13 @@
     },
     "function_count": 4199,
     "max_function_size": 38860,
-    "mean_function_size": 663,
+    "mean_function_size": 714,
     "min_function_size": 16,
     "object_count": 346,
-    "ret_density_per_kb": 0.6518,
-    "total_bytes": 9595568,
-    "x86_ret_count": 5774,
-    "x86_ret_pct": 0.0602
+    "ret_density_per_kb": 0.61,
+    "total_bytes": 10252800,
+    "x86_ret_count": 5513,
+    "x86_ret_pct": 0.0538
   },
   "KERNEL.CGO": {
     "arm64_ret_count": 233,
@@ -59,13 +59,13 @@
       "snippet": "0:\ta9bf7bfd \tstp\tx29, x30, [sp, #-16]!\n4:\t910003fd \tmov\tx29, sp\n8:\taa0703e7 \tmov\tx7, x7\nc:\taa0703e0 \tmov\tx0, x7\n10:\ta8c17bfd \tldp\tx29, x30, [sp], #16\n14:\td65f03c0 \tret"
     },
     "function_count": 197,
-    "max_function_size": 5285,
-    "mean_function_size": 289,
+    "max_function_size": 5573,
+    "mean_function_size": 306,
     "min_function_size": 20,
     "object_count": 8,
-    "ret_density_per_kb": 1.9835,
-    "total_bytes": 120288,
-    "x86_ret_count": 10,
-    "x86_ret_pct": 0.0083
+    "ret_density_per_kb": 1.7962,
+    "total_bytes": 132832,
+    "x86_ret_count": 3,
+    "x86_ret_pct": 0.0023
   }
 }

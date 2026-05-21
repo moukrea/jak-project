@@ -212,18 +212,17 @@ int InitMachine() {
                       "InitMachine: Deci2Server registered (port=%d, no listener)",
                       g_server_port);
 
-  // Step 6.6: arm the GOAL-call skip flag so the asm trampolines in
-  // game/kernel/asm_funcs_arm64.s return 0 instead of branching into
-  // GOAL bytecode. The R14/R15 cross-call ABI gap reliably crashes
-  // inside the gcommon top-level execution on AArch64; until the
-  // emitter is fixed (a follow-up phase), we let the linker print
-  // its `link finish:` markers for each KERNEL.CGO object and skip
-  // the post-link top-level execution that would otherwise SIGILL.
-  g_android_skip_goal_call = 1;
+  // Phase A5 (autoport): the D4-era arm-the-skip-flag dodge that lived
+  // here is gone. A5 closed C4's 691-NOP gap in the goalc-arm64 emitter
+  // (sym-mem accesses now use a 3-instruction ADRP+ADD+LDR/STR
+  // far-reloc sequence via X16-scratch, never overflowing imm12), so
+  // the asm trampolines in game/kernel/asm_funcs_arm64.s can call into
+  // GOAL bytecode for real. The skip-flag's storage stays in
+  // asm_funcs_arm64.s as a zero-initialised data word; reverting to
+  // armed-mode is a one-line write rather than a redefinition.
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "InitMachine: g_android_skip_goal_call=1 (trampoline "
-                      "returns 0 instead of running GOAL bytecode — see "
-                      "SUPERVISOR_JOURNAL.md for the R14/R15 ABI gap)");
+                      "InitMachine: A5 emitter unlock — g_android_skip_goal_call "
+                      "stays 0 (asm trampolines run real GOAL bytecode)");
 
   // Step 7: prime the gfx dispatcher tick counter so the renderer sees a
   // monotonic frame index from the first vblank.
@@ -246,29 +245,17 @@ int InitMachine() {
 
 // ---------------------------------------------------------------------------
 // KernelCheckAndDispatch — top-level wrapper. Forwards into jak1's
-// dispatcher unless the Android skip-flag is set, in which case the
-// jak1 dispatcher would immediately abort on `ListenerFunction->value`
-// (Ptr<Symbol>::operator-> asserts offset != 0 when nothing populated
-// the symbol — which is exactly what happens because we never ran the
-// kernel top-level). On Android the wrapper instead just keeps the
-// dispatcher thread alive with a sleep loop until MasterExit flips
-// out of RUNNING, so the renderer thread can keep iterating frames.
+// upstream dispatcher. Phase A5's emitter unlock made the GOAL kernel
+// top-level executable on AArch64, so `ListenerFunction` is populated
+// the same way it is on x86 and the dispatcher can dereference it
+// safely.
 // ---------------------------------------------------------------------------
 void KernelCheckAndDispatch() {
-  if (g_android_skip_goal_call) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "KernelCheckAndDispatch: skip-flag armed — entering "
-                        "passive sleep loop instead of jak1 dispatcher "
-                        "(ListenerFunction would assert without a running "
-                        "GOAL kernel)");
-    while (MasterExit == RuntimeExitStatus::RUNNING) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "KernelCheckAndDispatch: passive loop exiting "
-                        "(MasterExit=%d)", (int)MasterExit);
-    return;
-  }
+  // Phase A5 (autoport): D4's skip-flag passive-sleep branch is gone.
+  // With A5's emitter unlock the gkernel top-level runs and populates
+  // ListenerFunction, so the upstream dispatcher's deref of
+  // ListenerFunction->value no longer asserts on a null Ptr. Forward
+  // straight into jak1's dispatcher.
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "KernelCheckAndDispatch: delegating to jak1");
   jak1::KernelCheckAndDispatch();

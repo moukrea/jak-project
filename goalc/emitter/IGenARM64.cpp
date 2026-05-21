@@ -1,6 +1,8 @@
 
 #include "IGenARM64.h"
 
+#include "common/link_types.h"
+
 #include "goalc/emitter/Instruction.h"
 #include "goalc/emitter/InstructionSet.h"
 #include "goalc/emitter/Register.h"
@@ -38,6 +40,59 @@ static inline uint32_t arm64_reg5(Register r) {
 // INTEGER MATH section). The LOAD/STORE helpers above need to call them.
 static InstructionARM64 add_x_imm12(Register dst, Register src, uint32_t imm12);
 static InstructionARM64 sub_x_imm12(Register dst, Register src, uint32_t imm12);
+
+// ---------------------------------------------------------------------------
+// A5 — far-reloc sym-mem sentinel encoding.
+//
+// The A4 emitter encoded GOAL symbol-table loads/stores as a single
+// LDR/STR Wt, [X14, #imm12_scaled4] instruction with imm12 = (sym_off_from_s7
+// >> 2). On arm64 imm12 caps the s7-relative offset at 16 KB (W-form) — any
+// symbol farther than that overflows. The C4 runtime patcher detected the
+// overflow and silently substituted a NOP (0xD503201F), leaving the access
+// effectively skipped. C4 reported 691 such NOPs across KERNEL/ENGINE/GAME.
+//
+// A5 closes that gap by expanding every sym-mem access into a 3-instruction
+// far-reloc sequence inside ObjectGenerator::add_instr:
+//
+//     ADRP X16, <sym>              ; page-of-sym (±4 GB via imm21)
+//     ADD  X16, X16, #<lo12-of-sym> ; within-page byte offset
+//     LDR/STR Wt, [X16, #0]        ; the actual access
+//
+// ADRP's ±4 GB range is ample for any symbol slot inside the GOAL heap, so
+// the runtime patcher never has to substitute a NOP — every reference is
+// reachable regardless of the s7-relative distance. X16 is the AArch64 IP0
+// scratch register (caller-saved, conventionally clobbered by branches and
+// linker stubs); the goalc register allocator's m_gpr_alloc_order tops out
+// at id 9 / R10 and never assigns X16/X17 to a live value, so using X16 as
+// the materialisation register is safe across IR boundaries.
+//
+// The IGen entry points below cannot emit three instructions themselves
+// (they return one InstructionARM64), so they emit a sentinel marker word
+// whose top 16 bits are 0x0000 (UDF #imm16 — guaranteed never to be a real
+// arm64 encoding) and whose low 16 bits carry the access kind and target
+// register. ObjectGenerator::add_instr decodes the marker and writes the
+// real ADRP+ADD+LDR/STR triplet into the segment, plumbing the two patch
+// sites (ADRP imm21 and ADD imm12) through link_instruction_symbol_mem to
+// the runtime linker.
+//
+// Marker layout (32 bits):
+//   bits 31..16: 0x0000   (UDF outer marker)
+//   bits 15..12: 0xA      (A5 sym-mem inner marker)
+//   bits 11..8:  kind     (1=load32u, 2=load32s, 3=store32)
+//   bits  7..5:  0        (unused)
+//   bits  4..0:  Rt       (target / source register id, 5 bits)
+//
+// Detection mask: (enc & 0xFFFFF0E0) == 0x0000A000.
+static constexpr uint32_t kA5SymMemMarker = 0x0000A000u;
+static constexpr uint32_t kA5SymMemMarkerMask = 0xFFFFF0E0u;
+static constexpr uint32_t kA5SymKindLoad32U = 1u;
+static constexpr uint32_t kA5SymKindLoad32S = 2u;
+static constexpr uint32_t kA5SymKindStore32 = 3u;
+
+static inline InstructionARM64 a5_sym_mem_marker(uint32_t kind, Register rt) {
+  uint32_t enc = kA5SymMemMarker | ((kind & 0xfu) << 8) | (arm64_reg5(rt) & 0x1fu);
+  return InstructionARM64(enc);
+}
 
 // ---------------------------------------------------------------------------
 // AArch64 encoder helpers (phase A2).
@@ -800,6 +855,13 @@ InstructionARM64 load32s_gpr64_gpr64_plus_gpr64_plus_s32(Register dst,
                                                          Register addr2,
                                                          s64 offset) {
   (void)addr2;
+  if (offset == static_cast<s64>(LINK_SYM_NO_OFFSET_FLAG)) {
+    // A5 — far-reloc sym-mem path. addr1 is the GOAL st-reg; addr2 is the
+    // offset-reg; both are ignored here because the expansion in
+    // ObjectGenerator::add_instr materialises the symbol's full host
+    // address into X16 via ADRP+ADD and reads it back with LDRSW Xt,[X16,#0].
+    return a5_sym_mem_marker(kA5SymKindLoad32S, dst);
+  }
   return ldrsw_x_imm(dst, addr1, offset);
 }
 
@@ -808,6 +870,10 @@ InstructionARM64 store32_gpr64_gpr64_plus_gpr64_plus_s32(Register addr1,
                                                          Register value,
                                                          s64 offset) {
   (void)addr2;
+  if (offset == static_cast<s64>(LINK_SYM_NO_OFFSET_FLAG)) {
+    // A5 — far-reloc sym-mem path. See load32s above.
+    return a5_sym_mem_marker(kA5SymKindStore32, value);
+  }
   return str_w_imm(value, addr1, offset);
 }
 
@@ -829,6 +895,10 @@ InstructionARM64 load32u_gpr64_gpr64_plus_gpr64_plus_s32(Register dst,
                                                          Register addr2,
                                                          s64 offset) {
   (void)addr2;
+  if (offset == static_cast<s64>(LINK_SYM_NO_OFFSET_FLAG)) {
+    // A5 — far-reloc sym-mem path. See load32s above.
+    return a5_sym_mem_marker(kA5SymKindLoad32U, dst);
+  }
   return ldr_w_imm(dst, addr1, offset);
 }
 
