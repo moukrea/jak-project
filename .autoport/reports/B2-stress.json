@@ -1,0 +1,60 @@
+{
+  "failures": [],
+  "harness": {
+    "harness_s": "test/arm64/b2_harness.S",
+    "per_fn_timeout_secs": 0.5,
+    "qemu": "qemu-aarch64-static",
+    "wrapper_py": ".autoport/lib/b2_wrap_fn.py"
+  },
+  "per_cgo": {
+    "ENGINE.CGO": {
+      "disasm_clean": 3845,
+      "executed_under_qemu": 3845,
+      "exit_clean": 725,
+      "other": 0,
+      "sigill": 0,
+      "sigsegv_in_prologue": 0,
+      "sigsegv_post_prologue": 2643,
+      "tested_via_disasm": 3845,
+      "timeout": 477,
+      "total_functions": 3845
+    },
+    "GAME.CGO": {
+      "disasm_clean": 4199,
+      "executed_under_qemu": 4199,
+      "exit_clean": 754,
+      "other": 0,
+      "sigill": 0,
+      "sigsegv_in_prologue": 0,
+      "sigsegv_post_prologue": 2888,
+      "tested_via_disasm": 4199,
+      "timeout": 557,
+      "total_functions": 4199
+    },
+    "KERNEL.CGO": {
+      "disasm_clean": 197,
+      "executed_under_qemu": 197,
+      "exit_clean": 34,
+      "other": 0,
+      "sigill": 0,
+      "sigsegv_in_prologue": 0,
+      "sigsegv_post_prologue": 163,
+      "tested_via_disasm": 197,
+      "timeout": 0,
+      "total_functions": 197
+    }
+  },
+  "phase": "B2-cgo-qemu-stress",
+  "summary": {
+    "disasm_clean": 8241,
+    "executed_under_qemu": 8241,
+    "exit_clean": 1513,
+    "other": 0,
+    "sigill": 0,
+    "sigsegv_in_prologue": 0,
+    "sigsegv_post_prologue": 5694,
+    "tested_via_disasm": 8241,
+    "timeout": 1034,
+    "total_functions": 8241
+  }
+}
