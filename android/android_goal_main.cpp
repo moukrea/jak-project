@@ -23,6 +23,7 @@
 #include <thread>
 
 #include "common/common_types.h"
+#include "common/util/FileUtil.h"
 
 #include "game/kernel/common/Ptr.h"
 #include "game/kernel/common/kboot.h"
@@ -230,6 +231,52 @@ int goal_main(int argc, char** argv) {
                         "goal_main: -iso-data missing from argv; aborting");
     std::abort();
   }
+
+  // ---------------------------------------------------------------------
+  // Phase D4 (autoport): set up the desktop-style project root so
+  // upstream code that calls file_util::get_jak_project_dir() resolves
+  // to a path we control.
+  //
+  // The overlord's fake_iso_FS_Init scans `<project>/out/<game>/iso/*`
+  // for the DGOs. On Android the extracted iso_data lives at
+  // `<data_root>` (e.g. /data/.../files/iso_data/jak1). We arrange a
+  // synthetic project root one level above that, with a symlink at
+  // `<project>/out/jak1/iso -> <data_root>` so the desktop scan
+  // returns the right files without any upstream patches.
+  //
+  // Both operations are idempotent — running them on a hot start
+  // (where the dir / symlink already exists) is a fast no-op.
+  // ---------------------------------------------------------------------
+  fs::path data_root_path(data_root);
+  fs::path project_root = data_root_path.parent_path().parent_path();
+  fs::path iso_link_parent = project_root / "out" / "jak1";
+  fs::path iso_link        = iso_link_parent / "iso";
+  std::error_code ec;
+  fs::create_directories(iso_link_parent, ec);
+  if (ec) {
+    __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                        "goal_main: create_directories(%s) failed: %s",
+                        iso_link_parent.c_str(), ec.message().c_str());
+    ec.clear();
+  }
+  if (!fs::exists(iso_link, ec)) {
+    fs::create_directory_symlink(data_root_path, iso_link, ec);
+    if (ec) {
+      __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                          "goal_main: symlink(%s -> %s) failed: %s",
+                          iso_link.c_str(), data_root_path.c_str(),
+                          ec.message().c_str());
+    } else {
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "goal_main: symlink %s -> %s created",
+                          iso_link.c_str(), data_root_path.c_str());
+    }
+  }
+  file_util::setup_project_path(project_root, /*skip_logs=*/false);
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "goal_main: project_path=%s, iso_link=%s -> %s",
+                      project_root.c_str(), iso_link.c_str(),
+                      data_root_path.c_str());
 
   // ---------------------------------------------------------------------
   // kheap init — honest call into upstream kmalloc primitives.

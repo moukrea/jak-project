@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 39,
+  "current_phase_idx": 40,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -39,7 +39,8 @@
     "C4-klink-arm64-execute": 1,
     "D1-android-bionic-shims": 1,
     "D2-android-gles-shaders": 2,
-    "D3-android-sdl3-surface": 1
+    "D3-android-sdl3-surface": 1,
+    "D4-android-apk-title": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -107,7 +108,8 @@
     "C4-klink-arm64-execute",
     "D1-android-bionic-shims",
     "D2-android-gles-shaders",
-    "D3-android-sdl3-surface"
+    "D3-android-sdl3-surface",
+    "D4-android-apk-title"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -150,9 +152,10 @@
     "C4-klink-arm64-execute": 1779374067.6251209,
     "D1-android-bionic-shims": 1779378576.773529,
     "D2-android-gles-shaders": 1779380991.0723279,
-    "D3-android-sdl3-surface": 1779387866.3413577
+    "D3-android-sdl3-surface": 1779387866.3413577,
+    "D4-android-apk-title": 1779393055.8089738
   },
-  "last_update": "2026-05-21T19:50:00.000000+00:00",
+  "last_update": "2026-05-21T21:17:12.283792+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
