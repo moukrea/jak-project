@@ -607,6 +607,80 @@ Validator (10 checks) enforces:
 9. Desktop gk smoke test reaches link finish: logo
 
 About to restart orchestrator with A4 ready.
+
+### [2026-05-21 12:10] A4 PASSED → BUCKET A COMPLETE + B1 authored
+
+A4 attempt 1, ~37 min. Validator green across all 10 checks. Two
+commits landed: `275340529` (the work) and `7149e3402` (marker).
+
+**A4 audit:**
+
+- A4-coverage.json: 36/36 IRs qemu-execute AND match x86. Both
+  `reloc_skipped` and `other_skipped` empty. Was 29 in A3 — full
+  coverage now.
+- Kernel probe at `.autoport/reports/A4-kernel-probe.txt`: **4736**.
+  Nonzero, deterministic, derived from walking the v3 link table
+  inside KERNEL.CGO under qemu-aarch64. Proves the ADRP+ADD+LDR
+  triplet patching works end-to-end with a real (mi)-emitted CGO.
+- A4 also extended the differential harness with a Python port of
+  the kernel linker (`.autoport/lib/a4_arm64_patcher.py`) so the
+  differential testbed patches both backends' main_code blobs
+  against a common synthetic symbol-table base.
+- 7 IR bodies (IR_GetSymbolValue, IR_SetSymbolValue,
+  IR_LoadSymbolPointer, IR_GetSymbolValueAsm, IR_StaticVarLoad,
+  IR_StaticVarAddr, IR_FunctionAddr) now call `link_instruction_*()`
+  with the new fix-up kinds. Specifically:
+  - `IR_GetSymbolValue`/`SetSymbolValue`/`GetSymbolValueAsm` →
+    LDR(SW)/STR W [Xst, #imm12_scaled4] with imm12 patched to the
+    symbol's table offset
+  - `IR_LoadSymbolPointer` (arbitrary symbol) → ADRP + ADD imm12
+    materialising the absolute slot address
+  - `IR_StaticVarLoad` → LDR-literal (S/Q) imm19 patched to PC-rel
+  - `IR_StaticVarAddr`/`IR_FunctionAddr` → ADRP + ADD imm12 + SUB
+    offset_reg sequence materialising a GOAL pointer
+- ObjectGenerator handles intra-segment cross-references via the new
+  imm21/imm12/imm19 patches at link time; inter-segment references
+  record the instruction-start byte offset (not a sub-byte imm
+  slot) so a runtime linker can rewrite only the immediate bits.
+
+**Bucket A complete**: A1 enumerated, A2 implemented 30 newly-real
+encoders, A3 verified per-cluster via qemu, A4 wired the linker
+and verified end-to-end with a real-CGO probe. All four phases
+passed single-attempt with zero stuck-fingerprints and zero cheat
+signatures. The arm64 emitter is production-ready for jak1's IR
+set.
+
+**Halt + B1 authored**: orchestrator advanced to B1 placeholder
+immediately after A4; halted at 4 min in. State reset.
+
+B1 (`.autoport/prompts/phase-B1-cgo-regen-strict.md`, 224 lines +
+validator 213 lines) targets the first end-to-end exercise of the
+full arm64 pipeline on the real jak1 source:
+
+1. Run `(mi)` with build-arm64/goalc/goalc to produce arm64 CGOs.
+2. Relocate them to `out/jak1-arm64/iso/` (the new arm64-CGO home).
+3. Re-run x86 `(mi)` to restore byte-identical x86 CGOs at
+   `out/jak1/iso/` (hash-match A2 baseline).
+4. Structural check per arm64 CGO: file size, arm64-ret density,
+   x86-ret bytes, decode-sample mnemonic histogram.
+5. Re-run A4's kernel probe against the new arm64 KERNEL.CGO
+   to confirm the relocations stayed valid in a full-jak1 build
+   (not just synthetic tests).
+
+Validator (11 checks) enforces:
+- arm64 CGOs at the dedicated location, all 3 present, sized
+  plausibly (KERNEL ≥ 50KB, ENGINE/GAME ≥ 1MB)
+- arm64-ret density ≥ 3/KB per CGO
+- x86-ret bytes ≤ 1% per arm64 CGO (anti-contamination)
+- x86 CGOs at `out/jak1/iso/` hash-match A2 baseline (anti-phase-25)
+- gk smoke test still reaches `link finish: logo`
+- Driver script is idempotent (re-run → same arm64 hashes)
+- No codegen modifications since A4 (validates A4's work, doesn't
+  extend it)
+- Classifier still locked since A1
+- Kernel probe reproducible
+
+Restarting orchestrator on B1.
   3. **Pre-existing desktop-build breakage** uncovered by the
      reconfigure: `runtime_trace.cpp` (added by phase 26) defines
      `__goal_runtime_trace_kheap` and `__goal_runtime_trace_goal_call`
