@@ -89,15 +89,11 @@ set(CMAKE_FIND_ROOT_PATH "/usr/aarch64-linux-gnu")
 #   OG_LINUX_ARM64   -> game/linux-arm64/     (bucket C — the real gk
 #                       cross-build that boots under qemu-aarch64-static)
 #
-# Earlier this file unconditionally forced `OG_ARM64_STRESS=ON`, which
-# meant you could not use this toolchain for anything else. Now both
-# options are honored:
-#   * If the user passes -DOG_LINUX_ARM64=ON, divert to game/linux-arm64.
-#   * Else if -DOG_ARM64_STRESS=ON (or neither is set), divert to
-#     tools/arm64-stress as a backwards-compatible default — preserves
-#     the phase-26 workflow.
-if(NOT DEFINED OG_LINUX_ARM64 OR NOT OG_LINUX_ARM64)
-    if(NOT DEFINED OG_ARM64_STRESS)
-        set(OG_ARM64_STRESS ON CACHE BOOL "" FORCE)
-    endif()
-endif()
+# The earlier revision unconditionally forced OG_ARM64_STRESS=ON in the
+# cache, which made this toolchain unusable for anything else. Bucket C
+# (phase C1) needs OG_LINUX_ARM64 to win, so the default is now opt-in:
+#   * Pass -DOG_LINUX_ARM64=ON   -> game/linux-arm64/ subdir.
+#   * Pass -DOG_ARM64_STRESS=ON  -> tools/arm64-stress/ subdir.
+# If neither is passed the root CMakeLists.txt falls through to the
+# desktop path (which will fail on this cross toolchain — that's the
+# honest signal the caller forgot to pick a target).

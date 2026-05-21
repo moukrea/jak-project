@@ -37,6 +37,7 @@
 
 #include "common/log/log.h"
 #include "common/versions/versions.h"
+#include "common/versions/revision.h"
 #include "game/runtime.h"
 
 namespace {

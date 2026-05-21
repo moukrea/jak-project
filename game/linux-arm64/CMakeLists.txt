@@ -32,6 +32,12 @@ include_directories(
     "${JAK_ROOT}/third-party"
     "${JAK_ROOT}/game"
     "${JAK_ROOT}/third-party/fmt/include"
+    # game/settings/settings.h includes SDL3/SDL.h transitively via gfx.h
+    # and srpc.cpp's VBlank handler. We don't *link* SDL3 (no aarch64
+    # sysroot here yet) — but the header is needed for the compile.
+    # Honest abort stubs in linux_arm64_runtime_compat.cpp satisfy any
+    # SDL_* references that survive the inliner.
+    "${JAK_ROOT}/third-party/SDL/include"
 )
 
 # ---------------------------------------------------------------------------

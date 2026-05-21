@@ -48,13 +48,44 @@ echo "== Phase C1 validator =="
 ok "required files present"
 
 # ---- 2. Toolchain file generalised ----
-# The file must no longer force OG_ARM64_STRESS=ON unconditionally. Either
-# the line is gone or it's wrapped in an `if(NOT DEFINED OG_LINUX_ARM64)` /
-# equivalent conditional that lets OG_LINUX_ARM64=ON win.
-if grep -qE '^[[:space:]]*set\(OG_ARM64_STRESS[[:space:]]+ON[[:space:]]+CACHE[[:space:]]+BOOL[[:space:]]+""[[:space:]]+FORCE\)' "$TOOLCHAIN_FILE"; then
-    fail "$TOOLCHAIN_FILE still has unconditional 'set(OG_ARM64_STRESS ON CACHE BOOL \"\" FORCE)'"
-fi
-ok "toolchain file generalised"
+# The file must no longer force OG_ARM64_STRESS=ON unconditionally. The
+# pre-C1 toolchain set it at top-level scope (no if-guard, no conditional),
+# defeating any -DOG_LINUX_ARM64=ON the caller passed. The fix can take
+# two shapes:
+#   (a) Remove the cache-force entirely (caller must pass one of
+#       -DOG_LINUX_ARM64=ON / -DOG_ARM64_STRESS=ON), OR
+#   (b) Guard it behind a conditional that respects OG_LINUX_ARM64.
+# Either is valid. We enforce semantically: the toolchain file must
+# mention OG_LINUX_ARM64 somewhere (comment is fine — proves the author
+# knew about the option) AND must NOT contain a top-level
+# unconditional `set(OG_ARM64_STRESS ON CACHE BOOL "" FORCE)`.
+grep -q 'OG_LINUX_ARM64' "$TOOLCHAIN_FILE" \
+    || fail "$TOOLCHAIN_FILE doesn't mention OG_LINUX_ARM64 — toolchain not C1-aware"
+python3 - "$TOOLCHAIN_FILE" <<'PYEOF' || fail "$TOOLCHAIN_FILE: 'set(OG_ARM64_STRESS ON ... FORCE)' still at top-level scope"
+import re, sys
+src = open(sys.argv[1]).read().splitlines()
+depth = 0
+for line in src:
+    stripped = line.strip()
+    if stripped.startswith("#"):
+        continue
+    if re.search(r'\bif\s*\(', stripped) and not re.search(r'\bendif\s*\(', stripped):
+        depth += 1
+        continue
+    if re.search(r'\belseif\s*\(', stripped):
+        continue
+    if re.search(r'\belse\s*\(', stripped):
+        continue
+    if re.search(r'\bendif\s*\(', stripped):
+        depth = max(0, depth - 1)
+        continue
+    if depth == 0:
+        if re.search(r'set\s*\(\s*OG_ARM64_STRESS\s+ON\s+CACHE\s+BOOL\b.*FORCE\s*\)', line):
+            print(f"top-level forcing: {line!r}")
+            sys.exit(1)
+sys.exit(0)
+PYEOF
+ok "toolchain file generalised — mentions OG_LINUX_ARM64, no top-level OG_ARM64_STRESS force"
 
 # ---- 3. Root CMakeLists.txt exposes + diverts on OG_LINUX_ARM64 ----
 grep -qE '^[[:space:]]*option\(OG_LINUX_ARM64' "$ROOT_CMAKE" \
@@ -108,7 +139,10 @@ echo "$FILE_OUT" | grep -qE 'ELF 64-bit LSB.*ARM aarch64' \
 ok "file(1): aarch64 ELF"
 
 # ---- 8. Dynamic interpreter is glibc, not Bionic ----
-INTERP=$(readelf -l "$GK" 2>/dev/null | grep -oE '/[^ ]*ld-[^ ]*\.so[^ ]*' | head -1)
+# readelf prints e.g. `[Requesting program interpreter: /lib/ld-linux-aarch64.so.1]`
+# — strip the trailing `]` before comparing.
+INTERP=$(readelf -l "$GK" 2>/dev/null | grep -oE '/[^]]*ld-[^]]*\.so[^]]*' | head -1)
+INTERP="${INTERP%]}"
 [ "$INTERP" = "/lib/ld-linux-aarch64.so.1" ] \
     || fail "interpreter is '$INTERP', expected /lib/ld-linux-aarch64.so.1"
 ok "dynamic interpreter is /lib/ld-linux-aarch64.so.1 (glibc)"
@@ -212,11 +246,19 @@ grep -qE 'gk[[:space:]]+binary|cross.toolchain|aarch64' "$REPORT_MD" \
 ok "C1-config.md headline present"
 
 # ---- 16. Reconfigure idempotent ----
+# CMake intentionally rewrites some cache TYPE tags on the second
+# configure (e.g. FILEPATH → UNINITIALIZED when the value was passed in
+# via -D and not re-typed). We don't care about the type tag for
+# idempotency — only that the key's VALUE matches.
 echo "  re-running c1_configure.sh for idempotency check..."
-CACHE_BEFORE=$(grep -E '^(OG_LINUX_ARM64|CMAKE_TOOLCHAIN_FILE|CMAKE_SYSTEM_NAME|CMAKE_SYSTEM_PROCESSOR):' "$BUILD_DIR/CMakeCache.txt" | sort)
+extract_cache_values() {
+    grep -E '^(OG_LINUX_ARM64|OG_ARM64_STRESS|CMAKE_TOOLCHAIN_FILE|CMAKE_SYSTEM_NAME|CMAKE_SYSTEM_PROCESSOR|CMAKE_BUILD_TYPE):' "$1" \
+        | sed -E 's/:[A-Z]+=/=/' | sort
+}
+CACHE_BEFORE=$(extract_cache_values "$BUILD_DIR/CMakeCache.txt")
 "$CFG_SCRIPT" > /tmp/c1-configure2.log 2>&1 \
     || { tail -40 /tmp/c1-configure2.log; fail "second configure failed"; }
-CACHE_AFTER=$(grep -E '^(OG_LINUX_ARM64|CMAKE_TOOLCHAIN_FILE|CMAKE_SYSTEM_NAME|CMAKE_SYSTEM_PROCESSOR):' "$BUILD_DIR/CMakeCache.txt" | sort)
+CACHE_AFTER=$(extract_cache_values "$BUILD_DIR/CMakeCache.txt")
 [ "$CACHE_BEFORE" = "$CACHE_AFTER" ] \
     || { diff <(echo "$CACHE_BEFORE") <(echo "$CACHE_AFTER"); fail "CMakeCache key values drifted on reconfigure"; }
 ok "reconfigure idempotent"
