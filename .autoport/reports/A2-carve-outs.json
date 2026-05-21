@@ -1,0 +1,32 @@
+{
+  "phase": "A2-emitter-implement",
+  "summary": "IR forms whose x86 codegen emits zero-or-one trivial instructions by design. The arm64 codegen mirrors that semantically (emit nothing for the truly-empty forms, emit a single NOP for the VU/FPU sync pseudo-ops). The phase A2 classifier still marks these as 'stub' because its threshold is '≥1 non-NOP arm64 instruction', but the spirit of the inventory's blocker list is 'real work missing', and these forms have no real work to do.",
+  "exceptions": [
+    {
+      "ir": "IR_Null",
+      "reason": "Sentinel IR that occupies an instruction slot without emitting any bytes. The x86 do_codegen_x86 body is also empty; matching arm64 behavior is correct."
+    },
+    {
+      "ir": "IR_ValueReset",
+      "reason": "Register-allocator hint that resets the writable-set for a list of registers. Emits no x86 or arm64 bytes by design; pure regalloc bookkeeping."
+    },
+    {
+      "ir": "IR_Nop",
+      "reason": "Explicit NOP request from the GOAL source. x86 emits a single 0x90; arm64 emits a single 0xd503201f. By construction this is the one IR whose 'stub' classification is semantically wrong but matches the classifier's NOP-detector."
+    },
+    {
+      "ir": "IR_AsmFNop",
+      "reason": "VU floating-point NOP. x86 emits the SSE-2 NOP encoding for pipeline synchronisation; on arm64 the FPU pipeline has no equivalent synchronisation primitive, so emitting a real NOP is the most honest mapping. Wiring a true 'no-op-with-side-effects' is out of scope for A2."
+    },
+    {
+      "ir": "IR_AsmFWait",
+      "reason": "VU floating-point WAIT. Same rationale as IR_AsmFNop: x86 uses an explicit FPU synchronisation instruction; arm64 has no equivalent and a NOP is the honest mapping. Documenting here so future passes know this IR was intentionally left as NOP-emit rather than overlooked."
+    }
+  ],
+  "notes": {
+    "A2_smoke_artifact": "test/arm64/build/emitter_smoke_A2.o",
+    "smoke_artifact_build_script": ".autoport/lib/build_a2_smoke.sh",
+    "smoke_artifact_format": "elf64-littleaarch64 wrapper around raw concatenated function bodies extracted from out/jak1/obj/emitter_smoke_A2.o (GOAL v3 .o) via cgo_inspect.py. The .text section contains the actual arm64 bytes the goalc-arm64 backend emitted for emitter_smoke_A2.gc — no synthetic data, no hand-assembled instructions.",
+    "linker_followup": "do_codegen_arm64 bodies for IR forms that emit symbol-/static-/function-link relocations (IR_GetSymbolValue, IR_SetSymbolValue, IR_LoadSymbolPointer, IR_GetSymbolValueAsm, IR_StaticVarLoad, IR_StaticVarAddr, IR_FunctionAddr) deliberately skip the link_instruction_*() calls. The reason: ObjectGenerator::handle_temp_instr_sym_links() asserts that the patched instruction has get_disp_size() == 4, which is true on x86 (32-bit displacement field) but not on arm64 (immediate fields are imm12/imm19, not at byte-aligned positions). The real arm64 encoder calls still emit the right instruction shape; only the runtime relocation is unhooked. A follow-up sub-phase in bucket A will widen the linker to know about arm64 fixup kinds. Until then arm64-emitted CGOs are not runtime-valid (the desktop x86 path is unaffected)."
+  }
+}

@@ -462,6 +462,32 @@ InstructionARM64 movk_gpr64_imm16_lsl(Register dst, uint16_t imm, int shift_div1
 InstructionARM64 b_uncond_placeholder();
 InstructionARM64 b_cond_placeholder(int cond);
 
+// Branch-with-Link placeholder used by IR_FunctionCall on arm64. The
+// imm26 field is patched once the callee's address is known.
+InstructionARM64 bl_placeholder();
+
+// Page-aligned address materialisation used for symbol-table / static-data
+// addressing. ADRP writes a 4KB-aligned PC-relative address into Xd; an
+// ADD imm12 follows to add the low-12 within the page. The placeholder
+// emits ADRP with imm21=0 — the relocation fixup adds the right value.
+InstructionARM64 adrp_placeholder(Register dst);
+// Compact form when the target is known to be < 1MB away from PC.
+InstructionARM64 adr_placeholder(Register dst);
+
+// PC-relative literal load (LDR Xt, =literal). imm19 patched by the
+// ObjectGenerator's literal-pool fix-up.
+InstructionARM64 ldr_x_literal_placeholder(Register dst);
+
+// Branch (no link) to register, used by IR_JumpReg.
+InstructionARM64 br_reg(Register reg);
+// Branch-with-link to register (already aliased through call_r64()), exposed
+// for tests / direct calls.
+InstructionARM64 blr_reg(Register reg);
+
+// Compare-and-branch placeholders for the asm-level IR forms.
+InstructionARM64 cbz_x_placeholder(Register r);
+InstructionARM64 cbnz_x_placeholder(Register r);
+
 // AArch64 condition codes used with b_cond_placeholder.
 enum ArmCond : int {
   ARM_COND_EQ = 0x0,
