@@ -7,8 +7,16 @@
 
 #include "CodeGenerator.h"
 
+#include <algorithm>
+#include <cstdlib>
+#include <cxxabi.h>
+#include <fstream>
 #include <stdexcept>
+#include <typeindex>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "IR.h"
 
@@ -18,6 +26,72 @@
 #include "fmt/format.h"
 
 using namespace emitter;
+
+namespace ir_emit_stats {
+namespace {
+struct Counter {
+  uint64_t x86 = 0;
+  uint64_t arm64 = 0;
+};
+
+// Process-lifetime accumulator. Compilation is single-threaded
+// (Compiler::run_front_end_on_string holds the only mutator path), so
+// no synchronisation is needed here.
+std::unordered_map<std::type_index, Counter> g_counters;
+std::string g_output_path;
+
+std::string demangle(const char* mangled) {
+  int status = 0;
+  char* dem = abi::__cxa_demangle(mangled, nullptr, nullptr, &status);
+  std::string out = (status == 0 && dem) ? std::string(dem) : std::string(mangled);
+  std::free(dem);
+  return out;
+}
+}  // namespace
+
+void record(const std::type_info& ti, bool is_arm64) {
+  auto& c = g_counters[std::type_index(ti)];
+  if (is_arm64) {
+    c.arm64++;
+  } else {
+    c.x86++;
+  }
+}
+
+void set_output_path(const std::string& path) {
+  g_output_path = path;
+}
+
+bool dump_to_file() {
+  if (g_output_path.empty()) {
+    return false;
+  }
+  // Sort by demangled class name so the output is deterministic across
+  // runs (unordered_map iteration order isn't).
+  std::vector<std::pair<std::string, Counter>> rows;
+  rows.reserve(g_counters.size());
+  for (const auto& kv : g_counters) {
+    rows.emplace_back(demangle(kv.first.name()), kv.second);
+  }
+  std::sort(rows.begin(), rows.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; });
+
+  std::ofstream o(g_output_path);
+  if (!o.is_open()) {
+    return false;
+  }
+  o << "{";
+  for (size_t i = 0; i < rows.size(); ++i) {
+    if (i) {
+      o << ",";
+    }
+    o << "\n  \"" << rows[i].first << "\": {\"x86\": " << rows[i].second.x86
+      << ", \"arm64\": " << rows[i].second.arm64 << "}";
+  }
+  o << "\n}\n";
+  return true;
+}
+}  // namespace ir_emit_stats
 
 CodeGenerator::CodeGenerator(FileEnv* env,
                              DebugInfo* debug_info,
@@ -218,6 +292,7 @@ void CodeGenerator::do_goal_function_x86(FunctionEnv* env, int f_idx) {
     }
 
     // do the actual op
+    ir_emit_stats::record(typeid(*ir), false);
     ir->do_codegen_x86(&m_gen, allocs, i_rec);
 
     // store things back on the stack if needed.
@@ -355,6 +430,7 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
         m_gen.add_instr(emitter::InstructionARM64(0xd503201fu), i_rec);  // spill load placeholder
       }
     }
+    ir_emit_stats::record(typeid(*ir), true);
     ir->do_codegen_arm64(&m_gen, allocs, i_rec);
     for (const auto& op : bonus.ops) {
       if (op.store) {
@@ -409,6 +485,7 @@ void CodeGenerator::do_asm_function_x86(FunctionEnv* env, int f_idx, bool allow_
     }
 
     // do the actual op
+    ir_emit_stats::record(typeid(*ir), false);
     ir->do_codegen_x86(&m_gen, allocs, i_rec);
   }
 }
@@ -423,6 +500,7 @@ void CodeGenerator::do_asm_function_arm64(FunctionEnv* env, int f_idx, bool allo
   for (int ir_idx = 0; ir_idx < int(env->code().size()); ir_idx++) {
     auto& ir = env->code().at(ir_idx);
     auto i_rec = m_gen.add_ir(f_rec);
+    ir_emit_stats::record(typeid(*ir), true);
     ir->do_codegen_arm64(&m_gen, allocs, i_rec);
   }
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0xD65F03C0u),
