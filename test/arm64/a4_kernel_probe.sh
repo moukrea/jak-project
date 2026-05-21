@@ -17,7 +17,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 PROBE_C="test/arm64/a4_kernel_probe.c"
 PROBE_ELF="test/arm64/build/a4_kernel_probe.elf"
-KERNEL_CGO="out/jak1/iso/KERNEL.CGO"
+KERNEL_CGO="${KERNEL_CGO:-out/jak1/iso/KERNEL.CGO}"
 
 if [ ! -f "$PROBE_C" ]; then
     echo "FAIL: $PROBE_C missing" >&2
