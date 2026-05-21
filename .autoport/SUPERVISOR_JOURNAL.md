@@ -530,6 +530,83 @@ Five commits landed since session start:
 - `9ee66e113` / `9cc60191f` A1 attempt-1 pass
 - `7a9cd16b3` feat(autoport/A2): real A2 prompt + validator
 - `54993cdf0` / `3899037b0` A2 attempt-1 pass
+
+### [2026-05-21 11:24] A3 PASSED + A4 authored
+
+A3 attempt 1 completed in ~38 min. Validator green across all 10
+checks. Two commits landed: `fc1f5de12` (the work) and `c3d183527`
+(orchestrator marker).
+
+**A3 deep audit:**
+
+- Coverage JSON: 36 real IRs / 36 disasm-clean / 29 qemu_executed /
+  29 matches_x86 / reloc_skipped exactly matches A2's 7 (no
+  padding) / other_skipped empty / 10 test files.
+- Sample matches: IR_AsmAdd, IR_AsmPop, IR_AsmPush, IR_AsmRet,
+  IR_AsmSub all return x86=142, arm64=142 — different IRs
+  converging on the same constant via real arithmetic (test design
+  uses a common target value across cluster tests; not
+  tautological since each IR contributes to producing it).
+- 10 test files at `test/arm64/diff/` (more than the 7 minimum
+  required; claude added asm_ops, call_return, control_flow,
+  float_math, int128_math, mem_load_const_offset, mem_symbol,
+  stack_addr, static_var, vf_lane_math).
+- Validator's reproducibility check (re-running harness +
+  comparing key fields): PASS.
+- Codegen files unchanged since A2 (validator's hunk-walker
+  confirms). x86 oracle still reaches link finish: logo.
+
+A4 inserted between A3 and B1 (bucket A's linker counterpart).
+After A4: bucket B can regen arm64 CGOs that the runtime can
+actually load.
+
+### [2026-05-21 11:30] A4 authored
+
+A4 (`.autoport/prompts/phase-A4-linker-fixups.md`, 245 lines +
+validator 264 lines) targets the 7 reloc-needing IR bodies whose
+do_codegen_arm64 emits placeholder instruction shapes but skips
+the patch-registration:
+
+  IR_GetSymbolValue, IR_SetSymbolValue, IR_LoadSymbolPointer,
+  IR_GetSymbolValueAsm, IR_StaticVarLoad, IR_StaticVarAddr,
+  IR_FunctionAddr
+
+Required work:
+- Widen ObjectGenerator (handle_temp_instr_sym_links currently
+  asserts disp_size==4 — x86-specific) to know 4 new arm64
+  fix-up kinds: LDR_IMM12_UNSIGNED, STR_IMM12_UNSIGNED, ADD_IMM12,
+  ADRP_IMM21. (BL_IMM26 and B_COND_IMM19 were already added by
+  phase 24 for jump-link; A4 adds the sym-link counterparts.)
+- Re-wire the 7 IR bodies to call link_instruction_*() with the
+  new fix-up kinds.
+- Re-run A3's harness with the reloc-skip list emptied — produce
+  A4-coverage.json with `reloc_skipped: []` and full 36-IR
+  coverage.
+- Add a kernel-symbol probe at test/arm64/a4_kernel_probe.{S,c}
+  that loads KERNEL.CGO, looks up a known symbol's slot via the
+  new ADRP+LDR pair, and exits with the offset. Output captured
+  at .autoport/reports/A4-kernel-probe.txt for the validator's
+  determinism check.
+
+Validator (10 checks) enforces:
+1. A4-coverage.json present + schema valid
+2. reloc_skipped AND other_skipped both empty
+3. Every real IR qemu-executes and matches x86 (full 36)
+4. The 7 IR bodies now contain `link_instruction_` text in their
+   arm64 bodies (validator parses bracket-balanced bodies and
+   strips comments before grep — comment-only references don't
+   count)
+5. ObjectGenerator.cpp diff vs A3 ≥ 5 lines AND mentions
+   imm12/imm21/ADRP/etc. (sanity: real fix-up code, not just
+   whitespace)
+6. do_codegen_x86 bodies unchanged (same hunk-walker A2
+   introduced — claude's improved version that tracks function-
+   scope braces line-by-line)
+7. Classifier still byte-identical to A1
+8. Kernel-symbol probe output nonzero + reproducible
+9. Desktop gk smoke test reaches link finish: logo
+
+About to restart orchestrator with A4 ready.
   3. **Pre-existing desktop-build breakage** uncovered by the
      reconfigure: `runtime_trace.cpp` (added by phase 26) defines
      `__goal_runtime_trace_kheap` and `__goal_runtime_trace_goal_call`
