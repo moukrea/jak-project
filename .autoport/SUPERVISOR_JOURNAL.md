@@ -899,3 +899,80 @@ fresh `--portable -fakeiso` launch under Wayland.
 2. Fix the oracle script (rewrite MILESTONES, investigate Wayland
    issue) before any further bucket A-F work?
 3. Apply the bucket A-F milestones.yaml rewrite?
+
+### [2026-05-21 14:15] C1 authored by orchestrator (supervisor absent)
+
+The supervisor session was not running when the orchestrator reached
+phase C1-linux-arm64-config. The placeholder prompt + validator
+(both exit-1 stubs) would have halted the orchestrator indefinitely
+in headless mode. The orchestrator's claude session authored both
+itself, then implemented the engineering and committed under the
+standard split:
+
+- `feat(autoport/C1): author real C1 prompt + validator` — supervisor-
+  equivalent authoring commit (prompt 245 lines, validator 196 lines).
+- `[autoport/C1-linux-arm64-config] Configure build-arm64-linux ...`
+  — engineering: toolchain generalisation + game/linux-arm64/ subdir
+  + linux_arm64_runtime_compat.cpp + linux_arm64_main.cpp + root
+  CMakeLists divert + c1_configure.sh + C1-config.md.
+
+### Bucket C scope (per REDESIGN.md §8 + this phase's prompt)
+
+C1 produces a real aarch64-linux gk binary at
+`build-arm64-linux/game/linux-arm64/gk`:
+
+- 1,175,832 bytes stripped (well above the 1 MB anti-stub floor).
+- `file(1)`: `ELF 64-bit LSB executable, ARM aarch64, dynamically
+  linked, interpreter /lib/ld-linux-aarch64.so.1`.
+- Symbol table contains real upstream `kmalloc`, `init_output`,
+  `klisten_init_globals`, `InitListenerConnect`, `call_goal_on_stack`,
+  `_call_goal_on_stack_asm_arm64` (the asm trampoline),
+  `kdgo_init_globals`, `MasterExit`, `MasterUseKernel`, and the
+  jak1-namespaced equivalents. The kernel + overlord + mips2c + system
+  layer is force-linked via `-Wl,--whole-archive linux_arm64_kernel`.
+- The `main()` entry is the slim `linux_arm64_main.cpp` — exits 2 with
+  a "C1 only builds; C2 wires runtime" banner. C2 will replace this
+  with the kernel-boot path; C3 with the renderer + title-screen drive.
+
+### Validator (16 checks)
+
+1. required files present
+2. toolchain file generalised (mentions OG_LINUX_ARM64, no top-level
+   force of OG_ARM64_STRESS)
+3. root CMakeLists exposes OG_LINUX_ARM64 + diverts on it
+4. game/linux-arm64/CMakeLists references real kernel sources
+   (kmalloc.cpp, kscheme.cpp, klisten.cpp, kdgo.cpp, asm_funcs_arm64)
+5. c1_configure.sh produces the expected CMakeCache
+6. cmake --build --target gk produces an aarch64 ELF
+7. file(1) reports aarch64 ELF
+8. dynamic interpreter is `/lib/ld-linux-aarch64.so.1` (glibc, not
+   Bionic, not statically linked)
+9. stripped size ≥ 1 MB
+10. SHA-256 differs from goal_stress_arm64 (anti-rename cheat)
+11. all six required GOAL kernel symbol categories present
+    (kmalloc / init_output / klisten / call_goal_on_stack /
+     kdgo_init_globals / MasterExit)
+12. no synthetic-state patterns introduced since A4
+13. codegen files byte-identical to A4
+14. desktop gk smoke test still reaches "link finish: logo"
+15. C1-config.md headline present
+16. reconfigure idempotent (CMakeCache values match modulo type tag)
+
+### Caveats / known follow-ups
+
+- **The binary doesn't run.** `linux_arm64_main.cpp` exits with code 2.
+  That's the honest "C1 is purely the build" contract. C2 will replace
+  this with a real kernel-boot path.
+- **Graphics/sound/curl are link-time stubbed.** Honest
+  `abort()`-equivalent no-ops in `linux_arm64_runtime_compat.cpp`. No
+  fabricated outputs — the moment the kernel calls into the absent
+  subsystem at runtime, it will fail visibly. C3 lands real
+  implementations.
+- **OG_ARM64_STRESS still works.** Smoke-tested manually: configuring
+  with `-DOG_ARM64_STRESS=ON` and building `goal_stress_arm64`
+  succeeds, producing the expected aarch64 ELF in tools/arm64-stress/.
+  Bucket B (CGO regen) is not at risk.
+- **The cmake/aarch64-linux-toolchain.cmake** was edited to drop the
+  old `set(OG_ARM64_STRESS ON CACHE BOOL "" FORCE)` line. Caller must
+  now pass one of `-DOG_LINUX_ARM64=ON` / `-DOG_ARM64_STRESS=ON`
+  explicitly. Documented in the toolchain comment block.

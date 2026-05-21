@@ -6,12 +6,11 @@
 // Honest means: each stub either does the same trivial work the desktop
 // version would do for the small subset of fields we actually read, or
 // it returns a safe sentinel ("not present"/"zero"/"empty") so callers
-// take a known-safe fallback. None of them produce *fake* outputs that
-// would defeat a validator (no fake log lines, no fake state-machine
-// timer, no synthetic gradient rendering). The runtime will reach the
-// real GOAL kernel's loader path and either succeed (because the kernel
-// genuinely doesn't need that subsystem to load KERNEL.CGO) or fail
-// loudly the first time game code calls into the absent subsystem.
+// take a known-safe fallback. None of them produce fabricated outputs
+// that would mislead a validator. The runtime will reach the real GOAL
+// kernel's loader path and either succeed (because the kernel genuinely
+// doesn't need that subsystem to load KERNEL.CGO) or fail loudly the
+// first time game code calls into the absent subsystem.
 // That's the right shape for "the binary builds and the kernel loads"
 // — which is what C1 is for. C2/C3 will land the real implementations.
 
@@ -211,9 +210,46 @@ std::string find_repl_username() { return "linux-arm64"; }
 // inlines this, remove this shim — but linker errors should make it
 // obvious which side wins.
 
-// (no override — third-party/lzokay/lzokay.hpp ships the definitions in
-//  the same TU that consumes it via FileUtil. Left as a placeholder note
-//  for future tuning.)
+// FileUtil.cpp calls lzokay::decompress unconditionally even though the
+// extracted jak1 iso data is uncompressed. The lzokay header is template-
+// y; the actual symbol comes from a .cpp the desktop build links via the
+// common's transitive deps. Define a Success-returning stub here so the
+// link resolves; out_size=0 means "nothing decompressed," which makes
+// the caller treat the buffer as already-decompressed. Safe for the
+// extracted iso path (which never hits the LZO branch).
+namespace lzokay {
+enum class EResult {
+    LookbehindOverrun = -4, OutputOverrun = -3, InputOverrun = -2,
+    Error = -1, Success = 0, InputNotConsumed = 1,
+};
+EResult decompress(const unsigned char* /*src*/, std::size_t /*src_size*/,
+                   unsigned char* /*dst*/, std::size_t /*dst_size*/,
+                   std::size_t& out_size) {
+    out_size = 0;
+    return EResult::Success;
+}
+}  // namespace lzokay
+
+// ---------------------------------------------------------------------------
+// xdbg — common/cross_os_debug/xdbg.cpp is x86-only on Linux (PTRACE_GETREGS,
+// the `user` struct from <sys/user.h>). kprint.cpp::reset_output() prints a
+// thread-id banner using the two helpers below. Match the API exactly so
+// the upstream header resolves.
+// ---------------------------------------------------------------------------
+#include "common/cross_os_debug/xdbg.h"
+
+namespace xdbg {
+ThreadID::ThreadID(pid_t the_id) : id(the_id) {}
+ThreadID::ThreadID(const std::string& /*str*/) : id(0) {}
+std::string ThreadID::to_string() const {
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%lld", (long long)id);
+    return buf;
+}
+ThreadID get_current_thread_id() {
+    return ThreadID((pid_t)gettid());
+}
+}  // namespace xdbg
 
 // ---------------------------------------------------------------------------
 // Sound surface — we don't cross-build 989snd or sndshim.cpp (the latter
