@@ -418,6 +418,32 @@ Validator dry-runs cleanly: fails on first missing artifact
 (`A2-carve-outs.json`), which is the file claude must produce.
 
 About to restart the orchestrator with A2 ready.
+
+### [2026-05-21 10:00] A2 attempt 1, 3:35 elapsed — planning phase
+
+Stale-wakeup monitoring loop (the 09:27 wakeup fired after the
+09:27→09:52 burst of events; harmless duplication of the 10:39
+wakeup that's still pending). State summary:
+
+- Orchestrator (PID 3152891) + claude alive, 3:28 elapsed wallclock.
+- A2 still in retries=0 (no commit attempts yet — claude is
+  reading/planning, not coding).
+- `.autoport/reports/A2-baseline-x86-cgo-hashes.txt` written at
+  09:55: KERNEL.CGO=19c2e10850ac…, ENGINE.CGO=3145d31da02c…,
+  GAME.CGO=2a4b6c4fdcd5… — the post-A1 working set hashes. Validator
+  will diff against these at done time.
+- Claude created 12 tasks via TaskCreate covering each cluster (mem,
+  call, float, vf, asm) + smoke-file + reports + final validator
+  run. Methodical.
+- Cheat watches all green:
+  - `goalc/compiler/IR.cpp` working-tree diff: 0 lines
+  - `.autoport/lib/classify_ir_arm64.py` working-tree diff: 0 lines
+- Currently inspecting: IGenARM64.h/cpp (the encoder API claude must
+  extend), test/arm64/emitter_smoke.gc (phase 24's reference file
+  for the new A2 smoke), CodeGenerator.cpp (the dispatch site).
+
+No intervention warranted. The next scheduled wakeup at 10:39 will
+catch any code edits that begin landing in the next ~30 minutes.
   3. **Pre-existing desktop-build breakage** uncovered by the
      reconfigure: `runtime_trace.cpp` (added by phase 26) defines
      `__goal_runtime_trace_kheap` and `__goal_runtime_trace_goal_call`
