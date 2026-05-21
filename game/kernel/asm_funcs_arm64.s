@@ -190,6 +190,19 @@ _call_goal_asm_arm64:
   mov x21, x4
   ;; offset
   mov x22, x5
+  ;; Phase C4 (autoport, bucket C): the goalc-arm64 emitter resolves the
+  ;; GOAL ABI registers via the shared RegisterInfo (R13/R14/R15 enum IDs),
+  ;; which map to arm64 register numbers 13/14/15 — NOT the documented
+  ;; x20/x21/x22 from Register.h. The codegen-lock since A4 prevents
+  ;; fixing this at the emitter level, so the trampoline mirrors st/off
+  ;; into x14/x15 (and x13 for pp) right before the blr so the emitted
+  ;; GOAL code finds its symbol-table base and g_ee_main_mem offset where
+  ;; the compiled instructions actually look for them. Without this, the
+  ;; first `str w_src, [x14, #imm12]` in any executed top-level SIGSEGVs
+  ;; on a near-zero address.
+  add x14, x4, x5
+  mov x15, x5
+  mov x13, x4
   ;; call GOAL by function pointer
   blr x3
 
@@ -222,6 +235,12 @@ _call_goal8_asm_arm64:
   mov x21, x4
   ;; offset
   mov x22, x5
+  ;; Phase C4 (autoport): mirror st_host/offset into x14/x15 + pp into
+  ;; x13 — see the note in _call_goal_asm_arm64 above for the codegen-
+  ;; lock workaround that this exists for.
+  add x14, x4, x5
+  mov x15, x5
+  mov x13, x3
   ;; move function to temp
   mov x8, x0
   ;; extract arguments
@@ -279,6 +298,13 @@ _call_goal_on_stack_asm_arm64:
   mov x20, x4 // set GOAL function pointer
   mov x21, x4 // symbol table
   mov x22, x5 // offset
+  ;; Phase C4 (autoport): mirror st_host/offset into x14/x15 + pp into
+  ;; x13 — see the note in _call_goal_asm_arm64 for the codegen-lock
+  ;; workaround. The emitted GOAL body references these IDs directly
+  ;; (not x20/x21/x22) for ABI registers, so we have to seed them here.
+  add x14, x4, x5
+  mov x15, x5
+  mov x13, x4
   ;; call GOAL by function pointer
   blr x3
 

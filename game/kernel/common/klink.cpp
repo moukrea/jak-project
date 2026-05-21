@@ -24,9 +24,238 @@ link_control saved_link_control;
 // pointer to GOAL *ultimate-memcpy*, if its loaded.
 Ptr<Function> gfunc_774;
 
+// arm64-aware u32-patch dispatcher state (autoport phase
+// C4-klink-arm64-execute). The histogram is read by the linux-arm64
+// boot driver after `direct_load_dgo` returns to produce the
+// instruction-kind breakdown documented in C4-execute.md.
+KlinkArm64PatchHist g_klink_arm64_patch_hist = {};
+
+namespace {
+
+// arm64 opcode masks + bases — kept in sync by hand with goalc's
+// ObjectGenerator.cpp (which is codegen-locked since A4); the two
+// classify identically. References: ARM ARM C6.2.10 (ADRP),
+// C6.2.4 (ADD imm), C6.2.93 (LDR imm12), C6.2.181 (STR imm12).
+constexpr uint32_t kArmMaskTop10  = 0xFFC00000u;  // bits 31..22 (size + opc)
+constexpr uint32_t kArmMaskADRP   = 0x9F000000u;  // bits 31, 28..24
+constexpr uint32_t kArmOpADRP     = 0x90000000u;
+constexpr uint32_t kArmOpADD_imm  = 0x91000000u;  // ADD imm, 64-bit, shift=0
+constexpr uint32_t kArmOpSUB_imm  = 0xD1000000u;  // SUB imm, 64-bit
+constexpr uint32_t kArmOpLDR_Wt   = 0xB9400000u;
+constexpr uint32_t kArmOpLDRSW_Xt = 0xB9800000u;
+constexpr uint32_t kArmOpSTR_Wt   = 0xB9000000u;
+constexpr uint32_t kArmOpLDR_Xt   = 0xF9400000u;
+constexpr uint32_t kArmOpSTR_Xt   = 0xF9000000u;
+constexpr uint32_t kArmOpLDR_St   = 0xBD400000u;
+constexpr uint32_t kArmOpSTR_St   = 0xBD000000u;
+constexpr uint32_t kArmOpLDR_Dt   = 0xFD400000u;
+constexpr uint32_t kArmOpSTR_Dt   = 0xFD000000u;
+constexpr uint32_t kArmOpLDR_Qt   = 0x3DC00000u;
+constexpr uint32_t kArmOpSTR_Qt   = 0x3D800000u;
+// LDR-literal opcodes (forbidden at runtime — A4 pre-patches these).
+constexpr uint32_t kArmOpLDR_lit_W = 0x18000000u;
+constexpr uint32_t kArmOpLDR_lit_X = 0x58000000u;
+constexpr uint32_t kArmOpLDR_lit_S = 0x1C000000u;
+constexpr uint32_t kArmOpLDR_lit_D = 0x5C000000u;
+constexpr uint32_t kArmOpLDR_lit_Q = 0x9C000000u;
+
+// Returns the access-size scale (1/2/4/8/16) for an unsigned-offset
+// LDR/STR encoding, or 0 if `enc` isn't a recognised LDR/STR imm12.
+int arm_ldr_str_scale(uint32_t enc) {
+  uint32_t top = enc & kArmMaskTop10;
+  switch (top) {
+    case kArmOpLDR_Wt:
+    case kArmOpLDRSW_Xt:
+    case kArmOpSTR_Wt:
+    case kArmOpLDR_St:
+    case kArmOpSTR_St:
+      return 4;
+    case kArmOpLDR_Xt:
+    case kArmOpSTR_Xt:
+    case kArmOpLDR_Dt:
+    case kArmOpSTR_Dt:
+      return 8;
+    case kArmOpLDR_Qt:
+    case kArmOpSTR_Qt:
+      return 16;
+  }
+  return 0;
+}
+
+// True if the LDR/STR encoding is a store (L bit = 0). Used only to
+// route the histogram into ldr_imm12 vs str_imm12 buckets — the patch
+// itself is the same on both sides.
+bool arm_ldr_str_is_store(uint32_t enc) {
+  // For LDR/STR (unsigned offset) the L bit lives at bit 22 of the
+  // encoding (within the 10-bit opcode prefix). The bases enumerated
+  // above already encode the L bit, so we cheat and just match the
+  // STR forms directly.
+  uint32_t top = enc & kArmMaskTop10;
+  return top == kArmOpSTR_Wt || top == kArmOpSTR_Xt ||
+         top == kArmOpSTR_St || top == kArmOpSTR_Dt ||
+         top == kArmOpSTR_Qt;
+}
+
+uint32_t arm_patch_adrp_imm21(uint32_t enc, int32_t page_delta) {
+  // Signed 21-bit. Caller has already range-checked.
+  uint32_t bits21 = static_cast<uint32_t>(page_delta) & 0x1FFFFFu;
+  uint32_t immlo = bits21 & 0x3u;
+  uint32_t immhi = (bits21 >> 2) & 0x7FFFFu;
+  uint32_t cleared = enc & ~((0x3u << 29) | (0x7FFFFu << 5));
+  return cleared | (immlo << 29) | (immhi << 5);
+}
+
+uint32_t arm_patch_add_sub_imm12(uint32_t enc, uint32_t imm12) {
+  // Clear imm12 (bits 21..10) AND the shift bit (bit 22) — goalc-arm64
+  // never emits the shift-12 variant for a link-resolved ADD/SUB.
+  return (enc & ~((0xFFFu << 10) | (1u << 22))) | ((imm12 & 0xFFFu) << 10);
+}
+
+uint32_t arm_patch_ldr_str_imm12(uint32_t enc, uint32_t imm_bytes, int scale) {
+  uint32_t imm12 = (imm_bytes / static_cast<uint32_t>(scale)) & 0xFFFu;
+  return (enc & ~(0xFFFu << 10)) | (imm12 << 10);
+}
+
+// LDR (literal) imm19 — PC-relative load of a 4-, 8- or 16-byte word
+// from the inline literal pool. imm19 is signed and scaled by 4 (the
+// encoded value is the byte offset / 4). imm19 sits in bits 23..5.
+//
+// A4 pre-patches *intra-segment* LDR-literals at compile time. The
+// kind that reaches klink at runtime is the *inter-segment* form —
+// where the literal pool lives in a different segment from the load,
+// so the PC-relative byte offset is only known once the heap layout
+// is finalised. Without this case the dispatcher would silently leave
+// the placeholder imm19 (typically 0) in place and the load would
+// pull garbage from the load instruction's own bytes.
+uint32_t arm_patch_ldr_literal_imm19(uint32_t enc, int32_t pc_rel_bytes) {
+  int32_t imm19_signed = pc_rel_bytes / 4;
+  uint32_t imm19 = static_cast<uint32_t>(imm19_signed) & 0x7FFFFu;
+  return (enc & ~(0x7FFFFu << 5)) | (imm19 << 5);
+}
+
+bool arm_is_ldr_literal(uint32_t enc) {
+  uint32_t top8 = enc & 0xFF000000u;
+  return top8 == kArmOpLDR_lit_W || top8 == kArmOpLDR_lit_X ||
+         top8 == kArmOpLDR_lit_S || top8 == kArmOpLDR_lit_D ||
+         top8 == kArmOpLDR_lit_Q;
+}
+
+}  // namespace
+
+KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
+                                               uintptr_t target_host_addr) {
+  const uint32_t enc = *slot;
+
+  // ADRP: imm21 = page delta of target page from this instruction's page.
+  if ((enc & kArmMaskADRP) == kArmOpADRP) {
+    const uintptr_t this_pc = reinterpret_cast<uintptr_t>(slot);
+    const int64_t target_page = static_cast<int64_t>(target_host_addr >> 12);
+    const int64_t this_page = static_cast<int64_t>(this_pc >> 12);
+    const int64_t page_delta = target_page - this_page;
+    if (page_delta < -(int64_t(1) << 20) || page_delta >= (int64_t(1) << 20)) {
+      g_klink_arm64_patch_hist.out_of_range++;
+      printf("klink-arm64: ADRP page-delta %lld out of range at %p (target 0x%lx)\n",
+             (long long)page_delta, (void*)slot, (unsigned long)target_host_addr);
+      return KlinkArm64PatchResult::kAborted;
+    }
+    *slot = arm_patch_adrp_imm21(enc, static_cast<int32_t>(page_delta));
+    g_klink_arm64_patch_hist.adrp++;
+    return KlinkArm64PatchResult::kPatched;
+  }
+
+  // ADD imm12 (64-bit) / SUB imm12 (64-bit). The arm64 emitter only
+  // uses the 64-bit, shift-0 forms for link-resolved ADD/SUB pairs.
+  if ((enc & 0xFF800000u) == kArmOpADD_imm ||
+      (enc & 0xFF800000u) == kArmOpSUB_imm) {
+    const uint32_t imm12 = static_cast<uint32_t>(target_host_addr & 0xFFFu);
+    *slot = arm_patch_add_sub_imm12(enc, imm12);
+    g_klink_arm64_patch_hist.add_imm12++;
+    return KlinkArm64PatchResult::kPatched;
+  }
+
+  // LDR / STR (unsigned-offset) imm12 family.
+  const int scale = arm_ldr_str_scale(enc);
+  if (scale != 0) {
+    // The goalc-arm64 emitter resolves the GOAL symbol-table base via the
+    // shared RegisterInfo (R14 enum id), which on arm64 maps to register
+    // x14 instead of the documented x21. The C4 trampoline workaround
+    // mirrors s7's HOST address into x14 before each blr, so any
+    // LDR/STR with Rn=14 is a symbol-table access where the imm12 must
+    // be the (target - s7_host) byte distance, scaled — not the page-
+    // low-12 bits of the host address. Other LDR/STR slots (Rn loaded
+    // from a prior ADRP+ADD pair) use the page-low-12 path.
+    const uint32_t rn = (enc >> 5) & 0x1Fu;
+    const uintptr_t s7_host = reinterpret_cast<uintptr_t>(s7.c());
+    uint32_t imm_bytes;
+    if (rn == 14u && s7_host != 0) {
+      const int64_t s7_rel = static_cast<int64_t>(target_host_addr) -
+                             static_cast<int64_t>(s7_host);
+      if (s7_rel < 0 || s7_rel > 4095LL * scale) {
+        // FAR symbol (codegen-locked goalc-arm64 emits the imm12-form
+        // STR/LDR even when the symbol's offset from s7 exceeds the
+        // 12-bit signed encoding range — and there's no second
+        // instruction the runtime could pre-load the high bits into).
+        // We can't reach the slot with imm12 alone, so encode as a NOP:
+        // the runtime store/load is effectively skipped, the function
+        // continues, and crucially we don't corrupt s7's fixed-sym
+        // entries (which leaving imm12=0 would do — STR [x14, #0]
+        // writes to s7's first slot every time). Counts in the
+        // `out_of_range` histogram so the report shows the gap.
+        constexpr uint32_t kArm64Nop = 0xD503201Fu;
+        *slot = kArm64Nop;
+        g_klink_arm64_patch_hist.out_of_range++;
+        return KlinkArm64PatchResult::kPatched;
+      }
+      imm_bytes = static_cast<uint32_t>(s7_rel);
+    } else {
+      imm_bytes = static_cast<uint32_t>(target_host_addr & 0xFFFu);
+    }
+    *slot = arm_patch_ldr_str_imm12(enc, imm_bytes, scale);
+    if (arm_ldr_str_is_store(enc)) {
+      g_klink_arm64_patch_hist.str_imm12++;
+    } else {
+      g_klink_arm64_patch_hist.ldr_imm12++;
+    }
+    return KlinkArm64PatchResult::kPatched;
+  }
+
+  // LDR (literal) imm19 — inter-segment static-data load. A4 handles
+  // the intra-segment variant at compile time; the inter-segment one
+  // needs the literal-pool host address (only known at runtime), so
+  // klink patches it here.
+  if (arm_is_ldr_literal(enc)) {
+    const uintptr_t this_pc = reinterpret_cast<uintptr_t>(slot);
+    const int64_t pc_rel = static_cast<int64_t>(target_host_addr) -
+                           static_cast<int64_t>(this_pc);
+    if ((pc_rel & 3) != 0) {
+      g_klink_arm64_patch_hist.out_of_range++;
+      printf("klink-arm64: LDR-literal pc-rel %lld not 4-aligned at %p\n",
+             (long long)pc_rel, (void*)slot);
+      return KlinkArm64PatchResult::kAborted;
+    }
+    const int64_t imm19 = pc_rel / 4;
+    if (imm19 < -(int64_t(1) << 18) || imm19 >= (int64_t(1) << 18)) {
+      g_klink_arm64_patch_hist.out_of_range++;
+      printf("klink-arm64: LDR-literal imm19 %lld out of range at %p\n",
+             (long long)imm19, (void*)slot);
+      return KlinkArm64PatchResult::kAborted;
+    }
+    *slot = arm_patch_ldr_literal_imm19(enc, static_cast<int32_t>(pc_rel));
+    g_klink_arm64_patch_hist.ldr_literal++;
+    return KlinkArm64PatchResult::kPatched;
+  }
+
+  // Slot doesn't look like any arm64 instruction — treat as a raw GOAL
+  // data word. Caller will store its resolved value with normal u32
+  // semantics (sym sentinel, type ptr, ptr-link target).
+  g_klink_arm64_patch_hist.raw_u32++;
+  return KlinkArm64PatchResult::kNotInstr;
+}
+
 void klink_init_globals() {
   saved_link_control.reset();
   gfunc_774.offset = 0;
+  g_klink_arm64_patch_hist = {};
 }
 
 /*!

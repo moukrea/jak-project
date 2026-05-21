@@ -138,5 +138,48 @@ struct link_control {
 
 Ptr<u8> c_symlink2(Ptr<u8> objData, Ptr<u8> linkObj, Ptr<u8> relocTable);
 
+// arm64-aware u32-patch dispatcher (autoport phase C4-klink-arm64-execute).
+//
+// The runtime klink v3 relocators (cross_seg_dist_link_v3 / ptr_link_v3 /
+// symlink_v3 / typelink_v3 in game/kernel/jak1/klink.cpp) used to write the
+// resolved 32-bit value over the entire patch slot. On arm64 that destroys
+// ADRP imm21 / ADD imm12 / LDR-STR imm12 opcode bits — their immediate
+// fields sit at non-byte-aligned positions inside the 32-bit instruction
+// word — and the linked top-level SIGILLs the moment it tries to run.
+//
+// klink_arm64_patch_pc_rel inspects the current slot, recognises an arm64
+// imm-carrying form, and rewrites ONLY the immediate bits with the right
+// derivation of target_host_addr (page-delta for ADRP, low-12 of target
+// for ADD/LDR/STR). Slots that don't match any recognised arm64 form
+// return kNotInstr and the caller falls back to its raw u32 store (the
+// existing GOAL data-slot semantics — symbol-table sentinel, type ptr,
+// raw pointer).
+//
+// A4 already pre-patches intra-segment LDR(literal) imm19 at compile
+// time, so the runtime should never see LDR-literal; if it does the
+// dispatcher returns kAborted (recorded in the histogram's `unhandled`
+// counter) so the failure surfaces in the C4-execute.md report rather
+// than as a silent semantic divergence.
+struct KlinkArm64PatchHist {
+  uint32_t adrp;          // ADRP imm21 patches
+  uint32_t add_imm12;     // ADD/SUB imm12 patches
+  uint32_t ldr_imm12;     // LDR (Wt/Xt/St/Dt/Qt + LDRSW) imm12 patches
+  uint32_t str_imm12;     // STR (Wt/Xt/St/Dt/Qt) imm12 patches
+  uint32_t ldr_literal;   // LDR (literal) imm19 patches — inter-segment static-data loads
+  uint32_t raw_u32;       // slot wasn't a recognised arm64 instr → caller stored raw u32
+  uint32_t unhandled;     // arm64-shaped opcode we don't yet patch
+  uint32_t out_of_range;  // ADRP page-delta exceeded signed 21-bit range
+};
+extern KlinkArm64PatchHist g_klink_arm64_patch_hist;
+
+enum class KlinkArm64PatchResult {
+  kPatched,   // slot was an arm64 imm-carrying instr; patch applied
+  kNotInstr,  // slot not an arm64 instr; caller should do its raw u32 store
+  kAborted,   // arm64-shaped but unhandled / out of range; no patch applied
+};
+
+KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
+                                               uintptr_t target_host_addr);
+
 extern link_control saved_link_control;
 extern Ptr<Function> gfunc_774;  // actually 807 in jak2.
