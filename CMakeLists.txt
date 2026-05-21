@@ -9,6 +9,19 @@ include(CTest)
 # Include third-party modules
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/third-party/cmake/modules/)
 
+# Phase D1 (autoport, bucket D): Android NDK cross-build of `gk` as a
+# bucket-D bionic-shim test binary. Distinct from the phase-10 android/
+# libgk.so divert below — D1 produces a standalone `gk` executable that
+# proves Bionic-linking is clean before SDL3/GLES/Activity work layers
+# on top in D2/D3/D4. Configure with:
+#   cmake -S . -B build-arm64-android \
+#         -DCMAKE_TOOLCHAIN_FILE=$PWD/cmake/android-arm64-toolchain.cmake \
+#         -DOG_ANDROID_ARM64=ON -DCMAKE_BUILD_TYPE=Release
+# Both branches share the if(ANDROID) gate (set by the NDK toolchain);
+# OG_ANDROID_ARM64 picks bucket-D, otherwise the existing phase-10
+# Activity-libgk.so divert is preserved unmodified.
+option(OG_ANDROID_ARM64 "Build the bucket-D android-arm64 gk (NDK cross-toolchain)" OFF)
+
 # Phase 10 (autoport): Android NDK cross-build entry point.
 # The NDK's android.toolchain.cmake sets CMAKE_SYSTEM_NAME=Android which
 # in turn makes CMake define ANDROID=1. When that's the case, divert to
@@ -17,6 +30,15 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/third-party/cmake/modules/)
 # or host third-party libs below are reachable on this path — phase 11 will
 # fold the full runtime/SDL3/GLES/OpenAL stack into a proper APK build.
 if(ANDROID)
+    if(OG_ANDROID_ARM64)
+        message(STATUS "Bucket D: android-arm64 NDK gk (D1+): ABI=${ANDROID_ABI} platform=${ANDROID_PLATFORM}")
+        if(NOT GOALC_BACKEND)
+            set(GOALC_BACKEND "arm64" CACHE STRING "GOAL compiler codegen backend" FORCE)
+        endif()
+        add_compile_definitions(GOALC_BACKEND_ARM64 OG_ANDROID_ARM64=1)
+        add_subdirectory(game/android-arm64)
+        return()
+    endif()
     message(STATUS "Android NDK build: ABI=${ANDROID_ABI} platform=${ANDROID_PLATFORM} NDK=${ANDROID_NDK}")
     if(NOT GOALC_BACKEND)
         set(GOALC_BACKEND "arm64" CACHE STRING "GOAL compiler codegen backend" FORCE)
