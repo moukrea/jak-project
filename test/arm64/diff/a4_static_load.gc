@@ -1,0 +1,12 @@
+;; Phase A4 — static-load witness.
+;;
+;; Covers IR_StaticVarLoad. The expression (+ 70.0 72.0) forces two float
+;; literals into the .o's main segment as static data, and the arm64 emit
+;; pattern is two LDR-literal (S-form) instructions. The arm64-aware
+;; ObjectGenerator fix-up writes imm19 = (target_pc - patch_pc) / 4 into
+;; each LDR-literal so the runtime load reads the right float bytes.
+;;
+;; Both backends compute 70.0 + 72.0 = 142.0, FCVTZS to int = 142.
+
+(defun fortytwo ()
+  (the int (+ 70.0 72.0)))

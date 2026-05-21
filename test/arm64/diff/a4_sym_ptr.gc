@@ -1,0 +1,16 @@
+;; Phase A4 — symbol-pointer witness.
+;;
+;; Covers IR_LoadSymbolPointer for an arbitrary (non-#f / non-#t / non-_empty_)
+;; symbol. The arm64 emit pattern is ADRP + ADD imm12, and the arm64-aware
+;; ObjectGenerator fix-up writes imm21 (page diff) into the ADRP and imm12
+;; (within-page offset) into the ADD so the materialised value is the
+;; absolute address of the symbol slot in the synthetic table.
+;;
+;; The harness pins 'tag42 at synthetic-symtab offset 42 (0x2A) and pages
+;; the symtab on a 256-byte boundary, so the low byte of the materialised
+;; pointer is 42 regardless of segment layout. We then add 100 and return,
+;; giving 142. Without the fix-up the imm21/imm12 stay zero, the pointer
+;; points at the segment-base page, and the test would not return 142.
+
+(defun fortytwo ()
+  (+ 100 (logand (the-as int 'tag42) 255)))

@@ -309,15 +309,16 @@ void IR_LoadSymbolPointer::do_codegen_arm64(emitter::ObjectGenerator* gen,
     gen->add_instr(emitter::IGen::ARM64::lea_reg_plus_off(dest_reg, gRegInfo.get_st_reg(), off),
                    irec);
   } else {
-    // For arbitrary symbols, materialise the address via ADRP placeholder +
-    // an ADD-imm12; the actual symbol offset would normally be patched in by
-    // link_instruction_symbol_ptr() but that pipeline still assumes x86 4-byte
-    // displacement slots (ObjectGenerator::handle_temp_instr_sym_links). A
-    // future bucket-A sub-phase will widen the linker to know about arm64
-    // imm12/imm19 fields; for A2 we just emit the encoding shape so the
-    // classifier sees real ops.
-    gen->add_instr(emitter::IGen::ARM64::adrp_placeholder(dest_reg), irec);
-    gen->add_instr(emitter::IGen::ARM64::lea_reg_plus_off32(dest_reg, dest_reg, 0), irec);
+    // Arbitrary symbol: ADRP imm21 + ADD imm12 materialise the absolute
+    // address of the symbol slot. Both instructions are registered with the
+    // ObjectGenerator's symbol-ptr fix-up table; the arm64-aware linker
+    // (ObjectGenerator::handle_temp_instr_sym_links + the runtime patcher)
+    // decodes each instruction word and writes the appropriate immediate.
+    auto adrp_instr = gen->add_instr(emitter::IGen::ARM64::adrp_placeholder(dest_reg), irec);
+    auto add_instr =
+        gen->add_instr(emitter::IGen::ARM64::lea_reg_plus_off32(dest_reg, dest_reg, 0), irec);
+    gen->link_instruction_symbol_ptr(adrp_instr, m_name);
+    gen->link_instruction_symbol_ptr(add_instr, m_name);
   }
 }
 
@@ -353,16 +354,14 @@ void IR_SetSymbolValue::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                          const AllocationResult& allocs,
                                          emitter::IR_Record irec) {
   auto src_reg = get_reg(m_src, allocs, irec);
-  // store32 [st_reg + offset_reg + sym_offset], src — emits a real STR.
-  // link_instruction_symbol_mem() is intentionally NOT called: the existing
-  // ObjectGenerator symbol-link fix-up assumes an x86 disp32 slot and would
-  // assert against the arm64 4-byte instruction shape. Wiring an arm64
-  // patcher is a follow-up bucket-A sub-phase; for A2 the goal is honest
-  // codegen-body completeness (not runtime correctness on arm64).
-  gen->add_instr(emitter::IGen::ARM64::store32_gpr64_gpr64_plus_gpr64_plus_s32(
-                     gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(), src_reg,
-                     LINK_SYM_NO_OFFSET_FLAG),
-                 irec);
+  // STR Wsrc, [Xst, #imm12_scaled4]. The imm12 field holds (symbol_offset >> 2);
+  // the arm64-aware ObjectGenerator fix-up rewrites the instruction word at
+  // link time once the symbol's offset within the symbol table is known.
+  auto instr = gen->add_instr(emitter::IGen::ARM64::store32_gpr64_gpr64_plus_gpr64_plus_s32(
+                                  gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(), src_reg,
+                                  LINK_SYM_NO_OFFSET_FLAG),
+                              irec);
+  gen->link_instruction_symbol_mem(instr, m_dest->name());
 }
 
 /////////////////////
@@ -405,19 +404,22 @@ void IR_GetSymbolValue::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                          const AllocationResult& allocs,
                                          emitter::IR_Record irec) {
   auto dst_reg = get_reg(m_dest, allocs, irec);
-  // See note in IR_SetSymbolValue::do_codegen_arm64 — link_instruction_*
-  // is intentionally skipped (arm64 linker fix-up is a follow-up).
+  // LDRSW Xdst, [Xst, #imm12_scaled4] (sext) or LDR Wdst, [Xst, #imm12_scaled4]
+  // (unsigned). The arm64-aware fix-up rewrites the imm12 field once the
+  // symbol's offset is known at link time.
+  emitter::InstructionRecord instr;
   if (m_sext) {
-    gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
-                       dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
-                       LINK_SYM_NO_OFFSET_FLAG),
-                   irec);
+    instr = gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
+                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               LINK_SYM_NO_OFFSET_FLAG),
+                           irec);
   } else {
-    gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
-                       dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
-                       LINK_SYM_NO_OFFSET_FLAG),
-                   irec);
+    instr = gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
+                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               LINK_SYM_NO_OFFSET_FLAG),
+                           irec);
   }
+  gen->link_instruction_symbol_mem(instr, m_src->name());
 }
 
 /////////////////////
@@ -652,12 +654,17 @@ void IR_StaticVarAddr::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                         const AllocationResult& allocs,
                                         emitter::IR_Record irec) {
   auto dr = get_reg(m_dest, allocs, irec);
-  // ADRP placeholder + offset-reg subtract gives a real "GOAL pointer to
-  // static" sequence. link_instruction_static() is skipped here — arm64
-  // static link fix-up is a follow-up (see note in IR_SetSymbolValue).
-  gen->add_instr(emitter::IGen::ARM64::static_addr(dr, 0), irec);
+  // ADRP imm21 (page) + ADD imm12 (page-offset) materialises the absolute
+  // address of the static; the trailing SUB converts it to a GOAL pointer.
+  // Both immediate-bearing instructions are registered with the fix-up table
+  // so the arm64-aware linker can write the imm21 / imm12 fields once the
+  // static's final byte offset is known.
+  auto adrp_instr = gen->add_instr(emitter::IGen::ARM64::static_addr(dr, 0), irec);
+  auto add_instr = gen->add_instr(emitter::IGen::ARM64::lea_reg_plus_off32(dr, dr, 0), irec);
   gen->add_instr(emitter::IGen::ARM64::sub_gpr64_gpr64(dr, emitter::gRegInfo.get_offset_reg()),
                  irec);
+  gen->link_instruction_static(adrp_instr, m_src->rec, m_src->get_addr_offset());
+  gen->link_instruction_static(add_instr, m_src->rec, m_src->get_addr_offset());
 }
 
 /////////////////////
@@ -689,11 +696,16 @@ void IR_FunctionAddr::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                        const AllocationResult& allocs,
                                        emitter::IR_Record irec) {
   auto dr = get_reg(m_dest, allocs, irec);
-  // ADRP placeholder + offset-reg subtract — same pattern as IR_StaticVarAddr.
-  // link_instruction_to_function() is skipped (follow-up arm64 linker work).
-  gen->add_instr(emitter::IGen::ARM64::static_addr(dr, 0), irec);
+  // ADRP imm21 + ADD imm12 page-relative pair (same shape as IR_StaticVarAddr);
+  // the trailing SUB converts the absolute function address to a GOAL pointer.
+  // Both immediate-bearing instructions are registered with the fix-up table.
+  auto adrp_instr = gen->add_instr(emitter::IGen::ARM64::static_addr(dr, 0), irec);
+  auto add_instr = gen->add_instr(emitter::IGen::ARM64::lea_reg_plus_off32(dr, dr, 0), irec);
   gen->add_instr(emitter::IGen::ARM64::sub_gpr64_gpr64(dr, emitter::gRegInfo.get_offset_reg()),
                  irec);
+  auto func_rec = gen->get_existing_function_record(m_src->idx_in_file);
+  gen->link_instruction_to_function(adrp_instr, func_rec);
+  gen->link_instruction_to_function(add_instr, func_rec);
 }
 
 /////////////////////
@@ -1094,18 +1106,22 @@ void IR_StaticVarLoad::do_codegen_arm64(emitter::ObjectGenerator* gen,
   auto load_info = m_src->get_load_info();
   ASSERT(m_src->get_addr_offset() == 0);
   auto dst = get_reg(m_dest, allocs, irec);
-  // Emit a real LDR-literal; link_instruction_static() skipped pending arm64
-  // linker support (see note in IR_SetSymbolValue::do_codegen_arm64).
+  // LDR-literal (PC-relative): imm19 holds (target_pc - patch_pc) / 4. The
+  // arm64-aware linker writes the imm19 field once the static's final byte
+  // offset is known. The same shape encodes both the 32-bit float LDR (Sd) and
+  // the 128-bit vector LDR (Qd).
+  emitter::InstructionRecord instr;
   if (m_dest->ireg().reg_class == RegClass::FLOAT) {
     ASSERT(load_info.load_signed == false);
     ASSERT(load_info.load_size == 4);
     ASSERT(load_info.requires_load == true);
-    gen->add_instr(emitter::IGen::ARM64::static_load_xmm32(dst, 0), irec);
+    instr = gen->add_instr(emitter::IGen::ARM64::static_load_xmm32(dst, 0), irec);
   } else if (m_dest->ireg().reg_class == RegClass::VECTOR_FLOAT) {
-    gen->add_instr(emitter::IGen::ARM64::loadvf_rip_plus_s32(dst, 0), irec);
+    instr = gen->add_instr(emitter::IGen::ARM64::loadvf_rip_plus_s32(dst, 0), irec);
   } else {
     ASSERT(false);
   }
+  gen->link_instruction_static(instr, m_src->rec, 0);
 }
 
 /////////////////////
@@ -1899,18 +1915,21 @@ void IR_GetSymbolValueAsm::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                             const AllocationResult& allocs,
                                             emitter::IR_Record irec) {
   auto dst_reg = m_use_coloring ? get_reg(m_dest, allocs, irec) : get_no_color_reg(m_dest);
-  // link_instruction_* skipped (follow-up arm64 linker work).
+  // Same shape as IR_GetSymbolValue: LDRSW Xd / LDR Wd, [Xst, #imm12_scaled4].
+  // The arm64-aware fix-up rewrites the imm12 field at link time.
+  emitter::InstructionRecord instr;
   if (m_sext) {
-    gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
-                       dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
-                       LINK_SYM_NO_OFFSET_FLAG),
-                   irec);
+    instr = gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
+                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               LINK_SYM_NO_OFFSET_FLAG),
+                           irec);
   } else {
-    gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
-                       dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
-                       LINK_SYM_NO_OFFSET_FLAG),
-                   irec);
+    instr = gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
+                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               LINK_SYM_NO_OFFSET_FLAG),
+                           irec);
   }
+  gen->link_instruction_symbol_mem(instr, m_sym_name);
 }
 
 ///////////////////////
