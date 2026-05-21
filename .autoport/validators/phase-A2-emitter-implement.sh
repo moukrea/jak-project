@@ -81,13 +81,66 @@ for line in sys.stdin:
 if cur:
     hunks.append(''.join(cur))
 
+import re
+func_pat = re.compile(r'void\s+\w+::do_codegen_(x86|arm64)\s*\(')
+
+def hunk_modifies_x86(h):
+    # Walk the hunk line by line tracking which function each line belongs
+    # to. The hunk header's @@ context label only names the closest function
+    # ABOVE the hunk's first content line — subsequent function transitions
+    # inside the hunk body must be detected from the context (' '-prefixed)
+    # and added-content ('+'-prefixed) lines themselves.
+    in_x86 = False
+    open_braces = 0
+    body_started = False
+    for line in h.splitlines():
+        if line.startswith('@@'):
+            m = func_pat.search(line)
+            if m:
+                in_x86 = (m.group(1) == 'x86')
+                # The hunk starts inside a function whose opening brace
+                # is already in scope.
+                open_braces = 1
+            else:
+                in_x86 = False
+                open_braces = 0
+            continue
+        if not line:
+            continue
+        prefix = line[0]
+        body = line[1:] if prefix in ' +-' else line
+        # Detect function-header transitions in context lines or in
+        # added lines (a removed line transitioning a function is
+        # unusual and not a case we need to handle here).
+        m_func = func_pat.search(body)
+        is_change = prefix in '+-' and not line.startswith(('+++', '---'))
+        # Decide: did this change touch x86? Test BEFORE updating state on
+        # function-header lines so that the header itself isn't classified
+        # as "inside the previous function".
+        if is_change and in_x86 and not m_func:
+            return True
+        # State updates from context lines and added lines:
+        if prefix in ' +':
+            if m_func:
+                in_x86 = (m_func.group(1) == 'x86')
+                open_braces = 0  # not yet inside the body
+            # Track function-scope braces.
+            opens = body.count('{')
+            closes = body.count('}')
+            if opens or closes:
+                if open_braces == 0 and opens > 0:
+                    open_braces = opens - closes
+                else:
+                    open_braces += opens - closes
+                if open_braces <= 0:
+                    open_braces = 0
+                    in_x86 = False
+    return False
+
 dirty = []
 for h in hunks:
-    if 'do_codegen_x86' in h:
-        # The hunk's context mentions an x86 codegen function. If any -/+ line is inside it, flag.
-        bodylines = [l for l in h.splitlines() if l.startswith(('+', '-')) and not l.startswith(('+++', '---'))]
-        if bodylines:
-            dirty.append(h.splitlines()[0])
+    if hunk_modifies_x86(h):
+        dirty.append(h.splitlines()[0])
 print('\n'.join(dirty))
 ")
 if [ -n "$DIRTY_HUNKS" ]; then
@@ -121,13 +174,11 @@ import json, subprocess, sys
 a1 = json.load(open("$A1_JSON"))
 blockers = set(a1["summary"]["jak1_blockers"])
 
-# Re-run classifier
+# Re-run classifier. The classifier emits a JSON object; parse it as JSON so
+# keys/values are bare (the previous splitlines()/split() loop produced keys
+# like '"IR_Foo":' which never matched the bare blocker names below).
 out = subprocess.check_output(["python3", "$CLASSIFIER", "$IR_CPP"]).decode()
-status_after = {}
-for line in out.strip().splitlines():
-    parts = line.split()
-    if len(parts) >= 2:
-        status_after[parts[0]] = parts[1]
+status_after = json.loads(out)
 
 carve = json.load(open("$A2_CARVE"))
 carved = {e["ir"] for e in carve["exceptions"]}
