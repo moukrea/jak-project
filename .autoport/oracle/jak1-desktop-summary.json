@@ -1,0 +1,20 @@
+{
+  "captured_at": "2026-05-21T05:41:53Z",
+  "iso_dir": "out/jak1/iso",
+  "trace_lines": 1304,
+  "trace_path": ".autoport/oracle/jak1-desktop-trace.txt",
+  "milestones_seen": {},
+  "milestones_missing": [
+    "dkernel: boot mode",
+    "InitIOP OK",
+    "Initialized GOAL heap",
+    "Got DGO file header for KERNEL.CGO",
+    "link finish: gkernel",
+    "link finish: gstate",
+    "link finish: default-menu",
+    "link finish: default-menu-pc"
+  ],
+  "symbols_file": ".autoport/oracle/jak1-desktop-syms.txt",
+  "symbol_count": 11362,
+  "state_samples_dir": ".autoport/oracle/state-samples"
+}

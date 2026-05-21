@@ -1,0 +1,7 @@
+{
+  "t_seconds": 7,
+  "gk_pid": 3087664,
+  "rss_kb": 507716,
+  "vsz_kb": 2088140,
+  "trace_tail": "[40:26:935] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 115, offset 393216, size 14972) to update a GL_STATIC_DRAW buffer"
+}
