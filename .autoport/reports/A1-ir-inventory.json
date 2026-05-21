@@ -1,0 +1,216 @@
+{
+  "by_form": {
+    "IR_Asm": {
+      "arm64": "missing",
+      "x86_emits_in_jak1": 0
+    },
+    "IR_AsmAdd": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 23
+    },
+    "IR_AsmFNop": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 48
+    },
+    "IR_AsmFWait": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 34
+    },
+    "IR_AsmPop": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 21
+    },
+    "IR_AsmPush": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 21
+    },
+    "IR_AsmRet": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 8
+    },
+    "IR_AsmSub": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 6
+    },
+    "IR_BlendVF": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 1897
+    },
+    "IR_ConditionalBranch": {
+      "arm64": "real",
+      "x86_emits_in_jak1": 42101
+    },
+    "IR_FloatMath": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 16238
+    },
+    "IR_FloatToInt": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 1843
+    },
+    "IR_FunctionAddr": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 9455
+    },
+    "IR_FunctionCall": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 59734
+    },
+    "IR_GetStackAddr": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 3680
+    },
+    "IR_GetSymbolValue": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 90705
+    },
+    "IR_GetSymbolValueAsm": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 3
+    },
+    "IR_GotoLabel": {
+      "arm64": "real",
+      "x86_emits_in_jak1": 29862
+    },
+    "IR_Int128Math2Asm": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 240
+    },
+    "IR_Int128Math3Asm": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 996
+    },
+    "IR_IntToFloat": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 4045
+    },
+    "IR_IntegerMath": {
+      "arm64": "real",
+      "x86_emits_in_jak1": 62587
+    },
+    "IR_JumpReg": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 4
+    },
+    "IR_LoadConstOffset": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 135869
+    },
+    "IR_LoadConstant64": {
+      "arm64": "real",
+      "x86_emits_in_jak1": 85970
+    },
+    "IR_LoadSymbolPointer": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 83652
+    },
+    "IR_Nop": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 703
+    },
+    "IR_Null": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 46463
+    },
+    "IR_RegSet": {
+      "arm64": "real",
+      "x86_emits_in_jak1": 493080
+    },
+    "IR_RegSetAsm": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 482
+    },
+    "IR_RegValAddr": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 85
+    },
+    "IR_Return": {
+      "arm64": "real",
+      "x86_emits_in_jak1": 7782
+    },
+    "IR_SetSymbolValue": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 6021
+    },
+    "IR_SplatVF": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 1132
+    },
+    "IR_SqrtVF": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 20
+    },
+    "IR_StaticVarAddr": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 23602
+    },
+    "IR_StaticVarLoad": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 29790
+    },
+    "IR_StoreConstOffset": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 60259
+    },
+    "IR_SwizzleVF": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 188
+    },
+    "IR_VFMath2Asm": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 130
+    },
+    "IR_VFMath3Asm": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 3184
+    },
+    "IR_ValueReset": {
+      "arm64": "stub",
+      "x86_emits_in_jak1": 11582
+    }
+  },
+  "summary": {
+    "arm64_missing": 1,
+    "arm64_real": 6,
+    "arm64_stub": 35,
+    "jak1_blockers": [
+      "IR_LoadConstOffset",
+      "IR_GetSymbolValue",
+      "IR_LoadSymbolPointer",
+      "IR_StoreConstOffset",
+      "IR_FunctionCall",
+      "IR_Null",
+      "IR_StaticVarLoad",
+      "IR_StaticVarAddr",
+      "IR_FloatMath",
+      "IR_ValueReset",
+      "IR_FunctionAddr",
+      "IR_SetSymbolValue",
+      "IR_IntToFloat",
+      "IR_GetStackAddr",
+      "IR_VFMath3Asm",
+      "IR_BlendVF",
+      "IR_FloatToInt",
+      "IR_SplatVF",
+      "IR_Int128Math3Asm",
+      "IR_Nop",
+      "IR_RegSetAsm",
+      "IR_Int128Math2Asm",
+      "IR_SwizzleVF",
+      "IR_VFMath2Asm",
+      "IR_RegValAddr",
+      "IR_AsmFNop",
+      "IR_AsmFWait",
+      "IR_AsmAdd",
+      "IR_AsmPop",
+      "IR_AsmPush",
+      "IR_SqrtVF",
+      "IR_AsmRet",
+      "IR_AsmSub",
+      "IR_JumpReg",
+      "IR_GetSymbolValueAsm"
+    ],
+    "jak1_uses_at_least_one_emit": 41,
+    "total_ir_classes_declared": 42
+  }
+}

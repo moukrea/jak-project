@@ -147,12 +147,25 @@ grep -qE "IR forms used by jak1.*real arm64.*blocked" "$INVENTORY_MD" \
 ok "Markdown headline present"
 
 # ---- 10. gk smoke test — desktop did NOT break ----
+# Note: gk invocation matches the supervisor's working capture_oracle.sh
+# (--portable + -iso-data + `-debug-mem` rather than `-debug`). The
+# Taskfile's plain `-v --game jak1 -- -boot -fakeiso -debug` form does
+# not reliably reach `link finish: logo` within 60s in a fresh repo —
+# `--portable` is required so gk's fakeiso resolves the right config
+# dir, and `-debug-mem` is required because `-boot -debug` loads debug
+# segments and jumps straight into the demo intro narration (the title
+# logo level isn't relinked in that path). Supervisor revision
+# 2026-05-21 09:30, refined 2026-05-21 09:35.
 echo "  smoke-testing desktop gk (must reach 'link finish: logo' within 60s)..."
 GK="build-x86/game/gk"
 [ -x "$GK" ] || fail "$GK missing — was the desktop build wiped?"
 SMOKE_LOG=$(mktemp); trap "rm -f $SMOKE_LOG $SPOTCHECK_JSON" EXIT
 
-timeout 60 "$GK" -v --game jak1 -- -boot -fakeiso -debug > "$SMOKE_LOG" 2>&1 || true
+ISO_DIR="out/jak1/iso"
+[ -d "$ISO_DIR" ] || fail "$ISO_DIR missing — (mi) regen did not produce CGOs"
+timeout 60 "$GK" --game jak1 --portable -fakeiso --verbose --disable-ansi \
+    -iso-data "$ISO_DIR" \
+    -- -boot -debug-mem > "$SMOKE_LOG" 2>&1 || true
 if ! grep -q "link finish: logo$" "$SMOKE_LOG"; then
     echo "smoke log tail:"
     tail -30 "$SMOKE_LOG"
