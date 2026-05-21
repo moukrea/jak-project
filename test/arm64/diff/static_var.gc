@@ -1,0 +1,17 @@
+;; Phase A3 — static-variable witness (reloc-needing).
+;;
+;; Covers IR_StaticVarAddr (string literal → ADRP-placeholder + sub) and
+;; IR_StaticVarLoad (float literal → LDR-literal). Same reloc-skip
+;; rationale as mem_symbol.gc — until A4 patches the ADRP/LDR-literal
+;; immediates the produced code is not runtime-valid.
+;;
+;; We embed both:
+;;   - a string literal "_a3_" to force IR_StaticVarAddr
+;;   - two float literals (1.5 + 2.5) to force IR_StaticVarLoad on
+;;     each operand of the FADD.
+;;
+;; Disasm spot-check confirms `adrp` and `ldr` mnemonics are present.
+
+(defun test-A3-static ()
+  (let ((s "_a3_"))                ; IR_StaticVarAddr — string literal
+    (the int (+ 1.5 2.5))))         ; IR_StaticVarLoad — float literal load

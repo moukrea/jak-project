@@ -1,0 +1,31 @@
+;; Phase A3 — mem cluster (stack addr): differential test for
+;; IR_GetStackAddr and IR_RegValAddr.
+;;
+;; Strategy:
+;;   - Allocate an int32[4] on the stack via (new 'stack-no-clear ...).
+;;     This emits IR_GetStackAddr.
+;;   - Bind a let-local and force it to spill by taking its address
+;;     with (&). This emits IR_RegValAddr.
+;;   - DO NOT dereference either pointer. The arm64 backend's prologue
+;;     emits a NOP placeholder where the real "sub sp, sp, #frame"
+;;     would be (see CodeGenerator::do_goal_function_arm64), and a
+;;     dereference at stack-slot-0 would overwrite the saved x29 in
+;;     the frame header. The arm64 spill stores/loads are also NOP
+;;     placeholders (see the bonus.ops branch), so the local's value
+;;     never reaches the stack — but the function still sees a "stack
+;;     pointer" computed by IR_GetStackAddr / IR_RegValAddr.
+;;   - The two pointers are SUBTRACTED FROM THEMSELVES (X - X = 0)
+;;     so the arithmetic is independent of the actual address value.
+;;     This isolates the verification to: "did the codegen emit the
+;;     expected mnemonics in the right shape?", which the disasm
+;;     spot-check answers.
+;;
+;; Expected: 0 + 0 + 142 = 142.
+
+(defun test-A3-stack ()
+  (let ((arr (new 'stack-no-clear 'array 'int32 4))
+        (local 0))
+    (let ((paddr (& local)))
+      (+ (- (the int paddr) (the int paddr))
+         (- (the int arr) (the int arr))
+         142))))

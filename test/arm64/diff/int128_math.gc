@@ -1,0 +1,42 @@
+;; Phase A3 — int128 cluster: differential test for IR_Int128Math3Asm
+;; and IR_Int128Math2Asm.
+;;
+;; Strategy:
+;;   - mmap'd buffer at 0x40000020 holds four 32-bit ints.
+;;   - We use .por / .pextlw / .pw.sll to exercise both 3-operand and
+;;     2-operand-with-immediate int128 asm IRs.
+;;   - The result is one lane that we extract via a regular int32 load.
+;;
+;; Expected: 142.
+;;
+;; Plan:
+;;   buf = [100, 0, 0, 0]
+;;   buf2 = [42, 0, 0, 0]
+;;   v1 = lvf buf   ; lanes [100, 0, 0, 0]
+;;   v2 = lvf buf2  ; lanes [42, 0, 0, 0]
+;;   .por v3 v1 v2  ; lanes [142, 0, 0, 0]  (bitwise OR, lanes don't overlap)
+;;   .pw.sll v4 v3 #0  ; lane-wise SLL by 0 = identity, still [142, ...]
+;;   .svf buf v4
+;;   return buf[0] = 142
+
+(defun test-A3-int128 ()
+  (let ((buf  (the (pointer uint32) #x40000020))
+        (buf2 (the (pointer uint32) #x40000040)))
+    (set! (-> buf 0)  100)
+    (set! (-> buf 1)  0)
+    (set! (-> buf 2)  0)
+    (set! (-> buf 3)  0)
+    (set! (-> buf2 0) 42)
+    (set! (-> buf2 1) 0)
+    (set! (-> buf2 2) 0)
+    (set! (-> buf2 3) 0)
+    (rlet ((v1 :class vf)
+           (v2 :class vf)
+           (v3 :class vf)
+           (v4 :class vf))
+      (.lvf v1 (the (pointer uint128) buf))
+      (.lvf v2 (the (pointer uint128) buf2))
+      (.por v3 v1 v2)        ; IR_Int128Math3Asm POR
+      (.pw.sll v4 v3 0)      ; IR_Int128Math2Asm PW_SLL with imm8=0
+      (.svf (the (pointer uint128) buf) v4)
+      (-> buf 0))))

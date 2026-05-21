@@ -1,0 +1,21 @@
+;; Phase A3 — mem cluster, no-reloc: differential test for
+;; IR_LoadConstOffset, IR_StoreConstOffset, IR_LoadConstant64,
+;; IR_IntegerMath, IR_RegSet, IR_Return.
+;;
+;; Strategy:
+;;   - Use an absolute pointer at 0x40000000. The qemu harness mmaps
+;;     this region read/write before calling the test.
+;;   - Store two values via IR_StoreConstOffset at byte offsets 0 and 4.
+;;   - Read them back via IR_LoadConstOffset.
+;;   - Sum them with IR_IntegerMath; return via IR_Return.
+;;
+;; Expected: 100 + 42 = 142. Mismatch would mean either the LDR/STR
+;; encoding got the offset wrong (we'd read garbage), the immediate
+;; load (MOVZ/MOVK) got the buf base wrong (we'd write to an unmapped
+;; address and segfault), or the addition itself is mis-encoded.
+
+(defun test-A3-mem ()
+  (let ((buf (the (pointer int32) #x40000000)))
+    (set! (-> buf) 100)
+    (set! (-> buf 1) 42)
+    (+ (-> buf) (-> buf 1))))

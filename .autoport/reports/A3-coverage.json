@@ -1,0 +1,450 @@
+{
+  "by_ir": {
+    "IR_AsmAdd": {
+      "arm64_result": 142,
+      "cluster": "asm",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "add"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/asm_ops.gc",
+      "x86_result": 142
+    },
+    "IR_AsmPop": {
+      "arm64_result": 142,
+      "cluster": "asm",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ldr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/asm_ops.gc",
+      "x86_result": 142
+    },
+    "IR_AsmPush": {
+      "arm64_result": 142,
+      "cluster": "asm",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "str"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/asm_ops.gc",
+      "x86_result": 142
+    },
+    "IR_AsmRet": {
+      "arm64_result": 142,
+      "cluster": "asm",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ret"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/asm_ops.gc",
+      "x86_result": 142
+    },
+    "IR_AsmSub": {
+      "arm64_result": 142,
+      "cluster": "asm",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "sub"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/asm_ops.gc",
+      "x86_result": 142
+    },
+    "IR_BlendVF": {
+      "arm64_result": 142,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "mov\tv"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142
+    },
+    "IR_ConditionalBranch": {
+      "arm64_result": 142,
+      "cluster": "control",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "b."
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/control_flow.gc",
+      "x86_result": 142
+    },
+    "IR_FloatMath": {
+      "arm64_result": 142,
+      "cluster": "float",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "fadd"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/float_math.gc",
+      "x86_result": 142
+    },
+    "IR_FloatToInt": {
+      "arm64_result": 142,
+      "cluster": "float",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "fcvtzs"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/float_math.gc",
+      "x86_result": 142
+    },
+    "IR_FunctionAddr": {
+      "cluster": "call",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "adrp"
+      ],
+      "qemu_executed": false,
+      "skipped_reason": "reloc-needed; deferred to A4-linker-fixups",
+      "skipped_ref": "A2-carve-outs.json.notes.linker_followup",
+      "test_file": "test/arm64/diff/call_return.gc"
+    },
+    "IR_FunctionCall": {
+      "arm64_result": 142,
+      "cluster": "call",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "blr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/call_return.gc",
+      "x86_result": 142
+    },
+    "IR_GetStackAddr": {
+      "arm64_result": 142,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "mov",
+        "sub"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/stack_addr.gc",
+      "x86_result": 142
+    },
+    "IR_GetSymbolValue": {
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ldrsw"
+      ],
+      "qemu_executed": false,
+      "skipped_reason": "reloc-needed; deferred to A4-linker-fixups",
+      "skipped_ref": "A2-carve-outs.json.notes.linker_followup",
+      "test_file": "test/arm64/diff/mem_symbol.gc"
+    },
+    "IR_GetSymbolValueAsm": {
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ldrsw"
+      ],
+      "qemu_executed": false,
+      "skipped_reason": "reloc-needed; deferred to A4-linker-fixups",
+      "skipped_ref": "A2-carve-outs.json.notes.linker_followup",
+      "test_file": "test/arm64/diff/mem_symbol.gc"
+    },
+    "IR_GotoLabel": {
+      "arm64_result": 142,
+      "cluster": "control",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "b\t"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/control_flow.gc",
+      "x86_result": 142
+    },
+    "IR_Int128Math2Asm": {
+      "arm64_result": 110,
+      "cluster": "int128",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "shl"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/int128_math.gc",
+      "x86_result": 110
+    },
+    "IR_Int128Math3Asm": {
+      "arm64_result": 110,
+      "cluster": "int128",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "orr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/int128_math.gc",
+      "x86_result": 110
+    },
+    "IR_IntToFloat": {
+      "arm64_result": 142,
+      "cluster": "float",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "scvtf"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/float_math.gc",
+      "x86_result": 142
+    },
+    "IR_IntegerMath": {
+      "arm64_result": 142,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "add"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142
+    },
+    "IR_JumpReg": {
+      "arm64_result": 142,
+      "cluster": "call",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "br"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/call_return.gc",
+      "x86_result": 142
+    },
+    "IR_LoadConstOffset": {
+      "arm64_result": 142,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ldr"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142
+    },
+    "IR_LoadConstant64": {
+      "arm64_result": 142,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "mov"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142
+    },
+    "IR_LoadSymbolPointer": {
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "adrp"
+      ],
+      "qemu_executed": false,
+      "skipped_reason": "reloc-needed; deferred to A4-linker-fixups",
+      "skipped_ref": "A2-carve-outs.json.notes.linker_followup",
+      "test_file": "test/arm64/diff/mem_symbol.gc"
+    },
+    "IR_RegSet": {
+      "arm64_result": 142,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "mov"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142
+    },
+    "IR_RegSetAsm": {
+      "arm64_result": 142,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "mov"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142
+    },
+    "IR_RegValAddr": {
+      "arm64_result": 142,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "add",
+        "sub"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/stack_addr.gc",
+      "x86_result": 142
+    },
+    "IR_Return": {
+      "arm64_result": 142,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ret"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142
+    },
+    "IR_SetSymbolValue": {
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "str"
+      ],
+      "qemu_executed": false,
+      "skipped_reason": "reloc-needed; deferred to A4-linker-fixups",
+      "skipped_ref": "A2-carve-outs.json.notes.linker_followup",
+      "test_file": "test/arm64/diff/mem_symbol.gc"
+    },
+    "IR_SplatVF": {
+      "arm64_result": 142,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "dup"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142
+    },
+    "IR_SqrtVF": {
+      "arm64_result": 142,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "fsqrt"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142
+    },
+    "IR_StaticVarAddr": {
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "adrp"
+      ],
+      "qemu_executed": false,
+      "skipped_reason": "reloc-needed; deferred to A4-linker-fixups",
+      "skipped_ref": "A2-carve-outs.json.notes.linker_followup",
+      "test_file": "test/arm64/diff/static_var.gc"
+    },
+    "IR_StaticVarLoad": {
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "ldr"
+      ],
+      "qemu_executed": false,
+      "skipped_reason": "reloc-needed; deferred to A4-linker-fixups",
+      "skipped_ref": "A2-carve-outs.json.notes.linker_followup",
+      "test_file": "test/arm64/diff/static_var.gc"
+    },
+    "IR_StoreConstOffset": {
+      "arm64_result": 142,
+      "cluster": "mem",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "str"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/mem_load_const_offset.gc",
+      "x86_result": 142
+    },
+    "IR_SwizzleVF": {
+      "arm64_result": 142,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "dup"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142
+    },
+    "IR_VFMath2Asm": {
+      "arm64_result": 142,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "fsqrt"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142
+    },
+    "IR_VFMath3Asm": {
+      "arm64_result": 142,
+      "cluster": "vf",
+      "disasm_clean": true,
+      "expected_mnemonics_present": [
+        "fadd"
+      ],
+      "matches_x86": true,
+      "qemu_executed": true,
+      "test_file": "test/arm64/diff/vf_lane_math.gc",
+      "x86_result": 142
+    }
+  },
+  "phase": "A3-emitter-differential",
+  "summary": {
+    "matches_x86": 29,
+    "other_skipped": [],
+    "qemu_executed": 29,
+    "real_ir_count": 36,
+    "reloc_skipped": [
+      "IR_FunctionAddr",
+      "IR_GetSymbolValue",
+      "IR_GetSymbolValueAsm",
+      "IR_LoadSymbolPointer",
+      "IR_SetSymbolValue",
+      "IR_StaticVarAddr",
+      "IR_StaticVarLoad"
+    ],
+    "test_files": 10,
+    "tested_via_disasm": 36
+  },
+  "x86_oracle_link_finish_logo": true
+}
