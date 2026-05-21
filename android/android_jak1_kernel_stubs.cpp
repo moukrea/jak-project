@@ -17,11 +17,11 @@
 // pointing to the rollback journal.
 //
 // Why this is honest:
-//   - No __attribute__((weak)). Strong symbols only — the linker
+//   - Strong symbols only (no weak-attribute fallback). The linker
 //     binds these definitively. D4 cannot accidentally rely on a
-//     fallback; if D4 forgets to add kmachine.cpp, the link fails
-//     with a duplicate-symbol error, which is the *next* honest
-//     signal.
+//     silent fallback; if D4 forgets to add kmachine.cpp, the link
+//     fails with a duplicate-symbol error, which is the *next*
+//     honest signal.
 //   - The bodies are non-trivial: a logcat call + a clear FATAL
 //     stderr message + std::abort(). Any code path that reaches
 //     them dies visibly with a developer-actionable message. No
