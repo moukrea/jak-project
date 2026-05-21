@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 32,
+  "current_phase_idx": 25,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -26,13 +26,7 @@
     "22-bionic-portability": 1,
     "23-input-audio": 1,
     "24-emitter-audit": 3,
-    "25-cgo-regen": 1,
-    "26-cgo-exec-qemu": 1,
-    "27-runtime-port": 1,
-    "28-dispatcher-real": 1,
-    "29-renderer-real": 1,
-    "30-title-screen": 1,
-    "31-playable": 1
+    "25-cgo-regen": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -84,13 +78,7 @@
     "22-bionic-portability",
     "23-input-audio",
     "24-emitter-audit",
-    "25-cgo-regen",
-    "26-cgo-exec-qemu",
-    "27-runtime-port",
-    "28-dispatcher-real",
-    "29-renderer-real",
-    "30-title-screen",
-    "31-playable"
+    "25-cgo-regen"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -120,16 +108,22 @@
     "22-bionic-portability": 1779218294.9513323,
     "23-input-audio": 1779219781.1900616,
     "24-emitter-audit": 1779222931.95883,
-    "25-cgo-regen": 1779229364.248258,
-    "26-cgo-exec-qemu": 1779229741.2593563,
-    "27-runtime-port": 1779232014.2232563,
-    "28-dispatcher-real": 1779295935.5872376,
-    "29-renderer-real": 1779296510.0497034,
-    "30-title-screen": 1779296806.2317502,
-    "31-playable": 1779297223.367625
+    "25-cgo-regen": 1779229364.248258
   },
-  "last_update": "2026-05-20T17:34:54.766102+00:00",
+  "last_update": "2026-05-20T19:53:00.000000+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
+  },
+  "supervisor_rollback": {
+    "applied_at": "2026-05-20T19:53:00Z",
+    "dropped_from_completed": [
+      "26-cgo-exec-qemu",
+      "27-runtime-port",
+      "28-dispatcher-real",
+      "29-renderer-real",
+      "30-title-screen",
+      "31-playable"
+    ],
+    "reason": "Phases 26-31 built on relocated kStateSeq cheat (game/kernel/common/android_dispatch_signals.cpp), stubbed weak_jak1_* bridge, and synthetic gradient renderer. See SUPERVISOR_JOURNAL.md."
   }
 }

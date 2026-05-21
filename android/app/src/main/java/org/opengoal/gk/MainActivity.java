@@ -8,18 +8,11 @@
 //      SDL thread which dlsym's the C entrypoint named by
 //      getMainFunction() and calls it.
 //   3. We override that to "gk_sdl_main", defined in gk_android_main.cpp.
-//      Phase 18 keeps gk_sdl_main minimal (SDL_Init → window → context →
-//      clear/swap loop). Phase 19 replaces it with the real GOAL boot.
-//
-// The TouchControlsView overlay is preserved by adding it to mLayout
-// after super.onCreate completes.
 
 package org.opengoal.gk;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
 
 import org.libsdl.app.SDLActivity;
 
@@ -28,8 +21,6 @@ import java.io.File;
 public class MainActivity extends SDLActivity {
     private static final String TAG = "opengoal-gk";
     private static final String ISO_DATA_SUBDIR = "iso_data";
-
-    private TouchControlsView controls;
 
     @Override
     protected String[] getLibraries() {
@@ -100,26 +91,14 @@ public class MainActivity extends SDLActivity {
             Log.i(TAG, gameName + " iso_data present at " + isoDir.getAbsolutePath());
         }
 
-        // Overlay the touch controls on top of SDLActivity's mLayout (a
-        // RelativeLayout that already holds the SDLSurface). Phase 23
-        // wires the overlay through NativeGk.onPadButton — the SDLSurface
-        // would otherwise consume every touch via its own onTouch listener.
-        // bringToFront + elevation force the overlay above the SDLSurface
-        // even though both children of mLayout are MATCH_PARENT; without
-        // this, RelativeLayout's child ordering and the SurfaceView's
-        // hardware-layer compositing can still steal touches.
-        controls = new TouchControlsView(this);
-        if (mLayout != null) {
-            ViewGroup.LayoutParams lp = new FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT);
-            mLayout.addView(controls, lp);
-            controls.bringToFront();
-            controls.setElevation(100f);
-        }
+        // Supervisor rollback 2026-05-20 (REDESIGN.md §7): the touch-controls
+        // overlay was deleted. Primary input is now a Bluetooth gamepad via
+        // SDL_OpenGamepad. An eventual on-screen PS2-button overlay (D-pad +
+        // sticks + ×○□△ + L1/L2/R1/R2 + START/SELECT) will return behind a
+        // settings flag, but only after gameplay is honestly reachable.
 
-        Log.i(TAG, "MainActivity onCreate done; controls=" + (controls != null)
-                + " mLayout=" + (mLayout != null)
+        Log.i(TAG, "MainActivity onCreate done; mLayout="
+                + (mLayout != null)
                 + " mLayout.children=" + (mLayout != null ? mLayout.getChildCount() : -1));
     }
 }

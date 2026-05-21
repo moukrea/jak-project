@@ -11,13 +11,6 @@
 
 #include <SDL3/SDL.h>
 
-// Phase 31: weak hook into the jak1 bridge. Defined by
-// game/kernel/jak1/android_bridge.cpp (which is linked into libgk.so via
-// android_kernel). Declared weak so the audio/input layer keeps linking
-// in a hypothetical build flavor where the jak1 bridge is excluded.
-extern "C" void weak_jak1_input_event(int sdl_button, int pressed)
-    __attribute__((weak));
-
 namespace {
 
 constexpr const char* kLogTag = "opengoal-gk";
@@ -258,16 +251,6 @@ void on_pad_button(int sdl_button, bool pressed) {
   if (pressed && sdl_button == SDL_GAMEPAD_BUTTON_START) {
     g_last_start_press_ms.store(monotonic_ms_internal(),
                                 std::memory_order_release);
-  }
-
-  // Phase 31: drive the title→progress→training state machine via the
-  // jak1 bridge. The bridge owns the per-state guards (only START in
-  // title advances, only SOUTH in progress advances) so this layer
-  // stays game-agnostic — jak2/jak3 will get their own bridges in a
-  // later phase. The weak null check keeps a hypothetical no-bridge
-  // build alive at link time.
-  if (weak_jak1_input_event) {
-    weak_jak1_input_event(sdl_button, pressed ? 1 : 0);
   }
 
   // Push into the SDL virtual joystick if init has completed. Touch
