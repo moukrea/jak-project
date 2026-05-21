@@ -80,7 +80,24 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 set(CMAKE_FIND_ROOT_PATH "/usr/aarch64-linux-gnu")
 
-# Signal to the root CMakeLists.txt that this configure run is targeting
-# aarch64-linux for the phase-26 stress harness and should divert into the
-# minimal subdirectory (see CMakeLists.txt's OG_ARM64_STRESS branch).
-set(OG_ARM64_STRESS ON CACHE BOOL "" FORCE)
+# Pick the right cross-build target up-front. The toolchain itself is
+# target-agnostic: it only configures the cross compiler + sysroot. Two
+# downstream consumers gate on configure-time options:
+#
+#   OG_ARM64_STRESS  -> tools/arm64-stress/   (phase 26 / B2 — the qemu
+#                       decode-stress harness, goal_stress_arm64)
+#   OG_LINUX_ARM64   -> game/linux-arm64/     (bucket C — the real gk
+#                       cross-build that boots under qemu-aarch64-static)
+#
+# Earlier this file unconditionally forced `OG_ARM64_STRESS=ON`, which
+# meant you could not use this toolchain for anything else. Now both
+# options are honored:
+#   * If the user passes -DOG_LINUX_ARM64=ON, divert to game/linux-arm64.
+#   * Else if -DOG_ARM64_STRESS=ON (or neither is set), divert to
+#     tools/arm64-stress as a backwards-compatible default — preserves
+#     the phase-26 workflow.
+if(NOT DEFINED OG_LINUX_ARM64 OR NOT OG_LINUX_ARM64)
+    if(NOT DEFINED OG_ARM64_STRESS)
+        set(OG_ARM64_STRESS ON CACHE BOOL "" FORCE)
+    endif()
+endif()

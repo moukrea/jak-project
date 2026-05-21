@@ -44,6 +44,25 @@ if(OG_ARM64_STRESS)
     return()
 endif()
 
+# Phase C1 (autoport, bucket C): aarch64-linux cross-build of the FULL
+# gk runtime — the real game/kernel + overlord + system layer, linked
+# against vendored fmt/libco, with honest abort-stubs for the
+# graphics/sound/curl externs (game/linux-arm64/linux_arm64_runtime_compat.cpp).
+# C2 makes the binary actually start under qemu; C3 makes it reach
+# title. C1 is purely "the binary builds." Configure with:
+#   cmake -S . -B build-arm64-linux \
+#         -DCMAKE_TOOLCHAIN_FILE=$PWD/cmake/aarch64-linux-toolchain.cmake \
+#         -DOG_LINUX_ARM64=ON -DCMAKE_BUILD_TYPE=Release
+option(OG_LINUX_ARM64 "Build the bucket-C aarch64-linux gk (cross-toolchain)" OFF)
+if(OG_LINUX_ARM64)
+    message(STATUS "Bucket C: aarch64-linux gk cross-toolchain")
+    if(NOT GOALC_BACKEND)
+        set(GOALC_BACKEND "arm64" CACHE STRING "GOAL compiler codegen backend" FORCE)
+    endif()
+    add_subdirectory(game/linux-arm64)
+    return()
+endif()
+
 # Default to Release mode
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
