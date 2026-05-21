@@ -341,6 +341,83 @@ test to use the proven-working capture_oracle.sh args. This is a
 test-method fix, not a relaxation — the intent (gk reaches logo)
 is unchanged. Orchestrator was not halted; claude will see the
 updated validator on their next read.
+
+### [2026-05-21 09:44] A1 PASSED + orchestrator halted before wasted A2 spend
+
+A1 attempt 1 completed in 43 minutes / 130 turns. Validator exit 0
+across all 10 checks. Two commits landed on master:
+`9ee66e113 [autoport/A1-emitter-enumerate] enumerate every IR form
+used by jak1` (the work) and `9cc60191f [autoport/A1-emitter-
+enumerate] Enumerate every IR form used by jak1 source` (the
+orchestrator's marker commit on phase completion).
+
+A1's deliverables are all honest:
+- `.autoport/reports/A1-ir-inventory.json` — 42 forms, 6 real
+  matching phase 24's commit message exactly
+- `.autoport/lib/classify_ir_arm64.py` — deterministic, sha256-
+  comparable
+- `.autoport/lib/build_a1_inventory.py` — merges classifier +
+  goalc census + IR.h grep
+- `goalc/main.cpp` + `goalc/compiler/CodeGenerator.{h,cpp}` with
+  the `--ir-emit-stats` flag wired
+
+`goalc/compiler/IR.cpp` is **untouched** — the anti-cheat held.
+Claude also refined the validator's smoke test further (third
+revision): the proven-working invocation is `-boot -debug-mem`
+(NOT `-boot -debug`). `-debug` loads debug-segments and routes
+through the demo-intro path, which never relinks the logo level
+within 60s. Documented inline in the validator.
+
+**Halt + A2 authoring**: orchestrator advanced to A2-emitter-
+implement immediately and claude started reading the placeholder.
+Halted at attempt-1 start to avoid burning ~$15-30 of wasted
+attempts on the placeholder. State.json reset: A2 retries cleared,
+fingerprints cleared, phase_started_at cleared.
+
+### [2026-05-21 09:50] Phase A2 authored
+
+A2 is the largest phase in the whole port (REDESIGN.md §8 + §11).
+35 stub IR forms to implement with real arm64 codegen. Budget
+1200 turns × 30 retries.
+
+Prompt at `.autoport/prompts/phase-A2-emitter-implement.md` (307
+lines):
+
+- Clusters the work by impact: mem (9 forms, 432K emits), call (5
+  forms, 70K), float (3 forms, 22K), VF (6 forms, 6.6K), int128
+  (2 forms, 1.2K), asm-IR (9 forms, 650).
+- Carves out IR_Null / IR_ValueReset / IR_Nop / IR_AsmFNop /
+  IR_AsmFWait as no-op-by-design exceptions (their x86 bodies also
+  emit zero-or-one trivial instructions; "stub" classification is
+  semantically wrong for them).
+- Explicit anti-cheat rules covering: NOP-padding, classifier
+  edits, do_codegen_x86 modifications, copy-paste from x86 stream
+  into arm64 path, faking (mi) success.
+- Reading list including the ARM ARM section refs for the
+  encoders claude will need (LDR C6.2.93, STR C6.2.181, BL C6.2.34,
+  etc.).
+
+Validator at `.autoport/validators/phase-A2-emitter-implement.sh`
+(237 lines) enforces 10 checks:
+
+1. A1 inventory still present (sanity)
+2. A2-carve-outs.json documents every exception (only 5 forms
+   allowed; each needs ≥20-char justification)
+3. **Anti-cheat**: no do_codegen_x86 edits in IR.cpp diff since A1
+4. **Anti-cheat**: classifier script byte-identical to A1's version
+5. Re-run classifier — deterministic across two runs
+6. Every A1 blocker now `real` OR in carve-out list
+7. goalc rebuild succeeds (x86 backend)
+8. `(mi)` regen succeeds (banner "Successfully built all N targets")
+9. Desktop gk smoke test reaches `link finish: logo` within 60s
+10. Disasm spot-check: at least one of LDR/STR/BL/BLR/FADD/FMUL
+    appears in objdump of `test/arm64/emitter_smoke_A2.gc`'s arm64
+    output
+
+Validator dry-runs cleanly: fails on first missing artifact
+(`A2-carve-outs.json`), which is the file claude must produce.
+
+About to restart the orchestrator with A2 ready.
   3. **Pre-existing desktop-build breakage** uncovered by the
      reconfigure: `runtime_trace.cpp` (added by phase 26) defines
      `__goal_runtime_trace_kheap` and `__goal_runtime_trace_goal_call`
