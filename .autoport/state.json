@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 36,
+  "current_phase_idx": 37,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -36,7 +36,8 @@
     "C1-linux-arm64-config": 1,
     "C2-linux-arm64-symbols": 1,
     "C3-linux-arm64-title": 1,
-    "C4-klink-arm64-execute": 1
+    "C4-klink-arm64-execute": 1,
+    "D1-android-bionic-shims": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -98,7 +99,8 @@
     "C1-linux-arm64-config",
     "C2-linux-arm64-symbols",
     "C3-linux-arm64-title",
-    "C4-klink-arm64-execute"
+    "C4-klink-arm64-execute",
+    "D1-android-bionic-shims"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -138,9 +140,10 @@
     "C1-linux-arm64-config": 1779365178.2127016,
     "C2-linux-arm64-symbols": 1779366881.105734,
     "C3-linux-arm64-title": 1779368809.3299305,
-    "C4-klink-arm64-execute": 1779374067.6251209
+    "C4-klink-arm64-execute": 1779374067.6251209,
+    "D1-android-bionic-shims": 1779378576.773529
   },
-  "last_update": "2026-05-21T15:49:33.518075+00:00",
+  "last_update": "2026-05-21T16:30:00.000000+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
