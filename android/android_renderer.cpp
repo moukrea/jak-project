@@ -12,6 +12,14 @@
 // Lifecycle: android_renderer_run() is called from goal_main() on the
 // SDL main thread. It blocks until MasterExit transitions out of
 // RUNNING or until SDL_EVENT_QUIT / SDL_EVENT_TERMINATING arrives.
+//
+// Phase D3 (autoport): the swap loop is the observable heartbeat the
+// supervisor's reality checks key off. To make "eglSwapBuffers
+// sustained" verifiable without a device, we keep a process-lifetime
+// std::atomic<uint64_t> frame counter and emit an __android_log_print
+// marker every 60 frames. The counter is exposed through
+// android_renderer_frame_count() so the JNI bridge in
+// gk_android_main.cpp can hand it to Java when D4 starts probing.
 
 #include "android_renderer.h"
 
@@ -20,12 +28,28 @@
 #include <SDL3/SDL.h>
 #include <GLES3/gl32.h>
 
+#include <atomic>
+#include <cinttypes>
+#include <cstdint>
+
 #include "common/common_types.h"
 #include "game/kernel/common/kboot.h"
 
 namespace {
 constexpr const char* kLogTag = "opengoal-gk";
+
+// Phase D3 (autoport): the swap-loop heartbeat. Static-storage atomic
+// so concurrent JNI readers from the Java thread (via
+// Java_org_opengoal_gk_NativeGk_getRendererFrameCount) observe a
+// well-defined value without acquiring a lock. Reset to 0 on each
+// android_renderer_run entry so a quick exit+relaunch sees a fresh
+// counter rather than stale state from the previous run.
+std::atomic<uint64_t> g_renderer_frame_count{0};
 }  // namespace
+
+uint64_t android_renderer_frame_count() {
+  return g_renderer_frame_count.load(std::memory_order_relaxed);
+}
 
 int android_renderer_run() {
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
@@ -107,6 +131,10 @@ int android_renderer_run() {
                       "— maintaining clear/swap loop only. The real OpenGL "
                       "renderer port is bucket D in REDESIGN.md.");
 
+  // Phase D3 (autoport): start the frame counter at zero on every entry
+  // so the sustained-swap evidence reflects this invocation only.
+  g_renderer_frame_count.store(0, std::memory_order_relaxed);
+
   bool running = true;
   while (running && MasterExit == RuntimeExitStatus::RUNNING) {
     SDL_Event event;
@@ -126,6 +154,14 @@ int android_renderer_run() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     SDL_GL_SwapWindow(window);
+
+    const uint64_t n =
+        g_renderer_frame_count.fetch_add(1, std::memory_order_relaxed) + 1;
+    if ((n % 60) == 0) {
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "android_renderer: sustained swap %" PRIu64, n);
+    }
+
     SDL_Delay(16);
   }
 

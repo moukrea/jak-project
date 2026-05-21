@@ -144,6 +144,14 @@ add_library(android_kernel STATIC
     # srpc.cpp links. game/graphics/gfx.cpp itself doesn't compile on
     # Bionic; only the shared global state matters for the boot path.
     android_graphics_stubs.cpp
+    # Phase D3 (autoport): abort-stubs for jak1::InitMachine /
+    # jak1::KernelCheckAndDispatch. The supervisor rollback (2026-05-20)
+    # removed phase-28's weak-bridge cheat and left the build failing
+    # at link until kmachine.cpp lands — but D3 is the SDL3 surface
+    # phase, not the kernel-boot phase. Strong-symbol bodies that
+    # abort() loudly with a journal pointer; D4 swaps this TU out
+    # when it adds game/kernel/jak1/kmachine.cpp + the graphics deps.
+    android_jak1_kernel_stubs.cpp
 
     # Common utilities reused verbatim. We pull the subset the kernel +
     # overlord + system actually touch — not the whole library (which

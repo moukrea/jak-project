@@ -81,11 +81,14 @@ public final class NativeGk {
     public static native void onPadButton(int sdlButton, boolean pressed);
 
     /**
-     * Phase 28: return the current dispatch-loop heartbeat counter. The
-     * native side increments this each tick of KernelCheckAndDispatch;
-     * polling and seeing the value advance is honest proof that the real
-     * dispatcher is running (as opposed to a sleep loop). The validator
-     * also greps for "dispatch-heartbeat: N" in logcat as a redundancy.
+     * Phase D3 (autoport): return the cumulative SDL_GL_SwapWindow count
+     * since the most recent android_renderer_run entry. Used by the
+     * supervisor's reality-check toolkit (D4) to assert that the
+     * eglSwapBuffers loop is iterating on hardware — the count must
+     * increase monotonically while the activity is foregrounded. A
+     * stalled counter while the activity is alive means the GLES
+     * context lost the SurfaceView (surface destroyed without
+     * surfaceCreated firing again) or the SDL thread is wedged.
      */
-    public static native long getDispatchHeartbeat();
+    public static native long getRendererFrameCount();
 }
