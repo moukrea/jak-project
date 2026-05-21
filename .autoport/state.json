@@ -153,9 +153,10 @@
     "D1-android-bionic-shims": 1779378576.773529,
     "D2-android-gles-shaders": 1779380991.0723279,
     "D3-android-sdl3-surface": 1779387866.3413577,
-    "D4-android-apk-title": 1779393055.8089738
+    "D4-android-apk-title": 1779393055.8089738,
+    "E1-ux-landscape-gamepad": 1779398246.2825754
   },
-  "last_update": "2026-05-21T21:17:12.283792+00:00",
+  "last_update": "2026-05-21T21:17:26.282580+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },

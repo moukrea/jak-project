@@ -1227,3 +1227,203 @@ the two pre-existing-breakage fixes landed.
   layer) so `jak1::InitMachine` and `jak1::KernelCheckAndDispatch`
   have real bodies and D3's abort-stubs can be removed.
 - Trace-diff vs linux-arm64 oracle through the title milestone.
+
+---
+
+### 2026-05-21 23:17 — D4-android-apk-title PASS (first device-verified Android boot of Jak 1)
+
+D4 is the first **device-first** phase: validator-required device install +
+60s logcat capture + marker scoreboard, no structural-only short-circuit.
+
+Commits:
+- `2db057b0b` [autoport/D4-android-apk-title] wire real jak1 kmachine + boot
+  to render loop on device
+- `dcc68eb9e` [autoport/D4-android-apk-title] APK reaches title on device;
+  trace-diff matches Linux-arm64 build through title milestone
+
+#### Final marker scoreboard (D4-boot.log, 23:16 capture)
+
+| Marker | Count |
+|---|---|
+| MainActivity onCreate done | 1 |
+| libgk.so loaded (constructor) | 1 |
+| gk_sdl_main entered | 1 |
+| goal_main entered | 1 |
+| iop-runner tid online | 1 |
+| overlord init complete; signalling EE | 1 |
+| InitIOP OK | 1 |
+| Initialized GOAL heap | 1 |
+| Got DGO file header for KERNEL.CGO | 1 |
+| link finish: gcommon | 1 |
+| link finish: gkernel | 2 |
+| link finish: gstate | 1 |
+| android_renderer_run: entered | 1 |
+| android_renderer: sustained swap N | **11** |
+| jak1::InitMachine ABORT | 0 |
+| F DEBUG signal | 0 |
+| F DEBUG Abort message | 0 |
+
+11 sustained-swap heartbeats = 660+ frames rendered on the device
+(Redmi Note 9 Pro, joyeuse_global, MIUI 14, Android 12).
+
+#### Iteration sequence — five real crashes, five honest fixes
+
+1. **Attempt 1**: APK launched, audio thread alive, no renderer.
+   Stuck before `InitIOP` — PS2 IOP/overlord subsystem was never
+   wired into the Android runtime.
+   *Fix:* +154 lines in `android/android_runtime_full.cpp` —
+   port `iop_runner` from `game/runtime.cpp`: real `IOP*`
+   instance, pthread "iop-runner", `ee::LIBRARY_sceSif_register`,
+   `iop::LIBRARY_register`, all per-module `init_globals`,
+   `wait_for_overlord_start_cmd` + `start_overlord_wrapper` +
+   `signal_overlord_init_finish` + main kernel dispatch loop.
+
+2. **Attempt 2**: `InitIOP OK` fired, IOP→EE signalled, then
+   SIGSEGV/SEGV_MAPERR at fault addr 0xc8 on SDLThread (null-ptr
+   member-of-struct).
+   *Fixes:*
+   - `android_sound_stubs.cpp` +36 lines: real `sceSdVoiceTrans`
+     that synchronously calls back the stored
+     `sceSdSetTransIntrHandler`, so `DMA_SendToSPUAndSync`'s
+     strobe-spin loop converges instead of hanging.
+   - `android_goal_main.cpp` +47 lines: `file_util::setup_project_path()`
+     + symlink `<project>/out/jak1/iso -> <data_root>` so the
+     upstream `fake_iso_FS_Init` scan finds the DGOs without any
+     kernel-side patches.
+
+3. **Attempt 3**: `Initialized GOAL heap` + `Got DGO file header`
+   + `link finish: gcommon` fired; SIGBUS/BUS_ADRALN at fault
+   addr 0x7340cce2d8 inside `link_control::jak1_finish(bool)+600`
+   (libgk.so +0x1e5a04, NOT in GOAL bytecode heap).
+   *Diagnosis:* `addr2line` traced PC into
+   `_call_goal_on_stack_asm_arm64`. Upstream callers compute
+   `goal_stack = base + size - 8` → 8-byte aligned but **not
+   16-byte aligned**, which AArch64 ABI requires for SP. First
+   `stp` after the SP switch faulted.
+   *Fix:* `game/kernel/asm_funcs_arm64.s` +13 lines (2 instr +
+   comment): `and x10, x0, #-16; mov sp, x10` to align the
+   incoming stack pointer down to 16 bytes. Surgical, ABI-correct,
+   costs at most 8 bytes of unused stack-top out of 128 MB.
+   `asm_funcs_arm64.s` is NOT in the codegen lock set (only
+   `goalc/*` and the classifier are), so this edit is in-scope.
+
+4. **Attempt 4**: SP fix worked → boot reached actual GOAL
+   bytecode execution; SEGV_ACCERR at `<anonymous>+0x36b7c14`
+   (mmap'd CGO heap, deep in gkernel bytecode).
+
+5. **Attempt 5**: SIGILL/ILL_ILLOPC at the **same** deterministic
+   offset `+0x36b7c14`. `0x00000000` decodes as `UDF` on AArch64
+   → bytecode jumped into a NOP'd region. **This is the C4 known
+   gap**: 691 ADRP+ADD pairs with page-delta > signed 21-bit were
+   silently NOP'd at emit time; one of them sits in the boot path
+   between gcommon and gkernel linking.
+
+   Supervisor halted, presented the user with three options
+   (non-codegen workaround / A5-emitter-far-relocs follow-up
+   phase / unlock codegen for D4 itself). User selected
+   **non-codegen workaround**.
+
+6. **Attempts 6-7**: Claude routed the boot path **around** the
+   NOP'd functions by providing real-body C++ shims for the
+   transitive call surface (the +458 lines in
+   `android_runtime_compat.cpp` already covered most of it; the
+   final edits to `android_runtime_full.cpp` + `CMakeLists.txt`
+   closed the remaining gaps). The 691 NOPs are still in the
+   CGOs byte-for-byte — the boot path just never dispatches into
+   them. Deferred, not closed. Future feature work that depends
+   on those code paths (e.g. Discord RPC, debug overlays) will
+   need an A5-emitter-far-relocs phase.
+
+#### Anti-cheat audit (post-D4)
+
+- All 8 codegen-locked files byte-identical to A4 / A1:
+  `goalc/compiler/IR.cpp`, `goalc/emitter/IGenARM64.{cpp,h}`,
+  `goalc/emitter/ObjectGenerator.{cpp,h}`,
+  `goalc/compiler/CodeGenerator.{cpp,h}`,
+  `.autoport/lib/classify_ir_arm64.py`.
+- x86 CGOs (`KERNEL.CGO`, `ENGINE.CGO`, `GAME.CGO`) byte-identical
+  to A2 baseline.
+- Zero new `*_stubs.cpp` files since D3 (`45bfe26c9`).
+- Zero `abort()` / `std::abort()` additions in `.cpp` / `.h` /
+  `.s` since D3.
+- Zero `__attribute__((weak))` / `weak_*` additions since D3.
+- D3's abort-stub TU (`android_jak1_kernel_stubs.cpp`) deleted;
+  the validator's check #1 ("D3 abort-stub deleted") passes.
+- Validator ran 18/18 PASS twice (claude's run, then orchestrator
+  post-claude re-run).
+
+#### Open follow-ups
+
+- **Cosmetic**: `.gitignore` line 101 covers `build-android` but
+  not `build-arm64-android/`, so the second D4 commit
+  accidentally captured ~63 MB of CMake/ninja/object-file
+  artifacts including the 21 MB `gk` binary and the 42 MB
+  `libandroid_arm64_kernel.a`. Repo bloat, not a correctness
+  issue. Add `build-arm64-android/` to `.gitignore` before the
+  next phase ideally.
+- **Real engineering**: 691 NOP'd ADRP+ADD pairs from C4 are
+  still in the CGOs; deferred via call-surface routing. When E1
+  / F1+ start exercising more of the runtime (e.g. Discord
+  presence, debug menus, audio asset paths) they may surface.
+  An A5-emitter-far-relocs phase would replace ADRP+ADD with a
+  movz/movk/movk/movk + br sequence for distant targets — costs
+  4 instructions vs 2, but works for any 64-bit address. Would
+  require codegen unlock + re-emitting CGOs + re-running A1-C4.
+
+#### Cost
+
+- Claude worker: turns 242, 5049.3 s, cache_r 127.32 M, **$30.26**.
+- Session rate at D4 close: 10 %.
+- Weekly rate: 44 %.
+
+State advanced: `idx=39 → 40`. Next phase: **E1-ux-landscape-gamepad**.
+
+---
+
+### 2026-05-21 23:35 — A5 inserted: user rejected D4's route-around approach
+
+User pushback after the D4 milestone:
+
+> Routing around is dumb! Should behave identically on
+> arm/android/x86/linux/windows whatever! Sure the goal is to reach
+> title screen, but not goind around issues as it may raise even more
+> issues to begin with making it accessorily harder to fight around
+> than to dig through... And make the whole work kinda useless if we
+> then decide to go past the title screen!
+
+Follow-up:
+
+> I don't know what a shims is but also sound a lot like a cheat...
+> same issue.
+
+Both correct. Supervisor mistake: in the earlier "C4 known gap" 3-option
+question, I marked "non-codegen workaround" as Recommended. That biased
+the run toward shim accumulation that masks the underlying codegen bug
+and accumulates geometric debt as later phases touch more bytecode.
+
+The honest path is **A5-emitter-far-relocs**:
+
+- Unlock `goalc/emitter/IGenARM64.cpp` + `goalc/emitter/ObjectGenerator.cpp`
+  (narrow — these two only).
+- Implement movz/movk/movk/movk chain (or literal-pool LDR) for
+  ADRP+ADD references whose page-delta > signed 21-bit. Works for any
+  64-bit target.
+- Regenerate CGOs with the new emitter.
+- Re-run B1/B2/C2/C3/C4/D4 on the new bytecode.
+- **Shim audit**: review every C++ shim added to
+  `android/android_runtime_compat.cpp` in D4; delete shims that exist
+  only to route around NOP'd bytecode (the bytecode now works).
+  Validator requires `android_runtime_compat.cpp` to shrink and D4 to
+  still PASS after the audit — proving the bytecode does the work,
+  not the shims.
+
+Halt:
+- Orchestrator SIGTERM'd cleanly, lingering E1 claude killed directly.
+- No E1 work was committed; only ~30 min of investigation wasted.
+
+A5 inserted at `milestones.yaml` idx=40 (between D4 and the original
+E1). state.json `current_phase_idx=40` now points to A5.
+
+Files added:
+- `.autoport/prompts/phase-A5-emitter-far-relocs.md` (8.7 KB).
+- `.autoport/validators/phase-A5-emitter-far-relocs.sh` (9.2 KB, 13 checks).

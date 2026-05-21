@@ -1,424 +1,288 @@
-# Phase plan for the OpenGOAL → Android port.
-# Every phase runs claude-opus-4-7 at max effort (hardcoded in orchestrator.py).
-# Retries are generous because stuck-detection (same-failure-3x-in-a-row)
-# halts useless loops automatically. So we'd rather give it room to learn
-# than artificially cap iterations.
-
 phases:
-  - id: "00-harness"
-    name: "Differential test harness"
-    prompt: prompts/phase-00-harness.md
-    validator: validators/phase-00-harness.sh
-    max_turns: 120
-    max_retries: 10
-
-  - id: "01-scaffold"
-    name: "AArch64 emitter scaffold"
-    prompt: prompts/phase-01-scaffold.md
-    validator: validators/phase-01-scaffold.sh
-    max_turns: 150
-    max_retries: 10
-
-  - id: "02-intarith"
-    name: "Integer arithmetic codegen"
-    prompt: prompts/phase-02-intarith.md
-    validator: validators/phase-02-intarith.sh
-    max_turns: 200
-    max_retries: 12
-
-  - id: "03-memops"
-    name: "Memory load/store codegen"
-    prompt: prompts/phase-03-memops.md
-    validator: validators/phase-03-memops.sh
-    max_turns: 200
-    max_retries: 12
-
-  - id: "04-controlflow"
-    name: "Branches, labels, comparisons"
-    prompt: prompts/phase-04-controlflow.md
-    validator: validators/phase-04-controlflow.sh
-    max_turns: 200
-    max_retries: 12
-
-  - id: "05-abi"
-    name: "Function calls and AArch64 ABI"
-    prompt: prompts/phase-05-abi.md
-    validator: validators/phase-05-abi.sh
-    max_turns: 300
-    max_retries: 15
-
-  - id: "06-float"
-    name: "Scalar floating point"
-    prompt: prompts/phase-06-float.md
-    validator: validators/phase-06-float.sh
-    max_turns: 200
-    max_retries: 12
-
-  - id: "07-neon"
-    name: "SIMD: SSE/AVX -> NEON"
-    prompt: prompts/phase-07-neon.md
-    validator: validators/phase-07-neon.sh
-    max_turns: 400
-    max_retries: 15
-
-  - id: "08-coroutines"
-    name: "GOAL kernel context switch"
-    prompt: prompts/phase-08-coroutines.md
-    validator: validators/phase-08-coroutines.sh
-    max_turns: 300
-    max_retries: 15
-
-  - id: "09-boot-linux-arm"
-    name: "Boot Jak 1 under qemu-aarch64"
-    prompt: prompts/phase-09-boot.md
-    validator: validators/phase-09-boot.sh
-    max_turns: 300
-    max_retries: 20
-
-  - id: "10-android-ndk"
-    name: "Android NDK cross-build"
-    prompt: prompts/phase-10-android.md
-    validator: validators/phase-10-android.sh
-    max_turns: 250
-    max_retries: 10
-
-  - id: "11-apk"
-    name: "APK packaging and emulator boot"
-    prompt: prompts/phase-11-apk.md
-    validator: validators/phase-11-apk.sh
-    max_turns: 250
-    max_retries: 10
-
-  # ---------- Strict phases added after auditing 10/11 scaffolding ----------
-  # Phases 10/11 only proved the *shape* of the pipeline. The real porting
-  # work (link the full runtime, produce a binary-manifest signed APK,
-  # compile each game's GOAL source for the AArch64 backend) lives below.
-  # Each of these validators is intentionally strict — a passing 12-16 is
-  # what "the autoport actually finished" looks like.
-
-  - id: "12-android-runtime"
-    name: "Full OpenGOAL runtime cross-built into libgk.so"
-    prompt: prompts/phase-12-android-runtime.md
-    validator: validators/phase-12-android-runtime.sh
-    max_turns: 600
-    max_retries: 25
-
-  - id: "13-real-apk"
-    name: "Real APK (AGP, binary manifest, debug-signed)"
-    prompt: prompts/phase-13-real-apk.md
-    validator: validators/phase-13-real-apk.sh
-    max_turns: 300
-    max_retries: 15
-
-  - id: "14-jak1"
-    name: "Jak 1: goalc-arm64 compile + stage into APK assets"
-    prompt: prompts/phase-14-jak1.md
-    validator: validators/phase-14-jak1.sh
-    max_turns: 400
-    max_retries: 20
-
-  - id: "15-jak2"
-    name: "Jak 2: goalc-arm64 compile + stage into APK assets"
-    prompt: prompts/phase-15-jak2.md
-    validator: validators/phase-15-jak2.sh
-    max_turns: 400
-    max_retries: 20
-
-  - id: "16-jak3"
-    name: "Jak 3: goalc-arm64 compile + stage into APK assets"
-    prompt: prompts/phase-16-jak3.md
-    validator: validators/phase-16-jak3.sh
-    max_turns: 400
-    max_retries: 20
-
-  # ---------- On-device runtime bring-up (phases 17-23) ----------
-  # Phases 12-16 produced shells and bundled data. Nothing has yet run a
-  # frame on the user's phone. Phases 17-23 close that gap. Most use the
-  # USB-attached device for every validator (no emulator, no "passes
-  # because the symbol exists" greens); phase 19 is a host-only emitter
-  # stress that runs jak1 CGOs under qemu-aarch64 to isolate codegen
-  # bugs from runtime-wiring bugs. The user's phone (Redmi Note 9 Pro /
-  # Adreno 618 / Android 12-ish MIUI) is the reference device target.
-  #
-  # Markers (in approximate order of progress):
-  #   17 → iso_data extract: ...           (APK assets auto-extract on launch)
-  #   18 → SDL_GL_CreateContext / eglSwapBuffers (window + GL ctx alive)
-  #   19 → emitter-stress: PASS            (host qemu-aarch64, real CGOs)
-  #   20 → goal_main argv / KERNEL.CGO loaded / dispatcher started
-  #   21 → engine: frame 1 submitted + sustained eglSwapBuffers
-  #   22 → engine: state=title + 5min crash-free + W^X clean
-  #   23 → kernel: pad: dpad_right + SDL_audio callback firing
-  #
-  # Retry budgets generous on the integration-heavy ones (18/20/21).
-  # STUCK_REPEAT_THRESHOLD=3 (same-failure-3x-in-a-row) still halts dead
-  # loops cheaply.
-
-  - id: "17-apk-assets"
-    name: "APK-bundled assets used at runtime (no manual push)"
-    prompt: prompts/phase-17-apk-assets.md
-    validator: validators/phase-17-apk-assets.sh
-    max_turns: 200
-    max_retries: 10
-
-  - id: "18-sdl3-bridge"
-    name: "SDL3 cross-build + Activity-SDL surface bridge"
-    prompt: prompts/phase-18-sdl3-bridge.md
-    validator: validators/phase-18-sdl3-bridge.sh
-    max_turns: 500
-    max_retries: 20
-
-  - id: "19-emitter-stress"
-    name: "AArch64 emitter stress against real jak1 CGOs (qemu-aarch64)"
-    prompt: prompts/phase-19-emitter-stress.md
-    validator: validators/phase-19-emitter-stress.sh
-    max_turns: 500
-    max_retries: 15
-
-  - id: "20-goal-main"
-    name: "Wire goal_main into gk_sdl_main; kernel boots on device"
-    prompt: prompts/phase-20-goal-main.md
-    validator: validators/phase-20-goal-main.sh
-    max_turns: 500
-    max_retries: 20
-
-  - id: "21-gles-shaders"
-    name: "GLES shader port + GL API audit; first frame rendered"
-    prompt: prompts/phase-21-gles-shaders.md
-    validator: validators/phase-21-gles-shaders.sh
-    max_turns: 500
-    max_retries: 20
-
-  - id: "22-bionic-portability"
-    name: "Bionic shims + W^X code mapping + 5-min longevity"
-    prompt: prompts/phase-22-bionic-portability.md
-    validator: validators/phase-22-bionic-portability.sh
-    max_turns: 400
-    max_retries: 10
-
-  - id: "23-input-audio"
-    name: "Touch input → GOAL pad mapping + audio output"
-    prompt: prompts/phase-23-input-audio.md
-    validator: validators/phase-23-input-audio.sh
-    max_turns: 400
-    max_retries: 8
-
-  # ---------- Strict redo of the bypassed runtime work (24-25) ----------
-  # Phases 24-25 produced real partial artifacts (emitter scaffolding +
-  # CGO regen) and stay as the baseline going into bucket A-F.
-  # Phases 26-31 (former cheat-redo lane) were rolled back by the
-  # supervisor on 2026-05-20 and replaced by bucket A-F below.
-
-  - id: "24-emitter-audit"
-    name: "AArch64 emitter byte-pattern audit on synthetic GOAL source"
-    prompt: prompts/phase-24-emitter-audit.md
-    validator: validators/phase-24-emitter-audit.sh
-    max_turns: 500
-    max_retries: 15
-
-  - id: "25-cgo-regen"
-    name: "Re-emit jak1 CGOs with strict aarch64 verification"
-    prompt: prompts/phase-25-cgo-regen.md
-    validator: validators/phase-25-cgo-regen.sh
-    max_turns: 400
-    max_retries: 10
-
-  # ---------- Bucket A-F per REDESIGN.md §8 (supervisor 2026-05-20) -----
-  # The previous 26-31 sequence was removed by the supervisor rollback.
-  # Phases 28-31 were cheats (kStateSeq relocated, fake renderer chain,
-  # fake input transitions). Phases 26-27 had partial-real binary
-  # linking work that's preserved in tree; bucket A-F revalidates it.
-  #
-  # Validators in this section should use trace-diff against the
-  # desktop oracle at .autoport/oracle/jak1-desktop-trace.txt rather
-  # than greping for invented log strings. Phase prompts should inject
-  # the relevant oracle excerpt as ground truth for the milestone
-  # being reproduced.
-  #
-  # Per the supervisor design (.autoport/SUPERVISOR_PROMPT.md), every
-  # phase's prompt + validator under this block is currently a
-  # placeholder that exits 1 with "supervisor must author this phase".
-  # The supervisor authors each one as the orchestrator approaches it,
-  # so the orchestrator's stuck-detection halts cleanly rather than
-  # the orchestrator passing fictitious validators.
-
-  # === Bucket A — AArch64 emitter completion ===
-  # The current emitter has 41 IR paths. Full coverage needs every
-  # IR_* form jak1 uses. The single biggest engineering chunk.
-
-  - id: "A1-emitter-enumerate"
-    name: "Enumerate every IR form used by jak1 source"
-    prompt: prompts/phase-A1-emitter-enumerate.md
-    validator: validators/phase-A1-emitter-enumerate.sh
-    max_turns: 200
-    max_retries: 5
-
-  - id: "A2-emitter-implement"
-    name: "Implement aarch64 codegen for every IR cluster"
-    prompt: prompts/phase-A2-emitter-implement.md
-    validator: validators/phase-A2-emitter-implement.sh
-    max_turns: 1200
-    max_retries: 30
-
-  - id: "A3-emitter-differential"
-    name: "Per-IR-form differential: aarch64 disasm + qemu execute == x86 result"
-    prompt: prompts/phase-A3-emitter-differential.md
-    validator: validators/phase-A3-emitter-differential.sh
-    max_turns: 600
-    max_retries: 15
-
-  # === A4 — arm64 linker fixups (inserted by supervisor 2026-05-21) ===
-  # A2 left a documented gap: arm64 IR bodies that need symbol/static/
-  # function-link relocations deliberately skip ObjectGenerator's
-  # link_instruction_*() because the existing fix-up path asserts on
-  # x86 disp_size==4 (arm64 immediates are imm12/imm19, not byte-
-  # displacement fields). A4 widens ObjectGenerator to know about
-  # arm64 fix-up kinds so the 7 reloc-needing IRs A3 skipped can be
-  # qemu-executed end-to-end and bucket B's CGO regen produces
-  # actually-loadable arm64 binaries.
-
-  - id: "A4-linker-fixups"
-    name: "Arm64 link-time fix-up support (LDR imm12, B/BL imm26, B.cond imm19)"
-    prompt: prompts/phase-A4-linker-fixups.md
-    validator: validators/phase-A4-linker-fixups.sh
-    max_turns: 800
-    max_retries: 20
-
-  # === Bucket B — CGO regen with full emitter ===
-
-  - id: "B1-cgo-regen-strict"
-    name: "Re-emit jak1 CGOs with the now-complete emitter; structural check"
-    prompt: prompts/phase-B1-cgo-regen-strict.md
-    validator: validators/phase-B1-cgo-regen-strict.sh
-    max_turns: 400
-    max_retries: 10
-
-  - id: "B2-cgo-qemu-stress"
-    name: "Decode-stress all jak1 CGOs under qemu-aarch64; no SIGILL/SIGSEGV"
-    prompt: prompts/phase-B2-cgo-qemu-stress.md
-    validator: validators/phase-B2-cgo-qemu-stress.sh
-    max_turns: 500
-    max_retries: 15
-
-  # === Bucket C — Linux-arm64 first (skip Android-specific surface) ===
-  # If gk runs to title on Linux arm64 under qemu, only the
-  # Bionic+W^X+GLES diff to Android remains.
-
-  - id: "C1-linux-arm64-config"
-    name: "Configure build-arm64-linux with cross-toolchain; gk builds"
-    prompt: prompts/phase-C1-linux-arm64-config.md
-    validator: validators/phase-C1-linux-arm64-config.sh
-    max_turns: 400
-    max_retries: 12
-
-  - id: "C2-linux-arm64-symbols"
-    name: "Resolve glibc + dynamic symbol issues so gk dlopens cleanly"
-    prompt: prompts/phase-C2-linux-arm64-symbols.md
-    validator: validators/phase-C2-linux-arm64-symbols.sh
-    max_turns: 500
-    max_retries: 15
-
-  - id: "C3-linux-arm64-title"
-    name: "Reach title under qemu-aarch64; trace-diff matches oracle through title milestone"
-    prompt: prompts/phase-C3-linux-arm64-title.md
-    validator: validators/phase-C3-linux-arm64-title.sh
-    max_turns: 800
-    max_retries: 25
-
-  # === C4 — klink arm64 ADRP+ADD execute (supervisor 2026-05-21) ===
-  # C3 reached `link finish: gstate` cleanly under qemu but had to
-  # disable LINK_FLAG_EXECUTE because klink.cpp's relocators
-  # (cross_seg_dist_link_v3 / ptr_link_v3 / symlink_v3 / typelink_v3)
-  # write patches as raw u32 stores. arm64 ADRP+ADD have non-byte-
-  # aligned imm21/imm12 fields; raw stores corrupt them. A4 fixed
-  # this for goalc's compile-time ObjectGenerator but klink is the
-  # gk runtime linker — different code, same shape of bug. C4 closes
-  # the gap so jak1's arm64 CGOs execute end-to-end under qemu, and
-  # by extension under Android.
-
-  - id: "C4-klink-arm64-execute"
-    name: "klink arm64 ADRP+ADD fixups + gcommon top-level GOAL executes under qemu"
-    prompt: prompts/phase-C4-klink-arm64-execute.md
-    validator: validators/phase-C4-klink-arm64-execute.sh
-    max_turns: 600
-    max_retries: 20
-
-  # === Bucket D — Android port (Bionic + W^X + GLES + SurfaceView) ===
-
-  - id: "D1-android-bionic-shims"
-    name: "Bionic shims: every glibc symbol gk uses has a real Bionic implementation or wrapper"
-    prompt: prompts/phase-D1-android-bionic-shims.md
-    validator: validators/phase-D1-android-bionic-shims.sh
-    max_turns: 600
-    max_retries: 20
-
-  - id: "D2-android-gles-shaders"
-    name: "Real GLES shader port: every upstream shader translated and compiles"
-    prompt: prompts/phase-D2-android-gles-shaders.md
-    validator: validators/phase-D2-android-gles-shaders.sh
-    max_turns: 600
-    max_retries: 20
-
-  - id: "D3-android-sdl3-surface"
-    name: "SDL3 Android driver wired to MainActivity's SurfaceView; eglSwapBuffers sustained"
-    prompt: prompts/phase-D3-android-sdl3-surface.md
-    validator: validators/phase-D3-android-sdl3-surface.sh
-    max_turns: 500
-    max_retries: 15
-
-  - id: "D4-android-apk-title"
-    name: "APK reaches title on device; trace-diff matches Linux-arm64 build through title milestone"
-    prompt: prompts/phase-D4-android-apk-title.md
-    validator: validators/phase-D4-android-apk-title.sh
-    max_turns: 600
-    max_retries: 20
-
-  # === Bucket E — UX corrections (landscape, gamepad, save/load) ===
-
-  - id: "E1-ux-landscape-gamepad"
-    name: "Landscape rendering correct; Bluetooth gamepad routes through SDL_OpenGamepad into GOAL"
-    prompt: prompts/phase-E1-ux-landscape-gamepad.md
-    validator: validators/phase-E1-ux-landscape-gamepad.sh
-    max_turns: 400
-    max_retries: 10
-
-  - id: "E2-ux-touch-overlay-optional"
-    name: "Optional on-screen PS2-button overlay behind settings flag"
-    prompt: prompts/phase-E2-ux-touch-overlay-optional.md
-    validator: validators/phase-E2-ux-touch-overlay-optional.sh
-    max_turns: 400
-    max_retries: 10
-
-  - id: "E3-ux-save-load"
-    name: "Save/load works on Android (kmemcard cross-compiles; filesDir-backed)"
-    prompt: prompts/phase-E3-ux-save-load.md
-    validator: validators/phase-E3-ux-save-load.sh
-    max_turns: 400
-    max_retries: 10
-
-  # === Bucket F — Stretch (Geyser Rock playable, audio, 30 FPS) ===
-
-  - id: "F1-gameplay-geyser-rock"
-    name: "First playable level (Geyser Rock) reached and navigable; physics + collision real"
-    prompt: prompts/phase-F1-gameplay-geyser-rock.md
-    validator: validators/phase-F1-gameplay-geyser-rock.sh
-    max_turns: 800
-    max_retries: 20
-
-  - id: "F2-gameplay-audio"
-    name: "Audio works on Android (AAudio/OpenSL output, ssound RPC, music + SFX)"
-    prompt: prompts/phase-F2-gameplay-audio.md
-    validator: validators/phase-F2-gameplay-audio.sh
-    max_turns: 500
-    max_retries: 15
-
-  - id: "F3-gameplay-30fps"
-    name: "30 FPS sustained on the Redmi Note 9 Pro for 60s of gameplay"
-    prompt: prompts/phase-F3-gameplay-30fps.md
-    validator: validators/phase-F3-gameplay-30fps.sh
-    max_turns: 600
-    max_retries: 20
-
+- id: 00-harness
+  name: Differential test harness
+  prompt: prompts/phase-00-harness.md
+  validator: validators/phase-00-harness.sh
+  max_turns: 120
+  max_retries: 10
+- id: 01-scaffold
+  name: AArch64 emitter scaffold
+  prompt: prompts/phase-01-scaffold.md
+  validator: validators/phase-01-scaffold.sh
+  max_turns: 150
+  max_retries: 10
+- id: 02-intarith
+  name: Integer arithmetic codegen
+  prompt: prompts/phase-02-intarith.md
+  validator: validators/phase-02-intarith.sh
+  max_turns: 200
+  max_retries: 12
+- id: 03-memops
+  name: Memory load/store codegen
+  prompt: prompts/phase-03-memops.md
+  validator: validators/phase-03-memops.sh
+  max_turns: 200
+  max_retries: 12
+- id: 04-controlflow
+  name: Branches, labels, comparisons
+  prompt: prompts/phase-04-controlflow.md
+  validator: validators/phase-04-controlflow.sh
+  max_turns: 200
+  max_retries: 12
+- id: 05-abi
+  name: Function calls and AArch64 ABI
+  prompt: prompts/phase-05-abi.md
+  validator: validators/phase-05-abi.sh
+  max_turns: 300
+  max_retries: 15
+- id: 06-float
+  name: Scalar floating point
+  prompt: prompts/phase-06-float.md
+  validator: validators/phase-06-float.sh
+  max_turns: 200
+  max_retries: 12
+- id: 07-neon
+  name: 'SIMD: SSE/AVX -> NEON'
+  prompt: prompts/phase-07-neon.md
+  validator: validators/phase-07-neon.sh
+  max_turns: 400
+  max_retries: 15
+- id: 08-coroutines
+  name: GOAL kernel context switch
+  prompt: prompts/phase-08-coroutines.md
+  validator: validators/phase-08-coroutines.sh
+  max_turns: 300
+  max_retries: 15
+- id: 09-boot-linux-arm
+  name: Boot Jak 1 under qemu-aarch64
+  prompt: prompts/phase-09-boot.md
+  validator: validators/phase-09-boot.sh
+  max_turns: 300
+  max_retries: 20
+- id: 10-android-ndk
+  name: Android NDK cross-build
+  prompt: prompts/phase-10-android.md
+  validator: validators/phase-10-android.sh
+  max_turns: 250
+  max_retries: 10
+- id: 11-apk
+  name: APK packaging and emulator boot
+  prompt: prompts/phase-11-apk.md
+  validator: validators/phase-11-apk.sh
+  max_turns: 250
+  max_retries: 10
+- id: 12-android-runtime
+  name: Full OpenGOAL runtime cross-built into libgk.so
+  prompt: prompts/phase-12-android-runtime.md
+  validator: validators/phase-12-android-runtime.sh
+  max_turns: 600
+  max_retries: 25
+- id: 13-real-apk
+  name: Real APK (AGP, binary manifest, debug-signed)
+  prompt: prompts/phase-13-real-apk.md
+  validator: validators/phase-13-real-apk.sh
+  max_turns: 300
+  max_retries: 15
+- id: 14-jak1
+  name: 'Jak 1: goalc-arm64 compile + stage into APK assets'
+  prompt: prompts/phase-14-jak1.md
+  validator: validators/phase-14-jak1.sh
+  max_turns: 400
+  max_retries: 20
+- id: 15-jak2
+  name: 'Jak 2: goalc-arm64 compile + stage into APK assets'
+  prompt: prompts/phase-15-jak2.md
+  validator: validators/phase-15-jak2.sh
+  max_turns: 400
+  max_retries: 20
+- id: 16-jak3
+  name: 'Jak 3: goalc-arm64 compile + stage into APK assets'
+  prompt: prompts/phase-16-jak3.md
+  validator: validators/phase-16-jak3.sh
+  max_turns: 400
+  max_retries: 20
+- id: 17-apk-assets
+  name: APK-bundled assets used at runtime (no manual push)
+  prompt: prompts/phase-17-apk-assets.md
+  validator: validators/phase-17-apk-assets.sh
+  max_turns: 200
+  max_retries: 10
+- id: 18-sdl3-bridge
+  name: SDL3 cross-build + Activity-SDL surface bridge
+  prompt: prompts/phase-18-sdl3-bridge.md
+  validator: validators/phase-18-sdl3-bridge.sh
+  max_turns: 500
+  max_retries: 20
+- id: 19-emitter-stress
+  name: AArch64 emitter stress against real jak1 CGOs (qemu-aarch64)
+  prompt: prompts/phase-19-emitter-stress.md
+  validator: validators/phase-19-emitter-stress.sh
+  max_turns: 500
+  max_retries: 15
+- id: 20-goal-main
+  name: Wire goal_main into gk_sdl_main; kernel boots on device
+  prompt: prompts/phase-20-goal-main.md
+  validator: validators/phase-20-goal-main.sh
+  max_turns: 500
+  max_retries: 20
+- id: 21-gles-shaders
+  name: GLES shader port + GL API audit; first frame rendered
+  prompt: prompts/phase-21-gles-shaders.md
+  validator: validators/phase-21-gles-shaders.sh
+  max_turns: 500
+  max_retries: 20
+- id: 22-bionic-portability
+  name: Bionic shims + W^X code mapping + 5-min longevity
+  prompt: prompts/phase-22-bionic-portability.md
+  validator: validators/phase-22-bionic-portability.sh
+  max_turns: 400
+  max_retries: 10
+- id: 23-input-audio
+  name: Touch input → GOAL pad mapping + audio output
+  prompt: prompts/phase-23-input-audio.md
+  validator: validators/phase-23-input-audio.sh
+  max_turns: 400
+  max_retries: 8
+- id: 24-emitter-audit
+  name: AArch64 emitter byte-pattern audit on synthetic GOAL source
+  prompt: prompts/phase-24-emitter-audit.md
+  validator: validators/phase-24-emitter-audit.sh
+  max_turns: 500
+  max_retries: 15
+- id: 25-cgo-regen
+  name: Re-emit jak1 CGOs with strict aarch64 verification
+  prompt: prompts/phase-25-cgo-regen.md
+  validator: validators/phase-25-cgo-regen.sh
+  max_turns: 400
+  max_retries: 10
+- id: A1-emitter-enumerate
+  name: Enumerate every IR form used by jak1 source
+  prompt: prompts/phase-A1-emitter-enumerate.md
+  validator: validators/phase-A1-emitter-enumerate.sh
+  max_turns: 200
+  max_retries: 5
+- id: A2-emitter-implement
+  name: Implement aarch64 codegen for every IR cluster
+  prompt: prompts/phase-A2-emitter-implement.md
+  validator: validators/phase-A2-emitter-implement.sh
+  max_turns: 1200
+  max_retries: 30
+- id: A3-emitter-differential
+  name: 'Per-IR-form differential: aarch64 disasm + qemu execute == x86 result'
+  prompt: prompts/phase-A3-emitter-differential.md
+  validator: validators/phase-A3-emitter-differential.sh
+  max_turns: 600
+  max_retries: 15
+- id: A4-linker-fixups
+  name: Arm64 link-time fix-up support (LDR imm12, B/BL imm26, B.cond imm19)
+  prompt: prompts/phase-A4-linker-fixups.md
+  validator: validators/phase-A4-linker-fixups.sh
+  max_turns: 800
+  max_retries: 20
+- id: B1-cgo-regen-strict
+  name: Re-emit jak1 CGOs with the now-complete emitter; structural check
+  prompt: prompts/phase-B1-cgo-regen-strict.md
+  validator: validators/phase-B1-cgo-regen-strict.sh
+  max_turns: 400
+  max_retries: 10
+- id: B2-cgo-qemu-stress
+  name: Decode-stress all jak1 CGOs under qemu-aarch64; no SIGILL/SIGSEGV
+  prompt: prompts/phase-B2-cgo-qemu-stress.md
+  validator: validators/phase-B2-cgo-qemu-stress.sh
+  max_turns: 500
+  max_retries: 15
+- id: C1-linux-arm64-config
+  name: Configure build-arm64-linux with cross-toolchain; gk builds
+  prompt: prompts/phase-C1-linux-arm64-config.md
+  validator: validators/phase-C1-linux-arm64-config.sh
+  max_turns: 400
+  max_retries: 12
+- id: C2-linux-arm64-symbols
+  name: Resolve glibc + dynamic symbol issues so gk dlopens cleanly
+  prompt: prompts/phase-C2-linux-arm64-symbols.md
+  validator: validators/phase-C2-linux-arm64-symbols.sh
+  max_turns: 500
+  max_retries: 15
+- id: C3-linux-arm64-title
+  name: Reach title under qemu-aarch64; trace-diff matches oracle through title milestone
+  prompt: prompts/phase-C3-linux-arm64-title.md
+  validator: validators/phase-C3-linux-arm64-title.sh
+  max_turns: 800
+  max_retries: 25
+- id: C4-klink-arm64-execute
+  name: klink arm64 ADRP+ADD fixups + gcommon top-level GOAL executes under qemu
+  prompt: prompts/phase-C4-klink-arm64-execute.md
+  validator: validators/phase-C4-klink-arm64-execute.sh
+  max_turns: 600
+  max_retries: 20
+- id: D1-android-bionic-shims
+  name: 'Bionic shims: every glibc symbol gk uses has a real Bionic implementation or wrapper'
+  prompt: prompts/phase-D1-android-bionic-shims.md
+  validator: validators/phase-D1-android-bionic-shims.sh
+  max_turns: 600
+  max_retries: 20
+- id: D2-android-gles-shaders
+  name: 'Real GLES shader port: every upstream shader translated and compiles'
+  prompt: prompts/phase-D2-android-gles-shaders.md
+  validator: validators/phase-D2-android-gles-shaders.sh
+  max_turns: 600
+  max_retries: 20
+- id: D3-android-sdl3-surface
+  name: SDL3 Android driver wired to MainActivity's SurfaceView; eglSwapBuffers sustained
+  prompt: prompts/phase-D3-android-sdl3-surface.md
+  validator: validators/phase-D3-android-sdl3-surface.sh
+  max_turns: 500
+  max_retries: 15
+- id: D4-android-apk-title
+  name: APK reaches title on device; trace-diff matches Linux-arm64 build through title milestone
+  prompt: prompts/phase-D4-android-apk-title.md
+  validator: validators/phase-D4-android-apk-title.sh
+  max_turns: 600
+  max_retries: 20
+- id: A5-emitter-far-relocs
+  name: 'Codegen unlock (narrow): emit far-reloc sequence for ADRP+ADD references whose page-delta exceeds 21-bit, closing the 691 NOP gap; regenerate
+    CGOs; re-validate B1-D4; audit and trim dodge-only shims from android_runtime_compat.cpp'
+  prompt: prompts/phase-A5-emitter-far-relocs.md
+  validator: validators/phase-A5-emitter-far-relocs.sh
+  max_turns: 800
+  max_retries: 25
+- id: E1-ux-landscape-gamepad
+  name: Landscape rendering correct; Bluetooth gamepad routes through SDL_OpenGamepad into GOAL
+  prompt: prompts/phase-E1-ux-landscape-gamepad.md
+  validator: validators/phase-E1-ux-landscape-gamepad.sh
+  max_turns: 400
+  max_retries: 10
+- id: E2-ux-touch-overlay-optional
+  name: Optional on-screen PS2-button overlay behind settings flag
+  prompt: prompts/phase-E2-ux-touch-overlay-optional.md
+  validator: validators/phase-E2-ux-touch-overlay-optional.sh
+  max_turns: 400
+  max_retries: 10
+- id: E3-ux-save-load
+  name: Save/load works on Android (kmemcard cross-compiles; filesDir-backed)
+  prompt: prompts/phase-E3-ux-save-load.md
+  validator: validators/phase-E3-ux-save-load.sh
+  max_turns: 400
+  max_retries: 10
+- id: F1-gameplay-geyser-rock
+  name: First playable level (Geyser Rock) reached and navigable; physics + collision real
+  prompt: prompts/phase-F1-gameplay-geyser-rock.md
+  validator: validators/phase-F1-gameplay-geyser-rock.sh
+  max_turns: 800
+  max_retries: 20
+- id: F2-gameplay-audio
+  name: Audio works on Android (AAudio/OpenSL output, ssound RPC, music + SFX)
+  prompt: prompts/phase-F2-gameplay-audio.md
+  validator: validators/phase-F2-gameplay-audio.sh
+  max_turns: 500
+  max_retries: 15
+- id: F3-gameplay-30fps
+  name: 30 FPS sustained on the Redmi Note 9 Pro for 60s of gameplay
+  prompt: prompts/phase-F3-gameplay-30fps.md
+  validator: validators/phase-F3-gameplay-30fps.sh
+  max_turns: 600
+  max_retries: 20
 global:
   git:
     push_after_each_phase: true
-    branch_prefix: "autoport/"
+    branch_prefix: autoport/
