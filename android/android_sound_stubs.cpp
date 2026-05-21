@@ -39,8 +39,40 @@ u32  sceSdGetAddr(u32) { return 0; }
 void sceSdSetSwitch(u32, u32) {}
 void sceSdSetAddr(u32, u32) {}
 void sceSdSetParam(u32, u32) {}
-void sceSdSetTransIntrHandler(s32, sceSdTransIntrHandler, void*) {}
-u32  sceSdVoiceTrans(s32, s32, const void*, u32, u32) { return 0; }
+
+// Phase D4 (autoport): the overlord ISO init loops in DMA_SendToSPUAndSync
+// until the SPU DMA interrupt handler sets `strobe = 1`. With a passive
+// no-op `sceSdVoiceTrans`, the handler never fires and the loop spins
+// forever, which is the second hang we hit before the kernel boot
+// markers appear. Honor the upstream contract by storing the handler and
+// calling it back synchronously from sceSdVoiceTrans, which is the
+// "instantaneous DMA completion" model the desktop runtime also uses
+// when running without real SPU hardware. Returns the requested size so
+// DMA_SendToSPUAndSync's `transferred >= size_aligned` check passes.
+namespace {
+struct ChannelHandler {
+  sceSdTransIntrHandler fn = nullptr;
+  void* userdata = nullptr;
+};
+ChannelHandler g_sd_handlers[16];
+}  // namespace
+
+void sceSdSetTransIntrHandler(s32 channel, sceSdTransIntrHandler fn, void* userdata) {
+  if (channel < 0 || channel >= (s32)(sizeof(g_sd_handlers) / sizeof(g_sd_handlers[0]))) {
+    return;
+  }
+  g_sd_handlers[channel] = {fn, userdata};
+}
+
+u32 sceSdVoiceTrans(s32 channel, s32 /*mode*/, const void* /*src*/, u32 /*dst*/, u32 size) {
+  if (channel >= 0 && channel < (s32)(sizeof(g_sd_handlers) / sizeof(g_sd_handlers[0]))) {
+    auto h = g_sd_handlers[channel];
+    if (h.fn) {
+      h.fn(channel, h.userdata);
+    }
+  }
+  return size;
+}
 
 void snd_StartSoundSystem() {}
 void snd_StopSoundSystem() {}

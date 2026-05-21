@@ -144,14 +144,14 @@ add_library(android_kernel STATIC
     # srpc.cpp links. game/graphics/gfx.cpp itself doesn't compile on
     # Bionic; only the shared global state matters for the boot path.
     android_graphics_stubs.cpp
-    # Phase D3 (autoport): abort-stubs for jak1::InitMachine /
-    # jak1::KernelCheckAndDispatch. The supervisor rollback (2026-05-20)
-    # removed phase-28's weak-bridge cheat and left the build failing
-    # at link until kmachine.cpp lands — but D3 is the SDL3 surface
-    # phase, not the kernel-boot phase. Strong-symbol bodies that
-    # abort() loudly with a journal pointer; D4 swaps this TU out
-    # when it adds game/kernel/jak1/kmachine.cpp + the graphics deps.
-    android_jak1_kernel_stubs.cpp
+    # Phase D4 (autoport): the D3 abort-stub TU is GONE. Real bodies for
+    # jak1::InitMachine / jak1::KernelCheckAndDispatch now come from
+    # game/kernel/jak1/kmachine.cpp + game/kernel/jak1/kboot.cpp (added
+    # to the source list below). The transitive deps those TUs pull
+    # (Gfx, Display, discord-rpc, common/kmachine helpers, libpad/libgraph
+    # sce surface) are covered by real-body shims in android_runtime_compat.cpp
+    # — every shim logs to logcat at the call site and returns sensible
+    # values, never abort().
 
     # Common utilities reused verbatim. We pull the subset the kernel +
     # overlord + system actually touch — not the whole library (which
@@ -203,11 +203,19 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/kernel/common/ksound.cpp"
     "${JAK_ROOT}/game/kernel/common/runtime_trace.cpp"
 
-    # Kernel jak1 subset (those without graphics/sce-heavy deps).
+    # Kernel jak1 subset.
+    # Phase D4 (autoport): kmachine.cpp + kboot.cpp join the build for the
+    # first time on Android. These two TUs own jak1::InitMachine,
+    # jak1::KernelCheckAndDispatch, jak1::goal_main, etc. — the real GOAL
+    # kernel boot chain. Their transitive deps (graphics/discord/sce surface)
+    # are covered by real-body shims in android_runtime_compat.cpp; the
+    # shims log at the call site and never abort.
     "${JAK_ROOT}/game/kernel/jak1/fileio.cpp"
+    "${JAK_ROOT}/game/kernel/jak1/kboot.cpp"
     "${JAK_ROOT}/game/kernel/jak1/kdgo.cpp"
     "${JAK_ROOT}/game/kernel/jak1/klink.cpp"
     "${JAK_ROOT}/game/kernel/jak1/klisten.cpp"
+    "${JAK_ROOT}/game/kernel/jak1/kmachine.cpp"
     "${JAK_ROOT}/game/kernel/jak1/kprint.cpp"
     "${JAK_ROOT}/game/kernel/jak1/kscheme.cpp"
     "${JAK_ROOT}/game/kernel/jak1/ksound.cpp"

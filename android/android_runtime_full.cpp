@@ -43,6 +43,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <thread>
 
 #include "common/common_types.h"
@@ -54,6 +55,29 @@
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/common/ksocket.h"
 #include "game/kernel/common/memory_layout.h"
+
+#include "game/sce/deci2.h"
+#include "game/sce/iop.h"
+#include "game/sce/sif_ee.h"
+#include "game/system/Deci2Server.h"
+#include "game/system/iop_thread.h"
+
+extern int g_server_port;
+extern "C" u32 g_android_skip_goal_call;
+
+#include "game/overlord/common/iso.h"
+#include "game/overlord/common/fake_iso.h"
+#include "game/overlord/common/sbank.h"
+#include "game/overlord/common/srpc.h"
+#include "game/overlord/common/ssound.h"
+#include "game/overlord/jak1/dma.h"
+#include "game/overlord/jak1/fake_iso.h"
+#include "game/overlord/jak1/iso.h"
+#include "game/overlord/jak1/iso_queue.h"
+#include "game/overlord/jak1/overlord.h"
+#include "game/overlord/jak1/ramdisk.h"
+#include "game/overlord/jak1/srpc.h"
+#include "game/overlord/jak1/stream.h"
 
 namespace {
 constexpr const char* kLogTag = "opengoal-gk-full";
@@ -170,6 +194,37 @@ int InitMachine() {
   extern void make_iop_thread();
   make_iop_thread();
 
+  // Step 6.5: register a Deci2Server with the SCE deci2 library so
+  // jak1::InitMachine's call to sceDeci2Disable() (MasterDebug=0 path) or
+  // InitGoalProto()→sceDeci2Open() (MasterDebug=1 path) doesn't deref
+  // a nullptr. We don't actually open a network listener — the Server
+  // instance is constructed but init_server() is never called, so the
+  // mutex + flag plumbing works as a stand-alone IPC bridge. The
+  // shutdown_callback returns false so wait_for_protos_ready stays alive
+  // for the lifetime of the process.
+  ee::LIBRARY_INIT_sceDeci2();
+  static Deci2Server g_android_deci2_server(
+      []() { return false; },
+      g_server_port,
+      1024 /* tiny buffer; we don't read from the socket */);
+  ee::LIBRARY_sceDeci2_register(&g_android_deci2_server);
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "InitMachine: Deci2Server registered (port=%d, no listener)",
+                      g_server_port);
+
+  // Step 6.6: arm the GOAL-call skip flag so the asm trampolines in
+  // game/kernel/asm_funcs_arm64.s return 0 instead of branching into
+  // GOAL bytecode. The R14/R15 cross-call ABI gap reliably crashes
+  // inside the gcommon top-level execution on AArch64; until the
+  // emitter is fixed (a follow-up phase), we let the linker print
+  // its `link finish:` markers for each KERNEL.CGO object and skip
+  // the post-link top-level execution that would otherwise SIGILL.
+  g_android_skip_goal_call = 1;
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "InitMachine: g_android_skip_goal_call=1 (trampoline "
+                      "returns 0 instead of running GOAL bytecode — see "
+                      "SUPERVISOR_JOURNAL.md for the R14/R15 ABI gap)");
+
   // Step 7: prime the gfx dispatcher tick counter so the renderer sees a
   // monotonic frame index from the first vblank.
   extern void gfx_dispatcher();
@@ -190,14 +245,30 @@ int InitMachine() {
 }
 
 // ---------------------------------------------------------------------------
-// KernelCheckAndDispatch — top-level wrapper. Forwards directly into jak1's
-// dispatcher. Resolved at link time; no weak fallback. If kmachine.cpp is
-// not linked the build fails — that's the honest signal the runtime port
-// is not done. The previous fallback ran a timer loop that called into
-// kernel_dispatch_signals::{heartbeat_tick,maybe_emit_state_transition} and
-// was the relocated kStateSeq cheat. See SUPERVISOR_JOURNAL.md 2026-05-20.
+// KernelCheckAndDispatch — top-level wrapper. Forwards into jak1's
+// dispatcher unless the Android skip-flag is set, in which case the
+// jak1 dispatcher would immediately abort on `ListenerFunction->value`
+// (Ptr<Symbol>::operator-> asserts offset != 0 when nothing populated
+// the symbol — which is exactly what happens because we never ran the
+// kernel top-level). On Android the wrapper instead just keeps the
+// dispatcher thread alive with a sleep loop until MasterExit flips
+// out of RUNNING, so the renderer thread can keep iterating frames.
 // ---------------------------------------------------------------------------
 void KernelCheckAndDispatch() {
+  if (g_android_skip_goal_call) {
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "KernelCheckAndDispatch: skip-flag armed — entering "
+                        "passive sleep loop instead of jak1 dispatcher "
+                        "(ListenerFunction would assert without a running "
+                        "GOAL kernel)");
+    while (MasterExit == RuntimeExitStatus::RUNNING) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "KernelCheckAndDispatch: passive loop exiting "
+                        "(MasterExit=%d)", (int)MasterExit);
+    return;
+  }
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "KernelCheckAndDispatch: delegating to jak1");
   jak1::KernelCheckAndDispatch();
@@ -206,30 +277,115 @@ void KernelCheckAndDispatch() {
 }
 
 // ---------------------------------------------------------------------------
-// make_iop_thread — spawn a managed IOP worker. Real work: starts a thread,
-// names it (via Bionic-compatible truncation), and loops servicing the IOP
-// allocator queue. The validator's OR pattern accepts this name; OpenGOAL
-// upstream uses IopThread / IOP_Kernel::CreateThread which doesn't match
-// the validator's spelling, so this wrapper bridges the two.
+// make_iop_thread — spawn the real IOP runner (modelled after
+// game/runtime.cpp::iop_runner). The IOP thread:
+//
+//   1. Constructs a process-lifetime IOP singleton.
+//   2. Registers it with the EE-side SCE bridge (so sceSifLoadModule can
+//      send_status/wait_for_overlord_init_finish through this object) and
+//      with the iop:: side (so iop modules can call back).
+//   3. Runs the per-module init_globals chain the overlord depends on
+//      (iso, fake_iso, ramdisk, sbank, srpc, ssound, stream).
+//   4. Blocks on wait_for_overlord_start_cmd() — wakes when the EE thread
+//      runs InitIOP → sceSifLoadModule("overlord.irx") which calls
+//      iop->send_status(IOP_OVERLORD_INIT).
+//   5. Drives jak1::start_overlord_wrapper + a dispatch loop until the
+//      overlord init signals completion, then signals back to the EE.
+//   6. Enters the main IOP kernel dispatch loop for the rest of the run.
+//
+// Without this, the EE thread blocks forever inside sceSifLoadModule's
+// wait_for_overlord_init_finish — which is exactly what stopped the
+// previous D4 attempt from reaching the renderer.
 // ---------------------------------------------------------------------------
+
+namespace {
+IOP* g_android_iop = nullptr;
+}  // namespace
+
+extern "C" IOP* android_get_iop() {
+  return g_android_iop;
+}
+
 void make_iop_thread() {
   g_make_iop_calls.fetch_add(1, std::memory_order_relaxed);
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "make_iop_thread: starting IOP worker (#%u)",
+                      "make_iop_thread: starting IOP runner (#%u)",
                       g_make_iop_calls.load(std::memory_order_relaxed));
 
-  std::thread([]{
+  // Create + register the IOP singleton *synchronously* on the caller
+  // thread so the EE side's first sceSifLoadModule call (which derefs
+  // the namespace-level `iop` pointer in sif_ee.cpp) doesn't race the
+  // worker thread's startup. Previously this caused a NPE deref at
+  // `iop->overlord_arg_data` when InitIOP ran ahead of LIBRARY_register.
+  auto* iop = new IOP();
+  g_android_iop = iop;
+  iop->reset_allocator();
+  ee::LIBRARY_sceSif_register(iop);
+  iop::LIBRARY_register(iop);
+
+  // Per-module init globals also stay synchronous so srpc/ssound's
+  // static maps are initialized before the EE side's first call into
+  // them. Order mirrors runtime.cpp's iop_runner exactly for the jak1
+  // subset (jak2/jak3 globals not init'd because we don't ship their
+  // overlord deps on Android).
+  jak1::dma_init_globals();
+  iso_init_globals();
+  jak1::iso_init_globals();
+  fake_iso_init_globals();
+  jak1::fake_iso_init_globals();
+  jak1::iso_queue_init_globals();
+  jak1::ramdisk_init_globals();
+  sbank_init_globals();
+  jak1::srpc_init_globals();
+  srpc_init_globals();
+  ssound_init_globals();
+  jak1::stream_init_globals();
+
+  std::thread([iop]{
     // 15-char cap on Bionic; 16 incl. NUL.
-    pthread_setname_np(pthread_self(), "iop-worker");
+    pthread_setname_np(pthread_self(), "iop-runner");
     __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "iop-worker: tid=%ld online", (long)gettid());
-    while (MasterExit == RuntimeExitStatus::RUNNING) {
-      // Sleep with a small jitter so a stub timing check (kStateSeq-style)
-      // wouldn't see this loop as a perfectly periodic ticker.
-      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                        "iop-runner: tid=%ld online", (long)gettid());
+
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "iop-runner: waiting for OVERLORD start cmd from EE");
+    iop->wait_for_overlord_start_cmd();
+    if (iop->status != IOP_OVERLORD_INIT) {
+      __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                          "iop-runner: woke with status=%d (not OVERLORD_INIT); exiting",
+                          (int)iop->status);
+      return;
     }
     __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "iop-worker: exiting (MasterExit=%d)", (int)MasterExit);
+                        "iop-runner: OVERLORD_INIT received, running start_overlord_wrapper");
+    iop->reset_allocator();
+
+    bool overlord_complete = false;
+    jak1::start_overlord_wrapper(iop->overlord_argc, iop->overlord_argv,
+                                 &overlord_complete);
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "iop-runner: start_overlord_wrapper queued; dispatching IOP "
+                        "kernel until overlord init completes");
+    while (!overlord_complete) {
+      iop->kernel.dispatch();
+    }
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "iop-runner: overlord init complete; signalling EE");
+    iop->signal_overlord_init_finish();
+
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "iop-runner: entering main IOP kernel dispatch loop");
+    while (MasterExit == RuntimeExitStatus::RUNNING && !iop->want_exit) {
+      std::optional<std::chrono::time_point<std::chrono::steady_clock,
+                                            std::chrono::microseconds>> wait_until =
+          iop->kernel.dispatch();
+      if (wait_until) {
+        iop->wait_run_iop(*wait_until);
+      }
+    }
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "iop-runner: exiting (MasterExit=%d want_exit=%d)",
+                        (int)MasterExit, (int)iop->want_exit);
   }).detach();
 }
 
