@@ -30,6 +30,7 @@
 #include "game/kernel/common/ksocket.h"
 
 #include "android_input_audio.h"
+#include "android_renderer.h"
 
 // goal_main lives in android_goal_main.cpp for Android, game/main.cpp for
 // desktop. C++ linkage on both sides — matches the forward declaration at
@@ -261,13 +262,16 @@ Java_org_opengoal_gk_NativeGk_onTouchEvent(JNIEnv* /*env*/, jclass /*clazz*/,
                       "touch[%u]: action=%s x=%d y=%d", n, action_str, x, y);
 }
 
-// Phase 28: expose the dispatch heartbeat counter. The Java side polls
-// this via NativeGk.getDispatchHeartbeat(); validator scripts can also
-// hit it through `adb shell am instrument` if logcat is unreliable.
+// Phase D3 (autoport): expose the renderer's sustained-swap counter to
+// Java. Returns the cumulative SDL_GL_SwapWindow count since the most
+// recent android_renderer_run entry. Two readers: NativeGk's Java
+// callers (e.g. a watchdog in the Activity), and the D4 device-side
+// validator that asserts the count grows monotonically while the APK
+// is foregrounded.
 JNIEXPORT jlong JNICALL
-Java_org_opengoal_gk_NativeGk_getDispatchHeartbeat(JNIEnv* /*env*/,
-                                                   jclass /*clazz*/) {
-  return (jlong)kernel_get_dispatch_heartbeat();
+Java_org_opengoal_gk_NativeGk_getRendererFrameCount(JNIEnv* /*env*/,
+                                                    jclass /*clazz*/) {
+  return (jlong)android_renderer_frame_count();
 }
 
 }  // extern "C"
