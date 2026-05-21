@@ -1,22 +1,51 @@
 #!/usr/bin/env python3
 """
-Phase 21 (autoport): GLES 3.20 shader preprocessor.
+Phase D2 (autoport): GLES 3.20 shader preprocessor.
 
 The desktop renderer is GL 4.1 core (every shader starts with
 `#version 410 core`). Adreno / Mali Android contexts give us GLES 3.20.
 This script transforms each desktop `*.vert` / `*.frag` source into the
-GLES variant in a way that keeps the desktop source the single source of
-truth — no inline `#ifdef`s in the .vert/.frag files.
+GLES variant. The desktop sources are the single source of truth — no
+inline `#ifdef`s in the .vert/.frag files.
 
-The transform:
-    1. Replace `#version 410 core` with `#version 320 es`.
-    2. Inject default precision qualifiers (GLES has no implicit default
-       for `float` in fragment shaders, and none for ints / int samplers
-       in vertex shaders either).
-    3. Substitute the jak1 template tokens (HEIGHT_SCALE, SCISSOR_HEIGHT,
-       SCISSOR_ADJUST) the same way Shader.cpp's regex_replace does at
-       runtime on desktop, so the Android-side runtime can compile the
-       output directly without re-doing the substitution.
+History: phase 21 attempted a regex-based int->float promotion pass to
+patch the relative strictness of GLES vs desktop GLSL. The regex pass
+was unsound: it broke `>> 7` on uint (LHS of bitshift must be int),
+`!= 0` after `& mask` (uint comparison), `mod(uint, uint)`, and many
+other places where the int literal was actually correct. The
+supervisor-D2 redesign moves the strictness fix into the upstream
+desktop sources: every shader is now written in a way that compiles
+cleanly under both desktop GLSL 4.10 core AND GLES 3.20. The
+preprocessor stays thin — it does only the structural transforms
+that the source can't express portably:
+
+    1. Strip any header comment that precedes the first `#version`
+       directive (GLES requires `#version` to be the literal first
+       statement; the desktop GLSL spec is permissive).
+    2. Replace the `#version 410 core` line with `#version 320 es`
+       plus the default precision qualifier block GLES requires.
+    3. Substitute the jak1 template tokens (HEIGHT_SCALE,
+       SCISSOR_HEIGHT, SCISSOR_ADJUST) the same way Shader.cpp's
+       regex_replace does at runtime on desktop, so the Android-side
+       runtime can compile the output directly without re-doing the
+       substitution.
+    4. `sampler1D` does not exist in GLES (1D textures are not in the
+       ES feature set). Rewrite each `uniform sampler1D <name>;` to
+       `uniform sampler2D <name>;` and adjust every
+       `texelFetch(<name>, idx, lod)` call site to `texelFetch(<name>,
+       ivec2(idx, 0), lod)`. The runtime is expected to upload the
+       backing texture as an Nx1 GL_TEXTURE_2D under GLES; that's a
+       D3 concern (texture pipeline), not D2.
+    5. Strip the `noperspective` interpolation qualifier — it requires
+       NV_shader_noperspective_interpolation in GLES (Adreno 6xx does
+       not expose it). Falling back to smooth perspective-correct
+       interpolation is a visible but bounded artifact for the sky
+       shader only; the desktop and Android renderers will look
+       identical for everything else.
+
+Anything beyond these structural transforms must be in the upstream
+shader source. That keeps the preprocessor auditable and prevents the
+phase 21 cheat (regex pass that quietly mutated semantics).
 
 Outputs:
     <out_dir>/<name>.android.vert
@@ -38,8 +67,8 @@ import re
 import sys
 from pathlib import Path
 
-# Match the values Shader.cpp picks for Jak1. Phase 21 boots jak1 only;
-# phases 22+ will need a per-game variant if/when we wire jak2/jak3.
+# Match the values Shader.cpp picks for Jak1. Phase D2 boots jak1 only;
+# a per-game variant lands when D4+ wires jak2/jak3.
 JAK1_HEIGHT_SCALE = "1.0"
 JAK1_SCISSOR_HEIGHT = "448.0"
 JAK1_SCISSOR_ADJUST = "(512.0 / 448.0)"
@@ -60,77 +89,148 @@ precision highp usampler2D;
 """
 
 
-def to_gles(src: str) -> str:
-    """Return the GLES 3.20 form of one desktop GLSL shader source."""
-    # 1. Replace the first `#version ...` line with the GLES header.
-    #    Some sources have a leading `//` comment before #version; we
-    #    only touch the version line itself, leaving comments alone.
-    src = re.sub(
-        r"^[ \t]*#version[^\n]*\n",
-        GLES_HEADER,
-        src,
-        count=1,
-        flags=re.MULTILINE,
-    )
+_VERSION_LINE = re.compile(
+    r"^[ \t]*#version[^\n]*\n",
+    re.MULTILINE,
+)
 
-    # 2. Substitute the template tokens that desktop's Shader.cpp would
+_UNIFORM_SAMPLER1D = re.compile(
+    r"\buniform\s+sampler1D\s+(\w+)\s*;",
+)
+
+_SAMPLER1D_TYPE = re.compile(r"\bsampler1D\b")
+
+_NOPERSPECTIVE = re.compile(r"\bnoperspective\b\s*")
+
+
+def _strip_leading_to_version(src: str) -> str:
+    """GLES 3.20 requires `#version` to be the first non-empty content
+    in the file. Strip any leading whitespace, line comments, and block
+    comments that precede it. Returns the source from `#version`
+    onwards; if no `#version` line exists we return the input unchanged
+    (preprocess.py is not the place to invent one)."""
+    m = _VERSION_LINE.search(src)
+    if not m:
+        return src
+    return src[m.start():]
+
+
+def _rewrite_sampler1d(src: str) -> str:
+    """Rewrite `uniform sampler1D foo;` to `uniform sampler2D foo;` and
+    every matching `texelFetch(foo, idx, lod)` to
+    `texelFetch(foo, ivec2(idx, 0), lod)`. We only rewrite texelFetch
+    calls whose first argument is a known sampler1D name; this avoids
+    accidentally rewriting calls that target genuine sampler2D
+    uniforms with the same shape."""
+    names = _UNIFORM_SAMPLER1D.findall(src)
+    if not names:
+        return src
+    # Rewrite the type declaration.
+    src = _SAMPLER1D_TYPE.sub("sampler2D", src)
+    # Rewrite each call site. The idx argument may be a simple
+    # identifier or a complex expression (function call, arithmetic).
+    # We tolerate commas inside parens / function calls by parsing
+    # the call site manually rather than via regex backreference.
+    for name in names:
+        src = _rewrite_texel_fetch_for(src, name)
+    return src
+
+
+def _rewrite_texel_fetch_for(src: str, sampler_name: str) -> str:
+    """Find every `texelFetch(sampler_name, IDX, LOD)` and rewrite to
+    `texelFetch(sampler_name, ivec2(IDX, 0), LOD)`. IDX is whatever lives
+    between the first and second top-level comma; LOD is whatever lives
+    between the second top-level comma and the matching `)`."""
+    out = []
+    i = 0
+    # Precompute a regex that matches `texelFetch(<sampler_name>` so we
+    # can locate every call site cheaply, then balance parens manually.
+    head = re.compile(
+        r"\btexelFetch\s*\(\s*" + re.escape(sampler_name) + r"\s*,"
+    )
+    while True:
+        m = head.search(src, i)
+        if not m:
+            out.append(src[i:])
+            break
+        # Emit everything up to and including the first comma after the
+        # sampler name (kept verbatim).
+        out.append(src[i:m.end()])
+        # We now stand inside the parens, just past the first comma.
+        # Walk forward to find the top-level comma separating IDX from
+        # LOD, then find the matching close paren.
+        j = m.end()
+        depth = 1
+        idx_start = j
+        idx_end = None
+        lod_start = None
+        lod_end = None
+        while j < len(src):
+            c = src[j]
+            if c == '(':
+                depth += 1
+            elif c == ')':
+                depth -= 1
+                if depth == 0:
+                    lod_end = j
+                    break
+            elif c == ',' and depth == 1:
+                if idx_end is None:
+                    idx_end = j
+                    lod_start = j + 1
+                # Further commas are inside a nested expression — not
+                # valid for a 3-arg texelFetch, but we ignore them.
+            j += 1
+        if idx_end is None or lod_end is None:
+            # Malformed; bail out without rewriting this call.
+            out.append(src[m.end():j + 1])
+            i = j + 1
+            continue
+        idx_expr = src[idx_start:idx_end].strip()
+        lod_expr = src[lod_start:lod_end].strip()
+        out.append(f" ivec2({idx_expr}, 0), {lod_expr})")
+        i = lod_end + 1
+    return "".join(out)
+
+
+def _strip_noperspective(src: str) -> str:
+    """GLES 3.20 has no `noperspective` qualifier (the
+    NV_shader_noperspective_interpolation extension is not present on
+    Adreno 6xx, our target GPU). Stripping it falls back to smooth
+    perspective-correct interpolation, which only affects the sky
+    shader's tex_coord and is visually indistinguishable for the
+    bounded UV range the sky pass uses."""
+    return _NOPERSPECTIVE.sub("", src)
+
+
+def to_gles(src: str) -> str:
+    """Return the GLES 3.20 form of one desktop GLSL shader source.
+
+    The transforms applied here are structural only. Numeric semantics
+    are preserved verbatim — if the source compiles under desktop
+    GLSL 4.10 core, the GLES variant must compile under GLES 3.20 and
+    behave identically modulo the documented sampler1D and
+    noperspective workarounds. Anything stricter (uint vs int literal
+    typing, float vs int literal in float contexts) is fixed in the
+    upstream source, not here.
+    """
+    # 1. Strip any leading comments / blank lines so #version is first.
+    src = _strip_leading_to_version(src)
+
+    # 2. Replace the version directive with the GLES header.
+    src = _VERSION_LINE.sub(GLES_HEADER, src, count=1)
+
+    # 3. Substitute the template tokens that desktop's Shader.cpp would
     #    fill in at runtime via std::regex_replace.
     src = src.replace("SCISSOR_ADJUST", JAK1_SCISSOR_ADJUST)
     src = src.replace("SCISSOR_HEIGHT", JAK1_SCISSOR_HEIGHT)
     src = src.replace("HEIGHT_SCALE", JAK1_HEIGHT_SCALE)
 
-    # 3. Phase 29 (autoport): promote bare integer literals used in `*` /
-    #    `/` arithmetic to float literals. Desktop GLSL (#version 410)
-    #    silently promotes `float * int_literal` to `float * float`;
-    #    GLES 3.20 strict-mode (Adreno) rejects the same expression with
-    #    `wrong operand types ... 'float' ... 'const int'`. Patterns
-    #    affected: `* 32`, `* 16`, `* 64`, `* 2`, `/ 16`, etc. — anywhere
-    #    a vertex shader scales a float coordinate by an int literal.
-    #    We skip integer-only operators (`&`, `|`, `^`, `<<`, `>>`, `%`)
-    #    so bit ops like `gl_VertexID & 1` remain valid. The negative
-    #    lookahead `(?![\d.uU])` keeps `* 1u`, `* 1.5`, `* 100` (when
-    #    immediately followed by another digit, i.e. `* 1000`) intact.
-    # `*`, `/`, `*=`, `/=`, `+=`, `-=` with zero-or-more whitespace
-    # before the int (tight `*2` and roomy `* 2` are equally common in
-    # jak1 shaders). The `+=`/`-=` cases catch lines like
-    # `transformed.z -= 1` in shadow2.vert.
-    src = re.sub(r"(\*=?|/=?|\+=|-=)(\s*)(\d+)(?![\d\.uU])", r"\1\2\3.0", src)
+    # 4. sampler1D → sampler2D, fixup matching texelFetch call sites.
+    src = _rewrite_sampler1d(src)
 
-    # Binary `-` and `+` between a float left-hand and an int literal
-    # right-hand. Two variants: tight (`2.0-1`, `.w-1`) and loose
-    # (`2.0 - 1`, `.w  - 1`). Both must skip unary `-1` in `vec4(-1, …)`,
-    # so we require a non-paren/non-comma/non-space char immediately
-    # before the operator (tight) or before the leading whitespace (loose).
-    src = re.sub(r"(?<=[\w\])])([-+])(\s*)(\d+)(?![\d\.uU])", r"\1\2\3.0", src)
-    src = re.sub(r"([\w\])])(\s+)([-+])(\s*)(\d+)(?![\d\.uU])",
-                 r"\1\2\3\4\5.0", src)
-
-    # `<int>`, `<= <int>`, `> <int>`, `>= <int>` comparisons: most appear
-    # in `coord.x < 0` / `frag.a <= 0` style float predicates. Promote
-    # the literal so GLES strict doesn't reject the comparison.
-    src = re.sub(r"([<>]=?)(\s*)(\d+)(?![\d\.uU])", r"\1\2\3.0", src)
-
-    # Promote bare `<int>` literals that appear as the LEFT operand of a
-    # `-` or `+` (e.g. `255 - position_in.w`), or that appear inside a
-    # negated paren `-(\d+)` or scalar paren `(\d+)`. The lookbehind
-    # restricts us to contexts that originate at an expression boundary
-    # (`=`, `,`, `(`, whitespace) so we don't touch `int idx = 255` etc.
-    src = re.sub(r"(?<=[=,(\s])(\d+)(\s*[-+]\s*)(?=[A-Za-z_(])", r"\1.0\2", src)
-
-    # Numerics inside paren-only scalar expressions like `(8388608)` or
-    # `(256)` used as divisor/subtrahend in float math. We rewrite the
-    # bare integer to a float literal so `transformed.z /= (8388608)`
-    # becomes `... /= (8388608.0)`.
-    src = re.sub(r"\((\d+)\)", r"(\1.0)", src)
-
-    # Assignment-to-float-builtin patterns. `gl_FragDepth = 1;` is
-    # `float = int` which Adreno strict rejects. We patch the two
-    # known-shadowed lvalues; anything else we miss falls back to the
-    # shader's own author writing `.0`.
-    src = re.sub(r"(gl_FragDepth\s*=\s*)(\d+)(?![\d\.uU])", r"\1\2.0", src)
-
-    # 4. gl_FragDepth in GLES 3.x is built in — no extension required.
-    #    No transformation needed; left as a note for future readers.
+    # 5. Drop noperspective qualifier.
+    src = _strip_noperspective(src)
 
     return src
 
@@ -178,7 +278,7 @@ def main(argv: list[str]) -> int:
     # everything into a single header for direct embedding.
     blob_lines = [
         "// Auto-generated by preprocess.py — DO NOT EDIT.",
-        "// Phase 21 (autoport): GLES 3.20 variants of every desktop shader.",
+        "// Phase D2 (autoport): GLES 3.20 variants of every desktop shader.",
         "#pragma once",
         "",
         "#include <string_view>",
