@@ -28,11 +28,11 @@ void main() {
 
   vec3 vert = position_in - cam_trans.xyz;
   vec4 transformed = -pc_camera[3];
-  transformed -= pc_camera[0] * (32768.f * vx - cam_trans.x);
+  transformed -= pc_camera[0] * (32768.f * float(vx) - cam_trans.x);
   transformed -= pc_camera[1] * (position_in - cam_trans.y);
-  transformed -= pc_camera[2] * (32768.f * vz - cam_trans.z);
+  transformed -= pc_camera[2] * (32768.f * float(vz) - cam_trans.z);
 
-  fogginess = 255 - clamp(-transformed.w + hvdf_offset.w, fog_min, fog_max);
+  fogginess = 255.0 - clamp(-transformed.w + hvdf_offset.w, fog_min, fog_max);
 
   // scissoring area adjust
   transformed.y *= SCISSOR_ADJUST * HEIGHT_SCALE;

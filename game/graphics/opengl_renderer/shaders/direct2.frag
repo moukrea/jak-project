@@ -44,8 +44,8 @@ void main() {
   // y is tcc
   // z is decal
 
-  if ((tex_info.y & 1u) == 0) {
-    if ((tex_info.y & 2u) == 0) {
+  if ((tex_info.y & 1u) == 0u) {
+    if ((tex_info.y & 2u) == 0u) {
       // modulate + no tcc
       color.xyz = fragment_color.xyz * T0.xyz;
       color.w = fragment_color.w;
@@ -55,7 +55,7 @@ void main() {
       color.w = fragment_color.w;
     }
   } else {
-    if ((tex_info.y & 2u) == 0) {
+    if ((tex_info.y & 2u) == 0u) {
       // modulate + tcc
       color = fragment_color * T0;
     } else {
@@ -64,12 +64,12 @@ void main() {
       color.w = T0.w;
     }
   }
-  color *= 2;
+  color *= 2.0;
   color.xyz *= color_mult;
   if (color.a < alpha_reject) {
     discard;
   }
-  if ((tex_info.y & 4u) != 0) {
-    color.xyz = mix(color.xyz, fog_color.rgb, clamp(fog_color.a * fog, 0, 1));
+  if ((tex_info.y & 4u) != 0u) {
+    color.xyz = mix(color.xyz, fog_color.rgb, clamp(fog_color.a * fog, 0.0, 1.0));
   }
 }

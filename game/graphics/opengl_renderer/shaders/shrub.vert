@@ -42,7 +42,7 @@ void main() {
   transformed -= pc_camera[2] * vert.z;
 
   // do fog!
-  fogginess = 255 - clamp(-transformed.w + hvdf_offset.w, fog_min, fog_max);
+  fogginess = 255.0 - clamp(-transformed.w + hvdf_offset.w, fog_min, fog_max);
 
   // scissoring area adjust
   transformed.y *= SCISSOR_ADJUST * HEIGHT_SCALE;
@@ -54,12 +54,12 @@ void main() {
   // get the time of day multiplier
   vec4 tod_color = texelFetch(tex_T10, time_of_day_index, 0);
   // combine
-  fragment_color *= tod_color * 4;
+  fragment_color *= tod_color * 4.0;
 
   if (decal == 1) {
     fragment_color.xyz = vec3(1.0, 1.0, 1.0);
   }
 
   tex_coord = tex_coord_in;
-  tex_coord.xy /= 4096;
+  tex_coord.xy /= 4096.0;
 }

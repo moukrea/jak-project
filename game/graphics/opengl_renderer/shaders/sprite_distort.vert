@@ -16,11 +16,11 @@ void main() {
   // correct xy offset
   transformed.xy -= (2048.);
   // correct z scale
-  transformed.z /= (8388608);
-  transformed.z -= 1;
+  transformed.z /= (8388608.0);
+  transformed.z -= 1.0;
   // correct xy scale
-  transformed.x /= (256);
-  transformed.y /= -(128);
+  transformed.x /= (256.0);
+  transformed.y /= -(128.0);
   transformed.y *= HEIGHT_SCALE;
 
   gl_Position = transformed;

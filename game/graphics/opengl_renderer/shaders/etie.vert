@@ -25,7 +25,7 @@ uniform vec4 persp1;
 uniform mat4 cam_no_persp;
 
 void main() {
-  fogginess = 0;
+  fogginess = 0.0;
 
   // rotate the normal
   vec3 nrm_vf23 = cam_no_persp[0].xyz * normal.x
@@ -144,11 +144,11 @@ void main() {
   // correct xy offset
   transformed.xy -= (2048.);
   // correct z scale
-  transformed.z /= (8388608);
-  transformed.z -= 1;
+  transformed.z /= (8388608.0);
+  transformed.z -= 1.0;
   // correct xy scale
-  transformed.x /= (256);
-  transformed.y /= -(128);
+  transformed.x /= (256.0);
+  transformed.y /= -(128.0);
   // hack
   transformed.xyz *= transformed.w;
   // scissoring area adjust
