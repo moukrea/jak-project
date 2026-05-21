@@ -299,11 +299,11 @@ The D3 validator is strict by design. In rough order of strictness:
    asserts `build-android/lib/arm64-v8a/libgk.so` exists, file(1)
    reports it as a 64-bit ARM aarch64 shared object.
 
-10. **libgk.so stripped size ≥ 5 MB.** The previous orchestrator's
-    phase-10 50 KB stub triggered the floor. libgk.so with SDL3 +
-    GOAL kernel + mips2c + overlord stands around 20 MB
-    unstripped; even stripped, the kernel archive plus SDL3 is
-    well above 5 MB.
+10. **libgk.so stripped size ≥ 3 MB.** The phase-12 validator
+    used a 2 MB floor (the anti-50 KB-stub gate); D3 raises it to
+    3 MB so SDL3-static + the wider kernel archive add at least
+    ~1 MB above phase-12's baseline. Unstripped, libgk.so is
+    closer to 30 MB.
 
 11. **libgk.so DT_NEEDED contains the Android graphics chain.**
     `libEGL.so`, `libGLESv3.so`, `liblog.so`, `libandroid.so`,

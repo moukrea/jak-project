@@ -1135,3 +1135,95 @@ C1 produces a real aarch64-linux gk binary at
   old `set(OG_ARM64_STRESS ON CACHE BOOL "" FORCE)` line. Caller must
   now pass one of `-DOG_LINUX_ARM64=ON` / `-DOG_ARM64_STRESS=ON`
   explicitly. Documented in the toolchain comment block.
+
+### [2026-05-21 20:50] D3 authored by orchestrator (supervisor absent)
+
+Same pattern as C1: supervisor session not running, orchestrator's
+claude session authored the D3 prompt + validator (replacing the
+exit-1 placeholders) and then implemented the engineering.
+
+Authoring commit (supervisor-equivalent):
+`fe14acc2a feat(autoport/D3): author real D3 prompt + validator`
+(404-line prompt, 470-line validator).
+
+Engineering follow-up: small surface — sustained-swap counter +
+periodic logcat marker in android_renderer.cpp, JNI bridge in
+gk_android_main.cpp + Java declaration in NativeGk.java, the
+d3_build.sh runner, and the D3-sdl3-surface.md report.
+
+#### Pre-existing breakage cleared during D3
+
+The supervisor rollback on 2026-05-20 left two undefined-reference
+hazards that blocked D3's libgk.so link:
+
+1. `kernel_get_dispatch_heartbeat` was a phase-28 symbol exposed
+   through `Java_org_opengoal_gk_NativeGk_getDispatchHeartbeat`.
+   The rollback deleted the definition (in the removed
+   `game/kernel/common/android_dispatch_signals.cpp`) but left
+   both the JNI function and the matching Java native declaration
+   in place — undefined symbol at link time. Removed in D3's
+   engineering commit: the JNI function in `gk_android_main.cpp`
+   and the `getDispatchHeartbeat()` declaration in
+   `NativeGk.java` both deleted (dead since phase 28 was rolled
+   back).
+
+2. `jak1::InitMachine` / `jak1::KernelCheckAndDispatch` were the
+   "intended honest signals" the rollback documented — strong-
+   symbol calls in `android_runtime_full.cpp` with no Android-side
+   definitions, so the build would fail at link until
+   `game/kernel/jak1/kmachine.cpp` (graphics + discord + sce
+   deps) is wired in. D3 is not the right phase to do that
+   wiring — D3 is purely SDL3 surface bring-up. New TU
+   `android/android_jak1_kernel_stubs.cpp` provides REAL strong-
+   symbol abort-stubs: each function logs a FATAL message to
+   logcat + stderr pointing to this journal entry and calls
+   `std::abort()`. No `__attribute__((weak))`. D4 (or whichever
+   phase wires kmachine.cpp) removes this TU from
+   `android/CMakeLists.txt` in the same commit that adds the
+   real kernel source.
+
+#### Validator design
+
+Headless mode: no physical device (`adb devices` empty), and the
+`opengoal_arm64` AVD has `hw.gpu.enabled=no`. The "eglSwapBuffers
+sustained" claim is therefore verified *structurally*:
+
+- Symbol-table differential: `Android_GLES_SwapWindow`,
+  `Android_GLES_CreateContext`, `Android_GLES_MakeCurrent`,
+  `Android_CreateWindow`, `SDL_EGL_SwapBuffers` (5 of 5) +
+  `Java_org_libsdl_app_SDLActivity_nativeRunMain` and the 4
+  `onNativeSurface*` JNI entries (5 of 5) + the 4 autoport
+  `NativeGk` JNI exports — all required to be defined in
+  `libgk.so`.
+- Function-body-size sanity: `android_renderer_run` measured ≥
+  800 bytes (actual: 1076 bytes after RelWithDebInfo build).
+- Source-shape greps for the sustained-swap loop:
+  `SDL_PollEvent`/`SDL_GL_SwapWindow` inside a `while`,
+  `std::atomic<uint64_t>` frame counter with `fetch_add(1)`,
+  periodic `__android_log_print(... "sustained swap ...")`
+  guarded by `(n % 60 == 0)`, MasterExit + SDL_EVENT_QUIT exit
+  conditions.
+- Anti-cheat greps: no `__attribute__((weak))` introduced since
+  A4, no `kStateSeq`/`weak_jak1_`/etc., no solid-color cheat
+  fragment shaders, codegen + classifier files byte-identical
+  to A4.
+- Cross-phase invariants: C4 + D1 + D2 validators all re-run and
+  exit 0.
+- Desktop smoke: `build-x86/game/gk` still reaches
+  `link finish: logo`.
+- Headline report contains `SDL3` + `SurfaceView` +
+  `eglSwapBuffers`.
+
+22 checks total. PASS observed on the first end-to-end run after
+the two pre-existing-breakage fixes landed.
+
+#### Open follow-ups for D4
+
+- Real device-side sustained-swap evidence (`adb logcat | grep
+  "sustained swap"` over ≥ 10s while the APK is foregrounded).
+- `gradle :app:assembleJak1Debug` produces an APK that contains
+  libgk.so under `lib/arm64-v8a/`, no signing-related failures.
+- Wire `game/kernel/jak1/kmachine.cpp` (or a slim graphics shim
+  layer) so `jak1::InitMachine` and `jak1::KernelCheckAndDispatch`
+  have real bodies and D3's abort-stubs can be removed.
+- Trace-diff vs linux-arm64 oracle through the title milestone.
