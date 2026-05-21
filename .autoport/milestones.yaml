@@ -202,28 +202,11 @@ phases:
     max_turns: 400
     max_retries: 8
 
-  # ---------- Strict redo of the bypassed runtime work (24-31) ----------
-  # Audit of phases 17-23 surfaced that the orchestrator's claude found
-  # ways to satisfy each phase's grep-for-log-string validator without
-  # implementing the underlying work: phase 14 silently used the x86
-  # backend, phase 19's qemu stress was loosened to "document the gap",
-  # phase 20 wrote a hardcoded kStateSeq timer, phase 21 compiled just
-  # one shader, etc. The runtime renders glClear over a stub dispatcher.
-  #
-  # Phases 24-31 redo the work with validators that grep for PHYSICAL
-  # artifacts: disassembled bytes, symbol-body sizes, GOAL VM-internal
-  # counters, framebuffer pixel content, and timing-jitter signatures.
-  # The shared helpers live in .autoport/lib/anti-stub.sh.
-  #
-  # Markers (in order):
-  #   24 → AArch64 emitter audit (synthetic GOAL → real aarch64 disasm)
-  #   25 → jak1 CGOs re-emitted; aarch64-ret density per CGO
-  #   26 → CGOs execute under qemu-aarch64; GOAL VM counters move
-  #   27 → libgk.so ≥15MB stripped; full runtime symbols present
-  #   28 → kStateSeq deleted; real dispatcher heartbeat; timing-jitter
-  #   29 → ≥10 shaders compile; framebuffer pixel diversity ≥50 RGB
-  #   30 → title screen pixels OK; START tap measurably changes screen
-  #   31 → first level state reached; 3D-scene pixel check; 60s alive
+  # ---------- Strict redo of the bypassed runtime work (24-25) ----------
+  # Phases 24-25 produced real partial artifacts (emitter scaffolding +
+  # CGO regen) and stay as the baseline going into bucket A-F.
+  # Phases 26-31 (former cheat-redo lane) were rolled back by the
+  # supervisor on 2026-05-20 and replaced by bucket A-F below.
 
   - id: "24-emitter-audit"
     name: "AArch64 emitter byte-pattern audit on synthetic GOAL source"
@@ -239,47 +222,166 @@ phases:
     max_turns: 400
     max_retries: 10
 
-  - id: "26-cgo-exec-qemu"
-    name: "Execute real jak1 CGOs under qemu-aarch64; GOAL VM counters"
-    prompt: prompts/phase-26-cgo-exec-qemu.md
-    validator: validators/phase-26-cgo-exec-qemu.sh
-    max_turns: 500
-    max_retries: 20
+  # ---------- Bucket A-F per REDESIGN.md §8 (supervisor 2026-05-20) -----
+  # The previous 26-31 sequence was removed by the supervisor rollback.
+  # Phases 28-31 were cheats (kStateSeq relocated, fake renderer chain,
+  # fake input transitions). Phases 26-27 had partial-real binary
+  # linking work that's preserved in tree; bucket A-F revalidates it.
+  #
+  # Validators in this section should use trace-diff against the
+  # desktop oracle at .autoport/oracle/jak1-desktop-trace.txt rather
+  # than greping for invented log strings. Phase prompts should inject
+  # the relevant oracle excerpt as ground truth for the milestone
+  # being reproduced.
+  #
+  # Per the supervisor design (.autoport/SUPERVISOR_PROMPT.md), every
+  # phase's prompt + validator under this block is currently a
+  # placeholder that exits 1 with "supervisor must author this phase".
+  # The supervisor authors each one as the orchestrator approaches it,
+  # so the orchestrator's stuck-detection halts cleanly rather than
+  # the orchestrator passing fictitious validators.
 
-  - id: "27-runtime-port"
-    name: "Cross-build full game/ runtime into libgk.so (15+ MB)"
-    prompt: prompts/phase-27-runtime-port.md
-    validator: validators/phase-27-runtime-port.sh
-    max_turns: 800
-    max_retries: 25
+  # === Bucket A — AArch64 emitter completion ===
+  # The current emitter has 41 IR paths. Full coverage needs every
+  # IR_* form jak1 uses. The single biggest engineering chunk.
 
-  - id: "28-dispatcher-real"
-    name: "Delete kStateSeq stub; wire real KernelCheckAndDispatch"
-    prompt: prompts/phase-28-dispatcher-real.md
-    validator: validators/phase-28-dispatcher-real.sh
-    max_turns: 500
-    max_retries: 20
+  - id: "A1-emitter-enumerate"
+    name: "Enumerate every IR form used by jak1 source"
+    prompt: prompts/phase-A1-emitter-enumerate.md
+    validator: validators/phase-A1-emitter-enumerate.sh
+    max_turns: 200
+    max_retries: 5
 
-  - id: "29-renderer-real"
-    name: "Real renderer chain: tfrag/tie/sprite/sky/merc/generic"
-    prompt: prompts/phase-29-renderer-real.md
-    validator: validators/phase-29-renderer-real.sh
-    max_turns: 800
-    max_retries: 25
+  - id: "A2-emitter-implement"
+    name: "Implement aarch64 codegen for every IR cluster"
+    prompt: prompts/phase-A2-emitter-implement.md
+    validator: validators/phase-A2-emitter-implement.sh
+    max_turns: 1200
+    max_retries: 30
 
-  - id: "30-title-screen"
-    name: "Title screen visible + reacts to input"
-    prompt: prompts/phase-30-title-screen.md
-    validator: validators/phase-30-title-screen.sh
-    max_turns: 400
-    max_retries: 15
-
-  - id: "31-playable"
-    name: "First playable level (Geyser Rock) reached"
-    prompt: prompts/phase-31-playable.md
-    validator: validators/phase-31-playable.sh
+  - id: "A3-emitter-differential"
+    name: "Per-IR-form differential: aarch64 disasm + qemu execute == x86 result"
+    prompt: prompts/phase-A3-emitter-differential.md
+    validator: validators/phase-A3-emitter-differential.sh
     max_turns: 600
     max_retries: 15
+
+  # === Bucket B — CGO regen with full emitter ===
+
+  - id: "B1-cgo-regen-strict"
+    name: "Re-emit jak1 CGOs with the now-complete emitter; structural check"
+    prompt: prompts/phase-B1-cgo-regen-strict.md
+    validator: validators/phase-B1-cgo-regen-strict.sh
+    max_turns: 400
+    max_retries: 10
+
+  - id: "B2-cgo-qemu-stress"
+    name: "Decode-stress all jak1 CGOs under qemu-aarch64; no SIGILL/SIGSEGV"
+    prompt: prompts/phase-B2-cgo-qemu-stress.md
+    validator: validators/phase-B2-cgo-qemu-stress.sh
+    max_turns: 500
+    max_retries: 15
+
+  # === Bucket C — Linux-arm64 first (skip Android-specific surface) ===
+  # If gk runs to title on Linux arm64 under qemu, only the
+  # Bionic+W^X+GLES diff to Android remains.
+
+  - id: "C1-linux-arm64-config"
+    name: "Configure build-arm64-linux with cross-toolchain; gk builds"
+    prompt: prompts/phase-C1-linux-arm64-config.md
+    validator: validators/phase-C1-linux-arm64-config.sh
+    max_turns: 400
+    max_retries: 12
+
+  - id: "C2-linux-arm64-symbols"
+    name: "Resolve glibc + dynamic symbol issues so gk dlopens cleanly"
+    prompt: prompts/phase-C2-linux-arm64-symbols.md
+    validator: validators/phase-C2-linux-arm64-symbols.sh
+    max_turns: 500
+    max_retries: 15
+
+  - id: "C3-linux-arm64-title"
+    name: "Reach title under qemu-aarch64; trace-diff matches oracle through title milestone"
+    prompt: prompts/phase-C3-linux-arm64-title.md
+    validator: validators/phase-C3-linux-arm64-title.sh
+    max_turns: 800
+    max_retries: 25
+
+  # === Bucket D — Android port (Bionic + W^X + GLES + SurfaceView) ===
+
+  - id: "D1-android-bionic-shims"
+    name: "Bionic shims: every glibc symbol gk uses has a real Bionic implementation or wrapper"
+    prompt: prompts/phase-D1-android-bionic-shims.md
+    validator: validators/phase-D1-android-bionic-shims.sh
+    max_turns: 600
+    max_retries: 20
+
+  - id: "D2-android-gles-shaders"
+    name: "Real GLES shader port: every upstream shader translated and compiles"
+    prompt: prompts/phase-D2-android-gles-shaders.md
+    validator: validators/phase-D2-android-gles-shaders.sh
+    max_turns: 600
+    max_retries: 20
+
+  - id: "D3-android-sdl3-surface"
+    name: "SDL3 Android driver wired to MainActivity's SurfaceView; eglSwapBuffers sustained"
+    prompt: prompts/phase-D3-android-sdl3-surface.md
+    validator: validators/phase-D3-android-sdl3-surface.sh
+    max_turns: 500
+    max_retries: 15
+
+  - id: "D4-android-apk-title"
+    name: "APK reaches title on device; trace-diff matches Linux-arm64 build through title milestone"
+    prompt: prompts/phase-D4-android-apk-title.md
+    validator: validators/phase-D4-android-apk-title.sh
+    max_turns: 600
+    max_retries: 20
+
+  # === Bucket E — UX corrections (landscape, gamepad, save/load) ===
+
+  - id: "E1-ux-landscape-gamepad"
+    name: "Landscape rendering correct; Bluetooth gamepad routes through SDL_OpenGamepad into GOAL"
+    prompt: prompts/phase-E1-ux-landscape-gamepad.md
+    validator: validators/phase-E1-ux-landscape-gamepad.sh
+    max_turns: 400
+    max_retries: 10
+
+  - id: "E2-ux-touch-overlay-optional"
+    name: "Optional on-screen PS2-button overlay behind settings flag"
+    prompt: prompts/phase-E2-ux-touch-overlay-optional.md
+    validator: validators/phase-E2-ux-touch-overlay-optional.sh
+    max_turns: 400
+    max_retries: 10
+
+  - id: "E3-ux-save-load"
+    name: "Save/load works on Android (kmemcard cross-compiles; filesDir-backed)"
+    prompt: prompts/phase-E3-ux-save-load.md
+    validator: validators/phase-E3-ux-save-load.sh
+    max_turns: 400
+    max_retries: 10
+
+  # === Bucket F — Stretch (Geyser Rock playable, audio, 30 FPS) ===
+
+  - id: "F1-gameplay-geyser-rock"
+    name: "First playable level (Geyser Rock) reached and navigable; physics + collision real"
+    prompt: prompts/phase-F1-gameplay-geyser-rock.md
+    validator: validators/phase-F1-gameplay-geyser-rock.sh
+    max_turns: 800
+    max_retries: 20
+
+  - id: "F2-gameplay-audio"
+    name: "Audio works on Android (AAudio/OpenSL output, ssound RPC, music + SFX)"
+    prompt: prompts/phase-F2-gameplay-audio.md
+    validator: validators/phase-F2-gameplay-audio.sh
+    max_turns: 500
+    max_retries: 15
+
+  - id: "F3-gameplay-30fps"
+    name: "30 FPS sustained on the Redmi Note 9 Pro for 60s of gameplay"
+    prompt: prompts/phase-F3-gameplay-30fps.md
+    validator: validators/phase-F3-gameplay-30fps.sh
+    max_turns: 600
+    max_retries: 20
 
 global:
   git:
