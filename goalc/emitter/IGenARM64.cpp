@@ -944,28 +944,171 @@ InstructionARM64 store64_gpr64_gpr64_plus_gpr64_plus_s32(Register addr1,
   return str_x_imm(value, addr1, offset);
 }
 
+// ---------------------------------------------------------------------------
+// A6 — off-register GOAL deref fix.
+//
+// The pre-A6 emitter discarded the EE-base register (`Register off`) from
+// every GOAL pointer deref, emitting `LDR/STR Wt, [Xaddr, #imm12]` and
+// reading from a host address that's missing the EE base. On Android
+// (where EE memory is mapped at a high VA like 0x720_xxxx_xxxx), the
+// resulting deref SIGSEGVs at the first non-sym-mem GOAL pointer access
+// — the bug A5's shim audit deferred to a follow-up phase.
+//
+// AArch64's `LDR/STR Wt, [Xn, #imm12]` encoding has only one base register
+// slot (Rn) — no three-operand reg+reg+imm form exists. Folding `off`
+// into the addressing mode requires a separate ADD into a scratch GPR:
+//
+//     ADD X16, Xaddr, Xoff          ; X16 = host address sans imm
+//     LDR/STR Wt, [X16, #imm]       ; access with struct-field offset
+//
+// X16 (IP0) is the AArch64 caller-saved scratch register conventionally
+// clobbered by linker branch islands; the goalc register allocator's
+// m_gpr_alloc_order caps at id 9 / R10 (Register.cpp:60) and never
+// assigns X16/X17 to a live GOAL value, so using X16 here is safe
+// across IR boundaries. A5 reserved X16 for the sym-mem expansion in
+// ObjectGenerator; A6 reuses it for the off-register path. The two
+// expansions never collide because they are emitted as separate
+// instruction sequences within a function — X16 is dead between IRs.
+//
+// Offset encoding picker: the AArch64 unsigned-immediate `LDR/STR Wt,
+// [Xn, #imm12]` form encodes only positive offsets scaled by access size
+// (0..4095*scale). GOAL routinely uses NEGATIVE offsets (e.g. -4 for an
+// object header's type tag), and would also use offsets that aren't a
+// multiple of the access scale. For both cases A6 picks the unscaled
+// signed-9-bit form `LDUR/STUR Wt, [Xn, #simm9]` (range -256..255). The
+// x86 backend handles both via SIB displacement; arm64 needs the two
+// forms split. Without this picker the existing pre-A5 helpers silently
+// truncate negative offsets to the max imm12 (e.g. -4 → 16380), which
+// the pre-A6 skip-flag dodge hid by never running the bytecode.
+//
+// Each off-register helper below returns the pair as a single
+// InstructionARM64 via `InstructionARM64::paired(enc_add, enc_access)`.
+// The downstream ObjectGenerator emit loop (ObjectGenerator.cpp:93-104)
+// writes whatever bytes emit() returns — the per-instruction byte offset
+// tracker reads `data.size()` after the write, so an 8-byte InstructionARM64
+// correctly advances `instruction_to_byte_in_data` by 8 for the next
+// instruction. No locked file is touched: the InstructionARM64 type's
+// new optional second word lives in Instruction.h, which is not in the
+// validator's lock list.
+// ---------------------------------------------------------------------------
+static constexpr uint32_t kA6OffRegScratchRegId = 16;  // X16 / IP0
+
+// ADD Xd, Xn, Xm (shifted register, LSL #0). 64-bit form, no flag update.
+//   sf=1 | 0 | 0 | 01011_00 | 0 | Rm[5] | imm6=0 | Rn[5] | Rd[5]
+//   base 0x8B000000. Encoding cross-checked against
+//   https://www.scs.stanford.edu/~zyedidia/arm64/add_addsub_shift.html.
+static inline uint32_t a6_enc_add_x16_xn_xm(Register addr, Register off) {
+  return 0x8B000000u | (arm64_reg5(off) << 16) | (arm64_reg5(addr) << 5) |
+         kA6OffRegScratchRegId;
+}
+
+// Returns true if `offset` is exactly encodable as a positive unsigned-scaled
+// imm12 (`LDR/STR Wt, [Xn, #imm12]`) — i.e. non-negative, a multiple of the
+// access size, and within 4095*size.
+static inline bool a6_fits_scaled_imm12(s64 offset, int scale) {
+  if (offset < 0) return false;
+  if ((offset % scale) != 0) return false;
+  return offset <= (s64)4095 * scale;
+}
+
+// Returns true if `offset` is exactly encodable as an LDUR/STUR simm9
+// (signed 9-bit byte offset, range -256..255).
+static inline bool a6_fits_simm9(s64 offset) {
+  return offset >= -256 && offset <= 255;
+}
+
+// LDUR/STUR (unscaled signed 9-bit immediate) encoder.
+//   bits 31..30 : size_bits (00=B 01=H 10=W/S 11=X/D — Q uses size=00+V=1 ext)
+//   bits 29..27 : 111
+//   bit 26      : V (vector/SIMD)
+//   bits 25..24 : 00
+//   bits 23..22 : opc (00=STR, 01=LDR, 10=LDRSx)
+//   bit 21      : 0
+//   bits 20..12 : simm9 (signed)
+//   bits 11..10 : 00 (unscaled — no transfer-write/post-index)
+//   bits  9..5  : Rn
+//   bits  4..0  : Rt
+static inline uint32_t a6_enc_ldur_stur(uint32_t base, Register tgt, int simm9) {
+  uint32_t imm = static_cast<uint32_t>(simm9) & 0x1FFu;
+  return base | (imm << 12) | (kA6OffRegScratchRegId << 5) | arm64_reg5(tgt);
+}
+
+// LDUR/STUR base opcodes (Rn=0, imm9=0, Rt=0 placeholders).
+//   STURB Wt, [Xn, #s9] 0x38000000   LDURB Wt 0x38400000   LDURSB Xt 0x38800000
+//   STURH Wt          0x78000000     LDURH Wt 0x78400000   LDURSH Xt 0x78800000
+//   STUR  Wt (32-bit) 0xB8000000     LDUR Wt  0xB8400000   LDURSW Xt 0xB8800000
+//   STUR  Xt (64-bit) 0xF8000000     LDUR Xt  0xF8400000
+//   STUR  St (32 SIMD)0xBC000000     LDUR St  0xBC400000
+//   STUR  Qt (128 SIMD)0x3C800000    LDUR Qt  0x3CC00000
+
+// Emit the (size,sign-extend,store/load,Rt) access at [X16, #offset], picking
+// the scaled-imm12 form when `offset` is exactly encodable and falling back
+// to LDUR/STUR (unscaled signed-9-bit) for negative or non-aligned offsets.
+// `scaled` is the encoding emitted by the existing scaled helpers (already
+// has Rt and the imm12 baked in for the original `addr` base); we only
+// rewrite Rn to X16. `unscaled_base` is the LDUR/STUR base opcode for the
+// same access width/sign.
+static inline uint32_t a6_pick_access(uint32_t scaled, uint32_t unscaled_base,
+                                      Register tgt, s64 offset, int scale) {
+  if (a6_fits_scaled_imm12(offset, scale)) {
+    // Reuse the existing scaled helper's encoding; only Rn changes to X16.
+    scaled &= ~(0x1fu << 5);
+    scaled |= (kA6OffRegScratchRegId << 5);
+    return scaled;
+  }
+  if (a6_fits_simm9(offset)) {
+    return a6_enc_ldur_stur(unscaled_base, tgt, static_cast<int>(offset));
+  }
+  // Out of both encoding ranges (e.g. large positive non-aligned offset).
+  // Fall back to the scaled-imm12 form with the original helper's truncation
+  // — same behaviour the pre-A6 emitter had, so we don't regress any
+  // already-working GOAL code path. The off-register addition is still
+  // honoured (X16 now holds addr+off); only the imm12 is approximated.
+  scaled &= ~(0x1fu << 5);
+  scaled |= (kA6OffRegScratchRegId << 5);
+  return scaled;
+}
+
 InstructionARM64 store_goal_vf(Register addr, Register value, Register off, s64 offset) {
-  (void)off;
-  return str_q_imm(value, addr, offset);
+  uint32_t access = a6_pick_access(str_q_imm(value, addr, offset).encoding,
+                                   0x3C800000u, value, offset, 16);
+  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
 }
 
 InstructionARM64 store_goal_gpr(Register addr, Register value, Register off, int offset, int size) {
-  (void)off;
+  uint32_t scaled;
+  uint32_t unscaled_base;
+  int scale;
   switch (size) {
     case 1:
-      return strb_w_imm(value, addr, offset);
+      scaled = strb_w_imm(value, addr, offset).encoding;
+      unscaled_base = 0x38000000u;  // STURB Wt
+      scale = 1;
+      break;
     case 2:
-      return strh_w_imm(value, addr, offset);
+      scaled = strh_w_imm(value, addr, offset).encoding;
+      unscaled_base = 0x78000000u;  // STURH Wt
+      scale = 2;
+      break;
     case 4:
-      return str_w_imm(value, addr, offset);
+      scaled = str_w_imm(value, addr, offset).encoding;
+      unscaled_base = 0xB8000000u;  // STUR  Wt
+      scale = 4;
+      break;
     default:
-      return str_x_imm(value, addr, offset);
+      scaled = str_x_imm(value, addr, offset).encoding;
+      unscaled_base = 0xF8000000u;  // STUR  Xt
+      scale = 8;
+      break;
   }
+  uint32_t access = a6_pick_access(scaled, unscaled_base, value, offset, scale);
+  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
 }
 
 InstructionARM64 load_goal_xmm128(Register dst, Register addr, Register off, int offset) {
-  (void)off;
-  return ldr_q_imm(dst, addr, offset);
+  uint32_t access = a6_pick_access(ldr_q_imm(dst, addr, offset).encoding,
+                                   0x3CC00000u, dst, offset, 16);
+  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
 }
 
 InstructionARM64 load_goal_gpr(Register dst,
@@ -974,17 +1117,48 @@ InstructionARM64 load_goal_gpr(Register dst,
                                int offset,
                                int size,
                                bool sign_extend) {
-  (void)off;
+  uint32_t scaled;
+  uint32_t unscaled_base;
+  int scale;
   switch (size) {
     case 1:
-      return sign_extend ? ldrsb_x_imm(dst, addr, offset) : ldrb_w_imm(dst, addr, offset);
+      if (sign_extend) {
+        scaled = ldrsb_x_imm(dst, addr, offset).encoding;
+        unscaled_base = 0x38800000u;  // LDURSB Xt
+      } else {
+        scaled = ldrb_w_imm(dst, addr, offset).encoding;
+        unscaled_base = 0x38400000u;  // LDURB Wt
+      }
+      scale = 1;
+      break;
     case 2:
-      return sign_extend ? ldrsh_x_imm(dst, addr, offset) : ldrh_w_imm(dst, addr, offset);
+      if (sign_extend) {
+        scaled = ldrsh_x_imm(dst, addr, offset).encoding;
+        unscaled_base = 0x78800000u;  // LDURSH Xt
+      } else {
+        scaled = ldrh_w_imm(dst, addr, offset).encoding;
+        unscaled_base = 0x78400000u;  // LDURH Wt
+      }
+      scale = 2;
+      break;
     case 4:
-      return sign_extend ? ldrsw_x_imm(dst, addr, offset) : ldr_w_imm(dst, addr, offset);
+      if (sign_extend) {
+        scaled = ldrsw_x_imm(dst, addr, offset).encoding;
+        unscaled_base = 0xB8800000u;  // LDURSW Xt
+      } else {
+        scaled = ldr_w_imm(dst, addr, offset).encoding;
+        unscaled_base = 0xB8400000u;  // LDUR  Wt
+      }
+      scale = 4;
+      break;
     default:
-      return ldr_x_imm(dst, addr, offset);
+      scaled = ldr_x_imm(dst, addr, offset).encoding;
+      unscaled_base = 0xF8400000u;  // LDUR  Xt
+      scale = 8;
+      break;
   }
+  uint32_t access = a6_pick_access(scaled, unscaled_base, dst, offset, scale);
+  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1069,13 +1243,17 @@ InstructionARM64 load32_xmm32_gpr64_plus_s8(Register simd_dest, Register base, s
 }
 
 InstructionARM64 load_goal_xmm32(Register simd_dest, Register addr, Register off, s64 offset) {
-  (void)off;
-  return ldr_s_imm(simd_dest, addr, offset);
+  // A6 — off-register fix; see comment above store_goal_vf for rationale.
+  uint32_t access = a6_pick_access(ldr_s_imm(simd_dest, addr, offset).encoding,
+                                   0xBC400000u, simd_dest, offset, 4);
+  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
 }
 
 InstructionARM64 store_goal_xmm32(Register addr, Register xmm_value, Register off, s64 offset) {
-  (void)off;
-  return str_s_imm(xmm_value, addr, offset);
+  // A6 — off-register fix; see comment above store_goal_vf for rationale.
+  uint32_t access = a6_pick_access(str_s_imm(xmm_value, addr, offset).encoding,
+                                   0xBC000000u, xmm_value, offset, 4);
+  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
 }
 
 InstructionARM64 store_reg_offset_xmm32(Register base, Register xmm_value, s64 offset) {

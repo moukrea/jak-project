@@ -1,6 +1,6 @@
 # Phase F1 — Geyser Rock gameplay launch report
 
-_Generated: 2026-05-22T05:15:48+02:00_
+_Generated: 2026-05-22T06:16:20+02:00_
 
 ## Determination
 
@@ -8,7 +8,7 @@ _Generated: 2026-05-22T05:15:48+02:00_
 
 ## Artefacts
 
-- boot log:    `.autoport/reports/F1-boot.log` (3898 lines)
+- boot log:    `.autoport/reports/F1-boot.log` (3862 lines)
 - screencap:   `.autoport/reports/F1-screencap-frame-600.png` (66542 bytes)
 - state dump:  NOT PRODUCED — JNI hook depends on dispatcher (see F1-blocker-analysis.md)
 
@@ -25,7 +25,7 @@ Counts from `.autoport/reports/F1-boot.log`:
   link finish: gstate                           1
   link finish: logo                             4
   android_renderer_run: entered                 1
-  android_renderer: sustained swap              42
+  android_renderer: sustained swap              46
   KernelCheckAndDispatch: skip-flag armed       1
   KernelCheckAndDispatch: jak1 dispatcher returned 0
   Displaying level                              0

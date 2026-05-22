@@ -1,1 +1,1 @@
-pass: 
+partial: App started but renderer never entered (likely stuck before InitMachine returned).

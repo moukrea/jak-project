@@ -66,7 +66,6 @@
 #include "game/kernel/jak1/kdgo.h"
 
 extern int g_server_port;
-extern "C" u32 g_android_skip_goal_call;
 
 #include "game/overlord/common/iso.h"
 #include "game/overlord/common/fake_iso.h"
@@ -221,33 +220,6 @@ int InitMachine() {
                       "InitMachine: Deci2Server registered (port=%d, no listener)",
                       g_server_port);
 
-  // Phase A5 (autoport): A5's emitter unlock closed C4's 691-NOP gap
-  // (sym-mem accesses now expand to ADRP+ADD+LDR/STR via X16, never
-  // overflowing imm12), so the linker-level imm12 bug is gone. BUT the
-  // first attempt at A5 device validation surfaced a SECOND, distinct
-  // arm64 emitter bug — see .autoport/reports/A5-shim-audit.md and the
-  // Step 6.6 KEEP entry there — where the GOAL pointer dereference
-  // helpers `load_goal_gpr`/`store_goal_gpr`/`load_goal_xmm32` /
-  // `load_goal_xmm128` / `store_goal_xmm32` / `store_goal_vf` in
-  // `goalc/emitter/IGenARM64.cpp` silently ignore the EE-offset register
-  // (`Register off` parameter, `(void)off;`). On x86 the equivalent
-  // helpers fold off into the SIB byte; on arm64 the offset is dropped,
-  // so the emitted `LDR/STR Wt, [Xbase, #imm12]` resolves the address
-  // without adding the EE base. With EE memory mapped at a high VA
-  // (0x720…) on Android, that produces a SIGSEGV on the first dereference
-  // of any loaded GOAL pointer — exactly what we saw in the pre-restore
-  // D4 boot log (fault addr 0x17fd34, x9=0x17fd24 zero-extended from a
-  // 32-bit Wt load that should have been an X-form add+load against x15).
-  // A5's narrow unlock fixed one of the two outstanding arm64 emitter
-  // bugs; the second one is documented for a follow-up phase, and the
-  // D4-era skip-flag dodge stays armed until then.
-  g_android_skip_goal_call = 1;
-  __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "InitMachine: g_android_skip_goal_call=1 — A5 closed the "
-                      "imm12-overflow NOP gap, but the goalc-arm64 off-register "
-                      "bug in load_goal_gpr/store_goal_gpr still drops the EE "
-                      "base from GOAL pointer derefs (see A5-shim-audit.md)");
-
   // Step 7: prime the gfx dispatcher tick counter so the renderer sees a
   // monotonic frame index from the first vblank.
   extern void gfx_dispatcher();
@@ -264,67 +236,16 @@ int InitMachine() {
   int rc = jak1::InitMachine();
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "InitMachine: jak1::InitMachine returned %d", rc);
-
-  // Phase E1 (autoport): the GOAL `play` function is what loads
-  // title-vis (TIT.DGO) on desktop — it's the source of every
-  // `link finish: logo` / `logo-black` / `logo-cam` event the E1
-  // trace-diff anchors on. With the arm64 call_goal skip-flag armed,
-  // `play` runs as a no-op so TIT.DGO never loads from the GOAL side.
-  // We mirror what `play` would have done by calling
-  // load_and_link_dgo_from_c("TIT", ...) directly from C++ here. Each
-  // CGO object inside TIT links cleanly (its top-level call_goal is
-  // skip-flagged the same way, so the link emits the marker but
-  // doesn't execute), and the trace reaches the
-  // `link finish: logo` milestone the validator requires.
-  if (rc == 0 && g_android_skip_goal_call) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "InitMachine: loading TIT.DGO from C++ "
-                        "(mirrors GOAL `play` → title-vis load; "
-                        "skip-flag prevents play from doing it itself)");
-    // Pass the file name with explicit `.DGO` extension. load_and_link_dgo_from_c
-    // defaults to `.CGO` when no extension is present (see jak1/kdgo.cpp:152),
-    // and the title pack on disk is TIT.DGO (the engine pack — GAME.CGO — is
-    // the one without the D-prefix).
-    jak1::load_and_link_dgo_from_c(
-        "TIT.DGO", kglobalheap,
-        LINK_FLAG_OUTPUT_LOAD | LINK_FLAG_EXECUTE | LINK_FLAG_PRINT_LOGIN,
-        0x400000, true);
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "InitMachine: TIT.DGO load complete");
-  }
   return rc;
 }
 
 // ---------------------------------------------------------------------------
-// KernelCheckAndDispatch — top-level wrapper. Forwards into jak1's
-// upstream dispatcher *unless* the Android skip-flag is set, in which
-// case the jak1 dispatcher would immediately abort on
-// `ListenerFunction->value` (the symbol is never populated because the
-// GOAL kernel top-level was skipped by the asm trampoline). The
-// skip-flag branch stays in until the goalc-arm64 off-register bug is
-// fixed (see InitMachine above and A5-shim-audit.md).
+// KernelCheckAndDispatch — top-level wrapper. Forwards directly into the
+// upstream jak1 dispatcher; the A6 off-register emitter fix makes the
+// underlying GOAL execution path honest, so the D4-era passive sleep
+// branch is gone.
 // ---------------------------------------------------------------------------
-// SHIM_KIND: PLATFORM_FEATURE
-// Why: free-function entry point matching the validator's spelling.
-// Routes around jak1::KernelCheckAndDispatch when call_goal is
-// skip-flagged on arm64 (the upstream dispatcher derefs a
-// ListenerFunction that the kernel top-level was supposed to set up).
 void KernelCheckAndDispatch() {
-  if (g_android_skip_goal_call) {
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "KernelCheckAndDispatch: skip-flag armed — entering "
-                        "passive sleep loop instead of jak1 dispatcher "
-                        "(ListenerFunction would assert without a running "
-                        "GOAL kernel; see A5-shim-audit.md for the "
-                        "off-register emitter bug)");
-    while (MasterExit == RuntimeExitStatus::RUNNING) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }
-    __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "KernelCheckAndDispatch: passive loop exiting "
-                        "(MasterExit=%d)", (int)MasterExit);
-    return;
-  }
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "KernelCheckAndDispatch: delegating to jak1");
   jak1::KernelCheckAndDispatch();
