@@ -600,7 +600,7 @@ inline uint32_t arm64_mov_x_x(unsigned rd, unsigned rm) {
 
 Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
   // 0x80 bytes matches the win32 variant's allocation; the longest emitted
-  // sequence is 13-14 instructions (52-56 bytes), so 128 is generous headroom.
+  // sequence is ~24 instructions (96 bytes), so 128 is the budget.
   auto mem = Ptr<u8>(alloc_heap_object(s7.offset + FIX_SYM_GLOBAL_HEAP,
                                        *(s7 + FIX_SYM_FUNCTION_TYPE), 0x80, UNKNOWN_PP));
   const uint64_t target = reinterpret_cast<uint64_t>(func);
@@ -611,19 +611,90 @@ Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
     off += 4;
   };
 
-  // stp x29, x30, [sp, #-16]!   ; save FP/LR
+  // stp x29, x30, [sp, #-16]!   ; save FP/LR back to GOAL caller
   emit(arm64_stp_x_preindex(29, 30, 31, -16));
   // stp x13, x14, [sp, #-16]!   ; save R13 (pp), R14 (sym-table host)
   emit(arm64_stp_x_preindex(13, 14, 31, -16));
   // str x15, [sp, #-16]!        ; save R15 (EE base)
   emit(arm64_str_x_preindex(15, 31, -16));
 
+  // A6 (autoport) — GOAL→C arg shuffle.
+  //
+  // goalc's m_gpr_arg_regs in goalc/emitter/Register.cpp is the x86 SystemV
+  // ABI register order, expressed in the shared `Register` enum:
+  //   arg0=RDI(7)  arg1=RSI(6)  arg2=RDX(2)  arg3=RCX(1)
+  //   arg4=R8(8)   arg5=R9(9)   arg6=R10(10) arg7=R11(11)
+  //
+  // On x86 those enum IDs ARE the SystemV arg registers. On arm64 the same
+  // IDs map directly to physical X registers (arm64_reg5(R) = R.id() & 0x1f),
+  // so goalc-emitted GOAL bytecode passes:
+  //   arg0 in X7, arg1 in X6, arg2 in X2, arg3 in X1,
+  //   arg4 in X8, arg5 in X9, arg6 in X10, arg7 in X11.
+  //
+  // The actual C function (compiled by the platform's C++ compiler against
+  // AAPCS64) expects:
+  //   arg0 in X0, arg1 in X1, arg2 in X2, arg3 in X3,
+  //   arg4 in X4, arg5 in X5, arg6 in X6, arg7 in X7.
+  //
+  // The trampoline shuffles GOAL → AAPCS64. The mapping has overlaps
+  // (notably arg7 lands in X11 in GOAL but X7 in AAPCS, and arg0 lands in X7
+  // in GOAL but X0 in AAPCS), so we use a free scratch (X12 — caller-saved,
+  // and goalc's regalloc caps at id 9 so X12 is never live as a GOAL value
+  // here) to stash arg7 before the X7 source gets overwritten.
+  //
+  //   X12  ← X11      (arg7 stash; preserves arg7 before X11 is overwritten)
+  //   X11  ← X9       (arg5 src is X9, but arg5's AAPCS dest is X5;
+  //                    we use the AAPCS slots below; X11 isn't used as a
+  //                    SysV-V dest, so this move is unnecessary — leave it
+  //                    out and just use X12 directly below)
+  //
+  // Concretely:
+  //   X3   ← X1   (GOAL arg3 → AAPCS arg3, but X1's also where arg3 came
+  //                from; do X3 first since X1 is its source)
+  //   X5   ← X9   (GOAL arg5)
+  //   X4   ← X8   (GOAL arg4)
+  //   ... etc.
+  //
+  // Source-X then destination-X mapping (GOAL_src → AAPCS_dst):
+  //   X7 → X0,  X6 → X1,  X2 → X2 (no-op),  X1 → X3,
+  //   X8 → X4,  X9 → X5,  X10 → X6, X11 → X7.
+  //
+  // The dependency cycle (where a dst is also a src) requires ordering. The
+  // pairs that conflict:
+  //   X7→X0, X6→X1, X1→X3 → ordering: do X1→X3 first (preserves X1's old
+  //   value into X3), then X6→X1 (overwrites X1 with X6's old value), then
+  //   X7→X0 (X7 untouched so far).
+  //   X8→X4, X9→X5, X10→X6, X11→X7: X11→X7 needs X7's old value gone first
+  //   — but we just used X7 as a source above, so we already MOVed it to
+  //   X0 and X7 is "free". So do X7→X0 BEFORE X11→X7. Same for X6: do
+  //   X10→X6 AFTER X6→X1.
+  //
+  // Final order (no cycles):
+  //   1.  X3  ← X1   (arg3)
+  //   2.  X1  ← X6   (arg1)
+  //   3.  X0  ← X7   (arg0)
+  //   4.  X6  ← X10  (arg6) — must follow #2
+  //   5.  X5  ← X9   (arg5)
+  //   6.  X4  ← X8   (arg4)
+  //   7.  X7  ← X11  (arg7) — must follow #3
+  //   (arg2 already in X2 — no move.)
+  emit(arm64_mov_x_x(3, 1));    // X3 ← X1 (arg3)
+  emit(arm64_mov_x_x(1, 6));    // X1 ← X6 (arg1)
+  emit(arm64_mov_x_x(0, 7));    // X0 ← X7 (arg0)
+  emit(arm64_mov_x_x(6, 10));   // X6 ← X10 (arg6)
+  emit(arm64_mov_x_x(5, 9));    // X5 ← X9 (arg5)
+  emit(arm64_mov_x_x(4, 8));    // X4 ← X8 (arg4)
+  emit(arm64_mov_x_x(7, 11));   // X7 ← X11 (arg7)
+
   if (arg3_is_pp) {
-    // mov x2, x13   ; mirror x86's "mov rcx, r13" — pp into the 3rd C arg.
-    emit(arm64_mov_x_x(2, 13));
+    // The original x86 trampoline emits `mov rcx, r13` (= MOV arg3-reg
+    // RCX, R13) so pp lands in the C function's 3rd arg slot. After the
+    // shuffle above, arg3 is in X3 (AAPCS); we mirror by overwriting X3
+    // with X13 (pp), matching the x86 semantics.
+    emit(arm64_mov_x_x(3, 13));
   }
 
-  // movz x16, #(target & 0xFFFF)
+  // movz/movk x16, target
   emit(arm64_movz_x(16, static_cast<uint16_t>(target & 0xFFFFu), 0));
   emit(arm64_movk_x(16, static_cast<uint16_t>((target >> 16) & 0xFFFFu), 1));
   emit(arm64_movk_x(16, static_cast<uint16_t>((target >> 32) & 0xFFFFu), 2));
