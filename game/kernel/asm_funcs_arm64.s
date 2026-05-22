@@ -172,18 +172,6 @@ _mips2c_call_arm64:
 _call_goal_asm_arm64:
   stp	x29, x30, [sp, #-16]!
   mov	x29, sp
-  ;; Phase D4 (autoport): runtime skip for the GOAL bytecode call.
-  ;; On Android the R14/R15 cross-call ABI gap (documented in
-  ;; SUPERVISOR_JOURNAL.md) reliably crashes inside the GOAL top-level
-  ;; execution. The flag g_android_skip_goal_call is set to 1 by our
-  ;; Android InitMachine wrapper to short-circuit before `blr x3`,
-  ;; returning 0 so the surrounding link-and-exec loop in klink.cpp
-  ;; proceeds to the next CGO object without crashing. linux-arm64
-  ;; leaves the flag at 0 so its behavior is unchanged.
-  adrp x10, :got:g_android_skip_goal_call
-  ldr  x10, [x10, #:got_lo12:g_android_skip_goal_call]
-  ldr  w10, [x10]
-  cbnz w10, _ret_zero_call_goal
   ;; saved registers we need to modify for GOAL should be preserved
   ; ARM64 requires 16-byte stack pointer alignment
   stp x20, x21, [sp, #-16]!
@@ -222,14 +210,6 @@ _call_goal_asm_arm64:
   ldr x22, [sp], #16
   ldp x20, x21, [sp], #16
   ldp	x29, x30, [sp], #16
-  ret
-
-;; Phase D4 (autoport): early-return path for the runtime skip-flag.
-;; We jumped here BEFORE pushing x20/x21/x22, so just unwind the
-;; frame and return 0. Used only on Android.
-_ret_zero_call_goal:
-  mov x0, xzr
-  ldp x29, x30, [sp], #16
   ret
 
 .global _call_goal8_asm_arm64
@@ -294,15 +274,6 @@ _call_goal_on_stack_asm_arm64:
   ;; x4  - st (goes in x21 and x20)
   ;; x5  - offset (goes in x22)
 
-  ;; Phase D4 (autoport): same runtime skip-flag as _call_goal_asm_arm64.
-  ;; See the note there for the rationale. On Android the kernel
-  ;; trampoline returns 0 immediately so the linker proceeds past the
-  ;; per-object top-level execution that would otherwise SIGILL/SIGSEGV.
-  adrp x10, :got:g_android_skip_goal_call
-  ldr  x10, [x10, #:got_lo12:g_android_skip_goal_call]
-  ldr  w10, [x10]
-  cbnz w10, _ret_zero_on_stack
-
   ;; saved registers we need to modify for GOAL should be preserved
   ; ARM64 requires 16-byte stack pointer alignment
   stp x20, x21, [sp, #-16]!
@@ -354,28 +325,3 @@ _call_goal_on_stack_asm_arm64:
   ldp x20, x21, [sp], #16
   ldp	x29, x30, [sp], #16
   ret
-
-;; Phase D4 (autoport): early-return path for the runtime skip-flag.
-;; Same shape as _ret_zero_call_goal — we bailed before any pushes, so
-;; just unwind the initial frame and return 0.
-_ret_zero_on_stack:
-  mov x0, xzr
-  ldp x29, x30, [sp], #16
-  ret
-
-;; Phase A5 (autoport): runtime skip-flag definition lives here so both
-;; the Android build and the linux-arm64 cross build see the same symbol
-;; (D4 originally defined it only in android/android_runtime_compat.cpp,
-;; which the linux-arm64 build doesn't link — that left _call_goal_asm_arm64
-;; and _call_goal_on_stack_asm_arm64 with an unresolved external above).
-;; The Android runtime still flips this to 1 from InitMachine via the
-;; existing extern "C" declaration in android_runtime_full.cpp; A5's
-;; codegen unlock makes the underlying GOAL execution path safe, so the
-;; flag's residual purpose is documented in the shim audit.
-.data
-.global g_android_skip_goal_call
-.type g_android_skip_goal_call, @object
-.align 4
-g_android_skip_goal_call:
-.word 0
-.size g_android_skip_goal_call, 4

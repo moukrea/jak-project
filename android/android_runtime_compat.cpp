@@ -109,13 +109,6 @@ GameVersion g_game_version = GameVersion::Jak1;
 std::thread::id g_main_thread_id;
 int g_server_port = 8112;  // DECI2_PORT — duplicated to avoid pulling listener_common.h
 
-// Phase A5 (autoport): the runtime skip-flag definition lives in
-// game/kernel/asm_funcs_arm64.s so both the Android build and the
-// linux-arm64 cross build see the same symbol. The Android-specific
-// `g_android_skip_goal_call = 1` write still lives in
-// android_runtime_full.cpp's InitMachine wrapper via the extern "C"
-// declaration there.
-
 // game/runtime.cpp owns this; we provide a default-constructed instance so the
 // kernel sources that reference g_background_worker from runtime.h link.
 BackgroundWorker g_background_worker;
@@ -925,28 +918,15 @@ void Discord_UpdateHandlers(DiscordEventHandlers* /*handlers*/) {}
 // ---------------------------------------------------------------------------
 // Phase E1 (autoport): kernel-version fallback hook.
 //
-// Phase A5's runtime skip-flag (g_android_skip_goal_call) short-circuits
-// `_call_goal_asm_arm64` so the GOAL bytecode top-levels don't fire on
-// arm64 (until the goalc off-register emitter bug is fixed). One
-// consequence is that gkernel's top-level `(define *kernel-version*
-// (logior (ash 2 16) 0))` doesn't run, so the version check in
-// jak1::InitHeapAndSymbol() at game/kernel/jak1/kscheme.cpp:1763 finds
-// kernel-version == 0 and returns -1.
-//
 // jak1::InitHeapAndSymbol exposes a `g_jak1_pre_kernel_version_check_hook`
-// function-pointer the Android runtime installs here. When the hook fires
-// (between the kernel-CGO load and the version check), we manually
-// populate *kernel-version* with what gkernel's top-level would have set
-// — same numeric value, same binteger encoding. This unblocks the boot
-// path far enough to reach jak1::InitMachineScheme(), which then loads
-// the "game" DGO with LINK_FLAG_EXECUTE. Each engine module's link
-// finish marker fires (top-level executes are still skip-flagged), and
-// the trace eventually emits `link finish: logo` — the E1 milestone.
-//
-// This is NOT a dodge shim: it's the C-side equivalent of the kernel
-// GOAL top-level's symbol assignment, scoped to the platforms whose
-// emitter can't yet run that bytecode. Desktop x86 leaves the hook
-// nullptr and behaviour is unchanged.
+// function-pointer the Android runtime installs here. The hook fires
+// between the kernel-CGO load and the version check; if *kernel-version*
+// is still zero at that point (gkernel's top-level didn't run for any
+// reason), the hook writes the same value gkernel would have, so the
+// version check downstream still passes. Post-A6 the dispatcher executes
+// honestly and the GOAL top-level sets *kernel-version* first; the hook's
+// `value == 0` guard makes it a defensive no-op in that path. Desktop x86
+// leaves the function pointer null and behaviour is unchanged.
 // ---------------------------------------------------------------------------
 
 #include "game/kernel/jak1/kscheme.h"  // jak1::intern_from_c + jak1::Symbol
@@ -956,11 +936,11 @@ extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void);
 namespace {
 
 // SHIM_KIND: PLATFORM_FEATURE
-// Why: substitutes for the gkernel top-level GOAL define of
-// *kernel-version* during the runtime window where call_goal is
-// skip-flagged. Value matches the binteger encoding desktop GOAL would
-// have written: (MAJOR << 19) | (MINOR << 3), so the check
-// `(kernel_version >> 0x13) == KERNEL_VERSION_MAJOR` passes.
+// Why: defensive fallback for the gkernel top-level GOAL define of
+// *kernel-version*. No-op when GOAL has already populated the symbol.
+// Value matches the binteger encoding desktop GOAL writes:
+// (MAJOR << 19) | (MINOR << 3), so the check
+// `(kernel_version >> 0x13) == KERNEL_VERSION_MAJOR` passes either way.
 void android_pre_kernel_version_hook() {
   auto sym = jak1::intern_from_c("*kernel-version*");
   if (sym.offset == 0) {
@@ -980,8 +960,7 @@ void android_pre_kernel_version_hook() {
     sym_ptr->value = v;
     __android_log_print(ANDROID_LOG_INFO, kAndroidLogTag,
                         "pre_kernel_version_hook: set *kernel-version*=0x%x "
-                        "(major=%d minor=%d) — gkernel top-level was "
-                        "skip-flagged",
+                        "(major=%d minor=%d) — gkernel top-level had not set it",
                         (unsigned)v, KERNEL_VERSION_MAJOR,
                         KERNEL_VERSION_MINOR);
   }
