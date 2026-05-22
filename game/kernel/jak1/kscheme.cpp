@@ -26,6 +26,14 @@
 
 using namespace jak1_symbols;
 
+// Phase E1 (autoport): optional Android-installed callback fired between
+// kernel-CGO load and the version check inside InitHeapAndSymbol. Stays
+// null on desktop builds (no installer); the Android compat layer
+// (android/android_runtime_compat.cpp) installs a hook that pre-
+// populates *kernel-version* when the gkernel top-level was skipped by
+// the goalc-arm64 off-register emitter dodge. See the use site below.
+extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void) = nullptr;
+
 namespace jak1 {
 // where to put a new symbol for the most recently searched for symbol that wasn't found
 u32 symbol_slot;
@@ -1757,6 +1765,18 @@ s32 InitHeapAndSymbol() {
                              LINK_FLAG_OUTPUT_LOAD | LINK_FLAG_EXECUTE | LINK_FLAG_PRINT_LOGIN,
                              0x400000, true);
     method_set_symbol->value--;
+
+    // Phase E1 (autoport): optional hook that runs AFTER the kernel CGO
+    // load and BEFORE the version check. Android installs a hook that
+    // pre-populates *kernel-version* to the value gkernel's top-level
+    // would have written (the top-level is skip-flagged on arm64 until
+    // the goalc off-register emitter bug is fixed). Desktop leaves the
+    // pointer null and behaviour is unchanged. See
+    // android/android_runtime_compat.cpp::android_pre_kernel_version_hook
+    // for the Android side.
+    if (g_jak1_pre_kernel_version_check_hook) {
+      g_jak1_pre_kernel_version_check_hook();
+    }
 
     // check the kernel version!
     auto kernel_version = intern_from_c("*kernel-version*")->value;

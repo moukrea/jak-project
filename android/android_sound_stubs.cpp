@@ -57,6 +57,10 @@ struct ChannelHandler {
 ChannelHandler g_sd_handlers[16];
 }  // namespace
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: PS2 SPU DMA-completion interrupt handler — we store the handler
+// and call it synchronously from sceSdVoiceTrans so overlord's
+// DMA_SendToSPUAndSync sees the strobe and unblocks.
 void sceSdSetTransIntrHandler(s32 channel, sceSdTransIntrHandler fn, void* userdata) {
   if (channel < 0 || channel >= (s32)(sizeof(g_sd_handlers) / sizeof(g_sd_handlers[0]))) {
     return;
@@ -64,6 +68,11 @@ void sceSdSetTransIntrHandler(s32 channel, sceSdTransIntrHandler fn, void* userd
   g_sd_handlers[channel] = {fn, userdata};
 }
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: PS2 SPU DMA voice-transfer — simulates "instantaneous DMA
+// completion" by firing the registered interrupt handler immediately.
+// Returns the requested size so DMA_SendToSPUAndSync's transferred-byte
+// check passes.
 u32 sceSdVoiceTrans(s32 channel, s32 /*mode*/, const void* /*src*/, u32 /*dst*/, u32 size) {
   if (channel >= 0 && channel < (s32)(sizeof(g_sd_handlers) / sizeof(g_sd_handlers[0]))) {
     auto h = g_sd_handlers[channel];

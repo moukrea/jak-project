@@ -29,6 +29,7 @@
 #include "game/kernel/common/kboot.h"
 #include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/memory_layout.h"
+#include "game/kernel/jak1/kmachine.h"  // jak1::InitParms
 
 // Phase 21 (autoport): SDL/GLES bring-up + shader compile + render loop
 // lives in its own TU so this file stays focused on the kernel boot
@@ -285,6 +286,19 @@ int goal_main(int argc, char** argv) {
                       "goal_main: initializing kernel globals (kboot/kmalloc)");
   kboot_init_globals_common();
   kmalloc_init_globals_common();
+
+  // Phase E1 (autoport): InitParms wires the -boot / -fakeiso / -debug-mem
+  // flags into DiskBoot, MasterDebug, isodrv, modsrc — the bits that
+  // jak1::InitMachineScheme keys off of when deciding whether to load
+  // the "game" DGO. Without this, DiskBoot stays at 0 (the
+  // kboot_init_globals_common default) and the engine DGO never loads,
+  // so `link finish: logo` never fires. The desktop jak1::goal_main
+  // calls InitParms at the same point in its boot sequence
+  // (game/kernel/jak1/kboot.cpp); Android's goal_main was missing it.
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "goal_main: InitParms(argc=%d) — wiring boot flags",
+                      argc);
+  jak1::InitParms(argc, argv);
 
   // kinitheap zeroes the region and writes base/current/top/top_base into
   // the kheapinfo struct. We confirm by re-reading kheapused — a value of 0
