@@ -508,6 +508,201 @@ Ptr<Function> make_stack_arg_function_from_c_win32(void* func) {
 }
 #endif
 
+#ifdef __aarch64__
+// A6 (autoport) — arm64-aware GOAL→C FFI trampoline emission.
+//
+// The systemv variant above writes x86_64 machine code (movabs/push/jmp) into
+// a heap-allocated function object. The pre-A6 builds got away with this on
+// arm64 only because the runtime skip-flag (g_android_skip_goal_call) never
+// let GOAL bytecode actually BLR to the trampoline. With the A6 emitter fix
+// landed and the skip-flag dodge removed, gcommon's top-level executes and
+// the first defmethod-driven FFI call (method-set!) jumps straight into
+// these x86 bytes — SIGILL inside the heap-allocated trampoline.
+//
+// The arm64 trampoline emits a self-contained sequence:
+//   - save x29 (FP), x30 (LR back to GOAL caller) on the stack
+//   - save x13/x14/x15 (R13/R14/R15 — GOAL's pp / sym-table-host / EE-base
+//     ABI registers, all caller-saved per AAPCS but GOAL relies on them
+//     surviving across nested calls — _arg_call_arm64 would otherwise have
+//     done this, but its current shape doesn't actually preserve x29/x30
+//     correctly so we open-code the save/restore here)
+//   - optional `mov x2, x13` when arg3_is_pp (mirrors x86's `mov rcx, r13`)
+//   - movz/movk chain to materialise the 64-bit target_function address in
+//     x16 (4 instructions — covers any 64-bit host VA, including Android's
+//     0x720_xxxx_xxxx libgk.so range)
+//   - blr x16  → into the real C function
+//   - restore the saved regs in reverse order
+//   - ret      → back to GOAL caller via the preserved x30
+//
+// The heap-allocated object is sized 0x80 bytes (matching the win32 variant)
+// to leave headroom for the longest emitted sequence (arg3_is_pp adds one
+// instruction). Each instruction is 4 bytes (AArch64 fixed-width); we write
+// them as little-endian u32s.
+inline void write_u32_le(u8* dst, uint32_t value) {
+  dst[0] = static_cast<u8>(value & 0xFFu);
+  dst[1] = static_cast<u8>((value >> 8) & 0xFFu);
+  dst[2] = static_cast<u8>((value >> 16) & 0xFFu);
+  dst[3] = static_cast<u8>((value >> 24) & 0xFFu);
+}
+
+inline uint32_t arm64_movz_x(unsigned rd, uint16_t imm16, unsigned shift_quartile) {
+  // MOVZ Xd, #imm16{, LSL #(shift_quartile*16)}
+  // sf=1, opc=10, fixed 100101, hw=shift_quartile, imm16, Rd
+  return 0xD2800000u | (static_cast<uint32_t>(shift_quartile) << 21) |
+         (static_cast<uint32_t>(imm16) << 5) | (rd & 0x1Fu);
+}
+
+inline uint32_t arm64_movk_x(unsigned rd, uint16_t imm16, unsigned shift_quartile) {
+  // MOVK Xd, #imm16, LSL #(shift_quartile*16)
+  // sf=1, opc=11, fixed 100101, hw=shift_quartile, imm16, Rd
+  return 0xF2800000u | (static_cast<uint32_t>(shift_quartile) << 21) |
+         (static_cast<uint32_t>(imm16) << 5) | (rd & 0x1Fu);
+}
+
+inline uint32_t arm64_blr(unsigned rn) {
+  return 0xD63F0000u | ((rn & 0x1Fu) << 5);
+}
+
+inline uint32_t arm64_ret_x30() {
+  return 0xD65F03C0u;
+}
+
+inline uint32_t arm64_stp_x_preindex(unsigned rt, unsigned rt2, unsigned rn, int simm7_bytes) {
+  // STP Xt, Xt2, [Xn, #simm7]!  -- pre-indexed, scaled by 8
+  uint32_t imm7 = static_cast<uint32_t>(simm7_bytes / 8) & 0x7Fu;
+  return 0xA9800000u | (imm7 << 15) | ((rt2 & 0x1Fu) << 10) | ((rn & 0x1Fu) << 5) |
+         (rt & 0x1Fu);
+}
+
+inline uint32_t arm64_ldp_x_postindex(unsigned rt, unsigned rt2, unsigned rn, int simm7_bytes) {
+  // LDP Xt, Xt2, [Xn], #simm7  -- post-indexed, scaled by 8
+  uint32_t imm7 = static_cast<uint32_t>(simm7_bytes / 8) & 0x7Fu;
+  return 0xA8C00000u | (imm7 << 15) | ((rt2 & 0x1Fu) << 10) | ((rn & 0x1Fu) << 5) |
+         (rt & 0x1Fu);
+}
+
+inline uint32_t arm64_str_x_preindex(unsigned rt, unsigned rn, int simm9_bytes) {
+  // STR Xt, [Xn, #simm9]!  -- pre-indexed, unscaled signed-9 immediate
+  uint32_t imm9 = static_cast<uint32_t>(simm9_bytes) & 0x1FFu;
+  return 0xF8000C00u | (imm9 << 12) | ((rn & 0x1Fu) << 5) | (rt & 0x1Fu);
+}
+
+inline uint32_t arm64_ldr_x_postindex(unsigned rt, unsigned rn, int simm9_bytes) {
+  // LDR Xt, [Xn], #simm9   -- post-indexed, unscaled signed-9 immediate
+  uint32_t imm9 = static_cast<uint32_t>(simm9_bytes) & 0x1FFu;
+  return 0xF8400400u | (imm9 << 12) | ((rn & 0x1Fu) << 5) | (rt & 0x1Fu);
+}
+
+inline uint32_t arm64_mov_x_x(unsigned rd, unsigned rm) {
+  // MOV Xd, Xm == ORR Xd, XZR, Xm  (Rn=31)
+  return 0xAA0003E0u | ((rm & 0x1Fu) << 16) | (rd & 0x1Fu);
+}
+
+Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
+  // 0x80 bytes matches the win32 variant's allocation; the longest emitted
+  // sequence is 13-14 instructions (52-56 bytes), so 128 is generous headroom.
+  auto mem = Ptr<u8>(alloc_heap_object(s7.offset + FIX_SYM_GLOBAL_HEAP,
+                                       *(s7 + FIX_SYM_FUNCTION_TYPE), 0x80, UNKNOWN_PP));
+  const uint64_t target = reinterpret_cast<uint64_t>(func);
+  u8* p = mem.c();
+  int off = 0;
+  auto emit = [&](uint32_t enc) {
+    write_u32_le(p + off, enc);
+    off += 4;
+  };
+
+  // stp x29, x30, [sp, #-16]!   ; save FP/LR
+  emit(arm64_stp_x_preindex(29, 30, 31, -16));
+  // stp x13, x14, [sp, #-16]!   ; save R13 (pp), R14 (sym-table host)
+  emit(arm64_stp_x_preindex(13, 14, 31, -16));
+  // str x15, [sp, #-16]!        ; save R15 (EE base)
+  emit(arm64_str_x_preindex(15, 31, -16));
+
+  if (arg3_is_pp) {
+    // mov x2, x13   ; mirror x86's "mov rcx, r13" — pp into the 3rd C arg.
+    emit(arm64_mov_x_x(2, 13));
+  }
+
+  // movz x16, #(target & 0xFFFF)
+  emit(arm64_movz_x(16, static_cast<uint16_t>(target & 0xFFFFu), 0));
+  emit(arm64_movk_x(16, static_cast<uint16_t>((target >> 16) & 0xFFFFu), 1));
+  emit(arm64_movk_x(16, static_cast<uint16_t>((target >> 32) & 0xFFFFu), 2));
+  emit(arm64_movk_x(16, static_cast<uint16_t>((target >> 48) & 0xFFFFu), 3));
+
+  // blr x16
+  emit(arm64_blr(16));
+
+  // ldr x15, [sp], #16
+  emit(arm64_ldr_x_postindex(15, 31, 16));
+  // ldp x13, x14, [sp], #16
+  emit(arm64_ldp_x_postindex(13, 14, 31, 16));
+  // ldp x29, x30, [sp], #16
+  emit(arm64_ldp_x_postindex(29, 30, 31, 16));
+  // ret
+  emit(arm64_ret_x30());
+
+  // Force the data cache to flush so the instruction stream sees the writes
+  // (no separate icache invalidate API in bionic; the mmap'ed EE memory is
+  // PROT_READ|WRITE|EXEC and gcc's __builtin___clear_cache covers both).
+  __builtin___clear_cache(reinterpret_cast<char*>(p), reinterpret_cast<char*>(p + off));
+  return mem.cast<Function>();
+}
+
+Ptr<Function> make_stack_arg_function_from_c_arm64(void* func) {
+  // Same shape as make_function_from_c_arm64 but uses _stack_call_arm64
+  // semantics: the C function receives a single pointer to an 8-element
+  // arg array. Goalc's stack-arg variant is rarely exercised on arm64
+  // (only `_format` uses it currently); we still emit a real trampoline
+  // so any future caller doesn't SIGILL.
+  //
+  // The lowering: copy x0..x7 to an on-stack 64-byte array, set x0 to its
+  // address, then blr the target. Restore the saved regs and return.
+  auto mem = Ptr<u8>(alloc_heap_object(s7.offset + FIX_SYM_GLOBAL_HEAP,
+                                       *(s7 + FIX_SYM_FUNCTION_TYPE), 0x80, UNKNOWN_PP));
+  const uint64_t target = reinterpret_cast<uint64_t>(func);
+  u8* p = mem.c();
+  int off = 0;
+  auto emit = [&](uint32_t enc) {
+    write_u32_le(p + off, enc);
+    off += 4;
+  };
+
+  // Prologue: same regs as the regular variant.
+  emit(arm64_stp_x_preindex(29, 30, 31, -16));
+  emit(arm64_stp_x_preindex(13, 14, 31, -16));
+  emit(arm64_str_x_preindex(15, 31, -16));
+
+  // Build the 8-element arg array on the stack:
+  //   stp x6, x7, [sp, #-16]!     (slots 6,7)
+  //   stp x4, x5, [sp, #-16]!     (slots 4,5)
+  //   stp x2, x3, [sp, #-16]!     (slots 2,3)
+  //   stp x0, x1, [sp, #-16]!     (slots 0,1)
+  emit(arm64_stp_x_preindex(6, 7, 31, -16));
+  emit(arm64_stp_x_preindex(4, 5, 31, -16));
+  emit(arm64_stp_x_preindex(2, 3, 31, -16));
+  emit(arm64_stp_x_preindex(0, 1, 31, -16));
+  // mov x0, sp  — passes the array pointer as the single C arg
+  emit(0x910003E0u);  // ADD X0, SP, #0 (== MOV X0, SP)
+
+  emit(arm64_movz_x(16, static_cast<uint16_t>(target & 0xFFFFu), 0));
+  emit(arm64_movk_x(16, static_cast<uint16_t>((target >> 16) & 0xFFFFu), 1));
+  emit(arm64_movk_x(16, static_cast<uint16_t>((target >> 32) & 0xFFFFu), 2));
+  emit(arm64_movk_x(16, static_cast<uint16_t>((target >> 48) & 0xFFFFu), 3));
+  emit(arm64_blr(16));
+
+  // Drop the 64-byte arg array: add sp, sp, #64
+  emit(0x910103FFu);  // ADD SP, SP, #64
+  // Restore saved regs.
+  emit(arm64_ldr_x_postindex(15, 31, 16));
+  emit(arm64_ldp_x_postindex(13, 14, 31, 16));
+  emit(arm64_ldp_x_postindex(29, 30, 31, 16));
+  emit(arm64_ret_x30());
+
+  __builtin___clear_cache(reinterpret_cast<char*>(p), reinterpret_cast<char*>(p + off));
+  return mem.cast<Function>();
+}
+#endif  // __aarch64__
+
 /*!
  * Create a GOAL function from a C function. This doesn't export it as a global function, it just
  * creates a function object on the global heap.
@@ -515,8 +710,12 @@ Ptr<Function> make_stack_arg_function_from_c_win32(void* func) {
  * The implementation is to create a simple trampoline function which jumps to the C function.
  */
 Ptr<Function> make_function_from_c(void* func, bool arg3_is_pp = false) {
-#ifdef __linux__
+#if defined(__linux__) && defined(__aarch64__)
+  return make_function_from_c_arm64(func, arg3_is_pp);
+#elif defined(__linux__)
   return make_function_from_c_systemv(func, arg3_is_pp);
+#elif __APPLE__ && defined(__aarch64__)
+  return make_function_from_c_arm64(func, arg3_is_pp);
 #elif __APPLE__
   return make_function_from_c_systemv(func, arg3_is_pp);
 #elif _WIN32
@@ -525,8 +724,12 @@ Ptr<Function> make_function_from_c(void* func, bool arg3_is_pp = false) {
 }
 
 Ptr<Function> make_stack_arg_function_from_c(void* func) {
-#ifdef __linux__
+#if defined(__linux__) && defined(__aarch64__)
+  return make_stack_arg_function_from_c_arm64(func);
+#elif defined(__linux__)
   return make_stack_arg_function_from_c_systemv(func);
+#elif __APPLE__ && defined(__aarch64__)
+  return make_stack_arg_function_from_c_arm64(func);
 #elif __APPLE__
   return make_stack_arg_function_from_c_systemv(func);
 #elif _WIN32
@@ -541,8 +744,18 @@ Ptr<Function> make_nothing_func() {
   auto mem = Ptr<u8>(alloc_heap_object(s7.offset + FIX_SYM_GLOBAL_HEAP,
                                        *(s7 + FIX_SYM_FUNCTION_TYPE), 0x14, UNKNOWN_PP));
 
+#ifdef __aarch64__
+  // arm64 `RET` is a single 32-bit word (0xD65F03C0, little-endian bytes
+  // 0xC0 0x03 0x5F 0xD6). The pre-A6 x86 `ret` byte (0xC3) at offset 0 would
+  // decode as something nonsensical on arm64 and SIGILL the moment GOAL
+  // calls `(nothing)`.
+  write_u32_le(mem.c(), 0xD65F03C0u);
+  __builtin___clear_cache(reinterpret_cast<char*>(mem.c()),
+                          reinterpret_cast<char*>(mem.c() + 4));
+#else
   // a single x86-64 ret.
   mem.c()[0] = 0xc3;
+#endif
   // CacheFlush(mem, 8);
   return mem.cast<Function>();
 }
@@ -553,11 +766,20 @@ Ptr<Function> make_nothing_func() {
 Ptr<Function> make_zero_func() {
   auto mem = Ptr<u8>(alloc_heap_object(s7.offset + FIX_SYM_GLOBAL_HEAP,
                                        *(s7 + FIX_SYM_FUNCTION_TYPE), 0x14, UNKNOWN_PP));
+#ifdef __aarch64__
+  // arm64: `MOV X0, #0; RET`. (MOVZ X0, #0 == ORR X0, XZR, XZR — either
+  // works; the canonical encoding is 0xD2800000 for `MOVZ X0, #0, LSL #0`.)
+  write_u32_le(mem.c() + 0, 0xD2800000u);  // MOVZ X0, #0
+  write_u32_le(mem.c() + 4, 0xD65F03C0u);  // RET
+  __builtin___clear_cache(reinterpret_cast<char*>(mem.c()),
+                          reinterpret_cast<char*>(mem.c() + 8));
+#else
   // xor eax, eax
   mem.c()[0] = 0x31;
   mem.c()[1] = 0xc0;
   // ret
   mem.c()[2] = 0xc3;
+#endif
   // CacheFlush(mem, 8);
   return mem.cast<Function>();
 }
