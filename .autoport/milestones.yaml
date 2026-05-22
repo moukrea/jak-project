@@ -272,6 +272,14 @@ phases:
   validator: validators/phase-A6-emitter-off-register.sh
   max_turns: 600
   max_retries: 20
+- id: A7-emitter-unit-tests
+  name: 'Build emitter unit test harness (Level 0 encoding asserts + Level 1 qemu-aarch64-static exec tests) at .autoport/tests/emitter/. Runtime
+    < 30s. Catches arm64 emitter cascade bugs deterministically without 3-min device cycles. Codegen-locked: tooling only, must not modify any
+    goalc file.'
+  prompt: prompts/phase-A7-emitter-unit-tests.md
+  validator: validators/phase-A7-emitter-unit-tests.sh
+  max_turns: 600
+  max_retries: 15
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
