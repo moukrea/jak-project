@@ -212,18 +212,32 @@ int InitMachine() {
                       "InitMachine: Deci2Server registered (port=%d, no listener)",
                       g_server_port);
 
-  // Step 6.6: arm the GOAL-call skip flag so the asm trampolines in
-  // game/kernel/asm_funcs_arm64.s return 0 instead of branching into
-  // GOAL bytecode. The R14/R15 cross-call ABI gap reliably crashes
-  // inside the gcommon top-level execution on AArch64; until the
-  // emitter is fixed (a follow-up phase), we let the linker print
-  // its `link finish:` markers for each KERNEL.CGO object and skip
-  // the post-link top-level execution that would otherwise SIGILL.
+  // Phase A5 (autoport): A5's emitter unlock closed C4's 691-NOP gap
+  // (sym-mem accesses now expand to ADRP+ADD+LDR/STR via X16, never
+  // overflowing imm12), so the linker-level imm12 bug is gone. BUT the
+  // first attempt at A5 device validation surfaced a SECOND, distinct
+  // arm64 emitter bug — see .autoport/reports/A5-shim-audit.md and the
+  // Step 6.6 KEEP entry there — where the GOAL pointer dereference
+  // helpers `load_goal_gpr`/`store_goal_gpr`/`load_goal_xmm32` /
+  // `load_goal_xmm128` / `store_goal_xmm32` / `store_goal_vf` in
+  // `goalc/emitter/IGenARM64.cpp` silently ignore the EE-offset register
+  // (`Register off` parameter, `(void)off;`). On x86 the equivalent
+  // helpers fold off into the SIB byte; on arm64 the offset is dropped,
+  // so the emitted `LDR/STR Wt, [Xbase, #imm12]` resolves the address
+  // without adding the EE base. With EE memory mapped at a high VA
+  // (0x720…) on Android, that produces a SIGSEGV on the first dereference
+  // of any loaded GOAL pointer — exactly what we saw in the pre-restore
+  // D4 boot log (fault addr 0x17fd34, x9=0x17fd24 zero-extended from a
+  // 32-bit Wt load that should have been an X-form add+load against x15).
+  // A5's narrow unlock fixed one of the two outstanding arm64 emitter
+  // bugs; the second one is documented for a follow-up phase, and the
+  // D4-era skip-flag dodge stays armed until then.
   g_android_skip_goal_call = 1;
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "InitMachine: g_android_skip_goal_call=1 (trampoline "
-                      "returns 0 instead of running GOAL bytecode — see "
-                      "SUPERVISOR_JOURNAL.md for the R14/R15 ABI gap)");
+                      "InitMachine: g_android_skip_goal_call=1 — A5 closed the "
+                      "imm12-overflow NOP gap, but the goalc-arm64 off-register "
+                      "bug in load_goal_gpr/store_goal_gpr still drops the EE "
+                      "base from GOAL pointer derefs (see A5-shim-audit.md)");
 
   // Step 7: prime the gfx dispatcher tick counter so the renderer sees a
   // monotonic frame index from the first vblank.
@@ -246,13 +260,12 @@ int InitMachine() {
 
 // ---------------------------------------------------------------------------
 // KernelCheckAndDispatch — top-level wrapper. Forwards into jak1's
-// dispatcher unless the Android skip-flag is set, in which case the
-// jak1 dispatcher would immediately abort on `ListenerFunction->value`
-// (Ptr<Symbol>::operator-> asserts offset != 0 when nothing populated
-// the symbol — which is exactly what happens because we never ran the
-// kernel top-level). On Android the wrapper instead just keeps the
-// dispatcher thread alive with a sleep loop until MasterExit flips
-// out of RUNNING, so the renderer thread can keep iterating frames.
+// upstream dispatcher *unless* the Android skip-flag is set, in which
+// case the jak1 dispatcher would immediately abort on
+// `ListenerFunction->value` (the symbol is never populated because the
+// GOAL kernel top-level was skipped by the asm trampoline). The
+// skip-flag branch stays in until the goalc-arm64 off-register bug is
+// fixed (see InitMachine above and A5-shim-audit.md).
 // ---------------------------------------------------------------------------
 void KernelCheckAndDispatch() {
   if (g_android_skip_goal_call) {
@@ -260,7 +273,8 @@ void KernelCheckAndDispatch() {
                         "KernelCheckAndDispatch: skip-flag armed — entering "
                         "passive sleep loop instead of jak1 dispatcher "
                         "(ListenerFunction would assert without a running "
-                        "GOAL kernel)");
+                        "GOAL kernel; see A5-shim-audit.md for the "
+                        "off-register emitter bug)");
     while (MasterExit == RuntimeExitStatus::RUNNING) {
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }

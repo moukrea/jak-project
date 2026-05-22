@@ -209,10 +209,17 @@ device_require_unlocked() {
     if [ -x "$notify" ]; then
         "$notify" alert "Phase validator paused: unlock your phone so the APK install dialog can dispatch." >/dev/null 2>&1 || true
     fi
-    # 5-minute floor matches the autoport orchestrator's rate budget — long
-    # enough for the user to walk back to the device, short enough that a
-    # truly-unattended run fails before chewing through tokens.
-    local deadline=$(( $(date +%s) + 300 ))
+    # Phase A5 (autoport): extend the unlock wait from 5 min to 30 min.
+    # The legacy 5-min ceiling was tied to the install path: MIUI's
+    # AdbInstallActivity wouldn't dispatch with the keyguard up, so a
+    # locked phone meant the install couldn't even start. After A5 the
+    # install runs through `pm install` (see device_install_and_launch)
+    # which is keyguard-independent — the unlock wait only gates the
+    # *launch* step now, where SDL needs the screen on so its SurfaceView
+    # doesn't pause. A 30-min budget lets the validator keep working
+    # while we wait on the user without trashing a multi-hour A5 run if
+    # the unlock notification takes a few minutes to surface.
+    local deadline=$(( $(date +%s) + 1800 ))
     while [ "$(date +%s)" -lt "$deadline" ]; do
         # Keep the screen lit during the wait so the user notices.
         adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
@@ -294,38 +301,50 @@ device_install_and_launch() {
     fi
     echo "== installing $(basename "$apk_path") =="
     device_miui_unblock_install
-    # MIUI's AdbInstallActivity will silently cancel the install if the
-    # keyguard is up — even with the appops grant. Block here until the
-    # user unlocks (the helper notifies via ntfy).
-    device_require_unlocked
-    # `-i com.android.vending` attributes the install to Play Store, which
-    # MIUI treats more leniently than an anonymous adb install.
-    # MIUI's AdbInstallActivity races the launcher transition right
-    # after the keyguard drops; the first one or two install attempts
-    # often hit USER_RESTRICTED even with the focus already on the
-    # launcher. Retry up to 5x with growing settle delays — once MIUI
-    # has dispatched the dialog cleanly once it stays cooperative.
-    local install_ok=0
-    local attempt
-    for attempt in 1 2 3 4 5; do
-        if adb install -r -d -i com.android.vending "$apk_path" >/tmp/install.out 2>&1; then
-            install_ok=1
-            break
-        fi
-        if ! grep -q INSTALL_FAILED_USER_RESTRICTED /tmp/install.out; then
-            # Non-MIUI failure (e.g., signature mismatch, ENOSPC) — no
-            # point retrying.
-            break
-        fi
-        local backoff=$(( attempt * 3 ))
-        echo "  attempt $attempt: USER_RESTRICTED — settling ${backoff}s and retrying"
-        sleep "$backoff"
-        device_require_unlocked
-    done
-    if [ "$install_ok" -ne 1 ]; then
-        cat /tmp/install.out >&2
-        device_fail "adb install rejected the APK after 5 attempts"
+    # Phase A5 (autoport): use `adb push` + `adb shell pm install` instead
+    # of the older `adb install` path. The legacy path goes through MIUI's
+    # AdbInstallActivity dialog, which silently cancels the install
+    # whenever the keyguard is up — forcing every headless validator run
+    # to block on a manual unlock. `pm install` invoked from `adb shell`
+    # is a different code path that the MIUI lock-screen check doesn't
+    # gate, so the install completes regardless of whether the device is
+    # currently in front of the launcher or behind the lock screen.
+    #
+    # We still wait for unlock BEFORE the launch step because SDL's
+    # SurfaceView calls onPause as soon as the keyguard re-takes focus
+    # — the GOAL kernel boot path wouldn't actually run otherwise. But
+    # the install is now independent of the user's unlock timing, so the
+    # validator can pre-stage the APK + libs while the user is away.
+    local stage_path="/data/local/tmp/$(basename "$apk_path")"
+    local push_log=/tmp/install-push.out
+    local pm_log=/tmp/install-pm.out
+    if ! adb push "$apk_path" "$stage_path" > "$push_log" 2>&1; then
+        cat "$push_log" >&2
+        device_fail "adb push to $stage_path failed (out of space? bad permissions?)"
     fi
+    # -r: replace if installed
+    # -d: allow downgrade (covers debug-built downgrades during iteration)
+    # -t: allow test packages (-debug.apk is a test build)
+    # -i com.android.vending: attribute install to Play Store (MIUI is
+    #     friendlier to that attribution than an anonymous adb install).
+    if ! adb shell pm install -r -d -t -i com.android.vending "$stage_path" \
+            > "$pm_log" 2>&1; then
+        cat "$pm_log" >&2
+        adb shell rm -f "$stage_path" >/dev/null 2>&1 || true
+        device_fail "pm install rejected the APK (keyguard, signature, or disk?)"
+    fi
+    if ! grep -q "Success" "$pm_log"; then
+        cat "$pm_log" >&2
+        adb shell rm -f "$stage_path" >/dev/null 2>&1 || true
+        device_fail "pm install completed without 'Success' marker"
+    fi
+    # Tidy up the staged APK so /data/local/tmp doesn't accumulate copies
+    # across iterations.
+    adb shell rm -f "$stage_path" >/dev/null 2>&1 || true
+    # MIUI's AdbInstallActivity dialog isn't involved on this path, so we
+    # only wait for unlock here — once the user wakes the device, SDL can
+    # bring its surface to the foreground and the renderer marker fires.
+    device_require_unlocked
     adb shell am force-stop "$package" 2>/dev/null || true
     # Increase logcat buffer so longer waits don't drop early markers.
     adb logcat -G 8M 2>/dev/null || true

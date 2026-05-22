@@ -104,18 +104,12 @@ GameVersion g_game_version = GameVersion::Jak1;
 std::thread::id g_main_thread_id;
 int g_server_port = 8112;  // DECI2_PORT — duplicated to avoid pulling listener_common.h
 
-// Phase D4 (autoport): runtime skip-flag read by _call_goal_asm_arm64 /
-// _call_goal_on_stack_asm_arm64 in game/kernel/asm_funcs_arm64.s. When
-// non-zero, the trampolines return 0 BEFORE the `blr x3` that would
-// otherwise invoke GOAL bytecode. Set to 1 from android_runtime_full.cpp's
-// InitMachine wrapper because the R14/R15 cross-call ABI gap (the
-// arm64 emitter codegen is still incomplete — see SUPERVISOR_JOURNAL.md
-// for the rollback context) reliably crashes inside the gcommon
-// top-level execution.
-//
-// The flag is `extern "C"` because the asm references it by its
-// unmangled name. Default 0 so the linux-arm64 build is unchanged.
-extern "C" u32 g_android_skip_goal_call = 0;
+// Phase A5 (autoport): the runtime skip-flag definition lives in
+// game/kernel/asm_funcs_arm64.s so both the Android build and the
+// linux-arm64 cross build see the same symbol. The Android-specific
+// `g_android_skip_goal_call = 1` write still lives in
+// android_runtime_full.cpp's InitMachine wrapper via the extern "C"
+// declaration there.
 
 // game/runtime.cpp owns this; we provide a default-constructed instance so the
 // kernel sources that reference g_background_worker from runtime.h link.

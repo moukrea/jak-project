@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 40,
+  "current_phase_idx": 41,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -40,7 +40,8 @@
     "D1-android-bionic-shims": 1,
     "D2-android-gles-shaders": 2,
     "D3-android-sdl3-surface": 1,
-    "D4-android-apk-title": 1
+    "D4-android-apk-title": 1,
+    "A5-emitter-far-relocs": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -66,6 +67,9 @@
     ],
     "D2-android-gles-shaders": [
       "5cffa3aa6687"
+    ],
+    "A5-emitter-far-relocs": [
+      "362088e97ed6"
     ]
   },
   "stuck_reasons": {},
@@ -109,7 +113,8 @@
     "D1-android-bionic-shims",
     "D2-android-gles-shaders",
     "D3-android-sdl3-surface",
-    "D4-android-apk-title"
+    "D4-android-apk-title",
+    "A5-emitter-far-relocs"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -154,9 +159,10 @@
     "D2-android-gles-shaders": 1779380991.0723279,
     "D3-android-sdl3-surface": 1779387866.3413577,
     "D4-android-apk-title": 1779393055.8089738,
-    "E1-ux-landscape-gamepad": 1779398246.2825754
+    "E1-ux-landscape-gamepad": 1779398246.2825754,
+    "A5-emitter-far-relocs": 1779399249.2174304
   },
-  "last_update": "2026-05-21T21:17:26.282580+00:00",
+  "last_update": "2026-05-22T00:16:41.112551+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
