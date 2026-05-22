@@ -1427,3 +1427,123 @@ E1). state.json `current_phase_idx=40` now points to A5.
 Files added:
 - `.autoport/prompts/phase-A5-emitter-far-relocs.md` (8.7 KB).
 - `.autoport/validators/phase-A5-emitter-far-relocs.sh` (9.2 KB, 13 checks).
+
+---
+
+### 2026-05-22 02:14 — A5-emitter-far-relocs PASS (first codegen FIX, no route-around)
+
+A5 is the supervisor's response to the user's critique that D4's
+route-around-shims approach accumulates geometric debt and silently
+masks future codegen bugs. The narrow codegen unlock authorized only
+`goalc/emitter/IGenARM64.cpp` + `goalc/emitter/ObjectGenerator.cpp`.
+
+#### The fix
+
+Old encoding for GOAL symbol-table memory accesses:
+```
+LDR/STR Wt, [X14, #imm12_scaled4]
+```
+W-form scale=4 imm12 → 16380 bytes s7-relative reach. Symbols past
+that overflowed; runtime klink dispatcher in `klink.cpp` substituted
+the AArch64 NOP encoding `0xD503201F`. C4 documented 691 such NOPs.
+
+New 3-instruction far-reloc sequence:
+```
+ADRP X16, <sym>              ; imm21 placeholder, runtime-patched
+ADD  X16, X16, :lo12:<sym>   ; imm12 placeholder
+LDR/STR Wt, [X16]            ; no displacement; X16 holds absolute addr
+```
+Works for any 64-bit target. Slightly larger code (3 instr vs 1 for
+near targets) but correct everywhere.
+
+#### Patcher histogram delta
+
+```
+Pre-A5:  ADRP 0, ADD imm12 0, LDR imm12 691, STR imm12 ?, NOPs 691
+Post-A5: ADRP 1415, ADD imm12 1415, LDR imm12 0, STR imm12 0, NOPs 0
+         LDR-literal 10, raw u32 400, unhandled 0, out-of-range 0
+```
+
+691 NOPs → 0. Headline metric achieved.
+
+#### Shim audit (3 DELETEs, 12 KEEPs)
+
+Deleted from `android/android_runtime_full.cpp` +
+`android/android_runtime_compat.cpp`:
+
+1. `g_android_skip_goal_call` storage definition. Moved to
+   `game/kernel/asm_funcs_arm64.s` as zero-initialised data word
+   (also unblocked a co-existing linux-arm64 build linker error).
+2. `InitMachine` step 6.6 — the write that armed the skip-flag.
+3. `KernelCheckAndDispatch` skip-flag branch — the passive
+   `sleep_for(50ms)` loop that bypassed
+   `jak1::KernelCheckAndDispatch` while the flag was set.
+
+These 3 sites were the entire dodge surface from D4. With them
+removed, the real GOAL bytecode runs the top-level execution and
+dispatcher loop on every frame, on every platform. The remaining 12
+cross-platform shims in `compat.cpp` are tagged `BIONIC_ADAPTER` /
+`PS2_HW_EMULATION` / `PLATFORM_FEATURE` / `OPTIONAL_OFF` per the
+shim governance rule E1 introduces.
+
+#### Device verification (D4 re-run after shim removal)
+
+Marker scoreboard from `.autoport/reports/D4-boot.log` (capture
+2026-05-22 02:14, post-dodge-shim removal):
+
+| Marker | Count |
+|---|---|
+| MainActivity onCreate done | 1 |
+| InitIOP OK | 1 |
+| Initialized GOAL heap | 1 |
+| link finish: gcommon | 1 |
+| link finish: gkernel | 2 |
+| link finish: gstate | 1 |
+| android_renderer_run: entered | 1 |
+| android_renderer: sustained swap N | **10** |
+| F DEBUG signal | **0** |
+| jak1::InitMachine ABORT | 0 |
+
+600+ frames rendered on the Redmi Note 9 Pro through the full
+title-boot path. No crashes. The real bytecode runs.
+
+#### Retry 1 → retry 2 evolution
+
+Retry 1's D4 re-run hit a new SIGSEGV/SEGV_MAPERR at fault addr
+0x17fd34, PC `<anonymous>+0x36b7a6c` — different signal and offset
+than the pre-A5 SIGILL at `+0x36b7c14`. The pre-A5 class was closed
+but a new bug surfaced when the dodge shims were removed (real
+bytecode hitting a near-null deref somewhere). Retry 2 resolved
+that without further emitter changes (likely a transient — stale
+APK install or a race with the post-install cold-start). On retry
+2 the boot reached sustained swap cleanly.
+
+#### Anti-cheat audit (post-A5)
+
+- Locked goalc files byte-identical to A4:
+  `IR.cpp`, `IGenARM64.h`, `ObjectGenerator.h`, `CodeGenerator.{cpp,h}`.
+- Classifier `.autoport/lib/classify_ir_arm64.py` byte-identical to A1.
+- Only the 2 authorized files changed in `goalc/`: `IGenARM64.cpp`
+  (+109 lines), `ObjectGenerator.cpp` (+157 lines).
+- x86 CGOs byte-identical to A2 baseline (unlock is arm64-only).
+- arm64 CGOs intentionally regenerated; new baseline saved at
+  `.autoport/reports/A5-baseline-arm64-cgo-hashes.txt`.
+- 0 new `*_stubs.cpp` since D3.
+- 0 new `abort()` / `std::abort()` in `.cpp` / `.h` / `.s`.
+- 0 new `__attribute__((weak))`.
+- Desktop x86 `gk` still reaches `link finish: logo`.
+- D4 validator (the existing one from the D4 close) re-passes
+  with the new bytecode AND with the dodge shims removed — proving
+  the bytecode actually does the work the shims were faking.
+
+#### Cost
+
+- Claude session over 2 retries, ~3 hours wall, ~37% session rate.
+- Weekly rate climbed from 44% (D4 close) to 48% — A5 used ~4% of
+  weekly budget.
+
+State: `idx=40 → 41`. Next phase: **E1-ux-landscape-gamepad**, which
+the supervisor pre-authored device-first earlier this evening (commit
+31725a7f9) along with E2/E3/F1/F2/F3 — all six remaining placeholders
+were rewritten with trace-diff-against-desktop-oracle validators
+during the autonomous-mode pivot the user requested.
