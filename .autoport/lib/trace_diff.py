@@ -84,6 +84,9 @@ ANDROID_DROP_BODY_SUBSTRINGS = (
     'KernelCheckAndDispatch: passive', 'shim entered:',
     'iop-runner:', 'Deci2Server registered',
     'loading TIT.DGO', 'TIT.DGO load complete',
+    # Phase E1: `[link and exec] X` redundant with `link finish: X` —
+    # see the CANONICAL_KEYWORDS rationale above.
+    '[link and exec]',
 )
 
 # Tag indicators on the desktop side: lg::log macros emit lines like
@@ -101,13 +104,34 @@ DESKTOP_INTERESTING_PREFIXES = (
 CANONICAL_KEYWORDS = (
     'engine:', 'gkernel:', 'goal_main', 'KERNEL.CGO', 'GAME.CGO',
     'ENGINE.CGO', 'kheap_alloc', 'InitMachine', 'KernelCheckAndDispatch',
-    'symbol:', 'set_state', 'set!', 'Listener', 'Overlord', 'IOP:',
+    'symbol:', 'set_state', 'set!',
+    # Note: bare 'Listener' was too permissive — Android framework
+    # class names like `TaskChangeNotificationListener` matched it
+    # and were kept as canonical, blowing the divergence budget.
+    # Narrow to the exact tokens GOAL emits.
+    'InitListenerConnect', 'InitCheckListener',
+    'Overlord', 'IOP:',
     'shader:', 'frame ', 'GfxDispatcher',
     # Phase E1: kernel/engine link markers anchor the title-screen
     # milestone. Without these in the canonical keyword set, the
     # desktop oracle's `link finish: logo` debug line gets parsed
     # out and the trace-diff can't find its anchor.
-    'link finish:', '[link and exec]',
+    #
+    # NOTE: `[link and exec]` deliberately NOT here — it's redundant
+    # with `link finish:` (one fires before, the other after each
+    # CGO object link), and desktop only emits `[link and exec]` for
+    # CGOs loaded directly via load_and_link_dgo_from_c (KERNEL.CGO,
+    # GAME.CGO). The desktop TIT.DGO load goes through the GOAL
+    # play function → Overlord RPC path which emits only
+    # `link finish:` per object. Android's compat layer calls
+    # load_and_link_dgo_from_c("TIT.DGO", ...) directly from C++
+    # (mirroring play's effect; play itself is skip-flagged), so
+    # every TIT object gets a `[link and exec]` line on Android
+    # that has no desktop counterpart — divergence inflated by 5+
+    # events past the 30-event budget. Dropping `[link and exec]`
+    # from both sides keeps the anchor on `link finish:` and avoids
+    # the platform-specific divergence.
+    'link finish:',
     # Phase E1: boot-sequence markers that fire on BOTH desktop and
     # Android via lg::log + Msg(). The keywords below appear in
     # `[debug]` desktop lines (which don't match DESKTOP_INTERESTING_PREFIXES
