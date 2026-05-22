@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstring>
+#include <initializer_list>
 #include <variant>
+#include <vector>
 
 #include "common/common_types.h"
 #include "common/util/Assert.h"
@@ -94,8 +96,15 @@ struct InstructionARM64 : InstructionImpl<InstructionARM64> {
   // `encoding2` defaults to 0 and `has_second_word` defaults to false,
   // so emit() falls through to the original 4-byte write.
   u32 encoding;
-  u32 encoding2 = 0;
-  bool has_second_word = false;
+  // A6 — multi-word emit. encoding holds the first 4-byte word; extra_words
+  // (if non-empty) holds additional 4-byte words emitted contiguously after
+  // it. Used by:
+  //   - paired() — A6 off-register helpers (ADD X16, Xrn, Xoff ; LDR/STR)
+  //     and the X14-base fixups (MOV/LEA + SUB Xd, Xd, X15).
+  //   - call_with_save() — A6 callee-saved register preservation around
+  //     each BLR (caller spills GOAL "saved" regs onto the SP stack since
+  //     CodeGenerator.cpp's locked prologue doesn't push them).
+  std::vector<u32> extra_words;
 
   InstructionARM64() = delete;
   template <typename... Fs>
@@ -109,21 +118,34 @@ struct InstructionARM64 : InstructionImpl<InstructionARM64> {
   // (enc1 first, enc2 second).
   static InstructionARM64 paired(uint32_t enc1, uint32_t enc2) {
     InstructionARM64 r(enc1);
-    r.encoding2 = enc2;
-    r.has_second_word = true;
+    r.extra_words.push_back(enc2);
+    return r;
+  }
+
+  // Factory for A6's caller-side callee-saved register save/restore around
+  // a BLR. `words` is the full instruction sequence (STP/STR pushes, BLR,
+  // LDR/LDP pops); the first becomes `encoding`, the rest become
+  // `extra_words`.
+  static InstructionARM64 multi(std::initializer_list<uint32_t> words) {
+    auto it = words.begin();
+    InstructionARM64 r(*it);
+    for (++it; it != words.end(); ++it) {
+      r.extra_words.push_back(*it);
+    }
     return r;
   }
 
   uint8_t emit(uint8_t* buffer) const {
     memcpy(buffer, &encoding, 4);
-    if (has_second_word) {
-      memcpy(buffer + 4, &encoding2, 4);
-      return 8;
+    for (size_t i = 0; i < extra_words.size(); i++) {
+      memcpy(buffer + 4 + i * 4, &extra_words[i], 4);
     }
-    return 4;
+    return static_cast<uint8_t>(4 + extra_words.size() * 4);
   }
 
-  uint8_t length() const { return has_second_word ? 8 : 4; }
+  uint8_t length() const {
+    return static_cast<uint8_t>(4 + extra_words.size() * 4);
+  }
 
   int get_imm_size() const { return 0; }
 

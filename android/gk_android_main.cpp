@@ -16,6 +16,8 @@
 #include <android/input.h>
 #include <android/log.h>
 #include <jni.h>
+#include <signal.h>
+#include <ucontext.h>
 
 #include <atomic>
 #include <cstdio>
@@ -162,8 +164,51 @@ Java_org_opengoal_gk_NativeGk_startGame(JNIEnv* env, jclass /*clazz*/,
 // derived from MainActivity.getArguments(); we ignore them here and rebuild
 // the canonical desktop argv from the JNI-pushed globals instead, so the
 // runtime sees exactly what the desktop entry would have seen.
+namespace {
+void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
+  // Diag-only: dump PC bytes and registers so we can decode the crashing
+  // GOAL bytecode at offset (PC - g_ee_main_mem). Re-raise after dumping
+  // by restoring SIG_DFL.
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  uintptr_t pc = uc->uc_mcontext.pc;
+  uintptr_t fault = info ? reinterpret_cast<uintptr_t>(info->si_addr) : 0;
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG sig=%d fault=0x%lx pc=0x%lx",
+                      sig, (unsigned long)fault, (unsigned long)pc);
+  for (int i = 0; i < 32; i++) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG x%d=0x%lx", i,
+                        (unsigned long)uc->uc_mcontext.regs[i]);
+  }
+  for (intptr_t d = -256; d <= 16; d += 4) {
+    uintptr_t addr = pc + d;
+    uint32_t insn = 0;
+    memcpy(&insn, reinterpret_cast<const void*>(addr), 4);
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG pc%+ld @ 0x%lx = 0x%08x",
+                        (long)d, (unsigned long)addr, insn);
+  }
+  struct sigaction sa{};
+  sa.sa_handler = SIG_DFL;
+  sigaction(sig, &sa, nullptr);
+  raise(sig);
+}
+
+void gk_install_sigsegv_diag() {
+  struct sigaction sa{};
+  sa.sa_sigaction = &gk_sigsegv_diag;
+  sa.sa_flags = SA_SIGINFO;
+  sigaction(SIGSEGV, &sa, nullptr);
+  sigaction(SIGBUS, &sa, nullptr);
+  sigaction(SIGILL, &sa, nullptr);
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "gk_install_sigsegv_diag: installed");
+}
+}  // namespace
+
 int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "gk_sdl_main: entered");
+  gk_install_sigsegv_diag();
 
   // Phase 23 (autoport): bring up the SDL virtual gamepad + audio
   // device on the SDL main thread, before goal_main hands us off to
