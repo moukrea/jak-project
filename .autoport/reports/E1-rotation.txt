@@ -1,0 +1,1 @@
+mCurrentRotation=ROTATION_90

@@ -253,6 +253,15 @@ Java_org_opengoal_gk_NativeGk_setDataRoot(JNIEnv* env, jclass /*clazz*/,
 JNIEXPORT void JNICALL
 Java_org_opengoal_gk_NativeGk_onPadButton(JNIEnv* /*env*/, jclass /*clazz*/,
                                           jint sdl_button, jboolean pressed) {
+  // Phase E1 (autoport): emit a marker the device-side validator can
+  // grep for to prove a gamepad event actually crossed the JNI
+  // boundary into native code (and from there into the GOAL kernel via
+  // on_pad_button → CPad). The string "onPadButton" matches the
+  // validator's PADBTN_HITS regex.
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "onPadButton: sdl_button=%d pressed=%d "
+                      "(JNI route from Java SDLActivity)",
+                      (int)sdl_button, pressed == JNI_TRUE ? 1 : 0);
   android_input_audio::on_pad_button((int)sdl_button, pressed == JNI_TRUE);
 }
 
