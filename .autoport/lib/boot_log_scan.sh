@@ -30,6 +30,15 @@ boot_log_scoreboard() {
         echo "  (boot log $log empty or missing)"
         return 1
     fi
+    # TOTAL link-finish count is a single number that tracks how
+    # deeply the boot has progressed through the GOAL CGO link chain.
+    # Per-named-CGO markers below cover the major milestones; this
+    # number catches everything else (math-camera, display, dma-*,
+    # pckernel-*, etc. — boot can reach 40+ unique CGOs at full depth).
+    local total_link total_unique
+    total_link=$(grep -cE "link finish:" "$log" 2>/dev/null || echo 0)
+    total_unique=$(grep -oE "link finish: \S+" "$log" 2>/dev/null | sort -u | wc -l)
+    printf "  TOTAL link finishes: %d (%d unique CGOs linked)\n" "$total_link" "$total_unique"
     echo "  --- Boot progress markers (counts) ---"
     local markers=(
         "MainActivity onCreate done"
