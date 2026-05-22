@@ -71,6 +71,12 @@ adb shell run-as "$PACKAGE" rm -f "$DEVICE_SAVE_PATH" >/dev/null 2>&1 || true
 # SaveActivity as the launch target and the --es extra carrying the path).
 device_miui_unblock_install
 APK_STAGE="/data/local/tmp/$(basename "$APK")"
+# Drop any prior staged APK left over from a failed validator iteration.
+# At ~1.2 GB per copy these accumulate on /data fast enough to push pm
+# install into INSUFFICIENT_STORAGE when the next iteration tries to
+# push again. Same goes for the older `jak1.apk` filename that earlier
+# validator iterations of phases 17+ left behind.
+adb shell rm -f "$APK_STAGE" /data/local/tmp/jak1.apk >/dev/null 2>&1 || true
 if ! adb push "$APK" "$APK_STAGE" >/tmp/e3-install-push.out 2>&1; then
     cat /tmp/e3-install-push.out >&2
     device_fail "adb push to $APK_STAGE failed"
