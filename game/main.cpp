@@ -19,6 +19,7 @@
 #include "common/versions/versions.h"
 
 #include "game/common/game_common_types.h"
+#include "game/kernel/common/kmemcard.h"
 #include "graphics/gfx_test.h"
 
 #include "third-party/CLI11.hpp"
@@ -96,6 +97,29 @@ int goal_main(int argc, char** argv);
 int goal_main(int argc, char** argv) {
   ArgumentGuard u8_guard(argc, argv);
 
+  // Phase E3 (autoport): scan argv for the save-portability flags BEFORE
+  // CLI11 parsing. CLI11 reserves single-dash for short options, so
+  // `-save-then-exit` and `-load-save` (single-dash long names matching
+  // the existing kmachine-arg convention used by `-fakeiso`, `-boot`,
+  // `-debug-mem`) can't be registered as CLI11 options directly. They
+  // would otherwise land in `app.remaining()` and their associated path
+  // would leak into `game_args` as an unbound positional. Hand-scanning
+  // here keeps the runtime layer unaware of the flag and lets us act on
+  // it before any exec_runtime side-effects.
+  std::string save_then_exit_path;
+  std::string load_save_path;
+  for (int i = 1; i + 1 < argc; ++i) {
+    if (!argv[i]) {
+      continue;
+    }
+    const std::string arg = argv[i];
+    if (arg == "-save-then-exit" && argv[i + 1]) {
+      save_then_exit_path = argv[i + 1];
+    } else if (arg == "-load-save" && argv[i + 1]) {
+      load_save_path = argv[i + 1];
+    }
+  }
+
   // CLI flags
   bool show_version = false;
   std::string game_name = "jak1";
@@ -171,6 +195,35 @@ int goal_main(int argc, char** argv) {
   if (show_version) {
     lg::print("{}", build_revision());
     return 0;
+  }
+
+  // Phase E3 (autoport): write the deterministic test save and exit before
+  // any of the gfx/IOP/EE machinery spins up. write_test_save_to_path keys
+  // on g_game_version, which exec_runtime would otherwise be responsible
+  // for setting; we set it here from --game so the BANK_SIZE pulled from
+  // the PerGameVersion table matches what the rest of kmemcard would see.
+  if (!save_then_exit_path.empty()) {
+    g_game_version = game_name_to_version(game_name);
+    kmemcard_init_globals();
+    if (!write_test_save_to_path(save_then_exit_path)) {
+      lg::error("write_test_save_to_path failed for {}", save_then_exit_path);
+      return 1;
+    }
+    return 0;
+  }
+
+  // Phase E3 (autoport): validate the supplied save bank format so the
+  // round-trip step fails fast on a corrupt file rather than mid-boot. If
+  // it's well-formed we leave it where it sits and continue the normal
+  // boot — the runtime doesn't auto-load a save into running state; the
+  // file is staged for the in-game load menu to pick up.
+  if (!load_save_path.empty()) {
+    g_game_version = game_name_to_version(game_name);
+    kmemcard_init_globals();
+    if (!validate_save_file(load_save_path)) {
+      lg::error("load_save: {} is not a valid save bank", load_save_path);
+      return 1;
+    }
   }
 
   if (!gpu_test.empty() && !gpu_test_out_path.empty()) {

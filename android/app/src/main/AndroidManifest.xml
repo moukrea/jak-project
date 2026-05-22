@@ -92,5 +92,21 @@
             android:name="${applicationId}.LoaderActivity"
             android:targetActivity="org.opengoal.gk.LoaderActivity"
             android:exported="true"/>
+
+        <!-- Phase E3 (autoport): SaveActivity is invoked by e3_run.sh
+             via "am start -n applicationId/.SaveActivity" with the
+             "writeTestSaveTo" string extra. It drives the kmemcard
+             deterministic save writer through JNI without booting SDL,
+             writes the file, and finishes. The validator adb-pulls from
+             the path given in the intent extra. -->
+        <activity
+            android:name=".SaveActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:screenOrientation="landscape"/>
+        <activity-alias
+            android:name="${applicationId}.SaveActivity"
+            android:targetActivity="org.opengoal.gk.SaveActivity"
+            android:exported="true"/>
     </application>
 </manifest>

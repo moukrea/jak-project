@@ -104,4 +104,13 @@ public final class NativeGk {
      * device, and the open-gamepad map only tracks real pads.
      */
     public static native int getOpenGamepadCount();
+
+    /**
+     * Phase E3 (autoport): write a deterministic save bank to {@code path}
+     * by invoking the cross-platform kmemcard writer. The resulting
+     * 67584-byte file is byte-identical to what the desktop x86_64 build
+     * produces under the same call — the save-portability contract.
+     * Returns 0 on success.
+     */
+    public static native int writeTestSave(String path);
 }

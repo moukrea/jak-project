@@ -11,6 +11,7 @@
 #include <array>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 #include "common/util/Assert.h"
 #include "common/util/FileUtil.h"
@@ -713,4 +714,89 @@ void MC_get_status(s32 /*slot*/, Ptr<mc_slot_info> info) {
     }
   }
   info->last_file = mc_last_file;
+}
+
+namespace {
+// Phase E3 (autoport): standalone checksum identical to mc_checksum but
+// taking a raw C pointer (mc_checksum walks the GOAL heap via Ptr<u8>,
+// which isn't useful when we want to compute the value before the heap
+// is up). Both implementations must produce bit-identical results — if
+// they ever drift, write_test_save_to_path's output would no longer be
+// what pc_game_save_synch produces.
+u32 mc_checksum_raw(const u8* data, s32 size) {
+  if (size < 0) {
+    size += 3;
+  }
+  u32 result = 0;
+  const u32* data_u32 = reinterpret_cast<const u32*>(data);
+  for (s32 i = 0; i < size / 4; i++) {
+    result = result << 1 ^ (s32)result >> 0x1f ^ data_u32[i] ^ MEM_CARD_MAGIC;
+  }
+  return result ^ 0xedd1e666;
+}
+}  // namespace
+
+bool write_test_save_to_path(const std::string& path) {
+  const s32 bank_size = BANK_SIZE[g_game_version];
+  std::vector<u8> body(static_cast<size_t>(bank_size), 0);
+
+  McHeader hdr;
+  std::memset(&hdr, 0, sizeof(hdr));
+  hdr.save_count = 1;
+  hdr.checksum = mc_checksum_raw(body.data(), bank_size);
+  hdr.magic = MEM_CARD_MAGIC;
+  hdr.save_count2 = 1;
+
+  file_util::create_dir_if_needed_for_file(path);
+  FILE* fd = file_util::open_file(path, "wb");
+  if (!fd) {
+    return false;
+  }
+  bool ok = true;
+  if (std::fwrite(&hdr, sizeof(hdr), 1, fd) != 1) {
+    ok = false;
+  }
+  if (ok && std::fwrite(body.data(), static_cast<size_t>(bank_size), 1, fd) != 1) {
+    ok = false;
+  }
+  if (ok && std::fwrite(&hdr, sizeof(hdr), 1, fd) != 1) {
+    ok = false;
+  }
+  std::fclose(fd);
+  return ok;
+}
+
+bool validate_save_file(const std::string& path) {
+  const s32 bank_size = BANK_SIZE[g_game_version];
+  const size_t expected_size =
+      sizeof(McHeader) * 2 + static_cast<size_t>(bank_size);
+
+  std::error_code ec;
+  if (!fs::exists(path, ec) || fs::file_size(path, ec) != expected_size) {
+    return false;
+  }
+
+  FILE* fd = file_util::open_file(path, "rb");
+  if (!fd) {
+    return false;
+  }
+  McHeader hdr{};
+  McHeader footer{};
+  std::vector<u8> body(static_cast<size_t>(bank_size));
+  bool ok = (std::fread(&hdr, sizeof(hdr), 1, fd) == 1) &&
+            (std::fread(body.data(), static_cast<size_t>(bank_size), 1, fd) == 1) &&
+            (std::fread(&footer, sizeof(footer), 1, fd) == 1);
+  std::fclose(fd);
+  if (!ok) {
+    return false;
+  }
+  if (hdr.magic != MEM_CARD_MAGIC || footer.magic != MEM_CARD_MAGIC) {
+    return false;
+  }
+  if (hdr.save_count != footer.save_count ||
+      hdr.checksum != footer.checksum ||
+      hdr.save_count2 != footer.save_count2) {
+    return false;
+  }
+  return mc_checksum_raw(body.data(), bank_size) == hdr.checksum;
 }
