@@ -1,1 +1,1 @@
-PASS: target reached milestone 'link finish: logo' with 16 platform-only events tolerated (budget 30); oracle scanned 408/408 events.
+PASS: target reached milestone 'link finish: logo' with 15 platform-only events tolerated (budget 30); oracle scanned 408/408 events.
