@@ -67,33 +67,53 @@ device_stayon_on
 # run's write_test_save_to_path call and not a stale carry-over.
 adb shell run-as "$PACKAGE" rm -f "$DEVICE_SAVE_PATH" >/dev/null 2>&1 || true
 
-# Stage the APK (mirrors device_install_and_launch's pattern but with
-# SaveActivity as the launch target and the --es extra carrying the path).
-device_miui_unblock_install
-APK_STAGE="/data/local/tmp/$(basename "$APK")"
-# Drop any prior staged APK left over from a failed validator iteration.
-# At ~1.2 GB per copy these accumulate on /data fast enough to push pm
-# install into INSUFFICIENT_STORAGE when the next iteration tries to
-# push again. Same goes for the older `jak1.apk` filename that earlier
-# validator iterations of phases 17+ left behind.
-adb shell rm -f "$APK_STAGE" /data/local/tmp/jak1.apk >/dev/null 2>&1 || true
-if ! adb push "$APK" "$APK_STAGE" >/tmp/e3-install-push.out 2>&1; then
-    cat /tmp/e3-install-push.out >&2
-    device_fail "adb push to $APK_STAGE failed"
+# Decide whether the device already has the exact APK installed. Re-
+# installing a 1.18 GB jak1 APK on every iteration is expensive enough
+# in /data churn that running validators back-to-back can dump us into
+# `Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE]` on a near-full
+# device — the pm install path needs ~APK_SIZE of scratch on top of
+# the existing install, which on a 98%-full /data partition simply
+# isn't there. Skipping install when the bytes match avoids that cost
+# entirely (and is honest: the binary on disk IS the build we want).
+LOCAL_SHA=$(sha256sum "$APK" | awk '{print $1}')
+DEVICE_APK_PATH=$(adb shell pm path "$PACKAGE" 2>/dev/null | sed 's|^package:||' | tr -d '\r')
+DEVICE_SHA=""
+if [ -n "$DEVICE_APK_PATH" ]; then
+    DEVICE_SHA=$(adb shell "sha256sum $DEVICE_APK_PATH" 2>/dev/null | awk '{print $1}')
 fi
-if ! adb shell pm install -r -d -t -i com.android.vending "$APK_STAGE" \
-        >/tmp/e3-install-pm.out 2>&1; then
-    cat /tmp/e3-install-pm.out >&2
+if [ -n "$DEVICE_SHA" ] && [ "$LOCAL_SHA" = "$DEVICE_SHA" ]; then
+    echo "  device APK already matches local (sha256=${LOCAL_SHA:0:12}…); skipping install"
+    device_require_unlocked
+else
+    # Stage + install fresh. Mirrors device_install_and_launch's
+    # push/pm-install split but with SaveActivity as the launch target.
+    device_miui_unblock_install
+    APK_STAGE="/data/local/tmp/$(basename "$APK")"
+    # Drop any prior staged APK left over from a failed validator
+    # iteration. At ~1.2 GB per copy these accumulate on /data fast
+    # enough to push pm install into INSUFFICIENT_STORAGE when the
+    # next iteration tries to push again. Same goes for the older
+    # `jak1.apk` filename that earlier validator iterations of
+    # phases 17+ left behind.
+    adb shell rm -f "$APK_STAGE" /data/local/tmp/jak1.apk >/dev/null 2>&1 || true
+    if ! adb push "$APK" "$APK_STAGE" >/tmp/e3-install-push.out 2>&1; then
+        cat /tmp/e3-install-push.out >&2
+        device_fail "adb push to $APK_STAGE failed"
+    fi
+    if ! adb shell pm install -r -d -t -i com.android.vending "$APK_STAGE" \
+            >/tmp/e3-install-pm.out 2>&1; then
+        cat /tmp/e3-install-pm.out >&2
+        adb shell rm -f "$APK_STAGE" >/dev/null 2>&1 || true
+        device_fail "pm install rejected the APK"
+    fi
+    if ! grep -q "Success" /tmp/e3-install-pm.out; then
+        cat /tmp/e3-install-pm.out >&2
+        adb shell rm -f "$APK_STAGE" >/dev/null 2>&1 || true
+        device_fail "pm install did not report Success"
+    fi
     adb shell rm -f "$APK_STAGE" >/dev/null 2>&1 || true
-    device_fail "pm install rejected the APK"
+    device_require_unlocked
 fi
-if ! grep -q "Success" /tmp/e3-install-pm.out; then
-    cat /tmp/e3-install-pm.out >&2
-    adb shell rm -f "$APK_STAGE" >/dev/null 2>&1 || true
-    device_fail "pm install did not report Success"
-fi
-adb shell rm -f "$APK_STAGE" >/dev/null 2>&1 || true
-device_require_unlocked
 
 # Stop any prior MainActivity / LoaderActivity so SaveActivity is the
 # only entry; SDL state from a half-booted MainActivity would otherwise
