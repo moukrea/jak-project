@@ -81,14 +81,22 @@ if grep -qE "jak1::InitMachine ABORT" "$BOOT_LOG"; then
 fi
 ok "no D3 abort message in logcat"
 
-# ---- 9. No fatal signals in the capture window for our process ----
-if grep -qE "F DEBUG +:.*signal (6|11|4|7) \((SIGABRT|SIGSEGV|SIGILL|SIGBUS)\)" "$BOOT_LOG"; then
-    echo "Native fatal in logcat:"
-    grep -nE "F DEBUG +:.*signal" "$BOOT_LOG" | head -3
-    grep -nE "F DEBUG +:.*Abort message" "$BOOT_LOG" | head -3
-    fail "process crashed with a native fatal signal during D4 capture"
+# ---- 9. No fatal signals OR libsigchain-routed crashes in capture window ----
+# Uses the broader boot_log_scan.sh detector — the narrow "F DEBUG: signal"
+# grep misses native crashes routed through Android's libsigchain (the ART
+# signal-chain coordinator). Today's session found a boot log with 1
+# Process-died + 80 libsigchain errors + 102 GK-DIAG dumps that the old
+# narrow grep reported as "no crash". Don't repeat that mistake.
+. .autoport/lib/boot_log_scan.sh
+if boot_log_crashed "$BOOT_LOG"; then
+    echo "Crash signals in boot log:" >&2
+    grep -nE "F DEBUG +:.*signal|F libc.*Fatal|E libsigchain|FATAL EXCEPTION|Process .*has died" "$BOOT_LOG" \
+        | head -5 >&2
+    echo "  (scoreboard:)" >&2
+    boot_log_scoreboard "$BOOT_LOG" >&2
+    fail "process crashed during D4 capture (broader detection: narrow F DEBUG, libc Fatal, libsigchain, FATAL EXCEPTION, or GK-DIAG signal handler firing ≥ 10x)"
 fi
-ok "no SIGABRT/SIGSEGV/SIGILL/SIGBUS in capture window"
+ok "no crash detected (narrow F DEBUG + libsigchain + FATAL EXCEPTION + GK-DIAG-burst all clean)"
 
 # ---- 10. Render loop entered ----
 grep -qE "android_renderer_run: entered" "$BOOT_LOG" \
