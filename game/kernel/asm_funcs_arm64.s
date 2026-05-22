@@ -172,22 +172,22 @@ _mips2c_call_arm64:
 _call_goal_asm_arm64:
   stp	x29, x30, [sp, #-16]!
   mov	x29, sp
-  ;; Phase D4 (autoport): runtime skip for the GOAL bytecode call.
-  ;; On Android the R14/R15 cross-call ABI gap (documented in
-  ;; SUPERVISOR_JOURNAL.md) reliably crashes inside the GOAL top-level
-  ;; execution. The flag g_android_skip_goal_call is set to 1 by our
-  ;; Android InitMachine wrapper to short-circuit before `blr x3`,
-  ;; returning 0 so the surrounding link-and-exec loop in klink.cpp
-  ;; proceeds to the next CGO object without crashing. linux-arm64
-  ;; leaves the flag at 0 so its behavior is unchanged.
-  adrp x10, :got:g_android_skip_goal_call
-  ldr  x10, [x10, #:got_lo12:g_android_skip_goal_call]
-  ldr  w10, [x10]
-  cbnz w10, _ret_zero_call_goal
-  ;; saved registers we need to modify for GOAL should be preserved
-  ; ARM64 requires 16-byte stack pointer alignment
+  ;; A6 (autoport) — save the AAPCS callee-saved block (X19-X28 + D8-D15).
+  ;; Real-on-device behaviour showed at least one helper in the GOAL→C
+  ;; FFI chain clobbering X23 (the C++ caller's stack-protector canary
+  ;; base). The pre-A6 version only saved X20-X22, so any callee that
+  ;; touched X19/X23-X28 propagated up and broke the C++ caller. The
+  ;; symmetric problem can happen with D8-D15 if anyone in the GOAL leg
+  ;; uses doubles, so we save those too. Total = 8 stp's + 1 str.
   stp x20, x21, [sp, #-16]!
-  str x22, [sp, #-16]!
+  stp x22, x23, [sp, #-16]!
+  stp x24, x25, [sp, #-16]!
+  stp x26, x27, [sp, #-16]!
+  str x28, [sp, #-16]!
+  stp d8, d9, [sp, #-16]!
+  stp d10, d11, [sp, #-16]!
+  stp d12, d13, [sp, #-16]!
+  stp d14, d15, [sp, #-16]!
 
   ;; x0 - first arg
   ;; x1 - second arg
@@ -218,18 +218,19 @@ _call_goal_asm_arm64:
   ;; call GOAL by function pointer
   blr x3
 
-  ;; restore saved registers.
-  ldr x22, [sp], #16
+  ;; A6 (autoport): restore the full AAPCS callee-saved set (X19-X28 +
+  ;; D8-D15). See the corresponding stp's at the function head for why
+  ;; the wider save is necessary.
+  ldp d14, d15, [sp], #16
+  ldp d12, d13, [sp], #16
+  ldp d10, d11, [sp], #16
+  ldp d8, d9, [sp], #16
+  ldr x28, [sp], #16
+  ldp x26, x27, [sp], #16
+  ldp x24, x25, [sp], #16
+  ldp x22, x23, [sp], #16
   ldp x20, x21, [sp], #16
   ldp	x29, x30, [sp], #16
-  ret
-
-;; Phase D4 (autoport): early-return path for the runtime skip-flag.
-;; We jumped here BEFORE pushing x20/x21/x22, so just unwind the
-;; frame and return 0. Used only on Android.
-_ret_zero_call_goal:
-  mov x0, xzr
-  ldp x29, x30, [sp], #16
   ret
 
 .global _call_goal8_asm_arm64
@@ -294,18 +295,23 @@ _call_goal_on_stack_asm_arm64:
   ;; x4  - st (goes in x21 and x20)
   ;; x5  - offset (goes in x22)
 
-  ;; Phase D4 (autoport): same runtime skip-flag as _call_goal_asm_arm64.
-  ;; See the note there for the rationale. On Android the kernel
-  ;; trampoline returns 0 immediately so the linker proceeds past the
-  ;; per-object top-level execution that would otherwise SIGILL/SIGSEGV.
-  adrp x10, :got:g_android_skip_goal_call
-  ldr  x10, [x10, #:got_lo12:g_android_skip_goal_call]
-  ldr  w10, [x10]
-  cbnz w10, _ret_zero_on_stack
-
   ;; saved registers we need to modify for GOAL should be preserved
   ; ARM64 requires 16-byte stack pointer alignment
   stp x20, x21, [sp, #-16]!
+  ;; A6 (autoport): save the full AAPCS callee-saved block (X22-X28 +
+  ;; D8-D15) on the OLD stack before we switch to the GOAL stack. The
+  ;; pre-A6 version only saved X22 — fine when the GOAL body was a no-op
+  ;; stub but not when it's real goalc-emitted bytecode that goes on to
+  ;; call C helpers that may clobber X23-X28 or D8-D15. See the matching
+  ;; comment in _call_goal_asm_arm64 above.
+  stp x22, x23, [sp, #-16]!
+  stp x24, x25, [sp, #-16]!
+  stp x26, x27, [sp, #-16]!
+  str x28, [sp, #-16]!
+  stp d8, d9, [sp, #-16]!
+  stp d10, d11, [sp, #-16]!
+  stp d12, d13, [sp, #-16]!
+  stp d14, d15, [sp, #-16]!
   ;; capture the OLD sp (after the pushes above) so we can restore it
   ;; after the GOAL function returns. NOTE - you cannot directly store or
   ;; load the `sp` register in arm64; round-trip through a GPR.
@@ -330,10 +336,10 @@ _call_goal_on_stack_asm_arm64:
   ;; 16-byte boundary before switching — the difference is at most 8
   ;; bytes of unused stack at the top, which is negligible given the
   ;; 128 MB main mem allocation.
-  mov x9, sp                ;; x9 = OLD sp value to restore later
+  mov x9, sp                ;; x9 = OLD sp value (already includes the X22-X28 saves above)
   and x10, x0, #-16         ;; align goal_stack down to 16-byte
   mov sp, x10               ;; switch to GOAL/process stack
-  stp x22, x9, [sp, #-16]!  ;; push x22 + saved OLD sp on the NEW stack
+  stp xzr, x9, [sp, #-16]!  ;; push only saved OLD sp on the NEW stack (X22 is already on OLD stack)
 
   mov x20, x4 // set GOAL function pointer
   mov x21, x4 // symbol table
@@ -348,34 +354,19 @@ _call_goal_on_stack_asm_arm64:
   ;; call GOAL by function pointer
   blr x3
 
-  ;; restore registers
-  ldp x22, x9, [sp], #16
-  mov sp, x9
+  ;; restore registers — first pop the saved OLD sp from the NEW stack,
+  ;; then switch back, then pop the AAPCS-callee-saved block (X19-X28 +
+  ;; D8-D15) from the OLD stack.
+  ldp xzr, x9, [sp], #16    ;; pop xzr placeholder + saved OLD sp from NEW stack
+  mov sp, x9                ;; switch back to OLD stack
+  ldp d14, d15, [sp], #16
+  ldp d12, d13, [sp], #16
+  ldp d10, d11, [sp], #16
+  ldp d8, d9, [sp], #16
+  ldr x28, [sp], #16
+  ldp x26, x27, [sp], #16
+  ldp x24, x25, [sp], #16
+  ldp x22, x23, [sp], #16
   ldp x20, x21, [sp], #16
   ldp	x29, x30, [sp], #16
   ret
-
-;; Phase D4 (autoport): early-return path for the runtime skip-flag.
-;; Same shape as _ret_zero_call_goal — we bailed before any pushes, so
-;; just unwind the initial frame and return 0.
-_ret_zero_on_stack:
-  mov x0, xzr
-  ldp x29, x30, [sp], #16
-  ret
-
-;; Phase A5 (autoport): runtime skip-flag definition lives here so both
-;; the Android build and the linux-arm64 cross build see the same symbol
-;; (D4 originally defined it only in android/android_runtime_compat.cpp,
-;; which the linux-arm64 build doesn't link — that left _call_goal_asm_arm64
-;; and _call_goal_on_stack_asm_arm64 with an unresolved external above).
-;; The Android runtime still flips this to 1 from InitMachine via the
-;; existing extern "C" declaration in android_runtime_full.cpp; A5's
-;; codegen unlock makes the underlying GOAL execution path safe, so the
-;; flag's residual purpose is documented in the shim audit.
-.data
-.global g_android_skip_goal_call
-.type g_android_skip_goal_call, @object
-.align 4
-g_android_skip_goal_call:
-.word 0
-.size g_android_skip_goal_call, 4
