@@ -56,20 +56,49 @@ Both sites were honestly documented at D4 close (see the comments in
   g_android_skip_goal_call` in `game/linux-arm64/gk` was caused by D4
   defining it only in the Android compat translation unit).
 
-- DELETE: `InitMachine` step 6.6 — the `g_android_skip_goal_call = 1`
-  write in `android/android_runtime_full.cpp`. After A5 closes the
-  691-NOP gap, the GOAL trampolines can actually run the post-link
-  top-level execution; arming the skip-flag would defeat the whole
-  point of A5. The flag's storage stays in `asm_funcs_arm64.s` (as a
-  zero-initialised data word) so any future need to arm it from C++
-  remains a one-line write rather than a re-introduction of the
-  symbol definition.
+- KEEP: `InitMachine` step 6.6 — the `g_android_skip_goal_call = 1`
+  write in `android/android_runtime_full.cpp`. _Originally tagged
+  DELETE during A5 design, restored to KEEP after the first device
+  validation surfaced a SECOND distinct emitter bug._
+  **Why kept:** A5's emitter unlock fixed the imm12-overflow leg of
+  the goalc-arm64 bug surface (the 691-NOP gap is closed and the
+  patcher histogram shows out-of-range=0). But the device boot
+  uncovered a separate, structurally similar bug in the GOAL pointer
+  dereference helpers `load_goal_gpr` / `store_goal_gpr` /
+  `load_goal_xmm32` / `load_goal_xmm128` / `store_goal_xmm32` /
+  `store_goal_vf` in `goalc/emitter/IGenARM64.cpp`: each function
+  receives the EE-offset register as `Register off` and then does
+  `(void)off;` — the EE base is dropped from every emitted
+  `LDR/STR Wt, [Xbase, #imm12]` and the GOAL pointer (a 32-bit
+  EE-relative offset) is dereferenced as a raw 64-bit host address.
+  On x86 the same helpers fold off into the SIB byte
+  (`[base + r15 + imm]`), so desktop x86 was never affected. On
+  arm64 with EE memory at a high VA, the first field deref produced
+  by the post-A5 bytecode SIGSEGVs (fault addr 0x17fd34,
+  `x9=0x17fd24` — a GOAL pointer zero-extended from a Wt load that
+  should have been `LDR Wt, [Xbase, X15]`).
+  **How to apply:** keep this dodge armed until a follow-up phase
+  expands the off-register IGenARM64 helpers to either the
+  register-form `LDR/STR Wt, [Xn, Xm, LSL #amount]` (zero-offset
+  case) or a 2-instruction `ADD Xtmp, Xbase, Xoff; LDR/STR Wt,
+  [Xtmp, #imm]` (non-zero-offset case) via the same X16-scratch
+  sentinel mechanism A5 introduced for sym-mem.
 
-- DELETE: `KernelCheckAndDispatch` skip-flag branch — the
+- KEEP: `KernelCheckAndDispatch` skip-flag branch — the
   `if (g_android_skip_goal_call) { passive sleep loop }` branch in
-  `android/android_runtime_full.cpp`. With A5's bytecode executing,
-  `ListenerFunction` is populated by the gkernel top-level and
-  `jak1::KernelCheckAndDispatch` can be called directly.
+  `android/android_runtime_full.cpp`. _Originally tagged DELETE,
+  restored to KEEP for the same reason as step 6.6 above._
+  **Why kept:** with the skip-flag armed (per step 6.6) the GOAL
+  kernel top-level never runs, so `ListenerFunction` is never
+  populated by gkernel and `jak1::KernelCheckAndDispatch`'s deref
+  of `ListenerFunction->value` asserts on a null Ptr. The passive
+  sleep loop holds the dispatcher thread alive without entering
+  the upstream dispatcher; the renderer thread keeps iterating
+  frames so D4's swap-loop markers still fire.
+  **How to apply:** keep this branch in lock-step with the
+  step-6.6 dodge. Once the off-register emitter bug is fixed,
+  both should be removed in the same change so the runtime no
+  longer needs the skip-flag at all.
 
 ## Retained as Bionic / runtime adapters (compat.cpp)
 
@@ -155,13 +184,59 @@ of them would surface as an undefined-reference at link time, not as
 a behavioural regression.
 
 The two pure-dodge sites in `android_runtime_full.cpp` (Step 6.6 +
-the KernelCheckAndDispatch skip-flag branch) are removed by this
-audit. Their removal exposes the post-A5 GOAL execution path to the
-device runtime — which is the entire point of A5. If the device-side
-D4 re-run fails after their removal, the dispositions above are
-revised to KEEP-WITH-JUSTIFICATION and a follow-up phase tracks the
-remaining bytecode bug that's still blocking real GOAL execution on
-Android.
+the KernelCheckAndDispatch skip-flag branch) were initially removed
+by this audit, but the post-removal D4 re-run on device surfaced a
+second arm64 emitter bug (the off-register drop in
+`load_goal_gpr`/`store_goal_gpr` and friends — see the KEEP entries
+in the Disposition section above). Both dodges are restored here in
+lock-step, with the dispositions revised to KEEP-WITH-JUSTIFICATION,
+exactly per the supervisor's prompt fallback ("If D4 fails at this
+step, restore the shims that were needed; the validator will then
+require an explicit justification in the audit report for each
+retained shim").
+
+A follow-up phase is responsible for fixing the off-register bug at
+the emitter level and removing both dodges in the same change.
+
+## Follow-up — off-register emitter bug discovered during A5
+
+This is the engineering finding that A5 did NOT close but DID
+surface. Recorded here so the next phase has the exact shape and
+location of the bug:
+
+- **Where**: `goalc/emitter/IGenARM64.cpp`, the family of helpers
+  that take a `Register off` parameter and immediately discard it
+  via `(void)off;`:
+  - `load_goal_gpr` (size in {1,2,4,8}, signed/unsigned)
+  - `store_goal_gpr` (size in {1,2,4,8})
+  - `load_goal_xmm32`, `store_goal_xmm32`
+  - `load_goal_xmm128`, `store_goal_vf`
+  - `load{8,16,32,64}{s,u}_gpr64_gpr64_plus_gpr64_plus_s32`
+  - `store{8,16,32,64}_gpr64_gpr64_plus_gpr64_plus_s32`
+- **What's wrong**: each helper drops the EE-offset register
+  (mapped to `x15` on arm64 by the trampolines in
+  `game/kernel/asm_funcs_arm64.s`). The emitted single-instruction
+  `LDR/STR Wt, [Xbase, #imm12]` accesses host address
+  `(uint64_t)Xbase + imm12` instead of the intended
+  `(uint64_t)X15 + Xbase + imm12`.
+- **Why x86 doesn't see it**: the x86 helpers take a `Register off`
+  too, but they fold it into the SIB byte:
+  `mov [Rbase + R15 + imm32], Rsrc` — the EE base is part of the
+  effective address. The arm64 single-immediate `LDR/STR` has no
+  equivalent 3-operand encoding.
+- **Suggested fix shape**: expand each helper to a 2-instruction
+  sequence inside `ObjectGenerator::add_instr` using a sentinel
+  marker (same mechanism as A5's sym-mem far-reloc expansion):
+  - `ADD X16, Xbase, X15`  (X16 = host address sans imm)
+  - `LDR/STR Wt, [X16, #imm12]`
+  The X16 scratch is already reserved by A5 (the goalc register
+  allocator caps at id 9 / R10 and never assigns X16/X17 to a live
+  value).
+- **Symptoms observed**: SIGSEGV with `fault addr 0x17fd34` during
+  the first gcommon top-level execution; `x9` holds a zero-extended
+  32-bit GOAL pointer (`0x17fd24`) that should have been added to
+  `x15` (= EE base `0x720aa2a000` on the user's Redmi Note 9 Pro)
+  before the deref.
 
 ## Verification
 

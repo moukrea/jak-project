@@ -59,6 +59,22 @@ device_stayon_on
 # validator's grep.
 : > "$BOOT_LOG"
 
+# A5: LoaderActivity caches iso_data extraction across launches via a
+# `.extracted_v1` sentinel inside files/iso_data/<game>. `pm install -r`
+# preserves /data/data/<pkg>, so an APK whose bundled iso_data has been
+# updated (e.g., A5 regenerated KERNEL.CGO as the arm64 variant) does
+# NOT take effect on device — the launch sees the sentinel, skips
+# extraction, and the runtime reads the older x86 KERNEL.CGO previously
+# extracted from a stale APK. That decodes as illegal arm64 instructions
+# the moment the post-A5 boot path actually executes the bytecode,
+# producing a SIGILL inside the gcommon top-level.
+#
+# Invalidate the sentinel before install. LoaderActivity will see the
+# missing sentinel, treat the existing target as a half-copy from a
+# crashed run, wipe it, and re-extract the APK-bundled iso_data fresh.
+# Best-effort `run-as` so a never-installed device path still proceeds.
+adb shell run-as "$PACKAGE" rm -f "files/iso_data/jak1/.extracted_v1" >/dev/null 2>&1 || true
+
 device_install_and_launch "$PACKAGE" "$ACTIVITY" "$APK"
 
 echo "== D4 step 4/4: 90 s capture window (sustained-swap + kmachine markers) =="
@@ -68,8 +84,16 @@ echo "== D4 step 4/4: 90 s capture window (sustained-swap + kmachine markers) ==
 # evidence, the validator decides pass/fail.
 ONCREATE=1; RENDER_ENTERED=1; SUSTAINED=1; KMACHINE=1
 
-if device_wait_for_marker 'MainActivity onCreate done' 30; then ONCREATE=0; fi
-if device_wait_for_marker 'android_renderer_run: entered' 45; then RENDER_ENTERED=0; fi
+# A5 forces iso_data re-extraction on every install (the LoaderActivity
+# `.extracted_v1` sentinel is wiped above so the APK-bundled arm64 CGOs
+# actually reach the device runtime). The first launch after that wipe
+# copies ~1.4 GB of game data from APK assets to filesDir; the previous
+# 30 s ceiling for the onCreate marker was tuned to the warm-cache path
+# (where extraction is a no-op) and trips spuriously when the cold cache
+# path runs the actual file copy. Subsequent D4 launches in the same A5
+# run reuse the freshly extracted iso_data so they hit the warm path.
+if device_wait_for_marker 'MainActivity onCreate done' 180; then ONCREATE=0; fi
+if device_wait_for_marker 'android_renderer_run: entered' 60; then RENDER_ENTERED=0; fi
 if device_wait_for_marker 'android_renderer: sustained swap [0-9]+' 60; then SUSTAINED=0; fi
 if device_wait_for_marker '(InitIOP OK|Initialized GOAL heap|Got DGO file header|link finish:)' 60; then KMACHINE=0; fi
 
