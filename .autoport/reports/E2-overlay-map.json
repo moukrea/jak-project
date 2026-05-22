@@ -1,0 +1,65 @@
+{
+  "hits": {
+    "dpad_down": {
+      "cx": 275,
+      "cy": 784,
+      "radius": 70,
+      "sdl_button": 12
+    },
+    "dpad_left": {
+      "cx": 163,
+      "cy": 672,
+      "radius": 70,
+      "sdl_button": 13
+    },
+    "dpad_right": {
+      "cx": 387,
+      "cy": 672,
+      "radius": 70,
+      "sdl_button": 14
+    },
+    "dpad_up": {
+      "cx": 275,
+      "cy": 560,
+      "radius": 70,
+      "sdl_button": 11
+    },
+    "east": {
+      "cx": 2134,
+      "cy": 672,
+      "radius": 70,
+      "sdl_button": 1
+    },
+    "north": {
+      "cx": 2022,
+      "cy": 560,
+      "radius": 70,
+      "sdl_button": 3
+    },
+    "south": {
+      "cx": 2022,
+      "cy": 784,
+      "radius": 70,
+      "sdl_button": 0
+    },
+    "start": {
+      "cx": 1149,
+      "cy": 859,
+      "radius": 49,
+      "sdl_button": 6
+    },
+    "west": {
+      "cx": 1910,
+      "cy": 672,
+      "radius": 70,
+      "sdl_button": 2
+    }
+  },
+  "note": "Hit-zone -> SDL_GAMEPAD_BUTTON_* mapping. Tap (cx,cy) to fire NativeGk.onPadButton(sdl_button, true|false).",
+  "phase": "E2",
+  "screen": {
+    "h": 934,
+    "w": 2298
+  },
+  "source": "TouchOverlayView.onSizeChanged"
+}

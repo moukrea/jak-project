@@ -294,4 +294,15 @@ Java_org_opengoal_gk_NativeGk_getRendererFrameCount(JNIEnv* /*env*/,
   return (jlong)android_renderer_frame_count();
 }
 
+// Phase E2 (autoport): JNI bridge that exposes the SDL open-gamepad
+// count to the Activity's UI-thread poller. MainActivity calls this
+// every second; when the count transitions 0 → N the touch overlay
+// auto-hides with a `gamepad detected: hiding touch overlay` marker
+// the E2 prompt requires for observable behaviour.
+JNIEXPORT jint JNICALL
+Java_org_opengoal_gk_NativeGk_getOpenGamepadCount(JNIEnv* /*env*/,
+                                                  jclass /*clazz*/) {
+  return (jint)android_input_audio::open_gamepad_count();
+}
+
 }  // extern "C"
