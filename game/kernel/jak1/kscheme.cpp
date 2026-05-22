@@ -513,11 +513,11 @@ Ptr<Function> make_stack_arg_function_from_c_win32(void* func) {
 //
 // The systemv variant above writes x86_64 machine code (movabs/push/jmp) into
 // a heap-allocated function object. The pre-A6 builds got away with this on
-// arm64 only because the runtime skip-flag (g_android_skip_goal_call) never
-// let GOAL bytecode actually BLR to the trampoline. With the A6 emitter fix
-// landed and the skip-flag dodge removed, gcommon's top-level executes and
-// the first defmethod-driven FFI call (method-set!) jumps straight into
-// these x86 bytes — SIGILL inside the heap-allocated trampoline.
+// arm64 only because the D4-era runtime dodge short-circuited call_goal
+// before the GOAL bytecode could ever BLR to the trampoline. A6 removes
+// that dodge; gcommon's top-level executes for real and the first
+// defmethod-driven FFI call (method-set!) jumps straight into these x86
+// bytes — SIGILL inside the heap-allocated trampoline.
 //
 // The arm64 trampoline emits a self-contained sequence:
 //   - save x29 (FP), x30 (LR back to GOAL caller) on the stack
