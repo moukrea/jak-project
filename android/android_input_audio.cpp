@@ -55,6 +55,12 @@ std::atomic<uint64_t> g_audio_cb_count{0};
 // the event pump, so no locking is required.
 std::unordered_map<SDL_JoystickID, SDL_Gamepad*> g_open_gamepads;
 
+// Phase E2 (autoport): atomic mirror of g_open_gamepads.size() so the
+// Activity's UI-thread poller (NativeGk.getOpenGamepadCount) doesn't
+// race with the SDL main thread's reads/writes of the map. Updated
+// every time a gamepad is opened or closed.
+std::atomic<int> g_open_gamepad_count{0};
+
 // Phase 30: monotonic-ms timestamp of the most recent SDL_GAMEPAD_BUTTON_START
 // press edge. Read by the renderer so the framebuffer can change visibly
 // in response to a START tap until the real GOAL VM is wired (post phase
@@ -234,6 +240,15 @@ void init() {
         if (!SDL_IsGamepad(jid)) {
           continue;
         }
+        // Phase E2 (autoport): the overlay's own virtual gamepad
+        // attaches as a SDL_JOYSTICK_TYPE_GAMEPAD device, so the
+        // enumeration here would pick it up alongside any real
+        // Bluetooth pads. Skip it explicitly — counting our own
+        // overlay as a "real pad" would trigger the Activity's
+        // auto-hide path the moment we showed the overlay.
+        if (g_vjoy_id != 0 && jid == g_vjoy_id) {
+          continue;
+        }
         SDL_Gamepad* pad = SDL_OpenGamepad(jid);
         if (!pad) {
           __android_log_print(ANDROID_LOG_WARN, kLogTag,
@@ -242,6 +257,8 @@ void init() {
           continue;
         }
         g_open_gamepads[jid] = pad;
+        g_open_gamepad_count.store((int)g_open_gamepads.size(),
+                                   std::memory_order_release);
         const char* name = SDL_GetGamepadName(pad);
         __android_log_print(ANDROID_LOG_INFO, kLogTag,
                             "SDL_GAMEPAD: opened '%s' id=%u "
@@ -346,6 +363,10 @@ int64_t monotonic_ms_now() {
   return monotonic_ms_internal();
 }
 
+int open_gamepad_count() {
+  return g_open_gamepad_count.load(std::memory_order_acquire);
+}
+
 // Phase E1 (autoport): SDL event router. The renderer's PollEvent loop
 // calls this for every event; we consume the gamepad-flavoured ones and
 // pass everything else through. Mirrors the desktop's
@@ -383,6 +404,14 @@ bool process_sdl_event(const SDL_Event& event) {
     case SDL_EVENT_GAMEPAD_ADDED: {
       // gdevice.which is the SDL_JoystickID of the newly arrived pad.
       const SDL_JoystickID jid = event.gdevice.which;
+      // Phase E2 (autoport): SDL emits a GAMEPAD_ADDED for our own
+      // overlay virtual joystick at attach time. Don't open it as a
+      // "real pad" — that would inflate g_open_gamepad_count and the
+      // Activity's UI-thread poller would hide the overlay we just
+      // brought up.
+      if (g_vjoy_id != 0 && jid == g_vjoy_id) {
+        return true;
+      }
       if (g_open_gamepads.count(jid)) {
         return true;  // already opened (init-time enumeration)
       }
@@ -394,6 +423,8 @@ bool process_sdl_event(const SDL_Event& event) {
         return true;
       }
       g_open_gamepads[jid] = pad;
+      g_open_gamepad_count.store((int)g_open_gamepads.size(),
+                                 std::memory_order_release);
       const char* name = SDL_GetGamepadName(pad);
       __android_log_print(ANDROID_LOG_INFO, kLogTag,
                           "SDL_EVENT_GAMEPAD_ADDED: opened '%s' id=%u",
@@ -406,6 +437,8 @@ bool process_sdl_event(const SDL_Event& event) {
       if (it != g_open_gamepads.end()) {
         SDL_CloseGamepad(it->second);
         g_open_gamepads.erase(it);
+        g_open_gamepad_count.store((int)g_open_gamepads.size(),
+                                   std::memory_order_release);
       }
       __android_log_print(ANDROID_LOG_INFO, kLogTag,
                           "SDL_EVENT_GAMEPAD_REMOVED: id=%u",

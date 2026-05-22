@@ -87,6 +87,13 @@ ANDROID_DROP_BODY_SUBSTRINGS = (
     # Phase E1: `[link and exec] X` redundant with `link finish: X` —
     # see the CANONICAL_KEYWORDS rationale above.
     '[link and exec]',
+    # Phase E2: touch-overlay platform-glue noise. The overlay is
+    # Android-only by definition (desktop drives input from a real
+    # keyboard or gamepad), so its lifecycle / hitbox / gamepad-
+    # detection lines have no desktop counterpart. Drop them so the
+    # trace-diff anchors on behavioural events both runs emit.
+    'touch overlay', 'overlay-map:', 'gamepad detected:',
+    'gamepad removed:',
 )
 
 # Tag indicators on the desktop side: lg::log macros emit lines like
