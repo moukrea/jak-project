@@ -172,10 +172,22 @@ _mips2c_call_arm64:
 _call_goal_asm_arm64:
   stp	x29, x30, [sp, #-16]!
   mov	x29, sp
-  ;; saved registers we need to modify for GOAL should be preserved
-  ; ARM64 requires 16-byte stack pointer alignment
+  ;; A6 (autoport) — save the AAPCS callee-saved block (X19-X28 + D8-D15).
+  ;; Real-on-device behaviour showed at least one helper in the GOAL→C
+  ;; FFI chain clobbering X23 (the C++ caller's stack-protector canary
+  ;; base). The pre-A6 version only saved X20-X22, so any callee that
+  ;; touched X19/X23-X28 propagated up and broke the C++ caller. The
+  ;; symmetric problem can happen with D8-D15 if anyone in the GOAL leg
+  ;; uses doubles, so we save those too. Total = 8 stp's + 1 str.
   stp x20, x21, [sp, #-16]!
-  str x22, [sp, #-16]!
+  stp x22, x23, [sp, #-16]!
+  stp x24, x25, [sp, #-16]!
+  stp x26, x27, [sp, #-16]!
+  str x28, [sp, #-16]!
+  stp d8, d9, [sp, #-16]!
+  stp d10, d11, [sp, #-16]!
+  stp d12, d13, [sp, #-16]!
+  stp d14, d15, [sp, #-16]!
 
   ;; x0 - first arg
   ;; x1 - second arg
@@ -206,8 +218,17 @@ _call_goal_asm_arm64:
   ;; call GOAL by function pointer
   blr x3
 
-  ;; restore saved registers.
-  ldr x22, [sp], #16
+  ;; A6 (autoport): restore the full AAPCS callee-saved set (X19-X28 +
+  ;; D8-D15). See the corresponding stp's at the function head for why
+  ;; the wider save is necessary.
+  ldp d14, d15, [sp], #16
+  ldp d12, d13, [sp], #16
+  ldp d10, d11, [sp], #16
+  ldp d8, d9, [sp], #16
+  ldr x28, [sp], #16
+  ldp x26, x27, [sp], #16
+  ldp x24, x25, [sp], #16
+  ldp x22, x23, [sp], #16
   ldp x20, x21, [sp], #16
   ldp	x29, x30, [sp], #16
   ret
@@ -277,6 +298,20 @@ _call_goal_on_stack_asm_arm64:
   ;; saved registers we need to modify for GOAL should be preserved
   ; ARM64 requires 16-byte stack pointer alignment
   stp x20, x21, [sp, #-16]!
+  ;; A6 (autoport): save the full AAPCS callee-saved block (X22-X28 +
+  ;; D8-D15) on the OLD stack before we switch to the GOAL stack. The
+  ;; pre-A6 version only saved X22 — fine when the GOAL body was a no-op
+  ;; stub but not when it's real goalc-emitted bytecode that goes on to
+  ;; call C helpers that may clobber X23-X28 or D8-D15. See the matching
+  ;; comment in _call_goal_asm_arm64 above.
+  stp x22, x23, [sp, #-16]!
+  stp x24, x25, [sp, #-16]!
+  stp x26, x27, [sp, #-16]!
+  str x28, [sp, #-16]!
+  stp d8, d9, [sp, #-16]!
+  stp d10, d11, [sp, #-16]!
+  stp d12, d13, [sp, #-16]!
+  stp d14, d15, [sp, #-16]!
   ;; capture the OLD sp (after the pushes above) so we can restore it
   ;; after the GOAL function returns. NOTE - you cannot directly store or
   ;; load the `sp` register in arm64; round-trip through a GPR.
@@ -301,10 +336,10 @@ _call_goal_on_stack_asm_arm64:
   ;; 16-byte boundary before switching — the difference is at most 8
   ;; bytes of unused stack at the top, which is negligible given the
   ;; 128 MB main mem allocation.
-  mov x9, sp                ;; x9 = OLD sp value to restore later
+  mov x9, sp                ;; x9 = OLD sp value (already includes the X22-X28 saves above)
   and x10, x0, #-16         ;; align goal_stack down to 16-byte
   mov sp, x10               ;; switch to GOAL/process stack
-  stp x22, x9, [sp, #-16]!  ;; push x22 + saved OLD sp on the NEW stack
+  stp xzr, x9, [sp, #-16]!  ;; push only saved OLD sp on the NEW stack (X22 is already on OLD stack)
 
   mov x20, x4 // set GOAL function pointer
   mov x21, x4 // symbol table
@@ -319,9 +354,19 @@ _call_goal_on_stack_asm_arm64:
   ;; call GOAL by function pointer
   blr x3
 
-  ;; restore registers
-  ldp x22, x9, [sp], #16
-  mov sp, x9
+  ;; restore registers — first pop the saved OLD sp from the NEW stack,
+  ;; then switch back, then pop the AAPCS-callee-saved block (X19-X28 +
+  ;; D8-D15) from the OLD stack.
+  ldp xzr, x9, [sp], #16    ;; pop xzr placeholder + saved OLD sp from NEW stack
+  mov sp, x9                ;; switch back to OLD stack
+  ldp d14, d15, [sp], #16
+  ldp d12, d13, [sp], #16
+  ldp d10, d11, [sp], #16
+  ldp d8, d9, [sp], #16
+  ldr x28, [sp], #16
+  ldp x26, x27, [sp], #16
+  ldp x24, x25, [sp], #16
+  ldp x22, x23, [sp], #16
   ldp x20, x21, [sp], #16
   ldp	x29, x30, [sp], #16
   ret

@@ -598,8 +598,30 @@ InstructionARM64 cbnz_x_placeholder(Register r) {
 //   sf=1 → 64-bit
 //   base = 0b1_01_01010_00_0 << 21 = 0xAA000000
 //   Rn = 31 (xzr) → bits 5..9 = 0b11111 → 0x3E0
+//
+// A6 (autoport) — fixed-sym-pointer host→GOAL fixup.
+//
+// IR_LoadSymbolPointer's `#f` case in goalc/compiler/IR.cpp:303 emits
+// `mov dest, x14` where x14 (= R14, the goalc-arm64 ABI sym-table register)
+// holds the HOST address of s7 (mirrored from `st + offset` by the C4
+// trampoline `add x14, x4, x5`). On x86 the same emit places the symbol
+// table's GOAL OFFSET in dst (because x86 R14 = s7's GOAL offset); the C
+// FFI helpers (e.g. format_impl_jak1's `original_dest == s7.offset +
+// FIX_SYM_TRUE` comparison) require the GOAL offset.
+//
+// When the source register is X14, emit `MOV dst, x14 ; SUB dst, dst, x15`
+// as a paired instruction so the destination ends up holding the GOAL
+// offset (host_of_s7 - EE_base). The 8-byte paired emit only triggers for
+// X14 sources; every other mov_gpr64_gpr64 caller (IR_RegSet copying GOAL
+// registers, IR_GetStackAddr's SP-from-RSP path, etc.) stays a 4-byte ORR.
 InstructionARM64 mov_gpr64_gpr64(Register dst, Register src) {
   uint32_t enc = 0xAA000000u | (arm64_reg5(src) << 16) | (31u << 5) | arm64_reg5(dst);
+  if (arm64_reg5(src) == 14u && arm64_reg5(dst) != 14u) {
+    // SUB Xd, Xd, X15  (shifted register, 64-bit, shift=0)
+    uint32_t sub_x15 =
+        0xCB000000u | (15u << 16) | (arm64_reg5(dst) << 5) | arm64_reg5(dst);
+    return InstructionARM64::paired(enc, sub_x15);
+  }
   return InstructionARM64(enc);
 }
 
@@ -1201,13 +1223,35 @@ InstructionARM64 store32_xmm32_gpr64_plus_gpr64_plus_s32(Register addr1,
 }
 
 // LEA-style "compute base+offset into a GPR" → ADD imm12 (positive) or SUB imm12 (negative).
+//
+// A6 (autoport) — same fixed-sym fixup as mov_gpr64_gpr64 above. When the
+// base register is X14, the resulting LEA is `host_of_s7 + off`, which is
+// a HOST address. The x86 sibling produces a GOAL OFFSET (because x86 R14
+// holds s7's GOAL offset). IR_LoadSymbolPointer's #t/_empty_ paths and any
+// other s7-relative pointer compute calls here and expects GOAL offset;
+// the C FFI helpers also dispatch on GOAL-offset equality.
+//
+// Follow the ADD/SUB-imm12 with `SUB Xd, Xd, X15` when the base is X14 so
+// the destination ends up as a GOAL offset. Other callers (IR_RegValAddr,
+// IR_GetStackAddr, IR_StaticVarAddr's lea_reg_plus_off32 leg) use RSP or
+// an ADRP-set scratch as the base — never X14 — and continue to emit a
+// single ADD/SUB imm12 instruction.
 InstructionARM64 lea_reg_plus_off32(Register dest, Register base, s64 offset) {
+  uint32_t lea_enc;
   if (offset >= 0) {
     uint32_t imm12 = static_cast<uint32_t>(offset) & 0xfffu;
-    return add_x_imm12(dest, base, imm12);
+    lea_enc = add_x_imm12(dest, base, imm12).encoding;
+  } else {
+    uint32_t imm12 = static_cast<uint32_t>(-offset) & 0xfffu;
+    lea_enc = sub_x_imm12(dest, base, imm12).encoding;
   }
-  uint32_t imm12 = static_cast<uint32_t>(-offset) & 0xfffu;
-  return sub_x_imm12(dest, base, imm12);
+  if (arm64_reg5(base) == 14u && arm64_reg5(dest) != 14u) {
+    // SUB Xd, Xd, X15 (shifted register, 64-bit, shift=0)
+    uint32_t sub_x15 =
+        0xCB000000u | (15u << 16) | (arm64_reg5(dest) << 5) | arm64_reg5(dest);
+    return InstructionARM64::paired(lea_enc, sub_x15);
+  }
+  return InstructionARM64(lea_enc);
 }
 
 InstructionARM64 lea_reg_plus_off8(Register dest, Register base, s64 offset) {
@@ -1476,9 +1520,60 @@ InstructionARM64 pop_gpr64(Register reg) {
                           Rt(reg.id()));
 }
 
+// A6 — callee-saved register preservation around BLR. The locked
+// CodeGenerator.cpp prologue/epilogue saves only X29/X30 (the AArch64
+// frame pointer + link register), not the goalc "saved" GPRs that the
+// x86 calling convention treats as callee-preserved (RBX, RBP, R10, R11,
+// R12 — mapping to X3, X5, X10, X11, X12 on arm64). On x86 those are
+// preserved by AAPCS, so the existing regalloc keeps live values in them
+// across calls. On arm64 the called function freely clobbers them, and
+// any GOAL value held in a "saved" reg across a BLR returns as garbage —
+// exactly what the GK-DIAG capture showed for X3 = 0xffff_ffff_ffff_a000
+// after the second BLR inside gkernel-toplevel.
+//
+// Since the per-function prologue is locked, we fix this at the call site
+// instead: every BLR pushes the four "saved" GPRs that aren't the call
+// target itself (X3, X5, X10, X11) onto the SP stack, branches with
+// link, and pops them back. X12 is left out of the save set because the
+// regalloc routinely uses it to hold the call target (it's the next
+// allocatable scratch after the arg registers); if a function needs X12
+// to be live across a call it has to spill it explicitly, which it
+// already does on x86 today.
+//
+// Encodings cross-checked against `aarch64-linux-android28-clang -c`.
+// stp/ldp pre/post-indexed uses bit 7 as part of Rn, so a hand-encoded
+// constant for X3/X5 with the wrong bit gives Rn=27 (R27) instead of 31
+// (SP). Always derive these from llvm-mc output, never a paper hex pattern.
+//
+// Save set: X3 (RBX), X5 (RBP), X10 (R10), X11 (R11), X23 (extra AAPCS
+// callee-saved). Per Register.cpp the GOAL "saved" GPRs are R10, R11,
+// R12 / RBX, RBP; X12 is excluded because the regalloc routinely uses
+// it as the BLR target. X23 is not used by goalc-emitted code at all,
+// but a real crash on device showed it being clobbered across the
+// gkernel-toplevel BLR — pre x23=0x721e600000, post x23=0x0 — and the
+// caller (link_control::jak1_finish) uses x23 as its stack-protector
+// canary base, derived from TPIDR_EL0 at the C++ prologue. Pushing X23
+// here guarantees the C++ caller's canary check survives any callee
+// that violates AAPCS through the GOAL→C FFI path.
+//
+//   stp x3, x5,  [sp, #-16]!   = 0xA9BF17E3
+//   stp x10, x11, [sp, #-16]!  = 0xA9BF2FEA
+//   str x23,     [sp, #-16]!   = 0xF81F0FF7
+//   blr Xn                     = 0xD63F0000 | (Rn << 5)
+//   ldr x23,     [sp], #16     = 0xF84107F7
+//   ldp x10, x11, [sp], #16    = 0xA8C12FEA
+//   ldp x3, x5,  [sp], #16     = 0xA8C117E3
 InstructionARM64 call_r64(Register reg_) {
-  // BLR Xn — branch with link to register.
-  return blr_reg(reg_);
+  constexpr uint32_t kStpX3X5Push   = 0xA9BF17E3u;
+  constexpr uint32_t kStpX10X11Push = 0xA9BF2FEAu;
+  constexpr uint32_t kStrX23Push    = 0xF81F0FF7u;
+  constexpr uint32_t kLdrX23Pop     = 0xF84107F7u;
+  constexpr uint32_t kLdpX10X11Pop  = 0xA8C12FEAu;
+  constexpr uint32_t kLdpX3X5Pop    = 0xA8C117E3u;
+  uint32_t blr = 0xD63F0000u | (arm64_reg5(reg_) << 5);
+  return InstructionARM64::multi({kStpX3X5Push, kStpX10X11Push, kStrX23Push,
+                                  blr,
+                                  kLdrX23Pop, kLdpX10X11Pop, kLdpX3X5Pop});
 }
 
 InstructionARM64 jmp_r64(Register reg_) {

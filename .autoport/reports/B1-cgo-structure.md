@@ -1,14 +1,14 @@
 # Phase B1 — arm64 CGO regen (structural check)
 
-> arm64 CGOs regenerated: KERNEL.CGO=138,624B, ENGINE.CGO=7,076,400B, GAME.CGO=10,627,520B. arm64-ret density: K=1.72/KB E=0.82/KB G=0.59/KB. x86-ret bytes: K=0.001% E=0.014% G=0.052% (<1% each, anti-x86-contamination). x86 oracle CGOs hash-match A2 baseline. Kernel probe: 4736.
+> arm64 CGOs regenerated: KERNEL.CGO=158,848B, ENGINE.CGO=7,947,392B, GAME.CGO=11,561,104B. arm64-ret density: K=1.50/KB E=0.73/KB G=0.54/KB. x86-ret bytes: K=0.001% E=0.015% G=0.049% (<1% each, anti-x86-contamination). x86 oracle CGOs hash-match A2 baseline. Kernel probe: 4736.
 
 ## Per-CGO structural metrics
 
 | CGO | bytes | objects | fns | arm64 ret | x86 ret | density (ret/KB) | x86 ret % | min/mean/max fn size |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| KERNEL.CGO | 138,624 | 8 | 197 | 233 | 2 | 1.72 | 0.001 | 20/331/5605 |
-| ENGINE.CGO | 7,076,400 | 306 | 3845 | 5699 | 981 | 0.82 | 0.014 | 16/799/43000 |
-| GAME.CGO | 10,627,520 | 346 | 4199 | 6108 | 5502 | 0.59 | 0.052 | 16/787/43000 |
+| KERNEL.CGO | 158,848 | 8 | 197 | 233 | 2 | 1.50 | 0.001 | 20/391/6341 |
+| ENGINE.CGO | 7,947,392 | 306 | 3845 | 5699 | 1179 | 0.73 | 0.015 | 16/921/46208 |
+| GAME.CGO | 11,561,104 | 346 | 4199 | 6108 | 5687 | 0.54 | 0.049 | 16/909/46208 |
 
 ## decode_sample (first function in each CGO)
 
