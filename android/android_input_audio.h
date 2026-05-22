@@ -57,4 +57,17 @@ int64_t last_start_press_ms();
 // re-deriving the clock source.
 int64_t monotonic_ms_now();
 
+// Phase E2 (autoport): count of physical SDL gamepads currently held
+// open by process_sdl_event (the map populated on
+// SDL_EVENT_GAMEPAD_ADDED, decremented on _REMOVED). The Activity
+// reads this from the UI thread via a JNI bridge to auto-hide the
+// touch overlay when a Bluetooth pad arrives.
+//
+// Thread-safety: the open-gamepad map itself lives on the SDL main
+// thread; we expose only an atomic snapshot of its size so the UI
+// thread reader doesn't need to take the SDL thread's lock. Stale
+// reads are fine — the worst case is one extra poll cycle (1 s)
+// before the overlay hides.
+int open_gamepad_count();
+
 }  // namespace android_input_audio

@@ -91,4 +91,17 @@ public final class NativeGk {
      * surfaceCreated firing again) or the SDL thread is wedged.
      */
     public static native long getRendererFrameCount();
+
+    /**
+     * Phase E2 (autoport): return the number of physical SDL gamepads
+     * currently opened by android_input_audio (the map populated by
+     * SDL_EVENT_GAMEPAD_ADDED / closed on _REMOVED). The Activity polls
+     * this on the UI thread to auto-hide the on-screen touch overlay
+     * when a Bluetooth pad connects.
+     *
+     * The virtual joystick attached for the overlay itself does NOT
+     * count here — it is a SDL_Joystick, not a SDL_Gamepad-opened
+     * device, and the open-gamepad map only tracks real pads.
+     */
+    public static native int getOpenGamepadCount();
 }
