@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 42,
+  "current_phase_idx": 43,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -42,7 +42,8 @@
     "D3-android-sdl3-surface": 1,
     "D4-android-apk-title": 1,
     "A5-emitter-far-relocs": 2,
-    "E1-ux-landscape-gamepad": 1
+    "E1-ux-landscape-gamepad": 1,
+    "E2-ux-touch-overlay-optional": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -116,7 +117,8 @@
     "D3-android-sdl3-surface",
     "D4-android-apk-title",
     "A5-emitter-far-relocs",
-    "E1-ux-landscape-gamepad"
+    "E1-ux-landscape-gamepad",
+    "E2-ux-touch-overlay-optional"
   ],
   "blocked": [],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
@@ -165,7 +167,7 @@
     "A5-emitter-far-relocs": 1779399249.2174304,
     "E2-ux-touch-overlay-optional": 1779414456.7523391
   },
-  "last_update": "2026-05-22T01:47:36.752343+00:00",
+  "last_update": "2026-05-22T02:15:36.253684+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
