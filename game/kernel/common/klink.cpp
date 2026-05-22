@@ -142,52 +142,57 @@ bool arm_is_ldr_literal(uint32_t enc) {
 
 }  // namespace
 
+// A6 — distinguish sym-PTR from host-producing ADRP+ADD pairs by
+// looking ahead for the SUB Xd, Xd, X15 that follows host-producing
+// patterns (IR_StaticVarAddr, IR_FunctionAddr emit
+//   ADRP Xd ; ADD Xd, Xd, #lo12 ; SUB Xd, Xd, X15
+// to convert a host address into a GOAL offset). IR_LoadSymbolPointer
+// emits the same ADRP+ADD without the trailing SUB; on x86 the
+// LEA-via-r14 form naturally produces a GOAL offset (because r14
+// holds s7's GOAL offset, not its host address), but on arm64 the
+// ADRP+ADD produces the HOST address — wrong for the C FFI helpers
+// that re-add g_ee_main_mem inside Ptr<T>::operator->.
+//
+// `following` is the instruction word at byte offset +next_byte_offset
+// from `slot`. Returns true iff it decodes as SUB Xd, Xd, X15
+// (Rm=15, Rn==Rd==expected_rd, shift=0, no flags).
+static inline bool slot_followed_by_sub_x15(const uint32_t* slot,
+                                            int next_word_offset,
+                                            uint32_t expected_rd) {
+  const uint32_t following = slot[next_word_offset];
+  // SUB (shifted register, 64-bit) Xd, Xn, Xm encoding:
+  //   bits 31..24: 11001011   (opc=11001011 for 64-bit SUB shifted reg)
+  //   bits 23..22: shift       (00 = LSL)
+  //   bit 21:      0
+  //   bits 20..16: Rm
+  //   bits 15..10: imm6        (shift amount, 0 here)
+  //   bits 9..5:   Rn
+  //   bits 4..0:   Rd
+  // For SUB Xd, Xd, X15 with shift=0: top-byte = 0xCB, shift = 00, bit 21
+  // = 0, Rm = 15, imm6 = 0. The mask 0xFFFFFC00 covers bits 31..10 inclusive
+  // (top byte + shift + Rm + imm6); Rn/Rd are checked separately below.
+  constexpr uint32_t kMaskBase = 0xFFFFFC00u;
+  constexpr uint32_t kBaseSubX15 = 0xCB000000u | (15u << 16);
+  if ((following & kMaskBase) != kBaseSubX15) return false;
+  const uint32_t rd = following & 0x1Fu;
+  const uint32_t rn = (following >> 5) & 0x1Fu;
+  return rd == expected_rd && rn == expected_rd;
+}
+
 KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
                                                uintptr_t target_host_addr) {
   const uint32_t enc = *slot;
 
   // ADRP: imm21 = page delta of target page from this instruction's page.
   if ((enc & kArmMaskADRP) == kArmOpADRP) {
-    // A6 (autoport) — sym-PTR vs sym-MEM disambiguation by Rd.
-    //
-    // A5's sym-MEM far-reloc expansion emits a three-instruction sequence
-    // ADRP X16; ADD X16, X16, #lo12; LDR/STR Wt, [X16, #0] — always with
-    // Rd=X16. The goalc-arm64 register allocator caps at id 9 (R10) and
-    // never assigns X16 to a live GOAL value, so any ADRP/ADD with Rd=16
-    // is unambiguously the sym-MEM intermediate.
-    //
-    // The other emitter that records a sym-ptr link entry is
-    // IR_LoadSymbolPointer (goalc/compiler/IR.cpp:299), which produces a
-    // two-instruction `ADRP Xd, sym ; ADD Xd, Xd, #lo12` pair with Rd
-    // being the destination register the IR allocator picked — never
-    // X16. On x86 the analogous emitter uses `lea reg, [r14 + s7_off]`,
-    // where r14 holds the GOAL OFFSET of s7 (because the system V
-    // trampoline `mov r14, r8` leaves r14 as the raw 32-bit `st`
-    // argument). The result on x86 is therefore the symbol's GOAL
-    // offset, not its host address.
-    //
-    // On arm64 the C4 trampoline mirrors `st + offset` (i.e. the HOST
-    // address of s7) into x14 so sym-MEM stores `STR Wt, [x14, #imm12]`
-    // can reach the symbol slot in a single instruction. That makes the
-    // arm64 ADRP+ADD pair produce the HOST address of the symbol — a
-    // 64-bit pointer, not the 32-bit GOAL offset the desktop x86 emitter
-    // produces. Calls into the C FFI helpers (new_type, intern, …) read
-    // their first argument as a u32 and re-add `g_ee_main_mem`, so they
-    // need the GOAL offset; the host address gets truncated to its low
-    // 32 bits and silently dereferences garbage, asserting on a NULL
-    // Ptr<String> inside intern_type.
-    //
-    // Patch around it without touching the codegen-locked emitter: when
-    // the ADRP's Rd is NOT X16, rewrite the slot in place as
-    // `MOVZ Xd, #(target_goal_offset & 0xFFFF)`. The matching ADD-imm12
-    // patch path below detects the same condition and rewrites the
-    // companion ADD as `MOVK Xd, #((target_goal_offset >> 16) & 0xFFFF),
-    // lsl #16`. The two MOVZ/MOVK instructions materialise the 32-bit
-    // GOAL offset directly into Xd — semantically identical to the x86
-    // `lea reg, [r14 + off]` and accepted by the C FFI helpers as a
-    // valid u32.
+    // A6 — sym-PTR rewrite. Rd != X16 (A5 sym-MEM reserves X16) AND
+    // the SUB Xd, Xd, X15 trailing the ADRP+ADD (which would convert
+    // host → GOAL offset for IR_StaticVarAddr / IR_FunctionAddr) is
+    // absent. Rewrite ADRP as MOVZ Xd, #(goal_off & 0xFFFF) so the
+    // companion ADD-imm12 path below can rewrite as MOVK and the pair
+    // ends up holding the symbol's GOAL offset directly.
     const uint32_t adrp_rd = enc & 0x1Fu;
-    if (adrp_rd != 16u) {
+    if (adrp_rd != 16u && !slot_followed_by_sub_x15(slot, 2, adrp_rd)) {
       const uintptr_t ee_base = reinterpret_cast<uintptr_t>(g_ee_main_mem);
       if (ee_base != 0 && target_host_addr >= ee_base) {
         const uint64_t goal_offset = static_cast<uint64_t>(target_host_addr - ee_base);
@@ -219,13 +224,14 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
   // uses the 64-bit, shift-0 forms for link-resolved ADD/SUB pairs.
   if ((enc & 0xFF800000u) == kArmOpADD_imm ||
       (enc & 0xFF800000u) == kArmOpSUB_imm) {
-    // A6 sym-PTR rewrite continuation: when the companion ADRP up above
-    // was rewritten to MOVZ (Rd != X16 sym-PTR case), this ADD's Rd will
-    // also be != X16 and Rn == Rd. Rewrite as MOVK Xd, #high16, lsl #16
-    // so the pair materialises a full 32-bit GOAL offset into Xd.
+    // A6 sym-PTR continuation: same gate as the ADRP path — Rd != X16,
+    // Rn == Rd (the companion ADD of the ADRP+ADD pair), and no SUB
+    // Xd, Xd, X15 immediately after. Rewrite as MOVK Xd, #high16,
+    // lsl #16 so the pair materialises the 32-bit GOAL offset.
     const uint32_t add_rd = enc & 0x1Fu;
     const uint32_t add_rn = (enc >> 5) & 0x1Fu;
-    if (add_rd != 16u && add_rn == add_rd) {
+    if (add_rd != 16u && add_rn == add_rd &&
+        !slot_followed_by_sub_x15(slot, 1, add_rd)) {
       const uintptr_t ee_base = reinterpret_cast<uintptr_t>(g_ee_main_mem);
       if (ee_base != 0 && target_host_addr >= ee_base) {
         const uint64_t goal_offset = static_cast<uint64_t>(target_host_addr - ee_base);

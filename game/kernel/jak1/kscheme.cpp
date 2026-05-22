@@ -722,12 +722,25 @@ Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
 Ptr<Function> make_stack_arg_function_from_c_arm64(void* func) {
   // Same shape as make_function_from_c_arm64 but uses _stack_call_arm64
   // semantics: the C function receives a single pointer to an 8-element
-  // arg array. Goalc's stack-arg variant is rarely exercised on arm64
-  // (only `_format` uses it currently); we still emit a real trampoline
-  // so any future caller doesn't SIGILL.
+  // arg array. Goalc's stack-arg variant is exercised by `_format`.
   //
-  // The lowering: copy x0..x7 to an on-stack 64-byte array, set x0 to its
-  // address, then blr the target. Restore the saved regs and return.
+  // GOAL passes args 0..7 in X7/X6/X2/X1/X8/X9/X10/X11 (SysV order via the
+  // shared enum; see the make_function_from_c_arm64 comment for the
+  // mapping rationale). The stack array must hold args[0..7] in
+  // index order, starting at the lowest address.
+  //
+  // The C function sees `args[i]` at array_base + i*8. So:
+  //   args[0] = X7, args[1] = X6, args[2] = X2, args[3] = X1,
+  //   args[4] = X8, args[5] = X9, args[6] = X10, args[7] = X11.
+  //
+  // stp <a>, <b>, [sp, #-16]! stores <a> at [sp-16] (low) and <b> at
+  // [sp-8] (high) then decrements sp by 16. To end up with args[0] at the
+  // lowest array address (sp_final), the LAST stp must place args[0,1].
+  // Working backwards, the four pairs are pushed top-down:
+  //   1. stp X10, X11, [sp, #-16]!    ; args[6,7] (highest)
+  //   2. stp X8,  X9,  [sp, #-16]!    ; args[4,5]
+  //   3. stp X2,  X1,  [sp, #-16]!    ; args[2,3]
+  //   4. stp X7,  X6,  [sp, #-16]!    ; args[0,1] (lowest)
   auto mem = Ptr<u8>(alloc_heap_object(s7.offset + FIX_SYM_GLOBAL_HEAP,
                                        *(s7 + FIX_SYM_FUNCTION_TYPE), 0x80, UNKNOWN_PP));
   const uint64_t target = reinterpret_cast<uint64_t>(func);
@@ -738,21 +751,17 @@ Ptr<Function> make_stack_arg_function_from_c_arm64(void* func) {
     off += 4;
   };
 
-  // Prologue: same regs as the regular variant.
+  // Prologue: save R13/R14/R15 + FP/LR.
   emit(arm64_stp_x_preindex(29, 30, 31, -16));
   emit(arm64_stp_x_preindex(13, 14, 31, -16));
   emit(arm64_str_x_preindex(15, 31, -16));
 
-  // Build the 8-element arg array on the stack:
-  //   stp x6, x7, [sp, #-16]!     (slots 6,7)
-  //   stp x4, x5, [sp, #-16]!     (slots 4,5)
-  //   stp x2, x3, [sp, #-16]!     (slots 2,3)
-  //   stp x0, x1, [sp, #-16]!     (slots 0,1)
-  emit(arm64_stp_x_preindex(6, 7, 31, -16));
-  emit(arm64_stp_x_preindex(4, 5, 31, -16));
-  emit(arm64_stp_x_preindex(2, 3, 31, -16));
-  emit(arm64_stp_x_preindex(0, 1, 31, -16));
-  // mov x0, sp  — passes the array pointer as the single C arg
+  // Push the 8-element arg array onto the stack (highest pair first).
+  emit(arm64_stp_x_preindex(10, 11, 31, -16));   // args[6] = X10, args[7] = X11
+  emit(arm64_stp_x_preindex(8, 9, 31, -16));     // args[4] = X8,  args[5] = X9
+  emit(arm64_stp_x_preindex(2, 1, 31, -16));     // args[2] = X2,  args[3] = X1
+  emit(arm64_stp_x_preindex(7, 6, 31, -16));     // args[0] = X7,  args[1] = X6
+  // mov x0, sp  — pass array pointer to the C function as its single arg.
   emit(0x910003E0u);  // ADD X0, SP, #0 (== MOV X0, SP)
 
   emit(arm64_movz_x(16, static_cast<uint16_t>(target & 0xFFFFu), 0));
