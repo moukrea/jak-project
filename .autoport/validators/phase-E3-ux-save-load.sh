@@ -31,10 +31,16 @@ echo "== Phase E3 validator (save/load binary identity) =="
 [ -x "$E3_RUN" ] || fail "$E3_RUN missing or not executable"
 ok "e3_run.sh present"
 
-# kmemcard symbols present in libgk.so (not stubbed)
+# kmemcard symbols present in libgk.so (not stubbed). Dump nm to a file
+# so `nm | grep -q` doesn't SIGPIPE-mask a matching grep — grep -q exits
+# the pipe writer with EPIPE the moment it finds the first hit, which
+# `set -o pipefail` then treats as a whole-pipeline failure even though
+# the check actually passed (per feedback_validator_pipefail_grep_q).
 LIBGK="build-android/lib/arm64-v8a/libgk.so"
 [ -f "$LIBGK" ] || fail "$LIBGK missing (build must complete first)"
-nm --defined-only "$LIBGK" 2>/dev/null | grep -qE "kmemcard|McRead|McWrite|save_thread" \
+NM_DUMP=$(mktemp); trap "rm -f $NM_DUMP" EXIT
+nm --defined-only "$LIBGK" >"$NM_DUMP" 2>/dev/null || true
+grep -qE "kmemcard|McRead|McWrite|save_thread" "$NM_DUMP" \
     || fail "kmemcard symbols not present in libgk.so — cross-compile missing"
 ok "kmemcard cross-compiled into libgk.so"
 

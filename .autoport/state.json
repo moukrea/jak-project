@@ -165,9 +165,10 @@
     "D4-android-apk-title": 1779393055.8089738,
     "E1-ux-landscape-gamepad": 1779409004.19035,
     "A5-emitter-far-relocs": 1779399249.2174304,
-    "E2-ux-touch-overlay-optional": 1779414456.7523391
+    "E2-ux-touch-overlay-optional": 1779414456.7523391,
+    "E3-ux-save-load": 1779416139.1025882
   },
-  "last_update": "2026-05-22T02:15:36.253684+00:00",
+  "last_update": "2026-05-22T02:15:39.102591+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },

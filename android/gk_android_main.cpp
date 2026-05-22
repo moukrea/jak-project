@@ -26,6 +26,7 @@
 
 #include "game/kernel/common/kboot.h"
 #include "game/kernel/common/kmalloc.h"
+#include "game/kernel/common/kmemcard.h"
 #include "game/kernel/common/kprint.h"
 #include "game/kernel/common/ksocket.h"
 
@@ -303,6 +304,47 @@ JNIEXPORT jint JNICALL
 Java_org_opengoal_gk_NativeGk_getOpenGamepadCount(JNIEnv* /*env*/,
                                                   jclass /*clazz*/) {
   return (jint)android_input_audio::open_gamepad_count();
+}
+
+// Phase E3 (autoport): drive kmemcard's deterministic save writer from
+// Java. write_test_save_to_path lives in game/kernel/common/kmemcard.cpp
+// and produces a 67584-byte bank file (header + zero body + footer) that
+// is byte-identical to what the desktop x86_64 build produces under the
+// same call — every input to mc_checksum is platform-independent.
+// Returns 0 on success, non-zero on I/O failure. The Activity logs the
+// outcome with the literal marker string `test save written:` so the
+// e3_run.sh harness can grep for it before adb-pulling the result.
+JNIEXPORT jint JNICALL
+Java_org_opengoal_gk_NativeGk_writeTestSave(JNIEnv* env, jclass /*clazz*/,
+                                            jstring j_path) {
+  if (!j_path) {
+    __android_log_print(ANDROID_LOG_ERROR, kGkLogTag,
+                        "writeTestSave: null path");
+    return 1;
+  }
+  const char* path_c = env->GetStringUTFChars(j_path, nullptr);
+  if (!path_c) {
+    return 2;
+  }
+  const std::string path(path_c);
+  env->ReleaseStringUTFChars(j_path, path_c);
+
+  // The kmemcard module owns a small block of static globals that
+  // pc_game_save_synch reads; write_test_save_to_path doesn't touch
+  // them but the kernel sometimes runs before this is called, so
+  // initialising here is idempotent + cheap.
+  kmemcard_init_globals();
+
+  const bool ok = write_test_save_to_path(path);
+  if (!ok) {
+    __android_log_print(ANDROID_LOG_ERROR, kGkLogTag,
+                        "writeTestSave: write_test_save_to_path failed for %s",
+                        path.c_str());
+    return 3;
+  }
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "test save written: %s", path.c_str());
+  return 0;
 }
 
 }  // extern "C"
