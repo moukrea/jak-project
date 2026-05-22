@@ -148,6 +148,58 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
 
   // ADRP: imm21 = page delta of target page from this instruction's page.
   if ((enc & kArmMaskADRP) == kArmOpADRP) {
+    // A6 (autoport) — sym-PTR vs sym-MEM disambiguation by Rd.
+    //
+    // A5's sym-MEM far-reloc expansion emits a three-instruction sequence
+    // ADRP X16; ADD X16, X16, #lo12; LDR/STR Wt, [X16, #0] — always with
+    // Rd=X16. The goalc-arm64 register allocator caps at id 9 (R10) and
+    // never assigns X16 to a live GOAL value, so any ADRP/ADD with Rd=16
+    // is unambiguously the sym-MEM intermediate.
+    //
+    // The other emitter that records a sym-ptr link entry is
+    // IR_LoadSymbolPointer (goalc/compiler/IR.cpp:299), which produces a
+    // two-instruction `ADRP Xd, sym ; ADD Xd, Xd, #lo12` pair with Rd
+    // being the destination register the IR allocator picked — never
+    // X16. On x86 the analogous emitter uses `lea reg, [r14 + s7_off]`,
+    // where r14 holds the GOAL OFFSET of s7 (because the system V
+    // trampoline `mov r14, r8` leaves r14 as the raw 32-bit `st`
+    // argument). The result on x86 is therefore the symbol's GOAL
+    // offset, not its host address.
+    //
+    // On arm64 the C4 trampoline mirrors `st + offset` (i.e. the HOST
+    // address of s7) into x14 so sym-MEM stores `STR Wt, [x14, #imm12]`
+    // can reach the symbol slot in a single instruction. That makes the
+    // arm64 ADRP+ADD pair produce the HOST address of the symbol — a
+    // 64-bit pointer, not the 32-bit GOAL offset the desktop x86 emitter
+    // produces. Calls into the C FFI helpers (new_type, intern, …) read
+    // their first argument as a u32 and re-add `g_ee_main_mem`, so they
+    // need the GOAL offset; the host address gets truncated to its low
+    // 32 bits and silently dereferences garbage, asserting on a NULL
+    // Ptr<String> inside intern_type.
+    //
+    // Patch around it without touching the codegen-locked emitter: when
+    // the ADRP's Rd is NOT X16, rewrite the slot in place as
+    // `MOVZ Xd, #(target_goal_offset & 0xFFFF)`. The matching ADD-imm12
+    // patch path below detects the same condition and rewrites the
+    // companion ADD as `MOVK Xd, #((target_goal_offset >> 16) & 0xFFFF),
+    // lsl #16`. The two MOVZ/MOVK instructions materialise the 32-bit
+    // GOAL offset directly into Xd — semantically identical to the x86
+    // `lea reg, [r14 + off]` and accepted by the C FFI helpers as a
+    // valid u32.
+    const uint32_t adrp_rd = enc & 0x1Fu;
+    if (adrp_rd != 16u) {
+      const uintptr_t ee_base = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+      if (ee_base != 0 && target_host_addr >= ee_base) {
+        const uint64_t goal_offset = static_cast<uint64_t>(target_host_addr - ee_base);
+        if (goal_offset <= 0xFFFFFFFFull) {
+          // MOVZ Xd, #(goal_offset & 0xFFFF), LSL #0  →  0xD2800000 base.
+          const uint32_t lo16 = static_cast<uint32_t>(goal_offset & 0xFFFFu);
+          *slot = 0xD2800000u | (lo16 << 5) | adrp_rd;
+          g_klink_arm64_patch_hist.adrp++;
+          return KlinkArm64PatchResult::kPatched;
+        }
+      }
+    }
     const uintptr_t this_pc = reinterpret_cast<uintptr_t>(slot);
     const int64_t target_page = static_cast<int64_t>(target_host_addr >> 12);
     const int64_t this_page = static_cast<int64_t>(this_pc >> 12);
@@ -167,6 +219,25 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
   // uses the 64-bit, shift-0 forms for link-resolved ADD/SUB pairs.
   if ((enc & 0xFF800000u) == kArmOpADD_imm ||
       (enc & 0xFF800000u) == kArmOpSUB_imm) {
+    // A6 sym-PTR rewrite continuation: when the companion ADRP up above
+    // was rewritten to MOVZ (Rd != X16 sym-PTR case), this ADD's Rd will
+    // also be != X16 and Rn == Rd. Rewrite as MOVK Xd, #high16, lsl #16
+    // so the pair materialises a full 32-bit GOAL offset into Xd.
+    const uint32_t add_rd = enc & 0x1Fu;
+    const uint32_t add_rn = (enc >> 5) & 0x1Fu;
+    if (add_rd != 16u && add_rn == add_rd) {
+      const uintptr_t ee_base = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+      if (ee_base != 0 && target_host_addr >= ee_base) {
+        const uint64_t goal_offset = static_cast<uint64_t>(target_host_addr - ee_base);
+        if (goal_offset <= 0xFFFFFFFFull) {
+          // MOVK Xd, #((goal_offset >> 16) & 0xFFFF), LSL #16  →  0xF2A00000 base.
+          const uint32_t hi16 = static_cast<uint32_t>((goal_offset >> 16) & 0xFFFFu);
+          *slot = 0xF2A00000u | (hi16 << 5) | add_rd;
+          g_klink_arm64_patch_hist.add_imm12++;
+          return KlinkArm64PatchResult::kPatched;
+        }
+      }
+    }
     const uint32_t imm12 = static_cast<uint32_t>(target_host_addr & 0xFFFu);
     *slot = arm_patch_add_sub_imm12(enc, imm12);
     g_klink_arm64_patch_hist.add_imm12++;
