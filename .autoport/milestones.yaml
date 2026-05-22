@@ -264,6 +264,14 @@ phases:
   validator: validators/phase-E3-ux-save-load.sh
   max_turns: 400
   max_retries: 10
+- id: A6-emitter-off-register
+  name: 'Codegen unlock (narrow, IGenARM64.cpp only): fix the 6 off-register helpers (load_goal_gpr / store_goal_gpr / load_goal_xmm32 / load_goal_xmm128
+    / store_goal_xmm32 / store_goal_vf) to emit ADD X16, Xn, X15 then LDR/STR, instead of dropping the EE-base register. Remove the g_android_skip_goal_call
+    dodge entirely (storage, arming, dispatcher branch, asm short-circuit). Regenerate CGOs; D4 re-passes WITH the GOAL dispatcher actually running.'
+  prompt: prompts/phase-A6-emitter-off-register.md
+  validator: validators/phase-A6-emitter-off-register.sh
+  max_turns: 600
+  max_retries: 20
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
