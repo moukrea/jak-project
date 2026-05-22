@@ -35,6 +35,8 @@
 #include "common/common_types.h"
 #include "game/kernel/common/kboot.h"
 
+#include "android_input_audio.h"
+
 namespace {
 constexpr const char* kLogTag = "opengoal-gk";
 
@@ -139,6 +141,15 @@ int android_renderer_run() {
   while (running && MasterExit == RuntimeExitStatus::RUNNING) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+      // Phase E1 (autoport): route SDL gamepad events through the
+      // input/audio module so a real Bluetooth pad's button presses
+      // reach the GOAL kernel via the same on_pad_button path the
+      // JNI touch-overlay uses. Returns true when the event was a
+      // gamepad event; we still let through the standard quit checks
+      // below in case the renderer should react to non-gamepad events.
+      if (android_input_audio::process_sdl_event(event)) {
+        continue;
+      }
       if (event.type == SDL_EVENT_QUIT ||
           event.type == SDL_EVENT_TERMINATING) {
         __android_log_print(ANDROID_LOG_INFO, kLogTag,

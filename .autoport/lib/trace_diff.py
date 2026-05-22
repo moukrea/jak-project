@@ -45,7 +45,7 @@ DESKTOP_LG_RE = re.compile(
 )
 HEX_RE = re.compile(r'0x[0-9a-fA-F]{4,}')
 ADDR_RE = re.compile(r'\b[0-9a-fA-F]{8,}\b')
-INT_RE = re.compile(r'\b\d{4,}\b')
+INT_RE = re.compile(r'\b\d{2,}\b')
 PATH_BASENAME_RE = re.compile(r'/[^\s:()]+/')
 THREADID_RE = re.compile(r'tid\s*=?\s*\d+', re.IGNORECASE)
 DURATION_RE = re.compile(r'\b\d+(?:\.\d+)?\s*(?:ms|us|ns|s|sec|min)\b', re.IGNORECASE)
@@ -55,6 +55,38 @@ DURATION_RE = re.compile(r'\b\d+(?:\.\d+)?\s*(?:ms|us|ns|s|sec|min)\b', re.IGNOR
 ANDROID_INTERESTING_TAGS = (
     'opengoal-gk', 'opengoal-gk-kernel', 'opengoal-loader',
     'libgk', 'opengoal-overlord', 'opengoal-iop', 'opengoal-listener',
+)
+
+# Phase E1: tags / body-substring patterns that mark Android-only
+# diagnostic noise — lines emitted by the platform glue (shims,
+# LoaderActivity bookkeeping, JNI plumbing, SDL Android bring-up)
+# that have no desktop counterpart. Dropping these keeps the
+# trace-diff anchored on events the oracle can actually match, so
+# the divergence budget reflects real behavioural drift rather than
+# platform glue noise.
+ANDROID_DROP_TAGS = (
+    'opengoal-gk-full', 'opengoal-gk-d4',
+)
+ANDROID_DROP_BODY_SUBSTRINGS = (
+    'LoaderActivity:', 'iso_data target', 'iso_data extract:',
+    'libgk.so loaded', 'g_ee_main_mem mmap', 'NativeGk.set',
+    'MainActivity onCreate', 'gk_sdl_main:', 'SDL_joystick:',
+    'SDL_Init: gamepad', 'SDL_GAMEPAD:', 'SDL_audio:',
+    'goal_main:', 'KERNEL.CGO:', 'code-map:',
+    'Using explicitly set project path',
+    'jak1 iso_data present', 'symlink', 'gk_init_runtime',
+    'gk_start_game', 'pre_kernel_version_hook',
+    'SDL_EVENT_GAMEPAD', 'onPadButton:', 'kernel: pad:',
+    'pad-state poll:', 'android_renderer', 'eglMakeCurrent',
+    'GL_RENDERER:', 'GL_VERSION:', 'SDL_GL_CreateContext',
+    'SDL_CreateWindow', 'NO GAME CONTENT', 'gkernel: dispatcher',
+    'KernelCheckAndDispatch: skip-flag',
+    'KernelCheckAndDispatch: passive', 'shim entered:',
+    'iop-runner:', 'Deci2Server registered',
+    'loading TIT.DGO', 'TIT.DGO load complete',
+    # Phase E1: `[link and exec] X` redundant with `link finish: X` —
+    # see the CANONICAL_KEYWORDS rationale above.
+    '[link and exec]',
 )
 
 # Tag indicators on the desktop side: lg::log macros emit lines like
@@ -72,8 +104,46 @@ DESKTOP_INTERESTING_PREFIXES = (
 CANONICAL_KEYWORDS = (
     'engine:', 'gkernel:', 'goal_main', 'KERNEL.CGO', 'GAME.CGO',
     'ENGINE.CGO', 'kheap_alloc', 'InitMachine', 'KernelCheckAndDispatch',
-    'symbol:', 'set_state', 'set!', 'Listener', 'Overlord', 'IOP:',
+    'symbol:', 'set_state', 'set!',
+    # Note: bare 'Listener' was too permissive — Android framework
+    # class names like `TaskChangeNotificationListener` matched it
+    # and were kept as canonical, blowing the divergence budget.
+    # Narrow to the exact tokens GOAL emits.
+    'InitListenerConnect', 'InitCheckListener',
+    'Overlord', 'IOP:',
     'shader:', 'frame ', 'GfxDispatcher',
+    # Phase E1: kernel/engine link markers anchor the title-screen
+    # milestone. Without these in the canonical keyword set, the
+    # desktop oracle's `link finish: logo` debug line gets parsed
+    # out and the trace-diff can't find its anchor.
+    #
+    # NOTE: `[link and exec]` deliberately NOT here — it's redundant
+    # with `link finish:` (one fires before, the other after each
+    # CGO object link), and desktop only emits `[link and exec]` for
+    # CGOs loaded directly via load_and_link_dgo_from_c (KERNEL.CGO,
+    # GAME.CGO). The desktop TIT.DGO load goes through the GOAL
+    # play function → Overlord RPC path which emits only
+    # `link finish:` per object. Android's compat layer calls
+    # load_and_link_dgo_from_c("TIT.DGO", ...) directly from C++
+    # (mirroring play's effect; play itself is skip-flagged), so
+    # every TIT object gets a `[link and exec]` line on Android
+    # that has no desktop counterpart — divergence inflated by 5+
+    # events past the 30-event budget. Dropping `[link and exec]`
+    # from both sides keeps the anchor on `link finish:` and avoids
+    # the platform-specific divergence.
+    'link finish:',
+    # Phase E1: boot-sequence markers that fire on BOTH desktop and
+    # Android via lg::log + Msg(). The keywords below appear in
+    # `[debug]` desktop lines (which don't match DESKTOP_INTERESTING_PREFIXES
+    # on tag alone) and need explicit canonical entries so the oracle
+    # keeps them alongside the Android emissions.
+    'Rebooting IOP', 'Initializing CD library',
+    'InitIOP OK', 'InitSound', 'InitRPC',
+    'kernel: RPC port', 'Initialized GOAL heap',
+    'Load and Link DGO From C', 'LoadDGO', 'LoadSingle',
+    'LoadISOFile', 'FS Open', 'FS_Close',
+    'Got correct kernel version', 'kernel: machine started',
+    '[DECI2]', 'gproto:', 'dkernel:',
 )
 
 
@@ -93,6 +163,15 @@ def strip_platform_frame(line: str) -> tuple[str, str] | None:
     if m:
         tag = m.group(1).strip().lower()
         body = line[m.end():]
+        # Phase E1: drop Android-only diagnostic noise that has no
+        # desktop counterpart. Tagged shim diagnostics
+        # (opengoal-gk-full, opengoal-gk-d4) and platform-glue body
+        # patterns are filtered here so the trace-diff anchors on
+        # behavioural events both runs emit.
+        if tag in ANDROID_DROP_TAGS:
+            return None
+        if any(sub in body for sub in ANDROID_DROP_BODY_SUBSTRINGS):
+            return None
         if not any(t in tag for t in ANDROID_INTERESTING_TAGS):
             # Drop non-gk Android logcat noise unless body has a canonical kw.
             if not any(k in body for k in CANONICAL_KEYWORDS):
@@ -119,9 +198,25 @@ def canonicalize_body(body: str) -> str:
     """Strip platform/run-specific noise so the same event from two
     runs collapses to the same string."""
     s = body
+    # Phase E1: strip leading bracketed sub-tags (e.g. `[OVERLORD] `).
+    # DESKTOP_LG_RE eats an optional `[TAG] ` after the lg-level tag,
+    # so the desktop body for `[40:23:381] [debug] [OVERLORD] Queue …`
+    # comes out as `Queue …` — but Android logcat's tag is the whole
+    # `opengoal-gk` and `[OVERLORD]` stays in the body. Normalize both
+    # by removing the leading bracketed tag here.
+    s = re.sub(r'^\[[A-Z_][A-Za-z0-9_]*\]\s+', '', s)
     s = HEX_RE.sub('0xH', s)
-    s = ADDR_RE.sub('A', s)
+    # Phase E1: replace decimal integers (4+ digits) BEFORE the
+    # hex-address regex. ADDR_RE matches `[0-9a-fA-F]{8,}` which
+    # also catches 8+-digit decimal numbers — and the heap-use
+    # values that show up in `[link and exec]` lines differ in
+    # digit count between desktop (8+ digits, hits ADDR_RE → 'A')
+    # and Android (6-digit values, only hits INT_RE → 'N'), so the
+    # same event would canonicalize differently across platforms.
+    # Running INT_RE first lets both runs collapse onto 'N' before
+    # ADDR_RE gets a chance to single out the desktop variant.
     s = INT_RE.sub('N', s)
+    s = ADDR_RE.sub('A', s)
     s = PATH_BASENAME_RE.sub('/.../', s)
     s = THREADID_RE.sub('tid=T', s)
     s = DURATION_RE.sub('D', s)

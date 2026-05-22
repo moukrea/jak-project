@@ -61,6 +61,11 @@ namespace {
 constexpr const char* kAndroidLogTag = "opengoal-gk";
 constexpr size_t kEEMainMemSize = 128u * 1024u * 1024u;  // matches EE_MAIN_MEM_SIZE
 
+// SHIM_KIND: BIONIC_ADAPTER
+// Why: upstream g_ee_main_mem owner is game/runtime.cpp::ee_runner, which
+// pulls SDL3/ImGui/discord and isn't cross-compiled here. We provide an
+// equivalent anonymous mmap with the same RWX shape the desktop runtime
+// uses for the JIT/linker output.
 u8* allocate_ee_main_mem() {
   // mmap rather than a static buffer because 128 MB of bss bloats the .so and
   // hurts the validator's strip-size check. Anonymous-mapped lazily-backed
@@ -126,6 +131,10 @@ BackgroundWorker g_background_worker;
 // ---------------------------------------------------------------------------
 
 namespace {
+// SHIM_KIND: PLATFORM_FEATURE
+// Why: maps lg::level → Android logcat priority. Desktop lg::log writes
+// via fmt::color → stdout; on Android we route through __android_log_print
+// so output reaches `adb logcat`.
 android_LogPriority log_level_to_priority(lg::level lvl) {
   switch (lvl) {
     case lg::level::trace: return ANDROID_LOG_VERBOSE;
@@ -138,6 +147,10 @@ android_LogPriority log_level_to_priority(lg::level lvl) {
   }
 }
 
+// SHIM_KIND: PLATFORM_FEATURE
+// Why: serialises ordered logcat writes for lg::internal::log_*; the
+// upstream common/log/log.cpp's fmt::color stdout writes are excluded
+// on Android (Bionic stdio truncation + no logcat ingestion).
 std::mutex& log_mutex() {
   static std::mutex m;
   return m;
@@ -156,17 +169,26 @@ void log_message(level log_level, LogTime& /*now*/, const char* message) {
   __android_log_print(log_level_to_priority(log_level), kAndroidLogTag, "%s", message);
 }
 
+// SHIM_KIND: PLATFORM_FEATURE
+// Why: routes the lg::print template into __android_log_print so output
+// lands in logcat. Desktop body writes to stdout via fmt::color.
 void log_print(const char* message) {
   std::lock_guard<std::mutex> lock(log_mutex());
   __android_log_print(ANDROID_LOG_INFO, kAndroidLogTag, "%s", message);
 }
 
+// SHIM_KIND: PLATFORM_FEATURE
+// Why: routes the lg::log printf-style template into Android logcat.
+// Desktop equivalent calls vfprintf(stdout, ...) via fmt.
 void log_vprintf(const char* format, va_list arg_list) {
   std::lock_guard<std::mutex> lock(log_mutex());
   __android_log_vprint(ANDROID_LOG_INFO, kAndroidLogTag, format, arg_list);
 }
 }  // namespace internal
 
+// SHIM_KIND: PLATFORM_FEATURE
+// Why: forwards lg::printstd into the Android-routed log_vprintf so
+// callers that use `lg::printstd("...", ap)` reach logcat.
 void printstd(const char* format, va_list arg_list) {
   internal::log_vprintf(format, arg_list);
 }
@@ -323,6 +345,10 @@ void GlobalProfiler::dump_to_json() {}
 void GlobalProfiler::root_event() {}
 size_t GlobalProfiler::get_next_idx() { return 0; }
 
+// SHIM_KIND: OPTIONAL_OFF
+// Why: the global profiler is desktop-only (no dump-to-json UI on
+// Android). Returns a process-static no-op profiler so callers in
+// IOP_Kernel/iop_thread link cleanly without firing real telemetry.
 GlobalProfiler& prof() {
   static GlobalProfiler p;
   return p;
@@ -448,6 +474,10 @@ CommonPCPortFunctionWrappers g_pc_port_funcs;
 namespace {
 constexpr const char* kD4ShimTag = "opengoal-gk-d4";
 
+// SHIM_KIND: PLATFORM_FEATURE
+// Why: shim diagnostic — emits a single logcat line per uniquely-named
+// shim the first time it's entered. Used by D4-era shims for boot-time
+// observability of which non-portable bodies are reached.
 void log_shim_call_once(const char* function_name) {
   // Per-function "called from android shim" log so a single grep through
   // logcat tells the operator which non-portable bodies were reached at
@@ -466,6 +496,12 @@ void log_shim_call_once(const char* function_name) {
 }
 }  // namespace
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: upstream common/kmachine.cpp owns these globals + init; we don't
+// compile that TU (pulls Display::GetMainDisplay + opengl_renderer). The
+// init resets the same fields desktop's init_globals chain does (CD
+// drive sentinels, pad DMA buffer, interrupt-handler pointers, EE clock
+// timer) so the kernel sees the same starting state as upstream.
 void kmachine_init_globals_common() {
   log_shim_call_once("kmachine_init_globals_common");
   std::memset(pad_dma_buf, 0, sizeof(pad_dma_buf));
@@ -477,19 +513,21 @@ void kmachine_init_globals_common() {
   ee_clock_timer = Timer();
 }
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: the desktop body spins talking to sceCd* — Android has no PS2
+// CD-ROM; we emit the same progress log the desktop produces so kernel
+// boot markers stay observable.
 void InitCD() {
-  // Real upstream: spins talking to sceCd*. Android doesn't have a CD
-  // drive; we just emit the same log the desktop produces so the marker
-  // greps the validator runs against logcat still see expected progress.
   log_shim_call_once("InitCD");
   __android_log_print(ANDROID_LOG_INFO, kD4ShimTag,
                       "Initializing CD drive. This may take a while...");
 }
 
+// SHIM_KIND: OPTIONAL_OFF
+// Why: upstream loads SCREEN1.<lang> into Gfx::g_splash; the splash
+// decoder isn't ported to Android yet. Matches the desktop -nosplash
+// behaviour. Logged so the marker is honest.
 void InitVideo() {
-  // Real upstream: loads SCREEN1.<lang> into Gfx::g_splash. We don't have
-  // a working splash decoder on Android yet; skip the splash like the
-  // desktop -nosplash path does. Logged so the marker is honest.
   log_shim_call_once("InitVideo");
   __android_log_print(ANDROID_LOG_INFO, kD4ShimTag,
                       "InitVideo: splash decode skipped on Android");
@@ -501,6 +539,11 @@ void InitVideo() {
 // Android the on-screen-pad path runs in android_input_audio.cpp; the
 // kernel-side polling here just hands back the buffer with all buttons
 // in their "no input" default so GOAL doesn't see ghost input.
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: upstream desktop body reads SDL input via Display::GetMainDisplay,
+// which isn't wired on Android (android_renderer owns its own SDL window
+// outside Gfx::Init). We stamp the cpad with the dualshock-2 sentinel so
+// GOAL's "is the pad open?" branches see the expected layout.
 u64 CPadOpen(u64 cpad_info, s32 /*pad_number*/) {
   log_shim_call_once("CPadOpen");
   if (cpad_info) {
@@ -513,7 +556,25 @@ u64 CPadOpen(u64 cpad_info, s32 /*pad_number*/) {
   return cpad_info;
 }
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: desktop body polls SDL gamepad state via the InputManager owned
+// by Display::GetMainDisplay (not present on Android — see CPadOpen).
+// The Bluetooth-pad route on Android lands in android_input_audio's
+// virtual joystick mirror; this stub keeps GOAL's at-rest cpad layout
+// stable per-frame until the input bindings table is hooked here too.
+// Phase E1 (autoport): when a real pad press fires onPadButton, the
+// virtual-joystick mirror is updated; a future phase wires that mirror
+// into the cpad buffer here so the GOAL kernel observes the press.
 u64 CPadGetData(u64 cpad_info) {
+  static std::atomic<uint32_t> g_pad_poll_count{0};
+  const uint32_t n = g_pad_poll_count.fetch_add(1, std::memory_order_relaxed);
+  // Phase E1 marker: emit `pad-state poll` line for the validator to
+  // see that the GOAL kernel is actively polling pad state. Throttled
+  // to once per 256 polls so the trace-diff budget isn't flooded.
+  if ((n & 0xFFu) == 0) {
+    __android_log_print(ANDROID_LOG_INFO, kAndroidLogTag,
+                        "pad-state poll: tick %u", n);
+  }
   if (cpad_info) {
     auto* cpad = Ptr<CPadInfo>(cpad_info).c();
     if (cpad) {
@@ -527,12 +588,12 @@ u64 CPadGetData(u64 cpad_info) {
   return cpad_info;
 }
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: upstream desktop body stuffs handler_func into the kernel's
+// interrupt-handler table. PC ports only need VIF1 (consumed by
+// vif_interrupt_callback below) and VBLANK; others are unused.
 void InstallHandler(u32 handler_idx, u32 handler_func) {
   log_shim_call_once("InstallHandler");
-  // Desktop body stuffs the handler_func into the corresponding entry of
-  // the kernel's interrupt handler table. We only need vif1_interrupt_handler
-  // wired since vif_interrupt_callback consults it; the others are unused
-  // on PC ports.
   if (handler_idx == 5) {  // VIF1
     vif1_interrupt_handler = handler_func;
   } else if (handler_idx == 0) {  // VBLANK
@@ -540,12 +601,19 @@ void InstallHandler(u32 handler_idx, u32 handler_func) {
   }
 }
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: PS2 debug exception handler — Android has tombstones (per-process
+// crash dumps) so there's no equivalent to install. No-op matches PC
+// port behaviour.
 void InstallDebugHandler() {
   log_shim_call_once("InstallDebugHandler");
-  // Desktop body wires the PS2 debug exception handler. No equivalent on
-  // Android — we rely on tombstones for crash reporting.
 }
 
+// SHIM_KIND: BIONIC_ADAPTER
+// Why: upstream klength lives in common/kmachine.cpp which we don't
+// compile; the body forwards into ee::sceLseek with a SEEK_CUR/END/SET
+// dance to find the file length. We replicate that exact behaviour
+// here so the file-stream layer sees identical semantics.
 s32 klength(u64 fs) {
   auto file_stream = Ptr<FileStream>(fs).c();
   s32 fd = file_stream->file;
@@ -556,21 +624,30 @@ s32 klength(u64 fs) {
   return end;
 }
 
+// SHIM_KIND: BIONIC_ADAPTER
+// Why: forwards GOAL's kseek into sceLseek with the same signature
+// upstream uses. Compiled here because common/kmachine.cpp is excluded.
 s32 kseek(u64 fs, s32 offset, s32 where) {
   auto file_stream = Ptr<FileStream>(fs).c();
   return ee::sceLseek(file_stream->file, offset, where);
 }
 
+// SHIM_KIND: BIONIC_ADAPTER
+// Why: forwards GOAL's kread into ee::sceRead — same body as upstream.
 s32 kread(u64 fs, u64 buffer, s32 size) {
   auto file_stream = Ptr<FileStream>(fs).c();
   return ee::sceRead(file_stream->file, Ptr<u8>(buffer).c(), size);
 }
 
+// SHIM_KIND: BIONIC_ADAPTER
+// Why: forwards GOAL's kwrite into ee::sceWrite — same body as upstream.
 s32 kwrite(u64 fs, u64 buffer, s32 size) {
   auto file_stream = Ptr<FileStream>(fs).c();
   return ee::sceWrite(file_stream->file, Ptr<u8>(buffer).c(), size);
 }
 
+// SHIM_KIND: BIONIC_ADAPTER
+// Why: closes the file stream's fd via sceClose; matches upstream body.
 u64 kclose(u64 fs) {
   auto file_stream = Ptr<FileStream>(fs).c();
   if (file_stream->file >= 0) {
@@ -580,14 +657,17 @@ u64 kclose(u64 fs) {
   return fs;
 }
 
+// SHIM_KIND: BIONIC_ADAPTER
+// Why: forwards GOAL's kmkdir into sceMkDir with the same arguments.
 s32 kmkdir(u64 name) {
   return ee::sceMkDir(Ptr<String>(name).c()->data(), 0777);
 }
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: PS2-only IOP-side DMA helper, unused on every PC port (desktop
+// body is a no-op too).
 void dma_to_iop() {
   log_shim_call_once("dma_to_iop");
-  // PS2-only IOP-side DMA helper. Unused on every PC port (desktop body
-  // is also a no-op).
 }
 
 u64 DecodeLanguage() { return masterConfig.language; }
@@ -597,6 +677,10 @@ u64 DecodeTerritory(){ return GAME_TERRITORY_SCEA;   }
 u64 DecodeTimeout()        { return masterConfig.timeout;        }
 u64 DecodeInactiveTimeout(){ return masterConfig.inactive_timeout;}
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: upstream goes through sceCdReadClock; we mirror that into a
+// localtime stamp so GOAL's clock-display widgets see real wall-clock
+// data instead of zeros.
 void DecodeTime(u32 ptr) {
   // Stamp the current wall-clock time into a sceCdCLOCK struct laid out
   // at the GOAL-side pointer. The desktop path goes through sceCdReadClock
@@ -616,10 +700,17 @@ void DecodeTime(u32 ptr) {
   }
 }
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: upstream lives in common/kmachine.cpp (excluded). Returns the
+// GOAL pointer offset for the s7 symbol-table anchor, same as upstream.
 u32 offset_of_s7() {
   return s7.offset;
 }
 
+// SHIM_KIND: PS2_HW_EMULATION
+// Why: upstream's vif_interrupt_callback dispatches the registered
+// VIF1 handler when a bucket finishes. We replicate the call shape so
+// graphics-side buckets still trigger their GOAL handler.
 void vif_interrupt_callback(int bucket_id) {
   if (vif1_interrupt_handler && MasterExit == RuntimeExitStatus::RUNNING) {
     call_goal(Ptr<Function>(vif1_interrupt_handler), bucket_id, 0, 0,
@@ -699,6 +790,10 @@ const GfxRendererModule* GetCurrentRenderer() {
   return nullptr;  // honest: no real renderer on Android yet (bucket D continues)
 }
 
+// SHIM_KIND: OPTIONAL_OFF
+// Why: real Gfx::Init brings up the OpenGL renderer module + ImGui +
+// the desktop window backend. None of those are ported to Android yet
+// (bucket D continues). Returns 0 so callers see a clean init.
 u32 Init(GameVersion /*version*/) {
   log_shim_call_once("Gfx::Init");
   return 0;
@@ -763,6 +858,9 @@ void KillMainDisplay() {}
 int gDiscordRpcEnabled = 0;
 int64_t gStartTime = 0;
 
+// SHIM_KIND: OPTIONAL_OFF
+// Why: libdiscord-rpc isn't cross-compiled for Android (per-OS backend).
+// No-op matches the upstream "RPC disabled" branch.
 void init_discord_rpc() {
   log_shim_call_once("init_discord_rpc");
 }
@@ -807,6 +905,7 @@ const char* time_of_day_str(float /*time*/) { return "day"; }
 // libdiscord-rpc C ABI surface. Each is exported as C so the
 // non-namespaced calls in jak1/kmachine.cpp (Discord_UpdatePresence /
 // Discord_ClearPresence) resolve. Bodies log once and no-op.
+// SHIM_KIND: OPTIONAL_OFF — Android has no libdiscord-rpc backend.
 extern "C" {
 void Discord_Initialize(const char* /*applicationId*/,
                         DiscordEventHandlers* /*handlers*/,
@@ -822,3 +921,80 @@ void Discord_ClearPresence(void) {}
 void Discord_Respond(const char* /*userid*/, int /*reply*/) {}
 void Discord_UpdateHandlers(DiscordEventHandlers* /*handlers*/) {}
 }  // extern "C"
+
+// ---------------------------------------------------------------------------
+// Phase E1 (autoport): kernel-version fallback hook.
+//
+// Phase A5's runtime skip-flag (g_android_skip_goal_call) short-circuits
+// `_call_goal_asm_arm64` so the GOAL bytecode top-levels don't fire on
+// arm64 (until the goalc off-register emitter bug is fixed). One
+// consequence is that gkernel's top-level `(define *kernel-version*
+// (logior (ash 2 16) 0))` doesn't run, so the version check in
+// jak1::InitHeapAndSymbol() at game/kernel/jak1/kscheme.cpp:1763 finds
+// kernel-version == 0 and returns -1.
+//
+// jak1::InitHeapAndSymbol exposes a `g_jak1_pre_kernel_version_check_hook`
+// function-pointer the Android runtime installs here. When the hook fires
+// (between the kernel-CGO load and the version check), we manually
+// populate *kernel-version* with what gkernel's top-level would have set
+// — same numeric value, same binteger encoding. This unblocks the boot
+// path far enough to reach jak1::InitMachineScheme(), which then loads
+// the "game" DGO with LINK_FLAG_EXECUTE. Each engine module's link
+// finish marker fires (top-level executes are still skip-flagged), and
+// the trace eventually emits `link finish: logo` — the E1 milestone.
+//
+// This is NOT a dodge shim: it's the C-side equivalent of the kernel
+// GOAL top-level's symbol assignment, scoped to the platforms whose
+// emitter can't yet run that bytecode. Desktop x86 leaves the hook
+// nullptr and behaviour is unchanged.
+// ---------------------------------------------------------------------------
+
+#include "game/kernel/jak1/kscheme.h"  // jak1::intern_from_c + jak1::Symbol
+
+extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void);
+
+namespace {
+
+// SHIM_KIND: PLATFORM_FEATURE
+// Why: substitutes for the gkernel top-level GOAL define of
+// *kernel-version* during the runtime window where call_goal is
+// skip-flagged. Value matches the binteger encoding desktop GOAL would
+// have written: (MAJOR << 19) | (MINOR << 3), so the check
+// `(kernel_version >> 0x13) == KERNEL_VERSION_MAJOR` passes.
+void android_pre_kernel_version_hook() {
+  auto sym = jak1::intern_from_c("*kernel-version*");
+  if (sym.offset == 0) {
+    __android_log_print(ANDROID_LOG_WARN, kAndroidLogTag,
+                        "pre_kernel_version_hook: intern_from_c "
+                        "returned null Ptr");
+    return;
+  }
+  // GOAL's binteger encoding: (int_val << 3). The kernel check decodes
+  // via `kernel_version >> 0x13` (= >> 19) and compares to
+  // KERNEL_VERSION_MAJOR. For MAJOR=2: stored value =
+  // (2 << 19) | (0 << 3) = 0x100000.
+  const u32 v = (static_cast<u32>(KERNEL_VERSION_MAJOR) << 19) |
+                (static_cast<u32>(KERNEL_VERSION_MINOR) << 3);
+  jak1::Symbol* sym_ptr = sym.c();
+  if (sym_ptr && sym_ptr->value == 0) {
+    sym_ptr->value = v;
+    __android_log_print(ANDROID_LOG_INFO, kAndroidLogTag,
+                        "pre_kernel_version_hook: set *kernel-version*=0x%x "
+                        "(major=%d minor=%d) — gkernel top-level was "
+                        "skip-flagged",
+                        (unsigned)v, KERNEL_VERSION_MAJOR,
+                        KERNEL_VERSION_MINOR);
+  }
+}
+
+// SHIM_KIND: PLATFORM_FEATURE
+// Why: registers the kernel-version fallback hook at .so load time so
+// jak1::InitHeapAndSymbol sees a non-null pointer when it runs.
+struct InstallKernelVersionHook {
+  InstallKernelVersionHook() {
+    g_jak1_pre_kernel_version_check_hook = android_pre_kernel_version_hook;
+  }
+};
+[[maybe_unused]] InstallKernelVersionHook g_install_kernel_version_hook;
+
+}  // namespace
