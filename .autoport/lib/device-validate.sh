@@ -49,21 +49,45 @@ device_fail() {
 }
 
 # adb visible & device authorized?
+#
+# Picks a target device with this preference: real phone > running emulator >
+# cold-start the opengoal_arm64 emulator (via emulator_fallback.sh).
+# Exports ANDROID_SERIAL so all subsequent adb commands target the chosen
+# device automatically — no need to add `-s` to every adb invocation.
 device_require_attached() {
     if ! command -v adb >/dev/null 2>&1; then
         device_fail "adb not on PATH (android-env.sh failed?)"
     fi
-    local n
-    n=$(adb devices | awk '/\tdevice$/ {c++} END {print c+0}')
-    if [ "$n" -eq 0 ]; then
-        device_fail "no adb device attached. Plug phone, enable USB debugging,
-   accept the 'Allow USB debugging?' dialog, then re-run.
+    local real emu
+    real=$(adb devices 2>/dev/null | awk '/\tdevice$/ {print $1}' \
+        | grep -v '^emulator-' | head -1)
+    emu=$(adb devices 2>/dev/null | awk '/\tdevice$/ {print $1}' \
+        | grep '^emulator-' | head -1)
+    if [ -n "$real" ]; then
+        export ANDROID_SERIAL="$real"
+        echo "  device_require_attached: real device $real" >&2
+        return 0
+    fi
+    if [ -n "$emu" ]; then
+        export ANDROID_SERIAL="$emu"
+        echo "  device_require_attached: emulator $emu (no real device)" >&2
+        return 0
+    fi
+    # No device, no emulator running — try to start the fallback emulator.
+    if [ -f "$(dirname "${BASH_SOURCE[0]}")/emulator_fallback.sh" ]; then
+        # shellcheck disable=SC1091
+        source "$(dirname "${BASH_SOURCE[0]}")/emulator_fallback.sh"
+        if ensure_device_or_emulator >&2 && [ -n "$DEVICE_SERIAL" ]; then
+            export ANDROID_SERIAL="$DEVICE_SERIAL"
+            echo "  device_require_attached: started emulator $DEVICE_SERIAL" >&2
+            return 0
+        fi
+    fi
+    device_fail "no adb device attached and emulator fallback unavailable. Plug phone,
+   enable USB debugging, accept the 'Allow USB debugging?' dialog,
+   then re-run.
    Visible USB devices:
 $(lsusb | sed 's/^/      /')"
-    fi
-    if [ "$n" -gt 1 ]; then
-        device_fail "more than one adb device attached; set ANDROID_SERIAL to choose one"
-    fi
 }
 
 # When testing one game's APK, the other two jak* packages (if installed
