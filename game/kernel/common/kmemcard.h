@@ -146,3 +146,16 @@ u64 MC_load(s32 card_idx, s32 file_idx, Ptr<u8> data);
 void MC_makefile(s32 port, s32 size);
 void MC_get_status(s32 slot, Ptr<mc_slot_info> info);
 u32 MC_check_result();
+
+// Phase E3 (autoport): deterministic save writer. Produces a save-bank file
+// (header + BANK_SIZE-byte zero body + footer) byte-identical across
+// platforms — every input to mc_checksum is platform-independent (constant
+// zero body, constant save_count=1, constant magic). Used to verify save
+// portability between Android and desktop x86_64. Returns true on success.
+bool write_test_save_to_path(const std::string& path);
+
+// Phase E3 (autoport): validate that `path` holds a well-formed save bank:
+// correct size, matching header/footer magic, matching save_count, and
+// header.checksum equal to mc_checksum of the body. Returns true if the
+// file would load cleanly through pc_game_load_open_file.
+bool validate_save_file(const std::string& path);
