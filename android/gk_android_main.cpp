@@ -556,6 +556,345 @@ void dump_stack_fnptr_zero_chain(uintptr_t lr, uintptr_t sp) {
                       "GK-DIAG A12-DIAG sym-walk-back:");
   dump_sym_name_at_slot(sym_slot);
 }
+
+// ---------------------------------------------------------------------------
+// A16-DIAG (authored 2026-05-24): ADRP/ADD pair walker with forward
+// clobber detection. Mirrors the qemu-side handler in
+// game/linux-arm64/linux_arm64_main.cpp — line shapes are identical so
+// device logcat and qemu_repro stderr are diff-able.
+//
+// Context — A15 attempts 1+2 both reverted: regalloc fix advanced qemu
+// by +46 link-finishes but regressed the Redmi Note 9 Pro device by
+// -101 to -113 link-finishes. claude's
+// .autoport/reports/A15-attempt-2-next-blocker.md pinpointed the device
+// crash as a clobbered X16 inside the per-CGO sym-table initializer
+// loop (x16 = 0xe418c0f914, an impossible-ADRP value).
+//
+// A16 is diagnostic-only: for each ADRP/ADD pair in lr-256..lr-8, walk
+// forward up to 32 instructions and report either:
+//   - A16-DIAG x16-clobber: ... clobbered-between TRUE
+//   - A16-DIAG preserved:   ... clobbered-between FALSE
+// The qemu side will mostly emit preserved entries; the device side is
+// expected to emit at least one clobber entry. The delta is the data
+// needed to author A17.
+// ---------------------------------------------------------------------------
+
+int decode_arm64_write_reg(uint32_t enc) {
+  uint32_t rd = enc & 0x1Fu;
+  uint32_t rn = (enc >> 5) & 0x1Fu;
+  if ((enc & 0xFC000000u) == 0x94000000u) return 30;  // BL
+  if ((enc & 0xFFFFFC1Fu) == 0xD63F0000u) return 30;  // BLR
+  if ((enc & 0xFFFFFC1Fu) == 0xD61F0000u) return -1;  // BR
+  if ((enc & 0xFFFFFC1Fu) == 0xD65F0000u) return -1;  // RET
+  if ((enc & 0x9F000000u) == 0x90000000u) return rd == 31u ? -1 : (int)rd;  // ADRP
+  if ((enc & 0x9F000000u) == 0x10000000u) return rd == 31u ? -1 : (int)rd;  // ADR
+  if ((enc & 0x7F800000u) == 0x52800000u) return rd == 31u ? -1 : (int)rd;  // MOVZ
+  if ((enc & 0x7F800000u) == 0x12800000u) return rd == 31u ? -1 : (int)rd;  // MOVN
+  if ((enc & 0x7F800000u) == 0x72800000u) return rd == 31u ? -1 : (int)rd;  // MOVK
+  if ((enc & 0xFFC00000u) == 0xA9400000u) return rd == 31u ? -1 : (int)rd;  // LDP nowb
+  if ((enc & 0xFFC00000u) == 0xA9000000u) return -1;                        // STP nowb
+  if ((enc & 0xFFC00000u) == 0xA8C00000u) return rd == 31u ? -1 : (int)rd;  // LDP post
+  if ((enc & 0xFFC00000u) == 0xA9C00000u) return rd == 31u ? -1 : (int)rd;  // LDP pre
+  if ((enc & 0xFFC00000u) == 0xA8800000u) return rn == 31u ? -1 : (int)rn;  // STP post wb
+  if ((enc & 0xFFC00000u) == 0xA9800000u) return rn == 31u ? -1 : (int)rn;  // STP pre wb
+  if ((enc & 0xFFE00C00u) == 0xF8400400u) return rd == 31u ? -1 : (int)rd;  // LDR post
+  if ((enc & 0xFFE00C00u) == 0xF8400C00u) return rd == 31u ? -1 : (int)rd;  // LDR pre
+  if ((enc & 0xFFE00C00u) == 0xF8000400u) return rn == 31u ? -1 : (int)rn;  // STR post wb
+  if ((enc & 0xFFE00C00u) == 0xF8000C00u) return rn == 31u ? -1 : (int)rn;  // STR pre wb
+  if ((enc & 0xFFC00000u) == 0xF9400000u) return rd == 31u ? -1 : (int)rd;  // LDR X
+  if ((enc & 0xFFC00000u) == 0xB9400000u) return rd == 31u ? -1 : (int)rd;  // LDR W
+  if ((enc & 0xFFC00000u) == 0xB9800000u) return rd == 31u ? -1 : (int)rd;  // LDRSW
+  if ((enc & 0xFFC00000u) == 0x79400000u) return rd == 31u ? -1 : (int)rd;  // LDRH
+  if ((enc & 0xFFC00000u) == 0x39400000u) return rd == 31u ? -1 : (int)rd;  // LDRB
+  if ((enc & 0xFFC00000u) == 0xF9000000u) return -1;                        // STR X
+  if ((enc & 0xFFC00000u) == 0xB9000000u) return -1;                        // STR W
+  if ((enc & 0xFFC00000u) == 0x79000000u) return -1;                        // STRH
+  if ((enc & 0xFFC00000u) == 0x39000000u) return -1;                        // STRB
+  if ((enc & 0x1F800000u) == 0x11000000u) return rd == 31u ? -1 : (int)rd;  // DPI add/sub imm
+  if ((enc & 0x1F800000u) == 0x12000000u) return rd == 31u ? -1 : (int)rd;  // DPI logical imm
+  if ((enc & 0x1F000000u) == 0x0B000000u) return rd == 31u ? -1 : (int)rd;  // DPR add/sub reg
+  if ((enc & 0x1F000000u) == 0x0A000000u) return rd == 31u ? -1 : (int)rd;  // DPR logical reg
+  if ((enc & 0x1F000000u) == 0x1B000000u) return rd == 31u ? -1 : (int)rd;  // DPR 3-src
+  if ((enc & 0x1FE00000u) == 0x1AC00000u) return rd == 31u ? -1 : (int)rd;  // DPR 2-src (SDIV)
+  if ((enc & 0x5FE00000u) == 0x5AC00000u) return rd == 31u ? -1 : (int)rd;  // DPR 1-src
+  if ((enc & 0x1FE00000u) == 0x1A800000u) return rd == 31u ? -1 : (int)rd;  // CSEL
+  if ((enc & 0x1F800000u) == 0x13000000u) return rd == 31u ? -1 : (int)rd;  // Bitfield
+  if ((enc & 0x1F800000u) == 0x13800000u) return rd == 31u ? -1 : (int)rd;  // EXTR
+  return -1;
+}
+
+bool decode_arm64_writes_reg(uint32_t enc, int xreg) {
+  if (xreg < 0 || xreg > 30) return false;
+  if (decode_arm64_write_reg(enc) == xreg) return true;
+  uint32_t rt2 = (enc >> 10) & 0x1Fu;
+  uint32_t rn = (enc >> 5) & 0x1Fu;
+  uint32_t xr = (uint32_t)xreg;
+  if (rt2 == xr) {
+    if ((enc & 0xFFC00000u) == 0xA9400000u
+        || (enc & 0xFFC00000u) == 0xA8C00000u
+        || (enc & 0xFFC00000u) == 0xA9C00000u)
+      return true;
+  }
+  if (rn == xr) {
+    if ((enc & 0xFFE00C00u) == 0xF8400C00u
+        || (enc & 0xFFE00C00u) == 0xF8400400u
+        || (enc & 0xFFE00C00u) == 0xF8000C00u
+        || (enc & 0xFFE00C00u) == 0xF8000400u
+        || (enc & 0xFFC00000u) == 0xA9800000u
+        || (enc & 0xFFC00000u) == 0xA8800000u
+        || (enc & 0xFFC00000u) == 0xA9C00000u
+        || (enc & 0xFFC00000u) == 0xA8C00000u)
+      return true;
+  }
+  return false;
+}
+
+bool decode_arm64_reads_reg(uint32_t enc, int xreg) {
+  if (xreg < 0 || xreg > 30) return false;
+  uint32_t rn = (enc >> 5) & 0x1Fu;
+  uint32_t rm = (enc >> 16) & 0x1Fu;
+  uint32_t rt = enc & 0x1Fu;
+  uint32_t rt2 = (enc >> 10) & 0x1Fu;
+  uint32_t xr = (uint32_t)xreg;
+  if ((enc & 0xFC000000u) == 0x94000000u) return false;  // BL
+  if ((enc & 0xFC000000u) == 0x14000000u) return false;  // B
+  if ((enc & 0xFF000010u) == 0x54000000u) return false;  // B.cond
+  if ((enc & 0x7F000000u) == 0x35000000u) return rt == xr;  // CBNZ
+  if ((enc & 0x7F000000u) == 0x34000000u) return rt == xr;  // CBZ
+  if ((enc & 0x7E000000u) == 0x36000000u) return rt == xr;  // TBZ/TBNZ
+  if ((enc & 0xFFFFFC1Fu) == 0xD63F0000u) return rn == xr;  // BLR
+  if ((enc & 0xFFFFFC1Fu) == 0xD61F0000u) return rn == xr;  // BR
+  if ((enc & 0xFFFFFC1Fu) == 0xD65F0000u) return rn == xr;  // RET
+  if ((enc & 0x9F000000u) == 0x90000000u) return false;  // ADRP
+  if ((enc & 0x9F000000u) == 0x10000000u) return false;  // ADR
+  if ((enc & 0x7F800000u) == 0x52800000u) return false;  // MOVZ
+  if ((enc & 0x7F800000u) == 0x12800000u) return false;  // MOVN
+  if ((enc & 0x7F800000u) == 0x72800000u) return false;  // MOVK
+  if ((enc & 0xFFC00000u) == 0xA9400000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0xA8C00000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0xA9C00000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0xA9000000u)
+    return rn == xr || rt == xr || rt2 == xr;
+  if ((enc & 0xFFC00000u) == 0xA8800000u)
+    return rn == xr || rt == xr || rt2 == xr;
+  if ((enc & 0xFFC00000u) == 0xA9800000u)
+    return rn == xr || rt == xr || rt2 == xr;
+  if ((enc & 0xFFE00C00u) == 0xF8400C00u) return rn == xr;
+  if ((enc & 0xFFE00C00u) == 0xF8400400u) return rn == xr;
+  if ((enc & 0xFFE00C00u) == 0xF8000C00u) return rn == xr || rt == xr;
+  if ((enc & 0xFFE00C00u) == 0xF8000400u) return rn == xr || rt == xr;
+  if ((enc & 0xFFC00000u) == 0xF9400000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0xB9400000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0xB9800000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0x79400000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0x39400000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0xF9000000u) return rn == xr || rt == xr;
+  if ((enc & 0xFFC00000u) == 0xB9000000u) return rn == xr || rt == xr;
+  if ((enc & 0xFFC00000u) == 0x79000000u) return rn == xr || rt == xr;
+  if ((enc & 0xFFC00000u) == 0x39000000u) return rn == xr || rt == xr;
+  if ((enc & 0x1F800000u) == 0x11000000u) return rn == xr;
+  if ((enc & 0x1F800000u) == 0x12000000u) return rn == xr;
+  if ((enc & 0x1F000000u) == 0x0B000000u) return rn == xr || rm == xr;
+  if ((enc & 0x1F000000u) == 0x0A000000u) return rn == xr || rm == xr;
+  if ((enc & 0x1F000000u) == 0x1B000000u)
+    return rn == xr || rm == xr || rt2 == xr;
+  if ((enc & 0x1FE00000u) == 0x1AC00000u) return rn == xr || rm == xr;
+  if ((enc & 0x5FE00000u) == 0x5AC00000u) return rn == xr;
+  if ((enc & 0x1FE00000u) == 0x1A800000u) return rn == xr || rm == xr;
+  if ((enc & 0x1F800000u) == 0x13000000u) return rn == xr;
+  if ((enc & 0x1F800000u) == 0x13800000u) return rn == xr || rm == xr;
+  return false;
+}
+
+const char* decode_arm64_mnemonic(uint32_t enc) {
+  if ((enc & 0xFC000000u) == 0x94000000u) return "BL";
+  if ((enc & 0xFC000000u) == 0x14000000u) return "B";
+  if ((enc & 0xFFFFFC1Fu) == 0xD63F0000u) return "BLR";
+  if ((enc & 0xFFFFFC1Fu) == 0xD61F0000u) return "BR";
+  if ((enc & 0xFFFFFC1Fu) == 0xD65F0000u) return "RET";
+  if ((enc & 0xFF000010u) == 0x54000000u) return "B.cond";
+  if ((enc & 0x7F000000u) == 0x34000000u) return "CBZ";
+  if ((enc & 0x7F000000u) == 0x35000000u) return "CBNZ";
+  if ((enc & 0x7E000000u) == 0x36000000u) return "TBZ/TBNZ";
+  if ((enc & 0x9F000000u) == 0x90000000u) return "ADRP";
+  if ((enc & 0x9F000000u) == 0x10000000u) return "ADR";
+  if ((enc & 0x7F800000u) == 0x52800000u) return "MOVZ";
+  if ((enc & 0x7F800000u) == 0x12800000u) return "MOVN";
+  if ((enc & 0x7F800000u) == 0x72800000u) return "MOVK";
+  if ((enc & 0xFFC00000u) == 0xA9400000u) return "LDP";
+  if ((enc & 0xFFC00000u) == 0xA9000000u) return "STP";
+  if ((enc & 0xFFC00000u) == 0xA8C00000u) return "LDP-post";
+  if ((enc & 0xFFC00000u) == 0xA9C00000u) return "LDP-pre";
+  if ((enc & 0xFFC00000u) == 0xA8800000u) return "STP-post";
+  if ((enc & 0xFFC00000u) == 0xA9800000u) return "STP-pre";
+  if ((enc & 0xFFE00C00u) == 0xF8400400u) return "LDR-post";
+  if ((enc & 0xFFE00C00u) == 0xF8400C00u) return "LDR-pre";
+  if ((enc & 0xFFE00C00u) == 0xF8000400u) return "STR-post";
+  if ((enc & 0xFFE00C00u) == 0xF8000C00u) return "STR-pre";
+  if ((enc & 0xFFC00000u) == 0xF9400000u) return "LDR-X";
+  if ((enc & 0xFFC00000u) == 0xB9400000u) return "LDR-W";
+  if ((enc & 0xFFC00000u) == 0xB9800000u) return "LDRSW";
+  if ((enc & 0xFFC00000u) == 0x79400000u) return "LDRH";
+  if ((enc & 0xFFC00000u) == 0x39400000u) return "LDRB";
+  if ((enc & 0xFFC00000u) == 0xF9000000u) return "STR-X";
+  if ((enc & 0xFFC00000u) == 0xB9000000u) return "STR-W";
+  if ((enc & 0xFFC00000u) == 0x79000000u) return "STRH";
+  if ((enc & 0xFFC00000u) == 0x39000000u) return "STRB";
+  if ((enc & 0x1F800000u) == 0x11000000u) {
+    uint32_t op = (enc >> 29) & 0x3u;
+    return op == 0 ? "ADD-imm" : op == 1 ? "ADDS-imm"
+                              : op == 2 ? "SUB-imm" : "SUBS-imm";
+  }
+  if ((enc & 0x1F800000u) == 0x12000000u) {
+    uint32_t op = (enc >> 29) & 0x3u;
+    return op == 0 ? "AND-imm" : op == 1 ? "ORR-imm"
+                              : op == 2 ? "EOR-imm" : "ANDS-imm";
+  }
+  if ((enc & 0x1F000000u) == 0x0B000000u) {
+    uint32_t op = (enc >> 29) & 0x3u;
+    return op == 0 ? "ADD-reg" : op == 1 ? "ADDS-reg"
+                              : op == 2 ? "SUB-reg" : "SUBS-reg";
+  }
+  if ((enc & 0x1F000000u) == 0x0A000000u) {
+    uint32_t op = (enc >> 29) & 0x3u;
+    return op == 0 ? "AND/MOV-reg" : op == 1 ? "ORR/MOV-reg"
+                                  : op == 2 ? "EOR-reg" : "ANDS-reg";
+  }
+  if ((enc & 0x1F000000u) == 0x1B000000u) return "MADD/MSUB";
+  if ((enc & 0x1FE00000u) == 0x1AC00000u) return "SDIV/UDIV/LSLV";
+  if ((enc & 0x5FE00000u) == 0x5AC00000u) return "RBIT/CLZ";
+  if ((enc & 0x1FE00000u) == 0x1A800000u) return "CSEL/CSINC";
+  if ((enc & 0x1F800000u) == 0x13000000u) return "SBFM/UBFM/BFM";
+  if ((enc & 0x1F800000u) == 0x13800000u) return "EXTR";
+  return "unknown";
+}
+
+void dump_a16_adrp_pair_walk(uintptr_t lr) {
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A16-DIAG adrp/add pair walk (scan lr-256..lr-8, "
+                      "forward window 32 instr per pair):");
+  int pairs_found = 0;
+  for (intptr_t d = -256; d <= -8; d += 4) {
+    uintptr_t adrp_pc = lr + d;
+    uint32_t adrp_enc = 0;
+    if (!safe_read_u32(adrp_pc, &adrp_enc)) continue;
+    if ((adrp_enc & 0x9F000000u) != 0x90000000u) continue;
+    uint32_t rd_adrp = adrp_enc & 0x1Fu;
+    if (rd_adrp == 31u) continue;
+    uint32_t add_enc = 0;
+    bool has_add = false;
+    uint32_t add_imm12 = 0;
+    if (safe_read_u32(adrp_pc + 4, &add_enc)) {
+      if (((add_enc >> 23) & 0x1FFu) == 0x122u) {
+        uint32_t rn_add = (add_enc >> 5) & 0x1Fu;
+        uint32_t rd_add = add_enc & 0x1Fu;
+        if (rn_add == rd_adrp && rd_add == rd_adrp) {
+          has_add = true;
+          add_imm12 = (add_enc >> 10) & 0xFFFu;
+        }
+      }
+    }
+    uint32_t immlo = (adrp_enc >> 29) & 0x3u;
+    uint32_t immhi = (adrp_enc >> 5) & 0x7FFFFu;
+    int32_t imm21 = (int32_t)((immhi << 2) | immlo);
+    if (imm21 & (1 << 20)) imm21 -= (1 << 21);
+    uintptr_t page = adrp_pc & ~uintptr_t(0xFFFu);
+    uintptr_t resolved =
+        page + ((intptr_t)imm21 << 12) + (uintptr_t)add_imm12;
+    if (has_add) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A16-DIAG adrp-pair: pc=0x%lx "
+                          "adrp_enc=0x%08x add_enc=0x%08x adrp_rd=X%u "
+                          "add_rn=X%u add_rd=X%u imm12=0x%x "
+                          "resolved_target=0x%lx",
+                          (unsigned long)adrp_pc, (unsigned)adrp_enc,
+                          (unsigned)add_enc, (unsigned)rd_adrp,
+                          (unsigned)rd_adrp, (unsigned)rd_adrp,
+                          (unsigned)add_imm12, (unsigned long)resolved);
+    } else {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A16-DIAG adrp-solo: pc=0x%lx "
+                          "adrp_enc=0x%08x adrp_rd=X%u resolved_page=0x%lx",
+                          (unsigned long)adrp_pc, (unsigned)adrp_enc,
+                          (unsigned)rd_adrp, (unsigned long)resolved);
+    }
+    ++pairs_found;
+    intptr_t walk_start = d + (has_add ? 8 : 4);
+    intptr_t walk_end = walk_start + 128;
+    intptr_t first_write_off = 0;
+    uint32_t first_write_enc = 0;
+    bool write_found = false;
+    intptr_t first_read_off = 0;
+    uint32_t first_read_enc = 0;
+    bool read_found = false;
+    for (intptr_t f = walk_start; f < walk_end; f += 4) {
+      uintptr_t fpc = lr + f;
+      uint32_t fenc = 0;
+      if (!safe_read_u32(fpc, &fenc)) break;
+      if (!write_found && decode_arm64_writes_reg(fenc, (int)rd_adrp)) {
+        first_write_off = f;
+        first_write_enc = fenc;
+        write_found = true;
+      }
+      if (!read_found && decode_arm64_reads_reg(fenc, (int)rd_adrp)) {
+        first_read_off = f;
+        first_read_enc = fenc;
+        read_found = true;
+      }
+      if (write_found && read_found) break;
+    }
+    bool clobbered =
+        write_found && (!read_found || first_write_off < first_read_off);
+    if (clobbered && read_found) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A16-DIAG x16-clobber: adrp@0x%lx "
+                          "resolved=0x%lx xd=X%u next-write@0x%lx "
+                          "instr=0x%08x decoded=%s next-read@0x%lx "
+                          "instr=0x%08x decoded=%s clobbered-between TRUE",
+                          (unsigned long)adrp_pc, (unsigned long)resolved,
+                          (unsigned)rd_adrp,
+                          (unsigned long)(lr + first_write_off),
+                          (unsigned)first_write_enc,
+                          decode_arm64_mnemonic(first_write_enc),
+                          (unsigned long)(lr + first_read_off),
+                          (unsigned)first_read_enc,
+                          decode_arm64_mnemonic(first_read_enc));
+    } else if (clobbered) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A16-DIAG x16-clobber: adrp@0x%lx "
+                          "resolved=0x%lx xd=X%u next-write@0x%lx "
+                          "instr=0x%08x decoded=%s next-read=<none-in-window> "
+                          "clobbered-between TRUE (dead-store or no-use-"
+                          "before-clobber)",
+                          (unsigned long)adrp_pc, (unsigned long)resolved,
+                          (unsigned)rd_adrp,
+                          (unsigned long)(lr + first_write_off),
+                          (unsigned)first_write_enc,
+                          decode_arm64_mnemonic(first_write_enc));
+    } else if (read_found) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A16-DIAG preserved: adrp@0x%lx "
+                          "resolved=0x%lx xd=X%u next-read@0x%lx "
+                          "instr=0x%08x decoded=%s clobbered-between FALSE",
+                          (unsigned long)adrp_pc, (unsigned long)resolved,
+                          (unsigned)rd_adrp,
+                          (unsigned long)(lr + first_read_off),
+                          (unsigned)first_read_enc,
+                          decode_arm64_mnemonic(first_read_enc));
+    } else {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A16-DIAG no-use: adrp@0x%lx "
+                          "resolved=0x%lx xd=X%u (no read or write of "
+                          "X%u in forward window)",
+                          (unsigned long)adrp_pc, (unsigned long)resolved,
+                          (unsigned)rd_adrp, (unsigned)rd_adrp);
+    }
+  }
+  if (pairs_found == 0) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A16-DIAG (no ADRP in lr-256..lr-8 window)");
+  }
+}
 }  // namespace gk_diag
 
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
@@ -592,6 +931,13 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
       (uintptr_t)uc->uc_mcontext.regs[16]);
   gk_diag::dump_sym_name_at_slot(
       (uintptr_t)uc->uc_mcontext.regs[9]);
+
+  // A16-DIAG: ADRP/ADD pair walker with forward clobber detection.
+  // Runs unconditionally so device logcat and qemu_repro stderr are
+  // diff-able — qemu will (likely) emit "preserved" entries, device
+  // will (per A15-attempt-2-next-blocker hypothesis) emit at least one
+  // "x16-clobber" entry. The delta is the data needed for A17.
+  gk_diag::dump_a16_adrp_pair_walk(lr);
 
   // A6 attempt 5+: dump bytes around LR (return address). When PC is a
   // BLR-to-NULL jump landing at EE base, LR points at the instruction
