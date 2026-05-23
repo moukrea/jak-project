@@ -273,13 +273,46 @@ is the next layer to peel.
 
 The D4 device validator gate still cannot clear end-to-end:
 
-1. The harness has no Android device attached this session, so
-   `device_require_attached` short-circuits and the emulator fallback
-   times out (arm64-on-x86 hangs, as documented in
-   .autoport/reports/A6-fallback-investigation.md).
-2. Even with a device the renderer never reaches its SDL/GL init
-   markers — the new sig=4 SIGILL kills the boot at texture, well
-   before `android_renderer_run: entered` would fire.
+1. With the real Redmi Note 9 Pro attached (`eae4df44`) and the
+   CGOs re-synced into `android/app/src/jak1/assets/iso_data/jak1/`
+   (so gradle's `mergeAssets` repackages instead of returning
+   UP-TO-DATE), D4 now installs and launches successfully against
+   the X4-pre-load CGOs. `MainActivity onCreate done` fires; 64
+   CGOs link cleanly through `link finish: texture`.
+2. The renderer never reaches its SDL/GL init markers — the new
+   sig=4 SIGILL kills the boot at texture, well before
+   `android_renderer_run: entered` would fire. Device GK-DIAG:
+
+   ```
+   GK-DIAG sig=4 fault=0x7208882000 pc=0x7208882000 lr=0x720bf3a058
+   GK-DIAG x9=0x7208882000     ; BLR target = ee_base (= GOAL ptr 0)
+   GK-DIAG x16=0x72089d8ab4    ; sym-MEM addr (GOAL ptr 0x156ab4)
+   GK-DIAG x15=0x7208882000    ; ee_base — confirms x16 was decoded correctly
+   ```
+
+   The disassembly slice around `lr` (captured by the on-device
+   GK-DIAG handler) matches the qemu_repro trace byte-for-byte:
+
+   ```
+   lr-52  0xd0fe54f0  ADRP X16, page       ; A5 sym-MEM ADRP
+   lr-48  0x912ad210  ADD  X16, X16, #0xab4 ; sym address materialised
+   lr-44  0xb9400209  LDR  W9, [X16, #0]    ; W9 = sym value (= 0 — never bound)
+   lr-40  0xd0fef068  ADRP X8, page         ; arg0 address calc
+   lr-36  0x91311108  ADD  X8, X8, #0xc44
+   lr-32  0xcb0f0108  SUB  X8, X8, X15      ; X8 = GOAL ptr for arg0
+   lr-28  0xaa0903e9  MOV  X9, X9           ; regset placeholder
+   lr-24  0xaa0803e7  MOV  X7, X8           ; arg0 = X8 (= sym addr)
+   lr-20  0x8b0f0129  ADD  X9, X9, X15      ; X9 = host(0) = ee_base
+   lr-16  0xa9bf17e3  STP  X3, X5, [SP,#-16]! ; call_r64 push
+   lr-12  0xa9bf2fea  STP  X10, X11, [SP,#-16]!
+   lr-8   0xf81f0ff7  STR  X23, [SP,#-16]!
+   lr-4   0xd63f0120  BLR  X9                ; SIGILL: X9 = ee_base, *(u32*)ee_base = 0 = UDF #0
+   ```
+
+   The bug class is therefore confirmed end-to-end on both qemu
+   user-mode and a physical arm64 Android device — same fault
+   address pattern (`pc == g_ee_main_mem`), same instruction shape
+   around the BLR, same trigger (W9 = 0 from a sym-MEM load).
 
 For the proper IGenARM64.cpp repair (delete this workaround once the
 RSP→SP encoding is fixed), the supervisor should open A10 with the
@@ -299,3 +332,44 @@ following unlocks:
   BLR to host(W9=0). Trace what sym is being loaded at lr-44 in that
   function and whether it should have been populated by the time
   texture.gc's top-level executes.
+
+Likely candidates for the texture-link sym-MEM = 0 bug, in
+descending order of A8 prior-art likelihood:
+
+- **klink LDR-literal patch failure** (A8 root-cause doc, separate
+  but related bug): when a CGO's literal pool sits > 1 MB from the
+  function, the `klink_arm64_patch_pc_rel` LDR-literal branch
+  silently substitutes an `imm19 = 0` (loads from itself). Each
+  symbol-pointer reference materialised that way then resolves to
+  whatever lives at the instruction PC — at the post-ENGINE.CGO/
+  GAME.CGO heap distances this is often a zero-filled hole. Symbols
+  bound via this path stay 0 forever. Fix: either move literal pools
+  closer, OR rewrite LDR-literal as ADRP+ADD into a scratch reg
+  (klink.cpp runtime change).
+- **Top-level execution order**: a sym that `(define …)` binds in
+  one CGO might be referenced by a `(new …)`/`(set! …)` in an
+  earlier-linked CGO whose top-level runs before the defining CGO's
+  top-level. Audit the link order against the actual sym-binding
+  events for the failing call site.
+- **arg-shuffle clobber across a deeper GOAL→GOAL call**: the X3-
+  clobber-after-BLR family is fixed for `mov dst, RSP` by this
+  phase's X4 pre-load, but other registers that happen to be both
+  caller-save AND used as GOAL arg sources may still suffer the
+  same shape if a deeper `call_r64` doesn't restore them. The
+  X3-clobber doc above documents one such site; running with
+  `OG_KLINK_TRACE=1` (introduced by A8) on the failing texture
+  function would print which sym got 0 — that would localise the
+  proximate cause vs LDR-literal vs ordering.
+
+### Closure note
+
+A9's narrow `do_goal_function_arm64` unlock has delivered both
+parts of its scope: real LDR/STR spill ops, real frame setup, AND
+the X4=SP pre-load workaround for stack-var address IRs. Both qemu
+user-mode and the real device confirm post-A9 progression to
+`link finish: texture` (64 unique CGOs), well past the pre-A9
+display.gc boundary (~45 CGOs). The remaining gap to the renderer
+is a different bug class outside `do_goal_function_arm64`'s scope
+and requires unlocks that A9 explicitly does not have. Per the A9
+prompt's "Honest exit condition", A9 commits its fix + this
+next-blocker doc and yields to a follow-up phase.

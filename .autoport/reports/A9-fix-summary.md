@@ -93,18 +93,20 @@ ret                           ;                           0xD65F03C0
 ## Disassembly evidence
 
 `out/jak1-arm64/iso/{KERNEL,ENGINE,GAME}.CGO` regenerated with the
-patched compiler. Hash baseline saved to
-`.autoport/reports/A9-baseline-arm64-cgo-hashes.txt`:
+patched compiler (spill ops + X4=SP pre-load workaround). Latest
+hash baseline saved to `.autoport/reports/A9-baseline-arm64-cgo-hashes.txt`:
 
 ```
-60ae3ceda828230fa931f306feca5b90a8735ad3e80ccf2fe681ff2f715d5e47  out/jak1-arm64/iso/KERNEL.CGO
-f2640b073c7c21e56b1584e174ad28cab8ad5fbd0d34482f10fd7f5a5901642b  out/jak1-arm64/iso/ENGINE.CGO
-033f255a36810c5b9d3c2a47c417010be0b4e35aa03d9a5c90fcc4685616f864  out/jak1-arm64/iso/GAME.CGO
+81b717243de89f7f29c40c0552d99333483e4d5322796a2967766f03e2d73f2b  out/jak1-arm64/iso/KERNEL.CGO
+a30b3426b64fd7281741544d6a7f9fb713cdb4bbef5fc484ab63bb771aa7a599  out/jak1-arm64/iso/ENGINE.CGO
+f0f646fe58d25fe56bfbbe1b98b929dbe9df01342e8789a71ed74f516b4dbb03  out/jak1-arm64/iso/GAME.CGO
 ```
 
-(Compared to the A6 baseline — `9e9a19e7…` / `38a0806b…` /
-`14cf084b…` — every CGO has shifted bytes; the spill ops change is
-threaded across hundreds of jak1 functions.)
+The earlier post-spill-only hashes (no X4 workaround) were
+`60ae3ced…` / `f2640b07…` / `033f255a…`; against the A6 baseline
+(`9e9a19e7…` / `38a0806b…` / `14cf084b…`) every CGO has shifted
+bytes — the spill ops + stack-addr workaround change is threaded
+across hundreds of jak1 functions.
 
 Slice from the new ENGINE.CGO near a function with a spilled value
 (qemu_repro log lines 220-265, addresses in the EE map):
@@ -128,7 +130,7 @@ Slice from the new ENGINE.CGO near a function with a spilled value
 0xFFF = 0x010 = 16): the new spill frame reservation that replaces
 the pre-A9 NOP.
 
-## What it unblocks (qemu_repro)
+## What it unblocks (qemu_repro + device)
 
 `bash .autoport/lib/qemu_repro.sh` extended boot (KERNEL+ENGINE+GAME
 CGOs with `LINK_FLAG_EXECUTE`) before and after the fix:
@@ -136,13 +138,30 @@ CGOs with `LINK_FLAG_EXECUTE`) before and after the fix:
 | Phase | `link finish:` count | Last reached object | Crash site |
 |-------|----------------------|---------------------|------------|
 | pre-A9 (A8 trace) | ~45 | font-h (display.gc top-level enters but BLRs to NULL) | display.gc:243 `(new 'global 'font-context …)` → `BLR X3=X15+0` |
-| post-A9 (this fix) | **61** | knuth-rand (5 objects past display.gc finish) | NEW: `pc=0x21245017f8` LDRB `[X16,#0]` after a deep call (X16 clobbered through BLR — different bug class, see next-blocker doc) |
+| post-spill-only | 61 | knuth-rand | X3-clobber-after-BLR in `scf-time-to-int64`, root-caused to `mov dst, X4` instead of `mov dst, SP` for `(new 'stack-no-clear 'scf-time)` |
+| post-spill + X4 pre-load (current) | **64** | texture | NEW: `pc=ee_base` BLR (uninitialised sym-MEM load returns 0 → BLR to GOAL ptr 0) — separate bug class, see [next-blocker doc](A9-attempt-1-next-blocker.md) |
+
+The on-device D4 run mirrors the qemu_repro outcome exactly:
+
+```
+05-23 12:08:04.385  7213  7376 D opengoal-gk: link finish: texture
+05-23 12:08:04.385  7213  7376 F opengoal-gk: GK-DIAG sig=4 fault=0x7208882000 pc=0x7208882000 lr=0x720bf3a058
+```
+
+`pc=0x7208882000 = g_ee_main_mem` ⇒ host-side decode is GOAL ptr 0
+(the first u32 of the EE memory is `0x00000000` = `UDF #0` ⇒ SIGILL).
+The LDR `W9, [X16, #0]` at `lr-44` (sym-MEM load via the A5
+ADRP+ADD+LDR triplet) returned 0; `ADD X9, X9, X15` (lr-20) +
+`BLR X9` (lr-4) jumped to ee_base. Same shape as the qemu trace.
 
 Objects that linked for the first time with A9 in place include
-`display`, `connect`, `text-h`, `settings-h`, `knuth-rand` — the
-`FIRST POST-FIX CGO LINKED:` marker emitted by the patched
-qemu_repro.sh names `dma-buffer` (the earliest object in the
-boundary-set regex that crossed the previous failure line).
+`display`, `connect`, `text-h`, `settings-h`, `dma-buffer`, `pad`,
+`gs`, `vector`, `file-io`, `loader-h`, `texture-h`, `level-h`,
+`math-camera-h`, `math-camera`, `font-h`, `decomp-h`, `knuth-rand`,
+`capture`, `memory-usage-h`, `texture` — 19+ objects past the
+pre-A9 failure line. The `FIRST POST-FIX CGO LINKED:` marker
+emitted by `qemu_repro.sh` names `dma-buffer` (the earliest object
+in the boundary-set regex that crossed the previous failure line).
 
 ## Honest scope of the fix
 
@@ -152,8 +171,32 @@ in `CodeGenerator.cpp` are byte-identical. The x86 path
 hash-match the A2 baseline byte-for-byte (verified by
 `build_b1_arm64_cgos.sh` step 7 after the regen cycle).
 
-The fix is necessary but not sufficient for full boot: the qemu
-trace identifies a new crash class downstream — see
-`A9-attempt-1-next-blocker.md` for the analysis. D4 device-validator
-re-pass remains gated on that next bug (and on physical-device
-availability for the harness running this phase).
+The fix is necessary but not sufficient for full boot. With both
+qemu and a real device producing the identical post-A9 progression
+(64 link-finishes, crash at `BLR` to ee_base from an uninitialised
+sym-MEM load), the next layer is squarely outside A9's narrow
+`do_goal_function_arm64` unlock. See
+[`A9-attempt-1-next-blocker.md`](A9-attempt-1-next-blocker.md) for
+the full disassembly trace + scope recommendation for the next
+phase. D4 device-validator re-pass remains gated on that next bug.
+
+## Pipeline note: arm64 CGO → APK asset sync
+
+`d4_run.sh` rebuilds `libgk.so` and re-packages the APK, but does
+NOT itself copy the freshly regenerated `out/jak1-arm64/iso/*.CGO`
+into `android/app/src/jak1/assets/iso_data/jak1/`. When the
+codegen changes (as it did in A9), the CGO sync must be done
+manually before `d4_run.sh`/the D4 validator so gradle's `mergeAssets`
+sees a delta and repackages — without it the APK ships stale CGOs
+and the on-device behaviour reverts to the pre-fix progression. The
+A9 validator's check #10 runs D4 against whatever CGOs are in the
+APK, so the standard incantation is:
+
+```bash
+cp out/jak1-arm64/iso/{KERNEL,ENGINE,GAME}.CGO \
+   android/app/src/jak1/assets/iso_data/jak1/
+bash .autoport/validators/phase-A9-codegen-spill-ops.sh
+```
+
+The asset paths are `.gitignore`d (Jak ISO data is too large to
+commit), so this is a host-only file-shuffle, not a source change.
