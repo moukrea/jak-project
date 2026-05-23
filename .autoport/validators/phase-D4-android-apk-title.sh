@@ -181,19 +181,24 @@ ok "no new abort() calls in code since D3"
 # do_goal_function_arm64 implementation) to replace the NOP spill
 # load/store placeholders with real LDR/STR — without this, regalloc
 # spills are silently dropped and display.gc's font-context (new ...)
-# call BLRs through NULL. The A5/A9 validators enforce their own narrow
-# locks on those files; D4 only needs to guard the files that have
-# never been unlocked.
-for f in goalc/compiler/IR.cpp \
-         goalc/emitter/IGenARM64.h \
+# call BLRs through NULL. Phase A10 additionally unlocks
+# goalc/compiler/IR.cpp (narrowly: IR_GetStackAddr / IR_RegValAddr's
+# arm64 codegen, replacing the X4-pre-load workaround with a direct
+# `ADD Xd, SP, #imm12` Rn=31 emit so callees no longer corrupt the
+# caller's preserved-register save area across GOAL→GOAL BLR).
+# The A5/A9/A10 validators enforce their own narrow locks on those
+# files; D4 only needs to guard the files that have never been
+# unlocked.
+for f in goalc/emitter/IGenARM64.h \
          goalc/emitter/ObjectGenerator.h \
-         goalc/compiler/CodeGenerator.h; do
+         goalc/compiler/CodeGenerator.h \
+         goalc/compiler/IR.h; do
     if [ -f "$f" ]; then
         DIFF=$(git diff "$A4_COMMIT" -- "$f" 2>/dev/null | wc -l)
-        [ "$DIFF" -eq 0 ] || fail "$f changed since A4 (still-locked file after A5/A9 narrow unlocks)"
+        [ "$DIFF" -eq 0 ] || fail "$f changed since A4 (still-locked file after A5/A9/A10 narrow unlocks)"
     fi
 done
-ok "still-locked codegen files byte-identical to A4 (IGenARM64.cpp + ObjectGenerator.cpp unlocked by A5; CodeGenerator.cpp do_goal_function_arm64 unlocked by A9)"
+ok "still-locked codegen files byte-identical to A4 (IGenARM64.cpp + ObjectGenerator.cpp unlocked by A5; CodeGenerator.cpp do_goal_function_arm64 unlocked by A9; IR.cpp IR_GetStackAddr/IR_RegValAddr unlocked by A10)"
 
 # ---- 16. Classifier byte-identical to A1 ----
 CLF_DIFF=$(git diff "$A1_COMMIT" -- "$CLASSIFIER" 2>/dev/null | wc -l)

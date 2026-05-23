@@ -55,6 +55,42 @@ int get_stack_offset(const RegVal* rv, const AllocationResult& allocs) {
   }
 }
 
+// A10 (autoport) — direct `ADD Xd, SP, #imm12` emit (Rn = 31).
+//
+// IGen::ARM64::mov_gpr64_gpr64 / lea_reg_plus_off both route the source
+// register through arm64_reg5(src). For RSP that returns id() & 0x1f = 4
+// (the GOAL enum id, NOT the AArch64 SP encoding which is 31). The result
+// is `MOV Xd, X4` / `ADD Xd, X4, #imm` — reads from X4 instead of SP.
+//
+// X4 is whatever the previous BLR's arg shuffle left in it (kernel
+// trampoline `st`, or arg4 of the last GOAL→C dispatch). Any IR that
+// reads RSP to compute a stack-var address ends up with garbage, and the
+// callee's writes step on the caller's preserved-register save area
+// allocated by call_r64 — that is the X3-clobber-after-BLR symptom
+// captured in .autoport/reports/A9-attempt-1-next-blocker.md.
+//
+// A9 worked around this in CodeGenerator.cpp's main IR loop by emitting
+// `ADD X4, SP, #0` (0x910003E4) immediately before any IR whose codegen
+// reads RSP. A10's narrow IR.cpp unlock replaces that workaround with the
+// proper fix: emit `ADD Xd, SP, #imm12` (Rn = 31) directly here, no X4
+// detour. The encoder file (IGenARM64.cpp) stays locked.
+//
+// Encoding (ADD immediate, 64-bit, sf=1, op=add, S=0, sh=0):
+//
+//   |31|30 29|28 24|23 22|21    10|9   5|4   0|
+//   | 1| 0  0|1 0 0 0 1|0  0|imm12     |Rn=31|Rd  |   = 0x91000000 ...
+//
+// imm12 must be <= 0xfff; the A9 prologue caps frame_bytes at 4095 so
+// stack-slot offsets and stack-var offsets stay inside that range. We
+// ASSERT here so a future frame-blowing function fails loudly instead
+// of silently truncating its address.
+static InstructionARM64 arm64_add_xd_sp_imm12(Register dst, uint32_t imm12) {
+  ASSERT(imm12 <= 0xfff);
+  uint32_t rd = static_cast<uint32_t>(dst.id()) & 0x1fu;
+  uint32_t enc = 0x91000000u | ((imm12 & 0xfffu) << 10) | (31u << 5) | rd;
+  return InstructionARM64(enc);
+}
+
 Register get_no_color_reg(const RegVal* rv) {
   if (!rv->rlet_constraint().has_value()) {
     throw std::runtime_error(
@@ -618,8 +654,12 @@ void IR_RegValAddr::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                      emitter::IR_Record irec) {
   int stack_offset = get_stack_offset(m_src, allocs);
   auto dst = get_reg(m_dest, allocs, irec);
-  // dst = SP + stack_offset, then convert to a GOAL pointer (subtract offset reg).
-  gen->add_instr(emitter::IGen::ARM64::lea_reg_plus_off(dst, RSP, stack_offset), irec);
+  // A10: dst = SP + stack_offset. Emit ADD Xd, SP, #imm12 directly (Rn=31)
+  // — IGen::ARM64::lea_reg_plus_off would route RSP through arm64_reg5() = 4
+  // and corrupt this into `ADD Xd, X4, #imm`. See arm64_add_xd_sp_imm12.
+  ASSERT(stack_offset >= 0);
+  gen->add_instr(arm64_add_xd_sp_imm12(dst, static_cast<uint32_t>(stack_offset)), irec);
+  // dst = SP + stack_offset - offset_reg = GOAL pointer.
   gen->add_instr(emitter::IGen::ARM64::sub_gpr64_gpr64(dst, emitter::gRegInfo.get_offset_reg()),
                  irec);
 }
@@ -1583,15 +1623,15 @@ void IR_GetStackAddr::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                        emitter::IR_Record irec) {
   auto dest_reg = get_reg(m_dest, allocs, irec);
   int offset = GPR_SIZE * allocs.get_slot_for_var(m_slot);
-  if (offset == 0) {
-    gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dest_reg, RSP), irec);
-    gen->add_instr(emitter::IGen::ARM64::sub_gpr64_gpr64(dest_reg, gRegInfo.get_offset_reg()),
-                   irec);
-  } else {
-    gen->add_instr(emitter::IGen::ARM64::lea_reg_plus_off(dest_reg, RSP, offset), irec);
-    gen->add_instr(emitter::IGen::ARM64::sub_gpr64_gpr64(dest_reg, gRegInfo.get_offset_reg()),
-                   irec);
-  }
+  // A10: emit ADD Xd, SP, #imm12 directly (Rn=31). When offset==0 this is the
+  // canonical `MOV Xd, SP` encoding. Replaces the prior path through
+  // IGen::ARM64::mov_gpr64_gpr64 / lea_reg_plus_off, both of which encoded
+  // the base via arm64_reg5(RSP)=4 and produced `MOV/ADD dst, X4, ...` —
+  // see arm64_add_xd_sp_imm12 above.
+  ASSERT(offset >= 0);
+  gen->add_instr(arm64_add_xd_sp_imm12(dest_reg, static_cast<uint32_t>(offset)), irec);
+  gen->add_instr(emitter::IGen::ARM64::sub_gpr64_gpr64(dest_reg, gRegInfo.get_offset_reg()),
+                 irec);
 }
 
 ///////////////////////
