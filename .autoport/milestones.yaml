@@ -319,6 +319,14 @@ phases:
   validator: validators/phase-A12-gsound-stack-fnptr.sh
   max_turns: 600
   max_retries: 12
+- id: A13-iop-kernel-mutex-init
+  name: Initialise IOP_Kernel's pthread_mutex_t members on linux-arm64 / android-arm64 (zero-init in BSS by default, so the first
+    sif_rpc call from gsound's top-level SEGVs in pthread_mutex_lock). Smallest A13 candidate per A12 next-blocker — mutex pre-init only,
+    no IOP thread spawning. Async RPCs queue but don't wait; sync RPCs (A14+) need a real IOP thread.
+  prompt: prompts/phase-A13-iop-kernel-mutex-init.md
+  validator: validators/phase-A13-iop-kernel-mutex-init.sh
+  max_turns: 600
+  max_retries: 12
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md

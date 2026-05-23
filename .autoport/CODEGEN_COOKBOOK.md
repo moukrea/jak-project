@@ -195,7 +195,8 @@ welcome; silent skips are not.
 | A9    | CodeGenerator.cpp do_goal_function_arm64 | +16 → 61 | X4-pre-load workaround; save-area corruption |
 | A10   | IR.cpp ADD Xd, SP, #imm12 (Rn=31)   | +43 → 104 | texture sym-MEM=0 SIGILL          |
 | A11   | klink + symbol + diag, kscheme.cpp::call_goal arg-bridge | +52 → 156 | gsound stack-loaded fn-ptr=0 SIGILL |
-| A12   | extended SIGILL diag + backward stack-store provenance | TBD | TBD |
+| A12   | bind rpc-call/rpc-busy?/test-load-dgo-c to real desktop fns + backward-provenance SIGILL diag | +0 → 156 | pthread_mutex_lock SEGV in IOP_Kernel::sif_rpc (mutex uninit'd on arm64) |
+| A13   | IOP_Kernel mutex pre-init (linux_arm64_runtime_compat / android_runtime_compat) | TBD | TBD |
 
 Yield per phase has trended upward (16 → 43 → **52**). x86 target is
 438 link-finishes. At current yield, ~5–6 more phases reach the
