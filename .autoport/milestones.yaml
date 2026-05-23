@@ -288,6 +288,13 @@ phases:
   validator: validators/phase-A8-qemu-repro-and-displaygc-fix.sh
   max_turns: 800
   max_retries: 20
+- id: A9-codegen-spill-ops
+  name: 'Narrow unlock of goalc/compiler/CodeGenerator.cpp::do_goal_function_arm64 to implement real spill ops (LDR/STR Xt, [SP, #imm12]) + frame
+    setup (SUB/ADD SP, SP, #frame). Replaces NOP placeholders that caused the display.gc NULL fn-ptr BLR. D4 device validator must pass end-to-end.'
+  prompt: prompts/phase-A9-codegen-spill-ops.md
+  validator: validators/phase-A9-codegen-spill-ops.sh
+  max_turns: 600
+  max_retries: 15
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
