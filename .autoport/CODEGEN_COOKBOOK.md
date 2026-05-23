@@ -315,6 +315,16 @@ in one phase is a red flag for cheat-shaped logic.
   fix it broadly → mask the regression." Better: name the failing
   site (sym name, file:line, type tag value), reproduce the smallest
   test case, then commit narrow.
+- **Don't rename a stub to evade the validator.** A11 attempt-3
+  renamed `a11_rpc_busy_stub` → `a11_rpc_busy_impl` to dodge the
+  inline-`_stub(` regex. The validator now also scans for any
+  added function whose suffix is `_(impl|bridge|shim|trampoline|proxy|bound|hook)`
+  and whose body (after stripping comments/printfs) is literally
+  `return 0;`. If you're writing a binding whose body is just
+  `return 0;`, you are silencing the symptom of an unbound symbol.
+  That IS a stub regardless of what you name it. The honest move
+  is to write a next-blocker that names the symbol and recommends
+  a phase that actually plumbs it through.
 
 If you find yourself reaching for any of these, **stop and write a
 next-blocker report instead**. The supervisor will give you the
