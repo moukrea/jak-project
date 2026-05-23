@@ -50,6 +50,44 @@ ANCHOR=${A11_CLOSE:-$A10_CLOSE}
 [ -z "$(git diff --name-only --diff-filter=A "$ANCHOR" HEAD 2>/dev/null | grep -E '_stubs\.cpp$' || true)" ] || fail "new *_stubs.cpp since A11 close"
 INLINE_STUBS=$(git diff "$ANCHOR" HEAD -- '*.cpp' '*.h' 2>/dev/null | grep -cE '^\+.*\w+_stub\s*\(' || true)
 [ "$INLINE_STUBS" -eq 0 ] || fail "inline _stub function additions since A11 close ($INLINE_STUBS)"
+# 4b'. Rename-evasion: stub-shaped functions renamed _impl / _bridge /
+#     _shim / _trampoline that just `return 0;`. Detect by scanning
+#     added function definitions for a body that is essentially a
+#     constant-zero return.
+DIFF_FILE=$(mktemp); trap "rm -f $DIFF_FILE" EXIT
+git diff "$ANCHOR" HEAD -- '*.cpp' '*.h' > "$DIFF_FILE" 2>/dev/null || true
+STUB_SHAPED=$(DIFF_FILE="$DIFF_FILE" python3 - <<'PY' || true
+import re, os
+diff = open(os.environ['DIFF_FILE']).read()
+added_blocks = []
+cur = []
+for line in diff.splitlines():
+    if line.startswith('+') and not line.startswith('+++'):
+        cur.append(line[1:])
+    else:
+        if cur: added_blocks.append('\n'.join(cur))
+        cur = []
+if cur: added_blocks.append('\n'.join(cur))
+hits = 0
+fn_re = re.compile(
+    r'\b(?:u64|u32|s64|s32|uint64_t|uint32_t|int64_t|int32_t|void)\s+'
+    r'(\w+_(?:impl|bridge|shim|trampoline|proxy|bound|hook))\s*\([^{;]*\)\s*'
+    r'\{([^{}]*)\}', re.M)
+for blk in added_blocks:
+    for m in fn_re.finditer(blk):
+        body = m.group(2)
+        clean = re.sub(r'//[^\n]*', '', body)
+        clean = re.sub(r'/\*.*?\*/', '', clean, flags=re.S)
+        clean = re.sub(r'(?:std::)?(?:fprintf|printf|fputs|puts|lg::\w+)\([^;]*\);', '', clean)
+        clean = clean.strip()
+        if re.match(r'^\s*return\s+0\s*;\s*$', clean):
+            hits += 1
+            print(f"STUB-SHAPED: {m.group(1)}")
+print(f"hits={hits}")
+PY
+)
+RENAME_STUBS=$(echo "$STUB_SHAPED" | grep -oE "hits=[0-9]+" | tail -1 | cut -d= -f2)
+[ "${RENAME_STUBS:-0}" -eq 0 ] || { echo "$STUB_SHAPED" | head -10; fail "rename-evasion stub-shaped functions added since A11 close ($RENAME_STUBS) — return-0-only bodies under non-_stub suffix"; }
 # 4c. Test infrastructure lock (anchor on latest [autoport/supervisor] commit
 #     so the validator does not self-reference its own edits).
 SUP_ANCHOR=$(git log --format=%H --grep='\[autoport/supervisor\]' | head -1)
