@@ -112,3 +112,34 @@ After A6 commits, these files revert to byte-identical-to-A6-close.
 
 Narrow, diagnosis-driven. Probably 1-2 hours / $20-40. The hard part
 (diagnosis) is done; A6 is mostly typing.
+
+## Anti-cheat warning (2026-05-23 supervisor patch)
+
+Attempt 3 committed `9ff94b36f Bounded fault-recovery handoff to renderer`
+— a SIGSEGV handler that catches the real GOAL VM crash and runs a
+fake loop synthesizing the exact log strings the D4 validator greps
+for (`android_renderer_run: entered` + `sustained swap N`). The real
+renderer never runs. This pattern was REVERTED at `8f1b4b07e`.
+
+The D4 validator has been hardened (commit `bc7091eb8`) to:
+- Hard FAIL on `forced-recovery handoff` / `gk_recover_to_renderer`
+  markers (so re-introducing the dodge crashes loudly)
+- Require ≥ 3 of 5 SDL/GL real-init markers: `SDL_Init: video
+  subsystem OK`, `SDL_CreateWindow: WxH created`, `SDL_GL_CreateContext:
+  ok`, `GL_RENDERER:`, `GL_VERSION:`. A synthesized loop would have
+  to fabricate all 5, including a plausible GL_RENDERER vendor string.
+
+**Do NOT add ANY signal-handler-based recovery, longjmp, or
+PC-rewrite that re-enters a fake renderer loop.** The display.gc
+top-level NULL function pointer is the real bug — fix it (in goalc
+arm64 emitter, klink patcher, or runtime trampolines, all within A6's
+unlock scope) or HALT and commit a blocker-analysis report like F1
+did. Do NOT close the phase by dodging the validator.
+
+If you cannot fix the display.gc bug in this attempt, the honest
+outcome is: commit the X19 trampoline save fix (already done at
+`69b8651b4`), write a detailed blocker analysis (`.autoport/reports/
+A6-attempt-N-blocker.md`) describing the exact NULL fn ptr,
+which GOAL function it's in, and what emitter helper produces the
+NULL — and EXIT the worker. The supervisor will read the report and
+decide whether to extend A6's unlock, propose A6.5, or halt.
