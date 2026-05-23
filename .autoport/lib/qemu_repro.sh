@@ -95,4 +95,25 @@ if grep -q "GK-DIAG sig=" "$LOG"; then
     echo "qemu_repro.sh: GK-DIAG signal handler fired; first 6 lines:"
     grep "GK-DIAG" "$LOG" | head -6
 fi
+
+# A9: report link-finish progression. Pre-A9 the chain crashed inside
+# display.gc's top-level (NULL fn-ptr BLR after a spill NOP), so the
+# "link finish: display" line and anything after it never appeared. If any
+# of the post-fix boundary CGOs link now, name the first such one — that's
+# direct evidence the spill load/store ops actually move bytes around.
+LINK_LIST=$(grep -E "link finish:" "$LOG" | sed -n 's/.*link finish: //p' || true)
+if [ -n "$LINK_LIST" ]; then
+    NUM_LINKS=$(printf '%s\n' "$LINK_LIST" | wc -l)
+    echo "qemu_repro.sh: $NUM_LINKS 'link finish:' lines captured. Last up to 10:"
+    printf '%s\n' "$LINK_LIST" | tail -10 | sed 's/^/  link finish: /'
+    # Boundary set: any object that historically failed to link before A9 (the
+    # display.gc top-level was the earliest crash). Boot progression after the
+    # fix should reach display first, then dma/connect/engine/game-info.
+    FIRST_POST=$(printf '%s\n' "$LINK_LIST" \
+        | grep -E '^(display|dma-buffer|connect|engine|game-info)([- ]|$)' \
+        | head -1 || true)
+    if [ -n "$FIRST_POST" ]; then
+        echo "FIRST POST-FIX CGO LINKED: $FIRST_POST"
+    fi
+fi
 exit 0

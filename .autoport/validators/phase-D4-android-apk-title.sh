@@ -176,19 +176,24 @@ ok "no new abort() calls in code since D3"
 # ---- 15. Codegen still locked since A4 ----
 # Phase A5 explicitly unlocks goalc/emitter/IGenARM64.cpp +
 # ObjectGenerator.cpp for the far-reloc sym-mem expansion that closes
-# C4's 691-NOP gap. The A5 validator enforces its own narrow lock on
-# those two files; D4 only needs to guard the still-locked files.
+# C4's 691-NOP gap. Phase A9 additionally unlocks
+# goalc/compiler/CodeGenerator.cpp (narrowly: only the
+# do_goal_function_arm64 implementation) to replace the NOP spill
+# load/store placeholders with real LDR/STR — without this, regalloc
+# spills are silently dropped and display.gc's font-context (new ...)
+# call BLRs through NULL. The A5/A9 validators enforce their own narrow
+# locks on those files; D4 only needs to guard the files that have
+# never been unlocked.
 for f in goalc/compiler/IR.cpp \
          goalc/emitter/IGenARM64.h \
          goalc/emitter/ObjectGenerator.h \
-         goalc/compiler/CodeGenerator.cpp \
          goalc/compiler/CodeGenerator.h; do
     if [ -f "$f" ]; then
         DIFF=$(git diff "$A4_COMMIT" -- "$f" 2>/dev/null | wc -l)
-        [ "$DIFF" -eq 0 ] || fail "$f changed since A4 (still-locked file after A5 narrow unlock)"
+        [ "$DIFF" -eq 0 ] || fail "$f changed since A4 (still-locked file after A5/A9 narrow unlocks)"
     fi
 done
-ok "still-locked codegen files byte-identical to A4 (IGenARM64.cpp + ObjectGenerator.cpp unlocked by A5)"
+ok "still-locked codegen files byte-identical to A4 (IGenARM64.cpp + ObjectGenerator.cpp unlocked by A5; CodeGenerator.cpp do_goal_function_arm64 unlocked by A9)"
 
 # ---- 16. Classifier byte-identical to A1 ----
 CLF_DIFF=$(git diff "$A1_COMMIT" -- "$CLASSIFIER" 2>/dev/null | wc -l)
