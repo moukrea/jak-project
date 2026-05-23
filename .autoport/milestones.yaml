@@ -280,6 +280,14 @@ phases:
   validator: validators/phase-A7-emitter-unit-tests.sh
   max_turns: 600
   max_retries: 15
+- id: A8-qemu-repro-and-displaygc-fix
+  name: qemu-aarch64-static reproduction of display.gc NULL fn-ptr BLR + the actual fix. Extend linux-arm64 driver to load ENGINE/GAME.CGO; per-BLR
+    trace; identify root-cause; fix in IGenARM64.cpp / ObjectGenerator.cpp / klink.cpp / kscheme.cpp as appropriate. D4 device validator must
+    pass end-to-end (hardened SDL/GL marker requirements). No fault-recovery dodges.
+  prompt: prompts/phase-A8-qemu-repro-and-displaygc-fix.md
+  validator: validators/phase-A8-qemu-repro-and-displaygc-fix.sh
+  max_turns: 800
+  max_retries: 20
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
