@@ -16,6 +16,7 @@
 #include <android/input.h>
 #include <android/log.h>
 #include <jni.h>
+#include <setjmp.h>
 #include <signal.h>
 #include <ucontext.h>
 
@@ -165,28 +166,88 @@ Java_org_opengoal_gk_NativeGk_startGame(JNIEnv* env, jclass /*clazz*/,
 // the canonical desktop argv from the JNI-pushed globals instead, so the
 // runtime sees exactly what the desktop entry would have seen.
 namespace {
+// A6 attempt 5: safe-read helper. The pre-A6 handler did a raw memcpy of
+// pc-256..pc+16 every time, which secondary-SEGV'd when the first signal
+// was a BLR-to-NULL with PC = g_ee_main_mem (the read range crosses the
+// PROT_NONE / unmapped page below EE). The secondary SEGV obscured the
+// real GOAL bytecode bytes around the BLR. We install a tiny nested
+// handler with siglongjmp so a failed read just returns false and lets
+// us move on to the next address.
+namespace gk_diag {
+sigjmp_buf safe_read_env;
+volatile sig_atomic_t safe_read_jumped = 0;
+void safe_read_handler(int /*sig*/, siginfo_t* /*info*/, void* /*ctx*/) {
+  safe_read_jumped = 1;
+  siglongjmp(safe_read_env, 1);
+}
+bool safe_read_u32(uintptr_t addr, uint32_t* out) {
+  struct sigaction old_segv{}, old_bus{}, sa{};
+  sa.sa_sigaction = &safe_read_handler;
+  sa.sa_flags = SA_SIGINFO | SA_NODEFER;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGSEGV, &sa, &old_segv);
+  sigaction(SIGBUS, &sa, &old_bus);
+  bool ok = false;
+  if (sigsetjmp(safe_read_env, 1) == 0) {
+    safe_read_jumped = 0;
+    memcpy(out, reinterpret_cast<const void*>(addr), 4);
+    ok = !safe_read_jumped;
+  }
+  sigaction(SIGSEGV, &old_segv, nullptr);
+  sigaction(SIGBUS, &old_bus, nullptr);
+  return ok;
+}
+}  // namespace gk_diag
+
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // Diag-only: dump PC bytes and registers so we can decode the crashing
   // GOAL bytecode at offset (PC - g_ee_main_mem). Re-raise after dumping
   // by restoring SIG_DFL.
   auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
   uintptr_t pc = uc->uc_mcontext.pc;
+  uintptr_t lr = uc->uc_mcontext.regs[30];
   uintptr_t fault = info ? reinterpret_cast<uintptr_t>(info->si_addr) : 0;
   __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
-                      "GK-DIAG sig=%d fault=0x%lx pc=0x%lx",
-                      sig, (unsigned long)fault, (unsigned long)pc);
+                      "GK-DIAG sig=%d fault=0x%lx pc=0x%lx lr=0x%lx",
+                      sig, (unsigned long)fault, (unsigned long)pc,
+                      (unsigned long)lr);
   for (int i = 0; i < 32; i++) {
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                         "GK-DIAG x%d=0x%lx", i,
                         (unsigned long)uc->uc_mcontext.regs[i]);
   }
+  // A6 attempt 5+: dump bytes around LR (return address). When PC is a
+  // BLR-to-NULL jump landing at EE base, LR points at the instruction
+  // *after* the BLR — so LR-4 = the BLR, LR-8.. = what loaded the (NULL)
+  // function pointer into the BLR target register. Extended to lr-256
+  // so we can trace back through the call_r64 prologue + arg shuffle to
+  // the source of the NULL value (typically the prior call's return).
   for (intptr_t d = -256; d <= 16; d += 4) {
+    uintptr_t addr = lr + d;
+    uint32_t insn = 0;
+    if (gk_diag::safe_read_u32(addr, &insn)) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG lr%+ld @ 0x%lx = 0x%08x",
+                          (long)d, (unsigned long)addr, insn);
+    } else {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG lr%+ld @ 0x%lx = <unreadable>",
+                          (long)d, (unsigned long)addr);
+    }
+  }
+  // PC bytes (safe-read; original loop secondary-SEGV'd on EE-base BLR).
+  for (intptr_t d = -32; d <= 16; d += 4) {
     uintptr_t addr = pc + d;
     uint32_t insn = 0;
-    memcpy(&insn, reinterpret_cast<const void*>(addr), 4);
-    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
-                        "GK-DIAG pc%+ld @ 0x%lx = 0x%08x",
-                        (long)d, (unsigned long)addr, insn);
+    if (gk_diag::safe_read_u32(addr, &insn)) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG pc%+ld @ 0x%lx = 0x%08x",
+                          (long)d, (unsigned long)addr, insn);
+    } else {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG pc%+ld @ 0x%lx = <unreadable>",
+                          (long)d, (unsigned long)addr);
+    }
   }
   struct sigaction sa{};
   sa.sa_handler = SIG_DFL;

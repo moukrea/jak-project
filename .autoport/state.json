@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 45,
+  "current_phase_idx": 46,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -46,7 +46,8 @@
     "E2-ux-touch-overlay-optional": 1,
     "E3-ux-save-load": 1,
     "F1-gameplay-geyser-rock": 3,
-    "A6-emitter-off-register": 3
+    "A6-emitter-off-register": 3,
+    "A7-emitter-unit-tests": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -135,7 +136,8 @@
     "A5-emitter-far-relocs",
     "E1-ux-landscape-gamepad",
     "E2-ux-touch-overlay-optional",
-    "E3-ux-save-load"
+    "E3-ux-save-load",
+    "A7-emitter-unit-tests"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -188,9 +190,10 @@
     "E2-ux-touch-overlay-optional": 1779414456.7523391,
     "E3-ux-save-load": 1779416139.1025882,
     "F1-gameplay-geyser-rock": 1779418711.8420663,
-    "A6-emitter-off-register": 1779424262.2227178
+    "A6-emitter-off-register": 1779424262.2227178,
+    "A7-emitter-unit-tests": 1779513177.4581268
   },
-  "last_update": "2026-05-23T04:37:44.567905+00:00",
+  "last_update": "2026-05-23T05:42:53.733174+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },

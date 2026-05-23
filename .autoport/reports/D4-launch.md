@@ -1,6 +1,6 @@
 # Phase D4 — APK on-device launch report
 
-_Generated: 2026-05-23T00:07:51+02:00_
+_Generated: 2026-05-23T07:31:31+02:00_
 
 ## What was wired
 
@@ -24,56 +24,56 @@ _Generated: 2026-05-23T00:07:51+02:00_
 ## Marker observations (from logcat capture)
 
 ```
-05-23 00:05:38.640  1152  1152 I opengoal-gk: MainActivity onCreate done; mLayout=true mLayout.children=2
-05-23 00:05:39.016  1152  1596 I opengoal-gk: goal_main: calling InitMachine()
-05-23 00:05:39.016  1152  1596 I opengoal-gk-full: InitMachine: entered (top-level wrapper)
-05-23 00:05:39.016  1152  1596 I opengoal-gk-full: InitMachine: kglobalheap base=0x13fd20 end=0x3eb82e0 size=64456128 (61.47 MB)
-05-23 00:05:39.053  1152  1596 I opengoal-gk-full: InitMachine: kglobalheap initialized, used=0
-05-23 00:05:39.053  1152  1596 I opengoal-gk-full: InitMachine: kdebugheap base=0x5000000 end=0x7ff0000 size=50266112 (47.94 MB)
-05-23 00:05:39.080  1152  1596 I opengoal-gk-full: InitMachine: init_output()
-05-23 00:05:39.080  1152  1596 I opengoal-gk-full: InitMachine: print/output buffers reset
-05-23 00:05:39.080  1152  1596 I opengoal-gk-full: InitMachine: InitListenerConnect / InitCheckListener
-05-23 00:05:39.080  1152  1596 I opengoal-gk-full: InitMachine: MasterUseKernel=1 MasterDebug=1
-05-23 00:05:39.080  1152  1596 I opengoal-gk-full: InitMachine: spawning IOP worker thread
-05-23 00:05:39.081  1152  1596 I opengoal-gk-full: InitMachine: Deci2Server registered (port=8112, no listener)
-05-23 00:05:39.081  1152  1596 I opengoal-gk-full: InitMachine: delegating to jak1::InitMachine
-05-23 00:05:39.098  1152  1596 I opengoal-gk: InitIOP OK
-05-23 00:05:39.099  1152  1596 I opengoal-gk: Initialized GOAL heap in 0.072 ms
-05-23 00:05:39.099  1152  1627 I opengoal-gk: [Overlord DGO] Got DGO file header for KERNEL.CGO with 8 objects
-05-23 00:05:39.099  1152  1596 D opengoal-gk: link finish: gcommon
-05-23 00:05:39.100  1152  1596 D opengoal-gk: link finish: gstring-h
-05-23 00:05:39.100  1152  1596 D opengoal-gk: link finish: gkernel-h
-05-23 00:05:39.101  1152  1596 D opengoal-gk: link finish: gkernel
-05-23 00:05:39.103  1152  1596 D opengoal-gk: link finish: pskernel
-05-23 00:05:39.103  1152  1596 D opengoal-gk: link finish: gstring
-05-23 00:05:39.103  1152  1596 D opengoal-gk: link finish: dgo-h
-05-23 00:05:39.104  1152  1596 D opengoal-gk: link finish: gstate
-05-23 00:05:39.105  1152  1627 I opengoal-gk: [Overlord DGO] Got DGO file header for GAME.CGO with 346 objects
-05-23 00:05:39.106  1152  1596 D opengoal-gk: link finish: types-h
-05-23 00:05:39.106  1152  1596 D opengoal-gk: link finish: vu1-macros
-05-23 00:05:39.106  1152  1596 D opengoal-gk: link finish: math
-05-23 00:05:39.107  1152  1596 D opengoal-gk: link finish: vector-h
-05-23 00:05:39.108  1152  1596 D opengoal-gk: link finish: gravity-h
-05-23 00:05:39.108  1152  1596 D opengoal-gk: link finish: bounding-box-h
-05-23 00:05:39.108  1152  1596 D opengoal-gk: link finish: matrix-h
-05-23 00:05:39.109  1152  1596 D opengoal-gk: link finish: quaternion-h
-05-23 00:05:39.109  1152  1596 D opengoal-gk: link finish: euler-h
-05-23 00:05:39.109  1152  1596 D opengoal-gk: link finish: transform-h
-05-23 00:05:39.109  1152  1596 D opengoal-gk: link finish: geometry-h
-05-23 00:05:39.110  1152  1596 D opengoal-gk: link finish: trigonometry-h
-05-23 00:05:39.110  1152  1596 D opengoal-gk: link finish: transformq-h
-05-23 00:05:39.110  1152  1596 D opengoal-gk: link finish: bounding-box
-05-23 00:05:39.111  1152  1596 D opengoal-gk: link finish: matrix
-05-23 00:05:39.111  1152  1596 D opengoal-gk: link finish: transform
-05-23 00:05:39.111  1152  1596 D opengoal-gk: link finish: quaternion
-05-23 00:05:39.111  1152  1596 D opengoal-gk: link finish: euler
-05-23 00:05:39.112  1152  1596 D opengoal-gk: link finish: geometry
-05-23 00:05:39.112  1152  1596 D opengoal-gk: link finish: trigonometry
-05-23 00:05:39.112  1152  1596 D opengoal-gk: link finish: gsound-h
-05-23 00:05:39.114  1152  1596 D opengoal-gk: link finish: timer-h
-05-23 00:05:39.114  1152  1596 D opengoal-gk: link finish: timer
-05-23 00:05:39.114  1152  1596 D opengoal-gk: link finish: vif-h
-05-23 00:05:39.115  1152  1596 D opengoal-gk: link finish: dma-h
+05-23 07:29:18.942  4081  4081 I opengoal-gk: MainActivity onCreate done; mLayout=true mLayout.children=2
+05-23 07:29:19.281  4081  4326 I opengoal-gk: goal_main: calling InitMachine()
+05-23 07:29:19.281  4081  4326 I opengoal-gk-full: InitMachine: entered (top-level wrapper)
+05-23 07:29:19.281  4081  4326 I opengoal-gk-full: InitMachine: kglobalheap base=0x13fd20 end=0x3eb82e0 size=64456128 (61.47 MB)
+05-23 07:29:19.320  4081  4326 I opengoal-gk-full: InitMachine: kglobalheap initialized, used=0
+05-23 07:29:19.320  4081  4326 I opengoal-gk-full: InitMachine: kdebugheap base=0x5000000 end=0x7ff0000 size=50266112 (47.94 MB)
+05-23 07:29:19.349  4081  4326 I opengoal-gk-full: InitMachine: init_output()
+05-23 07:29:19.350  4081  4326 I opengoal-gk-full: InitMachine: print/output buffers reset
+05-23 07:29:19.350  4081  4326 I opengoal-gk-full: InitMachine: InitListenerConnect / InitCheckListener
+05-23 07:29:19.350  4081  4326 I opengoal-gk-full: InitMachine: MasterUseKernel=1 MasterDebug=1
+05-23 07:29:19.350  4081  4326 I opengoal-gk-full: InitMachine: spawning IOP worker thread
+05-23 07:29:19.350  4081  4326 I opengoal-gk-full: InitMachine: Deci2Server registered (port=8112, no listener)
+05-23 07:29:19.350  4081  4326 I opengoal-gk-full: InitMachine: delegating to jak1::InitMachine
+05-23 07:29:19.371  4081  4326 I opengoal-gk: InitIOP OK
+05-23 07:29:19.372  4081  4326 I opengoal-gk: Initialized GOAL heap in 0.083 ms
+05-23 07:29:19.372  4081  4337 I opengoal-gk: [Overlord DGO] Got DGO file header for KERNEL.CGO with 8 objects
+05-23 07:29:19.373  4081  4326 D opengoal-gk: link finish: gcommon
+05-23 07:29:19.373  4081  4326 D opengoal-gk: link finish: gstring-h
+05-23 07:29:19.374  4081  4326 D opengoal-gk: link finish: gkernel-h
+05-23 07:29:19.375  4081  4326 D opengoal-gk: link finish: gkernel
+05-23 07:29:19.377  4081  4326 D opengoal-gk: link finish: pskernel
+05-23 07:29:19.377  4081  4326 D opengoal-gk: link finish: gstring
+05-23 07:29:19.378  4081  4326 D opengoal-gk: link finish: dgo-h
+05-23 07:29:19.378  4081  4326 D opengoal-gk: link finish: gstate
+05-23 07:29:19.381  4081  4337 I opengoal-gk: [Overlord DGO] Got DGO file header for GAME.CGO with 346 objects
+05-23 07:29:19.381  4081  4326 D opengoal-gk: link finish: types-h
+05-23 07:29:19.382  4081  4326 D opengoal-gk: link finish: vu1-macros
+05-23 07:29:19.382  4081  4326 D opengoal-gk: link finish: math
+05-23 07:29:19.383  4081  4326 D opengoal-gk: link finish: vector-h
+05-23 07:29:19.385  4081  4326 D opengoal-gk: link finish: gravity-h
+05-23 07:29:19.385  4081  4326 D opengoal-gk: link finish: bounding-box-h
+05-23 07:29:19.386  4081  4326 D opengoal-gk: link finish: matrix-h
+05-23 07:29:19.386  4081  4326 D opengoal-gk: link finish: quaternion-h
+05-23 07:29:19.387  4081  4326 D opengoal-gk: link finish: euler-h
+05-23 07:29:19.387  4081  4326 D opengoal-gk: link finish: transform-h
+05-23 07:29:19.388  4081  4326 D opengoal-gk: link finish: geometry-h
+05-23 07:29:19.388  4081  4326 D opengoal-gk: link finish: trigonometry-h
+05-23 07:29:19.389  4081  4326 D opengoal-gk: link finish: transformq-h
+05-23 07:29:19.389  4081  4326 D opengoal-gk: link finish: bounding-box
+05-23 07:29:19.390  4081  4326 D opengoal-gk: link finish: matrix
+05-23 07:29:19.390  4081  4326 D opengoal-gk: link finish: transform
+05-23 07:29:19.391  4081  4326 D opengoal-gk: link finish: quaternion
+05-23 07:29:19.391  4081  4326 D opengoal-gk: link finish: euler
+05-23 07:29:19.392  4081  4326 D opengoal-gk: link finish: geometry
+05-23 07:29:19.392  4081  4326 D opengoal-gk: link finish: trigonometry
+05-23 07:29:19.392  4081  4326 D opengoal-gk: link finish: gsound-h
+05-23 07:29:19.394  4081  4326 D opengoal-gk: link finish: timer-h
+05-23 07:29:19.394  4081  4326 D opengoal-gk: link finish: timer
+05-23 07:29:19.395  4081  4326 D opengoal-gk: link finish: vif-h
+05-23 07:29:19.395  4081  4326 D opengoal-gk: link finish: dma-h
 (no matching markers)
 ```
 
