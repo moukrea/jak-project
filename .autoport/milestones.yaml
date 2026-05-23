@@ -295,6 +295,13 @@ phases:
   validator: validators/phase-A9-codegen-spill-ops.sh
   max_turns: 600
   max_retries: 15
+- id: A10-callee-save-area
+  name: Caller-save-area preservation across GOAL→GOAL BLR. Identify and fix the IR_* op (most likely vector/128-bit store or stack-var-offset
+    miscomputation) that corrupts the caller's preserved-register area. Narrow IR.cpp unlock. D4 device-validator must pass end-to-end.
+  prompt: prompts/phase-A10-callee-save-area.md
+  validator: validators/phase-A10-callee-save-area.sh
+  max_turns: 600
+  max_retries: 15
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
