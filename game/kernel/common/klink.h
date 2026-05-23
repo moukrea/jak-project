@@ -47,6 +47,15 @@ void klink_init_globals();
 // `jak1::InitHeapAndSymbol` returns so the symbol table is alive.
 void klink_a11_ensure_pc_mips2c_bound();
 
+// A12 sym-bind-trace — see klink.cpp for rationale. Idempotent: binds the
+// sound-related RPC syms (`rpc-call`, `rpc-busy?`, `test-load-dgo-c`) that
+// `jak1::InitSoundScheme` upstream registers, for the linux-arm64 +
+// android-arm64 builds whose `jak1::InitMachineScheme` overrides omit the
+// sound bindings. Without this, gsound's top-level invocation of `rpc-call`
+// loads 0 from the unbound sym slot, +X15's it to ee_base, and SIGILLs on
+// the UDF #0 there. Caller must invoke after `jak1::InitHeapAndSymbol`.
+void klink_a12_ensure_sound_rpc_bound();
+
 /*!
  * Stores the state of the linker. Used for multi-threaded linking, so it can be suspended.
  */
