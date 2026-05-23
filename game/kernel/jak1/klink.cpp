@@ -1,5 +1,8 @@
 #include "klink.h"
 
+#include <cstdio>
+#include <cstdlib>
+
 #include "common/log/log.h"
 #include "common/symbols.h"
 
@@ -188,6 +191,13 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
   offsets = offsets + 4;
   seek += 4;
 
+  // A8 — qemu repro diagnostic. When OG_KLINK_TRACE env var is set,
+  // print the symbol name + every patched slot's address. This lets
+  // us correlate a GK-DIAG crash dump (which shows the failing host
+  // address) back to the symbol that wasn't installed at runtime.
+  // No-op in normal device builds (no env var → no log noise).
+  static const bool s_klink_trace = (std::getenv("OG_KLINK_TRACE") != nullptr);
+
   for (uint32_t i = 0; i < offset_count; i++) {
     uint32_t offset = offsets.c()[i];
     seek += 4;
@@ -211,6 +221,21 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
         // otherwise store the offset to st.  Eventually this should become an s16 instead.
         *(data + offset).cast<int32_t>() = sym_offset;
       }
+    }
+
+    if (s_klink_trace) {
+      // Read the symbol's value at *patch time*. A '0' means no defun
+      // /defmethod /InitMachineScheme entry has populated this symbol's
+      // value cell yet — which is normal until that file links, but
+      // becomes the bug if a caller invokes the symbol before its
+      // value is set.
+      const auto sym_val = *Ptr<u32>(sym_addr).c();
+      std::fprintf(stderr,
+                   "[A8 symlink] sym='%s' sym_addr=0x%lx sym_val=0x%x "
+                   "slot=0x%lx target_host=0x%lx pre=0x%x\n",
+                   sym_name, (unsigned long)target_host, (unsigned)sym_val,
+                   (unsigned long)data_ptr.c(), (unsigned long)target_host,
+                   (unsigned)pre);
     }
   }
 
