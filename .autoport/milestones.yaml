@@ -354,10 +354,10 @@ phases:
   max_turns: 400
   max_retries: 6
 - id: A17-idiv-emitter-spill
-  name: Emitter-side IDIV spill — preserve X8 across SDIV/UDIV in the IDIV emit itself so the regalloc never sees X8 as clobbered.
+  name: 'Emitter-side IDIV spill — preserve X8 across SDIV/UDIV in the IDIV emit itself so the regalloc never sees X8 as clobbered.
     Closes the sin call site sig=7 SIGBUS that A14 surfaced and that A15 (regalloc-layer) attempts both failed to fix. Per A16
-    diagnostic: x16 is not clobbered, the bug IS the original SDIV-X8 → BLR-X8. Localizing the X8 use to the emit avoids the
-    qemu/device allocation-ripple divergence that broke A15.
+    diagnostic, x16 is not clobbered; the bug IS the original SDIV-X8 → BLR-X8. Localizing the X8 use to the emit avoids the
+    qemu/device allocation-ripple divergence that broke A15.'
   prompt: prompts/phase-A17-idiv-emitter-spill.md
   validator: validators/phase-A17-idiv-emitter-spill.sh
   max_turns: 500
