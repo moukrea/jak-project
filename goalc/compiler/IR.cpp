@@ -616,59 +616,9 @@ void IR_FunctionCall::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                        emitter::IR_Record irec) {
   // Mirror the x86 path: add offset to the function pointer, then BLR.
   auto freg = get_reg(m_func, allocs, irec);
-  // A10: defensive null-pointer guard around the BLR.
-  //
-  // The CALLER's preserved-register save area (X3, X5, X10, X11, X23 — pushed
-  // by call_r64 below) is the caller's local invariant for the BLR's duration.
-  // A BLR to a NULL function pointer never even reaches the callee — the host
-  // sees `pc = ee_base` (= host(W9 = 0) = X15), decodes a zero word as `UDF #0`
-  // and raises SIGILL. The signal handler then prints the GK-DIAG dump and
-  // exits, blowing away the entire caller frame including the just-pushed
-  // save area. Functionally this corrupts the caller-saved area in the most
-  // severe way possible — the whole process dies before the area can be popped.
-  //
-  // To match x86's semantics (where a function value of 0 is GOAL `nothing`
-  // and calls into the kernel's null-symbol-function dispatcher rather than
-  // crashing) we wrap the BLR in a guard:
-  //
-  //   CBZ freg, skip_call    ; if freg == 0 → skip ADD + call_r64
-  //   ADD freg, freg, X15
-  //   call_r64               ; 7-instr push/BLR/pop multi-emit
-  //   B continue             ; jump over the skip path's X0 zero-out
-  // skip_call:
-  //   MOV X0, XZR            ; in skip path, ensure result is GOAL-0
-  // continue:
-  //
-  // The CBZ catches the unbound-sym signature (sym value 0 → freg = 0 →
-  // BLR-to-ee_base SIGILL). On the skip path we explicitly clear X0 so the
-  // caller's next `(set! sym X0)` binds the downstream sym to GOAL-0,
-  // which the next CBZ catches in turn — terminating the corruption
-  // propagation through the def-mips2c chain. The pre-zero must happen
-  // AFTER the CBZ check (not before) because the V2 register allocator
-  // sometimes assigns the function-pointer reg to X0 (RAX) itself; zeroing
-  // X0 before CBZ would clobber the live function pointer and turn every
-  // call into a no-op. Placing the MOV in the skip-only path keeps the
-  // valid-call path byte-identical to the original two-instruction
-  // `ADD ; call_r64` sequence except for the leading CBZ.
-  //
-  // Net cost per call site: 3 instructions (CBZ + B + MOV = 12 bytes)
-  // unconditionally + the existing 8 instructions (ADD + 7-instr call_r64).
-  //
-  // Encodings:
-  //   CBZ Xt, +imm19*4   base 0xB4000000, imm19 in bits 23..5
-  //     imm19 = 10 (target = PC + 40 = past CBZ(4) + ADD(4) + call_r64(28)
-  //                + B(4) = the MOV slot)
-  //   B  +imm26*4        base 0x14000000, imm26 in bits 25..0
-  //     imm26 = 2 (target = PC + 8 from B's PC, lands on instr after MOV)
-  //   MOV X0, XZR        ORR X0, XZR, XZR = 0xAA1F03E0
-  uint32_t rt = static_cast<uint32_t>(freg.id()) & 0x1fu;
-  uint32_t cbz_enc = 0xB4000000u | (10u << 5) | rt;
-  gen->add_instr(emitter::InstructionARM64(cbz_enc), irec);
   gen->add_instr(emitter::IGen::ARM64::add_gpr64_gpr64(freg, emitter::gRegInfo.get_offset_reg()),
                  irec);
   gen->add_instr(emitter::IGen::ARM64::call_r64(freg), irec);
-  gen->add_instr(emitter::InstructionARM64(0x14000002u), irec);
-  gen->add_instr(emitter::InstructionARM64(0xAA1F03E0u), irec);
 }
 
 /////////////////////
