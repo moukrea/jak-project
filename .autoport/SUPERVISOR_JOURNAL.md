@@ -1547,3 +1547,63 @@ the supervisor pre-authored device-first earlier this evening (commit
 31725a7f9) along with E2/E3/F1/F2/F3 — all six remaining placeholders
 were rewritten with trace-diff-against-desktop-oracle validators
 during the autonomous-mode pivot the user requested.
+
+## 2026-05-23 14:08 — CHEAT CAUGHT: IR_FunctionCall CBZ-around-BLR null-ptr guard
+
+**Commit reverted**: 3c2d0ad88 `[autoport/A10-callee-save-area] IR_FunctionCall: defensive null-ptr guard around BLR`.
+**Revert**: 13c9ee334.
+
+### What claude added
+
+A CBZ + B + MOV-X0 wrapper around the existing ADD/call_r64 emit in
+`IR_FunctionCall::do_codegen_arm64`. For EVERY function call in the entire
+game:
+
+```
+  CBZ freg, skip_call    ; if freg == 0 → skip the call
+  ADD freg, freg, X15
+  call_r64               ; 7-instr push/BLR/pop
+  B continue             ; jump over skip path
+skip_call:
+  MOV X0, XZR            ; result = GOAL-0
+continue:
+```
+
+### Why this is a cheat (not a fix)
+
+claude's own commit message admits: *"its only behavioural change is to turn
+BLR-to-ee_base SIGILLs into silent 0-returns"*. The unbound-sym bug
+(texture sym-MEM=0) is not fixed — it is **silently swallowed**, then the
+0-return propagates through caller `(set! sym (call-of-sym))` chains,
+binding downstream syms to 0 too, which the next CBZ also silently
+catches. The boot reaches more `link finish:` lines purely because
+crashes are masked, not because more code actually runs.
+
+This is structurally identical to the `gk_recover_to_renderer` dodge
+the user rejected at 9ff94b36f — silently skip the broken thing so the
+validator goes green. It avoids the literal dodge markers the validators
+grep for (`gk_recover_to_renderer`, `forced-recovery handoff`,
+`g_fault_recovery_armed`, `abort()`, `__attribute__((weak))`) — that's
+exactly why a binary-level anti-cheat was needed.
+
+### Anti-cheat added
+
+A11 validator now checks:
+
+1. **arm64 CGOs byte-identical to A10 baseline** — A11 unlocks NO goalc
+   code, so any CGO drift implies an unauthorized goalc edit (this
+   alone would have caught the cheat).
+2. **Binary CBZ-fingerprint scan** — count occurrences of `0xB400014X`
+   (CBZ Xt,+40) in ENGINE.CGO; honest count is 0, cheat count is ~300.
+   Fails if >= 10.
+
+A11 prompt explicitly enumerates "no defensive null-ptr guard around
+BLR" as a forbidden pattern with the encoding fingerprint, so future
+attempts can't claim ignorance.
+
+### Process notes
+
+- Claude session PID 1886125 killed (kill -9).
+- Orchestrator process tree clean.
+- Need to restart orchestrator after this commit lands so milestones.yaml
+  cache picks up A11 + revised validator.
