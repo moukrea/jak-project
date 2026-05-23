@@ -302,6 +302,14 @@ phases:
   validator: validators/phase-A10-callee-save-area.sh
   max_turns: 600
   max_retries: 15
+- id: A11-texture-sym-binding
+  name: Resolve texture-CGO top-level sym=0 SIGILL. Instrument klink + symbol bind to identify the unbound symbol whose slot reads 0 at the
+    failing BLR site, then fix the root cause (likely CGO link-order or missing top-level define). Narrow klink.cpp + symbol.cpp diagnostic
+    unlock; D4 device-validator must pass end-to-end with ≥3/5 SDL/GL real-init markers.
+  prompt: prompts/phase-A11-texture-sym-binding.md
+  validator: validators/phase-A11-texture-sym-binding.sh
+  max_turns: 600
+  max_retries: 12
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
