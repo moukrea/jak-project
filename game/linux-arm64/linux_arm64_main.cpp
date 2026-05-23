@@ -211,6 +211,260 @@ bool dump_sym_name_at_slot(uintptr_t slot_host_addr) {
                name_buf[0] ? name_buf : "<empty>", in_sym_range ? 1 : 0);
   return true;
 }
+
+// A12-DIAG: backward-provenance trace for stack-loaded fn-ptr=0 SIGILL.
+//
+// At the post-A11 gsound boot-ceiling SIGILL the failing shape is:
+//
+//   sym-MEM triplet (lr-Mx): ADRP Xb, page ; ADD Xb, Xb, #imm12 ; LDR W?, [Xb, #0]
+//   ...                       (value spilled to a stack slot)
+//   spill            (lr-Sx): STR Xs, [SP, #N]
+//   ...
+//   reload           (lr-Lx): LDR Xt, [SP, #N]            ; Xt = 0 (sym was unbound)
+//   ee-base convert  (lr-20): ADD Xt, Xt, X15              ; X15 = ee_base ; 0 + ee_base
+//   call_r64 prologue       : STP X3,X5  / STP X10,X11 / STR X23  (each push 16 bytes)
+//   indirect call    (lr-4) : BLR Xt                       ; SIGILL on UDF #0 at ee_base
+//
+// This decoder walks the LR-relative disasm window backward and ties the
+// chain together, naming the originating sym slot. The current A11
+// `dump_sym_name_at_slot` already names a candidate sym when it finds the
+// ADRP+ADD pair anywhere in the window — but doesn't *connect* it to the
+// failing BLR. A12 makes the connection explicit so the next-blocker
+// classification is automatic and any future stack-fnptr-zero crash with
+// a different originating sym surfaces the new name without manual disasm.
+//
+// Conservative bail-out at every step: if the shape doesn't match (e.g.
+// the BLR target was set by something other than an SP-relative LDR, or
+// the stored value's source wasn't a sym-MEM LDR), we print the partial
+// chain we did decode and stop — the existing A11 triplet scan still runs
+// after this and provides a coarser sym candidate.
+void dump_stack_fnptr_zero_chain(uintptr_t lr, uintptr_t sp) {
+  // Step 1: lr-4 must be BLR Xt.
+  uint32_t blr_enc = 0;
+  if (!safe_read_u32(lr - 4, &blr_enc)) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG stack-fnptr-zero: lr-4 unreadable\n");
+    return;
+  }
+  if ((blr_enc & 0xFFFFFC1Fu) != 0xD63F0000u) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG stack-fnptr-zero: lr-4 enc=0x%08x is not BLR Xn\n",
+                 (unsigned)blr_enc);
+    return;
+  }
+  uint32_t blr_target_reg = (blr_enc >> 5) & 0x1f;
+
+  // Step 2: count `STP X?,X?,[SP,#-16]!` and `STR X?,[SP,#-16]!` pre-decrement
+  // pushes immediately before BLR. Each pushes 16 bytes so the slot offsets
+  // observed in the current stack dump are biased by `push_bytes` relative
+  // to the SP that was live when the fn-ptr LDR ran.
+  //   STP Xt1,Xt2,[SP,#-16]!  →  (enc & 0xFFFF83E0) == 0xA9BF03E0
+  //   STR Xt,[SP,#-16]!       →  (enc & 0xFFFFFFE0) == 0xF81F0FE0
+  uint32_t push_bytes = 0;
+  for (intptr_t d = -8; d >= -64; d -= 4) {
+    uint32_t enc = 0;
+    if (!safe_read_u32(lr + d, &enc)) break;
+    bool is_stp_pre_sp = ((enc & 0xFFFF83E0u) == 0xA9BF03E0u);
+    bool is_str_pre_sp = ((enc & 0xFFFFFFE0u) == 0xF81F0FE0u);
+    if (!is_stp_pre_sp && !is_str_pre_sp) break;
+    push_bytes += 16;
+  }
+
+  // Step 3: the call_r64 trampoline emits `ADD Xt, Xt, X15` immediately
+  // before the pushes to convert the loaded GOAL ptr into a host addr.
+  // Skip past it if present so we land on the LDR.
+  intptr_t scan_offset = -4 - (intptr_t)push_bytes - 4;
+  {
+    uint32_t add_enc = 0;
+    if (safe_read_u32(lr + scan_offset, &add_enc)) {
+      uint32_t expected =
+          0x8B0F0000u | (blr_target_reg << 5) | blr_target_reg;  // ADD Xt,Xt,X15
+      if ((add_enc & 0xFFE0FFE0u) == expected) {
+        scan_offset -= 4;  // step past ADD
+      }
+    }
+  }
+
+  // Step 4: find LDR Xt, [SP, #imm] with Xt == BLR target reg.
+  //   LDR Xt,[Xn,#imm12]  →  (enc & 0xFFC00000) == 0xF9400000
+  //   Restrict to Rn==SP=31 (so the slot is on the stack).
+  intptr_t ldr_off = 0;
+  uint32_t ldr_imm = 0;
+  bool ldr_found = false;
+  for (intptr_t d = scan_offset; d >= -240; d -= 4) {
+    uint32_t enc = 0;
+    if (!safe_read_u32(lr + d, &enc)) break;
+    if ((enc & 0xFFC003E0u) != 0xF94003E0u) continue;  // LDR X?,[SP,#?]
+    uint32_t rt = enc & 0x1fu;
+    if (rt != blr_target_reg) continue;
+    ldr_imm = ((enc >> 10) & 0xfffu) * 8u;
+    ldr_off = d;
+    ldr_found = true;
+    break;
+  }
+  if (!ldr_found) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG stack-fnptr-zero: no LDR X%u,[SP,#?] in "
+                 "lr-240..lr-4 (BLR target X%u, push_bytes=%u) — non-call_r64 shape\n",
+                 (unsigned)blr_target_reg, (unsigned)blr_target_reg,
+                 (unsigned)push_bytes);
+    return;
+  }
+  uintptr_t slot_host = sp + (uintptr_t)push_bytes + (uintptr_t)ldr_imm;
+  uint32_t slot_lo = 0, slot_hi = 0;
+  uint64_t slot_val = 0;
+  if (safe_read_u32(slot_host, &slot_lo) &&
+      safe_read_u32(slot_host + 4, &slot_hi)) {
+    slot_val = (uint64_t)slot_lo | ((uint64_t)slot_hi << 32);
+  }
+  std::fprintf(stderr,
+               "GK-DIAG A12-DIAG stack-fnptr-zero: blr-pc=0x%lx ldr-pc=0x%lx "
+               "blr-target=X%u slot=[SP,#%u] (current sp+%u host=0x%lx) value=0x%lx\n",
+               (unsigned long)(lr - 4), (unsigned long)(lr + ldr_off),
+               (unsigned)blr_target_reg, (unsigned)ldr_imm,
+               (unsigned)((uint32_t)push_bytes + ldr_imm),
+               (unsigned long)slot_host, (unsigned long)slot_val);
+  if (slot_val != 0) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG stack-fnptr-zero: slot value is NON-zero "
+                 "— BLR target may have been corrupted post-LDR; stopping trace\n");
+    return;
+  }
+
+  // Step 5: find STR Xs, [SP, #ldr_imm] earlier — the spill that wrote 0.
+  //   STR Xt,[SP,#imm12]  →  (enc & 0xFFC003E0) == 0xF90003E0
+  intptr_t str_off = 0;
+  uint32_t str_src_reg = 0;
+  bool str_found = false;
+  for (intptr_t d = ldr_off - 4; d >= -244; d -= 4) {
+    uint32_t enc = 0;
+    if (!safe_read_u32(lr + d, &enc)) break;
+    if ((enc & 0xFFC003E0u) != 0xF90003E0u) continue;
+    uint32_t imm = ((enc >> 10) & 0xfffu) * 8u;
+    if (imm != ldr_imm) continue;
+    str_src_reg = enc & 0x1fu;
+    str_off = d;
+    str_found = true;
+    break;
+  }
+  if (!str_found) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG provenance-trace: no STR X?,[SP,#%u] before "
+                 "LDR — slot may have been uninitialised or set via STP / "
+                 "different addressing mode\n",
+                 (unsigned)ldr_imm);
+    return;
+  }
+  std::fprintf(stderr,
+               "GK-DIAG A12-DIAG provenance-trace: stored-by=0x%lx "
+               "inst=STR X%u,[SP,#%u]  source-reg=X%u\n",
+               (unsigned long)(lr + str_off), (unsigned)str_src_reg,
+               (unsigned)ldr_imm, (unsigned)str_src_reg);
+
+  // Step 6: find LDR W?/X? to source-reg from a non-SP base (the sym-MEM load).
+  //   LDR Wt,[Xn,#imm12]  →  (enc & 0xFFC00000) == 0xB9400000  (32-bit, scale 4)
+  //   LDR Xt,[Xn,#imm12]  →  (enc & 0xFFC00000) == 0xF9400000  (64-bit, scale 8)
+  intptr_t mem_ldr_off = 0;
+  uint32_t mem_ldr_base_reg = 0;
+  uint32_t mem_ldr_imm = 0;
+  bool mem_ldr_is_w = false;
+  bool mem_ldr_found = false;
+  for (intptr_t d = str_off - 4; d >= -252; d -= 4) {
+    uint32_t enc = 0;
+    if (!safe_read_u32(lr + d, &enc)) break;
+    bool is_ldr_w = ((enc & 0xFFC00000u) == 0xB9400000u);
+    bool is_ldr_x = ((enc & 0xFFC00000u) == 0xF9400000u);
+    if (!is_ldr_w && !is_ldr_x) continue;
+    uint32_t rt = enc & 0x1fu;
+    if (rt != str_src_reg) continue;
+    uint32_t rn = (enc >> 5) & 0x1fu;
+    if (rn == 31u) continue;  // skip SP-relative; we want a non-SP base (sym-MEM)
+    mem_ldr_base_reg = rn;
+    mem_ldr_imm = ((enc >> 10) & 0xfffu) * (is_ldr_w ? 4u : 8u);
+    mem_ldr_off = d;
+    mem_ldr_is_w = is_ldr_w;
+    mem_ldr_found = true;
+    break;
+  }
+  if (!mem_ldr_found) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG provenance-trace: no LDR W/X%u,[X?,#?] "
+                 "before STR — source reg may have come from a MOV or computed "
+                 "value we don't decode\n",
+                 (unsigned)str_src_reg);
+    return;
+  }
+  std::fprintf(stderr,
+               "GK-DIAG A12-DIAG provenance-trace: originating-load=0x%lx "
+               "inst=LDR %s%u,[X%u,#%u]\n",
+               (unsigned long)(lr + mem_ldr_off),
+               mem_ldr_is_w ? "W" : "X", (unsigned)str_src_reg,
+               (unsigned)mem_ldr_base_reg, (unsigned)mem_ldr_imm);
+
+  // Step 7: the A5 sym-MEM triplet places ADRP Xb, page ; ADD Xb, Xb, #imm12
+  // immediately before the LDR. Check the two preceding instructions.
+  uint32_t add_enc = 0, adrp_enc = 0;
+  if (!safe_read_u32(lr + mem_ldr_off - 4, &add_enc)) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG provenance-trace: instr before LDR unreadable\n");
+    return;
+  }
+  if (((add_enc >> 23) & 0x1ffu) != 0x122u) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG provenance-trace: instr before LDR is not "
+                 "ADD imm12 (enc=0x%08x); base reg X%u may have been set via "
+                 "MOV from another reg\n",
+                 (unsigned)add_enc, (unsigned)mem_ldr_base_reg);
+    return;
+  }
+  uint32_t add_rd = add_enc & 0x1fu;
+  uint32_t add_rn = (add_enc >> 5) & 0x1fu;
+  uint32_t add_imm12 = (add_enc >> 10) & 0xfffu;
+  if (add_rd != mem_ldr_base_reg || add_rn != mem_ldr_base_reg) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG provenance-trace: ADD before LDR not "
+                 "ADD X%u,X%u,#imm12 (rd=%u rn=%u)\n",
+                 (unsigned)mem_ldr_base_reg, (unsigned)mem_ldr_base_reg,
+                 (unsigned)add_rd, (unsigned)add_rn);
+    return;
+  }
+  if (!safe_read_u32(lr + mem_ldr_off - 8, &adrp_enc)) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG provenance-trace: instr before ADD unreadable\n");
+    return;
+  }
+  if (((adrp_enc >> 24) & 0x9fu) != 0x90u) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG provenance-trace: instr before ADD is not "
+                 "ADRP (enc=0x%08x)\n",
+                 (unsigned)adrp_enc);
+    return;
+  }
+  uint32_t adrp_rd = adrp_enc & 0x1fu;
+  if (adrp_rd != mem_ldr_base_reg) {
+    std::fprintf(stderr,
+                 "GK-DIAG A12-DIAG provenance-trace: ADRP doesn't target X%u "
+                 "(rd=%u)\n",
+                 (unsigned)mem_ldr_base_reg, (unsigned)adrp_rd);
+    return;
+  }
+  uint32_t adrp_immlo = (adrp_enc >> 29) & 0x3u;
+  uint32_t adrp_immhi = (adrp_enc >> 5) & 0x7ffffu;
+  int32_t imm21 = (int32_t)((adrp_immhi << 2) | adrp_immlo);
+  if (imm21 & (1 << 20)) imm21 -= (1 << 21);
+  uintptr_t adrp_pc = lr + mem_ldr_off - 8;
+  uintptr_t adrp_page = adrp_pc & ~uintptr_t(0xfff);
+  uintptr_t adrp_target = adrp_page + ((intptr_t)imm21 << 12);
+  uintptr_t sym_slot = adrp_target + (uintptr_t)add_imm12 + (uintptr_t)mem_ldr_imm;
+  std::fprintf(stderr,
+               "GK-DIAG A12-DIAG provenance-trace: adrp-pc=0x%lx "
+               "adrp-target=0x%lx add-imm12=0x%x ldr-imm12=0x%x sym_slot=0x%lx\n",
+               (unsigned long)adrp_pc, (unsigned long)adrp_target,
+               (unsigned)add_imm12, (unsigned)mem_ldr_imm,
+               (unsigned long)sym_slot);
+  std::fprintf(stderr, "GK-DIAG A12-DIAG sym-walk-back:\n");
+  dump_sym_name_at_slot(sym_slot);
+}
 }  // namespace gk_diag
 
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
@@ -225,6 +479,17 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                  (unsigned long)uc->uc_mcontext.regs[i]);
   }
   std::fprintf(stderr, "GK-DIAG sp=0x%lx\n", (unsigned long)uc->uc_mcontext.sp);
+
+  // A12-DIAG: tie the failing BLR to the originating sym slot by walking
+  // the call_r64 push sequence backward to the spill, then to the sym-MEM
+  // LDR, then to the ADRP+ADD that built the slot address. Runs only on
+  // sig=4 (SIGILL) — the typical fn-ptr=0→BLR(ee_base) shape. Runs BEFORE
+  // the A11 broad dumps so its narrow chain output is the first hit a
+  // grep over the crash log sees.
+  if (sig == SIGILL) {
+    gk_diag::dump_stack_fnptr_zero_chain(
+        lr, static_cast<uintptr_t>(uc->uc_mcontext.sp));
+  }
 
   // A11-DIAG: at the texture-CGO sig=4 SIGILL the LDR base register that
   // produced the NULL fn-ptr is X16 (per A5 sym-MEM emit). Walk the
@@ -577,6 +842,12 @@ int boot_kernel_init() {
   // is overridden on linux-arm64 by InitMachineScheme_LinuxArm64Stubs
   // (which omits __pc-get-mips2c from its list).
   klink_a11_ensure_pc_mips2c_bound();
+  // A12 sym-bind: register `rpc-call`, `rpc-busy?`, `test-load-dgo-c`
+  // (what `jak1::InitSoundScheme` upstream registers). The linux-arm64
+  // override of `jak1::InitMachineScheme` omits InitSoundScheme, so
+  // gsound's top-level BLRs to ee_base when invoking `rpc-call` against
+  // the unbound (0-valued) sym slot.
+  klink_a12_ensure_sound_rpc_bound();
 
   // C2 milestone banner — kept for the C2 validator's checks 19+25
   // which grep for these exact lines. The C3 stage runs after.
