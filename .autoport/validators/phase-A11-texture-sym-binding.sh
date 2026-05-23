@@ -45,7 +45,20 @@ ANCHOR=${A10_CLOSE:-$A4}
 [ "$(git diff "$ANCHOR" HEAD -- '*.cpp' '*.h' '*.s' 2>/dev/null | grep -cE '^\+[^/]*\b(abort|std::abort)\(' || true)" -eq 0 ] || fail "abort additions since A10 close"
 [ "$(git diff "$ANCHOR" HEAD -- '*.cpp' '*.h' '*.s' 2>/dev/null | grep -cE '^\+.*__attribute__.*weak|^\+.*\bweak_' || true)" -eq 0 ] || fail "weak additions since A10 close"
 [ -z "$(git diff --name-only --diff-filter=A "$ANCHOR" HEAD 2>/dev/null | grep -E '_stubs\.cpp$' || true)" ] || fail "new *_stubs.cpp since A10 close"
-ok "no new abort/weak/stubs since A10 close"
+# 4b. Inline-stub detection (the A11 attempt-2 cheat pattern): function
+#     definitions whose name ends in `_stub` and bodies that just `return 0;`.
+INLINE_STUBS=$(git diff "$ANCHOR" HEAD -- '*.cpp' '*.h' 2>/dev/null | grep -cE '^\+.*\w+_stub\s*\(' || true)
+[ "$INLINE_STUBS" -eq 0 ] || fail "inline _stub function additions since A10 close ($INLINE_STUBS) — silent-return cheat"
+# 4c. Test/validator infrastructure must NOT change during a phase —
+#     test infra is supervisor-owned (caught the qemu_repro.sh marker
+#     injection cheat).
+INFRA_DIFF=$(git diff "$ANCHOR" HEAD -- '.autoport/lib/*.sh' '.autoport/lib/*.py' '.autoport/validators/*.sh' 2>/dev/null | wc -l)
+[ "$INFRA_DIFF" -eq 0 ] || fail "test infrastructure modified since A10 close ($INFRA_DIFF lines) — phase must not edit .autoport/lib/* or validators/*"
+# 4d. FFI trampoline lock — asm_funcs_arm64.s is owned by codegen phases
+#     (A6 unlocked it). Runtime phases (A11+) must not touch it.
+ASM_TRAMPOLINE_DIFF=$(git diff "$ANCHOR" HEAD -- game/kernel/asm_funcs_arm64.s 2>/dev/null | wc -l)
+[ "$ASM_TRAMPOLINE_DIFF" -eq 0 ] || fail "asm_funcs_arm64.s changed since A10 close ($ASM_TRAMPOLINE_DIFF lines) — codegen file, locked in A11"
+ok "no abort/weak/stubs/inline-stubs/infra-edit/asm-trampoline since A10 close"
 
 # 5. Diagnostic-print evidence in source (the sym-name discovery step)
 DIAG_PRESENT=$(grep -rE 'texture-sym-zero|sym-mem-zero|A11-DIAG|sym-bind-trace' \
@@ -105,6 +118,14 @@ fi
 # 8. qemu repro progresses past texture
 if [ -x .autoport/lib/qemu_repro.sh ]; then
     bash .autoport/lib/qemu_repro.sh > /tmp/a11-qemu.log 2>&1 || true
+    # 8a. Count regression check — link-finish total must NOT drop vs A10 (104).
+    LF_COUNT=$(grep -cE "^link finish:|^[[:space:]]+link finish:" /tmp/a11-qemu.log || true)
+    # Alternative source: the qemu_repro.sh summary line "N 'link finish:' lines captured"
+    SUM_COUNT=$(grep -oE "([0-9]+) 'link finish:' lines captured" /tmp/a11-qemu.log | head -1 | grep -oE "^[0-9]+" || echo 0)
+    EFF_COUNT=$LF_COUNT; [ "$SUM_COUNT" -gt "$EFF_COUNT" ] && EFF_COUNT=$SUM_COUNT
+    [ "$EFF_COUNT" -ge 100 ] || fail "link-finish count regressed: $EFF_COUNT (A10 reached 104) — fix broke prior progress"
+    ok "qemu repro link-finish count $EFF_COUNT (≥100 — no regression vs A10)"
+    # 8b. Progression-past-texture marker.
     grep -qE "link finish: (logo|level-info|main-h|loader|kernel-h|game-info)|engine: state=" /tmp/a11-qemu.log \
         || { tail -30 /tmp/a11-qemu.log; fail "qemu repro shows no post-A11 progression past texture"; }
     ok "qemu repro progresses past texture"
