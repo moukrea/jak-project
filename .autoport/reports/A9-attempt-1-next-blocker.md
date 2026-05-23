@@ -147,3 +147,155 @@ Extend A9 (or open A10) with a narrow unlock targeting one of:
 
 A9's spill fix is independently correct and unblocks the boot up to
 the new failure point. It stays in place across any subsequent fix.
+
+## Attempt 2 — root-caused as X4-vs-SP, fixed within A9 scope
+
+The X3-clobber-after-BLR symptom turned out to have a static-codegen
+root cause that A9's narrow unlock could actually patch around.
+
+### Root cause
+
+`goalc/emitter/IGenARM64.cpp::arm64_reg5(Register r)` returns
+`r.id() & 0x1f`. The shared `Register` enum gives `RSP = 4`, so
+`arm64_reg5(RSP) = 4`, which encodes to ARM64 register X4 rather than
+the AArch64 stack-pointer encoding (Rn = 31). The comment at the top
+of IGenARM64.cpp acknowledges this:
+
+```c++
+// the special-case slot for RSP (id 4) maps to ARM64_REG::X4 which we
+// never use as a stack pointer (we always emit literal SP=31 below
+// when we mean the stack pointer).
+```
+
+That "always emit literal SP=31" rule holds for the spill ops A9 just
+implemented in `do_goal_function_arm64` (those bypass IGen entirely
+and bit-pack `(31u << 5)` directly). It does NOT hold for the two IR
+paths that take a stack-var's address through IGen helpers:
+
+```c++
+// goalc/compiler/IR.cpp
+622:  gen->add_instr(IGen::ARM64::lea_reg_plus_off(dst, RSP, stack_offset), irec);
+1587: gen->add_instr(IGen::ARM64::mov_gpr64_gpr64(dest_reg, RSP), irec);
+1591: gen->add_instr(IGen::ARM64::lea_reg_plus_off(dest_reg, RSP, offset), irec);
+```
+
+Both helpers funnel through `arm64_reg5(RSP) = 4`, so what is emitted
+is `mov dst, X4` / `add dst, X4, #imm` — addresses computed from X4,
+not SP. X4 is unrelated to SP almost everywhere:
+
+- At GOAL function entry the kernel trampoline (asm_funcs_arm64.s)
+  leaves X4 holding `st` — the symbol-table GOAL pointer (a small
+  number).
+- Every GOAL→C call passes through `make_function_from_c_arm64`
+  (game/kernel/jak1/kscheme.cpp:601), whose arg-shuffle includes
+  `mov x4, x8` (AAPCS arg4 ← goalc arg4), so X4 is overwritten with
+  whatever the call site passed as arg4.
+
+In `scf-time-to-int64` (goal_src/jak1/pc/util/knuth-rand.gc), the IR
+`(new 'stack-no-clear 'scf-time)` lowers to an `IR_GetStackAddr` that
+emits exactly `mov X3, X4 ; sub X3, X3, X15`. The disasm decoded in
+the previous attempt matches byte-for-byte:
+
+```
+lr-52  mov x3, x4         ; supposed to be MOV X3, SP — emitted as MOV X3, X4
+lr-48  sub x3, x3, x15    ; supposed to give &date - EE_base = GOAL ptr
+lr-44  mov x3, x3         ; regset move-eliminate placeholder
+lr-32  mov x7, x3         ; arg0 = &date
+```
+
+Because the visible function is `scf-time-to-int64` and its only
+prior call was `scf-get-time` via the kernel trampoline, X4 had just
+been clobbered by the `mov x4, x8` shuffle. The trampoline-leftover
+value happened to subtract to 0 (X4 = X15), giving `&date = GOAL ptr
+0`. The `(scf-get-time date)` stub on linux-arm64 (`a8_stub_scf_get_time`
+returns 0 without writing) is a no-op, but the subsequent `(-> date stat)`
+field reads pull bytes from memory-region-zero, and the function's
+intra-frame stack work overlapped knuth-rand top-level's call_r64 X3/X5
+save slot — corrupting it. Hence "X3 was 0 pre-call, 0xffffffdedd000003
+post-call".
+
+The byte signature is in the regenerated CGOs at scale:
+
+```
+ENGINE.CGO mov x3, x4 (e3 03 04 aa)   : 295 occurrences
+GAME.CGO   mov x3, x4 (e3 03 04 aa)   : 331 occurrences
+```
+
+Every one of those is a stack-var address arithmetic that, prior to
+this fix, was reading from X4 instead of SP.
+
+### The fix (within A9 scope)
+
+The proper repair belongs in IGenARM64.cpp's `mov_gpr64_gpr64` /
+`lea_reg_plus_off32` (special-case Rn==RSP to emit Rn=31). That file
+is anchored at A8-close in A9's lock list and cannot be touched.
+
+The next-best repair, fully inside `do_goal_function_arm64`'s narrow
+unlock, is to **pre-load X4 with the live SP value immediately before
+any IR whose codegen reads RSP**. AArch64 encodes `ADD Xd, SP, #0` as
+`0x910003E4` (Rn=31, Rd=4, imm12=0). Emitting that one word before
+each `IR_GetStackAddr` / `IR_RegValAddr` makes the IR's existing
+`mov/add dst, X4, ...` resolve to `dst = SP (+ offset)` — the
+intended semantics — without touching IGenARM64.cpp or IR.cpp.
+
+The change lives only in CodeGenerator.cpp's main IR loop:
+
+```c++
+if (dynamic_cast<const IR_GetStackAddr*>(ir.get()) ||
+    dynamic_cast<const IR_RegValAddr*>(ir.get())) {
+  m_gen.add_instr(emitter::InstructionARM64(0x910003E4u), i_rec);
+}
+ir->do_codegen_arm64(&m_gen, allocs, i_rec);
+```
+
+X4 is never assigned by goalc's regalloc (`m_gpr_alloc_order` in
+goalc/emitter/Register.cpp skips RSP), so clobbering it has no
+collateral effect on IR-driven code.
+
+### Result
+
+qemu-repro with both A9's spill fix and this X4 pre-load:
+
+| Phase                     | link finishes | Last reached     |
+|---------------------------|---------------|------------------|
+| pre-A9                    | 45            | display.gc       |
+| post-spill-only           | 61            | knuth-rand       |
+| post-spill + X4 pre-load  | **64**        | texture          |
+
+knuth-rand now executes its top-level cleanly. capture, memory-usage-h,
+and texture all link past it for the first time. The new crash at
+texture is a different bug class (sig=4 SIGILL at `pc=EE_base`, i.e.
+a BLR to GOAL ptr 0 — likely an uninitialised sym-value load, NOT a
+spill or stack-var bug); it sits behind another wave of CGO links and
+is the next layer to peel.
+
+### What stays for the next phase
+
+The D4 device validator gate still cannot clear end-to-end:
+
+1. The harness has no Android device attached this session, so
+   `device_require_attached` short-circuits and the emulator fallback
+   times out (arm64-on-x86 hangs, as documented in
+   .autoport/reports/A6-fallback-investigation.md).
+2. Even with a device the renderer never reaches its SDL/GL init
+   markers — the new sig=4 SIGILL kills the boot at texture, well
+   before `android_renderer_run: entered` would fire.
+
+For the proper IGenARM64.cpp repair (delete this workaround once the
+RSP→SP encoding is fixed), the supervisor should open A10 with the
+following unlocks:
+
+- `goalc/emitter/IGenARM64.cpp` — special-case the SP encoding in
+  `mov_gpr64_gpr64` (line 617) and `lea_reg_plus_off32` (line 1239) so
+  Rn=31 is emitted when the base register's id is 4 (RSP enum). Also
+  audit `arm64_reg5()` callers for any other "RSP means SP" sites.
+- `goalc/compiler/CodeGenerator.cpp` — remove the X4 pre-load
+  workaround once the encoder is fixed; the workaround inflates every
+  arm64 CGO by ~4 bytes per stack-var IR (≈1.7 KB ENGINE, ≈1.8 KB
+  GAME, ≈0 KB KERNEL — the kernel has no stack-var ops).
+- Investigation of the texture-link sig=4 SIGILL (separate bug class
+  from the spill / stack-addr family): the LR-relative dump in
+  .autoport/reports/A8-qemu-repro.log around 0x2126ab8054 shows a
+  BLR to host(W9=0). Trace what sym is being loaded at lr-44 in that
+  function and whether it should have been populated by the time
+  texture.gc's top-level executes.
