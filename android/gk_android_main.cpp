@@ -135,10 +135,17 @@ void a11_install_pc_mips2c_hook_once() {
   g_jak1_pre_kernel_version_check_hook = []() {
     if (prev) prev();
     klink_a11_ensure_pc_mips2c_bound();
+    // A12 sym-bind: register `rpc-call`, `rpc-busy?`, `test-load-dgo-c`
+    // (see klink.cpp::klink_a12_ensure_sound_rpc_bound for rationale).
+    // Android's runtime-compat override of jak1::InitMachineScheme
+    // similarly omits InitSoundScheme, so gsound's top-level BLR to
+    // `rpc-call` lands at ee_base unless we bind here.
+    klink_a12_ensure_sound_rpc_bound();
   };
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "A11-DIAG sym-bind-trace: chained "
-                      "klink_a11_ensure_pc_mips2c_bound onto "
+                      "klink_a11_ensure_pc_mips2c_bound + "
+                      "klink_a12_ensure_sound_rpc_bound onto "
                       "g_jak1_pre_kernel_version_check_hook (prev=%p)",
                       (void*)prev);
 }
@@ -301,6 +308,229 @@ bool dump_sym_name_at_slot(uintptr_t slot_host_addr) {
                       name_buf[0] ? name_buf : "<empty>", in_sym_range ? 1 : 0);
   return true;
 }
+
+// A12-DIAG: backward-provenance trace for stack-loaded fn-ptr=0 SIGILL.
+// Mirrors game/linux-arm64/linux_arm64_main.cpp::dump_stack_fnptr_zero_chain
+// — line shapes are identical so a device logcat and qemu_repro stderr
+// are diff-able. See the qemu-side header comment for the chain shape.
+void dump_stack_fnptr_zero_chain(uintptr_t lr, uintptr_t sp) {
+  // Step 1: lr-4 must be BLR Xt.
+  uint32_t blr_enc = 0;
+  if (!safe_read_u32(lr - 4, &blr_enc)) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG stack-fnptr-zero: lr-4 unreadable");
+    return;
+  }
+  if ((blr_enc & 0xFFFFFC1Fu) != 0xD63F0000u) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG stack-fnptr-zero: lr-4 enc=0x%08x is not BLR Xn",
+                        (unsigned)blr_enc);
+    return;
+  }
+  uint32_t blr_target_reg = (blr_enc >> 5) & 0x1f;
+
+  // Step 2: count pre-decrement SP pushes.
+  uint32_t push_bytes = 0;
+  for (intptr_t d = -8; d >= -64; d -= 4) {
+    uint32_t enc = 0;
+    if (!safe_read_u32(lr + d, &enc)) break;
+    bool is_stp_pre_sp = ((enc & 0xFFFF83E0u) == 0xA9BF03E0u);
+    bool is_str_pre_sp = ((enc & 0xFFFFFFE0u) == 0xF81F0FE0u);
+    if (!is_stp_pre_sp && !is_str_pre_sp) break;
+    push_bytes += 16;
+  }
+
+  // Step 3: skip optional ADD Xt, Xt, X15 (GOAL→host).
+  intptr_t scan_offset = -4 - (intptr_t)push_bytes - 4;
+  {
+    uint32_t add_enc = 0;
+    if (safe_read_u32(lr + scan_offset, &add_enc)) {
+      uint32_t expected =
+          0x8B0F0000u | (blr_target_reg << 5) | blr_target_reg;
+      if ((add_enc & 0xFFE0FFE0u) == expected) {
+        scan_offset -= 4;
+      }
+    }
+  }
+
+  // Step 4: LDR Xt, [SP, #imm].
+  intptr_t ldr_off = 0;
+  uint32_t ldr_imm = 0;
+  bool ldr_found = false;
+  for (intptr_t d = scan_offset; d >= -240; d -= 4) {
+    uint32_t enc = 0;
+    if (!safe_read_u32(lr + d, &enc)) break;
+    if ((enc & 0xFFC003E0u) != 0xF94003E0u) continue;
+    uint32_t rt = enc & 0x1fu;
+    if (rt != blr_target_reg) continue;
+    ldr_imm = ((enc >> 10) & 0xfffu) * 8u;
+    ldr_off = d;
+    ldr_found = true;
+    break;
+  }
+  if (!ldr_found) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG stack-fnptr-zero: no LDR X%u,[SP,#?] "
+                        "in lr-240..lr-4 (BLR target X%u, push_bytes=%u) — "
+                        "non-call_r64 shape",
+                        (unsigned)blr_target_reg, (unsigned)blr_target_reg,
+                        (unsigned)push_bytes);
+    return;
+  }
+  uintptr_t slot_host = sp + (uintptr_t)push_bytes + (uintptr_t)ldr_imm;
+  uint32_t slot_lo = 0, slot_hi = 0;
+  uint64_t slot_val = 0;
+  if (safe_read_u32(slot_host, &slot_lo) &&
+      safe_read_u32(slot_host + 4, &slot_hi)) {
+    slot_val = (uint64_t)slot_lo | ((uint64_t)slot_hi << 32);
+  }
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A12-DIAG stack-fnptr-zero: blr-pc=0x%lx "
+                      "ldr-pc=0x%lx blr-target=X%u slot=[SP,#%u] "
+                      "(current sp+%u host=0x%lx) value=0x%lx",
+                      (unsigned long)(lr - 4), (unsigned long)(lr + ldr_off),
+                      (unsigned)blr_target_reg, (unsigned)ldr_imm,
+                      (unsigned)((uint32_t)push_bytes + ldr_imm),
+                      (unsigned long)slot_host, (unsigned long)slot_val);
+  if (slot_val != 0) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG stack-fnptr-zero: slot value is "
+                        "NON-zero — BLR target may have been corrupted "
+                        "post-LDR; stopping trace");
+    return;
+  }
+
+  // Step 5: STR Xs, [SP, #ldr_imm].
+  intptr_t str_off = 0;
+  uint32_t str_src_reg = 0;
+  bool str_found = false;
+  for (intptr_t d = ldr_off - 4; d >= -244; d -= 4) {
+    uint32_t enc = 0;
+    if (!safe_read_u32(lr + d, &enc)) break;
+    if ((enc & 0xFFC003E0u) != 0xF90003E0u) continue;
+    uint32_t imm = ((enc >> 10) & 0xfffu) * 8u;
+    if (imm != ldr_imm) continue;
+    str_src_reg = enc & 0x1fu;
+    str_off = d;
+    str_found = true;
+    break;
+  }
+  if (!str_found) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG provenance-trace: no STR X?,[SP,#%u] "
+                        "before LDR — slot uninitialised or set via STP / "
+                        "different addressing mode",
+                        (unsigned)ldr_imm);
+    return;
+  }
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A12-DIAG provenance-trace: stored-by=0x%lx "
+                      "inst=STR X%u,[SP,#%u]  source-reg=X%u",
+                      (unsigned long)(lr + str_off), (unsigned)str_src_reg,
+                      (unsigned)ldr_imm, (unsigned)str_src_reg);
+
+  // Step 6: LDR W/X to source-reg from a non-SP base.
+  intptr_t mem_ldr_off = 0;
+  uint32_t mem_ldr_base_reg = 0;
+  uint32_t mem_ldr_imm = 0;
+  bool mem_ldr_is_w = false;
+  bool mem_ldr_found = false;
+  for (intptr_t d = str_off - 4; d >= -252; d -= 4) {
+    uint32_t enc = 0;
+    if (!safe_read_u32(lr + d, &enc)) break;
+    bool is_ldr_w = ((enc & 0xFFC00000u) == 0xB9400000u);
+    bool is_ldr_x = ((enc & 0xFFC00000u) == 0xF9400000u);
+    if (!is_ldr_w && !is_ldr_x) continue;
+    uint32_t rt = enc & 0x1fu;
+    if (rt != str_src_reg) continue;
+    uint32_t rn = (enc >> 5) & 0x1fu;
+    if (rn == 31u) continue;
+    mem_ldr_base_reg = rn;
+    mem_ldr_imm = ((enc >> 10) & 0xfffu) * (is_ldr_w ? 4u : 8u);
+    mem_ldr_off = d;
+    mem_ldr_is_w = is_ldr_w;
+    mem_ldr_found = true;
+    break;
+  }
+  if (!mem_ldr_found) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG provenance-trace: no LDR W/X%u,[X?,#?] "
+                        "before STR — source from MOV or computed value",
+                        (unsigned)str_src_reg);
+    return;
+  }
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A12-DIAG provenance-trace: originating-load=0x%lx "
+                      "inst=LDR %s%u,[X%u,#%u]",
+                      (unsigned long)(lr + mem_ldr_off),
+                      mem_ldr_is_w ? "W" : "X", (unsigned)str_src_reg,
+                      (unsigned)mem_ldr_base_reg, (unsigned)mem_ldr_imm);
+
+  // Step 7: ADRP+ADD pair.
+  uint32_t add_enc = 0, adrp_enc = 0;
+  if (!safe_read_u32(lr + mem_ldr_off - 4, &add_enc)) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG provenance-trace: instr before LDR unreadable");
+    return;
+  }
+  if (((add_enc >> 23) & 0x1ffu) != 0x122u) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG provenance-trace: instr before LDR is "
+                        "not ADD imm12 (enc=0x%08x); base reg X%u may have been "
+                        "set via MOV",
+                        (unsigned)add_enc, (unsigned)mem_ldr_base_reg);
+    return;
+  }
+  uint32_t add_rd = add_enc & 0x1fu;
+  uint32_t add_rn = (add_enc >> 5) & 0x1fu;
+  uint32_t add_imm12 = (add_enc >> 10) & 0xfffu;
+  if (add_rd != mem_ldr_base_reg || add_rn != mem_ldr_base_reg) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG provenance-trace: ADD before LDR not "
+                        "ADD X%u,X%u,#imm12 (rd=%u rn=%u)",
+                        (unsigned)mem_ldr_base_reg, (unsigned)mem_ldr_base_reg,
+                        (unsigned)add_rd, (unsigned)add_rn);
+    return;
+  }
+  if (!safe_read_u32(lr + mem_ldr_off - 8, &adrp_enc)) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG provenance-trace: instr before ADD unreadable");
+    return;
+  }
+  if (((adrp_enc >> 24) & 0x9fu) != 0x90u) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG provenance-trace: instr before ADD is "
+                        "not ADRP (enc=0x%08x)",
+                        (unsigned)adrp_enc);
+    return;
+  }
+  uint32_t adrp_rd = adrp_enc & 0x1fu;
+  if (adrp_rd != mem_ldr_base_reg) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A12-DIAG provenance-trace: ADRP doesn't "
+                        "target X%u (rd=%u)",
+                        (unsigned)mem_ldr_base_reg, (unsigned)adrp_rd);
+    return;
+  }
+  uint32_t adrp_immlo = (adrp_enc >> 29) & 0x3u;
+  uint32_t adrp_immhi = (adrp_enc >> 5) & 0x7ffffu;
+  int32_t imm21 = (int32_t)((adrp_immhi << 2) | adrp_immlo);
+  if (imm21 & (1 << 20)) imm21 -= (1 << 21);
+  uintptr_t adrp_pc = lr + mem_ldr_off - 8;
+  uintptr_t adrp_page = adrp_pc & ~uintptr_t(0xfff);
+  uintptr_t adrp_target = adrp_page + ((intptr_t)imm21 << 12);
+  uintptr_t sym_slot = adrp_target + (uintptr_t)add_imm12 + (uintptr_t)mem_ldr_imm;
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A12-DIAG provenance-trace: adrp-pc=0x%lx "
+                      "adrp-target=0x%lx add-imm12=0x%x ldr-imm12=0x%x "
+                      "sym_slot=0x%lx",
+                      (unsigned long)adrp_pc, (unsigned long)adrp_target,
+                      (unsigned)add_imm12, (unsigned)mem_ldr_imm,
+                      (unsigned long)sym_slot);
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A12-DIAG sym-walk-back:");
+  dump_sym_name_at_slot(sym_slot);
+}
 }  // namespace gk_diag
 
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
@@ -319,6 +549,13 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                         "GK-DIAG x%d=0x%lx", i,
                         (unsigned long)uc->uc_mcontext.regs[i]);
+  }
+
+  // A12-DIAG: tie the failing BLR to the originating sym slot via a
+  // backward provenance trace (BLR Xt → LDR Xt,[SP,#N] → STR Xs,[SP,#N]
+  // → LDR Ws,[Xb,#0] → ADRP+ADD → sym name). Runs only on sig=4 (SIGILL).
+  if (sig == SIGILL) {
+    gk_diag::dump_stack_fnptr_zero_chain(lr, (uintptr_t)uc->uc_mcontext.sp);
   }
 
   // A11-DIAG: identify which symbol's value slot the failing BLR loaded.

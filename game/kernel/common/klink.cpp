@@ -6,6 +6,7 @@
 #include "common/symbols.h"
 
 #include "game/kernel/common/fileio.h"
+#include "game/kernel/common/kdgo.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/jak1/kscheme.h"
 #include "game/mips2c/mips2c_table.h"
@@ -378,6 +379,65 @@ void klink_a11_ensure_pc_mips2c_bound() {
                "A11-DIAG sym-bind-trace: bound __pc-get-mips2c to "
                "a11_pc_get_mips2c_impl (function GOAL ptr 0x%x)\n",
                (unsigned)fn.offset);
+}
+
+// A12 sym-bind-trace — back-end of `jak1::InitSoundScheme` (game/kernel/jak1/
+// ksound.cpp:11) for builds that override the upstream `jak1::InitMachineScheme`
+// with a stub list that omits the sound bindings. linux-arm64's
+// linux_arm64_runtime_compat.cpp::jak1::InitMachineScheme calls
+// InitMachineScheme_LinuxArm64Stubs (registers ~30 graphics/pad/SCF stubs)
+// but DOES NOT call InitSoundScheme — so `rpc-call`, `rpc-busy?`, and
+// `test-load-dgo-c` stay unbound. Android's analogous override has the
+// same gap (the runtime_compat stubs replace upstream InitMachineScheme
+// wholesale for the same graphics-dep reason).
+//
+// gsound's top-level (the 156th CGO linked at the post-A11 ceiling)
+// invokes `rpc-call` as part of its setup. With the slot unbound the A5
+// sym-MEM LDR returns 0, the value spills to [SP,#N] in the call_r64
+// pre-amble, gets reloaded into the BLR target reg, gets +X15'd (ee_base)
+// for the GOAL→host conversion, and BLRs to ee_base — UDF #0 at the
+// start of the EE map → sig=4 SIGILL. See A12-fix-summary.md for the
+// full trace + the A12-DIAG provenance output from the SIGILL handler.
+//
+// The body of each binding mirrors `jak1::InitSoundScheme` byte for byte
+// (same C function pointers, same name strings, including the duplicate
+// stack-arg `rpc-call` registration that upstream issues second so the
+// stack-arg variant overrides the regular one). RpcCall_wrapper / RpcBusy
+// / LoadDGOTest live in game/kernel/common/kdgo.cpp and are compiled into
+// both linux-arm64 and android-arm64 kernel libs (verified per
+// game/linux-arm64/CMakeLists.txt:124 + game/android/CMakeLists.txt).
+//
+// Idempotent: static guard, plus a SymbolTable2-ready check (same shape
+// as klink_a11_ensure_pc_mips2c_bound) so callers can fire it from
+// multiple boot points (linux_arm64_main.cpp::boot_kernel_init, the
+// chained android pre-kernel-version hook) without double-binding.
+void klink_a12_ensure_sound_rpc_bound() {
+  static bool s_bound = false;
+  if (s_bound) return;
+  if (SymbolTable2.offset == 0) return;
+
+  auto rpc_call_fn = jak1::make_function_symbol_from_c(
+      "rpc-call", (void*)RpcCall_wrapper);
+  auto rpc_busy_fn = jak1::make_function_symbol_from_c(
+      "rpc-busy?", (void*)RpcBusy);
+  auto load_dgo_test_fn = jak1::make_function_symbol_from_c(
+      "test-load-dgo-c", (void*)LoadDGOTest);
+  // Upstream re-registers rpc-call as a stack-arg variant immediately
+  // after — this overrides the value-arg binding above. Keep the same
+  // ordering so any future caller of `(rpc-call ...)` gets the same
+  // dispatch shape it would on desktop.
+  auto rpc_call_stack_fn = jak1::make_stack_arg_function_symbol_from_c(
+      "rpc-call", (void*)RpcCall_wrapper);
+  s_bound = true;
+
+  std::fprintf(stderr,
+               "A12-DIAG sym-bind-trace: bound rpc-call to RpcCall_wrapper "
+               "(value-arg GOAL ptr 0x%x, stack-arg GOAL ptr 0x%x), rpc-busy? "
+               "to RpcBusy (0x%x), test-load-dgo-c to LoadDGOTest (0x%x)\n",
+               (unsigned)rpc_call_fn.offset,
+               (unsigned)rpc_call_stack_fn.offset,
+               (unsigned)rpc_busy_fn.offset,
+               (unsigned)load_dgo_test_fn.offset);
 }
 
 /*!
