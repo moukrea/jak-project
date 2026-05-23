@@ -197,7 +197,8 @@ welcome; silent skips are not.
 | A11   | klink + symbol + diag, kscheme.cpp::call_goal arg-bridge | +52 → 156 | gsound stack-loaded fn-ptr=0 SIGILL |
 | A12   | bind rpc-call/rpc-busy?/test-load-dgo-c to real desktop fns + backward-provenance SIGILL diag | +0 → 156 | pthread_mutex_lock SEGV in IOP_Kernel::sif_rpc (mutex uninit'd on arm64) |
 | A13   | IOP_Kernel mutex pre-init + libco cothread RPC drain + rpc-busy? dispatch-driver | +2 → 158 | __mem-move unbound (next pc-* helper at dma-buffer top-level) |
-| A14   | bind __mem-move to pc_memmove (klink helper, A11/A12 pattern) | TBD | TBD |
+| A14   | bind __mem-move to pc_memmove (klink helper, A11/A12 pattern) | +8 → 166 | regalloc same-reg collision: SDIV clobbers fn-ptr in sin*! call site (sig=7 SIGBUS unaligned PC) |
+| A15   | regalloc constraint: CALL_R64 target reg live-through intervening defs (first goalc/regalloc/ unlock since A1) | TBD | TBD |
 
 Yield per phase has trended upward (16 → 43 → **52**). x86 target is
 438 link-finishes. At current yield, ~5–6 more phases reach the

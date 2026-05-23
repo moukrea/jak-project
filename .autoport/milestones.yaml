@@ -335,6 +335,15 @@ phases:
   validator: validators/phase-A14-pc-memmove-bind.sh
   max_turns: 400
   max_retries: 8
+- id: A15-regalloc-fnptr-livethrough
+  name: Add a regalloc constraint so a CALL_R64's function-pointer source register cannot be reused as the destination of any intervening
+    IR op between the load and the BLR. Closes the sig=7 SIGBUS at sin*! call sites where the V2 allocator assigned the fn-ptr and an
+    SDIV destination to the same physical reg, the SDIV clobbered the fn-ptr, and BLR jumped to ee_base+offset/10 (unaligned PC).
+    Unlocks goalc/regalloc/ for the first time since A1.
+  prompt: prompts/phase-A15-regalloc-fnptr-livethrough.md
+  validator: validators/phase-A15-regalloc-fnptr-livethrough.sh
+  max_turns: 600
+  max_retries: 12
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
