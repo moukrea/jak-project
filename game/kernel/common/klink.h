@@ -56,6 +56,18 @@ void klink_a11_ensure_pc_mips2c_bound();
 // the UDF #0 there. Caller must invoke after `jak1::InitHeapAndSymbol`.
 void klink_a12_ensure_sound_rpc_bound();
 
+// A14 sym-bind-trace — see klink.cpp for rationale. Idempotent: binds
+// `__mem-move` (the GOAL kernel's fast-memcpy entry point, hash
+// 0x9290899a) to the existing `pc_memmove` C impl (kmachine.cpp:480).
+// The pc-* helper would normally be registered by
+// `init_common_pc_port_functions` (kmachine.cpp:1095) but the Android
+// override at android/android_runtime_compat.cpp deliberately skips
+// the 100+ pc-* helpers; linux-arm64 inherits the same gap. Without
+// this bind, dma-buffer's top-level `(__mem-move ...)` BLRs to
+// ee_base (sym slot=0 → host(0)=ee_base UDF #0) → sig=4 SIGILL.
+// Caller must invoke after `jak1::InitHeapAndSymbol`.
+void klink_a14_ensure_pc_memmove_bound();
+
 /*!
  * Stores the state of the linker. Used for multi-threaded linking, so it can be suspended.
  */

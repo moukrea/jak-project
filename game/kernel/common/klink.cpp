@@ -440,6 +440,64 @@ void klink_a12_ensure_sound_rpc_bound() {
                (unsigned)load_dgo_test_fn.offset);
 }
 
+namespace {
+// A14 sym-bind-trace — back-end of `__mem-move` for builds whose
+// `init_common_pc_port_functions` override skips the upstream pc-*
+// registration table. The desktop x86 build registers
+// `pc_memmove` at game/kernel/common/kmachine.cpp:1095 via
+// `init_common_pc_port_functions`; the Android override at
+// android/android_runtime_compat.cpp::init_common_pc_port_functions
+// deliberately leaves the 100+ pc-* helpers unbound (most route
+// through Display::/Gfx:: which aren't wired on Android yet), and
+// linux-arm64 inherits the same gap because its compat layer never
+// re-binds `__mem-move` either.
+//
+// `__mem-move` (hash 0x9290899a) is the GOAL kernel's fast-memcpy
+// entry point. The dma-buffer CGO's top-level — the 159th CGO past
+// A13's IOP_Kernel mutex init — invokes `(__mem-move ...)` to copy
+// templates into its DMA-chain scratch buffers. Without a binding,
+// the sym-MEM LDR pulls 0, W9+X15 makes the BLR target equal to
+// ee_base, and the BLR fires the UDF #0 at the start of the EE map
+// → sig=4 SIGILL. See A13-attempt-3-next-blocker.md for the full
+// register dump (`name="__mem-move"`, `slot=...`, `value=0x0`).
+//
+// This impl mirrors `pc_memmove` (kmachine.cpp:480-482) byte for
+// byte — same `memmove(Ptr<u8>(dst).c(), Ptr<u8>(src).c(), size)`
+// call. We re-define it here (rather than `extern`-declaring the
+// upstream `pc_memmove`) because neither the linux-arm64 nor the
+// android-arm64 build compiles `game/kernel/common/kmachine.cpp`:
+// that TU pulls Display::/Gfx::/discord/sce-libgraph transitively,
+// none of which have arm64 bodies yet (the A13 cookbook §8 + the
+// linux-arm64 CMakeLists comment "no kmachine/kboot here — those
+// pull graphics" both document the exclusion). So `pc_memmove`
+// itself is not a defined symbol in either build's link graph;
+// using a local copy of its 2-line body is the honest analogue of
+// what A11 did for `pc_get_mips2c` (also a kernel/common/kmachine
+// helper not reachable from the arm64 builds).
+//
+// Pure data-plane (memcpy over the GOAL heap via two Ptr<u8>
+// derefs), no Display::/Gfx:: deps — exactly the kind of pc-* the
+// Android override would bind too if its scope had grown that far.
+void a14_pc_memmove_impl(u32 dst, u32 src, u32 size) {
+  memmove(Ptr<u8>(dst).c(), Ptr<u8>(src).c(), size);
+}
+}  // namespace
+
+void klink_a14_ensure_pc_memmove_bound() {
+  static bool s_bound = false;
+  if (s_bound) return;
+  if (SymbolTable2.offset == 0) return;
+
+  auto fn = jak1::make_function_symbol_from_c("__mem-move",
+                                              (void*)a14_pc_memmove_impl);
+  s_bound = true;
+
+  std::fprintf(stderr,
+               "A14-DIAG sym-bind-trace: bound __mem-move to "
+               "a14_pc_memmove_impl (GOAL ptr 0x%x)\n",
+               (unsigned)fn.offset);
+}
+
 /*!
  * Initialize the link control.
  * TODO: this hasn't been carefully checked for jak 2 differences.
