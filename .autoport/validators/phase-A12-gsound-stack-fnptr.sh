@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# Phase A12 validator — gsound stack-loaded fn-ptr=0 SIGILL closed
+# via backward-provenance trace + root-cause fix.
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+A4=$(git log --format=%H --all --grep="autoport/A4-linker-fixups" | head -1)
+A1=$(git log --format=%H --all --grep='\[autoport/A1-emitter-enumerate\] enumerate' | head -1)
+A11_CLOSE=$(git log --format=%H --all --grep='autoport/A11-texture-sym-binding' | head -1)
+A10_CLOSE=$(git log --format=%H --all --grep='autoport/A10-callee-save-area' | head -1)
+A2_BASELINE=".autoport/reports/A2-baseline-x86-cgo-hashes.txt"
+
+fail() { echo "FAIL: $*" >&2; exit 1; }
+ok()   { echo "  ok: $*"; }
+
+echo "== Phase A12 validator (gsound stack-fnptr=0) =="
+
+# 1. At least one A12-unlocked target changed
+TOTAL_DIFF=0
+for f in android/gk_android_main.cpp game/linux-arm64/linux_arm64_main.cpp \
+         game/kernel/common/klink.cpp game/kernel/common/kmachine.cpp \
+         game/kernel/common/symbol.cpp; do
+    D=$(git diff "$A11_CLOSE" HEAD -- "$f" 2>/dev/null | wc -l)
+    TOTAL_DIFF=$((TOTAL_DIFF + D))
+done
+[ "$TOTAL_DIFF" -gt 5 ] || fail "no A12 unlocked file changed since A11 close ($TOTAL_DIFF lines) — no diagnostic+fix landed"
+ok "A12-unlocked files have $TOTAL_DIFF total lines diff from A11"
+
+# 2. Codegen + asm + kscheme locks intact
+for f in goalc/emitter/IGenARM64.h goalc/emitter/IGenARM64.cpp \
+         goalc/emitter/ObjectGenerator.h goalc/emitter/ObjectGenerator.cpp \
+         goalc/compiler/CodeGenerator.h goalc/compiler/CodeGenerator.cpp \
+         goalc/compiler/IR.h goalc/compiler/IR.cpp \
+         game/kernel/asm_funcs_arm64.s game/kernel/common/kscheme.cpp; do
+    DIFF=$(git diff "$A11_CLOSE" HEAD -- "$f" 2>/dev/null | wc -l)
+    [ "$DIFF" -eq 0 ] || fail "$f changed since A11 (lock violation)"
+done
+[ "$(git diff "$A1" HEAD -- .autoport/lib/classify_ir_arm64.py 2>/dev/null | wc -l)" -eq 0 ] || fail "classifier modified since A1"
+ok "codegen + asm trampoline + kscheme locks intact since A11"
+
+# 3. Anti-cheat: no dodges
+DODGES=$(grep -rln 'gk_recover_to_renderer\|forced-recovery handoff\|g_fault_recovery_armed' android/ game/ 2>/dev/null | wc -l)
+[ "$DODGES" -eq 0 ] || fail "dodge re-introduced ($DODGES files)"
+ok "no dodge in source"
+
+# 4. No new abort/weak/stubs/inline-stubs since A11 close
+ANCHOR=${A11_CLOSE:-$A10_CLOSE}
+[ "$(git diff "$ANCHOR" HEAD -- '*.cpp' '*.h' '*.s' 2>/dev/null | grep -cE '^\+[^/]*\b(abort|std::abort)\(' || true)" -eq 0 ] || fail "abort additions since A11 close"
+[ "$(git diff "$ANCHOR" HEAD -- '*.cpp' '*.h' '*.s' 2>/dev/null | grep -cE '^\+.*__attribute__.*weak|^\+.*\bweak_' || true)" -eq 0 ] || fail "weak additions since A11 close"
+[ -z "$(git diff --name-only --diff-filter=A "$ANCHOR" HEAD 2>/dev/null | grep -E '_stubs\.cpp$' || true)" ] || fail "new *_stubs.cpp since A11 close"
+INLINE_STUBS=$(git diff "$ANCHOR" HEAD -- '*.cpp' '*.h' 2>/dev/null | grep -cE '^\+.*\w+_stub\s*\(' || true)
+[ "$INLINE_STUBS" -eq 0 ] || fail "inline _stub function additions since A11 close ($INLINE_STUBS)"
+# 4c. Test infrastructure lock (anchor on latest [autoport/supervisor] commit
+#     so the validator does not self-reference its own edits).
+SUP_ANCHOR=$(git log --format=%H --grep='\[autoport/supervisor\]' | head -1)
+SUP_ANCHOR=${SUP_ANCHOR:-$ANCHOR}
+INFRA_DIFF=$(git diff "$SUP_ANCHOR" HEAD -- '.autoport/lib/*.sh' '.autoport/lib/*.py' '.autoport/validators/*.sh' 2>/dev/null | wc -l)
+INFRA_UNSTAGED=$(git diff HEAD -- '.autoport/lib/*.sh' '.autoport/lib/*.py' '.autoport/validators/*.sh' 2>/dev/null | wc -l)
+[ "$INFRA_DIFF" -eq 0 ] && [ "$INFRA_UNSTAGED" -eq 0 ] || fail "test infrastructure modified since latest [supervisor] commit (diff=$INFRA_DIFF, unstaged=$INFRA_UNSTAGED)"
+ok "no abort/weak/stubs/inline-stubs/infra-edit since A11 close"
+
+# 5. Diagnostic-print evidence in source
+DIAG_PRESENT=$(grep -rE 'A12-DIAG|stack-fnptr-zero|provenance-trace|sym-walk-back' \
+    android/gk_android_main.cpp game/linux-arm64/linux_arm64_main.cpp \
+    game/kernel/common/klink.cpp game/kernel/common/kmachine.cpp \
+    game/kernel/common/symbol.cpp 2>/dev/null | wc -l)
+[ "$DIAG_PRESENT" -gt 0 ] || fail "no A12 diagnostic print in unlocked files — bug evidence not captured"
+ok "diagnostic print present"
+
+# 6. Fix summary
+[ -f .autoport/reports/A12-fix-summary.md ] || fail "A12-fix-summary.md missing"
+ok "fix summary present"
+
+# 7. x86 CGOs byte-identical to A2 baseline
+while read -r expected path; do
+    [ -z "$expected" ] && continue
+    [[ "$path" == out/* ]] || path="out/jak1/iso/$path"
+    actual=$(sha256sum "$path" 2>/dev/null | awk '{print $1}')
+    [ "$expected" = "$actual" ] || fail "x86 CGO drift: $path"
+done < "$A2_BASELINE"
+ok "x86 CGOs byte-identical to A2 baseline"
+
+# 7b. arm64 CGOs byte-identical to A11 baseline (or A10 if A11's not committed)
+A11_ARM64_BASELINE=".autoport/reports/A11-baseline-arm64-cgo-hashes.txt"
+A10_ARM64_BASELINE=".autoport/reports/A10-baseline-arm64-cgo-hashes.txt"
+ARM_BASELINE=""
+[ -f "$A11_ARM64_BASELINE" ] && ARM_BASELINE=$A11_ARM64_BASELINE
+[ -z "$ARM_BASELINE" ] && [ -f "$A10_ARM64_BASELINE" ] && ARM_BASELINE=$A10_ARM64_BASELINE
+if [ -n "$ARM_BASELINE" ]; then
+    while read -r expected path; do
+        [ -z "$expected" ] && continue
+        actual=$(sha256sum "$path" 2>/dev/null | awk '{print $1}')
+        [ "$expected" = "$actual" ] || fail "arm64 CGO drift vs $ARM_BASELINE: $path (compiler likely modified)"
+    done < "$ARM_BASELINE"
+    ok "arm64 CGOs byte-identical to $(basename "$ARM_BASELINE")"
+fi
+
+# 7c. Binary CBZ-fingerprint scan
+if [ -f out/jak1-arm64/iso/ENGINE.CGO ]; then
+    CBZ_HITS=$(python3 - <<'PY' || true
+import struct
+data=open('out/jak1-arm64/iso/ENGINE.CGO','rb').read()
+hits=sum(1 for i in range(0,len(data)-4,4) if (struct.unpack('<I',data[i:i+4])[0] & 0xFFFFFFE0) == 0xB4000140)
+print(hits)
+PY
+)
+    [ "${CBZ_HITS:-0}" -lt 10 ] || fail "CBZ Xt,+40 fingerprint: $CBZ_HITS in ENGINE.CGO (>=10) — null-ptr-guard cheat"
+    ok "no CBZ-around-call cheat-fingerprint in ENGINE.CGO ($CBZ_HITS)"
+fi
+
+# 8. qemu repro progresses past gsound
+if [ -x .autoport/lib/qemu_repro.sh ]; then
+    bash .autoport/lib/qemu_repro.sh > /tmp/a12-qemu.log 2>&1 || true
+    SUM_COUNT=$(grep -oE "([0-9]+) 'link finish:' lines captured" /tmp/a12-qemu.log | head -1 | grep -oE "^[0-9]+" || echo 0)
+    [ "$SUM_COUNT" -ge 156 ] || fail "link-finish count regressed: $SUM_COUNT (A11 reached 156)"
+    ok "qemu repro link-finish count $SUM_COUNT (≥156 — no regression vs A11)"
+    grep -qE "link finish: (logo|level-info|loader|kernel-h|engine)|engine: state=" /tmp/a12-qemu.log \
+        || { tail -30 /tmp/a12-qemu.log; fail "qemu repro shows no progression past gsound"; }
+    ok "qemu repro progresses past gsound"
+fi
+
+# 9. D4 device validator passes
+bash .autoport/validators/phase-D4-android-apk-title.sh > /tmp/a12-d4.log 2>&1 \
+    || { tail -40 /tmp/a12-d4.log; fail "D4 device validator failed on A12 fix"; }
+ok "D4 device validator passes end-to-end"
+
+# 10. Desktop smoke
+SMOKE=$(mktemp); trap "rm -f $SMOKE" EXIT
+timeout 60 build-x86/game/gk --game jak1 --portable -fakeiso --verbose \
+    --disable-ansi -iso-data out/jak1/iso -- -boot -debug-mem > "$SMOKE" 2>&1 || true
+grep -q "link finish: logo$" "$SMOKE" || { tail -20 "$SMOKE"; fail "desktop smoke regressed"; }
+ok "desktop smoke passes"
+
+echo ""
+echo "PASS: Phase A12 — gsound stack-fnptr=0 closed, boot progresses past gsound."
