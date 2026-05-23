@@ -646,12 +646,33 @@ Val* Compiler::compile_real_function_call(const goos::Object& form,
     arg_outs.push_back(env->make_ireg(
         arg->type(), reg.is_128bit_simd(m_instr_set) ? RegClass::INT_128 : RegClass::GPR_64));
     arg_outs.back()->mark_as_settable();
-    env->emit_ir<IR_RegSet>(form, arg_outs.back(), arg);
   }
 
   // todo, there's probably a more efficient way to do this.
   auto temp_function = fe->make_gpr(function->type());
+
+#ifdef GOALC_BACKEND_ARM64
+  // A6 attempt 7+ (arm64-only): emit the function-ptr IR_RegSet BEFORE the
+  // arg IR_RegSets so that the `function` ireg (deref result) has a short
+  // live range (def→IR_RegSet) and doesn't span the arg shuffle. The
+  // `temp_function` ireg then becomes the long-lived function-pointer
+  // holder, properly marked as a function crosser (live + read at
+  // IR_FunctionCall), and gets saved-first allocation. Without this
+  // reorder the `function` ireg's range crosses all arg setups; the
+  // arm64 regalloc spills it to stack and the spill load/store emit as
+  // NOPs (CodeGenerator::do_goal_function_arm64), silently losing the
+  // function pointer. The BLR then fires with the wrong (or 0) value.
   env->emit_ir<IR_RegSet>(form, temp_function, function);
+  for (int i = 0; i < (int)args.size(); i++) {
+    env->emit_ir<IR_RegSet>(form, arg_outs.at(i), args.at(i));
+  }
+#else
+  for (int i = 0; i < (int)args.size(); i++) {
+    env->emit_ir<IR_RegSet>(form, arg_outs.at(i), args.at(i));
+  }
+  env->emit_ir<IR_RegSet>(form, temp_function, function);
+#endif
+
   env->emit_ir<IR_FunctionCall>(form, temp_function, return_reg, arg_outs, cc.arg_regs,
                                 cc.return_reg);
 

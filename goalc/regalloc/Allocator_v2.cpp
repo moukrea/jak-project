@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <optional>
+#include <set>
 #include <unordered_map>
 
 #include "common/log/log.h"
@@ -627,6 +628,60 @@ std::vector<int> var_indices_of_function_crossers_large_to_small(const Allocatio
   std::sort(result.begin(), result.end(), [&](int a, int b) {
     return cache.vars.at(a).range_size() > cache.vars.at(b).range_size();
   });
+
+#ifdef GOALC_BACKEND_ARM64
+  // A6 attempt 6+ (arm64-only): also treat as a "function crosser" any var
+  // whose last use is a move that feeds a function-call's m_func register
+  // (temp_function ireg in IR_FunctionCall, marked by writes-at-the-call).
+  //
+  // Rationale: the arm64 codegen path in CodeGenerator::do_goal_function_arm64
+  // emits NOP placeholders for spill load/store ops. If the regalloc spills
+  // a var to stack and reloads, both ops are NOPs — the spilled value is
+  // silently lost. For function-pointer vars (the deref result of a method
+  // dispatch) this manifests as `BLR X3` with `X3 = 0` (the BLR target was
+  // the contents of a stale register that the NOP-reload was supposed to
+  // overwrite, but didn't).
+  //
+  // Without this hook, `function` ireg (the deref result, NOT itself live
+  // at the call) gets temp-first allocation, lands in RDX (= arg2's
+  // destination on arm64), gets clobbered by the arg-2 IR_RegSet, then
+  // the regalloc spills (NOP-broken) and the BLR ends up calling NULL.
+  //
+  // Treating it as a function crosser forces saved-first allocation, which
+  // hands `function` a saved reg that survives the arg shuffle without
+  // needing the broken spill path. We PRE-PEND these to the result vector
+  // so they're allocated FIRST (before bigger crossers might claim all
+  // saved regs).
+  std::set<int> already_in(result.begin(), result.end());
+  std::vector<int> extras;
+  for (int var_idx = 0; var_idx < input.max_vars; var_idx++) {
+    auto& info = cache.vars.at(var_idx);
+    if (!info.seen() || info.crosses_function() || already_in.count(var_idx)) {
+      continue;
+    }
+    int last_use = info.last_live();
+    if (last_use < 0 || last_use >= (int)input.instructions.size()) {
+      continue;
+    }
+    const auto& last_instr = input.instructions.at(last_use);
+    if (!last_instr.is_move || last_instr.read.empty() || last_instr.write.empty()) {
+      continue;
+    }
+    int src_var = last_instr.read.front().id;
+    int dst_var = last_instr.write.front().id;
+    if (src_var != var_idx) {
+      continue;
+    }
+    // If the destination is itself a function crosser, the source acts
+    // like one too for register-pressure purposes.
+    if (already_in.count(dst_var)) {
+      extras.push_back(var_idx);
+    }
+  }
+  // Prepend (before the size-sorted crossers) so function-feeders get
+  // first dibs on saved regs.
+  result.insert(result.begin(), extras.begin(), extras.end());
+#endif  // GOALC_BACKEND_ARM64
 
   return result;
 }
