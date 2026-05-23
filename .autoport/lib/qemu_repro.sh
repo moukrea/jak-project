@@ -93,7 +93,11 @@ echo "qemu_repro.sh: qemu exit code $qemu_rc (captured to $EXIT_TXT)"
 echo "qemu_repro.sh: log at $LOG ($(wc -l < "$LOG") lines)"
 if grep -q "GK-DIAG sig=" "$LOG"; then
     echo "qemu_repro.sh: GK-DIAG signal handler fired; first 6 lines:"
-    grep "GK-DIAG" "$LOG" | head -6
+    # `grep "GK-DIAG" | head -6` SIGPIPE-aborts under `set -e + pipefail` when
+    # the diag handler emits >6 lines (post-A11+ extended diag does ~160).
+    # `|| true` suppresses the SIGPIPE-propagated 141 exit so the LINK_LIST
+    # summary below still emits. (caught in A13 attempt-2 next-blocker.)
+    grep "GK-DIAG" "$LOG" | head -6 || true
 fi
 
 # A9: report link-finish progression. Pre-A9 the chain crashed inside
