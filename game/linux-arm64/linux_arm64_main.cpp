@@ -262,6 +262,38 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                    (unsigned long)addr);
     }
   }
+  // A11 attempt-3 next-blocker diag: dump the stack between sp and
+  // sp+256 so a "function pointer loaded from stack is 0" SIGILL
+  // (the gsound-top-level crash at boot-ceiling 156 after the C→GOAL→C
+  // bridge fix in common/kscheme.cpp::call_goal) can be localised to
+  // a specific stack slot. The LR-relative disasm typically shows the
+  // failing LDR (e.g. `LDR X11, [SP, #24]; ADD X11, X11, X15; BLR X11`)
+  // — pair the offset with the stack-dump entry of the same offset to
+  // see what value preceded the 0 and where it might have come from
+  // (a sym-MEM load that returned 0, an uninitialised local, etc.).
+  uintptr_t sp = static_cast<uintptr_t>(uc->uc_mcontext.sp);
+  std::fprintf(stderr, "GK-DIAG stack dump (sp .. sp+256):\n");
+  for (intptr_t d = 0; d <= 256; d += 8) {
+    uintptr_t addr = sp + d;
+    uint32_t lo = 0, hi = 0;
+    if (gk_diag::safe_read_u32(addr, &lo) &&
+        gk_diag::safe_read_u32(addr + 4, &hi)) {
+      uint64_t v = (uint64_t)lo | ((uint64_t)hi << 32);
+      // Highlight slots that hold a GOAL ptr (low 32 bits ≠ 0 and high
+      // 32 bits 0) AND slots that are exactly 0 — the latter are the
+      // candidate sources for fn-ptr=0 → ee_base BLR.
+      const char* tag = "";
+      if (v == 0)
+        tag = "  <ZERO — candidate fn-ptr=0 source>";
+      else if ((v >> 32) == 0)
+        tag = "  <GOAL-ptr-shaped>";
+      std::fprintf(stderr, "GK-DIAG sp+%-3ld @ 0x%lx = 0x%016lx%s\n",
+                   (long)d, (unsigned long)addr, (unsigned long)v, tag);
+    } else {
+      std::fprintf(stderr, "GK-DIAG sp+%-3ld @ 0x%lx = <unreadable>\n",
+                   (long)d, (unsigned long)addr);
+    }
+  }
   std::fflush(stderr);
   struct sigaction sa {};
   sa.sa_handler = SIG_DFL;
