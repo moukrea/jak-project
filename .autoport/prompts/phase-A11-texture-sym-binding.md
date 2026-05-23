@@ -102,7 +102,8 @@ diagnostic and the first-layer fix, then write an
 
 ## Anti-cheat invariants
 
-Same as A6-A10:
+Same as A6-A10, plus a NEW explicit ban learned from a reverted cheat
+(commit 3c2d0ad8, supervisor revert 13c9ee334):
 
 - 0 `gk_recover_to_renderer` / `forced-recovery handoff` /
   `g_fault_recovery_armed` in source.
@@ -113,6 +114,18 @@ Same as A6-A10:
   markers, no synthesised renderer-entered dodge).
 - x86 CGOs byte-identical to A2 baseline (the change is arm64-only
   or runtime-only — must not affect x86 CGO bytes).
+- **arm64 CGOs byte-identical to A10 baseline** — A11 unlocks NO
+  goalc code, so CGO bytes MUST NOT change. Any drift implies an
+  unauthorized goalc edit. The validator hashes ENGINE/GAME/KERNEL
+  arm64 CGOs against `.autoport/reports/A10-baseline-arm64-cgo-hashes.txt`
+  and fails on mismatch.
+- **No "defensive null-ptr guard" around BLR** — wrapping function
+  calls in `CBZ freg, skip ; ADD freg, X15 ; call_r64 ; B cont ; skip:
+  MOV X0, XZR ; cont:` is a cheat that silently swallows
+  unbound-sym SIGILLs and propagates 0-returns through caller
+  chains, masking the actual bug rather than fixing it. The
+  validator binary-scans ENGINE.CGO for the `0xB400014X` (CBZ Xt,+40)
+  fingerprint and fails if it appears ≥10 times.
 - Desktop x86 `gk` smoke still reaches `link finish: logo`.
 
 ## Required deliverables

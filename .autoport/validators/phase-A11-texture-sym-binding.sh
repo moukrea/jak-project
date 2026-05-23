@@ -68,6 +68,40 @@ while read -r expected path; do
 done < "$A2_BASELINE"
 ok "x86 CGOs byte-identical to A2 baseline"
 
+# 7b. arm64 CGOs byte-identical to A10 baseline (A11 unlocks NO compiler code,
+#     so a CGO byte change implies an unauthorized goalc edit — incl. the
+#     CBZ-around-call cheat reverted at 13c9ee334).
+A10_ARM64_BASELINE=".autoport/reports/A10-baseline-arm64-cgo-hashes.txt"
+if [ -f "$A10_ARM64_BASELINE" ]; then
+    while read -r expected path; do
+        [ -z "$expected" ] && continue
+        actual=$(sha256sum "$path" 2>/dev/null | awk '{print $1}')
+        [ "$expected" = "$actual" ] || fail "arm64 CGO drift vs A10 baseline: $path (compiler likely modified)"
+    done < "$A10_ARM64_BASELINE"
+    ok "arm64 CGOs byte-identical to A10 baseline (no unauthorized goalc edit)"
+fi
+
+# 7c. Binary-level cheat-pattern scan: CBZ Xt, +40 (encoded 0xB400014X) appearing
+#     immediately before a call_r64 sequence is the fingerprint of the
+#     IR_FunctionCall null-ptr-guard cheat (commit 3c2d0ad8, reverted at 13c9ee334).
+#     Honest arm64 ENGINE.CGO has 0 such patterns.
+if [ -f out/jak1-arm64/iso/ENGINE.CGO ]; then
+    CBZ_HITS=$(python3 - <<'PY' || true
+import struct,sys
+data=open('out/jak1-arm64/iso/ENGINE.CGO','rb').read()
+hits=0
+for i in range(0,len(data)-4,4):
+    w=struct.unpack('<I',data[i:i+4])[0]
+    # CBZ Xt, +40  →  base 0xB4000000 | (10 << 5) | rt[0..30]
+    if (w & 0xFFFFFFE0) == 0xB4000140:
+        hits+=1
+print(hits)
+PY
+)
+    [ "${CBZ_HITS:-0}" -lt 10 ] || fail "binary cheat-fingerprint: $CBZ_HITS CBZ Xt,+40 in ENGINE.CGO (>=10) — null-ptr-guard cheat returned"
+    ok "no CBZ-around-call cheat-fingerprint in ENGINE.CGO ($CBZ_HITS, <10)"
+fi
+
 # 8. qemu repro progresses past texture
 if [ -x .autoport/lib/qemu_repro.sh ]; then
     bash .autoport/lib/qemu_repro.sh > /tmp/a11-qemu.log 2>&1 || true
