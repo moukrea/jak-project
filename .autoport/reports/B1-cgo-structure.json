@@ -14,14 +14,14 @@
       "snippet": "0:\ta9bf7bfd \tstp\tx29, x30, [sp, #-16]!\n4:\t910003fd \tmov\tx29, sp\n8:\taa0703e7 \tmov\tx7, x7\nc:\taa0703f7 \tmov\tx23, x7\n10:\t1e3802e9 \tfcvtzs\tw9, s23\n14:\t93407d29 \tsxtw\tx9, w9\n18:\t1e220137 \tscvtf\ts23, w9\n1c:\taa1703e0 \tmov\tx0, x23\n20:\taa0003e0 \tmov\tx0, x0\n24:\ta8c17bfd \tldp\tx29, x30, [sp], #16\n28:\td65f03c0 \tret"
     },
     "function_count": 3845,
-    "max_function_size": 46208,
-    "mean_function_size": 921,
+    "max_function_size": 47504,
+    "mean_function_size": 966,
     "min_function_size": 16,
     "object_count": 306,
-    "ret_density_per_kb": 0.7342,
-    "total_bytes": 7948096,
-    "x86_ret_count": 1657,
-    "x86_ret_pct": 0.0208
+    "ret_density_per_kb": 0.7033,
+    "total_bytes": 8297712,
+    "x86_ret_count": 1568,
+    "x86_ret_pct": 0.0189
   },
   "GAME.CGO": {
     "arm64_ret_count": 6108,
@@ -38,14 +38,14 @@
       "snippet": "0:\ta9bf7bfd \tstp\tx29, x30, [sp, #-16]!\n4:\t910003fd \tmov\tx29, sp\n8:\taa0703e7 \tmov\tx7, x7\nc:\taa0703f7 \tmov\tx23, x7\n10:\t1e3802e9 \tfcvtzs\tw9, s23\n14:\t93407d29 \tsxtw\tx9, w9\n18:\t1e220137 \tscvtf\ts23, w9\n1c:\taa1703e0 \tmov\tx0, x23\n20:\taa0003e0 \tmov\tx0, x0\n24:\ta8c17bfd \tldp\tx29, x30, [sp], #16\n28:\td65f03c0 \tret"
     },
     "function_count": 4199,
-    "max_function_size": 46208,
-    "mean_function_size": 910,
+    "max_function_size": 47504,
+    "mean_function_size": 956,
     "min_function_size": 16,
     "object_count": 346,
-    "ret_density_per_kb": 0.541,
-    "total_bytes": 11562000,
-    "x86_ret_count": 6187,
-    "x86_ret_pct": 0.0535
+    "ret_density_per_kb": 0.5239,
+    "total_bytes": 11938160,
+    "x86_ret_count": 6093,
+    "x86_ret_pct": 0.051
   },
   "KERNEL.CGO": {
     "arm64_ret_count": 233,
@@ -59,13 +59,13 @@
       "snippet": "0:\ta9bf7bfd \tstp\tx29, x30, [sp, #-16]!\n4:\t910003fd \tmov\tx29, sp\n8:\taa0703e7 \tmov\tx7, x7\nc:\taa0703e0 \tmov\tx0, x7\n10:\ta8c17bfd \tldp\tx29, x30, [sp], #16\n14:\td65f03c0 \tret"
     },
     "function_count": 197,
-    "max_function_size": 6341,
-    "mean_function_size": 391,
+    "max_function_size": 6533,
+    "mean_function_size": 411,
     "min_function_size": 20,
     "object_count": 8,
-    "ret_density_per_kb": 1.5023,
-    "total_bytes": 158816,
+    "ret_density_per_kb": 1.4338,
+    "total_bytes": 166400,
     "x86_ret_count": 6,
-    "x86_ret_pct": 0.0038
+    "x86_ret_pct": 0.0036
   }
 }
