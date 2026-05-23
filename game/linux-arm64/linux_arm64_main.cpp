@@ -240,6 +240,56 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   gk_diag::dump_sym_name_at_slot(
       static_cast<uintptr_t>(uc->uc_mcontext.regs[9]));
 
+  // A11 attempt-3 follow-up: scan the LR-relative window backwards for
+  // A5 sym-MEM triplets (`ADRP Xn, page ; ADD Xn, Xn, #imm12 ; LDR Wm,
+  // [Xn, #0]`) and dump_sym_name_at_slot each ADRP+ADD-resolved slot
+  // address. Some GOAL functions overwrite Xn after the sym-load with
+  // unrelated values (e.g. lr-140 `ADD X16, X5, X15` in the
+  // post-attempt-3 boot-ceiling SIGILL at gsound's top-level) — the
+  // simple X16/X9-at-signal-time probe above misses these. Walking the
+  // disasm window catches every ADRP-resolved sym slot regardless of
+  // whether the LDR base reg was reused.
+  std::fprintf(stderr, "GK-DIAG A11-DIAG sym-MEM triplet scan (-256..-4):\n");
+  {
+    int triplets_found = 0;
+    for (intptr_t d = -256; d <= -12; d += 4) {
+      uintptr_t adrp_pc = lr + d;
+      uint32_t adrp_enc = 0, add_enc = 0;
+      if (!gk_diag::safe_read_u32(adrp_pc, &adrp_enc)) continue;
+      // ADRP encoding: bit31=1, bits28:24=0b10000.
+      if (((adrp_enc >> 24) & 0x9f) != 0x90) continue;
+      uint32_t rd_adrp = adrp_enc & 0x1f;
+      // Look at the next instruction for ADD Xn, Xn, #imm12.
+      if (!gk_diag::safe_read_u32(adrp_pc + 4, &add_enc)) continue;
+      // ADD Xd, Xn, #imm12 encoding: 1001 0001 00 imm12 Rn Rd.
+      // i.e. bits 31:23 == 0b100100100  (= 0x122 in 9 bits)
+      if (((add_enc >> 23) & 0x1ff) != 0x122) continue;
+      uint32_t rn_add = (add_enc >> 5) & 0x1f;
+      uint32_t rd_add = add_enc & 0x1f;
+      if (rd_add != rn_add || rd_add != rd_adrp) continue;  // must be ADD Xd, Xd, #imm12
+      uint32_t imm12 = (add_enc >> 10) & 0xfff;
+      // Decode ADRP target.
+      uint32_t immlo = (adrp_enc >> 29) & 0x3;
+      uint32_t immhi = (adrp_enc >> 5) & 0x7ffff;
+      int32_t imm21 = static_cast<int32_t>((immhi << 2) | immlo);
+      if (imm21 & (1 << 20)) imm21 -= (1 << 21);  // sign-extend 21-bit
+      uintptr_t adrp_page = adrp_pc & ~uintptr_t(0xfff);
+      uintptr_t adrp_result = adrp_page +
+                              (static_cast<intptr_t>(imm21) << 12);
+      uintptr_t slot_host = adrp_result + imm12;
+      std::fprintf(stderr,
+                   "GK-DIAG   triplet @ lr%+ld: ADRP X%u, 0x%lx ; ADD X%u, X%u, #0x%x  => slot=0x%lx\n",
+                   (long)d, (unsigned)rd_adrp, (unsigned long)adrp_result,
+                   (unsigned)rd_add, (unsigned)rn_add, (unsigned)imm12,
+                   (unsigned long)slot_host);
+      gk_diag::dump_sym_name_at_slot(slot_host);
+      ++triplets_found;
+    }
+    if (triplets_found == 0) {
+      std::fprintf(stderr, "GK-DIAG   (no A5 sym-MEM triplets in window)\n");
+    }
+  }
+
   for (intptr_t d = -256; d <= 16; d += 4) {
     uintptr_t addr = lr + d;
     uint32_t insn = 0;
