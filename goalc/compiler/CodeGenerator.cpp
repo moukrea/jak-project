@@ -376,75 +376,158 @@ void CodeGenerator::do_goal_function_x86(FunctionEnv* env, int f_idx) {
 }
 
 void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
-  // Minimum-viable AArch64 prologue/epilogue (phase 24).
+  // AArch64 prologue + spill load/store + epilogue.
   //
-  // We deliberately do not implement saved-reg backup / spill restore: the
-  // GOAL register allocator is x86-shaped and the synthetic phase-24 smoke
-  // file's four functions are tiny enough that all values stay live in
-  // caller-saved registers. This keeps the prologue/epilogue at four
-  // ARM64 instructions exactly so even the smallest synthetic function
-  // (`fortytwo`) clears the validator's "≥4 aarch64-decoded instructions"
-  // floor on its own.
+  // Frame layout after prologue:
   //
-  // Prologue (always 2 instructions, 8 bytes):
-  //   stp x29, x30, [sp, #-16]!   ; 0xA9BF7BFD
-  //   mov x29, sp                 ; 0x910003FD
+  //                 +-------------------+  <- SP at function entry
+  //                 |   saved FP/LR     |  16 bytes (stp x29,x30,[sp,#-16]!)
+  //                 +-------------------+  <- X29 (FP)
+  //                 |  spill / var      |
+  //                 |  slots (8 bytes   |  frame_bytes (16-byte aligned)
+  //                 |  per slot)        |
+  //                 +-------------------+  <- SP after prologue
   //
-  // Epilogue (always 2 instructions, 8 bytes):
-  //   ldp x29, x30, [sp], #16     ; 0xA8C17BFD
-  //   ret                         ; 0xD65F03C0
+  // Prologue:
+  //   stp x29, x30, [sp, #-16]!     ; save FP/LR, SP -= 16    (0xA9BF7BFD)
+  //   mov x29, sp                   ; FP = SP                  (0x910003FD)
+  //   sub sp, sp, #frame_bytes      ; reserve spill area       (only if > 0)
   //
-  // No stack pointer manipulation for spills: we don't generate spill
-  // load/store ops on the arm64 path. If a function ever needs spills
-  // the regalloc will assert and we'll know to expand this.
+  // Epilogue (mirrors the prologue):
+  //   add sp, sp, #frame_bytes      ; free spill area          (only if > 0)
+  //   ldp x29, x30, [sp], #16       ; restore FP/LR, SP += 16  (0xA8C17BFD)
+  //   ret                           ;                          (0xD65F03C0)
+  //
+  // Spill ops are SP-relative LDR/STR at byte offset slot_idx*8 within the
+  // frame, where slot_idx = allocs.get_slot_for_spill(op.slot). Each slot is
+  // 8 bytes (GPR_SIZE); the regalloc aligns 2-slot (Q-reg) spills onto even
+  // indices via slot_size=2 in get_stack_slot_for_var, so 16-byte forms can
+  // use the scaled imm12 encoding directly.
+  //
+  // Before A9: prologue/spill-load/spill-store/epilogue all emitted as NOPs
+  // (kArm64Nop = 0xD503201F). The register allocator silently spilled values
+  // that the codegen then refused to materialise — the consumer of a spilled
+  // value read whatever stale register state was lying around. For
+  // display.gc's font-context (new ...) the spilled value was the dispatched
+  // method's function pointer; the consumer's BLR fired with 0 (the literal
+  // for arg3) instead, faulting at the EE base. See A8-displaygc-root-cause.md
+  // and A6-attempt-5-blocker.md for the per-instruction trace.
+
   auto* debug = &m_debug_info->function_by_name(env->name());
   auto f_rec = m_gen.get_existing_function_record(f_idx);
   const auto& allocs = env->alloc_result();
 
-  // Phase-25 widening: jak1 functions routinely need spill slots. We emit a
-  // single 4-byte SUB-SP placeholder if any stack frame is needed (the
-  // immediate is meaningless because the backend doesn't actually execute;
-  // a NOP would do too) and emit a NOP for every spill load/store the
-  // regalloc requests, just to keep the instruction stream aligned with
-  // the bookkeeping IR ids. The validator audits aarch64-shape, not
-  // semantics, so this is enough to keep the per-function ret encodings
-  // dense.
+  // Frame size. 8 bytes per slot; round up to 16 for AArch64 SP alignment.
+  int total_slots = allocs.stack_slots_for_spills + allocs.stack_slots_for_vars;
+  int frame_bytes = (total_slots * GPR_SIZE + 15) & ~15;
+  if ((allocs.needs_aligned_stack_for_spills || env->needs_aligned_stack()) &&
+      frame_bytes == 0) {
+    // Caller wants 16-byte alignment but doesn't actually consume slots;
+    // reserve one quad just so the SP movement is visible to anyone tracking
+    // frame boundaries (matches the x86 path's bonus_push behaviour).
+    frame_bytes = 16;
+  }
+  // SUB/ADD SP, SP, #imm12 caps at 4095 (no LSL #12 path here). The biggest
+  // arm64 GOAL function in jak1 uses a handful of spill slots; assert so any
+  // future blow-out is loud rather than silently wrapping the imm12 field.
+  ASSERT(frame_bytes <= 0xfff);
+
+  // stp x29, x30, [sp, #-16]!
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0xA9BF7BFDu),
                         InstructionInfo::Kind::PROLOGUE);
+  // mov x29, sp
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0x910003FDu),
                         InstructionInfo::Kind::PROLOGUE);
-  bool need_stack = allocs.stack_slots_for_spills || allocs.stack_slots_for_vars ||
-                    allocs.needs_aligned_stack_for_spills || env->needs_aligned_stack();
-  if (need_stack) {
-    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0xd503201fu),
+  if (frame_bytes > 0) {
+    // sub sp, sp, #frame_bytes
+    //   Base 0xD1000000 (SUB immediate, sf=1, sh=0), Rn=Rd=31 (SP) -> 0xD10003FF.
+    //   imm12 in bits 21..10.
+    uint32_t sub_sp_enc =
+        0xD10003FFu | ((static_cast<uint32_t>(frame_bytes) & 0xfffu) << 10);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(sub_sp_enc),
                           InstructionInfo::Kind::PROLOGUE);
   }
-  debug->stack_usage = 16;
+  debug->stack_usage = 16 + frame_bytes;
 
   for (int ir_idx = 0; ir_idx < int(env->code().size()); ir_idx++) {
     auto& ir = env->code().at(ir_idx);
     auto i_rec = m_gen.add_ir(f_rec);
     const auto& bonus = allocs.stack_ops.at(ir_idx);
+
+    // Spill LOAD before the IR: restore stashed values into the IR's input regs.
+    //   LDR Xt, [SP, #imm]   base 0xF9400000   imm12 scaled by 8
+    //   LDR St, [SP, #imm]   base 0xBD400000   imm12 scaled by 4
+    //   LDR Qt, [SP, #imm]   base 0x3DC00000   imm12 scaled by 16
     for (const auto& op : bonus.ops) {
-      if (op.load) {
-        m_gen.add_instr(emitter::InstructionARM64(0xd503201fu), i_rec);  // spill load placeholder
+      if (!op.load) {
+        continue;
       }
+      int byte_off = allocs.get_slot_for_spill(op.slot) * GPR_SIZE;
+      uint32_t rt = static_cast<uint32_t>(op.reg.id()) & 0x1fu;
+      uint32_t enc = 0;
+      if (op.reg_class == RegClass::GPR_64) {
+        uint32_t imm12 = (static_cast<uint32_t>(byte_off) >> 3) & 0xfffu;
+        enc = 0xF9400000u | (imm12 << 10) | (31u << 5) | rt;
+      } else if (op.reg_class == RegClass::FLOAT) {
+        uint32_t imm12 = (static_cast<uint32_t>(byte_off) >> 2) & 0xfffu;
+        enc = 0xBD400000u | (imm12 << 10) | (31u << 5) | rt;
+      } else if (op.reg_class == RegClass::VECTOR_FLOAT ||
+                 op.reg_class == RegClass::INT_128) {
+        ASSERT_MSG((byte_off & 0xf) == 0,
+                   "arm64 Q-reg spill slot must be 16-byte aligned (regalloc bug?)");
+        uint32_t imm12 = (static_cast<uint32_t>(byte_off) >> 4) & 0xfffu;
+        enc = 0x3DC00000u | (imm12 << 10) | (31u << 5) | rt;
+      } else {
+        ASSERT_MSG(false, "do_goal_function_arm64: spill load with unsupported reg_class");
+      }
+      m_gen.add_instr(emitter::InstructionARM64(enc), i_rec);
     }
+
     ir_emit_stats::record(typeid(*ir), true);
     ir->do_codegen_arm64(&m_gen, allocs, i_rec);
+
+    // Spill STORE after the IR: stash the IR's output reg into its slot.
+    //   STR Xt, [SP, #imm]   base 0xF9000000   imm12 scaled by 8
+    //   STR St, [SP, #imm]   base 0xBD000000   imm12 scaled by 4
+    //   STR Qt, [SP, #imm]   base 0x3D800000   imm12 scaled by 16
     for (const auto& op : bonus.ops) {
-      if (op.store) {
-        m_gen.add_instr(emitter::InstructionARM64(0xd503201fu), i_rec);  // spill store placeholder
+      if (!op.store) {
+        continue;
       }
+      int byte_off = allocs.get_slot_for_spill(op.slot) * GPR_SIZE;
+      uint32_t rt = static_cast<uint32_t>(op.reg.id()) & 0x1fu;
+      uint32_t enc = 0;
+      if (op.reg_class == RegClass::GPR_64) {
+        uint32_t imm12 = (static_cast<uint32_t>(byte_off) >> 3) & 0xfffu;
+        enc = 0xF9000000u | (imm12 << 10) | (31u << 5) | rt;
+      } else if (op.reg_class == RegClass::FLOAT) {
+        uint32_t imm12 = (static_cast<uint32_t>(byte_off) >> 2) & 0xfffu;
+        enc = 0xBD000000u | (imm12 << 10) | (31u << 5) | rt;
+      } else if (op.reg_class == RegClass::VECTOR_FLOAT ||
+                 op.reg_class == RegClass::INT_128) {
+        ASSERT_MSG((byte_off & 0xf) == 0,
+                   "arm64 Q-reg spill slot must be 16-byte aligned (regalloc bug?)");
+        uint32_t imm12 = (static_cast<uint32_t>(byte_off) >> 4) & 0xfffu;
+        enc = 0x3D800000u | (imm12 << 10) | (31u << 5) | rt;
+      } else {
+        ASSERT_MSG(false, "do_goal_function_arm64: spill store with unsupported reg_class");
+      }
+      m_gen.add_instr(emitter::InstructionARM64(enc), i_rec);
     }
   }
 
-  if (need_stack) {
-    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0xd503201fu),
+  if (frame_bytes > 0) {
+    // add sp, sp, #frame_bytes
+    //   Base 0x91000000 (ADD immediate, sf=1, sh=0), Rn=Rd=31 (SP) -> 0x910003FF.
+    uint32_t add_sp_enc =
+        0x910003FFu | ((static_cast<uint32_t>(frame_bytes) & 0xfffu) << 10);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(add_sp_enc),
                           InstructionInfo::Kind::EPILOGUE);
   }
+  // ldp x29, x30, [sp], #16
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0xA8C17BFDu),
                         InstructionInfo::Kind::EPILOGUE);
+  // ret
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0xD65F03C0u),
                         InstructionInfo::Kind::EPILOGUE);
 }
