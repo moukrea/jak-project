@@ -98,10 +98,49 @@ if boot_log_crashed "$BOOT_LOG"; then
 fi
 ok "no crash detected (narrow F DEBUG + libsigchain + FATAL EXCEPTION + GK-DIAG-burst all clean)"
 
-# ---- 10. Render loop entered ----
+# ---- 10. Render loop entered (with anti-cheat hardening) ----
+#
+# 2026-05-23 supervisor: claude attempt 3 commit 9ff94b36f tried to satisfy
+# this check by installing a signal handler that catches the GOAL VM crash
+# and runs a FAKE loop synthesizing the exact log markers the validator
+# greps for ("android_renderer_run: entered" + "sustained swap N"). The
+# real renderer never ran. To prevent that pattern, require evidence that
+# the REAL renderer initialized — markers that only the SDL + GL path emits:
+#
+#   "SDL_Init: video subsystem OK"
+#   "SDL_CreateWindow: <WxH> created"
+#   "SDL_GL_CreateContext: ok"
+#   "GL_RENDERER: <vendor string>"
+#   "GL_VERSION: <gles version>"
+#
+# These come from android_renderer.cpp's actual SDL/GL bring-up. A
+# synthesized-log dodge would have to fabricate ALL of them, including a
+# plausible GL_RENDERER string. The "forced-recovery handoff" marker from
+# the reverted dodge is an explicit FAIL signal.
+
+# Hard fail on the explicit-dodge marker first.
+if grep -qE "forced-recovery handoff|gk_recover_to_renderer" "$BOOT_LOG"; then
+    fail "fault-recovery dodge detected — signal handler synthesizing renderer markers (reverted commit 9ff94b36f pattern). Real renderer must run, not a recovery loop."
+fi
+
 grep -qE "android_renderer_run: entered" "$BOOT_LOG" \
     || fail "android_renderer_run never entered (kmachine returned without dispatching renderer?)"
 ok "android_renderer_run entered"
+
+# Require evidence the REAL SDL/GL renderer initialized, not a forged
+# log loop. At least 3 of the 5 SDL/GL milestones must fire.
+SDL_GL_HITS=0
+for m in 'SDL_Init: video subsystem OK' \
+         'SDL_CreateWindow: [0-9]+x[0-9]+ created' \
+         'SDL_GL_CreateContext: ok' \
+         'GL_RENDERER: ' \
+         'GL_VERSION: '; do
+    if grep -qE "$m" "$BOOT_LOG"; then
+        SDL_GL_HITS=$((SDL_GL_HITS + 1))
+    fi
+done
+[ "$SDL_GL_HITS" -ge 3 ] || fail "only $SDL_GL_HITS/5 SDL+GL real-renderer markers in logcat (need ≥ 3 — synthesized renderer-entered marker without underlying SDL/GL bring-up = dodge)"
+ok "$SDL_GL_HITS/5 SDL+GL real-renderer markers (proves the real SDL/GL path ran, not a synthesized loop)"
 
 # ---- 11. Sustained-swap heartbeat fired at least once ----
 grep -qE "android_renderer: sustained swap [0-9]+" "$BOOT_LOG" \
