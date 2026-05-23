@@ -76,31 +76,75 @@ up. With the binding in place this now reaches `RpcCall_wrapper`
 → `sceSifCallRpc` → `iop->kernel.sif_rpc(...)`, which is the call
 path that hits the bad mutex.
 
+## Empirical confirmation from a probe experiment
+
+Before recommending the unlock, the A12 attempt probed how far boot
+gets if the mutex is made valid — *without* solving the full IOP
+infrastructure problem. The probe (added then reverted in A12, see
+the rationale below):
+
+```cpp
+// in linux_arm64_main.cpp::boot_kernel_init after the A11/A12 binds
+static IOP s_a12_iop_for_arm64;
+ee::LIBRARY_sceSif_register(&s_a12_iop_for_arm64);
+```
+
+With the static IOP registered, the std::mutex inside IOP_Kernel is
+default-constructed and pthread_mutex_lock no longer SEGVs. Boot
+gets past the mutex lock and into the rest of `IOP_Kernel::sif_rpc`,
+which then asserts:
+
+```
+Failed to find handler for sif channel 0x0
+[…die] Assertion failed: 'rec'
+  Source: game/system/IOP_Kernel.cpp:477
+  Function: void IOP_Kernel::sif_rpc(s32, u32, bool, void*, s32, void*, s32)
+```
+
+So the boot is now blocked one layer deeper: the IOP_Kernel doesn't
+have any `SifRecord` handlers registered (channel 0 =
+PLAYER_RPC_CHANNEL). On desktop those are registered by the IOP
+overlord-runner code path (`game/runtime.cpp::iop_runner` + the
+overlord init chain that calls `set_rpc_queue` for each channel).
+
+The link-finish count stayed at 156 — the assertion fires before
+gsound's top-level can complete. So the probe doesn't actually
+unblock the validator's check 8b, which is why the static IOP add
+was REVERTED in A12 and the proper fix deferred to A13. The
+empirical finding still narrows A13's scope: **the mutex SEGV is
+not the real next-blocker; the missing SifRecord handler
+registration is**. Whatever A13 does must register handlers, not
+just init the mutex.
+
 ## Recommended A13 unlock + scope
 
 Three candidates, in increasing scope:
 
-### A13-a — IOP_Kernel mutex pre-init (smallest)
+### A13-a — static IOP + register null handlers for all 6 channels (smallest)
 
-In `init_all_globals` (or a new `iop_kernel_init_globals_for_arm64`
-hook), call `pthread_mutex_init(&iop->kernel.mtx, nullptr)` plus
-zero-init the rest of IOP_Kernel's state (whatever its real
-constructor would have done — read it from
-`game/system/IOP_Kernel.cpp` and replicate by hand).
+Combine the probe above with pre-registration of null `SifRecord`
+handlers for the 6 RPC channels (PLAYER, LOADER, RAMDISK, DGO, STR,
+PLAY). The handler functions can be no-op returning 0; that turns
+sif_rpc's assertion into a successful queue-and-return.
 
-Pros: tiny scope, no thread spawning. Works if every rpc-call
-invocation gsound and downstream CGOs make is `async=true` — the
-sif_rpc will queue the request and return 0 without waiting; no
-serving IOP needed.
+Pros: small scope, no thread spawning, no libco coroutine
+coordination. Works for every async rpc-call (mode=1) since the
+GOAL-side `(when (nonzero? (rpc-busy? …)))` check would also need a
+sif_busy that always returns 0 — easy if no handler dispatch
+actually happens.
 
-Cons: any subsequent `RpcSync` / `RpcBusy` call on a sync RPC
-channel will spin forever (no IOP thread to set sif_busy=false).
-The first such call probably happens during `(boot-game …)` when
-loading the first level DGO via `DGO_RPC_CHANNEL`.
+Cons: the null handlers DO NO ACTUAL WORK — any GOAL code that
+depends on RPC results (e.g. dgo-load returning the loaded data)
+won't work. Boot probably advances by several dozen CGOs before
+hitting the first such dependency.
 
-Unlock: `linux_arm64_main.cpp`, `linux_arm64_runtime_compat.cpp`
-(to add the init function), maybe `klink.cpp` if the hook needs to
-live there.
+Risk: this is dangerously close to the stub-shaped anti-pattern.
+The null handlers must be NAMED honestly and CLEARLY annotated as
+"arm64 no-IOP-thread placeholder until A14 spawns the real IOP",
+not silently silencing missing functionality.
+
+Unlock: `linux_arm64_main.cpp`, `linux_arm64_runtime_compat.cpp`,
+maybe `klink.cpp` for the helper.
 
 ### A13-b — synchronous direct-call sif_rpc on arm64 (medium)
 
