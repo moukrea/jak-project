@@ -470,6 +470,413 @@ void dump_stack_fnptr_zero_chain(uintptr_t lr, uintptr_t sp) {
   std::fprintf(stderr, "GK-DIAG A12-DIAG sym-walk-back:\n");
   dump_sym_name_at_slot(sym_slot);
 }
+
+// ---------------------------------------------------------------------------
+// A16-DIAG (authored 2026-05-24): ADRP/ADD pair walker with forward
+// clobber detection.
+//
+// Context — A15 attempts 1+2 both reverted because the regalloc
+// constraint fix advanced qemu (+46 link-finishes) but REGRESSED the
+// Redmi Note 9 Pro device (-101 to -113 link-finishes). claude's
+// .autoport/reports/A15-attempt-2-next-blocker.md pinpointed the
+// device crash as a clobbered X16 inside the per-CGO sym-table
+// initializer loop (x16 = 0xe418c0f914, an impossible-ADRP value).
+//
+// Hypothesis (from same report): "one of the redistributed assignments
+// puts a live vreg in a register that's clobbered by a ADRP/ADD/LDR
+// sym-slot triplet … the clobbered register happens to be x16."
+//
+// A16 is a diagnostic-only phase: for each ADRP/ADD pair (or standalone
+// ADRP) in the lr-256..lr-8 window, walk forward up to 32 instructions
+// and identify the first instruction that either:
+//   - writes the ADRP target reg Xd → CLOBBER (the value never reached
+//     a sym-MEM consumer); emit `A16-DIAG x16-clobber: ... clobbered-
+//     between TRUE` so the line is greppable.
+//   - reads Xd → PRESERVED (Xd survived to its intended use); emit
+//     `A16-DIAG preserved: ... clobbered-between FALSE`.
+//
+// The qemu_repro side will mostly emit "preserved" lines (qemu doesn't
+// trigger the device's regalloc-introduced clobber). The device side
+// is expected to emit at least one "x16-clobber" line. That delta is
+// the data the supervisor needs to author A17's narrow codegen fix.
+//
+// The "x16" in the line name reflects the OpenGOAL sym-MEM convention
+// (Xd defaults to X16 per goalc/emitter/Register.h's m_scratch_arm_arr);
+// the detector itself works for any Xd 0..30 and prints the actual reg
+// number in each line.
+//
+// Output is single-line per logical message (no multi-line indentation)
+// so the validator's grep can pick up entries without join logic.
+// ---------------------------------------------------------------------------
+
+// Returns the GP destination register index (0..30) for the given arm64
+// instruction encoding, or -1 if the instruction doesn't write a GP
+// reg or we don't recognise its class. Returns 30 for BL/BLR (LR write).
+int decode_arm64_write_reg(uint32_t enc) {
+  uint32_t rd = enc & 0x1Fu;
+  uint32_t rn = (enc >> 5) & 0x1Fu;
+  // BL: writes X30.
+  if ((enc & 0xFC000000u) == 0x94000000u) return 30;
+  // BLR: writes X30.
+  if ((enc & 0xFFFFFC1Fu) == 0xD63F0000u) return 30;
+  // BR / RET: no GP write.
+  if ((enc & 0xFFFFFC1Fu) == 0xD61F0000u) return -1;
+  if ((enc & 0xFFFFFC1Fu) == 0xD65F0000u) return -1;
+  // ADR / ADRP: writes Rd.
+  if ((enc & 0x9F000000u) == 0x90000000u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0x9F000000u) == 0x10000000u) return rd == 31u ? -1 : (int)rd;
+  // MOVZ/MOVN/MOVK (W/X): writes Rd.
+  if ((enc & 0x7F800000u) == 0x52800000u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0x7F800000u) == 0x12800000u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0x7F800000u) == 0x72800000u) return rd == 31u ? -1 : (int)rd;
+  // LDP X no-wb: writes Rt (Rt2 handled in decode_arm64_writes_reg).
+  if ((enc & 0xFFC00000u) == 0xA9400000u) return rd == 31u ? -1 : (int)rd;
+  // STP X no-wb: no GP write.
+  if ((enc & 0xFFC00000u) == 0xA9000000u) return -1;
+  // LDP X pre/post (writeback): writes Rt + Rn (Rn caught in writes_reg).
+  if ((enc & 0xFFC00000u) == 0xA8C00000u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0xFFC00000u) == 0xA9C00000u) return rd == 31u ? -1 : (int)rd;
+  // STP X pre/post: writes Rn (writeback only).
+  if ((enc & 0xFFC00000u) == 0xA8800000u) return rn == 31u ? -1 : (int)rn;
+  if ((enc & 0xFFC00000u) == 0xA9800000u) return rn == 31u ? -1 : (int)rn;
+  // LDR X pre/post-indexed: writes Rt + Rn (writeback caught in writes_reg).
+  if ((enc & 0xFFE00C00u) == 0xF8400400u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0xFFE00C00u) == 0xF8400C00u) return rd == 31u ? -1 : (int)rd;
+  // STR X pre/post-indexed: writes Rn (writeback only).
+  if ((enc & 0xFFE00C00u) == 0xF8000400u) return rn == 31u ? -1 : (int)rn;
+  if ((enc & 0xFFE00C00u) == 0xF8000C00u) return rn == 31u ? -1 : (int)rn;
+  // LDR (immediate scaled, no writeback): writes Rt.
+  if ((enc & 0xFFC00000u) == 0xF9400000u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0xFFC00000u) == 0xB9400000u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0xFFC00000u) == 0xB9800000u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0xFFC00000u) == 0x79400000u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0xFFC00000u) == 0x39400000u) return rd == 31u ? -1 : (int)rd;
+  // STR (immediate scaled, no writeback): no GP write.
+  if ((enc & 0xFFC00000u) == 0xF9000000u) return -1;
+  if ((enc & 0xFFC00000u) == 0xB9000000u) return -1;
+  if ((enc & 0xFFC00000u) == 0x79000000u) return -1;
+  if ((enc & 0xFFC00000u) == 0x39000000u) return -1;
+  // Data-processing (immediate): ADD/SUB/AND/OR/EOR/ADDS/SUBS/ANDS imm.
+  if ((enc & 0x1F800000u) == 0x11000000u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0x1F800000u) == 0x12000000u) return rd == 31u ? -1 : (int)rd;
+  // Data-processing (register): ADD/SUB reg, AND/OR/EOR/ANDS reg, MOV.
+  if ((enc & 0x1F000000u) == 0x0B000000u) return rd == 31u ? -1 : (int)rd;
+  if ((enc & 0x1F000000u) == 0x0A000000u) return rd == 31u ? -1 : (int)rd;
+  // 3-source: MADD/MSUB/SMADDL/UMADDL.
+  if ((enc & 0x1F000000u) == 0x1B000000u) return rd == 31u ? -1 : (int)rd;
+  // 2-source: SDIV/UDIV/LSLV/LSRV/ASRV/RORV.
+  if ((enc & 0x1FE00000u) == 0x1AC00000u) return rd == 31u ? -1 : (int)rd;
+  // 1-source: RBIT/REV16/REV32/REV/CLZ/CLS.
+  if ((enc & 0x5FE00000u) == 0x5AC00000u) return rd == 31u ? -1 : (int)rd;
+  // Conditional select: CSEL/CSINC/CSINV/CSNEG.
+  if ((enc & 0x1FE00000u) == 0x1A800000u) return rd == 31u ? -1 : (int)rd;
+  // Bitfield: SBFM/BFM/UBFM (LSL/LSR/ASR aliases).
+  if ((enc & 0x1F800000u) == 0x13000000u) return rd == 31u ? -1 : (int)rd;
+  // Extract: EXTR.
+  if ((enc & 0x1F800000u) == 0x13800000u) return rd == 31u ? -1 : (int)rd;
+  return -1;
+}
+
+// Returns true if the instruction writes xreg (0..30) via any path:
+// primary destination, LDP Rt2, or pre/post-index writeback to Rn.
+bool decode_arm64_writes_reg(uint32_t enc, int xreg) {
+  if (xreg < 0 || xreg > 30) return false;
+  if (decode_arm64_write_reg(enc) == xreg) return true;
+  uint32_t rt2 = (enc >> 10) & 0x1Fu;
+  uint32_t rn = (enc >> 5) & 0x1Fu;
+  uint32_t xr = (uint32_t)xreg;
+  // LDP X writes Rt2 too.
+  if (rt2 == xr) {
+    if ((enc & 0xFFC00000u) == 0xA9400000u     // LDP X no-wb
+        || (enc & 0xFFC00000u) == 0xA8C00000u  // LDP X post
+        || (enc & 0xFFC00000u) == 0xA9C00000u) // LDP X pre
+      return true;
+  }
+  // Pre/post-indexed LDR/STR/LDP/STP writes Rn (writeback).
+  if (rn == xr) {
+    if ((enc & 0xFFE00C00u) == 0xF8400C00u     // LDR pre
+        || (enc & 0xFFE00C00u) == 0xF8400400u  // LDR post
+        || (enc & 0xFFE00C00u) == 0xF8000C00u  // STR pre
+        || (enc & 0xFFE00C00u) == 0xF8000400u  // STR post
+        || (enc & 0xFFC00000u) == 0xA9800000u  // STP X pre
+        || (enc & 0xFFC00000u) == 0xA8800000u  // STP X post
+        || (enc & 0xFFC00000u) == 0xA9C00000u  // LDP X pre
+        || (enc & 0xFFC00000u) == 0xA8C00000u) // LDP X post
+      return true;
+  }
+  return false;
+}
+
+// Returns true if the instruction reads xreg (0..30) via any source GP
+// register field. Conservative: returns false for unrecognised classes
+// (no false-positive clobber, but may miss exotic reads).
+bool decode_arm64_reads_reg(uint32_t enc, int xreg) {
+  if (xreg < 0 || xreg > 30) return false;
+  uint32_t rn = (enc >> 5) & 0x1Fu;
+  uint32_t rm = (enc >> 16) & 0x1Fu;
+  uint32_t rt = enc & 0x1Fu;
+  uint32_t rt2 = (enc >> 10) & 0x1Fu;
+  uint32_t xr = (uint32_t)xreg;
+  // BL/B/B.cond: no GP read.
+  if ((enc & 0xFC000000u) == 0x94000000u) return false;
+  if ((enc & 0xFC000000u) == 0x14000000u) return false;
+  if ((enc & 0xFF000010u) == 0x54000000u) return false;
+  // CBZ/CBNZ (W or X variant) / TBZ/TBNZ: Rt source.
+  if ((enc & 0x7F000000u) == 0x35000000u) return rt == xr;
+  if ((enc & 0x7F000000u) == 0x34000000u) return rt == xr;
+  if ((enc & 0x7E000000u) == 0x36000000u) return rt == xr;
+  // BLR/BR/RET: Rn source.
+  if ((enc & 0xFFFFFC1Fu) == 0xD63F0000u) return rn == xr;
+  if ((enc & 0xFFFFFC1Fu) == 0xD61F0000u) return rn == xr;
+  if ((enc & 0xFFFFFC1Fu) == 0xD65F0000u) return rn == xr;
+  // ADR/ADRP: no GP read.
+  if ((enc & 0x9F000000u) == 0x90000000u) return false;
+  if ((enc & 0x9F000000u) == 0x10000000u) return false;
+  // MOVZ/MOVN/MOVK: no GP read (MOVK semantically preserves Rd bits but
+  // we treat MOVK as write-only and rely on writes_reg to catch the
+  // clobber).
+  if ((enc & 0x7F800000u) == 0x52800000u) return false;
+  if ((enc & 0x7F800000u) == 0x12800000u) return false;
+  if ((enc & 0x7F800000u) == 0x72800000u) return false;
+  // LDP X (no-wb / pre / post): Rn source.
+  if ((enc & 0xFFC00000u) == 0xA9400000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0xA8C00000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0xA9C00000u) return rn == xr;
+  // STP X (no-wb / pre / post): Rn, Rt, Rt2 source.
+  if ((enc & 0xFFC00000u) == 0xA9000000u)
+    return rn == xr || rt == xr || rt2 == xr;
+  if ((enc & 0xFFC00000u) == 0xA8800000u)
+    return rn == xr || rt == xr || rt2 == xr;
+  if ((enc & 0xFFC00000u) == 0xA9800000u)
+    return rn == xr || rt == xr || rt2 == xr;
+  // LDR pre/post-indexed: Rn source.
+  if ((enc & 0xFFE00C00u) == 0xF8400C00u) return rn == xr;
+  if ((enc & 0xFFE00C00u) == 0xF8400400u) return rn == xr;
+  // STR pre/post-indexed: Rn, Rt source.
+  if ((enc & 0xFFE00C00u) == 0xF8000C00u) return rn == xr || rt == xr;
+  if ((enc & 0xFFE00C00u) == 0xF8000400u) return rn == xr || rt == xr;
+  // LDR (immediate scaled, no writeback): Rn source.
+  if ((enc & 0xFFC00000u) == 0xF9400000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0xB9400000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0xB9800000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0x79400000u) return rn == xr;
+  if ((enc & 0xFFC00000u) == 0x39400000u) return rn == xr;
+  // STR (immediate scaled, no writeback): Rn, Rt source.
+  if ((enc & 0xFFC00000u) == 0xF9000000u) return rn == xr || rt == xr;
+  if ((enc & 0xFFC00000u) == 0xB9000000u) return rn == xr || rt == xr;
+  if ((enc & 0xFFC00000u) == 0x79000000u) return rn == xr || rt == xr;
+  if ((enc & 0xFFC00000u) == 0x39000000u) return rn == xr || rt == xr;
+  // Data-processing (immediate): Rn source.
+  if ((enc & 0x1F800000u) == 0x11000000u) return rn == xr;
+  if ((enc & 0x1F800000u) == 0x12000000u) return rn == xr;
+  // Data-processing (register): Rn, Rm source. MOV (ORR Xd,XZR,Xs) is
+  // covered here; ZR-as-Rn just gives a no-match for any xreg 0..30.
+  if ((enc & 0x1F000000u) == 0x0B000000u) return rn == xr || rm == xr;
+  if ((enc & 0x1F000000u) == 0x0A000000u) return rn == xr || rm == xr;
+  // 3-source: Rn, Rm, Ra (Ra in [14:10] = rt2 position).
+  if ((enc & 0x1F000000u) == 0x1B000000u)
+    return rn == xr || rm == xr || rt2 == xr;
+  // 2-source: Rn, Rm.
+  if ((enc & 0x1FE00000u) == 0x1AC00000u) return rn == xr || rm == xr;
+  // 1-source: Rn.
+  if ((enc & 0x5FE00000u) == 0x5AC00000u) return rn == xr;
+  // Conditional select: Rn, Rm.
+  if ((enc & 0x1FE00000u) == 0x1A800000u) return rn == xr || rm == xr;
+  // Bitfield: Rn.  Extract: Rn, Rm.
+  if ((enc & 0x1F800000u) == 0x13000000u) return rn == xr;
+  if ((enc & 0x1F800000u) == 0x13800000u) return rn == xr || rm == xr;
+  return false;
+}
+
+// Short opcode mnemonic for the diag output. Returns a static C string.
+const char* decode_arm64_mnemonic(uint32_t enc) {
+  if ((enc & 0xFC000000u) == 0x94000000u) return "BL";
+  if ((enc & 0xFC000000u) == 0x14000000u) return "B";
+  if ((enc & 0xFFFFFC1Fu) == 0xD63F0000u) return "BLR";
+  if ((enc & 0xFFFFFC1Fu) == 0xD61F0000u) return "BR";
+  if ((enc & 0xFFFFFC1Fu) == 0xD65F0000u) return "RET";
+  if ((enc & 0xFF000010u) == 0x54000000u) return "B.cond";
+  if ((enc & 0x7F000000u) == 0x34000000u) return "CBZ";
+  if ((enc & 0x7F000000u) == 0x35000000u) return "CBNZ";
+  if ((enc & 0x7E000000u) == 0x36000000u) return "TBZ/TBNZ";
+  if ((enc & 0x9F000000u) == 0x90000000u) return "ADRP";
+  if ((enc & 0x9F000000u) == 0x10000000u) return "ADR";
+  if ((enc & 0x7F800000u) == 0x52800000u) return "MOVZ";
+  if ((enc & 0x7F800000u) == 0x12800000u) return "MOVN";
+  if ((enc & 0x7F800000u) == 0x72800000u) return "MOVK";
+  if ((enc & 0xFFC00000u) == 0xA9400000u) return "LDP";
+  if ((enc & 0xFFC00000u) == 0xA9000000u) return "STP";
+  if ((enc & 0xFFC00000u) == 0xA8C00000u) return "LDP-post";
+  if ((enc & 0xFFC00000u) == 0xA9C00000u) return "LDP-pre";
+  if ((enc & 0xFFC00000u) == 0xA8800000u) return "STP-post";
+  if ((enc & 0xFFC00000u) == 0xA9800000u) return "STP-pre";
+  if ((enc & 0xFFE00C00u) == 0xF8400400u) return "LDR-post";
+  if ((enc & 0xFFE00C00u) == 0xF8400C00u) return "LDR-pre";
+  if ((enc & 0xFFE00C00u) == 0xF8000400u) return "STR-post";
+  if ((enc & 0xFFE00C00u) == 0xF8000C00u) return "STR-pre";
+  if ((enc & 0xFFC00000u) == 0xF9400000u) return "LDR-X";
+  if ((enc & 0xFFC00000u) == 0xB9400000u) return "LDR-W";
+  if ((enc & 0xFFC00000u) == 0xB9800000u) return "LDRSW";
+  if ((enc & 0xFFC00000u) == 0x79400000u) return "LDRH";
+  if ((enc & 0xFFC00000u) == 0x39400000u) return "LDRB";
+  if ((enc & 0xFFC00000u) == 0xF9000000u) return "STR-X";
+  if ((enc & 0xFFC00000u) == 0xB9000000u) return "STR-W";
+  if ((enc & 0xFFC00000u) == 0x79000000u) return "STRH";
+  if ((enc & 0xFFC00000u) == 0x39000000u) return "STRB";
+  if ((enc & 0x1F800000u) == 0x11000000u) {
+    uint32_t op = (enc >> 29) & 0x3u;
+    return op == 0 ? "ADD-imm" : op == 1 ? "ADDS-imm"
+                              : op == 2 ? "SUB-imm" : "SUBS-imm";
+  }
+  if ((enc & 0x1F800000u) == 0x12000000u) {
+    uint32_t op = (enc >> 29) & 0x3u;
+    return op == 0 ? "AND-imm" : op == 1 ? "ORR-imm"
+                              : op == 2 ? "EOR-imm" : "ANDS-imm";
+  }
+  if ((enc & 0x1F000000u) == 0x0B000000u) {
+    uint32_t op = (enc >> 29) & 0x3u;
+    return op == 0 ? "ADD-reg" : op == 1 ? "ADDS-reg"
+                              : op == 2 ? "SUB-reg" : "SUBS-reg";
+  }
+  if ((enc & 0x1F000000u) == 0x0A000000u) {
+    uint32_t op = (enc >> 29) & 0x3u;
+    return op == 0 ? "AND/MOV-reg" : op == 1 ? "ORR/MOV-reg"
+                                  : op == 2 ? "EOR-reg" : "ANDS-reg";
+  }
+  if ((enc & 0x1F000000u) == 0x1B000000u) return "MADD/MSUB";
+  if ((enc & 0x1FE00000u) == 0x1AC00000u) return "SDIV/UDIV/LSLV";
+  if ((enc & 0x5FE00000u) == 0x5AC00000u) return "RBIT/CLZ";
+  if ((enc & 0x1FE00000u) == 0x1A800000u) return "CSEL/CSINC";
+  if ((enc & 0x1F800000u) == 0x13000000u) return "SBFM/UBFM/BFM";
+  if ((enc & 0x1F800000u) == 0x13800000u) return "EXTR";
+  return "unknown";
+}
+
+void dump_a16_adrp_pair_walk(uintptr_t lr) {
+  std::fprintf(stderr,
+               "GK-DIAG A16-DIAG adrp/add pair walk (scan lr-256..lr-8, "
+               "forward window 32 instr per pair):\n");
+  int pairs_found = 0;
+  for (intptr_t d = -256; d <= -8; d += 4) {
+    uintptr_t adrp_pc = lr + d;
+    uint32_t adrp_enc = 0;
+    if (!safe_read_u32(adrp_pc, &adrp_enc)) continue;
+    if ((adrp_enc & 0x9F000000u) != 0x90000000u) continue;
+    uint32_t rd_adrp = adrp_enc & 0x1Fu;
+    if (rd_adrp == 31u) continue;  // XZR target makes no sense
+    uint32_t add_enc = 0;
+    bool has_add = false;
+    uint32_t add_imm12 = 0;
+    if (safe_read_u32(adrp_pc + 4, &add_enc)) {
+      if (((add_enc >> 23) & 0x1FFu) == 0x122u) {
+        uint32_t rn_add = (add_enc >> 5) & 0x1Fu;
+        uint32_t rd_add = add_enc & 0x1Fu;
+        if (rn_add == rd_adrp && rd_add == rd_adrp) {
+          has_add = true;
+          add_imm12 = (add_enc >> 10) & 0xFFFu;
+        }
+      }
+    }
+    uint32_t immlo = (adrp_enc >> 29) & 0x3u;
+    uint32_t immhi = (adrp_enc >> 5) & 0x7FFFFu;
+    int32_t imm21 = (int32_t)((immhi << 2) | immlo);
+    if (imm21 & (1 << 20)) imm21 -= (1 << 21);
+    uintptr_t page = adrp_pc & ~uintptr_t(0xFFFu);
+    uintptr_t resolved =
+        page + ((intptr_t)imm21 << 12) + (uintptr_t)add_imm12;
+    if (has_add) {
+      std::fprintf(stderr,
+                   "GK-DIAG A16-DIAG adrp-pair: pc=0x%lx adrp_enc=0x%08x "
+                   "add_enc=0x%08x adrp_rd=X%u add_rn=X%u add_rd=X%u "
+                   "imm12=0x%x resolved_target=0x%lx\n",
+                   (unsigned long)adrp_pc, (unsigned)adrp_enc,
+                   (unsigned)add_enc, (unsigned)rd_adrp, (unsigned)rd_adrp,
+                   (unsigned)rd_adrp, (unsigned)add_imm12,
+                   (unsigned long)resolved);
+    } else {
+      std::fprintf(stderr,
+                   "GK-DIAG A16-DIAG adrp-solo: pc=0x%lx adrp_enc=0x%08x "
+                   "adrp_rd=X%u resolved_page=0x%lx\n",
+                   (unsigned long)adrp_pc, (unsigned)adrp_enc,
+                   (unsigned)rd_adrp, (unsigned long)resolved);
+    }
+    ++pairs_found;
+    intptr_t walk_start = d + (has_add ? 8 : 4);
+    intptr_t walk_end = walk_start + 128;
+    intptr_t first_write_off = 0;
+    uint32_t first_write_enc = 0;
+    bool write_found = false;
+    intptr_t first_read_off = 0;
+    uint32_t first_read_enc = 0;
+    bool read_found = false;
+    for (intptr_t f = walk_start; f < walk_end; f += 4) {
+      uintptr_t fpc = lr + f;
+      uint32_t fenc = 0;
+      if (!safe_read_u32(fpc, &fenc)) break;
+      if (!write_found && decode_arm64_writes_reg(fenc, (int)rd_adrp)) {
+        first_write_off = f;
+        first_write_enc = fenc;
+        write_found = true;
+      }
+      if (!read_found && decode_arm64_reads_reg(fenc, (int)rd_adrp)) {
+        first_read_off = f;
+        first_read_enc = fenc;
+        read_found = true;
+      }
+      if (write_found && read_found) break;
+    }
+    // Classify: read at same offset as write (e.g. ADD Xd,Xd,Xm) counts
+    // as "read first" since the source read precedes the destination
+    // commit within the instruction.
+    bool clobbered =
+        write_found && (!read_found || first_write_off < first_read_off);
+    if (clobbered && read_found) {
+      std::fprintf(stderr,
+                   "GK-DIAG A16-DIAG x16-clobber: adrp@0x%lx resolved=0x%lx "
+                   "xd=X%u next-write@0x%lx instr=0x%08x decoded=%s "
+                   "next-read@0x%lx instr=0x%08x decoded=%s "
+                   "clobbered-between TRUE\n",
+                   (unsigned long)adrp_pc, (unsigned long)resolved,
+                   (unsigned)rd_adrp,
+                   (unsigned long)(lr + first_write_off),
+                   (unsigned)first_write_enc,
+                   decode_arm64_mnemonic(first_write_enc),
+                   (unsigned long)(lr + first_read_off),
+                   (unsigned)first_read_enc,
+                   decode_arm64_mnemonic(first_read_enc));
+    } else if (clobbered) {
+      std::fprintf(stderr,
+                   "GK-DIAG A16-DIAG x16-clobber: adrp@0x%lx resolved=0x%lx "
+                   "xd=X%u next-write@0x%lx instr=0x%08x decoded=%s "
+                   "next-read=<none-in-window> clobbered-between TRUE "
+                   "(dead-store or no-use-before-clobber)\n",
+                   (unsigned long)adrp_pc, (unsigned long)resolved,
+                   (unsigned)rd_adrp,
+                   (unsigned long)(lr + first_write_off),
+                   (unsigned)first_write_enc,
+                   decode_arm64_mnemonic(first_write_enc));
+    } else if (read_found) {
+      std::fprintf(stderr,
+                   "GK-DIAG A16-DIAG preserved: adrp@0x%lx resolved=0x%lx "
+                   "xd=X%u next-read@0x%lx instr=0x%08x decoded=%s "
+                   "clobbered-between FALSE\n",
+                   (unsigned long)adrp_pc, (unsigned long)resolved,
+                   (unsigned)rd_adrp,
+                   (unsigned long)(lr + first_read_off),
+                   (unsigned)first_read_enc,
+                   decode_arm64_mnemonic(first_read_enc));
+    } else {
+      std::fprintf(stderr,
+                   "GK-DIAG A16-DIAG no-use: adrp@0x%lx resolved=0x%lx "
+                   "xd=X%u (no read or write of X%u in forward window)\n",
+                   (unsigned long)adrp_pc, (unsigned long)resolved,
+                   (unsigned)rd_adrp, (unsigned)rd_adrp);
+    }
+  }
+  if (pairs_found == 0) {
+    std::fprintf(stderr, "GK-DIAG A16-DIAG (no ADRP in lr-256..lr-8 window)\n");
+  }
+}
 }  // namespace gk_diag
 
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
@@ -509,6 +916,14 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // surfaces that too.
   gk_diag::dump_sym_name_at_slot(
       static_cast<uintptr_t>(uc->uc_mcontext.regs[9]));
+
+  // A16-DIAG: ADRP/ADD pair walker with forward clobber detection.
+  // Runs unconditionally so qemu_repro and device logcat are diff-able
+  // — qemu will (likely) emit "preserved" entries, device will (per
+  // A15-attempt-2-next-blocker hypothesis) emit at least one
+  // "x16-clobber" entry. That delta is itself the data needed to
+  // author A17's targeted codegen fix.
+  gk_diag::dump_a16_adrp_pair_walk(lr);
 
   // A11 attempt-3 follow-up: scan the LR-relative window backwards for
   // A5 sym-MEM triplets (`ADRP Xn, page ; ADD Xn, Xn, #imm12 ; LDR Wm,
