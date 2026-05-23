@@ -174,16 +174,20 @@ _call_goal_asm_arm64:
   mov	x29, sp
   ;; A6 (autoport) — save the AAPCS callee-saved block (X19-X28 + D8-D15).
   ;; Real-on-device behaviour showed at least one helper in the GOAL→C
-  ;; FFI chain clobbering X23 (the C++ caller's stack-protector canary
-  ;; base). The pre-A6 version only saved X20-X22, so any callee that
-  ;; touched X19/X23-X28 propagated up and broke the C++ caller. The
-  ;; symmetric problem can happen with D8-D15 if anyone in the GOAL leg
-  ;; uses doubles, so we save those too. Total = 8 stp's + 1 str.
-  stp x20, x21, [sp, #-16]!
-  stp x22, x23, [sp, #-16]!
-  stp x24, x25, [sp, #-16]!
-  stp x26, x27, [sp, #-16]!
-  str x28, [sp, #-16]!
+  ;; FFI chain clobbering X19 (the C++ caller `link_control::jak1_finish`
+  ;; holds `this` in X19, and the fault on the LDR W2, [X19, #0x50] right
+  ;; after call_goal_on_stack returns shows X19 came back as 0x7f7fffff
+  ;; with the previous save list — i.e. it wasn't actually being saved).
+  ;; The pre-A6 version saved X20-X28; the post-A6-fix version saved the
+  ;; same plus X23 in call_r64 but still missed X19 in the trampoline.
+  ;; Total now = 5 stp GPRs + 4 stp FPRs = 144 bytes (unchanged from
+  ;; pre-fix 4-stp + 1-str + 4-stp, so the stack-switch alignment math
+  ;; in _call_goal_on_stack_asm_arm64 stays correct).
+  stp x19, x20, [sp, #-16]!
+  stp x21, x22, [sp, #-16]!
+  stp x23, x24, [sp, #-16]!
+  stp x25, x26, [sp, #-16]!
+  stp x27, x28, [sp, #-16]!
   stp d8, d9, [sp, #-16]!
   stp d10, d11, [sp, #-16]!
   stp d12, d13, [sp, #-16]!
@@ -225,11 +229,11 @@ _call_goal_asm_arm64:
   ldp d12, d13, [sp], #16
   ldp d10, d11, [sp], #16
   ldp d8, d9, [sp], #16
-  ldr x28, [sp], #16
-  ldp x26, x27, [sp], #16
-  ldp x24, x25, [sp], #16
-  ldp x22, x23, [sp], #16
-  ldp x20, x21, [sp], #16
+  ldp x27, x28, [sp], #16
+  ldp x25, x26, [sp], #16
+  ldp x23, x24, [sp], #16
+  ldp x21, x22, [sp], #16
+  ldp x19, x20, [sp], #16
   ldp	x29, x30, [sp], #16
   ret
 
@@ -238,10 +242,19 @@ _call_goal_asm_arm64:
 _call_goal8_asm_arm64:
   stp	x29, x30, [sp, #-16]!
   mov	x29, sp
-  ;; saved registers we need to modify for GOAL should be preserved
-  ; ARM64 requires 16-byte stack pointer alignment
-  stp x20, x21, [sp, #-16]!
-  str x22, [sp, #-16]!
+  ;; A6 (autoport): mirror _call_goal_asm_arm64's full AAPCS callee-saved
+  ;; block (X19-X28 + D8-D15). mips2c-routed C→GOAL FFI lands here, and
+  ;; the C++ caller (chiefly the jak1 mips2c shim wrappers in
+  ;; jak1/mips2c.cpp) keeps locals in X19+ that must survive the GOAL leg.
+  stp x19, x20, [sp, #-16]!
+  stp x21, x22, [sp, #-16]!
+  stp x23, x24, [sp, #-16]!
+  stp x25, x26, [sp, #-16]!
+  stp x27, x28, [sp, #-16]!
+  stp d8, d9, [sp, #-16]!
+  stp d10, d11, [sp, #-16]!
+  stp d12, d13, [sp, #-16]!
+  stp d14, d15, [sp, #-16]!
 
   ;; x0 - first arg (func)
   ;; x1 - second arg (arg array)
@@ -276,9 +289,17 @@ _call_goal8_asm_arm64:
   ;; call GOAL by function pointer
   blr x8
 
-  ;; retore registers.
-  ldr x22, [sp], #16
-  ldp x20, x21, [sp], #16
+  ;; A6 (autoport): restore the full AAPCS callee-saved block (X19-X28 +
+  ;; D8-D15).
+  ldp d14, d15, [sp], #16
+  ldp d12, d13, [sp], #16
+  ldp d10, d11, [sp], #16
+  ldp d8, d9, [sp], #16
+  ldp x27, x28, [sp], #16
+  ldp x25, x26, [sp], #16
+  ldp x23, x24, [sp], #16
+  ldp x21, x22, [sp], #16
+  ldp x19, x20, [sp], #16
   ldp	x29, x30, [sp], #16
   ret
 
@@ -295,19 +316,23 @@ _call_goal_on_stack_asm_arm64:
   ;; x4  - st (goes in x21 and x20)
   ;; x5  - offset (goes in x22)
 
-  ;; saved registers we need to modify for GOAL should be preserved
-  ; ARM64 requires 16-byte stack pointer alignment
-  stp x20, x21, [sp, #-16]!
-  ;; A6 (autoport): save the full AAPCS callee-saved block (X22-X28 +
+  ;; A6 (autoport): save the full AAPCS callee-saved block (X19-X28 +
   ;; D8-D15) on the OLD stack before we switch to the GOAL stack. The
-  ;; pre-A6 version only saved X22 — fine when the GOAL body was a no-op
-  ;; stub but not when it's real goalc-emitted bytecode that goes on to
-  ;; call C helpers that may clobber X23-X28 or D8-D15. See the matching
-  ;; comment in _call_goal_asm_arm64 above.
-  stp x22, x23, [sp, #-16]!
-  stp x24, x25, [sp, #-16]!
-  stp x26, x27, [sp, #-16]!
-  str x28, [sp, #-16]!
+  ;; previous attempt saved X20-X28 and missed X19; on-device crash
+  ;; showed the C++ caller `link_control::jak1_finish` keeps `this` in
+  ;; X19 and dereferences it (`LDR W2, [X19, #0x50]`) right after the
+  ;; BL to call_goal_on_stack@plt returns, faulting at 0x7f80004f
+  ;; because X19 = 0x7f7fffff after the trampoline failed to preserve
+  ;; it. Five GPR stp pairs (X19-X28) + four FPR stp pairs (D8-D15) =
+  ;; 144 bytes — same total as the previous (4 stp + 1 str + 4 stp),
+  ;; so the 16-byte stack alignment requirement for the subsequent
+  ;; `mov sp, x10` is unchanged.
+  ; ARM64 requires 16-byte stack pointer alignment
+  stp x19, x20, [sp, #-16]!
+  stp x21, x22, [sp, #-16]!
+  stp x23, x24, [sp, #-16]!
+  stp x25, x26, [sp, #-16]!
+  stp x27, x28, [sp, #-16]!
   stp d8, d9, [sp, #-16]!
   stp d10, d11, [sp, #-16]!
   stp d12, d13, [sp, #-16]!
@@ -336,10 +361,10 @@ _call_goal_on_stack_asm_arm64:
   ;; 16-byte boundary before switching — the difference is at most 8
   ;; bytes of unused stack at the top, which is negligible given the
   ;; 128 MB main mem allocation.
-  mov x9, sp                ;; x9 = OLD sp value (already includes the X22-X28 saves above)
+  mov x9, sp                ;; x9 = OLD sp value (already includes the X19-X28 + D8-D15 saves above)
   and x10, x0, #-16         ;; align goal_stack down to 16-byte
   mov sp, x10               ;; switch to GOAL/process stack
-  stp xzr, x9, [sp, #-16]!  ;; push only saved OLD sp on the NEW stack (X22 is already on OLD stack)
+  stp xzr, x9, [sp, #-16]!  ;; push the saved OLD sp on the NEW stack (callee-saved already on OLD stack)
 
   mov x20, x4 // set GOAL function pointer
   mov x21, x4 // symbol table
@@ -363,10 +388,10 @@ _call_goal_on_stack_asm_arm64:
   ldp d12, d13, [sp], #16
   ldp d10, d11, [sp], #16
   ldp d8, d9, [sp], #16
-  ldr x28, [sp], #16
-  ldp x26, x27, [sp], #16
-  ldp x24, x25, [sp], #16
-  ldp x22, x23, [sp], #16
-  ldp x20, x21, [sp], #16
+  ldp x27, x28, [sp], #16
+  ldp x25, x26, [sp], #16
+  ldp x23, x24, [sp], #16
+  ldp x21, x22, [sp], #16
+  ldp x19, x20, [sp], #16
   ldp	x29, x30, [sp], #16
   ret
