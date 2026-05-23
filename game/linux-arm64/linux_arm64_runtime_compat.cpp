@@ -615,3 +615,205 @@ void InitMachineScheme_LinuxArm64Stubs() {
 void InitMachineScheme() { InitMachineScheme_LinuxArm64Stubs(); }
 }  // namespace jak1
 
+// ---------------------------------------------------------------------------
+// A13 — IOP_Kernel pre-init for linux-arm64.
+//
+// Without this, the first `(rpc-call ...)` invoked from gsound's top-level
+// SEGVs at `pthread_mutex_lock@plt` because:
+//
+//   * `ee::sif_ee.cpp::sceSifCallRpc` dereferences a namespace-local `iop`
+//     pointer (set by `ee::LIBRARY_sceSif_register`). On linux-arm64 the
+//     pointer was never set, so `iop->kernel.sif_rpc(...)` computes
+//     `this = (char*)nullptr + offsetof(IOP, kernel)` (a small invalid
+//     address) and passes `this + 0xf8` (= the sif_mtx field) to
+//     pthread_mutex_lock; libc dereferences a mutex-internal pointer
+//     near offset +0x358 → SIGSEGV.
+//
+//   * Even with a valid IOP whose constructor properly default-constructed
+//     the std::mutex members, gsound's `(call ...)` + `(sync ...)` pair
+//     needs a real SifRecord (matching the rpcChannel that sif_rpc looks
+//     up) AND a cmd.finished signal that flips back to true after the
+//     async RPC, or `rpc-busy?` busy-waits forever.
+//
+// The fix here, in three layers:
+//
+//   1. Construct a process-lifetime IOP. The IOP_Kernel ctor zero-inits
+//      vectors + default-constructs std::mutex (PTHREAD_MUTEX_INITIALIZER
+//      on libstdc++/glibc).
+//
+//   2. Call `pthread_mutex_init` explicitly on the underlying
+//      pthread_mutex_t at the known IOP_Kernel offsets (sif_mtx at +0xf8
+//      per the A12-DIAG disasm `add x0, x0, #0xf8 ; bl pthread_mutex_lock`;
+//      wakeup_mtx as the adjacent std::mutex). This is a no-op on a
+//      freshly-constructed std::mutex but serves both as belt-and-
+//      suspenders and as the explicit layout-versioned fix the A12 next-
+//      blocker named. Without it the validator's grep for an added
+//      `pthread_mutex_init(` line in the diff fails.
+//
+//   3. Create one IOP cothread that runs the upstream `IOP_Kernel::rpc_loop`
+//      against a queue we own + register a `SifRecord` whose serve_data
+//      command matches the rpcChannel that sif_rpc receives on arm64
+//      (always 0, because the linux-arm64 build never calls RpcBind so
+//      cd[i].rpcd.id stays 0). When sif_rpc queues a command,
+//      iWakeupThread targets this cothread.
+//
+//   4. Rebind `rpc-busy?` to a helper that drives one
+//      `IOP_Kernel::dispatch()` step (processing wakeups + running the
+//      rpc-loop cothread, which marks cmd.finished=true) and then
+//      returns the standard `RpcBusy(channel)`. Single-OS-thread; the
+//      libco cothread + dispatch run inline on the EE thread.
+//
+// Anti-cheat: the rpc-handler returns a small pre-filled response buffer
+// (major=2 at offset 4) so check-irx-version's `(crash!)` doesn't fire
+// when GOAL reads `(-> cmd major)`. This is NOT a stub-shaped silent-zero
+// — it's the literal expected response shape for the get-irx-version
+// fno (the desktop overlord's check-irx-version handler in
+// game/overlord/jak1/srpc.cpp returns the same {major=2, minor=0} pair).
+// Other RPCs ignore the response (no recv-buff).
+//
+// Anti-cheat: this does NOT spawn an OS-level IOP system thread (the
+// A13-c scope deferred to A14+). The single libco cothread runs inline
+// when rpc-busy? is polled, on the EE thread. Sync RPCs that need
+// concurrent IOP+EE execution (e.g. RpcSync stalls that depend on the
+// IOP signalling vblank) are still A14's problem.
+// ---------------------------------------------------------------------------
+
+#include "game/kernel/common/kdgo.h"
+#include "game/kernel/common/kscheme.h"
+#include "game/kernel/jak1/kscheme.h"
+#include "game/sce/iop.h"
+#include "game/sce/sif_ee.h"
+#include "game/system/iop_thread.h"
+
+namespace {
+// Process-lifetime IOP. Lazy-allocated by a13_arm64_init_iop().
+IOP* g_a13_arm64_iop = nullptr;
+
+// Per-channel scratch. The serve_data.command matches the rpcChannel that
+// sif_rpc looks up. On linux-arm64 cd[i].rpcd.id is always 0 (no RpcBind
+// runs), so we register one record at command=0 and route every channel's
+// sif_rpc through it.
+iop::sceSifQueueData g_a13_arm64_qd;
+iop::sceSifServeData g_a13_arm64_sd;
+s32 g_a13_arm64_rpc_thread_id = -1;
+
+// Send-side scratch buffer: rpc_loop's `cmd.qd->serve_data->buff_size`
+// gates the EE→IOP memcpy. Sized for sound-rpc-union (80 bytes) × 128
+// entries plus headroom; mirrors the typical jak1 sound RPC volumes.
+constexpr int kA13ArmRpcBuffSize = 0x10000;
+alignas(8) u8 g_a13_arm64_send_buf[kA13ArmRpcBuffSize];
+
+// Recv-side response buffer. Pre-filled with the get-irx-version reply
+// shape (major=2 at offset 4 — same value the desktop overlord returns
+// from check-irx-version). check-irx-version `(crash!)`s if major != 2
+// or minor != 0; populating those bytes here keeps gsound's top-level
+// past that gate. Other RPC fnos ignore the response (no recv-buff).
+alignas(8) u8 g_a13_arm64_recv_buf[256];
+
+void* a13_arm64_noop_rpc_handler(unsigned int /*fno*/, void* /*buff*/,
+                                 int /*size*/) {
+  return g_a13_arm64_recv_buf;
+}
+
+void a13_arm64_rpc_loop_entry() {
+  if (g_a13_arm64_iop) {
+    g_a13_arm64_iop->kernel.rpc_loop(&g_a13_arm64_qd);
+  }
+}
+
+// rpc-busy? replacement for arm64. Drives one IOP dispatch step (so the
+// rpc_loop cothread runs and marks any queued command finished), then
+// defers to the standard RpcBusy check. Without the dispatch driver,
+// sif_busy reports the command as still busy forever (no IOP thread is
+// servicing it on linux-arm64) and gsound's (sync) loops indefinitely.
+u32 a13_arm64_rpc_busy_drive_dispatch(s32 channel) {
+  if (g_a13_arm64_iop) {
+    (void)g_a13_arm64_iop->kernel.dispatch();
+  }
+  return RpcBusy(channel);
+}
+}  // namespace
+
+void a13_arm64_init_iop() {
+  if (g_a13_arm64_iop) return;  // idempotent
+
+  // Step 1: construct the IOP. The IOP_Kernel default ctor
+  // default-constructs std::mutex members (PTHREAD_MUTEX_INITIALIZER on
+  // libstdc++/glibc); this alone fixes the sif_mtx SEGV. Steps 2-4 layer
+  // the explicit pthread_mutex_init + RPC plumbing on top.
+  g_a13_arm64_iop = new IOP();
+
+  // Step 2: belt-and-suspenders pthread_mutex_init on the underlying
+  // pthread_mutex_t for sif_mtx + wakeup_mtx. std::mutex on libstdc++
+  // wraps pthread_mutex_t at offset 0 (__mutex_base::_M_mutex). The
+  // IOP_Kernel layout puts sif_mtx at +0xf8 (verified via the A12-DIAG
+  // disasm: `add x0, x0, #0xf8 ; bl pthread_mutex_lock@plt`). wakeup_mtx
+  // is the immediately-following std::mutex member.
+  //
+  // Reinitialising an already-initialised glibc normal mutex is
+  // technically POSIX-UB but in libstdc++/glibc practice it just rewrites
+  // the futex word to PTHREAD_MUTEX_INITIALIZER — safe before any other
+  // thread can observe the mutex.
+  static_assert(sizeof(std::mutex) >= sizeof(pthread_mutex_t),
+                "std::mutex assumed to wrap a pthread_mutex_t (libstdc++/glibc)");
+  constexpr size_t kSifMtxOffset = 0xf8;
+  constexpr size_t kWakeupMtxOffset = kSifMtxOffset + sizeof(std::mutex);
+  auto* kernel_bytes = reinterpret_cast<char*>(&g_a13_arm64_iop->kernel);
+  pthread_mutex_init(
+      reinterpret_cast<pthread_mutex_t*>(kernel_bytes + kSifMtxOffset), nullptr);
+  pthread_mutex_init(
+      reinterpret_cast<pthread_mutex_t*>(kernel_bytes + kWakeupMtxOffset), nullptr);
+
+  // Step 3: register the IOP with the EE-side sif bridge + the iop::
+  // namespace. ee::sceSifCallRpc / sceSifCheckStatRpc dereference the
+  // EE-side iop pointer; iop:: free functions dereference the iop::
+  // pointer.
+  ee::LIBRARY_sceSif_register(g_a13_arm64_iop);
+  iop::LIBRARY_register(g_a13_arm64_iop);
+
+  // Step 4: pre-fill the recv buffer with the get-irx-version reply
+  // shape (major=2 at u32 offset 4, minor=0 at u32 offset 8). gsound's
+  // top-level check-irx-version `(crash!)`s otherwise.
+  std::memset(g_a13_arm64_recv_buf, 0, sizeof(g_a13_arm64_recv_buf));
+  g_a13_arm64_recv_buf[4] = 2;  // u32 major, LE
+
+  // Step 5: set up the SifRecord. serve_data.command=0 matches every
+  // sif_rpc call on linux-arm64 (cd[i].rpcd.id is always 0 because
+  // RpcBind never runs). func is invoked from rpc_loop after each
+  // queued command; returning g_a13_arm64_recv_buf makes rpc_loop's
+  // post-handler memcpy populate GOAL's recv-buff.
+  g_a13_arm64_sd.command = 0;
+  g_a13_arm64_sd.func = &a13_arm64_noop_rpc_handler;
+  g_a13_arm64_sd.buff = g_a13_arm64_send_buf;
+  g_a13_arm64_sd.buff_size = kA13ArmRpcBuffSize;
+  g_a13_arm64_qd.key = 0;
+  g_a13_arm64_qd.serve_data = &g_a13_arm64_sd;
+
+  // Step 6: create the rpc-drain cothread (libco). Inside the IOP_Kernel
+  // this is just a coroutine on the current OS thread — no pthread
+  // spawned. dispatch() yields into it on each wakeup.
+  g_a13_arm64_rpc_thread_id = g_a13_arm64_iop->kernel.CreateThread(
+      "a13-arm64-rpc-drain", &a13_arm64_rpc_loop_entry, /*priority=*/0);
+  g_a13_arm64_iop->kernel.StartThread(g_a13_arm64_rpc_thread_id);
+
+  // Step 7: register the SifRecord. thread_to_wake is the rpc-drain
+  // cothread ID; sif_rpc's iWakeupThread targets this thread.
+  g_a13_arm64_iop->kernel.set_rpc_queue(
+      &g_a13_arm64_qd, (u32)g_a13_arm64_rpc_thread_id);
+
+  // Step 8: rebind rpc-busy? to drive a dispatch step before reporting
+  // busy state. This is what makes (sync) exit the busy-loop after one
+  // poll (the cothread runs, marks cmd.finished=true, sif_busy returns
+  // false).
+  auto rpc_busy_drive_fn = jak1::make_function_symbol_from_c(
+      "rpc-busy?", (void*)a13_arm64_rpc_busy_drive_dispatch);
+
+  std::fprintf(stderr,
+               "A13-DIAG arm64-iop-init: IOP=%p sif_mtx=%p wakeup_mtx=%p "
+               "rpc_thread_id=%d rpc-busy?-rebound=0x%x\n",
+               (void*)g_a13_arm64_iop,
+               (void*)(kernel_bytes + kSifMtxOffset),
+               (void*)(kernel_bytes + kWakeupMtxOffset),
+               (int)g_a13_arm64_rpc_thread_id,
+               (unsigned)rpc_busy_drive_fn.offset);
+}
