@@ -145,6 +145,71 @@ bool safe_read_u32(uintptr_t addr, uint32_t* out) {
   sigaction(SIGBUS, &old_bus, nullptr);
   return ok;
 }
+
+// A11-DIAG: convert a suspected sym-MEM slot host address (the LDR base
+// register's value at the failing BLR site — X16 in the post-A10 disasm)
+// into the symbol's interned name by walking the SymInfo table that
+// trails the value table in the kglobalheap-allocated sym-table block.
+//
+// Layout reminder (jak1::InitHeapAndSymbol, kscheme.cpp ~L1770):
+//   SymbolTable2 = symbol_table + BASIC_OFFSET             (low half: Symbol{u32})
+//   s7           = symbol_table + (GOAL_MAX_SYMBOLS/2)*8 + BASIC_OFFSET
+//   LastSymbol   = symbol_table + (GOAL_MAX_SYMBOLS-32)*8  (one past last slot)
+//   info(sym).c() = (Symbol*).c() + SYM_INFO_OFFSET        ( = 16384*8 - 4)
+//
+// Given a slot host_addr X16 inside [SymbolTable2, LastSymbol):
+//   1) info_host_addr = X16 + jak1::SYM_INFO_OFFSET
+//   2) read SymInfo {u32 hash; u32 str_offset}
+//   3) name_host = g_ee_main_mem + str_offset + 4  (skip String::len)
+//
+// Returns false if slot is out of range or any read fails. On false the
+// caller still gets the dump line for X16 — just without the name. We
+// keep this entirely safe-read-driven so a malformed slot can't
+// secondary-SIGSEGV out of the diag handler.
+bool dump_sym_name_at_slot(uintptr_t slot_host_addr) {
+  if (!g_ee_main_mem) return false;
+  const uintptr_t ee_lo = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const uintptr_t ee_hi = ee_lo + EE_MAIN_MEM_SIZE;
+  if (slot_host_addr < ee_lo || slot_host_addr >= ee_hi) return false;
+
+  const uintptr_t sym_lo = ee_lo + SymbolTable2.offset;
+  const uintptr_t sym_hi = ee_lo + LastSymbol.offset;
+  const bool in_sym_range = (slot_host_addr >= sym_lo && slot_host_addr < sym_hi);
+
+  uint32_t slot_value = 0;
+  if (!safe_read_u32(slot_host_addr, &slot_value)) return false;
+
+  const uintptr_t info_addr = slot_host_addr + jak1::SYM_INFO_OFFSET;
+  if (info_addr + 8 > ee_hi) return false;
+  uint32_t hash = 0, str_offset = 0;
+  if (!safe_read_u32(info_addr, &hash)) return false;
+  if (!safe_read_u32(info_addr + 4, &str_offset)) return false;
+
+  char name_buf[129];
+  name_buf[0] = 0;
+  if (str_offset != 0 && str_offset < EE_MAIN_MEM_SIZE) {
+    const uintptr_t name_host = ee_lo + str_offset + 4;  // skip String::len
+    for (size_t i = 0; i + 4 < sizeof(name_buf); i += 4) {
+      uint32_t word = 0;
+      if (!safe_read_u32(name_host + i, &word)) break;
+      bool stop = false;
+      for (int j = 0; j < 4; ++j) {
+        char c = static_cast<char>((word >> (j * 8)) & 0xff);
+        if (c == 0) { stop = true; break; }
+        name_buf[i + j] = c;
+      }
+      if (stop) break;
+      name_buf[i + 4] = 0;
+    }
+  }
+  std::fprintf(stderr,
+               "GK-DIAG A11-DIAG texture-sym-zero: slot=0x%lx value=0x%x "
+               "info=0x%lx hash=0x%x str=0x%x name=\"%s\" in_sym_range=%d\n",
+               (unsigned long)slot_host_addr, (unsigned)slot_value,
+               (unsigned long)info_addr, (unsigned)hash, (unsigned)str_offset,
+               name_buf[0] ? name_buf : "<empty>", in_sym_range ? 1 : 0);
+  return true;
+}
 }  // namespace gk_diag
 
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
@@ -159,6 +224,21 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                  (unsigned long)uc->uc_mcontext.regs[i]);
   }
   std::fprintf(stderr, "GK-DIAG sp=0x%lx\n", (unsigned long)uc->uc_mcontext.sp);
+
+  // A11-DIAG: at the texture-CGO sig=4 SIGILL the LDR base register that
+  // produced the NULL fn-ptr is X16 (per A5 sym-MEM emit). Walk the
+  // SymInfo table from that slot and print the bound sym's name. Skip
+  // silently if the slot isn't a valid sym addr — most non-sym SIGILLs
+  // (e.g. real bytecode UDF) shouldn't print this line.
+  gk_diag::dump_sym_name_at_slot(
+      static_cast<uintptr_t>(uc->uc_mcontext.regs[16]));
+  // Also print X9 (the BLR target reg in the LR-relative disasm).  For
+  // the sym=0 case x9 == g_ee_main_mem; if instead the bug is that the
+  // sym holds a *valid* but wrong function ptr, the X9 slot lookup
+  // surfaces that too.
+  gk_diag::dump_sym_name_at_slot(
+      static_cast<uintptr_t>(uc->uc_mcontext.regs[9]));
+
   for (intptr_t d = -256; d <= 16; d += 4) {
     uintptr_t addr = lr + d;
     uint32_t insn = 0;
@@ -324,6 +404,16 @@ int boot_kernel_init() {
                  hs_status);
     return 20;
   }
+
+  // A11 sym-bind: register `__pc-get-mips2c` so the texture CGO's
+  // `(def-mips2c ...)` top-level can resolve the mips2c trampoline
+  // for adgif-shader<-texture-with-update! and friends. Without this
+  // bind, the sym slot stays 0 and the texture top-level BLRs to
+  // ee_base → SIGILL. The upstream `init_common_pc_port_functions`
+  // (game/kernel/common/kmachine.cpp:1103) does this on desktop x86 but
+  // is overridden on linux-arm64 by InitMachineScheme_LinuxArm64Stubs
+  // (which omits __pc-get-mips2c from its list).
+  klink_a11_ensure_pc_mips2c_bound();
 
   // C2 milestone banner — kept for the C2 validator's checks 19+25
   // which grep for these exact lines. The C3 stage runs after.
