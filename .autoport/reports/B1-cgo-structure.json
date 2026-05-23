@@ -14,14 +14,14 @@
       "snippet": "0:\ta9bf7bfd \tstp\tx29, x30, [sp, #-16]!\n4:\t910003fd \tmov\tx29, sp\n8:\taa0703e7 \tmov\tx7, x7\nc:\taa0703f7 \tmov\tx23, x7\n10:\t1e3802e9 \tfcvtzs\tw9, s23\n14:\t93407d29 \tsxtw\tx9, w9\n18:\t1e220137 \tscvtf\ts23, w9\n1c:\taa1703e0 \tmov\tx0, x23\n20:\taa0003e0 \tmov\tx0, x0\n24:\ta8c17bfd \tldp\tx29, x30, [sp], #16\n28:\td65f03c0 \tret"
     },
     "function_count": 3845,
-    "max_function_size": 46208,
-    "mean_function_size": 921,
+    "max_function_size": 46232,
+    "mean_function_size": 922,
     "min_function_size": 16,
     "object_count": 306,
-    "ret_density_per_kb": 0.7343,
-    "total_bytes": 7947392,
-    "x86_ret_count": 1179,
-    "x86_ret_pct": 0.0148
+    "ret_density_per_kb": 0.7336,
+    "total_bytes": 7955040,
+    "x86_ret_count": 1504,
+    "x86_ret_pct": 0.0189
   },
   "GAME.CGO": {
     "arm64_ret_count": 6108,
@@ -38,14 +38,14 @@
       "snippet": "0:\ta9bf7bfd \tstp\tx29, x30, [sp, #-16]!\n4:\t910003fd \tmov\tx29, sp\n8:\taa0703e7 \tmov\tx7, x7\nc:\taa0703f7 \tmov\tx23, x7\n10:\t1e3802e9 \tfcvtzs\tw9, s23\n14:\t93407d29 \tsxtw\tx9, w9\n18:\t1e220137 \tscvtf\ts23, w9\n1c:\taa1703e0 \tmov\tx0, x23\n20:\taa0003e0 \tmov\tx0, x0\n24:\ta8c17bfd \tldp\tx29, x30, [sp], #16\n28:\td65f03c0 \tret"
     },
     "function_count": 4199,
-    "max_function_size": 46208,
-    "mean_function_size": 909,
+    "max_function_size": 46232,
+    "mean_function_size": 911,
     "min_function_size": 16,
     "object_count": 346,
-    "ret_density_per_kb": 0.541,
-    "total_bytes": 11561104,
-    "x86_ret_count": 5687,
-    "x86_ret_pct": 0.0492
+    "ret_density_per_kb": 0.5406,
+    "total_bytes": 11569536,
+    "x86_ret_count": 6031,
+    "x86_ret_pct": 0.0521
   },
   "KERNEL.CGO": {
     "arm64_ret_count": 233,
@@ -63,9 +63,9 @@
     "mean_function_size": 391,
     "min_function_size": 20,
     "object_count": 8,
-    "ret_density_per_kb": 1.502,
-    "total_bytes": 158848,
-    "x86_ret_count": 2,
-    "x86_ret_pct": 0.0013
+    "ret_density_per_kb": 1.5023,
+    "total_bytes": 158816,
+    "x86_ret_count": 5,
+    "x86_ret_pct": 0.0031
   }
 }
