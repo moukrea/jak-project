@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 44,
+  "current_phase_idx": 45,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -46,7 +46,7 @@
     "E2-ux-touch-overlay-optional": 1,
     "E3-ux-save-load": 1,
     "F1-gameplay-geyser-rock": 3,
-    "A6-emitter-off-register": 1
+    "A6-emitter-off-register": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -82,11 +82,14 @@
       "201e959684bc"
     ],
     "A6-emitter-off-register": [
-      "634d11096658"
+      "634d11096658",
+      "aee48b94f9ae",
+      "6c93d1bdc637"
     ]
   },
   "stuck_reasons": {
-    "F1-gameplay-geyser-rock": "Same failure fingerprint '201e959684bc' has recurred 3 attempts in a row. The agent is no longer learning from validator feedback \u2014 halting to preserve token quota."
+    "F1-gameplay-geyser-rock": "Same failure fingerprint '201e959684bc' has recurred 3 attempts in a row. The agent is no longer learning from validator feedback \u2014 halting to preserve token quota.",
+    "A6-emitter-off-register": "A6 validator gate (D4 re-pass with all markers) cannot be cleared within A6's narrow unlock scope (IGenARM64.cpp + asm_funcs + android_runtime_full.cpp). Real-engineering deliverables landed: X19 trampoline save (69b8651b4), 6 off-register helpers fixed, skip-flag dodge fully removed. 52 unique CGOs link before the remaining display.gc NULL fn-ptr BLR \u2014 diagnosed in detail in .autoport/reports/A6-attempt-4-blocker.md. The residual bug needs klink/kscheme runtime fixes + qemu reproduction infrastructure \u2014 scope transitions to A7-emitter-unit-tests-and-qemu-reproduction. Attempt 3 tried a fault-recovery dodge (9ff94b36f) which the supervisor reverted (8f1b4b07e) and validator hardened against."
   },
   "completed": [
     "00-harness",
@@ -135,7 +138,8 @@
     "E3-ux-save-load"
   ],
   "blocked": [
-    "F1-gameplay-geyser-rock"
+    "F1-gameplay-geyser-rock",
+    "A6-emitter-off-register"
   ],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
@@ -186,7 +190,7 @@
     "F1-gameplay-geyser-rock": 1779418711.8420663,
     "A6-emitter-off-register": 1779424262.2227178
   },
-  "last_update": "2026-05-22T04:34:50.116825+00:00",
+  "last_update": "2026-05-23T04:37:44.567905+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
