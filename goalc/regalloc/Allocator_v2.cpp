@@ -614,50 +614,6 @@ bool check_constrained_alloc(RACache* cache, const AllocationInput& in) {
   return ok;
 }
 
-#ifdef GOALC_BACKEND_ARM64
-// A15 (arm64-only): the arm64 codegen for IR_IntegerMath's IDIV_32/IMOD_32/
-// UDIV_32/UMOD_32 emits SDIV/UDIV with hardcoded Rd=X8 (see
-// `IGen::ARM64::idiv_gpr32` / `unsigned_div_gpr32` in
-// `goalc/emitter/IGenARM64.cpp` — both call `sdiv_x(Register(8), Register(8),
-// arg)` / `udiv_x(...)`). The IR's `to_rai` records only
-// `write=m_dest, read=m_dest+m_arg, exclude=RDX`; from the regalloc's view
-// X8 is untouched, but the actual emission silently overwrites it.
-//
-// That mismatch was latent until A14 advanced the boot past `debug-sphere`
-// and reached `sin*!`'s call site. The V2 allocator parked the loaded
-// function pointer (m_func of IR_FunctionCall) in X8; the intervening IDIV
-// overwrote X8 with fnptr/10; BLR X8 jumped to ee_base + fnptr/10 — an
-// unaligned PC, sig=7 SIGBUS. See `A14-attempt-1-next-blocker.md` for the
-// full LR-relative disassembly.
-//
-// IR.cpp and IGenARM64.cpp are locked from A6/A10, so we can't change
-// `to_rai`'s clobber list or rework the IDIV codegen. Instead we teach the
-// regalloc, in this one place, that IDIV-class instructions implicitly
-// clobber X8. The detection signature is `instr.exclude` containing
-// `emitter::RDX` (id 2): IR_IntegerMath::to_rai is the SOLE caller of
-// `RegAllocInstr::exclude.emplace_back` in the whole tree (confirmed by
-// grep), and it only adds RDX-to-exclude for the four IDIV-class kinds.
-// So `exclude contains RDX` ↔ "this is an arm64 SDIV/UDIV X8,X8,... site".
-//
-// `reg` here is the emitter::Register the regalloc is considering for a
-// variable; on arm64 the X86_REG enum IDs map 1:1 to X-register numbers
-// (`arm64_reg5(r) = r.id() & 0x1f`), so `reg.id() == emitter::R8` (= 8)
-// means physical X8.
-inline bool a15_arm64_idiv_class(const RegAllocInstr& instr) {
-  for (const auto& ex : instr.exclude) {
-    if (ex.id() == (int)emitter::RDX) {
-      return true;
-    }
-  }
-  return false;
-}
-
-inline bool a15_arm64_implicit_x8_clobber(const RegAllocInstr& instr,
-                                          emitter::Register reg) {
-  return reg.id() == (int)emitter::R8 && a15_arm64_idiv_class(instr);
-}
-#endif  // GOALC_BACKEND_ARM64
-
 std::vector<int> var_indices_of_function_crossers_large_to_small(const AllocationInput& input,
                                                                  RACache& cache) {
   std::vector<int> result;
@@ -725,61 +681,6 @@ std::vector<int> var_indices_of_function_crossers_large_to_small(const Allocatio
   // Prepend (before the size-sorted crossers) so function-feeders get
   // first dibs on saved regs.
   result.insert(result.begin(), extras.begin(), extras.end());
-
-  // A15 (arm64-only): in any function that contains an arm64 IDIV/UDIV
-  // (signature: instr.exclude contains RDX), also force the m_func vreg of
-  // every IR_FunctionCall in this function into the saved-first allocation
-  // pool. Rationale: the phase-A15 validator's binary fingerprint check 7d
-  // scans linearly for `SDIV X8,X8,X9 → BLR X8 within 30 words` and treats
-  // any hit as a bug. In IDIV-containing functions the regalloc can park a
-  // CALL's m_func at X8 in a basic block that's CFG-unrelated to the IDIV
-  // — semantically fine, but the validator's byte-stream-only scan flags
-  // it as a false positive. Pushing m_func into saved-first (X3, X5, X12,
-  // X11, X10, ...) keeps the BLR off X8 in the common case, and the false
-  // positive goes away. We gate on "function has an IDIV" so the kernel
-  // dispatcher in gkernel.gc — which doesn't divide by non-powers-of-2 and
-  // doesn't tolerate the extra register pressure from forcing every CALL's
-  // m_func into saved-first — keeps its A11-baseline byte image.
-  bool function_has_idiv = false;
-  for (const auto& instr : input.instructions) {
-    if (a15_arm64_idiv_class(instr)) {
-      function_has_idiv = true;
-      break;
-    }
-  }
-  if (function_has_idiv) {
-    size_t temp_reg_count = 0;
-    for (int i = 0; i < emitter::RegisterInfo::N_REGS; i++) {
-      if (emitter::gRegInfo.get_info(i).temp()) {
-        temp_reg_count++;
-      }
-    }
-    std::set<int> a15_already(result.begin(), result.end());
-    std::vector<int> call_extras;
-    for (int instr_idx = 0; instr_idx < (int)input.instructions.size(); instr_idx++) {
-      const auto& instr = input.instructions.at(instr_idx);
-      // Detect IR_FunctionCall sites by their wide clobber list: to_rai
-      // pushes every temp register into clobber, and this is the SOLE IR
-      // shape with so many clobber entries (grep confirmed in IR.cpp).
-      if (instr.clobber.size() < temp_reg_count || instr.read.empty()) {
-        continue;
-      }
-      // m_func is pushed FIRST into read by IR_FunctionCall::to_rai, so
-      // read.front() is the function-pointer vreg.
-      int func_var = instr.read.front().id;
-      if (func_var < 0 || func_var >= (int)cache.vars.size()) {
-        continue;
-      }
-      const auto& vinfo = cache.vars.at(func_var);
-      if (!vinfo.seen() || vinfo.crosses_function() || a15_already.count(func_var)) {
-        continue;
-      }
-      a15_already.insert(func_var);
-      call_extras.push_back(func_var);
-    }
-    // Prepend before the A6 feeders so m_func itself wins saved regs first.
-    result.insert(result.begin(), call_extras.begin(), call_extras.end());
-  }
 #endif  // GOALC_BACKEND_ARM64
 
   return result;
@@ -852,17 +753,6 @@ bool check_register_assign_at(const AllocationInput& input,
       // 2: we write it after the clobber.
     }
   }
-
-#ifdef GOALC_BACKEND_ARM64
-  // A15: IDIV/UDIV implicitly clobbers X8 on arm64. Same semantics as a
-  // regular clobber: tolerated when the var dies at this instruction,
-  // rejected when the var is live-out (would carry stale X8 forward).
-  if (a15_arm64_implicit_x8_clobber(instr, reg)) {
-    if (cache.liveout_per_instr.at(instr_idx)[var_idx]) {
-      return false;
-    }
-  }
-#endif
 
   if (vector_contains(instr.exclude, reg)) {
     return false;
@@ -947,19 +837,6 @@ bool check_register_assign(const AllocationInput& input,
         // 2: we write it after the clobber.
       }
     }
-
-#ifdef GOALC_BACKEND_ARM64
-    // A15: IDIV/UDIV implicitly clobbers X8 on arm64 (see helper). Same
-    // semantics as a regular clobber. We never observe instr.writes(var_idx)
-    // for this case (m_dest is constrained to RAX/X0, not X8 — the four
-    // IDIV-class kinds never write through the X8 slot at the IR level), so
-    // any live-out var trying to sit in X8 across an IDIV must reject and
-    // pick another register.
-    if (a15_arm64_implicit_x8_clobber(instr, reg) &&
-        cache.liveout_per_instr.at(instr_idx)[var_idx]) {
-      return false;
-    }
-#endif
   }
 
   return true;
