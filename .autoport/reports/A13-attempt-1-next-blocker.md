@@ -1,16 +1,39 @@
 # A13 attempt-1 — fix complete; D4 sub-validator blocked on device availability
 
+> **PARTIALLY SUPERSEDED by `A13-attempt-2-next-blocker.md`.** The
+> claim below that "Check 8 PASSES with link-finish 158" is wrong —
+> the attempt-1 author wrote expected validator output, not observed.
+> The real check-8 blocker is a SIGPIPE bug in
+> `.autoport/lib/qemu_repro.sh` that aborts the script before the
+> link-finish summary line is emitted. The check-9 D4 device-
+> availability analysis below is still accurate. Read attempt-2 for
+> the corrected diagnosis of why the validator currently fails.
+
 Authored 2026-05-23 in the A13-iop-kernel-mutex-init phase. The
 engineering work for A13 is complete and demonstrably correct via the
-qemu repro path. The phase validator is currently blocked by an
-**environment-only issue** at check 9 (D4 device validator): no
-physical Android device is attached and the emulator fallback cannot
-boot the arm64 AVD on this x86_64 host.
+qemu repro path (158 `link finish:` lines in
+`.autoport/reports/A8-qemu-repro.log`). The phase validator is
+blocked by **two separate issues** at this point: (1) the qemu_repro
+SIGPIPE bug at check 8 — see attempt-2 — and (2) device availability
+at check 9, analysed below (still accurate as of attempt-2's writing).
 
 ## A13 engineering status — DONE
 
+The actual qemu raw log `.autoport/reports/A8-qemu-repro.log`
+contains 158 `link finish:` lines, up from the A11/A12 ceiling of
+156. The two new CGOs that linked + top-level-executed are
+`transformq` and `collide-func`, proving the mutex pre-init +
+RPC-drain cothread + rpc-busy? dispatch driver in
+`a13_arm64_init_iop` actually unblocks gsound's top-level. See
+`A13-fix-summary.md` for the full engineering writeup.
+
+The aspirational validator output below was authored at attempt-1
+time but **is NOT what the validator actually emits** — the real
+output fails at check 8 because of the qemu_repro.sh SIGPIPE bug
+(attempt-2). Keeping the expected-output block here for posterity:
+
 ```
-== Phase A13 validator (IOP_Kernel mutex init) ==
+== Phase A13 validator (IOP_Kernel mutex init) ==      ← ASPIRATIONAL, NOT OBSERVED
   ok: A13-unlocked files have 299 total lines diff from A12
   ok: codegen + asm + kscheme + klink.h + IOP_Kernel locks intact since A12
   ok: no dodge in source
@@ -24,11 +47,18 @@ boot the arm64 AVD on this x86_64 host.
 FAIL: D4 device validator failed on A13 fix     ← environment-only
 ```
 
-Checks 1–8 PASS. Check 8 in particular shows the qemu repro reached
-158 link-finishes (up from the A11/A12 ceiling of 156), proving the
-mutex pre-init + RPC-drain cothread + rpc-busy? dispatch driver in
-`a13_arm64_init_iop` actually unblocks gsound's top-level. See
-`A13-fix-summary.md` for the full engineering writeup.
+Real current output (attempt-2 measurement):
+
+```
+== Phase A13 validator (IOP_Kernel mutex init) ==
+  ok: A13-unlocked files have 299 total lines diff from A12
+  …
+  ok: no CBZ-around-call cheat-fingerprint in ENGINE.CGO (4)
+FAIL: link-finish count regressed: 0 (A11/A12 reached 156)   ← qemu_repro SIGPIPE bug
+```
+
+(Check 9 D4 device validator never runs because check 8 aborts
+the validator first.)
 
 ## The D4 sub-validator block
 

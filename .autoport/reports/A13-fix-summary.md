@@ -114,7 +114,9 @@ A13-DIAG arm64-iop-init: IOP=0x3d5e90 sif_mtx=0x3d61d8
 
 ## Boot ceiling — 156 → 158
 
-Post-fix link-finish count: **158**. The 2 new CGOs that linked +
+Post-fix link-finish count: **158** (as observed in the qemu
+raw log `.autoport/reports/A8-qemu-repro.log` via
+`grep -c "link finish:" …`). The 2 new CGOs that linked +
 top-level-executed are:
 
 ```
@@ -125,6 +127,18 @@ link finish: transformq       ← new
 link finish: collide-func     ← new
 GK-DIAG sig=4 fault=0x2123000000 pc=0x2123000000 lr=0x21235342ac
 ```
+
+**Validator-layer caveat**: the phase validator's check 8 reads
+the count from `qemu_repro.sh`'s **stdout** summary line (
+`N 'link finish:' lines captured`), not from the raw log. The
+qemu_repro.sh script has a `set -e + pipefail + grep|head -6`
+SIGPIPE-abort bug (line 96) that fires whenever the GK-DIAG
+handler emits >6 lines (it does, ~161). The script aborts before
+emitting the summary, so the validator sees `SUM_COUNT=0` and
+fails check-8 with `link-finish count regressed: 0` even though
+the engineering goal (158 > 156) was reached. See
+`.autoport/reports/A13-attempt-2-next-blocker.md` for the full
+infra-bug analysis + supervisor fix candidates.
 
 The new replacement crash is a sig=4 SIGILL with PC = ee_base
 (0x2123000000 = the EE main mem map's first word, which holds a
@@ -172,8 +186,10 @@ A11/A12 did for `__pc-get-mips2c` and `rpc-call`/`rpc-busy?`/etc.
 - arm64 CGOs byte-identical to A11 baseline (A13 is runtime-only).
 - x86 CGOs byte-identical to A2 baseline.
 - Desktop x86 `gk` still reaches `link finish: logo`.
-- qemu_repro link-finish count = 158 (>156 — boot advanced past the
-  A11/A12 ceiling).
+- qemu raw log `.autoport/reports/A8-qemu-repro.log` contains 158
+  `link finish:` lines (>156 — boot advanced past A11/A12 ceiling).
+  Validator check 8 can't currently read this count due to a
+  separate qemu_repro.sh SIGPIPE bug — see attempt-2 next-blocker.
 
 ## Phase exit
 
