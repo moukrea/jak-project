@@ -483,43 +483,12 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
       m_gen.add_instr(emitter::InstructionARM64(enc), i_rec);
     }
 
-    // A9 (autoport) — X4 = SP resync before stack-var address ops.
+    // A10 (autoport) — A9's X4=SP pre-load workaround removed.
     //
-    // IR_GetStackAddr and IR_RegValAddr in IR.cpp emit:
-    //   mov  dst, RSP             (lea_reg_plus_off / mov_gpr64_gpr64)
-    //   sub  dst, dst, X15
-    // (or `add dst, RSP, #imm` when offset != 0).
-    //
-    // IGenARM64.cpp::arm64_reg5(RSP) returns 4 (the enum id) rather than 31
-    // (the AArch64 SP encoding). So the emitted instructions actually read
-    // from X4, not SP, giving `dst = X4 - X15` (or `X4 + imm - X15`) — an
-    // address that is meaningless unless X4 happens to equal SP.
-    //
-    // At a GOAL function's entry the inbound X4 is the kernel trampoline's
-    // `st` (a small GOAL pointer), and every GOAL→C call's
-    // make_function_from_c_arm64 trampoline overwrites X4 with arg4 (its
-    // `mov x4, x8` shuffle), so X4 is essentially unrelated to SP at
-    // arbitrary points in the body. With stack-var addresses computed off
-    // X4, a stack allocated `date` for `(new 'stack-no-clear 'scf-time)`
-    // (see goal_src/jak1/pc/util/knuth-rand.gc) resolves to garbage; the
-    // subsequent reads/writes can step on the caller's call_r64 X3/X5 save
-    // area on the stack, which is the X3-clobber-after-BLR symptom logged
-    // in .autoport/reports/A9-attempt-1-next-blocker.md.
-    //
-    // The proper fix is in IGenARM64.cpp (special-case RSP in
-    // mov_gpr64_gpr64 / lea_reg_plus_off32 to emit Rn=31), but that file
-    // is anchored at A8-close in the A9 lock list. We patch it here, in
-    // CodeGenerator's narrow A9 unlock, by emitting an
-    //   ADD X4, SP, #0     ; encoding 0x910003E4
-    // immediately before any IR whose codegen reads `RSP`. The pre-IR
-    // synchronisation is enough because IR_GetStackAddr/IR_RegValAddr emit
-    // their `mov/add dst, X4, ...` as their first instruction and never
-    // re-read X4 within the IR. After the IR the value of X4 is allowed
-    // to drift — only the next stack-addr IR cares.
-    if (dynamic_cast<const IR_GetStackAddr*>(ir.get()) ||
-        dynamic_cast<const IR_RegValAddr*>(ir.get())) {
-      m_gen.add_instr(emitter::InstructionARM64(0x910003E4u), i_rec);
-    }
+    // IR_GetStackAddr / IR_RegValAddr now emit `ADD Xd, SP, #imm12` (Rn=31)
+    // directly inside IR.cpp via arm64_add_xd_sp_imm12, so the indirection
+    // through X4 is no longer required. See goalc/compiler/IR.cpp and
+    // .autoport/reports/A10-fix-summary.md.
 
     ir_emit_stats::record(typeid(*ir), true);
     ir->do_codegen_arm64(&m_gen, allocs, i_rec);
