@@ -1,5 +1,14 @@
 # Phase A11 — texture-CGO top-level sym=0 SIGILL (sym-MEM binding gap)
 
+## First step — read the cookbook
+
+Before grepping the goalc tree or re-deriving lock state, read
+`.autoport/CODEGEN_COOKBOOK.md`. It compresses what A6→A10 each
+re-discovered: encoding helpers, lock structure with anchors,
+build+test cycle, GK-DIAG output decoder, anti-cheat enumeration,
+per-phase yield log. ~30 seconds of focused reading saves 5–15
+minutes of rediscovery.
+
 ## Status
 
 **Authored 2026-05-23 by the supervisor** after A10 landed its
