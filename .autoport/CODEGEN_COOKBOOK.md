@@ -196,7 +196,8 @@ welcome; silent skips are not.
 | A10   | IR.cpp ADD Xd, SP, #imm12 (Rn=31)   | +43 → 104 | texture sym-MEM=0 SIGILL          |
 | A11   | klink + symbol + diag, kscheme.cpp::call_goal arg-bridge | +52 → 156 | gsound stack-loaded fn-ptr=0 SIGILL |
 | A12   | bind rpc-call/rpc-busy?/test-load-dgo-c to real desktop fns + backward-provenance SIGILL diag | +0 → 156 | pthread_mutex_lock SEGV in IOP_Kernel::sif_rpc (mutex uninit'd on arm64) |
-| A13   | IOP_Kernel mutex pre-init (linux_arm64_runtime_compat / android_runtime_compat) | TBD | TBD |
+| A13   | IOP_Kernel mutex pre-init + libco cothread RPC drain + rpc-busy? dispatch-driver | +2 → 158 | __mem-move unbound (next pc-* helper at dma-buffer top-level) |
+| A14   | bind __mem-move to pc_memmove (klink helper, A11/A12 pattern) | TBD | TBD |
 
 Yield per phase has trended upward (16 → 43 → **52**). x86 target is
 438 link-finishes. At current yield, ~5–6 more phases reach the

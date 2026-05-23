@@ -327,6 +327,14 @@ phases:
   validator: validators/phase-A13-iop-kernel-mutex-init.sh
   max_turns: 600
   max_retries: 12
+- id: A14-pc-memmove-bind
+  name: Bind __mem-move on linux-arm64 / android-arm64 (the next unbound pc-* helper that dma-buffer's top-level invokes after the A13
+    IOP unblock). Add a klink_a14_ensure_pc_memmove_bound helper to klink.cpp mirroring the A11/A12 pattern; chain into the pre-version
+    -check hook in both boot drivers. Smallest A14 candidate per A13 attempt-3 next-blocker.
+  prompt: prompts/phase-A14-pc-memmove-bind.md
+  validator: validators/phase-A14-pc-memmove-bind.sh
+  max_turns: 400
+  max_retries: 8
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
