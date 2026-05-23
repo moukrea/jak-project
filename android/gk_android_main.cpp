@@ -141,12 +141,24 @@ void a11_install_pc_mips2c_hook_once() {
     // similarly omits InitSoundScheme, so gsound's top-level BLR to
     // `rpc-call` lands at ee_base unless we bind here.
     klink_a12_ensure_sound_rpc_bound();
+    // A13 note: NO arm64-style IOP mutex pre-init chained in here.
+    // Android's android_runtime_full.cpp::make_iop_thread already
+    // constructs a real IOP + spawns the iop_runner OS thread when
+    // InitMachine() runs, so both pthread_mutex_init (via the
+    // IOP_Kernel default ctor and bionic PTHREAD_MUTEX_INITIALIZER)
+    // and the dispatch loop (via the spawned pthread, not a libco
+    // step-driver) are already alive on Android. The linux-arm64
+    // build is the only one missing those — it carries the
+    // standalone a13_arm64_init_iop fix in
+    // game/linux-arm64/linux_arm64_runtime_compat.cpp.
   };
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "A11-DIAG sym-bind-trace: chained "
                       "klink_a11_ensure_pc_mips2c_bound + "
                       "klink_a12_ensure_sound_rpc_bound onto "
-                      "g_jak1_pre_kernel_version_check_hook (prev=%p)",
+                      "g_jak1_pre_kernel_version_check_hook (prev=%p; A13 "
+                      "IOP-init NOT chained here — Android uses real "
+                      "iop_runner)",
                       (void*)prev);
 }
 }  // namespace

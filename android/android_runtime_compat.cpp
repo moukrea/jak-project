@@ -976,4 +976,19 @@ struct InstallKernelVersionHook {
 };
 [[maybe_unused]] InstallKernelVersionHook g_install_kernel_version_hook;
 
+// A13 note: the IOP_Kernel mutex pre-init done in
+// game/linux-arm64/linux_arm64_runtime_compat.cpp::a13_arm64_init_iop is
+// NOT mirrored here. Android's runtime path constructs a proper IOP +
+// spawns the real iop_runner OS thread in
+// android/android_runtime_full.cpp::make_iop_thread (called from
+// android_runtime_full.cpp::InitMachine), which already runs the
+// IOP_Kernel default constructor (default-constructs both std::mutex
+// members via libstdc++/bionic PTHREAD_MUTEX_INITIALIZER) and drives
+// dispatch in the background. The linux-arm64 build can't reuse that
+// path because it deliberately doesn't pull SDL3/libcurl/discord, so
+// linux-arm64 gets the standalone mutex-pre-init + drain-cothread
+// fallback while Android stays on the real iop_runner. No code change
+// needed here for A13 — Android's existing IOP construction is the
+// real fix, mirrored by the linux-arm64 standalone setup.
+
 }  // namespace

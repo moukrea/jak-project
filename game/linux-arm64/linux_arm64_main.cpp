@@ -112,6 +112,11 @@
 
 #include "linux_arm64_direct_dgo.h"
 
+// A13 IOP-kernel pre-init helper, defined in linux_arm64_runtime_compat.cpp.
+// File-scope declaration so the call inside the anonymous namespace below
+// resolves to the global symbol (not an anonymous-namespace internal).
+void a13_arm64_init_iop();
+
 namespace {
 constexpr const char* kPhaseTag = "A8";
 constexpr const char* kBuildTag = BUILT_TAG;
@@ -848,6 +853,18 @@ int boot_kernel_init() {
   // gsound's top-level BLRs to ee_base when invoking `rpc-call` against
   // the unbound (0-valued) sym slot.
   klink_a12_ensure_sound_rpc_bound();
+
+  // A13 IOP-kernel pre-init: construct an IOP, pthread_mutex_init its
+  // sif_mtx + wakeup_mtx, create an RPC-drain cothread + SifRecord, and
+  // rebind `rpc-busy?` to a dispatch-driver. Without this, gsound's
+  // first `(rpc-call ...)` SEGVs at pthread_mutex_lock@plt (mutex object
+  // at uninitialised memory) and `(sync ...)` afterwards would busy-wait
+  // forever (no IOP thread to flip cmd.finished). Lives in
+  // linux_arm64_runtime_compat.cpp because the static IOP + cothread
+  // setup is linux-arm64-only — Android's runtime spawns the real
+  // iop_runner OS thread elsewhere. Declared at file scope above so
+  // this call resolves to the global symbol.
+  ::a13_arm64_init_iop();
 
   // C2 milestone banner — kept for the C2 validator's checks 19+25
   // which grep for these exact lines. The C3 stage runs after.
