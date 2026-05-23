@@ -70,6 +70,8 @@
 //     REDESIGN §9-Delete list calls those out by name); fabricated
 //     state names defeat the trace-diff oracle.
 
+#include <csetjmp>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -77,6 +79,7 @@
 #include <thread>
 
 #include <sys/mman.h>
+#include <ucontext.h>
 
 #include "common/common_types.h"
 #include "common/goal_constants.h"
@@ -109,9 +112,92 @@
 #include "linux_arm64_direct_dgo.h"
 
 namespace {
-constexpr const char* kPhaseTag = "C4";
+constexpr const char* kPhaseTag = "A8";
 constexpr const char* kBuildTag = BUILT_TAG;
 constexpr const char* kBuildSha = BUILT_SHA;
+
+// ---------------------------------------------------------------------------
+// A8 (qemu repro) — SIGSEGV/SIGILL/SIGBUS handler. Mirrors the Android
+// `gk_sigsegv_diag` shape so the diag dump format is identical between
+// device boot logs and qemu logs.
+// ---------------------------------------------------------------------------
+namespace gk_diag {
+sigjmp_buf safe_read_env;
+volatile sig_atomic_t safe_read_jumped = 0;
+void safe_read_handler(int /*sig*/, siginfo_t* /*info*/, void* /*ctx*/) {
+  safe_read_jumped = 1;
+  siglongjmp(safe_read_env, 1);
+}
+bool safe_read_u32(uintptr_t addr, uint32_t* out) {
+  struct sigaction old_segv {}, old_bus {}, sa {};
+  sa.sa_sigaction = &safe_read_handler;
+  sa.sa_flags = SA_SIGINFO | SA_NODEFER;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGSEGV, &sa, &old_segv);
+  sigaction(SIGBUS, &sa, &old_bus);
+  bool ok = false;
+  if (sigsetjmp(safe_read_env, 1) == 0) {
+    safe_read_jumped = 0;
+    std::memcpy(out, reinterpret_cast<const void*>(addr), 4);
+    ok = !safe_read_jumped;
+  }
+  sigaction(SIGSEGV, &old_segv, nullptr);
+  sigaction(SIGBUS, &old_bus, nullptr);
+  return ok;
+}
+}  // namespace gk_diag
+
+void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  uintptr_t pc = uc->uc_mcontext.pc;
+  uintptr_t lr = uc->uc_mcontext.regs[30];
+  uintptr_t fault = info ? reinterpret_cast<uintptr_t>(info->si_addr) : 0;
+  std::fprintf(stderr, "GK-DIAG sig=%d fault=0x%lx pc=0x%lx lr=0x%lx\n", sig,
+               (unsigned long)fault, (unsigned long)pc, (unsigned long)lr);
+  for (int i = 0; i < 31; ++i) {
+    std::fprintf(stderr, "GK-DIAG x%d=0x%lx\n", i,
+                 (unsigned long)uc->uc_mcontext.regs[i]);
+  }
+  std::fprintf(stderr, "GK-DIAG sp=0x%lx\n", (unsigned long)uc->uc_mcontext.sp);
+  for (intptr_t d = -256; d <= 16; d += 4) {
+    uintptr_t addr = lr + d;
+    uint32_t insn = 0;
+    if (gk_diag::safe_read_u32(addr, &insn)) {
+      std::fprintf(stderr, "GK-DIAG lr%+ld @ 0x%lx = 0x%08x\n", (long)d,
+                   (unsigned long)addr, insn);
+    } else {
+      std::fprintf(stderr, "GK-DIAG lr%+ld @ 0x%lx = <unreadable>\n", (long)d,
+                   (unsigned long)addr);
+    }
+  }
+  for (intptr_t d = -32; d <= 16; d += 4) {
+    uintptr_t addr = pc + d;
+    uint32_t insn = 0;
+    if (gk_diag::safe_read_u32(addr, &insn)) {
+      std::fprintf(stderr, "GK-DIAG pc%+ld @ 0x%lx = 0x%08x\n", (long)d,
+                   (unsigned long)addr, insn);
+    } else {
+      std::fprintf(stderr, "GK-DIAG pc%+ld @ 0x%lx = <unreadable>\n", (long)d,
+                   (unsigned long)addr);
+    }
+  }
+  std::fflush(stderr);
+  struct sigaction sa {};
+  sa.sa_handler = SIG_DFL;
+  sigaction(sig, &sa, nullptr);
+  std::raise(sig);
+}
+
+void gk_install_sigsegv_diag() {
+  struct sigaction sa {};
+  sa.sa_sigaction = &gk_sigsegv_diag;
+  sa.sa_flags = SA_SIGINFO;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGSEGV, &sa, nullptr);
+  sigaction(SIGBUS, &sa, nullptr);
+  sigaction(SIGILL, &sa, nullptr);
+  std::fprintf(stderr, "linux-arm64: gk_install_sigsegv_diag installed\n");
+}
 
 // Single-source format string for every per-phase symbol-count
 // emission. Anti-cheat: the C4 validator enforces that the literal
@@ -130,12 +216,16 @@ constexpr const char* kSymCountFmt = "linux-arm64: %sNumSymbols=%u%s\n";
 // (no silent skip allowed).
 constexpr const char* kArm64KernelCgoPath = "out/jak1-arm64/iso/KERNEL.CGO";
 
-// Buffer size for the direct DGO loader's heap-top scratch. Upstream
-// kdgo.cpp uses 0x400000 (4 MB) because the IOP double-buffers; our
-// synchronous single-buffer loader can use less. 1 MB is well above
-// the largest KERNEL.CGO object (~35 KB for `gkernel`) while still
-// leaving 60+ MB of heap headroom on the 61 MB global heap.
-constexpr s32 kDirectDgoBufferSize = 0x100000;
+// A8 — engine + game CGOs for the qemu repro of the display.gc NULL
+// fn-ptr BLR. Both loaded with LINK_FLAG_EXECUTE so the top-level GOAL
+// functions run after relocation, mirroring the on-device path via
+// `load_and_link_dgo_from_c("game", ...)` in jak1::InitMachineScheme.
+constexpr const char* kArm64EngineCgoPath = "out/jak1-arm64/iso/ENGINE.CGO";
+constexpr const char* kArm64GameCgoPath = "out/jak1-arm64/iso/GAME.CGO";
+
+// Buffer size for the direct DGO loader's heap-top scratch. Engine/Game
+// CGOs contain objects up to ~1 MB; match upstream kdgo.cpp's 0x400000.
+constexpr s32 kDirectDgoBufferSize = 0x400000;
 
 void print_banner(std::FILE* out) {
   std::fprintf(out,
@@ -285,17 +375,12 @@ int boot_link_kernel_cgo() {
   // toggling would defeat the validator's anti-cheat check 14.
   constexpr u32 kKernelExecLinkFlags = kKernelLinkFlags | LINK_FLAG_EXECUTE;
 
-  // The actual call uses the relocate-only flags (no LINK_FLAG_EXECUTE).
-  // kKernelExecLinkFlags above documents the *intent* for the validator
-  // and for any future phase that fixes the goalc-arm64 emitter, but the
-  // emitter's two outstanding bugs (R14/R15 enum-id maps to the wrong
-  // arm64 registers, and FAR-from-s7 symbols overflow imm12) make running
-  // the linked top-levels unsafe today. Selecting between the two
-  // constants is a static choice (no per-object conditional) so the
-  // anti-cheat check on conditional LINK_FLAG_EXECUTE still passes.
-  (void)kKernelExecLinkFlags;
+  // A8 — phase A6 closed the two emitter bugs that previously gated
+  // EXECUTE for KERNEL.CGO. The X19 trampoline save (69b8651b4), the 6
+  // off-register helpers, and the FAR-from-s7 NOP-rewrite path now make
+  // running every KERNEL.CGO top-level safe.
   int rc = linux_arm64::direct_load_dgo(kArm64KernelCgoPath, kglobalheap,
-                                        kKernelLinkFlags,
+                                        kKernelExecLinkFlags,
                                         kDirectDgoBufferSize);
   if (rc != 0) {
     std::fprintf(stderr,
@@ -370,6 +455,62 @@ int boot_link_kernel_cgo() {
 
   return 0;
 }
+
+// Stage 3 (A8): drive ENGINE.CGO + GAME.CGO through the same link
+// engine with LINK_FLAG_EXECUTE on. This is the qemu reproduction of
+// the device boot path post-A6 close — qemu now exhibits the same
+// display.gc NULL fn-ptr crash the device hit, with the SIGSEGV/SIGILL
+// handler dumping the diag locally.
+int boot_link_engine_game_cgos() {
+  for (const char* path : {kArm64EngineCgoPath, kArm64GameCgoPath}) {
+    if (FILE* fp = std::fopen(path, "rb")) {
+      std::fclose(fp);
+    } else {
+      std::fprintf(stderr,
+                   "linux-arm64: %s missing — run B1/B2 to produce ENGINE/GAME.CGO\n",
+                   path);
+      return 50;
+    }
+  }
+
+  constexpr u32 kEngineGameLinkFlags =
+      LINK_FLAG_OUTPUT_LOAD | LINK_FLAG_PRINT_LOGIN | LINK_FLAG_EXECUTE;
+
+  (*EnableMethodSet)++;
+  std::fprintf(stdout, "linux-arm64: A8 loading ENGINE.CGO\n");
+  std::fflush(stdout);
+  int rc = linux_arm64::direct_load_dgo(kArm64EngineCgoPath, kglobalheap,
+                                        kEngineGameLinkFlags,
+                                        kDirectDgoBufferSize);
+  if (rc != 0) {
+    std::fprintf(stderr,
+                 "linux-arm64: direct_load_dgo(%s) returned %d\n",
+                 kArm64EngineCgoPath, rc);
+    (*EnableMethodSet)--;
+    return 51;
+  }
+  std::fprintf(stdout, "linux-arm64: A8 ENGINE.CGO link complete (NumSymbols=%u)\n",
+               (unsigned)NumSymbols);
+  std::fflush(stdout);
+
+  std::fprintf(stdout, "linux-arm64: A8 loading GAME.CGO\n");
+  std::fflush(stdout);
+  rc = linux_arm64::direct_load_dgo(kArm64GameCgoPath, kglobalheap,
+                                    kEngineGameLinkFlags,
+                                    kDirectDgoBufferSize);
+  (*EnableMethodSet)--;
+  if (rc != 0) {
+    std::fprintf(stderr,
+                 "linux-arm64: direct_load_dgo(%s) returned %d\n",
+                 kArm64GameCgoPath, rc);
+    return 52;
+  }
+  std::fprintf(stdout, "linux-arm64: A8 GAME.CGO link complete (NumSymbols=%u)\n",
+               (unsigned)NumSymbols);
+  std::fflush(stdout);
+  std::fprintf(stdout, "linux-arm64: A8 engine+game execute complete\n");
+  return 0;
+}
 }  // namespace
 
 int goal_main(int argc, char** argv) {
@@ -377,12 +518,15 @@ int goal_main(int argc, char** argv) {
 
   bool show_version = false;
   bool show_banner_only = false;
+  bool skip_engine_game = false;
   for (int i = 1; i < argc; ++i) {
     if (std::strcmp(argv[i], "--version") == 0 ||
         std::strcmp(argv[i], "-v") == 0) {
       show_version = true;
     } else if (std::strcmp(argv[i], "--banner-only") == 0) {
       show_banner_only = true;
+    } else if (std::strcmp(argv[i], "--kernel-only") == 0) {
+      skip_engine_game = true;
     }
   }
 
@@ -392,6 +536,8 @@ int goal_main(int argc, char** argv) {
     return 0;
   }
 
+  gk_install_sigsegv_diag();
+
   int rc = boot_kernel_init();
   if (rc != 0) {
     return rc;
@@ -400,6 +546,13 @@ int goal_main(int argc, char** argv) {
   rc = boot_link_kernel_cgo();
   if (rc != 0) {
     return rc;
+  }
+
+  if (!skip_engine_game) {
+    rc = boot_link_engine_game_cgos();
+    if (rc != 0) {
+      return rc;
+    }
   }
 
   return 0;
