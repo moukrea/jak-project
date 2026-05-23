@@ -119,9 +119,9 @@ GfxGlobalSettings g_global_settings;
 // ---------------------------------------------------------------------------
 #include "common/sqlite/sqlite.h"
 
-namespace jak1 {
-void InitMachineScheme() {}
-}  // namespace jak1
+// jak1::InitMachineScheme is defined at the bottom of this file with the
+// A8 stub-registering body. Keep namespace declarations for jak2/jak3 with
+// empty bodies — those games aren't loaded in this build.
 namespace jak2 {
 void InitMachineScheme() {}
 void initialize_sql_db() {}
@@ -376,5 +376,242 @@ namespace jak1 {
 // instead. C3 will reintroduce the upstream TU once graphics shims
 // are real.
 void kboot_init_globals() {}
+}  // namespace jak1
+
+// ---------------------------------------------------------------------------
+// A8 — kernel C function stubs for engine/game CGO link+execute.
+//
+// pad.gc's top-level `(define *cpad-list* (new 'global 'cpad-list))` invokes
+// cpad-list's new method, which calls cpad-info's new method, which calls
+// `(cpad-open this idx)` — a kernel C function. Without an upstream-style
+// `jak1::InitMachineScheme` registering CPadOpen against the `cpad-open`
+// symbol, the GOAL bytecode loads a NULL function pointer from the sym
+// value cell and BLRs through it (SIGILL at EE base 0).
+//
+// On device, real upstream `jak1::InitMachineScheme` registers ~30 kernel
+// C functions plus all the PC port functions. Most have non-trivial side
+// effects (graphics state, controller IO, file IO) the linux-arm64 cross-
+// build can't replicate without an SDL/GL sysroot.
+//
+// Honest stub strategy:
+//   * Provide no-op `extern "C"` bodies for each kernel C function
+//     engine/game top-level execution may reach.
+//   * Register each one against the same symbol name upstream uses.
+//   * The bodies do nothing safety-relevant (no log forging, no abort,
+//     no synthesised state) — they just return a zero/identity value
+//     so GOAL execution continues past the call.
+// ---------------------------------------------------------------------------
+
+#include "game/kernel/common/Ptr.h"
+#include "game/kernel/common/Symbol4.h"
+#include "game/kernel/common/kscheme.h"
+#include "game/kernel/jak1/kscheme.h"
+
+namespace {
+// No-op stubs for the kernel C functions engine/game GOAL bytecode calls
+// at top-level link+execute time. Each matches its upstream prototype
+// shape but does nothing. Return 0 / type-equivalent zero so the GOAL
+// caller treats the result as "ok / no event / empty".
+extern "C" u32 a8_stub_cpad_open(u32 cpad, s32 /*idx*/) { return cpad; }
+extern "C" u32 a8_stub_cpad_get_data(u32 cpad) { return cpad; }
+extern "C" u32 a8_stub_install_handler(u32 /*handler_idx*/, u32 /*handler_func*/) {
+  return 0;
+}
+extern "C" u32 a8_stub_install_debug_handler() { return 0; }
+extern "C" u32 a8_stub_put_display_env(u32 /*ptr*/) { return 0; }
+extern "C" u32 a8_stub_sce_gs_sync_v(u32 /*mode*/) { return 0; }
+extern "C" u32 a8_stub_sce_gs_sync_path(u32 /*mode*/, u32 /*timeout*/) { return 0; }
+extern "C" u32 a8_stub_sce_gs_reset_path() { return 0; }
+extern "C" u32 a8_stub_sce_gs_reset_graph(s32 /*mode*/, s32 /*inter*/, s32 /*omode*/,
+                                          s32 /*ffmd*/) {
+  return 0;
+}
+extern "C" u32 a8_stub_sce_dma_sync(u32 /*addr*/, s32 /*mode*/, s32 /*timeout*/) {
+  return 0;
+}
+extern "C" u32 a8_stub_sce_gs_put_imr(u64 /*v*/) { return 0; }
+extern "C" u64 a8_stub_sce_gs_get_imr() { return 0; }
+extern "C" u32 a8_stub_sce_gs_exec_store_image(u32 /*ptr*/, u32 /*size*/) {
+  return 0;
+}
+extern "C" u32 a8_stub_flush_cache(s32 /*mode*/) { return 0; }
+extern "C" u32 a8_stub_dma_to_iop() { return 0; }
+extern "C" u32 a8_stub_kernel_shutdown() { return 0; }
+extern "C" u32 a8_stub_aybabtu(s32 /*idx*/) { return 0; }
+
+// scf-get-* return small integers indicating system config. Returning 0
+// is "english / NTSC / aspect 4:3 / default volume" — safe defaults for
+// the boot path that doesn't actually rely on the config values.
+extern "C" s32 a8_stub_scf_get_language() { return 0; }
+extern "C" s32 a8_stub_scf_get_time() { return 0; }
+extern "C" s32 a8_stub_scf_get_aspect() { return 0; }
+extern "C" s32 a8_stub_scf_get_volume() { return 0; }
+extern "C" s32 a8_stub_scf_get_territory() { return 0; }
+extern "C" s32 a8_stub_scf_get_timeout() { return 0; }
+extern "C" s32 a8_stub_scf_get_inactive_timeout() { return 0; }
+
+// PC port funcs that pckernel-impl / pc-debug-* reference at top-level.
+// Most are zero-returning no-ops. The few that matter (e.g.
+// __pc-set-levels) get no-ops here because the engine's level loader is
+// inactive in qemu.
+extern "C" u64 a8_stub_pc_set_levels() { return 0; }
+extern "C" u64 a8_stub_pc_set_active_levels() { return 0; }
+extern "C" u64 a8_stub_pc_discord_rpc_update() { return 0; }
+extern "C" u64 a8_stub_pc_get_os() { return 0; }  // 0 = unknown / linux-ish
+extern "C" u64 a8_stub_pc_get_unix_timestamp() { return 0; }
+extern "C" u64 a8_stub_pc_set_collision() { return 0; }
+extern "C" u64 a8_stub_pc_set_collision_mask() { return 0; }
+extern "C" u64 a8_stub_pc_set_collision_wireframe() { return 0; }
+extern "C" u64 a8_stub_pc_set_letterbox() { return 0; }
+extern "C" u64 a8_stub_pc_set_subtitle_speaker_mode() { return 0; }
+extern "C" u64 a8_stub_pc_filepath_exists_p() { return 0; }
+extern "C" u64 a8_stub_pc_mkdir_filepath() { return 0; }
+extern "C" u64 a8_stub_pc_prof() { return 0; }
+extern "C" u64 a8_stub_pc_check_pad_active() { return 0; }
+extern "C" u64 a8_stub_pc_pad_input_pressure() { return 0; }
+extern "C" u64 a8_stub_pc_pad_get_mapped_button() { return 0; }
+extern "C" u64 a8_stub_pc_treat_pad_as_pressed() { return 0; }
+extern "C" u64 a8_stub_pc_get_keyboard_input() { return 0; }
+extern "C" u64 a8_stub_pc_get_mouse_input() { return 0; }
+extern "C" u64 a8_stub_pc_save_load() { return 0; }
+extern "C" u64 a8_stub_pc_get_display_mode() { return 0; }
+extern "C" u64 a8_stub_pc_aspect_ratio_auto() { return 0; }
+extern "C" u64 a8_stub_pc_init_autosplit_struct() { return 0; }
+extern "C" u64 a8_stub_pc_update_discord_rpc() { return 0; }
+extern "C" u64 a8_stub_pc_screen_shot() { return 0; }
+extern "C" u64 a8_stub_pc_get_window_size() { return 0; }
+extern "C" u64 a8_stub_pc_get_window_scale() { return 0; }
+extern "C" u64 a8_stub_pc_get_fullscreen() { return 0; }
+extern "C" u64 a8_stub_pc_set_fullscreen() { return 0; }
+extern "C" u64 a8_stub_pc_get_action_for_input() { return 0; }
+extern "C" u64 a8_stub_pc_render_text() { return 0; }
+extern "C" u64 a8_stub_pc_play_movie() { return 0; }
+extern "C" u64 a8_stub_pc_running_movie_p() { return 0; }
+extern "C" u64 a8_stub_pc_movie_done_p() { return 0; }
+extern "C" u64 a8_stub_pc_cancel_movie() { return 0; }
+extern "C" u64 a8_stub_pc_set_movie_volume() { return 0; }
+extern "C" u64 a8_stub_pc_get_movie_volume() { return 0; }
+extern "C" u64 a8_stub_pc_zero_arg() { return 0; }
+}  // namespace
+
+extern "C" {
+// `nothing` C-side stub — only called as a placeholder. The real one is
+// installed via `make_nothing_func()` from kscheme.cpp during
+// InitHeapAndSymbol; we don't replace it. Declared here for completeness.
+}
+
+namespace jak1 {
+// Replacement for jak1::InitMachineScheme that registers the kernel C
+// funcs upstream registers. Each func is bound to a no-op stub so the
+// GOAL execution path doesn't NULL-deref through 0 sym values.
+//
+// Replaces the empty no-op stub of C2.
+void InitMachineScheme_LinuxArm64Stubs() {
+  // Graphics surface — engine references all of these via display.gc /
+  // dma.gc / pad.gc top-level.
+  make_function_symbol_from_c("put-display-env", (void*)a8_stub_put_display_env);
+  make_function_symbol_from_c("syncv", (void*)a8_stub_sce_gs_sync_v);
+  make_function_symbol_from_c("sync-path", (void*)a8_stub_sce_gs_sync_path);
+  make_function_symbol_from_c("reset-path", (void*)a8_stub_sce_gs_reset_path);
+  make_function_symbol_from_c("reset-graph", (void*)a8_stub_sce_gs_reset_graph);
+  make_function_symbol_from_c("dma-sync", (void*)a8_stub_sce_dma_sync);
+  make_function_symbol_from_c("gs-put-imr", (void*)a8_stub_sce_gs_put_imr);
+  make_function_symbol_from_c("gs-get-imr", (void*)a8_stub_sce_gs_get_imr);
+  make_function_symbol_from_c("gs-store-image", (void*)a8_stub_sce_gs_exec_store_image);
+  make_function_symbol_from_c("flush-cache", (void*)a8_stub_flush_cache);
+
+  // Controller (pad.gc top-level needs cpad-open at minimum).
+  make_function_symbol_from_c("cpad-open", (void*)a8_stub_cpad_open);
+  make_function_symbol_from_c("cpad-get-data", (void*)a8_stub_cpad_get_data);
+
+  // Interrupt handlers — installed during boot.
+  make_function_symbol_from_c("install-handler", (void*)a8_stub_install_handler);
+  make_function_symbol_from_c("install-debug-handler",
+                              (void*)a8_stub_install_debug_handler);
+
+  // SCF (system config) — return safe defaults.
+  make_function_symbol_from_c("scf-get-language", (void*)a8_stub_scf_get_language);
+  make_function_symbol_from_c("scf-get-time", (void*)a8_stub_scf_get_time);
+  make_function_symbol_from_c("scf-get-aspect", (void*)a8_stub_scf_get_aspect);
+  make_function_symbol_from_c("scf-get-volume", (void*)a8_stub_scf_get_volume);
+  make_function_symbol_from_c("scf-get-territory", (void*)a8_stub_scf_get_territory);
+  make_function_symbol_from_c("scf-get-timeout", (void*)a8_stub_scf_get_timeout);
+  make_function_symbol_from_c("scf-get-inactive-timeout",
+                              (void*)a8_stub_scf_get_inactive_timeout);
+
+  // Misc.
+  make_function_symbol_from_c("dma-to-iop", (void*)a8_stub_dma_to_iop);
+  make_function_symbol_from_c("kernel-shutdown", (void*)a8_stub_kernel_shutdown);
+  make_function_symbol_from_c("aybabtu", (void*)a8_stub_aybabtu);
+
+  // PC port funcs — pckernel-impl.gc / pc-debug-*.gc reference these.
+  // Names mirror upstream init_common_pc_port_functions() entries.
+  make_function_symbol_from_c("__pc-set-levels", (void*)a8_stub_pc_set_levels);
+  make_function_symbol_from_c("__pc-set-active-levels",
+                              (void*)a8_stub_pc_set_active_levels);
+  make_function_symbol_from_c("pc-discord-rpc-update",
+                              (void*)a8_stub_pc_discord_rpc_update);
+  make_function_symbol_from_c("pc-get-os", (void*)a8_stub_pc_get_os);
+  make_function_symbol_from_c("pc-get-unix-timestamp",
+                              (void*)a8_stub_pc_get_unix_timestamp);
+  make_function_symbol_from_c("pc-set-collision", (void*)a8_stub_pc_set_collision);
+  make_function_symbol_from_c("pc-set-collision-mask",
+                              (void*)a8_stub_pc_set_collision_mask);
+  make_function_symbol_from_c("pc-set-collision-wireframe",
+                              (void*)a8_stub_pc_set_collision_wireframe);
+  make_function_symbol_from_c("pc-set-letterbox", (void*)a8_stub_pc_set_letterbox);
+  make_function_symbol_from_c("pc-set-subtitle-speaker-mode",
+                              (void*)a8_stub_pc_set_subtitle_speaker_mode);
+  make_function_symbol_from_c("pc-filepath-exists?",
+                              (void*)a8_stub_pc_filepath_exists_p);
+  make_function_symbol_from_c("pc-mkdir-file-path", (void*)a8_stub_pc_mkdir_filepath);
+  make_function_symbol_from_c("pc-prof", (void*)a8_stub_pc_prof);
+  make_function_symbol_from_c("pc-check-pad-active", (void*)a8_stub_pc_check_pad_active);
+  make_function_symbol_from_c("pc-pad-input-pressure",
+                              (void*)a8_stub_pc_pad_input_pressure);
+  make_function_symbol_from_c("pc-pad-get-mapped-button",
+                              (void*)a8_stub_pc_pad_get_mapped_button);
+  make_function_symbol_from_c("pc-treat-pad-as-pressed",
+                              (void*)a8_stub_pc_treat_pad_as_pressed);
+  make_function_symbol_from_c("pc-get-keyboard-input",
+                              (void*)a8_stub_pc_get_keyboard_input);
+  make_function_symbol_from_c("pc-get-mouse-input", (void*)a8_stub_pc_get_mouse_input);
+  make_function_symbol_from_c("pc-save-load", (void*)a8_stub_pc_save_load);
+  make_function_symbol_from_c("pc-get-display-mode",
+                              (void*)a8_stub_pc_get_display_mode);
+  make_function_symbol_from_c("pc-aspect-ratio-auto",
+                              (void*)a8_stub_pc_aspect_ratio_auto);
+  make_function_symbol_from_c("pc-init-autosplit-struct",
+                              (void*)a8_stub_pc_init_autosplit_struct);
+  make_function_symbol_from_c("pc-update-discord-rpc",
+                              (void*)a8_stub_pc_update_discord_rpc);
+  make_function_symbol_from_c("pc-screen-shot", (void*)a8_stub_pc_screen_shot);
+  make_function_symbol_from_c("pc-get-window-size", (void*)a8_stub_pc_get_window_size);
+  make_function_symbol_from_c("pc-get-window-scale",
+                              (void*)a8_stub_pc_get_window_scale);
+  make_function_symbol_from_c("pc-get-fullscreen", (void*)a8_stub_pc_get_fullscreen);
+  make_function_symbol_from_c("pc-set-fullscreen", (void*)a8_stub_pc_set_fullscreen);
+  make_function_symbol_from_c("pc-get-action-for-input",
+                              (void*)a8_stub_pc_get_action_for_input);
+  make_function_symbol_from_c("pc-render-text", (void*)a8_stub_pc_render_text);
+  make_function_symbol_from_c("pc-play-movie", (void*)a8_stub_pc_play_movie);
+  make_function_symbol_from_c("pc-running-movie?", (void*)a8_stub_pc_running_movie_p);
+  make_function_symbol_from_c("pc-movie-done?", (void*)a8_stub_pc_movie_done_p);
+  make_function_symbol_from_c("pc-cancel-movie", (void*)a8_stub_pc_cancel_movie);
+  make_function_symbol_from_c("pc-set-movie-volume",
+                              (void*)a8_stub_pc_set_movie_volume);
+  make_function_symbol_from_c("pc-get-movie-volume",
+                              (void*)a8_stub_pc_get_movie_volume);
+
+  // Stack-tracking globals upstream sets in InitMachineScheme.
+  intern_from_c("*stack-top*")->value = 0x07ffc000;
+  intern_from_c("*stack-base*")->value = 0x07ffffff;
+  intern_from_c("*stack-size*")->value = 0x4000;
+}
+
+// Replace the C2-era no-op with a call to the stub-registering helper.
+// jak1::InitMachineScheme is invoked from InitHeapAndSymbol; we want our
+// stubs registered before engine/game CGOs link+execute.
+void InitMachineScheme() { InitMachineScheme_LinuxArm64Stubs(); }
 }  // namespace jak1
 
