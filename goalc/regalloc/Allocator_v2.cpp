@@ -696,6 +696,39 @@ bool vector_contains(const std::vector<T>& vec, const T& obj) {
   return false;
 }
 
+#ifdef GOALC_BACKEND_ARM64
+// A15 (arm64-only): the IR_IntegerMath IDIV/UDIV/IMOD/UMOD path adds
+// `exclude={RDX}` to the RegAllocInstr (IR.cpp:816 is the SOLE caller of
+// `exclude.emplace_back` in the tree, so this signature is unique to
+// IDIV-class instructions). That signature is the x86 convention — on
+// x86 the divisor cannot share a reg with the EDX:EAX dividend pair.
+//
+// But on arm64 the emitter (IGenARM64.cpp::idiv_gpr32 / unsigned_div_gpr32)
+// hardcodes the SDIV/UDIV destination to Register(8) (= X8), regardless
+// of what the regalloc thinks the destination of the IR op is. The
+// `exclude={RDX}` value (RDX = enum 2 = X2 on arm64) is irrelevant to
+// the actual arm64 emission and protects the wrong register.
+//
+// Consequence: any vreg the regalloc parks in X8 that is live across an
+// IDIV gets silently clobbered by the SDIV's destination write. A14's
+// `sin*!` SIGBUS crash was exactly this — v_fnptr (loaded from a sym
+// slot) and a degree-to-radian SDIV destination both landed in X8, the
+// SDIV overwrote the fn-ptr with (fn-ptr / 10), and the later BLR x8
+// jumped to an unaligned PC.
+//
+// Fix: treat X8 as implicitly clobbered across any RegAllocInstr whose
+// exclude is exactly `{RDX}`. The clobber semantics already mean "the
+// regalloc may not park a live-out vreg in this reg unless the vreg is
+// also written here" — which is exactly what we want. The IDIV's own
+// destination is force-constrained to RAX by Math.cpp:462-466 (= enum 0
+// = X0 on arm64) and is therefore not in X8 either, so this extra
+// clobber doesn't break the IDIV itself.
+inline bool is_arm64_idiv_class(const RegAllocInstr& instr) {
+  return instr.exclude.size() == 1 &&
+         instr.exclude.front() == emitter::Register(emitter::RDX);
+}
+#endif
+
 /*!
  * Is it okay to assign the given variable to the register?
  */
@@ -757,6 +790,16 @@ bool check_register_assign_at(const AllocationInput& input,
   if (vector_contains(instr.exclude, reg)) {
     return false;
   }
+
+#ifdef GOALC_BACKEND_ARM64
+  // A15: arm64 IDIV/UDIV emitter writes X8 implicitly. Treat X8 as a
+  // clobber for IDIV-class IR ops (detected by exclude={RDX} signature).
+  if (reg == emitter::Register(emitter::X8) && is_arm64_idiv_class(instr)) {
+    if (cache.liveout_per_instr.at(instr_idx)[var_idx] && !instr.writes(var_idx)) {
+      return false;
+    }
+  }
+#endif
 
   return true;
 }
@@ -837,6 +880,16 @@ bool check_register_assign(const AllocationInput& input,
         // 2: we write it after the clobber.
       }
     }
+
+#ifdef GOALC_BACKEND_ARM64
+    // A15: arm64 IDIV/UDIV emitter writes X8 implicitly. Treat X8 as a
+    // clobber for IDIV-class IR ops (detected by exclude={RDX} signature).
+    if (reg == emitter::Register(emitter::X8) && is_arm64_idiv_class(instr)) {
+      if (cache.liveout_per_instr.at(instr_idx)[var_idx] && !instr.writes(var_idx)) {
+        return false;
+      }
+    }
+#endif
   }
 
   return true;

@@ -19,8 +19,8 @@
     "min_function_size": 16,
     "object_count": 306,
     "ret_density_per_kb": 0.7342,
-    "total_bytes": 7948096,
-    "x86_ret_count": 1657,
+    "total_bytes": 7948112,
+    "x86_ret_count": 1656,
     "x86_ret_pct": 0.0208
   },
   "GAME.CGO": {
@@ -43,8 +43,8 @@
     "min_function_size": 16,
     "object_count": 346,
     "ret_density_per_kb": 0.541,
-    "total_bytes": 11562000,
-    "x86_ret_count": 6187,
+    "total_bytes": 11562016,
+    "x86_ret_count": 6186,
     "x86_ret_pct": 0.0535
   },
   "KERNEL.CGO": {
