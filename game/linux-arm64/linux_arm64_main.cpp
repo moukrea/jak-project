@@ -78,6 +78,7 @@
 #include <string>
 #include <thread>
 
+#include <execinfo.h>
 #include <sys/mman.h>
 #include <ucontext.h>
 
@@ -268,6 +269,74 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   std::raise(sig);
 }
 
+// A11 attempt-2 diag: SIGABRT handler so an `ASSERT(offset)` in
+// Ptr<Type>::operator->() (the post-A11 next-blocker at surface-h's
+// top-level) is observable in qemu_repro stderr as a `A11-DIAG abort`
+// frame-pointer chain. The walk follows the AArch64 frame-pointer
+// convention: x29 = FP, [FP] = saved FP, [FP+8] = saved LR. We bound
+// the walk at 24 frames and bail on the first FP that fails safe_read.
+// `backtrace()` would normally print symbols but qemu-user's libc has
+// the C++ name-mangling but no inlined-Assert symbol; the raw addresses
+// are enough to localise the failing call in build-arm64-linux/game/gk
+// (addr2line / objdump --disassemble).
+void gk_sigabrt_diag(int sig, siginfo_t* info, void* ucontext) {
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  uintptr_t pc = uc->uc_mcontext.pc;
+  uintptr_t lr = uc->uc_mcontext.regs[30];
+  uintptr_t fp = uc->uc_mcontext.regs[29];
+  uintptr_t sp = uc->uc_mcontext.sp;
+  std::fprintf(stderr,
+               "GK-DIAG A11-DIAG abort sig=%d pc=0x%lx lr=0x%lx fp=0x%lx sp=0x%lx\n",
+               sig, (unsigned long)pc, (unsigned long)lr,
+               (unsigned long)fp, (unsigned long)sp);
+  std::fprintf(stderr, "GK-DIAG A11-DIAG abort fp-chain:\n");
+  uintptr_t cur_fp = fp;
+  for (int depth = 0; depth < 24; ++depth) {
+    if (cur_fp == 0 || (cur_fp & 7) != 0) {
+      std::fprintf(stderr, "  [%d] fp=0x%lx <stop: unaligned or null>\n",
+                   depth, (unsigned long)cur_fp);
+      break;
+    }
+    uint32_t lo = 0, hi = 0;
+    if (!gk_diag::safe_read_u32(cur_fp, &lo) ||
+        !gk_diag::safe_read_u32(cur_fp + 4, &hi)) {
+      std::fprintf(stderr, "  [%d] fp=0x%lx <stop: unreadable FP cell>\n",
+                   depth, (unsigned long)cur_fp);
+      break;
+    }
+    uintptr_t next_fp = (uintptr_t)lo | ((uintptr_t)hi << 32);
+    uint32_t lo2 = 0, hi2 = 0;
+    if (!gk_diag::safe_read_u32(cur_fp + 8, &lo2) ||
+        !gk_diag::safe_read_u32(cur_fp + 12, &hi2)) {
+      std::fprintf(stderr, "  [%d] fp=0x%lx <stop: unreadable LR cell>\n",
+                   depth, (unsigned long)cur_fp);
+      break;
+    }
+    uintptr_t saved_lr = (uintptr_t)lo2 | ((uintptr_t)hi2 << 32);
+    std::fprintf(stderr, "  [%d] fp=0x%lx saved_lr=0x%lx next_fp=0x%lx\n",
+                 depth, (unsigned long)cur_fp,
+                 (unsigned long)saved_lr, (unsigned long)next_fp);
+    if (next_fp == 0 || next_fp <= cur_fp ||
+        next_fp - cur_fp > 0x100000) {
+      break;
+    }
+    cur_fp = next_fp;
+  }
+  // execinfo backtrace as a second source of truth (it walks the FP
+  // chain itself but adds the dso+offset annotation when available).
+  void* buf[32];
+  int n = backtrace(buf, 32);
+  std::fprintf(stderr, "GK-DIAG A11-DIAG abort backtrace (%d frames):\n", n);
+  for (int i = 0; i < n; ++i) {
+    std::fprintf(stderr, "  [%d] 0x%lx\n", i, (unsigned long)buf[i]);
+  }
+  std::fflush(stderr);
+  struct sigaction sa {};
+  sa.sa_handler = SIG_DFL;
+  sigaction(sig, &sa, nullptr);
+  std::raise(sig);
+}
+
 void gk_install_sigsegv_diag() {
   struct sigaction sa {};
   sa.sa_sigaction = &gk_sigsegv_diag;
@@ -276,7 +345,19 @@ void gk_install_sigsegv_diag() {
   sigaction(SIGSEGV, &sa, nullptr);
   sigaction(SIGBUS, &sa, nullptr);
   sigaction(SIGILL, &sa, nullptr);
-  std::fprintf(stderr, "linux-arm64: gk_install_sigsegv_diag installed\n");
+
+  // A11 attempt-2: also handle SIGABRT so the assertion at
+  // surface-h's Ptr<Type>::operator->() prints a frame-pointer chain
+  // that points back to the kscheme.cpp call site (intern_type_from_c
+  // / set_type_values / new_type / new_basic — the four Ptr<Type>::
+  // operator->() callers reachable from a deftype/copy top-level).
+  struct sigaction sa_abrt {};
+  sa_abrt.sa_sigaction = &gk_sigabrt_diag;
+  sa_abrt.sa_flags = SA_SIGINFO;
+  sigemptyset(&sa_abrt.sa_mask);
+  sigaction(SIGABRT, &sa_abrt, nullptr);
+  std::fprintf(stderr,
+               "linux-arm64: gk_install_sigsegv_diag installed (incl. SIGABRT for A11)\n");
 }
 
 // Single-source format string for every per-phase symbol-count
