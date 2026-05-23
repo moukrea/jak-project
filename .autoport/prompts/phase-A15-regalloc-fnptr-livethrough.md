@@ -51,19 +51,49 @@ same vreg. The fix is to add that constraint.
 
 ## Goal (concrete, narrow)
 
-In the file that owns CALL_R64's vreg lifetime (likely
-`goalc/regalloc/allocate_common.cpp` or
-`goalc/regalloc/Allocator_v2.cpp`), find the live-range computation
-and ensure:
+In `goalc/regalloc/Allocator_v2.cpp`, add ONLY the X8 implicit-clobber
+awareness for IDIV-class instructions:
 
-> The vreg holding a `IR_FunctionCall`'s `m_func` is marked
-> live-out at every IR position strictly before the call, AND no
-> other IR op writing to the same vreg may exist in that range.
+> Detect IDIV/UDIV-class IR instructions (via their unique
+> `exclude={RDX}` signature — IR.cpp:816 is the SOLE caller of
+> `RegAllocInstr::exclude.emplace_back` in the tree) and treat X8 as
+> implicitly clobbered across them inside
+> `check_register_assign_at` and `check_register_assign`. A vreg
+> live-out of an IDIV-class instruction cannot park in X8 on arm64.
 
-The minimal patch is probably extending the live-set propagation
-backward from CALL_R64 sites. Adding an explicit "function-pointer
-operand kept live across the call setup" constraint mirrors how
-return values and PHI nodes are usually pinned.
+This is the surgical fix for the sin*! sig=7 SIGBUS bug.
+
+## ⚠️ Lessons from attempt-1 (reverted at 316b31d0c + cfb2a3c55)
+
+The first attempt also added a "function-crossers promotion" that
+forced every `IR_FunctionCall::m_func` vreg into saved-first allocation
+inside any function containing an IDIV. **DO NOT DO THIS.** It was
+added to satisfy attempt-1's overly-aggressive validator check 7d
+(now relaxed), not because the underlying bug required it.
+
+The function-crossers promotion changes register usage broadly across
+the function, and on the real Redmi Note 9 Pro device caused the boot
+to crash with sig=4 SIGILL at PC=0x72072df604 (in math-camera-h's
+top-level — 113 link-finishes WORSE than A14). qemu-aarch64-static
+ran the same instruction sequence cleanly; only real hardware
+refused it. **Device is the ground truth.**
+
+ONLY do the X8 implicit-clobber awareness. Don't touch the
+function-crossers allocation path, don't pin m_func to saved-first,
+don't add any "broader" regalloc constraints to satisfy validator
+checks. The validator's check 7d has been relaxed precisely so that
+the surgical fix can land without provoking the broader change.
+
+## ⚠️ Device-first verification
+
+qemu_repro is a proxy, not the goal. After your fix:
+
+1. Verify qemu_repro advances past 166 (good signal but not sufficient).
+2. Verify D4 device validator on the Redmi Note 9 Pro (eae4df44) ALSO
+   advances past 166. If qemu advances but device REGRESSES (the
+   attempt-1 failure mode: +46 qemu, -113 device), the fix is broken
+   — revert it and write an honest-exit next-blocker explaining what
+   the device CPU refused.
 
 ## Scope (locks)
 

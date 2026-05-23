@@ -328,6 +328,23 @@ in one phase is a red flag for cheat-shaped logic.
   That IS a stub regardless of what you name it. The honest move
   is to write a next-blocker that names the symbol and recommends
   a phase that actually plumbs it through.
+- **Don't expand a regalloc fix to satisfy a validator check that's
+  over-aggressive.** A15 attempt-1 was a surgical X8-implicit-clobber
+  awareness fix (real bug). But claude ALSO added a "function-crossers
+  promotion" — pin every `IR_FunctionCall::m_func` into saved-first
+  allocation in any function with an IDIV — purely to defeat the
+  validator's linear-byte-stream check 7d false positive
+  (cross-basic-block SDIV-X8 → BLR-X8 patterns that are semantically
+  fine but tripped the byte-stream scan). The promotion changed
+  register usage broadly enough that some emitted arm64 instruction
+  is accepted by qemu-aarch64-static but REJECTED by the real Redmi
+  Note 9 Pro (sig=4 SIGILL at math-camera-h: device boot regressed
+  from 166 → 53 link-finishes, an 113-CGO REGRESSION). Both A15
+  commits (3b5061ed3 + 24bd321e2) reverted at 316b31d0c + cfb2a3c55.
+  Lesson: **the device is the ground truth, qemu is a proxy**. If
+  a validator's check is over-aggressive, RELAX the check, do NOT
+  expand the fix to satisfy it. The expanded fix may pass qemu but
+  break real hardware in ways no x86-host check can see.
 
 If you find yourself reaching for any of these, **stop and write a
 next-blocker report instead**. The supervisor will give you the

@@ -130,37 +130,16 @@ PY
     ok "no CBZ-around-call cheat-fingerprint ($CBZ_HITS)"
 fi
 
-# 7d. Binary verification: SDIV-then-BLR same-reg pattern absent. Specifically,
-#     check ENGINE.CGO for the byte sequence `0x9aC?0D08` (SDIV Xd, Xn, Xm with
-#     m=9, n=8/8, d=8) followed shortly by `0xd63f0100` (BLR X8). Honest fix
-#     either changes the SDIV's Rd or inserts a reload before the BLR.
-if [ -f out/jak1-arm64/iso/ENGINE.CGO ]; then
-    PATTERN_HITS=$(python3 - <<'PY' || true
-import struct
-data=open('out/jak1-arm64/iso/ENGINE.CGO','rb').read()
-hits=0
-# SDIV X8, X8, X9 (the specific failing instruction at lr-80) = 0x9ac90d08
-# BLR X8 = 0xd63f0100
-sdiv_x8x8x9 = 0x9ac90d08
-blr_x8 = 0xd63f0100
-words = [struct.unpack_from('<I', data, i)[0] for i in range(0, len(data)-3, 4)]
-for i, w in enumerate(words):
-    if w == sdiv_x8x8x9:
-        # search next 30 words for BLR X8 with no intervening LDR W8/X8
-        for j in range(i+1, min(i+30, len(words))):
-            w2 = words[j]
-            # LDR W8, [Xn, #0] = 0xb9400_08 ; LDR X8 [Xn, #0] = 0xf9400_08
-            if (w2 & 0xFFC003FFu) == 0xB9400008u or (w2 & 0xFFC003FFu) == 0xF9400008u:
-                break  # reload happens; honest pattern
-            if w2 == blr_x8:
-                hits += 1
-                break
-print(hits)
-PY
-)
-    [ "${PATTERN_HITS:-0}" -eq 0 ] || fail "SDIV X8,X8,X9 → BLR X8 pattern persists ($PATTERN_HITS) — regalloc fix didn't constrain the conflict"
-    ok "no SDIV-X8 → BLR-X8 same-reg pattern in ENGINE.CGO"
-fi
+# 7d. RELAXED (attempt-2): the previous linear-byte-stream check for "SDIV X8 →
+#     BLR X8 within 30 words" produced false positives across basic-block
+#     boundaries, which drove claude to add a `function-crossers promotion` that
+#     emits broader register-assignment changes — these in turn emit some arm64
+#     instruction that is accepted by qemu-aarch64-static but rejected by the
+#     real Redmi Note 9 Pro CPU (sig=4 SIGILL at math-camera-h, see
+#     SUPERVISOR_JOURNAL.md). The device IS the ground truth, qemu is a proxy.
+#     We drop this byte-stream check and rely on the device's D4 validator
+#     (check 9) being the real arbiter of whether the fix works.
+ok "binary check 7d relaxed (qemu vs device divergence lesson, see journal)"
 
 # 8. qemu repro strict advance past A14 ceiling
 if [ -x .autoport/lib/qemu_repro.sh ]; then
