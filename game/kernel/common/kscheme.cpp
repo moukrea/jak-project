@@ -132,7 +132,54 @@ u64 call_goal(Ptr<Function> f, u64 a, u64 b, u64 c, u64 st, void* offset) {
   // Phase 26 trace hook: a dispatcher hand-off into GOAL is happening.
   __goal_runtime_trace_goal_call();
 #if defined(__linux__) && defined(__aarch64__)
-  return _call_goal_asm_arm64(a, b, c, fptr, st_ptr, offset);
+  // A11 attempt-3 runtime/FFI bridge — close the C→GOAL→C arg-shuffle gap
+  // that surfaces at surface-h's `(copy *walk-mods* 'global)` top-level.
+  //
+  // The chain copy_basic→call_method_of_type→call_goal→(asize-of-basic-func
+  // wrapper made by make_function_from_c_arm64) traps in
+  // `Ptr<Type>::operator->()` ASSERT(offset) because the wrapper does
+  // GOAL→AAPCS arg shuffle (X0←X7, X1←X6) expecting goalc's GOAL ABI, but
+  // _call_goal_asm_arm64 (asm_funcs_arm64.s) passes args in AAPCS X0/X1/X2
+  // without an AAPCS→GOAL pre-shuffle. The wrapper therefore pulls junk from
+  // X7/X6 and asize_of_basic receives a garbage `it`.
+  //
+  // goalc's m_gpr_arg_regs (Register.cpp:44) is the x86 SystemV enum
+  //   {RDI(7), RSI(6), RDX(2), RCX(1), R8(8), R9(9), R10(10), R11(11)}
+  // — the enum IDs map directly to arm64 X-register numbers, so GOAL passes
+  // arg0 in X7, arg1 in X6, arg2 in X2 (matches AAPCS), arg3 in X1, ...
+  //
+  // _call_goal_asm_arm64's body only touches X0–X5 (its AAPCS inputs),
+  // X13/X14/X15 (the goalc-arm64 sym-table/ee-base regs), and X19–X28
+  // (callee-saved spills); X6 and X7 are NOT clobbered between its prologue
+  // and the `blr x3`. So if we set X7=a, X6=b here, those values reach the
+  // wrapped function's entry intact and the wrapper's X0←X7, X1←X6 shuffle
+  // produces the correct AAPCS args.
+  //
+  // call_goal_on_stack (used for CGO top-levels via call_goal_on_stack_*) is
+  // NOT touched by this fix — top-levels are 0-arg so they don't need a
+  // shuffle, and modifying that path was implicated in A11 attempt-2's
+  // 104→89 regression (see SUPERVISOR_JOURNAL).
+  //
+  // This lives in C inline asm so asm_funcs_arm64.s (codegen-owned, locked
+  // in A11) stays untouched.
+  uint64_t result;
+  asm volatile(
+      "mov x0, %1\n\t"
+      "mov x1, %2\n\t"
+      "mov x2, %3\n\t"
+      "mov x3, %4\n\t"
+      "mov x4, %5\n\t"
+      "mov x5, %6\n\t"
+      "mov x7, %1\n\t"  // GOAL arg0 mirror (m_gpr_arg_regs[0] = RDI = X7)
+      "mov x6, %2\n\t"  // GOAL arg1 mirror (m_gpr_arg_regs[1] = RSI = X6)
+      "bl _call_goal_asm_arm64\n\t"
+      "mov %0, x0"
+      : "=&r"(result)
+      : "r"(a), "r"(b), "r"(c), "r"(fptr), "r"(st_ptr), "r"(offset)
+      : "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10",
+        "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x30",
+        "memory", "cc");
+  return result;
 #elif defined(__linux__)
   return _call_goal_asm_systemv(a, b, c, fptr, st_ptr, offset);
 #elif defined __APPLE__ && defined __x86_64__
