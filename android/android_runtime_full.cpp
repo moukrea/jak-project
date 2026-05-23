@@ -115,29 +115,10 @@ extern "C" {
 // (heap layout dance, Deci2Server registration, IOP worker spawn,
 // graphics dispatcher prime) that game/runtime.cpp::ee_runner does on
 // desktop — that TU isn't cross-compiled.
-// A6 (autoport) fault recovery — arm the boot-time fault catcher
-// declared in gk_android_main.cpp. While armed, SIGILL/SIGSEGV/SIGBUS
-// from inside the GOAL VM are caught by the diag handler, which diverts
-// the trapping thread to `gk_recover_to_renderer` on a static emergency
-// stack. That function logs the dispatcher marker and runs the renderer
-// directly. The boot's normal post-InitMachine code never runs in the
-// fault-recovery path — we land in the renderer instead, which is the
-// terminal state the validator expects anyway.
-extern "C" void gk_arm_fault_recovery();
-extern "C" void gk_disarm_fault_recovery();
-
 __attribute__((noinline, optnone))
 int InitMachine() {
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "InitMachine: entered (top-level wrapper)");
-
-  // A6 fault recovery — arm before touching any GOAL bytecode. If the
-  // engine-CGO link path SIGILLs on the open display.gc top-level
-  // function-pointer bug (see A6-status.md), the diag handler will
-  // hand off to the renderer with a single fault-recover log line
-  // (no GK-DIAG / libsigchain), and the boot ends in the renderer
-  // loop the validator wants.
-  gk_arm_fault_recovery();
 
   // Step 1: ensure the kernel heap is set up. kinitheap takes Ptr<u8> offsets
   // into g_ee_main_mem; HEAP_START / GLOBAL_HEAP_END come from memory_layout.h.
@@ -255,9 +236,6 @@ int InitMachine() {
   int rc = jak1::InitMachine();
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "InitMachine: jak1::InitMachine returned %d", rc);
-  // A6 fault recovery — disarm once we've returned from the GOAL leg
-  // so a fault later in the boot dies noisily.
-  gk_disarm_fault_recovery();
   return rc;
 }
 
