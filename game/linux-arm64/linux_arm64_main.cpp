@@ -853,6 +853,18 @@ int boot_kernel_init() {
   // gsound's top-level BLRs to ee_base when invoking `rpc-call` against
   // the unbound (0-valued) sym slot.
   klink_a12_ensure_sound_rpc_bound();
+  // A14 sym-bind: register `__mem-move` to pc_memmove. The
+  // upstream `init_common_pc_port_functions` (kmachine.cpp:1095)
+  // binds this on desktop x86 but the Android override at
+  // android/android_runtime_compat.cpp deliberately skips the pc-*
+  // helper registration; linux-arm64 inherits the same gap via its
+  // own runtime-compat stub list. Without this, dma-buffer's
+  // top-level `(__mem-move ...)` (the 159th CGO past A13's IOP
+  // unblock) loads 0 from the unbound sym slot, +X15's it to
+  // ee_base, and SIGILLs at the UDF #0 there. See
+  // .autoport/reports/A13-attempt-3-next-blocker.md for the full
+  // register dump.
+  klink_a14_ensure_pc_memmove_bound();
 
   // A13 IOP-kernel pre-init: construct an IOP, pthread_mutex_init its
   // sif_mtx + wakeup_mtx, create an RPC-drain cothread + SifRecord, and

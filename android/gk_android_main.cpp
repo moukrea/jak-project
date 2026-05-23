@@ -141,6 +141,18 @@ void a11_install_pc_mips2c_hook_once() {
     // similarly omits InitSoundScheme, so gsound's top-level BLR to
     // `rpc-call` lands at ee_base unless we bind here.
     klink_a12_ensure_sound_rpc_bound();
+    // A14 sym-bind: register `__mem-move` to pc_memmove. Android's
+    // init_common_pc_port_functions override at
+    // android/android_runtime_compat.cpp deliberately skips the
+    // 100+ pc-* helper registrations (most of them route through
+    // Display::/Gfx:: which aren't wired on Android yet). pc_memmove
+    // itself is pure data-plane (memmove wrapper) and safe to bind.
+    // Without this, dma-buffer's top-level `(__mem-move ...)` BLRs
+    // to ee_base and sig=4 SIGILLs. See klink.cpp::
+    // klink_a14_ensure_pc_memmove_bound for the full rationale and
+    // .autoport/reports/A13-attempt-3-next-blocker.md for the
+    // device-side register dump that named this symbol.
+    klink_a14_ensure_pc_memmove_bound();
     // A13 note: NO arm64-style IOP mutex pre-init chained in here.
     // Android's android_runtime_full.cpp::make_iop_thread already
     // constructs a real IOP + spawns the iop_runner OS thread when
@@ -155,7 +167,8 @@ void a11_install_pc_mips2c_hook_once() {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "A11-DIAG sym-bind-trace: chained "
                       "klink_a11_ensure_pc_mips2c_bound + "
-                      "klink_a12_ensure_sound_rpc_bound onto "
+                      "klink_a12_ensure_sound_rpc_bound + "
+                      "klink_a14_ensure_pc_memmove_bound onto "
                       "g_jak1_pre_kernel_version_check_hook (prev=%p; A13 "
                       "IOP-init NOT chained here — Android uses real "
                       "iop_runner)",
