@@ -310,6 +310,15 @@ phases:
   validator: validators/phase-A11-texture-sym-binding.sh
   max_turns: 600
   max_retries: 12
+- id: A12-gsound-stack-fnptr
+  name: Resolve gsound stack-loaded fn-ptr=0 SIGILL (the post-A11-FFI-bridge boot ceiling at 156 link-finishes). Extend SIGILL diag with
+    backward-provenance stack-store trace to localise which earlier instruction wrote 0 to the slot, then fix the underlying unbound-sym /
+    unset-method-slot / uninitialised-struct-field. Same unlock list as A11 (klink/kmachine/symbol/diag handlers); codegen + kscheme + asm
+    trampoline stay locked.
+  prompt: prompts/phase-A12-gsound-stack-fnptr.md
+  validator: validators/phase-A12-gsound-stack-fnptr.sh
+  max_turns: 600
+  max_retries: 12
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md

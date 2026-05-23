@@ -194,10 +194,25 @@ welcome; silent skips are not.
 | A8    | qemu repro infra + allocator        | +0 → 45   | diagnosis-only; CodeGenerator unlock needed |
 | A9    | CodeGenerator.cpp do_goal_function_arm64 | +16 → 61 | X4-pre-load workaround; save-area corruption |
 | A10   | IR.cpp ADD Xd, SP, #imm12 (Rn=31)   | +43 → 104 | texture sym-MEM=0 SIGILL          |
-| A11   | klink + symbol + diag (running)     | TBD       | TBD                               |
+| A11   | klink + symbol + diag, kscheme.cpp::call_goal arg-bridge | +52 → 156 | gsound stack-loaded fn-ptr=0 SIGILL |
+| A12   | extended SIGILL diag + backward stack-store provenance | TBD | TBD |
 
-Yield per phase has trended upward (16 → 43). If A11 holds the
-yield, ~3–5 more phases reach the renderer init zone.
+Yield per phase has trended upward (16 → 43 → **52**). x86 target is
+438 link-finishes. At current yield, ~5–6 more phases reach the
+renderer init zone (link-finish: logo / engine state=).
+
+**A11 sub-lessons** (one phase that learned a lot):
+- The validator can self-reference its own supervisor edits — anchor
+  the infra-lock check on the latest `[autoport/supervisor]` commit,
+  not on the previous phase's close (see commit 252076a59).
+- The goalc Register enum's `m_gpr_arg_regs = {RDI(7), RSI(6),
+  RDX(2), ...}` is shared between x86 and arm64 backends; on arm64
+  the enum IDs map to physical X-register numbers, so GOAL args
+  live in X7/X6/X2/X1/... (NOT the AAPCS X0/X1/X2/X3/...). C→GOAL
+  trampolines need an AAPCS→GOAL pre-shuffle; A11 placed the fix
+  in `call_goal` (kscheme.cpp) via C inline asm, NOT in
+  `_call_goal_asm_arm64` (asm_funcs_arm64.s, locked) and NOT in
+  `call_goal_on_stack` (regressed in attempt-2).
 
 ---
 
