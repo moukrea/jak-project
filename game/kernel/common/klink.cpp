@@ -1,10 +1,14 @@
 #include "klink.h"
 
+#include <cstdio>
+
 #include "common/goal_constants.h"
 #include "common/symbols.h"
 
 #include "game/kernel/common/fileio.h"
 #include "game/kernel/common/kscheme.h"
+#include "game/kernel/jak1/kscheme.h"
+#include "game/mips2c/mips2c_table.h"
 
 #include "fmt/format.h"
 
@@ -333,6 +337,47 @@ void klink_init_globals() {
   saved_link_control.reset();
   gfunc_774.offset = 0;
   g_klink_arm64_patch_hist = {};
+}
+
+namespace {
+// A11 sym-bind-trace — back-end of `__pc-get-mips2c` for builds that
+// exclude `game/kernel/common/kmachine.cpp` (Android and linux-arm64).
+// The desktop build registers `pc_get_mips2c` (kmachine.cpp:502) via
+// `init_common_pc_port_functions` (kmachine.cpp:1103). On Android the
+// override in `android_runtime_compat.cpp::init_common_pc_port_functions`
+// deliberately skips pc-* registration; on linux-arm64 the equivalent
+// stub registration in `linux_arm64_runtime_compat.cpp::InitMachineScheme_LinuxArm64Stubs`
+// is missing this entry. Without it, the `texture` CGO's top-level
+// `(def-mips2c adgif-shader<-texture-with-update! ...)` expands to
+// `(set! sym (__pc-get-mips2c "name"))`, which loads from the unbound
+// sym slot (= 0), does `host(0) = ee_base`, BLRs to ee_base, and
+// SIGILLs on the UDF #0 at the start of the EE map. The shape is the
+// exact texture-sym-zero pattern A10's next-blocker report captured.
+//
+// This impl mirrors `pc_get_mips2c` (kmachine.cpp:502-505) byte for
+// byte — same `Mips2C::gLinkedFunctionTable.get(name)` call. The
+// mips2c TUs are linked into both Android and linux-arm64 builds (see
+// `${JAK_ROOT}/game/mips2c/jak1_functions/*.cpp` in their CMakeLists),
+// so the table is populated. The static guard means re-calling the
+// binding helper across a re-boot is a no-op after the first bind.
+u64 a11_pc_get_mips2c_impl(u32 name) {
+  const char* n = Ptr<String>(name).c()->data();
+  return Mips2C::gLinkedFunctionTable.get(n);
+}
+}  // namespace
+
+void klink_a11_ensure_pc_mips2c_bound() {
+  static bool s_bound = false;
+  if (s_bound) return;
+  if (SymbolTable2.offset == 0) return;  // symbol table not yet ready
+
+  auto fn = jak1::make_function_symbol_from_c("__pc-get-mips2c",
+                                              (void*)a11_pc_get_mips2c_impl);
+  s_bound = true;
+  std::fprintf(stderr,
+               "A11-DIAG sym-bind-trace: bound __pc-get-mips2c to "
+               "a11_pc_get_mips2c_impl (function GOAL ptr 0x%x)\n",
+               (unsigned)fn.offset);
 }
 
 /*!

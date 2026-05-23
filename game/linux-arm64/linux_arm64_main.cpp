@@ -78,6 +78,7 @@
 #include <string>
 #include <thread>
 
+#include <execinfo.h>
 #include <sys/mman.h>
 #include <ucontext.h>
 
@@ -145,6 +146,71 @@ bool safe_read_u32(uintptr_t addr, uint32_t* out) {
   sigaction(SIGBUS, &old_bus, nullptr);
   return ok;
 }
+
+// A11-DIAG: convert a suspected sym-MEM slot host address (the LDR base
+// register's value at the failing BLR site — X16 in the post-A10 disasm)
+// into the symbol's interned name by walking the SymInfo table that
+// trails the value table in the kglobalheap-allocated sym-table block.
+//
+// Layout reminder (jak1::InitHeapAndSymbol, kscheme.cpp ~L1770):
+//   SymbolTable2 = symbol_table + BASIC_OFFSET             (low half: Symbol{u32})
+//   s7           = symbol_table + (GOAL_MAX_SYMBOLS/2)*8 + BASIC_OFFSET
+//   LastSymbol   = symbol_table + (GOAL_MAX_SYMBOLS-32)*8  (one past last slot)
+//   info(sym).c() = (Symbol*).c() + SYM_INFO_OFFSET        ( = 16384*8 - 4)
+//
+// Given a slot host_addr X16 inside [SymbolTable2, LastSymbol):
+//   1) info_host_addr = X16 + jak1::SYM_INFO_OFFSET
+//   2) read SymInfo {u32 hash; u32 str_offset}
+//   3) name_host = g_ee_main_mem + str_offset + 4  (skip String::len)
+//
+// Returns false if slot is out of range or any read fails. On false the
+// caller still gets the dump line for X16 — just without the name. We
+// keep this entirely safe-read-driven so a malformed slot can't
+// secondary-SIGSEGV out of the diag handler.
+bool dump_sym_name_at_slot(uintptr_t slot_host_addr) {
+  if (!g_ee_main_mem) return false;
+  const uintptr_t ee_lo = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const uintptr_t ee_hi = ee_lo + EE_MAIN_MEM_SIZE;
+  if (slot_host_addr < ee_lo || slot_host_addr >= ee_hi) return false;
+
+  const uintptr_t sym_lo = ee_lo + SymbolTable2.offset;
+  const uintptr_t sym_hi = ee_lo + LastSymbol.offset;
+  const bool in_sym_range = (slot_host_addr >= sym_lo && slot_host_addr < sym_hi);
+
+  uint32_t slot_value = 0;
+  if (!safe_read_u32(slot_host_addr, &slot_value)) return false;
+
+  const uintptr_t info_addr = slot_host_addr + jak1::SYM_INFO_OFFSET;
+  if (info_addr + 8 > ee_hi) return false;
+  uint32_t hash = 0, str_offset = 0;
+  if (!safe_read_u32(info_addr, &hash)) return false;
+  if (!safe_read_u32(info_addr + 4, &str_offset)) return false;
+
+  char name_buf[129];
+  name_buf[0] = 0;
+  if (str_offset != 0 && str_offset < EE_MAIN_MEM_SIZE) {
+    const uintptr_t name_host = ee_lo + str_offset + 4;  // skip String::len
+    for (size_t i = 0; i + 4 < sizeof(name_buf); i += 4) {
+      uint32_t word = 0;
+      if (!safe_read_u32(name_host + i, &word)) break;
+      bool stop = false;
+      for (int j = 0; j < 4; ++j) {
+        char c = static_cast<char>((word >> (j * 8)) & 0xff);
+        if (c == 0) { stop = true; break; }
+        name_buf[i + j] = c;
+      }
+      if (stop) break;
+      name_buf[i + 4] = 0;
+    }
+  }
+  std::fprintf(stderr,
+               "GK-DIAG A11-DIAG texture-sym-zero: slot=0x%lx value=0x%x "
+               "info=0x%lx hash=0x%x str=0x%x name=\"%s\" in_sym_range=%d\n",
+               (unsigned long)slot_host_addr, (unsigned)slot_value,
+               (unsigned long)info_addr, (unsigned)hash, (unsigned)str_offset,
+               name_buf[0] ? name_buf : "<empty>", in_sym_range ? 1 : 0);
+  return true;
+}
 }  // namespace gk_diag
 
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
@@ -159,6 +225,21 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                  (unsigned long)uc->uc_mcontext.regs[i]);
   }
   std::fprintf(stderr, "GK-DIAG sp=0x%lx\n", (unsigned long)uc->uc_mcontext.sp);
+
+  // A11-DIAG: at the texture-CGO sig=4 SIGILL the LDR base register that
+  // produced the NULL fn-ptr is X16 (per A5 sym-MEM emit). Walk the
+  // SymInfo table from that slot and print the bound sym's name. Skip
+  // silently if the slot isn't a valid sym addr — most non-sym SIGILLs
+  // (e.g. real bytecode UDF) shouldn't print this line.
+  gk_diag::dump_sym_name_at_slot(
+      static_cast<uintptr_t>(uc->uc_mcontext.regs[16]));
+  // Also print X9 (the BLR target reg in the LR-relative disasm).  For
+  // the sym=0 case x9 == g_ee_main_mem; if instead the bug is that the
+  // sym holds a *valid* but wrong function ptr, the X9 slot lookup
+  // surfaces that too.
+  gk_diag::dump_sym_name_at_slot(
+      static_cast<uintptr_t>(uc->uc_mcontext.regs[9]));
+
   for (intptr_t d = -256; d <= 16; d += 4) {
     uintptr_t addr = lr + d;
     uint32_t insn = 0;
@@ -188,6 +269,74 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   std::raise(sig);
 }
 
+// A11 attempt-2 diag: SIGABRT handler so an `ASSERT(offset)` in
+// Ptr<Type>::operator->() (the post-A11 next-blocker at surface-h's
+// top-level) is observable in qemu_repro stderr as a `A11-DIAG abort`
+// frame-pointer chain. The walk follows the AArch64 frame-pointer
+// convention: x29 = FP, [FP] = saved FP, [FP+8] = saved LR. We bound
+// the walk at 24 frames and bail on the first FP that fails safe_read.
+// `backtrace()` would normally print symbols but qemu-user's libc has
+// the C++ name-mangling but no inlined-Assert symbol; the raw addresses
+// are enough to localise the failing call in build-arm64-linux/game/gk
+// (addr2line / objdump --disassemble).
+void gk_sigabrt_diag(int sig, siginfo_t* info, void* ucontext) {
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  uintptr_t pc = uc->uc_mcontext.pc;
+  uintptr_t lr = uc->uc_mcontext.regs[30];
+  uintptr_t fp = uc->uc_mcontext.regs[29];
+  uintptr_t sp = uc->uc_mcontext.sp;
+  std::fprintf(stderr,
+               "GK-DIAG A11-DIAG abort sig=%d pc=0x%lx lr=0x%lx fp=0x%lx sp=0x%lx\n",
+               sig, (unsigned long)pc, (unsigned long)lr,
+               (unsigned long)fp, (unsigned long)sp);
+  std::fprintf(stderr, "GK-DIAG A11-DIAG abort fp-chain:\n");
+  uintptr_t cur_fp = fp;
+  for (int depth = 0; depth < 24; ++depth) {
+    if (cur_fp == 0 || (cur_fp & 7) != 0) {
+      std::fprintf(stderr, "  [%d] fp=0x%lx <stop: unaligned or null>\n",
+                   depth, (unsigned long)cur_fp);
+      break;
+    }
+    uint32_t lo = 0, hi = 0;
+    if (!gk_diag::safe_read_u32(cur_fp, &lo) ||
+        !gk_diag::safe_read_u32(cur_fp + 4, &hi)) {
+      std::fprintf(stderr, "  [%d] fp=0x%lx <stop: unreadable FP cell>\n",
+                   depth, (unsigned long)cur_fp);
+      break;
+    }
+    uintptr_t next_fp = (uintptr_t)lo | ((uintptr_t)hi << 32);
+    uint32_t lo2 = 0, hi2 = 0;
+    if (!gk_diag::safe_read_u32(cur_fp + 8, &lo2) ||
+        !gk_diag::safe_read_u32(cur_fp + 12, &hi2)) {
+      std::fprintf(stderr, "  [%d] fp=0x%lx <stop: unreadable LR cell>\n",
+                   depth, (unsigned long)cur_fp);
+      break;
+    }
+    uintptr_t saved_lr = (uintptr_t)lo2 | ((uintptr_t)hi2 << 32);
+    std::fprintf(stderr, "  [%d] fp=0x%lx saved_lr=0x%lx next_fp=0x%lx\n",
+                 depth, (unsigned long)cur_fp,
+                 (unsigned long)saved_lr, (unsigned long)next_fp);
+    if (next_fp == 0 || next_fp <= cur_fp ||
+        next_fp - cur_fp > 0x100000) {
+      break;
+    }
+    cur_fp = next_fp;
+  }
+  // execinfo backtrace as a second source of truth (it walks the FP
+  // chain itself but adds the dso+offset annotation when available).
+  void* buf[32];
+  int n = backtrace(buf, 32);
+  std::fprintf(stderr, "GK-DIAG A11-DIAG abort backtrace (%d frames):\n", n);
+  for (int i = 0; i < n; ++i) {
+    std::fprintf(stderr, "  [%d] 0x%lx\n", i, (unsigned long)buf[i]);
+  }
+  std::fflush(stderr);
+  struct sigaction sa {};
+  sa.sa_handler = SIG_DFL;
+  sigaction(sig, &sa, nullptr);
+  std::raise(sig);
+}
+
 void gk_install_sigsegv_diag() {
   struct sigaction sa {};
   sa.sa_sigaction = &gk_sigsegv_diag;
@@ -196,7 +345,19 @@ void gk_install_sigsegv_diag() {
   sigaction(SIGSEGV, &sa, nullptr);
   sigaction(SIGBUS, &sa, nullptr);
   sigaction(SIGILL, &sa, nullptr);
-  std::fprintf(stderr, "linux-arm64: gk_install_sigsegv_diag installed\n");
+
+  // A11 attempt-2: also handle SIGABRT so the assertion at
+  // surface-h's Ptr<Type>::operator->() prints a frame-pointer chain
+  // that points back to the kscheme.cpp call site (intern_type_from_c
+  // / set_type_values / new_type / new_basic — the four Ptr<Type>::
+  // operator->() callers reachable from a deftype/copy top-level).
+  struct sigaction sa_abrt {};
+  sa_abrt.sa_sigaction = &gk_sigabrt_diag;
+  sa_abrt.sa_flags = SA_SIGINFO;
+  sigemptyset(&sa_abrt.sa_mask);
+  sigaction(SIGABRT, &sa_abrt, nullptr);
+  std::fprintf(stderr,
+               "linux-arm64: gk_install_sigsegv_diag installed (incl. SIGABRT for A11)\n");
 }
 
 // Single-source format string for every per-phase symbol-count
@@ -324,6 +485,16 @@ int boot_kernel_init() {
                  hs_status);
     return 20;
   }
+
+  // A11 sym-bind: register `__pc-get-mips2c` so the texture CGO's
+  // `(def-mips2c ...)` top-level can resolve the mips2c trampoline
+  // for adgif-shader<-texture-with-update! and friends. Without this
+  // bind, the sym slot stays 0 and the texture top-level BLRs to
+  // ee_base → SIGILL. The upstream `init_common_pc_port_functions`
+  // (game/kernel/common/kmachine.cpp:1103) does this on desktop x86 but
+  // is overridden on linux-arm64 by InitMachineScheme_LinuxArm64Stubs
+  // (which omits __pc-get-mips2c from its list).
+  klink_a11_ensure_pc_mips2c_bound();
 
   // C2 milestone banner — kept for the C2 validator's checks 19+25
   // which grep for these exact lines. The C3 stage runs after.
