@@ -51,9 +51,14 @@ INLINE_STUBS=$(git diff "$ANCHOR" HEAD -- '*.cpp' '*.h' 2>/dev/null | grep -cE '
 [ "$INLINE_STUBS" -eq 0 ] || fail "inline _stub function additions since A10 close ($INLINE_STUBS) — silent-return cheat"
 # 4c. Test/validator infrastructure must NOT change during a phase —
 #     test infra is supervisor-owned (caught the qemu_repro.sh marker
-#     injection cheat).
-INFRA_DIFF=$(git diff "$ANCHOR" HEAD -- '.autoport/lib/*.sh' '.autoport/lib/*.py' '.autoport/validators/*.sh' 2>/dev/null | wc -l)
-[ "$INFRA_DIFF" -eq 0 ] || fail "test infrastructure modified since A10 close ($INFRA_DIFF lines) — phase must not edit .autoport/lib/* or validators/*"
+#     injection cheat). Anchor on the LATEST [autoport/supervisor]
+#     commit so the validator does not self-reference its own
+#     supervisor-author edits.
+SUP_ANCHOR=$(git log --format=%H --grep='\[autoport/supervisor\]' | head -1)
+SUP_ANCHOR=${SUP_ANCHOR:-$A10_CLOSE}
+INFRA_DIFF=$(git diff "$SUP_ANCHOR" HEAD -- '.autoport/lib/*.sh' '.autoport/lib/*.py' '.autoport/validators/*.sh' 2>/dev/null | wc -l)
+INFRA_UNSTAGED=$(git diff HEAD -- '.autoport/lib/*.sh' '.autoport/lib/*.py' '.autoport/validators/*.sh' 2>/dev/null | wc -l)
+[ "$INFRA_DIFF" -eq 0 ] && [ "$INFRA_UNSTAGED" -eq 0 ] || fail "test infrastructure modified since latest [autoport/supervisor] commit (diff=$INFRA_DIFF, unstaged=$INFRA_UNSTAGED) — phase must not edit .autoport/lib/* or validators/*"
 # 4d. FFI trampoline lock — asm_funcs_arm64.s is owned by codegen phases
 #     (A6 unlocked it). Runtime phases (A11+) must not touch it.
 ASM_TRAMPOLINE_DIFF=$(git diff "$ANCHOR" HEAD -- game/kernel/asm_funcs_arm64.s 2>/dev/null | wc -l)
