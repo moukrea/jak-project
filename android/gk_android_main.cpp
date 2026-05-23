@@ -27,11 +27,25 @@
 
 #include "common/versions/versions.h"
 
+#include "common/goal_constants.h"
+
 #include "game/kernel/common/kboot.h"
+#include "game/kernel/common/klink.h"
 #include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/kmemcard.h"
 #include "game/kernel/common/kprint.h"
+#include "game/kernel/common/kscheme.h"
 #include "game/kernel/common/ksocket.h"
+#include "game/runtime.h"
+
+// A11: jak1::InitHeapAndSymbol exposes a chainable hook that fires
+// between the kernel-CGO load and the kernel-version check. We chain
+// onto whatever android_runtime_compat.cpp installed and add a sym-bind
+// of `__pc-get-mips2c` so the texture CGO's def-mips2c top-level can
+// resolve mips2c funcs. Without this, the sym slot reads 0 at the BLR
+// site and the host(0)=ee_base path SIGILLs (texture-sym-zero, per the
+// A10 next-blocker report).
+extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void);
 
 #include "android_input_audio.h"
 #include "android_renderer.h"
@@ -98,6 +112,37 @@ int gk_init_runtime(void) {
   InitCheckListener();
   return 0;
 }
+
+namespace {
+// A11 sym-bind-trace: chain a __pc-get-mips2c binder onto the
+// pre_kernel_version_check hook android_runtime_compat installed at
+// .so load time. After both constructors have finished (any caller of
+// this helper runs after .so load), capturing the current hook value
+// and replacing it with a lambda that calls the captured value first
+// is safe. Idempotent via static-local guard: gk_sdl_main can be
+// re-entered without double-chaining the lambda.
+//
+// Why not in gk_init_runtime: MainActivity never invokes
+// NativeGk.init in the current Android flow (only setSelectedGame +
+// setDataRoot are called before super.onCreate triggers the SDL
+// thread). gk_sdl_main IS reached on every boot, so installation
+// happens here just before goal_main.
+void a11_install_pc_mips2c_hook_once() {
+  static bool installed = false;
+  if (installed) return;
+  installed = true;
+  static const auto prev = g_jak1_pre_kernel_version_check_hook;
+  g_jak1_pre_kernel_version_check_hook = []() {
+    if (prev) prev();
+    klink_a11_ensure_pc_mips2c_bound();
+  };
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "A11-DIAG sym-bind-trace: chained "
+                      "klink_a11_ensure_pc_mips2c_bound onto "
+                      "g_jak1_pre_kernel_version_check_hook (prev=%p)",
+                      (void*)prev);
+}
+}  // namespace
 
 // Boot the runtime for a specific game. Phase 13 only validates APK
 // structure, so this stays light: it logs intent, initializes the kernel
@@ -197,6 +242,65 @@ bool safe_read_u32(uintptr_t addr, uint32_t* out) {
   sigaction(SIGBUS, &old_bus, nullptr);
   return ok;
 }
+
+// A11-DIAG: identify the sym whose value slot the failing BLR loaded
+// from. Mirrors linux_arm64_main.cpp::gk_diag::dump_sym_name_at_slot —
+// both handlers share the same `texture-sym-zero` line shape so the
+// device logcat and the qemu_repro stderr trace can be diff'd directly.
+//
+// Layout (jak1::InitHeapAndSymbol, see kscheme.cpp ~L1770):
+//   SymbolTable2 .. LastSymbol            : Symbol{u32} value slots
+//   slot + SYM_INFO_OFFSET                : SymInfo{u32 hash; u32 str_off}
+//   g_ee_main_mem + str_off + 4           : null-terminated UTF-8 name
+//
+// Safe-read each field so a malformed slot can't secondary-SEGV the
+// handler — the same protection the existing LR/PC byte loop uses.
+bool dump_sym_name_at_slot(uintptr_t slot_host_addr) {
+  if (!g_ee_main_mem) return false;
+  const uintptr_t ee_lo = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const uintptr_t ee_hi = ee_lo + EE_MAIN_MEM_SIZE;
+  if (slot_host_addr < ee_lo || slot_host_addr >= ee_hi) return false;
+
+  const uintptr_t sym_lo = ee_lo + SymbolTable2.offset;
+  const uintptr_t sym_hi = ee_lo + LastSymbol.offset;
+  const bool in_sym_range = (slot_host_addr >= sym_lo && slot_host_addr < sym_hi);
+
+  uint32_t slot_value = 0;
+  if (!safe_read_u32(slot_host_addr, &slot_value)) return false;
+
+  const uintptr_t info_addr = slot_host_addr + jak1::SYM_INFO_OFFSET;
+  if (info_addr + 8 > ee_hi) return false;
+  uint32_t hash = 0, str_offset = 0;
+  if (!safe_read_u32(info_addr, &hash)) return false;
+  if (!safe_read_u32(info_addr + 4, &str_offset)) return false;
+
+  char name_buf[129];
+  name_buf[0] = 0;
+  if (str_offset != 0 && str_offset < EE_MAIN_MEM_SIZE) {
+    const uintptr_t name_host = ee_lo + str_offset + 4;  // skip String::len
+    for (size_t i = 0; i + 4 < sizeof(name_buf); i += 4) {
+      uint32_t word = 0;
+      if (!safe_read_u32(name_host + i, &word)) break;
+      bool stop = false;
+      for (int j = 0; j < 4; ++j) {
+        char c = static_cast<char>((word >> (j * 8)) & 0xff);
+        if (c == 0) { stop = true; break; }
+        name_buf[i + j] = c;
+      }
+      if (stop) break;
+      name_buf[i + 4] = 0;
+    }
+  }
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A11-DIAG texture-sym-zero: slot=0x%lx "
+                      "value=0x%x info=0x%lx hash=0x%x str=0x%x name=\"%s\" "
+                      "in_sym_range=%d",
+                      (unsigned long)slot_host_addr, (unsigned)slot_value,
+                      (unsigned long)info_addr, (unsigned)hash,
+                      (unsigned)str_offset,
+                      name_buf[0] ? name_buf : "<empty>", in_sym_range ? 1 : 0);
+  return true;
+}
 }  // namespace gk_diag
 
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
@@ -216,6 +320,17 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                         "GK-DIAG x%d=0x%lx", i,
                         (unsigned long)uc->uc_mcontext.regs[i]);
   }
+
+  // A11-DIAG: identify which symbol's value slot the failing BLR loaded.
+  // X16 = the LDR base reg from A5's sym-MEM emit; X9 = the BLR target.
+  // The line shape matches gk_diag::dump_sym_name_at_slot in
+  // game/linux-arm64/linux_arm64_main.cpp so device logcat and
+  // qemu_repro stderr are diff-able.
+  gk_diag::dump_sym_name_at_slot(
+      (uintptr_t)uc->uc_mcontext.regs[16]);
+  gk_diag::dump_sym_name_at_slot(
+      (uintptr_t)uc->uc_mcontext.regs[9]);
+
   // A6 attempt 5+: dump bytes around LR (return address). When PC is a
   // BLR-to-NULL jump landing at EE base, LR points at the instruction
   // *after* the BLR — so LR-4 = the BLR, LR-8.. = what loaded the (NULL)
@@ -270,6 +385,12 @@ void gk_install_sigsegv_diag() {
 int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "gk_sdl_main: entered");
   gk_install_sigsegv_diag();
+
+  // A11: install the chained pre-kernel-version hook before goal_main
+  // is called. By gk_sdl_main entry every global ctor has finished, so
+  // capturing whatever android_runtime_compat installed and chaining
+  // our binder is race-free.
+  a11_install_pc_mips2c_hook_once();
 
   // Phase 23 (autoport): bring up the SDL virtual gamepad + audio
   // device on the SDL main thread, before goal_main hands us off to

@@ -40,6 +40,13 @@ struct SegmentInfoV5 {
 };
 
 void klink_init_globals();
+
+// A11 sym-bind-trace — see klink.cpp for rationale. Idempotent: binds
+// `__pc-get-mips2c` to an a11_pc_get_mips2c_impl that delegates to
+// `Mips2C::gLinkedFunctionTable.get(name)`. Caller must invoke after
+// `jak1::InitHeapAndSymbol` returns so the symbol table is alive.
+void klink_a11_ensure_pc_mips2c_bound();
+
 /*!
  * Stores the state of the linker. Used for multi-threaded linking, so it can be suspended.
  */
