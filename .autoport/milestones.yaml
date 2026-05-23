@@ -344,6 +344,15 @@ phases:
   validator: validators/phase-A15-regalloc-fnptr-livethrough.sh
   max_turns: 600
   max_retries: 12
+- id: A16-device-cpu-divergence-diag
+  name: Diagnose what the Redmi Note 9 Pro Cortex-A76 CPU rejects that qemu-aarch64-static accepts. Diagnostic-only phase — extend the
+    SIGSEGV diag handler to walk back through ADRP/ADD pairs in the lr-window, identify which Xd was clobbered between an ADRP and a
+    subsequent LDR/STR. Authored after A15 attempts 1+2 both reverted (qemu +46, device -101 to -113) — two failed fix attempts is
+    enough; we need data, not more guesses.
+  prompt: prompts/phase-A16-device-cpu-divergence-diag.md
+  validator: validators/phase-A16-device-cpu-divergence-diag.sh
+  max_turns: 400
+  max_retries: 6
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
