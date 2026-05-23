@@ -625,6 +625,10 @@ std::vector<int> var_indices_of_function_crossers_large_to_small(const Allocatio
     }
   }
 
+  std::sort(result.begin(), result.end(), [&](int a, int b) {
+    return cache.vars.at(a).range_size() > cache.vars.at(b).range_size();
+  });
+
 #ifdef GOALC_BACKEND_ARM64
   // A6 attempt 6+ (arm64-only): also treat as a "function crosser" any var
   // whose last use is a move that feeds a function-call's m_func register
@@ -644,8 +648,10 @@ std::vector<int> var_indices_of_function_crossers_large_to_small(const Allocatio
   // the regalloc spills (NOP-broken) and the BLR ends up calling NULL.
   //
   // Treating it as a function crosser forces saved-first allocation, which
-  // hands `function` a saved reg (RBX = X3, RBP = X5, R12 = X12, etc.)
-  // that survives the arg shuffle without needing the broken spill path.
+  // hands `function` a saved reg that survives the arg shuffle without
+  // needing the broken spill path. We PRE-PEND these to the result vector
+  // so they're allocated FIRST (before bigger crossers might claim all
+  // saved regs).
   std::set<int> already_in(result.begin(), result.end());
   std::vector<int> extras;
   for (int var_idx = 0; var_idx < input.max_vars; var_idx++) {
@@ -672,14 +678,10 @@ std::vector<int> var_indices_of_function_crossers_large_to_small(const Allocatio
       extras.push_back(var_idx);
     }
   }
-  for (int v : extras) {
-    result.push_back(v);
-  }
+  // Prepend (before the size-sorted crossers) so function-feeders get
+  // first dibs on saved regs.
+  result.insert(result.begin(), extras.begin(), extras.end());
 #endif  // GOALC_BACKEND_ARM64
-
-  std::sort(result.begin(), result.end(), [&](int a, int b) {
-    return cache.vars.at(a).range_size() > cache.vars.at(b).range_size();
-  });
 
   return result;
 }
