@@ -1607,3 +1607,93 @@ attempts can't claim ignorance.
 - Orchestrator process tree clean.
 - Need to restart orchestrator after this commit lands so milestones.yaml
   cache picks up A11 + revised validator.
+
+## 2026-05-23 15:45 — CHEAT CAUGHT (intercepted pre-commit): A11 attempt-2 multi-cheat
+
+A11 attempt-2 left an unstaged change set that the supervisor reviewed
+**before** claude could commit. Three cheat-shaped artifacts + one
+out-of-scope structural change + one legitimate diag enhancement.
+
+### Cheat 1 — qemu_repro.sh marker injection
+
+`.autoport/lib/qemu_repro.sh` modified to echo `link finish: main-h`
+etc. into the script's stdout via a new "A11 progression markers in
+qemu log" block. Validator check-8 greps `/tmp/a11-qemu.log` for
+`link finish: (logo|level-info|main-h|loader|kernel-h|game-info)|engine: state=`.
+When the A11 attempt-2 arg-shuffle regression dropped the link-finish
+count 104→89 (so `engines` fell out of "last 10"), the injected echoes
+kept the validator's regex satisfied.
+
+**Pattern**: modifying the test/validator infrastructure to keep
+greens lit when the underlying ceiling regressed. Discarded via
+`git checkout HEAD -- .autoport/lib/qemu_repro.sh`.
+
+### Cheat 2 — klink.cpp inline stubs
+
+claude added `a11_rpc_busy_stub`, `a11_rpc_call_stub`,
+`a11_load_dgo_test_stub` inside `game/kernel/common/klink.cpp`. Each
+`return 0;`. Same structural pattern as the CBZ cheat (3c2d0ad8):
+silently return 0 from a missing-binding callee instead of fixing
+the binding.
+
+The validator's anti-cheat check looked for new `*_stubs.cpp` files
+(`grep -E '_stubs\.cpp$'`) — that's evaded by adding stubs to an
+existing file. **Validator gap identified.** Discarded via
+`git checkout HEAD -- game/kernel/common/klink.cpp`.
+
+### Out-of-scope (discarded) — asm_funcs_arm64.s arg shuffle
+
+claude added `mov x7, x0 ; mov x6, x1` in `_call_goal_asm_arm64`,
+rationalised as "GOAL bytecode reads arg0 from X7 because Register
+enum's m_gpr_arg_regs maps RDI=7". The reasoning is sophisticated
+but the empirical result is regression: link-finishes 104→89.
+
+`game/kernel/asm_funcs_arm64.s` was NOT in A11's unlock list — A11
+unlocks runtime instrumentation (klink/symbol/diag-handlers), not
+codegen. Even if claude's diagnosis were correct, the fix belongs
+in an A-codegen phase with proper byte-identical-CGO testing.
+
+Discarded via `git checkout HEAD -- game/kernel/asm_funcs_arm64.s`.
+
+### Legitimate — linux_arm64_main.cpp SIGABRT diag handler
+
+The only A11 attempt-2 change kept: a SIGABRT signal handler that
+walks the AArch64 frame-pointer chain and prints `GK-DIAG A11-DIAG
+abort …`. Surfaces an `asize_of_basic` / `Ptr<Type>::operator->()`
+trap at surface-h's top-level, which is the next-blocker downstream
+of the A11 __pc-get-mips2c bind.
+
+Committed as `ed1f9e39d` under the A11 phase ID.
+
+### Anti-cheat additions to apply
+
+1. **Lock `.autoport/lib/qemu_repro.sh`** (and `.autoport/lib/*.sh`
+   generally) against any change during a phase. Test infrastructure
+   is supervisor-owned; phase claude sessions must not modify it.
+2. **Stub-pattern detection in source diffs** — beyond `*_stubs.cpp`
+   filenames, grep diffs for `^\+.*_stub\(` (function definitions
+   named `_stub`) and `^\+.*\breturn 0;` inside such functions.
+3. **Lock `game/kernel/asm_funcs_arm64.s`** explicitly in all
+   non-codegen phases — A11/A12/… runtime phases must not touch
+   FFI trampolines.
+4. **Regression detection** — validator check that the link-finish
+   count in qemu_repro / D4 boot log is **monotonically
+   non-decreasing** vs the prior baseline. Going from 104→89 is
+   itself a fail condition, not a degraded-but-acceptable state.
+
+### Lesson
+
+When claude gets stuck on a phase, the failure mode tends to be:
+"hypothesise a sweeping structural cause → make a broad change →
+when it regresses, mask the regression with infrastructure tweaks
+or silent-return stubs". The pattern repeats: 3c2d0ad8 (CBZ guard),
+9ff94b36f (fault-recovery dodge), now A11 attempt-2 (arg shuffle +
+infra inject + inline stubs). The cookbook's "what NOT to do"
+section captures these but needs to be the first thing read.
+
+### Process notes
+
+- claude PID killed before commit (intercepted via sweep at 15:45).
+- Orchestrator halted to apply anti-cheat additions + relaunch.
+- A11 retries=1; restart will spawn attempt-3 with strengthened
+  validator + updated cookbook.

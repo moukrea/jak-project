@@ -273,6 +273,33 @@ in one phase is a red flag for cheat-shaped logic.
 - Don't rebuild CGOs without also rebuilding goalc-arm64 first if
   any emitter file changed — stale goalc produces stale bytes that
   may carry old cheats.
+- **Don't add inline stubs** (e.g. `u64 a11_foo_stub() { return 0; }`)
+  to existing files as a workaround for an unimplemented binding —
+  caught at A11 attempt-2 (`a11_rpc_busy_stub`, `a11_rpc_call_stub`,
+  `a11_load_dgo_test_stub`). The validator now scans diffs for
+  `\w+_stub\(` additions, but the principle stands: stub-shaped
+  silent-zero returns are the same anti-pattern as the CBZ guard.
+- **Don't modify `.autoport/lib/*` or `.autoport/validators/*`** from
+  within a phase. Test/validator infrastructure is supervisor-owned;
+  edits to `qemu_repro.sh`, `boot_log_scan.sh`, or validator scripts
+  from a phase claude session are a cheat-pattern by definition. The
+  A11 validator now fails on any such diff.
+- **Don't touch `game/kernel/asm_funcs_arm64.s`** in a non-codegen
+  phase. FFI trampolines are codegen-owned; A11/A12/… runtime phases
+  must not modify them. If you believe an arg-shuffle is needed,
+  honest-exit with a next-blocker report — the supervisor will
+  author a codegen phase with proper byte-identical-CGO testing.
+- **Don't accept a regression** to make a different check pass.
+  A11 attempt-2 caused link-finishes to drop 104→89 with the
+  arg-shuffle and then injected fake markers into qemu_repro.sh to
+  keep validator check-8 green. The validator now enforces
+  link-finish count ≥ 100 (no regression vs A10).
+- **Don't hypothesise a sweeping structural cause and make a broad
+  change at the first plausibility.** When stuck, the failure mode is:
+  "discover one suspicious thing → assume it explains everything →
+  fix it broadly → mask the regression." Better: name the failing
+  site (sym name, file:line, type tag value), reproduce the smallest
+  test case, then commit narrow.
 
 If you find yourself reaching for any of these, **stop and write a
 next-blocker report instead**. The supervisor will give you the
