@@ -162,3 +162,68 @@ silently pass by stubbing the emitter.
 2-4 hours / $30-60. Builds tooling that saves time on every future
 codegen-touching phase. Net positive if F1 (renderer port) surfaces
 any emitter bugs (highly likely).
+
+## Scope extension (2026-05-23 supervisor patch, post-A6 blocker)
+
+A6 blocked at the display.gc NULL fn-ptr BLR. claude attempt 4's
+blocker analysis (`.autoport/reports/A6-attempt-4-blocker.md`)
+recommended extending this phase to include a fast qemu-aarch64-static
+reproduction so the bug can be debugged in ~30 s per cycle instead of
+3 min per device cycle. A7 now incorporates that recommendation.
+
+### Additional UNLOCKED files for A7 (beyond the test-harness shape)
+
+- `game/linux-arm64/linux_arm64_main.cpp` (extend to load ENGINE.CGO
+  + GAME.CGO via the existing direct DGO loader, with
+  `LINK_FLAG_EXECUTE` enabled)
+- `game/linux-arm64/CMakeLists.txt` (add the needed cross-compile
+  rules)
+- `game/linux-arm64/linux_arm64_runtime_compat.cpp` (extend
+  abort-stubs to cover any new transitive deps surfaced by
+  ENGINE.CGO/GAME.CGO linking)
+- `goalc/emitter/IGenARM64.cpp` — narrow unlock to ADD per-BLR
+  instrumentation behind a `OG_DEBUG_BLR_TRACE` build flag (no
+  changes to non-trace codepaths; off by default)
+
+Other codegen files remain locked.
+
+### Additional deliverables
+
+1. `.autoport/lib/qemu_repro.sh` — wraps the cross-build + qemu run,
+   targets the display.gc NULL fn-ptr BLR by running gk under
+   `qemu-aarch64-static` with the regenerated arm64 CGOs.
+2. Per-BLR trace logging (behind `OG_DEBUG_BLR_TRACE`) that prints
+   the target host address + the saved register state immediately
+   before each `call_r64` BLR. Enabled only in a debug rebuild;
+   default release build emits identical bytes.
+3. `.autoport/reports/A7-displaygc-root-cause.md` — names the actual
+   failing symbol (the GOAL function whose value-cell was 0 at the
+   crashing BLR) and proposes a fix located in IGenARM64.cpp,
+   klink.cpp, or kscheme.cpp.
+4. The fix itself, applied to the appropriate file (no fault-recovery
+   dodges — the anti-cheat warnings from A6's prompt apply here too).
+5. A6's gate re-run: `bash .autoport/validators/phase-A6-emitter-off-register.sh`
+   must now exit 0 with all 14 D4 markers including the SDL/GL
+   real-init ones from the hardened validator.
+
+### Anti-cheat invariants (carried over from A6)
+
+- 0 `gk_recover_to_renderer` / `forced-recovery handoff` /
+  `g_fault_recovery_armed` markers in any source file.
+- 0 new `abort()` / `std::abort()` / `__attribute__((weak))` in
+  `.cpp` / `.h` / `.s` since A6's anchor.
+- D4 validator's check #10 (hardened) must pass: ≥ 3 of 5 SDL/GL
+  real-init markers, no synthesised renderer-entered marker dodge.
+- Codegen lock-set extended: `IGenARM64.cpp` changes must ONLY be in
+  the trace-flag-gated region; the non-trace emit path stays
+  byte-identical to A6's close (commit `69b8651b4`).
+
+### Honest exit condition
+
+If the qemu reproduction is set up but the display.gc bug still
+isn't fixed after a reasonable iteration budget (say 8 retries),
+the honest outcome is a second blocker-analysis report
+(`.autoport/reports/A7-attempt-N-blocker.md`) — same shape as
+`A6-attempt-4-blocker.md` — describing the failing symbol and what
+emitter / linker / runtime helper produces the NULL. Then exit
+cleanly. The supervisor will read it and decide on A8.
