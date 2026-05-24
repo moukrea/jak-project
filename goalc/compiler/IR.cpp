@@ -13,6 +13,22 @@
 // TODO ARM64 - just silencing errors while things are not implemented obviously
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
+// A17 — forward declarations for the IDIV/UDIV preserve-X8 spill helpers
+// defined in goalc/emitter/IGenARM64.cpp. They are NOT declared in the locked
+// IGenARM64.h header (A17 only unlocks the .cpp), so we mirror their
+// signatures here at the only call site. See the A17 block comment in
+// IGenARM64.cpp above idiv_gpr32 for the full rationale.
+namespace emitter {
+namespace IGen {
+namespace ARM64 {
+InstructionARM64 idiv_spill_sub_sp_16();
+InstructionARM64 idiv_spill_str_x8_sp_0();
+InstructionARM64 idiv_spill_ldr_x8_sp_0();
+InstructionARM64 idiv_spill_add_sp_16();
+}  // namespace ARM64
+}  // namespace IGen
+}  // namespace emitter
+
 using namespace emitter;
 namespace {
 Register get_reg(const RegVal* rv, const AllocationResult& allocs, emitter::IR_Record irec) {
@@ -951,13 +967,77 @@ void IR_IntegerMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
                      irec);
       break;
     case IntegerMathKind::IDIV_32:
-    case IntegerMathKind::IMOD_32:
-      gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(get_reg(m_arg, allocs, irec)), irec);
-      break;
+    case IntegerMathKind::IMOD_32: {
+      // A17 — emitter-side IDIV preserve-X8 spill. idiv_gpr32 emits a single
+      // SDIV X8, X8, Xn whose X8 dst+src1 is hardcoded; that write is invisible
+      // to the regalloc, so it may park a live value (e.g. m_func of a later
+      // BLR) in X8. Wrap the SDIV in a sub_sp / str_x8 / mov-dividend / sdiv /
+      // mov-result / ldr_x8 / add_sp sequence to preserve caller's X8 AND load
+      // the actual dividend into X8 (m_dest is constrained to RAX = id 0 = X0
+      // on arm64 by compile_division in Math.cpp, so the dividend lives in
+      // Xdst, NOT in X8). See the A17 block comment in IGenARM64.cpp above
+      // idiv_gpr32 for the full rationale. m_dest == X8 is a fast path —
+      // dividend is already in X8, no preserve needed because the regalloc
+      // explicitly assigned X8 to m_dest.
+      auto arg_reg = get_reg(m_arg, allocs, irec);
+      auto dst_reg = get_reg(m_dest, allocs, irec);
+      if (dst_reg.id() == 8) {
+        gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(arg_reg), irec);
+      } else {
+        // If arg_reg is X8, the divisor lives in the same physical register
+        // we're about to clobber with the dividend. Copy it to X16 (caller-
+        // saved scratch, never assigned by the regalloc per Register.cpp's
+        // m_gpr_alloc_order which tops out at R10 = id 10 — same convention
+        // A5 sym-MEM uses for its materialisation register) BEFORE we touch
+        // X8 so the divisor survives. Common case (arg_reg != X8): use it
+        // directly.
+        emitter::Register divisor_reg = arg_reg;
+        if (arg_reg.id() == 8) {
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(16),
+                                                                arg_reg),
+                         irec);
+          divisor_reg = emitter::Register(16);
+        }
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_sub_sp_16(), irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_str_x8_sp_0(), irec);
+        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(8), dst_reg),
+                       irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(divisor_reg), irec);
+        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst_reg, emitter::Register(8)),
+                       irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_ldr_x8_sp_0(), irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_add_sp_16(), irec);
+      }
+    } break;
     case IntegerMathKind::UDIV_32:
-    case IntegerMathKind::UMOD_32:
-      gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(get_reg(m_arg, allocs, irec)), irec);
-      break;
+    case IntegerMathKind::UMOD_32: {
+      // A17 — same preserve-X8 spill protocol as IDIV_32 above. unsigned_div_gpr32
+      // emits UDIV X8, X8, Xn with the same hardcoded-X8 / regalloc-invisible
+      // clobber; wrap it identically (including the load-dividend-into-X8 step,
+      // since m_dest's allocated reg holds the dividend, not X8).
+      auto arg_reg = get_reg(m_arg, allocs, irec);
+      auto dst_reg = get_reg(m_dest, allocs, irec);
+      if (dst_reg.id() == 8) {
+        gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(arg_reg), irec);
+      } else {
+        emitter::Register divisor_reg = arg_reg;
+        if (arg_reg.id() == 8) {
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(16),
+                                                                arg_reg),
+                         irec);
+          divisor_reg = emitter::Register(16);
+        }
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_sub_sp_16(), irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_str_x8_sp_0(), irec);
+        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(8), dst_reg),
+                       irec);
+        gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(divisor_reg), irec);
+        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst_reg, emitter::Register(8)),
+                       irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_ldr_x8_sp_0(), irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_add_sp_16(), irec);
+      }
+    } break;
     case IntegerMathKind::SARV_64:
       gen->add_instr(emitter::IGen::ARM64::sar_gpr64_cl(dst), irec);
       break;

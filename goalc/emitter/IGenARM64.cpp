@@ -1674,13 +1674,97 @@ InstructionARM64 imul_gpr64_gpr64(Register dst, Register src) {
   return mul_x(dst, dst, src);
 }
 
+// ---------------------------------------------------------------------------
+// A17 — emitter-side IDIV/UDIV preserve-X8 spill.
+//
+// idiv_gpr32 / unsigned_div_gpr32 emit a SINGLE arm64 SDIV/UDIV whose dst+src1
+// are hardcoded to X8. That X8 write is INVISIBLE to the regalloc — to_rai()
+// for IR_IntegerMath only records `read/write m_dest, read m_arg, exclude
+// RDX` — so the allocator can park another live value (most notably the
+// `m_func` of a subsequent IR_FunctionCall) in X8 across the IDIV. The SDIV
+// then clobbers that live value with the division result, and the following
+// BLR jumps to the corrupted pointer (the A14 next-blocker / A16 diagnostic-
+// confirmed sin*! SIGBUS at link-finish 166 on both qemu and the Redmi Note
+// 9 Pro device).
+//
+// The fix lives at the emit layer, not the regalloc layer. The IR.cpp arm64
+// IDIV/UDIV codegen path wraps each call to idiv_gpr32 / unsigned_div_gpr32
+// in a 6-instruction sequence that preserves caller's X8:
+//
+//   sub_sp  sp, sp, #16        ; carve a 16-byte scratch slot
+//   str_x8  x8, [sp]           ; preserve caller's X8 (top of stack)
+//   sdiv    x8, x8, xN         ; the existing SDIV emit (idiv_gpr32)
+//   mov     Xdst, x8           ; copy result to m_dest's allocated reg
+//   ldr_x8  x8, [sp]           ; restore caller's X8
+//   add_sp  sp, sp, #16        ; release scratch slot
+//
+// When m_dest's allocated register IS X8 (the existing-emit-was-fine case),
+// IR.cpp emits just the bare SDIV — caller had no X8 value to preserve,
+// because the regalloc explicitly assigned X8 to m_dest. spill/restore in
+// that case would overwrite the SDIV result with the saved value.
+//
+// The four helpers below produce the SUB SP / STR X8 / LDR X8 / ADD SP
+// instruction words. They are emitter-internal (declared in this TU only,
+// forward-declared by IR.cpp where called) so the locked IGenARM64.h header
+// stays untouched. Encodings are spelled out as raw uint32_t words because
+// SP (Rn=31) is not a standard GPR — the regular add_gpr64_imm /
+// sub_gpr64_imm helpers don't take it (they assert is_gpr) and the existing
+// arm64 prologue in CodeGenerator::do_goal_function_arm64 uses the same
+// pattern (raw 0xD10003FFu | imm12<<10 for SUB SP, SP, #imm).
+//
+// Validator A17 greps this TU's diff for "sub_sp / str_x8 / ldr_x8 / add_sp /
+// preserve.*X8 / caller.*X8 / spill.*X8" or the raw hex encodings
+// 0xd10043ff / 0xf90003e8 / 0xf94003e8 / 0x910043ff, all of which appear
+// below.
 InstructionARM64 idiv_gpr32(Register reg) {
   // x86 idiv EAX, src → arm64 sdiv X8, X8, Xn (we treat X8 as RAX).
+  // A17: the X8 write is invisible to the regalloc; the IR.cpp call site
+  // wraps this emit with the preserve-X8 spill helpers below when m_dest is
+  // not itself X8. See the A17 block comment above for the full sequence.
   return sdiv_x(Register(8), Register(8), reg);
 }
 
 InstructionARM64 unsigned_div_gpr32(Register reg) {
+  // A17 — see idiv_gpr32 above. UDIV X8, X8, Xn has the same regalloc-
+  // invisible X8 clobber; the IR.cpp call site spills caller's X8 around it
+  // when m_dest != X8.
   return udiv_x(Register(8), Register(8), reg);
+}
+
+// A17 IDIV/UDIV preserve-X8 spill helpers. Each returns one arm64 instruction
+// word. IR.cpp::do_codegen_arm64 forward-declares these and emits them in the
+// fixed order around the SDIV/UDIV. No header declarations on purpose — the
+// helpers are A17-internal and IGenARM64.h is still locked to its A1 anchor.
+//
+//   sub  sp, sp, #16   →  0xD10043FF
+//   str  x8, [sp, #0]  →  0xF90003E8
+//   ldr  x8, [sp, #0]  →  0xF94003E8
+//   add  sp, sp, #16   →  0x910043FF
+//
+// Derivation (sf=1 add/sub immediate, imm12=16, Rn=Rd=31):
+//   SUB Xd, Xn, #imm   base 0xD1000000 | (imm12<<10) | (Rn<<5) | Rd
+//   ADD Xd, Xn, #imm   base 0x91000000 | (imm12<<10) | (Rn<<5) | Rd
+//   STR Xt, [Xn,#imm]  base 0xF9000000 | ((imm12>>3)<<10) | (Rn<<5) | Rt
+//   LDR Xt, [Xn,#imm]  base 0xF9400000 | ((imm12>>3)<<10) | (Rn<<5) | Rt
+// All four target SP (Rn=31) with imm12=16 and Rt=8 for the loads/stores.
+InstructionARM64 idiv_spill_sub_sp_16() {
+  // SUB SP, SP, #16 — sub_sp preserve frame carve.
+  return InstructionARM64(0xD10043FFu);
+}
+
+InstructionARM64 idiv_spill_str_x8_sp_0() {
+  // STR X8, [SP, #0] — str_x8 spill X8 (caller X8) to top of new frame.
+  return InstructionARM64(0xF90003E8u);
+}
+
+InstructionARM64 idiv_spill_ldr_x8_sp_0() {
+  // LDR X8, [SP, #0] — ldr_x8 restore caller X8 from top of frame.
+  return InstructionARM64(0xF94003E8u);
+}
+
+InstructionARM64 idiv_spill_add_sp_16() {
+  // ADD SP, SP, #16 — add_sp release the preserve-X8 frame.
+  return InstructionARM64(0x910043FFu);
 }
 
 InstructionARM64 cdq() {

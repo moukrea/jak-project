@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 46,
+  "current_phase_idx": 55,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -47,7 +47,10 @@
     "E3-ux-save-load": 1,
     "F1-gameplay-geyser-rock": 3,
     "A6-emitter-off-register": 3,
-    "A7-emitter-unit-tests": 1
+    "A7-emitter-unit-tests": 1,
+    "A11-texture-sym-binding": 1,
+    "A15-regalloc-fnptr-livethrough": 1,
+    "A17-idiv-emitter-spill": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -86,11 +89,22 @@
       "634d11096658",
       "aee48b94f9ae",
       "6c93d1bdc637"
+    ],
+    "A11-texture-sym-binding": [
+      "837e34e814a9"
+    ],
+    "A15-regalloc-fnptr-livethrough": [
+      "7ca31daca972"
+    ],
+    "A17-idiv-emitter-spill": [
+      "3afd18938cb6"
     ]
   },
   "stuck_reasons": {
     "F1-gameplay-geyser-rock": "Same failure fingerprint '201e959684bc' has recurred 3 attempts in a row. The agent is no longer learning from validator feedback \u2014 halting to preserve token quota.",
-    "A6-emitter-off-register": "A6 validator gate (D4 re-pass with all markers) cannot be cleared within A6's narrow unlock scope (IGenARM64.cpp + asm_funcs + android_runtime_full.cpp). Real-engineering deliverables landed: X19 trampoline save (69b8651b4), 6 off-register helpers fixed, skip-flag dodge fully removed. 52 unique CGOs link before the remaining display.gc NULL fn-ptr BLR \u2014 diagnosed in detail in .autoport/reports/A6-attempt-4-blocker.md. The residual bug needs klink/kscheme runtime fixes + qemu reproduction infrastructure \u2014 scope transitions to A7-emitter-unit-tests-and-qemu-reproduction. Attempt 3 tried a fault-recovery dodge (9ff94b36f) which the supervisor reverted (8f1b4b07e) and validator hardened against."
+    "A6-emitter-off-register": "A6 validator gate (D4 re-pass with all markers) cannot be cleared within A6's narrow unlock scope (IGenARM64.cpp + asm_funcs + android_runtime_full.cpp). Real-engineering deliverables landed: X19 trampoline save (69b8651b4), 6 off-register helpers fixed, skip-flag dodge fully removed. 52 unique CGOs link before the remaining display.gc NULL fn-ptr BLR \u2014 diagnosed in detail in .autoport/reports/A6-attempt-4-blocker.md. The residual bug needs klink/kscheme runtime fixes + qemu reproduction infrastructure \u2014 scope transitions to A7-emitter-unit-tests-and-qemu-reproduction. Attempt 3 tried a fault-recovery dodge (9ff94b36f) which the supervisor reverted (8f1b4b07e) and validator hardened against.",
+    "A8-qemu-repro-and-displaygc-fix": "A8 delivered qemu repro infrastructure + comprehensive root-cause analysis (.autoport/reports/A8-displaygc-root-cause.md): the display.gc NULL fn-ptr BLR is rooted in CodeGenerator::do_goal_function_arm64 emitting NOPs for spill load/store ops. Fix requires unlocking CodeGenerator.cpp which A8's narrow scope didn't have. claude attempt 5 wrote A6-attempt-5-blocker.md with the exact pseudocode for the fix. Scope transitions to A9-codegen-spill-ops (narrow CodeGenerator.cpp::do_goal_function_arm64 unlock for the spill ops).",
+    "A9-codegen-spill-ops": "A9 spill-ops landed (59fa70ac4, 0e446973e) and unblocked 16 additional CGOs (45\u219261 link finishes). Next-layer bug surfaced: caller's save area corrupted across GOAL\u2192GOAL BLR. Documented in A9-attempt-1-next-blocker.md. Fix needs IR.cpp narrow unlock \u2014 transitions to A10-callee-save-area."
   },
   "completed": [
     "00-harness",
@@ -137,63 +151,32 @@
     "E1-ux-landscape-gamepad",
     "E2-ux-touch-overlay-optional",
     "E3-ux-save-load",
-    "A7-emitter-unit-tests"
+    "A7-emitter-unit-tests",
+    "A16-device-cpu-divergence-diag"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
-    "A6-emitter-off-register"
+    "A6-emitter-off-register",
+    "A8-qemu-repro-and-displaygc-fix",
+    "A9-codegen-spill-ops",
+    "A10-callee-save-area",
+    "A11-texture-sym-binding",
+    "A12-gsound-stack-fnptr",
+    "A13-iop-kernel-mutex-init",
+    "A14-pc-memmove-bind",
+    "A15-regalloc-fnptr-livethrough"
   ],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
-    "00-harness": 1779141327.5929835,
-    "01-scaffold": 1779173704.1789694,
-    "02-intarith": 1779175625.1189601,
-    "03-memops": 1779176529.8171358,
-    "04-controlflow": 1779177038.7213683,
-    "05-abi": 1779177381.7624545,
-    "06-float": 1779178017.5636694,
-    "07-neon": 1779178825.575998,
-    "08-coroutines": 1779178920.7747583,
-    "09-boot-linux-arm": 1779179436.0781302,
-    "10-android-ndk": 1779181046.630071,
-    "11-apk": 1779181308.8975089,
-    "12-android-runtime": 1779193011.368826,
-    "13-real-apk": 1779193102.4881756,
-    "14-jak1": 1779194297.0693026,
-    "15-jak2": 1779195761.1763167,
-    "16-jak3": 1779197326.1785657,
-    "17-apk-assets": 1779199846.947895,
-    "18-sdl3-bridge": 1779207656.2145467,
-    "19-emitter-stress": 1779214021.4242136,
-    "20-goal-main": 1779215294.2732053,
-    "21-gles-shaders": 1779216544.40365,
-    "22-bionic-portability": 1779218294.9513323,
-    "23-input-audio": 1779219781.1900616,
-    "24-emitter-audit": 1779222931.95883,
-    "25-cgo-regen": 1779229364.248258,
-    "A1-emitter-enumerate": 1779346873.0672002,
-    "A2-emitter-implement": 1779349978.380063,
-    "A3-emitter-differential": 1779353212.0230715,
-    "A4-linker-fixups": 1779356020.64445,
-    "B1-cgo-regen-strict": 1779358818.10039,
-    "B2-cgo-qemu-stress": 1779361765.2964792,
-    "C1-linux-arm64-config": 1779365178.2127016,
-    "C2-linux-arm64-symbols": 1779366881.105734,
-    "C3-linux-arm64-title": 1779368809.3299305,
-    "C4-klink-arm64-execute": 1779374067.6251209,
-    "D1-android-bionic-shims": 1779378576.773529,
-    "D2-android-gles-shaders": 1779380991.0723279,
-    "D3-android-sdl3-surface": 1779387866.3413577,
-    "D4-android-apk-title": 1779393055.8089738,
-    "E1-ux-landscape-gamepad": 1779409004.19035,
-    "A5-emitter-far-relocs": 1779399249.2174304,
-    "E2-ux-touch-overlay-optional": 1779414456.7523391,
-    "E3-ux-save-load": 1779416139.1025882,
-    "F1-gameplay-geyser-rock": 1779418711.8420663,
-    "A6-emitter-off-register": 1779424262.2227178,
-    "A7-emitter-unit-tests": 1779513177.4581268
+    "A11-texture-sym-binding": 1779538288.358058,
+    "A12-gsound-stack-fnptr": 1779549389.1871076,
+    "A13-iop-kernel-mutex-init": 1779563174.8651018,
+    "A14-pc-memmove-bind": 1779564954.1023786,
+    "A15-regalloc-fnptr-livethrough": 1779572312.3102741,
+    "A16-device-cpu-divergence-diag": 1779574117.1912947,
+    "A17-idiv-emitter-spill": 1779575930.083296
   },
-  "last_update": "2026-05-23T05:42:53.733174+00:00",
+  "last_update": "2026-05-24T00:47:02.838237+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
