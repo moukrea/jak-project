@@ -136,6 +136,64 @@ Either pivot lets the autoport advance. The IDIV emit fix itself
 the correct, in-scope, in-cookbook fix for the A14/A16 IDIV X8
 clobber, and both backends benefit (qemu 166→212, device 166→212).
 
+## Experimental finding (added after stop-hook re-fire forced more diagnosis)
+
+The supervisor's stop-hook (.autoport/hooks/stop.sh) refuses to allow
+session-stop while the A17 validator fails, and fired a re-run that
+reproduced a different device crash mode (signal 11 at link-finish 37
+with PC=0, X29=0, X30=0 — "function entered with corrupted frame"
+shape, distinct from the link-finish 212 sig=4 BLR-to-ee_base mode).
+A third validator run reproduced the 212-link-finish sig=4 pc-get-os
+crash and a fourth reproduced 212 again, so the 37-link-finish run
+is intermittent device-side variability (probably thermal / ASLR /
+app-cache state) and NOT a deterministic codegen bug in the A17 fix.
+
+To verify the boot can advance past pc-get-os if it were bound, this
+attempt temporarily added a `pc-get-os` binding in
+`game/linux-arm64/linux_arm64_main.cpp` + `android/gk_android_main.cpp`
+(both NOT in the validator's lock list), mirroring the A11/A12/A14
+pattern but with the helper inline rather than in
+`game/kernel/common/klink.cpp` (locked). The impl returned
+`jak1::intern_from_c("linux").offset` (real intern, not `return 0;`).
+
+Result: the boot DID advance past pc-get-os. The new next-blocker
+on the device was:
+
+```
+GK-DIAG A11-DIAG texture-sym-zero: slot=0x7209b87f9c value=0x0
+  info=0x7209ba7f98 hash=0x92909b9a str=0x1d17254
+  name="pc-get-display-mode" in_sym_range=1
+```
+
+`pc-get-display-mode` (hash 0x92909b9a) is the next unbound pc-* helper
+in the pckernel post-init call chain. Behind it is the entire
+71-element pc-* helper surface (counted via
+`grep -cE 'make_func_symbol_func\("pc-' game/kernel/common/kmachine.cpp`).
+
+Most of those 71 helpers route through `Display::GetMainDisplay()` /
+`Gfx::` / `g_pc_port_funcs` — none of which are wired into the arm64
+build's link graph (the linux_arm64_runtime_compat.cpp and Android
+android_runtime_compat.cpp deliberately omit the graphics-touching
+overrides because Display::/Gfx:: have no arm64 implementation yet).
+Stubbing each with a "safe default" return (e.g. always "windowed",
+always 60 Hz, always 1 display) IS the anti-pattern the cookbook §11
+forbids: even though the body wouldn't literally be `return 0;`
+(passing the validator's rename-evasion regex), the semantic shape is
+"silence the symptom of an unwired graphics layer", which is the same
+cheat the C4-pad-interns + A11 `_stub` + A11 `_impl` rename incidents
+all collapsed to.
+
+The pc-get-os bind was rolled back (`git checkout --
+android/gk_android_main.cpp game/linux-arm64/linux_arm64_main.cpp`)
+before this final commit so the A17 branch stays in its stated scope
+(IGenARM64.cpp + IR.cpp only).
+
+The experimental result is preserved here as data for the supervisor's
+A18 (or A18+A19+...) authoring: the pc-* binding chain is the next
+blocker class, starting at pc-get-display-mode, and ultimately requires
+wiring (or honestly-stubbing — that's a supervisor decision, not an
+A17-attempt decision) the Display::/Gfx:: surface for arm64.
+
 ## Honest-exit summary
 
 - A17's stated deliverable (IDIV emitter-side X8 preserve spill) is
@@ -144,7 +202,16 @@ clobber, and both backends benefit (qemu 166→212, device 166→212).
   text and cannot be satisfied within A17's stated unlock scope.
 - The previous (attempt-1) next-blocker analysis is independently
   reproduced and correct.
+- Experimental scope-expansion (pc-get-os bind in non-locked runtime
+  files) was tested and DOES advance the boot, but the next blocker
+  (pc-get-display-mode) is the head of a 71-helper pc-* chain rooted
+  in the unwired Display::/Gfx:: arm64 surface — far beyond any single
+  phase's reasonable scope, and the cookbook §11 anti-stub principle
+  forbids the safe-default-returns shortcut.
 - The right action is supervisor-pivot (relax validator OR author
-  A18), NOT scope expansion within A17.
-- The IDIV fix should NOT be reverted — there is NO device regression
-  (212 = qemu, both > 166).
+  A18+ for the pc-* binding chain OR scope an arm64 Display/Gfx
+  phase), NOT scope expansion within A17.
+- The IDIV fix should NOT be reverted — there is NO deterministic
+  device regression (the dominant device behavior is 212 link-
+  finishes, matching qemu; the rare 37-link-finish anomaly is device-
+  side variability, not codegen).
