@@ -362,6 +362,14 @@ phases:
   validator: validators/phase-A17-idiv-emitter-spill.sh
   max_turns: 500
   max_retries: 10
+- id: A18-type-method-zero-bind
+  name: 'Close the next BLR-to-ee_base at time-of-day top-level — a GOAL function-pointer dispatch through a type-method slot at
+    object offset 0x68 loads 0. Extend GK-DIAG with a type-method-zero walker to name the failing type+method, then either bind the
+    missing method via klink_a18 helper OR install an honest-abort surface that names the missing impl (NOT a silent return-0 stub).'
+  prompt: prompts/phase-A18-type-method-zero-bind.md
+  validator: validators/phase-A18-type-method-zero-bind.sh
+  max_turns: 500
+  max_retries: 8
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
