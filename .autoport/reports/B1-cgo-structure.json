@@ -18,10 +18,10 @@
     "mean_function_size": 921,
     "min_function_size": 16,
     "object_count": 306,
-    "ret_density_per_kb": 0.734,
-    "total_bytes": 7950640,
-    "x86_ret_count": 1659,
-    "x86_ret_pct": 0.0209
+    "ret_density_per_kb": 0.7339,
+    "total_bytes": 7951248,
+    "x86_ret_count": 1652,
+    "x86_ret_pct": 0.0208
   },
   "GAME.CGO": {
     "arm64_ret_count": 6108,
@@ -43,8 +43,8 @@
     "min_function_size": 16,
     "object_count": 346,
     "ret_density_per_kb": 0.5408,
-    "total_bytes": 11564544,
-    "x86_ret_count": 6189,
+    "total_bytes": 11565152,
+    "x86_ret_count": 6182,
     "x86_ret_pct": 0.0535
   },
   "KERNEL.CGO": {
@@ -63,8 +63,8 @@
     "mean_function_size": 394,
     "min_function_size": 20,
     "object_count": 8,
-    "ret_density_per_kb": 1.4984,
-    "total_bytes": 159232,
+    "ret_density_per_kb": 1.497,
+    "total_bytes": 159376,
     "x86_ret_count": 6,
     "x86_ret_pct": 0.0038
   }
