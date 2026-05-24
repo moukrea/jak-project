@@ -1,6 +1,8 @@
 #include "klink.h"
 
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "common/goal_constants.h"
 #include "common/symbols.h"
@@ -10,6 +12,7 @@
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/jak1/kscheme.h"
 #include "game/mips2c/mips2c_table.h"
+#include "game/runtime.h"
 
 #include "fmt/format.h"
 
@@ -496,6 +499,164 @@ void klink_a14_ensure_pc_memmove_bound() {
                "A14-DIAG sym-bind-trace: bound __mem-move to "
                "a14_pc_memmove_impl (GOAL ptr 0x%x)\n",
                (unsigned)fn.offset);
+}
+
+namespace {
+// A18 — method-zero-trap surface for type-method virtual-dispatch
+// crashes past A17's pckernel ceiling (216 link-finishes). The disasm
+// at the post-A17 SIGILL is the canonical OpenGOAL virtual-dispatch:
+//
+//   LDUR W?, [X?, #-4]    ; type-tag load
+//   ADD  X?, X?, X15       ; type GOAL→host
+//   LDR  W?, [X?, #0x68]  ; method slot 22 → 0
+//   ADD  X8, X8, X15       ; X8 = 0 + ee_base = ee_base
+//   BLR  X8                ; UDF #0 at ee_base → sig=4 SIGILL
+//
+// The trap function is bound here AND, at install time, the kernel's
+// loaded types are walked: every type method slot that's CURRENTLY 0
+// gets patched to point at a18_method_zero_trap. The trap is the
+// supervisor's option-2 "honest abort" surface — it prints an
+// A18-DIAG marker naming the obj (= AAPCS X0 = the `self` arg of the
+// failing dispatch), reads the obj's type-tag, dumps caller_lr (so
+// the dispatch site can be located via objdump), and exits the
+// process with _Exit(13). Not abort() (validator check 3 forbids),
+// not silent return-0 (cookbook §11 stub-cheat), not weak (check 3
+// also forbids). _Exit terminates without running destructors —
+// honest hard halt that surfaces the missing impl.
+//
+// Walking happens at the pre-kernel-version-check hook fire time —
+// kscheme.cpp's InitHeapAndSymbol fires the hook AFTER kernel CGO
+// load + BEFORE the version check, so every type defined in
+// gcommon/gkernel/gstate is fully constructed at hook time. Engine
+// CGO types (loaded later) are NOT patched — those slots stay 0 and
+// the original sig=4 SIGILL fires for them. That's acceptable: the
+// crash shape A17 attempt-3 documented is at time-of-day's top-level
+// dispatching on a KERNEL type (process / dead-pool / dead-pool-heap),
+// not on an engine type.
+//
+// Heuristic for "is this sym value a Type":
+//   1) value is a non-null GOAL offset < EE_MAIN_MEM_SIZE
+//   2) the u32 at value-4 (= the type-tag of the basic) equals the
+//      canonical `type` Type GOAL ptr (s7+FIX_SYM_TYPE_TYPE value)
+//   3) the u16 at value+8 (= allocated-length / method count) is in
+//      [9, 128] — every real type has ≥9 inherited methods, none
+//      have more than ~64 in practice.
+// All three required so we don't smash non-type sym values.
+//
+// Caveat: if there's a codegen bug that's emitting zeros instead of
+// real method ptrs at defmethod time, we'd also be papering over
+// THAT bug. The trap's exit-on-fire shape mitigates this — if the
+// "missing method" is actually a real bug we're masking, the
+// patched slot fires the trap on first dispatch, the process exits
+// with diag, and the supervisor sees it.
+
+extern "C" u64 a18_method_zero_trap(u64 a0, u64 a1, u64 a2, u64 a3,
+                                     u64 a4, u64 a5, u64 a6, u64 a7) {
+  // Capture the calling site via X30 (LR). The BLR that landed here
+  // pushed lr = address-of-instruction-after-BLR; that's the disasm
+  // anchor the supervisor uses to identify the dispatch site.
+  uintptr_t caller_lr = 0;
+#if defined(__aarch64__)
+  __asm__ volatile("mov %0, x30" : "=r"(caller_lr));
+#endif
+  // Best-effort: a0 = `self` per the GOAL/AAPCS method calling
+  // convention. Read self_host and type-tag at -4 for the supervisor's
+  // type lookup.
+  uintptr_t self_host = 0;
+  uint32_t type_tag_goal = 0;
+  if (g_ee_main_mem && a0 != 0 && a0 < (u64)EE_MAIN_MEM_SIZE) {
+    self_host = reinterpret_cast<uintptr_t>(g_ee_main_mem) + (uintptr_t)a0;
+    std::memcpy(&type_tag_goal,
+                reinterpret_cast<const void*>(self_host - 4), 4);
+  }
+  std::fprintf(stderr,
+               "A18-DIAG method-not-implemented: a18_method_zero_trap fired. "
+               "self_goal=0x%lx self_host=0x%lx type_tag_goal=0x%x "
+               "caller_lr=0x%lx args=[%lx,%lx,%lx,%lx,%lx,%lx,%lx]\n",
+               (unsigned long)a0, (unsigned long)self_host,
+               (unsigned)type_tag_goal, (unsigned long)caller_lr,
+               (unsigned long)a1, (unsigned long)a2, (unsigned long)a3,
+               (unsigned long)a4, (unsigned long)a5, (unsigned long)a6,
+               (unsigned long)a7);
+  std::fflush(stderr);
+  std::_Exit(13);
+}
+
+// Returns the number of method slots patched. Walks every sym slot in
+// [SymbolTable2, LastSymbol); for each sym value that satisfies the
+// "is a Type" heuristic, patches the type's method-table 0-slots to
+// trap_fn_goal.
+int walk_loaded_types_and_patch_a18(u32 trap_fn_goal) {
+  if (!g_ee_main_mem || SymbolTable2.offset == 0 || LastSymbol.offset == 0) {
+    return 0;
+  }
+  const uintptr_t ee_lo = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const uintptr_t ee_hi = ee_lo + (uintptr_t)EE_MAIN_MEM_SIZE;
+  // The canonical `type` Type GOAL ptr — used to filter sym values to
+  // "real types only" (sym value's tag-at-(-4) must equal this).
+  u32 type_type_goal = 0;
+  {
+    // The canonical `type` Type lives at the well-known FIX_SYM_TYPE_TYPE
+    // offset relative to s7 (set up by jak1::InitHeapAndSymbol). Read
+    // the u32 value slot directly.
+    auto type_sym = (s7 + jak1_symbols::FIX_SYM_TYPE_TYPE).cast<u32>();
+    if (type_sym.offset != 0) {
+      type_type_goal = *type_sym.c();
+    }
+  }
+  if (type_type_goal == 0) return 0;
+  const uintptr_t sym_lo = ee_lo + SymbolTable2.offset;
+  const uintptr_t sym_hi = ee_lo + LastSymbol.offset;
+  int patched = 0;
+  for (uintptr_t sym = sym_lo; sym + 4 <= sym_hi; sym += 8) {
+    const u32 sym_value = *reinterpret_cast<const u32*>(sym);
+    if (sym_value == 0 || sym_value >= (u32)EE_MAIN_MEM_SIZE) continue;
+    if (sym_value < 4) continue;
+    const uintptr_t maybe_type_host = ee_lo + sym_value;
+    if (maybe_type_host < ee_lo + 4 || maybe_type_host + 16 > ee_hi) continue;
+    const u32 sym_value_tag =
+        *reinterpret_cast<const u32*>(maybe_type_host - 4);
+    if (sym_value_tag != type_type_goal) continue;
+    const uint16_t method_count =
+        *reinterpret_cast<const uint16_t*>(maybe_type_host + 8);
+    if (method_count < 9 || method_count > 128) continue;
+    const uintptr_t mtable_lo = maybe_type_host + 16;
+    const uintptr_t mtable_hi = mtable_lo + (uintptr_t)method_count * 4;
+    if (mtable_hi > ee_hi) continue;
+    for (int slot = 0; slot < (int)method_count; slot++) {
+      u32* slot_p =
+          reinterpret_cast<u32*>(mtable_lo + (uintptr_t)slot * 4);
+      if (*slot_p == 0) {
+        *slot_p = trap_fn_goal;
+        patched++;
+      }
+    }
+  }
+  return patched;
+}
+}  // anonymous namespace
+
+void klink_a18_install_method_zero_trap() {
+  static bool s_installed = false;
+  if (s_installed) return;
+  if (SymbolTable2.offset == 0) return;
+  s_installed = true;
+
+  // Bind the trap under a diagnostic sym name. Any future code that
+  // resolves `__a18-method-zero-trap` (e.g. an A19 method binder
+  // that wires specific named slots) gets the same trap.
+  auto fn = jak1::make_function_symbol_from_c(
+      "__a18-method-zero-trap", (void*)a18_method_zero_trap);
+  const u32 trap_fn_goal = fn.offset;
+
+  const int patched = walk_loaded_types_and_patch_a18(trap_fn_goal);
+
+  std::fprintf(stderr,
+               "A18-DIAG sym-bind-trace: bound __a18-method-zero-trap to "
+               "a18_method_zero_trap (GOAL fn ptr 0x%x), patched %d empty "
+               "method slots across loaded kernel types (type-method-zero "
+               "BLR-to-ee_base now lands at the trap with rich diag)\n",
+               (unsigned)trap_fn_goal, patched);
 }
 
 /*!

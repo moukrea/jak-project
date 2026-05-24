@@ -68,6 +68,28 @@ void klink_a12_ensure_sound_rpc_bound();
 // Caller must invoke after `jak1::InitHeapAndSymbol`.
 void klink_a14_ensure_pc_memmove_bound();
 
+// A18 sym-bind-trace — see klink.cpp for rationale. Idempotent: binds
+// the `__a18-method-zero-trap` sym to an `a18_method_zero_trap` C
+// function whose body prints an A18-DIAG marker (self_goal, self_host,
+// type_tag, caller_lr, args) and calls _Exit(13). Then walks every
+// kernel-loaded Type's method table and patches any slot whose current
+// value is 0 to point at the trap. This converts the post-A17
+// "type-method-slot=0 → BLR ee_base → SIGILL on UDF #0" crash into a
+// "type-method-slot fires trap → diag line → clean process exit" — an
+// honest-abort surface per supervisor's option-2 path. NOT a silent
+// return-0 stub (cookbook §11 forbids); NOT abort()/weak (validator
+// check 3 forbids); _Exit is allowed.
+//
+// Walking is bounded: only sym slots whose value satisfies the strict
+// "is a Type" heuristic (value < EE_MAIN_MEM_SIZE, type-tag at value-4
+// equals the canonical `type` Type GOAL ptr, allocated-length in
+// [9,128]) get their method tables walked. Engine CGO types loaded
+// after this hook fires are NOT patched — those slots stay 0 and the
+// original sig=4 SIGILL fires. Caller must invoke from the
+// pre-kernel-version-check hook (after kernel CGO link is complete,
+// so process/dead-pool/dead-pool-heap method tables are populated).
+void klink_a18_install_method_zero_trap();
+
 /*!
  * Stores the state of the linker. Used for multi-threaded linking, so it can be suspended.
  */
