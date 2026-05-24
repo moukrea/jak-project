@@ -1,0 +1,12 @@
+A11-DIAG sym-bind-trace: bound __pc-get-mips2c to a11_pc_get_mips2c_impl (function GOAL ptr 0x1c5734)
+A12-DIAG sym-bind-trace: bound rpc-call to RpcCall_wrapper (value-arg GOAL ptr 0x1c57d4, stack-arg GOAL ptr 0x1c5994), rpc-busy? to RpcBusy (0x1c5874), test-load-dgo-c to LoadDGOTest (0x1c5914)
+A18-DIAG sym-bind-trace: bound __a18-method-zero-trap to a18_method_zero_trap (GOAL fn ptr 0x1c97a4), patched 82 empty method slots across loaded kernel types (type-method-zero BLR-to-ee_base now lands at the trap with rich diag)
+GK-DIAG sig=4 fault=0x2123000000 pc=0x2123000000 lr=0x21231d3754
+GK-DIAG A12-DIAG stack-fnptr-zero: no LDR X8,[SP,#?] in lr-240..lr-4 (BLR target X8, push_bytes=48) — non-call_r64 shape
+GK-DIAG A18-DIAG type-method-zero: hop=0 MOV X8 <- X9 @ lr-36
+GK-DIAG A18-DIAG type-method-zero: ldr-pc=0x21231d372c base=X16 offset=0x68 size=W method-slot=22 obj-add@found obj-goal-reg=X9 obj-goal=0x2215c0 obj-host=0x21232215c0 loaded-value=0x22162c type-tag@obj_host-4=0x50a1e0 obj-reg-clobbered-since-add=1
+GK-DIAG A18-DIAG type-method-zero: TYPETAG-LOAD chain ldur-pc=0x21231d3724 host-obj-reg=X16 host-obj@signal=0x2123000000 type-tag-via-host=0x0 innerobj-add@found innerobj-reg=X12 innerobj-goal=0x4070 innerobj-host=0x2123004070 innerobj-type-tag=0x0 (canonical virtual-dispatch shape — the failing method is slot 22 of the innerobj's type)
+GK-DIAG A18-DIAG type-method-zero: walking type-tag host=0x212350a1e0 sym-field=0x1c1414 sym-slot=0x21231c1414 (this slot is the type's symbol; dump_sym_name_at_slot follows):
+GK-DIAG A11-DIAG texture-sym-zero: slot=0x21231c1414 value=0x18fec4 info=0x21231e1410 hash=0x0 str=0x0 name="<empty>" in_sym_range=0
+GK-DIAG A11-DIAG texture-sym-zero: slot=0x2123000000 value=0x0 info=0x212301fffc hash=0x0 str=0x0 name="<empty>" in_sym_range=0
+GK-DIAG A11-DIAG sym-MEM triplet scan (-256..-4):
