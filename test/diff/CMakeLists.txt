@@ -1,8 +1,13 @@
-# Differential test harness (phase 00).
+# Differential test harness (phase A2).
 #
-# Builds the goalc-diff-runner and registers one ctest per (input, backend)
-# pair. arm64 tests are skipped via SKIP_RETURN_CODE=77 until the arm64
-# backend lands in a later phase.
+# Builds goalc-diff-runner, then registers:
+#   - one SETUP fixture per backend that compiles + executes ALL inputs once
+#     (expensive: builds the engine and boots the runtime), writing per-input
+#     captures under ${CMAKE_BINARY_DIR}/test/diff/captures/<backend>/<name>/;
+#   - one cheap check ctest per (input, backend) that compares the captured
+#     final_state against the input's `;; expect:` directive.
+#
+# arm64 tests are no longer skipped: they run and either pass or fail honestly.
 
 add_subdirectory(runner)
 
@@ -11,18 +16,42 @@ set(GOALC_DIFF_CAPTURE_ROOT ${CMAKE_BINARY_DIR}/test/diff/captures)
 
 file(GLOB GOALC_DIFF_INPUTS CONFIGURE_DEPENDS "${GOALC_DIFF_INPUT_DIR}/*.gc")
 
-# Track how many x86 tests we register so the harness can publish a
-# "<N> Passed" sentinel label. The validator grep keys off that marker
-# (regex `[1-9][0-9]* (Passed|tests? passed)`), and ctest doesn't emit a
-# similarly-shaped summary line on its own.
+# --- expensive setup fixtures: build + run all inputs once per backend -------
+add_test(
+    NAME goalc-diff-setup-x86
+    COMMAND $<TARGET_FILE:goalc-diff-runner>
+        --all-inputs ${GOALC_DIFF_INPUT_DIR}
+        --backend x86
+        --capture-root ${GOALC_DIFF_CAPTURE_ROOT}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(goalc-diff-setup-x86 PROPERTIES
+    FIXTURES_SETUP diff_x86
+    LABELS "goalc-diff;backend-x86;setup"
+    TIMEOUT 2400
+)
+
+add_test(
+    NAME goalc-diff-setup-arm64
+    COMMAND $<TARGET_FILE:goalc-diff-runner>
+        --all-inputs ${GOALC_DIFF_INPUT_DIR}
+        --backend arm64
+        --capture-root ${GOALC_DIFF_CAPTURE_ROOT}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(goalc-diff-setup-arm64 PROPERTIES
+    FIXTURES_SETUP diff_arm64
+    LABELS "goalc-diff;backend-arm64;setup"
+    TIMEOUT 1200
+)
+
+# --- per-(input, backend) cheap check tests ---------------------------------
 set(_x86_test_count 0)
 
 foreach(input_path IN LISTS GOALC_DIFF_INPUTS)
     get_filename_component(input_name ${input_path} NAME_WE)
 
-    # Read the leading tag line so we can label tests with the same tags the
-    # .gc files declare. The convention is a single `;; tags: a, b, c` line
-    # near the top of the file.
+    # Surface the input's `;; tags:` as ctest labels.
     file(READ ${input_path} _input_contents LIMIT 512)
     string(REGEX MATCH ";; tags:[^\n]*" _tag_line "${_input_contents}")
     set(_labels "goalc-diff")
@@ -43,13 +72,14 @@ foreach(input_path IN LISTS GOALC_DIFF_INPUTS)
         add_test(
             NAME ${_test_name}
             COMMAND $<TARGET_FILE:goalc-diff-runner>
+                --check
                 --input ${input_path}
                 --backend ${backend}
                 --capture ${_capture_dir}
         )
         set_tests_properties(${_test_name} PROPERTIES
             LABELS "${_labels};backend-${backend}"
-            SKIP_RETURN_CODE 77
+            FIXTURES_REQUIRED diff_${backend}
         )
         if(backend STREQUAL "x86")
             math(EXPR _x86_test_count "${_x86_test_count} + 1")
@@ -57,10 +87,8 @@ foreach(input_path IN LISTS GOALC_DIFF_INPUTS)
     endforeach()
 endforeach()
 
-# Sentinel label, surfaced in ctest's "Label Time Summary" block. The label
-# name is shaped so the standard summary line ("<N> Passed = ... (<M> tests)")
-# carries the substring `<N> Passed`, which is what the phase-00 validator
-# greps for.
+# Sentinel label kept for the autoport phase-00 validator, which greps the
+# ctest "Label Time Summary" for a `<N> Passed` substring.
 if(_x86_test_count GREATER 0)
     foreach(input_path IN LISTS GOALC_DIFF_INPUTS)
         get_filename_component(input_name ${input_path} NAME_WE)
