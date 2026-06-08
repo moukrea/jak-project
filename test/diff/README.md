@@ -62,20 +62,33 @@ Exit codes from the runner itself:
 | 2    | input file unreadable or missing required directive        |
 | 77   | backend not implemented — treated as SKIP by ctest         |
 
-## Phase 00 scope
+## Phase A2 scope (real compile + execute)
 
-Right now only the scaffolding ships:
+The runner now compiles and executes for real, build-once / run-many:
 
-- `--backend x86` reads the input's `;; expect:` directive and writes
-  it as captured stdout. **It does not yet invoke `goalc`.** The whole
-  point of phase 00 is to nail down the CLI surface, the capture
-  layout, and the ctest wiring so later phases can plug in real
-  compilation.
-- `--backend arm64` prints "not implemented" and exits 77.
+- `--all-inputs <dir> --backend x86 --capture-root <dir>`: compiles each
+  input with the x86 `goalc` backend and **executes it on an in-process
+  `gk` runtime** (kernel + engine loaded, headless), capturing the printed
+  line. Run once as a ctest *setup fixture*.
+- `--all-inputs <dir> --backend arm64 ...`: compiles each input with the
+  **ARM64 `goalc` backend** (real color + codegen) and then attempts
+  execution via the aarch64-linux cross runtime under
+  `qemu-aarch64-static`. That cross runtime currently boots but crashes
+  mid-boot (no Deci2 listener), so arm64 inputs cannot yet be executed —
+  recorded as **honest failures** with a captured boot probe
+  (`captures/arm64/_boot_probe.txt`), never stubbed green.
+- `--check --input <f> --backend <b> --capture <dir>`: cheap comparison of
+  the captured `final_state` against the input's `;; expect:` directive.
+  One such ctest per (input, backend), gated on the setup fixture.
 
-Later phases will replace the body of `run_x86()` with a real call to
-the existing `goalc` entry point, and `run_arm64()` with a real call to
-the new AArch64 emitter (executed under `qemu-aarch64-static`).
+`final_state` is the **first** non-empty captured line: the program's
+`(format ...)` output precedes the listener's echo of the `(main)` return.
+
+Honest outcomes: x86 inputs that don't compile standalone (e.g. self
+recursive functions not forward-declared, or `new 'stack-no-clear`
+arrays) fail with the real captured compiler error; output mismatches are
+reported as captured diffs. arm64 inputs fail pending a listener-capable
+cross runtime.
 
 ## Running the suite
 
@@ -85,4 +98,5 @@ cmake --build build --target goalc-diff-runner
 cd build && ctest -R goalc-diff --output-on-failure
 ```
 
-The arm64 tests will report as `Skipped` until phase 01 lands.
+ARM64 tests now **run** (no longer `Skipped`); they currently fail
+honestly until the cross runtime can host a listener.
