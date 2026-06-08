@@ -83,7 +83,7 @@ add_library(compiler
         regalloc/Allocator_v2.cpp
         compiler/docs/DocTypes.cpp)
 
-target_link_libraries(compiler common Zydis tiny_gltf decomp)
+target_link_libraries(compiler common Zydis capstone-static tiny_gltf decomp)
 
 if (WIN32)
     target_link_libraries(compiler mman)
@@ -91,6 +91,8 @@ endif ()
 
 add_executable(goalc main.cpp)
 add_executable(goalc-simple simple_main.cpp)
+
+add_subdirectory(codegen_diff)
 
 add_executable(build_level build_level/main.cpp)
 add_executable(build_actor build_actor/main.cpp)

@@ -45,4 +45,25 @@ std::string disassemble_x86_function(
     bool print_whole_function,
     bool omit_ir);
 
-// TODO ARM64 - disassemble arm64 functions as well
+// ARM64 disassembly via Capstone. Decodes the actual emitted bytes (canonical),
+// so it also surfaces encoding bugs. Used by goalc-codegen-diff.
+std::string disassemble_arm64(u8* data, int len, u64 base_addr);
+
+// Structured single-instruction decode used by goalc-codegen-diff to build a
+// per-IR-node side-by-side x86/arm64 view and to analyze register clobbers.
+struct DecodedInstr {
+  u64 addr = 0;
+  int offset = 0;    // byte offset from the start of the decoded buffer
+  int length = 0;    // length of this instruction in bytes
+  std::string text;  // formatted mnemonic + operands
+  std::vector<std::string> regs_written;     // normalized hw registers written (e.g. "x8")
+  std::vector<std::string> stack_xfer_regs;  // regs moved to/from [sp] by this str/ldr/stp/ldp
+  bool touches_sp = false;                   // reads or writes the stack pointer
+  bool is_store_to_stack = false;            // str/stp to [sp]
+  bool is_load_from_stack = false;           // ldr/ldp from [sp]
+  int sp_delta = 0;                          // immediate add/sub applied to sp (signed bytes)
+  bool valid = true;                         // false if the bytes failed to decode
+};
+
+std::vector<DecodedInstr> decode_x86(u8* data, int len, u64 base_addr);
+std::vector<DecodedInstr> decode_arm64(u8* data, int len, u64 base_addr);

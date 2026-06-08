@@ -449,6 +449,24 @@ endif()
 
 build_third_party_lib(zydis Zydis)
 
+# build capstone third party library for disassembling arm64 (codegen diff tool)
+# Only the AArch64 decoder is needed; everything else is disabled to keep the
+# build small. Normal variables are honored by capstone's option() calls under
+# CMake policy CMP0077.
+set(CAPSTONE_ARCHITECTURE_DEFAULT OFF CACHE BOOL "" FORCE)
+set(CAPSTONE_ARM64_SUPPORT ON CACHE BOOL "" FORCE)
+set(CAPSTONE_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(CAPSTONE_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(CAPSTONE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(CAPSTONE_BUILD_CSTOOL OFF CACHE BOOL "" FORCE)
+build_third_party_lib(capstone capstone-static)
+# capstone uses directory-scoped include_directories internally and exposes no
+# INTERFACE include dir, so attach one for consumers (e.g. the compiler lib).
+target_include_directories(capstone-static SYSTEM INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third-party/capstone/include)
+# consumed by the (potentially shared) compiler lib, so it must be PIC.
+set_target_properties(capstone-static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # windows memory management lib
 if(WIN32)
     build_third_party_lib(mman mman)
