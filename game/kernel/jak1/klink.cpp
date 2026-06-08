@@ -138,6 +138,16 @@ uint32_t typelink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
   // intern the GOAL type, creating the vtable if it doesn't exist.
   auto type_ptr = jak1::intern_type_from_c(sym_name, method_count);
 
+  // B1 — structured boot-link trace (gated by OG_KLINK_TRACE; zero output
+  // when unset). Records the type alloc/intern with its (zero-initialized)
+  // method-table size — the heart of the slot-22 method-bind bug.
+  static const bool s_klink_trace = (std::getenv("OG_KLINK_TRACE") != nullptr);
+  if (s_klink_trace) {
+    std::fprintf(stderr, "KLINKTRACE type name=%s num_methods=%u addr=0x%lx\n",
+                 sym_name, (unsigned)method_count,
+                 (unsigned long)Ptr<u8>(type_ptr.offset).c());
+  }
+
   // prepare to read the locations of the type pointers
   Ptr<uint32_t> offsets = link.cast<uint32_t>() + seek;
   uint32_t offset_count = *offsets;
@@ -237,6 +247,15 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
                    (unsigned long)data_ptr.c(), (unsigned long)target_host,
                    (unsigned)pre);
     }
+  }
+
+  // B1 — structured boot-link trace: one bind event per symbol (gated by
+  // OG_KLINK_TRACE; zero output when unset). val is the symbol's value cell
+  // at link time (0 = not yet populated by a defun/defmethod).
+  if (s_klink_trace) {
+    const auto sym_val = *Ptr<u32>(sym_addr).c();
+    std::fprintf(stderr, "KLINKTRACE sym name=%s addr=0x%lx val=0x%x\n", sym_name,
+                 (unsigned long)Ptr<u8>(sym_addr).c(), (unsigned)sym_val);
   }
 
   return seek;
@@ -596,6 +615,19 @@ void link_control::jak1_finish(bool jump_from_c_to_goal) {
 
   ObjectFileHeader* ofh = m_link_block_ptr.cast<ObjectFileHeader>().c();
   lg::debug("link finish: {}", m_object_name);
+
+  // B1 — structured boot-link trace: per-object link-finish with a monotonic
+  // sequence number (gated by OG_KLINK_TRACE; zero output when unset). The seq
+  // anchors the per-(type,slot) method timeline so Phase B2 can align the x86
+  // and ARM64 bind orders.
+  {
+    static const bool s_klink_trace = (std::getenv("OG_KLINK_TRACE") != nullptr);
+    if (s_klink_trace) {
+      static u32 s_finish_seq = 0;
+      std::fprintf(stderr, "KLINKTRACE finish obj=%s seq=%u\n", m_object_name,
+                   (unsigned)(++s_finish_seq));
+    }
+  }
   if (ofh->object_file_version == 3) {
     // todo check function type of entry
 
