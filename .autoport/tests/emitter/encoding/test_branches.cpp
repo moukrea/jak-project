@@ -28,19 +28,19 @@ constexpr uint32_t expect_ret = 0xD65F03C0u;
 // NOP — fixed 0xD503201F.
 constexpr uint32_t expect_nop = 0xD503201Fu;
 
-// A6 call_r64 multi-word sequence (caller-side callee-saved preservation).
+// A6/A19 call_r64 multi-word sequence (caller-side callee-saved preservation).
 // Words (verified by aarch64-linux-android28-clang -c in IGenARM64.cpp):
 //   stp x3, x5,   [sp, #-16]!
 //   stp x10, x11, [sp, #-16]!
-//   str x23,      [sp, #-16]!
+//   stp x12, x23, [sp, #-16]!   ; A19: was `str x23` = 0xF81F0FF7
 //   blr Xn
-//   ldr x23,      [sp], #16
+//   ldp x12, x23, [sp], #16     ; A19: was `ldr x23` = 0xF84107F7
 //   ldp x10, x11, [sp], #16
 //   ldp x3, x5,   [sp], #16
 constexpr uint32_t kStpX3X5Push   = 0xA9BF17E3u;
 constexpr uint32_t kStpX10X11Push = 0xA9BF2FEAu;
-constexpr uint32_t kStrX23Push    = 0xF81F0FF7u;
-constexpr uint32_t kLdrX23Pop     = 0xF84107F7u;
+constexpr uint32_t kStpX12X23Push = 0xA9BF5FECu;
+constexpr uint32_t kLdpX12X23Pop  = 0xA8C15FECu;
 constexpr uint32_t kLdpX10X11Pop  = 0xA8C12FEAu;
 constexpr uint32_t kLdpX3X5Pop    = 0xA8C117E3u;
 
@@ -134,17 +134,18 @@ TEST_CASE("emit_wait_vf encodes ARM64 NOP") {
     EXPECT_ENC(wait_vf(), expect_nop);
 }
 
-// ---- emit_call_r64 — the A6 multi-word callee-save sequence ----
-TEST_CASE("emit_call_r64 X12 emits seven-word sequence") {
+// ---- emit_call_r64 — the A6/A19 multi-word callee-save sequence ----
+TEST_CASE("emit_call_r64 X12 emits seven-word sequence (A19: X12 now in save set)") {
     auto e = call_r64(X12);
     // Primary word: STP x3, x5, [sp, #-16]!
     EXPECT_ENC(call_r64(X12), kStpX3X5Push);
-    // Six extra words: STP x10/x11 ; STR x23 ; BLR X12 ; LDR x23 ; LDP x10/x11 ; LDP x3/x5
+    // Six extra words: STP x10/x11 ; STP x12/x23 ; BLR X12 ; LDP x12/x23 ; LDP x10/x11 ; LDP x3/x5
+    // A19: word 1 was kStrX23Push, word 3 was kLdrX23Pop. Now both pair X12 with X23.
     EXPECT_EXTRA_WORDS(call_r64(X12), 6);
     EXPECT_EXTRA_AT(call_r64(X12), 0, kStpX10X11Push);
-    EXPECT_EXTRA_AT(call_r64(X12), 1, kStrX23Push);
+    EXPECT_EXTRA_AT(call_r64(X12), 1, kStpX12X23Push);
     EXPECT_EXTRA_AT(call_r64(X12), 2, expect_blr(12));
-    EXPECT_EXTRA_AT(call_r64(X12), 3, kLdrX23Pop);
+    EXPECT_EXTRA_AT(call_r64(X12), 3, kLdpX12X23Pop);
     EXPECT_EXTRA_AT(call_r64(X12), 4, kLdpX10X11Pop);
     EXPECT_EXTRA_AT(call_r64(X12), 5, kLdpX3X5Pop);
 }
