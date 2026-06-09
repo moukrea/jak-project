@@ -149,6 +149,60 @@ bool arm_is_ldr_literal(uint32_t enc) {
          top8 == kArmOpLDR_lit_Q;
 }
 
+// A21 H3 diag — env-gated by OG_KLINK_IMM19_TRACE.
+//
+// Every LDR-literal imm19 patch site reaches the dispatcher with a
+// `(slot, target_host_addr, enc)` triplet. The 81 "out of range" warnings
+// captured in the qemu boot log don't say WHAT instruction kind, WHAT Rt,
+// or WHICH segment they sit in — so we can't tell whether they cluster in
+// one CGO (e.g. time-of-day's literal pool overflowed) or are scattered
+// across many. This trace captures the encoding + decoded variant + Rt +
+// pc_rel + status for every LDR-literal patch attempt, including the ones
+// that succeed. Zero overhead when env var is unset (one strncmp per
+// process via the cached `s_enabled`).
+//
+// Output line shape:
+//   KLINK-IMM19 slot=0x<host> enc=0x<8hex> var=<W|X|S|D|Q> rt=X<n>
+//               target=0x<host> pc_rel=<dec> imm19=<dec> status=<ok|oor|misalign>
+//
+// The aggregate of (oor_count, ok_count) and the address ranges of OOR
+// hits tell us whether H3 is the real cause of the 216 ceiling or just
+// background noise. If the OOR cluster overlaps the time-of-day /
+// dma-buffer CGO load range, H3 is implicated; if all 81 are in
+// data-only (non-executed) slots, H3 can be ruled out.
+bool og_klink_imm19_trace_enabled() {
+  static const bool s_enabled = [] {
+    const char* v = std::getenv("OG_KLINK_IMM19_TRACE");
+    return v != nullptr && v[0] != '\0' && v[0] != '0';
+  }();
+  return s_enabled;
+}
+
+const char* klink_imm19_variant_name(uint32_t enc) {
+  uint32_t top8 = enc & 0xFF000000u;
+  switch (top8) {
+    case kArmOpLDR_lit_W: return "W";
+    case kArmOpLDR_lit_X: return "X";
+    case kArmOpLDR_lit_S: return "S";
+    case kArmOpLDR_lit_D: return "D";
+    case kArmOpLDR_lit_Q: return "Q";
+    default: return "?";
+  }
+}
+
+void klink_imm19_trace(const uint32_t* slot, uint32_t enc, uintptr_t target,
+                       int64_t pc_rel, int64_t imm19, const char* status) {
+  if (!og_klink_imm19_trace_enabled()) return;
+  uint32_t rt = enc & 0x1Fu;
+  std::fprintf(stderr,
+               "KLINK-IMM19 slot=0x%lx enc=0x%08x var=%s rt=X%u target=0x%lx "
+               "pc_rel=%lld imm19=%lld status=%s\n",
+               (unsigned long)reinterpret_cast<uintptr_t>(slot),
+               (unsigned)enc, klink_imm19_variant_name(enc), (unsigned)rt,
+               (unsigned long)target, (long long)pc_rel, (long long)imm19,
+               status);
+}
+
 }  // namespace
 
 // A6 — distinguish sym-PTR from host-producing ADRP+ADD pairs by
@@ -315,6 +369,7 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
                            static_cast<int64_t>(this_pc);
     if ((pc_rel & 3) != 0) {
       g_klink_arm64_patch_hist.out_of_range++;
+      klink_imm19_trace(slot, enc, target_host_addr, pc_rel, 0, "misalign");
       printf("klink-arm64: LDR-literal pc-rel %lld not 4-aligned at %p\n",
              (long long)pc_rel, (void*)slot);
       return KlinkArm64PatchResult::kAborted;
@@ -322,10 +377,12 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
     const int64_t imm19 = pc_rel / 4;
     if (imm19 < -(int64_t(1) << 18) || imm19 >= (int64_t(1) << 18)) {
       g_klink_arm64_patch_hist.out_of_range++;
+      klink_imm19_trace(slot, enc, target_host_addr, pc_rel, imm19, "oor");
       printf("klink-arm64: LDR-literal imm19 %lld out of range at %p\n",
              (long long)imm19, (void*)slot);
       return KlinkArm64PatchResult::kAborted;
     }
+    klink_imm19_trace(slot, enc, target_host_addr, pc_rel, imm19, "ok");
     *slot = arm_patch_ldr_literal_imm19(enc, static_cast<int32_t>(pc_rel));
     g_klink_arm64_patch_hist.ldr_literal++;
     return KlinkArm64PatchResult::kPatched;

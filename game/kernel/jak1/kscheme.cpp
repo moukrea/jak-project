@@ -1507,6 +1507,49 @@ u64 method_set(u32 type_, u32 method_id, u32 method) {
   return method;
 }
 
+// A21 H4 diag — env-gated by OG_CALLGOAL_TRACE.
+//
+// Each line names the C call site (caller_lr decoded from x30 via the
+// inline asm capture, GOAL-ptr-style) plus the function GOAL ptr and
+// the 3-arg payload going into it. Set OG_CALLGOAL_TRACE=1 in the
+// environment to enable; zero overhead when unset.
+//
+// The C→GOAL bridge is the C side of the AAPCS↔GOAL arg-shuffle that
+// the trampoline in make_function_from_c_arm64 handles for the GOAL→C
+// direction. If an arm64-side path is reached from C *without* going
+// through that shuffle, the GOAL function receives `this` (or any
+// arg) in the wrong register, and the `LDUR W?, [Xb, #-4]` type-tag
+// read in the prologue lands on garbage — producing the post-A19
+// stack-address-in-register crash pattern.
+//
+// Two callers in this TU bridge to GOAL: call_method_of_type and
+// call_method_of_type_arg2. Wrap both. The qemu boot log will show
+// CALLGOAL-TRACE lines clustered around the failing CGO's link-finish
+// — if time-of-day's top-level walks a virtual dispatch that crosses
+// this boundary, we'll see the trace line just before the SIGILL.
+static bool og_callgoal_trace_enabled() {
+  static const bool s_enabled = [] {
+    const char* v = std::getenv("OG_CALLGOAL_TRACE");
+    return v != nullptr && v[0] != '\0' && v[0] != '0';
+  }();
+  return s_enabled;
+}
+
+static void callgoal_trace(const char* site, u32 fn_goal,
+                           u64 arg, u64 a1, u64 a2) {
+  if (!og_callgoal_trace_enabled()) return;
+  uintptr_t caller_lr = 0;
+#if defined(__aarch64__)
+  __asm__ volatile("mov %0, x30" : "=r"(caller_lr));
+#endif
+  std::fprintf(stderr,
+               "CALLGOAL-TRACE site=%s fn_goal=0x%x arg=0x%lx a1=0x%lx "
+               "a2=0x%lx caller_lr=0x%lx s7_offset=0x%x\n",
+               site, (unsigned)fn_goal, (unsigned long)arg, (unsigned long)a1,
+               (unsigned long)a2, (unsigned long)caller_lr,
+               (unsigned)s7.offset);
+}
+
 /*!
  * Call a GOAL method of a given type.
  */
@@ -1519,6 +1562,7 @@ u64 call_method_of_type(u64 arg, Ptr<Type> type, u32 method_id) {
     auto type_tag = Ptr<Ptr<Type>>(type.offset - 4);
     if ((*type_tag).offset == *(s7 + FIX_SYM_TYPE_TYPE)) {
       auto f = type->get_method(method_id);
+      callgoal_trace("call_method_of_type", f.offset, arg, 0, 0);
       return call_goal(f, arg, 0, 0, s7.offset, g_ee_main_mem);
     } else {
       cprintf("#<#x%x has invalid type ptr #x%x, bad type #x%x>\n", (u32)arg, type.offset,
@@ -1548,7 +1592,9 @@ u64 call_method_of_type_arg2(u32 arg, Ptr<Type> type, u32 method_id, u32 a1, u32
     auto type_tag = Ptr<Ptr<Type>>(type.offset - 4);
     if ((*type_tag).offset == *(s7 + FIX_SYM_TYPE_TYPE)) {
       // return type->get_method(method_id).cast<u64 (u32,u32,u32)>().c()(arg,a1,a2);
-      return call_goal(type->get_method(method_id), arg, a1, a2, s7.offset, g_ee_main_mem);
+      auto f = type->get_method(method_id);
+      callgoal_trace("call_method_of_type_arg2", f.offset, arg, a1, a2);
+      return call_goal(f, arg, a1, a2, s7.offset, g_ee_main_mem);
     } else {
       cprintf("#<#x%x has invalid type ptr #x%x, bad type #x%x>\n", arg, type.offset,
               (*type_tag).offset);
