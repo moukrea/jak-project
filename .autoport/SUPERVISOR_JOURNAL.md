@@ -91,16 +91,270 @@ Current cost: A18 cost ~$132 (4 attempts × ~$33). Continuing without
 verification of bug #2 risks emitter changes that ripple to every
 arm64 CGO without a tight rollback target.
 
-### State.json reconciliation needed
+### State.json reconciliation applied + A19 authored + orchestrator restarted
 
-- A18 retries shows 2 but really 4 attempts ran. Attempt-3 and -4
-  fingerprints aren't recorded (orchestrator died before write-back).
-- A18 not in `completed` or `blocked`. Needs to be added to `blocked`
-  with stuck_reason citing the honest-exit + A19 pointer.
-- `current_phase_idx` should advance past A18 to whatever A19 ends
-  up at.
+**13:15 CEST** — User gave full authority ("you do your thing, ultrathink").
+Decision pipeline executed:
 
-(Not yet applied — waiting on user direction.)
+1. **Reality-checked off-by-4** via Explore sub-agent (ultrathink budget)
+   + direct GOAL-source verification. Confirmed:
+   - The disassembled LDR is unambiguously reading `(-> this first-gap)`
+     (find-gap-by-size's source line 963 starts with that expression).
+   - Type-chain math: basic[0..3] + process-tree[4..31] + dead-pool[+0]
+     + dead-pool-heap[allocated-length@32, compact-time@36,
+     compact-count-targ@40, compact-count@44, fill-percent@48] →
+     first-gap at offset 52.
+   - x86 boots successfully → x86 emit must encode offset 52.
+   - arm64 encoded offset 48 → arm64-specific off-by-4. **CONFIRMED REAL.**
+
+2. **Authored A19** with min-surface goalc unlock:
+   - Unlocked: `goalc/regalloc/Allocator_v2.cpp` (X12 fix) +
+     `goalc/emitter/IGenARM64.cpp` (off-by-4 fix) + unit-test surface
+     + A19 baseline file.
+   - Still locked: x86 emitter, shared IR, shared regalloc,
+     CodeGenerator, all runtime code. Hard regression check: x86 CGOs
+     must remain byte-identical to A2 baseline.
+
+3. **state.json updated**:
+   - A18 → blocked (current_phase_idx 56 was pointing at A18; advanced
+     to 57 = A19).
+   - A18 stuck_reason cites both bugs + A19 pointer.
+   - A18 retries set to 4 (reflects actual attempts, not stale 2).
+   - A19 phase_started_at = now.
+
+4. **milestones.yaml**: A19 inserted between A18 and F1.
+   `max_retries=6, max_turns=600`.
+
+5. **Validator** `phase-A19-goalc-arm64-codegen-fixes.sh` enforces:
+   - Allocator_v2 + IGenARM64 diffs > 5 lines (real fixes, not stubs).
+   - x86 CGOs byte-identical to A2 baseline (hard regression).
+   - arm64 CGOs differ from A17 baseline (codegen actually changed)
+     AND match a new A19 baseline (reproducibility).
+   - KERNEL.CGO arm64 contains LDR-at-offset-0x34 byte pattern
+     (proves off-by-4 fix shipped, by inspecting compiled bytes).
+   - qemu link-finish count ≥ 246 (216 + 30 advance).
+   - Desktop x86 smoke still reaches `link finish: logo`.
+
+6. **Committed** as `0406ed5a4 [autoport/supervisor] A18 → A19 transition`.
+
+7. **Orchestrator restarted** at 13:15. PID 1364333 alive. Rate check
+   at restart: session=11%, weekly=10% (fresh — previous session
+   wound down before crash). Resumed at phase index 57/61. Phase A19
+   attempt 1/6 started reading references (cookbook, A18 attempt-4
+   blocker, validator, regalloc + emitter directories).
+
+### Watch list for next check (~25-30 min)
+
+- Does claude correctly identify the IGenARM64 lowering helper for
+  IR_LoadConstOffset / IR_StoreConstOffset?
+- Does claude write unit tests BEFORE the fix (TDD pattern), or after?
+- Does claude attempt to edit IR.cpp despite being locked? (Likely
+  honest-exit if so — IR.cpp is the most plausible "wider unlock
+  needed" outcome.)
+- Does claude land the X12 fix correctly (the right approach: add
+  to save list vs. force callee-save coloring)?
+- New arm64 baseline file generated and committed?
+- qemu link-finish count ≥ 246? (This is the hard outcome check.)
+
+### Estimated A19 cost
+
+- Per attempt: $30-60 (based on A18's $33 average, but A19's larger
+  scope may run slightly higher).
+- Max retries: 6 → worst-case ~$300.
+- Realistic: 1-2 attempts to land = $60-120.
+
+---
+
+## [2026-06-09 13:42] Wakeup check #1 — A19 attempt 1 in progress
+
+### Orchestrator state
+- PID 1364333 (launch.sh) + 1364350 (orchestrator.py) alive, 27 min elapsed.
+- Phase A19 attempt 1/6, session~18%, weekly~11%.
+- No commits since `0406ed5a4` (supervisor's transition commit).
+- Rate-probe failed 2x; 240s pause active.
+
+### What attempt 1 has done so far
+
+**Investigation phase (0-20 min)**:
+- Read cookbook + A18 attempt-3 + attempt-4 reports + A19 validator.
+- Surveyed `goalc/emitter/` and `goalc/regalloc/`.
+- Scanned `out/jak1-arm64/iso/KERNEL.CGO` byte patterns trying to
+  locate find-gap-by-size's compiled body (python struct + binascii).
+- Read `goalc/compiler/Val.cpp::get_constant_offset_and_base` (read-only —
+  Val.cpp is LOCKED in A19, no edit attempted).
+
+**Code edits (20-25 min)** — uncommitted, in working tree:
+
+`goalc/emitter/IGenARM64.cpp` (+71 lines / -39 lines):
+- `call_r64()` save-list now includes X12. Encoding bytes hand-verified:
+  - `0xA9BF5FEC` = STP X12,X23,[SP,#-16]! ✓
+  - `0xA8C15FEC` = LDP X12,X23,[SP],#16 ✓
+- Replaces previous `STR X23` / `LDR X23` (single 8-byte saves) with
+  `STP X12,X23` / `LDP X12,X23` (one 16-byte pair). Net +8 bytes per
+  BLR site.
+- Inline comment cites A18 attempt-4 disasm of get-process directly
+  and the prior wrong-assumption ("regalloc only uses X12 to hold the
+  call target") that A6-era code was built around.
+
+`goalc/regalloc/Allocator_v2.cpp` (+22 lines, comment-only):
+- Documents the INVARIANT that REG_saved_first_order's true callee-saved
+  entries must all appear in IGenARM64::call_r64's save list. No code
+  change. The actual fix is at the emit site in IGenARM64; this is the
+  paired documentation.
+
+### Off-by-4 fix — NOT YET LANDED
+
+Attempt 1 hasn't yet authored an off-by-4 fix in IGenARM64.cpp. The
+last activity log entries show claude:
+- Investigating `Val.cpp::get_constant_offset_and_base` (locked file —
+  read-only, no edit attempted ✓)
+- Scanning IR.cpp for `arm64|ARM64|m_offset` patterns to see if IR
+  generation has an architecture branch (read-only, no edit attempted ✓)
+- Planning unit tests for both fixes
+
+Two scenarios going forward:
+1. Claude finds the off-by-4 root cause in IGenARM64.cpp and fixes it
+   before the build cycle completes — A19 passes attempt 1.
+2. Claude can't locate it within A19's scope, honest-exits with
+   `A19-attempt-1-next-blocker.md` naming the file outside A19's
+   unlock list (most plausible: `goalc/compiler/Val.cpp` if that's
+   where the offset is mis-computed for arm64).
+
+### Anti-cheat scan: CLEAN ✓
+
+- 0 `__attribute__((weak))` additions in goalc/ or game/kernel.
+- 0 `kStateSeq` / `kSyntheticBootSequence` / `gk_recover_to_renderer`.
+- 0 validator/lib edits since `0406ed5a4`.
+- 0 fake printf "link finish:" lines.
+- 0 edits to `IGenX86_64.cpp` (x86 emit untouched, as required).
+- 0 edits to `IR.cpp` / `CodeGenerator.cpp` (still LOCKED).
+- 0 edits to `Allocator.cpp` (shared, still LOCKED).
+- 0 edits to `game/kernel/common/kscheme.cpp` (still LOCKED).
+- `a18_method_zero_trap` body unchanged (still `_Exit(13)`).
+
+The X12 fix is structurally sound: same pattern as A6's original
+call-site preservation, just extending the save set to include the
+sixth "saved" GPR (R12 → X12) that was missed.
+
+### Concerns
+
+- The X12 fix raises a question for the validator check 9 (KERNEL.CGO
+  arm64 contains LDR-at-offset-0x34 byte pattern). The X12 fix alone
+  doesn't change any LDR offset, so check 9 still depends on the
+  off-by-4 fix landing. If only X12 is fixed, check 9 will fail and
+  attempt 1 won't pass.
+- That's actually GOOD — it's the validator catching incomplete fixes,
+  exactly as intended.
+
+### Next check scheduled
+
+1500s (25 min). At ~14:07 CEST, attempt 1 should be in build+test
+or have just produced commits. Either honest-exit or pass.
+
+---
+
+## [2026-06-09 14:02-14:11] User-triggered check + intervention: A19→A20
+
+### Trigger
+
+User typed "check progress" between scheduled wakeups. Inspected
+state and found attempt 1 had just committed two honest-exit commits.
+
+### Attempt 1 deliverables (commit 3c9574b9f + 45ba3473d)
+
+**Bug 1 (X12 regalloc clobber) — FIXED & VERIFIED**:
+- `goalc/emitter/IGenARM64.cpp::call_r64` now uses paired
+  `STP X12, X23 / LDP X12, X23` (encodings `0xA9BF5FEC` / `0xA8C15FEC`)
+  in place of the previous `STR X23 / LDR X23` (single push), adding
+  X12 to the BLR save set without changing the 48-byte stack
+  footprint.
+- 11 new unit tests / 27 assertions in
+  `.autoport/tests/emitter/encoding/test_a19_codegen_fixes.cpp`
+  cover the new encoding bytes.
+- **QEMU empirical proof**: boot crash mode shifted from
+  `BLR ee_base` (pc=0x2123000000) to `BLR <stack-address>`
+  (pc=0x212afffe84) — exactly the post-X12-preserve signature A18
+  attempt-4's report §161-169 predicted. The fix changes the right
+  thing.
+
+**Bug 2 (off-by-4) — DISPROVED in IGenARM64.cpp**:
+- 8 new tests at offsets 0, 4, 8, 36, 52, 100 exercise
+  `load_goal_gpr` / `store_goal_gpr`. All pass: encoders honor IR
+  offset verbatim.
+- The off-by-4 must live upstream in the locked compiler layer
+  (Val.cpp / IR.cpp / Type.cpp). Specifically:
+  - `goalc/compiler/IR.cpp::IR_LoadConstOffset::do_codegen_arm64`
+  - `goalc/compiler/Val.cpp::MemoryDerefVal::to_reg` (constructs
+    `IR_LoadConstOffset((int)offset, ...)`)
+  - `goalc/compiler/Val.cpp::get_constant_offset_and_base` (sums
+    the offset chain)
+  - `goalc/compiler/compilation/Type.cpp` (lines 47, 143, 707, 717,
+    856, 874, 901 — `MemoryOffsetConstantVal` construction sites)
+
+**Supervisor validator check 9 bug — caught**: My A19 validator
+check 9 (KERNEL.CGO byte-pattern for `LDR Wt, [Xn, #0x34]`) had a
+real byte-index bug — checked `data[i+2]` instead of `data[i+1]`.
+Empirical: post-A19 KERNEL.CGO has 17 instances of the intended
+pattern but the buggy check finds 0. Fixed in A20's validator.
+
+### Anti-cheat scan: CLEAN ✓ ✓ ✓
+- 0 weak / abort / stub / dodge additions.
+- 0 `IGenX86_64.cpp` edits (x86 emit untouched).
+- 0 `IR.cpp` / `Val.cpp` / `CodeGenerator.cpp` / `Compiler.cpp`
+  edits.
+- 0 `Allocator.cpp` / `allocate_common.cpp` edits.
+- 0 kernel runtime edits.
+- 0 validator/lib edits.
+- 0 fake `link finish:` printfs.
+- `a18_method_zero_trap` still `_Exit(13)`.
+- All x86 CGOs byte-identical to A2 baseline.
+
+### Intervention executed
+
+Cost-benefit of not intervening: ~$60-90 wasted on attempts 2-6
+(same scope = same honest-exit). Intervention saves that and
+unblocks the next layer immediately.
+
+Actions:
+1. SIGINT (×2) to orchestrator PID 1364350 — graceful halt after
+   attempt 1's validator recorded the failure
+   (retries[A19]=1, fingerprint=`b390341925b0`).
+2. Orchestrator exited 0 cleanly.
+3. **Authored A20**: `phase-A20-goalc-arm64-field-offset.md` +
+   validator `phase-A20-goalc-arm64-field-offset.sh`. Unlocks
+   `goalc/compiler/{Val.cpp, IR.cpp, compilation/Type.cpp}` (minimum
+   needed per attempt-1's investigation). Keeps locked:
+   `IGenARM64.cpp` (A19's X12 fix stays untouched),
+   `IGenX86_64.cpp` (oracle), `Compiler.cpp`, `CodeGenerator.cpp`,
+   `Allocator_v2.cpp` (only A19's doc comment).
+4. A20 validator check 9 fixes the byte-index: now checks
+   `data[i+1] & 0xfc == 0x34 AND data[i+2] == 0x40 AND data[i+3] ==
+   0xB9`. (Note: this check is a sanity heuristic; the real gate is
+   check 7 = arm64 CGOs differ from A19 baseline + check 10 = qemu
+   link-finish ≥ 246.)
+5. `milestones.yaml`: A20 inserted between A19 and F1.
+6. `state.json`: A19 → blocked with stuck_reason citing the A19
+   attempt-1 disproof + A20 pointer. `current_phase_idx` 57 → 58.
+
+### Cost so far
+- A18: 4 attempts × ~$33 = ~$132.
+- A19: 1 attempt × ~$50 (estimated; turn count and tokens slightly
+  higher than A18's avg due to extensive encoder unit testing) =
+  ~$50.
+- Running total: ~$182.
+- A20 estimate: 1-2 attempts × $30-50 = $30-100. Worst case max
+  retries 6 × $50 = $300.
+
+### Watch list for next check (~25-30 min)
+
+- Does claude correctly identify which file the off-by-4 lives in
+  (Val.cpp vs IR.cpp vs Type.cpp)?
+- Does claude attempt the OG_OFFSET_TRACE diag path (recommended by
+  A19 attempt-1) or skip straight to a guess-and-check fix?
+- Does claude correctly identify `MemoryOffsetConstantVal` construction
+  sites in `compilation/Type.cpp` for inline field chains?
+- Does the fix make qemu link-finish count > 216?
+- Does the fix keep x86 CGOs byte-identical to A2 baseline?
 
 Note: phase 27 (runtime-port) demonstrably did partial-real binary
 linking work — `nm` on `libgk.so` from the dropped state showed real
