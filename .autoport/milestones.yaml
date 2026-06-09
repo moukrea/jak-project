@@ -370,6 +370,20 @@ phases:
   validator: validators/phase-A18-type-method-zero-bind.sh
   max_turns: 500
   max_retries: 8
+- id: A19-goalc-arm64-codegen-fixes
+  name: 'Land TWO arm64-specific goalc codegen fixes diagnosed by A18 attempt-4. (1) X12 regalloc clobber: when a GOAL→C arg-shuffle
+    stashes a value into X12 that is live across an IR_FunctionCall, the caller-save spill list must include X12 (or the regalloc
+    must move the value to AAPCS callee-save X19-X28). Evidence: disasm of dead-pool-heap.get-process shows MOV X12,X7 at lr-388 then
+    STP/STR list at lr-292..lr-284 saving {X3,X5,X10,X11,X23} but NOT X12 — find-gap-by-size clobbers X12, X12 used as this for the
+    next dispatch → SIGILL. (2) Field-offset off-by-4 in arm64 emit: LDR/STR of basic-relative field offsets encode (real-4)
+    instead of real. Evidence: find-gap-by-size emits LDR W3,[X16,#0x30] (=48) for (-> this first-gap) which is at offset 52
+    per gkernel-h.gc layout (basic 0 + process-tree 32 + dead-pool +0 + dead-pool-heap[allocated-length,compact-time,
+    compact-count-targ,compact-count,fill-percent]=20 → first-gap at 52). x86 boots; cannot be reading 48. Both fixes must land
+    together to advance boot past the 216 link-finish ceiling at start-time-of-day. New arm64 CGO baseline required.'
+  prompt: prompts/phase-A19-goalc-arm64-codegen-fixes.md
+  validator: validators/phase-A19-goalc-arm64-codegen-fixes.sh
+  max_turns: 600
+  max_retries: 6
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
