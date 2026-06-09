@@ -2007,6 +2007,17 @@ int boot_link_kernel_cgo() {
                (unsigned)g_klink_arm64_patch_hist.out_of_range);
   std::fflush(stdout);
 
+  // A18 method-zero-trap (re-)install: on linux-arm64 the
+  // pre-version-check hook fires INSIDE InitHeapAndSymbol — but
+  // MasterUseKernel=0 here means the hook fires BEFORE the kernel CGO
+  // load, when only the 4 fundamental types exist. We need to call the
+  // installer AGAIN now (after `boot_link_kernel_cgo` returned) so the
+  // walker picks up process / process-tree / dead-pool /
+  // dead-pool-heap / state and patches their empty method slots. The
+  // per-object hook in `link_control::jak1_jak2_begin` (klink.cpp) then
+  // catches engine-CGO types as they load.
+  klink_a18_install_method_zero_trap();
+
   return 0;
 }
 
