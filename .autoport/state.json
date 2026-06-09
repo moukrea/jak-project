@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 60,
+  "current_phase_idx": 61,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -55,7 +55,7 @@
     "A19-goalc-arm64-codegen-fixes": 1,
     "A20-goalc-arm64-field-offset": 1,
     "A21-arm64-codegen-deeper-investigation": 1,
-    "A22-arm64-codegen-h2-fix": 0
+    "A22-arm64-codegen-h2-fix": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -175,7 +175,8 @@
     "A7-emitter-unit-tests",
     "A16-device-cpu-divergence-diag",
     "A17-idiv-emitter-spill",
-    "A21-arm64-codegen-deeper-investigation"
+    "A21-arm64-codegen-deeper-investigation",
+    "A22-arm64-codegen-h2-fix"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -208,7 +209,7 @@
     "A21-arm64-codegen-deeper-investigation": 1781010605.4192474,
     "A22-arm64-codegen-h2-fix": 1781013485.2675374
   },
-  "last_update": "2026-06-09T13:43:42.887912+00:00",
+  "last_update": "2026-06-09T14:48:40.652951+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
