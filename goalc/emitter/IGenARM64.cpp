@@ -1520,7 +1520,7 @@ InstructionARM64 pop_gpr64(Register reg) {
                           Rt(reg.id()));
 }
 
-// A6 — callee-saved register preservation around BLR. The locked
+// A6/A19 — callee-saved register preservation around BLR. The locked
 // CodeGenerator.cpp prologue/epilogue saves only X29/X30 (the AArch64
 // frame pointer + link register), not the goalc "saved" GPRs that the
 // x86 calling convention treats as callee-preserved (RBX, RBP, R10, R11,
@@ -1532,48 +1532,61 @@ InstructionARM64 pop_gpr64(Register reg) {
 // after the second BLR inside gkernel-toplevel.
 //
 // Since the per-function prologue is locked, we fix this at the call site
-// instead: every BLR pushes the four "saved" GPRs that aren't the call
-// target itself (X3, X5, X10, X11) onto the SP stack, branches with
-// link, and pops them back. X12 is left out of the save set because the
-// regalloc routinely uses it to hold the call target (it's the next
-// allocatable scratch after the arg registers); if a function needs X12
-// to be live across a call it has to spill it explicitly, which it
-// already does on x86 today.
+// instead: every BLR pushes the five "saved" GPRs (X3, X5, X10, X11, X12)
+// onto the SP stack, branches with link, and pops them back.
+//
+// A19 update: X12 was originally excluded from the save set under the
+// assumption that the regalloc only uses it to hold the call target. That
+// assumption is wrong — Register.cpp marks R12 (= X12 on arm64) as a
+// "saved" GPR and REG_saved_first_order in Allocator_v2.cpp places R12
+// third in the function-crossing allocation order. The regalloc therefore
+// routinely places non-call-target values into X12 across function calls,
+// expecting AAPCS-style preservation that arm64 never provides.
+// A18 attempt-4's disasm of dead-pool-heap.get-process caught this:
+// lr-388 stashes `this` into X12 (MOV X12, X7), the lr-292..lr-284
+// pre-call save list saves {X3, X5, X10, X11, X23} but NOT X12, and
+// after the BLR to find-gap-by-size returns, X12 holds find-gap-by-size's
+// `size` argument (0x4070) instead of `this`. The subsequent virtual
+// dispatch through X12 lands on uninitialised memory at ee_base, sig=4
+// SIGILL. Adding X12 to the save set fixes this whole class of bugs
+// without spurious spilling — the value lives in X12 across the call,
+// gets pushed before BLR, popped after, just like X3/X5/X10/X11.
 //
 // Encodings cross-checked against `aarch64-linux-android28-clang -c`.
 // stp/ldp pre/post-indexed uses bit 7 as part of Rn, so a hand-encoded
 // constant for X3/X5 with the wrong bit gives Rn=27 (R27) instead of 31
 // (SP). Always derive these from llvm-mc output, never a paper hex pattern.
 //
-// Save set: X3 (RBX), X5 (RBP), X10 (R10), X11 (R11), X23 (extra AAPCS
-// callee-saved). Per Register.cpp the GOAL "saved" GPRs are R10, R11,
-// R12 / RBX, RBP; X12 is excluded because the regalloc routinely uses
-// it as the BLR target. X23 is not used by goalc-emitted code at all,
-// but a real crash on device showed it being clobbered across the
-// gkernel-toplevel BLR — pre x23=0x721e600000, post x23=0x0 — and the
-// caller (link_control::jak1_finish) uses x23 as its stack-protector
-// canary base, derived from TPIDR_EL0 at the C++ prologue. Pushing X23
-// here guarantees the C++ caller's canary check survives any callee
-// that violates AAPCS through the GOAL→C FFI path.
+// Save set: X3 (RBX), X5 (RBP), X10 (R10), X11 (R11), X12 (R12), X23
+// (extra AAPCS callee-saved). The first five mirror the goalc "saved"
+// GPRs per Register.cpp::make_register_info(). X23 is not used by
+// goalc-emitted code at all, but a real crash on device showed it being
+// clobbered across the gkernel-toplevel BLR — pre x23=0x721e600000,
+// post x23=0x0 — and the caller (link_control::jak1_finish) uses x23 as
+// its stack-protector canary base, derived from TPIDR_EL0 at the C++
+// prologue. Pushing X23 here guarantees the C++ caller's canary check
+// survives any callee that violates AAPCS through the GOAL→C FFI path.
+// X12 and X23 are paired into a single STP/LDP so the total stack
+// footprint stays at 48 bytes (three 16-byte slots).
 //
-//   stp x3, x5,  [sp, #-16]!   = 0xA9BF17E3
-//   stp x10, x11, [sp, #-16]!  = 0xA9BF2FEA
-//   str x23,     [sp, #-16]!   = 0xF81F0FF7
-//   blr Xn                     = 0xD63F0000 | (Rn << 5)
-//   ldr x23,     [sp], #16     = 0xF84107F7
-//   ldp x10, x11, [sp], #16    = 0xA8C12FEA
-//   ldp x3, x5,  [sp], #16     = 0xA8C117E3
+//   stp x3, x5,   [sp, #-16]!   = 0xA9BF17E3
+//   stp x10, x11, [sp, #-16]!   = 0xA9BF2FEA
+//   stp x12, x23, [sp, #-16]!   = 0xA9BF5FEC  (A19: was `str x23` = 0xF81F0FF7)
+//   blr Xn                      = 0xD63F0000 | (Rn << 5)
+//   ldp x12, x23, [sp], #16     = 0xA8C15FEC  (A19: was `ldr x23` = 0xF84107F7)
+//   ldp x10, x11, [sp], #16     = 0xA8C12FEA
+//   ldp x3, x5,   [sp], #16     = 0xA8C117E3
 InstructionARM64 call_r64(Register reg_) {
   constexpr uint32_t kStpX3X5Push   = 0xA9BF17E3u;
   constexpr uint32_t kStpX10X11Push = 0xA9BF2FEAu;
-  constexpr uint32_t kStrX23Push    = 0xF81F0FF7u;
-  constexpr uint32_t kLdrX23Pop     = 0xF84107F7u;
+  constexpr uint32_t kStpX12X23Push = 0xA9BF5FECu;
+  constexpr uint32_t kLdpX12X23Pop  = 0xA8C15FECu;
   constexpr uint32_t kLdpX10X11Pop  = 0xA8C12FEAu;
   constexpr uint32_t kLdpX3X5Pop    = 0xA8C117E3u;
   uint32_t blr = 0xD63F0000u | (arm64_reg5(reg_) << 5);
-  return InstructionARM64::multi({kStpX3X5Push, kStpX10X11Push, kStrX23Push,
+  return InstructionARM64::multi({kStpX3X5Push, kStpX10X11Push, kStpX12X23Push,
                                   blr,
-                                  kLdrX23Pop, kLdpX10X11Pop, kLdpX3X5Pop});
+                                  kLdpX12X23Pop, kLdpX10X11Pop, kLdpX3X5Pop});
 }
 
 InstructionARM64 jmp_r64(Register reg_) {

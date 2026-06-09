@@ -32,6 +32,7 @@ add_executable(encoding_tests
     test_far_relocs.cpp
     test_far_reloc_ptr.cpp
     test_coverage_manifest.cpp
+    test_a19_codegen_fixes.cpp
     ${IGEN_ARM64_SRC}
 )
 
