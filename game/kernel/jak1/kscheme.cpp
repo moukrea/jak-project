@@ -567,6 +567,36 @@ inline uint32_t arm64_ret_x30() {
   return 0xD65F03C0u;
 }
 
+// A24 — emit the 5-instruction post-LDP X30 stack-range check, mirroring
+// goalc/compiler/CodeGenerator.cpp::do_goal_function_arm64's epilogue
+// tracer and game/kernel/asm_funcs_arm64.s's a24_x30_stack_range_check
+// macro. The inline trampolines below (make_function_from_c_arm64 and
+// friends) all emit an LDP X29, X30 + RET tail; this helper inserts
+// the check between them so a corrupted X30 fires UDF #0x1EF0 BEFORE
+// the RET propagates the bad LR to PC. See the linked comment block in
+// CodeGenerator.cpp for the threshold (0x07000000), the signed-LT vs
+// unsigned-LO subtlety (return-to-C-binary has X30 < X15 → wraps), and
+// the SIGILL handler decoder's GK-DIAG A24-DIAG output shape.
+//
+// X16, X17 are AAPCS intra-procedure call scratch (IP0/IP1) and clobberable
+// here — the wrapping caller doesn't expect them to be preserved across
+// the trampoline.
+//
+// Always-on (no env gate at this layer): these trampolines are emitted
+// once at boot during type-system init, so a runtime check would cost a
+// std::getenv() per make_function_from_c call (~50 of them in jak1
+// init). Keeping it always-on means the GK binary always traps on
+// corrupted X30 at trampoline exit, which is exactly the diagnostic
+// regime A24 is in.
+template <typename EmitFn>
+inline void arm64_emit_x30_stack_range_check(EmitFn emit) {
+  emit(0xCB0F03D1u);  // SUB  X17, X30, X15  (X17 = X30 - X15, signed)
+  emit(0xD2A0E010u);  // MOVZ X16, #0x0700, LSL #16  (X16 = 0x07000000)
+  emit(0xEB10023Fu);  // CMP  X17, X16
+  emit(0x5400004Bu);  // B.LT +8  (signed less than → skip UDF)
+  emit(0x00001EF0u);  // UDF  #0x1EF0  (A24 epilogue-X30-stack trap tag)
+}
+
 inline uint32_t arm64_stp_x_preindex(unsigned rt, unsigned rt2, unsigned rn, int simm7_bytes) {
   // STP Xt, Xt2, [Xn, #simm7]!  -- pre-indexed, scaled by 8
   uint32_t imm7 = static_cast<uint32_t>(simm7_bytes / 8) & 0x7Fu;
@@ -709,6 +739,8 @@ Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
   emit(arm64_ldp_x_postindex(13, 14, 31, 16));
   // ldp x29, x30, [sp], #16
   emit(arm64_ldp_x_postindex(29, 30, 31, 16));
+  // A24 — post-LDP X30 stack-range check (5 instr; UDF #0x1EF0 on stack-range X30)
+  arm64_emit_x30_stack_range_check(emit);
   // ret
   emit(arm64_ret_x30());
 
@@ -780,6 +812,8 @@ Ptr<Function> make_x12_preserve_wrapper_arm64(u32 wrapped_fn_goal) {
   emit(arm64_ldp_x_postindex(12, 31, 31, 16));    // LDP X12, XZR, [SP], #16
   emit(arm64_ldp_x_postindex(29, 30, 31, 16));    // LDP X29, X30, [SP], #16
 
+  // A24 — post-LDP X30 stack-range check (5 instr; UDF #0x1EF0 on stack-range X30)
+  arm64_emit_x30_stack_range_check(emit);
   emit(arm64_ret_x30());
 
   __builtin___clear_cache(reinterpret_cast<char*>(p), reinterpret_cast<char*>(p + off));
@@ -844,6 +878,8 @@ Ptr<Function> make_stack_arg_function_from_c_arm64(void* func) {
   emit(arm64_ldr_x_postindex(15, 31, 16));
   emit(arm64_ldp_x_postindex(13, 14, 31, 16));
   emit(arm64_ldp_x_postindex(29, 30, 31, 16));
+  // A24 — post-LDP X30 stack-range check (5 instr; UDF #0x1EF0 on stack-range X30)
+  arm64_emit_x30_stack_range_check(emit);
   emit(arm64_ret_x30());
 
   __builtin___clear_cache(reinterpret_cast<char*>(p), reinterpret_cast<char*>(p + off));
