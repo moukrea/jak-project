@@ -628,6 +628,397 @@ void dump_stack_fnptr_zero_chain(uintptr_t lr, uintptr_t sp) {
   dump_sym_name_at_slot(sym_slot);
 }
 
+// Forward declarations of the A16-DIAG decoders defined further down
+// in this same namespace. A18 uses them to identify writers / mnemonics
+// during the type-method-zero chase.
+bool decode_arm64_writes_reg(uint32_t enc, int xreg);
+const char* decode_arm64_mnemonic(uint32_t enc);
+
+// ---------------------------------------------------------------------------
+// A18-DIAG (authored 2026-05-24): type-method-zero walker.
+//
+// Past A17 (IDIV X8 spill + pc-* helper chain at 216 link-finishes) the
+// next-blocker is a fn-ptr=0 BLR whose source is NOT a sym-MEM load and
+// NOT a stack reload (those are A11/A12). Instead the load comes from a
+// non-stack base register that was itself built from an obj-GOAL-ptr →
+// host conversion. This is the shape of a `(call-method obj ...)` /
+// virtual-dispatch / function-pointer-field load through an instance
+// or type whose target slot is uninitialised:
+//
+//   lr-Nx: ADD Xb,  Xobj, X15            ; host = obj_goal + ee_base
+//   lr-Lx: LDR Wn, [Xb,   #imm12]        ; W = u32 at obj+offset = 0
+//   lr-..: (zero or more MOV Xt, Xn chain hops)
+//   lr-Ax: ADD Xt,  Xt,   X15            ; host-conv of the loaded value
+//   lr-..: call_r64 push frame (STP/STR with [SP,#-16]! writeback)
+//   lr-4:  BLR Xt                         ; SIGILL on UDF #0 at ee_base
+//
+// The walker:
+//   1. Confirms BLR Xt at lr-4.
+//   2. Finds ADD Xt, Xt, X15 walking backward (push frame doesn't write
+//      Xt so we just skip past it implicitly).
+//   3. Follows the MOV-or-LDR chain backward through up to 5 hops until
+//      it hits an LDR W/X from a non-SP base.
+//   4. Walks one more step back to find ADD Xb, Xobj, X15 — names obj_reg.
+//   5. Prints the obj GOAL ptr (regs[obj_reg]), the host obj addr, the
+//      loaded value (re-read from obj_host+offset), and the type-tag at
+//      obj_host-4. If the type-tag is a valid GOAL ptr, walks its
+//      symbol field for the type name via dump_sym_name_at_slot.
+//
+// Output (single line per identified site, plus optional sym-walk lines):
+//
+//   GK-DIAG A18-DIAG type-method-zero: ldr-pc=0x<pc> base=X<b> offset=0x<off>
+//        method-slot=<n> obj-goal-reg=X<o> obj-goal=0x<goal>
+//        obj-host=0x<host> loaded-value=0x<v>
+//        type-tag@obj_host-4=0x<tag> obj-reg-clobbered-since-add=<0|1>
+//
+// `obj-reg-clobbered-since-add` is 1 if any instruction between the
+// obj-add and the signal site wrote obj_reg — meaning regs[obj_reg]
+// is the post-clobber value, NOT the original obj ptr. The supervisor
+// should re-walk via the type-tag readout in that case (cross-check
+// via dump_sym_name_at_slot output).
+// ---------------------------------------------------------------------------
+
+// True if `enc` decodes as `ADD Xd, Xn, X15` shifted-reg with shift=0,
+// Rm=15. Writes Rd and Rn out-parameters. Note: does NOT require Rn ==
+// Rd, so it matches both the host-conv `ADD Xt, Xt, X15` AND the obj-conv
+// `ADD Xb, Xobj, X15` shapes; callers test Rd/Rn relations.
+bool is_add_xreg_xreg_x15(uint32_t enc, uint32_t* out_rd, uint32_t* out_rn) {
+  // Shifted-reg ADD (64-bit, shift=LSL, S=0, imm6=0, Rm in bits 20..16):
+  //   bits 31..21 = 10001011000   → top byte 0x8B, bits 23..21 = 000
+  //   bits 20..16 = Rm = 15        → nibble at bits 23..16 forms 0x0F
+  //   bits 15..10 = imm6 = 0       → mask 0xFFFFFC00
+  // So mask = 0xFFFFFC00, expected = 0x8B0F0000.
+  if ((enc & 0xFFFFFC00u) != 0x8B0F0000u) return false;
+  *out_rd = enc & 0x1Fu;
+  *out_rn = (enc >> 5) & 0x1Fu;
+  return true;
+}
+
+void dump_type_method_zero_chain(uintptr_t lr, const ucontext_t* uc) {
+  uint32_t blr_enc = 0;
+  if (!safe_read_u32(lr - 4, &blr_enc)) {
+    std::fprintf(stderr,
+                 "GK-DIAG A18-DIAG type-method-zero: lr-4 unreadable\n");
+    return;
+  }
+  if ((blr_enc & 0xFFFFFC1Fu) != 0xD63F0000u) {
+    std::fprintf(stderr,
+                 "GK-DIAG A18-DIAG type-method-zero: lr-4 enc=0x%08x is not BLR Xn\n",
+                 (unsigned)blr_enc);
+    return;
+  }
+  uint32_t blr_target = (blr_enc >> 5) & 0x1Fu;
+
+  // Step 1: find ADD Xt, Xt, X15 walking backward. The call_r64 push
+  // frame (STP X?,X?,[SP,#-16]! and STR X?,[SP,#-16]!) doesn't write
+  // Xt (it only writes SP via writeback and the stored regs), so a
+  // simple walk-backward-until-we-find-it works as long as we stop on
+  // any other write to Xt first.
+  intptr_t add_x15_off = 0;
+  bool add_x15_found = false;
+  for (intptr_t d = -8; d >= -240; d -= 4) {
+    uint32_t enc = 0;
+    if (!safe_read_u32(lr + d, &enc)) break;
+    uint32_t rd = 0, rn = 0;
+    if (is_add_xreg_xreg_x15(enc, &rd, &rn) && rd == blr_target &&
+        rn == blr_target) {
+      add_x15_off = d;
+      add_x15_found = true;
+      break;
+    }
+    if (decode_arm64_writes_reg(enc, (int)blr_target)) break;
+  }
+  if (!add_x15_found) {
+    std::fprintf(stderr,
+                 "GK-DIAG A18-DIAG type-method-zero: no ADD X%u,X%u,X15 in "
+                 "lr-240..lr-8 — non-standard BLR call shape (A12 walker "
+                 "handles stack-reload, A11 walker handles sym-MEM)\n",
+                 (unsigned)blr_target, (unsigned)blr_target);
+    return;
+  }
+
+  // Step 2: walk MOV chain backward, terminating on LDR. Cap at 5 hops.
+  uint32_t chase_reg = blr_target;
+  intptr_t scan_from = add_x15_off - 4;
+  for (int hop = 0; hop < 5; ++hop) {
+    intptr_t write_off = 0;
+    uint32_t write_enc = 0;
+    bool write_found = false;
+    for (intptr_t d = scan_from; d >= -252; d -= 4) {
+      uint32_t enc = 0;
+      if (!safe_read_u32(lr + d, &enc)) break;
+      if (decode_arm64_writes_reg(enc, (int)chase_reg)) {
+        write_off = d;
+        write_enc = enc;
+        write_found = true;
+        break;
+      }
+    }
+    if (!write_found) {
+      std::fprintf(stderr,
+                   "GK-DIAG A18-DIAG type-method-zero: hop=%d no write of "
+                   "X%u in lr-252..lr%+ld — chase aborted\n",
+                   hop, (unsigned)chase_reg, (long)scan_from);
+      return;
+    }
+    // Case A: MOV Xt, Xs — ORR Xt, XZR, Xs encoding.
+    if ((write_enc & 0xFFE0FFE0u) == 0xAA0003E0u) {
+      uint32_t src = (write_enc >> 16) & 0x1Fu;
+      if (src == 31u) {
+        std::fprintf(stderr,
+                     "GK-DIAG A18-DIAG type-method-zero: hop=%d MOV X%u,XZR "
+                     "@ lr%+ld (BLR target was explicitly zeroed)\n",
+                     hop, (unsigned)chase_reg, (long)write_off);
+        return;
+      }
+      std::fprintf(stderr,
+                   "GK-DIAG A18-DIAG type-method-zero: hop=%d MOV X%u <- X%u "
+                   "@ lr%+ld\n",
+                   hop, (unsigned)chase_reg, (unsigned)src, (long)write_off);
+      chase_reg = src;
+      scan_from = write_off - 4;
+      continue;
+    }
+    // Case B: LDR Wt,[Xb,#imm12] or LDR Xt,[Xb,#imm12]
+    bool is_ldr_w = ((write_enc & 0xFFC00000u) == 0xB9400000u);
+    bool is_ldr_x = ((write_enc & 0xFFC00000u) == 0xF9400000u);
+    if (is_ldr_w || is_ldr_x) {
+      uint32_t base = (write_enc >> 5) & 0x1Fu;
+      uint32_t imm = ((write_enc >> 10) & 0xFFFu) * (is_ldr_w ? 4u : 8u);
+      if (base == 31u) {
+        std::fprintf(stderr,
+                     "GK-DIAG A18-DIAG type-method-zero: hop=%d LDR-from-SP "
+                     "@ lr%+ld — stack-spill path is A12's domain, abort\n",
+                     hop, (long)write_off);
+        return;
+      }
+      // Step 3: find ADD Xb, Xobj, X15 walking backward from the LDR.
+      intptr_t obj_add_off = 0;
+      bool obj_add_found = false;
+      uint32_t obj_reg = 0;
+      for (intptr_t e = write_off - 4; e >= -252; e -= 4) {
+        uint32_t fenc = 0;
+        if (!safe_read_u32(lr + e, &fenc)) break;
+        uint32_t rd = 0, rn = 0;
+        if (is_add_xreg_xreg_x15(fenc, &rd, &rn) && rd == base) {
+          obj_add_off = e;
+          obj_add_found = true;
+          obj_reg = rn;
+          break;
+        }
+        if (decode_arm64_writes_reg(fenc, (int)base)) break;
+      }
+      // Step 4: check whether obj_reg was clobbered between the obj-add
+      // and the signal (regs[obj_reg] at signal time may be stale).
+      bool obj_reg_clobbered = false;
+      if (obj_add_found) {
+        for (intptr_t e = obj_add_off + 4; e <= 0; e += 4) {
+          uint32_t fenc = 0;
+          if (!safe_read_u32(lr + e, &fenc)) break;
+          if (decode_arm64_writes_reg(fenc, (int)obj_reg)) {
+            obj_reg_clobbered = true;
+            break;
+          }
+        }
+      }
+      // Step 5: read obj_goal, obj_host, loaded_value, type_tag.
+      uintptr_t obj_goal = 0, obj_host = 0;
+      uint32_t loaded_value_u32 = 0xDEADBEEFu;
+      uint32_t type_tag = 0xDEADBEEFu;
+      bool obj_host_valid = false;
+      if (obj_add_found) {
+        obj_goal = (uintptr_t)uc->uc_mcontext.regs[obj_reg];
+        if (g_ee_main_mem && obj_goal != 0 && obj_goal < EE_MAIN_MEM_SIZE) {
+          obj_host = reinterpret_cast<uintptr_t>(g_ee_main_mem) + obj_goal;
+          obj_host_valid = true;
+          safe_read_u32(obj_host + imm, &loaded_value_u32);
+          safe_read_u32(obj_host - 4, &type_tag);
+        }
+      }
+      // method-slot computed assuming the LDR base is a Type basic
+      // (OpenGOAL method table starts at offset 16: 16+slot*4). For
+      // imm < 16, the load is from a type's header field (symbol,
+      // parent, num_methods) — method-slot is reported as 0 in that
+      // case but the printed offset 0x%x is unambiguous.
+      uint32_t method_slot_idx = (imm >= 16) ? (imm - 16) / 4 : 0;
+      std::fprintf(stderr,
+                   "GK-DIAG A18-DIAG type-method-zero: ldr-pc=0x%lx base=X%u "
+                   "offset=0x%x size=%s method-slot=%u obj-add@%s "
+                   "obj-goal-reg=X%u obj-goal=0x%lx obj-host=0x%lx "
+                   "loaded-value=0x%x type-tag@obj_host-4=0x%x "
+                   "obj-reg-clobbered-since-add=%d\n",
+                   (unsigned long)(lr + write_off), (unsigned)base,
+                   (unsigned)imm, is_ldr_w ? "W" : "X",
+                   (unsigned)method_slot_idx,
+                   obj_add_found ? "found" : "missing", (unsigned)obj_reg,
+                   (unsigned long)obj_goal, (unsigned long)obj_host,
+                   (unsigned)loaded_value_u32, (unsigned)type_tag,
+                   obj_reg_clobbered ? 1 : 0);
+      // A18-DIAG type-tag-load chase: when the obj_reg's source is the
+      // canonical `LDUR W_obj_reg, [Xs, #-4]` type-tag load, then obj_reg
+      // holds the TYPE-TAG (not the instance pointer), and Xs holds the
+      // host pointer to the actual instance. Walk back from obj_add to
+      // find this earlier write and surface the host_obj_reg and its
+      // ultimate GOAL source if available. This is the second-level
+      // indirection in the canonical virtual-method-dispatch shape:
+      //
+      //   LDUR W_R, [X_S, #-4]    ; W_R = type-tag = obj→type GOAL ptr
+      //   ADD  X_B, X_R, X15        ; X_B = host of obj's Type
+      //   LDR  W_M, [X_B, #imm]    ; W_M = method slot value
+      //   ...
+      //
+      // X_S is the host_obj_ptr — typically built by an even earlier
+      // `ADD X_S, X_O, X15` where X_O = obj GOAL ptr.
+      if (obj_add_found) {
+        // Find what wrote obj_reg before obj_add_off. Expect LDUR W?,
+        // [Xs, #-4]: enc & 0xFFE00C00 == 0xB8400000 (LDUR W variant)
+        // AND imm9 == -4 (= 0x1FC after signed-9 truncation).
+        intptr_t typetag_off = 0;
+        bool typetag_found = false;
+        uint32_t typetag_base_reg = 0;
+        // Note: decode_arm64_writes_reg doesn't include LDUR W (the
+        // unscaled-offset LDR variant, encoded `B8400000` family). The
+        // canonical OpenGOAL type-tag emit IS LDUR W?, [Xs, #-4] so we
+        // detect it explicitly here AND fall back to the standard
+        // writes_reg check for non-LDUR writers (mov, scaled LDR, etc.).
+        for (intptr_t e = obj_add_off - 4; e >= -252; e -= 4) {
+          uint32_t fenc = 0;
+          if (!safe_read_u32(lr + e, &fenc)) break;
+          // LDUR W variant: bits 31..22 = 1011_1000_01, bits 11..10 = 00.
+          // mask 0xFFE00C00 forces those bits; base 0xB8400000.
+          bool is_ldur_w = ((fenc & 0xFFE00C00u) == 0xB8400000u);
+          bool ldur_writes_obj =
+              is_ldur_w && ((fenc & 0x1Fu) == obj_reg);
+          if (ldur_writes_obj) {
+            uint32_t imm9 = (fenc >> 12) & 0x1FFu;
+            if (imm9 == 0x1FCu /* signed -4 in 9 bits */) {
+              typetag_off = e;
+              typetag_base_reg = (fenc >> 5) & 0x1Fu;
+              typetag_found = true;
+            }
+            break;  // First earlier write to obj_reg — chain start.
+          }
+          if (decode_arm64_writes_reg(fenc, (int)obj_reg)) break;
+        }
+        if (typetag_found) {
+          // Read host_obj_reg at signal time (best-effort; may be
+          // clobbered).
+          uintptr_t host_obj =
+              (uintptr_t)uc->uc_mcontext.regs[typetag_base_reg];
+          uint32_t real_type_tag = 0;
+          bool host_obj_ok = (g_ee_main_mem && host_obj != 0);
+          if (host_obj_ok) {
+            safe_read_u32(host_obj - 4, &real_type_tag);
+          }
+          // Look for ADD typetag_base_reg, X_O, X15 — yields the
+          // ORIGINAL obj GOAL reg.
+          intptr_t innerobj_add_off = 0;
+          uint32_t innerobj_reg = 0;
+          bool innerobj_found = false;
+          for (intptr_t f = typetag_off - 4; f >= -252; f -= 4) {
+            uint32_t fenc = 0;
+            if (!safe_read_u32(lr + f, &fenc)) break;
+            uint32_t rd = 0, rn = 0;
+            if (is_add_xreg_xreg_x15(fenc, &rd, &rn) &&
+                rd == typetag_base_reg) {
+              innerobj_add_off = f;
+              innerobj_reg = rn;
+              innerobj_found = true;
+              break;
+            }
+            if (decode_arm64_writes_reg(fenc, (int)typetag_base_reg)) break;
+          }
+          uintptr_t innerobj_goal = 0, innerobj_host = 0;
+          uint32_t innerobj_type_tag = 0;
+          if (innerobj_found && g_ee_main_mem) {
+            innerobj_goal =
+                (uintptr_t)uc->uc_mcontext.regs[innerobj_reg];
+            if (innerobj_goal != 0 && innerobj_goal < EE_MAIN_MEM_SIZE) {
+              innerobj_host =
+                  reinterpret_cast<uintptr_t>(g_ee_main_mem) + innerobj_goal;
+              safe_read_u32(innerobj_host - 4, &innerobj_type_tag);
+            }
+          }
+          std::fprintf(stderr,
+                       "GK-DIAG A18-DIAG type-method-zero: TYPETAG-LOAD "
+                       "chain ldur-pc=0x%lx host-obj-reg=X%u "
+                       "host-obj@signal=0x%lx type-tag-via-host=0x%x "
+                       "innerobj-add@%s innerobj-reg=X%u "
+                       "innerobj-goal=0x%lx innerobj-host=0x%lx "
+                       "innerobj-type-tag=0x%x (canonical virtual-dispatch "
+                       "shape — the failing method is slot %u of the "
+                       "innerobj's type)\n",
+                       (unsigned long)(lr + typetag_off),
+                       (unsigned)typetag_base_reg, (unsigned long)host_obj,
+                       (unsigned)real_type_tag,
+                       innerobj_found ? "found" : "missing",
+                       (unsigned)innerobj_reg,
+                       (unsigned long)innerobj_goal,
+                       (unsigned long)innerobj_host,
+                       (unsigned)innerobj_type_tag,
+                       (unsigned)((imm >= 16) ? (imm - 16) / 4 : 0));
+          // Walk innerobj_type_tag → its sym slot → name.
+          if (innerobj_type_tag != 0 &&
+              innerobj_type_tag < EE_MAIN_MEM_SIZE) {
+            uintptr_t inner_type_host =
+                reinterpret_cast<uintptr_t>(g_ee_main_mem) +
+                innerobj_type_tag;
+            uint32_t inner_sym_field = 0;
+            if (safe_read_u32(inner_type_host, &inner_sym_field) &&
+                inner_sym_field != 0 &&
+                inner_sym_field < EE_MAIN_MEM_SIZE) {
+              uintptr_t inner_sym_slot =
+                  reinterpret_cast<uintptr_t>(g_ee_main_mem) +
+                  inner_sym_field;
+              std::fprintf(stderr,
+                           "GK-DIAG A18-DIAG type-method-zero: walking "
+                           "innerobj-type-tag host=0x%lx sym-field=0x%x "
+                           "sym-slot=0x%lx (this names the failing "
+                           "type):\n",
+                           (unsigned long)inner_type_host,
+                           (unsigned)inner_sym_field,
+                           (unsigned long)inner_sym_slot);
+              dump_sym_name_at_slot(inner_sym_slot);
+            }
+          }
+        }
+      }
+      // Walk type-tag → type's symbol slot → sym name (best-effort
+      // even when the typetag chain failed, since obj_host's tag-at-(-4)
+      // may still be meaningful in non-virtual-dispatch crash shapes).
+      if (obj_host_valid && type_tag != 0xDEADBEEFu && type_tag != 0 &&
+          type_tag < EE_MAIN_MEM_SIZE) {
+        uintptr_t type_host =
+            reinterpret_cast<uintptr_t>(g_ee_main_mem) + type_tag;
+        uint32_t type_sym_field = 0;
+        if (safe_read_u32(type_host, &type_sym_field) &&
+            type_sym_field != 0 && type_sym_field < EE_MAIN_MEM_SIZE) {
+          uintptr_t type_sym_slot =
+              reinterpret_cast<uintptr_t>(g_ee_main_mem) + type_sym_field;
+          std::fprintf(stderr,
+                       "GK-DIAG A18-DIAG type-method-zero: walking type-tag "
+                       "host=0x%lx sym-field=0x%x sym-slot=0x%lx (this slot "
+                       "is the type's symbol; dump_sym_name_at_slot follows):\n",
+                       (unsigned long)type_host, (unsigned)type_sym_field,
+                       (unsigned long)type_sym_slot);
+          dump_sym_name_at_slot(type_sym_slot);
+        }
+      }
+      return;
+    }
+    // Other writer — can't chase further; print what we have and stop.
+    std::fprintf(stderr,
+                 "GK-DIAG A18-DIAG type-method-zero: hop=%d unrecognised "
+                 "writer of X%u: enc=0x%08x decoded=%s @ lr%+ld\n",
+                 hop, (unsigned)chase_reg, (unsigned)write_enc,
+                 decode_arm64_mnemonic(write_enc), (long)write_off);
+    return;
+  }
+  std::fprintf(stderr,
+               "GK-DIAG A18-DIAG type-method-zero: MOV chain depth >5, "
+               "abort\n");
+}
+
 // ---------------------------------------------------------------------------
 // A16-DIAG (authored 2026-05-24): ADRP/ADD pair walker with forward
 // clobber detection.
@@ -1058,6 +1449,13 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   if (sig == SIGILL) {
     gk_diag::dump_stack_fnptr_zero_chain(
         lr, static_cast<uintptr_t>(uc->uc_mcontext.sp));
+    // A18-DIAG: type-method-zero / fn-ptr-field-zero walker. The A12
+    // shape (stack-spill reload) doesn't match the A17 post-pckernel
+    // ceiling; the failing load is `LDR Wn, [Xb, #imm]` with Xb built
+    // from an obj_goal → host conversion (`ADD Xb, Xobj, X15`). Print
+    // obj, offset, loaded value, and walk the obj's type-tag to its
+    // symbol name. See dump_type_method_zero_chain for the full shape.
+    gk_diag::dump_type_method_zero_chain(lr, uc);
   }
 
   // A11-DIAG: at the texture-CGO sig=4 SIGILL the LDR base register that
@@ -1455,6 +1853,19 @@ int boot_kernel_init() {
   // gk_android_main.cpp::a17_bind_pc_helpers stay in lockstep with
   // this list — same set, same default impl, same name spellings.
   a17_bind_pc_helpers();
+  // A18 method-zero-trap install: walk every kernel-loaded Type and
+  // patch empty method slots to point at a18_method_zero_trap. Past
+  // A17's pckernel ceiling, the next-blocker is a virtual-dispatch
+  // BLR through an uninitialised method slot — without this trap,
+  // the failing dispatch lands at ee_base (UDF #0) → sig=4 SIGILL
+  // with regs that no longer reflect the original obj (clobbered by
+  // the LDR W into the dispatch reg). With the trap installed, the
+  // BLR lands at a18_method_zero_trap whose body prints the obj's
+  // GOAL ptr (= AAPCS X0 = `self`), the obj's type-tag, and the
+  // caller_lr (the dispatch site) before _Exit(13). The supervisor
+  // (A19) reads the trap's diag to write the correct binding. See
+  // klink_a18_install_method_zero_trap for the full design.
+  klink_a18_install_method_zero_trap();
 
   // A13 IOP-kernel pre-init: construct an IOP, pthread_mutex_init its
   // sif_mtx + wakeup_mtx, create an RPC-drain cothread + SifRecord, and
@@ -1595,6 +2006,17 @@ int boot_link_kernel_cgo() {
                (unsigned)g_klink_arm64_patch_hist.unhandled,
                (unsigned)g_klink_arm64_patch_hist.out_of_range);
   std::fflush(stdout);
+
+  // A18 method-zero-trap (re-)install: on linux-arm64 the
+  // pre-version-check hook fires INSIDE InitHeapAndSymbol — but
+  // MasterUseKernel=0 here means the hook fires BEFORE the kernel CGO
+  // load, when only the 4 fundamental types exist. We need to call the
+  // installer AGAIN now (after `boot_link_kernel_cgo` returned) so the
+  // walker picks up process / process-tree / dead-pool /
+  // dead-pool-heap / state and patches their empty method slots. The
+  // per-object hook in `link_control::jak1_jak2_begin` (klink.cpp) then
+  // catches engine-CGO types as they load.
+  klink_a18_install_method_zero_trap();
 
   return 0;
 }

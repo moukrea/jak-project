@@ -1239,9 +1239,25 @@ u64 new_type(u32 symbol, u32 parent, u64 flags) {
   Ptr<Function>* child_slots = &(new_type->new_method);
   Ptr<Function>* parent_slots = &(Ptr<Type>(parent)->new_method);
 
-  // BUG! This uses the child method count, but should probably use the parent method count.
-  for (u32 i = 0; i < n_methods; i++) {
-    // for (u32 i = 0; i < Ptr<Type>(parent)->num_methods; i++) {
+  // A18-DIAG type-method-zero: bound the parent-method-table inherit loop by
+  // the PARENT's declared method count, not the child's. Reading past the
+  // parent's table copies whatever happens to live at parent_host+16+i*4
+  // for i >= parent_num_methods — on x86 that's usually 0 or harmless heap
+  // bytes; on arm64 it's frequently arm64 instruction bytes from a nearby
+  // C-trampoline allocation (see make_function_from_c_arm64 — each emits
+  // ~0x80 bytes of instructions in the global heap, so a method-table read
+  // past the parent's edge lands inside someone's instruction stream).
+  // The corrupt values surface as e.g. `level` slot 22 = 0xaa0d03e3
+  // (= MOV X3, X13, the optional pp-shuffle instruction at offset 0x28 of
+  // an arg3_is_pp trampoline) — visible in the OG_KLINK_TRACE arm64 stream
+  // for `level`, `level-group`, `collide-shape-prim*`, `collide-cache`,
+  // `nav-mesh`, etc., all of which inherit from `basic`. The fix bounds
+  // the inherit to parent.num_methods; slots past that remain 0 (the
+  // global-heap allocator's KMALLOC_MEMSET already zeroed them) so the
+  // A18 trap walker patches them on the next walk pass.
+  const u32 parent_n_methods = Ptr<Type>(parent)->num_methods;
+  const u32 inherit_count = n_methods < parent_n_methods ? n_methods : parent_n_methods;
+  for (u32 i = 0; i < inherit_count; i++) {
     child_slots[i] = parent_slots[i];
   }
 
@@ -1288,6 +1304,38 @@ u64 method_set(u32 type_, u32 method_id, u32 method) {
     printf("[METHOD SET ERROR] tried to set method %d\n", method_id);
 
   auto existing_method = type->get_method(method_id).offset;
+
+  // A18-DIAG method-set-trace: OG_KLINK_TRACE-gated single-line event per call
+  // (zero output when env var unset). The supervisor's bind-order diff uses this
+  // to spot calls where the `method` arg got corrupted in transit (the arm64
+  // GOAL→C arg-shuffle is non-trivial; see make_function_from_c_arm64 in this
+  // file). The `pre` field is slot's value BEFORE this call so a
+  // bound→empty (method=1 path) transition is visible. The `post` reflects what
+  // we're ABOUT to write (after `method == 1 / 0 / 2` normalisation but before
+  // the actual store). type_name is resolved cheaply via SymInfo when safe.
+  {
+    static const bool s_klink_trace = (std::getenv("OG_KLINK_TRACE") != nullptr);
+    if (s_klink_trace && type_ != 0 && type_ < (u32)EE_MAIN_MEM_SIZE) {
+      const char* type_name = "?";
+      char name_buf[128];
+      const u32 tsym_goal = type->symbol.offset;
+      if (tsym_goal != 0 && tsym_goal < (u32)EE_MAIN_MEM_SIZE) {
+        auto si = info(type->symbol);
+        const u32 str_goal = si->str.offset;
+        if (str_goal != 0 && str_goal < (u32)EE_MAIN_MEM_SIZE) {
+          const char* s = si->str.c()->data();
+          size_t k = 0;
+          for (; k < sizeof(name_buf) - 1 && s[k] != '\0'; k++) name_buf[k] = s[k];
+          name_buf[k] = '\0';
+          type_name = name_buf;
+        }
+      }
+      std::fprintf(stderr,
+                   "KLINKTRACE method-set type=%s slot=%u pre=0x%x method-arg=0x%x\n",
+                   type_name, (unsigned)method_id, (unsigned)existing_method,
+                   (unsigned)method);
+    }
+  }
 
   if (method == 1) {
     method = 0;

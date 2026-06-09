@@ -323,6 +323,17 @@ void a11_install_pc_mips2c_hook_once() {
     // sig=4 SIGILL. See a17_bind_pc_helpers above for the per-name
     // list mirroring kmachine.cpp::init_common_pc_port_functions.
     a17_bind_pc_helpers();
+    // A18 method-zero-trap install: walk every kernel-loaded Type and
+    // patch empty method slots to point at a18_method_zero_trap.
+    // Without this, the post-A17 virtual-dispatch crash (LDR Wn,
+    // [Xb, #0x68] = 0 → BLR ee_base → sig=4 SIGILL) lands with a
+    // clobbered obj_reg (the LDR overwrote it with 0). The trap
+    // function captures self_goal/self_host/type_tag/caller_lr at
+    // dispatch entry — BEFORE clobber — and prints them as an
+    // A18-DIAG marker before _Exit(13). The supervisor (A19) reads
+    // the trap diag to bind the real method. See
+    // klink_a18_install_method_zero_trap for the full design.
+    klink_a18_install_method_zero_trap();
     // A13 note: NO arm64-style IOP mutex pre-init chained in here.
     // Android's android_runtime_full.cpp::make_iop_thread already
     // constructs a real IOP + spawns the iop_runner OS thread when
@@ -339,7 +350,8 @@ void a11_install_pc_mips2c_hook_once() {
                       "klink_a11_ensure_pc_mips2c_bound + "
                       "klink_a12_ensure_sound_rpc_bound + "
                       "klink_a14_ensure_pc_memmove_bound + "
-                      "a17_bind_pc_helpers onto "
+                      "a17_bind_pc_helpers + "
+                      "klink_a18_install_method_zero_trap onto "
                       "g_jak1_pre_kernel_version_check_hook (prev=%p; A13 "
                       "IOP-init NOT chained here — Android uses real "
                       "iop_runner)",
@@ -728,6 +740,354 @@ void dump_stack_fnptr_zero_chain(uintptr_t lr, uintptr_t sp) {
   dump_sym_name_at_slot(sym_slot);
 }
 
+// Forward declarations of the A16-DIAG decoders defined further down
+// in this same namespace. A18 uses them to identify writers / mnemonics
+// during the type-method-zero chase.
+bool decode_arm64_writes_reg(uint32_t enc, int xreg);
+const char* decode_arm64_mnemonic(uint32_t enc);
+
+// ---------------------------------------------------------------------------
+// A18-DIAG (authored 2026-05-24): type-method-zero walker. Mirrors the
+// qemu-side handler in game/linux-arm64/linux_arm64_main.cpp — line
+// shapes are identical so device logcat and qemu_repro stderr are
+// diff-able.
+//
+// Past A17 (IDIV X8 spill + pc-* helper chain at 216 link-finishes) the
+// next-blocker is a fn-ptr=0 BLR whose source is NOT a sym-MEM load and
+// NOT a stack reload (those are A11/A12). Instead the load comes from
+// `LDR Wn, [Xb, #imm]` where Xb was built by `ADD Xb, Xobj, X15` (a
+// GOAL→host conversion of an obj/type ptr). When obj is a TYPE
+// pointer (e.g. via the canonical `LDUR W?, [Xt, #-4]` type-tag load),
+// offset 0x10+slot*4 = method slot; this is a virtual-dispatch BLR
+// through an uninitialised method slot.
+//
+// Output (single line + optional sym-walk for the type-tag):
+//
+//   GK-DIAG A18-DIAG type-method-zero: ldr-pc=0x<pc> base=X<b>
+//        offset=0x<off> size=<W|X> method-slot=<n> obj-add@<found|missing>
+//        obj-goal-reg=X<o> obj-goal=0x<goal> obj-host=0x<host>
+//        loaded-value=0x<v> type-tag@obj_host-4=0x<tag>
+//        obj-reg-clobbered-since-add=<0|1>
+//
+// `obj-reg-clobbered-since-add` is 1 if any instruction between the
+// obj-add and the signal site wrote obj_reg — meaning regs[obj_reg]
+// is the post-clobber value, NOT the original obj ptr. In that case
+// the type-tag readout is best-effort.
+// ---------------------------------------------------------------------------
+
+// True if `enc` decodes as `ADD Xd, Xn, X15` shifted-reg with shift=0,
+// Rm=15. Writes Rd and Rn out-parameters. Does NOT require Rn == Rd, so
+// it matches both host-conv `ADD Xt, Xt, X15` AND obj-conv
+// `ADD Xb, Xobj, X15` shapes; callers test Rd/Rn relations.
+bool is_add_xreg_xreg_x15(uint32_t enc, uint32_t* out_rd, uint32_t* out_rn) {
+  // mask = 0xFFFFFC00 forces bits 31..21 (opcode), bits 20..16 (Rm) and
+  // bits 15..10 (imm6); expected = 0x8B0F0000 for ADD shifted-reg with
+  // Rm=15, imm6=0. Rn (bits 9..5) and Rd (bits 4..0) are extracted.
+  if ((enc & 0xFFFFFC00u) != 0x8B0F0000u) return false;
+  *out_rd = enc & 0x1Fu;
+  *out_rn = (enc >> 5) & 0x1Fu;
+  return true;
+}
+
+void dump_type_method_zero_chain(uintptr_t lr, const ucontext_t* uc) {
+  uint32_t blr_enc = 0;
+  if (!safe_read_u32(lr - 4, &blr_enc)) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A18-DIAG type-method-zero: lr-4 unreadable");
+    return;
+  }
+  if ((blr_enc & 0xFFFFFC1Fu) != 0xD63F0000u) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A18-DIAG type-method-zero: lr-4 enc=0x%08x "
+                        "is not BLR Xn",
+                        (unsigned)blr_enc);
+    return;
+  }
+  uint32_t blr_target = (blr_enc >> 5) & 0x1Fu;
+
+  // Step 1: find ADD Xt, Xt, X15 walking backward. Push frame
+  // (STP/STR with [SP,#-16]! writeback) doesn't write Xt so a simple
+  // walk-until-found works.
+  intptr_t add_x15_off = 0;
+  bool add_x15_found = false;
+  for (intptr_t d = -8; d >= -240; d -= 4) {
+    uint32_t enc = 0;
+    if (!safe_read_u32(lr + d, &enc)) break;
+    uint32_t rd = 0, rn = 0;
+    if (is_add_xreg_xreg_x15(enc, &rd, &rn) && rd == blr_target &&
+        rn == blr_target) {
+      add_x15_off = d;
+      add_x15_found = true;
+      break;
+    }
+    if (decode_arm64_writes_reg(enc, (int)blr_target)) break;
+  }
+  if (!add_x15_found) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A18-DIAG type-method-zero: no ADD X%u,X%u,"
+                        "X15 in lr-240..lr-8 — non-standard BLR call shape",
+                        (unsigned)blr_target, (unsigned)blr_target);
+    return;
+  }
+
+  // Step 2: walk MOV chain backward, terminating on LDR. Cap at 5 hops.
+  uint32_t chase_reg = blr_target;
+  intptr_t scan_from = add_x15_off - 4;
+  for (int hop = 0; hop < 5; ++hop) {
+    intptr_t write_off = 0;
+    uint32_t write_enc = 0;
+    bool write_found = false;
+    for (intptr_t d = scan_from; d >= -252; d -= 4) {
+      uint32_t enc = 0;
+      if (!safe_read_u32(lr + d, &enc)) break;
+      if (decode_arm64_writes_reg(enc, (int)chase_reg)) {
+        write_off = d;
+        write_enc = enc;
+        write_found = true;
+        break;
+      }
+    }
+    if (!write_found) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A18-DIAG type-method-zero: hop=%d no "
+                          "write of X%u in lr-252..lr%+ld — chase aborted",
+                          hop, (unsigned)chase_reg, (long)scan_from);
+      return;
+    }
+    // Case A: MOV Xt, Xs — ORR Xt, XZR, Xs encoding.
+    if ((write_enc & 0xFFE0FFE0u) == 0xAA0003E0u) {
+      uint32_t src = (write_enc >> 16) & 0x1Fu;
+      if (src == 31u) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A18-DIAG type-method-zero: hop=%d "
+                            "MOV X%u,XZR @ lr%+ld (BLR target explicitly "
+                            "zeroed)",
+                            hop, (unsigned)chase_reg, (long)write_off);
+        return;
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A18-DIAG type-method-zero: hop=%d "
+                          "MOV X%u <- X%u @ lr%+ld",
+                          hop, (unsigned)chase_reg, (unsigned)src,
+                          (long)write_off);
+      chase_reg = src;
+      scan_from = write_off - 4;
+      continue;
+    }
+    // Case B: LDR Wt,[Xb,#imm12] or LDR Xt,[Xb,#imm12]
+    bool is_ldr_w = ((write_enc & 0xFFC00000u) == 0xB9400000u);
+    bool is_ldr_x = ((write_enc & 0xFFC00000u) == 0xF9400000u);
+    if (is_ldr_w || is_ldr_x) {
+      uint32_t base = (write_enc >> 5) & 0x1Fu;
+      uint32_t imm = ((write_enc >> 10) & 0xFFFu) * (is_ldr_w ? 4u : 8u);
+      if (base == 31u) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A18-DIAG type-method-zero: hop=%d "
+                            "LDR-from-SP @ lr%+ld — stack-spill domain (A12)",
+                            hop, (long)write_off);
+        return;
+      }
+      // Step 3: find ADD Xb, Xobj, X15 walking backward from the LDR.
+      intptr_t obj_add_off = 0;
+      bool obj_add_found = false;
+      uint32_t obj_reg = 0;
+      for (intptr_t e = write_off - 4; e >= -252; e -= 4) {
+        uint32_t fenc = 0;
+        if (!safe_read_u32(lr + e, &fenc)) break;
+        uint32_t rd = 0, rn = 0;
+        if (is_add_xreg_xreg_x15(fenc, &rd, &rn) && rd == base) {
+          obj_add_off = e;
+          obj_add_found = true;
+          obj_reg = rn;
+          break;
+        }
+        if (decode_arm64_writes_reg(fenc, (int)base)) break;
+      }
+      // Step 4: clobber detection — was obj_reg written between obj-add
+      // and signal?
+      bool obj_reg_clobbered = false;
+      if (obj_add_found) {
+        for (intptr_t e = obj_add_off + 4; e <= 0; e += 4) {
+          uint32_t fenc = 0;
+          if (!safe_read_u32(lr + e, &fenc)) break;
+          if (decode_arm64_writes_reg(fenc, (int)obj_reg)) {
+            obj_reg_clobbered = true;
+            break;
+          }
+        }
+      }
+      // Step 5: read obj_goal, obj_host, loaded_value, type_tag.
+      uintptr_t obj_goal = 0, obj_host = 0;
+      uint32_t loaded_value_u32 = 0xDEADBEEFu;
+      uint32_t type_tag = 0xDEADBEEFu;
+      bool obj_host_valid = false;
+      if (obj_add_found) {
+        obj_goal = (uintptr_t)uc->uc_mcontext.regs[obj_reg];
+        if (g_ee_main_mem && obj_goal != 0 && obj_goal < EE_MAIN_MEM_SIZE) {
+          obj_host = reinterpret_cast<uintptr_t>(g_ee_main_mem) + obj_goal;
+          obj_host_valid = true;
+          safe_read_u32(obj_host + imm, &loaded_value_u32);
+          safe_read_u32(obj_host - 4, &type_tag);
+        }
+      }
+      // method-slot computed assuming the LDR base is a Type basic
+      // (OpenGOAL method table starts at offset 16: 16+slot*4). For
+      // imm < 16, the load is from a type's header field — method-slot
+      // is 0 in that case but the printed offset 0x%x is unambiguous.
+      uint32_t method_slot_idx = (imm >= 16) ? (imm - 16) / 4 : 0;
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A18-DIAG type-method-zero: ldr-pc=0x%lx "
+                          "base=X%u offset=0x%x size=%s method-slot=%u "
+                          "obj-add@%s obj-goal-reg=X%u obj-goal=0x%lx "
+                          "obj-host=0x%lx loaded-value=0x%x "
+                          "type-tag@obj_host-4=0x%x "
+                          "obj-reg-clobbered-since-add=%d",
+                          (unsigned long)(lr + write_off), (unsigned)base,
+                          (unsigned)imm, is_ldr_w ? "W" : "X",
+                          (unsigned)method_slot_idx,
+                          obj_add_found ? "found" : "missing",
+                          (unsigned)obj_reg, (unsigned long)obj_goal,
+                          (unsigned long)obj_host,
+                          (unsigned)loaded_value_u32, (unsigned)type_tag,
+                          obj_reg_clobbered ? 1 : 0);
+      // A18-DIAG TYPETAG-LOAD chain: when obj_reg's source is the
+      // canonical `LDUR W_obj_reg, [Xs, #-4]` type-tag load, chase one
+      // more level back to surface the host_obj_reg + the ORIGINAL
+      // obj GOAL reg. See the qemu side for the full doc comment.
+      if (obj_add_found) {
+        intptr_t typetag_off = 0;
+        bool typetag_found = false;
+        uint32_t typetag_base_reg = 0;
+        for (intptr_t e = obj_add_off - 4; e >= -252; e -= 4) {
+          uint32_t fenc = 0;
+          if (!safe_read_u32(lr + e, &fenc)) break;
+          bool is_ldur_w = ((fenc & 0xFFE00C00u) == 0xB8400000u);
+          bool ldur_writes_obj =
+              is_ldur_w && ((fenc & 0x1Fu) == obj_reg);
+          if (ldur_writes_obj) {
+            uint32_t imm9 = (fenc >> 12) & 0x1FFu;
+            if (imm9 == 0x1FCu) {
+              typetag_off = e;
+              typetag_base_reg = (fenc >> 5) & 0x1Fu;
+              typetag_found = true;
+            }
+            break;
+          }
+          if (decode_arm64_writes_reg(fenc, (int)obj_reg)) break;
+        }
+        if (typetag_found) {
+          uintptr_t host_obj =
+              (uintptr_t)uc->uc_mcontext.regs[typetag_base_reg];
+          uint32_t real_type_tag = 0;
+          if (g_ee_main_mem && host_obj != 0) {
+            safe_read_u32(host_obj - 4, &real_type_tag);
+          }
+          uint32_t innerobj_reg = 0;
+          bool innerobj_found = false;
+          for (intptr_t f = typetag_off - 4; f >= -252; f -= 4) {
+            uint32_t fenc = 0;
+            if (!safe_read_u32(lr + f, &fenc)) break;
+            uint32_t rd = 0, rn = 0;
+            if (is_add_xreg_xreg_x15(fenc, &rd, &rn) &&
+                rd == typetag_base_reg) {
+              innerobj_reg = rn;
+              innerobj_found = true;
+              break;
+            }
+            if (decode_arm64_writes_reg(fenc, (int)typetag_base_reg)) break;
+          }
+          uintptr_t innerobj_goal = 0, innerobj_host = 0;
+          uint32_t innerobj_type_tag = 0;
+          if (innerobj_found && g_ee_main_mem) {
+            innerobj_goal =
+                (uintptr_t)uc->uc_mcontext.regs[innerobj_reg];
+            if (innerobj_goal != 0 && innerobj_goal < (uintptr_t)EE_MAIN_MEM_SIZE) {
+              innerobj_host =
+                  reinterpret_cast<uintptr_t>(g_ee_main_mem) + innerobj_goal;
+              safe_read_u32(innerobj_host - 4, &innerobj_type_tag);
+            }
+          }
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A18-DIAG type-method-zero: "
+                              "TYPETAG-LOAD chain ldur-pc=0x%lx "
+                              "host-obj-reg=X%u host-obj@signal=0x%lx "
+                              "type-tag-via-host=0x%x innerobj-add@%s "
+                              "innerobj-reg=X%u innerobj-goal=0x%lx "
+                              "innerobj-host=0x%lx innerobj-type-tag=0x%x "
+                              "(canonical virtual-dispatch shape — failing "
+                              "method is slot %u of innerobj's type)",
+                              (unsigned long)(lr + typetag_off),
+                              (unsigned)typetag_base_reg,
+                              (unsigned long)host_obj,
+                              (unsigned)real_type_tag,
+                              innerobj_found ? "found" : "missing",
+                              (unsigned)innerobj_reg,
+                              (unsigned long)innerobj_goal,
+                              (unsigned long)innerobj_host,
+                              (unsigned)innerobj_type_tag,
+                              (unsigned)method_slot_idx);
+          if (innerobj_type_tag != 0 &&
+              innerobj_type_tag < (uint32_t)EE_MAIN_MEM_SIZE) {
+            uintptr_t inner_type_host =
+                reinterpret_cast<uintptr_t>(g_ee_main_mem) +
+                innerobj_type_tag;
+            uint32_t inner_sym_field = 0;
+            if (safe_read_u32(inner_type_host, &inner_sym_field) &&
+                inner_sym_field != 0 &&
+                inner_sym_field < (uint32_t)EE_MAIN_MEM_SIZE) {
+              uintptr_t inner_sym_slot =
+                  reinterpret_cast<uintptr_t>(g_ee_main_mem) +
+                  inner_sym_field;
+              __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                  "GK-DIAG A18-DIAG type-method-zero: "
+                                  "walking innerobj-type-tag host=0x%lx "
+                                  "sym-field=0x%x sym-slot=0x%lx (this "
+                                  "names the failing type):",
+                                  (unsigned long)inner_type_host,
+                                  (unsigned)inner_sym_field,
+                                  (unsigned long)inner_sym_slot);
+              dump_sym_name_at_slot(inner_sym_slot);
+            }
+          }
+        }
+      }
+      // Walk type-tag → type's symbol slot → sym name.
+      if (obj_host_valid && type_tag != 0xDEADBEEFu && type_tag != 0 &&
+          type_tag < EE_MAIN_MEM_SIZE) {
+        uintptr_t type_host =
+            reinterpret_cast<uintptr_t>(g_ee_main_mem) + type_tag;
+        uint32_t type_sym_field = 0;
+        if (safe_read_u32(type_host, &type_sym_field) &&
+            type_sym_field != 0 && type_sym_field < EE_MAIN_MEM_SIZE) {
+          uintptr_t type_sym_slot =
+              reinterpret_cast<uintptr_t>(g_ee_main_mem) + type_sym_field;
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A18-DIAG type-method-zero: walking "
+                              "type-tag host=0x%lx sym-field=0x%x "
+                              "sym-slot=0x%lx (dump_sym_name_at_slot "
+                              "follows):",
+                              (unsigned long)type_host,
+                              (unsigned)type_sym_field,
+                              (unsigned long)type_sym_slot);
+          dump_sym_name_at_slot(type_sym_slot);
+        }
+      }
+      return;
+    }
+    // Other writer — can't chase further.
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A18-DIAG type-method-zero: hop=%d "
+                        "unrecognised writer of X%u: enc=0x%08x decoded=%s "
+                        "@ lr%+ld",
+                        hop, (unsigned)chase_reg, (unsigned)write_enc,
+                        decode_arm64_mnemonic(write_enc), (long)write_off);
+    return;
+  }
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A18-DIAG type-method-zero: MOV chain depth "
+                      ">5, abort");
+}
+
 // ---------------------------------------------------------------------------
 // A16-DIAG (authored 2026-05-24): ADRP/ADD pair walker with forward
 // clobber detection. Mirrors the qemu-side handler in
@@ -1091,6 +1451,11 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // → LDR Ws,[Xb,#0] → ADRP+ADD → sym name). Runs only on sig=4 (SIGILL).
   if (sig == SIGILL) {
     gk_diag::dump_stack_fnptr_zero_chain(lr, (uintptr_t)uc->uc_mcontext.sp);
+    // A18-DIAG: type-method-zero / fn-ptr-field-zero walker. Catches the
+    // virtual-dispatch shape `LDR Wn, [Xb, #imm]` where Xb came from
+    // `ADD Xb, Xobj, X15`. Names the LDR site, the obj_reg, and
+    // (best-effort) the type-tag at obj_host-4.
+    gk_diag::dump_type_method_zero_chain(lr, uc);
   }
 
   // A11-DIAG: identify which symbol's value slot the failing BLR loaded.

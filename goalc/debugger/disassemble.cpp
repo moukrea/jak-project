@@ -1,10 +1,13 @@
 #include "disassemble.h"
 
+#include <cctype>
+
 #include "common/goos/Reader.h"
 
 #include "Zydis/Decoder.h"
 #include "Zydis/Formatter.h"
 
+#include "capstone/capstone.h"
 #include "fmt/color.h"
 #include "fmt/format.h"
 
@@ -217,4 +220,179 @@ std::string disassemble_x86_function(
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// ARM64 disassembly + structured decode (Capstone) for goalc-codegen-diff.
+// ---------------------------------------------------------------------------
+
+static std::string normalize_arm64_reg(const char* name) {
+  if (!name) {
+    return "";
+  }
+  std::string n = name;
+  // Map the 32-bit W view onto the 64-bit X view (same physical register).
+  if (n.size() >= 2 && n[0] == 'w' && std::isdigit((unsigned char)n[1])) {
+    return "x" + n.substr(1);
+  }
+  if (n == "wsp") {
+    return "sp";
+  }
+  return n;
+}
+
+std::vector<DecodedInstr> decode_arm64(u8* data, int len, u64 base_addr) {
+  std::vector<DecodedInstr> out;
+  csh handle;
+  if (cs_open(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, &handle) != CS_ERR_OK) {
+    return out;
+  }
+  cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
+  cs_insn* insn = cs_malloc(handle);
+
+  const uint8_t* code = data;
+  size_t size = (size_t)len;
+  uint64_t addr = base_addr;
+
+  while (size >= 4) {
+    DecodedInstr di;
+    di.offset = (int)(addr - base_addr);
+    di.addr = addr;
+    const uint8_t* code_before = code;
+    uint64_t addr_before = addr;
+
+    if (cs_disasm_iter(handle, &code, &size, &addr, insn)) {
+      di.length = (int)insn->size;
+      di.text = std::string(insn->mnemonic);
+      if (insn->op_str[0]) {
+        di.text += " ";
+        di.text += insn->op_str;
+      }
+
+      cs_regs regs_read, regs_write;
+      uint8_t read_count = 0, write_count = 0;
+      if (cs_regs_access(handle, insn, regs_read, &read_count, regs_write, &write_count) ==
+          CS_ERR_OK) {
+        for (uint8_t i = 0; i < write_count; i++) {
+          std::string n = normalize_arm64_reg(cs_reg_name(handle, regs_write[i]));
+          if (!n.empty() && n != "xzr" && n != "nzcv") {
+            di.regs_written.push_back(n);
+          }
+        }
+      }
+
+      const cs_arm64* a = &insn->detail->arm64;
+      bool has_mem_sp = false;
+      std::vector<std::string> reg_ops;
+      for (int i = 0; i < a->op_count; i++) {
+        const cs_arm64_op& o = a->operands[i];
+        if (o.type == ARM64_OP_REG) {
+          std::string nn = normalize_arm64_reg(cs_reg_name(handle, o.reg));
+          if (nn == "sp") {
+            di.touches_sp = true;
+          }
+          reg_ops.push_back(nn);
+        } else if (o.type == ARM64_OP_MEM) {
+          if (o.mem.base == ARM64_REG_SP || o.mem.index == ARM64_REG_SP) {
+            has_mem_sp = true;
+            di.touches_sp = true;
+          }
+        }
+      }
+
+      std::string mn = insn->mnemonic;
+      if (has_mem_sp) {
+        if (mn.rfind("st", 0) == 0) {
+          di.is_store_to_stack = true;
+          di.stack_xfer_regs = reg_ops;
+        } else if (mn.rfind("ld", 0) == 0) {
+          di.is_load_from_stack = true;
+          di.stack_xfer_regs = reg_ops;
+        }
+      }
+
+      // sp += imm  (add/sub sp, sp, #imm) — used to balance-check spill wrappers.
+      if ((mn == "add" || mn == "sub") && a->op_count >= 3 &&
+          a->operands[0].type == ARM64_OP_REG &&
+          normalize_arm64_reg(cs_reg_name(handle, a->operands[0].reg)) == "sp" &&
+          a->operands[2].type == ARM64_OP_IMM) {
+        int imm = (int)a->operands[2].imm;
+        di.sp_delta = (mn == "sub") ? -imm : imm;
+      }
+    } else {
+      // Undecodable word — e.g. an A5 sym-mem reloc sentinel patched in later.
+      uint32_t word = (uint32_t)code_before[0] | ((uint32_t)code_before[1] << 8) |
+                      ((uint32_t)code_before[2] << 16) | ((uint32_t)code_before[3] << 24);
+      di.valid = false;
+      di.length = 4;
+      di.text = fmt::format(".word 0x{:08x}", word);
+      code = code_before + 4;
+      size -= 4;
+      addr = addr_before + 4;
+    }
+    out.push_back(std::move(di));
+  }
+
+  cs_free(insn, 1);
+  cs_close(&handle);
+  return out;
+}
+
+std::string disassemble_arm64(u8* data, int len, u64 base_addr) {
+  std::string result;
+  for (const auto& di : decode_arm64(data, len, base_addr)) {
+    result += fmt::format("[0x{:x}] {}\n", di.addr, di.text);
+  }
+  return result;
+}
+
+std::vector<DecodedInstr> decode_x86(u8* data, int len, u64 base_addr) {
+  std::vector<DecodedInstr> out;
+  ZydisDecoder decoder;
+  ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_STACK_WIDTH_64);
+  ZydisFormatter formatter;
+  ZydisFormatterInit(&formatter, ZYDIS_FORMATTER_STYLE_INTEL);
+  ZydisDecodedInstruction instr;
+  ZydisDecodedOperand op[ZYDIS_MAX_OPERAND_COUNT];
+  char buff[512];
+
+  int offset = 0;
+  while (offset < len) {
+    DecodedInstr di;
+    di.addr = base_addr + offset;
+    di.offset = offset;
+    if (ZYAN_SUCCESS(
+            ZydisDecoderDecodeFull(&decoder, data + offset, len - offset, &instr, op))) {
+      ZydisFormatterFormatInstruction(&formatter, &instr, op, instr.operand_count_visible, buff,
+                                      sizeof(buff), di.addr, ZYAN_NULL);
+      di.text = buff;
+      di.length = instr.length;
+      for (int i = 0; i < instr.operand_count; i++) {
+        const auto& o = op[i];
+        if (o.type == ZYDIS_OPERAND_TYPE_REGISTER) {
+          if (o.reg.value == ZYDIS_REGISTER_RSP || o.reg.value == ZYDIS_REGISTER_ESP) {
+            di.touches_sp = true;
+          }
+          if (o.actions & (ZYDIS_OPERAND_ACTION_WRITE | ZYDIS_OPERAND_ACTION_CONDWRITE)) {
+            const char* n = ZydisRegisterGetString(o.reg.value);
+            if (n) {
+              di.regs_written.push_back(n);
+            }
+          }
+        } else if (o.type == ZYDIS_OPERAND_TYPE_MEMORY) {
+          if (o.mem.base == ZYDIS_REGISTER_RSP || o.mem.index == ZYDIS_REGISTER_RSP) {
+            di.touches_sp = true;
+          }
+        }
+      }
+      offset += instr.length;
+    } else {
+      di.valid = false;
+      di.length = 1;
+      di.text = fmt::format("INVALID (0x{:02x})", data[offset]);
+      offset += 1;
+    }
+    out.push_back(std::move(di));
+  }
+  return out;
 }
