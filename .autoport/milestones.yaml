@@ -396,6 +396,20 @@ phases:
   validator: validators/phase-A20-goalc-arm64-field-offset.sh
   max_turns: 600
   max_retries: 6
+- id: A21-arm64-codegen-deeper-investigation
+  name: 'Diagnostic phase post-A20 off-by-4 falsification. A20 attempt-1 proved via OG_OFFSET_TRACE (196k-line zero-diff trace) and
+    KERNEL.CGO byte-scan (15 instances each of LDR Wt,[X16,#48] and [X16,#52] at mod-4=2 alignment) that the field-offset off-by-4
+    hypothesis is wrong. Real 216-link-finish ceiling cause is one of 4 hypotheses per A20-attempt-1-next-blocker.md: H1 second
+    regalloc-clobber surface (weak per supervisor check — HEAD already saves R3/R5/R10/R11/R12+X23 in call_r64); H2 X16 corruption
+    in IR_FunctionCall::do_codegen_arm64 across BLR; H3 klink-time LDR-literal imm19 NOPs (81 warnings in qemu log); H4 AAPCS
+    arg-shuffle gap in kscheme.cpp::call_goal. A21 is DIAGNOSTIC ONLY — add env-gated trace patches in linux_arm64_main.cpp,
+    klink.cpp, Allocator_v2.cpp, kscheme.cpp; discriminate which hypothesis holds; honest-exit with bug-class-identified.md
+    naming primary hypothesis and recommended A22 narrow-fix scope. In-scope fixes (klink, kscheme call_goal, linux_arm64_main)
+    may be landed if evidence is unambiguous. IGenARM64.cpp and IR.cpp stay locked (A19/A20 proved no bug there).'
+  prompt: prompts/phase-A21-arm64-codegen-deeper-investigation.md
+  validator: validators/phase-A21-arm64-codegen-deeper-investigation.sh
+  max_turns: 600
+  max_retries: 6
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
