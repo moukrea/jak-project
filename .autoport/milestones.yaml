@@ -505,6 +505,18 @@ phases:
   validator: validators/phase-A28-arm64-codegen-fix-sprint.sh
   max_turns: 2500
   max_retries: 3
+- id: A29-arm64-gsound-iop-rpc-sprint
+  name: 'Continue the A28 wide-sprint methodology past the gsound blocker. A28 broke the 216 ceiling to 462 link-finishes (RSP-SP +
+    x86-call/ret asm-func fixes); qemu now dies at link-finish 462 with `Assertion failed: rec->cmd.finished && rec->cmd.started` in
+    game/system/IOP_Kernel.cpp (the EE-IOP sound-RPC emulation). A29 fixes the IOP RPC state-machine / mips2c-IOP-codegen / init issue so
+    gsound runs, then keeps fixing whatever blocks next (sound init, more IOP RPCs, level/DGO load, the logo title DGO, the display loop)
+    until boot reaches the renderer stage or hits a GOAL-source wall. Lean gates (same as A28): x86 still boots to link finish logo, qemu
+    no regression below 462, no weak/abort-additions/dodge/stubs/fake-link, one report >=80 lines. Relaxing the firing assert is allowed
+    ONLY if the underlying RPC state is shown correct (no silencing asserts to fake progress). max_turns 2500, budget ~$200.'
+  prompt: prompts/phase-A29-arm64-gsound-iop-rpc-sprint.md
+  validator: validators/phase-A29-arm64-gsound-iop-rpc-sprint.sh
+  max_turns: 2500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
