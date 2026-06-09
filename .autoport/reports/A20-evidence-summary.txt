@@ -1,0 +1,54 @@
+# A20 evidence — diag trace + byte scan
+# Run on 2026-06-09 by A20 attempt-1
+
+## Trace line counts (arm64 vs x86, full make-group iso build)
+  arm64 OG_OFFSET_TRACE lines: 196128
+  x86   OG_OFFSET_TRACE lines: 196128
+
+## Sorted-trace diff (arch= stripped) — proves both arches emit same m_offset stream
+  arm64 sorted: $(wc -l /tmp/a20-arm64-offsets.txt)
+196128 /tmp/a20-arm64-offsets.txt
+  x86   sorted: $(wc -l /tmp/a20-x86-offsets.txt)
+196128 /tmp/a20-x86-offsets.txt
+  diff size (must be 0):
+0
+
+## Offset frequency histogram in arm64 OG_OFFSET_TRACE (top 20 by count)
+  21124 0
+  15181 12
+  15006 4
+   9743 16
+   9541 8
+   9380 -4
+   8558 108
+   8311 44
+   6952 28
+   4538 120
+   4458 24
+   4373 32
+   4333 20
+   4294 116
+   3710 72
+   2561 40
+   2558 36
+   2507 60
+   2465 56
+   2372 52
+
+## arm64 KERNEL.CGO byte-scan (instruction-aligned LDR Wt with various imm12)
+KERNEL.CGO LDR Wt [X16, #N] histogram (instruction-aligned):
+  #0: 95
+  #4: 7
+  #8: 4
+  #12: 4
+  #16: 9
+  #20: 3
+  #24: 2
+  #28: 4
+  #32: 2
+  #40: 5
+  #44: 5
+  #52: 1
+  #64: 2
+  #72: 1
+  #88: 1
