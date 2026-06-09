@@ -466,6 +466,18 @@ phases:
   validator: validators/phase-A25-arm64-ir-regset-fpr-dispatch.sh
   max_turns: 800
   max_retries: 5
+- id: A26-arm64-xmm-symmetric-and-break-trap
+  name: 'Widen IR_RegSet dispatch from X30-only (A25 narrow fix) to ALL XMM-class operand cases (IDs 24..31), tackling 3 of A25''s 5 blockers:
+    cpu-thread-suspend SAVE side, cpu-thread-resume RESTORE for dst IDs 24-29/31, new-catch-frame SAVE side. Plus add IDIV-by-zero trap in
+    arm64 emit so `(break)` macro actually traps (currently arm64 SDIV by zero silently returns 0, making `(/ 0 0)` a no-op → post-throw-
+    not-found path unwinds with corrupt SP). A26 audits gcommon FLOAT-FLOAT callsites that A25 attempt 1.1 broke and either patches them
+    individually or scopes the dispatch context-aware. Four exit paths: A) fix landed (qemu >= 217 STRICT); B) next-blocker; C) partial-fix
+    (e.g., BREAK-MACRO-TRAP fires, makes next bug visible); D) regression (revert if worse than A25). Deferred to later phase: blocker 4
+    (gcommon FLOAT-FLOAT downstream callsites — too broad blast radius for A26).'
+  prompt: prompts/phase-A26-arm64-xmm-symmetric-and-break-trap.md
+  validator: validators/phase-A26-arm64-xmm-symmetric-and-break-trap.sh
+  max_turns: 1000
+  max_retries: 5
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
