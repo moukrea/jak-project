@@ -1530,7 +1530,15 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     }
   }
 
-  for (intptr_t d = -256; d <= 16; d += 4) {
+  // A18 attempt-4: extend the hex dump from lr-256 to lr-1024 so the
+  // function prologue is visible. The dispatch at lr-4 in get-process
+  // has X12=0x4070 (= process_size + stack_size, the computed-size arg
+  // to find-gap-by-size) where it should be `this`. The write to X12
+  // (the regalloc-clobber site) lives before lr-256 and needs the
+  // larger window to localize. The dump is single-pass and bounded —
+  // each iteration emits a fixed-format line, so total overhead is
+  // 256 extra lines (~24 KB stderr) only on the actual crash path.
+  for (intptr_t d = -1024; d <= 16; d += 4) {
     uintptr_t addr = lr + d;
     uint32_t insn = 0;
     if (gk_diag::safe_read_u32(addr, &insn)) {
@@ -2017,6 +2025,17 @@ int boot_link_kernel_cgo() {
   // per-object hook in `link_control::jak1_jak2_begin` (klink.cpp) then
   // catches engine-CGO types as they load.
   klink_a18_install_method_zero_trap();
+
+  // A18 attempt-4 X12-preserve wrappers: now that dead-pool-heap and
+  // process are fully linked (gkernel.gc executed defmethod for all of
+  // get-process/gap-location/find-gap-by-size/find-gap), wrap their
+  // methods with trampolines that save X12 in the prologue, call the
+  // original GOAL fn, restore X12, then RET. Works around the
+  // goalc-arm64 regalloc bug that uses X12 as if it were callee-save
+  // across sub-calls in get-process (see klink.cpp for the full
+  // rationale and the A18-attempt-4-next-blocker.md for the
+  // disassembly-level evidence).
+  klink_a18_install_x12_preserve_wrappers();
 
   return 0;
 }

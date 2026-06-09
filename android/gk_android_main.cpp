@@ -334,6 +334,13 @@ void a11_install_pc_mips2c_hook_once() {
     // the trap diag to bind the real method. See
     // klink_a18_install_method_zero_trap for the full design.
     klink_a18_install_method_zero_trap();
+    // A18 attempt-4 X12-preserve wrappers: now that dead-pool-heap and
+    // process are fully linked, wrap their methods with trampolines that
+    // save X12 in the prologue, call the original GOAL fn, restore X12,
+    // then RET. Works around the goalc-arm64 regalloc bug that uses X12
+    // as if it were callee-save across sub-calls in get-process (see
+    // klink.cpp for full rationale).
+    klink_a18_install_x12_preserve_wrappers();
     // A13 note: NO arm64-style IOP mutex pre-init chained in here.
     // Android's android_runtime_full.cpp::make_iop_thread already
     // constructs a real IOP + spawns the iop_runner OS thread when
@@ -1481,7 +1488,10 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // function pointer into the BLR target register. Extended to lr-256
   // so we can trace back through the call_r64 prologue + arg shuffle to
   // the source of the NULL value (typically the prior call's return).
-  for (intptr_t d = -256; d <= 16; d += 4) {
+  // A18 attempt-4: extend the hex dump from lr-256 to lr-1024 so the
+  // function prologue is visible (the get-process regalloc-clobber site
+  // for X12 lives before lr-256). Matches the linux-arm64 walker change.
+  for (intptr_t d = -1024; d <= 16; d += 4) {
     uintptr_t addr = lr + d;
     uint32_t insn = 0;
     if (gk_diag::safe_read_u32(addr, &insn)) {

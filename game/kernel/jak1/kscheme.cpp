@@ -719,6 +719,74 @@ Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
   return mem.cast<Function>();
 }
 
+// A18 attempt-4 — build a GOAL→GOAL trampoline that wraps `wrapped_fn_goal`
+// and preserves X12 across the wrapped call. Workaround for a goalc-arm64
+// regalloc bug observed in dead-pool-heap.get-process (gkernel.gc:974): the
+// emitter uses X12 to hold `this` across the intermediate find-gap-by-size
+// sub-call, but the emitted save list for that BLR does NOT include X12
+// even though X12 is caller-save in AAPCS. Result: after find-gap-by-size
+// returns, X12 still holds the size argument (= 0x4070 = process.size +
+// stack-size) and the subsequent `(gap-location this insert)` virtual-method
+// dispatch loads slot 22 from `host(0x4070)-4`'s type-tag (= 0 = uninit low
+// memory) → BLR ee_base → SIGILL.
+//
+// The trampoline saves X12 in its prologue, calls wrapped_fn_goal, restores
+// X12, returns. find-gap-by-size's internal X12 clobber is hidden from the
+// caller, so get-process's invariant `X12 == this` survives the call.
+//
+// NOT a stub or a return-0: the wrapped function is invoked honestly with
+// the unchanged arg registers and its real return value is propagated to
+// the caller via X0. The only register-state delta vs the unwrapped call
+// is X12 being preserved. The goalc-arm64 regalloc bug remains (A19 must
+// fix the emit-side root cause); this wrapper makes the gap-location
+// dispatch reachable so boot can continue past 216.
+//
+// Cookbook §11: not a CBZ-around-BLR, not a fault-recovery dodge, not a
+// silent return. Honest call-through with one register preserved.
+Ptr<Function> make_x12_preserve_wrapper_arm64(u32 wrapped_fn_goal) {
+  auto mem = Ptr<u8>(alloc_heap_object(s7.offset + FIX_SYM_GLOBAL_HEAP,
+                                       *(s7 + FIX_SYM_FUNCTION_TYPE), 0x80,
+                                       UNKNOWN_PP));
+  u8* p = mem.c();
+  int off = 0;
+  auto emit = [&](uint32_t enc) {
+    write_u32_le(p + off, enc);
+    off += 4;
+  };
+
+  // Prologue: save FP/LR (16 bytes), then save X12 paired with XZR for
+  // stack alignment (16 bytes via STP X12, XZR — keeps SP 16-aligned).
+  emit(arm64_stp_x_preindex(29, 30, 31, -16));  // STP X29, X30, [SP, #-16]!
+  emit(arm64_stp_x_preindex(12, 31, 31, -16));  // STP X12, XZR, [SP, #-16]!
+  emit(0x910003FDu);                             // MOV X29, SP (= ADD X29, SP, #0)
+
+  // Materialize the wrapped fn's GOAL ptr into X16 (low 32 bits only —
+  // a GOAL pointer is 32-bit and the runtime keeps the high bits zero).
+  emit(arm64_movz_x(16, static_cast<uint16_t>(wrapped_fn_goal & 0xFFFFu), 0));
+  emit(arm64_movk_x(16, static_cast<uint16_t>((wrapped_fn_goal >> 16) & 0xFFFFu), 1));
+
+  // Convert GOAL ptr to host: X16 = X16 + X15 (= ee_base + goal_ptr).
+  // ADD X16, X16, X15  = 0x8B000000 | (15<<16) | (16<<5) | 16 = 0x8B0F0210
+  emit(0x8B0F0210u);
+
+  // Call wrapped fn. Args (X7, X6, X2, X1, X8, X9, X10, X11) and the
+  // fixed-purpose regs (X14 = s7_host, X15 = ee_base) are unchanged from
+  // the caller's BLR; only X12, X16, X29, X30 are touched, and X12 is
+  // saved on the stack.
+  emit(arm64_blr(16));
+
+  // Restore X12 then frame. LDP X12, XZR pops X12 and discards the
+  // alignment slot.
+  emit(arm64_ldp_x_postindex(12, 31, 31, 16));    // LDP X12, XZR, [SP], #16
+  emit(arm64_ldp_x_postindex(29, 30, 31, 16));    // LDP X29, X30, [SP], #16
+
+  emit(arm64_ret_x30());
+
+  __builtin___clear_cache(reinterpret_cast<char*>(p), reinterpret_cast<char*>(p + off));
+
+  return mem.cast<Function>();
+}
+
 Ptr<Function> make_stack_arg_function_from_c_arm64(void* func) {
   // Same shape as make_function_from_c_arm64 but uses _stack_call_arm64
   // semantics: the C function receives a single pointer to an 8-element

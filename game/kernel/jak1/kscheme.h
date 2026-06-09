@@ -73,4 +73,12 @@ s32 InitHeapAndSymbol();
 u64 call_goal_function_by_name(const char* name);
 Ptr<Type> alloc_and_init_type(Ptr<Symbol> sym, u32 method_count);
 Ptr<Symbol> set_fixed_symbol(u32 offset, const char* name, u32 value);
+
+#ifdef __aarch64__
+// A18 attempt-4 — build a GOAL→GOAL trampoline that wraps `wrapped_fn_goal`
+// and preserves X12 across the wrapped call. See the implementation in
+// kscheme.cpp for the full rationale (goalc-arm64 regalloc X12-clobber
+// workaround for dead-pool-heap.get-process's find-gap-by-size sub-call).
+Ptr<Function> make_x12_preserve_wrapper_arm64(u32 wrapped_fn_goal);
+#endif
 }  // namespace jak1

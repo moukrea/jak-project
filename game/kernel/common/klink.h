@@ -90,6 +90,16 @@ void klink_a14_ensure_pc_memmove_bound();
 // so process/dead-pool/dead-pool-heap method tables are populated).
 void klink_a18_install_method_zero_trap();
 
+// A18 attempt-4 — wrap dead-pool-heap.method-{22,23,24} and process.method-0
+// with arm64 trampolines that preserve X12 across the wrapped call. Workaround
+// for goalc-arm64's regalloc bug where get-process holds `this` in X12 across
+// the find-gap-by-size sub-call but the emitted save list for the BLR doesn't
+// include X12. The wrapped functions are invoked honestly with all original
+// args; the only register-state delta is X12 being preserved. NOT a stub.
+// Caller must invoke after kernel CGO finishes loading (so dead-pool-heap and
+// process types are fully defined and their method tables populated).
+void klink_a18_install_x12_preserve_wrappers();
+
 /*!
  * Stores the state of the linker. Used for multi-threaded linking, so it can be suspended.
  */
