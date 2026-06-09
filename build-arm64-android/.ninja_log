@@ -111,3 +111,17 @@
 41783	46624	1779392412031949567	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/mips2c/jak1_functions/tie_methods.cpp.o	cea64360e3442b60
 46624	46661	1779392416872654388	game/android-arm64/libandroid_arm64_kernel.a	4024b1c0f511fe18
 46661	46719	1779392416909655101	game/android-arm64/gk	48448d589ba838a5
+10	13	1779606230727711130	asm_funcs_arm64_gnu.s	33951cfcb985af68
+10	13	1779606230727711130	/home/emeric/code/jak-project/build-arm64-android/asm_funcs_arm64_gnu.s	33951cfcb985af68
+15	31	1779606230731453229	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/__/asm_funcs_arm64_gnu.s.o	2f2cf7837ea7b058
+13	1979	1779606230729537600	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/kernel/common/kscheme.cpp.o	15442048bb236d7c
+13	2188	1779606230728711147	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/__/common/versions/versions.cpp.o	4a1366d93f1317c
+13	2250	1779606230729760179	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/kernel/jak1/klisten.cpp.o	a5e9cea5539aaa22
+13	2351	1779606230729872687	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/kernel/jak1/kprint.cpp.o	23acb5bf491b6d3b
+13	2367	1779606230729446674	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/kernel/common/kprint.cpp.o	f25672e4a017c5fa
+13	2420	1779606230729218318	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/kernel/common/klink.cpp.o	3e58c32dffcc066b
+15	3017	1779606230730711180	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/kernel/jak1/kscheme.cpp.o	993383239eff3202
+13	3477	1779606230729328882	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/kernel/common/kmemcard.cpp.o	6078f2656e84429c
+13	4029	1779606230729648553	game/android-arm64/CMakeFiles/android_arm64_kernel.dir/__/kernel/jak1/klink.cpp.o	eaf13b5174d608ab
+4029	4125	1779606234744776943	game/android-arm64/libandroid_arm64_kernel.a	4024b1c0f511fe18
+4125	4187	1779606234840778515	game/android-arm64/gk	48448d589ba838a5
