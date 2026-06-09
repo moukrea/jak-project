@@ -384,6 +384,18 @@ phases:
   validator: validators/phase-A19-goalc-arm64-codegen-fixes.sh
   max_turns: 600
   max_retries: 6
+- id: A20-goalc-arm64-field-offset
+  name: 'Land the arm64-specific field-offset off-by-4 fix in the goalc compiler layer. A19 attempt-1 proved via 8 encoder unit tests
+    that IGenARM64.cpp imm12-encoding helpers honour offsets verbatim, so Bug 2 is NOT in the emitter. Most likely sites:
+    goalc/compiler/IR.cpp::IR_LoadConstOffset::do_codegen_arm64; goalc/compiler/Val.cpp::MemoryDerefVal::to_reg or
+    get_constant_offset_and_base; goalc/compiler/compilation/Type.cpp''s MemoryOffsetConstantVal construction (lines 47, 143, 707,
+    717, 856, 874, 901 per A19 attempt-1 next-blocker). Path A: add OG_OFFSET_TRACE env-gated diag in do_codegen_arm64/x86, compare
+    m_offset for find-gap-by-size, identify diverging site, one-line fix. Path B: walk MemoryOffsetConstantVal sites for
+    arm64-specific branches. A19''s X12 fix stays in HEAD (no IGenARM64 changes in A20). New arm64 CGO baseline.'
+  prompt: prompts/phase-A20-goalc-arm64-field-offset.md
+  validator: validators/phase-A20-goalc-arm64-field-offset.sh
+  max_turns: 600
+  max_retries: 6
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
