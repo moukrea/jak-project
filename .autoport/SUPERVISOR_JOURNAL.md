@@ -365,6 +365,162 @@ inherit it. The cheat was in the wrapper call paths, not the link.
 
 ---
 
+## [2026-06-09 14:53] Supervisor resume after 2nd session crash — A20 attempt-1 halt
+
+### Trigger
+
+User reopened session with "begin (session crashed)". Previous
+supervisor (the one that authored A19→A20 transition at 14:11)
+crashed sometime in the following 40-min window. Orchestrator still
+alive (PID 1483628), 42 min elapsed on A20 attempt-1, session ~33%,
+147 calls, 14k tok.
+
+### A20 attempt-1 deliverables (commits 4559f2687 + e4d24f891)
+
+Two honest commits during attempt-1:
+
+1. **4559f2687** — OG_OFFSET_TRACE env-gated diag added to
+   `goalc/compiler/IR.cpp` (4 codegen paths: x86/arm64 load/store).
+   Falsifies the A18-attempt-4 off-by-4 hypothesis: across
+   196,128 trace lines per backend (single `make-group "iso"`
+   pass), the diff is **zero lines** after stripping the `arch=`
+   tag. Every `IR_LoadConstOffset` / `IR_StoreConstOffset` site
+   receives a byte-identical `m_offset` on both backends.
+
+2. **e4d24f891** — Correct byte-scan evidence. KERNEL.CGO code
+   segments start at file-alignment mod-4 = 2 (not 0). At that
+   alignment, 15 instances each of `LDR Wt, [X16, #48]` and
+   `LDR Wt, [X16, #52]` are present. Both are *correct* emits for
+   their respective fields — A18-attempt-4's interpretation error
+   was assuming X16 = start-of-allocation, but X16 actually holds
+   `host(user_pointer)` (4 bytes past start). So `[X16 + 48]`
+   reads structural offset 52 = first-gap, which is exactly what
+   `(-> this first-gap)` should emit.
+
+A20-attempt-1-next-blocker.md (276 lines) lays out four hypotheses
+for the real 216-link-finish cause:
+- H1: a second regalloc-clobber surface beyond X12 (e.g. X11 in
+  save list but actual STR encodes wrong register)
+- H2: arm64 `IR_FunctionCall::do_codegen_arm64` corrupting X16
+  across BLR
+- H3: klink-time `LDR-literal imm19 out of range` NOPs (81 warnings
+  in qemu log) silently corrupting critical instructions
+- H4: AAPCS arg-shuffle gap in `kscheme.cpp::call_goal` (C→GOAL
+  boundaries missing the shuffle)
+
+A21 unlock recommendation: **don't** unlock Type.cpp/Val.cpp/IR.cpp
+further (A20 proved no bug there). Instead unlock diagnostic
+surfaces to discriminate between H1-H4:
+- `game/linux-arm64/linux_arm64_main.cpp` (GK-DIAG register-byte
+  dump)
+- `game/kernel/common/klink.cpp` (per-warning LDR-literal origin
+  trace)
+- `goalc/regalloc/Allocator_v2.cpp` (REG_saved_first_order debug
+  print mode)
+- Optionally `game/kernel/jak1/kscheme.cpp` (C→GOAL boundary log)
+
+### Anti-cheat scan — A20 attempt-1: CLEAN
+
+Reality-checked the report's specific claims by reading source +
+running my own byte-scan:
+
+- **OG_OFFSET_TRACE patch IS in HEAD** ✓
+  `goalc/compiler/IR.cpp:1440,1471,1524,1555` — all 4 codegen paths
+  (x86 load, arm64 load, x86 store, arm64 store).
+- **A19 X12 fix preserved** ✓
+  `goalc/emitter/IGenARM64.cpp:1582,1583` — kStpX12X23Push
+  (0xA9BF5FECu) + kLdpX12X23Pop (0xA8C15FECu) constants still
+  defined and referenced in call_r64.
+- **Byte-scan core claim VERIFIED** ✓
+  My independent scan of `out/jak1-arm64/iso/KERNEL.CGO` at
+  align mod-4=2 finds:
+  - 15 instances of `0xb9403200..0xb940321F` (LDR Wt [X16, #48])
+  - 15 instances of `0xb9403600..0xb940361F` (LDR Wt [X16, #52])
+  Other alignments essentially empty (mod-4=0: 0/1, mod-4=1: 0/0,
+  mod-4=3: 1/1). Confirms code is at mod-4=2 and BOTH offsets are
+  emitted. Falsifies "always emit real-4" theory.
+
+### YELLOW flag (not RED)
+
+Claude's report cites specific file offsets `0x18f9a` and `0x19e3e`
+as containing `0xb9403203`. My direct read of those byte addresses
+shows `0x8b0f00b0` (ADD X16, X5, X15) — not the LDR. The aggregate
+counts (15+15) are correct, but the specific file-offset citations
+are fabricated or indexing-error artifacts. Cannot tell which from
+this evidence alone.
+
+The structural argument (counts at different alignments, type-chain
+math, X16-holds-user-pointer reasoning from `[X16, #-4]` type-tag
+LDUR) is sound independent of the wrong offsets, so this doesn't
+overturn the disposition — but it goes in the journal as a watch
+signal. If the same pattern shows up in A21 reports (correct
+high-level argument, wrong specific addresses), that's a sign of
+sloppy verification habits that I should call out in the phase
+prompt.
+
+### Other invariants checked
+
+- 0 edits to goalc/* outside the documented IR.cpp diag patch.
+- 0 edits to game/* outside generated build artifacts.
+- 0 edits to `.autoport/validators/` or `.autoport/lib/`.
+- a18_method_zero_trap unchanged (still `_Exit(13)`).
+- x86 CGOs byte-identical to A2 baseline (per validator check 4).
+
+### Why the orchestrator was burning tokens
+
+Validator check 7 (arm64 CGOs differ from A19 baseline) is
+unsatisfiable inside A20's unlock scope, because A20 proved there's
+no emit change to make. claude completed its honest-exit work (two
+commits + 5 reports) around 14:38. The Stop hook then refused to
+let claude exit and forced continued exploration of locked-but-
+readable files: IR.cpp, IGenARM64.cpp, Register.cpp, Type.cpp,
+symbols.h, Instruction.h. None of this was productive — claude was
+hunting for hypotheses to test in a future phase, not landing any
+fix for A20.
+
+Token cost of letting it continue: ~$0.20-0.40 per minute (rate-
+limit-paused windows free, active windows expensive). Estimated
+$10-30 more if let to run to max_turns or rate-quota exhaustion.
+
+### Intervention executed
+
+1. **SIGINT (×2)** to python orchestrator PID 1483628 at 14:53.
+   Orchestrator caught signal, logged "Received signal — finishing
+   current step then halting", killed its claude subprocess
+   (exit 143), and entered validator run.
+2. Waiting for validator to complete and orchestrator to exit so
+   attempt-1's failure outcome is recorded (retries[A20] +
+   fingerprint).
+3. Next supervisor wakeup in ~120s to verify clean exit, then
+   author A21 (pending user go/no-go on milestones.yaml rewrite).
+
+### state.json (unchanged this iteration)
+
+- current_phase_idx: 58 (still pointing at A20)
+- retries[A20]: not yet recorded (validator hasn't written the
+  failure outcome yet)
+- A20 phase_started_at: 2026-06-09T12:12:12Z
+
+### Cost so far
+
+- A18: ~$132
+- A19: ~$50
+- A20 (attempt-1, halted partway through Stop-hook exploration):
+  ~$30-40 (based on 147 calls × ~$0.20-0.30/call)
+- Running total: ~$215
+
+### Watch list for next iteration
+
+- Verify orchestrator exited cleanly + state.json updated with
+  A20 attempt-1 failure outcome.
+- Confirm no last-minute cheat snuck in during the validator/exit
+  phase (paranoia check).
+- Author A21 per A20-attempt-1-next-blocker.md's recommended
+  unlock scope.
+- Ask user before applying milestones.yaml rewrite.
+
+---
+
 ## [2026-05-20 21:54] Supervisor bootstrap + rollback applied
 
 ### Trigger
