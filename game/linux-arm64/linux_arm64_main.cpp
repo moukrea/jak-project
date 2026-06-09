@@ -1649,6 +1649,66 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     }
   }
 
+  // A26 — UDF #0xBEEF decoder for the GOAL `(break)` macro divide-by-zero
+  // trap. IR_IntegerMath::do_codegen_arm64 prepends a 2-instruction trap
+  // (CBNZ X<arg>, +8 ; UDF #0xBEEF) before every IDIV_32/IMOD_32/UDIV_32/
+  // UMOD_32 emit. On arm64, SDIV/UDIV by zero is defined to return 0 (per
+  // ARM ARM §C6.2.225 / §C6.2.339), not raise an exception — unlike x86
+  // IDIV which raises #DE. The GOAL `(break)` macro (gkernel-h.gc:121)
+  // lowers to `(/ 0 0)`, relying on the runtime to trap. Without our
+  // explicit trap, `(break)` is a silent no-op on arm64 — and any caller
+  // expecting break to never return (e.g. the throw-not-found error path
+  // in gkernel.gc's `throw`) continues with a broken stack, eventually
+  // SIGSEGV'ing far from the actual break site.
+  //
+  // The tag 0xBEEF is distinct from A23's 0x1EE0..0x1EFF (BLR-target-
+  // stack), A24-epilogue's 0x1EF0 (epilogue-X30-stack), and A24-BR's
+  // 0x1EC0..0x1EDF (BR-target-stack) ranges, so this decoder never
+  // aliases the tracer decoders above.
+  //
+  // PC at SIGILL = address of the UDF instruction = one instruction past
+  // the CBNZ check. emit_pc - X15 gives the GOAL offset of the IDIV
+  // (the `(break)` macro's `(/ 0 0)`); cross-reference to the GOAL
+  // function via klink's symbol table. caller_lr names the function
+  // that called into the divide (= the throw-not-found path's caller).
+  if (sig == SIGILL) {
+    uint32_t udf_enc = 0;
+    if (gk_diag::safe_read_u32(pc, &udf_enc) &&
+        (udf_enc & 0xFFFF0000u) == 0u &&
+        (udf_enc & 0xFFFFu) == 0xBEEFu) {
+      uintptr_t x15 = (uintptr_t)uc->uc_mcontext.regs[15];
+      uintptr_t goal_off = (x15 != 0 && pc >= x15) ? (pc - x15) : pc;
+      std::fprintf(stderr,
+                   "GK-DIAG A26-DIAG BREAK-MACRO-TRAP: udf_imm=0x%04x "
+                   "emit_pc=0x%lx goal_off=0x%lx x15=0x%lx "
+                   "caller_lr=0x%lx\n",
+                   (unsigned)(udf_enc & 0xFFFFu),
+                   (unsigned long)pc, (unsigned long)goal_off,
+                   (unsigned long)x15, (unsigned long)lr);
+      // Dump 96 bytes back from emit_pc so the IDIV/UDIV emit shape is
+      // visible: CBNZ X<arg>, +8 at pc-4, then the spill / SDIV / restore
+      // sequence preceding the trap. Useful for identifying which IDIV
+      // emit site fired (the GOAL source line numbers it lowered from
+      // are recorded in the klink debug map).
+      std::fprintf(stderr,
+                   "GK-DIAG A26-DIAG BREAK-MACRO-TRAP window "
+                   "(pc-96..pc+32):\n");
+      for (intptr_t d = -96; d <= 32; d += 4) {
+        uintptr_t a = pc + d;
+        uint32_t w = 0;
+        if (gk_diag::safe_read_u32(a, &w)) {
+          std::fprintf(stderr,
+                       "GK-DIAG A26-DIAG   pc%+ld @ 0x%lx = 0x%08x\n",
+                       (long)d, (unsigned long)a, w);
+        } else {
+          std::fprintf(stderr,
+                       "GK-DIAG A26-DIAG   pc%+ld @ 0x%lx = <unreadable>\n",
+                       (long)d, (unsigned long)a);
+        }
+      }
+    }
+  }
+
   // A12-DIAG: tie the failing BLR to the originating sym slot by walking
   // the call_r64 push sequence backward to the spill, then to the sym-MEM
   // LDR, then to the ADRP+ADD that built the slot address. Runs only on

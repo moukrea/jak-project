@@ -722,6 +722,45 @@ InstructionARM64 fmov_d_d(Register dst, Register src) {
   return InstructionARM64(enc);
 }
 
+// A26 — CBNZ Xt, #imm. Encoding (per ARM ARM §C6.2.62):
+//   sf | 011010 1 | imm19 | Rt
+//   sf=1 (64-bit X register), bit 24 = 1 (CBNZ, opposite of CBZ)
+//   Base = 0xB5000000. imm19 = (offset_bytes / 4), sign-extended into 19
+//   bits, encodes the PC-relative target. The trap path always passes
+//   offset_bytes = 8 (skip the next 4-byte instruction = the UDF).
+//
+// Cross-checked against aarch64-linux-gnu-as:
+//   "cbnz x0,  .+8" → 0xb5000040  (imm19 = 2, Rt = 0)
+//   "cbnz x8,  .+8" → 0xb5000048  (imm19 = 2, Rt = 8)
+//   "cbnz x16, .+8" → 0xb5000050  (imm19 = 2, Rt = 16)
+//   "cbnz x30, .+8" → 0xb500005e  (imm19 = 2, Rt = 30)
+//
+// Note: cbnz_x_placeholder() above encodes imm19 = 0 (branch-to-self,
+// patched later by the jump-link patcher). This helper bakes the imm19
+// at emit time so the trap doesn't need a fixup record.
+InstructionARM64 cbnz_x_imm(Register r, int offset_bytes) {
+  const int32_t imm19 = (offset_bytes >> 2) & 0x7FFFF;
+  uint32_t enc =
+      0xB5000000u | (static_cast<uint32_t>(imm19) << 5) | arm64_reg5(r);
+  return InstructionARM64(enc);
+}
+
+// A26 — UDF #imm16. Encoding (per ARM ARM §C6.2.376):
+//   imm16 in the low 16 bits, top 16 bits all zero. This is the
+//   "Permanently Undefined" instruction; executing it always raises an
+//   undefined-instruction exception (SIGILL on Linux). The IR_IntegerMath
+//   divide-by-zero trap uses tag 0xBEEF, which the SIGILL handler in
+//   linux_arm64_main.cpp decodes as BREAK-MACRO-TRAP. Distinct from the
+//   A23/A24 tracer tag ranges (0x1EC0..0x1EFF), so the handler branches
+//   correctly into the A26 decoder.
+//
+// Cross-checked against aarch64-linux-gnu-as:
+//   "udf #0xBEEF" → 0x0000BEEF
+//   "udf #0x1234" → 0x00001234
+InstructionARM64 udf_imm16(uint16_t imm16) {
+  return InstructionARM64(static_cast<uint32_t>(imm16));
+}
+
 // todo - GPR64 -> XMM64 (zext)
 // todo - XMM -> GPR64
 
