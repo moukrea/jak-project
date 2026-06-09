@@ -4206,3 +4206,81 @@ bind).
 - Does claude honest-exit with `A18-attempt-3-next-blocker.md`
   naming the NULL-self dispatcher?
 - Or does claude pivot to a cheat? (Watching.)
+
+---
+
+## [2026-06-09 23:05] 🎉 A28 BROKE THE 216 CEILING — methodology reset vindicated + device validation underway
+
+### The breakthrough
+
+A28 (first wide-scope sprint under the new lean methodology) advanced qemu
+from the 8-phase **216 → 462 link-finishes (+246, 2.1×)**, past the
+throw-not-found-tag-initialize trap, into the gsound subsystem. Commit
+`af0b7a853`. Independently verified: 462 link-finishes, last = `gsound`,
+qemu exit 134 = SIGABRT on the gsound Overlord RPC assertion
+(`rec->cmd.finished && rec->cmd.started`) — a RUNTIME blocker, not codegen.
+
+### Two fixes, ONE session (the whole point of the reset)
+
+- **FIX 1 (RSP→SP)**: GOAL reg id 4 = x86 RSP; `arm64_reg5()` mapped it to
+  X4 (a normal GPR) instead of the real ARM SP. The catch-frame ctor
+  (gkernel.gc:1483) and throw-dispatch (1583) declare `(sp :reg rsp)`, so
+  catch-frame.sp captured X4 garbage and throw-dispatch's restore wrote to
+  X4 instead of moving real SP. Fix: detect id 4 in mov_gpr64_gpr64 → emit
+  `ADD Xd|SP, Xn|SP, #0` (SP-aware MOV alias, since ORR rejects SP);
+  add/sub fall to extended-register form (UXTX) which honors Rn/Rd=31 as SP.
+- **FIX 2 (x86 call/ret semantics)**: GOAL asm-funcs (catch-frame ctor,
+  throw-dispatch, thread-suspend/resume, deactivate, enter-state) assume
+  x86 `call` pushed RA on stack; `.pop`/`.push`/`.ret` manipulate it. arm64
+  BL/RET use X30 without a stack push. Without compensation, thread-suspend's
+  `.pop` read stack garbage (→ this.pc), throw-dispatch's `.push;.ret`
+  ignored the catch-frame's RA and RETed to X30 (back into throw) — which
+  is exactly why A20-A27 saw chain-empty / throw-not-found. Fix: prepend
+  `STR X30,[SP,#-16]!` at every asm-func entry + change IR_AsmRet to
+  `LDR X30,[SP],#16; RET`. Restores the x86 contract for the whole family.
+
+Both are the SAME bug class (arm64 mis-emulating x86-shaped asm-func
+semantics) that A24-A27 chipped at one-at-a-time. The wide sprint fixed
+both + broke the ceiling in 92 min / 1 attempt.
+
+### Methodology verdict
+
+8 narrow phases (A21-A27, ~$300) advanced the ceiling by 0. One wide
+sprint (A28, methodology reset) advanced it +246. The reset was correct:
+trust claude, wide unlocks, lean validator (x86-boots not byte-identical),
+fix-until-it-boots. Keep running wide sprints.
+
+### Reality check (all PASS)
+
+- A28 in completed, commit af0b7a853 + 0493d4086 (phase-summary) pushed.
+- Independent qemu re-run: 462 link-finishes, last=gsound. CONFIRMED.
+- FIX1 + FIX2 both present in HEAD (IGenARM64.cpp, CodeGenerator.cpp, IR.cpp).
+- x86 desktop smoke still reaches `link finish: logo`. CONFIRMED.
+- Lean validator gates all passed (no forbidden edits, no cheats).
+
+### Device validation (NEW workflow step, running now)
+
+Build system is free (A28 done). Running `d4_run.sh` (ANDROID_SERIAL=eae4df44,
+the Redmi) in the background: builds libgk.so + jak1 APK from the A28 HEAD,
+wipes the `.extracted_v1` sentinel so the A28 arm64 CGOs actually reach the
+device, installs, launches, captures 90s logcat + markers.
+
+**Why this matters now**: qemu's gsound blocker is in the linux-arm64 SOUND
+STUB. The real device has the Android sound path (F2: AAudio/OpenSL). The
+device may get PAST gsound (→ closer to renderer) OR hit a different wall.
+The device boot progress + screencap will determine what A29 targets:
+- If device crashes at gsound too → A29 = fix the Overlord RPC (runtime).
+- If device boots further → A29 targets wherever the device actually stops.
+- The screencap answers the renderer-stub question directly.
+
+### A29 candidate (pending device result)
+
+Next qemu blocker = gsound Overlord RPC assertion (runtime, game/overlord
+or IOP_Kernel). NOT codegen. A29 will be a runtime-fix sprint (same lean
+methodology) OR, if the device boots past it, a renderer/display sprint.
+
+### Cost ledger
+
+A18-A27 ~$430; A28 sprint ~$40 (1 attempt, 92 min); supervisor ~$80.
+Running total ~$550. The wide-sprint approach is cost-efficient: 1 sprint
+did what 8 narrow phases couldn't.
