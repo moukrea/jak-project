@@ -1,6 +1,9 @@
 #include "Allocator_v2.h"
 
 #include <algorithm>
+#include <array>
+#include <cstdio>
+#include <cstdlib>
 #include <optional>
 #include <set>
 #include <unordered_map>
@@ -1225,6 +1228,67 @@ AllocationResult allocate_registers_v2(const AllocationInput& input) {
     function_cross_settings.prefer_saved = true;
     auto func_cross_vars = var_indices_of_function_crossers_large_to_small(input, cache);
     run_assignment_on_some_vars(input, &cache, func_cross_vars, function_cross_settings);
+
+    // A21 H1 diag — OG_REGALLOC_TRACE. After the function-crossing pass
+    // has run, dump every function-crossing variable and the register
+    // it ended up assigned to. This is the canonical way to verify the
+    // invariant documented above REG_saved_first_order: every GPR a
+    // function-crosser lands in MUST appear in IGenARM64::call_r64's
+    // save list (post-A19: {X3, X5, X10, X11, X12, X23}). If the trace
+    // shows a function-crosser assigned to e.g. X16 or X9, that's an
+    // unsaved-reg surface and an H1 cause of the 216-link-finish ceiling.
+    //
+    // Per-line output (one line per function-crossing variable):
+    //   REGALLOC fn=<name> var=<idx> assigned=<reg-name|STACK>
+    //                                crosses_fn=1 range_size=<sz>
+    //
+    // Header / footer lines print the function name once and a count of
+    // crossers whose assigned reg is OUTSIDE the saved set. The
+    // off-saved warning line is the primary signal for H1 — a non-zero
+    // count means at least one var lives in an unsaved reg across a BLR.
+    static const bool s_regalloc_trace =
+        std::getenv("OG_REGALLOC_TRACE") != nullptr;
+    if (s_regalloc_trace) {
+      // Saved-set per the invariant above REG_saved_first_order.gprs:
+      // {RBX, RBP, R10, R11, R12}. emitter::Register has no operator<
+      // (only operator==/!=), so we use a fixed array + linear scan
+      // rather than std::set.
+      const std::array<emitter::Register, 5> saved_set = {
+          emitter::RBX, emitter::RBP, emitter::R10, emitter::R11, emitter::R12};
+      std::fprintf(stderr, "REGALLOC fn=%s crossers=%zu\n",
+                   input.function_name.c_str(), func_cross_vars.size());
+      int off_saved = 0;
+      for (int var_idx : func_cross_vars) {
+        const auto& var = cache.vars.at(var_idx);
+        const char* tag = "";
+        std::string assigned;
+        if (var.assigned_to_reg()) {
+          auto r = var.reg();
+          assigned = r.print();
+          bool in_saved = false;
+          for (const auto& s : saved_set) {
+            if (s == r) { in_saved = true; break; }
+          }
+          if (!in_saved) {
+            tag = "  <OFF-SAVED-SET — H1 candidate>";
+            ++off_saved;
+          }
+        } else if (var.assigned_to_stack()) {
+          assigned = "STACK";
+        } else {
+          assigned = "UNASSIGNED";
+          tag = "  <unassigned — pre-pickup>";
+        }
+        std::fprintf(stderr,
+                     "REGALLOC fn=%s var=%d assigned=%s crosses_fn=1 "
+                     "range=[%d..%d]%s\n",
+                     input.function_name.c_str(), var_idx, assigned.c_str(),
+                     var.first_live(), var.last_live(), tag);
+      }
+      std::fprintf(stderr,
+                   "REGALLOC fn=%s crossers_off_saved=%d (post-step-3)\n",
+                   input.function_name.c_str(), off_saved);
+    }
 
     AssignmentSettings branch_out_settings;
     branch_out_settings.only_move_eliminate_assigns = true;
