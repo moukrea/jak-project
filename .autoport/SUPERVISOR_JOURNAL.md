@@ -2,14 +2,257 @@
 
 Initialized 2026-05-20T19:47:40Z.
 
-## Bucket status (updated 2026-06-09 15:39 after A21 attempt-1 reality-check PASS)
+## Bucket status (updated 2026-06-09 16:00 after A21→A22 transition + orchestrator restart)
 
-A (emitter):       in-progress | A19 X12 fix landed; A20 falsified off-by-4; A21 attempt-1 named **H2 (scratch-corruption-across-BLR producing stack-addr-as-GOAL-ptr)** as PRIMARY with arithmetic-verified evidence; A22 must unlock IGenARM64.cpp + IR.cpp + asm_funcs_arm64.s
+A (emitter):       in-progress | A19 X12 fix landed; A20 falsified off-by-4; A21 H2 verdict (scratch-corruption-across-BLR); **A22 attempt 1/5 RUNNING — narrow IGenARM64+IR.cpp+asm_funcs_arm64.s unlock to find SOURCE of stack-addr in callee-saved regs**
 B (CGO regen):     in-progress | B1 (klink trace) + B2 (bind-order diff) tooling landed
 C (linux-arm64):   done
 D (android-port):  done
 E (UX):            done
 F (gameplay):      blocked on A-bucket completion (216-link-finish ceiling at start-time-of-day)
+
+---
+
+## [2026-06-09 15:50-16:00] A21 commit verified, A22 authored, orchestrator restarted
+
+### A21 attempt-1 final state (verified)
+
+Orchestrator self-halted at 15:35 after A21 attempt-1 PASSED its validator.
+Commit history:
+
+- `0572e1a90` — `[autoport/A21-arm64-codegen-deeper-investigation]
+  Attempt-1: four env-gated diagnostic patches landed; H2 ... identified
+  as primary cause of the 216-link-finish ceiling` — 18 files changed,
+  +519/-86, pushed to origin/master as part of `807ff861c`.
+- Cost: **$12.65** (much less than my $30-80 estimate)
+- Duration: 33 min, 1 attempt
+- Anti-cheat scan: 0 weak, 0 abort, 0 dodge, 0 infra edits
+
+Orchestrator's last log line before exit: "Phase F1-gameplay-geyser-rock
+is BLOCKED. Edit state.json to unblock (remove from 'blocked', clear
+'retries' and 'fingerprints' for this phase)." — meaning the orchestrator
+correctly refused to start F1 (which is blocked by the 216 ceiling).
+
+### A22 design (authored)
+
+Pre-A22 supervisor inspection:
+
+- `_call_goal_asm_arm64` and `_call_goal8_asm_arm64` in `game/kernel/asm_funcs_arm64.s`
+  already save X19-X28 + D8-D15 correctly (verified lines 173-238 STP/LDP
+  pair consistency by hand-walk). A6 already extended these.
+- `IGenARM64.cpp` uses X16 as scratch (kA6OffRegScratchRegId) for sym-mem
+  expansion and call_r64 BLR sequence. Comments at lines 989-993 claim
+  "X16 is dead between IRs" — A22 needs to verify this for the
+  IR_FunctionCall + BLR + post-BLR-X16-use path.
+- A19's X12 fix in call_r64 saves {X3+X5, X10+X11, X12+X23}.
+
+A22 unlocks (narrow):
+- `goalc/emitter/IGenARM64.cpp` / `.h` (full)
+- `goalc/compiler/IR.cpp` (full but x86-byte-identical hard check guards
+  against shared-path drift)
+- `game/kernel/asm_funcs_arm64.s` (trampoline audit/fix)
+- `build-arm64-android/asm_funcs_arm64_gnu.s` (generated mirror)
+- `.autoport/reports/A22-*`, `.autoport/tests/emitter/`
+
+A22 locks retained: x86 emit, Val.cpp, CodeGenerator, Compiler, Type system,
+Allocator, Allocator_v2 (A21 diag), all kernel/common, kscheme jak1 (A21 diag),
+linux_arm64_main (A21 diag), klink (A21 diag), Android, validators/lib.
+
+Three valid exit paths:
+- **Path A (fix landed)**: qemu boot ≥217, A22-fix-summary.md ≥200 lines
+  naming specific emit surface (grep enforces ≥3 of {IR_FunctionCall,
+  IGenARM64, call_r64, _call_goal_asm, X16, kA6OffRegScratchRegId,
+  do_codegen_arm64, asm_funcs_arm64}); arm64 CGOs differ from A21 baseline +
+  A22-baseline file.
+- **Path B (honest next-blocker)**: A22-attempt-N-next-blocker.md ≥200
+  lines naming file outside A22 unlock; CGOs match A21 baseline;
+  qemu boot ≥200 (no regression).
+- **Path C (no-source-located)**: A22-attempt-N-no-source-located.md ≥200
+  lines + exhaustive list of paths investigated + proposed A23 strategy.
+
+All paths require A22-investigation-trace.md ≥150 lines.
+
+Validator (`phase-A22-arm64-codegen-h2-fix.sh`) gates:
+- Lock check vs A21 commit anchor (`807ff861c`)
+- Anti-cheat: 0 weak / 0 abort / 0 dodge / 0 stubs / 0 infra edits
+- A18 `_Exit(13)` trap preserved
+- A19 X12 fix (`kStpX12X23Push|0xA9BF5FEC`) preserved
+- A20 OG_OFFSET_TRACE ≥4 sites preserved
+- A21 4 diags preserved (OG_KLINK_IMM19_TRACE, OG_REG_BYTE_DUMP,
+  OG_REGALLOC_TRACE, OG_CALLGOAL_TRACE)
+- x86 CGOs byte-identical to A2 (HARD)
+- Exit-path-branching CGO drift check
+- qemu boot strict ≥217 on fix path; ≥200 otherwise
+- Desktop x86 smoke reaches `link finish: logo`
+
+max_turns=800 max_retries=5.
+
+Forbidden cheats explicitly enumerated in the prompt:
+1. Widening call_r64 to save all X19..X28 without naming source
+2. Trampoline wrapper masking the bug (X19..X28 already preserved by
+   _call_goal_asm_arm64)
+3. NOP-padding around BLR sites
+4. Removing/NOP-ing SUB/ADD X15 host↔GOAL conversion cycles
+5. Removing OG_*_TRACE diags
+6. Validator/lib edits
+7. "Bug fix" report rehashing H1/H3/H4
+
+### Validator smoke-test result (pre-attempt)
+
+Dry-ran the A22 validator against the current tree (no attempt work
+yet). Output:
+
+```
+== Phase A22 validator (arm64 codegen H2 fix) ==
+  anchor: 807ff861c85375a8b8242d77ecf9fd891fddd4c5
+  ok: all locked files unchanged since A21
+  ok: no dodge in source
+  ok: anti-cheat checks all pass
+  ok: a18 method-zero trap body still _Exit(13)
+  ok: A19 X12 fix preserved in HEAD
+  ok: A20 OG_OFFSET_TRACE diag preserved in HEAD (6 sites)
+  ok: all 4 A21 diags preserved in HEAD
+  ok: x86 CGOs byte-identical to A2 baseline (x86 untouched)
+FAIL: no A22 exit report (need ONE of fix-summary / attempt-N-next-blocker
+       / attempt-N-no-source-located)
+```
+
+All pre-conditions PASS as expected — scaffolding correctly validates
+the existing tree state. Fails only on missing A22 exit report
+(expected, no work done yet).
+
+### state.json / milestones.yaml edits
+
+- `milestones.yaml`: A22 inserted at idx 60 between A21 (idx 59) and
+  F1 (shifted 60→61). Total phases: 63 → 64. F2 / F3 shift 61→62 / 62→63.
+- `state.json`: `current_phase_idx` stays at 60 (now points at A22 after
+  insertion). A22 added to `retries={A22:0}` and
+  `phase_started_at={A22:now}`. F1 retains blocked status.
+
+### Commit
+
+`148772c81 [autoport/supervisor] A21 → A22 transition: author H2 fix
+phase with narrow IGenARM64 / IR.cpp / asm_funcs_arm64.s unlock` — 4
+files, +492/-2.
+
+### Orchestrator restart
+
+`nohup ./launch.sh > .autoport/logs/supervised-run.log 2>&1 &`
+- launch.sh PID 1782053
+- orchestrator.py PID 1782070 (saved to `.autoport/logs/orchestrator.pid`
+  for halt commands)
+- Resuming at phase index 60/64 (A22, correct).
+- Rate check: session=47%, weekly=19% — comfortable for 1-2 A22 attempts.
+- Claude session 1d2c907 picked up A22 attempt 1/5.
+
+### Watch list for next iteration (~25 min)
+
+**HALT IMMEDIATELY on**:
+- Any of the 7 forbidden cheat patterns appearing in attempt-01.jsonl.
+- Lock violation (edit to any locked file).
+- call_r64 save list widening to {X19, X20, X21, X22, X24, X25, X26,
+  X27, X28} without specific source-of-corruption named.
+- New `_arg_call_arm64_safe`-style trampoline wrapper.
+- Edits to .autoport/lib/* or .autoport/validators/*.
+- Any of OG_OFFSET_TRACE / OG_KLINK_IMM19_TRACE / OG_REG_BYTE_DUMP /
+  OG_REGALLOC_TRACE / OG_CALLGOAL_TRACE getting deleted.
+
+**PROGRESS SIGNALS**:
+- Disassembly walk being performed (objdump-like commands, byte-level
+  reading of CGO files).
+- Targeted env-gated diag being added for the specific BLR-staging path.
+- IGenARM64.cpp edits with rationale tied to the H2 evidence chain.
+- Build + qemu_repro run with the link-finish count being reported.
+
+**HONEST-EXIT SIGNALS**:
+- A22-attempt-1-next-blocker.md being written if claude finds the fix
+  requires Val.cpp / Allocator.cpp / Type.cpp (outside unlock).
+- A22-attempt-1-no-source-located.md if claude can't pinpoint within
+  budget.
+
+### Cost ledger update
+
+- A18: ~$132 (4 attempts)
+- A19: ~$50 (X12 fix landed)
+- A20: ~$35 (off-by-4 falsified)
+- A21 attempt-1: **$12.65 (much cheaper than estimated)**
+- Supervisor interventions A18-A22: ~$30
+- Running total: **~$260**
+- A22 estimate per attempt: $80-200 (more open-ended than A21)
+- A22 budget cap: $400 (5 attempts worst case)
+
+---
+
+## [2026-06-09 16:28] A22 attempt-1 mid-investigation check — CLEAN, deep walk
+
+### State
+
+- Orchestrator PID 1782070 alive.
+- A22 attempt-1 30 min elapsed, 58 tool calls, session=54%, weekly=20%.
+- 0 source-file edits in working tree (only SUPERVISOR_JOURNAL.md).
+- All 7 A22 forbidden-cheat patterns: **NOT TRIGGERED.**
+
+### What claude has done (in observed order)
+
+1. Read IR.cpp's `IR_LoadConstOffset` / `IR_StoreConstOffset` codegen.
+2. Read IGenARM64.cpp's `call_r64`, `add_gpr64_gpr64`, X16 staging
+   sections.
+3. Walked A21 qemu reg-byte-dump for crash-time CALLGOAL trace
+   (last 4 entries before SIGILL).
+4. Walked common `kscheme.cpp` + jak1 `kscheme.cpp` `call_goal` /
+   `call_method_of_type` paths.
+5. Walked `linux_arm64_main.cpp` SIGILL handler to verify register
+   dump semantics.
+6. Reading `goalc/emitter/Register.cpp` + grepping IGenARM64.cpp for
+   X24..X28 to verify reservation status.
+
+This is exactly the legitimate investigation arc the A22 prompt asked
+for. No cheating, no scope creep, no churn.
+
+### Concerning patterns: NONE
+
+Specific A22 forbidden-list check (all NOT triggered):
+
+- `call_r64` save list widening to {X19..X22, X24..X28} without source
+  naming: 0 hits (no edits).
+- `_arg_call_arm64_safe` / `_arg_call_arm64_wrapped` style trampoline
+  wrappers: 0 hits.
+- NOP-padding around BLR sites: 0 hits.
+- `SUB Xt, Xt, X15` / `ADD Xt, Xt, X15` cycle removal: 0 hits.
+- `.autoport/lib/*` / `.autoport/validators/*` edits: 0 hits.
+- OG_*_TRACE removal (A20 OG_OFFSET_TRACE + 4 A21 diags): all intact.
+- Edits to A22-locked files (klink.cpp, jak1/kscheme.cpp,
+  linux_arm64_main.cpp, Allocator_v2.cpp): 0 hits.
+
+### Pace assessment
+
+- 30 min + 58 calls + 5% session for investigation only seems slow on
+  surface, but A22 is genuinely investigation-heavy. A21 took 27 min
+  to first reach the writing phase + landed in 33 min total.
+- Session budget remaining: ~46% (plenty for build + qemu_repro +
+  reports + 1-2 fix iterations).
+- If claude is still in pure investigation at 50 min mark, that's a
+  yellow flag (may be stuck). If still investigating at 70 min, halt
+  + ask claude what's blocking.
+
+### Next wakeup
+
+~20 min (16:48) — should catch transition from investigation to
+edit-and-build phase. If claude has started building, the build
+output will tell us whether it found a fix surface or hit a wall.
+
+### Honest scope assessment
+
+Even after A22 lands an H2 fix, we'll only know whether we've crossed
+the 216 ceiling — and the next-CGO crash will likely surface A23, A24,
+... The gap from arm64 (216) to desktop x86 (443 link finishes
+including `link finish: logo`) is 227 link-finishes. Each codegen bug
+fixed historically advances ~1-30 finishes. Realistic: 3-8 more A*
+phases before arm64 reaches logo. Each phase: $50-200. Then the
+Android+display loop may still surface issues. Title screen on device
+remains **weeks of orchestrator time + $500-2000 estimated**.
+
+---
 
 ---
 
