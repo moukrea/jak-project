@@ -492,6 +492,19 @@ phases:
   validator: validators/phase-A27-arm64-catch-frame-chain-tracer.sh
   max_turns: 800
   max_retries: 5
+- id: A28-arm64-codegen-fix-sprint
+  name: 'METHODOLOGY RESET. A21-A27 were narrow one-bug-per-phase diagnostic phases — too slow. A28 is a wide-scope fix sprint: unlock all
+    of goalc (except IGenX86_64 oracle) + game/kernel + game/linux-arm64 + game/system + common/type_system + android, keep only x86-emitter
+    and goal_src and infra locked. Lean validator: x86 desktop still boots to link finish logo (replaces byte-identity — x86 CGO bytes MAY
+    change as long as it still boots), qemu no regression below 216, no weak/abort/dodge/stubs/fake-link, one report >=80 lines. Start with
+    A27-confirmed H5.b (catch-frame constructor chain-push mis-emit at gkernel.gc:1514-1515 — disassemble new catch-frame method, check STR
+    offsets vs walker loads at pp+0x58 / this+0x04). FIX AS MANY arm64 codegen bugs as found in one session (they are all asm-func .mov /
+    field-store class-mismatch bugs, 2-5 likely remain). Iterate fix→build→qemu until boot advances past 216 or a GOAL-source change is
+    needed. max_turns 2500, budget ~$200/session. Goal: stop fragmenting, let claude rip.'
+  prompt: prompts/phase-A28-arm64-codegen-fix-sprint.md
+  validator: validators/phase-A28-arm64-codegen-fix-sprint.sh
+  max_turns: 2500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
