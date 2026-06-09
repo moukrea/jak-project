@@ -2,14 +2,206 @@
 
 Initialized 2026-05-20T19:47:40Z.
 
-## Bucket status (updated 2026-06-09 17:36 after A23→A24 transition + orchestrator restart)
+## Bucket status (updated 2026-06-09 18:50 after A24→A25 transition + orchestrator restart) — **🎯 ROOT CAUSE LOCATED**
 
-A (emitter):       in-progress | A19 X12 fix landed; A20 falsified off-by-4; A21 H2 verdict; A22 Path C; A23 Path C **FALSIFIED H2-via-call_r64 with zero firings across 61204 sites** → mechanism is RET-to-corrupted-LR via epilogue LDP X29,X30; **A24 attempt 1/5 RUNNING — epilogue X30 stack-range tracer (OG_X30_TRACE_EMIT) + CodeGenerator.cpp unlock**
-B (CGO regen):     in-progress | B1 (klink trace) + B2 (bind-order diff) tooling landed
+A (emitter):       in-progress | A19 X12 fix; A20 falsified off-by-4; A21 H2; A22 Path C; A23 H2-via-call_r64 FALSIFIED; **A24 FOUND ROOT CAUSE: IR_RegSet::do_codegen_arm64 emits MOV X(dst_id), X(src_id) for XMM regs → MOV X30, X16 corrupts LR in throw-dispatch**; **A25 attempt 1/5 RUNNING — FIRST FIX PHASE since A19**
+B (CGO regen):     in-progress | B1 + B2 tooling landed
 C (linux-arm64):   done
 D (android-port):  done
 E (UX):            done
-F (gameplay):      blocked on A-bucket completion (216-link-finish ceiling at start-time-of-day)
+F (gameplay):      blocked on A-bucket completion (was 216-ceiling; A25 should advance)
+
+---
+
+## [2026-06-09 18:48-18:50] 🎯 A24 LOCATED ROOT CAUSE — A25 fix phase authored
+
+### A24 attempt-1 result (verified)
+
+A24 attempt-1 ran 1h 11m, 1 attempt, orchestrator commit `cec06bc98` pushed.
+**Path C bug-located-named-source with arithmetic-verified evidence.**
+
+**Tracer fired** at:
+- `emit_pc = 0x21231d713c`
+- `x30 = 0x212afffe84` (host stack)
+- `goal_off = 0x07fffe84`
+- `x15 = 0x2123000000` (ee_base)
+- Math: `0x07fffe84 + 0x2123000000 = 0x212afffe84` ✓ (the canonical A21-A23 crash signature)
+
+### THE ROOT CAUSE
+
+`goalc/compiler/IR.cpp:520-527` — `IR_RegSet::do_codegen_arm64`:
+
+```cpp
+void IR_RegSet::do_codegen_arm64(emitter::ObjectGenerator* gen,
+                                 const AllocationResult& allocs,
+                                 emitter::IR_Record irec) {
+  auto dst = get_reg(m_dest, allocs, irec);
+  auto src = get_reg(m_src, allocs, irec);
+  gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst, src), irec);
+}
+```
+
+Unconditionally emits a GPR MOV. The shared `Register` enum has XMM regs at IDs 16-31, which `arm64_reg5()` maps 1:1 to GPR IDs X16-X31. So `(.mov xmm14 src)` becomes `MOV X30, X(src)` — **corrupting the link register**.
+
+In `throw-dispatch` (gkernel.gc:1531), the 8-iteration XMM-restore loop has X16 = host form of stack-allocated `this`. Iteration 6 (xmm14) emits `MOV X30, X16` → X30 = stack addr → raw RET → SIGILL at 0x212afffe84.
+
+A24's disasm window (from the report):
+
+```
+pc-84 @ 0x21231d70e4 = 0xAA1003FE  MOV X30, X16  ← *** SETS LR ***
+pc+0  @ 0x21231d7138 = 0x00001EF0  UDF #0x1EF0   ← SIGILL (A24 tracer)
+pc+4  @ 0x21231d713c = 0xD65F03C0  RET           ← would have crashed pre-tracer
+```
+
+### Why x86 boots fine
+
+`regset_common` (the x86 dispatch path in IR.cpp) checks register class and emits `MOVQ XMM, XMM` for XMM operands. The arm64 path lost this dispatch in the autoport.
+
+### Why the bug doesn't fire pre-216
+
+`throw-dispatch` only runs on `(throw)`. The boot sequence linearly links CGOs and doesn't `throw` until link 217 (some autoload or top-level path triggers a throw post-`link finish: time-of-day`).
+
+### A24's tracer infrastructure quality
+
+Claude added FIVE separate tracer emit surfaces (not just the one I asked for):
+
+1. `do_goal_function_arm64` epilogue check (CodeGenerator.cpp) — what I designed.
+2. `do_asm_function_arm64` appended RET (CodeGenerator.cpp) — claude's addition; THIS is what fired.
+3. asm trampoline RETs (asm_funcs_arm64.s, 6 sites).
+4. inline trampoline RETs (jak1/kscheme.cpp, 3 sites).
+5. `IGen::ARM64::ret()` + `jmp_r64` BR Xn helper in IGenARM64.cpp.
+
+Plus matching SIGILL decoders in linux_arm64_main.cpp for tags 0x1EC0..0x1EDF (BR target), 0x1EE0..0x1EFF (BLR target, A23), 0x1EF0 (epilogue X30, A24).
+
+This is engineering quality work. Claude spotted the tag collision (0x1EF0 overlaps A23's 0x1EE0..0x1EFF range for X16-target BLR) and noted it but proceeded since neither actually fires on the same emit at runtime.
+
+### Reality check (all PASS)
+
+- A24 in completed, retries=1, fingerprint absent (clean single-attempt success).
+- A24 commit `cec06bc98` pushed to origin.
+- arm64 CGOs match A24-baseline-arm64-cgo-hashes.txt (sha256 hand-verified byte-for-byte).
+- x86 CGOs byte-identical to A2 baseline.
+- A18 trap `_Exit(13)` preserved (klink.cpp:644).
+- A19 X12 fix `kStpX12X23Push` preserved (3 hits in IGenARM64.cpp).
+- A20 OG_OFFSET_TRACE 6 sites in IR.cpp.
+- A21 4 diags all preserved.
+- A23 tracer 10 hits IGenARM64.cpp + 6 hits linux_arm64_main.cpp.
+- A24 tracer 14 hits CodeGenerator.cpp + 6 hits linux_arm64_main.cpp.
+- Desktop x86 smoke passes.
+
+### A25 design — THE FIX
+
+**Goal**: Add FPR/GPR dispatch to `IR_RegSet::do_codegen_arm64`, add FMOV helpers in IGenARM64.cpp, audit other IRs.
+
+**Fix shape**:
+```cpp
+if (dst.is_xmm() && src.is_xmm())
+    fmov_d_d(dst, src);
+else if (dst.is_xmm() && !src.is_xmm())
+    fmov_d_x(dst, src);
+else if (!dst.is_xmm() && src.is_xmm())
+    fmov_x_d(dst, src);
+else
+    mov_gpr64_gpr64(dst, src);
+```
+
+**FMOV helpers** (encodings, cross-checked against `aarch64-linux-gnu-as`):
+- `fmov_d_d`: `0x1E604000 | (Rn<<5) | Rd` (FPR ↔ FPR)
+- `fmov_d_x`: `0x9E670000 | (Rn<<5) | Rd` (GPR → FPR)
+- `fmov_x_d`: `0x9E660000 | (Rn<<5) | Rd` (FPR → GPR)
+
+**Audit targets** (other IRs that may share the bug): `IR_Return`, `IR_GetSymbolValueAsm`, `IR_LoadSymbolPointer`, `IR_GetSymbolColor`.
+
+**Other affected GOAL functions** (same `.mov xmm? temp-float` pattern): `cpu-thread-resume`, `thread-suspend`, `new catch-frame`.
+
+**Three exit paths**:
+- A) Fix landed: qemu boot ≥217 + A25-fix-summary.md naming IR_RegSet fix + FMOV encodings + new ceiling.
+- B) Honest next-blocker: file outside A25 unlock list needed.
+- C) Partial fix: CGOs differ from A24 but qemu still ≤216 (surprising; would indicate ANOTHER bug).
+
+**Validator gates**:
+- A18+A19+A20+A21+A23+A24 invariants preserved (grep-enforced).
+- x86 CGOs byte-identical to A2 (HARD).
+- arm64 CGOs MUST differ from A24 baseline if fix path.
+- qemu boot count ≥217 (STRICT) on fix path; ≥200 (no regression) otherwise.
+- A25-baseline matches actual sha256sum.
+
+### Validator smoke-test (pre-attempt)
+
+```
+== Phase A25 validator (IR_RegSet FPR/GPR dispatch fix) ==
+  anchor: cec06bc980917760195b9c2af63ab2a9d98c1c72
+  ok: all locked files unchanged since A24
+  ok: no dodge
+  ok: anti-cheat clean
+  ok: A18 _Exit(13) preserved
+  ok: A19 X12 fix preserved
+  ok: A20 OG_OFFSET_TRACE preserved (6 sites)
+  ok: A21 4 diags preserved
+  ok: A23 tracer preserved (emit: 10, dec: 6)
+  ok: A24 tracer preserved (emit: 14, dec: 6)
+  ok: x86 CGOs match A2 baseline
+FAIL: no A25 exit report (expected pre-attempt)
+```
+
+### state.json / milestones.yaml edits
+
+- `milestones.yaml`: A25 inserted at idx 63 between A24 (62) and F1 (shifted 63→64). Total phases: 66→67.
+- `state.json`: `current_phase_idx=63` (orchestrator advanced post-A24-completion; A25 insertion makes 63 = A25). A25.retries=0, phase_started_at=now.
+
+### Commit
+
+`cdfc6510c [autoport/supervisor] A24 → A25 transition: FIRST FIX PHASE since A19` — 4 files, +514/-2.
+
+### Orchestrator restart
+
+PID 2141454 (orchestrator.py).
+- Resuming at phase index 63/67.
+- Rate check: session=27%, weekly=27%.
+- Claude session cd17f58 picked up A25 attempt 1/5.
+
+### Watch list for next iteration (~30 min)
+
+**HALT IMMEDIATELY on**:
+- Stub FMOV (same encoding regardless of operands).
+- x86 emit changes via shared IR.cpp (would break x86 byte-identity check).
+- Wholesale IR_RegSet rewrite (>>10 lines).
+- Removing A23/A24 tracer infrastructure.
+- Validator/lib edits.
+- A25-baseline file with hashes that don't match actual sha256sum.
+
+**PROGRESS SIGNALS**:
+- FMOV helper additions in IGenARM64.cpp (`fmov_d_d`, `fmov_d_x`, `fmov_x_d`).
+- IR_RegSet::do_codegen_arm64 dispatch on `is_xmm()`.
+- aarch64-linux-gnu-as encoding cross-check (recommended).
+- Build + CGO regen + qemu_repro cycle.
+- **qemu boot count >216** — the KEY signal.
+
+**HONEST-EXIT SIGNALS**:
+- A25-fix-summary.md with the qemu_repro output pasted showing the new boot count.
+- Disasm window from the post-fix throw-dispatch showing FMOV emit instead of MOV X30.
+
+### Cost ledger update
+
+- A18-A23: ~$280
+- A24 attempt-1: estimated $30-50 (1h 11m, very investigation-heavy)
+- A25 estimate: $50-150 (concrete fix, smaller scope)
+- Supervisor interventions: ~$50
+- Running total estimate: **~$350-400**
+- Budget cap on this transition: $300 for A25
+
+### Strategic note — THE MOMENT OF TRUTH
+
+This is the FIRST fix phase since A19. The diagnostic chain (A21 → A22 → A23 → A24) was 4 phases for 1 root cause, totaling ~$80. If A25 lands cleanly, qemu should advance significantly past 216 because throw-dispatch was blocking the entire throw path.
+
+**Possible outcomes**:
+- Best case: qemu reaches `link finish: logo` (+227 advance) → arm64 boot complete → D bucket can verify renderer on device.
+- Realistic case: qemu advances 30-100 links → A26's bug surfaces → another diagnostic phase.
+- Pessimistic: qemu advances 5-20 → another codegen bug in a related path → more A* phases.
+
+Either way, A25 will tell us A LOT about the remaining bug density. The "weeks of work + $500-2000" estimate I gave the user may need to be revised upward or downward depending on what A25 reveals.
+
+---
 
 ---
 

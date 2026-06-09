@@ -707,6 +707,21 @@ InstructionARM64 mov_xmm32_xmm32(Register dst, Register src) {
   return fmov_s_reg(dst, src);
 }
 
+// A25 — FMOV Dd, Dn (FPSIMD-to-FPSIMD 64-bit move).
+//   0 0011110 011 00000 010000 Rn Rd → 0x1E604000
+// Cross-checked against aarch64-linux-gnu-as: "fmov d0, d1" = 0x1e604020.
+// This complements:
+//   FMOV Sd, Sn (= fmov_s_reg / mov_xmm32_xmm32) — 32-bit FPR-to-FPR
+//   FMOV Dd, Xn (= movq_xmm64_gpr64) — GPR-to-FPR (64-bit)
+//   FMOV Xd, Dn (= movq_gpr64_xmm64) — FPR-to-GPR (64-bit)
+// IR_RegSet's FLOAT-class moves use the 32-bit fmov_s_reg path (the GOAL
+// FLOAT class is single-precision); fmov_d_d is provided for completeness
+// and for any consumer needing a full 64-bit FPR move.
+InstructionARM64 fmov_d_d(Register dst, Register src) {
+  uint32_t enc = 0x1E604000u | (arm64_reg5(src) << 5) | arm64_reg5(dst);
+  return InstructionARM64(enc);
+}
+
 // todo - GPR64 -> XMM64 (zext)
 // todo - XMM -> GPR64
 
