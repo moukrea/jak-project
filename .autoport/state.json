@@ -56,7 +56,8 @@
     "A20-goalc-arm64-field-offset": 1,
     "A21-arm64-codegen-deeper-investigation": 1,
     "A22-arm64-codegen-h2-fix": 1,
-    "A23-arm64-blr-target-tracer": 1
+    "A23-arm64-blr-target-tracer": 1,
+    "A24-arm64-epilogue-x30-tracer": 0
   },
   "fingerprints": {
     "00-harness": [
@@ -210,7 +211,8 @@
     "A20-goalc-arm64-field-offset": 1781007132.1420162,
     "A21-arm64-codegen-deeper-investigation": 1781010605.4192474,
     "A22-arm64-codegen-h2-fix": 1781013485.2675374,
-    "A23-arm64-blr-target-tracer": 1781016930.4675388
+    "A23-arm64-blr-target-tracer": 1781016930.4675388,
+    "A24-arm64-epilogue-x30-tracer": 1781019395.3414915
   },
   "last_update": "2026-06-09T15:34:57.082483+00:00",
   "rate_interrupts": {
