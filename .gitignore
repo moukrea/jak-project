@@ -112,3 +112,6 @@ android/local.properties
 android/app/src/jak1/assets/iso_data/
 android/app/src/jak2/assets/iso_data/
 android/app/src/jak3/assets/iso_data/
+
+# /goal prompt files for the ARM64 differential tooling effort (local-only)
+goal-prompt/

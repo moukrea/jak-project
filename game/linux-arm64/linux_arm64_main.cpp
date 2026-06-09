@@ -1592,6 +1592,96 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                    (long)d, (unsigned long)addr);
     }
   }
+
+  // A21 H1/H2 diag — OG_REG_BYTE_DUMP. The post-A19 crash signature is
+  // `x29 = x30 = x24..x28 = 0x212afffe84` (a stack address held by many
+  // registers at SIGILL). This pattern is the fingerprint of a sequence
+  // of LDP loads from a corrupted save area: e.g.
+  //   LDP X25,X26,[X29,#N]      ; both regs <- *(X29+N)
+  //   LDP X27,X28,[X29,#N+16]   ; both regs <- *(X29+N+16)
+  // If the LDP base register (typically X29 = FP) holds garbage going
+  // into the epilogue, all the LDP loads pull from the wrong address
+  // and the destination regs all receive whatever bytes are at that
+  // address. So the bytes AT the stack address that's been broadcast
+  // across the regs tell us exactly which save area is corrupted and
+  // what data was sitting there. Env-gated by OG_REG_BYTE_DUMP — the
+  // dump is 32 bytes per register (8 LDP/STP slots) and only fires on
+  // sig=4/SIGILL.
+  //
+  // Output line shape:
+  //   GK-DIAG REG-BYTE-DUMP X<n>=0x<host>:
+  //     +0x00=0x<16hex> +0x08=0x<16hex> +0x10=0x<16hex> +0x18=0x<16hex>
+  //   GK-DIAG REG-BYTE-DUMP X<n>=0x<host> back-dump (-0x20..-0x08):
+  //     -0x20=0x<16hex> -0x18=0x<16hex> -0x10=0x<16hex> -0x08=0x<16hex>
+  //
+  // The back-dump catches the case where the corrupted LDP base is
+  // *one slot off* — common when an STP/LDP pair index gets off by one
+  // 16-byte slot in the epilogue. Combined with the forward dump it
+  // covers a 64-byte window centred on each register value.
+  static const bool s_reg_byte_dump =
+      std::getenv("OG_REG_BYTE_DUMP") != nullptr;
+  if (s_reg_byte_dump && sig == SIGILL) {
+    std::fprintf(stderr,
+                 "GK-DIAG REG-BYTE-DUMP enabled — dumping ±32 bytes at each "
+                 "GPR value (sig=4 SIGILL only)\n");
+    for (int i = 0; i < 31; ++i) {
+      uintptr_t v = static_cast<uintptr_t>(uc->uc_mcontext.regs[i]);
+      // Skip zero and obvious non-pointer-shaped values to keep the dump
+      // small. Pointer-shaped values on this target are in the
+      // 0x21'0000'0000..0x21'ffff'ffff range (heap, stack, EE main mem)
+      // or in the 0x0000'5500'0000'0000+ range (host code/data); skip
+      // anything outside both bands.
+      bool plausible = (v >= 0x2100000000UL && v <= 0x21FFFFFFFFUL) ||
+                       (v >= 0x500000000000UL && v <= 0x7FFFFFFFFFFFUL) ||
+                       (v >= 0x000000400000UL && v <= 0x0000FFFFFFFFUL);
+      if (!plausible) continue;
+      uint32_t lo0 = 0, hi0 = 0, lo1 = 0, hi1 = 0,
+               lo2 = 0, hi2 = 0, lo3 = 0, hi3 = 0;
+      bool r0 = gk_diag::safe_read_u32(v + 0,  &lo0) &&
+                gk_diag::safe_read_u32(v + 4,  &hi0);
+      bool r1 = gk_diag::safe_read_u32(v + 8,  &lo1) &&
+                gk_diag::safe_read_u32(v + 12, &hi1);
+      bool r2 = gk_diag::safe_read_u32(v + 16, &lo2) &&
+                gk_diag::safe_read_u32(v + 20, &hi2);
+      bool r3 = gk_diag::safe_read_u32(v + 24, &lo3) &&
+                gk_diag::safe_read_u32(v + 28, &hi3);
+      std::fprintf(stderr,
+                   "GK-DIAG REG-BYTE-DUMP X%d=0x%lx:\n"
+                   "  +0x00=%s%016lx  +0x08=%s%016lx  "
+                   "+0x10=%s%016lx  +0x18=%s%016lx\n",
+                   i, (unsigned long)v,
+                   r0 ? "0x" : "??",
+                   r0 ? ((uint64_t)lo0 | ((uint64_t)hi0 << 32)) : 0UL,
+                   r1 ? "0x" : "??",
+                   r1 ? ((uint64_t)lo1 | ((uint64_t)hi1 << 32)) : 0UL,
+                   r2 ? "0x" : "??",
+                   r2 ? ((uint64_t)lo2 | ((uint64_t)hi2 << 32)) : 0UL,
+                   r3 ? "0x" : "??",
+                   r3 ? ((uint64_t)lo3 | ((uint64_t)hi3 << 32)) : 0UL);
+      uint32_t bl0 = 0, bh0 = 0, bl1 = 0, bh1 = 0,
+               bl2 = 0, bh2 = 0, bl3 = 0, bh3 = 0;
+      bool b0 = gk_diag::safe_read_u32(v - 32, &bl0) &&
+                gk_diag::safe_read_u32(v - 28, &bh0);
+      bool b1 = gk_diag::safe_read_u32(v - 24, &bl1) &&
+                gk_diag::safe_read_u32(v - 20, &bh1);
+      bool b2 = gk_diag::safe_read_u32(v - 16, &bl2) &&
+                gk_diag::safe_read_u32(v - 12, &bh2);
+      bool b3 = gk_diag::safe_read_u32(v - 8,  &bl3) &&
+                gk_diag::safe_read_u32(v - 4,  &bh3);
+      std::fprintf(stderr,
+                   "  -0x20=%s%016lx  -0x18=%s%016lx  "
+                   "-0x10=%s%016lx  -0x08=%s%016lx\n",
+                   b0 ? "0x" : "??",
+                   b0 ? ((uint64_t)bl0 | ((uint64_t)bh0 << 32)) : 0UL,
+                   b1 ? "0x" : "??",
+                   b1 ? ((uint64_t)bl1 | ((uint64_t)bh1 << 32)) : 0UL,
+                   b2 ? "0x" : "??",
+                   b2 ? ((uint64_t)bl2 | ((uint64_t)bh2 << 32)) : 0UL,
+                   b3 ? "0x" : "??",
+                   b3 ? ((uint64_t)bl3 | ((uint64_t)bh3 << 32)) : 0UL);
+    }
+  }
+
   std::fflush(stderr);
   struct sigaction sa {};
   sa.sa_handler = SIG_DFL;
