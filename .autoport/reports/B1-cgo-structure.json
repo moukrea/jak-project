@@ -60,11 +60,11 @@
     },
     "function_count": 197,
     "max_function_size": 6341,
-    "mean_function_size": 395,
+    "mean_function_size": 396,
     "min_function_size": 20,
     "object_count": 8,
-    "ret_density_per_kb": 1.4948,
-    "total_bytes": 159616,
+    "ret_density_per_kb": 1.4943,
+    "total_bytes": 159664,
     "x86_ret_count": 6,
     "x86_ret_pct": 0.0038
   }

@@ -2016,6 +2016,21 @@ void IR_AsmRet::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                  const AllocationResult& allocs,
                                  emitter::IR_Record irec) {
   (void)allocs;
+  // A28 — see do_asm_function_arm64 in CodeGenerator.cpp for the rationale.
+  // Pop the top-of-stack into X30, then RET. Reproduces x86 `ret` (which
+  // pops [rsp] and jumps) on arm64 (where plain RET uses X30 from LR).
+  // The asm-func prologue saved the caller's X30 at [SP-16] so by default
+  // (no .push in body) this restores X30 = caller's RA and RETs there;
+  // when the body uses `.push X` (e.g. throw-dispatch installing the
+  // catch-frame's RA), this pops X and RETs to X.
+  // LDR X30, [SP], #16 (post-index, 64-bit load):
+  //   size=11 | 111 | V=0 | 00 | opc=01 (LDR) | 0 | imm9=16 | 01 | Rn=31 | Rt=30
+  //   = 0xF8400400 | ((imm9 & 0x1FF) << 12) | (Rn << 5) | Rt
+  //   imm9 = 16 = 0x010
+  //   = 0xF8400400 | (16 << 12) | (31 << 5) | 30
+  //   = 0xF84107FE
+  constexpr uint32_t kLdrX30PopSP = 0xF84107FEu;
+  gen->add_instr(emitter::InstructionARM64(kLdrX30PopSP), irec);
   gen->add_instr(emitter::IGen::ARM64::ret(), irec);
 }
 
