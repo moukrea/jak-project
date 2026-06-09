@@ -452,6 +452,20 @@ phases:
   validator: validators/phase-A24-arm64-epilogue-x30-tracer.sh
   max_turns: 1200
   max_retries: 5
+- id: A25-arm64-ir-regset-fpr-dispatch
+  name: 'FIRST TRUE FIX PHASE SINCE A19. A24 attempt-1 located the root cause of the 216-link-finish ceiling: IR_RegSet::do_codegen_arm64
+    (goalc/compiler/IR.cpp:520-527) unconditionally emits mov_gpr64_gpr64 for every IR_RegSet, regardless of register class. The shared
+    Register enum has XMM regs at IDs 16-31 which arm64_reg5() maps 1:1 to GPR IDs X16-X31, so (.mov xmm14 src) emits MOV X30, X(src) —
+    CORRUPTING THE LINK REGISTER. In throw-dispatch (gkernel.gc:1531), the 8-iteration XMM-restore loop has X16 = host form of
+    stack-allocated this, so X30 = stack addr → raw RET → SIGILL at 0x212afffe84. A24 tracer fired at emit_pc=0x21231d713c with
+    arithmetic-verified evidence. A25 fix is concrete: add FPR/GPR dispatch to IR_RegSet::do_codegen_arm64 (mirror x86 regset_common
+    pattern), add FMOV helpers (FMOV Dd Dn / FMOV Dn Xd / FMOV Xd Dn) in IGenARM64.cpp, audit other IRs that share the same
+    mov_gpr64_gpr64 bug. Three exits: A) fix landed (qemu>=217 STRICT); B) next-blocker if scope expands beyond IR.cpp+IGenARM64; C)
+    partial-fix if CGOs differ but qemu still ceilings.'
+  prompt: prompts/phase-A25-arm64-ir-regset-fpr-dispatch.md
+  validator: validators/phase-A25-arm64-ir-regset-fpr-dispatch.sh
+  max_turns: 800
+  max_retries: 5
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
