@@ -478,6 +478,20 @@ phases:
   validator: validators/phase-A26-arm64-xmm-symmetric-and-break-trap.sh
   max_turns: 1000
   max_retries: 5
+- id: A27-arm64-catch-frame-chain-tracer
+  name: 'Diagnostic phase to discriminate between A26-identified hypotheses for the throw-not-found-tag-initialize chain mismatch
+    (separate bug from XMM corruption A24-A26 fixed). A26 BREAK-MACRO-TRAP fires 35 times in the boot, once at the throw function tail
+    (goal_off=0x1d68f8). Five candidate hypotheses: H1 catch-frame constructor mis-emits chain link; H2 chain-head pointer write
+    mis-emits; H3 throw walker chain-pointer load mis-emits; H4 regalloc/live-range bug in catch-frame construction (DEFERRED — would
+    need Allocator.cpp unlock); H5 missing catch-frame setup before throw. A27 extends the A26 0xBEEF SIGILL decoder with a catch-frame
+    chain dumper: walks chain head from s7 symbol, prints each frame tag, identifies whether ''initialize is present. Empty chain → H5
+    confirmed; non-empty without ''initialize → H1/H2 (frame lost); ''initialize present but throw still fails → H3 (walker bug).
+    Disasm-driven constant derivation. Four exit paths: A) fix lands; B) next-blocker; C) bug-located-named-source (most likely);
+    D) no-source-located.'
+  prompt: prompts/phase-A27-arm64-catch-frame-chain-tracer.md
+  validator: validators/phase-A27-arm64-catch-frame-chain-tracer.sh
+  max_turns: 800
+  max_retries: 5
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
