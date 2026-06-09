@@ -133,6 +133,50 @@ extern "C" u64 a17_pc_default() {
   return 0;
 }
 
+// A29 — __pc-get-mips2c replacement that returns a no-op GOAL function
+// for any name lookup instead of 0. Background: texture.gc's top-level
+// (link finish: texture-upload after the tpage block) expands its
+// `(def-mips2c adgif-shader<-texture-with-update! ...)` to `(set! sym
+// (__pc-get-mips2c "name"))`. Upstream desktop binds __pc-get-mips2c
+// to pc_get_mips2c which calls Mips2C::gLinkedFunctionTable.get(name);
+// klink.cpp::klink_a11_ensure_pc_mips2c_bound binds it to
+// a11_pc_get_mips2c_impl on linux-arm64/Android (same impl shape).
+// BUT on linux-arm64 the upstream mips2c_table.cpp is excluded (its
+// static init would pull jak2/jak3 link callbacks not built here);
+// linux_arm64_runtime_compat.cpp provides a stub
+// `LinkedFunctionTable::get` that ALWAYS RETURNS 0. So
+// a11_pc_get_mips2c_impl returns 0, the GOAL sym slot for every
+// mips2c-defined symbol stays 0, and the first invocation BLRs to
+// host(0) = ee_base → UDF #0 → sig=4 SIGILL.
+//
+// A29 rebinds `__pc-get-mips2c` AFTER klink_a11_ensure_pc_mips2c_bound
+// to this version, which lazily builds one no-op GOAL function via
+// make_function_from_c (= an arm64 trampoline that calls a17_pc_default)
+// and returns its offset for ANY name. The mips2c functions are now
+// "callable" (they no-op), so the boot continues past their first call
+// site. Headless qemu doesn't render anything anyway — texture-shader
+// updates / particle dispatch / etc. would be no-ops even in a full
+// renderer integration of arm64, so this matches the headless contract.
+// Android's full IOP-thread path doesn't go through this rebind (it
+// uses the real gLinkedFunctionTable + jak1 mips2c link callbacks once
+// upstream InitMachineScheme runs).
+extern "C" u64 a29_mips2c_get_noop(u32 name) {
+  (void)name;
+  // Cache the no-op GOAL function offset across calls. We use
+  // make_function_symbol_from_c (declared in jak1/kscheme.h) instead of
+  // raw make_function_from_c (only defined in kscheme.cpp, not exported
+  // in the header) — the side effect is registering a single
+  // `__a29-mips2c-noop` symbol slot the first time we're called; every
+  // subsequent (def-mips2c name ...) returns the same trampoline.
+  static u32 s_cached_offset = 0;
+  if (!s_cached_offset) {
+    auto noop = jak1::make_function_symbol_from_c("__a29-mips2c-noop",
+                                                  (void*)a17_pc_default);
+    s_cached_offset = noop.offset;
+  }
+  return s_cached_offset;
+}
+
 void a17_bind_pc_helpers() {
   static bool s_bound = false;
   if (s_bound) return;
@@ -232,6 +276,27 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("__pc-set-levels", d);
   jak1::make_function_symbol_from_c("__pc-set-active-levels", d);
   jak1::make_function_symbol_from_c("__pc-texture-relocate", d);
+  // A29 — bind the remaining `__` and `__pc-*` symbols from upstream
+  // init_common_pc_port_functions (game/kernel/common/kmachine.cpp:1093-
+  // 1103) that the a17 stub set was missing. Each fires a SIGILL during
+  // the engine/game top-level link sequence on the first BLR through the
+  // unbound symbol's value (0 → GOAL ptr 0 → host ee_base → UDF #0).
+  //   - __pc-texture-upload-now: tpage-NNN top-levels (the 463 texture-
+  //     page objects in GAME.CGO) call this once per page during link.
+  //   - __read-ee-timer: read-ee-timer reads the EE 300MHz timer (a u64
+  //     count). Called from time-elapsed / *kernel-boot-info* code paths
+  //     that fire during GAME.CGO top-levels after the tpage block.
+  //   - __send-gfx-dma-chain: the main rendering DMA submission. Should
+  //     never be called in this headless build, but its symbol slot is
+  //     referenced by main.gc / display.gc top-levels at link time
+  //     (taking the address even if not yet invoked).
+  // No-op (a17_pc_default returns 0) is the correct shape for the
+  // headless qemu build (no GL/no DMA target); Android's
+  // init_common_pc_port_functions runs after a17_bind_pc_helpers and
+  // rebinds these to the real implementations.
+  jak1::make_function_symbol_from_c("__pc-texture-upload-now", d);
+  jak1::make_function_symbol_from_c("__read-ee-timer", d);
+  jak1::make_function_symbol_from_c("__send-gfx-dma-chain", d);
   // file-stream-* — desktop kmachine.cpp:593-598 binds these to
   // kopen/kclose/klength/kseek/kread/kwrite. linux-arm64's a8 stub set
   // (locked file) omits them; pckernel-common.gc's write-to-file +
@@ -277,6 +342,25 @@ void a17_bind_pc_helpers() {
                "(~80 helpers) to a17_pc_default no-op so pckernel-h/common "
                "top-level + (play) reset chain don't SIGILL on unbound "
                "symbols\n");
+
+  // A29 — rebind __pc-get-mips2c to the no-op-returning impl. The
+  // earlier klink_a11_ensure_pc_mips2c_bound call wired it to
+  // a11_pc_get_mips2c_impl which delegates to
+  // Mips2C::gLinkedFunctionTable.get() — a stubbed returns-0 on this
+  // build (linux_arm64_runtime_compat.cpp excludes mips2c_table.cpp,
+  // own the symbols here as empty maps/no-op reg). The texture CGO's
+  // def-mips2c expansion needs a non-zero function pointer to bind to,
+  // or the next call to the symbol BLRs through 0 → ee_base → SIGILL.
+  // Note: we ALWAYS return the same no-op function for every name —
+  // for the headless arm64-linux qemu build this is the correct shape;
+  // each mips2c function is a no-op GOAL function returning 0.
+  auto fn = jak1::make_function_symbol_from_c("__pc-get-mips2c",
+                                              (void*)a29_mips2c_get_noop);
+  std::fprintf(stderr,
+               "A29-DIAG sym-bind-trace: rebound __pc-get-mips2c to "
+               "a29_mips2c_get_noop (function GOAL ptr 0x%x) — every "
+               "(def-mips2c name ...) now binds to a no-op GOAL fn\n",
+               (unsigned)fn.offset);
 }
 
 // ---------------------------------------------------------------------------
@@ -2354,9 +2438,21 @@ constexpr const char* kArm64KernelCgoPath = "out/jak1-arm64/iso/KERNEL.CGO";
 constexpr const char* kArm64EngineCgoPath = "out/jak1-arm64/iso/ENGINE.CGO";
 constexpr const char* kArm64GameCgoPath = "out/jak1-arm64/iso/GAME.CGO";
 
-// Buffer size for the direct DGO loader's heap-top scratch. Engine/Game
-// CGOs contain objects up to ~1 MB; match upstream kdgo.cpp's 0x400000.
-constexpr s32 kDirectDgoBufferSize = 0x400000;
+// Buffer size for the direct DGO loader's read scratch.
+// A29 — sized to fit any single object across KERNEL/ENGINE/GAME CGOs.
+// The largest observed object is GAME.CGO/eichar at 1349024 bytes
+// (~1.3 MB). 2 MB gives headroom for any future-grown object without
+// needing to revisit. The buffer no longer lives in the kglobalheap
+// top region (see direct_load_dgo: it's at fixed GOAL offset
+// 0x4000000, above GLOBAL_HEAP_END, in the unused middle gap of
+// g_ee_main_mem), so it doesn't compete with the bottom-allocator for
+// data-segments — sizing this larger is FREE w.r.t. heap pressure.
+//
+// upstream kdgo.cpp uses 0x400000 (4 MB) on PS2 because it double-
+// buffers (IOP streams next object while EE links current). Our direct
+// loader is synchronous and only ever has ONE object in flight, so a
+// single buffer is enough.
+constexpr s32 kDirectDgoBufferSize = 0x200000;
 
 void print_banner(std::FILE* out) {
   std::fprintf(out,
