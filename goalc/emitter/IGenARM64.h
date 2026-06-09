@@ -56,6 +56,16 @@ InstructionARM64 movq_xmm64_gpr64(Register dst, Register src);
  */
 InstructionARM64 mov_xmm32_xmm32(Register dst, Register src);
 
+/*!
+ * A25 — Move 64-bits between two FPSIMD D-form registers (FMOV Dd, Dn).
+ * Provided for completeness alongside movq_gpr64_xmm64 (FMOV Xd, Dn) and
+ * movq_xmm64_gpr64 (FMOV Dd, Xn). The GOAL FLOAT class is single-precision
+ * so IR_RegSet's FLOAT-FLOAT path uses the 32-bit fmov_s_reg
+ * (mov_xmm32_xmm32) instead; this helper is callable by future codegen
+ * that needs a full 64-bit FPR move.
+ */
+InstructionARM64 fmov_d_d(Register dst, Register src);
+
 // todo - GPR64 -> XMM64 (zext)
 // todo - XMM -> GPR64
 
