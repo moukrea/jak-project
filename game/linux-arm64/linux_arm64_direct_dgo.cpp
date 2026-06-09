@@ -74,23 +74,37 @@ int direct_load_dgo(const char* dgo_path,
   lg::info("[Direct DGO] Got DGO file header for {} with {} objects",
            file_hdr.name, file_hdr.object_count);
 
-  // Snapshot the heap top so we can free our buffer at the end. This
-  // mirrors `oldHeapTop = heap->top` in kdgo.cpp.
-  auto old_heap_top = heap->top;
-
-  // Single DGO read buffer at heap top. Upstream uses two alternating
-  // buffers because the IOP streams the next object while the EE
-  // links the current one. With synchronous file reads we only ever
-  // need one. The buffer is named `dgo-buffer-direct` to distinguish
-  // it from upstream's `dgo-buffer-2` in any heap dump.
-  auto buffer = kmalloc(heap, buffer_size, KMALLOC_TOP | KMALLOC_ALIGN_64,
-                        "dgo-buffer-direct");
-  if (!buffer.offset) {
-    lg::error("[Direct DGO] failed to allocate {} bytes from heap top",
-              buffer_size);
-    std::fclose(fp);
-    return -3;
-  }
+  // A29 — use a fixed buffer ABOVE the global heap end instead of
+  // kmalloc(KMALLOC_TOP). Background: upstream kdgo.cpp double-buffers
+  // 4 MB at heap top because the IOP streams DGOs from the DVD while the
+  // EE links the current object — there's no choice but to live inside
+  // the GOAL heap. Our direct loader is synchronous (FILE*-based, no
+  // IOP), so we have flexibility about where the read buffer lives. The
+  // problem with KMALLOC_TOP: the dgo-buffer competes with data-segment
+  // allocations from the bottom of the same heap. By GAME.CGO's eichar
+  // object (~1.3 MB data-segment, deep into the load), the heap is at
+  // ~62 MB bottom + buffer at top, leaving zero free space → kmalloc
+  // for data-segment fails. We CAN'T just bump the buffer because that
+  // pushes data-segments below the top buffer's floor; we CAN'T shrink
+  // it below the largest object size (~1.4 MB across all CGOs).
+  //
+  // Linux-arm64's g_ee_main_mem is 128 MB (EE_MAIN_MEM_SIZE). The
+  // global heap occupies 0x13fd20..0x3eb82e0 (~62.5 MB with BIG_MEMORY).
+  // The debug heap (kdebugheap) is currently unused on this build
+  // (`kdebugheap.offset = 0` in boot_kernel_init, line 2448). That
+  // leaves the region from GLOBAL_HEAP_END (0x3eb82e0) up to
+  // EE_MAIN_MEM_SIZE (0x8000000) totally free — ~66 MB of headroom.
+  // We place the dgo-buffer there at a fixed offset, well above the
+  // global heap, completely outside its allocator's space.
+  //
+  // The buffer is reused across direct_load_dgo calls (KERNEL.CGO →
+  // ENGINE.CGO → GAME.CGO are sequential; no two are in flight at
+  // once). It's allocated once (the GOAL Ptr<u8> is a plain offset;
+  // we just use the address directly).
+  constexpr u32 kDirectDgoBufferGoalOffset = 0x4000000;  // 64 MB
+  Ptr<u8> buffer{kDirectDgoBufferGoalOffset};
+  // We don't snapshot heap->top because we no longer touch it.
+  (void)heap;  // heap kept for the link engine's kmalloc/heap-current.
 
   // method_set_symbol->value++ wrapping the entire link, matching the
   // upstream pattern in kscheme.cpp:1755 where the kernel-CGO load is
@@ -179,8 +193,9 @@ int direct_load_dgo(const char* dgo_path,
 
   (*EnableMethodSet)--;
 
-  // Restore heap top — frees the `dgo-buffer-direct` allocation.
-  heap->top = old_heap_top;
+  // A29 — buffer is outside the global heap (see allocation above), so
+  // there's nothing to restore. The previous KMALLOC_TOP version had
+  // `heap->top = old_heap_top;` here to free the dgo-buffer.
 
   std::fclose(fp);
   return result;

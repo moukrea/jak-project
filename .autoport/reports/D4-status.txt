@@ -1,1 +1,1 @@
-partial: App started but renderer never entered (likely stuck before InitMachine returned).
+fail: MainActivity never reached onCreate (app didn't start).

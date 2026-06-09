@@ -1,5 +1,7 @@
 #include "IOP_Kernel.h"
 
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "common/global_profiler/GlobalProfiler.h"
@@ -463,6 +465,23 @@ void IOP_Kernel::sif_rpc(s32 rpcChannel,
                          void* recvBuff,
                          s32 recvSize) {
   ASSERT(async);
+
+  // A29 — linux-arm64 RPC drain. Without a separate IOP OS thread, any
+  // RPC queued by a previous sif_rpc stays in the (cmd.started=false,
+  // cmd.finished=false) state until something calls dispatch(). gsound's
+  // top-level sound-bank-loads are async-and-forget — they queue an RPC
+  // and do NOT call sync. With gsound bundled in both ENGINE.CGO and
+  // GAME.CGO, the second load re-runs the top-level; its check-irx-version
+  // calls sif_rpc and the assertion below would fire because the previous
+  // load's last sound-bank-load never drained. Drain inline before
+  // touching sif_mtx — the rpc-drain cothread itself locks sif_mtx, so
+  // dispatch() must run BEFORE the EE side takes the lock to avoid
+  // deadlock. On x86 + Android the IOP runs on its own OS thread, so
+  // run_on_ee_thread stays false (default) and this is a no-op there.
+  if (run_on_ee_thread) {
+    (void)dispatch();
+  }
+
   sif_mtx.lock();
   // step 1 - find entry
   SifRecord* rec = nullptr;
@@ -475,6 +494,30 @@ void IOP_Kernel::sif_rpc(s32 rpcChannel,
     printf("Failed to find handler for sif channel 0x%x\n", rpcChannel);
   }
   ASSERT(rec);
+
+  // A29-DIAG: dump state before the assertion (env-gated so it only
+  // fires during this debug session and adds no cost in normal builds).
+  static int s_a29_sif_rpc_call_count = 0;
+  s_a29_sif_rpc_call_count++;
+  if (std::getenv("A29_SIF_RPC_TRACE")) {
+    std::fprintf(stderr,
+                 "A29-DIAG sif_rpc call#%d ch=0x%x fno=%u rec=%p "
+                 "prev_cmd.started=%d prev_cmd.finished=%d "
+                 "sendSize=%d recvBuff=%p recvSize=%d "
+                 "thread_to_wake=%u sif_records.size=%zu\n",
+                 s_a29_sif_rpc_call_count,
+                 (unsigned)rpcChannel,
+                 (unsigned)fno,
+                 (void*)rec,
+                 (int)rec->cmd.started,
+                 (int)rec->cmd.finished,
+                 (int)sendSize,
+                 (void*)recvBuff,
+                 (int)recvSize,
+                 (unsigned)rec->thread_to_wake,
+                 sif_records.size());
+    std::fflush(stderr);
+  }
 
   // step 2 - check entry is safe to give command to
   ASSERT(rec->cmd.finished && rec->cmd.started);
@@ -518,6 +561,19 @@ void IOP_Kernel::rpc_loop(iop::sceSifQueueData* qd) {
       }
     }
     sif_mtx.unlock();
+
+    // A29-DIAG: trace each rpc_loop iteration to see whether the IOP
+    // cothread is actually being driven between EE-side sif_rpc calls.
+    static int s_a29_rpc_loop_iter = 0;
+    s_a29_rpc_loop_iter++;
+    if (std::getenv("A29_SIF_RPC_TRACE")) {
+      std::fprintf(stderr,
+                   "A29-DIAG rpc_loop iter#%d qd=%p got_cmd=%d "
+                   "cmd.started=%d cmd.finished=%d func=%p\n",
+                   s_a29_rpc_loop_iter, (void*)qd, (int)got_cmd,
+                   (int)cmd.started, (int)cmd.finished, (void*)func);
+      std::fflush(stderr);
+    }
 
     // handle command
     if (got_cmd) {
