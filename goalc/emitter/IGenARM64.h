@@ -498,6 +498,23 @@ InstructionARM64 blr_reg(Register reg);
 InstructionARM64 cbz_x_placeholder(Register r);
 InstructionARM64 cbnz_x_placeholder(Register r);
 
+// A26 — Compare-and-branch-non-zero with explicit byte offset
+// (CBNZ Xt, #imm). Used by IR_IntegerMath's arm64 IDIV/UDIV divide-by-zero
+// trap to skip the immediately-following UDF when the divisor is non-zero.
+// `offset_bytes` must be a multiple of 4; the trap path always passes 8
+// (skip the next 4-byte UDF instruction). Range fits in the signed 19-bit
+// imm19 field after dividing by 4 (±1 MB), more than enough for the +8
+// jump-over-trap pattern.
+InstructionARM64 cbnz_x_imm(Register r, int offset_bytes);
+
+// A26 — Permanently Undefined instruction with a 16-bit tag
+// (UDF #imm16). Encoded as `imm16 & 0xFFFF` in the low 16 bits with the
+// top 16 bits zero. Used by the IR_IntegerMath divide-by-zero trap with
+// tag 0xBEEF, decoded by linux_arm64_main.cpp's SIGILL handler as the
+// BREAK-MACRO-TRAP signature. Distinct from A23/A24's 0x1EC0..0x1EFF
+// tracer-tag ranges.
+InstructionARM64 udf_imm16(uint16_t imm16);
+
 // AArch64 condition codes used with b_cond_placeholder.
 enum ArmCond : int {
   ARM_COND_EQ = 0x0,

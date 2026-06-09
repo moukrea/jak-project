@@ -167,7 +167,7 @@ void load_constant(u64 value,
   }
 }
 
-// A25 — arm64 register-class dispatch for IR_RegSet / IR_RegSetAsm.
+// A25/A26 — arm64 register-class dispatch for IR_RegSet / IR_RegSetAsm.
 //
 // The arm64 emit path historically called IGen::ARM64::mov_gpr64_gpr64
 // unconditionally for any register-to-register copy. That helper emits
@@ -181,41 +181,86 @@ void load_constant(u64 value,
 // of `this` when this is stack-allocated) and crashing the next raw RET
 // with PC = stack-range address. See A24-attempt-1-bug-located-named-source.
 //
-// Scope (minimal): the only cases this helper rewrites away from the prior
-// mov_gpr64_gpr64 emit are FPSIMD-to-FPSIMD cases. All other class
-// combinations preserve the old GPR-MOV emit so the CGO size is
-// byte-identical for non-FPSIMD moves (and the x86 oracle's regset_common
-// is not touched, so x86 CGOs stay byte-identical to the A2 baseline —
-// validator gate 4).
+// A25 shipped a narrow X30-only dispatch (the minimum-blast-radius fix that
+// eliminates the A24-traced LR corruption — verified by A25's tracer rerun
+// firing 0 times). A25's investigation also enumerated FOUR remaining
+// blockers that gate any further boot advance past 216 link-finishes:
 //
-// IMPORTANT — both FLOAT-FLOAT and VECTOR_FLOAT/INT_128-pair cases emit
-// the SAME 128-bit `MOV Vd.16B, Vn.16B` (ORR Vd.16B, Vn.16B, Vn.16B).
-// Why not `FMOV Sd, Sn` for the FLOAT-FLOAT case (which is what x86's
-// regset_common uses via mov_xmm32_xmm32 / MOVSS)?
-//   * On x86, `MOVSS xmm, xmm` PRESERVES bits 32..127 of the destination
-//     XMM register (per Intel SDM Vol. 2).
-//   * On arm64, `FMOV Sd, Sn` ZEROS bits 32..127 of Vd (per ARM ARM).
-// A25 attempt-1 used FMOV Sd, Sn for FLOAT-FLOAT and saw a fresh
-// regression at link 64 — gcommon-to-texture code (callers we did not
-// originally inventory) relies on bits 32..127 surviving a FLOAT-class
-// move, matching the x86 oracle. The 128-bit ORR satisfies both:
+//   1. cpu-thread-suspend SAVE side `(.mov :color #f temp xmm8..15)` —
+//      cross-bank FPR-to-GPR, still emits the buggy `MOV X<temp>, X<xmm_id>`
+//      which reads garbage from an FPR slot's GPR alias.
+//   2. cpu-thread-resume / throw-dispatch RESTORE side same-bank
+//      `(.mov :color #f xmm8..15 temp-float)` — FPR-to-FPR, A25 fixed only
+//      X30 (= xmm14), leaving X24..X29 and X31 (= xmm8..13, xmm15) on the
+//      buggy MOV X<xmm_id>, X<temp_id> emit that writes garbage to GPR slots.
+//   3. new-catch-frame SAVE side — same shape as (1).
+//   4. (Deferred) downstream gcommon FLOAT-FLOAT IR_RegSet callsites that
+//      A25 attempts 1.1/1.2/1.3 broke when the dispatch was widened to
+//      ALL FPR-FPR moves. Those callers live in gcommon's type-init / math
+//      paths and use V regs in the [16..23] (XMM0..XMM7, caller-saved /
+//      gcommon scratch) range. A26 explicitly does NOT touch those.
+//
+// A26 fix: widen A25's X30-only predicate to cover the XMM8..XMM15 slot
+// (= AArch64 X24..X31) SYMMETRICALLY — both SAVE (FPR src in the slot,
+// GPR dst) and RESTORE (FPR dst in the slot, either FPR or GPR src). The
+// gcommon FLOAT-FLOAT scratch range (XMM0..XMM7 = AArch64 X16..X23) is
+// LEFT ON THE OLD MOV X<id>, X<id> EMIT — that's the range A25 attempts
+// 1.1/1.2/1.3 proved is load-bearing in gcommon's regalloc-coalesced
+// float moves.
+//
+// Why symmetric (both save AND restore)?
+//
+// A25 attempt 1.4 widened ONLY the restore side (dst in [24..31]) and
+// reached 216 link-finishes (no count regression) BUT triggered a fresh
+// failure mode: `ERROR: throw could not find tag initialize` followed by
+// SIGSEGV in the post-throw break-macro unwind. The diagnosis (A25
+// attempt-1-partial-fix.md, §"Why the wider dispatches regress") was:
+// the new restore emits actual V-reg copies from memory, but the save
+// side STILL writes garbage to memory (cross-bank MOV X<temp>, X<xmm_id>
+// reads X16..X31 which were never written by goalc as GPRs). So the
+// suspend→memory→resume round-trip loads garbage into V24..V31, and any
+// downstream code that reads those V regs (the catch-chain walker, the
+// .jr in cpu-thread-resume, etc.) acts on garbage. The chain mismatch
+// then misses the 'initialize tag and falls into the break path.
+//
+// The symmetric A26 fix — widen BOTH the save and the restore side for
+// XMM8..XMM15 — makes the round-trip correct: actual float bits go to
+// memory on suspend, actual float bits come back on resume, V24..V31
+// hold the right values, and downstream code (cpu-thread-resume's
+// chain walk, throw-dispatch's catch matching) gets correct input.
+//
+// IMPORTANT — same-bank FPR-to-FPR cases emit the 128-bit `MOV Vd.16B,
+// Vn.16B` (= ORR Vd.16B, Vn.16B, Vn.16B). The FLOAT class is single-
+// precision on the GOAL side and x86's MOVSS PRESERVES bits 32..127 of
+// the destination XMM register (per Intel SDM Vol. 2). On arm64, FMOV
+// Sd, Sn ZEROES those bits (per ARM ARM). A25 attempt 1.2 used FMOV S
+// for the FLOAT case and saw a fresh regression at link 64 — gcommon
+// callers relied on the high bits surviving. The 128-bit ORR satisfies
+// both:
 //   * for an actual 32-bit float value loaded by LDR S/W (high bits
-//     zeroed), the high bits are still zero after the move — semantically
+//     zeroed), the high bits stay zero after the move — semantically
 //     equivalent to a 32-bit copy.
 //   * for a value whose high bits carry meaningful data (e.g., a wider
-//     load via LDR Q earlier in the function), the high bits round-trip
-//     intact — matching x86 MOVSS semantics on registers that are not
-//     freshly-zeroed.
+//     load via LDR Q earlier in the function), the high bits round-
+//     trip intact — matching x86 MOVSS semantics on registers that
+//     are not freshly-zeroed.
 // The 128-bit move costs the same single-instruction emit (4 bytes),
-// so there is no length/displacement shift relative to the FMOV S
+// so there's no length/displacement shift relative to the FMOV S
 // variant.
 //
-// Cross-bank moves (FLOAT↔GPR_64, xmm128↔GPR_64, xmm128↔FLOAT) are not
-// rewritten here because they don't fire on the throw-dispatch / catch-
-// frame / cpu-thread codepath that this phase targets, and rewriting
-// them to multi-instruction sequences could shift downstream relative
-// offsets. A future phase can extend the dispatch once those callsites
-// are inventoried.
+// Cross-bank moves widened to FMOV (GPR↔FPSIMD 64-bit) use:
+//   * `movq_gpr64_xmm64` (= FMOV Xd, Dn) — read FPR slot into GPR.
+//     Used by the SAVE side: src is XMM-class in slot, dst is GPR.
+//   * `movq_xmm64_gpr64` (= FMOV Dd, Xn) — write GPR into FPR slot.
+//     Used by the RESTORE side: src is GPR, dst is XMM-class in slot.
+// Both are 4-byte single-instruction emits, so no length shift vs the
+// OLD mov_gpr64_gpr64.
+//
+// Other class combinations (GPR-GPR, FPR-FPR outside the [24..31] slot,
+// cross-bank with neither side in the slot) preserve the OLD mov_gpr64_gpr64
+// emit byte-for-byte. The x86 oracle's regset_common (in this same TU)
+// is not touched, so x86 CGOs stay byte-identical to the A2 baseline —
+// validator gate 4.
 void emit_arm64_reg_to_reg_mov(emitter::ObjectGenerator* gen,
                                emitter::IR_Record irec,
                                emitter::Register dst,
@@ -228,81 +273,59 @@ void emit_arm64_reg_to_reg_mov(emitter::ObjectGenerator* gen,
   const bool dst_fpr = (dst_class == RegClass::FLOAT ||
                         dst_class == RegClass::VECTOR_FLOAT ||
                         dst_class == RegClass::INT_128);
-
-  // A25 fix: ONLY rewrite the emit when the destination's GOAL Register
-  // id maps to AArch64 X30 (LR). That is the EXACT register whose
-  // corruption A24's tracer demonstrated as the root cause of the
-  // 216-link-finish ceiling — `(.mov xmm14 temp-float)` emitting
-  // `MOV X30, X<src>` in throw-dispatch's restore loop. Of the eight
-  // iterations in that loop, only the iteration writing to xmm14 (GOAL
-  // id 30, AArch64 X30) caused the observable LR-overwrite-then-raw-RET
-  // crash. All other dst ids preserve the prior mov_gpr64_gpr64 emit
-  // byte-for-byte, so the only CGO bytes that differ from A24 baseline
-  // are at the FP/LR-corrupting MOV X30 sites.
-  //
-  // Why ONLY X30 (and not X16..X29, X31 or the full FPR-FPR class)?
-  //
-  //   * A25 attempt-1 (any-FPR-FPR dispatch using mov_vf_vf for all
-  //     ids 16..31) regressed catastrophically at link 64 — the A18
-  //     type-method-zero trap fired during gcommon-through-texture
-  //     linking. Some FLOAT-class IR_RegSet calls in those CGOs rely
-  //     on the OLD "no-op on V regs, only touches X<id>" behaviour of
-  //     the GPR-MOV emit. The OLD broken codegen NEVER actually copied
-  //     any V register; widening the rewrite exposed latent bugs in
-  //     downstream code that depended on prior V values being
-  //     preserved across a `(set! a b)` involving FLOAT-class regs.
-  //
-  //   * A25 attempt-2 (X24..X31-only dispatch — the eight XMM8..XMM15
-  //     callee-saved slot) reached the original 216 ceiling but the
-  //     cpu-thread-resume / thread-resume / catch-frame restore
-  //     surfaces all start writing actual values into V24..V31 — and
-  //     since the SAVE side (`.mov :color #f temp xmm8..15` in
-  //     cpu-thread-suspend / new-catch-frame) is STILL the buggy MOV
-  //     X<temp>, X<xmm_id> that reads garbage from a never-touched
-  //     GPR, the new V-reg restores now load that garbage into V regs
-  //     that downstream code DOES use. End result: throw walks a
-  //     different catch chain than under A24, misses the 'initialize
-  //     tag, falls into the error+break path and crashes there.
-  //     Net: same 216 link-finish count, different post-216 failure
-  //     mode, no real boot advance.
-  //
-  //   * X30-only is the MINIMAL change that breaks the A24-traced LR
-  //     corruption mechanism without touching the V-reg state. All
-  //     other XMM-restore iterations stay byte-identical to A24
-  //     (they still emit MOV X24..X29/X31, X<src> — no-op on V regs).
-  //     So the rest of the runtime (cpu-thread-resume's a4/a5 setup,
-  //     the .jr, catch-chain walking, etc.) behaves identically to
-  //     A24 — including reaching the SAME 216 ceiling.
-  //
-  // A24's tracer firing was UDF #0x1EF0 at emit_pc=0x21231d713c with
-  // x30=0x212afffe84 — i.e. the FIRST raw-RET execution post-link-216
-  // had its X30 = stack-range host address. With this fix, X30 is no
-  // longer written by `(.mov xmm14 temp-float)`; the V30 lane gets
-  // copied via the 128-bit ORR alias, leaving X30 untouched. The
-  // function epilogue's LDP X29, X30, [SP], #16 then restores X30
-  // from its saved-on-prologue value (= the caller's correct return
-  // address), and the raw RET (or .ret asm) reaches the right
-  // destination.
-  //
-  // Future phases can address the SAVE-side bug (FPR-to-GPR
-  // cross-bank moves in cpu-thread-suspend / new-catch-frame
-  // unconditionally going through MOV X<gpr>, X<xmm>) and then
-  // safely widen the RESTORE side dispatch, because once saves write
-  // actual float values to memory, restores can read them back as
-  // real floats without breaking the catch-chain walk.
   const int dst_aarch64_id = static_cast<int>(dst.id()) & 0x1f;
-  const bool dst_is_x30 = (dst_aarch64_id == 30);
-  if (src_fpr && dst_fpr && dst_is_x30) {
-    // FPSIMD-to-FPSIMD where dst maps to X30 (= XMM14 / LR): emit
-    // 128-bit `MOV V30.16B, V<src>.16B` (ORR V30.16B, V<src>.16B,
-    // V<src>.16B). This avoids the LR corruption that A24's tracer
-    // pinned at emit_pc=0x21231d713c.
+  const int src_aarch64_id = static_cast<int>(src.id()) & 0x1f;
+
+  // A26 — XMM8..XMM15 slot is GOAL register ids 24..31. The save/restore
+  // surfaces (cpu-thread-suspend / new-catch-frame / cpu-thread-resume /
+  // throw-dispatch) all key on this slot for the FPR callee-saved
+  // round-trip. The gcommon FLOAT-FLOAT scratch range is XMM0..XMM7
+  // (= ids 16..23, AArch64 X16..X23), explicitly EXCLUDED from the
+  // widening to preserve the regression-free A25 behaviour for those
+  // callsites.
+  const bool dst_in_xmm_save_slot = (dst_aarch64_id >= 24 && dst_aarch64_id <= 31);
+  const bool src_in_xmm_save_slot = (src_aarch64_id >= 24 && src_aarch64_id <= 31);
+
+  if (src_fpr && dst_fpr && dst_in_xmm_save_slot) {
+    // RESTORE same-bank: FPR src → FPR dst in XMM8..XMM15 slot. Emit
+    // 128-bit `MOV V<dst>.16B, V<src>.16B` (ORR Vd.16B, Vn.16B, Vn.16B)
+    // so all 128 bits of V<dst> are copied — matching x86 MOVSS
+    // preservation semantics on the caller-loaded high bits. This
+    // extends A25's X30-only mov_vf_vf to the full [24..31] range.
     gen->add_instr(emitter::IGen::ARM64::mov_vf_vf(dst, src), irec);
+  } else if (src_fpr && !dst_fpr && src_in_xmm_save_slot) {
+    // SAVE cross-bank: FPR src in XMM8..XMM15 slot → GPR dst. Emit
+    // `FMOV X<dst>, D<src>` (= movq_gpr64_xmm64). Before A26 this hit
+    // `MOV X<dst>, X<xmm_id>` which read X<xmm_id> as a GPR alias of
+    // V<xmm_id> — but goalc never wrote any of X16..X31 as GPRs in the
+    // function body, so X24..X31 held caller-saved garbage. The save
+    // therefore wrote garbage to the suspend/catch frame's memory, and
+    // restore brought that garbage back into V24..V31. Replacing with
+    // a real FMOV cross-bank copies the actual 64-bit FPR contents.
+    gen->add_instr(emitter::IGen::ARM64::movq_gpr64_xmm64(dst, src), irec);
+  } else if (!src_fpr && dst_fpr && dst_in_xmm_save_slot) {
+    // RESTORE cross-bank: GPR src → FPR dst in XMM8..XMM15 slot. Emit
+    // `FMOV D<dst>, X<src>` (= movq_xmm64_gpr64). Same symmetry as the
+    // SAVE case: before A26 this hit `MOV X<dst>, X<src>` which wrote
+    // the GPR src into X24..X31 (and left V24..V31 holding stale data).
+    // The cross-bank FMOV writes the actual 64-bit GPR contents into
+    // the FPR slot, matching the x86 oracle's `movq_xmm64_gpr64` path.
+    gen->add_instr(emitter::IGen::ARM64::movq_xmm64_gpr64(dst, src), irec);
   } else {
-    // Default: preserve the prior emit exactly. CGO bytes match A24
-    // baseline for every dst that is NOT X30. The X14-source path
-    // (mov_gpr64_gpr64 emits paired MOV+SUB for the s7 host→GOAL
-    // fixup) is preserved.
+    // Default: preserve OLD emit byte-for-byte. CGO bytes match A25
+    // baseline for every {src, dst} pair where neither maps to the
+    // XMM8..XMM15 slot — including:
+    //   - GPR-GPR moves (the dominant case)
+    //   - FPR-FPR moves with dst in [16..23] (gcommon's XMM0..XMM7
+    //     scratch range — A25 attempts 1.1/1.2/1.3 proved widening
+    //     this range regresses gcommon-through-texture linking)
+    //   - Cross-bank moves with neither side in [24..31] (e.g. plain
+    //     FLOAT temp → GPR temp outside the catch / cpu-thread paths,
+    //     which the existing GOAL code apparently survives without
+    //     real cross-bank copies — same A25 reasoning).
+    // The X14-source path (mov_gpr64_gpr64 emits paired MOV+SUB for
+    // the s7 host→GOAL fixup) is preserved by going through the OLD
+    // helper.
     gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst, src), irec);
   }
 }
@@ -662,13 +685,12 @@ void IR_RegSet::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                  emitter::IR_Record irec) {
   auto dst = get_reg(m_dest, allocs, irec);
   auto src = get_reg(m_src, allocs, irec);
-  // A25 — dispatch on RegClass so XMM-class moves emit FMOV (FPSIMD) instead
-  // of MOV X<id>,X<id> (GPR). The previous unconditional mov_gpr64_gpr64
-  // emit corrupted X16..X30 (= GOAL XMM0..XMM14 by arm64_reg5() mapping)
-  // whenever GOAL emitted `(.mov xmm? value)` — most visibly in
-  // throw-dispatch's 8-iteration XMM-restore loop where the 6th iteration
-  // wrote X30 (= LR), causing every post-link-216 throw to crash on the
-  // following raw RET with PC = stack-range address.
+  // A25/A26 — dispatch on RegClass so XMM8..XMM15-slot moves use FPSIMD
+  // emit. A25 fixed the X30 (= xmm14 / LR) destination case only; A26
+  // widens to the full XMM8..XMM15 slot symmetrically across save and
+  // restore so cpu-thread-suspend / new-catch-frame / cpu-thread-resume
+  // round-trip real FPR contents through memory instead of garbage GPR
+  // contents. See emit_arm64_reg_to_reg_mov for the dispatch table.
   emit_arm64_reg_to_reg_mov(gen, irec, dst, src, m_dest->ireg().reg_class,
                             m_src->ireg().reg_class);
 }
@@ -1147,8 +1169,31 @@ void IR_IntegerMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
       // idiv_gpr32 for the full rationale. m_dest == X8 is a fast path —
       // dividend is already in X8, no preserve needed because the regalloc
       // explicitly assigned X8 to m_dest.
+      //
+      // A26 — divide-by-zero trap. On arm64, SDIV by zero is defined to
+      // return 0 (per ARM ARM §C6.2.225), not raise an exception. The GOAL
+      // `(break)` macro (gkernel-h.gc:121) expands to `(/ 0 0)`, expecting
+      // the runtime to trap (as x86 IDIV by 0 raises #DE). Without an
+      // explicit trap, `(break)` is a silent no-op on arm64 — and any caller
+      // expecting break to never return (e.g. the throw-not-found error
+      // path in gkernel.gc's `throw`) continues executing with a broken
+      // stack, eventually SIGSEGV'ing at a stale LDP.
+      //
+      // The trap prefix is 2 instructions (8 bytes) emitted BEFORE any
+      // register shuffling so the divisor is still in its allocated reg:
+      //   CBNZ X<arg_reg>, +8   ; skip UDF when divisor is non-zero
+      //   UDF  #0xBEEF          ; SIGILL with tag 0xBEEF on zero divisor
+      // The SIGILL handler in linux_arm64_main.cpp decodes 0xBEEF as
+      // BREAK-MACRO-TRAP. The check is on the RAW arg_reg (the divisor),
+      // not on any temp — even in the slow path's `arg_reg.id() == 8` sub-
+      // case where the divisor is later moved to X16, the check fires on
+      // the original arg_reg before any clobber. CBNZ uses zero CPU state
+      // beyond the read of arg_reg, so it doesn't interfere with the
+      // subsequent SDIV/UDIV sequence's X8 spill choreography.
       auto arg_reg = get_reg(m_arg, allocs, irec);
       auto dst_reg = get_reg(m_dest, allocs, irec);
+      gen->add_instr(emitter::IGen::ARM64::cbnz_x_imm(arg_reg, 8), irec);
+      gen->add_instr(emitter::IGen::ARM64::udf_imm16(0xBEEF), irec);
       if (dst_reg.id() == 8) {
         gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(arg_reg), irec);
       } else {
@@ -1183,8 +1228,14 @@ void IR_IntegerMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
       // emits UDIV X8, X8, Xn with the same hardcoded-X8 / regalloc-invisible
       // clobber; wrap it identically (including the load-dividend-into-X8 step,
       // since m_dest's allocated reg holds the dividend, not X8).
+      //
+      // A26 — divide-by-zero trap (CBNZ + UDF #0xBEEF) prepended for the
+      // same reason as IDIV_32 above. See the IDIV_32 block comment for the
+      // full rationale and the SIGILL decoder tag (0xBEEF).
       auto arg_reg = get_reg(m_arg, allocs, irec);
       auto dst_reg = get_reg(m_dest, allocs, irec);
+      gen->add_instr(emitter::IGen::ARM64::cbnz_x_imm(arg_reg, 8), irec);
+      gen->add_instr(emitter::IGen::ARM64::udf_imm16(0xBEEF), irec);
       if (dst_reg.id() == 8) {
         gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(arg_reg), irec);
       } else {
@@ -2301,12 +2352,14 @@ void IR_RegSetAsm::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                     emitter::IR_Record irec) {
   auto dst = m_use_coloring ? get_reg(m_dst, allocs, irec) : get_no_color_reg(m_dst);
   auto src = m_use_coloring ? get_reg(m_src, allocs, irec) : get_no_color_reg(m_src);
-  // A25 — same minimal FPSIMD-pair dispatch as IR_RegSet. The
-  // `(.mov :color #f xmm? temp-float)` form in gkernel.gc's throw-dispatch
-  // hits this path with use_coloring=false; both registers come from the
-  // rlet_constraint() but the RegVal's RegClass is still set per the rlet
-  // `:class fpr` declaration, so dispatch on m_dst->ireg().reg_class picks
-  // the FPSIMD emit.
+  // A25/A26 — same widened FPSIMD-slot dispatch as IR_RegSet. The
+  // `(.mov :color #f xmm? temp-float)` (RESTORE) and `(.mov :color #f
+  // temp xmm?)` (SAVE) forms in gkernel.gc / gstate.gc hit this path with
+  // use_coloring=false; the registers come from the rlet_constraint() but
+  // the RegVal's RegClass is still set per the rlet's `:class fpr` /
+  // `:class gpr` declaration, so dispatch on m_dst->ireg().reg_class +
+  // m_src->ireg().reg_class picks the cross-bank FMOV vs same-bank ORR
+  // Vd.16B vs OLD MOV emit.
   emit_arm64_reg_to_reg_mov(gen, irec, dst, src, m_dst->ireg().reg_class,
                             m_src->ireg().reg_class);
 }
