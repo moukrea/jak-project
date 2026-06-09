@@ -52,3 +52,52 @@ KERNEL.CGO LDR Wt [X16, #N] histogram (instruction-aligned):
   #64: 2
   #72: 1
   #88: 1
+
+## CORRECTION — KERNEL.CGO code segment is at align mod 4 = 2 (not 0)
+Initial scan above used align 0 (byte offset 0 from file start) and found 0/1 instances.
+The CGO has a non-4-byte header so code is offset by 2 bytes from file start.
+Scoring all 4 alignments by %words-matching-arm64-patterns:
+  align 0:  3.2% recognized arm64-shaped
+  align 1:  4.2% recognized arm64-shaped
+  align 2: 27.1% recognized arm64-shaped  <-- code segment alignment
+  align 3:  0.8% recognized arm64-shaped
+
+Re-scan at align 2 — LDR/STR Wt [X16, #N] in KERNEL.CGO:
+  #0: ldr=684, str=84
+  #4: ldr=53, str=16
+  #8: ldr=49, str=20
+  #12: ldr=37, str=17
+  #16: ldr=57, str=14
+  #20: ldr=23, str=13
+  #24: ldr=27, str=8
+  #28: ldr=19, str=6
+  #32: ldr=28, str=17
+  #36: ldr=2, str=5
+  #40: ldr=12, str=6
+  #44: ldr=11, str=7
+  #48: ldr=15, str=10
+  #52: ldr=15, str=11
+  #56: ldr=12, str=2
+  #60: ldr=13, str=3
+  #64: ldr=10, str=3
+  #68: ldr=0, str=3
+  #72: ldr=5, str=5
+  #76: ldr=4, str=4
+  #80: ldr=13, str=7
+  #84: ldr=12, str=5
+  #88: ldr=9, str=7
+  #92: ldr=0, str=1
+  #96: ldr=4, str=4
+  #100: ldr=7, str=2
+  #104: ldr=8, str=2
+  #108: ldr=3, str=1
+  #112: ldr=1, str=1
+  #116: ldr=1, str=1
+  #120: ldr=0, str=1
+
+Conclusion: both #48 (15 ldr / 10 str) and #52 (15 ldr / 11 str) are emitted —
+no systematic off-by-4. Both ARE correct for their respective fields:
+  #48 emit = field at struct offset 52 in a basic (e.g. first-gap)
+  #52 emit = field at struct offset 56 in a basic (e.g. first-shrink)
+  #32 emit = field at struct offset 36 in a basic (e.g. compact-time)
+
