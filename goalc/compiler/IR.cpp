@@ -1,5 +1,7 @@
 #include "IR.h"
 
+#include <cstdio>
+#include <cstdlib>
 #include <utility>
 
 #include "common/symbols.h"
@@ -9,6 +11,25 @@
 #include "goalc/emitter/IGenARM64.h"
 
 #include "fmt/format.h"
+
+// A20 — env-gated diagnostic for IR_LoadConstOffset / IR_StoreConstOffset.
+// Setting OG_OFFSET_TRACE=1 in the environment when goalc runs causes every
+// emitted constant-offset load/store to log its `m_offset` and access size to
+// stderr, tagged with the architecture of the lowering path. This lets a
+// supervisor session diff the per-architecture offset streams produced for the
+// same GOAL source — if x86 and arm64 emit the same offsets but boot diverges,
+// the off-by-4 hypothesis from A18 attempt-4 is wrong and the actual fault
+// lives elsewhere. The diag has no effect when the env var is unset (cheap
+// one-time getenv cached in a function-local static).
+namespace {
+inline bool og_offset_trace_enabled() {
+  static const bool enabled = [] {
+    const char* v = std::getenv("OG_OFFSET_TRACE");
+    return v && v[0] != '\0' && v[0] != '0';
+  }();
+  return enabled;
+}
+}  // namespace
 
 // TODO ARM64 - just silencing errors while things are not implemented obviously
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -1415,6 +1436,11 @@ void IR_LoadConstOffset::do_codegen_x86(emitter::ObjectGenerator* gen,
   auto dest_reg = m_use_coloring ? get_reg(m_dest, allocs, irec) : get_no_color_reg(m_dest);
   auto base_reg = m_use_coloring ? get_reg(m_base, allocs, irec) : get_no_color_reg(m_base);
 
+  if (og_offset_trace_enabled()) {
+    std::fprintf(stderr, "OG_OFFSET_TRACE arch=x86 op=load off=%d sz=%d sx=%d cls=%d\n", m_offset,
+                 m_info.size, (int)m_info.sign_extend, (int)m_dest->ireg().reg_class);
+  }
+
   if (m_dest->ireg().reg_class == RegClass::GPR_64) {
     gen->add_instr(IGen::load_goal_gpr(*gen, dest_reg, base_reg, emitter::gRegInfo.get_offset_reg(),
                                        m_offset, m_info.size, m_info.sign_extend),
@@ -1441,6 +1467,10 @@ void IR_LoadConstOffset::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                           emitter::IR_Record irec) {
   auto dest_reg = m_use_coloring ? get_reg(m_dest, allocs, irec) : get_no_color_reg(m_dest);
   auto base_reg = m_use_coloring ? get_reg(m_base, allocs, irec) : get_no_color_reg(m_base);
+  if (og_offset_trace_enabled()) {
+    std::fprintf(stderr, "OG_OFFSET_TRACE arch=arm64 op=load off=%d sz=%d sx=%d cls=%d\n", m_offset,
+                 m_info.size, (int)m_info.sign_extend, (int)m_dest->ireg().reg_class);
+  }
   if (m_dest->ireg().reg_class == RegClass::GPR_64) {
     gen->add_instr(emitter::IGen::ARM64::load_goal_gpr(dest_reg, base_reg,
                                                        emitter::gRegInfo.get_offset_reg(),
@@ -1490,6 +1520,11 @@ void IR_StoreConstOffset::do_codegen_x86(emitter::ObjectGenerator* gen,
   auto base_reg = m_use_coloring ? get_reg(m_base, allocs, irec) : get_no_color_reg(m_base);
   auto value_reg = m_use_coloring ? get_reg(m_value, allocs, irec) : get_no_color_reg(m_value);
 
+  if (og_offset_trace_enabled()) {
+    std::fprintf(stderr, "OG_OFFSET_TRACE arch=x86 op=store off=%d sz=%d cls=%d\n", m_offset, m_size,
+                 (int)m_value->ireg().reg_class);
+  }
+
   if (m_value->ireg().reg_class == RegClass::GPR_64) {
     gen->add_instr(IGen::store_goal_gpr(*gen, base_reg, value_reg,
                                         emitter::gRegInfo.get_offset_reg(), m_offset, m_size),
@@ -1516,6 +1551,10 @@ void IR_StoreConstOffset::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                            emitter::IR_Record irec) {
   auto base_reg = m_use_coloring ? get_reg(m_base, allocs, irec) : get_no_color_reg(m_base);
   auto value_reg = m_use_coloring ? get_reg(m_value, allocs, irec) : get_no_color_reg(m_value);
+  if (og_offset_trace_enabled()) {
+    std::fprintf(stderr, "OG_OFFSET_TRACE arch=arm64 op=store off=%d sz=%d cls=%d\n", m_offset,
+                 m_size, (int)m_value->ireg().reg_class);
+  }
   if (m_value->ireg().reg_class == RegClass::GPR_64) {
     gen->add_instr(emitter::IGen::ARM64::store_goal_gpr(base_reg, value_reg,
                                                         emitter::gRegInfo.get_offset_reg(),
