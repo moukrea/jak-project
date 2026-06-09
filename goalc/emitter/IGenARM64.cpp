@@ -617,11 +617,44 @@ InstructionARM64 cbnz_x_placeholder(Register r) {
 // X14 sources; every other mov_gpr64_gpr64 caller (IR_RegSet copying GOAL
 // registers, IR_GetStackAddr's SP-from-RSP path, etc.) stays a 4-byte ORR.
 InstructionARM64 mov_gpr64_gpr64(Register dst, Register src) {
-  uint32_t enc = 0xAA000000u | (arm64_reg5(src) << 16) | (31u << 5) | arm64_reg5(dst);
-  if (arm64_reg5(src) == 14u && arm64_reg5(dst) != 14u) {
+  // A28 — RSP (x86 id=4) → arm64 SP (id=31) translation.
+  //
+  // GOAL kernel asm-funcs (catch-frame ctor at gkernel.gc:1483, throw-dispatch
+  // at gkernel.gc:1583) declare `(sp :reg rsp ...)`. The x86 id for RSP is 4;
+  // arm64_reg5() masks to 5 bits and historically the arm64 backend treated
+  // id 4 as X4 — a normal GPR — because the regalloc never assigns id 4 and
+  // the comment at the top of this file claimed "we always emit literal
+  // SP=31 below when we mean the stack pointer". That contract only held for
+  // explicit `.push`/`.pop` emits; user-level `(set! sp value)` and
+  // `(set! reg sp)` went through mov_gpr64_gpr64 and read/wrote X4 instead
+  // of the actual stack pointer. Result: catch-frame.sp captured X4's
+  // garbage value and throw-dispatch's `(set! sp (-> this sp))` + `(.add
+  // sp off)` updated X4 instead of SP, so the throw's `.pop temp; .push
+  // temp; .ret` rebound to the throw frame's return address rather than
+  // the catch-frame's saved RA. Once a single throw landed but failed to
+  // unwind, the corrupted SP cascaded: subsequent `(new 'stack 'catch-frame
+  // 'initialize ...)` allocations placed the catch-frame on a stack region
+  // that was never returned to, and later code paths overwrote the chain
+  // head before the next throw could find it — hence A27's "chain is s7
+  // (= nil)" verdict at the throw-not-found `(break)` trap.
+  //
+  // Cannot encode MOV between SP and a normal GPR via the ORR-XZR pattern
+  // (ORR rejects SP as either operand). The canonical alias is
+  //   ADD Xd|SP, Xn|SP, #0  (immediate form; Rd=31 means SP, Rn=31 means SP).
+  // Returns 0x91000000 | (imm12<<10) | (Rn<<5) | Rd with imm12=0.
+  const uint32_t dst5 = arm64_reg5(dst);
+  const uint32_t src5 = arm64_reg5(src);
+  if (dst5 == 4u || src5 == 4u) {
+    const uint32_t real_dst = (dst5 == 4u) ? 31u : dst5;
+    const uint32_t real_src = (src5 == 4u) ? 31u : src5;
+    uint32_t add_imm0 = 0x91000000u | (real_src << 5) | real_dst;
+    return InstructionARM64(add_imm0);
+  }
+  uint32_t enc = 0xAA000000u | (src5 << 16) | (31u << 5) | dst5;
+  if (src5 == 14u && dst5 != 14u) {
     // SUB Xd, Xd, X15  (shifted register, 64-bit, shift=0)
     uint32_t sub_x15 =
-        0xCB000000u | (15u << 16) | (arm64_reg5(dst) << 5) | arm64_reg5(dst);
+        0xCB000000u | (15u << 16) | (dst5 << 5) | dst5;
     return InstructionARM64::paired(enc, sub_x15);
   }
   return InstructionARM64(enc);
@@ -1900,16 +1933,59 @@ InstructionARM64 sub_gpr64_imm(Register reg, int64_t imm) {
 
 // ADD Xd, Xn, Xm: sf=1 | 0 | 0 | 01011 | shift=0 | 0 | Rm | imm6=0 | Rn | Rd
 //   base = 0x8B000000
+//
+// A28 — RSP (x86 id=4) → arm64 SP (id=31) translation. See mov_gpr64_gpr64
+// for context. The shifted-register encoding (0x8B000000) decodes Rn=31 /
+// Rd=31 as XZR, not SP. To produce `ADD SP, SP, Xm` we must use the
+// extended-register encoding (0x8B200000 | option=011 (UXTX) | imm3=0),
+// which decodes Rn=31 / Rd=31 as SP. Rm in the extended form decodes 31 as
+// XZR, but throw-dispatch and the catch-frame ctor only use sp as the
+// destination (and dest=src in this two-operand emit, so Rn=dst). The
+// off-the-shelf `(.add sp off)` from gkernel.gc:1584 thus needs Rm=15
+// (offset_reg, never SP).
 InstructionARM64 add_gpr64_gpr64(Register dst, Register src) {
-  uint32_t enc =
-      0x8B000000u | (arm64_reg5(src) << 16) | (arm64_reg5(dst) << 5) | arm64_reg5(dst);
+  const uint32_t dst5 = arm64_reg5(dst);
+  const uint32_t src5 = arm64_reg5(src);
+  if (dst5 == 4u || src5 == 4u) {
+    const uint32_t real_dst = (dst5 == 4u) ? 31u : dst5;
+    const uint32_t real_src = (src5 == 4u) ? 31u : src5;
+    // ADD Xd|SP, Xn|SP, Xm{, UXTX #0}:
+    //   0x8B200000 | (Rm<<16) | (011<<13) | (0<<10) | (Rn<<5) | Rd
+    //   = 0x8B206000 | (Rm<<16) | (Rn<<5) | Rd
+    // Rm is the SECOND source (the addend that must NOT be id 4). Rn is
+    // the FIRST source (= dst in the two-operand form).
+    // If dst5==4, the addend (Rm) is src5, and Rn=Rd=31 (SP).
+    // If src5==4 and dst5!=4, the addend (Rm) would be 31 — which decodes
+    // as XZR in extended form, not SP. That pattern `(.add Xd sp)` doesn't
+    // appear in the kernel; assert to make any future occurrence loud.
+    ASSERT_MSG(!(src5 == 4u && dst5 != 4u),
+               "arm64 add_gpr64_gpr64: SP cannot be the Rm (addend) in extended "
+               "register form — this would assemble as ADD Xd, Xd, XZR (no-op)");
+    uint32_t enc = 0x8B206000u | (real_src << 16) | (real_dst << 5) | real_dst;
+    return InstructionARM64(enc);
+  }
+  uint32_t enc = 0x8B000000u | (src5 << 16) | (dst5 << 5) | dst5;
   return InstructionARM64(enc);
 }
 
-// SUB Xd, Xn, Xm: base 0xCB000000
+// SUB Xd, Xn, Xm: base 0xCB000000. A28 — same RSP→SP translation as
+// add_gpr64_gpr64. catch-frame ctor at gkernel.gc:1484 emits `(.sub temp
+// off)` where temp is a non-sp reg, but the protect-frame ctor and
+// run-function-in-process stack-allocation paths use `(.sub sp ...)` and
+// must reach the real SP.
 InstructionARM64 sub_gpr64_gpr64(Register dst, Register src) {
-  uint32_t enc =
-      0xCB000000u | (arm64_reg5(src) << 16) | (arm64_reg5(dst) << 5) | arm64_reg5(dst);
+  const uint32_t dst5 = arm64_reg5(dst);
+  const uint32_t src5 = arm64_reg5(src);
+  if (dst5 == 4u || src5 == 4u) {
+    const uint32_t real_dst = (dst5 == 4u) ? 31u : dst5;
+    const uint32_t real_src = (src5 == 4u) ? 31u : src5;
+    ASSERT_MSG(!(src5 == 4u && dst5 != 4u),
+               "arm64 sub_gpr64_gpr64: SP cannot be the Rm (subtrahend) in extended "
+               "register form — this would assemble as SUB Xd, Xd, XZR (no-op)");
+    uint32_t enc = 0xCB206000u | (real_src << 16) | (real_dst << 5) | real_dst;
+    return InstructionARM64(enc);
+  }
+  uint32_t enc = 0xCB000000u | (src5 << 16) | (dst5 << 5) | dst5;
   return InstructionARM64(enc);
 }
 
