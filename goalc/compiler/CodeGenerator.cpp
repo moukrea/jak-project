@@ -713,6 +713,61 @@ void CodeGenerator::do_asm_function_arm64(FunctionEnv* env, int f_idx, bool allo
     // arm64 asm functions have no concept of saved regs in this scaffold;
     // emit a single trap-like NOP and bail so we don't break the build.
   }
+
+  // A28 — Emulate x86 call/ret semantics on arm64.
+  //
+  // GOAL asm-funcs (catch-frame ctor, throw-dispatch, reset-and-call,
+  // return-from-thread, thread-suspend, thread-resume, enter-state's RA
+  // overwrite path) assume x86 semantics:
+  //   - the caller's `call` pushed the return address onto the stack
+  //   - the body can `.pop temp` to read it (or `.push temp` to install a
+  //     custom RA)
+  //   - `(.ret)` pops the top-of-stack and jumps to it
+  //
+  // arm64 differs: BL/BLR write LR (X30) instead of pushing RA, and RET uses
+  // X30 instead of popping. Without compensation:
+  //   - `(.pop temp)` at the head of an asm-func reads garbage instead of the
+  //     return address (thread-suspend stores garbage as this.pc → next
+  //     resume jumps to it)
+  //   - `(.ret)` in throw-dispatch ignores the catch-frame's saved RA pushed
+  //     by `(.push temp)` and returns to the throw function instead → the
+  //     throw never unwinds, the catch-frame chain pop runs but the protected
+  //     code never resumes, and the kernel hangs
+  //
+  // The compensation is a STR X30 prologue + a matching LDR X30 in
+  // IR_AsmRet::do_codegen_arm64. Together they reproduce the x86 contract:
+  //   - entry: save X30 (= caller's RA from BLR) at [SP-16]; SP -= 16. Now
+  //     [SP] holds the RA, exactly as if `call` had pushed it.
+  //   - `(.pop temp)` (`ldr Xt, [SP], #16`) reads that RA — same as x86 pop.
+  //   - `(.push temp)` (`str Xt, [SP, #-16]!`) overwrites it with a custom
+  //     target — same as x86 push.
+  //   - `(.ret)` (now `ldr X30, [SP], #16; ret`) pops top-of-stack into X30
+  //     and RETs — semantically the same as x86 `ret`.
+  //
+  // The catch-frame ctor's `.pop temp; .push temp` round-trip at gkernel.gc
+  // lines 1475-1480 is the canonical case: it READS the saved RA into a
+  // GOAL register, then puts it back so the stack stays balanced for the
+  // eventual `(.ret)`. Throw-dispatch's `.pop; set! temp this.ra; .push;
+  // .ret` at lines 1586-1592 OVERWRITES the saved RA with the catch-frame's
+  // captured RA, so the `(.ret)` jumps back to the catch protectee instead
+  // of to throw.
+  //
+  // Asm-funcs that don't actually return (e.g. reset-and-call ends with
+  // `(.jr func)`) leak 16 bytes of stack via the prepend — harmless for the
+  // one-shot trampoline kernel paths. The fall-through RET emitted below
+  // (after the body loop) also leaks if reached, but no kernel asm-func
+  // falls through.
+  //
+  // STR X30, [SP, #-16]! encoding (pre-index, 64-bit store):
+  //   size=11 | 111 | V=0 | 00 | opc=00 | 0 | imm9=-16 | option=11 | Rn=31 | Rt=30
+  //   = 0xF8000C00 | ((imm9 & 0x1FF) << 12) | (Rn << 5) | Rt
+  //   imm9 = -16 = 0x1F0 in 9-bit two's complement
+  //   = 0xF8000C00 | (0x1F0 << 12) | (31 << 5) | 30
+  //   = 0xF81F0FFE
+  constexpr uint32_t kStrX30PrependSP = 0xF81F0FFEu;
+  m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kStrX30PrependSP),
+                        InstructionInfo::Kind::PROLOGUE);
+
   for (int ir_idx = 0; ir_idx < int(env->code().size()); ir_idx++) {
     auto& ir = env->code().at(ir_idx);
     auto i_rec = m_gen.add_ir(f_rec);
