@@ -1494,6 +1494,42 @@ InstructionARM64 store64_gpr64_plus_s32(Register addr, int32_t offset, Register 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 InstructionARM64 ret() {
+  // A24 — env-gated pre-RET X30 stack-range check. The standard RET
+  // (do_goal_function_arm64's epilogue) uses raw bytes 0xD65F03C0 and
+  // CodeGenerator.cpp wraps that with the tracer directly. This `ret()`
+  // helper is called from IR_AsmRet::do_codegen_arm64 (the GOAL `.ret`
+  // form, used in asm-func bodies like return-from-thread, return-from-
+  // thread-dead in jak1/kernel/gkernel.gc) AND from the asm-function
+  // emit path. Both surfaces need the same check — a corrupted X30
+  // (stack-range, GOAL form >= 0x07000000) at any of these RETs would
+  // propagate to PC and produce the A21/A23 crash signature.
+  //
+  // Encoding mirrors the goalc epilogue + asm-trampoline + inline-
+  // trampoline tracers: SUB X17, X30, X15 / MOVZ X16, #0x0700, LSL #16
+  // / CMP X17, X16 / B.LT +8 / UDF #0x1EF0. Uses the same lazy-cached
+  // br_target_trace_emit_enabled() flag (env-gated by OG_X30_TRACE_EMIT)
+  // so one env var toggles every A24 surface.
+  // Returns 6 instructions when enabled vs 1 when disabled — byte-
+  // identical to A23 baseline when OG_X30_TRACE_EMIT is unset.
+  // (Inlined env check rather than calling a helper because
+  // br_target_trace_emit_enabled() is defined further down the file
+  // alongside jmp_r64 — easier to keep the lazy-cache local than
+  // forward-declare.)
+  static const bool x30_trace_emit_enabled = []() {
+    const char* env = std::getenv("OG_X30_TRACE_EMIT");
+    return env != nullptr && env[0] != '\0' && env[0] != '0';
+  }();
+  if (x30_trace_emit_enabled) {
+    constexpr uint32_t kSubX17X30X15 = 0xCB0F03D1u;
+    constexpr uint32_t kMovzX16Floor = 0xD2A0E010u;
+    constexpr uint32_t kCmpX17X16 = 0xEB10023Fu;
+    constexpr uint32_t kBltSkipUdf = 0x5400004Bu;
+    constexpr uint32_t kUdfEpilogueX30 = 0x00001EF0u;
+    constexpr uint32_t kRet = 0xD65F03C0u;
+    return InstructionARM64::multi({kSubX17X30X15, kMovzX16Floor,
+                                    kCmpX17X16, kBltSkipUdf,
+                                    kUdfEpilogueX30, kRet});
+  }
   // https://www.scs.stanford.edu/~zyedidia/arm64/ret.html
   // - defaults to using X30 if Rn is absent
   return InstructionARM64(Base(0b1101011001011111000000, 22), Rn(30));
@@ -1679,9 +1715,64 @@ InstructionARM64 call_r64(Register reg_) {
                                   kLdpX12X23Pop, kLdpX10X11Pop, kLdpX3X5Pop});
 }
 
+// A24 — extend the tracer to BR Xn (.jr form). A23's tracer covers BLR
+// (call_r64) only. The 216-link-finish crash has SIGILL PC = stack-range
+// host (0x212afffe84). After A24 attempt-2 added X30 stack-range checks
+// at every goalc-emitted GOAL-function epilogue + every asm/inline
+// trampoline RET and ZERO of them fired, the remaining surface that
+// can set PC to a stack-range value WITHOUT touching X30 is `BR Xn`.
+// jak1/kernel/{gkernel,gstate}.gc uses (.jr func) for thread/state
+// context switches at multiple sites. If `func` is materialised from a
+// corrupted slot whose value happens to be in stack range, the BR
+// jumps to stack with X30 unchanged (which matches the observed
+// crash signature where X30 = stack value too — that X30 came from an
+// earlier path, not from this BR).
+//
+// The check structure mirrors A23's call_r64 path: when OG_X30_TRACE_EMIT
+// is set in goalc's environment at compile time, jmp_r64 emits an extra
+// 5-instruction check sequence on the target register, using UDF tag
+// 0x1EC0 | reg_id. 0x1EC0 has bits 0..5 = 0 (the bottom 5 bits are the
+// reg id slot; bit 5 is fixed 0 so the tag doesn't collide with A23's
+// 0x1EE0..0x1EFF range or A24-epilogue's 0x1EF0). With 32 reg ids the
+// range is 0x1EC0..0x1EDF.
+//
+// Sharing OG_X30_TRACE_EMIT with the epilogue/asm/inline tracers means
+// one env var toggles the whole A24 trace surface; tracer-emit timing
+// is goalc compile time (lazy-cached, same pattern as
+// blr_target_trace_emit_enabled() above).
+static bool br_target_trace_emit_enabled() {
+  static const bool enabled = []() {
+    const char* env = std::getenv("OG_X30_TRACE_EMIT");
+    return env != nullptr && env[0] != '\0' && env[0] != '0';
+  }();
+  return enabled;
+}
+
 InstructionARM64 jmp_r64(Register reg_) {
-  // BR Xn — branch (no link) to register.
-  return br_reg(reg_);
+  uint32_t target = arm64_reg5(reg_);
+  uint32_t br = 0xD61F0000u | (target << 5);
+
+  if (blr_target_trace_emit_enabled() || br_target_trace_emit_enabled()) {
+    // SUB X17, target, X15: 0xCB000000 | (Rm<<16) | (Rn<<5) | Rd
+    //                       Rm=15 (X15), Rn=target, Rd=17 (X17)
+    uint32_t sub_x17_target_x15 = 0xCB0F0000u | (target << 5) | 17u;
+    // MOVZ X16, #0x0700, LSL #16 = 0xD2A0E010 (X16 = 0x07000000 floor)
+    uint32_t movz_x16_floor = 0xD2A0E010u;
+    // CMP X17, X16 = SUBS XZR, X17, X16 = 0xEB10023F
+    uint32_t cmp_x17_x16 = 0xEB10023Fu;
+    // B.LT +8 (skip UDF). Uses signed-less-than so a return-to-C-binary-
+    // shaped negative-wrapped value skips correctly. Encoding: cond=LT=11.
+    uint32_t blt_skip_udf = 0x5400004Bu;
+    // UDF #(0x1EC0 | target_reg_id): tag bits 0x1EC0 (bits 5..15 = 0xF6,
+    // bit 4 = 0 so the low-5 reg_id slot is intact); low 5 bits = reg id.
+    // Decoder match: (imm16 & 0xFFE0) == 0x1EC0.
+    uint32_t udf_br_target_stack = 0x00001EC0u | (target & 0x1Fu);
+    return InstructionARM64::multi(
+        {sub_x17_target_x15, movz_x16_floor, cmp_x17_x16, blt_skip_udf,
+         udf_br_target_stack, br});
+  }
+
+  return InstructionARM64(br);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

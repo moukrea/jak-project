@@ -375,6 +375,72 @@ void CodeGenerator::do_goal_function_x86(FunctionEnv* env, int f_idx) {
   m_gen.add_instr_no_ir(f_rec, IGen::ret(m_gen), InstructionInfo::Kind::EPILOGUE);
 }
 
+// A24 — OG_X30_TRACE_EMIT: env-gated AT GOALC COMPILE TIME post-LDP X30
+// stack-range tracer. A23's call_r64 BLR-target tracer fired ZERO times
+// across 61204 instrumented sites + a complete 216-link-finish boot run,
+// falsifying the H2-via-call_r64 hypothesis ("an IR_FunctionCall's
+// m_func holds a stack-form GOAL ptr and call_r64's BLR jumps to a
+// stack address"). The remaining mechanism is RET-to-corrupted-LR: some
+// STR/STP inside a function body corrupts the function's X29/X30 save
+// slot, and the function's epilogue `LDP X29, X30, [SP], #16; RET`
+// loads the corrupted X30 and propagates the stack address to PC. The
+// observed bytes at the crash window (A23 REG-BYTE-DUMP @ X12) decode
+// as the canonical aarch64 goalc function epilogue
+// (`A8C17BFD = LDP X29, X30, [SP], #16`; `D65F03C0 = RET`).
+//
+// When OG_X30_TRACE_EMIT is set in goalc's environment at compile time,
+// the arm64 function-epilogue emit inserts a 5-instruction check
+// sequence between the LDP and the RET:
+//
+//   LDP X29, X30, [SP], #16        ; restore FP/LR (potentially corrupted)
+//   SUB X17, X30, X15              ; X17 = X30's GOAL-form (host - ee_base)
+//   MOVZ X16, #0x0700, LSL #16     ; X16 = 0x07000000 (stack-range floor,
+//                                  ;        identical to A23's threshold)
+//   CMP X17, X16                   ; flags from (X30_GOAL - threshold)
+//   B.LO ret_ok                    ; X30_GOAL < threshold → normal RET
+//   UDF #0x1EF0                    ; SIGILL: A24 epilogue trap tag
+//   ret_ok:
+//   RET                            ; PC := X30
+//
+// X16/X17 are AAPCS intra-procedure call scratch registers; the caller
+// has no surviving live values in them across a RET boundary. The
+// threshold 0x07000000 matches A23's choice — any legitimate GOAL fn-ptr
+// at the boot ceiling has GOAL offset < ~0x02000000, so any X30 with
+// offset >= 0x07000000 is in the GOAL stack range and signals an
+// epilogue restoring a corrupted save-slot value.
+//
+// SIGILL handler decode (linux_arm64_main.cpp):
+//   - Read u32 at uc->uc_mcontext.pc → must be UDF (top 16 bits 0).
+//   - imm16 = low 16 bits. If imm16 == 0x1EF0, this is our tag (distinct
+//     from A23's 0x1EE0..0x1EFF range, which reserved the low 5 bits
+//     for the BLR target reg; A24 uses X30 unconditionally so the tag
+//     is a single value).
+//   - X30 = uc->uc_mcontext.regs[30], X15 = uc->uc_mcontext.regs[15].
+//   - Print EPILOGUE-X30-STACK: emit_pc=<pc> x30=<host>
+//                               goal_off=<host - X15> x15=<X15>
+//                               caller_lr=<lr>
+//
+// The PC at SIGILL is the address of the UDF itself, which is one
+// instruction past the corrupted LDP. Cross-referencing emit_pc to a
+// GOAL function uses the klink symbol table (link blocks recorded at
+// CGO load time) or offline disasm of the loaded CGOs.
+//
+// CGO drift:
+//   - OG_X30_TRACE_EMIT unset (default): byte-identical to A23 baseline.
+//   - OG_X30_TRACE_EMIT=1: each goalc-emitted GOAL function gains 5×4 =
+//     20 B of epilogue check. A fresh A24-baseline-arm64-cgo-hashes.txt
+//     captures the new CGO shape.
+//
+// The gate uses a function-local static (evaluated once per goalc
+// process), so the env var only needs to be set at goalc-launch time.
+static bool epilogue_x30_trace_emit_enabled() {
+  static const bool enabled = []() {
+    const char* env = std::getenv("OG_X30_TRACE_EMIT");
+    return env != nullptr && env[0] != '\0' && env[0] != '0';
+  }();
+  return enabled;
+}
+
 void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   // AArch64 prologue + spill load/store + epilogue.
   //
@@ -396,6 +462,7 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   // Epilogue (mirrors the prologue):
   //   add sp, sp, #frame_bytes      ; free spill area          (only if > 0)
   //   ldp x29, x30, [sp], #16       ; restore FP/LR, SP += 16  (0xA8C17BFD)
+  //   [A24 X30 stack-range check, only when OG_X30_TRACE_EMIT is set]
   //   ret                           ;                          (0xD65F03C0)
   //
   // Spill ops are SP-relative LDR/STR at byte offset slot_idx*8 within the
@@ -534,6 +601,65 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   // ldp x29, x30, [sp], #16
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0xA8C17BFDu),
                         InstructionInfo::Kind::EPILOGUE);
+  if (epilogue_x30_trace_emit_enabled()) {
+    // A24 OG_X30_TRACE — emit-time post-LDP stack-range check before RET.
+    // Uses SIGNED comparison (B.LT) so the "return-to-C++ binary" case
+    // (X30 < X15 → SUB wraps to a large unsigned value with the sign bit
+    // set, i.e. a signed-negative X17) skips the UDF correctly. The
+    // "return-to-GOAL heap" case (X30 - X15 < 0x07000000) also skips via
+    // signed less-than. Only the "return-to-stack-range" case
+    // (0x07000000 <= X30 - X15 < ~64 GB) fires the UDF — exactly the
+    // corruption shape A21/A23 observed (X30 = 0x212afffe84, GOAL form
+    // = 0x07fffe84).
+    //
+    // The unsigned-LO path used in A23's call_r64 tracer works there
+    // because the BLR target is always materialised as `ADD freg, freg,
+    // X15`, i.e. freg >= X15 by construction. At a function epilogue,
+    // X30 is whatever the prologue saved — which is the LR of the
+    // caller, and the caller may be C++ (e.g. _call_goal_asm_arm64) at
+    // an address < X15. Empirically (first qemu_repro under
+    // OG_X30_TRACE_EMIT=1), the very first GOAL-from-C++ return at
+    // emit_pc=0x2126ab82b8 had X30=0x2bb3e8 (a gk binary text address)
+    // and the unsigned-LO check false-fired. B.LT eliminates this.
+    //
+    // SUB X17, X30, X15:
+    //   0xCB000000 | (Rm<<16) | (Rn<<5) | Rd, Rm=15, Rn=30, Rd=17
+    //   = 0xCB000000 | 0x000F0000 | 0x000003C0 | 0x11 = 0xCB0F03D1
+    //   → X17 = X30 - X15 (signed: GOAL-form offset; wraps to negative
+    //                       when X30 < X15)
+    constexpr uint32_t kSubX17X30X15 = 0xCB0F03D1u;
+    // MOVZ X16, #0x0700, LSL #16:
+    //   0xD2800000 | (hw<<21) | (imm16<<5) | Rd, hw=1, imm16=0x0700, Rd=16
+    //   = 0xD2800000 | 0x200000 | 0xE000 | 16 = 0xD2A0E010
+    //   → X16 = 0x0000_0000_0700_0000 (GOAL-offset stack-range floor,
+    //     identical to A23's threshold for tracer comparability)
+    constexpr uint32_t kMovzX16Floor = 0xD2A0E010u;
+    // CMP X17, X16 = SUBS XZR, X17, X16:
+    //   0xEB000000 | (Rm<<16) | (Rn<<5) | Rd, Rm=16, Rn=17, Rd=31
+    //   = 0xEB100000 | 0x220 | 0x1F = 0xEB10023F
+    constexpr uint32_t kCmpX17X16 = 0xEB10023Fu;
+    // B.LT +8 (= imm19 = +2 instructions, skip the UDF):
+    //   0x54000000 | (imm19<<5) | cond, cond=LT=11(0xB), imm19=2
+    //   = 0x54000000 | 0x40 | 0xB = 0x5400004B
+    //   Signed-less-than: branches when X17 is signed-less-than X16
+    //   (covers both small-positive heap returns AND
+    //    wrapped-negative-from-C-binary returns).
+    constexpr uint32_t kBltSkipUdf = 0x5400004Bu;
+    // UDF #0x1EF0: 32-bit encoding = imm16 (low 16 bits).
+    //   Distinct from A23's 0x1EE0..0x1EFF range. The handler matches on
+    //   the exact constant; X30's reg id is implicit (always X30).
+    constexpr uint32_t kUdfEpilogueX30 = 0x00001EF0u;
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kSubX17X30X15),
+                          InstructionInfo::Kind::EPILOGUE);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kMovzX16Floor),
+                          InstructionInfo::Kind::EPILOGUE);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kCmpX17X16),
+                          InstructionInfo::Kind::EPILOGUE);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kBltSkipUdf),
+                          InstructionInfo::Kind::EPILOGUE);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kUdfEpilogueX30),
+                          InstructionInfo::Kind::EPILOGUE);
+  }
   // ret
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0xD65F03C0u),
                         InstructionInfo::Kind::EPILOGUE);
@@ -592,6 +718,31 @@ void CodeGenerator::do_asm_function_arm64(FunctionEnv* env, int f_idx, bool allo
     auto i_rec = m_gen.add_ir(f_rec);
     ir_emit_stats::record(typeid(*ir), true);
     ir->do_codegen_arm64(&m_gen, allocs, i_rec);
+  }
+  // A24 — env-gated post-asm-func-body X30 stack-range check, mirroring
+  // do_goal_function_arm64's epilogue tracer. The fall-through RET below
+  // is reached when an asm-func body doesn't itself end with a control-
+  // flow instruction (the typical pattern is a `(.jr ...)` or `(.ret)`
+  // body — see jak1/kernel/gkernel.gc — but a body that falls through
+  // would use this RET). The same OG_X30_TRACE_EMIT env var controls all
+  // four A24 surfaces (goalc epilogue, asm trampoline, inline trampoline,
+  // and BR-target in jmp_r64).
+  if (epilogue_x30_trace_emit_enabled()) {
+    constexpr uint32_t kSubX17X30X15 = 0xCB0F03D1u;
+    constexpr uint32_t kMovzX16Floor = 0xD2A0E010u;
+    constexpr uint32_t kCmpX17X16 = 0xEB10023Fu;
+    constexpr uint32_t kBltSkipUdf = 0x5400004Bu;
+    constexpr uint32_t kUdfEpilogueX30 = 0x00001EF0u;
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kSubX17X30X15),
+                          InstructionInfo::Kind::EPILOGUE);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kMovzX16Floor),
+                          InstructionInfo::Kind::EPILOGUE);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kCmpX17X16),
+                          InstructionInfo::Kind::EPILOGUE);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kBltSkipUdf),
+                          InstructionInfo::Kind::EPILOGUE);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kUdfEpilogueX30),
+                          InstructionInfo::Kind::EPILOGUE);
   }
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0xD65F03C0u),
                         InstructionInfo::Kind::EPILOGUE);

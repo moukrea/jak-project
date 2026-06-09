@@ -9,6 +9,38 @@
 
 .text
 
+;; A24 — post-LDP X30 stack-range check macro. Mirrors the goalc-arm64
+;; epilogue tracer in goalc/compiler/CodeGenerator.cpp::do_goal_function_arm64
+;; (see the epilogue_x30_trace_emit_enabled() comment block there for the
+;; rationale). Goalc-emitted epilogues are env-gated by OG_X30_TRACE_EMIT;
+;; the asm trampolines below are NOT goalc-emitted and ARE on the suspect
+;; list for the 216-link-finish ceiling crash (A23 falsified the
+;; goalc-call_r64 BLR-target hypothesis; A24 attempt-1 falsified the
+;; goalc-epilogue LDP hypothesis with ZERO firings of OG_X30_TRACE_EMIT
+;; over 216 link-finishes — so the corruption must enter via an
+;; asm-trampoline LDP X29,X30 whose save slot was clobbered during the
+;; BLR into GOAL). The macro fires UDF #0x1EF0 if the just-LDP'd X30 is
+;; signed-greater-or-equal to X15 + 0x07000000 — i.e. in the GOAL stack
+;; range. The decoder in game/linux-arm64/linux_arm64_main.cpp emits
+;; A24-DIAG EPILOGUE-X30-STACK with emit_pc + X30 + GOAL offset +
+;; caller_lr + a 256-byte backward disasm window so the offending
+;; trampoline is unambiguously named by its emit_pc.
+;;
+;; X16, X17 are AAPCS intra-procedure call scratch (IP0/IP1) — caller-
+;; save, clobberable here. The macro emits 5 instructions per RET site.
+;; Always-on (no compile-time gate): the .s file is consumed by GNU as
+;; with no C-preprocessor pass, and the runtime cost is ~3 ns per
+;; trampoline call (~hundreds of thousands of calls across a boot, so
+;; <1 ms total — negligible).
+.macro a24_x30_stack_range_check
+  sub  x17, x30, x15            // X17 = X30 - X15 (signed: wraps to negative when X30 < X15)
+  movz x16, #0x0700, lsl #16    // X16 = 0x07000000 (GOAL stack-range floor)
+  cmp  x17, x16
+  b.lt 9999f                    // signed less than → skip UDF (heap return or C-binary return)
+  udf  #0x1ef0                  // distinct from A23's 0x1EE0..0x1EFF range
+9999:
+.endm
+
 ;; Call C++ code on arm64 systems, from GOAL.
 ;; Following the macOS documentation which mostly aligns with standard arm64
 .global _arg_call_arm64
@@ -33,6 +65,7 @@ _arg_call_arm64:
   ldp q14, q15, [sp], #32
 
   ldp	x29, x30, [sp], #16
+  a24_x30_stack_range_check
   ret
 
 
@@ -84,6 +117,7 @@ _stack_call_arm64:
   ldp q14, q15, [sp], #32
 
   ldp	x29, x30, [sp], #16
+  a24_x30_stack_range_check
   ; return!
   ret
 
@@ -155,6 +189,7 @@ _mips2c_call_arm64:
 
   add sp, sp, 24 ;; 16 for the stuff pushed by trampoline
   ldp	x29, x30, [sp], #16
+  a24_x30_stack_range_check
   ret
 
 ;; The _call_goal_asm function is used to call a GOAL function from C.
@@ -235,6 +270,7 @@ _call_goal_asm_arm64:
   ldp x21, x22, [sp], #16
   ldp x19, x20, [sp], #16
   ldp	x29, x30, [sp], #16
+  a24_x30_stack_range_check
   ret
 
 .global _call_goal8_asm_arm64
@@ -301,6 +337,7 @@ _call_goal8_asm_arm64:
   ldp x21, x22, [sp], #16
   ldp x19, x20, [sp], #16
   ldp	x29, x30, [sp], #16
+  a24_x30_stack_range_check
   ret
 
 ;; Call goal, but switch stacks.
@@ -394,4 +431,5 @@ _call_goal_on_stack_asm_arm64:
   ldp x21, x22, [sp], #16
   ldp x19, x20, [sp], #16
   ldp	x29, x30, [sp], #16
+  a24_x30_stack_range_check
   ret

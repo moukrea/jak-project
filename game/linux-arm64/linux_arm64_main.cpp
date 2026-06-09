@@ -1518,6 +1518,137 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     }
   }
 
+  // A24 — OG_X30_TRACE decoder for the BR target stack-range trap
+  // (UDF #0x1EC0..0x1EDF). The goalc-arm64 jmp_r64 emit (env-gated by
+  // OG_X30_TRACE_EMIT at GOALC COMPILE TIME) inserts a 5-instruction
+  // stack-range check on the BR target register, firing UDF #(0x1EC0
+  // | target_reg_id) before the actual BR Xn when the target is in
+  // GOAL stack range. This is the THIRD A24 surface: A23's call_r64
+  // BLR target check uses 0x1EE0..0x1EFF, A24's epilogue uses 0x1EF0,
+  // and A24's BR target uses 0x1EC0..0x1EDF.
+  //
+  // The .jr form in jak1/kernel/{gkernel,gstate}.gc is the suspect
+  // BR-Xn site for the 216-link-finish ceiling crash (A24 attempts 1+2
+  // ruled out goalc epilogue RET, asm/inline trampoline RETs, and A23
+  // already ruled out call_r64 BLRs). If this decoder fires the source
+  // is unambiguously named by emit_pc.
+  if (sig == SIGILL) {
+    uint32_t udf_enc = 0;
+    if (gk_diag::safe_read_u32(pc, &udf_enc) &&
+        (udf_enc & 0xFFFF0000u) == 0u &&
+        (udf_enc & 0xFFE0u) == 0x1EC0u) {
+      uint32_t target_id = udf_enc & 0x1Fu;
+      uintptr_t target_value = (uintptr_t)uc->uc_mcontext.regs[target_id];
+      uintptr_t x15 = (uintptr_t)uc->uc_mcontext.regs[15];
+      uintptr_t goal_off = (x15 != 0 && target_value >= x15)
+                               ? (target_value - x15)
+                               : target_value;
+      std::fprintf(stderr,
+                   "GK-DIAG A24-DIAG BR-TARGET-STACK: udf_imm=0x%04x "
+                   "emit_pc=0x%lx target_reg=X%u target_value=0x%lx "
+                   "goal_off=0x%lx x15=0x%lx caller_lr=0x%lx\n",
+                   (unsigned)(udf_enc & 0xFFFFu),
+                   (unsigned long)pc, (unsigned)target_id,
+                   (unsigned long)target_value,
+                   (unsigned long)goal_off, (unsigned long)x15,
+                   (unsigned long)lr);
+      std::fprintf(stderr,
+                   "GK-DIAG A24-DIAG BR-TARGET-STACK window "
+                   "(pc-256..pc+12):\n");
+      for (intptr_t d = -256; d <= 12; d += 4) {
+        uintptr_t a = pc + d;
+        uint32_t w = 0;
+        if (gk_diag::safe_read_u32(a, &w)) {
+          std::fprintf(stderr,
+                       "GK-DIAG A24-DIAG   pc%+ld @ 0x%lx = 0x%08x\n",
+                       (long)d, (unsigned long)a, w);
+        } else {
+          std::fprintf(stderr,
+                       "GK-DIAG A24-DIAG   pc%+ld @ 0x%lx = <unreadable>\n",
+                       (long)d, (unsigned long)a);
+        }
+      }
+    }
+  }
+
+  // A24 — OG_X30_TRACE decoder. The goalc-arm64 emit-time post-LDP X30
+  // stack-range check in `do_goal_function_arm64`'s epilogue (env-gated
+  // by OG_X30_TRACE_EMIT at GOALC COMPILE TIME) emits UDF #0x1EF0
+  // between `LDP X29, X30, [SP], #16` and `RET`. When the LDP loads a
+  // corrupted X30 with GOAL form >= 0x07000000 (the stack-range floor,
+  // matching A23's threshold), the UDF fires; PC at SIGILL = the UDF's
+  // address = one instruction past the corrupted LDP = inside the
+  // function whose stack frame was clobbered.
+  //
+  // The UDF's tag (0x1EF0) is distinct from A23's 0x1EE0..0x1EFF range,
+  // so the two tracer paths never alias. The emit_pc cross-references
+  // to the GOAL function whose epilogue ran: subtract X15 (= ee_base)
+  // to get the GOAL offset, then look up that offset in the klink-
+  // recorded symbol table.
+  //
+  // Runs RIGHT AFTER the A23 decoder so the two tracer messages cluster
+  // at the top of the crash log; the A12/A18 walkers below still run.
+  if (sig == SIGILL) {
+    uint32_t udf_enc = 0;
+    if (gk_diag::safe_read_u32(pc, &udf_enc) &&
+        (udf_enc & 0xFFFF0000u) == 0u &&
+        (udf_enc & 0xFFFFu) == 0x1EF0u) {
+      uintptr_t x30 = (uintptr_t)uc->uc_mcontext.regs[30];
+      uintptr_t x15 = (uintptr_t)uc->uc_mcontext.regs[15];
+      uintptr_t goal_off = (x15 != 0 && x30 >= x15) ? (x30 - x15) : x30;
+      std::fprintf(stderr,
+                   "GK-DIAG A24-DIAG EPILOGUE-X30-STACK: udf_imm=0x%04x "
+                   "emit_pc=0x%lx x30=0x%lx goal_off=0x%lx x15=0x%lx "
+                   "caller_lr=0x%lx\n",
+                   (unsigned)(udf_enc & 0xFFFFu),
+                   (unsigned long)pc, (unsigned long)x30,
+                   (unsigned long)goal_off, (unsigned long)x15,
+                   (unsigned long)lr);
+      // Dump 256 bytes backwards from emit_pc to expose the function's
+      // tail: the LDP X29/X30 should appear at pc-4, the (optional)
+      // ADD SP at pc-8, and the function-body stores that may have
+      // corrupted the X29/X30 save slot are further back. Also dump
+      // ~16 bytes forward so the RET that would have used the bad X30
+      // is visible.
+      std::fprintf(stderr,
+                   "GK-DIAG A24-DIAG EPILOGUE-X30-STACK window "
+                   "(pc-256..pc+12):\n");
+      for (intptr_t d = -256; d <= 12; d += 4) {
+        uintptr_t a = pc + d;
+        uint32_t w = 0;
+        if (gk_diag::safe_read_u32(a, &w)) {
+          std::fprintf(stderr,
+                       "GK-DIAG A24-DIAG   pc%+ld @ 0x%lx = 0x%08x\n",
+                       (long)d, (unsigned long)a, w);
+        } else {
+          std::fprintf(stderr,
+                       "GK-DIAG A24-DIAG   pc%+ld @ 0x%lx = <unreadable>\n",
+                       (long)d, (unsigned long)a);
+        }
+      }
+      // Dump bytes around the bad X30's host address: those are the
+      // stack words that the corrupted save slot now points at — useful
+      // for confirming the SP+32 GOAL-ptr-shaped word evidence from
+      // A21/A23 still holds, and for distinguishing X30 = SP+32 vs.
+      // X30 = some other stack-range corruption.
+      std::fprintf(stderr,
+                   "GK-DIAG A24-DIAG x30 host bytes (-0x10..+0x20):\n");
+      for (intptr_t d = -16; d <= 32; d += 4) {
+        uintptr_t a = x30 + d;
+        uint32_t w = 0;
+        if (gk_diag::safe_read_u32(a, &w)) {
+          std::fprintf(stderr,
+                       "GK-DIAG A24-DIAG   x30%+ld @ 0x%lx = 0x%08x\n",
+                       (long)d, (unsigned long)a, w);
+        } else {
+          std::fprintf(stderr,
+                       "GK-DIAG A24-DIAG   x30%+ld @ 0x%lx = <unreadable>\n",
+                       (long)d, (unsigned long)a);
+        }
+      }
+    }
+  }
+
   // A12-DIAG: tie the failing BLR to the originating sym slot by walking
   // the call_r64 push sequence backward to the spill, then to the sym-MEM
   // LDR, then to the ADRP+ADD that built the slot address. Runs only on
