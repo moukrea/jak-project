@@ -423,6 +423,20 @@ phases:
   validator: validators/phase-A22-arm64-codegen-h2-fix.sh
   max_turns: 800
   max_retries: 5
+- id: A23-arm64-blr-target-tracer
+  name: 'Runtime BLR-target tracer phase post-A22 Path C honest-exit. A22 attempt-1 confirmed H2 mechanism (m_func value is GOAL form
+    of host stack addr) with new arithmetic evidence (X7=X8=0x07fffe84, X16=X7+X15, X29=X30=X16) but could not locate specific emit-site /
+    GOAL function within IGenARM64.cpp + IR.cpp + asm_funcs_arm64.s unlock list. A23 adds env-gated (OG_BLR_TARGET_TRACE_EMIT) compile-time
+    tracer in call_r64 that emits CMP-against-heap-top + UDF-with-tag for stack-range BLR targets; SIGILL handler decodes the UDF tag and
+    prints emit_pc + freg_value + caller_lr. Cross-reference emit_pc against klink symbol table to NAME the GOAL function. NEW unlocks vs
+    A22: goalc/compiler/Val.cpp + .h (StackVarAddrVal / MemoryDerefVal flow audit), goalc/compiler/compilation/Type.cpp (fn-ptr-vs-stack-ptr
+    typecheck audit). Four exit paths: A) fix landed (qemu>=217 + Val/Type/IR fix); B) next-blocker; C) bug-located-named-source (tracer
+    fired + named GOAL function but fix outside A23 reach — MOST LIKELY successful exit); D) no-source-located. All require ≥200-line
+    investigation trace.'
+  prompt: prompts/phase-A23-arm64-blr-target-tracer.md
+  validator: validators/phase-A23-arm64-blr-target-tracer.sh
+  max_turns: 1000
+  max_retries: 5
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
