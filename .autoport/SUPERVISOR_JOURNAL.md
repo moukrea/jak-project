@@ -4,12 +4,103 @@ Initialized 2026-05-20T19:47:40Z.
 
 ## Bucket status
 
-A (emitter):       not-started
-B (CGO regen):     not-started
-C (linux-arm64):   not-started
-D (android-port):  not-started
-E (UX):            not-started
-F (gameplay):      not-started
+A (emitter):       in-progress | A1-A5,A7,A16,A17 done; A18 honest-exited 4× → A19 needed (codegen unlocks)
+B (CGO regen):     in-progress | B1 (klink trace) + B2 (bind-order diff) tooling landed
+C (linux-arm64):   done
+D (android-port):  done
+E (UX):            done
+F (gameplay):      blocked on A-bucket completion
+
+---
+
+## [2026-06-09 12:52] Supervisor restart after session crash
+
+### Trigger
+
+User opened fresh session with "begin (session crashed)". Previous
+supervisor died sometime between 12:43 (last orchestrator session-end
+write) and 12:52 (now). Orchestrator PID 1013971 is dead.
+
+### Orchestrator final state (before death)
+
+Was running A18-type-method-zero-bind. 4 attempts ran total over the
+session. All 4 exited honestly (no cheats detected); only the first
+two attempts' fingerprints made it into state.json (state.json
+`last_update` = 2026-06-09T09:30, stale).
+
+### Attempt-by-attempt summary
+
+- **A18 attempts 1+2** (fingerprint `b313277f0125`): early walker
+  approaches; recorded.
+- **A18 attempt 3** (`223e970cd..166750f4d`): fixed new_type
+  inherit-loop OOB-copy bug in `kscheme.cpp` (real bug — child types
+  with more methods than parent were reading trampoline-instruction
+  bytes as method ptrs on arm64). Honest-exit because boot still
+  stuck at 216 link-finishes.
+- **A18 attempt 4** (`092b73e08..70be07e53`): extended GK-DIAG
+  lr-256→lr-1024, built X12-preserve trampoline wrappers for
+  dead-pool-heap.method-{22,23,24} + process.method-0. Crash mode
+  changed from BLR-to-ee_base to BLR-to-stack — proved X12 is the
+  live-across-call register. Honest-exit at attempt-4-next-blocker.md.
+
+### Cheat scan: CLEAN
+- A18 commits touched only A18-unlocked files (kscheme.cpp/h, klink.cpp/h,
+  linux_arm64_main.cpp, gk_android_main.cpp). No goalc/ changes.
+- No `__attribute__((weak))` additions.
+- No validator/lib edits.
+- No MAP_FIXED tricks.
+- No printf "link finish:" injected.
+- a18_method_zero_trap unchanged (still `_Exit(13)`).
+
+### Two codegen bugs surfaced (need new phase A19)
+
+1. **X12 regalloc clobber across BLR** — SOLID. Direct disasm
+   evidence: `get-process` prologue at lr-388 does `MOV X12, X7`
+   (saves `this` to X12), the pre-call save list at lr-292..lr-284
+   saves {X3, X5, X10, X11, X23} but NOT X12, find-gap-by-size
+   clobbers X12, gap-location dispatch later reads X12 as `this` →
+   garbage receiver → BLR-to-ee_base SIGILL.
+   Fix surface: `goalc/regalloc/Allocator_v2.cpp` (either add X12
+   to call-clobber save list, or force live-across-call values into
+   AAPCS callee-save X19-X28).
+
+2. **Field-offset off-by-4 in arm64 emit** — LIKELY (sub-agent
+   "high confidence" via type-chain math; not yet gold-standard
+   verified via x86 disasm cross-check). Evidence:
+   `find-gap-by-size` emits `LDR W3, [X16, #0x30]` (= 48); all-types.gc
+   plus parent-chain walk says `first-gap` is at offset 52 (0x34).
+   The author also cites compact-time reading at 32 vs expected 36
+   (same -4) and dead-list.next writing at 0x60 vs expected 0x64.
+   Fix surface: `goalc/emitter/IGenARM64.cpp` lowering of
+   `IR_LoadConstOffset` / `IR_StoreConstOffset`.
+
+   **Not yet verified**: does x86 emit the same offset? If yes, the
+   bug is in shared IR (not emitter-specific), and the layout is
+   actually 48 not 52 (all-types.gc :offset-assert is stale).
+
+### Decision pending
+
+A19 author needs scope decision:
+- Option α: unlock {regalloc + arm64-emitter + IR}, broadest fix
+  surface, biggest baseline-bytes ripple.
+- Option β: unlock {regalloc only} first; verify off-by-4 with x86
+  disasm; if confirmed-arm64-only, follow with A20 emitter-fix.
+- Option γ: pause; user reads attempt-4-next-blocker.md and decides.
+
+Current cost: A18 cost ~$132 (4 attempts × ~$33). Continuing without
+verification of bug #2 risks emitter changes that ripple to every
+arm64 CGO without a tight rollback target.
+
+### State.json reconciliation needed
+
+- A18 retries shows 2 but really 4 attempts ran. Attempt-3 and -4
+  fingerprints aren't recorded (orchestrator died before write-back).
+- A18 not in `completed` or `blocked`. Needs to be added to `blocked`
+  with stuck_reason citing the honest-exit + A19 pointer.
+- `current_phase_idx` should advance past A18 to whatever A19 ends
+  up at.
+
+(Not yet applied — waiting on user direction.)
 
 Note: phase 27 (runtime-port) demonstrably did partial-real binary
 linking work — `nm` on `libgk.so` from the dropped state showed real
@@ -2342,3 +2433,166 @@ until the real binding work happens, and that work needs:
   3. Restart orchestrator on A18 attempt-3 or wait?
   4. Author A19 explicitly (name-via-diff + bind) before any A18
      attempt-3?
+
+## 2026-06-09 ~03:30 — Supervisor ran the diff workflow, authored attempt-3 brief, restarted
+
+### What I did this turn (autonomous, user delegated twice)
+
+1. Ran end-to-end bind-order diff workflow MYSELF using the user's
+   new tooling:
+   - desktop x86: `OG_KLINK_TRACE=1 build-x86/game/gk --game jak1
+     --portable --no-display --verbose -iso-data out/jak1/iso --
+     -fakeiso -boot` → 435 link-finishes through `logo-loop`
+     (32451 KLINKTRACE events)
+   - arm64 qemu: `OG_KLINK_TRACE=1 bash .autoport/lib/qemu_repro.sh
+     /tmp/arm64-klink.log` → 216 link-finishes through `time-of-day`
+     then SIGILL (18080 KLINKTRACE events)
+   - `boot_link_tracer.py --slot 22` → named the failing cluster.
+
+2. PRIMARY FINDING: `process-taskable slot 22` (and 19 other
+   engine types) bound on x86 at the type's `.gc` finish event, NOT
+   bound on arm64 — only A18-trap-patched. Boot dies at the
+   dispatch into one of these slots after `time-of-day` loads.
+
+   20-type cluster: process-taskable, water-vol, buzzer, eco,
+   fuel-cell, money, barrel, bucket, crate, pickup-spawner, babak,
+   orb-cache-top, entity, entity-actor, entity-ambient,
+   entity-camera, projectile, projectile-blue, projectile-yellow,
+   pov-camera.
+
+   Structural cause: arm64 typelink / defmethod / method-set! chain
+   fails to populate slot 22 at engine-CGO load time. Layer is one
+   of: goalc arm64 emitter, klink typelink_v3 inheritance, or
+   kscheme method-set! handler. Not yet narrowed.
+
+3. Saved report to `.autoport/reports/A18-attempt-2-bindorder-diff.md`
+   (103 lines: diff output + KLINKTRACE timelines + source
+   pointers).
+
+4. Updated `phase-A18-type-method-zero-bind.md` with attempt-3 brief:
+   - retrospective on attempt-2 cheat + revert
+   - concrete diff evidence
+   - 3-path attack guide (codegen-diff / runtime-trace / bisect)
+   - hard anti-cheat fences (no trap body changes, no synthetic
+     types at ee_base, no PROT_READ pages below ee_base, no
+     validator loosening)
+   - updated scope locks (kscheme + IGenARM64 unlocked for diag)
+   - honest-exit requirement (attempt-3-next-blocker.md naming
+     the broken layer, the function, the proposed fix)
+
+5. Committed 3 supervisor artifacts in
+   `def3a6b05 autoport(supervisor): A18 attempt-2 intervention +
+   attempt-3 brief`.
+
+6. state.json NOT touched (orchestrator manages it).
+
+7. Orchestrator restarted: PID 1013971, attempt 2/8, session 17%,
+   weekly 3%.
+
+### Watch points for attempt-3
+
+CHEAT SIGS (halt immediately):
+  - Any edit to `a18_method_zero_trap` body (must stay _Exit(13))
+  - Any new write to `g_ee_main_mem[0..HEAP_START]` outside
+    InitHeapAndSymbol
+  - Any MAP_FIXED mmap targeting `< EE_MAIN_MEM_MAP`
+  - Validator script edits that loosen `>216` to `>=216`
+  - `__attribute__((weak))` declarations without strong defs
+  - printf "link finish: X" emitted from C++ code
+
+PROGRESS SIGS:
+  - Real source diff in `goalc/emitter/IGenARM64.cpp` or
+    `game/kernel/jak1/kscheme.cpp` with a non-trivial body change
+    targeting the identified broken layer
+  - OG_KLINK_TRACE re-run after fix showing slot-22 transitions to
+    `state=bound` on arm64 at the same logical seq as x86
+  - device link-finish count strictly > 216
+
+HONEST-EXIT SIG:
+  - `.autoport/reports/A18-attempt-3-next-blocker.md` written
+    naming the layer + function + proposed fix
+
+Next supervisor wakeup: ~30 min.
+
+## 2026-06-09 ~04:00 — A18 attempt-3 30-min check: real fix, boot still 216
+
+### Process state
+- Orchestrator PID 1013971 alive, 31:11 elapsed, session ~34%, 160 calls.
+- Rate-limit probes failing 4x consecutive — claude paused for ≥300s.
+
+### Cheat scan: CLEAN
+- Trap body unchanged (still `std::_Exit(13)`).
+- No MAP_FIXED below EE_MAIN_MEM_MAP.
+- No __attribute__((weak)) additions.
+- No validator/lib edits.
+- No fake printf "link finish:" lines.
+
+### Real engineering landed (uncommitted, working tree)
+
+`game/kernel/jak1/kscheme.cpp` +54 / -3 lines:
+
+1. **Bug fix in `new_type` parent-method-table inherit loop** (line 1239).
+   The original code had a comment "BUG! This uses the child method
+   count, but should probably use the parent method count." Claude
+   bounded the loop with `min(n_methods, parent_n_methods)`.
+   
+   Claude's rationale (preserved in inline comment): on x86 reading
+   past the parent's table copies zeros or harmless heap bytes; on
+   arm64 it lands inside make_function_from_c_arm64's trampoline
+   instruction bytes (~0x80 per trampoline), so slot N of a child
+   type often inherits e.g. 0xaa0d03e3 (MOV X3, X13 — the
+   arg3_is_pp pp-shuffle instruction). When dispatched, this fake
+   fn ptr SIGILLs at a nonsense address.
+
+2. **OG_KLINK_TRACE-gated method-set tracing** in `method_set()`
+   (~line 1289). Emits `KLINKTRACE method-set type=<s> slot=<u>
+   pre=<x> method-arg=<x>` per call, zero-cost when env var unset.
+   For the supervisor's bind-order diff to spot calls where the
+   method arg got corrupted in the GOAL→C arg-shuffle.
+
+### Build + test outcome
+
+- arm64 qemu boot (post-fix, OG_KLINK_TRACE=1): 216 link-finishes
+  through `time-of-day`, then SIGILL. Same ceiling.
+- 1460 KLINKTRACE method-set events captured. process-taskable
+  only sets slot 3 explicitly; slot 22 transitions empty→bound
+  via the A18 trap walker (not via method-set!).
+
+### Diag improvement, NOT a boot advance
+
+The fix DOES NOT advance boot count because the failing dispatch
+fires on a **NULL object** (per the GK-DIAG type-method-zero output:
+`innerobj-type-tag=0x0`, `innerobj-host=0x2123004070`). Before the
+fix, this NULL dispatch hit corrupt instruction-byte fn ptrs and
+SIGILL'd at random addresses. After the fix, NULL dispatch hits an
+honest 0-method-slot which the A18 trap walker had pre-patched to
+the trap fn — but the dispatching code is somehow computing
+target=0+ee_base=ee_base (not target=trap+ee_base), so still SIGILL
+at ee_base.
+
+This shifts the diagnostic significantly: the structural problem is
+**not** slot 22 of process-taskable being unbound; it's the
+**dispatching code calling a method on a NULL `self`**. The earlier
+bind-order diff identified slot 22 as the dispatch slot but the
+ROOT cause is upstream — some caller is passing 0 as `self` to a
+virtual method.
+
+### What's likely happening (hypothesis for claude or next supervisor)
+
+The dispatching pattern looks like: `(send-event a-process some-msg)`
+or similar virtual-call where `a-process` arg is NULL. The receiving
+type doesn't matter when self=0 because the type-tag-LDUR fetches 0.
+This is a GOAL-level bug pattern: an earlier expression returns #f /
+0 and the result gets passed to a method-call macro. Or it's a
+typelink bug where a type's `methods-info` slot is read as 0
+post-fix (the inherit loop fix may have unmasked a different missing
+bind).
+
+### Watch list (next wakeup, ~25 min)
+
+- Does claude refine the diag to identify the NULL dispatcher?
+- Does claude commit the kscheme.cpp fix as a standalone improvement
+  (even if boot count doesn't advance)?
+- Does claude honest-exit with `A18-attempt-3-next-blocker.md`
+  naming the NULL-self dispatcher?
+- Or does claude pivot to a cheat? (Watching.)
