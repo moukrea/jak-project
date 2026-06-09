@@ -2,14 +2,196 @@
 
 Initialized 2026-05-20T19:47:40Z.
 
-## Bucket status
+## Bucket status (updated 2026-06-09 15:39 after A21 attempt-1 reality-check PASS)
 
-A (emitter):       in-progress | A1-A5,A7,A16,A17 done; A18 honest-exited 4× → A19 needed (codegen unlocks)
+A (emitter):       in-progress | A19 X12 fix landed; A20 falsified off-by-4; A21 attempt-1 named **H2 (scratch-corruption-across-BLR producing stack-addr-as-GOAL-ptr)** as PRIMARY with arithmetic-verified evidence; A22 must unlock IGenARM64.cpp + IR.cpp + asm_funcs_arm64.s
 B (CGO regen):     in-progress | B1 (klink trace) + B2 (bind-order diff) tooling landed
 C (linux-arm64):   done
 D (android-port):  done
 E (UX):            done
-F (gameplay):      blocked on A-bucket completion
+F (gameplay):      blocked on A-bucket completion (216-link-finish ceiling at start-time-of-day)
+
+---
+
+## [2026-06-09 15:39] A21 attempt-1 reality check — PASS (4 diag patches landed, H2 verdict mathematically sound)
+
+### Resume context
+
+User opened fresh supervisor session ("begin (session crashed)") at
+~15:35. Orchestrator PID 1624295 was still alive, ~25 min into A21
+attempt-1; the validator had just been re-run after a self-corrected
+arm64-KERNEL.CGO-overwrites-x86-KERNEL.CGO mishap and printed PASS.
+
+### Reality-checked all 10 validator gates independently
+
+1. **Lock check** — `git diff A20..HEAD -- *.cpp *.h *.s *.py` lists
+   ONLY the 5 expected files: `build-arm64-android/asm_funcs_arm64_gnu.s`
+   (generated artifact), `klink.cpp`, `jak1/kscheme.cpp`,
+   `linux_arm64_main.cpp`, `Allocator_v2.cpp`. **All locked files
+   diff=0.**
+2. **Anti-cheat** — 0 `__attribute__((weak))`, 0 `abort()`, 0 dodge
+   patterns, 0 inline `_stub(`, 0 new `*_stubs.cpp`, 0 infra/validator
+   edits. **CLEAN.**
+3. **A18 trap body** still `std::_Exit(13)` at klink.cpp:644. **OK.**
+4. **A19 X12 fix** preserved — `kStpX12X23Push = 0xA9BF5FECu` still in
+   IGenARM64.cpp's call_r64 save list. **OK.**
+5. **A20 OG_OFFSET_TRACE** preserved — 6 hits in IR.cpp (validator
+   requires ≥4). **OK.**
+6. **Diag landed** — all 4 expected env-gated traces present and
+   correctly env-gated with the lazy-cached-getenv idiom:
+   - klink.cpp: `og_klink_imm19_trace_enabled()` static-const lambda + 3 wired sites
+   - linux_arm64_main.cpp: `OG_REG_BYTE_DUMP` inside gk_sigsegv_diag
+   - Allocator_v2.cpp: `OG_REGALLOC_TRACE` after step 3 of allocate_registers_v2
+   - jak1/kscheme.cpp: `og_callgoal_trace_enabled()` + 2 sites in call_method_of_type variants
+   **Zero overhead when env var unset (verified via direct read of each gate).**
+7. **A21-diagnostic-summary.md** = 17,604 bytes, 383 lines (validator
+   requires ≥100). **OK.**
+8. **A21-attempt-1-bug-class-identified.md** = 14,594 bytes, 326 lines
+   (validator requires ≥150). Names "H2 — scratch/X16 corruption
+   across BLR" as **PRIMARY**. **OK.**
+9. **arm64 CGOs** byte-identical to A19 baseline (KERNEL/ENGINE/GAME
+   sha256 all match `.autoport/reports/A19-baseline-arm64-cgo-hashes.txt`).
+   **A21 IS DIAG-ONLY, ceiling unchanged as expected.**
+10. **x86 CGOs** byte-identical to A2 baseline (after self-correction —
+    see note below). **OK.**
+11. **qemu boot count** — Independently re-ran qemu_repro.sh; got
+    **216 'link finish:' lines, last = `time-of-day`**, crash sig
+    `pc=lr=0x212afffe84`. **Matches A19 ceiling exactly, no regression.**
+12. **Desktop x86 smoke** — Independently ran `build-x86/game/gk
+    --game jak1 --portable -fakeiso -boot -debug-mem`; got 443
+    link-finishes including `link finish: logo`. **OK.**
+
+### H2 evidence chain audit
+
+The report's arithmetic is solid and reproducible from the qemu log:
+
+- 8 registers (X16, X24..X30) all hold the same value `0x212afffe84`.
+- `0x212afffe84` is a STACK address (per `sp=0x212afffcc0`, within 0x200
+  of SP).
+- SP+32 (= 0x212afffce0) contains the u32 `0x07fffe84`.
+- Host→GOAL conversion on arm64 is `SUB Xt, Xt, X15` where X15=ee_base.
+- Inverse: `0x07fffe84 + 0x2123000000 = 0x212afffe84` ✓ exact match.
+- So a register that was supposed to hold a heap host address ended up
+  holding a stack host address; `SUB Xt, Xt, X15` produced `0x07fffe84`
+  (GOAL form of stack addr); `STR Wt, [SP, #32]`+later `LDR Wt, [SP, #32]`
+  + `ADD Xt, Xt, X15`+`BLR Xt` jumped to the stack and SIGILL'd.
+
+That math is unforgeable in a cheat — only true register state at
+sigill time can reverse-engineer like that. **H2 is real.**
+
+### H3 ruled out cleanly
+
+- 3829 LDR-literal patches total. 3748 ok, 81 oor.
+- OOR distribution: ALL `var=S` (32-bit float) or `var=Q` (vector),
+  Rt ∈ {X22, X23, X24}.
+- OOR slot addresses cluster in the 14 KB window `0x2126ab488c..0x2126ab828c`
+  — DATA segment of one CGO's literal pool.
+- Crash PC `0x212afffe84` is on the STACK, ~50 MB removed from any OOR
+  slot. None of the OOR sites is in the executable boot path.
+
+The 81 OOR warnings are a real (but separate, non-fatal) issue
+— one CGO's literal pool is too far from its code segment for imm19
+reach. **Not the cause of the 216 ceiling.**
+
+### H4 ruled out cleanly
+
+CALLGOAL-TRACE captured 4 C→GOAL boundary crossings before SIGILL.
+Last 3 share `fn_goal=0x1bff94 arg=0x1549794 caller_lr=0x2b8004
+s7_offset=0x18fe04`. Args are valid heap-shaped GOAL pointers,
+`s7_offset` is stable. If AAPCS shuffle were corrupting args, the
+type-tag LDUR in the GOAL prologue would SIGSEGV on the first call,
+not the fourth. **AAPCS shuffle works; H4 is not the bug.**
+
+### H1 inconclusive, but disfavoured
+
+REGALLOC-TRACE shows 706 "off-saved" function-crossers across 134/282
+functions, but the trace's filter overcounts: many are XMM (correct,
+XMM has its own save list), many are 1-instruction return-value
+captures (vars produced by call, not surviving call). A19 already
+landed the canonical H1 fix (X12). The 8-register-same-stack-address
+pattern is structural propagation through save/restore chains, not
+per-call-site clobber. **H1 doesn't match the crash fingerprint.**
+
+### Concerning incident (handled)
+
+claude ran `OG_REGALLOC_TRACE=1 build-arm64/goalc/goalc -c '(make-group "kernel")'`
+to sample regalloc trace. **`make-group` outputs to the x86 CGO path
+(`out/jak1/iso/KERNEL.CGO`) regardless of which goalc binary is
+invoked** — so the arm64-built bytes overwrote the x86 baseline.
+First validator run FAILED with "x86 CGO drift". claude correctly
+diagnosed and self-corrected: rebuilt KERNEL.CGO via
+`build-x86/goalc/goalc -c '(make-group "kernel" :force #t)'`, hashes
+restored to A2 baseline, second validator run PASSED. Honest recovery,
+not a cheat. **Memorized as `feedback_arm64_diag_overwrite_kernel_cgo`.**
+
+### Anti-cheat invariants — all clean
+
+- 0 weak symbols added in diff vs A20.
+- 0 abort/std::abort additions.
+- 0 dodge patterns (`gk_recover_to_renderer`, `forced-recovery handoff`,
+  `g_fault_recovery_armed`).
+- 0 new `*_stubs.cpp` files.
+- 0 inline `_stub(` function additions.
+- 0 modifications to `.autoport/lib/*.sh`, `.autoport/lib/*.py`,
+  `.autoport/validators/*.sh`, `.autoport/supervisor.sh`,
+  `.autoport/orchestrator.py`.
+- 0 modifications to A21 phase prompt in working tree.
+
+### Orchestrator state
+
+- PID 1624295 still alive at 15:35.
+- attempt-01.jsonl has emitted "PASS: Phase A21" string (twice — second
+  is the validator's successful re-run).
+- state.json `current_phase_idx=59` still, A21 not yet in `completed`
+  (orchestrator hasn't issued the commit + fingerprint yet — that
+  happens after claude exits its turn cleanly).
+- Cost: session ~44%, weekly ~18%. A21 attempt-1 spent ~10% session
+  (~$25-30 estimated based on prior attempts).
+
+### Next supervisor action — author A22
+
+After orchestrator commits A21 attempt-1 + advances state.json, author
+A22 with **narrow unlock**:
+
+- `goalc/emitter/IGenARM64.cpp` (full unlock — inspection + fix of
+  X16/scratch staging across BLR sites).
+- `goalc/compiler/IR.cpp` (limited unlock — `IR_FunctionCall::do_codegen_arm64`
+  only; OG_OFFSET_TRACE diag must persist).
+- `game/kernel/asm_funcs_arm64.s` + generated `asm_funcs_arm64_gnu.s`
+  (trampoline `_arg_call_arm64` STP/LDP save-slot audit).
+- A22 baseline file + reports/.
+
+Locks retained: x86 emit, Val.cpp, CodeGenerator.cpp, Compiler.cpp,
+common/type_system, all runtime/android/validators/lib.
+
+Hard validator gates:
+- x86 CGOs byte-identical to A2.
+- A19 + A20 + A21 invariants preserved.
+- arm64 CGOs MAY drift from A19 baseline (codegen WILL change).
+- qemu boot count must advance **past 216** (real fix or honest exit
+  with attempt-N-next-blocker.md).
+- Desktop x86 smoke still reaches `link finish: logo`.
+
+### Watch list (next wakeup, ~20 min)
+
+- Does orchestrator commit A21 attempt-1 cleanly?
+- Does state.json get `A21-arm64-codegen-deeper-investigation` added
+  to `completed` and `current_phase_idx` bump to 60 (F1)?
+- If yes → supervisor must intercept before F1 starts (F1 is still
+  blocked by 216 ceiling) and author A22 instead.
+- If no (claude tries another attempt) → check for scope creep into
+  locked files; halt if so.
+
+### Cost ledger update
+
+- A18: ~$132
+- A19: ~$50 (X12 fix landed)
+- A20: ~$35 (off-by-4 falsified)
+- A21 attempt-1 (this run): ~$30 estimated
+- Supervisor interventions: ~$25
+- Running total: ~$272
+
+---
 
 ---
 
@@ -518,6 +700,156 @@ $10-30 more if let to run to max_turns or rate-quota exhaustion.
 - Author A21 per A20-attempt-1-next-blocker.md's recommended
   unlock scope.
 - Ask user before applying milestones.yaml rewrite.
+
+---
+
+## [2026-06-09 15:00-15:09] A20 attempt-1 closed, A21 authored, orchestrator restarted
+
+### A20 attempt-1 final state (verified)
+
+After SIGINT×2 at 14:53, orchestrator ran A20 validator and exited
+cleanly with code 0. state.json updated:
+- `retries[A20-goalc-arm64-field-offset] = 1`
+- `fingerprints[A20-goalc-arm64-field-offset] = ['900642909dd6']`
+- A20 not yet in `completed` or `blocked` (orchestrator parked it
+  pending more attempts; supervisor moved it to blocked here).
+- Last log line: "Phase A20-goalc-arm64-field-offset attempt 1/6
+  failed. Distinct failure modes so far: 1. Retrying..."
+
+### User decision
+
+User typed "Figure it out" — implicit delegation to supervisor.
+Supervisor's proposal: author A21 as a diagnostic-only phase
+discriminating between H2/H3/H4 (H1 already weak per supervisor
+reality-check on call_r64's save list). Authored.
+
+### Refinement over initial proposal
+
+Initial proposal would have unlocked IGenARM64.cpp + IR.cpp in A21
+in case H2 fix landed in-scope. Refinement: those stay LOCKED in
+A21. A21 is **pure diagnostic** — its only unlocks are the 4 trace
+surfaces (linux_arm64_main.cpp, klink.cpp, Allocator_v2.cpp,
+kscheme.cpp). If diagnosis lands H2, supervisor will author A22
+with narrow IGenARM64 / IR.cpp unlock. Reasoning: smallest correct
+intervention; A19 and A20 both proved no bug in those files, so
+unlocking them in A21 would be a false signal of "you might fix it
+here." A22 author will have the H2 evidence and a focused mandate.
+
+### Phase A21 design
+
+**Prompt**: `.autoport/prompts/phase-A21-arm64-codegen-deeper-investigation.md`
+**Validator**: `.autoport/validators/phase-A21-arm64-codegen-deeper-investigation.sh`
+
+Unlocks: 4 diag surfaces + reports + .autoport/tests/emitter/.
+
+Locks: everything in goalc/emitter/, goalc/compiler/ (except A20's
+OG_OFFSET_TRACE diag in IR.cpp — that stays), goalc/regalloc/
+(except Allocator_v2.cpp diag), common/type_system/, all of
+android/*, asm_funcs_arm64.s, all validators + lib.
+
+Forbidden patterns explicitly named: silently suppressing
+LDR-literal warnings, runtime "register fix-up tables", behavior
+changes in call_goal beyond env-gated trace, CGO-hash-inflating
+edits, rehashing A20 hypotheses without new evidence.
+
+Validator gates:
+- Hard regression: x86 CGOs byte-identical to A2; A18 trap _Exit(13);
+  A19 kStpX12X23Push; A20 OG_OFFSET_TRACE in IR.cpp (≥4 sites).
+- Lock check: enumerated locked file list, all DIFF=0.
+- Anti-cheat: no weak, no abort, no _stubs.cpp, no stub-shaped
+  rename functions, no infra/validator edits.
+- Diag landed: at least 1 of OG_A21_REG_TRACE / OG_REG_BYTE_DUMP /
+  OG_KLINK_IMM19_TRACE / OG_REGALLOC_TRACE / OG_CALLGOAL_TRACE
+  greppable in the corresponding source file.
+- A21-diagnostic-summary.md ≥100 lines.
+- A21-attempt-N-bug-class-identified.md ≥150 lines naming H1/H2/H3/H4
+  AS primary/cause/root (grep enforced).
+- arm64 CGOs byte-identical to A19 baseline UNLESS
+  A21-fix-summary.md present (allows in-scope bonus fix).
+- qemu boot count must not regress below 200 (tolerance, since A20
+  ceiling is 216).
+
+max_turns: 600. max_retries: 6.
+
+### state.json edits
+
+- Added "A20-goalc-arm64-field-offset" to `blocked`.
+- Added stuck_reason for A20 citing A20-attempt-1-next-blocker.md.
+- Bumped `current_phase_idx`: 58 → 59 (now points at A21).
+- A20's retries=1, fingerprint=['900642909dd6'] preserved (the
+  attempt happened, it's just no longer the active phase).
+
+### milestones.yaml edits
+
+- Inserted A21-arm64-codegen-deeper-investigation between A20
+  (idx 58) and F1 (was idx 59). After insert: 63 total phases;
+  A21 at idx 59, F1 at idx 60, F2 at idx 61, F3 at idx 62.
+
+### Commit
+
+`879e04914 [autoport/supervisor] A20 → A21 transition: author arm64
+codegen deeper investigation phase` — 5 files, +616/-6.
+
+### Orchestrator restart
+
+`nohup ./launch.sh > .autoport/logs/supervised-run.log 2>&1 &`
+PID 1624278 (launch.sh) + PID 1624295 (orchestrator.py).
+
+Rate check at restart: session=36% weekly=16% — comfortable budget
+for 1-2 A21 attempts (each ~$30-80).
+
+Claude session 844b195 picked up A21 attempt 1/6 cleanly. First
+actions: read validator script, read A20-attempt-1-next-blocker.md,
+list A18/A19/A20/A21 reports. Correct opening moves.
+
+### Watch list for next iteration (~30 min)
+
+CHEAT SIGS (halt immediately):
+- Edits to IGenARM64.cpp / IR.cpp / Val.cpp / IGenX86_64.cpp /
+  CodeGenerator.cpp / Compiler.cpp / common/type_system/Type.cpp
+  (lock violation).
+- "Fix" landed in kscheme.cpp::call_goal that's NOT env-gated
+  (behavior change masquerading as diag).
+- Silently dropping LDR-literal warnings in klink.cpp (suppress-fix).
+- Validator/lib edits.
+- Anything that breaks the A19 X12 fix or A20 OG_OFFSET_TRACE diag
+  or the A18 _Exit(13) trap.
+- "Bug class identified" report that just rehashes A20's hypotheses
+  without naming specific qemu log line numbers or sample diag
+  output.
+
+PROGRESS SIGS:
+- 1+ env-gated diag patch (OG_A21_*) landed in HEAD.
+- qemu_repro run with the env var set, producing a non-empty
+  diagnostic dump.
+- A21-diagnostic-summary.md with sample stderr snippets from the
+  new diag.
+- A21-attempt-1-bug-class-identified.md naming ONE of H1/H2/H3/H4
+  as primary with referenced log line numbers.
+
+HONEST-EXIT SIGS:
+- A21-attempt-1-bug-class-identified.md (passes validator)
+- OR A21-attempt-1-no-hypothesis-fits.md (escalates to broader A22)
+
+### Cost ledger
+
+- A18: ~$132 (4 attempts)
+- A19: ~$50 (1 attempt — X12 fix landed)
+- A20: ~$35 (1 attempt — diag added, off-by-4 falsified)
+- Supervisor (A18-A20 interventions): ~$20
+- Running total: ~$237
+- A21 estimate: $30-80/attempt; budget cap on this transition: $100
+
+Next supervisor wakeup: ~25 minutes (~15:35 CEST).
+
+### Bucket status (updated)
+
+A (emitter):       in-progress | A19 X12 fix landed; A20 falsified off-by-4; A21 = diag for H2/H3/H4
+B (CGO regen):     in-progress | tooling landed (B1 + B2)
+C (linux-arm64):   done
+D (android-port):  done
+E (UX):            done
+F (gameplay):      blocked on A-bucket completion (216-link-finish ceiling)
 
 ---
 
