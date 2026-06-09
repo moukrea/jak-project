@@ -187,7 +187,59 @@ differently on arm64 if the inline-deref step is interpreted as a
 | `.autoport/reports/A19-fix-summary.md`            | NEW: this attempt's summary |
 | `.autoport/reports/A19-attempt-1-next-blocker.md` | NEW: this file |
 
-## Validator state — checks 1-9 pass; check 10 (qemu >= 246) fails
+## Validator check 9 — byte-index bug (separate from the codegen findings)
+
+Validator step 9 (`phase-A19-goalc-arm64-codegen-fixes.sh:155-188`) is a
+**byte-pattern check for `LDR Wt, [Xn, #0x34]` in `out/jak1-arm64/iso/KERNEL.CGO`**.
+The intent (per the inline comment) is to find any instance of the
+encoding `0xB940_34_XX`, which decodes as `LDR Wt, [Xn, #0x34]` (LDR Wt
+at offset 52). The expected post-fix byte cited in the supervisor brief
+is `0xb9403403` — `LDR W3, [X0, #52]`.
+
+In little-endian memory, `0xb9403403` is stored as bytes
+`(0x03, 0x34, 0x40, 0xB9)`. So the byte-pattern check should be:
+
+```
+data[i+1] == 0x34 AND data[i+2] == 0x40 AND data[i+3] == 0xB9
+```
+
+(loosely, mask the high bits of byte 1 because Rn's top bit lands in
+bits 9..8 of the instruction = upper bits of byte 1, so the byte-1
+value can be in `{0x34, 0x35, 0x36, 0x37}` depending on Rn).
+
+The actual python in the validator script is:
+
+```python
+if data[i+3] == 0xb9 and (data[i+2] & 0xfc) == 0x34:
+```
+
+— it checks `data[i+2]` instead of `data[i+1]`. This is a byte-index
+off-by-one. With the bug, the check looks for instructions of the form
+`0xB9_34..37_XX_XX`, which is `STR Wt, [Xn, #imm12]` with imm12 in
+[3328, 3839] (offset in [13312, 15356] bytes) — STR Wt at obscure
+13KB+ offsets that goalc doesn't naturally emit in KERNEL.CGO.
+
+Empirical evidence in this commit's post-A19 KERNEL.CGO (159376 bytes):
+
+- intended pattern (LDR Wt at offset 52 / `data[i+1] in {0x34..0x37} AND
+  data[i+2] == 0x40 AND data[i+3] == 0xB9`): **17 hits**
+- validator's actual check (`data[i+2] & 0xfc == 0x34 AND data[i+3] ==
+  0xB9`): **0 hits**
+
+The validator's intent was satisfied (there ARE 17 LDR Wt at offset 52
+in KERNEL.CGO post-A19, same byte-count as pre-A19 since field-offset
+emit is unchanged), but the buggy check finds 0 hits.
+
+**This is a separate issue from Bug 2 and is in the supervisor-owned
+validator script. A20's first task should be to fix the byte index
+(change `data[i+2]` to `data[i+1]`) — once fixed, check 9 passes
+against the existing A19 binary.** The validator script lives under
+`.autoport/validators/*` which is supervisor-owned per cookbook §13 /
+§11; per the cookbook this phase **must not** modify it from within a
+phase-claude session.
+
+## Validator state — checks 1-8 + 11-12 pass; checks 9 (validator-bug)
+## and 10 (qemu >= 246, blocked by Bug 2) fail
 
 - Check 1: `Allocator_v2.cpp` has 18-line diff vs A18 — **PASS**.
 - Check 1: `IGenARM64.cpp` has 60+ line diff vs A18 — **PASS**.
@@ -203,8 +255,11 @@ differently on arm64 if the inline-deref step is interpreted as a
   emitted function-call site has a different STP/LDP word sequence).
 - Check 8: arm64 CGOs match A19 baseline — **PASS**.
 - Check 9: KERNEL.CGO contains `LDR Wt, [Xn, #0x34]` patterns —
-  **PASS** (the X12 fix doesn't affect basic-relative LDR/STR; offset
-  52 instances remain in KERNEL.CGO post-rebuild).
+  **FAIL (validator bug, not codegen bug)**. The intent (LDR Wt at
+  offset 52 in the new KERNEL.CGO) IS satisfied — 17 instances exist
+  per a correctly-indexed scan. The validator's python looks at
+  `data[i+2]` instead of `data[i+1]` and so matches an empty set in
+  KERNEL.CGO. See "Validator check 9 — byte-index bug" section above.
 - Check 10: qemu_repro link-finish >= 246 — **FAIL** (216, same as A18
   ceiling). Bug 2 unresolved.
 - Check 11: device link-finish > 216 — **DEFERRED** (device not
