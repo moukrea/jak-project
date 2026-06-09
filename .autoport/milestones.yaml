@@ -437,6 +437,21 @@ phases:
   validator: validators/phase-A23-arm64-blr-target-tracer.sh
   max_turns: 1000
   max_retries: 5
+- id: A24-arm64-epilogue-x30-tracer
+  name: 'Epilogue X30 stack-range tracer phase post-A23 Path C falsification of H2-via-call_r64. A23 attempt-1 instrumented 61204 call_r64
+    BLR sites with env-gated CMP-against-0x07000000 + UDF-with-tag check; the tracer fired ZERO times across a complete 216-link-finish
+    boot run, proving the 216 ceiling crash is NOT via call_r64 BLR-to-stack. The real mechanism is RET-to-corrupted-LR: some STR/STP
+    inside a function body corrupts the function''s X29/X30 save slot, the epilogue ''LDP X29, X30, [SP], #N; RET'' loads the corrupted
+    X30 and propagates the stack addr to PC. A24 unlocks goalc/compiler/CodeGenerator.cpp + .h to add env-gated (OG_X30_TRACE_EMIT)
+    post-LDP X30 stack-range check in do_goal_function_arm64''s epilogue emit: SUB X17 X30 X15; MOVZ X16 0x07000000; CMP; B.LO; UDF
+    #0x1EF0. Distinct tag from A23''s 0x1EE0..0x1EFF range. SIGILL handler decodes 0x1EF0, prints emit_pc + x30 + goal_off + caller_lr,
+    cross-references emit_pc to the GOAL function whose frame got corrupted. Five exit paths: A) fix landed (qemu>=217); B) next-blocker;
+    C) bug-located-named-source (MOST LIKELY — tracer fires, GOAL function named); D) no-source-located; E) tracer-doesnt-fire (would be
+    very surprising given A23 evidence; would imply RET also isn''t the source).'
+  prompt: prompts/phase-A24-arm64-epilogue-x30-tracer.md
+  validator: validators/phase-A24-arm64-epilogue-x30-tracer.sh
+  max_turns: 1200
+  max_retries: 5
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
