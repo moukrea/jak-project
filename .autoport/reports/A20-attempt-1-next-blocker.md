@@ -16,12 +16,23 @@ Authored 2026-06-09 by attempt-1 of phase `A20-goalc-arm64-field-offset`.
    `goalc/compiler/compilation/Type.cpp` → `goalc/compiler/IR.cpp` chain
    does not produce arm64-specific divergence.
 
-2. Direct byte-scan of `out/jak1-arm64/iso/KERNEL.CGO` at
-   instruction-aligned positions with Rn = X16 finds **0 instances of
-   `LDR Wt, [X16, #48]`** and **1 instance of `LDR Wt, [X16, #52]`**.
-   The byte sequence A18 attempt-4 claimed was emitted for
-   `find-gap-by-size`'s first body LDR (`0xb9403203`) is not present in
-   any instruction-aligned position of the KERNEL.CGO file at all.
+2. Direct byte-scan of `out/jak1-arm64/iso/KERNEL.CGO` at the correct
+   code-segment alignment (mod 4 = 2 from file start — the only
+   alignment at which ~27% of words decode as valid arm64 instructions;
+   the other three alignments decode <5%) finds **15 instances of
+   `LDR Wt, [X16, #48]`** and **15 instances of `LDR Wt, [X16, #52]`**
+   at instruction-aligned positions with Rn = X16. The byte sequence
+   A18 attempt-4 claimed was emitted for `find-gap-by-size`'s first
+   body LDR (`0xb9403203`) IS present in the CGO at file offsets
+   `0x18f9a` and `0x19e3e` (both mod-4 = 2). But it is *not* a buggy
+   emit — it is the *correct* emit for first-gap. The IR offset is
+   `field.offset() + (-type->get_offset())` = `52 + (-4)` = `48`, and
+   the runtime base X16 holds `host(user_pointer)` (proven by the
+   adjacent `LDUR W8, [X16, #-4]` in A18 attempt-4's own dump, which
+   reads the type tag at user_ptr - 4). So `[X16 + 48]` reads
+   structural offset `4 + 48 = 52` = first-gap, exactly as intended.
+   Same reasoning applies to compact-time (struct 36 → emit `#32`) and
+   dead-list.next (struct 100 → emit `#96`).
 
 3. `klink-arm64` patch histogram printed at line 46 of the qemu log
    shows zero `LDR imm12` / `STR imm12` patches during the boot prefix,
@@ -35,21 +46,28 @@ Authored 2026-06-09 by attempt-1 of phase `A20-goalc-arm64-field-offset`.
    `getenv`, one `fprintf`. So the comparison is against the same
    bytes A18 attempt-4 was reading; no rebuild artifact difference.
 
-Where A18 attempt-4 went wrong: the GK-DIAG dump at the time printed
-`lr+0`, `lr+4`, `pc-N` as bytes read from memory at those addresses.
-A18 attempt-4 interpreted the bytes at certain positions as compiled
-arm64 instructions belonging to `find-gap-by-size`'s body. But the PC
-at the time of the crash was a **stack address** (0x212afffe84), not a
-code address. The "instructions" at that range were stack data — saved
-registers, frame pointers, GOAL pointers — interpreted by a disasm
-reader as if they were code. The disasm at `lr-4 = 0xb9403203` matched
-the encoding of `LDR W3, [X16, #48]` purely by coincidence; the memory
-at that address is in fact stack data, not the find-gap-by-size body.
+Where A18 attempt-4 went wrong: the disasm of the bytes at GOAL
+0x21231d34f4 as `LDR W3, [X16, #0x30]` was *correct*. The encoding 0x30
+is decimal 48 — but that emit is itself correct. A18 attempt-4 then
+made a one-step semantic error: they assumed `[X16 + offset]` uses
+X16 = start-of-allocation (so [+48] = struct offset 48 = fill-percent).
+But X16 actually holds `host(user_pointer_of_basic)` — the user pointer
+is *past* the 4-byte type tag, at structural offset 4 from start-of-
+alloc. So `[X16 + 48]` reads `start_of_alloc + 4 + 48` = structural
+offset 52 = first-gap, exactly the field being accessed by
+`(-> this first-gap)`.
 
-The actual find-gap-by-size body (GOAL ptr 0x1d34e4) lives in
-`KERNEL.CGO` at some file offset and emits `LDR Wt, [X16, #52]`, not
-`#48`, for the first-gap access. The "off by -4" was an artifact of
-reading runtime stack memory as if it were code.
+A18's own dump contained direct evidence that X16 = user_pointer: just
+before the LDR at #48, the disasm shows `LDUR W8, [X16, #-4]` reading
+the basic's type tag. The type tag of a basic is at structural offset
+0, while the user pointer is at structural offset 4 — so a load at
+`[X16 - 4]` reading the type tag is only valid when X16 = user_pointer.
+That fact alone rules out the "X16 = start-of-alloc, offset 48 reads
+fill-percent" interpretation.
+
+The same "structural vs user-relative" confusion explains A18's other
+two off-by-4 claims: compact-time (struct offset 36, emit `[X16, #32]`)
+and dead-list.next (struct offset 100, emit `[X16, #96]`).
 
 ## What's actually causing the boot to die at 216
 

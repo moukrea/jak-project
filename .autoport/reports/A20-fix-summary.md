@@ -23,14 +23,34 @@ Concrete findings:
    the x86 CGOs are byte-identical to A2 baseline.
 
 3. Direct byte-scan of `out/jak1-arm64/iso/KERNEL.CGO` confirms the
-   compiler-emitted instruction stream: at instruction-aligned positions
-   with Rn = X16 (the standard `host(ptr)` scratch register used by
-   `add_x16_xn_xm` + scaled `LDR Wt, [X16, #imm12]` pairs), we find
-   **0 instances of `LDR Wt, [X16, #48]`** and **1 instance of
-   `LDR Wt, [X16, #52]`**. Across all three CGOs at 4-byte alignment with
-   any Rn, the histogram shows roughly **205 LDR Wt at offset 48 and ~458
-   at offset 52** — i.e. both offsets are emitted as designed (the
-   compiler is NOT systematically subtracting 4).
+   compiler-emitted instruction stream. The CGO code segment starts at
+   file byte alignment 2 (KERNEL.CGO has a non-4-aligned header); when
+   scanned at the correct alignment (mod-4 = 2 from file start, the
+   alignment at which 27% of words match arm64 instruction patterns vs
+   ~3% at the other alignments), the histogram of `LDR Wt, [X16, #imm12]`
+   shows roughly equal numbers at offsets 48 and 52: **15 instances at
+   `[X16, #48]`** and **15 instances at `[X16, #52]`**, plus 28 at
+   `#32`, 2 at `#36`, 4 at `#96`, and 7 at `#100`. Both the supposedly-
+   buggy emits (`#48`, `#32`, `#96`) and the supposedly-correct emits
+   (`#52`, `#36`, `#100`) are present — the compiler is NOT
+   systematically subtracting 4; it's emitting offsets that match each
+   field's user-pointer-relative position.
+
+   Why `[X16, #48]` is correct for `(-> this first-gap)`: per
+   `get_field_of_structure` (`goalc/compiler/compilation/Type.cpp:702-
+   707`), the IR offset is
+   `field.field.offset() + (-type->get_offset())`. For first-gap
+   (`:offset-assert 52`) of a basic (`BASIC_OFFSET = 4`), the IR offset
+   is `52 + (-4) = 48`. At runtime, X16 holds `host(user_ptr_of_basic)`
+   — the user pointer points *past* the type tag, so [X16 + 48]
+   addresses structural offset `4 + 48 = 52` = first-gap. A18 attempt-4
+   correctly read the bytes (`0xb9403203` = `LDR W3, [X16, #48]`) but
+   incorrectly assumed `[X16 + offset]` uses X16 = start-of-alloc; it
+   actually uses X16 = user_ptr, which is offset 4 past start-of-alloc
+   for a basic. The same explains compact-time at `#32` (struct 36 - 4)
+   and dead-list.next at `#96` (struct 100 - 4). A18's own dump showed
+   `LDUR W8, [X16, #-4]` reading the type tag — direct confirmation that
+   X16 = user_ptr, not start-of-alloc.
 
 4. The `klink-arm64` link-time patcher histogram printed at boot is
    `ADRP 1415, ADD imm12 1415, LDR imm12 0, STR imm12 0`. Zero `LDR/STR
@@ -126,35 +146,56 @@ Jak 1 source tree.
 
 ## Evidence — byte scan of arm64 KERNEL.CGO
 
+The CGO file has a header that pushes the code segment to a non-4-aligned
+file offset. Scoring all four possible byte alignments by "% of words
+matching common arm64 instruction patterns" identifies the correct one:
+
 ```
-LDR Wt, [X16, #...] histogram (instruction-aligned), Rn = X16:
-  #0:  95
-  #4:   7
-  #8:   4
-  #12:  4
-  #16:  9
-  #20:  3
-  #24:  2
-  #28:  4
-  #32:  2
-  #40:  5
-  #44:  5
-  #52:  1
-  #64:  2
-  #72:  1
-  #88:  1
+align 0:  3.2% recognized arm64-shaped
+align 1:  4.2% recognized arm64-shaped
+align 2: 27.1% recognized arm64-shaped  <-- correct alignment
+align 3:  0.8% recognized arm64-shaped
 ```
 
-Zero LDR Wt at offset 48 with Rn = X16. One LDR Wt at offset 52 with
-Rn = X16 — which is the as-emitted `(-> this first-gap)` access for the
-hot path. The A18-attempt-4 disasm of GOAL 0x21231d34f4 as
-`LDR W3, [X16, #0x30]` (= offset 48) is **not present in KERNEL.CGO at
-any instruction-aligned position** with Rn = X16.
+Re-scanning at align 2:
 
-(Cross-checked against ENGINE.CGO and GAME.CGO: those CGOs contain
-both `#48` and `#52` Rn=X16 LDR Wt emissions in ~1:2 ratio, consistent
-with the field-offset-spread expected from compiling a large GOAL
-codebase.)
+```
+LDR/STR Wt [X16, #N] in KERNEL.CGO (instruction-aligned within code):
+  #N    LDR  STR
+  #0    684   84    <- type-tag adjacent / first-field access
+  #4     53   16    <- field at struct offset 8
+  #8     49   20
+  #12    37   17
+  #16    57   14
+  #20    23   13
+  #24    27    8
+  #28    19    6
+  #32    28   17    <- includes compact-time (struct offset 36)
+  #36     2    5
+  #40    12    6
+  #44    11    7
+  #48    15   10    <- includes first-gap (struct offset 52)
+  #52    15   11    <- includes first-shrink (struct offset 56)
+  #56    12    2
+  #60    13    3
+  #64    10    3
+  #96     4    4    <- includes some field at struct offset 100
+  #100    7    2
+```
+
+Both `[X16, #48]` and `[X16, #52]` are emitted in similar numbers (15
+each in LDR Wt form). The A18-attempt-4 byte sequence
+`b0 00 0f 8b 03 32 40 b9` (= ADD X16,X5,X15 ; LDR W3,[X16,#48]) IS
+present in KERNEL.CGO at 2 instruction-aligned positions (file
+offsets 0x18f9a, 0x19e3e — both with mod 4 = 2). It IS a real emit, but
+it's the **correct** emit for a field whose user-pointer-relative
+offset is 48 — i.e. whose structural offset is 52 in a basic. First-gap
+is exactly such a field.
+
+Cross-checked against ENGINE.CGO and GAME.CGO at the same align-2
+sampling: each CGO contains both `#48` and `#52` Rn=X16 LDR Wt
+emissions in roughly equal numbers. The compiler is not systematically
+shifting by 4; it's emitting per-field offsets correctly.
 
 ## Evidence — qemu link-finish unchanged at 216 (same crash signature as A19)
 
