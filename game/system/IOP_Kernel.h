@@ -215,6 +215,15 @@ class IOP_Kernel {
                void* recvBuff,
                s32 recvSize);
 
+  // A29 — linux-arm64 only. Tells sif_rpc to drive a dispatch() step
+  // before queueing a new command, because the IOP runs on the same OS
+  // thread as the EE (single-cothread design — see
+  // linux_arm64_runtime_compat.cpp::a13_arm64_init_iop). x86 + Android
+  // both spawn a real OS thread for the IOP, so they don't need this
+  // (and on x86 calling dispatch() from the EE OS thread would crash —
+  // libco co_switch requires same-OS-thread cothreads).
+  bool run_on_ee_thread = false;
+
  private:
   void runThread(IopThread* thread);
   void leaveThread();

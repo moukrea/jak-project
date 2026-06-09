@@ -743,6 +743,20 @@ void a13_arm64_init_iop() {
   // the explicit pthread_mutex_init + RPC plumbing on top.
   g_a13_arm64_iop = new IOP();
 
+  // A29: tell IOP_Kernel::sif_rpc to drive a dispatch() step before
+  // queueing a new command. linux-arm64 does NOT have a separate OS
+  // thread for the IOP (Android does, x86 does — but A13's design
+  // deliberately kept linux-arm64 single-cothread). Without this flag,
+  // gsound's top-level — which runs TWICE because gsound is bundled
+  // in both ENGINE.CGO and GAME.CGO — would hit the
+  // `rec->cmd.finished && rec->cmd.started` assertion on the second
+  // run's first check-irx-version sif_rpc, because gsound's final
+  // sound-bank-load is async-and-forget (no sync) so the IOP record
+  // stays in the (started=false, finished=false) queued state until
+  // someone explicitly polls rpc-busy?, which nothing does between
+  // CGO loads. See IOP_Kernel::sif_rpc for the drain logic.
+  g_a13_arm64_iop->kernel.run_on_ee_thread = true;
+
   // Step 2: belt-and-suspenders pthread_mutex_init on the underlying
   // pthread_mutex_t for sif_mtx + wakeup_mtx. std::mutex on libstdc++
   // wraps pthread_mutex_t at offset 0 (__mutex_base::_M_mutex). The

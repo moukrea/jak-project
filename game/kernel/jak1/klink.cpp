@@ -654,7 +654,21 @@ void link_control::jak1_finish(bool jump_from_c_to_goal) {
       output_segment_load(m_object_name, m_link_block_ptr, m_flags);
     }
   } else {
-    if (m_flags & LINK_FLAG_EXECUTE) {
+    // A29 — mirror the v3 path's `m_entry.offset && LINK_FLAG_EXECUTE` guard.
+    // The v2/v4 link can leave m_entry == 0 when `m_object_data = kmalloc(...)`
+    // in jak1_work_v2's INIT_COPY (else) branch fails: the function MsgErr's
+    // "unable to malloc N bytes for data-segment" and returns 1 (done) WITHOUT
+    // reaching the trailing `m_entry = m_object_data + 4`, leaving m_entry at
+    // the zero set by jak1_jak2_begin. The v3 path already handles this; the
+    // v2 path was missing the check and would dereference (entry-4) on the
+    // GOAL heap base, computing g_ee_main_mem + 0xfffffffc → segfault.
+    // Triggered on linux-arm64 because direct_load_dgo's 4 MB top buffer
+    // pushes heap pressure past dir-tpages's data-segment allocation. The
+    // buffer-size tuning that prevents the underlying kmalloc failure lives
+    // in linux_arm64_main.cpp; this guard is the right fix regardless because
+    // ANY future kmalloc exhaustion (or for that matter any v2 link path that
+    // doesn't set m_entry) would re-introduce the crash.
+    if (m_entry.offset && (m_flags & LINK_FLAG_EXECUTE)) {
       auto entry = m_entry;
       auto name = basename_goal(m_object_name);
       strcpy(Ptr<char>(LINK_CONTROL_NAME_ADDR).c(), name);
