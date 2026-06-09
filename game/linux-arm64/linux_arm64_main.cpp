@@ -1706,6 +1706,287 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                        (long)d, (unsigned long)a);
         }
       }
+
+      // A27-DIAG — catch-frame chain dump. Discriminates which of A26's
+      // hypotheses H1/H2/H3/H5 is true for the throw-not-found-tag-
+      // initialize blocker (the 217+ ceiling that persists across A24/
+      // A25/A26 XMM corruption fixes). A26 cleanly decoupled the XMM
+      // save/restore corruption from this throw chain mismatch — A27's
+      // job is to NAME which step of the catch-frame chain is broken.
+      //
+      // The throw function in goal_src/jak1/kernel/gkernel.gc:1594:
+      //   (defun throw ((name symbol) value)
+      //     (rlet ((pp :reg r13 :type process))
+      //       (let ((cur (-> pp stack-frame-top)))
+      //         (while cur
+      //           (when (and (eq? (-> cur name) name)
+      //                      (eq? (-> cur type) catch-frame))
+      //             (throw-dispatch (the catch-frame cur) value))
+      //           ...
+      //           (set! cur (-> cur next))))))
+      //   (format 0 "ERROR: throw could not find tag ~A~%" name)
+      //   (break))
+      //
+      // arm64 emit (verified by disassembling the throw function at
+      // goal_off 0x1d6724..0x1d6740 in the A26 BREAK-MACRO-TRAP qemu
+      // log):
+      //   STP X29, X30, [SP, #-16]!   ; prologue
+      //   MOV X29, SP
+      //   SUB SP, SP, #16
+      //   MOV X5, X7                  ; preserve name arg into X5
+      //   MOV X12, X6                 ; preserve value arg into X12
+      //   ADD X16, X13, X15           ; X16 = host(pp) = pp_goal+ee_base
+      //   LDR W3, [X16, #0x58]        ; X3 = pp.stack-frame-top
+      //                                 ; #0x58 = 88, derived from the
+      //                                 ; declared field offset 92 in
+      //                                 ; decompiler/config/jak1/all-
+      //                                 ; types.gc:1969 minus BASIC_
+      //                                 ; OFFSET=4 (common/goal_const
+      //                                 ; ants.h:9). The 4-byte off
+      //                                 ; corresponds to the basic-tag
+      //                                 ; header at goal_ptr - 4.
+      //   B  +0x13C                   ; jump to loop header
+      //   ; loop body @ goal_off 0x1d6748:
+      //   ADD X16, X3, X15            ; X16 = host(cur)
+      //   LDR W9, [X16]               ; X9 = cur.name (offset 4 deftype
+      //                                 ; minus BASIC_OFFSET=4 = 0 in mem)
+      //   ; ...
+      //   ; loop header @ goal_off 0x1d6880:
+      //   MOV X9, X14                 ; X9 = host(s7)
+      //   SUB X9, X9, X15             ; X9 = s7 (GOAL nil = chain end)
+      //   CMP X3, X9
+      //   B.NE -0x144                 ; loop while cur != s7
+      //   ; fallthrough error path @ goal_off 0x1d6890 → format/break
+      //
+      // The arm64 register-id mapping uses arm64_reg5(r) = r.id() & 0x1f
+      // (goalc/emitter/IGenARM64.cpp:37-38). So a Register with id 13
+      // (= x86 R13 = the rlet'd pp) emits as ARM64 X13. This contradicts
+      // the misleading Register.h comment "x20 = pp = R13" — that
+      // comment describes a register's *role*, not the actual emit
+      // mapping.
+      //
+      // At trap time, the throw-walker loop has exited (cur reached s7),
+      // then the error path called format with arg2 = X5 (preserved via
+      // STP X3, X5 / LDP X3, X5 around the BLR), then ran (break) =
+      // (/ 0 0). The A26 0xBEEF UDF fired in (break)'s SDIV setup.
+      // Registers X13 (pp), X3 (last cur = s7), X5 (throw name) are all
+      // preserved across format. So at trap time:
+      //   X3  = s7_goal (chain end marker)
+      //   X5  = the name throw was searching for (= 'initialize per
+      //         "ERROR: throw could not find tag initialize")
+      //   X13 = pp_goal at throw entry (= the process whose chain to
+      //         dump)
+      //   X14 = host(s7)
+      //   X15 = ee_base (= g_ee_main_mem)
+      //
+      // Field offsets in memory (GOAL ptr +N where N = deftype_offset -
+      // BASIC_OFFSET):
+      //   process.stack-frame-top  → pp_host  + 0x58 (= +88)
+      //   stack-frame.type         → cur_host + 0x00 (basic header)
+      //                              ↑ Wait — basic's type tag is at
+      //                              goal_ptr - 4. The deftype's
+      //                              ":offset 0" for `type` is the type
+      //                              tag, and OpenGOAL stores it at
+      //                              goal_ptr - 4. So actual memory
+      //                              read for cur.type is at
+      //                              cur_host - 4.
+      //   stack-frame.name         → cur_host + 0  (deftype off 4 - 4)
+      //   stack-frame.next         → cur_host + 4  (deftype off 8 - 4)
+      //
+      // Discriminator semantics:
+      //   chain_count == 0 (head == s7 / nil / unreadable)
+      //     → H5 confirmed: no catch-frame ever pushed.
+      //   chain has frames but no frame.name == throw_name
+      //     → H1/H2: a frame was pushed but lost from the chain OR its
+      //       tag was corrupted at construction time.
+      //   has_throw_name == YES but throw still fired
+      //     → H3: the walker's chain-pointer load (next/name) mis-emits.
+      //   chain dump unreadable / garbage
+      //     → pp candidate is wrong; try X20 fallback (per Register.h
+      //       comment in case arm64 backend ever switches mapping).
+      {
+        uintptr_t ee_base = (uintptr_t)uc->uc_mcontext.regs[15];
+        uintptr_t st_host = (uintptr_t)uc->uc_mcontext.regs[14];
+        uint32_t s7_goal = 0;
+        if (st_host >= ee_base) {
+          s7_goal = static_cast<uint32_t>(st_host - ee_base);
+        } else {
+          // Fallback if X14 doesn't hold host(s7) at trap time —
+          // X20 is the role-comment pp/st per Register.h.
+          s7_goal = static_cast<uint32_t>(uc->uc_mcontext.regs[20]);
+        }
+        const uint32_t throw_name =
+            static_cast<uint32_t>(uc->uc_mcontext.regs[5]);
+        const uint32_t x3_last_cur =
+            static_cast<uint32_t>(uc->uc_mcontext.regs[3]);
+        const uint32_t x13_val =
+            static_cast<uint32_t>(uc->uc_mcontext.regs[13]);
+        const uint32_t x20_val =
+            static_cast<uint32_t>(uc->uc_mcontext.regs[20]);
+
+        std::fprintf(
+            stderr,
+            "GK-DIAG A27-DIAG catch-frame chain dump start: "
+            "ee_base=0x%lx s7_goal=0x%x throw_name=0x%x last_cur=0x%x\n",
+            (unsigned long)ee_base, (unsigned)s7_goal,
+            (unsigned)throw_name, (unsigned)x3_last_cur);
+
+        // Declared offset 92 in all-types.gc:1969 minus BASIC_OFFSET=4.
+        const uintptr_t STACK_FRAME_TOP_BYTE_OFFSET = 0x58;
+        const int MAX_CHAIN_DEPTH = 32;
+
+        auto walk_pp_candidate = [&](const char* label,
+                                     uint32_t pp_goal_u32) {
+          if (pp_goal_u32 == 0) {
+            std::fprintf(stderr,
+                         "GK-DIAG A27-DIAG   pp_candidate %s = 0 "
+                         "(skipped)\n",
+                         label);
+            return;
+          }
+          if (pp_goal_u32 == s7_goal) {
+            std::fprintf(stderr,
+                         "GK-DIAG A27-DIAG   pp_candidate %s = 0x%x = "
+                         "s7 (pp == nil; pp uninitialized or kernel "
+                         "sentinel — strongly suggests H5)\n",
+                         label, (unsigned)pp_goal_u32);
+            return;
+          }
+          uintptr_t pp_host =
+              ee_base + static_cast<uintptr_t>(pp_goal_u32);
+          uint32_t head_goal = 0;
+          if (!gk_diag::safe_read_u32(
+                  pp_host + STACK_FRAME_TOP_BYTE_OFFSET, &head_goal)) {
+            std::fprintf(
+                stderr,
+                "GK-DIAG A27-DIAG   pp_candidate %s = 0x%x "
+                "sft_addr=0x%lx <unreadable; pp not a valid process>\n",
+                label, (unsigned)pp_goal_u32,
+                (unsigned long)(pp_host +
+                                STACK_FRAME_TOP_BYTE_OFFSET));
+            return;
+          }
+          // Also dump the type tag of the suspected process (at
+          // pp_host - 4) — if pp is a real process basic, the type
+          // tag should be a GOAL-pointer-shaped value pointing into
+          // the symbol table area.
+          uint32_t pp_type_tag = 0;
+          (void)gk_diag::safe_read_u32(pp_host - 4, &pp_type_tag);
+          std::fprintf(
+              stderr,
+              "GK-DIAG A27-DIAG   pp_candidate %s pp_goal=0x%x "
+              "pp_host=0x%lx pp_type_tag@-4=0x%x "
+              "stack_frame_top=0x%x\n",
+              label, (unsigned)pp_goal_u32, (unsigned long)pp_host,
+              (unsigned)pp_type_tag, (unsigned)head_goal);
+
+          int count = 0;
+          bool has_throw_name = false;
+          bool has_initialize_named = false;  // alias: throw_name
+          uint32_t cur = head_goal;
+          uint32_t prev = 0;
+          while (cur != 0 && cur != s7_goal && count < MAX_CHAIN_DEPTH) {
+            uintptr_t cur_host =
+                ee_base + static_cast<uintptr_t>(cur);
+            uint32_t type_goal = 0;
+            uint32_t name_goal = 0;
+            uint32_t next_goal = 0;
+            bool ok_type =
+                gk_diag::safe_read_u32(cur_host - 4, &type_goal);
+            bool ok_name =
+                gk_diag::safe_read_u32(cur_host + 0, &name_goal);
+            bool ok_next =
+                gk_diag::safe_read_u32(cur_host + 4, &next_goal);
+            if (!(ok_type && ok_name && ok_next)) {
+              std::fprintf(
+                  stderr,
+                  "GK-DIAG A27-DIAG     %s frame[%d] goal=0x%x "
+                  "cur_host=0x%lx <unreadable type=%s name=%s "
+                  "next=%s>\n",
+                  label, count, (unsigned)cur,
+                  (unsigned long)cur_host,
+                  ok_type ? "ok" : "X", ok_name ? "ok" : "X",
+                  ok_next ? "ok" : "X");
+              break;
+            }
+            const char* tag = "";
+            if (name_goal == throw_name) {
+              has_throw_name = true;
+              has_initialize_named = true;
+              tag = "  *** name == throw_name (= 'initialize) ***";
+            }
+            std::fprintf(
+                stderr,
+                "GK-DIAG A27-DIAG     %s frame[%d] goal=0x%x "
+                "type@-4=0x%x name@0=0x%x next@+4=0x%x%s\n",
+                label, count, (unsigned)cur, (unsigned)type_goal,
+                (unsigned)name_goal, (unsigned)next_goal, tag);
+            if (next_goal == cur || next_goal == prev) {
+              std::fprintf(
+                  stderr,
+                  "GK-DIAG A27-DIAG     %s frame[%d] next forms "
+                  "self/prev cycle; stop walk\n",
+                  label, count);
+              break;
+            }
+            prev = cur;
+            cur = next_goal;
+            count++;
+          }
+          const char* termination = "natural (cur==s7 or cur==0)";
+          if (count == MAX_CHAIN_DEPTH) {
+            termination = "max-depth hit (suspect cycle or huge chain)";
+          }
+          std::fprintf(
+              stderr,
+              "GK-DIAG A27-DIAG   pp_candidate %s chain_count=%d "
+              "has_throw_name=%s last_cur=0x%x termination=%s\n",
+              label, count, has_throw_name ? "YES" : "NO",
+              (unsigned)cur, termination);
+          // Discriminator verdict for this candidate.
+          if (count == 0 && head_goal == s7_goal) {
+            std::fprintf(stderr,
+                         "GK-DIAG A27-DIAG   verdict %s: chain head "
+                         "is s7 (= '#f / nil) — H5 candidate "
+                         "(no catch-frame ever pushed)\n",
+                         label);
+          } else if (count == 0) {
+            std::fprintf(stderr,
+                         "GK-DIAG A27-DIAG   verdict %s: chain head "
+                         "non-s7 but unwalkable — pp candidate "
+                         "uncertain\n",
+                         label);
+          } else if (!has_throw_name) {
+            std::fprintf(stderr,
+                         "GK-DIAG A27-DIAG   verdict %s: chain has "
+                         "%d frame(s) but none has name == "
+                         "throw_name — H1/H2 candidate (frame "
+                         "lost or tag corrupted)\n",
+                         label, count);
+          } else {
+            std::fprintf(stderr,
+                         "GK-DIAG A27-DIAG   verdict %s: chain "
+                         "INCLUDES throw_name (count=%d) — H3 "
+                         "candidate (walker bug: walker should "
+                         "have found this frame)\n",
+                         label, count);
+          }
+          (void)has_initialize_named;
+        };
+
+        walk_pp_candidate("X13", x13_val);
+        if (x20_val != x13_val) {
+          walk_pp_candidate("X20", x20_val);
+        } else {
+          std::fprintf(stderr,
+                       "GK-DIAG A27-DIAG   pp_candidate X20 same as "
+                       "X13 (0x%x) — skipped duplicate walk\n",
+                       (unsigned)x20_val);
+        }
+
+        std::fprintf(stderr,
+                     "GK-DIAG A27-DIAG catch-frame chain dump end\n");
+      }
     }
   }
 
