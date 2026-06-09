@@ -58,7 +58,8 @@
     "A22-arm64-codegen-h2-fix": 1,
     "A23-arm64-blr-target-tracer": 1,
     "A24-arm64-epilogue-x30-tracer": 1,
-    "A25-arm64-ir-regset-fpr-dispatch": 1
+    "A25-arm64-ir-regset-fpr-dispatch": 1,
+    "A26-arm64-xmm-symmetric-and-break-trap": 0
   },
   "fingerprints": {
     "00-harness": [
@@ -216,7 +217,8 @@
     "A22-arm64-codegen-h2-fix": 1781013485.2675374,
     "A23-arm64-blr-target-tracer": 1781016930.4675388,
     "A24-arm64-epilogue-x30-tracer": 1781019395.3414915,
-    "A25-arm64-ir-regset-fpr-dispatch": 1781023995.5863566
+    "A25-arm64-ir-regset-fpr-dispatch": 1781023995.5863566,
+    "A26-arm64-xmm-symmetric-and-break-trap": 1781028812.7022111
   },
   "last_update": "2026-06-09T18:08:28.639581+00:00",
   "rate_interrupts": {
