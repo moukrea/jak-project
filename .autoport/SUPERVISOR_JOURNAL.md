@@ -2,14 +2,229 @@
 
 Initialized 2026-05-20T19:47:40Z.
 
-## Bucket status (updated 2026-06-09 16:00 after A21→A22 transition + orchestrator restart)
+## Bucket status (updated 2026-06-09 16:56 after A22→A23 transition + orchestrator restart)
 
-A (emitter):       in-progress | A19 X12 fix landed; A20 falsified off-by-4; A21 H2 verdict (scratch-corruption-across-BLR); **A22 attempt 1/5 RUNNING — narrow IGenARM64+IR.cpp+asm_funcs_arm64.s unlock to find SOURCE of stack-addr in callee-saved regs**
+A (emitter):       in-progress | A19 X12 fix landed; A20 falsified off-by-4; A21 H2 verdict; A22 Path C honest exit (H2 confirmed, source upstream); **A23 attempt 1/5 RUNNING — runtime BLR-target tracer (OG_BLR_TARGET_TRACE_EMIT) + Val.cpp/Type.cpp audit to NAME the specific emit-site / GOAL function**
 B (CGO regen):     in-progress | B1 (klink trace) + B2 (bind-order diff) tooling landed
 C (linux-arm64):   done
 D (android-port):  done
 E (UX):            done
 F (gameplay):      blocked on A-bucket completion (216-link-finish ceiling at start-time-of-day)
+
+---
+
+## [2026-06-09 16:50-16:56] A22 Path C honest-exit verified; A23 runtime-tracer phase authored; orchestrator restarted
+
+### A22 attempt-1 result (verified)
+
+A22 attempt-1 ran 50 min, $13.43, 89 turns, ended via **Path C**
+(no-source-located) — the lowest-quality but most honest exit. Commit
+`ca98dbe29` (pushed under orchestrator's phase-summary `c6d3a456c`).
+
+**A22's key contributions despite no fix shipped**:
+
+1. **Confirmed H2 mechanism with new arithmetic**:
+   - X7 = X8 = 0x07fffe84 (= GOAL form of crash PC)
+   - X16 = X7 + X15 (= 0x212afffe84, host stack address)
+   - X29 = X30 = X16 (multiple frames' saved-X29/X30 corrupted)
+   - The lower 4 bytes of SP+32 = 0x07fffe84 == the offending
+     `m_func` value passed to `IR_FunctionCall::do_codegen_arm64`.
+2. **Audited all A22-unlocked surfaces and found them correct**:
+   - `IR_FunctionCall::do_codegen_arm64` emits same shape as x86.
+   - `call_r64` save/restore math correct, mirror order correct.
+   - `arm64_add_xd_sp_imm12` + `sub_gpr64_gpr64` correctly PRODUCE
+     GOAL-form stack addresses (the production is right; the USE as
+     fn-ptr is the bug).
+   - `store_goal_gpr` / `load_goal_gpr` X16 pair atomic, no cross-IR
+     leak.
+   - `_call_goal_asm_arm64`, `_call_goal8_asm_arm64`,
+     `_call_goal_on_stack_asm_arm64`, `make_function_from_c_arm64`
+     inline trampoline: all correct.
+3. **Discovered `_arg_call_arm64` is broken but DEAD CODE**:
+   - Its post-LDR-X8 epilogue reads X29/X30 from caller's stack
+     instead of saved area.
+   - But `make_function_from_c_arm64` (jak1/kscheme.cpp:601) emits
+     its own inline trampoline that doesn't call `_arg_call_arm64`.
+   - Fixing `_arg_call_arm64` would NOT advance the 216 ceiling.
+4. **Falsified the X12-is-the-executing-function assumption**:
+   - At X12-0x08 there's a RET instruction (`0xd65f03c0`).
+   - X12 points to DATA after a function ends, not to code being
+     executed.
+   - X12 is just a saved value in goalc's saved set, not the BLR
+     target.
+
+### Supervisor reality-check post-A22 (all PASS)
+
+- x86 CGOs match A2 baseline (3/3): ENGINE, GAME, KERNEL all OK.
+- arm64 CGOs match A21 baseline (3/3): no fix shipped, byte-identical
+  as expected for honest-exit path.
+- qemu link-finish count: **216** (no regression, ceiling unchanged).
+- A18 `_Exit(13)` trap intact at klink.cpp:644.
+- A19 `kStpX12X23Push = 0xA9BF5FECu` preserved in IGenARM64.cpp.
+- A20 OG_OFFSET_TRACE at 6 sites in IR.cpp.
+- A21 4 diags (OG_KLINK_IMM19_TRACE, OG_REG_BYTE_DUMP,
+  OG_REGALLOC_TRACE, OG_CALLGOAL_TRACE) all preserved.
+- 0 cheats from A22's 7-pattern forbidden list.
+
+### A23 design
+
+A22 explicitly recommended a runtime BLR-target tracer (its §"Why a
+runtime tracer is the right next step" + §"Proposed A23 plan"). A23
+instantiates that plan.
+
+**Approach**:
+1. Add env-gated (`OG_BLR_TARGET_TRACE_EMIT=1` at goalc-compile-time)
+   tracer in `IGenARM64::call_r64`. Emits CMP-against-heap-top + UDF
+   with distinctive tag (0x1ee2) for stack-range BLR targets.
+2. Extend SIGILL handler in `linux_arm64_main.cpp` to decode the UDF
+   tag, print `emit_pc + freg_value + caller_lr`.
+3. Cross-reference `emit_pc` against klink symbol table to NAME the
+   GOAL function.
+4. Audit `Val.cpp` + `compilation/Type.cpp` for stack-form-into-fn-ptr
+   flow paths (NEW unlocks vs A22).
+5. Either fix at Val/Type/IR level or honest-exit with named source.
+
+**NEW unlocks vs A22**:
+- `goalc/compiler/Val.cpp` / `.h` — StackVarAddrVal/MemoryDerefVal flow audit
+- `goalc/compiler/compilation/Type.cpp` — fn-ptr typecheck audit
+
+**Continued unlocks from A22**:
+- `goalc/emitter/IGenARM64.cpp` / `.h`
+- `goalc/compiler/IR.cpp`
+- `game/kernel/asm_funcs_arm64.s`
+- `game/linux-arm64/linux_arm64_main.cpp` (UDF tag decoder)
+- jak1/kscheme.cpp, klink.cpp, Allocator_v2.cpp (refined diags if needed)
+
+**Locks retained**:
+- IGenX86_64.* (x86 oracle, NEVER edit)
+- common/type_system/Type.* (LOWER-level rep; only checking layer at
+  compilation/Type.cpp unlocked)
+- Allocator.cpp / allocate_common.cpp (shared, A22 cleared)
+- All kernel/common except klink.cpp
+- All Android paths
+- Validators / lib / supervisor.sh / orchestrator.py
+
+**Four valid exit paths**:
+- **A (fix)**: qemu ≥217 + A23-fix-summary.md naming Val/Type/IR fix.
+- **B (next-blocker)**: file outside A23 unlock.
+- **C (bug-located-named-source)**: tracer fired, named GOAL function,
+  but fix outside A23 reach. **MOST LIKELY successful exit.**
+- **D (no-source-located)**: tracer failed to identify.
+
+All paths require A23-investigation-trace.md ≥200 lines.
+fix-summary / bug-located require ≥250 lines + symbol-reference grep.
+A/C paths require tracer infra (`OG_BLR_TARGET_TRACE` in IGenARM64.cpp
+AND in linux_arm64_main.cpp).
+
+**Validator CGO branching**:
+- fix-summary: arm64 CGOs MUST differ from A21 + A23-baseline present.
+- bug-located: arm64 CGOs MAY match A21 (no emit ship) OR A23-baseline
+  (emit ship).
+- next-blocker / no-source: arm64 CGOs MUST match A21 baseline.
+
+max_turns=1000 max_retries=5.
+
+Forbidden cheats (carried + new):
+1. Type.cpp typecheck relaxation (allows pointer↔function silently).
+2. Val.cpp StackVarAddrVal disabling.
+3. Wholesale call_r64 widening (carried from A22).
+4. Removing OG_*_TRACE diags.
+5. Validator/lib edits.
+6. No-op tracer (doesn't actually detect stack-range).
+7. Synthetic A23-baseline (faked hashes).
+
+### Validator smoke-test (pre-attempt)
+
+Dry-ran `phase-A23-arm64-blr-target-tracer.sh`:
+```
+== Phase A23 validator (arm64 runtime BLR-target tracer + Val/Type audit) ==
+  anchor: c6d3a456c7001c798155a00cddf89bb3dfb5c792
+  ok: all locked files unchanged since A22
+  ok: no dodge in source
+  ok: anti-cheat checks all pass
+  ok: a18 method-zero trap body still _Exit(13)
+  ok: A19 X12 fix preserved
+  ok: A20 OG_OFFSET_TRACE preserved (6 sites)
+  ok: all 4 A21 diags preserved
+  ok: x86 CGOs byte-identical to A2 baseline
+FAIL: no A23 exit report
+```
+All pre-conditions PASS as expected. Anchor correctly resolves to
+A22 commit.
+
+### state.json / milestones.yaml edits
+
+- `milestones.yaml`: A23 inserted at idx 61 between A22 (idx 60) and
+  F1 (shifted 61→62). Total phases: 64 → 65.
+- `state.json`: `current_phase_idx` 61 → 61 (now points at A23 after
+  insertion; orchestrator had advanced 60→61 on A22 completion).
+  A23.retries=0, phase_started_at=now.
+
+### Commit
+
+`f44023bb1 [autoport/supervisor] A22 → A23 transition: runtime
+BLR-target tracer + Val.cpp/Type.cpp audit unlock` — 4 files,
++527/-2.
+
+### Orchestrator restart
+
+PID 1860344 (orchestrator.py), saved to orchestrator.pid.
+- Resuming at phase index 61/65.
+- Rate check: session=1% (FRESH session!), weekly=21%.
+- Claude session 6f65354 picked up A23 attempt 1/5.
+
+### Watch list for next iteration (~30 min)
+
+**HALT IMMEDIATELY on**:
+- Type.cpp edit that relaxes pointer↔function casts silently.
+- Val.cpp edit that disables StackVarAddrVal.
+- call_r64 widened to all X19..X28 without naming source.
+- New `_arg_call_arm64_safe` / wrapper.
+- Removal of any OG_*_TRACE diag.
+- Edits to `.autoport/lib/*` or `.autoport/validators/*`.
+- A23-baseline file with hashes that don't match actual CGOs.
+- No-op tracer (always-passes CMP).
+
+**PROGRESS SIGNALS**:
+- `OG_BLR_TARGET_TRACE` references appearing in IGenARM64.cpp.
+- UDF #imm encoding being emitted (`0xd4xxxxxx` family).
+- `0x1ee2` tag appearing in linux_arm64_main.cpp's signal handler.
+- New A23-baseline-arm64-cgo-hashes.txt file.
+- qemu run capturing a `BLR-TARGET-STACK` event.
+
+**HONEST-EXIT SIGNALS**:
+- A23-bug-located-named-source.md being written with specific
+  emit_pc + GOAL function name.
+- OR (less ideal) A23-attempt-1-next-blocker.md naming common/type_system
+  or Allocator.cpp.
+
+### Cost ledger update
+
+- A18: ~$132 (4 attempts)
+- A19: ~$50 (X12 fix landed)
+- A20: ~$35 (off-by-4 falsified)
+- A21 attempt-1: $12.65 (H2 verdict)
+- A22 attempt-1: $13.43 (Path C honest exit)
+- Supervisor interventions A18-A23: ~$35
+- Running total: **~$278**
+- A23 estimate per attempt: $100-300 (tracer emit + build + run + decode + audit)
+- A23 budget cap: $700 (5 attempts worst case)
+
+### Strategic note
+
+A22's Path C exit + A23's tracer plan is the right shape — investigation
+phases that NARROW the bug surface rather than guess at fixes. The
+$278 running total is high but proportionate to the depth of arm64
+codegen issues. The estimated path to title-screen-on-device
+($500-2000) holds; we're ~40% through that budget.
+
+If A23 reaches Path A (real fix), the next codegen ceiling will appear
+and tell us how dense the bug field is. If A23 reaches Path C (named
+source but no fix), A24 can target that specific source. If A23
+reaches Path D (tracer failed), I'll need to ask the user for input
+on whether to escalate the diagnostic approach further or pause.
+
+---
 
 ---
 
