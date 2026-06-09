@@ -410,6 +410,19 @@ phases:
   validator: validators/phase-A21-arm64-codegen-deeper-investigation.sh
   max_turns: 600
   max_retries: 6
+- id: A22-arm64-codegen-h2-fix
+  name: 'H2 fix phase post-A21 diagnosis. A21 attempt-1 named H2 (scratch/X16 corruption across BLR producing stack-as-GOAL-ptr)
+    as primary cause of the 216-link-finish ceiling, with arithmetic-verified evidence (8 regs X16+X24..X30 = 0x212afffe84,
+    SP+32 = 0x07fffe84, math 0x07fffe84+0x2123000000=0x212afffe84). A22 unlocks IGenARM64.{cpp,h} + IR.cpp + asm_funcs_arm64.s
+    to find and fix the SOURCE emit sequence that writes stack_addr into a scratch/callee-saved reg. Forbidden cheats: widening
+    call_r64 to save all X19..X28 without naming source, trampoline-wrapper masking the bug, NOP padding, removing OG_*_TRACE
+    diags. Three valid exits: A) fix landed + qemu boot >=217 + A22-fix-summary.md naming specific emit surface; B) honest
+    next-blocker.md naming file outside unlock list; C) no-source-located.md (lowest quality but honest). All require
+    A22-investigation-trace.md ≥150 lines.'
+  prompt: prompts/phase-A22-arm64-codegen-h2-fix.md
+  validator: validators/phase-A22-arm64-codegen-h2-fix.sh
+  max_turns: 800
+  max_retries: 5
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
