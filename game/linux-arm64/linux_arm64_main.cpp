@@ -1440,6 +1440,84 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   }
   std::fprintf(stderr, "GK-DIAG sp=0x%lx\n", (unsigned long)uc->uc_mcontext.sp);
 
+  // A23 — OG_BLR_TARGET_TRACE decoder. The goalc-arm64 emit-time stack-
+  // range check in call_r64 (env-gated by OG_BLR_TARGET_TRACE_EMIT at
+  // GOALC COMPILE TIME) emits UDF #0x1EE0..#0x1EFF immediately before each
+  // BLR — the low 5 bits of the imm16 encode the BLR target's register
+  // id, the upper 11 bits (0x0F7) are the A23 tag. When the BLR target's
+  // GOAL form is >= 0x07000000 (the stack-range threshold), the UDF
+  // fires; PC at SIGILL = the UDF's address = the call_r64 emit-site.
+  // Decode the imm16, read the offending reg from sigcontext, print
+  // emit_pc + freg id + freg value (host + GOAL form) + caller_lr.
+  // Tag-canonical value: UDF #0x1EE2 corresponds to freg=R2.
+  //
+  // Runs first inside the SIGILL block so its concise output is the
+  // first GK-DIAG line a grep over the crash log sees; the A12/A18
+  // walkers below still run for additional context. Safe to no-op when
+  // the trap is NOT our tag (handler still falls through to A12/A18).
+  if (sig == SIGILL) {
+    uint32_t udf_enc = 0;
+    if (gk_diag::safe_read_u32(pc, &udf_enc) &&
+        (udf_enc & 0xFFFF0000u) == 0u &&
+        (udf_enc & 0xFFE0u) == 0x1EE0u) {
+      uint32_t freg_id = udf_enc & 0x1Fu;
+      uintptr_t freg_value = (uintptr_t)uc->uc_mcontext.regs[freg_id];
+      uintptr_t x15 = (uintptr_t)uc->uc_mcontext.regs[15];
+      uintptr_t goal_off = (x15 != 0 && freg_value >= x15)
+                               ? (freg_value - x15)
+                               : freg_value;
+      std::fprintf(stderr,
+                   "GK-DIAG A23-DIAG BLR-TARGET-STACK: udf_imm=0x%04x "
+                   "emit_pc=0x%lx freg=X%u freg_value=0x%lx "
+                   "goal_off=0x%lx x15=0x%lx caller_lr=0x%lx\n",
+                   (unsigned)(udf_enc & 0xFFFFu),
+                   (unsigned long)pc, (unsigned)freg_id,
+                   (unsigned long)freg_value,
+                   (unsigned long)goal_off,
+                   (unsigned long)x15,
+                   (unsigned long)lr);
+      // Dump a 96-byte window around emit_pc so the surrounding call_r64
+      // shape (the 3 STP pushes + 5 trace instructions + the BLR + 3 LDP
+      // pops) and any nearby ADRP/ADD/LDR triplets identifying the GOAL
+      // function are visible in the log.
+      std::fprintf(stderr,
+                   "GK-DIAG A23-DIAG BLR-TARGET-STACK window "
+                   "(pc-48..pc+44):\n");
+      for (intptr_t d = -48; d <= 44; d += 4) {
+        uintptr_t a = pc + d;
+        uint32_t w = 0;
+        if (gk_diag::safe_read_u32(a, &w)) {
+          std::fprintf(stderr,
+                       "GK-DIAG A23-DIAG   pc%+ld @ 0x%lx = 0x%08x\n",
+                       (long)d, (unsigned long)a, w);
+        } else {
+          std::fprintf(stderr,
+                       "GK-DIAG A23-DIAG   pc%+ld @ 0x%lx = <unreadable>\n",
+                       (long)d, (unsigned long)a);
+        }
+      }
+      // Also dump bytes AT freg_value: those are the bytes that would
+      // have been executed if the BLR had fired. Useful for confirming
+      // that freg_value indeed points at GOAL stack contents (small
+      // GOAL-ptr-shaped u32 words in the upper-32-zero pattern).
+      std::fprintf(stderr,
+                   "GK-DIAG A23-DIAG freg_value bytes (-0x10..+0x18):\n");
+      for (intptr_t d = -16; d <= 24; d += 4) {
+        uintptr_t a = freg_value + d;
+        uint32_t w = 0;
+        if (gk_diag::safe_read_u32(a, &w)) {
+          std::fprintf(stderr,
+                       "GK-DIAG A23-DIAG   freg%+ld @ 0x%lx = 0x%08x\n",
+                       (long)d, (unsigned long)a, w);
+        } else {
+          std::fprintf(stderr,
+                       "GK-DIAG A23-DIAG   freg%+ld @ 0x%lx = <unreadable>\n",
+                       (long)d, (unsigned long)a);
+        }
+      }
+    }
+  }
+
   // A12-DIAG: tie the failing BLR to the originating sym slot by walking
   // the call_r64 push sequence backward to the spill, then to the sym-MEM
   // LDR, then to the ADRP+ADD that built the slot address. Runs only on

@@ -1,6 +1,8 @@
 
 #include "IGenARM64.h"
 
+#include <cstdlib>
+
 #include "common/link_types.h"
 
 #include "goalc/emitter/Instruction.h"
@@ -1576,6 +1578,63 @@ InstructionARM64 pop_gpr64(Register reg) {
 //   ldp x12, x23, [sp], #16     = 0xA8C15FEC  (A19: was `ldr x23` = 0xF84107F7)
 //   ldp x10, x11, [sp], #16     = 0xA8C12FEA
 //   ldp x3, x5,   [sp], #16     = 0xA8C117E3
+//
+// A23 — OG_BLR_TARGET_TRACE_EMIT: env-gated AT GOALC COMPILE TIME runtime
+// stack-range tracer. The 216-link-finish ceiling crash (re-confirmed
+// across A19/A20/A21/A22) has SIGILL PC = host-converted form of a GOAL
+// offset in the 0x07000000..0x08000000 range — i.e. the BLR target was
+// (legitimately) `ADD freg, freg, X15`'d to a host stack address inside
+// the GOAL stack range, then BLR'd. The source emit-site that placed the
+// stack-form GOAL ptr into freg is not identifiable from A21/A22's
+// crash-state dumps alone (A22 attempt-1 honest-exit Path C).
+//
+// When OG_BLR_TARGET_TRACE_EMIT is set in goalc's environment at compile
+// time, call_r64 emits an extra 5-instruction check sequence between the
+// last STP push and the BLR:
+//
+//   SUB  X17, freg, X15           ; X17 = freg's GOAL-form (= post-ADD-X15
+//                                 ;        host minus ee_base = GOAL offset)
+//   MOVZ X16, #0x0700, LSL #16    ; X16 = 0x07000000 (stack-range threshold)
+//   CMP  X17, X16                  ; sets C if GOAL_off >= threshold
+//   B.LO target_ok                 ; if GOAL_off < threshold, normal BLR
+//   UDF  #0x1EE0 | freg_reg_id     ; SIGILL: tag 0x1EE0 + reg id (e.g.
+//                                 ;   freg=R2 → UDF #0x1EE2, the
+//                                 ;   canonical tag also referenced by
+//                                 ;   linux_arm64_main.cpp's decoder)
+//   target_ok:
+//   BLR  freg
+//
+// X16/X17 are scratch (dead between IRs per cookbook §1; goalc's regalloc
+// never assigns either). The threshold 0x07000000 is a hand-picked floor
+// for "GOAL stack range" — every legitimate GOAL fn-ptr at the boot
+// ceiling (jak1, 216 link-finishes) has a GOAL offset < ~0x02000000
+// (~32 MB of code + data), so anything >= 0x07000000 is comfortably in
+// the GOAL stack range. The crashing freg's GOAL form is 0x07fffe84 —
+// far above the threshold, so the tracer fires deterministically.
+//
+// SIGILL handler decode (linux_arm64_main.cpp):
+//   - Read u32 at uc->uc_mcontext.pc → must be UDF (top 16 bits 0).
+//   - imm16 = low 16 bits. If (imm16 & 0xFFE0) == 0x1EE0, this is our tag.
+//   - freg_reg_id = imm16 & 0x1F.
+//   - freg_value = uc->uc_mcontext.regs[freg_reg_id].
+//   - Print BLR-TARGET-STACK: emit_pc=<pc> freg=X<id> freg_value=<host>
+//                              caller_lr=<lr> goal_off=<host - X15>
+//
+// CGO drift:
+//   - OG_BLR_TARGET_TRACE_EMIT unset (default): byte-identical to A21.
+//   - OG_BLR_TARGET_TRACE_EMIT=1: each BLR site grows by 5 × 4 = 20 B; a
+//     fresh A23-baseline-arm64-cgo-hashes.txt captures the new shape.
+//
+// The gate uses a function-local static (evaluated once per goalc
+// process), so the env var only needs to be set at goalc-launch time.
+static bool blr_target_trace_emit_enabled() {
+  static const bool enabled = []() {
+    const char* env = std::getenv("OG_BLR_TARGET_TRACE_EMIT");
+    return env != nullptr && env[0] != '\0' && env[0] != '0';
+  }();
+  return enabled;
+}
+
 InstructionARM64 call_r64(Register reg_) {
   constexpr uint32_t kStpX3X5Push   = 0xA9BF17E3u;
   constexpr uint32_t kStpX10X11Push = 0xA9BF2FEAu;
@@ -1584,6 +1643,37 @@ InstructionARM64 call_r64(Register reg_) {
   constexpr uint32_t kLdpX10X11Pop  = 0xA8C12FEAu;
   constexpr uint32_t kLdpX3X5Pop    = 0xA8C117E3u;
   uint32_t blr = 0xD63F0000u | (arm64_reg5(reg_) << 5);
+
+  if (blr_target_trace_emit_enabled()) {
+    // A23 OG_BLR_TARGET_TRACE — emit-time stack-range check before BLR.
+    uint32_t freg = arm64_reg5(reg_);
+    // SUB X17, freg, X15: 0xCB000000 | (Rm<<16) | (Rn<<5) | Rd
+    //                     Rm=15 (X15), Rn=freg, Rd=17 (X17)
+    uint32_t sub_x17_freg_x15 = 0xCB0F0000u | (freg << 5) | 17u;
+    // MOVZ X16, #0x0700, LSL #16:
+    //   0xD2800000 | (hw<<21) | (imm16<<5) | Rd, hw=1, imm16=0x0700, Rd=16
+    //   = 0xD2800000 | 0x200000 | 0xE000 | 16 = 0xD2A0E010
+    //   → X16 = 0x0000_0000_0700_0000 (GOAL-offset stack-range floor)
+    uint32_t movz_x16_0x0700_lsl16 = 0xD2A0E010u;
+    // CMP X17, X16 = SUBS XZR, X17, X16: 0xEB000000 | (16<<16) | (17<<5) | 31
+    //              = 0xEB100000 | 0x220 | 0x1F = 0xEB10023F
+    uint32_t cmp_x17_x16 = 0xEB10023Fu;
+    // B.LO +8 (= imm19 = +2 instructions, skip the UDF):
+    //   0x54000000 | (imm19<<5) | cond, cond=LO=3, imm19=2
+    //   = 0x54000000 | 0x40 | 3 = 0x54000043
+    uint32_t blo_skip_udf = 0x54000043u;
+    // UDF #(0x1EE0 | freg_reg_id): 32-bit encoding = (imm16 & 0xFFFF).
+    //   freg=R2 → UDF #0x1EE2 (canonical tag).
+    //   freg=R3 → UDF #0x1EE3, freg=R5 → 0x1EE5, freg=R10 → 0x1EEA, etc.
+    //   The handler matches on (imm16 & 0xFFE0) == 0x1EE0.
+    uint32_t udf_blr_target_stack = 0x00001EE0u | (freg & 0x1Fu);
+    return InstructionARM64::multi({kStpX3X5Push, kStpX10X11Push, kStpX12X23Push,
+                                    sub_x17_freg_x15, movz_x16_0x0700_lsl16,
+                                    cmp_x17_x16, blo_skip_udf, udf_blr_target_stack,
+                                    blr,
+                                    kLdpX12X23Pop, kLdpX10X11Pop, kLdpX3X5Pop});
+  }
+
   return InstructionARM64::multi({kStpX3X5Push, kStpX10X11Push, kStpX12X23Push,
                                   blr,
                                   kLdpX12X23Pop, kLdpX10X11Pop, kLdpX3X5Pop});
