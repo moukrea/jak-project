@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 65,
+  "current_phase_idx": 66,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -60,7 +60,7 @@
     "A24-arm64-epilogue-x30-tracer": 1,
     "A25-arm64-ir-regset-fpr-dispatch": 1,
     "A26-arm64-xmm-symmetric-and-break-trap": 1,
-    "A27-arm64-catch-frame-chain-tracer": 0
+    "A27-arm64-catch-frame-chain-tracer": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -185,7 +185,8 @@
     "A23-arm64-blr-target-tracer",
     "A24-arm64-epilogue-x30-tracer",
     "A25-arm64-ir-regset-fpr-dispatch",
-    "A26-arm64-xmm-symmetric-and-break-trap"
+    "A26-arm64-xmm-symmetric-and-break-trap",
+    "A27-arm64-catch-frame-chain-tracer"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -223,7 +224,7 @@
     "A26-arm64-xmm-symmetric-and-break-trap": 1781028812.7022111,
     "A27-arm64-catch-frame-chain-tracer": 1781031296.452696
   },
-  "last_update": "2026-06-09T18:49:31.354858+00:00",
+  "last_update": "2026-06-09T19:20:33.179149+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
