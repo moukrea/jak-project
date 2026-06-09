@@ -1,20 +1,20 @@
 # Phase B1 — arm64 CGO regen (structural check)
 
-> arm64 CGOs regenerated: KERNEL.CGO=172,080B, ENGINE.CGO=8,536,592B, GAME.CGO=12,194,832B. arm64-ret density: K=1.39/KB E=0.68/KB G=0.51/KB. x86-ret bytes: K=0.004% E=0.019% G=0.050% (<1% each, anti-x86-contamination). x86 oracle CGOs hash-match A2 baseline. Kernel probe: 4736.
+> arm64 CGOs regenerated: KERNEL.CGO=164,128B, ENGINE.CGO=8,063,232B, GAME.CGO=11,685,376B. arm64-ret density: K=1.45/KB E=0.72/KB G=0.54/KB. x86-ret bytes: K=0.004% E=0.021% G=0.053% (<1% each, anti-x86-contamination). x86 oracle CGOs hash-match A2 baseline. Kernel probe: 4736.
 
 ## Per-CGO structural metrics
 
 | CGO | bytes | objects | fns | arm64 ret | x86 ret | density (ret/KB) | x86 ret % | min/mean/max fn size |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| KERNEL.CGO | 172,080 | 8 | 197 | 233 | 6 | 1.39 | 0.004 | 20/427/6661 |
-| ENGINE.CGO | 8,536,592 | 306 | 3845 | 5699 | 1602 | 0.68 | 0.019 | 16/997/48368 |
-| GAME.CGO | 12,194,832 | 346 | 4199 | 6108 | 6131 | 0.51 | 0.050 | 16/987/48368 |
+| KERNEL.CGO | 164,128 | 8 | 197 | 233 | 7 | 1.45 | 0.004 | 40/415/6373 |
+| ENGINE.CGO | 8,063,232 | 306 | 3845 | 5699 | 1662 | 0.72 | 0.021 | 36/941/46228 |
+| GAME.CGO | 11,685,376 | 346 | 4199 | 6108 | 6189 | 0.54 | 0.053 | 36/930/46228 |
 
 ## decode_sample (first function in each CGO)
 
 ### KERNEL.CGO
 
-Top mnemonics: `mov`=3, `ldp`=1, `ret`=1, `stp`=1
+Top mnemonics: `mov`=4, `b.lt`=1, `cmp`=1, `ldp`=1, `ret`=1, `stp`=1, `sub`=1, `udf`=1
 
 ```text
 0:	a9bf7bfd 	stp	x29, x30, [sp, #-16]!
@@ -22,12 +22,17 @@ Top mnemonics: `mov`=3, `ldp`=1, `ret`=1, `stp`=1
 8:	aa0703e7 	mov	x7, x7
 c:	aa0703e0 	mov	x0, x7
 10:	a8c17bfd 	ldp	x29, x30, [sp], #16
-14:	d65f03c0 	ret
+14:	cb0f03d1 	sub	x17, x30, x15
+18:	d2a0e010 	mov	x16, #0x7000000             	// #117440512
+1c:	eb10023f 	cmp	x17, x16
+20:	5400004b 	b.lt	0x28  // b.tstop
+24:	00001ef0 	udf	#7920
+28:	d65f03c0 	ret
 ```
 
 ### ENGINE.CGO
 
-Top mnemonics: `mov`=5, `fcvtzs`=1, `ldp`=1, `ret`=1, `scvtf`=1, `stp`=1, `sxtw`=1
+Top mnemonics: `mov`=6, `b.lt`=1, `cmp`=1, `fcvtzs`=1, `ldp`=1, `ret`=1, `scvtf`=1, `stp`=1, `sub`=1, `sxtw`=1, `udf`=1
 
 ```text
 0:	a9bf7bfd 	stp	x29, x30, [sp, #-16]!
@@ -40,12 +45,13 @@ c:	aa0703f7 	mov	x23, x7
 1c:	aa1703e0 	mov	x0, x23
 20:	aa0003e0 	mov	x0, x0
 24:	a8c17bfd 	ldp	x29, x30, [sp], #16
-28:	d65f03c0 	ret
+28:	cb0f03d1 	sub	x17, x30, x15
+2c:	d2a0e010 	mov	x16, #0x7000000             	// #117440512
 ```
 
 ### GAME.CGO
 
-Top mnemonics: `mov`=5, `fcvtzs`=1, `ldp`=1, `ret`=1, `scvtf`=1, `stp`=1, `sxtw`=1
+Top mnemonics: `mov`=6, `b.lt`=1, `cmp`=1, `fcvtzs`=1, `ldp`=1, `ret`=1, `scvtf`=1, `stp`=1, `sub`=1, `sxtw`=1, `udf`=1
 
 ```text
 0:	a9bf7bfd 	stp	x29, x30, [sp, #-16]!
@@ -58,7 +64,8 @@ c:	aa0703f7 	mov	x23, x7
 1c:	aa1703e0 	mov	x0, x23
 20:	aa0003e0 	mov	x0, x0
 24:	a8c17bfd 	ldp	x29, x30, [sp], #16
-28:	d65f03c0 	ret
+28:	cb0f03d1 	sub	x17, x30, x15
+2c:	d2a0e010 	mov	x16, #0x7000000             	// #117440512
 ```
 
 ## Kernel symbol probe

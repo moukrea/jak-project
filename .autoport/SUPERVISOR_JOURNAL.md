@@ -2,14 +2,232 @@
 
 Initialized 2026-05-20T19:47:40Z.
 
-## Bucket status (updated 2026-06-09 16:56 after A22→A23 transition + orchestrator restart)
+## Bucket status (updated 2026-06-09 17:36 after A23→A24 transition + orchestrator restart)
 
-A (emitter):       in-progress | A19 X12 fix landed; A20 falsified off-by-4; A21 H2 verdict; A22 Path C honest exit (H2 confirmed, source upstream); **A23 attempt 1/5 RUNNING — runtime BLR-target tracer (OG_BLR_TARGET_TRACE_EMIT) + Val.cpp/Type.cpp audit to NAME the specific emit-site / GOAL function**
+A (emitter):       in-progress | A19 X12 fix landed; A20 falsified off-by-4; A21 H2 verdict; A22 Path C; A23 Path C **FALSIFIED H2-via-call_r64 with zero firings across 61204 sites** → mechanism is RET-to-corrupted-LR via epilogue LDP X29,X30; **A24 attempt 1/5 RUNNING — epilogue X30 stack-range tracer (OG_X30_TRACE_EMIT) + CodeGenerator.cpp unlock**
 B (CGO regen):     in-progress | B1 (klink trace) + B2 (bind-order diff) tooling landed
 C (linux-arm64):   done
 D (android-port):  done
 E (UX):            done
 F (gameplay):      blocked on A-bucket completion (216-link-finish ceiling at start-time-of-day)
+
+---
+
+## [2026-06-09 17:30-17:36] A23 Path C verified; A24 epilogue-X30-tracer authored; orchestrator restarted
+
+### A23 attempt-1 result (verified)
+
+A23 attempt-1 ran 39 min ($16.027, 116 turns), committed as `99c1f9e31`,
+orchestrator phase-summary as `2c06654e9` (pushed to origin). Path C
+honest-exit with a STRONG NEGATIVE RESULT.
+
+**A23's pivotal finding**: tracer fired ZERO times across 61204
+instrumented `call_r64` BLR sites during a complete 216-link-finish
+boot run. **H2-via-call_r64 is FALSIFIED**.
+
+**Re-derived mechanism** (from A23's analysis):
+- `BLR Xn` sets `X30 = pc_of_blr + 4` (a HEAP code address).
+- Observed crash has `X30 = 0x212afffe84` (host stack address).
+- Therefore the BLR cannot produce the observed X30.
+- The only way X30 = stack_addr at SIGILL is `LDP X29, X30, [SP], #N`
+  from a corrupted save slot, followed by `RET`.
+
+**Evidence**: bytes at `X12 - 0x18..X12 - 0x10` in REG-BYTE-DUMP decode
+as `0xA8C17BFD 0xD65F03C0` = `LDP X29, X30, [SP], #16; RET` — the
+canonical aarch64 goalc function epilogue. The function ending at
+`0x21231d7540` had its X29/X30 save slot overwritten to stack_addr
+at some point during its execution.
+
+### Reality check (all PASS)
+
+- A23 in `completed`, A23.retries=1, current_phase_idx=62 (was F1
+  before A24 insertion).
+- A23 baseline file matches actual sha256sum of CGOs (verified
+  byte-for-byte).
+- arm64 CGOs differ from A21 baseline (61204 sites × 20 bytes
+  ≈ 1.2 MB drift) — expected for live tracer emit.
+- x86 CGOs byte-identical to A2 baseline (B1 driver re-runs x86 goalc
+  after arm64 to restore).
+- qemu link-finish count = 216 (no regression, A19 ceiling unchanged).
+- A18 `_Exit(13)` + A19 `kStpX12X23Push` + A20 OG_OFFSET_TRACE (6
+  sites) + 4 A21 diags all preserved.
+- A23 tracer infra preserved in HEAD: 8 hits of
+  `OG_BLR_TARGET_TRACE`/`blr_target_trace_emit_enabled` in
+  IGenARM64.cpp + 4 hits of `0x1EE0`/`BLR-TARGET-STACK` in
+  linux_arm64_main.cpp.
+- Desktop x86 smoke passes (`link finish: logo` reached).
+- 0 cheats from A23's 7-pattern forbidden list. claude even wrote a
+  memory file (`feedback_a23_tracer_null_finding.md`) capturing the
+  null finding for future investigations.
+
+### A24 design
+
+**NEW unlock vs A23**:
+- `goalc/compiler/CodeGenerator.cpp` / `.h` — function-epilogue emit.
+
+**Continued unlocks**: IGenARM64.cpp, IR.cpp, asm_funcs_arm64.s,
+linux_arm64_main.cpp (extend UDF decoder for tag 0x1EF0), klink.cpp
+(may add link-block lookup), jak1/kscheme.cpp, Allocator_v2.cpp.
+
+**Locks retained**: x86 emit (oracle), ObjectGenerator, Compiler.cpp,
+Val.cpp/.h (A22+A23 cleared), compilation/Type.cpp (A22+A23 cleared),
+Allocator.cpp/allocate_common.cpp (shared), common/type_system/Type.*
+(lower-level), all kernel/common except klink, all game/system,
+runtime_compat, all Android paths, validators/lib/supervisor.sh/
+orchestrator.py, all other phase prompts.
+
+**Tracer design**: in `do_goal_function_arm64`'s epilogue emit, when
+env var `OG_X30_TRACE_EMIT=1` is set at goalc compile time, insert
+5 instructions between `LDP X29, X30, [SP], #16` and `RET`:
+
+```
+LDP X29, X30, [SP], #16
+SUB  X17, X30, X15            ; X17 = X30 GOAL offset
+MOVZ X16, #0x0700, LSL #16    ; X16 = 0x07000000 stack-range floor
+CMP  X17, X16
+B.LO ret_ok
+UDF  #0x1EF0                  ; distinctive A24 tag
+ret_ok:
+RET
+```
+
+Same threshold (0x07000000) and gating pattern as A23. Different UDF
+tag (0x1EF0 vs A23's 0x1EE0..0x1EFF) so the SIGILL handler can
+decode them independently.
+
+**SIGILL decoder** (in linux_arm64_main.cpp, already unlocked):
+- Match `(udf_enc & 0xFFFF0000) == 0 && (udf_enc & 0xFFFF) == 0x1EF0`.
+- Read uc_mcontext.regs[30] = X30 value.
+- Compute goal_off = X30 - X15.
+- Print `GK-DIAG A24-DIAG EPILOGUE-X30-STACK: emit_pc=0x... x30=0x...
+  goal_off=0x... x15=0x... caller_lr=0x...`
+- Dump 256-byte backward window around emit_pc for function-body
+  disasm (reveals offending STR/STP).
+
+**Cross-reference emit_pc → GOAL function**: emit_pc is INSIDE the
+GOAL function whose frame got corrupted. Walk `g_link_block_list`
+(klink.cpp) or use offline decoder against build artifacts.
+
+**Five exit paths**:
+- A) fix landed: qemu>=217 + A24-fix-summary.md
+- B) honest next-blocker: file outside A24 unlock
+- C) bug-located-named-source: tracer fires, GOAL function NAMED
+  (**MOST LIKELY successful exit**)
+- D) no-source-located: tracer fires but symbol lookup fails
+- E) tracer-doesnt-fire: surprising; implies RET also isn't source
+
+All paths require A24-investigation-trace.md ≥200 lines.
+A/B/C/D/E reports each ≥250 lines.
+A/C paths require A24 tracer infra (grep-enforced).
+
+**Validator branches** CGO drift check:
+- fix-summary or bug-located: CGOs differ from A23 + A24-baseline
+  present + qemu boot >=217 (fix) or >=200 (bug-located).
+- Otherwise: CGOs match A23 baseline OR A24-baseline (alternate path).
+
+### Validator smoke-test (pre-attempt)
+
+```
+== Phase A24 validator (arm64 epilogue X30 tracer + CodeGenerator audit) ==
+  anchor: 99c1f9e31c1c1685c0e77efdf9f6bbaebc037efd
+  ok: all locked files unchanged since A23
+  ok: no dodge
+  ok: anti-cheat clean
+  ok: a18 trap preserved
+  ok: A19 X12 fix preserved
+  ok: A20 OG_OFFSET_TRACE preserved (6 sites)
+  ok: A21 4 diags preserved
+  ok: A23 tracer infra preserved (emit: 8 hits; decoder: 4 hits)
+  ok: x86 CGOs match A2 baseline
+FAIL: no A24 exit report (expected pre-attempt)
+```
+
+### state.json / milestones.yaml edits
+
+- `milestones.yaml`: A24 inserted at idx 62 between A23 (61) and F1
+  (shifted 62→63). Total phases: 65→66.
+- `state.json`: `current_phase_idx=62` (orchestrator advanced to 62
+  post-A23-completion; that was pointing at F1; A24 insertion at 62
+  now correctly points at A24). A24.retries=0, phase_started_at=now.
+
+### Commit
+
+`078f115f0 [autoport/supervisor] A23 → A24 transition: epilogue X30
+stack-range tracer + CodeGenerator.cpp unlock` — 2 files, +19/-2.
+
+(Note: my A24 prompt + validator files were swept up into the
+orchestrator's A23 phase-summary commit `2c06654e9` along with my
+journal edits. The A24 transition commit is just the milestones.yaml +
+state.json edits. This is fine — the orchestrator's commit messaging
+is keyed on milestones.yaml, not on which files actually changed.)
+
+### Orchestrator restart
+
+PID 1956869 (orchestrator.py), saved to orchestrator.pid.
+- Resuming at phase index 62/66.
+- Rate-limit probe failed; "proceeding optimistically."
+- Claude session 4a53cc7 picked up A24 attempt 1/5.
+
+### Watch list for next iteration (~30 min)
+
+**HALT IMMEDIATELY on**:
+- CodeGenerator.cpp edit that disables the standard epilogue (e.g.,
+  removes `LDP X29, X30`).
+- Always-true CMP threshold (no-op tracer).
+- Hardcoded RET to known-good address.
+- Removed A23 tracer infrastructure.
+- Edits to `.autoport/lib/*` or `.autoport/validators/*`.
+- A24-baseline file with hashes that don't match actual CGOs.
+- Bug-located report without NAMING the GOAL function.
+
+**PROGRESS SIGNALS**:
+- `OG_X30_TRACE_EMIT` references in CodeGenerator.cpp.
+- `0x1EF0` UDF emit in CodeGenerator.cpp's epilogue.
+- `EPILOGUE-X30-STACK` in linux_arm64_main.cpp.
+- A24-baseline-arm64-cgo-hashes.txt creation.
+- qemu run capturing A24-DIAG output (the breakthrough signal).
+- klink-side link-block lookup helper (if pursued).
+
+**HONEST-EXIT SIGNALS**:
+- A24-attempt-1-bug-located-named-source.md with a specific GOAL
+  function name (the desired Path C outcome).
+- A24-attempt-1-next-blocker.md if claude finds the fix needs
+  Allocator.cpp/Compiler.cpp/etc.
+
+### Cost ledger update
+
+- A18: ~$132 (4 attempts)
+- A19: ~$50 (X12 fix landed)
+- A20: ~$35 (off-by-4 falsified)
+- A21 attempt-1: $12.65 (H2 verdict)
+- A22 attempt-1: $13.43 (Path C honest exit)
+- A23 attempt-1: **$16.03 (H2-via-call_r64 FALSIFIED, mechanism narrowed)**
+- Supervisor interventions A18-A24: ~$40
+- Running total: **~$299**
+- A24 estimate per attempt: $100-300
+- A24 budget cap: $700 (5 attempts worst case)
+
+### Strategic note
+
+A24 is the FOURTH successive A* phase that's investigation-heavy
+without a fix landing. The strategic estimate ($500-2000 to title-
+screen-on-device) still holds — we're at ~$300 spent, ~$200-1700
+remaining. The investigation pattern is working: each phase narrows
+the bug surface significantly:
+- A18 — caught X12 clobber (real bug)
+- A19 — fixed X12 clobber (real fix)
+- A20 — falsified off-by-4 (3-hour saved by not chasing it)
+- A21 — confirmed H2 with arithmetic
+- A22 — cleared IGenARM64+IR+asm
+- A23 — falsified H2-via-call_r64 (huge insight!)
+- A24 — should locate the epilogue-corruption source
+
+If A24 reaches Path C (named GOAL function), A25 can target the
+specific bug in that function. Expect maybe 2-4 more A* phases
+before arm64 reaches `link finish: logo`. Then D/F bucket work on
+device.
+
+---
 
 ---
 
