@@ -65,8 +65,8 @@
     "mean_function_size": 395,
     "min_function_size": 20,
     "object_count": 8,
-    "ret_density_per_kb": 1.4964,
-    "total_bytes": 159440,
+    "ret_density_per_kb": 1.4963,
+    "total_bytes": 159456,
     "x86_ret_count": 6,
     "x86_ret_pct": 0.0038
   }
