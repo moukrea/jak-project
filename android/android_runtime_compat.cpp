@@ -860,12 +860,13 @@ void sceGsResetGraph(int mode, int inter, int omode, int ffmode) {
 }  // namespace ee
 
 // Declared in game/graphics/sceGraphicsInterface.h at global scope (NOT
-// inside namespace ee). jak1/kmachine.cpp uses them as plain function
-// pointers in make_function_symbol_from_c. The upstream desktop bodies
-// poll a Display::* + GS state machine; on Android the GS has no
-// equivalent, so the no-op return is the honest answer.
-u32 sceGsSyncV(u32 /*mode*/) { return 0; }
-u32 sceGsSyncPath(u32 /*mode*/, u32 /*timeout*/) { return 0; }
+// inside namespace ee). jak1/kmachine.cpp binds these as `syncv` /
+// `sync-path` for the GOAL display loop. A35: forward into the real
+// Android frame pacing (Gfx::vsync waits for the SDL thread's swap;
+// Gfx::sync_path waits for the chain to be consumed) — the desktop
+// sceGraphicsInterface.cpp bodies do exactly this.
+u32 sceGsSyncV(u32 /*mode*/) { return Gfx::vsync(); }
+u32 sceGsSyncPath(u32 /*mode*/, u32 /*timeout*/) { return Gfx::sync_path(); }
 
 // ---------------------------------------------------------------------------
 // InputModifiers ctor — pulled by game_settings::DebugSettings's default
@@ -891,9 +892,16 @@ InputModifiers::InputModifiers(const u16 sdl_mod_state) {
 // renderer wired", branches accordingly) and default-constructed debug
 // settings + splash so accesses through those references stay valid.
 // ---------------------------------------------------------------------------
+// Phase A35 (autoport): the Android renderer module (android_gfx.cpp)
+// backs the Gfx:: accessors. GetCurrentRenderer() now returns a REAL
+// module — PutDisplayEnv's pmode-alp, jak1 pc_set_levels, and the
+// __send-gfx-dma-chain / texture hooks all flow through it exactly like
+// the desktop gRendererOpenGL.
+#include "android_gfx.h"
+
 namespace Gfx {
 const GfxRendererModule* GetCurrentRenderer() {
-  return nullptr;  // honest: no real renderer on Android yet (bucket D continues)
+  return android_gfx::renderer_module();
 }
 
 // SHIM_KIND: OPTIONAL_OFF
@@ -908,8 +916,10 @@ u32 Exit() {
   log_shim_call_once("Gfx::Exit");
   return 0;
 }
-u32 vsync()    { return 0; }
-u32 sync_path(){ return 0; }
+// A35: real frame pacing — the GOAL display loop's syncv/sync-path now
+// block on the SDL thread's swap chain, desktop semantics.
+u32 vsync()    { return android_gfx::vsync(); }
+u32 sync_path(){ return android_gfx::sync_path(); }
 void Loop(std::function<bool()> /*f*/) {
   log_shim_call_once("Gfx::Loop");
 }

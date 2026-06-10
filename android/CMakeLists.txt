@@ -59,6 +59,11 @@ add_subdirectory("${JAK_ROOT}/third-party/fmt" fmt_build EXCLUDE_FROM_ALL)
 add_subdirectory("${JAK_ROOT}/third-party/libco" libco_build EXCLUDE_FROM_ALL)
 set_property(TARGET libco PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+# Phase A35: zstd — fr3 level files (textures for the renderer) are
+# zstd-compressed; common/util/compress.cpp needs the real library.
+add_subdirectory("${JAK_ROOT}/third-party/zstd" zstd_build EXCLUDE_FROM_ALL)
+set_property(TARGET libzstd_static PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 # ---------------------------------------------------------------------------
 # Phase 18 (autoport): SDL3 vendored under third-party/SDL is cross-built
 # as a static library and linked into libgk.so with --whole-archive so the
@@ -426,21 +431,70 @@ add_library(gk SHARED
     # build don't compete for the symbol. The Android body honestly inits
     # the kheap, opens KERNEL.CGO, and spawns the dispatcher thread.
     android_goal_main.cpp
-    # SDL/GLES bring-up + a placeholder render loop. The real OpenGL
-    # renderer chain (game/graphics/opengl_renderer/) is not yet ported
-    # to Android — supervisor rollback 2026-05-20 removed the phase-29
-    # gradient-quad stand-in. Until a real port lands, android_renderer
-    # only proves SDL_Init + window + GLES context + glClear/swap
-    # succeed; no game content is rendered.
+    # Phase A35 (autoport): SDL/GLES bring-up + the REAL game-content
+    # render loop. android_gfx owns the desktop-style chain hand-off
+    # (send_chain / vsync / sync_path / texture hooks behind a real
+    # GfxRendererModule); android_opengl_renderer is the jak1 bucket
+    # dispatch skeleton instantiating the ported renderer subset.
     android_renderer.cpp
+    android_gfx.cpp
+    android_opengl_renderer.cpp
     # SDL virtual gamepad + audio device bring-up.
     # Driven from gk_sdl_main; the JNI bridge in gk_android_main.cpp
     # forwards on-screen pad presses through this TU's free functions.
     android_input_audio.cpp
+
+    # --- Phase A35: desktop renderer subset, compiled verbatim ---------
+    # glad resolves the GL entry points at runtime through
+    # SDL_GL_GetProcAddress (EGL/dlsym); GLES 3.2 provides the full
+    # surface these TUs execute (audited: no glPolygonMode/glLogicOp/
+    # glClipControl on Android paths — glPolygonMode is __ANDROID__-
+    # guarded in DirectRenderer since phase 21).
+    "${JAK_ROOT}/third-party/glad/src/glad.c"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/BucketRenderer.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/DirectRenderer.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/TextureUploadHandler.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/EyeRenderer.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/Profiler.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/Shader.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/opengl_utils.cpp"
+    # TextureAnimator: link-time dependency of TextureUploadHandler
+    # (handle_texture_anim_data). Never constructed on jak1 — the
+    # desktop ctor passes the null shared_ptr for jak1 too.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/TextureAnimator.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/TextureAnimatorDefs.cpp"
+    "${JAK_ROOT}/game/graphics/texture/TexturePool.cpp"
+    "${JAK_ROOT}/game/graphics/texture/TextureConverter.cpp"
+    "${JAK_ROOT}/game/graphics/texture/jak1_tpage_dir.cpp"
+    "${JAK_ROOT}/game/graphics/texture/jak2_tpage_dir.cpp"
+    "${JAK_ROOT}/game/graphics/texture/jak3_tpage_dir.cpp"
+    # fr3 level loader — provides the REAL textures (font/hud/common)
+    # that handle_upload_now links tpage slots to; without it everything
+    # is the checkerboard placeholder.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/loader/Loader.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/loader/LoaderStages.cpp"
+    "${JAK_ROOT}/common/custom_data/TFrag3Data.cpp"
+    "${JAK_ROOT}/common/custom_data/pack_helpers.cpp"
+    "${JAK_ROOT}/common/texture/texture_slots.cpp"
+    "${JAK_ROOT}/common/util/compress.cpp"
+    # imgui core: the renderer TUs' draw_debug_window() methods reference
+    # ImGui::* through their vtables, so the core must link. Portable C++,
+    # no backend (we never call ImGui::NewFrame on Android).
+    "${JAK_ROOT}/third-party/imgui/imgui.cpp"
+    "${JAK_ROOT}/third-party/imgui/imgui_draw.cpp"
+    "${JAK_ROOT}/third-party/imgui/imgui_tables.cpp"
+    "${JAK_ROOT}/third-party/imgui/imgui_widgets.cpp"
 )
 
 add_dependencies(gk gen_android_shaders)
-target_include_directories(gk PRIVATE "${GEN_SHADERS_DIR}")
+target_include_directories(gk PRIVATE
+    "${GEN_SHADERS_DIR}"
+    # glad.c does `#include <glad/glad.h>`
+    "${JAK_ROOT}/third-party/glad/include"
+    # imgui TUs include "imgui.h" relative to their own dir already; the
+    # renderer TUs use the third-party/imgui/... spelling via JAK_ROOT.
+    "${JAK_ROOT}/third-party/imgui"
+)
 
 target_compile_features(gk PRIVATE cxx_std_20)
 target_compile_options(gk PRIVATE
@@ -494,6 +548,8 @@ target_link_libraries(gk PRIVATE
     -Wl,--exclude-libs,libunwind.a
 
     fmt::fmt
+    # Phase A35: zstd for fr3 decompression (Loader path).
+    libzstd_static
 
     # Android system libs from the NDK sysroot. SDL3-static already pulls
     # in EGL/GLESv3/OpenSLES/android transitively for the Android backend,

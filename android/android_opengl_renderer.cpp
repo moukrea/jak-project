@@ -1,0 +1,435 @@
+// Phase A35 (autoport): Android GLES 3.2 bucket-dispatch renderer.
+// See android_opengl_renderer.h for the design note. The dispatch loop,
+// default-regs parse, FBO setup and pcrtc blit mirror
+// game/graphics/opengl_renderer/OpenGLRenderer.cpp (jak1 paths) so the
+// Android renderer is a true subset of the desktop one, not a rewrite.
+
+#include "android_opengl_renderer.h"
+
+#include <android/log.h>
+
+#include "common/goal_constants.h"
+#include "common/log/log.h"
+
+#include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/DirectRenderer.h"
+#include "game/graphics/opengl_renderer/EyeRenderer.h"
+#include "game/graphics/opengl_renderer/TextureUploadHandler.h"
+#include "game/graphics/pipelines/opengl.h"
+#include "game/kernel/common/kmachine.h"
+#include "game/runtime.h"
+
+#include "fmt/format.h"
+
+namespace {
+constexpr const char* kLogTag = "opengoal-gk";
+
+// Identical to the desktop make_fbo (OpenGLRenderer.cpp), msaa stripped:
+// the Android skeleton always renders single-sampled.
+Fbo a35_make_fbo(int w, int h) {
+  Fbo result;
+  glGenFramebuffers(1, &result.fbo_id);
+  glBindFramebuffer(GL_FRAMEBUFFER, result.fbo_id);
+  result.valid = true;
+
+  GLuint tex;
+  glGenTextures(1, &tex);
+  result.tex_id = tex;
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+  GLuint zbuf;
+  glGenRenderbuffers(1, &zbuf);
+  result.zbuf_stencil_id = zbuf;
+  glBindRenderbuffer(GL_RENDERBUFFER, zbuf);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, zbuf);
+
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+
+  GLenum render_targets[1] = {GL_COLOR_ATTACHMENT0};
+  glDrawBuffers(1, render_targets);
+  auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (status != GL_FRAMEBUFFER_COMPLETE) {
+    __android_log_print(ANDROID_LOG_ERROR, kLogTag,
+                        "A35-RENDER fbo setup failed: %dx%d status=0x%x", w, h, (unsigned)status);
+    ASSERT(false);
+  }
+
+  result.multisample_count = 1;
+  result.multisampled = false;
+  result.is_window = false;
+  result.width = w;
+  result.height = h;
+  return result;
+}
+
+// True when the bucket carries content beyond the empty 4-tag shape
+// (NEXT qwc=0 → CALL qwc=0 into the default-regs chain). Peeks a COPY of
+// the follower; the real follower is untouched.
+bool bucket_has_data(DmaFollower dma, u32 next_bucket) {
+  auto t0 = dma.current_tag();
+  if (!(t0.kind == DmaTag::Kind::NEXT && t0.qwc == 0)) {
+    return true;
+  }
+  dma.read_and_advance();
+  if (dma.current_tag_offset() == next_bucket) {
+    return false;
+  }
+  auto t1 = dma.current_tag();
+  return !(t1.kind == DmaTag::Kind::CALL && t1.qwc == 0);
+}
+}  // namespace
+
+AndroidOpenGLRenderer::AndroidOpenGLRenderer(std::shared_ptr<TexturePool> texture_pool,
+                                             std::shared_ptr<Loader> loader)
+    : m_render_state(texture_pool, loader, GameVersion::Jak1) {
+  lg::info("A35-RENDER AndroidOpenGLRenderer init: GL_VERSION={} GL_RENDERER={}",
+           (const char*)glGetString(GL_VERSION), (const char*)glGetString(GL_RENDERER));
+
+  // screen-space quad for the pcrtc window blit (desktop ctor parity).
+  glGenVertexArrays(1, &m_screen_vao);
+  glGenBuffers(1, &m_screen_vbo);
+  struct Vertex {
+    float x, y;
+  };
+  constexpr std::array<Vertex, 4> vertices = {
+      Vertex{-1, -1},
+      Vertex{-1, 1},
+      Vertex{1, -1},
+      Vertex{1, 1},
+  };
+  glBindVertexArray(m_screen_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, m_screen_vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * 4, vertices.data(), GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_TRUE, sizeof(Vertex), nullptr);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
+  // Common (GAME.fr3) textures: font, hud, common sprites. Without this
+  // every slot the game links resolves to the checkerboard placeholder.
+  if (m_render_state.loader) {
+    m_render_state.loader->load_common(*m_render_state.texture_pool, "GAME");
+    lg::info("A35-RENDER common level (GAME.fr3) loaded");
+  } else {
+    __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                        "A35-RENDER no loader — textures will be placeholders");
+  }
+
+  init_bucket_renderers_jak1();
+}
+
+void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
+  using namespace jak1;
+  m_bucket_renderers.resize((int)BucketId::MAX_BUCKETS);
+  m_bucket_ported.resize((int)BucketId::MAX_BUCKETS, false);
+  m_skip_logged.resize((int)BucketId::MAX_BUCKETS, false);
+
+  auto set_renderer = [&](std::unique_ptr<BucketRenderer> r, BucketId id, bool ported) {
+    m_bucket_ported.at((int)id) = ported;
+    m_bucket_renderers.at((int)id) = std::move(r);
+  };
+
+  // Texture upload buckets — the same eleven slots the desktop jak1 table
+  // fills with TextureUploadHandler. No TextureAnimator on jak1 (desktop
+  // passes the null shared_ptr too).
+  std::shared_ptr<TextureAnimator> no_animator;
+  for (auto id : {BucketId::TFRAG_TEX_LEVEL0, BucketId::TFRAG_TEX_LEVEL1,
+                  BucketId::SHRUB_TEX_LEVEL0, BucketId::SHRUB_TEX_LEVEL1,
+                  BucketId::ALPHA_TEX_LEVEL0, BucketId::ALPHA_TEX_LEVEL1,
+                  BucketId::PRIS_TEX_LEVEL0, BucketId::PRIS_TEX_LEVEL1,
+                  BucketId::WATER_TEX_LEVEL0, BucketId::WATER_TEX_LEVEL1,
+                  BucketId::PRE_SPRITE_TEX}) {
+    set_renderer(std::make_unique<TextureUploadHandler>(fmt::format("tex-{}", (int)id), (int)id,
+                                                        no_animator),
+                 id, true);
+  }
+
+  // Eye renderer — both a bucket renderer and the handler the tex buckets
+  // hand eye-dma to via render_state->eye_renderer.
+  {
+    auto eye = std::make_unique<EyeRenderer>("common-pris-eyes", (int)BucketId::MERC_EYES_AFTER_PRIS);
+    m_render_state.eye_renderer = eye.get();
+    set_renderer(std::move(eye), BucketId::MERC_EYES_AFTER_PRIS, true);
+  }
+
+  // DirectRenderer — the desktop jak1 direct buckets, same batch sizes.
+  set_renderer(std::make_unique<DirectRenderer>("debug", (int)BucketId::DEBUG, 0x20000),
+               BucketId::DEBUG, true);
+  set_renderer(
+      std::make_unique<DirectRenderer>("debug-no-zbuf", (int)BucketId::DEBUG_NO_ZBUF, 0x8000),
+      BucketId::DEBUG_NO_ZBUF, true);
+  set_renderer(std::make_unique<DirectRenderer>("subtitle", (int)BucketId::SUBTITLE, 6000),
+               BucketId::SUBTITLE, true);
+
+  // Everything else: skip with a one-time named log (handled in dispatch).
+  // Desktop names kept so the skip logs name the real renderer that's missing.
+  const std::pair<BucketId, const char*> unported[] = {
+      {BucketId::SKY_DRAW, "sky"},
+      {BucketId::OCEAN_MID_AND_FAR, "ocean-mid-far"},
+      {BucketId::TFRAG_LEVEL0, "l0-tfrag"},
+      {BucketId::TIE_LEVEL0, "l0-tie"},
+      {BucketId::MERC_TFRAG_TEX_LEVEL0, "l0-merc"},
+      {BucketId::GENERIC_TFRAG_TEX_LEVEL0, "l0-generic"},
+      {BucketId::TFRAG_LEVEL1, "l1-tfrag"},
+      {BucketId::TIE_LEVEL1, "l1-tie"},
+      {BucketId::MERC_TFRAG_TEX_LEVEL1, "l1-merc"},
+      {BucketId::GENERIC_TFRAG_TEX_LEVEL1, "l1-generic"},
+      {BucketId::SHRUB_NORMAL_LEVEL0, "l0-shrub"},
+      {BucketId::SHRUB_GENERIC_LEVEL0, "l0-shrub-generic"},
+      {BucketId::SHRUB_NORMAL_LEVEL1, "l1-shrub"},
+      {BucketId::SHRUB_GENERIC_LEVEL1, "l1-shrub-generic"},
+      {BucketId::TFRAG_TRANS0_AND_SKY_BLEND_LEVEL0, "l0-sky-blend"},
+      {BucketId::TFRAG_DIRT_LEVEL0, "l0-tfrag-dirt"},
+      {BucketId::TFRAG_ICE_LEVEL0, "l0-tfrag-ice"},
+      {BucketId::TFRAG_TRANS1_AND_SKY_BLEND_LEVEL1, "l1-sky-blend"},
+      {BucketId::TFRAG_DIRT_LEVEL1, "l1-tfrag-dirt"},
+      {BucketId::TFRAG_ICE_LEVEL1, "l1-tfrag-ice"},
+      {BucketId::MERC_AFTER_ALPHA, "common-alpha-merc"},
+      {BucketId::GENERIC_ALPHA, "common-alpha-generic"},
+      {BucketId::SHADOW, "shadow"},
+      {BucketId::MERC_PRIS_LEVEL0, "l0-pris-merc"},
+      {BucketId::GENERIC_PRIS_LEVEL0, "l0-pris-generic"},
+      {BucketId::MERC_PRIS_LEVEL1, "l1-pris-merc"},
+      {BucketId::GENERIC_PRIS_LEVEL1, "l1-pris-generic"},
+      {BucketId::MERC_AFTER_PRIS, "common-pris-merc"},
+      {BucketId::GENERIC_PRIS, "common-pris-generic"},
+      {BucketId::MERC_WATER_LEVEL0, "l0-water-merc"},
+      {BucketId::GENERIC_WATER_LEVEL0, "l0-water-generic"},
+      {BucketId::MERC_WATER_LEVEL1, "l1-water-merc"},
+      {BucketId::GENERIC_WATER_LEVEL1, "l1-water-generic"},
+      {BucketId::OCEAN_NEAR, "ocean-near"},
+      {BucketId::DEPTH_CUE, "depth-cue"},
+      {BucketId::SPRITE, "sprite"},
+  };
+  for (auto& [id, name] : unported) {
+    set_renderer(std::make_unique<SkipRenderer>(name, (int)id), id, false);
+  }
+
+  // remaining slots (0,1,2 + the unused gaps): desktop uses
+  // EmptyBucketRenderer, which ASSERTs emptiness — keep that, it's a real
+  // chain-shape check.
+  for (size_t i = 0; i < m_bucket_renderers.size(); i++) {
+    if (!m_bucket_renderers[i]) {
+      m_bucket_renderers[i] =
+          std::make_unique<EmptyBucketRenderer>(fmt::format("bucket-{}", i), (int)i);
+      m_bucket_ported[i] = true;  // empty buckets are fully handled
+    }
+    m_bucket_renderers[i]->init_shaders(m_render_state.shaders);
+    m_bucket_renderers[i]->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
+  }
+  lg::info("A35-RENDER bucket table ready: {} buckets, direct=3 tex=11 eye=1 skip={}",
+           m_bucket_renderers.size(), sizeof(unported) / sizeof(unported[0]));
+}
+
+u32 AndroidOpenGLRenderer::count_chain_bytes(DmaFollower dma) {
+  // read_and_advance only computes offsets (no copies) — a counting walk
+  // over the whole chain is cheap and gives an honest chain_bytes figure.
+  u32 total = 0;
+  u32 guard = 0;
+  while (!dma.ended() && guard++ < 1000000) {
+    total += dma.read_and_advance().size_bytes;
+  }
+  return total;
+}
+
+void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& settings) {
+  m_profiler.clear();
+  m_render_state.reset();
+  m_render_state.ee_main_memory = g_ee_main_mem;
+  m_render_state.offset_of_s7 = offset_of_s7();
+
+  m_stats.frame_idx++;
+  m_stats.chain_bytes = count_chain_bytes(dma);
+  m_stats.buckets_with_data = 0;
+  m_stats.buckets_drawn = 0;
+  m_stats.buckets_skipped = 0;
+
+  {
+    auto prof = m_profiler.root()->make_scoped_child("frame-setup");
+    setup_frame(settings);
+  }
+
+  if (m_render_state.loader) {
+    auto prof = m_profiler.root()->make_scoped_child("loader");
+    if (m_last_pmode_alp == 0 && settings.pmode_alp_register != 0) {
+      m_render_state.loader->update_blocking(*m_render_state.texture_pool);
+    } else {
+      m_render_state.loader->update(*m_render_state.texture_pool);
+    }
+  }
+
+  {
+    auto prof = m_profiler.root()->make_scoped_child("buckets");
+    m_render_state.version = GameVersion::Jak1;
+    m_render_state.frame_idx++;
+    dispatch_buckets_jak1(dma, prof);
+  }
+
+  {
+    auto prof = m_profiler.root()->make_scoped_child("pcrtc");
+    do_pcrtc_effects(settings.pmode_alp_register, &m_render_state, prof);
+  }
+  m_last_pmode_alp = settings.pmode_alp_register;
+
+  m_profiler.finish();
+  m_stats.draw_calls = m_profiler.root()->stats().draw_calls;
+  m_stats.triangles = m_profiler.root()->stats().triangles;
+}
+
+void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
+  auto& window_fb = m_fbo_state.window;
+  bool window_resized =
+      window_fb.width != settings.window_fb_w || window_fb.height != settings.window_fb_h;
+  window_fb.valid = true;
+  window_fb.is_window = true;
+  window_fb.fbo_id = 0;
+  window_fb.width = settings.window_fb_w;
+  window_fb.height = settings.window_fb_h;
+  window_fb.multisample_count = 1;
+  window_fb.multisampled = false;
+
+  if (window_resized || !m_fbo_state.render_fbo ||
+      !m_fbo_state.render_fbo->matches(settings.game_res_w, settings.game_res_h, 1)) {
+    lg::info("A35-RENDER FBO setup: {}x{} (window {}x{})", settings.game_res_w,
+             settings.game_res_h, settings.window_fb_w, settings.window_fb_h);
+    m_fbo_state.render_buffer.clear();
+    m_fbo_state.render_buffer = a35_make_fbo(settings.game_res_w, settings.game_res_h);
+    m_fbo_state.render_fbo = &m_fbo_state.render_buffer;
+  }
+
+  ASSERT_MSG(settings.game_res_w > 0 && settings.game_res_h > 0,
+             fmt::format("Bad viewport size from game_res: {}x{}\n", settings.game_res_w,
+                         settings.game_res_h));
+
+  // jak1 frame clear — desktop setup_frame parity.
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glViewport(0, 0, window_fb.width, window_fb.height);
+  glClearColor(0.0, 0.0, 0.0, 0.0);
+  glClearDepthf(0.0f);
+  glDepthMask(GL_TRUE);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  glDisable(GL_BLEND);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
+  glClearColor(0.0, 0.0, 0.0, 0.0);
+  glClearDepthf(0.0f);
+  glClearStencil(0);
+  glDepthMask(GL_TRUE);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  glDisable(GL_BLEND);
+  m_render_state.stencil_dirty = false;
+
+  m_render_state.draw_region_w = settings.draw_region_w;
+  m_render_state.draw_region_h = settings.draw_region_h;
+  m_render_state.draw_offset_x = (settings.window_fb_w - m_render_state.draw_region_w) / 2;
+  m_render_state.draw_offset_y = (settings.window_fb_h - m_render_state.draw_region_h) / 2;
+  m_render_state.render_fb = m_fbo_state.render_fbo->fbo_id;
+
+  if (m_render_state.draw_region_w <= 0 || m_render_state.draw_region_h <= 0) {
+    m_render_state.draw_region_w = 320;
+    m_render_state.draw_region_h = 240;
+  }
+
+  m_render_state.render_fb_x = 0;
+  m_render_state.render_fb_y = 0;
+  m_render_state.render_fb_w = settings.game_res_w;
+  m_render_state.render_fb_h = settings.game_res_h;
+  glViewport(0, 0, settings.game_res_w, settings.game_res_h);
+}
+
+void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfilerNode& prof) {
+  // Desktop dispatch_buckets_jak1 parity: initial CALL into the default
+  // regs chain, then the 70 buckets, vif interrupt after each.
+  m_render_state.buckets_base = dma.current_tag_offset() + 16;
+  m_render_state.next_bucket = m_render_state.buckets_base;
+  m_render_state.bucket_for_vis_copy = (int)jak1::BucketId::TFRAG_LEVEL0;
+  m_render_state.num_vis_to_copy = jak1::LEVEL_MAX;
+
+  auto initial_call_tag = dma.current_tag();
+  ASSERT(initial_call_tag.kind == DmaTag::Kind::CALL);
+  auto initial_call_default_regs = dma.read_and_advance();
+  ASSERT(initial_call_default_regs.transferred_tag == 0);  // should be a nop.
+  m_render_state.default_regs_buffer = dma.current_tag_offset();
+  auto default_regs_tag = dma.current_tag();
+  ASSERT(default_regs_tag.kind == DmaTag::Kind::CNT);
+  ASSERT(default_regs_tag.qwc == 10);
+  auto default_data = dma.read_and_advance();
+  ASSERT(default_data.size_bytes > 148);
+  memcpy(m_render_state.fog_color.data(), default_data.data + 144, 4);
+  auto default_ret_tag = dma.current_tag();
+  ASSERT(default_ret_tag.qwc == 0);
+  ASSERT(default_ret_tag.kind == DmaTag::Kind::RET);
+  dma.read_and_advance();
+
+  ASSERT(dma.current_tag_offset() == m_render_state.next_bucket);
+  m_render_state.next_bucket += 16;
+
+  for (size_t bucket_id = 0; bucket_id < m_bucket_renderers.size(); bucket_id++) {
+    auto& renderer = m_bucket_renderers[bucket_id];
+    auto bucket_prof = prof.make_scoped_child(renderer->name_and_id());
+
+    const bool had_data = bucket_has_data(dma, m_render_state.next_bucket);
+    if (had_data) {
+      m_stats.buckets_with_data++;
+      if (m_bucket_ported[bucket_id]) {
+        m_stats.buckets_drawn++;
+      } else {
+        m_stats.buckets_skipped++;
+        if (!m_skip_logged[bucket_id]) {
+          m_skip_logged[bucket_id] = true;
+          __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                              "A35-RENDER skip bucket=%s id=%zu (not ported)",
+                              renderer->name().c_str(), bucket_id);
+        }
+      }
+    }
+
+    renderer->render(dma, &m_render_state, bucket_prof);
+
+    ASSERT(dma.current_tag_offset() == m_render_state.next_bucket);
+    m_render_state.next_bucket += 16;
+    vif_interrupt_callback(bucket_id);
+  }
+}
+
+void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
+                                             SharedRenderState* render_state,
+                                             ScopedProfilerNode& prof) {
+  // desktop do_pcrtc_effects, msaa-resolve stripped (always 1 sample) and
+  // brightness/contrast left at the neutral defaults.
+  Fbo* window_blit_src = &m_fbo_state.render_buffer;
+
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+  glViewport(render_state->draw_offset_x, render_state->draw_offset_y,
+             render_state->draw_region_w, render_state->draw_region_h);
+  glBindTexture(GL_TEXTURE_2D, *window_blit_src->tex_id);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  glBindVertexArray(m_screen_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, m_screen_vbo);
+
+  auto& shader = render_state->shaders[ShaderId::POST_PROCESSING];
+  shader.activate();
+  glUniform1i(glGetUniformLocation(shader.id(), "tex_T0"), 0);
+  glUniform4f(glGetUniformLocation(shader.id(), "color_mult"), 1.0f, 1.0f, 1.0f, 1.0f);
+  glUniform4f(glGetUniformLocation(shader.id(), "color_add"), 0.0f, 0.0f, 0.0f, 0.0f);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glActiveTexture(GL_TEXTURE0);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
+  glEnable(GL_BLEND);
+  if (alp < 1) {
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
+    glBlendEquation(GL_FUNC_ADD);
+    m_blackout_renderer.draw(math::Vector4f(0, 0, 0, 1.f - alp), render_state, prof);
+  }
+  glEnable(GL_DEPTH_TEST);
+}
