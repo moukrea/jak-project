@@ -1841,6 +1841,207 @@ void dump_a16_adrp_pair_walk(uintptr_t lr) {
 }
 }  // namespace gk_diag
 
+// ===========================================================================
+// A36-TREE: process-tree + dead-pool-heap rec integrity scanner.
+//
+// The A35 run-7 crash was change-parent's brother-walk wandering off a
+// corrupted chain (a ppointer slot deref returned 0x10000002) while
+// return-process unlinked a dying actor. The static arm64-vs-x86 mem-op
+// audit of gkernel/relocate/qmem-copy came back clean, so the corruptor
+// writes the slot at runtime somewhere else. This scanner enforces the
+// kernel's two load-bearing invariants every frame, from the GOAL thread
+// (sceGsSyncV — kernel quiescent), and names the first violating slot:
+//   1. tree:  every child/brother ppointer pp reachable from *active-pool*
+//             satisfies  P=[pp], [P+self]==P and [[P+ppointer]]==P.
+//   2. recs:  every alive *nk-dead-pool* rec satisfies
+//             [rec.process + ppointer] == &rec.process  (the backlink that
+//             relocate maintains and handle->process relies on).
+// Reads are raw loads bounds-checked to the EE mapping (always mapped, so
+// no SEGV risk; gk_diag::safe_read_u32's sigaction-per-read is far too
+// slow for a per-frame scan).
+// ===========================================================================
+namespace a36_tree {
+constexpr uint32_t kBrother = 12, kChild = 16, kPpointer = 20, kSelf = 24;
+constexpr uint32_t kDphAllocLen = 0x1c;  // dead-pool-heap allocated-length
+constexpr uint32_t kDphProcList = 0x64;  // process-list rec[0] (device-confirmed: 0x1dabb4+0x64=0x1dac18)
+
+struct Syms {
+  uint32_t nk_dead_pool = 0;
+  uint32_t active_pool = 0;
+  uint32_t null_process = 0;
+  bool armed = false;
+};
+Syms g_syms;
+std::atomic<uint64_t> g_frame{0};
+std::atomic<uint64_t> g_viol_total{0};
+std::atomic<uint64_t> g_first_viol_frame{0};
+int g_log_budget = 28;
+
+inline bool rd32(uint32_t goal, uint32_t* out) {
+  if (!g_ee_main_mem || goal < 0x1000 || goal >= EE_MAIN_MEM_SIZE - 4) return false;
+  *out = *reinterpret_cast<const uint32_t*>(g_ee_main_mem + goal);
+  return true;
+}
+
+void dump_win(const char* tag, uint32_t goal) {
+  uint32_t base = goal & ~15u;
+  for (int row = -1; row <= 2; row++) {
+    uint32_t w[4] = {0, 0, 0, 0};
+    bool any = false;
+    for (int k = 0; k < 4; k++) any |= rd32(base + row * 16 + 4 * k, &w[k]);
+    if (any && g_log_budget-- > 0) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A36-TREE win %s 0x%x: %08x %08x %08x %08x",
+                          tag, base + row * 16, w[0], w[1], w[2], w[3]);
+    }
+  }
+}
+
+void log_viol(const char* what, uint32_t a, uint32_t b, uint32_t c) {
+  uint64_t n = g_viol_total.fetch_add(1, std::memory_order_relaxed);
+  if (n == 0) g_first_viol_frame.store(g_frame.load());
+  if (g_log_budget-- <= 0) return;
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A36-TREE VIOLATION frame=%llu %s a=0x%x b=0x%x c=0x%x",
+                      (unsigned long long)g_frame.load(), what, a, b, c);
+}
+
+// Validate one ppointer slot value; returns the process goal ptr or 0.
+uint32_t check_pp(uint32_t pp, uint32_t falsev, const char* ctx) {
+  uint32_t p = 0;
+  if (!rd32(pp, &p)) {
+    log_viol("pp-out-of-range", pp, 0, 0);
+    return 0;
+  }
+  if (p == falsev || p == 0) {
+    log_viol("pp-holds-false-or-0", pp, p, 0);
+    return 0;
+  }
+  uint32_t self = 0, ppo = 0, back = 0;
+  if (!rd32(p + kSelf, &self) || !rd32(p + kPpointer, &ppo)) {
+    log_viol("proc-out-of-range", pp, p, 0);
+    dump_win("pp", pp);
+    return 0;
+  }
+  if (self != p) {
+    log_viol(ctx, pp, p, self);
+    dump_win("proc", p);
+    dump_win("pp", pp);
+    return 0;
+  }
+  if (!rd32(ppo, &back) || back != p) {
+    log_viol("backlink", pp, p, ppo);
+    dump_win("proc", p);
+    return 0;
+  }
+  return p;
+}
+
+void scan_tree(uint32_t root_node, uint32_t falsev) {
+  uint32_t stack[64];
+  int sp = 0;
+  uint32_t hops = 0;
+  uint32_t first = 0;
+  if (!rd32(root_node + kChild, &first)) return;
+  if (first != falsev && first != 0) stack[sp++] = first;
+  while (sp > 0 && hops < 4096) {
+    uint32_t cur = stack[--sp];
+    while (cur != falsev && cur != 0 && hops++ < 4096) {
+      uint32_t p = check_pp(cur, falsev, "tree-self");
+      if (!p) return;  // first violation already logged; stop this scan
+      uint32_t child = 0;
+      if (rd32(p + kChild, &child) && child != falsev && child != 0 && sp < 64) {
+        stack[sp++] = child;
+      }
+      uint32_t bro = 0;
+      if (!rd32(p + kBrother, &bro)) {
+        log_viol("brother-read", p, 0, 0);
+        return;
+      }
+      cur = bro;
+    }
+  }
+}
+
+void scan_recs(uint32_t pool, uint32_t falsev) {
+  uint32_t n = 0;
+  if (!rd32(pool + kDphAllocLen, &n)) return;
+  if (n == 0 || n > 16384) {
+    log_viol("alloc-len-insane", pool, n, 0);
+    return;
+  }
+  uint32_t base = pool + kDphProcList;
+  for (uint32_t i = 0; i < n; i++) {
+    uint32_t slot = base + i * 12;
+    uint32_t p = 0;
+    if (!rd32(slot, &p)) {
+      log_viol("rec-oob", slot, i, 0);
+      return;
+    }
+    if (p == g_syms.null_process || p == falsev || p == 0) continue;  // dead rec
+    uint32_t ppo = 0;
+    if (!rd32(p + kPpointer, &ppo)) {
+      log_viol("rec-proc-oob", slot, p, i);
+      dump_win("rec", slot);
+      return;
+    }
+    if (ppo != slot) {
+      log_viol("rec-backlink", slot, p, ppo);
+      dump_win("rec", slot);
+      dump_win("proc", p);
+      return;
+    }
+  }
+}
+
+void arm_if_needed() {
+  if (g_syms.armed) return;
+  if (!g_ee_main_mem || SymbolTable2.offset == 0) return;
+  auto s_pool = jak1::intern_from_c("*nk-dead-pool*");
+  auto s_root = jak1::intern_from_c("*active-pool*");
+  auto s_null = jak1::intern_from_c("*null-process*");
+  if (!s_pool.offset || !s_root.offset || !s_null.offset) return;
+  uint32_t pool = s_pool->value;
+  uint32_t root = s_root->value;
+  uint32_t nullp = s_null->value;
+  uint32_t falsev = s7.offset;
+  if (!pool || !root || !nullp || pool == falsev || root == falsev || nullp == falsev) return;
+  uint32_t n = 0;
+  if (!rd32(pool + kDphAllocLen, &n) || n == 0 || n > 16384) return;
+  g_syms.nk_dead_pool = pool;
+  g_syms.active_pool = root;
+  g_syms.null_process = nullp;
+  g_syms.armed = true;
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A36-TREE armed frame=%llu pool=0x%x recs=%u root=0x%x null-proc=0x%x",
+                      (unsigned long long)g_frame.load(), pool, n, root, nullp);
+}
+
+void scan_once() {
+  if (!g_syms.armed) return;
+  uint32_t falsev = s7.offset;
+  scan_recs(g_syms.nk_dead_pool, falsev);
+  scan_tree(g_syms.active_pool, falsev);
+}
+}  // namespace a36_tree
+
+// Called once per frame from sceGsSyncV (android_runtime_compat.cpp) on the
+// GOAL thread, where the kernel data is quiescent.
+extern "C" void a36_tree_scan_per_frame() {
+  using namespace a36_tree;
+  uint64_t f = g_frame.fetch_add(1, std::memory_order_relaxed) + 1;
+  arm_if_needed();
+  if (!g_syms.armed) return;
+  scan_once();
+  if (f % 600 == 0) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A36-TREE heartbeat frame=%llu viol-total=%llu first-viol-frame=%llu",
+                        (unsigned long long)f,
+                        (unsigned long long)g_viol_total.load(),
+                        (unsigned long long)g_first_viol_frame.load());
+  }
+}
+
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // Diag-only: dump PC bytes and registers so we can decode the crashing
   // GOAL bytecode at offset (PC - g_ee_main_mem). Re-raise after dumping
@@ -2288,6 +2489,19 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                           "GK-DIAG pc%+ld @ 0x%lx = <unreadable>",
                           (long)d, (unsigned long)addr);
     }
+  }
+  // A36-TREE: scan tree + recs AT crash time so the report names every
+  // already-corrupted slot (raw reads are EE-bounds-checked; safe in here).
+  {
+    a36_tree::g_log_budget = 40;
+    a36_tree::arm_if_needed();
+    a36_tree::scan_once();
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A36-TREE at-crash frame=%llu viol-total=%llu first-viol-frame=%llu armed=%d",
+                        (unsigned long long)a36_tree::g_frame.load(),
+                        (unsigned long long)a36_tree::g_viol_total.load(),
+                        (unsigned long long)a36_tree::g_first_viol_frame.load(),
+                        a36_tree::g_syms.armed ? 1 : 0);
   }
   struct sigaction sa{};
   sa.sa_handler = SIG_DFL;

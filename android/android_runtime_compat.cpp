@@ -865,7 +865,15 @@ void sceGsResetGraph(int mode, int inter, int omode, int ffmode) {
 // Android frame pacing (Gfx::vsync waits for the SDL thread's swap;
 // Gfx::sync_path waits for the chain to be consumed) — the desktop
 // sceGraphicsInterface.cpp bodies do exactly this.
-u32 sceGsSyncV(u32 /*mode*/) { return Gfx::vsync(); }
+// A36: per-frame process-tree/rec integrity scan (gk_android_main.cpp).
+// sceGsSyncV is the once-per-frame GOAL-thread point where kernel data is
+// quiescent — the only safe place to walk the tree without racing it.
+extern "C" void a36_tree_scan_per_frame();
+
+u32 sceGsSyncV(u32 /*mode*/) {
+  a36_tree_scan_per_frame();
+  return Gfx::vsync();
+}
 u32 sceGsSyncPath(u32 /*mode*/, u32 /*timeout*/) { return Gfx::sync_path(); }
 
 // ---------------------------------------------------------------------------

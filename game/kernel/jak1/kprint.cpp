@@ -62,6 +62,20 @@ s32 format_impl_jak1(uint64_t* args) {
   // convert gstring to cstring
   char* format_cstring = format_gstring + 4;
 
+  // A36-TXT-DIAG: the device composes "common.TXT" instead of "0common.TXT"
+  // (the ~D of lang vanishes) while the x86 oracle prints "1COMMON TXT".
+  // kitoa cannot print an empty string, so either the runtime fmt text or
+  // the marshalled args differ from source. Log both, raw, so one device
+  // run settles which.
+  if (strstr(format_cstring, ".TXT")) {
+    fprintf(stderr,
+            "A36-TXT-DIAG fmt=\"%s\" dest=0x%llx fmtptr=0x%llx arg2=0x%llx "
+            "arg3=0x%llx arg4=0x%llx\n",
+            format_cstring, (unsigned long long)args[0],
+            (unsigned long long)args[1], (unsigned long long)args[2],
+            (unsigned long long)args[3], (unsigned long long)args[4]);
+  }
+
   // mysteries
   char* PrintPendingLocal2 = PrintPending.cast<char>().c();
   char* PrintPendingLocal3 = output_ptr;
