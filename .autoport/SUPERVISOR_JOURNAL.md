@@ -4380,3 +4380,21 @@ screencap. Metric = on-device link-finish count (not qemu). Anchor A30
 
 Cost ledger ~$700. Title screen is close: kernel runs + surface up;
 remaining = clear Android-specific init crashes + confirm renderer draws.
+
+---
+
+## [2026-06-10 12:35] A33 mid-flight (first fable-5 phase) — systematic spill-bug attack
+
+A33 (claude-fable-5[1m], verified via /proc cmdline) at 43min: root-causing
+the shared hud-classes-pc SIGSEGV (qemu 660 == device 354, bogus 0xfd596f80
+GOAL ptr at [SP,#0]). Approach is more systematic than prior phases:
+compile-time ASSERTs added to store_goal_gpr / load_goal_gpr /
+a6_enc_add_x16_xn_xm so ANY non-GPR-bank id (16+) in a GOAL memory access
+fails the goalc compile loudly — converts the whole A24-class register-bank
+family into compile errors. Real fix landing in CallingConvention.cpp (+34)
++ Register.h; new disasm tooling in goalc/debugger/. Shared-file edits
+covered by the x86-boots gate. Currently building both goalc binaries.
+
+fable-5 vs opus-4-7 first impression: markedly more budget-efficient
+(43min/140 calls at ~3% session vs opus' typical 12-16% at same point);
+approach is root-cause-first rather than iterate-first. No cheats.

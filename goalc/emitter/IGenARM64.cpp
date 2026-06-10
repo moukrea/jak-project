@@ -1109,6 +1109,12 @@ static constexpr uint32_t kA6OffRegScratchRegId = 16;  // X16 / IP0
 //   base 0x8B000000. Encoding cross-checked against
 //   https://www.scs.stanford.edu/~zyedidia/arm64/add_addsub_shift.html.
 static inline uint32_t a6_enc_add_x16_xn_xm(Register addr, Register off) {
+  // A33: addr/off must be GPR-bank registers (x86-model id <= 15). An id of
+  // 16+ would silently alias X16..X31 — X16 is THIS helper's scratch, so a
+  // 16+ id here means a live value is about to be clobbered (the
+  // hud-classes-pc sink-group corruption shape). Fail the compile loudly.
+  ASSERT_MSG(addr.id() <= 15 && off.id() <= 15,
+             "a6_enc_add_x16_xn_xm: non-GPR-bank register id in GOAL memory access");
   return 0x8B000000u | (arm64_reg5(off) << 16) | (arm64_reg5(addr) << 5) |
          kA6OffRegScratchRegId;
 }
@@ -1187,6 +1193,9 @@ InstructionARM64 store_goal_vf(Register addr, Register value, Register off, s64 
 }
 
 InstructionARM64 store_goal_gpr(Register addr, Register value, Register off, int offset, int size) {
+  // A33: the stored value must live in the GPR bank (id <= 15); ids 16+
+  // would encode X16..X31 (emitter scratch / platform / pp / st / offset).
+  ASSERT_MSG(value.id() <= 15, "store_goal_gpr: value register is not GPR-bank");
   uint32_t scaled;
   uint32_t unscaled_base;
   int scale;
@@ -1228,6 +1237,8 @@ InstructionARM64 load_goal_gpr(Register dst,
                                int offset,
                                int size,
                                bool sign_extend) {
+  // A33: see store_goal_gpr — GPR-bank ids only for the destination.
+  ASSERT_MSG(dst.id() <= 15, "load_goal_gpr: dst register is not GPR-bank");
   uint32_t scaled;
   uint32_t unscaled_base;
   int scale;

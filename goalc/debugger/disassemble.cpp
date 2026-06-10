@@ -346,6 +346,87 @@ std::string disassemble_arm64(u8* data, int len, u64 base_addr) {
   return result;
 }
 
+std::string disassemble_arm64_function(
+    u8* data,
+    int len,
+    const goos::Reader* reader,
+    u64 base_addr,
+    const std::vector<InstructionInfo>& instructions,
+    const std::vector<std::shared_ptr<goos::HeapObject>>& code_sources,
+    const std::vector<std::string>& ir_strings,
+    bool* had_failure,
+    bool omit_ir) {
+  std::string result;
+  int current_instruction_idx = -1;
+  int current_ir_idx = -1;
+
+  std::string current_filename;
+  int current_file_line = -1;
+  int current_offset_in_line = -1;
+
+  for (const auto& di : decode_arm64(data, len, base_addr)) {
+    bool warn_messed_up = false;
+    bool print_ir = false;
+    if (current_instruction_idx + 1 >= int(instructions.size())) {
+      warn_messed_up = true;
+      if (had_failure) {
+        *had_failure = true;
+      }
+    } else if (instructions.at(current_instruction_idx + 1).offset == di.offset) {
+      current_instruction_idx++;
+      while (current_instruction_idx + 1 < int(instructions.size()) &&
+             instructions.at(current_instruction_idx + 1).offset == di.offset) {
+        current_instruction_idx++;
+      }
+    } else {
+      warn_messed_up = true;
+      if (had_failure) {
+        *had_failure = true;
+      }
+    }
+
+    if (!omit_ir && current_instruction_idx >= 0 &&
+        current_instruction_idx < int(instructions.size())) {
+      const auto& debug_instr = instructions.at(current_instruction_idx);
+      if (debug_instr.kind == InstructionInfo::Kind::IR && debug_instr.ir_idx != current_ir_idx) {
+        current_ir_idx = debug_instr.ir_idx;
+        print_ir = true;
+      }
+    }
+
+    std::string line;
+    size_t line_size_offset = 0;
+    if (!omit_ir && current_ir_idx >= 0 && current_ir_idx < int(ir_strings.size())) {
+      auto source = reader->db.try_get_short_info(code_sources.at(current_ir_idx));
+      if (source && (source->filename != current_filename ||
+                     source->line_idx_to_display != current_file_line ||
+                     source->pos_in_line != current_offset_in_line)) {
+        current_filename = source->filename;
+        current_file_line = source->line_idx_to_display;
+        current_offset_in_line = source->pos_in_line;
+        line += fmt::format("\n{}:{}\n-> {}\n", current_filename, current_file_line,
+                            source->line_text);
+        line_size_offset = line.size();
+      }
+    }
+
+    line += fmt::format("  [0x{:X}] {}", di.addr, di.text);
+    if (print_ir && current_ir_idx >= 0 && current_ir_idx < int(ir_strings.size())) {
+      if (line.size() - line_size_offset < DISASM_LINE_LEN) {
+        line.append(DISASM_LINE_LEN - (line.size() - line_size_offset), ' ');
+      }
+      line += " ";
+      line += ir_strings.at(current_ir_idx);
+    }
+    if (warn_messed_up) {
+      line += " ;; misaligned with debug data";
+    }
+    line += "\n";
+    result += line;
+  }
+  return result;
+}
+
 std::vector<DecodedInstr> decode_x86(u8* data, int len, u64 base_addr) {
   std::vector<DecodedInstr> out;
   ZydisDecoder decoder;
