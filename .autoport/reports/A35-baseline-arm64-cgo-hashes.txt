@@ -1,0 +1,4 @@
+274357f40c38a119c4c30fbeab035826  out/jak1-arm64/iso/ENGINE.CGO
+481ea5dff5bf26e98b7861be11aeeb01  out/jak1-arm64/iso/GAME.CGO
+1b2529bf613977af44bb72d4ea6b9c7d  out/jak1-arm64/iso/KERNEL.CGO
+144b1533952e3a5d060c87141dacb2cb  out/jak1-arm64/iso/TIT.DGO

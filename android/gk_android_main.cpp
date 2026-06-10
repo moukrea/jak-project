@@ -1752,6 +1752,9 @@ void dump_a16_adrp_pair_walk(uintptr_t lr) {
                           (unsigned)add_enc, (unsigned)rd_adrp,
                           (unsigned)rd_adrp, (unsigned)rd_adrp,
                           (unsigned)add_imm12, (unsigned long)resolved);
+      // A35-DIAG: name the symbol whose slot this pair addresses — turns
+      // every sym-MEM read near the crash site into a named reference.
+      dump_sym_name_at_slot(resolved);
     } else {
       __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                           "GK-DIAG A16-DIAG adrp-solo: pc=0x%lx "
@@ -2050,6 +2053,98 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
           __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                               "GK-DIAG A34-DIAG cam%+ld: %08x %08x %08x %08x",
                               (long)off, w0, w1, w2, w3);
+        }
+      }
+    }
+  }
+
+  // A35-DIAG: dump the VALUES of the function/flag symbols implicated in
+  // the post-logo-intro EE-4 chase (update-vis-volumes → name=(0,...)).
+  // Each line gives "name value sym-goal-addr" so the offline matcher can
+  // (a) check whether a fn symbol holds the WRONG function's entry and
+  // (b) bucket every fp-walk saved-lr into the fn whose [value, value+len)
+  // contains it. intern_from_c is lookup-only for existing symbols — same
+  // in-handler use as the *camera* dump above.
+  {
+    static const char* kA35Syms[] = {
+        "update-actor-vis-box", "update-vis-volumes",
+        "update-vis-volumes-from-nav-mesh", "print-volume-sizes",
+        "debug-draw-actors", "name=", "string=", "type-type?",
+        "res-lump-data", "res-lump-struct", "res-lump-float", "format",
+        "entity-by-name", "actors-update", "birth", "inspect",
+        "*generate-actor-vis*", "*display-actor-vis*",
+        "*display-actor-marks*", "*display-actor-anim*",
+        "*display-process-anim*", "*display-entity-errors*", "*level*",
+        "*kernel-context*", "background-upload-vram-words",
+        "entity-by-type", "entity-by-aid", "entity-by-meters",
+        "process-by-ename", "entity-process-count", "*res-static-buf*",
+        "*res-key-string*", "command-get-process",
+    };
+    for (const char* nm : kA35Syms) {
+      auto sym = jak1::intern_from_c(nm);
+      if (sym.offset) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A35-DIAG sym '%s' goal=0x%x value=0x%x",
+                            nm, (unsigned)sym.offset, (unsigned)sym->value);
+      } else {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A35-DIAG sym '%s' NOT INTERNED", nm);
+      }
+    }
+  }
+
+  // A35-DIAG (run-3): the name= crash leaves the res-lump machinery's
+  // registers intact (x3 = the res-lump/entity, x1 = a pointer into its
+  // tag area, x2 = the res-tag-pair). Dump raw windows over both so the
+  // offline analysis can read the actual res tags + the data word the
+  // deref hit. GOAL-heap-shaped values only; safe_read guards the rest.
+  {
+    uintptr_t ee = (uintptr_t)uc->uc_mcontext.regs[15];
+    if ((ee & 0xFFFu) == 0 && ee >= 0x100000000ull) {
+      auto dump_rows = [&](const char* label, uintptr_t goal_base, int rows) {
+        uintptr_t base = (ee + goal_base) & ~uintptr_t(15);
+        for (int row = 0; row < rows; row++) {
+          uint32_t w[4] = {0, 0, 0, 0};
+          bool any = false;
+          for (int k = 0; k < 4; k++) {
+            if (gk_diag::safe_read_u32(base + row * 16 + 4 * k, &w[k])) {
+              any = true;
+            }
+          }
+          if (!any) {
+            break;
+          }
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A35-DIAG %s goal=0x%lx: %08x %08x %08x %08x",
+                              label, (unsigned long)(base + row * 16 - ee), w[0], w[1], w[2],
+                              w[3]);
+        }
+      };
+      for (int reg : {1, 3}) {
+        uintptr_t gp = (uintptr_t)(uc->uc_mcontext.regs[reg] & 0xFFFFFFFFu);
+        if (gp >= 0x1000 && gp < 0x8000000u) {
+          dump_rows(reg == 1 ? "x1-win" : "x3-win", gp - 64, 12);
+        }
+      }
+      // x3 = the res-lump (&length); data-base lives at [x3+8]. Dump the
+      // data area itself — the 'name tag stores by reference, so the word
+      // at data-base+offset is the string pointer get-property-struct
+      // deref'd. Also dump what THAT points at (the string chars).
+      {
+        uintptr_t lump = (uintptr_t)(uc->uc_mcontext.regs[3] & 0xFFFFFFFFu);
+        uint32_t data_base = 0;
+        if (lump >= 0x1000 && lump < 0x8000000u &&
+            gk_diag::safe_read_u32(ee + lump + 8, &data_base) && data_base >= 0x1000 &&
+            data_base < 0x8000000u) {
+          dump_rows("lump-data", data_base, 16);
+          uint32_t name_ref = 0;
+          if (gk_diag::safe_read_u32(ee + data_base + 0x80, &name_ref)) {
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG A35-DIAG name-ref @data+0x80 = 0x%x", name_ref);
+            if (name_ref >= 0x1000 && name_ref < 0x8000000u) {
+              dump_rows("name-str", name_ref - 4, 3);
+            }
+          }
         }
       }
     }
