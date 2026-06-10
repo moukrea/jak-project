@@ -52,8 +52,17 @@
 // A10 next-blocker report).
 extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void);
 
+#include "common/util/Timer.h"
+
+#include "game/graphics/gfx.h"
+#include "game/kernel/common/kmachine.h"
+
+#include "android_gfx.h"
 #include "android_input_audio.h"
 #include "android_renderer.h"
+
+#include <ctime>
+#include <random>
 
 // goal_main lives in android_goal_main.cpp for Android, game/main.cpp for
 // desktop. C++ linkage on both sides — matches the forward declaration at
@@ -396,6 +405,101 @@ extern "C" u64 a32_mips2c_get_noop(u32 /*name*/) {
   return s_cached_offset;
 }
 
+// ---------------------------------------------------------------------------
+// A35: REAL implementations for the renderer/display/timer pc-* surface.
+// These replace the a17_pc_default no-ops for exactly the helpers whose
+// honest Android answer now exists (the SDL window + the A35 renderer
+// module). Bodies mirror game/kernel/common/kmachine.cpp's desktop
+// equivalents; the Display::GetMainDisplay() indirection is replaced by
+// android_gfx's window facts.
+// ---------------------------------------------------------------------------
+// Owned by android_runtime_compat.cpp (the common/kmachine.cpp globals
+// block) — file-scope there, so declare it here.
+extern Timer ee_clock_timer;
+
+extern "C" {
+u64 a35_read_ee_timer() {
+  // desktop read_ee_timer: EE clock at 294.912 MHz ~= ns * 3 / 10.
+  u64 ns = ee_clock_timer.getNs();
+  return (ns * 3) / 10;
+}
+
+void a35_send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
+  auto* r = Gfx::GetCurrentRenderer();
+  if (r) {
+    r->send_chain(g_ee_main_mem, chain);
+  }
+}
+
+void a35_pc_texture_upload_now(u32 page, u32 mode) {
+  auto* r = Gfx::GetCurrentRenderer();
+  if (r) {
+    r->texture_upload_now(Ptr<u8>(page).c(), mode, s7.offset);
+  }
+}
+
+void a35_pc_texture_relocate(u32 dst, u32 src, u32 format) {
+  auto* r = Gfx::GetCurrentRenderer();
+  if (r) {
+    r->texture_relocate(dst, src, format);
+  }
+}
+
+void a35_pc_get_size(u32 w_ptr, u32 h_ptr) {
+  // window == active display on Android (fullscreen activity); shared by
+  // pc-get-window-size and pc-get-active-display-size. Desktop writes s64s.
+  int w = 0, h = 0;
+  if (!android_gfx::get_window_size(&w, &h)) {
+    return;  // display not measured yet — desktop "no display" behavior
+  }
+  if (w_ptr) {
+    *Ptr<s64>(w_ptr).c() = w;
+  }
+  if (h_ptr) {
+    *Ptr<s64>(h_ptr).c() = h;
+  }
+}
+
+s64 a35_pc_get_active_display_refresh_rate() {
+  return android_gfx::get_refresh_rate();
+}
+
+u64 a35_pc_get_display_mode() {
+  return jak1::intern_from_c("fullscreen").offset;
+}
+
+u64 a35_pc_get_os() {
+  return jak1::intern_from_c("linux").offset;
+}
+
+u64 a35_pc_get_unix_timestamp() {
+  return (u64)std::time(nullptr);
+}
+
+u32 a35_pc_rand() {
+  static std::mt19937 gen(std::random_device{}());
+  return (u32)gen();
+}
+
+void a35_pc_set_game_resolution(s64 w, s64 h) {
+  Gfx::g_global_settings.game_res_w = (int)w;
+  Gfx::g_global_settings.game_res_h = (int)h;
+}
+
+void a35_pc_set_letterbox(s64 w, s64 h) {
+  Gfx::g_global_settings.lbox_w = (int)w;
+  Gfx::g_global_settings.lbox_h = (int)h;
+}
+
+void a35_pc_set_vsync(u32 sym_val) {
+  Gfx::g_global_settings.vsync = (sym_val != s7.offset);
+}
+
+void a35_pc_set_frame_rate(s64 rate) {
+  Gfx::g_global_settings.target_fps = (float)rate;
+}
+}  // extern "C"
+
 void a17_bind_pc_helpers() {
   static bool s_bound = false;
   if (s_bound) return;
@@ -413,12 +517,13 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-get-display-id", d);
   jak1::make_function_symbol_from_c("pc-set-display-id!", d);
   jak1::make_function_symbol_from_c("pc-get-display-name", d);
-  jak1::make_function_symbol_from_c("pc-get-display-mode", d);
+  jak1::make_function_symbol_from_c("pc-get-display-mode", (void*)a35_pc_get_display_mode);
   jak1::make_function_symbol_from_c("pc-set-display-mode!", d);
   jak1::make_function_symbol_from_c("pc-get-display-count", d);
-  jak1::make_function_symbol_from_c("pc-get-active-display-size", d);
-  jak1::make_function_symbol_from_c("pc-get-active-display-refresh-rate", d);
-  jak1::make_function_symbol_from_c("pc-get-window-size", d);
+  jak1::make_function_symbol_from_c("pc-get-active-display-size", (void*)a35_pc_get_size);
+  jak1::make_function_symbol_from_c("pc-get-active-display-refresh-rate",
+                                    (void*)a35_pc_get_active_display_refresh_rate);
+  jak1::make_function_symbol_from_c("pc-get-window-size", (void*)a35_pc_get_size);
   jak1::make_function_symbol_from_c("pc-get-window-scale", d);
   jak1::make_function_symbol_from_c("pc-set-window-size!", d);
   jak1::make_function_symbol_from_c("pc-get-num-resolutions", d);
@@ -456,13 +561,13 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-send-trigger-effect-vibrate!", d);
   jak1::make_function_symbol_from_c("pc-send-trigger-effect-weapon!", d);
   jak1::make_function_symbol_from_c("pc-send-trigger-rumble!", d);
-  // Graphics
-  jak1::make_function_symbol_from_c("pc-set-vsync", d);
+  // Graphics — A35: real bodies where the Android renderer now answers.
+  jak1::make_function_symbol_from_c("pc-set-vsync", (void*)a35_pc_set_vsync);
   jak1::make_function_symbol_from_c("pc-set-msaa", d);
-  jak1::make_function_symbol_from_c("pc-set-frame-rate", d);
-  jak1::make_function_symbol_from_c("pc-set-game-resolution", d);
+  jak1::make_function_symbol_from_c("pc-set-frame-rate", (void*)a35_pc_set_frame_rate);
+  jak1::make_function_symbol_from_c("pc-set-game-resolution", (void*)a35_pc_set_game_resolution);
   jak1::make_function_symbol_from_c("pc-set-brightness-contrast", d);
-  jak1::make_function_symbol_from_c("pc-set-letterbox", d);
+  jak1::make_function_symbol_from_c("pc-set-letterbox", (void*)a35_pc_set_letterbox);
   jak1::make_function_symbol_from_c("pc-renderer-tree-set-lod", d);
   jak1::make_function_symbol_from_c("pc-set-collision-mode", d);
   jak1::make_function_symbol_from_c("pc-set-collision-mask", d);
@@ -471,8 +576,8 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-set-collision", d);
   jak1::make_function_symbol_from_c("pc-set-gfx-hack", d);
   // Other
-  jak1::make_function_symbol_from_c("pc-get-os", d);
-  jak1::make_function_symbol_from_c("pc-get-unix-timestamp", d);
+  jak1::make_function_symbol_from_c("pc-get-os", (void*)a35_pc_get_os);
+  jak1::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
   jak1::make_function_symbol_from_c("pc-treat-pad0-as-pad1", d);
   jak1::make_function_symbol_from_c("pc-is-imgui-visible?", d);
   // File
@@ -484,7 +589,7 @@ void a17_bind_pc_helpers() {
   // Profiler
   jak1::make_function_symbol_from_c("pc-prof", d);
   // RNG
-  jak1::make_function_symbol_from_c("pc-rand", d);
+  jak1::make_function_symbol_from_c("pc-rand", (void*)a35_pc_rand);
   // Text
   jak1::make_function_symbol_from_c("pc-encode-utf8-string", d);
   // Debug
@@ -492,9 +597,12 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-screen-shot", d);
   jak1::make_function_symbol_from_c("pc-register-screen-shot-settings", d);
   // jak1::InitMachine_PCPort game-specific
+  // __pc-set-levels is rebound to jak1::pc_set_levels (the real desktop
+  // body) by jak1::InitMachine_PCPort later in boot — the default here
+  // only covers the pre-InitMachineScheme window.
   jak1::make_function_symbol_from_c("__pc-set-levels", d);
   jak1::make_function_symbol_from_c("__pc-set-active-levels", d);
-  jak1::make_function_symbol_from_c("__pc-texture-relocate", d);
+  jak1::make_function_symbol_from_c("__pc-texture-relocate", (void*)a35_pc_texture_relocate);
   // A32 — root-cause for the on-device tpage-463 fn-ptr=0 SIGILL at
   // link-finish #316. These three `__pc-*` / `__send-gfx-*` /
   // `__read-ee-*` symbols are bound on the linux-arm64 qemu side via
@@ -514,9 +622,13 @@ void a17_bind_pc_helpers() {
   // boots to 660 link-finishes without ever uploading textures); once
   // the Android renderer wires `Gfx::GetCurrentRenderer()` we'll swap
   // these to real impls.
-  jak1::make_function_symbol_from_c("__pc-texture-upload-now", d);
-  jak1::make_function_symbol_from_c("__read-ee-timer", d);
-  jak1::make_function_symbol_from_c("__send-gfx-dma-chain", d);
+  // A35: the drain stubs are GONE — these now feed the real renderer
+  // (mirrors game/kernel/common/kmachine.cpp's send_gfx_dma_chain /
+  // pc_texture_upload_now and read_ee_timer).
+  jak1::make_function_symbol_from_c("__pc-texture-upload-now",
+                                    (void*)a35_pc_texture_upload_now);
+  jak1::make_function_symbol_from_c("__read-ee-timer", (void*)a35_read_ee_timer);
+  jak1::make_function_symbol_from_c("__send-gfx-dma-chain", (void*)a35_send_gfx_dma_chain);
   // Misc helpers referenced by pckernel-impl / pc-debug-* GOAL files
   // that the linux-arm64 InitMachineScheme_LinuxArm64Stubs list (locked
   // file) covers — mirroring them here keeps Android symmetric with
@@ -545,11 +657,12 @@ void a17_bind_pc_helpers() {
 
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "A17-DIAG sym-bind-trace: bound the pc-* helper "
-                      "surface (~80 helpers + A32: __pc-texture-upload-now, "
-                      "__read-ee-timer, __send-gfx-dma-chain) to "
-                      "a17_pc_default no-op so pckernel-h/common top-level + "
-                      "(play) reset chain + the tpage-463 top-level texture "
-                      "upload don't SIGILL on unbound symbols");
+                      "surface (~80 helpers). A35: __send-gfx-dma-chain / "
+                      "__pc-texture-upload-now / __pc-texture-relocate / "
+                      "__read-ee-timer / display size+mode+refresh / "
+                      "game-res+letterbox+vsync+frame-rate / os+timestamp+rand "
+                      "are now REAL impls feeding the Android renderer; the "
+                      "remaining helpers stay a17_pc_default no-ops");
 }
 
 // A11 sym-bind-trace: chain a __pc-get-mips2c binder onto the
@@ -1639,6 +1752,9 @@ void dump_a16_adrp_pair_walk(uintptr_t lr) {
                           (unsigned)add_enc, (unsigned)rd_adrp,
                           (unsigned)rd_adrp, (unsigned)rd_adrp,
                           (unsigned)add_imm12, (unsigned long)resolved);
+      // A35-DIAG: name the symbol whose slot this pair addresses — turns
+      // every sym-MEM read near the crash site into a named reference.
+      dump_sym_name_at_slot(resolved);
     } else {
       __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                           "GK-DIAG A16-DIAG adrp-solo: pc=0x%lx "
@@ -1937,6 +2053,98 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
           __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                               "GK-DIAG A34-DIAG cam%+ld: %08x %08x %08x %08x",
                               (long)off, w0, w1, w2, w3);
+        }
+      }
+    }
+  }
+
+  // A35-DIAG: dump the VALUES of the function/flag symbols implicated in
+  // the post-logo-intro EE-4 chase (update-vis-volumes → name=(0,...)).
+  // Each line gives "name value sym-goal-addr" so the offline matcher can
+  // (a) check whether a fn symbol holds the WRONG function's entry and
+  // (b) bucket every fp-walk saved-lr into the fn whose [value, value+len)
+  // contains it. intern_from_c is lookup-only for existing symbols — same
+  // in-handler use as the *camera* dump above.
+  {
+    static const char* kA35Syms[] = {
+        "update-actor-vis-box", "update-vis-volumes",
+        "update-vis-volumes-from-nav-mesh", "print-volume-sizes",
+        "debug-draw-actors", "name=", "string=", "type-type?",
+        "res-lump-data", "res-lump-struct", "res-lump-float", "format",
+        "entity-by-name", "actors-update", "birth", "inspect",
+        "*generate-actor-vis*", "*display-actor-vis*",
+        "*display-actor-marks*", "*display-actor-anim*",
+        "*display-process-anim*", "*display-entity-errors*", "*level*",
+        "*kernel-context*", "background-upload-vram-words",
+        "entity-by-type", "entity-by-aid", "entity-by-meters",
+        "process-by-ename", "entity-process-count", "*res-static-buf*",
+        "*res-key-string*", "command-get-process",
+    };
+    for (const char* nm : kA35Syms) {
+      auto sym = jak1::intern_from_c(nm);
+      if (sym.offset) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A35-DIAG sym '%s' goal=0x%x value=0x%x",
+                            nm, (unsigned)sym.offset, (unsigned)sym->value);
+      } else {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A35-DIAG sym '%s' NOT INTERNED", nm);
+      }
+    }
+  }
+
+  // A35-DIAG (run-3): the name= crash leaves the res-lump machinery's
+  // registers intact (x3 = the res-lump/entity, x1 = a pointer into its
+  // tag area, x2 = the res-tag-pair). Dump raw windows over both so the
+  // offline analysis can read the actual res tags + the data word the
+  // deref hit. GOAL-heap-shaped values only; safe_read guards the rest.
+  {
+    uintptr_t ee = (uintptr_t)uc->uc_mcontext.regs[15];
+    if ((ee & 0xFFFu) == 0 && ee >= 0x100000000ull) {
+      auto dump_rows = [&](const char* label, uintptr_t goal_base, int rows) {
+        uintptr_t base = (ee + goal_base) & ~uintptr_t(15);
+        for (int row = 0; row < rows; row++) {
+          uint32_t w[4] = {0, 0, 0, 0};
+          bool any = false;
+          for (int k = 0; k < 4; k++) {
+            if (gk_diag::safe_read_u32(base + row * 16 + 4 * k, &w[k])) {
+              any = true;
+            }
+          }
+          if (!any) {
+            break;
+          }
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A35-DIAG %s goal=0x%lx: %08x %08x %08x %08x",
+                              label, (unsigned long)(base + row * 16 - ee), w[0], w[1], w[2],
+                              w[3]);
+        }
+      };
+      for (int reg : {1, 3}) {
+        uintptr_t gp = (uintptr_t)(uc->uc_mcontext.regs[reg] & 0xFFFFFFFFu);
+        if (gp >= 0x1000 && gp < 0x8000000u) {
+          dump_rows(reg == 1 ? "x1-win" : "x3-win", gp - 64, 12);
+        }
+      }
+      // x3 = the res-lump (&length); data-base lives at [x3+8]. Dump the
+      // data area itself — the 'name tag stores by reference, so the word
+      // at data-base+offset is the string pointer get-property-struct
+      // deref'd. Also dump what THAT points at (the string chars).
+      {
+        uintptr_t lump = (uintptr_t)(uc->uc_mcontext.regs[3] & 0xFFFFFFFFu);
+        uint32_t data_base = 0;
+        if (lump >= 0x1000 && lump < 0x8000000u &&
+            gk_diag::safe_read_u32(ee + lump + 8, &data_base) && data_base >= 0x1000 &&
+            data_base < 0x8000000u) {
+          dump_rows("lump-data", data_base, 16);
+          uint32_t name_ref = 0;
+          if (gk_diag::safe_read_u32(ee + data_base + 0x80, &name_ref)) {
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG A35-DIAG name-ref @data+0x80 = 0x%x", name_ref);
+            if (name_ref >= 0x1000 && name_ref < 0x8000000u) {
+              dump_rows("name-str", name_ref - 4, 3);
+            }
+          }
         }
       }
     }

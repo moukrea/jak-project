@@ -4475,3 +4475,45 @@ approach is root-cause-first rather than iterate-first. No cheats.
   (DirectRenderer ≥5 syms, DmaFollower/send_chain ≥2) per physical-artifact rule.
 - Watcher armed on A34-completion/orchestrator-exit → halt via PID file + ./launch.sh
   relaunch so the orchestrator re-reads milestones (insert happened mid-run).
+### 2026-06-10 18:31 — A34 COMPLETED (validator pass); A35 renderer phase LAUNCHED
+- A34 completed 18:22:54 after 2 attempts: 6 codegen bug classes, device 369→427 links,
+  display loop + renderer thread alive. Historic phase — the codegen war is essentially over.
+- Old orchestrator exited on cached-milestones F1-blocked (expected); relaunched via
+  ./launch.sh → A35-android-renderer-dma-to-gles attempt 1/3 on claude-fable-5[1m].
+- NOTE: .autoport/logs/orchestrator.pid is STALE (3475955; actual 4008825) — for any halt
+  use `kill -TERM $(pgrep -f 'python.*orchestrator\.py')`, NEVER any claude pattern.
+### 2026-06-10 18:52 — A35 attempt 1 @ 26min: renderer scaffolding underway
+- claude ran a GLES-incompat audit over the renderer TUs first (glLogicOp/glClipControl/
+  glPolygonMode/1D-texture scan), then started android/android_gfx.{h,cpp} (chain hand-off
+  layer) + porting the kmachine pc-hook surface with REAL bindings (pc_rand, pc-get-os…),
+  checking each desktop impl before writing the Android one. No build/boot yet.
+- Live feed this run: /tmp/a35-launch.out (relaunch redirect); orchestrator.log canonical.
+### 2026-06-10 19:10 — A35 run-1: wiring WORKS; screencap channel polluted by parallel project
+- Run-1 (19:02): GOAL kernel CALLED send_chain on-device (drop-counted pre-GL-init — correct);
+  glad loaded OpenGL ES 3.2 (Adreno V@0502.0). Renderer-port commit e87604d27 landed.
+  427 links; kernel crash unchanged (EE−4 pc=0x4c5234 +18ms); claude named caller =
+  update-vis-volumes, tracing string= path.
+- CAPTURE HAZARD FOUND: run-1 screencaps show the PARALLEL project's app (sshx-mobile
+  terminal, emeric@fedora-server tabs) foreground — NOT our app. Evidence channel polluted.
+  NEW RULE: any frame used as render evidence requires foreground check
+  (dumpsys window | grep mCurrentFocus → org.opengoal.gk.jak1) at capture time; my
+  independent captures must verify per tick. Logcat evidence unaffected.
+### 2026-06-10 19:25 — A35 run-2: renderer port STANDS on-device; one crash gates content
+- Run-2 (19:19): all 43 ported shaders compile under GLES 3.20 on Adreno 618;
+  AndroidOpenGLRenderer init completes; GAME.fr3 loads. Renderer init lands 22ms AFTER
+  the kernel's 0x4c5234 crash — same-second race; kill the crash and chains flow into a
+  proven renderer. 427 links stable. claude symbolizing the crash (update-vis-volumes path).
+- Run-2 frames: parallel project (sshx terminal + keyboard) again — foreground-check rule
+  validated; frame evidence void, logcat evidence authoritative.
+- Session ~51% @ 57min, attempt 1, orchestrator healthy.
+### 2026-06-10 19:55 — A35 fix #8 verified: FIRST CRASH-FREE KERNEL BOOT; silent exit ~3s is the new gate
+- b5f068530 (bug class #7): A33's all-GPR calling convention truncated EVERY 128-bit
+  arg/return; restored x86 XMM-id convention → 0x4c5234 (name= type-tag-of-null) GONE.
+- Run-6 (19:47): ZERO GK-DIAG. 427 links + village1-vis (TITLE SCENE DATA) + logo-intro.
+  Kernel then hits missing COMMON/SUBTIT TXT (fakeiso gap, non-fatal on desktop) and the
+  process exits SILENTLY ~3s in — no SIGSEGV; likely abort()/clean-exit (SIGABRT unhooked).
+  claude editing klink.cpp method-zero trap for visibility + rebuild.
+- Run-6 2s frame: OUR APP foreground, landscape, PS2 overlay on black GLES surface
+  (first post-fix-8 visual); 4s+ frames = sshx again (app exited). Black ≠ render — no claim.
+- Watch item: missing TXT assets in APK fakeiso may need syncing (COMMON.TXT/SUBTIT.TXT
+  from out/jak1-arm64/iso or text generation step).

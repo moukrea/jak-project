@@ -6,7 +6,36 @@
 
 #include "game/graphics/pipelines/opengl.h"
 
+#ifdef __ANDROID__
+// Phase A35 (autoport): on Android the shader sources are the GLES 3.20
+// variants generated at build time by shaders/preprocess.py (version
+// header, precision qualifiers, sampler1D and noperspective transforms,
+// jak1 template tokens already substituted). Embedded as string_views so
+// no shader files need to ship in the APK.
+#include "shaders_android_blob.h"
+#endif
+
 Shader::Shader(const std::string& shader_name, GameVersion version) : m_name(shader_name) {
+#ifdef __ANDROID__
+  std::string vert_src;
+  std::string frag_src;
+  {
+    bool found = false;
+    for (const auto& s : gk_android_shaders::kShaders) {
+      if (s.name == shader_name) {
+        vert_src = std::string(s.vert_src);
+        frag_src = std::string(s.frag_src);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      lg::error("A35-RENDER shader '{}' missing from the GLES blob", shader_name);
+      m_is_okay = false;
+      return;
+    }
+  }
+#else
   const std::string height_scale = version == GameVersion::Jak1 ? "1.0" : "0.5";
   const std::string scissor_height = version == GameVersion::Jak1 ? "448.0" : "416.0";
   const std::string scissor_adjust = "512.0 / " + scissor_height;
@@ -21,6 +50,7 @@ Shader::Shader(const std::string& shader_name, GameVersion version) : m_name(sha
   vert_src = std::regex_replace(vert_src, std::regex("SCISSOR_HEIGHT"), scissor_height);
   frag_src = std::regex_replace(frag_src, std::regex("SCISSOR_HEIGHT"), scissor_height);
   vert_src = std::regex_replace(vert_src, std::regex("SCISSOR_ADJUST"), "(" + scissor_adjust + ")");
+#endif
 
   m_vert_shader = glCreateShader(GL_VERTEX_SHADER);
   const char* src = vert_src.c_str();
@@ -135,7 +165,27 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   at(ShaderId::SIMPLE_TEXTURE) = {"simple_texture", version};
   at(ShaderId::SLOW_TIME) = {"slow_time", version};
 
+#ifdef __ANDROID__
+  // A35: name every failing shader instead of dying on the first one — a
+  // device-side compile failure needs the full list to be fixable in one
+  // cycle. Renderers whose shaders failed will still loudly assert at
+  // activate() if they are ever used.
+  int failed = 0;
+  for (auto& shader : m_shaders) {
+    if (!shader.okay()) {
+      failed++;
+    }
+  }
+  if (failed > 0) {
+    lg::error("A35-RENDER {} of {} shaders FAILED to compile under GLES 3.20 (see "
+              "'Failed to compile' lines above)",
+              failed, (int)ShaderId::MAX_SHADERS);
+  } else {
+    lg::info("A35-RENDER all {} shaders compiled under GLES 3.20", (int)ShaderId::MAX_SHADERS);
+  }
+#else
   for (auto& shader : m_shaders) {
     ASSERT_MSG(shader.okay(), "error compiling shader");
   }
+#endif
 }
