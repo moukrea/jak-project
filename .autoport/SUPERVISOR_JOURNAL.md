@@ -4398,3 +4398,80 @@ covered by the x86-boots gate. Currently building both goalc binaries.
 fable-5 vs opus-4-7 first impression: markedly more budget-efficient
 (43min/140 calls at ~3% session vs opus' typical 12-16% at same point);
 approach is root-cause-first rather than iterate-first. No cheats.
+### 2026-06-10 15:45 — A34 reboot-storm incident + unblock/relaunch
+
+- A34 attempt 1 landed BOTH display-path fixes (init_crc missing on custom
+  boot paths → car-of-0/−2 deref; push-RA/jmp trampoline contract +
+  .load-sym-to-SP → −4 deref). qemu 675/exit-0/logo ×4 — no regression.
+- Device verification window collided with a Google Play Mainline staged
+  train: phone rebooted 2× (sys.boot.reason=reboot,rollback_staged_install,
+  parent session 585022193 isApplied=true; children com.google.android.*).
+  NOT our app, NOT the install sessions. Reboots purged MIUI's leaked
+  staged sessions: /data 2.3 GB → 18 GB free.
+- Side effect: 3 validator attempts failed on the same fingerprint
+  (82631da3fa69 = no A34-device-*.png — device was rebooting/locked) →
+  orchestrator stuck-breaker halted. Environmental, not agent failure.
+- Action: cleared A34 from blocked + retries/fingerprints/stuck_reasons,
+  relaunched. Fresh session 665b907. Device unlocked, stable, no pending
+  ready staged sessions. The post-fix device boot has still NEVER run —
+  first question: does it get past title-vis+4 ms into the display loop.
+### 2026-06-10 16:20 — A34 attempt 2 mid-flight: fixes verified on-device, next layer exposed
+- Device reboots ×2 (~14:26/14:39) root-caused: Google Play Mainline staged train
+  (`sys.boot.reason=reboot,rollback_staged_install`) — NOT our app, NOT claude's installs.
+  Side effect: purged leaked install sessions, /data 2.3→18 GB free. User unlocked + approved
+  install once with Remember; supervisor hand-installed post-fix APK (Success, 35 s).
+- Attempt-3 clean boot (16:03): 369 link-finishes incl title-vis; old −2/−4 sentinel crashes
+  GONE → init_crc + push-RA-trampoline fixes VERIFIED on-device.
+- New blocker one layer deeper: GK-DIAG sig=11 fault=0x7f20000024 pc=0x7f01e02ff0 at
+  title-vis+11ms — PS2 uncached-segment pointer (0x20000000|0x24) dereferenced unmasked.
+  claude diffing cam-master arm64 vs x86 objects. Session ~59%, retries=1.
+- 6 screencaps read with vision: all MIUI home (app crashed pre-capture). No render claim.
+### 2026-06-10 16:48 — A34 attempt 2: fix #3 + #4 landed, crash line moved twice more
+- Fix 3 (daa0ecc94): .load-sym-to-SP applied to IR_GetSymbolValueAsm — the IR the kernel
+  tails actually emit (fix 2 had patched a sibling IR class).
+- Fix 4 (7a1e0b690, +173 lines IGenARM64): arm64 silently TRUNCATED GOAL access offsets
+  that don't fit ARM64 imm encodings → wild pointers (the 0x20000024 uncached-look fault).
+  Now materialized via X16. Class fix, kills latent crashes beyond this site.
+- Attempt-4 boot (16:40): 369 links, title-vis, android_renderer_run ENTERED (+1ms);
+  new crash +17ms: sig=11 fault=EE−4 pc=0x7f004ecd08 — LDR S22,[X16] float load through
+  −4 GOAL ptr amid vector math = curve/geometry interpolation. claude mapped it to
+  geometry.o fn#37 and is reading curve-closest-point/camera.gc (title camera runs a curve).
+- Frames read: home only (crash precedes 2s tick). Session ~66% @ 52min, retries=1.
+- Pattern note: every boot now dies FURTHER in, each crash root-caused to a distinct
+  codegen class. 4 fixes in one phase. Velocity excellent.
+### 2026-06-10 17:17 — A34 attempt 2: blocker framed as all-zero-curve; fp-walker live
+- Progress report: offset-truncation fix corrected 620 mis-addressed loads/stores in
+  GAME.CGO alone. Boot now: 369 links + title-vis + renderer thread entered; dies +18ms
+  in curve-evaluate! via curve-closest-point on an ALL-ZERO curve. A34-DIAG process/master
+  dumps prove GOAL-side guard fields ARE initialized → who passes the zero curve?
+- New diag commit 02d6c92fd: current-process dump, *camera* outro window, GOAL fp-chain
+  walker → attempt-8 delivered 8-frame walk (lr's in cam/title + engine-core ranges);
+  claude symbolizing now. *camera*=0x1d8b24 valid.
+- Supervisor hypothesis (for cross-check, not steering): all-zero curve ⇒ 0/0=NaN in
+  segment math; x86 UCOMISS vs arm64 FCMP map UNORDERED to different branch outcomes —
+  fix #5 may be a float-compare/branch-cond codegen class fix.
+- Session window rolled over (4%) — budget headroom restored. Frames: home only.
+### 2026-06-10 17:45 — A34: FIX #5 = float compares used the WRONG REGISTER BANK
+- 6bf6288f6: arm64 float conditionals emitted integer CMP on GPR aliases instead of
+  FCMP + FP cond codes → EVERY float branch in GOAL code was garbage-driven on arm64.
+  Boot/link is integer-heavy (why it got this far); camera/curve = first float-dense code.
+  Zero-curve −4 crash GONE on attempt-11 → fix verified. Biggest correctness fix of the
+  port so far; should unlock physics/culling/camera logic wholesale.
+- New line: crash +6ms after title-vis, kernel-region pc=0x18370c, LDR W7,[X16,#4] on
+  garbage ptr 0x1b1b1418 (repeating-byte fill pattern → uninitialized structure field?),
+  lr=0x15031ac (engine). claude decoding.
+- Frames attempt-11: home only. Session ~15% @ 108min, retries=1. Cadence ~25-30min/fix.
+### 2026-06-10 18:25 — A34 wrapping; A35 (renderer port) authored + inserted
+- A34 attempt-2 final tally: SIX bug classes fixed (init_crc; trampoline RA + .load-sym ×2;
+  offset truncation 620 sites; FLOAT COMPARES ON WRONG REGISTER BANK 605 sites; LDR-literal
+  static loads 304 sites; PS2 128-bit SIMD arrangements). Device: 427 links (title-vis →
+  logo-intro), display loop + renderer thread alive. Remaining kernel crash: EE−4
+  pc=0x4c5234 6ms post-logo-intro. claude finalized report, self-ran validator, saving memories.
+- USER QUESTION addressed: renderer stub IS the wall ("game won't ever boot" without it) →
+  A35-android-renderer-dma-to-gles authored + inserted at idx 73 (77 phases total, YAML
+  verified). Scope: kernel-loop stability + __send-gfx-dma-chain wiring (mirror
+  kmachine.cpp:486) + DirectRenderer/TexturePool/OpenGLRenderer-skeleton port to GLES 3.2
+  (~4 kLOC) + one-time skip logs for unported buckets. Validator adds PHYSICAL nm checks
+  (DirectRenderer ≥5 syms, DmaFollower/send_chain ≥2) per physical-artifact rule.
+- Watcher armed on A34-completion/orchestrator-exit → halt via PID file + ./launch.sh
+  relaunch so the orchestrator re-reads milestones (insert happened mid-run).

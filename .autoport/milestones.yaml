@@ -592,6 +592,22 @@ phases:
   validator: validators/phase-A34-android-display-loop-first-frame.sh
   max_turns: 2500
   max_retries: 3
+- id: A35-android-renderer-dma-to-gles
+  name: 'Android renderer bring-up: DMA chains to GLES 3.2, first real content frame. A34 fixed SIX arm64 codegen/runtime bug classes
+    (init_crc; push-RA trampoline + .load-sym-to-SP x2; offset truncation 620 sites; float conditionals on the wrong register bank 605
+    sites; LDR-literal static loads 304 sites; PS2 128-bit SIMD arrangements) — device boot now 427 link-finishes through title-vis into
+    logo-intro, display loop starts, renderer thread alive. TWO blockers remain: (1) kernel loop crash 6ms after logo-intro, fault=EE-4
+    pc=0x7f004c5234 — same -4 family, fix with the A34-DIAG arsenal; audit kmachine pc-hook stubs returning 0 (screen-size/display-mode)
+    as candidate sources; (2) NO GAME CONTENT RENDERER on Android — android_renderer.cpp is an honest clear/swap stub, desktop
+    opengl_renderer not compiled into libgk.so, __send-gfx-dma-chain bound to a drain stub. Port the minimum subset: OpenGLRenderer
+    bucket-dispatch skeleton + DirectRenderer (legal/text/2D content) + TexturePool + texture-upload hook, shaders to 320 es; wire the
+    chain hand-off mirroring kmachine.cpp:486; unported buckets skip with one-time named logs. Validator adds PHYSICAL checks: nm finds
+    DirectRenderer + DmaFollower/send_chain symbols in libgk.so. Render claims judged by supervisor vision on A35-device-*.png.
+    Lean gates: x86 boots, qemu >=675, gk_log_pipe preserved, report >=80 lines. max_turns 2500.'
+  prompt: prompts/phase-A35-android-renderer-dma-to-gles.md
+  validator: validators/phase-A35-android-renderer-dma-to-gles.sh
+  max_turns: 2500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
