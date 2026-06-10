@@ -576,6 +576,22 @@ phases:
   validator: validators/phase-A33-arm64-regalloc-spill-sprint.sh
   max_turns: 2500
   max_retries: 3
+- id: A34-android-display-loop-first-frame
+  name: 'Fix the post-title-vis sentinel deref → start the display loop → FIRST RENDERED FRAME. A33 fixed the shared calling-convention/
+    classing inversion: qemu now links AND executes to completion (exit 0, 675 link-finishes incl. link finish: logo, TIT.DGO staged) —
+    the fast loop is done; qemu harness never runs the display loop. On-device: 369 link-finishes through ndi/ndi-cam/ndi-volumes/title-vis
+    (the title-screen data), app stable in LANDSCAPE with the touch overlay rendered (A33-device-4-1500ms.png — first live capture of our
+    UI), then 2ms after title-vis: SIGSEGV fault=0x7efffffffe (= device EE_base − 2) — a GOAL ptr of −2 host-converted and dereferenced,
+    x3=0, kernel-global-area values in x0/x1/x2 — an uninitialized display/title-init global, in code qemu never executes. Same disease as
+    A32 (linux-arm64 runtime init/bindings never back-ported to Android): A34 must audit the FULL linux_arm64_main vs gk_android_main
+    GOAL-visible init delta, fix the gap class, let the display loop spin, and capture the first frame (multi-frame screencaps at
+    2/4/6/10/20/40s — kernel boots its 369 DGOs in ~3-4s on-device). A render claim is ONLY a screencap with real game content (ND logo /
+    title screen); supervisor re-captures independently. If display runs but draws nothing, name the exact renderer stage (DMA/GS/texture/
+    GLES). Lean gates: x86 boots, qemu >=675, gk_log_pipe preserved, A34-device-*.png present, report >=80. max_turns 2500.'
+  prompt: prompts/phase-A34-android-display-loop-first-frame.md
+  validator: validators/phase-A34-android-display-loop-first-frame.sh
+  max_turns: 2500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
