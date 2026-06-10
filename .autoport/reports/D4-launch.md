@@ -1,6 +1,6 @@
 # Phase D4 — APK on-device launch report
 
-_Generated: 2026-06-10T07:23:55+02:00_
+_Generated: 2026-06-10T09:16:34+02:00_
 
 ## What was wired
 
@@ -19,47 +19,14 @@ _Generated: 2026-06-10T07:23:55+02:00_
 
 ## Determination
 
-**partial** — App started but renderer never entered (likely stuck before InitMachine returned).
+**fail** — MainActivity never reached onCreate (app didn't start).
 
 ## Marker observations (from logcat capture)
 
 ```
-06-10 07:21:42.694 24322 24322 I opengoal-gk: MainActivity onCreate done; mLayout=true mLayout.children=2
-06-10 07:21:43.297 24322 24520 I opengoal-gk: goal_main: calling InitMachine()
-06-10 07:21:43.297 24322 24520 I opengoal-gk-full: InitMachine: entered (top-level wrapper)
-06-10 07:21:43.297 24322 24520 I opengoal-gk-full: InitMachine: kglobalheap base=0x13fd20 end=0x3eb82e0 size=64456128 (61.47 MB)
-06-10 07:21:43.343 24322 24520 I opengoal-gk-full: InitMachine: kglobalheap initialized, used=0
-06-10 07:21:43.343 24322 24520 I opengoal-gk-full: InitMachine: kdebugheap base=0x5000000 end=0x7ff0000 size=50266112 (47.94 MB)
-06-10 07:21:43.376 24322 24520 I opengoal-gk-full: InitMachine: init_output()
-06-10 07:21:43.376 24322 24520 I opengoal-gk-full: InitMachine: print/output buffers reset
-06-10 07:21:43.376 24322 24520 I opengoal-gk-full: InitMachine: InitListenerConnect / InitCheckListener
-06-10 07:21:43.376 24322 24520 I opengoal-gk-full: InitMachine: MasterUseKernel=1 MasterDebug=1
-06-10 07:21:43.376 24322 24520 I opengoal-gk-full: InitMachine: spawning IOP worker thread
-06-10 07:21:43.404 24322 24520 I opengoal-gk-full: InitMachine: Deci2Server registered (port=8112, no listener)
-06-10 07:21:43.404 24322 24520 I opengoal-gk-full: InitMachine: delegating to jak1::InitMachine
-06-10 07:21:43.489 24322 24520 I opengoal-gk: InitIOP OK
-06-10 07:21:43.490 24322 24520 I opengoal-gk: Initialized GOAL heap in 0.074 ms
-06-10 07:21:43.490 24322 24545 I opengoal-gk: [Overlord DGO] Got DGO file header for KERNEL.CGO with 8 objects
-06-10 07:21:43.490 24322 24520 D opengoal-gk: link finish: gcommon
-06-10 07:23:30.344 24785 24785 I opengoal-gk: MainActivity onCreate done; mLayout=true mLayout.children=2
-06-10 07:23:30.638 24785 24847 I opengoal-gk: goal_main: calling InitMachine()
-06-10 07:23:30.638 24785 24847 I opengoal-gk-full: InitMachine: entered (top-level wrapper)
-06-10 07:23:30.638 24785 24847 I opengoal-gk-full: InitMachine: kglobalheap base=0x13fd20 end=0x3eb82e0 size=64456128 (61.47 MB)
-06-10 07:23:30.698 24785 24847 I opengoal-gk-full: InitMachine: kglobalheap initialized, used=0
-06-10 07:23:30.698 24785 24847 I opengoal-gk-full: InitMachine: kdebugheap base=0x5000000 end=0x7ff0000 size=50266112 (47.94 MB)
-06-10 07:23:30.741 24785 24847 I opengoal-gk-full: InitMachine: init_output()
-06-10 07:23:30.741 24785 24847 I opengoal-gk-full: InitMachine: print/output buffers reset
-06-10 07:23:30.741 24785 24847 I opengoal-gk-full: InitMachine: InitListenerConnect / InitCheckListener
-06-10 07:23:30.741 24785 24847 I opengoal-gk-full: InitMachine: MasterUseKernel=1 MasterDebug=1
-06-10 07:23:30.741 24785 24847 I opengoal-gk-full: InitMachine: spawning IOP worker thread
-06-10 07:23:30.742 24785 24847 I opengoal-gk-full: InitMachine: Deci2Server registered (port=8112, no listener)
-06-10 07:23:30.742 24785 24847 I opengoal-gk-full: InitMachine: delegating to jak1::InitMachine
-06-10 07:23:30.778 24785 24847 I opengoal-gk: InitIOP OK
-06-10 07:23:30.779 24785 24847 I opengoal-gk: Initialized GOAL heap in 0.21 ms
-06-10 07:23:30.780 24785 24860 I opengoal-gk: [Overlord DGO] Got DGO file header for KERNEL.CGO with 8 objects
-06-10 07:23:30.780 24785 24847 D opengoal-gk: link finish: gcommon
+(no matching markers)
 ```
 
 ## Next blocker (if any)
 
-App started but renderer never entered (likely stuck before InitMachine returned). See .autoport/reports/D4-boot.log tail for context.
+MainActivity never reached onCreate (app didn't start). App never reached MainActivity; the install or launch failed.
