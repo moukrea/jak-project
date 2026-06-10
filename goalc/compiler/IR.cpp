@@ -1456,21 +1456,33 @@ void IR_StaticVarLoad::do_codegen_arm64(emitter::ObjectGenerator* gen,
   auto load_info = m_src->get_load_info();
   ASSERT(m_src->get_addr_offset() == 0);
   auto dst = get_reg(m_dest, allocs, irec);
-  // LDR-literal (PC-relative): imm19 holds (target_pc - patch_pc) / 4. The
-  // arm64-aware linker writes the imm19 field once the static's final byte
-  // offset is known. The same shape encodes both the 32-bit float LDR (Sd) and
-  // the 128-bit vector LDR (Qd).
+  // A34: ADRP X16 (page of the static) + LDR Sd/Qd, [X16, #page-low-12] —
+  // the same two-record shape as IR_StaticVarAddr, patched by
+  // apply_arm64_intra_seg_imm_patch at compile time and by klink's
+  // ADRP/LDR-imm12 patchers across segments. The previous single
+  // LDR-literal only reaches +/-1 MB; top-level initializer code
+  // references main-segment statics across tens of MB of heap, so klink
+  // could only log "LDR-literal imm19 out of range" (304 times in the
+  // run-11 boot) and leave the placeholder — the load then read its own
+  // code bytes, poisoning static data (run-11's type-type? crash on a
+  // garbage type during target init-from-entity res lookups).
+  const emitter::Register x16_scratch(16);
+  auto adrp_instr = gen->add_instr(emitter::IGen::ARM64::static_addr(x16_scratch, 0), irec);
   emitter::InstructionRecord instr;
   if (m_dest->ireg().reg_class == RegClass::FLOAT) {
     ASSERT(load_info.load_signed == false);
     ASSERT(load_info.load_size == 4);
     ASSERT(load_info.requires_load == true);
-    instr = gen->add_instr(emitter::IGen::ARM64::static_load_xmm32(dst, 0), irec);
+    instr = gen->add_instr(
+        emitter::IGen::ARM64::load32_xmm32_gpr64_plus_gpr64_plus_s8(dst, x16_scratch, x16_scratch, 0),
+        irec);
   } else if (m_dest->ireg().reg_class == RegClass::VECTOR_FLOAT) {
-    instr = gen->add_instr(emitter::IGen::ARM64::loadvf_rip_plus_s32(dst, 0), irec);
+    instr = gen->add_instr(emitter::IGen::ARM64::load128_xmm128_reg_offset(dst, x16_scratch, 0),
+                           irec);
   } else {
     ASSERT(false);
   }
+  gen->link_instruction_static(adrp_instr, m_src->rec, 0);
   gen->link_instruction_static(instr, m_src->rec, 0);
 }
 
