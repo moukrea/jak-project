@@ -4350,3 +4350,33 @@ device screencap validation (supervisor-side).
 
 A18-A29 ~$640. A28+A29 sprints (~$90 total) advanced the ceiling +444 vs
 the narrow phases' +0. Device diagnosis (supervisor) ~$30.
+
+---
+
+## [2026-06-10 08:32] A30 done: kernel RUNS on device (0→291), surface up; A31 = push 291→display loop + render
+
+A30 progress-exit (verified, honest): got the GOAL kernel RUNNING on the
+real Redmi for the first time — 0 (idle) → **291 on-device link-finishes**.
+Fixes (android/ only; gk_log_pipe routing 16 hits; goal_src/IGenX86_64
+untouched): (1) gk_log_pipe stdout/stderr→logcat (boot now visible);
+(2) corrected my wrong "SDL-surface-blocked" diagnosis — gk_main was
+blocked by the egggameplus launcher + MIUI AdbInstallActivity dialog
+hijacking the activity, not the surface; (3) MAP_FIXED_NOREPLACE SIGILL
+fix; (4) refreshed stale May-24 APK CGOs → A29 fresh. SDL/Adreno GL
+surface comes up (dark-blue clear). Device SIGSEGVs at progress-part CGO
+top-level (#291), mid-init, before the display loop — so the title screen
+(draws only after init, in the dispatch loop) isn't reached. Screencaps
+all show post-crash home/recents (black app card). qemu still 660; the
+291→660 gap is Android-specific crashes.
+
+Durability note: APK-asset CGOs now match out/jak1-arm64 (fresh), but the
+sync was a manual cp — A31 must keep them synced (ideally wire into the
+build; .autoport/lib is locked so it must be repo-side).
+
+A31 = continue Android bring-up (wide sprint): fix progress-part SIGSEGV +
+subsequent on-device crashes → reach display loop → render title screen +
+screencap. Metric = on-device link-finish count (not qemu). Anchor A30
+(10be26ff2). Lean gates + supervisor judges the screencap.
+
+Cost ledger ~$700. Title screen is close: kernel runs + surface up;
+remaining = clear Android-specific init crashes + confirm renderer draws.
