@@ -25,11 +25,14 @@
 #include "common/common_types.h"
 #include "common/util/FileUtil.h"
 
+#include "game/common/game_common_types.h"  // Language enum (A34 prelude parity)
 #include "game/kernel/common/Ptr.h"
 #include "game/kernel/common/kboot.h"
 #include "game/kernel/common/kmalloc.h"
+#include "game/kernel/common/kscheme.h"  // init_crc (A34 prelude parity)
 #include "game/kernel/common/memory_layout.h"
 #include "game/kernel/jak1/kmachine.h"  // jak1::InitParms
+#include "game/sce/libscf.h"            // ee::sceScfGetAspect/Language (A34)
 
 // Phase 21 (autoport): SDL/GLES bring-up + shader compile + render loop
 // lives in its own TU so this file stays focused on the kernel boot
@@ -299,6 +302,55 @@ int goal_main(int argc, char** argv) {
                       "goal_main: InitParms(argc=%d) — wiring boot flags",
                       argc);
   jak1::InitParms(argc, argv);
+
+  // A34 (autoport): desktop goal_main prelude parity. jak1::goal_main
+  // (game/kernel/jak1/kboot.cpp) runs InitParms → init_crc() →
+  // masterConfig setup before InitMachine. Android's goal_main had
+  // InitParms only.
+  //
+  // init_crc() is LOAD-BEARING: with crc_table all-zero, crc32() returns
+  // wrong-but-self-consistent hashes, so every symbol still interns and
+  // resolves — EXCEPT the one place a hash CONSTANT is compared:
+  // find_symbol_from_c's EMPTY_HASH special case for "_empty_". Without
+  // it, klink's symlink for static '() references interns a fresh
+  // ordinary "_empty_" symbol instead of returning the fixed empty pair
+  // (s7-10), so every static-data '() is != the runtime '() and (null?
+  // x) never terminates list walks. On-device this killed
+  // get-continue-by-name 2 ms after `link finish: title-vis`:
+  // test-zone's 1-element continues list ended in the wrong-empty,
+  // the walk ran through low memory and did (car 0) → SIGSEGV at
+  // fault=EE_base-2 (GK-DIAG pc=0x7f01ce0b98, A33 routed logcat).
+  init_crc();
+
+  // masterConfig: GOAL reads these via scf-get-aspect / scf-get-language
+  // / scf-get-volume during display/progress boot. Mirror the desktop
+  // values exactly (kboot.cpp:58-86).
+  masterConfig.aspect = (u16)ee::sceScfGetAspect();
+  masterConfig.language = (u16)ee::sceScfGetLanguage();
+  masterConfig.inactive_timeout = 0;
+  masterConfig.timeout = 0;
+  masterConfig.volume = 100;
+  if (masterConfig.language == SCE_SPANISH_LANGUAGE) {
+    masterConfig.language = (u16)Language::Spanish;
+  } else if (masterConfig.language == SCE_FRENCH_LANGUAGE) {
+    masterConfig.language = (u16)Language::French;
+  } else if (masterConfig.language == SCE_GERMAN_LANGUAGE) {
+    masterConfig.language = (u16)Language::German;
+  } else if (masterConfig.language == SCE_ITALIAN_LANGUAGE) {
+    masterConfig.language = (u16)Language::Italian;
+  } else if (masterConfig.language == SCE_JAPANESE_LANGUAGE) {
+    masterConfig.language = (u16)Language::Japanese;
+  } else {
+    masterConfig.language = (u16)Language::English;
+  }
+  if (!strcmp(DebugBootMessage, "demo") || !strcmp(DebugBootMessage, "demo-shared")) {
+    masterConfig.aspect = SCE_ASPECT_FULL;
+  }
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "goal_main: prelude parity — init_crc done, aspect=%u language=%u volume=%u",
+                      (unsigned)masterConfig.aspect,
+                      (unsigned)masterConfig.language,
+                      (unsigned)masterConfig.volume);
 
   // kinitheap zeroes the region and writes base/current/top/top_base into
   // the kheapinfo struct. We confirm by re-reading kheapused — a value of 0

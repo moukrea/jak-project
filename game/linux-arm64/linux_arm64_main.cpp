@@ -85,6 +85,7 @@
 #include "common/common_types.h"
 #include "common/goal_constants.h"
 #include "common/log/log.h"
+#include "common/symbols.h"
 #include "common/versions/revision.h"
 #include "common/versions/versions.h"
 
@@ -2520,6 +2521,20 @@ void init_all_globals() {
   kmemcard_init_globals();
   kprint_init_globals_common();
   xdbg::allow_debugging();
+
+  // A34 — desktop goal_main prelude parity: jak1::goal_main calls
+  // init_crc() right after InitParms (kboot.cpp:56); this harness (and
+  // Android's goal_main, fixed in the same phase) never did. With
+  // crc_table all-zero every crc32() is wrong-but-self-consistent, so
+  // symbol interning still works — EXCEPT find_symbol_from_c's
+  // EMPTY_HASH constant comparison for "_empty_". klink's symlink_v3
+  // for static '() references then interns a fresh ordinary "_empty_"
+  // symbol instead of resolving to the fixed empty pair (s7-10), so
+  // every static-data '() differs from the runtime '() — the A34 probe
+  // showed all 27 level-load-infos carrying wrong-empty 0x193304 where
+  // x86 stores 0x18fdfa. Must run AFTER kscheme_init_globals_common()
+  // (which zeroes crc_table).
+  init_crc();
 }
 
 // Stage 1: replicate C2's heap + symbol-table setup. Returns 0 on
@@ -2880,6 +2895,199 @@ int boot_link_title_dgo() {
   std::fprintf(stdout, "linux-arm64: A33 title execute complete\n");
   return 0;
 }
+
+// A34 — Stage 5 (read-only memory probe, no GOAL execution): walk
+// *level-load-list* exactly the way game-info.gc's get-continue-by-name
+// walks it on the device (car -> symbol -> value -> level-load-info ->
+// fields) and dump every pointer-class field. The on-device SIGSEGV at
+// fault=EE_base-2 right after `link finish: title-vis` is that function
+// executing (car 0): some node's `continues` slot (offset 52) reads 0
+// where a static pair / '() belongs. qemu executes the same top-levels
+// over the same CGOs + klink-arm64, so the same heap state is
+// observable here without a device round-trip. Strictly read-only —
+// this cannot mask the crash class, only name the broken fixup.
+u32 a34_read_u32_goal(u32 goal_addr, bool* ok) {
+  *ok = false;
+  if (!g_ee_main_mem || goal_addr == 0 || goal_addr >= EE_MAIN_MEM_SIZE - 4) {
+    return 0;
+  }
+  u32 v = 0;
+  if (!gk_diag::safe_read_u32(
+          reinterpret_cast<uintptr_t>(g_ee_main_mem) + goal_addr, &v)) {
+    return 0;
+  }
+  *ok = true;
+  return v;
+}
+
+// Resolve a GOAL symbol address to its interned name via the SymInfo
+// table (same layout walk as gk_diag::dump_sym_name_at_slot, but takes
+// a GOAL address and fills a caller buffer instead of printing).
+void a34_sym_name(u32 sym_goal, char* buf, size_t buf_len) {
+  std::snprintf(buf, buf_len, "<sym@0x%x>", sym_goal);
+  if (!g_ee_main_mem) {
+    return;
+  }
+  const uintptr_t ee_lo = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  bool ok = false;
+  const uintptr_t info_addr = ee_lo + sym_goal + jak1::SYM_INFO_OFFSET;
+  u32 str_offset = 0;
+  if (!gk_diag::safe_read_u32(info_addr + 4, &str_offset)) {
+    return;
+  }
+  if (str_offset == 0 || str_offset >= EE_MAIN_MEM_SIZE) {
+    return;
+  }
+  size_t n = 0;
+  while (n + 1 < buf_len && n < 64) {
+    u32 word = a34_read_u32_goal(str_offset + 4 + (u32)(n & ~3u), &ok);
+    if (!ok) {
+      break;
+    }
+    char c = (char)((word >> ((n & 3) * 8)) & 0xff);
+    if (!c) {
+      break;
+    }
+    buf[n++] = c;
+  }
+  if (n) {
+    buf[n] = 0;
+  }
+}
+
+// Decode one 32-bit GOAL value for the dump: 0 / #f / #t / '() / raw.
+const char* a34_classify(u32 v, char* buf, size_t buf_len) {
+  const u32 s7_goal = s7.offset;
+  const u32 empty_goal = (u32)((s32)s7_goal + jak1_symbols::FIX_SYM_EMPTY_PAIR);
+  if (v == 0) {
+    std::snprintf(buf, buf_len, "ZERO");
+  } else if (v == s7_goal) {
+    std::snprintf(buf, buf_len, "#f");
+  } else if (v == s7_goal + 8) {
+    std::snprintf(buf, buf_len, "#t");
+  } else if (v == empty_goal) {
+    std::snprintf(buf, buf_len, "'()");
+  } else if ((v & 7) == 2) {
+    std::snprintf(buf, buf_len, "pair:0x%x", v);
+  } else {
+    std::snprintf(buf, buf_len, "0x%x", v);
+  }
+  return buf;
+}
+
+void a34_probe_level_load_list() {
+  auto list_sym = jak1::find_symbol_from_c("*level-load-list*");
+  if (list_sym.offset <= 1) {
+    std::fprintf(stdout, "linux-arm64: A34-PROBE *level-load-list* symbol not found\n");
+    return;
+  }
+  const u32 s7_goal = s7.offset;
+  const u32 empty_goal = (u32)((s32)s7_goal + jak1_symbols::FIX_SYM_EMPTY_PAIR);
+  bool ok = false;
+  u32 head = a34_read_u32_goal(list_sym.offset, &ok);
+  std::fprintf(stdout,
+               "linux-arm64: A34-PROBE s7=0x%x empty=0x%x *level-load-list* slot=0x%x head=0x%x\n",
+               s7_goal, empty_goal, list_sym.offset, head);
+  if (!ok) {
+    return;
+  }
+
+  struct FieldDef {
+    const char* name;
+    u32 off;
+  };
+  // level-load-info field map — offsets verified against the v3 object
+  // dump of the title lli in GAME.CGO (basic fields start at +0, type
+  // tag at -4; bsp-mask 8-aligns on the ABSOLUTE address so the tail
+  // fields sit at +96/+108, not the naive +104/+116).
+  static constexpr FieldDef kFields[] = {
+      {"type", 0xFFFFFFFFu},  // special: read at lli-4
+      {"name", 0},            {"visname", 4},      {"nickname", 8},
+      {"packages", 16},       {"sound-banks", 20}, {"music-bank", 24},
+      {"ambient-sounds", 28}, {"mood", 32},        {"continues", 52},
+      {"tasks", 56},          {"load-commands", 64},
+      {"run-packages", 96},   {"wait-for-load", 108},
+  };
+
+  u32 node = head;
+  int idx = 0;
+  char name_buf[80];
+  char cls[14][48];
+  while (node != empty_goal && idx < 40) {
+    if (node == 0 || (node & 7) != 2) {
+      std::fprintf(stdout,
+                   "linux-arm64: A34-PROBE node[%d] NOT A PAIR: 0x%x — stopping\n",
+                   idx, node);
+      return;
+    }
+    u32 car = a34_read_u32_goal(node - 2, &ok);
+    u32 cdr = ok ? a34_read_u32_goal(node + 2, &ok) : 0;
+    if (!ok) {
+      std::fprintf(stdout, "linux-arm64: A34-PROBE node[%d] pair read failed @0x%x\n",
+                   idx, node);
+      return;
+    }
+    a34_sym_name(car, name_buf, sizeof(name_buf));
+    bool val_ok = false;
+    u32 lli = a34_read_u32_goal(car, &val_ok);
+    std::fprintf(stdout,
+                 "linux-arm64: A34-PROBE node[%d] pair=0x%x car=0x%x name=%s value=0x%x%s\n",
+                 idx, node, car, name_buf, lli, val_ok ? "" : " (READ FAIL)");
+    if (val_ok && lli != 0 && lli != s7_goal) {
+      for (size_t f = 0; f < sizeof(kFields) / sizeof(kFields[0]); ++f) {
+        u32 addr = (kFields[f].off == 0xFFFFFFFFu) ? lli - 4 : lli + kFields[f].off;
+        bool fok = false;
+        u32 v = a34_read_u32_goal(addr, &fok);
+        if (!fok) {
+          std::snprintf(cls[f], sizeof(cls[f]), "READFAIL");
+        } else {
+          a34_classify(v, cls[f], sizeof(cls[f]));
+        }
+      }
+      std::fprintf(stdout,
+                   "linux-arm64: A34-PROBE   lli=0x%x type=%s name=%s visname=%s nickname=%s "
+                   "packages=%s sound-banks=%s music-bank=%s ambient=%s mood=%s\n",
+                   lli, cls[0], cls[1], cls[2], cls[3], cls[4], cls[5], cls[6], cls[7], cls[8]);
+      std::fprintf(stdout,
+                   "linux-arm64: A34-PROBE   continues=%s tasks=%s load-commands=%s "
+                   "run-packages=%s wait-for-load=%s\n",
+                   cls[9], cls[10], cls[11], cls[12], cls[13]);
+      // If continues is a real pair, resolve the first continue-point's
+      // name string — proves the static continue-point + string fixups.
+      bool cok = false;
+      u32 conts = a34_read_u32_goal(lli + 52, &cok);
+      if (cok && conts != 0 && conts != empty_goal && (conts & 7) == 2) {
+        u32 cp = a34_read_u32_goal(conts - 2, &cok);
+        if (cok && cp > 4) {
+          u32 cp_name = a34_read_u32_goal(cp, &cok);  // continue-point name at +0
+          char str_buf[40] = {0};
+          if (cok && cp_name) {
+            for (size_t n = 0; n + 1 < sizeof(str_buf) && n < 32; ++n) {
+              bool sok = false;
+              u32 word = a34_read_u32_goal(cp_name + 4 + (u32)(n & ~3u), &sok);
+              if (!sok) {
+                break;
+              }
+              char c = (char)((word >> ((n & 3) * 8)) & 0xff);
+              if (!c) {
+                break;
+              }
+              str_buf[n] = c;
+            }
+          }
+          std::fprintf(stdout,
+                       "linux-arm64: A34-PROBE   first-continue cp=0x%x name-str=0x%x \"%s\"\n",
+                       cp, cp_name, str_buf[0] ? str_buf : "<unreadable>");
+        }
+      }
+    }
+    node = cdr;
+    ++idx;
+  }
+  std::fprintf(stdout, "linux-arm64: A34-PROBE walk done: %d nodes, tail=%s\n",
+               idx, node == empty_goal ? "'()" : "NOT-EMPTY");
+  std::fflush(stdout);
+}
 }  // namespace
 
 int goal_main(int argc, char** argv) {
@@ -2926,6 +3134,7 @@ int goal_main(int argc, char** argv) {
     if (rc != 0) {
       return rc;
     }
+    a34_probe_level_load_list();
   }
 
   return 0;
