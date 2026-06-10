@@ -1711,7 +1711,12 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // A18 attempt-4: extend the hex dump from lr-256 to lr-1024 so the
   // function prologue is visible (the get-process regalloc-clobber site
   // for X12 lives before lr-256). Matches the linux-arm64 walker change.
-  for (intptr_t d = -1024; d <= 16; d += 4) {
+  // A31: extend the FORWARD dump to lr+4096 — A30 showed that the BR/BLR
+  // that took PC to a GOAL-form low address (0x1fa5fa4) is past lr+16
+  // (X9 = 0x1fa5fa4 was set by a SUB X15 at lr-12 and STORED at lr+0;
+  // X9 isn't reused as a function pointer until further into the
+  // function's body, which the old dump radius truncated).
+  for (intptr_t d = -1024; d <= 4096; d += 4) {
     uintptr_t addr = lr + d;
     uint32_t insn = 0;
     if (gk_diag::safe_read_u32(addr, &insn)) {
@@ -1723,6 +1728,75 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                           "GK-DIAG lr%+ld @ 0x%lx = <unreadable>",
                           (long)d, (unsigned long)addr);
     }
+  }
+
+  // A31 — focused BR/BLR/RET scan around LR. The compact one-line-per-hit
+  // form lets us spot the crashing BR/BLR (= the one PAST LR that has
+  // no matching `ADD Xt, Xt, X15` immediately before it) without
+  // grepping the 5 K-line bytes dump. Range is wider than the bytes
+  // dump (+/- 8 KB) so a long top-level function fits.
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A31-DIAG branch-scan (lr-8192..lr+8192):");
+  for (intptr_t d = -8192; d <= 8192; d += 4) {
+    uintptr_t addr = lr + d;
+    uint32_t insn = 0;
+    if (!gk_diag::safe_read_u32(addr, &insn)) continue;
+    // BLR Xn: 0xD63F0xxx where xxx&0x1F = 0, top mask 0xFFFFFC1F == 0xD63F0000.
+    // BR  Xn: 0xD61F0xxx top mask == 0xD61F0000.
+    // RET Xn: 0xD65F0xxx top mask == 0xD65F0000.
+    if ((insn & 0xFFFFFC1Fu) == 0xD63F0000u) {
+      uint32_t rn = (insn >> 5) & 0x1Fu;
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A31-DIAG BLR-site lr%+ld @ 0x%lx = BLR X%u",
+                          (long)d, (unsigned long)addr, (unsigned)rn);
+    } else if ((insn & 0xFFFFFC1Fu) == 0xD61F0000u) {
+      uint32_t rn = (insn >> 5) & 0x1Fu;
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A31-DIAG BR-site  lr%+ld @ 0x%lx = BR  X%u",
+                          (long)d, (unsigned long)addr, (unsigned)rn);
+    } else if ((insn & 0xFFFFFC1Fu) == 0xD65F0000u) {
+      uint32_t rn = (insn >> 5) & 0x1Fu;
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A31-DIAG RET-site lr%+ld @ 0x%lx = RET X%u",
+                          (long)d, (unsigned long)addr, (unsigned)rn);
+    }
+  }
+
+  // A31 — for each BR/BLR site, decode the 8 instructions BEFORE it.
+  // The crashing BR/BLR will lack `ADD Xt, Xt, X15` (0x8b0f01tt for
+  // Rt=tt) within the previous ~8 instructions; correctly-emitted call
+  // sites always have one.
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A31-DIAG BR/BLR-prelude scan (8 instr before each site):");
+  for (intptr_t d = -8192; d <= 8192; d += 4) {
+    uintptr_t addr = lr + d;
+    uint32_t insn = 0;
+    if (!gk_diag::safe_read_u32(addr, &insn)) continue;
+    bool is_blr = ((insn & 0xFFFFFC1Fu) == 0xD63F0000u);
+    bool is_br  = ((insn & 0xFFFFFC1Fu) == 0xD61F0000u);
+    if (!is_blr && !is_br) continue;
+    uint32_t rn = (insn >> 5) & 0x1Fu;
+    // ADD Xrn, Xrn, X15 encoding: 0x8B000000 | (15<<16) | (rn<<5) | rn
+    //                            = 0x8B0F0000 | (rn<<5) | rn
+    uint32_t expected_add = 0x8B0F0000u | (rn << 5) | rn;
+    bool found_add_x15 = false;
+    intptr_t add_offset = 0;
+    for (intptr_t b = 4; b <= 32; b += 4) {
+      uint32_t prev = 0;
+      if (gk_diag::safe_read_u32(addr - b, &prev)) {
+        if (prev == expected_add) {
+          found_add_x15 = true;
+          add_offset = -b;
+          break;
+        }
+      }
+    }
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A31-DIAG site lr%+ld pc=0x%lx %s X%u: ADD X%u,X%u,X15 found=%d offset=%+ld",
+                        (long)d, (unsigned long)addr,
+                        is_blr ? "BLR" : "BR", (unsigned)rn,
+                        (unsigned)rn, (unsigned)rn,
+                        (int)found_add_x15, (long)add_offset);
   }
   // PC bytes (safe-read; original loop secondary-SEGV'd on EE-base BLR).
   for (intptr_t d = -32; d <= 16; d += 4) {
