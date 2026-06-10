@@ -52,8 +52,17 @@
 // A10 next-blocker report).
 extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void);
 
+#include "common/util/Timer.h"
+
+#include "game/graphics/gfx.h"
+#include "game/kernel/common/kmachine.h"
+
+#include "android_gfx.h"
 #include "android_input_audio.h"
 #include "android_renderer.h"
+
+#include <ctime>
+#include <random>
 
 // goal_main lives in android_goal_main.cpp for Android, game/main.cpp for
 // desktop. C++ linkage on both sides — matches the forward declaration at
@@ -396,6 +405,101 @@ extern "C" u64 a32_mips2c_get_noop(u32 /*name*/) {
   return s_cached_offset;
 }
 
+// ---------------------------------------------------------------------------
+// A35: REAL implementations for the renderer/display/timer pc-* surface.
+// These replace the a17_pc_default no-ops for exactly the helpers whose
+// honest Android answer now exists (the SDL window + the A35 renderer
+// module). Bodies mirror game/kernel/common/kmachine.cpp's desktop
+// equivalents; the Display::GetMainDisplay() indirection is replaced by
+// android_gfx's window facts.
+// ---------------------------------------------------------------------------
+// Owned by android_runtime_compat.cpp (the common/kmachine.cpp globals
+// block) — file-scope there, so declare it here.
+extern Timer ee_clock_timer;
+
+extern "C" {
+u64 a35_read_ee_timer() {
+  // desktop read_ee_timer: EE clock at 294.912 MHz ~= ns * 3 / 10.
+  u64 ns = ee_clock_timer.getNs();
+  return (ns * 3) / 10;
+}
+
+void a35_send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
+  auto* r = Gfx::GetCurrentRenderer();
+  if (r) {
+    r->send_chain(g_ee_main_mem, chain);
+  }
+}
+
+void a35_pc_texture_upload_now(u32 page, u32 mode) {
+  auto* r = Gfx::GetCurrentRenderer();
+  if (r) {
+    r->texture_upload_now(Ptr<u8>(page).c(), mode, s7.offset);
+  }
+}
+
+void a35_pc_texture_relocate(u32 dst, u32 src, u32 format) {
+  auto* r = Gfx::GetCurrentRenderer();
+  if (r) {
+    r->texture_relocate(dst, src, format);
+  }
+}
+
+void a35_pc_get_size(u32 w_ptr, u32 h_ptr) {
+  // window == active display on Android (fullscreen activity); shared by
+  // pc-get-window-size and pc-get-active-display-size. Desktop writes s64s.
+  int w = 0, h = 0;
+  if (!android_gfx::get_window_size(&w, &h)) {
+    return;  // display not measured yet — desktop "no display" behavior
+  }
+  if (w_ptr) {
+    *Ptr<s64>(w_ptr).c() = w;
+  }
+  if (h_ptr) {
+    *Ptr<s64>(h_ptr).c() = h;
+  }
+}
+
+s64 a35_pc_get_active_display_refresh_rate() {
+  return android_gfx::get_refresh_rate();
+}
+
+u64 a35_pc_get_display_mode() {
+  return jak1::intern_from_c("fullscreen").offset;
+}
+
+u64 a35_pc_get_os() {
+  return jak1::intern_from_c("linux").offset;
+}
+
+u64 a35_pc_get_unix_timestamp() {
+  return (u64)std::time(nullptr);
+}
+
+u32 a35_pc_rand() {
+  static std::mt19937 gen(std::random_device{}());
+  return (u32)gen();
+}
+
+void a35_pc_set_game_resolution(s64 w, s64 h) {
+  Gfx::g_global_settings.game_res_w = (int)w;
+  Gfx::g_global_settings.game_res_h = (int)h;
+}
+
+void a35_pc_set_letterbox(s64 w, s64 h) {
+  Gfx::g_global_settings.lbox_w = (int)w;
+  Gfx::g_global_settings.lbox_h = (int)h;
+}
+
+void a35_pc_set_vsync(u32 sym_val) {
+  Gfx::g_global_settings.vsync = (sym_val != s7.offset);
+}
+
+void a35_pc_set_frame_rate(s64 rate) {
+  Gfx::g_global_settings.target_fps = (float)rate;
+}
+}  // extern "C"
+
 void a17_bind_pc_helpers() {
   static bool s_bound = false;
   if (s_bound) return;
@@ -413,12 +517,13 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-get-display-id", d);
   jak1::make_function_symbol_from_c("pc-set-display-id!", d);
   jak1::make_function_symbol_from_c("pc-get-display-name", d);
-  jak1::make_function_symbol_from_c("pc-get-display-mode", d);
+  jak1::make_function_symbol_from_c("pc-get-display-mode", (void*)a35_pc_get_display_mode);
   jak1::make_function_symbol_from_c("pc-set-display-mode!", d);
   jak1::make_function_symbol_from_c("pc-get-display-count", d);
-  jak1::make_function_symbol_from_c("pc-get-active-display-size", d);
-  jak1::make_function_symbol_from_c("pc-get-active-display-refresh-rate", d);
-  jak1::make_function_symbol_from_c("pc-get-window-size", d);
+  jak1::make_function_symbol_from_c("pc-get-active-display-size", (void*)a35_pc_get_size);
+  jak1::make_function_symbol_from_c("pc-get-active-display-refresh-rate",
+                                    (void*)a35_pc_get_active_display_refresh_rate);
+  jak1::make_function_symbol_from_c("pc-get-window-size", (void*)a35_pc_get_size);
   jak1::make_function_symbol_from_c("pc-get-window-scale", d);
   jak1::make_function_symbol_from_c("pc-set-window-size!", d);
   jak1::make_function_symbol_from_c("pc-get-num-resolutions", d);
@@ -456,13 +561,13 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-send-trigger-effect-vibrate!", d);
   jak1::make_function_symbol_from_c("pc-send-trigger-effect-weapon!", d);
   jak1::make_function_symbol_from_c("pc-send-trigger-rumble!", d);
-  // Graphics
-  jak1::make_function_symbol_from_c("pc-set-vsync", d);
+  // Graphics — A35: real bodies where the Android renderer now answers.
+  jak1::make_function_symbol_from_c("pc-set-vsync", (void*)a35_pc_set_vsync);
   jak1::make_function_symbol_from_c("pc-set-msaa", d);
-  jak1::make_function_symbol_from_c("pc-set-frame-rate", d);
-  jak1::make_function_symbol_from_c("pc-set-game-resolution", d);
+  jak1::make_function_symbol_from_c("pc-set-frame-rate", (void*)a35_pc_set_frame_rate);
+  jak1::make_function_symbol_from_c("pc-set-game-resolution", (void*)a35_pc_set_game_resolution);
   jak1::make_function_symbol_from_c("pc-set-brightness-contrast", d);
-  jak1::make_function_symbol_from_c("pc-set-letterbox", d);
+  jak1::make_function_symbol_from_c("pc-set-letterbox", (void*)a35_pc_set_letterbox);
   jak1::make_function_symbol_from_c("pc-renderer-tree-set-lod", d);
   jak1::make_function_symbol_from_c("pc-set-collision-mode", d);
   jak1::make_function_symbol_from_c("pc-set-collision-mask", d);
@@ -471,8 +576,8 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-set-collision", d);
   jak1::make_function_symbol_from_c("pc-set-gfx-hack", d);
   // Other
-  jak1::make_function_symbol_from_c("pc-get-os", d);
-  jak1::make_function_symbol_from_c("pc-get-unix-timestamp", d);
+  jak1::make_function_symbol_from_c("pc-get-os", (void*)a35_pc_get_os);
+  jak1::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
   jak1::make_function_symbol_from_c("pc-treat-pad0-as-pad1", d);
   jak1::make_function_symbol_from_c("pc-is-imgui-visible?", d);
   // File
@@ -484,7 +589,7 @@ void a17_bind_pc_helpers() {
   // Profiler
   jak1::make_function_symbol_from_c("pc-prof", d);
   // RNG
-  jak1::make_function_symbol_from_c("pc-rand", d);
+  jak1::make_function_symbol_from_c("pc-rand", (void*)a35_pc_rand);
   // Text
   jak1::make_function_symbol_from_c("pc-encode-utf8-string", d);
   // Debug
@@ -492,9 +597,12 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-screen-shot", d);
   jak1::make_function_symbol_from_c("pc-register-screen-shot-settings", d);
   // jak1::InitMachine_PCPort game-specific
+  // __pc-set-levels is rebound to jak1::pc_set_levels (the real desktop
+  // body) by jak1::InitMachine_PCPort later in boot — the default here
+  // only covers the pre-InitMachineScheme window.
   jak1::make_function_symbol_from_c("__pc-set-levels", d);
   jak1::make_function_symbol_from_c("__pc-set-active-levels", d);
-  jak1::make_function_symbol_from_c("__pc-texture-relocate", d);
+  jak1::make_function_symbol_from_c("__pc-texture-relocate", (void*)a35_pc_texture_relocate);
   // A32 — root-cause for the on-device tpage-463 fn-ptr=0 SIGILL at
   // link-finish #316. These three `__pc-*` / `__send-gfx-*` /
   // `__read-ee-*` symbols are bound on the linux-arm64 qemu side via
@@ -514,9 +622,13 @@ void a17_bind_pc_helpers() {
   // boots to 660 link-finishes without ever uploading textures); once
   // the Android renderer wires `Gfx::GetCurrentRenderer()` we'll swap
   // these to real impls.
-  jak1::make_function_symbol_from_c("__pc-texture-upload-now", d);
-  jak1::make_function_symbol_from_c("__read-ee-timer", d);
-  jak1::make_function_symbol_from_c("__send-gfx-dma-chain", d);
+  // A35: the drain stubs are GONE — these now feed the real renderer
+  // (mirrors game/kernel/common/kmachine.cpp's send_gfx_dma_chain /
+  // pc_texture_upload_now and read_ee_timer).
+  jak1::make_function_symbol_from_c("__pc-texture-upload-now",
+                                    (void*)a35_pc_texture_upload_now);
+  jak1::make_function_symbol_from_c("__read-ee-timer", (void*)a35_read_ee_timer);
+  jak1::make_function_symbol_from_c("__send-gfx-dma-chain", (void*)a35_send_gfx_dma_chain);
   // Misc helpers referenced by pckernel-impl / pc-debug-* GOAL files
   // that the linux-arm64 InitMachineScheme_LinuxArm64Stubs list (locked
   // file) covers — mirroring them here keeps Android symmetric with
@@ -545,11 +657,12 @@ void a17_bind_pc_helpers() {
 
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "A17-DIAG sym-bind-trace: bound the pc-* helper "
-                      "surface (~80 helpers + A32: __pc-texture-upload-now, "
-                      "__read-ee-timer, __send-gfx-dma-chain) to "
-                      "a17_pc_default no-op so pckernel-h/common top-level + "
-                      "(play) reset chain + the tpage-463 top-level texture "
-                      "upload don't SIGILL on unbound symbols");
+                      "surface (~80 helpers). A35: __send-gfx-dma-chain / "
+                      "__pc-texture-upload-now / __pc-texture-relocate / "
+                      "__read-ee-timer / display size+mode+refresh / "
+                      "game-res+letterbox+vsync+frame-rate / os+timestamp+rand "
+                      "are now REAL impls feeding the Android renderer; the "
+                      "remaining helpers stay a17_pc_default no-ops");
 }
 
 // A11 sym-bind-trace: chain a __pc-get-mips2c binder onto the

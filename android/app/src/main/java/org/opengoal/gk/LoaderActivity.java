@@ -69,6 +69,7 @@ public class LoaderActivity extends AppCompatActivity {
         worker = new Thread(() -> {
             try {
                 extractIfMissing(gameName);
+                extractFr3IfMissing(gameName);
                 runOnUiThread(() -> {
                     startActivity(new Intent(LoaderActivity.this, MainActivity.class));
                     finish();
@@ -150,6 +151,52 @@ public class LoaderActivity extends AppCompatActivity {
         new FileOutputStream(sentinel).close();
         Log.i(TAG, "iso_data extract: " + total + " files, " + bytesCopied
                 + " bytes in " + elapsedMs + "ms");
+    }
+
+    // Phase A35 (autoport): the renderer's texture loader reads fr3 level
+    // files from <filesDir>/out/<game>/fr3/ (the synthetic project root
+    // android_goal_main.cpp sets up). Independent sentinel so adding fr3s
+    // to an APK never forces a re-copy of the ~1.4 GB iso_data.
+    private void extractFr3IfMissing(String gameName) throws IOException {
+        File target = new File(getFilesDir(), "out/" + gameName + "/fr3");
+        File sentinel = new File(target, ".extracted_fr3_v1");
+
+        AssetManager am = getAssets();
+        String[] entries = am.list("fr3");
+        if (entries == null || entries.length == 0) {
+            Log.i(TAG, "fr3 extract: no fr3 assets bundled — renderer will use "
+                    + "placeholder textures");
+            return;
+        }
+
+        if (sentinel.isFile()) {
+            Log.i(TAG, "fr3 already extracted");
+            return;
+        }
+        if (target.exists()) {
+            Log.w(TAG, "fr3 target exists without sentinel — wiping partial copy at "
+                    + target.getAbsolutePath());
+            deleteRecursive(target);
+        }
+        if (!target.mkdirs() && !target.isDirectory()) {
+            throw new IOException("could not create " + target.getAbsolutePath());
+        }
+
+        long bytesCopied = 0;
+        byte[] buf = new byte[COPY_BUFFER_BYTES];
+        for (String name : entries) {
+            File outFile = new File(target, name);
+            try (InputStream in = am.open("fr3/" + name, AssetManager.ACCESS_STREAMING);
+                 FileOutputStream out = new FileOutputStream(outFile)) {
+                int r;
+                while ((r = in.read(buf)) > 0) {
+                    out.write(buf, 0, r);
+                    bytesCopied += r;
+                }
+            }
+        }
+        new FileOutputStream(sentinel).close();
+        Log.i(TAG, "fr3 extract: " + entries.length + " files, " + bytesCopied + " bytes");
     }
 
     private static void deleteRecursive(File f) {

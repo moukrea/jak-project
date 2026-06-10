@@ -1,0 +1,90 @@
+// Phase A35 (autoport): Android GLES 3.2 bucket-dispatch renderer.
+//
+// This is the OpenGLRenderer SKELETON the A35 mandate asks for: the same
+// jak1 bucket-dispatch loop as game/graphics/opengl_renderer/OpenGLRenderer.cpp
+// (default-regs parse, 70 buckets, vif interrupt per bucket, FBO render +
+// window blit), but instantiating only the renderer subset ported to
+// Android so far:
+//
+//   * DirectRenderer       — DEBUG / DEBUG_NO_ZBUF / SUBTITLE (GIF-packet
+//                            immediate prims: text/2D, the first-content
+//                            workhorse)
+//   * TextureUploadHandler — all ten jak1 *_TEX buckets + PRE_SPRITE_TEX
+//                            (feeds TexturePool exactly like desktop)
+//   * EyeRenderer          — MERC_EYES_AFTER_PRIS (also consumed by the
+//                            tex-bucket eye-dma path)
+//
+// Every other bucket is a SkipRenderer; the dispatch loop logs ONE
+// `A35-RENDER skip bucket=<name> id=<n> (not ported)` line the first time
+// that bucket actually carries data — never silently.
+#pragma once
+
+#include <array>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "common/dma/dma_chain_read.h"
+
+#include "game/graphics/opengl_renderer/BucketRenderer.h"
+#include "game/graphics/opengl_renderer/Fbo.h"
+#include "game/graphics/opengl_renderer/Profiler.h"
+#include "game/graphics/opengl_renderer/opengl_utils.h"
+
+// Mirrors the desktop RenderOptions subset the Android skeleton honors.
+struct AndroidRenderOptions {
+  int game_res_w = 640;
+  int game_res_h = 480;
+  int window_fb_w = 0;
+  int window_fb_h = 0;
+  int draw_region_w = 0;
+  int draw_region_h = 0;
+  float pmode_alp_register = 1.f;
+};
+
+struct AndroidFrameStats {
+  u64 frame_idx = 0;
+  u32 chain_bytes = 0;
+  u32 buckets_with_data = 0;
+  u32 buckets_drawn = 0;   // buckets with data handled by a real renderer
+  u32 buckets_skipped = 0; // buckets with data handled by SkipRenderer
+  u32 draw_calls = 0;
+  u32 triangles = 0;
+};
+
+class AndroidOpenGLRenderer {
+ public:
+  AndroidOpenGLRenderer(std::shared_ptr<TexturePool> texture_pool, std::shared_ptr<Loader> loader);
+
+  // Render one frame from the game's DMA chain. Must run on the GL thread.
+  void render(DmaFollower dma, const AndroidRenderOptions& settings);
+
+  const AndroidFrameStats& stats() const { return m_stats; }
+
+ private:
+  void init_bucket_renderers_jak1();
+  void setup_frame(const AndroidRenderOptions& settings);
+  void dispatch_buckets_jak1(DmaFollower dma, ScopedProfilerNode& prof);
+  void do_pcrtc_effects(float alp, SharedRenderState* render_state, ScopedProfilerNode& prof);
+  u32 count_chain_bytes(DmaFollower dma);
+
+  SharedRenderState m_render_state;
+  Profiler m_profiler;
+  std::vector<std::unique_ptr<BucketRenderer>> m_bucket_renderers;
+  std::vector<bool> m_bucket_ported;
+  std::vector<bool> m_skip_logged;
+
+  FullScreenDraw m_blackout_renderer;
+  float m_last_pmode_alp = 1.f;
+
+  struct {
+    Fbo window;
+    Fbo render_buffer;
+    Fbo* render_fbo = nullptr;
+  } m_fbo_state;
+
+  GLuint m_screen_vao = 0;
+  GLuint m_screen_vbo = 0;
+
+  AndroidFrameStats m_stats;
+};
