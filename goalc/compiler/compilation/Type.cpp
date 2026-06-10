@@ -350,11 +350,18 @@ Val* Compiler::generate_inspector_for_bitfield_type(const goos::Object& form,
   IRegConstraint constraint;
   constraint.instr_idx = 0;             // constraint at the start of the function
   constraint.ireg = input_arg->ireg();  // constrain this register
+#ifdef GOALC_BACKEND_ARM64
+  // A33: all-GPR convention — a 128-bit bitfield inspect arg arrives in the
+  // first GPR slot (truncated), never in an XMM-id register.
+  (void)bitfield_128;
+  constraint.desired_register = emitter::gRegInfo.get_gpr_arg_reg(0);  // to the first argument
+#else
   if (bitfield_128) {
     constraint.desired_register = emitter::gRegInfo.get_xmm_arg_reg(0);  // to the first argument
   } else {
     constraint.desired_register = emitter::gRegInfo.get_gpr_arg_reg(0);  // to the first argument
   }
+#endif
 
   method_env->constrain(constraint);
   // Inform the compiler that `input`'s value will be written to `rdi` (first arg register)
@@ -644,6 +651,12 @@ Val* Compiler::compile_defmethod(const goos::Object& form, const goos::Object& _
   } else if (result && !dynamic_cast<None*>(result) && result->type() != TypeSpec("none")) {
     RegVal* final_result;
     emitter::Register ret_hw_reg = emitter::gRegInfo.get_gpr_ret_reg();
+#ifdef GOALC_BACKEND_ARM64
+    // A33: all returns through the GPR return reg (128-bit truncates),
+    // matching the all-GPR arm64 calling convention in CallingConvention.cpp.
+    final_result = result->to_gpr(form, new_func_env.get());
+    func_block_env->return_types.push_back(final_result->type());
+#else
     if (m_ts.lookup_type(result->type())->get_load_size() == 16) {
       ret_hw_reg = emitter::gRegInfo.get_xmm_ret_reg();
       final_result = result->to_xmm128(form, new_func_env.get());
@@ -661,6 +674,7 @@ Val* Compiler::compile_defmethod(const goos::Object& form, const goos::Object& _
         break;
       }
     }
+#endif
 
     new_func_env->emit_ir<IR_Return>(form, return_reg, final_result, ret_hw_reg);
 

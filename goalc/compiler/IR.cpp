@@ -200,13 +200,21 @@ void load_constant(u64 value,
 //      paths and use V regs in the [16..23] (XMM0..XMM7, caller-saved /
 //      gcommon scratch) range. A26 explicitly does NOT touch those.
 //
-// A26 fix: widen A25's X30-only predicate to cover the XMM8..XMM15 slot
+// A26 fix: widened A25's X30-only predicate to cover the XMM8..XMM15 slot
 // (= AArch64 X24..X31) SYMMETRICALLY — both SAVE (FPR src in the slot,
 // GPR dst) and RESTORE (FPR dst in the slot, either FPR or GPR src). The
-// gcommon FLOAT-FLOAT scratch range (XMM0..XMM7 = AArch64 X16..X23) is
-// LEFT ON THE OLD MOV X<id>, X<id> EMIT — that's the range A25 attempts
-// 1.1/1.2/1.3 proved is load-bearing in gcommon's regalloc-coalesced
-// float moves.
+// gcommon FLOAT-FLOAT scratch range (XMM0..XMM7 = AArch64 X16..X23) was
+// LEFT ON THE OLD MOV X<id>, X<id> EMIT at the time — A25 attempts
+// 1.1/1.2/1.3 regressed when widening that range, because the inverted
+// is_128bit_simd(ARM64) classing (fixed in A33) meant the OTHER movers
+// (gpr→fpr etc.) still wrote the wrong bank, so partial widening broke
+// producer/consumer bank agreement.
+//
+// A33 fix: with truthful classes and an all-GPR arm64 calling convention,
+// the dispatch below now keys on the register BANK (x86-model id >= 16 =
+// XMM bank) and is widened to ALL cross-bank and same-bank pairs — every
+// mover is bank-correct simultaneously, which is the fixed point the
+// partial A25 widenings could not reach.
 //
 // Why symmetric (both save AND restore)?
 //
@@ -256,76 +264,58 @@ void load_constant(u64 value,
 // Both are 4-byte single-instruction emits, so no length shift vs the
 // OLD mov_gpr64_gpr64.
 //
-// Other class combinations (GPR-GPR, FPR-FPR outside the [24..31] slot,
-// cross-bank with neither side in the slot) preserve the OLD mov_gpr64_gpr64
-// emit byte-for-byte. The x86 oracle's regset_common (in this same TU)
-// is not touched, so x86 CGOs stay byte-identical to the A2 baseline —
-// validator gate 4.
+// GPR-GPR moves preserve the OLD mov_gpr64_gpr64 emit byte-for-byte. The
+// x86 oracle's regset_common (in this same TU) is not touched, so x86 CGOs
+// stay byte-identical to the A2 baseline — validator gate 4.
 void emit_arm64_reg_to_reg_mov(emitter::ObjectGenerator* gen,
                                emitter::IR_Record irec,
                                emitter::Register dst,
                                emitter::Register src,
                                RegClass dst_class,
                                RegClass src_class) {
-  const bool src_fpr = (src_class == RegClass::FLOAT ||
-                        src_class == RegClass::VECTOR_FLOAT ||
-                        src_class == RegClass::INT_128);
-  const bool dst_fpr = (dst_class == RegClass::FLOAT ||
-                        dst_class == RegClass::VECTOR_FLOAT ||
-                        dst_class == RegClass::INT_128);
-  const int dst_aarch64_id = static_cast<int>(dst.id()) & 0x1f;
-  const int src_aarch64_id = static_cast<int>(src.id()) & 0x1f;
+  // A33 — dispatch on the register BANK, derived from the x86-model id
+  // (ids 0..15 = GPR bank → X0..X15; ids 16..31 = XMM bank → V16..V31 at
+  // encode time). Pre-A33, the dispatch keyed on RegClass plus the
+  // [24..31] id slot only (A25/A26), because the inverted
+  // is_128bit_simd(ARM64) check mis-classed every call boundary's
+  // args/returns (GPR values carried INT_128 class and vice versa), which
+  // made class-keyed widening regress (A25 attempts 1.1-1.4). With the
+  // A33 calling-convention + classing fixes, a value's physical home is
+  // always its id's bank, so the bank fully determines the mover:
+  //   fp  → fp : 128-bit `MOV Vd.16B, Vn.16B` (A26's choice; FMOV Sd, Sn
+  //              ZEROES bits 32..127 on arm64 while x86 MOVSS preserves
+  //              them — proven regression in A25 attempt 1.2).
+  //   fp  → gpr: FLOAT src mirrors x86 movd+movsx (FMOV Wd, Sn zero-
+  //              extends, then SXTW sign-extends, exactly like the x86
+  //              oracle's movd_gpr32_xmm32 + movsx_r64_r32 pair);
+  //              128-bit src mirrors x86 movq (FMOV Xd, Dn).
+  //   gpr → fp : FLOAT dst mirrors x86 movd (FMOV Sd, Wn); 128-bit dst
+  //              mirrors x86 movq (FMOV Dd, Xn).
+  //   gpr → gpr: OLD mov_gpr64_gpr64 byte-for-byte (keeps the X14/s7
+  //              MOV+SUB host→GOAL fixup pair and the id-4→SP handling).
+  // Class still picks the WIDTH on cross-bank moves; the bank picks the
+  // instruction family. A leftover mis-classed pair (e.g. an INT_128
+  // vreg constrained to a GPR id by an un-migrated path) degrades to the
+  // gpr-gpr mover — today's behaviour — instead of corrupting a V reg.
+  const bool src_fp_bank = static_cast<int>(src.id()) >= 16;
+  const bool dst_fp_bank = static_cast<int>(dst.id()) >= 16;
 
-  // A26 — XMM8..XMM15 slot is GOAL register ids 24..31. The save/restore
-  // surfaces (cpu-thread-suspend / new-catch-frame / cpu-thread-resume /
-  // throw-dispatch) all key on this slot for the FPR callee-saved
-  // round-trip. The gcommon FLOAT-FLOAT scratch range is XMM0..XMM7
-  // (= ids 16..23, AArch64 X16..X23), explicitly EXCLUDED from the
-  // widening to preserve the regression-free A25 behaviour for those
-  // callsites.
-  const bool dst_in_xmm_save_slot = (dst_aarch64_id >= 24 && dst_aarch64_id <= 31);
-  const bool src_in_xmm_save_slot = (src_aarch64_id >= 24 && src_aarch64_id <= 31);
-
-  if (src_fpr && dst_fpr && dst_in_xmm_save_slot) {
-    // RESTORE same-bank: FPR src → FPR dst in XMM8..XMM15 slot. Emit
-    // 128-bit `MOV V<dst>.16B, V<src>.16B` (ORR Vd.16B, Vn.16B, Vn.16B)
-    // so all 128 bits of V<dst> are copied — matching x86 MOVSS
-    // preservation semantics on the caller-loaded high bits. This
-    // extends A25's X30-only mov_vf_vf to the full [24..31] range.
+  if (src_fp_bank && dst_fp_bank) {
     gen->add_instr(emitter::IGen::ARM64::mov_vf_vf(dst, src), irec);
-  } else if (src_fpr && !dst_fpr && src_in_xmm_save_slot) {
-    // SAVE cross-bank: FPR src in XMM8..XMM15 slot → GPR dst. Emit
-    // `FMOV X<dst>, D<src>` (= movq_gpr64_xmm64). Before A26 this hit
-    // `MOV X<dst>, X<xmm_id>` which read X<xmm_id> as a GPR alias of
-    // V<xmm_id> — but goalc never wrote any of X16..X31 as GPRs in the
-    // function body, so X24..X31 held caller-saved garbage. The save
-    // therefore wrote garbage to the suspend/catch frame's memory, and
-    // restore brought that garbage back into V24..V31. Replacing with
-    // a real FMOV cross-bank copies the actual 64-bit FPR contents.
-    gen->add_instr(emitter::IGen::ARM64::movq_gpr64_xmm64(dst, src), irec);
-  } else if (!src_fpr && dst_fpr && dst_in_xmm_save_slot) {
-    // RESTORE cross-bank: GPR src → FPR dst in XMM8..XMM15 slot. Emit
-    // `FMOV D<dst>, X<src>` (= movq_xmm64_gpr64). Same symmetry as the
-    // SAVE case: before A26 this hit `MOV X<dst>, X<src>` which wrote
-    // the GPR src into X24..X31 (and left V24..V31 holding stale data).
-    // The cross-bank FMOV writes the actual 64-bit GPR contents into
-    // the FPR slot, matching the x86 oracle's `movq_xmm64_gpr64` path.
-    gen->add_instr(emitter::IGen::ARM64::movq_xmm64_gpr64(dst, src), irec);
+  } else if (src_fp_bank && !dst_fp_bank) {
+    if (src_class == RegClass::FLOAT) {
+      gen->add_instr(emitter::IGen::ARM64::movd_gpr32_xmm32(dst, src), irec);
+      gen->add_instr(emitter::IGen::ARM64::movsx_r64_r32(dst, dst), irec);
+    } else {
+      gen->add_instr(emitter::IGen::ARM64::movq_gpr64_xmm64(dst, src), irec);
+    }
+  } else if (!src_fp_bank && dst_fp_bank) {
+    if (dst_class == RegClass::FLOAT) {
+      gen->add_instr(emitter::IGen::ARM64::movd_xmm32_gpr32(dst, src), irec);
+    } else {
+      gen->add_instr(emitter::IGen::ARM64::movq_xmm64_gpr64(dst, src), irec);
+    }
   } else {
-    // Default: preserve OLD emit byte-for-byte. CGO bytes match A25
-    // baseline for every {src, dst} pair where neither maps to the
-    // XMM8..XMM15 slot — including:
-    //   - GPR-GPR moves (the dominant case)
-    //   - FPR-FPR moves with dst in [16..23] (gcommon's XMM0..XMM7
-    //     scratch range — A25 attempts 1.1/1.2/1.3 proved widening
-    //     this range regresses gcommon-through-texture linking)
-    //   - Cross-bank moves with neither side in [24..31] (e.g. plain
-    //     FLOAT temp → GPR temp outside the catch / cpu-thread paths,
-    //     which the existing GOAL code apparently survives without
-    //     real cross-bank copies — same A25 reasoning).
-    // The X14-source path (mov_gpr64_gpr64 emits paired MOV+SUB for
-    // the s7 host→GOAL fixup) is preserved by going through the OLD
-    // helper.
     gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst, src), irec);
   }
 }
@@ -442,9 +432,12 @@ void IR_Return::do_codegen_arm64(emitter::ObjectGenerator* gen,
   // (in CodeGenerator::do_goal_function_arm64) emits the actual `ret`.
   auto val_reg = get_reg(m_value, allocs, irec);
   auto dest_reg = get_reg(m_return_reg, allocs, irec);
-  // Always emit a real MOV (identity MOV is harmless) so the body stays
-  // classifier-real even when allocator coalesced source and dest.
-  gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dest_reg, val_reg), irec);
+  // A33: bank-aware move — a FLOAT-class return value lives in the V bank
+  // (id >= 16) and must cross to the GPR return reg with an FMOV, exactly
+  // like the x86 oracle's regset_common movd path. The blind GPR MOV here
+  // used to read the stale X<id> alias for float returns.
+  emit_arm64_reg_to_reg_mov(gen, irec, dest_reg, val_reg, m_return_reg->ireg().reg_class,
+                            m_value->ireg().reg_class);
 }
 
 /////////////////////

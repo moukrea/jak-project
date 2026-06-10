@@ -2438,6 +2438,17 @@ constexpr const char* kArm64KernelCgoPath = "out/jak1-arm64/iso/KERNEL.CGO";
 constexpr const char* kArm64EngineCgoPath = "out/jak1-arm64/iso/ENGINE.CGO";
 constexpr const char* kArm64GameCgoPath = "out/jak1-arm64/iso/GAME.CGO";
 
+// A33 — the next REAL boot stage after the three CGOs: the title DGO
+// (static-screen, title-obs, the five title tpages, the logo/ndi art
+// groups, title-vis — 15 objects, the same file the x86 boot loads on
+// the way to its canonical `link finish: logo`). Loaded OPTIONALLY:
+// when the file is absent the harness behaves exactly as pre-A33
+// (660 link-finishes from KERNEL+ENGINE+GAME), so qemu_repro.sh
+// callers without an arm64 TIT.DGO see no behavior change. Largest
+// TIT.DGO object is tpage-1609 at 459456 bytes — well inside
+// kDirectDgoBufferSize.
+constexpr const char* kArm64TitDgoPath = "out/jak1-arm64/iso/TIT.DGO";
+
 // Buffer size for the direct DGO loader's read scratch.
 // A29 — sized to fit any single object across KERNEL/ENGINE/GAME CGOs.
 // The largest observed object is GAME.CGO/eichar at 1349024 bytes
@@ -2831,6 +2842,44 @@ int boot_link_engine_game_cgos() {
   std::fprintf(stdout, "linux-arm64: A8 engine+game execute complete\n");
   return 0;
 }
+
+// A33 — Stage 4: drive the title DGO through the same link engine. The
+// A33 regalloc/calling-convention fix cleared the hud-classes-pc
+// SIGSEGV (the last GAME.CGO object), so the harness's 3-CGO list became
+// the measurement ceiling (660 link-finishes) rather than any crash.
+// Loading TIT.DGO mirrors the real boot's next stage and extends the
+// measurable link chain to 675 — including the canonical `logo` object.
+int boot_link_title_dgo() {
+  if (FILE* fp = std::fopen(kArm64TitDgoPath, "rb")) {
+    std::fclose(fp);
+  } else {
+    std::fprintf(stdout,
+                 "linux-arm64: A33 %s not present — skipping title stage "
+                 "(pre-A33 behavior)\n",
+                 kArm64TitDgoPath);
+    return 0;
+  }
+
+  constexpr u32 kTitleLinkFlags =
+      LINK_FLAG_OUTPUT_LOAD | LINK_FLAG_PRINT_LOGIN | LINK_FLAG_EXECUTE;
+
+  (*EnableMethodSet)++;
+  std::fprintf(stdout, "linux-arm64: A33 loading TIT.DGO\n");
+  std::fflush(stdout);
+  int rc = linux_arm64::direct_load_dgo(kArm64TitDgoPath, kglobalheap,
+                                        kTitleLinkFlags, kDirectDgoBufferSize);
+  (*EnableMethodSet)--;
+  if (rc != 0) {
+    std::fprintf(stderr, "linux-arm64: direct_load_dgo(%s) returned %d\n",
+                 kArm64TitDgoPath, rc);
+    return 53;
+  }
+  std::fprintf(stdout, "linux-arm64: A33 TIT.DGO link complete (NumSymbols=%u)\n",
+               (unsigned)NumSymbols);
+  std::fflush(stdout);
+  std::fprintf(stdout, "linux-arm64: A33 title execute complete\n");
+  return 0;
+}
 }  // namespace
 
 int goal_main(int argc, char** argv) {
@@ -2870,6 +2919,10 @@ int goal_main(int argc, char** argv) {
 
   if (!skip_engine_game) {
     rc = boot_link_engine_game_cgos();
+    if (rc != 0) {
+      return rc;
+    }
+    rc = boot_link_title_dgo();
     if (rc != 0) {
       return rc;
     }
