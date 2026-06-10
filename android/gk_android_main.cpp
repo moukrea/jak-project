@@ -1855,9 +1855,49 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                             "saved-lr=0x%llx prev-fp=0x%llx",
                             i, (unsigned long)fp, (unsigned long long)ret,
                             (unsigned long long)prev_fp);
+        // Run-10: 24 instruction words before each saved-LR (lr-96..lr-4)
+        // — run-9's lr-16 radius only captured the generic call-with-save
+        // wrapper (identical at every site); the arg-staging code before
+        // it is site-unique and byte-matchable against the on-disk CGOs.
+        {
+          uint32_t w[24] = {0};
+          bool any = false;
+          for (int k = 0; k < 24; k++) {
+            if (gk_diag::safe_read_u32((uintptr_t)ret - 96 + 4 * k, &w[k])) {
+              any = true;
+            }
+          }
+          if (any) {
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG A34-DIAG fp-walk[%d] lr-96: "
+                                "%08x %08x %08x %08x %08x %08x %08x %08x",
+                                i, w[0], w[1], w[2], w[3], w[4], w[5], w[6],
+                                w[7]);
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG A34-DIAG fp-walk[%d] lr-64: "
+                                "%08x %08x %08x %08x %08x %08x %08x %08x",
+                                i, w[8], w[9], w[10], w[11], w[12], w[13],
+                                w[14], w[15]);
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG A34-DIAG fp-walk[%d] lr-32: "
+                                "%08x %08x %08x %08x %08x %08x %08x %08x",
+                                i, w[16], w[17], w[18], w[19], w[20], w[21],
+                                w[22], w[23]);
+          }
+        }
         if (prev_fp <= fp || prev_fp - fp > 0x100000) break;
         fp = (uintptr_t)prev_fp;
       }
+      // Run-9: the first 4 words at EE+0 — curve-evaluate!'s zero-curve
+      // survival path depends on what knots[0]=*(EE+0) reads as.
+      uint32_t z[4] = {0};
+      for (int k = 0; k < 4; k++) {
+        gk_diag::safe_read_u32((uintptr_t)uc->uc_mcontext.regs[15] + 4 * k,
+                               &z[k]);
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A34-DIAG ee+0: %08x %08x %08x %08x", z[0],
+                          z[1], z[2], z[3]);
     }
     // A34-DIAG run-6: dump the camera-master (*camera*) outro window.
     // Run-5 showed the crash is cam-string's :enter reading the MASTER's
