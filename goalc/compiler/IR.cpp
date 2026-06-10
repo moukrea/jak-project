@@ -633,22 +633,40 @@ void IR_GetSymbolValue::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                          const AllocationResult& allocs,
                                          emitter::IR_Record irec) {
   auto dst_reg = get_reg(m_dest, allocs, irec);
+  // A34 — `.load-sym sp *kernel-sp*` (return-from-thread /
+  // return-from-thread-dead / thread-suspend tails). x86 emits
+  // `mov esp, [st+sym]`, replacing the stack pointer with the saved
+  // kernel SP. The id-4→SP translation existed for mov/add/sub but NOT
+  // for symbol loads: the emitted `LDR W4, [X16]` landed the value in
+  // the literal X4 and SP was never restored — the subsequent
+  // `.add sp off` + pops then walked a wild stack the moment any thread
+  // actually died or suspended. ARM64 can't load directly into SP, so:
+  // load into X1 (RCX-model; dead at all three frozen call sites — the
+  // tails only need RAX preserved, then immediately pop into
+  // x12/x11/x10/x5/x3) and MOV SP, X1.
+  const bool dst_is_sp = (dst_reg.id() == emitter::RSP);
+  auto load_dst = dst_is_sp ? emitter::Register(emitter::RCX) : dst_reg;
   // LDRSW Xdst, [Xst, #imm12_scaled4] (sext) or LDR Wdst, [Xst, #imm12_scaled4]
   // (unsigned). The arm64-aware fix-up rewrites the imm12 field once the
   // symbol's offset is known at link time.
   emitter::InstructionRecord instr;
   if (m_sext) {
     instr = gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
-                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
                                LINK_SYM_NO_OFFSET_FLAG),
                            irec);
   } else {
     instr = gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
-                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
                                LINK_SYM_NO_OFFSET_FLAG),
                            irec);
   }
   gen->link_instruction_symbol_mem(instr, m_src->name());
+  if (dst_is_sp) {
+    // MOV SP, X1 (= ADD SP, X1, #0)
+    constexpr uint32_t kMovSpX1 = 0x9100003Fu;
+    gen->add_instr(emitter::InstructionARM64(kMovSpX1), irec);
+  }
 }
 
 /////////////////////
@@ -2326,6 +2344,14 @@ void IR_JumpReg::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                   const AllocationResult& allocs,
                                   emitter::IR_Record irec) {
   auto src_reg = m_use_coloring ? get_reg(m_src, allocs, irec) : get_no_color_reg(m_src);
+  if (m_arm64_pop_ra) {
+    // Pop the RA pushed by the preceding `.push` into X30 so the BR'd-to
+    // function's paired-LDP epilogue returns there (x86: the function's
+    // `ret` would pop this word from [rsp]). Same encoding as
+    // IR_AsmRet's pop: LDR X30, [SP], #16.
+    constexpr uint32_t kLdrX30PopSP = 0xF84107FEu;
+    gen->add_instr(emitter::InstructionARM64(kLdrX30PopSP), irec);
+  }
   gen->add_instr(emitter::IGen::ARM64::jmp_r64(src_reg), irec);
 }
 

@@ -768,6 +768,53 @@ void CodeGenerator::do_asm_function_arm64(FunctionEnv* env, int f_idx, bool allo
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(kStrX30PrependSP),
                         InstructionInfo::Kind::PROLOGUE);
 
+  // A34 — x86 "push RA; jmp func" pattern (the missing half of the A28
+  // contract above). set-to-run-bootstrap / reset-and-call / enter-state
+  // install a custom return address with `.push temp` and then tail-jump
+  // into a GOAL function with `.jr func`. On x86 that function's final
+  // `ret` pops the pushed word. arm64 GOAL functions return through the
+  // register-RA contract (paired STP/LDP of X29/X30), so the pushed word
+  // is NEVER consumed: the function returns to a stale X30 — the
+  // return-from-thread-dead trampoline never runs, deactivate is skipped,
+  // and the leaked stack word is popped later by an unrelated epilogue
+  // with pp clobbered (on-device A34 crash: pc landed in
+  // return-from-thread-dead with X13/pp = 0, SP = thread stack-top - 32 =
+  // exactly the leaked trampoline slot; fault = EE-4 from (-> 0 type)).
+  //
+  // Faithful translation: when [SP] still holds the freshly-pushed RA at
+  // the `.jr` (i.e. between the LAST `.push` and the `.jr` there are only
+  // plain register moves / `.add reg, off` — no pops, rets, SP writes,
+  // calls, or labels), pop it into X30 before the BR. The BR'd-to
+  // function's prologue then saves the trampoline as its LR and its
+  // epilogue returns there — byte-for-byte the x86 behavior.
+  //
+  // Site inventory (goal_src/jak1, frozen): 4 `.jr` sites total.
+  //   gkernel.gc:535  reset-and-call        — .push RA; .add func off; .jr  → POP
+  //   gkernel.gc:1858 set-to-run-bootstrap  — .push RA; 4×.mov; .add; .jr   → POP
+  //   gstate.gc:372   enter-state           — .push RA; .jr                 → POP
+  //   gkernel.gc:735  thread-resume         — pushes are kernel-context
+  //     saves; symbol stores / field loads / SP writes intervene           → no match
+  for (int jr_idx = 0; jr_idx < int(env->code().size()); jr_idx++) {
+    auto* jr = dynamic_cast<IR_JumpReg*>(env->code().at(jr_idx).get());
+    if (!jr) {
+      continue;
+    }
+    for (int k = jr_idx - 1; k >= 0; k--) {
+      IR* prev = env->code().at(k).get();
+      if (dynamic_cast<IR_RegSetAsm*>(prev) || dynamic_cast<IR_AsmAdd*>(prev)) {
+        // Plain `.mov reg, reg` / `.add reg, off` — value-preserving
+        // w.r.t. [SP] in all frozen jak1 sites (none of them target SP
+        // between the RA push and the .jr; SP-targeting moves only occur
+        // BEFORE the push, e.g. enter-state's stack reset).
+        continue;
+      }
+      if (dynamic_cast<IR_AsmPush*>(prev)) {
+        jr->mark_arm64_pop_ra();
+      }
+      break;
+    }
+  }
+
   for (int ir_idx = 0; ir_idx < int(env->code().size()); ir_idx++) {
     auto& ir = env->code().at(ir_idx);
     auto i_rec = m_gen.add_ir(f_rec);
