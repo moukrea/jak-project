@@ -802,6 +802,19 @@ int walk_loaded_types_and_patch_a18(u32 trap_fn_goal) {
       }
     }
     for (int slot = 0; slot < (int)method_count; slot++) {
+      // A36 — NEVER trap-fill method slot 13. jak1 reserves process-tree
+      // method 13 ("process-tree-method-13", no implementation) as a DATA
+      // slot: entity-info-lookup (entity-table.gc:199) caches the type's
+      // entity-info there and treats NONZERO as a valid cache. A18's trap
+      // pointer in slot 13 made the first birth! of every actor type read
+      // the trap function as an entity-info — heap-size became the trap's
+      // own code bytes, get-process's size request went huge-negative,
+      // find-gap-by-size accepted the first gap unconditionally, and the
+      // first post-kill birth wave allocated actors INSIDE live actors
+      // (run-8: money-2679 built over windmill-sail-4 → wiped headers →
+      // the A35 run-7 change-parent walk crash). Zero in slot 13 is
+      // load-bearing game state, not a missing method.
+      if (slot == 13) continue;
       u32* slot_p =
           reinterpret_cast<u32*>(mtable_lo + (uintptr_t)slot * 4);
       const u32 cur = *slot_p;

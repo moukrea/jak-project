@@ -230,6 +230,25 @@ void TFragment::handle_initialization(DmaFollower& dma) {
   ASSERT(pc_port_data.size_bytes == sizeof(TfragPcPortData));
   memcpy(&m_pc_port_data, pc_port_data.data, sizeof(TfragPcPortData));
   m_pc_port_data.level_name[11] = '\0';
+#ifdef __ANDROID__
+  // A36 probe: tfrag submits 64k tris/frame on-device but the FBO stays
+  // all-zero — if the GOAL-built camera block is zero/garbage, every vertex
+  // degenerates. One-shot dump of what actually arrived.
+  {
+    static int s_cam_logged = 0;
+    if (s_cam_logged < 3) {
+      s_cam_logged++;
+      auto& c = m_pc_port_data.camera;
+      fprintf(stderr,
+              "A36-TFRAG-CAM lvl=%s cam0=(%.3f %.3f %.3f %.3f) cam3=(%.3f %.3f %.3f %.3f) "
+              "hvdf=(%.1f %.1f %.1f %.1f) trans=(%.1f %.1f %.1f) fog=(%.1f %.1f)\n",
+              m_pc_port_data.level_name, c.camera[0].x(), c.camera[0].y(), c.camera[0].z(),
+              c.camera[0].w(), c.camera[3].x(), c.camera[3].y(), c.camera[3].z(), c.camera[3].w(),
+              c.hvdf_off.x(), c.hvdf_off.y(), c.hvdf_off.z(), c.hvdf_off.w(), c.trans.x(),
+              c.trans.y(), c.trans.z(), c.fog.x(), c.fog.y());
+    }
+  }
+#endif
 
   // setup double buffering.
   auto db_setup = dma.read_and_advance();
@@ -337,11 +356,15 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
                      tree.unpacked.indices.data(), GL_STREAM_DRAW);
 
         glGenTextures(1, &tree_cache.time_of_day_texture);
-        glBindTexture(GL_TEXTURE_1D, tree_cache.time_of_day_texture);
-        glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 0, GL_RGBA,
-                     GL_UNSIGNED_INT_8_8_8_8, nullptr);
-        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        // A36: Wx1 2D LUT — GLES has no glTexImage1D (NULL loader slot on
+        // arm64 device, BLR-to-0). texelFetch(ivec2(i,0)) in tfrag3.vert is
+        // texel-exact on desktop GL too. GL_UNSIGNED_BYTE order matches the
+        // old REV upload on little-endian.
+        glBindTexture(GL_TEXTURE_2D, tree_cache.time_of_day_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glBindVertexArray(0);
       }
     }
@@ -423,9 +446,10 @@ void TFragment::render_tree(int geom,
   }
   interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
   glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_1D, tree.time_of_day_texture);
-  glTexSubImage1D(GL_TEXTURE_1D, 0, 0, tree.colors->color_count, GL_RGBA,
-                  GL_UNSIGNED_INT_8_8_8_8_REV, m_color_result.data());
+  // A36: Wx1 2D LUT (see update_load) — REV == BYTE order on little-endian.
+  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
+                  m_color_result.data());
 
   first_tfrag_draw_setup(settings.camera, render_state, ShaderId::TFRAG3);
 
@@ -434,8 +458,16 @@ void TFragment::render_tree(int geom,
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
                render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
   glActiveTexture(GL_TEXTURE0);
+#ifdef __ANDROID__
+  // GLES has no settable restart index (glPrimitiveRestartIndex is NULL in
+  // the loader — A36 run-23 BLR-to-0 on the first tfrag render). The
+  // fixed-index mode restarts on all-1s, which IS UINT32_MAX for our u32
+  // index buffers — identical semantics.
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
 
   cull_check_all_slow(settings.camera.planes, tree.vis->vis_nodes, settings.occlusion_culling,
                       m_cache.vis_temp.data());

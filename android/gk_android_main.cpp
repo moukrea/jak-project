@@ -25,6 +25,7 @@
 
 #include <atomic>
 #include <cerrno>
+#include <dlfcn.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -1841,6 +1842,571 @@ void dump_a16_adrp_pair_walk(uintptr_t lr) {
 }
 }  // namespace gk_diag
 
+// ===========================================================================
+// A36-TREE: process-tree + dead-pool-heap rec integrity scanner.
+//
+// The A35 run-7 crash was change-parent's brother-walk wandering off a
+// corrupted chain (a ppointer slot deref returned 0x10000002) while
+// return-process unlinked a dying actor. The static arm64-vs-x86 mem-op
+// audit of gkernel/relocate/qmem-copy came back clean, so the corruptor
+// writes the slot at runtime somewhere else. This scanner enforces the
+// kernel's two load-bearing invariants every frame, from the GOAL thread
+// (sceGsSyncV — kernel quiescent), and names the first violating slot:
+//   1. tree:  every child/brother ppointer pp reachable from *active-pool*
+//             satisfies  P=[pp], [P+self]==P and [[P+ppointer]]==P.
+//   2. recs:  every alive *nk-dead-pool* rec satisfies
+//             [rec.process + ppointer] == &rec.process  (the backlink that
+//             relocate maintains and handle->process relies on).
+// Reads are raw loads bounds-checked to the EE mapping (always mapped, so
+// no SEGV risk; gk_diag::safe_read_u32's sigaction-per-read is far too
+// slow for a per-frame scan).
+// ===========================================================================
+namespace a36_tree {
+constexpr uint32_t kBrother = 12, kChild = 16, kPpointer = 20, kSelf = 24;
+constexpr uint32_t kDphAllocLen = 0x1c;  // dead-pool-heap allocated-length
+constexpr uint32_t kDphProcList = 0x64;  // process-list rec[0] (device-confirmed: 0x1dabb4+0x64=0x1dac18)
+
+struct Syms {
+  uint32_t nk_dead_pool = 0;
+  uint32_t active_pool = 0;
+  uint32_t null_process = 0;
+  bool armed = false;
+};
+Syms g_syms;
+std::atomic<uint64_t> g_frame{0};
+std::atomic<uint64_t> g_viol_total{0};
+std::atomic<uint64_t> g_first_viol_frame{0};
+int g_log_budget = 28;
+
+// Last-good per-rec snapshot (updated on every clean scan) so a violation
+// can report what the rec looked like the frame BEFORE the overlap birth.
+constexpr uint32_t kMaxRecs = 16384;
+uint32_t g_last_proc[kMaxRecs];
+uint32_t g_last_alen[kMaxRecs];
+uint32_t g_last_heapcur[kMaxRecs];
+char g_last_name[kMaxRecs][17];
+
+inline bool rd32(uint32_t goal, uint32_t* out) {
+  if (!g_ee_main_mem || goal < 0x1000 || goal >= EE_MAIN_MEM_SIZE - 4) return false;
+  *out = *reinterpret_cast<const uint32_t*>(g_ee_main_mem + goal);
+  return true;
+}
+
+void dump_win(const char* tag, uint32_t goal, int last_row = 2) {
+  uint32_t base = goal & ~15u;
+  for (int row = -1; row <= last_row; row++) {
+    uint32_t w[4] = {0, 0, 0, 0};
+    bool any = false;
+    for (int k = 0; k < 4; k++) any |= rd32(base + row * 16 + 4 * k, &w[k]);
+    if (any && g_log_budget-- > 0) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A36-TREE win %s 0x%x: %08x %08x %08x %08x",
+                          tag, base + row * 16, w[0], w[1], w[2], w[3]);
+    }
+  }
+}
+
+void log_viol(const char* what, uint32_t a, uint32_t b, uint32_t c) {
+  uint64_t n = g_viol_total.fetch_add(1, std::memory_order_relaxed);
+  if (n == 0) g_first_viol_frame.store(g_frame.load());
+  if (g_log_budget-- <= 0) return;
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A36-TREE VIOLATION frame=%llu %s a=0x%x b=0x%x c=0x%x",
+                      (unsigned long long)g_frame.load(), what, a, b, c);
+}
+
+// Validate one ppointer slot value; returns the process goal ptr or 0.
+uint32_t check_pp(uint32_t pp, uint32_t falsev, const char* ctx) {
+  uint32_t p = 0;
+  if (!rd32(pp, &p)) {
+    log_viol("pp-out-of-range", pp, 0, 0);
+    return 0;
+  }
+  if (p == falsev || p == 0) {
+    log_viol("pp-holds-false-or-0", pp, p, 0);
+    return 0;
+  }
+  uint32_t self = 0, ppo = 0, back = 0;
+  if (!rd32(p + kSelf, &self) || !rd32(p + kPpointer, &ppo)) {
+    log_viol("proc-out-of-range", pp, p, 0);
+    dump_win("pp", pp);
+    return 0;
+  }
+  if (self != p) {
+    log_viol(ctx, pp, p, self);
+    dump_win("proc", p);
+    dump_win("pp", pp);
+    return 0;
+  }
+  if (!rd32(ppo, &back) || back != p) {
+    log_viol("backlink", pp, p, ppo);
+    dump_win("proc", p);
+    return 0;
+  }
+  return p;
+}
+
+void scan_tree(uint32_t root_node, uint32_t falsev) {
+  uint32_t stack[64];
+  int sp = 0;
+  uint32_t hops = 0;
+  uint32_t first = 0;
+  if (!rd32(root_node + kChild, &first)) return;
+  if (first != falsev && first != 0) stack[sp++] = first;
+  while (sp > 0 && hops < 4096) {
+    uint32_t cur = stack[--sp];
+    while (cur != falsev && cur != 0 && hops++ < 4096) {
+      uint32_t p = check_pp(cur, falsev, "tree-self");
+      if (!p) return;  // first violation already logged; stop this scan
+      uint32_t child = 0;
+      if (rd32(p + kChild, &child) && child != falsev && child != 0 && sp < 64) {
+        stack[sp++] = child;
+      }
+      uint32_t bro = 0;
+      if (!rd32(p + kBrother, &bro)) {
+        log_viol("brother-read", p, 0, 0);
+        return;
+      }
+      cur = bro;
+    }
+  }
+}
+
+void scan_recs(uint32_t pool, uint32_t falsev) {
+  uint32_t n = 0;
+  if (!rd32(pool + kDphAllocLen, &n)) return;
+  if (n == 0 || n > 16384) {
+    log_viol("alloc-len-insane", pool, n, 0);
+    return;
+  }
+  uint32_t base = pool + kDphProcList;
+  for (uint32_t i = 0; i < n; i++) {
+    uint32_t slot = base + i * 12;
+    uint32_t p = 0;
+    if (!rd32(slot, &p)) {
+      log_viol("rec-oob", slot, i, 0);
+      return;
+    }
+    if (p == g_syms.null_process || p == falsev || p == 0) continue;  // dead rec
+    uint32_t ppo = 0;
+    if (!rd32(p + kPpointer, &ppo)) {
+      log_viol("rec-proc-oob", slot, p, i);
+      dump_win("rec", slot);
+      return;
+    }
+    if (ppo == slot && i < kMaxRecs) {
+      // healthy rec: refresh the last-good snapshot
+      g_last_proc[i] = p;
+      rd32(p + 0x44, &g_last_alen[i]);
+      rd32(p + 0x54, &g_last_heapcur[i]);
+      uint32_t nm = 0;
+      rd32(p + 0, &nm);
+      for (int b = 0; b < 16; b += 4) {
+        uint32_t w = 0;
+        if (!rd32(nm + 4 + b, &w)) break;
+        memcpy(g_last_name[i] + b, &w, 4);
+      }
+      g_last_name[i][16] = 0;
+    }
+    if (ppo != slot) {
+      log_viol("rec-backlink", slot, p, ppo);
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A36-TREE rec-idx=%u of %u", i, n);
+      dump_win("rec", slot);
+      dump_win("proc", p, 14);
+      // Wipe-extent: walk 16B-steps out from p until non-zero rows.
+      uint32_t lo = p & ~15u, hi = lo;
+      auto row_zero = [&](uint32_t a) {
+        uint32_t w = 1;
+        for (int k = 0; k < 4; k++) {
+          uint32_t v = 0;
+          if (!rd32(a + 4 * k, &v) || v) return false;
+          w &= 1;
+        }
+        return true;
+      };
+      while (row_zero(lo - 16) && (p - lo) < 0x40000) lo -= 16;
+      while (row_zero(hi) && (hi - p) < 0x40000) hi += 16;
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A36-TREE wipe-extent zero-run [0x%x,0x%x) len=0x%x around p=0x%x",
+                          lo, hi, hi - lo, p);
+      dump_win("wipe-lo-edge", lo - 32, 3);
+      dump_win("wipe-hi-edge", hi - 16, 3);
+      if (i < kMaxRecs) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A36-TREE last-good rec=%u proc=0x%x alen=0x%x heap-cur=0x%x name=\"%s\"",
+                            i, g_last_proc[i], g_last_alen[i], g_last_heapcur[i],
+                            g_last_name[i]);
+      }
+      // Overlap search: which LIVE process heap contains the corpse?
+      for (uint32_t j = 0; j < n; j++) {
+        uint32_t s2 = base + j * 12, q = 0, qo = 0, alen = 0;
+        if (!rd32(s2, &q) || q == g_syms.null_process || q == falsev || q == 0) continue;
+        if (!rd32(q + kPpointer, &qo) || qo != s2) continue;  // only healthy recs
+        if (!rd32(q + 0x44, &alen) || alen > 0x100000) continue;  // allocated-length
+        uint32_t qlo = q - 4, qhi = q + 0x70 + alen;
+        if (qlo <= p && p < qhi) {
+          uint32_t nm = 0;
+          rd32(q + 0, &nm);
+          char nbuf[33] = {0};
+          for (int b = 0; b < 32; b += 4) {
+            uint32_t w = 0;
+            if (!rd32(nm + 4 + b, &w)) break;
+            memcpy(nbuf + b, &w, 4);
+          }
+          nbuf[32] = 0;
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A36-TREE OVERLAPPER rec=%u proc=0x%x alen=0x%x range=[0x%x,0x%x) name-obj=0x%x \"%s\"",
+                              j, q, alen, qlo, qhi, nm, nbuf);
+          if (j < kMaxRecs) {
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG A36-TREE overlapper-last-good rec=%u proc=0x%x alen=0x%x name=\"%s\"",
+                                j, g_last_proc[j], g_last_alen[j], g_last_name[j]);
+          }
+          dump_win("overlapper", q, 6);
+        }
+      }
+      return;
+    }
+  }
+}
+
+// Walk the alive list: process addresses must be strictly ascending and
+// prev-backlinks consistent. get-process trusts this order for its gap
+// math — a single out-of-order node makes find-gap-by-size hand out
+// memory overlapping a live process (run-8: money-2679 built over
+// windmill-sail-4).
+constexpr uint32_t kDphAliveHead = 0x4c;  // alive-list rec (process@+0x4c, next@+0x54)
+void scan_alive_order(uint32_t pool, uint32_t falsev) {
+  uint32_t head = pool + kDphAliveHead;
+  uint32_t prev = head;
+  uint32_t cur = 0;
+  if (!rd32(head + 8, &cur)) return;
+  uint32_t last_addr = 0;
+  uint32_t hops = 0;
+  uint32_t n = 0;
+  rd32(pool + kDphAllocLen, &n);
+  uint32_t base = pool + kDphProcList;
+  while (cur != 0 && cur != falsev && hops++ < 8192) {
+    uint32_t proc = 0, cprev = 0, cnext = 0;
+    if (!rd32(cur, &proc) || !rd32(cur + 4, &cprev) || !rd32(cur + 8, &cnext)) {
+      log_viol("alive-rec-oob", cur, prev, 0);
+      return;
+    }
+    if (cprev != prev) {
+      log_viol("alive-prev-mismatch", cur, cprev, prev);
+      return;
+    }
+    if (proc != falsev && proc != 0) {
+      if (proc <= last_addr) {
+        uint32_t reci = (cur >= base && n) ? (cur - base) / 12 : 0xffffffff;
+        log_viol("alive-order-breach", cur, proc, last_addr);
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A36-TREE alive-breach rec=%u proc=0x%x last_addr=0x%x last-good name=\"%s\"",
+                            reci, proc, last_addr,
+                            reci < kMaxRecs ? g_last_name[reci] : "?");
+        dump_win("breach-rec", cur);
+        // Full alive-list order dump: rec-idx@proc pairs, 6 per line.
+        {
+          uint32_t c2 = 0;
+          rd32(head + 8, &c2);
+          char line[256];
+          int pos = 0, count = 0, lineno = 0;
+          uint32_t h2 = 0;
+          while (c2 != 0 && c2 != falsev && h2++ < 512 && lineno < 40) {
+            uint32_t pr = 0;
+            rd32(c2, &pr);
+            uint32_t ri = (c2 >= base && n) ? (c2 - base) / 12 : 0xffffffff;
+            pos += snprintf(line + pos, sizeof(line) - pos, "%u@%x ", ri, pr);
+            if (++count % 6 == 0 || pos > 200) {
+              __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                  "GK-DIAG A36-TREE alive[%d]: %s", lineno++, line);
+              pos = 0;
+              line[0] = 0;
+            }
+            rd32(c2 + 8, &c2);
+          }
+          if (pos > 0) {
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG A36-TREE alive[%d]: %s", lineno, line);
+          }
+        }
+        return;
+      }
+      last_addr = proc;
+    }
+    prev = cur;
+    cur = cnext;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// A36-HOOK: per-OPERATION integrity bracketing. The per-frame scan proved the
+// alive-list goes from clean to cascade-wrecked entirely inside one frame's
+// kernel slice (mass kill + birth wave at the village1 level restart), so the
+// only way to name the guilty operation is to bracket each dead-pool-heap
+// method call. We wrap the dph method slots (get-process m14 @type+0x48,
+// return-process m15 @type+0x4C, compact m16 @type+0x50 — offsets confirmed
+// against the compiled dispatch sites) with C trampolines that run a quiet
+// alive-order check before and after calling the ORIGINAL GOAL method via
+// call_goal. Pure pass-through; first clean→broken transition logs the
+// operation, its arguments and the full list, then unlatches nothing else.
+// ---------------------------------------------------------------------------
+uint32_t g_orig_get = 0, g_orig_ret = 0, g_orig_compact = 0;
+uint32_t g_dph_type = 0;
+bool g_hooked = false;
+std::atomic<bool> g_op_latched{false};
+
+// Quiet alive-list order check: returns number of order/backlink breaches.
+int alive_breach_count() {
+  if (!g_syms.armed) return 0;
+  uint32_t falsev = s7.offset;
+  uint32_t pool = g_syms.nk_dead_pool;
+  uint32_t head = pool + kDphAliveHead;
+  uint32_t prev = head, cur = 0, last_addr = 0, hops = 0;
+  int breaches = 0;
+  if (!rd32(head + 8, &cur)) return 0;
+  while (cur != 0 && cur != falsev && hops++ < 8192) {
+    uint32_t proc = 0, cprev = 0, cnext = 0;
+    if (!rd32(cur, &proc) || !rd32(cur + 4, &cprev) || !rd32(cur + 8, &cnext)) return breaches + 1;
+    if (cprev != prev) breaches++;
+    if (proc != falsev && proc != 0) {
+      if (proc <= last_addr) breaches++;
+      last_addr = proc;
+    }
+    prev = cur;
+    cur = cnext;
+  }
+  return breaches;
+}
+
+void dump_alive_list(const char* tag) {
+  uint32_t falsev = s7.offset;
+  uint32_t pool = g_syms.nk_dead_pool;
+  uint32_t base = pool + kDphProcList;
+  uint32_t n = 0;
+  rd32(pool + kDphAllocLen, &n);
+  uint32_t c2 = 0;
+  rd32(pool + kDphAliveHead + 8, &c2);
+  char line[256];
+  int pos = 0, count = 0, lineno = 0;
+  uint32_t h2 = 0;
+  while (c2 != 0 && c2 != falsev && h2++ < 512 && lineno < 40) {
+    uint32_t pr = 0;
+    rd32(c2, &pr);
+    uint32_t ri = (c2 >= base && n) ? (c2 - base) / 12 : 0xffffffff;
+    pos += snprintf(line + pos, sizeof(line) - pos, "%u@%x ", ri, pr);
+    if (++count % 6 == 0 || pos > 200) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG A36-HOOK %s alive[%d]: %s",
+                          tag, lineno++, line);
+      pos = 0;
+      line[0] = 0;
+    }
+    rd32(c2 + 8, &c2);
+  }
+  if (pos > 0) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG A36-HOOK %s alive[%d]: %s", tag,
+                        lineno, line);
+  }
+}
+
+void read_proc_name(uint32_t proc, char* out, int cap) {
+  out[0] = 0;
+  uint32_t nm = 0;
+  if (!rd32(proc + 0, &nm)) return;
+  for (int b = 0; b + 4 < cap && b < 16; b += 4) {
+    uint32_t w = 0;
+    if (!rd32(nm + 4 + b, &w)) break;
+    memcpy(out + b, &w, 4);
+    out[b + 4] = 0;
+  }
+}
+
+void op_catch(const char* op, u64 a0, u64 a1, u64 a2, u64 ret) {
+  bool expected = false;
+  if (!g_op_latched.compare_exchange_strong(expected, true)) return;
+  g_log_budget = 60;
+  char nm[20] = {0};
+  if (strcmp(op, "return-process") == 0) read_proc_name((uint32_t)a1, nm, sizeof(nm));
+  if (strcmp(op, "get-process") == 0) read_proc_name((uint32_t)ret, nm, sizeof(nm));
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A36-HOOK *** %s BROKE THE ALIVE LIST *** frame=%llu a0=0x%llx "
+                      "a1=0x%llx a2=0x%llx ret=0x%llx name=\"%s\"",
+                      op, (unsigned long long)g_frame.load(), (unsigned long long)a0,
+                      (unsigned long long)a1, (unsigned long long)a2, (unsigned long long)ret, nm);
+  dump_alive_list("post-op");
+}
+}  // namespace a36_tree
+
+// find-gap-by-size hook: (this, size) → rec. Observes the TRUE size the
+// (unhooked) get-process computed — get-process itself must stay unhooked
+// because the GOAL→C trampoline cannot capture GOAL arg2 (x2) without
+// distortion (run-11's "garbage a2" was our own trampoline body bytes).
+extern "C" u64 a36_hook_fgbs(u64 pool, u64 size, u64 a2) {
+  using namespace a36_tree;
+  u64 r = call_goal(Ptr<Function>(g_orig_get), pool, size, a2, s7.offset, g_ee_main_mem);
+  static int logged = 0;
+  uint64_t fr = g_frame.load(std::memory_order_relaxed);
+  bool interesting = (fr >= 270);
+  if (logged < 12 || (interesting && logged < 200)) {
+    logged++;
+    // recompute the gap after the returned rec the same way gap-size does
+    uint32_t gap = 0xdeadbeef, rp = 0, nxt = 0, np = 0, alen = 0;
+    uint32_t rr = (uint32_t)r;
+    uint32_t falsev = s7.offset;
+    if (rr && rr != falsev && rd32(rr, &rp) && rd32(rr + 8, &nxt)) {
+      if (rp != falsev && rp && rd32(rp + 0x44, &alen) && nxt && nxt != falsev &&
+          rd32(nxt, &np)) {
+        gap = np - (rp + 0x70 + alen);
+      }
+    }
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A36-HOOK fgbs size=0x%llx ret-rec=0x%llx rec.proc=0x%x "
+                        "rec.alen=0x%x next.proc=0x%x gap=0x%x frame=%llu",
+                        (unsigned long long)size, (unsigned long long)r, rp, alen, np, gap,
+                        (unsigned long long)g_frame.load());
+  }
+  return r;
+}
+
+extern "C" u64 a36_hook_return_process(u64 pool, u64 proc, u64 a2) {
+  using namespace a36_tree;
+  int pre = alive_breach_count();
+  char nm_pre[20];
+  read_proc_name((uint32_t)proc, nm_pre, sizeof(nm_pre));
+  u64 r = call_goal(Ptr<Function>(g_orig_ret), pool, proc, a2, s7.offset, g_ee_main_mem);
+  if (!g_op_latched.load(std::memory_order_relaxed)) {
+    int post = alive_breach_count();
+    if (post > pre) {
+      op_catch("return-process", pool, proc, a2, r);
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A36-HOOK return-process victim-name-pre=\"%s\"", nm_pre);
+    }
+  }
+  return r;
+}
+
+extern "C" u64 a36_hook_compact(u64 pool, u64 count, u64 a2) {
+  using namespace a36_tree;
+  int pre = alive_breach_count();
+  u64 r = call_goal(Ptr<Function>(g_orig_compact), pool, count, a2, s7.offset, g_ee_main_mem);
+  if (!g_op_latched.load(std::memory_order_relaxed)) {
+    int post = alive_breach_count();
+    if (post > pre) op_catch("compact", pool, count, a2, r);
+  }
+  return r;
+}
+
+namespace a36_tree {
+void install_op_hooks() {
+  if (g_hooked || !g_syms.armed) return;
+  auto s_t = jak1::intern_from_c("dead-pool-heap");
+  if (!s_t.offset) return;
+  uint32_t T = s_t->value;
+  uint32_t falsev = s7.offset;
+  if (!T || T == falsev) return;
+  uint32_t og = 0, orp = 0, oc = 0;
+  // hook find-gap-by-size (m24 @+0x70), return-process (m15 @+0x4C),
+  // compact (m16 @+0x50). get-process stays UNHOOKED (see a36_hook_fgbs).
+  if (!rd32(T + 0x70, &og) || !rd32(T + 0x4C, &orp) || !rd32(T + 0x50, &oc)) return;
+  if (!og || !orp || !oc) return;
+  g_dph_type = T;
+  g_orig_get = og;  // = original find-gap-by-size
+  g_orig_ret = orp;
+  g_orig_compact = oc;
+  auto hg = jak1::make_function_symbol_from_c("a36-watch-fgbs", (void*)a36_hook_fgbs);
+  auto hr = jak1::make_function_symbol_from_c("a36-watch-rp", (void*)a36_hook_return_process);
+  auto hc = jak1::make_function_symbol_from_c("a36-watch-cp", (void*)a36_hook_compact);
+  if (!hg.offset || !hr.offset || !hc.offset) return;
+  *reinterpret_cast<uint32_t*>(g_ee_main_mem + T + 0x70) = hg.offset;
+  *reinterpret_cast<uint32_t*>(g_ee_main_mem + T + 0x4C) = hr.offset;
+  *reinterpret_cast<uint32_t*>(g_ee_main_mem + T + 0x50) = hc.offset;
+  g_hooked = true;
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A36-HOOK installed dph-type=0x%x fgbs 0x%x->0x%x ret 0x%x->0x%x compact 0x%x->0x%x",
+                      T, og, hg.offset, orp, hr.offset, oc, hc.offset);
+}
+
+void arm_if_needed() {
+  if (g_syms.armed) return;
+  if (!g_ee_main_mem || SymbolTable2.offset == 0) return;
+  auto s_pool = jak1::intern_from_c("*nk-dead-pool*");
+  auto s_root = jak1::intern_from_c("*active-pool*");
+  auto s_null = jak1::intern_from_c("*null-process*");
+  if (!s_pool.offset || !s_root.offset || !s_null.offset) return;
+  uint32_t pool = s_pool->value;
+  uint32_t root = s_root->value;
+  uint32_t nullp = s_null->value;
+  uint32_t falsev = s7.offset;
+  if (!pool || !root || !nullp || pool == falsev || root == falsev || nullp == falsev) return;
+  uint32_t n = 0;
+  if (!rd32(pool + kDphAllocLen, &n) || n == 0 || n > 16384) return;
+  g_syms.nk_dead_pool = pool;
+  g_syms.active_pool = root;
+  g_syms.null_process = nullp;
+  g_syms.armed = true;
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A36-TREE armed frame=%llu pool=0x%x recs=%u root=0x%x null-proc=0x%x",
+                      (unsigned long long)g_frame.load(), pool, n, root, nullp);
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG A36-CT-DIAG at-arm &ct=%p ct=%02x %02x %02x %02x",
+                      (void*)ConvertTable, (unsigned char)ConvertTable[0],
+                      (unsigned char)ConvertTable[1], (unsigned char)ConvertTable[2],
+                      (unsigned char)ConvertTable[3]);
+}
+
+void scan_once() {
+  if (!g_syms.armed) return;
+  uint32_t falsev = s7.offset;
+  scan_alive_order(g_syms.nk_dead_pool, falsev);
+  scan_recs(g_syms.nk_dead_pool, falsev);
+  scan_tree(g_syms.active_pool, falsev);
+}
+}  // namespace a36_tree
+
+// Called once per frame from sceGsSyncV (android_runtime_compat.cpp) on the
+// GOAL thread, where the kernel data is quiescent.
+extern "C" void a36_tree_scan_per_frame() {
+  using namespace a36_tree;
+  uint64_t f = g_frame.fetch_add(1, std::memory_order_relaxed) + 1;
+  arm_if_needed();
+  if (!g_syms.armed) return;
+  // A36: install_op_hooks() stays available for forensics but is NOT armed
+  // by default — the dispatch trampolines cannot marshal GOAL arg2 (x2)
+  // and would distort 3-arg method calls. The zero-distortion per-frame
+  // scanner below is the steady-state watchdog; the root cause it caught
+  // (A18 trap poisoning method slot 13 = entity-info-lookup's cache) is
+  // fixed in klink.cpp::walk_loaded_types_and_patch_a18.
+  scan_once();
+  if (f % 600 == 0) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A36-TREE heartbeat frame=%llu viol-total=%llu first-viol-frame=%llu",
+                        (unsigned long long)f,
+                        (unsigned long long)g_viol_total.load(),
+                        (unsigned long long)g_first_viol_frame.load());
+  }
+  // A36-CAM probe: the tfrag pc-port block arrives with a ZERO camera
+  // matrix while hvdf/fog are sane. Dump *math-camera* camera-temp
+  // (+0x23C, all-types offset 576) to split "camera math broken" from
+  // "block builder broken".
+  if (f == 600) {
+    auto s_mc = jak1::intern_from_c("*math-camera*");
+    uint32_t mc = s_mc.offset ? s_mc->value : 0;
+    if (mc && mc != s7.offset) {
+      for (int row = 0; row < 4; row++) {
+        uint32_t w[4] = {0, 0, 0, 0};
+        for (int k = 0; k < 4; k++) {
+          rd32(mc + 0x23C + row * 16 + 4 * k, &w[k]);
+        }
+        float* fv = reinterpret_cast<float*>(w);
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A36-CAM camera-temp[%d] = %.4f %.4f %.4f %.4f", row, fv[0],
+                            fv[1], fv[2], fv[3]);
+      }
+    }
+  }
+}
+
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // Diag-only: dump PC bytes and registers so we can decode the crashing
   // GOAL bytecode at offset (PC - g_ee_main_mem). Re-raise after dumping
@@ -1853,6 +2419,19 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                       "GK-DIAG sig=%d fault=0x%lx pc=0x%lx lr=0x%lx",
                       sig, (unsigned long)fault, (unsigned long)pc,
                       (unsigned long)lr);
+  // A36: symbolize host-space pc/lr (BLR-to-NULL from C++ render code lands
+  // here with pc=0 and lr inside libgk.so — dladdr names the caller).
+  for (uintptr_t addr : {pc, lr}) {
+    Dl_info di{};
+    if (addr && dladdr(reinterpret_cast<void*>(addr), &di) && di.dli_fname) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A36-SYMBOLIZE 0x%lx = %s+0x%lx (%s+0x%lx)",
+                          (unsigned long)addr, di.dli_sname ? di.dli_sname : "?",
+                          di.dli_saddr ? (unsigned long)(addr - (uintptr_t)di.dli_saddr) : 0ul,
+                          di.dli_fname,
+                          (unsigned long)(addr - (uintptr_t)di.dli_fbase));
+    }
+  }
   for (int i = 0; i < 32; i++) {
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                         "GK-DIAG x%d=0x%lx", i,
@@ -2288,6 +2867,19 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                           "GK-DIAG pc%+ld @ 0x%lx = <unreadable>",
                           (long)d, (unsigned long)addr);
     }
+  }
+  // A36-TREE: scan tree + recs AT crash time so the report names every
+  // already-corrupted slot (raw reads are EE-bounds-checked; safe in here).
+  {
+    a36_tree::g_log_budget = 40;
+    a36_tree::arm_if_needed();
+    a36_tree::scan_once();
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A36-TREE at-crash frame=%llu viol-total=%llu first-viol-frame=%llu armed=%d",
+                        (unsigned long long)a36_tree::g_frame.load(),
+                        (unsigned long long)a36_tree::g_viol_total.load(),
+                        (unsigned long long)a36_tree::g_first_viol_frame.load(),
+                        a36_tree::g_syms.armed ? 1 : 0);
   }
   struct sigaction sa{};
   sa.sa_handler = SIG_DFL;

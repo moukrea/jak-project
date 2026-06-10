@@ -9,6 +9,16 @@
 
 FramebufferTexturePair::FramebufferTexturePair(int w, int h, u64 texture_format, int num_levels)
     : m_w(w), m_h(h) {
+#ifdef __ANDROID__
+  // GLES has no GL_UNSIGNED_INT_8_8_8_8_REV; glTexImage2D rejects it with
+  // GL_INVALID_ENUM, the attachment never gets storage and the FBO check
+  // below aborts (A36 run-16: EyeRenderer's GpuEyeTex ctor killed the GL
+  // thread at init). On little-endian, UNSIGNED_BYTE RGBA is byte-identical
+  // — same substitution A35 made in TexturePool.cpp.
+  if (texture_format == GL_UNSIGNED_INT_8_8_8_8_REV) {
+    texture_format = GL_UNSIGNED_BYTE;
+  }
+#endif
   m_framebuffers.resize(num_levels);
   glGenFramebuffers(num_levels, m_framebuffers.data());
   glGenTextures(1, &m_texture);

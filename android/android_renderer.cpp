@@ -168,7 +168,36 @@ int android_renderer_run() {
       drew_game = android_gfx::render_frame_on_gl_thread(win_w, win_h);
     }
 
-    if (!drew_game) {
+    // A36 canary v2: glad_glClearDepthf went NULL at enter-title with the
+    // bucket canary silent and render() never entered — the smash comes from
+    // outside the renderer. Check every loop iteration; on flip, dump the
+    // neighborhood and KEEP RUNNING (skip the clear) so the run keeps
+    // producing evidence instead of dying at the BLR.
+    {
+      static void* s_canary2 = nullptr;
+      static bool s_canary2_init = false;
+      static bool s_flipped_logged = false;
+      if (!s_canary2_init) {
+        s_canary2 = (void*)glad_glClearDepthf;
+        s_canary2_init = true;
+        __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                            "A36-CANARY2 armed &glad_glClearDepthf=%p val=%p",
+                            (void*)&glad_glClearDepthf, s_canary2);
+      }
+      if ((void*)glad_glClearDepthf != s_canary2 && !s_flipped_logged) {
+        s_flipped_logged = true;
+        const uint64_t* nb = (const uint64_t*)((uintptr_t)&glad_glClearDepthf & ~15ull);
+        __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                            "A36-CANARY2 FLIPPED val=%p (was %p) — neighborhood:",
+                            (void*)glad_glClearDepthf, s_canary2);
+        for (int r = -2; r <= 2; r++) {
+          __android_log_print(ANDROID_LOG_FATAL, kLogTag, "A36-CANARY2 %p: %016llx %016llx",
+                              (const void*)(nb + r * 2), (unsigned long long)nb[r * 2],
+                              (unsigned long long)nb[r * 2 + 1]);
+        }
+      }
+    }
+    if (!drew_game && glad_glClearDepthf) {
       // No chain this frame (boot, paused, or kernel dead): dark-blue
       // clear, visibly distinct from a rendered black game frame.
       glViewport(0, 0, win_w, win_h);

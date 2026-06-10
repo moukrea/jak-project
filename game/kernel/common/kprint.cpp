@@ -53,6 +53,12 @@ void kprint_init_globals_common() {
   PrintBufSize = 0;
   memcpy(ConvertTable, "0123456789abcdef", 16);
   memset(AckBufArea, 0, sizeof(AckBufArea));
+  // A36-CT-DIAG: on-device kitoa returned "" for value 0 — ConvertTable[0]
+  // was 0 at use time despite this init. Bracket the table's lifetime.
+  fprintf(stderr, "A36-CT-DIAG init &ct=%p ct=%02x %02x %02x %02x\n",
+          (void*)ConvertTable, (unsigned char)ConvertTable[0],
+          (unsigned char)ConvertTable[1], (unsigned char)ConvertTable[2],
+          (unsigned char)ConvertTable[3]);
 }
 
 /*!

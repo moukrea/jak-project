@@ -14,6 +14,8 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
+#include "game/graphics/opengl_renderer/SkyRenderer.h"
+#include "game/graphics/opengl_renderer/background/TFragment.h"
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
 #include "game/graphics/pipelines/opengl.h"
 #include "game/kernel/common/kmachine.h"
@@ -155,6 +157,59 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
     set_renderer(std::move(eye), BucketId::MERC_EYES_AFTER_PRIS, true);
   }
 
+  // A36 — sky + terrain: the first REAL visible content of the boot (the
+  // logo/title camera flythrough over village1). Mirrors the desktop jak1
+  // table: SkyRenderer at SKY_DRAW, SkyBlendHandler at the two
+  // sky-blend/tfrag-trans buckets, TFragment (normal+lowres / dirt / ice /
+  // trans kinds) at the tfrag buckets. anim-slot array: jak1 has no
+  // TextureAnimator (desktop passes the null animator), so an empty static
+  // slot vector mirrors the no-animator state.
+  // GLES has no glMultiDrawElements — take the renderers' single-draw path
+  // (plain glDrawElements per draw), same switch the desktop exposes for
+  // drivers without multidraw.
+  m_render_state.no_multidraw = true;
+  std::shared_ptr<SkyBlendGPU> sky_gpu_blender;
+  std::shared_ptr<SkyBlendCPU> sky_cpu_blender;
+  {
+    static const std::vector<GLuint> s_no_anim_slots;
+    sky_gpu_blender = std::make_shared<SkyBlendGPU>();
+    sky_cpu_blender = std::make_shared<SkyBlendCPU>();
+    std::vector<tfrag3::TFragmentTreeKind> normal_tfrags = {tfrag3::TFragmentTreeKind::NORMAL,
+                                                            tfrag3::TFragmentTreeKind::LOWRES};
+    std::vector<tfrag3::TFragmentTreeKind> dirt_tfrags = {tfrag3::TFragmentTreeKind::DIRT};
+    std::vector<tfrag3::TFragmentTreeKind> ice_tfrags = {tfrag3::TFragmentTreeKind::ICE};
+    std::vector<tfrag3::TFragmentTreeKind> trans_tfrags = {tfrag3::TFragmentTreeKind::TRANS};
+
+    set_renderer(std::make_unique<SkyRenderer>("sky", (int)BucketId::SKY_DRAW), BucketId::SKY_DRAW,
+                 true);
+    set_renderer(std::make_unique<TFragment>("l0-tfrag", (int)BucketId::TFRAG_LEVEL0,
+                                             normal_tfrags, false, 0, &s_no_anim_slots),
+                 BucketId::TFRAG_LEVEL0, true);
+    set_renderer(std::make_unique<TFragment>("l1-tfrag", (int)BucketId::TFRAG_LEVEL1,
+                                             normal_tfrags, false, 1, &s_no_anim_slots),
+                 BucketId::TFRAG_LEVEL1, true);
+    set_renderer(
+        std::make_unique<SkyBlendHandler>("l0-sky-blend", (int)BucketId::TFRAG_TRANS0_AND_SKY_BLEND_LEVEL0,
+                                          0, sky_gpu_blender, sky_cpu_blender, &s_no_anim_slots),
+        BucketId::TFRAG_TRANS0_AND_SKY_BLEND_LEVEL0, true);
+    set_renderer(
+        std::make_unique<SkyBlendHandler>("l1-sky-blend", (int)BucketId::TFRAG_TRANS1_AND_SKY_BLEND_LEVEL1,
+                                          1, sky_gpu_blender, sky_cpu_blender, &s_no_anim_slots),
+        BucketId::TFRAG_TRANS1_AND_SKY_BLEND_LEVEL1, true);
+    set_renderer(std::make_unique<TFragment>("l0-tfrag-dirt", (int)BucketId::TFRAG_DIRT_LEVEL0,
+                                             dirt_tfrags, false, 0, &s_no_anim_slots),
+                 BucketId::TFRAG_DIRT_LEVEL0, true);
+    set_renderer(std::make_unique<TFragment>("l1-tfrag-dirt", (int)BucketId::TFRAG_DIRT_LEVEL1,
+                                             dirt_tfrags, false, 1, &s_no_anim_slots),
+                 BucketId::TFRAG_DIRT_LEVEL1, true);
+    set_renderer(std::make_unique<TFragment>("l0-tfrag-ice", (int)BucketId::TFRAG_ICE_LEVEL0,
+                                             ice_tfrags, false, 0, &s_no_anim_slots),
+                 BucketId::TFRAG_ICE_LEVEL0, true);
+    set_renderer(std::make_unique<TFragment>("l1-tfrag-ice", (int)BucketId::TFRAG_ICE_LEVEL1,
+                                             ice_tfrags, false, 1, &s_no_anim_slots),
+                 BucketId::TFRAG_ICE_LEVEL1, true);
+  }
+
   // DirectRenderer — the desktop jak1 direct buckets, same batch sizes.
   set_renderer(std::make_unique<DirectRenderer>("debug", (int)BucketId::DEBUG, 0x20000),
                BucketId::DEBUG, true);
@@ -167,13 +222,10 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // Everything else: skip with a one-time named log (handled in dispatch).
   // Desktop names kept so the skip logs name the real renderer that's missing.
   const std::pair<BucketId, const char*> unported[] = {
-      {BucketId::SKY_DRAW, "sky"},
       {BucketId::OCEAN_MID_AND_FAR, "ocean-mid-far"},
-      {BucketId::TFRAG_LEVEL0, "l0-tfrag"},
       {BucketId::TIE_LEVEL0, "l0-tie"},
       {BucketId::MERC_TFRAG_TEX_LEVEL0, "l0-merc"},
       {BucketId::GENERIC_TFRAG_TEX_LEVEL0, "l0-generic"},
-      {BucketId::TFRAG_LEVEL1, "l1-tfrag"},
       {BucketId::TIE_LEVEL1, "l1-tie"},
       {BucketId::MERC_TFRAG_TEX_LEVEL1, "l1-merc"},
       {BucketId::GENERIC_TFRAG_TEX_LEVEL1, "l1-generic"},
@@ -181,12 +233,6 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
       {BucketId::SHRUB_GENERIC_LEVEL0, "l0-shrub-generic"},
       {BucketId::SHRUB_NORMAL_LEVEL1, "l1-shrub"},
       {BucketId::SHRUB_GENERIC_LEVEL1, "l1-shrub-generic"},
-      {BucketId::TFRAG_TRANS0_AND_SKY_BLEND_LEVEL0, "l0-sky-blend"},
-      {BucketId::TFRAG_DIRT_LEVEL0, "l0-tfrag-dirt"},
-      {BucketId::TFRAG_ICE_LEVEL0, "l0-tfrag-ice"},
-      {BucketId::TFRAG_TRANS1_AND_SKY_BLEND_LEVEL1, "l1-sky-blend"},
-      {BucketId::TFRAG_DIRT_LEVEL1, "l1-tfrag-dirt"},
-      {BucketId::TFRAG_ICE_LEVEL1, "l1-tfrag-ice"},
       {BucketId::MERC_AFTER_ALPHA, "common-alpha-merc"},
       {BucketId::GENERIC_ALPHA, "common-alpha-generic"},
       {BucketId::SHADOW, "shadow"},
@@ -220,6 +266,12 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
     m_bucket_renderers[i]->init_shaders(m_render_state.shaders);
     m_bucket_renderers[i]->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   }
+  // The sky blenders are not bucket renderers — desktop inits their VRAM
+  // textures explicitly after the bucket loop (OpenGLRenderer.cpp:883).
+  // Without this, SkyBlendCPU::do_sky_blends hands a null GpuTexture to
+  // move_existing_to_vram (A36 run-23 crash).
+  sky_cpu_blender->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
+  sky_gpu_blender->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   lg::info("A35-RENDER bucket table ready: {} buckets, direct=3 tex=11 eye=1 skip={}",
            m_bucket_renderers.size(), sizeof(unported) / sizeof(unported[0]));
 }
@@ -268,6 +320,22 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     dispatch_buckets_jak1(dma, prof);
   }
 
+  // A36 probe: the FBO content at frame 100/600 — distinguishes "geometry
+  // drew black" from "blit lost it" (run-25: 64k tris/frame, black screen).
+  if (m_stats.frame_idx == 100 || m_stats.frame_idx == 600) {
+    glBindFramebuffer(GL_FRAMEBUFFER, m_fbo_state.render_buffer.fbo_id);
+    const int px = m_fbo_state.render_buffer.width / 2;
+    const int py = m_fbo_state.render_buffer.height / 2;
+    unsigned char c[4 * 4] = {0};
+    glReadPixels(px, py, 2, 2, GL_RGBA, GL_UNSIGNED_BYTE, c);
+    unsigned char t[4 * 4] = {0};
+    glReadPixels(px / 2, py + py / 2, 2, 2, GL_RGBA, GL_UNSIGNED_BYTE, t);
+    __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                        "A36-FBO-PROBE frame=%llu center=%02x%02x%02x%02x %02x%02x%02x%02x "
+                        "upper=%02x%02x%02x%02x alp=%.3f",
+                        (unsigned long long)m_stats.frame_idx, c[0], c[1], c[2], c[3], c[4], c[5],
+                        c[6], c[7], t[0], t[1], t[2], t[3], settings.pmode_alp_register);
+  }
   {
     auto prof = m_profiler.root()->make_scoped_child("pcrtc");
     do_pcrtc_effects(settings.pmode_alp_register, &m_render_state, prof);
@@ -321,6 +389,12 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   glDisable(GL_BLEND);
   m_render_state.stencil_dirty = false;
+  // A36: desktop setup_frame ends by sizing the viewport to the GAME FBO
+  // (OpenGLRenderer.cpp:1290). A35's port left the window-sized viewport
+  // active, so every bucket rasterized a 2298x934 projection into the
+  // 640x480 FBO — geometry clipped off to a corner, screen stayed black
+  // (run-26 FBO probe: all-zero center with 64k tris drawn).
+  glViewport(0, 0, settings.game_res_w, settings.game_res_h);
 
   m_render_state.draw_region_w = settings.draw_region_w;
   m_render_state.draw_region_h = settings.draw_region_h;
@@ -387,7 +461,34 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
       }
     }
 
+    // A36 canary: the first real content frame zeroes glad's function
+    // pointers (run-19: glClearDepthf NULL one loop later → BLR-to-0 with
+    // lr in android_renderer_run). Check a glad pointer after every bucket
+    // so the smashing bucket names itself.
+    static void* s_glad_canary = (void*)glad_glClearDepthf;
     renderer->render(dma, &m_render_state, bucket_prof);
+    // A36: name any bucket that exits with a framebuffer other than the
+    // game FBO bound (run-27: 64k tris/frame but the FBO stays all-zero).
+    {
+      GLint cur_fb = -1;
+      glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &cur_fb);
+      static int s_fb_logged = 0;
+      if (cur_fb != (GLint)m_render_state.render_fb && s_fb_logged < 30) {
+        s_fb_logged++;
+        __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                            "A36-FB-TRACK after bucket=%s id=%zu draw-fb=%d expected=%u",
+                            renderer->name().c_str(), bucket_id, cur_fb,
+                            m_render_state.render_fb);
+      }
+    }
+    if ((void*)glad_glClearDepthf != s_glad_canary) {
+      __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                          "A36-CANARY glad_glClearDepthf changed %p -> %p after bucket=%s id=%zu "
+                          "(host memory smashed by this bucket's render)",
+                          s_glad_canary, (void*)glad_glClearDepthf, renderer->name().c_str(),
+                          bucket_id);
+      s_glad_canary = (void*)glad_glClearDepthf;
+    }
 
     ASSERT(dma.current_tag_offset() == m_render_state.next_bucket);
     m_render_state.next_bucket += 16;
