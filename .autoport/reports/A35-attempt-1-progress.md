@@ -81,14 +81,16 @@ the crashing code is a gkernel process-tree walker (fn65+0xE8) reading
 `(-> ptr 0 self)` — `LDR W9,[X16]` (ppointer deref) then
 `LDR W9,[X16,#24]` — where the ppointer deref returned **0x10000002**
 (a process-mask-shaped value, NOT a pointer; > the 128 MB EE). Caller
-frame = gkernel fn37 (the get-process/change-parent area, dead-pool-heap
-m15 anchor), frame 2 = ENGINE (the display-loop process pump). I.e. a
-dead-pool-heap rec's `process` field (or a child/brother ppointer slot)
-holds a mask-like value when the tree is walked — the compact/churn/
-get-process bookkeeping is the suspect area, and it runs every frame
-once entities exist. Same forensics loop applies (the lr-window byte
-matcher + the A35 sym-value dump are already in place; the gkernel base
-computation above makes every future kernel address instantly nameable).
+frame = dead-pool-heap **method 15 = `return-process`** (method-id
+arithmetic: process-tree 0-13 + dead-pool get-process=14/
+return-process=15, matching the A18 dump's num_methods=27), i.e. a
+process is DYING ~33 ms in (a logo/camera setup process completing) and
+the tree-unlink walk hits a rec/ppointer slot holding a mask-like value.
+The get-process/return-process/compact rec bookkeeping is the suspect
+area, and it runs every frame once entities exist. Same forensics loop
+applies (the lr-window byte matcher + the A35 sym-value dump are already
+in place; the gkernel base computation above makes every future kernel
+address instantly nameable).
 
 ## Files changed (this attempt)
 
