@@ -562,6 +562,20 @@ phases:
   validator: validators/phase-A32-android-renderer-path-bringup.sh
   max_turns: 2500
   max_retries: 3
+- id: A33-arm64-regalloc-spill-sprint
+  name: 'Fix the SHARED hud-classes-pc SIGSEGV — qemu 660 ceiling == device 354 ceiling, same bug, back in the fast qemu loop. A32 fixed
+    Android pc-helper bindings (named via the A18 trap: __pc-texture-upload-now + __read-ee-timer + __send-gfx-dma-chain missing from
+    a17_bind_pc_helpers, never back-ported from linux A29; plus __pc-get-mips2c returning 0 for every name) and the device advanced 316→354
+    — to the SAME DGO+signal where qemu dies at 660. Crash: SIGSEGV with a bogus 0xfd596f80 GOAL ptr spilled to [SP,#0] — suspected arm64
+    regalloc/spill bug (spill-slot collision? 32/64-bit spill size mismatch? XMM-class value through a GPR spill slot — the A24-A26
+    class-mismatch family?). hud-classes-pc is PC-port GOAL code that may exercise a unique spill pattern. A33: reproduce in qemu
+    (fast loop, no device round-trips), root-cause via the A21-A26 tracer arsenal + disasm, FIX (no guards), iterate past 660; then sync
+    CGOs to APK assets, verify the device advances past 354, screencap. First phase on claude-fable-5[1m]. Lean gates: x86 boots, qemu
+    >=660 (fix path >660 + baseline), no cheats, report >=80 lines.'
+  prompt: prompts/phase-A33-arm64-regalloc-spill-sprint.md
+  validator: validators/phase-A33-arm64-regalloc-spill-sprint.sh
+  max_turns: 2500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
