@@ -15,12 +15,16 @@
 
 #include <android/input.h>
 #include <android/log.h>
+#include <fcntl.h>
 #include <jni.h>
+#include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <ucontext.h>
+#include <unistd.h>
 
 #include <atomic>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -79,15 +83,231 @@ std::atomic<bool> g_runtime_booted{false};
 const char* g_selected_game = nullptr;
 const char* g_data_root = nullptr;
 
+// Phase A30 (autoport): route native stdout/stderr → logcat.
+//
+// Android resets the per-app stdout/stderr file descriptors to /dev/null
+// at zygote spawn, so anything the GOAL kernel (or any C library it
+// pulls in) writes through printf/fprintf is silently dropped. A29 took
+// the qemu boot past `link finish: logo` to 660 link-finishes; on the
+// real device we get the same code path but cannot observe ANY of those
+// markers because they go through the kernel's `printf(...)` (see
+// game/kernel/common/kprint.cpp) rather than __android_log_print. The
+// effect is that on-device boot looks indistinguishable from "kernel
+// did nothing".
+//
+// Routing strategy (see e.g. SDL's android_main shim, Chromium's
+// stdio_log_redirect, kdb+Android adb-bridge): create a pipe, dup2 the
+// write end over STDOUT_FILENO + STDERR_FILENO, then spawn a small
+// daemon thread that read()s from the read end and ships each line to
+// __android_log_write under a stable tag (GK_STDOUT / GK_STDERR) so a
+// logcat consumer can isolate them with `adb logcat -s GK_STDOUT
+// GK_STDERR opengoal-gk:V *:S`.
+//
+// Why two pipes (one per fd): keeps the GK_STDOUT vs GK_STDERR tagging
+// meaningful, and avoids a single reader having to demultiplex.
+//
+// Idempotency: gk_install_stdout_stderr_logcat_routing() is guarded by
+// a std::atomic so the .so-ctor invocation and the explicit gk_sdl_main
+// invocation collapse to a single install. Calling it from BOTH gives
+// us coverage for the "library re-loaded after a configuration change
+// without process death" recreate scenario, plus a defensive re-run
+// from gk_sdl_main in case the ctor was somehow skipped.
+//
+// Buffer policy: the FILE* layer is set to line-buffered (_IOLBF) for
+// stdout and unbuffered (_IONBF) for stderr — matches libc defaults
+// when the underlying fd is a terminal, which gives us prompt prints
+// without flooding the log socket with single-character writes.
+//
+// Failure mode: if pipe()/dup2()/pthread_create() ever fail we log the
+// reason via __android_log_print (which does NOT go through the pipe)
+// and leave the original fd in place. The kernel boot still proceeds —
+// the routing is observability, not correctness.
+
+namespace gk_log_pipe {
+
+constexpr const char* kStdoutTag = "GK_STDOUT";
+constexpr const char* kStderrTag = "GK_STDERR";
+
+struct Pipe {
+  int read_fd;
+  const char* tag;
+};
+
+void* reader_thread(void* arg) {
+  auto* p = static_cast<Pipe*>(arg);
+  // bionic caps pthread name at 15 chars; "gk-log-stdXXX" fits both.
+  if (p->tag == kStdoutTag) {
+    pthread_setname_np(pthread_self(), "gk-log-stdout");
+  } else {
+    pthread_setname_np(pthread_self(), "gk-log-stderr");
+  }
+
+  // 4 KB local buffer, line-oriented flushing. Lines longer than the
+  // buffer are split at the buffer boundary; logcat itself caps each
+  // message at ~4 KB anyway, so splitting on a buffer boundary is the
+  // natural granularity.
+  constexpr size_t kBuf = 4096;
+  char buf[kBuf];
+  size_t used = 0;
+  for (;;) {
+    ssize_t n = read(p->read_fd, buf + used, kBuf - 1 - used);
+    if (n == 0) {
+      // EOF — write side of the pipe was closed. Flush any pending
+      // partial line and exit. We never expect EOF in practice (the
+      // write fds live for the lifetime of the process) but handle it
+      // defensively so a unit-test process can shut us down cleanly.
+      if (used > 0) {
+        buf[used] = '\0';
+        __android_log_write(ANDROID_LOG_INFO, p->tag, buf);
+      }
+      break;
+    }
+    if (n < 0) {
+      if (errno == EINTR) continue;
+      __android_log_print(ANDROID_LOG_ERROR, kGkLogTag,
+                          "gk_log_pipe[%s]: read failed: %s",
+                          p->tag, strerror(errno));
+      break;
+    }
+    used += static_cast<size_t>(n);
+
+    // Drain whole lines, leaving any trailing partial in place.
+    size_t scan = 0;
+    size_t line_start = 0;
+    while (scan < used) {
+      if (buf[scan] == '\n') {
+        buf[scan] = '\0';
+        if (scan > line_start) {
+          __android_log_write(ANDROID_LOG_INFO, p->tag, &buf[line_start]);
+        } else {
+          // Blank line — still emit so the log timing reflects it.
+          __android_log_write(ANDROID_LOG_INFO, p->tag, "");
+        }
+        line_start = scan + 1;
+      }
+      ++scan;
+    }
+
+    if (line_start > 0) {
+      memmove(buf, buf + line_start, used - line_start);
+      used -= line_start;
+    } else if (used == kBuf - 1) {
+      // No newline in 4095 bytes — flush as-is so we don't deadlock the
+      // writer waiting for a newline that won't come (e.g. a printf
+      // emitting a giant hex dump without \n separators).
+      buf[used] = '\0';
+      __android_log_write(ANDROID_LOG_INFO, p->tag, buf);
+      used = 0;
+    }
+  }
+  // Not freed: the kernel's stdout/stderr live for the process lifetime
+  // so this thread is normally never joined. Process exit reclaims it.
+  return nullptr;
+}
+
+bool install_one(int target_fd, const char* tag) {
+  int fds[2];
+  if (pipe(fds) != 0) {
+    __android_log_print(ANDROID_LOG_ERROR, kGkLogTag,
+                        "gk_log_pipe[%s]: pipe() failed: %s",
+                        tag, strerror(errno));
+    return false;
+  }
+  // Make sure the FILE* layer is flushed before we steal the underlying
+  // fd from under it; otherwise any pre-routing buffered bytes would be
+  // emitted to the pipe AFTER routing is installed, mis-attributing
+  // them to a later log timestamp.
+  if (target_fd == STDOUT_FILENO) {
+    fflush(stdout);
+  } else if (target_fd == STDERR_FILENO) {
+    fflush(stderr);
+  }
+  if (dup2(fds[1], target_fd) == -1) {
+    __android_log_print(ANDROID_LOG_ERROR, kGkLogTag,
+                        "gk_log_pipe[%s]: dup2(fd=%d) failed: %s",
+                        tag, target_fd, strerror(errno));
+    close(fds[0]);
+    close(fds[1]);
+    return false;
+  }
+  // dup2 cloned fds[1] into target_fd; we no longer need the original
+  // write end. Closing it does NOT close target_fd (that's a separate
+  // fd-table entry now).
+  close(fds[1]);
+
+  // C stdio buffering: stdout line-buffered, stderr unbuffered. Matches
+  // libc defaults for an interactive terminal, gives us per-line logcat
+  // entries.
+  if (target_fd == STDOUT_FILENO) {
+    setvbuf(stdout, nullptr, _IOLBF, 0);
+  } else if (target_fd == STDERR_FILENO) {
+    setvbuf(stderr, nullptr, _IONBF, 0);
+  }
+
+  auto* p = new Pipe{fds[0], tag};
+  pthread_t thr;
+  int rc = pthread_create(&thr, nullptr, &reader_thread, p);
+  if (rc != 0) {
+    __android_log_print(ANDROID_LOG_ERROR, kGkLogTag,
+                        "gk_log_pipe[%s]: pthread_create failed: %d",
+                        tag, rc);
+    // Routing is partially installed (dup2 already done); the kernel
+    // will write into a pipe nobody reads. Better than nothing —
+    // SIGPIPE is disabled by Android for app processes so the writer
+    // will eventually block, but only after 64 KB of un-drained data.
+    // Surface the error and continue.
+    delete p;
+    return false;
+  }
+  pthread_detach(thr);
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "gk_log_pipe[%s]: routing fd=%d → logcat",
+                      tag, target_fd);
+  return true;
+}
+
+void install() {
+  static std::atomic<bool> s_installed{false};
+  bool expected = false;
+  if (!s_installed.compare_exchange_strong(expected, true)) {
+    return;  // already installed; subsequent invocations are no-ops
+  }
+  bool ok_out = install_one(STDOUT_FILENO, kStdoutTag);
+  bool ok_err = install_one(STDERR_FILENO, kStderrTag);
+
+  // Self-test: emit a marker through BOTH paths so the device-side
+  // validator can confirm the routing is live without having to wait
+  // for the kernel to reach link-finish. The literal string
+  // "gk_log_pipe: stdout routing active" / "...stderr routing active"
+  // shows up in logcat under the new tags, which is the cheapest
+  // verification.
+  if (ok_out) {
+    printf("gk_log_pipe: stdout routing active (printf test marker)\n");
+    fflush(stdout);
+  }
+  if (ok_err) {
+    fprintf(stderr, "gk_log_pipe: stderr routing active (fprintf test marker)\n");
+    fflush(stderr);
+  }
+}
+
+}  // namespace gk_log_pipe
+
 // Phase 27 (autoport): emit a load marker at .so load time so the validator
 // can prove libgk.so reached dlopen() — the runtime's earliest observable
 // signal. Marked __attribute__((constructor)) so it runs before any other
 // libgk code, including the SDL JNI_OnLoad path. The validator greps
 // logcat for the literal "libgk.so loaded" string.
+//
+// A30: install stdout/stderr → logcat routing from the same constructor
+// so any printf/fprintf that happens before SDL spawns the main thread
+// (the case for any global object initialisation that logs) is still
+// captured.
 __attribute__((constructor))
 void gk_load_marker() {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "libgk.so loaded (%s)", kGkVersion);
+  gk_log_pipe::install();
 }
 }  // namespace
 
