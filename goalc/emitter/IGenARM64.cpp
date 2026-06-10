@@ -2417,18 +2417,51 @@ InstructionARM64 loadvf_rip_plus_s32(Register dest, s64 offset) {
 
 // TODO - rip relative loads and stores.
 
-// BLEND: x86 selects per-element via mask bits. The arm64 fast path is BSL
-// (Bitwise Select) but we don't have a true mask register handy in the
-// regalloc shape — emit BIT (Bit Insert if true) which selects from src2
-// based on inverted bits of an implicit immediate-derived mask. For our
-// codegen needs (which the classifier just checks for non-NOP), emit
-// `mov_16b dst, src1` followed by the per-lane work — here we just emit the
-// MOV form so the body contains a real instruction. The IR layer adds
-// further detail per mask bit.
+// BLEND.VF: x86 VBLENDPS dst.s[i] = mask-bit-i ? src2.s[i] : src1.s[i],
+// with a compile-time 4-bit mask. A34: the old stand-in returned
+// `mov dst, src1` (mask and src2 ignored) — every `.blend.vf` in
+// vector-h.gc computed the wrong vector. Emit a real lane-select:
+// start from one source and INS the other source's lanes.
+//   ORR Vd.16B, Vn, Vn (vector mov): 0x4EA01C00 | Rm<<16 | Rn<<5 | Rd
+//   INS Vd.S[i], Vn.S[j]: 0x6E000400 | ((i<<3)|4)<<16 | (j<<2)<<11 | Rn<<5 | Rd
 InstructionARM64 blend_vf(Register dst, Register src1, Register src2, u8 mask) {
-  (void)src2;
-  (void)mask;
-  return mov_16b(dst, src1);
+  auto ins_lane = [](Register d, Register n, int lane) {
+    return 0x6E000400u | ((((uint32_t)lane << 3) | 4u) << 16) | (((uint32_t)lane << 2) << 11) |
+           (arm64_reg5(n) << 5) | arm64_reg5(d);
+  };
+  auto vmov = [](Register d, Register n) {
+    return 0x4EA01C00u | (arm64_reg5(n) << 16) | (arm64_reg5(n) << 5) | arm64_reg5(d);
+  };
+  mask &= 0xF;
+  if (mask == 0) {
+    return InstructionARM64(vmov(dst, src1));
+  }
+  if (mask == 0xF) {
+    return InstructionARM64(vmov(dst, src2));
+  }
+  std::vector<uint32_t> words;
+  if (dst.id() == src2.id()) {
+    // dst already holds src2's lanes; insert the ~mask lanes from src1.
+    for (int i = 0; i < 4; i++) {
+      if (!(mask & (1 << i))) {
+        words.push_back(ins_lane(dst, src1, i));
+      }
+    }
+  } else {
+    if (dst.id() != src1.id()) {
+      words.push_back(vmov(dst, src1));
+    }
+    for (int i = 0; i < 4; i++) {
+      if (mask & (1 << i)) {
+        words.push_back(ins_lane(dst, src2, i));
+      }
+    }
+  }
+  InstructionARM64 r(words[0]);
+  for (size_t k = 1; k < words.size(); k++) {
+    r.extra_words.push_back(words[k]);
+  }
+  return r;
 }
 
 InstructionARM64 shuffle_vf(Register dst, Register src, u8 dx, u8 dy, u8 dz, u8 dw) {
@@ -2542,21 +2575,50 @@ InstructionARM64 parallel_bitwise_and(Register dst, Register src0, Register src1
   return vand_16b(dst, src0, src1);
 }
 
-// PEXT/PCPY operations: approximate using ZIP1/ZIP2/UZP1/UZP2 for the
-// classifier (any non-NOP NEON instruction satisfies the realness check).
-// We emit a ZIP1 .16B as a stand-in; full semantic mapping is tracked in the
-// carve-out exception list.
-static InstructionARM64 zip1_16b(Register dst, Register a, Register b) {
-  // ZIP1 Vd.16B, Vn.16B, Vm.16B: 0 1 001110 00 0 Rm 0011 10 Rn Rd → 0x4E003800
-  uint32_t enc =
-      0x4E003800u | (arm64_reg5(b) << 16) | (arm64_reg5(a) << 5) | arm64_reg5(dst);
+// PS2 PEXT*/PCPY* map exactly onto AArch64 ZIP1/ZIP2 with the right
+// arrangement — the same way the x86 backend maps them onto VPUNPCK[LH]xx:
+//   PEXTLB/PEXTUB → ZIP1/ZIP2 .16B   (x86 VPUNPCKL/HBW)
+//   PEXTLH/PEXTUH → ZIP1/ZIP2 .8H    (x86 VPUNPCKL/HWD)
+//   PEXTLW/PEXTUW → ZIP1/ZIP2 .4S    (x86 VPUNPCKL/HDQ)
+//   PCPYLD/PCPYUD → ZIP1/ZIP2 .2D    (x86 VPUNPCKL/HQDQ)
+// A34: the A2-era stand-in emitted ZIP .16B for ALL of these ("any
+// non-NOP NEON instruction satisfies the realness check"). The byte
+// arrangement is only correct for the B forms; everything else
+// interleaved the wrong granularity. The compiler's uint128 bitfield
+// extraction lowers (-> tag elt-type) through pcpyud — with .16B it
+// produced byte-doubled garbage that get-property-value passed to
+// type-type? as a "type" (run-11/12 crash during target init).
+// ZIP1: 0Q001110 size 0 Rm 001110 Rn Rd → 0x4E003800 | size<<22
+// ZIP2: 0Q001110 size 0 Rm 011110 Rn Rd → 0x4E007800 | size<<22
+static InstructionARM64 zip_n(uint32_t base, uint32_t size_bits, Register dst, Register a,
+                              Register b) {
+  uint32_t enc = base | (size_bits << 22) | (arm64_reg5(b) << 16) | (arm64_reg5(a) << 5) |
+                 arm64_reg5(dst);
   return InstructionARM64(enc);
 }
+static InstructionARM64 zip1_16b(Register dst, Register a, Register b) {
+  return zip_n(0x4E003800u, 0, dst, a, b);
+}
 static InstructionARM64 zip2_16b(Register dst, Register a, Register b) {
-  // ZIP2 Vd.16B, Vn.16B, Vm.16B: 0 1 001110 00 0 Rm 0111 10 Rn Rd → 0x4E007800
-  uint32_t enc =
-      0x4E007800u | (arm64_reg5(b) << 16) | (arm64_reg5(a) << 5) | arm64_reg5(dst);
-  return InstructionARM64(enc);
+  return zip_n(0x4E007800u, 0, dst, a, b);
+}
+static InstructionARM64 zip1_8h(Register dst, Register a, Register b) {
+  return zip_n(0x4E003800u, 1, dst, a, b);
+}
+static InstructionARM64 zip2_8h(Register dst, Register a, Register b) {
+  return zip_n(0x4E007800u, 1, dst, a, b);
+}
+static InstructionARM64 zip1_4s(Register dst, Register a, Register b) {
+  return zip_n(0x4E003800u, 2, dst, a, b);
+}
+static InstructionARM64 zip2_4s(Register dst, Register a, Register b) {
+  return zip_n(0x4E007800u, 2, dst, a, b);
+}
+static InstructionARM64 zip1_2d(Register dst, Register a, Register b) {
+  return zip_n(0x4E003800u, 3, dst, a, b);
+}
+static InstructionARM64 zip2_2d(Register dst, Register a, Register b) {
+  return zip_n(0x4E007800u, 3, dst, a, b);
 }
 
 InstructionARM64 pextub_swapped(Register dst, Register src0, Register src1) {
@@ -2564,11 +2626,11 @@ InstructionARM64 pextub_swapped(Register dst, Register src0, Register src1) {
 }
 
 InstructionARM64 pextuh_swapped(Register dst, Register src0, Register src1) {
-  return zip2_16b(dst, src0, src1);
+  return zip2_8h(dst, src0, src1);
 }
 
 InstructionARM64 pextuw_swapped(Register dst, Register src0, Register src1) {
-  return zip2_16b(dst, src0, src1);
+  return zip2_4s(dst, src0, src1);
 }
 
 InstructionARM64 pextlb_swapped(Register dst, Register src0, Register src1) {
@@ -2576,11 +2638,11 @@ InstructionARM64 pextlb_swapped(Register dst, Register src0, Register src1) {
 }
 
 InstructionARM64 pextlh_swapped(Register dst, Register src0, Register src1) {
-  return zip1_16b(dst, src0, src1);
+  return zip1_8h(dst, src0, src1);
 }
 
 InstructionARM64 pextlw_swapped(Register dst, Register src0, Register src1) {
-  return zip1_16b(dst, src0, src1);
+  return zip1_4s(dst, src0, src1);
 }
 
 InstructionARM64 parallel_compare_e_b(Register dst, Register src0, Register src1) {
@@ -2608,28 +2670,48 @@ InstructionARM64 parallel_compare_gt_w(Register dst, Register src0, Register src
 }
 
 InstructionARM64 vpunpcklqdq(Register dst, Register src0, Register src1) {
-  return zip1_16b(dst, src0, src1);
+  return zip1_2d(dst, src0, src1);
 }
 
 InstructionARM64 pcpyld_swapped(Register dst, Register src0, Register src1) {
-  return zip1_16b(dst, src0, src1);
+  return zip1_2d(dst, src0, src1);
 }
 
 InstructionARM64 pcpyud(Register dst, Register src0, Register src1) {
-  return zip2_16b(dst, src0, src1);
+  return zip2_2d(dst, src0, src1);
 }
 
 InstructionARM64 vpsubd(Register dst, Register src0, Register src1) {
   return vsub_4s(dst, src0, src1);
 }
 
+// x86 PSRLDQ/PSLLDQ are whole-vector BYTE shifts (zero-filling); the old
+// stand-in used per-lane bit shifts (USHR/SHL .4S) which compute something
+// entirely different. AArch64 expresses byte shifts with EXT against a
+// zeroed vector: V0 is outside the GOAL SIMD allocation (XMM ids 16-31 map
+// to V16-V31), so it is free as an emitter scratch.
+//   MOVI V0.16B, #0:  0x4F00E400 | Rd
+//   EXT Vd.16B, Vn.16B, Vm.16B, #i: 0x6E000000 | Rm<<16 | i<<11 | Rn<<5 | Rd
 InstructionARM64 vpsrldq(Register dst, Register src, u8 imm) {
-  // EXT Vd.16B, Vn.16B, Vm.16B, #imm — byte shift. Approximate via USHR.
-  return ushr_4s(dst, src, imm & 0x1f);
+  // dst = src >> (imm bytes)  ==  EXT(dst, Vn=src, Vm=zero, #imm)
+  const uint32_t movi_zero_v0 = 0x4F00E400u;
+  uint32_t ext = 0x6E000000u | (0u << 16) | ((imm & 0xFu) << 11) | (arm64_reg5(src) << 5) |
+                 arm64_reg5(dst);
+  return InstructionARM64::paired(movi_zero_v0, ext);
 }
 
 InstructionARM64 vpslldq(Register dst, Register src, u8 imm) {
-  return shl_4s(dst, src, imm & 0x1f);
+  if ((imm & 0xFu) == 0) {
+    // Shift by 0 bytes: plain vector move (ORR Vd.16B, Vn, Vn).
+    uint32_t orr = 0x4EA01C00u | (arm64_reg5(src) << 16) | (arm64_reg5(src) << 5) |
+                   arm64_reg5(dst);
+    return InstructionARM64(orr);
+  }
+  // dst = src << (imm bytes)  ==  EXT(dst, Vn=zero, Vm=src, #(16-imm))
+  const uint32_t movi_zero_v0 = 0x4F00E400u;
+  uint32_t ext = 0x6E000000u | (arm64_reg5(src) << 16) | (((16u - (imm & 0xFu)) & 0xFu) << 11) |
+                 (0u << 5) | arm64_reg5(dst);
+  return InstructionARM64::paired(movi_zero_v0, ext);
 }
 
 InstructionARM64 vpshuflw(Register dst, Register src, u8 imm) {
