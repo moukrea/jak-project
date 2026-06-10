@@ -4517,3 +4517,79 @@ approach is root-cause-first rather than iterate-first. No cheats.
   (first post-fix-8 visual); 4s+ frames = sshx again (app exited). Black ≠ render — no claim.
 - Watch item: missing TXT assets in APK fakeiso may need syncing (COMMON.TXT/SUBTIT.TXT
   from out/jak1-arm64/iso or text generation step).
+### 2026-06-10 20:25 — A35 COMPLETED + independently verified; A36 LAUNCHED
+- A35 done in ONE 1h50m attempt. Independent validator re-run: PASS — DirectRenderer=62
+  syms + dma=21 syms physically in libgk.so, x86 boots, qemu 675, report 150 lines.
+  Renderer = bucket dispatch (70), DirectRenderer ×3, TexUpload ×11, EyeRenderer,
+  TexturePool, fr3 Loader, 43/43 shaders on Adreno 618. Bug class #7 causal chain fully
+  traced (uint128 res-tag truncation → get-tag-data 0 → name= EE−4).
+- A36-android-kernel-steady-state-first-frame authored + inserted idx 74 (78 phases);
+  launched attempt 1/3 fable-5 (live feed /tmp/a36-launch.out). Scope: dead-pool-heap
+  return-process rec corruption (0x10000002 mask-in-ppointer-slot) → kernel ≥30s →
+  frame counter ≥300 (validator gate) → TXT assets → FIRST CONTENT FRAME w/ foreground
+  proof.
+### 2026-06-10 20:50 — A36 @ 25min: memop-diff forensics on gkernel arm64-vs-x86
+- claude extracting dead-pool-heap fns from both backends, custom a36_memop_diff.py to
+  locate the divergent memory op behind the 0x10000002 mask-in-ppointer write. No commits
+  yet. Session ~69%, rate probes 429-backoff (normal).
+### 2026-06-10 21:15 — A36 @ 52min: bulk memop-diff hunting store-size mismatches
+- /tmp/a36-bulk-diff.txt across gkernel fns; filter = S16-vs-S4/S8 (oversized 128-bit
+  store clobbering the adjacent rec field = mask lands in ppointer slot). kprint.cpp
+  instrumentation edits. No commits/device runs yet. Session ~75%.
+### 2026-06-10 21:42 — A36: bug class #8 (char unsigned on AArch64) → 282-frame loop
+- dc50c103e: -fsigned-char restores x86 char semantics for the whole C kernel; ships
+  A36-TREE per-frame rec/tree integrity scanner + format TXT arg diag.
+- Run-4 (focus-proven): kernel loop 33ms → 282 FRAMES; rec corruption now episodic
+  (viol-total=4, first at frame 282 — likely legal→logo transition process death);
+  813 COMMON/SUBTIT TXT retry errors (game state machine likely stuck on text load);
+  NO A35-RENDER frame= consumption stats in window → GOAL→chain flow post-init stalled
+  or stats-gated; claude bracketing frame-1 sends.
+- 2s frame verified ours (focus file): black + overlay — no render claim. Session ~82%.
+### 2026-06-10 22:10 — A36 runs 5-10: TXT fixed, wiper extent mapped
+- TXT errors 813→0 (overlord stream layer fix); links 427→430.
+- Overlapper trap caught the wipe: extent edges at 0x1f33b0+ hold small-int sequences
+  (0x4/0x49985/0x63) — a buffer/array growing over the dead-pool rec region (heap overlap),
+  not a stray store. Crash frame 282→287 (TXT-load drift), still deterministic.
+  claude auditing call_goal (C→GOAL bridge) + dead-pool fn disasm ("first half faithful").
+- Session window reset (0%). No fix commit yet — root cause ~1 cycle away.
+### 2026-06-10 22:32 — A36 run-15: REC CORRUPTION FIXED (600 clean frames); new wall = abort ~10s
+- A36-TREE heartbeat frame=600 viol-total=0 (was crash at 287) — dead-pool fix in tree
+  (uncommitted). New failure: abort() (tombstone hijacks our diag as abort message),
+  app auto-restarts → 18 boot cycles / 7792 links in one 75s window.
+- Chain-consumption stats (A35-RENDER frame=) STILL absent — GOAL→draw feed is the gap
+  after the abort. 10s frame (focus-proven ours): black+overlay, no render.
+- 3rd interloper app (com.ghplus.patcher) steals focus; run script now reversibly
+  disables sshxmobile+ghplus during 60-75s captures (re-enables after) — user notified,
+  can veto if it hurts the parallel projects.
+- Progression: 33ms → 287f → 600+f. Session ~5% (fresh window).
+### 2026-06-10 22:45 — run-18 false alarm: 4.5MB frames = home screen (boot-loop races focus check)
+- Focus file said ours at 4/10/20/40s but frames show portrait MIUI home — abort→restart
+  cycle (~10s) straddles the focus-check→screencap gap. RULE: during boot-loops, bracket
+  focus before AND after each capture (discard on mismatch) or fix the abort first.
+- claude on the abort: run-17 tombstone backtrace + dlfcn edit (symbolized abort handler).
+### 2026-06-10 22:55 — A36 run-21: abort trail points at null GLES dispatch
+- Hypothesis under test by claude: ported desktop renderer calls desktop-GL-only entries
+  (glClearDepth vs glClearDepthf family) → glad-GLES leaves them NULL → first consumed
+  chain that touches one = abort at ~600f. Would explain abort + missing stats together.
+  Fix class = shim desktop names → GLES equivalents.
+- Run-21 frames: boot-cycle continues (ours 2/4/10/40s, home 6s, transition 20s w/
+  focus=null landscape dark surface). No content. Session ~8%.
+### 2026-06-10 23:08 — PIPELINE DRAWS: first GLES triangles of the project
+- Run-23 (pid 4578): A35-RENDER frame=3..60+ @60fps, chain_bytes=24256/frame,
+  buckets_drawn=11 skipped=12 (named), draws=1 tris=2 — the game's blackout quad,
+  correct for this boot stage. Full path alive: kernel→chain→dispatch→DirectRenderer→
+  GLES→swap. 6s frame (ours, focus-proven): black by design.
+- Visible content = bucket coverage: claude porting SkyRenderer + TFragment (GLES
+  primitive-restart/no-multidraw paths); merc (l0-pris-merc skipped) needed for ND logo.
+- Still 9 GK-DIAG + 2 Fatal in window (older pid 1938 cycles mixed in — newest build
+  sustained). Session ~8%.
+### 2026-06-10 23:18 — A36 run-25 BREAKTHROUGH: steady-state + 64K tris/frame
+- ZERO crashes/aborts, 3000 frames (50s) single PID, TREE viol=0 → kernel steady-state
+  ACHIEVED (gate 300 ×10). Validator-gate numbers: frame=2940, chain=152KB/frame,
+  buckets_drawn=18, draws=103, tris=64404 — full 3D scene geometry (tfrag village)
+  rendering at 60fps.
+- Screencaps (≤20s ticks) predate the heavy frames (~23:13) — the 64K-tri output is
+  UNPHOTOGRAPHED. Capture ticks must extend ≥30-60s. App force-stopped between runs;
+  passive supervisor shot impossible. Run-26 (TFragment GLES edits) building.
+- If textures bind → village1 title scene on glass = PROJECT GOAL. If black → texture/
+  pcrtc-blit debugging next.

@@ -608,6 +608,37 @@ phases:
   validator: validators/phase-A35-android-renderer-dma-to-gles.sh
   max_turns: 2500
   max_retries: 3
+- id: A36-android-kernel-steady-state-first-frame
+  name: 'Kernel steady-state + first real content frame. A35 shipped the WHOLE renderer (bucket dispatch 70 buckets, DirectRenderer x3,
+    TextureUploadHandler on 11 TEX buckets, EyeRenderer, TexturePool, fr3 Loader; 43/43 shaders compile on Adreno 618; GAME.fr3 loads;
+    per-frame A35-RENDER frame/chain_bytes/buckets_drawn stats; chains flow) and fixed arm64 bug class 7 (A33 cc truncated every 128-bit
+    arg/return — the uint128 res-tag chain that fed name= its null). Boot now: 427 links + village1 actors birthing, zero crashes to
+    +33ms, then SIGSEGV fault=0x7f1000001a pc=0x7f001900fc — gkernel process-tree walker (fn65+0xE8) reads a ppointer slot holding
+    0x10000002 (process-mask-shaped, not a pointer); caller = dead-pool-heap method 15 return-process: get-process/return-process/compact
+    rec bookkeeping corruption, runs every frame once entities exist. A36: (1) kill the rec corruption with the A34/A35 forensics loop
+    (gkernel base mapping 0x189304 makes kernel addresses nameable); (2) sync missing COMMON/SUBTIT TXT into APK fakeiso; (3) sustain
+    kernel >=30s, frame counter >=300; (4) first real content frame (port additional buckets if content-gated — tfrag3 for title scene,
+    DirectRenderer covers 2D/text). Foreground proof per frame (mCurrentFocus=org.opengoal.gk.jak1 — sshx parallel project steals focus).
+    Validator: A35 gates + frame>=300 in newest A36 routed logcat. Render judged by supervisor vision. max_turns 2500.'
+  prompt: prompts/phase-A36-android-kernel-steady-state-first-frame.md
+  validator: validators/phase-A36-android-kernel-steady-state-first-frame.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A37-android-camera-matrix-first-visible-frame
+  name: 'Fix update-math-camera arm64 divergence so the 64K submitted tris become the VISIBLE title scene. A36 achieved kernel
+    steady-state on-device (4380+ frames, zero crashes, zero tree violations; fixed the A18-trap method-slot-13 poisoning that caused
+    the dead-pool heap overlap, the missing exec_runtime init_globals on Android, and the AArch64 unsigned-char class). Renderer feeds
+    real chains 60fps: frame=2940 chain=152KB buckets_drawn=18 draws=103 tris=64404 — but the screen renders BLACK because *math-camera*
+    camera-temp (+0x23C) is ZERO: update-math-camera (heavy 128-bit matrix GOAL code) diverges on arm64 and never writes the projection
+    product; zero matrix degenerates every vertex. A37: root-cause via x86-oracle object diff (cgo_inspect extract + objdump) or
+    field-write instrumentation; fix the IGenARM64/cc CLASS (no hardcoded matrices — camera must compute); regen ALL 28 DGOs + sync APK;
+    captures at 5/10/15/20/30/45/60s with mCurrentFocus before AND after each tick; goal frame = village1 title scene / ND logo / any
+    real game visual with focus proof. Validator: A36 gates + frame>=300 + tris>0 in newest A37 logcat. Render judged by supervisor
+    vision. max_turns 2500.'
+  prompt: prompts/phase-A37-android-camera-matrix-first-visible-frame.md
+  validator: validators/phase-A37-android-camera-matrix-first-visible-frame.sh
+  max_turns: 2500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
