@@ -183,6 +183,11 @@ s32 format_impl_jak1(uint64_t* args) {
       }  // end argument while
 
       // switch on command
+      // A36-TXT-DIAG (probe 5): which directive actually dispatches.
+      if (strstr(format_cstring, ".TXT")) {
+        fprintf(stderr, "A36-TXT-DIAG dispatch '%c'(0x%02x)\n", format_ptr[1],
+                (unsigned)(unsigned char)format_ptr[1]);
+      }
       switch (format_ptr[1]) {
           // offset of 0x25
 
@@ -407,6 +412,20 @@ s32 format_impl_jak1(uint64_t* args) {
           }
           u64 in = arg_regs[arg_reg_idx++];
           kitoa(output_ptr, in, 10, argument_data[0].data[0], pad, 0);
+          // A36-TXT-DIAG (probe 4): ~D micro-probe for TXT formats — the
+          // digit vanishes between arg arrival and output on device.
+          if (strstr(format_cstring, ".TXT")) {
+            fprintf(stderr,
+                    "A36-TXT-DIAG caseD in=0x%llx len=%d pad=0x%02x "
+                    "kitoa=\"%s\" regidx=%u &ct=%p ct=%02x %02x %02x %02x\n",
+                    (unsigned long long)in, (int)argument_data[0].data[0],
+                    (unsigned)(unsigned char)pad, output_ptr,
+                    (unsigned)(arg_reg_idx - 1), (void*)ConvertTable,
+                    (unsigned char)ConvertTable[0],
+                    (unsigned char)ConvertTable[1],
+                    (unsigned char)ConvertTable[2],
+                    (unsigned char)ConvertTable[3]);
+          }
           output_ptr = strend(output_ptr);
         } break;
 
@@ -514,6 +533,14 @@ s32 format_impl_jak1(uint64_t* args) {
   *output_ptr = 0;
   output_ptr++;
   assert_print_buffer_has_room((const u8*)output_ptr);
+
+  // A36-TXT-DIAG (probe 2): the formatted OUTPUT for TXT-related calls —
+  // run-1 proved fmt + args arrive intact, yet the device's STR RPC sees
+  // "common.TXT" without the lang digit. This settles whether format
+  // produced the digit (eater is downstream in str-load/RPC) or not.
+  if (strstr(format_cstring, ".TXT")) {
+    fprintf(stderr, "A36-TXT-DIAG out=\"%s\"\n", PrintPendingLocal3);
+  }
 
   if (original_dest == s7.offset + FIX_SYM_TRUE) {
     // do nothing, we're done

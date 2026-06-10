@@ -3,6 +3,7 @@
 #include "android_gfx.h"
 
 #include <android/log.h>
+#include <dlfcn.h>
 
 #include <chrono>
 #include <condition_variable>
@@ -98,6 +99,44 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
                       "A35-RENDER glad loaded GL entry points via SDL_GL_GetProcAddress "
                       "(GL_VERSION=%s)",
                       (const char*)glGetString(GL_VERSION));
+
+  // A36: the desktop-profile glad parses "OpenGL ES 3.2" as version 3.2 and
+  // skips its GL_VERSION_4_1 load list — which is where the ES2-core
+  // functions (glClearDepthf, glDepthRangef, ...) live in desktop GL. They
+  // stay NULL and the first call is a BLR-to-0 (run-19/20: SIGSEGV pc=0 from
+  // android_renderer_run's clear). Resolve that family directly; dlsym
+  // fallback for drivers whose eglGetProcAddress skips core names.
+  {
+    auto resolve = [](const char* name) -> void* {
+      void* p = (void*)SDL_GL_GetProcAddress(name);
+      if (!p) {
+        static void* libgles = dlopen("libGLESv2.so", RTLD_NOW | RTLD_GLOBAL);
+        if (libgles) {
+          p = dlsym(libgles, name);
+        }
+      }
+      return p;
+    };
+    if (!glad_glClearDepthf) {
+      glad_glClearDepthf = (PFNGLCLEARDEPTHFPROC)resolve("glClearDepthf");
+    }
+    if (!glad_glDepthRangef) {
+      glad_glDepthRangef = (PFNGLDEPTHRANGEFPROC)resolve("glDepthRangef");
+    }
+    if (!glad_glGetShaderPrecisionFormat) {
+      glad_glGetShaderPrecisionFormat =
+          (PFNGLGETSHADERPRECISIONFORMATPROC)resolve("glGetShaderPrecisionFormat");
+    }
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "A36-RENDER GL4.1-list ES core fns resolved: glClearDepthf=%p "
+                        "glDepthRangef=%p",
+                        (void*)glad_glClearDepthf, (void*)glad_glDepthRangef);
+    if (!glad_glClearDepthf || !glad_glDepthRangef) {
+      __android_log_print(ANDROID_LOG_ERROR, kLogTag,
+                          "A36-RENDER missing core GLES entry points after fallback");
+      return false;
+    }
+  }
 
   g_window_w.store(win_w);
   g_window_h.store(win_h);

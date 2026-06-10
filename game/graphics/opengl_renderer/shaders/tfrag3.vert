@@ -11,7 +11,11 @@ uniform mat4 camera;
 uniform float fog_constant;
 uniform float fog_min;
 uniform float fog_max;
-uniform sampler1D tex_T10; // note, sampled in the vertex shader on purpose.
+// A36: Wx1 2D LUT instead of 1D — GLES has no sampler1D/glTexImage1D (the
+// arm64 device BLR'd into the NULL glTexImage1D loader slot). texelFetch on
+// a Wx1 sampler2D is texel-exact on desktop GL too; TFragment.cpp uploads
+// the time-of-day colors as GL_TEXTURE_2D (W,1) to match.
+uniform sampler2D tex_T10; // note, sampled in the vertex shader on purpose.
 uniform int decal;
 
 out vec4 fragment_color;
@@ -50,7 +54,7 @@ void main() {
   gl_Position = transformed;
 
   // time of day lookup
-  fragment_color = texelFetch(tex_T10, time_of_day_index, 0);
+  fragment_color = texelFetch(tex_T10, ivec2(time_of_day_index, 0), 0);
   // color adjustment
   fragment_color *= 2.0;
   fragment_color.a *= 2.0;

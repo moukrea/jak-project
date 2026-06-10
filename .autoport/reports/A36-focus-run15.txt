@@ -1,0 +1,6 @@
+t=2s   mCurrentFocus=Window{f7f7645 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=4s   mCurrentFocus=Window{8b19d20 u0 com.ghplus.patcher/com.ghplus.patcher.ui.MainActivity}
+t=6s   mCurrentFocus=Window{da4124d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=10s   mCurrentFocus=Window{b9af18f u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=20s   mCurrentFocus=Window{8b19d20 u0 com.ghplus.patcher/com.ghplus.patcher.ui.MainActivity}
+t=40s   mCurrentFocus=Window{8b19d20 u0 com.ghplus.patcher/com.ghplus.patcher.ui.MainActivity}

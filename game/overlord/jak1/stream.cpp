@@ -96,6 +96,13 @@ void* RPC_STR(unsigned int fno, void* _cmd, int y) {
   (void)fno;
   (void)y;
   auto* cmd = (RPC_Str_Cmd_Jak1*)_cmd;
+  // A36-STR-DIAG: every STR RPC's destination + length. The frame-285
+  // actor-heap wipe (0x1f33a4..0x1f6e34+) coincides with the 47104-byte
+  // LOINTRO STR chunk load to EE; this names the ee_addr so we can see
+  // whether the GOAL-side buffer pointer itself is inside the
+  // *nk-dead-pool* process heap.
+  printf("A36-STR-DIAG rpc name=\"%s\" chunk=%d ee_addr=0x%x maxlen=0x%x\n",
+         cmd->name, cmd->chunk_id, cmd->ee_addr, cmd->length);
   if (cmd->chunk_id < 0) {
     // it's _not_ a stream file. So we just treat it like a normal load.
 

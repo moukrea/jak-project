@@ -27,12 +27,23 @@
 
 #include "game/common/game_common_types.h"  // Language enum (A34 prelude parity)
 #include "game/kernel/common/Ptr.h"
+#include "game/kernel/common/fileio.h"
 #include "game/kernel/common/kboot.h"
+#include "game/kernel/common/kdgo.h"
+#include "game/kernel/common/kdsnetm.h"
+#include "game/kernel/common/klink.h"
+#include "game/kernel/common/klisten.h"
 #include "game/kernel/common/kmalloc.h"
+#include "game/kernel/common/kmemcard.h"
+#include "game/kernel/common/kprint.h"
 #include "game/kernel/common/kscheme.h"  // init_crc (A34 prelude parity)
 #include "game/kernel/common/memory_layout.h"
+#include "game/kernel/jak1/kboot.h"
+#include "game/kernel/jak1/kdgo.h"
+#include "game/kernel/jak1/klisten.h"
 #include "game/kernel/jak1/kmachine.h"  // jak1::InitParms
-#include "game/sce/libscf.h"            // ee::sceScfGetAspect/Language (A34)
+#include "game/kernel/jak1/kscheme.h"
+#include "game/sce/libscf.h"  // ee::sceScfGetAspect/Language (A34)
 
 // Phase 21 (autoport): SDL/GLES bring-up + shader compile + render loop
 // lives in its own TU so this file stays focused on the kernel boot
@@ -287,8 +298,31 @@ int goal_main(int argc, char** argv) {
   // ---------------------------------------------------------------------
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "goal_main: initializing kernel globals (kboot/kmalloc)");
+  // A36: mirror desktop exec_runtime's FULL init_globals sequence
+  // (game/runtime.cpp:194-226). Android previously called only
+  // kboot+kmalloc — every other kernel global stayed at .bss zeros.
+  // Visible casualty: kprint's ConvertTable was all-zero, so kitoa
+  // emitted "" for every digit and the text loader asked the fakeiso
+  // for "common.TXT" instead of "0common.TXT". Same order as desktop;
+  // jak2/jak3 variants are compiled into android_kernel and cheap.
+  fileio_init_globals();
+  jak1::kboot_init_globals();
   kboot_init_globals_common();
+  kdgo_init_globals();
+  jak1::kdgo_init_globals();
+  kdsnetm_init_globals_common();
+  klink_init_globals();
+  // Android shim (android_runtime_compat.cpp) — common/kmachine.h isn't
+  // includable here (pulls Display::/Gfx::), declare the shim directly.
+  extern void kmachine_init_globals_common();
+  kmachine_init_globals_common();
+  jak1::kscheme_init_globals();
+  kscheme_init_globals_common();
   kmalloc_init_globals_common();
+  klisten_init_globals();
+  jak1::klisten_init_globals();
+  kmemcard_init_globals();
+  kprint_init_globals_common();
 
   // Phase E1 (autoport): InitParms wires the -boot / -fakeiso / -debug-mem
   // flags into DiskBoot, MasterDebug, isodrv, modsrc — the bits that
