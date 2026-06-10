@@ -532,6 +532,21 @@ phases:
   validator: validators/phase-A30-android-runtime-surface-bringup.sh
   max_turns: 2500
   max_retries: 3
+- id: A31-android-boot-to-titlescreen
+  name: 'Push the on-device boot from 291 through init to the display loop + render the title screen. A30 got the GOAL kernel RUNNING on the
+    real device (0→291 on-device link-finishes) via native-log routing (gk_log_pipe), fixing the launcher/MIUI-dialog activity hijack +
+    a MAP_FIXED_NOREPLACE SIGILL, and refreshing stale APK CGOs. SDL/Adreno surface comes up (dark-blue clear). But the device SIGSEGVs at
+    the progress-part CGO top-level (on-device link #291), mid-init, before the display/dispatch loop — so the title screen (which draws
+    only once the display loop runs after init) is not reached. qemu is already at 660; the 291→660 gap is Android-specific crashes qemu
+    does not hit. A31 fixes the progress-part SIGSEGV + each subsequent on-device crash to reach the display loop, then confirms the
+    renderer draws the title screen (screencap). On-device link-finish count (routed logcat) is the metric, not qemu. Device rules:
+    ALWAYS -s eae4df44 (never emulator), disable/re-enable egggameplus reversibly, keep APK CGOs synced from out/jak1-arm64/iso. Lean
+    gates: x86 boots, qemu >=660, gk_log_pipe preserved, A31-device-*.png screencap captured; supervisor judges the image (black is not a
+    pass). Unlocks android/** + renderer + all non-oracle code. max_turns 2500, budget ~$250.'
+  prompt: prompts/phase-A31-android-boot-to-titlescreen.md
+  validator: validators/phase-A31-android-boot-to-titlescreen.sh
+  max_turns: 2500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
