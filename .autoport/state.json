@@ -62,7 +62,8 @@
     "A26-arm64-xmm-symmetric-and-break-trap": 1,
     "A27-arm64-catch-frame-chain-tracer": 1,
     "A28-arm64-codegen-fix-sprint": 1,
-    "A29-arm64-gsound-iop-rpc-sprint": 1
+    "A29-arm64-gsound-iop-rpc-sprint": 1,
+    "A30-android-runtime-surface-bringup": 0
   },
   "fingerprints": {
     "00-harness": [
@@ -228,7 +229,8 @@
     "A26-arm64-xmm-symmetric-and-break-trap": 1781028812.7022111,
     "A27-arm64-catch-frame-chain-tracer": 1781031296.452696,
     "A28-arm64-codegen-fix-sprint": 1781033568.8901443,
-    "A29-arm64-gsound-iop-rpc-sprint": 1781041483.1081767
+    "A29-arm64-gsound-iop-rpc-sprint": 1781041483.1081767,
+    "A30-android-runtime-surface-bringup": 1781068032.8567753
   },
   "last_update": "2026-06-09T22:42:47.556260+00:00",
   "rate_interrupts": {
