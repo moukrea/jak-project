@@ -3,7 +3,8 @@
 OpenGOAL → Android autonomous orchestrator.
 
 Hardcoded design choices (per project owner's preference):
-- Model: claude-opus-4-7 for EVERY phase. No Sonnet fallback ever.
+- Model: claude-fable-5[1m] for EVERY phase (owner default since 2026-06-10;
+  was claude-opus-4-7 through A32). No smaller-model fallback ever.
 - Thinking effort: max (via CLAUDE_EFFORT env + 'ultrathink' keyword in prompts)
 - Rate-limit waits use the EXACT reset epoch returned by the API.
   No "next Monday" assumption. The API tells us when the window resets;
@@ -49,7 +50,7 @@ from rich.panel import Panel
 # Configuration — hardcoded per owner preference.
 # ============================================================
 
-MODEL = "claude-opus-4-7"
+MODEL = "claude-fable-5[1m]"  # project default per owner 2026-06-10 — 1M-context, stronger on long-running tasks
 EFFORT = "max"
 
 # Full YOLO mode: --dangerously-skip-permissions bypasses ALL permission

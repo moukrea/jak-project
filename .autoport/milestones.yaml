@@ -547,6 +547,21 @@ phases:
   validator: validators/phase-A31-android-boot-to-titlescreen.sh
   max_turns: 2500
   max_retries: 3
+- id: A32-android-renderer-path-bringup
+  name: 'Fix the null-object dispatch at tpage-463 — the device now exercises the real renderer that qemu skips. qemu reaches 660 but the
+    device crashes at on-device link #316 (tpage-463 = texture-page = RENDERER data) with a type-method-zero dispatch on a NULL/freed object
+    (obj-goal=0x0, method slot=0xdeadbeef freed-poison → BLR EE_BASE → SIGILL). Same arm64 CGOs, so it is the runtime env: the device has a
+    real Adreno GL renderer + GS-emulation/texture-page path that headless qemu skips/stubs — the remaining device-only crashes are likely
+    renderer/GS bugs (the "renderer is the real unknown" surface, now reached). A31 was diagnostics-only (its +25 was ASLR drift, no real
+    fix). A32 MUST land a real fix + advance past 316: use the A18 a18_method_zero_trap to NAME the null object/type/method at tpage-463,
+    root-cause why it is null on Android vs qemu (heap layout/size mismatch in gk_android_main vs linux_arm64_main? renderer-init path run
+    only on real GL? init-order?), FIX (make the object valid — NOT null-guard to skip), push toward the display loop + render the title
+    screen. Fixing by null-guarding the dispatch is forbidden (hides the bug, renderer still wont draw). Device rules: -s eae4df44 only,
+    egggameplus reversible, keep APK CGOs synced. Lean gates + supervisor judges the screencap (black is not a pass). max_turns 2500.'
+  prompt: prompts/phase-A32-android-renderer-path-bringup.md
+  validator: validators/phase-A32-android-renderer-path-bringup.sh
+  max_turns: 2500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md

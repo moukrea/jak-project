@@ -64,7 +64,8 @@
     "A28-arm64-codegen-fix-sprint": 1,
     "A29-arm64-gsound-iop-rpc-sprint": 1,
     "A30-android-runtime-surface-bringup": 1,
-    "A31-android-boot-to-titlescreen": 2
+    "A31-android-boot-to-titlescreen": 2,
+    "A32-android-renderer-path-bringup": 0
   },
   "fingerprints": {
     "00-harness": [
@@ -237,7 +238,8 @@
     "A28-arm64-codegen-fix-sprint": 1781033568.8901443,
     "A29-arm64-gsound-iop-rpc-sprint": 1781041483.1081767,
     "A30-android-runtime-surface-bringup": 1781068032.8567753,
-    "A31-android-boot-to-titlescreen": 1781073387.6857047
+    "A31-android-boot-to-titlescreen": 1781073387.6857047,
+    "A32-android-renderer-path-bringup": 1781078393.1667619
   },
   "last_update": "2026-06-10T07:49:08.820520+00:00",
   "rate_interrupts": {
