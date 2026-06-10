@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 73,
+  "current_phase_idx": 74,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -67,7 +67,8 @@
     "A31-android-boot-to-titlescreen": 2,
     "A32-android-renderer-path-bringup": 1,
     "A33-arm64-regalloc-spill-sprint": 1,
-    "A34-android-display-loop-first-frame": 2
+    "A34-android-display-loop-first-frame": 2,
+    "A35-android-renderer-dma-to-gles": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -206,7 +207,8 @@
     "A31-android-boot-to-titlescreen",
     "A32-android-renderer-path-bringup",
     "A33-arm64-regalloc-spill-sprint",
-    "A34-android-display-loop-first-frame"
+    "A34-android-display-loop-first-frame",
+    "A35-android-renderer-dma-to-gles"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -249,9 +251,10 @@
     "A31-android-boot-to-titlescreen": 1781073387.6857047,
     "A32-android-renderer-path-bringup": 1781078393.1667619,
     "A33-arm64-regalloc-spill-sprint": 1781085014.9918177,
-    "A34-android-display-loop-first-frame": 1781098964.5909312
+    "A34-android-display-loop-first-frame": 1781098964.5909312,
+    "A35-android-renderer-dma-to-gles": 1781108602.3530843
   },
-  "last_update": "2026-06-10T16:22:49.622064+00:00",
+  "last_update": "2026-06-10T18:13:53.769738+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
