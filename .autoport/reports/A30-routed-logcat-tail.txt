@@ -1,0 +1,1285 @@
+06-10 07:47:55.711 28997 28997 I opengoal-gk: LoaderActivity: starting extraction check for jak1
+06-10 07:48:17.583 28997 29035 I opengoal-gk: iso_data extract: 321 files, 1420806916 bytes in 21828ms
+06-10 07:48:19.247 28997 28997 I opengoal-gk: libgk.so loaded (OpenGOAL gk (Android arm64-v8a, autoport phase 13 runtime))
+06-10 07:48:19.248 28997 28997 I opengoal-gk: gk_log_pipe[GK_STDOUT]: routing fd=1 → logcat
+06-10 07:48:19.249 28997 28997 I opengoal-gk: gk_log_pipe[GK_STDERR]: routing fd=2 → logcat
+06-10 07:48:19.249 28997 29079 I GK_STDOUT: gk_log_pipe: stdout routing active (printf test marker)
+06-10 07:48:19.249 28997 28997 I opengoal-gk: g_ee_main_mem: MAP_FIXED_NOREPLACE accepted hint 0x7f00000000 (libgk.so will be below EE_BASE → X30 trace skipped via B.LT)
+06-10 07:48:19.249 28997 28997 I opengoal-gk: g_ee_main_mem mmap 134217728 bytes RWX @ 0x7f00000000
+06-10 07:48:19.249 28997 29080 I GK_STDERR: gk_log_pipe: stderr routing active (fprintf test marker)
+06-10 07:48:19.299 28997 28997 I opengoal-gk: NativeGk.setSelectedGame: jak1
+06-10 07:48:19.299 28997 28997 I opengoal-gk: NativeGk.setDataRoot: /data/user/0/org.opengoal.gk.jak1/files/iso_data/jak1
+06-10 07:48:19.748 28997 28997 I opengoal-gk: jak1 iso_data present at /data/user/0/org.opengoal.gk.jak1/files/iso_data/jak1
+06-10 07:48:19.796 28997 28997 I opengoal-gk: touch overlay setting: enabled=true default=true gamepads_at_start=0
+06-10 07:48:19.801 28997 28997 I opengoal-gk: touch overlay enabled — overlay visible (no gamepad at startup)
+06-10 07:48:19.802 28997 28997 I opengoal-gk: MainActivity onCreate done; mLayout=true mLayout.children=2
+06-10 07:48:19.854 28997 28997 I opengoal-gk: overlay-map: screen=2298x934 south=2022,784,70,0 east=2134,672,70,1 west=1910,672,70,2 north=2022,560,70,3 dpad_up=275,560,70,11 dpad_down=275,784,70,12 dpad_left=163,672,70,13 dpad_right=387,672,70,14 start=1149,859,49,6
+06-10 07:48:20.033 28997 29093 I opengoal-gk: gk_sdl_main: entered
+06-10 07:48:20.033 28997 29093 I opengoal-gk: gk_install_sigsegv_diag: installed
+06-10 07:48:20.033 28997 29093 I opengoal-gk: A11-DIAG sym-bind-trace: chained klink_a11_ensure_pc_mips2c_bound + klink_a12_ensure_sound_rpc_bound + klink_a14_ensure_pc_memmove_bound + a17_bind_pc_helpers + klink_a18_install_method_zero_trap onto g_jak1_pre_kernel_version_check_hook (prev=0x72efac0300; A13 IOP-init NOT chained here — Android uses real iop_runner)
+06-10 07:48:20.076 28997 29093 I opengoal-gk: SDL_joystick: virtual gamepad attached id=1 (buttons=26 axes=6)
+06-10 07:48:20.076 28997 29093 I opengoal-gk: SDL_Init: gamepad subsystem OK
+06-10 07:48:20.109 28997 29080 I GK_STDERR: Low latency audio enabled
+06-10 07:48:21.784 28997 29093 I opengoal-gk: SDL_audio: opened device='System audio playback device' freq=48000 channels=2 format=0x8120 buffer=960 frames driver='AAudio'
+06-10 07:48:21.784 28997 29093 I opengoal-gk: SDL_audio: playback resumed
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: argv=[gk,--game,jak1,--portable,-fakeiso,-iso-data,/data/user/0/org.opengoal.gk.jak1/files/iso_data/jak1,-boot,-debug-mem]
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: entered argc=9
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: argv[0]=gk
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: argv[1]=--game
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: argv[2]=jak1
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: argv[3]=--portable
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: argv[4]=-fakeiso
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: argv[5]=-iso-data
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: argv[6]=/data/user/0/org.opengoal.gk.jak1/files/iso_data/jak1
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: argv[7]=-boot
+06-10 07:48:21.784 28997 29093 I opengoal-gk: goal_main: argv[8]=-debug-mem
+06-10 07:48:21.784 28997 29108 I opengoal-gk: SDL_audio: callback fired, 960 samples
+06-10 07:48:21.855 28997 29093 D opengoal-gk: Using explicitly set project path: /data/user/0/org.opengoal.gk.jak1/files
+06-10 07:48:21.855 28997 29093 I opengoal-gk: goal_main: project_path=/data/user/0/org.opengoal.gk.jak1/files, iso_link=/data/user/0/org.opengoal.gk.jak1/files/out/jak1/iso -> /data/user/0/org.opengoal.gk.jak1/files/iso_data/jak1
+06-10 07:48:21.855 28997 29093 I opengoal-gk: goal_main: initializing kernel globals (kboot/kmalloc)
+06-10 07:48:21.855 28997 29093 I opengoal-gk: goal_main: InitParms(argc=9) — wiring boot flags
+06-10 07:48:21.855 28997 29093 I opengoal-gk: dkernel: fakeiso mode
+06-10 07:48:21.855 28997 29093 I opengoal-gk: dkernel: boot mode
+06-10 07:48:21.855 28997 29093 I opengoal-gk: dkernel: debug-mem mode
+06-10 07:48:21.858 28997 29093 I opengoal-gk: kheap_alloc: OK base=0x13fd20 top=0x33fd20 size=2097152 used=0
+06-10 07:48:21.858 28997 29093 I opengoal-gk: KERNEL.CGO: opening /data/user/0/org.opengoal.gk.jak1/files/iso_data/jak1/KERNEL.CGO
+06-10 07:48:21.868 28997 29093 I opengoal-gk: KERNEL.CGO: loaded 159664 bytes (first4=08 00 00 00)
+06-10 07:48:21.868 28997 29093 I opengoal-gk: code-map: 39 pages RX, 0 RWX
+06-10 07:48:21.868 28997 29093 I opengoal-gk: goal_main: calling InitMachine()
+06-10 07:48:21.868 28997 29093 I opengoal-gk-full: InitMachine: entered (top-level wrapper)
+06-10 07:48:21.868 28997 29093 I opengoal-gk-full: InitMachine: kglobalheap base=0x13fd20 end=0x3eb82e0 size=64456128 (61.47 MB)
+06-10 07:48:21.911 28997 29093 I opengoal-gk-full: InitMachine: kglobalheap initialized, used=0
+06-10 07:48:21.911 28997 29093 I opengoal-gk-full: InitMachine: kdebugheap base=0x5000000 end=0x7ff0000 size=50266112 (47.94 MB)
+06-10 07:48:21.948 28997 29093 I opengoal-gk-full: InitMachine: init_output()
+06-10 07:48:21.949 28997 29093 I opengoal-gk-full: InitMachine: print/output buffers reset
+06-10 07:48:21.949 28997 29093 I opengoal-gk-full: InitMachine: InitListenerConnect / InitCheckListener
+06-10 07:48:21.949 28997 29093 I opengoal-gk-full: InitMachine: MasterUseKernel=1 MasterDebug=1
+06-10 07:48:21.949 28997 29093 I opengoal-gk-full: InitMachine: spawning IOP worker thread
+06-10 07:48:21.949 28997 29093 I opengoal-gk-full: make_iop_thread: starting IOP runner (#1)
+06-10 07:48:21.949 28997 29093 I opengoal-gk-full: InitMachine: Deci2Server registered (port=8112, no listener)
+06-10 07:48:21.949 28997 29093 D opengoal-gk-full: gfx_dispatcher: tick 0
+06-10 07:48:21.949 28997 29093 I opengoal-gk-full: InitMachine: delegating to jak1::InitMachine
+06-10 07:48:21.949 28997 29093 I opengoal-gk: gkernel: global heap 0x0013fd20 to 0x03eb82e0 (size 61.470 MB)
+06-10 07:48:21.949 28997 29109 I opengoal-gk-full: iop-runner: tid=29109 online
+06-10 07:48:21.949 28997 29109 I opengoal-gk-full: iop-runner: waiting for OVERLORD start cmd from EE
+06-10 07:48:21.962 28997 29093 I opengoal-gk: gkernel: debug heap 0x05000000 to 0x07ff0000 (size 47.938 MB, gap 17.281 MB)
+06-10 07:48:21.962 28997 29093 D opengoal-gk: Rebooting IOP...
+06-10 07:48:21.962 28997 29093 D opengoal-gk: Initializing CD library...
+06-10 07:48:21.962 28997 29079 I GK_STDOUT: arg 1 : fakeiso
+06-10 07:48:21.962 28997 29109 I opengoal-gk-full: iop-runner: OVERLORD_INIT received, running start_overlord_wrapper
+06-10 07:48:21.962 28997 29079 I GK_STDOUT: arg 2 : SCREEN1.USA
+06-10 07:48:21.962 28997 29109 I opengoal-gk-full: iop-runner: start_overlord_wrapper queued; dispatching IOP kernel until overlord init completes
+06-10 07:48:21.975 28997 29109 D opengoal-gk: [OVERLORD] LoadISOFileToIOP VAGDIR  AYB, 10420/-1 bytes
+06-10 07:48:21.976 28997 29109 D opengoal-gk: [OVERLORD] Queue 2 (1/4), LoadSingle
+06-10 07:48:21.976 28997 29109 D opengoal-gk:   PRI 2 elt 0 LoadSingle @ #xB4000072F3E65990
+06-10 07:48:21.976 28997 29109 D opengoal-gk: [OVERLORD] FS Open VAGDIR  AYB
+06-10 07:48:22.027 28997 29109 D opengoal-gk: [OVERLORD] FS_Close VAGDIR  AYB @ 308/48
+06-10 07:48:22.027 28997 29109 D opengoal-gk: [OVERLORD] LoadISOFileToEE SCREEN1 USA, 8388608/-1 bytes
+06-10 07:48:22.027 28997 29109 D opengoal-gk: [OVERLORD] Queue 2 (1/4), LoadSingle
+06-10 07:48:22.027 28997 29109 D opengoal-gk:   PRI 2 elt 0 LoadSingle @ #xB4000072F3E65990
+06-10 07:48:22.027 28997 29109 D opengoal-gk: [OVERLORD] FS Open SCREEN1 USA
+06-10 07:48:22.040 28997 29109 D opengoal-gk: [OVERLORD] FS_Close SCREEN1 USA @ 292/480
+06-10 07:48:22.040 28997 29109 I opengoal-gk-full: iop-runner: overlord init complete; signalling EE
+06-10 07:48:22.040 28997 29109 I opengoal-gk-full: iop-runner: entering main IOP kernel dispatch loop
+06-10 07:48:22.041 28997 29093 I opengoal-gk: InitIOP OK
+06-10 07:48:22.041 28997 29093 I opengoal-gk-d4: shim entered: InitVideo (Android: real body deferred)
+06-10 07:48:22.041 28997 29093 I opengoal-gk-d4: InitVideo: splash decode skipped on Android
+06-10 07:48:22.041 28997 29093 I opengoal-gk: [DECI2] Add new protocol driver 1 for 0xe042
+06-10 07:48:22.041 28997 29093 I opengoal-gk: gproto: proto open at socket 1
+06-10 07:48:22.041 28997 29093 I opengoal-gk: InitSound
+06-10 07:48:22.041 28997 29093 I opengoal-gk: InitRPC
+06-10 07:48:22.041 28997 29093 I opengoal-gk: kernel: RPC port #0 started [DEB1]
+06-10 07:48:22.041 28997 29093 I opengoal-gk: kernel: RPC port #1 started [DEB2]
+06-10 07:48:22.041 28997 29093 I opengoal-gk: kernel: RPC port #2 started [DEB3]
+06-10 07:48:22.041 28997 29093 I opengoal-gk: kernel: RPC port #3 started [DEB4]
+06-10 07:48:22.041 28997 29093 I opengoal-gk: kernel: RPC port #4 started [DEB5]
+06-10 07:48:22.041 28997 29093 I opengoal-gk: kernel: RPC port #5 started [DEB6]
+06-10 07:48:22.041 28997 29093 I opengoal-gk: Initialized GOAL heap in 0.1 ms
+06-10 07:48:22.041 28997 29093 D opengoal-gk: [Load and Link DGO From C] kernel
+06-10 07:48:22.041 28997 29093 D opengoal-gk: [Begin Loading DGO RPC] KERNEL.CGO, 0x36b82c0, 0x3ab82c0, 0x182e40
+06-10 07:48:22.041 28997 29109 D opengoal-gk: [OVERLORD] Queue 0 (1/4), LoadDGO
+06-10 07:48:22.041 28997 29109 D opengoal-gk:   PRI 0 elt 0 LoadDGO @ #x72EFD78700
+06-10 07:48:22.041 28997 29109 D opengoal-gk: [OVERLORD] FS Open KERNEL  CGO
+06-10 07:48:22.041 28997 29109 I opengoal-gk: [Overlord DGO] Got DGO file header for KERNEL.CGO with 8 objects
+06-10 07:48:22.041 28997 29093 D opengoal-gk: [link and exec] gcommon            0  34807 heap-use   274666  3145728: 0x182e0a
+06-10 07:48:22.041 28997 29093 D opengoal-gk: link finish: gcommon
+06-10 07:48:22.042 28997 29093 D opengoal-gk: [link and exec] gstring-h          0    110 heap-use   298576  3145728: 0x188b70
+06-10 07:48:22.042 28997 29093 D opengoal-gk: link finish: gstring-h
+06-10 07:48:22.042 28997 29093 D opengoal-gk: [link and exec] gkernel-h          0  27110 heap-use   298576  3145728: 0x188b70
+06-10 07:48:22.042 28997 29093 D opengoal-gk: link finish: gkernel-h
+06-10 07:48:22.043 28997 29093 D opengoal-gk: [link and exec] gkernel            0  61690 heap-use   300496  3145728: 0x1892f0
+06-10 07:48:22.043 28997 29093 D opengoal-gk: link finish: gkernel
+06-10 07:48:22.045 28997 29093 D opengoal-gk: [link and exec] pskernel           0   8951 heap-use  3685376  3145728: 0x4c3920
+06-10 07:48:22.045 28997 29093 D opengoal-gk: link finish: pskernel
+06-10 07:48:22.045 28997 29093 D opengoal-gk: [link and exec] gstring            0  19674 heap-use  3689456  3145728: 0x4c4910
+06-10 07:48:22.045 28997 29093 D opengoal-gk: link finish: gstring
+06-10 07:48:22.046 28997 29093 D opengoal-gk: [link and exec] dgo-h              0   2195 heap-use  3738441  3145728: 0x4d0869
+06-10 07:48:22.046 28997 29093 D opengoal-gk: link finish: dgo-h
+06-10 07:48:22.046 28997 29109 D opengoal-gk: [OVERLORD] FS_Close KERNEL  CGO @ 179/120
+06-10 07:48:22.046 28997 29093 D opengoal-gk: [link and exec] gstate             1   4488 heap-use  3738640  3145728: 0x4d0930
+06-10 07:48:22.046 28997 29093 D opengoal-gk: link finish: gstate
+06-10 07:48:22.046 28997 29080 I GK_STDERR: A11-DIAG sym-bind-trace: bound __pc-get-mips2c to a11_pc_get_mips2c_impl (function GOAL ptr 0x4d1644)
+06-10 07:48:22.046 28997 29080 I GK_STDERR: A12-DIAG sym-bind-trace: bound rpc-call to RpcCall_wrapper (value-arg GOAL ptr 0x4d16e4, stack-arg GOAL ptr 0x4d18a4), rpc-busy? to RpcBusy (0x4d1784), test-load-dgo-c to LoadDGOTest (0x4d1824)
+06-10 07:48:22.046 28997 29080 I GK_STDERR: A14-DIAG sym-bind-trace: bound __mem-move to a14_pc_memmove_impl (GOAL ptr 0x4d1944)
+06-10 07:48:22.046 28997 29093 I opengoal-gk: A17-DIAG sym-bind-trace: bound the pc-* helper surface (~80 helpers) to a17_pc_default no-op so pckernel-h/common top-level + (play) reset chain don't SIGILL on unbound symbols
+06-10 07:48:22.046 28997 29080 I GK_STDERR: A18-DIAG dead-pool-heap-state: sym_val=0x189134 num_methods=27 slot22=0x18bd04 (trap=0x4d57b4)
+06-10 07:48:22.046 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: bound __a18-method-zero-trap to a18_method_zero_trap (GOAL fn ptr 0x4d57b4), patched 67 empty method slots across loaded kernel types — type-method-zero BLR-to-ee_base now lands at the trap (which prints the named missing impl and returns 0)
+06-10 07:48:22.047 28997 29080 I GK_STDERR: A18-DIAG dph-method-table: sym_val=0x189134 num_methods=27 m0=0x18ba04 m1=0x17fff4 m2=0x189ab4 m3=0x18bff4 m4=0x17fe74 m5=0x18c864 m6=0x17ff54 m7=0x1892f4 m8=0x4d57b4 m9=0x4d57b4 m10=0x190e94 m11=0x4d57b4 m12=0x4d57b4 m13=0x4d57b4 m14=0x18cb94 m15=0x18d0f4 m16=0x18d6a4 m17=0x18d414 m18=0x18db84 m19=0x18c8a4 m20=0x18c984 m21=0x18bda4 m22=0x18bd04 m23=0x18bf14 m24=0x18cab4 m25=0x18c9c4 m26=0x18ca84
+06-10 07:48:22.047 28997 29080 I GK_STDERR: A18-DIAG x12-wrap: type=dead-pool-heap slot=24 orig_fn=0x18cab4 wrapper=0x4d5834
+06-10 07:48:22.047 28997 29080 I GK_STDERR: A18-DIAG x12-wrap: type=dead-pool-heap slot=22 orig_fn=0x18bd04 wrapper=0x4d58b4
+06-10 07:48:22.047 28997 29080 I GK_STDERR: A18-DIAG x12-wrap: type=dead-pool-heap slot=23 orig_fn=0x18bf14 wrapper=0x4d5934
+06-10 07:48:22.047 28997 29080 I GK_STDERR: A18-DIAG x12-wrap: type=process slot=0 orig_fn=0x189f34 wrapper=0x4d59b4
+06-10 07:48:22.047 28997 29080 I GK_STDERR: A18-DIAG x12-wrap: 4 total methods wrapped to preserve X12 (goalc-arm64 regalloc bug workaround for get-process)
+06-10 07:48:22.047 28997 29093 I opengoal-gk: Got correct kernel version 2.0, loaded in 5.8 ms
+06-10 07:48:22.047 28997 29093 I opengoal-gk-d4: shim entered: init_common_pc_port_functions (Android: real body deferred)
+06-10 07:48:22.047 28997 29093 W opengoal-gk-d4: init_common_pc_port_functions: skipped pc-* registration (Android Display/Gfx port pending)
+06-10 07:48:22.047 28997 29093 D opengoal-gk: [Load and Link DGO From C] game
+06-10 07:48:22.047 28997 29093 D opengoal-gk: [Begin Loading DGO RPC] GAME.CGO, 0x36b82c0, 0x3ab82c0, 0x4d7300
+06-10 07:48:22.047 28997 29109 D opengoal-gk: [OVERLORD] Queue 0 (1/4), LoadDGO
+06-10 07:48:22.047 28997 29109 D opengoal-gk:   PRI 0 elt 0 LoadDGO @ #x72EFD78700
+06-10 07:48:22.047 28997 29109 D opengoal-gk: [OVERLORD] FS Open GAME    CGO
+06-10 07:48:22.065 28997 29109 I opengoal-gk: [Overlord DGO] Got DGO file header for GAME.CGO with 346 objects
+06-10 07:48:22.065 28997 29093 D opengoal-gk: [link and exec] types-h            0   1230 heap-use  3765680  3145728: 0x4d72d0
+06-10 07:48:22.065 28997 29093 D opengoal-gk: link finish: types-h
+06-10 07:48:22.065 28997 29093 D opengoal-gk: [link and exec] vu1-macros         0   6356 heap-use  3765856  3145728: 0x4d7380
+06-10 07:48:22.065 28997 29093 D opengoal-gk: link finish: vu1-macros
+06-10 07:48:22.066 28997 29093 D opengoal-gk: [link and exec] math               0   6720 heap-use  3766480  3145728: 0x4d75f0
+06-10 07:48:22.066 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -13074532 out of range at 0x7f036b8094
+06-10 07:48:22.066 28997 29093 D opengoal-gk: link finish: math
+06-10 07:48:22.074 28997 29093 D opengoal-gk: [link and exec] vector-h           0  42718 heap-use  3769704  3145728: 0x4d8288
+06-10 07:48:22.074 28997 29093 D opengoal-gk: link finish: vector-h
+06-10 07:48:22.075 28997 29093 D opengoal-gk: [link and exec] gravity-h          0    110 heap-use  3776048  3145728: 0x4d9b50
+06-10 07:48:22.075 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 4 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.075 28997 29093 D opengoal-gk: link finish: gravity-h
+06-10 07:48:22.075 28997 29093 D opengoal-gk: [link and exec] bounding-box-h     0   2775 heap-use  3776048  3145728: 0x4d9b50
+06-10 07:48:22.076 28997 29093 D opengoal-gk: link finish: bounding-box-h
+06-10 07:48:22.076 28997 29093 D opengoal-gk: [link and exec] matrix-h           0   3379 heap-use  3776368  3145728: 0x4d9c90
+06-10 07:48:22.076 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 7 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.076 28997 29093 D opengoal-gk: link finish: matrix-h
+06-10 07:48:22.076 28997 29093 D opengoal-gk: [link and exec] quaternion-h       0   1966 heap-use  3776784  3145728: 0x4d9e30
+06-10 07:48:22.076 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 1 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.076 28997 29093 D opengoal-gk: link finish: quaternion-h
+06-10 07:48:22.076 28997 29093 D opengoal-gk: [link and exec] euler-h            0   1949 heap-use  3776928  3145728: 0x4d9ec0
+06-10 07:48:22.076 28997 29093 D opengoal-gk: link finish: euler-h
+06-10 07:48:22.077 28997 29093 D opengoal-gk: [link and exec] transform-h        0   2193 heap-use  3777120  3145728: 0x4d9f80
+06-10 07:48:22.077 28997 29093 D opengoal-gk: link finish: transform-h
+06-10 07:48:22.077 28997 29093 D opengoal-gk: [link and exec] geometry-h         0   2851 heap-use  3777296  3145728: 0x4da030
+06-10 07:48:22.077 28997 29093 D opengoal-gk: link finish: geometry-h
+06-10 07:48:22.077 28997 29093 D opengoal-gk: [link and exec] trigonometry-h     0    110 heap-use  3777472  3145728: 0x4da0e0
+06-10 07:48:22.077 28997 29093 D opengoal-gk: link finish: trigonometry-h
+06-10 07:48:22.077 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 2 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.077 28997 29093 D opengoal-gk: [link and exec] transformq-h       0   5969 heap-use  3777472  3145728: 0x4da0e0
+06-10 07:48:22.077 28997 29093 D opengoal-gk: link finish: transformq-h
+06-10 07:48:22.078 28997 29093 D opengoal-gk: [link and exec] bounding-box       0   3176 heap-use  3778368  3145728: 0x4da460
+06-10 07:48:22.078 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 17 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.078 28997 29093 D opengoal-gk: link finish: bounding-box
+06-10 07:48:22.078 28997 29093 D opengoal-gk: [link and exec] matrix             0  28455 heap-use  3780219  3145728: 0x4dab9b
+06-10 07:48:22.078 28997 29093 D opengoal-gk: link finish: matrix
+06-10 07:48:22.079 28997 29093 D opengoal-gk: [link and exec] transform          0   4329 heap-use  3803696  3145728: 0x4e0750
+06-10 07:48:22.079 28997 29093 D opengoal-gk: link finish: transform
+06-10 07:48:22.079 28997 29093 D opengoal-gk: [link and exec] quaternion         0  24743 heap-use  3806793  3145728: 0x4e1369
+06-10 07:48:22.079 28997 29093 D opengoal-gk: link finish: quaternion
+06-10 07:48:22.079 28997 29093 D opengoal-gk: [link and exec] euler              0   6599 heap-use  3824733  3145728: 0x4e597d
+06-10 07:48:22.079 28997 29093 D opengoal-gk: link finish: euler
+06-10 07:48:22.079 28997 29093 D opengoal-gk: [link and exec] geometry           0  35865 heap-use  3830257  3145728: 0x4e6f11
+06-10 07:48:22.080 28997 29093 D opengoal-gk: link finish: geometry
+06-10 07:48:22.080 28997 29093 D opengoal-gk: [link and exec] trigonometry       0  19260 heap-use  3859281  3145728: 0x4ee071
+06-10 07:48:22.080 28997 29093 D opengoal-gk: link finish: trigonometry
+06-10 07:48:22.080 28997 29093 D opengoal-gk: [link and exec] gsound-h           0  52145 heap-use  3872992  3145728: 0x4f1600
+06-10 07:48:22.080 28997 29093 D opengoal-gk: link finish: gsound-h
+06-10 07:48:22.081 28997 29093 D opengoal-gk: [link and exec] timer-h            0   8377 heap-use  3876704  3145728: 0x4f2480
+06-10 07:48:22.082 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 6 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.082 28997 29093 D opengoal-gk: link finish: timer-h
+06-10 07:48:22.082 28997 29093 D opengoal-gk: [link and exec] timer              0   3746 heap-use  3877552  3145728: 0x4f27d0
+06-10 07:48:22.082 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 4 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.082 28997 29093 D opengoal-gk: link finish: timer
+06-10 07:48:22.082 28997 29093 D opengoal-gk: [link and exec] vif-h              0   9288 heap-use  3880276  3145728: 0x4f3274
+06-10 07:48:22.082 28997 29093 D opengoal-gk: link finish: vif-h
+06-10 07:48:22.083 28997 29093 D opengoal-gk: [link and exec] dma-h              0  27005 heap-use  3880656  3145728: 0x4f33f0
+06-10 07:48:22.083 28997 29093 D opengoal-gk: link finish: dma-h
+06-10 07:48:22.083 28997 29093 D opengoal-gk: [link and exec] video-h            0   3622 heap-use  3884272  3145728: 0x4f4210
+06-10 07:48:22.083 28997 29093 D opengoal-gk: link finish: video-h
+06-10 07:48:22.084 28997 29093 D opengoal-gk: [link and exec] vu1-user-h         0   4994 heap-use  3884480  3145728: 0x4f42e0
+06-10 07:48:22.084 28997 29093 D opengoal-gk: link finish: vu1-user-h
+06-10 07:48:22.084 28997 29093 D opengoal-gk: [link and exec] dma                0   7515 heap-use  3884960  3145728: 0x4f44c0
+06-10 07:48:22.084 28997 29093 D opengoal-gk: link finish: dma
+06-10 07:48:22.084 28997 29093 D opengoal-gk: [link and exec] dma-buffer         0   7676 heap-use  3890696  3145728: 0x4f5b28
+06-10 07:48:22.084 28997 29093 D opengoal-gk: link finish: dma-buffer
+06-10 07:48:22.085 28997 29093 D opengoal-gk: [link and exec] dma-bucket         0    914 heap-use  3892752  3145728: 0x4f6330
+06-10 07:48:22.085 28997 29093 D opengoal-gk: link finish: dma-bucket
+06-10 07:48:22.085 28997 29093 D opengoal-gk: [link and exec] dma-disasm         0  21973 heap-use  3893361  3145728: 0x4f6591
+06-10 07:48:22.085 28997 29093 D opengoal-gk: link finish: dma-disasm
+06-10 07:48:22.085 28997 29093 D opengoal-gk: [link and exec] pc-cheats          0    110 heap-use  3893595  3145728: 0x4f667b
+06-10 07:48:22.085 28997 29093 D opengoal-gk: link finish: pc-cheats
+06-10 07:48:22.086 28997 29093 D opengoal-gk: [link and exec] pckernel-h         0  26421 heap-use  3893595  3145728: 0x4f667b
+06-10 07:48:22.086 28997 29093 D opengoal-gk: link finish: pckernel-h
+06-10 07:48:22.086 28997 29093 D opengoal-gk: [link and exec] pckernel-impl      0  24134 heap-use  3901721  3145728: 0x4f8639
+06-10 07:48:22.086 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 34 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.086 28997 29093 D opengoal-gk: link finish: pckernel-impl
+06-10 07:48:22.087 28997 29093 D opengoal-gk: [link and exec] pc-debug-common    0    183 heap-use  3903504  3145728: 0x4f8d30
+06-10 07:48:22.087 28997 29093 D opengoal-gk: link finish: pc-debug-common
+06-10 07:48:22.087 28997 29093 D opengoal-gk: [link and exec] pc-debug-methods   0  17609 heap-use  3903504  3145728: 0x4f8d30
+06-10 07:48:22.087 28997 29093 D opengoal-gk: link finish: pc-debug-methods
+06-10 07:48:22.087 28997 29093 D opengoal-gk: [link and exec] pad                0  17804 heap-use  3903504  3145728: 0x4f8d30
+06-10 07:48:22.087 28997 29093 D opengoal-gk: link finish: pad
+06-10 07:48:22.087 28997 29093 I opengoal-gk-d4: shim entered: CPadOpen (Android: real body deferred)
+06-10 07:48:22.088 28997 29093 D opengoal-gk: [link and exec] gs                 0  76379 heap-use  3911644  3145728: 0x4facfc
+06-10 07:48:22.088 28997 29093 D opengoal-gk: link finish: gs
+06-10 07:48:22.090 28997 29093 D opengoal-gk: [link and exec] display-h          0  17006 heap-use  3923680  3145728: 0x4fdc00
+06-10 07:48:22.090 28997 29093 D opengoal-gk: link finish: display-h
+06-10 07:48:22.090 28997 29093 D opengoal-gk: [link and exec] vector             0  21576 heap-use  3925952  3145728: 0x4fe4e0
+06-10 07:48:22.091 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 1 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.091 28997 29093 D opengoal-gk: link finish: vector
+06-10 07:48:22.091 28997 29093 D opengoal-gk: [link and exec] file-io            0   8007 heap-use  3941488  3145728: 0x502190
+06-10 07:48:22.091 28997 29093 D opengoal-gk: link finish: file-io
+06-10 07:48:22.091 28997 29093 D opengoal-gk: [link and exec] loader-h           0  12031 heap-use  3945097  3145728: 0x502fa9
+06-10 07:48:22.091 28997 29093 D opengoal-gk: link finish: loader-h
+06-10 07:48:22.092 28997 29093 D opengoal-gk: [link and exec] texture-h          0  20163 heap-use  3947280  3145728: 0x503830
+06-10 07:48:22.092 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 19 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.092 28997 29093 D opengoal-gk: link finish: texture-h
+06-10 07:48:22.092 28997 29093 D opengoal-gk: [link and exec] level-h            0  29577 heap-use  3949280  3145728: 0x504000
+06-10 07:48:22.093 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 21 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.093 28997 29093 D opengoal-gk: link finish: level-h
+06-10 07:48:22.093 28997 29093 D opengoal-gk: [link and exec] math-camera-h      0  13483 heap-use  3958416  3145728: 0x5063b0
+06-10 07:48:22.093 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 38 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.093 28997 29093 D opengoal-gk: link finish: math-camera-h
+06-10 07:48:22.093 28997 29093 D opengoal-gk: [link and exec] math-camera        0  19906 heap-use  3958704  3145728: 0x5064d0
+06-10 07:48:22.093 28997 29093 D opengoal-gk: link finish: math-camera
+06-10 07:48:22.094 28997 29093 D opengoal-gk: [link and exec] font-h             0  18250 heap-use  3973924  3145728: 0x50a044
+06-10 07:48:22.094 28997 29093 D opengoal-gk: link finish: font-h
+06-10 07:48:22.094 28997 29093 D opengoal-gk: [link and exec] decomp-h           0   1417 heap-use  3978880  3145728: 0x50b3a0
+06-10 07:48:22.095 28997 29093 D opengoal-gk: link finish: decomp-h
+06-10 07:48:22.095 28997 29093 D opengoal-gk: [link and exec] display            0  19924 heap-use  3978976  3145728: 0x50b400
+06-10 07:48:22.095 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -13018357 out of range at 0x7f036b7c3c
+06-10 07:48:22.095 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -13018399 out of range at 0x7f036b7ce8
+06-10 07:48:22.095 28997 29093 D opengoal-gk: link finish: display
+06-10 07:48:22.097 28997 29093 D opengoal-gk: [link and exec] connect            0  19823 heap-use 20386468  3145728: 0x14b0fc4
+06-10 07:48:22.097 28997 29093 D opengoal-gk: link finish: connect
+06-10 07:48:22.098 28997 29093 D opengoal-gk: [link and exec] text-h             0  78818 heap-use 20395712  3145728: 0x14b33e0
+06-10 07:48:22.098 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 1 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.098 28997 29093 D opengoal-gk: link finish: text-h
+06-10 07:48:22.099 28997 29093 D opengoal-gk: [link and exec] settings-h         0  10618 heap-use 20445328  3145728: 0x14bf5b0
+06-10 07:48:22.099 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 1 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.099 28997 29093 D opengoal-gk: link finish: settings-h
+06-10 07:48:22.099 28997 29093 D opengoal-gk: [link and exec] knuth-rand         0   3195 heap-use 20445888  3145728: 0x14bf7e0
+06-10 07:48:22.099 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 6 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.099 28997 29093 D opengoal-gk: link finish: knuth-rand
+06-10 07:48:22.223 28997 29093 D opengoal-gk: [link and exec] capture            0   6128 heap-use 20447520  3145728: 0x14bfe40
+06-10 07:48:22.223 28997 29093 D opengoal-gk: link finish: capture
+06-10 07:48:22.223 28997 29093 D opengoal-gk: [link and exec] memory-usage-h     0   2839 heap-use 20447620  3145728: 0x14bfea4
+06-10 07:48:22.223 28997 29093 D opengoal-gk: link finish: memory-usage-h
+06-10 07:48:22.224 28997 29093 D opengoal-gk: [link and exec] texture            0  63883 heap-use 20447786  3145728: 0x14bff4a
+06-10 07:48:22.224 28997 29093 D opengoal-gk: link finish: texture
+06-10 07:48:22.238 28997 29093 D opengoal-gk: [link and exec] main-h             0   7375 heap-use 20500624  3145728: 0x14ccdb0
+06-10 07:48:22.238 28997 29093 D opengoal-gk: link finish: main-h
+06-10 07:48:22.239 28997 29093 D opengoal-gk: [link and exec] mspace-h           0   8526 heap-use 20504288  3145728: 0x14cdc00
+06-10 07:48:22.239 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 1 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.239 28997 29093 D opengoal-gk: link finish: mspace-h
+06-10 07:48:22.241 28997 29093 D opengoal-gk: [link and exec] drawable-h         0   1988 heap-use 20505056  3145728: 0x14cdf00
+06-10 07:48:22.241 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 1 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.242 28997 29093 D opengoal-gk: link finish: drawable-h
+06-10 07:48:22.243 28997 29093 D opengoal-gk: [link and exec] drawable-group-h   0   1400 heap-use 20505312  3145728: 0x14ce000
+06-10 07:48:22.243 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 18 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.243 28997 29093 D opengoal-gk: link finish: drawable-group-h
+06-10 07:48:22.244 28997 29093 D opengoal-gk: [link and exec] drawable-inline-array-h 0   1186 heap-use 20505472  3145728: 0x14ce0a0
+06-10 07:48:22.244 28997 29093 D opengoal-gk: link finish: drawable-inline-array-h
+06-10 07:48:22.245 28997 29093 D opengoal-gk: [link and exec] draw-node-h        0   3876 heap-use 20505600  3145728: 0x14ce120
+06-10 07:48:22.246 28997 29093 D opengoal-gk: link finish: draw-node-h
+06-10 07:48:22.247 28997 29093 D opengoal-gk: [link and exec] drawable-tree-h    0   2670 heap-use 20505968  3145728: 0x14ce290
+06-10 07:48:22.248 28997 29093 D opengoal-gk: link finish: drawable-tree-h
+06-10 07:48:22.248 28997 29093 D opengoal-gk: [link and exec] drawable-actor-h   0   3901 heap-use 20506224  3145728: 0x14ce390
+06-10 07:48:22.248 28997 29093 D opengoal-gk: link finish: drawable-actor-h
+06-10 07:48:22.249 28997 29093 D opengoal-gk: [link and exec] drawable-ambient-h 0   6869 heap-use 20506656  3145728: 0x14ce540
+06-10 07:48:22.249 28997 29093 D opengoal-gk: link finish: drawable-ambient-h
+06-10 07:48:22.249 28997 29093 D opengoal-gk: [link and exec] game-task-h        0    110 heap-use 20507360  3145728: 0x14ce800
+06-10 07:48:22.249 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 3 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.249 28997 29093 D opengoal-gk: link finish: game-task-h
+06-10 07:48:22.250 28997 29093 D opengoal-gk: [link and exec] hint-control-h     0   3655 heap-use 20507360  3145728: 0x14ce800
+06-10 07:48:22.250 28997 29093 D opengoal-gk: link finish: hint-control-h
+06-10 07:48:22.250 28997 29093 D opengoal-gk: [link and exec] generic-h          0  28878 heap-use 20507648  3145728: 0x14ce920
+06-10 07:48:22.250 28997 29093 D opengoal-gk: link finish: generic-h
+06-10 07:48:22.251 28997 29093 D opengoal-gk: [link and exec] lights-h           0  11154 heap-use 20518624  3145728: 0x14d1400
+06-10 07:48:22.251 28997 29093 D opengoal-gk: link finish: lights-h
+06-10 07:48:22.252 28997 29093 D opengoal-gk: [link and exec] ocean-h            0  49206 heap-use 20519824  3145728: 0x14d18b0
+06-10 07:48:22.252 28997 29093 D opengoal-gk: link finish: ocean-h
+06-10 07:48:22.253 28997 29093 D opengoal-gk: [link and exec] ocean-trans-tables 0   5863 heap-use 20526272  3145728: 0x14d31e0
+06-10 07:48:22.253 28997 29093 D opengoal-gk: link finish: ocean-trans-tables
+06-10 07:48:22.254 28997 29093 D opengoal-gk: [link and exec] ocean-tables       0  59094 heap-use 20531081  3145728: 0x14d44a9
+06-10 07:48:22.254 28997 29093 D opengoal-gk: link finish: ocean-tables
+06-10 07:48:22.254 28997 29093 D opengoal-gk: [link and exec] ocean-frames       0  65735 heap-use 20588071  3145728: 0x14e2347
+06-10 07:48:22.254 28997 29093 D opengoal-gk: link finish: ocean-frames
+06-10 07:48:22.254 28997 29093 D opengoal-gk: [link and exec] sky-h              0  16300 heap-use 20653644  3145728: 0x14f236c
+06-10 07:48:22.254 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8853165 out of range at 0x7f036b7ebc
+06-10 07:48:22.254 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8853173 out of range at 0x7f036b7ee0
+06-10 07:48:22.254 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8853227 out of range at 0x7f036b7fbc
+06-10 07:48:22.254 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8853238 out of range at 0x7f036b7fec
+06-10 07:48:22.255 28997 29093 D opengoal-gk: link finish: sky-h
+06-10 07:48:22.255 28997 29093 D opengoal-gk: [link and exec] mood-h             0  11351 heap-use 20656704  3145728: 0x14f2f60
+06-10 07:48:22.255 28997 29093 D opengoal-gk: link finish: mood-h
+06-10 07:48:22.256 28997 29093 D opengoal-gk: [link and exec] time-of-day-h      0  14415 heap-use 20658128  3145728: 0x14f34f0
+06-10 07:48:22.256 28997 29093 D opengoal-gk: link finish: time-of-day-h
+06-10 07:48:22.256 28997 29093 D opengoal-gk: [link and exec] art-h              0  34450 heap-use 20661216  3145728: 0x14f4100
+06-10 07:48:22.257 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 2 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.257 28997 29093 D opengoal-gk: link finish: art-h
+06-10 07:48:22.258 28997 29093 D opengoal-gk: [link and exec] generic-vu1-h      0   4917 heap-use 20663616  3145728: 0x14f4a60
+06-10 07:48:22.258 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 33 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.258 28997 29093 D opengoal-gk: link finish: generic-vu1-h
+06-10 07:48:22.258 28997 29093 D opengoal-gk: [link and exec] merc-h             0  42896 heap-use 20663904  3145728: 0x14f4b80
+06-10 07:48:22.258 28997 29093 D opengoal-gk: link finish: merc-h
+06-10 07:48:22.259 28997 29093 D opengoal-gk: [link and exec] generic-merc-h     0  16714 heap-use 20666512  3145728: 0x14f55b0
+06-10 07:48:22.260 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 2 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.260 28997 29093 D opengoal-gk: link finish: generic-merc-h
+06-10 07:48:22.260 28997 29093 D opengoal-gk: [link and exec] generic-tie-h      0  28011 heap-use 20667392  3145728: 0x14f5920
+06-10 07:48:22.260 28997 29093 D opengoal-gk: link finish: generic-tie-h
+06-10 07:48:22.261 28997 29093 D opengoal-gk: [link and exec] generic-work-h     0  10504 heap-use 20668848  3145728: 0x14f5ed0
+06-10 07:48:22.261 28997 29093 D opengoal-gk: link finish: generic-work-h
+06-10 07:48:22.262 28997 29093 D opengoal-gk: [link and exec] shadow-cpu-h       0  19555 heap-use 20670060  3145728: 0x14f638c
+06-10 07:48:22.262 28997 29093 D opengoal-gk: link finish: shadow-cpu-h
+06-10 07:48:22.263 28997 29093 D opengoal-gk: [link and exec] shadow-vu1-h       0    110 heap-use 20672528  3145728: 0x14f6d30
+06-10 07:48:22.263 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 3 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.263 28997 29093 D opengoal-gk: link finish: shadow-vu1-h
+06-10 07:48:22.263 28997 29093 D opengoal-gk: [link and exec] memcard-h          0   7999 heap-use 20672528  3145728: 0x14f6d30
+06-10 07:48:22.263 28997 29093 D opengoal-gk: link finish: memcard-h
+06-10 07:48:22.263 28997 29093 D opengoal-gk: [link and exec] game-info-h        0  16889 heap-use 20674720  3145728: 0x14f75c0
+06-10 07:48:22.263 28997 29093 D opengoal-gk: link finish: game-info-h
+06-10 07:48:22.264 28997 29093 D opengoal-gk: [link and exec] wind-h             0   2853 heap-use 20677536  3145728: 0x14f80c0
+06-10 07:48:22.264 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 33 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.264 28997 29093 D opengoal-gk: link finish: wind-h
+06-10 07:48:22.265 28997 29093 D opengoal-gk: [link and exec] prototype-h        0  22629 heap-use 20677984  3145728: 0x14f8280
+06-10 07:48:22.265 28997 29093 D opengoal-gk: link finish: prototype-h
+06-10 07:48:22.265 28997 29093 D opengoal-gk: [link and exec] joint-h            0  11916 heap-use 20678864  3145728: 0x14f85f0
+06-10 07:48:22.265 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 1 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.266 28997 29093 D opengoal-gk: link finish: joint-h
+06-10 07:48:22.266 28997 29093 D opengoal-gk: [link and exec] bones-h            0  11835 heap-use 20679344  3145728: 0x14f87d0
+06-10 07:48:22.266 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 3 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.266 28997 29093 D opengoal-gk: link finish: bones-h
+06-10 07:48:22.267 28997 29093 D opengoal-gk: [link and exec] engines            0   1075 heap-use 20680304  3145728: 0x14f8b90
+06-10 07:48:22.267 28997 29093 D opengoal-gk: link finish: engines
+06-10 07:48:22.267 28997 29093 D opengoal-gk: [link and exec] res-h              0   3117 heap-use 20709696  3145728: 0x14ffe60
+06-10 07:48:22.267 28997 29093 D opengoal-gk: link finish: res-h
+06-10 07:48:22.268 28997 29093 D opengoal-gk: [link and exec] res                0  24462 heap-use 20710121  3145728: 0x1500009
+06-10 07:48:22.268 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 13 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.268 28997 29093 D opengoal-gk: link finish: res
+06-10 07:48:22.269 28997 29093 D opengoal-gk: [link and exec] lights             0   2527 heap-use 20729904  3145728: 0x1504d50
+06-10 07:48:22.269 28997 29093 D opengoal-gk: link finish: lights
+06-10 07:48:22.269 28997 29093 D opengoal-gk: [link and exec] dynamics-h         0   2940 heap-use 20731504  3145728: 0x1505390
+06-10 07:48:22.269 28997 29093 D opengoal-gk: link finish: dynamics-h
+06-10 07:48:22.269 28997 29093 D opengoal-gk: [link and exec] surface-h          0  23883 heap-use 20732327  3145728: 0x15056c7
+06-10 07:48:22.270 28997 29093 D opengoal-gk: link finish: surface-h
+06-10 07:48:22.270 28997 29093 D opengoal-gk: [link and exec] pat-h              0   7841 heap-use 20745960  3145728: 0x1508c08
+06-10 07:48:22.270 28997 29093 D opengoal-gk: link finish: pat-h
+06-10 07:48:22.270 28997 29093 D opengoal-gk: [link and exec] fact-h             0  17471 heap-use 20746432  3145728: 0x1508de0
+06-10 07:48:22.270 28997 29093 D opengoal-gk: link finish: fact-h
+06-10 07:48:22.271 28997 29093 D opengoal-gk: [link and exec] aligner-h          0   2792 heap-use 20750576  3145728: 0x1509e10
+06-10 07:48:22.271 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 6 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.271 28997 29093 D opengoal-gk: link finish: aligner-h
+06-10 07:48:22.271 28997 29093 D opengoal-gk: [link and exec] game-h             0   7658 heap-use 20750976  3145728: 0x1509fa0
+06-10 07:48:22.271 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 5 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.271 28997 29093 D opengoal-gk: link finish: game-h
+06-10 07:48:22.272 28997 29093 D opengoal-gk: [link and exec] generic-obs-h      0  17405 heap-use 20751664  3145728: 0x150a250
+06-10 07:48:22.272 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 56 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.272 28997 29093 D opengoal-gk: link finish: generic-obs-h
+06-10 07:48:22.272 28997 29093 D opengoal-gk: [link and exec] pov-camera-h       0   2149 heap-use 20752736  3145728: 0x150a680
+06-10 07:48:22.272 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 5 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.272 28997 29093 D opengoal-gk: link finish: pov-camera-h
+06-10 07:48:22.272 28997 29093 D opengoal-gk: [link and exec] sync-info-h        0  11555 heap-use 20752912  3145728: 0x150a730
+06-10 07:48:22.273 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 10 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.273 28997 29093 D opengoal-gk: link finish: sync-info-h
+06-10 07:48:22.273 28997 29093 D opengoal-gk: [link and exec] smush-control-h    0   5653 heap-use 20753808  3145728: 0x150aab0
+06-10 07:48:22.273 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 41 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.273 28997 29093 D opengoal-gk: link finish: smush-control-h
+06-10 07:48:22.274 28997 29093 D opengoal-gk: [link and exec] trajectory-h       0   1410 heap-use 20756352  3145728: 0x150b4a0
+06-10 07:48:22.274 28997 29093 D opengoal-gk: link finish: trajectory-h
+06-10 07:48:22.274 28997 29093 D opengoal-gk: [link and exec] debug-h            0   3577 heap-use 20756480  3145728: 0x150b520
+06-10 07:48:22.274 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 7 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.274 28997 29093 D opengoal-gk: link finish: debug-h
+06-10 07:48:22.275 28997 29093 D opengoal-gk: [link and exec] joint-mod-h        0  35066 heap-use 20756768  3145728: 0x150b640
+06-10 07:48:22.275 28997 29093 D opengoal-gk: link finish: joint-mod-h
+06-10 07:48:22.276 28997 29093 D opengoal-gk: [link and exec] collide-func-h     0    110 heap-use 20775024  3145728: 0x150fd90
+06-10 07:48:22.276 28997 29093 D opengoal-gk: link finish: collide-func-h
+06-10 07:48:22.276 28997 29093 D opengoal-gk: [link and exec] collide-mesh-h     0   7039 heap-use 20775024  3145728: 0x150fd90
+06-10 07:48:22.276 28997 29093 D opengoal-gk: link finish: collide-mesh-h
+06-10 07:48:22.277 28997 29093 D opengoal-gk: [link and exec] collide-shape-h    0  40279 heap-use 20816752  3145728: 0x151a090
+06-10 07:48:22.277 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 8 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.277 28997 29093 D opengoal-gk: link finish: collide-shape-h
+06-10 07:48:22.278 28997 29093 D opengoal-gk: [link and exec] collide-target-h   0  39595 heap-use 20859536  3145728: 0x15247b0
+06-10 07:48:22.279 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 146 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.279 28997 29093 D opengoal-gk: link finish: collide-target-h
+06-10 07:48:22.279 28997 29093 D opengoal-gk: [link and exec] collide-touch-h    0   8083 heap-use 20860192  3145728: 0x1524a40
+06-10 07:48:22.279 28997 29093 D opengoal-gk: link finish: collide-touch-h
+06-10 07:48:22.280 28997 29093 D opengoal-gk: [link and exec] collide-edge-grab-h 0  23624 heap-use 20877368  3145728: 0x1528d58
+06-10 07:48:22.280 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 20 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.280 28997 29093 D opengoal-gk: link finish: collide-edge-grab-h
+06-10 07:48:22.280 28997 29093 D opengoal-gk: [link and exec] process-drawable-h 0   3098 heap-use 20888260  3145728: 0x152b7e4
+06-10 07:48:22.280 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 15 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.280 28997 29093 D opengoal-gk: link finish: process-drawable-h
+06-10 07:48:22.281 28997 29093 D opengoal-gk: [link and exec] effect-control-h   0   2885 heap-use 20890487  3145728: 0x152c097
+06-10 07:48:22.281 28997 29093 D opengoal-gk: link finish: effect-control-h
+06-10 07:48:22.281 28997 29093 D opengoal-gk: [link and exec] collide-frag-h     0   7426 heap-use 20891088  3145728: 0x152c2f0
+06-10 07:48:22.281 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 5 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.281 28997 29093 D opengoal-gk: link finish: collide-frag-h
+06-10 07:48:22.282 28997 29093 D opengoal-gk: [link and exec] projectiles-h      0   5866 heap-use 20891696  3145728: 0x152c550
+06-10 07:48:22.282 28997 29093 D opengoal-gk: link finish: projectiles-h
+06-10 07:48:22.282 28997 29093 D opengoal-gk: [link and exec] target-h           0   6521 heap-use 20892224  3145728: 0x152c760
+06-10 07:48:22.282 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 27 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.282 28997 29093 D opengoal-gk: link finish: target-h
+06-10 07:48:22.282 28997 29093 D opengoal-gk: [link and exec] depth-cue-h        0   3549 heap-use 20892544  3145728: 0x152c8a0
+06-10 07:48:22.282 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 1 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.282 28997 29093 D opengoal-gk: link finish: depth-cue-h
+06-10 07:48:22.283 28997 29093 D opengoal-gk: [link and exec] stats-h            0   7793 heap-use 20892736  3145728: 0x152c960
+06-10 07:48:22.283 28997 29093 D opengoal-gk: link finish: stats-h
+06-10 07:48:22.283 28997 29093 D opengoal-gk: [link and exec] bsp-h              0  14563 heap-use 20893696  3145728: 0x152cd20
+06-10 07:48:22.283 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 2 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.283 28997 29093 D opengoal-gk: link finish: bsp-h
+06-10 07:48:22.284 28997 29093 D opengoal-gk: [link and exec] collide-cache-h    0  15642 heap-use 20894736  3145728: 0x152d130
+06-10 07:48:22.284 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 2 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.284 28997 29093 D opengoal-gk: link finish: collide-cache-h
+06-10 07:48:22.285 28997 29093 D opengoal-gk: [link and exec] collide-h          0    167 heap-use 21254592  3145728: 0x1584ee0
+06-10 07:48:22.285 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 28 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.285 28997 29093 D opengoal-gk: link finish: collide-h
+06-10 07:48:22.285 28997 29093 D opengoal-gk: [link and exec] shrubbery-h        0  33273 heap-use 21254620  3145728: 0x1584efc
+06-10 07:48:22.285 28997 29093 D opengoal-gk: link finish: shrubbery-h
+06-10 07:48:22.286 28997 29093 D opengoal-gk: [link and exec] tie-h              0  26241 heap-use 21256944  3145728: 0x1585810
+06-10 07:48:22.286 28997 29093 D opengoal-gk: link finish: tie-h
+06-10 07:48:22.286 28997 29093 D opengoal-gk: [link and exec] tfrag-h            0  36925 heap-use 21258144  3145728: 0x1585cc0
+06-10 07:48:22.286 28997 29093 D opengoal-gk: link finish: tfrag-h
+06-10 07:48:22.288 28997 29093 D opengoal-gk: [link and exec] background-h       0   5318 heap-use 21260352  3145728: 0x1586560
+06-10 07:48:22.288 28997 29093 D opengoal-gk: link finish: background-h
+06-10 07:48:22.288 28997 29093 D opengoal-gk: [link and exec] subdivide-h        0  20244 heap-use 21260448  3145728: 0x15865c0
+06-10 07:48:22.288 28997 29093 D opengoal-gk: link finish: subdivide-h
+06-10 07:48:22.289 28997 29093 D opengoal-gk: [link and exec] entity-h           0  23673 heap-use 21262592  3145728: 0x1586e20
+06-10 07:48:22.289 28997 29093 D opengoal-gk: link finish: entity-h
+06-10 07:48:22.290 28997 29093 D opengoal-gk: [link and exec] sprite-h           0  10681 heap-use 21264240  3145728: 0x1587490
+06-10 07:48:22.290 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 28 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.290 28997 29093 D opengoal-gk: link finish: sprite-h
+06-10 07:48:22.290 28997 29093 D opengoal-gk: [link and exec] shadow-h           0   3288 heap-use 21264624  3145728: 0x1587610
+06-10 07:48:22.290 28997 29093 D opengoal-gk: link finish: shadow-h
+06-10 07:48:22.290 28997 29093 D opengoal-gk: [link and exec] eye-h              0   6969 heap-use 21266984  3145728: 0x1587f48
+06-10 07:48:22.290 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8699830 out of range at 0x7f036b8258
+06-10 07:48:22.290 28997 29093 D opengoal-gk: link finish: eye-h
+06-10 07:48:22.291 28997 29093 D opengoal-gk: [link and exec] sparticle-launcher-h 0  13089 heap-use 21268480  3145728: 0x1588520
+06-10 07:48:22.291 28997 29093 D opengoal-gk: link finish: sparticle-launcher-h
+06-10 07:48:22.292 28997 29093 D opengoal-gk: [link and exec] sparticle-h        0   9801 heap-use 21269088  3145728: 0x1588780
+06-10 07:48:22.292 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 6 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.292 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8699434 out of range at 0x7f036b8028
+06-10 07:48:22.292 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8699436 out of range at 0x7f036b8034
+06-10 07:48:22.292 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8699438 out of range at 0x7f036b8040
+06-10 07:48:22.292 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8699440 out of range at 0x7f036b804c
+06-10 07:48:22.292 28997 29093 D opengoal-gk: link finish: sparticle-h
+06-10 07:48:22.292 28997 29093 D opengoal-gk: [link and exec] actor-link-h       0  11122 heap-use 21269472  3145728: 0x1588900
+06-10 07:48:22.292 28997 29093 D opengoal-gk: link finish: actor-link-h
+06-10 07:48:22.293 28997 29093 D opengoal-gk: [link and exec] camera-h           0  38988 heap-use 21276192  3145728: 0x158a340
+06-10 07:48:22.293 28997 29093 D opengoal-gk: link finish: camera-h
+06-10 07:48:22.294 28997 29093 D opengoal-gk: [link and exec] cam-debug-h        0   4575 heap-use 21279536  3145728: 0x158b050
+06-10 07:48:22.294 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 17 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.294 28997 29093 D opengoal-gk: link finish: cam-debug-h
+06-10 07:48:22.295 28997 29093 D opengoal-gk: [link and exec] cam-interface-h    0   1131 heap-use 21280206  3145728: 0x158b2ee
+06-10 07:48:22.295 28997 29093 D opengoal-gk: link finish: cam-interface-h
+06-10 07:48:22.295 28997 29093 D opengoal-gk: [link and exec] cam-update-h       0   2328 heap-use 21280430  3145728: 0x158b3ce
+06-10 07:48:22.295 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8696523 out of range at 0x7f036b7f04
+06-10 07:48:22.295 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8696748 out of range at 0x7f036b828c
+06-10 07:48:22.295 28997 29093 D opengoal-gk: link finish: cam-update-h
+06-10 07:48:22.295 28997 29093 D opengoal-gk: [link and exec] assert-h           0   1989 heap-use 21280848  3145728: 0x158b570
+06-10 07:48:22.295 28997 29093 D opengoal-gk: link finish: assert-h
+06-10 07:48:22.295 28997 29093 D opengoal-gk: [link and exec] hud-h              0  10070 heap-use 21281296  3145728: 0x158b730
+06-10 07:48:22.296 28997 29093 D opengoal-gk: link finish: hud-h
+06-10 07:48:22.296 28997 29093 D opengoal-gk: [link and exec] progress-h         0  17216 heap-use 21281840  3145728: 0x158b950
+06-10 07:48:22.296 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 13 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.296 28997 29093 D opengoal-gk: link finish: progress-h
+06-10 07:48:22.297 28997 29093 D opengoal-gk: [link and exec] rpc-h              0   7532 heap-use 21282688  3145728: 0x158bca0
+06-10 07:48:22.297 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 45 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.297 28997 29093 D opengoal-gk: link finish: rpc-h
+06-10 07:48:22.297 28997 29093 D opengoal-gk: [link and exec] path-h             0   6300 heap-use 21286112  3145728: 0x158ca00
+06-10 07:48:22.297 28997 29093 D opengoal-gk: link finish: path-h
+06-10 07:48:22.298 28997 29093 D opengoal-gk: [link and exec] navigate-h         0  28715 heap-use 21288352  3145728: 0x158d2c0
+06-10 07:48:22.298 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 18 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.298 28997 29093 D opengoal-gk: link finish: navigate-h
+06-10 07:48:22.299 28997 29093 D opengoal-gk: [link and exec] load-dgo           0  14320 heap-use 21292240  3145728: 0x158e1f0
+06-10 07:48:22.299 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 45 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.299 28997 29093 D opengoal-gk: link finish: load-dgo
+06-10 07:48:22.299 28997 29093 D opengoal-gk: [link and exec] ramdisk            0   4802 heap-use 21300777  3145728: 0x1590349
+06-10 07:48:22.300 28997 29093 D opengoal-gk: link finish: ramdisk
+06-10 07:48:22.300 28997 29093 D opengoal-gk: [link and exec] gsound             0  47776 heap-use 21301871  3145728: 0x159078f
+06-10 07:48:22.300 28997 29093 D opengoal-gk: link finish: gsound
+06-10 07:48:22.300 28997 29093 I opengoal-gk: IRX version .
+06-10 07:48:22.300 28997 29093 I opengoal-gk: STALL: waiting for IOP on RPC port #
+06-10 07:48:22.300 28997 29109 E opengoal-gk: [FAKEISO] failed to find         SBK
+06-10 07:48:22.309 28997 29093 I opengoal-gk: STALL: waiting for IOP on RPC port #
+06-10 07:48:22.309 28997 29109 E opengoal-gk: [FAKEISO] failed to find         SBK
+06-10 07:48:22.309 28997 29109 E opengoal-gk: [FAKEISO] failed to find         SBK
+06-10 07:48:22.310 28997 29093 D opengoal-gk: [link and exec] transformq         0  13699 heap-use 21345496  3145728: 0x159b1f8
+06-10 07:48:22.310 28997 29093 D opengoal-gk: link finish: transformq
+06-10 07:48:22.311 28997 29093 D opengoal-gk: [link and exec] collide-func       0   5535 heap-use 21354521  3145728: 0x159d539
+06-10 07:48:22.311 28997 29093 D opengoal-gk: link finish: collide-func
+06-10 07:48:22.311 28997 29093 D opengoal-gk: [link and exec] joint              0  55712 heap-use 21358876  3145728: 0x159e63c
+06-10 07:48:22.311 28997 29093 D opengoal-gk: link finish: joint
+06-10 07:48:22.314 28997 29093 D opengoal-gk: [link and exec] cylinder           0  10985 heap-use 21398992  3145728: 0x15a82f0
+06-10 07:48:22.314 28997 29093 D opengoal-gk: link finish: cylinder
+06-10 07:48:22.314 28997 29093 D opengoal-gk: [link and exec] wind               0   1973 heap-use 21406784  3145728: 0x15aa160
+06-10 07:48:22.314 28997 29093 D opengoal-gk: link finish: wind
+06-10 07:48:22.315 28997 29093 D opengoal-gk: [link and exec] bsp                0  18625 heap-use 21409396  3145728: 0x15aab94
+06-10 07:48:22.315 28997 29093 D opengoal-gk: link finish: bsp
+06-10 07:48:22.315 28997 29093 D opengoal-gk: [link and exec] subdivide          0  20637 heap-use 21423724  3145728: 0x15ae38c
+06-10 07:48:22.315 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8660282 out of range at 0x7f036b7ebc
+06-10 07:48:22.316 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -8660282 out of range at 0x7f036b7ec0
+06-10 07:48:22.316 28997 29093 D opengoal-gk: link finish: subdivide
+06-10 07:48:22.316 28997 29093 D opengoal-gk: [link and exec] sprite             0  30382 heap-use 21443312  3150020: 0x15b3010
+06-10 07:48:22.316 28997 29093 D opengoal-gk: link finish: sprite
+06-10 07:48:22.317 28997 29093 D opengoal-gk: [link and exec] sprite-distort     0   9338 heap-use 24831696  3150020: 0x18ee3f0
+06-10 07:48:22.317 28997 29093 D opengoal-gk: link finish: sprite-distort
+06-10 07:48:22.317 28997 29093 D opengoal-gk: [link and exec] debug-sphere       0   9873 heap-use 24840144  3150020: 0x18f04f0
+06-10 07:48:22.317 28997 29093 D opengoal-gk: link finish: debug-sphere
+06-10 07:48:22.318 28997 29093 D opengoal-gk: [link and exec] debug              0  48006 heap-use 24848480  3150020: 0x18f2580
+06-10 07:48:22.318 28997 29093 D opengoal-gk: link finish: debug
+06-10 07:48:22.318 28997 29093 D opengoal-gk: [link and exec] merc-vu1           0    206 heap-use 24851422  3150020: 0x18f30fe
+06-10 07:48:22.318 28997 29093 D opengoal-gk: link finish: merc-vu1
+06-10 07:48:22.318 28997 29093 D opengoal-gk: [link and exec] merc-blend-shape   0  11620 heap-use 24851463  3150020: 0x18f3127
+06-10 07:48:22.318 28997 29093 D opengoal-gk: link finish: merc-blend-shape
+06-10 07:48:22.319 28997 29093 D opengoal-gk: [link and exec] merc               0  18089 heap-use 24855072  3150020: 0x18f3f40
+06-10 07:48:22.319 28997 29093 D opengoal-gk: link finish: merc
+06-10 07:48:22.320 28997 29093 D opengoal-gk: [link and exec] ripple             0   8659 heap-use 24865838  3150020: 0x18f694e
+06-10 07:48:22.320 28997 29093 D opengoal-gk: link finish: ripple
+06-10 07:48:22.320 28997 29093 D opengoal-gk: [link and exec] bones              0  46943 heap-use 24870116  3150020: 0x18f7a04
+06-10 07:48:22.320 28997 29093 D opengoal-gk: link finish: bones
+06-10 07:48:22.321 28997 29093 D opengoal-gk: [link and exec] generic-vu0        0    209 heap-use 24900672  3150020: 0x18ff160
+06-10 07:48:22.321 28997 29093 D opengoal-gk: link finish: generic-vu0
+06-10 07:48:22.321 28997 29093 D opengoal-gk: [link and exec] generic            0   2450 heap-use 24900714  3150020: 0x18ff18a
+06-10 07:48:22.321 28997 29093 D opengoal-gk: link finish: generic
+06-10 07:48:22.321 28997 29093 D opengoal-gk: [link and exec] generic-vu1        0   2217 heap-use 24902005  3150020: 0x18ff695
+06-10 07:48:22.321 28997 29093 D opengoal-gk: link finish: generic-vu1
+06-10 07:48:22.321 28997 29093 D opengoal-gk: [link and exec] generic-effect     0   4043 heap-use 24903594  3150020: 0x18ffcca
+06-10 07:48:22.322 28997 29093 D opengoal-gk: link finish: generic-effect
+06-10 07:48:22.322 28997 29093 D opengoal-gk: [link and exec] generic-merc       0   5839 heap-use 24906231  3150020: 0x1900717
+06-10 07:48:22.322 28997 29093 D opengoal-gk: link finish: generic-merc
+06-10 07:48:22.322 28997 29093 D opengoal-gk: [link and exec] generic-tie        0   4473 heap-use 24909392  3150020: 0x1901370
+06-10 07:48:22.322 28997 29093 D opengoal-gk: link finish: generic-tie
+06-10 07:48:22.322 28997 29093 D opengoal-gk: [link and exec] shadow-cpu         0  16419 heap-use 24912140  3150020: 0x1901e2c
+06-10 07:48:22.322 28997 29093 D opengoal-gk: link finish: shadow-cpu
+06-10 07:48:22.323 28997 29093 D opengoal-gk: [link and exec] shadow-vu1         0   6660 heap-use 24921024  3150020: 0x19040e0
+06-10 07:48:22.323 28997 29093 D opengoal-gk: link finish: shadow-vu1
+06-10 07:48:22.323 28997 29093 D opengoal-gk: [link and exec] depth-cue          0   8876 heap-use 24923072  3150020: 0x19048e0
+06-10 07:48:22.323 28997 29093 D opengoal-gk: link finish: depth-cue
+06-10 07:48:22.324 28997 29093 D opengoal-gk: [link and exec] font               0  38872 heap-use 24930766  3150020: 0x19066ee
+06-10 07:48:22.324 28997 29093 D opengoal-gk: link finish: font
+06-10 07:48:22.324 28997 29093 D opengoal-gk: [link and exec] decomp             0   7448 heap-use 24968074  3150020: 0x190f8aa
+06-10 07:48:22.324 28997 29093 D opengoal-gk: link finish: decomp
+06-10 07:48:22.325 28997 29093 D opengoal-gk: [link and exec] background         0  14262 heap-use 24973776  3150020: 0x1910ef0
+06-10 07:48:22.325 28997 29093 D opengoal-gk: link finish: background
+06-10 07:48:22.325 28997 29093 D opengoal-gk: [link and exec] draw-node          0   4932 heap-use 24986136  3150020: 0x1913f38
+06-10 07:48:22.325 28997 29093 D opengoal-gk: link finish: draw-node
+06-10 07:48:22.326 28997 29093 D opengoal-gk: [link and exec] shrubbery          0  19596 heap-use 24989065  3150020: 0x1914aa9
+06-10 07:48:22.326 28997 29093 D opengoal-gk: link finish: shrubbery
+06-10 07:48:22.327 28997 29093 D opengoal-gk: [link and exec] shrub-work         0   8609 heap-use 25003259  3150020: 0x191821b
+06-10 07:48:22.327 28997 29093 D opengoal-gk: link finish: shrub-work
+06-10 07:48:22.327 28997 29093 D opengoal-gk: [link and exec] tfrag-near         0   3433 heap-use 25011373  3150020: 0x191a1cd
+06-10 07:48:22.327 28997 29093 D opengoal-gk: link finish: tfrag-near
+06-10 07:48:22.327 28997 29093 D opengoal-gk: [link and exec] tfrag              0  19600 heap-use 25011480  3150020: 0x191a238
+06-10 07:48:22.328 28997 29093 D opengoal-gk: link finish: tfrag
+06-10 07:48:22.328 28997 29093 D opengoal-gk: [link and exec] tfrag-methods      0  17727 heap-use 25026224  3150020: 0x191dbd0
+06-10 07:48:22.328 28997 29093 D opengoal-gk: link finish: tfrag-methods
+06-10 07:48:22.329 28997 29093 D opengoal-gk: [link and exec] tfrag-work         0    676 heap-use 25038321  3150020: 0x1920b11
+06-10 07:48:22.329 28997 29093 D opengoal-gk: link finish: tfrag-work
+06-10 07:48:22.330 28997 29093 D opengoal-gk: [link and exec] tie                0  21932 heap-use 25038536  3150020: 0x1920be8
+06-10 07:48:22.330 28997 29093 D opengoal-gk: link finish: tie
+06-10 07:48:22.331 28997 29093 D opengoal-gk: [link and exec] tie-near           0   8128 heap-use 25047840  3150020: 0x1923040
+06-10 07:48:22.331 28997 29093 D opengoal-gk: link finish: tie-near
+06-10 07:48:22.331 28997 29093 D opengoal-gk: [link and exec] tie-work           0   1257 heap-use 25051280  3150020: 0x1923db0
+06-10 07:48:22.331 28997 29093 D opengoal-gk: link finish: tie-work
+06-10 07:48:22.331 28997 29093 D opengoal-gk: [link and exec] tie-methods        0  18141 heap-use 25052077  3150020: 0x19240cd
+06-10 07:48:22.331 28997 29093 D opengoal-gk: link finish: tie-methods
+06-10 07:48:22.332 28997 29093 D opengoal-gk: [link and exec] sync-info          0  19674 heap-use 25063616  3150020: 0x1926de0
+06-10 07:48:22.332 28997 29093 D opengoal-gk: link finish: sync-info
+06-10 07:48:22.334 28997 29093 D opengoal-gk: [link and exec] trajectory         0   4231 heap-use 25076048  3150020: 0x1929e70
+06-10 07:48:22.334 28997 29093 D opengoal-gk: link finish: trajectory
+06-10 07:48:22.335 28997 29093 D opengoal-gk: [link and exec] sparticle-launcher 0  39483 heap-use 25078692  3150020: 0x192a8c4
+06-10 07:48:22.335 28997 29093 D opengoal-gk: link finish: sparticle-launcher
+06-10 07:48:22.336 28997 29093 D opengoal-gk: [link and exec] sparticle          0  19175 heap-use 25130512  3150020: 0x1937330
+06-10 07:48:22.336 28997 29093 D opengoal-gk: link finish: sparticle
+06-10 07:48:22.338 28997 29093 D opengoal-gk: [link and exec] entity-table       0   2999 heap-use 28926288  3150020: 0x1cd5e70
+06-10 07:48:22.338 28997 29093 D opengoal-gk: link finish: entity-table
+06-10 07:48:22.338 28997 29093 D opengoal-gk: [link and exec] loader             0  39780 heap-use 28931211  3150020: 0x1cd71ab
+06-10 07:48:22.338 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 606 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.338 28997 29093 D opengoal-gk: link finish: loader
+06-10 07:48:22.340 28997 29093 D opengoal-gk: [link and exec] task-control-h     0   7976 heap-use 28963688  3150020: 0x1cdf088
+06-10 07:48:22.340 28997 29093 D opengoal-gk: link finish: task-control-h
+06-10 07:48:22.340 28997 29093 D opengoal-gk: [link and exec] speedruns-h        0   1409 heap-use 28964336  3150020: 0x1cdf310
+06-10 07:48:22.340 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 53 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.340 28997 29093 D opengoal-gk: link finish: speedruns-h
+06-10 07:48:22.341 28997 29093 D opengoal-gk: [link and exec] game-info          0  47878 heap-use 28964432  3150020: 0x1cdf370
+06-10 07:48:22.341 28997 29093 D opengoal-gk: link finish: game-info
+06-10 07:48:22.342 28997 29093 D opengoal-gk: [link and exec] game-save          0  74051 heap-use 29058816  3150020: 0x1cf6420
+06-10 07:48:22.343 28997 29093 D opengoal-gk: link finish: game-save
+06-10 07:48:22.344 28997 29093 D opengoal-gk: [link and exec] settings           0  14533 heap-use 29108368  3150020: 0x1d025b0
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737231 out of range at 0x7f036b7cfc
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737263 out of range at 0x7f036b7d80
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737264 out of range at 0x7f036b7d88
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737275 out of range at 0x7f036b7db8
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737276 out of range at 0x7f036b7dc0
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737287 out of range at 0x7f036b7df0
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737288 out of range at 0x7f036b7df8
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737299 out of range at 0x7f036b7e28
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737300 out of range at 0x7f036b7e30
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737311 out of range at 0x7f036b7e60
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737312 out of range at 0x7f036b7e68
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737323 out of range at 0x7f036b7e98
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737324 out of range at 0x7f036b7ea0
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737335 out of range at 0x7f036b7ed0
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737336 out of range at 0x7f036b7ed8
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737347 out of range at 0x7f036b7f08
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737348 out of range at 0x7f036b7f10
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737423 out of range at 0x7f036b8040
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737429 out of range at 0x7f036b805c
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737484 out of range at 0x7f036b813c
+06-10 07:48:22.344 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737490 out of range at 0x7f036b8158
+06-10 07:48:22.345 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737496 out of range at 0x7f036b8174
+06-10 07:48:22.345 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6737502 out of range at 0x7f036b8190
+06-10 07:48:22.345 28997 29093 D opengoal-gk: link finish: settings
+06-10 07:48:22.345 28997 29093 D opengoal-gk: [link and exec] pc-anim-util       0   6514 heap-use 29119712  3150020: 0x1d05200
+06-10 07:48:22.345 28997 29093 D opengoal-gk: link finish: pc-anim-util
+06-10 07:48:22.345 28997 29093 D opengoal-gk: [link and exec] autosplit-h        0  28028 heap-use 29124737  3150020: 0x1d065a1
+06-10 07:48:22.345 28997 29093 D opengoal-gk: link finish: autosplit-h
+06-10 07:48:22.346 28997 29093 D opengoal-gk: [link and exec] autosplit          0  23986 heap-use 29124848  3150020: 0x1d06610
+06-10 07:48:22.346 28997 29093 D opengoal-gk: link finish: autosplit
+06-10 07:48:22.346 28997 29093 D opengoal-gk: [link and exec] speedruns          0  31298 heap-use 29145319  3150020: 0x1d0b607
+06-10 07:48:22.346 28997 29093 D opengoal-gk: link finish: speedruns
+06-10 07:48:22.346 28997 29093 D opengoal-gk: [link and exec] pckernel-common    0  56413 heap-use 29168549  3150020: 0x1d110c5
+06-10 07:48:22.347 28997 29093 D opengoal-gk: link finish: pckernel-common
+06-10 07:48:22.347 28997 29093 I opengoal-gk: pckernel version: .
+06-10 07:48:22.348 28997 29093 D opengoal-gk: [link and exec] pckernel           0  93300 heap-use 29210417  3150020: 0x1d1b451
+06-10 07:48:22.348 28997 29093 D opengoal-gk: link finish: pckernel
+06-10 07:48:22.349 28997 29093 I opengoal-gk: pc settings reset
+06-10 07:48:22.349 28997 29093 I opengoal-gk: Setting borderless/fullscreen size to  x 
+06-10 07:48:22.349 28997 29093 I opengoal-gk: [PC Settings]: Valid default game-size resolution set  x 
+06-10 07:48:22.349 28997 29093 I opengoal-gk: [PC Settings]: fullscreen resolution defaulted to  x 
+06-10 07:48:22.349 28997 29093 I opengoal-gk: [PC] PC Settings found at '.config/OpenGOAL/jak1/settings/pc-settings.gc'...loading!
+06-10 07:48:22.349 28997 29093 I opengoal-gk: ****** CALL TO kopen() ******
+06-10 07:48:22.349 28997 29079 I GK_STDOUT: [SCE] sceOpen(/data/user/0/org.opengoal.gk.jak1/files/.config/OpenGOAL/jak1/settings/pc-settings.gc) failed.
+06-10 07:48:22.349 28997 29093 I opengoal-gk: pc settings read error: invalid char, ( not found
+06-10 07:48:22.349 28997 29093 I opengoal-gk: [PC] PC Settings found at '.config/OpenGOAL/jak1/settings/pc-settings.gc' but could not be loaded, using defaults!
+06-10 07:48:22.349 28997 29093 I opengoal-gk: pc settings reset
+06-10 07:48:22.349 28997 29093 I opengoal-gk: Setting borderless/fullscreen size to  x 
+06-10 07:48:22.349 28997 29093 I opengoal-gk: [PC Settings]: Valid default game-size resolution set  x 
+06-10 07:48:22.349 28997 29093 I opengoal-gk: [PC Settings]: fullscreen resolution defaulted to  x 
+06-10 07:48:22.350 28997 29093 D opengoal-gk: [link and exec] mood-tables        0  64919 heap-use 29350064  3150020: 0x1d3d5d0
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6672331 out of range at 0x7f036b488c
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6672363 out of range at 0x7f036b4910
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6672395 out of range at 0x7f036b4994
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6672427 out of range at 0x7f036b4a18
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6672459 out of range at 0x7f036b4a9c
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6672491 out of range at 0x7f036b4b20
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6672523 out of range at 0x7f036b4ba4
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6672555 out of range at 0x7f036b4c28
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669194 out of range at 0x7f036b5d28
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669225 out of range at 0x7f036b5da8
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669257 out of range at 0x7f036b5e2c
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669289 out of range at 0x7f036b5eb0
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669321 out of range at 0x7f036b5f34
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669353 out of range at 0x7f036b5fb8
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669385 out of range at 0x7f036b603c
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669417 out of range at 0x7f036b60c0
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669449 out of range at 0x7f036b6144
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669232 out of range at 0x7f036b62f0
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669311 out of range at 0x7f036b6430
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669407 out of range at 0x7f036b65b4
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669503 out of range at 0x7f036b6738
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669582 out of range at 0x7f036b6878
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669661 out of range at 0x7f036b69b8
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669757 out of range at 0x7f036b6b3c
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669836 out of range at 0x7f036b6c7c
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6669932 out of range at 0x7f036b6e00
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670011 out of range at 0x7f036b6f40
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670090 out of range at 0x7f036b7080
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670169 out of range at 0x7f036b71c0
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670265 out of range at 0x7f036b7344
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670344 out of range at 0x7f036b7484
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670423 out of range at 0x7f036b75c4
+06-10 07:48:22.350 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670502 out of range at 0x7f036b7704
+06-10 07:48:22.351 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670581 out of range at 0x7f036b7844
+06-10 07:48:22.351 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670660 out of range at 0x7f036b7984
+06-10 07:48:22.351 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670739 out of range at 0x7f036b7ac4
+06-10 07:48:22.351 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670818 out of range at 0x7f036b7c04
+06-10 07:48:22.351 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670897 out of range at 0x7f036b7d44
+06-10 07:48:22.351 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6670993 out of range at 0x7f036b7ec8
+06-10 07:48:22.351 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6671072 out of range at 0x7f036b8008
+06-10 07:48:22.351 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6671151 out of range at 0x7f036b8148
+06-10 07:48:22.351 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6671230 out of range at 0x7f036b8288
+06-10 07:48:22.351 28997 29093 D opengoal-gk: link finish: mood-tables
+06-10 07:48:22.351 28997 29093 D opengoal-gk: [link and exec] mood               0 119362 heap-use 29434996  3150020: 0x1d52194
+06-10 07:48:22.352 28997 29093 D opengoal-gk: link finish: mood
+06-10 07:48:22.353 28997 29093 D opengoal-gk: [link and exec] weather-part       0  18586 heap-use 29511296  3150020: 0x1d64ba0
+06-10 07:48:22.353 28997 29093 D opengoal-gk: link finish: weather-part
+06-10 07:48:22.353 28997 29093 D opengoal-gk: [link and exec] time-of-day        0  20466 heap-use 29525044  3150020: 0x1d68154
+06-10 07:48:22.353 28997 29093 D opengoal-gk: link finish: time-of-day
+06-10 07:48:22.354 28997 29093 D opengoal-gk: [link and exec] sky-utils          0   1799 heap-use 29540843  3150020: 0x1d6bf0b
+06-10 07:48:22.354 28997 29093 D opengoal-gk: link finish: sky-utils
+06-10 07:48:22.354 28997 29093 D opengoal-gk: [link and exec] sky                0   7219 heap-use 29542154  3150020: 0x1d6c42a
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630680 out of range at 0x7f036b800c
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630680 out of range at 0x7f036b8010
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630680 out of range at 0x7f036b8014
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630702 out of range at 0x7f036b8070
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630702 out of range at 0x7f036b8074
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630702 out of range at 0x7f036b8078
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630755 out of range at 0x7f036b8150
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630755 out of range at 0x7f036b8154
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630755 out of range at 0x7f036b8158
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630755 out of range at 0x7f036b815c
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630755 out of range at 0x7f036b8160
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630755 out of range at 0x7f036b8164
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630780 out of range at 0x7f036b81cc
+06-10 07:48:22.354 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630780 out of range at 0x7f036b81d0
+06-10 07:48:22.355 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630780 out of range at 0x7f036b81d4
+06-10 07:48:22.355 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630780 out of range at 0x7f036b81d8
+06-10 07:48:22.355 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630780 out of range at 0x7f036b81dc
+06-10 07:48:22.355 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630780 out of range at 0x7f036b81e0
+06-10 07:48:22.355 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630805 out of range at 0x7f036b8248
+06-10 07:48:22.355 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630805 out of range at 0x7f036b824c
+06-10 07:48:22.355 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630805 out of range at 0x7f036b8250
+06-10 07:48:22.355 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630805 out of range at 0x7f036b8254
+06-10 07:48:22.355 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630805 out of range at 0x7f036b8258
+06-10 07:48:22.355 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6630805 out of range at 0x7f036b825c
+06-10 07:48:22.355 28997 29093 D opengoal-gk: link finish: sky
+06-10 07:48:22.355 28997 29093 D opengoal-gk: [link and exec] sky-tng            0  24864 heap-use 29544400  3150020: 0x1d6ccf0
+06-10 07:48:22.355 28997 29093 D opengoal-gk: link finish: sky-tng
+06-10 07:48:22.356 28997 29093 D opengoal-gk: [link and exec] load-boundary-h    0   8096 heap-use 29563996  3150020: 0x1d7197c
+06-10 07:48:22.356 28997 29093 D opengoal-gk: link finish: load-boundary-h
+06-10 07:48:22.356 28997 29093 D opengoal-gk: [link and exec] load-boundary      0  76063 heap-use 29565056  3150020: 0x1d71da0
+06-10 07:48:22.356 28997 29093 D opengoal-gk: link finish: load-boundary
+06-10 07:48:22.357 28997 29093 D opengoal-gk: [link and exec] load-boundary-data 0  53981 heap-use 29609052  3150020: 0x1d7c97c
+06-10 07:48:22.358 28997 29093 D opengoal-gk: link finish: load-boundary-data
+06-10 07:48:22.358 28997 29093 D opengoal-gk: [link and exec] level-info         0  58736 heap-use 29661200  3150020: 0x1d89530
+06-10 07:48:22.358 28997 29093 D opengoal-gk: link finish: level-info
+06-10 07:48:22.358 28997 29093 D opengoal-gk: [link and exec] level              0  68749 heap-use 29697752  3150020: 0x1d923f8
+06-10 07:48:22.359 28997 29093 D opengoal-gk: link finish: level
+06-10 07:48:22.361 28997 29093 D opengoal-gk: [link and exec] text               0  18846 heap-use 29894352  3150020: 0x1dc23f0
+06-10 07:48:22.361 28997 29093 D opengoal-gk: link finish: text
+06-10 07:48:22.362 28997 29093 D opengoal-gk: [link and exec] collide-probe      0  11902 heap-use 29974464  3150020: 0x1dd5ce0
+06-10 07:48:22.362 28997 29093 D opengoal-gk: link finish: collide-probe
+06-10 07:48:22.362 28997 29093 D opengoal-gk: [link and exec] collide-frag       0   5705 heap-use 29981968  3150020: 0x1dd7a30
+06-10 07:48:22.362 28997 29093 D opengoal-gk: link finish: collide-frag
+06-10 07:48:22.363 28997 29093 D opengoal-gk: [link and exec] collide-mesh       0   9630 heap-use 29985284  3150020: 0x1dd8724
+06-10 07:48:22.363 28997 29093 D opengoal-gk: link finish: collide-mesh
+06-10 07:48:22.364 28997 29093 D opengoal-gk: [link and exec] collide-touch      0  11985 heap-use 29990288  3150020: 0x1dd9ab0
+06-10 07:48:22.364 28997 29093 D opengoal-gk: link finish: collide-touch
+06-10 07:48:22.365 28997 29093 D opengoal-gk: [link and exec] collide-edge-grab  0  19877 heap-use 29998416  3150020: 0x1ddba70
+06-10 07:48:22.366 28997 29093 D opengoal-gk: link finish: collide-edge-grab
+06-10 07:48:22.367 28997 29093 D opengoal-gk: [link and exec] collide-shape      0  92205 heap-use 30012032  3150020: 0x1ddefa0
+06-10 07:48:22.367 28997 29093 D opengoal-gk: link finish: collide-shape
+06-10 07:48:22.371 28997 29093 D opengoal-gk: [link and exec] collide-shape-rider 0  13909 heap-use 30079788  3150020: 0x1def84c
+06-10 07:48:22.371 28997 29093 D opengoal-gk: link finish: collide-shape-rider
+06-10 07:48:22.372 28997 29093 D opengoal-gk: [link and exec] collide            0    300 heap-use 30090855  3150020: 0x1df2387
+06-10 07:48:22.372 28997 29093 D opengoal-gk: link finish: collide
+06-10 07:48:22.372 28997 29093 D opengoal-gk: [link and exec] merc-death         0   3650 heap-use 30090956  3150020: 0x1df23ec
+06-10 07:48:22.373 28997 29093 D opengoal-gk: link finish: merc-death
+06-10 07:48:22.373 28997 29093 D opengoal-gk: [link and exec] water-h            0   9263 heap-use 30092240  3150020: 0x1df28f0
+06-10 07:48:22.373 28997 29093 D opengoal-gk: link finish: water-h
+06-10 07:48:22.374 28997 29093 D opengoal-gk: [link and exec] camera             0  66992 heap-use 30092832  3150020: 0x1df2b40
+06-10 07:48:22.374 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 6 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.374 28997 29093 D opengoal-gk: link finish: camera
+06-10 07:48:22.375 28997 29093 D opengoal-gk: [link and exec] cam-interface      0   2852 heap-use 30144889  3150020: 0x1dff699
+06-10 07:48:22.375 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6480298 out of range at 0x7f036b8228
+06-10 07:48:22.375 28997 29093 D opengoal-gk: link finish: cam-interface
+06-10 07:48:22.375 28997 29093 D opengoal-gk: [link and exec] cam-master         0  61614 heap-use 30146352  3150020: 0x1dffc50
+06-10 07:48:22.376 28997 29093 D opengoal-gk: link finish: cam-master
+06-10 07:48:22.376 28997 29093 D opengoal-gk: [link and exec] cam-states         0 145697 heap-use 30196400  3150020: 0x1e0bfd0
+06-10 07:48:22.377 28997 29093 D opengoal-gk: link finish: cam-states
+06-10 07:48:22.377 28997 29093 D opengoal-gk: [link and exec] cam-states-dbg     0  31871 heap-use 30304160  3150020: 0x1e264c0
+06-10 07:48:22.377 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6436075 out of range at 0x7f036b8200
+06-10 07:48:22.378 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6436080 out of range at 0x7f036b8218
+06-10 07:48:22.378 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6436085 out of range at 0x7f036b8230
+06-10 07:48:22.378 28997 29093 D opengoal-gk: link finish: cam-states-dbg
+06-10 07:48:22.378 28997 29093 D opengoal-gk: [link and exec] cam-combiner       0  17146 heap-use 30324048  3150020: 0x1e2b270
+06-10 07:48:22.378 28997 29093 D opengoal-gk: link finish: cam-combiner
+06-10 07:48:22.378 28997 29093 D opengoal-gk: [link and exec] cam-update         0  20765 heap-use 30338170  3150020: 0x1e2e99a
+06-10 07:48:22.379 28997 29093 D opengoal-gk: link finish: cam-update
+06-10 07:48:22.379 28997 29093 D opengoal-gk: [link and exec] vol-h              0   5917 heap-use 30353792  3150020: 0x1e326a0
+06-10 07:48:22.379 28997 29093 D opengoal-gk: link finish: vol-h
+06-10 07:48:22.380 28997 29093 D opengoal-gk: [link and exec] cam-layout         0 151475 heap-use 30355632  3150020: 0x1e32dd0
+06-10 07:48:22.380 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 5 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.380 28997 29093 D opengoal-gk: link finish: cam-layout
+06-10 07:48:22.381 28997 29093 D opengoal-gk: [link and exec] cam-debug          0  81331 heap-use 30359296  3150020: 0x1e33c20
+06-10 07:48:22.381 28997 29093 D opengoal-gk: link finish: cam-debug
+06-10 07:48:22.381 28997 29093 D opengoal-gk: [link and exec] cam-start          0   2226 heap-use 30360832  3150020: 0x1e34220
+06-10 07:48:22.381 28997 29093 D opengoal-gk: link finish: cam-start
+06-10 07:48:22.381 28997 29093 D opengoal-gk: [link and exec] process-drawable   0  47107 heap-use 30362178  3150020: 0x1e34762
+06-10 07:48:22.382 28997 29093 D opengoal-gk: link finish: process-drawable
+06-10 07:48:22.383 28997 29093 D opengoal-gk: [link and exec] hint-control       0   9024 heap-use 30395423  3150020: 0x1e3c93f
+06-10 07:48:22.383 28997 29093 D opengoal-gk: link finish: hint-control
+06-10 07:48:22.383 28997 29093 D opengoal-gk: [link and exec] ambient            0  54524 heap-use 30402362  3150020: 0x1e3e45a
+06-10 07:48:22.383 28997 29093 D opengoal-gk: link finish: ambient
+06-10 07:48:22.384 28997 29093 D opengoal-gk: [link and exec] assert             0   2489 heap-use 30444318  3150020: 0x1e4883e
+06-10 07:48:22.384 28997 29093 D opengoal-gk: link finish: assert
+06-10 07:48:22.384 28997 29093 D opengoal-gk: [link and exec] generic-obs        0  97304 heap-use 30446148  3150020: 0x1e48f64
+06-10 07:48:22.385 28997 29093 D opengoal-gk: link finish: generic-obs
+06-10 07:48:22.386 28997 29093 D opengoal-gk: [link and exec] target-util        0  52042 heap-use 30521081  3150020: 0x1e5b419
+06-10 07:48:22.386 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6379798 out of range at 0x7f036b7dc0
+06-10 07:48:22.386 28997 29093 D opengoal-gk: link finish: target-util
+06-10 07:48:22.387 28997 29093 D opengoal-gk: [link and exec] target-part        0  50475 heap-use 30550279  3150020: 0x1e62627
+06-10 07:48:22.387 28997 29093 D opengoal-gk: link finish: target-part
+06-10 07:48:22.387 28997 29093 D opengoal-gk: [link and exec] collide-reaction-target 0  16832 heap-use 30587461  3150020: 0x1e6b765
+06-10 07:48:22.387 28997 29093 D opengoal-gk: link finish: collide-reaction-target
+06-10 07:48:22.387 28997 29093 D opengoal-gk: [link and exec] logic-target       0  88641 heap-use 30601794  3150020: 0x1e6ef62
+06-10 07:48:22.388 28997 29093 D opengoal-gk: link finish: logic-target
+06-10 07:48:22.388 28997 29093 D opengoal-gk: [link and exec] sidekick           0  10176 heap-use 30662871  3150020: 0x1e7ddf7
+06-10 07:48:22.388 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6349415 out of range at 0x7f036b8264
+06-10 07:48:22.388 28997 29093 D opengoal-gk: link finish: sidekick
+06-10 07:48:22.388 28997 29093 D opengoal-gk: [link and exec] voicebox           0  14664 heap-use 30669936  3150020: 0x1e7f990
+06-10 07:48:22.389 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6347289 out of range at 0x7f036b7fbc
+06-10 07:48:22.389 28997 29093 D opengoal-gk: link finish: voicebox
+06-10 07:48:22.389 28997 29093 D opengoal-gk: [link and exec] target-handler     0  35650 heap-use 30678784  3150020: 0x1e81c20
+06-10 07:48:22.390 28997 29093 D opengoal-gk: link finish: target-handler
+06-10 07:48:22.390 28997 29093 D opengoal-gk: [link and exec] target             0 220222 heap-use 30708722  3150020: 0x1e89112
+06-10 07:48:22.391 28997 29093 D opengoal-gk: link finish: target
+06-10 07:48:22.391 28997 29093 D opengoal-gk: [link and exec] target2            0 188653 heap-use 30892930  3150020: 0x1eb60a2
+06-10 07:48:22.392 28997 29093 D opengoal-gk: link finish: target2
+06-10 07:48:22.392 28997 29093 D opengoal-gk: [link and exec] target-death       0  85020 heap-use 31057600  3150020: 0x1ede3e0
+06-10 07:48:22.393 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6236814 out of range at 0x7f036b7fb0
+06-10 07:48:22.393 28997 29093 D opengoal-gk: link finish: target-death
+06-10 07:48:22.393 28997 29093 D opengoal-gk: [link and exec] menu               0  55710 heap-use 31126384  3150020: 0x1eef090
+06-10 07:48:22.393 28997 29093 D opengoal-gk: link finish: menu
+06-10 07:48:22.394 28997 29093 D opengoal-gk: [link and exec] drawable           0  60168 heap-use 31128300  3150020: 0x1eef80c
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6226975 out of range at 0x7f036b7c08
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6226977 out of range at 0x7f036b7c14
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6226979 out of range at 0x7f036b7c20
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6226981 out of range at 0x7f036b7c2c
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6226989 out of range at 0x7f036b7c50
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6226991 out of range at 0x7f036b7c5c
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6226993 out of range at 0x7f036b7c68
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6226995 out of range at 0x7f036b7c74
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227003 out of range at 0x7f036b7c98
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227005 out of range at 0x7f036b7ca4
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227007 out of range at 0x7f036b7cb0
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227009 out of range at 0x7f036b7cbc
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227017 out of range at 0x7f036b7ce0
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227019 out of range at 0x7f036b7cec
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227021 out of range at 0x7f036b7cf8
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227023 out of range at 0x7f036b7d04
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227031 out of range at 0x7f036b7d28
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227033 out of range at 0x7f036b7d34
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227035 out of range at 0x7f036b7d40
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227037 out of range at 0x7f036b7d4c
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227045 out of range at 0x7f036b7d70
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227047 out of range at 0x7f036b7d7c
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227049 out of range at 0x7f036b7d88
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227051 out of range at 0x7f036b7d94
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227059 out of range at 0x7f036b7db8
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227061 out of range at 0x7f036b7dc4
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227063 out of range at 0x7f036b7dd0
+06-10 07:48:22.394 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6227065 out of range at 0x7f036b7ddc
+06-10 07:48:22.394 28997 29093 D opengoal-gk: link finish: drawable
+06-10 07:48:22.395 28997 29093 D opengoal-gk: [link and exec] drawable-group     0   5905 heap-use 31160528  3150020: 0x1ef75f0
+06-10 07:48:22.395 28997 29093 D opengoal-gk: link finish: drawable-group
+06-10 07:48:22.396 28997 29093 D opengoal-gk: [link and exec] drawable-inline-array 0   1057 heap-use 31164215  3150020: 0x1ef8457
+06-10 07:48:22.397 28997 29093 D opengoal-gk: link finish: drawable-inline-array
+06-10 07:48:22.397 28997 29093 D opengoal-gk: [link and exec] drawable-tree      0   2729 heap-use 31164400  3150020: 0x1ef8510
+06-10 07:48:22.397 28997 29093 D opengoal-gk: link finish: drawable-tree
+06-10 07:48:22.398 28997 29093 D opengoal-gk: [link and exec] prototype          0   4760 heap-use 31166268  3150020: 0x1ef8c5c
+06-10 07:48:22.398 28997 29093 D opengoal-gk: link finish: prototype
+06-10 07:48:22.398 28997 29093 D opengoal-gk: [link and exec] main-collide       0   1588 heap-use 31169679  3150020: 0x1ef99af
+06-10 07:48:22.399 28997 29093 D opengoal-gk: link finish: main-collide
+06-10 07:48:22.399 28997 29093 D opengoal-gk: [link and exec] video              0   4263 heap-use 31170860  3150020: 0x1ef9e4c
+06-10 07:48:22.399 28997 29093 D opengoal-gk: link finish: video
+06-10 07:48:22.399 28997 29093 D opengoal-gk: [link and exec] main               0  52094 heap-use 31173392  3150020: 0x1efa830
+06-10 07:48:22.399 28997 29093 D opengoal-gk: link finish: main
+06-10 07:48:22.400 28997 29093 D opengoal-gk: [link and exec] collide-cache      0  45120 heap-use 31213524  3150020: 0x1f044f4
+06-10 07:48:22.400 28997 29093 D opengoal-gk: link finish: collide-cache
+06-10 07:48:22.402 28997 29093 D opengoal-gk: [link and exec] relocate           0  13093 heap-use 31245072  3150020: 0x1f0c030
+06-10 07:48:22.402 28997 29093 D opengoal-gk: link finish: relocate
+06-10 07:48:22.404 28997 29093 D opengoal-gk: [link and exec] memory-usage       0  18550 heap-use 31253204  3150020: 0x1f0dff4
+06-10 07:48:22.404 28997 29093 D opengoal-gk: link finish: memory-usage
+06-10 07:48:22.405 28997 29093 D opengoal-gk: [link and exec] entity             0  60799 heap-use 31253234  3150020: 0x1f0e012
+06-10 07:48:22.405 28997 29093 D opengoal-gk: link finish: entity
+06-10 07:48:22.407 28997 29093 D opengoal-gk: [link and exec] path               0  12628 heap-use 31299538  3150020: 0x1f194f2
+06-10 07:48:22.407 28997 29093 D opengoal-gk: link finish: path
+06-10 07:48:22.409 28997 29093 D opengoal-gk: [link and exec] vol                0   9685 heap-use 31308155  3150020: 0x1f1b69b
+06-10 07:48:22.409 28997 29093 D opengoal-gk: link finish: vol
+06-10 07:48:22.410 28997 29093 D opengoal-gk: [link and exec] navigate           0  97422 heap-use 31315844  3150020: 0x1f1d4a4
+06-10 07:48:22.410 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6170104 out of range at 0x7f036b6c90
+06-10 07:48:22.410 28997 29093 D opengoal-gk: link finish: navigate
+06-10 07:48:22.413 28997 29093 D opengoal-gk: [link and exec] aligner            0   5960 heap-use 31388688  3150020: 0x1f2f130
+06-10 07:48:22.414 28997 29093 D opengoal-gk: link finish: aligner
+06-10 07:48:22.414 28997 29093 D opengoal-gk: [link and exec] effect-control     0  31911 heap-use 31392804  3150020: 0x1f30144
+06-10 07:48:22.414 28997 29093 D opengoal-gk: link finish: effect-control
+06-10 07:48:22.415 28997 29093 D opengoal-gk: [link and exec] water              0  51635 heap-use 31419490  3150020: 0x1f36982
+06-10 07:48:22.415 28997 29093 D opengoal-gk: link finish: water
+06-10 07:48:22.417 28997 29093 D opengoal-gk: [link and exec] collectables-part  0  52683 heap-use 31458192  3150020: 0x1f400b0
+06-10 07:48:22.417 28997 29093 D opengoal-gk: link finish: collectables-part
+06-10 07:48:22.417 28997 29093 D opengoal-gk: [link and exec] collectables       0 141365 heap-use 31498482  3150020: 0x1f49e12
+06-10 07:48:22.418 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6117691 out of range at 0x7f036b6c34
+06-10 07:48:22.418 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6117696 out of range at 0x7f036b6c4c
+06-10 07:48:22.418 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6117701 out of range at 0x7f036b6c64
+06-10 07:48:22.418 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6117690 out of range at 0x7f036b6cb0
+06-10 07:48:22.418 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6117326 out of range at 0x7f036b7640
+06-10 07:48:22.418 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6117454 out of range at 0x7f036b7bc0
+06-10 07:48:22.418 28997 29093 D opengoal-gk: link finish: collectables
+06-10 07:48:22.422 28997 29093 D opengoal-gk: [link and exec] task-control       0  95100 heap-use 31599632  3150020: 0x1f62930
+06-10 07:48:22.422 28997 29080 I GK_STDERR: A18-DIAG sym-bind-trace: re-walk patched 1 new empty method slots (engine-CGO types just constructed)
+06-10 07:48:22.422 28997 29093 D opengoal-gk: link finish: task-control
+06-10 07:48:22.424 28997 29093 D opengoal-gk: [link and exec] process-taskable   0  62501 heap-use 31671749  3150020: 0x1f742e5
+06-10 07:48:22.424 28997 29093 D opengoal-gk: link finish: process-taskable
+06-10 07:48:22.427 28997 29093 D opengoal-gk: [link and exec] pov-camera         0  16087 heap-use 31717496  3150020: 0x1f7f598
+06-10 07:48:22.427 28997 29093 D opengoal-gk: link finish: pov-camera
+06-10 07:48:22.428 28997 29093 D opengoal-gk: [link and exec] powerups           0  25906 heap-use 31729143  3150020: 0x1f82317
+06-10 07:48:22.428 28997 29093 D opengoal-gk: link finish: powerups
+06-10 07:48:22.428 28997 29093 D opengoal-gk: [link and exec] crates             0  58724 heap-use 31749684  3150020: 0x1f87354
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070819 out of range at 0x7f036b6e64
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070824 out of range at 0x7f036b6e7c
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070829 out of range at 0x7f036b6e94
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070822 out of range at 0x7f036b6ee0
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070817 out of range at 0x7f036b6f2c
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070822 out of range at 0x7f036b6f44
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070827 out of range at 0x7f036b6f5c
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070820 out of range at 0x7f036b6fa8
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070825 out of range at 0x7f036b6fc0
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070830 out of range at 0x7f036b6fd8
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070823 out of range at 0x7f036b7024
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070828 out of range at 0x7f036b703c
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070833 out of range at 0x7f036b7054
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070826 out of range at 0x7f036b70a0
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070831 out of range at 0x7f036b70b8
+06-10 07:48:22.429 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6070836 out of range at 0x7f036b70d0
+06-10 07:48:22.429 28997 29093 D opengoal-gk: link finish: crates
+06-10 07:48:22.431 28997 29093 D opengoal-gk: [link and exec] hud                0  23537 heap-use 31789824  3150020: 0x1f91020
+06-10 07:48:22.431 28997 29093 D opengoal-gk: link finish: hud
+06-10 07:48:22.432 28997 29093 D opengoal-gk: [link and exec] hud-classes        0  78635 heap-use 31807594  3150020: 0x1f9558a
+06-10 07:48:22.433 28997 29079 I GK_STDOUT: klink-arm64: LDR-literal imm19 -6052638 out of range at 0x7f036b75e0
+06-10 07:48:22.433 28997 29093 D opengoal-gk: link finish: hud-classes
+06-10 07:48:22.435 28997 29093 D opengoal-gk: [link and exec] progress-static    0  16262 heap-use 31861504  3150020: 0x1fa2820
+06-10 07:48:22.436 28997 29093 D opengoal-gk: link finish: progress-static
+06-10 07:48:22.436 28997 29093 D opengoal-gk: [link and exec] progress-part      0  44189 heap-use 31873609  3150020: 0x1fa5769
+06-10 07:48:22.436 28997 29093 D opengoal-gk: link finish: progress-part
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG sig=11 fault=0x1fa5fa4 pc=0x1fa5fa4 lr=0x7f036b7ac4
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x0=0x7f07fffff8
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x1=0x0
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x2=0x0
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x3=0x7f036b79e4
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x4=0x14fd24
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x5=0x7f00000000
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x6=0x73736572676f7270
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x7=0x747261702d737365
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x8=0x7f036b79e4
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x9=0x1fa5fa4
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x10=0x7f07fffff0
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x11=0x9ddfea08eb382d69
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x12=0x0
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x13=0x14fd24
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x14=0x7f0014fd24
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x15=0x7f00000000
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x16=0x7f0015a000
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x17=0x72efb6c3b0
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x18=0xbefffd62
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x19=0x72f7063450
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x20=0x14fd24
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x21=0x14fd24
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x22=0x7f00000000
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x23=0x72f7064f80
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x24=0x72efd5f124
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x25=0x72efd5d288
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x26=0x0
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x27=0x72efd5fe70
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x28=0x72efd5fe74
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x29=0x7f07ffffd0
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x30=0x7f036b7ac4
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG x31=0x7f07ffffc0
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A11-DIAG texture-sym-zero: slot=0x7f0015a000 value=0x17fd64 info=0x7f00179ffc hash=0x1e6b5c4 str=0x969a918b name="<empty>" in_sym_range=1
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp/add pair walk (scan lr-256..lr-8, forward window 32 instr per pair):
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b79cc adrp_enc=0xd0fe54f0 add_enc=0x91305210 adrp_rd=X16 add_rn=X16 add_rd=X16 imm12=0xc14 resolved_target=0x7f00155c14
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b79cc resolved=0x7f00155c14 xd=X16 next-read@0x7f036b79d4 instr=0xb9400202 decoded=LDR-W clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b79f0 adrp_enc=0xd0ff4769 add_enc=0x911dd129 adrp_rd=X9 add_rn=X9 add_rd=X9 imm12=0x774 resolved_target=0x7f01fa5774
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b79f0 resolved=0x7f01fa5774 xd=X9 next-read@0x7f036b79f8 instr=0xcb0f0129 decoded=SUB-reg clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b79fc adrp_enc=0xf0fe5510 add_enc=0x912a9210 adrp_rd=X16 add_rn=X16 add_rd=X16 imm12=0xaa4 resolved_target=0x7f0015aaa4
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b79fc resolved=0x7f0015aaa4 xd=X16 next-read@0x7f036b7a04 instr=0xb9000209 decoded=STR-W clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a08 adrp_enc=0xd0ff4769 add_enc=0x911f5129 adrp_rd=X9 add_rn=X9 add_rd=X9 imm12=0x7d4 resolved_target=0x7f01fa57d4
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a08 resolved=0x7f01fa57d4 xd=X9 next-read@0x7f036b7a10 instr=0xcb0f0129 decoded=SUB-reg clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a14 adrp_enc=0xf0fe5510 add_enc=0x912ad210 adrp_rd=X16 add_rn=X16 add_rd=X16 imm12=0xab4 resolved_target=0x7f0015aab4
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a14 resolved=0x7f0015aab4 xd=X16 next-read@0x7f036b7a1c instr=0xb9000209 decoded=STR-W clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a20 adrp_enc=0xd0ff4769 add_enc=0x9120d129 adrp_rd=X9 add_rn=X9 add_rd=X9 imm12=0x834 resolved_target=0x7f01fa5834
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a20 resolved=0x7f01fa5834 xd=X9 next-read@0x7f036b7a28 instr=0xcb0f0129 decoded=SUB-reg clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a2c adrp_enc=0xf0fe5510 add_enc=0x912ab210 adrp_rd=X16 add_rn=X16 add_rd=X16 imm12=0xaac resolved_target=0x7f0015aaac
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a2c resolved=0x7f0015aaac xd=X16 next-read@0x7f036b7a34 instr=0xb9000209 decoded=STR-W clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a38 adrp_enc=0xd0ff4769 add_enc=0x9126d129 adrp_rd=X9 add_rn=X9 add_rd=X9 imm12=0x9b4 resolved_target=0x7f01fa59b4
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a38 resolved=0x7f01fa59b4 xd=X9 next-read@0x7f036b7a40 instr=0xcb0f0129 decoded=SUB-reg clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a44 adrp_enc=0xf0fe5510 add_enc=0x912a7210 adrp_rd=X16 add_rn=X16 add_rd=X16 imm12=0xa9c resolved_target=0x7f0015aa9c
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a44 resolved=0x7f0015aa9c xd=X16 next-read@0x7f036b7a4c instr=0xb9000209 decoded=STR-W clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a50 adrp_enc=0xd0ff4769 add_enc=0x912cd129 adrp_rd=X9 add_rn=X9 add_rd=X9 imm12=0xb34 resolved_target=0x7f01fa5b34
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a50 resolved=0x7f01fa5b34 xd=X9 next-read@0x7f036b7a58 instr=0xcb0f0129 decoded=SUB-reg clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a5c adrp_enc=0xf0fe5510 add_enc=0x912a5210 adrp_rd=X16 add_rn=X16 add_rd=X16 imm12=0xa94 resolved_target=0x7f0015aa94
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a5c resolved=0x7f0015aa94 xd=X16 next-read@0x7f036b7a64 instr=0xb9000209 decoded=STR-W clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a68 adrp_enc=0xd0ff4769 add_enc=0x9132d129 adrp_rd=X9 add_rn=X9 add_rd=X9 imm12=0xcb4 resolved_target=0x7f01fa5cb4
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a68 resolved=0x7f01fa5cb4 xd=X9 next-read@0x7f036b7a70 instr=0xcb0f0129 decoded=SUB-reg clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a74 adrp_enc=0xf0fe5510 add_enc=0x912af210 adrp_rd=X16 add_rn=X16 add_rd=X16 imm12=0xabc resolved_target=0x7f0015aabc
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a74 resolved=0x7f0015aabc xd=X16 next-read@0x7f036b7a7c instr=0xb9000209 decoded=STR-W clobbered-between FALSE
+06-10 07:48:22.438 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a80 adrp_enc=0xd0ff4769 add_enc=0x91371129 adrp_rd=X9 add_rn=X9 add_rd=X9 imm12=0xdc4 resolved_target=0x7f01fa5dc4
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a80 resolved=0x7f01fa5dc4 xd=X9 next-read@0x7f036b7a88 instr=0xcb0f0129 decoded=SUB-reg clobbered-between FALSE
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a8c adrp_enc=0xf0fe5510 add_enc=0x9129d210 adrp_rd=X16 add_rn=X16 add_rd=X16 imm12=0xa74 resolved_target=0x7f0015aa74
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a8c resolved=0x7f0015aa74 xd=X16 next-read@0x7f036b7a94 instr=0xb9000209 decoded=STR-W clobbered-between FALSE
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7a98 adrp_enc=0xd0ff4769 add_enc=0x913ad129 adrp_rd=X9 add_rn=X9 add_rd=X9 imm12=0xeb4 resolved_target=0x7f01fa5eb4
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7a98 resolved=0x7f01fa5eb4 xd=X9 next-read@0x7f036b7aa0 instr=0xcb0f0129 decoded=SUB-reg clobbered-between FALSE
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7aa4 adrp_enc=0xf0fe5510 add_enc=0x9129f210 adrp_rd=X16 add_rn=X16 add_rd=X16 imm12=0xa7c resolved_target=0x7f0015aa7c
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7aa4 resolved=0x7f0015aa7c xd=X16 next-read@0x7f036b7aac instr=0xb9000209 decoded=STR-W clobbered-between FALSE
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7ab0 adrp_enc=0xd0ff4769 add_enc=0x913e9129 adrp_rd=X9 add_rn=X9 add_rd=X9 imm12=0xfa4 resolved_target=0x7f01fa5fa4
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7ab0 resolved=0x7f01fa5fa4 xd=X9 next-read@0x7f036b7ab8 instr=0xcb0f0129 decoded=SUB-reg clobbered-between FALSE
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG adrp-pair: pc=0x7f036b7abc adrp_enc=0xf0fe5510 add_enc=0x912a1210 adrp_rd=X16 add_rn=X16 add_rd=X16 imm12=0xa84 resolved_target=0x7f0015aa84
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG A16-DIAG preserved: adrp@0x7f036b7abc resolved=0x7f0015aa84 xd=X16 next-read@0x7f036b7ac4 instr=0xb9000209 decoded=STR-W clobbered-between FALSE
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-1024 @ 0x7f036b76c4 = 0xd0fe5530
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-1020 @ 0x7f036b76c8 = 0x913c5210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-1016 @ 0x7f036b76cc = 0xb9400208
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-1012 @ 0x7f036b76d0 = 0x8b0f0110
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-1008 @ 0x7f036b76d4 = 0xb9014e09
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-1004 @ 0x7f036b76d8 = 0xd0ff4749
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-1000 @ 0x7f036b76dc = 0x91019129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-996 @ 0x7f036b76e0 = 0xcb0f0129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-992 @ 0x7f036b76e4 = 0xd0fe5530
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-988 @ 0x7f036b76e8 = 0x913c7210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-984 @ 0x7f036b76ec = 0xb9400208
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-980 @ 0x7f036b76f0 = 0x8b0f0110
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-976 @ 0x7f036b76f4 = 0xb9051a09
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-972 @ 0x7f036b76f8 = 0xd0ff4749
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-968 @ 0x7f036b76fc = 0x9106d129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-964 @ 0x7f036b7700 = 0xcb0f0129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-960 @ 0x7f036b7704 = 0xd0fe5530
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-956 @ 0x7f036b7708 = 0x913c7210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-952 @ 0x7f036b770c = 0xb9400208
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-948 @ 0x7f036b7710 = 0x8b0f0110
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-944 @ 0x7f036b7714 = 0xb9050a09
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-940 @ 0x7f036b7718 = 0xd0ff4749
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-936 @ 0x7f036b771c = 0x910bd129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-932 @ 0x7f036b7720 = 0xcb0f0129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-928 @ 0x7f036b7724 = 0xd0fe5530
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-924 @ 0x7f036b7728 = 0x913c7210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-920 @ 0x7f036b772c = 0xb9400208
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-916 @ 0x7f036b7730 = 0x8b0f0110
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-912 @ 0x7f036b7734 = 0xb9050e09
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-908 @ 0x7f036b7738 = 0xd0ff4749
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-904 @ 0x7f036b773c = 0x910fd129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-900 @ 0x7f036b7740 = 0xcb0f0129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-896 @ 0x7f036b7744 = 0xd0fe5530
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-892 @ 0x7f036b7748 = 0x913c7210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-888 @ 0x7f036b774c = 0xb9400208
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-884 @ 0x7f036b7750 = 0x8b0f0110
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-880 @ 0x7f036b7754 = 0xb9051209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-876 @ 0x7f036b7758 = 0xd0ff4749
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-872 @ 0x7f036b775c = 0x9113d129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-868 @ 0x7f036b7760 = 0xcb0f0129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-864 @ 0x7f036b7764 = 0xd0fe5530
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-860 @ 0x7f036b7768 = 0x913c7210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-856 @ 0x7f036b776c = 0xb9400208
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-852 @ 0x7f036b7770 = 0x8b0f0110
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-848 @ 0x7f036b7774 = 0xb9051609
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-844 @ 0x7f036b7778 = 0x90fe54d0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-840 @ 0x7f036b777c = 0x91355210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-836 @ 0x7f036b7780 = 0xb9400209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-832 @ 0x7f036b7784 = 0x8b0f0130
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-828 @ 0x7f036b7788 = 0xb9401209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-824 @ 0x7f036b778c = 0xd2953e88
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-820 @ 0x7f036b7790 = 0xf2a002a8
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-816 @ 0x7f036b7794 = 0xd0fe54f0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-812 @ 0x7f036b7798 = 0x910d1210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-808 @ 0x7f036b779c = 0xb9400201
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-804 @ 0x7f036b77a0 = 0xd2802682
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-800 @ 0x7f036b77a4 = 0xf2a01a02
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-796 @ 0x7f036b77a8 = 0xf2c00362
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-792 @ 0x7f036b77ac = 0xaa0903e9
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-788 @ 0x7f036b77b0 = 0xaa0803e7
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-784 @ 0x7f036b77b4 = 0xaa0103e6
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-780 @ 0x7f036b77b8 = 0xaa0203e2
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-776 @ 0x7f036b77bc = 0x8b0f0129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-772 @ 0x7f036b77c0 = 0xa9bf17e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-768 @ 0x7f036b77c4 = 0xa9bf2fea
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-764 @ 0x7f036b77c8 = 0xa9bf5fec
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-760 @ 0x7f036b77cc = 0xd63f0120
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-756 @ 0x7f036b77d0 = 0xa8c15fec
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-752 @ 0x7f036b77d4 = 0xa8c12fea
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-748 @ 0x7f036b77d8 = 0xa8c117e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-744 @ 0x7f036b77dc = 0xaa0003e0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-740 @ 0x7f036b77e0 = 0xf0fe5510
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-736 @ 0x7f036b77e4 = 0x9127d210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-732 @ 0x7f036b77e8 = 0xb9400209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-728 @ 0x7f036b77ec = 0xd2800068
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-724 @ 0x7f036b77f0 = 0xd0fe54f0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-720 @ 0x7f036b77f4 = 0x91305210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-716 @ 0x7f036b77f8 = 0xb9400201
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-712 @ 0x7f036b77fc = 0xb0fe4a42
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-708 @ 0x7f036b7800 = 0x91159042
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-704 @ 0x7f036b7804 = 0xcb0f0042
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-700 @ 0x7f036b7808 = 0xaa0103e1
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-696 @ 0x7f036b780c = 0xaa0903e7
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-692 @ 0x7f036b7810 = 0xaa0803e6
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-688 @ 0x7f036b7814 = 0xaa0203e2
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-684 @ 0x7f036b7818 = 0x8b0f0021
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-680 @ 0x7f036b781c = 0xa9bf17e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-676 @ 0x7f036b7820 = 0xa9bf2fea
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-672 @ 0x7f036b7824 = 0xa9bf5fec
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-668 @ 0x7f036b7828 = 0xd63f0020
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-664 @ 0x7f036b782c = 0xa8c15fec
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-660 @ 0x7f036b7830 = 0xa8c12fea
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-656 @ 0x7f036b7834 = 0xa8c117e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-652 @ 0x7f036b7838 = 0xaa0303e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-648 @ 0x7f036b783c = 0xf0fe5510
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-644 @ 0x7f036b7840 = 0x9127d210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-640 @ 0x7f036b7844 = 0xb9400209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-636 @ 0x7f036b7848 = 0xd28001e8
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-632 @ 0x7f036b784c = 0xd0ff4701
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-628 @ 0x7f036b7850 = 0x9128d021
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-624 @ 0x7f036b7854 = 0xcb0f0021
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-620 @ 0x7f036b7858 = 0xd0fe54f0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-616 @ 0x7f036b785c = 0x91305210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-612 @ 0x7f036b7860 = 0xb9400202
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-608 @ 0x7f036b7864 = 0xaa0203e0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-604 @ 0x7f036b7868 = 0xaa0903e7
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-600 @ 0x7f036b786c = 0xaa0803e6
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-596 @ 0x7f036b7870 = 0xaa0103e2
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-592 @ 0x7f036b7874 = 0x8b0f0000
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-588 @ 0x7f036b7878 = 0xa9bf17e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-584 @ 0x7f036b787c = 0xa9bf2fea
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-580 @ 0x7f036b7880 = 0xa9bf5fec
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-576 @ 0x7f036b7884 = 0xd63f0000
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-572 @ 0x7f036b7888 = 0xa8c15fec
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-568 @ 0x7f036b788c = 0xa8c12fea
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-564 @ 0x7f036b7890 = 0xa8c117e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-560 @ 0x7f036b7894 = 0xaa0303e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-556 @ 0x7f036b7898 = 0xf0ff4709
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-552 @ 0x7f036b789c = 0x9107d129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-548 @ 0x7f036b78a0 = 0xcb0f0129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-544 @ 0x7f036b78a4 = 0x90fe5550
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-540 @ 0x7f036b78a8 = 0x912ed210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-536 @ 0x7f036b78ac = 0xb9000209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-532 @ 0x7f036b78b0 = 0xf0ff4709
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-528 @ 0x7f036b78b4 = 0x910f1129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-524 @ 0x7f036b78b8 = 0xcb0f0129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-520 @ 0x7f036b78bc = 0x90fe5550
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-516 @ 0x7f036b78c0 = 0x912ef210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-512 @ 0x7f036b78c4 = 0xb9000209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-508 @ 0x7f036b78c8 = 0xf0ff4709
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-504 @ 0x7f036b78cc = 0x91111129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-500 @ 0x7f036b78d0 = 0xcb0f0129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-496 @ 0x7f036b78d4 = 0x90fe5550
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-492 @ 0x7f036b78d8 = 0x912f1210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-488 @ 0x7f036b78dc = 0xb9000209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-484 @ 0x7f036b78e0 = 0xf0ff4709
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-480 @ 0x7f036b78e4 = 0x91131129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-476 @ 0x7f036b78e8 = 0xcb0f0129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-472 @ 0x7f036b78ec = 0x90fe5550
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-468 @ 0x7f036b78f0 = 0x912eb210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-464 @ 0x7f036b78f4 = 0xb9000209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-460 @ 0x7f036b78f8 = 0xf0fe5510
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-456 @ 0x7f036b78fc = 0x9127d210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-452 @ 0x7f036b7900 = 0xb9400209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-448 @ 0x7f036b7904 = 0xd2800268
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-444 @ 0x7f036b7908 = 0xf0ff4701
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-440 @ 0x7f036b790c = 0x9116d021
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-436 @ 0x7f036b7910 = 0xcb0f0021
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-432 @ 0x7f036b7914 = 0xd0fe54f0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-428 @ 0x7f036b7918 = 0x91305210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-424 @ 0x7f036b791c = 0xb9400202
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-420 @ 0x7f036b7920 = 0xaa0203e0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-416 @ 0x7f036b7924 = 0xaa0903e7
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-412 @ 0x7f036b7928 = 0xaa0803e6
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-408 @ 0x7f036b792c = 0xaa0103e2
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-404 @ 0x7f036b7930 = 0x8b0f0000
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-400 @ 0x7f036b7934 = 0xa9bf17e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-396 @ 0x7f036b7938 = 0xa9bf2fea
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-392 @ 0x7f036b793c = 0xa9bf5fec
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-388 @ 0x7f036b7940 = 0xd63f0000
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-384 @ 0x7f036b7944 = 0xa8c15fec
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-380 @ 0x7f036b7948 = 0xa8c12fea
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-376 @ 0x7f036b794c = 0xa8c117e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-372 @ 0x7f036b7950 = 0xaa0303e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-368 @ 0x7f036b7954 = 0xf0fe5510
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-364 @ 0x7f036b7958 = 0x9127d210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-360 @ 0x7f036b795c = 0xb9400209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-356 @ 0x7f036b7960 = 0xd2800288
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-352 @ 0x7f036b7964 = 0xf0ff4701
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-348 @ 0x7f036b7968 = 0x91241021
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-344 @ 0x7f036b796c = 0xcb0f0021
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-340 @ 0x7f036b7970 = 0xd0fe54f0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-336 @ 0x7f036b7974 = 0x91305210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-332 @ 0x7f036b7978 = 0xb9400202
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-328 @ 0x7f036b797c = 0xaa0203e0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-324 @ 0x7f036b7980 = 0xaa0903e7
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-320 @ 0x7f036b7984 = 0xaa0803e6
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-316 @ 0x7f036b7988 = 0xaa0103e2
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-312 @ 0x7f036b798c = 0x8b0f0000
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-308 @ 0x7f036b7990 = 0xa9bf17e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-304 @ 0x7f036b7994 = 0xa9bf2fea
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-300 @ 0x7f036b7998 = 0xa9bf5fec
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-296 @ 0x7f036b799c = 0xd63f0000
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-292 @ 0x7f036b79a0 = 0xa8c15fec
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-288 @ 0x7f036b79a4 = 0xa8c12fea
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-284 @ 0x7f036b79a8 = 0xa8c117e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-280 @ 0x7f036b79ac = 0xaa0303e3
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-276 @ 0x7f036b79b0 = 0xf0fe5510
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-272 @ 0x7f036b79b4 = 0x9127d210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-268 @ 0x7f036b79b8 = 0xb9400209
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-264 @ 0x7f036b79bc = 0xd2800308
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-260 @ 0x7f036b79c0 = 0x90ff4721
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-256 @ 0x7f036b79c4 = 0x910e9021
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-252 @ 0x7f036b79c8 = 0xcb0f0021
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-248 @ 0x7f036b79cc = 0xd0fe54f0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-244 @ 0x7f036b79d0 = 0x91305210
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-240 @ 0x7f036b79d4 = 0xb9400202
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-236 @ 0x7f036b79d8 = 0xaa0203e0
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-232 @ 0x7f036b79dc = 0xaa0903e7
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-228 @ 0x7f036b79e0 = 0x0017fde4
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-224 @ 0x7f036b79e4 = 0xa9bf7bfd
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-220 @ 0x7f036b79e8 = 0x910003fd
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-216 @ 0x7f036b79ec = 0xd10043ff
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-212 @ 0x7f036b79f0 = 0xd0ff4769
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-208 @ 0x7f036b79f4 = 0x911dd129
+06-10 07:48:22.439 28997 29093 F opengoal-gk: GK-DIAG lr-204 @ 0x7f036b79f8 = 0xcb0f0129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-200 @ 0x7f036b79fc = 0xf0fe5510
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-196 @ 0x7f036b7a00 = 0x912a9210
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-192 @ 0x7f036b7a04 = 0xb9000209
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-188 @ 0x7f036b7a08 = 0xd0ff4769
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-184 @ 0x7f036b7a0c = 0x911f5129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-180 @ 0x7f036b7a10 = 0xcb0f0129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-176 @ 0x7f036b7a14 = 0xf0fe5510
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-172 @ 0x7f036b7a18 = 0x912ad210
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-168 @ 0x7f036b7a1c = 0xb9000209
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-164 @ 0x7f036b7a20 = 0xd0ff4769
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-160 @ 0x7f036b7a24 = 0x9120d129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-156 @ 0x7f036b7a28 = 0xcb0f0129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-152 @ 0x7f036b7a2c = 0xf0fe5510
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-148 @ 0x7f036b7a30 = 0x912ab210
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-144 @ 0x7f036b7a34 = 0xb9000209
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-140 @ 0x7f036b7a38 = 0xd0ff4769
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-136 @ 0x7f036b7a3c = 0x9126d129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-132 @ 0x7f036b7a40 = 0xcb0f0129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-128 @ 0x7f036b7a44 = 0xf0fe5510
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-124 @ 0x7f036b7a48 = 0x912a7210
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-120 @ 0x7f036b7a4c = 0xb9000209
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-116 @ 0x7f036b7a50 = 0xd0ff4769
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-112 @ 0x7f036b7a54 = 0x912cd129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-108 @ 0x7f036b7a58 = 0xcb0f0129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-104 @ 0x7f036b7a5c = 0xf0fe5510
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-100 @ 0x7f036b7a60 = 0x912a5210
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-96 @ 0x7f036b7a64 = 0xb9000209
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-92 @ 0x7f036b7a68 = 0xd0ff4769
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-88 @ 0x7f036b7a6c = 0x9132d129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-84 @ 0x7f036b7a70 = 0xcb0f0129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-80 @ 0x7f036b7a74 = 0xf0fe5510
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-76 @ 0x7f036b7a78 = 0x912af210
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-72 @ 0x7f036b7a7c = 0xb9000209
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-68 @ 0x7f036b7a80 = 0xd0ff4769
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-64 @ 0x7f036b7a84 = 0x91371129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-60 @ 0x7f036b7a88 = 0xcb0f0129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-56 @ 0x7f036b7a8c = 0xf0fe5510
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-52 @ 0x7f036b7a90 = 0x9129d210
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-48 @ 0x7f036b7a94 = 0xb9000209
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-44 @ 0x7f036b7a98 = 0xd0ff4769
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-40 @ 0x7f036b7a9c = 0x913ad129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-36 @ 0x7f036b7aa0 = 0xcb0f0129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-32 @ 0x7f036b7aa4 = 0xf0fe5510
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-28 @ 0x7f036b7aa8 = 0x9129f210
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-24 @ 0x7f036b7aac = 0xb9000209
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-20 @ 0x7f036b7ab0 = 0xd0ff4769
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-16 @ 0x7f036b7ab4 = 0x913e9129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-12 @ 0x7f036b7ab8 = 0xcb0f0129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-8 @ 0x7f036b7abc = 0xf0fe5510
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr-4 @ 0x7f036b7ac0 = 0x912a1210
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr+0 @ 0x7f036b7ac4 = 0xb9000209
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr+4 @ 0x7f036b7ac8 = 0xf0ff4769
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr+8 @ 0x7f036b7acc = 0x91025129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr+12 @ 0x7f036b7ad0 = 0xcb0f0129
+06-10 07:48:22.440 28997 29093 F opengoal-gk: GK-DIAG lr+16 @ 0x7f036b7ad4 = 0xf0fe5510
+06-10 07:48:22.553  1089  1089 I Zygote  : Process 28997 exited due to signal 11 (Segmentation fault)
+06-10 07:48:56.833  1089  1089 I Zygote  : Process 26542 exited due to signal 9 (Killed)

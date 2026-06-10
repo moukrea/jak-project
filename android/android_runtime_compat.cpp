@@ -66,6 +66,14 @@ constexpr size_t kEEMainMemSize = 128u * 1024u * 1024u;  // matches EE_MAIN_MEM_
 // pulls SDL3/ImGui/discord and isn't cross-compiled here. We provide an
 // equivalent anonymous mmap with the same RWX shape the desktop runtime
 // uses for the JIT/linker output.
+
+#ifndef MAP_FIXED_NOREPLACE
+// Available since Linux 4.17 / Android API 30. The NDK r25+ headers
+// expose it; provide a fallback definition so older headers still
+// compile against the literal flag value the kernel expects.
+#define MAP_FIXED_NOREPLACE 0x100000
+#endif
+
 u8* allocate_ee_main_mem() {
   // mmap rather than a static buffer because 128 MB of bss bloats the .so and
   // hurts the validator's strip-size check. Anonymous-mapped lazily-backed
@@ -81,8 +89,114 @@ u8* allocate_ee_main_mem() {
   // fallback is to drop PROT_EXEC and do a W^X dance per-link inside
   // jak1_finish, but that requires upstream hooks we don't want to add
   // yet.
-  void* p = mmap(nullptr, kEEMainMemSize, PROT_READ | PROT_WRITE | PROT_EXEC,
-                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  //
+  // Phase A30 (autoport): the arm64 KERNEL/ENGINE/GAME.CGO bytes shipped
+  // in the APK were emitted with goalc's OG_X30_TRACE_EMIT env var set
+  // during the A24 diagnostic phase (see goalc/compiler/CodeGenerator.cpp
+  // ~604 + goalc/emitter/IGenARM64.cpp ~1842). The flag installs a
+  // post-LDP X30 stack-range trace in every GOAL function epilogue
+  // (plus an analogous BR target trace in jmp_r64). Each trace emits:
+  //
+  //   SUB X17, X30, X15          ; X17 = LR - EE_BASE
+  //   MOVZ X16, #0x07000000      ; X16 = 0x07000000 (~112 MB threshold)
+  //   CMP X17, X16               ; signed compare
+  //   B.LT skip                  ; X17 < X16 → normal RET
+  //   UDF #0x1EF0                ; otherwise → SIGILL with tag
+  //   RET (or BR/BLR)
+  //
+  // On linux-arm64 (qemu_repro), the gk binary loads at low addresses
+  // (typically below 0x600000), and EE_MAIN_MEM_MAP hints
+  // 0x2123000000 (~132 GB), so a return-to-C++ address X30 is far
+  // BELOW X15. SUB wraps to a 64-bit value with the sign bit set, X17
+  // reads signed-negative, B.LT is taken, and the trace is a no-op —
+  // qemu reaches 660 link-finishes cleanly (see A29 fix-summary).
+  //
+  // On Android the default nullptr-hinted anonymous mmap lands
+  // g_ee_main_mem at the kernel's pick — empirically just BELOW
+  // libgk.so's load address (e.g. EE_BASE 0x72ee870000 vs libgk.so
+  // ~0x72f6XXX, a ~130 MB gap). Returns from GOAL code to C++ host
+  // produce X30 - X15 in [0x07000000, 0x10000000] which is > X16 and
+  // signed-positive — B.LT is NOT taken, the UDF fires, and the
+  // process SIGILLs immediately after `link finish: gcommon`.
+  //
+  // Diagnostic from the on-device crash (PC = UDF #0x1EF0):
+  //   x15 (EE_BASE) = 0x72ee870000
+  //   x30 (LR)      = 0x72f69f1ae0
+  //   x17 = SUB     = 0x081_81AE0   (135 MB; > 0x07000000)
+  //   x16           = 0x07000000
+  //   → B.LT not taken → 0x00001EF0 (UDF) → signal 4
+  //
+  // The fix here: hint EE_BASE at a virtual address that's ABOVE
+  // every plausible libgk.so / libc.so / framework .so load. Then any
+  // return-to-C++ X30 is < X15, SUB signed-wraps negative, B.LT is
+  // taken, the trace is a no-op — same shape as the linux-arm64 case.
+  //
+  // We try MAP_FIXED_NOREPLACE at a descending list of candidate
+  // addresses. The Redmi Note 9 Pro (Snapdragon 720G, Android 12,
+  // kernel 4.14.190) has /proc/self/maps reaching ~0x7F_D902B000
+  // (~547 GB stack), with shared libs typically around 0x70_xx through
+  // 0x79_xx (485-487 GB on the shell process). libgk.so on the app
+  // process lands at 0x72_xx_xx_xx_xx (~459-460 GB) in the failing
+  // run.
+  //
+  // The VA top on this kernel is just below 0x80_00_00_00_00 (~512 GB
+  // expressed as 0x7F + a small remainder). Hints at 16+ TB are
+  // rejected wholesale (kernel returns ENOMEM via MAP_FIXED_NOREPLACE).
+  //
+  // The available window to fit a 128 MB EE_BASE so that X15 > libgk.so
+  // X30 is therefore between the top of libgk.so (~460-490 GB) and
+  // the bottom of the stack (~549 GB). Try candidates in descending
+  // order so we land as high above libgk.so as possible — closer to
+  // stack means farther from libgk.so means a more-negative X17 in
+  // the post-LDP check.
+  //
+  // If all candidates fail, we fall back to a nullptr-hinted mmap and
+  // accept that the OG_X30_TRACE_EMIT epilogue trace may fire (the
+  // path the previous run hit) — surfaced as a WARN log so the
+  // diagnosis is obvious. The next phase should regenerate the arm64
+  // CGOs with OG_X30_TRACE_EMIT unset to permanently remove the trap.
+  constexpr uintptr_t kCandidateHints[] = {
+      0x7E0000000000ULL,  // ~126 TB (will probably fail; safe to try)
+      0x10000000000ULL,   // ~1 TB
+      0x7F00000000ULL,    // ~508 GB (close to stack, leave room)
+      0x7E00000000ULL,    // ~504 GB
+      0x7D00000000ULL,    // ~500 GB
+      0x7C00000000ULL,    // ~496 GB
+      0x7B00000000ULL,    // ~492 GB
+      0x7A00000000ULL,    // ~488 GB (might collide with libgk.so neighbours)
+      0x7900000000ULL,    // ~484 GB
+  };
+  void* p = MAP_FAILED;
+  uintptr_t accepted_hint = 0;
+  for (uintptr_t hint : kCandidateHints) {
+    void* q = mmap(reinterpret_cast<void*>(hint), kEEMainMemSize,
+                   PROT_READ | PROT_WRITE | PROT_EXEC,
+                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
+    if (q != MAP_FAILED && reinterpret_cast<uintptr_t>(q) == hint) {
+      p = q;
+      accepted_hint = hint;
+      break;
+    }
+    if (q != MAP_FAILED) {
+      // The kernel ignored MAP_FIXED_NOREPLACE (older Android?) and
+      // returned a different address. Don't trust it; release and try
+      // the next hint.
+      munmap(q, kEEMainMemSize);
+    }
+  }
+  if (p == MAP_FAILED) {
+    __android_log_print(ANDROID_LOG_WARN, kAndroidLogTag,
+                        "g_ee_main_mem: all high-address hints rejected — falling "
+                        "back to nullptr mmap (OG_X30_TRACE_EMIT epilogue trace "
+                        "may SIGILL on host returns)");
+    p = mmap(nullptr, kEEMainMemSize, PROT_READ | PROT_WRITE | PROT_EXEC,
+             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  } else {
+    __android_log_print(ANDROID_LOG_INFO, kAndroidLogTag,
+                        "g_ee_main_mem: MAP_FIXED_NOREPLACE accepted hint 0x%lx "
+                        "(libgk.so will be below EE_BASE → X30 trace skipped via B.LT)",
+                        (unsigned long)accepted_hint);
+  }
   if (p == MAP_FAILED) {
     __android_log_print(ANDROID_LOG_WARN, kAndroidLogTag,
                         "g_ee_main_mem RWX mmap(%zu) failed: %s — retrying without PROT_EXEC",
@@ -95,11 +209,10 @@ u8* allocate_ee_main_mem() {
                           kEEMainMemSize, std::strerror(errno));
       return nullptr;
     }
-  } else {
-    __android_log_print(ANDROID_LOG_INFO, kAndroidLogTag,
-                        "g_ee_main_mem mmap %zu bytes RWX @ %p",
-                        kEEMainMemSize, p);
   }
+  __android_log_print(ANDROID_LOG_INFO, kAndroidLogTag,
+                      "g_ee_main_mem mmap %zu bytes RWX @ %p",
+                      kEEMainMemSize, p);
   return static_cast<u8*>(p);
 }
 }  // namespace
