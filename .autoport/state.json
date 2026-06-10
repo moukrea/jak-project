@@ -66,7 +66,8 @@
     "A30-android-runtime-surface-bringup": 1,
     "A31-android-boot-to-titlescreen": 2,
     "A32-android-renderer-path-bringup": 1,
-    "A33-arm64-regalloc-spill-sprint": 1
+    "A33-arm64-regalloc-spill-sprint": 1,
+    "A34-android-display-loop-first-frame": 0
   },
   "fingerprints": {
     "00-harness": [
@@ -243,7 +244,8 @@
     "A30-android-runtime-surface-bringup": 1781068032.8567753,
     "A31-android-boot-to-titlescreen": 1781073387.6857047,
     "A32-android-renderer-path-bringup": 1781078393.1667619,
-    "A33-arm64-regalloc-spill-sprint": 1781085014.9918177
+    "A33-arm64-regalloc-spill-sprint": 1781085014.9918177,
+    "A34-android-display-loop-first-frame": 1781089565.2485325
   },
   "last_update": "2026-06-10T11:02:29.816315+00:00",
   "rate_interrupts": {
