@@ -2298,21 +2298,38 @@ void IR_GetSymbolValueAsm::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                             const AllocationResult& allocs,
                                             emitter::IR_Record irec) {
   auto dst_reg = m_use_coloring ? get_reg(m_dest, allocs, irec) : get_no_color_reg(m_dest);
+  // A34 — `.load-sym sp *kernel-sp*` (return-from-thread /
+  // return-from-thread-dead / thread-suspend tails) is x86
+  // `mov esp, [st+sym]`: it REPLACES the stack pointer with the saved
+  // kernel SP. The id-4→SP translation covered mov/add/sub but not
+  // symbol loads, so this emitted `LDR W4, [X16]` — the value landed in
+  // the literal X4 and SP was never restored; the subsequent
+  // `.add sp off` + register pops then walked a wild stack on every
+  // thread death/suspend. ARM64 cannot load into SP directly: load via
+  // X1 (RCX-model, dead at all three frozen sites — the tails preserve
+  // only RAX and immediately pop x12/x11/x10/x5/x3) then MOV SP, X1.
+  const bool dst_is_sp = (dst_reg.id() == emitter::RSP);
+  auto load_dst = dst_is_sp ? emitter::Register(emitter::RCX) : dst_reg;
   // Same shape as IR_GetSymbolValue: LDRSW Xd / LDR Wd, [Xst, #imm12_scaled4].
   // The arm64-aware fix-up rewrites the imm12 field at link time.
   emitter::InstructionRecord instr;
   if (m_sext) {
     instr = gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
-                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
                                LINK_SYM_NO_OFFSET_FLAG),
                            irec);
   } else {
     instr = gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
-                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
                                LINK_SYM_NO_OFFSET_FLAG),
                            irec);
   }
   gen->link_instruction_symbol_mem(instr, m_sym_name);
+  if (dst_is_sp) {
+    // MOV SP, X1 (= ADD SP, X1, #0)
+    constexpr uint32_t kMovSpX1 = 0x9100003Fu;
+    gen->add_instr(emitter::InstructionARM64(kMovSpX1), irec);
+  }
 }
 
 ///////////////////////
