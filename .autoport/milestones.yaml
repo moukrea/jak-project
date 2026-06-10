@@ -517,6 +517,21 @@ phases:
   validator: validators/phase-A29-arm64-gsound-iop-rpc-sprint.sh
   max_turns: 2500
   max_retries: 3
+- id: A30-android-runtime-surface-bringup
+  name: 'PIVOT from qemu-codegen to Android-runtime integration. A28+A29 took qemu 216→462→660 (past the title screen logo, into Geyser
+    Rock level load) — codegen is essentially done. But on the real device (Redmi Note 9 Pro, adb eae4df44) the GOAL kernel does NOT run:
+    app loads libgk.so + mmaps EE mem + MainActivity onCreate, then sits at 0% CPU sleeping with a black screen — gk_main never starts the
+    GOAL boot (SDL main thread blocked on GL-surface/EGL creation), and native stdout is not routed to logcat (boot invisible on-device).
+    A30 mandate: (1) route gk native stdout/stderr to logcat FIRST so the device boot is visible; (2) diagnose+fix why gk_main/the SDL
+    surface does not start the kernel; (3) boot the kernel on-device toward logo + the display loop; (4) render the title screen + screencap
+    it. Device-centric inner loop (d4_run; warm cache so installs are fast). ALWAYS -s eae4df44 (never the emulator); disable the
+    egggameplus launcher reversibly for clean foreground, re-enable after. Lean gates: x86 still boots, qemu >=660 no-regression, native-log
+    routing present, an A30-device-*.png screencap captured; supervisor judges the screencap (black is not a pass). Unlocks android/** +
+    game/linux-arm64 SDL/surface glue + all non-oracle code. max_turns 2500, budget ~$200.'
+  prompt: prompts/phase-A30-android-runtime-surface-bringup.md
+  validator: validators/phase-A30-android-runtime-surface-bringup.sh
+  max_turns: 2500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
