@@ -55,7 +55,7 @@ cat <<EOF
 ================================================================
   Autoport orchestrator -- foreground mode
 ================================================================
-  Model:     claude-opus-4-7
+  Model:     claude-fable-5[1m]
   Effort:    max
   Perms:     --dangerously-skip-permissions (full YOLO)
   Verbose:   $VERBOSE_LABEL (use --quiet for silent)
