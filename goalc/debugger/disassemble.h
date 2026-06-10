@@ -49,6 +49,19 @@ std::string disassemble_x86_function(
 // so it also surfaces encoding bugs. Used by goalc-codegen-diff.
 std::string disassemble_arm64(u8* data, int len, u64 base_addr);
 
+// IR-annotated ARM64 function disassembly (Capstone), mirroring
+// disassemble_x86_function so :disassemble works in the arm64-backend goalc.
+std::string disassemble_arm64_function(
+    u8* data,
+    int len,
+    const goos::Reader* reader,
+    u64 base_addr,
+    const std::vector<InstructionInfo>& instructions,
+    const std::vector<std::shared_ptr<goos::HeapObject>>& code_sources,
+    const std::vector<std::string>& ir_strings,
+    bool* had_failure,
+    bool omit_ir);
+
 // Structured single-instruction decode used by goalc-codegen-diff to build a
 // per-IR-node side-by-side x86/arm64 view and to analyze register clobbers.
 struct DecodedInstr {

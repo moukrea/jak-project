@@ -132,7 +132,14 @@ class Register {
     if (instr_set == emitter::InstructionSet::X86) {
       return m_id >= XMM0 && m_id <= XMM15;
     } else if (instr_set == emitter::InstructionSet::ARM64) {
-      return m_id >= Q0 && m_id <= Q15;
+      // A33: register ids are x86-model THROUGHOUT goalc (gRegInfo is the x86
+      // register file on every backend); the AArch64 bank split happens only
+      // at encode time (id & 0x1f → X0-X15 for ids 0-15, V16-V31 for 16-31).
+      // The old `Q0..Q15` check aliased X0..X15 (Q0 = 0 in ARM64_REG), which
+      // INVERTED the test for every x86-model id and mis-classed every
+      // function call's args/returns (GPR args became INT_128, 128-bit args
+      // became GPR_64 pinned to XMM ids → X16+ clobbers).
+      return m_id >= XMM0 && m_id <= XMM15;
     } else {
       ASSERT_MSG(false, "is_128bit_simd: instruction set not supported");
     }

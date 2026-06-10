@@ -267,6 +267,12 @@ Val* Compiler::compile_lambda(const goos::Object& form, const goos::Object& rest
 
       RegVal* final_result;
       emitter::Register ret_hw_reg = emitter::gRegInfo.get_gpr_ret_reg();
+#ifdef GOALC_BACKEND_ARM64
+      // A33: all returns through the GPR return reg (128-bit truncates),
+      // matching the all-GPR arm64 calling convention in CallingConvention.cpp.
+      final_result = result->to_gpr(form, new_func_env.get());
+      func_block_env->return_types.push_back(final_result->type());
+#else
       if (m_ts.lookup_type(result->type())->get_load_size() == 16) {
         ret_hw_reg = emitter::gRegInfo.get_xmm_ret_reg();
         final_result = result->to_xmm128(form, new_func_env.get());
@@ -283,6 +289,7 @@ Val* Compiler::compile_lambda(const goos::Object& form, const goos::Object& rest
           break;
         }
       }
+#endif
 
       new_func_env->emit_ir<IR_Return>(form, return_reg, final_result, ret_hw_reg);
 
