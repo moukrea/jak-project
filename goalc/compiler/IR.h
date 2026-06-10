@@ -621,9 +621,22 @@ class IR_JumpReg : public IR_Asm {
   void do_codegen_arm64(emitter::ObjectGenerator* gen,
                         const AllocationResult& allocs,
                         emitter::IR_Record irec) override;
+  // A34 — x86 "push RA; jmp func" call-with-custom-return-address pattern
+  // (set-to-run-bootstrap / reset-and-call / enter-state). On x86 the
+  // jumped-to function's final `ret` pops the pushed word; arm64 GOAL
+  // functions use the register-RA contract (paired STP/LDP of X30), so
+  // the pushed word is never consumed: the spawned function returns to a
+  // stale X30 (return-from-thread-dead/deactivate never run) and the
+  // leaked trampoline word gets popped much later by an unrelated
+  // epilogue with pp clobbered. When CodeGenerator's asm-func pre-scan
+  // proves [SP] holds a freshly-pushed RA at this .jr, the arm64
+  // emission pops that word into X30 before the BR — delivering the RA
+  // through the arm64 register contract instead.
+  void mark_arm64_pop_ra() { m_arm64_pop_ra = true; }
 
  protected:
   const RegVal* m_src = nullptr;
+  bool m_arm64_pop_ra = false;
 };
 
 class IR_RegSetAsm : public IR_Asm {

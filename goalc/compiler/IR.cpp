@@ -633,22 +633,40 @@ void IR_GetSymbolValue::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                          const AllocationResult& allocs,
                                          emitter::IR_Record irec) {
   auto dst_reg = get_reg(m_dest, allocs, irec);
+  // A34 — `.load-sym sp *kernel-sp*` (return-from-thread /
+  // return-from-thread-dead / thread-suspend tails). x86 emits
+  // `mov esp, [st+sym]`, replacing the stack pointer with the saved
+  // kernel SP. The id-4→SP translation existed for mov/add/sub but NOT
+  // for symbol loads: the emitted `LDR W4, [X16]` landed the value in
+  // the literal X4 and SP was never restored — the subsequent
+  // `.add sp off` + pops then walked a wild stack the moment any thread
+  // actually died or suspended. ARM64 can't load directly into SP, so:
+  // load into X1 (RCX-model; dead at all three frozen call sites — the
+  // tails only need RAX preserved, then immediately pop into
+  // x12/x11/x10/x5/x3) and MOV SP, X1.
+  const bool dst_is_sp = (dst_reg.id() == emitter::RSP);
+  auto load_dst = dst_is_sp ? emitter::Register(emitter::RCX) : dst_reg;
   // LDRSW Xdst, [Xst, #imm12_scaled4] (sext) or LDR Wdst, [Xst, #imm12_scaled4]
   // (unsigned). The arm64-aware fix-up rewrites the imm12 field once the
   // symbol's offset is known at link time.
   emitter::InstructionRecord instr;
   if (m_sext) {
     instr = gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
-                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
                                LINK_SYM_NO_OFFSET_FLAG),
                            irec);
   } else {
     instr = gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
-                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
                                LINK_SYM_NO_OFFSET_FLAG),
                            irec);
   }
   gen->link_instruction_symbol_mem(instr, m_src->name());
+  if (dst_is_sp) {
+    // MOV SP, X1 (= ADD SP, X1, #0)
+    constexpr uint32_t kMovSpX1 = 0x9100003Fu;
+    gen->add_instr(emitter::InstructionARM64(kMovSpX1), irec);
+  }
 }
 
 /////////////////////
@@ -1438,21 +1456,33 @@ void IR_StaticVarLoad::do_codegen_arm64(emitter::ObjectGenerator* gen,
   auto load_info = m_src->get_load_info();
   ASSERT(m_src->get_addr_offset() == 0);
   auto dst = get_reg(m_dest, allocs, irec);
-  // LDR-literal (PC-relative): imm19 holds (target_pc - patch_pc) / 4. The
-  // arm64-aware linker writes the imm19 field once the static's final byte
-  // offset is known. The same shape encodes both the 32-bit float LDR (Sd) and
-  // the 128-bit vector LDR (Qd).
+  // A34: ADRP X16 (page of the static) + LDR Sd/Qd, [X16, #page-low-12] —
+  // the same two-record shape as IR_StaticVarAddr, patched by
+  // apply_arm64_intra_seg_imm_patch at compile time and by klink's
+  // ADRP/LDR-imm12 patchers across segments. The previous single
+  // LDR-literal only reaches +/-1 MB; top-level initializer code
+  // references main-segment statics across tens of MB of heap, so klink
+  // could only log "LDR-literal imm19 out of range" (304 times in the
+  // run-11 boot) and leave the placeholder — the load then read its own
+  // code bytes, poisoning static data (run-11's type-type? crash on a
+  // garbage type during target init-from-entity res lookups).
+  const emitter::Register x16_scratch(16);
+  auto adrp_instr = gen->add_instr(emitter::IGen::ARM64::static_addr(x16_scratch, 0), irec);
   emitter::InstructionRecord instr;
   if (m_dest->ireg().reg_class == RegClass::FLOAT) {
     ASSERT(load_info.load_signed == false);
     ASSERT(load_info.load_size == 4);
     ASSERT(load_info.requires_load == true);
-    instr = gen->add_instr(emitter::IGen::ARM64::static_load_xmm32(dst, 0), irec);
+    instr = gen->add_instr(
+        emitter::IGen::ARM64::load32_xmm32_gpr64_plus_gpr64_plus_s8(dst, x16_scratch, x16_scratch, 0),
+        irec);
   } else if (m_dest->ireg().reg_class == RegClass::VECTOR_FLOAT) {
-    instr = gen->add_instr(emitter::IGen::ARM64::loadvf_rip_plus_s32(dst, 0), irec);
+    instr = gen->add_instr(emitter::IGen::ARM64::load128_xmm128_reg_offset(dst, x16_scratch, 0),
+                           irec);
   } else {
     ASSERT(false);
   }
+  gen->link_instruction_static(adrp_instr, m_src->rec, 0);
   gen->link_instruction_static(instr, m_src->rec, 0);
 }
 
@@ -1565,6 +1595,16 @@ void IR_ConditionalBranch::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                             emitter::IR_Record irec) {
   ASSERT(m_resolved);
   int cond = emitter::IGen::ARM64::ARM_COND_EQ;
+  // A34: float conditions compare via FCMP and must use the FP-flag
+  // condition codes (LT->MI, LEQ->LS; GT/GE read N,V which FCMP sets so
+  // unordered compares come out false, matching ordered x86 COMISS use).
+  // The pre-A34 code emitted an INTEGER CMP Xa,Xb for float conditions —
+  // with float values living in the SIMD bank, the X-regs with the same
+  // numbers hold host C++ callee-saved junk (X22/X23), so every float
+  // branch in the game was decided by garbage. On-device this fired the
+  // cam-string :enter outro path ((!= outro-t-step 0.0) "true" with the
+  // field = 0.0) into curve-get-pos! on a zeroed outro-curve -> the
+  // post-title-vis curve-evaluate! SIGSEGV at EE-4.
   switch (condition.kind) {
     case ConditionKind::EQUAL:
       cond = emitter::IGen::ARM64::ARM_COND_EQ;
@@ -1573,27 +1613,37 @@ void IR_ConditionalBranch::do_codegen_arm64(emitter::ObjectGenerator* gen,
       cond = emitter::IGen::ARM64::ARM_COND_NE;
       break;
     case ConditionKind::LEQ:
-      cond = condition.is_signed ? emitter::IGen::ARM64::ARM_COND_LE
-                                 : emitter::IGen::ARM64::ARM_COND_LS;
+      cond = condition.is_float ? emitter::IGen::ARM64::ARM_COND_LS
+             : condition.is_signed ? emitter::IGen::ARM64::ARM_COND_LE
+                                   : emitter::IGen::ARM64::ARM_COND_LS;
       break;
     case ConditionKind::GEQ:
-      cond = condition.is_signed ? emitter::IGen::ARM64::ARM_COND_GE
-                                 : emitter::IGen::ARM64::ARM_COND_CS;
+      cond = condition.is_float ? emitter::IGen::ARM64::ARM_COND_GE
+             : condition.is_signed ? emitter::IGen::ARM64::ARM_COND_GE
+                                   : emitter::IGen::ARM64::ARM_COND_CS;
       break;
     case ConditionKind::LT:
-      cond = condition.is_signed ? emitter::IGen::ARM64::ARM_COND_LT
-                                 : emitter::IGen::ARM64::ARM_COND_CC;
+      cond = condition.is_float ? emitter::IGen::ARM64::ARM_COND_MI
+             : condition.is_signed ? emitter::IGen::ARM64::ARM_COND_LT
+                                   : emitter::IGen::ARM64::ARM_COND_CC;
       break;
     case ConditionKind::GT:
-      cond = condition.is_signed ? emitter::IGen::ARM64::ARM_COND_GT
-                                 : emitter::IGen::ARM64::ARM_COND_HI;
+      cond = condition.is_float ? emitter::IGen::ARM64::ARM_COND_GT
+             : condition.is_signed ? emitter::IGen::ARM64::ARM_COND_GT
+                                   : emitter::IGen::ARM64::ARM_COND_HI;
       break;
     default:
       ASSERT(false);
   }
-  gen->add_instr(emitter::IGen::ARM64::cmp_gpr64_gpr64(get_reg(condition.a, allocs, irec),
-                                                       get_reg(condition.b, allocs, irec)),
-                 irec);
+  if (condition.is_float) {
+    gen->add_instr(emitter::IGen::ARM64::cmp_flt_flt(get_reg(condition.a, allocs, irec),
+                                                     get_reg(condition.b, allocs, irec)),
+                   irec);
+  } else {
+    gen->add_instr(emitter::IGen::ARM64::cmp_gpr64_gpr64(get_reg(condition.a, allocs, irec),
+                                                         get_reg(condition.b, allocs, irec)),
+                   irec);
+  }
   auto jump_rec =
       gen->add_instr(emitter::IGen::ARM64::b_cond_placeholder(cond), irec);
   gen->link_instruction_jump(jump_rec, gen->get_future_ir_record_in_same_func(irec, label.idx));
@@ -2280,21 +2330,38 @@ void IR_GetSymbolValueAsm::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                             const AllocationResult& allocs,
                                             emitter::IR_Record irec) {
   auto dst_reg = m_use_coloring ? get_reg(m_dest, allocs, irec) : get_no_color_reg(m_dest);
+  // A34 — `.load-sym sp *kernel-sp*` (return-from-thread /
+  // return-from-thread-dead / thread-suspend tails) is x86
+  // `mov esp, [st+sym]`: it REPLACES the stack pointer with the saved
+  // kernel SP. The id-4→SP translation covered mov/add/sub but not
+  // symbol loads, so this emitted `LDR W4, [X16]` — the value landed in
+  // the literal X4 and SP was never restored; the subsequent
+  // `.add sp off` + register pops then walked a wild stack on every
+  // thread death/suspend. ARM64 cannot load into SP directly: load via
+  // X1 (RCX-model, dead at all three frozen sites — the tails preserve
+  // only RAX and immediately pop x12/x11/x10/x5/x3) then MOV SP, X1.
+  const bool dst_is_sp = (dst_reg.id() == emitter::RSP);
+  auto load_dst = dst_is_sp ? emitter::Register(emitter::RCX) : dst_reg;
   // Same shape as IR_GetSymbolValue: LDRSW Xd / LDR Wd, [Xst, #imm12_scaled4].
   // The arm64-aware fix-up rewrites the imm12 field at link time.
   emitter::InstructionRecord instr;
   if (m_sext) {
     instr = gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
-                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
                                LINK_SYM_NO_OFFSET_FLAG),
                            irec);
   } else {
     instr = gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
-                               dst_reg, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
                                LINK_SYM_NO_OFFSET_FLAG),
                            irec);
   }
   gen->link_instruction_symbol_mem(instr, m_sym_name);
+  if (dst_is_sp) {
+    // MOV SP, X1 (= ADD SP, X1, #0)
+    constexpr uint32_t kMovSpX1 = 0x9100003Fu;
+    gen->add_instr(emitter::InstructionARM64(kMovSpX1), irec);
+  }
 }
 
 ///////////////////////
@@ -2326,6 +2393,14 @@ void IR_JumpReg::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                   const AllocationResult& allocs,
                                   emitter::IR_Record irec) {
   auto src_reg = m_use_coloring ? get_reg(m_src, allocs, irec) : get_no_color_reg(m_src);
+  if (m_arm64_pop_ra) {
+    // Pop the RA pushed by the preceding `.push` into X30 so the BR'd-to
+    // function's paired-LDP epilogue returns there (x86: the function's
+    // `ret` would pop this word from [rsp]). Same encoding as
+    // IR_AsmRet's pop: LDR X30, [SP], #16.
+    constexpr uint32_t kLdrX30PopSP = 0xF84107FEu;
+    gen->add_instr(emitter::InstructionARM64(kLdrX30PopSP), irec);
+  }
   gen->add_instr(emitter::IGen::ARM64::jmp_r64(src_reg), irec);
 }
 

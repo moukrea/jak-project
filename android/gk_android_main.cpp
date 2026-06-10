@@ -1743,6 +1743,205 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                         (unsigned long)uc->uc_mcontext.regs[i]);
   }
 
+  // A34-DIAG: identify the CURRENT PROCESS at the crash. In GOAL code,
+  // X13 = pp (the current process, reserved on every backend) and
+  // X15 = the EE base. Boxed basics point 4 past their type tag, so a
+  // deftype field at offset N lives at [obj + N - 4]. Dumps:
+  //   - process name (string chars at name+4), status / state-name /
+  //     next-state-name symbols (via the A11 sym-slot walker),
+  //   - a raw u32 window over the process header,
+  //   - the camera-slave spline window (spline-exists @2364,
+  //     spline-curve @2368) — run-4's curve-evaluate! crash read an
+  //     all-zero spline-curve through a truthy spline-exists, which can
+  //     only happen if the slave's init never stored #f there.
+  {
+    uintptr_t ee = (uintptr_t)uc->uc_mcontext.regs[15];
+    uintptr_t pp_goal = (uintptr_t)(uc->uc_mcontext.regs[13] & 0xFFFFFFFFu);
+    if ((ee & 0xFFFu) == 0 && ee >= 0x100000000ull && pp_goal >= 0x1000 &&
+        pp_goal < 0x20000000u) {
+      uintptr_t pp_host = ee + pp_goal;
+      uint32_t type_goal = 0, name_goal = 0, status_goal = 0, pid_v = 0,
+               state_goal = 0, next_state_goal = 0;
+      gk_diag::safe_read_u32(pp_host - 4, &type_goal);
+      gk_diag::safe_read_u32(pp_host + 0, &name_goal);     // name @4
+      gk_diag::safe_read_u32(pp_host + 32, &status_goal);  // status @36
+      gk_diag::safe_read_u32(pp_host + 36, &pid_v);        // pid @40
+      gk_diag::safe_read_u32(pp_host + 52, &state_goal);   // state @56
+      gk_diag::safe_read_u32(pp_host + 60, &next_state_goal);  // next-state @64
+      char namebuf[40] = {0};
+      for (int i = 0; i < 36; i += 4) {
+        uint32_t w = 0;
+        if (!gk_diag::safe_read_u32(ee + name_goal + 4 + i, &w)) break;
+        memcpy(namebuf + i, &w, 4);
+      }
+      namebuf[36] = 0;
+      for (char& c : namebuf) {
+        if (c && (c < 0x20 || c > 0x7e)) {
+          c = 0;
+          break;
+        }
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A34-DIAG pp=0x%lx type=0x%x name=0x%x "
+                          "'%s' status=0x%x pid=%u state=0x%x next-state=0x%x",
+                          (unsigned long)pp_goal, type_goal, name_goal,
+                          namebuf, status_goal, pid_v, state_goal,
+                          next_state_goal);
+      // status / state-name / next-state-name as symbols (best-effort).
+      gk_diag::dump_sym_name_at_slot(ee + status_goal);
+      if (state_goal) {
+        uint32_t state_name_sym = 0;
+        if (gk_diag::safe_read_u32(ee + state_goal + 0, &state_name_sym)) {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A34-DIAG state-name-sym=0x%x",
+                              state_name_sym);
+          gk_diag::dump_sym_name_at_slot(ee + state_name_sym);
+        }
+      }
+      if (next_state_goal) {
+        uint32_t ns_name_sym = 0;
+        if (gk_diag::safe_read_u32(ee + next_state_goal + 0, &ns_name_sym)) {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A34-DIAG next-state-name-sym=0x%x",
+                              ns_name_sym);
+          gk_diag::dump_sym_name_at_slot(ee + ns_name_sym);
+        }
+      }
+      // Raw windows: process header + camera-slave spline area.
+      for (intptr_t base : {(intptr_t)-4, (intptr_t)0x890}) {
+        for (intptr_t off = base; off < base + (base < 0 ? 0x80 : 0xd0);
+             off += 16) {
+          uint32_t w0 = 0, w1 = 0, w2 = 0, w3 = 0;
+          bool ok0 = gk_diag::safe_read_u32(pp_host + off, &w0);
+          bool ok1 = gk_diag::safe_read_u32(pp_host + off + 4, &w1);
+          bool ok2 = gk_diag::safe_read_u32(pp_host + off + 8, &w2);
+          bool ok3 = gk_diag::safe_read_u32(pp_host + off + 12, &w3);
+          if (!(ok0 || ok1 || ok2 || ok3)) break;
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A34-DIAG pp%+ld: %08x %08x %08x %08x",
+                              (long)off, w0, w1, w2, w3);
+        }
+      }
+    } else {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A34-DIAG pp-dump skipped (x15/x13 not "
+                          "GOAL-shaped: x15=0x%lx x13=0x%lx)",
+                          (unsigned long)ee, (unsigned long)pp_goal);
+    }
+    // A34-DIAG run-8: walk the GOAL frame-pointer chain. The arm64 GOAL
+    // prologue is STP X29,X30,[SP,#-16]!; MOV X29,SP — so [X29] = caller's
+    // X29 and [X29+8] = the return address into the caller. Run-7 left a
+    // contradiction (zero curve reached curve-closest-point but every
+    // candidate call site's guard reads clean data) — the saved-LR chain
+    // names the REAL caller chain without guessing.
+    {
+      uintptr_t fp = (uintptr_t)uc->uc_mcontext.regs[29];
+      for (int i = 0; i < 24 && fp >= 0x10000; i++) {
+        uint32_t pl = 0, ph = 0, rl = 0, rh = 0;
+        if (!gk_diag::safe_read_u32(fp, &pl) ||
+            !gk_diag::safe_read_u32(fp + 4, &ph) ||
+            !gk_diag::safe_read_u32(fp + 8, &rl) ||
+            !gk_diag::safe_read_u32(fp + 12, &rh)) {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A34-DIAG fp-walk[%d] fp=0x%lx "
+                              "<unreadable>",
+                              i, (unsigned long)fp);
+          break;
+        }
+        uint64_t prev_fp = ((uint64_t)ph << 32) | pl;
+        uint64_t ret = ((uint64_t)rh << 32) | rl;
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A34-DIAG fp-walk[%d] fp=0x%lx "
+                            "saved-lr=0x%llx prev-fp=0x%llx",
+                            i, (unsigned long)fp, (unsigned long long)ret,
+                            (unsigned long long)prev_fp);
+        // Run-10: 24 instruction words before each saved-LR (lr-96..lr-4)
+        // — run-9's lr-16 radius only captured the generic call-with-save
+        // wrapper (identical at every site); the arg-staging code before
+        // it is site-unique and byte-matchable against the on-disk CGOs.
+        {
+          uint32_t w[24] = {0};
+          bool any = false;
+          for (int k = 0; k < 24; k++) {
+            if (gk_diag::safe_read_u32((uintptr_t)ret - 96 + 4 * k, &w[k])) {
+              any = true;
+            }
+          }
+          if (any) {
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG A34-DIAG fp-walk[%d] lr-96: "
+                                "%08x %08x %08x %08x %08x %08x %08x %08x",
+                                i, w[0], w[1], w[2], w[3], w[4], w[5], w[6],
+                                w[7]);
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG A34-DIAG fp-walk[%d] lr-64: "
+                                "%08x %08x %08x %08x %08x %08x %08x %08x",
+                                i, w[8], w[9], w[10], w[11], w[12], w[13],
+                                w[14], w[15]);
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG A34-DIAG fp-walk[%d] lr-32: "
+                                "%08x %08x %08x %08x %08x %08x %08x %08x",
+                                i, w[16], w[17], w[18], w[19], w[20], w[21],
+                                w[22], w[23]);
+          }
+        }
+        if (prev_fp <= fp || prev_fp - fp > 0x100000) break;
+        fp = (uintptr_t)prev_fp;
+      }
+      // Run-9: the first 4 words at EE+0 — curve-evaluate!'s zero-curve
+      // survival path depends on what knots[0]=*(EE+0) reads as.
+      uint32_t z[4] = {0};
+      for (int k = 0; k < 4; k++) {
+        gk_diag::safe_read_u32((uintptr_t)uc->uc_mcontext.regs[15] + 4 * k,
+                               &z[k]);
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A34-DIAG ee+0: %08x %08x %08x %08x", z[0],
+                          z[1], z[2], z[3]);
+    }
+    // A34-DIAG run-6: dump the camera-master (*camera*) outro window.
+    // Run-5 showed the crash is cam-string's :enter reading the MASTER's
+    // outro-t-step (deftype 2376) as non-zero with a zero outro-curve
+    // (deftype 2352) — cam-master-init:992 stores 0.0 there, so either
+    // the master init didn't run or the field was clobbered. Memory
+    // offset = deftype offset - 4 (boxed basic).
+    if ((ee & 0xFFFu) == 0 && ee >= 0x100000000ull) {
+      auto cam_sym = jak1::intern_from_c("*camera*");
+      uint32_t cam_goal = cam_sym.offset ? cam_sym->value : 0;
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A34-DIAG *camera*=0x%x", cam_goal);
+      if (cam_goal >= 0x1000 && cam_goal < 0x20000000u) {
+        uintptr_t cam_host = ee + cam_goal;
+        uint32_t cstatus = 0, cstate = 0, cpid = 0;
+        gk_diag::safe_read_u32(cam_host + 32, &cstatus);
+        gk_diag::safe_read_u32(cam_host + 36, &cpid);
+        gk_diag::safe_read_u32(cam_host + 52, &cstate);
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A34-DIAG cam-master status=0x%x pid=%u "
+                            "state=0x%x",
+                            cstatus, cpid, cstate);
+        gk_diag::dump_sym_name_at_slot(ee + cstatus);
+        if (cstate) {
+          uint32_t st_name = 0;
+          if (gk_diag::safe_read_u32(ee + cstate + 0, &st_name)) {
+            gk_diag::dump_sym_name_at_slot(ee + st_name);
+          }
+        }
+        // outro-curve @2352 (mem 2348) .. outro-exit-value @2380 (mem 2376).
+        for (intptr_t off = 0x920; off < 0x9A0; off += 16) {
+          uint32_t w0 = 0, w1 = 0, w2 = 0, w3 = 0;
+          gk_diag::safe_read_u32(cam_host + off, &w0);
+          gk_diag::safe_read_u32(cam_host + off + 4, &w1);
+          gk_diag::safe_read_u32(cam_host + off + 8, &w2);
+          gk_diag::safe_read_u32(cam_host + off + 12, &w3);
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A34-DIAG cam%+ld: %08x %08x %08x %08x",
+                              (long)off, w0, w1, w2, w3);
+        }
+      }
+    }
+  }
+
   // A12-DIAG: tie the failing BLR to the originating sym slot via a
   // backward provenance trace (BLR Xt → LDR Xt,[SP,#N] → STR Xs,[SP,#N]
   // → LDR Ws,[Xb,#0] → ADRP+ADD → sym name). Runs only on sig=4 (SIGILL).

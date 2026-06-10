@@ -115,13 +115,25 @@ static inline InstructionARM64 a5_sym_mem_marker(uint32_t kind, Register rt) {
 // LDR/STR unsigned-offset, 64-bit GPR (LDR Xt, [Xn, #imm]):
 //   sf=1 | 11 1001 01 | imm12 | Rn | Rt  → base 0xF9400000 (load)
 //                                  → base 0xF9000000 (store)
+// A34: every scaled helper now asserts exact encodability. The old
+// behaviour silently floor-divided + masked the immediate (imm>>shift &
+// 0xfff), mis-addressing any offset that was negative, not a multiple of
+// the access size, or out of imm12 range — the bug class behind the
+// camera-master drawable-target mis-read. GOAL-pointer accesses go
+// through a6_offreg_access (which materializes such offsets); any OTHER
+// caller hitting these asserts is a latent mis-address and must be fixed
+// at the call site, not silenced.
 static InstructionARM64 ldr_x_imm(Register dst, Register base, int64_t imm_bytes) {
   // imm12 scales by 8 for 64-bit (must be 8-byte aligned, 0..32760).
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 7) == 0 && imm_bytes <= 32760,
+             "ldr_x_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 3) & 0xfffu);
   uint32_t enc = 0xF9400000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(dst);
   return InstructionARM64(enc);
 }
 static InstructionARM64 str_x_imm(Register src, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 7) == 0 && imm_bytes <= 32760,
+             "str_x_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 3) & 0xfffu);
   uint32_t enc = 0xF9000000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(src);
   return InstructionARM64(enc);
@@ -130,11 +142,15 @@ static InstructionARM64 str_x_imm(Register src, Register base, int64_t imm_bytes
 // LDR/STR unsigned-offset, 32-bit GPR (LDR Wt, [Xn, #imm]):
 //   base 0xB9400000 (load), 0xB9000000 (store), imm12 scales by 4.
 static InstructionARM64 ldr_w_imm(Register dst, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 3) == 0 && imm_bytes <= 16380,
+             "ldr_w_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 2) & 0xfffu);
   uint32_t enc = 0xB9400000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(dst);
   return InstructionARM64(enc);
 }
 static InstructionARM64 str_w_imm(Register src, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 3) == 0 && imm_bytes <= 16380,
+             "str_w_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 2) & 0xfffu);
   uint32_t enc = 0xB9000000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(src);
   return InstructionARM64(enc);
@@ -148,31 +164,40 @@ static InstructionARM64 str_w_imm(Register src, Register base, int64_t imm_bytes
 //   STRB  Wt, [Xn, #imm12]   base 0x39000000
 //   STRH  Wt, [Xn, #imm12]   base 0x79000000
 static InstructionARM64 ldrb_w_imm(Register dst, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && imm_bytes <= 4095, "ldrb_w_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>(imm_bytes & 0xfffu);
   uint32_t enc = 0x39400000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(dst);
   return InstructionARM64(enc);
 }
 static InstructionARM64 ldrsb_x_imm(Register dst, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && imm_bytes <= 4095, "ldrsb_x_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>(imm_bytes & 0xfffu);
   uint32_t enc = 0x39800000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(dst);
   return InstructionARM64(enc);
 }
 static InstructionARM64 strb_w_imm(Register src, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && imm_bytes <= 4095, "strb_w_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>(imm_bytes & 0xfffu);
   uint32_t enc = 0x39000000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(src);
   return InstructionARM64(enc);
 }
 static InstructionARM64 ldrh_w_imm(Register dst, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 1) == 0 && imm_bytes <= 8190,
+             "ldrh_w_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 1) & 0xfffu);
   uint32_t enc = 0x79400000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(dst);
   return InstructionARM64(enc);
 }
 static InstructionARM64 ldrsh_x_imm(Register dst, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 1) == 0 && imm_bytes <= 8190,
+             "ldrsh_x_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 1) & 0xfffu);
   uint32_t enc = 0x79800000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(dst);
   return InstructionARM64(enc);
 }
 static InstructionARM64 strh_w_imm(Register src, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 1) == 0 && imm_bytes <= 8190,
+             "strh_w_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 1) & 0xfffu);
   uint32_t enc = 0x79000000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(src);
   return InstructionARM64(enc);
@@ -181,11 +206,15 @@ static InstructionARM64 strh_w_imm(Register src, Register base, int64_t imm_byte
 // LDR/STR Q-reg, 128-bit FPSIMD (LDR Qt, [Xn, #imm]):
 //   base 0x3DC00000 (load), 0x3D800000 (store), imm12 scales by 16.
 static InstructionARM64 ldr_q_imm(Register dst, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 15) == 0 && imm_bytes <= 65520,
+             "ldr_q_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 4) & 0xfffu);
   uint32_t enc = 0x3DC00000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(dst);
   return InstructionARM64(enc);
 }
 static InstructionARM64 str_q_imm(Register src, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 15) == 0 && imm_bytes <= 65520,
+             "str_q_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 4) & 0xfffu);
   uint32_t enc = 0x3D800000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(src);
   return InstructionARM64(enc);
@@ -194,11 +223,15 @@ static InstructionARM64 str_q_imm(Register src, Register base, int64_t imm_bytes
 // LDR/STR S-reg, 32-bit FPSIMD (LDR St, [Xn, #imm]):
 //   base 0xBD400000 (load), 0xBD000000 (store), imm12 scales by 4.
 static InstructionARM64 ldr_s_imm(Register dst, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 3) == 0 && imm_bytes <= 16380,
+             "ldr_s_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 2) & 0xfffu);
   uint32_t enc = 0xBD400000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(dst);
   return InstructionARM64(enc);
 }
 static InstructionARM64 str_s_imm(Register src, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 3) == 0 && imm_bytes <= 16380,
+             "str_s_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 2) & 0xfffu);
   uint32_t enc = 0xBD000000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(src);
   return InstructionARM64(enc);
@@ -931,6 +964,8 @@ InstructionARM64 load16u_gpr64_gpr64_plus_gpr64_plus_s32(Register dst,
 // 32-bit signed loads → LDRSW Xt, [Xn, #imm12].
 //   LDRSW: base 0xB9800000, imm12 scales by 4.
 static InstructionARM64 ldrsw_x_imm(Register dst, Register base, int64_t imm_bytes) {
+  ASSERT_MSG(imm_bytes >= 0 && (imm_bytes & 3) == 0 && imm_bytes <= 16380,
+             "ldrsw_x_imm: unencodable offset");
   uint32_t imm12 = static_cast<uint32_t>((imm_bytes >> 2) & 0xfffu);
   uint32_t enc = 0xB9800000u | (imm12 << 10) | (arm64_reg5(base) << 5) | arm64_reg5(dst);
   return InstructionARM64(enc);
@@ -1158,77 +1193,106 @@ static inline uint32_t a6_enc_ldur_stur(uint32_t base, Register tgt, int simm9) 
 //   STUR  St (32 SIMD)0xBC000000     LDUR St  0xBC400000
 //   STUR  Qt (128 SIMD)0x3C800000    LDUR Qt  0x3CC00000
 
-// Emit the (size,sign-extend,store/load,Rt) access at [X16, #offset], picking
-// the scaled-imm12 form when `offset` is exactly encodable and falling back
-// to LDUR/STUR (unscaled signed-9-bit) for negative or non-aligned offsets.
-// `scaled` is the encoding emitted by the existing scaled helpers (already
-// has Rt and the imm12 baked in for the original `addr` base); we only
-// rewrite Rn to X16. `unscaled_base` is the LDUR/STUR base opcode for the
-// same access width/sign.
-static inline uint32_t a6_pick_access(uint32_t scaled, uint32_t unscaled_base,
-                                      Register tgt, s64 offset, int scale) {
+// Emit the full GOAL off-register access sequence for [addr + off + offset]:
+//
+//   ADD X16, Xaddr, Xoff            ; X16 = host address sans struct offset
+//   <access> Rt, [X16, #offset]     ; scaled imm12 or LDUR/STUR simm9
+//
+// or, when `offset` fits neither the scaled-imm12 form (non-negative,
+// multiple of the access scale, <= 4095*scale) nor the LDUR/STUR simm9
+// form (-256..255), materialize it into X16 first and access at [X16, #0]:
+//
+//   ADD X16, Xaddr, Xoff
+//   ADD/SUB X16, X16, #(|offset| >> 12), LSL #12   ; only if |offset| > 4095
+//   ADD/SUB X16, X16, #(|offset| & 0xFFF)          ; only if non-zero
+//   <access> Rt, [X16, #0]
+//
+// A34: the materialized path replaces the old behaviour of re-using the
+// scaled-imm12 encoding with a floor-divided immediate. That silent
+// truncation mis-addressed every GOAL field whose byte offset was not a
+// multiple of the access size and outside +/-256 — e.g. camera-master's
+// 8-byte `drawable-target` handle at +316 was read from +312, which fed
+// `handle->process` a garbage handle and SIGSEGV'd the on-device display
+// loop in `master-track-target` 11 ms after `link finish: title-vis`.
+// `scaled_base`/`unscaled_base` are the opcode bases for this access
+// width/sign (Rt/Rn/imm all zero).
+static inline InstructionARM64 a6_offreg_access(Register addr,
+                                                Register off,
+                                                Register tgt,
+                                                s64 offset,
+                                                uint32_t scaled_base,
+                                                uint32_t unscaled_base,
+                                                int scale) {
+  const uint32_t rt = arm64_reg5(tgt);
+  const uint32_t rn_x16 = (kA6OffRegScratchRegId << 5);
+  const uint32_t add0 = a6_enc_add_x16_xn_xm(addr, off);
   if (a6_fits_scaled_imm12(offset, scale)) {
-    // Reuse the existing scaled helper's encoding; only Rn changes to X16.
-    scaled &= ~(0x1fu << 5);
-    scaled |= (kA6OffRegScratchRegId << 5);
-    return scaled;
+    const uint32_t imm12 = static_cast<uint32_t>(offset / scale);
+    return InstructionARM64::paired(add0, scaled_base | (imm12 << 10) | rn_x16 | rt);
   }
   if (a6_fits_simm9(offset)) {
-    return a6_enc_ldur_stur(unscaled_base, tgt, static_cast<int>(offset));
+    return InstructionARM64::paired(add0,
+                                    a6_enc_ldur_stur(unscaled_base, tgt, static_cast<int>(offset)));
   }
-  // Out of both encoding ranges (e.g. large positive non-aligned offset).
-  // Fall back to the scaled-imm12 form with the original helper's truncation
-  // — same behaviour the pre-A6 emitter had, so we don't regress any
-  // already-working GOAL code path. The off-register addition is still
-  // honoured (X16 now holds addr+off); only the imm12 is approximated.
-  scaled &= ~(0x1fu << 5);
-  scaled |= (kA6OffRegScratchRegId << 5);
-  return scaled;
+  ASSERT_MSG(offset > -(s64(1) << 24) && offset < (s64(1) << 24),
+             "a6_offreg_access: GOAL access offset out of materializable range");
+  const s64 mag = offset < 0 ? -offset : offset;
+  const uint32_t lo12 = static_cast<uint32_t>(mag & 0xfff);
+  const uint32_t hi12 = static_cast<uint32_t>((mag >> 12) & 0xfff);
+  // ADD Xd, Xn, #imm12 = 0x91000000; SUB Xd, Xn, #imm12 = 0xD1000000.
+  // Bit 22 selects LSL #12 on the immediate.
+  const uint32_t addsub = offset < 0 ? 0xD1000000u : 0x91000000u;
+  InstructionARM64 r(add0);
+  if (hi12) {
+    r.extra_words.push_back(addsub | (1u << 22) | (hi12 << 10) | rn_x16 | kA6OffRegScratchRegId);
+  }
+  if (lo12) {
+    r.extra_words.push_back(addsub | (lo12 << 10) | rn_x16 | kA6OffRegScratchRegId);
+  }
+  r.extra_words.push_back(scaled_base | rn_x16 | rt);  // [X16, #0]
+  return r;
 }
 
 InstructionARM64 store_goal_vf(Register addr, Register value, Register off, s64 offset) {
-  uint32_t access = a6_pick_access(str_q_imm(value, addr, offset).encoding,
-                                   0x3C800000u, value, offset, 16);
-  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
+  // STR Qt scaled 0x3D800000, STUR Qt 0x3C800000.
+  return a6_offreg_access(addr, off, value, offset, 0x3D800000u, 0x3C800000u, 16);
 }
 
 InstructionARM64 store_goal_gpr(Register addr, Register value, Register off, int offset, int size) {
   // A33: the stored value must live in the GPR bank (id <= 15); ids 16+
   // would encode X16..X31 (emitter scratch / platform / pp / st / offset).
   ASSERT_MSG(value.id() <= 15, "store_goal_gpr: value register is not GPR-bank");
-  uint32_t scaled;
+  uint32_t scaled_base;
   uint32_t unscaled_base;
   int scale;
   switch (size) {
     case 1:
-      scaled = strb_w_imm(value, addr, offset).encoding;
+      scaled_base = 0x39000000u;    // STRB  Wt
       unscaled_base = 0x38000000u;  // STURB Wt
       scale = 1;
       break;
     case 2:
-      scaled = strh_w_imm(value, addr, offset).encoding;
+      scaled_base = 0x79000000u;    // STRH  Wt
       unscaled_base = 0x78000000u;  // STURH Wt
       scale = 2;
       break;
     case 4:
-      scaled = str_w_imm(value, addr, offset).encoding;
-      unscaled_base = 0xB8000000u;  // STUR  Wt
+      scaled_base = 0xB9000000u;    // STR  Wt
+      unscaled_base = 0xB8000000u;  // STUR Wt
       scale = 4;
       break;
     default:
-      scaled = str_x_imm(value, addr, offset).encoding;
-      unscaled_base = 0xF8000000u;  // STUR  Xt
+      scaled_base = 0xF9000000u;    // STR  Xt
+      unscaled_base = 0xF8000000u;  // STUR Xt
       scale = 8;
       break;
   }
-  uint32_t access = a6_pick_access(scaled, unscaled_base, value, offset, scale);
-  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
+  return a6_offreg_access(addr, off, value, offset, scaled_base, unscaled_base, scale);
 }
 
 InstructionARM64 load_goal_xmm128(Register dst, Register addr, Register off, int offset) {
-  uint32_t access = a6_pick_access(ldr_q_imm(dst, addr, offset).encoding,
-                                   0x3CC00000u, dst, offset, 16);
-  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
+  // LDR Qt scaled 0x3DC00000, LDUR Qt 0x3CC00000.
+  return a6_offreg_access(addr, off, dst, offset, 0x3DC00000u, 0x3CC00000u, 16);
 }
 
 InstructionARM64 load_goal_gpr(Register dst,
@@ -1239,48 +1303,47 @@ InstructionARM64 load_goal_gpr(Register dst,
                                bool sign_extend) {
   // A33: see store_goal_gpr — GPR-bank ids only for the destination.
   ASSERT_MSG(dst.id() <= 15, "load_goal_gpr: dst register is not GPR-bank");
-  uint32_t scaled;
+  uint32_t scaled_base;
   uint32_t unscaled_base;
   int scale;
   switch (size) {
     case 1:
       if (sign_extend) {
-        scaled = ldrsb_x_imm(dst, addr, offset).encoding;
+        scaled_base = 0x39800000u;    // LDRSB  Xt
         unscaled_base = 0x38800000u;  // LDURSB Xt
       } else {
-        scaled = ldrb_w_imm(dst, addr, offset).encoding;
+        scaled_base = 0x39400000u;    // LDRB  Wt
         unscaled_base = 0x38400000u;  // LDURB Wt
       }
       scale = 1;
       break;
     case 2:
       if (sign_extend) {
-        scaled = ldrsh_x_imm(dst, addr, offset).encoding;
+        scaled_base = 0x79800000u;    // LDRSH  Xt
         unscaled_base = 0x78800000u;  // LDURSH Xt
       } else {
-        scaled = ldrh_w_imm(dst, addr, offset).encoding;
+        scaled_base = 0x79400000u;    // LDRH  Wt
         unscaled_base = 0x78400000u;  // LDURH Wt
       }
       scale = 2;
       break;
     case 4:
       if (sign_extend) {
-        scaled = ldrsw_x_imm(dst, addr, offset).encoding;
+        scaled_base = 0xB9800000u;    // LDRSW  Xt
         unscaled_base = 0xB8800000u;  // LDURSW Xt
       } else {
-        scaled = ldr_w_imm(dst, addr, offset).encoding;
-        unscaled_base = 0xB8400000u;  // LDUR  Wt
+        scaled_base = 0xB9400000u;    // LDR  Wt
+        unscaled_base = 0xB8400000u;  // LDUR Wt
       }
       scale = 4;
       break;
     default:
-      scaled = ldr_x_imm(dst, addr, offset).encoding;
-      unscaled_base = 0xF8400000u;  // LDUR  Xt
+      scaled_base = 0xF9400000u;    // LDR  Xt
+      unscaled_base = 0xF8400000u;  // LDUR Xt
       scale = 8;
       break;
   }
-  uint32_t access = a6_pick_access(scaled, unscaled_base, dst, offset, scale);
-  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
+  return a6_offreg_access(addr, off, dst, offset, scaled_base, unscaled_base, scale);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1387,17 +1450,13 @@ InstructionARM64 load32_xmm32_gpr64_plus_s8(Register simd_dest, Register base, s
 }
 
 InstructionARM64 load_goal_xmm32(Register simd_dest, Register addr, Register off, s64 offset) {
-  // A6 — off-register fix; see comment above store_goal_vf for rationale.
-  uint32_t access = a6_pick_access(ldr_s_imm(simd_dest, addr, offset).encoding,
-                                   0xBC400000u, simd_dest, offset, 4);
-  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
+  // LDR St scaled 0xBD400000, LDUR St 0xBC400000.
+  return a6_offreg_access(addr, off, simd_dest, offset, 0xBD400000u, 0xBC400000u, 4);
 }
 
 InstructionARM64 store_goal_xmm32(Register addr, Register xmm_value, Register off, s64 offset) {
-  // A6 — off-register fix; see comment above store_goal_vf for rationale.
-  uint32_t access = a6_pick_access(str_s_imm(xmm_value, addr, offset).encoding,
-                                   0xBC000000u, xmm_value, offset, 4);
-  return InstructionARM64::paired(a6_enc_add_x16_xn_xm(addr, off), access);
+  // STR St scaled 0xBD000000, STUR St 0xBC000000.
+  return a6_offreg_access(addr, off, xmm_value, offset, 0xBD000000u, 0xBC000000u, 4);
 }
 
 InstructionARM64 store_reg_offset_xmm32(Register base, Register xmm_value, s64 offset) {
@@ -2358,18 +2417,51 @@ InstructionARM64 loadvf_rip_plus_s32(Register dest, s64 offset) {
 
 // TODO - rip relative loads and stores.
 
-// BLEND: x86 selects per-element via mask bits. The arm64 fast path is BSL
-// (Bitwise Select) but we don't have a true mask register handy in the
-// regalloc shape — emit BIT (Bit Insert if true) which selects from src2
-// based on inverted bits of an implicit immediate-derived mask. For our
-// codegen needs (which the classifier just checks for non-NOP), emit
-// `mov_16b dst, src1` followed by the per-lane work — here we just emit the
-// MOV form so the body contains a real instruction. The IR layer adds
-// further detail per mask bit.
+// BLEND.VF: x86 VBLENDPS dst.s[i] = mask-bit-i ? src2.s[i] : src1.s[i],
+// with a compile-time 4-bit mask. A34: the old stand-in returned
+// `mov dst, src1` (mask and src2 ignored) — every `.blend.vf` in
+// vector-h.gc computed the wrong vector. Emit a real lane-select:
+// start from one source and INS the other source's lanes.
+//   ORR Vd.16B, Vn, Vn (vector mov): 0x4EA01C00 | Rm<<16 | Rn<<5 | Rd
+//   INS Vd.S[i], Vn.S[j]: 0x6E000400 | ((i<<3)|4)<<16 | (j<<2)<<11 | Rn<<5 | Rd
 InstructionARM64 blend_vf(Register dst, Register src1, Register src2, u8 mask) {
-  (void)src2;
-  (void)mask;
-  return mov_16b(dst, src1);
+  auto ins_lane = [](Register d, Register n, int lane) {
+    return 0x6E000400u | ((((uint32_t)lane << 3) | 4u) << 16) | (((uint32_t)lane << 2) << 11) |
+           (arm64_reg5(n) << 5) | arm64_reg5(d);
+  };
+  auto vmov = [](Register d, Register n) {
+    return 0x4EA01C00u | (arm64_reg5(n) << 16) | (arm64_reg5(n) << 5) | arm64_reg5(d);
+  };
+  mask &= 0xF;
+  if (mask == 0) {
+    return InstructionARM64(vmov(dst, src1));
+  }
+  if (mask == 0xF) {
+    return InstructionARM64(vmov(dst, src2));
+  }
+  std::vector<uint32_t> words;
+  if (dst.id() == src2.id()) {
+    // dst already holds src2's lanes; insert the ~mask lanes from src1.
+    for (int i = 0; i < 4; i++) {
+      if (!(mask & (1 << i))) {
+        words.push_back(ins_lane(dst, src1, i));
+      }
+    }
+  } else {
+    if (dst.id() != src1.id()) {
+      words.push_back(vmov(dst, src1));
+    }
+    for (int i = 0; i < 4; i++) {
+      if (mask & (1 << i)) {
+        words.push_back(ins_lane(dst, src2, i));
+      }
+    }
+  }
+  InstructionARM64 r(words[0]);
+  for (size_t k = 1; k < words.size(); k++) {
+    r.extra_words.push_back(words[k]);
+  }
+  return r;
 }
 
 InstructionARM64 shuffle_vf(Register dst, Register src, u8 dx, u8 dy, u8 dz, u8 dw) {
@@ -2483,21 +2575,50 @@ InstructionARM64 parallel_bitwise_and(Register dst, Register src0, Register src1
   return vand_16b(dst, src0, src1);
 }
 
-// PEXT/PCPY operations: approximate using ZIP1/ZIP2/UZP1/UZP2 for the
-// classifier (any non-NOP NEON instruction satisfies the realness check).
-// We emit a ZIP1 .16B as a stand-in; full semantic mapping is tracked in the
-// carve-out exception list.
-static InstructionARM64 zip1_16b(Register dst, Register a, Register b) {
-  // ZIP1 Vd.16B, Vn.16B, Vm.16B: 0 1 001110 00 0 Rm 0011 10 Rn Rd → 0x4E003800
-  uint32_t enc =
-      0x4E003800u | (arm64_reg5(b) << 16) | (arm64_reg5(a) << 5) | arm64_reg5(dst);
+// PS2 PEXT*/PCPY* map exactly onto AArch64 ZIP1/ZIP2 with the right
+// arrangement — the same way the x86 backend maps them onto VPUNPCK[LH]xx:
+//   PEXTLB/PEXTUB → ZIP1/ZIP2 .16B   (x86 VPUNPCKL/HBW)
+//   PEXTLH/PEXTUH → ZIP1/ZIP2 .8H    (x86 VPUNPCKL/HWD)
+//   PEXTLW/PEXTUW → ZIP1/ZIP2 .4S    (x86 VPUNPCKL/HDQ)
+//   PCPYLD/PCPYUD → ZIP1/ZIP2 .2D    (x86 VPUNPCKL/HQDQ)
+// A34: the A2-era stand-in emitted ZIP .16B for ALL of these ("any
+// non-NOP NEON instruction satisfies the realness check"). The byte
+// arrangement is only correct for the B forms; everything else
+// interleaved the wrong granularity. The compiler's uint128 bitfield
+// extraction lowers (-> tag elt-type) through pcpyud — with .16B it
+// produced byte-doubled garbage that get-property-value passed to
+// type-type? as a "type" (run-11/12 crash during target init).
+// ZIP1: 0Q001110 size 0 Rm 001110 Rn Rd → 0x4E003800 | size<<22
+// ZIP2: 0Q001110 size 0 Rm 011110 Rn Rd → 0x4E007800 | size<<22
+static InstructionARM64 zip_n(uint32_t base, uint32_t size_bits, Register dst, Register a,
+                              Register b) {
+  uint32_t enc = base | (size_bits << 22) | (arm64_reg5(b) << 16) | (arm64_reg5(a) << 5) |
+                 arm64_reg5(dst);
   return InstructionARM64(enc);
 }
+static InstructionARM64 zip1_16b(Register dst, Register a, Register b) {
+  return zip_n(0x4E003800u, 0, dst, a, b);
+}
 static InstructionARM64 zip2_16b(Register dst, Register a, Register b) {
-  // ZIP2 Vd.16B, Vn.16B, Vm.16B: 0 1 001110 00 0 Rm 0111 10 Rn Rd → 0x4E007800
-  uint32_t enc =
-      0x4E007800u | (arm64_reg5(b) << 16) | (arm64_reg5(a) << 5) | arm64_reg5(dst);
-  return InstructionARM64(enc);
+  return zip_n(0x4E007800u, 0, dst, a, b);
+}
+static InstructionARM64 zip1_8h(Register dst, Register a, Register b) {
+  return zip_n(0x4E003800u, 1, dst, a, b);
+}
+static InstructionARM64 zip2_8h(Register dst, Register a, Register b) {
+  return zip_n(0x4E007800u, 1, dst, a, b);
+}
+static InstructionARM64 zip1_4s(Register dst, Register a, Register b) {
+  return zip_n(0x4E003800u, 2, dst, a, b);
+}
+static InstructionARM64 zip2_4s(Register dst, Register a, Register b) {
+  return zip_n(0x4E007800u, 2, dst, a, b);
+}
+static InstructionARM64 zip1_2d(Register dst, Register a, Register b) {
+  return zip_n(0x4E003800u, 3, dst, a, b);
+}
+static InstructionARM64 zip2_2d(Register dst, Register a, Register b) {
+  return zip_n(0x4E007800u, 3, dst, a, b);
 }
 
 InstructionARM64 pextub_swapped(Register dst, Register src0, Register src1) {
@@ -2505,11 +2626,11 @@ InstructionARM64 pextub_swapped(Register dst, Register src0, Register src1) {
 }
 
 InstructionARM64 pextuh_swapped(Register dst, Register src0, Register src1) {
-  return zip2_16b(dst, src0, src1);
+  return zip2_8h(dst, src0, src1);
 }
 
 InstructionARM64 pextuw_swapped(Register dst, Register src0, Register src1) {
-  return zip2_16b(dst, src0, src1);
+  return zip2_4s(dst, src0, src1);
 }
 
 InstructionARM64 pextlb_swapped(Register dst, Register src0, Register src1) {
@@ -2517,11 +2638,11 @@ InstructionARM64 pextlb_swapped(Register dst, Register src0, Register src1) {
 }
 
 InstructionARM64 pextlh_swapped(Register dst, Register src0, Register src1) {
-  return zip1_16b(dst, src0, src1);
+  return zip1_8h(dst, src0, src1);
 }
 
 InstructionARM64 pextlw_swapped(Register dst, Register src0, Register src1) {
-  return zip1_16b(dst, src0, src1);
+  return zip1_4s(dst, src0, src1);
 }
 
 InstructionARM64 parallel_compare_e_b(Register dst, Register src0, Register src1) {
@@ -2549,28 +2670,48 @@ InstructionARM64 parallel_compare_gt_w(Register dst, Register src0, Register src
 }
 
 InstructionARM64 vpunpcklqdq(Register dst, Register src0, Register src1) {
-  return zip1_16b(dst, src0, src1);
+  return zip1_2d(dst, src0, src1);
 }
 
 InstructionARM64 pcpyld_swapped(Register dst, Register src0, Register src1) {
-  return zip1_16b(dst, src0, src1);
+  return zip1_2d(dst, src0, src1);
 }
 
 InstructionARM64 pcpyud(Register dst, Register src0, Register src1) {
-  return zip2_16b(dst, src0, src1);
+  return zip2_2d(dst, src0, src1);
 }
 
 InstructionARM64 vpsubd(Register dst, Register src0, Register src1) {
   return vsub_4s(dst, src0, src1);
 }
 
+// x86 PSRLDQ/PSLLDQ are whole-vector BYTE shifts (zero-filling); the old
+// stand-in used per-lane bit shifts (USHR/SHL .4S) which compute something
+// entirely different. AArch64 expresses byte shifts with EXT against a
+// zeroed vector: V0 is outside the GOAL SIMD allocation (XMM ids 16-31 map
+// to V16-V31), so it is free as an emitter scratch.
+//   MOVI V0.16B, #0:  0x4F00E400 | Rd
+//   EXT Vd.16B, Vn.16B, Vm.16B, #i: 0x6E000000 | Rm<<16 | i<<11 | Rn<<5 | Rd
 InstructionARM64 vpsrldq(Register dst, Register src, u8 imm) {
-  // EXT Vd.16B, Vn.16B, Vm.16B, #imm — byte shift. Approximate via USHR.
-  return ushr_4s(dst, src, imm & 0x1f);
+  // dst = src >> (imm bytes)  ==  EXT(dst, Vn=src, Vm=zero, #imm)
+  const uint32_t movi_zero_v0 = 0x4F00E400u;
+  uint32_t ext = 0x6E000000u | (0u << 16) | ((imm & 0xFu) << 11) | (arm64_reg5(src) << 5) |
+                 arm64_reg5(dst);
+  return InstructionARM64::paired(movi_zero_v0, ext);
 }
 
 InstructionARM64 vpslldq(Register dst, Register src, u8 imm) {
-  return shl_4s(dst, src, imm & 0x1f);
+  if ((imm & 0xFu) == 0) {
+    // Shift by 0 bytes: plain vector move (ORR Vd.16B, Vn, Vn).
+    uint32_t orr = 0x4EA01C00u | (arm64_reg5(src) << 16) | (arm64_reg5(src) << 5) |
+                   arm64_reg5(dst);
+    return InstructionARM64(orr);
+  }
+  // dst = src << (imm bytes)  ==  EXT(dst, Vn=zero, Vm=src, #(16-imm))
+  const uint32_t movi_zero_v0 = 0x4F00E400u;
+  uint32_t ext = 0x6E000000u | (arm64_reg5(src) << 16) | (((16u - (imm & 0xFu)) & 0xFu) << 11) |
+                 (0u << 5) | arm64_reg5(dst);
+  return InstructionARM64::paired(movi_zero_v0, ext);
 }
 
 InstructionARM64 vpshuflw(Register dst, Register src, u8 imm) {
