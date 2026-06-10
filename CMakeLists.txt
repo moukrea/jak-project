@@ -30,6 +30,15 @@ option(OG_ANDROID_ARM64 "Build the bucket-D android-arm64 gk (NDK cross-toolchai
 # or host third-party libs below are reachable on this path — phase 11 will
 # fold the full runtime/SDL3/GLES/OpenAL stack into a proper APK build.
 if(ANDROID)
+    # A36: `char` defaults to UNSIGNED on AArch64 but SIGNED on x86-64. The
+    # shared C++ runtime (kprint format parser, kitoa pad/length sentinels,
+    # 8.3 name mangling, ...) was written against x86 semantics and uses
+    # `char c != -1` sentinel comparisons that misroute when char is
+    # unsigned — on-device this broke format's ~D (printed empty for lang 0,
+    # so text asked for "common.TXT" instead of "0common.TXT") and turned
+    # kitoa's "no pad" (-1) into a 255-byte 0xFF pad smear written into GOAL
+    # heap strings. Restore the x86 oracle's semantics globally.
+    add_compile_options(-fsigned-char)
     if(OG_ANDROID_ARM64)
         message(STATUS "Bucket D: android-arm64 NDK gk (D1+): ABI=${ANDROID_ABI} platform=${ANDROID_PLATFORM}")
         if(NOT GOALC_BACKEND)
@@ -62,6 +71,7 @@ endif()
 option(OG_ARM64_STRESS "Build the phase-26 aarch64 stress harness (cross-toolchain)" OFF)
 if(OG_ARM64_STRESS)
     message(STATUS "Phase 26 stress build: aarch64-linux cross-toolchain")
+    add_compile_options(-fsigned-char)  # A36: x86 char semantics (see ANDROID block)
     add_subdirectory(tools/arm64-stress)
     return()
 endif()
@@ -81,6 +91,7 @@ if(OG_LINUX_ARM64)
     if(NOT GOALC_BACKEND)
         set(GOALC_BACKEND "arm64" CACHE STRING "GOAL compiler codegen backend" FORCE)
     endif()
+    add_compile_options(-fsigned-char)  # A36: x86 char semantics (see ANDROID block)
     add_subdirectory(game/linux-arm64)
     return()
 endif()
