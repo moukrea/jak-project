@@ -1,0 +1,6 @@
+t=2s   mCurrentFocus=Window{e12a02c u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=4s   mCurrentFocus=Window{e12a02c u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=6s   mCurrentFocus=Window{3c9224a u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=10s   mCurrentFocus=Window{8ee53bb u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=20s   mCurrentFocus=Window{8cc1bfe u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=40s   mCurrentFocus=Window{ae97796 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}

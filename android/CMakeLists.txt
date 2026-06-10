@@ -455,6 +455,14 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/DirectRenderer.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/TextureUploadHandler.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/EyeRenderer.cpp"
+    # A36 — first-content buckets: sky + terrain (tfrag3) for the logo/title
+    # village1 flythrough. SkyBlendHandler lives in SkyRenderer.cpp.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/SkyRenderer.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendCPU.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendGPU.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/background/background_common.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/background/TFragment.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/dma_helpers.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/Profiler.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/Shader.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/opengl_utils.cpp"

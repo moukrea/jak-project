@@ -1,0 +1,6 @@
+t=2s   mCurrentFocus=Window{2e89cf0 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=4s   mCurrentFocus=Window{3ba5baf u0 dev.moukrea.sshxmobile.debug/dev.moukrea.sshxmobile.MainActivity}
+t=6s   mCurrentFocus=Window{32d7aa8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=10s   mCurrentFocus=Window{ecea507 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=20s   mCurrentFocus=Window{3ba5baf u0 dev.moukrea.sshxmobile.debug/dev.moukrea.sshxmobile.MainActivity}
+t=40s   mCurrentFocus=Window{2df2778 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
