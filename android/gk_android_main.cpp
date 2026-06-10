@@ -366,6 +366,36 @@ extern "C" u64 a17_pc_default() {
   return 0;
 }
 
+// A32 mips2c-noop rebind — mirrors game/linux-arm64/linux_arm64_main.cpp::
+// a29_mips2c_get_noop (added in A29 to unblock fuel-cell/texture/etc
+// def-mips2c crashes on the headless qemu build). On Android the same
+// crash shape appears AFTER A32's __pc-texture-upload-now / __read-ee-timer
+// / __send-gfx-dma-chain fix advances the on-device boot past tpage-463 +
+// the texture-upload chain — the very next CGO (fuel-cell) is a
+// (def-mips2c adgif-shader<-texture-with-update! ...) call site whose
+// expansion fires `(__pc-get-mips2c "adgif-shader<-texture-with-update!")`
+// at link time. Android's a11_pc_get_mips2c_impl delegates to
+// `Mips2C::gLinkedFunctionTable.get(name)`, but the gLinkedFunctionTable
+// is empty on Android because `game/mips2c/mips2c_table.cpp` (which owns
+// the static init that calls every `link()` register hook) is EXCLUDED
+// from the Android build (see android/CMakeLists.txt L254-258). So
+// __pc-get-mips2c returns 0 for ANY name, the symbol value stays 0, the
+// next BLR through it lands at ee_base → sig=4 SIGILL. Same shape as the
+// linux-arm64 qemu side, hence the same fix: cache a single no-op GOAL
+// function pointer in the `__a32-mips2c-noop` slot the first time we're
+// called, return its offset for every subsequent (def-mips2c name ...).
+// Texture/shader/particle dispatches that route through these are then
+// no-ops — matches the current Android renderer surface (no real GS).
+extern "C" u64 a32_mips2c_get_noop(u32 /*name*/) {
+  static u32 s_cached_offset = 0;
+  if (!s_cached_offset) {
+    auto noop = jak1::make_function_symbol_from_c("__a32-mips2c-noop",
+                                                  (void*)a17_pc_default);
+    s_cached_offset = noop.offset;
+  }
+  return s_cached_offset;
+}
+
 void a17_bind_pc_helpers() {
   static bool s_bound = false;
   if (s_bound) return;
@@ -465,6 +495,28 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("__pc-set-levels", d);
   jak1::make_function_symbol_from_c("__pc-set-active-levels", d);
   jak1::make_function_symbol_from_c("__pc-texture-relocate", d);
+  // A32 — root-cause for the on-device tpage-463 fn-ptr=0 SIGILL at
+  // link-finish #316. These three `__pc-*` / `__send-gfx-*` /
+  // `__read-ee-*` symbols are bound on the linux-arm64 qemu side via
+  // linux_arm64_main.cpp:297-299 (added in A29 with the same comment
+  // block) but were never back-ported to the Android a17_bind_pc_helpers
+  // list — the omission left their value slots at 0 on Android because
+  // the Android `init_common_pc_port_functions` override
+  // (android/android_runtime_compat.cpp:827) deliberately skips the
+  // 100+ upstream pc-* registrations. tpage-463's top-level form calls
+  // `(__pc-texture-upload-now this arg0)` (defined in
+  // goal_src/jak1/engine/gfx/texture/texture.gc:1476), which compiles
+  // to `LDR W9, [X16, #0]` reading the symbol-value slot at
+  // GOAL ptr 0x158174 → loaded value 0 → `ADD X9, X9, X15` → BLR EE_BASE
+  // → SIGILL. See A31-attempt-2-progress.md + A32-fix-summary.md for the
+  // crash anatomy + the dump_sym_name_at_slot(regs[16]) line that named
+  // the symbol. A no-op bind matches the headless qemu behavior (which
+  // boots to 660 link-finishes without ever uploading textures); once
+  // the Android renderer wires `Gfx::GetCurrentRenderer()` we'll swap
+  // these to real impls.
+  jak1::make_function_symbol_from_c("__pc-texture-upload-now", d);
+  jak1::make_function_symbol_from_c("__read-ee-timer", d);
+  jak1::make_function_symbol_from_c("__send-gfx-dma-chain", d);
   // Misc helpers referenced by pckernel-impl / pc-debug-* GOAL files
   // that the linux-arm64 InitMachineScheme_LinuxArm64Stubs list (locked
   // file) covers — mirroring them here keeps Android symmetric with
@@ -493,9 +545,11 @@ void a17_bind_pc_helpers() {
 
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "A17-DIAG sym-bind-trace: bound the pc-* helper "
-                      "surface (~80 helpers) to a17_pc_default no-op so "
-                      "pckernel-h/common top-level + (play) reset chain "
-                      "don't SIGILL on unbound symbols");
+                      "surface (~80 helpers + A32: __pc-texture-upload-now, "
+                      "__read-ee-timer, __send-gfx-dma-chain) to "
+                      "a17_pc_default no-op so pckernel-h/common top-level + "
+                      "(play) reset chain + the tpage-463 top-level texture "
+                      "upload don't SIGILL on unbound symbols");
 }
 
 // A11 sym-bind-trace: chain a __pc-get-mips2c binder onto the
@@ -519,6 +573,20 @@ void a11_install_pc_mips2c_hook_once() {
   g_jak1_pre_kernel_version_check_hook = []() {
     if (prev) prev();
     klink_a11_ensure_pc_mips2c_bound();
+    // A32 mips2c-noop rebind. The A11 binding above wires `__pc-get-mips2c`
+    // to a11_pc_get_mips2c_impl, which returns
+    // `Mips2C::gLinkedFunctionTable.get(name)`. The gLinkedFunctionTable is
+    // empty on Android because mips2c_table.cpp (the static-init that
+    // registers every `link()` callback) is excluded from
+    // android/CMakeLists.txt — so a11 returns 0 for every name, and the
+    // first (def-mips2c name ...) site at GAME.CGO link time (e.g.
+    // fuel-cell's `adgif-shader<-texture-with-update!`) binds its symbol
+    // to 0 → BLR ee_base → sig=4 SIGILL. Override with a32_mips2c_get_noop
+    // which caches a callable no-op GOAL function offset and returns it
+    // for ANY name. Mirrors linux_arm64_main.cpp:357-363 (A29 fix). See
+    // a32_mips2c_get_noop definition above for the per-call no-op rationale.
+    jak1::make_function_symbol_from_c("__pc-get-mips2c",
+                                      (void*)a32_mips2c_get_noop);
     // A12 sym-bind: register `rpc-call`, `rpc-busy?`, `test-load-dgo-c`
     // (see klink.cpp::klink_a12_ensure_sound_rpc_bound for rationale).
     // Android's runtime-compat override of jak1::InitMachineScheme
@@ -575,9 +643,11 @@ void a11_install_pc_mips2c_hook_once() {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "A11-DIAG sym-bind-trace: chained "
                       "klink_a11_ensure_pc_mips2c_bound + "
+                      "A32 a32_mips2c_get_noop rebind of __pc-get-mips2c + "
                       "klink_a12_ensure_sound_rpc_bound + "
                       "klink_a14_ensure_pc_memmove_bound + "
-                      "a17_bind_pc_helpers + "
+                      "a17_bind_pc_helpers (+ A32 __pc-texture-upload-now / "
+                      "__read-ee-timer / __send-gfx-dma-chain) + "
                       "klink_a18_install_method_zero_trap onto "
                       "g_jak1_pre_kernel_version_check_hook (prev=%p; A13 "
                       "IOP-init NOT chained here — Android uses real "
