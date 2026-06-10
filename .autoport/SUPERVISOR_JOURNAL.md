@@ -4284,3 +4284,69 @@ methodology) OR, if the device boots past it, a renderer/display sprint.
 A18-A27 ~$430; A28 sprint ~$40 (1 attempt, 92 min); supervisor ~$80.
 Running total ~$550. The wide-sprint approach is cost-efficient: 1 sprint
 did what 8 narrow phases couldn't.
+
+---
+
+## [2026-06-10 01:05] A29 → 660 (past the title screen) + device reality: GOAL kernel idle on-device
+
+### A29 milestone (verified)
+
+A29 wide sprint: qemu **462 → 660 link-finishes** (+198, 1.43×), 1 attempt,
+73 min, commit `92bd8c969`. Last DGOs: babak, sharkey, plat, ropebridge,
+ticky, joint-exploder = **Geyser Rock level objects**. The boot has gone
+PAST the title screen (`logo`) into the first level's asset loading.
+
+Two sprints (A28+A29) took the 8-phase-stuck boot 216→462→660. Methodology
+reset fully vindicated.
+
+A29 = 5 runtime/loader fixes (NOT codegen — arm64 CGOs byte-identical to
+A28). Fix 1 = the gsound IOP-RPC: on linux-arm64 the IOP runs on the SAME
+cothread as the EE (not its own OS thread like x86/Android), so the last
+async sif_rpc never drained → assert fired. Fix = run_on_ee_thread flag +
+dispatch() before sif_mtx lock. **Legit, not a silenced assert** (assert
+still present at IOP_Kernel.cpp:523). +4 follow-on loader fixes. x86 still
+reaches link finish: logo. goal_src/IGenX86_64 untouched.
+
+### Device reality check (the renderer question, answered)
+
+With the foreground-stealing launcher (com.xiaoji.egggameplus) temporarily
+disabled (reversibly; restored after), our app stays foreground (MainActivity
+= ResumedActivity). BUT:
+
+- App alive (pid, 20 threads) at **0.0% CPU, State=S (sleeping)**.
+- **The GOAL kernel main loop is NOT running on the device.**
+- No renderer markers, no tombstone (no crash), black PORTRAIT screen
+  (SDL landscape surface never drew).
+- Native gk stdout (where "link finish" goes) is NOT routed to logcat, so
+  boot progress is invisible on-device.
+
+Diagnosis: SDL's main thread (which runs gk_main → the GOAL boot) is almost
+certainly blocked on GL-surface/EGL creation, so the kernel never boots on
+Android. This is the **Android-integration gap** — concrete confirmation of
+the "D-bucket marked done but device shows placeholder" suspicion. It is
+SEPARATE from (and downstream of) the now-solid codegen.
+
+### Revised picture
+
+- **Codegen/runtime**: essentially DONE through the title screen (qemu 660,
+  past logo). Remaining qemu crashes are about entering Geyser Rock (F1).
+- **Android integration**: the real remaining work for "title screen on
+  device" — the kernel must actually RUN + get a GL surface + render on the
+  phone. Currently it's idle. Bounded but substantial.
+
+### A30 plan = Android runtime integration
+
+1. FIRST: route gk native stdout/stderr to logcat (dup2 to a pipe→
+   __android_log, or to a file) so device boot progress is visible — we're
+   blind without it.
+2. Diagnose + fix why the SDL main thread / GL surface doesn't start the
+   kernel boot (the 0% CPU finding).
+3. Get the kernel booting on-device toward logo + the display loop; screencap
+   the title screen.
+Unlocks: android/**, game/linux-arm64 SDL/surface glue. Lean gates +
+device screencap validation (supervisor-side).
+
+### Cost ledger
+
+A18-A29 ~$640. A28+A29 sprints (~$90 total) advanced the ceiling +444 vs
+the narrow phases' +0. Device diagnosis (supervisor) ~$30.
