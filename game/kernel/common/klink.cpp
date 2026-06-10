@@ -632,6 +632,49 @@ extern "C" u64 a18_method_zero_trap(u64 a0, u64 a1, u64 a2, u64 a3,
                (unsigned long)a1, (unsigned long)a2, (unsigned long)a3,
                (unsigned long)a4, (unsigned long)a5, (unsigned long)a6,
                (unsigned long)a7);
+  // A35: name the type and the method slot so a single trap line fully
+  // identifies the missing method (saves a forensics cycle per hit).
+  //   type name: [type+0] = the type's symbol; its SymInfo str holds the
+  //   chars (jak1 layout). slot: the dispatch site loads the method fn
+  //   with `LDR W<t>, [X16, #imm12]` where imm = 16 + 4*method-id — scan
+  //   the 16 instructions before the BLR (caller_lr-4) for it.
+#if defined(__aarch64__)
+  if (g_game_version == GameVersion::Jak1 && g_ee_main_mem && type_tag_goal &&
+      type_tag_goal < (u32)EE_MAIN_MEM_SIZE) {
+    const u8* ee = g_ee_main_mem;
+    u32 type_sym_goal = 0;
+    std::memcpy(&type_sym_goal, ee + type_tag_goal, 4);
+    char tname[64] = {0};
+    if (type_sym_goal && type_sym_goal + jak1::SYM_INFO_OFFSET + 8 < (u32)EE_MAIN_MEM_SIZE) {
+      u32 str_goal = 0;
+      std::memcpy(&str_goal, ee + type_sym_goal + jak1::SYM_INFO_OFFSET + 4, 4);
+      if (str_goal && str_goal + 4 + sizeof(tname) < (u32)EE_MAIN_MEM_SIZE) {
+        std::memcpy(tname, ee + str_goal + 4, sizeof(tname) - 1);
+        for (char& c : tname) {
+          if (c && (c < 0x20 || c > 0x7e)) {
+            c = 0;
+            break;
+          }
+        }
+      }
+    }
+    int method_id = -1;
+    for (int back = 2; back <= 17 && method_id < 0; back++) {
+      u32 enc = 0;
+      std::memcpy(&enc, reinterpret_cast<const void*>(caller_lr - 4 * back), 4);
+      // LDR Wt, [X16, #imm12] : 0xB9400200 | (imm12 << 10) | Rt
+      if ((enc & 0xFFC003E0u) == 0xB9400200u) {
+        u32 imm = ((enc >> 10) & 0xFFFu) * 4u;
+        if (imm >= 16) {
+          method_id = (int)((imm - 16) / 4);
+        }
+      }
+    }
+    std::fprintf(stderr,
+                 "A18-DIAG method-not-implemented: type='%s' (sym 0x%x) method-id=%d\n",
+                 tname[0] ? tname : "<unknown>", type_sym_goal, method_id);
+  }
+#endif
   std::fflush(stderr);
   // Honest hard halt. An empty method dispatched on means the
   // caller's program state assumes a real method was invoked;
