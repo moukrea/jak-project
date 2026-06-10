@@ -1,6 +1,6 @@
 # Phase D4 — APK on-device launch report
 
-_Generated: 2026-06-10T09:16:34+02:00_
+_Generated: 2026-06-10T12:50:15+02:00_
 
 ## What was wired
 
@@ -19,14 +19,64 @@ _Generated: 2026-06-10T09:16:34+02:00_
 
 ## Determination
 
-**fail** — MainActivity never reached onCreate (app didn't start).
+**partial** — App started but renderer never entered (likely stuck before InitMachine returned).
 
 ## Marker observations (from logcat capture)
 
 ```
+06-10 12:48:01.865 14517 14517 I opengoal-gk: MainActivity onCreate done; mLayout=true mLayout.children=2
+06-10 12:48:04.008 14517 14663 I opengoal-gk: goal_main: calling InitMachine()
+06-10 12:48:04.008 14517 14663 I opengoal-gk-full: InitMachine: entered (top-level wrapper)
+06-10 12:48:04.008 14517 14663 I opengoal-gk-full: InitMachine: kglobalheap base=0x13fd20 end=0x3eb82e0 size=64456128 (61.47 MB)
+06-10 12:48:04.057 14517 14663 I opengoal-gk-full: InitMachine: kglobalheap initialized, used=0
+06-10 12:48:04.057 14517 14663 I opengoal-gk-full: InitMachine: kdebugheap base=0x5000000 end=0x7ff0000 size=50266112 (47.94 MB)
+06-10 12:48:04.084 14517 14663 I opengoal-gk-full: InitMachine: init_output()
+06-10 12:48:04.084 14517 14663 I opengoal-gk-full: InitMachine: print/output buffers reset
+06-10 12:48:04.084 14517 14663 I opengoal-gk-full: InitMachine: InitListenerConnect / InitCheckListener
+06-10 12:48:04.084 14517 14663 I opengoal-gk-full: InitMachine: MasterUseKernel=1 MasterDebug=1
+06-10 12:48:04.084 14517 14663 I opengoal-gk-full: InitMachine: spawning IOP worker thread
+06-10 12:48:04.085 14517 14663 I opengoal-gk-full: InitMachine: Deci2Server registered (port=8112, no listener)
+06-10 12:48:04.085 14517 14663 I opengoal-gk-full: InitMachine: delegating to jak1::InitMachine
+06-10 12:48:04.126 14517 14663 I opengoal-gk: InitIOP OK
+06-10 12:48:04.126 14517 14663 I opengoal-gk: Initialized GOAL heap in 0.073 ms
+06-10 12:48:04.126 14517 14678 I opengoal-gk: [Overlord DGO] Got DGO file header for KERNEL.CGO with 8 objects
+06-10 12:48:04.126 14517 14663 D opengoal-gk: link finish: gcommon
+06-10 12:48:04.127 14517 14663 D opengoal-gk: link finish: gstring-h
+06-10 12:48:04.127 14517 14663 D opengoal-gk: link finish: gkernel-h
+06-10 12:48:04.128 14517 14663 D opengoal-gk: link finish: gkernel
+06-10 12:48:04.130 14517 14663 D opengoal-gk: link finish: pskernel
+06-10 12:48:04.130 14517 14663 D opengoal-gk: link finish: gstring
+06-10 12:48:04.130 14517 14663 D opengoal-gk: link finish: dgo-h
+06-10 12:48:04.130 14517 14663 D opengoal-gk: link finish: gstate
+06-10 12:48:04.131 14517 14663 I opengoal-gk: A17-DIAG sym-bind-trace: bound the pc-* helper surface (~80 helpers + A32: __pc-texture-upload-now, __read-ee-timer, __send-gfx-dma-chain) to a17_pc_default no-op so pckernel-h/common top-level + (play) reset chain + the tpage-463 top-level texture upload don't SIGILL on unbound symbols
+06-10 12:48:04.136 14517 14678 I opengoal-gk: [Overlord DGO] Got DGO file header for GAME.CGO with 346 objects
+06-10 12:48:04.136 14517 14663 D opengoal-gk: link finish: types-h
+06-10 12:48:04.136 14517 14663 D opengoal-gk: link finish: vu1-macros
+06-10 12:48:04.137 14517 14663 D opengoal-gk: link finish: math
+06-10 12:48:04.145 14517 14663 D opengoal-gk: link finish: vector-h
+06-10 12:48:04.147 14517 14663 D opengoal-gk: link finish: gravity-h
+06-10 12:48:04.147 14517 14663 D opengoal-gk: link finish: bounding-box-h
+06-10 12:48:04.147 14517 14663 D opengoal-gk: link finish: matrix-h
+06-10 12:48:04.148 14517 14663 D opengoal-gk: link finish: quaternion-h
+06-10 12:48:04.148 14517 14663 D opengoal-gk: link finish: euler-h
+06-10 12:48:04.148 14517 14663 D opengoal-gk: link finish: transform-h
+06-10 12:48:04.149 14517 14663 D opengoal-gk: link finish: geometry-h
+06-10 12:48:04.149 14517 14663 D opengoal-gk: link finish: trigonometry-h
+06-10 12:48:04.149 14517 14663 D opengoal-gk: link finish: transformq-h
+06-10 12:48:04.150 14517 14663 D opengoal-gk: link finish: bounding-box
+06-10 12:48:04.150 14517 14663 D opengoal-gk: link finish: matrix
+06-10 12:48:04.150 14517 14663 D opengoal-gk: link finish: transform
+06-10 12:48:04.151 14517 14663 D opengoal-gk: link finish: quaternion
+06-10 12:48:04.151 14517 14663 D opengoal-gk: link finish: euler
+06-10 12:48:04.151 14517 14663 D opengoal-gk: link finish: geometry
+06-10 12:48:04.151 14517 14663 D opengoal-gk: link finish: trigonometry
+06-10 12:48:04.152 14517 14663 D opengoal-gk: link finish: gsound-h
+06-10 12:48:04.153 14517 14663 D opengoal-gk: link finish: timer-h
+06-10 12:48:04.154 14517 14663 D opengoal-gk: link finish: timer
+06-10 12:48:04.154 14517 14663 D opengoal-gk: link finish: vif-h
 (no matching markers)
 ```
 
 ## Next blocker (if any)
 
-MainActivity never reached onCreate (app didn't start). App never reached MainActivity; the install or launch failed.
+App started but renderer never entered (likely stuck before InitMachine returned). See .autoport/reports/D4-boot.log tail for context.
