@@ -2134,6 +2134,22 @@ InstructionARM64 unsigned_div_gpr32(Register reg) {
   return udiv_x(Register(8), Register(8), reg);
 }
 
+// F1c — modulo remainder. x86 IDIV/DIV produce the remainder in RDX as a side
+// effect; arm64 SDIV/UDIV produce ONLY the quotient. The IMOD_32/UMOD_32 path
+// must therefore compute the remainder explicitly from the quotient:
+//   remainder = dividend - quotient * divisor   →   MSUB Xrem, Xq, Xdivisor, Xdiv
+// Before this, IR.cpp's arm64 IMOD/UMOD codegen shared the IDIV/UDIV body and
+// copied the QUOTIENT (X8) to the destination, so every `(mod x n)` that wasn't
+// strength-reduced returned `(/ x n)` on device. The visible symptom was the
+// title camera-look joint freezing: decomp-frame's per-joint control nibble is
+// selected by `(* 4 (mod tqi 8))`, so joint 1 of the 2-joint logo-cam anim read
+// joint 0's all-fixed nibble (ctrl 0x8) instead of its dynamic 0xb. See the
+// IMOD_32 block in IR.cpp::do_codegen_arm64.
+InstructionARM64 imod_msub_gpr(Register dst, Register quotient, Register divisor,
+                               Register dividend) {
+  return msub_x(dst, quotient, divisor, dividend);
+}
+
 // A17 IDIV/UDIV preserve-X8 spill helpers. Each returns one arm64 instruction
 // word. IR.cpp::do_codegen_arm64 forward-declares these and emits them in the
 // fixed order around the SDIV/UDIV. No header declarations on purpose — the
