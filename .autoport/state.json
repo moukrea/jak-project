@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 76,
+  "current_phase_idx": 77,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -71,7 +71,7 @@
     "A35-android-renderer-dma-to-gles": 1,
     "A36-android-kernel-steady-state-first-frame": 1,
     "A37-android-camera-matrix-first-visible-frame": 1,
-    "A38-android-float-spray-tripwire-goal-frame": 1
+    "A38-android-float-spray-tripwire-goal-frame": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -139,7 +139,9 @@
       "82631da3fa69"
     ],
     "A38-android-float-spray-tripwire-goal-frame": [
-      "0ed2c4f8b9f3"
+      "0ed2c4f8b9f3",
+      "83eb99bb7a01",
+      "83eb99bb7a01"
     ]
   },
   "stuck_reasons": {
@@ -232,7 +234,8 @@
     "A17-idiv-emitter-spill",
     "A18-type-method-zero-bind",
     "A19-goalc-arm64-codegen-fixes",
-    "A20-goalc-arm64-field-offset"
+    "A20-goalc-arm64-field-offset",
+    "A38-android-float-spray-tripwire-goal-frame"
   ],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
@@ -265,7 +268,7 @@
     "A37-android-camera-matrix-first-visible-frame": 1781128205.8396492,
     "A38-android-float-spray-tripwire-goal-frame": 1781141032.1728344
   },
-  "last_update": "2026-06-11T01:35:13.084566+00:00",
+  "last_update": "2026-06-11T04:13:05.618715+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
