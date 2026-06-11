@@ -4734,3 +4734,12 @@ approach is root-cause-first rather than iterate-first. No cheats.
 - The −95° vs +85° delta was observational error, not a transform change: the scene has
   been rotated ~+85° the whole time. One stable transpose/rotation bug, unchanged across
   runs. (Supersedes the "transform touched, sign flipped" inference in the 13:55 entry.)
+### 2026-06-11 14:05 — USER QUESTION decoded: why no proper title screen
+- User: "noms de niveaux qui défilent + plan fixe dans un bâtiment — où est l'écran titre
+  avec logo + flyover?" Analysis: boot stuck in logo-loop state (A41's named residual);
+  (1) camera not following its flythrough spline — same +85° transform bug displaces/
+  freezes the camera position (inside a hut); (2) J&D logo = a MERC 3D model — merc
+  buckets still in the renderer skip list → logo cannot display until merc is ported;
+  (3) scrolling level names = hint/demo system (level-hint process) running underneath.
+- NEXT-PHASE REQUIREMENTS (beyond A42's rotation fix): merc bucket port (logo + chars),
+  title state machine advancing (logo → title → attract), camera spline path correct.
