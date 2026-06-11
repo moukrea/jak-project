@@ -25,6 +25,11 @@
 
 #include "third-party/glad/include/glad/glad.h"
 
+// A38 float-spray tripwire arm/rearm (gk_android_main.cpp). One relaxed
+// atomic load per frame when the debug property is unset. chain_phase=1
+// when called with a rendered chain (the property-"1" arm point).
+extern "C" void gk_a38_tripwire_frame_hook(int chain_phase);
+
 namespace android_gfx {
 namespace {
 constexpr const char* kLogTag = "opengoal-gk";
@@ -243,7 +248,15 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     }
   }
 
+  // A38: property "2" arms at the first GL tick (boot-time writers).
+  gk_a38_tripwire_frame_hook(0);
+
   if (got_chain) {
+    // A38: arm (first chain, property-gated) / rearm (per frame) the
+    // float-spray tripwire on the engine-object band. Arming at the first
+    // RENDERED chain (not the first GL tick) keeps the boot-link phase
+    // unwatched — DGO linking writes the band legitimately.
+    gk_a38_tripwire_frame_hook(1);
     {
       std::unique_lock<std::mutex> lock(d->dma_mutex);
       d->frame_idx_of_input_data = d->frame_idx;

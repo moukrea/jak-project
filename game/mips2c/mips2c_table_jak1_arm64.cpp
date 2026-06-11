@@ -367,6 +367,16 @@ bool a37_name_is_real(const std::string& name) {
       "draw-inline-array-tfrag", "stats-tfrag-asm", "draw-inline-array-instance-tie",
       "draw-inline-array-prototype-tie-generic-asm", "generic-tie-dma-to-spad-sync",
       "generic-tie-convert", "draw-large-polygon", "clip-polygon-against-positive-hyperplane",
+      // A38: the blerc pair. setup-blerc-chains stores the RETURN VALUE of
+      // setup-blerc-chains-for-one-fragment into (-> global-buf base); the
+      // shared noop returns 0, so the frame dma cursor reset to ZERO every
+      // frame and every subsequent append swept GOAL memory from 0 upward
+      // at chain rate (~152KB/frame) — the A37-named "float-spray": symbol
+      // slots, *temp-string*, the engine-object band and draw-string's
+      // code all sat in the walk (font SIGILL at level-hint; l0-tfrag
+      // poisoned per frame). Caught by the A38 base-cell trace:
+      // pre=0xce6dc0 post=0x0 pc=setup-blerc-chains+0x458 (run-10).
+      "blerc-execute", "setup-blerc-chains-for-one-fragment",
   };
   for (auto* n : kSet) {
     if (name == n) return true;
