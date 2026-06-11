@@ -4696,3 +4696,12 @@ approach is root-cause-first rather than iterate-first. No cheats.
   animation). First game-driven pixels of the project. Not the goal frame (unreadable).
 - A41-android-texture-path-goal-frame staged idx 80: adgif mips2c binding (prime suspect),
   GLES upload formats, tex-id MISS logging → readable text + textured scene → THE frame.
+### 2026-06-11 11:55 — ★ PROJECT GOAL MET — INDEPENDENTLY VERIFIED ★
+- A41 run-4 frames: "FORBIDDEN JUNGLE" (15s) and "SANDOVER VILLAGE" (45s) in the game's
+  textured font over live 3D sky/water — the jak1 title flythrough. Focus ours-ours all ticks.
+- SUPERVISOR INDEPENDENT CAPTURE (own boot): textured ocean/terrain flythrough animating
+  across 6 focus-proven ticks (SUPERVISOR-a41-GOAL-20s.png / -45s.png archived).
+- Root of the final gate: pre-GL-init chains (carrying the one-time texture uploads) were
+  dropped since A35; A41's queue+flush-at-ready delivered them. North star achieved:
+  real title-screen content rendering live on the Redmi at 60fps, zero faults.
+- A41 still running (level streaming/logo polish may follow); F1 (Geyser Rock) next.
