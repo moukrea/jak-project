@@ -4743,3 +4743,10 @@ approach is root-cause-first rather than iterate-first. No cheats.
   (3) scrolling level names = hint/demo system (level-hint process) running underneath.
 - NEXT-PHASE REQUIREMENTS (beyond A42's rotation fix): merc bucket port (logo + chars),
   title state machine advancing (logo → title → attract), camera spline path correct.
+### 2026-06-11 14:20 — A42 fix committed (triple: vsync shim, chain copy-mode, bug class #11 PSHUF/.ppach alpha=0); closing
+- Village tfrag RENDERS (61452 tris, TOD alpha real, 150s/60fps/0 faults). Run-7 frames:
+  camera STILL parked in hut at +85° — cutscene spool fixed but camera path/orientation
+  residual remains, alongside merc/generic/sprite skips (no logo/actors/Jak).
+- Next phase on completion: F1a = camera-orientation fix + merc bucket port → CORRECT
+  title screen (logo over flying camera); serves gameplay prereqs (Jak = merc). Then F1b
+  START→Geyser→control, then F2a audio per interleave plan. Watcher armed.
