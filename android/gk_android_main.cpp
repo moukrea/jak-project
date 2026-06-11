@@ -66,6 +66,10 @@ extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void);
 #include "android_input_audio.h"
 #include "android_renderer.h"
 
+// F1A: forward decl — defined next to a40_sym_name below; lets the A37-CAM
+// probe (earlier in the TU, different namespace) name GOAL strings.
+extern "C" bool gk_a40_sym_name_fwd(uintptr_t ee, uint32_t p, char* out, size_t n);
+
 #include <ctime>
 #include <random>
 
@@ -2570,6 +2574,59 @@ extern "C" void a36_tree_scan_per_frame() {
                           (unsigned long long)f, r0[0], r0[1], r0[2], r0[3], r3[0], r3[1], r3[2],
                           r3[3]);
     }
+    // F1A-CAMJOINT: the title camera CHAIN per heartbeat — every alive
+    // process named logo/logo-slave/othercam: channel-0 frame-group (the
+    // anim the joints sample, by name) + frame-num + draw status. Run-10
+    // showed othercam's matrix freezing at the logo-intro boundary while
+    // the spool streams on — this names which link stalls: parent channel,
+    // slave clone-remap, or frame advance.
+    if (a36_tree::g_syms.armed && g_ee_main_mem) {
+      const uint32_t falsev2 = s7.offset;
+      uint32_t pool2 = a36_tree::g_syms.nk_dead_pool;
+      uint32_t cur2 = 0;
+      rd32(pool2 + 0x4c + 8, &cur2);
+      int hops2 = 0;
+      while (cur2 && cur2 != falsev2 && hops2++ < 8192) {
+        uint32_t proc2 = 0, next2 = 0;
+        if (!rd32(cur2, &proc2) || !rd32(cur2 + 8, &next2)) {
+          break;
+        }
+        if (proc2 && proc2 != falsev2) {
+          uint32_t namep = 0;
+          rd32(proc2 + 0, &namep);
+          char nm[40] = {0};
+          gk_a40_sym_name_fwd((uintptr_t)g_ee_main_mem, namep, nm, sizeof(nm));
+          if (!strcmp(nm, "logo") || !strcmp(nm, "logo-slave") || !strcmp(nm, "othercam")) {
+            uint32_t skel = 0, drawc = 0, fg = 0;
+            float fnum = 0.f;
+            rd32(proc2 + 120, &skel);  // process-drawable.skel (deftype 124)
+            rd32(proc2 + 116, &drawc); // .draw (deftype 120)
+            if (skel && skel != falsev2) {
+              rd32(skel + 56, &fg);  // joint-control channel0.frame-group (deftype 60)
+              uint32_t w = 0;
+              rd32(skel + 60, &w);  // channel0.frame-num (deftype 64)
+              memcpy(&fnum, &w, 4);
+            }
+            uint32_t dstat = 0;
+            if (drawc && drawc != falsev2) {
+              rd32(drawc + 0, &dstat);  // draw-control.status (deftype 4)
+            }
+            char fgn[48] = {0};
+            if (fg && fg != falsev2) {
+              uint32_t fgname = 0;
+              rd32(fg + 0, &fgname);  // art.name (deftype 4)
+              gk_a40_sym_name_fwd((uintptr_t)g_ee_main_mem, fgname, fgn, sizeof(fgn));
+            }
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG F1A-CAMJOINT f=%llu proc=0x%x %s skel=0x%x fg=0x%x(%s) "
+                                "fnum=%.2f draw-status=0x%x",
+                                (unsigned long long)f, proc2, nm, skel, fg, fgn[0] ? fgn : "?",
+                                fnum, dstat);
+          }
+        }
+        cur2 = next2;
+      }
+    }
   }
 }
 
@@ -2896,6 +2953,7 @@ static bool a40_sym_name(uintptr_t ee, uint32_t p, char* out, size_t n) {
   out[i] = 0;
   return out[0] != 0;
 }
+
 
 // v2: all GOAL "basic" field reads use deftype-offset minus 4 (boxed
 // basics point 4 past the type tag — the v1 probe forgot this and read
@@ -3411,6 +3469,13 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
   return true;
 }
 }  // namespace a38_trip
+
+// F1A: non-static bridge so the A37-CAM block (earlier in the TU, different
+// namespace) can name GOAL strings/symbols through a38_trip's reader.
+extern "C" bool gk_a40_sym_name_fwd(uintptr_t ee, uint32_t p, char* out, size_t n) {
+  return a38_trip::a40_sym_name(ee, p, out, n);
+}
+
 }  // extern "C++"
 
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
