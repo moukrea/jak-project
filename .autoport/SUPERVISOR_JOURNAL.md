@@ -4672,3 +4672,18 @@ approach is root-cause-first rather than iterate-first. No cheats.
   frame gate. Attempt 3 (LAST) launched: narrow scope = rebuild/install committed fix,
   final boot, captures 5-60s w/ brackets, validator green. Supervisor holding independent
   capture until attempt 3's install completes (avoid racing).
+### 2026-06-11 06:45 — A38 retries exhausted on keyguard-only gate; A39 staged + unlock watcher armed
+- All 3 A38 attempts failed solely on 'no A38-device-*.png' — the phone idle-locked
+  (secure keyguard) while the user slept; every fix is committed (blerc 6355ed1fe etc.).
+- A39-android-goal-frame-capture authored (narrow: build+install committed fix, wait for
+  keyguard, boot, captures, report; max_turns 800) + inserted idx 77 (81 phases);
+  state idx advanced 76→77 past blocked A38; transition committed ([autoport/supervisor]).
+- Unlock watcher armed (polls mDreamingLockscreen, ~6h timeout) → on unlock, supervisor
+  relaunches ./launch.sh into A39. User already pinged at ~06:10.
+### 2026-06-11 08:15 — A39 closing; writer #2 = unreset hint-text cursor; A40 staged
+- A39 verified blerc live + named the residual at instruction level: unreset display-frame
+  DMA cursor walked by print-game-text 64B/frame → 493×64B lands exactly on draw-string's
+  code → SIGILL frame ~522 (and the l0-heap poisoning = the tris≤82 pin). Full collateral
+  chain observed live. Captures honest (5s in-app; 10s+ launcher; run2 MIUI-scanner noted).
+- A40-android-hint-cursor-reset-goal-frame authored + staged idx 78 (82 phases),
+  committed [autoport/supervisor]. Completion watcher armed → relaunch on A39 close.
