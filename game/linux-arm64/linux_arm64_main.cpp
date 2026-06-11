@@ -134,49 +134,11 @@ extern "C" u64 a17_pc_default() {
   return 0;
 }
 
-// A29 — __pc-get-mips2c replacement that returns a no-op GOAL function
-// for any name lookup instead of 0. Background: texture.gc's top-level
-// (link finish: texture-upload after the tpage block) expands its
-// `(def-mips2c adgif-shader<-texture-with-update! ...)` to `(set! sym
-// (__pc-get-mips2c "name"))`. Upstream desktop binds __pc-get-mips2c
-// to pc_get_mips2c which calls Mips2C::gLinkedFunctionTable.get(name);
-// klink.cpp::klink_a11_ensure_pc_mips2c_bound binds it to
-// a11_pc_get_mips2c_impl on linux-arm64/Android (same impl shape).
-// BUT on linux-arm64 the upstream mips2c_table.cpp is excluded (its
-// static init would pull jak2/jak3 link callbacks not built here);
-// linux_arm64_runtime_compat.cpp provides a stub
-// `LinkedFunctionTable::get` that ALWAYS RETURNS 0. So
-// a11_pc_get_mips2c_impl returns 0, the GOAL sym slot for every
-// mips2c-defined symbol stays 0, and the first invocation BLRs to
-// host(0) = ee_base → UDF #0 → sig=4 SIGILL.
-//
-// A29 rebinds `__pc-get-mips2c` AFTER klink_a11_ensure_pc_mips2c_bound
-// to this version, which lazily builds one no-op GOAL function via
-// make_function_from_c (= an arm64 trampoline that calls a17_pc_default)
-// and returns its offset for ANY name. The mips2c functions are now
-// "callable" (they no-op), so the boot continues past their first call
-// site. Headless qemu doesn't render anything anyway — texture-shader
-// updates / particle dispatch / etc. would be no-ops even in a full
-// renderer integration of arm64, so this matches the headless contract.
-// Android's full IOP-thread path doesn't go through this rebind (it
-// uses the real gLinkedFunctionTable + jak1 mips2c link callbacks once
-// upstream InitMachineScheme runs).
-extern "C" u64 a29_mips2c_get_noop(u32 name) {
-  (void)name;
-  // Cache the no-op GOAL function offset across calls. We use
-  // make_function_symbol_from_c (declared in jak1/kscheme.h) instead of
-  // raw make_function_from_c (only defined in kscheme.cpp, not exported
-  // in the header) — the side effect is registering a single
-  // `__a29-mips2c-noop` symbol slot the first time we're called; every
-  // subsequent (def-mips2c name ...) returns the same trampoline.
-  static u32 s_cached_offset = 0;
-  if (!s_cached_offset) {
-    auto noop = jak1::make_function_symbol_from_c("__a29-mips2c-noop",
-                                                  (void*)a17_pc_default);
-    s_cached_offset = noop.offset;
-  }
-  return s_cached_offset;
-}
+// A37: a29_mips2c_get_noop (the A29-era shared no-op for every
+// def-mips2c name) is removed — `__pc-get-mips2c` stays on
+// a11_pc_get_mips2c_impl, now backed by the REAL jak1 table in
+// game/mips2c/mips2c_table_jak1_arm64.cpp (klink's per-object
+// gMips2CLinkCallbacks pass registers real AArch64 trampolines).
 
 void a17_bind_pc_helpers() {
   static bool s_bound = false;
@@ -344,24 +306,17 @@ void a17_bind_pc_helpers() {
                "top-level + (play) reset chain don't SIGILL on unbound "
                "symbols\n");
 
-  // A29 — rebind __pc-get-mips2c to the no-op-returning impl. The
-  // earlier klink_a11_ensure_pc_mips2c_bound call wired it to
-  // a11_pc_get_mips2c_impl which delegates to
-  // Mips2C::gLinkedFunctionTable.get() — a stubbed returns-0 on this
-  // build (linux_arm64_runtime_compat.cpp excludes mips2c_table.cpp,
-  // own the symbols here as empty maps/no-op reg). The texture CGO's
-  // def-mips2c expansion needs a non-zero function pointer to bind to,
-  // or the next call to the symbol BLRs through 0 → ee_base → SIGILL.
-  // Note: we ALWAYS return the same no-op function for every name —
-  // for the headless arm64-linux qemu build this is the correct shape;
-  // each mips2c function is a no-op GOAL function returning 0.
-  auto fn = jak1::make_function_symbol_from_c("__pc-get-mips2c",
-                                              (void*)a29_mips2c_get_noop);
+  // A37 — the A29 a29_mips2c_get_noop rebind is GONE. This build now
+  // compiles the real jak1 mips2c table
+  // (game/mips2c/mips2c_table_jak1_arm64.cpp): klink's per-object
+  // gMips2CLinkCallbacks pass registers every jak1 mips2c body and
+  // a11_pc_get_mips2c_impl resolves real AArch64 trampolines. The noop
+  // had silenced the entire mips2c surface (joint/bones included), which
+  // on Android zeroed bone transforms -> othercam -> camera-temp ->
+  // black frames; qemu keeps backend parity with the device.
   std::fprintf(stderr,
-               "A29-DIAG sym-bind-trace: rebound __pc-get-mips2c to "
-               "a29_mips2c_get_noop (function GOAL ptr 0x%x) — every "
-               "(def-mips2c name ...) now binds to a no-op GOAL fn\n",
-               (unsigned)fn.offset);
+               "A37-DIAG sym-bind-trace: __pc-get-mips2c stays on "
+               "a11_pc_get_mips2c_impl (real jak1 mips2c table)\n");
 }
 
 // ---------------------------------------------------------------------------

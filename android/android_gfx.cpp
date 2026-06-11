@@ -30,14 +30,20 @@ namespace {
 constexpr const char* kLogTag = "opengoal-gk";
 
 struct AndroidGfxData {
-  // vsync handshake (game thread waits, GL thread signals after swap)
-  std::mutex sync_mutex;
+  // ONE mutex for the whole game-thread<->GL-thread handshake. A37: the
+  // previous split (sync_mutex for vsync/post_swap_tick, dma_mutex for
+  // send_chain/sync_path) had sync_cv waited under dma_mutex in
+  // sync_path() but notified under sync_mutex — a condition_variable
+  // used with two different mutexes is UB and loses wakeups; on-device
+  // the GOAL thread parked forever in sync_path's cond_wait the moment
+  // frame contents got heavier (real mips2c joints), and the desynced
+  // frame pacing corrupted the in-flight chain. One mutex, two cvs.
+  std::mutex dma_mutex;
   std::condition_variable sync_cv;
   u64 frame_idx = 0;
   u64 frame_idx_of_input_data = 0;
 
-  // dma chain hand-off
-  std::mutex dma_mutex;
+  // dma chain hand-off (same mutex)
   std::condition_variable dma_cv;
   bool has_data_to_render = false;
   const void* chain_data = nullptr;
@@ -194,8 +200,54 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
                                    [=] { return d->has_data_to_render; });
   }
 
+  // A37 chain validator: a malformed (cyclic / never-ending) chain makes
+  // bucket renderers spin forever in read_and_advance (run-23/24/25: GL
+  // thread stuck in SkyRenderer, GOAL parked in sync_path, app frozen).
+  // Walk the whole chain with a step cap first; on cap, log a tag window
+  // and SKIP the frame — the run keeps producing evidence and pacing.
   if (got_chain) {
-    d->frame_idx_of_input_data = d->frame_idx;
+    DmaFollower probe(d->chain_data, d->chain_offset);
+    constexpr int kMaxSteps = 400000;
+    int steps = 0;
+    u32 last_offsets[8] = {0};
+    while (!probe.ended() && steps < kMaxSteps) {
+      last_offsets[steps & 7] = probe.current_tag_offset();
+      probe.read_and_advance();
+      steps++;
+    }
+    if (!probe.ended()) {
+      static u32 s_loops_logged = 0;
+      if (s_loops_logged < 8) {
+        s_loops_logged++;
+        __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                            "A37-CHAIN-LOOP frame chain did not end after %d steps; recent tag "
+                            "offsets: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+                            kMaxSteps, last_offsets[(steps + 0) & 7], last_offsets[(steps + 1) & 7],
+                            last_offsets[(steps + 2) & 7], last_offsets[(steps + 3) & 7],
+                            last_offsets[(steps + 4) & 7], last_offsets[(steps + 5) & 7],
+                            last_offsets[(steps + 6) & 7], last_offsets[(steps + 7) & 7]);
+        for (int k = 0; k < 4; k++) {
+          u32 off = last_offsets[(steps + 7 - k) & 7];
+          u64 tag = 0, tag2 = 0;
+          memcpy(&tag, (const u8*)d->chain_data + off, 8);
+          memcpy(&tag2, (const u8*)d->chain_data + off + 8, 8);
+          __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                              "A37-CHAIN-LOOP tag@0x%x = %016llx %016llx", off,
+                              (unsigned long long)tag, (unsigned long long)tag2);
+        }
+      }
+      std::unique_lock<std::mutex> lock(d->dma_mutex);
+      d->has_data_to_render = false;
+      d->sync_cv.notify_all();
+      return false;
+    }
+  }
+
+  if (got_chain) {
+    {
+      std::unique_lock<std::mutex> lock(d->dma_mutex);
+      d->frame_idx_of_input_data = d->frame_idx;
+    }
     AndroidRenderOptions options;
     options.game_res_w = Gfx::g_global_settings.game_res_w;
     options.game_res_h = Gfx::g_global_settings.game_res_h;
@@ -254,7 +306,7 @@ void post_swap_tick() {
     return;
   }
   auto* d = g_data;
-  std::unique_lock<std::mutex> lock(d->sync_mutex);
+  std::unique_lock<std::mutex> lock(d->dma_mutex);
   d->frame_idx++;
   d->sync_cv.notify_all();
 }
@@ -264,7 +316,7 @@ u32 vsync() {
     return 0;
   }
   auto* d = g_data;
-  std::unique_lock<std::mutex> lock(d->sync_mutex);
+  std::unique_lock<std::mutex> lock(d->dma_mutex);
   auto init_frame = d->frame_idx_of_input_data;
   d->sync_cv.wait(lock, [=] {
     return (MasterExit != RuntimeExitStatus::RUNNING) || d->frame_idx > init_frame;

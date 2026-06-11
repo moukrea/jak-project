@@ -461,6 +461,44 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
       }
     }
 
+    // A37: pre-validate the bucket's stream structure. A bucket whose tag
+    // stream doesn't land exactly on next_bucket traps the GL thread in a
+    // renderer tag loop forever (runs 23-26: SkyRenderer's CNT loop ran
+    // past the bucket into foreign data once the real camera let the GOAL
+    // sky path go deep). Malformed buckets are named, counted, skipped,
+    // and the follower is re-seated on the bucket boundary.
+    bool bucket_stream_ok = true;
+    {
+      DmaFollower probe = dma;
+      constexpr int kCap = 200000;
+      int steps = 0;
+      while (probe.current_tag_offset() != m_render_state.next_bucket && !probe.ended() &&
+             steps < kCap) {
+        probe.read_and_advance();
+        steps++;
+      }
+      if (probe.current_tag_offset() != m_render_state.next_bucket) {
+        bucket_stream_ok = false;
+        static int s_malformed_logged = 0;
+        if (s_malformed_logged < 40) {
+          s_malformed_logged++;
+          __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                              "A37-BUCKET-MALFORMED bucket=%s id=%zu steps=%d stuck@0x%x "
+                              "(ended=%d) next=0x%x — skipping bucket",
+                              renderer->name().c_str(), bucket_id, steps,
+                              probe.current_tag_offset(), (int)probe.ended(),
+                              m_render_state.next_bucket);
+        }
+      }
+    }
+    if (!bucket_stream_ok) {
+      m_stats.buckets_skipped++;
+      dma = DmaFollower(dma.base(), m_render_state.next_bucket);
+      m_render_state.next_bucket += 16;
+      vif_interrupt_callback(bucket_id);
+      continue;
+    }
+
     // A36 canary: the first real content frame zeroes glad's function
     // pointers (run-19: glClearDepthf NULL one loop later → BLR-to-0 with
     // lr in android_renderer_run). Check a glad pointer after every bucket

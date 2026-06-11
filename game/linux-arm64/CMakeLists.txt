@@ -212,6 +212,9 @@ add_library(linux_arm64_kernel STATIC
     "${JAK_ROOT}/game/mips2c/jak1_functions/tfrag.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/tie_methods.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/time_of_day.cpp"
+    # A37: real jak1 mips2c table (callback map + reg()/get() with the
+    # AArch64 GOAL-heap trampoline). Replaces the get()->0 stub.
+    "${JAK_ROOT}/game/mips2c/mips2c_table_jak1_arm64.cpp"
 )
 
 target_compile_features(linux_arm64_kernel PUBLIC cxx_std_20)

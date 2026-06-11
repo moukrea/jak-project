@@ -1,0 +1,14 @@
+t=5s pre:    mCurrentFocus=Window{9a821d8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=5s post:   mCurrentFocus=Window{4758983 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=10s pre:    mCurrentFocus=Window{bdb7aaf u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=10s post:   mCurrentFocus=Window{63b208c u0 com.miui.home/com.miui.home.launcher.Launcher}
+t=15s pre:    mCurrentFocus=null
+t=15s post:   mCurrentFocus=Window{62242bb u0 org.opengoal.gk.jak1/org.opengoal.gk.jak1.LoaderActivity}
+t=20s pre:    mCurrentFocus=Window{2bbd309 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=20s post:   mCurrentFocus=Window{2bbd309 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=30s pre:    mCurrentFocus=Window{63b208c u0 com.miui.home/com.miui.home.launcher.Launcher}
+t=30s post:   mCurrentFocus=Window{ee951fd u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=45s pre:    mCurrentFocus=Window{63b208c u0 com.miui.home/com.miui.home.launcher.Launcher}
+t=45s post:   mCurrentFocus=Window{118f728 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=60s pre:    mCurrentFocus=null
+t=60s post:   mCurrentFocus=null

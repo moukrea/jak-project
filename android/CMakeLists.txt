@@ -286,6 +286,10 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/mips2c/jak1_functions/tfrag.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/tie_methods.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/time_of_day.cpp"
+    # A37: real jak1 mips2c table (callback map + reg()/get() with the
+    # AArch64 GOAL-heap trampoline). Replaces the get()->0 stub that bound
+    # every def-mips2c fn to 0 (the camera/joint black-frame blocker).
+    "${JAK_ROOT}/game/mips2c/mips2c_table_jak1_arm64.cpp"
 
     # aarch64 GOAL trampoline (preprocessed to GNU as syntax).
     "${CMAKE_BINARY_DIR}/asm_funcs_arm64_gnu.s"

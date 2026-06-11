@@ -1,0 +1,14 @@
+t=5s pre:    mCurrentFocus=Window{e680263 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=5s post:   mCurrentFocus=Window{e680263 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=10s pre:    mCurrentFocus=Window{d4cd935 u0 com.android.camera/com.android.camera.Camera}
+t=10s post:   mCurrentFocus=Window{49431b5 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=15s pre:    mCurrentFocus=Window{49431b5 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=15s post:   mCurrentFocus=Window{49431b5 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=20s pre:    mCurrentFocus=Window{148051a u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=20s post:   mCurrentFocus=Window{148051a u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=30s pre:    mCurrentFocus=Window{612db77 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=30s post:   mCurrentFocus=Window{612db77 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=45s pre:    mCurrentFocus=Window{56d3319 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=45s post:   mCurrentFocus=Window{56d3319 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=60s pre:    mCurrentFocus=Window{e0c7f33 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t=60s post:   mCurrentFocus=Window{e0c7f33 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
