@@ -2622,6 +2622,80 @@ extern "C" void a36_tree_scan_per_frame() {
                                 "fnum=%.2f draw-status=0x%x",
                                 (unsigned long long)f, proc2, nm, skel, fg, fgn[0] ? fgn : "?",
                                 fnum, dstat);
+            // F1C-CHAN: full per-channel joint-control state for the camera
+            // path. The decisive field is `weight` (inspector-amount, set by
+            // output-blend-tree!): weight->0 => eval-blend-tree! drops the
+            // dynamic channel (the freeze is in the blend weight); weight ok
+            // (~1) but output still frozen (F1B-TRS) => the freeze is in
+            // build-requests!/decomp-frame (the data read). command + fnum +
+            // frame-interp corroborate the stage. joint-control layout:
+            // active-channels@+24; channel[c]@+44+48*c; per channel
+            // command@+4(symbol) frame-interp@+8 frame-group@+12 frame-num@+16
+            // inspector-amount@+44.
+            if (skel && skel != falsev2) {
+              uint32_t ach = 0;
+              rd32(skel + 24, &ach);  // active-channels
+              int nch = (int)ach;
+              if (nch < 0) nch = 0;
+              if (nch > 3) nch = 3;
+              for (int c = 0; c < nch; c++) {
+                uint32_t cbase = skel + 44 + 48 * c;
+                uint32_t cmd = 0, cfg = 0, w = 0;
+                float fi = 0.f, fn = 0.f, wt = 0.f;
+                rd32(cbase + 4, &cmd);   // command (symbol)
+                rd32(cbase + 12, &cfg);  // frame-group
+                rd32(cbase + 8, &w);
+                memcpy(&fi, &w, 4);
+                rd32(cbase + 16, &w);
+                memcpy(&fn, &w, 4);
+                rd32(cbase + 44, &w);
+                memcpy(&wt, &w, 4);
+                char cmdn[24] = {0};
+                if (cmd && cmd != falsev2)
+                  gk_a40_sym_name_fwd((uintptr_t)g_ee_main_mem, cmd, cmdn, sizeof(cmdn));
+                __android_log_print(
+                    ANDROID_LOG_FATAL, kGkLogTag,
+                    "GK-DIAG F1C-CHAN f=%llu %s proc=0x%x ach=%d ch%d cmd=%s(0x%x) fi=%.4f "
+                    "fnum=%.2f weight=%.4f fg=0x%x",
+                    (unsigned long long)f, nm, proc2, (int)ach, c, cmdn[0] ? cmdn : "?", cmd, fi, fn,
+                    wt, cfg);
+                // F1C-KF: the EXACT keyframe decomp-frame reads. Per the
+                // process-request! disasm, (-> jacc data base) loads a 4-byte
+                // pointer from the table at jacc+16 (stride 4): kfp =
+                // [jacc+16 + base*4]; the keyframe struct lives at kfp
+                // (offset-64@0/offset-32@4/offset-16@8/reserved@12, data@16).
+                // Decisive: base advances each tick (fnum) — if kfp ALSO
+                // advances and the bytes at kfp change, the data is fresh and
+                // the freeze is in the decode; if kfp is pinned or its bytes
+                // are constant, the keyframe/table is stale (spool/clone).
+                if (cfg && cfg != falsev2 && c == 0) {
+                  uint32_t jacc = 0, nf = 0;
+                  rd32(cfg + 40, &jacc);  // frame-group->frames
+                  int base = (int)fn;
+                  if (base < 0) base = 0;
+                  uint32_t kfp = 0, o0 = 0, o1 = 0, o2 = 0, d0 = 0, d1 = 0, d2 = 0, d3 = 0;
+                  if (jacc && jacc != falsev2) {
+                    rd32(jacc + 0, &nf);
+                    rd32(jacc + 16 + base * 4, &kfp);  // data[base] pointer
+                    if (kfp && kfp != falsev2) {
+                      rd32(kfp + 0, &o0);
+                      rd32(kfp + 4, &o1);
+                      rd32(kfp + 8, &o2);
+                      rd32(kfp + 16, &d0);
+                      rd32(kfp + 20, &d1);
+                      rd32(kfp + 24, &d2);
+                      rd32(kfp + 28, &d3);
+                    }
+                  }
+                  __android_log_print(
+                      ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG F1C-KF f=%llu %s proc=0x%x nf=%d base=%d jacc=0x%x kfp=0x%x "
+                      "off=%u/%u/%u data=%08x.%08x.%08x.%08x",
+                      (unsigned long long)f, nm, proc2, (int)nf, base, jacc, kfp, o0, o1, o2, d0, d1,
+                      d2, d3);
+                }
+              }
+            }
             // F1B-JB: the joint-chain OUTPUT for the same processes —
             // nodes 3..5 bone transform row3 (world pos) + row0 (rot) +
             // param0. Twin of f1b_jb_probe_desktop (OG_F1B_JB) in
@@ -2696,6 +2770,49 @@ extern "C" void a36_tree_scan_per_frame() {
                                     (unsigned long long)f, nm, proc2, fnum, n,
                                     (int)(int16_t)(jw & 0xffff), bone, p0, r3[0], r3[1], r3[2],
                                     r0v[0], r0v[1], r0v[2]);
+                // F1C-CAMFLY: node 4 is the title camera-look joint that
+                // othercam reads. Before the arm64 modulo fix it was frozen
+                // (decomp-frame's `(* 4 (mod tqi 8))` returned 4*(tqi/8)=0 for
+                // joint 1, so it read joint 0's all-fixed control nibble);
+                // after the fix it flies. Emit this marker ONLY when the bone
+                // world position actually changes by >~1m between heartbeats —
+                // it is real flight evidence, never an unconditional print.
+                if (n == 4) {
+                  static struct {
+                    uint32_t proc;
+                    float x, y, z;
+                  } s_cam[8] = {};
+                  int slot = -1, freeidx = -1;
+                  for (int s = 0; s < 8; s++) {
+                    if (s_cam[s].proc == proc2) {
+                      slot = s;
+                      break;
+                    }
+                    if (freeidx < 0 && s_cam[s].proc == 0)
+                      freeidx = s;
+                  }
+                  bool had = (slot >= 0);
+                  if (slot < 0)
+                    slot = (freeidx >= 0 ? freeidx : 0);
+                  if (had && s_cam[slot].proc == proc2) {
+                    float dx = r3[0] - s_cam[slot].x, dy = r3[1] - s_cam[slot].y,
+                          dz = r3[2] - s_cam[slot].z;
+                    float adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy, adz = dz < 0 ? -dz : dz;
+                    float dmax = adx > ady ? (adx > adz ? adx : adz) : (ady > adz ? ady : adz);
+                    if (dmax > 4096.0f) {  // >~1 metre of camera travel
+                      __android_log_print(
+                          ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG F1C-CAMFLY f=%llu %s proc=0x%x node=4 moving pose-delta=%.1f "
+                          "r3=(%.1f %.1f %.1f) prev=(%.1f %.1f %.1f)",
+                          (unsigned long long)f, nm, proc2, dmax, r3[0], r3[1], r3[2], s_cam[slot].x,
+                          s_cam[slot].y, s_cam[slot].z);
+                    }
+                  }
+                  s_cam[slot].proc = proc2;
+                  s_cam[slot].x = r3[0];
+                  s_cam[slot].y = r3[1];
+                  s_cam[slot].z = r3[2];
+                }
               }
             }
           }
