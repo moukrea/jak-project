@@ -124,15 +124,32 @@ so x86 output is bit-identical.
 
 ## Honest residuals / not fully done
 
-- **Controllable-Jak drive is not yet fully exercised on-device.** START opens
-  the progress menu and links the Geyser Rock (`medres-training`) data, but the
-  blind `adb shell input tap` at the overlay START coord just missed the button:
-  the device display is 2400×1080 while the SDL overlay surface is 2298×1036, a
-  ~1.04× scale the injection didn't apply (START radius is only 54 px). This is
-  an input-coordinate-mapping detail, **not** the camera codegen bug — the
-  decompressor fix is independent and complete. Next step: scale the overlay
-  coords (or drive the SDL virtual gamepad directly) to confirm New Game →
-  Geyser Rock → Jak position-change.
+- **Controllable-Jak drive is NOT reached** — blocked on a headless
+  input-injection → cpad gap that is **independent of the (fixed) camera codegen
+  bug**. Findings, in order, across runs 4–7:
+  - The progress-menu code (`progress*`, `game-save`) and the Geyser Rock
+    (`medres-training`) data **link at boot** (preloaded by the title), not from
+    my START — their timestamps precede the first rendered frame.
+  - The injected touch DOES reach the app (MIUIInput shows ACTION_DOWN/UP
+    delivered to the MainActivity input channel after every inject marker).
+  - The overlay hit-zone coordinates were computed exactly: the system reports
+    `mAppBounds=Rect(102,0 - 2400,1036)` (a left display-cutout inset), so the
+    2298×1036 overlay view sits at display offset **(102,0)**; START (view
+    `w*0.5,h*0.92` = 1149,953) is display **(1251,953)**. The overlay's
+    `onTouchEvent` uses view-local coords, so (1251,953) lands dead-centre in the
+    54 px START zone — the earlier (1149,953)/(1200,993) taps missed by the +102
+    inset.
+  - Even with the corrected touch AND `input keyevent 108` (BUTTON_START) /`96`
+    (A), the title never leaves `target-title-wait`: the `A40-DPROC` pool
+    signature stays `n=12 default-pool` and `F1C-CAMFLY` keeps firing through
+    every inject. So the press is not reaching `(cpad-pressed? 0 start)`.
+  - Conclusion: the gap is in the headless-injection → SDL virtual-gamepad →
+    `cpad` path (or the title's cpad-index read), a separate input-subsystem
+    issue. The camera flies regardless; the decompressor fix is complete and
+    does not depend on input. Next step for a follow-up: instrument
+    `TouchOverlayView.dispatchPad` + `android_input_audio.cpp::onPadButton` +
+    the `cpad` poll to see where the START press is dropped, or drive a real
+    Bluetooth pad.
 - The modulo fix also corrected 108 other `mod` sites; only the camera path was
   visually validated this phase. No regression appeared (qemu 675, x86
   identical, village/title render intact), but the broader effect is unaudited.
