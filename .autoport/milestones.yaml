@@ -706,6 +706,20 @@ phases:
   validator: validators/phase-A42-android-tfrag-init-village-flythrough.sh
   max_turns: 1500
   max_retries: 3
+- id: F1a-android-camera-merc-title-correct
+  name: 'Straighten the camera, port merc: the title screen finally looks right. A42 made the village RENDER (vsync discard-shim fixed
+    so spooled cutscenes stream; send_chain copy-mode kills the GL hangs; bug class 11 PSHUFLW/HW stand-ins made every .ppach garbage
+    -> TOD alpha=0 discarded the village — exact semantics now, 38 sites). USER-verified residuals: camera parked INSIDE a hut tilted
+    ~+85 deg constant (cutscene streams but the course camera does not fly — one transform bug: audit remaining SIMD stand-in families
+    .pextlw/.pcpyld/etc + projection/viewport w-h transposes vs A37-CAM oracle dumps); merc/generic/sprite buckets still skipped (no
+    J+D logo — a merc model — no actors, and no Jak, the F1b prerequisite). F1a: fix camera pose at mechanism, port MercRenderer
+    (+generic/eye hookups, sprite if cheap), correct title = logo over FLYING camera, horizon horizontal, PRESS START; >=150s run,
+    captures 10-150s + focus brackets. Validator: A42 gates + MercRenderer>=5 nm syms + frame>=300 + tris>0 newest F1a logcat. Title
+    correctness judged by supervisor vision. max_turns 1500.'
+  prompt: prompts/phase-F1a-android-camera-merc-title-correct.md
+  validator: validators/phase-F1a-android-camera-merc-title-correct.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
