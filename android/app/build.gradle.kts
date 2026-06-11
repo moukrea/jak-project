@@ -60,6 +60,16 @@ android {
         getByName("main") {
             jniLibs.srcDirs("src/main/jniLibs")
         }
+        // A40: `-PslimIso=true` builds the APK without the ~1.4 GB iso_data
+        // payload (fr3 textures stay bundled via assets-slim/). The device
+        // keeps its extracted files/iso_data/<game>/ + .extracted_v1
+        // sentinel (LoaderActivity checks the sentinel before it ever asks
+        // the AssetManager), so iterating on libgk.so costs a ~100 MB
+        // install instead of a ~2.7 GB transient on a storage-starved
+        // device. Seed the data once with adb push + run-as cp.
+        if (project.findProperty("slimIso") == "true") {
+            getByName("jak1") { assets.setSrcDirs(listOf("src/jak1/assets-slim")) }
+        }
     }
 
     buildTypes {
