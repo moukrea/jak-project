@@ -2,6 +2,11 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 #include "common/log/log.h"
 #include "common/symbols.h"
@@ -626,6 +631,82 @@ void link_control::jak1_finish(bool jump_from_c_to_goal) {
       static u32 s_finish_seq = 0;
       std::fprintf(stderr, "KLINKTRACE finish obj=%s seq=%u\n", m_object_name,
                    (unsigned)(++s_finish_seq));
+    }
+  }
+
+  // A39 — symbol-table forensics (debug.opengoal.a39.linkscan=1 on Android,
+  // OG_A39_LINKSCAN env elsewhere; zero work when unset): after each object
+  // link, resolve (a) the slot whose info-name is exactly "draw-string" and
+  // (b) the shared-noop value via the "__a37-mips2c-noop" symbol, then list
+  // every slot holding that noop value. Prints only when the observed state
+  // changes — brackets the writer that replaces font.o's noop bind with the
+  // in-band poison (run1 SIGILL: slot 0x159344 := 0x190bb34) to one object.
+  {
+    static const int s_a39_scan = []() -> int {
+#ifdef __ANDROID__
+      char b[92] = {0};
+      if (__system_property_get("debug.opengoal.a39.linkscan", b) > 0 && b[0] == '1') {
+        return 1;
+      }
+#endif
+      return std::getenv("OG_A39_LINKSCAN") ? 1 : 0;
+    }();
+    if (s_a39_scan && SymbolTable2.offset && LastSymbol.offset) {
+      u32 ds_slot = 0, ds_val = 0, noop_val = 0;
+      for (u32 slot = SymbolTable2.offset; slot < LastSymbol.offset; slot += 4) {
+        auto sym = Ptr<jak1::Symbol>(slot);
+        u32 stro = jak1::info(sym)->str.offset;
+        if (!stro || stro >= EE_MAIN_MEM_SIZE - 64) {
+          continue;
+        }
+        const char* nm = reinterpret_cast<const char*>(Ptr<u8>(stro + 4).c());
+        if (!ds_slot && memcmp(nm, "draw-string", 12) == 0) {
+          ds_slot = slot;
+          ds_val = sym->value;
+        }
+        if (!noop_val && memcmp(nm, "__a37-mips2c-noop", 18) == 0) {
+          noop_val = sym->value;
+        }
+        if (ds_slot && noop_val) {
+          break;
+        }
+      }
+      int nh = 0;
+      u32 noop_holders[4] = {0, 0, 0, 0};
+      if (noop_val) {
+        for (u32 slot = SymbolTable2.offset; slot < LastSymbol.offset && nh < 4; slot += 4) {
+          if (*Ptr<u32>(slot) == noop_val) {
+            noop_holders[nh++] = slot;
+          }
+        }
+      }
+      static u32 s_prev_ds_slot = 0xffffffffu;
+      static u32 s_prev_ds_val = 0xffffffffu;
+      static int s_prev_nh = -1;
+      // Sample the first 4 code words at the draw-string target: the run1
+      // crash executed DMA-tag-looking bytes at the (healthy-on-disk)
+      // GOAL draw-string body, so the smash is at runtime — the link after
+      // which these words flip names the window.
+      u32 code_w[4] = {0, 0, 0, 0};
+      if (ds_val >= 0x1000 && ds_val < EE_MAIN_MEM_SIZE - 16) {
+        for (int i = 0; i < 4; i++) {
+          code_w[i] = *Ptr<u32>(ds_val + 4 * i);
+        }
+      }
+      static u32 s_prev_code0 = 0xffffffffu;
+      if (ds_slot != s_prev_ds_slot || ds_val != s_prev_ds_val || nh != s_prev_nh ||
+          code_w[0] != s_prev_code0) {
+        std::fprintf(stderr,
+                     "A39-LINKSCAN obj=%s ds-slot=0x%x ds-val=0x%x code=[%08x %08x %08x %08x] "
+                     "noop=0x%x holders=%d [0x%x 0x%x 0x%x 0x%x]\n",
+                     m_object_name, ds_slot, ds_val, code_w[0], code_w[1], code_w[2], code_w[3],
+                     noop_val, nh, noop_holders[0], noop_holders[1], noop_holders[2],
+                     noop_holders[3]);
+        s_prev_ds_slot = ds_slot;
+        s_prev_ds_val = ds_val;
+        s_prev_nh = nh;
+        s_prev_code0 = code_w[0];
+      }
     }
   }
   if (ofh->object_file_version == 3) {
