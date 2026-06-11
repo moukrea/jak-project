@@ -733,6 +733,23 @@ phases:
   validator: validators/phase-F1b-android-joint-decompress-start-geyser.sh
   max_turns: 1500
   max_retries: 3
+- id: F1c-android-camera-channel-start-geyser
+  name: 'Unfreeze the title camera (joint-1 channel) then START -> Geyser Rock controllable. SUPERVISOR NOTE: F1b false-greened —
+    its validator passed on STALE village-render evidence (frame/tris from an earlier attempt logcat) while landing ZERO code; its
+    only deliverable was a precise re-localization. F1c carries the real work with a STRICT validator (requires a real
+    F1c-fix-summary.md + a camera-flight/level marker; a progress report does NOT pass — honest block instead of false-green).
+    Re-localization (oracle-confirmed, NOT a SIMD stand-in — falsified 3 ways): the freeze is SPECIFIC to logo-cam-logo-loop joint 1
+    (ctrl=0xb, dyn big-trans + dyn quat = the camera-look joint); its decompressed output is a single static pose on device, flies on
+    desktop; master skel animates fine (Jak/Daxter move). F1c: probe the loop-camera channel both backends (active-channels, per-channel
+    command/frame-num/blend-weight); determine self-animated vs copy-fed (flatten-joint-control-to-spr/clone-anim/othercam copy) — lead
+    hypotheses: copy path reading stale/zero source (Merc2-EE-base-style pointer divergence), blend-weight=0 on the dynamic channel, or
+    ctrl=0xb decode branch. Fix at mechanism (no hardcoded pose) -> camera FLIES (A37-CAM delta post-f1200, different locales across
+    ticks) + logo verify -> inject START (overlay coords) -> Geyser/training DGO links -> inject movement -> Jak position changes
+    (frames + same-timeline log evidence). Flight/START/control judged by supervisor vision + logs. max_turns 2000.'
+  prompt: prompts/phase-F1c-android-camera-channel-start-geyser.md
+  validator: validators/phase-F1c-android-camera-channel-start-geyser.sh
+  max_turns: 2000
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
