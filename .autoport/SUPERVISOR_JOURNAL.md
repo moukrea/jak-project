@@ -4750,3 +4750,10 @@ approach is root-cause-first rather than iterate-first. No cheats.
 - Next phase on completion: F1a = camera-orientation fix + merc bucket port → CORRECT
   title screen (logo over flying camera); serves gameplay prereqs (Jak = merc). Then F1b
   START→Geyser→control, then F2a audio per interleave plan. Watcher armed.
+### 2026-06-11 15:50 — USER SIGHTING: "Press Ⓞ to use" prompt at boot start (transient)
+- Same tilted hut view, but a proximity-use prompt (with the circle BUTTON GLYPH rendering)
+  appeared at boot start. Significance: (1) the entity/hint proximity logic is LIVE — the
+  world simulates under the parked camera (likely Samos's hut warp gate if that's the
+  building); (2) font button-glyphs render; (3) possibly newly visible via the fresh
+  Sprite3 port. Camera pose residual unchanged. Supervisor capture post-timeout shows
+  the standard hut view (prompt transient — user report is the evidence).
