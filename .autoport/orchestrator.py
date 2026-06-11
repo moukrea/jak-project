@@ -3,7 +3,7 @@
 OpenGOAL → Android autonomous orchestrator.
 
 Hardcoded design choices (per project owner's preference):
-- Model: claude-fable-5[1m] for EVERY phase (owner default since 2026-06-10;
+- Model: claude-opus-4-8[1m] for EVERY phase (owner default since 2026-06-10;
   was claude-opus-4-7 through A32). No smaller-model fallback ever.
 - Thinking effort: max (via CLAUDE_EFFORT env + 'ultrathink' keyword in prompts)
 - Rate-limit waits use the EXACT reset epoch returned by the API.
@@ -50,7 +50,7 @@ from rich.panel import Panel
 # Configuration — hardcoded per owner preference.
 # ============================================================
 
-MODEL = "claude-fable-5[1m]"  # project default per owner 2026-06-10 — 1M-context, stronger on long-running tasks
+MODEL = "claude-opus-4-8[1m]"  # project default per owner 2026-06-10 — 1M-context, stronger on long-running tasks
 EFFORT = "max"
 
 # Full YOLO mode: --dangerously-skip-permissions bypasses ALL permission
@@ -59,7 +59,7 @@ EFFORT = "max"
 
 # Rate-limit thresholds (0-100 percent)
 SESSION_PAUSE_PCT = 90.0   # 5h window: pre-phase pause at this %
-WEEKLY_PAUSE_PCT = 95.0    # weekly: pre-phase pause at this %
+WEEKLY_PAUSE_PCT = 999.0   # weekly gate DISABLED by owner 2026-06-11 (push to extra-usage EUR; was 95.0). 5h gate stays. Restore to 95.0 to re-arm.
 HARD_KILL_PCT = 98.0       # session: kill running claude at this % (mid-phase)
 RESET_BUFFER_SECONDS = 90  # wait this long after the API-reported reset
 POLL_INTERVAL_SECONDS = 300  # how often to re-check while sleeping (5 min)

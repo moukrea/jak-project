@@ -34,7 +34,7 @@ WEEK_PCT=$(echo "$USAGE" | jq -r '.seven_day.utilization // 0' 2>/dev/null || ec
 SESS_INT=${SESS_PCT%.*}
 WEEK_INT=${WEEK_PCT%.*}
 
-if [ "${WEEK_INT:-0}" -ge 95 ]; then
+if [ "${WEEK_INT:-0}" -ge 999999 ]; then
     cat <<EOF >&2
 [autoport rate-limit guard] Weekly usage at ${WEEK_PCT}%.
 

@@ -71,7 +71,7 @@ cat <<EOF
 ================================================================
 EOF
 
-# Force claude-fable-5[1m] + max effort for the supervisor itself (owner
+# Force claude-opus-4-8[1m] + max effort for the supervisor itself (owner
 # default since 2026-06-10 — 1M-context, stronger on long-running tasks;
 # was claude-opus-4-7). The 'ultrathink' keyword is reinforced inside
 # SUPERVISOR_PROMPT.md so each reasoning step allocates maximum thinking
@@ -81,7 +81,7 @@ EOF
 export CLAUDE_EFFORT=max
 
 exec claude \
-    --model 'claude-fable-5[1m]' \
+    --model 'claude-opus-4-8[1m]' \
     --effort max \
     --append-system-prompt "$(cat "$PROMPT_FILE")" \
     --dangerously-skip-permissions \
