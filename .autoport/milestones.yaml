@@ -680,6 +680,20 @@ phases:
   validator: validators/phase-A40-android-hint-cursor-reset-goal-frame.sh
   max_turns: 1500
   max_retries: 3
+- id: A41-android-texture-path-goal-frame
+  name: 'Texture the quads: glyphs readable, scene visible, THE GOAL FRAME. A40 found arm64 bug class 10 — callee-saved xmm8-15
+    preserved by NOBODY (prologues banked only GPRs); one clobbered s24 froze print-game-text origin.y and a padding loop swept 12MB/call
+    (the real mechanism; A39 cursor framing falsified). Fix: prologues/epilogues bank used saved-xmms; 28 DGOs regenerated; x86
+    byte-identical; qemu 675. Device NOW (supervisor-verified): frame=3720 @60fps, 62s, ZERO faults, tris=63612, ANIMATED UNTEXTURED
+    TEXT QUADS over black 3D — first visible game content. A41 = texture path: (1) adgif-shader<-texture-with-update! mips2c binding
+    state (noop = no texture ids in packets — same disease as blerc, prime suspect); (2) TexturePool GLES upload formats (desktop GL
+    consts; A36 fixed one REV->BYTE sibling); (3) DirectRenderer tex-id MISS logging. Fix at mechanism, no hardcoded textures. Then:
+    readable text + textured title scene, captures 5-60s + focus brackets. Validator: A40 gates + frame>=300 + tris>0 newest A41 logcat.
+    Render judged by supervisor vision. max_turns 1500.'
+  prompt: prompts/phase-A41-android-texture-path-goal-frame.md
+  validator: validators/phase-A41-android-texture-path-goal-frame.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md

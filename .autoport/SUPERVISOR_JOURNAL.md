@@ -4687,3 +4687,12 @@ approach is root-cause-first rather than iterate-first. No cheats.
   chain observed live. Captures honest (5s in-app; 10s+ launcher; run2 MIUI-scanner noted).
 - A40-android-hint-cursor-reset-goal-frame authored + staged idx 78 (82 phases),
   committed [autoport/supervisor]. Completion watcher armed → relaunch on A39 close.
+### 2026-06-11 11:05 — A40 COMPLETED: bug class #10 (xmm callee-saves) + FIRST VISIBLE GAME CONTENT (supervisor-verified)
+- 1b9816ea0: callee-saved xmm8-15 preserved by NOBODY → s24 clobber froze origin.y →
+  12MB/call sweep (A39 cursor framing falsified — '493×64B was numerology'). Prologues
+  now bank used saved-xmms. Device: frame=3720 @60fps, 62s, ZERO faults, tris=63612.
+- ANIMATED UNTEXTURED TEXT QUADS on glass — independently verified by supervisor capture
+  (SUPERVISOR-a40-verify-10s.png; focus ours 9/9 ticks; quads differ across ticks = live
+  animation). First game-driven pixels of the project. Not the goal frame (unreadable).
+- A41-android-texture-path-goal-frame staged idx 80: adgif mips2c binding (prime suspect),
+  GLES upload formats, tex-id MISS logging → readable text + textured scene → THE frame.
