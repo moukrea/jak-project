@@ -4722,3 +4722,11 @@ approach is root-cause-first rather than iterate-first. No cheats.
 - Hypothesis: w/h transpose in projection/viewport (PS2 512×224) — suspects: A36's
   game-res viewport in setup_frame, pcrtc blit rect, or camera-matrix axis swap.
   MUST be in the next phase prompt if A42 closes without it.
+### 2026-06-11 13:55 — USER LIVE SIGHTING + supervisor capture: VILLAGE GEOMETRY RENDERS (inside a hut!)
+- User: "caméra à l'intérieur d'un bâtiment, tournée à +85°". Supervisor frames
+  (SUPERVISOR-village-hut-day/-dusk.png, 2.2MB/1.8MB): textured Sandover hut interior —
+  wood-plank walls, plaster, golden beams, sky through openings, TOD lighting shifting
+  day→dusk between shots. TFRAG/TIE GEOMETRY IS LIVE on-device.
+- Residuals: rotation now ~+85° (was −95° — transform touched, sign flipped, not fixed);
+  camera path traverses interiors (same transform bug displacing the flythrough path).
+  claude mid-hunt in IGenARM64 pack/shuffle family (PPACH/PSHUF — bug class #11 candidate).
