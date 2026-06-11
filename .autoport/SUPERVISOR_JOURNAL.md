@@ -4757,3 +4757,11 @@ approach is root-cause-first rather than iterate-first. No cheats.
   building); (2) font button-glyphs render; (3) possibly newly visible via the fresh
   Sprite3 port. Camera pose residual unchanged. Supervisor capture post-timeout shows
   the standard hut view (prompt transient — user report is the evidence).
+### 2026-06-11 16:15 — F1a verdict: merc EXECUTES; camera freeze = channel-eval decompress chain
+- f5ea1f07a: title merc draws bit-perfect + execute live (Adreno fault = village-data-
+  specific, not merc); calc-animation-from-spr ZERO calls both backends (suspect honestly
+  eliminated); joint freeze localized to GOAL channel-eval decompress chain (next: TRS-
+  per-joint dump + joint.gc op census vs IGenARM64 — the class-11/12 method, bug class
+  #13 candidate); logo-slaves deactivate at logo-loop respawn (missing-logo thread).
+- KEY: joint-decompress fix unblocks BOTH the flying camera AND Jak's skeleton (gameplay).
+  F1b = joint/channel-eval fix → START → Geyser Rock → controllable Jak. Watcher armed.
