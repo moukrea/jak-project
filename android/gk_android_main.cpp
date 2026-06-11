@@ -2961,10 +2961,19 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
             fault + total <= g_base_cell[ci]) {
           continue;
         }
+        uint32_t post = *reinterpret_cast<const uint32_t*>(g_base_cell[ci]);
+        // A39: only anomalous cursor values burn budget — the healthy appends
+        // exhausted the 240-line budget inside frame 1, hiding the late
+        // band-walking writes (run1: print-game-text appended at
+        // 0x1904000+16k through draw-string's code). Legit bases live in
+        // [0x100000, 0x1880000) for both 8MB buffers; zero/low and band+
+        // values are the anomalies being hunted.
+        if (post >= 0x100000u && post < 0x1880000u) {
+          continue;
+        }
         if (g_cell_log_budget.fetch_sub(1, std::memory_order_relaxed) <= 0) {
           break;
         }
-        uint32_t post = *reinterpret_cast<const uint32_t*>(g_base_cell[ci]);
         uint32_t prew = 0xFFFFFFFFu;  // marker: pre-bytes outside snapshot
         if (g_base_cell[ci] >= fault && g_base_cell[ci] - fault + 4 <= 8) {
           memcpy(&prew, pre + (g_base_cell[ci] - fault), 4);
@@ -3653,6 +3662,36 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                         (unsigned long long)a36_tree::g_first_viol_frame.load(),
                         a36_tree::g_syms.armed ? 1 : 0);
   }
+  // A39: dump the tripwire unique-writer table at crash time. The font-code
+  // smash lands within the final frame(s) — after the last periodic summary
+  // — so only an at-crash dump can name the in-band writer (when armed).
+  {
+    int lines = 0;
+    for (int i = 0; i < a38_trip::kMaxWriters && lines < 48; i++) {
+      uintptr_t wpc = a38_trip::g_writers[i].pc.load(std::memory_order_acquire);
+      if (!wpc) {
+        continue;
+      }
+      lines++;
+      Dl_info di{};
+      const char* nm = "";
+      if (a38_trip::to_goal(wpc) == 0 && dladdr(reinterpret_cast<void*>(wpc), &di) &&
+          di.dli_sname) {
+        nm = di.dli_sname;
+      }
+      __android_log_print(
+          ANDROID_LOG_FATAL, kGkLogTag,
+          "GK-DIAG A39-WRITER[%d] pc=0x%lx(goal:0x%x)%s%s n=%llu last-fault=goal:0x%x "
+          "last-val=0x%llx",
+          i, (unsigned long)wpc, a38_trip::to_goal(wpc), nm[0] ? " " : "", nm,
+          (unsigned long long)a38_trip::g_writers[i].n.load(std::memory_order_relaxed),
+          a38_trip::g_writers[i].last_fault_goal.load(std::memory_order_relaxed),
+          (unsigned long long)a38_trip::g_writers[i].last_val.load(std::memory_order_relaxed));
+      if (a38_trip::to_goal(wpc) >= 0x1000) {
+        a38_trip::log_nearest_goal_fn("a39-writer", a38_trip::to_goal(wpc));
+      }
+    }
+  }
   struct sigaction sa{};
   sa.sa_handler = SIG_DFL;
   sigaction(sig, &sa, nullptr);
@@ -3735,6 +3774,131 @@ void gk_install_sigsegv_diag() {
 //                 link-phase writes show up as named writers — noisy)
 extern "C" void gk_a38_tripwire_frame_hook(int chain_phase) {
   using namespace a38_trip;
+  // ---- A39-SYMDUMP (debug.opengoal.a39.symdump=1, default off): the run1
+  // SIGILL BLR'd 0x190bb34 out of a slot named "draw-string" that font.o's
+  // link had bound to the shared noop (0x4d36b4) — something rewrites the
+  // slot between the bind and the level-hint call. Every 60 frames, dump
+  // (a) every slot whose info-name is exactly "draw-string" and (b) every
+  // slot holding the poison value, with its name — catches both a
+  // duplicate-intern and a hash-collision partner stomping the slot.
+  // Pure reads (EE main mem is fully mapped); one static check when off.
+  {
+    static std::atomic<int> s_a39_sd{-1};
+    int sd = s_a39_sd.load(std::memory_order_acquire);
+    if (sd == -1) {
+      char sbuf[PROP_VALUE_MAX] = {0};
+      int sn = __system_property_get("debug.opengoal.a39.symdump", sbuf);
+      sd = (sn > 0 && sbuf[0] == '1') ? 1 : 0;
+      s_a39_sd.store(sd, std::memory_order_release);
+    }
+    if (sd == 1 && g_ee_main_mem && SymbolTable2.offset && LastSymbol.offset) {
+      static int s_a39_frame = 0;
+      int f = s_a39_frame++;
+      // Per-frame body-snapshot of the GOAL draw-string fn (target resolved
+      // once): the smash anchors at varying offsets (+0x0 run1, +0x2e4
+      // linkscan boot), so compare the whole body every frame and report the
+      // first/last changed offsets the frame the flip lands.
+      {
+        static uint32_t s_ds_target = 0;
+        const uintptr_t ee2 = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+        if (!s_ds_target) {
+          for (uint32_t slot = SymbolTable2.offset; slot < LastSymbol.offset; slot += 4) {
+            uint32_t str_off =
+                *reinterpret_cast<const uint32_t*>(ee2 + slot + jak1::SYM_INFO_OFFSET + 4);
+            if (!str_off || str_off >= EE_MAIN_MEM_SIZE - 64) {
+              continue;
+            }
+            if (memcmp(reinterpret_cast<const char*>(ee2 + str_off + 4), "draw-string", 12) ==
+                0) {
+              s_ds_target = *reinterpret_cast<const uint32_t*>(ee2 + slot);
+              break;
+            }
+          }
+        }
+        constexpr uint32_t kSnapLen = 0x6000;
+        if (s_ds_target >= 0x1000 && s_ds_target < EE_MAIN_MEM_SIZE - kSnapLen) {
+          static uint8_t s_snap[kSnapLen];
+          static bool s_snap_valid = false;
+          const uint8_t* cur = reinterpret_cast<const uint8_t*>(ee2 + s_ds_target);
+          if (!s_snap_valid) {
+            memcpy(s_snap, cur, kSnapLen);
+            s_snap_valid = true;
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "A39-CODESNAP f=%d target=0x%x first-words=[%08x %08x %08x %08x]",
+                                f, s_ds_target, reinterpret_cast<const uint32_t*>(cur)[0],
+                                reinterpret_cast<const uint32_t*>(cur)[1],
+                                reinterpret_cast<const uint32_t*>(cur)[2],
+                                reinterpret_cast<const uint32_t*>(cur)[3]);
+          } else if (memcmp(s_snap, cur, kSnapLen) != 0) {
+            uint32_t lo = 0;
+            while (lo < kSnapLen && s_snap[lo] == cur[lo]) {
+              lo++;
+            }
+            uint32_t hi = kSnapLen;
+            while (hi > lo && s_snap[hi - 1] == cur[hi - 1]) {
+              hi--;
+            }
+            const uint32_t* nw = reinterpret_cast<const uint32_t*>(cur + (lo & ~3u));
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "A39-CODEFLIP f=%d target=0x%x diff=[+0x%x,+0x%x) "
+                                "new@first=[%08x %08x %08x %08x]",
+                                f, s_ds_target, lo, hi, nw[0], nw[1], nw[2], nw[3]);
+            memcpy(s_snap, cur, kSnapLen);
+          }
+        }
+      }
+      if ((f % 60) == 0) {
+        const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+        int hits = 0;
+        for (uint32_t slot = SymbolTable2.offset;
+             slot < LastSymbol.offset && hits < 8; slot += 4) {
+          uint32_t str_off =
+              *reinterpret_cast<const uint32_t*>(ee + slot + jak1::SYM_INFO_OFFSET + 4);
+          if (!str_off || str_off >= EE_MAIN_MEM_SIZE - 64) {
+            continue;
+          }
+          const char* nm = reinterpret_cast<const char*>(ee + str_off + 4);
+          if (memcmp(nm, "draw-string", 12) == 0) {
+            hits++;
+            uint32_t v = *reinterpret_cast<const uint32_t*>(ee + slot);
+            uint32_t h = *reinterpret_cast<const uint32_t*>(ee + slot + jak1::SYM_INFO_OFFSET);
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "A39-SYMDUMP f=%d name-hit slot=0x%x value=0x%x hash=0x%x "
+                                "str=0x%x",
+                                f, slot, v, h, str_off);
+          }
+        }
+        int vhits = 0;
+        for (uint32_t slot = SymbolTable2.offset;
+             slot < LastSymbol.offset && vhits < 8; slot += 4) {
+          uint32_t v = *reinterpret_cast<const uint32_t*>(ee + slot);
+          if (v != 0x190bb34u) {
+            continue;
+          }
+          vhits++;
+          uint32_t str_off =
+              *reinterpret_cast<const uint32_t*>(ee + slot + jak1::SYM_INFO_OFFSET + 4);
+          char nb[33];
+          nb[0] = 0;
+          if (str_off && str_off < EE_MAIN_MEM_SIZE - 64) {
+            const char* nm = reinterpret_cast<const char*>(ee + str_off + 4);
+            size_t k = 0;
+            for (; k < 32 && nm[k]; k++) {
+              nb[k] = nm[k];
+            }
+            nb[k] = 0;
+          }
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "A39-SYMDUMP f=%d value-hit slot=0x%x name=\"%s\" str=0x%x",
+                              f, slot, nb[0] ? nb : "<empty>", str_off);
+        }
+        if (!hits && !vhits) {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "A39-SYMDUMP f=%d no draw-string slot, no 0x190bb34 holder", f);
+        }
+      }
+    }
+  }
   int mode = g_mode.load(std::memory_order_acquire);
   if (mode == 0) {
     return;
