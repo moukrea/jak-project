@@ -4705,3 +4705,32 @@ approach is root-cause-first rather than iterate-first. No cheats.
   dropped since A35; A41's queue+flush-at-ready delivered them. North star achieved:
   real title-screen content rendering live on the Redmi at 60fps, zero faults.
 - A41 still running (level streaming/logo polish may follow); F1 (Geyser Rock) next.
+### 2026-06-11 12:30 — A41 COMPLETED; A42 launched; F-bucket = interleaved per user
+- A41 closed (1h04m): 4 mechanisms (adgif real; snapshot-FIFO texture queue; GLES
+  REV→BYTE live sites; __pc-set-levels real = first level-fr3 streams). Residual → A42
+  (tfrag-init → village flythrough), launched attempt 1/3 (live /tmp/a42-launch.out).
+- USER DECISION: after A42, gameplay + audio INTERLEAVED — F1a (START→Geyser Rock→
+  control) → F2a (AAudio+ssound, title music) → F1b/F2b alternating. Old F1/F2 prompts
+  to be rewritten per slot; unblock at insertion.
+### 2026-06-11 13:30 — USER FINDING (confirmed by supervisor screens): scene rendered ~90° ROTATED
+- User watched the device live: level-name text scrolls well-rendered; >half the screen
+  black; right side shows sky/fog/water cycling day/night at ~-95° from expected.
+- Supervisor passive captures confirm (SUPERVISOR-rotation-night.png / -dawn.png):
+  sky gradient runs left→right (horizon VERTICAL) = scene rotated ~90°; TOD cycling
+  itself is correct game behavior. Black left half = rotated projection lands off-screen
+  (+ missing tfrag terrain, A42's scope).
+- Hypothesis: w/h transpose in projection/viewport (PS2 512×224) — suspects: A36's
+  game-res viewport in setup_frame, pcrtc blit rect, or camera-matrix axis swap.
+  MUST be in the next phase prompt if A42 closes without it.
+### 2026-06-11 13:55 — USER LIVE SIGHTING + supervisor capture: VILLAGE GEOMETRY RENDERS (inside a hut!)
+- User: "caméra à l'intérieur d'un bâtiment, tournée à +85°". Supervisor frames
+  (SUPERVISOR-village-hut-day/-dusk.png, 2.2MB/1.8MB): textured Sandover hut interior —
+  wood-plank walls, plaster, golden beams, sky through openings, TOD lighting shifting
+  day→dusk between shots. TFRAG/TIE GEOMETRY IS LIVE on-device.
+- Residuals: rotation now ~+85° (was −95° — transform touched, sign flipped, not fixed);
+  camera path traverses interiors (same transform bug displacing the flythrough path).
+  claude mid-hunt in IGenARM64 pack/shuffle family (PPACH/PSHUF — bug class #11 candidate).
+### 2026-06-11 14:00 — CORRECTION (user): rotation is CONSTANT ~+85°
+- The −95° vs +85° delta was observational error, not a transform change: the scene has
+  been rotated ~+85° the whole time. One stable transpose/rotation bug, unchanged across
+  runs. (Supersedes the "transform touched, sign flipped" inference in the 13:55 entry.)
