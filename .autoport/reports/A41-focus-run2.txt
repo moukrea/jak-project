@@ -1,0 +1,18 @@
+== tick 5s BEFORE:   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 5s AFTER :   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 10s BEFORE:   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 10s AFTER :   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 15s BEFORE:   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 15s AFTER :   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 20s BEFORE:   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 20s AFTER :   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 24s BEFORE:   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 24s AFTER :   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 28s BEFORE:   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 28s AFTER :   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 32s BEFORE:   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 32s AFTER :   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 45s BEFORE:   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 45s AFTER :   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 60s BEFORE:   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}
+== tick 60s AFTER :   mCurrentFocus=Window{5e6ba27 u0 com.amazon.mShop.android.shopping/com.amazon.mShop.navigation.MainActivity}

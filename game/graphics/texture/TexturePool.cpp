@@ -266,6 +266,33 @@ void TexturePool::handle_upload_now(const u8* tpage,
   }
 }
 
+void TexturePool::handle_upload_precomputed(const std::vector<PrecomputedUpload>& entries) {
+  std::unique_lock<std::mutex> lk(m_mutex);
+  // Mirrors handle_upload_now's inner loop exactly — same slot-link rules,
+  // just from pre-parsed entries (see the A41 note in the header).
+  for (const auto& e : entries) {
+    if (!m_id_to_name.lookup_existing(e.id)) {
+      *m_id_to_name.lookup_or_insert(e.id).first = e.name;
+      m_name_to_id[e.name] = e.id;
+    }
+
+    auto& slot = m_textures[e.dest];
+
+    if (slot.source) {
+      if (slot.source->tex_id == e.id) {
+        // we already have it, no need to do anything
+      } else {
+        slot.source->remove_slot(e.dest);
+        slot.source = get_gpu_texture_for_slot(e.id, e.dest);
+        ASSERT(slot.gpu_texture != (GLuint)-1);
+      }
+    } else {
+      slot.source = get_gpu_texture_for_slot(e.id, e.dest);
+      ASSERT(slot.gpu_texture != (GLuint)-1);
+    }
+  }
+}
+
 void TexturePool::relocate(u32 destination, u32 source, u32 format) {
   std::unique_lock<std::mutex> lk(m_mutex);
   GpuTexture* src = lookup_gpu_texture(source);

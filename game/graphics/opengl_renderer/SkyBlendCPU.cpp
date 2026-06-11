@@ -5,12 +5,20 @@
 
 #include "game/graphics/opengl_renderer/AdgifHandler.h"
 
+#ifdef __ANDROID__
+// GLES rejects GL_UNSIGNED_INT_8_8_8_8_REV (incomplete texture → samples
+// black). Byte-identical on little-endian — see LoaderStages.cpp (A41).
+constexpr GLenum kSkyRgbaTexType = GL_UNSIGNED_BYTE;
+#else
+constexpr GLenum kSkyRgbaTexType = GL_UNSIGNED_INT_8_8_8_8_REV;
+#endif
+
 SkyBlendCPU::SkyBlendCPU() {
   for (int i = 0; i < 2; i++) {
     glGenTextures(1, &m_textures[i].gl);
     glBindTexture(GL_TEXTURE_2D, m_textures[i].gl);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA,
-                 GL_UNSIGNED_INT_8_8_8_8_REV, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA, kSkyRgbaTexType,
+                 0);
     m_texture_data[i].resize(4 * m_sizes[i] * m_sizes[i]);
   }
 }
@@ -178,7 +186,7 @@ SkyBlendStats SkyBlendCPU::do_sky_blends(DmaFollower& dma,
       }
       glBindTexture(GL_TEXTURE_2D, m_textures[buffer_idx].gl);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[buffer_idx], m_sizes[buffer_idx], 0, GL_RGBA,
-                   GL_UNSIGNED_INT_8_8_8_8_REV, m_texture_data[buffer_idx].data());
+                   kSkyRgbaTexType, m_texture_data[buffer_idx].data());
 
       render_state->texture_pool->move_existing_to_vram(m_textures[buffer_idx].tex,
                                                         m_textures[buffer_idx].tbp);
@@ -192,8 +200,8 @@ void SkyBlendCPU::init_textures(TexturePool& tex_pool, GameVersion version) {
   for (int i = 0; i < 2; i++) {
     // update it
     glBindTexture(GL_TEXTURE_2D, m_textures[i].gl);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA,
-                 GL_UNSIGNED_INT_8_8_8_8_REV, m_texture_data[i].data());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA, kSkyRgbaTexType,
+                 m_texture_data[i].data());
     TextureInput in;
 
     in.gpu_texture = m_textures[i].gl;

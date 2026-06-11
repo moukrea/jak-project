@@ -6,6 +6,17 @@
 
 constexpr float LOAD_BUDGET = 4.5f;
 
+#ifdef __ANDROID__
+// GLES has no GL_UNSIGNED_INT_8_8_8_8_REV — glTexImage2D rejects it, the
+// texture never gets storage, and every fr3 texture (font + level) samples
+// BLACK as an incomplete texture (A41 run-3: zero pool misses yet a black
+// frame). On little-endian, RGBA + UNSIGNED_BYTE is byte-identical — the
+// same substitution as TexturePool::upload_to_gpu / FramebufferTexturePair.
+constexpr GLenum kRgbaTexType = GL_UNSIGNED_BYTE;
+#else
+constexpr GLenum kRgbaTexType = GL_UNSIGNED_INT_8_8_8_8_REV;
+#endif
+
 /*!
  * Upload a texture to the GPU, and give it to the pool.
  */
@@ -14,7 +25,7 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   glActiveTexture(GL_TEXTURE0);
   glGenTextures(1, &gl_tex);
   glBindTexture(GL_TEXTURE_2D, gl_tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, kRgbaTexType,
                tex.data.data());
   glGenerateMipmap(GL_TEXTURE_2D);
   float aniso = 0.0f;
