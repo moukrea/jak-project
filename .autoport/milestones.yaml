@@ -694,6 +694,18 @@ phases:
   validator: validators/phase-A41-android-texture-path-goal-frame.sh
   max_turns: 1500
   max_retries: 3
+- id: A42-android-tfrag-init-village-flythrough
+  name: 'tfrag-init: the loaded title level sets up, the village flythrough completes the title screen. A41 made the texture path
+    LIVE (readable real-font text over the textured time-of-day logo scene; adgif bound real; boot-time uploads queued via call-time
+    snapshots + handle_upload_precomputed at renderer-ready; GLES REV->BYTE on LoaderStages/SkyBlend; __pc-set-levels bound real =
+    first level-fr3 streams). Residual: boot loops in logo scene — tfrag buckets emit no tfrag-init so TFragment never sets up the
+    loaded title level (textures already in pool). A42: root-cause (GOAL state machine waiting? bucket-id mapping drops init packets?
+    TFragment GLES setup aborts silently?), fix at mechanism, run >=90s, captures 10-90s + focus brackets -> village flythrough with
+    real terrain. Validator: A41 gates + frame>=300 + tris>0 newest A42 logcat. Render judged by supervisor vision. max_turns 1500.'
+  prompt: prompts/phase-A42-android-tfrag-init-village-flythrough.md
+  validator: validators/phase-A42-android-tfrag-init-village-flythrough.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
