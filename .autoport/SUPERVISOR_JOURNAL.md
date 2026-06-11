@@ -4658,3 +4658,17 @@ approach is root-cause-first rather than iterate-first. No cheats.
   bug class #9; condvar hang fixed. 9 arm64 bug classes total across A34-A37.
 - A38-android-float-spray-tripwire-goal-frame launched attempt 1/3 fable-5
   (live /tmp/a38-launch.out). Tripwire → sprayer → fix → THE GOAL FRAME.
+### 2026-06-11 05:12 — A38: SPRAYER NAMED (instruction-level)
+- Mechanism: ONE runaway global-buffer cursor — base cell corrupted outside [data,end],
+  advances +152KB/frame (= chain_bytes), sweeps kernel+symtable+engine band; font SIGILL
+  = draw-string code under the walk. Flip/reset code disasm-verified healthy; corruptor
+  of the base cell traced into mips2c table (edit landed, build+run in flight).
+- Tripwire v2-v5 (21d757261): continuous-protection store emulation w/ readback-verify,
+  display probes, FNDUMP, *display*-page watch (run-8 proved frame flip healthy —
+  frozen probes were phase-locked sampling). 11 runs banked. Session ~24%.
+### 2026-06-11 05:48 — A38 attempt 2 → 3 (final retry): fix committed, captures owed
+- Attempt 2 delivered the root-cause fix (blerc pair bound real, 6355ed1fe) + fix-summary
+  but exited before the final tripwire-OFF boot + screencaps → validator failed on the
+  frame gate. Attempt 3 (LAST) launched: narrow scope = rebuild/install committed fix,
+  final boot, captures 5-60s w/ brackets, validator green. Supervisor holding independent
+  capture until attempt 3's install completes (avoid racing).
