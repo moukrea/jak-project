@@ -2356,6 +2356,11 @@ void scan_once() {
 // A37: GL render thread handle for the hang watchdog (set by
 // android_renderer.cpp at loop start).
 pthread_t g_a37_gl_thread;
+// F1a crash breadcrumb: the bucket whose render() is live on the GL thread
+// (written by android_opengl_renderer's dispatch loop, printed by the
+// SIGSEGV dump). Fixed-size, no locking — last-writer-wins is fine for a
+// single GL thread.
+char gk_f1a_current_bucket[64] = {0};
 std::atomic<bool> g_a37_gl_thread_set{false};
 
 // Called once per frame from sceGsSyncV (android_runtime_compat.cpp) on the
@@ -2443,7 +2448,9 @@ extern "C" void a36_tree_scan_per_frame() {
   // game/graphics/sceGraphicsInterface.cpp (OG_A37_CAM=1), so the two logs
   // diff line-for-line and the FIRST divergent field names the broken
   // producer function.
-  if (f == 60 || f == 300 || f == 600 || f == 1200 || f == 1800 || f == 2400) {
+  // F1a: periodic past 2400 (was a fixed list) — pose-over-time is the
+  // question; mirrors the x86 oracle schedule in sceGraphicsInterface.cpp.
+  if (f == 60 || f == 300 || (f % 600) == 0) {
     auto s_mc = jak1::intern_from_c("*math-camera*");
     uint32_t mc = s_mc.offset ? s_mc->value : 0;
     if (!mc || mc == s7.offset) {
@@ -3424,6 +3431,14 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                       "GK-DIAG sig=%d fault=0x%lx pc=0x%lx lr=0x%lx",
                       sig, (unsigned long)fault, (unsigned long)pc,
                       (unsigned long)lr);
+  // F1a: name the bucket whose render() was live when a GL-thread crash
+  // lands inside the driver (run-4: fault in libGLESv2_adreno, fp-walk
+  // dead-ends — the breadcrumb is the only caller evidence). Fixed buffer,
+  // written by the dispatch loop, async-signal-safe to read.
+  if (gk_f1a_current_bucket[0]) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG F1A-BUCKET in-render=%s",
+                        gk_f1a_current_bucket);
+  }
   // A36: symbolize host-space pc/lr (BLR-to-NULL from C++ render code lands
   // here with pc=0 and lr inside libgk.so — dladdr names the caller).
   for (uintptr_t addr : {pc, lr}) {

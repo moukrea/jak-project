@@ -219,7 +219,7 @@ void Merc2::model_mod_draws(int num_effects,
                             const tfrag3::MercModel* model,
                             const LevelData* lev,
                             const u8* input_data,
-                            const DmaTransfer& setup,
+                            const u8* ee_base,
                             ModBuffers* mod_opengl_buffers,
                             MercDebugStats* stats) {
   auto p = scoped_prof("update-verts");
@@ -258,7 +258,12 @@ void Merc2::model_mod_draws(int num_effects,
     // get pointers to the fragment and fragment control data
     u32 goal_addr;
     memcpy(&goal_addr, input_data + 4 * ei, 4);
-    const u8* ee0 = setup.data - setup.data_offset;
+    // The EE base, NOT reconstructed from the transfer pointer: under chain
+    // copy-mode (Android, A42) setup.data points into the copy buffer and the
+    // merc fragment data referenced by GOAL address lives outside the copied
+    // chain. On desktop zero-copy this is the identical pointer
+    // (setup.data - setup.data_offset == g_ee_main_mem).
+    const u8* ee0 = ee_base;
     const u8* merc_effect = ee0 + goal_addr;
     u16 frag_cnt;
     memcpy(&frag_cnt, merc_effect + 18, 2);
@@ -516,7 +521,13 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     // read goal addr of matrix (matrix data isn't known at merc dma time, bones runs after)
     u32 addr;
     memcpy(&addr, &matrix_array[i * 4], 4);
-    const u8* real_addr = setup.data - setup.data_offset + addr;
+    // EE base from render_state, not from the transfer pointer: the bone
+    // matrices are referenced by GOAL address and are NOT part of the DMA
+    // chain (bones runs after merc DMA), so under chain copy-mode the
+    // setup.data-based reconstruction points off the end of the copy buffer
+    // (run-3 crash: Merc2::handle_pc_model+0x378). Desktop zero-copy:
+    // identical pointer.
+    const u8* real_addr = (const u8*)render_state->ee_main_memory + addr;
     ASSERT(input_data[i] < MAX_SKEL_BONES);
     // get the matrix data
     memcpy(&skel_matrix_buffer[input_data[i]], real_addr, sizeof(MercMat));
@@ -571,7 +582,8 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   if (model_uses_pc_blerc) {
     model_mod_blerc_draws(num_effects, model, lev, mod_opengl_buffers, blerc_weights, stats);
   } else if (model_uses_mod) {  // only if we've enabled, this path is slow.
-    model_mod_draws(num_effects, model, lev, input_data, setup, mod_opengl_buffers, stats);
+    model_mod_draws(num_effects, model, lev, input_data,
+                    (const u8*)render_state->ee_main_memory, mod_opengl_buffers, stats);
   }
 
   // stats

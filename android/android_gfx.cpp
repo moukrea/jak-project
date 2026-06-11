@@ -154,6 +154,15 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
       glad_glGetShaderPrecisionFormat =
           (PFNGLGETSHADERPRECISIONFORMATPROC)resolve("glGetShaderPrecisionFormat");
     }
+    // F1a: same disease, one version line UP — glad gates
+    // glVertexAttribDivisor behind its GL_VERSION_3_3 list, above the parsed
+    // "ES 3.2", but it is ES 3.0 CORE and the driver exports it. The sprite
+    // distort instancing path BLR'd to 0 through the NULL slot
+    // (run-2 GK-DIAG: pc=0 lr in Sprite3::opengl_setup_distort+0x52c,
+    // GOT slot = glad_glVertexAttribDivisor).
+    if (!glad_glVertexAttribDivisor) {
+      glad_glVertexAttribDivisor = (PFNGLVERTEXATTRIBDIVISORPROC)resolve("glVertexAttribDivisor");
+    }
     __android_log_print(ANDROID_LOG_INFO, kLogTag,
                         "A36-RENDER GL4.1-list ES core fns resolved: glClearDepthf=%p "
                         "glDepthRangef=%p",
