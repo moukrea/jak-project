@@ -690,6 +690,31 @@ bool MercLoaderStage::run(Timer& /*timer*/, LoaderInput& data) {
   if (m_idx != data.lev_data->level->merc_data.vertices.size()) {
     return false;
   } else {
+#ifdef __ANDROID__
+    // F1a: Adreno 618 (V@0502) SIGSEGVs inside the driver (null+0x28) on
+    // specific merc glDrawElements after this stage's chunked
+    // glBufferSubData uploads — deterministically, with state-legal,
+    // GPU==CPU-verified data (F1a runs 4-16). A read-only
+    // glMapBufferRange+unmap of the buffer DEFUSES the draw every time
+    // (run-16: the killer draw executed exactly while a per-draw map-sync
+    // probe was active and faulted on the first frame past the probe's
+    // cap). Force the driver to finalize both BOs once at upload
+    // completion — one-time per level, read-only, no behavioral change.
+    for (GLenum tgt : {(GLenum)GL_ELEMENT_ARRAY_BUFFER, (GLenum)GL_ARRAY_BUFFER}) {
+      GLuint buf = (tgt == GL_ELEMENT_ARRAY_BUFFER) ? data.lev_data->merc_indices
+                                                    : data.lev_data->merc_vertices;
+      glBindBuffer(tgt, buf);
+      GLint64 sz = 0;
+      glGetBufferParameteri64v(tgt, GL_BUFFER_SIZE, &sz);
+      if (sz > 0) {
+        void* p = glMapBufferRange(tgt, 0, (GLsizeiptr)sz, GL_MAP_READ_BIT);
+        if (p) {
+          glUnmapBuffer(tgt);
+        }
+      }
+      glBindBuffer(tgt, 0);
+    }
+#endif
     m_done = true;
     for (auto& model : data.lev_data->level->merc_data.models) {
       data.lev_data->merc_model_lookup[model.name] = &model;
