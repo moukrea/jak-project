@@ -655,6 +655,17 @@ phases:
   validator: validators/phase-A38-android-float-spray-tripwire-goal-frame.sh
   max_turns: 2500
   max_retries: 3
+- id: A39-android-goal-frame-capture
+  name: 'Capture run: A38 fixed the last named blocker (blerc mips2c pair noop-bound — returned 0 into the global-buf base, DMA cursor
+    swept ALL GOAL memory at 152KB/frame; the single mechanism behind the residual crashes, font SIGILL, and l0-tfrag death). All three
+    A38 attempts failed ONLY the screencap gate: the device keyguard was up (user asleep). A39 is narrow: build+install the committed
+    fix, wait for keyguard down (do not burn attempts on a locked phone), final tripwire-OFF boots, captures 5-60s with focus brackets,
+    A39-fix-summary >=80 lines. Expected: GK-DIAG 0, frame>=300, tris jump to tens-of-thousands sustained, no font SIGILL. Goal frame
+    judged by supervisor vision. max_turns 800.'
+  prompt: prompts/phase-A39-android-goal-frame-capture.md
+  validator: validators/phase-A39-android-goal-frame-capture.sh
+  max_turns: 800
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
