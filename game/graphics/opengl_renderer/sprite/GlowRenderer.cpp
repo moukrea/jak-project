@@ -572,8 +572,14 @@ void GlowRenderer::downsample_chain(SharedRenderState* render_state,
                                     ScopedProfilerNode& prof,
                                     u32 num_sprites) {
   glBindVertexArray(m_ogl_downsampler.vao);
+#ifdef __ANDROID__
+  // GLES: fixed-index restart (== UINT32_MAX for u32 indices); settable
+  // restart index does not exist (same gate as TFragment/Merc2).
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
   GLint old_viewport[4];
   glGetIntegerv(GL_VIEWPORT, old_viewport);
   render_state->shaders[ShaderId::GLOW_PROBE_DOWNSAMPLE].activate();
@@ -601,8 +607,14 @@ void GlowRenderer::downsample_chain(SharedRenderState* render_state,
 void GlowRenderer::setup_buffers_for_draws() {
   glBindFramebuffer(GL_FRAMEBUFFER, m_ogl.probe_fbo);
   glBindVertexArray(m_ogl.vao);
+#ifdef __ANDROID__
+  // GLES: fixed-index restart (== UINT32_MAX for u32 indices); settable
+  // restart index does not exist (same gate as TFragment/Merc2).
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
   // don't want to write to the depth buffer we just copied, just test against it.
   glDepthMask(GL_FALSE);
   glBindBuffer(GL_ARRAY_BUFFER, m_ogl.vertex_buffer);
@@ -808,8 +820,14 @@ void GlowRenderer::flush(SharedRenderState* render_state, ScopedProfilerNode& pr
 void GlowRenderer::draw_sprites(SharedRenderState* render_state, ScopedProfilerNode& prof) {
   glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
   glBindVertexArray(m_ogl.vao);
+#ifdef __ANDROID__
+  // GLES: fixed-index restart (== UINT32_MAX for u32 indices); settable
+  // restart index does not exist (same gate as TFragment/Merc2).
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
 
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, m_ogl.downsample_fbos[kDownsampleIterations - 1].tex);

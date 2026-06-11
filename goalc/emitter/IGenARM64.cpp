@@ -2473,19 +2473,51 @@ InstructionARM64 blend_vf(Register dst, Register src1, Register src2, u8 mask) {
   return r;
 }
 
-InstructionARM64 shuffle_vf(Register dst, Register src, u8 dx, u8 dy, u8 dz, u8 dw) {
-  (void)dx;
-  (void)dy;
-  (void)dz;
-  (void)dw;
-  return mov_16b(dst, src);
+// F1a (arm64 bug class #12): swizzle_vf was a dup_4s_elem stand-in —
+// broadcasting src[controlBytes&3] across all four lanes — nothing like x86
+// VSHUFPS dst,src,src,imm (dst.S[i] = src.S[(imm >> 2i) & 3]). The compiler
+// lowers `.outer.product.a/b.vf` (98 sites: vector-cross!, vector-flatten!,
+// vector-reflect!, the forward-up/down->inv-matrix camera-basis builders,
+// cam-combiner orthonormalization) and bones.gc's `.cross.vf` (merc bone
+// normal matrices) through IR_SwizzleVF with patterns 0x09/(y,z,x,x) and
+// 0x12/(z,x,y,x) — every cross product on Android computed (c,c,c,c) where
+// c is only the true X component. Exact semantics via the free V0 emitter
+// scratch (same discipline as the A42 PSHUFLW/HW fix): ORR V0 <- src (makes
+// dst==src safe), then INS Vd.S[t] <- V0.S[sel[t]] for all four lanes.
+// Encodings shared with A34's blend_vf / A42's pshuf_hw_half (NDK-verified):
+//   ORR Vd.16B,Vn,Vn:    0x4EA01C00 | Rm<<16 | Rn<<5 | Rd
+//   INS Vd.S[i],Vn.S[j]: 0x6E000400 | ((i<<3)|4)<<16 | (j<<2)<<11 | Rn<<5 | Rd
+InstructionARM64 swizzle_vf(Register dst, Register src, u8 controlBytes) {
+  const u8 sel[4] = {static_cast<u8>(controlBytes & 3), static_cast<u8>((controlBytes >> 2) & 3),
+                     static_cast<u8>((controlBytes >> 4) & 3),
+                     static_cast<u8>((controlBytes >> 6) & 3)};
+  if (sel[0] == 0 && sel[1] == 1 && sel[2] == 2 && sel[3] == 3) {
+    return mov_16b(dst, src);  // identity
+  }
+  if (sel[0] == sel[1] && sel[1] == sel[2] && sel[2] == sel[3]) {
+    return dup_4s_elem(dst, src, sel[0]);  // broadcast (splat path)
+  }
+  const uint32_t rd = arm64_reg5(dst);
+  const uint32_t rn = arm64_reg5(src);
+  std::vector<uint32_t> words;
+  // V0 <- src
+  words.push_back(0x4EA01C00u | (rn << 16) | (rn << 5) | 0u);
+  for (uint32_t t = 0; t < 4; t++) {
+    const uint32_t s = sel[t];
+    words.push_back(0x6E000400u | (((t << 3) | 4u) << 16) | ((s << 2) << 11) | (0u << 5) | rd);
+  }
+  InstructionARM64 r(words[0]);
+  for (size_t i = 1; i < words.size(); i++) {
+    r.extra_words.push_back(words[i]);
+  }
+  return r;
 }
 
-InstructionARM64 swizzle_vf(Register dst, Register src, u8 controlBytes) {
-  // Approximate: SWIZZLE → DUP+MOV chain. For codegen-correctness use DUP of
-  // the X-lane (controlBytes & 3). The IR layer can refine for specific
-  // shuffles.
-  return dup_4s_elem(dst, src, controlBytes & 3);
+InstructionARM64 shuffle_vf(Register dst, Register src, u8 dx, u8 dy, u8 dz, u8 dw) {
+  // x86 parity (IGenX86.cpp shuffle_vf): compose the SHUFPS imm and reuse the
+  // exact swizzle. Previously a plain `mov` that ignored the pattern.
+  u8 imm = static_cast<u8>((dx & 3) | ((dy & 3) << 2) | ((dz & 3) << 4) | ((dw & 3) << 6));
+  return swizzle_vf(dst, src, imm);
 }
 
 InstructionARM64 splat_vf(Register dst, Register src, Register::VF_ELEMENT element) {

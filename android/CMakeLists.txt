@@ -466,6 +466,23 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendGPU.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/background_common.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/TFragment.cpp"
+    # F1a — foreground: Merc2 (village actors + the floating JAK AND DAXTER
+    # title logo, which is a merc model) and Generic2 (translucent merc
+    # fallback the jak1 table pairs with every merc bucket).
+    "${JAK_ROOT}/game/graphics/opengl_renderer/foreground/Merc2.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/foreground/Merc2BucketRenderer.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/foreground/Generic2.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/foreground/Generic2_Build.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/foreground/Generic2_DMA.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/foreground/Generic2_OpenGL.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/foreground/Generic2BucketRenderer.cpp"
+    # F1a — sprite (particles): cheap add, only the GLES restart-index gate
+    # needed. GlowRenderer is a Sprite3 member (jak2+ paths, never probed on
+    # jak1) but must compile/link.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/sprite/Sprite3.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/sprite/Sprite3_Distort.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/sprite/Sprite3_Glow.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/sprite/GlowRenderer.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/dma_helpers.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/Profiler.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/Shader.cpp"

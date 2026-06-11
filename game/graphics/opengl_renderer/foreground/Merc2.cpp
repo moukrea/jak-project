@@ -1120,8 +1120,15 @@ Merc2::Draw* Merc2::alloc_normal_draw(const tfrag3::MercDraw& mdraw, const DrawA
 }
 
 void Merc2::setup_merc_vao() {
+#ifdef __ANDROID__
+  // GLES has no settable restart index (glPrimitiveRestartIndex is NULL in
+  // the loader). Fixed-index mode restarts on all-1s == UINT32_MAX for our
+  // u32 index buffers — identical semantics (same gate as TFragment).
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
   glEnableVertexAttribArray(2);
