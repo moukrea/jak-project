@@ -74,6 +74,13 @@ extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void);
 // the top of game/main.cpp.
 int goal_main(int argc, char** argv);
 
+// A41: the desktop __pc-set-levels body (jak1/kmachine.cpp:522, compiled
+// into android_kernel but not exposed in a header). Bound in
+// a17_bind_pc_helpers — see the note at the binding site.
+namespace jak1 {
+void pc_set_levels(u32 l0, u32 l1);
+}
+
 namespace {
 constexpr const char* kGkVersion =
     "OpenGOAL gk (Android arm64-v8a, autoport phase 13 runtime)";
@@ -577,10 +584,17 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-screen-shot", d);
   jak1::make_function_symbol_from_c("pc-register-screen-shot-settings", d);
   // jak1::InitMachine_PCPort game-specific
-  // __pc-set-levels is rebound to jak1::pc_set_levels (the real desktop
-  // body) by jak1::InitMachine_PCPort later in boot — the default here
-  // only covers the pre-InitMachineScheme window.
-  jak1::make_function_symbol_from_c("__pc-set-levels", d);
+  // A41: the old comment here claimed InitMachine_PCPort rebinds
+  // __pc-set-levels "later in boot" — FICTION on Android: InitMachineScheme
+  // is the runtime_compat STUB (android_runtime_compat.cpp:214), so
+  // InitMachine_PCPort (jak1/kmachine.cpp:610) never runs and the noop
+  // binding was permanent. level-update calls __pc-set-levels every frame
+  // (level.gc:1370); with the noop the Loader never received want-levels,
+  // never streamed village1.fr3, and TFragment had no tfrag3 tree — zero
+  // "TFRAG setup" lines in every boot log through A41 run-4, the village
+  // absent from the title scene. Bind the real desktop body (compiled into
+  // android_kernel); it no-ops safely until the renderer module is live.
+  jak1::make_function_symbol_from_c("__pc-set-levels", (void*)jak1::pc_set_levels);
   jak1::make_function_symbol_from_c("__pc-set-active-levels", d);
   jak1::make_function_symbol_from_c("__pc-texture-relocate", (void*)a35_pc_texture_relocate);
   // A32 — root-cause for the on-device tpage-463 fn-ptr=0 SIGILL at

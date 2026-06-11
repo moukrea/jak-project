@@ -377,6 +377,16 @@ bool a37_name_is_real(const std::string& name) {
       // poisoned per frame). Caught by the A38 base-cell trace:
       // pre=0xce6dc0 post=0x0 pc=setup-blerc-chains+0x458 (run-10).
       "blerc-execute", "setup-blerc-chains-for-one-fragment",
+      // A41: the texture-path writer. adgif-shader<-texture-with-update!
+      // packs tex0/tex1/miptbp (incl. tbp0, the PC texture-pool lookup
+      // key) from a texture object into an adgif-shader; every
+      // adgif-shader-login* call funnels through it. The shared noop left
+      // shaders with tex0=0 — DirectRenderer looked textures up at tbp 0
+      // (A40 run-1: "Failed to find texture at 0 ... sky-direct") and
+      // every adgif-driven draw went out untextured. Pure GOAL-memory
+      // math (no DMA cursor return, unlike the blerc disease) — callers
+      // discard the return value.
+      "adgif-shader<-texture-with-update!",
   };
   for (auto* n : kSet) {
     if (name == n) return true;

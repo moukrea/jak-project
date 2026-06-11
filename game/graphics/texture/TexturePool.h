@@ -294,6 +294,21 @@ class TexturePool {
  public:
   TexturePool(GameVersion version);
   void handle_upload_now(const u8* tpage, int mode, const u8* memory_base, u32 s7_ptr, bool debug);
+
+  // A41 (Android autoport): one parsed slot-link of an upload-now call. The
+  // Android GL thread comes up AFTER the game already issued its boot-time
+  // upload-now calls, and the GOAL texture-page that backs an upload can be
+  // freed by the time a deferred replay runs (jak1 setup-font-texture! kicks
+  // the font page right after relocating it). So the Android path snapshots
+  // the page walk into these at call time and applies them once the pool
+  // exists. Behavior per entry is identical to handle_upload_now's inner
+  // loop. Unused on desktop (GL init precedes the game there).
+  struct PrecomputedUpload {
+    PcTextureId id;
+    std::string name;  // "<pagename><texname>", as handle_upload_now builds it
+    u32 dest;          // VRAM slot
+  };
+  void handle_upload_precomputed(const std::vector<PrecomputedUpload>& entries);
   GpuTexture* give_texture(const TextureInput& in);
   GpuTexture* give_texture_and_load_to_vram(const TextureInput& in, u32 vram_slot);
   void unload_texture(PcTextureId tex_id, u64 gpu_id);
