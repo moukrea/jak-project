@@ -1,5 +1,11 @@
 #include "Merc2.h"
 
+#ifdef __ANDROID__
+#include <unistd.h>
+
+#include "common/util/FileUtil.h"
+#endif
+
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/util/fnv.h"
 #include "common/util/simd_util.h"
@@ -1232,6 +1238,39 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
   m_next_mod_vtx_buffer = 0;
 }
 
+#ifdef __ANDROID__
+// F1a bisection knobs: the first merc draw SIGSEGVs inside the Adreno driver
+// with state-legal parameters (runs 4-8). Toggle GL stages off via marker
+// files in the app files dir (run-as touch, no rebuild):
+//   f1a_merc_nodraw — skip the glDrawElements calls (all other state runs)
+//   f1a_merc_noubo  — skip glBindBufferRange of the bones UBO
+//   f1a_merc_notex  — skip glBindTexture
+namespace {
+#ifdef __ANDROID__
+bool f1a_merc_knob(const char* name) {
+  auto p = file_util::get_jak_project_dir() / name;
+  return access(p.string().c_str(), F_OK) == 0;
+}
+const bool f1a_nodraw = f1a_merc_knob("f1a_merc_nodraw");
+const bool f1a_noubo = f1a_merc_knob("f1a_merc_noubo");
+const bool f1a_notex = f1a_merc_knob("f1a_merc_notex");
+#else
+constexpr bool f1a_nodraw = false;
+constexpr bool f1a_noubo = false;
+constexpr bool f1a_notex = false;
+#endif
+}  // namespace
+
+// F1a crash forensics: raw stores per draw, formatted only by the SIGSEGV
+// dump (runs 4/5 fault inside libGLESv2_adreno with no walkable caller).
+struct F1aMercDrawInfo {
+  u32 di, num_draws, tex, first_bone, index_count, first_index;
+  u32 vao, vtx_buf, idx_buf;
+  int envmap, mod_vtx, no_strip;
+};
+volatile F1aMercDrawInfo gk_f1a_last_merc_draw = {};
+#endif
+
 void Merc2::do_draws(const Draw* draw_array,
                      const LevelData* lev,
                      u32 num_draws,
@@ -1277,6 +1316,7 @@ void Merc2::do_draws(const Draw* draw_array,
     bool use_mipmaps_for_filtering = true;
     if (draw.texture != last_tex) {
       if (draw.texture < (int)lev->textures.size() && draw.texture >= 0) {
+        if (!f1a_notex)
         glBindTexture(GL_TEXTURE_2D, lev->textures.at(draw.texture));
       } else if ((draw.texture & 0xffffff00) == 0xefffff00) {
         if (render_state->version == GameVersion::Jak3 ||
@@ -1327,6 +1367,57 @@ void Merc2::do_draws(const Draw* draw_array,
     glUniform1i(uniforms.decal, draw.mode.get_decal());
     glUniform1i(uniforms.gfx_hack_no_tex, (draw.flags & NO_TEXTURE) != 0);
 
+#ifndef __ANDROID__
+    // F1a oracle twin of the Android crash forensics: same fields, env-gated,
+    // first draws only — diffing this against the device F1A-MERC-DRAW dump
+    // separates "wrong data on Android" from "legal data, driver fault".
+    {
+      static const bool s_dump = getenv("F1A_MERC_DUMP") != nullptr;
+      static int s_dumped = 0;
+      if (s_dump && s_dumped < 40) {
+        s_dumped++;
+        fprintf(stderr,
+                "F1A-MERC-DRAW lev=%s di=%u/%u tex=0x%x first_bone=%u idx=%u+%u envmap=%d mod=%d "
+                "nostrip=%d\n",
+                lev->level->level_name.c_str(), di, num_draws, (u32)draw.texture, draw.first_bone,
+                draw.index_count, draw.first_index, set_fade ? 1 : 0,
+                (draw.flags & MOD_VTX) ? 1 : 0, draw.no_strip ? 1 : 0);
+      }
+    }
+#endif
+#ifdef __ANDROID__
+    // F1a guard: a draw whose index range exceeds the level's actual merc
+    // index buffer means the model reference and the bound buffers disagree
+    // (cross-level name collision / stale reference) — on Adreno that draw
+    // SIGSEGVs inside the driver (runs 4-7, fault 0x28, no GL error). Name
+    // it and skip instead of crashing; the log discriminates data-mismatch
+    // from driver-quirk.
+    if ((u64)draw.first_index + draw.index_count > lev->level->merc_data.indices.size()) {
+      static int s_f1a_oob = 0;
+      if (s_f1a_oob++ < 20) {
+        fprintf(stderr,
+                "F1A-MERC-OOB draw idx=%u+%u > level idx-buf=%zu (lev=%s tex=%d envmap=%d)\n",
+                draw.first_index, draw.index_count, lev->level->merc_data.indices.size(),
+                lev->level->level_name.c_str(), draw.texture, (int)set_fade);
+      }
+      continue;
+    }
+    {
+      gk_f1a_last_merc_draw.di = di;
+      gk_f1a_last_merc_draw.num_draws = num_draws;
+      gk_f1a_last_merc_draw.tex = (u32)draw.texture;
+      gk_f1a_last_merc_draw.first_bone = draw.first_bone;
+      gk_f1a_last_merc_draw.index_count = draw.index_count;
+      gk_f1a_last_merc_draw.first_index = draw.first_index;
+      gk_f1a_last_merc_draw.vao = (draw.flags & MOD_VTX) ? draw.mod_vtx_buffer.vao : m_vao;
+      gk_f1a_last_merc_draw.vtx_buf = lev->merc_vertices;
+      gk_f1a_last_merc_draw.idx_buf = lev->merc_indices;
+      gk_f1a_last_merc_draw.envmap = set_fade ? 1 : 0;
+      gk_f1a_last_merc_draw.mod_vtx = (draw.flags & MOD_VTX) ? 1 : 0;
+      gk_f1a_last_merc_draw.no_strip = draw.no_strip ? 1 : 0;
+    }
+#endif
+
     if (set_fade) {
       math::Vector4f fade =
           math::Vector4f(draw.fade[0], draw.fade[1], draw.fade[2], draw.fade[3]) / 255.f;
@@ -1342,32 +1433,54 @@ void Merc2::do_draws(const Draw* draw_array,
 
       prof.add_draw_call(2);
       prof.add_tri(draw.num_triangles * 2);
+      // Clamp the bound range to the buffer end: the fixed 128-matrix window
+      // overhangs for draws whose bones sit in the last 16KB of the bone
+      // buffer. Per GL spec offset+size > buffer is an ERROR and leaves the
+      // binding point EMPTY — desktop drivers then silently read the stale
+      // previous binding; Adreno dereferences the missing BO and crashes in
+      // the driver (F1a runs 4/5, fault 0x28). The shader never reads past
+      // its declared block contents for the actual bone count.
+      if (!f1a_noubo)
       glBindBufferRange(GL_UNIFORM_BUFFER, 1, m_bones_buffer,
-                        sizeof(math::Vector4f) * draw.first_bone, 128 * sizeof(ShaderMercMat));
+                        sizeof(math::Vector4f) * draw.first_bone,
+                        std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
+                                 (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
+                                              sizeof(math::Vector4f) * draw.first_bone)));
       // draw rgb
       const auto& l1_dir = m_lights_buffer[draw.light_idx].direction1;
       math::Vector4f l1_dir_f(l1_dir.x(), l1_dir.y(), l1_dir.z(), 1);
       set_uniform(uniforms.light_direction[1], l1_dir_f);
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
-      glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
-                     GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+      if (!f1a_nodraw) {
+        glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
+                       GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+      }
       // draw a
       setup_opengl_from_draw_mode(draw.mode, GL_TEXTURE0, use_mipmaps_for_filtering);
       math::Vector4f l1_dir_f_off(l1_dir.x(), l1_dir.y(), l1_dir.z(), -1);
       set_uniform(uniforms.light_direction[1], l1_dir_f_off);
       glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
-      glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
-                     GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+      if (!f1a_nodraw) {
+        glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
+                       GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+      }
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     } else {
       setup_opengl_from_draw_mode(draw.mode, GL_TEXTURE0, use_mipmaps_for_filtering);
       prof.add_draw_call();
       prof.add_tri(draw.num_triangles);
+      // Same end-of-buffer clamp as the two-pass path above.
+      if (!f1a_noubo)
       glBindBufferRange(GL_UNIFORM_BUFFER, 1, m_bones_buffer,
-                        sizeof(math::Vector4f) * draw.first_bone, 128 * sizeof(ShaderMercMat));
-      glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
-                     GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+                        sizeof(math::Vector4f) * draw.first_bone,
+                        std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
+                                 (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
+                                              sizeof(math::Vector4f) * draw.first_bone)));
+      if (!f1a_nodraw) {
+        glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
+                       GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+      }
     }
   }
 
