@@ -16,8 +16,17 @@ SkyBlendGPU::SkyBlendGPU() {
   for (int i = 0; i < 2; i++) {
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffers[i]);
     glBindTexture(GL_TEXTURE_2D, m_textures[i]);
+#ifdef __ANDROID__
+    // GLES rejects GL_UNSIGNED_INT_8_8_8_8_REV — the attachment gets no
+    // storage and the status check below fails ("SkyTextureHandler setup
+    // failed.", every A35-A40 boot log). Byte-identical on little-endian —
+    // see LoaderStages.cpp (A41).
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 0);
+#else
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA,
                  GL_UNSIGNED_INT_8_8_8_8_REV, 0);
+#endif
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, m_textures[i], 0);

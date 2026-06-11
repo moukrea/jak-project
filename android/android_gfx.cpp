@@ -63,6 +63,7 @@ struct AndroidGfxData {
 };
 
 AndroidGfxData* g_data = nullptr;
+void flush_pending_texture_calls_on_ready();  // A41 queue, defined below
 std::atomic<bool> g_renderer_ready{false};
 std::atomic<u32> g_chains_received{0};
 std::atomic<u32> g_chains_dropped_pre_init{0};
@@ -182,6 +183,9 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
                       "A35-RENDER renderer ready (window %dx%d) — game DMA chains will "
                       "now be consumed",
                       win_w, win_h);
+  // A41: land the boot-time tpage uploads + font relocates that were
+  // queued while the renderer was coming up (see the queue note above).
+  flush_pending_texture_calls_on_ready();
   return true;
 }
 
@@ -394,21 +398,163 @@ void send_chain(const void* data, u32 offset) {
   d->dma_cv.notify_all();
 }
 
-void texture_upload_now(const u8* tpage, int mode, u32 s7_ptr) {
-  if (!g_renderer_ready.load()) {
+namespace {
+// A41: dropping pre-ready texture calls loses them FOREVER — unlike frame
+// chains, they are one-shot. On device the GOAL boot races GL bring-up:
+// GAME.CGO's tpage logins (InitMachine, which runs on the SDL thread
+// BEFORE android_renderer_run can bring the renderer up) and the
+// dispatcher thread's setup-font-texture! upload+relocate all fire before
+// renderer-ready (A40 run-1: first send_chain dropped at 10.127s, ready at
+// 10.782s), so the font texture never entered the pool and DirectRenderer
+// missed at slot 14720 (=0xe6000/64, the relocated 24pt font) every frame
+// — the untextured text quads. Desktop never sees this because GL init
+// precedes the GOAL kernel. Blocking the caller was tried first and
+// deadlocks: the link-time calls run ON the SDL thread, upstream of the
+// renderer bring-up they would wait for (A41 run-1: boot parked in
+// InitMachine, zero A35-RENDER lines). So: queue pre-ready calls in FIFO
+// order and flush them the moment the renderer is up. Both pool ops are
+// GL-free and pool-mutex'd — safe from any thread. Upload entries keep the
+// GOAL tpage pointer; the texture-page objects live in the global heap and
+// nothing unloads them in the ~1s window before the flush (each replay is
+// logged so a future violation names itself).
+struct PendingTexCall {
+  bool is_relocate;
+  std::vector<TexturePool::PrecomputedUpload> upload_entries;  // parsed at call time
+  u32 dst, src, format;
+};
+std::mutex g_pending_tex_mutex;        // ordering: take BEFORE the pool mutex
+std::vector<PendingTexCall> g_pending_tex_calls;
+bool g_pending_tex_flushed = false;
+
+// Parse an upload-now call into slot-link entries WHILE the GOAL page is
+// alive. Read-side mirror of TexturePool::handle_upload_now (same mode →
+// segment rules, same name construction); pure GOAL-memory reads, no pool,
+// no GL — callable on the game thread before the renderer exists. Run-2
+// proved replay-by-pointer is unsound: setup-font-texture! kicks the font
+// page right after relocating it, so by flush time the queued pointer read
+// reused heap and the font's source slot (0x2786) was never linked —
+// relocate ASSERT'd 'src' and SIGABRT'd the boot.
+std::vector<TexturePool::PrecomputedUpload> snapshot_upload(const u8* tpage,
+                                                            int mode,
+                                                            u32 s7_ptr) {
+  std::vector<TexturePool::PrecomputedUpload> out;
+  GoalTexturePage texture_page;
+  memcpy(&texture_page, tpage, sizeof(GoalTexturePage));
+
+  bool has_segment[3] = {true, true, true};
+  if (mode == -1) {
+  } else if (mode == 2) {
+    has_segment[0] = false;
+    has_segment[1] = false;
+  } else if (mode == -2) {
+    has_segment[2] = false;
+  } else if (mode == 0) {
+    has_segment[1] = false;
+    has_segment[2] = false;
+  } else {
+    // handle_upload_now logs and skips these modes; mirror that.
+    __android_log_print(ANDROID_LOG_WARN, kLogTag, "A41-TEX snapshot skipping mode %d", mode);
+    return out;
+  }
+
+  auto goal_str = [&](u32 ptr) -> const char* {
+    return ptr == 0 ? "" : (const char*)(g_ee_main_mem + ptr + 4);
+  };
+
+  for (int tex_idx = 0; tex_idx < texture_page.length; tex_idx++) {
+    GoalTexture tex;
+    if (texture_page.try_copy_texture_description(&tex, tex_idx, g_ee_main_mem, tpage, s7_ptr)) {
+      for (int mip_idx = 0; mip_idx < tex.num_mips; mip_idx++) {
+        if (has_segment[tex.segment_of_mip(mip_idx)]) {
+          TexturePool::PrecomputedUpload e;
+          e.id = PcTextureId(texture_page.id, tex_idx);
+          e.name = std::string(goal_str(texture_page.name_ptr)) + goal_str(tex.name_ptr);
+          e.dest = tex.dest[mip_idx];
+          out.push_back(std::move(e));
+        }
+      }
+    }
+  }
+  return out;
+}
+
+void run_tex_call(const PendingTexCall& c) {
+  if (c.is_relocate) {
+    __android_log_print(ANDROID_LOG_INFO, kLogTag, "A41-TEX relocate dst=0x%x src=0x%x fmt=%u",
+                        c.dst, c.src, c.format);
+    g_data->texture_pool->relocate(c.dst, c.src, c.format);
+  } else {
+    static u32 s_upload_count = 0;
+    const u32 n = ++s_upload_count;
+    if (n <= 8 || (n % 100) == 0) {
+      __android_log_print(ANDROID_LOG_INFO, kLogTag, "A41-TEX upload #%u (%zu slot links)", n,
+                          c.upload_entries.size());
+    }
+    g_data->texture_pool->handle_upload_precomputed(c.upload_entries);
+  }
+}
+
+// Pre: g_pending_tex_mutex held, g_renderer_ready true.
+void drain_pending_tex_calls_locked() {
+  if (g_pending_tex_flushed) {
     return;
   }
-  // TexturePool::handle_upload_now does no GL — it links tpage slots to
-  // loader-provided textures (or placeholders) under the pool lock. Safe
-  // from the game thread, exactly like desktop gl_texture_upload_now.
-  g_data->texture_pool->handle_upload_now(tpage, mode, g_ee_main_mem, s7_ptr, false);
+  g_pending_tex_flushed = true;
+  if (!g_pending_tex_calls.empty()) {
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "A41-TEX flushing %zu queued pre-ready texture calls (boot-order race)",
+                        g_pending_tex_calls.size());
+    for (const auto& c : g_pending_tex_calls) {
+      run_tex_call(c);
+    }
+    g_pending_tex_calls.clear();
+    g_pending_tex_calls.shrink_to_fit();
+  }
+}
+
+void enqueue_or_run_tex_call(const PendingTexCall& c) {
+  std::unique_lock<std::mutex> lk(g_pending_tex_mutex);
+  if (!g_renderer_ready.load()) {
+    static u32 s_queued_logged = 0;
+    if (++s_queued_logged <= 8) {
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "A41-TEX queueing pre-ready %s #%u (renderer not up yet)",
+                          c.is_relocate ? "relocate" : "upload-now", s_queued_logged);
+    }
+    g_pending_tex_calls.push_back(c);
+    return;
+  }
+  drain_pending_tex_calls_locked();  // FIFO: anything queued runs first
+  run_tex_call(c);
+}
+
+void flush_pending_texture_calls_on_ready() {
+  std::unique_lock<std::mutex> lk(g_pending_tex_mutex);
+  drain_pending_tex_calls_locked();
+}
+}  // namespace
+
+void texture_upload_now(const u8* tpage, int mode, u32 s7_ptr) {
+  // TexturePool::handle_upload_now / handle_upload_precomputed do no GL —
+  // they link tpage slots to loader-provided textures (or placeholders)
+  // under the pool lock. Safe from the game thread, exactly like desktop
+  // gl_texture_upload_now. The page walk happens HERE, while the GOAL page
+  // object is guaranteed alive (see snapshot_upload).
+  PendingTexCall c{};
+  c.is_relocate = false;
+  c.upload_entries = snapshot_upload(tpage, mode, s7_ptr);
+  enqueue_or_run_tex_call(c);
 }
 
 void texture_relocate(u32 dst, u32 src, u32 format) {
-  if (!g_renderer_ready.load()) {
-    return;
-  }
-  g_data->texture_pool->relocate(dst, src, format);
+  // Rare (jak1: the four font planes at boot). Logged on execute — dst is
+  // the pool slot DirectRenderer will look up (font: 0x3800/0x3980).
+  PendingTexCall c{};
+  c.is_relocate = true;
+  c.dst = dst;
+  c.src = src;
+  c.format = format;
+  enqueue_or_run_tex_call(c);
 }
 
 void set_pmode_alp(float val) {

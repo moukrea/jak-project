@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 79,
+  "current_phase_idx": 80,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -73,7 +73,8 @@
     "A37-android-camera-matrix-first-visible-frame": 1,
     "A38-android-float-spray-tripwire-goal-frame": 3,
     "A39-android-goal-frame-capture": 1,
-    "A40-android-hint-cursor-reset-goal-frame": 1
+    "A40-android-hint-cursor-reset-goal-frame": 1,
+    "A41-android-texture-path-goal-frame": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -222,7 +223,8 @@
     "A36-android-kernel-steady-state-first-frame",
     "A37-android-camera-matrix-first-visible-frame",
     "A39-android-goal-frame-capture",
-    "A40-android-hint-cursor-reset-goal-frame"
+    "A40-android-hint-cursor-reset-goal-frame",
+    "A41-android-texture-path-goal-frame"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -272,9 +274,10 @@
     "A37-android-camera-matrix-first-visible-frame": 1781128205.8396492,
     "A38-android-float-spray-tripwire-goal-frame": 1781141032.1728344,
     "A39-android-goal-frame-capture": 1781152968.8064747,
-    "A40-android-hint-cursor-reset-goal-frame": 1781158591.6461
+    "A40-android-hint-cursor-reset-goal-frame": 1781158591.6461,
+    "A41-android-texture-path-goal-frame": 1781168527.9071383
   },
-  "last_update": "2026-06-11T08:45:32.969153+00:00",
+  "last_update": "2026-06-11T10:06:38.739689+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
