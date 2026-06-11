@@ -4653,3 +4653,8 @@ approach is root-cause-first rather than iterate-first. No cheats.
 - NEXT: float-spray over engine band [0x1904000,0x1915000) kills l0-tfrag per frame.
   A38-android-float-spray-tripwire-goal-frame authored + inserted idx 76 (80 phases):
   tripwire (mprotect/canary) → name sprayer → fix → goal frame. Watcher armed.
+### 2026-06-11 03:30 — A37 COMPLETED (validator pass); A38 LAUNCHED
+- A37: 1 attempt, 367 turns, 3.5h, $71. Camera oracle-exact; mips2c surface real;
+  bug class #9; condvar hang fixed. 9 arm64 bug classes total across A34-A37.
+- A38-android-float-spray-tripwire-goal-frame launched attempt 1/3 fable-5
+  (live /tmp/a38-launch.out). Tripwire → sprayer → fix → THE GOAL FRAME.
