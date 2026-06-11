@@ -46,6 +46,10 @@ InstructionARM64 idiv_spill_sub_sp_16();
 InstructionARM64 idiv_spill_str_x8_sp_0();
 InstructionARM64 idiv_spill_ldr_x8_sp_0();
 InstructionARM64 idiv_spill_add_sp_16();
+// F1c — modulo remainder (MSUB Xrem, Xq, Xdivisor, Xdiv). See the IMOD_32 block
+// below and the imod_msub_gpr definition in IGenARM64.cpp.
+InstructionARM64 imod_msub_gpr(Register dst, Register quotient, Register divisor,
+                               Register dividend);
 }  // namespace ARM64
 }  // namespace IGen
 }  // namespace emitter
@@ -1203,10 +1207,32 @@ void IR_IntegerMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
       // subsequent SDIV/UDIV sequence's X8 spill choreography.
       auto arg_reg = get_reg(m_arg, allocs, irec);
       auto dst_reg = get_reg(m_dest, allocs, irec);
+      // F1c — IMOD vs IDIV. x86 IDIV writes the quotient to RAX AND the
+      // remainder to RDX in one instruction; the x86 codegen reads RDX for
+      // modulo. arm64 SDIV produces ONLY the quotient, so modulo must form the
+      // remainder by hand: remainder = dividend - quotient*divisor (one MSUB).
+      // Previously this case fell through to the IDIV body and copied the
+      // QUOTIENT to the destination for modulo too, so `(mod x n)` returned
+      // `(/ x n)` on device (bug class #13 — the frozen title camera).
+      const bool is_mod = (m_kind == IntegerMathKind::IMOD_32);
       gen->add_instr(emitter::IGen::ARM64::cbnz_x_imm(arg_reg, 8), irec);
       gen->add_instr(emitter::IGen::ARM64::udf_imm16(0xBEEF), irec);
       if (dst_reg.id() == 8) {
-        gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(arg_reg), irec);
+        if (is_mod) {
+          // Fast path, modulo: the dividend is already in X8 (=dst) and SDIV
+          // will overwrite it with the quotient. Preserve the dividend in X16
+          // (caller-saved scratch, never regalloc-assigned) so we can form the
+          // remainder. arg_reg (the divisor) cannot be X8 here, since the
+          // simultaneously-live dividend and divisor can't share one register.
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(16), dst_reg),
+                         irec);
+          gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(arg_reg), irec);
+          gen->add_instr(emitter::IGen::ARM64::imod_msub_gpr(dst_reg, emitter::Register(8),
+                                                              arg_reg, emitter::Register(16)),
+                         irec);
+        } else {
+          gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(arg_reg), irec);
+        }
       } else {
         // If arg_reg is X8, the divisor lives in the same physical register
         // we're about to clobber with the dividend. Copy it to X16 (caller-
@@ -1227,8 +1253,18 @@ void IR_IntegerMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
         gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(8), dst_reg),
                        irec);
         gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(divisor_reg), irec);
-        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst_reg, emitter::Register(8)),
-                       irec);
+        if (is_mod) {
+          // remainder = dividend - quotient*divisor. dst_reg still holds the
+          // dividend (SDIV only wrote X8); X8 holds the quotient; divisor_reg
+          // holds the divisor. MSUB writes the remainder to dst, consuming X8
+          // before the ldr_x8 restore below.
+          gen->add_instr(emitter::IGen::ARM64::imod_msub_gpr(dst_reg, emitter::Register(8),
+                                                              divisor_reg, dst_reg),
+                         irec);
+        } else {
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst_reg, emitter::Register(8)),
+                         irec);
+        }
         gen->add_instr(emitter::IGen::ARM64::idiv_spill_ldr_x8_sp_0(), irec);
         gen->add_instr(emitter::IGen::ARM64::idiv_spill_add_sp_16(), irec);
       }
@@ -1245,10 +1281,24 @@ void IR_IntegerMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
       // full rationale and the SIGILL decoder tag (0xBEEF).
       auto arg_reg = get_reg(m_arg, allocs, irec);
       auto dst_reg = get_reg(m_dest, allocs, irec);
+      // F1c — UMOD vs UDIV: arm64 UDIV gives only the quotient, so unsigned
+      // modulo forms remainder = dividend - quotient*divisor via MSUB (the
+      // multiply/subtract is sign-agnostic given the unsigned quotient). See
+      // the IMOD_32 block above for the full rationale.
+      const bool is_mod = (m_kind == IntegerMathKind::UMOD_32);
       gen->add_instr(emitter::IGen::ARM64::cbnz_x_imm(arg_reg, 8), irec);
       gen->add_instr(emitter::IGen::ARM64::udf_imm16(0xBEEF), irec);
       if (dst_reg.id() == 8) {
-        gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(arg_reg), irec);
+        if (is_mod) {
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(16), dst_reg),
+                         irec);
+          gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(arg_reg), irec);
+          gen->add_instr(emitter::IGen::ARM64::imod_msub_gpr(dst_reg, emitter::Register(8),
+                                                              arg_reg, emitter::Register(16)),
+                         irec);
+        } else {
+          gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(arg_reg), irec);
+        }
       } else {
         emitter::Register divisor_reg = arg_reg;
         if (arg_reg.id() == 8) {
@@ -1262,8 +1312,14 @@ void IR_IntegerMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
         gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(8), dst_reg),
                        irec);
         gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(divisor_reg), irec);
-        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst_reg, emitter::Register(8)),
-                       irec);
+        if (is_mod) {
+          gen->add_instr(emitter::IGen::ARM64::imod_msub_gpr(dst_reg, emitter::Register(8),
+                                                              divisor_reg, dst_reg),
+                         irec);
+        } else {
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst_reg, emitter::Register(8)),
+                         irec);
+        }
         gen->add_instr(emitter::IGen::ARM64::idiv_spill_ldr_x8_sp_0(), irec);
         gen->add_instr(emitter::IGen::ARM64::idiv_spill_add_sp_16(), irec);
       }

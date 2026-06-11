@@ -235,6 +235,46 @@ void f1b_jb_probe_desktop() {
                  (unsigned long long)f, nm, proc, fg, fgs[0] ? fgs : "?", fnum, frames, (int)nf,
                  fixedp, fr0, cb0, cb1, (int)nj, mb);
         }
+        // F1C-CHAN: full per-channel joint-control state (twin of the device
+        // block in gk_android_main.cpp). The weight (inspector-amount, set by
+        // output-blend-tree!) is the decisive field: weight->0 == the freeze
+        // is eval-blend-tree! dropping the dynamic channel; weight ok but the
+        // output frozen == the freeze is build-requests!/decomp-frame.
+        if (skel && skel != s7.offset) {
+          uint32_t ach = 0;
+          f1b_rd32(skel + 24, &ach);  // active-channels
+          static uint32_t s_push = 0, s_blend = 0, s_stack = 0, s_push1 = 0, s_init = 0;
+          if (!s_init) {
+            s_init = 1;
+            s_push = jak1::intern_from_c("push").offset;
+            s_blend = jak1::intern_from_c("blend").offset;
+            s_stack = jak1::intern_from_c("stack").offset;
+            s_push1 = jak1::intern_from_c("push1").offset;
+          }
+          int nch = (int)ach;
+          if (nch < 0) nch = 0;
+          if (nch > 3) nch = 3;
+          for (int c = 0; c < nch; c++) {
+            uint32_t cbase = skel + 44 + 48 * c, cmd = 0, cfg = 0, w = 0;
+            float fi = 0.f, fn = 0.f, wt = 0.f;
+            f1b_rd32(cbase + 4, &cmd);
+            f1b_rd32(cbase + 12, &cfg);
+            f1b_rd32(cbase + 8, &w);
+            memcpy(&fi, &w, 4);
+            f1b_rd32(cbase + 16, &w);
+            memcpy(&fn, &w, 4);
+            f1b_rd32(cbase + 44, &w);
+            memcpy(&wt, &w, 4);
+            const char* cn = cmd == s_push    ? "push"
+                             : cmd == s_blend ? "blend"
+                             : cmd == s_stack ? "stack"
+                             : cmd == s_push1 ? "push1"
+                                              : "?";
+            printf("F1C-CHAN f=%llu %s proc=0x%x ach=%d ch%d cmd=%s(0x%x) fi=%.4f fnum=%.2f "
+                   "weight=%.4f fg=0x%x\n",
+                   (unsigned long long)f, nm, proc, (int)ach, c, cn, cmd, fi, fn, wt, cfg);
+          }
+        }
         uint32_t nlen = 0;
         if (nl && nl != s7.offset) f1b_rd32(nl + 0, &nlen);  // cspace-array.length (deftype 4)
         for (int n = 3; n <= 5 && (uint32_t)n < nlen; n++) {
