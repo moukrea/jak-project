@@ -1,0 +1,13 @@
+tick=8s pre=  mCurrentFocus=Window{83a1729 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{83a1729 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=11s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=13s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=15s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=17s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=19s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=21s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=30s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=45s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=60s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=90s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=120s pre=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher} post=  mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+tick=150s pre=  mCurrentFocus=Window{2ed5c7c u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{2ed5c7c u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}

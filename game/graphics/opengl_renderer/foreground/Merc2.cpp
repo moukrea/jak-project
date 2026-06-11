@@ -1287,6 +1287,23 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, lev->merc_vertices);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lev->merc_indices);
+#ifdef __ANDROID__
+    // F1a Adreno workaround: specific merc glDrawElements SIGSEGV inside
+    // the driver (null+0x28) with state-legal, GPU==CPU-verified data.
+    // A read-only map+unmap of the index BO immediately before the draws
+    // defuses it deterministically (run-16: the killer draw executed on
+    // exactly the frames a per-draw map probe covered and faulted on the
+    // first frame past its cap; a load-time-only sync decayed by draw
+    // time, run-17). Tiny mapped range, read-only — forces the driver to
+    // finalize the BO for this frame's draws. Cost: one map/unmap per
+    // level bucket per frame.
+    {
+      void* p = glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, 16, GL_MAP_READ_BIT);
+      if (p) {
+        glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+      }
+    }
+#endif
     setup_merc_vao();
     stats->num_bones_uploaded += m_next_free_bone_vector;
 
@@ -1460,10 +1477,11 @@ void Merc2::do_draws(const Draw* draw_array,
     // CPU copy — separates "corrupt source data" / "sheared GL upload" /
     // "driver chokes on legal data".
     {
-      // Title draws verified clean (runs 12/13: gpu-match=1, executed live
-      // without faulting) — spend the cap on the level that crashes.
+      // Title AND sibling village draws verified clean and executed (runs
+      // 12-15). The killer is ONE stable draw: first_index=64945, count=117,
+      // tex=0x225, di=0 of l1-pris's 53-draw list. Verify exactly it.
       static int s_f1a_verify = 0;
-      if (s_f1a_verify < 6 && lev->level->level_name != "title") {
+      if (s_f1a_verify < 6 && draw.first_index == 64945) {
         s_f1a_verify++;
         const auto& cpu_idx = lev->level->merc_data.indices;
         u32 mn = UINT32_MAX, mx = 0;
