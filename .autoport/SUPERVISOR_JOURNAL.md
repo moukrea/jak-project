@@ -4712,3 +4712,13 @@ approach is root-cause-first rather than iterate-first. No cheats.
 - USER DECISION: after A42, gameplay + audio INTERLEAVED — F1a (START→Geyser Rock→
   control) → F2a (AAudio+ssound, title music) → F1b/F2b alternating. Old F1/F2 prompts
   to be rewritten per slot; unblock at insertion.
+### 2026-06-11 13:30 — USER FINDING (confirmed by supervisor screens): scene rendered ~90° ROTATED
+- User watched the device live: level-name text scrolls well-rendered; >half the screen
+  black; right side shows sky/fog/water cycling day/night at ~-95° from expected.
+- Supervisor passive captures confirm (SUPERVISOR-rotation-night.png / -dawn.png):
+  sky gradient runs left→right (horizon VERTICAL) = scene rotated ~90°; TOD cycling
+  itself is correct game behavior. Black left half = rotated projection lands off-screen
+  (+ missing tfrag terrain, A42's scope).
+- Hypothesis: w/h transpose in projection/viewport (PS2 512×224) — suspects: A36's
+  game-res viewport in setup_frame, pcrtc blit rect, or camera-matrix axis swap.
+  MUST be in the next phase prompt if A42 closes without it.
