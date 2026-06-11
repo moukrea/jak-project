@@ -20,8 +20,12 @@
 #include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <sys/mman.h>
+#include <sys/system_properties.h>
 #include <ucontext.h>
 #include <unistd.h>
+
+#include <asm/sigcontext.h>
 
 #include <atomic>
 #include <cerrno>
@@ -2548,7 +2552,319 @@ extern "C" void a36_tree_scan_per_frame() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// A38 float-spray tripwire (runtime-gated diagnostic, fully removable).
+//
+// A37 named the blocker: once the deep draw paths engage, something sprays
+// bone/camera-magnitude floats over the engine-object band
+// [0x1904000, 0x1915000) (GOAL space — GAME.CGO engine code/data; font and
+// text live there). Effects: l0-tfrag's bucket malformed every frame (the
+// village geometry never draws) and a per-boot SIGILL when level-hint's
+// text call BLRs into the stomped font code. The A37-CSP canary brackets
+// the writes to the per-frame window but cannot name the STORE.
+//
+// Mechanism: when the property debug.opengoal.a38.tripwire is "1" (read
+// once at the first GL frame), the band is mprotect'd PROT_READ|PROT_EXEC
+// (reads and execution stay legal — only writes fault). The SIGSEGV branch
+// at the top of gk_sigsegv_diag reopens the faulting PAGE first (the store
+// retries and completes on return — game behavior is unchanged, this is a
+// pure observer), then logs pc/lr, decodes the AArch64 store (register,
+// width, value from the ucontext), and names the writer via dladdr (C++)
+// or a nearest-function symbol scan (GOAL code). The per-frame hook
+// re-protects opened pages each frame and emits periodic summaries of the
+// unique writer PCs.
+//
+// Resume-safety rules (this branch RETURNS, unlike the crash dump below):
+//   - no gk_diag::safe_read_u32 (it swaps the process-wide SIGSEGV handler
+//     around each read — racy against concurrent band faults),
+//   - no intern_from_c, no malloc, no locks: bounds-checked raw reads of
+//     the always-mapped EE region only; dladdr only on bounded paths.
+//
+// extern "C++": this file region sits inside a large extern "C" block, and
+// C-linkage declarations with the same name unify ACROSS namespaces (the
+// a36_tree::g_log_budget collision). C++ linkage keeps these namespaced.
+extern "C++" {
+namespace a38_trip {
+constexpr uint32_t kBandLoGoal = 0x1904000;
+constexpr uint32_t kBandHiGoal = 0x1915000;
+
+std::atomic<int> g_mode{-1};  // -1 property unread, 0 off, 1 armed
+uintptr_t g_lo_host = 0;      // page-aligned armed band (host addresses)
+uintptr_t g_hi_host = 0;
+long g_page_size = 4096;
+std::atomic<uint64_t> g_hits{0};
+std::atomic<uint64_t> g_pages_reopened{0};
+std::atomic<bool> g_any_page_open{false};
+std::atomic<int> g_log_budget{64};
+
+// Unique-writer table (lock-free, fixed-size).
+constexpr int kMaxWriters = 48;
+struct Writer {
+  std::atomic<uintptr_t> pc{0};
+  std::atomic<uint64_t> n{0};
+  std::atomic<uint32_t> last_fault_goal{0};
+  std::atomic<uint64_t> last_val{0};
+};
+Writer g_writers[kMaxWriters];
+
+// pc -> goal offset if inside EE memory, else 0.
+inline uint32_t to_goal(uintptr_t host) {
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  if (ee && host >= ee && host < ee + EE_MAIN_MEM_SIZE) {
+    return static_cast<uint32_t>(host - ee);
+  }
+  return 0;
+}
+
+// AArch64 store classifier — the forms goalc/clang emit (STR/STUR/STP and
+// their SIMD twins). Best-effort: attribution lives in pc/lr; the decoded
+// value corroborates the "small float spray" signature.
+struct StoreInfo {
+  bool valid = false;
+  bool simd = false;
+  bool pair = false;
+  int size_bytes = 0;
+  int rt = -1;
+  int rt2 = -1;
+  int rn = -1;
+};
+StoreInfo classify_store(uint32_t insn) {
+  StoreInfo s;
+  if ((insn & 0x3E000000u) == 0x28000000u) {  // load/store pair family
+    if (insn & (1u << 22)) {
+      return s;  // L=1 → load
+    }
+    uint32_t opc = insn >> 30;
+    s.simd = (insn >> 26) & 1u;
+    if (!s.simd && opc == 1) {
+      return s;  // LDPSW shape — load-only
+    }
+    s.valid = true;
+    s.pair = true;
+    s.size_bytes = s.simd ? (4 << opc) : (opc >= 2 ? 8 : 4);
+    s.rt = insn & 0x1F;
+    s.rt2 = (insn >> 10) & 0x1F;
+    s.rn = (insn >> 5) & 0x1F;
+    return s;
+  }
+  uint32_t fam = insn & 0x3B000000u;
+  if (fam == 0x39000000u || fam == 0x38000000u) {  // ld/st reg: imm12 / imm9 / reg-offset
+    uint32_t opc = (insn >> 22) & 3u;
+    uint32_t size = insn >> 30;
+    s.simd = (insn >> 26) & 1u;
+    bool is_store = (opc == 0) || (s.simd && opc == 2 && size == 0);
+    if (!is_store) {
+      return s;
+    }
+    s.valid = true;
+    s.size_bytes = (s.simd && opc == 2) ? 16 : (1 << size);
+    s.rt = insn & 0x1F;
+    s.rn = (insn >> 5) & 0x1F;
+    return s;
+  }
+  return s;  // exclusives / DC ZVA / others — raw insn still logged
+}
+
+// Read V<reg> from the signal frame's fpsimd block (vector stores).
+uint64_t fpsimd_lo64(ucontext_t* uc, int vreg, uint64_t* hi) {
+  if (hi) {
+    *hi = 0;
+  }
+  uint8_t* p = reinterpret_cast<uint8_t*>(uc->uc_mcontext.__reserved);
+  uint8_t* end = p + sizeof(uc->uc_mcontext.__reserved);
+  while (p + sizeof(_aarch64_ctx) <= end) {
+    auto* head = reinterpret_cast<_aarch64_ctx*>(p);
+    if (head->magic == 0 || head->size == 0) {
+      break;
+    }
+    if (head->magic == FPSIMD_MAGIC && vreg >= 0 && vreg < 32) {
+      auto* f = reinterpret_cast<fpsimd_context*>(p);
+      if (hi) {
+        *hi = static_cast<uint64_t>(f->vregs[vreg] >> 64);
+      }
+      return static_cast<uint64_t>(f->vregs[vreg]);
+    }
+    if (p + head->size <= p) {
+      break;
+    }
+    p += head->size;
+  }
+  return 0;
+}
+
+// Track the writer pc; *is_new set when this pc was never seen before.
+int note_writer(uintptr_t pc, uint32_t fault_goal, uint64_t val, bool* is_new) {
+  *is_new = false;
+  for (int i = 0; i < kMaxWriters; i++) {
+    uintptr_t cur = g_writers[i].pc.load(std::memory_order_acquire);
+    if (cur == 0) {
+      uintptr_t expected = 0;
+      if (g_writers[i].pc.compare_exchange_strong(expected, pc, std::memory_order_acq_rel)) {
+        *is_new = true;
+        cur = pc;
+      } else {
+        cur = expected;
+      }
+    }
+    if (cur == pc) {
+      g_writers[i].n.fetch_add(1, std::memory_order_relaxed);
+      g_writers[i].last_fault_goal.store(fault_goal, std::memory_order_relaxed);
+      g_writers[i].last_val.store(val, std::memory_order_relaxed);
+      return i;
+    }
+  }
+  return -1;  // table full — global counters still tick
+}
+
+// Name the GOAL function containing target_goal: largest symbol value at
+// or below it (functions' symbol slots hold their entry address). Raw
+// bounds-checked reads only.
+void log_nearest_goal_fn(const char* label, uint32_t target_goal) {
+  if (!g_ee_main_mem || !SymbolTable2.offset || !LastSymbol.offset) {
+    return;
+  }
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  uint32_t best_v = 0, best_slot = 0;
+  for (uint32_t slot = SymbolTable2.offset;
+       slot + 4 < EE_MAIN_MEM_SIZE && slot < LastSymbol.offset; slot += 4) {
+    uint32_t v = *reinterpret_cast<const uint32_t*>(ee + slot);
+    if (v > best_v && v <= target_goal && target_goal - v < 0x200000) {
+      best_v = v;
+      best_slot = slot;
+    }
+  }
+  if (!best_slot) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "A38-TRIPWIRE %s nearest-fn: none below 0x%x within 2MB", label,
+                        target_goal);
+    return;
+  }
+  char name[65] = {0};
+  uint64_t info_goal = static_cast<uint64_t>(best_slot) + jak1::SYM_INFO_OFFSET;
+  if (info_goal + 8 < EE_MAIN_MEM_SIZE) {
+    uint32_t str_off = *reinterpret_cast<const uint32_t*>(ee + info_goal + 4);
+    if (str_off > 0 && static_cast<uint64_t>(str_off) + 4 + sizeof(name) < EE_MAIN_MEM_SIZE) {
+      const char* sp = reinterpret_cast<const char*>(ee + str_off + 4);
+      for (size_t i = 0; i + 1 < sizeof(name) && sp[i]; i++) {
+        name[i] = (sp[i] >= 0x20 && sp[i] <= 0x7e) ? sp[i] : '?';
+      }
+    }
+  }
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "A38-TRIPWIRE %s nearest-fn '%s' start=0x%x off=+0x%x slot=0x%x", label,
+                      name[0] ? name : "<unnamed>", best_v, target_goal - best_v, best_slot);
+}
+
+void log_dladdr(const char* label, uintptr_t addr) {
+  Dl_info di{};
+  if (addr && dladdr(reinterpret_cast<void*>(addr), &di) && di.dli_fname) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "A38-TRIPWIRE %s 0x%lx = %s+0x%lx (%s)",
+                        label, (unsigned long)addr, di.dli_sname ? di.dli_sname : "?",
+                        di.dli_saddr ? (unsigned long)(addr - (uintptr_t)di.dli_saddr) : 0ul,
+                        strrchr(di.dli_fname, '/') ? strrchr(di.dli_fname, '/') + 1
+                                                   : di.dli_fname);
+  }
+}
+
+// The resuming write-fault intercept. Returns true when the fault was a
+// band trip (handled — caller must plain-return so the store retries).
+bool handle_band_fault(siginfo_t* info, void* ucontext) {
+  if (g_mode.load(std::memory_order_acquire) != 1) {
+    return false;
+  }
+  uintptr_t fault = info ? reinterpret_cast<uintptr_t>(info->si_addr) : 0;
+  if (fault < g_lo_host || fault >= g_hi_host) {
+    return false;
+  }
+  // Reopen the faulting page FIRST — whatever the logging below does, the
+  // store must be able to retry. RWX is the GOAL heap's normal protection.
+  uintptr_t page = fault & ~static_cast<uintptr_t>(g_page_size - 1);
+  if (mprotect(reinterpret_cast<void*>(page), static_cast<size_t>(g_page_size),
+               PROT_READ | PROT_WRITE | PROT_EXEC) != 0) {
+    // Can't reopen — disarm wholesale rather than spin on an unservable
+    // fault. (Never observed; defensive.)
+    mprotect(reinterpret_cast<void*>(g_lo_host), static_cast<size_t>(g_hi_host - g_lo_host),
+             PROT_READ | PROT_WRITE | PROT_EXEC);
+    g_mode.store(0, std::memory_order_release);
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "A38-TRIPWIRE DISARMED: page reopen failed errno=%d", errno);
+    return true;
+  }
+  g_any_page_open.store(true, std::memory_order_relaxed);
+  g_pages_reopened.fetch_add(1, std::memory_order_relaxed);
+
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  uintptr_t pc = uc->uc_mcontext.pc;
+  uintptr_t lr = uc->uc_mcontext.regs[30];
+  uint64_t hitno = g_hits.fetch_add(1, std::memory_order_relaxed) + 1;
+
+  // The faulting pc was executing — readable. Bounds-gate anyway: EE
+  // range or a dladdr-resolvable mapping; otherwise log without decode.
+  uint32_t insn = 0;
+  bool insn_ok = false;
+  if (to_goal(pc) >= 0x1000) {
+    insn = *reinterpret_cast<const uint32_t*>(pc);
+    insn_ok = true;
+  } else {
+    Dl_info di{};
+    if (pc && dladdr(reinterpret_cast<void*>(pc), &di) && di.dli_fbase) {
+      insn = *reinterpret_cast<const uint32_t*>(pc);
+      insn_ok = true;
+    }
+  }
+  StoreInfo st = insn_ok ? classify_store(insn) : StoreInfo{};
+  uint64_t val_lo = 0, val_hi = 0;
+  if (st.valid) {
+    if (st.simd) {
+      val_lo = fpsimd_lo64(uc, st.rt, &val_hi);
+    } else {
+      val_lo = (st.rt == 31) ? 0 : uc->uc_mcontext.regs[st.rt];
+    }
+  }
+  bool is_new = false;
+  note_writer(pc, static_cast<uint32_t>(fault - reinterpret_cast<uintptr_t>(g_ee_main_mem)),
+              val_lo, &is_new);
+
+  int budget = g_log_budget.fetch_sub(1, std::memory_order_relaxed);
+  bool full_log = budget > 0 || is_new;
+  if (full_log || (hitno % 512) == 0) {
+    __android_log_print(
+        ANDROID_LOG_FATAL, kGkLogTag,
+        "A38-TRIPWIRE hit#%llu%s fault=goal:0x%x pc=0x%lx(goal:0x%x) lr=0x%lx(goal:0x%x) "
+        "insn=0x%08x %s%s sz=%d rt=%d rt2=%d rn=%d(=0x%llx) val=0x%llx:%llx",
+        (unsigned long long)hitno, is_new ? " NEW-WRITER" : "", to_goal(fault),
+        (unsigned long)pc, to_goal(pc), (unsigned long)lr, to_goal(lr), insn,
+        st.valid ? (st.simd ? "SIMD-" : "GPR-") : "un",
+        st.valid ? (st.pair ? "STP" : "STR") : "decoded", st.size_bytes, st.rt, st.rt2, st.rn,
+        st.valid && st.rn >= 0
+            ? (unsigned long long)(st.rn == 31 ? uc->uc_mcontext.sp : uc->uc_mcontext.regs[st.rn])
+            : 0ull,
+        (unsigned long long)val_hi, (unsigned long long)val_lo);
+  }
+  if (full_log) {
+    log_dladdr("pc", pc);
+    log_dladdr("lr", lr);
+    uint32_t pcg = to_goal(pc);
+    if (pcg >= 0x1000) {
+      log_nearest_goal_fn("pc", pcg);
+    }
+    uint32_t lrg = to_goal(lr);
+    if (lrg >= 0x1000) {
+      log_nearest_goal_fn("lr", lrg);
+    }
+  }
+  return true;
+}
+}  // namespace a38_trip
+}  // extern "C++"
+
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
+  // A38: band write-fault tripwire — expected, RESUMING faults. Must run
+  // before everything else: the rest of this function is the fatal-crash
+  // dump path and ends in re-raise.
+  if (sig == SIGSEGV && a38_trip::handle_band_fault(info, ucontext)) {
+    return;
+  }
   // Diag-only: dump PC bytes and registers so we can decode the crashing
   // GOAL bytecode at offset (PC - g_ee_main_mem). Re-raise after dumping
   // by restoring SIG_DFL.
@@ -3151,6 +3467,127 @@ void gk_install_sigsegv_diag() {
                       "gk_install_sigsegv_diag: installed (+A37 SIGUSR2 hang dump)");
 }
 }  // namespace
+
+// A38 tripwire arm/rearm hook — called once per GL frame from
+// android_gfx::render_frame_on_gl_thread. No-op (one relaxed atomic load)
+// unless debug.opengoal.a38.tripwire=1 was set before the first frame, so
+// the shipped path is tripwire-off without a rebuild.
+extern "C" void gk_a38_tripwire_frame_hook(void) {
+  using namespace a38_trip;
+  int mode = g_mode.load(std::memory_order_acquire);
+  if (mode == 0) {
+    return;
+  }
+  if (mode == -1) {
+    char buf[PROP_VALUE_MAX] = {0};
+    int n = __system_property_get("debug.opengoal.a38.tripwire", buf);
+    bool want = (n > 0 && buf[0] == '1');
+    if (!want) {
+      g_mode.store(0, std::memory_order_release);
+      __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                          "A38-TRIPWIRE off (debug.opengoal.a38.tripwire unset)");
+      return;
+    }
+    if (!g_ee_main_mem) {
+      return;  // runtime not mapped yet — retry next frame, property stays unread
+    }
+    g_page_size = getpagesize();
+    if (g_page_size <= 0) {
+      g_page_size = 4096;
+    }
+    const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    uintptr_t lo = ee + kBandLoGoal;
+    uintptr_t hi = ee + kBandHiGoal;
+    // Align INWARD so neighbors never get protected (no false positives).
+    lo = (lo + g_page_size - 1) & ~static_cast<uintptr_t>(g_page_size - 1);
+    hi = hi & ~static_cast<uintptr_t>(g_page_size - 1);
+    if (hi <= lo) {
+      g_mode.store(0, std::memory_order_release);
+      __android_log_print(ANDROID_LOG_ERROR, kGkLogTag,
+                          "A38-TRIPWIRE arm failed: band degenerate after page align");
+      return;
+    }
+    g_lo_host = lo;
+    g_hi_host = hi;
+    // Publish bounds before arming: a fault can only happen after mprotect.
+    g_mode.store(1, std::memory_order_release);
+    if (mprotect(reinterpret_cast<void*>(lo), static_cast<size_t>(hi - lo),
+                 PROT_READ | PROT_EXEC) != 0) {
+      g_mode.store(0, std::memory_order_release);
+      __android_log_print(ANDROID_LOG_ERROR, kGkLogTag,
+                          "A38-TRIPWIRE arm failed: mprotect errno=%d", errno);
+      return;
+    }
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "A38-TRIPWIRE ARMED band goal=[0x%x,0x%x) host=[0x%lx,0x%lx) pages=%lu "
+                        "pagesz=%ld",
+                        kBandLoGoal, kBandHiGoal, (unsigned long)lo, (unsigned long)hi,
+                        (unsigned long)((hi - lo) / g_page_size), g_page_size);
+    // Name the band's residents: symbols whose value lands inside it
+    // (engine objects/functions — expect font/text family). One-shot.
+    if (SymbolTable2.offset && LastSymbol.offset) {
+      int named = 0;
+      for (uint32_t slot = SymbolTable2.offset;
+           slot + 4 < EE_MAIN_MEM_SIZE && slot < LastSymbol.offset && named < 24; slot += 4) {
+        uint32_t v = *reinterpret_cast<const uint32_t*>(ee + slot);
+        if (v >= kBandLoGoal && v < kBandHiGoal) {
+          named++;
+          char name[65] = {0};
+          uint64_t info_goal = static_cast<uint64_t>(slot) + jak1::SYM_INFO_OFFSET;
+          if (info_goal + 8 < EE_MAIN_MEM_SIZE) {
+            uint32_t str_off = *reinterpret_cast<const uint32_t*>(ee + info_goal + 4);
+            if (str_off > 0 &&
+                static_cast<uint64_t>(str_off) + 4 + sizeof(name) < EE_MAIN_MEM_SIZE) {
+              const char* sp = reinterpret_cast<const char*>(ee + str_off + 4);
+              for (size_t i = 0; i + 1 < sizeof(name) && sp[i]; i++) {
+                name[i] = (sp[i] >= 0x20 && sp[i] <= 0x7e) ? sp[i] : '?';
+              }
+            }
+          }
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "A38-TRIPWIRE band-resident sym '%s' value=0x%x slot=0x%x",
+                              name[0] ? name : "<unnamed>", v, slot);
+        }
+      }
+    }
+    return;
+  }
+  // mode == 1: per-frame rearm + periodic summary.
+  if (g_any_page_open.exchange(false, std::memory_order_acq_rel)) {
+    mprotect(reinterpret_cast<void*>(g_lo_host), static_cast<size_t>(g_hi_host - g_lo_host),
+             PROT_READ | PROT_EXEC);
+  }
+  static uint64_t s_frames = 0;
+  s_frames++;
+  if ((s_frames % 600) == 0 || s_frames == 120 || s_frames == 300) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "A38-TRIPWIRE summary frames=%llu hits=%llu pages-reopened=%llu",
+                        (unsigned long long)s_frames,
+                        (unsigned long long)g_hits.load(std::memory_order_relaxed),
+                        (unsigned long long)g_pages_reopened.load(std::memory_order_relaxed));
+    int lines = 0;
+    for (int i = 0; i < kMaxWriters && lines < 16; i++) {
+      uintptr_t pc = g_writers[i].pc.load(std::memory_order_acquire);
+      if (!pc) {
+        continue;
+      }
+      lines++;
+      Dl_info di{};
+      const char* nm = "";
+      if (to_goal(pc) == 0 && dladdr(reinterpret_cast<void*>(pc), &di) && di.dli_sname) {
+        nm = di.dli_sname;
+      }
+      __android_log_print(
+          ANDROID_LOG_FATAL, kGkLogTag,
+          "A38-TRIPWIRE writer[%d] pc=0x%lx(goal:0x%x)%s%s n=%llu last-fault=goal:0x%x "
+          "last-val=0x%llx",
+          i, (unsigned long)pc, to_goal(pc), nm[0] ? " " : "", nm,
+          (unsigned long long)g_writers[i].n.load(std::memory_order_relaxed),
+          g_writers[i].last_fault_goal.load(std::memory_order_relaxed),
+          (unsigned long long)g_writers[i].last_val.load(std::memory_order_relaxed));
+    }
+  }
+}
 
 int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "gk_sdl_main: entered");
