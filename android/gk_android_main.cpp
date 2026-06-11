@@ -3438,6 +3438,19 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   if (gk_f1a_current_bucket[0]) {
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG F1A-BUCKET in-render=%s",
                         gk_f1a_current_bucket);
+    // Last merc draw parameters (filled by Merc2::do_draws raw stores).
+    struct F1aMercDrawInfo {
+      uint32_t di, num_draws, tex, first_bone, index_count, first_index;
+      uint32_t vao, vtx_buf, idx_buf;
+      int envmap, mod_vtx, no_strip;
+    };
+    extern volatile F1aMercDrawInfo gk_f1a_last_merc_draw;
+    const F1aMercDrawInfo d = const_cast<const F1aMercDrawInfo&>(gk_f1a_last_merc_draw);
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG F1A-MERC-DRAW di=%u/%u tex=0x%x first_bone=%u idx=%u+%u "
+                        "vao=%u vtx=%u idx-buf=%u envmap=%d mod=%d nostrip=%d",
+                        d.di, d.num_draws, d.tex, d.first_bone, d.index_count, d.first_index,
+                        d.vao, d.vtx_buf, d.idx_buf, d.envmap, d.mod_vtx, d.no_strip);
   }
   // A36: symbolize host-space pc/lr (BLR-to-NULL from C++ render code lands
   // here with pc=0 and lr inside libgk.so — dladdr names the caller).
