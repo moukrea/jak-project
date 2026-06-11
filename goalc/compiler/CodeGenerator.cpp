@@ -505,6 +505,31 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   // mov x29, sp
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0x910003FDu),
                         InstructionInfo::Kind::PROLOGUE);
+  // A40: bank the GOAL-callee-saved XMMs this function actually uses,
+  // mirroring do_goal_function_x86's xmm backup. GOAL's ABI promises
+  // xmm8-15 survive calls; they map to V24-V31 on arm64, which AAPCS
+  // treats as caller-saved — without these saves, any caller's float
+  // parked in xmm8-15 across a call to this function came back
+  // clobbered (the print-game-text origin.y freeze that swept 12 MB of
+  // GOAL memory and smashed draw-string at boot frame ~522). Callee-side
+  // is the cheap shape: only users pay, once per invocation — the
+  // call-site bracket variant cost 128 B of stack per call depth and
+  // blew small process suspend backups (thread-suspend's (break) at
+  // title-vis) plus ~2 MB of global heap.
+  //   str qN, [sp, #-16]!  = 0x3C9F0FE0 | rt   (NDK-clang verified)
+  //   ldr qN, [sp], #16    = 0x3CC107E0 | rt
+  // Note: Register::is_xmm(ARM64) is hardwired false (the arm64 encoders
+  // key off raw ids), so classify by the x86-model id range the
+  // allocator itself uses: XMM0..XMM15 = ids 16..31 → V16..V31.
+  std::vector<uint32_t> a40_saved_xmm_rt;
+  for (auto& saved_reg : allocs.used_saved_regs) {
+    if (saved_reg.id() >= emitter::XMM0 && saved_reg.id() <= emitter::XMM15) {
+      uint32_t rt = static_cast<uint32_t>(saved_reg.id()) & 0x1fu;
+      a40_saved_xmm_rt.push_back(rt);
+      m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0x3C9F0FE0u | rt),
+                            InstructionInfo::Kind::PROLOGUE);
+    }
+  }
   if (frame_bytes > 0) {
     // sub sp, sp, #frame_bytes
     //   Base 0xD1000000 (SUB immediate, sf=1, sh=0), Rn=Rd=31 (SP) -> 0xD10003FF.
@@ -514,7 +539,7 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
     m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(sub_sp_enc),
                           InstructionInfo::Kind::PROLOGUE);
   }
-  debug->stack_usage = 16 + frame_bytes;
+  debug->stack_usage = 16 + frame_bytes + 16 * static_cast<int>(a40_saved_xmm_rt.size());
 
   for (int ir_idx = 0; ir_idx < int(env->code().size()); ir_idx++) {
     auto& ir = env->code().at(ir_idx);
@@ -596,6 +621,11 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
     uint32_t add_sp_enc =
         0x910003FFu | ((static_cast<uint32_t>(frame_bytes) & 0xfffu) << 10);
     m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(add_sp_enc),
+                          InstructionInfo::Kind::EPILOGUE);
+  }
+  // A40: restore the banked callee-saved XMMs (reverse push order).
+  for (auto it = a40_saved_xmm_rt.rbegin(); it != a40_saved_xmm_rt.rend(); ++it) {
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0x3CC107E0u | *it),
                           InstructionInfo::Kind::EPILOGUE);
   }
   // ldp x29, x30, [sp], #16

@@ -1835,6 +1835,15 @@ InstructionARM64 call_r64(Register reg_) {
   constexpr uint32_t kLdpX12X23Pop  = 0xA8C15FECu;
   constexpr uint32_t kLdpX10X11Pop  = 0xA8C12FEAu;
   constexpr uint32_t kLdpX3X5Pop    = 0xA8C117E3u;
+  // A40 note: an earlier revision of this fix banked q24-q31 (GOAL's
+  // callee-saved xmm8-15) here, around every BLR. That was correct but
+  // too expensive: +32 B of code per call site overflowed the GOAL
+  // global heap during linking, and +128 B of stack per call depth blew
+  // small process suspend backups (thread-suspend's stack-used check
+  // fired at title-vis). The xmm8-15 preservation now lives in
+  // CodeGenerator::do_goal_function_arm64's prologue/epilogue — only
+  // functions that actually use those regs pay, exactly like the x86
+  // backend's xmm backup.
   uint32_t blr = 0xD63F0000u | (arm64_reg5(reg_) << 5);
 
   if (blr_target_trace_emit_enabled()) {
