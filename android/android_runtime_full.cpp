@@ -60,6 +60,7 @@
 #include "game/sce/iop.h"
 #include "game/sce/sif_ee.h"
 #include "game/system/Deci2Server.h"
+#include "game/graphics/gfx.h"
 #include "game/system/iop_thread.h"
 
 #include "game/kernel/common/klink.h"
@@ -305,6 +306,14 @@ void make_iop_thread() {
   iop->reset_allocator();
   ee::LIBRARY_sceSif_register(iop);
   iop::LIBRARY_register(iop);
+  // A42, runtime.cpp::iop_runner parity: deliver a vblank to the IOP kernel
+  // on every Gfx::vsync(). The overlord's VBlank_Handler only runs on these
+  // (IOP_Kernel::dispatch checks vblank_recieved) and it is what DMAs
+  // SoundIopInfo — *sound-iop-info* strpos + the fake VAG clock — to the EE.
+  // Without it every ja-play-spooled-anim saw str-pos -1 forever and aborted
+  // at the 4 s timeout, collapsing the title course (no village flythrough).
+  // iop is process-lifetime (never freed), so the callback never dangles.
+  Gfx::register_vsync_callback([iop]() { iop->kernel.signal_vblank(); });
 
   // Per-module init globals also stay synchronous so srpc/ssound's
   // static maps are initialized before the EE side's first call into
@@ -366,6 +375,7 @@ void make_iop_thread() {
         iop->wait_run_iop(*wait_until);
       }
     }
+    Gfx::clear_vsync_callback();  // A42: runtime.cpp::iop_runner exit parity
     __android_log_print(ANDROID_LOG_INFO, kLogTag,
                         "iop-runner: exiting (MasterExit=%d want_exit=%d)",
                         (int)MasterExit, (int)iop->want_exit);

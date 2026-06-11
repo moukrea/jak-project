@@ -12,6 +12,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "common/dma/dma_copy.h"
 #include "common/goal_constants.h"
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
@@ -54,6 +55,15 @@ struct AndroidGfxData {
   const void* chain_data = nullptr;
   u32 chain_offset = 0;
 
+  // A42: upstream's run_dma_copy mode, always-on for Android. Zero-copy
+  // hand-off let concurrent writers (run-3: bucket tags walking to 0x0
+  // mid-frame, 40 A37-BUCKET-MALFORMED skips, then a renderer drain hang +
+  // OOM kill) mutate the chain under the GL thread. The copy is taken on
+  // the game thread inside send_chain — the builder is idle there, so the
+  // tag stream is complete and stable — and is immutable afterwards, which
+  // makes the GL-side A37 probe decisive instead of racy.
+  FixedChunkDmaCopier dma_copier{EE_MAIN_MEM_SIZE};
+
   std::shared_ptr<TexturePool> texture_pool;
   std::shared_ptr<Loader> loader;
   std::unique_ptr<AndroidOpenGLRenderer> renderer;
@@ -65,6 +75,11 @@ struct AndroidGfxData {
 AndroidGfxData* g_data = nullptr;
 void flush_pending_texture_calls_on_ready();  // A41 queue, defined below
 std::atomic<bool> g_renderer_ready{false};
+// A42: the IOP vblank hook (desktop gfx.cpp's file-static vsync_callback).
+// Set once by make_iop_thread (EE thread, during InitMachine — strictly
+// before the dispatcher thread that calls vsync() exists), invoked from
+// vsync() on the dispatcher thread. Same lock-free shape as desktop.
+std::function<void()> g_vsync_callback;
 std::atomic<u32> g_chains_received{0};
 std::atomic<u32> g_chains_dropped_pre_init{0};
 std::atomic<int> g_window_w{0};
@@ -338,8 +353,45 @@ std::atomic<u64> g_a40_vsync_exit{0};
 std::atomic<u64> g_a40_syncpath_entry{0};
 std::atomic<u64> g_a40_syncpath_exit{0};
 
+void set_vsync_callback(std::function<void()> f) {
+  g_vsync_callback = std::move(f);
+}
+
 u32 vsync() {
   g_a40_vsync_entry.fetch_add(1, std::memory_order_relaxed);
+  // A42, desktop gfx.cpp:119-124 parity: tell the IOP kernel we're vsyncing
+  // so it dispatches the overlord's VBlank_Handler (SoundIopInfo DMA →
+  // *sound-iop-info* strpos / fake VAG clock — the pacing source for every
+  // spooled cutscene). Fires before the renderer-ready gate: desktop fires
+  // it on every Gfx::vsync() call regardless of renderer state.
+  if (g_vsync_callback) {
+    static bool s_a42_logged = false;
+    if (!s_a42_logged) {
+      s_a42_logged = true;
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "A42-VBLANK vsync->IOP vblank callback live (overlord "
+                          "VBlank_Handler will pace str-pos from here on)");
+    }
+    // Pre-renderer-ready there is no swap chain to block on and the GOAL
+    // syncv path free-runs (~270 Hz observed) — clamp vblank delivery to
+    // 60 Hz there so the IOP fake VAG clock (1024/target_fps per vblank)
+    // stays real-time. Post-ready, vsync() blocks on the swap chain and
+    // every call is a real frame, desktop cadence.
+    bool fire = true;
+    if (!g_renderer_ready.load()) {
+      static std::chrono::steady_clock::time_point s_last_vblank{};
+      auto now = std::chrono::steady_clock::now();
+      if (s_last_vblank.time_since_epoch().count() != 0 &&
+          now - s_last_vblank < std::chrono::microseconds(16600)) {
+        fire = false;
+      } else {
+        s_last_vblank = now;
+      }
+    }
+    if (fire) {
+      g_vsync_callback();
+    }
+  }
   if (!g_renderer_ready.load()) {
     g_a40_vsync_exit.fetch_add(1, std::memory_order_relaxed);
     return 0;
@@ -392,8 +444,39 @@ void send_chain(const void* data, u32 offset) {
     __android_log_print(ANDROID_LOG_INFO, kLogTag, "A35-RENDER send_chain #%u offset=0x%x", n,
                         offset);
   }
-  d->chain_data = data;
-  d->chain_offset = offset;
+  // A42: bounded pre-probe of the live chain, then copy (see dma_copier
+  // field note). FixedChunkDmaCopier::run has an unbounded walk + a
+  // LOW_PROTECT assert, so a malformed live chain must be caught here —
+  // skip the frame instead of hanging/aborting the game thread.
+  {
+    DmaFollower probe(data, offset);
+    constexpr int kMaxSteps = 400000;
+    int steps = 0;
+    bool low_tag = false;
+    while (!probe.ended() && steps < kMaxSteps) {
+      auto tag = probe.current_tag();
+      if (tag.addr != 0 && tag.addr <= EE_MAIN_MEM_LOW_PROTECT) {
+        low_tag = true;
+        break;
+      }
+      probe.read_and_advance();
+      steps++;
+    }
+    if (!probe.ended() || low_tag) {
+      static u32 s_precopy_logged = 0;
+      if (s_precopy_logged < 8) {
+        s_precopy_logged++;
+        __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                            "A42-CHAIN-PRECOPY malformed live chain at send (steps=%d low_tag=%d "
+                            "off=0x%x) — frame skipped before copy",
+                            steps, (int)low_tag, probe.current_tag_offset());
+      }
+      return;
+    }
+  }
+  const auto& chain_copy = d->dma_copier.run(data, offset);
+  d->chain_data = chain_copy.data.data();
+  d->chain_offset = chain_copy.start_offset;
   d->has_data_to_render = true;
   d->dma_cv.notify_all();
 }

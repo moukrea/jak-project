@@ -671,6 +671,22 @@ u32 ISOThread() {
             }
           }
           if (thing) {
+#ifdef __ANDROID__
+            // A42: 989snd is the phase-27 stub on Android — sceSdGetAddr
+            // always returns 0, so the real VAG clock either freezes at 0
+            // (spool-anim's 300-stall abort kills every cutscene) or warps
+            // on the half-buffer heuristic. Run the engine's own silent-
+            // stream fallback instead: the fake clock, advanced real-time
+            // by VBlank_Handler (1024/target_fps per vblank) — the same
+            // path retail takes when an STR has no VAG entry. Drop this
+            // when real 989snd lands on Android.
+            gFakeVAGClock = 0;
+            gFakeVAGClockRunning = true;
+            gFakeVAGClockPaused = 0;
+            printf("A42-STRCLK PlayVag id=%d fd=%d -> fake clock (Android stub SPU)\n",
+                   in_progress_vag_command ? (int)in_progress_vag_command->sound_id : 1,
+                   in_progress_vag_command && in_progress_vag_command->fd ? 1 : 0);
+#else
             if (!in_progress_vag_command || in_progress_vag_command->fd) {
               gRealVAGClock = 0;
               gRealVAGClockS = 0;
@@ -680,6 +696,7 @@ u32 ISOThread() {
               gFakeVAGClockRunning = true;
               gFakeVAGClockPaused = 0;
             }
+#endif
             gVAG_Id = in_progress_vag_command ? in_progress_vag_command->sound_id : 1;
           }
           ReturnMessage(cmd);

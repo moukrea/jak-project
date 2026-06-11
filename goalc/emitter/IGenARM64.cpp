@@ -2723,12 +2723,49 @@ InstructionARM64 vpslldq(Register dst, Register src, u8 imm) {
   return InstructionARM64::paired(movi_zero_v0, ext);
 }
 
+// A42 (arm64 bug class #11): these were dup_4s_elem stand-ins — duplicating
+// ONE 32-bit word across the vector — nothing like x86 PSHUFLW/PSHUFHW
+// (shuffle the four 16-bit halfwords of one 64-bit half by imm's 2-bit
+// selectors, other half COPIED). compile_asm_ppach builds PS2 PPACH out of
+// VPSHUFLW/VPSHUFHW(0x88)+VPSRLDQ(4)+PCPYLD, so every .ppach produced
+// garbage: update-mood-itimes packed time-of-day weights with zeroed
+// G/A lanes, interp_time_of_day emitted alpha=0 colors, and the tfrag
+// alpha test discarded the whole village (61k tris submitted, 0 pixels).
+// Exact semantics via the free V0 emitter scratch (see vpsrldq note):
+//   ORR V0 <- src; ORR dst <- src (copies the preserved half);
+//   INS dst.H[t] <- V0.H[s] x4 (through V0 so dst==src is safe).
+// Encodings NDK-verified: ORR=0x4EA01C00|Rm<<16|Rn<<5|Rd,
+// INS Vd.H[t],Vn.H[s]=0x6E000400|((t<<2)|2)<<16|(s<<1)<<11|Rn<<5|Rd.
+namespace {
+InstructionARM64 pshuf_hw_half(Register dst, Register src, u8 imm, int half_base) {
+  const u32 rd = arm64_reg5(dst);
+  const u32 rn = arm64_reg5(src);
+  std::vector<u32> words;
+  // V0 <- src
+  words.push_back(0x4EA01C00u | (rn << 16) | (rn << 5) | 0u);
+  // dst <- src (no-op move skipped when same register)
+  if (rd != rn) {
+    words.push_back(0x4EA01C00u | (rn << 16) | (rn << 5) | rd);
+  }
+  for (int i = 0; i < 4; i++) {
+    const u32 t = half_base + i;
+    const u32 s = half_base + ((imm >> (2 * i)) & 3);
+    words.push_back(0x6E000400u | (((t << 2) | 2u) << 16) | ((s << 1) << 11) | (0u << 5) | rd);
+  }
+  InstructionARM64 r(words[0]);
+  for (size_t i = 1; i < words.size(); i++) {
+    r.extra_words.push_back(words[i]);
+  }
+  return r;
+}
+}  // namespace
+
 InstructionARM64 vpshuflw(Register dst, Register src, u8 imm) {
-  return dup_4s_elem(dst, src, imm & 3);
+  return pshuf_hw_half(dst, src, imm, 0);
 }
 
 InstructionARM64 vpshufhw(Register dst, Register src, u8 imm) {
-  return dup_4s_elem(dst, src, (imm >> 2) & 3);
+  return pshuf_hw_half(dst, src, imm, 4);
 }
 
 InstructionARM64 vpackuswb(Register dst, Register src0, Register src1) {

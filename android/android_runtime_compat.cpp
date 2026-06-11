@@ -920,11 +920,17 @@ u32 sync_path(){ return android_gfx::sync_path(); }
 void Loop(std::function<bool()> /*f*/) {
   log_shim_call_once("Gfx::Loop");
 }
-void register_vsync_callback(std::function<void()> /*f*/) {
-  log_shim_call_once("Gfx::register_vsync_callback");
+// A42: REAL — was a discard shim, which silenced the IOP vblank forever:
+// runtime.cpp's iop bring-up registers IOP_Kernel::signal_vblank here, and
+// the overlord's VBlank_Handler (SoundIopInfo DMA: *sound-iop-info* strpos,
+// the fake VAG clock) only runs on those vblanks. With the callback dropped,
+// current-str-pos stayed -1 and every spooled cutscene aborted at the 4 s
+// timeout — the title course collapsed and village1 never stayed displayed.
+void register_vsync_callback(std::function<void()> f) {
+  android_gfx::set_vsync_callback(std::move(f));
 }
 void clear_vsync_callback() {
-  log_shim_call_once("Gfx::clear_vsync_callback");
+  android_gfx::set_vsync_callback(nullptr);
 }
 
 bool CollisionRendererGetMask(GfxGlobalSettings::CollisionRendererMode /*m*/,

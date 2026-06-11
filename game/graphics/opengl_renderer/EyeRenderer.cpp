@@ -101,9 +101,25 @@ void EyeRenderer::render(DmaFollower& dma,
 
   handle_eye_dma2(dma, render_state, prof);
 
-  while (dma.current_tag_offset() != render_state->next_bucket) {
+  while (dma.current_tag_offset() != render_state->next_bucket && !dma.ended()) {
     auto data = dma.read_and_advance();
-    m_debug += fmt::format("dma: {}\n", data.size_bytes);
+    if (m_debug.size() < 65536) {
+      m_debug += fmt::format("dma: {}\n", data.size_bytes);
+    }
+  }
+  if (dma.current_tag_offset() != render_state->next_bucket) {
+    // handle_eye_dma2 left the follower outside this bucket. Without the
+    // ended() bound above, this drain walks the rest of the frame's chain
+    // and never terminates (m_debug grew until the OOM killer fired on the
+    // Android bring-up, the first time real eye DMA appeared there).
+    // Reseat on the bucket boundary so dispatch's invariant holds.
+    static bool s_warned_off_bucket = false;
+    if (!s_warned_off_bucket) {
+      s_warned_off_bucket = true;
+      fmt::print("EyeRenderer: drain ended off-bucket at {} (ended={}), reseating to {}\n",
+                 dma.current_tag_offset(), dma.ended(), render_state->next_bucket);
+    }
+    dma = DmaFollower(dma.base(), render_state->next_bucket);
   }
 }
 
