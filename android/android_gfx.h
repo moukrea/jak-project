@@ -13,6 +13,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 
 #include "common/common_types.h"
 
@@ -38,6 +39,16 @@ bool render_frame_on_gl_thread(int win_w, int win_h);
 void post_swap_tick();
 
 // game-thread side ----------------------------------------------------------
+// A42: desktop Gfx::vsync() (gfx.cpp:119) invokes a registered callback
+// before pacing so the IOP kernel gets a vblank every frame — runtime.cpp
+// wires it to IOP_Kernel::signal_vblank → overlord VBlank_Handler →
+// SoundIopInfo DMA, the str-pos / fake-VAG-clock source that paces every
+// spooled anim. Android's Gfx::register_vsync_callback shim used to
+// DISCARD the callback: *sound-iop-info* strpos stayed -1 and every spool
+// aborted at the 4 s str-pos<=0 timeout (the title course collapsed before
+// village1 could stay displayed). Storage lives here; the Gfx:: shims in
+// android_runtime_compat.cpp forward.
+void set_vsync_callback(std::function<void()> f);
 u32 vsync();
 u32 sync_path();
 void send_chain(const void* data, u32 offset);
