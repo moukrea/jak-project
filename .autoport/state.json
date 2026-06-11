@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 83,
+  "current_phase_idx": 84,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -77,7 +77,8 @@
     "A41-android-texture-path-goal-frame": 1,
     "A42-android-tfrag-init-village-flythrough": 1,
     "F1a-android-camera-merc-title-correct": 1,
-    "F1b-android-joint-decompress-start-geyser": 2
+    "F1b-android-joint-decompress-start-geyser": 2,
+    "F1c-android-camera-channel-start-geyser": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -233,7 +234,8 @@
     "A41-android-texture-path-goal-frame",
     "A42-android-tfrag-init-village-flythrough",
     "F1a-android-camera-merc-title-correct",
-    "F1b-android-joint-decompress-start-geyser"
+    "F1b-android-joint-decompress-start-geyser",
+    "F1c-android-camera-channel-start-geyser"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -287,9 +289,10 @@
     "A41-android-texture-path-goal-frame": 1781168527.9071383,
     "A42-android-tfrag-init-village-flythrough": 1781173142.1120133,
     "F1a-android-camera-merc-title-correct": 1781179105.2582562,
-    "F1b-android-joint-decompress-start-geyser": 1781187851.119047
+    "F1b-android-joint-decompress-start-geyser": 1781187851.119047,
+    "F1c-android-camera-channel-start-geyser": 1781198811.640303
   },
-  "last_update": "2026-06-11T17:15:51.036545+00:00",
+  "last_update": "2026-06-11T19:25:27.486066+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },

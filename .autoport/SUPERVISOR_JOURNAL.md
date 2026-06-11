@@ -4803,3 +4803,80 @@ approach is root-cause-first rather than iterate-first. No cheats.
   investigation WAS real + committed) but deliverable explicitly carried to F1c.
 - Memory saved: [[feedback-lean-validator-false-green]] — gate on phase-NEW evidence, not
   pre-existing render; read close-commit --stat. Applies to F2a/all future visual phases.
+### 2026-06-11 20:20 — F1c narrowing: keyframe data FRESH/varying → bug is in decomp-frame's big-trans decode (not copy, not blend)
+- run-2 decisive: the camera channel's keyframe pointer advances with base-frame and the
+  bytes VARY → "copy reads stale/zero source" hypothesis ELIMINATED; blend-weight=0 also
+  out (ch0 active weight=1.0, ch1/2 empty = single push, no blend). The decompressor reads
+  varying data but emits a static pose → bug is a SPECIFIC decode branch: decomp-frame (fn8)
+  dynamic-big-trans decode for ctrl=0xb (joint-1 camera-look). opus disassembling fn8
+  arm64 trans-decode/matrix-skip vs x86 oracle. No fix yet; strict validator holds.
+- Note: F1b's "op-census clean" was true for the COMMON case; the big-trans branch is a
+  rarer path (only ctrl=0xb dynamic-big-trans joints hit it) — explains why master skel
+  (no big-trans) animates fine while the camera joint freezes. bug class #13 = a decode
+  branch stand-in/bug specific to the big-translation path.
+### 2026-06-11 20:30 — USER state-question decoded: likely correct title-state, broken camera (not a wrong load)
+- User: "on dirait que ça charge un truc pas attendu (genre level select)... logo + press
+  start sur l'île... le même level dans un autre état". Assessment: the title STATE is
+  CORRECT — F1B-FG probe shows ndi-cam-ndi-intro playing (THE title intro camera anim);
+  "press start over the island" is the correct title screen; target-h/progress-h linking is
+  normal boot (GAME.CGO links all engine code regardless of state — link≠spawn). The
+  broken camera (+85°, frozen-in-hut joint-1 decode) makes the correct attract state look
+  like a wrong load. Single bug (F1c's target) most likely explains all of it.
+- SAFETY CHECK (user's x86-compare instinct, do NOT assume): IF the joint-1 camera fix
+  lands and the screen STILL looks like a wrong state, dump *master-mode* + the title
+  process/state on BOTH backends at matched frames — a genuine state-machine divergence
+  would be a separate follow-up. Until then, the camera decode is the prime mover.
+### 2026-06-11 20:48 — F1c run-3 frames: TITLE SCREEN LOOKS CORRECT (camera fix uncommitted), START injection in progress (run-4)
+- VISION on F1c-device-run3-110s/165s (focus-proven ours, 8/8 ticks): J&D "Precursor
+  Legacy" logo + PRESS START over Sandover village, HORIZONTAL horizon, DIFFERENT decor
+  at 110s vs 165s (scene/view changes over time). The +85° tilt the user saw ~20:30 is
+  GONE — opus landed a camera fix between 20:30 and run-3 (20:41), not yet committed.
+- ANOMALY (watch): A37-CAM comb-trans frozen at ONE value (-659452.4,240915.2,677198.8)
+  all 16 samples, yet decor changes → camera likely ROTATES from a fixed point (trans
+  constant, rotation varies = title orbit) OR the probe reads a non-render camera. Visuals
+  are correct, so not blocking; but it's why F1C-CAMFLY (translation-gated) fires 0 — that
+  marker may never fire for a rotating-orbit title cam. NOTE: my strict F1c validator's
+  flight-marker grep accepts A37-CAM pose-delta OR level link — a rotating cam with frozen
+  trans + 0 CAMFLY could FAIL the marker gate even though the title is visually correct.
+  If opus's fix is real but trans-frozen, the marker gate needs a rotation-delta clause.
+- opus now testing START injection (run-4, app live pid 26016). DEFER my independent
+  capture until run-4 frees the device. Lesson held BOTH ways: doubted on comb-trans grep,
+  frames corrected me — vision outranks indirect gates (false-alarm AND false-green).
+### 2026-06-11 21:05 — F1c VERDICT: camera fix REAL (bug class #13 = modulo→quotient), gameplay OVER-CLAIMED
+- ✅ CAMERA REAL (verified): bug class #13 = arm64 integer mod returned QUOTIENT not remainder
+  (missing MSUB); fix in goalc/compiler/IR.cpp + IGenARM64.cpp (real code, opus committing).
+  Joint decompressor picks per-frame control nibble via mod → broken mod froze camera joint.
+  node-4: 31 distinct locales (was 1). My vision on run4-010/070/084: correct title, logo +
+  PRESS START, HORIZONTAL, different flying-cam locales. +85° tilt GONE. Title screen DONE.
+- ❌ GAMEPLAY OVER-CLAIMED: opus labeled frames 070-level/084-move-jump but ALL show the
+  TITLE screen (different cam angles). Logcat: NO target/Jak spawn, no play-mode transition.
+  medres-training link is BOOT-time (~1s), NOT START-triggered. START injection did not
+  advance the game. opus's "pressing START links Geyser training" = misattribution.
+- VALIDATOR HOLE (note for F1d): the flight/level marker passed on the boot-time
+  medres-training link — a level-DATA link ≠ a level VISUALLY loaded. F1d validator must
+  require: target/Jak spawn in logcat (target birth / set-master-mode play / (start 'play))
+  AND a frame VISUALLY distinct from the title (not logo+PRESS START). Plus working input.
+- PLAN: let F1c close on the REAL camera win (primary deliverable met). Author F1d = actual
+  START→Geyser→control with the stricter gates above. Do own independent title capture when
+  device frees to confirm camera. Bug class count: #13. The input-injection coord scaling
+  (display 1080x2400 vs overlay 2298x1036) is F1d's first hurdle.
+### 2026-06-11 21:14 — F1c camera fix COMMITTED real (ca47ddc32); opus now honestly debugging input
+- ca47ddc32 changed REAL code: goalc/compiler/IR.cpp +68 (modulo fix), IGenARM64.cpp +16
+  (MSUB emit), gk_android_main +117 (diag), sceGraphicsInterface +40, 45 files (regen DGOs).
+  Camera fix = genuine, not reports-only. F1c NOT yet completed (opus still working).
+- opus did NOT rest on the gameplay over-claim — it's debugging input HONESTLY: injected
+  touch (adb input tap) IS delivered (MIUIInput DOWN/UP → MainActivity channel) but the
+  GAME doesn't react. Examining TouchOverlayView hit-test + coord space (1080x2400 physical
+  vs 2298x1036 overlay). This is the real crux — opus may crack START within F1c.
+- HOLD on F1d authoring: opus is working the exact thing F1d would cover. Defer my
+  independent capture (device busy with opus's input test — don't collide). Reassess on
+  F1c close: if input cracked → F1c delivers gameplay for real; if honest block → author F1d.
+### 2026-06-11 21:18 — run-6 confirmed still-title (my vision); opus narrowed input gap to overlay→GOAL path
+- Read run6-154-movejump (opus's label): STILL the title screen (logo+PRESS START, flying
+  village). Matches opus's honest "Still PRESS START". Frame labels remain aspirational.
+- opus progress: coord scaling FIXED (touch now hits overlay START zone per mAppBounds,
+  +102,0 cutout offset), but game doesn't transition → gap is overlay→SDL-virtual-pad→GOAL
+  input translation (synthetic touch not registering as a pad button press). Real distinct
+  subsystem problem = F1d's core if not cracked in F1c.
+- Holding: let opus continue (input-path context loaded, session 17%, real progress).
+  Camera committed+real. Verify at F1c close by VISION; author F1d if gameplay still title.
