@@ -666,6 +666,20 @@ phases:
   validator: validators/phase-A39-android-goal-frame-capture.sh
   max_turns: 800
   max_retries: 3
+- id: A40-android-hint-cursor-reset-goal-frame
+  name: 'Stop the 64B/frame hint-text cursor walk, boot past frame 522, capture the goal frame. A39 verified the blerc fix live and
+    named the residual SIGILL at instruction level: an UNRESET display-frame DMA cursor walked by print-game-text 64B/frame (empty
+    hint-line NEXT-tag appends +0xf80/f90/fa0, cursor writeback +0xfbc via dma-bucket-insert-tag+0x40). Collateral observed live: buf1
+    header zeroed in passing, l0 level heap poisoned (the tris<=82 pin), engine band entered at 0x1904000, draw-string code smashed at
+    band+0x7b40 = exactly 493 frames x 64B, then print-game-text calls draw-string -> sig=4 frame ~522 every boot (process level-hint).
+    A40: oracle-compare (does x86 append empty hint lines? who resets +0xfbc?), fix at mechanism (no skip-hints null-guards), regen DGOs
+    if CGOs change, boot past 522 -> tris explode (l0 unpinned) -> title sequence -> captures 5-60s w/ focus brackets -> goal frame.
+    Diagnostics available: a39.symdump/linkscan, A38 tripwire (all property-gated). Validator: A39 gates + frame>=300 + tris>0 newest
+    A40 logcat. Render judged by supervisor vision. max_turns 1500.'
+  prompt: prompts/phase-A40-android-hint-cursor-reset-goal-frame.md
+  validator: validators/phase-A40-android-hint-cursor-reset-goal-frame.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
