@@ -750,6 +750,22 @@ phases:
   validator: validators/phase-F1c-android-camera-channel-start-geyser.sh
   max_turns: 2000
   max_retries: 3
+- id: F1d-android-input-cpad-start-geyser
+  name: 'Make input reach the GOAL cpad: press START -> Geyser Rock loads -> Jak spawns and moves. F1c VERIFIED the camera fix (bug
+    class #13 = arm64 mod returned quotient not remainder / missing MSUB; title flies, supervisor-confirmed own boot: 2 distinct
+    locales, horizon level, logo+PRESS START). F1c honest residual = THIS: injected input does NOT reach the game. adb input tap AND
+    keyevent 108 (BUTTON_START) are DELIVERED to the app (MIUIInput ACTION_DOWN/UP on MainActivity channel) but neither reaches
+    (cpad-pressed? 0 start); coords already corrected (1080x2400 phys vs 2298x1036 overlay, +102,0 cutout). Gap = headless-inject ->
+    SDL virtual-gamepad -> GOAL cpad path. F1d: trace TouchOverlayView->cpad bridge, make autonomous input register a REAL cpad press
+    (fix overlay to accept injected events, or a documented cpad-injection test hook where the GAME genuinely responds, or SDL event
+    injection — NO faked results), then START->title advances (frame visually distinct from title)-> medres-training ACTIVE + target
+    (Jak) SPAWNS -> inject movement -> Jak position changes (logcat timeline + frames). Owner can press START live as cross-check.
+    STRICT validator: F1d-fix-summary + play-mode/target-spawn marker in newest logcat (boot-time medres-training data link does NOT
+    pass). Judged by supervisor vision. max_turns 2000.'
+  prompt: prompts/phase-F1d-android-input-cpad-start-geyser.md
+  validator: validators/phase-F1d-android-input-cpad-start-geyser.sh
+  max_turns: 2000
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
