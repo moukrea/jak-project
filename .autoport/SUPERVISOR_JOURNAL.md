@@ -4880,3 +4880,15 @@ approach is root-cause-first rather than iterate-first. No cheats.
   subsystem problem = F1d's core if not cracked in F1c.
 - Holding: let opus continue (input-path context loaded, session 17%, real progress).
   Camera committed+real. Verify at F1c close by VISION; author F1d if gameplay still title.
+### 2026-06-11 21:40 — F1c COMPLETE: camera fix INDEPENDENTLY VERIFIED (my own boot); gameplay honestly deferred to F1d
+- SUPERVISOR INDEPENDENT CAPTURE (my own force-stop + boot + 4 focus-proven ticks):
+  30s = wide aerial over Sandover (water/cliffs/bridge), 54s = close among village huts —
+  TWO distinct camera positions 24s apart = camera FLIES the title course. Horizon level,
+  logo + PRESS START. +85° tilt GONE. Bug class #13 (modulo→quotient/MSUB) confirmed by MY
+  eyes. Archived SUPERVISOR-f1c-title-aerial.png / -huts.png.
+- opus was HONEST in the fix-summary's "Honest residuals / not fully done": input-injection
+  reaches the app but not (cpad-pressed? 0 start); even keyevent 108 (BUTTON_START) doesn't
+  reach cpad; gap = headless-inject → SDL virtual-gamepad → GOAL cpad path. run-7 logcat: NO
+  Jak spawn. So gameplay genuinely NOT done (frame labels level/move were aspirational).
+- F1c = real camera win. Authoring F1d (START→Geyser→control) next, carrying the cpad-path
+  finding, with STRICT gates. USER can press START live on-device as a cross-check.
