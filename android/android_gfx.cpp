@@ -25,6 +25,10 @@
 
 #include "third-party/glad/include/glad/glad.h"
 
+// A38 float-spray tripwire arm/rearm (gk_android_main.cpp). One relaxed
+// atomic load per frame when the debug property is unset.
+extern "C" void gk_a38_tripwire_frame_hook(void);
+
 namespace android_gfx {
 namespace {
 constexpr const char* kLogTag = "opengoal-gk";
@@ -188,6 +192,9 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
   if (!g_renderer_ready.load()) {
     return false;
   }
+  // A38: arm (first frame, property-gated) / rearm (per frame) the
+  // float-spray tripwire on the engine-object band.
+  gk_a38_tripwire_frame_hook();
   auto* d = g_data;
 
   g_window_w.store(win_w);
