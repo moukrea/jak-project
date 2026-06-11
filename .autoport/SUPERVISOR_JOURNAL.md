@@ -4730,3 +4730,7 @@ approach is root-cause-first rather than iterate-first. No cheats.
 - Residuals: rotation now ~+85° (was −95° — transform touched, sign flipped, not fixed);
   camera path traverses interiors (same transform bug displacing the flythrough path).
   claude mid-hunt in IGenARM64 pack/shuffle family (PPACH/PSHUF — bug class #11 candidate).
+### 2026-06-11 14:00 — CORRECTION (user): rotation is CONSTANT ~+85°
+- The −95° vs +85° delta was observational error, not a transform change: the scene has
+  been rotated ~+85° the whole time. One stable transpose/rotation bug, unchanged across
+  runs. (Supersedes the "transform touched, sign flipped" inference in the 13:55 entry.)
