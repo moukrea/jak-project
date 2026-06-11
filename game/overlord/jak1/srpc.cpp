@@ -481,6 +481,14 @@ s32 VBlank_Handler(void*) {
   info.frame = gFrameNum;
   info.strpos = GetVAGStreamPos();
   info.std_id = gVAG_Id;
+#ifdef __ANDROID__
+  // A42: low-rate proof that vblank->SoundIopInfo pacing is alive (this
+  // whole handler never ran before the vsync-callback fix).
+  if (gFrameNum % 300 == 1) {
+    printf("A42-STRCLK vblank=%d strpos=%d id=%d fake=%d/%d\n", gFrameNum, info.strpos,
+           (int)gVAG_Id, gFakeVAGClockRunning, gFakeVAGClockPaused);
+  }
+#endif
   info.freemem = gFreeMem;
   info.freemem2 = gMemFreeAtStart;
   // info.nocd = gNoCD;

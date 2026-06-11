@@ -115,6 +115,29 @@ void TFragment::render(DmaFollower& dma,
         ASSERT(transfers[i].size_bytes == 16);
       }
     }
+#ifdef __ANDROID__
+    // A42 probe: black terrain with TFRAG setup done — is the GOAL-side
+    // occlusion vis string all-zero (update-vis! never completing) or
+    // real? Popcount of each level's arriving vis bits, once per 5 s.
+    {
+      static int s_vis_log_ctr = 0;
+      if ((s_vis_log_ctr++ % 300) == 0) {
+        int pc[2] = {0, 0};
+        for (int i = 0; i < render_state->num_vis_to_copy && i < 2; i++) {
+          if (transfers[i].size_bytes == 128 * 16) {
+            for (int b = 0; b < 128 * 16; b++) {
+              pc[i] += __builtin_popcount(transfers[i].data[b]);
+            }
+          } else {
+            pc[i] = -1;  // empty (level not active)
+          }
+        }
+        fprintf(stderr, "A42-VIS l0=%d l1=%d occl=%d valid0=%d valid1=%d\n", pc[0], pc[1],
+                (int)render_state->use_occlusion_culling, (int)render_state->occlusion_vis[0].valid,
+                (int)render_state->occlusion_vis[1].valid);
+      }
+    }
+#endif
   }
 
   if (dma.current_tag().kind == DmaTag::Kind::CALL) {
@@ -230,13 +253,19 @@ void TFragment::handle_initialization(DmaFollower& dma) {
   ASSERT(pc_port_data.size_bytes == sizeof(TfragPcPortData));
   memcpy(&m_pc_port_data, pc_port_data.data, sizeof(TfragPcPortData));
   m_pc_port_data.level_name[11] = '\0';
-#ifdef __ANDROID__
+#ifndef __ANDROID__
+  // A42: same dump available on desktop (env-gated) so the Android values
+  // can be oracle-diffed field by field.
+  static const bool s_a42_cam_dump = getenv("A42_CAM_DUMP") != nullptr;
+#else
+  static const bool s_a42_cam_dump = true;
+#endif
   // A36 probe: tfrag submits 64k tris/frame on-device but the FBO stays
   // all-zero — if the GOAL-built camera block is zero/garbage, every vertex
   // degenerates. One-shot dump of what actually arrived.
   {
     static int s_cam_logged = 0;
-    if (s_cam_logged < 3) {
+    if (s_a42_cam_dump && s_cam_logged < 3) {
       s_cam_logged++;
       auto& c = m_pc_port_data.camera;
       fprintf(stderr,
@@ -248,7 +277,6 @@ void TFragment::handle_initialization(DmaFollower& dma) {
               c.trans.y(), c.trans.z(), c.fog.x(), c.fog.y());
     }
   }
-#endif
 
   // setup double buffering.
   auto db_setup = dma.read_and_advance();
@@ -486,6 +514,35 @@ void TFragment::render_tree(int geom,
   }
 
   prof.add_tri(total_tris);
+#ifdef __ANDROID__
+  // A42 probe: where do the village tris die — culling (vis_temp all
+  // zero), index-building, TOD colors (alpha-test kill), GL error, or
+  // after rasterization? Once per 5 s per geom.
+  bool a42_log_this_frame = false;
+  {
+    static int s_tree_log_ctr = 0;
+    if ((s_tree_log_ctr++ % 300) == 0) {
+      a42_log_this_frame = true;
+      int vis_cnt = 0;
+      for (size_t i = 0; i < tree.vis->vis_nodes.size(); i++) {
+        if (m_cache.vis_temp[i]) {
+          vis_cnt++;
+        }
+      }
+      const u8* c0 = (const u8*)m_color_result.data();
+      fprintf(stderr,
+              "A42-TFTREE lvl=%s tree=%d kind=%d nodes=%d vis=%d draws=%d tris=%u occl=%d "
+              "fog=(%.6f %.3f %.3f) hvdfw=%.3f tod0=%02x%02x%02x%02x tod1=%02x%02x%02x%02x "
+              "itimes0=%08x\n",
+              m_level_name.c_str(), settings.tree_idx, (int)tree.kind,
+              (int)tree.vis->vis_nodes.size(), vis_cnt, (int)tree.draws->size(), total_tris,
+              settings.occlusion_culling ? 1 : 0, settings.camera.fog.x(),
+              settings.camera.fog.y(), settings.camera.fog.z(), settings.camera.hvdf_off.w(),
+              c0[0], c0[1], c0[2], c0[3], c0[4], c0[5], c0[6], c0[7],
+              settings.camera.itimes[0].x());
+    }
+  }
+#endif
 
   for (size_t draw_idx = 0; draw_idx < tree.draws->size(); draw_idx++) {
     const auto& draw = tree.draws->operator[](draw_idx);
@@ -549,6 +606,24 @@ void TFragment::render_tree(int geom,
         ASSERT(false);
     }
   }
+#ifdef __ANDROID__
+  // A42 probe tail: GL error state + an FBO readback where the village
+  // should be (left third, mid height) right after this tree's draws.
+  if (a42_log_this_frame) {
+    GLenum err = glGetError();
+    GLint cur_fb = -1, vp[4] = {0, 0, 0, 0};
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &cur_fb);
+    glGetIntegerv(GL_VIEWPORT, vp);
+    u8 px[4] = {0, 0, 0, 0};
+    glReadPixels(vp[2] / 6, vp[3] / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px);
+    const auto& d0 = tree.draws->empty() ? tfrag3::StripDraw() : tree.draws->front();
+    fprintf(stderr,
+            "A42-TFGL err=0x%x fb=%d vp=%dx%d px@L=%02x%02x%02x%02x draw0tex=%d mode=0x%llx "
+            "drawn=%d/%d\n",
+            err, cur_fb, vp[2], vp[3], px[0], px[1], px[2], px[3], (int)d0.tree_tex_id,
+            (unsigned long long)d0.mode.as_int(), tree.draws_this_frame, (int)tree.draws->size());
+  }
+#endif
   glBindVertexArray(0);
 }
 

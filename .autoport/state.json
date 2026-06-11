@@ -275,9 +275,10 @@
     "A38-android-float-spray-tripwire-goal-frame": 1781141032.1728344,
     "A39-android-goal-frame-capture": 1781152968.8064747,
     "A40-android-hint-cursor-reset-goal-frame": 1781158591.6461,
-    "A41-android-texture-path-goal-frame": 1781168527.9071383
+    "A41-android-texture-path-goal-frame": 1781168527.9071383,
+    "A42-android-tfrag-init-village-flythrough": 1781173142.1120133
   },
-  "last_update": "2026-06-11T10:06:38.739689+00:00",
+  "last_update": "2026-06-11T10:19:02.112017+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
