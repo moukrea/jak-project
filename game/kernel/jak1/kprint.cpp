@@ -578,6 +578,11 @@ s32 format_impl_jak1(uint64_t* args) {
         return 0;
       }
     }
+    // A37 diag: name the offender before dying — the format string is a
+    // unique fingerprint of the GOAL call site, and the dest value tells
+    // whether it's garbage or a corrupted basic.
+    fprintf(stderr, "A37-FMT-DIAG unknown dest=0x%x fmt=\"%.120s\" out=\"%.120s\"\n",
+            original_dest, format_cstring, PrintPendingLocal3);
     ASSERT(false);  // unknown destination
     return 0;
   }

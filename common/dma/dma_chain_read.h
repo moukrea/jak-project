@@ -118,6 +118,7 @@ class DmaFollower {
   }
 
   DmaTag current_tag() const { return DmaTag(read_val<u64>(m_tag_offset)); }
+  const void* base() const { return m_base; }
   u32 current_tag_vif0() const { return read_val<u32>(m_tag_offset + 8); }
   u32 current_tag_vif1() const { return read_val<u32>(m_tag_offset + 12); }
   VifCode current_tag_vifcode0() const { return VifCode(current_tag_vif0()); }

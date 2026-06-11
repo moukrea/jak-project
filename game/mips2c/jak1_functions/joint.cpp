@@ -2398,9 +2398,68 @@ void link() {
 
 namespace Mips2C::jak1 {
 namespace cspace_parented_transformq_joint {
+// A37 canary buffer (shared by the pre/post checks below).
+u8* g_a37_csp_canary = nullptr;
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
   bool bc = false;
+  // A37 diag (arm64 bring-up): this body was observed stomping the font
+  // object's code through a2 = cspace.bone. Log the pointer args for the
+  // first calls and for any bone pointer in the engine-code band so the
+  // bad caller/cspace gets named; suspicious calls return without
+  // storing (diagnostic only — never fires with healthy bone pointers).
+  // arm64-only: the desktop x86 oracle path stays byte-identical.
+#ifdef __aarch64__
+  {
+    static int s_calls = 0;
+    u32 a0v = (u32)c->sgpr64(a0);
+    u32 a1v = (u32)c->sgpr64(a1);
+    u32 bonev = 0, parentv = 0;
+    if (a0v >= 0x1000 && a0v < (u32)(128 * 1024 * 1024 - 20)) {
+      memcpy(&bonev, g_ee_main_mem + a0v + 16, 4);
+      memcpy(&parentv, g_ee_main_mem + a0v, 4);
+    }
+    bool suspicious = (bonev < 0x100000) || (bonev >= 0x1800000 && bonev < 0x2000000);
+    if (s_calls < 16 || suspicious) {
+      if (s_calls < 200) {
+        fprintf(stderr, "A37-CSP call#%d cspace=0x%x tq=0x%x parent=0x%x bone=0x%x%s\n", s_calls,
+                a0v, a1v, parentv, bonev, suspicious ? " SUSPICIOUS" : "");
+      }
+      s_calls++;
+      if (suspicious) {
+        return 0;
+      }
+    } else {
+      s_calls++;
+    }
+    // A37 canary: watch the engine-code band that keeps getting stomped
+    // (font object). Snapshot on first call, compare before AND after the
+    // body on every call — names whether the stomp happens inside this
+    // body or between calls, and at which call number.
+    constexpr u32 kCanLo = 0x1900000, kCanLen = 0x18000;
+    static bool s_stomp_reported = false;
+    if (!g_a37_csp_canary) {
+      g_a37_csp_canary = (u8*)malloc(kCanLen);
+      memcpy(g_a37_csp_canary, g_ee_main_mem + kCanLo, kCanLen);
+      fprintf(stderr, "A37-CSP canary armed [0x%x,0x%x)\n", kCanLo, kCanLo + kCanLen);
+    } else if (!s_stomp_reported &&
+               memcmp(g_a37_csp_canary, g_ee_main_mem + kCanLo, kCanLen) != 0) {
+      s_stomp_reported = true;
+      u32 first = 0;
+      for (u32 i = 0; i < kCanLen; i += 4) {
+        if (memcmp(g_a37_csp_canary + i, g_ee_main_mem + kCanLo + i, 4) != 0) {
+          first = kCanLo + i;
+          break;
+        }
+      }
+      u32 now = 0, was = 0;
+      memcpy(&was, g_a37_csp_canary + (first - kCanLo), 4);
+      memcpy(&now, g_ee_main_mem + first, 4);
+      fprintf(stderr, "A37-CSP CANARY-STOMP before-call#%d first=0x%x was=0x%08x now=0x%08x\n",
+              s_calls, first, was, now);
+    }
+  }
+#endif  // __aarch64__
   // nop                                            // sll r0, r0, 0
   c->lw(a3, 0, a0);                                 // lw a3, 0(a0)
   c->lui(v1, 16256);                                // lui v1, 16256
@@ -2521,6 +2580,19 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   // nop                                            // sll r0, r0, 0
   end_of_function:
+#ifdef __aarch64__
+  // A37 canary post-check: if the watched band changed DURING this body,
+  // the stomp may be inside (or a concurrent thread — see the A37 report).
+  {
+    constexpr u32 kCanLo = 0x1900000, kCanLen = 0x18000;
+    static bool s_inside_reported = false;
+    if (g_a37_csp_canary && !s_inside_reported &&
+        memcmp(g_a37_csp_canary, g_ee_main_mem + kCanLo, kCanLen) != 0) {
+      s_inside_reported = true;
+      fprintf(stderr, "A37-CSP CANARY-STOMP INSIDE-body\n");
+    }
+  }
+#endif  // __aarch64__
   return c->gprs[v0].du64[0];
 }
 
