@@ -30,7 +30,9 @@ void a37_cam_probe_desktop() {
   if (!s_enabled || g_game_version != GameVersion::Jak1) return;
   static uint64_t s_frame = 0;
   uint64_t f = ++s_frame;
-  if (f != 60 && f != 300 && f != 600 && f != 1200 && f != 1800 && f != 2400) return;
+  // F1a: periodic past 2400 — the title course flies between f~3000-9000 and
+  // the parked-camera question is pose-over-TIME (mirrors the Android probe).
+  if (f != 60 && f != 300 && (f % 600) != 0) return;
   auto s_mc = jak1::intern_from_c("*math-camera*");
   uint32_t mc = s_mc.offset ? s_mc->value : 0;
   if (!mc || mc == s7.offset) {

@@ -154,6 +154,41 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
       glad_glGetShaderPrecisionFormat =
           (PFNGLGETSHADERPRECISIONFORMATPROC)resolve("glGetShaderPrecisionFormat");
     }
+    // F1a: same disease, one version line UP — glad gates
+    // glVertexAttribDivisor behind its GL_VERSION_3_3 list, above the parsed
+    // "ES 3.2", but it is ES 3.0 CORE and the driver exports it. The sprite
+    // distort instancing path BLR'd to 0 through the NULL slot
+    // (run-2 GK-DIAG: pc=0 lr in Sprite3::opengl_setup_distort+0x52c,
+    // GOT slot = glad_glVertexAttribDivisor).
+    if (!glad_glVertexAttribDivisor) {
+      glad_glVertexAttribDivisor = (PFNGLVERTEXATTRIBDIVISORPROC)resolve("glVertexAttribDivisor");
+    }
+    // F1a: KHR_debug is core in ES 3.2 — let the driver narrate its own
+    // errors (runs 4-6 crash INSIDE libGLESv2_adreno on the first village
+    // merc draw with apparently-valid bound state; the message stream is
+    // the driver's side of the story). Synchronous so the message lands
+    // before the faulting call returns. Capped to keep logcat sane.
+    {
+      auto p_cb = (void (*)(void (*)(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar*,
+                                     const void*),
+                            const void*))resolve("glDebugMessageCallback");
+      if (p_cb) {
+        glEnable(0x92E0 /* GL_DEBUG_OUTPUT */);
+        glEnable(0x8242 /* GL_DEBUG_OUTPUT_SYNCHRONOUS */);
+        p_cb(
+            [](GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei,
+               const GLchar* message, const void*) {
+              static int s_count = 0;
+              if (s_count++ < 200) {
+                __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                                    "F1A-GLDBG src=0x%x type=0x%x id=%u sev=0x%x %s", source, type,
+                                    id, severity, message ? message : "");
+              }
+            },
+            nullptr);
+        __android_log_print(ANDROID_LOG_INFO, kLogTag, "F1A-GLDBG KHR_debug callback armed");
+      }
+    }
     __android_log_print(ANDROID_LOG_INFO, kLogTag,
                         "A36-RENDER GL4.1-list ES core fns resolved: glClearDepthf=%p "
                         "glDepthRangef=%p",

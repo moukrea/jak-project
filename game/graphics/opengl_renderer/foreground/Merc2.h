@@ -253,7 +253,7 @@ class Merc2 {
                        const tfrag3::MercModel* model,
                        const LevelData* lev,
                        const u8* input_data,
-                       const DmaTransfer& setup,
+                       const u8* ee_base,
                        ModBuffers* mod_opengl_buffers,
                        MercDebugStats* stats);
   void model_mod_blerc_draws(int num_effects,

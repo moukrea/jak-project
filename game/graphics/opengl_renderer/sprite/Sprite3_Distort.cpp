@@ -501,8 +501,14 @@ void Sprite3::distort_draw(SharedRenderState* render_state, ScopedProfilerNode& 
   glBindVertexArray(m_distort_ogl.vao);
 
   // Enable prim restart, we need this to break up the triangle strips
+#ifdef __ANDROID__
+  // GLES: fixed-index restart (== UINT32_MAX for u32 indices); settable
+  // restart index does not exist (same gate as TFragment/Merc2).
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
 
   // Upload vertex data
   glBindBuffer(GL_ARRAY_BUFFER, m_distort_ogl.vertex_buffer);

@@ -584,8 +584,14 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
                             bool double_draw) {
   glBindVertexArray(m_ogl.vao);
 
+#ifdef __ANDROID__
+  // GLES: fixed-index restart (== UINT32_MAX for u32 indices); settable
+  // restart index does not exist (same gate as TFragment/Merc2).
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
 
   // upload vertex buffer
   glBindBuffer(GL_ARRAY_BUFFER, m_ogl.vertex_buffer);

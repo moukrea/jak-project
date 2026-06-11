@@ -16,6 +16,9 @@
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/background/TFragment.h"
+#include "game/graphics/opengl_renderer/foreground/Generic2BucketRenderer.h"
+#include "game/graphics/opengl_renderer/foreground/Merc2BucketRenderer.h"
+#include "game/graphics/opengl_renderer/sprite/Sprite3.h"
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
 #include "game/graphics/pipelines/opengl.h"
 #include "game/kernel/common/kmachine.h"
@@ -210,6 +213,50 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
                  BucketId::TFRAG_ICE_LEVEL1, true);
   }
 
+  // F1a — foreground: Merc2 (village actors + the floating JAK AND DAXTER
+  // logo, a merc model) at the eight jak1 merc buckets, Generic2 at the ten
+  // generic buckets — the same shared-core + per-bucket-renderer shape as
+  // the desktop jak1 table. Ownership: the bucket renderers' shared_ptrs.
+  {
+    static const std::vector<GLuint> s_fg_no_anim_slots;
+    auto merc2 = std::make_shared<Merc2>(m_render_state.shaders, &s_fg_no_anim_slots);
+    auto generic2 = std::make_shared<Generic2>(m_render_state.shaders);
+    const std::pair<BucketId, const char*> merc_buckets[] = {
+        {BucketId::MERC_TFRAG_TEX_LEVEL0, "l0-tfrag-merc"},
+        {BucketId::MERC_TFRAG_TEX_LEVEL1, "l1-tfrag-merc"},
+        {BucketId::MERC_AFTER_ALPHA, "common-alpha-merc"},
+        {BucketId::MERC_PRIS_LEVEL0, "l0-pris-merc"},
+        {BucketId::MERC_PRIS_LEVEL1, "l1-pris-merc"},
+        {BucketId::MERC_AFTER_PRIS, "common-pris-merc"},
+        {BucketId::MERC_WATER_LEVEL0, "l0-water-merc"},
+        {BucketId::MERC_WATER_LEVEL1, "l1-water-merc"},
+    };
+    for (auto& [id, name] : merc_buckets) {
+      set_renderer(std::make_unique<Merc2BucketRenderer>(name, (int)id, merc2), id, true);
+    }
+    const std::pair<BucketId, const char*> generic_buckets[] = {
+        {BucketId::GENERIC_TFRAG_TEX_LEVEL0, "l0-tfrag-generic"},
+        {BucketId::GENERIC_TFRAG_TEX_LEVEL1, "l1-tfrag-generic"},
+        {BucketId::SHRUB_GENERIC_LEVEL0, "l0-shrub-generic"},
+        {BucketId::SHRUB_GENERIC_LEVEL1, "l1-shrub-generic"},
+        {BucketId::GENERIC_ALPHA, "common-alpha-generic"},
+        {BucketId::GENERIC_PRIS_LEVEL0, "l0-pris-generic"},
+        {BucketId::GENERIC_PRIS_LEVEL1, "l1-pris-generic"},
+        {BucketId::GENERIC_PRIS, "common-pris-generic"},
+        {BucketId::GENERIC_WATER_LEVEL0, "l0-water-generic"},
+        {BucketId::GENERIC_WATER_LEVEL1, "l1-water-generic"},
+    };
+    for (auto& [id, name] : generic_buckets) {
+      set_renderer(std::make_unique<Generic2BucketRenderer>(name, (int)id, generic2,
+                                                            Generic2::Mode::NORMAL),
+                   id, true);
+    }
+    lg::info("A35-RENDER F1a foreground wired: merc buckets=8 generic buckets=10");
+  }
+
+  // F1a — sprite (particles): desktop jak1 table line 865 parity.
+  set_renderer(std::make_unique<Sprite3>("sprite", (int)BucketId::SPRITE), BucketId::SPRITE, true);
+
   // DirectRenderer — the desktop jak1 direct buckets, same batch sizes.
   set_renderer(std::make_unique<DirectRenderer>("debug", (int)BucketId::DEBUG, 0x20000),
                BucketId::DEBUG, true);
@@ -224,31 +271,12 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   const std::pair<BucketId, const char*> unported[] = {
       {BucketId::OCEAN_MID_AND_FAR, "ocean-mid-far"},
       {BucketId::TIE_LEVEL0, "l0-tie"},
-      {BucketId::MERC_TFRAG_TEX_LEVEL0, "l0-merc"},
-      {BucketId::GENERIC_TFRAG_TEX_LEVEL0, "l0-generic"},
       {BucketId::TIE_LEVEL1, "l1-tie"},
-      {BucketId::MERC_TFRAG_TEX_LEVEL1, "l1-merc"},
-      {BucketId::GENERIC_TFRAG_TEX_LEVEL1, "l1-generic"},
       {BucketId::SHRUB_NORMAL_LEVEL0, "l0-shrub"},
-      {BucketId::SHRUB_GENERIC_LEVEL0, "l0-shrub-generic"},
       {BucketId::SHRUB_NORMAL_LEVEL1, "l1-shrub"},
-      {BucketId::SHRUB_GENERIC_LEVEL1, "l1-shrub-generic"},
-      {BucketId::MERC_AFTER_ALPHA, "common-alpha-merc"},
-      {BucketId::GENERIC_ALPHA, "common-alpha-generic"},
       {BucketId::SHADOW, "shadow"},
-      {BucketId::MERC_PRIS_LEVEL0, "l0-pris-merc"},
-      {BucketId::GENERIC_PRIS_LEVEL0, "l0-pris-generic"},
-      {BucketId::MERC_PRIS_LEVEL1, "l1-pris-merc"},
-      {BucketId::GENERIC_PRIS_LEVEL1, "l1-pris-generic"},
-      {BucketId::MERC_AFTER_PRIS, "common-pris-merc"},
-      {BucketId::GENERIC_PRIS, "common-pris-generic"},
-      {BucketId::MERC_WATER_LEVEL0, "l0-water-merc"},
-      {BucketId::GENERIC_WATER_LEVEL0, "l0-water-generic"},
-      {BucketId::MERC_WATER_LEVEL1, "l1-water-merc"},
-      {BucketId::GENERIC_WATER_LEVEL1, "l1-water-generic"},
       {BucketId::OCEAN_NEAR, "ocean-near"},
       {BucketId::DEPTH_CUE, "depth-cue"},
-      {BucketId::SPRITE, "sprite"},
   };
   for (auto& [id, name] : unported) {
     set_renderer(std::make_unique<SkipRenderer>(name, (int)id), id, false);
@@ -504,7 +532,18 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     // lr in android_renderer_run). Check a glad pointer after every bucket
     // so the smashing bucket names itself.
     static void* s_glad_canary = (void*)glad_glClearDepthf;
+    {
+      // F1a breadcrumb for the SIGSEGV dump (driver-internal crashes have
+      // no walkable caller frame — run-4).
+      extern char gk_f1a_current_bucket[64];
+      snprintf(gk_f1a_current_bucket, sizeof(gk_f1a_current_bucket), "%s id=%zu",
+               renderer->name().c_str(), bucket_id);
+    }
     renderer->render(dma, &m_render_state, bucket_prof);
+    {
+      extern char gk_f1a_current_bucket[64];
+      gk_f1a_current_bucket[0] = 0;
+    }
     // A36: name any bucket that exits with a framebuffer other than the
     // game FBO bound (run-27: 64k tris/frame but the FBO stays all-zero).
     {
