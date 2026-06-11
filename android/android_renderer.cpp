@@ -145,6 +145,13 @@ int android_renderer_run() {
 
   g_renderer_frame_count.store(0, std::memory_order_relaxed);
 
+  // A37: register this thread with the hang watchdog (gk_android_main)
+  // so a frame-counter stall dumps the GL stack alongside the GOAL one.
+  extern pthread_t g_a37_gl_thread;
+  extern std::atomic<bool> g_a37_gl_thread_set;
+  g_a37_gl_thread = pthread_self();
+  g_a37_gl_thread_set.store(true);
+
   bool running = true;
   while (running && MasterExit == RuntimeExitStatus::RUNNING) {
     SDL_Event event;

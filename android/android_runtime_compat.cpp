@@ -379,28 +379,17 @@ void CacheFlush(void* mem, int size) {
                           reinterpret_cast<char*>(mem) + size);
 }
 
-// Mips2C globals — game/mips2c/mips2c_table.cpp owns these upstream, but
-// its static init references the link() of every jak{1,2,3} mips2c module
-// (~300 unique functions across all three games — many we don't ship).
-// Excluding mips2c_table.cpp means we own the symbols here. The empty maps
-// short-circuit klink's mips2c lookup (returns "not found" → falls back to
-// the GOAL-bytecode interpreter path), which is correct behavior given we
-// don't actually drive game logic on Android yet.
+// Mips2C globals — A37: the stub table that lived here (empty callback
+// maps + LinkedFunctionTable::get() -> 0) silently bound every jak1
+// `def-mips2c` function to 0. The joint decompressor pair
+// (calc-animation-from-spr / cspace<-parented-transformq-joint!) never
+// ran, bone transforms stayed zero, the title othercam fed zeros into
+// *camera-other-matrix*/-trans (and a garbage bone scale into
+// *camera-other-fov*) and *math-camera* camera-temp degenerated every
+// vertex — the A36 black-frame blocker. The real jak1 table now lives in
+// game/mips2c/mips2c_table_jak1_arm64.cpp (real reg() with an AArch64
+// trampoline + the desktop jak1 callback map), shared with linux-arm64.
 #include "common/versions/versions.h"
-#include "game/mips2c/mips2c_table.h"
-
-namespace Mips2C {
-PerGameVersion<std::unordered_map<std::string, std::vector<void (*)()>>>
-    gMips2CLinkCallbacks = {
-        std::unordered_map<std::string, std::vector<void (*)()>>{},
-        std::unordered_map<std::string, std::vector<void (*)()>>{},
-        std::unordered_map<std::string, std::vector<void (*)()>>{},
-        std::unordered_map<std::string, std::vector<void (*)()>>{},
-};
-LinkedFunctionTable gLinkedFunctionTable;
-void LinkedFunctionTable::reg(const std::string&, u64 (*)(void*), u32) {}
-u32 LinkedFunctionTable::get(const std::string&) { return 0; }
-}  // namespace Mips2C
 
 // snd::SoundFlavaHack — set from game/kernel/common/ksound.cpp::set_flava_hack
 // (a kscheme-callable). Real value lives in 989snd's ame_handler.cpp, which

@@ -428,6 +428,16 @@ u64 a11_pc_get_mips2c_impl(u32 name) {
 }
 }  // namespace
 
+#ifdef __aarch64__
+// A37: defined in game/mips2c/mips2c_table_jak1_arm64.cpp (arm64 builds
+// only). Pre-allocates the mips2c trampoline arena + the shared noop
+// while the global-heap cursor is still in the stable early region —
+// mid-DGO-link heap allocs get reused by later heap traffic on this
+// path (run-9 forensics: DMA bucket tags overwrote a trampoline emitted
+// at font-link time; BLR into it SIGILLed with fault==pc).
+extern "C" void a37_mips2c_prealloc_arena();
+#endif
+
 void klink_a11_ensure_pc_mips2c_bound() {
   static bool s_bound = false;
   if (s_bound) return;
@@ -435,6 +445,9 @@ void klink_a11_ensure_pc_mips2c_bound() {
 
   auto fn = jak1::make_function_symbol_from_c("__pc-get-mips2c",
                                               (void*)a11_pc_get_mips2c_impl);
+#ifdef __aarch64__
+  a37_mips2c_prealloc_arena();
+#endif
   s_bound = true;
   std::fprintf(stderr,
                "A11-DIAG sym-bind-trace: bound __pc-get-mips2c to "

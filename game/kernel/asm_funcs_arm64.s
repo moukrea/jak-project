@@ -122,72 +122,84 @@ _stack_call_arm64:
   ret
 
 ;; Call c++ code through mips2c.
-;; GOAL will call a dynamically generated trampoline.
-;; The trampoline will have pushed the exec function and stack offset onto the stack
+;; GOAL calls a dynamically generated trampoline (LinkedFunctionTable::reg in
+;; game/mips2c/mips2c_table_jak1_arm64.cpp) which loads:
+;;   x16 = the C++ exec body (u64 (*)(void* ExecutionContext))
+;;   x12 = the GOAL fake-stack size (16-byte multiple)
+;; and BRanches here with x30 still holding the GOAL caller's return address.
+;; Mirrors _mips2c_call_systemv (asm_funcs_x86_64.asm): build a 1280-byte
+;; ExecutionContext on the stack, fill the MIPS arg slots a0-t3 from the
+;; GOAL arg registers — which on this port are the x86-id registers
+;; X7,X6,X2,X1,X8,X9,X10,X11 (RDI,RSI,RDX,RCX,R8,R9,R10,R11 enum ids; see
+;; the A6 FFI shuffle note in game/kernel/jak1/kscheme.cpp) — pp/st from
+;; the live GOAL convention regs (x13/x14, Phase C4 note), the MIPS sp
+;; slot (gpr 29 @ +464) with the GOAL-relative context address (x15 = EE
+;; base), then call the body on a lowered stack and return the context's
+;; v0 (gpr 2 @ +32) in x0 (= GOAL return reg, x86 id RAX/0).
+;; x13/x14/x15 are caller-saved under AAPCS (unlike SysV R13-R15), so the
+;; C++ body may clobber them — save/restore explicitly, exactly like the
+;; A6 GOAL→C FFI trampoline does.
 .global _mips2c_call_arm64
 .align 4
 _mips2c_call_arm64:
   stp	x29, x30, [sp, #-16]!
   mov	x29, sp
-  ;; TODO - this is really weird using half an XMM, this makes the arm assembly
-  ;; more difficult - this probably isn't required for arm?
-  ;; grab the address to call and put it in xmm0
-  ;; TODO - this stack pointer manipulation might be a problem for ARM64 which requires 16byte alignment
-  ;; sub sp, 8
-  ldr q0, [sp, #+16]
-  ;; grab the stack offset
-  ldr x0, [sp, #+8]
 
-  ;; first, save quadword registers
+  ;; save the GOAL saved xmm registers (full 128-bit q8-q15 — AAPCS only
+  ;; preserves the low 64 bits, GOAL expects all 128)
   stp q15, q14, [sp, #-32]!
   stp q13, q12, [sp, #-32]!
   stp q11, q10, [sp, #-32]!
   stp q9, q8, [sp, #-32]!
 
-  ; NOTE - in x86 the 2 special registers are saved (R10 and R11)
-  ; we don't need to do that in ARM64, there are plenty of registers to work with
+  ;; save GOAL pp/st/off — AAPCS temporaries the C++ body may clobber
+  stp x13, x14, [sp, #-16]!
+  str x15, [sp, #-16]!
 
-  ;; oof
+  ;; ExecutionContext (1280 bytes; gpr slot i at 16*i, filled like x86)
   sub sp, sp, 1280
-  str x0, [sp, #+64] ; arg 0 (RDI in x86) and 
-  str x1, [sp, #+80] ; arg 1 (RSI in x86)
-  str x2, [sp, #+96] ; arg 2 (RDX in x86) and arg 3 (RCX in x86)
-  str x3, [sp, #+112] ; arg 2 (RDX in x86) and arg 3 (RCX in x86)
-  str x4, [sp, #+128] ; arg 4 (R8 in x86) and arg 5 (R8 in x86)
-  str x5, [sp, #+144] ; arg 4 (R8 in x86) and arg 5 (R8 in x86)
-  str x6, [sp, #+160] ; arg 6 (R10 in x86) and arg 7 (R11 in x86)
-  str x7, [sp, #+176] ; arg 6 (R10 in x86) and arg 7 (R11 in x86)
-  str x20, [sp, #+352] ;; s6 (pp) (R13 in x86) and s7 (st) (R14 in x86)
-  str x21, [sp, #+368] ;; s6 (pp) (R13 in x86) and s7 (st) (R14 in x86)
+  str x7, [sp, #+64]   ;; gpr a0 (GOAL arg 0, x86 id RDI=7)
+  str x6, [sp, #+80]   ;; gpr a1 (GOAL arg 1, x86 id RSI=6)
+  str x2, [sp, #+96]   ;; gpr a2 (GOAL arg 2, x86 id RDX=2)
+  str x1, [sp, #+112]  ;; gpr a3 (GOAL arg 3, x86 id RCX=1)
+  str x8, [sp, #+128]  ;; gpr t0 (GOAL arg 4, x86 id R8)
+  str x9, [sp, #+144]  ;; gpr t1 (GOAL arg 5, x86 id R9)
+  str x10, [sp, #+160] ;; gpr t2 (GOAL arg 6, x86 id R10)
+  str x11, [sp, #+176] ;; gpr t3 (GOAL arg 7, x86 id R11)
+  str x13, [sp, #+352] ;; gpr s6 = pp  (live GOAL reg x13)
+  str x14, [sp, #+368] ;; gpr s7 = st  (live GOAL reg x14)
 
-  mov x0, sp ; move the stack pointer to arg 0
-  sub x0, x0, x22 ; R15 is a "special" offset TODO - whats special about it?
-  str x0, [sp, #+464] ;; mip2c code's MIPS stack
+  mov x11, sp
+  sub x11, x11, x15    ;; GOAL-relative context address (x15 = GOAL offset)
+  str x11, [sp, #+464] ;; gpr sp = mips2c code's GOAL stack
 
-  mov x0, sp ;; move the stack pointer to the new position
+  mov x11, sp          ;; ExecutionContext pointer
 
-  sub sp, sp, x8 ;; allocate space on the stack for GOAL fake stack
-  stp x8, x8, [sp, #-16]! ;; and remember this so we can find our way back
+  sub sp, sp, x12      ;; allocate the GOAL fake stack for the body
+  ;; remember the size so we can find our way back (str/ldr, NOT
+  ;; stp/ldp with equal regs — LDP Xt,Xt is CONSTRAINED UNPREDICTABLE
+  ;; and SIGILLs on real cores even though qemu-user permits it)
+  str x12, [sp, #-16]!
 
-  ;; TODO - this used to be a movq rax, xmm0
-  ;; TODO - not sure why an `xmm` was used because that movq only uses the lower 64bits anyway
-  mov x0, v0.d[0] ; represents the lower 64 bits of q0
-  blr x8 ;; call!
+  mov x0, x11          ;; arg0 = ExecutionContext*
+  blr x16              ;; call the C++ body
 
-  ;; unallocate
-  ldp x8, x8, [sp], #16
-  add sp, sp, x8
+  ;; unallocate the fake stack
+  ldr x12, [sp], #16
+  add sp, sp, x12
 
-  ldr x8, [sp, #+32]
+  ldr x0, [sp, #+32]   ;; GOAL return value = context v0 (gpr 2)
 
-  add sp, sp, 1280 ; reset the stackpointer back
+  add sp, sp, 1280     ;; drop the ExecutionContext
+
+  ldr x15, [sp], #16
+  ldp x13, x14, [sp], #16
 
   ldp q9, q8, [sp], #32
-  ldp q10, q11, [sp], #32
-  ldp q12, q13, [sp], #32
-  ldp q14, q15, [sp], #32
+  ldp q11, q10, [sp], #32
+  ldp q13, q12, [sp], #32
+  ldp q15, q14, [sp], #32
 
-  add sp, sp, 24 ;; 16 for the stuff pushed by trampoline
   ldp	x29, x30, [sp], #16
   a24_x30_stack_range_check
   ret

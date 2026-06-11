@@ -4593,3 +4593,63 @@ approach is root-cause-first rather than iterate-first. No cheats.
   passive supervisor shot impossible. Run-26 (TFragment GLES edits) building.
 - If textures bind → village1 title scene on glass = PROJECT GOAL. If black → texture/
   pcrtc-blit debugging next.
+### 2026-06-10 23:52 — A36 COMPLETED (validator pass); A37 LAUNCHED
+- A36 closed in 1 attempt (427 turns, 3.4h, $103): kernel steady-state (4380+ frames,
+  0 crashes/violations), 3 mechanism fixes (A18-trap slot-13 poisoning; missing
+  exec_runtime init_globals — kitoa empty digits made loader ask for 'common.TXT' not
+  '0common.TXT', TXTs were on device all along; unsigned-char class), renderer first-
+  content set compiled+wired (Sky+SkyBlend+TFragment+background_common), 64404 tris/frame.
+  Close commit names the EXACT next bug: update-math-camera drops an 8-byte logtest load
+  (+0x18C camera-rot guard) → camera-temp rows 0-2 zero → black frames.
+- A36 self-corrected a commit that had swept my staged A37 files (soft reset, recommitted
+  clean). A37 files intact untracked.
+- A37-android-camera-matrix-first-visible-frame LAUNCHED attempt 1/3 fable-5
+  (live feed /tmp/a37-launch.out). One dropped instruction from the village flythrough.
+### 2026-06-11 00:25 — A37 @ 26min: oracle disasm at the dropped-load byte range
+- Run-1 baseline: black+overlay at all 7 ticks (5-60s, focus-proven) — reproduces pre-fix
+  state. claude disassembling updcam-x86.bin @0x83f.. (the +0x18C logtest load oracle
+  semantics) + camera-temp instrumentation in sceGraphicsInterface/gk_android_main; both
+  builds in flight. No fix commit yet. Session ~26%.
+### 2026-06-11 00:45 — A37 @ 34min: trail leads to mips2c no-op rebind
+- Run-2: black baseline + camera-temp instrumentation. Investigation pivoted to mips2c:
+  gMips2CLinkCallbacks/bones/cspace — hypothesis shaping up that A32's __pc-get-mips2c
+  no-op rebind (empty gLinkedFunctionTable on Android) starves camera/joint math of its
+  MIPS-translated functions → zero inputs → zero camera-temp. Fix would be compiling +
+  registering mips2c TUs on Android (mechanical), possibly alongside the dropped-load
+  emit issue A36 named. claude comparing linux-arm64's wiring.
+### 2026-06-11 00:55 — A37 run-3: camera HALF-alive — splat-not-permute + zero other-mat
+- A37-CAM f=2400: mc-sanity OK; comb matrix has REAL fov (11650.8) + REAL village-space
+  trans (-612082, 264378, 734012) — camera position computing! But invrot row0 =
+  (0.054, -0.9458 ×3 identical lanes) = vector SPLAT where a PERMUTE belongs; and
+  other-mat rows 0-2 still ZERO (the A36 dropped-logtest path). Frames still black.
+- 64404 tris/frame sustained to f=3900. claude sha-checking APK libgk freshness
+  (stale-build suspicion for run-3). Session ~32%.
+### 2026-06-11 01:10 — A37 run-4: real mips2c fns now execute; one crashes early via asm shim
+- mips2c table registration exposed the next layer: run-4 early crash (22 vs 204 diag
+  lines), claude fixed something in game/kernel/asm_funcs_arm64.s (diffed assembled
+  output), rebuilding. Frames: dark/overlay only. Expected cascade; cadence healthy.
+### 2026-06-11 01:20 — A37 runs 5-9: mips2c-real path still cycling; 4.5MB frames = home (bracket ambiguous)
+- Run-8 30s/45s 4.5MB frames read: MIUI home portrait (bracket pre=home/post=ours →
+  mid-restart captures). Boot-loop persists with real mips2c fns; claude iterating
+  (A37-MIPS2C-REAL/FALLBACK instrumentation, gk_android_main edit, rebuild, run-10).
+### 2026-06-11 01:38 — A37 run-10: 2MB frame = MIUI camera viewfinder (interference); klink mips2c callbacks being wired
+- 15s frame read: camera app (parallel automation tripped MIUI quick-launch) — noise.
+- Real work: klink.cpp edits around SymbolTable2/gMips2CLinkCallbacks — invoking the
+  mips2c link callbacks on Android so linked objects get their GOAL symbols patched to
+  the real C++ fns. Build+run cycling. Session ~40%.
+### 2026-06-11 03:22 — A37: CAMERA MATRIX VERIFIED ALIVE (run-33 f=300)
+- other-mat r0=(0.128, -0.981, 0.147, 0) — orthonormal; other-fov=80879.7; other-trans =
+  real village-space position. THE A36-named blocker (zero camera-temp) is FIXED in-tree.
+- draws=4 tris=46 flash during boot (real 2D content moment) then blackout quad — real
+  intro behavior. Remaining: SIGILL ×2 cycles (same lr=0x1dcd4cc, bisected mips2c fn
+  suspect) + comb-invrot splat path. claude extended ticks to 24/26/28s (knows the
+  visual window). Zero commits still. Session ~49% @ 190min.
+### 2026-06-11 03:25 — A37 closing (validator passes); A38 authored + staged
+- A37 close: camera blocker DEAD — root cause = ENTIRE jak1 def-mips2c surface no-op'd on
+  Android (bones never computed; A36's dropped-logtest hypothesis falsified as differ
+  artifact). Real arm64 mips2c table + call-contract rewrite; camera fields BIT-IDENTICAL
+  to oracle on device. Bug class #9: LDP Xt,Xt constrained-unpredictable (SIGILL device,
+  silent qemu). Condvar UB hang fixed. Graded mips2c (ocean/ripple/load-boundary guarded).
+- NEXT: float-spray over engine band [0x1904000,0x1915000) kills l0-tfrag per frame.
+  A38-android-float-spray-tripwire-goal-frame authored + inserted idx 76 (80 phases):
+  tripwire (mprotect/canary) → name sprayer → fix → goal frame. Watcher armed.

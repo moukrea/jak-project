@@ -62,24 +62,13 @@ void CacheFlush(void* mem, int size) {
 }
 
 // ---------------------------------------------------------------------------
-// mips2c_table — same situation as Android: mips2c_table.cpp's static
-// init pulls every jak{1,2,3} link callback. Excluding it means we own
-// the globals here. Empty maps → klink falls back to GOAL-bytecode path.
+// mips2c_table — A37: the stub table that lived here (empty maps +
+// get() -> 0) bound every jak1 def-mips2c function to 0 (no joint/bone
+// math, no collide, no draw-string — the Android black-frame blocker had
+// the same shape here). The real jak1-only table now lives in
+// game/mips2c/mips2c_table_jak1_arm64.cpp (real reg() with an AArch64
+// trampoline + the desktop jak1 callback map), compiled into this build.
 // ---------------------------------------------------------------------------
-#include "game/mips2c/mips2c_table.h"
-
-namespace Mips2C {
-PerGameVersion<std::unordered_map<std::string, std::vector<void (*)()>>>
-    gMips2CLinkCallbacks = {
-        std::unordered_map<std::string, std::vector<void (*)()>>{},
-        std::unordered_map<std::string, std::vector<void (*)()>>{},
-        std::unordered_map<std::string, std::vector<void (*)()>>{},
-        std::unordered_map<std::string, std::vector<void (*)()>>{},
-};
-LinkedFunctionTable gLinkedFunctionTable;
-void LinkedFunctionTable::reg(const std::string&, u64 (*)(void*), u32) {}
-u32 LinkedFunctionTable::get(const std::string&) { return 0; }
-}  // namespace Mips2C
 
 // ---------------------------------------------------------------------------
 // _call_goal8_asm_systemv — mips2c_private.h's #ifdef __linux__ branch

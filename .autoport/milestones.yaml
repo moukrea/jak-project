@@ -639,6 +639,22 @@ phases:
   validator: validators/phase-A37-android-camera-matrix-first-visible-frame.sh
   max_turns: 2500
   max_retries: 3
+- id: A38-android-float-spray-tripwire-goal-frame
+  name: 'Catch the float-sprayer with the A37-designed tripwire, fix it, capture the goal frame. A37 killed the camera blocker: the
+    entire jak1 def-mips2c surface was bound to a no-op on Android (bone producers included — the camera follows a joint transform);
+    real arm64 mips2c table + _mips2c_call_arm64 rewrite landed; camera-rot/trans/camera-temp now BIT-IDENTICAL to the x86 oracle
+    on-device. Plus bug class 9 (LDP Xt,Xt constrained-unpredictable — SIGILL on device, silent on qemu), the condvar UB hang fix,
+    mid-link arena, bucket-stream guard + chain validator. Remaining blocker NAMED: a float-spray writes garbage over the engine-object
+    band [0x1904000,0x1915000) once deep draw paths engage — kills l0-tfrag (village geometry) per frame + font-code SIGILL at
+    level-hint. A38: implement the designed tripwire (mprotect-RO band or canary grid + per-frame rearm; fault handler logs the spraying
+    STORE pc/lr/fp-walk + WHOSYM), name the sprayer in one boot, fix at mechanism (if ocean/ripple/load-boundary mips2c: fix their
+    translations, do not widen the guard), verify tripwire-OFF, then the goal frame: village flythrough captures across the 20-30s
+    window + 45/60s with focus brackets. Wrong-colored-but-present village = real content = goal met (name residual). Validator: A37
+    gates + frame>=300 + tris>0 in newest A38 logcat. Render judged by supervisor vision. max_turns 2500.'
+  prompt: prompts/phase-A38-android-float-spray-tripwire-goal-frame.md
+  validator: validators/phase-A38-android-float-spray-tripwire-goal-frame.sh
+  max_turns: 2500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md

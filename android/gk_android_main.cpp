@@ -376,35 +376,10 @@ extern "C" u64 a17_pc_default() {
   return 0;
 }
 
-// A32 mips2c-noop rebind — mirrors game/linux-arm64/linux_arm64_main.cpp::
-// a29_mips2c_get_noop (added in A29 to unblock fuel-cell/texture/etc
-// def-mips2c crashes on the headless qemu build). On Android the same
-// crash shape appears AFTER A32's __pc-texture-upload-now / __read-ee-timer
-// / __send-gfx-dma-chain fix advances the on-device boot past tpage-463 +
-// the texture-upload chain — the very next CGO (fuel-cell) is a
-// (def-mips2c adgif-shader<-texture-with-update! ...) call site whose
-// expansion fires `(__pc-get-mips2c "adgif-shader<-texture-with-update!")`
-// at link time. Android's a11_pc_get_mips2c_impl delegates to
-// `Mips2C::gLinkedFunctionTable.get(name)`, but the gLinkedFunctionTable
-// is empty on Android because `game/mips2c/mips2c_table.cpp` (which owns
-// the static init that calls every `link()` register hook) is EXCLUDED
-// from the Android build (see android/CMakeLists.txt L254-258). So
-// __pc-get-mips2c returns 0 for ANY name, the symbol value stays 0, the
-// next BLR through it lands at ee_base → sig=4 SIGILL. Same shape as the
-// linux-arm64 qemu side, hence the same fix: cache a single no-op GOAL
-// function pointer in the `__a32-mips2c-noop` slot the first time we're
-// called, return its offset for every subsequent (def-mips2c name ...).
-// Texture/shader/particle dispatches that route through these are then
-// no-ops — matches the current Android renderer surface (no real GS).
-extern "C" u64 a32_mips2c_get_noop(u32 /*name*/) {
-  static u32 s_cached_offset = 0;
-  if (!s_cached_offset) {
-    auto noop = jak1::make_function_symbol_from_c("__a32-mips2c-noop",
-                                                  (void*)a17_pc_default);
-    s_cached_offset = noop.offset;
-  }
-  return s_cached_offset;
-}
+// A37: a32_mips2c_get_noop (the A32-era shared no-op for every def-mips2c
+// name) is removed — `__pc-get-mips2c` now resolves against the real jak1
+// mips2c table (game/mips2c/mips2c_table_jak1_arm64.cpp). See the
+// pre-kernel hook chain below.
 
 // ---------------------------------------------------------------------------
 // A35: REAL implementations for the renderer/display/timer pc-* surface.
@@ -687,20 +662,16 @@ void a11_install_pc_mips2c_hook_once() {
   g_jak1_pre_kernel_version_check_hook = []() {
     if (prev) prev();
     klink_a11_ensure_pc_mips2c_bound();
-    // A32 mips2c-noop rebind. The A11 binding above wires `__pc-get-mips2c`
-    // to a11_pc_get_mips2c_impl, which returns
-    // `Mips2C::gLinkedFunctionTable.get(name)`. The gLinkedFunctionTable is
-    // empty on Android because mips2c_table.cpp (the static-init that
-    // registers every `link()` callback) is excluded from
-    // android/CMakeLists.txt — so a11 returns 0 for every name, and the
-    // first (def-mips2c name ...) site at GAME.CGO link time (e.g.
-    // fuel-cell's `adgif-shader<-texture-with-update!`) binds its symbol
-    // to 0 → BLR ee_base → sig=4 SIGILL. Override with a32_mips2c_get_noop
-    // which caches a callable no-op GOAL function offset and returns it
-    // for ANY name. Mirrors linux_arm64_main.cpp:357-363 (A29 fix). See
-    // a32_mips2c_get_noop definition above for the per-call no-op rationale.
-    jak1::make_function_symbol_from_c("__pc-get-mips2c",
-                                      (void*)a32_mips2c_get_noop);
+    // A37: the A32 a32_mips2c_get_noop rebind that used to follow here is
+    // GONE. It bound every (def-mips2c name ...) to one shared no-op,
+    // which silenced the SIGILLs but also silenced the entire jak1 mips2c
+    // surface — including the joint decompressor pair
+    // (calc-animation-from-spr / cspace<-parented-transformq-joint!), so
+    // bone transforms stayed zero and the title othercam fed zeros into
+    // *camera-other-matrix* -> *math-camera* camera-temp -> black frames
+    // (the A36 named blocker). The A11 binding above now resolves against
+    // the REAL jak1 table (game/mips2c/mips2c_table_jak1_arm64.cpp),
+    // populated per-object by klink's gMips2CLinkCallbacks pass.
     // A12 sym-bind: register `rpc-call`, `rpc-busy?`, `test-load-dgo-c`
     // (see klink.cpp::klink_a12_ensure_sound_rpc_bound for rationale).
     // Android's runtime-compat override of jak1::InitMachineScheme
@@ -756,8 +727,8 @@ void a11_install_pc_mips2c_hook_once() {
   };
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "A11-DIAG sym-bind-trace: chained "
-                      "klink_a11_ensure_pc_mips2c_bound + "
-                      "A32 a32_mips2c_get_noop rebind of __pc-get-mips2c + "
+                      "klink_a11_ensure_pc_mips2c_bound (A37: real jak1 "
+                      "mips2c table, a32 noop rebind removed) + "
                       "klink_a12_ensure_sound_rpc_bound + "
                       "klink_a14_ensure_pc_memmove_bound + "
                       "a17_bind_pc_helpers (+ A32 __pc-texture-upload-now / "
@@ -2364,11 +2335,54 @@ void scan_once() {
 }
 }  // namespace a36_tree
 
+// A37: GL render thread handle for the hang watchdog (set by
+// android_renderer.cpp at loop start).
+pthread_t g_a37_gl_thread;
+std::atomic<bool> g_a37_gl_thread_set{false};
+
 // Called once per frame from sceGsSyncV (android_runtime_compat.cpp) on the
 // GOAL thread, where the kernel data is quiescent.
 extern "C" void a36_tree_scan_per_frame() {
   using namespace a36_tree;
   uint64_t f = g_frame.fetch_add(1, std::memory_order_relaxed) + 1;
+  // A37 hang watchdog: if the GOAL thread stops advancing frames (run-19
+  // silent freeze), poke it with SIGUSR2 so gk_sigusr2_hang_dump logs the
+  // spin location. Started once, watches g_frame from a helper thread.
+  {
+    static std::atomic<bool> s_watchdog_started{false};
+    static pthread_t s_goal_thread;
+    if (!s_watchdog_started.exchange(true)) {
+      s_goal_thread = pthread_self();
+      std::thread([]() {
+        uint64_t last = 0;
+        int stalled = 0, dumps = 0;
+        while (dumps < 5) {
+          sleep(2);
+          uint64_t now = a36_tree::g_frame.load(std::memory_order_relaxed);
+          if (now == last) {
+            if (++stalled >= 3) {
+              stalled = 0;
+              dumps++;
+              __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                  "GK-DIAG A37-HANG watchdog: frame stuck at %llu, dumping GOAL "
+                                  "thread (%d/5)",
+                                  (unsigned long long)now, dumps);
+              pthread_kill(s_goal_thread, SIGUSR2);
+              if (g_a37_gl_thread_set.load()) {
+                sleep(1);
+                __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                    "GK-DIAG A37-HANG watchdog: dumping GL thread");
+                pthread_kill(g_a37_gl_thread, SIGUSR2);
+              }
+            }
+          } else {
+            stalled = 0;
+          }
+          last = now;
+        }
+      }).detach();
+    }
+  }
   arm_if_needed();
   if (!g_syms.armed) return;
   // A36: install_op_hooks() stays available for forensics but is NOT armed
@@ -2405,6 +2419,133 @@ extern "C" void a36_tree_scan_per_frame() {
       }
     }
   }
+  // A37-CAM probe: field-by-field dump of the whole camera chain
+  // (fov/ratios -> perspective -> camera-rot/inv-camera-rot/trans ->
+  // camera-temp) at the same fixed frames as the x86 oracle probe in
+  // game/graphics/sceGraphicsInterface.cpp (OG_A37_CAM=1), so the two logs
+  // diff line-for-line and the FIRST divergent field names the broken
+  // producer function.
+  if (f == 60 || f == 300 || f == 600 || f == 1200 || f == 1800 || f == 2400) {
+    auto s_mc = jak1::intern_from_c("*math-camera*");
+    uint32_t mc = s_mc.offset ? s_mc->value : 0;
+    if (!mc || mc == s7.offset) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG A37-CAM f=%llu no-math-camera",
+                          (unsigned long long)f);
+      return;
+    }
+    auto rdf = [&](uint32_t addr, float* out) {
+      uint32_t w = 0;
+      bool ok = rd32(addr, &w);
+      memcpy(out, &w, 4);
+      return ok;
+    };
+    float scal[6] = {0, 0, 0, 0, 0, 0};  // fov xr yr fcf smooth-step smooth-t
+    rdf(mc + 0x8, &scal[0]);
+    rdf(mc + 0xC, &scal[1]);
+    rdf(mc + 0x10, &scal[2]);
+    rdf(mc + 0x41C, &scal[3]);
+    rdf(mc + 0x88, &scal[4]);
+    rdf(mc + 0x8C, &scal[5]);
+    uint32_t reset = 0;
+    rd32(mc + 0x84, &reset);
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A37-CAM f=%llu mc=0x%x reset=%d fov=%.3f xr=%.6f yr=%.6f "
+                        "fcf=%.6f smooth=%.4f/%.4f",
+                        (unsigned long long)f, mc, (int)reset, scal[0], scal[1], scal[2], scal[3],
+                        scal[4], scal[5]);
+    struct {
+      const char* name;
+      uint32_t off;
+    } rows[] = {
+        {"persp0", 0x9C},  {"persp1", 0xAC},  {"persp2", 0xBC},  {"persp3", 0xCC},
+        {"camrot0", 0x16C}, {"camrot3", 0x19C}, {"invrot0", 0x1AC}, {"invrot3", 0x1DC},
+        {"trans", 0x34C},  {"ct0", 0x23C},    {"ct1", 0x24C},    {"ct2", 0x25C},
+        {"ct3", 0x26C},
+    };
+    for (auto& r : rows) {
+      float v[4] = {0, 0, 0, 0};
+      for (int k = 0; k < 4; k++) rdf(mc + r.off + 4 * k, &v[k]);
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A37-CAM f=%llu %s=(%.6f %.6f %.6f %.6f)",
+                          (unsigned long long)f, r.name, v[0], v[1], v[2], v[3]);
+    }
+    auto s_fc = jak1::intern_from_c("*math-camera-fog-correction*");
+    uint32_t fc = s_fc.offset ? s_fc->value : 0;
+    if (fc && fc != s7.offset) {
+      float a = 0.f, b = 0.f;
+      rdf(fc, &a);
+      rdf(fc + 4, &b);
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG A37-CAM f=%llu fogcor=(%.3f %.3f)",
+                          (unsigned long long)f, a, b);
+    }
+    // Round 2: update-camera branch selectors + their sources (mirrors the
+    // x86 oracle probe in game/graphics/sceGraphicsInterface.cpp).
+    auto symval = [](const char* name, uint32_t* out) {
+      auto s = jak1::intern_from_c(name);
+      if (!s.offset) return false;
+      *out = s->value;
+      return true;
+    };
+    uint32_t lto = 0, ext = 0, comb = 0, cam = 0, ofov = 0, otrans = 0, omat = 0;
+    symval("*camera-look-through-other*", &lto);
+    symval("*external-cam-mode*", &ext);
+    symval("*camera-combiner*", &comb);
+    symval("*camera*", &cam);
+    symval("*camera-other-fov*", &ofov);
+    symval("*camera-other-trans*", &otrans);
+    symval("*camera-other-matrix*", &omat);
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A37-CAM f=%llu lto=%d ext=0x%x(s7=0x%x) comb=0x%x cam=0x%x "
+                        "ofov=0x%x otrans=0x%x omat=0x%x",
+                        (unsigned long long)f, (int)lto, ext, s7.offset, comb, cam, ofov, otrans,
+                        omat);
+    float mcsan[4] = {0, 0, 0, 0};
+    rdf(mc + 0x0, &mcsan[0]);
+    rdf(mc + 0x4, &mcsan[1]);
+    rdf(mc + 0x14, &mcsan[2]);
+    rdf(mc + 0x24, &mcsan[3]);
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A37-CAM f=%llu mc-sanity d=%.1f far=%.1f x-pix=%.1f y-pix=%.1f",
+                        (unsigned long long)f, mcsan[0], mcsan[1], mcsan[2], mcsan[3]);
+    if (comb && comb != s7.offset) {
+      float cfov = 0.f, ctr[4] = {0, 0, 0, 0}, cir[4] = {0, 0, 0, 0};
+      rdf(comb + 0xBC, &cfov);
+      for (int k = 0; k < 4; k++) {
+        rdf(comb + 0x6C + 4 * k, &ctr[k]);
+        rdf(comb + 0x7C + 4 * k, &cir[k]);
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A37-CAM f=%llu comb fov=%.3f trans=(%.1f %.1f %.1f %.1f) "
+                          "invrot0=(%.6f %.6f %.6f %.6f)",
+                          (unsigned long long)f, cfov, ctr[0], ctr[1], ctr[2], ctr[3], cir[0],
+                          cir[1], cir[2], cir[3]);
+    }
+    if (ofov && ofov != s7.offset) {
+      float v = 0.f;
+      rdf(ofov, &v);
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG A37-CAM f=%llu other-fov=%.3f",
+                          (unsigned long long)f, v);
+    }
+    if (otrans && otrans != s7.offset) {
+      float v[4] = {0, 0, 0, 0};
+      for (int k = 0; k < 4; k++) rdf(otrans + 4 * k, &v[k]);
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A37-CAM f=%llu other-trans=(%.1f %.1f %.1f %.1f)",
+                          (unsigned long long)f, v[0], v[1], v[2], v[3]);
+    }
+    if (omat && omat != s7.offset) {
+      float r0[4] = {0, 0, 0, 0}, r3[4] = {0, 0, 0, 0};
+      for (int k = 0; k < 4; k++) {
+        rdf(omat + 4 * k, &r0[k]);
+        rdf(omat + 0x30 + 4 * k, &r3[k]);
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A37-CAM f=%llu other-mat r0=(%.6f %.6f %.6f %.6f) r3=(%.6f "
+                          "%.6f %.6f %.6f)",
+                          (unsigned long long)f, r0[0], r0[1], r0[2], r0[3], r3[0], r3[1], r3[2],
+                          r3[3]);
+    }
+  }
 }
 
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
@@ -2436,6 +2577,64 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                         "GK-DIAG x%d=0x%lx", i,
                         (unsigned long)uc->uc_mcontext.regs[i]);
+  }
+
+  // A37-DIAG: dump the instruction window at the faulting PC so SIGILLs
+  // inside dynamically-emitted code (mips2c trampolines, FFI trampolines,
+  // A18 wrappers) can be decoded directly from the log.
+  if (pc >= 0x1000) {
+    for (int row = -2; row <= 3; row++) {
+      uintptr_t base = (pc & ~15ull) + row * 16;
+      const uint32_t* w = reinterpret_cast<const uint32_t*>(base);
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A37-PCWIN 0x%lx: %08x %08x %08x %08x",
+                          (unsigned long)base, w[0], w[1], w[2], w[3]);
+    }
+  }
+  // A37-DIAG: caller window (the BLR site) + the live draw-string symbol
+  // value — run-10 crashes BLR'd a DMA-buffer interior pointer from text
+  // code where the draw-string noop was expected.
+  if (lr >= 0x1000) {
+    for (int row = -8; row <= 0; row++) {
+      uintptr_t base = (lr & ~15ull) + row * 16;
+      const uint32_t* w = reinterpret_cast<const uint32_t*>(base);
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A37-LRWIN 0x%lx: %08x %08x %08x %08x",
+                          (unsigned long)base, w[0], w[1], w[2], w[3]);
+    }
+  }
+  {
+    auto s_ds = jak1::intern_from_c("draw-string");
+    if (s_ds.offset) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG A37-DRAWSTR sym-slot=0x%x value=0x%x", s_ds.offset,
+                          s_ds->value);
+    }
+  }
+  // A37-DIAG: reverse-scan the symbol table for slots whose value equals
+  // the crash target — names the symbol whose function slot held the bad
+  // pointer (run-12: a BLR through a symbol slot at 0x159344 jumped into
+  // a DMA-tag region).
+  if (g_ee_main_mem && SymbolTable2.offset && LastSymbol.offset) {
+    uint32_t pc_goal = (uint32_t)(pc - (uintptr_t)g_ee_main_mem);
+    if (pc >= (uintptr_t)g_ee_main_mem &&
+        pc < (uintptr_t)g_ee_main_mem + EE_MAIN_MEM_SIZE) {
+      int hits = 0;
+      for (uint32_t slot = SymbolTable2.offset; slot < LastSymbol.offset && hits < 6; slot += 4) {
+        uint32_t v = *reinterpret_cast<const uint32_t*>(g_ee_main_mem + slot);
+        if (v == pc_goal) {
+          hits++;
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG A37-WHOSYM slot=0x%x holds crash target 0x%x:", slot,
+                              pc_goal);
+          gk_diag::dump_sym_name_at_slot((uintptr_t)g_ee_main_mem + slot);
+        }
+      }
+      if (!hits) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A37-WHOSYM no symbol slot holds 0x%x", pc_goal);
+      }
+    }
   }
 
   // A34-DIAG: identify the CURRENT PROCESS at the crash. In GOAL code,
@@ -2887,6 +3086,56 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   raise(sig);
 }
 
+// A37 hang forensics: SIGUSR2 = "dump where you are and continue". The
+// watchdog below fires it at the GOAL thread when the frame counter
+// stalls (run-19: calc-animation-from-spr real -> silent freeze at
+// frame ~60, no crash, no log). Reuses the ucontext PC/LR dump shape.
+void gk_sigusr2_hang_dump(int /*sig*/, siginfo_t* /*info*/, void* ucontext) {
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  uintptr_t pc = uc->uc_mcontext.pc;
+  uintptr_t lr = uc->uc_mcontext.regs[30];
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG A37-HANG pc=0x%lx lr=0x%lx",
+                      (unsigned long)pc, (unsigned long)lr);
+  for (uintptr_t addr : {pc, lr}) {
+    Dl_info di{};
+    if (addr && dladdr(reinterpret_cast<void*>(addr), &di) && di.dli_fname) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG A37-HANG-SYM 0x%lx = %s+0x%lx (%s)",
+                          (unsigned long)addr, di.dli_sname ? di.dli_sname : "?",
+                          di.dli_saddr ? (unsigned long)(addr - (uintptr_t)di.dli_saddr) : 0ul,
+                          di.dli_fname);
+    }
+  }
+  for (int i = 0; i < 31; i += 4) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A37-HANG x%d=0x%llx x%d=0x%llx x%d=0x%llx x%d=0x%llx", i,
+                        (unsigned long long)uc->uc_mcontext.regs[i], i + 1,
+                        (unsigned long long)uc->uc_mcontext.regs[i + 1], i + 2,
+                        (unsigned long long)uc->uc_mcontext.regs[i + 2], i + 3,
+                        (unsigned long long)uc->uc_mcontext.regs[i + 3]);
+  }
+  // fp-walk with dladdr per return address — names the C++ chain into the
+  // blocking futex (run-20: GOAL thread parked in a futex syscall).
+  uintptr_t fp = uc->uc_mcontext.regs[29];
+  for (int d = 0; d < 24 && fp >= 0x10000 && (fp & 7) == 0; d++) {
+    uintptr_t next_fp = *reinterpret_cast<const uintptr_t*>(fp);
+    uintptr_t ret = *reinterpret_cast<const uintptr_t*>(fp + 8);
+    Dl_info di{};
+    const char* nm = "?";
+    const char* so = "?";
+    unsigned long off = 0;
+    if (ret && dladdr(reinterpret_cast<void*>(ret), &di) && di.dli_fname) {
+      nm = di.dli_sname ? di.dli_sname : "?";
+      so = strrchr(di.dli_fname, '/') ? strrchr(di.dli_fname, '/') + 1 : di.dli_fname;
+      off = di.dli_saddr ? (unsigned long)(ret - (uintptr_t)di.dli_saddr) : 0;
+    }
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG A37-HANG-FP[%d] fp=0x%lx ret=0x%lx %s+0x%lx (%s)", d,
+                        (unsigned long)fp, (unsigned long)ret, nm, off, so);
+    if (next_fp <= fp) break;
+    fp = next_fp;
+  }
+}
+
 void gk_install_sigsegv_diag() {
   struct sigaction sa{};
   sa.sa_sigaction = &gk_sigsegv_diag;
@@ -2894,8 +3143,12 @@ void gk_install_sigsegv_diag() {
   sigaction(SIGSEGV, &sa, nullptr);
   sigaction(SIGBUS, &sa, nullptr);
   sigaction(SIGILL, &sa, nullptr);
+  struct sigaction sh{};
+  sh.sa_sigaction = &gk_sigusr2_hang_dump;
+  sh.sa_flags = SA_SIGINFO;
+  sigaction(SIGUSR2, &sh, nullptr);
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
-                      "gk_install_sigsegv_diag: installed");
+                      "gk_install_sigsegv_diag: installed (+A37 SIGUSR2 hang dump)");
 }
 }  // namespace
 
