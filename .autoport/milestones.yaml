@@ -720,6 +720,19 @@ phases:
   validator: validators/phase-F1a-android-camera-merc-title-correct.sh
   max_turns: 1500
   max_retries: 3
+- id: F1b-android-joint-decompress-start-geyser
+  name: 'Fix the joint-decompress chain (camera flies, Jak animates) then press START -> Geyser Rock controllable. F1a delivered bug
+    class 12 (swizzle_vf cross products), the merc/generic/sprite port (title merc draws bit-perfect + executing live; Adreno fault =
+    village-data-specific, knob-isolatable), and the camera verdict: pose freezes at logo-loop respawn while channels play —
+    calc-animation-from-spr eliminated (zero calls both backends); the freeze lives in the GOAL channel-eval decompress chain.
+    F1b: TRS-per-joint dump vs oracle + joint.gc op census vs IGenARM64 (the class-11/12 method, bug class 13 candidate) -> fix exact
+    semantics -> camera flies + logo-slaves verify; THEN inject START (overlay coords from boot log), Geyser Rock (training) DGO links,
+    inject movement -> Jak position changes (frames + log timeline as evidence; no fake input evidence). Validator: F1a gates with F1b
+    names. Flight/START/control judged by supervisor vision + logs. max_turns 1500.'
+  prompt: prompts/phase-F1b-android-joint-decompress-start-geyser.md
+  validator: validators/phase-F1b-android-joint-decompress-start-geyser.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
