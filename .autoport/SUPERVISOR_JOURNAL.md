@@ -4791,3 +4791,15 @@ approach is root-cause-first rather than iterate-first. No cheats.
   idle-force-close exit 143; phase NOT marked done — retries=1, will retry attempt 3/3).
 - If attempt 3 also can't land it: author F1c with this exact re-localization (channel/clone
   copy path), drop the disproven op-census mandate.
+### 2026-06-11 19:25 — CAUGHT a FALSE GREEN: F1b marked done, landed zero code
+- F1b validator passed (orchestrator: "run3 satisfies frame/tris gate frame=8820 tris=28547")
+  but its close commit 96d2fb748 changed ONLY reports+PNGs — ZERO source. The only report
+  is a progress report stating "START/Geyser/control NOT reached." The lean render-gate
+  passed on the STALE attempt-1 logcat (village renders since A42). Classic false-green.
+- CORRECTION: authored F1c (real continuation, opus's joint-1 re-localization baked in,
+  forbids the disproven op-census) with a STRICT validator: requires F1c-fix-summary.md
+  (progress reports do NOT pass → honest block) + a camera-flight/level marker (defeats
+  stale-render pass). Inserted idx 83; state idx→83; F1b left in completed (its
+  investigation WAS real + committed) but deliverable explicitly carried to F1c.
+- Memory saved: [[feedback-lean-validator-false-green]] — gate on phase-NEW evidence, not
+  pre-existing render; read close-commit --stat. Applies to F2a/all future visual phases.
