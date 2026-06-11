@@ -1,0 +1,13 @@
+tick=8s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=11s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=13s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=15s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=17s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=19s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=21s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=30s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=45s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=60s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=90s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=120s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=150s pre=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{bcbb377 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "common/goal_constants.h"
 #include "common/util/Assert.h"
@@ -140,6 +141,129 @@ void a37_cam_probe_desktop() {
   }
   fflush(stdout);
 }
+
+// F1b joint-bone probe (OG_F1B_JB=1): per-tick dump of the title logo
+// master + camera-slave joint-chain OUTPUT — nodes 3..5 bone transform
+// row3 (world pos) + row0 (rotation) + channel-0 frame-num. Desktop twin
+// of the F1B-JB block in android/gk_android_main.cpp; diffing the two
+// logs names which stage freezes on-device (GOAL decompress -> master
+// bones -> clone -> slave bones -> othercam).
+bool f1b_rd32(uint32_t goal, uint32_t* out) {
+  if (!g_ee_main_mem || goal < 0x1000 || goal >= (uint32_t)(EE_MAIN_MEM_SIZE - 4)) return false;
+  *out = *reinterpret_cast<const uint32_t*>(g_ee_main_mem + goal);
+  return true;
+}
+
+void f1b_jb_probe_desktop() {
+  static int s_enabled = -1;
+  if (s_enabled < 0) s_enabled = getenv("OG_F1B_JB") ? 1 : 0;
+  if (!s_enabled || g_game_version != GameVersion::Jak1) return;
+  static uint64_t s_frame = 0;
+  uint64_t f = ++s_frame;
+  if (f != 60 && (f % 300) != 0) return;
+  auto s_pool = jak1::intern_from_c("*nk-dead-pool*");
+  uint32_t pool = s_pool.offset ? s_pool->value : 0;
+  if (!pool || pool == s7.offset) return;
+  uint32_t cur = 0;
+  f1b_rd32(pool + 0x4c + 8, &cur);
+  int hops = 0;
+  while (cur && cur != s7.offset && hops++ < 8192) {
+    uint32_t proc = 0, next = 0;
+    if (!f1b_rd32(cur, &proc) || !f1b_rd32(cur + 8, &next)) break;
+    if (proc && proc != s7.offset) {
+      uint32_t namep = 0;
+      f1b_rd32(proc + 0, &namep);
+      char nm[40] = {0};
+      // Process names are GOAL symbols — resolve via the symbol table
+      // (same rule as gk_android_main.cpp's a40_sym_name).
+      if (SymbolTable2.offset && LastSymbol.offset && namep >= SymbolTable2.offset &&
+          namep < LastSymbol.offset && !(namep & 3)) {
+        uint64_t info = static_cast<uint64_t>(namep) + jak1::SYM_INFO_OFFSET;
+        if (info + 8 < EE_MAIN_MEM_SIZE) {
+          uint32_t str_off = *reinterpret_cast<const uint32_t*>(g_ee_main_mem + info + 4);
+          if (str_off && static_cast<uint64_t>(str_off) + 4 + sizeof(nm) < EE_MAIN_MEM_SIZE) {
+            const char* sp = reinterpret_cast<const char*>(g_ee_main_mem + str_off + 4);
+            size_t i = 0;
+            for (; i + 1 < sizeof(nm) && sp[i]; i++) {
+              nm[i] = (sp[i] >= 0x20 && sp[i] <= 0x7e) ? sp[i] : '?';
+            }
+            nm[i] = 0;
+          }
+        }
+      }
+      if (!strcmp(nm, "logo") || !strcmp(nm, "logo-slave")) {
+        uint32_t nl = 0, skel = 0;
+        f1b_rd32(proc + 112, &nl);    // process-drawable.node-list (deftype 116)
+        f1b_rd32(proc + 120, &skel);  // .skel (deftype 124)
+        float fnum = 0.f;
+        uint32_t fg = 0;
+        if (skel && skel != s7.offset) {
+          uint32_t w = 0;
+          f1b_rd32(skel + 56, &fg);  // channel0.frame-group (deftype 60)
+          f1b_rd32(skel + 60, &w);   // channel0.frame-num (deftype 64)
+          memcpy(&fnum, &w, 4);
+        }
+        // F1B-FG: channel-0 frame-group identity — art NAME is a GOAL
+        // STRING (chars at name+4). Twin of the device block.
+        if (fg && fg != s7.offset) {
+          uint32_t fgnamep = 0;
+          f1b_rd32(fg + 4, &fgnamep);  // art.name string (deftype 8)
+          char fgs[48] = {0};
+          if (fgnamep > 0x1000 && fgnamep < (uint32_t)(EE_MAIN_MEM_SIZE - 64)) {
+            const char* sp2 = reinterpret_cast<const char*>(g_ee_main_mem + fgnamep + 4);
+            size_t si = 0;
+            for (; si + 1 < sizeof(fgs) && sp2[si]; si++) {
+              fgs[si] = (sp2[si] >= 0x20 && sp2[si] <= 0x7e) ? sp2[si] : '?';
+            }
+            fgs[si] = 0;
+          }
+          uint32_t frames = 0, nf = 0, fixedp = 0, fr0 = 0, cb0 = 0, cb1 = 0, nj = 0, mb = 0;
+          f1b_rd32(fg + 40, &frames);  // art-joint-anim.frames (deftype 44)
+          if (frames && frames != s7.offset) {
+            f1b_rd32(frames + 0, &nf);
+            f1b_rd32(frames + 12, &fixedp);
+            f1b_rd32(frames + 16, &fr0);
+            if (fixedp) {
+              f1b_rd32(fixedp + 0, &cb0);
+              f1b_rd32(fixedp + 4, &cb1);
+              f1b_rd32(fixedp + 56, &nj);
+              f1b_rd32(fixedp + 60, &mb);
+            }
+          }
+          printf("F1B-FG f=%llu %s proc=0x%x fg=0x%x name='%s' fnum=%.2f frames=0x%x nf=%d "
+                 "fixed=0x%x fr0=0x%x cb=0x%08x/0x%08x nj=%d mb=0x%x\n",
+                 (unsigned long long)f, nm, proc, fg, fgs[0] ? fgs : "?", fnum, frames, (int)nf,
+                 fixedp, fr0, cb0, cb1, (int)nj, mb);
+        }
+        uint32_t nlen = 0;
+        if (nl && nl != s7.offset) f1b_rd32(nl + 0, &nlen);  // cspace-array.length (deftype 4)
+        for (int n = 3; n <= 5 && (uint32_t)n < nlen; n++) {
+          uint32_t csp = nl + 12 + 32 * n;  // data (deftype 16), cspace stride 32
+          uint32_t jw = 0, bone = 0, p0 = 0;
+          f1b_rd32(csp + 8, &jw);  // joint-num int16 (deftype 12)
+          f1b_rd32(csp + 16, &bone);
+          f1b_rd32(csp + 20, &p0);
+          float r3[3] = {0, 0, 0}, r0[3] = {0, 0, 0};
+          if (bone > 0x1000 && bone < (uint32_t)(EE_MAIN_MEM_SIZE - 64)) {
+            for (int k = 0; k < 3; k++) {
+              uint32_t w2 = 0;
+              f1b_rd32(bone + 48 + 4 * k, &w2);
+              memcpy(&r3[k], &w2, 4);
+              f1b_rd32(bone + 4 * k, &w2);
+              memcpy(&r0[k], &w2, 4);
+            }
+          }
+          printf("F1B-JB f=%llu %s proc=0x%x fnum=%.2f n%d j%d bone=0x%x p0=0x%x "
+                 "r3=(%.1f %.1f %.1f) r0=(%.4f %.4f %.4f)\n",
+                 (unsigned long long)f, nm, proc, fnum, n, (int)(int16_t)(jw & 0xffff), bone, p0,
+                 r3[0], r3[1], r3[2], r0[0], r0[1], r0[2]);
+        }
+      }
+    }
+    cur = next;
+  }
+  fflush(stdout);
+}
 }  // namespace
 
 /*!
@@ -168,5 +292,6 @@ u32 sceGsSyncPath(u32 mode, u32 timeout) {
 u32 sceGsSyncV(u32 mode) {
   ASSERT(mode == 0);
   a37_cam_probe_desktop();
+  f1b_jb_probe_desktop();
   return Gfx::vsync();
 }

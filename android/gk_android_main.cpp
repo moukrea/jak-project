@@ -2622,6 +2622,82 @@ extern "C" void a36_tree_scan_per_frame() {
                                 "fnum=%.2f draw-status=0x%x",
                                 (unsigned long long)f, proc2, nm, skel, fg, fgn[0] ? fgn : "?",
                                 fnum, dstat);
+            // F1B-JB: the joint-chain OUTPUT for the same processes —
+            // nodes 3..5 bone transform row3 (world pos) + row0 (rot) +
+            // param0. Twin of f1b_jb_probe_desktop (OG_F1B_JB) in
+            // game/graphics/sceGraphicsInterface.cpp; the diff names the
+            // frozen stage (GOAL decompress -> master bones -> clone ->
+            // slave bones -> othercam).
+            if (!strcmp(nm, "logo") || !strcmp(nm, "logo-slave")) {
+              // F1B-FG: channel-0 frame-group identity — art NAME is a GOAL
+              // STRING (chars at name+4), not a symbol (the old (?)/(#f)
+              // resolutions were the wrong reader). + num-frames (art-joint-
+              // anim.frames.num-frames lives in jacc; use art length field).
+              if (fg && fg != falsev2) {
+                uint32_t fgnamep = 0;
+                rd32(fg + 4, &fgnamep);  // art.name string (deftype 8)
+                char fgs[48] = {0};
+                if (fgnamep > 0x1000 && fgnamep < (uint32_t)(128 * 1024 * 1024 - 64)) {
+                  const char* sp2 =
+                      reinterpret_cast<const char*>(g_ee_main_mem + fgnamep + 4);
+                  size_t si = 0;
+                  for (; si + 1 < sizeof(fgs) && sp2[si]; si++) {
+                    fgs[si] = (sp2[si] >= 0x20 && sp2[si] <= 0x7e) ? sp2[si] : '?';
+                  }
+                  fgs[si] = 0;
+                }
+                // frames (jacc) + fixed-hdr identity: nf/fixed/frame ptrs +
+                // control-bits/num-joints/matrix-bits — names whether the
+                // slave's per-part DATA is patched (str) or static/stale.
+                uint32_t frames = 0, nf = 0, fixedp = 0, fr0 = 0, cb0 = 0, cb1 = 0, nj = 0,
+                         mb = 0;
+                rd32(fg + 40, &frames);  // art-joint-anim.frames (deftype 44)
+                if (frames && frames != falsev2) {
+                  rd32(frames + 0, &nf);
+                  rd32(frames + 12, &fixedp);
+                  rd32(frames + 16, &fr0);
+                  if (fixedp) {
+                    rd32(fixedp + 0, &cb0);
+                    rd32(fixedp + 4, &cb1);
+                    rd32(fixedp + 56, &nj);
+                    rd32(fixedp + 60, &mb);
+                  }
+                }
+                __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                    "GK-DIAG F1B-FG f=%llu %s proc=0x%x fg=0x%x name='%s' "
+                                    "fnum=%.2f frames=0x%x nf=%d fixed=0x%x fr0=0x%x "
+                                    "cb=0x%08x/0x%08x nj=%d mb=0x%x",
+                                    (unsigned long long)f, nm, proc2, fg, fgs[0] ? fgs : "?",
+                                    fnum, frames, (int)nf, fixedp, fr0, cb0, cb1, (int)nj, mb);
+              }
+              uint32_t nl = 0;
+              rd32(proc2 + 112, &nl);  // process-drawable.node-list (deftype 116)
+              uint32_t nlen = 0;
+              if (nl && nl != falsev2) rd32(nl + 0, &nlen);  // cspace-array.length
+              for (int n = 3; n <= 5 && (uint32_t)n < nlen; n++) {
+                uint32_t csp = nl + 12 + 32 * n;  // data (deftype 16), cspace stride 32
+                uint32_t jw = 0, bone = 0, p0 = 0;
+                rd32(csp + 8, &jw);  // joint-num int16 (deftype 12)
+                rd32(csp + 16, &bone);
+                rd32(csp + 20, &p0);
+                float r3[3] = {0, 0, 0}, r0v[3] = {0, 0, 0};
+                if (bone > 0x1000 && bone < (uint32_t)(128 * 1024 * 1024 - 64)) {
+                  for (int k = 0; k < 3; k++) {
+                    uint32_t w2 = 0;
+                    rd32(bone + 48 + 4 * k, &w2);
+                    memcpy(&r3[k], &w2, 4);
+                    rd32(bone + 4 * k, &w2);
+                    memcpy(&r0v[k], &w2, 4);
+                  }
+                }
+                __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                    "GK-DIAG F1B-JB f=%llu %s proc=0x%x fnum=%.2f n%d j%d "
+                                    "bone=0x%x p0=0x%x r3=(%.1f %.1f %.1f) r0=(%.4f %.4f %.4f)",
+                                    (unsigned long long)f, nm, proc2, fnum, n,
+                                    (int)(int16_t)(jw & 0xffff), bone, p0, r3[0], r3[1], r3[2],
+                                    r0v[0], r0v[1], r0v[2]);
+              }
+            }
           }
         }
         cur2 = next2;

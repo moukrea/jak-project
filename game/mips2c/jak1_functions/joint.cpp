@@ -1,6 +1,14 @@
 //--------------------------MIPS2C---------------------
+#include <cstdio>
+#include <cstdlib>
+
 #include "game/kernel/jak1/kscheme.h"
 #include "game/mips2c/mips2c_private.h"
+#ifdef __ANDROID__
+#include <unistd.h>
+
+#include "common/util/FileUtil.h"
+#endif
 using namespace jak1;
 // clang-format off
 
@@ -2424,9 +2432,43 @@ namespace Mips2C::jak1 {
 namespace cspace_parented_transformq_joint {
 // A37 canary buffer (shared by the pre/post checks below).
 u8* g_a37_csp_canary = nullptr;
+// F1b TRS tap (both backends): windowed dump of this function's INPUT
+// transformq (= the GOAL decompressor's per-joint output) and OUTPUT bone
+// row3. Diffing device vs desktop names whether the title-course freeze is
+// upstream (tq frozen => GOAL decompress chain) or at/after this bone
+// build (tq moves, bone frozen). Gated by OG_F1B_TRS (desktop env) or the
+// f1b_trs marker file in the app files dir (device, run-as touch); 48-call
+// window every 8192 calls; no behavior change.
+bool f1b_trs_enabled() {
+  static const bool s_on = [] {
+    if (getenv("OG_F1B_TRS")) {
+      return true;
+    }
+#ifdef __ANDROID__
+    auto p = file_util::get_jak_project_dir() / "f1b_trs";
+    if (access(p.string().c_str(), F_OK) == 0) {
+      fprintf(stderr, "F1B-TRS knob armed (%s)\n", p.string().c_str());
+      return true;
+    }
+#endif
+    return false;
+  }();
+  return s_on;
+}
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
   bool bc = false;
+  static u64 s_f1b_n = 0;
+  bool f1b_dump = false;
+  u32 f1b_a0 = 0, f1b_a1 = 0;
+  if (f1b_trs_enabled()) {
+    u64 n = s_f1b_n++;
+    if ((n & 8191) < 48) {
+      f1b_dump = true;
+      f1b_a0 = (u32)c->sgpr64(a0);
+      f1b_a1 = (u32)c->sgpr64(a1);
+    }
+  }
   // A37 diag (arm64 bring-up): this body was observed stomping the font
   // object's code through a2 = cspace.bone. Log the pointer args for the
   // first calls and for any bone pointer in the engine-code band so the
@@ -2451,6 +2493,14 @@ u64 execute(void* ctxt) {
       }
       s_calls++;
       if (suspicious) {
+        // F1b: this skip was SILENT past call 200 — make every skipped
+        // bone store visible while the TRS tap is armed (capped).
+        static int s_f1b_skips = 0;
+        if (f1b_trs_enabled() && s_f1b_skips < 200) {
+          s_f1b_skips++;
+          fprintf(stderr, "F1B-TRS SUSPICIOUS-SKIP #%d csp=0x%x bone=0x%x\n", s_f1b_skips, a0v,
+                  bonev);
+        }
         return 0;
       }
     } else {
@@ -2617,6 +2667,29 @@ u64 execute(void* ctxt) {
     }
   }
 #endif  // __aarch64__
+  if (f1b_dump && g_ee_main_mem && f1b_a0 >= 0x1000 && f1b_a1 >= 0x1000 &&
+      f1b_a0 < (u32)(128 * 1024 * 1024 - 64) && f1b_a1 < (u32)(128 * 1024 * 1024 - 64)) {
+    auto rdf = [&](u32 ga) {
+      float v;
+      memcpy(&v, g_ee_main_mem + ga, 4);
+      return v;
+    };
+    u32 jw = 0, bone = 0;
+    memcpy(&jw, g_ee_main_mem + f1b_a0 + 8, 4);   // cspace.joint-num (int16)
+    memcpy(&bone, g_ee_main_mem + f1b_a0 + 16, 4);
+    float r3x = 0, r3y = 0, r3z = 0;
+    if (bone >= 0x1000 && bone < (u32)(128 * 1024 * 1024 - 64)) {
+      r3x = rdf(bone + 48);
+      r3y = rdf(bone + 52);
+      r3z = rdf(bone + 56);
+    }
+    fprintf(stderr,
+            "F1B-TRS n=%llu csp=0x%x j=%d bone=0x%x t=(%.2f %.2f %.2f) "
+            "q=(%.4f %.4f %.4f %.4f) s=(%.3f) r3=(%.2f %.2f %.2f)\n",
+            (unsigned long long)s_f1b_n, f1b_a0, (int)(s16)(jw & 0xffff), bone, rdf(f1b_a1),
+            rdf(f1b_a1 + 4), rdf(f1b_a1 + 8), rdf(f1b_a1 + 16), rdf(f1b_a1 + 20),
+            rdf(f1b_a1 + 24), rdf(f1b_a1 + 28), rdf(f1b_a1 + 32), r3x, r3y, r3z);
+  }
   return c->gprs[v0].du64[0];
 }
 
