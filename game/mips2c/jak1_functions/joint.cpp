@@ -2156,6 +2156,30 @@ namespace calc_animation_from_spr {
 
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
+#ifdef __ANDROID__
+  // F1a: invocation heartbeat — the title camera-slave's channel PLAYS
+  // (frame-group fresh, frame-num cycling) yet its joint pose freezes from
+  // logo-loop on. Zero calls here past that point = eval skipped for clone
+  // channels; climbing calls = decompress runs but its spad inputs are
+  // constant. One line per ~5 s of calls. Run-12: ZERO calls in 150 s.
+  {
+    static int s_f1a_calls = 0;
+    if ((s_f1a_calls++ % 300) == 0) {
+      fprintf(stderr, "F1A-CALCANIM calls=%d\n", s_f1a_calls);
+    }
+  }
+#else
+  // Desktop twin (env-gated): is this even called during the title on the
+  // known-good backend? Zero on both = wrong suspect; thousands on desktop
+  // = Android's foreground joint pipeline never engages.
+  {
+    static const bool s_dump = getenv("F1A_MERC_DUMP") != nullptr;
+    static int s_f1a_calls = 0;
+    if (s_dump && (s_f1a_calls++ % 300) == 0) {
+      fprintf(stderr, "F1A-CALCANIM calls=%d\n", s_f1a_calls);
+    }
+  }
+#endif
   bool bc = false;
   [[maybe_unused]] u32 call_addr = 0;
   u32 madr, sadr, qwc;

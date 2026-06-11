@@ -1,0 +1,11 @@
+tick=10s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=20s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=30s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=45s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=60s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=75s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=90s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=105s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=120s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=135s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+tick=150s pre=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} post=  mCurrentFocus=Window{6429f07 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
