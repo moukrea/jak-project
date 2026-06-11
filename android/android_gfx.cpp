@@ -324,8 +324,20 @@ void post_swap_tick() {
   d->sync_cv.notify_all();
 }
 
+// A40: entry/exit counters for the GOAL-thread-facing shims. The A40-DPROC
+// probe prints them at 1 Hz — they discriminate "display-loop iterates but
+// aborts between syncv and the send" from "display-loop is never resumed"
+// without any GOAL-side instrumentation. Plain atomics; zero cost when the
+// probe property is off (nothing reads them).
+std::atomic<u64> g_a40_vsync_entry{0};
+std::atomic<u64> g_a40_vsync_exit{0};
+std::atomic<u64> g_a40_syncpath_entry{0};
+std::atomic<u64> g_a40_syncpath_exit{0};
+
 u32 vsync() {
+  g_a40_vsync_entry.fetch_add(1, std::memory_order_relaxed);
   if (!g_renderer_ready.load()) {
+    g_a40_vsync_exit.fetch_add(1, std::memory_order_relaxed);
     return 0;
   }
   auto* d = g_data;
@@ -334,19 +346,24 @@ u32 vsync() {
   d->sync_cv.wait(lock, [=] {
     return (MasterExit != RuntimeExitStatus::RUNNING) || d->frame_idx > init_frame;
   });
+  g_a40_vsync_exit.fetch_add(1, std::memory_order_relaxed);
   return d->frame_idx & 1;
 }
 
 u32 sync_path() {
+  g_a40_syncpath_entry.fetch_add(1, std::memory_order_relaxed);
   if (!g_renderer_ready.load()) {
+    g_a40_syncpath_exit.fetch_add(1, std::memory_order_relaxed);
     return 0;
   }
   auto* d = g_data;
   std::unique_lock<std::mutex> lock(d->dma_mutex);
   if (!d->has_data_to_render) {
+    g_a40_syncpath_exit.fetch_add(1, std::memory_order_relaxed);
     return 0;
   }
   d->sync_cv.wait(lock, [=] { return !d->has_data_to_render; });
+  g_a40_syncpath_exit.fetch_add(1, std::memory_order_relaxed);
   return 0;
 }
 
@@ -437,3 +454,16 @@ const GfxRendererModule* renderer_module() {
 }
 
 }  // namespace android_gfx
+
+// A40: shim-counter snapshot for the gk_android_main.cpp 1 Hz probe.
+// out[0..5] = vsync_entry, vsync_exit, sync_path_entry, sync_path_exit,
+// chains_received, chains_dropped_pre_init.
+extern "C" void gk_a40_shim_counters(unsigned long long out[6]) {
+  using namespace android_gfx;
+  out[0] = g_a40_vsync_entry.load(std::memory_order_relaxed);
+  out[1] = g_a40_vsync_exit.load(std::memory_order_relaxed);
+  out[2] = g_a40_syncpath_entry.load(std::memory_order_relaxed);
+  out[3] = g_a40_syncpath_exit.load(std::memory_order_relaxed);
+  out[4] = g_chains_received.load(std::memory_order_relaxed);
+  out[5] = g_chains_dropped_pre_init.load(std::memory_order_relaxed);
+}

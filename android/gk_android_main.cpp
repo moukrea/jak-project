@@ -2841,6 +2841,218 @@ void log_display_probe(const char* tag) {
   }
 }
 
+// ---- A40-DPROC (debug.opengoal.a40.dproc=1, default off) ----
+// A40 finding so far: every A39 boot, display-loop runs its pre-loop
+// (2 display-syncs -> the single dropped send_chain, flip lands at
+// on=0/last=1, frame-start(0)'s debug-init leaves buf0 at data+0x50)
+// and then suspends at main.gc:369 and is NEVER dispatched again, while
+// every other process keeps running on the same kernel thread. The
+// kernel-dispatcher only resumes status 'waiting-to-run / 'suspended
+// (gkernel.gc:1332). This probe reads the 'display process record live
+// to name WHY it is skipped: bad status, dead, masked, unlinked from
+// the tree, or *run* cleared. Pure reads; off by default.
+static bool a40_sym_name(uintptr_t ee, uint32_t p, char* out, size_t n) {
+  out[0] = 0;
+  if (!SymbolTable2.offset || !LastSymbol.offset) {
+    return false;
+  }
+  if (p < SymbolTable2.offset || p >= LastSymbol.offset || (p & 3)) {
+    return false;
+  }
+  uint64_t info = static_cast<uint64_t>(p) + jak1::SYM_INFO_OFFSET;
+  if (info + 8 >= EE_MAIN_MEM_SIZE) {
+    return false;
+  }
+  uint32_t str_off = *reinterpret_cast<const uint32_t*>(ee + info + 4);
+  if (!str_off || static_cast<uint64_t>(str_off) + 4 + n >= EE_MAIN_MEM_SIZE) {
+    return false;
+  }
+  const char* sp = reinterpret_cast<const char*>(ee + str_off + 4);
+  size_t i = 0;
+  for (; i + 1 < n && sp[i]; i++) {
+    out[i] = (sp[i] >= 0x20 && sp[i] <= 0x7e) ? sp[i] : '?';
+  }
+  out[i] = 0;
+  return out[0] != 0;
+}
+
+// v2: all GOAL "basic" field reads use deftype-offset minus 4 (boxed
+// basics point 4 past the type tag — the v1 probe forgot this and read
+// every field one slot late; the A34-DIAG dumps already used the -4 rule).
+extern "C" void gk_a40_shim_counters(unsigned long long out[6]);
+
+void a40_dproc_probe(const char* tag) {
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  if (!ee) {
+    return;
+  }
+  auto rd = [ee](uint32_t goal, uint32_t* out) -> bool {
+    if (goal < 0x1000 || goal >= EE_MAIN_MEM_SIZE - 4) {
+      return false;
+    }
+    *out = *reinterpret_cast<const uint32_t*>(ee + goal);
+    return true;
+  };
+  auto symval = [](const char* nm) -> uint32_t {
+    auto s = jak1::intern_from_c(nm);
+    return s.offset ? s->value : 0;
+  };
+  uint32_t run = symval("*run*");
+  uint32_t dproc = symval("*dproc*");
+  uint32_t mm = symval("*master-mode*");
+  uint32_t kctx = symval("*kernel-context*");
+  uint32_t oddeven = symval("*oddeven*");
+  uint32_t vparms = symval("*video-parms*");
+  uint32_t prevent = 0, curproc = 0, svm = 0, rvm = 0;
+  rd(kctx + 0, &prevent);   // kernel-context.prevent-from-run (deftype 4)
+  rd(kctx + 20, &curproc);  // kernel-context.current-process (deftype 24)
+  rd(vparms + 0, &svm);     // video-parms is a structure: set-video-mode at +0
+  rd(vparms + 4, &rvm);     // reset-video-mode at +4
+  char mmn[40], runn[40];
+  a40_sym_name(ee, mm, mmn, sizeof(mmn));
+  a40_sym_name(ee, run, runn, sizeof(runn));
+  unsigned long long c[6] = {0, 0, 0, 0, 0, 0};
+  gk_a40_shim_counters(c);
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "A40-DPROC %s *run*=0x%x(%s) *dproc*=0x%x *master-mode*=%s(0x%x) "
+                      "prevent=0x%x cur=0x%x oddeven=0x%x set-vm=0x%x reset-vm=0x%x",
+                      tag, run, runn[0] ? runn : "?", dproc, mmn[0] ? mmn : "?", mm, prevent,
+                      curproc, oddeven, svm, rvm);
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "A40-DPROC %s shims vsync=%llu/%llu sync-path=%llu/%llu sends=%llu "
+                      "dropped=%llu",
+                      tag, c[0], c[1], c[2], c[3], c[4], c[5]);
+  if (dproc >= 0x1000 && dproc < EE_MAIN_MEM_SIZE - 128) {
+    uint32_t name = 0, mask = 0, status = 0, pid = 0, pool = 0, mthr = 0, tthr = 0, stt = 0,
+             nstate = 0;
+    rd(dproc + 0, &name);    // deftype 4
+    rd(dproc + 4, &mask);    // deftype 8
+    rd(dproc + 28, &pool);   // deftype 32
+    rd(dproc + 32, &status); // deftype 36
+    rd(dproc + 36, &pid);    // deftype 40
+    rd(dproc + 40, &mthr);   // deftype 44 main-thread
+    rd(dproc + 44, &tthr);   // deftype 48 top-thread
+    rd(dproc + 52, &stt);    // deftype 56 state
+    rd(dproc + 72, &nstate); // deftype 76 next-state
+    char nn[40], st[40];
+    a40_sym_name(ee, name, nn, sizeof(nn));
+    a40_sym_name(ee, status, st, sizeof(st));
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "A40-DPROC %s proc=0x%x name=%s(0x%x) status=%s(0x%x) pid=%d mask=0x%x "
+                        "pool=0x%x state=0x%x next-state=0x%x top-thread=0x%x",
+                        tag, dproc, nn[0] ? nn : "?", name, st[0] ? st : "?", status, (int)pid,
+                        mask, pool, stt, nstate, tthr);
+    if (mthr >= 0x1000 && mthr < EE_MAIN_MEM_SIZE - 64) {
+      uint32_t pc = 0, sp = 0, stop_ = 0, ssz = 0, shook = 0, rhook = 0;
+      rd(mthr + 12, &shook); // thread.suspend-hook (deftype 16)
+      rd(mthr + 16, &rhook); // thread.resume-hook (deftype 20)
+      rd(mthr + 20, &pc);    // thread.pc (deftype 24)
+      rd(mthr + 24, &sp);    // thread.sp (deftype 28)
+      rd(mthr + 28, &stop_); // thread.stack-top (deftype 32)
+      rd(mthr + 32, &ssz);   // thread.stack-size (deftype 36)
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "A40-DPROC %s mthr=0x%x pc=0x%x sp=0x%x stack-top=0x%x stack-size=%d "
+                          "suspend-hook=0x%x resume-hook=0x%x",
+                          tag, mthr, pc, sp, stop_, (int)ssz, shook, rhook);
+      // Saved-pc neighborhood: names WHICH suspend site the thread parks
+      // at (pre-loop main.gc:369 vs loop-bottom main.gc:570) once decoded
+      // against the static main.o disasm. Static code — tiny dump.
+      if (pc >= 0x1040 && static_cast<uint64_t>(pc) + 0x20 < EE_MAIN_MEM_SIZE) {
+        for (int row = -2; row <= 1; row++) {
+          const uint32_t base = pc + row * 16;
+          const uint32_t* w = reinterpret_cast<const uint32_t*>(ee + base);
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "A40-DPROC %s pcwin 0x%x: %08x %08x %08x %08x", tag, base, w[0],
+                              w[1], w[2], w[3]);
+        }
+      }
+    }
+  }
+  // Display buffers, sampled alongside the process state: on-screen,
+  // last-screen, and both frames' global-buf {field, base, data} — the
+  // walk shows as buf base ≫ data with no resets between samples.
+  {
+    uint32_t disp = symval("*display*");
+    if (disp >= 0x1000 && disp < EE_MAIN_MEM_SIZE - 0x400) {
+      uint32_t onscr = 0, lastscr = 0;
+      rd(disp + 556, &onscr);   // display.on-screen (mem, A38-verified)
+      rd(disp + 560, &lastscr); // display.last-screen (mem)
+      char bufline[300];
+      size_t boff = 0;
+      bufline[0] = 0;
+      for (int i = 0; i < 2; i++) {
+        uint32_t frame = 0, gb = 0, gbase = 0, gend = 0;
+        rd(disp + 564 + 32 * i + 16, &frame); // frames[i].frame (mem, A38-verified)
+        if (frame >= 0x1000) {
+          rd(frame + 36, &gb); // display-frame.global-buf (deftype 40)
+          if (gb >= 0x1000) {
+            rd(gb + 4, &gbase); // dma-buffer.base (deftype 8)
+            rd(gb + 8, &gend);  // dma-buffer.end (deftype 12)
+          }
+        }
+        int w = snprintf(bufline + boff, sizeof(bufline) - boff,
+                         " f%d.gb=0x%x base=0x%x end=0x%x data=0x%x", i, gb, gbase, gend,
+                         gb + 12);
+        if (w <= 0 || static_cast<size_t>(w) >= sizeof(bufline) - boff) {
+          break;
+        }
+        boff += static_cast<size_t>(w);
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "A40-DPROC %s disp=0x%x on-screen=%d last-screen=%d%s", tag, disp,
+                          (int)onscr, (int)lastscr, bufline);
+    }
+  }
+  static const char* const kPools[2] = {"*display-pool*", "*active-pool*"};
+  for (int pi = 0; pi < 2; pi++) {
+    uint32_t pl = symval(kPools[pi]);
+    if (pl < 0x1000 || pl >= EE_MAIN_MEM_SIZE - 64) {
+      continue;
+    }
+    uint32_t childp = 0;
+    rd(pl + 16, &childp);  // process-tree.child (deftype 20)
+    int n = 0;
+    char line[440];
+    size_t off = 0;
+    line[0] = 0;
+    while (childp >= 0x1000 && childp < EE_MAIN_MEM_SIZE - 64 && n < 12) {
+      uint32_t node = 0;
+      if (!rd(childp, &node) || node < 0x1000 || node >= EE_MAIN_MEM_SIZE - 128) {
+        break;
+      }
+      uint32_t nm = 0, st2 = 0;
+      rd(node + 0, &nm);    // name (deftype 4)
+      rd(node + 32, &st2);  // status (deftype 36; garbage for plain tree nodes)
+      char nn[40];
+      if (!a40_sym_name(ee, nm, nn, sizeof(nn))) {
+        nn[0] = 0;
+        if (nm >= 0x1000 && static_cast<uint64_t>(nm) + 44 < EE_MAIN_MEM_SIZE) {
+          const char* spx = reinterpret_cast<const char*>(ee + nm + 4);
+          size_t i = 0;
+          for (; i < 39 && spx[i] >= 0x20 && spx[i] <= 0x7e; i++) {
+            nn[i] = spx[i];
+          }
+          nn[i] = 0;
+        }
+      }
+      char stn[40];
+      a40_sym_name(ee, st2, stn, sizeof(stn));
+      int w = snprintf(line + off, sizeof(line) - off, " %s:0x%x/%s", nn[0] ? nn : "?", node,
+                       stn[0] ? stn : "?");
+      if (w <= 0 || static_cast<size_t>(w) >= sizeof(line) - off) {
+        break;
+      }
+      off += static_cast<size_t>(w);
+      n++;
+      uint32_t bro = 0;
+      rd(node + 12, &bro);  // brother (deftype 16)
+      childp = bro;
+    }
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "A40-DPROC %s %s=0x%x n=%d%s", tag,
+                        kPools[pi], pl, n, line);
+  }
+}
+
 // The resuming write-fault intercept. Returns true when the fault was a
 // band trip (handled — caller must plain-return so the store retries).
 bool handle_band_fault(siginfo_t* info, void* ucontext) {
@@ -2935,6 +3147,62 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
       uc->uc_mcontext.pc += 4;
       emulated = true;
       g_emulated.fetch_add(1, std::memory_order_relaxed);
+      // A40-SWEEP (debug.opengoal.a40.sweepdump=1): when the banded store
+      // comes from print-game-text itself (the runaway blank-line loop
+      // appending NEXT packets across the band), dump the live loop
+      // state: sv-164 line-advance [sp+120], sv-156 bottom-y [sp+136],
+      // sv-136 scale [sp+216], gp-0 (x11) origin.y [gp0+16] and the
+      // buffer (x?) — the sweeping invocation's parameters, captured
+      // mid-sweep instead of at the (later, innocent) crash frame.
+      {
+        static std::atomic<int> s_a40_sw{-1};
+        int sw = s_a40_sw.load(std::memory_order_acquire);
+        if (sw == -1) {
+          char swb[PROP_VALUE_MAX] = {0};
+          sw = (__system_property_get("debug.opengoal.a40.sweepdump", swb) > 0 && swb[0] == '1')
+                   ? 1
+                   : 0;
+          s_a40_sw.store(sw, std::memory_order_release);
+        }
+        if (sw == 1) {
+          static uint32_t s_pgt_lo = 0, s_pgt_hi = 0;
+          if (!s_pgt_lo) {
+            auto s_pgt = jak1::intern_from_c("print-game-text");
+            uint32_t v = s_pgt.offset ? s_pgt->value : 0;
+            if (v >= 0x1000) {
+              s_pgt_lo = v;
+              s_pgt_hi = v + 0x1470;
+            }
+          }
+          uint32_t pcg = to_goal(pc);
+          if (s_pgt_lo && pcg >= s_pgt_lo && pcg < s_pgt_hi) {
+            static std::atomic<int> s_sweep_logs{14};
+            if (s_sweep_logs.fetch_sub(1, std::memory_order_relaxed) > 0) {
+              const uintptr_t spv = (uintptr_t)uc->uc_mcontext.sp;
+              float sv164 = 0, sv156 = 0, sv136 = 0, oy = 0, oh = 0;
+              memcpy(&sv164, reinterpret_cast<const void*>(spv + 120), 4);
+              memcpy(&sv156, reinterpret_cast<const void*>(spv + 136), 4);
+              memcpy(&sv136, reinterpret_cast<const void*>(spv + 216), 4);
+              uintptr_t ee2 = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+              uint32_t gp0 = (uint32_t)(uc->uc_mcontext.regs[11] & 0xFFFFFFFFu);
+              uint32_t fctx = (uint32_t)(uc->uc_mcontext.regs[5] & 0xFFFFFFFFu);
+              if (gp0 >= 0x1000 && gp0 < EE_MAIN_MEM_SIZE - 64) {
+                memcpy(&oy, reinterpret_cast<const void*>(ee2 + gp0 + 16), 4);
+              }
+              if (fctx >= 0x1000 && fctx < EE_MAIN_MEM_SIZE - 64) {
+                memcpy(&oh, reinterpret_cast<const void*>(ee2 + fctx + 48), 4);
+              }
+              __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                  "A40-SWEEP pc=goal:0x%x fault=goal:0x%x sv-164(adv)=%.6g "
+                                  "sv-156(bottom)=%.6g sv-136(scale)=%.6g gp0=0x%x origin.y=%.6g "
+                                  "fctx=0x%x fctx.height=%.6g x6=0x%llx",
+                                  pcg, static_cast<uint32_t>(fault - ee2), sv164, sv156, sv136,
+                                  gp0, oy, fctx, oh,
+                                  (unsigned long long)uc->uc_mcontext.regs[6]);
+            }
+          }
+        }
+      }
       // Flip-cell trace: on-screen/last-screen writes get a dedicated
       // pre/post line so the frozen-flip paradox is settled with data.
       if (g_lo2_host && !g_base_cell[0] && fault >= g_lo2_host && fault < g_hi2_host) {
@@ -3219,6 +3487,11 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     }
   }
 
+  // A40: the display-process state at death (always-on here — the crash
+  // dump already prints dozens of lines; this is the one that names the
+  // dispatcher-skip mechanism).
+  a38_trip::a40_dproc_probe("at-crash");
+
   // A34-DIAG: identify the CURRENT PROCESS at the crash. In GOAL code,
   // X13 = pp (the current process, reserved on every backend) and
   // X15 = the EE base. Boxed basics point 4 past their type tag, so a
@@ -3303,6 +3576,31 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                           "GK-DIAG A34-DIAG pp-dump skipped (x15/x13 not "
                           "GOAL-shaped: x15=0x%lx x13=0x%lx)",
                           (unsigned long)ee, (unsigned long)pp_goal);
+    }
+    // A40-SPWIN: the boot3 sweep crash executes the freshly-written DMA
+    // tag at draw-string's entry BEFORE any prologue runs, so uc->sp at
+    // the SIGILL is print-game-text's LIVE frame. Its decompiled locals
+    // are stack vars at fixed byte offsets (sv-NNN = [frame+NNN]): the
+    // blank-line loop's floats (sv-136 scale, sv-144 x, sv-156 bottom-y,
+    // sv-160 space-w, sv-164 line-h) plus the stack font-context land in
+    // this window. 0x180 bytes, hex + float rendering, crash-path only.
+    {
+      uintptr_t spw = (uintptr_t)uc->uc_mcontext.sp;
+      for (int off = 0; off < 0x3c0; off += 16) {
+        uint32_t w[4] = {0, 0, 0, 0};
+        bool any = false;
+        for (int k = 0; k < 4; k++) {
+          any |= gk_diag::safe_read_u32(spw + off + 4 * k, &w[k]);
+        }
+        if (!any) {
+          break;
+        }
+        float f[4];
+        memcpy(f, w, 16);
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG A40-SPWIN +%03x: %08x %08x %08x %08x | %.6g %.6g %.6g %.6g",
+                            off, w[0], w[1], w[2], w[3], f[0], f[1], f[2], f[3]);
+      }
     }
     // A34-DIAG run-8: walk the GOAL frame-pointer chain. The arm64 GOAL
     // prologue is STP X29,X30,[SP,#-16]!; MOV X29,SP — so [X29] = caller's
@@ -3774,6 +4072,29 @@ void gk_install_sigsegv_diag() {
 //                 link-phase writes show up as named writers — noisy)
 extern "C" void gk_a38_tripwire_frame_hook(int chain_phase) {
   using namespace a38_trip;
+  // ---- A40-DPROC tick (debug.opengoal.a40.dproc=1, default off): dense
+  // sampling through the first ~10s of boot (the display-loop death is at
+  // ~0.7s after `play`), then sparse. chain_phase==0 only (one tick/frame).
+  {
+    static std::atomic<int> s_a40_dp{-1};
+    int dp = s_a40_dp.load(std::memory_order_acquire);
+    if (dp == -1) {
+      char dbuf[PROP_VALUE_MAX] = {0};
+      int dn = __system_property_get("debug.opengoal.a40.dproc", dbuf);
+      dp = (dn > 0 && dbuf[0] == '1') ? 1 : 0;
+      s_a40_dp.store(dp, std::memory_order_release);
+    }
+    if (dp == 1 && chain_phase == 0) {
+      static uint64_t s_a40_f = 0;
+      uint64_t f = ++s_a40_f;
+      if (f <= 8 || (f <= 240 && (f % 15) == 0) || (f <= 900 && (f % 60) == 0) ||
+          (f % 600) == 0) {
+        char tg[24];
+        snprintf(tg, sizeof(tg), "f%llu", (unsigned long long)f);
+        a40_dproc_probe(tg);
+      }
+    }
+  }
   // ---- A39-SYMDUMP (debug.opengoal.a39.symdump=1, default off): the run1
   // SIGILL BLR'd 0x190bb34 out of a slot named "draw-string" that font.o's
   // link had bound to the shared noop (0x4d36b4) — something rewrites the
