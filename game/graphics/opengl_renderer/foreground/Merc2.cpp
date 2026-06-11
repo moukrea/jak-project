@@ -15,6 +15,43 @@
 
 #include "third-party/imgui/imgui.h"
 
+// F1a bisection knobs: the first merc draw SIGSEGVs inside the Adreno driver
+// with state-legal parameters (runs 4-8). Toggle GL stages off via marker
+// files in the app files dir (run-as touch, no rebuild):
+//   f1a_merc_nodraw — skip the glDrawElements calls (all other state runs)
+//   f1a_merc_noubo  — skip glBindBufferRange of the bones UBO
+//   f1a_merc_notex  — skip glBindTexture
+namespace {
+#ifdef __ANDROID__
+// Lazy: get_jak_project_dir() is only valid after JNI hands over the files
+// dir — static-init evaluation killed the app at library load (run-9).
+bool f1a_merc_knob(const char* name) {
+  auto p = file_util::get_jak_project_dir() / name;
+  return access(p.string().c_str(), F_OK) == 0;
+}
+struct F1aKnobs {
+  bool nodraw, noubo, notex;
+};
+const F1aKnobs& f1a_knobs() {
+  static const F1aKnobs k = [] {
+    F1aKnobs r{f1a_merc_knob("f1a_merc_nodraw"), f1a_merc_knob("f1a_merc_noubo"),
+               f1a_merc_knob("f1a_merc_notex")};
+    fprintf(stderr, "F1A-MERC-KNOBS nodraw=%d noubo=%d notex=%d\n", (int)r.nodraw, (int)r.noubo,
+            (int)r.notex);
+    return r;
+  }();
+  return k;
+}
+#define f1a_nodraw (f1a_knobs().nodraw)
+#define f1a_noubo (f1a_knobs().noubo)
+#define f1a_notex (f1a_knobs().notex)
+#else
+constexpr bool f1a_nodraw = false;
+constexpr bool f1a_noubo = false;
+constexpr bool f1a_notex = false;
+#endif
+}  // namespace
+
 /* Merc 2 renderer:
  The merc2 renderer is the main "foreground" renderer, which draws characters, collectables,
  and even some water.
@@ -106,6 +143,42 @@ Merc2::Merc2(ShaderLibrary& shaders, const std::vector<GLuint>* anim_slot_array)
   init_shader_common(shaders[ShaderId::MERC2], &m_merc_uniforms, true);
   init_shader_common(shaders[ShaderId::EMERC], &m_emerc_uniforms, false);
   m_emerc_uniforms.fade = glGetUniformLocation(shaders[ShaderId::EMERC].id(), "fade");
+
+#ifdef __ANDROID__
+  // F1a self-test (knob f1a_merc_selftest): one minimal MERC2 draw at init —
+  // 3 zeroed vertices, indices {0,1,2}, bones UBO range [0,16K). The first
+  // REAL merc draw SIGSEGVs inside the Adreno driver with state-legal
+  // params; if THIS draw crashes too, the fault is the program+driver
+  // (deferred pipeline compile of the per-vertex UBO-array indexing), fully
+  // independent of game data.
+  if (f1a_merc_knob("f1a_merc_selftest")) {
+    GLuint vb = 0, ib = 0;
+    glGenBuffers(1, &vb);
+    glGenBuffers(1, &ib);
+    std::vector<tfrag3::MercVertex> verts(3);
+    memset(verts.data(), 0, sizeof(tfrag3::MercVertex) * 3);
+    for (auto& v : verts) {
+      v.weights[0] = 1.f;
+    }
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vb);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(tfrag3::MercVertex) * 3, verts.data(), GL_STATIC_DRAW);
+    const u32 idx[3] = {0, 1, 2};
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ib);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
+    setup_merc_vao();
+    glBindBufferRange(GL_UNIFORM_BUFFER, 1, m_bones_buffer, 0, 128 * sizeof(ShaderMercMat));
+    shaders[ShaderId::MERC2].activate();
+    fprintf(stderr, "F1A-MERC-SELFTEST drawing...\n");
+    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+    GLenum e = glGetError();
+    glFinish();
+    fprintf(stderr, "F1A-MERC-SELFTEST survived err=0x%x\n", (unsigned)e);
+    glBindVertexArray(0);
+    glDeleteBuffers(1, &vb);
+    glDeleteBuffers(1, &ib);
+  }
+#endif
 }
 
 Merc2::~Merc2() {
@@ -1239,28 +1312,6 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
 }
 
 #ifdef __ANDROID__
-// F1a bisection knobs: the first merc draw SIGSEGVs inside the Adreno driver
-// with state-legal parameters (runs 4-8). Toggle GL stages off via marker
-// files in the app files dir (run-as touch, no rebuild):
-//   f1a_merc_nodraw — skip the glDrawElements calls (all other state runs)
-//   f1a_merc_noubo  — skip glBindBufferRange of the bones UBO
-//   f1a_merc_notex  — skip glBindTexture
-namespace {
-#ifdef __ANDROID__
-bool f1a_merc_knob(const char* name) {
-  auto p = file_util::get_jak_project_dir() / name;
-  return access(p.string().c_str(), F_OK) == 0;
-}
-const bool f1a_nodraw = f1a_merc_knob("f1a_merc_nodraw");
-const bool f1a_noubo = f1a_merc_knob("f1a_merc_noubo");
-const bool f1a_notex = f1a_merc_knob("f1a_merc_notex");
-#else
-constexpr bool f1a_nodraw = false;
-constexpr bool f1a_noubo = false;
-constexpr bool f1a_notex = false;
-#endif
-}  // namespace
-
 // F1a crash forensics: raw stores per draw, formatted only by the SIGSEGV
 // dump (runs 4/5 fault inside libGLESv2_adreno with no walkable caller).
 struct F1aMercDrawInfo {
@@ -1401,6 +1452,47 @@ void Merc2::do_draws(const Draw* draw_array,
                 lev->level->level_name.c_str(), draw.texture, (int)set_fade);
       }
       continue;
+    }
+    // F1A-MERC-VERIFY (first few draws): the minimal self-test draw survives
+    // on this driver, so the crash is data-dependent. Validate the draw's
+    // index window on the CPU copy (min/max index vs vertex count) and
+    // memcmp the live GPU index buffer (glMapBufferRange) against the fr3
+    // CPU copy — separates "corrupt source data" / "sheared GL upload" /
+    // "driver chokes on legal data".
+    {
+      // Title draws verified clean (runs 12/13: gpu-match=1, executed live
+      // without faulting) — spend the cap on the level that crashes.
+      static int s_f1a_verify = 0;
+      if (s_f1a_verify < 6 && lev->level->level_name != "title") {
+        s_f1a_verify++;
+        const auto& cpu_idx = lev->level->merc_data.indices;
+        u32 mn = UINT32_MAX, mx = 0;
+        u32 restarts = 0;
+        for (u32 k = 0; k < draw.index_count; k++) {
+          u32 v = cpu_idx[draw.first_index + k];
+          if (v == UINT32_MAX) {
+            restarts++;
+            continue;
+          }
+          mn = std::min(mn, v);
+          mx = std::max(mx, v);
+        }
+        int gpu_match = -1;
+        void* mapped = glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * draw.first_index,
+                                        sizeof(u32) * draw.index_count, GL_MAP_READ_BIT);
+        if (mapped) {
+          gpu_match =
+              memcmp(mapped, cpu_idx.data() + draw.first_index, sizeof(u32) * draw.index_count)
+                  ? 0
+                  : 1;
+          glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+        }
+        fprintf(stderr,
+                "F1A-MERC-VERIFY lev=%s idx=%u+%u min=%u max=%u restarts=%u verts=%zu "
+                "gpu-match=%d err=0x%x\n",
+                lev->level->level_name.c_str(), draw.first_index, draw.index_count, mn, mx,
+                restarts, lev->level->merc_data.vertices.size(), gpu_match, glGetError());
+      }
     }
     {
       gk_f1a_last_merc_draw.di = di;
