@@ -4734,3 +4734,19 @@ approach is root-cause-first rather than iterate-first. No cheats.
 - The −95° vs +85° delta was observational error, not a transform change: the scene has
   been rotated ~+85° the whole time. One stable transpose/rotation bug, unchanged across
   runs. (Supersedes the "transform touched, sign flipped" inference in the 13:55 entry.)
+### 2026-06-11 14:05 — USER QUESTION decoded: why no proper title screen
+- User: "noms de niveaux qui défilent + plan fixe dans un bâtiment — où est l'écran titre
+  avec logo + flyover?" Analysis: boot stuck in logo-loop state (A41's named residual);
+  (1) camera not following its flythrough spline — same +85° transform bug displaces/
+  freezes the camera position (inside a hut); (2) J&D logo = a MERC 3D model — merc
+  buckets still in the renderer skip list → logo cannot display until merc is ported;
+  (3) scrolling level names = hint/demo system (level-hint process) running underneath.
+- NEXT-PHASE REQUIREMENTS (beyond A42's rotation fix): merc bucket port (logo + chars),
+  title state machine advancing (logo → title → attract), camera spline path correct.
+### 2026-06-11 14:20 — A42 fix committed (triple: vsync shim, chain copy-mode, bug class #11 PSHUF/.ppach alpha=0); closing
+- Village tfrag RENDERS (61452 tris, TOD alpha real, 150s/60fps/0 faults). Run-7 frames:
+  camera STILL parked in hut at +85° — cutscene spool fixed but camera path/orientation
+  residual remains, alongside merc/generic/sprite skips (no logo/actors/Jak).
+- Next phase on completion: F1a = camera-orientation fix + merc bucket port → CORRECT
+  title screen (logo over flying camera); serves gameplay prereqs (Jak = merc). Then F1b
+  START→Geyser→control, then F2a audio per interleave plan. Watcher armed.
