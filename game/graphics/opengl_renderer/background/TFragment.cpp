@@ -264,15 +264,24 @@ void TFragment::handle_initialization(DmaFollower& dma) {
   // all-zero — if the GOAL-built camera block is zero/garbage, every vertex
   // degenerates. One-shot dump of what actually arrived.
   {
+    // F1a: 3-shot at init PLUS a 10 s heartbeat (-HB) — the camera POSE
+    // over time is the question (does the title course fly or park?).
+    // cam1 row added: pitch lives in rows 1/2; trans is the camera position.
     static int s_cam_logged = 0;
-    if (s_a42_cam_dump && s_cam_logged < 3) {
-      s_cam_logged++;
+    static int s_cam_hb = 0;
+    const bool hb = s_a42_cam_dump && (s_cam_hb++ % 600) == 0;
+    if (s_a42_cam_dump && (s_cam_logged < 3 || hb)) {
+      if (s_cam_logged < 3) {
+        s_cam_logged++;
+      }
       auto& c = m_pc_port_data.camera;
       fprintf(stderr,
-              "A36-TFRAG-CAM lvl=%s cam0=(%.3f %.3f %.3f %.3f) cam3=(%.3f %.3f %.3f %.3f) "
+              "A36-TFRAG-CAM%s lvl=%s cam0=(%.3f %.3f %.3f %.3f) cam1=(%.3f %.3f %.3f %.3f) "
+              "cam3=(%.3f %.3f %.3f %.3f) "
               "hvdf=(%.1f %.1f %.1f %.1f) trans=(%.1f %.1f %.1f) fog=(%.1f %.1f)\n",
-              m_pc_port_data.level_name, c.camera[0].x(), c.camera[0].y(), c.camera[0].z(),
-              c.camera[0].w(), c.camera[3].x(), c.camera[3].y(), c.camera[3].z(), c.camera[3].w(),
+              hb ? "-HB" : "", m_pc_port_data.level_name, c.camera[0].x(), c.camera[0].y(),
+              c.camera[0].z(), c.camera[0].w(), c.camera[1].x(), c.camera[1].y(), c.camera[1].z(),
+              c.camera[1].w(), c.camera[3].x(), c.camera[3].y(), c.camera[3].z(), c.camera[3].w(),
               c.hvdf_off.x(), c.hvdf_off.y(), c.hvdf_off.z(), c.hvdf_off.w(), c.trans.x(),
               c.trans.y(), c.trans.z(), c.fog.x(), c.fog.y());
     }
