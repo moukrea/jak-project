@@ -532,7 +532,18 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     // lr in android_renderer_run). Check a glad pointer after every bucket
     // so the smashing bucket names itself.
     static void* s_glad_canary = (void*)glad_glClearDepthf;
+    {
+      // F1a breadcrumb for the SIGSEGV dump (driver-internal crashes have
+      // no walkable caller frame — run-4).
+      extern char gk_f1a_current_bucket[64];
+      snprintf(gk_f1a_current_bucket, sizeof(gk_f1a_current_bucket), "%s id=%zu",
+               renderer->name().c_str(), bucket_id);
+    }
     renderer->render(dma, &m_render_state, bucket_prof);
+    {
+      extern char gk_f1a_current_bucket[64];
+      gk_f1a_current_bucket[0] = 0;
+    }
     // A36: name any bucket that exits with a framebuffer other than the
     // game FBO bound (run-27: 64k tris/frame but the FBO stays all-zero).
     {
