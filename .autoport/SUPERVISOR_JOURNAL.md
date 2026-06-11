@@ -4765,3 +4765,29 @@ approach is root-cause-first rather than iterate-first. No cheats.
   #13 candidate); logo-slaves deactivate at logo-loop respawn (missing-logo thread).
 - KEY: joint-decompress fix unblocks BOTH the flying camera AND Jak's skeleton (gameplay).
   F1b = joint/channel-eval fix → START → Geyser Rock → controllable Jak. Watcher armed.
+### 2026-06-11 18:45 — Owner override: weekly guards OFF, model → claude-opus-4-8[1m], clean resume
+- Owner explicitly authorized pushing past the 95% weekly quota (extra-usage EUR accepted).
+- TWO independent guards found + disabled: (1) pre-tool.sh hook weekly threshold 95→999999
+  (via user `!` command, since the hook gated my own tools); (2) orchestrator.py internal
+  WEEKLY_PAUSE_PCT 95.0→999.0 (it had silently set the relaunch to Sleep 110h until Mon).
+  5-hour guards KEPT (SESSION_PAUSE 90 / HARD_KILL 98, session-only — verified line 666).
+- Double-orchestrator hazard (old 1987665 + relaunch 2119835 both alive, new one sleeping)
+  → force-killed both by exact PID, relaunched ONE (2125829). Supervisor session untouched.
+- Model claude-opus-4-8[1m] in orchestrator.py:53 + supervisor.sh:84 + launch banner.
+  F1b attempt 2/3 RUNNING on opus-4-8, no sleep, idx 82. Re-arm weekly: restore 95 in both
+  files + rm ~/.claude/autoport-rate-override (n/a, used sed not override file).
+### 2026-06-11 19:15 — F1b attempt-2 (opus-4-8): entry hypothesis FALSIFIED, bug #13 re-localized (NOT codegen)
+- opus did what fable-5's scripted hunt wouldn't: disproved "another SIMD stand-in in the
+  decompressor" with 3 independent evidence lines — quaternion interp works on arm64,
+  decompressor op-census clean, F1a proved camera matrix bit-identical. bug #13 is NARROWER.
+- RE-LOCALIZED: freeze is SPECIFIC to logo-cam-logo-loop (+ -intro-2) camera anim
+  decompression. cb=0xb8 nj=2; joint0 ctrl=0x8 (static), JOINT 1 ctrl=0xb (dyn big-trans +
+  dyn quat) = the frozen camera-look joint. Output == a single static pose on device while
+  it flies on desktop. Master skel decompresses fine (Jak/Daxter animate) → NOT the general
+  decompressor. Next probe (opus-scripted §6): dump joint-control active-channels +
+  per-channel command/frame-num for the loop camera channel both backends; determine if the
+  camera joint is self-animated vs fed by flatten-joint-control-to-spr/clone-anim — if a
+  COPY, freeze is in the copy path. START/Geyser/control NOT reached (attempt ended on
+  idle-force-close exit 143; phase NOT marked done — retries=1, will retry attempt 3/3).
+- If attempt 3 also can't land it: author F1c with this exact re-localization (channel/clone
+  copy path), drop the disproven op-census mandate.
