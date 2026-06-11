@@ -4705,3 +4705,10 @@ approach is root-cause-first rather than iterate-first. No cheats.
   dropped since A35; A41's queue+flush-at-ready delivered them. North star achieved:
   real title-screen content rendering live on the Redmi at 60fps, zero faults.
 - A41 still running (level streaming/logo polish may follow); F1 (Geyser Rock) next.
+### 2026-06-11 12:30 — A41 COMPLETED; A42 launched; F-bucket = interleaved per user
+- A41 closed (1h04m): 4 mechanisms (adgif real; snapshot-FIFO texture queue; GLES
+  REV→BYTE live sites; __pc-set-levels real = first level-fr3 streams). Residual → A42
+  (tfrag-init → village flythrough), launched attempt 1/3 (live /tmp/a42-launch.out).
+- USER DECISION: after A42, gameplay + audio INTERLEAVED — F1a (START→Geyser Rock→
+  control) → F2a (AAudio+ssound, title music) → F1b/F2b alternating. Old F1/F2 prompts
+  to be rewritten per slot; unblock at insertion.
