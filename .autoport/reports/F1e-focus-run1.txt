@@ -1,0 +1,12 @@
+01-title ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+02-menu ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+03-after-x1 ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+04-after-x2 ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+05-after-x3 ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+06-reveal ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+07-island ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+08-sustain-a ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+09-move-a ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+10-move-b ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+11-sustain-b ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+12-final ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
