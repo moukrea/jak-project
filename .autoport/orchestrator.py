@@ -3,9 +3,18 @@
 OpenGOAL → Android autonomous orchestrator.
 
 Hardcoded design choices (per project owner's preference):
-- Model: claude-opus-4-8[1m] for EVERY phase (owner default since 2026-06-10;
-  was claude-opus-4-7 through A32). No smaller-model fallback ever.
-- Thinking effort: max (via CLAUDE_EFFORT env + 'ultrathink' keyword in prompts)
+- TIERED model/effort architecture (owner 2026-06-12, /efficient-fable pattern):
+  * MANAGER (the phase session): claude-fable-5[1m] @ effort=high — plans,
+    judges, synthesizes, reviews. Per-phase override via `effort:` in
+    milestones.yaml (xhigh for diagnostic-heavy phases).
+  * WORKERS (subagents via CLAUDE_CODE_SUBAGENT_MODEL): claude-opus-4-8[1m]
+    for research / code generation / testing. Per-agent effort in
+    .claude/agents/*.md frontmatter (researcher=high, implementer=medium,
+    tester=medium). Rationale: FrontierCode accuracy-vs-cost — fable-high
+    dominates opus-max for judgment; implementation doesn't need max.
+  (History: opus-4-8 max for every phase 2026-06-10→12; opus-4-7 through A32.)
+- Thinking: 'ultrathink' keyword in prompts keeps planning depth at the
+  manager level despite effort=high.
 - Rate-limit waits use the EXACT reset epoch returned by the API.
   No "next Monday" assumption. The API tells us when the window resets;
   we sleep until that timestamp + a small buffer.
@@ -50,8 +59,9 @@ from rich.panel import Panel
 # Configuration — hardcoded per owner preference.
 # ============================================================
 
-MODEL = "claude-opus-4-8[1m]"  # project default per owner 2026-06-10 — 1M-context, stronger on long-running tasks
-EFFORT = "max"
+MODEL = "claude-fable-5[1m]"  # MANAGER model per owner 2026-06-12 (tiered architecture; was opus-4-8[1m] max)
+EFFORT = "high"  # manager default; phases may override with `effort:` in milestones.yaml (low|medium|high|xhigh|max)
+SUBAGENT_MODEL = "claude-opus-4-8[1m]"  # WORKER model for Task-tool subagents (research/codegen/testing)
 
 # Full YOLO mode: --dangerously-skip-permissions bypasses ALL permission
 # prompts. No per-tool allowlist — Claude can use any tool freely.
@@ -849,9 +859,32 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
         console.print(f"[red]Missing validator: {validator}[/red]")
         return "blocked", "missing validator", []
 
-    # Assemble prompt. "ultrathink" keyword reinforces max thinking even if
-    # CLAUDE_EFFORT env isn't honored by current build.
-    instructions = "ultrathink\n\n" + prompt_path.read_text()
+    # Per-phase effort override (milestones.yaml `effort:`), else manager default.
+    effort = phase.get("effort", EFFORT)
+
+    # Assemble prompt. "ultrathink" keyword reinforces deep thinking even if
+    # CLAUDE_EFFORT env isn't honored by current build. The WORK-ECONOMY
+    # preamble enforces the tiered manager/worker architecture (owner
+    # 2026-06-12): the fable manager must delegate bulk execution to
+    # opus-4-8 subagents instead of burning manager-effort tokens on it.
+    delegation_preamble = (
+        "## WORK ECONOMY (mandatory — tiered budget architecture)\n"
+        f"You are the MANAGER ({MODEL}, effort={effort}): plan, decide, judge,\n"
+        "synthesize, review. Delegate bulk execution to subagents via the Task\n"
+        f"tool — they run on {SUBAGENT_MODEL} (CLAUDE_CODE_SUBAGENT_MODEL):\n"
+        "- `autoport-researcher` (effort high): code/disassembly/log/oracle scans,\n"
+        "  symbol hunts, large-file analysis. Read-only.\n"
+        "- `autoport-implementer` (effort medium): mechanical code edits to YOUR\n"
+        "  exact spec (files, lines, precise semantics in the prompt).\n"
+        "- `autoport-tester` (effort medium): builds, qemu runs, device runs,\n"
+        "  log harvesting, screencaps.\n"
+        "Keep main-thread tool calls for decisions, small precise edits, and\n"
+        "VERIFYING subagent claims (read their diffs/logs yourself — trust but\n"
+        "verify). Never delegate understanding: subagent prompts must contain\n"
+        "exact file paths, line numbers, commands, and expected outputs.\n"
+        "Parallelize independent subagent runs in one message.\n\n"
+    )
+    instructions = "ultrathink\n\n" + delegation_preamble + prompt_path.read_text()
     if attempt > 1:
         prev_validator = log_dir / f"validator-{attempt - 1:02d}.txt"
         if prev_validator.exists():
@@ -865,12 +898,14 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
 
     console.print(Panel.fit(
         f"[bold cyan]Phase {pid}[/bold cyan] · attempt {attempt}/"
-        f"{phase.get('max_retries', 3)} · model={MODEL} · effort={EFFORT}",
+        f"{phase.get('max_retries', 3)} · model={MODEL} · effort={effort} · "
+        f"workers={SUBAGENT_MODEL}",
         border_style="cyan",
     ))
 
     env = os.environ.copy()
-    env["CLAUDE_EFFORT"] = EFFORT
+    env["CLAUDE_EFFORT"] = effort
+    env["CLAUDE_CODE_SUBAGENT_MODEL"] = SUBAGENT_MODEL
     env["AUTOPORT_PHASE_ID"] = pid
     env["AUTOPORT_PHASE_VALIDATOR"] = str(validator)
 
@@ -884,7 +919,7 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
         "claude",
         "-p", instructions,
         "--model", MODEL,
-        "--effort", EFFORT,
+        "--effort", effort,
         "--max-turns", str(phase.get("max_turns", 150)),
         "--output-format", "stream-json",
         "--verbose",
@@ -912,7 +947,8 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
             "phase_id": pid,
             "attempt": attempt,
             "model": MODEL,
-            "effort": EFFORT,
+            "effort": effort,
+            "subagent_model": SUBAGENT_MODEL,
             "cmd": cmd,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }) + "\n")
