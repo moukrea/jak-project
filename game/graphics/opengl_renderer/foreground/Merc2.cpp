@@ -1303,6 +1303,19 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
         glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
       }
     }
+    // F1d: same defuse for the VERTEX buffer — the one draw-state object no
+    // prior touch covered. The first merc draw consuming a freshly-loaded
+    // level's vertex BO faults in the driver's draw-state walk (run5/run7:
+    // misty 2/2, identical fault 8 ms AFTER a load-completion glFinish, with
+    // the index BO mapped+memcmp'd and the texture/FBO verified at the same
+    // draw). A read-only map forces the driver to materialize the BO's
+    // internal storage object, which command-drain (glFinish) does not.
+    {
+      void* p = glMapBufferRange(GL_ARRAY_BUFFER, 0, 16, GL_MAP_READ_BIT);
+      if (p) {
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+      }
+    }
 #endif
     setup_merc_vao();
     stats->num_bones_uploaded += m_next_free_bone_vector;

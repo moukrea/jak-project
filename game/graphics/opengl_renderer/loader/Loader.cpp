@@ -434,6 +434,22 @@ void Loader::update(TexturePool& texture_pool) {
 
       if (done) {
         auto evt = scoped_prof("finish-stages");
+#ifdef __ANDROID__
+        // F1d Adreno defuse: the first merc draw consuming a freshly-loaded
+        // level's GL objects faults inside the driver's draw-state walk
+        // (null+0x28 at libGLESv2_adreno+0x13a414) even when every gk-side
+        // object is verified legal at the draw (run5/run6 forensics:
+        // glIsTexture=1, FBO complete, err=0, index range mapped+memcmp'd
+        // 1 ms before the fault). Drain the driver's async work HERE — at
+        // load completion on the GL thread, during the blackout, with no
+        // flush in flight — so the upload burst is fully finalized before
+        // any frame consumes it. (A mid-frame glFinish between merc flushes
+        // made things WORSE — run6 crashed at the boot reveal that the same
+        // build without it survived.)
+        glFinish();
+        fprintf(stderr, "F1D-LOADSYNC lev=%s load_id=%llu glFinish at load completion\n",
+                name.c_str(), (unsigned long long)lev->load_id);
+#endif
         lk.lock();
         m_loaded_tfrag3_levels[name] = std::move(lev);
         m_initializing_tfrag3_levels.erase(it);
