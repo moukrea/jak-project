@@ -1,0 +1,6 @@
+cycle1 ::   mCurrentFocus=Window{df1d9aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+cycle2 ::   mCurrentFocus=Window{91281dc u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+cycle3 ::   mCurrentFocus=Window{55787d2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+cycle4 ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+cycle5 ::   mCurrentFocus=Window{9b65143 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+cycle6 ::   mCurrentFocus=Window{a96b159 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}

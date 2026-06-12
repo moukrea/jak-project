@@ -1335,6 +1335,11 @@ struct F1aMercDrawInfo {
   u32 di, num_draws, tex, first_bone, index_count, first_index;
   u32 vao, vtx_buf, idx_buf;
   int envmap, mod_vtx, no_strip;
+  // F1e: texture-bind + framebuffer state at the draw (branch: 0=cached
+  // 1=level 2=eye 3=anim 4=invalid; tex_is: 0=dead-name 1=alive 2=unknown).
+  u32 tex_branch, tex_name, tex_is, tex_size, tex_binding;
+  u32 fbo_binding, fbo_status, gl_err;
+  u32 load_id, fsl;
 };
 volatile F1aMercDrawInfo gk_f1a_last_merc_draw = {};
 #endif
@@ -1382,10 +1387,17 @@ void Merc2::do_draws(const Draw* draw_array,
       fog_on = true;
     }
     bool use_mipmaps_for_filtering = true;
+#ifdef __ANDROID__
+    u32 f1e_branch = 0;  // cached — unit 0 keeps the previous draw's binding
+#endif
     if (draw.texture != last_tex) {
       if (draw.texture < (int)lev->textures.size() && draw.texture >= 0) {
         if (!f1a_notex)
         glBindTexture(GL_TEXTURE_2D, lev->textures.at(draw.texture));
+#ifdef __ANDROID__
+        f1e_branch = 1;
+        gk_f1a_last_merc_draw.tex_name = lev->textures.at(draw.texture);
+#endif
       } else if ((draw.texture & 0xffffff00) == 0xefffff00) {
         if (render_state->version == GameVersion::Jak3 ||
             render_state->version == GameVersion::JakX) {
@@ -1402,11 +1414,24 @@ void Merc2::do_draws(const Draw* draw_array,
         }
 
         use_mipmaps_for_filtering = false;
+#ifdef __ANDROID__
+        f1e_branch = 2;
+#endif
       } else if (draw.texture < 0) {
         int slot = -(draw.texture + 1);
         glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(slot));
+#ifdef __ANDROID__
+        f1e_branch = 3;
+        gk_f1a_last_merc_draw.tex_name = m_anim_slot_array->at(slot);
+#endif
       } else {
         fmt::print("Invalid draw.texture is {}, would have crashed.\n", draw.texture);
+#ifdef __ANDROID__
+        // stdout is buffered and dies with the process — mirror to stderr.
+        fprintf(stderr, "F1E-TEX-INVALID draw.texture=%d size=%zu lev=%s\n", draw.texture,
+                lev->textures.size(), lev->level->level_name.c_str());
+        f1e_branch = 4;
+#endif
       }
       last_tex = draw.texture;
     }
@@ -1525,6 +1550,48 @@ void Merc2::do_draws(const Draw* draw_array,
       gk_f1a_last_merc_draw.envmap = set_fade ? 1 : 0;
       gk_f1a_last_merc_draw.mod_vtx = (draw.flags & MOD_VTX) ? 1 : 0;
       gk_f1a_last_merc_draw.no_strip = draw.no_strip ? 1 : 0;
+      gk_f1a_last_merc_draw.tex_branch = f1e_branch;
+      // F1e: Adreno 618 (V@0502) draw-state validation sync + probe. The
+      // FIRST l1-pris-merc glDrawElements at the title-intro reveal can
+      // fault inside the driver: sig=11 fault=0x28 pc=libGLESv2_adreno
+      // +0x13a414 (LDR x6,[x10,#0x28], x10 loaded as NULL from +0x900 of a
+      // live driver object) — 3/3 deterministic in the F1d-era builds
+      // (F1d-routed-logcat-run3 lines 5920/13463/22664), environment-
+      // sensitive (0/4+ reveals the next day on both probe-on and
+      // probe-off builds). Same driver bug class as the F1a index-BO
+      // map+unmap (commit 3c5d2c7cc): querying draw state on the API
+      // thread (texture liveness, bindings, FBO completeness, error flush)
+      // at the first draw of each merc flush forces the driver to
+      // validate/finalize the state its draw-time walk would otherwise
+      // trip over. Kept armed at di==0 and at the historical killer draw
+      // (first_index 64945); the snapshot doubles as SIGSEGV-dump
+      // forensics (read by gk_sigsegv_diag, no GL calls in the handler).
+      if (di == 0 || draw.first_index == 64945) {
+        const u32 nm = gk_f1a_last_merc_draw.tex_name;
+        gk_f1a_last_merc_draw.tex_is = nm ? (glIsTexture(nm) ? 1 : 0) : 2;
+        GLint v = 0;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &v);
+        gk_f1a_last_merc_draw.tex_binding = (u32)v;
+        v = 0;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &v);
+        gk_f1a_last_merc_draw.fbo_binding = (u32)v;
+        gk_f1a_last_merc_draw.fbo_status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+        gk_f1a_last_merc_draw.gl_err = glGetError();
+        gk_f1a_last_merc_draw.tex_size = (u32)lev->textures.size();
+        gk_f1a_last_merc_draw.load_id = (u32)lev->load_id;
+        gk_f1a_last_merc_draw.fsl = (u32)lev->frames_since_last_used;
+        static u32 s_f1e_probe_n = 0;
+        if (draw.first_index == 64945 && (s_f1e_probe_n++ % 30) == 0) {
+          fprintf(stderr,
+                  "F1E-PROBE lev=%s di=%u/%u tex=0x%x branch=%u name=%u is=%u size=%u bind=%u "
+                  "fbo=%u status=0x%x err=0x%x load_id=%u fsl=%u\n",
+                  lev->level->level_name.c_str(), di, num_draws, (u32)draw.texture, f1e_branch, nm,
+                  gk_f1a_last_merc_draw.tex_is, gk_f1a_last_merc_draw.tex_size,
+                  gk_f1a_last_merc_draw.tex_binding, gk_f1a_last_merc_draw.fbo_binding,
+                  gk_f1a_last_merc_draw.fbo_status, gk_f1a_last_merc_draw.gl_err,
+                  gk_f1a_last_merc_draw.load_id, gk_f1a_last_merc_draw.fsl);
+        }
+      }
     }
 #endif
 

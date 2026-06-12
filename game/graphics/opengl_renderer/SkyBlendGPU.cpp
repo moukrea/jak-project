@@ -1,5 +1,7 @@
 #include "SkyBlendGPU.h"
 
+#include <cstdio>
+
 #include "common/log/log.h"
 
 #include "game/graphics/opengl_renderer/AdgifHandler.h"
@@ -66,6 +68,10 @@ SkyBlendGPU::SkyBlendGPU() {
 SkyBlendGPU::~SkyBlendGPU() {
   glDeleteFramebuffers(2, m_framebuffers);
   glDeleteBuffers(1, &m_gl_vertex_buffer);
+#ifdef __ANDROID__
+  fprintf(stderr, "F1E-DELTEX site=skygpu tex=%u %u\n", (unsigned)m_textures[0],
+          (unsigned)m_textures[1]);
+#endif
   glDeleteTextures(2, m_textures);
 }
 
