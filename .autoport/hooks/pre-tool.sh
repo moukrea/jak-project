@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+exit 0  # ALL pre-emptive rate guards disabled by owner 2026-06-12 ("osef des rate limits") — run until the API actually rejects, then wait+resume. Delete this line to re-arm.
 # pre-tool.sh — abort tool calls if the 5-hour window is critical.
 # Exit 2 = block this tool call (Claude sees the stderr message).
 # The orchestrator's outer loop will catch the early stop and re-queue

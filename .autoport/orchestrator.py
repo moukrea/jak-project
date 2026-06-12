@@ -68,9 +68,12 @@ SUBAGENT_MODEL = "claude-opus-4-8[1m]"  # WORKER model for Task-tool subagents (
 # Safety net: per-phase git commits make any damage trivially revertable.
 
 # Rate-limit thresholds (0-100 percent)
-SESSION_PAUSE_PCT = 90.0   # 5h window: pre-phase pause at this %
-WEEKLY_PAUSE_PCT = 999.0   # weekly gate DISABLED by owner 2026-06-11 (push to extra-usage EUR; was 95.0). 5h gate stays. Restore to 95.0 to re-arm.
-HARD_KILL_PCT = 98.0       # session: kill running claude at this % (mid-phase)
+# OWNER POLICY 2026-06-12: NO pre-emptive stops. Run until the API actually
+# rejects; then wait for the reset and resume automatically. Telemetry stays
+# (it costs zero model tokens) but has no power to pause or kill.
+SESSION_PAUSE_PCT = 100.0  # pre-phase pause ONLY if the API reports the window truly exhausted
+WEEKLY_PAUSE_PCT = 999.0   # weekly gate DISABLED by owner 2026-06-11 (was 95.0)
+HARD_KILL_PCT = 999.0      # mid-phase pre-emptive kill DISABLED by owner 2026-06-12 (was 98.0) — only a real API rejection stops a session
 RESET_BUFFER_SECONDS = 90  # wait this long after the API-reported reset
 POLL_INTERVAL_SECONDS = 300  # how often to re-check while sleeping (5 min)
 
@@ -545,12 +548,19 @@ def pretty_print_event(ev: dict, state: PrettyState) -> None:
             info = ev.get("rate_limit_info", {}) or {}
             if info.get("rateLimitType") == "five_hour":
                 state.last_claude_rate_status = str(info.get("status", ""))
-                # If Claude itself says we're disallowed, treat as critical.
-                if state.last_claude_rate_status not in ("allowed", ""):
+                # OWNER POLICY 2026-06-12: only a REAL rejection stops the
+                # session. "allowed_warning" (fires from ~90%) must NOT kill —
+                # that wasted two healthy F1e sessions on 2026-06-12.
+                if state.last_claude_rate_status in ("rejected", "blocked", "exceeded"):
                     state.kill_pending = True
                     if not QUIET:
                         console.print(
-                            f"[red]⚠ claude rate_limit_event: {state.last_claude_rate_status}[/red]"
+                            f"[red]⚠ claude rate_limit_event: {state.last_claude_rate_status} (real rejection — stopping)[/red]"
+                        )
+                elif state.last_claude_rate_status not in ("allowed", ""):
+                    if not QUIET:
+                        console.print(
+                            f"[dim]· rate_limit_event: {state.last_claude_rate_status} (warning only — continuing)[/dim]"
                         )
             return
 
@@ -1095,6 +1105,24 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
             "tokens_out": pstate.tokens_out,
             "cache_read": pstate.cache_read,
         }) + "\n")
+
+    # NO-START detection (owner 2026-06-12): a session that exits having done
+    # essentially NOTHING (no tokens, no tool calls) did not fail the phase —
+    # it was refused at the door (hard rate limit / "out of extra usage").
+    # Treating it as a failed attempt is what falsely blocked F1d (two 0-turn
+    # no-ops consumed retries and faked a 3x-identical-failure fingerprint).
+    # Back off in place, then re-enter the phase without consuming anything.
+    if not rate_interrupted and rc != 0 \
+            and (pstate.tokens_in + pstate.tokens_out) == 0 \
+            and pstate.tool_calls == 0:
+        notify(
+            f"⏳ phase {pid}: claude exited {rc} with ZERO work done — "
+            "hard rate limit at the door. Backing off 5 min, then retrying "
+            f"(attempt {attempt} NOT counted).",
+            level="warn",
+        )
+        time.sleep(300)
+        rate_interrupted = True
 
     if rate_interrupted:
         pct, est = _current_pct(pstate)
