@@ -33,6 +33,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 #include "common/versions/versions.h"
 
@@ -2426,6 +2427,60 @@ extern "C" void a36_tree_scan_per_frame() {
                         (unsigned long long)g_viol_total.load(),
                         (unsigned long long)g_first_viol_frame.load());
   }
+  // F1D (autoport): player (target / Jak) spawn + position telemetry,
+  // read straight out of GOAL memory — real state, never synthesised.
+  // Proves (a) the title attract loop was left (*target* becomes alive
+  // when (start 'play ...) runs) and (b) Jak moves when stick input is
+  // injected (root.trans changes across frames). Same intern/rd32 path
+  // the camera probes use; throttled to ~4 Hz so it can't flood the log
+  // or add per-frame intern overhead.
+  if (g_syms.armed && g_ee_main_mem && (f % 15) == 0) {
+    auto symvalue = [](const char* name, uint32_t* out) -> bool {
+      auto s = jak1::intern_from_c(name);
+      if (!s.offset) return false;
+      *out = s->value;
+      return true;
+    };
+    uint32_t mm = 0;
+    char mmn[24] = {0};
+    if (symvalue("*master-mode*", &mm) && mm) {
+      gk_a40_sym_name_fwd((uintptr_t)g_ee_main_mem, mm, mmn, sizeof(mmn));
+    }
+    // *master-mode* is the real "left the title attract" discriminator:
+    // *target* is alive even in target-title-wait, but master-mode only
+    // becomes 'play/'game once (start 'play ...) actually runs.
+    const bool in_play = (!strcmp(mmn, "play") || !strcmp(mmn, "game"));
+    if (in_play) {
+      static std::atomic<bool> s_play_logged{false};
+      bool expected = false;
+      if (s_play_logged.compare_exchange_strong(expected, true)) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG F1D-PLAY-MODE entered: set-master-mode "
+                            "'%s at f=%llu (left title attract -> playing)",
+                            mmn, (unsigned long long)f);
+      }
+    }
+    uint32_t tgt = 0;
+    if (symvalue("*target*", &tgt) && tgt && tgt != s7.offset) {
+      // process-drawable.root @ deftype 112 (pointer); trs.trans @ deftype
+      // 16 (inline vector). Probe reads at deftype-4 (the A37-CAM/F1C
+      // convention).
+      uint32_t root = 0;
+      rd32(tgt + (112 - 4), &root);
+      float px = 0, py = 0, pz = 0;
+      if (root && root != s7.offset) {
+        uint32_t w = 0;
+        rd32(root + (16 - 4) + 0, &w); memcpy(&px, &w, 4);
+        rd32(root + (16 - 4) + 4, &w); memcpy(&py, &w, 4);
+        rd32(root + (16 - 4) + 8, &w); memcpy(&pz, &w, 4);
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG F1D target-pos f=%llu *target* 0x%x "
+                          "=(%.1f %.1f %.1f) master-mode=%s",
+                          (unsigned long long)f, tgt, px, py, pz,
+                          mmn[0] ? mmn : "?");
+    }
+  }
   // A36-CAM probe: the tfrag pc-port block arrives with a ZERO camera
   // matrix while hvdf/fog are sane. Dump *math-camera* camera-temp
   // (+0x23C, all-types offset 576) to split "camera math broken" from
@@ -4771,6 +4826,41 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
                         "gk_sdl_main: data_root unset — NativeGk.setDataRoot "
                         "was not called before SDL thread launch");
     return 1;
+  }
+
+  // Phase F1d (autoport): derive the app-private files dir from data_root
+  // (<files>/iso_data/<game>), used for two things below.
+  std::string files_dir;
+  {
+    std::string dr(data_root);
+    auto pos = dr.find("/files/");
+    files_dir = (pos != std::string::npos) ? dr.substr(0, pos + 6) : dr;
+  }
+
+  // Phase F1d (autoport): point $HOME at the writable app files dir BEFORE
+  // goal_main. Without this, file_util::get_user_home_dir() reads an unset
+  // $HOME and the save/settings path resolves to the relative
+  // ".config/OpenGOAL/jak1/saves", which is on Android's read-only CWD.
+  // Starting a new game then throws an uncaught ghc::filesystem_error
+  // (Read-only file system) -> std::terminate -> SIGABRT right after the
+  // title advances. With $HOME set, saves land in
+  // <files>/.config/OpenGOAL/jak1/saves (writable), so (start 'play ...)
+  // completes and Jak actually drops into the level.
+  if (!files_dir.empty()) {
+    setenv("HOME", files_dir.c_str(), 1);
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                        "gk_sdl_main: HOME set to '%s' (writable save/config "
+                        "root)", files_dir.c_str());
+  }
+
+  // Phase F1d (autoport): arm the headless cpad-injection watcher. The
+  // control file lives in the app-private files dir (the test harness
+  // writes it via `run-as`).
+  {
+    std::string inject_path =
+        files_dir.empty() ? std::string(data_root) + "/cpad_inject"
+                          : files_dir + "/cpad_inject";
+    android_input_audio::start_inject_watcher(inject_path.c_str());
   }
 
   // Canonical argv shape:
