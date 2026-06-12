@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 84,
+  "current_phase_idx": 85,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -78,7 +78,8 @@
     "A42-android-tfrag-init-village-flythrough": 1,
     "F1a-android-camera-merc-title-correct": 1,
     "F1b-android-joint-decompress-start-geyser": 2,
-    "F1c-android-camera-channel-start-geyser": 1
+    "F1c-android-camera-channel-start-geyser": 1,
+    "F1e-android-reveal-crash-fix": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -235,7 +236,8 @@
     "A42-android-tfrag-init-village-flythrough",
     "F1a-android-camera-merc-title-correct",
     "F1b-android-joint-decompress-start-geyser",
-    "F1c-android-camera-channel-start-geyser"
+    "F1c-android-camera-channel-start-geyser",
+    "F1e-android-reveal-crash-fix"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -291,11 +293,13 @@
     "F1a-android-camera-merc-title-correct": 1781179105.2582562,
     "F1b-android-joint-decompress-start-geyser": 1781187851.119047,
     "F1c-android-camera-channel-start-geyser": 1781198811.640303,
-    "F1d-android-input-cpad-start-geyser": 1781206502.693393
+    "F1d-android-input-cpad-start-geyser": 1781206502.693393,
+    "F1e-android-reveal-crash-fix": 1781285592.8516045
   },
-  "last_update": "2026-06-11T20:38:02.696683+00:00",
+  "last_update": "2026-06-12T18:34:29.761577+00:00",
   "rate_interrupts": {
-    "17-apk-assets": 2
+    "17-apk-assets": 2,
+    "F1e-android-reveal-crash-fix": 2
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",
