@@ -4997,3 +4997,22 @@ framebuffer-read effect) drops out in the GLES port — blend-mode or
 depth/alpha-test mapping, or an unported direct-render effect.
 Candidate phase: F-render-polish (ocean + menu backdrop together), after
 F1d gameplay / F2a audio.
+
+## 2026-06-12 ~20:45 — OWNER LIVE REPORTS #3 & #4: boot intro sequence missing; new-game intro cinematic expected
+
+#3 BOOT INTRO MISSING: on device we go straight to the title, with NO
+"Sony Computer Entertainment Europe presents" screen and NO Daxter dance
+revealing the Naughty Dog logo (with Jak) — the whole pre-title intro
+sequence is dropped. (Real-time rendered sequence in jak1, not a video
+file — Daxter merc anim + logo slaves.) Owner: not the most urgent, listing.
+Candidate: F-boot-intro (or folded into F-render-polish). Investigate the
+boot state machine path on Android (does it skip the intro states, or do
+they run invisibly/fail?), text/overlay draws for the SCEE screen.
+
+#4 NEW-GAME INTRO CINEMATIC: starting a new game should play the opening
+cinematic BEFORE Jak is playable. DIRECT IMPLICATION FOR F1d: after
+START→new game, the expected next state is the intro cutscene, not
+immediate Geyser Rock control. F1d must treat "cinematic playing" as the
+CORRECT intermediate state (evidence of progress), drive/skip through it
+legitimately if possible, and only then expect target spawn + control.
+F1d prompt amended accordingly (supervisor edit).
