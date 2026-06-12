@@ -5016,3 +5016,20 @@ immediate Geyser Rock control. F1d must treat "cinematic playing" as the
 CORRECT intermediate state (evidence of progress), drive/skip through it
 legitimately if possible, and only then expect target spawn + control.
 F1d prompt amended accordingly (supervisor edit).
+
+## 2026-06-12 ~21:00 — F1e VERIFIED PASS (attempt 1, first phase under tiered architecture)
+
+Validator 11/11 gates + supervisor pixel check: F1e-sampler-cycle5.png shows
+the COMPLETED reveal (J&D logo over textured 3D village, PRESS START,
+overlay) — the exact frame that killed the F1d build 3/3 yesterday.
+Crash was libGLESv2_adreno+0x13a414 (driver-internal NULL at +0x900 of a
+live driver object, first l1-pris-merc draw of the village1 reveal frame)
+— F1a Adreno bug class at a second site. Fix: draw-state sync at first merc
+draw per flush + permanent forensics (F1E-MERC-TEX dump, DELTEX tracing).
+Input bridge committed separately (4554ca260) — F1d's win preserved.
+Evidence: 3x149s clean boots + run7 (0 sig=11, frame 8520, focus
+org.opengoal across all 12 brackets, same window hash = no relaunch).
+Tiered architecture's first full phase: fable-5[1m]@high manager +
+opus-4-8 workers, attempt 1 pass, ~1h30 wall.
+F1d restarted FRESH at idx 85 (amended prompt: new-game cinematic = correct
+intermediate state).
