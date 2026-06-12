@@ -4982,3 +4982,18 @@ audio per the interleave plan). Evidence to gather when phased: which ocean
 buckets appear in the DMA chain on device, whether OceanTexture's render-to-
 texture path exists in the GLES port, oracle frame comparison on a shore
 scene.
+
+## 2026-06-12 ~20:30 — OWNER LIVE REPORT #2: pause-menu UI backdrop missing
+
+Owner, on the F1d/F1e input-bridge build: pressing START correctly pauses
+the camera and the menu WORKS, but the menu renders as bare text over the
+frozen world. Expected (PS2/desktop): a translucent UI layer between the
+text and the world — the see-through dark bubble/veil backdrop of the
+progress menu. Logged as KNOWN VISUAL DEFECT #2 (owner: "on liste les
+trucs à corriger... plus tard"), same bucket-list as the water/ocean issue.
+Likely mechanism: the progress-menu backdrop draw (translucent quad/bubble
+via direct/sprite path with specific GS blend/test modes, possibly a
+framebuffer-read effect) drops out in the GLES port — blend-mode or
+depth/alpha-test mapping, or an unported direct-render effect.
+Candidate phase: F-render-polish (ocean + menu backdrop together), after
+F1d gameplay / F2a audio.
