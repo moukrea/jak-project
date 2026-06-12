@@ -750,6 +750,23 @@ phases:
   validator: validators/phase-F1c-android-camera-channel-start-geyser.sh
   max_turns: 2000
   max_retries: 3
+- id: F1e-android-reveal-crash-fix
+  name: 'Kill the title-reveal crash (sig=11 fault=0x28 pc=0x7610d56414 at the logo->island reveal, ~4-7s after set-master-mode game,
+    3/3 reproducible in F1d-routed-logcat-run3) while PRESERVING F1d attempt-1 real win (input bridge: injected START+X navigated
+    title->menu->save screens, foreground-verified). F1d landed ZERO commits — its work is UNCOMMITTED in the tree
+    (android_input_audio.cpp/h +270 bridge, android_runtime_compat.cpp +48/-13 CPadOpen/CPadGetData, gk_android_main.cpp +90); one of
+    these likely introduced the crash (F1c HEAD was stable 54s+), OR it is latent merc/envmap in HEAD. BISECT by build matrix (clean
+    HEAD / HEAD+bridge / full tree), SYMBOLIZE pc+lr via addr2line on the matching unstripped libgk.so (fault=0x28 = null+0x28 member
+    read — name the object), fix at mechanism (no fault-swallow, no skipping the reveal, island must still render), commit the bridge
+    separately if innocent. Verify 3 consecutive boots >=60s past set-master-mode game, zero sig=11, focus stays org.opengoal at every
+    bracket, camera still flies (F1c regression check). STRICT validator: F1e-fix-summary (>=80 lines, must reference
+    0x7610d56414/fault=0x28 + symbolization) + newest F1e logcat (set-master-mode present, frame>=300, tris>0, ZERO sig=11) + newest
+    F1e-focus ending on org.opengoal. Island reveal judged by supervisor vision. max_turns 2000.'
+  prompt: prompts/phase-F1e-android-reveal-crash-fix.md
+  validator: validators/phase-F1e-android-reveal-crash-fix.sh
+  max_turns: 2000
+  max_retries: 3
+  effort: high
 - id: F1d-android-input-cpad-start-geyser
   name: 'Make input reach the GOAL cpad: press START -> Geyser Rock loads -> Jak spawns and moves. F1c VERIFIED the camera fix (bug
     class #13 = arm64 mod returned quotient not remainder / missing MSUB; title flies, supervisor-confirmed own boot: 2 distinct

@@ -290,9 +290,10 @@
     "A42-android-tfrag-init-village-flythrough": 1781173142.1120133,
     "F1a-android-camera-merc-title-correct": 1781179105.2582562,
     "F1b-android-joint-decompress-start-geyser": 1781187851.119047,
-    "F1c-android-camera-channel-start-geyser": 1781198811.640303
+    "F1c-android-camera-channel-start-geyser": 1781198811.640303,
+    "F1d-android-input-cpad-start-geyser": 1781206502.693393
   },
-  "last_update": "2026-06-11T19:25:27.486066+00:00",
+  "last_update": "2026-06-11T20:38:02.696683+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2
   },
