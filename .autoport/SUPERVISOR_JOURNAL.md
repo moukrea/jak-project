@@ -4968,3 +4968,17 @@ reveal / island must render), preserve+commit the innocent bridge. STRICT
 validator: fix-summary must reference 0x7610d56414 + symbolization; newest
 logcat ZERO sig=11 + set-master-mode + frame≥300 + tris>0; newest focus file
 ends on org.opengoal. Guardrail kept: do NOT lose the verified F1c title.
+
+## 2026-06-12 ~20:20 — OWNER LIVE REPORT: water rendering badly wrong
+
+Owner, watching the device during F1e runs: "gros souci de rendu de l'eau,
+c'est pas rendu correctement du tout". Logged as a KNOWN VISUAL DEFECT, not
+a current-phase blocker (owner: "juste balance ça comme ça").
+Likely mechanism: the OCEAN renderer family (OceanTexture, OceanMid/Near/Far
++ CommonOceanRenderer) is a dedicated bucket path, SEPARATE from the ported
+tfrag/merc/generic/sprite renderers — probably unported or mis-ported in the
+GLES bringup. Candidate phase: F-render-ocean (after F1d gameplay / F2a
+audio per the interleave plan). Evidence to gather when phased: which ocean
+buckets appear in the DMA chain on device, whether OceanTexture's render-to-
+texture path exists in the GLES port, oracle frame comparison on a shore
+scene.
