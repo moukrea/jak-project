@@ -4880,3 +4880,91 @@ approach is root-cause-first rather than iterate-first. No cheats.
   subsystem problem = F1d's core if not cracked in F1c.
 - Holding: let opus continue (input-path context loaded, session 17%, real progress).
   Camera committed+real. Verify at F1c close by VISION; author F1d if gameplay still title.
+### 2026-06-11 21:40 — F1c COMPLETE: camera fix INDEPENDENTLY VERIFIED (my own boot); gameplay honestly deferred to F1d
+- SUPERVISOR INDEPENDENT CAPTURE (my own force-stop + boot + 4 focus-proven ticks):
+  30s = wide aerial over Sandover (water/cliffs/bridge), 54s = close among village huts —
+  TWO distinct camera positions 24s apart = camera FLIES the title course. Horizon level,
+  logo + PRESS START. +85° tilt GONE. Bug class #13 (modulo→quotient/MSUB) confirmed by MY
+  eyes. Archived SUPERVISOR-f1c-title-aerial.png / -huts.png.
+- opus was HONEST in the fix-summary's "Honest residuals / not fully done": input-injection
+  reaches the app but not (cpad-pressed? 0 start); even keyevent 108 (BUTTON_START) doesn't
+  reach cpad; gap = headless-inject → SDL virtual-gamepad → GOAL cpad path. run-7 logcat: NO
+  Jak spawn. So gameplay genuinely NOT done (frame labels level/move were aspirational).
+- F1c = real camera win. Authoring F1d (START→Geyser→control) next, carrying the cpad-path
+  finding, with STRICT gates. USER can press START live on-device as a cross-check.
+### 2026-06-11 21:46 — F1d launched, opus localized input gap FAST (~4min)
+- opus-4-8 traced pad-read boundary: game/sce/libpad.cpp → game/system/hid/input_manager.h
+  (cpad-fill) → android_runtime_compat.cpp; "smoking gun / exact gap found". The Android
+  overlay input doesn't feed the same cpad-fill path GOAL reads. Targeted fix likely.
+- No commit yet (root-cause). Single orchestrator opus-4-8, idx 84, weekly 99% extra-usage
+  (expected, not re-pausing). Strict F1d gate (play-mode/target-spawn) in place.
+### 2026-06-11 21:52 — F1d: cpad-input fix BUILT (3 TUs, libgk 58MB), deploying to test
+- opus mapped new-game flow (START→progress menu→X past memcard-no-data→(initialize!)) +
+  the cpad-fill gap, then edited 3 TUs (compiled clean). Slim APK building (iso_data already
+  on device from F1c). Device test imminent = the decisive moment (does injected START
+  register → title advances → Geyser → Jak spawn?). No commit yet. Verify by VISION at test.
+### 2026-06-11 22:22 — F1d BREAKTHROUGH: input→cpad WORKS (menus navigate); new blocker = app backgrounds on new-game
+- ✅ INPUT FIX REAL: injected START + X drive menus — focus-proven frames 01-03 ours;
+  opus timeline START(22:16:33)→progress menu→X#1→save-game-title→X#2. The cpad bridge is
+  cracked (the hard blocker). Logcat: set-master-mode 'game + *target* 0x1c5784 pos at f=15.
+- ⚠️ CAVEAT: the master-mode='game + target-pos are at f=15 (BOOT/attract-demo time,
+  22:16:02), NOT from the START injection (22:16:33). Jak1 boots through a brief 'game
+  state / runs a background demo under the title. So that marker is NOT sustained
+  START-driven gameplay. NOTE for validator: my play-mode/target-spawn gate could PASS on
+  this boot-time f=15 marker even though gameplay isn't sustained — scrutinize any F1d
+  fix-summary that leans on it; require VISION of a foreground level frame.
+- ❌ NEW BLOCKER: focus brackets show frames 04-12 = com.miui.home LAUNCHER. After X#2 the
+  app LOST FOREGROUND to home ~1.5s later; master-mode ended at 'progress'. New-game init
+  backgrounds the activity before playable Geyser renders. Android lifecycle issue (intent/
+  finish/display-mode-change?). opus's 07-level/08-moving labels are aspirational (= home).
+- opus honestly investigating the foreground loss. Input deliverable essentially met;
+  the background-on-new-game is the remaining gate to visible gameplay.
+### 2026-06-11 22:35 — USER live: F1d build CRASHES at logo→island reveal (input works, but regression)
+- USER (live device): F1c build = physical START→menu(new game/load/options)→X confirms→
+  Triangle backs (REAL touch input works — only headless ADB injection needed F1d's fix).
+  F1d build = CRASHES at the logo-pop/island-reveal intro (~few s in).
+- Logcat confirms: GK-DIAG sig=11 fault=0x28 pc=0x7610d56414 (NATIVE host/driver addr, not
+  GOAL) ~7s after set-master-mode 'game(f=15), REPRODUCIBLE across runs. = native merc
+  envmap / Adreno driver null+0x28 deref when the reveal/gameplay scene renders. opus knows
+  it ("merc envmap Adreno re-sync" fix, run-3 testing). My earlier "backgrounds to launcher
+  after X#2" = THIS crash (app dies → launcher).
+- REGRESSION CONCERN: F1c title was stable to 54s (my capture); F1d crashes ~7s. F1d either
+  introduced or (more likely) EXPOSED the crash by advancing past the title into the
+  merc/Adreno reveal path F1c never reached. INPUT BREAKTHROUGH stands (cpad bridge works).
+- GUARDRAIL: F1d must NOT replace the verified F1c stable title with a crashing build. If
+  opus can't fix the Adreno reveal crash, do NOT accept F1d as done on a crashing build —
+  re-scope (F1e: fix the merc/Adreno reveal crash) or preserve F1c title baseline. Verify
+  F1d completion by VISION of a STABLE foreground build (no ~7s crash).
+
+## 2026-06-12 — F1d post-mortem (quota artifact), tiered-effort architecture, F1e authored
+
+**F1d post-mortem.** The overnight HONEST-STOP ("same fingerprint 3×") was a
+QUOTA ARTIFACT: attempt 1 genuinely ran (137 turns, $24) and failed honestly
+(no fix-summary); attempts 2/3 hit "You're out of extra usage · resets Jun 16
+9am Paris" and ran ZERO turns (in 0 / out 0 / $0.000). The account recovered on
+its own (7-day rolling window: 100% → 52%) — Jun 16 wait NOT needed.
+Attempt-1 truth: the input→cpad bridge WORKS (START+X navigated title→menu→
+save screens, foreground-verified frames 01-03) but the build CRASHES at the
+logo→island reveal — GK-DIAG sig=11 fault=0x28 pc=0x7610d56414 lr=0x7610d93594,
+3/3 runs, app → launcher (all later "level/moving" frame labels = launcher,
+aspirational). F1d's work is UNCOMMITTED in the tree (android_input_audio.cpp/h,
+android_runtime_compat.cpp CPadOpen/CPadGetData, gk_android_main.cpp) — nothing
+lost; F1c HEAD itself was stable 54s+.
+
+**Tiered model/effort architecture (owner, /efficient-fable pattern).**
+Manager = claude-fable-5[1m] @ effort=high (per-phase `effort:` override in
+milestones.yaml); workers = claude-opus-4-8[1m] via CLAUDE_CODE_SUBAGENT_MODEL
+with .claude/agents defs: autoport-researcher (high), autoport-implementer
+(medium), autoport-tester (medium). Delegation preamble injected into every
+phase prompt by run_phase(). supervisor.sh → fable-5 @ high too. Rationale:
+FrontierCode accuracy-vs-cost — fable-high ≈ 24% @ ~$10 dominates opus-max;
+implementation doesn't need max effort.
+
+**F1e authored at idx 84** (F1d shifted to 85, unblocked, retries/fingerprints
+cleared — it re-runs fresh on the stable build). F1e = bisect the uncommitted
+diff (clean HEAD / +bridge / full tree), symbolize pc+lr (addr2line, fault=0x28
+= null+0x28 member read), fix at mechanism (no fault-swallow / no skipping the
+reveal / island must render), preserve+commit the innocent bridge. STRICT
+validator: fix-summary must reference 0x7610d56414 + symbolization; newest
+logcat ZERO sig=11 + set-master-mode + frame≥300 + tris>0; newest focus file
+ends on org.opengoal. Guardrail kept: do NOT lose the verified F1c title.

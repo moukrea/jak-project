@@ -71,18 +71,18 @@ cat <<EOF
 ================================================================
 EOF
 
-# Force claude-opus-4-8[1m] + max effort for the supervisor itself (owner
-# default since 2026-06-10 — 1M-context, stronger on long-running tasks;
-# was claude-opus-4-7). The 'ultrathink' keyword is reinforced inside
-# SUPERVISOR_PROMPT.md so each reasoning step allocates maximum thinking
-# budget — see the 'Reasoning depth' section. CLAUDE_EFFORT env is set too
-# (belt-and-suspenders for older builds that pre-date the --effort CLI flag).
+# Force claude-fable-5[1m] + high effort for the supervisor itself (owner
+# tiered architecture 2026-06-12: fable manager-class judgment at high effort;
+# was opus-4-8[1m] max 2026-06-10→12, opus-4-7 before). The 'ultrathink'
+# keyword is reinforced inside SUPERVISOR_PROMPT.md so reasoning stays deep
+# despite effort=high. CLAUDE_EFFORT env is set too (belt-and-suspenders for
+# older builds that pre-date the --effort CLI flag).
 # NOTE: the model name contains brackets — keep it single-quoted (glob chars).
-export CLAUDE_EFFORT=max
+export CLAUDE_EFFORT=high
 
 exec claude \
-    --model 'claude-opus-4-8[1m]' \
-    --effort max \
+    --model 'claude-fable-5[1m]' \
+    --effort high \
     --append-system-prompt "$(cat "$PROMPT_FILE")" \
     --dangerously-skip-permissions \
     "$@"
