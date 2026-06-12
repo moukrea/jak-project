@@ -3756,6 +3756,9 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
       uint32_t di, num_draws, tex, first_bone, index_count, first_index;
       uint32_t vao, vtx_buf, idx_buf;
       int envmap, mod_vtx, no_strip;
+      uint32_t tex_branch, tex_name, tex_is, tex_size, tex_binding;
+      uint32_t fbo_binding, fbo_status, gl_err;
+      uint32_t load_id, fsl;
     };
     extern volatile F1aMercDrawInfo gk_f1a_last_merc_draw;
     const F1aMercDrawInfo d = const_cast<const F1aMercDrawInfo&>(gk_f1a_last_merc_draw);
@@ -3764,6 +3767,14 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                         "vao=%u vtx=%u idx-buf=%u envmap=%d mod=%d nostrip=%d",
                         d.di, d.num_draws, d.tex, d.first_bone, d.index_count, d.first_index,
                         d.vao, d.vtx_buf, d.idx_buf, d.envmap, d.mod_vtx, d.no_strip);
+    // F1e: GL state snapshotted at the last bucket-first/killer merc draw
+    // (values captured live in do_draws; only printed here — no GL calls in
+    // the signal handler).
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG F1E-MERC-TEX branch=%u name=%u is=%u size=%u bind=%u fbo=%u "
+                        "status=0x%x err=0x%x load_id=%u fsl=%u",
+                        d.tex_branch, d.tex_name, d.tex_is, d.tex_size, d.tex_binding,
+                        d.fbo_binding, d.fbo_status, d.gl_err, d.load_id, d.fsl);
   }
   // A36: symbolize host-space pc/lr (BLR-to-NULL from C++ render code lands
   // here with pc=0 and lr inside libgk.so — dladdr names the caller).

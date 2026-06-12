@@ -1,5 +1,7 @@
 #include "TFragment.h"
 
+#include <cstdio>
+
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 
 #include "third-party/imgui/imgui.h"
@@ -683,6 +685,9 @@ void TFragment::discard_tree_cache() {
     for (auto& tree : m_cached_trees[geom]) {
       if (tree.kind != tfrag3::TFragmentTreeKind::INVALID) {
         glBindTexture(GL_TEXTURE_1D, tree.time_of_day_texture);
+#ifdef __ANDROID__
+        fprintf(stderr, "F1E-DELTEX site=tfrag-tod tex=%u\n", (unsigned)tree.time_of_day_texture);
+#endif
         glDeleteTextures(1, &tree.time_of_day_texture);
         glDeleteBuffers(1, &tree.single_draw_index_buffer);
         glDeleteBuffers(1, &tree.index_buffer);

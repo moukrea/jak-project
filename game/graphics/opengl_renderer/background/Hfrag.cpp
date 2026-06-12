@@ -1,5 +1,7 @@
 #include "Hfrag.h"
 
+#include <cstdio>
+
 #include "common/log/log.h"
 
 #include "third-party/imgui/imgui.h"
@@ -184,6 +186,9 @@ void Hfrag::unload_hfrag_level(Hfrag::HfragLevel* lev) {
   ASSERT(lev->in_use);
   // delete OpenGL resources we created.
   glBindTexture(GL_TEXTURE_1D, lev->time_of_day_texture);
+#ifdef __ANDROID__
+  fprintf(stderr, "F1E-DELTEX site=hfrag-tod tex=%u\n", (unsigned)lev->time_of_day_texture);
+#endif
   glDeleteTextures(1, &lev->time_of_day_texture);
   glDeleteVertexArrays(1, &lev->vao);
 

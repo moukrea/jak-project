@@ -1,5 +1,7 @@
 #include "TextureAnimator.h"
 
+#include <cstdio>
+
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
 #include "common/texture/texture_slots.h"
@@ -148,6 +150,10 @@ OpenGLTexturePool::OpenGLTexturePool(GameVersion version) {
 
 OpenGLTexturePool::~OpenGLTexturePool() {
   for (auto& [_, l] : textures) {
+#ifdef __ANDROID__
+    fprintf(stderr, "F1E-DELTEX site=texanim-pool n=%zu tex=%u\n", (size_t)l.size(),
+            l.size() > 0 ? (unsigned)l.data()[0] : 0u);
+#endif
     glDeleteTextures(l.size(), l.data());
   }
 }
@@ -794,6 +800,9 @@ void TextureAnimator::add_to_clut_blender_group(int idx,
 TextureAnimator::~TextureAnimator() {
   glDeleteVertexArrays(1, &m_vao);
   glDeleteBuffers(1, &m_vertex_buffer);
+#ifdef __ANDROID__
+  fprintf(stderr, "F1E-DELTEX site=texanim-dummy tex=%u\n", (unsigned)m_dummy_texture);
+#endif
   glDeleteTextures(1, &m_dummy_texture);
 }
 

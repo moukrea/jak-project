@@ -86,6 +86,9 @@ FramebufferTexturePair::~FramebufferTexturePair() {
     return;
   }
   glDeleteFramebuffers(m_framebuffers.size(), m_framebuffers.data());
+#ifdef __ANDROID__
+  fprintf(stderr, "F1E-DELTEX site=fbtexpair tex=%u\n", (unsigned)m_texture);
+#endif
   glDeleteTextures(1, &m_texture);
 }
 
@@ -227,6 +230,9 @@ FramebufferCopier::FramebufferCopier() {
 }
 
 FramebufferCopier::~FramebufferCopier() {
+#ifdef __ANDROID__
+  fprintf(stderr, "F1E-DELTEX site=fbtexpair2 tex=%u\n", (unsigned)m_fbo_texture);
+#endif
   glDeleteTextures(1, &m_fbo_texture);
   glDeleteFramebuffers(1, &m_fbo);
 }

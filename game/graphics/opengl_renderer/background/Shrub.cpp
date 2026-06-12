@@ -1,5 +1,7 @@
 #include "Shrub.h"
 
+#include <cstdio>
+
 #include "common/log/log.h"
 
 Shrub::Shrub(const std::string& name, int my_id) : BucketRenderer(name, my_id) {
@@ -212,6 +214,9 @@ bool Shrub::setup_for_level(const std::string& level, SharedRenderState* render_
 void Shrub::discard_tree_cache() {
   for (auto& tree : m_trees) {
     glBindTexture(GL_TEXTURE_1D, tree.time_of_day_texture);
+#ifdef __ANDROID__
+    fprintf(stderr, "F1E-DELTEX site=shrub-tod tex=%u\n", (unsigned)tree.time_of_day_texture);
+#endif
     glDeleteTextures(1, &tree.time_of_day_texture);
     glDeleteBuffers(1, &tree.index_buffer);
     glDeleteBuffers(1, &tree.single_draw_index_buffer);

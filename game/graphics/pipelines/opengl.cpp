@@ -3,6 +3,8 @@
  * Lower-level OpenGL interface. No actual rendering is performed here!
  */
 
+#include <cstdio>
+
 #include "opengl.h"
 
 #include <condition_variable>
@@ -435,8 +437,12 @@ void GLDisplay::draw_splash(int fb_w, int fb_h) {
 }
 
 GLDisplay::~GLDisplay() {
-  if (m_splash_texture)
+  if (m_splash_texture) {
+#ifdef __ANDROID__
+    fprintf(stderr, "F1E-DELTEX site=splash tex=%u\n", (unsigned)m_splash_texture);
+#endif
     glDeleteTextures(1, &m_splash_texture);
+  }
   if (m_splash_program)
     glDeleteProgram(m_splash_program);
   if (m_splash_vao)
