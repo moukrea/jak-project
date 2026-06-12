@@ -1,5 +1,7 @@
 #include "Loader.h"
 
+#include <cstdio>
+
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/util/FileUtil.h"
 #include "common/util/Timer.h"
@@ -453,6 +455,11 @@ void Loader::update(TexturePool& texture_pool) {
         auto& lev = m_loaded_tfrag3_levels.at(*to_unload);
         std::unique_lock<std::mutex> lk(texture_pool.mutex());
         fmt::print("------------------------- PC unloading {}\n", *to_unload);
+#ifdef __ANDROID__
+        fprintf(stderr, "F1E-EVICT lev=%s ntex=%zu load_id=%llu fsl=%d\n", to_unload->c_str(),
+                lev->textures.size(), (unsigned long long)lev->load_id,
+                lev->frames_since_last_used);
+#endif
         for (size_t i = 0; i < lev->level->textures.size(); i++) {
           auto& tex = lev->level->textures[i];
           if (tex.load_to_pool) {
@@ -516,6 +523,10 @@ void Loader::update(TexturePool& texture_pool) {
     if (!m_garbage_buffers.empty()) {
       did_gpu_stuff = true;
       for (int i = 0; i < 5 && !m_garbage_buffers.empty(); i++) {
+#ifdef __ANDROID__
+        fprintf(stderr, "F1E-DELBUF buf=%u left=%zu\n", (unsigned)m_garbage_buffers.back(),
+                m_garbage_buffers.size());
+#endif
         glDeleteBuffers(1, &m_garbage_buffers.back());
         m_garbage_buffers.pop_back();
       }
@@ -523,6 +534,10 @@ void Loader::update(TexturePool& texture_pool) {
 
     if (!did_gpu_stuff && !m_garbage_textures.empty()) {
       for (int i = 0; i < 20 && !m_garbage_textures.empty(); i++) {
+#ifdef __ANDROID__
+        fprintf(stderr, "F1E-DELTEX site=loader-garbage tex=%u left=%zu\n",
+                (unsigned)m_garbage_textures.back(), m_garbage_textures.size());
+#endif
         glDeleteTextures(1, &m_garbage_textures.back());
         m_garbage_textures.pop_back();
       }

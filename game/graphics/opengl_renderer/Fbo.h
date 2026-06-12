@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio>
 #include <optional>
 
 #include "game/graphics/pipelines/opengl.h"
@@ -36,6 +37,9 @@ struct Fbo {
       fbo_id = -1;
 
       if (tex_id) {
+#ifdef __ANDROID__
+        fprintf(stderr, "F1E-DELTEX site=fbo tex=%u\n", (unsigned)tex_id.value());
+#endif
         glDeleteTextures(1, &tex_id.value());
         tex_id.reset();
       }

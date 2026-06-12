@@ -1,5 +1,7 @@
 #include "SkyBlendCPU.h"
 
+#include <cstdio>
+
 #include "common/util/os.h"
 #include "common/util/simd_util.h"
 
@@ -25,6 +27,9 @@ SkyBlendCPU::SkyBlendCPU() {
 
 SkyBlendCPU::~SkyBlendCPU() {
   for (auto& tex : m_textures) {
+#ifdef __ANDROID__
+    fprintf(stderr, "F1E-DELTEX site=skycpu tex=%u\n", (unsigned)tex.gl);
+#endif
     glDeleteTextures(1, &tex.gl);
   }
 }

@@ -1,5 +1,7 @@
 #include "Tie3.h"
 
+#include <cstdio>
+
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
 #include "common/util/Assert.h"
@@ -263,6 +265,9 @@ void Tie3::discard_tree_cache() {
   for (int geo = 0; geo < 4; ++geo) {
     for (auto& tree : m_trees[geo]) {
       glBindTexture(GL_TEXTURE_1D, tree.time_of_day_texture);
+#ifdef __ANDROID__
+      fprintf(stderr, "F1E-DELTEX site=tie-tod tex=%u\n", (unsigned)tree.time_of_day_texture);
+#endif
       glDeleteTextures(1, &tree.time_of_day_texture);
       // glDeleteBuffers(1, &tree.index_buffer);
       glDeleteBuffers(1, &tree.single_draw_index_buffer);

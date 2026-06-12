@@ -1,0 +1,12 @@
+01-title ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+02-menu ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+03-after-x1 ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+04-after-x2 ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+05-after-x3 ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+06-reveal ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+07-island ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+08-sustain-a ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+09-move-a ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+10-move-b ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+11-sustain-b ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+12-final ::   mCurrentFocus=Window{e4542c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
