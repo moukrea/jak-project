@@ -16,6 +16,17 @@
 4. **Captures**: title → (START) → menu/load → level + Jak → (move) → Jak moved. Screencaps at each transition (named by what they ACTUALLY show, verified) + `mCurrentFocus` brackets. Reversible disables (xiaoji ×2, sshxmobile, ghplus), RE-ENABLE after.
 5. **F1d-fix-summary.md** (≥ 80 lines): the input-path root cause + fix mechanism, the START→play→spawn→move evidence timeline, frames. No aspirational frame labels — label frames by verified content.
 
+## Owner note (2026-06-12, supervisor-added)
+
+On a NEW GAME, the original flow plays the **opening cinematic before Jak is
+playable**. Treat a running intro cutscene after START→new-game as the
+CORRECT intermediate state (capture it as evidence of progress — it is
+visually distinct from the title). Let it play or skip it through a
+legitimate input path (the game's own skip), then expect the level + target
+spawn. Do NOT hack the state machine to bypass it. Also known + parked
+(NOT this phase): the pre-title boot intro (SCEE screen + Daxter/ND logo
+dance) is missing on Android; water and pause-menu backdrop render wrong.
+
 ## Cross-check available
 
 The owner is watching the device live and CAN press START physically. If autonomous injection is blocked, a manually-pressed START that advances the title is a valid diagnostic (proves the game logic + render path work and isolates the gap to injection) — note it, but the orchestrator's deliverable is autonomous injection driving the flow.
