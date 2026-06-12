@@ -45,6 +45,8 @@
 #include "game/common/game_common_types.h"
 #include "game/system/background_worker.h"
 
+#include "android_input_audio.h"
+
 // ---------------------------------------------------------------------------
 // Runtime globals owned by game/runtime.cpp upstream.
 //
@@ -652,14 +654,16 @@ u64 CPadOpen(u64 cpad_info, s32 /*pad_number*/) {
 }
 
 // SHIM_KIND: PS2_HW_EMULATION
-// Why: desktop body polls SDL gamepad state via the InputManager owned
-// by Display::GetMainDisplay (not present on Android — see CPadOpen).
-// The Bluetooth-pad route on Android lands in android_input_audio's
-// virtual joystick mirror; this stub keeps GOAL's at-rest cpad layout
-// stable per-frame until the input bindings table is hooked here too.
-// Phase E1 (autoport): when a real pad press fires onPadButton, the
-// virtual-joystick mirror is updated; a future phase wires that mirror
-// into the cpad buffer here so the GOAL kernel observes the press.
+// Why: desktop body polls SDL gamepad state via the InputManager owned by
+// Display::GetMainDisplay (null on Android — see CPadOpen), so the whole
+// scePadRead path is dead here. Phase F1d (autoport) wires the missing
+// link: the overlay JNI, a real Bluetooth pad, and the headless injector
+// all feed android_input_audio's PS2 cpad mirror; we read it here and
+// stamp button0 + the analog sticks into the GOAL cpad-info, exactly as
+// the desktop scePadRead does (button0 layout = PadData::ButtonIndex,
+// pressed = 1; the bits are NOT flipped — see common/kmachine.cpp). This
+// is a real INPUT crossing the boundary; the GOAL game logic still
+// decides what to do with the press.
 u64 CPadGetData(u64 cpad_info) {
   static std::atomic<uint32_t> g_pad_poll_count{0};
   const uint32_t n = g_pad_poll_count.fetch_add(1, std::memory_order_relaxed);
@@ -670,14 +674,32 @@ u64 CPadGetData(u64 cpad_info) {
     __android_log_print(ANDROID_LOG_INFO, kAndroidLogTag,
                         "pad-state poll: tick %u", n);
   }
+  uint16_t button0 = 0;
+  uint8_t lx = 127, ly = 127, rx = 127, ry = 127;
+  android_input_audio::get_cpad_state(&button0, &lx, &ly, &rx, &ry);
   if (cpad_info) {
     auto* cpad = Ptr<CPadInfo>(cpad_info).c();
     if (cpad) {
-      cpad->valid = 0;       // success, no data this frame
-      cpad->button0 = 0;     // no buttons pressed
-      cpad->rightx = cpad->righty = 128;  // analog at rest
-      cpad->leftx = cpad->lefty = 128;
-      for (auto& b : cpad->abutton) b = 0;
+      cpad->valid = 0;            // success
+      cpad->button0 = button0;    // live pad state (pressed = 1)
+      cpad->leftx = lx;
+      cpad->lefty = ly;
+      cpad->rightx = rx;
+      cpad->righty = ry;
+      for (auto& b : cpad->abutton) b = 0;  // no pressure-sensitivity
+      // One-time authoritative proof that the GOAL kernel actually read a
+      // START press out of the cpad (button0 bit 3 = ButtonIndex::START).
+      // This is what the title's (cpad-pressed? 0 start) consumes.
+      if (button0 & (1u << 3)) {
+        static std::atomic<bool> s_start_read{false};
+        bool expected = false;
+        if (s_start_read.compare_exchange_strong(expected, true)) {
+          __android_log_print(ANDROID_LOG_INFO, kAndroidLogTag,
+                              "F1D-CPAD-START: GOAL CPadGetData stamped START "
+                              "into cpad-info button0=0x%04x at poll %u -> "
+                              "(cpad-pressed? 0 start) fired", button0, n);
+        }
+      }
     }
   }
   return cpad_info;

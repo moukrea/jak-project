@@ -12,10 +12,15 @@
 
 #include <android/log.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <mutex>
+#include <string>
+#include <thread>
 #include <unordered_map>
 
 #include <SDL3/SDL.h>
@@ -74,6 +79,88 @@ int64_t monotonic_ms_internal() {
   return duration_cast<milliseconds>(
              steady_clock::now().time_since_epoch())
       .count();
+}
+
+// ----- Phase F1d: the PS2 cpad mirror ----------------------------------
+//
+// This is the bridge that was missing through F1c: the overlay JNI and
+// real-gamepad paths already drove on_pad_button (logged `kernel: pad:`,
+// updated the SDL virtual joystick), but nothing read that state back
+// into the GOAL cpad. On Android Display::GetMainDisplay() is null, so
+// the desktop scePadRead → InputManager path is dead; CPadGetData
+// (android_runtime_compat.cpp) hard-coded button0=0. We instead keep a
+// tiny lock-free mirror here in PS2 button0 layout (pressed = 1) plus the
+// four analog axes, and CPadGetData reads it via get_cpad_state().
+//
+// Two independent producers feed the mirror and are OR/compose-combined
+// so neither clobbers the other:
+//   * overlay / real-gamepad  -> g_overlay_button0, g_stick_*
+//   * headless injector file  -> g_inject_button0, g_inject_*
+// A real Bluetooth pad (or the owner pressing the on-screen START live)
+// therefore still works while an autonomous run drives the injector.
+
+// SDL_GAMEPAD_BUTTON_* -> PS2 button0 bit (PadData::ButtonIndex in
+// game/system/hid/input_bindings.h). Mirrors the desktop default bind in
+// input_bindings.cpp::DEFAULT_CONTROLLER_BUTTON_BINDS exactly, so the
+// game reacts identically to the desktop x86_64 controller path.
+int ps2_bit_for_sdl_button(int b) {
+  switch (b) {
+    case SDL_GAMEPAD_BUTTON_SOUTH:          return 14;  // CROSS
+    case SDL_GAMEPAD_BUTTON_EAST:           return 13;  // CIRCLE
+    case SDL_GAMEPAD_BUTTON_WEST:           return 15;  // SQUARE
+    case SDL_GAMEPAD_BUTTON_NORTH:          return 12;  // TRIANGLE
+    case SDL_GAMEPAD_BUTTON_BACK:           return 0;   // SELECT
+    case SDL_GAMEPAD_BUTTON_START:          return 3;   // START
+    case SDL_GAMEPAD_BUTTON_LEFT_STICK:     return 1;   // L3
+    case SDL_GAMEPAD_BUTTON_RIGHT_STICK:    return 2;   // R3
+    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:  return 10;  // L1
+    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return 11;  // R1
+    case SDL_GAMEPAD_BUTTON_DPAD_UP:        return 4;   // DPAD_UP
+    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:     return 5;   // DPAD_RIGHT
+    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:      return 6;   // DPAD_DOWN
+    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:      return 7;   // DPAD_LEFT
+    default:                                return -1;
+  }
+}
+
+constexpr uint16_t kPs2StartBit = (1u << 3);   // ButtonIndex::START
+constexpr uint8_t kAnalogNeutral = 127;        // PadData::ANALOG_NEUTRAL
+
+// Overlay / real-gamepad producer.
+std::atomic<uint16_t> g_overlay_button0{0};
+std::atomic<uint8_t> g_stick_lx{kAnalogNeutral};
+std::atomic<uint8_t> g_stick_ly{kAnalogNeutral};
+std::atomic<uint8_t> g_stick_rx{kAnalogNeutral};
+std::atomic<uint8_t> g_stick_ry{kAnalogNeutral};
+
+// Headless injector producer.
+std::atomic<uint16_t> g_inject_button0{0};
+std::atomic<uint8_t> g_inject_lx{kAnalogNeutral};
+std::atomic<uint8_t> g_inject_ly{kAnalogNeutral};
+std::atomic<uint8_t> g_inject_rx{kAnalogNeutral};
+std::atomic<uint8_t> g_inject_ry{kAnalogNeutral};
+
+// One-time confirmation that a START press actually reached the cpad
+// mirror — the smoking-gun marker the F1d timeline is built around.
+std::atomic<bool> g_start_seen{false};
+
+void note_button_mirror_edge(uint16_t before, uint16_t after) {
+  if (!(before & kPs2StartBit) && (after & kPs2StartBit)) {
+    bool expected = false;
+    if (g_start_seen.compare_exchange_strong(expected, true)) {
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "F1D-CPAD-START: START reached the cpad mirror "
+                          "(button0 bit 3 set) -> GOAL (cpad-pressed? 0 start) "
+                          "will observe the press");
+    }
+  }
+}
+
+// Map an SDL axis value (-32768..32767) to PS2 analog (0..255, 127
+// neutral). Same direction the desktop SDL gamepad path uses.
+uint8_t sdl_axis_to_ps2(int v) {
+  int mapped = (v + 32768) * 255 / 65535;
+  return (uint8_t)std::clamp(mapped, 0, 255);
 }
 
 // SDL3 numbers SDL_GAMEPAD_BUTTON_* contiguously from 0 with
@@ -338,6 +425,20 @@ void on_pad_button(int sdl_button, bool pressed) {
                                 std::memory_order_release);
   }
 
+  // Phase F1d: drive the PS2 cpad mirror that CPadGetData reads. This is
+  // the link the overlay/JNI press was missing — independent of SDL init,
+  // because the GOAL kernel polls the mirror directly, not SDL.
+  {
+    const int bit = ps2_bit_for_sdl_button(sdl_button);
+    if (bit >= 0) {
+      const uint16_t mask = (uint16_t)(1u << bit);
+      uint16_t before = g_overlay_button0.load(std::memory_order_relaxed);
+      uint16_t after = pressed ? (before | mask) : (before & ~mask);
+      g_overlay_button0.store(after, std::memory_order_release);
+      note_button_mirror_edge(before, after);
+    }
+  }
+
   // Push into the SDL virtual joystick if init has completed. Touch
   // events arriving before init() finishes are still logged above; the
   // GOAL kernel can't consume them yet either, so dropping the SDL side
@@ -361,6 +462,142 @@ int64_t last_start_press_ms() {
 
 int64_t monotonic_ms_now() {
   return monotonic_ms_internal();
+}
+
+void on_pad_axis(int sdl_axis, int value) {
+  const uint8_t v = sdl_axis_to_ps2(value);
+  switch (sdl_axis) {
+    case SDL_GAMEPAD_AXIS_LEFTX:  g_stick_lx.store(v, std::memory_order_release); break;
+    case SDL_GAMEPAD_AXIS_LEFTY:  g_stick_ly.store(v, std::memory_order_release); break;
+    case SDL_GAMEPAD_AXIS_RIGHTX: g_stick_rx.store(v, std::memory_order_release); break;
+    case SDL_GAMEPAD_AXIS_RIGHTY: g_stick_ry.store(v, std::memory_order_release); break;
+    default: break;
+  }
+}
+
+void get_cpad_state(uint16_t* button0, uint8_t* lx, uint8_t* ly,
+                    uint8_t* rx, uint8_t* ry) {
+  // Buttons compose by OR (overlay/gamepad press OR injected press).
+  if (button0) {
+    *button0 = (uint16_t)(g_overlay_button0.load(std::memory_order_acquire) |
+                          g_inject_button0.load(std::memory_order_acquire));
+  }
+  // Sticks: a deflected injected axis wins; otherwise the real-gamepad
+  // axis; otherwise neutral. (The overlay has no analog stick.)
+  auto pick = [](std::atomic<uint8_t>& inj, std::atomic<uint8_t>& stick) -> uint8_t {
+    uint8_t i = inj.load(std::memory_order_acquire);
+    if (i != kAnalogNeutral) return i;
+    return stick.load(std::memory_order_acquire);
+  };
+  if (lx) *lx = pick(g_inject_lx, g_stick_lx);
+  if (ly) *ly = pick(g_inject_ly, g_stick_ly);
+  if (rx) *rx = pick(g_inject_rx, g_stick_rx);
+  if (ry) *ry = pick(g_inject_ry, g_stick_ry);
+}
+
+namespace {
+// Parse one whitespace-separated token of the inject control file into the
+// injected mirror accumulators. Recognised tokens:
+//   start x circle square triangle select l1 r1 l2 r2 l3 r3
+//   up down left right            (PS2 d-pad)
+//   lx=<0-255> ly=.. rx=.. ry=..  (analog sticks; ly<127 = up/forward)
+// Anything else is ignored. Returns silently — robustness over strictness
+// so a partially-written file never wedges the run.
+void apply_inject_token(const std::string& tok, uint16_t* btn, uint8_t* lx,
+                        uint8_t* ly, uint8_t* rx, uint8_t* ry) {
+  auto setbit = [&](int b) { *btn |= (uint16_t)(1u << b); };
+  auto eqval = [&](const char* key, uint8_t* dst) -> bool {
+    size_t klen = std::strlen(key);
+    if (tok.size() > klen && tok.compare(0, klen, key) == 0 && tok[klen] == '=') {
+      int v = atoi(tok.c_str() + klen + 1);
+      *dst = (uint8_t)std::clamp(v, 0, 255);
+      return true;
+    }
+    return false;
+  };
+  if (eqval("lx", lx) || eqval("ly", ly) || eqval("rx", rx) || eqval("ry", ry)) return;
+  if (tok == "start") setbit(3);
+  else if (tok == "select") setbit(0);
+  else if (tok == "l3") setbit(1);
+  else if (tok == "r3") setbit(2);
+  else if (tok == "up") setbit(4);
+  else if (tok == "right") setbit(5);
+  else if (tok == "down") setbit(6);
+  else if (tok == "left") setbit(7);
+  else if (tok == "l2") setbit(8);
+  else if (tok == "r2") setbit(9);
+  else if (tok == "l1") setbit(10);
+  else if (tok == "r1") setbit(11);
+  else if (tok == "triangle") setbit(12);
+  else if (tok == "circle") setbit(13);
+  else if (tok == "x" || tok == "cross") setbit(14);
+  else if (tok == "square") setbit(15);
+}
+}  // namespace
+
+void start_inject_watcher(const char* inject_file_path) {
+  if (!inject_file_path || !*inject_file_path) {
+    return;
+  }
+  std::string path(inject_file_path);
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "F1D-INJECT: watcher armed on '%s' (headless cpad "
+                      "injection: write held button/stick STATE here)",
+                      path.c_str());
+  std::thread([path]() {
+    std::string last_applied;
+    bool announced_first = false;
+    for (;;) {
+      uint16_t btn = 0;
+      uint8_t lx = kAnalogNeutral, ly = kAnalogNeutral;
+      uint8_t rx = kAnalogNeutral, ry = kAnalogNeutral;
+      std::string content;
+      FILE* fp = std::fopen(path.c_str(), "rb");
+      if (fp) {
+        char buf[512];
+        size_t n = std::fread(buf, 1, sizeof(buf) - 1, fp);
+        buf[n] = '\0';
+        content.assign(buf, n);
+        std::fclose(fp);
+      }
+      // Tokenise on whitespace.
+      {
+        std::string tok;
+        for (size_t i = 0; i <= content.size(); ++i) {
+          char c = (i < content.size()) ? content[i] : ' ';
+          if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\0') {
+            if (!tok.empty()) {
+              apply_inject_token(tok, &btn, &lx, &ly, &rx, &ry);
+              tok.clear();
+            }
+          } else {
+            tok.push_back(c);
+          }
+        }
+      }
+      uint16_t before = g_inject_button0.load(std::memory_order_relaxed);
+      g_inject_button0.store(btn, std::memory_order_release);
+      g_inject_lx.store(lx, std::memory_order_release);
+      g_inject_ly.store(ly, std::memory_order_release);
+      g_inject_rx.store(rx, std::memory_order_release);
+      g_inject_ry.store(ry, std::memory_order_release);
+      note_button_mirror_edge(before, btn);
+      // Log only on change, so the timeline shows exactly when an injected
+      // state took effect (and proves the file path is being read).
+      std::string applied = content;
+      if (applied != last_applied) {
+        last_applied = applied;
+        if (!announced_first || !applied.empty()) {
+          announced_first = true;
+          __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                              "F1D-INJECT applied: button0=0x%04x lx=%u ly=%u "
+                              "rx=%u ry=%u (raw='%s')",
+                              btn, lx, ly, rx, ry, applied.c_str());
+        }
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    }
+  }).detach();
 }
 
 int open_gamepad_count() {
@@ -459,6 +696,13 @@ bool process_sdl_event(const SDL_Event& event) {
                           "(real gamepad)",
                           btn, pressed ? 1 : 0);
       on_pad_button(btn, pressed);
+      return true;
+    }
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+      // Phase F1d: route real-gamepad stick motion into the cpad mirror so
+      // a Bluetooth pad's left stick moves Jak (the owner's live
+      // cross-check), exactly like the desktop SDL gamepad path.
+      on_pad_axis((int)event.gaxis.axis, (int)event.gaxis.value);
       return true;
     }
     default:

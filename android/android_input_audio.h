@@ -36,6 +36,32 @@ namespace android_input_audio {
 void init();
 void on_pad_button(int sdl_button, bool pressed);
 
+// Phase F1d (autoport): analog-stick state from a real gamepad. axis is
+// an SDL_GAMEPAD_AXIS_* index; value is the raw SDL axis range
+// (-32768..32767). Routed from SDL_EVENT_GAMEPAD_AXIS_MOTION in
+// process_sdl_event into the cpad mirror that CPadGetData reads.
+void on_pad_axis(int sdl_axis, int value);
+
+// Phase F1d (autoport): read the aggregate PS2 controller state that the
+// Android CPadGetData (android_runtime_compat.cpp) stamps into the GOAL
+// cpad-info each frame. This is the bridge that was missing: the overlay
+// JNI / real gamepad / headless injector all update an internal mirror;
+// the GOAL kernel reads it here.
+//   button0 — PS2 button0 bitmask (pressed = 1), ButtonIndex layout from
+//             game/system/hid/input_bindings.h.
+//   lx/ly/rx/ry — analog sticks, 0..255, 127 = neutral.
+void get_cpad_state(uint16_t* button0, uint8_t* lx, uint8_t* ly,
+                    uint8_t* rx, uint8_t* ry);
+
+// Phase F1d (autoport): start the headless input-injection watcher. It
+// polls `inject_file_path` (an app-private file the test harness writes
+// via run-as) and applies the requested held button/stick STATE into the
+// cpad mirror, so an autonomous run can press START and drive movement
+// without a human. This injects a real INPUT at the boundary — the GOAL
+// game logic still decides what to do with it. No-op if the path is empty
+// or the file never appears.
+void start_inject_watcher(const char* inject_file_path);
+
 // Phase E1: route a single SDL event through the gamepad / open-device
 // logic. Returns true if the event was consumed (i.e. it was a
 // SDL_EVENT_GAMEPAD_* event), false otherwise. Called from the
