@@ -851,6 +851,19 @@ phases:
   validator: validators/phase-Gsce-first-frames-presents-screen.sh
   max_turns: 1200
   max_retries: 3
+- id: Gsprite-arm64-sparticle-mips2c-unnoop
+  name: 'Un-noop the arm64 sparticle sprite-DMA builders so screen-space sprites RENDER (SCE presents logo first). Gsce restored the
+    SCE screen SPAWN but it renders BLACK: the SCE logo draws 3 screen-space sparticle sprites (defpart 2966/2967/2968) built by
+    sp-launch-particles-var + related particle->sprite-DMA mips2c functions, which are NOOP on arm64 because not in the allowlist (kSet)
+    in game/mips2c/mips2c_table_jak1_arm64.cpp -> empty sprite bucket -> black. x86 binds the real code (renders) = arm64-only
+    divergence, same class as A37 camera (mips2c noop-bound). Gsprite: add the sparticle builders to the arm64 allowlist, VERIFY the
+    translation runs+emits sprite DMA (not just bound; fix translation if broken; no noop-pretend), confirm SCE logo renders in first
+    ~3s + tris rises above the ~4 empty baseline. Likely also lights up menu overlay + other 2D sprites (broad payoff). Title-regression
+    gate; supervisor pixel-judges the SCE screen. max_turns 1200.'
+  prompt: prompts/phase-Gsprite-arm64-sparticle-mips2c-unnoop.md
+  validator: validators/phase-Gsprite-arm64-sparticle-mips2c-unnoop.sh
+  max_turns: 1200
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
