@@ -551,8 +551,16 @@
       (let ((gp-0 (the-as handle #f)))
         ;; og:preserve-this PAL patch here
         (cond
-          ((and (= (scf-get-territory) GAME_TERRITORY_SCEI) *first-boot*)
+          ;; og:preserve-this Gsce: restore the "Sony Computer Entertainment presents"
+          ;; static screen for ALL regions. Upstream OpenGOAL gated this to
+          ;; GAME_TERRITORY_SCEI (Japan), but the original retail game shows the SCE
+          ;; "presents" screen at boot in every territory (incl. SCEA/SCEE) before the
+          ;; Naughty Dog / Daxter logo. DecodeTerritory() returns SCEA here, so the old
+          ;; territory test was always false and the screen never spawned. Keep
+          ;; *first-boot* so it only plays once at startup, not on every return to title.
+          (*first-boot*
            (set! *first-boot* #f)
+           (format 0 "GSCE-SCE-SPAWN static-screen-spawn territory=~D first-boot=~A~%" (scf-get-territory) *first-boot*)
            (set! gp-0
                  (ppointer->handle (static-screen-spawn 5
                                                         (new 'static 'texture-id :page #x649)
