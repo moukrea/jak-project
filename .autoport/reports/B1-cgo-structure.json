@@ -15,14 +15,14 @@
       "snippet": "0:\ta9bf7bfd \tstp\tx29, x30, [sp, #-16]!\n4:\t910003fd \tmov\tx29, sp\n8:\taa0703e7 \tmov\tx7, x7\nc:\t1e2700f7 \tfmov\ts23, w7\n10:\t1e3802e9 \tfcvtzs\tw9, s23\n14:\t93407d29 \tsxtw\tx9, w9\n18:\t1e220137 \tscvtf\ts23, w9\n1c:\t1e2602e0 \tfmov\tw0, s23\n20:\t93407c00 \tsxtw\tx0, w0\n24:\taa0003e0 \tmov\tx0, x0\n28:\ta8c17bfd \tldp\tx29, x30, [sp], #16\n2c:\td65f03c0 \tret"
     },
     "function_count": 3845,
-    "max_function_size": 46232,
-    "mean_function_size": 926,
+    "max_function_size": 47308,
+    "mean_function_size": 944,
     "min_function_size": 16,
     "object_count": 306,
-    "ret_density_per_kb": 0.7321,
-    "total_bytes": 7971248,
-    "x86_ret_count": 1634,
-    "x86_ret_pct": 0.0205
+    "ret_density_per_kb": 0.7084,
+    "total_bytes": 8238240,
+    "x86_ret_count": 1664,
+    "x86_ret_pct": 0.0202
   },
   "GAME.CGO": {
     "arm64_ret_count": 6108,
@@ -40,14 +40,14 @@
       "snippet": "0:\ta9bf7bfd \tstp\tx29, x30, [sp, #-16]!\n4:\t910003fd \tmov\tx29, sp\n8:\taa0703e7 \tmov\tx7, x7\nc:\t1e2700f7 \tfmov\ts23, w7\n10:\t1e3802e9 \tfcvtzs\tw9, s23\n14:\t93407d29 \tsxtw\tx9, w9\n18:\t1e220137 \tscvtf\ts23, w9\n1c:\t1e2602e0 \tfmov\tw0, s23\n20:\t93407c00 \tsxtw\tx0, w0\n24:\taa0003e0 \tmov\tx0, x0\n28:\ta8c17bfd \tldp\tx29, x30, [sp], #16\n2c:\td65f03c0 \tret"
     },
     "function_count": 4199,
-    "max_function_size": 46232,
-    "mean_function_size": 914,
+    "max_function_size": 47308,
+    "mean_function_size": 933,
     "min_function_size": 16,
     "object_count": 346,
-    "ret_density_per_kb": 0.5398,
-    "total_bytes": 11586384,
-    "x86_ret_count": 6176,
-    "x86_ret_pct": 0.0533
+    "ret_density_per_kb": 0.5268,
+    "total_bytes": 11873296,
+    "x86_ret_count": 6206,
+    "x86_ret_pct": 0.0523
   },
   "KERNEL.CGO": {
     "arm64_ret_count": 233,
@@ -65,8 +65,8 @@
     "mean_function_size": 395,
     "min_function_size": 20,
     "object_count": 8,
-    "ret_density_per_kb": 1.4963,
-    "total_bytes": 159456,
+    "ret_density_per_kb": 1.4946,
+    "total_bytes": 159632,
     "x86_ret_count": 6,
     "x86_ret_pct": 0.0038
   }

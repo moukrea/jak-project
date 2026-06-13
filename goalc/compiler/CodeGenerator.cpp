@@ -441,6 +441,47 @@ static bool epilogue_x30_trace_emit_enabled() {
   return enabled;
 }
 
+// F1f — x86 "push RA; jmp func" → arm64 "pop RA into X30; BR" marking
+// (the A34 contract). Scans the IR list for IR_JumpReg preceded by an
+// IR_AsmPush with only value-preserving register ops in between, and
+// marks the jump so IR_JumpReg::do_codegen_arm64 pops the freshly-pushed
+// return address into X30 before the BR.
+//
+// A34 wired this scan into do_asm_function_arm64 only; its site inventory
+// listed gstate.gc:372 (enter-state's `.push return-from-thread-dead;
+// .jr func`) as covered, but enter-state is a NORMAL defun — compiled by
+// do_goal_function_arm64, which never ran the scan. Consequence on arm64:
+// a state `code` function entered through a direct `(go ...)` (enter-state
+// branch 3: main thread of the current process) kept a stale X30, so when
+// that state code RETURNED (process death path: the pushed
+// return-from-thread-dead trampoline must run deactivate) it instead
+// RET'd into the middle of enter-state's body, executed enter-state's
+// epilogue against the freshly-reset (zero-filled) process stack, and
+// LDP'd X29=0/X30=0 → RET → pc=0/fp=0/lr=0 — the F1d §7b load-game
+// restore crash signature (2/2 deterministic).
+static void mark_push_jr_pop_ra_arm64(FunctionEnv* env) {
+  for (int jr_idx = 0; jr_idx < int(env->code().size()); jr_idx++) {
+    auto* jr = dynamic_cast<IR_JumpReg*>(env->code().at(jr_idx).get());
+    if (!jr) {
+      continue;
+    }
+    for (int k = jr_idx - 1; k >= 0; k--) {
+      IR* prev = env->code().at(k).get();
+      if (dynamic_cast<IR_RegSetAsm*>(prev) || dynamic_cast<IR_AsmAdd*>(prev)) {
+        // Plain `.mov reg, reg` / `.add reg, off` — value-preserving
+        // w.r.t. [SP] in all frozen jak1 sites (none of them target SP
+        // between the RA push and the .jr; SP-targeting moves only occur
+        // BEFORE the push, e.g. enter-state's stack reset).
+        continue;
+      }
+      if (dynamic_cast<IR_AsmPush*>(prev)) {
+        jr->mark_arm64_pop_ra();
+      }
+      break;
+    }
+  }
+}
+
 void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   // AArch64 prologue + spill load/store + epilogue.
   //
@@ -540,6 +581,10 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
                           InstructionInfo::Kind::PROLOGUE);
   }
   debug->stack_usage = 16 + frame_bytes + 16 * static_cast<int>(a40_saved_xmm_rt.size());
+
+  // F1f — see mark_push_jr_pop_ra_arm64. Covers enter-state (gstate.gc:372),
+  // the only `.push RA; .jr` site in a non-asm-func jak1 GOAL function.
+  mark_push_jr_pop_ra_arm64(env);
 
   for (int ir_idx = 0; ir_idx < int(env->code().size()); ir_idx++) {
     auto& ir = env->code().at(ir_idx);
@@ -824,26 +869,12 @@ void CodeGenerator::do_asm_function_arm64(FunctionEnv* env, int f_idx, bool allo
   //   gstate.gc:372   enter-state           — .push RA; .jr                 → POP
   //   gkernel.gc:735  thread-resume         — pushes are kernel-context
   //     saves; symbol stores / field loads / SP writes intervene           → no match
-  for (int jr_idx = 0; jr_idx < int(env->code().size()); jr_idx++) {
-    auto* jr = dynamic_cast<IR_JumpReg*>(env->code().at(jr_idx).get());
-    if (!jr) {
-      continue;
-    }
-    for (int k = jr_idx - 1; k >= 0; k--) {
-      IR* prev = env->code().at(k).get();
-      if (dynamic_cast<IR_RegSetAsm*>(prev) || dynamic_cast<IR_AsmAdd*>(prev)) {
-        // Plain `.mov reg, reg` / `.add reg, off` — value-preserving
-        // w.r.t. [SP] in all frozen jak1 sites (none of them target SP
-        // between the RA push and the .jr; SP-targeting moves only occur
-        // BEFORE the push, e.g. enter-state's stack reset).
-        continue;
-      }
-      if (dynamic_cast<IR_AsmPush*>(prev)) {
-        jr->mark_arm64_pop_ra();
-      }
-      break;
-    }
-  }
+  //
+  // NOTE (F1f): enter-state at gstate.gc:372 is listed above but is NOT an
+  // asm-func — it never reached this scan. The scan now lives in
+  // mark_push_jr_pop_ra_arm64 and runs for BOTH function kinds (see
+  // do_goal_function_arm64).
+  mark_push_jr_pop_ra_arm64(env);
 
   for (int ir_idx = 0; ir_idx < int(env->code().size()); ir_idx++) {
     auto& ir = env->code().at(ir_idx);
