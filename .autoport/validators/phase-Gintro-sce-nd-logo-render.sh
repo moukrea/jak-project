@@ -17,7 +17,12 @@ echo "== Phase Gintro validator (SCE + ND/Daxter logo render) =="
 # 1. Forbidden edits — state chain is correct; fix the renderer, not goal_src/oracle.
 [ "$(git diff "$ANCHOR" HEAD -- goalc/emitter/IGenX86_64.cpp goalc/emitter/IGenX86_64.h 2>/dev/null | wc -l)" -eq 0 ] || fail "IGenX86_64 (x86 oracle) edited"
 [ "$(git diff "$ANCHOR" HEAD -- 'goal_src/' 2>/dev/null | wc -l)" -eq 0 ] || fail "goal_src/ edited (the title state chain is pristine-correct — fix the renderer)"
-[ "$(git diff "$ANCHOR" HEAD -- '.autoport/gold/' 2>/dev/null | wc -l)" -eq 0 ] || fail ".autoport/gold/ (gold reference) edited — it is read-only ground truth"
+# Gold reference is immutable SINCE IT WAS CREATED (by Gref, after G1). Anchor on
+# Gref's close, not G1's — else the whole .autoport/gold/ dir reads as "added"
+# and always false-fails (supervisor fix 2026-06-13, flagged by Gintro attempt 1).
+GREF_CLOSE=$(git log --format=%H --all --grep='autoport/Gref-pristine' | head -1)
+GREF_CLOSE=${GREF_CLOSE:-$ANCHOR}
+[ "$(git diff "$GREF_CLOSE" HEAD -- '.autoport/gold/' 2>/dev/null | wc -l)" -eq 0 ] || fail ".autoport/gold/ (gold reference) modified since Gref — it is read-only ground truth"
 SUP_ANCHOR=$(git log --format=%H --grep='\[autoport/supervisor\]' | head -1); SUP_ANCHOR=${SUP_ANCHOR:-$ANCHOR}
 [ "$(git diff "$SUP_ANCHOR" HEAD -- '.autoport/lib/*.sh' '.autoport/lib/*.py' '.autoport/validators/*.sh' '.claude/agents/*.md' 2>/dev/null | wc -l)" -eq 0 ] || fail "infra edited"
 [ "$(git diff HEAD -- '.autoport/lib/*.sh' '.autoport/lib/*.py' '.autoport/validators/*.sh' '.claude/agents/*.md' 2>/dev/null | wc -l)" -eq 0 ] || fail "infra edited (unstaged)"
