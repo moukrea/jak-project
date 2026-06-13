@@ -71,18 +71,29 @@ cat <<EOF
 ================================================================
 EOF
 
-# Force claude-fable-5[1m] + high effort for the supervisor itself (owner
-# tiered architecture 2026-06-12: fable manager-class judgment at high effort;
-# was opus-4-8[1m] max 2026-06-10→12, opus-4-7 before). The 'ultrathink'
-# keyword is reinforced inside SUPERVISOR_PROMPT.md so reasoning stays deep
-# despite effort=high. CLAUDE_EFFORT env is set too (belt-and-suspenders for
-# older builds that pre-date the --effort CLI flag).
-# NOTE: the model name contains brackets — keep it single-quoted (glob chars).
-export CLAUDE_EFFORT=high
+# Model + effort for the supervisor come from the ACTIVE profile in
+# .autoport/model-profiles.json (single source of truth — same one the
+# orchestrator reads). Flip "active" there to switch the whole setup.
+# 'ultrathink' in SUPERVISOR_PROMPT.md keeps reasoning deep regardless.
+# NOTE: model names contain brackets — pass them quoted (glob chars).
+PROFILE_JSON="$REPO_ROOT/.autoport/model-profiles.json"
+if command -v jq >/dev/null 2>&1 && [ -f "$PROFILE_JSON" ]; then
+    _ACTIVE=$(jq -r '.active' "$PROFILE_JSON")
+    SUP_MODEL=$(jq -r ".profiles[\"$_ACTIVE\"].manager_model" "$PROFILE_JSON")
+    SUP_EFFORT=$(jq -r ".profiles[\"$_ACTIVE\"].manager_effort" "$PROFILE_JSON")
+    SUB_MODEL=$(jq -r ".profiles[\"$_ACTIVE\"].worker_model" "$PROFILE_JSON")
+fi
+# Fallback if the JSON/jq is unavailable.
+SUP_MODEL="${SUP_MODEL:-claude-opus-4-8[1m]}"
+SUP_EFFORT="${SUP_EFFORT:-xhigh}"
+SUB_MODEL="${SUB_MODEL:-claude-opus-4-8[1m]}"
+export CLAUDE_EFFORT="$SUP_EFFORT"
+export CLAUDE_CODE_SUBAGENT_MODEL="$SUB_MODEL"
+echo "[supervisor] profile=${_ACTIVE:-fallback} model=$SUP_MODEL effort=$SUP_EFFORT workers=$SUB_MODEL"
 
 exec claude \
-    --model 'claude-fable-5[1m]' \
-    --effort high \
+    --model "$SUP_MODEL" \
+    --effort "$SUP_EFFORT" \
     --append-system-prompt "$(cat "$PROMPT_FILE")" \
     --dangerously-skip-permissions \
     "$@"

@@ -766,7 +766,6 @@ phases:
   validator: validators/phase-F1e-android-reveal-crash-fix.sh
   max_turns: 2000
   max_retries: 3
-  effort: high
 - id: F1d-android-input-cpad-start-geyser
   name: 'Make input reach the GOAL cpad: press START -> Geyser Rock loads -> Jak spawns and moves. F1c VERIFIED the camera fix (bug
     class #13 = arm64 mod returned quotient not remainder / missing MSUB; title flies, supervisor-confirmed own boot: 2 distinct
@@ -783,22 +782,21 @@ phases:
   validator: validators/phase-F1d-android-input-cpad-start-geyser.sh
   max_turns: 2000
   max_retries: 3
-- id: F1f-android-go-control-transfer-jak-spawn
-  name: 'Fix the GOAL control-transfer/spool walls so the new-game cinematic completes and Jak SPAWNS and MOVES. F1d (honest §7):
-    injected input drives the full menu flow, new-game confirm genuinely fires (intro level, misty display, STR spool streams), fr3
-    + Adreno vertex-BO blockers fixed — but Jak never spawned: app dies ~15s post-confirm, target-pos ends (nan nan nan). Both roads
-    end at NAMED deterministic crashes, same arm64 family: (7a) spool joint-anim master-slot linking broken (fires even on the title
-    logo-intro-2 spool = seconds-fast repro) then `(go process-drawable-art-error)` RETURNS instead of transferring (compiled go falls
-    through on arm64 — catch/throw/A26-A27 control-transfer family); (7b) load-game restore dies in a corrupt control transfer (2/2).
-    F1f: oracle-compare the compiled go path x86 vs arm64, fix at the mechanism (goal_src LOCKED — the .gc is correct), verify both
-    roads; fix/name the master-slot linking; drive START->new game->cinematic (no state-machine bypass; game-own skip ok)->Jak spawns
-    with REAL position->injected movement changes target-pos. HARDENED validator (F1d marker was boot-satisfiable): >=10 DISTINCT
-    non-nan target-pos + non-nan tail + zero sig=11 + focus ends org.opengoal + fix-summary engaging both mechanisms. max_turns 2000.'
-  prompt: prompts/phase-F1f-android-go-control-transfer-jak-spawn.md
-  validator: validators/phase-F1f-android-go-control-transfer-jak-spawn.sh
-  max_turns: 2000
+- id: G1-arm64-go-enterstate-oracle-correct
+  name: 'Make the arm64 go/enter-state control transfer OBJECTIVELY CORRECT vs the x86 oracle. F1f fixed go enough to play the new-game
+    cinematic + spawn Jak once (run19: 344 positions, 0 crash) but REGRESSED the title into a crash (sig=11 fault=0x7effffffec =
+    control-transfer-to-garbage / corrupted return address) and never verified vs x86. enter-state/go underlies title attract,
+    cinematics AND gameplay, so a one-path fix destabilizes the rest. The go-change lives in goalc/compiler/CodeGenerator.cpp
+    (19bb8e50a) + kernel asm_funcs_arm64.s/klink.cpp/mips2c (WIP 5b70c8d59). Baseline e1f35fc0c had a stable flying title. G1:
+    oracle-diff the compiled enter-state/.jr/return path x86 vs arm64 (disasm), find why a return address restores to garbage on some
+    path, fix RA/SP contract to MATCH x86. PRIORITY FLOOR (non-negotiable): the title MUST end stable (flying, 0 sig=11) — revert the
+    regressor if needed, a stable title with no cinematic beats a crashing title. STRETCH: oracle-correct go that ALSO keeps the
+    cinematic+spawn. Methodology reset: single defect, oracle-grounded, auto-checkpoint commits, TITLE-REGRESSION GATE in the
+    validator. Collision/visible-Jak (run19 fell through floor) is OUT OF SCOPE = G2. max_turns 1200.'
+  prompt: prompts/phase-G1-arm64-go-enterstate-oracle-correct.md
+  validator: validators/phase-G1-arm64-go-enterstate-oracle-correct.sh
+  max_turns: 1200
   max_retries: 3
-  effort: high
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md

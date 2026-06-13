@@ -59,9 +59,39 @@ from rich.panel import Panel
 # Configuration — hardcoded per owner preference.
 # ============================================================
 
-MODEL = "claude-fable-5[1m]"  # MANAGER model per owner 2026-06-12 (tiered architecture; was opus-4-8[1m] max)
-EFFORT = "high"  # manager default; phases may override with `effort:` in milestones.yaml (low|medium|high|xhigh|max)
-SUBAGENT_MODEL = "claude-opus-4-8[1m]"  # WORKER model for Task-tool subagents (research/codegen/testing)
+# Model + effort come from the ACTIVE profile in .autoport/model-profiles.json
+# (single source of truth — flip "active" there to switch the whole setup, then
+# run .autoport/apply-model-profile.sh + relaunch). Hardcoded fallback below is
+# used only if the JSON is missing/unreadable.
+_PROFILE_PATH = Path(__file__).resolve().parent / "model-profiles.json"
+
+def _load_model_profile() -> dict:
+    fallback = {
+        "manager_model": "claude-opus-4-8[1m]", "manager_effort": "xhigh",
+        "worker_model": "claude-opus-4-8[1m]",
+        "worker_efforts": {"autoport-researcher": "xhigh",
+                           "autoport-implementer": "xhigh",
+                           "autoport-tester": "xhigh"},
+    }
+    try:
+        cfg = json.loads(_PROFILE_PATH.read_text())
+        prof = cfg["profiles"][cfg["active"]]
+        # minimal validation
+        for k in ("manager_model", "manager_effort", "worker_model", "worker_efforts"):
+            if k not in prof:
+                raise KeyError(k)
+        prof["_active_name"] = cfg["active"]
+        return prof
+    except Exception as e:  # noqa: BLE001
+        fallback["_active_name"] = f"FALLBACK ({e})"
+        return fallback
+
+_PROFILE = _load_model_profile()
+MODEL = _PROFILE["manager_model"]           # MANAGER model (orchestrator phase sessions)
+EFFORT = _PROFILE["manager_effort"]         # manager default; per-phase `effort:` in milestones.yaml overrides
+SUBAGENT_MODEL = _PROFILE["worker_model"]   # WORKER model for Task-tool subagents (CLAUDE_CODE_SUBAGENT_MODEL)
+WORKER_EFFORTS = _PROFILE["worker_efforts"] # per-agent effort (also baked into .claude/agents/*.md frontmatter)
+PROFILE_NAME = _PROFILE["_active_name"]
 
 # Full YOLO mode: --dangerously-skip-permissions bypasses ALL permission
 # prompts. No per-tool allowlist — Claude can use any tool freely.
@@ -791,12 +821,8 @@ def notify(message: str, level: str = "info") -> None:
         "alert": "[red]🛑[/red]",
         "celebrate": "[bold green]🎉[/bold green]",
     }.get(level, "→")
+    # ntfy.sh / Slack push dropped by owner 2026-06-13 — local console line only.
     console.print(f"{icon} [cyan]notify({level}):[/cyan] {message}")
-    if NOTIFY_SCRIPT.exists():
-        subprocess.run(
-            ["bash", str(NOTIFY_SCRIPT), level, message],
-            check=False,
-        )
 
 
 def format_duration(seconds: float) -> str:
@@ -877,17 +903,18 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     # preamble enforces the tiered manager/worker architecture (owner
     # 2026-06-12): the fable manager must delegate bulk execution to
     # opus-4-8 subagents instead of burning manager-effort tokens on it.
+    _we = WORKER_EFFORTS
     delegation_preamble = (
-        "## WORK ECONOMY (mandatory — tiered budget architecture)\n"
+        "## WORK ECONOMY (mandatory — manager/worker delegation)\n"
         f"You are the MANAGER ({MODEL}, effort={effort}): plan, decide, judge,\n"
         "synthesize, review. Delegate bulk execution to subagents via the Task\n"
         f"tool — they run on {SUBAGENT_MODEL} (CLAUDE_CODE_SUBAGENT_MODEL):\n"
-        "- `autoport-researcher` (effort high): code/disassembly/log/oracle scans,\n"
-        "  symbol hunts, large-file analysis. Read-only.\n"
-        "- `autoport-implementer` (effort medium): mechanical code edits to YOUR\n"
-        "  exact spec (files, lines, precise semantics in the prompt).\n"
-        "- `autoport-tester` (effort medium): builds, qemu runs, device runs,\n"
-        "  log harvesting, screencaps.\n"
+        f"- `autoport-researcher` (effort {_we.get('autoport-researcher','high')}): "
+        "code/disassembly/log/oracle scans, symbol hunts, large-file analysis. Read-only.\n"
+        f"- `autoport-implementer` (effort {_we.get('autoport-implementer','medium')}): "
+        "mechanical code edits to YOUR exact spec (files, lines, precise semantics).\n"
+        f"- `autoport-tester` (effort {_we.get('autoport-tester','medium')}): "
+        "builds, qemu runs, device runs, log harvesting, screencaps.\n"
         "Keep main-thread tool calls for decisions, small precise edits, and\n"
         "VERIFYING subagent claims (read their diffs/logs yourself — trust but\n"
         "verify). Never delegate understanding: subagent prompts must contain\n"
@@ -1106,6 +1133,29 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
             "cache_read": pstate.cache_read,
         }) + "\n")
 
+    # FATAL CONFIG detection (2026-06-13): a 0-work exit caused by a bad model
+    # / auth / request error must NOT be mistaken for a rate limit — that loops
+    # forever (fable-5[1m] 404 spun the loop every 5 min). Scan the attempt log
+    # for a non-429 API error or the model-unavailable signature and HALT loudly.
+    if not rate_interrupted and rc != 0 \
+            and (pstate.tokens_in + pstate.tokens_out) == 0 \
+            and pstate.tool_calls == 0:
+        try:
+            tail = attempt_log.read_text(errors="replace")[-6000:]
+        except Exception:
+            tail = ""
+        fatal = (
+            "may not exist or you may not have access" in tail
+            or '"api_error_status":401' in tail or '"api_error_status":403' in tail
+            or '"api_error_status":404' in tail
+        )
+        if fatal:
+            msg = "model/auth/request error (non-rate-limit) — check MODEL / credentials"
+            if "may not exist or you may not have access" in tail:
+                msg = f"model '{MODEL}' unavailable (API 404) — update MODEL in orchestrator.py"
+            notify(f"🛑 phase {pid} HALT: {msg}", level="alert")
+            return "blocked", msg, []
+
     # NO-START detection (owner 2026-06-12): a session that exits having done
     # essentially NOTHING (no tokens, no tool calls) did not fail the phase —
     # it was refused at the door (hard rate limit / "out of extra usage").
@@ -1160,6 +1210,16 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     if v.returncode == 0:
         return "pass", "", []
 
+    # AUTO-CHECKPOINT (owner 2026-06-13): version EVERY failed attempt's work.
+    # The orchestrator used to commit ONLY on PASS, so a long failing/iterating
+    # phase left hours of engine changes — and any regression it introduced —
+    # unversioned and un-bisectable. Commit a labeled WIP now so we can always
+    # roll back / diff. (PASS path already commits with the phase name.)
+    try:
+        git_commit(pid, f"WIP checkpoint — attempt {attempt} (validator FAILED; auto-versioned for rollback/bisect, NOT a pass)")
+    except Exception as e:  # noqa: BLE001 — never let checkpointing crash the loop
+        console.print(f"[yellow]auto-checkpoint commit failed: {e}[/yellow]")
+
     # Validator failed. Fingerprint the failure and check for stuck loops.
     failure_text = validator_log.read_text(errors='replace')
     fp, key_lines = fingerprint_validator_output(failure_text)
@@ -1208,7 +1268,7 @@ def main(argv: list[str] | None = None) -> int:
     console.print(Panel.fit(
         f"[bold green]Autoport orchestrator starting[/bold green]\n"
         f"Repo: {REPO_ROOT}\n"
-        f"Model: {MODEL} · Effort: {EFFORT}\n"
+        f"Profile: {PROFILE_NAME} · Manager: {MODEL} @ {EFFORT} · Workers: {SUBAGENT_MODEL}\n"
         f"Resuming at phase index {state['current_phase_idx']} / {len(phases)}\n"
         f"Completed: {len(state['completed'])} · "
         f"Blocked: {len(state['blocked'])}",
