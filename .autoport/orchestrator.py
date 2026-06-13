@@ -59,7 +59,7 @@ from rich.panel import Panel
 # Configuration — hardcoded per owner preference.
 # ============================================================
 
-MODEL = "claude-fable-5[1m]"  # MANAGER model per owner 2026-06-12 (tiered architecture; was opus-4-8[1m] max)
+MODEL = "claude-opus-4-8[1m]"  # MANAGER model. Reverted from claude-fable-5[1m] on 2026-06-13: fable-5[1m] started returning HTTP 404 ("may not exist or you may not have access") for this account via Claude Code — access pulled mid-June. Effort tiers kept.
 EFFORT = "high"  # manager default; phases may override with `effort:` in milestones.yaml (low|medium|high|xhigh|max)
 SUBAGENT_MODEL = "claude-opus-4-8[1m]"  # WORKER model for Task-tool subagents (research/codegen/testing)
 
@@ -1105,6 +1105,29 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
             "tokens_out": pstate.tokens_out,
             "cache_read": pstate.cache_read,
         }) + "\n")
+
+    # FATAL CONFIG detection (2026-06-13): a 0-work exit caused by a bad model
+    # / auth / request error must NOT be mistaken for a rate limit — that loops
+    # forever (fable-5[1m] 404 spun the loop every 5 min). Scan the attempt log
+    # for a non-429 API error or the model-unavailable signature and HALT loudly.
+    if not rate_interrupted and rc != 0 \
+            and (pstate.tokens_in + pstate.tokens_out) == 0 \
+            and pstate.tool_calls == 0:
+        try:
+            tail = attempt_log.read_text(errors="replace")[-6000:]
+        except Exception:
+            tail = ""
+        fatal = (
+            "may not exist or you may not have access" in tail
+            or '"api_error_status":401' in tail or '"api_error_status":403' in tail
+            or '"api_error_status":404' in tail
+        )
+        if fatal:
+            msg = "model/auth/request error (non-rate-limit) — check MODEL / credentials"
+            if "may not exist or you may not have access" in tail:
+                msg = f"model '{MODEL}' unavailable (API 404) — update MODEL in orchestrator.py"
+            notify(f"🛑 phase {pid} HALT: {msg}", level="alert")
+            return "blocked", msg, []
 
     # NO-START detection (owner 2026-06-12): a session that exits having done
     # essentially NOTHING (no tokens, no tool calls) did not fail the phase —

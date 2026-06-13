@@ -81,7 +81,7 @@ EOF
 export CLAUDE_EFFORT=high
 
 exec claude \
-    --model 'claude-fable-5[1m]' \
+    --model 'claude-opus-4-8[1m]' \
     --effort high \
     --append-system-prompt "$(cat "$PROMPT_FILE")" \
     --dangerously-skip-permissions \
