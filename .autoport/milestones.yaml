@@ -837,6 +837,20 @@ phases:
   validator: validators/phase-Gnd-arm64-blendshape-dma-stomp.sh
   max_turns: 1500
   max_retries: 3
+- id: Gsce-first-frames-presents-screen
+  name: 'Restore the "Sony Computer Entertainment presents" screen in the FIRST frames (chronological step 0). OWNER DIRECT
+    OBSERVATION (authoritative): SCE shows in the first frames on the REAL game incl. the FRENCH/SCEE version, before the ND/Daxter
+    logo; our build does not. OpenGOAL upstream gated the boot static-screen to JAPAN ONLY (title-obs.gc:554:
+    (and (= (scf-get-territory) GAME_TERRITORY_SCEI) *first-boot*)) — an UPSTREAM REMOVAL, so pristine also skips it on non-Japan; this
+    is NOT a port bug but an intentional content restoration to match the ORIGINAL game (deliberately diverges from upstream — the
+    target here is the original, not pristine). Gsce: empirically confirm SCE absent in our first frames, un-gate static-screen so it
+    spawns+renders for all regions (SCEA/SCEE), verify SCE shows in the first ~3s before the ND logo. MAY edit goal_src title-obs.gc +
+    demo/static-screen.gc only (intentional). Validator gates on a static-screen SPAWN marker (not just link) + crash-free + first-frame
+    capture; SCE visibility = supervisor eyes. No painted/hardcoded image. max_turns 1200.'
+  prompt: prompts/phase-Gsce-first-frames-presents-screen.md
+  validator: validators/phase-Gsce-first-frames-presents-screen.sh
+  max_turns: 1200
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
