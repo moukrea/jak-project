@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <thread>
 
 #include <SDL3/SDL.h>
 
@@ -54,6 +55,10 @@ struct AndroidGfxData {
   bool has_data_to_render = false;
   const void* chain_data = nullptr;
   u32 chain_offset = 0;
+  // Gintro: set once the first chain has been copied, so a corrupt frame can
+  // re-present the last good copy (chain_data/chain_offset persist between
+  // frames — they point into dma_copier's buffer, overwritten only by run()).
+  bool ever_copied = false;
 
   // A42: upstream's run_dma_copy mode, always-on for Android. Zero-copy
   // hand-off let concurrent writers (run-3: bucket tags walking to 0x0
@@ -394,12 +399,15 @@ void set_vsync_callback(std::function<void()> f) {
 
 u32 vsync() {
   g_a40_vsync_entry.fetch_add(1, std::memory_order_relaxed);
+
   // A42, desktop gfx.cpp:119-124 parity: tell the IOP kernel we're vsyncing
   // so it dispatches the overlord's VBlank_Handler (SoundIopInfo DMA →
   // *sound-iop-info* strpos / fake VAG clock — the pacing source for every
-  // spooled cutscene). Fires before the renderer-ready gate: desktop fires
-  // it on every Gfx::vsync() call regardless of renderer state.
-  if (g_vsync_callback) {
+  // spooled cutscene). Desktop fires it on every Gfx::vsync() call.
+  auto fire_iop_vblank = []() {
+    if (!g_vsync_callback) {
+      return;
+    }
     static bool s_a42_logged = false;
     if (!s_a42_logged) {
       s_a42_logged = true;
@@ -407,30 +415,45 @@ u32 vsync() {
                           "A42-VBLANK vsync->IOP vblank callback live (overlord "
                           "VBlank_Handler will pace str-pos from here on)");
     }
-    // Pre-renderer-ready there is no swap chain to block on and the GOAL
-    // syncv path free-runs (~270 Hz observed) — clamp vblank delivery to
-    // 60 Hz there so the IOP fake VAG clock (1024/target_fps per vblank)
-    // stays real-time. Post-ready, vsync() blocks on the swap chain and
-    // every call is a real frame, desktop cadence.
-    bool fire = true;
-    if (!g_renderer_ready.load()) {
-      static std::chrono::steady_clock::time_point s_last_vblank{};
-      auto now = std::chrono::steady_clock::now();
-      if (s_last_vblank.time_since_epoch().count() != 0 &&
-          now - s_last_vblank < std::chrono::microseconds(16600)) {
-        fire = false;
-      } else {
-        s_last_vblank = now;
-      }
-    }
-    if (fire) {
-      g_vsync_callback();
-    }
-  }
+    g_vsync_callback();
+  };
+
+  // Gintro: pre-renderer-ready, HOLD the GOAL dispatcher here instead of
+  // letting it free-run. The SDL thread is concurrently bringing the renderer
+  // up (glad + 43 shaders + GAME.fr3, ~2 s on the Adreno 618). The old code
+  // returned 0 immediately here, so the dispatcher free-ran at ~270 Hz and
+  // advanced the ENTIRE pre-title intro — the SCE static screen and the
+  // Naughty Dog/Daxter "ndi-intro" — in the ~600 frames before the first
+  // frame could be drawn; every chain for those frames was dropped (G1 boot:
+  // chains received == dropped == 607, the first A35-RENDER frame landed at
+  // logo-intro). So the SCE screen + ND/Daxter logo never reached the
+  // framebuffer while the later logo flythrough did. Desktop never sees this
+  // because GL init precedes the GOAL kernel. Spin at ~60 Hz, ticking the IOP
+  // vblank each iteration so the overlord / fake-VAG clock stays real-time,
+  // until the renderer is up — then fall through to the normal swap-chain
+  // block so the intro renders in chronological order from its first beat.
+  // The hold (~2 s) is far under the A37 hang-watchdog's 6 s threshold, and
+  // that watchdog only logs, never aborts. The renderer bring-up runs on the
+  // SDL thread independently of the dispatcher (android_renderer_run is
+  // entered after the dispatcher is spawned and needs nothing from it), so
+  // this cannot deadlock.
   if (!g_renderer_ready.load()) {
-    g_a40_vsync_exit.fetch_add(1, std::memory_order_relaxed);
-    return 0;
+    while (!g_renderer_ready.load() && MasterExit == RuntimeExitStatus::RUNNING) {
+      fire_iop_vblank();
+      std::this_thread::sleep_for(std::chrono::microseconds(16600));
+    }
+    if (!g_renderer_ready.load()) {
+      // Shutting down before the renderer ever came up.
+      g_a40_vsync_exit.fetch_add(1, std::memory_order_relaxed);
+      return 0;
+    }
+    // Renderer just became ready — fall through to the post-ready path.
   }
+
+  // Post-ready: desktop cadence — one IOP vblank, then block on the swap
+  // chain so each vsync() corresponds to one rendered+swapped frame. Mirrors
+  // the upstream/desktop oracle (game/graphics/pipelines/opengl.cpp) exactly.
+  fire_iop_vblank();
   auto* d = g_data;
   std::unique_lock<std::mutex> lock(d->dma_mutex);
   auto init_frame = d->frame_idx_of_input_data;
@@ -488,23 +511,76 @@ void send_chain(const void* data, u32 offset) {
     constexpr int kMaxSteps = 400000;
     int steps = 0;
     bool low_tag = false;
+    int low_kind = -1;
+    u32 low_addr = 0, low_qwc = 0;
+    bool low_spr = false;
+    // Gintro: dump the leading tags of the first few flagged chains to
+    // characterize the ndi-intro chain that trips the low-addr guard.
+    static std::atomic<u32> s_dump_frames{0};
+    const bool do_dump = s_dump_frames.load() < 6;
+    int dumped = 0;
     while (!probe.ended() && steps < kMaxSteps) {
       auto tag = probe.current_tag();
+      if (do_dump && dumped < 14) {
+        dumped++;
+        __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                            "GINTRO-CHAINWALK step=%d off=0x%x kind=%d spr=%d addr=0x%x qwc=%u",
+                            steps, probe.current_tag_offset(), (int)tag.kind, (int)tag.spr,
+                            tag.addr, tag.qwc);
+      }
       if (tag.addr != 0 && tag.addr <= EE_MAIN_MEM_LOW_PROTECT) {
         low_tag = true;
+        low_kind = (int)tag.kind;  // 0=REFE 1=CNT 2=NEXT 3=REF 4=REFS 5=CALL 6=RET 7=END
+        low_addr = tag.addr;
+        low_qwc = tag.qwc;
+        low_spr = tag.spr;
         break;
       }
       probe.read_and_advance();
       steps++;
     }
     if (!probe.ended() || low_tag) {
-      static u32 s_precopy_logged = 0;
-      if (s_precopy_logged < 8) {
-        s_precopy_logged++;
+      // Gintro diagnostic: dump the FLAGGED tag (kind/spr/addr/qwc), the true
+      // (uncapped) skip count, and the 16 bytes AT the flagged NEXT/REF
+      // destination (data + addr) so we can tell a legit jump from garbage.
+      // addr is only dereferenced for REF/REFE/REFS (kind 0/3/4) and
+      // NEXT/CALL (kind 2/5); CNT/RET/END (1/6/7) ignore it.
+      static std::atomic<u32> s_precopy_total{0};
+      const u32 ntot = s_precopy_total.fetch_add(1) + 1;
+      if (do_dump) {
+        s_dump_frames.fetch_add(1);
+      }
+      if (ntot <= 40 || (ntot % 240) == 0) {
+        u64 dst0 = 0, dst1 = 0;
+        if (low_addr != 0 && (u64)low_addr + 16 <= EE_MAIN_MEM_SIZE) {
+          memcpy(&dst0, (const u8*)data + low_addr, 8);
+          memcpy(&dst1, (const u8*)data + low_addr + 8, 8);
+        }
         __android_log_print(ANDROID_LOG_FATAL, kLogTag,
-                            "A42-CHAIN-PRECOPY malformed live chain at send (steps=%d low_tag=%d "
-                            "off=0x%x) — frame skipped before copy",
-                            steps, (int)low_tag, probe.current_tag_offset());
+                            "A42-CHAIN-PRECOPY skip #%u (steps=%d low_tag=%d kind=%d spr=%d "
+                            "addr=0x%x qwc=%u off=0x%x dst=0x%016llx %016llx) — skipped",
+                            ntot, steps, (int)low_tag, low_kind, (int)low_spr, low_addr, low_qwc,
+                            probe.current_tag_offset(), (unsigned long long)dst0,
+                            (unsigned long long)dst1);
+      }
+      // Gintro: this corrupt chain is the arm64 blend-shape/joint OOB stomp
+      // (the ndi state spawns Jak+Daxter blend-shape skeletons; their joint-
+      // decompress intermittently scribbles a low garbage addr into a per-
+      // frame DMA bucket-NEXT — confirmed vs the x86 oracle which never
+      // produces a low tag; see Gintro-fix-summary). The chain CANNOT go to
+      // the copier (its LOW_PROTECT assert would abort) nor to the renderer
+      // (it would follow the garbage NEXT). The old behavior dropped it, but
+      // dropping breaks the frame pacing: frame_idx_of_input_data freezes
+      // while swaps advance, so vsync() free-runs and fast-forwards the ndi
+      // spool, AND the ndi logo black-flashes. Instead, RE-PRESENT the last
+      // good copied chain: the renderer redraws the previous ndi frame, the
+      // consume cadence stays 1:1 (real-time pacing holds), and the logo is
+      // held (a brief stutter) rather than dropped. This makes the ND/Daxter
+      // logo render in order despite the OOB; the OOB itself is a separate
+      // (deeper, goalc-arm64) defect tracked for its own phase.
+      if (d->ever_copied && !d->has_data_to_render) {
+        d->has_data_to_render = true;
+        d->dma_cv.notify_all();
       }
       return;
     }
@@ -513,6 +589,7 @@ void send_chain(const void* data, u32 offset) {
   d->chain_data = chain_copy.data.data();
   d->chain_offset = chain_copy.start_offset;
   d->has_data_to_render = true;
+  d->ever_copied = true;
   d->dma_cv.notify_all();
 }
 
