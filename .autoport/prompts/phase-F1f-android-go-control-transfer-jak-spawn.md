@@ -56,6 +56,16 @@ at deterministic, NAMED crashes (F1d-fix-summary §7a/§7b):
    oracle evidence, the spool-linking verdict, both-roads outcome, the
    spawn+movement evidence timeline (target-pos values quoted), residuals.
 
+## Owner live repro (2026-06-13, supervisor-added)
+
+The owner reproduced the post-confirm death with PHYSICAL input: NEW GAME →
+save-slot picker → slot 1 (occupied) → overwrite prompt (default NO) →
+select YES → **instant crash**. This proves the §7a wall is input-method-
+independent (NOT an injection artifact) and gives a second repro variant:
+occupied-slot + overwrite-YES (perceived instant) vs fresh-slot confirm
+(~15s with blackout). Compare both paths' logcat tails — if the overwrite
+path dies faster/differently, that divergence is diagnostic.
+
 ## Rules / Anti-cheat (hard)
 
 Locks: `goalc/emitter/IGenX86_64.{cpp,h}`, `goal_src/**`, `.autoport/lib/**`,
