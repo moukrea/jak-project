@@ -323,19 +323,32 @@ _call_goal8_asm_arm64:
   add x14, x4, x5
   mov x15, x5
   mov x13, x3
-  ;; move function to temp
-  mov x8, x0
-  ;; extract arguments
-  ldr x0, [x1]  ;; 0
-  ldr x2, [x1, #+16] ;; 2
-  ldr x3, [x1, #+24] ;; 3
-  ldr x4, [x1, #+32]  ;; 4
-  ldr x5, [x1, #+40]  ;; 5
-  ldr x6, [x1, #+48] ;; 6
-  ldr x7, [x1, #+56]  ;; 7
-  ldr x1, [x1, #+8] ;; 1 (do this last)
+  ;; move function to a scratch that is NOT a GOAL arg register. The old
+  ;; `mov x8, x0` clobbered arg4's slot (x8 == R8 == GOAL arg 4 below).
+  mov x16, x0
+  ;; Gsprite (autoport): place the 8 args in the GOAL ABI registers. Those
+  ;; are the x86-id registers (RDI=7,RSI=6,RDX=2,RCX=1,R8,R9,R10,R11 — see
+  ;; emitter/Register.cpp:44 m_gpr_arg_regs) emitted as physical arm64
+  ;; register NUMBERS, exactly as _mips2c_call_arm64 above HARVESTS them:
+  ;;   arg0->x7  arg1->x6  arg2->x2  arg3->x1  arg4->x8  arg5->x9
+  ;;   arg6->x10 arg7->x11
+  ;; This mirrors x86 _call_goal8_asm_systemv (asm_funcs_x86_64.asm:372-381)
+  ;; one-for-one (mov rdi/rsi/rdx/rcx/r8/r9/r10/r11). The previous code used
+  ;; AAPCS argN->xN, so only arg2 (x2) landed correctly; a GOAL callee taking
+  ;; a heap/process pointer in arg3/arg4 (e.g. sp-launch-particles-var's
+  ;; allocator calls) read garbage -> zeroed heap header -> Ptr.h:48 abort.
+  ;; Load every array-relative value BEFORE overwriting x1 (the arg-array ptr,
+  ;; which is also arg3's target) last.
+  ldr x7,  [x1, #+0]   ;; arg0 -> x7  (RDI)
+  ldr x6,  [x1, #+8]   ;; arg1 -> x6  (RSI)
+  ldr x2,  [x1, #+16]  ;; arg2 -> x2  (RDX)
+  ldr x8,  [x1, #+32]  ;; arg4 -> x8  (R8)
+  ldr x9,  [x1, #+40]  ;; arg5 -> x9  (R9)
+  ldr x10, [x1, #+48]  ;; arg6 -> x10 (R10)
+  ldr x11, [x1, #+56]  ;; arg7 -> x11 (R11)
+  ldr x1,  [x1, #+24]  ;; arg3 -> x1  (RCX) — LAST, clobbers the array ptr
   ;; call GOAL by function pointer
-  blr x8
+  blr x16
 
   ;; A6 (autoport): restore the full AAPCS callee-saved block (X19-X28 +
   ;; D8-D15).
