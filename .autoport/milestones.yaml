@@ -823,6 +823,20 @@ phases:
   validator: validators/phase-Gintro-sce-nd-logo-render.sh
   max_turns: 1200
   max_retries: 3
+- id: Gnd-arm64-blendshape-dma-stomp
+  name: 'Fix the arm64 blend-shape/joint OOB stomp so the ND/Daxter logo RENDERS (chronological step 1b). Gintro proved the intro
+    executes + paced correctly but the ND logo is BLACK because (oracle diff, decisive): during ndi-intro frames the DMA bucket-NEXT
+    pointer is corrupted Android-only from a high heap ptr to 0x1a50 (== 0x501a50 & 0xffff = low bits of *default-regs-buffer* RET tag)
+    -> chain breaks -> ndi geometry dropped. x86/pristine keeps bucket-NEXT a valid high ptr (zero-copy) = proof it is arm64 runtime
+    corruption: an arm64 blend-shape/joint-decompress OOB WRITE (the long-standing F1a/A37 joint-decompress blocker) clobbering the
+    adjacent bucket-NEXT. dma_copy.cpp ASSERT(addr>0x80000) is the tripwire. Gnd: catch the OOB writer (write-watch / bounds-check /
+    oracle-diff the blend-shape/joint decompress arm64 vs x86), bound it to match x86 (goal_src LOCKED, no buffer-widen masks). Verify
+    bucket-NEXT stays valid (no 0x1a50), tris>0 in ndi window, and the ND logo+Daxter VISIBLY render (supervisor eyes). Likely fixes a
+    whole class of joint-anim renders. Title-regression gate. max_turns 1500.'
+  prompt: prompts/phase-Gnd-arm64-blendshape-dma-stomp.md
+  validator: validators/phase-Gnd-arm64-blendshape-dma-stomp.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
