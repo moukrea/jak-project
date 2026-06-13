@@ -5091,3 +5091,23 @@ ACTION: feed #6 + #7 into F1g (if F1f attempt 3 fails). F1g scope = symbolize
 the sig=11 crash AND investigate whether the title attract over-spawns
 interactable actors (#6) — likely the same defect. #8 parked with the
 ocean/menu-backdrop/boot-intro visual residuals.
+
+## 2026-06-13 ~09:35 — OWNER OBSERVATION #9: intro cinematic PLAYS (Daxter human-form animates) before crash — MAJOR progress signal
+
+Owner saw a glimpse of the NEW-GAME intro cinematic: Daxter MOVING in his
+human appearance (pre-ottsel, before being turned into a pet), glitchy with
+some elements not rendered, then crash. Diagnostic weight:
+- This is the `sidekick-human-intro-sequence(-b)` spool — the EXACT spool F1d
+  §7a flagged as broken (`could not find a master slot to link/unlink for
+  #<art-joint-anim>` + the `go` that returned). It now ANIMATES → the F1f
+  control-transfer/spool fix genuinely works; the joint-anim chain that was a
+  hard wall now produces a moving, decompressing Daxter.
+- The crash has moved DEEPER: from instant-at-confirm (F1d) to mid-cinematic
+  after substantial rendering. Layers peeling — the residual sig=11 now fires
+  during cutscene playback, not at the door.
+- "glitchy / some elements not rendered" = a SEPARATE rendering residual in the
+  cinematic (missing draws), distinct from the crash. Park for render-polish.
+Corroborates F1f attempt 3's run telemetry (real positions, sig=11 reduced
+2->1). Strong evidence we are close. If attempt 3 still can't clear the
+>=10-position bar, F1g inherits: symbolize the now-deeper sig=11 + the missing
+cinematic draws, plus the obs#6 over-spawn hypothesis.
