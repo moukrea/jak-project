@@ -59,9 +59,39 @@ from rich.panel import Panel
 # Configuration — hardcoded per owner preference.
 # ============================================================
 
-MODEL = "claude-opus-4-8[1m]"  # MANAGER model. Reverted from claude-fable-5[1m] on 2026-06-13: fable-5[1m] started returning HTTP 404 ("may not exist or you may not have access") for this account via Claude Code — access pulled mid-June. Effort tiers kept.
-EFFORT = "high"  # manager default; phases may override with `effort:` in milestones.yaml (low|medium|high|xhigh|max)
-SUBAGENT_MODEL = "claude-opus-4-8[1m]"  # WORKER model for Task-tool subagents (research/codegen/testing)
+# Model + effort come from the ACTIVE profile in .autoport/model-profiles.json
+# (single source of truth — flip "active" there to switch the whole setup, then
+# run .autoport/apply-model-profile.sh + relaunch). Hardcoded fallback below is
+# used only if the JSON is missing/unreadable.
+_PROFILE_PATH = Path(__file__).resolve().parent / "model-profiles.json"
+
+def _load_model_profile() -> dict:
+    fallback = {
+        "manager_model": "claude-opus-4-8[1m]", "manager_effort": "xhigh",
+        "worker_model": "claude-opus-4-8[1m]",
+        "worker_efforts": {"autoport-researcher": "xhigh",
+                           "autoport-implementer": "xhigh",
+                           "autoport-tester": "xhigh"},
+    }
+    try:
+        cfg = json.loads(_PROFILE_PATH.read_text())
+        prof = cfg["profiles"][cfg["active"]]
+        # minimal validation
+        for k in ("manager_model", "manager_effort", "worker_model", "worker_efforts"):
+            if k not in prof:
+                raise KeyError(k)
+        prof["_active_name"] = cfg["active"]
+        return prof
+    except Exception as e:  # noqa: BLE001
+        fallback["_active_name"] = f"FALLBACK ({e})"
+        return fallback
+
+_PROFILE = _load_model_profile()
+MODEL = _PROFILE["manager_model"]           # MANAGER model (orchestrator phase sessions)
+EFFORT = _PROFILE["manager_effort"]         # manager default; per-phase `effort:` in milestones.yaml overrides
+SUBAGENT_MODEL = _PROFILE["worker_model"]   # WORKER model for Task-tool subagents (CLAUDE_CODE_SUBAGENT_MODEL)
+WORKER_EFFORTS = _PROFILE["worker_efforts"] # per-agent effort (also baked into .claude/agents/*.md frontmatter)
+PROFILE_NAME = _PROFILE["_active_name"]
 
 # Full YOLO mode: --dangerously-skip-permissions bypasses ALL permission
 # prompts. No per-tool allowlist — Claude can use any tool freely.
@@ -877,17 +907,18 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     # preamble enforces the tiered manager/worker architecture (owner
     # 2026-06-12): the fable manager must delegate bulk execution to
     # opus-4-8 subagents instead of burning manager-effort tokens on it.
+    _we = WORKER_EFFORTS
     delegation_preamble = (
-        "## WORK ECONOMY (mandatory — tiered budget architecture)\n"
+        "## WORK ECONOMY (mandatory — manager/worker delegation)\n"
         f"You are the MANAGER ({MODEL}, effort={effort}): plan, decide, judge,\n"
         "synthesize, review. Delegate bulk execution to subagents via the Task\n"
         f"tool — they run on {SUBAGENT_MODEL} (CLAUDE_CODE_SUBAGENT_MODEL):\n"
-        "- `autoport-researcher` (effort high): code/disassembly/log/oracle scans,\n"
-        "  symbol hunts, large-file analysis. Read-only.\n"
-        "- `autoport-implementer` (effort medium): mechanical code edits to YOUR\n"
-        "  exact spec (files, lines, precise semantics in the prompt).\n"
-        "- `autoport-tester` (effort medium): builds, qemu runs, device runs,\n"
-        "  log harvesting, screencaps.\n"
+        f"- `autoport-researcher` (effort {_we.get('autoport-researcher','high')}): "
+        "code/disassembly/log/oracle scans, symbol hunts, large-file analysis. Read-only.\n"
+        f"- `autoport-implementer` (effort {_we.get('autoport-implementer','medium')}): "
+        "mechanical code edits to YOUR exact spec (files, lines, precise semantics).\n"
+        f"- `autoport-tester` (effort {_we.get('autoport-tester','medium')}): "
+        "builds, qemu runs, device runs, log harvesting, screencaps.\n"
         "Keep main-thread tool calls for decisions, small precise edits, and\n"
         "VERIFYING subagent claims (read their diffs/logs yourself — trust but\n"
         "verify). Never delegate understanding: subagent prompts must contain\n"
@@ -1231,7 +1262,7 @@ def main(argv: list[str] | None = None) -> int:
     console.print(Panel.fit(
         f"[bold green]Autoport orchestrator starting[/bold green]\n"
         f"Repo: {REPO_ROOT}\n"
-        f"Model: {MODEL} · Effort: {EFFORT}\n"
+        f"Profile: {PROFILE_NAME} · Manager: {MODEL} @ {EFFORT} · Workers: {SUBAGENT_MODEL}\n"
         f"Resuming at phase index {state['current_phase_idx']} / {len(phases)}\n"
         f"Completed: {len(state['completed'])} · "
         f"Blocked: {len(state['blocked'])}",

@@ -766,7 +766,6 @@ phases:
   validator: validators/phase-F1e-android-reveal-crash-fix.sh
   max_turns: 2000
   max_retries: 3
-  effort: high
 - id: F1d-android-input-cpad-start-geyser
   name: 'Make input reach the GOAL cpad: press START -> Geyser Rock loads -> Jak spawns and moves. F1c VERIFIED the camera fix (bug
     class #13 = arm64 mod returned quotient not remainder / missing MSUB; title flies, supervisor-confirmed own boot: 2 distinct
@@ -798,7 +797,6 @@ phases:
   validator: validators/phase-F1f-android-go-control-transfer-jak-spawn.sh
   max_turns: 2000
   max_retries: 3
-  effort: high
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
