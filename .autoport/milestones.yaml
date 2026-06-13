@@ -810,6 +810,19 @@ phases:
   validator: validators/phase-Gref-pristine-x86-gold-standard.sh
   max_turns: 1200
   max_retries: 3
+- id: Gintro-sce-nd-logo-render
+  name: 'Chronological step 1: make the pre-title intro RENDER — SCE "presents" static screen + Naughty Dog/Daxter logo. Gold-standard
+    boot diff PROVED the intro states EXECUTE on Android (static-screen fires, ndi-intro streams 30x, logo-intro/-2/loop all stream,
+    identical to pristine 704972dd6) — but the owner sees SCE + ND/Daxter SKIPPED on screen while the later logo flythrough renders.
+    So it is a RENDER-PATH gap, NOT a state skip. Diff the ndi/static-screen draw path (static-screen-spawn texture blit title-obs.gc:553;
+    ndi state + *ndi-cam-sg* camera + Daxter *sidekick-sg* merc draws) vs the WORKING logo-intro-2 path (same engine, adjacent in time)
+    via .autoport/gold/compare-3tier.sh; fix the GLES camera/texture/bucket gap so SCE + ND/Daxter logo DISPLAY in order. goal_src is
+    LOCKED (state chain is pristine-correct). Title-regression gate (G1 stable title must hold). Supervisor pixel-judges the SCE+ND
+    frames. NO hardcoded/painted screens. max_turns 1200.'
+  prompt: prompts/phase-Gintro-sce-nd-logo-render.md
+  validator: validators/phase-Gintro-sce-nd-logo-render.sh
+  max_turns: 1200
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
