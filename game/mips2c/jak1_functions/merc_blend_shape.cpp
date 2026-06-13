@@ -3,6 +3,11 @@
 //--------------------------MIPS2C---------------------
 #include "game/mips2c/mips2c_private.h"
 #include "game/kernel/jak1/kscheme.h"
+#if defined(__aarch64__) && defined(__ANDROID__)
+#include <unistd.h>
+
+#include "common/util/FileUtil.h"
+#endif
 using namespace jak1;
 namespace Mips2C::jak1 {
 namespace blerc_execute {
@@ -419,6 +424,28 @@ struct Cache {
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
   bool bc = false;
+#if defined(__aarch64__) && defined(__ANDROID__)
+  // Gnd test: setup-blerc-chains stores THIS function's return into
+  // (-> global-buf base). If the arm64 execution of this body (or its 6-arg
+  // trampoline return) yields a data-RELATIVE cursor, base goes low and the
+  // per-frame DMA bucket-NEXT stomps to 0x1a50. Gate (touch files/gnd_noblerc)
+  // to A/B test: return the INPUT dest cursor a2 unchanged (skip the body),
+  // which keeps base absolute. The C++ blerc (pc-merc-blend-shape) still does
+  // the vertex blend with *use-fp-blerc*=#t, so the logo geometry renders.
+  {
+    static int s_noblerc = -1;
+    if (s_noblerc < 0) {
+      auto p = file_util::get_jak_project_dir() / "gnd_noblerc";
+      s_noblerc = (access(p.string().c_str(), F_OK) == 0) ? 1 : 0;
+      fprintf(stderr, "GND-NOBLERC %s\n", s_noblerc ? "ARMED (skip blerc-chain body, return a2)"
+                                                    : "off");
+    }
+    if (s_noblerc) {
+      c->gprs[v0].du64[0] = c->sgpr64(a2);
+      return c->gprs[v0].du64[0];
+    }
+  }
+#endif
   c->daddiu(sp, sp, -128);                          // daddiu sp, sp, -128
   c->sd(ra, 0, sp);                                 // sd ra, 0(sp)
   c->sq(s0, 16, sp);                                // sq s0, 16(sp)
