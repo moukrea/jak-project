@@ -5111,3 +5111,28 @@ Corroborates F1f attempt 3's run telemetry (real positions, sig=11 reduced
 2->1). Strong evidence we are close. If attempt 3 still can't clear the
 >=10-position bar, F1g inherits: symbolize the now-deeper sig=11 + the missing
 cinematic draws, plus the obs#6 over-spawn hypothesis.
+
+## 2026-06-13 ~14:10 — OWNER reaffirms chronological discipline + "Press CIRCLE to use" persists on G1-stable title
+
+Owner: the new-game cinematic DOES play (and crashes mid-playback), but
+EVERYTHING BEFORE it must be perfect FIRST — do NOT chase the cinematic crash
+yet. And the title STILL shows "Press <CIRCLE> to use" intermittently on the
+now-stable G1 title.
+
+Key datum: the "use" prompt persists on the G1 build (enter-state reverted to
+byte-identical-to-e1f35fc0c stable baseline) — so it is NOT a side effect of
+F1f's go-fix churn. It is a genuine, pre-existing TITLE-ATTRACT divergence: an
+interactable actor / HUD-hint spawning during attract that the pristine title
+does not have. Prime target for the gold-standard diff (Gref captures the
+pristine attract process/actor list; diff Android's against it to name the
+spurious actor).
+
+Chronological queue after Gref (perfect, IN ORDER, before the cinematic):
+  Gintro  = SCEE "presents" + Naughty Dog/Daxter logo states (skipped on Android)
+  Gtitle  = title flyover perfect: remove the spurious "Press CIRCLE to use"
+            over-spawn, fix water rendering, fix missing/non-rendered elements
+  Gmenu   = main-menu translucent background overlay (between text and 3D scene)
+  Gcine   = new-game cinematic: missing draws + the mid-playback crash
+Each authored FROM Gref's pristine-boot-sequence.log (ground truth), oracle-
+diffed, regression-gated. Gameplay (collision/visible-Jak) only AFTER all of
+the above. Do NOT interrupt Gref (building the gold standard now).
