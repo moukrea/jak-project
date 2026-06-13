@@ -1,0 +1,845 @@
+[59:02:567] [[38;2;064;224;208mdebug[0m] Current executable directory - /home/emeric/code/gold-jak-project/build/decompiler/decompiler
+[59:02:567] [[38;2;064;224;208mdebug[0m] Using development repo path: /home/emeric/code/gold-jak-project
+[59:02:567] [[38;2;144;238;144minfo[0m] Game Config Overide: 'ntsc_v1'
+[59:02:611] [[38;2;144;238;144minfo[0m] [Mem] Top of main: 75 MB
+
+[59:02:612] [[38;2;144;238;144minfo[0m] [Mem] After init: 75 MB
+
+[59:02:612] [[38;2;144;238;144minfo[0m] [Mem] After config read: 75 MB
+[59:02:612] [[38;2;144;238;144minfo[0m] Setting up object file DB...
+[59:02:612] [[38;2;144;238;144minfo[0m] -Loading types...
+[59:02:725] [[38;2;144;238;144minfo[0m] -Loading obj name map file...
+[59:02:735] [[38;2;144;238;144minfo[0m] -Loading 34 DGOs...
+[59:04:408] [[38;2;144;238;144minfo[0m] -Loading 7 plain object files...
+CRC for 0COMMON is: 0xDD2CD7E2
+CRC for 1COMMON is: 0x2B9C79F9
+CRC for 2COMMON is: 0xDA35C5F3
+CRC for 3COMMON is: 0x50C4A6A0
+CRC for 4COMMON is: 0xC475F525
+CRC for 5COMMON is: 0x92D44110
+CRC for 6COMMON is: 0x85B23FEE
+[59:04:419] [[38;2;144;238;144minfo[0m] ObjectFileDB Initialized
+[59:04:419] [[38;2;144;238;144minfo[0m] [Mem] After DB setup: 318 MB
+[59:04:513] [[38;2;144;238;144minfo[0m] Processing Link Data...
+[59:05:304] [[38;2;144;238;144minfo[0m] Processed Link Data
+[59:05:304] [[38;2;144;238;144minfo[0m]  Total 790.88 ms
+[59:05:304] [[38;2;144;238;144minfo[0m] [Mem] After link data: 1303 MB
+[59:05:304] [[38;2;144;238;144minfo[0m] Finding code in object files...
+[59:05:577] [[38;2;144;238;144minfo[0m] Found code:
+[59:05:577] [[38;2;144;238;144minfo[0m]  Code 3.589 MB
+[59:05:577] [[38;2;144;238;144minfo[0m]  Data 198.883 MB
+[59:05:577] [[38;2;144;238;144minfo[0m]  Functions: 10430
+[59:05:577] [[38;2;144;238;144minfo[0m]  fp uses resolved: 34803 / 34803 (100.000 %)
+[59:05:577] [[38;2;144;238;144minfo[0m]  Decoded 940898 / 940898 (100.000 %)
+[59:05:577] [[38;2;144;238;144minfo[0m]  Total 272.755 ms
+[59:05:577] [[38;2;144;238;144minfo[0m] Processing Labels...
+[59:05:632] [[38;2;144;238;144minfo[0m] Processed Labels:
+[59:05:632] [[38;2;144;238;144minfo[0m]  Total 687690 labels
+[59:05:632] [[38;2;144;238;144minfo[0m]  Total 55.50 ms
+[59:05:633] [[38;2;144;238;144minfo[0m] [Mem] After code: 1579 MB
+[59:05:634] [[38;2;255;255;000mwarn[0m] duplicated type flags for shadow-edge, was 0x900000008, now 0x900000004
+[59:05:634] [[38;2;255;255;000mwarn[0m] duplicated type flags that are inconsistent!
+[59:05:638] [[38;2;255;255;000mwarn[0m] duplicated type flags for racer-info, was 0x900000228, now 0x900000238
+[59:05:638] [[38;2;255;255;000mwarn[0m] duplicated type flags that are inconsistent!
+[59:05:655] [[38;2;144;238;144minfo[0m] Found a total of 10430 functions in 22.81 ms
+[59:05:655] [[38;2;144;238;144minfo[0m] 3403 unknown 32.63%
+[59:05:655] [[38;2;144;238;144minfo[0m] 2770 global  26.56%
+[59:05:655] [[38;2;144;238;144minfo[0m] 3750 methods 35.95%
+[59:05:655] [[38;2;144;238;144minfo[0m]  507 logins  4.86%
+[59:05:657] [[38;2;144;238;144minfo[0m] [Mem] After decomp: 1583 MB
+[59:05:661] [[38;2;144;238;144minfo[0m] - Finding game text...
+[59:05:664] [[38;2;144;238;144minfo[0m] Processed 7 text files (4403 strings, 99438 characters) in 3.44 ms
+[59:05:665] [[38;2;144;238;144minfo[0m] [Mem] After text: 1584 MB
+[59:05:665] [[38;2;144;238;144minfo[0m] [Mem] After spool handling: 1584 MB
+[59:05:665] [[38;2;144;238;144minfo[0m] - Finding textures in tpages...
+[59:06:029] [[38;2;144;238;144minfo[0m] Processed 4002 / 4002 textures (28744304 px) 100.00% in 363.38 ms
+[59:06:030] [[38;2;144;238;144minfo[0m] [Mem] After textures: 1699 MB
+[59:06:030] [[38;2;144;238;144minfo[0m] - Finding game count file...
+[59:06:094] [[38;2;144;238;144minfo[0m] stats for GAME.CGO
+texture                        :   4559 kB 81.6%
+merc-vert                      :    621 kB 11.1%
+blerc                          :    229 kB 4.1%
+merc-idx                       :     91 kB 1.6%
+merc-mod-vert                  :     56 kB 1.0%
+unknown                        :     22 kB 0.4%
+merc-draw                      :      2 kB 0.1%
+merc-mod-table                 :      1 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+merc-mod-draw-1                :      0 kB 0.0%
+[59:06:094] [[38;2;144;238;144minfo[0m] compressed: 5720814 -> 1039215 (18.17%)
+[59:06:097] [[38;2;144;238;144minfo[0m] Processing JUB.DGO...
+[59:06:098] [[38;2;144;238;144minfo[0m] Processing LAV.DGO...
+[59:06:099] [[38;2;144;238;144minfo[0m] Processing SWA.DGO...
+[59:06:099] [[38;2;144;238;144minfo[0m] Processing SNO.DGO...
+[59:06:099] [[38;2;144;238;144minfo[0m] Processing OGR.DGO...
+[59:06:100] [[38;2;144;238;144minfo[0m] Processing BEA.DGO...
+[59:06:101] [[38;2;144;238;144minfo[0m] Processing VI1.DGO...
+[59:06:102] [[38;2;144;238;144minfo[0m] Processing DEM.DGO...
+[59:06:156] [[38;2;144;238;144minfo[0m] stats for demo
+texture                        :  10808 kB 99.7%
+collision                      :     18 kB 0.2%
+tfrag-vert                     :      7 kB 0.1%
+unknown                        :      2 kB 0.0%
+tfrag-colors                   :      0 kB 0.0%
+tfrag-idx                      :      0 kB 0.0%
+tfrag-cluster                  :      0 kB 0.0%
+tfrag-vis                      :      0 kB 0.0%
+[59:06:156] [[38;2;144;238;144minfo[0m] compressed: 11097671 -> 1827113 (16.46%)
+[59:06:158] [[38;2;144;238;144minfo[0m] Processing FIN.DGO...
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+[59:06:253] [[38;2;144;238;144minfo[0m] stats for jungleb
+texture                        :   3506 kB 33.6%
+tie-verts                      :   1974 kB 18.9%
+collision                      :   1652 kB 15.8%
+tie-cidx                       :   1049 kB 10.0%
+tie-colors                     :    554 kB 5.3%
+merc-vert                      :    545 kB 5.2%
+tie-deinst-idx                 :    457 kB 4.4%
+tie-grps                       :    456 kB 4.4%
+tie-mats                       :    103 kB 1.0%
+merc-idx                       :     61 kB 0.6%
+tie-deinst-vis                 :     39 kB 0.4%
+unknown                        :     23 kB 0.2%
+tie-bvh                        :     12 kB 0.1%
+tfrag-vert                     :      3 kB 0.0%
+shrub-vert                     :      3 kB 0.0%
+shrub-ind                      :      3 kB 0.0%
+tfrag-bvh                      :      2 kB 0.0%
+merc-draw                      :      1 kB 0.0%
+tfrag-colors                   :      0 kB 0.0%
+tfrag-idx                      :      0 kB 0.0%
+shrub-colors                   :      0 kB 0.0%
+tfrag-cluster                  :      0 kB 0.0%
+tfrag-vis                      :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:06:253] [[38;2;144;238;144minfo[0m] compressed: 10700841 -> 2505063 (23.41%)
+[59:06:259] [[38;2;144;238;144minfo[0m] Processing JUN.DGO...
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+  unsupported tree drawable-tree-ambient
+  unsupported tree drawable-tree-actor
+[59:06:517] [[38;2;255;255;000mwarn[0m] extract_animations: art group flut-saddle has no anims, skipping
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+  unsupported tree drawable-tree-ambient
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+[59:06:565] [[38;2;255;255;000mwarn[0m] extract_animations: art group flut-saddle has no anims, skipping
+[59:06:585] [[38;2;255;255;000mwarn[0m] extract_animations: art group ogrecam has no anims, skipping
+  unsupported tree drawable-tree-ambient
+[59:06:599] [[38;2;255;255;000mwarn[0m] unsupported blend: a 0 b 1 c 0 d 2
+[59:06:599] [[38;2;255;255;000mwarn[0m] unsupported blend: a 0 b 1 c 0 d 2
+[59:06:599] [[38;2;255;255;000mwarn[0m] unsupported blend: a 0 b 1 c 0 d 2
+[59:06:600] [[38;2;255;255;000mwarn[0m] unsupported blend: a 0 b 1 c 0 d 2
+[59:06:600] [[38;2;255;255;000mwarn[0m] unsupported blend: a 0 b 1 c 0 d 2
+[59:06:610] [[38;2;255;255;000mwarn[0m] extract_animations: art group warpgate has no anims, skipping
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+[59:06:754] [[38;2;144;238;144minfo[0m] stats for swamp
+collision                      :  10558 kB 32.8%
+texture                        :   8943 kB 27.8%
+tie-cidx                       :   3341 kB 10.4%
+shrub-ind                      :   1516 kB 4.7%
+merc-vert                      :   1392 kB 4.3%
+tie-deinst-idx                 :   1362 kB 4.2%
+tie-verts                      :   1184 kB 3.7%
+tfrag-vert                     :   1164 kB 3.6%
+tie-colors                     :    855 kB 2.7%
+tie-mats                       :    476 kB 1.5%
+shrub-vert                     :    471 kB 1.5%
+tie-grps                       :    173 kB 0.5%
+merc-idx                       :    162 kB 0.5%
+tie-deinst-vis                 :    138 kB 0.4%
+tfrag-colors                   :     96 kB 0.3%
+tfrag-idx                      :     92 kB 0.3%
+blerc                          :     90 kB 0.3%
+unknown                        :     45 kB 0.1%
+tie-bvh                        :     36 kB 0.1%
+tfrag-vis                      :     34 kB 0.1%
+shrub-colors                   :     32 kB 0.1%
+merc-mod-vert                  :     18 kB 0.1%
+tfrag-bvh                      :     18 kB 0.1%
+merc-draw                      :      5 kB 0.0%
+tfrag-cluster                  :      2 kB 0.0%
+merc-mod-table                 :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+merc-mod-draw-1                :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+[59:06:755] [[38;2;144;238;144minfo[0m] compressed: 32987141 -> 9619042 (29.16%)
+[59:06:782] [[38;2;144;238;144minfo[0m] Processing TIT.DGO...
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-actor
+[59:06:809] [[38;2;144;238;144minfo[0m] stats for title
+texture                        :   1842 kB 54.7%
+merc-vert                      :   1407 kB 41.8%
+merc-idx                       :    110 kB 3.3%
+unknown                        :      4 kB 0.1%
+merc-draw                      :      0 kB 0.0%
+tfrag-colors                   :      0 kB 0.0%
+collision                      :      0 kB 0.0%
+tfrag-vert                     :      0 kB 0.0%
+tfrag-vis                      :      0 kB 0.0%
+tfrag-idx                      :      0 kB 0.0%
+tfrag-cluster                  :      0 kB 0.0%
+[59:06:809] [[38;2;144;238;144minfo[0m] compressed: 3446727 -> 497038 (14.42%)
+[59:06:811] [[38;2;144;238;144minfo[0m] Processing TRA.DGO...
+[59:06:815] [[38;2;144;238;144minfo[0m] stats for beach
+texture                        :  14499 kB 37.9%
+collision                      :   9442 kB 24.7%
+merc-vert                      :   3227 kB 8.4%
+tfrag-vert                     :   3194 kB 8.3%
+tie-cidx                       :   2114 kB 5.5%
+tie-verts                      :   1021 kB 2.7%
+tie-deinst-idx                 :    764 kB 2.0%
+tie-colors                     :    688 kB 1.8%
+blerc                          :    529 kB 1.4%
+tie-inst-idx                   :    483 kB 1.3%
+shrub-ind                      :    411 kB 1.1%
+merc-idx                       :    365 kB 1.0%
+tie-mats                       :    339 kB 0.9%
+shrub-vert                     :    220 kB 0.6%
+tfrag-idx                      :    192 kB 0.5%
+tfrag-colors                   :    192 kB 0.5%
+merc-mod-vert                  :    177 kB 0.5%
+tie-grps                       :    125 kB 0.3%
+tie-deinst-vis                 :     77 kB 0.2%
+unknown                        :     59 kB 0.2%
+tfrag-vis                      :     33 kB 0.1%
+shrub-colors                   :     31 kB 0.1%
+tfrag-bvh                      :     24 kB 0.1%
+tie-bvh                        :     24 kB 0.1%
+tie-wind-inst-info             :     18 kB 0.0%
+tie-inst-vis                   :     10 kB 0.0%
+merc-draw                      :     10 kB 0.0%
+merc-mod-table                 :      5 kB 0.0%
+tfrag-cluster                  :      3 kB 0.0%
+merc-mod-draw-1                :      1 kB 0.0%
+merc-mod-draw-2                :      1 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:06:815] [[38;2;144;238;144minfo[0m] compressed: 39211726 -> 11385973 (29.04%)
+[59:06:843] [[38;2;144;238;144minfo[0m] Processing CIT.DGO...
+[59:06:862] [[38;2;144;238;144minfo[0m] stats for snow
+texture                        :  11744 kB 31.2%
+collision                      :   8799 kB 23.4%
+tie-cidx                       :   4391 kB 11.7%
+merc-vert                      :   3167 kB 8.4%
+tie-verts                      :   1857 kB 4.9%
+tie-deinst-idx                 :   1831 kB 4.9%
+tfrag-vert                     :   1777 kB 4.7%
+tie-colors                     :   1227 kB 3.3%
+tie-mats                       :    674 kB 1.8%
+shrub-ind                      :    495 kB 1.3%
+tie-grps                       :    346 kB 0.9%
+merc-idx                       :    303 kB 0.8%
+tfrag-colors                   :    216 kB 0.6%
+shrub-vert                     :    205 kB 0.5%
+tie-deinst-vis                 :    195 kB 0.5%
+tfrag-idx                      :    140 kB 0.4%
+unknown                        :     65 kB 0.2%
+tie-bvh                        :     45 kB 0.1%
+tfrag-vis                      :     35 kB 0.1%
+shrub-colors                   :     27 kB 0.1%
+tfrag-bvh                      :     24 kB 0.1%
+merc-draw                      :      8 kB 0.0%
+tfrag-cluster                  :      5 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:06:863] [[38;2;144;238;144minfo[0m] compressed: 38487227 -> 11803641 (30.67%)
+[59:06:874] [[38;2;144;238;144minfo[0m] stats for village1
+texture                        :  10736 kB 30.0%
+collision                      :   7025 kB 19.6%
+merc-vert                      :   3172 kB 8.9%
+tie-cidx                       :   3054 kB 8.5%
+tfrag-vert                     :   2161 kB 6.0%
+tie-verts                      :   1905 kB 5.3%
+tie-colors                     :   1524 kB 4.3%
+tie-deinst-idx                 :   1168 kB 3.3%
+tie-mats                       :    943 kB 2.6%
+blerc                          :    689 kB 1.9%
+shrub-ind                      :    656 kB 1.8%
+tie-inst-idx                   :    538 kB 1.5%
+merc-idx                       :    398 kB 1.1%
+merc-mod-vert                  :    368 kB 1.0%
+shrub-vert                     :    321 kB 0.9%
+tie-grps                       :    302 kB 0.8%
+tfrag-colors                   :    227 kB 0.6%
+tie-deinst-vis                 :    157 kB 0.4%
+tfrag-idx                      :    140 kB 0.4%
+unknown                        :     82 kB 0.2%
+tie-bvh                        :     69 kB 0.2%
+shrub-colors                   :     32 kB 0.1%
+tfrag-vis                      :     30 kB 0.1%
+tie-wind-inst-info             :     22 kB 0.1%
+tfrag-bvh                      :     20 kB 0.1%
+tfrag-cluster                  :     18 kB 0.1%
+tie-inst-vis                   :     13 kB 0.0%
+merc-mod-table                 :     11 kB 0.0%
+merc-draw                      :      9 kB 0.0%
+merc-mod-draw-1                :      1 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:06:875] [[38;2;144;238;144minfo[0m] compressed: 36662927 -> 11613108 (31.68%)
+[59:06:898] [[38;2;144;238;144minfo[0m] Processing SUB.DGO...
+[59:06:904] [[38;2;144;238;144minfo[0m] stats for jungle
+texture                        :  14403 kB 35.3%
+collision                      :  11454 kB 28.1%
+merc-vert                      :   3191 kB 7.8%
+tie-cidx                       :   2553 kB 6.3%
+tie-verts                      :   2233 kB 5.5%
+tfrag-vert                     :   1579 kB 3.9%
+tie-colors                     :   1215 kB 3.0%
+shrub-ind                      :   1066 kB 2.6%
+tie-deinst-idx                 :   1015 kB 2.5%
+shrub-vert                     :    345 kB 0.8%
+merc-idx                       :    342 kB 0.8%
+tie-mats                       :    340 kB 0.8%
+tie-grps                       :    261 kB 0.6%
+merc-mod-vert                  :    148 kB 0.4%
+blerc                          :    120 kB 0.3%
+tie-deinst-vis                 :    119 kB 0.3%
+tfrag-colors                   :    104 kB 0.3%
+tfrag-idx                      :     89 kB 0.2%
+unknown                        :     74 kB 0.2%
+shrub-colors                   :     32 kB 0.1%
+tie-bvh                        :     27 kB 0.1%
+tfrag-vis                      :     18 kB 0.0%
+tfrag-bvh                      :     15 kB 0.0%
+merc-draw                      :      9 kB 0.0%
+merc-mod-table                 :      4 kB 0.0%
+tfrag-cluster                  :      2 kB 0.0%
+merc-mod-draw-1                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+[59:06:904] [[38;2;144;238;144minfo[0m] compressed: 41749760 -> 11391009 (27.28%)
+[59:06:908] [[38;2;144;238;144minfo[0m] Processing VI2.DGO...
+[59:06:929] [[38;2;144;238;144minfo[0m] stats for ogre
+texture                        :  13376 kB 29.9%
+collision                      :  12520 kB 28.0%
+tie-cidx                       :   4987 kB 11.1%
+merc-vert                      :   2515 kB 5.6%
+shrub-ind                      :   2432 kB 5.4%
+tie-deinst-idx                 :   2205 kB 4.9%
+tie-verts                      :   1905 kB 4.3%
+tfrag-vert                     :   1488 kB 3.3%
+tie-colors                     :   1026 kB 2.3%
+tie-mats                       :    591 kB 1.3%
+shrub-vert                     :    459 kB 1.0%
+tie-grps                       :    287 kB 0.6%
+merc-idx                       :    268 kB 0.6%
+merc-mod-vert                  :    206 kB 0.5%
+tie-deinst-vis                 :    150 kB 0.3%
+tfrag-idx                      :    106 kB 0.2%
+tfrag-colors                   :     96 kB 0.2%
+tie-bvh                        :     42 kB 0.1%
+unknown                        :     41 kB 0.1%
+shrub-colors                   :     24 kB 0.1%
+tfrag-bvh                      :     20 kB 0.0%
+tfrag-vis                      :     19 kB 0.0%
+merc-mod-table                 :      6 kB 0.0%
+merc-draw                      :      6 kB 0.0%
+tfrag-cluster                  :      5 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+[59:06:930] [[38;2;144;238;144minfo[0m] compressed: 45864427 -> 14276085 (31.13%)
+[59:06:932] [[38;2;144;238;144minfo[0m] Processing FIC.DGO...
+[59:06:961] [[38;2;144;238;144minfo[0m] Processing ROB.DGO...
+[59:06:967] [[38;2;144;238;144minfo[0m] stats for lavatube
+tie-cidx                       :   8192 kB 27.2%
+texture                        :   6014 kB 20.0%
+tie-deinst-idx                 :   3704 kB 12.3%
+tie-mats                       :   2470 kB 8.2%
+merc-vert                      :   1923 kB 6.4%
+collision                      :   1738 kB 5.8%
+tie-verts                      :   1474 kB 4.9%
+tie-colors                     :    880 kB 2.9%
+tie-grps                       :    622 kB 2.1%
+tfrag-vert                     :    555 kB 1.8%
+tie-deinst-vis                 :    517 kB 1.7%
+tie-inst-idx                   :    483 kB 1.6%
+shrub-ind                      :    374 kB 1.2%
+merc-mod-vert                  :    213 kB 0.7%
+merc-idx                       :    209 kB 0.7%
+blerc                          :    205 kB 0.7%
+tie-bvh                        :    144 kB 0.5%
+shrub-vert                     :    121 kB 0.4%
+tfrag-colors                   :     96 kB 0.3%
+tfrag-idx                      :     60 kB 0.2%
+unknown                        :     38 kB 0.1%
+tie-wind-inst-info             :     23 kB 0.1%
+tfrag-bvh                      :     22 kB 0.1%
+tfrag-vis                      :     17 kB 0.1%
+shrub-colors                   :      9 kB 0.0%
+tie-inst-vis                   :      7 kB 0.0%
+merc-mod-table                 :      6 kB 0.0%
+tfrag-cluster                  :      5 kB 0.0%
+merc-draw                      :      3 kB 0.0%
+merc-mod-draw-1                :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:06:968] [[38;2;144;238;144minfo[0m] compressed: 30860460 -> 10935753 (35.44%)
+[59:06:988] [[38;2;144;238;144minfo[0m] stats for finalboss
+texture                        :   7165 kB 36.8%
+merc-vert                      :   3040 kB 15.6%
+tfrag-vert                     :   2725 kB 14.0%
+tie-cidx                       :   1420 kB 7.3%
+tie-verts                      :   1257 kB 6.5%
+tie-deinst-idx                 :    635 kB 3.3%
+collision                      :    613 kB 3.2%
+tie-grps                       :    318 kB 1.6%
+merc-idx                       :    315 kB 1.6%
+shrub-ind                      :    287 kB 1.5%
+tfrag-idx                      :    276 kB 1.4%
+tie-colors                     :    272 kB 1.4%
+tfrag-cluster                  :    262 kB 1.3%
+blerc                          :    220 kB 1.1%
+shrub-vert                     :    131 kB 0.7%
+tfrag-colors                   :    120 kB 0.6%
+tfrag-bvh                      :     87 kB 0.5%
+merc-mod-vert                  :     85 kB 0.4%
+tie-mats                       :     85 kB 0.4%
+tfrag-vis                      :     66 kB 0.3%
+unknown                        :     37 kB 0.2%
+tie-deinst-vis                 :     26 kB 0.1%
+shrub-colors                   :     10 kB 0.1%
+tie-bvh                        :      9 kB 0.0%
+merc-draw                      :      5 kB 0.0%
+merc-mod-table                 :      2 kB 0.0%
+merc-mod-draw-1                :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:06:989] [[38;2;144;238;144minfo[0m] compressed: 19948989 -> 6323841 (31.70%)
+[59:07:005] [[38;2;144;238;144minfo[0m] Processing MAI.DGO...
+[59:07:015] [[38;2;144;238;144minfo[0m] Processing INT.DGO...
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+[59:07:082] [[38;2;144;238;144minfo[0m] stats for intro
+texture                        :   1812 kB 37.2%
+tie-verts                      :    696 kB 14.3%
+collision                      :    663 kB 13.6%
+merc-vert                      :    415 kB 8.5%
+blerc                          :    334 kB 6.9%
+tie-colors                     :    213 kB 4.4%
+tie-cidx                       :    209 kB 4.3%
+tfrag-vert                     :     99 kB 2.0%
+tie-deinst-idx                 :     87 kB 1.8%
+merc-mod-vert                  :     68 kB 1.4%
+merc-idx                       :     64 kB 1.3%
+shrub-ind                      :     62 kB 1.3%
+tie-mats                       :     38 kB 0.8%
+shrub-vert                     :     31 kB 0.6%
+tfrag-colors                   :     17 kB 0.4%
+unknown                        :      9 kB 0.2%
+tie-grps                       :      9 kB 0.2%
+tie-deinst-vis                 :      8 kB 0.2%
+tfrag-idx                      :      6 kB 0.1%
+tie-bvh                        :      6 kB 0.1%
+tfrag-bvh                      :      4 kB 0.1%
+merc-mod-table                 :      2 kB 0.0%
+shrub-colors                   :      2 kB 0.0%
+merc-draw                      :      1 kB 0.0%
+tfrag-vis                      :      0 kB 0.0%
+merc-mod-draw-1                :      0 kB 0.0%
+tfrag-cluster                  :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:07:083] [[38;2;144;238;144minfo[0m] compressed: 4983890 -> 986146 (19.79%)
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+[59:07:123] [[38;2;255;255;000mwarn[0m] extract_animations: art group warpgate has no anims, skipping
+  unsupported tree drawable-tree-actor
+[59:07:153] [[38;2;144;238;144minfo[0m] stats for sunkenb
+texture                        :   6880 kB 40.0%
+collision                      :   1897 kB 11.0%
+merc-vert                      :   1631 kB 9.5%
+tie-cidx                       :   1377 kB 8.0%
+tfrag-vert                     :    991 kB 5.8%
+merc-mod-vert                  :    827 kB 4.8%
+tie-verts                      :    820 kB 4.8%
+tie-deinst-idx                 :    596 kB 3.5%
+shrub-ind                      :    414 kB 2.4%
+tie-grps                       :    408 kB 2.4%
+tie-colors                     :    380 kB 2.2%
+merc-idx                       :    267 kB 1.6%
+tfrag-colors                   :    192 kB 1.1%
+tie-mats                       :    187 kB 1.1%
+tfrag-idx                      :     74 kB 0.4%
+shrub-vert                     :     62 kB 0.4%
+tie-deinst-vis                 :     60 kB 0.4%
+unknown                        :     38 kB 0.2%
+tfrag-vis                      :     29 kB 0.2%
+merc-mod-table                 :     25 kB 0.2%
+tfrag-bvh                      :     18 kB 0.1%
+tie-bvh                        :     15 kB 0.1%
+shrub-colors                   :      3 kB 0.0%
+merc-draw                      :      3 kB 0.0%
+tfrag-cluster                  :      3 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:07:153] [[38;2;144;238;144minfo[0m] compressed: 17622337 -> 4774436 (27.09%)
+[59:07:161] [[38;2;144;238;144minfo[0m] Processing SUN.DGO...
+  unsupported tree drawable-tree-ambient
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+[59:07:244] [[38;2;255;255;000mwarn[0m] extract_animations: art group warpgate has no anims, skipping
+[59:07:263] [[38;2;144;238;144minfo[0m] stats for training
+texture                        :   9097 kB 35.8%
+collision                      :   5772 kB 22.7%
+tie-cidx                       :   2600 kB 10.2%
+tie-verts                      :   1703 kB 6.7%
+merc-vert                      :   1352 kB 5.3%
+tfrag-vert                     :   1286 kB 5.1%
+tie-deinst-idx                 :   1113 kB 4.4%
+tie-colors                     :    664 kB 2.6%
+tie-mats                       :    368 kB 1.4%
+shrub-ind                      :    331 kB 1.3%
+tie-grps                       :    289 kB 1.1%
+shrub-vert                     :    152 kB 0.6%
+merc-idx                       :    131 kB 0.5%
+tfrag-colors                   :    120 kB 0.5%
+tie-deinst-vis                 :    105 kB 0.4%
+tfrag-idx                      :     91 kB 0.4%
+merc-mod-vert                  :     79 kB 0.3%
+unknown                        :     43 kB 0.2%
+tfrag-cluster                  :     36 kB 0.1%
+tie-bvh                        :     27 kB 0.1%
+shrub-colors                   :     24 kB 0.1%
+tfrag-bvh                      :     20 kB 0.1%
+tfrag-vis                      :     13 kB 0.1%
+merc-draw                      :      5 kB 0.0%
+merc-mod-table                 :      2 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+[59:07:264] [[38;2;144;238;144minfo[0m] compressed: 26044634 -> 7519224 (28.87%)
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+[59:07:300] [[38;2;144;238;144minfo[0m] Skipping broken village2 thing
+[59:07:330] [[38;2;144;238;144minfo[0m] stats for firecanyon
+tie-inst-idx                   :   5468 kB 23.2%
+texture                        :   5074 kB 21.5%
+tie-cidx                       :   4549 kB 19.3%
+tie-verts                      :   2031 kB 8.6%
+collision                      :   1179 kB 5.0%
+merc-vert                      :   1109 kB 4.7%
+tie-deinst-idx                 :    863 kB 3.7%
+tfrag-vert                     :    721 kB 3.1%
+tie-colors                     :    646 kB 2.7%
+shrub-ind                      :    476 kB 2.0%
+tie-mats                       :    334 kB 1.4%
+blerc                          :    205 kB 0.9%
+tie-grps                       :    190 kB 0.8%
+merc-idx                       :    127 kB 0.5%
+shrub-vert                     :    104 kB 0.4%
+tfrag-colors                   :     96 kB 0.4%
+tie-deinst-vis                 :     95 kB 0.4%
+tie-wind-inst-info             :     64 kB 0.3%
+tfrag-idx                      :     52 kB 0.2%
+merc-mod-vert                  :     40 kB 0.2%
+tie-inst-vis                   :     35 kB 0.1%
+tie-bvh                        :     30 kB 0.1%
+unknown                        :     26 kB 0.1%
+tfrag-bvh                      :     13 kB 0.1%
+tfrag-vis                      :      9 kB 0.0%
+shrub-colors                   :      8 kB 0.0%
+merc-draw                      :      2 kB 0.0%
+tfrag-cluster                  :      2 kB 0.0%
+merc-mod-table                 :      1 kB 0.0%
+merc-mod-draw-1                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+[59:07:330] [[38;2;144;238;144minfo[0m] compressed: 24128865 -> 9268098 (38.41%)
+[59:07:359] [[38;2;255;255;000mwarn[0m] extract_animations: art group warpgate has no anims, skipping
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+[59:07:551] [[38;2;144;238;144minfo[0m] stats for citadel
+texture                        :  34596 kB 54.3%
+collision                      :   8161 kB 12.8%
+merc-vert                      :   4911 kB 7.7%
+tie-cidx                       :   4420 kB 6.9%
+tie-verts                      :   3020 kB 4.7%
+tie-colors                     :   1908 kB 3.0%
+tie-deinst-idx                 :   1819 kB 2.9%
+blerc                          :   1023 kB 1.6%
+tie-mats                       :   1020 kB 1.6%
+tie-grps                       :    931 kB 1.5%
+merc-idx                       :    533 kB 0.8%
+shrub-ind                      :    296 kB 0.5%
+tie-deinst-vis                 :    279 kB 0.4%
+merc-mod-vert                  :    221 kB 0.3%
+unknown                        :    133 kB 0.2%
+tfrag-vert                     :    119 kB 0.2%
+shrub-vert                     :     83 kB 0.1%
+tie-bvh                        :     72 kB 0.1%
+tfrag-colors                   :     34 kB 0.1%
+merc-draw                      :     22 kB 0.0%
+shrub-colors                   :     13 kB 0.0%
+tfrag-idx                      :     12 kB 0.0%
+merc-mod-table                 :      6 kB 0.0%
+tfrag-bvh                      :      6 kB 0.0%
+tfrag-vis                      :      5 kB 0.0%
+merc-mod-draw-1                :      2 kB 0.0%
+tfrag-cluster                  :      1 kB 0.0%
+merc-mod-draw-2                :      1 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:07:551] [[38;2;144;238;144minfo[0m] compressed: 65187649 -> 16367993 (25.11%)
+[59:07:551] [[38;2;144;238;144minfo[0m] stats for robocave
+texture                        :  10049 kB 31.0%
+collision                      :   7947 kB 24.5%
+tfrag-vert                     :   6982 kB 21.6%
+tie-verts                      :   1480 kB 4.6%
+merc-vert                      :   1385 kB 4.3%
+tie-cidx                       :   1146 kB 3.5%
+shrub-ind                      :    856 kB 2.6%
+tie-deinst-idx                 :    422 kB 1.3%
+tfrag-idx                      :    403 kB 1.2%
+tie-colors                     :    362 kB 1.1%
+shrub-vert                     :    264 kB 0.8%
+tie-mats                       :    210 kB 0.6%
+tfrag-colors                   :    192 kB 0.6%
+merc-idx                       :    145 kB 0.4%
+tie-grps                       :    144 kB 0.4%
+merc-mod-vert                  :    141 kB 0.4%
+tfrag-vis                      :     68 kB 0.2%
+unknown                        :     50 kB 0.2%
+tie-deinst-vis                 :     44 kB 0.1%
+tfrag-bvh                      :     27 kB 0.1%
+shrub-colors                   :     21 kB 0.1%
+tie-bvh                        :     18 kB 0.1%
+merc-draw                      :      6 kB 0.0%
+merc-mod-table                 :      4 kB 0.0%
+tfrag-cluster                  :      1 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+[59:07:551] [[38;2;144;238;144minfo[0m] compressed: 33155164 -> 9878134 (29.79%)
+[59:07:569] [[38;2;144;238;144minfo[0m] Processing ROL.DGO...
+[59:07:572] [[38;2;144;238;144minfo[0m] Processing DAR.DGO...
+[59:07:586] [[38;2;144;238;144minfo[0m] stats for sunken
+texture                        :  11616 kB 34.7%
+tie-cidx                       :   3980 kB 11.9%
+collision                      :   3687 kB 11.0%
+merc-vert                      :   2964 kB 8.8%
+tfrag-vert                     :   2542 kB 7.6%
+tie-deinst-idx                 :   1731 kB 5.2%
+tie-verts                      :   1482 kB 4.4%
+tie-grps                       :   1329 kB 4.0%
+tie-colors                     :    961 kB 2.9%
+merc-mod-vert                  :    827 kB 2.5%
+tie-mats                       :    569 kB 1.7%
+shrub-ind                      :    458 kB 1.4%
+merc-idx                       :    395 kB 1.2%
+tie-deinst-vis                 :    206 kB 0.6%
+tfrag-colors                   :    192 kB 0.6%
+tfrag-idx                      :    184 kB 0.6%
+shrub-vert                     :    107 kB 0.3%
+unknown                        :     70 kB 0.2%
+tfrag-vis                      :     67 kB 0.2%
+tie-bvh                        :     39 kB 0.1%
+tfrag-bvh                      :     33 kB 0.1%
+merc-mod-table                 :     25 kB 0.1%
+merc-draw                      :      9 kB 0.0%
+shrub-colors                   :      8 kB 0.0%
+tfrag-cluster                  :      5 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:07:586] [[38;2;144;238;144minfo[0m] compressed: 34302573 -> 9318229 (27.16%)
+[59:07:589] [[38;2;144;238;144minfo[0m] stats for village2
+texture                        :  11804 kB 31.3%
+collision                      :   9500 kB 25.2%
+merc-vert                      :   3823 kB 10.1%
+tie-cidx                       :   2637 kB 7.0%
+tie-verts                      :   1887 kB 5.0%
+tfrag-vert                     :   1420 kB 3.8%
+shrub-ind                      :   1285 kB 3.4%
+tie-colors                     :   1111 kB 2.9%
+tie-deinst-idx                 :   1104 kB 2.9%
+blerc                          :    754 kB 2.0%
+tie-mats                       :    509 kB 1.4%
+shrub-vert                     :    452 kB 1.2%
+merc-idx                       :    440 kB 1.2%
+tie-grps                       :    222 kB 0.6%
+tfrag-colors                   :    212 kB 0.6%
+merc-mod-vert                  :    140 kB 0.4%
+tie-deinst-vis                 :    116 kB 0.3%
+tfrag-idx                      :    102 kB 0.3%
+unknown                        :     82 kB 0.2%
+tie-bvh                        :     36 kB 0.1%
+shrub-colors                   :     32 kB 0.1%
+tfrag-vis                      :     20 kB 0.1%
+tfrag-bvh                      :     18 kB 0.0%
+merc-draw                      :     10 kB 0.0%
+merc-mod-table                 :      4 kB 0.0%
+tfrag-cluster                  :      3 kB 0.0%
+merc-mod-draw-1                :      1 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:07:589] [[38;2;144;238;144minfo[0m] compressed: 38641861 -> 11124299 (28.79%)
+[59:07:609] [[38;2;144;238;144minfo[0m] Processing VI3.DGO...
+[59:07:677] [[38;2;144;238;144minfo[0m] stats for maincave
+tfrag-vert                     :   8728 kB 32.1%
+texture                        :   7159 kB 26.3%
+collision                      :   6486 kB 23.8%
+merc-vert                      :   1560 kB 5.7%
+shrub-ind                      :    989 kB 3.6%
+merc-mod-vert                  :    550 kB 2.0%
+tfrag-idx                      :    538 kB 2.0%
+shrub-vert                     :    219 kB 0.8%
+merc-idx                       :    202 kB 0.7%
+tfrag-colors                   :    192 kB 0.7%
+tie-cidx                       :    118 kB 0.4%
+tfrag-vis                      :     94 kB 0.3%
+tie-verts                      :     90 kB 0.3%
+tie-deinst-idx                 :     58 kB 0.2%
+tie-colors                     :     58 kB 0.2%
+unknown                        :     44 kB 0.2%
+tfrag-bvh                      :     33 kB 0.1%
+tie-grps                       :     33 kB 0.1%
+merc-mod-table                 :     17 kB 0.1%
+tie-mats                       :     16 kB 0.1%
+shrub-colors                   :     13 kB 0.0%
+tie-bvh                        :      6 kB 0.0%
+merc-draw                      :      5 kB 0.0%
+tie-deinst-vis                 :      2 kB 0.0%
+tfrag-cluster                  :      2 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+[59:07:678] [[38;2;144;238;144minfo[0m] compressed: 27876179 -> 8701713 (31.22%)
+[59:07:692] [[38;2;144;238;144minfo[0m] Processing MIS.DGO...
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+[59:07:784] [[38;2;144;238;144minfo[0m] proto: lid.mb flags: 2
+[59:07:784] [[38;2;144;238;144minfo[0m] proto: chain.mb flags: 2
+[59:07:814] [[38;2;144;238;144minfo[0m] stats for darkcave
+collision                      :   6804 kB 32.7%
+texture                        :   6039 kB 29.0%
+tfrag-vert                     :   5619 kB 27.0%
+merc-vert                      :    586 kB 2.8%
+tfrag-idx                      :    364 kB 1.8%
+tie-cidx                       :    291 kB 1.4%
+tfrag-colors                   :    192 kB 0.9%
+tie-verts                      :    153 kB 0.7%
+tie-colors                     :    128 kB 0.6%
+shrub-ind                      :    122 kB 0.6%
+tie-deinst-idx                 :     94 kB 0.5%
+tie-mats                       :     67 kB 0.3%
+merc-idx                       :     64 kB 0.3%
+shrub-vert                     :     64 kB 0.3%
+merc-mod-vert                  :     56 kB 0.3%
+tfrag-vis                      :     52 kB 0.3%
+unknown                        :     28 kB 0.1%
+tfrag-bvh                      :     22 kB 0.1%
+tie-grps                       :     16 kB 0.1%
+tie-deinst-vis                 :      9 kB 0.0%
+tie-bvh                        :      9 kB 0.0%
+shrub-colors                   :      5 kB 0.0%
+merc-draw                      :      2 kB 0.0%
+merc-mod-table                 :      1 kB 0.0%
+tfrag-cluster                  :      1 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:07:814] [[38;2;144;238;144minfo[0m] compressed: 21299437 -> 6245988 (29.32%)
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+  unsupported tree drawable-tree-actor
+  unsupported tree drawable-tree-ambient
+[59:07:902] [[38;2;255;255;000mwarn[0m] extract_animations: art group warpgate has no anims, skipping
+[59:08:021] [[38;2;144;238;144minfo[0m] stats for village3
+collision                      :   6752 kB 23.3%
+texture                        :   6719 kB 23.2%
+tfrag-vert                     :   4977 kB 17.2%
+merc-vert                      :   2339 kB 8.1%
+tie-cidx                       :   1408 kB 4.9%
+tie-verts                      :   1035 kB 3.6%
+tie-colors                     :    943 kB 3.3%
+blerc                          :    894 kB 3.1%
+tie-deinst-idx                 :    754 kB 2.6%
+shrub-ind                      :    645 kB 2.2%
+merc-mod-vert                  :    550 kB 1.9%
+tie-mats                       :    430 kB 1.5%
+merc-idx                       :    336 kB 1.2%
+tfrag-idx                      :    321 kB 1.1%
+shrub-vert                     :    238 kB 0.8%
+tie-grps                       :    167 kB 0.6%
+tfrag-colors                   :    120 kB 0.4%
+tie-deinst-vis                 :     83 kB 0.3%
+unknown                        :     61 kB 0.2%
+tfrag-vis                      :     50 kB 0.2%
+tfrag-bvh                      :     36 kB 0.1%
+tie-bvh                        :     33 kB 0.1%
+tfrag-cluster                  :     22 kB 0.1%
+shrub-colors                   :     20 kB 0.1%
+merc-mod-table                 :     17 kB 0.1%
+merc-draw                      :      5 kB 0.0%
+merc-mod-draw-1                :      2 kB 0.0%
+merc-mod-draw-2                :      1 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:08:021] [[38;2;144;238;144minfo[0m] compressed: 29667443 -> 9523519 (32.10%)
+[59:08:042] [[38;2;144;238;144minfo[0m] stats for rolling
+collision                      :  11311 kB 29.3%
+texture                        :   6574 kB 17.0%
+tie-cidx                       :   5198 kB 13.5%
+tie-verts                      :   2717 kB 7.0%
+tfrag-vert                     :   2288 kB 5.9%
+tie-deinst-idx                 :   2176 kB 5.6%
+shrub-ind                      :   1887 kB 4.9%
+merc-vert                      :   1731 kB 4.5%
+tie-grps                       :   1435 kB 3.7%
+tie-colors                     :   1275 kB 3.3%
+shrub-vert                     :    522 kB 1.4%
+tie-mats                       :    509 kB 1.3%
+tie-deinst-vis                 :    220 kB 0.6%
+merc-idx                       :    181 kB 0.5%
+tfrag-idx                      :    173 kB 0.4%
+merc-mod-vert                  :    102 kB 0.3%
+tfrag-colors                   :     96 kB 0.2%
+tfrag-vis                      :     45 kB 0.1%
+unknown                        :     43 kB 0.1%
+tie-bvh                        :     39 kB 0.1%
+shrub-colors                   :     31 kB 0.1%
+tfrag-bvh                      :     29 kB 0.1%
+tfrag-cluster                  :      6 kB 0.0%
+merc-draw                      :      4 kB 0.0%
+merc-mod-table                 :      3 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+[59:08:042] [[38;2;144;238;144minfo[0m] compressed: 39532889 -> 11939906 (30.20%)
+[59:08:095] [[38;2;144;238;144minfo[0m] stats for misty
+texture                        :  15747 kB 36.6%
+collision                      :   9702 kB 22.6%
+tie-cidx                       :   4104 kB 9.5%
+merc-vert                      :   3526 kB 8.2%
+tfrag-vert                     :   1910 kB 4.4%
+tie-verts                      :   1761 kB 4.1%
+tie-deinst-idx                 :   1682 kB 3.9%
+tie-colors                     :   1168 kB 2.7%
+shrub-ind                      :    739 kB 1.7%
+tie-mats                       :    703 kB 1.6%
+merc-idx                       :    357 kB 0.8%
+shrub-vert                     :    275 kB 0.6%
+tie-grps                       :    259 kB 0.6%
+tfrag-colors                   :    211 kB 0.5%
+merc-mod-vert                  :    207 kB 0.5%
+tie-deinst-vis                 :    173 kB 0.4%
+blerc                          :    149 kB 0.3%
+tfrag-idx                      :    117 kB 0.3%
+unknown                        :     71 kB 0.2%
+tie-bvh                        :     51 kB 0.1%
+shrub-colors                   :     24 kB 0.1%
+tfrag-bvh                      :     18 kB 0.0%
+tfrag-vis                      :     16 kB 0.0%
+merc-draw                      :      9 kB 0.0%
+merc-mod-table                 :      6 kB 0.0%
+tfrag-cluster                  :      6 kB 0.0%
+merc-mod-draw-2                :      0 kB 0.0%
+merc-mod-draw-1                :      0 kB 0.0%
+shrub-draw                     :      0 kB 0.0%
+[59:08:095] [[38;2;144;238;144minfo[0m] compressed: 44034551 -> 12140984 (27.57%)
+[59:08:112] [[38;2;144;238;144minfo[0m] [Mem] After extraction: 2904 MB
+[59:08:112] [[38;2;144;238;144minfo[0m] Decompiler has finished successfully in 5.50 seconds.
