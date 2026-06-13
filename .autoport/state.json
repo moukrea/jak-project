@@ -83,7 +83,8 @@
     "F1d-android-input-cpad-start-geyser": 1,
     "G1-arm64-go-enterstate-oracle-correct": 2,
     "Gref-pristine-x86-gold-standard": 1,
-    "Gintro-sce-nd-logo-render": 2
+    "Gintro-sce-nd-logo-render": 2,
+    "Gnd-arm64-blendshape-dma-stomp": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -312,9 +313,10 @@
     "F1f-android-go-control-transfer-jak-spawn": 1781314342.8889887,
     "G1-arm64-go-enterstate-oracle-correct": 1781347929.6492336,
     "Gref-pristine-x86-gold-standard": 1781353721.204168,
-    "Gintro-sce-nd-logo-render": 1781356836.0817618
+    "Gintro-sce-nd-logo-render": 1781356836.0817618,
+    "Gnd-arm64-blendshape-dma-stomp": 1781364153.6454499
   },
-  "last_update": "2026-06-13T15:17:43.705438+00:00",
+  "last_update": "2026-06-13T15:46:39.527372+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2
