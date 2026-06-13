@@ -5063,3 +5063,31 @@ independent (not an injection artifact). Owner perceives it as instant
 at different points, or the overwrite-YES path crashes faster than the
 fresh-slot path). F1f should use this as an additional repro variant:
 occupied-slot + overwrite-YES vs free-slot confirm.
+
+## 2026-06-13 ~08:55 — OWNER LIVE OBSERVATIONS #6/#7/#8 (diagnostic for F1f/F1g)
+
+#6 "Press <CIRCLE> to use" appears intermittently DURING the title flyover —
+a gameplay HUD/interaction prompt that should NOT exist in the attract. The
+original title is a pure camera flyover; ours seems to load a playable level
+or SPAWN interactable actors during attract. HYPOTHESIS (strong): the title
+attract on Android runs more game/actor state than it should — possibly the
+SAME over-spawn/process path that crashes (sig=11) on new-game. Worth checking:
+is the wrong level loaded for the title, or are interactable actors/`target`
+born during attract? May share a root cause with the F1f spawn crash.
+
+#7 CORROBORATION of the level-render-before-crash: owner saw a GLIMPSE of a
+level being drawn after New Game -> Select save -> YES overwrite, immediately
+before the crash (can't reproduce — crashes on blue->black). Confirms the
+level genuinely loads + draws frames before sig=11 fires — we are very close;
+the crash is AFTER level draw begins, not before. Matches run telemetry
+(2-6 real positions then sig=11).
+
+#8 (lower priority) A dark-BLUE screen that flips to BLACK before "doing
+stuff" — happens both before the title screen AND at the level transition.
+NOT present on the original build. Transition/clear-color artifact; park for
+a later render-polish pass.
+
+ACTION: feed #6 + #7 into F1g (if F1f attempt 3 fails). F1g scope = symbolize
+the sig=11 crash AND investigate whether the title attract over-spawns
+interactable actors (#6) — likely the same defect. #8 parked with the
+ocean/menu-backdrop/boot-intro visual residuals.
