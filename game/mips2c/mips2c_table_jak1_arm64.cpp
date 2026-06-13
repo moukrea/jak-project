@@ -433,6 +433,23 @@ bool a37_name_is_real(const std::string& name) {
       // the real trampoline; its arm64 body is a cursor pass-through (returns
       // a1 unchanged) since the shadow geometry port is incomplete.
       "shadow-execute",
+      // Gsprite: the sparticle sprite-DMA builders. The boot SCE "presents"
+      // static-screen draws three screen-space sparticle sprites (defpart
+      // 2966/2967/2968 -> group-part-screen1); each frame the sparticle system
+      // launches them via sp-launch-particles-var and builds their 2D sprite
+      // DMA + adgif shaders via sp-process-block-2d / particle-adgif. All four
+      // were noop-bound on arm64 (not on this allowlist) -> the sprite bucket
+      // stayed empty -> the SCE screen rendered BLACK (Gsce: A35-RENDER
+      // draws=1-2 tris=2-4 in the SCE window; x86 has no noop allowlist so it
+      // binds the real code and renders). The four are the complete jak1
+      // sparticle mips2c set (sparticle-launcher + sparticle TUs); enabling them
+      // together avoids a half-enabled inner-noop (the A38 blerc / Gnd shadow
+      // DMA-cursor disease). Unlike blerc/shadow these are benign when noop'd
+      // (Gsce: title still flew at ~100k tris, no corruption), so flipping them
+      // to the real arm64 trampoline just matches the x86 oracle. Lights up the
+      // SCE logo + screen-space sprites generally (HUD / menu overlay / 2D).
+      "sp-launch-particles-var", "sp-process-block-2d", "sp-process-block-3d",
+      "particle-adgif",
   };
   for (auto* n : kSet) {
     if (name == n) return true;
