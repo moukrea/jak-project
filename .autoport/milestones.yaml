@@ -797,6 +797,19 @@ phases:
   validator: validators/phase-G1-arm64-go-enterstate-oracle-correct.sh
   max_turns: 1200
   max_retries: 3
+- id: Gref-pristine-x86-gold-standard
+  name: 'Build the PRISTINE upstream x86 GOLD STANDARD + 3-tier comparison harness. We modified goalc for arm64, so our own x86 build
+    is not a trustworthy reference (compiler mods could corrupt BOTH x86 and Android invisibly to a 2-way diff). Establish: Original
+    (pristine upstream x86, merge-base 704972dd6) -> Our x86 -> Our Android. Build 704972dd6 in a worktree, produce pristine
+    CGOs/DGOs + gk under .autoport/gold/. Tier-A diff (gold vs our-x86 CGOs, per-object verdict) PROVES our 46 goalc commits are
+    arm64-gated or finds the x86 leaks. Capture pristine boot SEQUENCE (.autoport/gold/pristine-boot-sequence.log): SCEE->ND/Daxter
+    logo->title->menu->new-game cinematic state order + actor list = the chronological ground truth. Write compare-3tier.sh harness
+    later phases use. Reference-build only (no engine edits). Replaces the circular "byte-identical to A2 baseline" check with a real
+    pristine one. max_turns 1200.'
+  prompt: prompts/phase-Gref-pristine-x86-gold-standard.md
+  validator: validators/phase-Gref-pristine-x86-gold-standard.sh
+  max_turns: 1200
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
