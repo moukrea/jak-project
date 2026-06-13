@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 87,
+  "current_phase_idx": 88,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -81,7 +81,8 @@
     "F1c-android-camera-channel-start-geyser": 1,
     "F1e-android-reveal-crash-fix": 1,
     "F1d-android-input-cpad-start-geyser": 1,
-    "G1-arm64-go-enterstate-oracle-correct": 2
+    "G1-arm64-go-enterstate-oracle-correct": 2,
+    "Gref-pristine-x86-gold-standard": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -244,7 +245,8 @@
     "F1c-android-camera-channel-start-geyser",
     "F1e-android-reveal-crash-fix",
     "F1d-android-input-cpad-start-geyser",
-    "G1-arm64-go-enterstate-oracle-correct"
+    "G1-arm64-go-enterstate-oracle-correct",
+    "Gref-pristine-x86-gold-standard"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -303,9 +305,10 @@
     "F1d-android-input-cpad-start-geyser": 1781289297.4649265,
     "F1e-android-reveal-crash-fix": 1781285592.8516045,
     "F1f-android-go-control-transfer-jak-spawn": 1781314342.8889887,
-    "G1-arm64-go-enterstate-oracle-correct": 1781347929.6492336
+    "G1-arm64-go-enterstate-oracle-correct": 1781347929.6492336,
+    "Gref-pristine-x86-gold-standard": 1781353721.204168
   },
-  "last_update": "2026-06-13T12:05:59.483027+00:00",
+  "last_update": "2026-06-13T13:16:52.523523+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2
