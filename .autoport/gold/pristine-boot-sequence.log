@@ -1,0 +1,144 @@
+================================================================================
+PRISTINE jak1 BOOT / INTRO / TITLE SEQUENCE — chronological ground truth
+================================================================================
+Provenance
+  Binary      : pristine upstream gk, "Compiled Version: 704972dd6"
+                (merge-base commit 704972dd6a91616d1ce9964b5e7226df77a1fe27)
+  Build       : x86-64 Release-style (plain cmake, gcc 15.2.1), worktree
+                /home/emeric/code/gold-jak-project  (detached @ 704972dd6)
+  ISO (fakeiso): pristine out/jak1/iso (CGOs+DGOs+assets built by pristine goalc)
+  Command     : gk --game jak1 --portable -fakeiso --verbose --disable-ansi \
+                   -iso-data out/jak1/iso -- -boot -debug-mem
+  Raw capture : .autoport/gold/pristine-boot-raw.log   (1368 lines, 461 link-finish)
+  Captured    : 2026-06-13, no controller input — the run holds in the title
+                attract demo (the "perfect pre-cinematic sequence"), as intended.
+
+This file is the CHRONOLOGICAL REFERENCE the later fix phases diff Android against.
+It has two halves:
+  SECTION A — the SOURCE-CANONICAL state chain (what SHOULD run, from goal_src,
+              with file:line). goal_src is byte-identical across our fork, so this
+              is authoritative for BOTH pristine and our builds.
+  SECTION B — the PRISTINE RUNTIME-OBSERVED chronology (real timestamps from the
+              capture above), which confirms Section A executed in order.
+
+================================================================================
+SECTION A — SOURCE-CANONICAL STATE CHAIN  (power-on -> first gameplay)
+================================================================================
+Master-mode note: *master-mode* DEFAULTS to 'game (gkernel.gc:270). There is NO
+`set-master-mode 'title` anywhere — the entire SCE screen + ND logo + title-logo
+flythrough + press-start attract all run under master-mode 'game. The only
+explicit transitions are into 'progress (title menu) and back to 'game (New Game).
+
+ 1. KERNEL BOOT -> (play #t #t)
+      goal_src/jak1/engine/level/level.gc:978-1020   (play ...)
+      *kernel-boot-message* = 'play  => startup-level = 'title  (level.gc:985-987)
+      log: "(play :use-vis ~A :init-game ~A) has been called!" (level.gc:981)
+      log: "Load complete. Level: ~A. Now starting display!"   (level.gc:1015)
+
+ 2. (initialize! *game-info* 'game #f #f) -> continue-point "title-start"
+      goal_src/jak1/engine/game/game-info.gc:141-258 (continue select 176-181)
+      "title-start": goal_src/jak1/engine/level/level-info.gc:2320-2339
+        :level 'title  :flags (continue-flags title)  :lev0 'title :lev1 'village1
+
+ 3. target reads (continue-flags title) -> (go target-title)        [enter-state]
+      goal_src/jak1/engine/target/target-death.gc:147-149
+
+ 4. STATE target-title   (master-mode 'game)
+      goal_src/jak1/levels/title/title-obs.gc:523-603
+      - shows the SCE/SCEA boot static screen (territory SCEI / *first-boot*):
+          static-screen-spawn, title-obs.gc:553-563   (texture, not a text string)
+      - spawns the logo processes (title-obs.gc:596-601):
+          (process-spawn logo "logo-1" ... 'ndi)   <- Naughty Dog logo
+          (process-spawn logo          ... 'logo)   <- Jak & Daxter title logo
+      - (go target-title-play)                                       [enter-state]
+
+ 5. STATE logo  (process; type def title-obs.gc:10-25, init 417-521)
+      arg 'ndi  -> (go-virtual ndi)      title-obs.gc:334-415  plays "ndi-intro"
+      arg 'logo -> (go-virtual startup)  title-obs.gc:151-283  plays "logo-intro",
+                   then "logo-intro-2", then loops "logo-loop" (idle 285-315)
+      slave actors: logo-slave x N (*logo-cam-sg* *logo-volumes-sg* *logo-black-sg*
+                    *ndi-cam-sg* *ndi-volumes-sg*), *jchar-sg* (Jak), *sidekick-sg*
+                    (Daxter), an othercam camera. (title-obs.gc:176-192, 381-391)
+
+ 6. STATE target-title-play <-> target-title-wait   (title attract / PRESS START)
+      target-title-play: title-obs.gc:605-621  (:code anim-loop)
+      target-title-wait: title-obs.gc:623-666  draws press-start text (line 664):
+        (print-game-text (lookup-text! *common-text* (text-id press-start) #f) ...)
+      on (cpad-pressed? 0 start): (activate-progress *dproc* (progress-screen title))
+        title-obs.gc:656  -> opens the title menu, master-mode becomes 'progress
+
+ 7. TITLE MENU -> NEW GAME -> set-master-mode 'game -> continue "intro-start"
+      progress process: goal_src/jak1/engine/ui/progress/progress.gc (+ pc override
+        goal_src/jak1/pc/progress-pc.gc:2835-2870)
+      New Game: (initialize! *game-info* 'game #f "intro-start"); (set-master-mode 'game)
+        progress-pc.gc:2841 / progress.gc:832-833
+      "intro-start": goal_src/jak1/engine/level/level-info.gc:230-236
+        :level 'village1  :flags (continue-flags intro)
+
+ 8. target reads (continue-flags intro) -> (start-sequence-a)        [enter-state]
+      goal_src/jak1/engine/target/target-death.gc:149
+      start-sequence-a: goal_src/jak1/levels/village1/sequence-a-village1.gc:328-332
+        (process-spawn sequenceA-village1 (entity-by-name "sage-23") :to *entity-pool*)
+      STATE play-anim (the playable village1 / Geyser-Rock intro cinematic):
+        goal_src/jak1/levels/village1/sequence-a-village1.gc:234  (task (game-task intro))
+
+MASTER-MODE VALUE ORDER:  'game (boot, covers SCE+logo+title attract)
+                       -> 'progress (title menu opened via activate-progress)
+                       -> 'game (New Game; carries into village1 + intro cinematic)
+
+================================================================================
+SECTION B — PRISTINE RUNTIME-OBSERVED CHRONOLOGY  (real [mm:ss:ms] timestamps)
+================================================================================
+Extracted from .autoport/gold/pristine-boot-raw.log (pristine gk, Compiled
+Version 704972dd6). Confirms Section A ran in order; the spool-anim names match
+the source exactly (ndi-intro, logo-intro, logo-intro-2, logo-loop).
+
+[03:07:326] OpenGL initialized - v4.6 | Renderer: Mesa 25.3.6  (display up)
+--- engine code link (target / camera / menu) ---
+[03:10:593] link finish: target
+[03:10:593] link finish: target2
+[03:10:594] link finish: target-death        <- holds the title/intro continue dispatch
+[03:10:594] link finish: menu
+--- UI / title menu code link ---
+[03:10:630] link finish: progress
+[03:10:632] link finish: progress-pc
+[03:10:637] link finish: default-menu
+[03:10:637] link finish: subtitle
+--- TITLE phase code link ---
+[03:10:663] link finish: title-obs           <- STATE target-title / logo defined here
+[03:10:664] link finish: logo                 <- the title logo type (smoke milestone)
+[03:10:665] link finish: title-vis
+--- ND logo (logo 'ndi -> ndi state -> spool "ndi-intro") ---
+[03:10:767] link finish: ndi-intro
+[03:10:767] link finish: villagep-obs
+[03:11:069] link finish: ndi-intro
+[03:11:184] link finish: sage
+[03:11:350] link finish: village-obs
+[03:11:684] link finish: sequence-a-village1  <- village1 intro cinematic code (pre-linked)
+[03:12:267] link finish: sage
+[03:14:921] link finish: ndi-intro            <- ND logo playing/streaming
+[03:18:721] link finish: ndi-intro
+[03:22:552] link finish: ndi-intro
+--- Jak & Daxter title-logo flythrough (logo 'logo -> startup -> "logo-intro*") ---
+[03:26:385] link finish: logo-intro
+[03:26:502] link finish: logo-intro
+[03:28:768] link finish: logo-intro
+[03:30:986] link finish: logo-intro-2
+[03:33:208] link finish: assistant-introduction-blue-eco-switch
+[03:35:186] link finish: logo-intro-2
+[03:39:053] link finish: logo-intro-2
+[03:42:937] link finish: logo-intro-2         <- title attract flythrough LOOPING (demo)
+[03:46:820] link finish: logo-intro-2
+[03:50:703] link finish: logo-intro-2
+... (logo-intro-2 continues looping through 04:25 — the attract demo, no input) ...
+[05:06:070] link finish: logo-loop            <- attract loop (target-title-play/-wait hold)
+
+INTERPRETATION FOR THE FIX PHASES
+  The pristine title sequence is: SCE static screen -> ND "ndi-intro" -> Jak&Daxter
+  "logo-intro"/"logo-intro-2" flythrough -> "logo-loop" attract, all under
+  master-mode 'game, holding at target-title-play/-wait until START is pressed.
+  Android is "correct" when, diffing its boot log against this with
+  compare-3tier.sh --boot, the markers logo / ndi-intro / logo-intro / logo-loop
+  appear in this order and NOTHING title-only over-spawns before them. Pressing
+  START then drives progress (menu) -> New Game -> sequence-a-village1 cinematic.
+================================================================================

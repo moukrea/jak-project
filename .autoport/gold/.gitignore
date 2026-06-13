@@ -1,0 +1,10 @@
+# Large pristine build artifacts — kept ON DISK for the harness/validator to use,
+# but not committed (same policy as out/). Rebuild via the worktree if lost.
+gk
+goalc
+cgo/
+dgo/
+build-cpp.log
+# Tracked (text deliverables): compare-3tier.sh, tierA-cgo-diff.md,
+# pristine-boot-sequence.log, pristine-boot-raw.log, cmake.log, decomp.log,
+# make-iso.log
