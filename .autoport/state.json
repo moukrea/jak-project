@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 89,
+  "current_phase_idx": 90,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -84,7 +84,7 @@
     "G1-arm64-go-enterstate-oracle-correct": 2,
     "Gref-pristine-x86-gold-standard": 1,
     "Gintro-sce-nd-logo-render": 2,
-    "Gnd-arm64-blendshape-dma-stomp": 1
+    "Gnd-arm64-blendshape-dma-stomp": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -164,6 +164,9 @@
     ],
     "Gintro-sce-nd-logo-render": [
       "a624f5d66260"
+    ],
+    "Gnd-arm64-blendshape-dma-stomp": [
+      "5859a36de389"
     ]
   },
   "stuck_reasons": {
@@ -252,7 +255,8 @@
     "F1d-android-input-cpad-start-geyser",
     "G1-arm64-go-enterstate-oracle-correct",
     "Gref-pristine-x86-gold-standard",
-    "Gintro-sce-nd-logo-render"
+    "Gintro-sce-nd-logo-render",
+    "Gnd-arm64-blendshape-dma-stomp"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -316,10 +320,11 @@
     "Gintro-sce-nd-logo-render": 1781356836.0817618,
     "Gnd-arm64-blendshape-dma-stomp": 1781364153.6454499
   },
-  "last_update": "2026-06-13T15:46:39.527372+00:00",
+  "last_update": "2026-06-13T22:44:47.973005+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
-    "F1e-android-reveal-crash-fix": 2
+    "F1e-android-reveal-crash-fix": 2,
+    "Gnd-arm64-blendshape-dma-stomp": 1
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",

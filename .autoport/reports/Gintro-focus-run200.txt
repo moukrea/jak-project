@@ -1,0 +1,1 @@
+t02s :: frame=0 spool=none ::   mCurrentFocus=Window{7d6c5d4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}

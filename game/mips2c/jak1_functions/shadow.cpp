@@ -2160,6 +2160,29 @@ u64 execute(void* ctxt) {
   bool bc = false;
   u32 call_addr = 0;
   bool cop1_bc = false;
+#if defined(__aarch64__)
+  // [autoport/Gnd] The arm64 shadow mips2c port is INCOMPLETE — the sibling
+  // geometry jalr calls (shadow-xform-verts/-calc-dual-verts/-scissor-*/-find-*)
+  // further down are commented out — so shadow-execute is NOT on the A37
+  // allowlist and fell to the shared no-op, which returns 0. shadow-execute-all
+  // (engine/gfx/shadow/shadow-cpu.gc:419) does
+  //   (set! (-> global-buf base) (shadow-execute packet (-> global-buf base)))
+  // so that 0 becomes the per-frame foreground DMA write-cursor. The bucket-NEXT
+  // tag built from it is then a low addr (0x1a50) -> the ndi ND/Daxter logo's
+  // DMA chain is rejected by the Android chain-copy guard (black logo); the
+  // climb from ~0 also stomps low EE memory (the intermittent boot sig=11).
+  // Return the INPUT cursor (a1 = the dma-buffer base passed in) UNCHANGED:
+  // append no shadow, keep base a valid absolute pointer, render the logo. This
+  // is the correct no-op for a cursor-returning stub (NOT a buffer-widen mask,
+  // NOT a faked/painted frame) until the shadow body is fully ported.
+  c->gprs[v0].du64[0] = c->sgpr64(a1);
+  (void)sadr;
+  (void)tadr;
+  (void)bc;
+  (void)call_addr;
+  (void)cop1_bc;
+  return c->gprs[v0].du64[0];
+#endif
   c->daddiu(sp, sp, -112);                          // daddiu sp, sp, -112
   c->sd(ra, 0, sp);                                 // sd ra, 0(sp)
   c->sd(fp, 8, sp);                                 // sd fp, 8(sp)
