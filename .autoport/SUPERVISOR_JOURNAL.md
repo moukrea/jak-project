@@ -5033,3 +5033,33 @@ Tiered architecture's first full phase: fable-5[1m]@high manager +
 opus-4-8 workers, attempt 1 pass, ~1h30 wall.
 F1d restarted FRESH at idx 85 (amended prompt: new-game cinematic = correct
 intermediate state).
+
+## 2026-06-13 — F1d post-mortem: honest report, leaky validator; F1f authored at idx 86
+
+F1d PASSED its validator but the headline goal is NOT met: Jak never spawned
+(app dies ~15s post-confirm; target-pos ends nan). The fix-summary §7 says so
+HONESTLY — the leak was MY validator: the play-mode/target marker is
+satisfied at BOOT (jak1's title attract runs under master-mode 'game with a
+static *target* at f=15). Supervisor pixel check: run11 "spawn/move" frames
+= MIUI launcher (aspirational labels again); run12 focus dies at
+post-confirm-16s. REAL F1d wins kept: full injected menu flow, fr3 assets
+fix, Adreno vertex-BO mitigation, honest §7a/§7b walls with repros.
+VALIDATOR LESSON (3rd in the family after F1b/F1e): markers must demand
+what only the PHASE GOAL produces — here: >=10 DISTINCT non-nan target-pos
++ non-nan tail, not presence of a marker string.
+F1f authored at idx 86 (orchestrator had halted on stale-blocked
+F1-gameplay-geyser-rock): fix the compiled `go` that RETURNS on arm64
+(catch/throw family, A26/A27 toolkit) + master-slot spool linking → cinematic
+completes → Jak spawns/moves. goal_src stays LOCKED (the .gc is correct).
+
+## 2026-06-13 — OWNER LIVE REPRO #5: new-game overwrite-confirm = instant crash
+
+Owner, physical input on device: NEW GAME → save-slot picker → slot 1
+occupied → select it anyway → overwrite prompt (default NO, normal game
+behavior) → choose YES → **instant crash**. Matches F1d §7a road (post-
+confirm death) but from PHYSICAL input — proves the crash is input-method-
+independent (not an injection artifact). Owner perceives it as instant
+(opus measured ~15s with blackout screens — possibly the same death seen
+at different points, or the overwrite-YES path crashes faster than the
+fresh-slot path). F1f should use this as an additional repro variant:
+occupied-slot + overwrite-YES vs free-slot confirm.
