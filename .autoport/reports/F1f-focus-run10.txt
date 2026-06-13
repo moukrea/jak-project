@@ -1,0 +1,8 @@
+01-title ::   mCurrentFocus=Window{9f0159b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+02-menu ::   mCurrentFocus=Window{9f0159b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+03-loadgame-sel ::   mCurrentFocus=Window{9f0159b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+04-savelist ::   mCurrentFocus=Window{9f0159b u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+05-load-start ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+06-wait-t15 ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+06-wait-t30 ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+06-wait-t60 ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}

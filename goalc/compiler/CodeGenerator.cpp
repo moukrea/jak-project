@@ -582,9 +582,29 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   }
   debug->stack_usage = 16 + frame_bytes + 16 * static_cast<int>(a40_saved_xmm_rt.size());
 
-  // F1f — see mark_push_jr_pop_ra_arm64. Covers enter-state (gstate.gc:372),
-  // the only `.push RA; .jr` site in a non-asm-func jak1 GOAL function.
-  mark_push_jr_pop_ra_arm64(env);
+  // G1 — REVERTED the F1f broadening of the pop-RA scan into normal defuns.
+  //
+  // F1f ran mark_push_jr_pop_ra_arm64() here so enter-state (gstate.gc:372,
+  // the lone `.push RA; .jr` in a non-asm-func) would pop the pushed
+  // return-from-thread-dead trampoline into X30 at the direct-(go) transfer.
+  // That fixed the new-game-cinematic process-death RETURN, but it REGRESSED
+  // the title: with pop-RA, `LDR X30,[SP],#16` advances SP by 16 past the
+  // pushed RA, so the state `code` enters its suspend/resume loop on a stack
+  // 16 bytes higher than the x86 contract. For the title's attract states
+  // (which suspend forever instead of returning) the shifted layout
+  // propagates through thread-suspend/thread-resume and a later kernel
+  // dispatch reads a null function-pointer slot — `BLR X9` with X9 = EE+0
+  // (GOAL null) at kernel code ~0x18eed8 → pc=0x7f00000000 (EE base) →
+  // SIGSEGV (run F1f-25: stable to frame 252, then crash; the reported
+  // fault=0x7effffffec is a SECONDARY fault inside gk_sigsegv_diag's
+  // A37-PCWIN read of [pc&~15]-32 .. when the original pc≈EE base).
+  //
+  // e1f35fc0c (no pop-RA on enter-state) flies the title indefinitely, so the
+  // PRIORITY-FLOOR fix is to restore that: enter-state keeps a stale X30 on
+  // the direct-(go) path (correct for suspend-looping states; the new-game
+  // RETURN path stays the documented G2 residual — see G1-fix-summary.md).
+  // The asm-func sites (reset-and-call, set-to-run-bootstrap) still run the
+  // scan via do_asm_function_arm64 — their A34 contract is unchanged.
 
   for (int ir_idx = 0; ir_idx < int(env->code().size()); ir_idx++) {
     auto& ir = env->code().at(ir_idx);
