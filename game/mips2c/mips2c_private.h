@@ -19,6 +19,30 @@
 
 extern u8* g_ee_main_mem;
 
+#ifdef __aarch64__
+#include <atomic>
+#include <cstring>
+// Gnd OOB write-watch: name the arm64 mips2c store that scribbles a low
+// garbage address into the per-frame DMA bucket-NEXT (calc-buffer band) during
+// the ndi logo. Quiet until a store targets the forbidden window, so it is
+// safe to leave armed. Reporter is noinline so __builtin_return_address(0)
+// resolves to the offending mips2c execute() body (addr2line offline).
+extern std::atomic<bool> g_gnd_oob_armed;
+__attribute__((noinline)) void gnd_oob_report(char kind, unsigned int target,
+                                              unsigned long long lo, unsigned long long hi,
+                                              int nbytes);
+inline void gnd_oob_check(char kind, unsigned int target, const void* valptr, int nbytes) {
+  if (__builtin_expect(g_gnd_oob_armed.load(std::memory_order_relaxed), 0)) {
+    if (target < 0x80000u || (target >= 0x514000u && target < 0x51c000u)) {
+      unsigned long long lo = 0, hi = 0;
+      std::memcpy(&lo, valptr, nbytes >= 8 ? 8 : nbytes);
+      if (nbytes >= 16) std::memcpy(&hi, (const unsigned char*)valptr + 8, 8);
+      gnd_oob_report(kind, target, lo, hi, nbytes);
+    }
+  }
+}
+#endif
+
 extern "C" {
 #ifdef __linux__
 u64 _call_goal8_asm_systemv(void* func, u64* arg_array, u64 zero, u64 pp, u64 st, void* off);
@@ -347,6 +371,9 @@ struct ExecutionContext {
   void sw(int src, int offset, int addr) {
     auto s = gpr_src(src);
     memcpy(g_ee_main_mem + gpr_addr(addr) + offset, &s.du32[0], 4);
+#ifdef __aarch64__
+    gnd_oob_check('w', gpr_addr(addr) + offset, &s.du32[0], 4);
+#endif
   }
 
   void jalr(u32 addr) {
@@ -368,32 +395,50 @@ struct ExecutionContext {
   void sb(int src, int offset, int addr) {
     auto s = gpr_src(src);
     memcpy(g_ee_main_mem + gpr_addr(addr) + offset, &s.du32[0], 1);
+#ifdef __aarch64__
+    gnd_oob_check('b', gpr_addr(addr) + offset, &s.du32[0], 1);
+#endif
   }
 
   void sh(int src, int offset, int addr) {
     auto s = gpr_src(src);
     memcpy(g_ee_main_mem + gpr_addr(addr) + offset, &s.du32[0], 2);
+#ifdef __aarch64__
+    gnd_oob_check('h', gpr_addr(addr) + offset, &s.du32[0], 2);
+#endif
   }
 
   void sd(int src, int offset, int addr) {
     auto s = gpr_src(src);
     memcpy(g_ee_main_mem + gpr_addr(addr) + offset, &s.du32[0], 8);
+#ifdef __aarch64__
+    gnd_oob_check('d', gpr_addr(addr) + offset, &s.du32[0], 8);
+#endif
   }
 
   void sq(int src, int offset, int addr) {
     auto s = gpr_src(src);
     // ASSERT((offset & 15) == 0);
     memcpy(g_ee_main_mem + ((gpr_addr(addr) + offset) & (~15)), &s.du32[0], 16);
+#ifdef __aarch64__
+    gnd_oob_check('q', (gpr_addr(addr) + offset) & (~15u), &s.du32[0], 16);
+#endif
   }
 
   void sqc2(int src, int offset, int addr) {
     auto s = vf_src(src);
     ASSERT(((gpr_addr(addr) + offset) & 0xf) == 0);
     memcpy(g_ee_main_mem + gpr_addr(addr) + offset, &s.du32[0], 16);
+#ifdef __aarch64__
+    gnd_oob_check('Q', gpr_addr(addr) + offset, &s.du32[0], 16);
+#endif
   }
 
   void swc1(int src, int offset, int addr) {
     memcpy(g_ee_main_mem + gpr_addr(addr) + offset, &fprs[src], 4);
+#ifdef __aarch64__
+    gnd_oob_check('c', gpr_addr(addr) + offset, &fprs[src], 4);
+#endif
   }
 
   void vadd_bc(DEST mask, BC bc, int dest, int src0, int src1) {
@@ -1688,6 +1733,10 @@ inline void spad_to_dma_no_sadr_off_bones_interleave(void* spad_sym_addr,
   ASSERT((qwc & 3) == 0);
   while (qwc > 0) {
     // transfer 4.
+#ifdef __aarch64__
+    { unsigned long long _g=(unsigned long long)(spad_addr_c - g_ee_main_mem),_n=64;
+      if (_g<0x80000ull||(_g<0x518000ull&&_g+_n>0x514000ull)) gnd_oob_report('I',(unsigned int)_g,_n,(unsigned long long)madr,(int)qwc); }
+#endif
     memcpy(spad_addr_c, mem_addr, 4 * 16);
     spad_addr_c += (4 * 16);
     sadr += 4 * 16;
@@ -1709,6 +1758,10 @@ inline void spad_from_dma(void* spad_sym_addr, u32 madr, u32 sadr, u32 qwc) {
 
   void* spad_addr_c = g_ee_main_mem + spad_addr_goal + sadr;
 
+#ifdef __aarch64__
+  { unsigned long long _g=madr,_n=(unsigned long long)qwc*16;
+    if (_g<0x80000ull||(_g<0x518000ull&&_g+_n>0x514000ull)) gnd_oob_report('m',(unsigned int)madr,_n,(unsigned long long)sadr,(int)qwc); }
+#endif
   memcpy(g_ee_main_mem + madr, spad_addr_c, qwc * 16);
 }
 
@@ -1723,6 +1776,10 @@ inline void spad_from_dma_no_sadr_off(void* spad_sym_addr, u32 madr, u32 sadr, u
 
   void* spad_addr_c = g_ee_main_mem + spad_addr_goal + sadr;
 
+#ifdef __aarch64__
+  { unsigned long long _g=madr,_n=(unsigned long long)qwc*16;
+    if (_g<0x80000ull||(_g<0x518000ull&&_g+_n>0x514000ull)) gnd_oob_report('M',(unsigned int)madr,_n,(unsigned long long)sadr,(int)qwc); }
+#endif
   memcpy(g_ee_main_mem + madr, spad_addr_c, qwc * 16);
 }
 

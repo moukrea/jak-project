@@ -38,6 +38,45 @@ extern "C" {
 void _mips2c_call_arm64();
 }
 
+#ifdef __aarch64__
+#include <atomic>
+#include <cstdio>
+#include <cstring>
+#include <dlfcn.h>
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+// Gnd OOB write-watch globals + reporter. Defined in this arm64-only TU
+// because it is linked into android libgk.so via --whole-archive (the desktop
+// mips2c_table.cpp is not part of the android android_kernel archive). The
+// mips2c store helpers in mips2c_private.h call gnd_oob_check -> gnd_oob_report.
+std::atomic<bool> g_gnd_oob_armed{true};
+__attribute__((noinline)) void gnd_oob_report(char kind, unsigned int target,
+                                              unsigned long long lo, unsigned long long hi,
+                                              int nbytes) {
+  static std::atomic<int> s_n{0};
+  int n = s_n.fetch_add(1);
+  if (n >= 400) return;  // cap log flood
+  void* ra0 = __builtin_return_address(0);
+  void* ra1 = __builtin_return_address(1);
+  void* ra2 = __builtin_return_address(2);
+  Dl_info info;
+  void* base = nullptr;
+  if (dladdr(ra0, &info)) base = info.dli_fbase;
+  unsigned long o0 = base ? (unsigned long)((char*)ra0 - (char*)base) : (unsigned long)ra0;
+  unsigned long o1 = base ? (unsigned long)((char*)ra1 - (char*)base) : (unsigned long)ra1;
+  unsigned long o2 = base ? (unsigned long)((char*)ra2 - (char*)base) : (unsigned long)ra2;
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_FATAL, "opengoal-gk",
+      "GND-OOB-WRITE kind=%c target=0x%x val=0x%016llx%016llx nb=%d ra0=0x%lx ra1=0x%lx ra2=0x%lx base=%p",
+      kind, target, hi, lo, nbytes, o0, o1, o2, base);
+#else
+  fprintf(stderr, "GND-OOB-WRITE kind=%c target=0x%x val=0x%016llx%016llx nb=%d ra0=0x%lx ra1=0x%lx ra2=0x%lx\n",
+      kind, target, hi, lo, nbytes, o0, o1, o2);
+#endif
+}
+#endif
+
 // clang-format off
 namespace Mips2C {
 
@@ -387,6 +426,13 @@ bool a37_name_is_real(const std::string& name) {
       // math (no DMA cursor return, unlike the blerc disease) — callers
       // discard the return value.
       "adgif-shader<-texture-with-update!",
+      // Gnd: shadow-execute's return is stored into (-> global-buf base) by
+      // shadow-execute-all (shadow-cpu.gc:419); the shared no-op returned 0,
+      // collapsing the foreground DMA cursor -> bucket-NEXT=0x1a50 -> the ndi
+      // ND/Daxter logo's chain is rejected (black) + low-mem stomp. Route it to
+      // the real trampoline; its arm64 body is a cursor pass-through (returns
+      // a1 unchanged) since the shadow geometry port is incomplete.
+      "shadow-execute",
   };
   for (auto* n : kSet) {
     if (name == n) return true;

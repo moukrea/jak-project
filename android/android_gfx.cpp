@@ -32,6 +32,12 @@
 // when called with a rendered chain (the property-"1" arm point).
 extern "C" void gk_a38_tripwire_frame_hook(int chain_phase);
 
+#if defined(__aarch64__) && defined(__ANDROID__)
+// GND-HWWP: one-shot arm of the arm64 HARDWARE data watchpoint on the two
+// global-buf base fields (gk_android_main.cpp). Called from the GOAL thread.
+extern "C" void gnd_hwwp_arm_once();
+#endif
+
 namespace android_gfx {
 namespace {
 constexpr const char* kLogTag = "opengoal-gk";
@@ -492,6 +498,12 @@ void send_chain(const void* data, u32 offset) {
     }
     return;
   }
+#if defined(__aarch64__) && defined(__ANDROID__)
+  // GND-HWWP: arm the arm64 HARDWARE data watchpoint on the global-buf base
+  // fields from the GOAL/dispatcher thread (this thread is the writer). Gated
+  // behind debug.opengoal.gnd.hwwp=1; one-shot, no-op on every later frame.
+  gnd_hwwp_arm_once();
+#endif
   auto* d = g_data;
   std::unique_lock<std::mutex> lock(d->dma_mutex);
   if (d->has_data_to_render) {
@@ -534,6 +546,26 @@ void send_chain(const void* data, u32 offset) {
         low_addr = tag.addr;
         low_qwc = tag.qwc;
         low_spr = tag.spr;
+        // GND diag: prove whether the LIVE memory really holds this low addr
+        // (follower correct -> real corruption) or the follower mis-read
+        // (memory fine -> follower/base bug). Read the tag bytes BOTH via the
+        // follower's base and directly via g_ee_main_mem, plus a re-read.
+        {
+          u32 mt = probe.current_tag_offset();
+          u64 raw_data = 0, raw_ee = 0, raw_ee2 = 0;
+          if ((u64)mt + 8 <= EE_MAIN_MEM_SIZE) {
+            memcpy(&raw_data, (const u8*)data + mt, 8);
+            memcpy(&raw_ee, g_ee_main_mem + mt, 8);
+            memcpy(&raw_ee2, g_ee_main_mem + mt, 8);
+          }
+          __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                              "GND-PRECOPY-RAW off=0x%x data_is_ee=%d base_delta=0x%lx "
+                              "raw@data=0x%016llx raw@ee=0x%016llx reread=0x%016llx",
+                              mt, (int)((const u8*)data == g_ee_main_mem),
+                              (unsigned long)((const u8*)data - g_ee_main_mem),
+                              (unsigned long long)raw_data, (unsigned long long)raw_ee,
+                              (unsigned long long)raw_ee2);
+        }
         break;
       }
       probe.read_and_advance();

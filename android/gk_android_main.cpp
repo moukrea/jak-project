@@ -27,6 +27,14 @@
 
 #include <asm/sigcontext.h>
 
+#if defined(__aarch64__) && defined(__ANDROID__)
+// GND HW data watchpoint (perf_event_open + PERF_TYPE_BREAKPOINT). No glibc/
+// bionic wrapper for perf_event_open — invoked via syscall(__NR_...).
+#include <linux/hw_breakpoint.h>
+#include <linux/perf_event.h>
+#include <sys/syscall.h>
+#endif
+
 #include <atomic>
 #include <cerrno>
 #include <dlfcn.h>
@@ -3446,8 +3454,7 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
     uintptr_t hi_page =
         (fault + total - 1) & ~static_cast<uintptr_t>(g_page_size - 1);
     size_t span = hi_page - lo_page + g_page_size;
-    if (mprotect(reinterpret_cast<void*>(lo_page), span,
-                 PROT_READ | PROT_WRITE | PROT_EXEC) == 0) {
+    {
       uint8_t bytes[32];
       memcpy(bytes, &val_lo, 8);
       memcpy(bytes + 8, &val_hi, 8);
@@ -3460,7 +3467,31 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
       }
       uint8_t pre[8] = {0};
       memcpy(pre, reinterpret_cast<void*>(fault), total > 8 ? 8 : total);
-      memcpy(reinterpret_cast<void*>(fault), bytes, total);
+      // Emulate the store via /proc/self/mem, which writes through the
+      // PROT_READ page WITHOUT toggling its protection. The previous
+      // mprotect(RW)->memcpy->mprotect(RO) opened a window during which a
+      // concurrent (GL-thread reprotect / another writer) access could slip
+      // through unwatched — the hunted global-buf.base writer never faulted.
+      // Keeping the page RO continuously closes that window. Fall back to the
+      // mprotect toggle if /proc/self/mem is unavailable.
+      static int s_procmem = -2;  // -2 unopened, -1 failed, >=0 fd
+      if (s_procmem == -2) {
+        s_procmem = open("/proc/self/mem", O_RDWR | O_CLOEXEC);
+      }
+      bool wrote = false;
+      if (s_procmem >= 0) {
+        ssize_t w = pwrite(s_procmem, bytes, total, static_cast<off_t>(fault));
+        wrote = (w == static_cast<ssize_t>(total));
+      }
+      if (!wrote) {
+        if (mprotect(reinterpret_cast<void*>(lo_page), span,
+                     PROT_READ | PROT_WRITE | PROT_EXEC) == 0) {
+          memcpy(reinterpret_cast<void*>(fault), bytes, total);
+          mprotect(reinterpret_cast<void*>(lo_page), span, PROT_READ | PROT_EXEC);
+          wrote = true;
+        }
+      }
+      if (wrote) {
       // Readback-verify: an emulated store that does not land would
       // silently freeze whatever state the watched field carries — the
       // emulator must prove itself on every write.
@@ -3470,7 +3501,6 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
                             static_cast<uint32_t>(fault - reinterpret_cast<uintptr_t>(g_ee_main_mem)),
                             total);
       }
-      mprotect(reinterpret_cast<void*>(lo_page), span, PROT_READ | PROT_EXEC);
       uc->uc_mcontext.pc += 4;
       emulated = true;
       g_emulated.fetch_add(1, std::memory_order_relaxed);
@@ -3563,7 +3593,12 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
         // 0x1904000+16k through draw-string's code). Legit bases live in
         // [0x100000, 0x1880000) for both 8MB buffers; zero/low and band+
         // values are the anomalies being hunted.
-        if (post >= 0x100000u && post < 0x1880000u) {
+        // Gnd: log the FIRST writes unconditionally (incl. high values) so the
+        // per-frame base lifecycle is visible — esp. display-frame-start's
+        // (set! base (-> global-buf data)) reset, to see if it sets base
+        // absolute (high, correct) or relative (low, the bug seed).
+        static std::atomic<int> s_gnd_all{60};
+        if (post >= 0x100000u && post < 0x1880000u && s_gnd_all.fetch_sub(1, std::memory_order_relaxed) <= 0) {
           continue;
         }
         if (g_cell_log_budget.fetch_sub(1, std::memory_order_relaxed) <= 0) {
@@ -3579,6 +3614,7 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
                             to_goal(uc->uc_mcontext.regs[30]));
         log_nearest_goal_fn("basecell-pc", to_goal(uc->uc_mcontext.pc - 4));
       }
+      }  // close if (wrote)
     }
   }
   if (!emulated) {
@@ -3604,6 +3640,40 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
   bool is_new = false;
   note_writer(pc, static_cast<uint32_t>(fault - reinterpret_cast<uintptr_t>(g_ee_main_mem)),
               val_lo, &is_new);
+
+  // Gnd: force-name any writer that stores a LOW garbage value (<0x80000) into
+  // the band — that IS the ndi DMA-chain stomp signature (bucket-NEXT addr
+  // flips to 0x1a50/0x2070), independent of the log budget or whether this pc
+  // also does legit high-pointer writes. Bounded; reads only ucontext/EE.
+  {
+    uint32_t v32 = static_cast<uint32_t>(val_lo);
+    uint32_t vhi32 = static_cast<uint32_t>(val_lo >> 32);
+    uint32_t goff_f = static_cast<uint32_t>(fault - reinterpret_cast<uintptr_t>(g_ee_main_mem));
+    // The bucket-NEXT stomp writes a LOW addr into a dma-tag addr field: either
+    // a 4-byte store to the +4 addr word (value in low32) or an 8-byte tag
+    // store to the +0 word (addr in high32). Frame-counter / header writes to
+    // other struct fields are excluded so the budget reaches the actual stomp.
+    bool stomp = ((goff_f & 0xf) == 4 && v32 != 0 && v32 < 0x80000u) ||
+                 ((goff_f & 0xf) == 0 && vhi32 != 0 && vhi32 < 0x80000u);
+    static std::atomic<int> s_gnd_budget{256};
+    if (st.valid && stomp && s_gnd_budget.fetch_sub(1, std::memory_order_relaxed) > 0) {
+      uint32_t pcg2 = to_goal(pc);
+      __android_log_print(
+          ANDROID_LOG_FATAL, kGkLogTag,
+          "A38-TRIPWIRE GND-STOMP fault=goal:0x%x pc=0x%lx(goal:0x%x) lr=0x%lx(goal:0x%x) "
+          "val=0x%llx sz=%d rt=%d insn=0x%08x",
+          to_goal(fault), (unsigned long)pc, pcg2, (unsigned long)lr, to_goal(lr),
+          (unsigned long long)val_lo, st.size_bytes, st.rt, insn);
+      log_dladdr("gnd-pc", pc);
+      if (pcg2 >= 0x1000) {
+        log_nearest_goal_fn("gnd-pc", pcg2);
+      }
+      uint32_t lrg2 = to_goal(lr);
+      if (lrg2 >= 0x1000) {
+        log_nearest_goal_fn("gnd-lr", lrg2);
+      }
+    }
+  }
 
   int budget = g_log_budget.fetch_sub(1, std::memory_order_relaxed);
   bool full_log = budget > 0 || is_new;
@@ -3722,6 +3792,180 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
 // namespace) can name GOAL strings/symbols through a38_trip's reader.
 extern "C" bool gk_a40_sym_name_fwd(uintptr_t ee, uint32_t p, char* out, size_t n) {
   return a38_trip::a40_sym_name(ee, p, out, n);
+}
+
+// ---- GND-HWWP: arm64/Android HARDWARE data watchpoint on the two
+// double-buffered global-buf base FIELDS (global-buf+4) ----
+//
+// The mprotect software watch (A38 watch2) keeps missing the writer that sets
+// global-buf.base to a low data-relative value during the ndi logo — the GOAL
+// dispatcher thread re-protects the page each frame, so a write that lands in
+// the cross-thread reprotect window slips through with no SIGSEGV. A HARDWARE
+// watchpoint (perf_event_open / PERF_TYPE_BREAKPOINT, bp_type=W) fires on the
+// physical write regardless of page protection.
+//
+// Gated entirely behind __aarch64__ && __ANDROID__ AND the system property
+// debug.opengoal.gnd.hwwp=1, so x86 builds and normal runs are untouched.
+// Armed on the GOAL/dispatcher thread (the writer's thread) via send_chain so
+// the perf fd's breakpoint is bound to the right task; one-shot.
+#if defined(__aarch64__) && defined(__ANDROID__)
+namespace gnd_hwwp {
+// Watched host word addresses (g_ee_main_mem + global-buf goal + 4) and their
+// goal offsets, captured at arm time so the SIGTRAP handler can read/report
+// without re-resolving *display*.
+struct WatchCell {
+  uintptr_t host = 0;
+  uint32_t goal_off = 0;
+};
+WatchCell g_cells[2];
+int g_ncells = 0;
+std::atomic<int> g_trap_budget{64};
+
+// SIGTRAP handler: perf HW breakpoints deliver via fasync (F_SETSIG SIGTRAP).
+// si_addr is not meaningful for a perf overflow signal, so we read the stored
+// host word directly. Only logs when the value is LOW (< 0x80000), the
+// data-relative-base signature we are hunting; otherwise it is a normal
+// base write (the legitimate alloc into the frame heap) and we stay quiet.
+void trap_handler(int /*sig*/, siginfo_t* /*info*/, void* ucontext) {
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  uintptr_t pc = uc ? static_cast<uintptr_t>(uc->uc_mcontext.pc) : 0;
+  for (int i = 0; i < g_ncells; i++) {
+    uintptr_t h = g_cells[i].host;
+    if (!h) {
+      continue;
+    }
+    uint32_t val = *reinterpret_cast<volatile uint32_t*>(h);
+    if (val != 0 && val < 0x80000u) {
+      if (g_trap_budget.fetch_sub(1, std::memory_order_relaxed) <= 0) {
+        return;
+      }
+      // Resolve pc back to a libgk.so-relative offset for addr2line.
+      uintptr_t libbase = 0;
+      Dl_info di{};
+      if (pc && dladdr(reinterpret_cast<void*>(pc), &di) && di.dli_fbase) {
+        libbase = reinterpret_cast<uintptr_t>(di.dli_fbase);
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GND-HWWP base-write pc=0x%lx(off=0x%lx) val=0x%x addr=goal:0x%x",
+                          (unsigned long)pc, (unsigned long)(libbase ? pc - libbase : 0), val,
+                          g_cells[i].goal_off);
+      // Name the host module (and symbol if any) the pc belongs to.
+      a38_trip::log_dladdr("gnd-hwwp-pc", pc);
+      // If the pc is inside EE memory it is GOAL-emitted code — name the
+      // nearest GOAL function so the writer can be identified by name.
+      uint32_t pcg = a38_trip::to_goal(pc);
+      if (pcg >= 0x1000) {
+        a38_trip::log_nearest_goal_fn("gnd-hwwp-pc", pcg);
+      }
+    }
+  }
+}
+
+void install_handler_once() {
+  static std::atomic<bool> s_installed{false};
+  bool expected = false;
+  if (!s_installed.compare_exchange_strong(expected, true)) {
+    return;
+  }
+  struct sigaction sa{};
+  sa.sa_sigaction = &trap_handler;
+  sa.sa_flags = SA_SIGINFO | SA_RESTART;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGTRAP, &sa, nullptr);
+}
+
+// perf_event_open has no libc wrapper; invoke the syscall directly.
+long perf_event_open(struct perf_event_attr* attr, pid_t pid, int cpu, int group_fd,
+                     unsigned long flags) {
+  return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd, flags);
+}
+
+void arm_one(int idx) {
+  WatchCell& c = g_cells[idx];
+  struct perf_event_attr attr{};
+  attr.type = PERF_TYPE_BREAKPOINT;
+  attr.size = sizeof(attr);
+  attr.bp_type = HW_BREAKPOINT_W;
+  attr.bp_addr = static_cast<uint64_t>(c.host);
+  attr.bp_len = HW_BREAKPOINT_LEN_8;
+  attr.sample_period = 1;
+  attr.sample_type = PERF_SAMPLE_IP | PERF_SAMPLE_TID;
+  attr.precise_ip = 2;
+  attr.exclude_kernel = 1;
+  attr.exclude_hv = 1;
+  attr.disabled = 0;
+  attr.wakeup_events = 1;
+  // pid=0 -> this calling thread (the GOAL/dispatcher thread); cpu=-1 -> any.
+  long fd = perf_event_open(&attr, 0, -1, -1, 0);
+  if (fd == -1) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GND-HWWP perf_event_open FAILED errno=%d (%s) on goal:0x%x host=0x%lx",
+                        errno, strerror(errno), c.goal_off, (unsigned long)c.host);
+    return;
+  }
+  // Route HW-breakpoint overflows to a SIGTRAP delivered to THIS thread.
+  fcntl(static_cast<int>(fd), F_SETFL, O_ASYNC);
+  fcntl(static_cast<int>(fd), F_SETSIG, SIGTRAP);
+  struct f_owner_ex owner{};
+  owner.type = F_OWNER_TID;
+  owner.pid = gettid();
+  fcntl(static_cast<int>(fd), F_SETOWN_EX, &owner);
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GND-HWWP armed fd=%ld on goal:0x%x host=0x%lx", fd, c.goal_off,
+                      (unsigned long)c.host);
+}
+}  // namespace gnd_hwwp
+#endif  // __aarch64__ && __ANDROID__
+
+extern "C" void gnd_hwwp_arm_once() {
+#if defined(__aarch64__) && defined(__ANDROID__)
+  static std::atomic<bool> s_done{false};
+  bool expected = false;
+  if (!s_done.compare_exchange_strong(expected, true)) {
+    return;
+  }
+  char pbuf[PROP_VALUE_MAX] = {0};
+  if (!(__system_property_get("debug.opengoal.gnd.hwwp", pbuf) > 0 && pbuf[0] == '1')) {
+    return;  // off by default — x86 and normal runs unaffected
+  }
+  if (!g_ee_main_mem) {
+    // Runtime not mapped yet; allow a later send_chain to retry by clearing
+    // the one-shot flag (we never actually armed).
+    s_done.store(false, std::memory_order_release);
+    return;
+  }
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  auto disp_sym = jak1::intern_from_c("*display*");
+  uint32_t disp = disp_sym.offset ? disp_sym->value : 0;
+  if (disp < 0x1000 || disp >= EE_MAIN_MEM_SIZE - 0x1000) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GND-HWWP cannot resolve *display* (value=0x%x) — not arming", disp);
+    s_done.store(false, std::memory_order_release);
+    return;
+  }
+  gnd_hwwp::install_handler_once();
+  // frames[i].frame at disp+564+32*i+16 -> frame.global-buf at frame+36 ->
+  // base FIELD at global-buf+4. Host watch addr = ee + (global-buf + 4).
+  for (int i = 0; i < 2; i++) {
+    uint32_t frame = *reinterpret_cast<const uint32_t*>(ee + disp + 564 + 32 * i + 16);
+    if (frame < 0x1000 || frame >= EE_MAIN_MEM_SIZE - 64) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GND-HWWP skip frame[%d]: frame goal=0x%x out of range", i, frame);
+      continue;
+    }
+    uint32_t gb = *reinterpret_cast<const uint32_t*>(ee + frame + 36);
+    if (gb < 0x1000 || gb >= EE_MAIN_MEM_SIZE - 64) {
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GND-HWWP skip frame[%d]: global-buf goal=0x%x out of range", i, gb);
+      continue;
+    }
+    int slot = gnd_hwwp::g_ncells;
+    gnd_hwwp::g_cells[slot].host = ee + gb + 4;
+    gnd_hwwp::g_cells[slot].goal_off = gb + 4;
+    gnd_hwwp::g_ncells++;
+    gnd_hwwp::arm_one(slot);
+  }
+#endif  // __aarch64__ && __ANDROID__
 }
 
 }  // extern "C++"
@@ -4619,8 +4863,22 @@ extern "C" void gk_a38_tripwire_frame_hook(int chain_phase) {
       g_page_size = 4096;
     }
     const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
-    uintptr_t lo = ee + kBandLoGoal;
-    uintptr_t hi = ee + kBandHiGoal;
+    // Gnd: the band is overridable via properties so the same write-watch can
+    // hunt the per-frame DMA calc-buffer bucket-header stomp (the ndi ND-logo
+    // blocker) at [0x514000,0x518000) instead of the A38 engine float band.
+    uint32_t band_lo_goal = kBandLoGoal, band_hi_goal = kBandHiGoal;
+    {
+      char bb[PROP_VALUE_MAX] = {0};
+      if (__system_property_get("debug.opengoal.gnd.bandlo", bb) > 0 && bb[0]) {
+        band_lo_goal = static_cast<uint32_t>(strtoul(bb, nullptr, 0));
+      }
+      char bc[PROP_VALUE_MAX] = {0};
+      if (__system_property_get("debug.opengoal.gnd.bandhi", bc) > 0 && bc[0]) {
+        band_hi_goal = static_cast<uint32_t>(strtoul(bc, nullptr, 0));
+      }
+    }
+    uintptr_t lo = ee + band_lo_goal;
+    uintptr_t hi = ee + band_hi_goal;
     // Align INWARD so neighbors never get protected (no false positives).
     lo = (lo + g_page_size - 1) & ~static_cast<uintptr_t>(g_page_size - 1);
     hi = hi & ~static_cast<uintptr_t>(g_page_size - 1);
@@ -4644,7 +4902,7 @@ extern "C" void gk_a38_tripwire_frame_hook(int chain_phase) {
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                         "A38-TRIPWIRE ARMED band goal=[0x%x,0x%x) host=[0x%lx,0x%lx) pages=%lu "
                         "pagesz=%ld",
-                        kBandLoGoal, kBandHiGoal, (unsigned long)lo, (unsigned long)hi,
+                        band_lo_goal, band_hi_goal, (unsigned long)lo, (unsigned long)hi,
                         (unsigned long)((hi - lo) / g_page_size), g_page_size);
     {
       char wbuf[PROP_VALUE_MAX] = {0};
@@ -4700,7 +4958,7 @@ extern "C" void gk_a38_tripwire_frame_hook(int chain_phase) {
       for (uint32_t slot = SymbolTable2.offset;
            slot + 4 < EE_MAIN_MEM_SIZE && slot < LastSymbol.offset && named < 48; slot += 4) {
         uint32_t v = *reinterpret_cast<const uint32_t*>(ee + slot);
-        if (v >= kBandLoGoal && v < kBandHiGoal) {
+        if (v >= band_lo_goal && v < band_hi_goal) {
           named++;
           char name[65] = {0};
           uint64_t info_goal = static_cast<uint64_t>(slot) + jak1::SYM_INFO_OFFSET;
