@@ -821,12 +821,8 @@ def notify(message: str, level: str = "info") -> None:
         "alert": "[red]🛑[/red]",
         "celebrate": "[bold green]🎉[/bold green]",
     }.get(level, "→")
+    # ntfy.sh / Slack push dropped by owner 2026-06-13 — local console line only.
     console.print(f"{icon} [cyan]notify({level}):[/cyan] {message}")
-    if NOTIFY_SCRIPT.exists():
-        subprocess.run(
-            ["bash", str(NOTIFY_SCRIPT), level, message],
-            check=False,
-        )
 
 
 def format_duration(seconds: float) -> str:

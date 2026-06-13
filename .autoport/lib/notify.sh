@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+exit 0  # ntfy.sh / Slack push DISABLED by owner 2026-06-13 ("drop ça complètement"). Single chokepoint — neuters every caller (orchestrator + device-validate). Delete this line to re-enable.
 # notify.sh — send notification via ntfy.sh and/or Slack webhook.
 # Configured at install time via .autoport/.notify.conf
 #
