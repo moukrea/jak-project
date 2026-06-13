@@ -1,0 +1,13 @@
+wait-t15 ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+wait-t30 ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+wait-t45 ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+wait-t60 ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+wait-t75 ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+wait-t90 ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+wait-t105 ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+wait-t120 ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+wait-t135 ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+wait-t150 ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+menu-open ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+menu-back ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+title-after ::   mCurrentFocus=Window{528b136 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
