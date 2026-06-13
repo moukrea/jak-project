@@ -1210,6 +1210,16 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     if v.returncode == 0:
         return "pass", "", []
 
+    # AUTO-CHECKPOINT (owner 2026-06-13): version EVERY failed attempt's work.
+    # The orchestrator used to commit ONLY on PASS, so a long failing/iterating
+    # phase left hours of engine changes — and any regression it introduced —
+    # unversioned and un-bisectable. Commit a labeled WIP now so we can always
+    # roll back / diff. (PASS path already commits with the phase name.)
+    try:
+        git_commit(pid, f"WIP checkpoint — attempt {attempt} (validator FAILED; auto-versioned for rollback/bisect, NOT a pass)")
+    except Exception as e:  # noqa: BLE001 — never let checkpointing crash the loop
+        console.print(f"[yellow]auto-checkpoint commit failed: {e}[/yellow]")
+
     # Validator failed. Fingerprint the failure and check for stuck loops.
     failure_text = validator_log.read_text(errors='replace')
     fp, key_lines = fingerprint_validator_output(failure_text)
