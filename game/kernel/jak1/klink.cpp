@@ -721,7 +721,16 @@ void link_control::jak1_finish(bool jump_from_c_to_goal) {
     }
 
     // execute top level!
-    if (m_entry.offset && (m_flags & LINK_FLAG_EXECUTE)) {
+    // m_entry == m_object_data + 4 (see jak1_work_v3 above). When the
+    // data-segment kmalloc fails — arm64 load-burst heap pressure: hundreds of
+    // continue-points + multi-level streaming during a save restore — the work
+    // function leaves m_object_data == 0, so m_entry.offset == 4. The bare
+    // `m_entry.offset` truthiness check does NOT reject 4, so call_goal then
+    // jumps to (g_ee_main_mem + 4) and SIGILLs (observed: F1f LOAD GAME,
+    // pc=base+4). Require a real entry (> 4) — a valid top-level is a large
+    // heap offset; only the null-data case yields 4. Mirrors the v2 path's A29
+    // guard below (which the comment there endorses for ANY kmalloc exhaustion).
+    if (m_entry.offset > 4 && (m_flags & LINK_FLAG_EXECUTE)) {
       if (jump_from_c_to_goal) {
         u64 goal_stack = u64(g_ee_main_mem) + EE_MAIN_MEM_SIZE - 8;
         call_goal_on_stack(m_entry.cast<Function>(), goal_stack, s7.offset, g_ee_main_mem);
@@ -729,6 +738,14 @@ void link_control::jak1_finish(bool jump_from_c_to_goal) {
         call_goal(m_entry.cast<Function>(), 0, 0, 0, s7.offset, g_ee_main_mem);
       }
     }
+#ifdef __ANDROID__
+    else if ((m_flags & LINK_FLAG_EXECUTE) && m_entry.offset <= 4) {
+      fprintf(stderr,
+              "F1F-LINK-NULLDATA obj=%s entry=0x%x — data-segment alloc failed; skipping "
+              "top-level (would SIGILL at g_ee_main_mem+entry)\n",
+              m_object_name, (unsigned)m_entry.offset);
+    }
+#endif
 
     // inform compiler that we loaded.
     if (m_flags & LINK_FLAG_OUTPUT_LOAD) {

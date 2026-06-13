@@ -1365,6 +1365,24 @@ void Merc2::do_draws(const Draw* draw_array,
                      bool set_fade,
                      SharedRenderState* render_state) {
   glBindVertexArray(m_vao);
+#ifdef __ANDROID__
+  // F1f — fix the Adreno first-merc-draw-after-load SIGSEGV (fault=0x28,
+  // pc=libGLESv2_adreno+0x13a414) on the first textured merc draw of a freshly
+  // revealed level. The driver's per-draw resource-validation walk iterates the
+  // uniform-buffer binding points the merc program references and dereferences
+  // each bound buffer object at +0x28. ub_bones is reassigned to UBO binding
+  // point 1 (Shader.cpp glUniformBlockBinding) and its data is bound there, but
+  // on this driver the validation walk still checks UBO binding point 0 (the
+  // block's pre-reassignment default); that slot is NULL, and a level reveal's
+  // glDeleteBuffers churn keeps it NULL, so the draw reads [NULL+0x28] and
+  // crashes. (Proven by the fault register dump: x28=1 binding-points, index
+  // x17=0, x10=[ctx+0*0x20+0x2900]=NULL; the 0x2900 table is GL_UNIFORM_BUFFER
+  // bindings — id 7 — NOT texture units, which is why every texture-unit
+  // experiment failed.) Bind a valid buffer to UBO point 0 so the walk
+  // dereferences a live object. The shader still reads its bones from point 1,
+  // so rendering is unchanged; point 0 is validation-only.
+  glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_bones_buffer);
+#endif
   s32 last_tex = INT32_MIN;
   int last_light = -1;
   bool normal_vtx_buffer_bound = true;

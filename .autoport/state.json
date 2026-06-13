@@ -80,7 +80,8 @@
     "F1b-android-joint-decompress-start-geyser": 2,
     "F1c-android-camera-channel-start-geyser": 1,
     "F1e-android-reveal-crash-fix": 1,
-    "F1d-android-input-cpad-start-geyser": 1
+    "F1d-android-input-cpad-start-geyser": 1,
+    "F1f-android-go-control-transfer-jak-spawn": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -154,6 +155,10 @@
     ],
     "F1b-android-joint-decompress-start-geyser": [
       "f9ee17f9a53c"
+    ],
+    "F1f-android-go-control-transfer-jak-spawn": [
+      "2b69f19b22b8",
+      "556b95f742f7"
     ]
   },
   "stuck_reasons": {
@@ -296,12 +301,14 @@
     "F1b-android-joint-decompress-start-geyser": 1781187851.119047,
     "F1c-android-camera-channel-start-geyser": 1781198811.640303,
     "F1d-android-input-cpad-start-geyser": 1781289297.4649265,
-    "F1e-android-reveal-crash-fix": 1781285592.8516045
+    "F1e-android-reveal-crash-fix": 1781285592.8516045,
+    "F1f-android-go-control-transfer-jak-spawn": 1781314342.8889887
   },
-  "last_update": "2026-06-12T20:02:01.818006+00:00",
+  "last_update": "2026-06-13T04:33:14.329099+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
-    "F1e-android-reveal-crash-fix": 2
+    "F1e-android-reveal-crash-fix": 2,
+    "F1f-android-go-control-transfer-jak-spawn": 4
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",
