@@ -26,8 +26,6 @@
 
 #include "mips2c_table.h"
 
-#include <cstdint>
-
 #include "common/log/log.h"
 #include "common/symbols.h"
 
@@ -38,8 +36,6 @@
 
 extern "C" {
 void _mips2c_call_arm64();
-void _mips2c_call_arm64_eestack();
-extern "C" __attribute__((visibility("hidden"))) volatile std::uint64_t g_mips2c_ee_sp_cursor;
 }
 
 // clang-format off
@@ -250,45 +246,7 @@ extern "C" void a37_mips2c_prealloc_arena() {
   u32 noop = a37_shared_noop_offset();
   fprintf(stderr, "A37-MIPS2C arena=0x%x (%u slots) noop=0x%x\n", s_a37_arena, kA37TrampSlots,
           noop);
-  // F1f: EE-resident scratch stack for the collide mips2c bodies (consumed by
-  // _mips2c_call_arm64_eestack). 1 MB; the cursor starts at the TOP and grows
-  // down per nested call. EE offset < EE_SIZE so g_ee_main_mem + low32(sp)
-  // round-trips (unlike host_sp - base on arm64's high EE map).
-  u32 eeband = ::jak1::alloc_heap_object(s7.offset + jak1_symbols::FIX_SYM_GLOBAL_HEAP,
-                                         *(s7 + jak1_symbols::FIX_SYM_FUNCTION_TYPE),
-                                         0x100000, UNKNOWN_PP);
-  // 16-align the cursor top: collide sqc2/lqc2 spills require 16-byte-aligned
-  // sp (the eestack trampoline also re-aligns on every call as a safety net).
-  g_mips2c_ee_sp_cursor = (std::uint64_t)((eeband + 0x100000) & ~0xFu);
-  fprintf(stderr, "F1F-MIPS2C-EESTACK band=0x%x cursor=0x%llx\n", eeband,
-          (unsigned long long)g_mips2c_ee_sp_cursor);
 }
-
-namespace {
-bool a37_name_uses_eestack(const std::string& name) {
-  // The collide mips2c bodies spill heavily to the MIPS stack and must use the
-  // EE-resident scratch stack (see _mips2c_call_arm64_eestack). All other
-  // bodies keep the original host-stack trampoline unchanged.
-  static const char* const kCollide[] = {
-      "collide-do-primitives", "moving-sphere-triangle-intersect", "collide-probe-node",
-      "collide-probe-instance-tie", "__pc-upload-collide-frag",
-      "(method 11 collide-mesh)", "(method 12 collide-mesh)", "(method 14 collide-mesh)",
-      "(method 15 collide-mesh)",
-      "(method 12 collide-shape-prim-mesh)", "(method 13 collide-shape-prim-mesh)",
-      "(method 14 collide-shape-prim-mesh)",
-      "(method 26 collide-cache)", "(method 27 collide-cache)", "(method 28 collide-cache)",
-      "(method 29 collide-cache)", "(method 30 collide-cache)", "(method 32 collide-cache)",
-      "(method 9 collide-cache-prim)", "(method 10 collide-cache-prim)",
-      "(method 9 collide-puss-work)", "(method 10 collide-puss-work)",
-      "(method 15 collide-edge-work)", "(method 16 collide-edge-work)",
-      "(method 18 collide-edge-work)", "(method 10 collide-edge-hold-list)",
-  };
-  for (auto* n : kCollide) {
-    if (name == n) return true;
-  }
-  return false;
-}
-}  // namespace
 
 void LinkedFunctionTable::reg(const std::string& name, u64 (*exec)(void*), u32 stack_size) {
   const auto& it = m_executes.insert({name, {exec, Ptr<u8>()}});
@@ -338,9 +296,7 @@ void LinkedFunctionTable::reg(const std::string& name, u64 (*exec)(void*), u32 s
     };
     memcpy(ptr, insns, sizeof(insns));
     const u64 lits[3] = {reinterpret_cast<u64>(exec), static_cast<u64>(stack_size),
-                         reinterpret_cast<u64>(a37_name_uses_eestack(name)
-                                                   ? &_mips2c_call_arm64_eestack
-                                                   : &_mips2c_call_arm64)};
+                         reinterpret_cast<u64>(&_mips2c_call_arm64)};
     memcpy(ptr + 16, lits, sizeof(lits));
     __builtin___clear_cache(reinterpret_cast<char*>(ptr), reinterpret_cast<char*>(ptr) + 0x40);
   }
@@ -431,33 +387,6 @@ bool a37_name_is_real(const std::string& name) {
       // math (no DMA cursor return, unlike the blerc disease) — callers
       // discard the return value.
       "adgif-shader<-texture-with-update!",
-      // F1f: the COLLISION subsystem. With these noop'd, the target's
-      // ground-probe (collide-with-as / fill-and-probe-using-line-sphere ->
-      // collide-cache/mesh/edge methods) always returns "no hit", so *target*
-      // never finds the floor: it integrates its velocity forever and slides
-      // through the level at constant speed, ignoring all controller input
-      // (run19: dX/dY/dZ dead-constant for ~5000 frames, 0 response to stick/
-      // jump). These are NOT a port — the C bodies exist (collide_cache.cpp,
-      // collide_mesh.cpp, collide_func.cpp, collide_probe.cpp,
-      // collide_edge_grab.cpp), compile unconditionally (game/CMakeLists.txt),
-      // and are registered (collide-func/probe/mesh/cache/edge-grab groups
-      // above) — they were just never added to this allowlist. Enabling the
-      // whole closed subsystem at once (partial collision is worse than none:
-      // a real consumer + a noop'd producer feeds 0 into the cache walk).
-      "collide-do-primitives", "moving-sphere-triangle-intersect", "collide-probe-node",
-      "collide-probe-instance-tie", "__pc-upload-collide-frag",
-      "(method 11 collide-mesh)", "(method 12 collide-mesh)", "(method 14 collide-mesh)",
-      "(method 15 collide-mesh)",
-      "(method 12 collide-shape-prim-mesh)", "(method 13 collide-shape-prim-mesh)",
-      "(method 14 collide-shape-prim-mesh)",
-      "(method 26 collide-cache)", "(method 27 collide-cache)", "(method 28 collide-cache)",
-      "(method 29 collide-cache)", "(method 30 collide-cache)", "(method 32 collide-cache)",
-      "(method 9 collide-cache-prim)", "(method 10 collide-cache-prim)",
-      // F1f: all 26 collide names enabled (the push-out/edge-grab bodies use the
-      // EE-resident scratch-stack trampoline now, see a37_name_uses_eestack).
-      "(method 9 collide-puss-work)", "(method 10 collide-puss-work)",
-      "(method 15 collide-edge-work)", "(method 16 collide-edge-work)",
-      "(method 18 collide-edge-work)", "(method 10 collide-edge-hold-list)",
   };
   for (auto* n : kSet) {
     if (name == n) return true;
