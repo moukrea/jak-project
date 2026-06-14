@@ -5136,3 +5136,33 @@ Chronological queue after Gref (perfect, IN ORDER, before the cinematic):
 Each authored FROM Gref's pristine-boot-sequence.log (ground truth), oracle-
 diffed, regression-gated. Gameplay (collision/visible-Jak) only AFTER all of
 the above. Do NOT interrupt Gref (building the gold standard now).
+
+## 2026-06-14 ~08:00 — OWNER course-correction: same-locale + fix-against-real-build, full issue list
+
+METHODOLOGY (owner, authoritative): fix ONE issue at a time, AGAINST the real
+build, and ensure the phone runs the SAME LOCALE as the reference. My recent
+phases verified "renders" not "matches real build" (I had no real-build
+reference frames) — gap. Fix: capture the PRISTINE GOLD intro IN FRENCH as the
+visual ground truth + pixel-match the phone against it.
+
+LOCALE root (owner clarified): SAME ISO on both; laptop runs FRENCH (likely a
+French-configured save/settings file), Android defaults ENGLISH (no settings
+configured / device-locale French not detected; DecodeTerritory()=SCEA). Phone
+IS French. -> Glocale: make Android run French (detect device locale / seed
+French settings) matching the desktop reference. My Gsce un-gate forced the
+WRONG American SCEA screen -> revisit SCE under correct locale (may revert).
+
+FULL ISSUE LIST (one at a time, against the FRENCH pristine reference), order:
+  0. Glocale: phone runs French (foundation) + capture French pristine ref
+  1. SCE "presents" screen: not like real build (locale/variant)
+  2. ND logo: Daxter + Jak leaning on ND logo + stamp renders OVER A LEVEL
+     instead of a BLACK background
+  3. Jak&Daxter logo on black: black backdrop ends before the RIGHT edge of screen
+  4. Stray LEVEL NAMES appear above PRESS START during the flythrough
+  5. WATER: not animated like real build, rendered oddly, SUNLIGHT issue
+  6. MISSING GEOMETRY: rocks, structures — "seen from beneath as if the thing
+     that should be in front isn't there" (missing draws / occlusion / culling)
+  7. CAMERA trajectory around the island may be wrong
+  8. MAIN MENU (press START): textures + icons garbled toward the center
+  9. NEW GAME crash (last, per chronological rule)
+Each: diff phone vs FRENCH pristine reference, fix the one mechanism, pixel-match.
