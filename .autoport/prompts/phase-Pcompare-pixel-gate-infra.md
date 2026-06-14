@@ -1,0 +1,30 @@
+# Phase Pcompare — build the OBJECTIVE pixel-compare gate (golden capture + diff tool). FOUNDATION for every intro/title phase.
+
+## Why (owner directive, 2026-06-14)
+The orchestrator's **number-one validation rule** must become: **objective pixel-match of the Android device frame against the local ORIGINAL build, beat by beat, chronologically, never regressing a matched beat.** The owner stated the supervisor's own visual judgment is unreliable ("visually you suck") — and was proven right (the intro was twice declared fixed from a couple of correct frames while the real animated-logo beat was still broken). So we need an AUTOMATED gate, not eyeballing, and not "renders"/tris. This phase builds that gate. It ships NO game fix — it builds tooling + reference data only.
+
+## Recon already done — USE IT, do not re-investigate (recon-heavy attempts stall)
+- **Original/oracle build:** `/home/emeric/code/jak-original-v033` — clean upstream open-goal/jak-project @ tag v0.3.3 (git HEAD `c4bc4d3ff`, working tree clean). Already built: `build/Release/bin/game/gk`. Runs jak1 with `--game jak1 --portable -fakeiso -iso-data out/jak1/iso -- -boot`. It is the pristine reference; the owner compares against THIS, not our fork.
+- **It has a built-in screenshot system:** `game/graphics/screenshot.h`; F2 sets `m_take_screenshot_next_frame`; there is a global `g_want_screenshot` and `file_util::make_screenshot_filepath(...)` that writes a PNG to disk. So gk can dump its own framebuffer to disk — no external screen-capture tool needed.
+- **Display/GL:** there is a live Xwayland `:0` with a real GPU. The X auth cookie is `/run/user/1000/.mutter-Xwaylandauth.RKSTQ3` — run gk with `XAUTHORITY=/run/user/1000/.mutter-Xwaylandauth.RKSTQ3 DISPLAY=:0 SDL_VIDEODRIVER=x11` (gk failed earlier ONLY because the cookie wasn't set). Software Mesa is also available (`/usr/lib64/dri/swrast_dri.so`, `LIBGL_ALWAYS_SOFTWARE=1`) as a fallback. There is NO Xvfb and you CANNOT install one (no sudo).
+- **ImageMagick** `import`/`compare` and `ffmpeg` are available; Python3 is available (use PIL/numpy if present, else ImageMagick `compare -metric`).
+
+## Mandate — in order
+1. **Deterministic golden capture from the original build.** Make the oracle gk auto-dump frame-indexed golden PNGs through the boot intro (SCE "presents" → Daxter/Naughty-Dog logo → title screen). Recommended: add a SMALL, TEMPORARY, env-gated auto-screenshot hook to the oracle's `game/graphics/pipelines/opengl.cpp` (at frame indices supplied via an env var, set the screenshot flag + a deterministic path), then **incremental-rebuild** gk (it is already built — fast), run it on `:0` with the cookie (or software Mesa), and dump goldens. **Anchor frames to a DETERMINISTIC event** (a fixed frame counter from boot, and/or a logged state transition) so the SAME logical beat can be captured on the phone — NOT wall-clock (the phone's slow loader desyncs wall-clock). Start with the **on-black beats** (they are load-independent → fully deterministic → the cleanest match). Save goldens to `.autoport/gold/pristine-frames/<beat>-fNNN.png`. **When done, REVERT the temp hook** (`git -C /home/emeric/code/jak-original-v033 checkout -- .`) so the oracle returns to pristine `c4bc4d3ff`. Document the exact frame anchors used.
+2. **Frame-compare tool** at `.autoport/lib/frame_compare.{py,sh}`: inputs = a golden PNG + a candidate PNG + an optional tolerance; normalize to a common resolution; compute a **structural+color difference score** (e.g. fraction of pixels whose per-channel delta exceeds a threshold, or RMSE/SSIM); **emit a diff image** highlighting where they differ; exit 0 = MATCH (≤ tolerance), nonzero = MISMATCH. Honest design: byte-identical is impossible across desktop-GL goldens vs the phone's Adreno GLES (sub-pixel rasterization) — tune so it flags anything a human would see (missing geometry, logo-over-village, wrong color/lighting) and ALWAYS writes the diff image for the supervisor.
+3. **Self-test** the tool and leave the evidence: comparing a golden to ITSELF → MATCH (score ≈ 0); comparing two clearly-different goldens (or a golden vs a black frame) → MISMATCH. Write the results to `.autoport/reports/Pcompare/selftest.txt`.
+4. **Device-capture helper** at `.autoport/lib/capture_device_beat.sh` (or document the method): drive the phone (ANDROID_SERIAL=eae4df44 ONLY; adb `/home/emeric/Android/platform-tools/adb`; verify `mCurrentFocus=org.opengoal.gk.jak1`) to capture a frame at the SAME anchored beat as a golden, so later phases can compare device-vs-golden.
+
+## Rules / locks
+- Ship NO game fix. Do NOT edit `goalc/`, `game/` (ours), `goal_src/`, `android/` in our repo for a fix — this is tooling only (the compare tool + capture helpers in `.autoport/lib/`, goldens in `.autoport/gold/pristine-frames/`, reports in `.autoport/reports/Pcompare/`).
+- The temporary dump-hook in the ORACLE repo (`/home/emeric/code/jak-original-v033`) MUST be reverted before finishing (leave it at clean `c4bc4d3ff`). Do NOT touch our repo's `.autoport/gold/` existing core.
+- ANDROID_SERIAL=eae4df44 only. Do NOT edit `goalc/emitter/IGenX86_64.*`.
+
+## Validator (`phase-Pcompare-pixel-gate-infra.sh`)
+PASS requires: `.autoport/lib/frame_compare.{py,sh}` exists + is executable/runnable; the **self-test passes** (identical→exit 0, different→nonzero) verified by the validator itself running the tool on a known pair; ≥ 3 non-trivial golden PNGs in `.autoport/gold/pristine-frames/`; `.autoport/reports/Pcompare/selftest.txt` present; the oracle repo is back to clean (`git -C /home/emeric/code/jak-original-v033 status --porcelain` empty); a `Pcompare-fix-summary.md` documenting the capture method + frame anchors + the diff metric/tolerance.
+
+## Max settings
+`max_turns: 1500`, `max_retries: 3`.
+
+## Strategic note
+This is the gate every subsequent intro/title phase depends on. Get golden capture deterministic and the diff tool honest. Do not drift into fixing the game here — only build the objective measuring stick.

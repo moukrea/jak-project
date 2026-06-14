@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 94,
+  "current_phase_idx": 95,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -89,7 +89,8 @@
     "Gsprite-arm64-sparticle-mips2c-unnoop": 2,
     "Gtitle-attract-overspawn": 1,
     "Gwater-ocean-render": 1,
-    "Grefen-english-pristine-frames-audit": 1
+    "Grefen-english-pristine-frames-audit": 1,
+    "Pcompare-pixel-gate-infra": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -175,6 +176,9 @@
     ],
     "Gsprite-arm64-sparticle-mips2c-unnoop": [
       "030dd5f2b3ba"
+    ],
+    "Grefen-english-pristine-frames-audit": [
+      "c6ebdcfa1e42"
     ]
   },
   "stuck_reasons": {
@@ -268,7 +272,8 @@
     "Gsce-first-frames-presents-screen",
     "Gsprite-arm64-sparticle-mips2c-unnoop",
     "Gtitle-attract-overspawn",
-    "Gwater-ocean-render"
+    "Gwater-ocean-render",
+    "Pcompare-pixel-gate-infra"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -335,9 +340,10 @@
     "Gsprite-arm64-sparticle-mips2c-unnoop": 1781393447.7644885,
     "Gtitle-attract-overspawn": 1781410458.0726178,
     "Gwater-ocean-render": 1781414253.5962622,
-    "Grefen-english-pristine-frames-audit": 1781419622.7243588
+    "Grefen-english-pristine-frames-audit": 1781419622.7243588,
+    "Pcompare-pixel-gate-infra": 1781471650.207508
   },
-  "last_update": "2026-06-14T06:53:21.402125+00:00",
+  "last_update": "2026-06-14T21:39:12.961698+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
