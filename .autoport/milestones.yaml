@@ -888,6 +888,15 @@ phases:
   validator: validators/phase-Gwater-ocean-render.sh
   max_turns: 1500
   max_retries: 3
+- id: Pcompare-pixel-gate-infra
+  name: 'OBJECTIVE GATE (owner: pixel-match the original build; supervisor eyes unreliable). Build .autoport/lib/frame_compare + capture
+    frame-indexed golden PNGs from the ORIGINAL build (/home/emeric/code/jak-original-v033), anchored to deterministic events, starting
+    with the on-black intro beats. Self-tested gate (identical->match, different->mismatch). Foundation for all chronological intro/title
+    pixel-match phases; ships NO game fix (tooling + reference data only).'
+  prompt: prompts/phase-Pcompare-pixel-gate-infra.md
+  validator: validators/phase-Pcompare-pixel-gate-infra.sh
+  max_turns: 1500
+  max_retries: 3
 - id: Grefen-english-pristine-frames-audit
   name: 'FOUNDATION (owner: English is the gold standard, not French). Capture the ENGLISH pristine gold build intro/title/menu
     reference FRAMES (we only had the boot LOG, not frames -> could only verify "renders" not "matches real build") + pixel-diff the

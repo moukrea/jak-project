@@ -1,0 +1,16 @@
+f01 frame=1860
+f02 frame=1860
+f03 frame=1920
+f04 frame=1980
+f05 frame=2040
+f06 frame=2100
+f07 frame=2100
+f08 frame=2160
+f09 frame=2220
+f10 frame=2220
+f11 frame=2280
+f12 frame=2340
+f13 frame=2340
+f14 frame=2400
+f15 frame=2460
+f16 frame=2460

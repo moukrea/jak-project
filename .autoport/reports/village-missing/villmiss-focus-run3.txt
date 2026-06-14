@@ -1,0 +1,15 @@
+t003s :: frame=0 tris=0 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t006s :: frame=120 tris=354 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t010s :: frame=300 tris=207051 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t014s :: frame=420 tris=224279 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t018s :: frame=540 tris=228493 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t024s :: frame=660 tris=233534 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t030s :: frame=840 tris=233534 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t038s :: frame=1104 tris=263217 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t046s :: frame=1500 tris=263217 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t054s :: frame=1800 tris=263217 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t062s :: frame=2160 tris=263217 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t072s :: frame=2520 tris=263217 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t082s :: frame=2940 tris=263217 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t092s :: frame=3300 tris=263217 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t102s :: frame=3600 tris=263217 ::   mCurrentFocus=Window{7f5b486 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}

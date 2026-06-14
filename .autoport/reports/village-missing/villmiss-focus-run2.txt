@@ -1,0 +1,2 @@
+t003s :: frame=0 tris=0 ::   mCurrentFocus=Window{c806659 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t006s :: frame=120 tris=354 ::   mCurrentFocus=Window{c806659 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
