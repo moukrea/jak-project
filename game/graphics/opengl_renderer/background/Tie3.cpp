@@ -572,8 +572,16 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
 
   glActiveTexture(GL_TEXTURE0);
+#ifdef __ANDROID__
+  // GLES has no settable restart index (glPrimitiveRestartIndex is NULL in the
+  // arm64 loader — calling it is BLR-to-0 / sig=11 fault=0x0, the same class as
+  // the A36 tfrag/shrub crashes). The fixed-index mode restarts on the all-ones
+  // index, which IS UINT32_MAX for our u32 index buffers — identical semantics.
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
 
   int last_texture = -1;
   for (size_t draw_idx = tree.category_draw_indices[(int)category];
@@ -954,8 +962,14 @@ void Tie3::render_tree_wind(int idx,
   glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
 
   glActiveTexture(GL_TEXTURE0);
+#ifdef __ANDROID__
+  // GLES has no settable restart index (see render_tree_category above); the
+  // fixed-index mode restarts on all-ones = UINT32_MAX for our u32 buffers.
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
 
   int last_texture = -1;
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.wind_vertex_index_buffer);

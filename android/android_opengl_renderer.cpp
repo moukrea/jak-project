@@ -17,6 +17,7 @@
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/background/Shrub.h"
 #include "game/graphics/opengl_renderer/background/TFragment.h"
+#include "game/graphics/opengl_renderer/background/Tie3.h"
 #include "game/graphics/opengl_renderer/foreground/Generic2BucketRenderer.h"
 #include "game/graphics/opengl_renderer/foreground/Merc2BucketRenderer.h"
 #include "game/graphics/opengl_renderer/ocean/OceanMidAndFar.h"
@@ -216,6 +217,24 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
                  BucketId::TFRAG_ICE_LEVEL1, true);
   }
 
+  // village-tie — instanced TIE (the dense built detail of Sandover village:
+  // huts, fences, props, wooden platforms drawn through the TIE instance
+  // system). The jak1 desktop table backs TIE_LEVEL0/1 with a single
+  // Tie3WithEnvmapJak1 renderer per level (TIE + TIE-envmap in one); the level
+  // index (0/1) selects the per-level TIE tree the loader filled. These buckets
+  // were wired as SkipRenderer (unported) and Tie3.cpp was never compiled into
+  // the Android build, so the populated TIE_LEVEL0/1 buckets were dropped every
+  // frame (A35-RENDER skip bucket=l1-tie id=16, fired only when the bucket has
+  // data). The time-of-day LUT is already a Wx1 2D texture matching the shared
+  // TFRAG3 shader (commit 9fe0be120); the only remaining GLES blocker was the
+  // glPrimitiveRestartIndex calls, now gated to GL_PRIMITIVE_RESTART_FIXED_INDEX
+  // under __ANDROID__ in Tie3.cpp (same fix as TFragment/Shrub). Desktop jak1
+  // parity (OpenGLRenderer.cpp init_bucket_renderers_jak1: Tie3WithEnvmapJak1).
+  set_renderer(std::make_unique<Tie3WithEnvmapJak1>("l0-tie", (int)BucketId::TIE_LEVEL0, 0),
+               BucketId::TIE_LEVEL0, true);
+  set_renderer(std::make_unique<Tie3WithEnvmapJak1>("l1-tie", (int)BucketId::TIE_LEVEL1, 1),
+               BucketId::TIE_LEVEL1, true);
+
   // village-missing — shrub (the dense foliage class: palm trees, plants,
   // bushes, ground grass over Sandover village). The shrub DMA is built by
   // pure GOAL code (shrubbery.gc draw-drawable-tree-instance-shrub ->
@@ -299,8 +318,7 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // Everything else: skip with a one-time named log (handled in dispatch).
   // Desktop names kept so the skip logs name the real renderer that's missing.
   const std::pair<BucketId, const char*> unported[] = {
-      {BucketId::TIE_LEVEL0, "l0-tie"},
-      {BucketId::TIE_LEVEL1, "l1-tie"},
+      // TIE_LEVEL0/1 are now ported (Tie3WithEnvmapJak1 wired above).
       // SHRUB_NORMAL_LEVEL0/1 are now ported (Shrub renderer wired above).
       {BucketId::SHADOW, "shadow"},
       {BucketId::DEPTH_CUE, "depth-cue"},
