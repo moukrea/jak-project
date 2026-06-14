@@ -15,6 +15,7 @@
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
+#include "game/graphics/opengl_renderer/background/Shrub.h"
 #include "game/graphics/opengl_renderer/background/TFragment.h"
 #include "game/graphics/opengl_renderer/foreground/Generic2BucketRenderer.h"
 #include "game/graphics/opengl_renderer/foreground/Merc2BucketRenderer.h"
@@ -215,6 +216,21 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
                  BucketId::TFRAG_ICE_LEVEL1, true);
   }
 
+  // village-missing — shrub (the dense foliage class: palm trees, plants,
+  // bushes, ground grass over Sandover village). The shrub DMA is built by
+  // pure GOAL code (shrubbery.gc draw-drawable-tree-instance-shrub ->
+  // add-pc-tfrag3-data; no mips2c builder, "completely rewritten for PC"), so
+  // the only thing missing was the Shrub bucket renderer itself — it was
+  // wired as a SkipRenderer (unported) and the populated SHRUB_NORMAL_LEVEL0/1
+  // buckets were dropped every frame (A35-RENDER skip bucket=l0-shrub/l1-shrub).
+  // Its single GLES blocker (the GL_TEXTURE_1D time-of-day LUT) is fixed in
+  // Shrub.cpp (Wx1 2D, matching TFragment/TIE). Desktop jak1-table parity
+  // (OpenGLRenderer.cpp init_bucket_renderers_jak1: init_bucket_renderer<Shrub>).
+  set_renderer(std::make_unique<Shrub>("l0-shrub", (int)BucketId::SHRUB_NORMAL_LEVEL0),
+               BucketId::SHRUB_NORMAL_LEVEL0, true);
+  set_renderer(std::make_unique<Shrub>("l1-shrub", (int)BucketId::SHRUB_NORMAL_LEVEL1),
+               BucketId::SHRUB_NORMAL_LEVEL1, true);
+
   // F1a — foreground: Merc2 (village actors + the floating JAK AND DAXTER
   // logo, a merc model) at the eight jak1 merc buckets, Generic2 at the ten
   // generic buckets — the same shared-core + per-bucket-renderer shape as
@@ -285,8 +301,7 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   const std::pair<BucketId, const char*> unported[] = {
       {BucketId::TIE_LEVEL0, "l0-tie"},
       {BucketId::TIE_LEVEL1, "l1-tie"},
-      {BucketId::SHRUB_NORMAL_LEVEL0, "l0-shrub"},
-      {BucketId::SHRUB_NORMAL_LEVEL1, "l1-shrub"},
+      // SHRUB_NORMAL_LEVEL0/1 are now ported (Shrub renderer wired above).
       {BucketId::SHADOW, "shadow"},
       {BucketId::DEPTH_CUE, "depth-cue"},
   };

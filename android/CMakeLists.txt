@@ -466,6 +466,12 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendGPU.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/background_common.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/TFragment.cpp"
+    # village-missing — shrub (foliage: palm trees, plants, bushes, grass) for
+    # the title flythrough over Sandover village. Pure-GOAL DMA (shrubbery.gc
+    # add-pc-tfrag3-data, no mips2c builder); the Shrub bucket renderer was
+    # registered as SkipRenderer (unported) so foliage never drew. Its only
+    # GLES blocker was the GL_TEXTURE_1D time-of-day LUT (now Wx1 2D).
+    "${JAK_ROOT}/game/graphics/opengl_renderer/background/Shrub.cpp"
     # F1a — foreground: Merc2 (village actors + the floating JAK AND DAXTER
     # title logo, which is a merc model) and Generic2 (translucent merc
     # fallback the jak1 table pairs with every merc bucket).
