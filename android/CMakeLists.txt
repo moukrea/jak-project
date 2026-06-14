@@ -472,6 +472,15 @@ add_library(gk SHARED
     # registered as SkipRenderer (unported) so foliage never drew. Its only
     # GLES blocker was the GL_TEXTURE_1D time-of-day LUT (now Wx1 2D).
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/Shrub.cpp"
+    # village-tie — instanced TIE (the dense built detail of Sandover village:
+    # huts, fences, props, platforms drawn via the TIE instance system). Backs
+    # the TIE_LEVEL0/1 buckets through the jak1 Tie3WithEnvmapJak1 renderer
+    # (TIE + TIE-envmap in one). It was wired as SkipRenderer (unported) and
+    # Tie3.cpp was never added to the Android build, so the populated TIE_LEVEL0/1
+    # buckets were dropped every frame (A35-RENDER skip bucket=l1-tie id=16). The
+    # time-of-day LUT is already Wx1 2D (commit 9fe0be120); its only remaining
+    # GLES blocker was the glPrimitiveRestartIndex calls (now gated in Tie3.cpp).
+    "${JAK_ROOT}/game/graphics/opengl_renderer/background/Tie3.cpp"
     # F1a — foreground: Merc2 (village actors + the floating JAK AND DAXTER
     # title logo, which is a merc model) and Generic2 (translucent merc
     # fallback the jak1 table pairs with every merc bucket).
