@@ -433,6 +433,29 @@ bool a37_name_is_real(const std::string& name) {
       // the real trampoline; its arm64 body is a cursor pass-through (returns
       // a1 unchanged) since the shadow geometry port is incomplete.
       "shadow-execute",
+      // Gsprite: the sparticle sprite-DMA builders. The boot SCE "presents"
+      // static-screen draws three screen-space sparticle sprites (defpart
+      // 2966/2967/2968 -> group-part-screen1); each frame the sparticle system
+      // launches them via sp-launch-particles-var and builds their 2D sprite
+      // DMA + adgif shaders via sp-process-block-2d / particle-adgif. All four
+      // were noop-bound on arm64 (not on this allowlist) -> the sprite bucket
+      // stayed empty -> the SCE screen rendered BLACK (Gsce: A35-RENDER
+      // draws=1-2 tris=2-4 in the SCE window; x86 has no noop allowlist so it
+      // binds the real code and renders). The SCE screen is SCREEN-SPACE 2D, so
+      // it needs only the 2D launch path: sp-launch-particles-var (launcher) +
+      // sp-process-block-2d (per-frame 2D sprite-DMA builder) + particle-adgif
+      // (adgif shader). With the _call_goal8_asm_arm64 C->GOAL arg-shuffle fix
+      // these three build the SCE sprites correctly (SCE-window tris 4 -> 354,
+      // GSCE-SCE-RENDER fires) and the only mips2c->mips2c edge
+      // (sp-launch-particles-var -> particle-adgif) stays inside the set.
+      //
+      // sp-process-block-3d (the 3D world-particle processor) is deliberately
+      // NOT enabled: it is off the SCE 2D path, and binding it corrupts the
+      // per-frame launch-control list that sp-launch-particles-var later searches
+      // -> a wild launcher pointer (0x691edfe3) dereferenced in that builder's
+      // block_31 loop -> SIGSEGV at frame ~190 when the ndi (3D) particles spawn.
+      // Its arm64 translation needs its own oracle-diff phase; SCE is 2D.
+      "sp-launch-particles-var", "sp-process-block-2d", "particle-adgif",
   };
   for (auto* n : kSet) {
     if (name == n) return true;
