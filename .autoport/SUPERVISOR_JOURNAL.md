@@ -5166,3 +5166,28 @@ FULL ISSUE LIST (one at a time, against the FRENCH pristine reference), order:
   8. MAIN MENU (press START): textures + icons garbled toward the center
   9. NEW GAME crash (last, per chronological rule)
 Each: diff phone vs FRENCH pristine reference, fix the one mechanism, pixel-match.
+
+## 2026-06-14 — TWO root-caused fixes after the methodology reset (true pristine reference)
+
+1. BLACK STRUCTURES (TIE geometry) — commit 9fe0be120. Our A36 change made tfrag's
+   time-of-day LUT a Wx1 2D texture + sampler2D shader, but left TIE uploading a 1D
+   texture; non-envmap TIE draws SHARE the tfrag3 sampler2D shader -> sampled an
+   empty 2D unit -> (0,0,0,0) -> black fill, correct silhouette. Fix: TIE TOD ->
+   Wx1 2D + tie_wind/etie/etie_base shaders -> sampler2D. VERIFIED on device
+   (supervisor pixel-confirmed textured huts). Our bug, not pre-existing (base
+   704972dd6 ≈ pristine v0.3.3). Fixes x86+Android.
+
+2. GARBLED CENTER MENU (2D UI sprites blown-up/centered) — commit 077e740d8.
+   NOT a renderer bug: arm64 codegen. IGenARM64 idiv/unsigned_div emitted
+   SDIV/UDIV X8,X8,Xn but X8 = GOAL R8 = 5th GPR arg, invisible to regalloc ->
+   a live arg in R8 across (mod)/(/) was clobbered. sparticle-launch-control::spawn
+   does (mod) right before passing launch-control as arg4 -> sprite scale/pos
+   garbage. Fix: run IDIV/UDIV/IMOD/UMOD on X16/X17 (IP0/IP1) scratch (never
+   regalloc/arg regs); dropped the old A17 X8-spill MASK. Preserved A26 div-zero
+   trap + F1c MSUB. Title renders clean 10,900+ frames; MENU pending owner press-START
+   verify (cpad-injection gap). BROAD payoff: fixes any (mod)/(/)-before-5-arg-call.
+   ARM64 BUG CLASS: divide clobbers arg4 (R8/X8).
+
+Methodology that found these: TRUE pristine v0.3.3 reference (clean upstream clone,
+NOT our contaminated gold) + diff-our-build-vs-pristine + fix-at-mechanism +
+device pixel-verify. Orchestrator still stopped; targeted supervised subagent fixes.
