@@ -1,0 +1,33 @@
+# Phase Gndlogo — the Naughty Dog logo intro sequence must play ON BLACK, in order, before the title (ABSOLUTE TOP PRIORITY)
+
+## Why (owner directive, 2026-06-14)
+The owner says the boot intro is "completely messed up" on the Android device and is the **absolute top priority** — and believes nailing it will fix many downstream issues (the enter-state / display-level timing is foundational and propagates forward through the boot).
+
+The correct original sequence (jak1) is: **SCE "presents" → Daxter animates in → the "Naughty Dog" logo appears with Jak pushing/leaning on it + the paw-print stamp → ALL ON A BLACK BACKGROUND → then the `ndi` state deactivates and the `logo` flythrough spawns (Sandover village reveal + the "Jak and Daxter: The Precursor Legacy" title + PRESS START).**
+
+On device it is wrong: the **animated Naughty Dog logo beat (Jak push + stamp) renders OVER the village / a level instead of on black**, and/or the beats are out of order. (The early "Created and Developed by Naughty Dog / © 2001 SCEA" *text* frame IS correctly on black — do not be fooled into thinking the intro is fixed by that one frame; the broken beat is the later ANIMATED logo with Jak + stamp.)
+
+## Prior context — read this, it is the crux
+Two supervisor commits ping-ponged between two failure modes; the real fix must satisfy BOTH constraints at once on the SLOW Android loader:
+- `0445f78da` gated the village `(load-state-want-display-level 'village1 'display-self)` request in the `ndi` `:trans` on `(!= all-visible? 'loading)` → chicken-and-egg DEADLOCK → village never loads → the whole title flythrough is BLACK.
+- `dd3ee36ad` reverted to the pristine UNCONDITIONAL `display-self` → village now loads, BUT it appears to DISPLAY during the `ndi` state → the animated ND logo beat renders over the village (the owner's complaint), because the `bg-a == 1.0` full-blackout assumption does not actually hold for the whole `ndi` animated-logo window on the slow loader.
+
+**The correct behavior:** village1 must be PRELOADED/loading during `ndi` (so the subsequent flythrough is NOT black) but must NOT be DISPLAYED (drawn) until `ndi` has fully deactivated and the blackout is up — exactly as pristine x86 effectively behaves because it loads in ~1 frame. On the slow Android loader the load-vs-display timing window is the bug.
+
+## Method — oracle-diff (the .gc is correct on x86; fix the arm64 TIMING/mechanism)
+1. **Capture the FULL ndi sequence on device** across the whole window — MANY frames at tight offsets (every ~0.5–1s from boot through the title), not one. Verify `mCurrentFocus=org.opengoal.gk.jak1` (shared device; ANDROID_SERIAL=eae4df44 ONLY, never emulator-5554; adb `/home/emeric/Android/platform-tools/adb`; pgrep+kill any leftover runner first; frame 0 is black). Save to `.autoport/reports/Gndlogo/device-seq-*.png`. The supervisor reviews these by eye for: Daxter beat, ND-logo+Jak-push+stamp beat, whether each is on BLACK or over the village, and the ordering vs the J&D title.
+2. **Oracle-diff the `ndi` state machine vs x86** (`build-x86/game/gk --game jak1 --portable -fakeiso -iso-data out/jak1/iso -- -boot -debug-mem`, runs to `link finish: logo`). Compare, for the same logical boot point: the order of `ndi`/`logo` states (`ndi-intro` … → `ndi` deactivate → `logo-intro`/`-intro-2`/`-loop`), the blackout alpha (`bg-a`) over time, when `display-self` is requested, when `village1` goes `loading`→`loaded`→`active`/displayed, and the enter-state/go transitions. Find WHY on arm64 the village is displayed during `ndi` (or beats reorder). Read `goal_src/jak1/levels/title/title-obs.gc` (the `ndi`/`logo` states, the `load-state-want-*` / `set-force-inside!` / `display-self` semantics) to understand the data flow.
+3. **Decide the layer.** If it is a title-obs.gc load-vs-display timing issue, fix it there so village1 loads during `ndi` but only displays once `ndi` deactivates / blackout is full (satisfy BOTH constraints — no deadlock, no village-behind-logo). If the oracle-diff shows a deeper arm64 enter-state/go or loader-timing mechanism (the owner's "fixes many other issues" intuition), pin it precisely and fix at that layer — but DO NOT make a broad goalc/codegen change without the oracle-diff proving it; if it is a codegen miscompile, pin the diverging value + GOAL source line and report it as a localized target rather than guessing.
+
+## Rules / locks
+- ANDROID_SERIAL=eae4df44 only. Do NOT edit `goalc/emitter/IGenX86_64.{cpp,h}` (x86 oracle, LOCKED). Do NOT rebuild CGOs via `(mi)`. Treat `/home/emeric/code/jak-original-v033` + `.autoport/gold/` READ-ONLY. `goal_src/jak1/levels/title/title-obs.gc` IS editable for this phase (prior intro fixes edited it); if you change it, rebuild TIT.DGO with BOTH arm64 goalc (device asset) and x86 goalc (oracle) — and regen+sync ALL affected DGOs to the APK assets, not just TIT. Keep the two verified prior fixes' INTENT: no village-black deadlock (dd3ee36ad) AND no village-behind-logo (0445f78da's goal). The x86/`#else` path of any backend-gated change stays byte-identical.
+- Anti-cheat: no painted/faked intro, no hardcoded frame, no log-string stub. The fix must be a real state-machine/timing change proven by the oracle-diff.
+
+## Validator (`phase-Gndlogo-intro-on-black-sequence.sh`)
+PASS requires (mechanics + regression; the FINAL visual judgment is the SUPERVISOR's by eye): forbidden-edit gate (IGenX86_64 untouched, no `(mi)` CGO-regen marker); our x86 still reaches `link finish: logo`; qemu link-count no regression; on device crash-free (0 sig=11), boot sustained (frame ≥ 300), focus held on `org.opengoal.gk.jak1`; **anti-deadlock-regression** — the title flythrough must reach village-scale geometry (tris well above the near-empty ~132/29KB black-screen floor, e.g. ≥ 200k at a late frame) proving the village renders and is NOT black; ≥ 8 `Gndlogo/device-seq-*.png` frames spanning the intro→title window for supervisor pixel-judgment; a `Gndlogo-fix-summary.md` (≥ 80 lines) that engages the `ndi`/`logo` state machine + the `bg-a`/display-self timing + the arm64-vs-x86 oracle-diff (not just "renders"). The supervisor then verifies BY EYE: ND animated logo + Jak push + stamp render ON BLACK, in the correct order, BEFORE the J&D title — and that shrub/TIE village detail still renders in the flythrough.
+
+## Max settings
+`max_turns: 1500`, `max_retries: 3`.
+
+## Strategic note
+This is the #1 chronological beat. Do not skip ahead. Get the load-vs-display timing right so the ND logo plays on black AND the village is ready for the flythrough — the two constraints my prior commits failed to satisfy simultaneously. Prove it with the oracle-diff + the full-sequence frames; the supervisor makes the final visual call.
