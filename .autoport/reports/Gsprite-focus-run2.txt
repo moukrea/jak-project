@@ -1,0 +1,6 @@
+t01s :: frame=0 sce_tris=0 spool=none ::   mCurrentFocus=Window{352e0cc u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t02s :: frame=0 sce_tris=0 spool=none ::   mCurrentFocus=Window{352e0cc u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t03s :: frame=5 sce_tris=4 spool=name="ndi-intro" ::   mCurrentFocus=Window{352e0cc u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t04s :: frame=60 sce_tris=354 spool=name="ndi-intro" ::   mCurrentFocus=Window{352e0cc u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t05s :: frame=120 sce_tris=354 spool=name="ndi-intro" ::   mCurrentFocus=Window{352e0cc u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t06s :: frame=120 sce_tris=354 spool=name="ndi-intro" ::   mCurrentFocus=Window{352e0cc u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}

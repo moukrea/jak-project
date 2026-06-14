@@ -458,6 +458,18 @@ u64 execute(void* ctxt) {
 
   block_31:
   c->lw(v1, 0, a3);                                 // lw v1, 0(a3)
+#ifdef __aarch64__
+  // Garbage-triggered, UNCAPPED: fire only when the launcher pointer about to be
+  // dereferenced ([a3]) is outside the GOAL heap (>256MB). Logcat's TID column
+  // identifies the thread. This captures the exact crashing iteration.
+  if (c->gprs[v1].du32[0] > 0x10000000u) {
+    fprintf(stderr,
+      "GSPRITE-LPV-BAD s1=0x%x cnt=0x%x a3=0x%x [a3]=0x%x a0=0x%x a1=0x%x a3base=0x%x\n",
+      c->gprs[s1].du32[0], c->gprs[a2].du32[0], c->gprs[a3].du32[0],
+      c->gprs[v1].du32[0], c->gprs[a0].du32[0], c->gprs[a1].du32[0],
+      (unsigned)(c->gprs[s1].du32[0] + 60));
+  }
+#endif
   c->daddiu(a2, a2, -1);                            // daddiu a2, a2, -1
   c->lw(v1, 0, v1);                                 // lw v1, 0(v1)
   // nop                                            // sll r0, r0, 0
