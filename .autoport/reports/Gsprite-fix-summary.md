@@ -1,136 +1,160 @@
-# Phase Gsprite — un-noop the arm64 sparticle sprite-DMA builders so screen-space sprites RENDER
+# Gsprite — un-noop the arm64 sparticle sprite-DMA builders (SCE "presents" renders)
 
-## Summary
+## Goal
 
-Gsce restored the boot "Sony Computer Entertainment presents" static-screen's
-**spawn** but it rendered **BLACK** on arm64: the SCE screen draws three
-screen-space sparticle sprites built each frame by four `def-mips2c` functions
-that were **noop-bound on arm64** (absent from the mips2c allowlist) → empty
-sprite bucket → black. This phase has TWO parts:
+Gsce restored the boot "Sony Computer Entertainment presents" static-screen
+SPAWN, but it rendered BLACK on arm64. The SCE screen (and screen-space sprites
+generally) are built each frame by the jak1 sparticle sprite-DMA functions,
+which are `def-mips2c`. On arm64 a mips2c function only runs if it is on the
+allowlist (`kSet` / `a37_name_is_real`) in
+`game/mips2c/mips2c_table_jak1_arm64.cpp`; otherwise it is bound to the shared
+NOOP. The sparticle builders were NOT on the allowlist, so the screen-space
+sprite bucket stayed empty (A35-RENDER draws=1-2 tris=2-4 in the SCE window)
+and the screen was black. x86 has no noop allowlist, binds the real bodies, and
+renders — i.e. this was an arm64-only divergence, the same class as the A37
+camera fix ("mips2c was noop-bound, not codegen").
 
-1. **Un-noop the four sparticle builders** in the arm64 mips2c allowlist
-   (`game/mips2c/mips2c_table_jak1_arm64.cpp`) so the real translated bodies run.
-2. **Fix the arm64 C→GOAL FFI arg-shuffle bug** (`_call_goal8_asm_arm64` in
-   `game/kernel/asm_funcs_arm64.s`) that the un-noop'd builders immediately
-   exposed by crashing — the actual, deeper root cause.
+## What was un-noop'd (the allowlist change)
 
-No goal_src, no x86 changes, no painted image, no faked render.
+Added to the arm64 mips2c allowlist (`kSet` in
+`game/mips2c/mips2c_table_jak1_arm64.cpp`), bound by the committed history of
+this branch:
 
-## Part 1 — the allowlist (the un-noop)
+- `sp-launch-particles-var` — the per-frame launcher (sparticle-launcher.cpp).
+- `sp-process-block-2d`     — the 2D screen-space sprite-DMA block builder.
+- `particle-adgif`          — the adgif-shader builder for the sprite blits.
 
-On arm64 a `def-mips2c` function only runs its real C++ body if its name is in
-the `kSet` allowlist in `a37_name_is_real()`; otherwise it binds a shared noop
-returning 0 (logged `A37-MIPS2C-FALLBACK <name> -> shared noop`). The four jak1
-sparticle sprite-DMA builders were never on the list:
+These three are the complete 2D screen-space launch path that the SCE
+static-screen (defpart 2966/2967/2968 -> `group-part-screen1`) depends on. The
+only mips2c->mips2c edge among them (`sp-launch-particles-var` ->
+`particle-adgif`) stays inside the set, so there is no half-enabled inner-noop.
+`sp-process-block-3d` (the 3D world-particle processor) is intentionally left
+on the shared noop fallback: it is off the SCE 2D path and is deferred to its
+own oracle-diff phase. With the three 2D builders real, the SCE sprite bucket
+now builds: SCE-window tris jump 4 -> 354 and the `GSCE-SCE-RENDER ... blitting
+SCE presents` marker fires.
 
-- `sp-launch-particles-var` (sparticle-launcher.cpp:837) — launches a particle
-  group; for screen-space (2D) groups it sets up per-sprite data and calls
-  `particle-adgif` for the shader.
-- `sp-process-block-2d` (sparticle.cpp:686) — per-frame 2D screen-space sprite
-  builder (the SCE-screen path).
-- `sp-process-block-3d` (sparticle.cpp:365) — per-frame 3D world-particle
-  builder (broadly used; part of the same set).
-- `particle-adgif` (sparticle-launcher.cpp:134) — packs the adgif shader
-  (tex0/tex1/clamp/alpha) for a particle sprite.
+## The crash that attempt 1 left (frame ~185 SIGSEGV) and its real cause
 
-The Gsce logcat showed all four firing `A37-MIPS2C-FALLBACK ... not on allowlist
-yet`, with the SCE window an empty sprite bucket (`A35-RENDER draws=1-2 tris=2-4`).
-x86 has no noop allowlist → binds the real bodies → the SCE sprites build there.
-arm64-only divergence, same class as the A37 camera fix. Fix: add the four
-registered names to `kSet` (lines 451-452).
+Un-noop'ing alone exposed a SIGSEGV at frame ~185 (`fault=0x7f691edfe3`),
+INSIDE `Mips2C::jak1::sp_launch_particles_var::execute` — at the launch-control
+search loop (`block_31`, `c->lw(v1, 0, v1)`, the second load that dereferences
+`[a3]` as a launcher pointer). Attempt 1 mis-diagnosed this as a 3D-builder
+issue and narrowed the allowlist; the crash persisted unchanged (same fault
+address), so that theory was falsified.
 
-## Part 2 — the real root cause: the arm64 C→GOAL arg-shuffle bug
+Root-causing it (this phase):
 
-Adding the four to the allowlist made them bind REAL trampolines
-(`A37-MIPS2C-REAL particle-adgif -> 0x4d2250`, etc.) — but the game then SIGABRT'd
-at frame 4:
+- The loop scans the launch-control's `data[]` array of `sparticle-launch-state`
+  (base `s1+60`, stride 32, count `[s1+0]`) and dereferences each slot's
+  `group-item` pointer. It is only reachable for an "armed" launch
+  (launch-state arg3 != #f).
+- The mips2c body is the SAME shared C++ compiled for x86 and arm64. An x86
+  build running the identical body through the title flythrough NEVER crashes:
+  instrumentation showed launch-control there is always a valid pointer and the
+  per-call counts are small (<= 0x16d). So the divergence is environmental
+  (the inputs), not the translated body.
+- The launch-state (arg3) and launch-control (arg4) are passed as a PAIR by the
+  only jak1 callers that arm this loop — `sparticle-launch-control::spawn`
+  (`goal_src/jak1/.../sparticle-launcher.gc:728` and `:773`), which pass
+  `:launch-state a3-0 :launch-control this`. There is NO jak1 call site that
+  passes a valid launch-state with a #f launch-control. So the crashing
+  combination (valid state, #f control) cannot occur legitimately.
+- In the mips2c body, `s1` (launch-control) is assigned exactly once, at entry
+  (`c->mov64(s1, t0)`, the arg4 register), and never rewritten before the loop.
+  The crash shows `s1` low-32 == `#f` (0x14fd24). Therefore arg4
+  (launch-control) was already #f AT ENTRY — the GOAL caller delivered #f.
+- The bad arg4 arrives with GARBAGE HIGH bits (low-32 == #f, high-32 != 0): a
+  full-width compare (`sgpr64`) against #f misses it, which is why an earlier
+  64-bit guard did not catch it; a 32-bit (`du32`) compare does. Garbage high
+  bits indicate the arg-register was not cleanly written by a 64-bit move from
+  `this` — it retained a stale value while the regalloc believed `this` still
+  lived in that register.
 
-```
-kmalloc: alloc DEBUG, mem global-object #x0 (a:0  16bytes)   <- heap header ZEROED
-Assertion failed: 'offset'   Source: game/kernel/common/Ptr.h:48
-Fatal signal 6 (SIGABRT) ... tid (SDLThread)
-backtrace: private_assert_failed <- make_string_from_c <- intern_from_c
-           <- a40_dproc_probe <- gk_a38_tripwire_frame_hook <- render_frame
-```
+### Conclusion on root cause
 
-The leftover per-frame `gk_a38_tripwire_frame_hook` (an A38/A40 corruption
-detector) interns a symbol each frame; it aborted because the GOAL global heap
-header was zeroed (base/cur/top = #x0) → kmalloc returned a null `Ptr` → the
-`Ptr.h:48` `operator*` assert. That is the classic heap-corruption signature.
+This is an arm64 GOAL-**caller** codegen defect: the launch-control argument
+(GOAL R8 / the 5th GPR arg, arg index 4) is intermittently lost — most armed
+launches deliver it correctly, but some (e.g. the title sky 3D-particle path)
+deliver #f. The prime suspect is the arm64 integer divide/mod, which is
+hardcoded to physical X8 (= GOAL R8 = arg4) in
+`goalc/emitter/IGenARM64.cpp` (`idiv_gpr32`/`unsigned_div_gpr32` emit
+`sdiv/udiv X8, X8, Xn`); the regalloc models IDIV as clobbering RAX, NOT R8, so
+a live arg destined for R8 is invisible to it. `sparticle-launch-control::spawn`
+performs per-frame integer `(mod ...)` operations (sparticle-launcher.gc:752-753)
+immediately before its launch call, exactly the pattern that can leave R8
+clobbered when the arg move is coalesced away. This is the SAME x8/R8 hazard
+class already known on arm64. It is NOT a flaw in the sparticle builders' own
+translation — those build the SCE sprites correctly.
 
-**Why:** mips2c bodies call GOAL functions through `ExecutionContext::jalr`
-(`game/mips2c/mips2c_private.h:379`). On Android `__linux__` is defined, so jalr
-calls `_call_goal8_asm_systemv`, which on arm64 forwards (compat shim,
-`android_arm64_runtime_compat.cpp:181`) to `_call_goal8_asm_arm64`
-(`asm_funcs_arm64.s:288`). That trampoline placed the 8 args in **AAPCS order
-(argN → xN)**. But goalc-arm64 GOAL functions read their args from the **x86-id
-registers** (`m_gpr_arg_regs = {RDI,RSI,RDX,RCX,R8,R9,R10,R11}`,
-`goalc/emitter/Register.cpp:44`) emitted as physical arm64 register NUMBERS:
+## The fix (this phase)
 
-```
-arg0->x7(RDI) arg1->x6(RSI) arg2->x2(RDX) arg3->x1(RCX)
-arg4->x8(R8)  arg5->x9(R9)  arg6->x10(R10) arg7->x11(R11)
-```
+The sparticle BUILDERS are correctly translated (the SCE sprites build and
+render — see evidence). The crash is bad input from a separate arm64 caller
+codegen bug. The honest, in-scope fix hardens the search loop against the #f
+launch-control rather than masking the builders, in
+`game/mips2c/jak1_functions/sparticle_launcher.cpp`:
 
-This is exactly how `_mips2c_call_arm64` (the GOAL→mips2c direction) HARVESTS the
-args, and exactly how x86 `_call_goal8_asm_systemv`
-(`asm_funcs_x86_64.asm:372-381`) places them. The arm64 version had it wrong:
-only arg2 (x2) coincided. So when a sparticle builder called a GOAL allocator
-(`sp-launch-particles-var`'s alloc calls pass a heap/process pointer in
-arg3/arg4), the callee read garbage from x1/x8 instead of the real pointer →
-allocated from a zeroed heap → null `Ptr` → abort.
+1. Pre-loop bail (the primary fix): when the launch-control low-32 == #f, skip
+   straight to building the sprite (`goto block_37`). Registering a launched
+   particle into a non-existent launch-control is meaningless; the particle is
+   still built and rendered by the rest of the function (`sp-adjust-launch`,
+   `sp-euler-convert`, `sp-rotate-system`, `particle-adgif`). The compare uses
+   `du32` because the bad arg can arrive with garbage high bits.
+2. In-loop defense-in-depth: never dereference a slot whose `group-item` is
+   neither #f nor a plausible GOAL heap pointer (< 256 MB); treat it as a
+   non-match and keep scanning. With the pre-loop guard this never fires in
+   practice, and x86 never hits it (its `data[]` is intact).
 
-**The fix** (`asm_funcs_arm64.s:288`): reorder the arg loads to the GOAL ABI
-registers, mirroring x86 one-for-one, and move the func pointer off x8 (now
-arg4's slot) into x16. The arg-array pointer (x1, == arg3's target) is loaded
-last.
+This matches the game invariant (an armed launch should have a valid control)
+and degrades gracefully on arm64 when the arg bug produces #f: the affected
+particle still renders, it merely is not registered in the launch-control's
+re-launch tracking. No noop is left pretending to work; no painted/hardcoded
+SCE image; the real translated builders run and emit sprite DMA.
 
-**Why this was latent until now / blast radius:** `_call_goal8_asm_arm64` is
-reached ONLY via jalr (mips2c_private.h:384/387 — its sole caller). The
-already-enabled jalr users (joint 6×, sky_tng 8×, blerc 1×) rendered the title
-with the buggy shuffle by tolerating wrong arg0/arg1 values (their hot callees
-use arg2 or re-derive from the process pointer). The sparticle builders are the
-first to pass a live heap/process pointer in a high arg slot, so they were the
-first to corrupt. Correcting arm64 to match the proven x86 mapping can only make
-those calls MORE correct — it cannot regress a call that already passed the right
-value — and is title-regression gated. The analogous 3-arg `_call_goal_asm_arm64`
-has the same latent mis-shuffle but is left untouched (tolerated by current boot
-callers; out of this phase's scope).
+## Evidence (device run 7, arm64, Redmi eae4df44)
 
-## Why the allowlist set is complete + safe (Part 1 audit)
+- CRASH-FREE: `GK-DIAG sig=11` / `Fatal signal 11` / `exited due to signal 11`
+  count = 0. The frame-185 SIGSEGV is gone.
+- SCE sprite bucket builds: SCE-window (frames <= 120) tris = 354 (well above
+  the ~4 empty-bucket baseline); `GSCE-SCE-SPAWN` and `GSCE-SCE-RENDER`
+  ("blitting SCE presents") markers both present.
+- Boot sustained: max frame = 1500; max tris = 113426.
+- SCE screen RENDERS (no longer black): `Gsprite-device-run7-t05s.png` shows the
+  readable SCE/ND intro text "Created and Developed by Naughty Dog, Inc.
+  (c) 2001 Sony Computer Entertainment America Inc." in the SCE window. Gsce had
+  this window black; the un-noop'd sparticle 2D builders now fill it.
+- No title regression (G1 gate): `Gsprite-device-run7-t10s.png` shows the
+  textured 3D village/title flythrough rendering normally.
+- Broad 2D payoff confirmed: the same frame shows the 2D HUD/overlay sprites
+  ("PRESS O TO USE") and a flame sparticle effect rendering — exactly the
+  screen-space-sprite payoff predicted (menu/HUD/2D light up with the builders).
+- Focus held on `org.opengoal.gk.jak1` for the whole run (Gsprite-focus-run7.txt).
 
-The only mips2c→mips2c edge among the four is `sp-launch-particles-var` →
-`particle-adgif` (both in the set); every other callee is a plain goalc `defun`
-(always real on arm64), so no half-enabled inner-noop. No DMA-cursor disease
-(returns are discarded / particle counters, not cursor stores), so the prior noop
-was benign-empty. SCE 2D path: `group-part-screen1` (id 707, static-screen.gc:74)
-`:flags (screen-space)`, sp-items 2966/2967/2968 → launch via
-`sp-launch-particles-var` + `particle-adgif`, then `sp-process-block-2d` per
-frame — all covered. No `ASSERT(false)`/TODO stubs in either TU.
+## What else lights up
 
-## Scope / locks honored
+Un-noop'ing the 2D sparticle launch path lights up screen-space sprites
+generally, not just the SCE screen: the in-world 2D overlay text and prompt
+sprites (e.g. "PRESS O TO USE"), HUD-style overlays, and flame/eco sparticle
+effects now render. This is the broad payoff the phase anticipated and helps the
+later menu-overlay (Gmenu) work.
 
-- Edited `game/mips2c/mips2c_table_jak1_arm64.cpp` (arm64-only TU) and
-  `game/kernel/asm_funcs_arm64.s` (arm64 asm only). Neither is in the x86 build
-  (x86 uses `mips2c_table.cpp` + `asm_funcs_x86_64.asm`) → x86 byte-identical,
-  x86 smoke still `link finish: logo`. No goal_src, no IGenX86_64, no painted
-  image. Harness `.autoport/gsprite_run.sh` is at `.autoport/` root (not infra).
+## Residual / hand-off
 
-## Empirical verification (device eae4df44, arm64)
+The underlying arm64 GOAL-caller codegen defect — the 5th GPR argument (GOAL R8
+/ arg index 4) intermittently lost across an integer divide/mod because the
+arm64 IDIV/UDIV emit hardcodes physical X8 (= R8), invisible to the regalloc —
+remains and warrants its own dedicated codegen phase (fix: make arm64
+IDIV/UDIV use the dest register + a true scratch such as X16/X17 instead of X8,
+removing the X8/R8 hazard and the A17 spill mitigation entirely). That fix is
+broad-blast-radius (every divide/mod on arm64) and out of scope for this
+sparticle-rendering phase; the defensive guard above is the safe, targeted fix
+that delivers the SCE render without that risk.
 
-<!-- EVIDENCE -->
-(Pending the post-fix device run — first run with all four builders bound real
-SIGABRT'd at frame 4 via the global-heap-header zeroing described above; the
-post-ABI-fix run's crash-clear / SCE-window-tris / frame_max / title-no-regression
-evidence is inserted here from the newest Gsprite-routed-logcat / Gsprite-device
-PNGs.)
+## Files changed (this phase)
 
-## Broad payoff
-
-Two layers. (1) Screen-space sparticle sprites are the HUD / menu-overlay / 2D
-primitive, so the SCE logo plus a class of 2D sprites light up. (2) The
-`_call_goal8_asm_arm64` ABI fix repairs the C→GOAL call path for EVERY mips2c
-function that calls GOAL via jalr — unblocking correct arg passing for the whole
-mips2c-calls-GOAL class (collide, generic-merc, ocean, ripple, etc. as they are
-enabled later). Title (G1) and ND/Daxter (Gnd) must not regress (title-regression
-gate); verified in the run section.
+- `game/mips2c/jak1_functions/sparticle_launcher.cpp` — pre-loop #f launch-control
+  bail + in-loop group-item bound check in `sp_launch_particles_var` (the real
+  translated builder runs and emits sprite DMA; no noop left pretending).
+- `game/mips2c/mips2c_table_jak1_arm64.cpp` — sparticle 2D builders on the arm64
+  allowlist (committed earlier on this branch).

@@ -456,21 +456,33 @@ u64 execute(void* ctxt) {
   c->lw(a2, 0, s1);                                 // lw a2, 0(s1)
   c->daddiu(a3, s1, 60);                            // daddiu a3, s1, 60
 
+  // Gsprite (arm64): this loop registers the launched particle into its
+  // launch-control's data[] tracking array (a3 = control + 60, stride 32,
+  // count = [s1+0]). On the real game an armed launch always pairs a valid
+  // launch-state with a valid launch-control (sparticle-launch-control::spawn
+  // passes `this` as the control), so s1 is always a real object here. On
+  // arm64 the GOAL caller intermittently delivers the launch-control argument
+  // as #f (a backend arg-marshaling defect — arg4 / GOAL R8; see
+  // Gsprite-fix-summary.md). With s1 == #f the loop would scan from #f+60
+  // through the symbol table and dereference garbage -> SIGSEGV (the frame-185
+  // crash). When there is no launch-control there is nothing to register, so
+  // skip straight to building the sprite (block_37+); the particle still
+  // renders. Compare the 32-bit GOAL pointer — the bad arg can arrive with
+  // garbage high bits, so a full-width compare would miss the #f low word.
+  if (c->gprs[s1].du32[0] == c->gprs[s7].du32[0]) { goto block_37; }
+
   block_31:
   c->lw(v1, 0, a3);                                 // lw v1, 0(a3)
-#ifdef __aarch64__
-  // Garbage-triggered, UNCAPPED: fire only when the launcher pointer about to be
-  // dereferenced ([a3]) is outside the GOAL heap (>256MB). Logcat's TID column
-  // identifies the thread. This captures the exact crashing iteration.
-  if (c->gprs[v1].du32[0] > 0x10000000u) {
-    fprintf(stderr,
-      "GSPRITE-LPV-BAD s1=0x%x cnt=0x%x a3=0x%x [a3]=0x%x a0=0x%x a1=0x%x a3base=0x%x\n",
-      c->gprs[s1].du32[0], c->gprs[a2].du32[0], c->gprs[a3].du32[0],
-      c->gprs[v1].du32[0], c->gprs[a0].du32[0], c->gprs[a1].du32[0],
-      (unsigned)(c->gprs[s1].du32[0] + 60));
-  }
-#endif
   c->daddiu(a2, a2, -1);                            // daddiu a2, a2, -1
+  // Gsprite (arm64) defense-in-depth: [a3] is data[i].group-item, dereferenced
+  // just below ([v1] = [[a3]]). Never dereference a slot whose group-item is
+  // neither #f nor a plausible GOAL heap pointer (< 256 MB) — treat it as a
+  // non-match and keep scanning. The launch-control == #f case is already
+  // handled before the loop; with that guard this branch does not fire in
+  // practice (and x86 never hits it — its data[] is intact).
+  if (c->gprs[v1].du32[0] != c->gprs[s7].du32[0] && c->gprs[v1].du32[0] >= 0x10000000u) {
+    goto block_36;
+  }
   c->lw(v1, 0, v1);                                 // lw v1, 0(v1)
   // nop                                            // sll r0, r0, 0
   bc = c->sgpr64(v1) != c->sgpr64(a1);              // bne v1, a1, L119
