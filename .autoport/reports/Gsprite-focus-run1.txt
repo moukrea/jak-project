@@ -1,21 +1,6 @@
 t01s :: frame=0 sce_tris=0 spool=none ::   mCurrentFocus=null
-t02s :: frame=0 sce_tris=0 spool=none ::   mCurrentFocus=Window{1dca4a8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t03s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{1dca4a8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t04s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{1dca4a8 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t05s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t06s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t07s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t08s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t09s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t10s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t11s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t12s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t13s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t14s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t16s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t18s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t20s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t24s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t28s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t34s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
-t40s :: frame=4 sce_tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+t02s :: frame=0 sce_tris=0 spool=none ::   mCurrentFocus=Window{852ec87 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t03s :: frame=5 sce_tris=4 spool=name="ndi-intro" ::   mCurrentFocus=Window{852ec87 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t04s :: frame=60 sce_tris=354 spool=name="ndi-intro" ::   mCurrentFocus=Window{852ec87 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t05s :: frame=60 sce_tris=354 spool=name="ndi-intro" ::   mCurrentFocus=Window{852ec87 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t06s :: frame=120 sce_tris=354 spool=name="ndi-intro" ::   mCurrentFocus=Window{852ec87 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
