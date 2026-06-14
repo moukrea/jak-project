@@ -864,6 +864,18 @@ phases:
   validator: validators/phase-Gsprite-arm64-sparticle-mips2c-unnoop.sh
   max_turns: 1200
   max_retries: 3
+- id: Gtitle-attract-overspawn
+  name: 'Remove the spurious "Press CIRCLE to use" interaction prompt that appears during the title attract (chronological step 2 -
+    title flythrough polish). Pristine attract (.autoport/gold/pristine-boot-sequence.log) holds at target-title-play/-wait with NOTHING
+    title-only over-spawning; ours raises a gameplay use-prompt (interactable/process-drawable or HUD button-prompt active under
+    master-mode game in attract). Diff the attract process/actor list vs pristine (compare-3tier.sh --boot), name the spurious process,
+    fix at the source (no blanket prompt-suppression hack). Verify across the attract loop the prompt is gone, title still flies (G1),
+    Daxter/SCE still render (Gnd/Gsprite). goal_src LOCKED unless a documented arm64-runtime cause. Supervisor pixel-judges the attract
+    is prompt-free. Water + missing-elements = separate follow-ups. max_turns 1200.'
+  prompt: prompts/phase-Gtitle-attract-overspawn.md
+  validator: validators/phase-Gtitle-attract-overspawn.sh
+  max_turns: 1200
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
