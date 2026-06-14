@@ -483,6 +483,22 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/sprite/Sprite3_Distort.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/sprite/Sprite3_Glow.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/sprite/GlowRenderer.cpp"
+    # Gwater — ocean/water renderer family for the title flythrough over
+    # village1 (which carries the ocean). OceanMidAndFar (ocean-mid-far bucket,
+    # owns OceanTexture render-to-texture + OceanMid mesh) and OceanNear
+    # (ocean-near bucket) consume the ocean DMA built by the now-enabled ocean
+    # mips2c builders. CommonOceanRenderer is the shared RGB/alpha/env vertex
+    # path; the *_PS2.cpp TUs hold the VU2C-translated mesh builders; *_PC.cpp
+    # holds the GL draw + render-to-texture. GLES primitive-restart gated with
+    # the same __ANDROID__ fixed-index switch as TFragment/Merc2/Sprite3.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/CommonOceanRenderer.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanMidAndFar.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanMid.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanMid_PS2.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanNear.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanNear_PS2.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanTexture.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanTexture_PC.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/dma_helpers.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/Profiler.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/Shader.cpp"
