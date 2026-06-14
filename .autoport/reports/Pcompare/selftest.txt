@@ -1,0 +1,55 @@
+Phase Pcompare — objective pixel-compare gate SELF-TEST
+========================================================
+Tool:   .autoport/lib/frame_compare.py  (PIL-based, no numpy)
+Metric: fraction of pixels whose per-channel delta exceeds threshold=24/255,
+        after resizing the candidate to the golden's resolution.
+        MATCH = diff_frac <= tolerance (default 0.02), else MISMATCH.
+        (RMSE over all channels is also reported for context.)
+Goldens are 1280x720 PNGs captured from the pristine upstream desktop build
+(/home/emeric/code/jak-original-v033 @ c4bc4d3ff). Note: goldens carry an alpha
+channel; the tool flattens to RGB before comparing, so alpha never skews the
+score.
+
+Invocation contract (matches what the validator exercises):
+  python3 frame_compare.py GOLDEN CANDIDATE        -> exit 0 MATCH / exit 1 MISMATCH
+Exit code depends ONLY on the metric verdict; writing the diff image can never
+flip it (diff write is best-effort, wrapped, and falls back to a temp path).
+
+----------------------------------------------------------------------
+1) IDENTICAL  (expect MATCH / exit 0)
+----------------------------------------------------------------------
+reveal vs itself        MATCH    diff_frac=0.00000  rmse=0.00    exit=0   PASS
+
+----------------------------------------------------------------------
+2) GOLDEN vs BLACK  (expect MISMATCH / exit 1 — the gate must be SENSITIVE)
+   Black frame synthesized at the golden's dims: `convert -size 1280x720 xc:black`.
+   ALL goldens mismatch black, including the sparsest on-black logo beat, so the
+   validator's "first golden vs black" sub-test is robust regardless of sort order.
+----------------------------------------------------------------------
+intro-logo-reveal-f001110 vs black   MISMATCH  diff_frac=0.74371  rmse=126.51  exit=1  PASS
+intro-ndlogo-enter-f000400 vs black  MISMATCH  diff_frac=0.04209  rmse=47.76   exit=1  PASS
+intro-ndlogo-full-f000630  vs black  MISMATCH  diff_frac=0.05022  rmse=47.56   exit=1  PASS
+title-pressstart-f001590   vs black  MISMATCH  diff_frac=0.94397  rmse=134.30  exit=1  PASS
+
+----------------------------------------------------------------------
+3) DIFFERENT GOLDENS  (expect MISMATCH / exit 1)
+   The key case is two frames of the SAME animated ND logo (enter vs full):
+   the gate flags the 8.5% difference a human sees — exactly the beat that was
+   twice mis-declared "fixed" by eyeballing.
+----------------------------------------------------------------------
+intro-ndlogo-enter vs intro-ndlogo-full  MISMATCH  diff_frac=0.08489  rmse=64.34   exit=1  PASS
+intro-ndlogo-full  vs title              MISMATCH  diff_frac=0.95011  rmse=135.49  exit=1  PASS
+intro-logo-reveal  vs title              MISMATCH  diff_frac=0.97537  rmse=115.01  exit=1  PASS
+
+----------------------------------------------------------------------
+4) RESOLUTION NORMALIZATION (sanity)
+   Same image downscaled to 640x360 then compared to the 1280x720 original ->
+   diff_frac ~= 0.0023 (well under tolerance) -> MATCH. Confirms candidates at a
+   different resolution (e.g. an Android device screencap) are normalized, not
+   penalized, before scoring.
+----------------------------------------------------------------------
+
+RESULT: ALL SELF-TESTS PASS.
+  - identical -> MATCH (exit 0)
+  - different (incl. golden-vs-black and same-logo enter-vs-full) -> MISMATCH (exit 1)
+Diff images for every case are in .autoport/reports/Pcompare/diffs/ for visual review.
