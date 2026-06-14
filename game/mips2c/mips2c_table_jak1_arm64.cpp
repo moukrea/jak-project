@@ -441,15 +441,21 @@ bool a37_name_is_real(const std::string& name) {
       // were noop-bound on arm64 (not on this allowlist) -> the sprite bucket
       // stayed empty -> the SCE screen rendered BLACK (Gsce: A35-RENDER
       // draws=1-2 tris=2-4 in the SCE window; x86 has no noop allowlist so it
-      // binds the real code and renders). The four are the complete jak1
-      // sparticle mips2c set (sparticle-launcher + sparticle TUs); enabling them
-      // together avoids a half-enabled inner-noop (the A38 blerc / Gnd shadow
-      // DMA-cursor disease). Unlike blerc/shadow these are benign when noop'd
-      // (Gsce: title still flew at ~100k tris, no corruption), so flipping them
-      // to the real arm64 trampoline just matches the x86 oracle. Lights up the
-      // SCE logo + screen-space sprites generally (HUD / menu overlay / 2D).
-      "sp-launch-particles-var", "sp-process-block-2d", "sp-process-block-3d",
-      "particle-adgif",
+      // binds the real code and renders). The SCE screen is SCREEN-SPACE 2D, so
+      // it needs only the 2D launch path: sp-launch-particles-var (launcher) +
+      // sp-process-block-2d (per-frame 2D sprite-DMA builder) + particle-adgif
+      // (adgif shader). With the _call_goal8_asm_arm64 C->GOAL arg-shuffle fix
+      // these three build the SCE sprites correctly (SCE-window tris 4 -> 354,
+      // GSCE-SCE-RENDER fires) and the only mips2c->mips2c edge
+      // (sp-launch-particles-var -> particle-adgif) stays inside the set.
+      //
+      // sp-process-block-3d (the 3D world-particle processor) is deliberately
+      // NOT enabled: it is off the SCE 2D path, and binding it corrupts the
+      // per-frame launch-control list that sp-launch-particles-var later searches
+      // -> a wild launcher pointer (0x691edfe3) dereferenced in that builder's
+      // block_31 loop -> SIGSEGV at frame ~190 when the ndi (3D) particles spawn.
+      // Its arm64 translation needs its own oracle-diff phase; SCE is 2D.
+      "sp-launch-particles-var", "sp-process-block-2d", "particle-adgif",
   };
   for (auto* n : kSet) {
     if (name == n) return true;
