@@ -363,24 +363,25 @@
                       (let ((gp-2 (level-get *level* 'village1)))
                         (when gp-2
                           (load-state-want-levels 'title 'village1)
+                          ;; og:preserve-this — Gvillage (arm64/slow-load): request
+                          ;; 'display-self UNCONDITIONALLY here, exactly as pristine
+                          ;; upstream does. This request is what drives village1 from
+                          ;; 'loaded to 'active/displayed, which in turn lets the vis
+                          ;; ramdisk resolve and `all-visible?` finally leave 'loading.
+                          ;; Gnd (0445f78da) had gated this on (all-visible? != 'loading)
+                          ;; to stop the village rendering behind the Naughty Dog logo,
+                          ;; but that created a deadlock on the slow Android loader: the
+                          ;; village can never leave 'loading because the display-self
+                          ;; that would advance it is itself gated on having already left
+                          ;; 'loading -> ndi never deactivates -> the logo flythrough
+                          ;; never spawns -> the village stays black forever. The
+                          ;; village-behind-logo case stays covered because this whole
+                          ;; block only runs when bg-a == 1.0 (full blackout), so the
+                          ;; village is requested for display while the screen is black.
+                          (load-state-want-display-level 'village1 'display-self)
                           (load-state-want-vis 'vi1)
                           (set-force-inside! *load-state* 'village1 #t)
-                          ;; og:preserve-this — Gnd (arm64/slow-load): do NOT request
-                          ;; 'display-self until village1 has actually finished loading.
-                          ;; Upstream sets display-self unconditionally here as a side
-                          ;; effect of the readiness test; on a fast PC the level is
-                          ;; ready almost immediately so ndi deactivates the same
-                          ;; (or next) frame and the village is never seen. On the
-                          ;; slow Android loader village1 stays 'loading for tens of
-                          ;; seconds, so the early display-self made the village
-                          ;; render BEHIND the Naughty Dog logo for that whole window.
-                          ;; Gating display-self on load-complete makes it coincide
-                          ;; with the deactivate below, matching pristine's effective
-                          ;; behavior. (vis/levels/force-inside are display-neutral.)
-                          (let ((ready? (!= (-> gp-2 all-visible?) 'loading)))
-                            (when ready?
-                              (load-state-want-display-level 'village1 'display-self))
-                            ready?)))))
+                          (!= (-> gp-2 all-visible?) 'loading)))))
         (load-state-want-display-level 'village1 'special)
         (if (not (-> self done?)) (ja-abort-spooled-anim (-> self anim) (the-as art-joint-anim #f) -1))
         (set! (-> self done?) #t)
