@@ -9,7 +9,10 @@ uniform mat4 camera;
 uniform float fog_constant;
 uniform float fog_min;
 uniform float fog_max;
-uniform sampler1D tex_T10; // note, sampled in the vertex shader on purpose.
+// A36: Wx1 2D LUT instead of 1D — Tie3.cpp uploads the time-of-day colors as a
+// Wx1 GL_TEXTURE_2D (shared with the TFRAG3 path). texelFetch(ivec2(i,0)) is
+// texel-exact on desktop GL and required on GLES (no sampler1D).
+uniform sampler2D tex_T10; // note, sampled in the vertex shader on purpose.
 uniform int decal;
 
 out vec4 fragment_color;
@@ -55,7 +58,7 @@ void main() {
     fragment_color = vec4(1.0, 1.0, 1.0, 1.0);
   } else {
     // time of day lookup
-    fragment_color = texelFetch(tex_T10, time_of_day_index, 0);
+    fragment_color = texelFetch(tex_T10, ivec2(time_of_day_index, 0), 0);
     // color adjustment
     fragment_color *= 2.0;
     fragment_color.a *= 2.0;
