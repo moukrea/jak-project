@@ -188,13 +188,20 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       }
 
       // set up time of day texture.
+      // A36: Wx1 2D LUT instead of 1D. The non-envmap TIE draws share the
+      // TFRAG3 shader (see draw_matching_draws_for_tree), and tfrag3.vert was
+      // converted to `sampler2D tex_T10` with texelFetch(ivec2(i,0)). Sampling
+      // a sampler2D from a unit that only has a 1D texture bound returns black,
+      // which made every non-envmap TIE structure render as a black silhouette.
+      // Match TFragment.cpp's Wx1 GL_TEXTURE_2D upload so the shared shader
+      // reads real colors. (Also unblocks GLES, which has no glTexImage1D.)
       glActiveTexture(GL_TEXTURE10);
       glGenTextures(1, &lod_tree[l_tree].time_of_day_texture);
-      glBindTexture(GL_TEXTURE_1D, lod_tree[l_tree].time_of_day_texture);
-      glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 0, GL_RGBA,
-                   GL_UNSIGNED_INT_8_8_8_8, nullptr);
-      glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glBindTexture(GL_TEXTURE_2D, lod_tree[l_tree].time_of_day_texture);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
+                   GL_UNSIGNED_BYTE, nullptr);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
       glBindVertexArray(0);
 
@@ -264,7 +271,7 @@ bool Tie3::try_loading_level(const std::string& level, SharedRenderState* render
 void Tie3::discard_tree_cache() {
   for (int geo = 0; geo < 4; ++geo) {
     for (auto& tree : m_trees[geo]) {
-      glBindTexture(GL_TEXTURE_1D, tree.time_of_day_texture);
+      glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
 #ifdef __ANDROID__
       fprintf(stderr, "F1E-DELTEX site=tie-tod tex=%u\n", (unsigned)tree.time_of_day_texture);
 #endif
@@ -441,9 +448,9 @@ void Tie3::setup_tree(int idx,
   interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
 
   glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_1D, tree.time_of_day_texture);
-  glTexSubImage1D(GL_TEXTURE_1D, 0, 0, tree.colors->color_count, GL_RGBA,
-                  GL_UNSIGNED_INT_8_8_8_8_REV, m_color_result.data());
+  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
+                  m_color_result.data());
 
   // update proto vis mask
   if (proto_vis_data) {
@@ -562,7 +569,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
 
   glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_1D, tree.time_of_day_texture);
+  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
 
   glActiveTexture(GL_TEXTURE0);
   glEnable(GL_PRIMITIVE_RESTART);
@@ -944,7 +951,7 @@ void Tie3::render_tree_wind(int idx,
                render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
 
   glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_1D, tree.time_of_day_texture);
+  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
 
   glActiveTexture(GL_TEXTURE0);
   glEnable(GL_PRIMITIVE_RESTART);

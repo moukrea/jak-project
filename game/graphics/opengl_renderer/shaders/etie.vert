@@ -12,7 +12,10 @@ uniform float fog_constant;
 uniform float fog_min;
 uniform float fog_max;
 uniform vec4 envmap_tod_tint;
-uniform sampler1D tex_T10; // note, sampled in the vertex shader on purpose.
+// A36: declared sampler2D to match the Wx1 GL_TEXTURE_2D time-of-day LUT that
+// Tie3.cpp now uploads (the envmap second pass uses envmap_tod_tint and does
+// not texelFetch this, but the sampler type must match the bound texture).
+uniform sampler2D tex_T10; // note, sampled in the vertex shader on purpose.
 uniform int decal;
 
 out vec4 fragment_color;
