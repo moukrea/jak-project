@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 93,
+  "current_phase_idx": 94,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -87,7 +87,8 @@
     "Gnd-arm64-blendshape-dma-stomp": 2,
     "Gsce-first-frames-presents-screen": 1,
     "Gsprite-arm64-sparticle-mips2c-unnoop": 2,
-    "Gtitle-attract-overspawn": 1
+    "Gtitle-attract-overspawn": 1,
+    "Gwater-ocean-render": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -265,7 +266,8 @@
     "Gnd-arm64-blendshape-dma-stomp",
     "Gsce-first-frames-presents-screen",
     "Gsprite-arm64-sparticle-mips2c-unnoop",
-    "Gtitle-attract-overspawn"
+    "Gtitle-attract-overspawn",
+    "Gwater-ocean-render"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -330,9 +332,10 @@
     "Gnd-arm64-blendshape-dma-stomp": 1781364153.6454499,
     "Gsce-first-frames-presents-screen": 1781390757.3633118,
     "Gsprite-arm64-sparticle-mips2c-unnoop": 1781393447.7644885,
-    "Gtitle-attract-overspawn": 1781410458.0726178
+    "Gtitle-attract-overspawn": 1781410458.0726178,
+    "Gwater-ocean-render": 1781414253.5962622
   },
-  "last_update": "2026-06-14T05:14:22.026135+00:00",
+  "last_update": "2026-06-14T05:52:58.936479+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

@@ -456,6 +456,39 @@ bool a37_name_is_real(const std::string& name) {
       // block_31 loop -> SIGSEGV at frame ~190 when the ndi (3D) particles spawn.
       // Its arm64 translation needs its own oracle-diff phase; SCE is 2D.
       "sp-launch-particles-var", "sp-process-block-2d", "particle-adgif",
+      // Gwater: the ocean DMA builders. The title flythrough flies over
+      // Sandover village (village1 has :ocean *ocean-map-village1*,
+      // level-info.gc:25); draw-ocean runs every frame (drawable.gc:855) and
+      // the PC renderers OceanMidAndFar/OceanNear/CommonOceanRenderer +
+      // OceanTexture are registered unconditionally for jak1
+      // (OpenGLRenderer.cpp:674/852). But the GOAL ocean code that BUILDS the
+      // DMA those renderers consume calls five mips2c builders, all noop-bound
+      // on arm64 (logcat: A37-MIPS2C-FALLBACK init-ocean-far-regs /
+      // render-ocean-quad / ocean-interp-wave / ocean-generate-verts ->
+      // shared noop) -> empty ocean buckets -> wrong/missing water. x86 has no
+      // allowlist so it binds the real bodies and the water renders. Same
+      // arm64-only divergence class as Gsprite (sparticle), Gnd (shadow), A41
+      // (adgif). Enabling, with these properties verified:
+      //   * init-ocean-far-regs sets the shared ocean_regs_vfs that
+      //     render-ocean-quad reads via copy_vfs_from_other -> they must be
+      //     enabled TOGETHER (this is why the family is enabled as a unit).
+      //   * none of the five use integer idiv/mod -> no X8/R8 hazard
+      //     ([[Gsprite residual]]); ocean-interp-wave is pure bit/VU math,
+      //     render path uses VU vdiv / float Q only.
+      //   * ocean-generate-verts makes 6 mips2c->GOAL calls (upload-vu0-program,
+      //     vu-lights<-light-group!, vector*!) via ExecutionContext::jalr ->
+      //     _call_goal8_asm_systemv -> _call_goal8_asm_arm64, the exact
+      //     arg-shuffle trampoline Gsprite fixed (asm_funcs_arm64.s:288) -> the
+      //     args land in the right GOAL regs. NOT the sp-process-block-3d
+      //     failure mode (that was a wild launch-control pointer, not FFI).
+      //   * the noop returns are used as a visibility boolean (ocean.gc:103) or
+      //     discarded -> the noop only emptied geometry, never corrupted a DMA
+      //     cursor (unlike blerc/shadow), so enabling is downside-free.
+      // draw-large-polygon-ocean is reached only internally from
+      // render-ocean-quad's body (a direct C++ execute() call, not the
+      // trampoline), but it is listed for family completeness.
+      "init-ocean-far-regs", "render-ocean-quad", "draw-large-polygon-ocean",
+      "ocean-interp-wave", "ocean-generate-verts",
   };
   for (auto* n : kSet) {
     if (name == n) return true;

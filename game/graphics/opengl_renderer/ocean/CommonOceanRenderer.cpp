@@ -280,8 +280,15 @@ void CommonOceanRenderer::handle_near_adgif(const u8* data, u32 offset, u32 coun
 void CommonOceanRenderer::flush_near(SharedRenderState* render_state, ScopedProfilerNode& prof) {
   glBindVertexArray(m_ogl.vao);
   glBindBuffer(GL_ARRAY_BUFFER, m_ogl.vertex_buffer);
+#ifdef __ANDROID__
+  // GLES has no settable restart index (glPrimitiveRestartIndex is NULL in the
+  // loader). Fixed-index mode restarts on all-1s == UINT32_MAX for our u32
+  // index buffers — identical semantics. Same gate as TFragment/Merc2/Sprite3.
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
   glBufferData(GL_ARRAY_BUFFER, m_next_free_vertex * sizeof(Vertex), m_vertices.data(),
                GL_STREAM_DRAW);
   render_state->shaders[ShaderId::OCEAN_COMMON].activate();
@@ -457,8 +464,14 @@ void reverse_indices(u32* indices, u32 count) {
 void CommonOceanRenderer::flush_mid(SharedRenderState* render_state, ScopedProfilerNode& prof) {
   glBindVertexArray(m_ogl.vao);
   glBindBuffer(GL_ARRAY_BUFFER, m_ogl.vertex_buffer);
+#ifdef __ANDROID__
+  // GLES fixed-index restart (== UINT32_MAX for u32 indices); settable restart
+  // index does not exist. Same gate as TFragment/Merc2/Sprite3.
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
   glBufferData(GL_ARRAY_BUFFER, m_next_free_vertex * sizeof(Vertex), m_vertices.data(),
                GL_STREAM_DRAW);
   render_state->shaders[ShaderId::OCEAN_COMMON].activate();

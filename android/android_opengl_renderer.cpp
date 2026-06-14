@@ -18,6 +18,8 @@
 #include "game/graphics/opengl_renderer/background/TFragment.h"
 #include "game/graphics/opengl_renderer/foreground/Generic2BucketRenderer.h"
 #include "game/graphics/opengl_renderer/foreground/Merc2BucketRenderer.h"
+#include "game/graphics/opengl_renderer/ocean/OceanMidAndFar.h"
+#include "game/graphics/opengl_renderer/ocean/OceanNear.h"
 #include "game/graphics/opengl_renderer/sprite/Sprite3.h"
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
 #include "game/graphics/pipelines/opengl.h"
@@ -257,6 +259,18 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // F1a — sprite (particles): desktop jak1 table line 865 parity.
   set_renderer(std::make_unique<Sprite3>("sprite", (int)BucketId::SPRITE), BucketId::SPRITE, true);
 
+  // Gwater — ocean/water: the title flythrough flies over village1, which
+  // carries the ocean. OceanMidAndFar handles the ocean-mid-far bucket (it owns
+  // the OceanTexture render-to-texture + OceanMid mesh + the simple ocean-far
+  // quad); OceanNear handles the ocean-near bucket. Both consume the ocean DMA
+  // built by the now-enabled ocean mips2c builders (init-ocean-far-regs /
+  // render-ocean-quad / ocean-interp-wave / ocean-generate-verts). Desktop jak1
+  // table parity (OpenGLRenderer.cpp init_bucket_renderers_jak1).
+  set_renderer(std::make_unique<OceanMidAndFar>("ocean-mid-far", (int)BucketId::OCEAN_MID_AND_FAR),
+               BucketId::OCEAN_MID_AND_FAR, true);
+  set_renderer(std::make_unique<OceanNear>("ocean-near", (int)BucketId::OCEAN_NEAR),
+               BucketId::OCEAN_NEAR, true);
+
   // DirectRenderer — the desktop jak1 direct buckets, same batch sizes.
   set_renderer(std::make_unique<DirectRenderer>("debug", (int)BucketId::DEBUG, 0x20000),
                BucketId::DEBUG, true);
@@ -269,13 +283,11 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // Everything else: skip with a one-time named log (handled in dispatch).
   // Desktop names kept so the skip logs name the real renderer that's missing.
   const std::pair<BucketId, const char*> unported[] = {
-      {BucketId::OCEAN_MID_AND_FAR, "ocean-mid-far"},
       {BucketId::TIE_LEVEL0, "l0-tie"},
       {BucketId::TIE_LEVEL1, "l1-tie"},
       {BucketId::SHRUB_NORMAL_LEVEL0, "l0-shrub"},
       {BucketId::SHRUB_NORMAL_LEVEL1, "l1-shrub"},
       {BucketId::SHADOW, "shadow"},
-      {BucketId::OCEAN_NEAR, "ocean-near"},
       {BucketId::DEPTH_CUE, "depth-cue"},
   };
   for (auto& [id, name] : unported) {

@@ -660,8 +660,14 @@ void OceanTexture::flush(SharedRenderState* render_state, ScopedProfilerNode& pr
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
   // glDrawArrays(GL_TRIANGLE_STRIP, 0, NUM_VERTS);
+#ifdef __ANDROID__
+  // GLES fixed-index restart (== UINT32_MAX for u32 indices); settable restart
+  // index does not exist. Same gate as TFragment/Merc2/Sprite3.
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
+#endif
   glDrawElements(GL_TRIANGLE_STRIP, m_pc.index_buffer.size(), GL_UNSIGNED_INT, (void*)0);
   prof.add_draw_call();
   prof.add_tri(NUM_STRIPS * NUM_STRIPS * 2);
