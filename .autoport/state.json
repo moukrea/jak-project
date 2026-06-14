@@ -88,7 +88,8 @@
     "Gsce-first-frames-presents-screen": 1,
     "Gsprite-arm64-sparticle-mips2c-unnoop": 2,
     "Gtitle-attract-overspawn": 1,
-    "Gwater-ocean-render": 1
+    "Gwater-ocean-render": 1,
+    "Grefen-english-pristine-frames-audit": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -333,9 +334,10 @@
     "Gsce-first-frames-presents-screen": 1781390757.3633118,
     "Gsprite-arm64-sparticle-mips2c-unnoop": 1781393447.7644885,
     "Gtitle-attract-overspawn": 1781410458.0726178,
-    "Gwater-ocean-render": 1781414253.5962622
+    "Gwater-ocean-render": 1781414253.5962622,
+    "Grefen-english-pristine-frames-audit": 1781419622.7243588
   },
-  "last_update": "2026-06-14T05:52:58.936479+00:00",
+  "last_update": "2026-06-14T06:53:21.402125+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
