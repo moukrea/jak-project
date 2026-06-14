@@ -85,7 +85,8 @@
     "Gref-pristine-x86-gold-standard": 1,
     "Gintro-sce-nd-logo-render": 2,
     "Gnd-arm64-blendshape-dma-stomp": 2,
-    "Gsce-first-frames-presents-screen": 1
+    "Gsce-first-frames-presents-screen": 1,
+    "Gsprite-arm64-sparticle-mips2c-unnoop": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -321,9 +322,10 @@
     "Gref-pristine-x86-gold-standard": 1781353721.204168,
     "Gintro-sce-nd-logo-render": 1781356836.0817618,
     "Gnd-arm64-blendshape-dma-stomp": 1781364153.6454499,
-    "Gsce-first-frames-presents-screen": 1781390757.3633118
+    "Gsce-first-frames-presents-screen": 1781390757.3633118,
+    "Gsprite-arm64-sparticle-mips2c-unnoop": 1781393447.7644885
   },
-  "last_update": "2026-06-13T23:27:38.849429+00:00",
+  "last_update": "2026-06-14T00:39:04.716826+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
