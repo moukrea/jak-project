@@ -888,6 +888,19 @@ phases:
   validator: validators/phase-Gwater-ocean-render.sh
   max_turns: 1500
   max_retries: 3
+- id: Grefen-english-pristine-frames-audit
+  name: 'FOUNDATION (owner: English is the gold standard, not French). Capture the ENGLISH pristine gold build intro/title/menu
+    reference FRAMES (we only had the boot LOG, not frames -> could only verify "renders" not "matches real build") + pixel-diff the
+    current English phone against them. Run .autoport/gold/gk (pristine 704972dd6, English) -> .autoport/gold/pristine-en/ frames;
+    capture phone same beats; produce Grefen-divergences.md mapping each beat (SCE-or-none / ND-Daxter-logo bg / J&D-logo right-edge /
+    stray level-names / water anim+sunlight / missing geometry rocks-structures-see-through / camera trajectory / menu garbled) to
+    the owner issue list, ranked + chronological. Settles the SCE question empirically (does English-gold even show an SCE screen?) and
+    flags whether our Gsce un-gate forced a non-gold screen. REFERENCE/AUDIT only (no engine edits). Then fix divergences one at a time
+    against these frames. max_turns 1200.'
+  prompt: prompts/phase-Grefen-english-pristine-frames-audit.md
+  validator: validators/phase-Grefen-english-pristine-frames-audit.sh
+  max_turns: 1200
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
