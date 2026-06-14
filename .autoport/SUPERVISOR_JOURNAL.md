@@ -5191,3 +5191,25 @@ Each: diff phone vs FRENCH pristine reference, fix the one mechanism, pixel-matc
 Methodology that found these: TRUE pristine v0.3.3 reference (clean upstream clone,
 NOT our contaminated gold) + diff-our-build-vs-pristine + fix-at-mechanism +
 device pixel-verify. Orchestrator still stopped; targeted supervised subagent fixes.
+
+## 2026-06-14 — Pcompare: objective pixel-compare gate built (tooling-only)
+
+Built the automated measuring stick the owner asked for: device-frame vs
+pristine-oracle-frame pixel match, beat by beat (supervisor eyeballing ruled
+unreliable — the intro was twice mis-declared fixed off a couple of frames).
+- .autoport/lib/frame_compare.py: PIL diff gate (resize-normalize -> diff_frac =
+  fraction of pixels over per-channel thr 24/255; MATCH iff <= tol 0.02; always
+  emits a diff image; exit 0/1). Self-tested: two frames of the SAME animated ND
+  logo score 0.085 -> MISMATCH (catches what eyeballing missed).
+- .autoport/gold/pristine-frames/: 4 goldens from oracle jak-original-v033
+  @ c4bc4d3ff via a temporary env-gated frame_idx screenshot hook (REVERTED;
+  oracle left clean). Anchors: ND-enter f400, ND-full f630, reveal f1110, title f1590.
+- .autoport/lib/capture_device_beat.sh: device snapshot+gate helper (serial
+  eae4df44 only; verifies mCurrentFocus=jak1). Commit 350c59f8e.
+
+Anchor note: the 4 renderer/title fixes committed earlier today after the
+previous journal (8de84aea0) — 0445f78da (title village-hide), dd3ee36ad
+(ndi-deactivate deadlock), ac011616e (shrub bucket), d343e2164 (instanced TIE
+bucket) — are PRIOR-PHASE work and remain untouched. This journal advances the
+supervisor anchor to include them; Pcompare itself shipped ZERO game/compiler
+changes (only .autoport/ tooling + reference data).
