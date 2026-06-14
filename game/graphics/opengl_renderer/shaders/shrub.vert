@@ -13,7 +13,11 @@ uniform float fog_max;
 uniform int decal;
 uniform vec4 cam_trans;
 uniform mat4 pc_camera;
-uniform sampler1D tex_T10; // note, sampled in the vertex shader on purpose.
+// Wx1 2D LUT instead of 1D — GLES has no sampler1D/glTexImage1D (the arm64
+// device BLR'd into the NULL glTexImage1D loader slot). texelFetch on a Wx1
+// sampler2D is texel-exact on desktop GL too; Shrub.cpp uploads it as a Wx1
+// GL_TEXTURE_2D. Matches tfrag3.vert/the TIE shaders.
+uniform sampler2D tex_T10; // note, sampled in the vertex shader on purpose.
 
 out vec4 fragment_color;
 out vec3 tex_coord;
@@ -52,7 +56,7 @@ void main() {
   // start with the vertex color (only rgb, VIF filled in the 255.)
   fragment_color =  vec4(rgba_base, 1);
   // get the time of day multiplier
-  vec4 tod_color = texelFetch(tex_T10, time_of_day_index, 0);
+  vec4 tod_color = texelFetch(tex_T10, ivec2(time_of_day_index, 0), 0);
   // combine
   fragment_color *= tod_color * 4.0;
 
