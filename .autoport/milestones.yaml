@@ -876,6 +876,18 @@ phases:
   validator: validators/phase-Gtitle-attract-overspawn.sh
   max_turns: 1200
   max_retries: 3
+- id: Gwater-ocean-render
+  name: 'Fix water/ocean rendering in the title flythrough & village (chronological step 3 - title polish). Owner reports water
+    renders wrong. The ocean is a dedicated renderer family (OceanTexture render-to-texture + OceanMid/Near/Far LOD meshes +
+    CommonOceanRenderer, game/graphics/opengl_renderer/ocean/) separate from tfrag/merc/sprite — prime suspect for wrong water on GLES.
+    Gwater: empirically capture the water vs the pristine gold build (compare-3tier.sh), pin WHAT is wrong (missing/color/animation/
+    blend/render-to-texture/noop ocean DMA builders), fix at the GLES ocean mechanism (goal_src LOCKED), verify water matches the
+    original + title still flies (G1) + intro beats dont regress (Gnd/Gsprite/Gtitle). No painted/faked water. Supervisor pixel-judges
+    vs the original. Missing-elements + menu overlay = next follow-ups; then cinematic. max_turns 1500.'
+  prompt: prompts/phase-Gwater-ocean-render.md
+  validator: validators/phase-Gwater-ocean-render.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
