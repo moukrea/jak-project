@@ -520,6 +520,27 @@
     ((= arg2 'ndi) (go-virtual ndi)))
   (none))
 
+(defun title-attract-kill-interactables ()
+  "Gtitle (arm64): kill the village1 'use' interactables during the title attract,
+   exactly as the logo scene-script command-list does (logo-intro-2 frame 261 /
+   logo-loop frame 61 kill 'warp-gate-switch-3' and 'fishermans-boat-2'). On arm64
+   *target*'s control trans reads NaN during the attract (it is finite on x86), so
+   the warp-gate's proximity guard (>= 20480.0 (vector-vector-distance ...)) passes
+   on the arm64 NaN compare and the warp gate draws 'Press <CIRCLE> to use' in the
+   ndi-intro/logo-intro window BEFORE the frame-261 scene-script kill runs. Doing
+   the same kill up front (the switch's child warp-gate dies with it) matches
+   pristine, which never shows the prompt. Marks the entities dead so they do not
+   respawn for the rest of the title; village1 reloads fresh on New Game."
+  (let ((e (entity-by-name "warp-gate-switch-3")))
+    (when e
+      (if (-> e extra process) (kill! e))
+      (logior! (-> e extra perm status) (entity-perm-status dead))))
+  (let ((e (entity-by-name "fishermans-boat-2")))
+    (when e
+      (if (-> e extra process) (kill! e))
+      (logior! (-> e extra perm status) (entity-perm-status dead))))
+  (none))
+
 (defstate target-title (target)
   :event target-generic-event-handler
   :enter
@@ -543,6 +564,7 @@
   :trans
     (behavior ()
       (hide-hud-quick)
+      (title-attract-kill-interactables)
       (spool-push *art-control* "ndi-intro" 0 self -1.0)
       ;; og:preserve-this PAL patch here
       (if *sound-player-enable* (sound-group-pause (sound-group music))))
@@ -624,7 +646,10 @@
   :exit
     (-> target-title
         exit)
-  :trans hide-hud-quick
+  :trans
+    (behavior ()
+      (hide-hud-quick)
+      (title-attract-kill-interactables))
   :code anim-loop
   :post target-no-move-post)
 
