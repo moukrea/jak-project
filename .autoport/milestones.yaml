@@ -897,6 +897,16 @@ phases:
   validator: validators/phase-Pcompare-pixel-gate-infra.sh
   max_turns: 1500
   max_retries: 3
+- id: Gndlogo-intro-on-black-sequence
+  name: 'TOP PRIORITY (owner). The Naughty Dog logo beat (Daxter + Jak pushing the ND logo + stamp, on BLACK, before the title) must
+    PIXEL-MATCH the original build, gated OBJECTIVELY by frame_compare vs the 2400x1080 golden (touch-overlay masked) — no eyeballing.
+    Fix the ndi timing so village1 is preloaded but NOT displayed until ndi deactivates (dd3ee36ad made display-self unconditional ->
+    village renders behind the ND logo). Oracle-diff arm64 vs x86; rebuild TIT.DGO both backends. Regression-gated (title flies, village
+    renders, no crash).'
+  prompt: prompts/phase-Gndlogo-intro-on-black-sequence.md
+  validator: validators/phase-Gndlogo-intro-on-black-sequence.sh
+  max_turns: 1500
+  max_retries: 3
 - id: Grefen-english-pristine-frames-audit
   name: 'FOUNDATION (owner: English is the gold standard, not French). Capture the ENGLISH pristine gold build intro/title/menu
     reference FRAMES (we only had the boot LOG, not frames -> could only verify "renders" not "matches real build") + pixel-diff the
