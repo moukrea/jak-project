@@ -331,6 +331,13 @@
         (set! *camera-look-through-other* 2)
         (suspend))))
 
+;; og:preserve-this — Gndlogo: saved village1 level-info sun-fade for the ndi
+;; sun-suppression (see the ndi :trans). The ndi :trans forces these to 0 to keep
+;; the sun particle from spawning behind the logo; :exit restores them so the
+;; logo-intro flythrough renders the village with its real sun.
+(define *gnd-ndi-sf0* 0.0)
+(define *gnd-ndi-sf1* 0.0)
+
 (defstate ndi (logo)
   :virtual #t
   :event
@@ -343,10 +350,18 @@
       (apply-settings *setting-control*)
       (set-time! (-> self state-time))
       (if *time-of-day-proc* (set! (-> *time-of-day-proc* 0 hour) 12))
+      ;; og:preserve-this — Gndlogo: remember the level sun-fade so :exit can restore
+      ;; it after the ndi sun-suppression below (the flythrough needs the real sun).
+      (set! *gnd-ndi-sf0* (-> *level* level0 info sun-fade))
+      (set! *gnd-ndi-sf1* (-> *level* level1 info sun-fade))
       (set! (-> self done?) #f))
   :exit
     (behavior ()
       ((-> (method-of-type logo startup) exit))
+      ;; og:preserve-this — Gndlogo: restore the level sun-fade the :trans zeroed, so
+      ;; the logo-intro flythrough renders the village with its sun (see ndi :trans).
+      (set! (-> *level* level0 info sun-fade) *gnd-ndi-sf0*)
+      (set! (-> *level* level1 info sun-fade) *gnd-ndi-sf1*)
       (set-blackout-frames (seconds 0.035)))
   :trans
     (behavior ()
@@ -363,30 +378,53 @@
                       (let ((gp-2 (level-get *level* 'village1)))
                         (when gp-2
                           (load-state-want-levels 'title 'village1)
-                          ;; og:preserve-this — Gvillage (arm64/slow-load): request
-                          ;; 'display-self UNCONDITIONALLY here, exactly as pristine
-                          ;; upstream does. This request is what drives village1 from
-                          ;; 'loaded to 'active/displayed, which in turn lets the vis
-                          ;; ramdisk resolve and `all-visible?` finally leave 'loading.
-                          ;; Gnd (0445f78da) had gated this on (all-visible? != 'loading)
-                          ;; to stop the village rendering behind the Naughty Dog logo,
-                          ;; but that created a deadlock on the slow Android loader: the
-                          ;; village can never leave 'loading because the display-self
-                          ;; that would advance it is itself gated on having already left
-                          ;; 'loading -> ndi never deactivates -> the logo flythrough
-                          ;; never spawns -> the village stays black forever. The
-                          ;; village-behind-logo case stays covered because this whole
-                          ;; block only runs when bg-a == 1.0 (full blackout), so the
-                          ;; village is requested for display while the screen is black.
-                          (load-state-want-display-level 'village1 'display-self)
+                          ;; og:preserve-this — Gndlogo (arm64/slow-load): display
+                          ;; village1 ONLY after the ndi-intro spool has finished
+                          ;; (-> self done?). This replicates pristine exactly: on the
+                          ;; fast PC village1 is NOT yet 'loaded at ndi entry, so it is
+                          ;; never displayed during the spool and the Naughty Dog logo
+                          ;; renders on the black VOID (no active level -> no sky/ocean,
+                          ;; no geometry); only after the spool finishes does the gate
+                          ;; display-self it, which activates it and resolves the vis
+                          ;; ramdisk so all-visible? leaves 'loading and ndi deactivates
+                          ;; into the logo-intro flythrough. On the slow Android loader
+                          ;; village1 is ALREADY 'loaded at ndi entry, so the old
+                          ;; unconditional display-self (dd3ee36ad) put it in the display
+                          ;; list during the brief bg-a==1.0 entry window -> it stayed
+                          ;; rendered (sky+ocean+562k tris) behind the logo for the whole
+                          ;; intro. Gating display on done? keeps it merely 'loaded (and
+                          ;; thus invisible/black) until the spool ends. No 0445f78da
+                          ;; deadlock: the display request is gated on done? (spool end),
+                          ;; NOT on all-visible? — so display-self fires, vis resolves,
+                          ;; and ndi leaves. want-levels/want-vis/force-inside stay
+                          ;; unconditional (display-neutral: keep village1 loaded).
+                          (when (-> self done?)
+                            (load-state-want-display-level 'village1 'display-self))
                           (load-state-want-vis 'vi1)
                           (set-force-inside! *load-state* 'village1 #t)
-                          (!= (-> gp-2 all-visible?) 'loading)))))
+                          (and (-> self done?)
+                               (!= (-> gp-2 all-visible?) 'loading))))))
         (load-state-want-display-level 'village1 'special)
         (if (not (-> self done?)) (ja-abort-spooled-anim (-> self anim) (the-as art-joint-anim #f) -1))
         (set! (-> self done?) #t)
         (deactivate self))
-      (if *time-of-day-proc* (set! (-> *time-of-day-proc* 0 hour) 12)))
+      (if *time-of-day-proc* (set! (-> *time-of-day-proc* 0 hour) 12))
+      ;; og:preserve-this — Gndlogo (arm64/slow-load): suppress the sun particle during
+      ;; the ndi logo beat. time-of-day-update spawns `group-sun` (a yellow additive
+      ;; billboard at the sun direction, camera-following) whenever time-of-day is
+      ;; daytime AND (-> *time-of-day-context* sun-fade) != 0. The pristine PC has
+      ;; village1 'inactive here so its mood never runs -> sun-fade stays 0 -> no sun.
+      ;; The slow Android loader keeps village1 'loaded, so update-time-of-day runs its
+      ;; mood and recomputes the context sun-fade from the levels' info sun-fade every
+      ;; frame -> nonzero -> the sun spawns as a bright yellow corona behind the logo
+      ;; (the golden is pure black). We zero the level-info sun-fade (the recompute
+      ;; source, time-of-day.gc:364) so the recompute yields 0 -> the sun-spawn check
+      ;; fails and any live sun is killed; the context write is belt-and-suspenders for
+      ;; the entry frame. :enter saved the originals and :exit restores them, so the
+      ;; logo-intro flythrough still renders the village with its real sun.
+      (set! (-> *time-of-day-context* sun-fade) 0.0)
+      (set! (-> *level* level0 info sun-fade) 0.0)
+      (set! (-> *level* level1 info sun-fade) 0.0))
   :code
     (behavior ()
       (while (!= (file-status *art-control* (-> self next-anim name) 0) 'active)

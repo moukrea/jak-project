@@ -108,6 +108,9 @@ def main(argv):
     ap.add_argument("--diff", default=None, help="diff-image output path (default: next to candidate)")
     ap.add_argument("--no-diff", action="store_true", help="do not write a diff image")
     ap.add_argument("--quiet", action="store_true", help="suppress the human-readable summary line")
+    ap.add_argument("--ignore-rect", action="append", default=[], metavar="X,Y,W,H",
+                    help="rectangle in GOLDEN pixel coords to EXCLUDE from the metric (repeatable); "
+                         "use to mask the phone's on-screen touch overlay that the desktop golden lacks")
     args = ap.parse_args(argv)
 
     # --- Load (a load failure is a MISMATCH, not a crash) ---
@@ -127,10 +130,36 @@ def main(argv):
     # --- Metric: fraction of pixels over the per-channel threshold ---
     diff = ImageChops.difference(golden, candidate_n)
     mask_l = max_channel_delta(diff)
+
+    # --- Optional: EXCLUDE masked rectangles (e.g. the phone's touch overlay) ---
+    # The rects are in golden pixel coords. We zero the per-pixel delta inside
+    # them so they never count as "over", AND subtract their pixel count from the
+    # denominator so the fraction is taken over the VISIBLE (unmasked) area only.
+    ignored_px = 0
+    if args.ignore_rect:
+        from PIL import ImageDraw
+        gw, gh = golden.size
+        cover = Image.new("L", golden.size, 0)
+        drw = ImageDraw.Draw(cover)
+        for spec in args.ignore_rect:
+            try:
+                x, y, w, h = (int(v.strip()) for v in spec.split(","))
+            except Exception:
+                sys.stderr.write(f"frame_compare: bad --ignore-rect '{spec}' (want X,Y,W,H)\n")
+                return 2
+            x0, y0 = max(0, x), max(0, y)
+            x1, y1 = min(gw, x + w), min(gh, y + h)
+            if x1 > x0 and y1 > y0:
+                drw.rectangle([x0, y0, x1 - 1, y1 - 1], fill=255)
+        ignored_px = sum(cover.histogram()[1:])  # any nonzero value = covered pixel
+        if ignored_px:
+            mask_l = Image.composite(Image.new("L", golden.size, 0), mask_l, cover)
+
     hist = mask_l.histogram()  # 256 bins of per-pixel max-delta
     total = sum(hist)
+    total_eff = total - ignored_px  # denominator over unmasked pixels only
     over = sum(hist[args.threshold + 1:]) if args.threshold < 255 else 0
-    frac = (over / total) if total else 0.0
+    frac = (over / total_eff) if total_eff else 0.0
     rmse = rmse_from_diff(diff)
 
     is_match = frac <= args.tolerance
@@ -148,6 +177,8 @@ def main(argv):
         line = (f"{verdict}  diff_frac={frac:.5f} (tol={args.tolerance:.5f})  "
                 f"rmse={rmse:.2f}  thr={args.threshold}  "
                 f"golden={gw}x{gh} candidate={cw}x{ch}")
+        if ignored_px:
+            line += f"  masked_px={ignored_px} ({len(args.ignore_rect)} rect)"
         if diff_written:
             line += f"  diff={diff_written}"
         print(line)
