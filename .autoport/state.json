@@ -93,7 +93,7 @@
     "Pcompare-pixel-gate-infra": 1,
     "Gndlogo-intro-on-black-sequence": 1,
     "Gtitle-pixelmatch": 1,
-    "Gmenu-pixelmatch": 1
+    "Gmenu-pixelmatch": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -184,6 +184,9 @@
       "c6ebdcfa1e42",
       "f3afa9866403",
       "caf2a0beda14"
+    ],
+    "Gmenu-pixelmatch": [
+      "6dc493e53b25"
     ]
   },
   "stuck_reasons": {
@@ -354,7 +357,7 @@
     "Gtitle-pixelmatch": 1781485521.577208,
     "Gmenu-pixelmatch": 1781553750.7362545
   },
-  "last_update": "2026-06-15T21:09:01.556064+00:00",
+  "last_update": "2026-06-15T22:02:24.199482+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
