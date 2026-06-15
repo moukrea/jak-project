@@ -1,20 +1,203 @@
-t003s :: frame=0 spool=none ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t005s :: frame=60 spool=name="ndi-intro" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t008s :: frame=184 spool=name="ndi-intro" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t011s :: frame=300 spool=name="ndi-intro" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t014s :: frame=420 spool=name="ndi-intro" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t018s :: frame=540 spool=name="ndi-intro" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t022s :: frame=660 spool=name="ndi-intro" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t026s :: frame=780 spool=name="ndi-intro" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t030s :: frame=900 spool=name="ndi-intro" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t036s :: frame=1200 spool=name="logo-intro" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t042s :: frame=1500 spool=name="fishermans-boat-ride-to-misty" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t048s :: frame=1800 spool=name="logo-intro-2" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t054s :: frame=2160 spool=name="logo-intro-2" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t060s :: frame=2460 spool=name="logo-intro-2" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t070s :: frame=3000 spool=name="logo-intro-2" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t080s :: frame=3480 spool=name="logo-intro-2" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t090s :: frame=3960 spool=name="logo-intro-2" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t100s :: frame=4560 spool=name="logo-intro-2" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t110s :: frame=4980 spool=name="logo-loop" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-t120s :: frame=5520 spool=name="logo-loop" ::   mCurrentFocus=Window{15d32aa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+   warmup t=   849ms frame=0 spool=none
+   warmup t=  1857ms frame=0 spool=none
+   warmup t=  2865ms frame=5 spool=name="ndi-intro"
+   warmup t=  3875ms frame=60 spool=name="ndi-intro"
+   warmup t=  4885ms frame=120 spool=name="ndi-intro"
+   warmup t=  5894ms frame=192 spool=name="ndi-intro"
+   warmup t=  6902ms frame=240 spool=name="ndi-intro"
+   warmup t=  7914ms frame=300 spool=name="ndi-intro"
+   warmup t=  8924ms frame=360 spool=name="ndi-intro"
+   warmup t=  9934ms frame=420 spool=name="ndi-intro"
+   warmup t= 10945ms frame=480 spool=name="ndi-intro"
+   warmup t= 11955ms frame=540 spool=name="ndi-intro"
+   warmup t= 12965ms frame=600 spool=name="ndi-intro"
+   warmup t= 13976ms frame=660 spool=name="ndi-intro"
+   warmup t= 14989ms frame=720 spool=name="ndi-intro"
+   warmup t= 15999ms frame=780 spool=name="ndi-intro"
+   warmup t= 17011ms frame=840 spool=name="ndi-intro"
+   warmup t= 18023ms frame=900 spool=name="ndi-intro"
+   warmup t= 19037ms frame=960 spool=name="ndi-intro"
+   warmup t= 20057ms frame=1020 spool=name="ndi-intro"
+   warmup t= 21079ms frame=1080 spool=name="ndi-intro"
+   warmup t= 22097ms frame=1140 spool=name="logo-intro"
+   warmup t= 23113ms frame=1200 spool=name="logo-intro"
+   warmup t= 24132ms frame=1260 spool=name="logo-intro"
+   warmup t= 25153ms frame=1320 spool=name="logo-intro"
+   warmup t= 26174ms frame=1380 spool=name="logo-intro"
+   warmup t= 27197ms frame=1380 spool=name="logo-intro-2"
+   warmup t= 28218ms frame=1380 spool=name="logo-intro-2"
+   warmup t= 29236ms frame=1440 spool=name="logo-intro-2"
+   warmup t= 30254ms frame=1440 spool=name="logo-intro-2"
+   warmup t= 31273ms frame=1500 spool=name="logo-intro-2"
+   warmup t= 32300ms frame=1500 spool=name="sage-intro-sequence-d1"
+   warmup t= 33321ms frame=1558 spool=name="sage-intro-sequence-d1"
+   warmup t= 34344ms frame=1560 spool=name="logo-intro-2"
+   warmup t= 35371ms frame=1560 spool=name="logo-intro-2"
+   warmup t= 36395ms frame=1620 spool=name="logo-intro-2"
+   warmup t= 37419ms frame=1620 spool=name="logo-intro-2"
+   warmup t= 38444ms frame=1680 spool=name="logo-intro-2"
+   warmup t= 39470ms frame=1680 spool=name="logo-intro-2"
+   warmup t= 40490ms frame=1740 spool=name="logo-intro-2"
+   warmup t= 41510ms frame=1740 spool=name="logo-intro-2"
+   warmup t= 42530ms frame=1740 spool=name="logo-intro-2"
+   warmup t= 43550ms frame=1800 spool=name="logo-intro-2"
+   warmup t= 44571ms frame=1800 spool=name="logo-intro-2"
+   warmup t= 45593ms frame=1860 spool=name="logo-intro-2"
+   warmup t= 46619ms frame=1860 spool=name="logo-intro-2"
+   warmup t= 47638ms frame=1920 spool=name="logo-intro-2"
+   warmup t= 48658ms frame=1920 spool=name="logo-intro-2"
+   warmup t= 49678ms frame=1920 spool=name="logo-intro-2"
+   warmup t= 50698ms frame=1980 spool=name="logo-intro-2"
+   warmup t= 51719ms frame=1980 spool=name="logo-intro-2"
+   warmup t= 52740ms frame=2040 spool=name="logo-intro-2"
+   warmup t= 53758ms frame=2040 spool=name="logo-intro-2"
+   warmup t= 54779ms frame=2100 spool=name="logo-intro-2"
+   warmup t= 55799ms frame=2100 spool=name="logo-intro-2"
+   warmup t= 56820ms frame=2100 spool=name="logo-intro-2"
+   warmup t= 57843ms frame=2160 spool=name="logo-intro-2"
+   warmup t= 58866ms frame=2160 spool=name="logo-intro-2"
+   warmup t= 59888ms frame=2220 spool=name="logo-intro-2"
+   warmup t= 60907ms frame=2220 spool=name="logo-intro-2"
+   warmup t= 61929ms frame=2280 spool=name="logo-intro-2"
+   warmup t= 62955ms frame=2280 spool=name="logo-intro-2"
+   warmup t= 63977ms frame=2340 spool=name="logo-intro-2"
+   warmup t= 65000ms frame=2340 spool=name="logo-intro-2"
+   warmup t= 66023ms frame=2340 spool=name="logo-intro-2"
+   warmup t= 67047ms frame=2400 spool=name="logo-intro-2"
+   warmup t= 68069ms frame=2400 spool=name="logo-intro-2"
+   warmup t= 69088ms frame=2460 spool=name="logo-intro-2"
+   warmup t= 70110ms frame=2460 spool=name="logo-intro-2"
+   warmup t= 71133ms frame=2460 spool=name="logo-intro-2"
+   warmup t= 72154ms frame=2520 spool=name="logo-intro-2"
+   warmup t= 73178ms frame=2520 spool=name="logo-intro-2"
+   warmup t= 74200ms frame=2580 spool=name="logo-intro-2"
+   warmup t= 75222ms frame=2580 spool=name="logo-intro-2"
+   warmup t= 76245ms frame=2640 spool=name="logo-intro-2"
+   warmup t= 77268ms frame=2640 spool=name="logo-intro-2"
+   warmup t= 78291ms frame=2700 spool=name="logo-intro-2"
+   warmup t= 79314ms frame=2760 spool=name="logo-intro-2"
+   warmup t= 80337ms frame=2820 spool=name="logo-intro-2"
+   warmup t= 81363ms frame=2820 spool=name="logo-intro-2"
+   warmup t= 82385ms frame=2880 spool=name="logo-intro-2"
+   warmup t= 83417ms frame=2880 spool=name="logo-intro-2"
+   warmup t= 84435ms frame=2880 spool=name="logo-intro-2"
+   warmup t= 85455ms frame=2940 spool=name="logo-intro-2"
+   warmup t= 86474ms frame=2940 spool=name="logo-intro-2"
+   warmup t= 87493ms frame=2940 spool=name="logo-intro-2"
+   warmup t= 88513ms frame=3000 spool=name="logo-intro-2"
+   warmup t= 89532ms frame=3000 spool=name="logo-intro-2"
+   warmup t= 90554ms frame=3000 spool=name="logo-intro-2"
+   warmup t= 91580ms frame=3060 spool=name="logo-intro-2"
+   warmup t= 92605ms frame=3060 spool=name="logo-intro-2"
+   warmup t= 93634ms frame=3120 spool=name="logo-intro-2"
+   warmup t= 94658ms frame=3120 spool=name="logo-intro-2"
+   warmup t= 95678ms frame=3120 spool=name="logo-intro-2"
+   warmup t= 96700ms frame=3180 spool=name="logo-intro-2"
+   warmup t= 97731ms frame=3180 spool=name="logo-intro-2"
+   warmup t= 98769ms frame=3180 spool=name="logo-intro-2"
+   warmup t= 99793ms frame=3240 spool=name="logo-intro-2"
+   warmup t=100816ms frame=3240 spool=name="logo-intro-2"
+   warmup t=101839ms frame=3300 spool=name="logo-intro-2"
+   warmup t=102860ms frame=3300 spool=name="logo-intro-2"
+   warmup t=103884ms frame=3300 spool=name="logo-intro-2"
+   warmup t=104907ms frame=3360 spool=name="logo-intro-2"
+   warmup t=105931ms frame=3360 spool=name="logo-intro-2"
+   warmup t=106953ms frame=3420 spool=name="logo-intro-2"
+   warmup t=107977ms frame=3420 spool=name="logo-intro-2"
+   warmup t=108999ms frame=3420 spool=name="logo-intro-2"
+   warmup t=110024ms frame=3480 spool=name="logo-intro-2"
+   warmup t=111047ms frame=3480 spool=name="logo-intro-2"
+   warmup t=112069ms frame=3540 spool=name="logo-intro-2"
+   warmup t=113092ms frame=3540 spool=name="logo-intro-2"
+   warmup t=114112ms frame=3540 spool=name="logo-intro-2"
+   warmup t=115142ms frame=3600 spool=name="logo-intro-2"
+   warmup t=116161ms frame=3600 spool=name="logo-intro-2"
+   warmup t=117181ms frame=3660 spool=name="logo-intro-2"
+   warmup t=118205ms frame=3660 spool=name="logo-intro-2"
+   warmup t=119226ms frame=3720 spool=name="logo-intro-2"
+   warmup t=120245ms frame=3720 spool=name="logo-intro-2"
+   warmup t=121265ms frame=3780 spool=name="logo-intro-2"
+   warmup t=122287ms frame=3840 spool=name="logo-intro-2"
+   warmup t=123311ms frame=3840 spool=name="logo-intro-2"
+   warmup t=124339ms frame=3900 spool=name="logo-intro-2"
+rec t=125363ms frame=3900 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=126498ms frame=3960 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=127694ms frame=4080 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=128858ms frame=4140 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=130030ms frame=4200 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=131195ms frame=4260 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=132338ms frame=4320 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=133461ms frame=4380 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=134603ms frame=4440 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=135749ms frame=4440 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=136907ms frame=4500 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=138067ms frame=4560 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=139182ms frame=4620 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=140324ms frame=4620 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=141472ms frame=4680 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=142621ms frame=4740 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=143762ms frame=4800 tris=620337 spool=name="logo-intro-2" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=144903ms frame=4860 tris=620337 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=146046ms frame=4860 tris=620337 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=147208ms frame=4920 tris=620337 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=148356ms frame=4920 tris=620337 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=149503ms frame=4980 tris=620337 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=150658ms frame=4980 tris=620337 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=151809ms frame=5040 tris=620337 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=152951ms frame=5040 tris=620337 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=154096ms frame=5100 tris=668677 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=155243ms frame=5100 tris=668677 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=156384ms frame=5100 tris=668677 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=157525ms frame=5160 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=158685ms frame=5160 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=159830ms frame=5220 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=160976ms frame=5220 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=162134ms frame=5280 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=163287ms frame=5280 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=164447ms frame=5340 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=165615ms frame=5400 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=166782ms frame=5460 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=167944ms frame=5460 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=169084ms frame=5520 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=170225ms frame=5520 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=171377ms frame=5580 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=172528ms frame=5580 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=173671ms frame=5640 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=174839ms frame=5640 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=176009ms frame=5700 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=177153ms frame=5700 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=178307ms frame=5700 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=179478ms frame=5760 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=180623ms frame=5760 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=181762ms frame=5820 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=182903ms frame=5820 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=184041ms frame=5880 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=185182ms frame=5880 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=186331ms frame=5880 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=187491ms frame=5940 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=188638ms frame=5940 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=189822ms frame=6000 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=190963ms frame=6000 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=192128ms frame=6060 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=193295ms frame=6060 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=194423ms frame=6120 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=195552ms frame=6120 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=196702ms frame=6120 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=197844ms frame=6180 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=198997ms frame=6180 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=200128ms frame=6240 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=201284ms frame=6240 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=202428ms frame=6300 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=203585ms frame=6300 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=204738ms frame=6360 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=205875ms frame=6360 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=207026ms frame=6360 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=208200ms frame=6420 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=209386ms frame=6420 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=210551ms frame=6480 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=211705ms frame=6480 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=212846ms frame=6540 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=214010ms frame=6600 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=215171ms frame=6660 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+rec t=216326ms frame=6720 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+final :: frame=6960 tris=672162 spool=name="logo-loop" ::   mCurrentFocus=Window{7b6bf61 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
