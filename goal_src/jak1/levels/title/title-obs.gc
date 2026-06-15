@@ -272,13 +272,17 @@
         (logclear! (-> self draw status) (draw-status skip-bones)))
       (let ((a3-0 (new-stack-vector0))
             (a1-0 (new-stack-vector0)))
-        (let ((f0-0 (if (= (-> *setting-control* current aspect-ratio) 'aspect16x9) 0.87 1.0)))
-          (set-vector! a3-0 f0-0 f0-0 1.0 1.0))
-        (set-vector! a1-0
-                     (if (= (-> *setting-control* current aspect-ratio) 'aspect16x9) 2048.0 0.0)
-                     (if (= (-> *setting-control* current aspect-ratio) 'aspect16x9) -1228.8 0.0)
-                     0.0
-                     1.0)
+        ;; og:preserve-this — Gtitle-pixelmatch: the title logo main-joint placement
+        ;; branches on (-> *setting-control* current aspect-ratio). The pristine PC
+        ;; resolves this to 'aspect16x9 (its update-from-os reads the real widescreen
+        ;; window). On Android the PC window-size override is stubbed (pc-get-window-size
+        ;; -> 0), so the setting stays at the boot default 'aspect4x3 and the logo was
+        ;; rendered at scale 1.0 / offset (0 0) (too big, centered) instead of the
+        ;; widescreen scale 0.87 / offset (2048 -1228.8). The device IS widescreen
+        ;; (2400x1080, 20:9) and its 3D FOV already matches the pristine, so force the
+        ;; widescreen logo placement here to pixel-match the original title screen.
+        (set-vector! a3-0 0.87 0.87 1.0 1.0)
+        (set-vector! a1-0 2048.0 -1228.8 0.0 1.0)
         (set-trs! (-> self main-joint) a1-0 (the-as quaternion #f) a3-0))
       (ja-post)))
 
