@@ -907,6 +907,15 @@ phases:
   validator: validators/phase-Gndlogo-intro-on-black-sequence.sh
   max_turns: 1500
   max_retries: 3
+- id: Gtitle-pixelmatch
+  name: 'Chronological beat after the ND logo: the title screen ("PRESS START" over Sandover) must PIXEL-MATCH the original build, gated
+    objectively by frame_compare vs the 2400x1080 title-pressstart golden (overlay-masked, cross-GPU-calibrated threshold, diff-image
+    anti-gaming proof). Fix any divergence (stray level-names over PRESS START, J&D-logo edge, missing/extra geometry). Regression-gated:
+    the Gndlogo ND-logo beat must still match; village renders; no crash.'
+  prompt: prompts/phase-Gtitle-pixelmatch.md
+  validator: validators/phase-Gtitle-pixelmatch.sh
+  max_turns: 1500
+  max_retries: 3
 - id: Grefen-english-pristine-frames-audit
   name: 'FOUNDATION (owner: English is the gold standard, not French). Capture the ENGLISH pristine gold build intro/title/menu
     reference FRAMES (we only had the boot LOG, not frames -> could only verify "renders" not "matches real build") + pixel-diff the

@@ -89,7 +89,7 @@
     "Gsprite-arm64-sparticle-mips2c-unnoop": 2,
     "Gtitle-attract-overspawn": 1,
     "Gwater-ocean-render": 1,
-    "Grefen-english-pristine-frames-audit": 2,
+    "Grefen-english-pristine-frames-audit": 3,
     "Pcompare-pixel-gate-infra": 1,
     "Gndlogo-intro-on-black-sequence": 1
   },
@@ -347,7 +347,7 @@
     "Pcompare-pixel-gate-infra": 1781471650.207508,
     "Gndlogo-intro-on-black-sequence": 1781473830.864789
   },
-  "last_update": "2026-06-15T00:54:49.759415+00:00",
+  "last_update": "2026-06-15T01:02:05.317821+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
