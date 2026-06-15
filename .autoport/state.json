@@ -92,7 +92,8 @@
     "Grefen-english-pristine-frames-audit": 3,
     "Pcompare-pixel-gate-infra": 1,
     "Gndlogo-intro-on-black-sequence": 1,
-    "Gtitle-pixelmatch": 1
+    "Gtitle-pixelmatch": 1,
+    "Gmenu-pixelmatch": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -350,9 +351,10 @@
     "Grefen-english-pristine-frames-audit": 1781419622.7243588,
     "Pcompare-pixel-gate-infra": 1781471650.207508,
     "Gndlogo-intro-on-black-sequence": 1781473830.864789,
-    "Gtitle-pixelmatch": 1781485521.577208
+    "Gtitle-pixelmatch": 1781485521.577208,
+    "Gmenu-pixelmatch": 1781553750.7362545
   },
-  "last_update": "2026-06-15T02:55:55.917917+00:00",
+  "last_update": "2026-06-15T21:09:01.556064+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

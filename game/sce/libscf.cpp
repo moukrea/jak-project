@@ -15,7 +15,17 @@
 
 namespace ee {
 int sceScfGetAspect() {
+#ifdef __ANDROID__
+  // On Android the PC window-size aspect override (update-from-os/pc-get-window-size)
+  // is stubbed, so the game would otherwise boot at the 4:3 default and lay out 2D/UI
+  // (progress menu adjust-ratios, HUD) for 4:3 on an inherently-widescreen device,
+  // pushing icons/textures toward the screen center. The device is always widescreen,
+  // so report 16:9 as the boot default. Desktop keeps 4:3 (its saved settings / window
+  // override drive the real aspect).
+  return SCE_ASPECT_169;
+#else
   return SCE_ASPECT_43;
+#endif
 }
 
 int sceScfGetLanguage() {

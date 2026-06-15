@@ -663,6 +663,26 @@ void GLDisplay::render() {
       draw_splash(fbuf_w, fbuf_h);
     }
 
+    // --- AUTOPORT temp capture hook (revert after) ---
+    {
+      const char* e = getenv("AUTOPORT_SHOT_EVERY");
+      if (e) {
+        static uint64_t last = 0;
+        uint64_t f = g_gfx_data->frame_idx;
+        int every = atoi(e);
+        uint64_t start = getenv("AUTOPORT_SHOT_START") ? atoll(getenv("AUTOPORT_SHOT_START")) : 0;
+        uint64_t stop = getenv("AUTOPORT_SHOT_STOP") ? atoll(getenv("AUTOPORT_SHOT_STOP")) : ~0ULL;
+        if (f >= start && f <= stop && f - last >= (uint64_t)every) {
+          last = f;
+          g_screen_shot_settings->width = getenv("AUTOPORT_SHOT_W") ? atoi(getenv("AUTOPORT_SHOT_W")) : 1280;
+          g_screen_shot_settings->height = getenv("AUTOPORT_SHOT_H") ? atoi(getenv("AUTOPORT_SHOT_H")) : 720;
+          g_screen_shot_settings->msaa = getenv("AUTOPORT_SHOT_MSAA") ? atoi(getenv("AUTOPORT_SHOT_MSAA")) : 1;
+          snprintf(g_screen_shot_settings->name, 244, "autoport_f%06llu", (unsigned long long)f);
+          g_want_screenshot = true;
+        }
+      }
+    }
+
     render_game_frame(
         game_res_w, game_res_h, fbuf_w, fbuf_h, Gfx::g_global_settings.lbox_w,
         Gfx::g_global_settings.lbox_h, Gfx::g_global_settings.msaa_samples,
