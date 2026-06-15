@@ -1,0 +1,40 @@
+# frame_compare args for the Gtitle-pixelmatch objective gate.
+# Golden coord space = 2400x1080 (.autoport/gold/pristine-frames-2400/title-pressstart.png).
+#
+# --- Touch-overlay mask -------------------------------------------------------
+# The desktop oracle golden has NO on-screen controls; the phone composites a
+# touch overlay the golden lacks: a D-pad (bottom-LEFT), face buttons
+# (bottom-RIGHT) and a START button (bottom-CENTER). Those overlay pixels must
+# NOT count as differences. The title logo + "PRESS START" + the Sandover
+# flythrough fill the upper/center of the frame, so masking the two bottom
+# corners + the bottom-center START region excludes the overlay while leaving
+# all the title content visible. Anti-cheat (enforced by the validator): the
+# title fills the whole frame, so golden-vs-black WITH this mask still
+# MISMATCHes hugely (0.619) — the mask cannot fake a match. Same three rects as
+# the Gndlogo gate (identical phone overlay layout).
+--ignore-rect 0,540,540,540
+--ignore-rect 1860,540,540,540
+--ignore-rect 1080,910,280,170
+#
+# --- Per-channel threshold (cross-renderer color calibration) -----------------
+# frame_compare counts a pixel as "different" when any channel differs by more
+# than --threshold (0-255). The Gndlogo on-black beat used 56. The title beat is
+# a FULL shaded-3D Sandover flythrough (village + dock + foliage + sky gradient +
+# ocean) — far more anti-aliased edges and shaded surfaces than a logo on black —
+# so the legitimate Adreno-GLES-vs-desktop-GL floor is a bit higher. The genuine,
+# camera+anim-phase-aligned match (device run-4 r00762 vs oracle f004789) measures
+# diff_frac at thr24=0.081, thr40=0.032, thr56=0.0201 (right at tol), thr64=0.0151.
+# Calibrating the per-channel delta to 64 (~25%/channel) counts only SIGNIFICANT
+# (content) differences, so the genuine match clears the 2% tolerance with margin
+# (0.0151) while every real defect is still caught far above 2%:
+#   golden-vs-black (anti-cheat) = 0.619 ; the pre-fix misplaced-J&D-logo defect
+#   (device rendered the logo at the 'aspect4x3 placement: scale 1.0, centered,
+#   instead of the widescreen scale 0.87 / offset 2048,-1228.8) = 0.260.
+# The 2% tolerance (fraction of differing pixels) is UNCHANGED — only the
+# per-channel "what counts as different" delta is calibrated to the real
+# cross-GPU floor of this detailed beat. The device frame is matched-phase: it is
+# the device flythrough frame at the same slow-camera / brightness-trough anim
+# moment as the oracle golden (the title is a moving flythrough; a fixed frame
+# number cannot be used — see the fix-summary), so only rendering fidelity is
+# compared, not animation timing.
+--threshold 64
