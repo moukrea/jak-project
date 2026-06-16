@@ -916,18 +916,15 @@ phases:
   validator: validators/phase-Gtitle-pixelmatch.sh
   max_turns: 1500
   max_retries: 3
-- id: Grefen-english-pristine-frames-audit
-  name: 'FOUNDATION (owner: English is the gold standard, not French). Capture the ENGLISH pristine gold build intro/title/menu
-    reference FRAMES (we only had the boot LOG, not frames -> could only verify "renders" not "matches real build") + pixel-diff the
-    current English phone against them. Run .autoport/gold/gk (pristine 704972dd6, English) -> .autoport/gold/pristine-en/ frames;
-    capture phone same beats; produce Grefen-divergences.md mapping each beat (SCE-or-none / ND-Daxter-logo bg / J&D-logo right-edge /
-    stray level-names / water anim+sunlight / missing geometry rocks-structures-see-through / camera trajectory / menu garbled) to
-    the owner issue list, ranked + chronological. Settles the SCE question empirically (does English-gold even show an SCE screen?) and
-    flags whether our Gsce un-gate forced a non-gold screen. REFERENCE/AUDIT only (no engine edits). Then fix divergences one at a time
-    against these frames. max_turns 1200.'
-  prompt: prompts/phase-Grefen-english-pristine-frames-audit.md
-  validator: validators/phase-Grefen-english-pristine-frames-audit.sh
-  max_turns: 1200
+- id: Gmenu-pixelmatch
+  name: 'Chronological beat after the title: the MAIN MENU must match the original (owner: textures/icons garbled toward center).
+    DIAGNOSE-FIRST — owner is SKEPTICAL of the aspect-ratio theory, so PROVE the cause: capture the ORIGINAL menu golden (desktop,
+    press-start->menu, 2400x1080), then empirically test whether our x86 at 2400x1080 reproduces the garble (settles aspect-ratio
+    vs Android-specific). Diagnose the REAL root cause + fix (boot-CGO change => FULL consistent rebuild, no standalone CGO push).
+    Gate x86 menu vs the golden; device menu = supervisor+OWNER verified (owner presses START). Regression: intro->title still match.'
+  prompt: prompts/phase-Gmenu-pixelmatch.md
+  validator: validators/phase-Gmenu-pixelmatch.sh
+  max_turns: 1500
   max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real

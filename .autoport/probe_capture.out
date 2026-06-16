@@ -1,0 +1,34 @@
+== launching gk (probe) ==
+  gk pid=4191645
+== waiting for title (logo-loop) ==
+  title reached; waiting 5s then opening menu
+== open menu (focus+START) + collect 2 poses ==
+  cycle 1 done
+  cycle 2 done
+== harvest ==
+  shot total: 379
+drwxr-xr-x.  2 emeric emeric     200 16 juin  00:03 .
+drwxrwxrwt. 73 root   root     30500 16 juin  00:03 ..
+-rw-r--r--.  1 emeric emeric 2837456 16 juin  00:03 c1_autoport_f005440.png
+-rw-r--r--.  1 emeric emeric 2837456 16 juin  00:03 c1_autoport_f005450.png
+-rw-r--r--.  1 emeric emeric 2837456 16 juin  00:03 c1_autoport_f005460.png
+-rw-r--r--.  1 emeric emeric 2837456 16 juin  00:03 c1_autoport_f005470.png
+-rw-r--r--.  1 emeric emeric 2801794 16 juin  00:03 c2_autoport_f005860.png
+-rw-r--r--.  1 emeric emeric 2801794 16 juin  00:03 c2_autoport_f005870.png
+-rw-r--r--.  1 emeric emeric 2801794 16 juin  00:03 c2_autoport_f005880.png
+-rw-r--r--.  1 emeric emeric 2801794 16 juin  00:03 c2_autoport_f005890.png
+== focus log tail ==
+xfocus: gk window NOT found
+xfocus_tap: sent [28]
+xfocus: gk window NOT found
+xfocus_tap: sent [18]
+xfocus: gk window NOT found
+xfocus_tap: sent [28]
+xfocus: gk window NOT found
+xfocus_tap: sent [18]
+== gk log tail ==
+[03:15:754] [error] [screenshot] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glReadBuffer(invalid buffer GL_BACK)
+[03:15:754] [info] FBO Setup: requested 1920x1080, msaa 1
+[03:15:755] [info] FBO Setup: not using second temporary buffer
+Kernel dispatch time: 88.273 ms
+== stopping gk pid=4191645 ==

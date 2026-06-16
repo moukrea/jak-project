@@ -1,0 +1,15 @@
+=== BEFORE ===
+Sys. de fichiers Taille Utilisé Dispo Uti% Monté sur
+tmpfs              7,8G    6,3G  1,5G  82% /tmp
+3,9M	/tmp/gmenu-cap-16x9
+8,0K	/tmp/gmenu-launch.out
+1013M	/tmp/gmenu-oracle-menu
+1,2G	/tmp/gmenu-x86-16x9
+844K	/tmp/gmenu-x86-16x9.log
+4,0K	/tmp/gmenu-x86-16x9.log.focus
+4,0K	/tmp/gmenu-x86-16x9.repl.log
+966M	/tmp/gmenu-x86-4x3
+1,2G	/tmp/gmenu-x86-fly
+=== AFTER ===
+Sys. de fichiers Taille Utilisé Dispo Uti% Monté sur
+tmpfs              7,8G    2,1G  5,7G  27% /tmp
