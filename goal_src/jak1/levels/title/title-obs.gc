@@ -272,15 +272,15 @@
         (logclear! (-> self draw status) (draw-status skip-bones)))
       (let ((a3-0 (new-stack-vector0))
             (a1-0 (new-stack-vector0)))
-        ;; og:preserve-this — Gtitle-pixelmatch: the title logo main-joint placement
-        ;; branches on (-> *setting-control* current aspect-ratio). The pristine PC
-        ;; resolves this to 'aspect16x9 (its update-from-os reads the real widescreen
-        ;; window). On Android the PC window-size override is stubbed (pc-get-window-size
-        ;; -> 0), so the setting stays at the boot default 'aspect4x3 and the logo was
-        ;; rendered at scale 1.0 / offset (0 0) (too big, centered) instead of the
-        ;; widescreen scale 0.87 / offset (2048 -1228.8). The device IS widescreen
-        ;; (2400x1080, 20:9) and its 3D FOV already matches the pristine, so force the
-        ;; widescreen logo placement here to pixel-match the original title screen.
+        ;; og:preserve-this — Gmenu-ui-placement: the title logo main-joint must use the
+        ;; widescreen placement (scale 0.87, offset 2048,-1228.8) on the device. The
+        ;; pristine code branched this on the aspect ENUM 'aspect16x9, but Gmenu-ui-placement
+        ;; reverted the Android aspect ENUM back to 'aspect4x3 (the 16:9 enum's 0.75
+        ;; relative-x-scale bunched the progress menu on the 20:9 panel; the device now uses
+        ;; 4:3 + the float pc-sprite-adjust ultrawide path, like desktop). With the enum at
+        ;; 'aspect4x3 the old branch would put the logo at scale 1.0 centered, so hardcode
+        ;; the widescreen placement here — the device is always widescreen (2400x1080, 20:9)
+        ;; and its 3D FOV already matches the pristine title.
         (set-vector! a3-0 0.87 0.87 1.0 1.0)
         (set-vector! a1-0 2048.0 -1228.8 0.0 1.0)
         (set-trs! (-> self main-joint) a1-0 (the-as quaternion #f) a3-0))

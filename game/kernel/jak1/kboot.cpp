@@ -85,6 +85,23 @@ s32 goal_main(int argc, const char* const* argv) {
     masterConfig.aspect = SCE_ASPECT_FULL;
   }
 
+#ifdef __ANDROID__
+  // Gaspect-unstub DATA marker. On Android sceScfGetAspect() is forced to
+  // SCE_ASPECT_169 (game/sce/libscf.cpp) because the PC window-size aspect
+  // derivation (update-from-os/pc-get-window-size) is stubbed, which would
+  // otherwise leave the game at the 4:3 boot default and lay out the 2D menu/HUD
+  // for 4:3 on the widescreen device. masterConfig.aspect feeds DecodeAspect ->
+  // (scf-get-aspect), which settings.gc maps (2 => 'aspect16x9). Emit the resolved
+  // enum once so the phase validator can DATA-confirm widescreen from logcat
+  // (stderr is piped to logcat on Android).
+  fprintf(stderr, "GASPECT-DIAG aspect=%s raw=%d\n",
+          masterConfig.aspect == SCE_ASPECT_169    ? "16x9"
+          : masterConfig.aspect == SCE_ASPECT_FULL ? "full"
+                                                   : "4x3",
+          (int)masterConfig.aspect);
+  fflush(stderr);
+#endif
+
   // In retail game, disable debugging modes, and force on DiskBoot
   // MasterDebug = 0;
   // DiskBoot = 1;
