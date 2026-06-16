@@ -916,15 +916,15 @@ phases:
   validator: validators/phase-Gtitle-pixelmatch.sh
   max_turns: 1500
   max_retries: 3
-- id: Gmenu-pixelmatch
-  name: 'Chronological beat after the title: the MAIN MENU must match the original (owner: textures/icons garbled toward center).
-    DIAGNOSE-FIRST — owner is SKEPTICAL of the aspect-ratio theory, so PROVE the cause: capture the ORIGINAL menu golden (desktop,
-    press-start->menu, 2400x1080), then empirically test whether our x86 at 2400x1080 reproduces the garble (settles aspect-ratio
-    vs Android-specific). Diagnose the REAL root cause + fix (boot-CGO change => FULL consistent rebuild, no standalone CGO push).
-    Gate x86 menu vs the golden; device menu = supervisor+OWNER verified (owner presses START). Regression: intro->title still match.'
-  prompt: prompts/phase-Gmenu-pixelmatch.md
-  validator: validators/phase-Gmenu-pixelmatch.sh
-  max_turns: 1500
+- id: Gmenu-ui-placement
+  name: 'OPEN diagnosis+fix (owner: do NOT presume aspect-ratio): the menu UI elements are bunched in the CENTER instead of placed
+    where they belong, on the device ultrawide ~20:9/21:9 panel (2400x1080). Diagnose WHY from the UI placement code (progress.gc
+    adjust-ratios + 2D coord/scale mapping + aspect detection); DECISIVE test = does the ORIGINAL/x86 at 2400x1080 also center it
+    (=> add ultrawide support) or place it right (=> our build regressed)? Fix the real cause. Engine/boot-CGO => FULL rebuild + deploy.
+    DATA/mechanics-gated + NO screenshot/video grind; the menu placement is OWNER eye-verified on the deployed build.'
+  prompt: prompts/phase-Gmenu-ui-placement.md
+  validator: validators/phase-Gmenu-ui-placement.sh
+  max_turns: 1200
   max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
