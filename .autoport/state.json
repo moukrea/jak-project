@@ -95,7 +95,8 @@
     "Gtitle-pixelmatch": 1,
     "Gmenu-pixelmatch": 3,
     "Gaspect-unstub": 1,
-    "Gmenu-ui-placement": 1
+    "Gmenu-ui-placement": 0,
+    "Gnewgame-crash": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -288,7 +289,7 @@
     "Pcompare-pixel-gate-infra",
     "Gndlogo-intro-on-black-sequence",
     "Gtitle-pixelmatch",
-    "Gmenu-ui-placement"
+    "Gnewgame-crash"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -363,9 +364,10 @@
     "Gtitle-pixelmatch": 1781485521.577208,
     "Gmenu-pixelmatch": 1781553750.7362545,
     "Gaspect-unstub": 1781578631.6895506,
-    "Gmenu-ui-placement": 1781594098.1553116
+    "Gmenu-ui-placement": 1781594098.1553116,
+    "Gnewgame-crash": 1781604310.7121198
   },
-  "last_update": "2026-06-16T09:26:02.633936+00:00",
+  "last_update": "2026-06-16T12:49:27.664600+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
