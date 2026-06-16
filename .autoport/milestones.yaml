@@ -916,6 +916,15 @@ phases:
   validator: validators/phase-Gtitle-pixelmatch.sh
   max_turns: 1500
   max_retries: 3
+- id: Gnewgame-crash
+  name: 'Fix the crash when starting a NEW GAME (overwrite save -> intro cinematic) on device — blocks actually playing. Cinematic
+    works on x86 => arm64 codegen/runtime bug in the new-game/cinematic path. Repro via cpad_inject (or owner navigates), capture
+    crash forensics (name the function + arm64 mechanism), oracle-diff vs x86, fix. Clean-rebuild + deploy_verify (lands on device);
+    crash signature must be GONE; owner eye-confirms the cinematic plays. NO screenshot grind.'
+  prompt: prompts/phase-Gnewgame-crash.md
+  validator: validators/phase-Gnewgame-crash.sh
+  max_turns: 1200
+  max_retries: 3
 - id: Gmenu-ui-placement
   name: 'OPEN diagnosis+fix (owner: do NOT presume aspect-ratio): the menu UI elements are bunched in the CENTER instead of placed
     where they belong, on the device ultrawide ~20:9/21:9 panel (2400x1080). Diagnose WHY from the UI placement code (progress.gc
