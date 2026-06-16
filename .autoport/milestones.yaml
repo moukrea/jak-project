@@ -944,6 +944,17 @@ phases:
   validator: validators/phase-Gcine-pose.sh
   max_turns: 1500
   max_retries: 3
+- id: Gcine-crash3
+  name: 'RESIDUAL new-game cinematic crash: it now survives the Gol/Maia close-up cut (Gcine-crash2) and the NaN pose-blink (Gcine-pose,
+    60ba2f477) but STILL crashes a few beats LATER in the same pinkish-halo Gol/Maia portal scene (returns to Android home = native crash).
+    Gcine-crash2/Gcine-pose false-passed because their logs stopped at ~frame 9960; this phase MUST capture a LONG run well past the scene
+    into gameplay and prove the app is still FOREGROUND at end-of-run (no return-to-home). Reproduce on pose-fixed HEAD via cpad_inject,
+    forensics (or evidence the pose-guard already fixed it), oracle-diff vs x86, fix at the libgk.so/mips2c boundary (boot-CGO unsafe).
+    deploy_verify; long run with 0 sig 11/6/4, frame >= 10500, foreground=org.opengoal.gk.jak1. Owner eye-confirms play-through to gameplay.'
+  prompt: prompts/phase-Gcine-crash3.md
+  validator: validators/phase-Gcine-crash3.sh
+  max_turns: 1500
+  max_retries: 3
 - id: Gmenu-ui-placement
   name: 'OPEN diagnosis+fix (owner: do NOT presume aspect-ratio): the menu UI elements are bunched in the CENTER instead of placed
     where they belong, on the device ultrawide ~20:9/21:9 panel (2400x1080). Diagnose WHY from the UI placement code (progress.gc
