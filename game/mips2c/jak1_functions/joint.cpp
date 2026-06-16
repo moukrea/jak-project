@@ -1,16 +1,72 @@
 //--------------------------MIPS2C---------------------
+#include <array>
+#include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <unordered_map>
 
 #include "game/kernel/jak1/kscheme.h"
 #include "game/mips2c/mips2c_private.h"
 #ifdef __ANDROID__
+#include <sys/system_properties.h>
 #include <unistd.h>
 
 #include "common/util/FileUtil.h"
 #endif
 using namespace jak1;
 // clang-format off
+
+// Gcine-pose objective joint-sanity tripwire (arm64-only). The cinematic
+// character skeletons come out with NaN bone matrices on arm64 (x86 renders
+// them correctly): the per-joint quaternion the animation decompressor feeds
+// to cspace<-parented-transformq-joint! is zero/garbage, so
+// normalize_frame_quaternions does 1/sqrt(0)=inf, 0*inf=NaN, and the NaN
+// rotation/translation flows into the bone matrix and propagates parent->child
+// (the owner-reported cinematic "pose blink"). These counters measure it
+// objectively: g_nan = bad bone matrices written this frame (cspace),
+// g_norm_nan = NaN quaternions emitted by normalize. A per-render-frame tick
+// (android_gfx.cpp) buckets them into "glitch frames". g_skips counts the
+// leftover A37 suspicious-skip (which never fires here). Armed by
+// debug.opengoal.gpose.tripwire=1 / OG_GPOSE / a `gpose` marker file.
+#ifdef __aarch64__
+namespace gpose {
+std::atomic<unsigned> g_calls{0};
+std::atomic<unsigned> g_skips{0};
+std::atomic<unsigned> g_nan{0};
+std::atomic<unsigned> g_norm_nan{0};
+std::atomic<unsigned> g_glitch_frames{0};
+std::atomic<unsigned long long> g_total_skips{0};
+std::atomic<int> g_skip_log{0};
+std::atomic<int> g_nan_log{0};
+std::atomic<int> g_norm_log{0};
+std::atomic<int> g_root_log{0};
+std::atomic<unsigned long long> g_repaired{0};
+std::atomic<int> g_repaired_log{0};
+inline bool enabled() {
+  static const bool s_on = [] {
+    if (getenv("OG_GPOSE")) {
+      return true;
+    }
+#ifdef __ANDROID__
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.gpose.tripwire", buf) > 0 && buf[0] == '1') {
+      fprintf(stderr, "GPOSE tripwire armed (prop)\n");
+      return true;
+    }
+    auto p = file_util::get_jak_project_dir() / "gpose";
+    if (access(p.string().c_str(), F_OK) == 0) {
+      fprintf(stderr, "GPOSE tripwire armed (%s)\n", p.string().c_str());
+      return true;
+    }
+#endif
+    return false;
+  }();
+  return s_on;
+}
+}  // namespace gpose
+#endif  // __aarch64__
 
 namespace {
 struct Cache {
@@ -2054,10 +2110,24 @@ u64 execute(void* ctxt) {
   c->sw(a0, 0, sp);                                 // sw a0, 0(sp)
   c->daddiu(a0, a0, 128);                           // daddiu a0, a0, 128
 
+#ifdef __aarch64__
+  float ng_in_q[4] = {0, 0, 0, 0};
+#endif
   block_1:
   c->lqc2(vf4, 16, a0);                             // lqc2 vf4, 16(a0)
   c->lqc2(vf1, 0, a0);                              // lqc2 vf1, 0(a0)
   c->lqc2(vf7, 32, a0);                             // lqc2 vf7, 32(a0)
+#ifdef __aarch64__
+  // Capture the PRE-normalize decompressed quaternion (in-place at 16(a0)
+  // before a0 advances) so the NaN log shows whether the input was already
+  // zero/garbage (decompressor/anim-link problem) or sane (normalize math).
+  if (gpose::enabled()) {
+    u32 ia = (u32)c->sgpr64(a0) + 16;
+    if (ia >= 0x1000 && ia < (u32)(128 * 1024 * 1024 - 16)) {
+      memcpy(ng_in_q, g_ee_main_mem + ia, 16);
+    }
+  }
+#endif
   c->vmul(DEST::xyzw, vf10, vf4, vf4);              // vmul.xyzw vf10, vf4, vf4
   c->vmove(DEST::w, vf1, vf0);                      // vmove.w vf1, vf0
   c->vmove(DEST::w, vf7, vf0);                      // vmove.w vf7, vf0
@@ -2074,6 +2144,42 @@ u64 execute(void* ctxt) {
   c->daddiu(s2, s2, -1);                            // daddiu s2, s2, -1
   bc = c->sgpr64(s2) != 0;                          // bne s2, r0, L46
   c->sqc2(vf4, -32, a0);                            // sqc2 vf4, -32(a0)
+#ifdef __aarch64__
+  // Gcine-pose: catch NaN quaternions emitted by the normalize (1/sqrt(0) of a
+  // zero/garbage decompressed quat). This is the source the cspace bad-matrix
+  // tripwire sees downstream.
+  if (gpose::enabled()) {
+    // a0 has advanced +48 here; the joint's transformq is in-place:
+    // trans@(a0-48), quat@(a0-32), scale@(a0-16). Scan ALL THREE so we learn
+    // whether the decompressed accumulator itself carries a NaN (trans/scale
+    // included) vs only the quaternion. A NaN here = the NaN is born in the
+    // decompressor/source data; a clean accumulator = the NaN is introduced
+    // later in the goalc matrix-build (matrix<-transformq! / quaternion->matrix).
+    u32 ja = (u32)c->sgpr64(a0) - 48;
+    if (ja >= 0x1000 && ja < (u32)(128 * 1024 * 1024 - 48)) {
+      float tq[12];
+      memcpy(tq, g_ee_main_mem + ja, 48);  // [0..3]=trans [4..7]=quat [8..11]=scale
+      bool bad = false;
+      for (int i = 0; i < 12; i++) {
+        if (!std::isfinite(tq[i])) {
+          bad = true;
+          break;
+        }
+      }
+      if (bad) {
+        gpose::g_norm_nan.fetch_add(1, std::memory_order_relaxed);
+        int nl = gpose::g_norm_log.fetch_add(1, std::memory_order_relaxed);
+        if (nl < 100) {
+          fprintf(stderr,
+                  "GPOSE-NORMNAN #%d j@0x%x trans=(%.3g %.3g %.3g) quat=(%.4g %.4g %.4g %.4g) "
+                  "scale=(%.3g %.3g %.3g) in_q=(%.4g %.4g %.4g %.4g)\n",
+                  nl, ja, tq[0], tq[1], tq[2], tq[4], tq[5], tq[6], tq[7], tq[8], tq[9], tq[10],
+                  ng_in_q[0], ng_in_q[1], ng_in_q[2], ng_in_q[3]);
+        }
+      }
+    }
+  }
+#endif
   if (bc) {goto block_1;}                           // branch non-likely
 
   c->lw(a0, 0, sp);                                 // lw a0, 0(sp)
@@ -2455,9 +2561,72 @@ bool f1b_trs_enabled() {
   }();
   return s_on;
 }
+
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
   bool bc = false;
+#ifdef __aarch64__
+  // === Gcine-pose fix (arm64) ====================================================
+  // Cinematic character skeletons explode to NaN bone matrices on arm64. ROOT
+  // CAUSE (objectively localized, see Gpose-fix-summary.md): the new-game intro
+  // streams the sage-intro joint anims, but their align joint never finishes its
+  // "master slot" link in time on Android ("loader stall"/"could not find a
+  // master slot to link"). The root-motion aligner (compute-alignment! ->
+  // matrix-inv-scale!, ENGINE.CGO) then reads a degenerate align matrix and does
+  // 1.0/(vector-length==0) -> +inf -> NaN in the align quaternion/translation;
+  // the goalc root builder (cspace<-transformq+trans!) bakes that NaN actor
+  // world-translation into the SKELETON ROOT bone, and THIS body multiplies every
+  // child joint by that NaN parent -> the whole skeleton goes NaN -> merc skins to
+  // NaN -> the geometry flickers/vanishes (the owner's "pose blink"). It is NOT
+  // FTZ (engine-thread FPCR reads 0x0) and the decompressed accumulator
+  // (trans/quat/scale) is clean -- the NaN enters only via the root translation.
+  // The correct fix is a degenerate-scale guard in matrix-inv-scale! (ENGINE.CGO),
+  // but boot CGOs cannot be safely rebuilt/reseeded on this device (libgk.so is
+  // pinned to their layout -> SIGILL). So we repair at this propagation boundary,
+  // the recurring arm64 joint/merc class: before multiplying, if the PARENT bone
+  // matrix has any non-finite element, restore that element from a per-bone
+  // last-finite cache (or identity), so a child is never built from a NaN parent.
+  // Always-on (the fix), engine-thread only (no lock). x86 path is unchanged.
+  {
+    static std::unordered_map<u32, std::array<float, 16>> s_lastgood;
+    const u32 MX = (u32)(128 * 1024 * 1024 - 64);
+    u32 cspace_v = (u32)c->sgpr64(a0);
+    if (cspace_v >= 0x1000 && cspace_v < MX) {
+      u32 par_cs = 0;
+      memcpy(&par_cs, g_ee_main_mem + cspace_v + 0, 4);  // cspace.parent
+      if (par_cs >= 0x1000 && par_cs < MX) {
+        u32 par_bone = 0;
+        memcpy(&par_bone, g_ee_main_mem + par_cs + 16, 4);  // parent.bone (== body's t0)
+        if (par_bone >= 0x1000 && par_bone < MX) {
+          float* pm = reinterpret_cast<float*>(g_ee_main_mem + par_bone);
+          bool finite = true;
+          for (int i = 0; i < 16; i++) {
+            if (!std::isfinite(pm[i])) {
+              finite = false;
+              break;
+            }
+          }
+          if (finite) {
+            std::array<float, 16> snap;
+            memcpy(snap.data(), pm, 64);
+            s_lastgood[par_bone] = snap;
+          } else {
+            static const float kIdent[16] = {1, 0, 0, 0, 0, 1, 0, 0,
+                                              0, 0, 1, 0, 0, 0, 0, 1};
+            auto it = s_lastgood.find(par_bone);
+            const float* good = (it != s_lastgood.end()) ? it->second.data() : kIdent;
+            for (int i = 0; i < 16; i++) {
+              if (!std::isfinite(pm[i])) {
+                pm[i] = good[i];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  // === end Gcine-pose fix ========================================================
+#endif
   static u64 s_f1b_n = 0;
   bool f1b_dump = false;
   u32 f1b_a0 = 0, f1b_a1 = 0;
@@ -2486,6 +2655,35 @@ u64 execute(void* ctxt) {
       memcpy(&parentv, g_ee_main_mem + a0v, 4);
     }
     bool suspicious = (bonev < 0x100000) || (bonev >= 0x1800000 && bonev < 0x2000000);
+    if (gpose::enabled()) {
+      gpose::g_calls.fetch_add(1, std::memory_order_relaxed);
+      if (suspicious) {
+        gpose::g_skips.fetch_add(1, std::memory_order_relaxed);
+        gpose::g_total_skips.fetch_add(1, std::memory_order_relaxed);
+        int sl = gpose::g_skip_log.fetch_add(1, std::memory_order_relaxed);
+        if (sl < 400) {
+          // The stale matrix this skip leaves for merc to skin with (its
+          // translation row at +48) plus the tq input the GOAL decompressor
+          // produced. Tells us if the skipped bone ptr is corrupt vs valid.
+          float sx = 0, sy = 0, sz = 0, qx = 0, qy = 0, qz = 0, qw = 0;
+          if (bonev >= 0x1000 && bonev < (u32)(128 * 1024 * 1024 - 64)) {
+            memcpy(&sx, g_ee_main_mem + bonev + 48, 4);
+            memcpy(&sy, g_ee_main_mem + bonev + 52, 4);
+            memcpy(&sz, g_ee_main_mem + bonev + 56, 4);
+          }
+          if (a1v >= 0x1000 && a1v < (u32)(128 * 1024 * 1024 - 64)) {
+            memcpy(&qx, g_ee_main_mem + a1v + 16, 4);
+            memcpy(&qy, g_ee_main_mem + a1v + 20, 4);
+            memcpy(&qz, g_ee_main_mem + a1v + 24, 4);
+            memcpy(&qw, g_ee_main_mem + a1v + 28, 4);
+          }
+          fprintf(stderr,
+                  "GPOSE-SKIP #%d csp=0x%x parent=0x%x bone=0x%x stale_t=(%.3f %.3f %.3f) "
+                  "in_q=(%.4f %.4f %.4f %.4f)\n",
+                  sl, a0v, parentv, bonev, sx, sy, sz, qx, qy, qz, qw);
+        }
+      }
+    }
     if (s_calls < 16 || suspicious) {
       if (s_calls < 200) {
         fprintf(stderr, "A37-CSP call#%d cspace=0x%x tq=0x%x parent=0x%x bone=0x%x%s\n", s_calls,
@@ -2666,6 +2864,150 @@ u64 execute(void* ctxt) {
       fprintf(stderr, "A37-CSP CANARY-STOMP INSIDE-body\n");
     }
   }
+  // === Gcine-pose output repair (the fix, always-on, arm64) ===================
+  // Catch-all companion to the parent-repair at the top: any bone matrix this
+  // body just wrote that is non-finite (e.g. a joint whose transformq quaternion
+  // arrived NaN from a procedural / joint-mod path, or any residual the
+  // parent-repair didn't cover) is repaired element-wise from a per-bone
+  // last-finite cache (or identity). After this, no NaN bone matrix ever reaches
+  // the merc renderer -> the pose-blink cannot occur. Engine-thread only.
+  {
+    static std::unordered_map<u32, std::array<float, 16>> s_out_good;
+    const u32 RMX = (u32)(128 * 1024 * 1024 - 64);
+    u32 a2v = (u32)c->sgpr64(a2);
+    if (a2v >= 0x1000 && a2v < RMX) {
+      float* m = reinterpret_cast<float*>(g_ee_main_mem + a2v);
+      bool finite = true;
+      for (int i = 0; i < 16; i++) {
+        if (!std::isfinite(m[i])) {
+          finite = false;
+          break;
+        }
+      }
+      if (finite) {
+        std::array<float, 16> snap;
+        memcpy(snap.data(), m, 64);
+        s_out_good[a2v] = snap;
+      } else {
+        gpose::g_repaired.fetch_add(1, std::memory_order_relaxed);
+        int rl = gpose::g_repaired_log.fetch_add(1, std::memory_order_relaxed);
+        if (rl < 50) {
+          fprintf(stderr, "GPOSE-REPAIR #%d bone=0x%x (non-finite child repaired)\n", rl, a2v);
+        }
+        static const float kIdent[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+        auto it = s_out_good.find(a2v);
+        const float* good = (it != s_out_good.end()) ? it->second.data() : kIdent;
+        for (int i = 0; i < 16; i++) {
+          if (!std::isfinite(m[i])) {
+            m[i] = good[i];
+          }
+        }
+      }
+    }
+  }
+  // Gcine-pose: scan the bone matrix this call just wrote (a2 = cspace.bone,
+  // rows at +0/+16/+32/+48) for non-finite / absurd values — a pose-blink
+  // that shows up as a garbage written matrix (not a skip) is counted here.
+  if (gpose::enabled()) {
+    u32 a2v = (u32)c->sgpr64(a2);
+    if (a2v >= 0x1000 && a2v < (u32)(128 * 1024 * 1024 - 64)) {
+      float m[16];
+      memcpy(m, g_ee_main_mem + a2v, 64);
+      bool bad = false;
+      for (int i = 0; i < 16; i++) {
+        if (!std::isfinite(m[i]) || std::fabs(m[i]) > 1.0e12f) {
+          bad = true;
+          break;
+        }
+      }
+      if (bad) {
+        gpose::g_nan.fetch_add(1, std::memory_order_relaxed);
+        int nl = gpose::g_nan_log.fetch_add(1, std::memory_order_relaxed);
+        if (nl < 1000) {
+          // Dump cspace's INPUTS to localize where the NaN is born: the
+          // transformq (a1: trans@0, quat@16, scale@32) the anim decompressor
+          // produced, and the parent bone's translation row (t0+48). Input
+          // quat non-finite/zero -> upstream decompressor/normalize; inputs
+          // sane -> this body's own math; parent NaN -> inherited cascade.
+          u32 a1v = (u32)c->sgpr64(a1);
+          u32 t0v = (u32)c->sgpr64(t0);
+          float iq[4] = {0, 0, 0, 0}, it[3] = {0, 0, 0}, is[3] = {0, 0, 0}, pr3[4] = {0, 0, 0, 0};
+          if (a1v >= 0x1000 && a1v < (u32)(128 * 1024 * 1024 - 64)) {
+            memcpy(it, g_ee_main_mem + a1v + 0, 12);
+            memcpy(iq, g_ee_main_mem + a1v + 16, 16);
+            memcpy(is, g_ee_main_mem + a1v + 32, 12);
+          }
+          if (t0v >= 0x1000 && t0v < (u32)(128 * 1024 * 1024 - 64)) {
+            memcpy(pr3, g_ee_main_mem + t0v + 48, 16);
+          }
+          fprintf(stderr,
+                  "GPOSE-BADMAT #%d bone=0x%x row3=(%.3g %.3g %.3g %.3g) in_q=(%.4g %.4g %.4g %.4g) "
+                  "in_t=(%.3g %.3g %.3g) in_s=(%.3g %.3g %.3g) par=0x%x par_r3=(%.3g %.3g %.3g %.3g)\n",
+                  nl, a2v, m[12], m[13], m[14], m[15], iq[0], iq[1], iq[2], iq[3], it[0], it[1],
+                  it[2], is[0], is[1], is[2], t0v, pr3[0], pr3[1], pr3[2], pr3[3]);
+        }
+        // ROOT-FINDER: climb cspace.parent until a parent's bone matrix is
+        // finite — the last NaN cspace is the ORIGIN. Dump its builder
+        // (param0), added-translation vector (param1) value + the matrix's
+        // rotation row0 (NaN there => quaternion->matrix bug; finite there but
+        // NaN row3 => the added-translation/param1 vector is the NaN source).
+        {
+          int rl = gpose::g_root_log.fetch_add(1, std::memory_order_relaxed);
+          if (rl < 80) {
+            auto nan4 = [](const float* f) {
+              return !std::isfinite(f[0]) || !std::isfinite(f[1]) || !std::isfinite(f[2]) ||
+                     !std::isfinite(f[3]);
+            };
+            const u32 MX = (u32)(128 * 1024 * 1024 - 64);
+            u32 cs = (u32)c->sgpr64(a0);
+            u32 par = 0;
+            if (cs >= 0x1000 && cs < MX) {
+              memcpy(&par, g_ee_main_mem + cs + 0, 4);
+            }
+            u32 root = 0;
+            for (int g = 0; g < 64 && par >= 0x1000 && par < MX; g++) {
+              u32 pbone = 0;
+              memcpy(&pbone, g_ee_main_mem + par + 16, 4);
+              float pr3b[4] = {0, 0, 0, 0};
+              if (pbone >= 0x1000 && pbone < MX) {
+                memcpy(pr3b, g_ee_main_mem + pbone + 48, 16);
+              }
+              if (!nan4(pr3b)) break;
+              root = par;
+              memcpy(&par, g_ee_main_mem + par + 0, 4);
+            }
+            if (root >= 0x1000 && root < MX) {
+              s16 jnum = 0;
+              u32 p0 = 0, p1 = 0, rbone = 0, rjoint = 0;
+              memcpy(&jnum, g_ee_main_mem + root + 8, 2);
+              memcpy(&p0, g_ee_main_mem + root + 20, 4);
+              memcpy(&p1, g_ee_main_mem + root + 24, 4);
+              memcpy(&rbone, g_ee_main_mem + root + 16, 4);
+              memcpy(&rjoint, g_ee_main_mem + root + 4, 4);
+              s32 jointno = -1;
+              if (rjoint >= 0x1000 && rjoint < MX) {
+                memcpy(&jointno, g_ee_main_mem + rjoint + 4, 4);
+              }
+              float r0[4] = {0, 0, 0, 0}, r3[4] = {0, 0, 0, 0}, pv[4] = {0, 0, 0, 0};
+              if (rbone >= 0x1000 && rbone < MX) {
+                memcpy(r0, g_ee_main_mem + rbone + 0, 16);
+                memcpy(r3, g_ee_main_mem + rbone + 48, 16);
+              }
+              if (p1 >= 0x1000 && p1 < MX) {
+                memcpy(pv, g_ee_main_mem + p1, 16);
+              }
+              fprintf(stderr,
+                      "GPOSE-ROOT #%d root_csp=0x%x jnum=%d jointno=%d param0=0x%x param1=0x%x "
+                      "p1v=(%.4g %.4g %.4g %.4g) bone=0x%x r0=(%.3g %.3g %.3g %.3g) "
+                      "r3=(%.3g %.3g %.3g %.3g)\n",
+                      rl, root, jnum, jointno, p0, p1, pv[0], pv[1], pv[2], pv[3], rbone, r0[0],
+                      r0[1], r0[2], r0[3], r3[0], r3[1], r3[2], r3[3]);
+            }
+          }
+        }
+      }
+    }
+  }
 #endif  // __aarch64__
   if (f1b_dump && g_ee_main_mem && f1b_a0 >= 0x1000 && f1b_a1 >= 0x1000 &&
       f1b_a0 < (u32)(128 * 1024 * 1024 - 64) && f1b_a1 < (u32)(128 * 1024 * 1024 - 64)) {
@@ -2691,6 +3033,34 @@ u64 execute(void* ctxt) {
             rdf(f1b_a1 + 24), rdf(f1b_a1 + 28), rdf(f1b_a1 + 32), r3x, r3y, r3z);
   }
   return c->gprs[v0].du64[0];
+}
+
+// Gcine-pose: called once per rendered frame from android_gfx.cpp. Buckets the
+// per-call joint skips / bad matrices accumulated since the last frame into
+// "glitch frames" and logs them with the render frame index, so a bash harness
+// can count: frames with >=1 skip/bad-matrix == pose-blink frames.
+extern "C" void gpose_joint_frame_tick(unsigned long long fidx) {
+#ifdef __aarch64__
+  if (!gpose::enabled()) {
+    return;
+  }
+  unsigned sk = gpose::g_skips.exchange(0, std::memory_order_relaxed);
+  unsigned na = gpose::g_nan.exchange(0, std::memory_order_relaxed);
+  unsigned nn = gpose::g_norm_nan.exchange(0, std::memory_order_relaxed);
+  unsigned ca = gpose::g_calls.exchange(0, std::memory_order_relaxed);
+  if (sk > 0 || na > 0) {
+    unsigned gf = gpose::g_glitch_frames.fetch_add(1, std::memory_order_relaxed) + 1;
+    fprintf(stderr,
+            "GPOSE-GLITCH frame=%llu skips=%u badmat=%u normnan=%u calls=%u glitch_frames=%u "
+            "total_skips=%llu\n",
+            fidx, sk, na, nn, ca, gf, (unsigned long long)gpose::g_total_skips.load());
+  } else {
+    (void)ca;
+    (void)nn;
+  }
+#else
+  (void)fidx;
+#endif
 }
 
 void link() {

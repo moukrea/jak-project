@@ -1,0 +1,57 @@
+GPOSE JOINT-SANITY TRIPWIRE — objective pose-blink metric (NaN bone-matrix glitch frames)
+=========================================================================================
+RESULT: before=7416  after=0     (glitch frames eliminated)
+
+Metric definition
+-----------------
+A "glitch frame" is a rendered cinematic frame during which the arm64 joint
+pipeline produced >=1 NON-FINITE (NaN/inf) character bone matrix that would be
+skinned by the merc renderer (the literal "pose blink": the skeleton glitches
+into a garbage pose, then reverts). Measured on-device, arm64 (eae4df44), during
+the NEW-GAME intro cinematic driven headlessly via cpad_inject.
+
+The tripwire lives in game/mips2c/jak1_functions/joint.cpp (the arm64
+cspace<-parented-transformq-joint! body, the per-joint bone-matrix builder) and
+is armed with debug.opengoal.gpose.tripwire=1 (set by .autoport/Gpose_run.sh):
+ - GPOSE-BADMAT  : a bone matrix written by this body came out non-finite/absurd.
+ - GPOSE-NORMNAN : a quaternion emitted by normalize_frame_quaternions was NaN.
+ - GPOSE-GLITCH frame=N badmat=K : per-rendered-frame bucket (frame index from
+                  android_gfx.cpp st.frame_idx). glitch_frames counts frames
+                  with badmat>0 (i.e. NaN reaching the renderer, AFTER the fix's
+                  repair — so a non-zero value means NaN still escapes).
+
+BEFORE (defect reproduced) — unfixed build, run 2
+-------------------------------------------------
+  .autoport/reports/Gpose-routed-logcat-run2.log
+  GPOSE-GLITCH frames = 7416   (NaN bone matrices every cinematic frame from
+                                frame ~2247, when the sage-intro joint anims
+                                stream; ~80 NaN joints/frame, propagating
+                                parent->child through the whole skeleton)
+  highest A35-RENDER frame = 9660 ; crash signals = 0
+  Sample: GPOSE-BADMAT bone=0x222510 row3=(nan nan nan nan)
+          in_q=(0 0 0 1) in_t=(0 0 0) in_s=(1 1 1) par=0x2224b0 par_r3=(nan nan nan nan)
+  => the decompressed transformq (quat/trans/scale) is CLEAN; the NaN is
+     INHERITED from a parent (root) bone matrix.
+
+AFTER (defect eliminated) — fixed build, run 7
+----------------------------------------------
+  .autoport/reports/Gpose-routed-logcat-run7.log
+  GPOSE-GLITCH frames = 0
+  GPOSE-BADMAT (post-repair) = 0
+  GPOSE-NORMNAN = 0
+  GPOSE-REPAIR (non-finite children caught + repaired by the fix) > 0
+  highest A35-RENDER frame = 9420 (>= 9000) ; crash signals = 0
+  => no NaN bone matrix reaches the merc renderer; the cinematic plays fully
+     through to gameplay, crash-free.
+
+Intermediate evidence
+---------------------
+  run 5 (FPCR FZ-clear test): engine-thread FPCR = 0x0 -> flush-to-zero was NOT
+        set; clearing it did NOT fix the NaN (ruled out the FTZ hypothesis).
+  run 6 (parent-repair only): glitch frames 7416 -> 2715; the dominant align-root
+        NaN (early cinematic) cleared, exposing a residual NaN-input-quaternion
+        source from frame ~6708 (a far/late actor). The output-repair catch-all
+        (run 7) closes it -> 0.
+
+See .autoport/reports/Gpose-fix-summary.md for the full forensics, the named
+function + arm64 mechanism, the x86 oracle-diff, and the fix.

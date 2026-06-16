@@ -31,6 +31,9 @@
 // atomic load per frame when the debug property is unset. chain_phase=1
 // when called with a rendered chain (the property-"1" arm point).
 extern "C" void gk_a38_tripwire_frame_hook(int chain_phase);
+// Gcine-pose joint-sanity tripwire: per-frame bucket of cspace joint skips /
+// bad bone matrices (defined in game/mips2c/jak1_functions/joint.cpp).
+extern "C" void gpose_joint_frame_tick(unsigned long long frame_idx);
 
 #if defined(__aarch64__) && defined(__ANDROID__)
 // GND-HWWP: one-shot arm of the arm64 HARDWARE data watchpoint on the two
@@ -356,6 +359,7 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     d->renderer->render(DmaFollower(d->chain_data, d->chain_offset), options);
 
     const auto& st = d->renderer->stats();
+    gpose_joint_frame_tick((unsigned long long)st.frame_idx);
     const u64 n = d->frames_rendered.fetch_add(1) + 1;
     if (n <= 5 || (n % 60) == 0 || st.buckets_skipped > 0) {
       static u32 s_last_logged_skips = 0;
