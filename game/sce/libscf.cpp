@@ -15,17 +15,17 @@
 
 namespace ee {
 int sceScfGetAspect() {
-#ifdef __ANDROID__
-  // On Android the PC window-size aspect override (update-from-os/pc-get-window-size)
-  // is stubbed, so the game would otherwise boot at the 4:3 default and lay out 2D/UI
-  // (progress menu adjust-ratios, HUD) for 4:3 on an inherently-widescreen device,
-  // pushing icons/textures toward the screen center. The device is always widescreen,
-  // so report 16:9 as the boot default. Desktop keeps 4:3 (its saved settings / window
-  // override drive the real aspect).
-  return SCE_ASPECT_169;
-#else
+  // NOTE (Gmenu-ui-placement): do NOT force SCE_ASPECT_169 on Android. An earlier fix did
+  // that, intending to push the 2D/UI off the 4:3 boot default — but the 16:9 aspect ENUM
+  // makes set-aspect-ratio set *video-parms* relative-x-scale to 0.75 (a 16:9 horizontal
+  // squeeze), which BUNCHED the progress menu into the center of the device's 20:9
+  // (2400x1080) panel. The correct ultrawide layout (verified by running desktop x86 at a
+  // true 2.22 window: enum 4:3 spreads, enum 16:9 bunches) keeps the aspect ENUM at the
+  // pristine 'aspect4x3 (relative-x-scale 1.0) and lets the FLOAT (-> *pc-settings*
+  // aspect-ratio), which IS correctly auto-derived on the device, drive the per-element
+  // pc-sprite-adjust-* spread for the real panel aspect. So report the pristine 4:3 boot
+  // default on every platform; the float path handles widescreen.
   return SCE_ASPECT_43;
-#endif
 }
 
 int sceScfGetLanguage() {

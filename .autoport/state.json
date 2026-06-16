@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 97,
+  "current_phase_idx": 98,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -93,7 +93,9 @@
     "Pcompare-pixel-gate-infra": 1,
     "Gndlogo-intro-on-black-sequence": 1,
     "Gtitle-pixelmatch": 1,
-    "Gmenu-pixelmatch": 3
+    "Gmenu-pixelmatch": 3,
+    "Gaspect-unstub": 1,
+    "Gmenu-ui-placement": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -187,7 +189,8 @@
     ],
     "Gmenu-pixelmatch": [
       "6dc493e53b25",
-      "6dc493e53b25"
+      "6dc493e53b25",
+      "7dac5e9c3ffd"
     ]
   },
   "stuck_reasons": {
@@ -284,7 +287,8 @@
     "Gwater-ocean-render",
     "Pcompare-pixel-gate-infra",
     "Gndlogo-intro-on-black-sequence",
-    "Gtitle-pixelmatch"
+    "Gtitle-pixelmatch",
+    "Gmenu-ui-placement"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -302,7 +306,8 @@
     "A19-goalc-arm64-codegen-fixes",
     "A20-goalc-arm64-field-offset",
     "A38-android-float-spray-tripwire-goal-frame",
-    "Grefen-english-pristine-frames-audit"
+    "Grefen-english-pristine-frames-audit",
+    "Gmenu-pixelmatch"
   ],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
@@ -356,9 +361,11 @@
     "Pcompare-pixel-gate-infra": 1781471650.207508,
     "Gndlogo-intro-on-black-sequence": 1781473830.864789,
     "Gtitle-pixelmatch": 1781485521.577208,
-    "Gmenu-pixelmatch": 1781553750.7362545
+    "Gmenu-pixelmatch": 1781553750.7362545,
+    "Gaspect-unstub": 1781578631.6895506,
+    "Gmenu-ui-placement": 1781594098.1553116
   },
-  "last_update": "2026-06-15T23:03:41.201330+00:00",
+  "last_update": "2026-06-16T09:26:02.633936+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

@@ -1,0 +1,5 @@
+   warmup t=   933ms frame=0 spool=none
+   warmup t=  1939ms frame=0 spool=none
+   warmup t=  2945ms frame=0 spool=none
+rec t=  4959ms frame=5 tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}
+final :: frame=5 tris=4 spool=name="0common.TXT" ::   mCurrentFocus=Window{c93fdaa u0 com.miui.home/com.miui.home.launcher.Launcher}

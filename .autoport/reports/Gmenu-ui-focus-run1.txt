@@ -1,0 +1,2 @@
+title-fixed-run1 :: frame=1740 tris=573795 sig11=0 ::   mCurrentFocus=Window{68427f0 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+menu-fixed-run1 :: frame=2100 tris=616421 sig11=0 ::   mCurrentFocus=Window{68427f0 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
