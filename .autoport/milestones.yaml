@@ -934,6 +934,16 @@ phases:
   validator: validators/phase-Gcine-crash2.sh
   max_turns: 1500
   max_retries: 3
+- id: Gcine-pose
+  name: 'Cinematic character models "switch poses in blinks" (glitch into a wrong pose for a frame, then snap back and resume) — the
+    new-game intro cinematic now plays fully through (Gcine-crash2) but characters pose-glitch. SINGLE arm64 defect, almost certainly
+    the recurring joint-decompress / merc skeleton-animation class (plays correct on x86). Localize via an OBJECTIVE joint-sanity tripwire
+    (before>0 -> after=0), name the function + arm64 mechanism, oracle-diff vs x86, fix. Clean-rebuild + deploy_verify; cinematic still
+    plays through (frame >= 9000, crash-free); owner eye-confirms smooth poses. Camera/cadence/water/green-glow are SEPARATE phases.'
+  prompt: prompts/phase-Gcine-pose.md
+  validator: validators/phase-Gcine-pose.sh
+  max_turns: 1500
+  max_retries: 3
 - id: Gmenu-ui-placement
   name: 'OPEN diagnosis+fix (owner: do NOT presume aspect-ratio): the menu UI elements are bunched in the CENTER instead of placed
     where they belong, on the device ultrawide ~20:9/21:9 panel (2400x1080). Diagnose WHY from the UI placement code (progress.gc
