@@ -37,10 +37,10 @@ NEWEST_SRC=$(find game/graphics game/kernel android -type f \( -name '*.cpp' -o 
 if [ -n "$NEWEST_SRC" ] && [ "$SO_MTIME" -lt "$NEWEST_SRC" ]; then die "libgk.so ($(date -d @$SO_MTIME +%H:%M)) is OLDER than newest source ($(date -d @$NEWEST_SRC +%H:%M)) — STALE build, rebuild before deploy"; fi
 echo "  ok: libgk.so newer than newest source"
 
-# 2. Not stale vs HEAD commit.
-HEAD_T=$(git show -s --format=%ct HEAD)
-[ "$SO_MTIME" -ge "$HEAD_T" ] || die "libgk.so older than HEAD commit ($(git rev-parse --short HEAD)) — build predates the fix; rebuild"
-echo "  ok: libgk.so built after HEAD ($(git rev-parse --short HEAD))"
+# 2. (removed) "newer than HEAD commit time" — FALSE-POSITIVES on the normal
+# build-then-commit flow (the .so is built before the commit that packages it).
+# Freshness-vs-source (check 1) + the build==APK==device chain (check 3) are the
+# real guarantees that the device runs a .so reflecting the current source.
 
 # 3. Chain: build == APK == device.
 TMP=$(mktemp -d); trap "rm -rf $TMP" EXIT
