@@ -13,7 +13,19 @@ class GlowRenderer {
   void flush(SharedRenderState* render_state, ScopedProfilerNode& prof);
   void draw_debug_window();
 
+#ifdef __ANDROID__
+  // GLES/Adreno: the "new" glow-probe path copies the scene depth by sampling the
+  // probe FBO's packed GL_DEPTH24_STENCIL8 texture as a regular sampler2D and
+  // re-emitting it via gl_FragDepth (glow_depth_copy.frag). On Adreno this depth
+  // round-trip does not work, so every glow probe reads as "fully visible" and the
+  // sun-glow flare is drawn at full intensity -> the giant daylight light blob on
+  // the title. The "old" path instead draws probes straight into the probe FBO
+  // using a real hardware depth test against the blitted depth attachment and only
+  // ever samples normal RGBA8 color textures, which is GLES-safe. Use it on Android.
+  bool new_mode = false;
+#else
   bool new_mode = true;
+#endif
 
   // Vertex can hold all possible values for all passes. The total number of vertices is very small
   // so it ends up a lot faster to do a single upload, even if the size is like 50% larger than it
