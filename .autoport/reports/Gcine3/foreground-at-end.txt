@@ -1,0 +1,4 @@
+# Gcine3 end-of-run foreground check (run 3, 2026-06-16T23:57:24+02:00)
+mCurrentFocus_at_end:   mCurrentFocus=Window{c20d258 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+app_pid_at_end: 23091
+crashed: no

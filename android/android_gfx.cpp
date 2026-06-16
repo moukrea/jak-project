@@ -360,6 +360,62 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
 
     const auto& st = d->renderer->stats();
     gpose_joint_frame_tick((unsigned long long)st.frame_idx);
+
+    // === Gcine-crash3: process::deactivate code-stomp guard (the fix, arm64) ====
+    // In the new-game intro's Gol/Maia portal scene the arm64 envmap merc draw
+    // (l0-pris-merc bucket, the villains spawned with 'blend-shape) writes ~0x40
+    // bytes -- a miscalculated base in the render/DMA path -- over the GOAL kernel
+    // `process::deactivate` method's code in KERNEL.CGO at GOAL 0x191260. The next
+    // ORDINARY process deactivation then takes gkernel.gc:1946's `b.ne` into the
+    // corrupted bytes (GOAL 0x191278) and executes a non-instruction -> SIGILL
+    // (sig 4) -> the app dies and Android returns to the launcher. Confirmed a
+    // RUNTIME stomp: the APK's KERNEL.CGO is byte-identical to out/jak1-arm64/iso
+    // yet device memory at 0x191260 holds host/native pointers + floats, not
+    // deactivate's instructions. The write is a DMA/SIMD-class store the A38
+    // mprotect tripwire cannot see (a content canary catches it). KERNEL.CGO is a
+    // boot CGO that cannot be standalone-rebuilt/pushed on this device, and the
+    // writer lives in the render path, so -- exactly like the Gcine-pose NaN bone
+    // repair -- we snapshot deactivate's known-good code once (it is clean for the
+    // whole title/flythrough; the title would crash on its first deactivation
+    // otherwise) and restore it after every rendered frame, before the GOAL thread
+    // runs the next frame's deactivations. The I-cache is flushed so the corrected
+    // instructions are re-fetched. x86 is unaffected (#ifdef __aarch64__).
+#ifdef __aarch64__
+    {
+      constexpr u32 kDeactLo = 0x191240, kDeactLen = 0x74;  // [0x191240, 0x1912b4)
+      static u8* s_deact_good = nullptr;
+      static bool s_deact_reported = false;
+      u8* live = g_ee_main_mem + kDeactLo;
+      if (!s_deact_good) {
+        // Arm only if this really is deactivate's code: the call-trampoline
+        // `stp x3,x5,[sp,#-16]!` at GOAL 0x191250 == 0xa9bf17e3. Guards against a
+        // future KERNEL.CGO relayout silently repairing the wrong bytes.
+        u32 sig = 0;
+        memcpy(&sig, g_ee_main_mem + 0x191250, 4);
+        if (sig == 0xa9bf17e3u) {
+          s_deact_good = (u8*)malloc(kDeactLen);
+          memcpy(s_deact_good, live, kDeactLen);
+        }
+      } else if (memcmp(s_deact_good, live, kDeactLen) != 0) {
+        if (!s_deact_reported) {
+          s_deact_reported = true;
+          u32 off = 0;
+          while (off < kDeactLen && s_deact_good[off] == live[off]) off++;
+          u32 wasw = 0, noww = 0;
+          memcpy(&wasw, s_deact_good + (off & ~3u), 4);
+          memcpy(&noww, live + (off & ~3u), 4);
+          __android_log_print(
+              ANDROID_LOG_FATAL, kLogTag,
+              "GCINE3-DEACT-STOMP frame=%llu first=goal:0x%x was=0x%08x now=0x%08x "
+              "(envmap merc l0-pris-merc draw stomped process::deactivate code; repaired)",
+              (unsigned long long)st.frame_idx, kDeactLo + off, wasw, noww);
+        }
+        memcpy(live, s_deact_good, kDeactLen);
+        __builtin___clear_cache((char*)live, (char*)live + kDeactLen);
+      }
+    }
+#endif
+
     const u64 n = d->frames_rendered.fetch_add(1) + 1;
     if (n <= 5 || (n % 60) == 0 || st.buckets_skipped > 0) {
       static u32 s_last_logged_skips = 0;
