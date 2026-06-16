@@ -98,7 +98,7 @@
     "Gmenu-ui-placement": 0,
     "Gnewgame-crash": 1,
     "Gcine-crash2": 1,
-    "Gcine-pose": 1
+    "Gcine-pose": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -194,6 +194,9 @@
       "6dc493e53b25",
       "6dc493e53b25",
       "7dac5e9c3ffd"
+    ],
+    "Gcine-pose": [
+      "9443f12296d1"
     ]
   },
   "stuck_reasons": {
@@ -372,7 +375,7 @@
     "Gcine-crash2": 1781620347.5453398,
     "Gcine-pose": 1781630021.6709929
   },
-  "last_update": "2026-06-16T17:24:56.231120+00:00",
+  "last_update": "2026-06-16T17:28:48.716638+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
