@@ -249,7 +249,20 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   c->lwc1(f2, 116, sp);                             // lwc1 f2, 116(sp)
   // nop                                            // sll r0, r0, 0
+#if defined(__aarch64__)
+  // GNG (Gnewgame-crash): `beq s0, s7` tests "is arg3 (launch-state) == #f?".
+  // GOAL pointers are 32-bit, but on arm64 the mips2c ExecutionContext can hold
+  // them with inconsistent upper-32 bits: gpr s7 = full host 0x7f0014fd24 while a
+  // #f arg arrives as the bare 32-bit offset 0x14fd24 (proven on-device). A
+  // full-64 `sgpr64` compare then misses #f and the next `swc1 f2,24(s0)` writes
+  // a float to s7+0x18 = 0x14fd3c = `basic`'s symbol value cell, corrupting the
+  // type system -> the new-game intro's `(deftype racer-info (basic))` then
+  // SIGSEGVs in new_type. Compare the 32-bit GOAL pointer (gpr_addr/low32), which
+  // is representation-agnostic. x86 is unaffected (operands consistent there).
+  bc = c->gpr_addr(s0) == c->gpr_addr(s7);          // beq s0, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(s0) == c->sgpr64(s7);              // beq s0, s7, L109
+#endif
   c->muls(f1, f2, f1);                              // mul.s f1, f2, f1
   if (bc) {goto block_11;}                          // branch non-likely
 
@@ -774,7 +787,14 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   c->sw(a0, 124, s2);                               // sw a0, 124(s2)
   // nop                                            // sll r0, r0, 0
+#if defined(__aarch64__)
+  // GNG (Gnewgame-crash): same #f-guard / `swc1 f2,24(s0)` stomp pattern as the
+  // L109 site above — compare the 32-bit GOAL pointer so a bare-offset #f arg is
+  // recognized despite the gpr s7 host/offset high-bit mismatch.
+  bc = c->gpr_addr(s0) == c->gpr_addr(s7);          // beq s0, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(s0) == c->sgpr64(s7);              // beq s0, s7, L131
+#endif
   c->lui(v1, 16256);                                // lui v1, 16256
   if (bc) {goto block_65;}                          // branch non-likely
 
