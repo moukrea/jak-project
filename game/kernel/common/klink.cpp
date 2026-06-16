@@ -784,6 +784,24 @@ int walk_loaded_types_and_patch_a18(u32 trap_fn_goal) {
     const uintptr_t mtable_lo = maybe_type_host + 16;
     const uintptr_t mtable_hi = mtable_lo + (uintptr_t)method_count * 4;
     if (mtable_hi > ee_hi) continue;
+    // Gcine-crash2: NEVER trap-fill an UNDECOMPILED linker-born STUB type
+    // (Type.parent == 0). Such a type — e.g. misty's `wheel` art object
+    // (define-extern only, no deftype) — is created by intern_type_from_c/
+    // alloc_and_init_type (kscheme.cpp), which leaves parent=0 and every method
+    // slot 0; `new_type` (which sets the parent and inherits the method table)
+    // never runs for it. Its empty slots are EXPECTED, and the engine relies on
+    // them reading as 0: e.g. birth! (entity.gc) guards an actor birth with
+    // `(valid? (method-of-object proc init-from-entity!) function)`, which is #f
+    // for a 0 slot, so the actor is correctly SKIPPED — exactly as on x86.
+    // Patching the slot to the trap fn (a valid-looking `function`) flips that
+    // valid? to #t, so birth! proceeds and then dispatches another empty slot
+    // (activate) -> the trap -> _Exit(13) (the new-game cinematic crash). Real
+    // types always have a non-zero parent (set by new_type/set_fixed_type), so
+    // they are still patched and the trap keeps catching genuine missing-method
+    // bugs on real types. arm64-only path; x86 installs no trap.
+    if (*reinterpret_cast<const u32*>(maybe_type_host + 4) == 0) {
+      continue;
+    }
     // B1: resolve the type's name once (via its symbol -> SymInfo -> String)
     // for the method trace. Every hop is bounds-checked and the name is copied
     // with a hard length cap so a partially-constructed type during early boot
