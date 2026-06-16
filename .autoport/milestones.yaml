@@ -925,6 +925,15 @@ phases:
   validator: validators/phase-Gnewgame-crash.sh
   max_turns: 1200
   max_retries: 3
+- id: Gcine-crash2
+  name: 'The new-game intro cinematic STILL crashes mid-playback (kicks to phone home) AFTER the ~75s target-racer-h fix (66ef643c4)
+    — find + fix the NEXT crash. Reproduce via cpad_inject (cinematic plays through then dies), capture forensics, name the arm64
+    mechanism (likely GOAL-ptr hi32 / mips2c-contract recurring), oracle-diff vs x86. Clean-rebuild + deploy_verify; the full cinematic
+    must run crash-free (frame >= 9000); owner eye-confirms full play-through. CRASH only (camera/cadence/pose/water are separate).'
+  prompt: prompts/phase-Gcine-crash2.md
+  validator: validators/phase-Gcine-crash2.sh
+  max_turns: 1500
+  max_retries: 3
 - id: Gmenu-ui-placement
   name: 'OPEN diagnosis+fix (owner: do NOT presume aspect-ratio): the menu UI elements are bunched in the CENTER instead of placed
     where they belong, on the device ultrawide ~20:9/21:9 panel (2400x1080). Diagnose WHY from the UI placement code (progress.gc
