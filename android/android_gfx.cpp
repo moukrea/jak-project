@@ -4,6 +4,7 @@
 
 #include <android/log.h>
 #include <dlfcn.h>
+#include <sys/system_properties.h>
 
 #include <chrono>
 #include <condition_variable>
@@ -34,6 +35,20 @@ extern "C" void gk_a38_tripwire_frame_hook(int chain_phase);
 // Gcine-pose joint-sanity tripwire: per-frame bucket of cspace joint skips /
 // bad bone matrices (defined in game/mips2c/jak1_functions/joint.cpp).
 extern "C" void gpose_joint_frame_tick(unsigned long long frame_idx);
+
+// Gcine-camfov: the Gintro DMA chain-walk dump (GINTRO-CHAINWALK / GND-PRECOPY-RAW)
+// is a per-frame ~14-line render-thread debug flood that has outlived its purpose.
+// It runs latency-heavy __android_log_print calls every frame during the new-game
+// intro's complex DMA chains — exactly the window where the (separate) blend-shape
+// joint OOB stomp races the render thread — so it widens that race AND floods long
+// captures. Gate it OFF by default; re-arm with `setprop debug.opengoal.gintro.dbg 1`.
+static bool gintro_chainwalk_dbg() {
+  static const bool s_on = [] {
+    char buf[PROP_VALUE_MAX] = {0};
+    return __system_property_get("debug.opengoal.gintro.dbg", buf) > 0 && buf[0] == '1';
+  }();
+  return s_on;
+}
 
 #if defined(__aarch64__) && defined(__ANDROID__)
 // GND-HWWP: one-shot arm of the arm64 HARDWARE data watchpoint on the two
@@ -589,7 +604,7 @@ void send_chain(const void* data, u32 offset) {
     // Gintro: dump the leading tags of the first few flagged chains to
     // characterize the ndi-intro chain that trips the low-addr guard.
     static std::atomic<u32> s_dump_frames{0};
-    const bool do_dump = s_dump_frames.load() < 6;
+    const bool do_dump = gintro_chainwalk_dbg() && s_dump_frames.load() < 6;
     int dumped = 0;
     while (!probe.ended() && steps < kMaxSteps) {
       auto tag = probe.current_tag();
@@ -610,7 +625,7 @@ void send_chain(const void* data, u32 offset) {
         // (follower correct -> real corruption) or the follower mis-read
         // (memory fine -> follower/base bug). Read the tag bytes BOTH via the
         // follower's base and directly via g_ee_main_mem, plus a re-read.
-        {
+        if (do_dump) {
           u32 mt = probe.current_tag_offset();
           u64 raw_data = 0, raw_ee = 0, raw_ee2 = 0;
           if ((u64)mt + 8 <= EE_MAIN_MEM_SIZE) {
