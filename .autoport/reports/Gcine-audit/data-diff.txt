@@ -1,0 +1,45 @@
+# x86 recs=30168 (anchor 'misty' abs 3319)  arm recs=13802 (anchor abs 4634)
+# comparison restricted to cinematic-relative frame >= 0 (excludes non-deterministic pre-anchor title attract)
+# common cinematic-relative frames: 10447 [0..10565]
+## camera POSITION delta over common frames (game units)
+  median=5352.2  p95=2053540.0  max=3142186.7
+## camera ORIENTATION delta (3x3 rows, unitless)
+  median=517.45020  p95=12241.22387  max=14879.92916
+## worst-10 position-divergent frames
+  rel   10001  dpos=     3142186.7  x86[village1] arm[misty]
+  rel   10009  dpos=     3139011.7  x86[village1] arm[misty]
+  rel   10008  dpos=     3139011.7  x86[village1] arm[misty]
+  rel   10007  dpos=     3139011.7  x86[village1] arm[misty]
+  rel   10006  dpos=     3139011.7  x86[village1] arm[misty]
+  rel   10005  dpos=     3139011.7  x86[village1] arm[misty]
+  rel   10004  dpos=     3139011.7  x86[village1] arm[misty]
+  rel   10003  dpos=     3139011.7  x86[village1] arm[misty]
+  rel   10002  dpos=     3139011.7  x86[village1] arm[misty]
+  rel   10150  dpos=     3122458.7  x86[village1] arm[misty]
+## NaN/Inf camera records
+  x86=0  arm=0
+## ordered scene SEGMENTS (rel>=0) — the cinematic cadence/transition fingerprint
+  x86: misty@0 -> village1@10001 -> beach@16002 -> village1@16214 -> beach@16542 -> village1@16931 -> training@18790
+  arm: misty@0 -> village1@10565
+## scene onset alignment (first rel-frame of each scene, post-anchor)
+  scene# x86_lvl          x86@ arm_lvl          arm@ onset_delta
+       0 misty               0 misty               0           0
+       1 village1        10001 village1        10565         564
+       2 beach           16002 -                   -           -  <ORDER MISMATCH>
+       3 village1        16214 -                   -           -  <ORDER MISMATCH>
+       4 beach           16542 -                   -           -  <ORDER MISMATCH>
+       5 village1        16931 -                   -           -  <ORDER MISMATCH>
+       6 training        18790 -                   -           -  <ORDER MISMATCH>
+## hard cuts (|dpos|>200000.0)  x86=20  arm=6
+  x86 cut rel-frames: 1866, 2124, 2555, 2733, 3127, 5300, 9873, 10000, 12989, 13439, 14279, 14517, 15953, 16083, 16213, 16319, 16545, 16790, 18790, 18792
+  arm cut rel-frames: 2749, 3143, 5336, 10428, 10558, 10565
+## fog delta over common frames (params)
+  median=0.201  p95=626223574560377912497799168.000  max=36973140302885665537819410432.000
+## hvdf (projection offset) delta over common frames
+  median=0.000  p95=7.556  max=11.605
+  worst fog frame rel 10420 [village1]: x86 fog=(-0.044, 25.5, 255.0, -3.6973140302885666e+28) arm fog=(-0.496, 50.0, 255.0, 1.0)
+## per-scene LOCAL-aligned camera position delta (rel>=0; scene onset re-zeroed)
+  scene             n     median        p95          max
+  misty          9927     3921.8   150358.3    3109766.2
+  village1          1   121782.2   121782.2     121782.2
+# wrote .autoport/reports/Gcine-audit/diffout/camdelta.csv
