@@ -99,7 +99,8 @@
     "Gnewgame-crash": 1,
     "Gcine-crash2": 1,
     "Gcine-pose": 1,
-    "Gcine-crash3": 1
+    "Gcine-crash3": 1,
+    "Gcine-audit": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -314,7 +315,8 @@
     "A20-goalc-arm64-field-offset",
     "A38-android-float-spray-tripwire-goal-frame",
     "Grefen-english-pristine-frames-audit",
-    "Gmenu-pixelmatch"
+    "Gmenu-pixelmatch",
+    "Gmenu-ui-placement"
   ],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
@@ -374,9 +376,10 @@
     "Gnewgame-crash": 1781604310.7121198,
     "Gcine-crash2": 1781620347.5453398,
     "Gcine-pose": 1781630021.6709929,
-    "Gcine-crash3": 1781641371.3789568
+    "Gcine-crash3": 1781641371.3789568,
+    "Gcine-audit": 1781672553.9361243
   },
-  "last_update": "2026-06-16T22:11:19.452190+00:00",
+  "last_update": "2026-06-17T05:56:53.310134+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

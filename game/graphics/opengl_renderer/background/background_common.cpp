@@ -2,11 +2,41 @@
 
 #include "background_common.h"
 
+#include <cstdio>
+#include <cstdlib>
+
+#include "common/log/log.h"
 #include "common/util/os.h"
 #include "common/util/simd_util.h"
 
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/pipelines/opengl.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
+// Gcine-audit DIAGNOSTIC: per-frame cinematic camera/scene log, OFF by default.
+// Armed with env OG_GCINE_CAM=1 (x86) or `setprop debug.opengoal.gcine.cam 1`
+// (Android). Compiled into BOTH backends from this shared TU so the x86 capture
+// is a valid oracle for the arm64 device capture. No behavior change when off.
+namespace {
+bool gcine_cam_enabled() {
+  static const bool s_on = [] {
+    if (getenv("OG_GCINE_CAM")) {
+      return true;
+    }
+#ifdef __ANDROID__
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.gcine.cam", buf) > 0 && buf[0] == '1') {
+      return true;
+    }
+#endif
+    return false;
+  }();
+  return s_on;
+}
+}  // namespace
 
 DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap) {
   glActiveTexture(tex_unit);
@@ -825,5 +855,23 @@ void update_render_state_from_pc_settings(SharedRenderState* state, const TfragP
     state->camera_hvdf_off = data.camera.hvdf_off;
     state->camera_fog = data.camera.fog;
     state->has_pc_data = true;
+    if (gcine_cam_enabled()) {
+      char lvlbuf[33];
+      std::snprintf(lvlbuf, sizeof(lvlbuf), "%.32s", data.level_name);
+      lg::info(
+          "GCINE-CAM f={} lvl={} px={:.2f} py={:.2f} pz={:.2f} "
+          "c0={:.5f},{:.5f},{:.5f},{:.5f} c1={:.5f},{:.5f},{:.5f},{:.5f} "
+          "c2={:.5f},{:.5f},{:.5f},{:.5f} c3={:.5f},{:.5f},{:.5f},{:.5f} "
+          "hvdf={:.3f},{:.3f},{:.3f},{:.3f} fog={:.3f},{:.3f},{:.3f},{:.3f}",
+          state->frame_idx, lvlbuf, data.camera.trans.x(), data.camera.trans.y(),
+          data.camera.trans.z(), data.camera.camera[0].x(), data.camera.camera[0].y(),
+          data.camera.camera[0].z(), data.camera.camera[0].w(), data.camera.camera[1].x(),
+          data.camera.camera[1].y(), data.camera.camera[1].z(), data.camera.camera[1].w(),
+          data.camera.camera[2].x(), data.camera.camera[2].y(), data.camera.camera[2].z(),
+          data.camera.camera[2].w(), data.camera.camera[3].x(), data.camera.camera[3].y(),
+          data.camera.camera[3].z(), data.camera.camera[3].w(), data.camera.hvdf_off.x(),
+          data.camera.hvdf_off.y(), data.camera.hvdf_off.z(), data.camera.hvdf_off.w(),
+          data.camera.fog.x(), data.camera.fog.y(), data.camera.fog.z(), data.camera.fog.w());
+    }
   }
 }
