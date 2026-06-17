@@ -955,6 +955,16 @@ phases:
   validator: validators/phase-Gcine-crash3.sh
   max_turns: 1500
   max_retries: 3
+- id: Gcine-audit
+  name: 'DIAGNOSTIC (owner: "check yourself for issues, there must be a proper way without me"): objectively find what is still wrong with
+    the new-game cinematic by diffing the device run against the x86 ORIGINAL — per-frame camera + scene-player DATA diff (deterministic,
+    grind-free; catches camera/cadence/transition-between-camera-plans bugs) plus a few bounded matched-beat pixel diffs vs the oracle
+    (catches water-garbage + green-glow lighting). Produce a RANKED, evidence-backed divergence map (.autoport/reports/Gcine-audit/
+    divergences.md) with a recommended fix order. NO code fix, NO screenshot/video grind. Supervisor triages the map into single-defect fixes.'
+  prompt: prompts/phase-Gcine-audit.md
+  validator: validators/phase-Gcine-audit.sh
+  max_turns: 1500
+  max_retries: 3
 - id: Gmenu-ui-placement
   name: 'OPEN diagnosis+fix (owner: do NOT presume aspect-ratio): the menu UI elements are bunched in the CENTER instead of placed
     where they belong, on the device ultrawide ~20:9/21:9 panel (2400x1080). Diagnose WHY from the UI placement code (progress.gc
