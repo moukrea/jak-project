@@ -965,6 +965,17 @@ phases:
   validator: validators/phase-Gcine-audit.sh
   max_turns: 1500
   max_retries: 3
+- id: Gcine-camfov
+  name: 'Fix D1 from Gcine-audit (objectively measured): the new-game cutscene camera projects at 4:3 (1.333) instead of the panel 2.222 —
+    matched-pose beats show pose_dist=0.0 but projection rows scaled by exactly 5/3 (c0.x x0.80, c1.y x1.333), turning intended close-ups
+    into pulled-back wide shots. arm64-specific (x86 correct). The global *video-parms* aspect float IS correct (2.222) so the cutscene
+    math-camera reads a stale/default aspect (Android aspect4x3 boot default) or applies it to the wrong axis. Localize + oracle-diff +
+    fix; gate objectively by re-running the Gcine-audit camera diff (RESULT: D1 RESOLVED, projection matches oracle, position unchanged)
+    + deploy_verify + cinematic still plays through (frame>=10500, foreground). Fixes the framing that confounds D3/water. Owner eye-confirms.'
+  prompt: prompts/phase-Gcine-camfov.md
+  validator: validators/phase-Gcine-camfov.sh
+  max_turns: 1500
+  max_retries: 3
 - id: Gmenu-ui-placement
   name: 'OPEN diagnosis+fix (owner: do NOT presume aspect-ratio): the menu UI elements are bunched in the CENTER instead of placed
     where they belong, on the device ultrawide ~20:9/21:9 panel (2400x1080). Diagnose WHY from the UI placement code (progress.gc
