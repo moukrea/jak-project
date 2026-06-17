@@ -1,0 +1,6 @@
+# Gcine-audit device end-of-run (2026-06-17T08:27:30+02:00)
+mCurrentFocus_at_end:   mCurrentFocus=Window{bca1644 u0 com.miui.home/com.miui.home.launcher.Launcher}
+app_pid_at_end: gone
+crashed: procgone
+misty_onset_frame: 4634
+beach_onset_frame: none

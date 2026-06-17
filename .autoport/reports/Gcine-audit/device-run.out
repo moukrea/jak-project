@@ -1,0 +1,77 @@
+== Gcine-audit DEVICE capture (watch 26min, break frame>=32000) ==
+  device_require_attached: real device eae4df44
+  device free: 10813 MB on /data
+== installing app-jak1-debug.apk ==
+  device is unlocked
+== launching org.opengoal.gk.jak1/.LoaderActivity ==
+  armed debug.opengoal.gcine.cam=1
+    inject: ''
+  launch org.opengoal.gk.jak1/.LoaderActivity
+== warmup (title attract settle) ==
+== START (open progress menu) ==
+    inject: 'start'
+    inject: ''
+== nav to NEW GAME ==
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'up'
+    inject: ''
+    inject: 'up'
+    inject: ''
+== X (select NEW GAME) ==
+    inject: 'x'
+    inject: ''
+== CONTINUE WITHOUT SAVING ==
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'x'
+    inject: ''
+== watch + held-beat snaps (poll 3s) ==
+   [5/520] frame=3158 misty0=? beach0=? fg=1 lvls:lvl=title lvl=village1  pid='12508'
+   [10/520] frame=3853 misty0=? beach0=? fg=1 lvls:lvl=title lvl=village1  pid='12508'
+   [15/520] frame=4302 misty0=? beach0=? fg=1 lvls:lvl=title lvl=village1  pid='12508'
+   [20/520] frame=4666 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [25/520] frame=5248 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+    snap[mistyrel900] -> mistyrel900_f5506.png (2400x1080)
+   [30/520] frame=5717 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [35/520] frame=6201 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [40/520] frame=6593 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [45/520] frame=6928 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [50/520] frame=7248 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [55/520] frame=7686 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [60/520] frame=8207 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [65/520] frame=8622 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+    snap[mistyrel4200] -> mistyrel4200_f8801.png (2400x1080)
+   [70/520] frame=9142 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [75/520] frame=9615 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [80/520] frame=10059 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [85/520] frame=10517 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [90/520] frame=11042 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [95/520] frame=11510 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [100/520] frame=12080 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [105/520] frame=12556 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [110/520] frame=12957 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [115/520] frame=13373 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [120/520] frame=13951 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [125/520] frame=14601 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [130/520] frame=15070 misty0=4634 beach0=? fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='12508'
+   [135/520] frame=15200 misty0=4634 beach0=? fg=0 lvls:lvl=misty lvl=title lvl=village1  pid='gone'
+   >>> app GONE (pid empty + fg!=jak1) x4 — crash/exit
+== teardown ==
+== scoreboard ==
+  GCINE-CAM lines : 13849
+  frame range     : 3 15200 
+  distinct levels : lvl=misty lvl=title lvl=village1 
+  level onsets    : misty=4634 village1=1109 beach= training=
+  shots           : 2 -> mistyrel4200_f8801.png mistyrel900_f5506.png 
+  foreground end  :   mCurrentFocus=Window{bca1644 u0 com.miui.home/com.miui.home.launcher.Launcher}  pid=gone  crashed=procgone
+  crash signatures: 0
+0

@@ -1,0 +1,9 @@
+# x86 stills with pose: 251   device beat stills: 2
+
+[mistyrel4200_f8801.png] dev f8801 lvl=misty pos=(-902937,117739,4154412)
+   nearest x86: autoport_f006900.png f6900 pos=(-902937,117739,4154412)  pose_dist=0.0
+   MATCH  diff_frac=0.30702 (tol=1.00000)  rmse=46.89  thr=56  golden=2400x1080 candidate=2400x1080  diff=.autoport/reports/Gcine-audit/beat-diffs/mistyrel4200_f8801.diff.png
+
+[mistyrel900_f5506.png] dev f5506 lvl=misty pos=(-542036,14013,1402530)
+   nearest x86: autoport_f004140.png f4140 pos=(-542036,14013,1402530)  pose_dist=0.0
+   MATCH  diff_frac=0.63658 (tol=1.00000)  rmse=65.43  thr=56  golden=2400x1080 candidate=2400x1080  diff=.autoport/reports/Gcine-audit/beat-diffs/mistyrel900_f5506.diff.png
