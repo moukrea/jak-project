@@ -4039,6 +4039,55 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                         (unsigned long)uc->uc_mcontext.regs[i]);
   }
 
+  // GSPARK — on a BLR to a null GOAL function pointer (SIGILL with pc at
+  // EE_base+0), dump the candidate object whose 0-field is being called so
+  // the null-field object/defstate is named. MUST run before the A37-PCWIN
+  // read below, which itself SEGVs (sig=11) when pc==EE_base (it reads
+  // [pc&~15]-32, below the EE map) and aborts the handler. All reads here go
+  // through safe_read_u32 so a bad pointer cannot secondary-fault.
+  if (sig == SIGILL && g_ee_main_mem &&
+      pc == reinterpret_cast<uintptr_t>(g_ee_main_mem)) {
+    const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    const int cand[] = {16, 3, 2, 1, 0, 4};
+    for (int ci = 0; ci < 6; ++ci) {
+      uintptr_t r = (uintptr_t)uc->uc_mcontext.regs[cand[ci]];
+      uintptr_t oh = 0;
+      if (r >= ee && r < ee + (uintptr_t)EE_MAIN_MEM_SIZE) {
+        oh = r;
+      } else if (r != 0 && r < (uintptr_t)EE_MAIN_MEM_SIZE) {
+        oh = ee + r;
+      } else {
+        continue;
+      }
+      uint32_t w[12];
+      bool ok = true;
+      for (int k = 0; k < 12; ++k) {
+        if (!gk_diag::safe_read_u32(oh - 4 + 4 * k, &w[k])) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) {
+        continue;
+      }
+      __android_log_print(
+          ANDROID_LOG_FATAL, kGkLogTag,
+          "GK-DIAG GSPARK-OBJ X%d goff=0x%lx tag=0x%x type=0x%x name=0x%x "
+          "next=0x%x exit=0x%x code=0x%x trans=0x%x post=0x%x enter=0x%x "
+          "event=0x%x w24=0x%x",
+          cand[ci], (unsigned long)(oh - ee), w[0], w[1], w[2], w[3], w[4],
+          w[5], w[6], w[7], w[8], w[9], w[10]);
+      // Resolve the object's name symbol (offset +4: state/stack-frame/type
+      // name) and its type pointer (offset 0) to a printable name.
+      if (w[2] != 0 && w[2] < (uint32_t)EE_MAIN_MEM_SIZE) {
+        gk_diag::dump_sym_name_at_slot(ee + w[2]);
+      }
+      if (w[1] != 0 && w[1] < (uint32_t)EE_MAIN_MEM_SIZE) {
+        gk_diag::dump_sym_name_at_slot(ee + w[1]);
+      }
+    }
+  }
+
   // A37-DIAG: dump the instruction window at the faulting PC so SIGILLs
   // inside dynamically-emitted code (mips2c trampolines, FFI trampolines,
   // A18 wrappers) can be decoded directly from the log.

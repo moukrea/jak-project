@@ -1,0 +1,38 @@
+# Gd1 — D1 projection re-measurement: new-game cutscene camera vs x86 oracle
+
+Phase Gcine-camfov. Device Redmi eae4df44 (arm64), pkg org.opengoal.gk.jak1.
+Oracle: x86 build-x86/game/gk new-game cutscene, captured at the default
+640x480 window (= ASPECT_4X3 = the authored 4:3 cutscene framing).
+  oracle log : .autoport/reports/Gcine-audit/x86-cam-shots.log
+  device BEFORE (pre-fix, Gcine-audit): .autoport/reports/Gcine-audit/arm64-cam.log
+  device AFTER  (post-fix, this phase): .autoport/reports/Gd1/arm64-cam.log
+
+Beats are matched by camera WORLD POSITION (px,py,pz). At a held beat the
+camera path is identical across backends (pose_dist=0.0); only the
+projection rows differed. The audit measured the device projection scaled
+by 5/3 vs the oracle (c0.x x0.80, c1.y x1.333, c2.x x0.80) = 4:3 widescreen
+(2.222) instead of the authored 4:3 (1.333). The fix forces ASPECT_4X3 +
+pillarbox during cutscenes so the device projection matches the oracle.
+
+== Beat M1 (lvl=misty, pos -542036,14013,1402530) ==
+  z-anchor (aspect-invariant): oracle c0.z=4638.939 c1.z=783.850 c2.z=4479.821
+  oracle x86 (f4140)   : c0.x=+0.29031  c1.y=-0.24200  c2.x=-0.30062
+  device BEFORE (f5410) : c0.x=+0.23225  c1.y=-0.32267  c2.x=-0.24050   pose_dist=0.0  z[4638.9/783.9/4479.8]
+     scaling BEFORE vs oracle: c0.x x0.800  c1.y x1.333  c2.x x0.800
+  device AFTER  (f3) : c0.x=-0.24007  c1.y=-0.23341  c2.x=+0.00000   pose_dist=1503691.8  z[0.0/0.0/-8184.3]
+     scaling AFTER  vs oracle: c0.x x-0.827  c1.y x0.965  c2.x x-0.000
+     orientation z-row delta (must be ~0): 18086.87
+     -> M1 MISMATCH
+
+== Beat M2 (lvl=misty, pos -902937,117739,4154412) ==
+  z-anchor (aspect-invariant): oracle c0.z=-3008.341 c1.z=1413.231 c2.z=-4889.901
+  oracle x86 (f6900)   : c0.x=-0.36038  c1.y=-0.23967  c2.x=+0.22171
+  device BEFORE (f8764) : c0.x=-0.28831  c1.y=-0.31955  c2.x=+0.17736   pose_dist=0.0  z[-3008.3/1413.2/-4889.9]
+     scaling BEFORE vs oracle: c0.x x0.800  c1.y x1.333  c2.x x0.800
+  device AFTER  (f3) : c0.x=-0.24007  c1.y=-0.23341  c2.x=+0.00000   pose_dist=4253033.8  z[0.0/0.0/-8184.3]
+     scaling AFTER  vs oracle: c0.x x0.666  c1.y x0.974  c2.x x0.000
+     orientation z-row delta (must be ~0): 7715.93
+     -> M2 MISMATCH
+
+RESULT: D1 NOT RESOLVED — projection still diverges from the oracle or the
+camera moved. See the per-beat scaling above. (No pass emitted.)

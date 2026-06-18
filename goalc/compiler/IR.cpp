@@ -1173,88 +1173,155 @@ void IR_IntegerMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
       break;
     case IntegerMathKind::IDIV_32:
     case IntegerMathKind::IMOD_32: {
-      // Gmenu — arm64 IDIV/IMOD now run ENTIRELY on scratch registers X16/X17
-      // and never touch X8. Background: idiv_gpr32 historically emitted
-      // `SDIV X8, X8, Xn`, and X8 = GOAL R8 = the 5th GPR arg
-      // (Register.cpp m_gpr_arg_regs[4] = R8). That write was invisible to the
-      // register allocator (to_rai() only excludes RDX), so a live value the
-      // regalloc had parked in R8 across a divide/mod — most damagingly a
-      // function argument destined for R8 — was silently overwritten by the
-      // division result. The A17 mitigation spilled/restored the physical X8
-      // around the SDIV, but that only round-trips whatever bits happen to be
-      // in X8; it cannot repair an argument move the regalloc coalesced away
-      // believing the value still lived in R8. That residual is the Gsprite
-      // frame-185 root cause: `sparticle-launch-control::spawn` performs
-      // per-frame `(mod ...)` (sparticle-launcher.gc) right before passing
-      // :launch-control as arg4 (=R8), so the launch-control and the orb/frame
-      // sprite scale/position data marshaled alongside arrived as #f/garbage —
-      // which is why the title MENU's 2D decorative sprites (the giant
-      // re-centered green orb, the mis-scaled vignette frame) render wrong
-      // while the menu TEXT (no divide-before-call) renders fine.
+      // A17 — emitter-side IDIV preserve-X8 spill. idiv_gpr32 emits a single
+      // SDIV X8, X8, Xn whose X8 dst+src1 is hardcoded; that write is invisible
+      // to the regalloc, so it may park a live value (e.g. m_func of a later
+      // BLR) in X8. Wrap the SDIV in a sub_sp / str_x8 / mov-dividend / sdiv /
+      // mov-result / ldr_x8 / add_sp sequence to preserve caller's X8 AND load
+      // the actual dividend into X8 (m_dest is constrained to RAX = id 0 = X0
+      // on arm64 by compile_division in Math.cpp, so the dividend lives in
+      // Xdst, NOT in X8). See the A17 block comment in IGenARM64.cpp above
+      // idiv_gpr32 for the full rationale. m_dest == X8 is a fast path —
+      // dividend is already in X8, no preserve needed because the regalloc
+      // explicitly assigned X8 to m_dest.
       //
-      // X16/X17 (AArch64 IP0/IP1) are never assigned by the GOAL regalloc
-      // (m_gpr_alloc_order tops out at R10 = id 10) and are not GOAL argument
-      // registers, so operating there clobbers nothing the allocator tracks.
-      // No X8 spill, no fast/slow split, no divisor-in-X8 special case (X16/
-      // X17 can never collide with an allocated GPR val, whose ids are 0..13).
+      // A26 — divide-by-zero trap. On arm64, SDIV by zero is defined to
+      // return 0 (per ARM ARM §C6.2.225), not raise an exception. The GOAL
+      // `(break)` macro (gkernel-h.gc:121) expands to `(/ 0 0)`, expecting
+      // the runtime to trap (as x86 IDIV by 0 raises #DE). Without an
+      // explicit trap, `(break)` is a silent no-op on arm64 — and any caller
+      // expecting break to never return (e.g. the throw-not-found error
+      // path in gkernel.gc's `throw`) continues executing with a broken
+      // stack, eventually SIGSEGV'ing at a stale LDP.
       //
-      // A26 — divide-by-zero trap. On arm64, SDIV/UDIV by zero is defined to
-      // return 0 (ARM ARM §C6.2.225), not raise. The GOAL `(break)` macro
-      // expands to `(/ 0 0)` and expects a trap (x86 IDIV by 0 raises #DE).
-      // The 2-instruction prefix (CBNZ X<divisor>, +8 ; UDF #0xBEEF) is
-      // emitted FIRST, on the raw divisor reg, before any shuffling.
-      //
-      // F1c — IMOD vs IDIV. arm64 SDIV yields ONLY the quotient; modulo forms
-      // the remainder by hand: remainder = dividend - quotient*divisor (MSUB).
-      auto arg_reg = get_reg(m_arg, allocs, irec);  // divisor
-      auto dst_reg = get_reg(m_dest, allocs, irec);  // dividend in / result out
+      // The trap prefix is 2 instructions (8 bytes) emitted BEFORE any
+      // register shuffling so the divisor is still in its allocated reg:
+      //   CBNZ X<arg_reg>, +8   ; skip UDF when divisor is non-zero
+      //   UDF  #0xBEEF          ; SIGILL with tag 0xBEEF on zero divisor
+      // The SIGILL handler in linux_arm64_main.cpp decodes 0xBEEF as
+      // BREAK-MACRO-TRAP. The check is on the RAW arg_reg (the divisor),
+      // not on any temp — even in the slow path's `arg_reg.id() == 8` sub-
+      // case where the divisor is later moved to X16, the check fires on
+      // the original arg_reg before any clobber. CBNZ uses zero CPU state
+      // beyond the read of arg_reg, so it doesn't interfere with the
+      // subsequent SDIV/UDIV sequence's X8 spill choreography.
+      auto arg_reg = get_reg(m_arg, allocs, irec);
+      auto dst_reg = get_reg(m_dest, allocs, irec);
+      // F1c — IMOD vs IDIV. x86 IDIV writes the quotient to RAX AND the
+      // remainder to RDX in one instruction; the x86 codegen reads RDX for
+      // modulo. arm64 SDIV produces ONLY the quotient, so modulo must form the
+      // remainder by hand: remainder = dividend - quotient*divisor (one MSUB).
+      // Previously this case fell through to the IDIV body and copied the
+      // QUOTIENT to the destination for modulo too, so `(mod x n)` returned
+      // `(/ x n)` on device (bug class #13 — the frozen title camera).
       const bool is_mod = (m_kind == IntegerMathKind::IMOD_32);
       gen->add_instr(emitter::IGen::ARM64::cbnz_x_imm(arg_reg, 8), irec);
       gen->add_instr(emitter::IGen::ARM64::udf_imm16(0xBEEF), irec);
-      // dividend -> X16 (idiv_gpr32 computes SDIV X16, X16, divisor).
-      gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(16), dst_reg), irec);
-      if (is_mod) {
-        // Keep the dividend in X17 so we can form remainder = dividend -
-        // quotient*divisor after X16 becomes the quotient.
-        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(17), dst_reg),
-                       irec);
-        gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(arg_reg), irec);
-        gen->add_instr(emitter::IGen::ARM64::imod_msub_gpr(dst_reg, emitter::Register(16),
-                                                            arg_reg, emitter::Register(17)),
-                       irec);
+      if (dst_reg.id() == 8) {
+        if (is_mod) {
+          // Fast path, modulo: the dividend is already in X8 (=dst) and SDIV
+          // will overwrite it with the quotient. Preserve the dividend in X16
+          // (caller-saved scratch, never regalloc-assigned) so we can form the
+          // remainder. arg_reg (the divisor) cannot be X8 here, since the
+          // simultaneously-live dividend and divisor can't share one register.
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(16), dst_reg),
+                         irec);
+          gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(arg_reg), irec);
+          gen->add_instr(emitter::IGen::ARM64::imod_msub_gpr(dst_reg, emitter::Register(8),
+                                                              arg_reg, emitter::Register(16)),
+                         irec);
+        } else {
+          gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(arg_reg), irec);
+        }
       } else {
-        gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(arg_reg), irec);
-        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst_reg, emitter::Register(16)),
+        // If arg_reg is X8, the divisor lives in the same physical register
+        // we're about to clobber with the dividend. Copy it to X16 (caller-
+        // saved scratch, never assigned by the regalloc per Register.cpp's
+        // m_gpr_alloc_order which tops out at R10 = id 10 — same convention
+        // A5 sym-MEM uses for its materialisation register) BEFORE we touch
+        // X8 so the divisor survives. Common case (arg_reg != X8): use it
+        // directly.
+        emitter::Register divisor_reg = arg_reg;
+        if (arg_reg.id() == 8) {
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(16),
+                                                                arg_reg),
+                         irec);
+          divisor_reg = emitter::Register(16);
+        }
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_sub_sp_16(), irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_str_x8_sp_0(), irec);
+        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(8), dst_reg),
                        irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_gpr32(divisor_reg), irec);
+        if (is_mod) {
+          // remainder = dividend - quotient*divisor. dst_reg still holds the
+          // dividend (SDIV only wrote X8); X8 holds the quotient; divisor_reg
+          // holds the divisor. MSUB writes the remainder to dst, consuming X8
+          // before the ldr_x8 restore below.
+          gen->add_instr(emitter::IGen::ARM64::imod_msub_gpr(dst_reg, emitter::Register(8),
+                                                              divisor_reg, dst_reg),
+                         irec);
+        } else {
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst_reg, emitter::Register(8)),
+                         irec);
+        }
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_ldr_x8_sp_0(), irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_add_sp_16(), irec);
       }
     } break;
     case IntegerMathKind::UDIV_32:
     case IntegerMathKind::UMOD_32: {
-      // Gmenu — same scratch-only protocol as IDIV_32 above: unsigned_div_gpr32
-      // now emits UDIV X16, X16, Xn (X16 = scratch), never X8 = GOAL R8 = arg4,
-      // so the unsigned divide no longer clobbers a live 5th argument behind
-      // the regalloc's back. See the IDIV_32 block comment for the full
-      // root-cause writeup (Gsprite frame-185 / title-menu sprite mis-scale).
+      // A17 — same preserve-X8 spill protocol as IDIV_32 above. unsigned_div_gpr32
+      // emits UDIV X8, X8, Xn with the same hardcoded-X8 / regalloc-invisible
+      // clobber; wrap it identically (including the load-dividend-into-X8 step,
+      // since m_dest's allocated reg holds the dividend, not X8).
       //
-      // A26 — divide-by-zero trap (CBNZ + UDF #0xBEEF) prepended as in IDIV_32.
-      // F1c — UMOD forms remainder = dividend - quotient*divisor via MSUB.
-      auto arg_reg = get_reg(m_arg, allocs, irec);  // divisor
-      auto dst_reg = get_reg(m_dest, allocs, irec);  // dividend in / result out
+      // A26 — divide-by-zero trap (CBNZ + UDF #0xBEEF) prepended for the
+      // same reason as IDIV_32 above. See the IDIV_32 block comment for the
+      // full rationale and the SIGILL decoder tag (0xBEEF).
+      auto arg_reg = get_reg(m_arg, allocs, irec);
+      auto dst_reg = get_reg(m_dest, allocs, irec);
+      // F1c — UMOD vs UDIV: arm64 UDIV gives only the quotient, so unsigned
+      // modulo forms remainder = dividend - quotient*divisor via MSUB (the
+      // multiply/subtract is sign-agnostic given the unsigned quotient). See
+      // the IMOD_32 block above for the full rationale.
       const bool is_mod = (m_kind == IntegerMathKind::UMOD_32);
       gen->add_instr(emitter::IGen::ARM64::cbnz_x_imm(arg_reg, 8), irec);
       gen->add_instr(emitter::IGen::ARM64::udf_imm16(0xBEEF), irec);
-      gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(16), dst_reg), irec);
-      if (is_mod) {
-        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(17), dst_reg),
-                       irec);
-        gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(arg_reg), irec);
-        gen->add_instr(emitter::IGen::ARM64::imod_msub_gpr(dst_reg, emitter::Register(16),
-                                                            arg_reg, emitter::Register(17)),
-                       irec);
+      if (dst_reg.id() == 8) {
+        if (is_mod) {
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(16), dst_reg),
+                         irec);
+          gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(arg_reg), irec);
+          gen->add_instr(emitter::IGen::ARM64::imod_msub_gpr(dst_reg, emitter::Register(8),
+                                                              arg_reg, emitter::Register(16)),
+                         irec);
+        } else {
+          gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(arg_reg), irec);
+        }
       } else {
-        gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(arg_reg), irec);
-        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst_reg, emitter::Register(16)),
+        emitter::Register divisor_reg = arg_reg;
+        if (arg_reg.id() == 8) {
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(16),
+                                                                arg_reg),
+                         irec);
+          divisor_reg = emitter::Register(16);
+        }
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_sub_sp_16(), irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_str_x8_sp_0(), irec);
+        gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(emitter::Register(8), dst_reg),
                        irec);
+        gen->add_instr(emitter::IGen::ARM64::unsigned_div_gpr32(divisor_reg), irec);
+        if (is_mod) {
+          gen->add_instr(emitter::IGen::ARM64::imod_msub_gpr(dst_reg, emitter::Register(8),
+                                                              divisor_reg, dst_reg),
+                         irec);
+        } else {
+          gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dst_reg, emitter::Register(8)),
+                         irec);
+        }
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_ldr_x8_sp_0(), irec);
+        gen->add_instr(emitter::IGen::ARM64::idiv_spill_add_sp_16(), irec);
       }
     } break;
     case IntegerMathKind::SARV_64:
