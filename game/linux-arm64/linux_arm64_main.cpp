@@ -1467,6 +1467,11 @@ void dump_a16_adrp_pair_walk(uintptr_t lr) {
 }
 }  // namespace gk_diag
 
+// GSPARK forward decls — definitions live with the A34 probe helpers below.
+u32 a34_read_u32_goal(u32 goal_addr, bool* ok);
+void a34_sym_name(u32 sym_goal, char* buf, size_t buf_len);
+const char* a34_classify(u32 v, char* buf, size_t buf_len);
+
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
   uintptr_t pc = uc->uc_mcontext.pc;
@@ -1479,6 +1484,58 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                  (unsigned long)uc->uc_mcontext.regs[i]);
   }
   std::fprintf(stderr, "GK-DIAG sp=0x%lx\n", (unsigned long)uc->uc_mcontext.sp);
+
+  // GSPARK — name the null-enter state. On a SIGILL that faulted at EE_base+0
+  // (a BLR to a null GOAL function pointer), scan the integer regs for the
+  // `state` object whose function field is 0. `enter-state` (gstate.gc:339)
+  // BLRs `(-> new-state enter)`; the defstate macro inits unset handlers to #f
+  // (s7), so a raw ZERO here means arm64 state-init wrote 0 instead of #f.
+  // Dumps each register-held state candidate's name + 6 function fields with
+  // their classification (ZERO / #f / #t / raw), naming the broken defstate.
+  if (sig == SIGILL && g_ee_main_mem) {
+    const uintptr_t ee_lo = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    const uintptr_t ee_hi = ee_lo + EE_MAIN_MEM_SIZE;
+    if (pc == ee_lo || fault == ee_lo) {
+      for (int i = 0; i < 31; ++i) {
+        uintptr_t r = (uintptr_t)uc->uc_mcontext.regs[i];
+        if (r <= ee_lo || r >= ee_hi || (r & 3)) {
+          continue;
+        }
+        u32 goff = (u32)(r - ee_lo);
+        bool ok = false;
+        u32 type = a34_read_u32_goal(goff + 0x00, &ok);
+        if (!ok) {
+          continue;
+        }
+        u32 namef = a34_read_u32_goal(goff + 0x04, &ok);
+        if (!ok) {
+          continue;
+        }
+        char nm[80];
+        a34_sym_name(namef, nm, sizeof(nm));
+        if (nm[0] == '<') {
+          continue;  // unresolved symbol -> not a named state object
+        }
+        u32 f_exit = a34_read_u32_goal(goff + 0x0c, &ok);
+        u32 f_code = a34_read_u32_goal(goff + 0x10, &ok);
+        u32 f_trans = a34_read_u32_goal(goff + 0x14, &ok);
+        u32 f_post = a34_read_u32_goal(goff + 0x18, &ok);
+        u32 f_enter = a34_read_u32_goal(goff + 0x1c, &ok);
+        u32 f_event = a34_read_u32_goal(goff + 0x20, &ok);
+        char ce[24], cc[24], ct[24], cp[24], cn[24], cv[24];
+        a34_classify(f_exit, ce, sizeof(ce));
+        a34_classify(f_code, cc, sizeof(cc));
+        a34_classify(f_trans, ct, sizeof(ct));
+        a34_classify(f_post, cp, sizeof(cp));
+        a34_classify(f_enter, cn, sizeof(cn));
+        a34_classify(f_event, cv, sizeof(cv));
+        std::fprintf(stderr,
+                     "GK-DIAG GSPARK-STATE X%d goff=0x%x type=0x%x name=%s "
+                     "exit=%s code=%s trans=%s post=%s enter=%s event=%s\n",
+                     i, goff, type, nm, ce, cc, ct, cp, cn, cv);
+      }
+    }
+  }
 
   // A23 — OG_BLR_TARGET_TRACE decoder. The goalc-arm64 emit-time stack-
   // range check in call_r64 (env-gated by OG_BLR_TARGET_TRACE_EMIT at
