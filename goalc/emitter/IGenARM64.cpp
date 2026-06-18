@@ -2120,29 +2120,18 @@ InstructionARM64 imul_gpr64_gpr64(Register dst, Register src) {
 // 0xd10043ff / 0xf90003e8 / 0xf94003e8 / 0x910043ff, all of which appear
 // below.
 InstructionARM64 idiv_gpr32(Register reg) {
-  // Gmenu — the divide now lands its quotient in X16 (AArch64 IP0), a true
-  // scratch register that the GOAL regalloc NEVER assigns (m_gpr_alloc_order
-  // tops out at R10 = id 10) and that is NOT a GOAL argument register. The
-  // historical emit was `sdiv X8, X8, Xn`; X8 = GOAL R8 = the 5th GPR arg
-  // (m_gpr_arg_regs[4]), so a live argument the regalloc had parked in R8
-  // across a `(mod)`/`(/)` was silently clobbered by the division result
-  // (the Gsprite frame-185 root cause: `sparticle-launch-control::spawn`
-  // does `(mod ...)` immediately before passing :launch-control as arg4=R8,
-  // so the launch-control — and the orb/frame sprite scale/pos data marshaled
-  // alongside — arrived as #f/garbage, blowing up and re-centering the title
-  // menu's 2D decorative sprites). The A17 X8 preserve-spill only round-
-  // tripped whatever was physically in X8 and could not repair a coalesced-
-  // away arg move, so it masked rather than removed the hazard. Using X16
-  // removes the R8 collision entirely and makes the A17 spill choreography
-  // unnecessary. The IR.cpp call site loads the dividend into X16 first.
-  return sdiv_x(Register(16), Register(16), reg);
+  // x86 idiv EAX, src → arm64 sdiv X8, X8, Xn (we treat X8 as RAX).
+  // A17: the X8 write is invisible to the regalloc; the IR.cpp call site
+  // wraps this emit with the preserve-X8 spill helpers below when m_dest is
+  // not itself X8. See the A17 block comment above for the full sequence.
+  return sdiv_x(Register(8), Register(8), reg);
 }
 
 InstructionARM64 unsigned_div_gpr32(Register reg) {
-  // Gmenu — see idiv_gpr32 above. UDIV now lands in X16 (scratch), not X8 =
-  // GOAL R8 = arg4, so the unsigned divide no longer clobbers a live 5th
-  // argument across the regalloc's back.
-  return udiv_x(Register(16), Register(16), reg);
+  // A17 — see idiv_gpr32 above. UDIV X8, X8, Xn has the same regalloc-
+  // invisible X8 clobber; the IR.cpp call site spills caller's X8 around it
+  // when m_dest != X8.
+  return udiv_x(Register(8), Register(8), reg);
 }
 
 // F1c — modulo remainder. x86 IDIV/DIV produce the remainder in RDX as a side

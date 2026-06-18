@@ -101,7 +101,8 @@
     "Gcine-pose": 1,
     "Gcine-crash3": 1,
     "Gcine-audit": 2,
-    "Gcine-camfov": 1
+    "Gcine-camfov": 1,
+    "Gspark-enterstate": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -200,6 +201,9 @@
     ],
     "Gcine-audit": [
       "69c2e05ebc18"
+    ],
+    "Gcine-camfov": [
+      "bc1175aed2fc"
     ]
   },
   "stuck_reasons": {
@@ -383,13 +387,15 @@
     "Gcine-pose": 1781630021.6709929,
     "Gcine-crash3": 1781641371.3789568,
     "Gcine-audit": 1781672553.9361243,
-    "Gcine-camfov": 1781678484.7384794
+    "Gcine-camfov": 1781678484.7384794,
+    "Gspark-enterstate": 1781769389.2128012
   },
-  "last_update": "2026-06-17T08:09:17.101059+00:00",
+  "last_update": "2026-06-18T09:55:05.495581+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
-    "Gnd-arm64-blendshape-dma-stomp": 1
+    "Gnd-arm64-blendshape-dma-stomp": 1,
+    "Gcine-camfov": 1
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",
