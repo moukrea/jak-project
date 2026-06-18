@@ -5213,3 +5213,93 @@ previous journal (8de84aea0) — 0445f78da (title village-hide), dd3ee36ad
 bucket) — are PRIOR-PHASE work and remain untouched. This journal advances the
 supervisor anchor to include them; Pcompare itself shipped ZERO game/compiler
 changes (only .autoport/ tooling + reference data).
+
+## 2026-06-18 ~00:50 — DEVICE RECOVERED after Gcine-camfov bricked it; prior supervisor session OOM-crashed mid-restore
+
+Resumed cold: orchestrator dead (PID 3475955 gone), and the previous supervisor
+session (d1354661, 44MB) had OOM-crashed at ~20:55 in the MIDDLE of an emergency
+device restore. Retrieved its transcript to catch up.
+
+CHAIN OF EVENTS: Gcine-camfov needed to ship the D1 cutscene 4:3-framing fix
+(a `pckernel-common.gc` GOAL change) → REQUIRED a boot-CGO rebuild → the worker
+rebuilt+pushed several experimental CGO/DGO sets to the phone all afternoon →
+device thrashed between broken states (garbled models / new-game crash / sideways
+camera) and finally a deterministic frame-180 sparticle SIGILL. Owner watched it
+break "a couple hours ago" and (rightly) pushed back on my first wrong framing
+("it worked until a couple hours ago — check the session history").
+
+DIAGNOSIS (empirical, not theory):
+1. Restoring the f1c June-11 boot CGOs alone did NOT fix it — falsified the dead
+   session's "bad CGO rebuild" hypothesis (which it never tested).
+2. libgk.so was NOT the culprit: the only C++ deltas vs the last-good build
+   (Gcine-crash3 3deef6bf3) are two inert-when-off diagnostics
+   (android_gfx GINTRO-gate, background_common GCINE-CAM).
+3. Real cause = CGO-SET INCONSISTENCY. My staging set mixed f1c-June-11 boot
+   CGOs with the June-16 TIT.DGO (title-pixelmatch) → frame-180 sparticle
+   unbound-symbol BLR-to-0. A PURE, internally-consistent f1c set (all 28 from
+   /tmp/f1c-arm64-iso, incl. f1c's June-11 TIT.DGO) BOOTS CLEAN to the title
+   screen (verified: pid alive 8/20/35s, mCurrentFocus=jak1, 0 sig=4/SIGILL,
+   title logo + island + PRESS START rendered). Also cleared a left-on
+   `setprop debug.opengoal.gcine.cam 1`.
+   => f1c boot CGOs ≠ the device's ORIGINAL working boot CGOs (the originals were
+   compatible with June-16 TIT.DGO; they were extracted 06-11 09:15, frozen, then
+   OVERWRITTEN by the worker and are LOST — no saved APK; /tmp/cgo-backup and
+   .autoport/gold/cgo are the x86 oracle gold, not the device set).
+
+RESTORE MECHANISM (no 1.3GB reinstall): device runs CGOs from files/iso_data/jak1/
+(app extracts once, never re-extracts), so `run-as cp` of a consistent 28-file
+set restores it in ~1 min. Pushed + sha256-verified all 28.
+
+DURABILITY: saved the verified-good set to
+`.autoport/backups/device-knowngood-cgos-20260618/` (226M, 28 files + README) so
+it's never lost again; synced the assets dir + /tmp source to match.
+
+STATE: device WORKS (title screen). Nothing lost in git (all fixes committed;
+libgk built from HEAD). Trade-off: the June-16 title-logo refinement is off the
+device (f1c TIT.DGO), deferred. Orchestrator STAYS STOPPED (it would resume the
+boot-CGO-rebuild path). Gcine-camfov/Gd1 parked, unproven, source at 67ad5176d.
+NEXT real blocker is unchanged and now well-understood: current goal_src cannot
+produce a CONSISTENT bootable CGO set (sparticle binding) — that, not the cosmetic
+cutscene framing, is what gates every future GOAL-level ship.
+
+## 2026-06-18 ~02:20 — blocker TRUE-root-caused; quick fix falsified; device safe
+
+Drove the blocker hard (autonomous). Built a full-consistent-arm64-build script
+(.autoport/build_arm64_full_consistent.sh) + a device restore button
+(.autoport/restore_knowngood_device.sh). Two device experiments, both clean
+auto-restore:
+1. Fresh fully-consistent current-source 28-file set → STILL crashes frame ~180
+   (so it's a REAL goal_src regression, not packaging; falsifies the Gspark-diag
+   researcher's "consistency-only" conclusion).
+2. Hardened all 19 remaining sparticle #f-guards (sgpr64→gpr_addr) + rebuilt
+   libgk + reinstalled APK + pushed current CGOs → IDENTICAL crash (same
+   lr=0x7f004d0e8c). So the crash is NOT a #f-guard misfire.
+
+ROOT CAUSE (byte-symbolized + the code's own comment): crash = blr x0=0 in
+enter-state (gstate.gc:339); the ndi state object's `enter` slot is stomped to 0.
+Writer = noop'd `sp-process-block-3d` leaves the launch-control list malformed →
+`sp-launch-particles-var` block_31 derefs a wild launcher ptr (0x691edfe3) when
+the current-source ND-logo intro spawns 3D particles (f1c's intro didn't). See
+mips2c_table_jak1_arm64.cpp:458 comment — it predicted EXACTLY this and says
+sp-process-block-3d "needs its own oracle-diff phase". Full detail in memory
+project_cgo_rebuild_sparticle_regression.
+
+DEVICE: SAFE + WORKING (f1c CGOs + fixed libgk, title renders, 0 sigs). The
+gpr_addr hardening is left uncommitted in-tree (correct bug-class hardening, but
+did NOT fix this crash — not a false green). REAL FIX is a scoped phase:
+(a) translate sp-process-block-3d to arm64 (x86 oracle-diff) OR (b) guard
+sp-launch-particles-var block_31 against the wild pointer. Driving (b)/pinning next.
+
+## 2026-06-18 ~02:32 — 3rd fix falsified; writer is NOT sparticle; tree reverted
+
+Tried fix (a): un-noop'd sp-process-block-3d (its #f-guards already hardened;
+block_31 reader-guards at 533/544 already in HEAD). Result: BYTE-IDENTICAL crash
+(same lr=0x7f004d0e8c). That's THREE fixes (consistent-build, gpr_addr-19-guards,
+3d-enable) all giving the SAME crash ⇒ the writer is NOT in the sparticle
+builders. The A40-SPWIN dump that sent everyone to sparticle is a RED HERRING (A40
+just watches that window). Reverted all 3 experimental mips2c edits → clean HEAD.
+Device boots fine on f1c + the experimental libgk (harmless; f1c doesn't exercise
+the path). STOP guessing. Next is RIGOROUS writer-pinning: watchpoint/content-
+canary on the ndi state object's `enter` slot in frames ~150-180 to name the
+exact store, then fix THAT. Honest status given to owner; not a false green.
+Tooling all in place (full-build script, restore button, known-good backup).
