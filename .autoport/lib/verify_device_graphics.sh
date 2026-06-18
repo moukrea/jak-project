@@ -31,6 +31,13 @@ PY="$HOME/.venv/autoport/bin/python"
 FC=".autoport/lib/frame_compare.py"
 
 ORACLE=".autoport/gold/oracle-beats"
+# intro-logo gates the HALO at the ndi (Naughty-Dog-logo-on-BLACK) beat — the
+# beat where the village+sun-glow halo actually appears (per the Gndlogo phase).
+# The spinning blue-starburst "JAK AND DAXTER" title card DELIBERATELY renders
+# the village+sun (the flythrough of Sandover), so it is the WRONG beat for a
+# brightness-halo gate. NDI_ORACLE = the matched-phase ND-logo-on-black frame
+# captured from the UNTOUCHED upstream v0.3.3 original (c4bc4d3ff).
+NDI_ORACLE=".autoport/gold/pristine-frames-2400/intro-ndlogo-full.png"
 FALLBACK=".autoport/gold/TRUE-original-v033"
 OUT=".autoport/reports/graphics-verify"
 SHOTS="$OUT/device-shots"
@@ -78,6 +85,8 @@ snap() {  # beat -> device-shots/<beat>.png ; only if fg==jak1
 # --- resolve oracle reference for a beat (oracle-beats preferred, fallback) ---
 oracle_for() {
   local beat="$1"
+  # intro-logo => the ndi ND-logo-on-BLACK oracle (the real halo beat).
+  if [ "$beat" = "intro-logo" ] && [ -f "$NDI_ORACLE" ]; then echo "$NDI_ORACLE"; return; fi
   [ -f "$ORACLE/$beat.png" ] && { echo "$ORACLE/$beat.png"; return; }
   # FALLBACK = TRUE upstream v0.3.3 originals (.autoport/gold/TRUE-original-v033)
   case "$beat" in
@@ -115,7 +124,7 @@ adb logcat -G 16M >/dev/null 2>&1 || true
 adb logcat -c >/dev/null 2>&1 || true
 : > "$LOG"
 ( adb logcat -v threadtime \
-    | grep --line-buffered -aE 'A35-RENDER frame=|overlay-map:|touch-hitbox:|engine: state=|link finish:|GK-DIAG sig=|Fatal signal|signal [0-9]+ \(SIG|has died' \
+    | grep --line-buffered -aE 'A35-RENDER frame=|A36-STR-DIAG rpc name=|overlay-map:|touch-hitbox:|engine: state=|link finish:|GK-DIAG sig=|Fatal signal|signal [0-9]+ \(SIG|has died' \
     > "$LOG" ) &
 LCP=$!
 trap 'kill ${LCP:-0} 2>/dev/null; clear_inject 2>/dev/null; adb shell am force-stop "$PKG" >/dev/null 2>&1 || true' EXIT
@@ -131,26 +140,63 @@ for b in intro-logo title-pressstart main-menu newgame-cinematic ingame-firstfra
   R_HALO[$b]=""; R_HALOAREA[$b]=""; R_REF[$b]=""
 done
 
-# wait for foreground + first render frames (title attract)
-echo "== warmup: wait for fg==jak1 + title attract to SETTLE (render>=900) =="
-warm_dl=$(( $(date +%s) + 150 ))
-while [ "$(date +%s)" -lt "$warm_dl" ]; do
+# ---- matched-phase intro capture (ndi ND-logo-on-BLACK = the halo beat) ------
+# The Android loader is SLOWER than the oracle, so a fixed wall-clock screencap
+# lands on the wrong beat. The HALO (village geometry + a yellow sun-glow that
+# the original lacks) appears during the ndi Naughty-Dog-logo-on-BLACK beat
+# (device render frame ~60-1080), NOT the spinning starburst (which is supposed
+# to show the village). So we capture a DENSE burst across the whole intro
+# window and pick the frame matching the ndi ND-logo-on-black oracle
+# (pick_best_frame.py vs NDI_ORACLE). HONEST: the selector only ALIGNS the beat;
+# halo_excess still grades the chosen frame. On a near-black beat the halo
+# (bright village/sun where the oracle is black) is unambiguous and rotation-
+# phase-robust, and a clean device (Gndlogo fix) reads ~0 excess. Anti-cheat:
+# a device WITHOUT the Gndlogo TIT.DGO fix shows the village/sun on every ndi
+# frame -> high excess -> MISMATCH (proven by running this on the f1c build).
+echo "== wait for fg==jak1 =="
+fg_dl=$(( $(date +%s) + 90 ))
+while [ "$(date +%s)" -lt "$fg_dl" ]; do is_fg && break; sleep 2; done
+is_fg && echo "  fg=jak1" || echo "  WARNING fg!=jak1 ($(read_focus))"
+
+BURST="$SHOTS/introburst"; rm -rf "$BURST"; mkdir -p "$BURST"
+echo "== dense intro burst (matched-phase): screencap until render>=1500 or 80s =="
+bn=0; burst_dl=$(( $(date +%s) + 80 ))
+while [ "$(date +%s)" -lt "$burst_dl" ]; do
   if is_fg; then
-    f=$(cur_render_frame); [ -n "$f" ] && [ "$f" -ge 900 ] 2>/dev/null && break
+    bf=$(printf '%03d' "$bn")
+    adb exec-out screencap -p > "$BURST/f$bf.png" 2>/dev/null
+    if [ -s "$BURST/f$bf.png" ] && identify "$BURST/f$bf.png" >/dev/null 2>&1; then
+      bn=$((bn+1))
+    else
+      rm -f "$BURST/f$bf.png"
+    fi
   fi
-  sleep 3
+  fr=$(cur_render_frame); fr=${fr:-0}
+  [ "$fr" -ge 1500 ] 2>/dev/null && { echo "  burst: render=$fr >=1500 after $bn shots (attract reached)"; break; }
+  sleep 0.7
 done
-# Gd1-proven: the title attract needs to fully reach the interactive PRESS START
-# state before cpad START opens the progress menu. Give it extra settle time.
-echo "  fg=$(is_fg && echo jak1 || echo OTHER) render_frame=$(cur_render_frame); settling 18s"
-sleep 18
+echo "  burst captured $bn frames (render_frame now $(cur_render_frame))"
 
-# ---- beat: intro-logo (early blue logo spinner) -----------------------------
-snap intro-logo && R_REACHED[intro-logo]=true
+# intro-logo = the ndi ND-logo-on-BLACK beat: pick the burst frame matched to
+# the ndi oracle (mask the touch overlay so it does not bias the match).
+echo "  ndi spool seen in logcat: $(grep -acE 'A36-STR-DIAG rpc name=\"ndi-intro\"' "$LOG" 2>/dev/null) ; logo-intro: $(grep -acE 'A36-STR-DIAG rpc name=\"logo-intro\"' "$LOG" 2>/dev/null)"
+ORC_INTRO="$(oracle_for intro-logo)"
+if [ -n "$ORC_INTRO" ] && [ "$bn" -gt 0 ]; then
+  RECTS=(); while IFS= read -r r; do [ -n "$r" ] && RECTS+=( --ignore-rect "$r" ); done < <(mask_rects_for "$ORC_INTRO")
+  if "$PY" .autoport/lib/pick_best_frame.py "$ORC_INTRO" "$BURST" "$SHOTS/intro-logo.png" "${RECTS[@]}"; then
+    R_REACHED[intro-logo]=true; echo "  intro-logo (ndi) matched-phase selected"
+  else
+    echo "  intro-logo: matcher failed (no ndi ND-logo frame in burst)"
+  fi
+fi
 
-# ---- beat: title-pressstart (settled PRESS START attract) -------------------
-sleep 8
-snap title-pressstart && R_REACHED[title-pressstart]=true
+# title-pressstart = the settled PRESS START attract = the LAST good burst frame.
+LASTB=$(ls "$BURST"/f*.png 2>/dev/null | sort | tail -1)
+if [ -n "$LASTB" ]; then
+  cp -f "$LASTB" "$SHOTS/title-pressstart.png" && R_REACHED[title-pressstart]=true
+  echo "  title-pressstart <- $(basename "$LASTB") (settled attract)"
+fi
+sleep 6  # let attract reach interactive PRESS START before cpad START
 
 # ---- beat: main-menu (START) ------------------------------------------------
 echo "== START (open progress menu) =="
@@ -206,7 +252,7 @@ import json, os, subprocess, sys
 from PIL import Image
 import numpy as np
 
-OUT="$OUT"; SHOTS="$SHOTS"; ORACLE="$ORACLE"; FALLBACK="$FALLBACK"; FC="$FC"; PY="$PY"
+OUT="$OUT"; SHOTS="$SHOTS"; ORACLE="$ORACLE"; FALLBACK="$FALLBACK"; FC="$FC"; PY="$PY"; NDI_ORACLE="$NDI_ORACLE"
 THR=int("$THRESHOLD"); TOL=float("$TOLERANCE")
 beats=["intro-logo","title-pressstart","main-menu","newgame-cinematic","ingame-firstframe"]
 reached={ "intro-logo": "${R_REACHED[intro-logo]}"=="true",
@@ -216,6 +262,7 @@ reached={ "intro-logo": "${R_REACHED[intro-logo]}"=="true",
           "ingame-firstframe": "${R_REACHED[ingame-firstframe]}"=="true" }
 
 def oracle_for(b):
+    if b=="intro-logo" and os.path.isfile(NDI_ORACLE): return NDI_ORACLE
     p=os.path.join(ORACLE, b+".png")
     if os.path.isfile(p): return p
     fb={"title-pressstart":"01-attract-flythrough.png","main-menu":"05-main-menu.png"}.get(b)
