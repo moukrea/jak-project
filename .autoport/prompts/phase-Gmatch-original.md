@@ -3,6 +3,13 @@
 ## The point
 The owner judges "is it good?" by comparing the phone to the **untouched upstream original** (OpenGOAL v0.3.3, `/home/emeric/code/jak-original-v033`, commit `c4bc4d3ff`) — NOT our modified build. An objective harness now does this automatically. Your job: get the device to match the original on the gated signals, with NO human looking.
 
+## X86-FIRST PRINCIPLE (owner directive — do this before ANY Android deploy)
+A divergence has TWO possible causes: (a) OUR code differs from the original even on x86 (a bug in our port that has nothing to do with arm64), or (b) our x86 matches the original but the arm64/Adreno device diverges (a real arm64/GLES bug). **Catch (a) on the HOST first — it is free, fast, and never needs the phone.** For EACH divergence (halo, menu black-rects, new-game crash, etc.):
+1. Build/run OUR x86 (`build-x86/game/gk`, our current code) AND the untouched original (`/home/emeric/code/jak-original-v033/.../gk`), capture the same beat from BOTH on the host, and `frame_compare.py` them.
+2. If **our-x86 already differs from the original** → it's an x86-level bug in OUR code. FIX IT ON THE HOST (edit + rebuild x86 + re-compare), iterating with NO device involved, until our-x86 matches the original.
+3. ONLY when our-x86 matches the original but the DEVICE still diverges do you build/deploy to arm64 — that residual is the genuine arm64/Adreno delta.
+EXTEND the harness to do this automatically: add an x86 capture+compare stage so `report.json` tags each beat as `x86_matches_original` (our-code OK) vs `arm64_only_divergence`. This makes the loop spend device cycles only on real arm64 bugs. (Note: the halo's `#ifdef __ANDROID__` Adreno fix means the halo is likely arm64-only — our x86 won't show it — but VERIFY, don't assume; the menu black-rects and the new-game crash may well reproduce on x86 = our-code bugs.)
+
 ## The objective gate (this IS your ground truth — run it, read it, don't guess)
 - `bash .autoport/lib/verify_device_graphics.sh` → writes `.autoport/reports/graphics-verify/report.json`: per-beat (intro-logo, title-pressstart, main-menu, newgame-cinematic, ingame-firstframe) {reached, diff_frac vs the v0.3.3 oracle, halo_excess_frac, MATCH/MISMATCH} + crash_signatures.
 - Oracle refs from the v0.3.3 original: `.autoport/gold/oracle-beats/*.png` (capture more via `.autoport/lib/capture_oracle_beats.sh` if you need newgame/ingame oracle frames — its TODO: the original's DECI2 listener doesn't bind on this host + START is remapped; solve that to capture the cinematic/in-game oracle beats).
