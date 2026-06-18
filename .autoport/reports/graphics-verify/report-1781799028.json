@@ -1,0 +1,95 @@
+{
+  "generated_at": "2026-06-18T16:10:28.883203Z",
+  "serial": "eae4df44",
+  "package": "org.opengoal.gk.jak1",
+  "threshold": 56,
+  "tolerance": 0.02,
+  "end_foreground": "mCurrentFocus=Window{72eaad1 u0 NotificationShade}",
+  "end_pid": "28315",
+  "crash_signatures": 0,
+  "beats": [
+    {
+      "beat": "intro-logo",
+      "reached": false,
+      "oracle": null,
+      "device_shot": null,
+      "diff_frac": null,
+      "rmse": null,
+      "verdict": "UNREACHED",
+      "halo_present": null,
+      "halo_excess_frac": null,
+      "device_bright_frac": null,
+      "oracle_bright_frac": null
+    },
+    {
+      "beat": "title-pressstart",
+      "reached": false,
+      "oracle": null,
+      "device_shot": null,
+      "diff_frac": null,
+      "rmse": null,
+      "verdict": "UNREACHED",
+      "halo_present": null,
+      "halo_excess_frac": null,
+      "device_bright_frac": null,
+      "oracle_bright_frac": null
+    },
+    {
+      "beat": "main-menu",
+      "reached": false,
+      "oracle": null,
+      "device_shot": null,
+      "diff_frac": null,
+      "rmse": null,
+      "verdict": "UNREACHED",
+      "halo_present": null,
+      "halo_excess_frac": null,
+      "device_bright_frac": null,
+      "oracle_bright_frac": null
+    },
+    {
+      "beat": "newgame-cinematic",
+      "reached": false,
+      "oracle": null,
+      "device_shot": null,
+      "diff_frac": null,
+      "rmse": null,
+      "verdict": "UNREACHED",
+      "halo_present": null,
+      "halo_excess_frac": null,
+      "device_bright_frac": null,
+      "oracle_bright_frac": null
+    },
+    {
+      "beat": "ingame-firstframe",
+      "reached": false,
+      "oracle": null,
+      "device_shot": null,
+      "diff_frac": null,
+      "rmse": null,
+      "verdict": "UNREACHED",
+      "halo_present": null,
+      "halo_excess_frac": null,
+      "device_bright_frac": null,
+      "oracle_bright_frac": null
+    }
+  ],
+  "summary": {
+    "beats_total": 5,
+    "beats_reached": 0,
+    "beats_gated": 0,
+    "beats_match": 0,
+    "beats_mismatch": [],
+    "beats_unreached": [
+      "intro-logo",
+      "title-pressstart",
+      "main-menu",
+      "newgame-cinematic",
+      "ingame-firstframe"
+    ],
+    "beats_no_oracle": [],
+    "halo_present_beats": [],
+    "overall_verdict": "FAIL",
+    "verdict_note": "PASS = all beats WITH an oracle reference matched + no crash. beats_no_oracle/beats_unreached are reported, not graded."
+  }
+}
