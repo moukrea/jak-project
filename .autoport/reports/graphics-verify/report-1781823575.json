@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-06-18T23:09:21.739832Z",
+  "generated_at": "2026-06-18T22:59:34.427351Z",
   "serial": "eae4df44",
   "package": "org.opengoal.gk.jak1",
   "threshold": 56,
   "tolerance": 0.02,
-  "end_foreground": "mCurrentFocus=Window{ab422cc u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}",
-  "end_pid": "14364",
+  "end_foreground": "mCurrentFocus=Window{e185f37 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}",
+  "end_pid": "12790",
   "crash_signatures": 0,
   "beats": [
     {
@@ -26,12 +26,12 @@
       "reached": true,
       "oracle": ".autoport/gold/oracle-beats/title-pressstart.png",
       "device_shot": ".autoport/reports/graphics-verify/device-shots/title-pressstart.png",
-      "diff_frac": 0.7502,
-      "rmse": 84.63,
+      "diff_frac": 0.75327,
+      "rmse": 82.29,
       "verdict": "MISMATCH",
       "halo_present": false,
-      "halo_excess_frac": 0.00177,
-      "device_bright_frac": 0.00178,
+      "halo_excess_frac": 0.00212,
+      "device_bright_frac": 0.00213,
       "oracle_bright_frac": 0.02832
     },
     {
@@ -39,12 +39,12 @@
       "reached": true,
       "oracle": ".autoport/gold/oracle-beats/main-menu.png",
       "device_shot": ".autoport/reports/graphics-verify/device-shots/main-menu.png",
-      "diff_frac": 0.57518,
-      "rmse": 77.16,
+      "diff_frac": 0.55907,
+      "rmse": 71.91,
       "verdict": "MISMATCH",
       "halo_present": false,
-      "halo_excess_frac": 0.02117,
-      "device_bright_frac": 0.02127,
+      "halo_excess_frac": 0.00506,
+      "device_bright_frac": 0.00515,
       "oracle_bright_frac": 0.00067
     },
     {

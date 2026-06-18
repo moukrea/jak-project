@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 102,
+  "current_phase_idx": 103,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -103,7 +103,7 @@
     "Gcine-audit": 2,
     "Gcine-camfov": 1,
     "Gspark-enterstate": 1,
-    "Gmatch-original": 3
+    "Gmatch-original": 4
   },
   "fingerprints": {
     "00-harness": [
@@ -211,7 +211,8 @@
     ],
     "Gmatch-original": [
       "c49e1dd9529b",
-      "f7c0451ef490"
+      "f7c0451ef490",
+      "0855c3d77b6a"
     ]
   },
   "stuck_reasons": {
@@ -313,7 +314,8 @@
     "Gcine-crash2",
     "Gcine-pose",
     "Gcine-crash3",
-    "Gcine-audit"
+    "Gcine-audit",
+    "Gmatch-original"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -399,7 +401,7 @@
     "Gspark-enterstate": 1781769389.2128012,
     "Gmatch-original": 1781795956.6131423
   },
-  "last_update": "2026-06-18T20:11:41.336511+00:00",
+  "last_update": "2026-06-18T23:09:31.861937+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
