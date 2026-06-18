@@ -36,6 +36,19 @@ extern "C" void gk_a38_tripwire_frame_hook(int chain_phase);
 // bad bone matrices (defined in game/mips2c/jak1_functions/joint.cpp).
 extern "C" void gpose_joint_frame_tick(unsigned long long frame_idx);
 
+// Gmatch: known-good snapshot of the GOAL kernel asm-func return-from-thread-dead
+// (the per-process return trampoline at GOAL 0x18aee4). Published here by the
+// render-thread content canary (below) and CONSUMED by gk_android_main.cpp's
+// SIGILL handler, which repairs-and-resumes when the kernel-dispatch thread RETs
+// into a (re-)stomped trampoline — a race the per-frame canary alone cannot win.
+// Set exactly once (malloc'd, never freed); a plain pointer read in the handler
+// is safe (null until armed, valid forever after).
+extern "C" {
+unsigned char* g_gmatch_rftd_good = nullptr;     // known-good bytes, or null
+unsigned int g_gmatch_rftd_goal = 0x18aee4;       // GOAL addr of protected region
+unsigned int g_gmatch_rftd_len = 0x80;            // length in bytes
+}
+
 // Gcine-camfov: the Gintro DMA chain-walk dump (GINTRO-CHAINWALK / GND-PRECOPY-RAW)
 // is a per-frame ~14-line render-thread debug flood that has outlived its purpose.
 // It runs latency-heavy __android_log_print calls every frame during the new-game
@@ -427,6 +440,65 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
         }
         memcpy(live, s_deact_good, kDeactLen);
         __builtin___clear_cache((char*)live, (char*)live + kDeactLen);
+      }
+    }
+#endif
+
+    // === Gmatch: return-from-thread-dead code-stomp guard (arm64) =============
+    // The NEW GAME sage-intro cutscene's arm64 blend-shape merc draw uses a
+    // corrupted low base pointer (the recurring Gnd/Gcine3 "global-buf.base goes
+    // high->low" class) and writes vertex data over the GOAL kernel asm-func
+    // `return-from-thread-dead` (gkernel.gc:451) at GOAL 0x18aee4 -- the per-
+    // process RETURN TRAMPOLINE that set-to-run-bootstrap (gkernel.gc:1849)
+    // pushes onto every process's fake stack. When any process's main thread
+    // then RETURNS, control lands at this trampoline; if it has been stomped the
+    // CPU executes the overwritten bytes -> SIGILL (sig 4, pc=lr=0x7f0018aee4) ->
+    // app death -> Android launcher. Verified: the live symbol-table walk
+    // resolves crash target 0x18aee4 == "return-from-thread-dead", and the A37
+    // PC-window shows it overwritten (00000000) where its code should be. This is
+    // the SAME stomp mechanism the Gcine3 canary above repairs for a DIFFERENT
+    // target (process::deactivate @ 0x191240); the sage-intro scene corrupts the
+    // base to a different low address. KERNEL.CGO is an un-rebuildable boot CGO
+    // and the writer is in the render path, so -- like the deactivate canary --
+    // we snapshot the trampoline's clean code once (clean from boot until the
+    // cutscene at ~frame 7080) and restore it after every rendered frame, before
+    // the GOAL thread runs the next process return. x86 unaffected.
+#ifdef __aarch64__
+    {
+      const u32 kRftdLo = g_gmatch_rftd_goal, kRftdLen = g_gmatch_rftd_len;  // 0x18aee4 / 0x80
+      static bool s_rftd_reported = false;
+      u8* rlive = g_ee_main_mem + kRftdLo;
+      if (!g_gmatch_rftd_good) {
+        // Snapshot once, while clean: a non-zero first word means the kernel code
+        // is linked and not (yet) stomped; the frame gate keeps the snapshot
+        // strictly before the cutscene stomp at ~frame 7080. Publishing the
+        // pointer LAST makes the SIGILL handler's null-check race-safe.
+        u32 w0 = 0;
+        memcpy(&w0, rlive, 4);
+        if (w0 != 0 && st.frame_idx < 6000) {
+          u8* good = (u8*)malloc(kRftdLen);
+          memcpy(good, rlive, kRftdLen);
+          g_gmatch_rftd_good = good;
+          __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                              "GMATCH-RFTD-CANARY armed goal:0x%x len=0x%x sig=0x%08x frame=%llu",
+                              kRftdLo, kRftdLen, w0, (unsigned long long)st.frame_idx);
+        }
+      } else if (memcmp(g_gmatch_rftd_good, rlive, kRftdLen) != 0) {
+        if (!s_rftd_reported) {
+          s_rftd_reported = true;
+          u32 off = 0;
+          while (off < kRftdLen && g_gmatch_rftd_good[off] == rlive[off]) off++;
+          u32 wasw = 0, noww = 0;
+          memcpy(&wasw, g_gmatch_rftd_good + (off & ~3u), 4);
+          memcpy(&noww, rlive + (off & ~3u), 4);
+          __android_log_print(
+              ANDROID_LOG_FATAL, kLogTag,
+              "GMATCH-RFTD-STOMP frame=%llu first=goal:0x%x was=0x%08x now=0x%08x "
+              "(merc blend-shape draw stomped return-from-thread-dead; repaired)",
+              (unsigned long long)st.frame_idx, kRftdLo + off, wasw, noww);
+        }
+        memcpy(rlive, g_gmatch_rftd_good, kRftdLen);
+        __builtin___clear_cache((char*)rlive, (char*)rlive + kRftdLen);
       }
     }
 #endif
