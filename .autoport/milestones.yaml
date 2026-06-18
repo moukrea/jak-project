@@ -965,6 +965,17 @@ phases:
   validator: validators/phase-Gcine-audit.sh
   max_turns: 1500
   max_retries: 3
+- id: Gmatch-original
+  name: 'Make the device match the UNTOUCHED v0.3.3 original via the objective graphics harness (zero human eyeballing).
+    Baseline verdict: NEW GAME crashes (sig=11 at the intro cutscene link) so it never reaches in-game; halo present at the
+    ND-logo beat (halo_excess_frac=0.05); menu opens and its layout matches. The device can only boot f1c CGOs (rebuilds crash
+    at frame 180 = the Gspark-enterstate phase), so fixes ship via libgk; the current device libgk 93f639155 PRE-DATES the
+    cutscene-crash fixes 6a8035ae4/3deef6bf3 — first deploy a CLEAN HEAD/3deef6bf3 libgk + f1c CGOs and re-run the harness.
+    Gate (verify_device_graphics.sh vs jak-original-v033): crash_signatures==0 + reaches in-game + no halo at intro-logo.'
+  prompt: prompts/phase-Gmatch-original.md
+  validator: validators/phase-Gmatch-original.sh
+  max_turns: 2000
+  max_retries: 5
 - id: Gspark-enterstate
   name: 'Fix the frame-180 enter-state null-enter SIGILL that blocks ALL current-source CGO ships. Rebuilt boot CGOs crash ~3s into
     boot (ND-logo intro): enter-state (gstate.gc:339) BLRs a null (raw 0, not #f) enter slot. f1c (2026-06-11) boots, current source

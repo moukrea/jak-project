@@ -1,0 +1,14 @@
+{
+  "captured_at": "2026-06-18T14:59:02Z",
+  "resolution": "2400x1080",
+  "source": "UPSTREAM ORIGINAL v0.3.3 (c4bc4d3ff) at /home/emeric/code/jak-original-v033",
+  "camera_data": "none (original lacks GCINE-CAM; frame PNGs only)",
+  "beats": {
+    "boot": {"reached": "true", "frame": "", "png": false},
+    "intro-logo": {"reached": "true", "frame": "1020", "png": true},
+    "title-pressstart": {"reached": "true", "frame": "golden", "png": true},
+    "main-menu": {"reached": "true", "frame": "golden", "png": true},
+    "newgame-cinematic": {"reached": "false", "frame": "blocked:original-listener+input", "png": false},
+    "ingame-firstframe": {"reached": "false", "frame": "blocked:original-listener+input", "png": false}
+  }
+}
