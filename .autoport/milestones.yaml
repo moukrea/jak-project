@@ -965,6 +965,18 @@ phases:
   validator: validators/phase-Gcine-audit.sh
   max_turns: 1500
   max_retries: 3
+- id: Gspark-enterstate
+  name: 'Fix the frame-180 enter-state null-enter SIGILL that blocks ALL current-source CGO ships. Rebuilt boot CGOs crash ~3s into
+    boot (ND-logo intro): enter-state (gstate.gc:339) BLRs a null (raw 0, not #f) enter slot. f1c (2026-06-11) boots, current source
+    does not => a goal_src regression since June 11. NOT sparticle (the A40-SPWIN dump is a red herring); FOUR fixes already falsified
+    (consistency rebuild, gpr_addr sparticle #f-guards, un-noop sp-process-block-3d, GOAL-level null-guard in enter-state). Find WHY the
+    ndi/logo intro state has enter=0 on arm64 (go-hook / define-state-hook / state-field-store codegen class; cf. F1f/G1/G2) and fix at
+    the real mechanism. Device-safe via .autoport/restore_knowngood_device.sh + build_arm64_full_consistent.sh. Gate: a fresh consistent
+    CURRENT-source 28-file set boots past frame 180 (frame>=600, foreground=jak1, 0 sig=4), known-good restored after.'
+  prompt: prompts/phase-Gspark-enterstate.md
+  validator: validators/phase-Gspark-enterstate.sh
+  max_turns: 2000
+  max_retries: 4
 - id: Gcine-camfov
   name: 'Fix D1 from Gcine-audit (objectively measured): the new-game cutscene camera projects at 4:3 (1.333) instead of the panel 2.222 —
     matched-pose beats show pose_dist=0.0 but projection rows scaled by exactly 5/3 (c0.x x0.80, c1.y x1.333), turning intended close-ups
