@@ -3786,6 +3786,105 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
   }
   return true;
 }
+
+// Gmatch: targeted repair for the arm64 "double-EE-base" store fault seen in
+// the NEW GAME sage-intro cutscene (blerc / merc blend-shape DMA-chain build).
+// A GOAL-compiled store in the f1c boot CGO receives a pointer that is ALREADY
+// host-absolute (EE_base + off) and then re-bases it a SECOND time
+// (ADD Xd,Xn,X15 with X15 = EE_base), so the store target = 2*EE_base + off,
+// which is unmapped -> SIGSEGV (fault=0xfe0018aee4 pc=0x...502ad0). The intended
+// destination is unambiguous: (fault - EE_base) = the single-based host address
+// the producer actually computed. The f1c CGOs cannot be recompiled on this
+// device (rebuilt boot CGOs SIGILL at frame 180), so the producer-side codegen
+// fix cannot ship; per the phase mandate ("all fixes ship via libgk.so") we
+// COMPLETE the intended store from libgk and skip the faulting instruction.
+// Gated by the exact double-base address window so genuine faults (null deref,
+// wild pointers) — which never land in [2*EE_base, 2*EE_base+EE_SIZE) — are
+// NEVER masked. Same store-decode/emulate machinery as handle_band_fault.
+std::atomic<uint64_t> g_dblee_repairs{0};
+bool handle_double_ee_base_fault(int sig, siginfo_t* info, void* ucontext) {
+  if (sig != SIGSEGV || !g_ee_main_mem) {
+    return false;
+  }
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const uintptr_t fault = info ? reinterpret_cast<uintptr_t>(info->si_addr) : 0;
+  // double-base window: address re-based with EE_base twice.
+  const uintptr_t dbl_lo = ee + ee;
+  const uintptr_t dbl_hi = dbl_lo + static_cast<uintptr_t>(EE_MAIN_MEM_SIZE);
+  if (fault < dbl_lo || fault >= dbl_hi) {
+    return false;
+  }
+  const uintptr_t corrected = fault - ee;  // single-based host addr (mapped RW)
+  if (corrected < ee + 0x1000 || corrected >= ee + static_cast<uintptr_t>(EE_MAIN_MEM_SIZE)) {
+    return false;
+  }
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  const uintptr_t pc = uc->uc_mcontext.pc;
+  if (to_goal(pc) < 0x1000) {
+    return false;  // faulting instruction must be GOAL-compiled code
+  }
+  const uint32_t insn = *reinterpret_cast<const uint32_t*>(pc);
+  StoreInfo st = classify_store(insn);
+  if (!st.valid || st.writeback || st.size_bytes <= 0) {
+    return false;  // only plain (non-writeback) stores are completable
+  }
+  // No alignment requirement here: the ENTIRE double-base window
+  // [2*EE_base, 2*EE_base+EE_SIZE) is unmapped, so the access straddles no
+  // mapped/unmapped boundary and arm64 FAR == the access base even for a
+  // 16-byte-misaligned STR Q (this exact crash is a 128-bit store at a merely
+  // 4-byte-aligned address). The corrected target is plain RW EE memory.
+  uint64_t v_lo = 0, v_hi = 0, v2_lo = 0, v2_hi = 0;
+  if (st.simd) {
+    v_lo = fpsimd_lo64(uc, st.rt, &v_hi);
+    if (st.pair) {
+      v2_lo = fpsimd_lo64(uc, st.rt2, &v2_hi);
+    }
+  } else {
+    v_lo = (st.rt == 31) ? 0 : uc->uc_mcontext.regs[st.rt];
+    if (st.pair) {
+      v2_lo = (st.rt2 == 31) ? 0 : uc->uc_mcontext.regs[st.rt2];
+    }
+  }
+  const size_t total = static_cast<size_t>(st.size_bytes) * (st.pair ? 2 : 1);
+  if (total > 32) {
+    return false;
+  }
+  if (corrected + total > ee + static_cast<uintptr_t>(EE_MAIN_MEM_SIZE)) {
+    return false;  // corrected store must lie fully within EE memory
+  }
+  uint8_t bytes[32] = {0};
+  memcpy(bytes, &v_lo, 8);
+  memcpy(bytes + 8, &v_hi, 8);
+  if (st.pair) {
+    if (st.size_bytes == 16) {
+      memcpy(bytes + 16, &v2_lo, 8);
+      memcpy(bytes + 24, &v2_hi, 8);
+    } else {
+      memcpy(bytes + st.size_bytes, &v2_lo, st.size_bytes < 8 ? st.size_bytes : 8);
+    }
+  }
+  // corrected target is ordinary RW EE memory — write the intended bytes.
+  memcpy(reinterpret_cast<void*>(corrected), bytes, total);
+  uc->uc_mcontext.pc += 4;  // skip the faulting store
+  const uint64_t n = g_dblee_repairs.fetch_add(1, std::memory_order_relaxed) + 1;
+  if (n <= 8) {
+    const uintptr_t lr = uc->uc_mcontext.regs[30];
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG DBLEE-REPAIR #%llu fault=0x%lx -> 0x%lx pc=goal:0x%x "
+                        "lr=goal:0x%x sz=%d simd=%d pair=%d",
+                        (unsigned long long)n, (unsigned long)fault, (unsigned long)corrected,
+                        to_goal(pc), to_goal(lr), st.size_bytes, st.simd ? 1 : 0, st.pair ? 1 : 0);
+    uint32_t pcg = to_goal(pc);
+    if (pcg >= 0x1000) {
+      log_nearest_goal_fn("dblee-pc", pcg);
+    }
+    uint32_t lrg = to_goal(lr);
+    if (lrg >= 0x1000) {
+      log_nearest_goal_fn("dblee-lr", lrg);
+    }
+  }
+  return true;
+}
 }  // namespace a38_trip
 
 // F1A: non-static bridge so the A37-CAM block (earlier in the TU, different
@@ -3975,6 +4074,12 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // before everything else: the rest of this function is the fatal-crash
   // dump path and ends in re-raise.
   if (sig == SIGSEGV && a38_trip::handle_band_fault(info, ucontext)) {
+    return;
+  }
+  // Gmatch: complete + resume the arm64 double-EE-base store fault (the
+  // sage-intro blerc DMA-chain crash). Narrowly gated on the 2*EE_base address
+  // window; never masks a genuine crash. Must run before the fatal dump below.
+  if (sig == SIGSEGV && a38_trip::handle_double_ee_base_fault(sig, info, ucontext)) {
     return;
   }
   // Diag-only: dump PC bytes and registers so we can decode the crashing
