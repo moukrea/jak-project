@@ -2970,6 +2970,8 @@ struct StoreInfo {
   bool simd = false;
   bool pair = false;
   bool writeback = false;  // pre/post-index — not emulated (Rn update)
+  bool sign_ext = false;   // signed GPR load (LDRSB/LDRSH/LDRSW/LDPSW)
+  bool dest_w = false;     // 32-bit W destination (signed load opc==3)
   int size_bytes = 0;
   int rt = -1;
   int rt2 = -1;
@@ -3018,6 +3020,69 @@ StoreInfo classify_store(uint32_t insn) {
   return s;  // exclusives / DC ZVA / others — raw insn still logged
 }
 
+// AArch64 load classifier — the inverse of classify_store, for the LDR/LDP/LDUR
+// (and SIMD twins) forms goalc/clang emit. Used by handle_double_ee_base_fault
+// to COMPLETE a double-EE-based LOAD (read from the corrected single-based EE
+// address into the destination register), mirroring the store-repair path. Only
+// plain (non-writeback) loads are completable.
+StoreInfo classify_load(uint32_t insn) {
+  StoreInfo s;
+  if ((insn & 0x3E000000u) == 0x28000000u) {  // load/store pair family
+    if (!(insn & (1u << 22))) {
+      return s;  // L=0 → store
+    }
+    uint32_t opc = insn >> 30;
+    s.simd = (insn >> 26) & 1u;
+    uint32_t variant = (insn >> 23) & 3u;  // 00 LDNP, 01 post, 10 offset, 11 pre
+    s.writeback = (variant == 1 || variant == 3);
+    s.valid = true;
+    s.pair = true;
+    if (s.simd) {
+      s.size_bytes = 4 << opc;  // 4 (S), 8 (D), 16 (Q)
+    } else if (opc == 1) {
+      s.size_bytes = 4;  // LDPSW: two 32-bit, sign-extended to 64-bit X
+      s.sign_ext = true;
+    } else {
+      s.size_bytes = (opc >= 2) ? 8 : 4;  // 00 32-bit W, 10 64-bit X
+    }
+    s.rt = insn & 0x1F;
+    s.rt2 = (insn >> 10) & 0x1F;
+    s.rn = (insn >> 5) & 0x1F;
+    return s;
+  }
+  uint32_t fam = insn & 0x3B000000u;
+  if (fam == 0x39000000u || fam == 0x38000000u) {  // ld/st reg: imm12 / imm9 / reg-offset
+    uint32_t opc = (insn >> 22) & 3u;
+    uint32_t size = insn >> 30;
+    s.simd = (insn >> 26) & 1u;
+    bool is_load;
+    if (s.simd) {
+      is_load = (opc == 1) || (opc == 3 && size == 0);  // LDR (8/16/32/64) | LDR Q (128)
+    } else {
+      is_load = (opc == 1) || (opc == 2) || (opc == 3);  // LDR | LDRSW/LDRS64 | LDRS32
+    }
+    if (!is_load) {
+      return s;
+    }
+    if (fam == 0x38000000u && !((insn >> 21) & 1u)) {
+      uint32_t idx = (insn >> 10) & 3u;  // 00 LDUR, 01 post, 11 pre
+      s.writeback = (idx == 1 || idx == 3);
+    }
+    s.valid = true;
+    if (s.simd) {
+      s.size_bytes = (opc == 3 && size == 0) ? 16 : (1 << size);
+    } else {
+      s.size_bytes = 1 << size;
+      s.sign_ext = (opc == 2 || opc == 3);  // signed integer load
+      s.dest_w = (opc == 3);                // 32-bit W destination
+    }
+    s.rt = insn & 0x1F;
+    s.rn = (insn >> 5) & 0x1F;
+    return s;
+  }
+  return s;  // exclusives / literal / others — not completable
+}
+
 // Read V<reg> from the signal frame's fpsimd block (vector stores).
 uint64_t fpsimd_lo64(ucontext_t* uc, int vreg, uint64_t* hi) {
   if (hi) {
@@ -3043,6 +3108,34 @@ uint64_t fpsimd_lo64(ucontext_t* uc, int vreg, uint64_t* hi) {
     p += head->size;
   }
   return 0;
+}
+
+// Write V<reg> in the signal frame's fpsimd block (vector loads). On return from
+// the signal handler the kernel restores the V registers from this frame, so
+// updating it here completes an emulated SIMD load. No-op if the frame lacks an
+// fpsimd block (always present on arm64 Android).
+void fpsimd_set(ucontext_t* uc, int vreg, uint64_t lo, uint64_t hi) {
+  if (vreg < 0 || vreg >= 32) {
+    return;
+  }
+  uint8_t* p = reinterpret_cast<uint8_t*>(uc->uc_mcontext.__reserved);
+  uint8_t* end = p + sizeof(uc->uc_mcontext.__reserved);
+  while (p + sizeof(_aarch64_ctx) <= end) {
+    auto* head = reinterpret_cast<_aarch64_ctx*>(p);
+    if (head->magic == 0 || head->size == 0) {
+      break;
+    }
+    if (head->magic == FPSIMD_MAGIC) {
+      auto* f = reinterpret_cast<fpsimd_context*>(p);
+      f->vregs[vreg] =
+          (static_cast<__uint128_t>(hi) << 64) | static_cast<__uint128_t>(lo);
+      return;
+    }
+    if (p + head->size <= p) {
+      break;
+    }
+    p += head->size;
+  }
 }
 
 // Track the writer pc; *is_new set when this pc was never seen before.
@@ -3787,20 +3880,23 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
   return true;
 }
 
-// Gmatch: targeted repair for the arm64 "double-EE-base" store fault seen in
+// Gmatch: targeted repair for the arm64 "double-EE-base" memory fault seen in
 // the NEW GAME sage-intro cutscene (blerc / merc blend-shape DMA-chain build).
-// A GOAL-compiled store in the f1c boot CGO receives a pointer that is ALREADY
-// host-absolute (EE_base + off) and then re-bases it a SECOND time
-// (ADD Xd,Xn,X15 with X15 = EE_base), so the store target = 2*EE_base + off,
-// which is unmapped -> SIGSEGV (fault=0xfe0018aee4 pc=0x...502ad0). The intended
-// destination is unambiguous: (fault - EE_base) = the single-based host address
-// the producer actually computed. The f1c CGOs cannot be recompiled on this
-// device (rebuilt boot CGOs SIGILL at frame 180), so the producer-side codegen
-// fix cannot ship; per the phase mandate ("all fixes ship via libgk.so") we
-// COMPLETE the intended store from libgk and skip the faulting instruction.
+// A GOAL-compiled store OR LOAD in the f1c boot CGO receives a pointer that is
+// ALREADY host-absolute (EE_base + off) and then re-bases it a SECOND time
+// (ADD Xd,Xn,X15 with X15 = EE_base), so the access target = 2*EE_base + off,
+// which is unmapped -> SIGSEGV (e.g. fault=0xfe0018aee4: a STR Q at pc=0x...502ad0
+// AND a LDR Q21,[X16] at the next access in the same vector-math function). The
+// intended address is unambiguous: (fault - EE_base) = the single-based host
+// address the producer actually computed. The f1c CGOs cannot be recompiled on
+// this device (rebuilt boot CGOs SIGILL at frame 180), so the producer-side
+// codegen fix cannot ship; per the phase mandate ("all fixes ship via libgk.so")
+// we COMPLETE the intended access from libgk and skip the faulting instruction:
+//   - STORE: write the source register(s) to the corrected address.
+//   - LOAD:  read the corrected address into the destination register(s).
 // Gated by the exact double-base address window so genuine faults (null deref,
 // wild pointers) — which never land in [2*EE_base, 2*EE_base+EE_SIZE) — are
-// NEVER masked. Same store-decode/emulate machinery as handle_band_fault.
+// NEVER masked. Same decode/emulate machinery as handle_band_fault.
 std::atomic<uint64_t> g_dblee_repairs{0};
 bool handle_double_ee_base_fault(int sig, siginfo_t* info, void* ucontext) {
   if (sig != SIGSEGV || !g_ee_main_mem) {
@@ -3824,56 +3920,95 @@ bool handle_double_ee_base_fault(int sig, siginfo_t* info, void* ucontext) {
     return false;  // faulting instruction must be GOAL-compiled code
   }
   const uint32_t insn = *reinterpret_cast<const uint32_t*>(pc);
+  bool is_load = false;
   StoreInfo st = classify_store(insn);
-  if (!st.valid || st.writeback || st.size_bytes <= 0) {
-    return false;  // only plain (non-writeback) stores are completable
+  if (!st.valid) {
+    st = classify_load(insn);
+    is_load = st.valid;
   }
-  // No alignment requirement here: the ENTIRE double-base window
-  // [2*EE_base, 2*EE_base+EE_SIZE) is unmapped, so the access straddles no
-  // mapped/unmapped boundary and arm64 FAR == the access base even for a
-  // 16-byte-misaligned STR Q (this exact crash is a 128-bit store at a merely
-  // 4-byte-aligned address). The corrected target is plain RW EE memory.
-  uint64_t v_lo = 0, v_hi = 0, v2_lo = 0, v2_hi = 0;
-  if (st.simd) {
-    v_lo = fpsimd_lo64(uc, st.rt, &v_hi);
-    if (st.pair) {
-      v2_lo = fpsimd_lo64(uc, st.rt2, &v2_hi);
-    }
-  } else {
-    v_lo = (st.rt == 31) ? 0 : uc->uc_mcontext.regs[st.rt];
-    if (st.pair) {
-      v2_lo = (st.rt2 == 31) ? 0 : uc->uc_mcontext.regs[st.rt2];
-    }
+  if (!st.valid || st.writeback || st.size_bytes <= 0) {
+    return false;  // only plain (non-writeback) loads/stores are completable
   }
   const size_t total = static_cast<size_t>(st.size_bytes) * (st.pair ? 2 : 1);
   if (total > 32) {
     return false;
   }
   if (corrected + total > ee + static_cast<uintptr_t>(EE_MAIN_MEM_SIZE)) {
-    return false;  // corrected store must lie fully within EE memory
+    return false;  // corrected access must lie fully within EE memory
   }
-  uint8_t bytes[32] = {0};
-  memcpy(bytes, &v_lo, 8);
-  memcpy(bytes + 8, &v_hi, 8);
-  if (st.pair) {
-    if (st.size_bytes == 16) {
-      memcpy(bytes + 16, &v2_lo, 8);
-      memcpy(bytes + 24, &v2_hi, 8);
-    } else {
-      memcpy(bytes + st.size_bytes, &v2_lo, st.size_bytes < 8 ? st.size_bytes : 8);
+  // No alignment requirement here: the ENTIRE double-base window
+  // [2*EE_base, 2*EE_base+EE_SIZE) is unmapped, so the access straddles no
+  // mapped/unmapped boundary and arm64 FAR == the access base even for a
+  // 16-byte-misaligned STR/LDR Q (this exact crash is a 128-bit access at a
+  // merely 4-byte-aligned address). The corrected target is plain RW EE memory.
+  if (is_load) {
+    // Complete the load: read the intended bytes from the single-based EE
+    // address into the destination register(s).
+    uint8_t bytes[32] = {0};
+    memcpy(bytes, reinterpret_cast<const void*>(corrected), total);
+    auto load_reg = [&](int rt, const uint8_t* src) {
+      if (st.simd) {
+        uint64_t lo = 0, hi = 0;
+        memcpy(&lo, src, st.size_bytes >= 8 ? 8 : st.size_bytes);
+        if (st.size_bytes == 16) {
+          memcpy(&hi, src + 8, 8);
+        }
+        fpsimd_set(uc, rt, lo, hi);  // SIMD load zero-fills bits above size
+      } else if (rt != 31) {         // x31 == xzr/wzr: discard
+        uint64_t v = 0;
+        memcpy(&v, src, st.size_bytes > 8 ? 8 : st.size_bytes);
+        if (st.sign_ext) {
+          const int bits = st.size_bytes * 8;
+          int64_t sv = static_cast<int64_t>(v << (64 - bits)) >> (64 - bits);
+          v = static_cast<uint64_t>(sv);
+          if (st.dest_w) {
+            v &= 0xffffffffull;  // 32-bit W destination
+          }
+        }
+        uc->uc_mcontext.regs[rt] = v;
+      }
+    };
+    load_reg(st.rt, bytes);
+    if (st.pair) {
+      load_reg(st.rt2, bytes + st.size_bytes);
     }
+  } else {
+    // Complete the store: write the source register(s) to the corrected addr.
+    uint64_t v_lo = 0, v_hi = 0, v2_lo = 0, v2_hi = 0;
+    if (st.simd) {
+      v_lo = fpsimd_lo64(uc, st.rt, &v_hi);
+      if (st.pair) {
+        v2_lo = fpsimd_lo64(uc, st.rt2, &v2_hi);
+      }
+    } else {
+      v_lo = (st.rt == 31) ? 0 : uc->uc_mcontext.regs[st.rt];
+      if (st.pair) {
+        v2_lo = (st.rt2 == 31) ? 0 : uc->uc_mcontext.regs[st.rt2];
+      }
+    }
+    uint8_t bytes[32] = {0};
+    memcpy(bytes, &v_lo, 8);
+    memcpy(bytes + 8, &v_hi, 8);
+    if (st.pair) {
+      if (st.size_bytes == 16) {
+        memcpy(bytes + 16, &v2_lo, 8);
+        memcpy(bytes + 24, &v2_hi, 8);
+      } else {
+        memcpy(bytes + st.size_bytes, &v2_lo, st.size_bytes < 8 ? st.size_bytes : 8);
+      }
+    }
+    memcpy(reinterpret_cast<void*>(corrected), bytes, total);
   }
-  // corrected target is ordinary RW EE memory — write the intended bytes.
-  memcpy(reinterpret_cast<void*>(corrected), bytes, total);
-  uc->uc_mcontext.pc += 4;  // skip the faulting store
+  uc->uc_mcontext.pc += 4;  // skip the faulting access
   const uint64_t n = g_dblee_repairs.fetch_add(1, std::memory_order_relaxed) + 1;
   if (n <= 8) {
     const uintptr_t lr = uc->uc_mcontext.regs[30];
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
-                        "GK-DIAG DBLEE-REPAIR #%llu fault=0x%lx -> 0x%lx pc=goal:0x%x "
+                        "GK-DIAG DBLEE-REPAIR #%llu %s fault=0x%lx -> 0x%lx pc=goal:0x%x "
                         "lr=goal:0x%x sz=%d simd=%d pair=%d",
-                        (unsigned long long)n, (unsigned long)fault, (unsigned long)corrected,
-                        to_goal(pc), to_goal(lr), st.size_bytes, st.simd ? 1 : 0, st.pair ? 1 : 0);
+                        (unsigned long long)n, is_load ? "ld" : "st", (unsigned long)fault,
+                        (unsigned long)corrected, to_goal(pc), to_goal(lr), st.size_bytes,
+                        st.simd ? 1 : 0, st.pair ? 1 : 0);
     uint32_t pcg = to_goal(pc);
     if (pcg >= 0x1000) {
       log_nearest_goal_fn("dblee-pc", pcg);
@@ -3884,6 +4019,54 @@ bool handle_double_ee_base_fault(int sig, siginfo_t* info, void* ucontext) {
     }
   }
   return true;
+}
+
+// Gmatch: known-good snapshot of return-from-thread-dead, published by the
+// render-thread content canary in android_gfx.cpp (null until armed, valid
+// forever after — a plain pointer read here is race-safe).
+extern "C" {
+extern unsigned char* g_gmatch_rftd_good;
+extern unsigned int g_gmatch_rftd_goal;
+extern unsigned int g_gmatch_rftd_len;
+}
+
+// Gmatch: repair-and-resume for a SIGILL into the (re-)stomped
+// return-from-thread-dead trampoline (GOAL 0x18aee4). The render-thread canary
+// repairs the trampoline per frame, but the merc blend-shape draw can re-stomp
+// it AND the kernel-dispatch thread can RET into the corrupted code within the
+// same tick, before the next post-frame repair. So repair it HERE -- on the
+// faulting thread, at the instant of the bad jump -- from the canary's published
+// snapshot, then RESUME (return with pc unchanged so the CPU re-fetches the now-
+// valid instruction). Race-free. Gated to the trampoline address window AND to
+// an actually-stomped state, so a genuine SIGILL is never masked.
+std::atomic<uint64_t> g_rftd_sigill_repairs{0};
+bool handle_rftd_sigill(int sig, siginfo_t* /*info*/, void* ucontext) {
+  if (sig != SIGILL || !g_ee_main_mem || !g_gmatch_rftd_good) {
+    return false;
+  }
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  const uintptr_t pc = uc->uc_mcontext.pc;
+  const uintptr_t lo = ee + g_gmatch_rftd_goal;
+  const uintptr_t hi = lo + g_gmatch_rftd_len;
+  if (pc < lo || pc >= hi) {
+    return false;  // SIGILL is not in the trampoline window
+  }
+  uint8_t* live = reinterpret_cast<uint8_t*>(lo);
+  if (memcmp(live, g_gmatch_rftd_good, g_gmatch_rftd_len) == 0) {
+    return false;  // trampoline intact -> a genuine SIGILL here; do not mask
+  }
+  memcpy(live, g_gmatch_rftd_good, g_gmatch_rftd_len);
+  __builtin___clear_cache(reinterpret_cast<char*>(live),
+                          reinterpret_cast<char*>(live) + g_gmatch_rftd_len);
+  const uint64_t n = g_rftd_sigill_repairs.fetch_add(1, std::memory_order_relaxed) + 1;
+  if (n <= 8) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG RFTD-SIGILL-REPAIR #%llu pc=goal:0x%x "
+                        "(re-stomped return-from-thread-dead; repaired+resumed)",
+                        (unsigned long long)n, (uint32_t)(pc - ee));
+  }
+  return true;  // resume at the same pc; the repaired instruction re-executes
 }
 }  // namespace a38_trip
 
@@ -4080,6 +4263,13 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // sage-intro blerc DMA-chain crash). Narrowly gated on the 2*EE_base address
   // window; never masks a genuine crash. Must run before the fatal dump below.
   if (sig == SIGSEGV && a38_trip::handle_double_ee_base_fault(sig, info, ucontext)) {
+    return;
+  }
+  // Gmatch: a SIGILL into the (re-)stomped return-from-thread-dead trampoline —
+  // repair it from the canary snapshot and RESUME on this (the faulting) thread.
+  // Race-free; gated to the trampoline window + stomped state. Must run before
+  // the fatal dump below.
+  if (sig == SIGILL && a38_trip::handle_rftd_sigill(sig, info, ucontext)) {
     return;
   }
   // Diag-only: dump PC bytes and registers so we can decode the crashing
