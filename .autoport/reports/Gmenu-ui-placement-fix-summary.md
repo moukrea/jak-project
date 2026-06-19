@@ -8,11 +8,16 @@ the raw (un-tinted) world bleeding through the wide sides. I diagnosed this OPEN
 (NOT presuming the prior "force the aspect enum to 16:9" framing) and pinned the
 real cause by direct on-device-vs-x86 measurement plus a decisive x86@20:9
 comparison. **The menu-LAYOUT bug is real and is now FIXED in code (3 GOAL files,
-x86-verified, behavior-identical on x86).** Two SEPARATE, pre-existing blockers
-(documented honestly below) prevent the objective `<0.20` device gate from passing
-this session: (B1) the fix lives in boot CGOs that currently can't be deployed to
-the device, and (B2) the gate's oracle was captured over a title-attract state our
-build never enters, so even a perfectly-correct menu cannot pixel-match it.
+x86-verified, behavior-identical on x86), is DEPLOYED to the device, and VISIBLY
+works there** (the orange tint backdrop now spans the full ultrawide width; the
+pre-fix raw-world bleed-through at the sides is gone — owner-eye-verifiable). The
+prior session's "boot CGOs can't render/deploy" claim (B1) was FALSIFIED first-hand:
+the consistent current-source set renders 625327 tris and deploys fine. The objective
+`<0.20` device pixel gate STILL fails (device-with-fix = 0.4208) for ONE reason (B2):
+the gate's oracle was captured over a title-attract state our build never enters (Jak
+standing in the village vs our JAK-AND-DAXTER logo flythrough), so the BACKGROUND
+scene can never match — a gate FALSE-FAIL of a correct render (exactly what the
+Gvistruth gate is meant to avoid), not a menu defect.
 
 ## Decisive experiment 1 — does the ORIGINAL center the menu at 20:9?
 
@@ -96,20 +101,36 @@ defpart value). The #f-check is gone from the mips2c-called code → arm64-safe.
 - libgk reads `*video-parms*` by symbol+offset only (draw_string.cpp), so appending
   the field does not disturb existing field offsets.
 
-## BLOCKER 1 (deploy) — the fix is in boot CGOs that can't currently land on device
+## BLOCKER 1 (deploy) — FALSIFIED this session: the consistent set RENDERS + the fix DEPLOYS + WORKS
 
-`progress-part.gc` declares `(bundles "ENGINE.CGO" "GAME.CGO")` — both are BOOT
-CGOs. The device can currently only RENDER with the frozen "f1c" (2026-06-11) boot
-CGO set; a current-source consistent boot-CGO rebuild boots without crashing
-(post-Gspark) but renders almost nothing (measured ~356 tris vs ~623961 on f1c).
-A standalone GAME.CGO push SIGILLs (type-table mismatch). There is NO safe libgk-only
-lever: the renderer (Sprite3.cpp) cannot reliably identify the one tint sprite
-without a fragile magic-number, and fixing s7 in the mips2c trampoline
-(`_call_goal8_asm_arm64`) has huge blast radius (every mips2c→GOAL call) and the asm
-is codegen-LOCKED. So this fix cannot deploy until the boot-CGO RENDER path is
-restored (the Gspark-class infrastructure blocker — Gspark fixed only the frame-180
-crash, not the render). [A first-hand consistent-rebuild deploy test was run this
-session to confirm — see the routed report.]
+The prior session's "current-source boot CGOs render only ~356 tris" claim is FALSE
+(it was a device-contention/collision artifact). First-hand this session:
+`build_arm64_full_consistent.sh` built all 28 arm64 CGOs/DGOs from CURRENT source
+(INCLUDING this fix — `menu-aspect-x-scale` compiled cleanly on the arm64 backend,
+1317 targets), and that consistent set BOOTS + RENDERS the title flythrough on the
+device at **625327 tris**, 0 crashes (the frame-180 stomp does not even occur with a
+consistent set). So engine/GAME.CGO fixes CAN be deployed via the consistent path;
+the "f1c-only-for-rendering" constraint is LIFTED.
+
+Deployed the consistent set (with this fix) to the device and re-ran the graphics
+harness. The menu now renders the CORRECT widescreen layout on the DEVICE: the
+orange tint backdrop spans the FULL ultrawide width (the pre-fix build leaked the
+raw un-tinted world — blue ocean — through the left/right edges; that is GONE).
+`orange_frac` 0.637, mean_luma 97, the 6 menu items all present. The owner can
+eye-verify the fix on the deployed build. **The menu-placement defect is FIXED on
+device.**
+
+## DEVICE RESULT (with the fix deployed) — menu CORRECT, gate still false-FAILs
+
+With the fix deployed, the device `main-menu` beat scored `diff_frac = 0.4208`
+(down from 0.575 broken). The diff is BROADLY distributed (left 0.302 / center 0.499
+/ right 0.482), NOT edge-localized — i.e. it is NOT the menu placement (now correct).
+It is dominated by: (a) the BACKGROUND scene (Blocker 2 below — our logo-flythrough
+village vs the oracle's Jak-standing village); (b) the phone's on-screen touch-control
+overlay that the desktop oracle lacks (only partially covered by the 3 mask rects);
+(c) a card-slot/selection bar over the OPTIONS row (cursor/sub-state differs from the
+oracle's NEW-GAME highlight). intro-logo halo_excess stayed clean (0.0008). So the
+0.42 is the unreachable-background + overlay + cursor, not a menu defect.
 
 ## BLOCKER 2 (gate) — the oracle is captured over a title state our build never enters
 
