@@ -1,0 +1,50 @@
+== launch our-x86 gk (OG_GCINE_CAM=1) ==
+  gk pid=1421822
+== wait for title (link finish: default-menu) ==
+  title up at ~5s
+== goalc (lt)+(build-game) to intern *game-info*, then trigger cinematic ==
+  build-game sent; waiting up to 180s for symbol intern...
+  build-game done ~16s
+== send NEW-GAME intro trigger ==
+== watch cinematic up to 420s ==
+   [0s] frame=1405 levels: lvl=title lvl=village1 
+   [5s] frame=1702 levels: lvl=title lvl=village1 
+   [10s] frame=2002 levels: lvl=title lvl=village1 
+   [15s] frame=2303 levels: lvl=title lvl=village1 
+   [20s] frame=2605 levels: lvl=title lvl=village1 
+   [26s] frame=2906 levels: lvl=title lvl=village1 
+   [31s] frame=3208 levels: lvl=title lvl=village1 
+   [36s] frame=3509 levels: lvl=title lvl=village1 
+   [41s] frame=3810 levels: lvl=title lvl=village1 
+   [46s] frame=4110 levels: lvl=misty lvl=title lvl=village1 
+   [51s] frame=4412 levels: lvl=misty lvl=title lvl=village1 
+   [56s] frame=4714 levels: lvl=misty lvl=title lvl=village1 
+   [61s] frame=5015 levels: lvl=misty lvl=title lvl=village1 
+   [66s] frame=5317 levels: lvl=misty lvl=title lvl=village1 
+   [71s] frame=5620 levels: lvl=misty lvl=title lvl=village1 
+   [76s] frame=5922 levels: lvl=misty lvl=title lvl=village1 
+   [81s] frame=6222 levels: lvl=misty lvl=title lvl=village1 
+   [86s] frame=6527 levels: lvl=misty lvl=title lvl=village1 
+   [91s] frame=6830 levels: lvl=misty lvl=title lvl=village1 
+   [96s] frame=7133 levels: lvl=misty lvl=title lvl=village1 
+   [101s] frame=7434 levels: lvl=misty lvl=title lvl=village1 
+   [106s] frame=7738 levels: lvl=misty lvl=title lvl=village1 
+   [111s] frame=8041 levels: lvl=misty lvl=title lvl=village1 
+   [116s] frame=8346 levels: lvl=misty lvl=title lvl=village1 
+   [121s] frame=8650 levels: lvl=misty lvl=title lvl=village1 
+   [127s] frame=8949 levels: lvl=misty lvl=title lvl=village1 
+   [132s] frame=9250 levels: lvl=misty lvl=title lvl=village1 
+   [137s] frame=9539 levels: lvl=misty lvl=title lvl=village1 
+   [142s] frame=9793 levels: lvl=misty lvl=title lvl=village1 
+   [147s] frame=9982 levels: lvl=misty lvl=title lvl=village1 
+   [152s] frame=10286 levels: lvl=misty lvl=title lvl=village1 
+   [157s] frame=10542 levels: lvl=misty lvl=title lvl=village1 
+   [162s] frame=10787 levels: lvl=misty lvl=title lvl=village1 
+   [167s] frame=11064 levels: lvl=misty lvl=title lvl=village1 
+  cinematic complete (misty seen, frame=11064)
+== scoreboard ==
+  GCINE-CAM lines : 9887
+  max frame       : 11067
+  distinct levels : lvl=misty lvl=title lvl=village1 
+  goalc errors    : 
+  log: .autoport/reports/Gcine-cut/ourx86-cam.log

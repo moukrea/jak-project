@@ -1,0 +1,73 @@
+================================================================================
+Gcine-cut — x86-FIRST deterministic camera-plan CUT/INTERP state dump + diff
+  our-x86  : build-x86/game/gk  (HEAD, Android-port build)
+  original : /home/emeric/code/jak-original-v033  (v0.3.3, c4bc4d3ff, pristine)
+  method   : per-frame combiner state (interp-val/interp-step/num-slaves) +
+             math-camera trans, hot-loaded over the goalc listener (no source
+             edits; original repo stays git-clean). CUT = one-frame camera
+             position JUMP outside a num-slaves>=2 blend; INTERP = an ns>=2
+             interp-val 0->1 ramp (smooth pan). Mechanic: cam-master.gc:632/680/
+             711 'change-state param1==0 => CUT (reset=1, instant); param1!=0 =>
+             INTERP (set-interpolation, interp-step=5/param1).
+  trigger  : (initialize! *game-info* 'game #f "intro-start") — the new-game
+             intro cinematic (village1 -> misty). Frame ids are current-time;
+             NOT comparable across boots, so we diff the ordered fingerprint.
+================================================================================
+
+## interp-step value histogram (the blend-duration signal, 5.0/param1)
+   our-x86  :
+        26468 is=0.0111
+            4 is=0.1250
+            2 is=0.0000
+   original :
+        26299 is=0.0111
+            4 is=0.1250
+            2 is=0.0000
+
+## per-boundary CUT/INTERP fingerprint — our-x86
+   # our-x86: 13297 frames [f=313105..380945] iv[0.000..1.000] maxistep=0.125
+   # transitions: 8  CUT=6  INTERP=2  (jump>200000)
+     CUT    @f=   331635 dpos=   2052878.7 ns=1
+     CUT    @f=   332925 dpos=    716148.0 ns=1
+     CUT    @f=   335085 dpos=    325712.0 ns=1
+     INTERP @f=   335965 len=133f istep=0.0111 iv[0.00..0.99]
+     CUT    @f=   337955 dpos=   1201065.7 ns=1
+     CUT    @f=   348835 dpos=    479756.1 ns=1
+     CUT    @f=   374400 dpos=   2646530.7 ns=1
+     INTERP @f=   375045 len=  2f istep=0.1250 iv[0.12..0.25]
+
+## per-boundary CUT/INTERP fingerprint — original-x86
+   # original-x86: 13212 frames [f=313420..381080] iv[0.000..1.000] maxistep=0.125
+   # transitions: 8  CUT=6  INTERP=2  (jump>200000)
+     CUT    @f=   331955 dpos=   2052878.7 ns=1
+     CUT    @f=   333245 dpos=    716148.0 ns=1
+     CUT    @f=   335405 dpos=    325712.0 ns=1
+     INTERP @f=   336285 len=133f istep=0.0111 iv[0.00..0.99]
+     CUT    @f=   338265 dpos=   1201065.8 ns=1
+     CUT    @f=   349165 dpos=    479756.1 ns=1
+     CUT    @f=   374700 dpos=   2646347.4 ns=1
+     INTERP @f=   375345 len=  2f istep=0.1250 iv[0.12..0.25]
+
+## ordered fingerprint DIFF (our-x86 vs original-x86)
+   # our-x86: 13297 frames [f=313105..380945] iv[0.000..1.000] maxistep=0.125
+   # original-x86: 13212 frames [f=313420..381080] iv[0.000..1.000] maxistep=0.125
+   # our-x86 fingerprint (8): C C C I C C C I
+   # original-x86 fingerprint (8): C C C I C C C I
+   # our-x86: CUT=6 INTERP=2
+   # original-x86: CUT=6 INTERP=2
+   # order-aligned mismatches: 0
+   # VERDICT: MATCH (cut Δ=0 tol=1, order-mismatch=0)
+
+--------------------------------------------------------------------------------
+INTERPRETATION: our-x86 and the pristine original produce the IDENTICAL ordered
+cut/interp fingerprint (C C C I C C C I — 6 hard CUTs + 2 INTERPs), with matching
+dpos magnitudes (2052878, 716148, 325712, 1201065, 479756, 2646347) and matching
+interp-step histograms and num-slaves>=2 episode counts (270 frames each). The
+cutscene camera GOAL source (cam-master.gc, cam-combiner.gc, cam-update.gc,
+math-camera.gc, camera.gc) is byte-identical between the trees, and x86 codegen
+is byte-identical, so our x86 build CUTS exactly where the original CUTS. The
+owner's 'may also reproduce on our x86' hypothesis is FALSIFIED on x86: there is
+NO cut->interp divergence on the host. Any residual cut->interp defect is arm64
+(device) only — see state-dump-device.txt.
+
+RESULT: X86 MATCHES ORIGINAL
