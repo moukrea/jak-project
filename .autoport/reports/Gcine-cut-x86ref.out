@@ -1,0 +1,87 @@
+== launch gk (OG_GCINE_CAM=1, DISPLAY=:0) mode=log ==
+  gk pid=1317956
+== wait for title (link finish: default-menu) ==
+  title up at ~5s
+== (lt) + (build-game) [code-only, interns *game-info*] + trigger cinematic ==
+  goalc returned. tail:
+Code:
+(-> *game-info* mode)
+--------------------------------------------------------------------------------
+[Warning] REPL Error: Compilation Error
+== watch cinematic up to 360s (stop when misty+intro seen & gameplay resumes or cap) ==
+   [0s] frame=6952 levels: lvl=title lvl=village1 
+   [5s] frame=7194 levels: lvl=title lvl=village1 
+   [11s] frame=7452 levels: lvl=title lvl=village1 
+   [16s] frame=7730 levels: lvl=title lvl=village1 
+   [21s] frame=8033 levels: lvl=title lvl=village1 
+   [26s] frame=8330 levels: lvl=title lvl=village1 
+   [31s] frame=8638 levels: lvl=title lvl=village1 
+   [36s] frame=8928 levels: lvl=title lvl=village1 
+   [41s] frame=9218 levels: lvl=title lvl=village1 
+   [46s] frame=9519 levels: lvl=title lvl=village1 
+   [52s] frame=9811 levels: lvl=title lvl=village1 
+   [57s] frame=10097 levels: lvl=title lvl=village1 
+   [62s] frame=10379 levels: lvl=title lvl=village1 
+   [67s] frame=10667 levels: lvl=title lvl=village1 
+   [72s] frame=10954 levels: lvl=title lvl=village1 
+   [77s] frame=11195 levels: lvl=title lvl=village1 
+   [83s] frame=11449 levels: lvl=title lvl=village1 
+   [88s] frame=11734 levels: lvl=title lvl=village1 
+   [93s] frame=12037 levels: lvl=title lvl=village1 
+   [98s] frame=12341 levels: lvl=title lvl=village1 
+   [103s] frame=12640 levels: lvl=title lvl=village1 
+   [108s] frame=12944 levels: lvl=title lvl=village1 
+   [114s] frame=13247 levels: lvl=title lvl=village1 
+   [119s] frame=13553 levels: lvl=title lvl=village1 
+   [124s] frame=13831 levels: lvl=title lvl=village1 
+   [129s] frame=14110 levels: lvl=title lvl=village1 
+   [135s] frame=14390 levels: lvl=title lvl=village1 
+   [140s] frame=14669 levels: lvl=title lvl=village1 
+   [145s] frame=14928 levels: lvl=title lvl=village1 
+   [150s] frame=15161 levels: lvl=title lvl=village1 
+   [156s] frame=15389 levels: lvl=title lvl=village1 
+   [161s] frame=15648 levels: lvl=title lvl=village1 
+   [166s] frame=15953 levels: lvl=title lvl=village1 
+   [171s] frame=16261 levels: lvl=title lvl=village1 
+   [177s] frame=16572 levels: lvl=title lvl=village1 
+   [182s] frame=16889 levels: lvl=title lvl=village1 
+   [187s] frame=17196 levels: lvl=title lvl=village1 
+   [192s] frame=17508 levels: lvl=title lvl=village1 
+   [198s] frame=17816 levels: lvl=title lvl=village1 
+   [203s] frame=18102 levels: lvl=title lvl=village1 
+   [208s] frame=18391 levels: lvl=title lvl=village1 
+   [214s] frame=18687 levels: lvl=title lvl=village1 
+   [219s] frame=18974 levels: lvl=title lvl=village1 
+   [224s] frame=19226 levels: lvl=title lvl=village1 
+   [230s] frame=19490 levels: lvl=title lvl=village1 
+   [235s] frame=19776 levels: lvl=title lvl=village1 
+   [240s] frame=20089 levels: lvl=title lvl=village1 
+   [246s] frame=20395 levels: lvl=title lvl=village1 
+   [251s] frame=20699 levels: lvl=title lvl=village1 
+   [256s] frame=21011 levels: lvl=title lvl=village1 
+   [262s] frame=21318 levels: lvl=title lvl=village1 
+   [267s] frame=21645 levels: lvl=title lvl=village1 
+   [272s] frame=21945 levels: lvl=title lvl=village1 
+   [278s] frame=22243 levels: lvl=title lvl=village1 
+   [283s] frame=22528 levels: lvl=title lvl=village1 
+   [289s] frame=22845 levels: lvl=title lvl=village1 
+   [294s] frame=23109 levels: lvl=title lvl=village1 
+   [299s] frame=23365 levels: lvl=title lvl=village1 
+   [304s] frame=23639 levels: lvl=title lvl=village1 
+   [310s] frame=23954 levels: lvl=title lvl=village1 
+   [315s] frame=24269 levels: lvl=title lvl=village1 
+   [321s] frame=24575 levels: lvl=title lvl=village1 
+   [326s] frame=24875 levels: lvl=title lvl=village1 
+   [331s] frame=25184 levels: lvl=title lvl=village1 
+   [337s] frame=25506 levels: lvl=title lvl=village1 
+   [342s] frame=25803 levels: lvl=title lvl=village1 
+   [348s] frame=26090 levels: lvl=title lvl=village1 
+   [353s] frame=26385 levels: lvl=title lvl=village1 
+   [359s] frame=26693 levels: lvl=title lvl=village1 
+  wall cap
+== teardown ==
+== scoreboard ==
+  GCINE-CAM lines : 25775
+  max frame       : 26955
+  distinct levels : lvl=title lvl=village1 
+  log: .autoport/reports/Gcine-audit/x86-cam.log
