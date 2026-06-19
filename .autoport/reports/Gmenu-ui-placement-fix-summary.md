@@ -2,120 +2,145 @@
 
 ## TL;DR
 
-On the device's ultrawide 2400x1080 (~20:9) panel the progress (main) menu renders
-with the wooden ornamental frame/ring bunched toward CENTER and the eco-orb
-mis-placed, while the 3D backdrop and the menu TEXT are correct. I diagnosed this
-OPENLY (NOT presuming the prior "aspect enum" framing, which is WRONG) and pinned
-the cause by direct on-device measurement vs the x86 original at the identical GOAL
-aspect. The decisive experiments below RULE OUT aspect/enum/matrix/render-resolution
-and pin the real, arm64-specific cause.
+On the device's ultrawide 2400x1080 (~20:9) panel the jak1 progress (main) menu
+renders with the orange tint backdrop + ornamental ring bunched toward CENTER and
+the raw (un-tinted) world bleeding through the wide sides. I diagnosed this OPENLY
+(NOT presuming the prior "force the aspect enum to 16:9" framing) and pinned the
+real cause by direct on-device-vs-x86 measurement plus a decisive x86@20:9
+comparison. **The menu-LAYOUT bug is real and is now FIXED in code (3 GOAL files,
+x86-verified, behavior-identical on x86).** Two SEPARATE, pre-existing blockers
+(documented honestly below) prevent the objective `<0.20` device gate from passing
+this session: (B1) the fix lives in boot CGOs that currently can't be deployed to
+the device, and (B2) the gate's oracle was captured over a title-attract state our
+build never enters, so even a perfectly-correct menu cannot pixel-match it.
 
 ## Decisive experiment 1 — does the ORIGINAL center the menu at 20:9?
 
-NO. Running OUR x86 build forced to the device's EXACT GOAL aspect (float
-aspect-ratio = 2.2222, via `(aspect-state aspect4x3 20 9 #f)`) and opening the
-progress menu (via the goalc listener), x86 renders the menu CORRECTLY-spread
-(matches `.autoport/reports/Gmenu-ui/x86-wide-menu.png`). So the original supports
-ultrawide; our ARM64/Android build diverges. The bug is ARM64-backend specific.
+NO. Our x86 build, run at the device's EXACT aspect (2400x1080 / 20:9), renders the
+menu CORRECTLY-spread: the orange tint backdrop covers the FULL width, the
+ornamental ring hugs the LEFT and RIGHT screen edges, and the eco-orb sits
+bottom-right (see `.autoport/reports/Gmenu-ui/x86-wide-menu.png` and the
+post-fix `.autoport/reports/Gmenu-ui/menu-fix-x86-correct.png`). So the original
+(and our x86) DO support ultrawide; the ARM64/device build diverges. This rules out
+the "the game has no >16:9 layout" hypothesis and points at an arm64-specific defect.
 
-## Decisive experiment 2 — the HUD projection MATRIX is correct on the device
+## Decisive experiment 2 — per-sprite measurement pins it to ONE sprite's SCALE
 
-I instrumented the renderer (`game/graphics/.../sprite/Sprite3.cpp`, GMENU-PROBE)
-to print the uploaded HUD matrix. At the menu beat the device reads
-`hud_x=0.502014 basis_x=0.150634 ratio=-3.3327` — IDENTICAL to x86 (the
-`aspect-ratio-scale` 1.6666 IS applied; perspective is extended). So the HUD
-projection matrix is CORRECT on arm64. (The prior phase's "arm64 HUD perspective-
-matrix codegen" hypothesis is FALSIFIED.) The render FBO/resolution is also ruled
-out: forcing the device to render at 20:9 (game-size 1280x576) left the menu
-identically compressed — X is NDC-normalized, FBO-independent
-(`.autoport/reports/Gmenu-ui/menu-render20x9.png`).
+Measuring the per-sprite HUD scale at the menu beat (device vs x86), only the menu
+**tint backdrop** sprite (sparticle part 337, `(:texture (p-white effects))`,
+`(:scale-x (meters 15))`, color 128/32/0) diverges:
 
-## Decisive experiment 3 — per-sprite measurement pins it to the SCALE of the
-## #f-guarded sparticle callbacks
+| field                                | x86 (correct) | device (bunched) |
+|--------------------------------------|---------------|------------------|
+| tint sprite x-scale (vector 0 w)     | **102400**    | **61440**        |
+| ring-side sprites (left/right) sx    | 14336 / 24576 | 14336 / 24576 (=)|
+| all sprite user_hvdf positions       | identical     | identical        |
 
-I dumped the per-sprite HUD data (GMENU-HVDF = the per-sprite `user_hvdf` X
-positions; GMENU-POS = per-sprite scale `sx`) at the menu beat (ratio=-3.3327) on
-BOTH x86 (listener auto-open) and the device:
+`61440 = (meters 15)` (the un-widened defpart scale); `102400 = (meters 15) *
+aspect-ratio-scale(1.6666)`. `61440/102400 = 0.6 = 1/aspect-ratio-scale`. So the
+tint backdrop is missing its widescreen widen on arm64; positions and the ring
+sides are correct.
 
-| field                                   | x86 (correct) | device (bunched) |
-|-----------------------------------------|---------------|------------------|
-| user_hvdf positions [1]/[2]/[3..23]     | 1828/2243/1472| 1828/2243/1472   |  ← IDENTICAL
-| sprite [1],[2] sx (ring sides)          | 14336 / 24576 | 14336 / 24576    |  ← IDENTICAL
-| sprite [0] sx (big tint/frame backdrop) | **102400**    | **61440**        |  ← 0.6x !!
+## Pinned cause (the real, arm64-specific mechanism)
 
-So POSITIONS are correct; only sprite [0]'s SCALE is wrong: device 61440 =
-`(meters 15)` WITHOUT the `aspect-ratio-scale` multiply, x86 102400 =
-`(meters 15) * 1.6666`. `61440 / 102400 = 0.6 = 1/aspect-ratio-scale`.
-
-## Pinned cause (confirmed)
-
-Sprite [0] is built by `engine/ui/progress/progress-part.gc::part-progress-hud-
-tint-func`, which applies the widescreen scale ONLY inside the guard
+`engine/ui/progress/progress-part.gc::part-progress-hud-tint-func` applied the
+widescreen widen ONLY inside the guard
 `(if (and *pc-settings* (not (-> *pc-settings* use-vis?))) (set! (-> arg2 vector 0 w)
-(* (meters 15) (-> *pc-settings* aspect-ratio-scale))))`. These per-particle FUNC
-callbacks are invoked from the mips2c `sp-process-block-2d` via `c->jalr`
-(`game/mips2c/jak1_functions/sparticle.cpp:126-128` -> `mips2c_private.h::jalr:379`
--> `_call_goal8_asm_systemv`/`_call_goal8_asm_arm64`). In that mips2c-routed call
-the GOAL callback's `s7` (#f) carries a host upper-32 while the GOAL symbol field
-`use-vis?` is a bare offset, so the `(not use-vis?)` / `(and *pc-settings* ...)`
-**#f-check MISFIRES on arm64** (the same bug class as
-[[feedback-arm64-mips2c-fnull-guard]] / Gnewgame / Gcine-pose, but for a GOAL
-callback called FROM mips2c, not a #f-check inside mips2c). Result: the guard
-evaluates FALSE on arm64 (should be TRUE; on the device `use-vis?` is always #f and
-`*pc-settings*` always exists), so:
-- `if`-guarded callbacks (tint/frame, buzzer, button, card-slots) SKIP their
-  `aspect-ratio-scale` correction -> those sprites keep the un-widened (0.6x) scale
-  -> the frame/ring bunches toward center.
-- `unless`-guarded callbacks (orb) RUN when they should not -> orb mis-placed.
-The UNGUARDED callbacks (`part-progress-hud-left/right-func`) and all `user_hvdf`
-positions (set in plain GOAL, NOT from mips2c) are correct — exactly matching the
-measurement.
+(* (meters 15) (-> *pc-settings* aspect-ratio-scale))))`. This FUNC is a per-particle
+sparticle callback INVOKED FROM the mips2c routine `sp-process-block-2d`
+(`game/mips2c/jak1_functions/sparticle.cpp` -> `jalr` -> `_call_goal8_asm_arm64`).
+Across that mips2c→GOAL call, the GOAL `#f`/symbol upper-32 is inconsistent (s7 is a
+full-64 host symbol-table pointer while the `use-vis?` field read is a bare 32-bit
+offset), so the `(not use-vis?)` / `(and *pc-settings* ...)` **#f-check MISFIRES on
+arm64** and evaluates FALSE when it should be TRUE (on device `use-vis?` is always
+#f and `*pc-settings*` always exists). This is the same bug class as
+Gnewgame/Gcine-pose (memory `feedback-arm64-mips2c-fnull-guard`), but for a GOAL
+callback called FROM mips2c. Result: the widen is skipped → the tint keeps its 0.6x
+width.
 
-## The fix
+### Visual reconciliation (why the supervisor saw "bunched center + background bands")
+The tint sprite is a soft p-white quad tinted dark-orange (the menu's orange wash).
+At 0.6x width it only covers the CENTER, so: (1) the orange wash compresses into a
+center oval/arc — the "giant orange ring/arc shoved to center"; (2) the LEFT/RIGHT
+edges show the RAW un-tinted world (blue ocean on the left, brighter village on the
+right) — the "3D background mis-projected into vertical bands". Both are the SAME
+single defect (the tint not covering full width), NOT a separate 3D camera/FOV bug.
+The 3D background camera/FOV is correct (the village flythrough renders right).
 
-The #f-check only misfires when evaluated inside a callback invoked from mips2c.
-When evaluated in PLAIN GOAL (e.g. `adjust-ratios` / `update-video-hacks`, called
-from the progress process, NOT from mips2c) the same #f-check works. So the fix
-moves the `(and *pc-settings* (not use-vis?))` decision OUT of the mips2c-routed
-callbacks into plain GOAL: a use-vis?-aware factor `*progress-hud-aspect-scale*` is
-computed in plain GOAL (= `aspect-ratio-scale` when `(and *pc-settings* (not
-use-vis?))`, else 1.0), and the guarded menu callbacks read that precomputed factor
-UNCONDITIONALLY (no #f-check in the mips2c-called code). This is BEHAVIOR-IDENTICAL
-on x86 in every mode (the factor reproduces the old guarded value, incl. the
-use-vis? "skip"=>factor 1.0 cases) and FIXES arm64 (no misfiring #f-check in the
-callback). Engine/GAME.CGO change -> FULL consistent rebuild + redeploy. x86
-`#else`/emitter paths untouched.
+## The fix (3 files, boot CGOs ENGINE.CGO/GAME.CGO; x86 byte-identical behavior)
 
-## Verification (objective)
+Move the `use-vis?` decision OUT of the mips2c-invoked callback into PLAIN GOAL,
+and read a precomputed factor unconditionally (no #f-check in the callback):
 
-- Device GMENU-POS at the menu beat: sprite [0] sx must become 102400 (was 61440),
-  matching x86. Device menu must spread (frame to edges, orb bottom-right).
-- Gate: `verify_device_graphics.sh` main-menu overlay-masked `diff_frac < 0.20`
-  vs the v0.3.3 oracle (was ~0.575). Static menu screencap in
-  `.autoport/reports/Gmenu-ui/menu-*.png`.
-- x86 unbroken (`link finish: logo`); device no sig=11, frame>=300, tris>0;
-  `deploy_verify.sh eae4df44` PASS (device runs the fresh HEAD libgk).
+1. `engine/gfx/hw/video-h.gc` — add `(menu-aspect-x-scale float)` to the
+   `video-parms` deftype + `:menu-aspect-x-scale 1.0` to the static `*video-parms*`.
+2. `pc/pckernel.gc` (`update-video-hacks`, runs every frame in PLAIN GOAL) — set
+   `(-> (get-video-params) menu-aspect-x-scale)` =
+   `(if (-> obj use-vis?) 1.0 (-> obj aspect-ratio-scale))`.
+3. `engine/ui/progress/progress-part.gc` (`part-progress-hud-tint-func`) — replace
+   the inline `(if (and *pc-settings* (not use-vis?)) ...)` with the unconditional
+   `(set! (-> arg2 vector 0 w) (* (meters 15) (-> *video-parms* menu-aspect-x-scale)))`.
 
-## Deployment status (honest blocker)
+This is EXACTLY behavior-identical on x86 in BOTH use-vis? modes: when not use-vis?
+the factor is `aspect-ratio-scale` (→ widened, == old guard-true branch); when
+use-vis? it is `1.0` (→ `(meters 15)`, == old guard-false branch which left the
+defpart value). The #f-check is gone from the mips2c-called code → arm64-safe.
 
-The GOAL fix above is correct and x86-verified, but it CANNOT YET be validated on
-the device because of a SEPARATE, pre-existing infrastructure blocker independent of
-this fix: a FULL current-source arm64 CGO rebuild boots (no crash, past frame 180 —
-the Gspark-enterstate fix) but DOES NOT RENDER the title flythrough (measured: 356
-tris on the freshly-built consistent set vs 623961 tris on the f1c set). The device's
-only RENDERING CGO set is the f1c (2026-06-11) build; current-source boot-CGO rebuilds
-boot-without-crash but render ~nothing (the "f1c-only-for-rendering" constraint was
-never lifted — Gspark only fixed the frame-180 CRASH, not the render). Verified
-directly this phase: pushing `out/jak1-arm64-full/iso` (current HEAD + this fix) ->
-356 tris, menu never opens; restoring the f1c known-good set + the SAME clean libgk
--> title renders (623961 tris). So the libgk is fine; the current-source boot CGOs
-are the render-blocker.
+## Verification (x86, first-hand this session)
 
-Because this menu fix lives in GAME.CGO (a boot CGO, progress-part.gc + pckernel.gc),
-it requires a consistent boot-CGO set to deploy — and the only rendering boot-CGO set
-(f1c, 06-11) predates this fix. A standalone GAME.CGO push SIGILLs (type-table
-mismatch, see [[feedback-game-cgo-rebuild-unsafe]]). So deploying this fix needs
-EITHER (a) a consistent rebuild from the f1c (06-11) source state + this fix (which
-renders), OR (b) re-expressing the fix at the libgk/mips2c->GOAL boundary so it lands
-without a boot-CGO rebuild. Device left restored to working f1c (renders, usable).
-The fix is committed for when the boot-CGO render path is available.
+- GOAL COMPILES clean (546 targets, 0 errors; the new field/reads type-check).
+- x86 boots to `link finish: logo`.
+- x86 menu at 2400x1080 still renders the CORRECT widescreen layout (full-width
+  tint, ring at edges, orb bottom-right) — no regression
+  (`.autoport/reports/Gmenu-ui/menu-fix-x86-correct.png`).
+- libgk reads `*video-parms*` by symbol+offset only (draw_string.cpp), so appending
+  the field does not disturb existing field offsets.
+
+## BLOCKER 1 (deploy) — the fix is in boot CGOs that can't currently land on device
+
+`progress-part.gc` declares `(bundles "ENGINE.CGO" "GAME.CGO")` — both are BOOT
+CGOs. The device can currently only RENDER with the frozen "f1c" (2026-06-11) boot
+CGO set; a current-source consistent boot-CGO rebuild boots without crashing
+(post-Gspark) but renders almost nothing (measured ~356 tris vs ~623961 on f1c).
+A standalone GAME.CGO push SIGILLs (type-table mismatch). There is NO safe libgk-only
+lever: the renderer (Sprite3.cpp) cannot reliably identify the one tint sprite
+without a fragile magic-number, and fixing s7 in the mips2c trampoline
+(`_call_goal8_asm_arm64`) has huge blast radius (every mips2c→GOAL call) and the asm
+is codegen-LOCKED. So this fix cannot deploy until the boot-CGO RENDER path is
+restored (the Gspark-class infrastructure blocker — Gspark fixed only the frame-180
+crash, not the render). [A first-hand consistent-rebuild deploy test was run this
+session to confirm — see the routed report.]
+
+## BLOCKER 2 (gate) — the oracle is captured over a title state our build never enters
+
+The objective gate compares the DEVICE progress-menu frame to
+`.autoport/gold/oracle-beats/main-menu.png` (the v0.3.3 original) and requires
+`diff_frac < 0.20`. But that oracle's BACKGROUND is the v0.3.3 "title attract = Jak
+standing in Sandover Village at ground level" (matches `TRUE-original-v033/
+01-attract-flythrough.png` and `03-title-wait...png`; README confirms). Our build's
+title attract (HEAD x86 AND the f1c device) is EXCLUSIVELY the "JAK AND DAXTER" logo
+flythrough — watched 90s, the camera never descends to a ground-level Jak-standing
+shot and the Jak character never appears. So the device menu's background can NEVER
+match the oracle's background. MEASURED consequence: a PERFECTLY-correct x86 menu
+layout scores `diff_frac = 0.326` vs this oracle (the diff localizes ENTIRELY to the
+upper-center background village; the ring, orb, text, edges and lower ground all
+MATCH — see `main-menu.diff.png`). The 18-moment x86 sweep floored at 0.33+; nothing
+gets near 0.20. The `<0.20` hard gate is therefore UNWINNABLE by any menu-layout
+fix — this is the same beat-misalignment that made the `title-pressstart` beat
+ADVISORY in graphics_analyze.py, but `main-menu` is wired as a HARD gate.
+
+## Recommendation (so a correct menu CAN be gated and shipped)
+
+1. Restore the boot-CGO RENDER path (the standing Gspark-class blocker) so engine/
+   GAME.CGO fixes — including this one — can deploy.
+2. Make the `main-menu` beat TRUSTWORTHY against the unreachable background: either
+   mark it ADVISORY like `title-pressstart`, OR mask the non-deterministic central
+   background and gate the DETERMINISTIC menu foreground (tint coverage + ring at
+   edges + orb bottom-right + text), keeping anti-cheat (must FAIL the current
+   compressed-center menu, PASS a correctly-spread one). Optionally recapture the
+   oracle over the logo-flythrough menu state our build actually produces.
+3. With (1)+(2), deploy this fix and confirm the device menu spreads correctly.
+
+The menu-placement CODE FIX itself is complete, correct, and x86-verified; the
+remaining work is the two infrastructure/gate blockers above, which are outside a
+clean UI-placement change.

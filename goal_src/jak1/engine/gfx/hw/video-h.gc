@@ -27,7 +27,12 @@
    (relative-y-scale            float)
    (_pad2                       int64)
    (relative-x-scale-reciprical float)
-   (relative-y-scale-reciprical float)))
+   (relative-y-scale-reciprical float)
+   ;; og:preserve-this — precomputed widescreen x-scale factor for the progress
+   ;; (main) menu HUD sprites. Baked in plain GOAL by update-video-hacks so the
+   ;; mips2c-invoked part-progress-hud-tint-func can read it WITHOUT a
+   ;; (not use-vis?) #f-check (which misfires on arm64 from a mips2c FUNC call).
+   (menu-aspect-x-scale         float)))
 
 ;; default to NTSC
 (define *video-parms*
@@ -48,6 +53,7 @@
        :relative-x-scale-reciprical 1.0
        :relative-y-scale-reciprical 0.0
        ;; wrong.
+       :menu-aspect-x-scale 1.0
        ))
 
 (define-extern get-video-mode (function symbol))
