@@ -630,16 +630,30 @@
       (let ((gp-0 (the-as handle #f)))
         ;; og:preserve-this PAL patch here
         (cond
-          ;; og:preserve-this Gsce: restore the "Sony Computer Entertainment presents"
-          ;; static screen for ALL regions. Upstream OpenGOAL gated this to
-          ;; GAME_TERRITORY_SCEI (Japan), but the original retail game shows the SCE
-          ;; "presents" screen at boot in every territory (incl. SCEA/SCEE) before the
-          ;; Naughty Dog / Daxter logo. DecodeTerritory() returns SCEA here, so the old
-          ;; territory test was always false and the screen never spawned. Keep
-          ;; *first-boot* so it only plays once at startup, not on every return to title.
-          (*first-boot*
+          ;; og:autoport Ghalo: re-gate the SCE "presents" static-screen spawn to
+          ;; GAME_TERRITORY_SCEI — i.e. restore the upstream territory condition that
+          ;; the Gsce phase had un-gated to (*first-boot*) alone.
+          ;;
+          ;; WHY: this TIT.DGO ships on the device's f1c (2026-06-11) boot CGOs, whose
+          ;; KERNEL.CGO lacks the Gspark-enterstate reload fix (gstate.gc:341, which
+          ;; lives only in a full current-source KERNEL.CGO that does not render —
+          ;; the 356-tris boot-CGO blocker). On SCEA the un-gated branch spawns
+          ;; static-screen, and static-screen's `idle` :trans sparticle DMA builders
+          ;; (real/un-noop'd since Gsprite) write through GOAL pointers and stomp
+          ;; enter-state's spilled `new-state` on the GOAL process stack -> null code
+          ;; pointer -> BLR to EE_base -> the "frame-180" SIGILL that bricks boot
+          ;; (MEASURED: GK-DIAG sig=4 pc=EE_base immediately after A35-RENDER
+          ;; frame=180). DecodeTerritory() returns SCEA(0) on the device, so re-gating
+          ;; to SCEI means this branch is never taken -> no spawn -> no stomp.
+          ;;
+          ;; COST: none visible — the SCE screen renders BLACK on arm64 anyway (Gsce's
+          ;; own honest blocker: the 2D sprite blit was empty). Re-gating restores the
+          ;; proven f1c boot flow (loader -> ndi ND-logo -> title), which is exactly
+          ;; the flow the Gndlogo halo suppression (done?-gated village + sun-fade, in
+          ;; the `ndi` state below) was validated under. This is what lets the
+          ;; Gndlogo-fixed ndi ship on the f1c set and kill the ND-logo village/sun halo.
+          ((and (= (scf-get-territory) GAME_TERRITORY_SCEI) *first-boot*)
            (set! *first-boot* #f)
-           (format 0 "GSCE-SCE-SPAWN static-screen-spawn territory=~D first-boot=~A~%" (scf-get-territory) *first-boot*)
            (set! gp-0
                  (ppointer->handle (static-screen-spawn 5
                                                         (new 'static 'texture-id :page #x649)
