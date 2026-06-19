@@ -1,0 +1,158 @@
+GHALO-SUN tod=0.4397 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=0.6563 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=0.8730 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=1.0563 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=1.2230 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=1.4230 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=1.6730 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=1.8230 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=2.0230 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=2.1397 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=2.2397 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=2.3730 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=2.5063 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=2.6397 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=2.7730 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=3.0230 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=3.2230 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=3.4730 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=3.6730 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=3.9230 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=4.1397 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=4.3897 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=4.6230 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=4.8563 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=5.0897 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=5.3397 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=5.6230 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=5.8897 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=6.1397 c=0 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=1 scol=255.0000 day=1
+GHALO-SUN tod=6.3730 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=6.6230 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=6.8730 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=7.1397 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=7.3897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=7.6230 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=7.8730 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=8.1230 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=8.3897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=8.6230 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=8.8730 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=9.1063 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=9.3730 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=9.6230 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=9.8563 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=10.0897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=10.2897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=10.5063 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=10.7230 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=10.9730 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=11.2063 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=11.4063 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=11.6397 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=11.8897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=12.1730 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=12.4230 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=12.6730 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=12.9230 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=13.1563 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=13.3897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=13.6063 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=13.8563 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=14.0897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=14.3563 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=14.6063 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=14.8230 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=15.0897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=15.3397 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=15.5897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=15.8563 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=16.1063 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=16.3563 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=16.6063 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=16.8397 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=17.0730 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=17.2897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=17.5397 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=17.7897 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=18.0230 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1
+GHALO-SUN tod=18.2397 c=1 sf=0.5000 cint=0.5000 day=1
+GHALO-PRT f0=3 scol=255.0000 day=1

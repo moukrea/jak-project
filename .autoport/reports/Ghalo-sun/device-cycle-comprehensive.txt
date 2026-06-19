@@ -1,0 +1,824 @@
+06-19 16:26:43.489  5766  5857 I opengoal-gk: GHALO-SUN tod=12.4088 c=1 sf=0.5065 cint=0.5065 day=0
+06-19 16:26:43.489  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:43.489  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:43.489  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:43.691  5766  5857 I opengoal-gk: GHALO-SUN tod=12.6088 c=1 sf=0.5462 cint=0.5462 day=0
+06-19 16:26:43.691  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:43.691  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:43.691  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:43.891  5766  5857 I opengoal-gk: GHALO-SUN tod=12.8088 c=1 sf=0.5858 cint=0.5858 day=0
+06-19 16:26:43.891  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:43.891  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:43.891  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:44.093  5766  5857 I opengoal-gk: GHALO-SUN tod=13.0088 c=1 sf=0.6254 cint=0.6254 day=0
+06-19 16:26:44.093  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:44.093  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:44.093  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:44.294  5766  5857 I opengoal-gk: GHALO-SUN tod=13.2088 c=1 sf=0.6650 cint=0.6650 day=0
+06-19 16:26:44.294  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:44.294  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:44.294  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:44.492  5766  5857 I opengoal-gk: GHALO-SUN tod=13.4088 c=1 sf=0.7046 cint=0.7046 day=0
+06-19 16:26:44.492  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:44.492  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:44.492  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:44.692  5766  5857 I opengoal-gk: GHALO-SUN tod=13.6088 c=1 sf=0.7442 cint=0.7442 day=0
+06-19 16:26:44.693  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:44.693  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:44.693  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:44.893  5766  5857 I opengoal-gk: GHALO-SUN tod=13.8088 c=1 sf=0.7838 cint=0.7838 day=0
+06-19 16:26:44.894  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:44.894  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:44.894  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:45.094  5766  5857 I opengoal-gk: GHALO-SUN tod=14.0088 c=1 sf=0.8234 cint=0.8234 day=0
+06-19 16:26:45.095  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:45.095  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:45.095  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:45.296  5766  5857 I opengoal-gk: GHALO-SUN tod=14.2088 c=1 sf=0.8630 cint=0.8630 day=0
+06-19 16:26:45.296  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:45.296  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:45.296  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:45.495  5766  5857 I opengoal-gk: GHALO-SUN tod=14.4088 c=1 sf=0.9026 cint=0.9026 day=0
+06-19 16:26:45.495  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:45.495  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:45.495  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:45.695  5766  5857 I opengoal-gk: GHALO-SUN tod=14.6088 c=1 sf=0.9422 cint=0.9422 day=0
+06-19 16:26:45.695  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:45.695  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:45.695  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:45.896  5766  5857 I opengoal-gk: GHALO-SUN tod=14.8088 c=1 sf=0.9818 cint=0.9818 day=0
+06-19 16:26:45.896  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:45.896  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:45.896  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:46.081  5766  5857 I opengoal-gk: GHALO-SUN tod=15.0088 c=1 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:46.081  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:46.081  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:26:46.081  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:46.282  5766  5857 I opengoal-gk: GHALO-SUN tod=15.2088 c=1 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:46.282  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:46.282  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,219.5550,90.6111 ecol=128.0000,126.3375,122.6182
+06-19 16:26:46.282  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:46.483  5766  5857 I opengoal-gk: GHALO-SUN tod=15.4088 c=1 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:46.483  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:46.483  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,214.8990,86.0031 ecol=128.0000,124.9160,118.0162
+06-19 16:26:46.483  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:46.681  5766  5857 I opengoal-gk: GHALO-SUN tod=15.6088 c=1 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:46.681  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:46.681  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,210.2430,81.3952 ecol=128.0000,123.4944,113.4142
+06-19 16:26:46.681  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:46.870  5766  5857 I opengoal-gk: GHALO-SUN tod=15.8088 c=1 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:46.870  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:46.870  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,205.5870,76.7872 ecol=128.0000,122.0729,108.8123
+06-19 16:26:46.871  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:47.067  5766  5857 I opengoal-gk: GHALO-SUN tod=16.0088 c=1 sf=0.9716 cint=0.9716 day=0
+06-19 16:26:47.067  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:47.067  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,200.9310,72.1792 ecol=128.0000,120.6513,104.2103
+06-19 16:26:47.067  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:47.265  5766  5857 I opengoal-gk: GHALO-SUN tod=16.2088 c=1 sf=0.9395 cint=0.9395 day=0
+06-19 16:26:47.265  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:47.265  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,196.0885,67.3866 ecol=128.0000,119.1728,99.4240
+06-19 16:26:47.265  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:47.467  5766  5857 I opengoal-gk: GHALO-SUN tod=16.4088 c=1 sf=0.9259 cint=0.9259 day=0
+06-19 16:26:47.467  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/loaded/1.0000
+06-19 16:26:47.467  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,191.2386,62.5866 ecol=128.0000,117.6921,94.6303
+06-19 16:26:47.467  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:47.641  5766  5857 I opengoal-gk: GHALO-SUN tod=16.6088 c=1 sf=0.9234 cint=0.9234 day=0
+06-19 16:26:47.641  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:47.641  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,187.1969,58.5866 ecol=128.0000,116.4581,90.6355
+06-19 16:26:47.641  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:47.807  5766  5857 I opengoal-gk: GHALO-SUN tod=16.8088 c=1 sf=0.9248 cint=0.9248 day=0
+06-19 16:26:47.810  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:47.810  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,182.3469,53.7866 ecol=128.0000,114.9773,85.8418
+06-19 16:26:47.810  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:47.969  5766  5857 I opengoal-gk: GHALO-SUN tod=17.0088 c=1 sf=0.9278 cint=0.9278 day=0
+06-19 16:26:47.969  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:47.969  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,177.4969,48.9866 ecol=128.0000,113.4965,81.0481
+06-19 16:26:47.969  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:48.134  5766  5857 I opengoal-gk: GHALO-SUN tod=17.2088 c=1 sf=0.9322 cint=0.9322 day=0
+06-19 16:26:48.135  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:48.135  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,168.7938,40.3732 ecol=128.0000,110.8393,72.4460
+06-19 16:26:48.135  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:48.304  5766  5857 I opengoal-gk: GHALO-SUN tod=17.4088 c=1 sf=0.9380 cint=0.9380 day=0
+06-19 16:26:48.304  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:48.304  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,159.0939,30.7733 ecol=128.0000,107.8777,62.8586
+06-19 16:26:48.304  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:48.472  5766  5857 I opengoal-gk: GHALO-SUN tod=17.6088 c=1 sf=0.9451 cint=0.9451 day=0
+06-19 16:26:48.472  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:48.472  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,149.3938,21.1733 ecol=128.0000,104.9162,53.2711
+06-19 16:26:48.472  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:48.644  5766  5857 I opengoal-gk: GHALO-SUN tod=17.8088 c=1 sf=0.9535 cint=0.9535 day=0
+06-19 16:26:48.644  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:48.644  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,139.6939,11.5733 ecol=128.0000,101.9546,43.6837
+06-19 16:26:48.644  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:48.818  5766  5857 I opengoal-gk: GHALO-SUN tod=18.0088 c=1 sf=0.9631 cint=0.9631 day=0
+06-19 16:26:48.819  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:48.819  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,129.9938,1.9733 ecol=128.0000,98.9930,34.0962
+06-19 16:26:48.819  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:48.994  5766  5857 I opengoal-gk: GHALO-SUN tod=18.2088 c=1 sf=0.9739 cint=0.9739 day=0
+06-19 16:26:48.994  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:48.994  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,143.2581,15.1008 ecol=115.4455,90.4884,42.5480
+06-19 16:26:48.994  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:49.171  5766  5857 I opengoal-gk: GHALO-SUN tod=18.4088 c=1 sf=0.9860 cint=0.9860 day=0
+06-19 16:26:49.171  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:49.171  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,162.4640,34.1087 ecol=99.6429,80.5496,55.6672
+06-19 16:26:49.171  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:49.344  5766  5857 I opengoal-gk: GHALO-SUN tod=18.6088 c=1 sf=0.9991 cint=0.9991 day=0
+06-19 16:26:49.344  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:49.344  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,181.6701,53.1168 ecol=83.8401,70.6108,68.7865
+06-19 16:26:49.344  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:26:49.515  5766  5857 I opengoal-gk: GHALO-SUN tod=18.8088 c=0 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:49.515  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:49.515  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,200.8760,72.1247 ecol=68.0374,60.6720,81.9057
+06-19 16:26:49.515  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:50.197  5766  5857 I opengoal-gk: GHALO-SUN tod=19.6088 c=0 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:50.197  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:50.197  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=45.9373,45.9373,95.1486
+06-19 16:26:50.197  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:50.361  5766  5857 I opengoal-gk: GHALO-SUN tod=19.8088 c=0 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:50.361  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:50.361  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=45.1663,45.1663,94.0402
+06-19 16:26:50.361  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:51.597  5766  5857 I opengoal-gk: GHALO-SUN tod=21.2088 c=0 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:51.597  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:51.597  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=39.5188,39.5188,85.9220
+06-19 16:26:51.597  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:51.775  5766  5857 I opengoal-gk: GHALO-SUN tod=21.4088 c=0 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:51.775  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:51.775  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=38.7156,38.7156,84.7675
+06-19 16:26:51.775  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:52.986  5766  5857 I opengoal-gk: GHALO-SUN tod=22.8088 c=0 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:52.986  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:52.986  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=33.0937,33.0937,76.6859
+06-19 16:26:52.986  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:53.167  5766  5857 I opengoal-gk: GHALO-SUN tod=23.0088 c=0 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:53.167  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:53.167  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.2905,32.2905,75.5314
+06-19 16:26:53.167  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:53.348  5766  5857 I opengoal-gk: GHALO-SUN tod=23.2088 c=0 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:53.348  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:53.348  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,33.4973,76.0278
+06-19 16:26:53.348  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:53.527  5766  5857 I opengoal-gk: GHALO-SUN tod=23.4088 c=0 sf=1.0000 cint=1.0000 day=0
+06-19 16:26:53.527  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:53.527  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,35.2240,76.9514
+06-19 16:26:53.527  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:54.204  5766  5857 I opengoal-gk: GHALO-SUN tod=0.2088 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:54.204  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:54.204  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,42.1310,80.6459
+06-19 16:26:54.204  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:54.892  5766  5857 I opengoal-gk: GHALO-SUN tod=1.0088 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:54.892  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:54.892  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,48.8941,84.2633
+06-19 16:26:54.892  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:55.055  5766  5857 I opengoal-gk: GHALO-SUN tod=1.2088 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:55.055  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:55.055  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,50.6208,85.1869
+06-19 16:26:55.055  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:55.224  5766  5857 I opengoal-gk: GHALO-SUN tod=1.4088 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:55.224  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:55.224  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,52.3475,86.1105
+06-19 16:26:55.224  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:55.572  5766  5857 I opengoal-gk: GHALO-SUN tod=1.7922 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:55.572  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:55.572  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,55.8010,87.9578
+06-19 16:26:55.572  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:55.725  5766  5857 I opengoal-gk: GHALO-SUN tod=1.9922 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:55.725  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:55.725  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,57.5278,88.8814
+06-19 16:26:55.725  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:55.911  5766  5857 I opengoal-gk: GHALO-SUN tod=2.1922 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:55.911  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:55.911  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,59.2545,89.8050
+06-19 16:26:55.911  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:56.096  5766  5857 I opengoal-gk: GHALO-SUN tod=2.3922 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:56.096  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:56.096  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,60.9813,90.7286
+06-19 16:26:56.096  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:56.278  5766  5857 I opengoal-gk: GHALO-SUN tod=2.5922 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:56.278  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:56.278  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,62.7080,91.6522
+06-19 16:26:56.278  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:56.466  5766  5857 I opengoal-gk: GHALO-SUN tod=2.7922 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:56.466  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:56.466  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,64.4348,92.5758
+06-19 16:26:56.466  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:56.651  5766  5857 I opengoal-gk: GHALO-SUN tod=2.9922 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:56.651  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:56.651  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,66.1615,93.4994
+06-19 16:26:56.651  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:56.844  5766  5857 I opengoal-gk: GHALO-SUN tod=3.1922 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:56.844  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:56.844  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,67.8269,94.3902
+06-19 16:26:56.844  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:57.022  5766  5857 I opengoal-gk: GHALO-SUN tod=3.3922 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:57.022  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:57.022  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,69.4673,95.2676
+06-19 16:26:57.022  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:26:59.720  5766  5857 I opengoal-gk: GHALO-SUN tod=6.5922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:26:59.720  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:26:59.720  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,154.6426,26.3680 ecol=101.6664,102.6007,61.9754
+06-19 16:26:59.720  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:00.607  5766  5857 I opengoal-gk: GHALO-SUN tod=7.5922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:00.607  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:00.607  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,154.2977,26.0266 ecol=128.0000,117.0237,69.8260
+06-19 16:27:00.607  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:01.122  5766  5857 I opengoal-gk: GHALO-SUN tod=8.1922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:01.123  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:01.123  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,183.2598,54.6901 ecol=128.0000,121.5200,93.6561
+06-19 16:27:01.123  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:01.632  5766  5857 I opengoal-gk: GHALO-SUN tod=8.7922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:01.632  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:01.632  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,211.7778,82.9141 ecol=128.0000,125.9473,117.1207
+06-19 16:27:01.632  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:01.972  5766  5857 I opengoal-gk: GHALO-SUN tod=9.1922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:01.972  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:01.972  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:01.972  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:02.125  5766  5857 I opengoal-gk: GHALO-SUN tod=9.3922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:02.125  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:02.125  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:02.125  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:02.292  5766  5857 I opengoal-gk: GHALO-SUN tod=9.5922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:02.292  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:02.292  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:02.292  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:02.460  5766  5857 I opengoal-gk: GHALO-SUN tod=9.7922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:02.460  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:02.460  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:02.460  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:02.630  5766  5857 I opengoal-gk: GHALO-SUN tod=9.9922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:02.630  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:02.630  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:02.630  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:02.800  5766  5857 I opengoal-gk: GHALO-SUN tod=10.1922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:02.801  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:02.801  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:02.801  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:02.974  5766  5857 I opengoal-gk: GHALO-SUN tod=10.3922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:02.974  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:02.974  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:02.974  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:03.149  5766  5857 I opengoal-gk: GHALO-SUN tod=10.5922 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:03.149  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:03.149  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:03.149  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:06.204  5766  5857 I opengoal-gk: GHALO-SUN tod=14.1755 c=1 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:06.204  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:06.204  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:06.204  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:11.685  5766  5857 I opengoal-gk: GHALO-SUN tod=20.5588 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:11.685  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:11.685  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=42.1290,42.1290,89.6741
+06-19 16:27:11.685  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:11.851  5766  5857 I opengoal-gk: GHALO-SUN tod=20.7588 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:11.851  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:11.851  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=41.3928,41.3928,88.6158
+06-19 16:27:11.852  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:13.059  5766  5857 I opengoal-gk: GHALO-SUN tod=22.1588 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:13.059  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:13.060  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=35.7039,35.7039,80.4381
+06-19 16:27:13.060  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:13.559  5766  5857 I opengoal-gk: GHALO-SUN tod=22.7588 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:13.559  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:13.559  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=33.3614,33.3614,77.0707
+06-19 16:27:13.559  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:13.726  5766  5857 I opengoal-gk: GHALO-SUN tod=22.9588 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:13.726  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:13.726  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.4913,32.4913,75.8200
+06-19 16:27:13.726  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:13.888  5766  5857 I opengoal-gk: GHALO-SUN tod=23.1588 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:13.888  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:13.888  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,33.0656,75.7969
+06-19 16:27:13.888  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:14.069  5766  5857 I opengoal-gk: GHALO-SUN tod=23.3588 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:14.069  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:14.069  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,34.7923,76.7205
+06-19 16:27:14.069  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:14.240  5766  5857 I opengoal-gk: GHALO-SUN tod=23.5588 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:14.240  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:14.240  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,36.5190,77.6441
+06-19 16:27:14.240  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:14.418  5766  5857 I opengoal-gk: GHALO-SUN tod=23.7588 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:14.418  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:14.418  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,38.2458,78.5677
+06-19 16:27:14.418  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:14.595  5766  5857 I opengoal-gk: GHALO-SUN tod=23.9588 c=0 sf=1.0000 cint=1.0000 day=1
+06-19 16:27:14.595  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:14.595  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,39.9725,79.4914
+06-19 16:27:14.595  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:14.771  5766  5857 I opengoal-gk: GHALO-SUN tod=0.1588 c=0 sf=1.0000 cint=1.0000 day=2
+06-19 16:27:14.771  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:14.771  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,41.6993,80.4150
+06-19 16:27:14.771  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:14.942  5766  5857 I opengoal-gk: GHALO-SUN tod=0.3588 c=0 sf=1.0000 cint=1.0000 day=2
+06-19 16:27:14.942  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:14.942  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,43.4260,81.3386
+06-19 16:27:14.942  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:17.760  5766  5857 I opengoal-gk: GHALO-SUN tod=3.5588 c=0 sf=0.9042 cint=0.9042 day=2
+06-19 16:27:17.760  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:17.760  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,70.8343,95.9988
+06-19 16:27:17.760  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:18.110  5766  5857 I opengoal-gk: GHALO-SUN tod=3.9588 c=0 sf=0.8811 cint=0.8811 day=2
+06-19 16:27:18.110  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:18.110  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,74.1151,97.7537
+06-19 16:27:18.110  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:18.621  5766  5857 I opengoal-gk: GHALO-SUN tod=4.5588 c=0 sf=0.8481 cint=0.8481 day=2
+06-19 16:27:18.622  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:18.622  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,214.6511,85.7578 ecol=42.3542,79.3106,93.0289
+06-19 16:27:18.622  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:19.145  5766  5857 I opengoal-gk: GHALO-SUN tod=5.1588 c=0 sf=0.8151 cint=0.8151 day=2
+06-19 16:27:19.145  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:19.145  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,203.4875,74.7093 ecol=53.3883,83.6434,87.2519
+06-19 16:27:19.145  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:19.659  5766  5857 I opengoal-gk: GHALO-SUN tod=5.7588 c=0 sf=0.7821 cint=0.7821 day=2
+06-19 16:27:19.659  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:19.659  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,191.8475,63.1893 ecol=64.8932,88.1610,81.2284
+06-19 16:27:19.660  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:19.805  5766  5857 I opengoal-gk: GHALO-SUN tod=5.9588 c=0 sf=0.7689 cint=0.7689 day=2
+06-19 16:27:19.806  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:19.806  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,187.9675,59.3493 ecol=68.7282,89.6669,79.2205
+06-19 16:27:19.806  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:19.967  5766  5857 I opengoal-gk: GHALO-SUN tod=6.1588 c=0 sf=0.7557 cint=0.7557 day=2
+06-19 16:27:19.967  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:19.967  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,179.8626,51.3279 ecol=76.7391,92.8125,75.0263
+06-19 16:27:19.967  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:20.148  5766  5857 I opengoal-gk: GHALO-SUN tod=6.3588 c=1 sf=0.7425 cint=0.7425 day=2
+06-19 16:27:20.148  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:20.148  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,168.2226,39.8080 ecol=88.2440,97.3302,69.0028
+06-19 16:27:20.148  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:20.319  5766  5857 I opengoal-gk: GHALO-SUN tod=6.5588 c=1 sf=0.7293 cint=0.7293 day=2
+06-19 16:27:20.319  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:20.319  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,156.5826,28.2880 ecol=99.7489,101.8478,62.9793
+06-19 16:27:20.320  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:20.495  5766  5857 I opengoal-gk: GHALO-SUN tod=6.7588 c=1 sf=0.7161 cint=0.7161 day=2
+06-19 16:27:20.496  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:20.496  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,144.9426,16.7679 ecol=111.2539,106.3655,56.9558
+06-19 16:27:20.497  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:20.669  5766  5857 I opengoal-gk: GHALO-SUN tod=6.9588 c=1 sf=0.7029 cint=0.7029 day=2
+06-19 16:27:20.669  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:20.669  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,133.3026,5.2480 ecol=122.7588,110.8831,50.9322
+06-19 16:27:20.669  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:20.844  5766  5857 I opengoal-gk: GHALO-SUN tod=7.1588 c=1 sf=0.6897 cint=0.6897 day=2
+06-19 16:27:20.844  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:20.844  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,133.2811,5.2266 ecol=128.0000,113.7610,52.5335
+06-19 16:27:20.844  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:21.016  5766  5857 I opengoal-gk: GHALO-SUN tod=7.3588 c=1 sf=0.6765 cint=0.6765 day=2
+06-19 16:27:21.016  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:21.016  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,142.9811,14.8266 ecol=128.0000,115.2669,60.5147
+06-19 16:27:21.016  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:21.186  5766  5857 I opengoal-gk: GHALO-SUN tod=7.5588 c=1 sf=0.6633 cint=0.6633 day=2
+06-19 16:27:21.186  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:21.186  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,152.6811,24.4266 ecol=128.0000,116.7728,68.4958
+06-19 16:27:21.186  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:21.358  5766  5857 I opengoal-gk: GHALO-SUN tod=7.7588 c=1 sf=0.6501 cint=0.6501 day=2
+06-19 16:27:21.358  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:21.358  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,162.3811,34.0266 ecol=128.0000,118.2787,76.4770
+06-19 16:27:21.358  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:21.536  5766  5857 I opengoal-gk: GHALO-SUN tod=7.9588 c=1 sf=0.6369 cint=0.6369 day=2
+06-19 16:27:21.536  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:21.536  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,172.0811,43.6266 ecol=128.0000,119.7845,84.4582
+06-19 16:27:21.537  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:21.708  5766  5857 I opengoal-gk: GHALO-SUN tod=8.1588 c=1 sf=0.6237 cint=0.6237 day=2
+06-19 16:27:21.708  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:21.708  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,181.6754,53.1221 ecol=128.0000,121.2740,92.3525
+06-19 16:27:21.708  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:21.877  5766  5857 I opengoal-gk: GHALO-SUN tod=8.3588 c=1 sf=0.6105 cint=0.6105 day=2
+06-19 16:27:21.877  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:21.879  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,191.1814,62.5301 ecol=128.0000,122.7498,100.1740
+06-19 16:27:21.879  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:22.056  5766  5857 I opengoal-gk: GHALO-SUN tod=8.5588 c=1 sf=0.5973 cint=0.5973 day=2
+06-19 16:27:22.056  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:22.056  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,200.6875,71.9381 ecol=128.0000,124.2255,107.9956
+06-19 16:27:22.056  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:22.225  5766  5857 I opengoal-gk: GHALO-SUN tod=8.7588 c=1 sf=0.5841 cint=0.5841 day=2
+06-19 16:27:22.225  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:22.225  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,210.1934,81.3461 ecol=128.0000,125.7013,115.8171
+06-19 16:27:22.225  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:22.396  5766  5857 I opengoal-gk: GHALO-SUN tod=8.9588 c=1 sf=0.5709 cint=0.5709 day=2
+06-19 16:27:22.396  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:22.396  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,219.6994,90.7541 ecol=128.0000,127.1771,123.6387
+06-19 16:27:22.396  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:22.575  5766  5857 I opengoal-gk: GHALO-SUN tod=9.1588 c=1 sf=0.5577 cint=0.5577 day=2
+06-19 16:27:22.575  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:22.575  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:22.575  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:22.726  5766  5857 I opengoal-gk: GHALO-SUN tod=9.3588 c=1 sf=0.5445 cint=0.5445 day=2
+06-19 16:27:22.726  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:22.726  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:22.726  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:22.886  5766  5857 I opengoal-gk: GHALO-SUN tod=9.5588 c=1 sf=0.5313 cint=0.5313 day=2
+06-19 16:27:22.886  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:22.886  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:22.886  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:23.065  5766  5857 I opengoal-gk: GHALO-SUN tod=9.7588 c=1 sf=0.5181 cint=0.5181 day=2
+06-19 16:27:23.065  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:23.065  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:23.065  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:23.240  5766  5857 I opengoal-gk: GHALO-SUN tod=9.9588 c=1 sf=0.5049 cint=0.5049 day=2
+06-19 16:27:23.240  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:23.240  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:23.240  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:23.415  5766  5857 I opengoal-gk: GHALO-SUN tod=10.1588 c=1 sf=0.5000 cint=0.5000 day=2
+06-19 16:27:23.415  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:23.415  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:23.416  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:23.589  5766  5857 I opengoal-gk: GHALO-SUN tod=10.3588 c=1 sf=0.5000 cint=0.5000 day=2
+06-19 16:27:23.589  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:23.589  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:23.589  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:24.613  5766  5857 I opengoal-gk: GHALO-SUN tod=11.5588 c=1 sf=0.5000 cint=0.5000 day=2
+06-19 16:27:24.613  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:24.613  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:24.613  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:24.800  5766  5857 I opengoal-gk: GHALO-SUN tod=11.7588 c=1 sf=0.5000 cint=0.5000 day=2
+06-19 16:27:24.800  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:24.800  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:24.800  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:33.751  5766  5857 I opengoal-gk: GHALO-SUN tod=22.3588 c=0 sf=0.5000 cint=0.5000 day=2
+06-19 16:27:33.751  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:33.751  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=34.9677,34.9677,79.3797
+06-19 16:27:33.751  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:33.925  5766  5857 I opengoal-gk: GHALO-SUN tod=22.5588 c=0 sf=0.5000 cint=0.5000 day=2
+06-19 16:27:33.925  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:33.925  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=34.1645,34.1645,78.2252
+06-19 16:27:33.925  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:34.623  5766  5857 I opengoal-gk: GHALO-SUN tod=23.3422 c=0 sf=0.5000 cint=0.5000 day=2
+06-19 16:27:34.623  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:34.623  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,34.5045,76.5666
+06-19 16:27:34.623  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:37.066  5766  5857 I opengoal-gk: GHALO-SUN tod=2.1422 c=0 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:37.066  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:37.066  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,58.8228,89.5741
+06-19 16:27:37.066  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:38.330  5766  5857 I opengoal-gk: GHALO-SUN tod=3.5422 c=0 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:38.330  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:38.330  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,70.5609,95.8526
+06-19 16:27:38.330  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:39.356  5766  5857 I opengoal-gk: GHALO-SUN tod=4.7422 c=0 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:39.356  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:39.356  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,211.5794,82.7178 ecol=45.3902,80.5028,91.4394
+06-19 16:27:39.356  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:39.705  5766  5857 I opengoal-gk: GHALO-SUN tod=5.1422 c=0 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:39.705  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:39.705  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,204.1342,75.3493 ecol=52.7491,83.3924,87.5865
+06-19 16:27:39.705  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:39.900  5766  5857 I opengoal-gk: GHALO-SUN tod=5.3422 c=0 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:39.900  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:39.900  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,199.9308,71.1893 ecol=56.9037,85.0237,85.4114
+06-19 16:27:39.900  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:40.097  5766  5857 I opengoal-gk: GHALO-SUN tod=5.5422 c=0 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:40.097  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:40.097  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,196.0508,67.3493 ecol=60.7387,86.5296,83.4035
+06-19 16:27:40.097  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:40.765  5766  5857 I opengoal-gk: GHALO-SUN tod=6.3422 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:40.765  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:40.765  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,169.1926,40.7680 ecol=87.2852,96.9537,69.5048
+06-19 16:27:40.765  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:40.938  5766  5857 I opengoal-gk: GHALO-SUN tod=6.5422 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:40.938  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:40.938  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,157.5526,29.2479 ecol=98.7902,101.4713,63.4813
+06-19 16:27:40.938  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:41.129  5766  5857 I opengoal-gk: GHALO-SUN tod=6.7422 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:41.129  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:41.129  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,145.9126,17.7280 ecol=110.2951,105.9890,57.4577
+06-19 16:27:41.129  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:42.403  5766  5857 I opengoal-gk: GHALO-SUN tod=8.1422 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:42.403  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:42.403  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,180.8833,52.3381 ecol=128.0000,121.1510,91.7007
+06-19 16:27:42.403  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:42.941  5766  5857 I opengoal-gk: GHALO-SUN tod=8.7422 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:42.941  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:42.941  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,208.6091,79.7781 ecol=128.0000,125.4553,114.5135
+06-19 16:27:42.942  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:43.976  5766  5857 I opengoal-gk: GHALO-SUN tod=9.9255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:43.976  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:43.977  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:43.977  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:44.144  5766  5857 I opengoal-gk: GHALO-SUN tod=10.1255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:44.144  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:44.144  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:44.144  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:45.604  5766  5857 I opengoal-gk: GHALO-SUN tod=11.9255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:45.604  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:45.604  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:45.604  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:45.787  5766  5857 I opengoal-gk: GHALO-SUN tod=12.1255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:45.787  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:45.787  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:45.787  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:45.973  5766  5857 I opengoal-gk: GHALO-SUN tod=12.3255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:45.973  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:45.973  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:45.973  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:46.799  5766  5857 I opengoal-gk: GHALO-SUN tod=13.3255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:46.799  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:46.799  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:46.799  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:46.989  5766  5857 I opengoal-gk: GHALO-SUN tod=13.5255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:46.989  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:46.989  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:46.989  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:47.141  5766  5857 I opengoal-gk: GHALO-SUN tod=13.7255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:47.141  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:47.141  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:47.141  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:47.297  5766  5857 I opengoal-gk: GHALO-SUN tod=13.9255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:47.297  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:47.297  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:47.297  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:47.441  5766  5857 I opengoal-gk: GHALO-SUN tod=14.1255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:47.441  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:47.441  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:27:47.441  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:49.351  5766  5857 I opengoal-gk: GHALO-SUN tod=16.7255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:49.351  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:49.351  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,183.9635,55.3866 ecol=128.0000,115.4709,87.4397
+06-19 16:27:49.351  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:49.508  5766  5857 I opengoal-gk: GHALO-SUN tod=16.9255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:49.509  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:49.509  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,179.1136,50.5866 ecol=128.0000,113.9901,82.6460
+06-19 16:27:49.509  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:49.673  5766  5857 I opengoal-gk: GHALO-SUN tod=17.1255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:49.673  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:49.674  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,172.0272,43.5733 ecol=128.0000,111.8265,75.6418
+06-19 16:27:49.674  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:50.585  5766  5857 I opengoal-gk: GHALO-SUN tod=18.1255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:50.585  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:50.585  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,135.2556,7.1808 ecol=122.0300,94.6296,37.0816
+06-19 16:27:50.585  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:50.897  5766  5857 I opengoal-gk: GHALO-SUN tod=18.5255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:50.897  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:50.897  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,173.6675,45.1967 ecol=90.4246,74.7520,63.3201
+06-19 16:27:50.897  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:51.064  5766  5857 I opengoal-gk: GHALO-SUN tod=18.7255 c=1 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:51.064  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:51.064  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,192.8736,64.2048 ecol=74.6218,64.8131,76.4394
+06-19 16:27:51.064  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:27:51.232  5766  5857 I opengoal-gk: GHALO-SUN tod=18.9255 c=0 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:51.232  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:51.232  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,212.0795,83.2127 ecol=58.8192,54.8743,89.5586
+06-19 16:27:51.232  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:52.863  5766  5857 I opengoal-gk: GHALO-SUN tod=20.7255 c=0 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:52.863  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:52.863  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=41.5266,41.5266,88.8082
+06-19 16:27:52.863  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:53.516  5766  5857 I opengoal-gk: GHALO-SUN tod=21.5255 c=0 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:53.516  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:53.516  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=38.2471,38.2471,84.0940
+06-19 16:27:53.516  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:54.759  5766  5857 I opengoal-gk: GHALO-SUN tod=22.7922 c=0 sf=0.5000 cint=0.5000 day=3
+06-19 16:27:54.760  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:54.760  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=33.2275,33.2275,76.8783
+06-19 16:27:54.760  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:55.987  5766  5857 I opengoal-gk: GHALO-SUN tod=0.1422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:27:55.988  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:55.988  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,41.4115,80.2610
+06-19 16:27:55.988  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:56.144  5766  5857 I opengoal-gk: GHALO-SUN tod=0.3422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:27:56.144  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:56.144  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,43.1382,81.1846
+06-19 16:27:56.144  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:56.304  5766  5857 I opengoal-gk: GHALO-SUN tod=0.5422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:27:56.304  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:56.304  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,44.8650,82.1082
+06-19 16:27:56.304  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:56.466  5766  5857 I opengoal-gk: GHALO-SUN tod=0.7422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:27:56.466  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:56.466  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,46.5917,83.0319
+06-19 16:27:56.466  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:56.649  5766  5857 I opengoal-gk: GHALO-SUN tod=0.9422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:27:56.649  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:56.649  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,48.4624,84.0324
+06-19 16:27:56.649  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:27:58.695  5766  5857 I opengoal-gk: GHALO-SUN tod=3.3422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:27:58.695  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:27:58.695  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,68.9205,94.9751
+06-19 16:27:58.695  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:00.608  5766  5857 I opengoal-gk: GHALO-SUN tod=5.5422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:00.608  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:00.608  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,196.0508,67.3493 ecol=60.7387,86.5296,83.4035
+06-19 16:28:00.608  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:00.787  5766  5857 I opengoal-gk: GHALO-SUN tod=5.7422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:00.787  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:00.787  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,192.1708,63.5093 ecol=64.5736,88.0355,81.3957
+06-19 16:28:00.787  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:01.638  5766  5857 I opengoal-gk: GHALO-SUN tod=6.7422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:01.638  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:01.638  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,145.9126,17.7280 ecol=110.2951,105.9890,57.4577
+06-19 16:28:01.638  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:01.808  5766  5857 I opengoal-gk: GHALO-SUN tod=6.9422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:01.809  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:01.809  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,135.2426,7.1680 ecol=120.8413,110.1302,51.9362
+06-19 16:28:01.809  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:01.995  5766  5857 I opengoal-gk: GHALO-SUN tod=7.1422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:01.995  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:01.995  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,132.4727,4.4266 ecol=128.0000,113.6355,51.8684
+06-19 16:28:01.995  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:02.332  5766  5857 I opengoal-gk: GHALO-SUN tod=7.5422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:02.333  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:02.333  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,151.0644,22.8266 ecol=128.0000,116.5218,67.1656
+06-19 16:28:02.333  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:02.486  5766  5857 I opengoal-gk: GHALO-SUN tod=7.7422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:02.486  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:02.486  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,160.7644,32.4266 ecol=128.0000,118.0277,75.1468
+06-19 16:28:02.486  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:02.642  5766  5857 I opengoal-gk: GHALO-SUN tod=7.9422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:02.642  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:02.642  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,170.4644,42.0266 ecol=128.0000,119.5335,83.1280
+06-19 16:28:02.642  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:02.793  5766  5857 I opengoal-gk: GHALO-SUN tod=8.1422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:02.793  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:02.793  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,180.0911,51.5541 ecol=128.0000,121.0281,91.0489
+06-19 16:28:02.793  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:03.447  5766  5857 I opengoal-gk: GHALO-SUN tod=8.9422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:03.447  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:03.447  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,218.1151,89.1861 ecol=128.0000,126.9311,122.3351
+06-19 16:28:03.447  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:03.959  5766  5857 I opengoal-gk: GHALO-SUN tod=9.5088 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:03.959  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:03.960  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:03.960  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:04.150  5766  5857 I opengoal-gk: GHALO-SUN tod=9.7088 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:04.150  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:04.150  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:04.150  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:05.210  5766  5857 I opengoal-gk: GHALO-SUN tod=10.8422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:05.210  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:05.210  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:05.210  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:05.398  5766  5857 I opengoal-gk: GHALO-SUN tod=11.0422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:05.398  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:05.398  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:05.398  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:05.583  5766  5857 I opengoal-gk: GHALO-SUN tod=11.2422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:05.583  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:05.583  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:05.583  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:05.765  5766  5857 I opengoal-gk: GHALO-SUN tod=11.4422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:05.765  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:05.765  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:05.765  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:05.951  5766  5857 I opengoal-gk: GHALO-SUN tod=11.6422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:05.951  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:05.951  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:05.951  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:06.314  5766  5857 I opengoal-gk: GHALO-SUN tod=12.0422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:06.314  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:06.314  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:06.315  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:06.666  5766  5857 I opengoal-gk: GHALO-SUN tod=12.4422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:06.666  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:06.666  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:06.666  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:07.015  5766  5857 I opengoal-gk: GHALO-SUN tod=12.8422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:07.015  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:07.015  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:07.015  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:07.884  5766  5857 I opengoal-gk: GHALO-SUN tod=13.8422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:07.884  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:07.884  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:07.884  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:08.037  5766  5857 I opengoal-gk: GHALO-SUN tod=14.0422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:08.037  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:08.037  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:08.037  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:08.386  5766  5857 I opengoal-gk: GHALO-SUN tod=14.4422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:08.386  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:08.386  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:08.386  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:08.737  5766  5857 I opengoal-gk: GHALO-SUN tod=14.8422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:08.737  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:08.737  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:08.737  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:09.406  5766  5857 I opengoal-gk: GHALO-SUN tod=15.6422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:09.406  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:09.406  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,210.6310,81.7791 ecol=128.0000,123.6129,113.7977
+06-19 16:28:09.406  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:09.565  5766  5857 I opengoal-gk: GHALO-SUN tod=15.8422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:09.565  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:09.565  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,205.9750,77.1711 ecol=128.0000,122.1913,109.1958
+06-19 16:28:09.565  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:09.914  5766  5857 I opengoal-gk: GHALO-SUN tod=16.2422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:09.914  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:09.914  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,196.4927,67.7866 ecol=128.0000,119.2962,99.8235
+06-19 16:28:09.914  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:10.065  5766  5857 I opengoal-gk: GHALO-SUN tod=16.4422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:10.065  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:10.065  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,191.6427,62.9866 ecol=128.0000,117.8155,95.0298
+06-19 16:28:10.065  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:10.260  5766  5857 I opengoal-gk: GHALO-SUN tod=16.6422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:10.260  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:10.260  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,186.3886,57.7866 ecol=128.0000,116.2113,89.8366
+06-19 16:28:10.260  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:12.040  5766  5857 I opengoal-gk: GHALO-SUN tod=18.6422 c=1 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:12.040  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:12.040  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,184.8710,56.2848 ecol=81.2063,68.9543,70.9730
+06-19 16:28:12.040  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:12.388  5766  5857 I opengoal-gk: GHALO-SUN tod=19.0422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:12.388  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:12.389  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,223.2830,94.3007 ecol=49.6009,49.0767,97.2115
+06-19 16:28:12.390  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:13.271  5766  5857 I opengoal-gk: GHALO-SUN tod=20.0422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:13.271  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:13.271  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=44.2025,44.2025,92.6548
+06-19 16:28:13.271  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:13.614  5766  5857 I opengoal-gk: GHALO-SUN tod=20.4422 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:13.614  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:13.614  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=42.5975,42.5975,90.3476
+06-19 16:28:13.614  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:14.111  5766  5857 I opengoal-gk: GHALO-SUN tod=21.0255 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:14.111  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:14.111  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=40.3219,40.3219,87.0765
+06-19 16:28:14.111  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:16.397  5766  5857 I opengoal-gk: GHALO-SUN tod=23.5755 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:16.397  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:16.397  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,36.6629,77.7211
+06-19 16:28:16.397  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:16.566  5766  5857 I opengoal-gk: GHALO-SUN tod=23.7755 c=0 sf=0.5000 cint=0.5000 day=4
+06-19 16:28:16.566  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:16.566  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,38.3897,78.6447
+06-19 16:28:16.566  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:17.764  5766  5857 I opengoal-gk: GHALO-SUN tod=1.1755 c=0 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:17.764  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:17.764  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,50.3330,85.0330
+06-19 16:28:17.764  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:17.954  5766  5857 I opengoal-gk: GHALO-SUN tod=1.3755 c=0 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:17.954  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:17.954  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,52.2037,86.0336
+06-19 16:28:17.954  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:19.252  5766  5857 I opengoal-gk: GHALO-SUN tod=2.7755 c=0 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:19.252  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:19.252  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,64.2909,92.4988
+06-19 16:28:19.252  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:19.604  5766  5857 I opengoal-gk: GHALO-SUN tod=3.1755 c=0 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:19.604  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:19.604  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,67.6902,94.3171
+06-19 16:28:19.604  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:19.794  5766  5857 I opengoal-gk: GHALO-SUN tod=3.3755 c=0 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:19.794  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:19.794  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=32.1254,69.3306,95.1945
+06-19 16:28:19.794  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:22.177  5766  5857 I opengoal-gk: GHALO-SUN tod=5.9755 c=0 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:22.177  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:22.177  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,187.6442,59.0293 ecol=69.0478,89.7924,79.0532
+06-19 16:28:22.177  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:22.370  5766  5857 I opengoal-gk: GHALO-SUN tod=6.1755 c=0 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:22.370  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:22.370  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,178.8926,50.3680 ecol=77.6978,93.1890,74.5244
+06-19 16:28:22.370  5766  5857 I opengoal-gk: GHALO-PRT f0=1 f1=1 f2=1 lc=0
+06-19 16:28:22.557  5766  5857 I opengoal-gk: GHALO-SUN tod=6.3755 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:22.557  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:22.557  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,167.2526,38.8480 ecol=89.2027,97.7066,68.5009
+06-19 16:28:22.557  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:22.742  5766  5857 I opengoal-gk: GHALO-SUN tod=6.5755 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:22.742  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:22.742  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,155.6126,27.3279 ecol=100.7077,102.2243,62.4773
+06-19 16:28:22.742  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:22.929  5766  5857 I opengoal-gk: GHALO-SUN tod=6.7755 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:22.929  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:22.929  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,143.9726,15.8080 ecol=112.2126,106.7419,56.4538
+06-19 16:28:22.929  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:23.122  5766  5857 I opengoal-gk: GHALO-SUN tod=6.9755 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:23.122  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:23.122  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,132.3326,4.2879 ecol=123.7176,111.2596,50.4303
+06-19 16:28:23.122  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:23.313  5766  5857 I opengoal-gk: GHALO-SUN tod=7.1755 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:23.313  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:23.313  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,134.0894,6.0266 ecol=128.0000,113.8865,53.1986
+06-19 16:28:23.313  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:23.505  5766  5857 I opengoal-gk: GHALO-SUN tod=7.3755 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:23.505  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:23.505  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,143.7894,15.6266 ecol=128.0000,115.3924,61.1798
+06-19 16:28:23.505  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:24.017  5766  5857 I opengoal-gk: GHALO-SUN tod=7.9588 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:24.017  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:24.017  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,172.0811,43.6266 ecol=128.0000,119.7845,84.4582
+06-19 16:28:24.017  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:24.719  5766  5857 I opengoal-gk: GHALO-SUN tod=8.6922 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:24.719  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:24.719  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,206.2326,77.4261 ecol=128.0000,125.0864,112.5582
+06-19 16:28:24.719  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:26.320  5766  5857 I opengoal-gk: GHALO-SUN tod=10.3588 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:26.320  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:26.320  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:26.320  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:26.831  5766  5857 I opengoal-gk: GHALO-SUN tod=10.9422 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:26.831  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:26.831  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:26.832  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:27.025  5766  5857 I opengoal-gk: GHALO-SUN tod=11.1422 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:27.025  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:27.025  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:27.025  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:28.142  5766  5857 I opengoal-gk: GHALO-SUN tod=12.3422 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:28.142  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:28.142  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:28.142  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:28.323  5766  5857 I opengoal-gk: GHALO-SUN tod=12.5422 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:28.323  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:28.323  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:28.323  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
+06-19 16:28:28.503  5766  5857 I opengoal-gk: GHALO-SUN tod=12.7422 c=1 sf=0.5000 cint=0.5000 day=5
+06-19 16:28:28.503  5766  5857 I opengoal-gk: GHALO-LVL L0=title/active/0.0000 L1=village1/active/1.0000
+06-19 16:28:28.503  5766  5857 I opengoal-gk: GHALO-COL scol=255.0000,225.0000,96.0000 ecol=128.0000,128.0000,128.0000
+06-19 16:28:28.503  5766  5857 I opengoal-gk: GHALO-PRT f0=3 f1=3 f2=3 lc=0
