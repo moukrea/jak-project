@@ -1,0 +1,55 @@
+== Gcine-cut DEVICE capture (watch 22min, break frame>=30000) ==
+  device_require_attached: real device eae4df44
+  device free: 11750 MB on /data
+== installing app-jak1-debug.apk ==
+  device is unlocked
+== launching org.opengoal.gk.jak1/.LoaderActivity ==
+  armed debug.opengoal.gcine.cam=1
+    inject: ''
+  launch org.opengoal.gk.jak1/.LoaderActivity
+== warmup (title attract settle) ==
+== START (open progress menu) ==
+    inject: 'start'
+    inject: ''
+== nav to NEW GAME ==
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'up'
+    inject: ''
+    inject: 'up'
+    inject: ''
+== X (select NEW GAME) ==
+    inject: 'x'
+    inject: ''
+== CONTINUE WITHOUT SAVING ==
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'x'
+    inject: ''
+== watch (poll 3s) ==
+   [5/440] frame=3317 misty0=? fg=1 lvls:lvl=title lvl=village1  pid='25116'
+   [10/440] frame=4013 misty0=? fg=1 lvls:lvl=title lvl=village1  pid='25116'
+   [15/440] frame=4470 misty0=? fg=1 lvls:lvl=title lvl=village1  pid='25116'
+   [20/440] frame=5157 misty0=4560 fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='25116'
+   [25/440] frame=5667 misty0=4560 fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='25116'
+   [30/440] frame=6359 misty0=4560 fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='25116'
+   [35/440] frame=6865 misty0=4560 fg=1 lvls:lvl=misty lvl=title lvl=village1  pid='25116'
+   [40/440] frame=6990 misty0=4560 fg=0 lvls:lvl=misty lvl=title lvl=village1  pid='gone'
+   >>> app GONE x4 — crash/exit
+== teardown ==
+== scoreboard ==
+  GCINE-CAM lines : 38820
+  frame range     : 3 6990 
+  distinct levels : lvl=misty lvl=title lvl=village1 
+  level onsets    : misty=4560 village1=942 beach= training=
+  foreground end  :   mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher}  pid=gone  crashed=procgone
+  crash signatures: 0
+0
