@@ -265,6 +265,14 @@
   "update the graphics hacks used for sprites and other things. ugh."
   (set! (-> (get-video-params) relative-x-scale) (-> obj aspect-ratio-reciprocal))
   (set! (-> (get-video-params) relative-x-scale-reciprical) (-> obj aspect-ratio-scale))
+  ;; Precompute the progress-menu HUD x-scale factor in PLAIN GOAL so the
+  ;; mips2c-invoked part-progress-hud-tint-func reads it WITHOUT an
+  ;; (and *pc-settings* (not use-vis?)) #f-check (which misfires on arm64 when a
+  ;; GOAL FUNC callback is called from the mips2c sp-process-block-2d). It equals
+  ;; aspect-ratio-scale for custom/widescreen (not use-vis?), else 1.0 — exactly
+  ;; reproducing the old guard's two branches, so x86 behavior is unchanged.
+  (set! (-> (get-video-params) menu-aspect-x-scale)
+        (if (-> obj use-vis?) 1.0 (-> obj aspect-ratio-scale)))
   (set! (-> *font-default-matrix* vector 0 x) (-> (get-video-params) relative-x-scale))
   (set-hud-aspect-ratio 'aspect4x3 'ntsc) ;; set hud aspect ratios every frame because why not?
   (when *progress-process*
