@@ -460,6 +460,79 @@ void a35_pc_get_size(u32 w_ptr, u32 h_ptr) {
   }
 }
 
+// === Gcine-camfov: force the authored 4:3 cutscene framing on the device ======
+// The new-game intro (and every) cutscene is authored for the original 4:3
+// composition. On a panel wider than 4:3 the stock PC-port widescreen path runs
+// the math-camera at the FULL panel aspect (Redmi = 2400x1080 = 2.222), which
+// extends the FOV sideways and pulls the authored close-ups back into wide shots
+// (Gcine-audit D1: math-camera c0.x 0.23225 / c1.y -0.32267 at the misty M1 beat
+// vs the 4:3 x86 oracle 0.29031 / -0.24200 — a clean 5/3 aspect scaling, NOT an
+// arm64 codegen bug; the GOAL math is backend-identical at the same aspect).
+//
+// The proper fix lives in GOAL (pckernel-common update-from-os derives the aspect
+// from the window, and the math-camera real-movie? branch + the framebuffer
+// scissor pillarbox already exist), but those files are boot CGOs (ENGINE/GAME)
+// and the device runs frozen f1c CGOs — a standalone CGO rebuild SIGILLs. So we
+// reproduce the GOAL fix from libgk.so: during a real movie, report a 4:3 window
+// width to pc-get-window-size ONLY. The stock frozen GOAL machinery then sees
+// win-aspect = 4:3 -> set-aspect-ratio! 4:3 -> the math-camera real-movie? (<= 16:9)
+// branch -> the authored 4:3 projection, AND a 4:3 framebuffer-scissor ->
+// pc-set-letterbox -> the renderer's centered pillarbox (undistorted, black bars
+// at the sides). It self-restores: update-from-os re-reads the real panel size
+// every frame, so gameplay returns to full-width widescreen the instant the
+// movie ends. pc-get-active-display-size stays truthful (a35_pc_get_size).
+static bool gcine_in_movie() {
+  // movie? == (logtest? (-> *kernel-context* prevent-from-run) (process-mask movie))
+  // (engine/game/main.gc). process-mask `movie` is bit 11 (0x800). prevent-from-run
+  // is the FIRST field of the kernel-context `basic`. NB: in this codebase a GOAL
+  // object field at deftype offset N is read from C++ at `value + (N - 4)` (the
+  // symbol value points at the first field, past the type tag — see the *target*
+  // root/trans + *math-camera* camera-temp probes elsewhere in this file). The
+  // first field is deftype offset 4, so prevent-from-run is at value + 0.
+  // We run on the GOAL thread inside update-from-os, so g_ee_main_mem and the
+  // kernel-context object are stable; a bounds-checked plain read is safe.
+  if (!g_ee_main_mem) {
+    return false;
+  }
+  auto kc = jak1::intern_from_c("*kernel-context*");
+  if (!kc.offset || !kc->value) {
+    return false;
+  }
+  const uint32_t pfr_off = (uint32_t)kc->value;  // deftype 4 -> value+(4-4) = value+0
+  if (pfr_off < 0x1000 || pfr_off + 4 > (uint32_t)EE_MAIN_MEM_SIZE) {
+    return false;
+  }
+  uint32_t prevent_from_run = 0;
+  memcpy(&prevent_from_run, reinterpret_cast<const u8*>(g_ee_main_mem) + pfr_off, 4);
+  return (prevent_from_run & 0x800u) != 0;
+}
+
+void a35_pc_get_window_size(u32 w_ptr, u32 h_ptr) {
+  int w = 0, h = 0;
+  if (!android_gfx::get_window_size(&w, &h)) {
+    return;  // display not measured yet — desktop "no display" behavior
+  }
+  // Cutscene 4:3 framing (see note above): only while actually in a movie AND the
+  // panel is wider than 4:3 (w*3 > h*4). 2400x1080 -> 1440x1080 (exactly 4:3).
+  const bool mov = gcine_in_movie();
+  if (h > 0 && w * 3 > h * 4 && mov) {
+    w = (h * 4) / 3;
+  }
+  // Light transition log (movie on/off) for verification; not a per-frame flood.
+  static std::atomic<int> s_last_mov{-1};
+  const int mv = mov ? 1 : 0;
+  if (s_last_mov.exchange(mv) != mv) {
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                        "GD1-PCWIN movie=%d -> reporting window %dx%d", mv, w, h);
+  }
+  if (w_ptr) {
+    *Ptr<s64>(w_ptr).c() = w;
+  }
+  if (h_ptr) {
+    *Ptr<s64>(h_ptr).c() = h;
+  }
+}
+
 s64 a35_pc_get_active_display_refresh_rate() {
   return android_gfx::get_refresh_rate();
 }
@@ -523,7 +596,9 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-get-active-display-size", (void*)a35_pc_get_size);
   jak1::make_function_symbol_from_c("pc-get-active-display-refresh-rate",
                                     (void*)a35_pc_get_active_display_refresh_rate);
-  jak1::make_function_symbol_from_c("pc-get-window-size", (void*)a35_pc_get_size);
+  // Gcine-camfov: window-size path reports a 4:3 width during cutscenes so the
+  // frozen f1c GOAL machinery renders the authored 4:3 framing (pillarboxed).
+  jak1::make_function_symbol_from_c("pc-get-window-size", (void*)a35_pc_get_window_size);
   jak1::make_function_symbol_from_c("pc-get-window-scale", d);
   jak1::make_function_symbol_from_c("pc-set-window-size!", d);
   jak1::make_function_symbol_from_c("pc-get-num-resolutions", d);
