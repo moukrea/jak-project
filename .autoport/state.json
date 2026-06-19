@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 105,
+  "current_phase_idx": 106,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -103,7 +103,8 @@
     "Gcine-audit": 2,
     "Gcine-camfov": 2,
     "Gspark-enterstate": 2,
-    "Gmatch-original": 4
+    "Gmatch-original": 4,
+    "Gvistruth": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -317,7 +318,8 @@
     "Gcine-audit",
     "Gmatch-original",
     "Gspark-enterstate",
-    "Gcine-camfov"
+    "Gcine-camfov",
+    "Gvistruth"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -401,9 +403,10 @@
     "Gcine-audit": 1781672553.9361243,
     "Gcine-camfov": 1781678484.7384794,
     "Gspark-enterstate": 1781769389.2128012,
-    "Gmatch-original": 1781795956.6131423
+    "Gmatch-original": 1781795956.6131423,
+    "Gvistruth": 1781836402.289903
   },
-  "last_update": "2026-06-19T02:12:59.554263+00:00",
+  "last_update": "2026-06-19T03:02:15.765378+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
