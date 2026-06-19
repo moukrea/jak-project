@@ -999,6 +999,17 @@ phases:
   validator: validators/phase-Gcine-camfov.sh
   max_turns: 1500
   max_retries: 3
+- id: Gvistruth
+  name: 'Build a TRUSTWORTHY programmatic visual-quality gate vs the untouched v0.3.3 original so the owner never has to watch. Correction of a
+    real false-green: Gmatch passed on liveness (no-crash + in-game) while the SAME report measured main-menu 57% / title 75% pixel-divergence
+    vs the matched-aspect (2400x1080/2.222) oracle (ungated) and a halo metric reading 0.0 on a visibly haloed ND logo. Gate EVERY static beat
+    (logo/title/menu) on oracle pixel-match, FIX the broken halo/bloom detector, make cinematic/in-game MEASURED (capture oracle refs), and make
+    this the STANDING graphics gate. Trust requires an anti-false-green self-test: the gate MUST FAIL on the current defects (menu garble +
+    logo/title halo) and PASS oracle-vs-oracle. Detection-only phase; the menu/halo/cinematic FIXES follow, gated by this. Owner ground truth wins.'
+  prompt: prompts/phase-Gvistruth.md
+  validator: validators/phase-Gvistruth.sh
+  max_turns: 1500
+  max_retries: 4
 - id: Gmenu-ui-placement
   name: 'OPEN diagnosis+fix (owner: do NOT presume aspect-ratio): the menu UI elements are bunched in the CENTER instead of placed
     where they belong, on the device ultrawide ~20:9/21:9 panel (2400x1080). Diagnose WHY from the UI placement code (progress.gc
