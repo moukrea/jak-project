@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 107,
+  "current_phase_idx": 108,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -104,7 +104,8 @@
     "Gspark-enterstate": 2,
     "Gmatch-original": 4,
     "Gvistruth": 1,
-    "Ghalo": 1
+    "Ghalo": 1,
+    "Gmenu-ui-placement": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -214,6 +215,10 @@
       "c49e1dd9529b",
       "f7c0451ef490",
       "0855c3d77b6a"
+    ],
+    "Gmenu-ui-placement": [
+      "b1a5e262a3cf",
+      "61dc054d6f87"
     ]
   },
   "stuck_reasons": {
@@ -320,7 +325,8 @@
     "Gspark-enterstate",
     "Gcine-camfov",
     "Gvistruth",
-    "Ghalo"
+    "Ghalo",
+    "Gmenu-ui-placement"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -395,7 +401,7 @@
     "Gtitle-pixelmatch": 1781485521.577208,
     "Gmenu-pixelmatch": 1781553750.7362545,
     "Gaspect-unstub": 1781578631.6895506,
-    "Gmenu-ui-placement": 1781838889.2849302,
+    "Gmenu-ui-placement": 1781858485.2359245,
     "Gnewgame-crash": 1781604310.7121198,
     "Gcine-crash2": 1781620347.5453398,
     "Gcine-pose": 1781630021.6709929,
@@ -407,7 +413,7 @@
     "Gvistruth": 1781836402.289903,
     "Ghalo": 1781853465.6593072
   },
-  "last_update": "2026-06-19T08:41:16.371164+00:00",
+  "last_update": "2026-06-19T12:53:06.428365+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

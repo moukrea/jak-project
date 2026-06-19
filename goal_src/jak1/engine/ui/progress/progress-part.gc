@@ -58,9 +58,16 @@
 (defun part-progress-hud-tint-func ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 matrix))
   (set! (-> arg2 vector 2 w) (the float (- 64 (sar (* 63 (-> *progress-process* 0 in-out-position)) 12))))
   ;; og:preserve-this
+  ;; The widescreen x-scale of this tint backdrop is precomputed in plain GOAL
+  ;; (update-video-hacks -> *video-parms* menu-aspect-x-scale) and read here
+  ;; UNCONDITIONALLY. The original inline (and *pc-settings* (not use-vis?))
+  ;; #f-check misfires on arm64 because this FUNC is invoked from the mips2c
+  ;; sp-process-block-2d (#f/symbol upper-32 is inconsistent across that call),
+  ;; leaving the tint at the un-widened meters-15 (0.6x) scale so it bunched
+  ;; toward center on the ultrawide panel. menu-aspect-x-scale == aspect-ratio-
+  ;; scale when widescreen (not use-vis?) else 1.0, so x86 output is unchanged.
   (#when PC_PORT
-    (if (and *pc-settings* (not (-> *pc-settings* use-vis?)))
-      (set! (-> arg2 vector 0 w) (* (meters 15) (-> *pc-settings* aspect-ratio-scale)))))
+    (set! (-> arg2 vector 0 w) (* (meters 15) (-> *video-parms* menu-aspect-x-scale))))
   0
   (none))
 
