@@ -1031,6 +1031,24 @@ phases:
   validator: validators/phase-Gmenu-ui-placement.sh
   max_turns: 1200
   max_retries: 3
+- id: Ghalo-sun
+  name: 'Fix the TITLE-screen halo — a SUN/LIGHTING-state bug (owner: big glow at sun-UP, fades at sun-DOWN, does NOT return at next
+    sunrise => sun glow/light state not reset/re-armed across the day/night cycle). Distinct from the ND-logo village-leak. The prior
+    screenshot halo metric was timing-flawed (read 0.002 at sun-down, false-greened it). Verify by DETERMINISTIC sun-cycle STATE DUMPS
+    (sun elevation/phase vs glow intensity), x86-FIRST (likely reproduces on our x86 = host-fixable), dumps removed after, golden pristine.'
+  prompt: prompts/phase-Ghalo-sun.md
+  validator: validators/phase-Ghalo-sun.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gcine-cut
+  name: 'Fix the cinematic camera CUTS (owner: instead of changing plan with a hard CUT, the camera MOVES/interpolates toward the next
+    target => continuous pans where there should be discrete shot changes). May also reproduce on our x86 (shared cut logic). Verify by
+    DETERMINISTIC per-plan-boundary CUT-vs-INTERP camera STATE DUMPS (extend the Gcine-audit camera-DATA tooling), x86-FIRST, dumps removed
+    after, golden pristine.'
+  prompt: prompts/phase-Gcine-cut.md
+  validator: validators/phase-Gcine-cut.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
