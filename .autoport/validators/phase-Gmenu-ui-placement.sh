@@ -35,9 +35,18 @@ SMOKE=$(mktemp); timeout 90 build-x86/game/gk --game jak1 --portable -fakeiso --
 grep -q "link finish: logo$" "$SMOKE" || { tail -20 "$SMOKE"; rm -f "$SMOKE"; fail "x86 smoke regressed"; }; rm -f "$SMOKE"
 ok "no crash (frame=$FM, tris=$TR), x86 smoke passes"
 
-# 4. Static menu evidence frame for the owner's eye.
-NM=$(ls .autoport/reports/Gmenu-ui/menu-*.png 2>/dev/null | head -1); [ -n "$NM" ] || fail "no static menu screencap (.autoport/reports/Gmenu-ui/menu-*.png) for owner eye-verify"
-ok "static menu evidence frame present: $(basename "$NM")"
+# 4. OBJECTIVE menu gate vs the v0.3.3 oracle — NO LONGER owner-eye-dependent.
+#    Reuse the Gvistruth trustworthy detector (overlay-masked, calibrated): the
+#    main-menu beat's diff vs the original must drop below the garble line. The
+#    current (broken) menu reads ~0.575; a correctly-placed menu must be <0.20.
+NM=$(ls -t .autoport/reports/Gmenu-ui/menu-*.png 2>/dev/null | head -1); [ -n "$NM" ] || fail "no static menu screencap (.autoport/reports/Gmenu-ui/menu-*.png)"
+bash .autoport/lib/verify_device_graphics.sh >/dev/null 2>&1 || true   # writes report.json; exits nonzero on the (unrelated) logo/title halo — ignore that here
+GR=.autoport/reports/graphics-verify/report.json
+[ -f "$GR" ] || fail "graphics-verify produced no report.json (detector did not run)"
+MENU_DIFF=$(python3 -c "import json;b={x['beat']:x for x in json.load(open('$GR')).get('beats',[])}.get('main-menu',{});d=b.get('diff_frac');print(d if d is not None else 1.0)")
+python3 -c "import sys;sys.exit(0 if float('$MENU_DIFF')<0.20 else 1)" \
+  || fail "menu still diverges from the v0.3.3 ORIGINAL (overlay-masked diff_frac=$MENU_DIFF, must be <0.20; the current garble is ~0.575). The trustworthy detector is the gate now, not the owner's eye. Diff localized in .autoport/reports/graphics-verify/main-menu.diff.png"
+ok "menu OBJECTIVELY matches the v0.3.3 original (overlay-masked diff_frac=$MENU_DIFF < 0.20); evidence frame $(basename "$NM")"
 
 # 5. DEPLOY-LANDING GUARD (mandatory) — the device must provably run the fresh
 # HEAD libgk.so, so a stale/incremental build can NEVER silently pass again.
@@ -45,4 +54,4 @@ bash .autoport/lib/deploy_verify.sh eae4df44 || fail "deploy not verified — de
 ok "deploy-landing verified (device runs fresh HEAD build)"
 
 echo ""
-echo "PASS(mechanics): Gmenu-ui-placement — open diagnosis + real placement fix, no crash, x86 OK, no grind. OWNER eye-verifies the menu UI is placed correctly (not bunched center) on the deployed build."
+echo "PASS: Gmenu-ui-placement — menu now OBJECTIVELY matches the v0.3.3 ORIGINAL (overlay-masked main-menu diff_frac<0.20 vs oracle, was ~0.575), no crash, x86 OK, deploy-verified. Owner-eye is no longer the gate."

@@ -61,7 +61,7 @@ LCP=$!
 adb shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 || true
 t0=$(date +%s); ok=0; crash=0
 while [ $(( $(date +%s) - t0 )) -lt 100 ]; do
-  if grep -aqE 'GK-DIAG sig=11|Fatal signal (11|6|4)|signal (11|6|4) \(SIG' "$LOG" 2>/dev/null; then crash=1; break; fi
+  if grep -aqE 'GK-DIAG sig=(4|6|11)|Fatal signal (11|6|4)|signal (11|6|4) \(SIG' "$LOG" 2>/dev/null; then crash=1; break; fi
   fr=$(grep -aoE 'A35-RENDER frame=[0-9]+' "$LOG" 2>/dev/null | grep -oE '[0-9]+' | sort -n | tail -1); fr=${fr:-0}
   [ "$fr" -ge 900 ] 2>/dev/null && { ok=1; break; }
   sleep 3

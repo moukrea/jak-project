@@ -1010,6 +1010,17 @@ phases:
   validator: validators/phase-Gvistruth.sh
   max_turns: 1500
   max_retries: 4
+- id: Ghalo
+  name: 'Kill the spurious halo/glow on the Naughty Dog logo + title screens. Supervisor confirmed by direct device-vs-v0.3.3 comparison:
+    the ND-logo beat shows a bright yellow glow on the RIGHT with Jak+Daxter art + a red seal = village1 geometry + sun-particle glow
+    leaking onto the ND-logo screen (original is clean black); same halo class on the title. Almost certainly a REGRESSION of the Gndlogo
+    done?-gated-village + sun-fade-suppression fix on the current consistent build. Fix the leak (likely TIT.DGO, now shippable post-Gspark).
+    OBJECTIVE gate via the trustworthy detector: intro-logo halo_excess_frac<0.01 (was ~0.276) AND title<0.02 vs the original, crash-free,
+    reaches in-game. NOT owner-eye-gated.'
+  prompt: prompts/phase-Ghalo.md
+  validator: validators/phase-Ghalo.sh
+  max_turns: 1200
+  max_retries: 3
 - id: Gmenu-ui-placement
   name: 'OPEN diagnosis+fix (owner: do NOT presume aspect-ratio): the menu UI elements are bunched in the CENTER instead of placed
     where they belong, on the device ultrawide ~20:9/21:9 panel (2400x1080). Diagnose WHY from the UI placement code (progress.gc

@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 106,
+  "current_phase_idx": 107,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -95,7 +95,6 @@
     "Gtitle-pixelmatch": 1,
     "Gmenu-pixelmatch": 3,
     "Gaspect-unstub": 1,
-    "Gmenu-ui-placement": 0,
     "Gnewgame-crash": 1,
     "Gcine-crash2": 1,
     "Gcine-pose": 1,
@@ -104,7 +103,8 @@
     "Gcine-camfov": 2,
     "Gspark-enterstate": 2,
     "Gmatch-original": 4,
-    "Gvistruth": 1
+    "Gvistruth": 1,
+    "Ghalo": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -319,7 +319,8 @@
     "Gmatch-original",
     "Gspark-enterstate",
     "Gcine-camfov",
-    "Gvistruth"
+    "Gvistruth",
+    "Ghalo"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -338,8 +339,7 @@
     "A20-goalc-arm64-field-offset",
     "A38-android-float-spray-tripwire-goal-frame",
     "Grefen-english-pristine-frames-audit",
-    "Gmenu-pixelmatch",
-    "Gmenu-ui-placement"
+    "Gmenu-pixelmatch"
   ],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
@@ -395,7 +395,7 @@
     "Gtitle-pixelmatch": 1781485521.577208,
     "Gmenu-pixelmatch": 1781553750.7362545,
     "Gaspect-unstub": 1781578631.6895506,
-    "Gmenu-ui-placement": 1781594098.1553116,
+    "Gmenu-ui-placement": 1781838889.2849302,
     "Gnewgame-crash": 1781604310.7121198,
     "Gcine-crash2": 1781620347.5453398,
     "Gcine-pose": 1781630021.6709929,
@@ -404,9 +404,10 @@
     "Gcine-camfov": 1781678484.7384794,
     "Gspark-enterstate": 1781769389.2128012,
     "Gmatch-original": 1781795956.6131423,
-    "Gvistruth": 1781836402.289903
+    "Gvistruth": 1781836402.289903,
+    "Ghalo": 1781853465.6593072
   },
-  "last_update": "2026-06-19T03:02:15.765378+00:00",
+  "last_update": "2026-06-19T08:41:16.371164+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
