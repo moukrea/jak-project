@@ -1,0 +1,5 @@
+# Gcine-cut device DIAG end (2026-06-20T00:06:33+02:00)
+focus:   mCurrentFocus=Window{4ac0c33 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+pid: 5586
+crashed: no
+max_af: 44998.0000

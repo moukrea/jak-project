@@ -773,6 +773,11 @@
                 (s1-0 (or (!= (-> self spooling?) #t) (logtest? (-> (the-as process-taskable s2-0) skel status) (janim-status spool)))))
             (vector<-cspace! s5-0 (-> (the-as process-taskable s2-0) node-list data (-> self cam-joint-index)))
             (vector-normalize-copy! gp-0 (-> s4-0 vector 2) -1.0)
+            ;; GCINE-CUT-DIAG (every 16 frames + always log around the missed cut)
+            (if (or (zero? (logand (the-as int (current-time)) 15))
+                    (and (>= (-> self cam-joint-index) 40) (>= (-> s5-0 y) 100000.0)))
+              (format 0 "GCINE-OC ct=~D cji=~D s1=~A wx=~f wy=~f wz=~f~%"
+                      (current-time) (-> self cam-joint-index) s1-0 (-> s5-0 x) (-> s5-0 y) (-> s5-0 z)))
             (when s1-0
               (when (not (-> self had-valid-frame))
                 (set! (-> self had-valid-frame) #t)

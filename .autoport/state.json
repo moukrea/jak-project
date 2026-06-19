@@ -107,7 +107,7 @@
     "Ghalo": 1,
     "Gmenu-ui-placement": 3,
     "Ghalo-sun": 1,
-    "Gcine-cut": 2
+    "Gcine-cut": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -223,7 +223,8 @@
       "61dc054d6f87"
     ],
     "Gcine-cut": [
-      "5b59a11b4a65"
+      "5b59a11b4a65",
+      "9ad26218547a"
     ]
   },
   "stuck_reasons": {
@@ -421,7 +422,7 @@
     "Ghalo-sun": 1781874653.8155646,
     "Gcine-cut": 1781888948.4723773
   },
-  "last_update": "2026-06-19T21:09:46.184208+00:00",
+  "last_update": "2026-06-19T22:18:57.803064+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

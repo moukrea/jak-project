@@ -1325,6 +1325,10 @@
             (set-blackout-frames (the-as time-frame (the int (* 5.0000005 (the float (command-get-int (car gp-0) 0)))))))
            ((= v1-4 'teleport) (set! *teleport* #t))
            ((= v1-4 'joint)
+            ;; GCINE-CUT-DIAG
+            (format 0 "GCINE-JC ct=~D joint=~A movie?=~A~%"
+                    (current-time) (command-get-param (car gp-0) #f)
+                    (ppointer->process (-> *setting-control* current movie)))
             (send-event (ppointer->process (-> *setting-control* current movie)) 'joint (command-get-param (car gp-0) #f))
             (set! *teleport-count* 2))
            ((= v1-4 'ambient)
