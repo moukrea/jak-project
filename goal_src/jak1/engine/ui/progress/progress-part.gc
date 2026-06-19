@@ -11,14 +11,12 @@
   (let ((v1-0 *progress-process*))
     (set! (-> arg2 vector 0 w) (-> v1-0 0 left-side-x-scale))
     (set! (-> arg2 vector 1 w) (-> v1-0 0 left-side-y-scale)))
-  (set! *gmenu-left-xw* (-> arg2 vector 0 w)) ;; GMENU-DUMP TEMP — remove before commit
   (none))
 
 (defun part-progress-hud-right-func ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 matrix))
   (let ((v1-0 *progress-process*))
     (set! (-> arg2 vector 0 w) (-> v1-0 0 right-side-x-scale))
     (set! (-> arg2 vector 1 w) (-> v1-0 0 right-side-y-scale)))
-  (set! *gmenu-right-xw* (-> arg2 vector 0 w)) ;; GMENU-DUMP TEMP — remove before commit
   (none))
 
 (defun part-progress-hud-orb-func ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 matrix))
@@ -31,7 +29,6 @@
     (#t
      (set! (-> arg2 vector 0 w) (/ 5324.8 (-> *progress-process* 0 sides-x-scale)))
      (set! (-> arg2 vector 1 w) (/ 5324.8 (-> *progress-process* 0 sides-x-scale)))))
-  (set! *gmenu-orb-xw* (-> arg2 vector 0 w)) ;; GMENU-DUMP TEMP — remove before commit
   (none))
 
 (defun part-progress-hud-buzzer-func ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 matrix))
@@ -70,8 +67,7 @@
   ;; toward center on the ultrawide panel. menu-aspect-x-scale == aspect-ratio-
   ;; scale when widescreen (not use-vis?) else 1.0, so x86 output is unchanged.
   (#when PC_PORT
-    (set! (-> arg2 vector 0 w) (* (meters 15) (-> *video-parms* menu-aspect-x-scale)))
-    (set! *gmenu-tint-xw* (-> arg2 vector 0 w))) ;; GMENU-DUMP TEMP — remove before commit
+    (set! (-> arg2 vector 0 w) (* (meters 15) (-> *video-parms* menu-aspect-x-scale))))
   0
   (none))
 

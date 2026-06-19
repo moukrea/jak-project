@@ -1,0 +1,40 @@
+== Gmenu-ui-placement — x86-FIRST menu STATE dump comparison (our-x86 vs ORIGINAL-x86) ==
+
+Methodology (owner directive 2026-06-19): deterministic GOAL STATE dump, NOT screenshot
+pixel-diffs. Both builds were forced to the device-matching ultrawide aspect 20:9
+( (set-aspect! *pc-settings* 20 9) => aspect-ratio-scale 1.6666, use-vis? #f ), the
+progress (main) menu was opened, and each menu sprite's on-screen horizontal scale
+( matrix vector 0 w, set by its sparticle FUNC ) + the aspect factors were read.
+
+  - OUR x86      : build-x86/game/gk (current HEAD source) — dump via the committed
+                   GMENU-DUMP instrumentation (adjust-sprites), captured over the listener.
+  - ORIGINAL x86 : /home/emeric/code/jak-original-v033 (v0.3.3, c4bc4d3ff) — PRISTINE.
+                   No source instrumentation was added; the persistent runtime fields that
+                   the sprite FUNCs assign were READ over the listener (the original repo
+                   stayed git-clean: empty `git status --porcelain`, HEAD c4bc4d3ff).
+
+Aspect config (BOTH builds): arscale (aspect-ratio-scale) = 1.6666 (20:9), use-vis? = #f,
+sides-x-scale = 1.0000 (set-hud-aspect-ratio is forced to 'aspect4x3 every frame in BOTH).
+
+Element-by-element (x-scale = sprite matrix vector 0 w = on-screen horizontal scale):
+
+  element              | our-x86       | original-x86  | ratio (our/orig)
+  ---------------------|---------------|---------------|-----------------
+  tint backdrop  (337) | 102400.0078   | 102400.0078   | 1.0000
+  ring-left      (335) | 14336.0000    | 14336.0000    | 1.0000
+  ring-right     (336) | 24576.0000    | 24576.0000    | 1.0000
+  eco-orb        (1986)| 5324.7998     | 5324.7998     | 1.0000
+  menu-aspect-x-scale  | 1.6666        | 1.6666 (read as aspect-ratio-scale inline) | 1.0000
+
+Notes:
+  - All scale ratios = 1.0000, bit-for-bit identical (including the .0078 float rounding on
+    the tint and the .7998 on the orb).
+  - The menu FIX reads the precomputed *video-parms* menu-aspect-x-scale (baked in plain GOAL
+    by update-video-hacks = aspect-ratio-scale when not use-vis?, else 1.0). On x86 this is
+    behavior-identical to the original's inline (* (meters 15) (-> *pc-settings* aspect-ratio-scale)).
+    => An ARM-compat change that must NOT alter x86 — and it does not.
+  - The tint backdrop is the only aspect-sensitive element: tint-xw = (meters 15)=61440 * 1.6666
+    = 102400 at 20:9. The ring (335/336) and orb (1986) divide by sides-x-scale (=1.0) so they
+    are aspect-independent and identical on both.
+
+RESULT: X86 MATCHES ORIGINAL

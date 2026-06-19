@@ -342,13 +342,3 @@
 (defun-extern calculate-completion progress float)
 
 (defun-extern make-current-level-available-to-progress none)
-
-;; GMENU-DUMP TEMP INSTRUMENTATION (Gmenu-ui-placement) — REMOVE before commit.
-;; Captures the ACTUAL on-screen x-scale (vector 0 w) each menu sprite func
-;; computes (incl. any arm64 mips2c #f-misfire), printed once-stable from
-;; adjust-sprites (plain GOAL, safe to format) for x86/device numeric diff.
-(define *gmenu-dump-n* 0)
-(define *gmenu-tint-xw* 0.0)
-(define *gmenu-left-xw* 0.0)
-(define *gmenu-right-xw* 0.0)
-(define *gmenu-orb-xw* 0.0)
