@@ -19,5 +19,14 @@ ANDROID_SERIAL=eae4df44 only. No `goalc/emitter/IGenX86_64.*`. Original repo + `
 3. `Gcine-cut-fix-summary.md` (≥60 lines): the per-boundary cut/interp data (x86 + device, before/after), the mechanism (which plan-transition field/branch made it interpolate instead of cut, and where — x86-level or arm64), and the fix.
 4. Real code change under `goal_src/**` or `game/**`; fix-summary confirms dumps REMOVED + original golden git-clean; x86 still `link finish: logo`; `deploy_verify.sh eae4df44` PASS; cinematic still plays crash-free (frame ≥ 10500, foreground=jak1, 0 sig 4|6|11).
 
+## PROVEN x86 CINEMATIC-CAPTURE RECIPE — USE THIS (attempts 1–3 blocked because they couldn't trigger the cinematic on x86)
+The cinematic CAN be driven on the desktop build — the Gcine-audit phase already did it with `.autoport/gcine_audit_x86.sh` (which produced `.autoport/reports/Gcine-audit/x86-cam-shots.log`). REUSE that mechanism; do NOT reinvent the trigger. The recipe:
+1. Launch the desktop gk with the per-frame camera log armed: `env OG_GCINE_CAM=1 build-x86/game/gk --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data out/jak1/iso -- -boot -debug-mem` (logs `GCINE-CAM f=… lvl=… pos=… cam-rows=…` per frame).
+2. Wait for the title: `grep "link finish: default-menu"` in the log.
+3. Send the NEW-GAME trigger form over the goalc listener (goalc needs the game symbols, so `(mi)` recompiles first — `gcine_audit_x86.sh` uses `goalc … --auto-lt`):
+   `(begin (set! (-> *game-info* mode) (quote play)) (initialize! *game-info* (quote game) (the-as game-save #f) "intro-start") (set-master-mode (quote game)))`
+   This runs the SAME `initialize!` path the menu's NEW GAME runs and starts the intro cinematic; the GCINE-CAM log then records the per-frame camera through misty/boat/etc.
+4. Run this for BOTH our-x86 (`build-x86`) AND the original (point the same launch+listener at `/home/emeric/code/jak-original-v033` — build it if needed, keep its repo git-clean). For the cut/interp signal, derive "CUT vs INTERP" at each plan boundary from the per-frame camera-pos deltas in the GCINE-CAM log (a CUT = a large instantaneous pos/rot jump; INTERP = continuous motion) — `.autoport/lib/gcine_diff.py` already parses these logs. NOTE: `x86-cam-shots.log` on disk is OUR build at old commit dd5836a3f (a reference for the log format), NOT the pristine original — capture the original fresh with this recipe.
+
 ## Max settings
 `max_turns: 1500`, `max_retries: 3`.
