@@ -4334,6 +4334,143 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                         (unsigned long)uc->uc_mcontext.regs[i]);
   }
 
+  // GSPARK-PP — on a null-fn-ptr BLR (SIGILL, pc==EE_base) name the CRASHING
+  // process and the state it is entering. enter-state (gstate.gc:284) BLRs a
+  // handler from new-state == (-> pp state) (set = (-> pp next-state) at the
+  // branch-3 entry). This dump answers the decisive question: is the go-target
+  // state itself NULL (a `(go <0>)` — e.g. an uninstalled virtual-state method)
+  // OR a valid state with a null handler field, OR is the exit-walk
+  // (gstate.gc:321-325) BLRing a stack frame's null exit? Robust: pp comes from
+  // kernel-context.current-process (falls back to x13); all reads go through
+  // safe_read_u32; runs BEFORE the A37-PCWIN read below (which itself SEGVs when
+  // pc==EE_base), so it always completes.
+  if (sig == SIGILL && g_ee_main_mem &&
+      pc == reinterpret_cast<uintptr_t>(g_ee_main_mem)) {
+    const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    auto rd = [ee](uint32_t goff, uint32_t* out) -> bool {
+      if (goff < 0x1000 || goff >= (uint32_t)EE_MAIN_MEM_SIZE - 4) return false;
+      return gk_diag::safe_read_u32(ee + goff, out);
+    };
+    uint32_t pp_x13 = (uint32_t)(uc->uc_mcontext.regs[13] & 0xFFFFFFFFu);
+    uint32_t pp = pp_x13;
+    {
+      auto kc = jak1::intern_from_c("*kernel-context*");
+      uint32_t cur = 0;
+      if (kc.offset && kc->value && rd(kc->value + 20, &cur) && cur >= 0x1000) {
+        pp = cur;  // kernel-context.current-process (deftype 24) — build-robust
+      }
+    }
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG GSPARK-PP pp=0x%x (x13=0x%x)", pp, pp_x13);
+    if (pp >= 0x1000 && pp < (uint32_t)EE_MAIN_MEM_SIZE) {
+      uint32_t ptype = 0, pname = 0, pstatus = 0, ppid = 0, pstate = 0,
+               pnext = 0, psft = 0, pentity = 0;
+      gk_diag::safe_read_u32(ee + pp - 4, &ptype);  // type tag @ pp-4
+      rd(pp + 0, &pname);     // name @4
+      rd(pp + 32, &pstatus);  // status @36
+      rd(pp + 36, &ppid);     // pid @40
+      rd(pp + 48, &pentity);  // entity @52
+      rd(pp + 52, &pstate);   // state @56
+      rd(pp + 72, &pnext);    // next-state @76
+      rd(pp + 88, &psft);     // stack-frame-top @92
+      char nm[40] = {0};
+      for (int i = 0; i < 36; i += 4) {
+        uint32_t w = 0;
+        if (!gk_diag::safe_read_u32(ee + pname + 4 + i, &w)) break;
+        memcpy(nm + i, &w, 4);
+      }
+      nm[36] = 0;
+      for (char& c : nm) {
+        if (c && (c < 0x20 || c > 0x7e)) { c = 0; break; }
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG GSPARK-PP type=0x%x name='%s'(0x%x) status=0x%x "
+                          "pid=%u state=0x%x next-state=0x%x stack-frame-top=0x%x "
+                          "entity=0x%x",
+                          ptype, nm, pname, pstatus, ppid, pstate, pnext, psft,
+                          pentity);
+      gk_diag::dump_sym_name_at_slot(ee + pstatus);
+      // go-target state == pstate (set = next-state). NULL => `(go <0 state>)`.
+      uint32_t st = pstate ? pstate : pnext;
+      if (st == 0) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG GSPARK-PP >>> go-target STATE IS NULL "
+                            "(pstate=0x%x pnext=0x%x) — a (go <0>) ran",
+                            pstate, pnext);
+      } else if (st < (uint32_t)EE_MAIN_MEM_SIZE) {
+        uint32_t sname = 0, sexit = 0, scode = 0, strans = 0, spost = 0,
+                 senter = 0, sevent = 0;
+        rd(st + 0, &sname);    // state.name @4
+        rd(st + 8, &sexit);    // exit @12
+        rd(st + 12, &scode);   // code @16
+        rd(st + 16, &strans);  // trans @20
+        rd(st + 20, &spost);   // post @24
+        rd(st + 24, &senter);  // enter @28
+        rd(st + 28, &sevent);  // event @32
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG GSPARK-PP go-state=0x%x name-sym=0x%x "
+                            "exit=0x%x code=0x%x trans=0x%x post=0x%x enter=0x%x "
+                            "event=0x%x%s%s%s",
+                            st, sname, sexit, scode, strans, spost, senter, sevent,
+                            senter == 0 ? " [ENTER=0]" : "",
+                            sexit == 0 ? " [EXIT=0]" : "",
+                            strans == 0 ? " [TRANS=0]" : "");
+        gk_diag::dump_sym_name_at_slot(ee + sname);
+        // Name the crashing process's TYPE (symbol whose value == ptype).
+        if (ptype && SymbolTable2.offset && LastSymbol.offset) {
+          for (uint32_t slot = SymbolTable2.offset; slot < LastSymbol.offset;
+               slot += 4) {
+            uint32_t v = 0;
+            if (gk_diag::safe_read_u32(ee + slot, &v) && v == ptype) {
+              __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                  "GK-DIAG GSPARK-PP TYPE-SYM slot=0x%x ->", slot);
+              gk_diag::dump_sym_name_at_slot(ee + slot);
+              break;
+            }
+          }
+        }
+        // The crash is enter-state's CODE-jump (br x8) reading code=0 because
+        // new-state (x3) was zeroed across the enter/trans varargs calls — i.e.
+        // a callee returned with a shifted SP (the F1f/G1 +16 pop-RA signature)
+        // and corrupted enter-state's spilled new-state. Disassemble the
+        // enter/trans handlers (contiguous: trans < enter < code in the heap)
+        // to find the unbalanced prologue/epilogue. Hex words, 4/line.
+        auto dump_fn = [ee](const char* tag, uint32_t start, uint32_t end) {
+          if (start < 0x1000 || end <= start || end - start > 0x400) return;
+          for (uint32_t a = start; a < end; a += 16) {
+            uint32_t w[4] = {0, 0, 0, 0};
+            for (int k = 0; k < 4 && a + 4 * k < end; k++) {
+              gk_diag::safe_read_u32(ee + a + 4 * k, &w[k]);
+            }
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG GSPARK-PP %s 0x%x: %08x %08x %08x %08x",
+                                tag, a, w[0], w[1], w[2], w[3]);
+          }
+        };
+        if (strans && senter && senter > strans) dump_fn("TRANSFN", strans, senter);
+        if (senter && scode && scode > senter) dump_fn("ENTERFN", senter, scode);
+      }
+      // exit-walk: enter-state (gstate.gc:321-325) BLRs each protect-frame /
+      // state stack frame's exit; a null exit here is the other null-BLR site.
+      uint32_t fr = psft;
+      for (int d = 0; d < 8 && fr >= 0x1000 && fr < (uint32_t)EE_MAIN_MEM_SIZE;
+           d++) {
+        uint32_t ftype = 0, fname = 0, fnext = 0, fexit = 0;
+        gk_diag::safe_read_u32(ee + fr - 4, &ftype);
+        rd(fr + 0, &fname);  // stack-frame.name @4
+        rd(fr + 4, &fnext);  // stack-frame.next @8
+        rd(fr + 8, &fexit);  // protect-frame.exit @12
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG GSPARK-PP frame[%d]=0x%x type=0x%x "
+                            "name-sym=0x%x next=0x%x exit=0x%x%s",
+                            d, fr, ftype, fname, fnext, fexit,
+                            fexit == 0 ? " <<NULL EXIT" : "");
+        if (fname) gk_diag::dump_sym_name_at_slot(ee + fname);
+        fr = fnext;
+      }
+    }
+  }
+
   // GSPARK — on a BLR to a null GOAL function pointer (SIGILL with pc at
   // EE_base+0), dump the candidate object whose 0-field is being called so
   // the null-field object/defstate is named. MUST run before the A37-PCWIN
@@ -4389,7 +4526,15 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   if (pc >= 0x1000) {
     for (int row = -2; row <= 3; row++) {
       uintptr_t base = (pc & ~15ull) + row * 16;
-      const uint32_t* w = reinterpret_cast<const uint32_t*>(base);
+      // GSPARK: safe reads — when pc==EE_base the row=-2 base falls below the
+      // EE map and a direct deref SEGVs (the secondary sig=11 that aborted the
+      // primary-pass dumps below). safe_read_u32 turns that into a skip.
+      uint32_t w[4] = {0, 0, 0, 0};
+      bool any = false;
+      for (int k = 0; k < 4; k++) {
+        any |= gk_diag::safe_read_u32(base + 4 * k, &w[k]);
+      }
+      if (!any) continue;
       __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                           "GK-DIAG A37-PCWIN 0x%lx: %08x %08x %08x %08x",
                           (unsigned long)base, w[0], w[1], w[2], w[3]);
