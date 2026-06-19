@@ -694,7 +694,28 @@
                      (if (< (+ spool-part 1) (-> arg0 parts))
                        (spool-push *art-control* (-> arg0 name) (+ spool-part 1) self -10.0)
                        (logclear! (-> self skel status) (janim-status done)))
-                     (execute-commands-up-to *load-state* (ja-aframe-num 0))
+                     ;; og:preserve-this — robust spool-command frame.
+                     ;; On a slow load (Android part-transition stall) a transient
+                     ;; bad frame-group read can make (ja-aframe-num 0) SPIKE to a huge
+                     ;; value for a frame; execute-commands-up-to then fires EVERY
+                     ;; remaining spool command at once, collapsing the cutscene's
+                     ;; camera CUTs into a single glide. The stream clock (strpos) is
+                     ;; smooth, and the anim is itself seeked from it (f0-14 below), so
+                     ;; the clock-derived frame is the trustworthy command time. When
+                     ;; the anim-frame disagrees wildly with it, use the clock value.
+                     ;; No-op on a healthy frame (they match to <1 frame), so x86 and a
+                     ;; stall-free console play identically.
+                     (let* ((af-anim (ja-aframe-num 0))
+                            (af-clk (* (the float (current-str-pos spool-sound)) f30-0))
+                            (spike? (< 100.0 (fabs (- af-anim af-clk)))))
+                       ;; GCINE-CUT-DIAG
+                       (if spike?
+                         (format 0 "GCINE-GUARD ct=~D anim=~f clk=~f part=~D~%" (current-time) af-anim af-clk spool-part))
+                       (execute-commands-up-to *load-state* (if spike? af-clk af-anim)))
+                     ;; GCINE-CUT-DIAG (every 16 frames)
+                     (if (zero? (logand (the-as int (current-time)) 15))
+                       (format 0 "GCINE-SP ct=~D strpos=~D af=~f part=~D~%"
+                               (current-time) (current-str-pos spool-sound) (ja-aframe-num 0) spool-part))
                      (cond
                        ((and (< sv-32 sv-72) (= (current-str-id) spool-sound))
                         (+! sv-56 (- (current-time) (-> *display* old-base-frame-counter)))
@@ -711,7 +732,7 @@
                (logclear! (-> self skel status) (janim-status spool)))
               (else
                ;; og:preserve-this fixed broken format string
-               (format 0 "ERROR: <asg> ~A in spool anim loop for ~A ~D, but not loaded.~%" self (-> arg0 name) spool-part)
+               (format 0 "GCINE-ABORT2 ERROR: <asg> ~A in spool anim loop for ~A ~D, but not loaded.~%" self (-> arg0 name) spool-part)
                (goto cfg-88))))
           (+! spool-part 1))))
     (+! spool-part -1)
