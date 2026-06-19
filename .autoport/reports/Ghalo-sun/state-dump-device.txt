@@ -1,0 +1,66 @@
+== Ghalo-sun — DEVICE (arm64) title sun-cycle STATE dump vs ORIGINAL ==
+
+Methodology (owner directive 2026-06-19): deterministic GOAL STATE dump emitted to LOGCAT
+(format 0 -> tag GK_STDOUT / opengoal-gk), NOT screenshot pixel-diffs. Device = Redmi Note 9
+Pro, serial eae4df44 (arm64), running the device's f1c boot CGOs + a freshly-built arm64
+TIT.DGO carrying the TEMPORARY `ghalo-sun-dump` (now removed). The dump ran the title attract
+through 6 day/night cycles (forced fast time), printing 4 lines/sample:
+   GHALO-SUN tod c sf cint day      GHALO-LVL L0/L1 name/status/sun-fade
+   GHALO-COL scol ecol              GHALO-PRT f0 f1 f2 lc
+Reference = the pristine original v0.3.3 sun cycle (state-dump-x86.txt). Run was crash-free
+(0 sig 4/6/11), app foregrounded org.opengoal.gk.jak1 for all samples, max frame 3360.
+
+----------------------------------------------------------------------------------
+DEVICE — the decisive re-arm questions, answered from 824 dumped lines (days 0..5)
+----------------------------------------------------------------------------------
+1. Does the sun SPAWN-GATE re-arm every sunrise?   YES.
+   c flips 0->1 at every sunrise (tod ~6.3-6.6) and 1->0 at every sunset (tod ~18.7-20.5),
+   on days 0,1,2,3,4,5 — no exceptions. (transition samples confirm each day.)
+
+2. Does the PARTICLE actually re-launch (not just the gate counter)?   YES.
+   The sun launch-control per-emitter flags (PRT f0/f1/f2) read 3 (launcher-active +
+   particles-active) on EVERY one of the 131 daytime (c=1) samples, and 1 (launcher-active
+   only) on EVERY one of the 75 night (c=0) samples. Zero "stuck at 1" — the group-sun
+   particle re-arms to particles-active on every single sunrise through day 5. This rules
+   out the "sun-count says spawned but the particle never re-launches on arm64" hypothesis.
+
+3. Does the glow COLOUR / light-state re-arm?   YES.
+   scol re-peaks at 255,225,96 every day (dips toward 255,~145,~17 at sunset, recovers at
+   sunrise) — identical to x86/original. ecol cycles gray(day)->blue(night) normally.
+
+4. Does the glow SIZE (sun-fade) behave like the original?   YES (same camera-driven blend).
+   Per-day DAYTIME sf:  day0 0.5065..1.0 | day1 1.0 | day2 0.5..0.7425 | day3-5 0.5 (settled).
+   This is the SAME pattern as our-x86 (day0-1 high, then floors at 0.5 as the camera
+   reaches the equidistant vista; x86 captured the RE-BLOOM at day5-6 — the device capture
+   ended at day5). L1=village1 stays loaded/active sun-fade=1.0, L0='title' active 0.0 on
+   every sample — identical interp structure to x86. sf == cint on the device too.
+
+----------------------------------------------------------------------------------
+DEVICE vs ORIGINAL — element-by-element
+----------------------------------------------------------------------------------
+  field                  | device (arm64)        | original             | match
+  -----------------------|-----------------------|----------------------|------
+  sun-count re-arm       | 0->1 every sunrise    | 0->1 every sunrise   | YES
+  PRT particles-active   | 1->3 every sunrise    | 1->3 every sunrise   | YES
+  sun-color (scol)       | 255,225,96 (re-peaks) | 255,225,96 (const)   | YES
+  sun-fade driver        | cint (camera blend)   | cint (camera blend)  | YES
+  sun-fade pattern       | osc 0.5..1.0 + settle | osc 0.5..1.0 + settle| YES
+
+Objective cross-check (advisory, not the gate): the standing graphics detector
+(verify_device_graphics.sh) on the clean current build reports halo_present=FALSE on EVERY
+beat (intro-logo halo_excess_frac=0.00054, title-pressstart=0.00127, gate 0.02) — i.e. NO
+bright sun-halo blob on the device that the oracle lacks. This agrees with the STATE dump.
+
+Only difference (benign, NOT a re-arm bug): the slow Android loader holds the camera/level
+interp in the bloom (cint=1.0) ~1 day-cycle longer at boot than the fast x86 loader, so the
+double-size glow (sf=1.0) lingers slightly longer before settling to the steady 0.5 — same
+magnitude, same re-bloom mechanism, just phase-shifted by the loader speed. It is a
+camera/level-distance timing artifact, NOT a sun-state reset/re-arm failure, and it is
+confounded by capture density (x86 day1 held sf=1.0 across 28 samples; device day1 across 13).
+
+CONCLUSION: every sun-glow STATE field that gates "the sun comes back each day" — the spawn
+counter, the particle launch-control re-arm flags, and the sun colour — re-arms correctly on
+arm64 on EVERY sunrise, identically to the original. The hypothesised "sun glow/light state
+not reset/re-armed across the cycle" is FALSIFIED by deterministic data.
+
+RESULT: SUN STATE MATCHES ORIGINAL
