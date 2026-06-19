@@ -1,0 +1,46 @@
+== Gmenu-ui-placement — DEVICE (arm64) menu STATE dump vs ORIGINAL-x86 ==
+
+Methodology (owner directive 2026-06-19): deterministic GOAL STATE dump emitted to LOGCAT,
+NOT screenshot pixel-diffs. Device = Redmi Note 9 Pro, serial eae4df44 (arm64), native panel
+2400x1080 (20:9), running the CONSISTENT current-source arm64 build (all 28 CGO/DGO from
+HEAD, menu fix included; smoke-booted past frame 180 to A35-RENDER frame=900+, crash-free,
+app foregrounded org.opengoal.gk.jak1, deploy-verified). Reference = the pristine original
+v0.3.3 x86 menu state at the SAME 20:9 aspect (from state-dump-x86.txt).
+
+Aspect (device, native 20:9): arscale = 1.6666, use-vis? = #f, sides-x-scale = 1.0000,
+menu-aspect-x-scale = 1.6666.
+
+Element-by-element (x-scale = sprite matrix vector 0 w = on-screen horizontal scale):
+
+  element              | device (arm64) | original-x86  | ratio (device/orig)
+  ---------------------|----------------|---------------|--------------------
+  tint backdrop  (337) | 102400.0078    | 102400.0078   | 1.0000
+  ring-left      (335) | 14336.0000     | 14336.0000    | 1.0000
+  ring-right     (336) | 24576.0000     | 24576.0000    | 1.0000
+  eco-orb        (1986)| 5324.7998      | 5324.7998     | 1.0000
+
+Before/after on the device (the genuine arm64 delta this phase fixed):
+  - BEFORE fix: tint backdrop x-scale = 61440 ( = un-widened (meters 15); ratio 0.60 vs the
+    original 102400 ). This 0.60x tint = the orange wash covering only the CENTER + the raw
+    un-tinted world bleeding through the L/R edges = the supervisor's "bunched center /
+    background bands".
+  - AFTER fix : tint backdrop x-scale = 102400 ( ratio 1.0000 ) — full ultrawide width,
+    matching the original.
+
+  - The ornamental RING is 14336 / 24576 on the device = ratio 1.0000 vs the original — it is
+    NOT ~2x oversized. The earlier "ring ~2x (ratio ~-1.9996)" device probe was the
+    tint-compression confound (the centered orange wash made the ring read as prominent); the
+    deterministic per-sprite dump shows the ring scale was always correct on arm64. The ring/orb
+    funcs read precomputed plain-GOAL fields (no #f-check), so they never hit the misfire.
+
+Cause of the arm64-only tint delta: part-progress-hud-tint-func is a sparticle FUNC invoked
+from the mips2c sp-process-block-2d; the original inline (and *pc-settings* (not use-vis?))
+#f-check MISFIRES on arm64 (s7/#f upper-32 inconsistent across the mips2c->GOAL call; same
+class as Gnewgame/Gcine-pose), so the widescreen widen was skipped and the tint stayed at 0.6x.
+The fix moves the use-vis? decision into plain GOAL (update-video-hacks bakes
+*video-parms* menu-aspect-x-scale) and reads it UNCONDITIONALLY in the FUNC — no #f-check in
+the mips2c-invoked code. Confirmed: device tint now 102400.
+
+All element scale ratios = 1.0000 (well within the ~5% tolerance).
+
+RESULT: MENU STATE MATCHES ORIGINAL

@@ -526,16 +526,6 @@
                    (- (-> *math-camera* hvdf-off z) (* 1024.0 (-> this particles s5-0 pos z)))
                    (-> *math-camera* hvdf-off w)))
     (spawn (-> this particles s5-0 part) *null-vector*))
-  ;; GMENU-DUMP TEMP INSTRUMENTATION (Gmenu-ui-placement) — REMOVE before commit.
-  (#when PC_PORT
-    (when (and (zero? (-> this in-out-position)) (< *gmenu-dump-n* 6))
-      (format #t "GMENU-DUMP n=~D tint-xw=~f left-xw=~f right-xw=~f orb-xw=~f~%"
-              *gmenu-dump-n* *gmenu-tint-xw* *gmenu-left-xw* *gmenu-right-xw* *gmenu-orb-xw*)
-      (format #t "GMENU-DUMP2 sides-x-scale=~f arscale=~f rel-x=~f menu-ax=~f use-vis=~A~%"
-              (-> this sides-x-scale) (-> *pc-settings* aspect-ratio-scale)
-              (-> *video-parms* relative-x-scale) (-> *video-parms* menu-aspect-x-scale)
-              (-> *pc-settings* use-vis?))
-      (+! *gmenu-dump-n* 1)))
   0
   (none))
 
