@@ -105,7 +105,7 @@
     "Gmatch-original": 4,
     "Gvistruth": 1,
     "Ghalo": 1,
-    "Gmenu-ui-placement": 1
+    "Gmenu-ui-placement": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -215,6 +215,9 @@
       "c49e1dd9529b",
       "f7c0451ef490",
       "0855c3d77b6a"
+    ],
+    "Gmenu-ui-placement": [
+      "b1a5e262a3cf"
     ]
   },
   "stuck_reasons": {
@@ -408,7 +411,7 @@
     "Gvistruth": 1781836402.289903,
     "Ghalo": 1781853465.6593072
   },
-  "last_update": "2026-06-19T10:17:51.119823+00:00",
+  "last_update": "2026-06-19T11:08:41.358813+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
