@@ -64,7 +64,7 @@ sleep 3
 
 echo "== (lt) + (build-game) [code-only, interns *game-info*] + trigger cinematic =="
 FORM='(begin (set! (-> *game-info* mode) (quote play)) (initialize! *game-info* (quote game) (the-as game-save #f) "intro-start") (set-master-mode (quote game)))'
-printf '(lt)\n(build-game)\n%s\n' "$FORM" | timeout 300 "$GOALC" --game jak1 --proj-path . \
+printf '(lt)\n%s\n' "$FORM" | timeout 120 "$GOALC" --game jak1 --proj-path . \
   --iso-path "$ISO" --auto-lt > "$OUT/x86-goalc-$MODE.log" 2>&1 || true
 echo "  goalc returned. tail:"; tail -4 "$OUT/x86-goalc-$MODE.log" | sed 's/\x1b\[[0-9;]*m//g'
 
