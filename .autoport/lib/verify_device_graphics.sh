@@ -47,6 +47,9 @@ REPORT="$OUT/report.json"
 # pixel-gate params (cross-renderer GLES-vs-GL floor; per MEMORY: detailed beats
 # ~2.2% at thr24, use thr56/tol2% for matched-phase).
 THRESHOLD="${THRESHOLD:-56}"; TOLERANCE="${TOLERANCE:-0.02}"
+# halo/bloom gate: a beat whose halo_excess_frac (device-bright region absent in
+# the oracle) exceeds this FAILS the gate. Clean device ~0.002, ND-logo halo ~0.28.
+HALO_GATE="${HALO_GATE:-0.02}"
 
 die() { echo "verify_device_graphics: FATAL: $*" >&2; exit 2; }
 [ -x "$ADB" ] || command -v "$ADB" >/dev/null 2>&1 || die "adb not found at $ADB"
@@ -142,17 +145,16 @@ done
 
 # ---- matched-phase intro capture (ndi ND-logo-on-BLACK = the halo beat) ------
 # The Android loader is SLOWER than the oracle, so a fixed wall-clock screencap
-# lands on the wrong beat. The HALO (village geometry + a yellow sun-glow that
-# the original lacks) appears during the ndi Naughty-Dog-logo-on-BLACK beat
-# (device render frame ~60-1080), NOT the spinning starburst (which is supposed
-# to show the village). So we capture a DENSE burst across the whole intro
-# window and pick the frame matching the ndi ND-logo-on-black oracle
-# (pick_best_frame.py vs NDI_ORACLE). HONEST: the selector only ALIGNS the beat;
-# halo_excess still grades the chosen frame. On a near-black beat the halo
-# (bright village/sun where the oracle is black) is unambiguous and rotation-
-# phase-robust, and a clean device (Gndlogo fix) reads ~0 excess. Anti-cheat:
-# a device WITHOUT the Gndlogo TIT.DGO fix shows the village/sun on every ndi
-# frame -> high excess -> MISMATCH (proven by running this on the f1c build).
+# lands on the wrong beat. The HALO (a yellow sun-glow blob that the original
+# lacks) appears during the ndi Naughty-Dog-logo-on-BLACK beat. So we capture a
+# DENSE burst across the whole intro window; graphics_analyze.py (below) then
+# selects the burst frame by LOGO-STRUCTURE overlap (the frame whose bright
+# pixels best cover the oracle's ND-logo text) and grades the halo on it.
+# IMPORTANT: do NOT select by global-min-diff (the old pick_best_frame.py) — the
+# ALL-BLACK loader frame minimises diff to a mostly-black oracle, so min-diff
+# picked black -> halo read 0.0 on a visibly haloed logo (the false-green this
+# phase fixes). A clean device (Gndlogo fix) reads ~0.002 excess; the current
+# defective device reads ~0.28 -> a ~140x separation, robust to rotation phase.
 echo "== wait for fg==jak1 =="
 fg_dl=$(( $(date +%s) + 90 ))
 while [ "$(date +%s)" -lt "$fg_dl" ]; do is_fg && break; sleep 2; done
@@ -177,18 +179,15 @@ while [ "$(date +%s)" -lt "$burst_dl" ]; do
 done
 echo "  burst captured $bn frames (render_frame now $(cur_render_frame))"
 
-# intro-logo = the ndi ND-logo-on-BLACK beat: pick the burst frame matched to
-# the ndi oracle (mask the touch overlay so it does not bias the match).
+# intro-logo = the ndi ND-logo-on-BLACK beat. The intro-logo FRAME SELECTION is
+# now done by graphics_analyze.py (below) using LOGO-STRUCTURE overlap, NOT the
+# old pick_best_frame.py global-min-diff. The old min-diff selector picked the
+# ALL-BLACK loader frame (it minimises diff to a mostly-black oracle), so the
+# halo frame was never measured -> halo read 0.0 on a visibly haloed logo. The
+# analyzer instead picks the burst frame whose bright pixels best COVER the
+# oracle's ND-logo text (logo present), then grades the halo on that frame.
 echo "  ndi spool seen in logcat: $(grep -acE 'A36-STR-DIAG rpc name=\"ndi-intro\"' "$LOG" 2>/dev/null) ; logo-intro: $(grep -acE 'A36-STR-DIAG rpc name=\"logo-intro\"' "$LOG" 2>/dev/null)"
-ORC_INTRO="$(oracle_for intro-logo)"
-if [ -n "$ORC_INTRO" ] && [ "$bn" -gt 0 ]; then
-  RECTS=(); while IFS= read -r r; do [ -n "$r" ] && RECTS+=( --ignore-rect "$r" ); done < <(mask_rects_for "$ORC_INTRO")
-  if "$PY" .autoport/lib/pick_best_frame.py "$ORC_INTRO" "$BURST" "$SHOTS/intro-logo.png" "${RECTS[@]}"; then
-    R_REACHED[intro-logo]=true; echo "  intro-logo (ndi) matched-phase selected"
-  else
-    echo "  intro-logo: matcher failed (no ndi ND-logo frame in burst)"
-  fi
-fi
+echo "  intro-logo frame selection deferred to graphics_analyze.py (burst=$bn frames)"
 
 # title-pressstart = the settled PRESS START attract = the LAST good burst frame.
 LASTB=$(ls "$BURST"/f*.png 2>/dev/null | sort | tail -1)
@@ -226,7 +225,9 @@ while :; do
   el=$(( $(date +%s) - t0 )); [ "$el" -ge 200 ] && { echo "  ingame wall cap"; break; }
   PID=$(adb shell pidof "$PKG" 2>/dev/null | tr -d '\r')
   [ -z "$PID" ] && { echo "  app gone (crash?) at ${el}s"; break; }
-  CR=$(grep -acE "GK-DIAG sig=11|Fatal signal (11|6|4)|signal (11|6|4) \(SIG" "$LOG" 2>/dev/null); CR=${CR:-0}
+  # crash counter matches sig=(4|6|11): SIGILL(4)/SIGABRT(6)/SIGSEGV(11). The old
+  # sig=11-only grep MISSED the SIGILL/SIGABRT crashes (see memory gmatch-pass).
+  CR=$(grep -acE "GK-DIAG sig=(4|6|11)|Fatal signal (4|6|11)|signal (4|6|11) \(SIG" "$LOG" 2>/dev/null); CR=${CR:-0}
   [ "$CR" -ge 1 ] && { echo "  CRASH SIGNATURE at ${el}s"; break; }
   FM=$(cur_render_frame); FM=${FM:-0}
   (( el % 20 < 5 )) && echo "   [${el}s] render=$FM target=$target fg=$(is_fg && echo jak1 || echo other)"
@@ -237,7 +238,8 @@ snap ingame-firstframe && R_REACHED[ingame-firstframe]=true
 
 # capture final foreground + crash status BEFORE teardown
 ENDFOC="$(read_focus)"; ENDPID="$(adb shell pidof "$PKG" 2>/dev/null | tr -d '\r')"
-CRASH_SIGS=$(grep -acE 'Fatal signal|signal (11|6|4) \(SIG|GK-DIAG sig=11' "$LOG" 2>/dev/null); CRASH_SIGS=${CRASH_SIGS:-0}
+# crash regex broadened sig=11 -> sig=(4|6|11) to count SIGILL/SIGABRT/SIGSEGV.
+CRASH_SIGS=$(grep -acE 'Fatal signal|signal (4|6|11) \(SIG|GK-DIAG sig=(4|6|11)' "$LOG" 2>/dev/null); CRASH_SIGS=${CRASH_SIGS:-0}
 
 # ---- teardown logcat (keep device usable) -----------------------------------
 kill ${LCP:-0} 2>/dev/null || true
@@ -245,128 +247,34 @@ clear_inject 2>/dev/null || true
 adb shell am force-stop "$PKG" >/dev/null 2>&1 || true
 trap - EXIT
 
-# ---- compare + halo (python; robust, writes report.json) --------------------
-echo "== compare each captured beat vs oracle + halo metric =="
-"$PY" - <<PYEOF
-import json, os, subprocess, sys
-from PIL import Image
-import numpy as np
-
-OUT="$OUT"; SHOTS="$SHOTS"; ORACLE="$ORACLE"; FALLBACK="$FALLBACK"; FC="$FC"; PY="$PY"; NDI_ORACLE="$NDI_ORACLE"
-THR=int("$THRESHOLD"); TOL=float("$TOLERANCE")
-beats=["intro-logo","title-pressstart","main-menu","newgame-cinematic","ingame-firstframe"]
-reached={ "intro-logo": "${R_REACHED[intro-logo]}"=="true",
-          "title-pressstart": "${R_REACHED[title-pressstart]}"=="true",
-          "main-menu": "${R_REACHED[main-menu]}"=="true",
-          "newgame-cinematic": "${R_REACHED[newgame-cinematic]}"=="true",
-          "ingame-firstframe": "${R_REACHED[ingame-firstframe]}"=="true" }
-
-def oracle_for(b):
-    if b=="intro-logo" and os.path.isfile(NDI_ORACLE): return NDI_ORACLE
-    p=os.path.join(ORACLE, b+".png")
-    if os.path.isfile(p): return p
-    fb={"title-pressstart":"01-attract-flythrough.png","main-menu":"05-main-menu.png"}.get(b)
-    if fb and os.path.isfile(os.path.join(FALLBACK,fb)): return os.path.join(FALLBACK,fb)
-    return None
-
-def mask_rects(golden):
-    gw,gh=Image.open(golden).size
-    r=max(40.0,gh*0.075); sp=r*1.6
-    def rect(cx,cy,hw,hh):
-        x=max(0,int(cx-hw)); y=max(0,int(cy-hh))
-        return f"{x},{y},{min(int(2*hw),gw-x)},{min(int(2*hh),gh-y)}"
-    return [rect(gw*0.12,gh*0.72,sp+r+10,sp+r+10),
-            rect(gw*0.88,gh*0.72,sp+r+10,sp+r+10),
-            rect(gw*0.5,gh*0.92,r*0.7+15,r*0.7+15)]
-
-def halo_metric(golden, cand, rects):
-    """bright-blob area present on DEVICE but absent in ORACLE, outside masks.
-    Returns (device_bright_frac, oracle_bright_frac, excess_frac)."""
-    g=Image.open(golden).convert("L"); c=Image.open(cand).convert("L").resize(g.size, Image.LANCZOS)
-    ga=np.asarray(g,dtype=np.uint8); ca=np.asarray(c,dtype=np.uint8)
-    cover=np.zeros(ga.shape,dtype=bool)
-    gw,gh=g.size
-    for spec in rects:
-        x,y,w,h=(int(v) for v in spec.split(","))
-        cover[y:y+h, x:x+w]=True
-    valid=~cover
-    BR=220  # very bright
-    gb=(ga>=BR)&valid; cb=(ca>=BR)&valid
-    n=valid.sum() or 1
-    gfrac=gb.sum()/n; cfrac=cb.sum()/n
-    # excess = device-bright AND NOT oracle-bright
-    excess=((cb)&(~gb)).sum()/n
-    return float(cfrac), float(gfrac), float(excess)
-
-report={"generated_at": __import__("datetime").datetime.utcnow().isoformat()+"Z",
-        "serial":"$SERIAL","package":"$PKG","threshold":THR,"tolerance":TOL,
-        "end_foreground":"""$ENDFOC""".strip(),"end_pid":"""${ENDPID:-gone}""".strip(),
-        "crash_signatures":int("$CRASH_SIGS" or 0),"beats":[]}
-
-for b in beats:
-    entry={"beat":b,"reached":reached[b],"oracle":None,"device_shot":None,
-           "diff_frac":None,"rmse":None,"verdict":"UNREACHED",
-           "halo_present":None,"halo_excess_frac":None,
-           "device_bright_frac":None,"oracle_bright_frac":None}
-    cand=os.path.join(SHOTS,b+".png")
-    orc=oracle_for(b)
-    if not reached[b] or not os.path.isfile(cand):
-        report["beats"].append(entry); continue
-    entry["device_shot"]=cand
-    if not orc:
-        entry["verdict"]="NO_ORACLE"; report["beats"].append(entry); continue
-    entry["oracle"]=orc
-    rects=mask_rects(orc)
-    diffpng=os.path.join(OUT, b+".diff.png")
-    cmd=[PY,FC,orc,cand,"--threshold",str(THR),"--tolerance",str(TOL),"--diff",diffpng]
-    for r in rects: cmd+=["--ignore-rect",r]
-    p=subprocess.run(cmd,capture_output=True,text=True)
-    out=(p.stdout+p.stderr).strip()
-    # parse diff_frac / rmse
-    import re
-    mf=re.search(r"diff_frac=([0-9.]+)",out); mr=re.search(r"rmse=([0-9.]+)",out)
-    entry["diff_frac"]=float(mf.group(1)) if mf else None
-    entry["rmse"]=float(mr.group(1)) if mr else None
-    entry["verdict"]="MATCH" if p.returncode==0 else "MISMATCH"
-    # halo
-    try:
-        cfrac,gfrac,excess=halo_metric(orc,cand,rects)
-        entry["device_bright_frac"]=round(cfrac,5)
-        entry["oracle_bright_frac"]=round(gfrac,5)
-        entry["halo_excess_frac"]=round(excess,5)
-        # HALO present if device has a large bright region the oracle lacks
-        entry["halo_present"]=bool(excess>0.04)
-    except Exception as e:
-        entry["halo_error"]=str(e)
-    report["beats"].append(entry)
-    print(f"  {b:20s} {entry['verdict']:9s} diff_frac={entry['diff_frac']} rmse={entry['rmse']} "
-          f"halo={entry['halo_present']} excess={entry['halo_excess_frac']}")
-
-reached_n=sum(1 for b in report["beats"] if b["reached"])
-match_n=sum(1 for b in report["beats"] if b["verdict"]=="MATCH")
-failed=[b["beat"] for b in report["beats"] if b["verdict"]=="MISMATCH"]
-unreached=[b["beat"] for b in report["beats"] if not b["reached"]]
-no_oracle=[b["beat"] for b in report["beats"] if b["verdict"]=="NO_ORACLE"]
-halo_beats=[b["beat"] for b in report["beats"] if b.get("halo_present")]
-# Beats that COULD be objectively gated = those with an oracle reference.
-gated=[b for b in report["beats"] if b["verdict"] in ("MATCH","MISMATCH")]
-gated_pass = bool(gated) and all(b["verdict"]=="MATCH" for b in gated)
-report["summary"]={
-    "beats_total":len(beats),"beats_reached":reached_n,"beats_gated":len(gated),
-    "beats_match":match_n,"beats_mismatch":failed,"beats_unreached":unreached,
-    "beats_no_oracle":no_oracle,"halo_present_beats":halo_beats,
-    # PASS only if every GATED beat matches AND no crash; NO_ORACLE/unreached beats
-    # are reported separately (cannot pass or fail what has no reference yet).
-    "overall_verdict":"PASS" if (gated_pass and report["crash_signatures"]==0) else "FAIL",
-    "verdict_note":"PASS = all beats WITH an oracle reference matched + no crash. "
-                   "beats_no_oracle/beats_unreached are reported, not graded."
-}
-os.makedirs(OUT,exist_ok=True)
-with open("$REPORT","w") as f: json.dump(report,f,indent=2)
-print("\n== report written: $REPORT ==")
-print(json.dumps(report["summary"],indent=2))
-PYEOF
+# ---- compare + halo + STATIC-BEAT GATE (graphics_analyze.py is the SOT) ------
+# The per-beat diff + halo + the STANDING-GATE verdict are computed by the SINGLE
+# source-of-truth analyzer graphics_analyze.py (the SAME code that generates the
+# calibration known-bad/report.json offline). It:
+#   * selects the intro-logo frame from the burst by LOGO-STRUCTURE overlap
+#     (rejects the all-black loader frame the old min-diff selector wrongly chose)
+#   * gates the STATIC beats (intro-logo / title-pressstart / main-menu) on the
+#     oracle pixel-diff, and gates EVERY beat on the halo/bloom metric
+#   * overall_verdict = FAIL on any hard static-beat MISMATCH (menu/logo garble),
+#     any halo_excess over --halo-gate, or any crash signature.
+echo "== analyze each captured beat vs oracle: static-beat diff gate + halo gate =="
+"$PY" .autoport/lib/graphics_analyze.py \
+  --shots "$SHOTS" --oracle-beats "$ORACLE" --ndi-oracle "$NDI_ORACLE" \
+  --true-original "$FALLBACK" --fc "$FC" --py "$PY" \
+  --out "$REPORT" --diff-dir "$OUT" \
+  --threshold "$THRESHOLD" --tolerance "$TOLERANCE" --halo-gate "${HALO_GATE:-0.02}" \
+  --serial "$SERIAL" --package "$PKG" \
+  --end-foreground "$ENDFOC" --end-pid "${ENDPID:-gone}" \
+  --crash-sigs "$CRASH_SIGS" --reached auto
+GATE_RC=$?
+echo "== graphics_analyze exit=$GATE_RC (0=PASS,1=FAIL,2=inconclusive) =="
+GATE_VERDICT=$("$PY" -c "import json;print(json.load(open('$REPORT'))['summary']['overall_verdict'])" 2>/dev/null || echo UNKNOWN)
+echo "== STANDING GATE overall_verdict=$GATE_VERDICT =="
 
 echo "== device usable check =="
 echo "  end foreground: $ENDFOC  pid=${ENDPID:-gone}  crash_sigs=$CRASH_SIGS"
 echo "  report: $REPORT"
+
+# This is a REAL gate: exit nonzero when the standing-gate verdict is FAIL so any
+# caller (a phase validator, CI) inherits the strictness automatically.
+[ "$GATE_VERDICT" = "PASS" ] && exit 0 || exit 1
