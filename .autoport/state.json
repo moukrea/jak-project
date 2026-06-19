@@ -106,7 +106,8 @@
     "Gvistruth": 1,
     "Ghalo": 1,
     "Gmenu-ui-placement": 3,
-    "Ghalo-sun": 1
+    "Ghalo-sun": 1,
+    "Gcine-cut": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -414,9 +415,10 @@
     "Gmatch-original": 1781795956.6131423,
     "Gvistruth": 1781836402.289903,
     "Ghalo": 1781853465.6593072,
-    "Ghalo-sun": 1781874653.8155646
+    "Ghalo-sun": 1781874653.8155646,
+    "Gcine-cut": 1781881501.438182
   },
-  "last_update": "2026-06-19T15:04:43.518352+00:00",
+  "last_update": "2026-06-19T15:39:11.749444+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
