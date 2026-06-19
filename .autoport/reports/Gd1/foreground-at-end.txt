@@ -1,5 +1,5 @@
-# Gcine-camfov end-of-run (run 1, 2026-06-17T19:49:22+02:00)
-mCurrentFocus_at_end:   mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher}
-app_pid_at_end: gone
-crashed: trap
-misty_onset_frame: none
+# Gcine-camfov end-of-run (run 1, 2026-06-19T04:03:22+02:00)
+mCurrentFocus_at_end:   mCurrentFocus=Window{503ae0d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+app_pid_at_end: 3987
+crashed: no
+misty_onset_frame: 4672
