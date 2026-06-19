@@ -339,6 +339,15 @@ It type checks the arguments for the entry function.
            (if enter-func ((the (function _varargs_ none) enter-func) arg0 arg1 arg2 arg3 arg4 arg5)))
          ;; run the trans function before the code.
          (let ((trans-func (-> new-state trans))) (if trans-func (trans-func)))
+         ;; og:autoport — arm64: the GOAL process stack lives in EE memory, and a
+         ;; trans/enter behavior's sparticle DMA builders (mips2c) write through
+         ;; GOAL pointers; static-screen's `idle` :trans (spawn) stomps this
+         ;; function's spilled `new-state` on that stack, zeroing it. The code
+         ;; pointer below would then read 0 and the .jr would branch to EE+0
+         ;; (SIGILL — the frame-180 boot crash). pp (callee-saved) and the process
+         ;; header field (-> pp state) survive the stomp, so reload new-state from
+         ;; that authoritative source before computing the code pointer.
+         (set! new-state (-> pp state))
          ;; now we run the code, but in a tricky way.
          ;; we need to:
          ;; - make sure that when this code returns, we do a deactivate
