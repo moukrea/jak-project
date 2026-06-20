@@ -1,0 +1,50 @@
+### meminfo BEFORE launch 2026-06-20T03:36:41+02:00
+MemTotal:        5714584 kB
+MemFree:          155048 kB
+MemAvailable:    2979040 kB
+Buffers:            1388 kB
+Cached:          2538140 kB
+SwapCached:         4988 kB
+Active:          1245188 kB
+Inactive:        2475484 kB
+### MemAvailable + lmk props
+[init.svc.lmkd]: [running]
+[persist.sys.lmk.reportkills]: [true]
+[ro.lmk.use_minfree_levels]: [true]
+### meminfo frame~3300 2026-06-20T03:38:13+02:00
+MemFree:           75332 kB
+MemAvailable:    2200284 kB
+SwapFree:        3068104 kB
+### meminfo frame~3900 2026-06-20T03:38:34+02:00
+MemFree:           79352 kB
+MemAvailable:    2175028 kB
+SwapFree:        3064784 kB
+### meminfo AFTER vanish 2026-06-20T03:38:43+02:00
+MemTotal:        5714584 kB
+MemFree:          462232 kB
+MemAvailable:    3139496 kB
+Buffers:            1232 kB
+Cached:          2238856 kB
+SwapCached:         5004 kB
+### dmesg tail (may be empty w/o root)
+### dumpsys activity lru/kill
+  imperceptible_kill_exempt_proc_states=[0, 1, 2, 4, 12]
+  imperceptible_kill_exempt_packages=[]
+  oom_re_ranking_lru_weight=0.35
+    extras: Bundle[{android.content.pm.extra.VERIFICATION_INSTALLER_UID=2000, android.content.pm.extra.VERIFICATION_ID=86, android.intent.extra.PACKAGE_NAME=org.opengoal.gk.jak1, android.intent.extra.VERSION_CODE=1, android.content.pm.extra.VERIFICATION_INSTALLER_PACKAGE=null, android.intent.extra.LONG_VERSION_CODE=1}]
+    act=android.intent.action.PACKAGE_RESTARTED dat=package:org.opengoal.gk.jak1 flg=0x10 (has extras)
+    extras: Bundle[{PKG_NAME=org.opengoal.gk.jak1}]
+    act=android.intent.action.PACKAGE_RESTARTED dat=package:org.opengoal.gk.jak1 flg=0x10 (has extras)
+    extras: Bundle[{android.intent.extra.changed_component_name=dev.moukrea.sshxmobile.debug, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10025, android.intent.extra.changed_component_name_list=[dev.moukrea.sshxmobile.debug], android.intent.extra.user_handle=0}]
+    extras: Bundle[{android.intent.extra.changed_component_name=dev.moukrea.sshxmobile, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10936, android.intent.extra.changed_component_name_list=[dev.moukrea.sshxmobile], android.intent.extra.user_handle=0}]
+    extras: Bundle[{android.intent.extra.changed_component_name=com.ghplus.patcher, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10038, android.intent.extra.changed_component_name_list=[com.ghplus.patcher], android.intent.extra.user_handle=0}]
+    extras: Bundle[{android.intent.extra.changed_component_name=dev.moukrea.sshxmobile.debug, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10025, android.intent.extra.changed_component_name_list=[dev.moukrea.sshxmobile.debug], android.intent.extra.user_handle=0}]
+    extras: Bundle[{android.intent.extra.changed_component_name=com.xiaoji.egggameplus, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10940, android.intent.extra.changed_component_name_list=[com.xiaoji.egggameplus], android.intent.extra.user_handle=0}]
+    extras: Bundle[{android.intent.extra.changed_component_name=dev.moukrea.sshxmobile, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10936, android.intent.extra.changed_component_name_list=[dev.moukrea.sshxmobile], android.intent.extra.user_handle=0}]
+    extras: Bundle[{android.intent.extra.changed_component_name=com.ghplus.patcher, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10038, android.intent.extra.changed_component_name_list=[com.ghplus.patcher], android.intent.extra.user_handle=0}]
+    extras: Bundle[{android.intent.extra.changed_component_name=com.xiaoji.egggameplus, android.intent.extra.DONT_KILL_APP=false, android.intent.extra.UID=10940, android.intent.extra.changed_component_name_list=[com.xiaoji.egggameplus], android.intent.extra.user_handle=0}]
+    startRequested=true delayedStop=false stopIfKilled=true callStart=true lastStartId=2
+  * Recent #1: Task{5a5ef7f #527 type=standard A=10942:org.opengoal.gk.jak1 U=0 visible=false mode=fullscreen translucent=true sz=0}
+    baseIntent=Intent { flg=0x10000000 cmp=org.opengoal.gk.jak1/org.opengoal.gk.MainActivity }
+    realActivity={org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+      packageName=org.opengoal.gk.jak1 processName=org.opengoal.gk.jak1
