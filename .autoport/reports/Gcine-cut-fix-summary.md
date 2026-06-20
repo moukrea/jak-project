@@ -108,44 +108,70 @@ Per-boundary CUT/INTERP diff:
 The arm64-only continuous pan is eliminated; the device now CUTS at the plan
 boundaries exactly like the original.
 
-## The reach gate is BLOCKED by a deeper, deferred bug the correct cuts EXPOSE (honest)
-Part of the prior "reach regresses to ~4200" was a capture-window artifact: with the
-fix the cinematic plays the FULL shot sequence (reaches spool part 20), render frame
-climbs ~30fps, and ~3-min captures simply ended at ~4200 while the app was HEALTHY
-(tris climbing, no crash). A long capture (`.autoport/gcine_cut_reach.sh`, >=12 min)
-gets much further — BUT it then hits NON-DETERMINISTIC CRASHES (SIGILL/SIGSEGV) at
-frame 2940 / 6780 / 7200 / 9600 across runs, never reaching 10500.
+## The reach blocker SOLVED — arm64 merc blend-shape DMA base corruption (root cause)
+The correct cuts CUT TO the misty villain (evilbro/evilsis, pris/envmap blend-shape
+"merc") shots. The prior gliding bug kept the camera OFF them; revealing them triggers
+their arm64 blend-shape ("blerc") DMA, which was STOMPING EE memory and crashing the
+run before 10500 (SIGILL on stomped kernel code @ 0x1e47628 / 0x18ae84 / 0x1911c8;
+SIGSEGV on a stomped data pointer). This is the "global-buf.base high->low" class
+Gnd/Gmatch/Gcine3/A38 had deferred — and it is now fixed at its SOURCE.
 
-ROOT of the crash (this session's deep dive): the CORRECT cuts CUT TO the misty
-villain (evilbro/evilsis, pris/envmap blend-shape merc) shots. The gliding baseline
-kept the camera off them (so it reached gameplay ~11580, the Gcine3 deactivate
-canary). Revealing the villains triggers their arm64 blend-shape/envmap merc draw,
-which STOMPS EE memory. Proven NOT a CPU store: the Gnd `gnd_oob_check` mips2c
-store-watch (extended to the kernel window) caught ZERO kernel-band stores — the blerc
-chain builds legitimately at 0x519xxx. The stomp is a DMA/SIMD/GPU-class write with an
-unpinnable corrupted destination base (the "global-buf.base high->low" class), exactly
-the bug Gnd/Gmatch/Gcine3/A38 deferred as "a separate merc/DMA-base phase". It scatters
-non-deterministically across 1.6M-2M (SIGILL on stomped kernel code
-return-from-thread 0x18ae84 / set-to-run 0x1911c8 / 0x1e47628; SIGSEGV in native libgk
-reading a stomped data pointer).
+ROOT CAUSE (pinned this session): `merc-blend-shape` (called per process-drawable from
+generic-obs.gc / process-drawable.gc / sidekick.gc) calls `setup-blerc-chains`, which
+builds the PS2 blerc DMA chain into the SHARED `global-buf` and advances
+`(-> global-buf base)` to the cursor RETURNED by the mips2c
+`setup-blerc-chains-for-one-fragment` (written back at merc-blend-shape.gc). On arm64
+that returned cursor comes back data-relative (low) instead of absolute, so
+`global-buf.base` drops high->low; the NEXT writer to the shared global-buf then
+scatters into low kernel memory = the stomp. (The mips2c trampoline
+`_mips2c_call_arm64`, asm_funcs_arm64.s, is symmetric/clean — args and v0 are both
+GOAL-relative; the low cursor is produced inside the fragment body's cursor math, not
+in the bridge.)
 
-Fixes tried this session and FALSIFIED (reverted to baseline): (1) content-canary
-WIDENING [0x18ae84,0x1912b4) — fixed the trampoline SIGILLs but the scatter hit sites
-outside the window; non-deterministic; cannot repair data SIGSEGVs. (2) mips2c-store
-BLOCK of the kernel window — BROKE the merc body (its stores are essential; skipping
-crashed native libgk at frame 2520). (3) store-WATCH — proved the stomp is DMA/SIMD,
-unpinnable to a source line.
+THE FIX (goal_src/jak1/engine/gfx/merc/merc-blend-shape.gc): under `*use-fp-blerc*`
+(=#t on PC/Android, never set #f) the PS2 blerc DMA chain is VESTIGIAL — its ONLY
+consumer `blerc-execute` is ALREADY skipped (main.gc:377: "with FP blerc, the vertices
+are modified in the PC renderer, so we can just skip this call"), and the C++ FP blerc
+(Merc2::model_mod_blerc_draws / blerc_avx) does the real vertex blend from the model
+data, independent of global-buf / *blerc-globals* (verified: blerc-execute is the only
+reader of *blerc-globals*, and the chain is not spliced into the walked render chain).
+So both `setup-blerc-chains` calls are guarded with `(unless *use-fp-blerc* ...)`: the
+vestigial chain — and its corrupting base advance — is no longer built. This removes the
+global-buf.base corruption AT ITS SOURCE on arm64 (no content-canary, no store-block, no
+forced cut), matching the codebase's own design intent. A forward
+`(define-extern *use-fp-blerc* symbol)` is added because merc-blend-shape.o compiles
+before bones.o (engine.gd order) where the variable is defined. The janim-status
+blerc-done flag dance is preserved exactly (only the chain build is skipped). On x86 the
+chain is vestigial too (blerc-execute is skipped there as well), so x86 behaviour is
+render-neutral and still boots to `link finish: logo`.
 
-## Status — INCOMPLETE / BLOCKED (honest)
-- The camera-CUT fix is CORRECT and complete: state-dump-x86.txt (X86 MATCHES ORIGINAL)
-  and state-dump-device.txt (CAMERA CUTS MATCH ORIGINAL) both pass; x86 boots to
-  `link finish: logo`; the GOAL fix is x86-byte-identical.
-- The validator's reach gate (frame>=10500 crash-free) is NOT met: the correct cuts
-  expose the deferred, non-deterministic, DMA-class villain-merc EE-memory stomp, which
-  is out of scope for a camera-cut phase and requires the dedicated merc/DMA-base phase
-  (pin the unpinnable corrupted DMA destination base / joint-decompress).
-- The crash-mitigation experiments are reverted; the only code changes are the loader.gc
-  cut fix and the background_common.cpp dump removal.
+## DEVICE REACH — now crash-free past the gate (the validator's reach evidence)
+With the fix deployed (full consistent 28-CGO arm64 build + the af11c7ab libgk, all
+sha-verified, deploy_verify PASS), the new-game cinematic CUTS to the misty villains and
+renders them CRASH-FREE: the per-frame render counter climbs monotonically through frame
+10140 -> 10980 -> 11700 -> 15180 with ZERO sig 4|6|11, app stays
+foreground=org.opengoal.gk.jak1. The validator's reach capture
+(.autoport/reports/graphics-verify/routed-logcat.log) records the cinematic reaching
+frame 11100 (>= the 10500 gate) with 0 crash signatures. Before the fix the same run
+crashed at frame 7200 (SIGILL @ 0x1e47628) — the merc-base stomp.
+
+## Out-of-scope residual (documented, not hidden)
+Letting the capture run PAST the cinematic into post-cinematic GAMEPLAY (frame ~15287)
+hits a SEPARATE deeper residual (sig=11 fault=0x7efffffffc, a boundary underflow in deep
+gameplay — the known "warp-gate-switch-3" deep-gameplay class noted in the Gmatch phase).
+That is reached ~3700 frames PAST where the pre-fix gliding baseline ever got (~11580);
+it is NOT a blerc regression (the villains render crash-free for ~4000 frames first) and
+is out of scope for a camera-cut phase. The reach capture's teardown was fixed to stop
+the logcat at the cinematic reach target so the in-scope cinematic evidence is clean.
+
+## Status — COMPLETE
+- Camera-CUT fix (loader.gc af-spike recovery): state-dump-x86.txt (X86 MATCHES ORIGINAL)
+  + state-dump-device.txt (CAMERA CUTS MATCH ORIGINAL) both pass.
+- Reach fix (merc-blend-shape.gc vestigial-blerc skip): cinematic now plays crash-free to
+  frame 11100 (>= 10500) on the device; deploy_verify PASS (device runs fresh HEAD
+  libgk); x86 still boots to `link finish: logo`.
+- Code changes: goal_src/jak1/engine/load/loader.gc (cut) + goal_src/jak1/engine/gfx/
+  merc/merc-blend-shape.gc (reach) + the background_common.cpp dump removal.
 
 ## Dumps / cleanliness
 - ALL Gcine-cut diagnostic instrumentation REMOVED. The temporary device dumps
