@@ -39,5 +39,12 @@ The hard parts are SOLVED: the device capture works (`state-dump-device.txt` is 
 - **Find what your fix breaks in the continuation.** Likely the spool/scene-player advance you instrumented (GCINE-SPOOL / the got_chain-timeout path): the cut you introduce probably aborts or mis-advances the scene after ~4600. Compare the device GCINE-SPOOL/scene-player advance AFTER the fix vs BEFORE — what stopped advancing?
 - Keep reusing `state-dump-x86.txt` (x86 already MATCHES; don't redo it). Verify BOTH on each iteration: (a) cut/interp still matches the original, AND (b) the cinematic reaches ≥10500 crash-free. Both must hold to pass.
 
+## NEW ROOT-CAUSE HYPOTHESIS (supervisor, 2026-06-20 — the prior 7 attempts had the wrong fix SHAPE)
+Every prior attempt FORCED a cut (and that breaks the cinematic's continuation → stalls at ~frame 4200). That's treating the SYMPTOM. Reframe:
+- The cut is **arm64-ONLY** (x86 cuts AND continues perfectly). The recurring arm64 defect class on THIS project is a **comparison/branch MISFIRE** from inconsistent upper-32 / `#f` handling across the mips2c↔GOAL boundary — the EXACT class that caused the menu-tint bug (Gmenu), Gnewgame, and Gcine-pose. The menu was fixed by **correcting the arm64 comparison** (moving the decision into plain GOAL), NOT by forcing the result downstream.
+- So the most likely true cause: on arm64 the **cut-vs-interp DECISION misfires** — the `change-state` `param1==0` test (or the field/`#f` it reads) evaluates WRONG on arm64, so the camera takes the **INTERP branch when it should take the CUT branch**. On x86 the CUT branch cuts AND continues fine. So **CORRECT the arm64 evaluation of that decision** (compare the 32-bit value per-site / move the test into plain GOAL, à la the menu fix) so the camera takes the CUT branch NATURALLY. A natural cut (correct branch) will cut AND keep playing to ≥10500 — it will NOT regress the reach, because you're no longer hacking a forced jump that aborts the scene-player.
+- Concretely: dump, on arm64 at the failing plan boundary, the actual `param1` (and the `#f`/field it derives from) that `change-state`/`set-interpolation` sees — is it non-zero on arm64 where x86 sees zero (or vice-versa)? That divergent read IS the bug. Fix the read/compare; do NOT force `reset=1`.
+- Verify BOTH, every iteration: cut/interp matches the original AND the cinematic reaches ≥10500 crash-free. If the decision-read fix is right, both hold automatically (that's the whole point).
+
 ## Max settings
 `max_turns: 1500`, `max_retries: 3`.

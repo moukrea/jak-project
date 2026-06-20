@@ -1,0 +1,6 @@
+# Gcine-cut reach end-of-run (2026-06-20T11:14:15+02:00)
+mCurrentFocus_at_end:   mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher}
+app_pid_at_end: gone
+max_render_frame: 7200
+crash_sigs: 5
+verdict: sig
