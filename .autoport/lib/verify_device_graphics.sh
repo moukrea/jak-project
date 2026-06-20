@@ -218,11 +218,17 @@ inject "x";    sleep 0.6; clear_inject; sleep 6
 snap newgame-cinematic && R_REACHED[newgame-cinematic]=true
 
 # ---- beat: ingame-firstframe (let cinematic play out) -----------------------
-echo "== let cinematic play to in-game (watch up to 200s for high render frame) =="
+# INGAME_CAP (default 200s) is the wall cap for the in-game render-frame watch.
+# Cinematic-cadence runs render ~36fps wall (vs ~60fps on title/menu) and the
+# misty load stall burns dead wall-time, so reaching a deep frame (e.g. >=10500)
+# needs a larger cap; callers can override via INGAME_CAP without changing the
+# default for the quick static-beat gate.
+INGAME_CAP="${INGAME_CAP:-200}"
+echo "== let cinematic play to in-game (watch up to ${INGAME_CAP}s for high render frame) =="
 CINE_F=$(cur_render_frame); CINE_F=${CINE_F:-0}
 target=$((CINE_F + 9000)); t0=$(date +%s)
 while :; do
-  el=$(( $(date +%s) - t0 )); [ "$el" -ge 200 ] && { echo "  ingame wall cap"; break; }
+  el=$(( $(date +%s) - t0 )); [ "$el" -ge "$INGAME_CAP" ] && { echo "  ingame wall cap"; break; }
   PID=$(adb shell pidof "$PKG" 2>/dev/null | tr -d '\r')
   [ -z "$PID" ] && { echo "  app gone (crash?) at ${el}s"; break; }
   # crash counter matches sig=(4|6|11): SIGILL(4)/SIGABRT(6)/SIGSEGV(11). The old
