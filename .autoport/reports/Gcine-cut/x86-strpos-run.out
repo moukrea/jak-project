@@ -1,0 +1,44 @@
+== launch our-x86 gk (lean dumps; no GCINE-CAM flood) ==
+  gk pid=1930792
+== wait for title (link finish: default-menu) ==
+  title up at ~5s
+== goalc (lt)+(build-game) to intern *game-info*, then trigger cinematic ==
+  build-game sent; waiting up to 200s for symbol intern...
+  build-game done ~16s
+== send NEW-GAME intro trigger ==
+== watch cinematic up to 130s (target af>=2560 = past last joint cmd 2490) ==
+   [0s] af=193.0400 part=2 JC=0 GUARD=0 SP=81 OC=85
+   [5s] af=139.9511 part=1 JC=0 GUARD=0 SP=99 OC=377
+   [10s] af=291.9433 part=2 JC=0 GUARD=0 SP=118 OC=678
+   [15s] af=443.7011 part=3 JC=0 GUARD=0 SP=136 OC=889
+   [20s] af=595.3417 part=5 JC=0 GUARD=0 SP=155 OC=908
+   [25s] af=739.5996 part=6 JC=0 GUARD=0 SP=174 OC=927
+   [30s] af=890.6542 part=7 JC=0 GUARD=0 SP=192 OC=945
+   [35s] af=1042.0605 part=8 JC=0 GUARD=0 SP=210 OC=963
+   [40s] af=1193.3494 part=10 JC=0 GUARD=0 SP=229 OC=982
+   [45s] af=1345.4588 part=11 JC=1 GUARD=0 SP=248 OC=1001
+   [50s] af=1497.4510 part=12 JC=2 GUARD=0 SP=267 OC=1020
+   [55s] af=1649.4431 part=14 JC=3 GUARD=0 SP=286 OC=1039
+   [60s] af=1793.3493 part=15 JC=4 GUARD=0 SP=304 OC=1057
+   [65s] af=1945.4586 part=16 JC=5 GUARD=0 SP=323 OC=1076
+   [71s] af=2096.3962 part=17 JC=5 GUARD=0 SP=342 OC=1095
+   [76s] af=2248.3884 part=19 JC=6 GUARD=0 SP=361 OC=1318
+   [81s] af=2396.6303 part=20 JC=7 GUARD=0 SP=378 OC=1373
+   [86s] af=2550.4975 part=21 JC=9 GUARD=0 SP=395 OC=1390
+   [91s] af=121.6699 part=1 JC=9 GUARD=0 SP=414 OC=1409
+   [96s] af=273.6621 part=2 JC=10 GUARD=0 SP=433 OC=1577
+   [101s] af=423.4277 part=3 JC=11 GUARD=0 SP=452 OC=1788
+   [106s] af=571.3183 part=4 JC=13 GUARD=0 SP=471 OC=2081
+   [111s] af=723.3105 part=6 JC=14 GUARD=0 SP=490 OC=2383
+   [116s] af=874.7167 part=7 JC=15 GUARD=0 SP=509 OC=2491
+   [121s] af=1021.9042 part=8 JC=17 GUARD=0 SP=529 OC=2667
+   [126s] af=1171.9042 part=10 JC=18 GUARD=0 SP=544 OC=2844
+  wall cap
+== scoreboard ==
+  GCINE-SP    : 559
+  GCINE-OC    : 2943
+  GCINE-JC    : 19
+  GCINE-GUARD : 0   (MUST be 0 on x86)
+  max af      : 2574.5209
+  af>5000     : 0  (af-spike count; MUST be 0 on x86)
+  log: .autoport/reports/Gcine-cut/ourx86-fix.log

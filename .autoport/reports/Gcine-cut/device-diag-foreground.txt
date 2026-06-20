@@ -1,5 +1,5 @@
-# Gcine-cut device DIAG end (2026-06-20T00:06:33+02:00)
-focus:   mCurrentFocus=Window{4ac0c33 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
-pid: 5586
-crashed: no
-max_af: 44998.0000
+# Gcine-cut device DIAG end (2026-06-20T02:51:01+02:00)
+focus:   mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher}
+pid: gone
+crashed: procgone
+max_af: 45066.0000

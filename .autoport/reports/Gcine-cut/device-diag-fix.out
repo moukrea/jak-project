@@ -1,0 +1,53 @@
+== 1. install HEAD APK (libgk unchanged) ==
+Performing Streamed Install
+Success
+== 2. push 28 INSTRUMENTED CGO/DGO -> files/iso_data/jak1 (sha-verify) ==
+  pushed + verified all 28 instrumented files
+== 3. logcat (LEAN: GCINE- markers + crash sigs only) ==
+== 4. launch + drive NEW GAME ==
+  warmup 40s
+    inject: 'start'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'up'
+    inject: ''
+    inject: 'up'
+    inject: ''
+    inject: 'x'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'x'
+    inject: ''
+== 5. watch (poll 3s; finish when sequenceB camera joints cji 43/44 appear) ==
+   [5/280] part=4 seqB_cji=0 fg=1 pid='14356' SP=173 JC=0 GUARD=737
+   [10/280] part=8 seqB_cji=0 fg=1 pid='14356' SP=210 JC=0 GUARD=737
+   [15/280] part=10 seqB_cji=0 fg=1 pid='14356' SP=229 JC=0 GUARD=737
+   [20/280] part=0 seqB_cji=14 fg=0 pid='gone' SP=254 JC=9 GUARD=835
+   >>> app GONE x4
+== scoreboard ==
+  GCINE-SP : 254
+  GCINE-OC : 1007
+  GCINE-JC : 9
+  max af   : 2571.4707
+  crashed  : procgone   focus=  mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher}
+  --- all GCINE-JC (joint commands fired) ---
+GCINE-JC ct=331475 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332150 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=332150 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=332150 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=332150 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=332150 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=332150 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=332150 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=332150 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+  log: .autoport/reports/Gcine-cut/device-diag.log

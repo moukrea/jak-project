@@ -1,0 +1,14 @@
+## x86 REFERENCE (==original, const-fix, GUARD=0)
+  OC samples: 1398  ct[301120..334320]  cji seen: [3, 4, 40, 41, 44]
+  SP samples: 489  max af=2572.6  af-SPIKE(>5000) count: 0
+  JC cmds: 14  distinct ct: 14 [320835, 323250, 324585, 326415, 326880, 329905, 331195, 332905, 333415, 336285, 338310, 338900, 339810, 341360]
+  JC firing: spread across frames (ok)
+  GCINE-GUARD fired: 0
+  OC pos transitions: CUT=6  GLIDE=1  (motion>8000,total>120000,cut<=2 samples)
+    CUT   ct= 305760..305760  len=  1 total=   250652.5 peak=   250652.5 pk/tot=1.00 cji 3->4 [joint-switch]
+    GLIDE ct= 306160..308390  len= 29 total=   567192.2 peak=   205409.7 pk/tot=0.36 cji 4->40 [joint-switch]
+    CUT   ct= 308410..308410  len=  1 total=   419860.4 peak=   419860.4 pk/tot=1.00 cji 40->40 [SAME-joint]
+    CUT   ct= 329440..329905  len=  7 total=  2124043.0 peak=  2045991.9 pk/tot=0.96 cji 41->40 [joint-switch]
+    CUT   ct= 331200..331200  len=  1 total=   716148.9 peak=   716148.9 pk/tot=1.00 cji 40->41 [joint-switch]
+    CUT   ct= 333440..333440  len=  1 total=   325712.0 peak=   325712.0 pk/tot=1.00 cji 40->41 [joint-switch]
+    CUT   ct= 334320..334320  len=  1 total=   415905.1 peak=   415905.1 pk/tot=1.00 cji 41->44 [joint-switch]

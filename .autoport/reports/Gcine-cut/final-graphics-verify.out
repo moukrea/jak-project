@@ -1,0 +1,84 @@
+  killing leftover runner pid=1840058 (gcine_audit)
+== verify_device_graphics: serial=eae4df44 pkg=org.opengoal.gk.jak1 thr=56 tol=0.02 ==
+    inject ''
+  launch org.opengoal.gk.jak1/.LoaderActivity
+== wait for fg==jak1 ==
+  fg=jak1
+== dense intro burst (matched-phase): screencap until render>=1500 or 80s ==
+  burst: render=1500 >=1500 after 24 shots (attract reached)
+  burst captured 24 frames (render_frame now 1500)
+  ndi spool seen in logcat: 5 ; logo-intro: 3
+  intro-logo frame selection deferred to graphics_analyze.py (burst=24 frames)
+  title-pressstart <- f023.png (settled attract)
+== START (open progress menu) ==
+    inject 'start'
+    inject ''
+  snap[main-menu] -> main-menu.png (2400x1080)
+== nav to NEW GAME + X (Gd1-proven sequence: down,down,up,up settles cursor) ==
+    inject 'down'
+    inject ''
+    inject 'down'
+    inject ''
+    inject 'up'
+    inject ''
+    inject 'up'
+    inject ''
+    inject 'x'
+    inject ''
+    inject 'down'
+    inject ''
+    inject 'down'
+    inject ''
+    inject 'down'
+    inject ''
+    inject 'down'
+    inject ''
+    inject 'x'
+    inject ''
+  snap[newgame-cinematic] -> newgame-cinematic.png (2400x1080)
+== let cinematic play to in-game (watch up to 200s for high render frame) ==
+   [0s] render=2700 target=11700 fg=jak1
+   [21s] render=3840 target=11700 fg=jak1
+   [41s] render=4500 target=11700 fg=jak1
+  app gone (crash?) at 46s
+  snap[ingame-firstframe] SKIP (fg!=jak1:   mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher})
+    inject ''
+== analyze each captured beat vs oracle: static-beat diff gate + halo gate ==
+  intro-logo: selected f012.png (logo_overlap=0.835) -> intro-logo.png
+  intro-logo           MATCH     diff_frac=0.01436 rmse=19.92 halo_excess=0.00053 present=False
+  title-pressstart     MISMATCH  diff_frac=0.7591 rmse=89.11 halo_excess=0.0009 present=False
+  main-menu            MISMATCH  diff_frac=0.48856 rmse=53.68 halo_excess=0.00219 present=False
+
+== report: .autoport/reports/graphics-verify/report.json ==
+{
+  "beats_total": 5,
+  "beats_reached": 5,
+  "beats_gated": 3,
+  "beats_match": 1,
+  "beats_mismatch": [
+    "title-pressstart",
+    "main-menu"
+  ],
+  "static_mismatch": [
+    "title-pressstart",
+    "main-menu"
+  ],
+  "hard_static_mismatch": [
+    "main-menu"
+  ],
+  "halo_fail_beats": [],
+  "beats_no_oracle": [
+    "newgame-cinematic",
+    "ingame-firstframe"
+  ],
+  "beats_unreached": [],
+  "halo_present_beats": [],
+  "crash_signatures": 0,
+  "overall_verdict": "FAIL",
+  "verdict_note": "FAIL = a hard static-beat MISMATCH (menu/logo garble) OR halo_excess>gate (bloom/halo) OR a crash. title-pressstart pixel-diff is advisory (oracle beat-misaligned). no_oracle/unreached beats are reported, not graded."
+}
+== graphics_analyze exit=1 (0=PASS,1=FAIL,2=inconclusive) ==
+== STANDING GATE overall_verdict=FAIL ==
+== device usable check ==
+  end foreground:   mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher}  pid=gone  crash_sigs=0
+  report: .autoport/reports/graphics-verify/report.json
