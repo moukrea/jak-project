@@ -97,7 +97,15 @@ FINAL=$(max_frame); FINAL=${FINAL:-0}; FCS=$(crash_sigs)
   echo "verdict: ${DONE:-${CRASHED:-timeout}}"; } > "$FG"
 
 echo "== teardown =="
+# Stop the logcat capture FIRST (incl. the orphaned adb logcat child that survives
+# killing only the subshell) so $LOG freezes at the reach target, THEN force-stop the
+# app. Without this the app renders on into post-cinematic GAMEPLAY where a separate,
+# deeper residual (warp-gate-class) crashes ~frame 15k — which would pollute the
+# cinematic reach log with an out-of-scope crash. The Gcine-cut gate is the CINEMATIC
+# reaching >=10500 crash-free, which is already captured cleanly above.
+pkill -f "logcat -v threadtime opengoal-gk" 2>/dev/null || true
 kill ${LOGCAT_PID:-0} 2>/dev/null || true
+"$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
 trap - EXIT
 reenable_interlopers
 device_stayon_restore 2>/dev/null || true
