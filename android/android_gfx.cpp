@@ -45,8 +45,17 @@ extern "C" void gpose_joint_frame_tick(unsigned long long frame_idx);
 // is safe (null until armed, valid forever after).
 extern "C" {
 unsigned char* g_gmatch_rftd_good = nullptr;     // known-good bytes, or null
-unsigned int g_gmatch_rftd_goal = 0x18aee4;       // GOAL addr of protected region
-unsigned int g_gmatch_rftd_len = 0x80;            // length in bytes
+// Widened from the original return-from-thread-dead point (0x18aee4/0x80) to the
+// whole kernel asm-func code band [0x18ae84, 0x1912b4): the merc blend-shape
+// stomp's residual kernel-code hits scatter across this region (observed
+// victims: 0x18ae84 return-from-thread, 0x191210/0x191218/0x191240
+// process::deactivate). The bounded blerc emulate (common/dma/dma.h) stops the
+// PRIMARY high-heap scatter; this band canary + the gk_android_main.cpp SIGILL
+// resume handler (which derives its window from these two constants) catch any
+// residual kernel-code stomp so the cutscene plays through. Pure code region, so
+// snapshot+restore-each-frame is safe. x86 unaffected (#ifdef __aarch64__).
+unsigned int g_gmatch_rftd_goal = 0x18ae84;       // GOAL addr of protected region
+unsigned int g_gmatch_rftd_len = 0x6430;          // length in bytes -> [0x18ae84,0x1912b4)
 }
 
 // Gcine-camfov: the Gintro DMA chain-walk dump (GINTRO-CHAINWALK / GND-PRECOPY-RAW)

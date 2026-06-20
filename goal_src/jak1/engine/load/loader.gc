@@ -694,7 +694,36 @@
                      (if (< (+ spool-part 1) (-> arg0 parts))
                        (spool-push *art-control* (-> arg0 name) (+ spool-part 1) self -10.0)
                        (logclear! (-> self skel status) (janim-status done)))
-                     (execute-commands-up-to *load-state* (ja-aframe-num 0))
+                     ;; og:autoport Gcine-cut — recover the cutscene spool-command frame
+                     ;; from the raw stream clock when the arm64 anim state is corrupt.
+                     ;;
+                     ;; The command frame had been `(ja-aframe-num 0)` = the live channel's
+                     ;; frame-num * frame-group.artist-step + .artist-base. During the misty-
+                     ;; level load stall in this cutscene the spool coroutine's FLOAT state
+                     ;; gets stomped on arm64 (a callee clobbers the v8-15 callee-saved bank
+                     ;; across the deep loader calls): f30-0 AND the channel's frame-num/
+                     ;; artist-step/artist-base all collapse to ~1.0 scaling, so ja-aframe-num
+                     ;; (and strpos*f30-0) SPIKE to ~the raw stream position — tens of
+                     ;; thousands of artist-frames. Feeding that to execute-commands-up-to
+                     ;; fires EVERY remaining cutscene command at once -> the camera jumps to
+                     ;; the final camera joint and glides, collapsing the discrete CUTs.
+                     ;;
+                     ;; The ONLY value that survives the stomp is the raw C++ stream position
+                     ;; (current-str-pos). The cutscene's artist frame == strpos * f30 to <1
+                     ;; frame across the whole anim (authored contiguously, so artist-base
+                     ;; cancels sv-24); every part here has speed 0.5, i.e. the immutable
+                     ;; constant f30 = 0.05859375 * 0.5. When ja-aframe-num is implausibly
+                     ;; large (the anim tops out ~2570) AND has collapsed toward the strpos
+                     ;; magnitude (af/strpos jumps from the normal ~0.03 to ~1.0), recover the
+                     ;; command frame from strpos with that constant so the joint commands
+                     ;; fire one-by-one as the cutscene genuinely crosses them = discrete
+                     ;; CUTs. On x86 ja-aframe-num is always the true (small) frame and never
+                     ;; collapses, so the branch is dead there => host / console identical.
+                     (let* ((af-anim (ja-aframe-num 0))
+                            (strpos-f (the float (current-str-pos spool-sound)))
+                            (spike? (and (< 3000.0 af-anim) (< (* 0.3 strpos-f) af-anim)))
+                            (cmd-af (if spike? (* strpos-f (* 0.05859375 0.5)) af-anim)))
+                       (execute-commands-up-to *load-state* cmd-af))
                      (cond
                        ((and (< sv-32 sv-72) (= (current-str-id) spool-sound))
                         (+! sv-56 (- (current-time) (-> *display* old-base-frame-counter)))

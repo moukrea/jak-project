@@ -15,6 +15,11 @@
 
 (define *stats-blerc* #f)
 
+;; og:autoport Gcine-cut — forward declaration so the blerc-chain skip below can
+;; reference *use-fp-blerc* (actually defined later in bones.gc, which compiles
+;; after this file). Under FP blerc the PS2 blerc DMA chain is vestigial.
+(define-extern *use-fp-blerc* symbol)
+
 (deftype blerc-block-header (structure)
   ((tag       generic-merc-tag :inline :offset-assert 0)
    (vtx-count uint32 :offset-assert 16)
@@ -123,14 +128,28 @@
                      (set! (-> a1-5 t2-0)
                            (the int (+ (* (the float (+ (-> v1-4 t2-0) -64)) t1-1) (* (the float (+ (-> a3-5 t2-0) -64)) t0-1)))))))
                 (else (dotimes (a3-6 (the-as int a2-1)) (set! (-> a1-5 a3-6) (the-as int (* (+ (-> v1-4 a3-6) -64) 64)))))))
-            (setup-blerc-chains a0-10 a1-5 (-> *display* frames (-> *display* on-screen) frame global-buf)))
+            ;; og:autoport Gcine-cut — under FP blerc the PS2-style blerc DMA chain
+            ;; is VESTIGIAL: its only consumer, blerc-execute, is skipped (main.gc),
+            ;; and the C++ FP blerc (Merc2) does the real vertex blend independently.
+            ;; Building the chain here advances the SHARED global-buf base through the
+            ;; mips2c setup-blerc-chains-for-one-fragment cursor, which on arm64 comes
+            ;; back data-relative (low) -> (-> global-buf base) drops high->low and the
+            ;; next global-buf writer stomps kernel memory (SIGILL @ ~0x1e47628 once the
+            ;; cinematic cuts to the misty-villain merc shots). Skip the vestigial build
+            ;; (and its base advance) under FP blerc, exactly like main.gc skips
+            ;; blerc-execute. Render-neutral on x86 (chain is vestigial there too).
+            (unless *use-fp-blerc*
+              (setup-blerc-chains a0-10 a1-5 (-> *display* frames (-> *display* on-screen) frame global-buf))))
           (logior! (-> arg0 skel status) (janim-status blerc-done))
           (return (the-as object #f))))))
   (when (logtest? (-> arg0 skel status) (janim-status blerc-done))
     (logclear! (-> arg0 skel status) (janim-status blerc-done))
-    (setup-blerc-chains (-> arg0 draw lod-set lod 0 geo)
-                        (new 'static 'array int16 32 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
-                        (-> *display* frames (-> *display* on-screen) frame global-buf)))
+    ;; og:autoport Gcine-cut — same as above: the blerc-done "reset to default pose"
+    ;; chain is vestigial under FP blerc, so skip it (keep the flag dance intact).
+    (unless *use-fp-blerc*
+      (setup-blerc-chains (-> arg0 draw lod-set lod 0 geo)
+                          (new 'static 'array int16 32 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+                          (-> *display* frames (-> *display* on-screen) frame global-buf))))
   0)
 
 ;; TODO setup-blerc-chains-for-one-fragment
