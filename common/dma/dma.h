@@ -141,6 +141,118 @@ inline void emulate_dma(const void* source_base, void* dest_base, u32 tadr, u32 
   }
 }
 
+#ifdef __aarch64__
+// Bounded variant of emulate_dma for the arm64 merc blend-shape (blerc)
+// scratchpad transfer.
+//
+// On arm64 the blerc path (spad_to_dma_blerc_chain) passes a SOURCE chain
+// address `tadr` that is read from a scratchpad slot the preceding hardware DMA
+// is supposed to have populated; in the PC emulation that read-after-write
+// ordering does not always hold, so `tadr` can be garbage (see the in-source
+// note at game/mips2c/jak1_functions/merc_blend_shape.cpp:172). A garbage chain
+// makes the stock emulate_dma follow malformed tags (huge qwc / wild next-addr)
+// and run the destination cursor far past the 16 KB scratchpad and the source
+// cursor past the end of EE RAM -> writes scatter over the heap and past
+// g_ee_main_mem (SIGSEGV) while a derailed kernel returns into freed code
+// (SIGILL). This is the recurring "merc DMA stomp" that Gnd/Gmatch/Gcine3 only
+// mitigated downstream with code canaries; the new-game cutscene's correct
+// camera CUTs reveal the misty villains (pris/envmap blend-shape merc) and
+// trigger it.
+//
+// This variant enforces exactly the invariant that every sibling spad builder
+// already ASSERTs (writes stay inside the scratchpad, reads stay inside EE RAM)
+// and ABORTS the transfer the instant a malformed chain would violate it,
+// confining the damage. On a well-formed chain (x86, and the non-corrupted
+// arm64 case) it is byte-for-byte identical to emulate_dma. Returns true iff it
+// aborted a malformed chain early. `dest_limit` is the scratchpad size (0x4000);
+// `ee_size` is EE_MAIN_MEM_SIZE.
+inline bool emulate_dma_bounded(const void* source_base,
+                                void* dest_base,
+                                u32 tadr,
+                                u32 dadr,
+                                u32 dest_limit,
+                                u64 ee_size) {
+  const u8* src = (const u8*)source_base;
+  u8* dst = (u8*)dest_base;
+  u32 dest_offset = dadr;
+  int guard = 0;
+  auto bail = [&](char why, u64 nb) -> bool {
+    gnd_oob_report(why, dest_offset, nb, (u64)tadr, guard);
+    return true;
+  };
+  while (true) {
+    if (++guard > 8192) {
+      return bail('L', 0);  // runaway / self-referential chain
+    }
+    if ((u64)tadr + 8 > ee_size) {
+      return bail('t', 8);  // DMA tag read past end of EE RAM
+    }
+    u64 tag_data;
+    memcpy(&tag_data, src + tadr, 8);
+    DmaTag tag(tag_data);
+    switch (tag.kind) {
+      case DmaTag::Kind::CNT: {
+        const u64 nb = (u64)(1 + tag.qwc) * 16;
+        if ((u64)dest_offset + nb > dest_limit) {
+          return bail('D', nb);  // write would leave the scratchpad
+        }
+        if ((u64)tadr + nb > ee_size) {
+          return bail('s', nb);  // read would leave EE RAM
+        }
+        memcpy(dst + dest_offset, src + tadr, nb);
+        dest_offset += (u32)nb;
+        tadr += (u32)nb;
+      } break;
+      case DmaTag::Kind::NEXT: {
+        const u64 nb = (u64)(1 + tag.qwc) * 16;
+        if ((u64)dest_offset + nb > dest_limit) {
+          return bail('D', nb);
+        }
+        if ((u64)tadr + nb > ee_size) {
+          return bail('s', nb);
+        }
+        memcpy(dst + dest_offset, src + tadr, nb);
+        dest_offset += (u32)nb;
+        tadr = tag.addr;
+      } break;
+      case DmaTag::Kind::REF: {
+        if ((u64)dest_offset + 16 > dest_limit || (u64)tadr + 16 > ee_size) {
+          return bail('D', 16);
+        }
+        memcpy(dst + dest_offset, src + tadr, 16);
+        dest_offset += 16;
+        const u64 nb = (u64)tag.qwc * 16;
+        if ((u64)dest_offset + nb > dest_limit || (u64)tag.addr + nb > ee_size) {
+          return bail('R', nb);
+        }
+        memcpy(dst + dest_offset, src + tag.addr, nb);
+        dest_offset += (u32)nb;
+        tadr += 16;
+      } break;
+      case DmaTag::Kind::REFE: {
+        if ((u64)dest_offset + 16 > dest_limit || (u64)tadr + 16 > ee_size) {
+          return bail('D', 16);
+        }
+        memcpy(dst + dest_offset, src + tadr, 16);
+        dest_offset += 16;
+        const u64 nb = (u64)tag.qwc * 16;
+        if ((u64)dest_offset + nb > dest_limit || (u64)tag.addr + nb > ee_size) {
+          return bail('F', nb);
+        }
+        memcpy(dst + dest_offset, src + tag.addr, nb);
+        dest_offset += (u32)nb;
+        tadr += 16;
+        return false;
+      }
+      case DmaTag::Kind::END:
+        return false;
+      default:
+        return bail('k', 0);  // malformed tag kind -> abort (stock code ASSERTs)
+    }
+  }
+}
+#endif
+
 struct VifCode {
   enum class Kind : u8 {
     NOP = 0b0,

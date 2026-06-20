@@ -6,6 +6,7 @@
 
 #include "common/common_types.h"
 #include "common/dma/dma.h"
+#include "common/goal_constants.h"
 #include "common/util/Assert.h"
 #include "common/util/BitUtils.h"
 
@@ -1795,6 +1796,19 @@ inline void spad_to_dma_blerc_chain(void* spad_sym_addr, u32 sadr, u32 tadr) {
   memcpy(&spad_addr_goal, align4_ptr(spad_sym_addr), 4);
   void* spad_addr_c = g_ee_main_mem + spad_addr_goal;
   ASSERT(sadr < 0x4000);
+#ifdef __aarch64__
+  // arm64: `tadr` (the blerc source DMA chain) can be garbage here (the
+  // preceding transfer's read-after-write ordering is not guaranteed in the PC
+  // emulation -- see the "bogus tadr" note ~25 lines above the equivalent spot
+  // in setup_blerc_chains_for_one_fragment). A garbage chain makes the stock
+  // emulate_dma scatter writes past the 16 KB scratchpad and read past EE RAM,
+  // stomping the heap / kernel and crashing the misty-villain cutscene shots.
+  // Emulate with the scratchpad/EE bounds every sibling spad builder ASSERTs so
+  // a malformed chain is aborted instead of scattering. No-op for valid chains.
+  emulate_dma_bounded(g_ee_main_mem, spad_addr_c, tadr, sadr, 0x4000u,
+                      (u64)EE_MAIN_MEM_SIZE);
+#else
   emulate_dma(g_ee_main_mem, spad_addr_c, tadr, sadr);
+#endif
 }
 }  // namespace Mips2C
