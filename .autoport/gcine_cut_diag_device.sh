@@ -44,7 +44,12 @@ trap 'for p in "${INTERLOPERS[@]}"; do adb shell pm enable "$p" >/dev/null 2>&1 
 echo "== 1. install HEAD APK (libgk unchanged) =="
 adb shell appops set com.android.shell REQUEST_INSTALL_PACKAGES allow 2>/dev/null || true
 adb shell pm trim-caches 999G 2>/dev/null || true
-adb install -r -d -t -i com.android.vending "$APK" || die "apk install failed"
+if [ "${SKIP_INSTALL:-0}" = "1" ]; then
+  echo "  SKIP_INSTALL=1 — reusing already-installed HEAD APK (GOAL-only change; saves device disk)"
+  adb shell pm path "$PKG" >/dev/null 2>&1 || die "SKIP_INSTALL set but $PKG not installed"
+else
+  adb install -r -d -t -i com.android.vending "$APK" || die "apk install failed"
+fi
 
 echo "== 2. push 28 INSTRUMENTED CGO/DGO -> files/iso_data/jak1 (sha-verify) =="
 adb shell am force-stop $PKG >/dev/null 2>&1 || true
@@ -66,7 +71,7 @@ adb shell am force-stop $PKG >/dev/null 2>&1 || true
 adb logcat -G 64M 2>/dev/null || true
 adb logcat -c 2>/dev/null || true
 ( adb logcat -v threadtime opengoal-gk:I libc:F DEBUG:V '*:S' \
-   | grep --line-buffered -aE 'GCINE-SP |GCINE-OC |GCINE-JC |GCINE-GUARD |GCINE-ABORT|loader stall|Fatal signal|signal [0-9]+ \(SIG|backtrace:|has died' \
+   | grep --line-buffered -aE 'GCINE-SP |GCINE-OC |GCINE-JC |GCINE-PP |GCINE-GUARD |GCINE-ABORT|loader stall|Fatal signal|signal [0-9]+ \(SIG|backtrace:|has died' \
    > "$LOG" ) &
 LOGCAT_PID=$!
 

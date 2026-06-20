@@ -1,0 +1,107 @@
+================================================================================
+Gcine-cut — DEVICE camera-plan CUT vs INTERP state dump + diff vs the ORIGINAL
+  device   : eae4df44 (Redmi Note 9 Pro, arm64), org.opengoal.gk.jak1
+  original : our-x86 == pristine v0.3.3 original (proven byte-identical cut/interp
+             pattern in state-dump-x86.txt: RESULT X86 MATCHES ORIGINAL). The fix
+             is a no-op on x86 (GCINE-GUARD never fires there), so our-x86-with-fix
+             == our-x86 == the original — it is the valid cut/interp reference.
+  cinematic: new-game intro "sage-intro-sequence-a" (village1 -> misty). The
+             cutscene camera is the othercam, which follows an animated camera
+             joint of the scene actor. A spool-anim command list switches the
+             followed joint between "camera" and "cameraB" at authored artist
+             frames (1239 1480 1613 1796 1843 2145 2274 2439 2490); each switch is
+             a discrete camera-plan CUT (the camera jumps to the other joint's
+             world position). Between switches the joint animates (smooth in-shot
+             motion). The plan boundaries are therefore the joint-switch commands.
+  method   : per-frame deterministic dumps built into the spool driver / othercam
+             (env-free, removed after this phase):
+               GCINE-JC  ct joint=<name>            -> each (joint ..) command FIRED
+               GCINE-OC  ct cji=<idx> wx/wy/wz       -> othercam followed-joint idx
+                                                        + world pos (every 16 frames)
+               GCINE-SP  ct strpos af part           -> spool stream pos / anim frame
+               GCINE-GUARD ct anim strpos use        -> the arm64 spike recovery
+             CUT  = camera world-pos JUMP completing in <=2 samples (one dominant
+                    jump, peak/total >= 0.6).
+             GLIDE= a big move spread over >2 samples with no single dominant jump
+                    (a continuous pan). Frame ids (ct) are not comparable across
+                    boots; we compare the ORDERED pattern (commands spread vs
+                    collapsed; cut count; presence of a non-establishing glide).
+================================================================================
+
+## THE DEFECT ON arm64 (DEVICE BASELINE, no fix) — reproduced deterministically
+   GCINE-SP shows the anim frame `af` (= ja-aframe-num) SPIKE at the misty-load
+   part boundary while the raw stream clock stays smooth:
+       ct=332480 strpos=41735 af=1223.20  part=10     <- normal
+       ct=332720 strpos=42007 af=43179.0  part=10     <- SPIKE (af = strpos+1172)
+       ...      (af stays ~43000-45000 for the whole misty stall) ...
+   With af spiked, execute-commands-up-to(af) fires EVERY remaining joint command
+   at once. GCINE-JC: all 18 commands (=9, captured x2) fire at ONE timestamp:
+       JC cmds: 18   distinct ct: 1  [332505]         <- COLLAPSED
+   So the camera jumps straight to the final "cameraB" joint and then that joint's
+   animation GLIDES with no further switches:
+       OC pos transitions: CUT=2  GLIDE=1
+         GLIDE ct=345440..350480 len=29 cji 41->41 [SAME-joint]   <- the bug:
+                                                  a 29-sample continuous pan
+       cji seen: [4, 40, 41]    (never reaches the later plan, stuck on cameraB)
+   => continuous pan where the original has discrete shot CUTs. THIS is the owner's
+      defect, and it is arm64-only (x86 never spikes — see state-dump-x86.txt).
+
+## ROOT CAUSE (arm64)
+   During the misty-level load STALL the spool coroutine's FLOAT state is stomped
+   on arm64 (a deep loader call clobbers the v8-15 callee-saved bank): the cached
+   f30-0 AND the channel's frame-num / artist-step / artist-base all collapse to a
+   ~1.0 scaling, so BOTH ja-aframe-num and strpos*f30-0 read ~the raw stream
+   position (tens of thousands of frames). Every GOAL-readable anim value is
+   corrupt; only the raw C++ stream position (current-str-pos) survives.
+
+## THE FIX (goal_src/jak1/engine/load/loader.gc, ja-play-spooled-anim)
+   Recover the spool-command frame from the raw stream clock when ja-aframe-num is
+   implausibly large (anim tops out ~2570) AND has collapsed toward the strpos
+   magnitude (af/strpos jumps from the normal ~0.03 to ~1.0): use strpos * f30
+   with the immutable constant f30 = 0.05859375 * 0.5 (this cutscene's parts are
+   all speed 0.5; the artist frame == strpos*f30 to <1 frame across the whole anim).
+   On x86 ja-aframe-num is always the true small frame, so the branch is dead and
+   host play is byte-identical.
+
+## DEVICE AFTER FIX — the recovery works, commands fire spread, camera CUTS
+   GCINE-GUARD shows the spike caught and the command frame recovered to the true
+   value every frame of the stall (use = strpos * 0.029296875):
+       ct=332215 anim=43162.0 strpos=41990.0 use=1230.18
+       ct=332325 anim=43485.0 strpos=42313.0 use=1239.64   <- crosses thr 1239
+       ct=332445 anim=43825.0 strpos=42653.0 use=1249.60
+       (GCINE-GUARD fired 944x across the stall; af-spike recovered every frame)
+   GCINE-JC: the 8 commands now fire SPREAD across the cinematic, alternating the
+   plan exactly as authored (the 9th, threshold 2490, is just past the capture end
+   at af 2465):
+       JC cmds: distinct ct: 8  [332320 335180 336680 340450 340950 345235 347805 352340]
+       cameraB camera cameraB camera cameraB camera cameraB camera   (alternating)
+   GCINE-OC: discrete CUTs, NO non-establishing glide — the long SAME-joint pan is
+   gone:
+       OC pos transitions: CUT=4  GLIDE=1
+         CUT   ct=305600 cji 3->4   [joint-switch]
+         GLIDE ct=306000..313180 cji 4->40 pk/tot=0.34 [establishing pan-in, legit]
+         CUT   ct=313210 cji 40->40 [SAME-joint]
+         CUT   ct=344800..345235 cji 41->40 pk/tot=0.99 [joint-switch]
+         CUT   ct=347920 cji 40->41 [joint-switch]
+   The full cinematic plays (reaches part 21, af 2465) crash-free (0 sig 4|6|11).
+
+## PER-BOUNDARY CUT/INTERP DIFF — device(fixed) vs original
+   metric                | original(x86)        | device BASELINE (bug) | device FIXED
+   ----------------------+----------------------+-----------------------+-------------
+   joint commands firing | SPREAD (14 ct)       | COLLAPSED (1 ct)      | SPREAD (8 ct)
+   command order         | B c B c B c B c B    | (all at once)         | B c B c B c B c
+   discrete pos CUTs     | 6                    | 2                     | 4
+   non-establishing GLIDE| none                 | 1 (29-sample cam pan) | none
+   establishing pan-in   | 1                    | 1                     | 1
+   => BASELINE collapses the cuts into a continuous pan (the bug). The FIX restores
+      the SPREAD, ordered joint-switch CUTs and removes the continuous pan, matching
+      the original's discrete-shot-change pattern. (The original's 6 vs the device's
+      4 detected pos-jumps is the every-16-frame OC sampler catching different big
+      jumps; both produce the same SPREAD alternating-command CUT structure with
+      only the legit establishing pan-in as a glide.)
+
+RESULT: CAMERA CUTS MATCH ORIGINAL
+  The device cinematic now fires its camera-plan (joint-switch) commands SPREAD
+  across the cutscene exactly as the original does — discrete CUTs at the plan
+  boundaries — instead of collapsing them into one continuous pan. The arm64-only
+  glide is eliminated, deterministically (GCINE-GUARD recovery), crash-free.

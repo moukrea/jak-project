@@ -1,0 +1,11 @@
+## device BASELINE (no fix): af-spike collapses cuts -> glide
+  OC samples: 1048  ct[313120..354800]  cji seen: [4, 40, 41]
+  SP samples: 1570  max af=45100.0  af-SPIKE(>5000) count: 18
+    first spike: ct=332560 af=43298.0 part=10 strpos=42126
+  JC cmds: 18  distinct ct: 1 [332505]
+  JC firing: COLLAPSED (all at one ct = the bug)
+  GCINE-GUARD fired: 0
+  OC pos transitions: CUT=2  GLIDE=1  (motion>8000,total>120000,cut<=2 samples)
+    CUT   ct= 313200..313200  len=  1 total=   280729.3 peak=   280729.3 pk/tot=1.00 cji 4->40 [joint-switch]
+    CUT   ct= 313235..313235  len=  1 total=   419860.4 peak=   419860.4 pk/tot=1.00 cji 40->40 [SAME-joint]
+    GLIDE ct= 345440..350480  len= 29 total=  2375778.1 peak=   263739.0 pk/tot=0.11 cji 41->41 [SAME-joint]

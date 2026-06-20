@@ -1,0 +1,87 @@
+== 1. install HEAD APK (libgk unchanged) ==
+Performing Streamed Install
+Success
+== 2. push 28 INSTRUMENTED CGO/DGO -> files/iso_data/jak1 (sha-verify) ==
+  pushed + verified all 28 instrumented files
+== 3. logcat (LEAN: GCINE- markers + crash sigs only) ==
+== 4. launch + drive NEW GAME ==
+  warmup 40s
+    inject: 'start'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'up'
+    inject: ''
+    inject: 'up'
+    inject: ''
+    inject: 'x'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'x'
+    inject: ''
+== 5. watch (poll 3s; finish when sequenceB camera joints cji 43/44 appear) ==
+   [5/260] part=4 seqB_cji=0 fg=1 pid='20352' SP=688 JC=0 GUARD=0
+   [10/260] part=8 seqB_cji=0 fg=1 pid='20352' SP=864 JC=0 GUARD=0
+   [15/260] part=10 seqB_cji=0 fg=1 pid='20352' SP=988 JC=0 GUARD=0
+   [20/260] part=13 seqB_cji=0 fg=1 pid='20352' SP=1184 JC=32 GUARD=0
+   [25/260] part=15 seqB_cji=0 fg=1 pid='20352' SP=1344 JC=32 GUARD=0
+   [30/260] part=18 seqB_cji=0 fg=1 pid='20352' SP=1488 JC=32 GUARD=0
+   [35/260] part=21 seqB_cji=0 fg=1 pid='20352' SP=1640 JC=32 GUARD=0
+   >>> sequenceB (cji 43/44) reached — full sequenceA cut set captured
+== scoreboard ==
+  GCINE-SP : 1731
+  GCINE-OC : 6167
+  GCINE-JC : 40
+  max af   : 2573.9057
+  crashed  : no   focus=  mCurrentFocus=Window{546e105 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  --- all GCINE-JC (joint commands fired) ---
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332640 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=352300 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=356900 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x202704>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332640 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=352300 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=356900 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x202704>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332640 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=352300 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=356900 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x202704>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332225 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=332640 joint="camera" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1f1414>
+GCINE-JC ct=352300 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x1e8544>
+GCINE-JC ct=356900 joint="cameraB" movie?=#<othercam othercam suspended :state othercam-running :flags  :stack 176/256 :heap 480/480 @ #x202704>
+  log: .autoport/reports/Gcine-cut/device-diag.log

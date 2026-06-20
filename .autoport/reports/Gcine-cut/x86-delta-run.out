@@ -1,0 +1,50 @@
+== launch our-x86 gk (lean dumps; no GCINE-CAM flood) ==
+  gk pid=1902907
+== wait for title (link finish: default-menu) ==
+  title up at ~5s
+== goalc (lt)+(build-game) to intern *game-info*, then trigger cinematic ==
+  build-game sent; waiting up to 200s for symbol intern...
+  build-game done ~19s
+== send NEW-GAME intro trigger ==
+== watch cinematic up to 160s (target af>=2560 = past last joint cmd 2490) ==
+   [0s] af=313.2975 part=0 JC=0 GUARD=117 SP=88 OC=96
+   [5s] af=139.9511 part=1 JC=0 GUARD=117 SP=106 OC=388
+   [10s] af=291.9433 part=2 JC=0 GUARD=117 SP=125 OC=689
+   [15s] af=443.9355 part=3 JC=0 GUARD=117 SP=144 OC=902
+   [20s] af=587.9589 part=5 JC=0 GUARD=117 SP=162 OC=920
+   [25s] af=739.9511 part=6 JC=0 GUARD=117 SP=181 OC=939
+   [30s] af=890.6542 part=7 JC=0 GUARD=117 SP=200 OC=958
+   [35s] af=1042.6464 part=8 JC=0 GUARD=117 SP=219 OC=977
+   [40s] af=1194.0526 part=10 JC=0 GUARD=117 SP=238 OC=996
+   [45s] af=1345.4588 part=11 JC=1 GUARD=117 SP=257 OC=1015
+   [50s] af=1497.4510 part=12 JC=2 GUARD=117 SP=276 OC=1034
+   [55s] af=1641.3571 part=14 JC=3 GUARD=117 SP=294 OC=1052
+   [60s] af=1793.4665 part=15 JC=4 GUARD=117 SP=313 OC=1071
+   [65s] af=1945.4586 part=16 JC=5 GUARD=117 SP=332 OC=1090
+   [70s] af=2097.6853 part=17 JC=5 GUARD=117 SP=351 OC=1109
+   [75s] af=2249.4431 part=19 JC=6 GUARD=117 SP=370 OC=1327
+   [80s] af=2397.2163 part=20 JC=7 GUARD=117 SP=389 OC=1388
+   [85s] af=2548.6225 part=21 JC=9 GUARD=117 SP=408 OC=1407
+   [90s] af=119.7949 part=1 JC=9 GUARD=117 SP=427 OC=1426
+   [95s] af=271.7871 part=2 JC=10 GUARD=117 SP=446 OC=1589
+   [100s] af=415.8105 part=3 JC=11 GUARD=117 SP=464 OC=1806
+   [105s] af=573.8964 part=4 JC=13 GUARD=117 SP=483 OC=2103
+   [110s] af=717.9199 part=6 JC=14 GUARD=117 SP=501 OC=2403
+   [115s] af=869.9121 part=7 JC=15 GUARD=117 SP=520 OC=2517
+   [120s] af=1021.9042 part=8 JC=16 GUARD=117 SP=539 OC=2704
+   [125s] af=1176.7089 part=10 JC=18 GUARD=117 SP=557 OC=2898
+   [130s] af=38.4667 part=0 JC=19 GUARD=117 SP=576 OC=2997
+   [135s] af=187.2949 part=1 JC=20 GUARD=117 SP=595 OC=3292
+   [140s] af=335.7714 part=2 JC=22 GUARD=117 SP=609 OC=3566
+   [145s] af=481.4355 part=4 JC=23 GUARD=117 SP=623 OC=3741
+   [151s] af=637.2949 part=5 JC=25 GUARD=117 SP=642 OC=4036
+   [156s] af=775.8104 part=6 JC=26 GUARD=117 SP=656 OC=4285
+  wall cap
+== scoreboard ==
+  GCINE-SP    : 674
+  GCINE-OC    : 4481
+  GCINE-JC    : 26
+  GCINE-GUARD : 117   (MUST be 0 on x86)
+  max af      : 2572.6459
+  af>5000     : 0  (af-spike count; MUST be 0 on x86)
+  log: .autoport/reports/Gcine-cut/ourx86-fix.log

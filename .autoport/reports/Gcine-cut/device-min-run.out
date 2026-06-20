@@ -1,0 +1,5 @@
+== 1. install HEAD APK (libgk unchanged) ==
+Performing Streamed Install
+adb: failed to install android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk: Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE]
+
+[diag FAIL] apk install failed

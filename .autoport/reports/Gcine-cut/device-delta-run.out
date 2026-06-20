@@ -1,0 +1,47 @@
+== 1. install HEAD APK (libgk unchanged) ==
+Performing Streamed Install
+Success
+== 2. push 28 INSTRUMENTED CGO/DGO -> files/iso_data/jak1 (sha-verify) ==
+  pushed + verified all 28 instrumented files
+== 3. logcat (LEAN: GCINE- markers + crash sigs only) ==
+== 4. launch + drive NEW GAME ==
+  warmup 40s
+    inject: 'start'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'up'
+    inject: ''
+    inject: 'up'
+    inject: ''
+    inject: 'x'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'x'
+    inject: ''
+== 5. watch (poll 3s; finish when sequenceB camera joints cji 43/44 appear) ==
+   [5/260] part=4 seqB_cji=0 fg=1 pid='18773' SP=495 JC=0 GUARD=2220
+   [10/260] part=8 seqB_cji=0 fg=1 pid='18773' SP=657 JC=0 GUARD=2220
+   [15/260] part=10 seqB_cji=0 fg=1 pid='18773' SP=723 JC=0 GUARD=2220
+   [20/260] part=12 seqB_cji=0 fg=1 pid='18773' SP=753 JC=0 GUARD=3575
+   [25/260] part=15 seqB_cji=0 fg=1 pid='18773' SP=782 JC=0 GUARD=4746
+   [30/260] part=17 seqB_cji=0 fg=1 pid='18773' SP=842 JC=0 GUARD=5885
+   [35/260] part=20 seqB_cji=0 fg=1 pid='18773' SP=661 JC=0 GUARD=7158
+   >>> app GONE x4
+== scoreboard ==
+  GCINE-SP : 656
+  GCINE-OC : 2479
+  GCINE-JC : 0
+  max af   : 2405.5659
+  crashed  : procgone   focus=  mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher}
+  --- all GCINE-JC (joint commands fired) ---
+  log: .autoport/reports/Gcine-cut/device-diag.log
