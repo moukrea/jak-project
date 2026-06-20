@@ -1049,6 +1049,16 @@ phases:
   validator: validators/phase-Gcine-cut.sh
   max_turns: 1500
   max_retries: 3
+- id: Grender-audit
+  name: 'DIAGNOSTIC (owner observations on the latest device run): pinpoint DETERMINISTICALLY + x86-FIRST why the device render diverges
+    from the original — (D1) the game runs at ~HALF SPEED (fluid but 2x time; measure game-clock advance rate device vs x86); (D2) missing
+    particles/stars + the sun renders as a weird halo (per-bucket draw census device vs x86 → which sparticle/effect/sun builders are
+    noop''d/excluded); (D3) Jak is INVISIBLE in the cinematic + villains crash it (is it one arm64 merc-render root?). Produce a ranked
+    divergence map (.autoport/reports/Grender-audit/divergences.md). NO code fix, NO screenshot grind. Supervisor triages into fixes.'
+  prompt: prompts/phase-Grender-audit.md
+  validator: validators/phase-Grender-audit.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md

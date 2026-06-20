@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 109,
+  "current_phase_idx": 111,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -107,7 +107,7 @@
     "Ghalo": 1,
     "Gmenu-ui-placement": 3,
     "Ghalo-sun": 1,
-    "Gcine-cut": 2
+    "Grender-audit": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -221,9 +221,6 @@
     "Gmenu-ui-placement": [
       "b1a5e262a3cf",
       "61dc054d6f87"
-    ],
-    "Gcine-cut": [
-      "e66c1bb25c1b"
     ]
   },
   "stuck_reasons": {
@@ -332,7 +329,8 @@
     "Gvistruth",
     "Ghalo",
     "Gmenu-ui-placement",
-    "Ghalo-sun"
+    "Ghalo-sun",
+    "Grender-audit"
   ],
   "blocked": [
     "F1-gameplay-geyser-rock",
@@ -419,9 +417,10 @@
     "Gvistruth": 1781836402.289903,
     "Ghalo": 1781853465.6593072,
     "Ghalo-sun": 1781874653.8155646,
-    "Gcine-cut": 1781936187.289037
+    "Gcine-cut": 1781936187.289037,
+    "Grender-audit": 1781956108.6082983
   },
-  "last_update": "2026-06-20T10:28:11.674596+00:00",
+  "last_update": "2026-06-20T12:52:15.584449+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

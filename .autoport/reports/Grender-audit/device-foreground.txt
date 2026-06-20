@@ -1,0 +1,3 @@
+# Grender-audit device end-of-run (2026-06-20T14:28:03+02:00)
+mCurrentFocus_at_end:   mCurrentFocus=Window{11027cc u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+app_pid_at_end: 12335
