@@ -1104,14 +1104,16 @@ phases:
   validator: validators/phase-Gfix-cinematic-crash.sh
   max_turns: 1500
   max_retries: 4
-- id: Gfix-title-rays
-  name: 'RE-DO (owner ground truth): title-logo blue light rays LINGER ~2s after the smash (regression from Ghalo/Gtitle-pixelmatch
-    in title-obs.gc). Find the element x86-first (prime suspect logo-volumes), dump per-frame ray alpha/active on original-x86 vs
-    our-x86 vs device (NEVER pixels), calibrate (BEFORE must show ours lingering), fix so rays vanish matching the original.'
-  prompt: prompts/phase-Gfix-title-rays.md
-  validator: validators/phase-Gfix-title-rays.sh
-  max_turns: 1500
-  max_retries: 4
+- id: Gffi-xmm-validate
+  name: 'Validate & ship the arm64 FFI xmm8-15 preservation fix found by Gfix-title-rays: the GOAL->C++ trampolines
+    (asm_funcs_arm64.s) now save/restore q24-q31 (=goalc xmm8-15 / V24-V31) instead of the wrong q8-q15, so FFI callees no longer
+    clobber GOAL floats — the root of the f30-0 corruption class (title spool + Gd1/Gcine cutscene slow-mo). Regression-soak across
+    boot/flythrough/cutscene/gameplay (0 crashes), confirm f30-0 preserved, 1-to-1 source. (Title-ray "linger" itself is
+    deterministically correct; the visible regression is folded into the source-hack revert.)'
+  prompt: prompts/phase-Gffi-xmm-validate.md
+  validator: validators/phase-Gffi-xmm-validate.sh
+  max_turns: 1200
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
