@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 111,
+  "current_phase_idx": 112,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -45,7 +45,6 @@
     "E1-ux-landscape-gamepad": 1,
     "E2-ux-touch-overlay-optional": 1,
     "E3-ux-save-load": 1,
-    "F1-gameplay-geyser-rock": 3,
     "A6-emitter-off-register": 3,
     "A7-emitter-unit-tests": 1,
     "A11-texture-sym-binding": 1,
@@ -107,7 +106,8 @@
     "Ghalo": 1,
     "Gmenu-ui-placement": 3,
     "Ghalo-sun": 1,
-    "Grender-audit": 1
+    "Grender-audit": 1,
+    "Gd1-cutscene-clock": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -136,11 +136,6 @@
     ],
     "A5-emitter-far-relocs": [
       "362088e97ed6"
-    ],
-    "F1-gameplay-geyser-rock": [
-      "201e959684bc",
-      "201e959684bc",
-      "201e959684bc"
     ],
     "A6-emitter-off-register": [
       "634d11096658",
@@ -224,7 +219,6 @@
     ]
   },
   "stuck_reasons": {
-    "F1-gameplay-geyser-rock": "Same failure fingerprint '201e959684bc' has recurred 3 attempts in a row. The agent is no longer learning from validator feedback \u2014 halting to preserve token quota.",
     "A6-emitter-off-register": "A6 validator gate (D4 re-pass with all markers) cannot be cleared within A6's narrow unlock scope (IGenARM64.cpp + asm_funcs + android_runtime_full.cpp). Real-engineering deliverables landed: X19 trampoline save (69b8651b4), 6 off-register helpers fixed, skip-flag dodge fully removed. 52 unique CGOs link before the remaining display.gc NULL fn-ptr BLR \u2014 diagnosed in detail in .autoport/reports/A6-attempt-4-blocker.md. The residual bug needs klink/kscheme runtime fixes + qemu reproduction infrastructure \u2014 scope transitions to A7-emitter-unit-tests-and-qemu-reproduction. Attempt 3 tried a fault-recovery dodge (9ff94b36f) which the supervisor reverted (8f1b4b07e) and validator hardened against.",
     "A8-qemu-repro-and-displaygc-fix": "A8 delivered qemu repro infrastructure + comprehensive root-cause analysis (.autoport/reports/A8-displaygc-root-cause.md): the display.gc NULL fn-ptr BLR is rooted in CodeGenerator::do_goal_function_arm64 emitting NOPs for spill load/store ops. Fix requires unlocking CodeGenerator.cpp which A8's narrow scope didn't have. claude attempt 5 wrote A6-attempt-5-blocker.md with the exact pseudocode for the fix. Scope transitions to A9-codegen-spill-ops (narrow CodeGenerator.cpp::do_goal_function_arm64 unlock for the spill ops).",
     "A9-codegen-spill-ops": "A9 spill-ops landed (59fa70ac4, 0e446973e) and unblocked 16 additional CGOs (45\u219261 link finishes). Next-layer bug surfaced: caller's save area corrupted across GOAL\u2192GOAL BLR. Documented in A9-attempt-1-next-blocker.md. Fix needs IR.cpp narrow unlock \u2014 transitions to A10-callee-save-area.",
@@ -330,10 +324,10 @@
     "Ghalo",
     "Gmenu-ui-placement",
     "Ghalo-sun",
-    "Grender-audit"
+    "Grender-audit",
+    "Gd1-cutscene-clock"
   ],
   "blocked": [
-    "F1-gameplay-geyser-rock",
     "A6-emitter-off-register",
     "A8-qemu-repro-and-displaygc-fix",
     "A9-codegen-spill-ops",
@@ -418,9 +412,10 @@
     "Ghalo": 1781853465.6593072,
     "Ghalo-sun": 1781874653.8155646,
     "Gcine-cut": 1781936187.289037,
-    "Grender-audit": 1781956108.6082983
+    "Grender-audit": 1781956108.6082983,
+    "Gd1-cutscene-clock": 1781961047.086368
   },
-  "last_update": "2026-06-20T12:52:15.584449+00:00",
+  "last_update": "2026-06-21T03:19:42.461354+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

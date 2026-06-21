@@ -4,10 +4,12 @@
 
 #include <android/log.h>
 #include <dlfcn.h>
+#include <pthread.h>
 #include <sys/system_properties.h>
 
 #include <chrono>
 #include <condition_variable>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -555,53 +557,136 @@ std::atomic<u64> g_a40_vsync_exit{0};
 std::atomic<u64> g_a40_syncpath_entry{0};
 std::atomic<u64> g_a40_syncpath_exit{0};
 
+namespace {
+// ===== Gd1-cutscene-clock: wall-clock 60 Hz IOP/overlord VBlank pacer =======
+// The jak1 overlord VBlank_Handler (game/overlord/jak1/srpc.cpp:446) advances
+// the fake-VAG stream clock — `gFakeVAGClock += 1024/target_fps` per vblank —
+// that paces EVERY spooled cutscene. On real PS2 hardware the IOP receives the
+// VBlank interrupt at the display rate (60 Hz NTSC) REGARDLESS of how fast the
+// EE renders, so with target_fps==60 (gfx.h) the clock advances 1024 units/sec
+// = real time. The desktop oracle reproduces this for free: Gfx::vsync() (and
+// thus the signal_vblank callback) is fired once per display-refresh swap at a
+// flat 60 Hz because the desktop GPU holds 60 fps.
+//
+// On the Adreno 618 the render rate collapses on heavy content (new-game
+// cutscene ~15 fps, village flythrough ~20 fps). The previous code fired the
+// IOP vblank exactly once per vsync() call (= once per RENDERED+swapped frame),
+// so the vblank — and therefore the cutscene stream clock — ticked at the
+// render rate (~15 Hz) instead of 60 Hz. gFakeVAGClock then advanced at
+// 15*(1024/60) ~= 0.27x real-time, so cinematics played in fluid slow-motion
+// (~3.7x too slow; camera/joints still interpolate per game-frame so it looked
+// smooth). Measured deterministically: Grender-audit D1.
+//
+// Fix: drive signal_vblank() from a dedicated wall-clock 60 Hz thread,
+// decoupled from the render-swap cadence, exactly as the desktop's 60 Hz
+// display loop does. The consume side (IOP_Kernel::dispatch, which runs the
+// handler once per set of the atomic `vblank_recieved` bool) is shared,
+// platform-identical code — only the SET rate diverged on Android, so restoring
+// a 60 Hz set rate makes Android match desktop. signal_vblank only stores an
+// atomic bool, so calling it from this thread is safe; the registered callback
+// (android_runtime_full.cpp) also wakes the iop-runner so its <=1 ms idle
+// dispatch sleep can't swallow a vblank edge under scheduler jitter. vsync() no
+// longer fires the vblank at all — it is purely the game-chain frame-pacing
+// barrier now. x86/desktop is untouched (this is an android/ TU).
+std::mutex g_pacer_mutex;
+std::condition_variable g_pacer_cv;
+std::thread g_pacer_thread;
+bool g_pacer_should_run = false;
+
+void iop_vblank_pacer_loop() {
+  pthread_setname_np(pthread_self(), "iopvbl-pacer");
+  using namespace std::chrono;
+  // 60 Hz NTSC vblank period. Coupled to target_fps==60 (the increment in
+  // VBlank_Handler is 1024/target_fps), matching the desktop's 60 Hz display
+  // assumption, so the fake-VAG clock advances 1024 units/sec = real-time.
+  const auto period = microseconds(16667);
+  auto next = steady_clock::now() + period;
+  bool logged = false;
+  for (;;) {
+    std::function<void()> cb;
+    {
+      std::unique_lock<std::mutex> lk(g_pacer_mutex);
+      g_pacer_cv.wait_until(lk, next, [] { return !g_pacer_should_run; });
+      if (!g_pacer_should_run) {
+        return;
+      }
+      cb = g_vsync_callback;  // copy under lock (set_vsync_callback writes it here)
+    }
+    if (cb && MasterExit == RuntimeExitStatus::RUNNING) {
+      if (!logged) {
+        logged = true;
+        __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                            "Gd1-VBLANK IOP/overlord vblank now paced at wall-clock 60 Hz "
+                            "(decoupled from render swap; cutscene clock = real-time)");
+      }
+      cb();
+    }
+    next += period;
+    auto now = steady_clock::now();
+    if (next < now) {
+      // Fell behind (a long stall): resync to now instead of bursting a backlog
+      // of zero-sleep ticks. signal_vblank coalesces a backlog into one handler
+      // run anyway, so bursting would not advance the clock faster — resyncing
+      // just keeps the long-run average at 60 Hz.
+      next = now + period;
+    }
+  }
+}
+}  // namespace
+
 void set_vsync_callback(std::function<void()> f) {
-  g_vsync_callback = std::move(f);
+  bool start = false, stop = false;
+  {
+    std::unique_lock<std::mutex> lk(g_pacer_mutex);
+    g_vsync_callback = std::move(f);
+    if (g_vsync_callback && !g_pacer_should_run) {
+      g_pacer_should_run = true;
+      start = true;
+    } else if (!g_vsync_callback && g_pacer_should_run) {
+      g_pacer_should_run = false;
+      stop = true;
+    }
+  }
+  // Start/stop the pacer OUTSIDE the lock — join() would deadlock against the
+  // pacer's own acquisition of g_pacer_mutex.
+  if (stop) {
+    g_pacer_cv.notify_all();
+    if (g_pacer_thread.joinable()) {
+      g_pacer_thread.join();
+    }
+  }
+  if (start) {
+    g_pacer_thread = std::thread(iop_vblank_pacer_loop);
+  }
 }
 
 u32 vsync() {
   g_a40_vsync_entry.fetch_add(1, std::memory_order_relaxed);
 
-  // A42, desktop gfx.cpp:119-124 parity: tell the IOP kernel we're vsyncing
-  // so it dispatches the overlord's VBlank_Handler (SoundIopInfo DMA →
-  // *sound-iop-info* strpos / fake VAG clock — the pacing source for every
-  // spooled cutscene). Desktop fires it on every Gfx::vsync() call.
-  auto fire_iop_vblank = []() {
-    if (!g_vsync_callback) {
-      return;
-    }
-    static bool s_a42_logged = false;
-    if (!s_a42_logged) {
-      s_a42_logged = true;
-      __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                          "A42-VBLANK vsync->IOP vblank callback live (overlord "
-                          "VBlank_Handler will pace str-pos from here on)");
-    }
-    g_vsync_callback();
-  };
+  // Gd1-cutscene-clock: the IOP/overlord VBlank is NO LONGER fired from here.
+  // It used to be fired once per vsync() call (= once per rendered frame), which
+  // coupled the cutscene/spool stream clock to the render rate and produced
+  // fluid slow-motion cinematics whenever the Adreno dropped below 60 fps (see
+  // iop_vblank_pacer_loop above). A dedicated wall-clock 60 Hz pacer thread now
+  // owns ALL vblank firing, mirroring the desktop's 60 Hz display loop. vsync()
+  // is purely the game-chain frame-pacing barrier: it blocks until the next
+  // swap so each game chain corresponds to one rendered frame.
 
-  // Gintro: pre-renderer-ready, HOLD the GOAL dispatcher here instead of
-  // letting it free-run. The SDL thread is concurrently bringing the renderer
-  // up (glad + 43 shaders + GAME.fr3, ~2 s on the Adreno 618). The old code
-  // returned 0 immediately here, so the dispatcher free-ran at ~270 Hz and
-  // advanced the ENTIRE pre-title intro — the SCE static screen and the
-  // Naughty Dog/Daxter "ndi-intro" — in the ~600 frames before the first
-  // frame could be drawn; every chain for those frames was dropped (G1 boot:
-  // chains received == dropped == 607, the first A35-RENDER frame landed at
-  // logo-intro). So the SCE screen + ND/Daxter logo never reached the
-  // framebuffer while the later logo flythrough did. Desktop never sees this
-  // because GL init precedes the GOAL kernel. Spin at ~60 Hz, ticking the IOP
-  // vblank each iteration so the overlord / fake-VAG clock stays real-time,
-  // until the renderer is up — then fall through to the normal swap-chain
-  // block so the intro renders in chronological order from its first beat.
-  // The hold (~2 s) is far under the A37 hang-watchdog's 6 s threshold, and
-  // that watchdog only logs, never aborts. The renderer bring-up runs on the
-  // SDL thread independently of the dispatcher (android_renderer_run is
-  // entered after the dispatcher is spawned and needs nothing from it), so
-  // this cannot deadlock.
+  // Gintro: pre-renderer-ready, HOLD the GOAL dispatcher here instead of letting
+  // it free-run. The SDL thread is concurrently bringing the renderer up (glad +
+  // 43 shaders + GAME.fr3, ~2 s on the Adreno 618). If we returned 0 immediately
+  // the dispatcher would free-run at ~270 Hz and fast-forward the entire
+  // pre-title intro (SCE screen + ND/Daxter "ndi-intro") in the ~600 frames
+  // before the first frame could be drawn, so those beats would never reach the
+  // framebuffer (G1 boot: chains received == dropped == 607). Spin at ~60 Hz to
+  // throttle the dispatcher until the renderer is up, then fall through to the
+  // swap-chain block so the intro renders in chronological order. The overlord /
+  // fake-VAG clock is kept real-time during this window by the pacer thread, not
+  // here. The hold (~2 s) is far under the A37 hang-watchdog's 6 s threshold (and
+  // that watchdog only logs). The renderer bring-up runs on the SDL thread
+  // independently of the dispatcher, so this cannot deadlock.
   if (!g_renderer_ready.load()) {
     while (!g_renderer_ready.load() && MasterExit == RuntimeExitStatus::RUNNING) {
-      fire_iop_vblank();
       std::this_thread::sleep_for(std::chrono::microseconds(16600));
     }
     if (!g_renderer_ready.load()) {
@@ -612,10 +697,9 @@ u32 vsync() {
     // Renderer just became ready — fall through to the post-ready path.
   }
 
-  // Post-ready: desktop cadence — one IOP vblank, then block on the swap
-  // chain so each vsync() corresponds to one rendered+swapped frame. Mirrors
-  // the upstream/desktop oracle (game/graphics/pipelines/opengl.cpp) exactly.
-  fire_iop_vblank();
+  // Post-ready: block on the swap chain so each vsync() corresponds to one
+  // rendered+swapped frame (game-chain pacing). The vblank that paces spooled
+  // cutscenes is fired separately at wall-clock 60 Hz by the pacer thread.
   auto* d = g_data;
   std::unique_lock<std::mutex> lock(d->dma_mutex);
   auto init_frame = d->frame_idx_of_input_data;
