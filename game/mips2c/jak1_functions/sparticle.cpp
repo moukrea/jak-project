@@ -45,11 +45,29 @@ u64 execute(void* ctxt) {
 
   block_1:
   c->lw(v1, 128, s5);                               // lw v1, 128(s5)
+#if defined(__aarch64__)
+  // Gd2 (arm64): `beq v1, s7` tests "is (-> cpuinfo valid) == #f?" — skip an
+  // INVALID 3D-particle slot. GOAL pointers are 32-bit, but in the mips2c
+  // ExecutionContext on arm64 they carry inconsistent upper-32: gpr s7 is the
+  // full host symbol base (0x7f0014fd24) while a #f field loaded via sign-extended
+  // `lw` arrives as the bare 32-bit GOAL offset (0x14fd24). A full-64 `sgpr64`
+  // compare then MISSES #f (proven on-device: full=0 lo=1), so the invalid slot is
+  // NOT skipped and its stale `func` field (+112) is later jalr'd as a function =
+  // the wild-callback SIGSEGV that got this builder noop'd. Compare the 32-bit GOAL
+  // pointer (low32), which is representation-agnostic. x86 is unaffected (operands
+  // consistent there). Same bug class as sp-launch-particles-var (Gnewgame/Gsprite).
+  bc = c->gpr_addr(v1) == c->gpr_addr(s7);          // beq v1, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(v1) == c->sgpr64(s7);              // beq v1, s7, L83
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_34;}                          // branch non-likely
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(s2) == c->gpr_addr(s7);          // beq s2, s7 (32-bit GOAL ptr; (paused?) #f-check)
+#else
   bc = c->sgpr64(s2) == c->sgpr64(s7);              // beq s2, s7, L71
+#endif
   c->lw(v1, 104, s5);                               // lw v1, 104(s5)
   if (bc) {goto block_8;}                           // branch non-likely
 

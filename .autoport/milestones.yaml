@@ -1078,6 +1078,15 @@ phases:
   validator: validators/phase-Gd3-jak-cinematic.sh
   max_turns: 1500
   max_retries: 3
+- id: Gd2-particles-sun
+  name: 'Render-audit fix: restore the 3D world-particles / stars / real sun corona on arm64 (owner: original has particles+stars+a real
+    sun; device is missing them, sun is a "weird halo"). Root cause (audit D2/D4): sp-process-block-3d is noop''d on arm64 because it
+    SIGSEGVs at frame ~190; that builder makes the 3D particles/stars AND the group-sun corona. Fix the frame-190 crash, un-noop the
+    builder. Verify: 3D-particle/sun-corona buckets draw >0 tris on device matching x86, crash-free. NO screenshots.'
+  prompt: prompts/phase-Gd2-particles-sun.md
+  validator: validators/phase-Gd2-particles-sun.sh
+  max_turns: 1500
+  max_retries: 4
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md

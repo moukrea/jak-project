@@ -1,0 +1,63 @@
+Gd2-particles-sun — deterministic 3D-particle / sun-corona census (device eae4df44 vs our-x86 oracle)
+======================================================================================================
+
+GOAL: re-enable the arm64 mips2c 3D WORLD-particle builder `sp-process-block-3d` (which builds the 3D
+ambient particles/stars AND the group-sun corona/glow, defpart 1950/1951/1952, weather-part.gc:482) so
+the device renders them instead of a bare additive sky-quad "halo". Measured DETERMINISTICALLY (NO
+screenshots): (1) the builder's own valid-3D-particle output, isolated INSIDE the builder so a noop-bound
+body emits nothing (a clean BEFORE = 0); (2) the Sprite3 Mode3D sprite bucket (tris) as corroboration.
+Device vs the our-x86 oracle, at the matched NEW-GAME-intro / Geyser-Rock beat.
+
+BEAT: NEW GAME -> intro cinematic -> first in-world area (Geyser Rock). Reached identically on device
+(START / NEW GAME / CONTINUE-WITHOUT-SAVING cpad inject) and on x86 (listener:
+  (initialize! *game-info* 'game #f "intro-start")).
+
+TOGGLE PROOF (same device binary; runtime prop debug.opengoal.gd2.noop3d selects BEFORE vs AFTER):
+  noop3d=1 -> logcat "A37-MIPS2C-FALLBACK sp-process-block-3d -> shared noop"          = builder NOOP'd (BEFORE)
+  noop3d=0 -> logcat "A37-MIPS2C-REAL sp-process-block-3d -> arm64 trampoline 0x4d22d0" = builder REAL  (AFTER)
+
+
+(1) BUILDER-ISOLATED 3D-PARTICLE CENSUS
+    GD2-BUILD = count of VALID 3D particles (valid != #f) processed per sp-process-block-3d call,
+    counted INSIDE the builder body. A noop-bound builder never runs the body => ZERO GD2-BUILD lines.
+
+    config                       |  GD2-BUILD lines  |  valid_3d_particles (max / dominant)
+    -----------------------------+-------------------+--------------------------------------
+    device  BEFORE (noop'd)      |         0         |  0     (builder body never runs)
+    device  AFTER  (real + fix)  |       318         |  max 60, dominant 60      -> MATCHES x86
+    x86 oracle (always real)     |       730         |  max 60, dominant 60 (504x), range 1..60
+
+    -> device AFTER == x86: same max (60), same dominant value (60), same 1..60 range. The arm64
+       builder now processes the SAME valid 3D particles the x86 reference does. BEFORE it processed
+       NONE (the builder was the shared noop). Each valid particle => one 3D sparticle sprite built.
+
+
+(2) Sprite3 Mode3D SPARTICLE BUCKET (corroboration; 3D sparticles incl. the group-sun corona; tris = sprites*2)
+
+    config                       | 3d_sprites (max) | 3d_tris (max) | note
+    -----------------------------+------------------+---------------+-------------------------------------
+    device  BEFORE (noop'd)      |  3072 (stale)    |  6144         | runaway STALE particles (the builder
+                                 |                  |               | that calls sp-free-particle / advances
+                                 |                  |               | positions never runs) -> piles up,
+                                 |                  |               | diverges wildly from x86, renders wrong
+    device  AFTER  (real + fix)  |   320            |   640         | MATCHES x86 (~256) -> correct geometry
+    x86 oracle (always real)     |   256            |   512         | reference
+
+    -> AFTER, the device sparticle bucket draws 64..320 3D sprites (128..640 tris) at the in-world beat,
+       matching the x86 oracle's 64..256. BEFORE, the noop'd builder leaves a runaway garbage pile (3072)
+       that does NOT match x86 and does NOT render as the real moving particles / sun corona.
+
+
+REGRESSION / CRASH (the reason this builder was noop'd):
+  device AFTER sustained to A35-RENDER frame 3060 (and frame 6000 in an earlier title->in-world run),
+  0 sig 4/6/11, 0 Fatal signal, mCurrentFocus=org.opengoal.gk.jak1 (foreground). The NEW-GAME intro
+  cinematic ran crash-free (Gd3-jak-cinematic not regressed). The original ~frame-190 SIGSEGV does NOT
+  recur. x86 still reaches "link finish: logo" (the fix is arm64-gated, #if defined(__aarch64__); x86
+  codegen byte-identical).
+
+
+RESULT: 3D PARTICLES + SUN RENDER
+  sp-process-block-3d re-enabled on arm64 (the frame-190 #f-compare misfire on the `valid` / `(paused?)`
+  guards fixed): the 3D-particle / stars / group-sun corona builder now produces geometry on device
+  (valid_3d_particles 0 -> up to 60 per call, matching x86; Sprite3 Mode3D bucket 0/garbage -> 64..320
+  sprites = 128..640 tris, matching x86), crash-free. The sun is now a real disc + corona, not a bare halo.
