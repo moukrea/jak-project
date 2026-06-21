@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 114,
+  "current_phase_idx": 115,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -109,7 +109,8 @@
     "Grender-audit": 1,
     "Gd1-cutscene-clock": 1,
     "Gd3-jak-cinematic": 2,
-    "Gd2-particles-sun": 1
+    "Gd2-particles-sun": 1,
+    "Gconsolidate": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -332,7 +333,8 @@
     "Grender-audit",
     "Gd1-cutscene-clock",
     "Gd3-jak-cinematic",
-    "Gd2-particles-sun"
+    "Gd2-particles-sun",
+    "Gconsolidate"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -426,7 +428,7 @@
     "Gd2-particles-sun": 1782023990.8373778,
     "Gconsolidate": 1782029441.4779482
   },
-  "last_update": "2026-06-21T08:10:41.477952+00:00",
+  "last_update": "2026-06-21T08:59:48.311507+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
