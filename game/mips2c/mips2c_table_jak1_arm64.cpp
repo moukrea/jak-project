@@ -449,13 +449,23 @@ bool a37_name_is_real(const std::string& name) {
       // GSCE-SCE-RENDER fires) and the only mips2c->mips2c edge
       // (sp-launch-particles-var -> particle-adgif) stays inside the set.
       //
-      // sp-process-block-3d (the 3D world-particle processor) is deliberately
-      // NOT enabled: it is off the SCE 2D path, and binding it corrupts the
-      // per-frame launch-control list that sp-launch-particles-var later searches
-      // -> a wild launcher pointer (0x691edfe3) dereferenced in that builder's
-      // block_31 loop -> SIGSEGV at frame ~190 when the ndi (3D) particles spawn.
-      // Its arm64 translation needs its own oracle-diff phase; SCE is 2D.
+      // Gd2: sp-process-block-3d (the 3D WORLD-particle processor) is now ENABLED.
+      // It builds the 3D ambient particles / stars AND the group-sun corona/glow
+      // (defpart 1950/1951/1952, weather-part.gc:482) — without it the device sun
+      // is a bare additive sky-quad "halo" and the 3D particles/stars are absent.
+      // It was noop'd because re-enabling it SIGSEGV'd ~frame 190; the documented
+      // "wild launcher pointer in block_31" framing was a conflation with the
+      // separately-fixed enter-state crash (Gspark-enterstate). The REAL arm64
+      // defect is the recurring mips2c `beq reg,s7` #f-guard misfire: this builder
+      // skips an INVALID particle via `(-> cpuinfo valid) == #f`, but on arm64 the
+      // full-64 compare missed #f (s7=host 0x7f0014fd24 vs the bare-offset field
+      // 0x14fd24, proven on-device full=0 lo=1), so invalid slots were processed
+      // and their stale `func` (+112) jalr'd = the wild callback. Fixed at the two
+      // #f-checks in sparticle.cpp sp_process_block_3d (gpr_addr/low32 compare,
+      // arm64-gated). Callees (sp-relaunch-particle-3d / sp-free-particle /
+      // quaternion*!) are plain GOAL defun, so no extra mips2c builders are pulled.
       "sp-launch-particles-var", "sp-process-block-2d", "particle-adgif",
+      "sp-process-block-3d",
       // Gwater: the ocean DMA builders. The title flythrough flies over
       // Sandover village (village1 has :ocean *ocean-map-village1*,
       // level-info.gc:25); draw-ocean runs every frame (drawable.gc:855) and
