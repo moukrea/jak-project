@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 118,
+  "current_phase_idx": 119,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -114,7 +114,7 @@
     "Gfix-cinematic-crash": 1,
     "Gffi-xmm-validate": 1,
     "Gsun-halo": 1,
-    "Gparticles-stars": 1
+    "Gparticles-stars": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -226,6 +226,9 @@
     ],
     "Gd3-jak-cinematic": [
       "ae1663521c78"
+    ],
+    "Gparticles-stars": [
+      "5384366818ea"
     ]
   },
   "stuck_reasons": {
@@ -341,7 +344,8 @@
     "Gconsolidate",
     "Gfix-cinematic-crash",
     "Gffi-xmm-validate",
-    "Gsun-halo"
+    "Gsun-halo",
+    "Gparticles-stars"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -440,7 +444,7 @@
     "Gsun-halo": 1782069201.950173,
     "Gparticles-stars": 1782078082.501728
   },
-  "last_update": "2026-06-21T22:24:20.777641+00:00",
+  "last_update": "2026-06-21T23:09:20.836591+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
