@@ -14,5 +14,4 @@ class Merc2BucketRenderer : public BucketRenderer {
   bool m_empty = false;
   std::shared_ptr<Merc2> m_renderer;
   MercDebugStats m_debug_stats;
-  int m_gd3_census_tick = 0;  // Gd3-jak TEMP: throttle for the merc-tris census (remove after)
 };

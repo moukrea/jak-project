@@ -38,6 +38,7 @@
 #include <atomic>
 #include <cerrno>
 #include <dlfcn.h>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -2510,6 +2511,68 @@ extern "C" void a36_tree_scan_per_frame() {
                         (unsigned long long)g_viol_total.load(),
                         (unsigned long long)g_first_viol_frame.load());
   }
+  // === Gd3-jak FIX (always-on, GOAL thread): repair Jak's NaN world transform ===
+  // In the new-game cinematic a degenerate root-motion align (1/0 in
+  // matrix-inv-scale!, ENGINE.CGO — not rebuildable on device) leaves *target*'s
+  // root trsqv (trans/rot/scale) NaN from ~frame 945. It is harmless while the
+  // scene-player drives Jak's on-screen pose (the Merc2 bone repair keeps him
+  // visible), but when master-mode flips cinematic->play the gameplay/physics code
+  // reads the NaN position and the GOAL thread dies into the return-from-thread-dead
+  // trampoline (sig=4/11 at GOAL 0x18aee4, frame ~10170 — blocks reaching gameplay).
+  // Repair it HERE, on the GOAL thread at the quiescent per-frame (sceGsSyncV) point
+  // where the kernel data is settled: cache each transform float's last finite value
+  // and restore any that has gone non-finite. Write-only-on-NaN, so a wrong guess of
+  // a field offset can never replace a good value — only ever swap a NaN for a prior
+  // finite reading at that same slot. x86 never produces these NaNs.
+  if (g_syms.armed && g_ee_main_mem) {
+    auto symval = [](const char* nm, uint32_t* out) -> bool {
+      auto s = jak1::intern_from_c(nm);
+      if (!s.offset) {
+        return false;
+      }
+      *out = s->value;
+      return true;
+    };
+    uint32_t tgt = 0;
+    if (symval("*target*", &tgt) && tgt && tgt != s7.offset) {
+      uint32_t root = 0;
+      rd32(tgt + (112 - 4), &root);  // process-drawable.root (trsqv), deftype offset 112
+      if (root && root != s7.offset) {
+        // trsqv: trans @16, rot(quat) @32, scale @48 — 3 slots x 4 floats. C++ addr
+        // = root + goal_off - 4 (the A37-CAM/F1C deftype-4 read convention).
+        static float s_good[12] = {0};
+        static bool s_good_seen[12] = {false};
+        static uint64_t s_repairs = 0;
+        const int goal_off[12] = {16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
+        int repaired = 0;
+        for (int k = 0; k < 12; k++) {
+          uint32_t w = 0;
+          if (!rd32(root + (goal_off[k] - 4), &w)) {
+            continue;
+          }
+          float v;
+          memcpy(&v, &w, 4);
+          if (std::isfinite(v)) {
+            s_good[k] = v;
+            s_good_seen[k] = true;
+          } else if (s_good_seen[k]) {
+            uint8_t* dst = g_ee_main_mem + (root + (goal_off[k] - 4));
+            memcpy(dst, &s_good[k], 4);
+            repaired++;
+          }
+        }
+        if (repaired) {
+          s_repairs++;
+          if (s_repairs <= 8 || (s_repairs % 600) == 0) {
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG GD3-TARGET-TRANS-REPAIR #%llu f=%llu fields=%d "
+                                "(restored *target* root trsqv from last-finite)",
+                                (unsigned long long)s_repairs, (unsigned long long)f, repaired);
+          }
+        }
+      }
+    }
+  }
   // F1D (autoport): player (target / Jak) spawn + position telemetry,
   // read straight out of GOAL memory — real state, never synthesised.
   // Proves (a) the title attract loop was left (*target* becomes alive
@@ -4105,18 +4168,24 @@ extern unsigned int g_gmatch_rftd_goal;
 extern unsigned int g_gmatch_rftd_len;
 }
 
-// Gmatch: repair-and-resume for a SIGILL into the (re-)stomped
-// return-from-thread-dead trampoline (GOAL 0x18aee4). The render-thread canary
-// repairs the trampoline per frame, but the merc blend-shape draw can re-stomp
-// it AND the kernel-dispatch thread can RET into the corrupted code within the
-// same tick, before the next post-frame repair. So repair it HERE -- on the
-// faulting thread, at the instant of the bad jump -- from the canary's published
-// snapshot, then RESUME (return with pc unchanged so the CPU re-fetches the now-
-// valid instruction). Race-free. Gated to the trampoline address window AND to
-// an actually-stomped state, so a genuine SIGILL is never masked.
+// Gmatch / Gd3-jak: repair-and-resume for a SIGILL **or SIGSEGV** that lands with
+// pc inside the (re-)stomped return-from-thread-dead trampoline band (GOAL
+// [0x18ae84, 0x1912b4), entry 0x18aee4). The render-thread canary repairs the band
+// per frame, but the merc blend-shape draw can re-stomp it AND the kernel-dispatch
+// thread can RET into the corrupted code within the same tick, before the next
+// post-frame repair. The stomp bytes may decode as an illegal instruction (SIGILL)
+// or as a valid instruction making a wild memory access (SIGSEGV — e.g. Gd3
+// fault=0x49000000000000 pc=0x18aee8, exposed once the Jak NaN-bone fix let the
+// cinematic render past the earlier Adreno fault). Either way: repair HERE -- on
+// the faulting thread, at the instant of the bad fetch -- from the canary's
+// published snapshot, then RESUME (pc unchanged so the CPU re-fetches the now-valid
+// instruction; the band's kernel asm-funcs reload their context registers, so a
+// scratch reg touched by one preceding garbage instruction is harmless). Race-free,
+// and gated to the band window AND an actually-stomped state, so a genuine fault is
+// never masked (band intact -> returns false -> normal fatal path).
 std::atomic<uint64_t> g_rftd_sigill_repairs{0};
-bool handle_rftd_sigill(int sig, siginfo_t* /*info*/, void* ucontext) {
-  if (sig != SIGILL || !g_ee_main_mem || !g_gmatch_rftd_good) {
+bool handle_rftd_code_stomp(int sig, siginfo_t* /*info*/, void* ucontext) {
+  if ((sig != SIGILL && sig != SIGSEGV) || !g_ee_main_mem || !g_gmatch_rftd_good) {
     return false;
   }
   const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
@@ -4125,11 +4194,11 @@ bool handle_rftd_sigill(int sig, siginfo_t* /*info*/, void* ucontext) {
   const uintptr_t lo = ee + g_gmatch_rftd_goal;
   const uintptr_t hi = lo + g_gmatch_rftd_len;
   if (pc < lo || pc >= hi) {
-    return false;  // SIGILL is not in the trampoline window
+    return false;  // fault pc is not inside the trampoline band
   }
   uint8_t* live = reinterpret_cast<uint8_t*>(lo);
   if (memcmp(live, g_gmatch_rftd_good, g_gmatch_rftd_len) == 0) {
-    return false;  // trampoline intact -> a genuine SIGILL here; do not mask
+    return false;  // band intact -> a genuine fault here; do not mask
   }
   memcpy(live, g_gmatch_rftd_good, g_gmatch_rftd_len);
   __builtin___clear_cache(reinterpret_cast<char*>(live),
@@ -4137,9 +4206,9 @@ bool handle_rftd_sigill(int sig, siginfo_t* /*info*/, void* ucontext) {
   const uint64_t n = g_rftd_sigill_repairs.fetch_add(1, std::memory_order_relaxed) + 1;
   if (n <= 8) {
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
-                        "GK-DIAG RFTD-SIGILL-REPAIR #%llu pc=goal:0x%x "
-                        "(re-stomped return-from-thread-dead; repaired+resumed)",
-                        (unsigned long long)n, (uint32_t)(pc - ee));
+                        "GK-DIAG RFTD-STOMP-REPAIR #%llu sig=%d pc=goal:0x%x "
+                        "(re-stomped return-from-thread-dead band; repaired+resumed)",
+                        (unsigned long long)n, sig, (uint32_t)(pc - ee));
   }
   return true;  // resume at the same pc; the repaired instruction re-executes
 }
@@ -4340,11 +4409,12 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   if (sig == SIGSEGV && a38_trip::handle_double_ee_base_fault(sig, info, ucontext)) {
     return;
   }
-  // Gmatch: a SIGILL into the (re-)stomped return-from-thread-dead trampoline —
-  // repair it from the canary snapshot and RESUME on this (the faulting) thread.
-  // Race-free; gated to the trampoline window + stomped state. Must run before
-  // the fatal dump below.
-  if (sig == SIGILL && a38_trip::handle_rftd_sigill(sig, info, ucontext)) {
+  // Gmatch / Gd3-jak: a SIGILL or SIGSEGV into the (re-)stomped return-from-thread-dead
+  // trampoline band — repair it from the canary snapshot and RESUME on this (the
+  // faulting) thread. Race-free; gated to the band window + stomped state. Must run
+  // before the fatal dump below.
+  if ((sig == SIGILL || sig == SIGSEGV) &&
+      a38_trip::handle_rftd_code_stomp(sig, info, ucontext)) {
     return;
   }
   // Diag-only: dump PC bytes and registers so we can decode the crashing
