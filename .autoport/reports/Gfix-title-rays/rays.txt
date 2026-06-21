@@ -1,0 +1,68 @@
+Gfix-title-rays — per-frame title light-ray (logo-volumes) deterministic dumps
+==============================================================================
+Method: property-armed (OG_RAY_DUMP / debug.opengoal.ray.dump) per-frame dumps in the SHARED
+C++ merc renderer (Merc2.cpp), identical code on x86 and arm64. NO pixels. x86-first.
+Backends: original-x86 (.autoport/gold, prebuilt pristine) / our-x86 (build-x86, HEAD) / device
+(eae4df44, arm64 GLES). Instrumentation removed after capture.
+
+----------------------------------------------------------------------------------------------
+RAY INTENSITY / DRAW STATE — the metric the phase asked to dump (logo-volumes-english-lod0)
+----------------------------------------------------------------------------------------------
+Every frame of the ~6.7s logo-intro draw window, ALL THREE backends:
+  RAYFADE (envmap fade rgba)  = 0,0,0,0          -> NOT the envmap path; additive draw is normal merc
+  RAYLIGHT (VuLights) dir0=(0.612,-0.696,0) c0=(0.8,0.8,0.8) c1/c2=0 amb=(0.2,0.2,0.2)  -> CONSTANT
+  RAYDRAW  ab_en=1 ablend=3 (pure additive GL_ONE/GL_ONE) at_en=1 ialpha=1 tris=704 tex=40
+
+our-x86 == original-x86 : IDENTICAL (the dumps are byte-for-byte the same; the fix below is
+                          arm64-ONLY, in game/kernel/asm_funcs_arm64.s, NOT compiled into the x86
+                          build, so our-x86 is unchanged from original-x86 — 1-to-1 preserved).
+device intensity         : IDENTICAL to our-x86/original-x86 (same fade=0, same c0=0.8/amb=0.2,
+                          same ablend=3, same tris=704). The ray ADDITIVE INTENSITY does NOT
+                          diverge on the device.
+
+==> The owner's premise ("ray intensity/color animates to ~0, device diverges") is FALSIFIED.
+    The rays render with IDENTICAL inputs on x86 and device and add a constant amount every frame
+    for the full logo-intro spool on BOTH backends. There is NO ray-intensity divergence.
+
+----------------------------------------------------------------------------------------------
+THE REAL DEVICE-SPECIFIC DIVERGENCE FOUND (and fixed) — the spool anim-rate float
+----------------------------------------------------------------------------------------------
+The rays animate as part of the streamed logo-intro spool. Its per-frame frame-rate scale float
+f30-0 (loader.gc::ja-play-spooled-anim:683/735) is held in a GOAL-callee-saved xmm register
+across the spool loop. goalc maps xmm8-15 -> arm64 V24-V31. The arm64 GOAL->C++ FFI trampolines
+(asm_funcs_arm64.s) were saving the WRONG SIMD bank (q8-q15 = V8-V15) around C++ calls, so C++/
+mips2c FFI callees clobbered the GOAL caller's xmm8-15 (V24-V31), corrupting f30-0. x86 is
+correct (System V spills all xmm across calls) -> our-x86 == original-x86.
+
+CALIBRATED BEFORE (device, reproduces the corruption — the owner's reported "linger"):
+  Changing the saved SIMD bank PROVABLY moves the title spool anim fnum at the same frame f=1200:
+    buggy q8-15 (clobbered f30-0)         : logo-intro fnum = 63.66
+    (intermediate swap-bug, for the record): logo-intro fnum = 1.63 (frozen)
+  i.e. f30-0 IS in V24-V31 and IS exposed to the FFI clobber on the device only.
+
+AFTER (device, fix applied):
+  asm_funcs_arm64.s GOAL->C++ trampolines now save/restore q24-q31 (V24-V31), matching pairs:
+    corrected q24-31                      : logo-intro fnum = 61.67 (stable, true rate; crash-free)
+  The spool float is now preserved across the FFI call; the title animation plays at the true rate.
+
+----------------------------------------------------------------------------------------------
+HONEST VERDICT — read this carefully
+----------------------------------------------------------------------------------------------
+- The ray INTENSITY matches the original on the device (it always did; the intensity premise is
+  falsified). our-x86 == original-x86 (the fix is arm64-only).
+- A real, device-specific arm64 FFI bug (xmm8-15/V24-V31 not preserved across GOAL->C++ calls) was
+  found and fixed; it corrupted the title spool animation float (and is the root of the documented
+  Gcine-cut cutscene "slow-mo" f30-0 stomp class). Stable on device, no crash.
+- HOWEVER, this fix does NOT measurably change the additive RAY-DRAW window: the rays are still
+  submitted for the TRUE ~6.7s spool duration (314 frames) with fade=0/c0=0.8 on the device, and
+  the corrected fnum (61.67) is within sampling jitter of the pre-fix value (63.66) — the title
+  spool's f30-0 was coincidentally ~correct before. So by the per-frame additive-brightness and
+  draw-lifetime metrics, the device title rays were ALREADY matching x86, and remain so.
+
+RESULT: NOT VERIFIED — ray intensity matches original (premise falsified) and a real device-side
+  arm64 FFI float-corruption was fixed, but the owner-visible "linger", if it persists, is NOT in
+  any deterministic state readable under this phase's no-pixels methodology. It can only be a GLES
+  rendered-brightness / framebuffer-composition difference of the additive draw, which requires a
+  pixel/oracle measurement this phase forbids, or the owner's eye. This phase cannot honestly
+  assert "TITLE RAYS MATCH ORIGINAL" as a visual claim. Recommend re-scope to a GLES additive
+  pixel-oracle investigation (or accept the rays as deterministically correct).

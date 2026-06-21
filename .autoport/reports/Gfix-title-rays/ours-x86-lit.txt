@@ -1,0 +1,72 @@
+RAYLIGHT frame=942 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=942 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=943 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=943 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=944 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=944 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=945 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=945 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=946 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=946 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=947 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=947 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=948 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=948 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=949 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=949 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=950 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=950 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=951 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=951 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=952 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=952 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=953 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=953 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=954 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=954 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=955 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=955 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=956 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=956 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=957 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=957 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=958 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=958 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=959 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=959 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=960 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=960 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=961 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=961 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=962 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=962 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=963 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=963 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=964 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=964 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=965 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=965 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=966 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=966 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=967 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=967 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=968 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=968 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=969 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=969 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=970 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=970 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=971 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=971 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=972 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=972 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=973 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=973 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=974 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=974 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=975 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=975 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=976 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=976 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+RAYLIGHT frame=977 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+RAYFADE frame=977 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
