@@ -4212,6 +4212,78 @@ bool handle_rftd_code_stomp(int sig, siginfo_t* /*info*/, void* ucontext) {
   }
   return true;  // resume at the same pc; the repaired instruction re-executes
 }
+
+// Gfix-cinematic-crash: a GOAL process whose top function RETURNS lands at
+// return-from-thread-dead (GOAL 0x18aee4) -- the host return-address that
+// set-to-run-bootstrap (gkernel.gc:1849-1851) computes (temp = EE_base +
+// return-from-thread-dead) and pushes onto every set-to-run process's fake stack.
+// The owner's NEW-GAME path drives auto-save-command (game-save.gc:1179), which
+// process-spawns the `auto-save` process on *kernel-dram-stack* (a FIXED kernel
+// stack near 0x19abb0); "continue without saving" spawns no such returning
+// process (proven on-device: the continue path runs past this point while the
+// save path crashes here deterministically at frame ~2340). When `auto-save`
+// finishes and RETURNS, on arm64 its pushed trampoline RA reads back as 0 -- the
+// low-memory scatter that zeroes the fake-stack RA lands at 0x19xxxx, ABOVE the
+// guarded code band [0x18ae84,0x1912b4), so neither the per-frame canary nor the
+// in-band repair above ever sees it. The asm-func epilogue then RETs to NULL:
+// sig=11/4, pc=0, lr=0, while a GPR (observed x12) still holds the trampoline
+// host addr EE+0x18aee4 -- exactly set-to-run-bootstrap's `temp`. Restore the
+// intended control flow: redirect pc to the trampoline so the process is cleaned
+// up by deactivate exactly as the kernel designed. Gated tightly (pc must be a
+// NULL/wild non-code address AND a GPR must hold the EXACT trampoline host addr)
+// so a genuine fault is never masked. The band is repaired from the canary first
+// so we always land in valid trampoline code. arm64/Android only; x86 untouched.
+std::atomic<uint64_t> g_rftd_nullret_redirects{0};
+bool handle_rftd_null_return(int sig, siginfo_t* /*info*/, void* ucontext) {
+  if ((sig != SIGILL && sig != SIGSEGV) || !g_ee_main_mem) {
+    return false;
+  }
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  const uintptr_t pc = uc->uc_mcontext.pc;
+  // Only a NULL / wild-low control transfer -- a real RET to a zeroed RA. No
+  // valid code lives below 0x1000, so this never masks a normal fault.
+  if (pc >= 0x1000) {
+    return false;
+  }
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const uintptr_t trampoline = ee + 0x18aee4u;  // return-from-thread-dead entry
+  // A GPR must still hold the EXACT trampoline host addr (set-to-run-bootstrap's
+  // pushed RA value, gkernel.gc:1849-1851). Observed in x12; scan x0..x30 so we
+  // are robust to whichever reg the asm-func epilogue left it in.
+  bool has_tramp = false;
+  for (int r = 0; r <= 30; r++) {
+    if (static_cast<uintptr_t>(uc->uc_mcontext.regs[r]) == trampoline) {
+      has_tramp = true;
+      break;
+    }
+  }
+  if (!has_tramp) {
+    return false;
+  }
+  // Land in VALID trampoline code: repair the band from the canary snapshot if it
+  // has been stomped too (defensive; usually intact here).
+  if (g_gmatch_rftd_good) {
+    uint8_t* live = reinterpret_cast<uint8_t*>(ee + g_gmatch_rftd_goal);
+    if (memcmp(live, g_gmatch_rftd_good, g_gmatch_rftd_len) != 0) {
+      memcpy(live, g_gmatch_rftd_good, g_gmatch_rftd_len);
+      __builtin___clear_cache(reinterpret_cast<char*>(live),
+                              reinterpret_cast<char*>(live) + g_gmatch_rftd_len);
+    }
+  }
+  const uintptr_t lr = uc->uc_mcontext.regs[30];
+  const uintptr_t sp = uc->uc_mcontext.sp;
+  uc->uc_mcontext.pc = trampoline;  // resume into return-from-thread-dead
+  const uint64_t n = g_rftd_nullret_redirects.fetch_add(1, std::memory_order_relaxed) + 1;
+  if (n <= 16 || (n % 256) == 0) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG RFTD-NULLRET-REDIRECT #%llu sig=%d pc=0x%lx lr=0x%lx "
+                        "sp=0x%lx -> return-from-thread-dead (process RET to NULL; "
+                        "zeroed fake-stack RA restored to trampoline)",
+                        (unsigned long long)n, sig, (unsigned long)pc, (unsigned long)lr,
+                        (unsigned long)sp);
+  }
+  return true;
+}
 }  // namespace a38_trip
 
 // F1A: non-static bridge so the A37-CAM block (earlier in the TU, different
@@ -4415,6 +4487,16 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // before the fatal dump below.
   if ((sig == SIGILL || sig == SIGSEGV) &&
       a38_trip::handle_rftd_code_stomp(sig, info, ucontext)) {
+    return;
+  }
+  // Gfix-cinematic-crash: a GOAL process (the owner NEW-GAME `auto-save` proc on
+  // *kernel-dram-stack*) RET'd to NULL because its pushed return-from-thread-dead
+  // RA was zeroed by the low-memory scatter (lands at 0x19xxxx, above the band
+  // canary). pc=0/lr=0 with a GPR still holding the trampoline host addr ->
+  // redirect to return-from-thread-dead and resume. Must run before the fatal
+  // dump below.
+  if ((sig == SIGILL || sig == SIGSEGV) &&
+      a38_trip::handle_rftd_null_return(sig, info, ucontext)) {
     return;
   }
   // Diag-only: dump PC bytes and registers so we can decode the crashing

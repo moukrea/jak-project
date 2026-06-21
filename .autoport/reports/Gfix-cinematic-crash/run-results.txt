@@ -1,0 +1,10 @@
+RUN 1 PHASE=BEFORE verdict=CRASH maxframe=2340 endfg=gone elapsed=3s sig=[06-21 11:59:44.626 14635 14725 F opengoal-gk: GK-DIAG sig=11 fault=0x0 pc=0x0 lr=0x0] DBLEE=0
+0 RFTD=0
+0 TGT=2 newgame-save-overwrite-yes 2026-06-21T11:59:56+02:00
+RUN 2 PHASE=BEFORE verdict=CRASH maxframe=2340 endfg=gone elapsed=4s sig=[06-21 12:05:19.490 15331 15419 F opengoal-gk: GK-DIAG sig=11 fault=0x0 pc=0x0 lr=0x0] DBLEE=0
+0 RFTD=0
+0 TGT=2 newgame-save-overwrite-yes 2026-06-21T12:05:31+02:00
+RUN 3 PHASE=BEFORE verdict=REACH maxframe=10500 endfg=jak1 elapsed=169s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-21T12:20:30+02:00
+RUN 4 PHASE=AFTER verdict=REACH maxframe=10500 endfg=jak1 elapsed=169s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-21T12:27:22+02:00
+RUN 5 PHASE=AFTER verdict=REACH maxframe=10620 endfg=jak1 elapsed=177s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-21T12:32:57+02:00
+RUN 6 PHASE=AFTER verdict=REACH maxframe=10500 endfg=jak1 elapsed=172s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-21T12:39:07+02:00
