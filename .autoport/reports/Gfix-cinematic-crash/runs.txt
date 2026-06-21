@@ -1,0 +1,43 @@
+Gfix-cinematic-crash — owner EXACT path: main menu -> NEW GAME -> select save SLOT 0
+(has data: bank0/bank1.bin) -> OVERWRITE -> YES -> real auto-save write -> intro
+cinematic -> gameplay. Driven via cpad_inject by .autoport/gfix_cine_run.sh.
+Device eae4df44, consolidated HEAD build (ENGINE.CGO 1703f786..., deploy_verify clean).
+Robust crash detection over the whole window: GK-DIAG sig=(4|6|11) | Fatal signal |
+signal N (SIG | app-not-foreground. Gameplay reach = A35-RENDER frame >= 10500, fg=jak1.
+
+=================================================================================
+BEFORE (calibration) — the owner crash REPRODUCED on the current consolidated build
+=================================================================================
+RUN 1 PHASE=BEFORE FLOW=overwrite verdict=CRASH maxframe=2340 endfg=gone
+  new-game -> save slot -> OVERWRITE -> YES; sig=11 fault=0x0 pc=0x0 lr=0x0
+  (process RET to NULL; x12=EE+0x18aee4 return-from-thread-dead, sp=EE+0x19abb0
+   = *kernel-dram-stack*). All band defenses fired 0x (GMATCH-RFTD-STOMP=0,
+   RFTD-STOMP-REPAIR=0, DBLEE=0): the zeroed RA is at 0x19xxxx, above the canary band.
+RUN 2 PHASE=BEFORE FLOW=overwrite verdict=CRASH maxframe=2340 endfg=gone
+  byte-identical crash (sig=11 pc=0x0 lr=0x0, same regs, same frame) — 100% DETERMINISTIC.
+  => crash reproduced 2/2 on the owner exact path.
+
+CONTROL RUN 3 PHASE=BEFORE FLOW=continue-without-saving verdict=REACH frame=10500 endfg=jak1
+  The prior gates' shortcut (DOWN x4 -> CONTINUE WITHOUT SAVING; NO save write, no
+  auto-save process spawned). Reaches GAMEPLAY crash-free (crash-sig=none). The IDENTICAL
+  cinematic plays through when no save is performed => the SAVE WRITE (the spawned
+  `auto-save` process returning through return-from-thread-dead) is the crash trigger.
+
+=================================================================================
+AFTER (fix: handle_rftd_null_return redirect, libgk-side; deploy_verify PASS)
+=================================================================================
+RUN 4 PHASE=AFTER FLOW=overwrite verdict=REACH frame=10500 endfg=jak1 elapsed=169s
+  new-game -> save slot -> OVERWRITE -> YES -> GAMEPLAY. crash-sig=none.
+  RFTD-NULLRET-REDIRECT fired 3x (the auto-save + other returning procs), sig(4/6/11)=0.
+  Reached master-mode=game (gameplay) at frame 13515+.
+RUN 5 PHASE=AFTER FLOW=overwrite verdict=REACH frame=10620 endfg=jak1 elapsed=177s
+  new-game save-overwrite-yes -> GAMEPLAY. crash-sig=none. RFTD-NULLRET-REDIRECT=2, sig=0.
+RUN 6 PHASE=AFTER FLOW=overwrite verdict=REACH frame=10500 endfg=jak1 elapsed=172s
+  new-game save-overwrite-yes -> GAMEPLAY. crash-sig=none. RFTD-NULLRET-REDIRECT=1, sig=0.
+  Intro cinematic content played through (link finish: sidekick-human-intro-sequence-c).
+
+RESULT: CINEMATIC COMPLETES CRASH-FREE (3/3)
+
+Mechanism + fix: see .autoport/reports/Gfix-cinematic-crash-fix-summary.md
+Raw per-run verdicts: .autoport/reports/Gfix-cinematic-crash/run-results.txt
+Full per-run logcats: .autoport/reports/Gfix-cinematic-crash/full-logcat-{BEFORE,AFTER}-run*.log
