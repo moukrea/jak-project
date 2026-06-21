@@ -50,16 +50,22 @@ _arg_call_arm64:
   mov	x29, sp
   ldr x8, [sp], #16
 
-  ; Gfix-title-rays: preserve the GOAL-callee-saved XMM bank across the C++ call.
-  ; goalc maps xmm8-15 to arm64 V24-V31 (arm64_reg5 = id & 0x1f; goalc xmm ids are
-  ; 16..31 -> V16..V31, so xmm8 = id 24 -> V24) and treats xmm8-15 as CALLEE-saved
-  ; (never spilled before a call, mirroring x86's GOAL ABI). An AAPCS C++ callee
-  ; clobbers V16-V31 (caller-saved), so any live GOAL float parked in V24-V31 — e.g.
-  ; the spooled-anim frame-rate scale f30-0 in loader.gc::ja-play-spooled-anim — must
-  ; be saved HERE. The old code saved q8-q15 (V8-V15), registers goalc never uses for
-  ; floats (and whose low halves AAPCS already preserves), so the GOAL caller's
-  ; xmm8-15 came back garbage: f30-0 collapsed, the title light-ray / cutscene spool
-  ; played at the wrong rate (rays lingered ~10x too long on device). Save q24-q31.
+  ; Gffi-xmm-validate: preserve the GOAL-callee-saved XMM bank across the C++ call.
+  ; goalc maps xmm8-15 to arm64 V24-V31 and treats them as CALLEE-saved (never
+  ; spilled before a call, mirroring x86's GOAL ABI). VERIFIED against goalc:
+  ; XMM0..XMM15 are register ids 16..31 (emitter/Register.h enum X86_REG;
+  ; static_assert N_REGS-1 == XMM15), and the AArch64 emitter encodes the V-reg as
+  ; arm64_reg5(r) = r.id() & 0x1f with NO remap (emitter/IGenARM64.cpp), so xmm8 =
+  ; id 24 -> V24 and xmm15 = id 31 -> V31. The GOAL CC marks XMM8-15 saved=true
+  ; (emitter/Register.cpp m_saved_xmms); a call clobbers only temp() regs
+  ; (compiler/IR.cpp), so live floats stay in V24-V31 UNSPILLED across the call.
+  ; An AAPCS C++ callee clobbers V16-V31 (caller-saved), so a GOAL float parked in
+  ; V24-V31 — e.g. the spooled-anim frame-rate scale f30-0 in
+  ; loader.gc::ja-play-spooled-anim — returns garbage unless saved HERE. The old
+  ; q8-q15 save protected V8-V15, which goalc never uses for floats (and whose low
+  ; halves AAPCS already preserves), so xmm8-15 was stomped and f30-0 collapsed:
+  ; this is the ROOT of the f30-0 float-corruption class (title-spool anim rate +
+  ; the Gd1/Gcine cutscene slow-mo). Save q24-q31 (matching pairs, no swap).
   stp q31, q30, [sp, #-32]!
   stp q29, q28, [sp, #-32]!
   stp q27, q26, [sp, #-32]!
@@ -94,9 +100,10 @@ _stack_call_arm64:
   mov	x29, sp
   ldr x8, [sp], #16
 
-  ; Gfix-title-rays: save goalc xmm8-15 (= arm64 V24-V31), not q8-q15 — see the
-  ; explanation in _arg_call_arm64 above. A C++ FFI callee clobbers V24-V31, which
-  ; the GOAL caller treats as callee-saved (holds e.g. the spool f30-0 there).
+  ; Gffi-xmm-validate: save goalc xmm8-15 (= arm64 V24-V31), not q8-q15 — see the
+  ; verified derivation in _arg_call_arm64 above. A C++ FFI callee clobbers V24-V31,
+  ; which the GOAL caller treats as callee-saved (holds e.g. the spool f30-0, and the
+  ; cutscene f30-0 of the same float-corruption class, there).
   stp q31, q30, [sp, #-32]!
   stp q29, q28, [sp, #-32]!
   stp q27, q26, [sp, #-32]!
@@ -165,7 +172,8 @@ _mips2c_call_arm64:
   ;; V24-V31 (NOT V8-V15), and a mips2c/C++ body clobbers V16-V31 (AAPCS
   ;; caller-saved). The previous q8-q15 save protected registers goalc never
   ;; uses, leaving the GOAL caller's xmm8-15 (e.g. the spool f30-0 rate) to be
-  ;; stomped — the title light-ray / cutscene slow-spool bug. Save q24-q31.
+  ;; stomped — the f30-0 float-corruption class (title-spool rate + the Gd1/Gcine
+  ;; cutscene slow-mo). Save q24-q31.
   stp q31, q30, [sp, #-32]!
   stp q29, q28, [sp, #-32]!
   stp q27, q26, [sp, #-32]!
