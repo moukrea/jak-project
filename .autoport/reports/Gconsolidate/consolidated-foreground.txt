@@ -1,0 +1,5 @@
+# Gconsolidate run 'consolidated' end (2026-06-21T10:42:56+02:00)
+mCurrentFocus_at_end:   mCurrentFocus=Window{452d19c u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+app_pid_at_end: 8618
+crashed: no
+highest_render_frame: 11160

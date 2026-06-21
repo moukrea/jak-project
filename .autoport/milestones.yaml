@@ -1087,6 +1087,14 @@ phases:
   validator: validators/phase-Gd2-particles-sun.sh
   max_turns: 1500
   max_retries: 4
+- id: Gconsolidate
+  name: 'Build ONE consistent HEAD build with ALL the landed fixes (menu, halos, cutscene-clock real-time, Jak-visible,
+    3D particles/stars/sun) + deploy it + LEAVE it on the device (do NOT restore known-good) so the owner can SEE the cumulative
+    result. Verify all fixes hold together on one build (deterministic per-fix signals), crash-free to gameplay. The payoff phase.'
+  prompt: prompts/phase-Gconsolidate.md
+  validator: validators/phase-Gconsolidate.sh
+  max_turns: 1500
+  max_retries: 4
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
