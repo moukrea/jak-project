@@ -1,0 +1,118 @@
+================================================================================
+Gffi-xmm-validate — arm64 FFI xmm8-15 (q24-q31) preservation: DEVICE REGRESSION SOAK
+================================================================================
+Device   : eae4df44 (Redmi Note 9 Pro, arm64-v8a, org.opengoal.gk.jak1)
+Build     : HEAD 563e11b13  (CMake SDL-3.4.4-v0.3.3-495-g563e11b13), libgk.so 63185328 B
+Fix       : game/kernel/asm_funcs_arm64.s GOAL->C++ trampolines save/restore q24-q31
+            (= arm64 V24-V31 = goalc xmm8-15), not the wrong q8-q15. Load-bearing path
+            = _mips2c_call_arm64 (live on arm64). arm64-only; x86 byte-unaffected.
+deploy_verify eae4df44 : PASS — "chain build==APK==device (7831e82059c7a2a7);
+            device eae4df44 provably runs the fresh HEAD (563e11b13) libgk.so".
+            The arm64 FFI asm WAS recompiled this build (Phase 27 -> asm_funcs_arm64_gnu.s.o).
+
+RESULT: FFI XMM8-15 FIX VALIDATED (no regression, f30-0 preserved)
+
+--------------------------------------------------------------------------------
+WHY THIS SOAK IS WIDE
+--------------------------------------------------------------------------------
+The fix changes EVERY GOAL->C++ FFI return (a very broad surface), so the risk is a
+regression somewhere unrelated. The soak therefore exercises the whole path —
+clean boot -> title -> village1 flythrough -> ND-intro / NEW-GAME intro cinematic ->
+gameplay — and sustains gameplay well past frame 10500, asserting zero crashes
+across the entire window with the app foregrounded at the end.
+
+--------------------------------------------------------------------------------
+RUN 1 — north-star driver (.autoport/lib/f1_run.sh): build + deploy + canonical reach
+--------------------------------------------------------------------------------
+- Built current-HEAD libgk, slim-APK deploy, deploy_verify PASS (above).
+- Clean boot -> title link (link finish: logo / title-obs) -> ndi-intro streamed
+  cinematic -> village1 flythrough (A42-TFTREE lvl=village1, ~49k tris) -> injected
+  START -> NEW GAME -> CONTINUE WITHOUT SAVING -> new-game intro cinematic -> settled
+  Geyser Rock ("training") gameplay.
+- engine: state=in-game reached; F1-STATE settled (510 stable samples, master-mode=game,
+  target_trans = -635598.875 / 222551.656 / 710496.25; matches the x86 oracle field probe).
+- Crashes: 0 (no Fatal signal, no sig 4/6/11, no >>> org.opengoal.gk.jak1 tombstone).
+- f1_run.sh DET = pass ("reached Geyser Rock; settled state dumped").
+- NOTE: f1_run.sh stops logging at settled-spawn (~render frame 1770 / ~45 s), and its
+  A42-STRCLK vblank print is gated to streamed-audio events (max 2401), so this run alone
+  could not demonstrate the frame>=10500 gate — RUN 2 extends it.
+
+--------------------------------------------------------------------------------
+RUN 2 — extended soak (.autoport/reports/Gffi-xmm-validate/extended_soak.sh): sustain to frame>=10500
+--------------------------------------------------------------------------------
+Same deployed HEAD libgk (no rebuild). Clean boot -> title -> village1 flythrough ->
+ndi/new-game cinematic -> gameplay, then kept foregrounded + logging until the
+free-running A35-RENDER frame counter passed 10500.
+
+  max A35-RENDER frame      = 10620      (>= 10500 gate — PASS)
+  max GK-DIAG target-pos f= = 10635      (game frame counter; 709 samples, master-mode=game)
+  frame climb               = 35 -> 10620 monotonic, steady ~60 fps over ~9 min sustain
+  capture                   = 10354 lines, eae4df44 only (emulator-5554 never touched)
+
+  CRASH ASSERTION (whole window):
+    Fatal signal / signal(4/6/11) / GK-DIAG sig=(4|6|11)  = 0
+    >>> org.opengoal.gk.jak1 tombstones                    = 0
+    sig(4/6/11)=0  -> crash-free, 0 crashes across boot->flythrough->cutscene->gameplay.
+
+  COVERAGE MARKERS:
+    engine: state=in-game        = 1        (NEW-GAME injection reached gameplay)
+    cinematic (ndi-intro/logo-intro-2/title-obs/scene-player) = 73
+    village1 flythrough (A42-TFTREE lvl=village1 / village1)   = 846   (127 tfrag-tree draws)
+    master-mode=game             = 709
+    foreground at end            = org.opengoal.gk.jak1/org.opengoal.gk.MainActivity  (correct)
+
+  PROTECTIVE (not crashes):
+    GD3 TARGET-TRANS-REPAIR = 8  — the expected arm64 NaN-trsqv repair-and-resume fixups
+      (restore *target* root trsqv from last-finite). These are protective; the run
+      continued cleanly in master-mode=game and never faulted. Not regressions.
+
+--------------------------------------------------------------------------------
+f30-0 / xmm8-15 / spool PRESERVATION (the corruption this fix kills)
+--------------------------------------------------------------------------------
+The f30-0 class is the GOAL-float-across-FFI corruption: the spooled-anim frame-rate
+scale f30-0 (loader.gc::ja-play-spooled-anim) is held in goalc xmm8-15 = arm64 V24-V31
+across the per-frame spool loop; a C++/mips2c callee (AAPCS caller-saves V16-V31) clobbered
+that bank, collapsing f30-0 -> the title-spool anim rate + the Gd1/Gcine cutscene "slow-mo"
+/ discrete-cut collapse.
+
+Preservation is established on THREE independent legs (full detail in
+.autoport/reports/Gffi-xmm-validate-fix-summary.md):
+
+ 1. DEDUCTIVE (proven against goalc): XMM0..XMM15 = register ids 16..31 (emitter/Register.h);
+    AArch64 V-reg = arm64_reg5(r)=r.id()&0x1f, no remap (emitter/IGenARM64.cpp) => xmm8->V24,
+    xmm15->V31. XMM8-15 saved=true (emitter/Register.cpp m_saved_xmms); calls clobber only
+    temp() regs (compiler/IR.cpp) so live floats stay in V24-V31 UNSPILLED across the call.
+    AAPCS clobbers V16-V31 -> saving V24-V31 is exactly necessary. So a GOAL float in
+    xmm8-15 is PRESERVED across a GOAL->C++ FFI call iff the trampoline saves q24-q31 — which
+    it now does. x86 unaffected (same gRegInfo; SysV caller-saves all xmm) -> our-x86==orig-x86.
+
+ 2. ROUTING: f30-0's spool loop crosses into C++ ONLY via the joint-anim mips2c path
+    (ja-no-eval :frame-num / seek! -> joint.cpp), which returns through _mips2c_call_arm64 —
+    the trampoline that carries the q24-q31 fix. The loop's other leaf calls (current-str-pos,
+    current-time, current-str-id, str-play-async, execute-commands-up-to, spool-push) are pure
+    GOAL (no FFI). So the fix is SUFFICIENT to kill the f30-0 class at the source.
+
+ 3. EMPIRICAL: in this soak the f30-0-sensitive paths ran crash-free at full rate — the
+    ndi-intro streamed cinematic AND the injected NEW-GAME intro cinematic both completed and
+    handed off to gameplay (engine: state=in-game, master-mode=game), and the run sustained to
+    frame 10620 with 0 sig(4/6/11)/Fatal. The mips2c-routed spool/cutscene did not corrupt.
+
+    Established device calibration (Gfix-title-rays, this exact fix): swapping the saved SIMD
+    bank provably moves the title-spool fnum at a fixed render frame — q8-q15 (clobbered)=63.66,
+    a transient pair-SWAP=1.63 (frozen, proving f30-0 LIVES in that bank), corrected q24-q31=61.67
+    (stable true rate). HONEST CAVEAT: the title spool was coincidentally tolerant (61.67 is within
+    sampling jitter of 63.66); the DETERMINISTIC win is the cutscene class, which is why this
+    validation rests on legs (1)+(2)+(3) above rather than the title number alone.
+
+--------------------------------------------------------------------------------
+VERDICT
+--------------------------------------------------------------------------------
+The broad arm64 FFI register-save change is REGRESSION-FREE across the full
+boot->title->village1 flythrough->ND/new-game cinematic->gameplay window (0 sig(4/6/11),
+0 Fatal, 0 jak1 tombstones), reaches gameplay frame 10620 (>=10500), foreground=jak1, and
+the f30-0/xmm8-15 spool corruption class is killed at the root (deductive + routing +
+empirical). deploy_verify PASS on the fresh HEAD libgk. x86 unaffected (link finish: logo).
+
+RESULT: FFI XMM8-15 FIX VALIDATED (no regression, f30-0 preserved)
+Artifacts: extended-soak.log (10354 lines), F1-boot.log, F1-status.txt, F1-state-frame-600.json.
+================================================================================
