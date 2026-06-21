@@ -1,0 +1,77 @@
+# Gparticles-stars DEVICE parts dump [after] 2026-06-22T00:47:04+02:00
+reached_frame=6360 crash_sigs=0 focus_end=  mCurrentFocus=Window{e5115f0 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} parts_total=6372
+
+## NIGHT (hr>=19 or hr<=5): star-count + alive3d + sub3d distribution
+    884 starc=85 a3d=0 sub3d=192
+    440 starc=85 a3d=0 sub3d=128
+    428 starc=85 a3d=0 sub3d=64
+     74 starc=85 a3d=0 sub3d=320
+     74 starc=85 a3d=0 sub3d=256
+      6 starc=7 a3d=0 sub3d=192
+      6 starc=2 a3d=0 sub3d=192
+      6 starc=27 a3d=0 sub3d=192
+      6 starc=22 a3d=0 sub3d=192
+      6 starc=17 a3d=0 sub3d=192
+  night star-count MAX:
+85
+  night alive3d MAX:
+0
+  night sub3d MAX:
+320
+
+## DAY (6<=hr<=18): sun-count + alive3d + sub3d distribution
+    920 sunc=0 a3d=0 sub3d=0 sub2d=0
+    257 sunc=1 a3d=0 sub3d=0 sub2d=64
+     82 sunc=1 a3d=0 sub3d=192 sub2d=22540
+     79 sunc=1 a3d=0 sub3d=128 sub2d=491
+     78 sunc=1 a3d=0 sub3d=192 sub2d=22517
+     78 sunc=1 a3d=0 sub3d=128 sub2d=494
+     68 sunc=1 a3d=0 sub3d=192 sub2d=22519
+     67 sunc=1 a3d=0 sub3d=192 sub2d=22538
+     65 sunc=1 a3d=0 sub3d=192 sub2d=22537
+     64 sunc=1 a3d=0 sub3d=192 sub2d=12353
+  day sub3d MAX:
+320
+
+## hour coverage (did the cycle reach night?)
+    212 hr=0
+    221 hr=1
+    233 hr=2
+    227 hr=3
+    223 hr=4
+    193 hr=5
+    181 hr=6
+    199 hr=7
+    186 hr=8
+    181 hr=9
+    170 hr=10
+    172 hr=11
+   1428 hr=12
+    203 hr=13
+    193 hr=14
+    218 hr=15
+    240 hr=16
+    221 hr=17
+    208 hr=18
+    221 hr=19
+    258 hr=20
+    288 hr=21
+    260 hr=22
+    236 hr=23
+
+## first 6 / last 6 PARTS lines
+PARTS f=1 tod=7.00 hr=7 starc=0 sunc=0 a3d=0 a2d0=0 a2d1=1375524 vproc3d=0 sub2d=0 subhud=0 sub3d=0
+PARTS f=2 tod=7.00 hr=7 starc=0 sunc=0 a3d=0 a2d0=0 a2d1=1375524 vproc3d=0 sub2d=0 subhud=0 sub3d=0
+PARTS f=3 tod=7.00 hr=7 starc=0 sunc=1 a3d=0 a2d0=0 a2d1=1375524 vproc3d=0 sub2d=0 subhud=0 sub3d=0
+PARTS f=4 tod=7.00 hr=7 starc=0 sunc=1 a3d=0 a2d0=0 a2d1=1375524 vproc3d=0 sub2d=0 subhud=0 sub3d=0
+PARTS f=5 tod=7.00 hr=7 starc=0 sunc=1 a3d=0 a2d0=0 a2d1=1375524 vproc3d=0 sub2d=64 subhud=0 sub3d=0
+PARTS f=6 tod=7.00 hr=7 starc=0 sunc=1 a3d=0 a2d0=0 a2d1=1375524 vproc3d=0 sub2d=64 subhud=0 sub3d=0
+...
+PARTS f=6367 tod=13.86 hr=13 starc=0 sunc=1 a3d=0 a2d0=0 a2d1=1375524 vproc3d=82 sub2d=22543 subhud=0 sub3d=192
+PARTS f=6368 tod=13.91 hr=13 starc=0 sunc=1 a3d=0 a2d0=0 a2d1=1375524 vproc3d=82 sub2d=22543 subhud=0 sub3d=192
+PARTS f=6369 tod=13.96 hr=13 starc=0 sunc=1 a3d=0 a2d0=0 a2d1=1375524 vproc3d=82 sub2d=22543 subhud=0 sub3d=192
+PARTS f=6370 tod=14.01 hr=14 starc=0 sunc=1 a3d=0 a2d0=0 a2d1=1375524 vproc3d=74 sub2d=22543 subhud=0 sub3d=192
+PARTS f=6371 tod=14.06 hr=14 starc=0 sunc=1 a3d=0 a2d0=0 a2d1=1375524 vproc3d=74 sub2d=22543 subhud=0 sub3d=192
+PARTS f=6372 tod=14.11 hr=14 starc=0 sunc=1 a3d=0 a2d0=0 a2d1=1375524 vproc3d=82 sub2d=22543 subhud=0 sub3d=192
+
+## crash signatures
