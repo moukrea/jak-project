@@ -1095,6 +1095,15 @@ phases:
   validator: validators/phase-Gconsolidate.sh
   max_turns: 1500
   max_retries: 4
+- id: Gfix-cinematic-crash
+  name: 'RE-DO (owner ground truth overrides prior false-green): the new-game intro cinematic CRASHES on the owner exact path
+    (menu -> NEW GAME -> select save -> overwrite -> yes -> cinematic). Prior gate dodged it via a shortcut. Reproduce the EXACT
+    path, calibrate (BEFORE must reproduce the crash), fix the real cause (likely the deferred non-deterministic merc/DMA stomp),
+    verify the cinematic completes crash-free >=3x. No proxy greens.'
+  prompt: prompts/phase-Gfix-cinematic-crash.md
+  validator: validators/phase-Gfix-cinematic-crash.sh
+  max_turns: 1500
+  max_retries: 4
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
