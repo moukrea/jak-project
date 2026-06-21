@@ -56,10 +56,15 @@ echo "  running f1_run.sh (build → install → 120s gameplay capture)..."
 [ -f "$BOOT_LOG" ] || fail "$BOOT_LOG missing"
 ok "f1_run.sh completed"
 
-# Geyser Rock loaded
-grep -qE "load 'geyser-rock|engine: state=in-game|geyser-rock.*loaded" "$BOOT_LOG" \
-    || fail "Geyser Rock never loaded — title-to-gameplay transition broken"
-ok "Geyser Rock loaded on device"
+# Geyser Rock ("training") loaded. The engine emits the level nick 'training' —
+# it never emits the string "geyser-rock", so the original grep could only pass
+# via the probe-emitted "engine: state=in-game" (which the old probe falsely
+# printed during the boot ND-logo intro). Gate on the UNFAKEABLE kernel
+# level-load markers instead: these are printed by the GOAL loader only when the
+# Geyser Rock level (tra.DGO / training-vis) is genuinely linked and added.
+grep -qaE "Adding level training|link finish: training-vis" "$BOOT_LOG" \
+    || fail "Geyser Rock (training) never loaded — title-to-gameplay transition broken"
+ok "Geyser Rock (training level) loaded on device"
 
 # Game-state probe at frame 600
 [ -f "$STATE_DUMP" ] || fail "$STATE_DUMP missing — game-state dump at frame 600 must be produced"

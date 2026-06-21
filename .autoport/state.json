@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 117,
+  "current_phase_idx": 118,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -112,7 +112,8 @@
     "Gd2-particles-sun": 1,
     "Gconsolidate": 1,
     "Gfix-cinematic-crash": 1,
-    "Gffi-xmm-validate": 1
+    "Gffi-xmm-validate": 1,
+    "Gsun-halo": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -338,7 +339,8 @@
     "Gd2-particles-sun",
     "Gconsolidate",
     "Gfix-cinematic-crash",
-    "Gffi-xmm-validate"
+    "Gffi-xmm-validate",
+    "Gsun-halo"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -427,15 +429,16 @@
     "Gcine-cut": 1781936187.289037,
     "Grender-audit": 1781956108.6082983,
     "Gd1-cutscene-clock": 1781961047.086368,
-    "F1-gameplay-geyser-rock": 1782039035.4712565,
+    "F1-gameplay-geyser-rock": 1782067634.2439687,
     "Gd3-jak-cinematic": 1782013288.1353426,
     "Gd2-particles-sun": 1782023990.8373778,
     "Gconsolidate": 1782029441.4779482,
     "Gfix-cinematic-crash": 1782035229.8739321,
     "Gfix-title-rays": 1782048008.2363129,
-    "Gffi-xmm-validate": 1782063952.7544422
+    "Gffi-xmm-validate": 1782063952.7544422,
+    "Gsun-halo": 1782069201.950173
   },
-  "last_update": "2026-06-21T18:47:06.500945+00:00",
+  "last_update": "2026-06-21T21:27:19.893714+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

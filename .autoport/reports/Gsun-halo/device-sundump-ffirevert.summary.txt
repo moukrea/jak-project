@@ -1,0 +1,31 @@
+# Gsun-halo DEVICE sundump [ffirevert] 2026-06-21T22:53:39+02:00
+reached_frame=5280 crash_sigs=0 focus_end=  mCurrentFocus=Window{eb14bf3 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} sundump_total=2551 disc(middot)=0 corona(starflash2)=2551
+
+## DISC (middot) — distinct sx/sy/alpha (sort|uniq -c)
+disc alpha range:
+
+## CORONA (starflash2) — distinct sx/sy (sort|uniq -c, top)
+   2551 sx=24576.0 sy=24576.0
+corona alpha range:
+a=0.0000
+a=0.1882
+corona alpha distinct (top):
+   1276 a=0.0000
+   1275 a=0.1882
+
+## first 6 SUNDUMP lines
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.1882 r=0.251 g=0.267 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.0000 r=0.251 g=0.267 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.1882 r=0.251 g=0.459 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.1882 r=0.251 g=0.031 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.0000 r=0.251 g=0.412 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.0000 r=0.251 g=0.259 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+## last 6 SUNDUMP lines
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.0000 r=0.251 g=0.310 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.0000 r=0.251 g=0.082 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.1882 r=0.251 g=0.396 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.1882 r=0.251 g=0.310 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.0000 r=0.251 g=0.192 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+SUNDUMP tex=effects/starflash2 sx=24576.0 sy=24576.0 rot=-0.1 a=0.0000 r=0.251 g=0.310 b=0.000 px=-553754.5 py=199062.4 pz=879162.4
+
+## crash signatures

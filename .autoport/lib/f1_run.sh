@@ -109,7 +109,11 @@ grep -q 'Error' /tmp/f1-am.out && { cat /tmp/f1-am.out; echo "FAIL: am start"; e
 # Warm up to the interactive title (poll for the title link milestone).
 echo "  warming up to title (link finish: logo, up to 90s)..."
 for i in $(seq 1 90); do grep -qa "link finish: logo" "$BOOT_LOG" && { echo "  title linked ~${i}s"; break; }; sleep 1; done
-sleep 8   # let the attract settle so the first START is seen by the title state machine
+sleep 40  # let the attract FULLY settle before the first START. 8s was too short:
+          # an unsettled title can eat the first injection and leave the game in
+          # the logo-intro attract loop. The proven G-phase reach scripts
+          # (gd3_device_census.sh / gcine_cut_reach.sh / gfix_cine_run.sh) all
+          # wait ~40s after `link finish: logo` before the first inject.
 
 # Canonical NEW-GAME -> "continue without saving" injection (the proven Gd2/Gd3
 # sequence that reaches master-mode=game / Geyser Rock crash-free on this build).
@@ -126,38 +130,59 @@ inject "down"; sleep 0.4; clear_inject; sleep 1
 inject "down"; sleep 0.4; clear_inject; sleep 1
 inject "x";    sleep 0.6; clear_inject; sleep 4
 
-# Watch for the cinematic to finish and Jak to settle (idle) in training.
-# The probe streams F1-STATE while eichar is drawn (cinematic positions vary;
-# the training idle holds a long STABLE run — that run is the settled spawn,
-# mirroring the desktop oracle's 42 identical samples). Stop early once a stable
-# settled run is detected; otherwise cap the window.
-echo "  watching for settled Geyser Rock spawn (cinematic ~2-3min, up to 14min)..."
-STABLE_NEEDED=18
-ITERS=$(( 14 * 60 / 5 ))
-SETTLED=0
-for ((i=1;i<=ITERS;i++)); do
+# Two-phase settle. The probe now streams F1-STATE ONLY for the gameplay player
+# model (eichar-lod*), so the boot ND-logo / title-attract / cinematic puppets
+# (eichar-ndi-intro, eichar-*-intro-sequence) no longer pollute the capture.
+#  (1) Wait for the REAL training-level load — the new-game intro cinematic plays
+#      out first (~2-3 min). This is the unfakeable kernel marker the validator
+#      also checks; gating on it removes the old early-stop bug where the run
+#      latched onto the frozen title-attract samples and quit in ~44s.
+#  (2) Once training is loaded, idle with NO input so Jak settles to the spawn
+#      rest, letting the probe accumulate a long STABLE run that mirrors the
+#      desktop oracle's 42 identical idle samples (the path-independent
+#      equilibrium of standing at the training-start continue point).
+crash_seen() {
+    grep -qaE 'Fatal signal|signal (11|6|4) \(SIG|GK-DIAG sig=(4|6|11)' "$BOOT_LOG" \
+        && grep -qaE '>>> org.opengoal.gk.jak1' "$BOOT_LOG"
+}
+
+echo "  phase 1: wait for training (Geyser Rock) load — cinematic ~2-3min (up to 8min)..."
+TRAIN_OK=0
+T1=$(( 8 * 60 / 5 ))
+for ((i=1;i<=T1;i++)); do
     sleep 5
-    # crash guard
-    if grep -qaE 'Fatal signal|signal (11|6|4) \(SIG|GK-DIAG sig=(4|6|11)' "$BOOT_LOG"; then
-        # Only count as a crash if the app is our package (avoid signal-9 of bg pids).
-        if grep -qaE '>>> org.opengoal.gk.jak1' "$BOOT_LOG"; then
-            echo "  >>> native crash detected in $PACKAGE"; break
-        fi
+    if grep -qaE "Adding level training|link finish: training-vis" "$BOOT_LOG"; then
+        echo "   >>> training level loaded (~$((i*5))s after new-game inject)"; TRAIN_OK=1; break
     fi
-    NSAMP=$(grep -ac 'F1-STATE ' "$BOOT_LOG" 2>/dev/null || echo 0)
-    INGAME=$(grep -ac 'engine: state=in-game' "$BOOT_LOG" 2>/dev/null || echo 0)
-    # longest stable run among the LAST 120 samples (rounded to 1 unit)
-    STABLE=$(grep -aE 'F1-STATE tx=' "$BOOT_LOG" 2>/dev/null | tail -120 | awk '
-        { if (match($0, /tx=([-0-9.]+) ty=([-0-9.]+) tz=([-0-9.]+)/, m)) {
-            k=sprintf("%d|%d|%d", m[1], m[2], m[3]);
-            if (k==prev) run++; else run=1; prev=k;
-            if (run>best) best=run } }
-        END { print best+0 }')
-    if (( i % 6 == 0 )); then echo "   [${i}/${ITERS}] F1-STATE=$NSAMP ingame=$INGAME stable_run=$STABLE"; fi
-    if [ "${INGAME:-0}" -ge 1 ] && [ "${STABLE:-0}" -ge "$STABLE_NEEDED" ]; then
-        echo "   >>> settled in training: stable_run=$STABLE (>= $STABLE_NEEDED)"; SETTLED=1; break
-    fi
+    if crash_seen; then echo "   >>> native crash before training load"; break; fi
+    if (( i % 6 == 0 )); then echo "   [load ${i}/${T1}] waiting for training-vis..."; fi
 done
+
+SETTLED=0
+if [ "$TRAIN_OK" = 1 ]; then
+    echo "  phase 2: idle ~150s for Jak to settle at the spawn rest (no input)..."
+    clear_inject
+    STABLE_NEEDED=60          # ~3s of identical (rounded) samples at device frame rate
+    T2=$(( 150 / 5 ))
+    for ((i=1;i<=T2;i++)); do
+        sleep 5
+        if crash_seen; then echo "   >>> native crash during settle"; break; fi
+        NSAMP=$(grep -ac 'F1-STATE ' "$BOOT_LOG" 2>/dev/null || echo 0)
+        # longest stable run among ALL (gameplay-only) F1-STATE samples (rounded to 1 unit)
+        STABLE=$(grep -aE 'F1-STATE tx=' "$BOOT_LOG" 2>/dev/null | awk '
+            { if (match($0, /tx=([-0-9.]+) ty=([-0-9.]+) tz=([-0-9.]+)/, m)) {
+                k=sprintf("%d|%d|%d", m[1], m[2], m[3]);
+                if (k==prev) run++; else run=1; prev=k;
+                if (run>best) best=run } }
+            END { print best+0 }')
+        if (( i % 3 == 0 )); then echo "   [settle ${i}/${T2}] F1-STATE=$NSAMP stable_run=$STABLE"; fi
+        if [ "${STABLE:-0}" -ge "$STABLE_NEEDED" ]; then
+            echo "   >>> settled at spawn: stable_run=$STABLE (>= $STABLE_NEEDED)"; SETTLED=1
+            sleep 10   # deepen the stable run a little, then capture
+            break
+        fi
+    done
+fi
 
 echo "== F1 step 5/5: capture screencap + parse settled state =="
 # Screencap (best effort) with foreground sanity check.

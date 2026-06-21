@@ -1,0 +1,26 @@
+=== x86 gk SUNDUMP summary (title attract, OPENGOAL_SUN_DUMP=1) ===
+log: /home/emeric/code/jak-project/.autoport/reports/Gsun-halo/x86-gk.log
+generated: 2026-06-21T19:32:23Z
+
+TOTAL SUNDUMP lines : 2404
+  DISC  (middot)    : 0
+  CORONA(starflash2): 2404
+
+NOTE: Zero middot/DISC sprites were observed in this attract window.
+      All sun sprites dumped were effects/starflash2 (the CORONA, parts 1951/1952).
+
+--- CORONA (effects/starflash2) field stats ---
+  sx   n=2404  min=24576  max=24576  most-common=24576.0 (x2404)
+  sy   n=2404  min=24576  max=24576  most-common=24576.0 (x2404)
+  a    n=2404  min=0  max=0.1882  most-common=0.0000 (x1203)
+  rot  n=2404  min=-0.1  max=-0.1  most-common=-0.1 (x2404)
+  r    n=2404  min=0.251  max=0.251  most-common=0.251 (x2404)
+  g    n=2404  min=0.031  max=0.529  most-common=0.494 (x36)
+  b    n=2404  min=0  max=0  most-common=0.000 (x2404)
+
+--- CORONA: top alpha (a) values by frequency ---
+   1203 a=0.0000
+   1201 a=0.1882
+
+--- DISC (middot) field stats ---
+  (no middot/DISC lines captured)
