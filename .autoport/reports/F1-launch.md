@@ -1,15 +1,15 @@
 # Phase F1 — Geyser Rock gameplay launch report
 
-_Generated: 2026-05-22T06:16:20+02:00_
+_Generated: 2026-06-21T05:40:36+02:00_
 
 ## Determination
 
-**blocked** — dispatcher in passive sleep loop; goalc-arm64 off-register bug — see F1-blocker-analysis.md
+**fail** — reached title link but never gameplay state (dispatcher status unclear from log)
 
 ## Artefacts
 
-- boot log:    `.autoport/reports/F1-boot.log` (3862 lines)
-- screencap:   `.autoport/reports/F1-screencap-frame-600.png` (66542 bytes)
+- boot log:    `.autoport/reports/F1-boot.log` (8964 lines)
+- screencap:   `.autoport/reports/F1-screencap-frame-600.png` (2488423 bytes)
 - state dump:  NOT PRODUCED — JNI hook depends on dispatcher (see F1-blocker-analysis.md)
 
 ## Marker scoreboard
@@ -23,12 +23,12 @@ Counts from `.autoport/reports/F1-boot.log`:
   link finish: gcommon                          1
   link finish: gkernel                          2
   link finish: gstate                           1
-  link finish: logo                             4
+  link finish: logo                             16
   android_renderer_run: entered                 1
-  android_renderer: sustained swap              46
-  KernelCheckAndDispatch: skip-flag armed       1
+  android_renderer: sustained swap              34
+  KernelCheckAndDispatch: skip-flag armed       0
   KernelCheckAndDispatch: jak1 dispatcher returned 0
-  Displaying level                              0
+  Displaying level                              3
   load 'geyser-rock                             0
   engine: state=in-game                         0
   jak1::InitMachine ABORT                       0
@@ -37,15 +37,3 @@ Counts from `.autoport/reports/F1-boot.log`:
 
 ## Notes
 
-The runtime skip-flag dodge introduced in D4 and retained at A5 is
-still armed. The dispatcher reaches `KernelCheckAndDispatch` then
-sleeps without forwarding to `jak1::KernelCheckAndDispatch`. This is
-the documented consequence of the off-register goalc-arm64 emitter
-bug — see `.autoport/reports/F1-blocker-analysis.md` and
-`.autoport/reports/A5-shim-audit.md`.
-
-Path forward: an A6-emitter-off-register phase that fixes
-`load_goal_gpr` / `store_goal_gpr` / `load_goal_xmm32` /
-`load_goal_xmm128` / `store_goal_xmm32` / `store_goal_vf` in
-`goalc/emitter/IGenARM64.cpp` to emit `ADD X16, Xbase, X15; LDR/STR
-Wt, [X16, #imm12]` instead of dropping the off register.
