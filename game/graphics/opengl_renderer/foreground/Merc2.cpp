@@ -6,6 +6,36 @@
 #include "common/util/FileUtil.h"
 #endif
 
+// Gd3-jak: property-armed (env OG_GD3_CENSUS / prop debug.opengoal.gd3.census, OFF
+// by default) observability for the always-on NaN merc-bone repair in handle_pc_model.
+// When armed, logs GD3-MERC lines (Jak's effect enable-mask / visible tris / bones
+// repaired) to stdout (dup2'd to logcat tag GK_STDOUT on Android). The repair itself
+// is unconditional on arm64; this gate only controls the diagnostic print.
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <unordered_map>
+#include <vector>
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+static bool gd3_bones_on() {
+  static const bool s_on = [] {
+    if (std::getenv("OG_GD3_CENSUS")) {
+      return true;
+    }
+#ifdef __ANDROID__
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.gd3.census", buf) > 0 && buf[0] == '1') {
+      return true;
+    }
+#endif
+    return false;
+  }();
+  return s_on;
+}
+
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/util/fnv.h"
 #include "common/util/simd_util.h"
@@ -611,6 +641,75 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     // get the matrix data
     memcpy(&skel_matrix_buffer[input_data[i]], real_addr, sizeof(MercMat));
   }
+
+  // === Gd3-jak FIX (always-on, arm64): repair non-finite merc bone matrices =====
+  // In the new-game intro cinematic a degenerate root-motion align frame can bake a
+  // NaN into Jak's control.trans (1/0 in matrix-inv-scale!, ENGINE.CGO — which is
+  // not rebuildable on the device, see feedback-game-cgo-rebuild-unsafe), and it
+  // cascades through the whole skeleton. The Adreno GLES driver then FAULTS (sig=11,
+  // GL-thread crash inside libGLESv2_adreno during the merc draw) on the NaN bone
+  // data, and Jak flickers invisible on that frame. We cannot fix the CGO root, so
+  // repair at the merc boundary: if any of this model's used bone matrices is
+  // non-finite, restore the model's last fully-finite bone set (or identity on the
+  // first frame). x86 never produces NaN here so this is compiled out on desktop.
+  const bool gd3_is_jak = gd3_bones_on() && std::strstr(name, "eichar") != nullptr;
+  int gd3_bones_repaired = 0;
+#ifdef __aarch64__
+  {
+    static std::unordered_map<std::string, std::vector<ShaderMercMat>> s_last_good;
+    static const ShaderMercMat kIdent = []() {
+      ShaderMercMat m;
+      float* p = reinterpret_cast<float*>(&m);
+      for (int z = 0; z < 32; z++) {
+        p[z] = 0.f;
+      }
+      p[0] = p[5] = p[10] = p[15] = 1.f;  // tmat = identity
+      p[16] = p[21] = p[26] = 1.f;        // nmat = identity
+      return m;
+    }();
+    bool any_bad = false;
+    for (int j = 0; j < i && !any_bad; j++) {
+      int slot = input_data[j];
+      if (slot >= MAX_SKEL_BONES) {
+        continue;
+      }
+      const float* f = reinterpret_cast<const float*>(&skel_matrix_buffer[slot]);
+      for (int k = 0; k < 7 * 4; k++) {  // tmat[4] + nmat[3], skip pad
+        if (!std::isfinite(f[k])) {
+          any_bad = true;
+          break;
+        }
+      }
+    }
+    if (!any_bad) {
+      // snapshot this fully-finite frame as the model's last-good bones
+      auto& snap = s_last_good[model->name];
+      snap.assign(skel_matrix_buffer, skel_matrix_buffer + MAX_SKEL_BONES);
+    } else {
+      auto it = s_last_good.find(model->name);
+      for (int j = 0; j < i; j++) {
+        int slot = input_data[j];
+        if (slot >= MAX_SKEL_BONES) {
+          continue;
+        }
+        const float* f = reinterpret_cast<const float*>(&skel_matrix_buffer[slot]);
+        bool bad = false;
+        for (int k = 0; k < 7 * 4; k++) {
+          if (!std::isfinite(f[k])) {
+            bad = true;
+            break;
+          }
+        }
+        if (bad) {
+          skel_matrix_buffer[slot] = (it != s_last_good.end() && slot < (int)it->second.size())
+                                         ? it->second[slot]
+                                         : kIdent;
+          gd3_bones_repaired++;
+        }
+      }
+    }
+  }
+#endif
   input_data += 128 + 16 * i;
 
   // Next part is some flags
@@ -723,6 +822,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   args.no_texture = render_state->version == GameVersion::Jak3 && model_no_texture;
 
   // loop over effects, creating draws for each
+  int gd3_vis_tris = 0;  // Gd3-jak: tris surviving the enable/debug filter (Jak's visible count)
   for (size_t ei = 0; ei < model->effects.size(); ei++) {
     args.fade = fade_buffer + 4 * ei;
 
@@ -739,6 +839,11 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     bool ignore_alpha = !!(current_ignore_alpha_bits & (1ull << ei));
     args.ignore_alpha = ignore_alpha;
     auto& effect = model->effects[ei];
+    if (gd3_is_jak) {
+      for (const auto& d : effect.all_draws) {
+        gd3_vis_tris += d.num_triangles;
+      }
+    }
 
     bool should_envmap = effect.has_envmap && !model_disables_envmap;
     bool should_mod = (model_uses_pc_blerc || model_uses_mod) && effect.has_mod_draw;
@@ -776,6 +881,25 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         }
         alloc_normal_draw(draw, args);
       }
+    }
+  }
+
+  // Gd3-jak observability (property-armed via debug.opengoal.gd3.census / OG_GD3_CENSUS,
+  // OFF by default — mirrors the gpose tripwire precedent). Confirms Jak (eichar) draws
+  // with effects enabled and finite bones after the repair above. repaired_total>0 proves
+  // the NaN-bone class was hit and fixed (the sig=11 Adreno fault + pose-blink cause).
+  if (gd3_is_jak) {
+    static int s_jak_tick = 0;
+    static long long s_repaired_total = 0;
+    s_repaired_total += gd3_bones_repaired;
+    if (gd3_bones_repaired > 0 || (s_jak_tick++ % 16) == 0) {
+      fmt::print(
+          "GD3-MERC model={} neff={} enable=0x{:x} ialpha=0x{:x} visible={} repaired_now={} "
+          "repaired_total={}\n",
+          name, num_effects, (unsigned long long)current_effect_enable_bits,
+          (unsigned long long)current_ignore_alpha_bits, gd3_vis_tris, gd3_bones_repaired,
+          s_repaired_total);
+      fflush(stdout);
     }
   }
 }

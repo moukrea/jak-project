@@ -1069,6 +1069,15 @@ phases:
   validator: validators/phase-Gd1-cutscene-clock.sh
   max_turns: 1500
   max_retries: 3
+- id: Gd3-jak-cinematic
+  name: 'Render-audit fix: make Jak VISIBLE in the new-game cinematic (owner: "Jak is literally invisible in the cinematic"). The
+    merc pipeline is proven byte-correct on arm64 (audit D3), so this is a cinematic-specific Jak SPAWN / scene-player / art-joint
+    issue, not a render gap. Diagnose deterministically (census Jak''s merc draw / spawn state device vs x86), fix the real cause.
+    Verify: device Jak merc bucket draws >0 tris in the cinematic, x86 unchanged, crash-free. NO screenshots.'
+  prompt: prompts/phase-Gd3-jak-cinematic.md
+  validator: validators/phase-Gd3-jak-cinematic.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
