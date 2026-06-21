@@ -61,6 +61,12 @@ echo "[gd3] --- max jakdax tris seen per bucket ---"
 grep -aoE "GD3-CENSUS bucket=[a-z0-9-]+ tris=[0-9]+ jakdax=[0-9]+" "$GKLOG" 2>/dev/null | awk '{b=$2; sub("bucket=","",b); j=$4; sub("jakdax=","",j); if(j+0>m[b]) m[b]=j+0} END{for(k in m) print k, "maxjakdax="m[k]}' | sort || true
 grep -aE "GD3-CENSUS" "$GKLOG" 2>/dev/null > "${OUTLOG%.txt}.census.log" || true
 echo "[gd3] census lines -> ${OUTLOG%.txt}.census.log ($(grep -ac GD3-CENSUS "$GKLOG" 2>/dev/null || echo 0) lines)"
+echo "[gd3] === GD3-MERC (eichar visibility: enable_mask / VISIBLE tris / bones repaired) ==="
+echo "[gd3] GD3-MERC lines: $(grep -ac 'GD3-MERC' "$GKLOG" 2>/dev/null || echo 0)"
+echo "[gd3] max VISIBLE tris: $(grep -aoE 'visible=[0-9]+' "$GKLOG" 2>/dev/null | grep -oE '[0-9]+$' | sort -n | tail -1)"
+echo "[gd3] max repaired_total (should be 0 on x86): $(grep -aoE 'repaired_total=[0-9]+' "$GKLOG" 2>/dev/null | grep -oE '[0-9]+$' | sort -n | tail -1)"
+grep -aE 'GD3-MERC' "$GKLOG" 2>/dev/null | sed -E 's/.*(GD3-MERC model=[a-z0-9-]+ neff=[0-9]+ enable=0x[0-9a-f]+ ialpha=0x[0-9a-f]+ visible=[0-9]+ repaired_now=[0-9]+).*/\1/' | sort | uniq -c | sort -rn | head -10 || true
+grep -aE 'GD3-MERC' "$GKLOG" 2>/dev/null > "${OUTLOG%.txt}.jakdraw.log" || true
 echo "[gd3] level markers:"; grep -aE "link finish: (intro|misty|village1|training)|GAMEPLAY: enter" "$GKLOG" 2>/dev/null | tail -12 || true
 cp -f "$GKLOG" "${OUTLOG%.txt}.gk.log" 2>/dev/null || true
 cp -f "$GCLOG" "${OUTLOG%.txt}.goalc.log" 2>/dev/null || true

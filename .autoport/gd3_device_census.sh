@@ -25,7 +25,7 @@ MAX_MIN="${MAX_MIN:-15}"
 OUT=".autoport/reports/Gd3-jak"
 LOG="$OUT/device-census-$TAG.log"
 SUM="$OUT/device-census-$TAG.summary.txt"
-GREP='GD3-CENSUS|GD3-BONES|could not find a master slot|art error for|dummy-19 bad|process-drawable-art-error|A35-RENDER frame=|link finish:|GK-DIAG |A36-SYMBOLIZE|DBLEE-REPAIR|Fatal signal|signal [0-9]+ \(SIG|backtrace:|#[0-9][0-9] pc '
+GREP='GD3-MERC|GD3-CENSUS|GD3JAKDRAW|GD3-TARGET-TRANS-REPAIR|RFTD-STOMP-REPAIR|RFTD-SIGILL-REPAIR|could not find a master slot|art error for|dummy-19 bad|process-drawable-art-error|A35-RENDER frame=|link finish:|GK-DIAG |A36-SYMBOLIZE|DBLEE-REPAIR|Fatal signal|signal [0-9]+ \(SIG|backtrace:|#[0-9][0-9] pc '
 mkdir -p "$OUT"
 
 device_locked() { "$ADB" shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1'; }
@@ -122,15 +122,25 @@ echo
 echo "## merc bucket census (GD3-CENSUS) — distinct lines, top by count"
 grep -aE 'GD3-CENSUS' "$LOG" 2>/dev/null | sed -E 's/.*(GD3-CENSUS)/\1/' | sort | uniq -c | sort -rn | head -20
 echo
-echo "## JAK (eichar) merc draws in cinematic"
-echo "eichar census lines: $(grep -ac 'GD3-CENSUS.*eichar' "$LOG" 2>/dev/null || echo 0)"
-echo "max eichar tris seen:"
-grep -aoE 'eichar-lod0:[0-9]+' "$LOG" 2>/dev/null | grep -oE '[0-9]+$' | sort -n | tail -1
+echo "## GD3-MERC (eichar visibility: enable_mask / VISIBLE tris / bones repaired by the NaN fix)"
+echo "GD3-MERC lines: $(grep -ac 'GD3-MERC' "$LOG" 2>/dev/null || echo 0)"
+echo "max VISIBLE tris seen: $(grep -aoE 'visible=[0-9]+' "$LOG" 2>/dev/null | grep -oE '[0-9]+$' | sort -n | tail -1)"
+echo "max repaired_total (NaN bone frames the fix caught): $(grep -aoE 'repaired_total=[0-9]+' "$LOG" 2>/dev/null | grep -oE '[0-9]+$' | sort -n | tail -1)"
+echo "distinct GD3-MERC (enable / visible / repaired_now signature):"
+grep -aE 'GD3-MERC' "$LOG" 2>/dev/null | sed -E 's/.*(GD3-MERC model=[a-z0-9-]+ neff=[0-9]+ enable=0x[0-9a-f]+ ialpha=0x[0-9a-f]+ visible=[0-9]+ repaired_now=[0-9]+).*/\1/' | sort | uniq -c | sort -rn | head -10
 echo "## sidekick (Daxter) merc draws"
 echo "sidekick census lines: $(grep -acE 'GD3-CENSUS.*sidekick' "$LOG" 2>/dev/null || echo 0)"
 echo
 echo "## common-pris-merc + l0-pris-merc samples (where Jak/Daxter draw)"
 grep -aE 'GD3-CENSUS bucket=(common-pris-merc|l0-pris-merc)' "$LOG" 2>/dev/null | sort | uniq -c | sort -rn | head -15
+echo
+echo "## RFTD trampoline repair-and-resume (deeper 0x18aee4 stomp mitigation)"
+echo "RFTD-STOMP-REPAIR events: $(grep -ac 'RFTD-STOMP-REPAIR\|RFTD-SIGILL-REPAIR' "$LOG" 2>/dev/null || echo 0)"
+grep -aE 'RFTD-STOMP-REPAIR|RFTD-SIGILL-REPAIR' "$LOG" 2>/dev/null | sed -E 's/^[0-9:. -]+[0-9]+ [0-9]+ [A-Z] opengoal-gk: //' | head -5
+echo
+echo "## GD3-TARGET-TRANS-REPAIR (Jak NaN world-transform fix at the gameplay transition)"
+echo "GD3-TARGET-TRANS-REPAIR events: $(grep -ac 'GD3-TARGET-TRANS-REPAIR' "$LOG" 2>/dev/null || echo 0)"
+grep -aE 'GD3-TARGET-TRANS-REPAIR' "$LOG" 2>/dev/null | sed -E 's/^[0-9:. -]+[0-9]+ [0-9]+ [A-Z] opengoal-gk: //' | head -5
 echo
 echo "## SPOOL / ART-ERROR signals (the suspected arm64 root)"
 grep -aiE 'could not find a master slot|art error for|dummy-19 bad|process-drawable-art-error' "$LOG" 2>/dev/null | sed -E 's/^[0-9:. -]+//' | sort | uniq -c | sort -rn | head -30

@@ -1,0 +1,58 @@
+# Gd3-jak-cinematic — Jak-in-cinematic merc census (device eae4df44 vs x86)
+# Deterministic, x86-first. Metric = Jak's (merc model "eichar") effect enable-mask,
+# VISIBLE triangles (post enable/debug filter), bone validity, and *target* world
+# transform — dumped numerically from inside Merc2::handle_pc_model + the GOAL-thread
+# per-frame hook. No screenshots.
+
+RESULT: JAK VISIBLE IN CINEMATIC
+
+================================================================================
+X86 REFERENCE (gold — Jak IS visible; build-x86/game/gk, OG_GD3_CENSUS=1)
+================================================================================
+GD3-MERC model=eichar-lod0 neff=4 enable=0xf ialpha=0xe visible=3593   (683 frames, uniform)
+  - enable=0xf  -> all 4 effects on
+  - nan bones   = 0 every frame
+  - visible     = 3593 tris every frame
+  - *target* spawned, state target-clone-anim, root.trans finite
+=> On x86 Jak draws fully every cinematic frame. This is the target the device must match.
+
+================================================================================
+BEFORE (device eae4df44, NO fix — run device-census-before3.log)
+================================================================================
+reached_frame=10680  crash_sigs=1   verdict=crashed-in-cinematic
+- Jak's merc geometry IS submitted (common-pris-merc eichar-lod0 = 4245 tris) — so Jak
+  is spawned and NOT a missing-bucket / scene-player gap.
+- BUT a transient frame has the WHOLE skeleton NaN:
+    GD3JAKDRAW model=eichar-lod0 enable=0xf nan=1264 fin=0 visible=3593 root=(nan nan nan)
+  -> Jak's bone matrices are NaN that frame => he flickers INVISIBLE.
+- 41 ms after that NaN frame the Adreno GLES driver SIG-11s inside Jak's merc draw:
+    GK-DIAG sig=11 fault=0x7efffffffc pc=0x7f02df0fc0   (crash handler: F1A-MERC-DRAW di=21/22 first_bone=64)
+  -> NaN bone data fed to the GPU driver crashes the cinematic.
+- Underlying root: Jak's *target* world transform is NaN from ~frame 945:
+    GK-DIAG F1D target-pos f=10170 *target* 0x1c5784 =(nan nan nan)   (latent the whole cinematic)
+SUMMARY (before): Jak SUBMITTED but NaN-boned (invisible flicker) + the cinematic CRASHES.
+
+================================================================================
+AFTER (device eae4df44, WITH fix — run device-census-after3.log)
+================================================================================
+reached_frame=18000  crash_sigs=0   verdict=reached gameplay (master-mode=game)
+- Jak draws fully EVERY frame, matching x86:
+    GD3-MERC model=eichar-lod0 neff=4 enable=0xf ialpha=0xe visible=3593 repaired_total=79
+  -> enable=0xf, visible=3593 (== x86), no invisible frame.
+- NaN merc bones are repaired before the GPU upload (Merc2 fix): repaired_total=79.
+- Jak's NaN *target* world transform is repaired on the GOAL thread:
+    GK-DIAG GD3-TARGET-TRANS-REPAIR  x8   (restored *target* root trsqv from last-finite)
+  -> 0 residual "F1D target-pos =(nan" lines after the fix (NaN cleared; F1D now reads
+     finite, e.g. =(-635598.9 222551.7 710496.2) master-mode=game).
+- The return-from-thread-dead trampoline re-stomp is repaired+resumed (not fatal):
+    GK-DIAG RFTD-STOMP-REPAIR x8 pc=goal:0x18aee4 (repaired+resumed)
+- 0 Fatal signals; validator crash grep over the log = 0; renders to frame 18000.
+SUMMARY (after): Jak VISIBLE every frame (merc enable=0xf, 3593 tris == x86), cinematic
+crash-free, reaches gameplay.
+
+================================================================================
+VERDICT
+================================================================================
+Device Jak merc draws > 0 visible tris (3593, matching x86) on every cinematic frame,
+the transient NaN-bone invisible flicker is gone, and the cinematic plays crash-free
+into gameplay (frame 18000). RESULT: JAK VISIBLE IN CINEMATIC.
