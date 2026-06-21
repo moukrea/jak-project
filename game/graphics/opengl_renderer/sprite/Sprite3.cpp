@@ -8,16 +8,6 @@
 #include "fmt/format.h"
 #include "third-party/imgui/imgui.h"
 
-#include <cstdio>
-#include <cstring>
-#include "common/goal_constants.h"
-#include "game/kernel/common/kscheme.h"
-#include "game/kernel/jak1/kscheme.h"
-#include "game/runtime.h"
-#ifdef __ANDROID__
-#include <sys/system_properties.h>
-#endif
-
 namespace {
 
 /*!
@@ -496,7 +486,6 @@ void Sprite3::render_jak1(DmaFollower& dma,
                           SharedRenderState* render_state,
                           ScopedProfilerNode& prof) {
   m_debug_stats = {};
-  m_gparts_submit[1] = m_gparts_submit[2] = m_gparts_submit[3] = 0;  // [Gparticles-stars TEMP]
   // First thing should be a NEXT with two nops. this is a jump from buckets to sprite data
   auto data0 = dma.read_and_advance();
   ASSERT(data0.vif1() == 0);
@@ -566,7 +555,6 @@ void Sprite3::render_jak1(DmaFollower& dma,
       // fmt::print(" vif1: {}\n", VifCode(data.vif1()).print());
     }
   }
-  gparts_dump_frame();  // [Gparticles-stars TEMP]
 }
 
 void Sprite3::draw_debug_window() {
@@ -793,61 +781,6 @@ void Sprite3::handle_alpha(u64 val,
   update_mode_from_alpha1(val, m_current_mode);
 }
 
-// [Gparticles-stars TEMP — remove at phase close] Per-frame dump of ACTUAL
-// particle/star state: alive sparticle counts (GOAL num-alloc), the night
-// star-count + sun-count + hour/time-of-day, and the per-mode submitted-visible
-// sprite counts. Gated by prop debug.opengoal.gparts.dump=1 (Android) / env
-// OG_PARTS_DUMP=1 (x86). Reads GOAL memory read-only; never mutates state.
-namespace {
-bool gparts_dump_on() {
-#ifdef __ANDROID__
-  char b[8] = {0};
-  return __system_property_get("debug.opengoal.gparts.dump", b) > 0 && b[0] == '1';
-#else
-  const char* e = getenv("OG_PARTS_DUMP");
-  return e && e[0] == '1';
-#endif
-}
-}  // namespace
-void Sprite3::gparts_dump_frame() {
-  if (!gparts_dump_on() || !g_ee_main_mem) {
-    return;
-  }
-  static unsigned long long s_frame = 0;
-  ++s_frame;
-  auto in_b = [](u32 a) -> bool { return a != 0 && a < (u32)(EE_MAIN_MEM_SIZE - 64); };
-  auto rd_sym = [](const char* n) -> u32 {
-    auto s = jak1::intern_from_c(n);
-    return s.offset ? s->value : 0;
-  };
-  auto r32 = [&](u32 base, u32 off) -> u32 {
-    u32 v = 0;
-    if (in_b(base + off)) std::memcpy(&v, g_ee_main_mem + base + off, 4);
-    return v;
-  };
-  u32 sp3 = rd_sym("*sp-particle-system-3d*");
-  u32 sp2 = rd_sym("*sp-particle-system-2d*");
-  u32 tdp = rd_sym("*time-of-day-proc*");
-  int a3d = in_b(sp3) ? (int)r32(sp3, 20) : -1;
-  int a2d0 = in_b(sp2) ? (int)r32(sp2, 20) : -1;
-  int a2d1 = in_b(sp2) ? (int)r32(sp2, 24) : -1;
-  int hr = -1, starc = -1, sunc = -1;
-  float tod = -1.f;
-  u32 proc = in_b(tdp) ? r32(tdp, 0) : 0;  // (pointer time-of-day-proc): elt0 = proc addr
-  if (in_b(proc)) {
-    hr = (int)r32(proc, 124);
-    u32 todbits = r32(proc, 140);
-    std::memcpy(&tod, &todbits, 4);
-    starc = (int)r32(proc, 148);
-    sunc = (int)r32(proc, 156);
-  }
-  fprintf(stderr,
-          "PARTS f=%llu tod=%.2f hr=%d starc=%d sunc=%d a3d=%d a2d0=%d a2d1=%d "
-          "sub2d=%u subhud=%u sub3d=%u\n",
-          s_frame, tod, hr, starc, sunc, a3d, a2d0, a2d1,
-          m_gparts_submit[1], m_gparts_submit[2], m_gparts_submit[3]);
-  fflush(stderr);
-}
 void Sprite3::do_block_common(SpriteMode mode,
                               u32 count,
                               SharedRenderState* render_state,
@@ -973,7 +906,6 @@ void Sprite3::do_block_common(SpriteMode mode,
       }
     }
 
-    m_gparts_submit[(int)mode]++;  // [Gparticles-stars TEMP]
     ++m_sprite_idx;
   }
 }

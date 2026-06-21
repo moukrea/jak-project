@@ -209,10 +209,5 @@ class Sprite3 : public BucketRenderer {
 
   u64 m_sprite_idx = 0;
 
-  // [Gparticles-stars TEMP — remove at phase close] per-mode submitted-visible
-  // sprite counters, indexed by SpriteMode (Mode2D=1, ModeHUD=2, Mode3D=3).
-  u32 m_gparts_submit[4] = {0, 0, 0, 0};
-  void gparts_dump_frame();
-
   std::vector<u32> m_index_buffer_data;
 };

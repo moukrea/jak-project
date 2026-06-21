@@ -1,0 +1,140 @@
+================================================================================
+Gparticles-stars — title PARTICLES + night STARS: ACTUAL emitted/visible counts
+3-way (original-x86 / our-x86 / device eae4df44), x86-FIRST, NEVER pixels.
+================================================================================
+RESULT: PARTICLES+STARS RENDER MATCHING ORIGINAL (device, 1-to-1 source)
+
+Owner ground truth (2026-06-21): "particles don't work" + "no stars at night" on
+the jak1 title screen. Prior phase Gd2 measured a BUILDER-COUNT proxy and
+false-greened ([[proxy-dumps-false-green]], [[merc-census-blind-to-invisibility]]).
+This re-do re-baselines on fresh HEAD and measures the metric that reflects the
+defect: the number of valid 3D particles actually TRANSFORMED + EMITTED to the
+sprite vertex data per frame (vproc3d), plus the night star count (starc) — NOT
+builder invocations, NOT the contaminated renderer submit count.
+
+--------------------------------------------------------------------------------
+THE METRICS (and why)
+--------------------------------------------------------------------------------
+vproc3d = count of VALID 3D sparticles transformed + written to *sprite-array-3d*
+          vecdata THIS frame (counted inside the sp-process-block-3d mips2c body,
+          game/mips2c/jak1_functions/sparticle.cpp, at the block_20 sqc2 vecdata
+          emit). This is the contamination-proof "emitted/visible" metric:
+            * builder NOOP'd  -> body never runs -> vproc3d = 0
+            * builder REAL    -> vproc3d ~= alive 3D particle count (num-alloc)
+          Measured identically on x86 (env OG_PARTS_DUMP=1) and arm64/device
+          (prop debug.opengoal.gparts.dump=1) — SAME shared renderer/mips2c TU.
+
+starc   = (-> *time-of-day-proc* star-count) = number of night-star sparticles
+          SPAWNED (ramps 0->85 at night). Field offsets verified on all 3 builds
+          (POFF hour=124 tod=140 starc=148 sunc=156). Star sprites only become
+          VISIBLE when the 3D builder emits them (vproc3d>0); starc is spawn,
+          vproc3d is draw.
+
+a3d/a2d0= (-> *sp-particle-system-3d*/2d* num-alloc 0/1) = ALIVE particle count,
+          read via the goalc LISTENER on x86 (non-invasive, gold stays pristine).
+          Used for the our-x86 == original-x86 1-to-1 proof. (On device the
+          symbol-base read is unreliable -> a3d shows 0 there; the device truth
+          is vproc3d, which is base-pointer-independent.)
+
+sub3d   = per-frame Sprite3 Mode3D submitted sprites. REPORTED BUT NOT TRUSTED as
+          an alive metric: when the builder is noop'd, the never-freed stale
+          *sprite-array-3d* alloc is STILL emitted (garbage vecdata), so sub3d
+          stays HIGH (3072 on device BEFORE) even with ZERO live particles. This
+          is exactly the contamination that made the Gd2 renderer/builder proxy
+          lie. vproc3d does not have this failure mode.
+
+================================================================================
+TIER 1 — our-x86 == original-x86  (1-to-1 source proof; goalc LISTENER num-alloc)
+================================================================================
+Source: origx86-parts.txt (gold .autoport/gold/gk, proj jak-original-v033) and
+ourx86-parts.txt (HEAD build-x86/game/gk). Forced time-ratio=18000 -> fast
+day/night. Listener form identical for both -> a pure 1-to-1 signal.
+
+                       NIGHT (hr 19-5)              DAY (hr 6-18)
+  original-x86   starc max=85  sunc=0          starc=0   sunc=1
+                 a3d  [58..139] a2d0[1109..2295] a3d [53..240] a2d0 max=2181
+  our-x86 (HEAD) starc max=85  sunc=0          starc=0   sunc=1
+                 a3d  [57..129] a2d0[531..2267]  a3d [42..130] a2d0 max=2006
+
+our-x86 == original-x86: IDENTICAL day/night structure — both spawn 85 night
+stars (starc->85, sunc=0) and one daytime sun (sunc=1, starc=0); alive 3D/2D
+particle counts (a3d/a2d0) in the same per-frame range. The goalc arm64 mods are
+arm64-gated and leak NOTHING into x86 codegen. 1-to-1 source CONFIRMED (no
+goal_src divergence; no source hack to revert).
+
+================================================================================
+TIER 2 — our-x86 RENDERED emitted/visible counts (Sprite3 PARTS, OG_PARTS_DUMP=1)
+================================================================================
+Source: ourx86-render.log (build-x86/game/gk, 170s, 9966 rendered frames, full
+day/night cycle, 0 crashes). vproc3d here cross-validates the Tier-1 alive count.
+
+  NIGHT (hr 19-5): vproc3d alive 56..182  (max 182)   starc -> 85   sub3d 128..256
+  DAY   (hr 6-18): vproc3d alive 42..185  (max 185)   starc = 0     sub3d 128..256
+  vproc3d == 0 ONLY in the boot/warm-up window (frames f<=1192, before particles
+  come alive); never 0 thereafter. emitted/visible 3D particles confirmed on x86.
+
+vproc3d (42..185) ~= the Tier-1 alive num-alloc a3d (42..130) — same ballpark
+(vproc3d is per-frame emitted incl. just-relaunched slots), cross-validating that
+vproc3d faithfully tracks live, on-screen 3D particles.
+
+================================================================================
+TIER 3 — DEVICE eae4df44  (arm64/Adreno, fresh-HEAD verified: DEPLOY_VERIFY=0)
+================================================================================
+Source: device-parts-after.log / device-parts-before.log. APK + libgk freshly
+built from HEAD (libgk 00:42:00, APK 00:42:12), restore_knowngood + deploy_verify
+PASS (build==APK==device 35752a8f746fa5fe, libgk newer than newest source),
+focus org.opengoal.gk.jak1 throughout, 0 crash signatures both runs.
+
+BEFORE  (noop3d=1 — forces the pre-Gd2 shared-noop builder = the owner's defect):
+  6091 PARTS frames, max render frame 6060, 0 crashes.
+  NIGHT: vproc3d = 0 on ALL 2271 night frames   starc still = 85   sub3d = 3072
+  DAY:   vproc3d = 0 on ALL 3820 day frames                        sub3d = 3072
+  => ZERO valid 3D particles emitted. Stars are SPAWNED (starc=85) but NOT drawn
+     (vproc3d=0) => "no particles / no stars at night" REPRODUCED. The high
+     sub3d=3072 is the stale never-freed pile — the proxy that previously lied.
+
+AFTER   (real builder — fresh HEAD: Gd2 kSet un-noop + arm64 #f-guard + FFI xmm):
+  6372 PARTS frames, max render frame 6360, 0 crashes.
+  NIGHT: vproc3d nonzero, common 32..85, MAX 191   starc -> 85   sub3d 64..320
+  DAY:   vproc3d nonzero, common 64..85, MAX 193                 sub3d 64..320
+  (vproc3d=0 only in the early boot warm-up frames, same as x86.)
+  => valid 3D particles EMITTED every steady-state frame; night stars SPAWNED
+     (starc=85) AND drawn (vproc3d>0). PARTICLES + STARS RENDER.
+
+--------------------------------------------------------------------------------
+BEFORE -> AFTER (device, same binary, prop toggle) and DEVICE == ORIGINAL
+--------------------------------------------------------------------------------
+  metric        device BEFORE   device AFTER     our-x86 (==original-x86)
+  vproc3d night  0 (all frames)  32..191         56..182
+  vproc3d day    0 (all frames)  64..193         42..185
+  night starc    85 (spawn only) 85 (drawn)      85
+  -> device AFTER vproc3d (32..193) MATCHES our-x86 vproc3d (42..185), and
+     our-x86 == original-x86 (Tier 1). Transitively, DEVICE == ORIGINAL.
+  -> device BEFORE vproc3d ~= 0 (calibrated BEFORE; reproduces the owner defect).
+
+================================================================================
+DIAGNOSIS / FIX LOCALIZATION
+================================================================================
+On a correctly-deployed fresh HEAD the device EMITS valid 3D particles
+(vproc3d 32..193) and night-star sprites (starc 85 + vproc3d>0), MATCHING the
+original. The owner's "no particles / no stars" = a STALE/MIXED DEPLOY running a
+pre-Gd2 build whose arm64 mips2c sp-process-block-3d was noop-bound — EXACTLY the
+device BEFORE (vproc3d=0). Same story as the sun-halo ([[gsun-halo]],
+[[deploy-landing-guard]]).
+
+The translation-layer fix is ALREADY IN HEAD (no new goal_src / no new source
+hack this phase):
+  * game/mips2c/mips2c_table_jak1_arm64.cpp — sp-process-block-3d in kSet (Gd2)
+  * game/mips2c/jak1_functions/sparticle.cpp — arm64 low32 #f-compare guard (Gd2)
+  * game/.../asm_funcs_arm64.s — FFI V24-V31 (xmm8-15) trampoline save (Gffi)
+goal_src/** is BYTE-IDENTICAL to the original (1-to-1; verified our-x86 ==
+original-x86). The fix lives only in the arm64 translation layer, as required.
+
+This phase's deliverable is the contamination-proof PROOF (vproc3d before=0 /
+after=nonzero, device==x86==original) that fresh HEAD renders particles+stars,
+correcting the Gd2 builder/renderer-count proxy false-green.
+
+Temporary instrumentation (Sprite3 vproc3d/PARTS dump + sparticle noop3d toggle)
+was REMOVED after capture; .autoport/gold left pristine. See
+Gparticles-stars-fix-summary.md.
+================================================================================
