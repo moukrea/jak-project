@@ -1123,6 +1123,15 @@ phases:
   validator: validators/phase-Gsun-halo.sh
   max_turns: 1400
   max_retries: 3
+- id: Gparticles-stars
+  name: 'RE-DO (owner ground truth, prior Gd2 builder-count proxy false-green): particles "not working" + no stars at night on title.
+    Re-baseline on fresh HEAD (FFI fix + Gd2 un-noop may already render them), dump ACTUAL emitted/visible particle + night-star
+    counts x86-first (original vs our-x86 vs device, NEVER pixels, NOT builder invocations); device counts must match original;
+    our-x86 == original; fix in translation layer if a real gap remains.'
+  prompt: prompts/phase-Gparticles-stars.md
+  validator: validators/phase-Gparticles-stars.sh
+  max_turns: 1400
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
