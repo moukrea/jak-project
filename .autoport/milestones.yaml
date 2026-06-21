@@ -1059,6 +1059,16 @@ phases:
   validator: validators/phase-Grender-audit.sh
   max_turns: 1500
   max_retries: 3
+- id: Gd1-cutscene-clock
+  name: 'Render-audit fix #1 (HIGH, low-risk): cinematics play in fluid SLOW-MOTION because the cutscene spool/IOP-vblank clock is
+    paced per-render-vsync (~16fps on Adreno) instead of wall-clock 60Hz. Decouple it: fire the IOP/overlord VBlank on a wall-clock
+    60Hz schedule (android/android_gfx.cpp ~:569,618) so cinematics play at ~1x real-time even when render fps drops. Likely ALSO
+    resolves the deferred Gcine-cut "device glides where x86 cuts" (a cut smeared over a 0.27x timeline reads as a glide). Verify by
+    deterministic str-pos/vblank rate (BEFORE ~16Hz -> AFTER ~60Hz wall-clock), x86 unchanged, no crash. NO screenshots.'
+  prompt: prompts/phase-Gd1-cutscene-clock.md
+  validator: validators/phase-Gd1-cutscene-clock.sh
+  max_turns: 1500
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
