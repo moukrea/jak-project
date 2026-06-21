@@ -1,0 +1,74 @@
+Gd1-cutscene-clock — IOP/overlord VBlank (cutscene/spool clock) advance rate vs wall-clock
+Device: Redmi Note 9 Pro eae4df44 (arm64), org.opengoal.gk.jak1.  x86 ref: build-x86/game/gk.
+Metric: pre-existing A42-STRCLK "vblank=<gFrameNum>" log line (game/overlord/jak1/srpc.cpp,
+printed every 300 VBlank_Handler runs) → vblank Hz = 300 / Δwall-clock. gFrameNum is the pure
+vblank-handler-run counter, so this IS the rate at which gFakeVAGClock (the spooled-cutscene
+stream clock) advances. Cross-checked vs A35-RENDER frame=... tris=... (the render rate).
+NO temporary instrumentation was added; the existing always-on diagnostics suffice.
+
+=====================================================================================
+WHY THIS IS THE CUTSCENE CLOCK
+=====================================================================================
+VBlank_Handler advances the stream clock by a RATE-NORMALIZED step:
+  gFakeVAGClock += 1024 / target_fps        (srpc.cpp:469-471; target_fps==60, gfx.h:87)
+so the clock reaches real-time (1024 units/sec) ONLY when the vblank fires at 60 Hz. The EE
+cutscene/scene-player polls info.strpos (= gFakeVAGClock, DMA'd each vblank) to pace every
+spooled animation. Thus: cutscene-timeline speed = vblank_Hz / 60.
+
+=====================================================================================
+BEFORE  (pre-fix code: IOP vblank fired once per vsync() = once per RENDERED frame)
+=====================================================================================
+Source: existing same-day on-device logs of the unmodified build (vblank coupled to render).
+
+[before] heavy NEW-GAME CUTSCENE  — .autoport/reports/Gcine-cut/device-killdiag-full.log (2026-06-20)
+  render rate  : A35-RENDER frame 1200 @03:37:05.900 -> 1500 @03:37:25.859
+               = 300 frames / 19.96 s = 15.0 fps  (cutscene tris ~560k)
+  vblank rate  : fired once per vsync()  =>  ~15 Hz   (== render, coupled)
+  cutscene speed: 15/60 = 0.25x real-time   <-- the "fluid but ~4x-slow" slow-motion the owner saw
+
+[before] light TITLE beat (render holds 60 fps) — .autoport/reports/Gspark-enterstate/clean-run.txt (2026-06-19)
+  A42-STRCLK vblank 1 @02:41:15.125 -> 901 @02:41:30.172 = 900 / 15.047 s = 59.81 Hz
+  render rate  : 60 fps  =>  vblank == render (coupled).  PROVES vblank tracked the render rate.
+
+Before-summary: vblank_Hz == render_Hz. At a heavy beat the vblank (and the cutscene clock)
+fell with the render rate: ~15 Hz at the 15 fps cutscene (0.25x), and it would be ~25 Hz at a
+25 fps heavy flythrough. wall-clock decoupling: NONE.
+
+=====================================================================================
+AFTER  (fixed build: IOP vblank paced by a dedicated wall-clock 60 Hz thread)
+=====================================================================================
+Fresh device capture, 2026-06-21 ~05:05, fixed build (HEAD 074bc0f85), heavy title-attract
+village flythrough (no input). deploy_verify PASS: device provably runs fresh HEAD libgk.so
+(chain build==APK==device 95311aee). Full log: .autoport/reports/Gd1-cutscene-clock/after-flythrough.log
+
+[after] IOP/overlord vblank rate (A42-STRCLK, 300 vblanks per sample):
+    vblank=1501 .. 4501 .. 8401, ~25 consecutive clean pairs, each +300 vblanks / 5.000 s:
+      2101->2401 : 300/5.000s = 60.00 Hz
+      2401->2701 : 300/5.001s = 59.99 Hz
+      2701->3001 : 300/4.999s = 60.01 Hz
+      ... (steady) ...
+      8101->8401 : 300/5.000s = 60.00 Hz
+    => vblank rate = 60.00 Hz wall-clock, ROCK STEADY.
+    (A few entries read 0.00 / ~74 / ~124 Hz: those are duplicate-timestamp logcat lines —
+     the same vblank=N printed twice — giving dt=0 or a doubled delta; the 5.000 s/300-vblank
+     pairs are authoritative and unanimous at 60.00 Hz.)
+
+[after] render rate over the SAME heavy window (A35-RENDER, tris>400000):
+    frame 1200 -> 3720 over 102.0 s = 24.71 fps   (tris 460494..672282)
+
+After-summary: the IOP/overlord vblank now advances at 60.00 Hz WALL-CLOCK while the Adreno
+renders only 24.7 fps — i.e. the cutscene/spool clock is fully DECOUPLED from the render swap.
+cutscene speed = 60/60 = 1.00x real-time (was 0.25x at the cutscene). crash_sigs = 0; app
+foreground at end (org.opengoal.gk.jak1/MainActivity); device reaches gameplay.
+
+=====================================================================================
+DECISIVE BEFORE/AFTER (matched heavy beat, render < 60 fps)
+=====================================================================================
+                         render rate      IOP vblank rate     cutscene clock
+  BEFORE (cutscene 15fps)   15 fps            ~15 Hz             0.25x  (slow-motion)
+  BEFORE (heavy ~25fps)     ~25 fps           ~25 Hz (coupled)   ~0.42x
+  AFTER  (heavy 24.7fps)    24.71 fps         60.00 Hz           1.00x  (REAL-TIME)
+The render rate is essentially unchanged by the fix (still Adreno-bound ~25 fps); only the
+vblank/cutscene clock was lifted from render-locked back to a flat wall-clock 60 Hz.
+
+RESULT: CUTSCENE CLOCK REAL-TIME

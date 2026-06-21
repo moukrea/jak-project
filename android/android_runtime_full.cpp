@@ -306,14 +306,28 @@ void make_iop_thread() {
   iop->reset_allocator();
   ee::LIBRARY_sceSif_register(iop);
   iop::LIBRARY_register(iop);
-  // A42, runtime.cpp::iop_runner parity: deliver a vblank to the IOP kernel
-  // on every Gfx::vsync(). The overlord's VBlank_Handler only runs on these
-  // (IOP_Kernel::dispatch checks vblank_recieved) and it is what DMAs
-  // SoundIopInfo — *sound-iop-info* strpos + the fake VAG clock — to the EE.
-  // Without it every ja-play-spooled-anim saw str-pos -1 forever and aborted
-  // at the 4 s timeout, collapsing the title course (no village flythrough).
-  // iop is process-lifetime (never freed), so the callback never dangles.
-  Gfx::register_vsync_callback([iop]() { iop->kernel.signal_vblank(); });
+  // A42, runtime.cpp::iop_runner parity: deliver a vblank to the IOP kernel.
+  // The overlord's VBlank_Handler only runs on these (IOP_Kernel::dispatch
+  // checks vblank_recieved) and it is what DMAs SoundIopInfo — *sound-iop-info*
+  // strpos + the fake VAG clock — to the EE. Without it every ja-play-spooled-
+  // anim saw str-pos -1 forever and aborted at the 4 s timeout, collapsing the
+  // title course (no village flythrough). iop is process-lifetime (never freed),
+  // so the callback never dangles.
+  //
+  // Gd1-cutscene-clock: this callback is now invoked by a dedicated wall-clock
+  // 60 Hz pacer thread (android_gfx.cpp::iop_vblank_pacer_loop), NOT once per
+  // render swap, so the cutscene stream clock runs at real-time even when the
+  // Adreno render rate drops. signal_run_iop() wakes the iop-runner: it would
+  // otherwise sleep up to ~1 ms in wait_run_iop (IOP_Kernel::nextWakeup caps the
+  // idle wait at 1 ms), which under scheduler jitter could let a 60 Hz vblank
+  // edge be coalesced away by the single-bool vblank_recieved flag. The wake is
+  // a cheap lock+notify and cannot over-fire the handler (the bool is one-shot
+  // per dispatch). signal_vblank only stores an atomic bool, so calling both
+  // from the pacer thread is safe.
+  Gfx::register_vsync_callback([iop]() {
+    iop->kernel.signal_vblank();
+    iop->signal_run_iop();
+  });
 
   // Per-module init globals also stay synchronous so srpc/ssound's
   // static maps are initialized before the EE side's first call into
