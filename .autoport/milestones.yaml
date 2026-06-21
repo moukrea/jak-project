@@ -1114,6 +1114,15 @@ phases:
   validator: validators/phase-Gffi-xmm-validate.sh
   max_turns: 1200
   max_retries: 3
+- id: Gsun-halo
+  name: 'RE-DO (owner ground truth, prior Ghalo/Ghalo-sun false-green): title sun is a ~20% glow instead of a small disc + visible
+    SUN. Re-baseline on HEAD (the FFI xmm fix may have changed it), dump sun disc + corona SIZE/scale x86-first (original vs our-x86
+    vs device, NEVER pixels); if our-x86 diverges revert the source hack to pristine, else fix the arm64/GLES size defect. Device
+    corona size must match original; our-x86 == original.'
+  prompt: prompts/phase-Gsun-halo.md
+  validator: validators/phase-Gsun-halo.sh
+  max_turns: 1400
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
