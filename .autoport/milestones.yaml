@@ -1132,6 +1132,15 @@ phases:
   validator: validators/phase-Gparticles-stars.sh
   max_turns: 1400
   max_retries: 3
+- id: Gmenu-placement
+  name: 'RE-DO (owner ground truth, prior Gmenu-ui-placement scale-proxy false-green): main-menu UI assets bunched toward center.
+    Re-baseline on HEAD; dump each menu element computed X/Y position x86-first (original vs our-x86 vs device @2400x1080, NEVER
+    pixels — menu is transparent over a moving island); decisive: does original-x86 place correctly at 2400x1080 (=> arm64 regressed,
+    fix translation) or also bunch (=> ultrawide-support via runtime aspect glue). our-x86 == original; 1-to-1 source.'
+  prompt: prompts/phase-Gmenu-placement.md
+  validator: validators/phase-Gmenu-placement.sh
+  max_turns: 1400
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
