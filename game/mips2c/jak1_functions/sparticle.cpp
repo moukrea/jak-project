@@ -2,6 +2,9 @@
 //--------------------------MIPS2C---------------------
 #include "game/mips2c/mips2c_private.h"
 #include "game/kernel/jak1/kscheme.h"
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 using namespace jak1;
 namespace Mips2C::jak1 {
 namespace sp_process_block_3d {
@@ -14,6 +17,18 @@ struct Cache {
 
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
+#ifdef __ANDROID__
+  // [Gparticles-stars TEMP — remove at phase close] BEFORE/AFTER toggle: prop
+  // debug.opengoal.gparts.noop3d=1 forces this 3D sparticle builder to the
+  // pre-Gd2 shared-noop behaviour (build no 3D sprite DMA) so the device can
+  // reproduce the "no particles/stars" BEFORE on the SAME binary as the AFTER.
+  {
+    char nb[8] = {0};
+    if (__system_property_get("debug.opengoal.gparts.noop3d", nb) > 0 && nb[0] == '1') {
+      return 0;
+    }
+  }
+#endif
   bool bc = false;
   u32 call_addr = 0;
   bool cop1_bc = false;
