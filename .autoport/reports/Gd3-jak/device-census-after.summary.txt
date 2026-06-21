@@ -1,0 +1,34 @@
+# Gd3-jak DEVICE census [after] 2026-06-21T07:28:42+02:00
+reached_frame=10380 target=9000 crash_sigs=1 focus_end=  mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher} verdict=reached
+
+## merc bucket census (GD3-CENSUS) — distinct lines, top by count
+
+## GD3-MERC (eichar visibility: enable_mask / VISIBLE tris / bones repaired by the NaN fix)
+GD3-MERC lines: 64
+max VISIBLE tris seen: 3593
+max repaired_total (NaN bone frames the fix caught): 158
+distinct GD3-MERC (enable / visible / repaired_now signature):
+     62 GD3-MERC model=eichar-lod0 neff=4 enable=0xf ialpha=0xe visible=3593 repaired_now=0
+      2 GD3-MERC model=eichar-lod0 neff=4 enable=0xf ialpha=0xe visible=3593 repaired_now=79
+## sidekick (Daxter) merc draws
+sidekick census lines: 0
+0
+
+## common-pris-merc + l0-pris-merc samples (where Jak/Daxter draw)
+
+## SPOOL / ART-ERROR signals (the suspected arm64 root)
+      1 I opengoal-gk: ERROR: "sidekick-human-intro-sequence-b+0" could not find a master slot to unlink for #<art-joint-anim evilsis-sidekick-human-intro-sequence-b :length 75 @ #x9c784>.
+      1 I opengoal-gk: ERROR: "sidekick-human-intro-sequence-b+0" could not find a master slot to unlink for #<art-joint-anim evilbro-sidekick-human-intro-sequence-b :length 75 @ #x90c34>.
+      1 I opengoal-gk: ERROR: "sidekick-human-intro-sequence-b+0" could not find a master slot to link for #<art-joint-anim evilsis-sidekick-human-intro-sequence-b :length 75 @ #x9c784>.
+      1 I opengoal-gk: ERROR: "sidekick-human-intro-sequence-b+0" could not find a master slot to link for #<art-joint-anim evilbro-sidekick-human-intro-sequence-b :length 75 @ #x90c34>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-d1+0" could not find a master slot to unlink for #<art-joint-anim sage-sage-intro-sequence-d1 :length 74 @ #xc8e84>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-d1+0" could not find a master slot to unlink for #<art-joint-anim fishermans-boat-sage-intro-sequence-d1 :length 5 @ #xc8314>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-d1+0" could not find a master slot to link for #<art-joint-anim sage-sage-intro-sequence-d1 :length 74 @ #xc8e84>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-d1+0" could not find a master slot to link for #<art-joint-anim fishermans-boat-sage-intro-sequence-d1 :length 5 @ #xc8314>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-a+0" could not find a master slot to unlink for #<art-joint-anim sidekick-human-sage-intro-sequence-a :length 75 @ #x8d284>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-a+0" could not find a master slot to link for #<art-joint-anim sidekick-human-sage-intro-sequence-a :length 75 @ #x8d284>.
+      1 I opengoal-gk: ERROR: "logo-intro-2+3" could not find a master slot to unlink for #<art-joint-anim logo-logo-intro-2 :length 51 @ #xc1cf4>.
+      1 I opengoal-gk: ERROR: "logo-intro-2+3" could not find a master slot to unlink for #<art-joint-anim logo-cam-logo-intro-2 :length 4 @ #xc4074>.
+
+## crash signatures
+06-21 07:28:37.240 18992 19066 F opengoal-gk: GK-DIAG sig=11 fault=0x49000000000000 pc=0x7f0018aee8 lr=0x7f0018aee4
