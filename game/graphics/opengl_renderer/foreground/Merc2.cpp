@@ -6,6 +6,33 @@
 #include "common/util/FileUtil.h"
 #endif
 
+// Gd3-jak TEMP: bone-validity census (gated by env OG_GD3_CENSUS / property
+// debug.opengoal.gd3.census). Proves whether Jak's (eichar) submitted merc tris
+// draw with VALID bones (visible) or NaN/degenerate bones (invisible). Output ->
+// stdout (dup2'd to logcat tag GK_STDOUT on Android). REMOVE after AFTER capture.
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+static bool gd3_bones_on() {
+  static const bool s_on = [] {
+    if (std::getenv("OG_GD3_CENSUS")) {
+      return true;
+    }
+#ifdef __ANDROID__
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.gd3.census", buf) > 0 && buf[0] == '1') {
+      return true;
+    }
+#endif
+    return false;
+  }();
+  return s_on;
+}
+
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/util/fnv.h"
 #include "common/util/simd_util.h"
@@ -610,6 +637,54 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     ASSERT(input_data[i] < MAX_SKEL_BONES);
     // get the matrix data
     memcpy(&skel_matrix_buffer[input_data[i]], real_addr, sizeof(MercMat));
+  }
+
+  // Gd3-jak TEMP bone-validity census for Jak (model "eichar"): are the submitted
+  // tris drawn with valid bones (visible) or NaN/degenerate bones (invisible)?
+  if (gd3_bones_on() && std::strstr(name, "eichar")) {
+    static int s_bone_tick = 0;
+    if ((s_bone_tick++ % 10) == 0) {
+      int nan_ct = 0, fin_ct = 0;
+      float minx = 1e30f, maxx = -1e30f, miny = 1e30f, maxy = -1e30f, minz = 1e30f, maxz = -1e30f;
+      for (int j = 0; j < i; j++) {
+        int slot = input_data[j];
+        if (slot >= MAX_SKEL_BONES) {
+          continue;
+        }
+        const auto& m = skel_matrix_buffer[slot];
+        for (int r = 0; r < 4; r++) {
+          float comp[4] = {m.tmat[r].x(), m.tmat[r].y(), m.tmat[r].z(), m.tmat[r].w()};
+          for (int c = 0; c < 4; c++) {
+            if (std::isnan(comp[c]) || std::isinf(comp[c])) {
+              nan_ct++;
+            } else {
+              fin_ct++;
+            }
+          }
+        }
+        float tx = m.tmat[3].x(), ty = m.tmat[3].y(), tz = m.tmat[3].z();
+        if (std::isfinite(tx)) {
+          minx = std::min(minx, tx);
+          maxx = std::max(maxx, tx);
+        }
+        if (std::isfinite(ty)) {
+          miny = std::min(miny, ty);
+          maxy = std::max(maxy, ty);
+        }
+        if (std::isfinite(tz)) {
+          minz = std::min(minz, tz);
+          maxz = std::max(maxz, tz);
+        }
+      }
+      int root = input_data[0];
+      const auto& rm = skel_matrix_buffer[root];
+      fmt::print(
+          "GD3-BONES model={} bones={} nan={} fin={} root_t=({:.1f} {:.1f} {:.1f}) "
+          "tx[{:.0f}..{:.0f}] ty[{:.0f}..{:.0f}] tz[{:.0f}..{:.0f}]\n",
+          name, i, nan_ct, fin_ct, rm.tmat[3].x(), rm.tmat[3].y(), rm.tmat[3].z(), minx, maxx, miny,
+          maxy, minz, maxz);
+      fflush(stdout);
+    }
   }
   input_data += 128 + 16 * i;
 

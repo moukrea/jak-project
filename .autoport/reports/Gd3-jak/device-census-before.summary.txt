@@ -1,0 +1,65 @@
+# Gd3-jak DEVICE census [before] 2026-06-21T06:19:12+02:00
+reached_frame=10260 target=9000 crash_sigs=1 focus_end=  mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher} verdict=reached
+
+## merc bucket census (GD3-CENSUS) — distinct lines, top by count
+    149 GD3-CENSUS bucket=l0-pris-merc tris=2886 jakdax=2886 nmodels=1 [sidekick-human-lod0:2886 ]
+    127 GD3-CENSUS bucket=l1-pris-merc tris=2508 jakdax=0 nmodels=1 [fishermans-boat-lod0:2508 ]
+     86 GD3-CENSUS bucket=l1-water-merc tris=184 jakdax=0 nmodels=1 [water-anim-village1-fountain-lod0:184 ]
+     77 GD3-CENSUS bucket=l0-water-merc tris=1484 jakdax=0 nmodels=1 [ndi-volumes-lod0:1484 ]
+     77 GD3-CENSUS bucket=l0-pris-merc tris=1078 jakdax=0 nmodels=2 [ndi-lod0:1076 ndi-cam-lod0:2 ]
+     65 GD3-CENSUS bucket=l1-tfrag-merc tris=7642 jakdax=0 nmodels=13 [ropebridge-32-lod0:500 ropebridge-32-lod0:500 windmill-sail-lod0:428 windspinner-lod0:272 windspinner-lod0:272 medres-jungle-lod0:90 medres-beach-lod0:688 medres-beach1-lod0:941 medres-beach2-lod0:956 medres-jungle1-lod0:1157 medres-jungle2-lod0:278 ]
+     60 GD3-CENSUS bucket=l0-pris-merc tris=3230 jakdax=2886 nmodels=2 [sidekick-human-lod0:2886 darkecocan-lod0:344 ]
+     59 GD3-CENSUS bucket=l1-tfrag-merc tris=144 jakdax=0 nmodels=1 [sagesail-lod0:144 ]
+     51 GD3-CENSUS bucket=common-pris-merc tris=1476 jakdax=1476 nmodels=1 [sidekick-lod0:1476 ]
+     43 GD3-CENSUS bucket=common-pris-merc tris=5721 jakdax=5721 nmodels=2 [eichar-lod0:4245 sidekick-lod0:1476 ]
+     39 GD3-CENSUS bucket=common-pris-merc tris=4245 jakdax=4245 nmodels=1 [eichar-lod0:4245 ]
+     35 GD3-CENSUS bucket=l1-pris-merc tris=10984 jakdax=0 nmodels=2 [evilbro-lod0:5290 evilsis-lod0:5694 ]
+     34 GD3-CENSUS bucket=l0-tfrag-merc tris=1464 jakdax=0 nmodels=3 [crate-wood-lod0:488 crate-wood-lod0:488 crate-wood-lod0:488 ]
+     30 GD3-CENSUS bucket=l0-pris-merc tris=14750 jakdax=0 nmodels=1 [logo-english-lod0:14750 ]
+     26 GD3-CENSUS bucket=l0-pris-merc tris=3230 jakdax=2886 nmodels=2 [sidekick-human-lod0:2886 darkecocan-glow-lod0:344 ]
+     26 GD3-CENSUS bucket=l0-pris-merc tris=14869 jakdax=0 nmodels=2 [logo-english-lod0:14750 logo-black-lod0:119 ]
+     25 GD3-CENSUS bucket=l0-water-merc tris=1408 jakdax=0 nmodels=1 [logo-volumes-english-lod0:1408 ]
+     21 GD3-CENSUS bucket=l1-pris-merc tris=21788 jakdax=0 nmodels=8 [sage-lod0:5449 revcycleprop-lod0:346 revcycle-geo:1795 evilplant-lod0:168 fishermans-boat-lod0:2508 hutlamp-lod0:128 sage-lod0:5449 assistant-lod0:5945 ]
+     19 GD3-CENSUS bucket=l1-pris-merc tris=5290 jakdax=0 nmodels=1 [evilbro-lod0:5290 ]
+     19 GD3-CENSUS bucket=l0-pris-merc tris=344 jakdax=0 nmodels=1 [darkecocan-glow-lod0:344 ]
+
+## JAK (eichar) merc draws in cinematic
+eichar census lines: 82
+max eichar tris seen:
+4245
+## sidekick (Daxter) merc draws
+sidekick census lines: 401
+
+## common-pris-merc + l0-pris-merc samples (where Jak/Daxter draw)
+      1 06-21 06:19:04.306 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=common-pris-merc tris=4245 jakdax=4245 nmodels=1 [eichar-lod0:4245 ]
+      1 06-21 06:19:04.303 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=6726 jakdax=2886 nmodels=3 [sidekick-human-lod0:2886 bonelurker-lod0:3456 wheel-geo:384 ]
+      1 06-21 06:19:03.501 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=common-pris-merc tris=4245 jakdax=4245 nmodels=1 [eichar-lod0:4245 ]
+      1 06-21 06:19:03.499 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=6726 jakdax=2886 nmodels=3 [sidekick-human-lod0:2886 bonelurker-lod0:3456 wheel-geo:384 ]
+      1 06-21 06:19:02.690 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=common-pris-merc tris=4245 jakdax=4245 nmodels=1 [eichar-lod0:4245 ]
+      1 06-21 06:19:02.683 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=6726 jakdax=2886 nmodels=3 [sidekick-human-lod0:2886 bonelurker-lod0:3456 wheel-geo:384 ]
+      1 06-21 06:19:00.320 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=6342 jakdax=2886 nmodels=2 [sidekick-human-lod0:2886 bonelurker-lod0:3456 ]
+      1 06-21 06:19:00.106 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=6342 jakdax=2886 nmodels=2 [sidekick-human-lod0:2886 bonelurker-lod0:3456 ]
+      1 06-21 06:18:59.889 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=6342 jakdax=2886 nmodels=2 [sidekick-human-lod0:2886 bonelurker-lod0:3456 ]
+      1 06-21 06:18:59.635 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=6342 jakdax=2886 nmodels=2 [sidekick-human-lod0:2886 bonelurker-lod0:3456 ]
+      1 06-21 06:18:59.371 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=6342 jakdax=2886 nmodels=2 [sidekick-human-lod0:2886 bonelurker-lod0:3456 ]
+      1 06-21 06:18:59.127 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=6342 jakdax=2886 nmodels=2 [sidekick-human-lod0:2886 bonelurker-lod0:3456 ]
+      1 06-21 06:18:58.775 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=344 jakdax=0 nmodels=1 [darkecocan-glow-lod0:344 ]
+      1 06-21 06:18:58.712 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=common-pris-merc tris=1476 jakdax=1476 nmodels=1 [sidekick-lod0:1476 ]
+      1 06-21 06:18:58.378 11743 11798 I GK_STDOUT: GD3-CENSUS bucket=l0-pris-merc tris=344 jakdax=0 nmodels=1 [darkecocan-glow-lod0:344 ]
+
+## SPOOL / ART-ERROR signals (the suspected arm64 root)
+      1 I opengoal-gk: ERROR: "sidekick-human-intro-sequence-b+0" could not find a master slot to unlink for #<art-joint-anim evilsis-sidekick-human-intro-sequence-b :length 75 @ #x9c784>.
+      1 I opengoal-gk: ERROR: "sidekick-human-intro-sequence-b+0" could not find a master slot to unlink for #<art-joint-anim evilbro-sidekick-human-intro-sequence-b :length 75 @ #x90c34>.
+      1 I opengoal-gk: ERROR: "sidekick-human-intro-sequence-b+0" could not find a master slot to link for #<art-joint-anim evilsis-sidekick-human-intro-sequence-b :length 75 @ #x9c784>.
+      1 I opengoal-gk: ERROR: "sidekick-human-intro-sequence-b+0" could not find a master slot to link for #<art-joint-anim evilbro-sidekick-human-intro-sequence-b :length 75 @ #x90c34>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-d1+0" could not find a master slot to unlink for #<art-joint-anim sage-sage-intro-sequence-d1 :length 74 @ #xc8e84>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-d1+0" could not find a master slot to unlink for #<art-joint-anim fishermans-boat-sage-intro-sequence-d1 :length 5 @ #xc8314>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-d1+0" could not find a master slot to link for #<art-joint-anim sage-sage-intro-sequence-d1 :length 74 @ #xc8e84>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-d1+0" could not find a master slot to link for #<art-joint-anim fishermans-boat-sage-intro-sequence-d1 :length 5 @ #xc8314>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-a+0" could not find a master slot to unlink for #<art-joint-anim sidekick-human-sage-intro-sequence-a :length 75 @ #x8d284>.
+      1 I opengoal-gk: ERROR: "sage-intro-sequence-a+0" could not find a master slot to link for #<art-joint-anim sidekick-human-sage-intro-sequence-a :length 75 @ #x8d284>.
+      1 I opengoal-gk: ERROR: "logo-intro-2+3" could not find a master slot to unlink for #<art-joint-anim logo-logo-intro-2 :length 51 @ #xc1cf4>.
+      1 I opengoal-gk: ERROR: "logo-intro-2+3" could not find a master slot to unlink for #<art-joint-anim logo-cam-logo-intro-2 :length 4 @ #xc4074>.
+
+## crash signatures
+06-21 06:19:05.098 11743 11864 F opengoal-gk: GK-DIAG sig=11 fault=0x7efffffffc pc=0x7f02df0fc0 lr=0x7f004d0fd8

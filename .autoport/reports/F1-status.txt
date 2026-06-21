@@ -1,1 +1,1 @@
-blocked: dispatcher in passive sleep loop; goalc-arm64 off-register bug — see F1-blocker-analysis.md
+fail: reached title link but never gameplay state (dispatcher status unclear from log)
