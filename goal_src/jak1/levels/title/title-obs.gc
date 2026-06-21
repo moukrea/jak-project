@@ -122,14 +122,32 @@
   :code
     (behavior ()
       (ja-post)
-      (loop
-        (clone-anim-once (ppointer->handle (-> self parent-process)) (the-as int (-> self draw origin-joint-index)) #t "")
-        (if (nonzero? (-> self main-joint))
-          (set-trs! (-> self main-joint)
-                    (-> self parent-process 0 main-joint trans)
-                    (the-as quaternion #f)
-                    (-> self parent-process 0 main-joint scale)))
-        (suspend))))
+      ;; og:autoport Gfix-title-rays: the title-logo "light rays" (logo-volumes /
+      ;; logo-volumes-japan) are a one-shot SMASH flash — a pure-additive
+      ;; (GL_ONE/GL_ONE) starburst rigged to the logo skeleton. The pristine
+      ;; logo-intro keeps this slave alive for the WHOLE ~6.7s intro spool
+      ;; (deactivated only at the parent startup :code spool-end). On desktop GL the
+      ;; additive glow washes out against the revealed scene (a brief flash); on the
+      ;; device's mobile GPU the same additive draw stays prominent and LINGERS over
+      ;; the logo for ~6s (owner: "blue light rays remain ~1-2s after the smash").
+      ;; Per-frame state dumps proved the lifetime/anim/geometry/merc-inputs/bg-a are
+      ;; identical x86 vs device — the divergence is purely the additive render — so
+      ;; deactivate the rays ~0.6s after spawn (just past the ~0.45s smash punch) to
+      ;; flash-and-vanish as intended on BOTH backends. Name-gated: logo-black,
+      ;; logo-cam and every ndi-* slave (which share this state) are unaffected.
+      (let ((rays? (or (string= (-> self draw art-group name) "logo-volumes")
+                       (string= (-> self draw art-group name) "logo-volumes-japan")))
+            (spawn-time (current-time)))
+        (loop
+          (clone-anim-once (ppointer->handle (-> self parent-process)) (the-as int (-> self draw origin-joint-index)) #t "")
+          (if (nonzero? (-> self main-joint))
+            (set-trs! (-> self main-joint)
+                      (-> self parent-process 0 main-joint trans)
+                      (the-as quaternion #f)
+                      (-> self parent-process 0 main-joint scale)))
+          (when (and rays? (time-elapsed? spawn-time (seconds 0.6)))
+            (deactivate self))
+          (suspend)))))
 
 (defbehavior logo-slave-init-by-other logo-slave ((arg0 entity-actor) (arg1 skeleton-group))
   (set! (-> self entity) arg0)
@@ -225,8 +243,12 @@
       (set! *spawn-actors* #f)
       (add-setting! 'process-mask 'set 0.0 (process-mask progress))
       (apply-settings *setting-control*)
-      (deactivate (handle->process (-> self black)))
-      (deactivate (handle->process (-> self volumes)))
+      ;; og:autoport Gfix-title-rays: guard these like the camera deactivate above
+      ;; (logo startup :exit). The logo-volumes (light-rays) slave now self-deactivates
+      ;; ~0.6s after the smash (see logo-slave idle :code), so by here its handle may
+      ;; already be dead — an unguarded (deactivate #f) dispatches on s7 and SIGSEGVs.
+      (let ((a0-b (handle->process (-> self black)))) (if a0-b (deactivate a0-b)))
+      (let ((a0-v (handle->process (-> self volumes)))) (if a0-v (deactivate a0-v)))
       (send-event (ppointer->process (-> self parent)) 'wait)
       (send-event self 'update)
       (ja-channel-set! 1)

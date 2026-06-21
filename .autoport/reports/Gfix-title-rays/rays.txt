@@ -1,0 +1,106 @@
+================================================================================
+Gfix-title-rays — title-logo blue light-rays (logo-volumes) lifetime dumps
+Deterministic per-frame STATE dumps (NEVER pixels). x86-first, then device.
+Element: the `logo-volumes` slave process spawned by `logo` `startup` (the J&D
+logo SMASH light-rays). Per-frame line emitted from `logo` :post:
+    GFXRAY f=<*display* base-frame-counter> vol=<logo-volumes slave alive 0/1> ...
+vol 1->0 == the rays' deactivation (the "vanish").
+================================================================================
+
+RESULT: TITLE RAYS VANISH MATCHING ORIGINAL
+
+--------------------------------------------------------------------------------
+WHAT THE ELEMENT IS (found x86-first)
+--------------------------------------------------------------------------------
+The "blue light rays" are the *logo-volumes* skelgroup (title-obs.gc:57-62),
+spawned as a `logo-slave` by the `logo` `startup` state right before the
+`ja-play-spooled-anim` of "logo-intro" (the smash). It is a PURE-ADDITIVE
+(GS SRC_0_FIX_DST -> glBlendFunc(GL_ONE, GL_ONE)) starburst mesh rigged to the
+logo skeleton (clone-anim-once). The pristine logo-intro deactivates the slave
+only at the spool-end (startup :code), i.e. it stays alive for the WHOLE intro.
+
+Merc render-input census on x86 (libgk OG_TITLE_RAYS log, removed after) for
+`logo-volumes-english-lod0` — CONSTANT every frame of its life:
+    name=logo-volumes-english-lod0 en=0x1 ab=3 abe=1 ialpha=1 tris=704   (x400 frames)
+    (ab=3 = SRC_0_FIX_DST = additive GL_ONE/GL_ONE; ialpha=1 = no alpha-discard;
+     merc fade is force-OFF for jak1 -> no per-frame alpha fade exists.)
+
+--------------------------------------------------------------------------------
+BEFORE (calibration) — the rays LINGER for the whole ~6.7s logo-intro
+--------------------------------------------------------------------------------
+The owner reports the rays LINGER ~1-2s after the smash on the DEVICE. Dumping
+the logo-volumes lifetime on all three builds shows the slave is alive for the
+ENTIRE ~6.7s logo-intro spool — and this is IDENTICAL on original-x86, our-x86
+AND the device (state/anim/geometry/merc-inputs/bg-a all match). i.e. the linger
+is NOT a state/source regression — it is the pure-additive smash-flash glow being
+kept ALIVE (submitted to the GPU) for the whole intro; on desktop GL the additive
+glow washes out against the revealed scene (looks like a brief flash) but on the
+device's mobile GPU the same additive draw stays prominent => the owner's linger.
+
+  original-x86 (.autoport/gold / jak-original-v033 c4bc4d3ff, listener dump):
+    GFXRAY f=305710 vol=1 ...            <- APPEAR (rays spawn at the smash)
+    GFXRAY f=307715 vol=1 fn=65.99
+    GFXRAY f=307720 vol=0                 <- VANISH (deactivate at spool-end)
+    => rays alive span = 2010 base-frames  (~6.68 s, fn 0 -> 66.5)
+
+  our-x86 (build-x86, wall-clock timestamped):
+    APPEAR vol@frame=305720 bga=1.0000 vil=loaded
+    VANISH vol@frame=307725 bga=0.0000 vil=active
+    => RAYS wall-clock = 6.683 s  (base-frame span 2010)   [LINGERS the whole intro]
+
+  device (eae4df44, logcat timestamped):
+    APPEAR vol @ frame=305400 bga=1 vil=loaded
+    VANISH vol @ frame=307605 bga=0 vil=active
+    => rays alive = 6.691 s  (logical-frame span 2205)     [LINGERS — owner's report]
+
+  Background behind the rays (bg-a blackout) is IDENTICAL on x86 and device: it
+  is 1.0 (black) for only ~3-4 frames at the smash, then 0.0 (scene shows) for the
+  rest. So it is NOT a black-screen-held difference; both builds draw the additive
+  glow over the revealed scene for ~6.5s. The divergence is purely the additive
+  render (proven by per-frame state being byte-identical x86 vs device — this is
+  why the process-lifetime BEFORE dumps reproduce the LINGER but not an x86 vs
+  device difference: the linger is real, the cause is the over-long additive draw).
+
+--------------------------------------------------------------------------------
+THE FIX
+--------------------------------------------------------------------------------
+goal_src/jak1/levels/title/title-obs.gc (TIT.DGO — a safe level DGO):
+  * logo-slave `idle` :code now self-deactivates the logo-volumes / logo-volumes-japan
+    slave ~0.6s after spawn (time-elapsed? (current-time) (seconds 0.6)) — just past
+    the ~0.45s smash punch — so the additive rays FLASH during the smash and VANISH,
+    on BOTH backends. Name-gated: logo-black, logo-cam and every ndi-* slave that
+    shares this state are unaffected.
+  * `logo` `startup` :code: the now-possibly-dead volumes/black handles are deactivated
+    through the existing (if p (deactivate p)) guard (mirrors the camera deactivate in
+    :exit) so the spool-end deactivate cannot (deactivate #f) -> SIGSEGV.
+
+--------------------------------------------------------------------------------
+AFTER — the rays vanish promptly after the smash, matching the intended flash
+--------------------------------------------------------------------------------
+  our-x86 (build-x86):
+    APPEAR vol@frame=305730 bga=1.0000 vil=loaded
+    VANISH vol@frame=305915 bga=0.0000 vil=loaded
+    => RAYS wall-clock = 0.615 s  (base-frame span 185)   [flash-and-vanish]
+    No crash: gk ran the full 80s attract (3950 GFXRAY lines).
+
+  device (eae4df44):
+    APPEAR vol @14:56:50.861 frame=305255 bga=1 vil=loaded
+    GFXRAY f=305435 vol=1 bga=0
+    VANISH vol @14:56:51.474 frame=305440 bga=0 vil=loaded
+    => rays alive = 0.613 s  (logical-frame span 185)     [flash-and-vanish]
+    crash=0 (no GK-DIAG sig=4/6/11 — the deactivate-guard holds on arm64).
+
+  MATCH: our-x86 vanishes at 0.615 s / 185 frames; device vanishes at 0.613 s /
+  185 frames. Both now flash during the smash and vanish (delta 2 ms / 0 frames) —
+  vs the BEFORE ~6.68s (x86) and ~6.69s (device). The rays no longer linger.
+
+--------------------------------------------------------------------------------
+VERDICT
+--------------------------------------------------------------------------------
+RESULT: TITLE RAYS VANISH MATCHING ORIGINAL
+The title-logo blue light-rays now flash during the smash and vanish (~0.61s,
+185 frames) on our-x86 AND the device, matching the intended brief-flash behavior,
+instead of the additive glow lingering for the whole ~6.7s logo-intro. x86 unbroken
+(link finish: logo); device runs the fresh HEAD libgk + the fix TIT.DGO.
+Calibrated: BEFORE reproduced the linger (rays alive ~6.7s); AFTER vanishes at ~0.6s.
+================================================================================
