@@ -1,0 +1,942 @@
+06-21 17:27:26.575 18863 18915 I GK_STDOUT: RAYLIGHT frame=950 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.575 18863 18915 I GK_STDOUT: RAYFADE frame=950 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.575 18863 18915 I GK_STDOUT: RAYDRAW frame=950 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.594 18863 18915 I GK_STDOUT: RAYLIGHT frame=951 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.594 18863 18915 I GK_STDOUT: RAYFADE frame=951 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.594 18863 18915 I GK_STDOUT: RAYDRAW frame=951 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.612 18863 18915 I GK_STDOUT: RAYLIGHT frame=952 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.612 18863 18915 I GK_STDOUT: RAYFADE frame=952 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.612 18863 18915 I GK_STDOUT: RAYDRAW frame=952 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.629 18863 18915 I GK_STDOUT: RAYLIGHT frame=953 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.629 18863 18915 I GK_STDOUT: RAYFADE frame=953 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.629 18863 18915 I GK_STDOUT: RAYDRAW frame=953 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.646 18863 18915 I GK_STDOUT: RAYLIGHT frame=954 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.646 18863 18915 I GK_STDOUT: RAYFADE frame=954 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.646 18863 18915 I GK_STDOUT: RAYDRAW frame=954 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.663 18863 18915 I GK_STDOUT: RAYLIGHT frame=955 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.663 18863 18915 I GK_STDOUT: RAYFADE frame=955 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.663 18863 18915 I GK_STDOUT: RAYDRAW frame=955 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.679 18863 18915 I GK_STDOUT: RAYLIGHT frame=956 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.679 18863 18915 I GK_STDOUT: RAYFADE frame=956 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.680 18863 18915 I GK_STDOUT: RAYDRAW frame=956 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.696 18863 18915 I GK_STDOUT: RAYLIGHT frame=957 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.696 18863 18915 I GK_STDOUT: RAYFADE frame=957 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.696 18863 18915 I GK_STDOUT: RAYDRAW frame=957 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.712 18863 18915 I GK_STDOUT: RAYLIGHT frame=958 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.712 18863 18915 I GK_STDOUT: RAYFADE frame=958 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.712 18863 18915 I GK_STDOUT: RAYDRAW frame=958 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.727 18863 18915 I GK_STDOUT: RAYLIGHT frame=959 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.727 18863 18915 I GK_STDOUT: RAYFADE frame=959 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.727 18863 18915 I GK_STDOUT: RAYDRAW frame=959 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.743 18863 18915 I GK_STDOUT: RAYLIGHT frame=960 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.743 18863 18915 I GK_STDOUT: RAYFADE frame=960 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.744 18863 18915 I GK_STDOUT: RAYDRAW frame=960 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.760 18863 18915 I GK_STDOUT: RAYLIGHT frame=961 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.760 18863 18915 I GK_STDOUT: RAYFADE frame=961 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.760 18863 18915 I GK_STDOUT: RAYDRAW frame=961 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.777 18863 18915 I GK_STDOUT: RAYLIGHT frame=962 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.777 18863 18915 I GK_STDOUT: RAYFADE frame=962 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.777 18863 18915 I GK_STDOUT: RAYDRAW frame=962 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.794 18863 18915 I GK_STDOUT: RAYLIGHT frame=963 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.794 18863 18915 I GK_STDOUT: RAYFADE frame=963 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.794 18863 18915 I GK_STDOUT: RAYDRAW frame=963 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.811 18863 18915 I GK_STDOUT: RAYLIGHT frame=964 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.811 18863 18915 I GK_STDOUT: RAYFADE frame=964 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.811 18863 18915 I GK_STDOUT: RAYDRAW frame=964 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.827 18863 18915 I GK_STDOUT: RAYLIGHT frame=965 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.827 18863 18915 I GK_STDOUT: RAYFADE frame=965 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.827 18863 18915 I GK_STDOUT: RAYDRAW frame=965 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.844 18863 18915 I GK_STDOUT: RAYLIGHT frame=966 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.844 18863 18915 I GK_STDOUT: RAYFADE frame=966 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.844 18863 18915 I GK_STDOUT: RAYDRAW frame=966 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.860 18863 18915 I GK_STDOUT: RAYLIGHT frame=967 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.860 18863 18915 I GK_STDOUT: RAYFADE frame=967 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.860 18863 18915 I GK_STDOUT: RAYDRAW frame=967 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.877 18863 18915 I GK_STDOUT: RAYLIGHT frame=968 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.877 18863 18915 I GK_STDOUT: RAYFADE frame=968 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.877 18863 18915 I GK_STDOUT: RAYDRAW frame=968 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.895 18863 18915 I GK_STDOUT: RAYLIGHT frame=969 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.895 18863 18915 I GK_STDOUT: RAYFADE frame=969 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.895 18863 18915 I GK_STDOUT: RAYDRAW frame=969 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.911 18863 18915 I GK_STDOUT: RAYLIGHT frame=970 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.911 18863 18915 I GK_STDOUT: RAYFADE frame=970 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.911 18863 18915 I GK_STDOUT: RAYDRAW frame=970 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.928 18863 18915 I GK_STDOUT: RAYLIGHT frame=971 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.928 18863 18915 I GK_STDOUT: RAYFADE frame=971 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.928 18863 18915 I GK_STDOUT: RAYDRAW frame=971 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.944 18863 18915 I GK_STDOUT: RAYLIGHT frame=972 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.944 18863 18915 I GK_STDOUT: RAYFADE frame=972 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.944 18863 18915 I GK_STDOUT: RAYDRAW frame=972 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.963 18863 18915 I GK_STDOUT: RAYLIGHT frame=973 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.963 18863 18915 I GK_STDOUT: RAYFADE frame=973 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.963 18863 18915 I GK_STDOUT: RAYDRAW frame=973 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.980 18863 18915 I GK_STDOUT: RAYLIGHT frame=974 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.980 18863 18915 I GK_STDOUT: RAYFADE frame=974 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.980 18863 18915 I GK_STDOUT: RAYDRAW frame=974 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:26.995 18863 18915 I GK_STDOUT: RAYLIGHT frame=975 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:26.995 18863 18915 I GK_STDOUT: RAYFADE frame=975 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:26.995 18863 18915 I GK_STDOUT: RAYDRAW frame=975 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.011 18863 18915 I GK_STDOUT: RAYLIGHT frame=976 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.011 18863 18915 I GK_STDOUT: RAYFADE frame=976 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.011 18863 18915 I GK_STDOUT: RAYDRAW frame=976 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.027 18863 18915 I GK_STDOUT: RAYLIGHT frame=977 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.027 18863 18915 I GK_STDOUT: RAYFADE frame=977 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.027 18863 18915 I GK_STDOUT: RAYDRAW frame=977 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.043 18863 18915 I GK_STDOUT: RAYLIGHT frame=978 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.043 18863 18915 I GK_STDOUT: RAYFADE frame=978 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.043 18863 18915 I GK_STDOUT: RAYDRAW frame=978 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.060 18863 18915 I GK_STDOUT: RAYLIGHT frame=979 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.060 18863 18915 I GK_STDOUT: RAYFADE frame=979 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.060 18863 18915 I GK_STDOUT: RAYDRAW frame=979 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.077 18863 18915 I GK_STDOUT: RAYLIGHT frame=980 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.077 18863 18915 I GK_STDOUT: RAYFADE frame=980 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.077 18863 18915 I GK_STDOUT: RAYDRAW frame=980 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.094 18863 18915 I GK_STDOUT: RAYLIGHT frame=981 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.094 18863 18915 I GK_STDOUT: RAYFADE frame=981 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.094 18863 18915 I GK_STDOUT: RAYDRAW frame=981 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.111 18863 18915 I GK_STDOUT: RAYLIGHT frame=982 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.111 18863 18915 I GK_STDOUT: RAYFADE frame=982 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.111 18863 18915 I GK_STDOUT: RAYDRAW frame=982 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.128 18863 18915 I GK_STDOUT: RAYLIGHT frame=983 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.128 18863 18915 I GK_STDOUT: RAYFADE frame=983 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.129 18863 18915 I GK_STDOUT: RAYDRAW frame=983 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.145 18863 18915 I GK_STDOUT: RAYLIGHT frame=984 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.145 18863 18915 I GK_STDOUT: RAYFADE frame=984 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.145 18863 18915 I GK_STDOUT: RAYDRAW frame=984 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.162 18863 18915 I GK_STDOUT: RAYLIGHT frame=985 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.162 18863 18915 I GK_STDOUT: RAYFADE frame=985 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.162 18863 18915 I GK_STDOUT: RAYDRAW frame=985 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.179 18863 18915 I GK_STDOUT: RAYLIGHT frame=986 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.179 18863 18915 I GK_STDOUT: RAYFADE frame=986 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.179 18863 18915 I GK_STDOUT: RAYDRAW frame=986 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.195 18863 18915 I GK_STDOUT: RAYLIGHT frame=987 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.196 18863 18915 I GK_STDOUT: RAYFADE frame=987 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.196 18863 18915 I GK_STDOUT: RAYDRAW frame=987 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.211 18863 18915 I GK_STDOUT: RAYLIGHT frame=988 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.211 18863 18915 I GK_STDOUT: RAYFADE frame=988 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.211 18863 18915 I GK_STDOUT: RAYDRAW frame=988 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.228 18863 18915 I GK_STDOUT: RAYLIGHT frame=989 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.228 18863 18915 I GK_STDOUT: RAYFADE frame=989 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.228 18863 18915 I GK_STDOUT: RAYDRAW frame=989 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.246 18863 18915 I GK_STDOUT: RAYLIGHT frame=990 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.246 18863 18915 I GK_STDOUT: RAYFADE frame=990 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.246 18863 18915 I GK_STDOUT: RAYDRAW frame=990 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.262 18863 18915 I GK_STDOUT: RAYLIGHT frame=991 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.262 18863 18915 I GK_STDOUT: RAYFADE frame=991 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.262 18863 18915 I GK_STDOUT: RAYDRAW frame=991 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.279 18863 18915 I GK_STDOUT: RAYLIGHT frame=992 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.279 18863 18915 I GK_STDOUT: RAYFADE frame=992 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.279 18863 18915 I GK_STDOUT: RAYDRAW frame=992 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.295 18863 18915 I GK_STDOUT: RAYLIGHT frame=993 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.295 18863 18915 I GK_STDOUT: RAYFADE frame=993 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.295 18863 18915 I GK_STDOUT: RAYDRAW frame=993 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.312 18863 18915 I GK_STDOUT: RAYLIGHT frame=994 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.312 18863 18915 I GK_STDOUT: RAYFADE frame=994 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.312 18863 18915 I GK_STDOUT: RAYDRAW frame=994 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.328 18863 18915 I GK_STDOUT: RAYLIGHT frame=995 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.328 18863 18915 I GK_STDOUT: RAYFADE frame=995 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.328 18863 18915 I GK_STDOUT: RAYDRAW frame=995 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.345 18863 18915 I GK_STDOUT: RAYLIGHT frame=996 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.345 18863 18915 I GK_STDOUT: RAYFADE frame=996 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.345 18863 18915 I GK_STDOUT: RAYDRAW frame=996 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.362 18863 18915 I GK_STDOUT: RAYLIGHT frame=997 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.362 18863 18915 I GK_STDOUT: RAYFADE frame=997 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.362 18863 18915 I GK_STDOUT: RAYDRAW frame=997 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.378 18863 18915 I GK_STDOUT: RAYLIGHT frame=998 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.378 18863 18915 I GK_STDOUT: RAYFADE frame=998 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.378 18863 18915 I GK_STDOUT: RAYDRAW frame=998 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.395 18863 18915 I GK_STDOUT: RAYLIGHT frame=999 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.396 18863 18915 I GK_STDOUT: RAYFADE frame=999 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.396 18863 18915 I GK_STDOUT: RAYDRAW frame=999 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.412 18863 18915 I GK_STDOUT: RAYLIGHT frame=1000 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.412 18863 18915 I GK_STDOUT: RAYFADE frame=1000 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.412 18863 18915 I GK_STDOUT: RAYDRAW frame=1000 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.429 18863 18915 I GK_STDOUT: RAYLIGHT frame=1001 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.429 18863 18915 I GK_STDOUT: RAYFADE frame=1001 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.429 18863 18915 I GK_STDOUT: RAYDRAW frame=1001 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.445 18863 18915 I GK_STDOUT: RAYLIGHT frame=1002 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.446 18863 18915 I GK_STDOUT: RAYFADE frame=1002 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.446 18863 18915 I GK_STDOUT: RAYDRAW frame=1002 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.462 18863 18915 I GK_STDOUT: RAYLIGHT frame=1003 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.462 18863 18915 I GK_STDOUT: RAYFADE frame=1003 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.462 18863 18915 I GK_STDOUT: RAYDRAW frame=1003 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.479 18863 18915 I GK_STDOUT: RAYLIGHT frame=1004 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.479 18863 18915 I GK_STDOUT: RAYFADE frame=1004 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.479 18863 18915 I GK_STDOUT: RAYDRAW frame=1004 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.495 18863 18915 I GK_STDOUT: RAYLIGHT frame=1005 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.495 18863 18915 I GK_STDOUT: RAYFADE frame=1005 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.495 18863 18915 I GK_STDOUT: RAYDRAW frame=1005 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.512 18863 18915 I GK_STDOUT: RAYLIGHT frame=1006 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.512 18863 18915 I GK_STDOUT: RAYFADE frame=1006 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.512 18863 18915 I GK_STDOUT: RAYDRAW frame=1006 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.529 18863 18915 I GK_STDOUT: RAYLIGHT frame=1007 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,-0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.529 18863 18915 I GK_STDOUT: RAYFADE frame=1007 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.529 18863 18915 I GK_STDOUT: RAYDRAW frame=1007 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.545 18863 18915 I GK_STDOUT: RAYLIGHT frame=1008 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.546 18863 18915 I GK_STDOUT: RAYFADE frame=1008 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.546 18863 18915 I GK_STDOUT: RAYDRAW frame=1008 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.563 18863 18915 I GK_STDOUT: RAYLIGHT frame=1009 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.563 18863 18915 I GK_STDOUT: RAYFADE frame=1009 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.563 18863 18915 I GK_STDOUT: RAYDRAW frame=1009 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.579 18863 18915 I GK_STDOUT: RAYLIGHT frame=1010 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.579 18863 18915 I GK_STDOUT: RAYFADE frame=1010 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.579 18863 18915 I GK_STDOUT: RAYDRAW frame=1010 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.596 18863 18915 I GK_STDOUT: RAYLIGHT frame=1011 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.596 18863 18915 I GK_STDOUT: RAYFADE frame=1011 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.596 18863 18915 I GK_STDOUT: RAYDRAW frame=1011 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.613 18863 18915 I GK_STDOUT: RAYLIGHT frame=1012 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.613 18863 18915 I GK_STDOUT: RAYFADE frame=1012 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.613 18863 18915 I GK_STDOUT: RAYDRAW frame=1012 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.629 18863 18915 I GK_STDOUT: RAYLIGHT frame=1013 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.629 18863 18915 I GK_STDOUT: RAYFADE frame=1013 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.629 18863 18915 I GK_STDOUT: RAYDRAW frame=1013 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.646 18863 18915 I GK_STDOUT: RAYLIGHT frame=1014 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.646 18863 18915 I GK_STDOUT: RAYFADE frame=1014 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.646 18863 18915 I GK_STDOUT: RAYDRAW frame=1014 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.668 18863 18915 I GK_STDOUT: RAYLIGHT frame=1015 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.668 18863 18915 I GK_STDOUT: RAYFADE frame=1015 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.668 18863 18915 I GK_STDOUT: RAYDRAW frame=1015 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.680 18863 18915 I GK_STDOUT: RAYLIGHT frame=1016 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.680 18863 18915 I GK_STDOUT: RAYFADE frame=1016 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.680 18863 18915 I GK_STDOUT: RAYDRAW frame=1016 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.696 18863 18915 I GK_STDOUT: RAYLIGHT frame=1017 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.696 18863 18915 I GK_STDOUT: RAYFADE frame=1017 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.696 18863 18915 I GK_STDOUT: RAYDRAW frame=1017 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.713 18863 18915 I GK_STDOUT: RAYLIGHT frame=1018 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.713 18863 18915 I GK_STDOUT: RAYFADE frame=1018 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.713 18863 18915 I GK_STDOUT: RAYDRAW frame=1018 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.729 18863 18915 I GK_STDOUT: RAYLIGHT frame=1019 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.729 18863 18915 I GK_STDOUT: RAYFADE frame=1019 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.729 18863 18915 I GK_STDOUT: RAYDRAW frame=1019 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.746 18863 18915 I GK_STDOUT: RAYLIGHT frame=1020 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.746 18863 18915 I GK_STDOUT: RAYFADE frame=1020 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.746 18863 18915 I GK_STDOUT: RAYDRAW frame=1020 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.763 18863 18915 I GK_STDOUT: RAYLIGHT frame=1021 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.763 18863 18915 I GK_STDOUT: RAYFADE frame=1021 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.763 18863 18915 I GK_STDOUT: RAYDRAW frame=1021 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.779 18863 18915 I GK_STDOUT: RAYLIGHT frame=1022 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.779 18863 18915 I GK_STDOUT: RAYFADE frame=1022 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.779 18863 18915 I GK_STDOUT: RAYDRAW frame=1022 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.796 18863 18915 I GK_STDOUT: RAYLIGHT frame=1023 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.796 18863 18915 I GK_STDOUT: RAYFADE frame=1023 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.796 18863 18915 I GK_STDOUT: RAYDRAW frame=1023 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.813 18863 18915 I GK_STDOUT: RAYLIGHT frame=1024 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.813 18863 18915 I GK_STDOUT: RAYFADE frame=1024 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.813 18863 18915 I GK_STDOUT: RAYDRAW frame=1024 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.831 18863 18915 I GK_STDOUT: RAYLIGHT frame=1025 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.831 18863 18915 I GK_STDOUT: RAYFADE frame=1025 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.831 18863 18915 I GK_STDOUT: RAYDRAW frame=1025 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.846 18863 18915 I GK_STDOUT: RAYLIGHT frame=1026 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.846 18863 18915 I GK_STDOUT: RAYFADE frame=1026 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.846 18863 18915 I GK_STDOUT: RAYDRAW frame=1026 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.863 18863 18915 I GK_STDOUT: RAYLIGHT frame=1027 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.863 18863 18915 I GK_STDOUT: RAYFADE frame=1027 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.863 18863 18915 I GK_STDOUT: RAYDRAW frame=1027 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.880 18863 18915 I GK_STDOUT: RAYLIGHT frame=1028 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.880 18863 18915 I GK_STDOUT: RAYFADE frame=1028 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.880 18863 18915 I GK_STDOUT: RAYDRAW frame=1028 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.896 18863 18915 I GK_STDOUT: RAYLIGHT frame=1029 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.896 18863 18915 I GK_STDOUT: RAYFADE frame=1029 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.897 18863 18915 I GK_STDOUT: RAYDRAW frame=1029 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.913 18863 18915 I GK_STDOUT: RAYLIGHT frame=1030 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.913 18863 18915 I GK_STDOUT: RAYFADE frame=1030 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.913 18863 18915 I GK_STDOUT: RAYDRAW frame=1030 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.930 18863 18915 I GK_STDOUT: RAYLIGHT frame=1031 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.930 18863 18915 I GK_STDOUT: RAYFADE frame=1031 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.930 18863 18915 I GK_STDOUT: RAYDRAW frame=1031 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.946 18863 18915 I GK_STDOUT: RAYLIGHT frame=1032 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.946 18863 18915 I GK_STDOUT: RAYFADE frame=1032 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.946 18863 18915 I GK_STDOUT: RAYDRAW frame=1032 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.964 18863 18915 I GK_STDOUT: RAYLIGHT frame=1033 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.964 18863 18915 I GK_STDOUT: RAYFADE frame=1033 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.964 18863 18915 I GK_STDOUT: RAYDRAW frame=1033 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.980 18863 18915 I GK_STDOUT: RAYLIGHT frame=1034 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.980 18863 18915 I GK_STDOUT: RAYFADE frame=1034 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.980 18863 18915 I GK_STDOUT: RAYDRAW frame=1034 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:27.997 18863 18915 I GK_STDOUT: RAYLIGHT frame=1035 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:27.997 18863 18915 I GK_STDOUT: RAYFADE frame=1035 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:27.997 18863 18915 I GK_STDOUT: RAYDRAW frame=1035 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.015 18863 18915 I GK_STDOUT: RAYLIGHT frame=1036 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.015 18863 18915 I GK_STDOUT: RAYFADE frame=1036 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.015 18863 18915 I GK_STDOUT: RAYDRAW frame=1036 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.029 18863 18915 I GK_STDOUT: RAYLIGHT frame=1037 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.030 18863 18915 I GK_STDOUT: RAYFADE frame=1037 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.030 18863 18915 I GK_STDOUT: RAYDRAW frame=1037 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.046 18863 18915 I GK_STDOUT: RAYLIGHT frame=1038 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.046 18863 18915 I GK_STDOUT: RAYFADE frame=1038 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.046 18863 18915 I GK_STDOUT: RAYDRAW frame=1038 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.063 18863 18915 I GK_STDOUT: RAYLIGHT frame=1039 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.063 18863 18915 I GK_STDOUT: RAYFADE frame=1039 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.063 18863 18915 I GK_STDOUT: RAYDRAW frame=1039 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.080 18863 18915 I GK_STDOUT: RAYLIGHT frame=1040 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.080 18863 18915 I GK_STDOUT: RAYFADE frame=1040 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.080 18863 18915 I GK_STDOUT: RAYDRAW frame=1040 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.097 18863 18915 I GK_STDOUT: RAYLIGHT frame=1041 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.097 18863 18915 I GK_STDOUT: RAYFADE frame=1041 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.097 18863 18915 I GK_STDOUT: RAYDRAW frame=1041 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.113 18863 18915 I GK_STDOUT: RAYLIGHT frame=1042 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.113 18863 18915 I GK_STDOUT: RAYFADE frame=1042 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.113 18863 18915 I GK_STDOUT: RAYDRAW frame=1042 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.130 18863 18915 I GK_STDOUT: RAYLIGHT frame=1043 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.130 18863 18915 I GK_STDOUT: RAYFADE frame=1043 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.130 18863 18915 I GK_STDOUT: RAYDRAW frame=1043 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.147 18863 18915 I GK_STDOUT: RAYLIGHT frame=1044 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.147 18863 18915 I GK_STDOUT: RAYFADE frame=1044 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.147 18863 18915 I GK_STDOUT: RAYDRAW frame=1044 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.163 18863 18915 I GK_STDOUT: RAYLIGHT frame=1045 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.163 18863 18915 I GK_STDOUT: RAYFADE frame=1045 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.163 18863 18915 I GK_STDOUT: RAYDRAW frame=1045 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.181 18863 18915 I GK_STDOUT: RAYLIGHT frame=1046 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.181 18863 18915 I GK_STDOUT: RAYFADE frame=1046 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.181 18863 18915 I GK_STDOUT: RAYDRAW frame=1046 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.197 18863 18915 I GK_STDOUT: RAYLIGHT frame=1047 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.197 18863 18915 I GK_STDOUT: RAYFADE frame=1047 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.197 18863 18915 I GK_STDOUT: RAYDRAW frame=1047 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.214 18863 18915 I GK_STDOUT: RAYLIGHT frame=1048 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.214 18863 18915 I GK_STDOUT: RAYFADE frame=1048 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.214 18863 18915 I GK_STDOUT: RAYDRAW frame=1048 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.231 18863 18915 I GK_STDOUT: RAYLIGHT frame=1049 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.231 18863 18915 I GK_STDOUT: RAYFADE frame=1049 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.231 18863 18915 I GK_STDOUT: RAYDRAW frame=1049 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.247 18863 18915 I GK_STDOUT: RAYLIGHT frame=1050 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.247 18863 18915 I GK_STDOUT: RAYFADE frame=1050 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.247 18863 18915 I GK_STDOUT: RAYDRAW frame=1050 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.264 18863 18915 I GK_STDOUT: RAYLIGHT frame=1051 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.264 18863 18915 I GK_STDOUT: RAYFADE frame=1051 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.264 18863 18915 I GK_STDOUT: RAYDRAW frame=1051 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.280 18863 18915 I GK_STDOUT: RAYLIGHT frame=1052 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.280 18863 18915 I GK_STDOUT: RAYFADE frame=1052 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.280 18863 18915 I GK_STDOUT: RAYDRAW frame=1052 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.298 18863 18915 I GK_STDOUT: RAYLIGHT frame=1053 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.298 18863 18915 I GK_STDOUT: RAYFADE frame=1053 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.298 18863 18915 I GK_STDOUT: RAYDRAW frame=1053 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.314 18863 18915 I GK_STDOUT: RAYLIGHT frame=1054 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.314 18863 18915 I GK_STDOUT: RAYFADE frame=1054 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.314 18863 18915 I GK_STDOUT: RAYDRAW frame=1054 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.331 18863 18915 I GK_STDOUT: RAYLIGHT frame=1055 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.331 18863 18915 I GK_STDOUT: RAYFADE frame=1055 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.331 18863 18915 I GK_STDOUT: RAYDRAW frame=1055 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.348 18863 18915 I GK_STDOUT: RAYLIGHT frame=1056 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.348 18863 18915 I GK_STDOUT: RAYFADE frame=1056 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.348 18863 18915 I GK_STDOUT: RAYDRAW frame=1056 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.364 18863 18915 I GK_STDOUT: RAYLIGHT frame=1057 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.364 18863 18915 I GK_STDOUT: RAYFADE frame=1057 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.364 18863 18915 I GK_STDOUT: RAYDRAW frame=1057 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.382 18863 18915 I GK_STDOUT: RAYLIGHT frame=1058 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.382 18863 18915 I GK_STDOUT: RAYFADE frame=1058 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.382 18863 18915 I GK_STDOUT: RAYDRAW frame=1058 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.398 18863 18915 I GK_STDOUT: RAYLIGHT frame=1059 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.398 18863 18915 I GK_STDOUT: RAYFADE frame=1059 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.398 18863 18915 I GK_STDOUT: RAYDRAW frame=1059 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.414 18863 18915 I GK_STDOUT: RAYLIGHT frame=1060 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.414 18863 18915 I GK_STDOUT: RAYFADE frame=1060 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.414 18863 18915 I GK_STDOUT: RAYDRAW frame=1060 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.431 18863 18915 I GK_STDOUT: RAYLIGHT frame=1061 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.431 18863 18915 I GK_STDOUT: RAYFADE frame=1061 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.431 18863 18915 I GK_STDOUT: RAYDRAW frame=1061 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.447 18863 18915 I GK_STDOUT: RAYLIGHT frame=1062 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.447 18863 18915 I GK_STDOUT: RAYFADE frame=1062 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.448 18863 18915 I GK_STDOUT: RAYDRAW frame=1062 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.465 18863 18915 I GK_STDOUT: RAYLIGHT frame=1063 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.465 18863 18915 I GK_STDOUT: RAYFADE frame=1063 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.465 18863 18915 I GK_STDOUT: RAYDRAW frame=1063 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.481 18863 18915 I GK_STDOUT: RAYLIGHT frame=1064 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.481 18863 18915 I GK_STDOUT: RAYFADE frame=1064 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.481 18863 18915 I GK_STDOUT: RAYDRAW frame=1064 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.498 18863 18915 I GK_STDOUT: RAYLIGHT frame=1065 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.498 18863 18915 I GK_STDOUT: RAYFADE frame=1065 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.498 18863 18915 I GK_STDOUT: RAYDRAW frame=1065 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.514 18863 18915 I GK_STDOUT: RAYLIGHT frame=1066 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.514 18863 18915 I GK_STDOUT: RAYFADE frame=1066 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.514 18863 18915 I GK_STDOUT: RAYDRAW frame=1066 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.531 18863 18915 I GK_STDOUT: RAYLIGHT frame=1067 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.531 18863 18915 I GK_STDOUT: RAYFADE frame=1067 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.531 18863 18915 I GK_STDOUT: RAYDRAW frame=1067 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.548 18863 18915 I GK_STDOUT: RAYLIGHT frame=1068 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.548 18863 18915 I GK_STDOUT: RAYFADE frame=1068 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.549 18863 18915 I GK_STDOUT: RAYDRAW frame=1068 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.565 18863 18915 I GK_STDOUT: RAYLIGHT frame=1069 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.565 18863 18915 I GK_STDOUT: RAYFADE frame=1069 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.565 18863 18915 I GK_STDOUT: RAYDRAW frame=1069 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.581 18863 18915 I GK_STDOUT: RAYLIGHT frame=1070 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.581 18863 18915 I GK_STDOUT: RAYFADE frame=1070 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.581 18863 18915 I GK_STDOUT: RAYDRAW frame=1070 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.598 18863 18915 I GK_STDOUT: RAYLIGHT frame=1071 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.598 18863 18915 I GK_STDOUT: RAYFADE frame=1071 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.598 18863 18915 I GK_STDOUT: RAYDRAW frame=1071 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.615 18863 18915 I GK_STDOUT: RAYLIGHT frame=1072 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.616 18863 18915 I GK_STDOUT: RAYFADE frame=1072 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.616 18863 18915 I GK_STDOUT: RAYDRAW frame=1072 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.632 18863 18915 I GK_STDOUT: RAYLIGHT frame=1073 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.632 18863 18915 I GK_STDOUT: RAYFADE frame=1073 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.632 18863 18915 I GK_STDOUT: RAYDRAW frame=1073 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.648 18863 18915 I GK_STDOUT: RAYLIGHT frame=1074 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.648 18863 18915 I GK_STDOUT: RAYFADE frame=1074 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.648 18863 18915 I GK_STDOUT: RAYDRAW frame=1074 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.665 18863 18915 I GK_STDOUT: RAYLIGHT frame=1075 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.665 18863 18915 I GK_STDOUT: RAYFADE frame=1075 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.665 18863 18915 I GK_STDOUT: RAYDRAW frame=1075 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.682 18863 18915 I GK_STDOUT: RAYLIGHT frame=1076 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.682 18863 18915 I GK_STDOUT: RAYFADE frame=1076 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.682 18863 18915 I GK_STDOUT: RAYDRAW frame=1076 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.699 18863 18915 I GK_STDOUT: RAYLIGHT frame=1077 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.699 18863 18915 I GK_STDOUT: RAYFADE frame=1077 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.699 18863 18915 I GK_STDOUT: RAYDRAW frame=1077 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.718 18863 18915 I GK_STDOUT: RAYLIGHT frame=1078 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.718 18863 18915 I GK_STDOUT: RAYFADE frame=1078 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.718 18863 18915 I GK_STDOUT: RAYDRAW frame=1078 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.734 18863 18915 I GK_STDOUT: RAYLIGHT frame=1079 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.734 18863 18915 I GK_STDOUT: RAYFADE frame=1079 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.734 18863 18915 I GK_STDOUT: RAYDRAW frame=1079 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.749 18863 18915 I GK_STDOUT: RAYLIGHT frame=1080 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.749 18863 18915 I GK_STDOUT: RAYFADE frame=1080 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.749 18863 18915 I GK_STDOUT: RAYDRAW frame=1080 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.765 18863 18915 I GK_STDOUT: RAYLIGHT frame=1081 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.765 18863 18915 I GK_STDOUT: RAYFADE frame=1081 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.765 18863 18915 I GK_STDOUT: RAYDRAW frame=1081 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.782 18863 18915 I GK_STDOUT: RAYLIGHT frame=1082 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.782 18863 18915 I GK_STDOUT: RAYFADE frame=1082 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.782 18863 18915 I GK_STDOUT: RAYDRAW frame=1082 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.798 18863 18915 I GK_STDOUT: RAYLIGHT frame=1083 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.798 18863 18915 I GK_STDOUT: RAYFADE frame=1083 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.798 18863 18915 I GK_STDOUT: RAYDRAW frame=1083 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.816 18863 18915 I GK_STDOUT: RAYLIGHT frame=1084 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.816 18863 18915 I GK_STDOUT: RAYFADE frame=1084 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.816 18863 18915 I GK_STDOUT: RAYDRAW frame=1084 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.832 18863 18915 I GK_STDOUT: RAYLIGHT frame=1085 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.832 18863 18915 I GK_STDOUT: RAYFADE frame=1085 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.832 18863 18915 I GK_STDOUT: RAYDRAW frame=1085 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.849 18863 18915 I GK_STDOUT: RAYLIGHT frame=1086 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.849 18863 18915 I GK_STDOUT: RAYFADE frame=1086 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.849 18863 18915 I GK_STDOUT: RAYDRAW frame=1086 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.865 18863 18915 I GK_STDOUT: RAYLIGHT frame=1087 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.865 18863 18915 I GK_STDOUT: RAYFADE frame=1087 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.865 18863 18915 I GK_STDOUT: RAYDRAW frame=1087 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.882 18863 18915 I GK_STDOUT: RAYLIGHT frame=1088 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.882 18863 18915 I GK_STDOUT: RAYFADE frame=1088 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.882 18863 18915 I GK_STDOUT: RAYDRAW frame=1088 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.899 18863 18915 I GK_STDOUT: RAYLIGHT frame=1089 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.899 18863 18915 I GK_STDOUT: RAYFADE frame=1089 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.899 18863 18915 I GK_STDOUT: RAYDRAW frame=1089 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.916 18863 18915 I GK_STDOUT: RAYLIGHT frame=1090 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.916 18863 18915 I GK_STDOUT: RAYFADE frame=1090 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.916 18863 18915 I GK_STDOUT: RAYDRAW frame=1090 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.932 18863 18915 I GK_STDOUT: RAYLIGHT frame=1091 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.932 18863 18915 I GK_STDOUT: RAYFADE frame=1091 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.932 18863 18915 I GK_STDOUT: RAYDRAW frame=1091 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.949 18863 18915 I GK_STDOUT: RAYLIGHT frame=1092 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.949 18863 18915 I GK_STDOUT: RAYFADE frame=1092 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.949 18863 18915 I GK_STDOUT: RAYDRAW frame=1092 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.966 18863 18915 I GK_STDOUT: RAYLIGHT frame=1093 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.966 18863 18915 I GK_STDOUT: RAYFADE frame=1093 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.966 18863 18915 I GK_STDOUT: RAYDRAW frame=1093 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.983 18863 18915 I GK_STDOUT: RAYLIGHT frame=1094 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.983 18863 18915 I GK_STDOUT: RAYFADE frame=1094 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:28.983 18863 18915 I GK_STDOUT: RAYDRAW frame=1094 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:28.999 18863 18915 I GK_STDOUT: RAYLIGHT frame=1095 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:28.999 18863 18915 I GK_STDOUT: RAYFADE frame=1095 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.000 18863 18915 I GK_STDOUT: RAYDRAW frame=1095 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.016 18863 18915 I GK_STDOUT: RAYLIGHT frame=1096 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.016 18863 18915 I GK_STDOUT: RAYFADE frame=1096 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.016 18863 18915 I GK_STDOUT: RAYDRAW frame=1096 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.033 18863 18915 I GK_STDOUT: RAYLIGHT frame=1097 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.033 18863 18915 I GK_STDOUT: RAYFADE frame=1097 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.033 18863 18915 I GK_STDOUT: RAYDRAW frame=1097 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.049 18863 18915 I GK_STDOUT: RAYLIGHT frame=1098 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.049 18863 18915 I GK_STDOUT: RAYFADE frame=1098 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.049 18863 18915 I GK_STDOUT: RAYDRAW frame=1098 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.066 18863 18915 I GK_STDOUT: RAYLIGHT frame=1099 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.066 18863 18915 I GK_STDOUT: RAYFADE frame=1099 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.066 18863 18915 I GK_STDOUT: RAYDRAW frame=1099 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.082 18863 18915 I GK_STDOUT: RAYLIGHT frame=1100 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.082 18863 18915 I GK_STDOUT: RAYFADE frame=1100 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.082 18863 18915 I GK_STDOUT: RAYDRAW frame=1100 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.099 18863 18915 I GK_STDOUT: RAYLIGHT frame=1101 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.099 18863 18915 I GK_STDOUT: RAYFADE frame=1101 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.099 18863 18915 I GK_STDOUT: RAYDRAW frame=1101 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.116 18863 18915 I GK_STDOUT: RAYLIGHT frame=1102 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.116 18863 18915 I GK_STDOUT: RAYFADE frame=1102 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.116 18863 18915 I GK_STDOUT: RAYDRAW frame=1102 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.133 18863 18915 I GK_STDOUT: RAYLIGHT frame=1103 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.133 18863 18915 I GK_STDOUT: RAYFADE frame=1103 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.133 18863 18915 I GK_STDOUT: RAYDRAW frame=1103 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.149 18863 18915 I GK_STDOUT: RAYLIGHT frame=1104 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.149 18863 18915 I GK_STDOUT: RAYFADE frame=1104 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.149 18863 18915 I GK_STDOUT: RAYDRAW frame=1104 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.166 18863 18915 I GK_STDOUT: RAYLIGHT frame=1105 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.166 18863 18915 I GK_STDOUT: RAYFADE frame=1105 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.166 18863 18915 I GK_STDOUT: RAYDRAW frame=1105 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.183 18863 18915 I GK_STDOUT: RAYLIGHT frame=1106 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.183 18863 18915 I GK_STDOUT: RAYFADE frame=1106 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.183 18863 18915 I GK_STDOUT: RAYDRAW frame=1106 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.200 18863 18915 I GK_STDOUT: RAYLIGHT frame=1107 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.200 18863 18915 I GK_STDOUT: RAYFADE frame=1107 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.200 18863 18915 I GK_STDOUT: RAYDRAW frame=1107 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.216 18863 18915 I GK_STDOUT: RAYLIGHT frame=1108 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.217 18863 18915 I GK_STDOUT: RAYFADE frame=1108 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.217 18863 18915 I GK_STDOUT: RAYDRAW frame=1108 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.233 18863 18915 I GK_STDOUT: RAYLIGHT frame=1109 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.233 18863 18915 I GK_STDOUT: RAYFADE frame=1109 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.233 18863 18915 I GK_STDOUT: RAYDRAW frame=1109 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.251 18863 18915 I GK_STDOUT: RAYLIGHT frame=1110 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.251 18863 18915 I GK_STDOUT: RAYFADE frame=1110 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.251 18863 18915 I GK_STDOUT: RAYDRAW frame=1110 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.266 18863 18915 I GK_STDOUT: RAYLIGHT frame=1111 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.266 18863 18915 I GK_STDOUT: RAYFADE frame=1111 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.266 18863 18915 I GK_STDOUT: RAYDRAW frame=1111 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.283 18863 18915 I GK_STDOUT: RAYLIGHT frame=1112 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.283 18863 18915 I GK_STDOUT: RAYFADE frame=1112 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.283 18863 18915 I GK_STDOUT: RAYDRAW frame=1112 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.301 18863 18915 I GK_STDOUT: RAYLIGHT frame=1113 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.301 18863 18915 I GK_STDOUT: RAYFADE frame=1113 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.301 18863 18915 I GK_STDOUT: RAYDRAW frame=1113 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.316 18863 18915 I GK_STDOUT: RAYLIGHT frame=1114 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.316 18863 18915 I GK_STDOUT: RAYFADE frame=1114 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.316 18863 18915 I GK_STDOUT: RAYDRAW frame=1114 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.333 18863 18915 I GK_STDOUT: RAYLIGHT frame=1115 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.333 18863 18915 I GK_STDOUT: RAYFADE frame=1115 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.333 18863 18915 I GK_STDOUT: RAYDRAW frame=1115 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.349 18863 18915 I GK_STDOUT: RAYLIGHT frame=1116 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.349 18863 18915 I GK_STDOUT: RAYFADE frame=1116 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.350 18863 18915 I GK_STDOUT: RAYDRAW frame=1116 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.366 18863 18915 I GK_STDOUT: RAYLIGHT frame=1117 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.366 18863 18915 I GK_STDOUT: RAYFADE frame=1117 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.366 18863 18915 I GK_STDOUT: RAYDRAW frame=1117 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.384 18863 18915 I GK_STDOUT: RAYLIGHT frame=1118 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.384 18863 18915 I GK_STDOUT: RAYFADE frame=1118 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.384 18863 18915 I GK_STDOUT: RAYDRAW frame=1118 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.400 18863 18915 I GK_STDOUT: RAYLIGHT frame=1119 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.400 18863 18915 I GK_STDOUT: RAYFADE frame=1119 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.400 18863 18915 I GK_STDOUT: RAYDRAW frame=1119 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.416 18863 18915 I GK_STDOUT: RAYLIGHT frame=1120 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.416 18863 18915 I GK_STDOUT: RAYFADE frame=1120 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.416 18863 18915 I GK_STDOUT: RAYDRAW frame=1120 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.434 18863 18915 I GK_STDOUT: RAYLIGHT frame=1121 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.434 18863 18915 I GK_STDOUT: RAYFADE frame=1121 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.434 18863 18915 I GK_STDOUT: RAYDRAW frame=1121 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.450 18863 18915 I GK_STDOUT: RAYLIGHT frame=1122 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.450 18863 18915 I GK_STDOUT: RAYFADE frame=1122 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.450 18863 18915 I GK_STDOUT: RAYDRAW frame=1122 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.467 18863 18915 I GK_STDOUT: RAYLIGHT frame=1123 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.467 18863 18915 I GK_STDOUT: RAYFADE frame=1123 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.468 18863 18915 I GK_STDOUT: RAYDRAW frame=1123 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.484 18863 18915 I GK_STDOUT: RAYLIGHT frame=1124 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.484 18863 18915 I GK_STDOUT: RAYFADE frame=1124 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.484 18863 18915 I GK_STDOUT: RAYDRAW frame=1124 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.501 18863 18915 I GK_STDOUT: RAYLIGHT frame=1125 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.501 18863 18915 I GK_STDOUT: RAYFADE frame=1125 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.501 18863 18915 I GK_STDOUT: RAYDRAW frame=1125 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.518 18863 18915 I GK_STDOUT: RAYLIGHT frame=1126 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.518 18863 18915 I GK_STDOUT: RAYFADE frame=1126 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.518 18863 18915 I GK_STDOUT: RAYDRAW frame=1126 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.534 18863 18915 I GK_STDOUT: RAYLIGHT frame=1127 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.534 18863 18915 I GK_STDOUT: RAYFADE frame=1127 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.534 18863 18915 I GK_STDOUT: RAYDRAW frame=1127 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.550 18863 18915 I GK_STDOUT: RAYLIGHT frame=1128 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.550 18863 18915 I GK_STDOUT: RAYFADE frame=1128 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.550 18863 18915 I GK_STDOUT: RAYDRAW frame=1128 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.567 18863 18915 I GK_STDOUT: RAYLIGHT frame=1129 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.567 18863 18915 I GK_STDOUT: RAYFADE frame=1129 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.567 18863 18915 I GK_STDOUT: RAYDRAW frame=1129 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.585 18863 18915 I GK_STDOUT: RAYLIGHT frame=1130 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.585 18863 18915 I GK_STDOUT: RAYFADE frame=1130 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.585 18863 18915 I GK_STDOUT: RAYDRAW frame=1130 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.600 18863 18915 I GK_STDOUT: RAYLIGHT frame=1131 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.600 18863 18915 I GK_STDOUT: RAYFADE frame=1131 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.600 18863 18915 I GK_STDOUT: RAYDRAW frame=1131 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.617 18863 18915 I GK_STDOUT: RAYLIGHT frame=1132 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.617 18863 18915 I GK_STDOUT: RAYFADE frame=1132 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.617 18863 18915 I GK_STDOUT: RAYDRAW frame=1132 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.634 18863 18915 I GK_STDOUT: RAYLIGHT frame=1133 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.634 18863 18915 I GK_STDOUT: RAYFADE frame=1133 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.634 18863 18915 I GK_STDOUT: RAYDRAW frame=1133 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.653 18863 18915 I GK_STDOUT: RAYLIGHT frame=1134 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.653 18863 18915 I GK_STDOUT: RAYFADE frame=1134 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.653 18863 18915 I GK_STDOUT: RAYDRAW frame=1134 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.668 18863 18915 I GK_STDOUT: RAYLIGHT frame=1135 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.668 18863 18915 I GK_STDOUT: RAYFADE frame=1135 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.668 18863 18915 I GK_STDOUT: RAYDRAW frame=1135 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.684 18863 18915 I GK_STDOUT: RAYLIGHT frame=1136 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.684 18863 18915 I GK_STDOUT: RAYFADE frame=1136 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.684 18863 18915 I GK_STDOUT: RAYDRAW frame=1136 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.701 18863 18915 I GK_STDOUT: RAYLIGHT frame=1137 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.701 18863 18915 I GK_STDOUT: RAYFADE frame=1137 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.701 18863 18915 I GK_STDOUT: RAYDRAW frame=1137 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.717 18863 18915 I GK_STDOUT: RAYLIGHT frame=1138 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.717 18863 18915 I GK_STDOUT: RAYFADE frame=1138 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.717 18863 18915 I GK_STDOUT: RAYDRAW frame=1138 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.734 18863 18915 I GK_STDOUT: RAYLIGHT frame=1139 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.734 18863 18915 I GK_STDOUT: RAYFADE frame=1139 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.734 18863 18915 I GK_STDOUT: RAYDRAW frame=1139 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.751 18863 18915 I GK_STDOUT: RAYLIGHT frame=1140 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.751 18863 18915 I GK_STDOUT: RAYFADE frame=1140 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.751 18863 18915 I GK_STDOUT: RAYDRAW frame=1140 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.769 18863 18915 I GK_STDOUT: RAYLIGHT frame=1141 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.769 18863 18915 I GK_STDOUT: RAYFADE frame=1141 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.769 18863 18915 I GK_STDOUT: RAYDRAW frame=1141 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.784 18863 18915 I GK_STDOUT: RAYLIGHT frame=1142 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.784 18863 18915 I GK_STDOUT: RAYFADE frame=1142 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.784 18863 18915 I GK_STDOUT: RAYDRAW frame=1142 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.801 18863 18915 I GK_STDOUT: RAYLIGHT frame=1143 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.802 18863 18915 I GK_STDOUT: RAYFADE frame=1143 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.802 18863 18915 I GK_STDOUT: RAYDRAW frame=1143 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.820 18863 18915 I GK_STDOUT: RAYLIGHT frame=1144 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.820 18863 18915 I GK_STDOUT: RAYFADE frame=1144 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.820 18863 18915 I GK_STDOUT: RAYDRAW frame=1144 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.834 18863 18915 I GK_STDOUT: RAYLIGHT frame=1145 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.834 18863 18915 I GK_STDOUT: RAYFADE frame=1145 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.834 18863 18915 I GK_STDOUT: RAYDRAW frame=1145 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.852 18863 18915 I GK_STDOUT: RAYLIGHT frame=1146 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.852 18863 18915 I GK_STDOUT: RAYFADE frame=1146 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.852 18863 18915 I GK_STDOUT: RAYDRAW frame=1146 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.868 18863 18915 I GK_STDOUT: RAYLIGHT frame=1147 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.868 18863 18915 I GK_STDOUT: RAYFADE frame=1147 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.868 18863 18915 I GK_STDOUT: RAYDRAW frame=1147 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.884 18863 18915 I GK_STDOUT: RAYLIGHT frame=1148 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.884 18863 18915 I GK_STDOUT: RAYFADE frame=1148 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.884 18863 18915 I GK_STDOUT: RAYDRAW frame=1148 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.901 18863 18915 I GK_STDOUT: RAYLIGHT frame=1149 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.901 18863 18915 I GK_STDOUT: RAYFADE frame=1149 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.901 18863 18915 I GK_STDOUT: RAYDRAW frame=1149 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.918 18863 18915 I GK_STDOUT: RAYLIGHT frame=1150 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.918 18863 18915 I GK_STDOUT: RAYFADE frame=1150 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.918 18863 18915 I GK_STDOUT: RAYDRAW frame=1150 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.935 18863 18915 I GK_STDOUT: RAYLIGHT frame=1151 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.935 18863 18915 I GK_STDOUT: RAYFADE frame=1151 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.935 18863 18915 I GK_STDOUT: RAYDRAW frame=1151 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.952 18863 18915 I GK_STDOUT: RAYLIGHT frame=1152 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.952 18863 18915 I GK_STDOUT: RAYFADE frame=1152 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.952 18863 18915 I GK_STDOUT: RAYDRAW frame=1152 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.968 18863 18915 I GK_STDOUT: RAYLIGHT frame=1153 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.968 18863 18915 I GK_STDOUT: RAYFADE frame=1153 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.968 18863 18915 I GK_STDOUT: RAYDRAW frame=1153 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:29.984 18863 18915 I GK_STDOUT: RAYLIGHT frame=1154 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:29.984 18863 18915 I GK_STDOUT: RAYFADE frame=1154 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:29.984 18863 18915 I GK_STDOUT: RAYDRAW frame=1154 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.002 18863 18915 I GK_STDOUT: RAYLIGHT frame=1155 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.002 18863 18915 I GK_STDOUT: RAYFADE frame=1155 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.002 18863 18915 I GK_STDOUT: RAYDRAW frame=1155 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.018 18863 18915 I GK_STDOUT: RAYLIGHT frame=1156 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.018 18863 18915 I GK_STDOUT: RAYFADE frame=1156 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.018 18863 18915 I GK_STDOUT: RAYDRAW frame=1156 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.035 18863 18915 I GK_STDOUT: RAYLIGHT frame=1157 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.035 18863 18915 I GK_STDOUT: RAYFADE frame=1157 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.035 18863 18915 I GK_STDOUT: RAYDRAW frame=1157 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.051 18863 18915 I GK_STDOUT: RAYLIGHT frame=1158 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.051 18863 18915 I GK_STDOUT: RAYFADE frame=1158 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.051 18863 18915 I GK_STDOUT: RAYDRAW frame=1158 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.068 18863 18915 I GK_STDOUT: RAYLIGHT frame=1159 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.068 18863 18915 I GK_STDOUT: RAYFADE frame=1159 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.068 18863 18915 I GK_STDOUT: RAYDRAW frame=1159 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.086 18863 18915 I GK_STDOUT: RAYLIGHT frame=1160 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.086 18863 18915 I GK_STDOUT: RAYFADE frame=1160 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.086 18863 18915 I GK_STDOUT: RAYDRAW frame=1160 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.103 18863 18915 I GK_STDOUT: RAYLIGHT frame=1161 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.103 18863 18915 I GK_STDOUT: RAYFADE frame=1161 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.103 18863 18915 I GK_STDOUT: RAYDRAW frame=1161 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.118 18863 18915 I GK_STDOUT: RAYLIGHT frame=1162 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.119 18863 18915 I GK_STDOUT: RAYFADE frame=1162 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.119 18863 18915 I GK_STDOUT: RAYDRAW frame=1162 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.135 18863 18915 I GK_STDOUT: RAYLIGHT frame=1163 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.135 18863 18915 I GK_STDOUT: RAYFADE frame=1163 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.135 18863 18915 I GK_STDOUT: RAYDRAW frame=1163 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.152 18863 18915 I GK_STDOUT: RAYLIGHT frame=1164 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.152 18863 18915 I GK_STDOUT: RAYFADE frame=1164 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.152 18863 18915 I GK_STDOUT: RAYDRAW frame=1164 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.169 18863 18915 I GK_STDOUT: RAYLIGHT frame=1165 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.169 18863 18915 I GK_STDOUT: RAYFADE frame=1165 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.169 18863 18915 I GK_STDOUT: RAYDRAW frame=1165 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.186 18863 18915 I GK_STDOUT: RAYLIGHT frame=1166 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.186 18863 18915 I GK_STDOUT: RAYFADE frame=1166 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.186 18863 18915 I GK_STDOUT: RAYDRAW frame=1166 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.202 18863 18915 I GK_STDOUT: RAYLIGHT frame=1167 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.202 18863 18915 I GK_STDOUT: RAYFADE frame=1167 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.202 18863 18915 I GK_STDOUT: RAYDRAW frame=1167 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.219 18863 18915 I GK_STDOUT: RAYLIGHT frame=1168 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.219 18863 18915 I GK_STDOUT: RAYFADE frame=1168 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.219 18863 18915 I GK_STDOUT: RAYDRAW frame=1168 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.235 18863 18915 I GK_STDOUT: RAYLIGHT frame=1169 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.235 18863 18915 I GK_STDOUT: RAYFADE frame=1169 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.235 18863 18915 I GK_STDOUT: RAYDRAW frame=1169 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.252 18863 18915 I GK_STDOUT: RAYLIGHT frame=1170 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.252 18863 18915 I GK_STDOUT: RAYFADE frame=1170 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.252 18863 18915 I GK_STDOUT: RAYDRAW frame=1170 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.271 18863 18915 I GK_STDOUT: RAYLIGHT frame=1171 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.271 18863 18915 I GK_STDOUT: RAYFADE frame=1171 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.271 18863 18915 I GK_STDOUT: RAYDRAW frame=1171 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.286 18863 18915 I GK_STDOUT: RAYLIGHT frame=1172 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.286 18863 18915 I GK_STDOUT: RAYFADE frame=1172 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.286 18863 18915 I GK_STDOUT: RAYDRAW frame=1172 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.302 18863 18915 I GK_STDOUT: RAYLIGHT frame=1173 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.302 18863 18915 I GK_STDOUT: RAYFADE frame=1173 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.302 18863 18915 I GK_STDOUT: RAYDRAW frame=1173 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.319 18863 18915 I GK_STDOUT: RAYLIGHT frame=1174 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.319 18863 18915 I GK_STDOUT: RAYFADE frame=1174 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.319 18863 18915 I GK_STDOUT: RAYDRAW frame=1174 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.336 18863 18915 I GK_STDOUT: RAYLIGHT frame=1175 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.336 18863 18915 I GK_STDOUT: RAYFADE frame=1175 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.336 18863 18915 I GK_STDOUT: RAYDRAW frame=1175 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.353 18863 18915 I GK_STDOUT: RAYLIGHT frame=1176 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.353 18863 18915 I GK_STDOUT: RAYFADE frame=1176 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.353 18863 18915 I GK_STDOUT: RAYDRAW frame=1176 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.369 18863 18915 I GK_STDOUT: RAYLIGHT frame=1177 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.369 18863 18915 I GK_STDOUT: RAYFADE frame=1177 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.369 18863 18915 I GK_STDOUT: RAYDRAW frame=1177 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.386 18863 18915 I GK_STDOUT: RAYLIGHT frame=1178 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.387 18863 18915 I GK_STDOUT: RAYFADE frame=1178 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.387 18863 18915 I GK_STDOUT: RAYDRAW frame=1178 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.403 18863 18915 I GK_STDOUT: RAYLIGHT frame=1179 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.403 18863 18915 I GK_STDOUT: RAYFADE frame=1179 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.403 18863 18915 I GK_STDOUT: RAYDRAW frame=1179 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.419 18863 18915 I GK_STDOUT: RAYLIGHT frame=1180 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.419 18863 18915 I GK_STDOUT: RAYFADE frame=1180 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.419 18863 18915 I GK_STDOUT: RAYDRAW frame=1180 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.436 18863 18915 I GK_STDOUT: RAYLIGHT frame=1181 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.437 18863 18915 I GK_STDOUT: RAYFADE frame=1181 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.437 18863 18915 I GK_STDOUT: RAYDRAW frame=1181 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.454 18863 18915 I GK_STDOUT: RAYLIGHT frame=1182 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.454 18863 18915 I GK_STDOUT: RAYFADE frame=1182 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.454 18863 18915 I GK_STDOUT: RAYDRAW frame=1182 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.469 18863 18915 I GK_STDOUT: RAYLIGHT frame=1183 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.469 18863 18915 I GK_STDOUT: RAYFADE frame=1183 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.469 18863 18915 I GK_STDOUT: RAYDRAW frame=1183 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.487 18863 18915 I GK_STDOUT: RAYLIGHT frame=1184 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.487 18863 18915 I GK_STDOUT: RAYFADE frame=1184 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.487 18863 18915 I GK_STDOUT: RAYDRAW frame=1184 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.503 18863 18915 I GK_STDOUT: RAYLIGHT frame=1185 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.503 18863 18915 I GK_STDOUT: RAYFADE frame=1185 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.503 18863 18915 I GK_STDOUT: RAYDRAW frame=1185 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.519 18863 18915 I GK_STDOUT: RAYLIGHT frame=1186 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.519 18863 18915 I GK_STDOUT: RAYFADE frame=1186 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.519 18863 18915 I GK_STDOUT: RAYDRAW frame=1186 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.537 18863 18915 I GK_STDOUT: RAYLIGHT frame=1187 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.537 18863 18915 I GK_STDOUT: RAYFADE frame=1187 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.537 18863 18915 I GK_STDOUT: RAYDRAW frame=1187 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.553 18863 18915 I GK_STDOUT: RAYLIGHT frame=1188 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.553 18863 18915 I GK_STDOUT: RAYFADE frame=1188 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.553 18863 18915 I GK_STDOUT: RAYDRAW frame=1188 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.570 18863 18915 I GK_STDOUT: RAYLIGHT frame=1189 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.570 18863 18915 I GK_STDOUT: RAYFADE frame=1189 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.570 18863 18915 I GK_STDOUT: RAYDRAW frame=1189 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.590 18863 18915 I GK_STDOUT: RAYLIGHT frame=1190 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.590 18863 18915 I GK_STDOUT: RAYFADE frame=1190 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.590 18863 18915 I GK_STDOUT: RAYDRAW frame=1190 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.612 18863 18915 I GK_STDOUT: RAYLIGHT frame=1191 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.612 18863 18915 I GK_STDOUT: RAYFADE frame=1191 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.612 18863 18915 I GK_STDOUT: RAYDRAW frame=1191 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.671 18863 18915 I GK_STDOUT: RAYLIGHT frame=1192 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.671 18863 18915 I GK_STDOUT: RAYFADE frame=1192 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.671 18863 18915 I GK_STDOUT: RAYDRAW frame=1192 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.708 18863 18915 I GK_STDOUT: RAYLIGHT frame=1193 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.708 18863 18915 I GK_STDOUT: RAYFADE frame=1193 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.708 18863 18915 I GK_STDOUT: RAYDRAW frame=1193 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.743 18863 18915 I GK_STDOUT: RAYLIGHT frame=1194 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.743 18863 18915 I GK_STDOUT: RAYFADE frame=1194 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.743 18863 18915 I GK_STDOUT: RAYDRAW frame=1194 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.784 18863 18915 I GK_STDOUT: RAYLIGHT frame=1195 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.784 18863 18915 I GK_STDOUT: RAYFADE frame=1195 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.784 18863 18915 I GK_STDOUT: RAYDRAW frame=1195 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.821 18863 18915 I GK_STDOUT: RAYLIGHT frame=1196 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.821 18863 18915 I GK_STDOUT: RAYFADE frame=1196 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.821 18863 18915 I GK_STDOUT: RAYDRAW frame=1196 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.856 18863 18915 I GK_STDOUT: RAYLIGHT frame=1197 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.856 18863 18915 I GK_STDOUT: RAYFADE frame=1197 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.856 18863 18915 I GK_STDOUT: RAYDRAW frame=1197 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.892 18863 18915 I GK_STDOUT: RAYLIGHT frame=1198 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.892 18863 18915 I GK_STDOUT: RAYFADE frame=1198 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.892 18863 18915 I GK_STDOUT: RAYDRAW frame=1198 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.928 18863 18915 I GK_STDOUT: RAYLIGHT frame=1199 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.928 18863 18915 I GK_STDOUT: RAYFADE frame=1199 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.928 18863 18915 I GK_STDOUT: RAYDRAW frame=1199 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:30.964 18863 18915 I GK_STDOUT: RAYLIGHT frame=1200 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:30.964 18863 18915 I GK_STDOUT: RAYFADE frame=1200 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:30.964 18863 18915 I GK_STDOUT: RAYDRAW frame=1200 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.002 18863 18915 I GK_STDOUT: RAYLIGHT frame=1201 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.002 18863 18915 I GK_STDOUT: RAYFADE frame=1201 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.002 18863 18915 I GK_STDOUT: RAYDRAW frame=1201 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.039 18863 18915 I GK_STDOUT: RAYLIGHT frame=1202 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.039 18863 18915 I GK_STDOUT: RAYFADE frame=1202 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.039 18863 18915 I GK_STDOUT: RAYDRAW frame=1202 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.075 18863 18915 I GK_STDOUT: RAYLIGHT frame=1203 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.075 18863 18915 I GK_STDOUT: RAYFADE frame=1203 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.075 18863 18915 I GK_STDOUT: RAYDRAW frame=1203 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.112 18863 18915 I GK_STDOUT: RAYLIGHT frame=1204 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.112 18863 18915 I GK_STDOUT: RAYFADE frame=1204 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.112 18863 18915 I GK_STDOUT: RAYDRAW frame=1204 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.152 18863 18915 I GK_STDOUT: RAYLIGHT frame=1205 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.152 18863 18915 I GK_STDOUT: RAYFADE frame=1205 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.152 18863 18915 I GK_STDOUT: RAYDRAW frame=1205 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.187 18863 18915 I GK_STDOUT: RAYLIGHT frame=1206 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.187 18863 18915 I GK_STDOUT: RAYFADE frame=1206 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.187 18863 18915 I GK_STDOUT: RAYDRAW frame=1206 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.225 18863 18915 I GK_STDOUT: RAYLIGHT frame=1207 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.225 18863 18915 I GK_STDOUT: RAYFADE frame=1207 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.225 18863 18915 I GK_STDOUT: RAYDRAW frame=1207 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.268 18863 18915 I GK_STDOUT: RAYLIGHT frame=1208 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.269 18863 18915 I GK_STDOUT: RAYFADE frame=1208 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.269 18863 18915 I GK_STDOUT: RAYDRAW frame=1208 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.302 18863 18915 I GK_STDOUT: RAYLIGHT frame=1209 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.302 18863 18915 I GK_STDOUT: RAYFADE frame=1209 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.302 18863 18915 I GK_STDOUT: RAYDRAW frame=1209 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.336 18863 18915 I GK_STDOUT: RAYLIGHT frame=1210 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.336 18863 18915 I GK_STDOUT: RAYFADE frame=1210 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.336 18863 18915 I GK_STDOUT: RAYDRAW frame=1210 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.372 18863 18915 I GK_STDOUT: RAYLIGHT frame=1211 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.372 18863 18915 I GK_STDOUT: RAYFADE frame=1211 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.372 18863 18915 I GK_STDOUT: RAYDRAW frame=1211 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.409 18863 18915 I GK_STDOUT: RAYLIGHT frame=1212 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.409 18863 18915 I GK_STDOUT: RAYFADE frame=1212 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.409 18863 18915 I GK_STDOUT: RAYDRAW frame=1212 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.443 18863 18915 I GK_STDOUT: RAYLIGHT frame=1213 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.443 18863 18915 I GK_STDOUT: RAYFADE frame=1213 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.443 18863 18915 I GK_STDOUT: RAYDRAW frame=1213 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.480 18863 18915 I GK_STDOUT: RAYLIGHT frame=1214 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.480 18863 18915 I GK_STDOUT: RAYFADE frame=1214 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.480 18863 18915 I GK_STDOUT: RAYDRAW frame=1214 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.516 18863 18915 I GK_STDOUT: RAYLIGHT frame=1215 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.517 18863 18915 I GK_STDOUT: RAYFADE frame=1215 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.517 18863 18915 I GK_STDOUT: RAYDRAW frame=1215 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.552 18863 18915 I GK_STDOUT: RAYLIGHT frame=1216 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.552 18863 18915 I GK_STDOUT: RAYFADE frame=1216 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.552 18863 18915 I GK_STDOUT: RAYDRAW frame=1216 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.587 18863 18915 I GK_STDOUT: RAYLIGHT frame=1217 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.587 18863 18915 I GK_STDOUT: RAYFADE frame=1217 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.587 18863 18915 I GK_STDOUT: RAYDRAW frame=1217 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.622 18863 18915 I GK_STDOUT: RAYLIGHT frame=1218 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.622 18863 18915 I GK_STDOUT: RAYFADE frame=1218 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.622 18863 18915 I GK_STDOUT: RAYDRAW frame=1218 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.657 18863 18915 I GK_STDOUT: RAYLIGHT frame=1219 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.657 18863 18915 I GK_STDOUT: RAYFADE frame=1219 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.657 18863 18915 I GK_STDOUT: RAYDRAW frame=1219 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.691 18863 18915 I GK_STDOUT: RAYLIGHT frame=1220 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.691 18863 18915 I GK_STDOUT: RAYFADE frame=1220 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.691 18863 18915 I GK_STDOUT: RAYDRAW frame=1220 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.727 18863 18915 I GK_STDOUT: RAYLIGHT frame=1221 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.727 18863 18915 I GK_STDOUT: RAYFADE frame=1221 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.727 18863 18915 I GK_STDOUT: RAYDRAW frame=1221 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.764 18863 18915 I GK_STDOUT: RAYLIGHT frame=1222 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.764 18863 18915 I GK_STDOUT: RAYFADE frame=1222 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.764 18863 18915 I GK_STDOUT: RAYDRAW frame=1222 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.800 18863 18915 I GK_STDOUT: RAYLIGHT frame=1223 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.800 18863 18915 I GK_STDOUT: RAYFADE frame=1223 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.800 18863 18915 I GK_STDOUT: RAYDRAW frame=1223 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.835 18863 18915 I GK_STDOUT: RAYLIGHT frame=1224 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.836 18863 18915 I GK_STDOUT: RAYFADE frame=1224 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.836 18863 18915 I GK_STDOUT: RAYDRAW frame=1224 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.871 18863 18915 I GK_STDOUT: RAYLIGHT frame=1225 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.871 18863 18915 I GK_STDOUT: RAYFADE frame=1225 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.871 18863 18915 I GK_STDOUT: RAYDRAW frame=1225 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.906 18863 18915 I GK_STDOUT: RAYLIGHT frame=1226 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.906 18863 18915 I GK_STDOUT: RAYFADE frame=1226 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.907 18863 18915 I GK_STDOUT: RAYDRAW frame=1226 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.942 18863 18915 I GK_STDOUT: RAYLIGHT frame=1227 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.942 18863 18915 I GK_STDOUT: RAYFADE frame=1227 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.942 18863 18915 I GK_STDOUT: RAYDRAW frame=1227 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:31.978 18863 18915 I GK_STDOUT: RAYLIGHT frame=1228 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:31.978 18863 18915 I GK_STDOUT: RAYFADE frame=1228 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:31.978 18863 18915 I GK_STDOUT: RAYDRAW frame=1228 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.014 18863 18915 I GK_STDOUT: RAYLIGHT frame=1229 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.014 18863 18915 I GK_STDOUT: RAYFADE frame=1229 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.014 18863 18915 I GK_STDOUT: RAYDRAW frame=1229 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.049 18863 18915 I GK_STDOUT: RAYLIGHT frame=1230 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.049 18863 18915 I GK_STDOUT: RAYFADE frame=1230 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.049 18863 18915 I GK_STDOUT: RAYDRAW frame=1230 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.086 18863 18915 I GK_STDOUT: RAYLIGHT frame=1231 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.086 18863 18915 I GK_STDOUT: RAYFADE frame=1231 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.086 18863 18915 I GK_STDOUT: RAYDRAW frame=1231 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.124 18863 18915 I GK_STDOUT: RAYLIGHT frame=1232 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.124 18863 18915 I GK_STDOUT: RAYFADE frame=1232 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.124 18863 18915 I GK_STDOUT: RAYDRAW frame=1232 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.158 18863 18915 I GK_STDOUT: RAYLIGHT frame=1233 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.158 18863 18915 I GK_STDOUT: RAYFADE frame=1233 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.158 18863 18915 I GK_STDOUT: RAYDRAW frame=1233 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.195 18863 18915 I GK_STDOUT: RAYLIGHT frame=1234 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.195 18863 18915 I GK_STDOUT: RAYFADE frame=1234 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.195 18863 18915 I GK_STDOUT: RAYDRAW frame=1234 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.234 18863 18915 I GK_STDOUT: RAYLIGHT frame=1235 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.234 18863 18915 I GK_STDOUT: RAYFADE frame=1235 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.234 18863 18915 I GK_STDOUT: RAYDRAW frame=1235 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.269 18863 18915 I GK_STDOUT: RAYLIGHT frame=1236 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.269 18863 18915 I GK_STDOUT: RAYFADE frame=1236 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.269 18863 18915 I GK_STDOUT: RAYDRAW frame=1236 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.306 18863 18915 I GK_STDOUT: RAYLIGHT frame=1237 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.306 18863 18915 I GK_STDOUT: RAYFADE frame=1237 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.306 18863 18915 I GK_STDOUT: RAYDRAW frame=1237 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.344 18863 18915 I GK_STDOUT: RAYLIGHT frame=1238 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.344 18863 18915 I GK_STDOUT: RAYFADE frame=1238 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.344 18863 18915 I GK_STDOUT: RAYDRAW frame=1238 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.386 18863 18915 I GK_STDOUT: RAYLIGHT frame=1239 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.386 18863 18915 I GK_STDOUT: RAYFADE frame=1239 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.386 18863 18915 I GK_STDOUT: RAYDRAW frame=1239 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.422 18863 18915 I GK_STDOUT: RAYLIGHT frame=1240 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.422 18863 18915 I GK_STDOUT: RAYFADE frame=1240 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.422 18863 18915 I GK_STDOUT: RAYDRAW frame=1240 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.461 18863 18915 I GK_STDOUT: RAYLIGHT frame=1241 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.461 18863 18915 I GK_STDOUT: RAYFADE frame=1241 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.461 18863 18915 I GK_STDOUT: RAYDRAW frame=1241 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.497 18863 18915 I GK_STDOUT: RAYLIGHT frame=1242 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.497 18863 18915 I GK_STDOUT: RAYFADE frame=1242 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.497 18863 18915 I GK_STDOUT: RAYDRAW frame=1242 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.534 18863 18915 I GK_STDOUT: RAYLIGHT frame=1243 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.534 18863 18915 I GK_STDOUT: RAYFADE frame=1243 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.534 18863 18915 I GK_STDOUT: RAYDRAW frame=1243 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.570 18863 18915 I GK_STDOUT: RAYLIGHT frame=1244 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.570 18863 18915 I GK_STDOUT: RAYFADE frame=1244 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.570 18863 18915 I GK_STDOUT: RAYDRAW frame=1244 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.605 18863 18915 I GK_STDOUT: RAYLIGHT frame=1245 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.605 18863 18915 I GK_STDOUT: RAYFADE frame=1245 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.605 18863 18915 I GK_STDOUT: RAYDRAW frame=1245 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.642 18863 18915 I GK_STDOUT: RAYLIGHT frame=1246 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.642 18863 18915 I GK_STDOUT: RAYFADE frame=1246 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.642 18863 18915 I GK_STDOUT: RAYDRAW frame=1246 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.679 18863 18915 I GK_STDOUT: RAYLIGHT frame=1247 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.679 18863 18915 I GK_STDOUT: RAYFADE frame=1247 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.679 18863 18915 I GK_STDOUT: RAYDRAW frame=1247 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.715 18863 18915 I GK_STDOUT: RAYLIGHT frame=1248 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.715 18863 18915 I GK_STDOUT: RAYFADE frame=1248 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.715 18863 18915 I GK_STDOUT: RAYDRAW frame=1248 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.752 18863 18915 I GK_STDOUT: RAYLIGHT frame=1249 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.752 18863 18915 I GK_STDOUT: RAYFADE frame=1249 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.752 18863 18915 I GK_STDOUT: RAYDRAW frame=1249 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.788 18863 18915 I GK_STDOUT: RAYLIGHT frame=1250 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.788 18863 18915 I GK_STDOUT: RAYFADE frame=1250 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.788 18863 18915 I GK_STDOUT: RAYDRAW frame=1250 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.824 18863 18915 I GK_STDOUT: RAYLIGHT frame=1251 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.824 18863 18915 I GK_STDOUT: RAYFADE frame=1251 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.824 18863 18915 I GK_STDOUT: RAYDRAW frame=1251 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.861 18863 18915 I GK_STDOUT: RAYLIGHT frame=1252 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.861 18863 18915 I GK_STDOUT: RAYFADE frame=1252 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.861 18863 18915 I GK_STDOUT: RAYDRAW frame=1252 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.897 18863 18915 I GK_STDOUT: RAYLIGHT frame=1253 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.897 18863 18915 I GK_STDOUT: RAYFADE frame=1253 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.897 18863 18915 I GK_STDOUT: RAYDRAW frame=1253 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.935 18863 18915 I GK_STDOUT: RAYLIGHT frame=1254 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.935 18863 18915 I GK_STDOUT: RAYFADE frame=1254 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.935 18863 18915 I GK_STDOUT: RAYDRAW frame=1254 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:32.974 18863 18915 I GK_STDOUT: RAYLIGHT frame=1255 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:32.974 18863 18915 I GK_STDOUT: RAYFADE frame=1255 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:32.974 18863 18915 I GK_STDOUT: RAYDRAW frame=1255 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:33.012 18863 18915 I GK_STDOUT: RAYLIGHT frame=1256 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:33.013 18863 18915 I GK_STDOUT: RAYFADE frame=1256 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:33.013 18863 18915 I GK_STDOUT: RAYDRAW frame=1256 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:33.049 18863 18915 I GK_STDOUT: RAYLIGHT frame=1257 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:33.049 18863 18915 I GK_STDOUT: RAYFADE frame=1257 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:33.049 18863 18915 I GK_STDOUT: RAYDRAW frame=1257 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:33.085 18863 18915 I GK_STDOUT: RAYLIGHT frame=1258 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:33.085 18863 18915 I GK_STDOUT: RAYFADE frame=1258 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:33.085 18863 18915 I GK_STDOUT: RAYDRAW frame=1258 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:33.126 18863 18915 I GK_STDOUT: RAYLIGHT frame=1259 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:33.126 18863 18915 I GK_STDOUT: RAYFADE frame=1259 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:33.126 18863 18915 I GK_STDOUT: RAYDRAW frame=1259 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:33.163 18863 18915 I GK_STDOUT: RAYLIGHT frame=1260 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:33.163 18863 18915 I GK_STDOUT: RAYFADE frame=1260 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:33.163 18863 18915 I GK_STDOUT: RAYDRAW frame=1260 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:33.203 18863 18915 I GK_STDOUT: RAYLIGHT frame=1261 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:33.203 18863 18915 I GK_STDOUT: RAYFADE frame=1261 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:33.203 18863 18915 I GK_STDOUT: RAYDRAW frame=1261 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:33.242 18863 18915 I GK_STDOUT: RAYLIGHT frame=1262 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:33.242 18863 18915 I GK_STDOUT: RAYFADE frame=1262 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:33.242 18863 18915 I GK_STDOUT: RAYDRAW frame=1262 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40
+06-21 17:27:33.279 18863 18915 I GK_STDOUT: RAYLIGHT frame=1263 model=logo-volumes-english-lod0 dir0=(0.612,-0.696,0.000) dir1=(0.500,0.174,0.000) c0=(0.8,0.8,0.8) c1=(0.0,0.0,0.0) c2=(0.0,0.0,0.0) amb=(0.2,0.2,0.2)
+06-21 17:27:33.279 18863 18915 I GK_STDOUT: RAYFADE frame=1263 model=logo-volumes-english-lod0 ei=0 enable=1 fade=0,0,0,0
+06-21 17:27:33.279 18863 18915 I GK_STDOUT: RAYDRAW frame=1263 model=logo-volumes-english-lod0 ab_en=1 ablend=3 at_en=1 zwrite=1 ialpha=1 tris=704 tex=40

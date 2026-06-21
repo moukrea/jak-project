@@ -50,27 +50,39 @@ _arg_call_arm64:
   mov	x29, sp
   ldr x8, [sp], #16
 
-  ; Putting an exclamation point after the close-bracket 
-  ; means that the calculated effective address is written back to the base register. (pre-indexing)
-  stp q15, q14, [sp, #-32]!
-  stp q13, q12, [sp, #-32]!
-  stp q11, q10, [sp, #-32]!
-  stp q9, q8, [sp, #-32]!
+  ; Gfix-title-rays: preserve the GOAL-callee-saved XMM bank across the C++ call.
+  ; goalc maps xmm8-15 to arm64 V24-V31 (arm64_reg5 = id & 0x1f; goalc xmm ids are
+  ; 16..31 -> V16..V31, so xmm8 = id 24 -> V24) and treats xmm8-15 as CALLEE-saved
+  ; (never spilled before a call, mirroring x86's GOAL ABI). An AAPCS C++ callee
+  ; clobbers V16-V31 (caller-saved), so any live GOAL float parked in V24-V31 — e.g.
+  ; the spooled-anim frame-rate scale f30-0 in loader.gc::ja-play-spooled-anim — must
+  ; be saved HERE. The old code saved q8-q15 (V8-V15), registers goalc never uses for
+  ; floats (and whose low halves AAPCS already preserves), so the GOAL caller's
+  ; xmm8-15 came back garbage: f30-0 collapsed, the title light-ray / cutscene spool
+  ; played at the wrong rate (rays lingered ~10x too long on device). Save q24-q31.
+  stp q31, q30, [sp, #-32]!
+  stp q29, q28, [sp, #-32]!
+  stp q27, q26, [sp, #-32]!
+  stp q25, q24, [sp, #-32]!
 
   blr x8
 
-  ldp q9, q8, [sp], #32
-  ldp q10, q11, [sp], #32
-  ldp q12, q13, [sp], #32
-  ldp q14, q15, [sp], #32
+  ;; restore in matching register order (NO swap). The old q8-q15 restore used
+  ;; ldp q10,q11 against stp q11,q10 — a swap that was harmless only because
+  ;; goalc never uses V8-V15; on the real xmm8-15 bank (V24-V31) the swap
+  ;; corrupts f30-0, so pair each ldp to its stp exactly.
+  ldp q25, q24, [sp], #32
+  ldp q27, q26, [sp], #32
+  ldp q29, q28, [sp], #32
+  ldp q31, q30, [sp], #32
 
   ldp	x29, x30, [sp], #16
   a24_x30_stack_range_check
   ret
 
 
-;; Call C++ code on arm64 systems, from GOAL. 
-;; 
+;; Call C++ code on arm64 systems, from GOAL.
+;;
 ;; Put arguments on the stack and put a pointer to this array in the first arg.
 ;; this function pushes all 8 OpenGOAL registers into a stack array.
 ;; then it calls the function pointed to by x0 (RAX in x86) with a pointer to this array.
@@ -82,10 +94,13 @@ _stack_call_arm64:
   mov	x29, sp
   ldr x8, [sp], #16
 
-  stp q15, q14, [sp, #-32]!
-  stp q13, q12, [sp, #-32]!
-  stp q11, q10, [sp, #-32]!
-  stp q9, q8, [sp, #-32]!
+  ; Gfix-title-rays: save goalc xmm8-15 (= arm64 V24-V31), not q8-q15 — see the
+  ; explanation in _arg_call_arm64 above. A C++ FFI callee clobbers V24-V31, which
+  ; the GOAL caller treats as callee-saved (holds e.g. the spool f30-0 there).
+  stp q31, q30, [sp, #-32]!
+  stp q29, q28, [sp, #-32]!
+  stp q27, q26, [sp, #-32]!
+  stp q25, q24, [sp, #-32]!
 
   ; create stack array of arguments
   ; arg 7 (R11 in x86)
@@ -111,10 +126,11 @@ _stack_call_arm64:
   ldp x5, x4, [sp], #16
   ldp x7, x6, [sp], #16
 
-  ldp q9, q8, [sp], #32
-  ldp q10, q11, [sp], #32
-  ldp q12, q13, [sp], #32
-  ldp q14, q15, [sp], #32
+  ;; restore in matching register order (NO swap) — see _arg_call_arm64.
+  ldp q25, q24, [sp], #32
+  ldp q27, q26, [sp], #32
+  ldp q29, q28, [sp], #32
+  ldp q31, q30, [sp], #32
 
   ldp	x29, x30, [sp], #16
   a24_x30_stack_range_check
@@ -145,12 +161,15 @@ _mips2c_call_arm64:
   stp	x29, x30, [sp, #-16]!
   mov	x29, sp
 
-  ;; save the GOAL saved xmm registers (full 128-bit q8-q15 — AAPCS only
-  ;; preserves the low 64 bits, GOAL expects all 128)
-  stp q15, q14, [sp, #-32]!
-  stp q13, q12, [sp, #-32]!
-  stp q11, q10, [sp, #-32]!
-  stp q9, q8, [sp, #-32]!
+  ;; save the GOAL callee-saved xmm registers. goalc maps xmm8-15 to arm64
+  ;; V24-V31 (NOT V8-V15), and a mips2c/C++ body clobbers V16-V31 (AAPCS
+  ;; caller-saved). The previous q8-q15 save protected registers goalc never
+  ;; uses, leaving the GOAL caller's xmm8-15 (e.g. the spool f30-0 rate) to be
+  ;; stomped — the title light-ray / cutscene slow-spool bug. Save q24-q31.
+  stp q31, q30, [sp, #-32]!
+  stp q29, q28, [sp, #-32]!
+  stp q27, q26, [sp, #-32]!
+  stp q25, q24, [sp, #-32]!
 
   ;; save GOAL pp/st/off — AAPCS temporaries the C++ body may clobber
   stp x13, x14, [sp, #-16]!
@@ -195,10 +214,10 @@ _mips2c_call_arm64:
   ldr x15, [sp], #16
   ldp x13, x14, [sp], #16
 
-  ldp q9, q8, [sp], #32
-  ldp q11, q10, [sp], #32
-  ldp q13, q12, [sp], #32
-  ldp q15, q14, [sp], #32
+  ldp q25, q24, [sp], #32
+  ldp q27, q26, [sp], #32
+  ldp q29, q28, [sp], #32
+  ldp q31, q30, [sp], #32
 
   ldp	x29, x30, [sp], #16
   a24_x30_stack_range_check
