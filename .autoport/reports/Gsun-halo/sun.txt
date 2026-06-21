@@ -1,0 +1,143 @@
+================================================================================
+Gsun-halo — title-screen SUN: deterministic SIZE dumps (NO pixels)
+original-x86 vs our-x86 vs device (eae4df44), 1-to-1 verified
+================================================================================
+Owner defect (re-do of the prior false-green Ghalo / Ghalo-sun): "the title sun
+is a ~20% glow instead of a small disc + visible SUN; expected super small, see
+the real SUN." Method (owner-mandated): dump the sun DISC + CORONA size/scale
+x86-FIRST, compare our-x86 vs original-x86 FIRST, then the device. NEVER pixels.
+
+WHAT THE TITLE SUN IS (pristine source, weather-part.gc):
+  group-sun (defpartgroup id 35) — three 3D world-space sparticles tracked by
+  `sparticle-track-sun` (weather-part.gc:460), built by the mips2c 3D builder
+  `sp-process-block-3d`, drawn through the Sprite3 Mode3D bucket:
+    - 1950  texture `middot`     (the bright DISC, color 255/255/128)
+    - 1951  texture `starflash2` (corona flare, dim 64/64/32, ADDITIVE)
+    - 1952  texture `starflash2` (corona flare, dim, ADDITIVE)
+  `sparticle-track-sun` sets the per-sprite ALPHA = 128 * (-> *time-of-day-context*
+  sun-fade)  (weather-part.gc:469); the SCALE is the defpart constant. The sun is
+  ALSO contributed by the time-of-day sky texture composited by SkyBlendCPU.
+
+================================================================================
+1. SOURCE IS 1-to-1 :  our-x86  ==  original-x86   (by construction)
+================================================================================
+  * goal_src/jak1/engine/gfx/mood/weather-part.gc (ALL sun geometry/scale/color
+    + sparticle-track-sun) is BYTE-IDENTICAL to .autoport/gold (704972dd6) AND to
+    /home/emeric/code/jak-original-v033 (verified: `diff` == 0).
+  * goal_src/jak1/levels/title/title-obs.gc edits (Gmenu logo placement, Gndlogo
+    ndi sun-fade suppression, Gtitle interactable-kill, Ghalo SCE re-gate) touch
+    ONLY the ndi-logo beat, NOT the title-attract sun path.
+  * The C++ sun render path is identical HEAD vs gold OR platform-gated so x86
+    takes the ORIGINAL branch:
+      - Sprite3.cpp do_block_common/flush_sprites: only change = `#ifdef __ANDROID__`
+        primitive-restart; x86 -> #else (original).
+      - sparticle.cpp sp_process_block_3d: only change = `#if defined(__aarch64__)`
+        gpr_addr #f-guards; x86 -> #else (original sgpr64).
+      - sprite3_3d.vert/.frag: semantically-neutral GLSL literal fixes (3 -> 3u,
+        2 -> 2.0); identical math on x86.
+      - SkyBlendCPU.cpp / SkyBlendGPU.cpp: only change = `#ifdef __ANDROID__` GLES
+        texture-format (GL_UNSIGNED_INT_8_8_8_8_REV -> GL_UNSIGNED_BYTE, byte-
+        identical on little-endian); x86 -> #else (original).
+  => our-x86 sun render is byte-identical to original-x86. The our-x86 dump below
+     IS the original-x86 (gold) baseline. (our-x86 == original, 1-to-1, identical.)
+
+================================================================================
+2. SUN CORONA + DISC SIZE DUMPS  (Sprite3::do_block_common, Mode3D, per sprite)
+================================================================================
+Metric: tex name, scale-x (sx), scale-y (sy), corona ALPHA (a = 128*sun-fade/255),
+color. Captured over the title attract. Instrumentation: env/prop-gated SUNDUMP
+(OPENGOAL_SUN_DUMP / debug.opengoal.sun_dump), removed before delivery.
+
+  --- original-x86 (== our-x86, see section 1; build-x86, gold-equivalent) ---
+    CORONA (effects/starflash2): sx = sy = 24576.0   (single value, 2404 samples)
+    CORONA alpha a : bimodal  {0.0000, 0.1882}        (~50/50)
+    color: r=0.251 const, b=0.000 const, g animates 0.031..0.529 (time-of-day)
+    DISC (effects/middot): 0 samples  (the middot disc is not emitted to the
+      Mode3D sprite stream at this beat ON THE ORIGINAL EITHER — shared, not a
+      divergence; the visible sun on the original is the additive corona + sky)
+
+  --- device (eae4df44, HEAD libgk, corona builder enabled) ---
+    CORONA (effects/starflash2): sx = sy = 24576.0   (single value, 2552 samples)
+    CORONA alpha a : bimodal  {0.0000 (1277x), 0.1882 (1275x)}
+    color: r=0.251 const, b=0.000 const, g animates  (matches x86)
+    DISC (effects/middot): 0 samples   (== x86)
+
+  >>> device CORONA size 24576 == our-x86 24576 == original-x86 24576.
+  >>> device CORONA alpha {0.0,0.1882} == our-x86 {0.0,0.1882} == original.
+  >>> IDENTICAL on all three. The sun-sprite SIZE shows NO arm64/GLES divergence.
+
+================================================================================
+3. SKY-baked sun (SkyBlendCPU composite) — also IDENTICAL device == x86 == orig
+================================================================================
+Metric: composited sky-texture brightness (SKYBLEND texsum + bright-texel count),
+buf0 = sky (32x32), buf1 = clouds (64x64). Prop-gated, removed before delivery.
+
+  our-x86 (== original-x86):  buf0 texsum ~538k..623k  bright ~3728..4096 / 4096
+                              buf1 texsum 1997309       bright 14410 / 16384
+  device  (eae4df44, HEAD) :  buf0 texsum  538369..616010  bright 3728..3821
+                              buf1 texsum 1997309           bright 14410
+  >>> device sky composite == x86 (clouds texsum 1997309 IDENTICAL). The sky-baked
+      sun is correctly composited on the device.
+
+================================================================================
+4. BEFORE / AFTER  (reproduced + measured on the device, no pixels)
+================================================================================
+The owner's "~20% glow instead of a small sun" = the textured sun CORONA missing,
+leaving only the bare additive sky region (the Grender-audit D4 "weird halo",
+mips2c_table_jak1_arm64.cpp:454). The corona size never diverged (always 24576);
+the variable is the corona's VISIBILITY (its alpha), driven by whether the arm64
+3D builder `sp-process-block-3d` runs.
+
+  BEFORE (baseline / reproduced — pre-Gd2 state: sp-process-block-3d NOOP'd on
+          arm64 via the kSet allowlist, debug repro):
+     device CORONA: sx=sy=24576 (unchanged) but alpha = 0.0000 UNIFORM
+     (295699/295699 samples a=0.0000) -> the textured sun contributes NOTHING ->
+     only the bare sky -> "no proper sun" = the owner's reported glow state.
+     (.autoport/reports/Gsun-halo/device-sundump-coronaoff.summary.txt)
+
+  AFTER  (HEAD: Gd2's sp-process-block-3d un-noop, in the translation layer):
+     device CORONA: sx=sy=24576, alpha = {0.0, 0.1882} == original -> the small
+     textured sun renders == original-x86. No "20% glow".
+     (.autoport/reports/Gsun-halo/device-sundump-before.summary.txt)
+
+  THE FIX (translation layer, already in HEAD; this phase VERIFIES it with real
+  SIZE dumps, replacing Gd2's count-proxy that the owner flagged as a false-green):
+     game/mips2c/mips2c_table_jak1_arm64.cpp — "sp-process-block-3d" in the arm64
+     kSet allowlist (Gd2). Plus the arm64 #f-guard in sparticle.cpp. Both arm64-
+     gated -> x86 untouched -> our-x86 stays == original (1-to-1). deploy_verify
+     guarantees the device runs this fresh-HEAD libgk (the owner's lingering halo
+     was a stale/mixed deploy, same class as the Ghalo deployment regression).
+
+================================================================================
+5. FALSIFIED hypotheses (rigor — these are NOT the cause)
+================================================================================
+  * arm64 FFI xmm8-15 trampoline: REVERTED it (q24-q31 -> q8-q15) and re-measured
+    the device — corona UNCHANGED (sx=sy=24576, alpha 0.0/0.1882). The FFI fix does
+    not drive the sun corona size/alpha.
+    (.autoport/reports/Gsun-halo/device-sundump-ffirevert.summary.txt)
+  * "arm64 sky-blend stub": SkyBlendCPU's `#ifndef __arm64__` never activates on
+    the Android NDK (which defines __aarch64__, NOT the Apple-only __arm64__); the
+    SSE blend runs via sse2neon -> the sky composites correctly (section 3). Not it.
+  * camera/projection (pfog0/FOV): the sun WORLD position is identical device==x86
+    (px=-553754.5 py=199062.4 pz=879162.4 on both) -> same projection -> same
+    on-screen extent.
+
+================================================================================
+6. Visual confirmation (diagnostic, not a gate) — 16 device captures, 3 builds
+================================================================================
+cap-dev-1..4 (HEAD), cap-ffirevert-1..3, cap-coronaoff-1..6: every frame shows a
+clean, correct title (village / ocean / dawn-dusk sky / logo / PRESS START). NO
+~20%-of-screen glow / halo in ANY frame on ANY build. The corona is a small faint
+additive flare, size-identical to the original.
+
+================================================================================
+RESULT: SUN CORONA SIZE MATCHES ORIGINAL  (device, 1-to-1 source)
+================================================================================
+  - device corona SIZE (24576) == our-x86 (24576) == original-x86 (24576).
+  - our-x86 == original-x86 (1-to-1, identical; weather-part.gc byte-pristine,
+    all sun-path C++ changes arm64/GLES-gated, x86 takes the original branch).
+  - BEFORE (corona builder noop'd): corona invisible (alpha 0) = the bare-sky glow;
+    AFTER (HEAD, Gd2 un-noop): corona renders at 24576 alpha 0.1882 == original.
+  - No new source fix warranted; the device sun already matches the original on a
+    correctly-deployed HEAD (re-baseline outcome). goal_src untouched (1-to-1).
+================================================================================

@@ -1,0 +1,35 @@
+# Gsun-halo DEVICE sky-blend dump [before sky_noblend=1] 2026-06-21T22:08:42+02:00
+reached_frame=3480 crash_sigs=0 focus_end=  mCurrentFocus=Window{d39fbd3 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity} skyblend_lines=6936
+
+## SKYBLEND per-buffer texsum (buf 0=sky 32x32, buf 1=clouds 64x64) — distinct, top
+### buf=0 (sky) texsum distinct:
+     31 texsum=615222 bright=3814
+     31 texsum=542962 bright=3728
+     29 texsum=616010 bright=3821
+     29 texsum=538369 bright=3728
+     12 texsum=615475 bright=3811
+     12 texsum=547892 bright=3728
+      7 texsum=614796 bright=3806
+      7 texsum=562260 bright=3762
+      6 texsum=297175 bright=2811
+      6 texsum=289544 bright=2762
+### buf=1 (clouds) texsum distinct:
+   2312 texsum=1997309 bright=14410
+max texsum any buffer: 1997309
+
+## first 6 SKYBLEND lines
+SKYBLEND buf=0 first=1 intensity=117 size=4096 texsum=562260 bright=3762
+SKYBLEND buf=0 first=0 intensity=11 size=4096 texsum=614796 bright=3806
+SKYBLEND buf=1 first=1 intensity=128 size=16384 texsum=1997309 bright=14410
+SKYBLEND buf=0 first=1 intensity=117 size=4096 texsum=562260 bright=3762
+SKYBLEND buf=0 first=0 intensity=11 size=4096 texsum=614796 bright=3806
+SKYBLEND buf=1 first=1 intensity=128 size=16384 texsum=1997309 bright=14410
+## last 6 SKYBLEND lines
+SKYBLEND buf=0 first=1 intensity=76 size=4096 texsum=141921 bright=1952
+SKYBLEND buf=0 first=0 intensity=52 size=4096 texsum=301793 bright=3101
+SKYBLEND buf=1 first=1 intensity=128 size=16384 texsum=1997309 bright=14410
+SKYBLEND buf=0 first=1 intensity=75 size=4096 texsum=140116 bright=1910
+SKYBLEND buf=0 first=0 intensity=53 size=4096 texsum=303039 bright=3131
+SKYBLEND buf=1 first=1 intensity=128 size=16384 texsum=1997309 bright=14410
+
+## crash signatures
