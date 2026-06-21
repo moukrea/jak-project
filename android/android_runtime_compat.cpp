@@ -881,6 +881,7 @@ void sceGsResetGraph(int mode, int inter, int omode, int ffmode) {
 // quiescent — the only safe place to walk the tree without racing it.
 extern "C" void a36_tree_scan_per_frame();
 
+// SHIM_KIND: PS2_HW_EMULATION
 u32 sceGsSyncV(u32 /*mode*/) {
   a36_tree_scan_per_frame();
   return Gfx::vsync();

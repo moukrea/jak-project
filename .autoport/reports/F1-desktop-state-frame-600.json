@@ -1,6 +1,4 @@
 {
-  "_provenance": "Desktop x86 oracle: build-x86/game/gk @HEAD 15c502337, new-game warp to continue 'game-start' (level 'training = Geyser Rock), Jak settled position. Raw samples in F1-desktop-state-raw.txt (42 identical settled samples). Captured by .autoport/f1_x86_dump.sh.",
-  "continue": "training-start",
   "target_trans": {
     "x": -5393129.0,
     "y": 28317.4628,
