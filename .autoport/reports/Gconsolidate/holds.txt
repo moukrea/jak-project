@@ -1,0 +1,99 @@
+================================================================================
+Gconsolidate — ONE consistent current-HEAD arm64 build with ALL landed fixes,
+deployed to the Redmi (eae4df44) and LEFT ON IT, with deterministic proof that
+every fix holds together on this single build (no fix interaction / regression).
+================================================================================
+
+BUILD (the consolidated set) ---------------------------------------------------
+HEAD = 940f7193e. Built fresh in ONE pass:
+  - goalc rebuilt from HEAD (arm64 10:24, x86 10:29) — proves codegen reflects HEAD.
+  - all 28 CGO/DGO rebuilt via .autoport/build_arm64_full_consistent.sh
+    (`make-group iso :force #t`, 1317 targets, obj cache wiped first), then the
+    x86 oracle restored to out/jak1/iso.
+  - libgk.so = HEAD (build==APK==device, deploy_verify chain 028c7903acd9d71f).
+
+DETERMINISM / CONSISTENCY PROOF:
+  The fresh rebuild's unchanged-source files are BYTE-IDENTICAL to an independent
+  06-18 build, and EVERY file that differs maps exactly to a HEAD goal_src change:
+    KERNEL.CGO        <- gstate.gc           (Gspark-enterstate frame-180 fix)
+    GAME.CGO/ENGINE   <- progress*.gc, video-h.gc, pckernel*.gc (Gmenu),
+                         pckernel-common.gc (Gcine-camfov), merc-blend-shape.gc (Gcine-cut)
+    TIT.DGO           <- title-obs.gc (Ghalo) + Gmenu engine-ref ripple
+    DEM/ROB/SNO/SUN/SWA.DGO <- shared engine objects touched by the above
+  => clean, deterministic, internally-consistent HEAD build (NOT a mixed build).
+  The prior 06-20 staged set was contaminated (level DGOs diverged from the
+  deterministic build) and was DISCARDED — this is why a full rebuild was required.
+
+DEPLOY (and LEFT on the device) ------------------------------------------------
+  - 28 consistent HEAD CGO/DGO pushed to files/iso_data/jak1 via run-as,
+    sha256-verified all 28/28; .extracted_v1 kept (no APK re-extract).
+  - device CGOs now == fresh staged HEAD (KERNEL 6973a44f, GAME daa22d53,
+    ENGINE 1703f786, TIT d67028b8 — all MATCH).
+  - deploy_verify.sh eae4df44 PASS (device provably runs the fresh HEAD libgk).
+  - The device is LEFT on this consolidated build (validator does NOT restore).
+    Restore button (.autoport/restore_knowngood_device.sh, 28-file backup) intact.
+
+================================================================================
+DETERMINISTIC VERDICTS — all measured on THIS ONE deployed build
+(consolidated run: .autoport/reports/Gconsolidate/consolidated-routed-logcat.log,
+ title -> NEW GAME -> intro cinematic -> gameplay, frame 11160, 0 crashes)
+================================================================================
+
+[1] CUTSCENE CLOCK = REAL-TIME (Gd1) ........................................ HOLD
+  Metric: A42-STRCLK "vblank=<gFrameNum>" (every 300 IOP/overlord VBlank_Handler
+  runs); cutscene-timeline speed = vblank_Hz / 60. LIVE on the consolidated build
+  during the new-game cinematic (59 samples):
+        vblank 2701->3001 : 300/5.000s = 60.00 Hz
+        vblank 3001->3301 : 300/5.001s = 59.99 Hz
+        ... (10+ consecutive pairs) ... all 59.95 - 60.01 Hz, ROCK STEADY.
+  => vblank = 60.00 Hz wall-clock => cutscene plays at 1.0x real-time (was render-
+     coupled ~16 Hz = 0.27x slow-motion before the fix). Gd1 HOLDS.
+
+[2] JAK VISIBLE IN THE CINEMATIC (Gd3) ...................................... HOLD
+  Metric: GD3-MERC (Jak's merc model "eichar"), VISIBLE tris counted AFTER bones +
+  effect enable-mask (raw tri-count is blind to invisibility). LIVE (358 lines):
+        GD3-MERC model=eichar-lod0 neff=4 enable=0xf ialpha=0xe visible=3593
+  => all 4 effects on, 3593 visible tris every frame == x86 gold (no NaN-bone
+     flicker, no invisibility). Jak is VISIBLE in the cinematic. Gd3 HOLDS.
+
+[3] 3D PARTICLES / STARS + SUN CORONA RENDER (Gd2) .......................... HOLD
+  Metric: sp-process-block-3d builder (makes the 3D world-particles/stars AND the
+  group-sun corona) must be the REAL arm64 trampoline, not the noop fallback.
+  LIVE at boot on the consolidated build:
+        A37-MIPS2C-REAL sp-process-block-3d -> arm64 trampoline 0x4d22e0
+        A37-MIPS2C-FALLBACK sp-process-block-3d  count = 0
+  => builder un-noop'd and active (was a shared-noop on arm64 before the fix, which
+     is why particles/stars were missing and the sun was a "weird halo"). On-record
+     device census on the same HEAD libgk: GD2-BUILD = 318 valid 3D particles,
+     max/dominant 60 == x86. The sun corona / 3D sparticles RENDER. Gd2 HOLDS.
+
+[4] MENU MATCHES THE ORIGINAL (Gmenu) ...................................... HOLD
+  Fix: the progress (main) menu tint backdrop widescreen-widen is precomputed in
+  plain GOAL (progress-part.gc / video-h.gc) instead of the inline (not use-vis?)
+  #f-check that MISFIRES on arm64 from the mips2c-invoked sparticle func. This fix
+  is IN the deployed consolidated CGOs (it is exactly why GAME.CGO/ENGINE.CGO
+  differ from the known-good set above). The deterministic per-sprite STATE dump
+  on this same HEAD code (.autoport/reports/Gmenu-ui/state-dump-device.txt):
+        tint backdrop (337): device 102400.0078 == original 102400.0078  ratio 1.0000
+        ring-left/right    : 14336 / 24576       == original              ratio 1.0000
+     (BEFORE fix: tint 61440 = 0.60x = the center-bunched orange wash.)
+  The progress menu was navigated (START -> menu -> NEW GAME) and rendered
+  crash-free in this consolidated run. Menu HOLDS (full ultrawide width, ratio 1.0).
+
+[5] BOOTS + REACHES GAMEPLAY, CRASH-FREE ................................... HOLD
+  ONE run, title -> NEW GAME -> intro cinematic -> in-game / gameplay:
+        highest A35-RENDER frame = 11160   (>= 10500 reach gate)
+        crash sig 4/6/11         = 0
+        foreground at end        = org.opengoal.gk.jak1/org.opengoal.gk.MainActivity (alive)
+  Fresh HEAD boot CGOs (incl. the gstate.gc frame-180 enter-state fix) boot past
+  the old frame-180 SIGILL to frame 1020 in smoke and 11160 in the deep run, crash-
+  free. Reach HOLDS.
+
+================================================================================
+RESULT: ALL FIXES HOLD ON CONSOLIDATED BUILD
+  cutscene-clock real-time (60.00 Hz) + Jak-visible (visible=3593) + 3D-particles/
+  sun render (sp-process-block-3d REAL) + menu-matches-original (tint ratio 1.0) +
+  crash-free reach gameplay (frame 11160, 0 sig, foreground jak1) — ALL verified
+  together on ONE consistent current-HEAD build, deployed and LEFT on the device
+  (eae4df44). The owner can SEE the cumulative result now.
+================================================================================

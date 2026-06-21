@@ -421,11 +421,12 @@
     "Gcine-cut": 1781936187.289037,
     "Grender-audit": 1781956108.6082983,
     "Gd1-cutscene-clock": 1781961047.086368,
-    "F1-gameplay-geyser-rock": 1782022838.260956,
+    "F1-gameplay-geyser-rock": 1782029259.2450507,
     "Gd3-jak-cinematic": 1782013288.1353426,
-    "Gd2-particles-sun": 1782023990.8373778
+    "Gd2-particles-sun": 1782023990.8373778,
+    "Gconsolidate": 1782029441.4779482
   },
-  "last_update": "2026-06-21T08:07:33.134704+00:00",
+  "last_update": "2026-06-21T08:10:41.477952+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
