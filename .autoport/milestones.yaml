@@ -1104,6 +1104,14 @@ phases:
   validator: validators/phase-Gfix-cinematic-crash.sh
   max_turns: 1500
   max_retries: 4
+- id: Gfix-title-rays
+  name: 'RE-DO (owner ground truth): title-logo blue light rays LINGER ~2s after the smash (regression from Ghalo/Gtitle-pixelmatch
+    in title-obs.gc). Find the element x86-first (prime suspect logo-volumes), dump per-frame ray alpha/active on original-x86 vs
+    our-x86 vs device (NEVER pixels), calibrate (BEFORE must show ours lingering), fix so rays vanish matching the original.'
+  prompt: prompts/phase-Gfix-title-rays.md
+  validator: validators/phase-Gfix-title-rays.sh
+  max_turns: 1500
+  max_retries: 4
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
