@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 115,
+  "current_phase_idx": 116,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -110,7 +110,8 @@
     "Gd1-cutscene-clock": 1,
     "Gd3-jak-cinematic": 2,
     "Gd2-particles-sun": 1,
-    "Gconsolidate": 1
+    "Gconsolidate": 1,
+    "Gfix-cinematic-crash": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -334,7 +335,8 @@
     "Gd1-cutscene-clock",
     "Gd3-jak-cinematic",
     "Gd2-particles-sun",
-    "Gconsolidate"
+    "Gconsolidate",
+    "Gfix-cinematic-crash"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -423,12 +425,13 @@
     "Gcine-cut": 1781936187.289037,
     "Grender-audit": 1781956108.6082983,
     "Gd1-cutscene-clock": 1781961047.086368,
-    "F1-gameplay-geyser-rock": 1782029259.2450507,
+    "F1-gameplay-geyser-rock": 1782032393.0333316,
     "Gd3-jak-cinematic": 1782013288.1353426,
     "Gd2-particles-sun": 1782023990.8373778,
-    "Gconsolidate": 1782029441.4779482
+    "Gconsolidate": 1782029441.4779482,
+    "Gfix-cinematic-crash": 1782035229.8739321
   },
-  "last_update": "2026-06-21T08:59:48.311507+00:00",
+  "last_update": "2026-06-21T10:50:29.625630+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

@@ -1,1 +1,1 @@
-fail: reached title link but never gameplay state (dispatcher status unclear from log)
+pass: reached Geyser Rock; settled state dumped

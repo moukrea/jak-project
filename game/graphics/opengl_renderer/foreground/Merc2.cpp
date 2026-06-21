@@ -36,12 +36,43 @@ static bool gd3_bones_on() {
   return s_on;
 }
 
+// F1 (Geyser Rock gameplay) observability — property-armed (env OG_F1_CENSUS /
+// prop debug.opengoal.f1.census, OFF by default), mirrors the gd3 idiom above.
+// When armed and Jak (eichar) is drawn, reads Jak's authoritative world position
+// (-> *target* control trans) straight out of EE memory and prints an F1-STATE
+// line (plus a one-shot "engine: state=in-game" marker the first time a valid
+// target is seen in a loaded level). Diagnostic only; no behavior change.
+static bool f1_census_on() {
+  static const bool s_f1_census = [] {
+    if (std::getenv("OG_F1_CENSUS")) {
+      return true;
+    }
+#ifdef __ANDROID__
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.f1.census", buf) > 0 && buf[0] == '1') {
+      return true;
+    }
+#endif
+    return false;
+  }();
+  return s_f1_census;
+}
+
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/util/fnv.h"
 #include "common/util/simd_util.h"
 
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
+
+// F1 census: kernel symbol lookup + EE memory base for the (-> *target* control
+// trans) probe below. Mirrors game/graphics/sceGraphicsInterface.cpp's use of
+// jak1::intern_from_c + g_ee_main_mem (same established cross-TU pattern).
+#include "common/goal_constants.h"
+
+#include "game/kernel/common/kscheme.h"
+#include "game/kernel/jak1/kscheme.h"
+#include "game/runtime.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -900,6 +931,50 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
           (unsigned long long)current_ignore_alpha_bits, gd3_vis_tris, gd3_bones_repaired,
           s_repaired_total);
       fflush(stdout);
+    }
+  }
+
+  // F1 (Geyser Rock) observability — property-armed via OG_F1_CENSUS /
+  // debug.opengoal.f1.census, OFF by default and INDEPENDENT of the gd3 gate
+  // above (the gd3 gate is coupled to OG_GD3_CENSUS, so we re-derive the eichar
+  // check here from `name` rather than reusing gd3_is_jak). Each time Jak
+  // (eichar) is drawn we read his authoritative world position directly from EE
+  // memory: (-> *target* control trans). Offsets obtained from goalc on a live
+  // x86 listener:
+  //   CONTROL_OFFSET = 108  ((&-> (the-as target ptr0) control); control is
+  //                          :overlay-at root -> the process-drawable root field)
+  //   TRANS_OFFSET   = 12   ((&-> (the-as control-info ptr0) trans x); trans is
+  //                          a vector :inline inside the trsqv-derived control-info)
+  // GOAL pointer convention: host addr = g_ee_main_mem + goal_offset (mirrors
+  // sceGraphicsInterface.cpp's *math-camera* probe). #f / unbound == s7.offset.
+  if (f1_census_on() && std::strstr(name, "eichar") != nullptr &&
+      g_game_version == GameVersion::Jak1 && g_ee_main_mem) {
+    constexpr u32 CONTROL_OFFSET = 108;
+    constexpr u32 TRANS_OFFSET = 12;
+    auto s_tgt = jak1::intern_from_c("*target*");
+    u32 tgt = s_tgt.offset ? s_tgt->value : 0;
+    // skip when not in gameplay: symbol unbound (0) or #f (== s7.offset)
+    if (tgt != 0 && tgt != s7.offset && tgt < (u32)(EE_MAIN_MEM_SIZE - 4)) {
+      // control == process-drawable root: a 4-byte GOAL pointer to a control-info
+      u32 ctrl = 0;
+      std::memcpy(&ctrl, g_ee_main_mem + tgt + CONTROL_OFFSET, 4);
+      if (ctrl != 0 && ctrl != s7.offset &&
+          ctrl < (u32)(EE_MAIN_MEM_SIZE - (TRANS_OFFSET + 12))) {
+        float tx = 0.f, ty = 0.f, tz = 0.f;
+        std::memcpy(&tx, g_ee_main_mem + ctrl + TRANS_OFFSET + 0, 4);
+        std::memcpy(&ty, g_ee_main_mem + ctrl + TRANS_OFFSET + 4, 4);
+        std::memcpy(&tz, g_ee_main_mem + ctrl + TRANS_OFFSET + 8, 4);
+        // genuine in-game marker: fire exactly once, gated on a valid target in
+        // a loaded level (so it never prints from the title/attract path).
+        static bool s_f1_in_game_announced = false;
+        if (!s_f1_in_game_announced) {
+          s_f1_in_game_announced = true;
+          printf("engine: state=in-game\n");
+          fflush(stdout);
+        }
+        printf("F1-STATE tx=%f ty=%f tz=%f\n", tx, ty, tz);
+        fflush(stdout);
+      }
     }
   }
 }
