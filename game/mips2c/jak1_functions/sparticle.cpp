@@ -424,11 +424,27 @@ u64 execute(void* ctxt) {
 
   block_1:
   c->lw(v1, 128, s5);                               // lw v1, 128(s5)
+#if defined(__aarch64__)
+  // Gbirds-anim (arm64): mirror the sp_process_block_3d block_1 fix onto the 2D block,
+  // which was never given it. `beq v1, s7` tests "(-> cpuinfo valid) == #f?" (skip dead
+  // slot); `beq s2, s7` is the (paused?) #f-check that routes a LIVE particle to block_8,
+  // the func-dispatch path. On arm64 a full-64 `sgpr64` compare MISSES #f (a GOAL ptr
+  // loaded via sign-extended `lw` is the bare low-32 offset while gpr s7 is the full host
+  // symbol base), so a live 2D bird never takes s2==#f -> block_8 -> its bird-bob-func
+  // (+112) never dispatches -> the title sagehut-seagulls render but stay frozen (no bob).
+  // Compare the representation-agnostic 32-bit GOAL ptr (low32), exactly like the 3D block.
+  bc = c->gpr_addr(v1) == c->gpr_addr(s7);          // beq v1, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(v1) == c->sgpr64(s7);              // beq v1, s7, L97
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_31;}                          // branch non-likely
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(s2) == c->gpr_addr(s7);          // beq s2, s7 (32-bit GOAL ptr; (paused?) #f-check)
+#else
   bc = c->sgpr64(s2) == c->sgpr64(s7);              // beq s2, s7, L87
+#endif
   c->lw(v1, 104, s5);                               // lw v1, 104(s5)
   if (bc) {goto block_8;}                           // branch non-likely
 
