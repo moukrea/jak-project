@@ -120,7 +120,8 @@
     "Gwater-lod": 1,
     "Gbirds-anim": 1,
     "Gcine-crash-mid": 1,
-    "Glogo-smash": 1
+    "Glogo-smash": 1,
+    "Gmenu-textures": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -449,7 +450,7 @@
     "Gcine-cut": 1781936187.289037,
     "Grender-audit": 1781956108.6082983,
     "Gd1-cutscene-clock": 1781961047.086368,
-    "F1-gameplay-geyser-rock": 1782122300.8521652,
+    "F1-gameplay-geyser-rock": 1782125860.9293706,
     "Gd3-jak-cinematic": 1782013288.1353426,
     "Gd2-particles-sun": 1782023990.8373778,
     "Gconsolidate": 1782029441.4779482,
@@ -464,9 +465,10 @@
     "Gbirds-anim": 1782099573.0243185,
     "Gfinal-acceptance": 1782105032.8380966,
     "Gcine-crash-mid": 1782108462.914532,
-    "Glogo-smash": 1782123019.0621583
+    "Glogo-smash": 1782123019.0621583,
+    "Gmenu-textures": 1782126680.4460392
   },
-  "last_update": "2026-06-22T10:57:33.136416+00:00",
+  "last_update": "2026-06-22T13:31:15.283582+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

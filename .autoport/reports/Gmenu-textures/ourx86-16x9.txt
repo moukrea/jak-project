@@ -1,0 +1,1 @@
+GTEX dump run A (aspect16x9, 20:9 float). GTEX lines harvested to gtex-16x9.txt / gtex-16x9.full.txt. gk log: ourx86-16x9.gk.log, goalc log: ourx86-16x9.goalc.log
