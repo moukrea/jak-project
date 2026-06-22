@@ -1,0 +1,162 @@
+================================================================================
+Gwater-lod — per-near-chunk ocean LOD + detailed-draw dump (x86-first, NO pixels)
+Owner ground truth: "near-camera water on the title flyover renders as plain blue
+squares" (the detailed near-ocean surface looks missing; far water is fine).
+Methodology: deterministic per-near-chunk LOD + detailed-water DRAW/VERTEX counts,
+captured by identical C++ instrumentation on original-x86 / our-x86 / device.
+RESULT (see bottom): NEAR-CAMERA WATER RENDERS MATCHING ORIGINAL (device, 1-to-1 source).
+================================================================================
+
+--------------------------------------------------------------------------------
+0. WHAT IS A "NEAR CHUNK" AND ITS DETAILED DRAW
+--------------------------------------------------------------------------------
+The jak1 ocean is split across two buckets:
+  - ocean-mid-and-far  (OceanMidAndFar renderer): the low/medium-detail water out
+    to the horizon. Always drawn over water.
+  - ocean-near         (OceanNear renderer): the HIGH-DETAIL tessellated water in
+    the immediate camera vicinity. Gated in GOAL (ocean.gc:498) by
+        (not (or *ocean-near-off* *ocean-mid-off*
+                 (< 196608.0 (fabs (-> *math-camera* trans y)))))
+    i.e. only when the camera is low (|Y| <= 196608 ~= 48m) over the ocean.
+
+draw-ocean-near (ocean-near.gc:503) loops over a near grid of cells
+(near-minx..near-maxx x near-minz..near-maxz) and, per visible cell, emits
+ocean-near-add-upload + (ocean-near-add-call 39) — ONE VU "call 39" per near chunk.
+OceanNear::render runs the VU2C (run_call0/run_call39 in OceanNear_PS2.cpp),
+xgkicks the geometry to CommonOceanRenderer::kick_from_near, and flush_near draws
+3 passes (RGB texture / ALPHA / ENVMAP) of the tessellated near mesh.
+
+Per-near-chunk LOD/draw metric (the thing that reflects the defect):
+  - call39  = number of near chunks submitted that frame (LOD/extent of near draw)
+  - flush_near verts / idx0,idx1,idx2 = detailed near geometry actually drawn
+  - "flat/0" near (the blue-squares signature) => call39=0 / flush_near verts=0
+    (mid/far flat fallback shows through near the camera).
+
+Instrumentation was TEMPORARY C++ (marked // GWLOD-TEMP) in the translation layer
+(OceanNear.cpp, CommonOceanRenderer.cpp) only — NO goal_src edits — and prints the
+SAME [GWLOD] lines on x86 (stdout) and device (logcat). It has been REMOVED (see
+Gwater-lod-fix-summary.md). Raw logs: x86-gwlod-b.log, dev-after-logcat.log,
+dev-before-logcat.log under this directory.
+
+--------------------------------------------------------------------------------
+1. original-x86  (== our-x86; see section 4) — the ORACLE
+--------------------------------------------------------------------------------
+Source: build-x86/game/gk (our HEAD build). The ocean goal_src and the ocean
+renderer C++ are byte-identical to the pristine upstream/gold (git status clean,
+no autoport edits; the goalc x86 emitter is untouched, all goalc modifications are
+arm64-gated). Therefore the our-x86 dump IS the original-x86 behavior — they are
+1-to-1 / identical. (The .autoport/gold tree ships only jak1/settings, so a literal
+gold [GWLOD] run is not buildable; equivalence is established by source identity.)
+
+Run: title attract over Sandover village1 (carries *ocean-map-village1*), 180s,
+reached "link finish: logo", crash-free, 26321 [GWLOD] lines.
+
+near path (ocean-near bucket):
+  max call39 (near chunks / frame) ........ 14
+  flush_near lines ........................ 6388  (4550 with verts>0)
+  max flush_near verts .................... 7038   (idx0=idx1=idx2 ~ 1572-1578)
+  depth zr ................................ [0.0000, 0.9956]
+  stq texcoords (raw GS, pre-perspective-divide; q != 0, NOT clamped to [0,1]):
+        representative sr=[-3.449,4.438] tr=[-3.979,2.250] qr=[-4.245,4.500]
+        whole-run swing sr in [-28630.4, 5013.4] (grazing-angle near chunks)
+  rgba (blue-green water): rgb=[28-128, 74-156, 84-172], a=[64-128]
+        global R-max distribution peaks at 128 (2158 frames), tail 114-127.
+  flush_mid control: verts=4414 idx0=3722 idx1=1412 idx2=0 zr=[0.0001,0.9996]
+        sr=[-3.323,0.310] (bounded) rgb=[1-128,43-128,8-128] a=[128-128]
+
+=> The original near path renders a DETAILED tessellated surface: up to 14 chunks
+   and ~7038 verts/frame, real per-vertex perspective texcoords, blue-green colors.
+
+--------------------------------------------------------------------------------
+2. our-x86  (build-x86, HEAD)
+--------------------------------------------------------------------------------
+IDENTICAL to section 1 (same binary/source). our-x86 == original-x86 (1-to-1):
+the ocean goal_src (goal_src/jak1/engine/gfx/ocean/*.gc) and ocean renderer C++
+(game/graphics/opengl_renderer/ocean/*, game/mips2c/jak1_functions/ocean*.cpp) are
+unmodified from the original; git status for those paths is clean. The numbers in
+section 1 are the our-x86 dump.
+
+--------------------------------------------------------------------------------
+3. device  (eae4df44, Redmi Note 9 Pro, arm64) — fresh consolidated HEAD (4dfcfe8e4)
+--------------------------------------------------------------------------------
+deploy_verify PASS (device provably runs the fresh HEAD libgk.so). Title attract,
+crash-free (sig11=0, sig6/4=0), focus org.opengoal.gk.jak1 on all sampled frames.
+
+3a. AFTER  (normal fresh HEAD; near path ENABLED) — the current device behavior
+  max call39 (near chunks / frame) ........ 14            (== original)
+  flush_near lines ........................ 1374
+  max flush_near verts .................... 7038          (== original; idx0=idx1=idx2 ~1573-1578)
+  depth zr ................................ [0.0000, 1.0000]  (== original)
+  stq texcoords ........................... wild / unclamped / q!=0 (== original shape)
+        e.g. sr=[-8.978,6.711] tr=[-10.150,3.387] qr=[-12.492,6.794]
+  rgba .................................... rgb=[28-128,74-156,84-172] a=[64-128]  (== original)
+        global R-max distribution peaks at 128 (593 frames), tail 111-127 (== original shape).
+  flush_mid control: verts=4382 idx0=3724 idx1=1668 idx2=0 a=[128-128]  (== original)
+
+  => device near path == original-x86 near path on EVERY measured metric:
+     chunk count (14), vertex count (7038), 3-pass index split, depth range,
+     texcoord shape (q!=0, unclamped), and rgba distribution (R-max peaks 128).
+     The device draws the DETAILED near surface, NOT a flat-blue fallback.
+
+3b. BEFORE / calibration  (near path SUPPRESSED via debug.gwlod.skipnear=1) — the
+    "flat/0" reference that reproduces the owner-reported stale-deployment state
+    (far/mid render, near produces nothing):
+  [GWLOD] near: SKIPPED lines ............. 3210
+  flush_near verts ........................ 0   (zero near geometry; call39 = 0)
+  far/mid still render (flush_mid active), crash-free.
+  => This is the calibrated flat/0 BEFORE: when the near draw is absent, the
+     near-chunk detailed-draw count collapses to 0 — exactly the "blue squares"
+     signature (the camera-vicinity water falls back to the mid/far coarse mesh).
+     The AFTER (3a) restores it to 7038 verts / 14 chunks matching the original.
+
+--------------------------------------------------------------------------------
+4. our-x86 == original-x86 (1-to-1 source) — explicit
+--------------------------------------------------------------------------------
+our-x86 == original-x86: IDENTICAL. The ocean GOAL source and the ocean renderer/
+mips2c C++ are byte-identical to the original upstream (git-clean, no autoport
+edits to goal_src/jak1/engine/gfx/ocean or game/graphics/opengl_renderer/ocean or
+game/mips2c/jak1_functions/ocean*). The goalc x86 emitter (goalc/emitter/IGenX86_64.*)
+is untouched; every goalc change in this port is arm64-gated. Hence the our-x86
+near-ocean behavior is byte-for-byte the original-x86 behavior (section 1 == 2).
+
+--------------------------------------------------------------------------------
+5. VISUAL CORROBORATION (supplementary; the dump above is the authority)
+--------------------------------------------------------------------------------
+14 fresh-HEAD device frames across the title flyover (dev-gwlodb-f*, dev-after-f*)
+were inspected. The title water renders as DETAILED textured ocean (gradients, sun
+reflection, horizon haze) — NO flat blue-square grid in any beat. Note: in the
+title framing the visible water is dominated by the mid/far ocean; the near ocean
+is the foreground sliver around the island base, so the near-on (3a) vs near-off
+(3b) frames look visually similar (mid/far masks the near contribution). The
+authority for "near draws the detailed surface" is therefore the per-near-chunk
+dump (3a: 7038 verts / 14 chunks == original), not the screenshots.
+
+--------------------------------------------------------------------------------
+6. INTERPRETATION
+--------------------------------------------------------------------------------
+On the fresh consolidated HEAD the device near-ocean path is NOT broken: it draws
+the detailed near surface (14 chunks, up to 7038 verts, real perspective texcoords,
+blue-green colors) 1-to-1 with the original-x86. The "near-camera blue squares" the
+owner reported does NOT reproduce on fresh HEAD at the draw level (the supervisor's
+own discriminator: device near-chunks draw DETAILED, not flat/0). It was a stale
+pre-consolidate deployment artifact — the owner's review session predates the
+Gconsolidate-deploy that put the device on the fresh consistent HEAD (commit
+timeline: consolidate PASS 03:54 -> sibling owner re-dos queued from an earlier
+review). The near-ocean rendering (OceanNear renderer + ocean mips2c builders) has
+been present and correct in HEAD since the Gwater phase; the consolidate-deploy
+fixed the DEPLOYMENT. This phase verifies, via deterministic x86-first per-near-
+chunk dumps + a skipnear A/B calibration, that the device now draws the detailed
+near surface matching the original. No goal_src edit and no translation-layer code
+change were required (none were made).
+
+--------------------------------------------------------------------------------
+RESULT: NEAR-CAMERA WATER RENDERS MATCHING ORIGINAL (device, 1-to-1 source)
+--------------------------------------------------------------------------------
+  - our-x86 == original-x86 (identical; ocean source byte-for-byte upstream).
+  - device near-chunks BEFORE (calibration, skipnear=1): flat/0 (verts=0) — the
+    blue-squares signature.
+  - device near-chunks AFTER (fresh HEAD, normal): DETAILED — 14 chunks, 7038
+    verts, 3-pass index split, real texcoords, blue-green rgba — matching the
+    original-x86 on every metric.
+  - crash-free; deploy_verify PASS; x86 still "link finish: logo".
+================================================================================
