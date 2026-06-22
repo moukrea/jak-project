@@ -17,7 +17,7 @@ HOLD_S="${HOLD_S:-45}"; WAIT_MAX="${WAIT_MAX:-360}"
 OUT=".autoport/reports/Gmenu-textures"
 LOG="$OUT/device-capture.log"
 SUM="$OUT/device-gtex.txt"
-GREP='GTEX (MENU|OFF|ICON|PART|DSTR) |A35-RENDER frame=|link finish: logo|GK-DIAG sig=|Fatal signal|signal [0-9]+ \(SIG|backtrace:'
+GREP='GMENU-AS|GMENU-ALLOC |GMENU-DBG |GK-SPR3 mode=|GTEX (MENU|OFF|ICON|PART|DSTR|SMTX) |A35-RENDER frame=|link finish: logo|GK-DIAG sig=|Fatal signal|signal [0-9]+ \(SIG|backtrace:'
 mkdir -p "$OUT"
 device_locked(){ "$ADB" shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1'; }
 read_focus(){ "$ADB" shell dumpsys window 2>/dev/null | grep -iE 'mCurrentFocus' | head -1 | tr -d '\r'; }
@@ -66,13 +66,13 @@ for ((s=0;s<HOLD_S;s+=5)); do
   sleep 5
   CS=$(crash_sigs); [ "${CS:-0}" -gt 0 ] && { echo "   crash during menu sig=$CS"; break; }
   "$ADB" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
-  GN=$(grep -acE 'GTEX (PART|DSTR) ' "$LOG" 2>/dev/null || echo 0)
-  echo "   [+${s}s] gtex_lines=${GN} frame=$(max_frame) focus=$(read_focus)"
+  GN=$(grep -acE 'GK-SPR3 mode=2' "$LOG" 2>/dev/null); GN=${GN:-0}; GN=${GN//[!0-9]/}
+  echo "   [+${s}s] spr3_hud_lines=${GN} frame=$(max_frame) focus=$(read_focus)"
   # nudge the menu (down/up) so it redraws; re-press start if nothing yet
   inject "down"; sleep 0.4; inject "up"; sleep 0.4; clear_inject
   [ "$s" -eq 10 ] && shot 02
   [ "$s" -eq 25 ] && shot 03
-  [ "$s" -ge 15 ] && [ "${GN:-0}" -eq 0 ] && { echo "   (no GTEX — re-press START)"; inject "start"; sleep 1.2; clear_inject; }
+  [ "$s" -ge 15 ] && [ "${GN:-0}" -eq 0 ] && { echo "   (no menu sprites — re-press START)"; inject "start"; sleep 1.2; clear_inject; }
 done
 shot 04
 pkill -f "logcat -v threadtime GK_STDOUT" 2>/dev/null || true
@@ -82,8 +82,16 @@ ENDFOC=$(read_focus); FINAL=$(max_frame); FINAL=${FINAL:-0}; FCS=$(crash_sigs)
 {
 echo "# Gmenu-textures DEVICE GTEX dump $(date -Is)"
 echo "reached_frame=$FINAL crash_sigs=$FCS focus_end=$ENDFOC"
-echo; echo "## GTEX MENU / OFF / ICON (distinct)"
-grep -aoE 'GTEX (MENU|OFF|ICON) .*' "$LOG" 2>/dev/null | sort -u
+echo; echo "## GMENU-AS adjust-sprites matrix-index + control-state probe (distinct)"
+grep -aoE 'GMENU-AS2? .*' "$LOG" 2>/dev/null | sort -u
+echo; echo "## GMENU-ALLOC sprite-allocate-user-hvdf return probe (distinct)"
+grep -aoE 'GMENU-ALLOC .*' "$LOG" 2>/dev/null | sort -u
+echo; echo "## GMENU-DBG launch matrix-index decision probe (distinct)"
+grep -aoE 'GMENU-DBG .*' "$LOG" 2>/dev/null | sort -u
+echo; echo "## GK-SPR3 menu HUD/2D sprite vertex dump (distinct, mode=2 HUD / mode=0 2D)"
+grep -aoE 'GK-SPR3 mode=.*' "$LOG" 2>/dev/null | sort -u
+echo; echo "## GTEX MENU / OFF / ICON / SMTX (distinct)"
+grep -aoE 'GTEX (MENU|OFF|ICON|SMTX) .*' "$LOG" 2>/dev/null | sort -u
 echo; echo "## GTEX PART (distinct, active)"
 grep -aoE 'GTEX PART .*' "$LOG" 2>/dev/null | sort -u
 echo; echo "## GTEX DSTR (distinct text strings)"
@@ -91,6 +99,6 @@ grep -aoE 'GTEX DSTR .*' "$LOG" 2>/dev/null | sort -u
 echo; echo "## crash signatures"
 grep -aiE 'GK-DIAG sig=|Fatal signal|signal [0-9]+ \(SIG|backtrace:' "$LOG" 2>/dev/null | tail -8
 } | tee "$SUM"
-GN=$(grep -acE 'GTEX (PART|DSTR) ' "$LOG" 2>/dev/null || echo 0)
-echo "[gmenu-tex-dev] gtex lines=$GN  log=$LOG  summary=$SUM  shots=$OUT/device-menu-0*.png"
-[ "$GN" -gt 0 ]
+GN=$(grep -acE 'GK-SPR3 mode=2' "$LOG" 2>/dev/null); GN=${GN:-0}; GN=${GN//[!0-9]/}
+echo "[gmenu-tex-dev] spr3_hud lines=$GN  log=$LOG  summary=$SUM  shots=$OUT/device-menu-0*.png"
+[ "${GN:-0}" -gt 0 ]

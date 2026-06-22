@@ -1,0 +1,323 @@
+# x86 (our HEAD) menu SPR3 dump, window=2400x1080 (20:9), aspect-ratio-scale should be ~1.6666
+#
+# Capture details (honest):
+#   - gk built from HEAD rev c825283c2 (window title 'OpenGOAL - Jak 1 - c825283c2')
+#   - X11 window measured 1920x1080 (monitor-bound borderless, display_mode=2);
+#     the 2400x1080 comes from pc-settings.gc (window-size 2400 1080) + (aspect-state aspect4x3 20 9),
+#     which drives aspect-ratio-scale=1.6666 (gold baseline confirmed arscale=1.6666 on this same monitor).
+#   - aspect 20:9 also forced over goalc listener: (set-aspect! *pc-settings* 20 9)
+#   - menu opened via single REAL START tap (xfocus_tap key 28); SDL_VIDEODRIVER=x11 so input reaches the window.
+#   - menu-open VERIFIED over listener: *progress-process*=#t, in-out-position=0 (settled main progress menu),
+#     SPR3-AUX npart=34 nicon=6 (matches gold baseline draw list).
+#   - field key: px=position.x (GS units), sx=x-scale, mtx=HUD matrix idx, uhx=per-sprite hud user-hvdf X offset,
+#     tbp=texture id (menu element), flag=sprite flag.
+#
+# ===== MENU-PERIOD mode=2 (HUD) sprites, deduped (sort -u) — static menu textures =====
+# (animated title-attract particle idx=24/mtx=17 excluded; it has per-frame px/py jitter, not a menu texture)
+GK-SPR3 mode=2 idx=0 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=12 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=10 px=245760.00 py=0.00 pz=0.00 sx=819.2000 sy=819.2000 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=11 px=245760.00 py=0.00 pz=2160.00 sx=9830.4004 sy=8192.0000 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=12 px=245760.00 py=0.00 pz=2160.00 sx=8192.0000 sy=7372.7998 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=13 px=0.00 py=0.00 pz=0.00 sx=4915.2002 sy=4915.2002 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x252e flag=0
+GK-SPR3 mode=2 idx=14 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=15 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=16 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=17 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=18 px=245760.00 py=0.00 pz=0.00 sx=819.2000 sy=819.2000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=19 px=245760.00 py=0.00 pz=2160.00 sx=9830.4004 sy=8192.0000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=1 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=12 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=20 px=245760.00 py=0.00 pz=2160.00 sx=8192.0000 sy=7372.7998 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=21 px=0.00 py=0.00 pz=0.00 sx=4915.2002 sy=4915.2002 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252e flag=0
+GK-SPR3 mode=2 idx=22 px=0.00 py=0.00 pz=0.00 sx=9011.2002 sy=9011.2002 mtx=15 uhx=1472.00 uhy=2048.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=23 px=0.00 py=0.00 pz=0.00 sx=9011.2002 sy=9011.2002 mtx=16 uhx=1472.00 uhy=2048.00 tbp=0x2572 flag=0
+GK-SPR3 mode=2 idx=25 px=121.59 py=436.59 pz=-512.38 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-123.07 py=169.15 pz=555.12 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=144.92 py=-149.64 pz=550.19 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-160.48 py=580.86 pz=-455.23 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-180.04 py=236.01 pz=528.34 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=186.83 py=-217.00 pz=527.75 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=189.84 py=392.32 pz=-496.72 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-21.05 py=520.07 pz=-507.46 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=223.00 py=-272.18 pz=502.53 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-223.48 py=606.70 pz=-410.66 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=278.84 py=-382.63 pz=444.27 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-282.59 py=616.22 pz=-358.33 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-286.55 py=351.76 pz=445.46 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=298.61 py=-436.69 pz=413.12 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=311.98 py=281.88 pz=-438.45 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=314.27 py=-476.21 pz=385.44 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-331.74 py=628.77 pz=-294.42 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-333.56 py=399.37 pz=390.22 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=334.42 py=-548.73 pz=333.59 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=340.03 py=-580.94 pz=310.26 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=346.30 py=-597.06 pz=292.48 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=350.24 py=-616.34 pz=274.79 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=357.16 py=-619.08 pz=261.73 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=362.70 py=-624.76 pz=248.12 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=363.80 py=216.92 pz=-397.77 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-371.71 py=452.34 pz=325.91 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=372.82 py=-613.83 pz=237.12 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=382.02 py=-605.89 pz=224.52 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=396.32 py=-581.55 pz=211.88 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-403.98 py=490.67 pz=255.02 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-405.09 py=623.54 pz=-147.72 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=408.00 py=159.29 pz=-349.67 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=409.53 py=-560.54 pz=196.39 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-424.38 py=533.36 pz=178.18 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=427.16 py=-523.62 pz=178.18 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-427.85 py=605.83 pz=-67.90 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-436.61 py=591.24 pz=15.11 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-437.35 py=560.50 pz=97.43 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=442.88 py=-490.68 pz=156.08 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=444.47 py=90.22 pz=-297.98 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=461.19 py=-442.61 pz=129.16 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=46.81 py=-20.29 pz=576.35 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=472.53 py=29.96 pz=-243.07 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=476.29 py=-399.40 pz=97.81 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=491.34 py=-342.06 pz=60.61 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=492.54 py=-40.32 pz=-187.19 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=501.59 py=-290.67 pz=19.15 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=504.91 py=-100.47 pz=-131.88 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=508.84 py=-226.34 pz=-27.80 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=509.73 py=-169.24 pz=-77.98 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=51.15 py=485.83 pz=-514.43 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-64.84 py=110.17 pz=571.28 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-7.94 py=40.29 pz=578.33 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=-91.33 py=558.36 pz=-485.82 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=25 px=98.15 py=-90.35 pz=566.38 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=11.28 py=-1075.20 pz=74.16 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=11.30 py=1075.19 pz=74.20 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=12.66 py=-1054.60 pz=133.95 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=12.68 py=1054.58 pz=133.98 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-133.43 py=1001.66 pz=-164.69 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-133.47 py=-1001.62 pz=-164.71 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-147.55 py=786.96 pz=362.56 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-147.55 py=-786.97 pz=362.55 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-186.44 py=952.70 pz=-182.77 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-186.46 py=-952.67 pz=-182.78 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-19.31 py=1081.01 pz=-40.44 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-19.35 py=-1081.00 pz=-40.47 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-197.81 py=704.68 pz=380.70 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-23.40 py=-978.99 pz=247.38 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-23.40 py=978.99 pz=247.38 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-238.74 py=-893.31 pz=-192.70 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-238.74 py=893.31 pz=-192.70 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-253.36 py=-614.67 pz=384.41 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-253.36 py=614.67 pz=384.41 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-2.69 py=1022.37 pz=192.78 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-2.70 py=-1022.38 pz=192.77 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-294.04 py=824.17 pz=-185.84 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-294.06 py=-824.15 pz=-185.84 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-305.99 py=-517.93 pz=377.62 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-305.99 py=517.93 pz=377.62 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-345.09 py=746.04 pz=-170.73 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-345.13 py=-745.98 pz=-170.73 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-358.03 py=-415.49 pz=356.55 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-358.03 py=415.49 pz=356.55 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-393.46 py=659.64 pz=-140.00 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-393.47 py=-659.61 pz=-140.00 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-403.71 py=-308.51 pz=325.89 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-403.71 py=308.51 pz=325.89 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=4.11 py=-1084.05 pz=14.08 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=4.14 py=1084.05 pz=14.12 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-434.29 py=-566.03 pz=-102.54 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-434.29 py=566.03 pz=-102.54 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-443.46 py=-198.15 pz=283.80 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-443.46 py=198.15 pz=283.80 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-467.49 py=-466.28 pz=-53.21 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-467.49 py=466.28 pz=-53.21 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-474.03 py=-85.63 pz=234.49 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-47.55 py=1066.15 pz=-91.53 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-494.86 py=-27.84 pz=178.73 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-494.86 py=27.84 pz=178.73 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-503.36 py=-252.60 pz=59.52 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-503.36 py=252.60 pz=59.52 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-504.82 py=-141.01 pz=119.20 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-504.82 py=141.01 pz=119.20 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-58.89 py=-924.87 pz=294.79 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-58.89 py=924.87 pz=294.79 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-89.25 py=1039.58 pz=-131.33 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-89.29 py=-1039.56 pz=-131.36 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-97.85 py=-860.65 pz=334.63 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=26 px=-97.85 py=860.65 pz=334.63 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=0.00 py=0.00 pz=-579.84 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=0.02 py=0.03 pz=-579.84 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-105.54 py=-226.02 pz=-554.91 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=105.57 py=-226.09 pz=-554.90 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=105.57 py=226.09 pz=-554.90 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-105.57 py=226.10 pz=-554.90 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-106.09 py=-1063.46 pz=-25.02 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-106.09 py=1063.46 pz=-25.02 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=106.12 py=-1063.45 pz=-25.03 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=106.12 py=1063.45 pz=-25.03 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-152.50 py=1034.00 pz=-58.20 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-152.51 py=-1033.99 pz=-58.22 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=152.53 py=-1033.98 pz=-58.20 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=152.53 py=1033.98 pz=-58.20 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-153.36 py=-335.94 pz=-524.48 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=153.39 py=-336.00 pz=-524.46 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=153.39 py=336.00 pz=-524.46 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-153.39 py=336.02 pz=-524.45 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-192.84 py=-442.17 pz=-484.45 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=192.85 py=-442.21 pz=-484.43 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=192.86 py=442.23 pz=-484.43 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-192.86 py=442.25 pz=-484.42 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-193.89 py=993.24 pz=-95.86 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-193.91 py=-993.21 pz=-95.91 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=193.92 py=-993.22 pz=-95.88 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-224.72 py=-941.55 pz=-147.32 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-224.72 py=941.57 pz=-147.29 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=224.74 py=-941.55 pz=-147.30 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=224.74 py=941.55 pz=-147.30 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-225.97 py=-543.57 pz=-434.89 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=225.99 py=543.62 pz=-434.86 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-246.79 py=-639.00 pz=-380.62 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=246.80 py=-639.04 pz=-380.60 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-246.80 py=639.08 pz=-380.58 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=246.81 py=639.05 pz=-380.59 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-248.15 py=-879.62 pz=-200.28 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-248.15 py=879.62 pz=-200.28 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=248.16 py=-879.58 pz=-200.29 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=248.16 py=879.58 pz=-200.29 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-258.07 py=-807.95 pz=-261.36 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-258.07 py=807.98 pz=-261.33 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=258.09 py=-807.95 pz=-261.34 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=258.09 py=807.95 pz=-261.34 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-259.50 py=-727.45 pz=-320.24 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-259.51 py=727.52 pz=-320.19 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=259.52 py=-727.49 pz=-320.20 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=259.52 py=727.49 pz=-320.20 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-53.93 py=-1081.23 pz=-9.46 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-53.93 py=1081.23 pz=-9.46 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=53.95 py=-1081.23 pz=-9.47 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=53.95 py=1081.23 pz=-9.47 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-54.25 py=-113.64 pz=-573.50 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=54.28 py=-113.70 pz=-573.50 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=54.28 py=113.70 pz=-573.50 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=27 px=-54.28 py=113.71 pz=-573.50 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=170.14 py=1910.62 pz=29.41 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-172.22 py=-1818.44 pz=-312.66 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-172.48 py=-1790.46 pz=-355.48 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=174.52 py=1629.99 pz=530.68 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=21.07 py=-1828.38 pz=-351.45 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-213.67 py=1609.70 pz=530.62 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=215.42 py=-1770.23 pz=-355.38 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=215.79 py=-1798.16 pz=-312.65 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-215.93 py=1890.44 pz=29.25 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=23.05 py=-1827.90 pz=-352.01 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=357.96 py=1793.99 pz=36.14 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-358.63 py=-1666.26 pz=-355.57 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-359.92 py=-1712.04 pz=-285.12 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=360.94 py=1549.01 pz=481.27 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-397.92 py=1509.16 pz=481.29 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=398.41 py=-1627.14 pz=-354.83 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=400.71 py=-1672.10 pz=-285.37 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-400.71 py=1754.31 pz=36.19 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=528.58 py=1598.77 pz=54.39 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-530.11 py=-1545.21 pz=-221.04 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-530.83 py=-1476.81 pz=-326.67 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=532.37 py=1373.45 pz=434.15 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-564.89 py=1316.04 pz=434.00 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=565.80 py=-1419.38 pz=-326.61 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-566.41 py=1541.58 pz=53.96 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=566.60 py=-1487.94 pz=-221.04 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-678.17 py=-1226.14 pz=-282.00 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-678.74 py=-1289.12 pz=-183.01 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=679.59 py=1164.98 pz=344.57 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-706.86 py=1092.27 pz=344.59 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=706.90 py=-1154.18 pz=-281.28 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-708.81 py=1260.04 pz=55.53 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=708.94 py=-1216.57 pz=-182.98 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=795.66 py=1011.16 pz=50.55 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-797.22 py=-922.25 pz=-219.97 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=798.06 py=877.24 pz=264.12 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-818.24 py=792.79 pz=263.84 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-819.00 py=926.87 pz=49.98 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=819.29 py=-906.18 pz=-112.63 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=879.98 py=642.32 pz=39.93 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-880.24 py=-592.72 pz=-135.81 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-880.40 py=-627.81 pz=-76.99 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=880.81 py=573.75 pz=153.30 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=893.43 py=-500.38 pz=-135.17 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-893.55 py=480.67 pz=153.38 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-894.33 py=549.60 pz=40.00 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=894.41 py=-535.13 pz=-76.65 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=925.08 py=254.33 pz=6.44 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-925.31 py=-248.59 pz=-18.44 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-925.53 py=-229.59 pz=-49.27 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=925.72 py=217.30 pz=59.54 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-929.81 py=120.43 pz=59.10 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=929.90 py=-132.37 pz=-49.23 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=-930.04 py=157.51 pz=5.89 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=28 px=930.13 py=-151.68 pz=-18.48 sx=819.2000 sy=819.2000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=29 px=0.00 py=0.00 pz=2160.00 sx=9830.4004 sy=8192.0000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=2 px=245760.00 py=0.00 pz=0.00 sx=819.2000 sy=819.2000 mtx=12 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=30 px=0.00 py=0.00 pz=2160.00 sx=8192.0000 sy=7372.7998 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=31 px=0.00 py=0.00 pz=0.00 sx=4915.2002 sy=4915.2002 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252e flag=0
+GK-SPR3 mode=2 idx=32 px=0.00 py=0.00 pz=0.00 sx=4096.0000 sy=4096.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=33 px=0.00 py=0.00 pz=0.00 sx=5324.7998 sy=5324.7998 mtx=19 uhx=1472.00 uhy=1956.00 tbp=0x2572 flag=0
+GK-SPR3 mode=2 idx=34 px=0.00 py=0.00 pz=0.00 sx=62805.3359 sy=8192.0000 mtx=20 uhx=1472.00 uhy=1981.00 tbp=0x2517 flag=0
+GK-SPR3 mode=2 idx=35 px=0.00 py=0.00 pz=0.00 sx=62805.3359 sy=8192.0000 mtx=21 uhx=1472.00 uhy=2022.00 tbp=0x2517 flag=0
+GK-SPR3 mode=2 idx=36 px=0.00 py=0.00 pz=0.00 sx=62805.3359 sy=8192.0000 mtx=22 uhx=1472.00 uhy=2063.00 tbp=0x2517 flag=0
+GK-SPR3 mode=2 idx=37 px=0.00 py=0.00 pz=0.00 sx=62805.3359 sy=8192.0000 mtx=23 uhx=1472.00 uhy=2104.00 tbp=0x2517 flag=0
+GK-SPR3 mode=2 idx=38 px=9420.80 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=24 uhx=1472.00 uhy=1987.00 tbp=0x2226 flag=0
+GK-SPR3 mode=2 idx=39 px=4300.80 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=24 uhx=1472.00 uhy=1987.00 tbp=0x21fd flag=0
+GK-SPR3 mode=2 idx=3 px=245760.00 py=0.00 pz=2160.00 sx=9830.4004 sy=8192.0000 mtx=12 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=40 px=0.00 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=24 uhx=1472.00 uhy=1987.00 tbp=0x21df flag=0
+GK-SPR3 mode=2 idx=41 px=9420.80 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=25 uhx=1472.00 uhy=2028.00 tbp=0x2226 flag=0
+GK-SPR3 mode=2 idx=42 px=4300.80 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=25 uhx=1472.00 uhy=2028.00 tbp=0x21fd flag=0
+GK-SPR3 mode=2 idx=43 px=0.00 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=25 uhx=1472.00 uhy=2028.00 tbp=0x21df flag=0
+GK-SPR3 mode=2 idx=44 px=9420.80 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=26 uhx=1472.00 uhy=2069.00 tbp=0x2226 flag=0
+GK-SPR3 mode=2 idx=45 px=4300.80 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=26 uhx=1472.00 uhy=2069.00 tbp=0x21fd flag=0
+GK-SPR3 mode=2 idx=46 px=0.00 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=26 uhx=1472.00 uhy=2069.00 tbp=0x21df flag=0
+GK-SPR3 mode=2 idx=47 px=9420.80 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=27 uhx=1472.00 uhy=2110.00 tbp=0x2226 flag=0
+GK-SPR3 mode=2 idx=4 px=245760.00 py=0.00 pz=2160.00 sx=8192.0000 sy=7372.7998 mtx=12 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=5 px=0.00 py=0.00 pz=0.00 sx=4915.2002 sy=4915.2002 mtx=12 uhx=1472.00 uhy=2033.00 tbp=0x252e flag=0
+GK-SPR3 mode=2 idx=6 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=7 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=8 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=9 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+
+# ===== animated idx=24 particle (mtx=17, title sun/glow) — sample 3 (NOT a menu texture) =====
+GK-SPR3 mode=2 idx=24 px=-113.33 py=-99.08 pz=562.59 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=24 px=-116.33 py=-596.45 pz=-466.11 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=24 px=139.20 py=222.38 pz=545.13 sx=1228.8000 sy=1228.8000 mtx=17 uhx=1472.00 uhy=1992.00 tbp=0x252d flag=0
+
+# ===== context: link finish / aspect / relative-x / probe / aux =====
+[46:53:254] [debug] link finish: logo
+[46:53:254] [debug] link finish: logo-black
+[46:53:254] [debug] link finish: logo-cam
+[46:53:255] [debug] link finish: logo-volumes
+[47:08:967] [debug] link finish: logo-intro
+[47:09:117] [debug] link finish: logo-intro
+[47:11:367] [debug] link finish: logo-intro
+[47:13:570] [debug] link finish: logo-intro-2
+[47:17:805] [debug] link finish: logo-intro-2
+[47:21:687] [debug] link finish: logo-intro-2
+[47:25:572] [debug] link finish: logo-intro-2
+[47:29:488] [debug] link finish: logo-intro-2
+[47:33:388] [debug] link finish: logo-intro-2
+[47:37:273] [debug] link finish: logo-intro-2
+[47:41:157] [debug] link finish: logo-intro-2
+[47:45:041] [debug] link finish: logo-intro-2
+[47:48:938] [debug] link finish: logo-intro-2
+[47:52:823] [debug] link finish: logo-intro-2
+[47:56:706] [debug] link finish: logo-intro-2
+[48:00:590] [debug] link finish: logo-intro-2
+[48:04:505] [debug] link finish: logo-intro-2
+[48:08:388] [debug] link finish: logo-intro-2
+[48:12:273] [debug] link finish: logo-loop
+[48:18:156] [debug] link finish: logo-loop
+[48:22:077] [debug] link finish: logo-loop
+[48:25:893] [debug] link finish: logo-loop
+[48:29:710] [debug] link finish: logo-loop
+[48:33:529] [debug] link finish: logo-loop
+[48:37:375] [debug] link finish: logo-loop
+[48:41:195] [debug] link finish: logo-loop
+[48:45:011] [debug] link finish: logo-loop
+[48:48:812] [debug] link finish: logo-loop
+[48:52:629] [debug] link finish: logo-loop
+GTEX MENU asym=aspect4x3 scale=1.6666 relx=0.5999 frecip=1.6666 fmx=0.5999
+[PC] Adjusting sprite positioning, aspect-ratio: 2.2222
+SPR3-AUX npart=34 nicon=6 inout=0
+SPR3-PROBE progress=#t inout=0

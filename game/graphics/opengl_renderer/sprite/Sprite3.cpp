@@ -786,6 +786,12 @@ void Sprite3::do_block_common(SpriteMode mode,
                               SharedRenderState* render_state,
                               ScopedProfilerNode& prof) {
   m_current_mode = m_default_mode;
+  // GMENU-TEX-DUMP (TEMP, removed before final): rate-limited per-sprite dump of the
+  // raw vertex data the renderer consumes (x86-first; identical code on x86 + arm64),
+  // to localize the device-only menu-texture bunch. px/sx = pos+xscale, uhx = the
+  // per-sprite hud user-hvdf x offset (=on-screen X), tbp = texture (element id).
+  static int s_spr_call_tick = 0;
+  const bool dump_spr = (mode == ModeHUD || mode == Mode2D) && ((s_spr_call_tick++ % 20) == 0);
   for (u32 sprite_idx = 0; sprite_idx < count; sprite_idx++) {
     if (m_sprite_idx == SPRITE_RENDERER_MAX_SPRITES) {
       flush_sprites(render_state, prof, mode == ModeHUD);
@@ -820,6 +826,21 @@ void Sprite3::do_block_common(SpriteMode mode,
       handle_clamp(adgif.clamp_data, render_state, prof);
     }
     handle_alpha(adgif.alpha_data, render_state, prof);
+
+    if (dump_spr) {
+      auto& vd = m_vec_data_2d[sprite_idx];
+      s32 mtx = vd.matrix();
+      float uhx = 0.f, uhy = 0.f;
+      if (mode == ModeHUD && mtx >= 1 && mtx <= 75) {
+        uhx = m_hud_matrix_data.user_hvdf[mtx - 1].x();
+        uhy = m_hud_matrix_data.user_hvdf[mtx - 1].y();
+      }
+      printf(
+          "GK-SPR3 mode=%d idx=%u px=%.2f py=%.2f pz=%.2f sx=%.4f sy=%.4f mtx=%d uhx=%.2f uhy=%.2f "
+          "tbp=0x%x flag=%d\n",
+          (int)mode, sprite_idx, vd.xyz_sx.x(), vd.xyz_sx.y(), vd.xyz_sx.z(), vd.xyz_sx.w(),
+          vd.flag_rot_sy.w(), mtx, uhx, uhy, (u32)m_current_tbp, vd.flag());
+    }
 
     u64 key = (((u64)m_current_tbp) << 32) | m_current_mode.as_int();
     Bucket* bucket;
