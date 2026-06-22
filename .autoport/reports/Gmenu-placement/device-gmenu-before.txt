@@ -1,0 +1,21 @@
+# Gmenu-placement DEVICE gmenu dump [before] 2026-06-22T02:04:54+02:00
+reached_frame=3000 crash_sigs=0 focus_end=  mCurrentFocus=Window{9e2f52c u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+
+## CAM / AUX (distinct)
+GMENU AUX asym=aspect4x3 usevis=#f inout=0 npart=34 nicon=6
+GMENU CAM arscale=1.6666 relx=0.5999 xpix=256.0000 xratio=1.6596 perspx=-0.1506 hvdfx=2048.0000
+
+## active PART (posx != -576) (distinct)
+GMENU PART 0 posx=0.0000 posy=0.0000 initx=256.0000
+GMENU PART 1 posx=-220.0000 posy=16.0000 initx=36.0000
+GMENU PART 2 posx=195.0000 posy=16.0000 initx=451.0000
+
+## ICON (distinct)
+GMENU ICON 0 iconx=256 icony=77 scalex=0.0060
+GMENU ICON 1 iconx=256 icony=77 scalex=0.0060
+GMENU ICON 2 iconx=256 icony=77 scalex=0.0060
+GMENU ICON 3 iconx=256 icony=77 scalex=0.0060
+GMENU ICON 4 iconx=-320 icony=253 scalex=0.0129
+GMENU ICON 5 iconx=-320 icony=253 scalex=0.0080
+
+## crash signatures

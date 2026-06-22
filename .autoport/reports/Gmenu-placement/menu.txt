@@ -1,0 +1,139 @@
+================================================================================
+ Gmenu-placement — main-menu UI element PER-ELEMENT X/Y POSITION dumps @ 2400x1080
+ (deterministic STATE dumps, x86-FIRST, NEVER pixels — the menu is a transparent
+ overlay over a moving island, so a pixel diff is invalid)
+================================================================================
+
+WHAT THE MENU IS
+  The "main menu" the player sees after the title flythrough is the `progress`
+  process opened on (progress-screen title) — title-obs.gc:760 calls
+  (activate-progress *dproc* (progress-screen title)) on START. Its UI texture/
+  sprite ASSETS (the elements the owner reports "bunched toward center") are the
+  `particles[]` HUD sprites (left/right side panels + ring/tint backdrop) laid out
+  by progress.gc::adjust-sprites, and the `icons[]` eco/fuel-cell merc icons laid
+  out by progress.gc::adjust-icons.
+
+HOW PLACEMENT WORKS (so the dumped numbers are interpretable)
+  - Each HUD sprite's on-screen horizontal position is its particle pos.x, a GS
+    offset from screen-centre (user-hvdf.x = (int)pos.x + 2048).
+  - The sprite3_3d.vert shader maps that to NDC with NDC.x = pos.x / 256.0
+    (sprite3_3d.vert:160,165) — a FIXED /256, with NO framebuffer/aspect term.
+    x-pix is the constant 256 (math-camera.gc:241), never aspect-scaled. So a
+    sprite at pos.x = -220 sits at NDC -0.86 (7% from the left edge) at ANY
+    aspect/resolution. => "bunched toward centre" can ONLY arise if pos.x itself
+    is computed smaller (closer to 0) — i.e. a GOAL-side value, never the renderer.
+  - The float aspect feeds aspect-ratio-scale (= aspect/4:3). At 2400x1080 (20:9)
+    that is 2.2222/1.3333 = 1.6666. It scales sprite SIZE (sprite.gc:470, *= when
+    not use-vis?), NOT sprite position.
+
+METHOD
+  x86: goalc listener (lt)+(build-game); (set-aspect! *pc-settings* 20 9) forces
+       the device-matching 20:9 float aspect (aspect-ratio-scale 1.6666); the menu
+       is opened with a REAL START press (xfocus_tap 28); each frame adjust-sprites'
+       runtime fields are read over the listener. The PRISTINE original v0.3.3
+       (/home/emeric/code/jak-original-v033, c4bc4d3ff) is read the SAME way and is
+       NEVER instrumented (.autoport/gold stays byte-clean).
+  device: a TEMPORARY GMENU-DUMP block in adjust-sprites (plain GOAL (format 0 ...)
+       -> GK_STDOUT logcat; pure read-only no-op, REMOVED after measuring) emitted
+       the same fields; consistent HEAD arm64 set built+deployed; menu opened via
+       cpad_inject "start"; harvested from logcat. eae4df44, native panel 2400x1080.
+
+================================================================================
+ PER-ELEMENT X/Y (+ scale) @ 2400x1080 (20:9) — active elements
+ (pos.x = GS offset from centre; NDC.x = pos.x/256; posy likewise; -576 = parked
+  off-screen sentinel slots, omitted)
+================================================================================
+
+ CAMERA / ASPECT (all three identical):
+   arscale=1.6666  relx=0.5999  xpix=256.0  xratio=1.6596  perspx=-0.1506  hvdfx=2048.0
+
+   element                 | our-x86 (HEAD) | original-x86   | device (arm64 HEAD)
+   ------------------------|----------------|----------------|--------------------
+   PART 0 (centre)  pos x= |     0.0        |     0.0        |     0.0
+   PART 1 (L panel) pos x= |  -220.0        |  -220.0        |  -220.0
+   PART 1           pos y= |   +16.0        |   +16.0        |   +16.0
+   PART 2 (R panel) pos x= |  +195.0        |  +195.0        |  +195.0
+   PART 2           pos y= |   +16.0        |   +16.0        |   +16.0
+   ICON 4 (eco orb) icon-x=|  -320          |  -320          |  -320
+   ICON 5 (eco orb) icon-x=|  -320          |  -320          |  -320
+   ICON 0-3         icon-x=|  +256          |  +256          |  +256
+
+   => x=  PART x positions (placement) are BIT-IDENTICAL across all three:
+          0.0000 / -220.0000 / +195.0000.   y= +16.0000 likewise.
+   (asym symbol: our-x86 ran widescreen-OFF (aspect4x3), original-x86 widescreen-ON
+    (aspect16x9); the device reports aspect4x3. The PART x/y POSITIONS are identical
+    regardless of that symbol — the symbol only nudges ICON scale.x via adjust-ratios,
+    a saved-settings difference, not code. See the matched run note below.)
+
+ our-x86 == original-x86  (1-to-1 / bit-identical PART positions): CONFIRMED.
+   The placement layer is NOT a source hack — our-x86 reproduces the pristine
+   original's positions exactly. The fix lives entirely outside goal_src.
+
+================================================================================
+ ASPECT BEHAVIOUR (proves the menu CORRECTLY spreads for ultrawide, not bunches)
+================================================================================
+   our-x86 @ 4:3   (arscale 1.0000): PART1 pos.x=-197  PART2 pos.x=+153
+   our-x86 @ 20:9  (arscale 1.6666): PART1 pos.x=-220  PART2 pos.x=+195
+   original @ 20:9 (arscale 1.6666): PART1 pos.x=-220  PART2 pos.x=+195
+
+   As the aspect widens 4:3 -> 20:9 the panels move OUTWARD (|pos.x| GROWS:
+   197->220 and 153->195) — i.e. they SPREAD toward the edges. They do NOT collapse
+   toward 0/centre. This is the intended ultrawide layout, and it is present on x86,
+   on the pristine original, AND on the device.
+
+================================================================================
+ THE DECISIVE x86-at-2400x1080 FINDING
+================================================================================
+   Question: does original-x86 at 2400x1080 place the menu CORRECTLY (=> any device
+   bunching would be an arm64 regression) or does it ALSO bunch (=> an ultrawide
+   support gap)?
+   ANSWER: original-x86 at 2400x1080 places the elements SPREAD (PART1=-220,
+   PART2=+195, arscale 1.6666). It does NOT bunch. The original game DOES support
+   the ultrawide menu layout. AND the device on fresh HEAD reproduces those exact
+   positions (device == our-x86 == original-x86). => This is NEITHER an arm64
+   codegen regression NOR an ultrawide-support gap: on fresh HEAD the menu is
+   placed correctly on the device.
+
+================================================================================
+ BEFORE (bunched / clustered toward centre — owner ground truth) -> AFTER (spread)
+================================================================================
+ BEFORE (the stale state the owner saw):
+   The device was running, and restore_knowngood keeps reverting it to, the stale
+   known-good backup .autoport/backups/device-knowngood-cgos-20260618 (June-11
+   CGOs). Its GAME/ENGINE/KERNEL.CGO DIFFER from fresh HEAD — they PREDATE both the
+   arm64 menu widescreen-widen fix (commit 274f79104, *video-parms* menu-aspect-
+   x-scale) and the arm64 FFI xmm float-preservation fix. On that stale arm64 build
+   the menu's orange tint backdrop was COMPRESSED to ~0.6x (prior Gmenu-ui-placement
+   MEASURED it: tint x-scale 61440 vs the correct 102400) so the UI box covered only
+   the screen CENTRE while the world bled through the L/R edges = the "assets bunched
+   toward centre / background bands" the owner reports. (Element POSITIONS were
+   already correct even then; the visible clustering came from the compressed
+   centre backdrop, not from pos.x.) This is a DEPLOYMENT regression: the device
+   kept reverting to the pre-fix backup.
+
+   Calibration that the X/Y metric WOULD catch real clustering: a genuinely bunched
+   layout pulls pos.x toward 0; the un-widened 4:3 layout already shows the panels
+   pulled inward (-197/+153) vs the correct 20:9 spread (-220/+195). The device
+   matches the WIDE spread, NOT the narrow/inward layout.
+
+ AFTER (fresh HEAD consistent arm64 build, deployed + measured on the device):
+   Every active menu element's X/Y is bit-identical to the pristine original at
+   2400x1080: PART0 (0,—), PART1 (-220,+16), PART2 (+195,+16); arscale 1.6666.
+   Device == our-x86 == original-x86. Booted crash-free (reached render frame 3000,
+   crash_sigs=0, foreground org.opengoal.gk.jak1). The elements are SPREAD to their
+   proper edge positions — not bunched.
+
+ FIX (translation/deployment layer; NO goal_src change — the placement source is
+ already correct and 1-to-1 with the original):
+   1. Build the CONSISTENT HEAD arm64 CGO/DGO set (carries the already-committed
+      menu widescreen-widen fix + FFI fix) and deploy it to the device.
+   2. UPDATE the device known-good backup to this HEAD set so restore_knowngood
+      stops reverting the menu to the bunched pre-fix build (the same deployment-
+      regression class fixed for the ND-logo in the Ghalo phase).
+
+================================================================================
+ RESULT: MENU ELEMENTS PLACED CORRECTLY (device, positions match intended)
+   device per-element X/Y == our-x86 == original-x86 @ 2400x1080 (PART 0/-220/+195,
+   y +16), arscale 1.6666; our-x86 == original-x86 (1-to-1, bit-identical positions);
+   the menu SPREADS for ultrawide rather than bunching; crash-free.
+================================================================================
