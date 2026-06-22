@@ -1141,6 +1141,16 @@ phases:
   validator: validators/phase-Gmenu-placement.sh
   max_turns: 1400
   max_retries: 3
+- id: Gconsolidate-deploy
+  name: 'Make the device persistently run a fresh CONSISTENT HEAD build (28-file arm64 CGO/DGO + libgk) and update the known-good
+    backup to it. Root cause of most owner-visible defects: restore_knowngood reverts CGOs to the June-11 f1c set, dropping
+    DATA-resident fixes (menu widescreen-widen in GAME.CGO etc). f1c constraint lifted; fresh set proven to boot (Gmenu). Build,
+    deploy, verify boot->gameplay crash-free + menu/sun/particles render, new dated known-good backup (keep June-11 fallback),
+    point restore SRC at it. If it does not boot, restore June-11 + report (never brick). 1-to-1 source.'
+  prompt: prompts/phase-Gconsolidate-deploy.md
+  validator: validators/phase-Gconsolidate-deploy.sh
+  max_turns: 1600
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
