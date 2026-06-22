@@ -1160,6 +1160,15 @@ phases:
   validator: validators/phase-Gwater-lod.sh
   max_turns: 1400
   max_retries: 3
+- id: Gbirds-anim
+  name: 'RE-DO (owner ground truth): title birds over the tower appear but are STATIC (not animating). Re-baseline on fresh
+    consolidated HEAD; dump per-frame bird anim-frame/joint advance x86-first (original vs our-x86 vs device, NEVER pixels); if
+    device anim-frame is stuck while x86 advances, fix the arm64 anim-advance defect in the translation layer. our-x86 == original;
+    1-to-1 source.'
+  prompt: prompts/phase-Gbirds-anim.md
+  validator: validators/phase-Gbirds-anim.sh
+  max_turns: 1400
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
