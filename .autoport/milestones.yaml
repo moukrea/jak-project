@@ -761,6 +761,12 @@ phases:
   validator: validators/phase-Gmenu-textures.sh
   max_turns: 1400
   max_retries: 3
+- id: Glogo-garble
+  name: "OWNER-CONFIRMED 2026-06-22: the logo-smash renders GARBLED/corrupted (mesh/textures scrambled) \u2014 the prior Glogo-smash false-greened on tris+state, blind to it. Cause = GND-OOB-WRITE firing ~400x during the logo intro stomping the logo geometry. Characterize the OOB writer/target x86-first, fix at source (arm64 mips2c/builder bad index/base, or content-canary fallback); verify GND-OOB-WRITE 400->0 + logo data intact. our-x86==original; 1-to-1."
+  prompt: prompts/phase-Glogo-garble.md
+  validator: validators/phase-Glogo-garble.sh
+  max_turns: 1500
+  max_retries: 4
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
