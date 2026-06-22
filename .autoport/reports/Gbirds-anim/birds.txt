@@ -1,0 +1,150 @@
+================================================================================
+Gbirds-anim — title-screen birds anim-advance dump (x86-first, NEVER pixels)
+================================================================================
+Owner ground truth: on the Jak1 title screen the birds over the tower RENDER but
+are STATIC (no flight/bob/wing animation). This report proves, with deterministic
+per-game-frame ANIM-ADVANCE dumps (no screenshots), that the device birds were
+genuinely frozen (a real arm64 translation bug, NOT a stale-deployment artifact),
+identifies the defect, fixes it in the translation layer, and re-measures the
+device birds advancing 1-to-1 with the original.
+
+RESULT: BIRDS ANIMATE MATCHING ORIGINAL (device, 1-to-1 source)
+
+--------------------------------------------------------------------------------
+WHAT THE "BIRDS" ARE (so the metric reflects the actual defect)
+--------------------------------------------------------------------------------
+The title flyover renders village1 (Sandover) behind the logo. The birds over the
+sage-hut tower are the sparticle group `group-village1-sagehut-seagulls` (defpart-
+group id 132, goal_src/jak1/levels/village1/village1-part.gc:699). They are NOT a
+skeletal `ja`-animated process; their flight "animation" is driven by the per-frame
+sparticle :func callback `bird-bob-func` (village1-part.gc:754, defpart 415):
+
+    (set! (-> arg2 y)
+      (+ (-> proc root trans y)
+         (* -2048.0 (sin (* 218.45334 (the float (mod (current-time) 300)))))))
+
+So the bird's vertical bob is a deterministic function of `current-time`
+(= (-> *display* base-frame-counter), the per-game-frame anim clock). If the
+callback runs each frame with an advancing current-time, the bob-y oscillates and
+the bird flies; if the callback never dispatches (or the clock is frozen), the bird
+is static. THE ANIM-ADVANCE METRIC dumped here is: per game frame, the bird's
+current-time and the bob-y value bird-bob-func writes (for one latched bird,
+ci=0x1a0130). Oscillating bob-y across frames == ANIMATING; constant/no-dispatch ==
+STUCK.
+
+Instrumentation (TEMPORARY, since REMOVED): identical C++ in the mips2c
+sp-process-block-2d :func dispatch site (game/mips2c/jak1_functions/sparticle.cpp)
+logging `GBIRDS2D ci=.. current-time=.. dt=.. bob-y=.. freeze=..`. Same C++ runs on
+x86 (stdout) and the device (logcat, GK_STDOUT) — a true 3-way comparison from ONE
+source. All temp instrumentation has been removed; only the permanent arm64 fix
+remains (see FIX).
+
+================================================================================
+1) our-x86 baseline  (build-x86/game/gk, current HEAD)
+================================================================================
+Reached "link finish: logo". 5168 per-frame bird samples. current-time advances by
+a constant per-frame step (dt=21474836480 = 0x5_0000_0000 fixed-point); bob-y traces
+a smooth sinusoid. ENVELOPE: bob-y min 384582.2812 .. max 388678.2812.
+
+Verbatim (consecutive frames showing the bob ADVANCE, file our-x86-gbirds.txt):
+  GBIRDS2D ci=0x1a0130 current-time=1319456903004160 dt=21474836480 bob-y=386204.5938 freeze=0
+  GBIRDS2D ci=0x1a0130 current-time=1319478377840640 dt=21474836480 bob-y=385997.5625 freeze=0
+  GBIRDS2D ci=0x1a0130 current-time=1319499852677120 dt=21474836480 bob-y=385797.3125 freeze=0
+  GBIRDS2D ci=0x1a0130 current-time=1319521327513600 dt=21474836480 bob-y=385606.3438 freeze=0
+  GBIRDS2D ci=0x1a0130 current-time=1319542802350080 dt=21474836480 bob-y=385426.5938 freeze=0
+Per-frame bob-y deltas are non-zero throughout (e.g. -33.53, -11.25, +11.22, +33.50,
++55.47, +76.84 ...) — the anim advances every frame.
+
+================================================================================
+2) original-x86  (.autoport/gold pristine v0.3.3, c4bc4d3ff)  ==  our-x86  (1-to-1)
+================================================================================
+our-x86 == original-x86, identical, by source identity (the strongest available
+gold comparison; the gold tree ships settings + the pristine gk binary, not an
+instrumentable full source):
+  - bird-bob-func (village1-part.gc) and the whole sparticle bird path are
+    git-clean / byte-identical to the original — no goal_src edit in this phase.
+  - The ONLY code change is arm64-gated (`#if defined(__aarch64__)` ... `#else`);
+    the x86 `#else` branch is byte-identical to the original mips2c, and the x86
+    goalc emitter is untouched. So x86 codegen is unchanged => our-x86 bob output
+    is identical to the original-x86 bob output.
+  - Cross-check: the gold pristine gk reaches the same title attract; current-time
+    is the same real-time game clock (Grender-audit). The bob is a pure function of
+    current-time, so the original-x86 bob oscillates over the same envelope as
+    our-x86 (384582.2812 .. 388678.2812).
+Conclusion: our-x86 matches original-x86 (1-to-1, identical). No source hack;
+nothing to revert.
+
+================================================================================
+3) device  (eae4df44, arm64)  — BEFORE the fix  (calibrated, reproduced)
+================================================================================
+Build: fresh consolidated HEAD libgk (deploy_verify PASS) WITHOUT the arm64 2D
+#f-guard. Same C++ instrumentation as x86, provably present in the deployed libgk
+(verified via `strings`), printf routing confirmed working (other GK_STDOUT
+diagnostics appear).
+
+BEFORE result (file device-before-gbirds.txt): GBIRDS2D lines = 0. ZERO bird
+dispatches across the whole title flyover (boot reached logo; 0 crashes; app
+foreground). i.e. bird-bob-func NEVER runs on arm64 => the bird bob-y is never
+updated => delta = 0 across every frame => the bird is FROZEN/STUCK. This is the
+owner's reported "static birds", reproduced deterministically (0 vs x86's 5168).
+This is the calibrated BEFORE (device anim-frame stuck, advance Δ≈0).
+
+Root cause (localized x86-first, then confirmed on device): in the mips2c
+`sp-process-block-2d` block_1 (sparticle.cpp), the two `beq reg, s7` #f-checks
+(`(-> cpuinfo valid)` at +128, and the `(paused?)` arg `s2`) used the full-64
+`sgpr64` compare and LACKED the arm64 low-32 `gpr_addr` guard that the sibling
+`sp-process-block-3d` block_1 already had. On arm64 a GOAL pointer loaded via
+sign-extended `lw` arrives as the bare low-32 offset while gpr s7 is the full host
+symbol base (0x7f...), so a full-64 compare MISSES #f. The `s2`(paused?)==#f branch
+that routes a LIVE 2D particle to block_8 (the func-dispatch path) was therefore
+never taken on arm64 — the bird fell through to the skip path and block_13's
+bird-bob-func jalr was never reached. The 2D block was simply never given the fix
+the 3D block received. x86 is unaffected (operands consistent there), which is why
+x86 dispatched 5168x while the device dispatched 0x.
+
+================================================================================
+FIX (translation layer only — NOT goal_src)
+================================================================================
+game/mips2c/jak1_functions/sparticle.cpp, sp_process_block_2d block_1: add the
+`#if defined(__aarch64__)` low-32 `gpr_addr` guard to BOTH `beq v1,s7` (valid) and
+`beq s2,s7` (paused?) #f-checks, mirroring sp_process_block_3d block_1 verbatim.
+arm64-gated; x86 path unchanged (#else keeps sgpr64). No goal_src change; gold
+pristine. Same bug class as the documented arm64 mips2c #f-guard family
+(Gd2/Gsprite/Gnewgame).
+
+================================================================================
+4) device  (eae4df44, arm64)  — AFTER the fix  (advances, matching original)
+================================================================================
+Build: fresh HEAD libgk WITH the arm64 2D #f-guard (deploy_verify PASS,
+build==APK==device). Same instrumentation.
+
+AFTER result (file device-fixed-gbirds.txt): GBIRDS2D lines = 4338 (was 0).
+bird-bob-func now dispatches every frame; current-time advances (dt>0 always;
+device coalesces ~3 game-frames per logged sample on the slower Adreno present
+rate, so its dt is a multiple of x86's, never 0); bob-y OSCILLATES over the
+ENVELOPE bob-y min 384582.2812 .. max 388678.2812 — BYTE-IDENTICAL to the our-x86
+envelope (same min, same max, same latched bird ci=0x1a0130).
+
+Verbatim (consecutive frames showing the bob ADVANCE on device, file
+device-fixed-gbirds.txt, logcat prefix stripped):
+  GBIRDS2D ci=0x1a0130 current-time=1320251471953920 dt=64424509440 bob-y=388287.1250 freeze=0
+  GBIRDS2D ci=0x1a0130 current-time=1320315896463360 dt=64424509440 bob-y=388578.0312 freeze=0
+  GBIRDS2D ci=0x1a0130 current-time=1320380320972800 dt=64424509440 bob-y=388678.2812 freeze=0   <- peak == x86 max
+  GBIRDS2D ci=0x1a0130 current-time=1320444745482240 dt=64424509440 bob-y=388578.0938 freeze=0
+  GBIRDS2D ci=0x1a0130 current-time=1320509169991680 dt=64424509440 bob-y=388287.2188 freeze=0
+Per-frame bob-y deltas are non-zero (e.g. -132.34, -33.56, +165.81, +348.88,
++498.06, +598.31, +639.59 ...) — the device anim now ADVANCES every frame, no
+crash, app foreground. This is the AFTER (device anim-frame advances matching the
+original).
+
+================================================================================
+SUMMARY (3-way)
+================================================================================
+  metric: bird-bob-func bob-y per game frame (+ current-time anim clock), 1 latched bird
+  original-x86 : == our-x86 (1-to-1 source identity); bob oscillates 384582.2812..388678.2812
+  our-x86      : 5168 samples; current-time advances; bob-y oscillates 384582.2812..388678.2812
+  device BEFORE: 0 bird dispatches  -> bob-y advance Δ=0 -> FROZEN/STUCK (reproduced owner defect)
+  device AFTER : 4338 bird dispatches -> bob-y oscillates 384582.2812..388678.2812 (== x86) -> ANIMATES
+  our-x86 == original-x86 : identical (1-to-1). device AFTER == our-x86 envelope.
+
+RESULT: BIRDS ANIMATE MATCHING ORIGINAL (device, 1-to-1 source)
