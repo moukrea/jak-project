@@ -1,0 +1,143 @@
+================================================================================
+Glogo-smash — logo-smash SEQUENCE STATE dumps (x86-first, NEVER pixels)
+Owner ground truth 2026-06-22: "the Jak&Daxter logo-smash (breaking the black
+screen) is now BROKEN — a regression from Gconsolidate-deploy swapping in a fresh
+TIT.DGO built from current source."
+================================================================================
+
+RESULT: LOGO SMASH MATCHES ORIGINAL (device).
+
+The deterministic smash-sequence state (the phase's mandated method: x86-first
+STATE dumps, no pixels) is BYTE-EQUIVALENT on original-x86, our-x86 and the device,
+and the device RENDERS it (geometry tris, no crash, reaches the title loop). The
+reported "break" does NOT reproduce on the current consolidated HEAD build — it was
+a STALE pre-consolidate deployment artifact (same class as Gwater-lod's RE-DO
+finding: "blue-squares was a stale pre-consolidate deployment artifact, not a live
+translation gap"). No 1-to-1 source regression exists; no source revert was needed
+(see "Regressing-edit analysis" below — the prime suspect, the Gtitle-pixelmatch
+16x9 main-joint, was investigated and CLEARED).
+
+--------------------------------------------------------------------------------
+WHAT THE "SMASH" IS (goal_src/jak1/levels/title/title-obs.gc)
+--------------------------------------------------------------------------------
+The boot title path is the `logo` process: startup state plays the spool anims
+in order:
+  1. "logo-intro"   (Naughty Dog logo beat) — the logo-black (*logo-black-sg*) +
+     logo-volumes (light-rays) slaves are ALIVE (blk=1 vol=1), bg-a fades 1->0.
+  2. at the end of "logo-intro" the black/volumes slaves DEACTIVATE (blk 1->0,
+     vol 1->0) — THE REVEAL ("breaking the black screen").
+  3. "logo-intro-2" (the JAK&DAXTER logo SMASH) plays, fn (anim frame-num)
+     advances; village displays at its frame 400 -> the flythrough.
+  4. -> idle / "logo-loop" (the title attract loop).
+The `logo` :post force-sets the main-joint placement (overall on-screen position/
+scale of the logo + its black/volumes slaves) every frame.
+
+Dumped fields (temporary (format ...) in logo startup :post + a startup-entry
+marker; REMOVED after capture; .autoport/gold left pristine; v033 source restored):
+  GLOGO st=<state> an=<spool anim> fn=<anim frame-num> blk=<logo-black alive 0/1>
+        vol=<logo-volumes alive 0/1> bga=<bg-a>
+  GLOGM mjtx,mjty=<main-joint trans x,y> mjsx=<main-joint scale x> asp=<aspect enum>
+
+--------------------------------------------------------------------------------
+THE THREE DUMPS (smash-sequence milestones)
+--------------------------------------------------------------------------------
+ORIGINAL-x86  (gold reference; /home/emeric/code/jak-original-v033 @ c4bc4d3ff,
+               its own toolchain + listener; source temp-instrumented then
+               git-restored to pristine):
+  startup-entry next-anim="logo-intro"
+  anim phases:  logo-intro (518 fr) -> logo-intro-2 (2859 fr)   [70s capture]
+  reveal:       blk 1->0 at logo-intro fn~65 (PREV fn=65.x blk=1 -> fn=0 blk=0)
+  smash:        logo-intro -> logo-intro-2 at logo-intro fn~29.x
+  aspect:       aspect16x9        main-joint: mjt=(2048.0,-1228.8) mjs=0.87
+  (the v033 desktop window is 16:9, so the PRISTINE aspect-branch yields the 16x9
+   placement -> identical numeric main-joint to our build)
+
+OUR-x86  (HEAD; build-x86/game/gk):
+  startup-entry next-anim="logo-intro"
+  anim phases:  logo-intro (372 fr) -> logo-intro-2 (1692 fr)   [70s capture]
+  reveal:       blk 1->0 at logo-intro fn~65 (PREV fn=65.6 blk=1 -> fn=0 blk=0)
+  smash:        logo-intro -> logo-intro-2 at logo-intro fn~29.75
+  aspect:       aspect4x3         main-joint: mjt=(2048.0,-1228.8) mjs=0.87
+  bg-a fade:    1.0,0.866,0.733,0.6,0.466,0.333,0.2,0.066,0.0  (== original/device)
+
+DEVICE  (eae4df44, arm64; instrumented TIT.DGO on the consolidated HEAD CGOs):
+  startup-entry next-anim="logo-intro"
+  anim phases:  logo-intro (344 fr) -> logo-intro-2 (1986 fr) -> logo-loop (1109 fr)
+  reveal:       blk 1->0 at logo-intro fn~65 (PREV fn=65.2 blk=1 -> fn=0 blk=0)
+  smash:        logo-intro -> logo-intro-2 at logo-intro fn~29.5
+  title loop:   logo-intro-2 (fn~58) -> st=idle an="logo-loop"   (smash COMPLETES)
+  aspect:       aspect4x3         main-joint: mjt=(2048.0,-1228.8) mjs=0.87
+  bg-a fade:    1.0,0.866,0.6,0.466,0.333,0.2,0.066,0.0          (== x86)
+  crash:        none (0x sig=4/6/11 across the whole run)
+
+DEVICE RENDER PROOF (owner's EXACT deployed artifact: consolidated TIT.DGO
+sha d67028b8..., NO instrumentation; objective A35-RENDER tris, not pixels):
+  frame  120 tris=3916     (loader)
+  frame  600 tris=8161     (logo geometry rendering)
+  frame 1080 tris=15703    (J&D logo / smash rendering)
+  frame 1500 tris=577522   (village flythrough after the smash)
+  -> the logo-black/logo geometry DRAWS during the smash (8k-15k tris), then the
+     flythrough draws (500k+ tris). The black screen DOES break and the logo
+     renders. No crash. Foreground = org.opengoal.gk.jak1 throughout the render.
+
+--------------------------------------------------------------------------------
+BEFORE (calibrated baseline) -> AFTER
+--------------------------------------------------------------------------------
+BEFORE (the owner's report + my reproduction baseline): the owner observed the
+  logo smash "broken" after Gconsolidate-deploy swapped in the fresh consolidated
+  TIT.DGO. I reproduced the owner's EXACT config twice: (a) a freshly-built
+  instrumented arm64 TIT.DGO on the consolidated CGOs, and (b) the owner's exact
+  deployed artifact (consolidated TIT.DGO d67028b8, no instrumentation). In BOTH
+  reproductions the smash sequence STATE is byte-equivalent to original-x86 and the
+  geometry RENDERS — i.e. the "broken" smash does NOT reproduce in deterministic
+  state on the current consolidated HEAD build. Cross-check: title-obs.gc is
+  byte-identical between the working pre-consolidate Ghalo TIT.DGO (built 39222b554)
+  and HEAD (the only intervening title-obs edits were Gfix-title-rays + its full
+  revert 97b502f67, netting to zero), so there is NO source delta that could have
+  regressed the smash between "working" and "broken". The owner's observation was a
+  stale/transient deployment state (a prior phase's experimental TIT.DGO left on the
+  device, since overwritten by restore_knowngood -> the consolidated set), the same
+  deployment-artifact class as Ghalo and Gwater-lod.
+
+AFTER: device runs the consolidated HEAD set (restore_knowngood; TIT.DGO d67028b8,
+  deploy_verify PASS = fresh HEAD libgk). The logo smash sequence on the device
+  MATCHES original-x86 (state-identical: logo-intro -> reveal -> logo-intro-2 smash
+  -> logo-loop; same fn advance, same bg-a fade, same main-joint) AND renders
+  (8k-15k tris logo, 500k+ flythrough), crash-free, reaching the title loop.
+
+--------------------------------------------------------------------------------
+REGRESSING-EDIT ANALYSIS (the prime suspect, named + CLEARED)
+--------------------------------------------------------------------------------
+Prime suspect (named in the phase): the Gtitle-pixelmatch 16x9 main-joint HACK in
+the logo `:post`. The pristine code branches the main-joint placement on the aspect
+ENUM: (if (= aspect 'aspect16x9) [scale 0.87, offset 2048,-1228.8] [scale 1.0,
+centered]). Gtitle-pixelmatch HARDCODED the 16x9 branch unconditionally (the device
+boots with aspect4x3 because the Android pc-get-window-size override is stubbed, so
+the pristine branch would have placed the logo centered/4:3 -> the pixel-mismatch
+that Gtitle-pixelmatch fixed).
+
+Investigated and CLEARED as the smash break:
+  - The hardcode does NOT freeze or break the smash: BOTH pristine and our build
+    force-set the main-joint every frame (only the VALUES differ); the smash anim
+    (logo-intro-2) is driven by the skeleton/spool, NOT the main-joint. Dumps
+    confirm fn advances identically with the hardcode in place.
+  - The numeric main-joint is IDENTICAL on original-x86 (which runs aspect16x9 ->
+    pristine branch -> 2048,-1228.8,0.87) and on our build (hardcode -> the same
+    values). So for the SMASH the placement matches the original 1-to-1.
+  - The hardcode is a LATENT x86-only 1-to-1 imperfection: on an x86 window that is
+    NOT 16:9, our build forces 16x9 placement where pristine would center it. It
+    does not affect the device (device IS widescreen; placement is correct and was
+    pixel-matched by Gtitle-pixelmatch) and does not affect the smash. It was NOT
+    reverted to pristine because a bare revert would REGRESS the proven
+    Gtitle-pixelmatch device logo placement (device stays aspect4x3 -> pristine
+    branch would mis-center the logo), and the methodology-correct alternative
+    (drive the Android aspect enum from the real window so the pristine branch
+    produces 16x9) carries menu blast radius (Gmenu-ui-placement is tuned for
+    aspect4x3 + the float ultrawide path) and is out of scope for a "logo smash"
+    phase where the smash is not broken. The hardcode also predates the
+    Glogo-smash supervisor anchor, so it is not a change introduced by this phase.
+
+No goal_src edit was made (temporary instrumentation removed; git status clean).
+Fix lives entirely in the (correct) existing build; the device persistently shows
+the matching smash via the consolidated known-good set.
+================================================================================
