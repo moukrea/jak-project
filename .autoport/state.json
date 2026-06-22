@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 120,
+  "current_phase_idx": 121,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -116,7 +116,7 @@
     "Gsun-halo": 1,
     "Gparticles-stars": 2,
     "Gmenu-placement": 1,
-    "Gconsolidate-deploy": 1
+    "Gconsolidate-deploy": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -351,7 +351,8 @@
     "Gffi-xmm-validate",
     "Gsun-halo",
     "Gparticles-stars",
-    "Gmenu-placement"
+    "Gmenu-placement",
+    "Gconsolidate-deploy"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -452,7 +453,7 @@
     "Gmenu-placement": 1782083587.5380065,
     "Gconsolidate-deploy": 1782090692.009406
   },
-  "last_update": "2026-06-22T01:40:16.437778+00:00",
+  "last_update": "2026-06-22T01:54:06.900598+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
