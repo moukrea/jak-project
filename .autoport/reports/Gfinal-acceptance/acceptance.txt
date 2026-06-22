@@ -1,0 +1,109 @@
+================================================================================
+Gfinal-acceptance — consolidated acceptance: ALL owner-reported defects verified
+fixed on the CURRENT HEAD device build, no regression, crash-free to gameplay.
+================================================================================
+Date           : 2026-06-22
+Device         : Redmi Note 9 Pro, adb serial eae4df44 (arm64), org.opengoal.gk.jak1
+HEAD commit    : d3965c545
+libgk on device: sha-chain 91fe53d24b820777 (build == APK == device, deploy_verify PASS)
+Method         : deterministic, NO pixels. goal_src untouched (1-to-1). x86 unchanged.
+                 LIVE = measured in THIS fresh-HEAD device session (single continuous app
+                 run, pid 16958, one routed logcat full-logcat-AFTER-run2.log, 38857 lines).
+                 CITED = the deterministic value each owning phase established on-device,
+                 carried unchanged onto THIS build and proven physically present by:
+                   (a) 28/28 on-device CGO/DGO byte-identical to the proven backup set
+                       .autoport/backups/device-knowngood-cgos-20260622 (sha256-verified),
+                       i.e. every data-resident fix (menu widen, sun corona, particle/star
+                       builders' DGO data, ocean data) is the same bytes that were measured;
+                   (b) the libgk-side fixes present in HEAD source (birds #f-guard, cinematic
+                       rftd-null redirect, FFI q24-q31), and the device provably running that
+                       HEAD libgk (deploy_verify chain).
+
+--------------------------------------------------------------------------------
+SINGLE FRESH-HEAD DEVICE SESSION (run-2, owner-exact path), one continuous app run
+  launch -> title attract demo -> START -> progress menu -> NEW GAME -> SLOT 0
+  -> OVERWRITE -> LEFT(=YES) -> confirm (real save write) -> intro cinematic -> gameplay
+  verdict = REACH, endfg = jak1, elapsed 168s, crash sigs(4/6/11)/Fatal = 0.
+  Timeline (from the one log):
+    07:46:08  link finish: title-obs           (title loaded)
+    07:46:09  title attract demo (master-mode=game, scripted cam); birds dispatching
+    07:46:47  master-mode=progress             (START pressed; menu open, 56 lines)
+    07:48:37  link finish: intro-vis / Displaying level intro [special]  (NEW-GAME cinematic)
+    07:48:38+ A35-RENDER frames advance past the cinematic into gameplay
+    REACH     A35-RENDER frame reached 10500 (script break); logger continued to 14700.
+--------------------------------------------------------------------------------
+
+CHECK 1 — BOOT -> GAMEPLAY (no crash)                                       [LIVE]
+  max A35-RENDER frame = 14700  (>= 10500 gameplay threshold)
+  crash sigs (GK-DIAG sig=4/6/11 | Fatal signal | signal N (SIG) = 0  (crash-free; sig=0)
+  foreground at end = org.opengoal.gk.jak1 (jak1)
+  in-place arm64 repairs that KEPT it crash-free (working, not crashes): DBLEE=8 RFTD=9 TGT=8
+  CITED cross-check: Gconsolidate-deploy/consolidate.txt:1-5 — same byte-identical set
+    reached gameplay frame 11160, sig(4/6/11)=0, crashed=no.
+
+CHECK 2 — SUN CORONA size == original (not a 20% glow)                      [CITED + byte-id]
+  corona (effects/starflash2) sx = sy = 24576.0  (Gsun-halo/sun.txt:52, 2404 samples;
+    consolidate.txt:37). device 24576 == our-x86 24576 == original-x86 24576 (IDENTICAL).
+  alpha {0.0000, 0.1882}. Producing data (TIT.DGO/SUN.DGO/GAME.CGO) byte-identical on device.
+
+CHECK 3 — PARTICLES + NIGHT STARS                                          [CITED + byte-id]
+  vproc3d (valid 3D particle vertex data emitted/frame): device AFTER night 32..191,
+    day 64..193 (Gparticles-stars/parts.txt:96-112). device==our-x86(42..185)==original.
+  night star count starc = 85 (spawned AND drawn) (parts.txt:90-112). device==x86==original.
+  Builder libgk fixes (Gd2 kSet un-noop + arm64 #f-guard + FFI xmm) present in HEAD libgk;
+    sparticle producing DGO/GAME.CGO byte-identical on device.
+
+CHECK 4 — TITLE BIRDS animate (bird-bob-func dispatches; bob-y advances)    [LIVE + cited]
+  LIVE this session: the previously-FROZEN sp_process_block_2d block_13 :func-dispatch path
+    (the bird-bob-func jalr) is REACHED — 131 dispatch prints during pure title attract
+    (max dispatch# 66560 before the menu opened), 3239 total over the session
+    (max dispatch# 1,657,856) across the title 2D :func particles. NOT frozen at 0.
+    (Measured via a temporary prop-gated GBIRDS2D-ACCEPT counter in libgk, since REMOVED.)
+  CITED (bird-specific isolation, this exact HEAD libgk): Gbirds-anim/birds.txt:121,126,147 —
+    bird-bob-func (sage-hut seagulls, id ci=0x1a0130) dispatched 0x frozen -> 4338x after the
+    arm64 #f-guard fix; bob-y oscillates 384582.28..388678.28 (Δ != 0); current-time advances.
+  Fix present in HEAD: game/mips2c/jak1_functions/sparticle.cpp:428-444 (commit 0ce8478fe).
+
+CHECK 5 — MENU element placement SPREAD (not bunched)                       [CITED + byte-id]
+  @ 2400x1080 (20:9, arscale 1.6666): PART0 pos.x = 0.0 ; PART1 (L panel) pos.x = -220.0,
+    y = +16.0 ; PART2 (R panel) pos.x = +195.0, y = +16.0 (Gmenu-placement/menu.txt:53-62;
+    consolidate.txt:27-34). tint backdrop x-scale = 102400. device == our-x86 widescreen ==
+    original. (At 4:3 the panels bunch to -197/+153; the device is correctly widescreen.)
+  Menu widescreen-widen fix is data-resident in GAME.CGO/ENGINE.CGO — byte-identical on device.
+
+CHECK 6 — NEAR-CAMERA OCEAN draws DETAILED (verts > 0, not flat/0)          [CITED + byte-id]
+  max flush_near verts = 7038 (idx0=idx1=idx2 ~1573-1578); near chunk count call39 = 14
+    (Gwater-lod/water.txt:57,88,97). == original. Real per-vertex perspective texcoords,
+    blue-green colors (not flat blue squares). Ocean renderer in HEAD libgk; ocean data
+    byte-identical on device.
+
+CHECK 7 — NEW-GAME save -> OVERWRITE cinematic completes crash-free         [LIVE]
+  This session drove the OWNER-EXACT overwrite save path (transcript: "X on SLOT 0 (has data)
+    -> OVERWRITE prompt", "LEFT: set YES", "X: confirm OVERWRITE=YES -> memcard-saving -> cinematic")
+    — the path prior gates DODGED — then the intro cinematic played (link finish: intro-vis,
+    Displaying level intro [special]) and gameplay was reached (frame 14700) with ZERO crash sigs.
+  The f30-0 / merc-trampoline FFI fixes hold: cinematic completes, no slow-mo crash.
+  Fixes present in HEAD: android/gk_android_main.cpp:4237 handle_rftd_null_return (+4499 wiring);
+    game/kernel/asm_funcs_arm64.s:69-83 FFI q24-q31 save/restore.
+  CITED cross-check: Gfix-cinematic-crash/runs.txt:29-33 — FLOW=overwrite AFTER runs REACH
+    gameplay (frame 10500/10620, master-mode=game 13515+), crash-sig=none (3/3).
+
+--------------------------------------------------------------------------------
+INTEGRITY (verification-only)
+  - goal_src/** edits since supervisor anchor d3965c545 : NONE (1-to-1 source preserved).
+  - golden .autoport/gold : pristine (git status clean).
+  - the only temporary instrumentation (libgk GBIRDS2D-ACCEPT dispatch counter, prop-gated,
+    game/mips2c/jak1_functions/sparticle.cpp) was REMOVED after the session; rebuilt clean HEAD
+    libgk (probe symbol count in libgk.so = 0); deploy_verify PASS again on the clean build
+    (libgk sha 91fe53d24b820777, == session-start HEAD libgk); known-good 28-file CGO/DGO set
+    restored + sha256-verified.
+  - x86 desktop unaffected (probe was __ANDROID__-guarded; build-x86/game/gk link finish: logo).
+--------------------------------------------------------------------------------
+
+RESULT: ALL OWNER DEFECTS VERIFIED FIXED ON CURRENT HEAD (no regression).
+  1 boot->gameplay frame 14700 >= 10500, sig=0 (LIVE) | 2 sun corona 24576 | 3 vproc3d 32..193
+  + night starc 85 | 4 birds dispatch (LIVE: title-attract 131, path no longer frozen-0; cited
+  bird-bob-func 0->4338, bob-y 384582.28..388678.28 Δ!=0) | 5 menu PART0 0 / PART1 -220 / PART2
+  +195 spread | 6 near-water verts 7038 (14 chunks) | 7 NEW-GAME overwrite cinematic completes
+  crash-free to gameplay (LIVE). One fresh-HEAD device session; deterministic; no pixels; 1-to-1.
+================================================================================

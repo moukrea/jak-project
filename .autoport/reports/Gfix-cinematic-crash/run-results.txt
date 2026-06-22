@@ -8,3 +8,59 @@ RUN 3 PHASE=BEFORE verdict=REACH maxframe=10500 endfg=jak1 elapsed=169s sig=[non
 RUN 4 PHASE=AFTER verdict=REACH maxframe=10500 endfg=jak1 elapsed=169s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-21T12:27:22+02:00
 RUN 5 PHASE=AFTER verdict=REACH maxframe=10620 endfg=jak1 elapsed=177s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-21T12:32:57+02:00
 RUN 6 PHASE=AFTER verdict=REACH maxframe=10500 endfg=jak1 elapsed=172s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-21T12:39:07+02:00
+RUN 1 PHASE=AFTER verdict=REACH maxframe=10500 endfg=jak1 elapsed=95s sig=[none] DBLEE=0
+0 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T07:35:53+02:00
+RUN 2 PHASE=AFTER verdict=REACH maxframe=10560 endfg=jak1 elapsed=168s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T07:50:07+02:00
+RUN 1 PHASE=BEFORE verdict=REACH maxframe=10500 endfg=jak1 elapsed=156s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T08:19:20+02:00
+RUN 2 PHASE=BEFORE verdict=REACH maxframe=10620 endfg=jak1 elapsed=172s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T08:23:32+02:00
+RUN 3 PHASE=BEFORE verdict=REACH maxframe=10560 endfg=jak1 elapsed=160s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T08:27:35+02:00
+RUN 4 PHASE=BEFORE verdict=REACH maxframe=10560 endfg=jak1 elapsed=164s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T08:31:38+02:00
+RUN 5 PHASE=BEFORE verdict=REACH maxframe=10500 endfg=jak1 elapsed=159s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T08:35:39+02:00
+RUN 6 PHASE=BEFORE verdict=REACH maxframe=10560 endfg=jak1 elapsed=160s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T08:39:39+02:00
+RUN 7 PHASE=BEFORE verdict=REACH maxframe=10560 endfg=jak1 elapsed=167s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T08:43:51+02:00
+RUN 8 PHASE=BEFORE verdict=REACH maxframe=10500 endfg=jak1 elapsed=164s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T08:47:57+02:00
+RUN 9 PHASE=BEFORE verdict=REACH maxframe=10500 endfg=jak1 elapsed=164s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T08:52:03+02:00
+RUN 10 PHASE=BEFORE verdict=REACH maxframe=10620 endfg=jak1 elapsed=164s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T08:56:10+02:00
+RUN 11 PHASE=BEFORE verdict=REACH maxframe=10560 endfg=jak1 elapsed=164s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T09:00:17+02:00
+RUN 12 PHASE=BEFORE verdict=REACH maxframe=10560 endfg=jak1 elapsed=168s sig=[none] DBLEE=8 RFTD=9 TGT=8 newgame-save-overwrite-yes 2026-06-22T09:04:28+02:00
+RUN 1 PHASE=BEFORE verdict=CRASH maxframe=0 endfg=gone elapsed=3s sig=[06-22 09:18:15.007 30843 31134 F libc : Fatal signal 6 (SIGABRT), code -1 (SI_QUEUE) in tid 31134 (SDLThread), pid 30843 (SDLActivity)] DBLEE=0
+0 RFTD=0
+0 TGT=0
+0 newgame-save-overwrite-yes 2026-06-22T09:18:55+02:00
+RUN 2 PHASE=BEFORE verdict=REACH maxframe=10500 endfg=jak1 elapsed=152s sig=[none] DBLEE=16 RFTD=18 TGT=16 newgame-save-overwrite-yes 2026-06-22T09:36:56+02:00
+RUN 3 PHASE=BEFORE verdict=REACH maxframe=10620 endfg=jak1 elapsed=169s sig=[none] DBLEE=16 RFTD=18 TGT=16 newgame-save-overwrite-yes 2026-06-22T09:42:27+02:00
+RUN 4 PHASE=BEFORE verdict=REACH maxframe=10620 endfg=jak1 elapsed=161s sig=[none] DBLEE=16 RFTD=18 TGT=16 newgame-save-overwrite-yes 2026-06-22T09:46:44+02:00
+RUN 1 PHASE=BEFORE verdict=APP-GONE maxframe=9559 endfg=gone elapsed=141s sig=[none] DBLEE=0
+0 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T10:00:46+02:00
+RUN 2 PHASE=BEFORE verdict=APP-GONE maxframe=9720 endfg=gone elapsed=141s sig=[none] DBLEE=0
+0 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T10:28:50+02:00
+RUN 3 PHASE=BEFORE verdict=APP-GONE maxframe=9840 endfg=gone elapsed=141s sig=[none] DBLEE=0
+0 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T10:39:58+02:00
+RUN 1 PHASE=AFTER verdict=CRASH maxframe=0 endfg=gone elapsed=3s sig=[06-22 10:51:32.753 10969 11238 F opengoal-gk: GK-DIAG sig=11 fault=0x8 pc=0x8 lr=0x8] DBLEE=0
+0 RFTD=0
+0 TGT=0
+0 newgame-save-overwrite-yes 2026-06-22T10:54:11+02:00
+RUN 1 PHASE=AFTER verdict=REACH maxframe=10500 endfg=jak1 elapsed=163s sig=[none] DBLEE=8 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T11:09:36+02:00
+RUN 2 PHASE=AFTER verdict=REACH maxframe=10560 endfg=jak1 elapsed=151s sig=[none] DBLEE=8 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T11:13:56+02:00
+RUN 3 PHASE=AFTER verdict=REACH maxframe=10500 endfg=jak1 elapsed=155s sig=[none] DBLEE=8 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T11:17:50+02:00
+RUN 4 PHASE=AFTER verdict=REACH maxframe=10620 endfg=jak1 elapsed=160s sig=[none] DBLEE=8 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T11:21:46+02:00
+RUN 5 PHASE=AFTER verdict=REACH maxframe=10560 endfg=jak1 elapsed=156s sig=[none] DBLEE=8 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T11:25:40+02:00
+RUN 6 PHASE=AFTER verdict=REACH maxframe=10500 endfg=jak1 elapsed=164s sig=[none] DBLEE=8 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T11:29:42+02:00
+RUN 7 PHASE=AFTER verdict=REACH maxframe=10620 endfg=jak1 elapsed=159s sig=[none] DBLEE=8 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T11:33:41+02:00
+RUN 8 PHASE=AFTER verdict=REACH maxframe=10560 endfg=jak1 elapsed=160s sig=[none] DBLEE=8 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T11:37:39+02:00
+RUN 9 PHASE=AFTER verdict=REACH maxframe=10560 endfg=jak1 elapsed=164s sig=[none] DBLEE=8 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T11:41:41+02:00
+RUN 10 PHASE=AFTER verdict=REACH maxframe=10500 endfg=jak1 elapsed=159s sig=[none] DBLEE=8 RFTD=0
+0 TGT=8 newgame-save-overwrite-yes 2026-06-22T11:45:40+02:00
