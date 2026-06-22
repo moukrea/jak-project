@@ -1186,6 +1186,15 @@ phases:
   validator: validators/phase-Gcine-crash-mid.sh
   max_turns: 1500
   max_retries: 4
+- id: Glogo-smash
+  name: 'OWNER GROUND TRUTH 2026-06-22: the Jak&Daxter logo-smash (breaking the black screen) is now BROKEN — a regression from
+    Gconsolidate-deploy swapping in a fresh TIT.DGO built from current source (accumulated title-obs.gc edits: Gtitle 16x9 main-joint,
+    Ghalo, Gsce). Dump the logo-black/logo smash SEQUENCE state x86-first (original vs our-x86 vs device, NEVER pixels), bisect the
+    regressing edit, revert it to pristine (aspect need -> runtime glue). RESULT: logo smash matches original on device.'
+  prompt: prompts/phase-Glogo-smash.md
+  validator: validators/phase-Glogo-smash.sh
+  max_turns: 1400
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
