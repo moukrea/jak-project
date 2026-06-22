@@ -1151,6 +1151,15 @@ phases:
   validator: validators/phase-Gconsolidate-deploy.sh
   max_turns: 1600
   max_retries: 3
+- id: Gwater-lod
+  name: 'RE-DO (owner ground truth): near-camera water chunks render as plain blue squares on the title flyover. Re-baseline on the
+    fresh consolidated HEAD; dump per-near-chunk water LOD + detailed-draw counts x86-first (original vs our-x86 vs device, NEVER
+    pixels); if device near-chunks draw flat/0 while x86 draws detailed, fix the ocean renderer/LOD in the translation layer
+    (game/graphics + mips2c + CMakeLists TU + bucket/GLES gate). our-x86 == original; 1-to-1 source.'
+  prompt: prompts/phase-Gwater-lod.md
+  validator: validators/phase-Gwater-lod.sh
+  max_turns: 1400
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
