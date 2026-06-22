@@ -231,6 +231,9 @@
     ],
     "Gparticles-stars": [
       "5384366818ea"
+    ],
+    "Gconsolidate-deploy": [
+      "b62e67382c57"
     ]
   },
   "stuck_reasons": {
@@ -449,7 +452,7 @@
     "Gmenu-placement": 1782083587.5380065,
     "Gconsolidate-deploy": 1782090692.009406
   },
-  "last_update": "2026-06-22T01:40:13.282797+00:00",
+  "last_update": "2026-06-22T01:40:16.437778+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

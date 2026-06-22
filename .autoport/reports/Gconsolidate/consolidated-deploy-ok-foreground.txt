@@ -1,0 +1,5 @@
+# Gconsolidate run 'consolidated-deploy-ok' end (2026-06-22T03:40:23+02:00)
+mCurrentFocus_at_end:   mCurrentFocus=Window{bb20868 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+app_pid_at_end: 6721
+crashed: no
+highest_render_frame: 11160

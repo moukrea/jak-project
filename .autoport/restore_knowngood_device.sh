@@ -2,14 +2,17 @@
 # restore_knowngood_device.sh — the UNDO BUTTON for the Redmi.
 # Pushes the verified-good consistent 28-file CGO/DGO set to the app's runtime
 # (files/iso_data/jak1/) via run-as cp, as a CONSISTENT SET, and sha256-verifies.
-# This set boots clean to the Jak&Daxter title screen (verified 2026-06-18).
+# This set is the fresh CONSISTENT HEAD 28-file set (Gconsolidate-deploy): it
+# boots clean to gameplay frame 11160, 0 sig, and carries the data-resident
+# fixes (menu widen, sun corona, particles/stars) the June-11 set lacked.
+# The June-11 dir (device-knowngood-cgos-20260618) is kept as a fallback.
 # Use this any time a CGO experiment leaves the phone crashing.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 S=eae4df44
 PKG=org.opengoal.gk.jak1
-SRC=.autoport/backups/device-knowngood-cgos-20260618
+SRC=.autoport/backups/device-knowngood-cgos-20260622
 die(){ echo "[restore FAIL] $*" >&2; exit 1; }
 
 [ -d "$SRC" ] || die "backup set missing: $SRC"
