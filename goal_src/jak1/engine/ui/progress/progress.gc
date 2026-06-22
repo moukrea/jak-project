@@ -526,24 +526,17 @@
                    (- (-> *math-camera* hvdf-off z) (* 1024.0 (-> this particles s5-0 pos z)))
                    (-> *math-camera* hvdf-off w)))
     (spawn (-> this particles s5-0 part) *null-vector*))
-  ;; GMENU-TEX-DUMP (TEMP, read-only — removed before commit): once-per-frame
-  ;; menu-state so each element's on-screen X is derivable on every target.
-  (when #t
-    (format 0 "GTEX MENU asym=~A scale=~f relx=~f frecip=~f fmx=~f~%"
-            (get-aspect-ratio) (-> *pc-settings* aspect-ratio-scale)
-            (-> *video-parms* relative-x-scale) (-> *video-parms* relative-x-scale-reciprical)
-            (-> *font-default-matrix* vector 0 x))
-    (format 0 "GTEX OFF lxo=~D rxo=~D sxs=~f bsc=~f ds=~D~%"
-            (-> this left-x-offset) (-> this right-x-offset)
-            (-> this sides-x-scale) (-> this button-scale) (-> this display-state))
-    (format 0 "GTEX ICON i4sx=~f i5sx=~f i4x=~D i5x=~D~%"
-            (-> this icons 4 scale-x) (-> this icons 5 scale-x)
-            (-> this icons 4 icon-x) (-> this icons 5 icon-x))
-    (dotimes (pi (-> this nb-of-particles))
-      (when (!= -576.0 (-> this particles pi pos x))
-        (format 0 "GTEX PART ~D px=~f py=~f ix=~f~%"
-                pi (-> this particles pi pos x) (-> this particles pi pos y)
-                (-> this particles pi init-pos x)))))
+  ;; GMENU-DBG TEMP: dump per-particle user-hvdf matrix index + *sprite-hvdf-control* state,
+  ;; to localize why launch-control.matrix is 0 on arm64 (menu textures bunched to center).
+  (let ((nalloc 0) (firstfree -1))
+    (dotimes (i 76)
+      (when (nonzero? (-> *sprite-hvdf-control* alloc i)) (+! nalloc 1))
+      (when (and (< firstfree 0) (zero? (-> *sprite-hvdf-control* alloc i))) (set! firstfree i)))
+    (format 0 "GMENU-AS nb=~D m0=~D m1=~D m2=~D m3=~D~%"
+            (-> this nb-of-particles)
+            (-> this particles 0 part matrix) (-> this particles 1 part matrix)
+            (-> this particles 2 part matrix) (-> this particles 3 part matrix))
+    (format 0 "GMENU-AS2 nalloc=~D firstfree=~D~%" nalloc firstfree))
   0
   (none))
 
