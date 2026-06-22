@@ -20,20 +20,20 @@ grep -qiE 'x=|y=|pos|coord' "$R" || fail "menu.txt must dump per-element X/Y pos
 # must cover MORE than the PART panels the prior false-green measured
 grep -qiE 'icon|texture|sprite|string|draw-string|hud|all|every|full.*list|element' "$R" || fail "menu.txt must enumerate the full menu draw list (icons/textures/strings), not just PART panels"
 grep -qiE 'bunch|cluster|center|missed|previously' "$R" || fail "menu.txt must name the previously-missed bunched element class"
+grep -qiE 'matrix|user-hvdf|lc_matrix|part.matrix' "$R" || fail "menu.txt must show the user-hvdf/part-matrix evidence (the converged root cause)"
 grep -qiE 'our.?x86 *(==|=|matches|identical).*orig|1-?to-?1|identical' "$R" || fail "menu.txt must show our-x86 == original-x86 (1-to-1)"
-grep -qiE 'before|baseline' "$R" || fail "menu.txt must document the calibrated BEFORE (element bunched)"
-grep -qiE 'after' "$R" || fail "menu.txt must document the AFTER (element matches original spread)"
-ok "FULL menu draw list dumped; previously-missed bunched element named; device BEFORE->AFTER matches original"
+grep -qiE 'before|baseline' "$R" || fail "menu.txt must document the calibrated BEFORE (matrix=0 / element bunched)"
+grep -qiE 'after' "$R" || fail "menu.txt must document the AFTER (matrix>0 / element matches original spread)"
+ok "FULL menu draw list dumped; part-matrix root cause shown; device BEFORE->AFTER matches original"
 
-# === source edits only as a documented pristine revert ===
+# === ZERO goal_src edits (menu source is 1-to-1; fix is in the translation layer) ===
 SRC=$(git diff "$ANCHOR" HEAD --name-only -- 'goal_src/**' 2>/dev/null; git status --porcelain -- 'goal_src/**' 2>/dev/null | awk '{print $2}')
 SRC=$(echo "$SRC" | grep -vE '^\s*$' | sort -u || true)
-if [ -n "$SRC" ]; then
-  grep -qiE 'revert|pristine|restore.*original|toward.*original' "$R" || fail "goal_src edited but not documented as a pristine revert: $SRC"
-  ok "goal_src edit documented as a pristine revert"
-else
-  ok "no goal_src edits (fix in translation layer)"
-fi
+[ -z "$SRC" ] || fail "FORBIDDEN goal_src edit(s) — menu source is byte-identical to original; fix in goalc/game/mips2c/android: $SRC"
+ok "no goal_src edits (menu source 1-to-1; fix in translation layer)"
+# the fix must be a real translation-layer change
+CHG=$(git diff "$ANCHOR" HEAD --name-only -- 'game/**' 'android/**' 'goalc/**' 2>/dev/null | grep -v 'goalc/emitter/IGenX86_64' | wc -l)
+[ "$CHG" -ge 1 ] || git status --porcelain 2>/dev/null | grep -qE 'game/|android/|goalc/' || fail "no translation-layer code change (the matrix fix)"
 
 # === fix-summary + golden pristine ===
 S=.autoport/reports/Gmenu-textures-fix-summary.md
