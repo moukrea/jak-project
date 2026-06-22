@@ -728,6 +728,15 @@
     (t8-4 uint)
     (t8-5 int))
   (set! r0 (the-as uint128 0))
+  ;; GMENU-TEX-DUMP (TEMP, read-only — removed before commit): per-string text
+  ;; origin dump for the progress (main) menu. origin.x is the virtual X fed to
+  ;; the font transform; on-screen X = origin.x * relative-x-scale * mat[0][0] +
+  ;; const, so identical globals => origin.x directly reflects relative bunching.
+  (when *progress-process*
+    (format 0 "GTEX DSTR ox=~f oy=~f mx=~f relx=~f str=~S~%"
+            (-> arg2 origin x) (-> arg2 origin y)
+            (-> arg2 mat vector 0 x) (-> *video-parms* relative-x-scale)
+            str-in))
   (rlet ((acc :class vf)
          (Q :class vf)
          (vf0 :class vf)

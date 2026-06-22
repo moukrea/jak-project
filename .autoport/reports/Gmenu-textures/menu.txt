@@ -1,0 +1,116 @@
+================================================================================
+ Gmenu-textures — FULL main-menu 2D draw-list X/Y dump @ 2400x1080 (20:9)
+ (deterministic STATE dumps, x86-FIRST, NEVER pixels — the menu is a transparent
+  overlay over a moving island, so a background pixel diff is invalid)
+
+ RE-DO of Gmenu-placement, whose PART-only measurement was a PROXY false-green:
+ it measured the sparticle particles[] (L/R panels + tint) + icons[] and called
+ the menu fixed, but never measured the TEXT draw-list (draw-string / print-game-
+ text) — the layer enumerated here.
+================================================================================
+
+WHAT THE MENU IS
+  After the title flythrough, START opens the `progress` process on
+  (progress-screen title) (title-obs.gc activate-progress). Its visible 2D draws
+  at the title screen are:
+   (a) SPRITES (sparticle particles[]): tint backdrop (part 337), L panel (335),
+       R panel (336). Positioned by progress.gc::adjust-sprites; widened (tint) by
+       progress-part.gc FUNCs. [These are what the prior PART check measured.]
+   (b) TEXT (font draw-list): the option column NEW GAME / LOAD GAME / OPTIONS /
+       SECRETS / QUIT GAME / BACK, drawn by progress-draw.gc::draw-options via
+       print-game-text -> draw-string (font.gc). [The layer the PART check MISSED.]
+   (c) ICONS (icons[]): eco/fuel-cell merc icons — parked off-screen (init x=-320)
+       in the title menu (they belong to the in-game progress/pause menu).
+
+HOW EACH DRAW'S ON-SCREEN X IS DETERMINED (so the numbers are interpretable)
+  - SPRITES: each particle pos.x = init-pos.x - 256 (adjust-sprites:517); the
+    sprite3_3d.vert shader maps user-hvdf.x = pos.x+2048 to NDC.x = pos.x/256 with
+    NO aspect term. So pos.x (offset-from-centre) is the on-screen X; "bunched"
+    means pos.x -> 0.
+  - TEXT: each string's font-context origin.x is the virtual X; inside draw-string
+    origin.xy is multiplied by *video-parms* relative-x-scale (vf1 = video-parms+64)
+    and then by the font matrix (*font-default-matrix*, whose vector0x is also set
+    to relative-x-scale). relative-x-scale = aspect-ratio-reciprocal = (4:3)/(20:9)
+    = 0.6 at 20:9 — it deliberately keeps 2D content proportional (a central band).
+    The menu's own widescreen nudge is left-x-offset (adjust-ratios), which feeds
+    origin.x = (literal x-off - left-x-offset). So on-screen X is fully determined
+    by {origin.x, relative-x-scale, font-matrix[0][0], left-x-offset}.
+  - The aspect ENUM (get-aspect-ratio) is forced to aspect4x3 every frame at the
+    title by pckernel.gc:277 (set-hud-aspect-ratio 'aspect4x3) on BOTH x86 and the
+    device, so the enum is NOT a divergence axis here.
+
+METHOD
+  x86: instrumented HEAD (build-x86) — temporary read-only (format 0 "GTEX ...")
+       dumps added to draw-string (font.gc) and adjust-sprites (progress.gc) print
+       each menu string's origin.x + the once-per-frame menu state; recompiled live
+       over the goalc listener ((lt)+(build-game)+(ml ...)), aspect forced to 20:9,
+       menu opened with a real START (xfocus_tap 28). Captured from gk stdout.
+  original-x86: the PRISTINE gold build (.autoport/gold/gk, 704972dd6) run the same
+       way at 20:9 (NEVER instrumented — .autoport/gold stays byte-clean). The menu
+       source files (progress*.gc, text.gc, font.gc, video.gc) are byte-identical
+       HEAD-vs-gold (git diff empty), so our-x86 text behaviour == original by
+       construction; gold is run independently to confirm.
+  device: the instrumented consistent HEAD arm64 set built + deployed to eae4df44
+       (deploy_verify PASS, 28/28 CGO byte-identical); the title menu opened via
+       cpad inject; GTEX harvested from logcat. Native panel 2400x1080.
+
+================================================================================
+ PER-ELEMENT X/Y @ 2400x1080 (20:9) — full draw list
+ (DSTR ox = font origin.x; PART px = pos.x = offset-from-centre; relx/fmx global)
+================================================================================
+
+ -- GLOBAL MENU STATE --
+                          our-x86 (HEAD)   original-x86 (gold)   device (arm64)
+   get-aspect-ratio       aspect4x3        aspect4x3            [PENDING capture]
+   aspect-ratio-scale     1.6666           1.6666              [PENDING]
+   relative-x-scale (relx) 0.5999          0.5999              [PENDING]   <- prior phase measured device relx=0.5999
+   font-matrix[0][0] (fmx) 0.5999          0.5999              [PENDING]   <- NEW: never measured on device before
+   left-x-offset (lxo)     0               0                   [PENDING]
+   right-x-offset (rxo)    0               0                   [PENDING]
+   sides-x-scale (sxs)     1.0000          1.0000              [PENDING]
+   button-scale (bsc)      1.0000          1.0000              [PENDING]
+
+ -- TEXT draw list (the previously-missed bunched element class) --
+   string         | our-x86 origin.x | original-x86 origin.x | device origin.x
+   NEW GAME       |     202.0        |     202.0 (=)         | [PENDING]
+   LOAD GAME      |     202.0        |     202.0 (=)         | [PENDING]
+   OPTIONS        |     202.0        |     202.0 (=)         | [PENDING]
+   SECRETS        |     202.0        |     202.0 (=)         | [PENDING]
+   QUIT GAME      |     202.0        |     202.0 (=)         | [PENDING]
+   BACK           |     202.0        |     202.0 (=)         | [PENDING]
+   (ox=202 = base 27 + middle-justify width/2=175; same for every option since the
+    title menu options are a centred column. our-x86 == original-x86 bit-identical.)
+
+ -- SPRITE draw list (PART) --
+   element            | our-x86 pos.x | original-x86 pos.x | device pos.x
+   PART 0 tint        |     0.0       |     0.0            | [PENDING]
+   PART 1 L panel     |  -197.0       |  -197.0           | [PENDING]
+   PART 2 R panel     |  +153..+453   |  +153..+453       | [PENDING]  (slide-in anim)
+
+ our-x86 == original-x86 (1-to-1): CONFIRMED for the full draw list at 20:9 — the
+ text origin.x (202.0 every option), the global scales (relx/fmx 0.5999), and the
+ PART positions are bit-identical between our HEAD x86 and the pristine gold. The
+ menu placement source is NOT a hacked divergence; menu source files are byte-
+ identical HEAD-vs-gold. The fix (if any) lives outside goal_src.
+
+================================================================================
+ x86-FIRST FINDING (decisive fork): does original-x86 SPREAD or BUNCH at 20:9?
+================================================================================
+ Direct 2400x1080 screencaps of BOTH our-x86 (ourx86-menu-2400.png) and the
+ pristine gold (gold-menu-20x9.png) show the menu (option text column + orange
+ tint wash + circular vignette) CONFINED to a central band — text column ~17-20%
+ of the width, the 3D island visible across the full width behind it. The original
+ does the SAME as our-x86. This is the relative-x-scale=0.6 proportional-2D design.
+ => original-x86 does NOT spread wider than our-x86 at 20:9; both keep the menu in
+    a central proportional band (this is the intended OpenGOAL widescreen 2D look).
+
+ [PENDING device comparison] The decisive remaining question the PART proxy missed:
+ does the DEVICE reproduce these exact values (=> device == original, the central
+ band is correct and the residual is shared ultrawide behaviour) OR does some
+ device value (fmx? relx? a sprite width? origin.x?) diverge toward centre (=> an
+ arm64 regression in the missed layer)? The instrumented device capture (GTEX
+ MENU/OFF/PART/DSTR + screencaps) resolves it; values fill the [PENDING] cells.
+
+================================================================================
+ (RESULT line written after the device capture + fix are verified.)
+================================================================================

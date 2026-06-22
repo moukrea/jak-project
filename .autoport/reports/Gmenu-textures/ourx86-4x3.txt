@@ -1,0 +1,1 @@
+GTEX dump run B (aspect4x3, 20:9 float). GTEX lines harvested to gtex-4x3.txt / gtex-4x3.full.txt. gk log: ourx86-4x3.gk.log, goalc log: ourx86-4x3.goalc.log
