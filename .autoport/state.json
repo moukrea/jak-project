@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 123,
+  "current_phase_idx": 125,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -118,7 +118,8 @@
     "Gmenu-placement": 1,
     "Gconsolidate-deploy": 2,
     "Gwater-lod": 1,
-    "Gbirds-anim": 1
+    "Gbirds-anim": 1,
+    "Gcine-crash-mid": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -356,7 +357,8 @@
     "Gmenu-placement",
     "Gconsolidate-deploy",
     "Gwater-lod",
-    "Gbirds-anim"
+    "Gbirds-anim",
+    "Gcine-crash-mid"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -445,7 +447,7 @@
     "Gcine-cut": 1781936187.289037,
     "Grender-audit": 1781956108.6082983,
     "Gd1-cutscene-clock": 1781961047.086368,
-    "F1-gameplay-geyser-rock": 1782098443.8780394,
+    "F1-gameplay-geyser-rock": 1782104408.481827,
     "Gd3-jak-cinematic": 1782013288.1353426,
     "Gd2-particles-sun": 1782023990.8373778,
     "Gconsolidate": 1782029441.4779482,
@@ -457,9 +459,11 @@
     "Gmenu-placement": 1782083587.5380065,
     "Gconsolidate-deploy": 1782090692.009406,
     "Gwater-lod": 1782094219.0104005,
-    "Gbirds-anim": 1782099573.0243185
+    "Gbirds-anim": 1782099573.0243185,
+    "Gfinal-acceptance": 1782105032.8380966,
+    "Gcine-crash-mid": 1782108462.914532
   },
-  "last_update": "2026-06-22T05:00:01.364862+00:00",
+  "last_update": "2026-06-22T09:58:14.072889+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
