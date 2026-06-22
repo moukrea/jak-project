@@ -1169,6 +1169,14 @@ phases:
   validator: validators/phase-Gbirds-anim.sh
   max_turns: 1400
   max_retries: 3
+- id: Gfinal-acceptance
+  name: 'Final consolidated acceptance: one fresh-HEAD device session deterministically verifying ALL 9 owner-reported defects are
+    fixed with no regression (boot->gameplay crash-free; sun corona 24576; particles vproc3d>0 + stars; birds bob advances; menu
+    spread; near-water detailed; cinematic save-overwrite completes). Verification only, no new fix, no pixels, 1-to-1 source.'
+  prompt: prompts/phase-Gfinal-acceptance.md
+  validator: validators/phase-Gfinal-acceptance.sh
+  max_turns: 1200
+  max_retries: 3
 - id: F1-gameplay-geyser-rock
   name: First playable level (Geyser Rock) reached and navigable; physics + collision real
   prompt: prompts/phase-F1-gameplay-geyser-rock.md
