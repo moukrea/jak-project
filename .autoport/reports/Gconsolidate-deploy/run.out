@@ -1,0 +1,51 @@
+== Gconsolidate run 'consolidated-deploy' (census=1 watch=22min break>=11000) ==
+  device_require_attached: real device eae4df44
+  device free: 1912 MB on /data (below 2048 MB floor)
+  asking the package manager to trim app caches…
+  device free after trim: 1918 MB on /data
+  still below floor — clearing caches of large apps (Play, GMS, browsers…)
+  device free after app-cache clear: 2059 MB on /data
+  device free: 2059 MB on /data
+  gd3.census=1
+    inject: ''
+  launch org.opengoal.gk.jak1/.LoaderActivity
+== warmup (title attract: sun/particles + A37/A42 boot markers) ==
+== START (progress menu) ==
+    inject: 'start'
+    inject: ''
+== nav to NEW GAME ==
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'up'
+    inject: ''
+    inject: 'up'
+    inject: ''
+== X (NEW GAME) ==
+    inject: 'x'
+    inject: ''
+== CONTINUE WITHOUT SAVING ==
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'down'
+    inject: ''
+    inject: 'x'
+    inject: ''
+== watch (poll 3s) ==
+   >>> CRASH SIGNATURE
+== teardown ==
+== scoreboard (consolidated-deploy) ==
+  highest render   : 
+  A37 sp-proc-3d   : 
+  A42-STRCLK lines : 0
+0
+  GD3-MERC visible : 
+  3D sprite/tris   : 
+  crash sigs       : 3
+  foreground end   :   mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher}  pid=gone  crashed=crash
+  routed-logcat    : .autoport/reports/Gconsolidate/consolidated-deploy-routed-logcat.log
