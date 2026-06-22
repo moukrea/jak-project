@@ -1,0 +1,1357 @@
+[44:43:841] [[38;2;144;238;144minfo[0m] Compiled Version: 7d3f54ef0
+[44:43:841] [[38;2;144;238;144minfo[0m] Portable mod enabled
+[44:43:841] [[38;2;144;238;144minfo[0m] Overriding config directory with: /home/emeric/code/jak-project/build-x86/game
+-------- CPU Information --------
+ Brand: GenuineIntel
+ Model: Intel(R) Core(TM) i7-10510U CPU @ 1.80GHz
+ AVX  : true
+ AVX2 : true
+[44:43:841] [[38;2;144;238;144minfo[0m] No project path provided, looking for data/ folder in current directory
+[44:43:841] [[38;2;064;224;208mdebug[0m] Current executable directory - /home/emeric/code/jak-project/build-x86/game/gk
+[44:43:841] [[38;2;064;224;208mdebug[0m] Using development repo path: /home/emeric/code/jak-project
+[44:43:841] [[38;2;144;238;144minfo[0m] AVX2 mode disabled
+[44:43:841] [[38;2;064;224;208mdebug[0m] removing 1 log files
+[44:43:841] [[38;2;064;224;208mdebug[0m] removing /home/emeric/code/jak-project/log/jak1.2026-06-22T00-48-30.log
+[44:43:841] [info] OpenGOAL Runtime 1.0
+[44:43:851] [info] GFX Init
+[44:43:851] [info] Loading debug settings at /home/emeric/code/jak-project/build-x86/game/OpenGOAL/jak1/misc/debug-settings.json
+[44:43:861] [info] SDL Initialized, compiled with version - 3004004 | linked with version - 3004004
+[44:43:862] [info] gl init took 0.011s
+
+[44:43:953] [info] OpenGL context version: 4.6 (Core Profile) Mesa 25.3.6
+[44:43:953] [info] OpenGL context renderer: Mesa Intel(R) UHD Graphics (CML GT2)
+[44:43:953] [info] OpenGL context vendor: Intel
+[44:43:953] [info] OpenGL context shading language version: 4.60
+[44:44:066] [info] OpenGL initialized - v4.6 | Renderer: 4.6 (Core Profile) Mesa 25.3.6
+[44:44:068] [info] [DISPLAY] Updating current display info
+[44:44:068] [info] [DISPLAY] current display index is 0
+[44:44:068] [info] [DISPLAY] Enumerating video modes
+[44:44:068] [info] [DISPLAY]: Found monitor Affichage intégré, currently set to 1920x1080@60hz. Format: 370546692, Orientation: 0
+[44:44:068] [info] [DISPLAY] Enumerating resolutions
+[44:44:068] [info] [DISPLAY]: 1920x1080 is supported
+[44:44:068] [info] [DISPLAY]: 1680x1050 is supported
+[44:44:068] [info] [DISPLAY]: 1600x900 is supported
+[44:44:068] [info] [DISPLAY]: 1440x1080 is supported
+[44:44:068] [info] [DISPLAY]: 1440x900 is supported
+[44:44:068] [info] [DISPLAY]: 1400x1050 is supported
+[44:44:068] [info] [DISPLAY]: 1368x768 is supported
+[44:44:068] [info] [DISPLAY]: 1280x1024 is supported
+[44:44:068] [info] [DISPLAY]: 1280x960 is supported
+[44:44:068] [info] [DISPLAY]: 1280x800 is supported
+[44:44:068] [info] [DISPLAY]: 1280x720 is supported
+[44:44:068] [info] [DISPLAY]: 1152x864 is supported
+[44:44:068] [info] [DISPLAY]: 1024x768 is supported
+[44:44:068] [info] [DISPLAY]: 864x486 is supported
+[44:44:068] [info] [DISPLAY]: 800x600 is supported
+[44:44:068] [info] [DISPLAY]: 720x480 is supported
+[44:44:068] [info] [DISPLAY]: 640x480 is supported
+[44:44:068] [info] Loading display settings at /home/emeric/code/jak-project/build-x86/game/OpenGOAL/jak1/settings/display-settings.json
+[44:44:068] [info] [DISPLAY] Setting to display mode: 2, with window_size: 640,480
+[44:44:068] [error] SDL Error: unable to move window before enabling borderless windowed mode - Cause: wayland cannot position non-popup windows
+[44:44:068] [info] Loading input settings at /home/emeric/code/jak-project/build-x86/game/OpenGOAL/jak1/settings/input-settings.json
+[44:44:113] [warn] No active game controllers could be found or loaded successfully - inputs will not work!
+[44:44:113] [debug] # Initialize IOP...
+[44:44:114] [debug] [IOP] Restart!
+[44:44:114] [debug] # IOP initialized
+[44:44:114] [debug] [IOP] Wait for OVERLORD to start...
+[44:44:114] [debug] # Initialize DMP...
+[44:44:124] [debug] # DMP initialized
+[44:44:124] [debug] [DECI2] Waiting for EE to register protos
+[44:44:124] [debug] # Initialize EE-Worker...
+[44:44:125] [debug] # EE-Worker initialized
+[44:44:125] [debug] # Initialize EE...
+[44:44:125] [debug] Main memory mapped at 0x0000002123000000
+[44:44:125] [debug] Main memory size 0x8000000 bytes (128.000 MB)
+[44:44:125] [debug] [EE] Initialization complete!
+[44:44:125] [debug] # EE initialized
+[44:44:125] [debug] [EE] Run!
+[44:44:125] [info] GFX Loop
+A36-CT-DIAG init &ct=0x99c110 ct=30 31 32 33
+dkernel: boot mode
+dkernel: debug-mem mode
+[44:44:165] [info] gkernel: global heap 0x0013fd20 to 0x046b82e0 (size 69.470 MB)
+[44:44:170] [info] gkernel: debug heap 0x05000000 to 0x07ff0000 (size 47.938 MB, gap 9.281 MB)
+[44:44:170] [info] Initializing CD drive. This may take a while...
+[44:44:170] [debug] Disk type 20
+
+[44:44:170] [debug] Rebooting IOP...
+[44:44:170] [info] Initializing CD drive. This may take a while...
+[44:44:170] [debug] Disk type 20
+
+[44:44:170] [debug] Initializing CD library in ISO_CD mode...
+arg 1 : fakeiso
+arg 2 : SCREEN1.USA
+[44:44:170] [debug] [IOP] Run!
+[44:44:190] [debug] [OVERLORD] LoadISOFileToIOP VAGDIR  AYB, 10420/-1 bytes
+[44:44:190] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:44:190] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD070601520
+[44:44:190] [debug] [OVERLORD] FS Open VAGDIR  AYB
+[44:44:190] [debug] [OVERLORD] FS_Close VAGDIR  AYB @ 47/48
+[44:44:190] [debug] [OVERLORD] LoadISOFileToEE SCREEN1 USA, 8388608/-1 bytes
+[44:44:191] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:44:191] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD070601520
+[44:44:191] [debug] [OVERLORD] FS Open SCREEN1 USA
+[44:44:192] [debug] [OVERLORD] FS_Close SCREEN1 USA @ 292/480
+[44:44:192] [info] InitIOP OK
+[44:47:198] [info] [DECI2] Add new protocol driver 1 for 0xe042
+gproto: proto open at socket 1
+[44:47:198] [info] InitSound
+[44:47:198] [info] InitRPC
+kernel: RPC port #0 started [DEB1]
+kernel: RPC port #1 started [DEB2]
+kernel: RPC port #2 started [DEB3]
+kernel: RPC port #3 started [DEB4]
+kernel: RPC port #4 started [DEB5]
+kernel: RPC port #5 started [DEB6]
+[44:47:198] [info] Initialized GOAL heap in 0.024 ms
+[44:47:198] [debug] [Load and Link DGO From C] kernel
+[44:47:198] [debug] [Begin Loading DGO RPC] KERNEL.CGO, 0x3eb82c0, 0x42b82c0, 0x181e80
+[44:47:198] [debug] [XSocketServer:8112] initialized
+[44:47:198] [info] [Deci2Server:8112] awaiting connections
+[44:47:198] [debug] [OVERLORD] Queue 0 (1/4), LoadDGO
+[44:47:198] [debug] [DECI2] Waiting for listener...
+[44:47:198] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:198] [debug] [OVERLORD] FS Open KERNEL  CGO
+[44:47:204] [info] [Overlord DGO] Got DGO file header for KERNEL.CGO with 8 objects
+[44:47:204] [debug] [link and exec] gcommon            0  20748 heap-use   270634  3145728: 0x181e4a
+[44:47:204] [debug] link finish: gcommon
+[44:47:204] [debug] [link and exec] gstring-h          0     95 heap-use   285424  3145728: 0x185810
+[44:47:204] [debug] link finish: gstring-h
+[44:47:204] [debug] [link and exec] gkernel-h          0  14758 heap-use   285424  3145728: 0x185810
+[44:47:204] [debug] link finish: gkernel-h
+[44:47:204] [debug] [link and exec] gkernel            0  34845 heap-use   286960  3145728: 0x185e10
+[44:47:204] [debug] link finish: gkernel
+[44:47:205] [debug] [link and exec] pskernel           0   5226 heap-use  3655408  3145728: 0x4bc410
+[44:47:205] [debug] link finish: pskernel
+[44:47:205] [debug] [link and exec] gstring            0  11883 heap-use  3657776  3145728: 0x4bcd50
+[44:47:205] [debug] link finish: gstring
+[44:47:205] [debug] [link and exec] dgo-h              0   1226 heap-use  3700889  3145728: 0x4c75b9
+[44:47:205] [debug] link finish: dgo-h
+[44:47:205] [debug] [OVERLORD] FS_Close KERNEL  CGO @ 318/72
+[44:47:205] [debug] [link and exec] gstate             1   2773 heap-use  3701088  3145728: 0x4c7680
+[44:47:206] [debug] link finish: gstate
+[44:47:206] [info] Got correct kernel version 2.0, loaded in 7.6 ms
+[44:47:206] [debug] [Load and Link DGO From C] game
+[44:47:206] [debug] [Begin Loading DGO RPC] GAME.CGO, 0x3eb82c0, 0x42b82c0, 0x4cacc0
+[44:47:206] [debug] [OVERLORD] Queue 0 (1/4), LoadDGO
+[44:47:206] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:206] [debug] [OVERLORD] FS Open GAME    CGO
+[44:47:206] [info] [Overlord DGO] Got DGO file header for GAME.CGO with 346 objects
+[44:47:206] [debug] [link and exec] types-h            0    717 heap-use  3714976  3145728: 0x4cacc0
+[44:47:206] [debug] link finish: types-h
+[44:47:207] [debug] [link and exec] vu1-macros         0   3923 heap-use  3715152  3145728: 0x4cad70
+[44:47:207] [debug] link finish: vu1-macros
+[44:47:207] [debug] [link and exec] math               0   4276 heap-use  3715776  3145728: 0x4cafe0
+[44:47:207] [debug] link finish: math
+[44:47:207] [debug] [link and exec] vector-h           0  23570 heap-use  3718152  3145728: 0x4cb928
+[44:47:207] [debug] link finish: vector-h
+[44:47:207] [debug] [link and exec] gravity-h          0     95 heap-use  3723360  3145728: 0x4ccd80
+[44:47:207] [debug] link finish: gravity-h
+[44:47:207] [debug] [link and exec] bounding-box-h     0   1572 heap-use  3723360  3145728: 0x4ccd80
+[44:47:207] [debug] link finish: bounding-box-h
+[44:47:207] [debug] [link and exec] matrix-h           0   1888 heap-use  3723680  3145728: 0x4ccec0
+[44:47:207] [debug] link finish: matrix-h
+[44:47:208] [debug] [link and exec] quaternion-h       0   1165 heap-use  3724032  3145728: 0x4cd020
+[44:47:208] [debug] link finish: quaternion-h
+[44:47:208] [debug] [link and exec] euler-h            0   1206 heap-use  3724176  3145728: 0x4cd0b0
+[44:47:208] [debug] link finish: euler-h
+[44:47:208] [debug] [link and exec] transform-h        0   1240 heap-use  3724368  3145728: 0x4cd170
+[44:47:208] [debug] link finish: transform-h
+[44:47:208] [debug] [link and exec] geometry-h         0   1618 heap-use  3724544  3145728: 0x4cd220
+[44:47:208] [debug] link finish: geometry-h
+[44:47:208] [debug] [link and exec] trigonometry-h     0     95 heap-use  3724720  3145728: 0x4cd2d0
+[44:47:208] [debug] link finish: trigonometry-h
+[44:47:208] [debug] [link and exec] transformq-h       0   3363 heap-use  3724720  3145728: 0x4cd2d0
+[44:47:208] [debug] link finish: transformq-h
+[44:47:208] [debug] [link and exec] bounding-box       0   2055 heap-use  3725376  3145728: 0x4cd560
+[44:47:208] [debug] link finish: bounding-box
+[44:47:209] [debug] [link and exec] matrix             0  22961 heap-use  3726715  3145728: 0x4cda9b
+[44:47:209] [debug] link finish: matrix
+[44:47:209] [debug] [link and exec] transform          0   2480 heap-use  3746400  3145728: 0x4d2780
+[44:47:209] [debug] link finish: transform
+[44:47:209] [debug] [link and exec] quaternion         0  17860 heap-use  3748073  3145728: 0x4d2e09
+[44:47:209] [debug] link finish: quaternion
+[44:47:209] [debug] [link and exec] euler              0   4664 heap-use  3761341  3145728: 0x4d61dd
+[44:47:209] [debug] link finish: euler
+[44:47:209] [debug] [link and exec] geometry           0  26228 heap-use  3765185  3145728: 0x4d70e1
+[44:47:209] [debug] link finish: geometry
+[44:47:209] [debug] [link and exec] trigonometry       0  15141 heap-use  3786209  3145728: 0x4dc301
+[44:47:209] [debug] link finish: trigonometry
+[44:47:209] [debug] [link and exec] gsound-h           0  30036 heap-use  3797296  3145728: 0x4dee50
+[44:47:209] [debug] link finish: gsound-h
+[44:47:210] [debug] [link and exec] timer-h            0   4687 heap-use  3801008  3145728: 0x4dfcd0
+[44:47:210] [debug] link finish: timer-h
+[44:47:210] [debug] [link and exec] timer              0   2271 heap-use  3801776  3145728: 0x4dffd0
+[44:47:210] [debug] link finish: timer
+[44:47:210] [debug] [link and exec] vif-h              0   5275 heap-use  3803380  3145728: 0x4e0614
+[44:47:210] [debug] link finish: vif-h
+[44:47:210] [debug] [link and exec] dma-h              0  15222 heap-use  3803760  3145728: 0x4e0790
+[44:47:210] [debug] link finish: dma-h
+[44:47:210] [debug] [link and exec] video-h            0   2245 heap-use  3806544  3145728: 0x4e1270
+[44:47:210] [debug] link finish: video-h
+[44:47:210] [debug] [link and exec] vu1-user-h         0   2832 heap-use  3806752  3145728: 0x4e1340
+[44:47:210] [debug] link finish: vu1-user-h
+[44:47:211] [debug] [link and exec] dma                0   4367 heap-use  3807232  3145728: 0x4e1520
+[44:47:211] [debug] link finish: dma
+[44:47:211] [debug] [link and exec] dma-buffer         0   4254 heap-use  3810520  3145728: 0x4e21f8
+[44:47:211] [debug] link finish: dma-buffer
+[44:47:211] [debug] [link and exec] dma-bucket         0    588 heap-use  3811824  3145728: 0x4e2710
+[44:47:211] [debug] link finish: dma-bucket
+[44:47:211] [debug] [link and exec] dma-disasm         0  15931 heap-use  3812209  3145728: 0x4e2891
+[44:47:211] [debug] link finish: dma-disasm
+[44:47:211] [debug] [link and exec] pc-cheats          0     95 heap-use  3812443  3145728: 0x4e297b
+[44:47:211] [debug] link finish: pc-cheats
+[44:47:211] [debug] [link and exec] pckernel-h         0  15432 heap-use  3812443  3145728: 0x4e297b
+[44:47:211] [debug] link finish: pckernel-h
+[44:47:212] [debug] [link and exec] pckernel-impl      0  14016 heap-use  3819065  3145728: 0x4e4359
+[44:47:212] [debug] link finish: pckernel-impl
+[44:47:212] [debug] [link and exec] pc-debug-common    0    148 heap-use  3820464  3145728: 0x4e48d0
+[44:47:212] [debug] link finish: pc-debug-common
+[44:47:212] [debug] [link and exec] pc-debug-methods   0  11767 heap-use  3820464  3145728: 0x4e48d0
+[44:47:212] [debug] link finish: pc-debug-methods
+[44:47:212] [debug] [link and exec] pad                0  10434 heap-use  3820464  3145728: 0x4e48d0
+[44:47:212] [debug] link finish: pad
+[44:47:212] [debug] [link and exec] gs                 0  43764 heap-use  3826236  3145728: 0x4e5f5c
+[44:47:212] [debug] link finish: gs
+[44:47:212] [debug] [link and exec] display-h          0   9725 heap-use  3835936  3145728: 0x4e8540
+[44:47:212] [debug] link finish: display-h
+[44:47:213] [debug] [link and exec] vector             0  16273 heap-use  3837520  3145728: 0x4e8b70
+[44:47:213] [debug] link finish: vector
+[44:47:213] [debug] [link and exec] file-io            0   4610 heap-use  3849616  3145728: 0x4ebab0
+[44:47:213] [debug] link finish: file-io
+[44:47:213] [debug] [link and exec] loader-h           0   6562 heap-use  3851897  3145728: 0x4ec399
+[44:47:213] [debug] link finish: loader-h
+[44:47:213] [debug] [link and exec] texture-h          0  11229 heap-use  3853296  3145728: 0x4ec910
+[44:47:213] [debug] link finish: texture-h
+[44:47:213] [debug] [link and exec] level-h            0  20335 heap-use  3855232  3145728: 0x4ed0a0
+[44:47:213] [debug] link finish: level-h
+[44:47:213] [debug] [link and exec] math-camera-h      0   7840 heap-use  3864320  3145728: 0x4ef420
+[44:47:213] [debug] link finish: math-camera-h
+[44:47:214] [debug] [link and exec] math-camera        0  17034 heap-use  3864608  3145728: 0x4ef540
+[44:47:214] [debug] link finish: math-camera
+[44:47:214] [debug] [link and exec] font-h             0  11677 heap-use  3878180  3145728: 0x4f2a44
+[44:47:214] [debug] link finish: font-h
+[44:47:214] [debug] [link and exec] decomp-h           0    870 heap-use  3882592  3145728: 0x4f3b80
+[44:47:214] [debug] link finish: decomp-h
+[44:47:214] [debug] [link and exec] display            0  12932 heap-use  3882688  3145728: 0x4f3be0
+[44:47:214] [debug] link finish: display
+[44:47:215] [debug] [link and exec] connect            0  10470 heap-use 20285364  3145728: 0x14984d4
+[44:47:215] [debug] link finish: connect
+[44:47:216] [debug] [link and exec] text-h             0  65052 heap-use 20290352  3145728: 0x1499850
+[44:47:216] [debug] link finish: text-h
+[44:47:216] [debug] [link and exec] settings-h         0   5926 heap-use 20339968  3145728: 0x14a5a20
+[44:47:216] [debug] link finish: settings-h
+[44:47:216] [debug] [link and exec] knuth-rand         0   1924 heap-use 20340384  3145728: 0x14a5bc0
+[44:47:216] [debug] link finish: knuth-rand
+[44:47:216] [debug] [link and exec] capture            0   3807 heap-use 20341408  3145728: 0x14a5fc0
+[44:47:216] [debug] link finish: capture
+[44:47:216] [debug] [link and exec] memory-usage-h     0   1604 heap-use 20341508  3145728: 0x14a6024
+[44:47:216] [debug] link finish: memory-usage-h
+[44:47:216] [debug] [link and exec] texture            0  39692 heap-use 20341674  3145728: 0x14a60ca
+[44:47:217] [debug] link finish: texture
+[44:47:217] [debug] [link and exec] main-h             0   5265 heap-use 20376672  3145728: 0x14ae980
+[44:47:217] [debug] link finish: main-h
+[44:47:218] [debug] [link and exec] mspace-h           0   4675 heap-use 20380336  3145728: 0x14af7d0
+[44:47:218] [debug] link finish: mspace-h
+[44:47:218] [debug] [link and exec] drawable-h         0   1105 heap-use 20381008  3145728: 0x14afa70
+[44:47:218] [debug] link finish: drawable-h
+[44:47:218] [debug] [link and exec] drawable-group-h   0    828 heap-use 20381264  3145728: 0x14afb70
+[44:47:218] [debug] link finish: drawable-group-h
+[44:47:218] [debug] [link and exec] drawable-inline-array-h 0    693 heap-use 20381424  3145728: 0x14afc10
+[44:47:218] [debug] link finish: drawable-inline-array-h
+[44:47:218] [debug] [link and exec] draw-node-h        0   2171 heap-use 20381552  3145728: 0x14afc90
+[44:47:218] [debug] link finish: draw-node-h
+[44:47:218] [debug] [link and exec] drawable-tree-h    0   1507 heap-use 20381920  3145728: 0x14afe00
+[44:47:218] [debug] link finish: drawable-tree-h
+[44:47:218] [debug] [link and exec] drawable-actor-h   0   2161 heap-use 20382176  3145728: 0x14aff00
+[44:47:218] [debug] link finish: drawable-actor-h
+[44:47:218] [debug] [link and exec] drawable-ambient-h 0   3768 heap-use 20382592  3145728: 0x14b00a0
+[44:47:218] [debug] link finish: drawable-ambient-h
+[44:47:219] [debug] [link and exec] game-task-h        0     95 heap-use 20383248  3145728: 0x14b0330
+[44:47:219] [debug] link finish: game-task-h
+[44:47:219] [debug] [link and exec] hint-control-h     0   2074 heap-use 20383248  3145728: 0x14b0330
+[44:47:219] [debug] link finish: hint-control-h
+[44:47:219] [debug] [link and exec] generic-h          0  15959 heap-use 20383536  3145728: 0x14b0450
+[44:47:219] [debug] link finish: generic-h
+[44:47:219] [debug] [link and exec] lights-h           0   6214 heap-use 20394528  3145728: 0x14b2f40
+[44:47:219] [debug] link finish: lights-h
+[44:47:219] [debug] [link and exec] ocean-h            0  29007 heap-use 20395632  3145728: 0x14b3390
+[44:47:219] [debug] link finish: ocean-h
+[44:47:219] [debug] [link and exec] ocean-trans-tables 0   5384 heap-use 20402080  3145728: 0x14b4cc0
+[44:47:219] [debug] link finish: ocean-trans-tables
+[44:47:219] [debug] [link and exec] ocean-tables       0  58277 heap-use 20406889  3145728: 0x14b5f89
+[44:47:219] [debug] link finish: ocean-tables
+[44:47:220] [debug] [link and exec] ocean-frames       0  65692 heap-use 20463879  3145728: 0x14c3e27
+[44:47:220] [debug] link finish: ocean-frames
+[44:47:220] [debug] [link and exec] sky-h              0   9165 heap-use 20529452  3145728: 0x14d3e4c
+[44:47:220] [debug] link finish: sky-h
+[44:47:220] [debug] [link and exec] mood-h             0   6958 heap-use 20532400  3145728: 0x14d49d0
+[44:47:220] [debug] link finish: mood-h
+[44:47:221] [debug] [link and exec] time-of-day-h      0   9069 heap-use 20533776  3145728: 0x14d4f30
+[44:47:221] [debug] link finish: time-of-day-h
+[44:47:221] [debug] [link and exec] art-h              0  18697 heap-use 20536864  3145728: 0x14d5b40
+[44:47:221] [debug] link finish: art-h
+[44:47:221] [debug] [link and exec] generic-vu1-h      0   2826 heap-use 20539120  3145728: 0x14d6410
+[44:47:221] [debug] link finish: generic-vu1-h
+[44:47:221] [debug] [link and exec] merc-h             0  23761 heap-use 20539408  3145728: 0x14d6530
+[44:47:221] [debug] link finish: merc-h
+[44:47:221] [debug] [link and exec] generic-merc-h     0   9675 heap-use 20541872  3145728: 0x14d6ed0
+[44:47:221] [debug] link finish: generic-merc-h
+[44:47:222] [debug] [link and exec] generic-tie-h      0  15554 heap-use 20542752  3145728: 0x14d7240
+[44:47:222] [debug] link finish: generic-tie-h
+[44:47:222] [debug] [link and exec] generic-work-h     0   5966 heap-use 20544208  3145728: 0x14d77f0
+[44:47:222] [debug] link finish: generic-work-h
+[44:47:222] [debug] [link and exec] shadow-cpu-h       0  10893 heap-use 20545420  3145728: 0x14d7cac
+[44:47:222] [debug] link finish: shadow-cpu-h
+[44:47:222] [debug] [link and exec] shadow-vu1-h       0     95 heap-use 20547616  3145728: 0x14d8540
+[44:47:222] [debug] link finish: shadow-vu1-h
+[44:47:222] [debug] [link and exec] memcard-h          0   4472 heap-use 20547616  3145728: 0x14d8540
+[44:47:222] [debug] link finish: memcard-h
+[44:47:222] [debug] [link and exec] game-info-h        0   9585 heap-use 20548928  3145728: 0x14d8a60
+[44:47:222] [debug] link finish: game-info-h
+[44:47:223] [debug] [link and exec] wind-h             0   1730 heap-use 20551616  3145728: 0x14d94e0
+[44:47:223] [debug] link finish: wind-h
+[44:47:223] [debug] [link and exec] prototype-h        0  12710 heap-use 20552016  3145728: 0x14d9670
+[44:47:223] [debug] link finish: prototype-h
+[44:47:223] [debug] [link and exec] joint-h            0   6771 heap-use 20552896  3145728: 0x14d99e0
+[44:47:223] [debug] link finish: joint-h
+[44:47:223] [debug] [link and exec] bones-h            0   6607 heap-use 20553376  3145728: 0x14d9bc0
+[44:47:223] [debug] link finish: bones-h
+[44:47:223] [debug] [link and exec] engines            0    662 heap-use 20554320  3145728: 0x14d9f70
+[44:47:223] [debug] link finish: engines
+[44:47:223] [debug] [link and exec] res-h              0   1758 heap-use 20583712  3145728: 0x14e1240
+[44:47:223] [debug] link finish: res-h
+[44:47:223] [debug] [link and exec] res                0  15566 heap-use 20584137  3145728: 0x14e13e9
+[44:47:223] [debug] link finish: res
+[44:47:224] [debug] [link and exec] lights             0   2041 heap-use 20597280  3145728: 0x14e4740
+[44:47:224] [debug] link finish: lights
+[44:47:224] [debug] [link and exec] dynamics-h         0   2043 heap-use 20598608  3145728: 0x14e4c70
+[44:47:224] [debug] link finish: dynamics-h
+[44:47:224] [debug] [link and exec] surface-h          0  18753 heap-use 20599383  3145728: 0x14e4f77
+[44:47:224] [debug] link finish: surface-h
+[44:47:225] [debug] [link and exec] pat-h              0   5391 heap-use 20612248  3145728: 0x14e81b8
+[44:47:225] [debug] link finish: pat-h
+[44:47:225] [debug] [link and exec] fact-h             0  10457 heap-use 20612720  3145728: 0x14e8390
+[44:47:225] [debug] link finish: fact-h
+[44:47:225] [debug] [link and exec] aligner-h          0   1605 heap-use 20615744  3145728: 0x14e8f60
+[44:47:225] [debug] link finish: aligner-h
+[44:47:225] [debug] [link and exec] game-h             0   4254 heap-use 20615984  3145728: 0x14e9050
+[44:47:225] [debug] link finish: game-h
+[44:47:225] [debug] [link and exec] generic-obs-h      0   9608 heap-use 20616672  3145728: 0x14e9300
+[44:47:225] [debug] link finish: generic-obs-h
+[44:47:225] [debug] [link and exec] pov-camera-h       0   1254 heap-use 20617744  3145728: 0x14e9730
+[44:47:225] [debug] link finish: pov-camera-h
+[44:47:226] [debug] [link and exec] sync-info-h        0   6472 heap-use 20617920  3145728: 0x14e97e0
+[44:47:226] [debug] link finish: sync-info-h
+[44:47:226] [debug] [link and exec] smush-control-h    0   3849 heap-use 20618816  3145728: 0x14e9b60
+[44:47:226] [debug] link finish: smush-control-h
+[44:47:226] [debug] [link and exec] trajectory-h       0    847 heap-use 20620832  3145728: 0x14ea340
+[44:47:226] [debug] link finish: trajectory-h
+[44:47:226] [debug] [link and exec] debug-h            0   2016 heap-use 20620960  3145728: 0x14ea3c0
+[44:47:226] [debug] link finish: debug-h
+[44:47:226] [debug] [link and exec] joint-mod-h        0  21731 heap-use 20621248  3145728: 0x14ea4e0
+[44:47:226] [debug] link finish: joint-mod-h
+[44:47:227] [debug] [link and exec] collide-func-h     0     95 heap-use 20633248  3145728: 0x14ed3c0
+[44:47:227] [debug] link finish: collide-func-h
+[44:47:227] [debug] [link and exec] collide-mesh-h     0   3882 heap-use 20633248  3145728: 0x14ed3c0
+[44:47:227] [debug] link finish: collide-mesh-h
+[44:47:227] [debug] [link and exec] collide-shape-h    0  22441 heap-use 20674864  3145728: 0x14f7650
+[44:47:227] [debug] link finish: collide-shape-h
+[44:47:228] [debug] [link and exec] collide-target-h   0  23234 heap-use 20716128  3145728: 0x1501780
+[44:47:228] [debug] link finish: collide-target-h
+[44:47:228] [debug] [link and exec] collide-touch-h    0   4418 heap-use 20716704  3145728: 0x15019c0
+[44:47:228] [debug] link finish: collide-touch-h
+[44:47:228] [debug] [link and exec] collide-edge-grab-h 0  17864 heap-use 20733512  3145728: 0x1505b68
+[44:47:228] [debug] link finish: collide-edge-grab-h
+[44:47:228] [debug] [link and exec] process-drawable-h 0   2063 heap-use 20744404  3145728: 0x15085f4
+[44:47:228] [debug] link finish: process-drawable-h
+[44:47:228] [debug] [link and exec] effect-control-h   0   1589 heap-use 20745927  3145728: 0x1508be7
+[44:47:228] [debug] link finish: effect-control-h
+[44:47:229] [debug] [link and exec] collide-frag-h     0   4135 heap-use 20746272  3145728: 0x1508d40
+[44:47:229] [debug] link finish: collide-frag-h
+[44:47:229] [debug] [link and exec] projectiles-h      0   3321 heap-use 20746880  3145728: 0x1508fa0
+[44:47:229] [debug] link finish: projectiles-h
+[44:47:229] [debug] [link and exec] target-h           0   3714 heap-use 20747408  3145728: 0x15091b0
+[44:47:229] [debug] link finish: target-h
+[44:47:229] [debug] [link and exec] depth-cue-h        0   2098 heap-use 20747728  3145728: 0x15092f0
+[44:47:229] [debug] link finish: depth-cue-h
+[44:47:229] [debug] [link and exec] stats-h            0   4282 heap-use 20747920  3145728: 0x15093b0
+[44:47:229] [debug] link finish: stats-h
+[44:47:229] [debug] [link and exec] bsp-h              0   8167 heap-use 20748624  3145728: 0x1509670
+[44:47:229] [debug] link finish: bsp-h
+[44:47:230] [debug] [link and exec] collide-cache-h    0   8756 heap-use 20749472  3145728: 0x15099c0
+[44:47:230] [debug] link finish: collide-cache-h
+[44:47:230] [debug] [link and exec] collide-h          0    135 heap-use 21109328  3145728: 0x1561770
+[44:47:230] [debug] link finish: collide-h
+[44:47:230] [debug] [link and exec] shrubbery-h        0  18566 heap-use 21109356  3145728: 0x156178c
+[44:47:230] [debug] link finish: shrubbery-h
+[44:47:230] [debug] [link and exec] tie-h              0  14963 heap-use 21111376  3145728: 0x1561f70
+[44:47:230] [debug] link finish: tie-h
+[44:47:230] [debug] [link and exec] tfrag-h            0  20394 heap-use 21112576  3145728: 0x1562420
+[44:47:230] [debug] link finish: tfrag-h
+[44:47:230] [debug] [link and exec] background-h       0   3147 heap-use 21114784  3145728: 0x1562cc0
+[44:47:230] [debug] link finish: background-h
+[44:47:230] [debug] [link and exec] subdivide-h        0  11349 heap-use 21114880  3145728: 0x1562d20
+[44:47:230] [debug] link finish: subdivide-h
+[44:47:230] [debug] [link and exec] entity-h           0  13085 heap-use 21116896  3145728: 0x1563500
+[44:47:230] [debug] link finish: entity-h
+[44:47:231] [debug] [link and exec] sprite-h           0   6064 heap-use 21118544  3145728: 0x1563b70
+[44:47:231] [debug] link finish: sprite-h
+[44:47:231] [debug] [link and exec] shadow-h           0   1901 heap-use 21118928  3145728: 0x1563cf0
+[44:47:231] [debug] link finish: shadow-h
+[44:47:231] [debug] [link and exec] eye-h              0   4516 heap-use 21121288  3145728: 0x1564628
+[44:47:231] [debug] link finish: eye-h
+[44:47:231] [debug] [link and exec] sparticle-launcher-h 0   7268 heap-use 21122784  3145728: 0x1564c00
+[44:47:231] [debug] link finish: sparticle-launcher-h
+[44:47:231] [debug] [link and exec] sparticle-h        0   5635 heap-use 21123392  3145728: 0x1564e60
+[44:47:231] [debug] link finish: sparticle-h
+[44:47:231] [debug] [link and exec] actor-link-h       0   5575 heap-use 21123776  3145728: 0x1564fe0
+[44:47:231] [debug] link finish: actor-link-h
+[44:47:232] [debug] [link and exec] camera-h           0  23043 heap-use 21127184  3145728: 0x1565d30
+[44:47:232] [debug] link finish: camera-h
+[44:47:232] [debug] [link and exec] cam-debug-h        0   2866 heap-use 21130000  3145728: 0x1566830
+[44:47:232] [debug] link finish: cam-debug-h
+[44:47:233] [debug] [link and exec] cam-interface-h    0    783 heap-use 21130670  3145728: 0x1566ace
+[44:47:233] [debug] link finish: cam-interface-h
+[44:47:233] [debug] [link and exec] cam-update-h       0   1520 heap-use 21130894  3145728: 0x1566bae
+[44:47:233] [debug] link finish: cam-update-h
+[44:47:233] [debug] [link and exec] assert-h           0   1148 heap-use 21131312  3145728: 0x1566d50
+[44:47:233] [debug] link finish: assert-h
+[44:47:233] [debug] [link and exec] hud-h              0   5645 heap-use 21131616  3145728: 0x1566e80
+[44:47:233] [debug] link finish: hud-h
+[44:47:233] [debug] [link and exec] progress-h         0   9883 heap-use 21132160  3145728: 0x15670a0
+[44:47:233] [debug] link finish: progress-h
+[44:47:233] [debug] [link and exec] rpc-h              0   3998 heap-use 21133008  3145728: 0x15673f0
+[44:47:233] [debug] link finish: rpc-h
+[44:47:234] [debug] [link and exec] path-h             0   3461 heap-use 21134912  3145728: 0x1567b60
+[44:47:234] [debug] link finish: path-h
+[44:47:234] [debug] [link and exec] navigate-h         0  16184 heap-use 21136208  3145728: 0x1568070
+[44:47:234] [debug] link finish: navigate-h
+[44:47:234] [debug] [link and exec] load-dgo           0   7998 heap-use 21139024  3145728: 0x1568b70
+[44:47:234] [debug] link finish: load-dgo
+[44:47:235] [debug] [link and exec] ramdisk            0   2670 heap-use 21144505  3145728: 0x156a0d9
+[44:47:235] [debug] link finish: ramdisk
+[44:47:235] [debug] [link and exec] gsound             0  28991 heap-use 21145375  3145728: 0x156a43f
+[44:47:235] [debug] link finish: gsound
+IRX version 2.0
+STALL: waiting for IOP on RPC port #1
+STALL: waiting for IOP on RPC port #1
+[44:47:238] [debug] [link and exec] transformq         0   8453 heap-use 21180680  3145728: 0x1572e28
+[44:47:238] [debug] link finish: transformq
+[44:47:239] [debug] [link and exec] collide-func       0   4410 heap-use 21186265  3145728: 0x15743f9
+[44:47:239] [debug] link finish: collide-func
+[44:47:239] [debug] [link and exec] joint              0  34122 heap-use 21190000  3145728: 0x1575290
+[44:47:239] [debug] link finish: joint
+[44:47:242] [debug] [link and exec] cylinder           0   8199 heap-use 21216288  3145728: 0x157b940
+[44:47:242] [debug] link finish: cylinder
+[44:47:242] [debug] [link and exec] wind               0   1411 heap-use 21222480  3145728: 0x157d170
+[44:47:242] [debug] link finish: wind
+[44:47:242] [debug] [link and exec] bsp                0  12034 heap-use 21224708  3145728: 0x157da24
+[44:47:242] [debug] link finish: bsp
+[44:47:243] [debug] [link and exec] subdivide          0  13259 heap-use 21234300  3145728: 0x157ff9c
+[44:47:243] [debug] link finish: subdivide
+[44:47:243] [debug] [link and exec] sprite             0  20807 heap-use 21253424  3150020: 0x1584a50
+[44:47:243] [debug] link finish: sprite
+[44:47:244] [debug] [link and exec] sprite-distort     0   7057 heap-use 24637680  3150020: 0x18bee10
+[44:47:244] [debug] link finish: sprite-distort
+[44:47:244] [debug] [link and exec] debug-sphere       0   8450 heap-use 24644912  3150020: 0x18c0a50
+[44:47:244] [debug] link finish: debug-sphere
+[44:47:244] [debug] [link and exec] debug              0  31294 heap-use 24652336  3150020: 0x18c2750
+[44:47:244] [debug] link finish: debug
+[44:47:244] [debug] [link and exec] merc-vu1           0    163 heap-use 24654782  3150020: 0x18c30de
+[44:47:244] [debug] link finish: merc-vu1
+[44:47:244] [debug] [link and exec] merc-blend-shape   0   7284 heap-use 24654823  3150020: 0x18c3107
+[44:47:244] [debug] link finish: merc-blend-shape
+[44:47:244] [debug] [link and exec] merc               0  11038 heap-use 24657840  3150020: 0x18c3cd0
+[44:47:244] [debug] link finish: merc
+[44:47:245] [debug] [link and exec] ripple             0   5922 heap-use 24664158  3150020: 0x18c557e
+[44:47:245] [debug] link finish: ripple
+[44:47:245] [debug] [link and exec] bones              0  31812 heap-use 24667684  3150020: 0x18c6344
+[44:47:245] [debug] link finish: bones
+[44:47:245] [debug] [link and exec] generic-vu0        0    166 heap-use 24690624  3150020: 0x18cbce0
+[44:47:245] [debug] link finish: generic-vu0
+[44:47:245] [debug] [link and exec] generic            0   1708 heap-use 24690666  3150020: 0x18cbd0a
+[44:47:245] [debug] link finish: generic
+[44:47:245] [debug] [link and exec] generic-vu1        0   1486 heap-use 24691557  3150020: 0x18cc085
+[44:47:245] [debug] link finish: generic-vu1
+[44:47:246] [debug] [link and exec] generic-effect     0   2637 heap-use 24692570  3150020: 0x18cc47a
+[44:47:246] [debug] link finish: generic-effect
+[44:47:246] [debug] [link and exec] generic-merc       0   3524 heap-use 24694864  3150020: 0x18ccd70
+[44:47:246] [debug] link finish: generic-merc
+[44:47:246] [debug] [link and exec] generic-tie        0   2829 heap-use 24697120  3150020: 0x18cd640
+[44:47:246] [debug] link finish: generic-tie
+[44:47:246] [debug] [link and exec] shadow-cpu         0  10719 heap-use 24698992  3150020: 0x18cdd90
+[44:47:246] [debug] link finish: shadow-cpu
+[44:47:246] [debug] [link and exec] shadow-vu1         0   4133 heap-use 24706800  3150020: 0x18cfc10
+[44:47:246] [debug] link finish: shadow-vu1
+[44:47:246] [debug] [link and exec] depth-cue          0   6055 heap-use 24708224  3150020: 0x18d01a0
+[44:47:246] [debug] link finish: depth-cue
+[44:47:247] [debug] [link and exec] font               0  32545 heap-use 24713470  3150020: 0x18d161e
+[44:47:247] [debug] link finish: font
+[44:47:247] [debug] [link and exec] decomp             0   4555 heap-use 24744992  3150020: 0x18d9140
+[44:47:247] [debug] link finish: decomp
+[44:47:247] [debug] [link and exec] background         0   9605 heap-use 24748496  3150020: 0x18d9ef0
+[44:47:247] [debug] link finish: background
+[44:47:247] [debug] [link and exec] draw-node          0   2566 heap-use 24757208  3150020: 0x18dc0f8
+[44:47:247] [debug] link finish: draw-node
+[44:47:248] [debug] [link and exec] shrubbery          0  12214 heap-use 24758745  3150020: 0x18dc6f9
+[44:47:248] [debug] link finish: shrubbery
+[44:47:249] [debug] [link and exec] shrub-work         0   7886 heap-use 24767803  3150020: 0x18dea5b
+[44:47:249] [debug] link finish: shrub-work
+[44:47:249] [debug] [link and exec] tfrag-near         0   2258 heap-use 24775325  3150020: 0x18e07bd
+[44:47:249] [debug] link finish: tfrag-near
+[44:47:249] [debug] [link and exec] tfrag              0  12381 heap-use 24775432  3150020: 0x18e0828
+[44:47:249] [debug] link finish: tfrag
+[44:47:249] [debug] [link and exec] tfrag-methods      0  10054 heap-use 24785056  3150020: 0x18e2dc0
+[44:47:249] [debug] link finish: tfrag-methods
+[44:47:250] [debug] [link and exec] tfrag-work         0    540 heap-use 24791937  3150020: 0x18e48a1
+[44:47:250] [debug] link finish: tfrag-work
+[44:47:250] [debug] [link and exec] tie                0  14247 heap-use 24792152  3150020: 0x18e4978
+[44:47:250] [debug] link finish: tie
+[44:47:251] [debug] [link and exec] tie-near           0   5849 heap-use 24798224  3150020: 0x18e6130
+[44:47:251] [debug] link finish: tie-near
+[44:47:251] [debug] [link and exec] tie-work           0   1120 heap-use 24801296  3150020: 0x18e6d30
+[44:47:251] [debug] link finish: tie-work
+[44:47:251] [debug] [link and exec] tie-methods        0  10957 heap-use 24802093  3150020: 0x18e704d
+[44:47:251] [debug] link finish: tie-methods
+[44:47:252] [debug] [link and exec] sync-info          0  13527 heap-use 24809088  3150020: 0x18e8ba0
+[44:47:252] [debug] link finish: sync-info
+[44:47:254] [debug] [link and exec] trajectory         0   2998 heap-use 24818160  3150020: 0x18eaf10
+[44:47:254] [debug] link finish: trajectory
+[44:47:256] [debug] [link and exec] sparticle-launcher 0  27547 heap-use 24820164  3150020: 0x18eb6e4
+[44:47:256] [debug] link finish: sparticle-launcher
+[44:47:256] [debug] [link and exec] sparticle          0  11927 heap-use 24865696  3150020: 0x18f68c0
+[44:47:256] [debug] link finish: sparticle
+[44:47:257] [debug] [link and exec] entity-table       0   2800 heap-use 28656128  3150020: 0x1c93f20
+[44:47:257] [debug] link finish: entity-table
+[44:47:257] [debug] [link and exec] loader             0  23684 heap-use 28660923  3150020: 0x1c951db
+[44:47:257] [debug] link finish: loader
+[44:47:259] [debug] [link and exec] task-control-h     0   4489 heap-use 28680440  3150020: 0x1c99e18
+[44:47:259] [debug] link finish: task-control-h
+[44:47:259] [debug] [link and exec] speedruns-h        0    830 heap-use 28681088  3150020: 0x1c9a0a0
+[44:47:259] [debug] link finish: speedruns-h
+[44:47:259] [debug] [link and exec] game-info          0  31738 heap-use 28681184  3150020: 0x1c9a100
+[44:47:259] [debug] link finish: game-info
+[44:47:260] [debug] [link and exec] game-save          0  45247 heap-use 28765568  3150020: 0x1caeaa0
+[44:47:260] [debug] link finish: game-save
+[44:47:261] [debug] [link and exec] settings           0   9976 heap-use 28795872  3150020: 0x1cb6100
+[44:47:261] [debug] link finish: settings
+[44:47:262] [debug] [link and exec] pc-anim-util       0   4043 heap-use 28804048  3150020: 0x1cb80f0
+[44:47:262] [debug] link finish: pc-anim-util
+[44:47:262] [debug] [link and exec] autosplit-h        0  16475 heap-use 28807105  3150020: 0x1cb8ce1
+[44:47:262] [debug] link finish: autosplit-h
+[44:47:262] [debug] [link and exec] autosplit          0  12739 heap-use 28807216  3150020: 0x1cb8d50
+[44:47:262] [debug] link finish: autosplit
+[44:47:262] [debug] [link and exec] speedruns          0  20125 heap-use 28818087  3150020: 0x1cbb7c7
+[44:47:262] [debug] link finish: speedruns
+[44:47:262] [debug] [link and exec] pckernel-common    0  31584 heap-use 28833253  3150020: 0x1cbf305
+[44:47:262] [debug] link finish: pckernel-common
+pckernel version: 1.10
+[44:47:264] [debug] [link and exec] pckernel           0  60621 heap-use 28856273  3150020: 0x1cc4cf1
+[44:47:264] [debug] link finish: pckernel
+pc settings reset
+Setting borderless/fullscreen size to 640 x 480
+[PC Settings]: Valid default game-size resolution set 1920 x 1080
+[PC Settings]: fullscreen resolution defaulted to 1920 x 1080
+[PC] PC Settings found at '/home/emeric/code/jak-project/build-x86/game/OpenGOAL/jak1/settings/pc-settings.gc'...loading!
+****** CALL TO kopen() ******
+[PC Settings]: Valid game-size resolution 1920 x 1080
+pc settings file read: "/home/emeric/code/jak-project/build-x86/game/OpenGOAL/jak1/settings/pc-settings.gc"
+[44:47:265] [debug] [link and exec] mood-tables        0  52566 heap-use 28970848  3150020: 0x1ce0c80
+[44:47:265] [debug] link finish: mood-tables
+[44:47:266] [debug] [link and exec] mood               0  84581 heap-use 29055140  3150020: 0x1cf55c4
+[44:47:266] [debug] link finish: mood
+[44:47:266] [debug] [link and exec] weather-part       0  16166 heap-use 29110352  3150020: 0x1d02d70
+[44:47:266] [debug] link finish: weather-part
+[44:47:266] [debug] [link and exec] time-of-day        0  14537 heap-use 29122900  3150020: 0x1d05e74
+[44:47:266] [debug] link finish: time-of-day
+[44:47:266] [debug] [link and exec] sky-utils          0   1144 heap-use 29134032  3150020: 0x1d089f0
+[44:47:266] [debug] link finish: sky-utils
+[44:47:266] [debug] [link and exec] sky                0   5012 heap-use 29134858  3150020: 0x1d08d2a
+[44:47:266] [debug] link finish: sky
+[44:47:266] [debug] [link and exec] sky-tng            0  19695 heap-use 29136576  3150020: 0x1d093e0
+[44:47:266] [debug] link finish: sky-tng
+[44:47:267] [debug] [link and exec] load-boundary-h    0   4666 heap-use 29153356  3150020: 0x1d0d56c
+[44:47:267] [debug] link finish: load-boundary-h
+[44:47:267] [debug] [link and exec] load-boundary      0  47784 heap-use 29154208  3150020: 0x1d0d8c0
+[44:47:267] [debug] link finish: load-boundary
+[44:47:268] [debug] [link and exec] load-boundary-data 0  53784 heap-use 29184268  3150020: 0x1d14e2c
+[44:47:268] [debug] link finish: load-boundary-data
+[44:47:268] [debug] [link and exec] level-info         0  57942 heap-use 29236416  3150020: 0x1d219e0
+[44:47:268] [debug] link finish: level-info
+[44:47:268] [debug] [link and exec] level              0  40603 heap-use 29272968  3150020: 0x1d2a8a8
+[44:47:268] [debug] link finish: level
+[44:47:270] [debug] [link and exec] text               0  12987 heap-use 29448528  3150020: 0x1d55670
+[44:47:270] [debug] link finish: text
+[44:47:270] [debug] [link and exec] collide-probe      0   7712 heap-use 29524496  3150020: 0x1d67f30
+[44:47:270] [debug] link finish: collide-probe
+[44:47:271] [debug] [link and exec] collide-frag       0   3073 heap-use 29529632  3150020: 0x1d69340
+[44:47:271] [debug] link finish: collide-frag
+[44:47:271] [debug] [link and exec] collide-mesh       0   6226 heap-use 29531460  3150020: 0x1d69a64
+[44:47:271] [debug] link finish: collide-mesh
+[44:47:272] [debug] [link and exec] collide-touch      0   7270 heap-use 29535488  3150020: 0x1d6aa20
+[44:47:272] [debug] link finish: collide-touch
+[44:47:273] [debug] [link and exec] collide-edge-grab  0  12557 heap-use 29540624  3150020: 0x1d6be30
+[44:47:273] [debug] link finish: collide-edge-grab
+[44:47:274] [debug] [link and exec] collide-shape      0  61334 heap-use 29549680  3150020: 0x1d6e190
+[44:47:274] [debug] link finish: collide-shape
+[44:47:278] [debug] [link and exec] collide-shape-rider 0   8640 heap-use 29596380  3150020: 0x1d797fc
+[44:47:278] [debug] link finish: collide-shape-rider
+[44:47:278] [debug] [link and exec] collide            0    253 heap-use 29603191  3150020: 0x1d7b297
+[44:47:278] [debug] link finish: collide
+[44:47:278] [debug] [link and exec] merc-death         0   2512 heap-use 29603292  3150020: 0x1d7b2fc
+[44:47:278] [debug] link finish: merc-death
+[44:47:278] [debug] [link and exec] water-h            0   5401 heap-use 29604384  3150020: 0x1d7b740
+[44:47:278] [debug] link finish: water-h
+[44:47:279] [debug] [link and exec] camera             0  48586 heap-use 29604768  3150020: 0x1d7b8c0
+[44:47:279] [debug] link finish: camera
+[44:47:280] [debug] [link and exec] cam-interface      0   1883 heap-use 29642233  3150020: 0x1d84b19
+[44:47:280] [debug] link finish: cam-interface
+[44:47:280] [debug] [link and exec] cam-master         0  39768 heap-use 29643136  3150020: 0x1d84ea0
+[44:47:280] [debug] link finish: cam-master
+[44:47:280] [debug] [link and exec] cam-states         0  98010 heap-use 29675280  3150020: 0x1d8cc30
+[44:47:280] [debug] link finish: cam-states
+[44:47:280] [debug] [link and exec] cam-states-dbg     0  22499 heap-use 29747632  3150020: 0x1d9e6d0
+[44:47:280] [debug] link finish: cam-states-dbg
+[44:47:280] [debug] [link and exec] cam-combiner       0  11715 heap-use 29762144  3150020: 0x1da1f80
+[44:47:280] [debug] link finish: cam-combiner
+[44:47:280] [debug] [link and exec] cam-update         0  13981 heap-use 29771482  3150020: 0x1da43fa
+[44:47:281] [debug] link finish: cam-update
+[44:47:281] [debug] [link and exec] vol-h              0   3407 heap-use 29781856  3150020: 0x1da6c80
+[44:47:281] [debug] link finish: vol-h
+[44:47:281] [debug] [link and exec] cam-layout         0 100698 heap-use 29783040  3150020: 0x1da7120
+[44:47:281] [debug] link finish: cam-layout
+[44:47:281] [debug] [link and exec] cam-debug          0  51342 heap-use 29786704  3150020: 0x1da7f70
+[44:47:281] [debug] link finish: cam-debug
+[44:47:281] [debug] [link and exec] cam-start          0   1247 heap-use 29788240  3150020: 0x1da8570
+[44:47:281] [debug] link finish: cam-start
+[44:47:281] [debug] [link and exec] process-drawable   0  29243 heap-use 29788850  3150020: 0x1da87d2
+[44:47:282] [debug] link finish: process-drawable
+[44:47:282] [debug] [link and exec] hint-control       0   6697 heap-use 29809215  3150020: 0x1dad75f
+[44:47:282] [debug] link finish: hint-control
+[44:47:282] [debug] [link and exec] ambient            0  32561 heap-use 29814202  3150020: 0x1daeada
+[44:47:282] [debug] link finish: ambient
+[44:47:283] [debug] [link and exec] assert             0   1519 heap-use 29838590  3150020: 0x1db4a1e
+[44:47:283] [debug] link finish: assert
+[44:47:283] [debug] [link and exec] generic-obs        0  59939 heap-use 29839684  3150020: 0x1db4e64
+[44:47:283] [debug] link finish: generic-obs
+[44:47:284] [debug] [link and exec] target-util        0  36149 heap-use 29884905  3150020: 0x1dbff09
+[44:47:284] [debug] link finish: target-util
+[44:47:284] [debug] [link and exec] target-part        0  45157 heap-use 29906311  3150020: 0x1dc52a7
+[44:47:284] [debug] link finish: target-part
+[44:47:285] [debug] [link and exec] collide-reaction-target 0  14177 heap-use 29941781  3150020: 0x1dcdd35
+[44:47:285] [debug] link finish: collide-reaction-target
+[44:47:285] [debug] [link and exec] logic-target       0  56894 heap-use 29953794  3150020: 0x1dd0c22
+[44:47:285] [debug] link finish: logic-target
+[44:47:285] [debug] [link and exec] sidekick           0   7665 heap-use 29991191  3150020: 0x1dd9e37
+[44:47:285] [debug] link finish: sidekick
+[44:47:285] [debug] [link and exec] voicebox           0   9342 heap-use 29996224  3150020: 0x1ddb1e0
+[44:47:285] [debug] link finish: voicebox
+[44:47:285] [debug] [link and exec] target-handler     0  22299 heap-use 30001696  3150020: 0x1ddc740
+[44:47:286] [debug] link finish: target-handler
+[44:47:286] [debug] [link and exec] target             0 138109 heap-use 30019906  3150020: 0x1de0e62
+[44:47:286] [debug] link finish: target
+[44:47:286] [debug] [link and exec] target2            0 118100 heap-use 30132290  3150020: 0x1dfc562
+[44:47:286] [debug] link finish: target2
+[44:47:286] [debug] [link and exec] target-death       0  51704 heap-use 30237600  3150020: 0x1e160c0
+[44:47:286] [debug] link finish: target-death
+[44:47:286] [debug] [link and exec] menu               0  31338 heap-use 30277568  3150020: 0x1e1fce0
+[44:47:286] [debug] link finish: menu
+[44:47:287] [debug] [link and exec] drawable           0  39953 heap-use 30279484  3150020: 0x1e2045c
+[44:47:287] [debug] link finish: drawable
+[44:47:287] [debug] [link and exec] drawable-group     0   3052 heap-use 30299008  3150020: 0x1e250a0
+[44:47:287] [debug] link finish: drawable-group
+[44:47:288] [debug] [link and exec] drawable-inline-array 0    543 heap-use 30300903  3150020: 0x1e25807
+[44:47:288] [debug] link finish: drawable-inline-array
+[44:47:289] [debug] [link and exec] drawable-tree      0   1733 heap-use 30300981  3150020: 0x1e25855
+[44:47:289] [debug] link finish: drawable-tree
+[44:47:289] [debug] [link and exec] prototype          0   2904 heap-use 30302210  3150020: 0x1e25d22
+[44:47:289] [debug] link finish: prototype
+[44:47:289] [debug] [link and exec] main-collide       0   1365 heap-use 30304335  3150020: 0x1e2656f
+[44:47:289] [debug] link finish: main-collide
+[44:47:290] [debug] [link and exec] video              0   3080 heap-use 30305388  3150020: 0x1e2698c
+[44:47:290] [debug] link finish: video
+[44:47:290] [debug] [link and exec] main               0  31376 heap-use 30307160  3150020: 0x1e27078
+[44:47:290] [debug] link finish: main
+[44:47:290] [debug] [link and exec] collide-cache      0  29917 heap-use 30330596  3150020: 0x1e2cc04
+[44:47:290] [debug] link finish: collide-cache
+[44:47:293] [debug] [link and exec] relocate           0   7312 heap-use 30353904  3150020: 0x1e32710
+[44:47:293] [debug] link finish: relocate
+[44:47:294] [debug] [link and exec] memory-usage       0  12426 heap-use 30358518  3150020: 0x1e33916
+[44:47:294] [debug] link finish: memory-usage
+[44:47:295] [debug] [link and exec] entity             0  38282 heap-use 30358546  3150020: 0x1e33932
+[44:47:295] [debug] link finish: entity
+[44:47:296] [debug] [link and exec] path               0   7545 heap-use 30387794  3150020: 0x1e3ab72
+[44:47:296] [debug] link finish: path
+[44:47:297] [debug] [link and exec] vol                0   7142 heap-use 30392859  3150020: 0x1e3bf3b
+[44:47:297] [debug] link finish: vol
+[44:47:298] [debug] [link and exec] navigate           0  67212 heap-use 30398596  3150020: 0x1e3d5a4
+[44:47:298] [debug] link finish: navigate
+[44:47:301] [debug] [link and exec] aligner            0   3510 heap-use 30451264  3150020: 0x1e4a360
+[44:47:301] [debug] link finish: aligner
+[44:47:301] [debug] [link and exec] effect-control     0  23102 heap-use 30453556  3150020: 0x1e4ac54
+[44:47:301] [debug] link finish: effect-control
+[44:47:302] [debug] [link and exec] water              0  39100 heap-use 30473554  3150020: 0x1e4fa72
+[44:47:302] [debug] link finish: water
+[44:47:303] [debug] [link and exec] collectables-part  0  48733 heap-use 30503264  3150020: 0x1e56e80
+[44:47:303] [debug] link finish: collectables-part
+[44:47:303] [debug] [link and exec] collectables       0  84077 heap-use 30543106  3150020: 0x1e60a22
+[44:47:303] [debug] link finish: collectables
+[44:47:306] [debug] [link and exec] task-control       0  63059 heap-use 30603664  3150020: 0x1e6f6b0
+[44:47:306] [debug] link finish: task-control
+[44:47:307] [debug] [link and exec] process-taskable   0  35510 heap-use 30647525  3150020: 0x1e7a205
+[44:47:307] [debug] link finish: process-taskable
+[44:47:309] [debug] [link and exec] pov-camera         0   9249 heap-use 30672424  3150020: 0x1e80348
+[44:47:309] [debug] link finish: pov-camera
+[44:47:310] [debug] [link and exec] powerups           0  18849 heap-use 30678791  3150020: 0x1e81c27
+[44:47:310] [debug] link finish: powerups
+[44:47:310] [debug] [link and exec] crates             0  38929 heap-use 30693540  3150020: 0x1e855c4
+[44:47:310] [debug] link finish: crates
+[44:47:312] [debug] [link and exec] hud                0  14190 heap-use 30720512  3150020: 0x1e8bf20
+[44:47:312] [debug] link finish: hud
+[44:47:313] [debug] [link and exec] hud-classes        0  53794 heap-use 30731178  3150020: 0x1e8e8ca
+[44:47:313] [debug] link finish: hud-classes
+[44:47:315] [debug] [link and exec] progress-static    0  15722 heap-use 30769536  3150020: 0x1e97ea0
+[44:47:315] [debug] link finish: progress-static
+[44:47:315] [debug] [link and exec] progress-part      0  35850 heap-use 30781641  3150020: 0x1e9ade9
+[44:47:315] [debug] link finish: progress-part
+[44:47:315] [debug] [link and exec] progress-draw      0  43132 heap-use 30809685  3150020: 0x1ea1b75
+[44:47:315] [debug] link finish: progress-draw
+[44:47:317] [debug] [link and exec] progress           0  77673 heap-use 30845324  3150020: 0x1eaa6ac
+[44:47:317] [debug] link finish: progress
+[44:47:318] [debug] [link and exec] progress-pc        0 190738 heap-use 30920176  3150020: 0x1ebcb10
+[44:47:318] [debug] link finish: progress-pc
+[44:47:319] [debug] [link and exec] credits            0   4032 heap-use 31112649  3150020: 0x1eebae9
+[44:47:319] [debug] link finish: credits
+[44:47:319] [debug] [link and exec] projectiles        0  33471 heap-use 31115471  3150020: 0x1eec5ef
+[44:47:319] [debug] link finish: projectiles
+[44:47:320] [debug] [link and exec] ocean              0  13276 heap-use 31139940  3150020: 0x1ef2584
+[44:47:320] [debug] link finish: ocean
+[44:47:320] [debug] [link and exec] ocean-vu0          0    664 heap-use 31149904  3150020: 0x1ef4c70
+[44:47:320] [debug] link finish: ocean-vu0
+[44:47:320] [debug] [link and exec] ocean-texture      0   3563 heap-use 31150352  3150020: 0x1ef4e30
+[44:47:320] [debug] link finish: ocean-texture
+[44:47:320] [debug] [link and exec] ocean-mid          0  20737 heap-use 31152656  3150020: 0x1ef5730
+[44:47:321] [debug] link finish: ocean-mid
+[44:47:321] [debug] [link and exec] ocean-transition   0  15783 heap-use 31169486  3150020: 0x1ef98ee
+[44:47:321] [debug] link finish: ocean-transition
+[44:47:321] [debug] [link and exec] ocean-near         0   8288 heap-use 31182687  3150020: 0x1efcc7f
+[44:47:321] [debug] link finish: ocean-near
+[44:47:321] [debug] [link and exec] shadow             0   3697 heap-use 31189394  3150020: 0x1efe6b2
+[44:47:321] [debug] link finish: shadow
+[44:47:321] [debug] [link and exec] eye                0  14290 heap-use 31191956  3150020: 0x1eff0b4
+[44:47:321] [debug] link finish: eye
+[44:47:321] [debug] [link and exec] glist-h            0   3260 heap-use 31204356  3150020: 0x1f02124
+[44:47:321] [debug] link finish: glist-h
+[44:47:321] [debug] [link and exec] glist              0   4345 heap-use 31204738  3150020: 0x1f022a2
+[44:47:321] [debug] link finish: glist
+[44:47:321] [debug] [link and exec] anim-tester        0  65570 heap-use 31205177  3150020: 0x1f02459
+[44:47:321] [debug] link finish: anim-tester
+[44:47:322] [debug] [link and exec] viewer             0   7288 heap-use 31207011  3150020: 0x1f02b83
+[44:47:322] [debug] link finish: viewer
+[44:47:322] [debug] [link and exec] part-tester        0   3583 heap-use 31212121  3150020: 0x1f03f79
+[44:47:322] [debug] link finish: part-tester
+[44:47:322] [debug] [link and exec] default-menu       0 256938 heap-use 31212355  3150020: 0x1f04063
+[44:47:322] [debug] link finish: default-menu
+[44:47:322] [debug] [link and exec] anim-tester-x      0  21499 heap-use 31215182  3150020: 0x1f04b6e
+[44:47:322] [debug] link finish: anim-tester-x
+[44:47:322] [debug] [link and exec] entity-debug       0  24231 heap-use 31216201  3150020: 0x1f04f69
+[44:47:322] [debug] link finish: entity-debug
+[44:47:322] [debug] [link and exec] subtitle           0  29403 heap-use 31216236  3150020: 0x1f04f8c
+[44:47:323] [debug] link finish: subtitle
+[44:47:323] [debug] [link and exec] default-menu-pc    0  84868 heap-use 31498272  3150020: 0x1f49d40
+[44:47:323] [debug] link finish: default-menu-pc
+[44:47:323] [debug] [link and exec] dir-tpages         0  22608 heap-use 31499975  3150020: 0x1f4a3e7
+[44:47:323] [debug] link finish: dir-tpages
+[44:47:323] [debug] [link and exec] tpage-463          0 242720 heap-use 31519312  3150020: 0x1f4ef70
+[44:47:323] [debug] link finish: tpage-463
+[44:47:323] [debug] [link and exec] tpage-2            0 152752 heap-use 31532552  3150020: 0x1f52328
+[44:47:324] [debug] link finish: tpage-2
+[44:47:324] [debug] [link and exec] tpage-880          0  16944 heap-use 31537740  3150020: 0x1f5376c
+[44:47:324] [debug] link finish: tpage-880
+[44:47:324] [debug] [link and exec] tpage-256          0  17168 heap-use 31538164  3150020: 0x1f53914
+[44:47:324] [debug] link finish: tpage-256
+[44:47:324] [debug] [link and exec] tpage-1278         0 181088 heap-use 31538832  3150020: 0x1f53bb0
+[44:47:324] [debug] link finish: tpage-1278
+[44:47:324] [debug] [link and exec] texture-upload     0    720 heap-use 31539568  3150020: 0x1f53e90
+[44:47:324] [debug] link finish: texture-upload
+[44:47:324] [debug] [link and exec] tpage-1032         0 263456 heap-use 31539688  3150020: 0x1f53f08
+[44:47:324] [debug] link finish: tpage-1032
+[44:47:324] [debug] [link and exec] tpage-62           0  34496 heap-use 31803044  3150020: 0x1f943c4
+[44:47:324] [debug] link finish: tpage-62
+[44:47:325] [debug] [link and exec] tpage-1532         0  34224 heap-use 31804628  3150020: 0x1f949f4
+[44:47:325] [debug] link finish: tpage-1532
+[44:47:325] [debug] [link and exec] fuel-cell          0  21728 heap-use 31805992  3150020: 0x1f94f48
+[44:47:325] [debug] link finish: fuel-cell
+[44:47:325] [debug] [link and exec] money              0   6400 heap-use 31827286  3150020: 0x1f9a276
+[44:47:325] [debug] link finish: money
+[44:47:325] [debug] [link and exec] buzzer             0  12048 heap-use 31833296  3150020: 0x1f9b9f0
+[44:47:325] [debug] link finish: buzzer
+[44:47:325] [debug] [link and exec] ecovalve           0   5280 heap-use 31844944  3150020: 0x1f9e770
+[44:47:325] [debug] link finish: ecovalve
+[44:47:325] [debug] [link and exec] crate              0  64416 heap-use 31849824  3150020: 0x1f9fa80
+[44:47:325] [debug] link finish: crate
+[44:47:325] [debug] [link and exec] speaker            0  23184 heap-use 31913264  3150020: 0x1faf250
+[44:47:325] [debug] link finish: speaker
+[44:47:325] [debug] [link and exec] fuelcell-naked     0   4736 heap-use 31936112  3150020: 0x1fb4b90
+[44:47:325] [debug] link finish: fuelcell-naked
+[44:47:326] [debug] [link and exec] eichar             0 1349024 heap-use 31940512  3150020: 0x1fb5cc0
+[44:47:326] [debug] link finish: eichar
+[44:47:327] [debug] [link and exec] sidekick           0 675936 heap-use 33259860  3150020: 0x20f7e74
+[44:47:327] [debug] link finish: sidekick
+[44:47:327] [debug] [link and exec] deathcam           0   1888 heap-use 33921480  3150020: 0x21996e8
+[44:47:327] [debug] link finish: deathcam
+[44:47:327] [debug] [link and exec] game-cnt           0    224 heap-use 33923104  3150020: 0x2199d40
+[44:47:327] [debug] link finish: game-cnt
+[44:47:327] [debug] [link and exec] rigid-body-h       0   3065 heap-use 33923248  3150020: 0x2199dd0
+[44:47:327] [debug] link finish: rigid-body-h
+[44:47:327] [debug] [link and exec] water-anim         0  23985 heap-use 33923504  3150020: 0x2199ed0
+[44:47:327] [debug] link finish: water-anim
+[44:47:328] [debug] [link and exec] dark-eco-pool      0   8581 heap-use 33936848  3150020: 0x219d2f0
+[44:47:328] [debug] link finish: dark-eco-pool
+[44:47:328] [debug] [link and exec] rigid-body         0  23313 heap-use 33942992  3150020: 0x219eaf0
+[44:47:328] [debug] link finish: rigid-body
+[44:47:330] [debug] [link and exec] nav-enemy-h        0   8546 heap-use 33955952  3150020: 0x21a1d90
+[44:47:330] [debug] link finish: nav-enemy-h
+[44:47:330] [debug] [link and exec] nav-enemy          0  54490 heap-use 33956416  3150020: 0x21a1f60
+[44:47:330] [debug] link finish: nav-enemy
+[44:47:333] [debug] [link and exec] baseplat           0  13655 heap-use 33997277  3150020: 0x21abefd
+[44:47:333] [debug] link finish: baseplat
+[44:47:334] [debug] [link and exec] basebutton         0  22781 heap-use 34006096  3150020: 0x21ae170
+[44:47:334] [debug] link finish: basebutton
+[44:47:335] [debug] [link and exec] tippy              0   2406 heap-use 34020816  3150020: 0x21b1af0
+[44:47:335] [debug] link finish: tippy
+[44:47:335] [debug] [link and exec] joint-exploder     0  16874 heap-use 34021792  3150020: 0x21b1ec0
+[44:47:335] [debug] link finish: joint-exploder
+[44:47:337] [debug] [link and exec] babak              0  12734 heap-use 34030976  3150020: 0x21b42a0
+[44:47:337] [debug] link finish: babak
+[44:47:337] [debug] [link and exec] sharkey            0  25402 heap-use 34039651  3150020: 0x21b6483
+[44:47:337] [debug] link finish: sharkey
+[44:47:338] [debug] [link and exec] orb-cache          0  11901 heap-use 34056368  3150020: 0x21ba5d0
+[44:47:338] [debug] link finish: orb-cache
+[44:47:339] [debug] [link and exec] plat               0   8089 heap-use 34063851  3150020: 0x21bc30b
+[44:47:339] [debug] link finish: plat
+[44:47:340] [debug] [link and exec] plat-button        0  14978 heap-use 34068768  3150020: 0x21bd640
+[44:47:340] [debug] link finish: plat-button
+[44:47:341] [debug] [link and exec] plat-eco           0  10475 heap-use 34078080  3150020: 0x21bfaa0
+[44:47:341] [debug] link finish: plat-eco
+[44:47:341] [debug] [link and exec] ropebridge         0  19996 heap-use 34084304  3150020: 0x21c12f0
+[44:47:341] [debug] link finish: ropebridge
+[44:47:342] [debug] [link and exec] ticky              0   1877 heap-use 34096272  3150020: 0x21c41b0
+[44:47:342] [debug] link finish: ticky
+[44:47:343] [debug] [OVERLORD] FS_Close GAME    CGO @ 320/4320
+[44:47:343] [debug] [link and exec] hud-classes-pc     1  19720 heap-use 34097024  3150020: 0x21c44a0
+[44:47:343] [debug] link finish: hud-classes-pc
+[44:47:343] [info] calling play
+(play :use-vis 0 :init-game 0) has been called!
+*kernel-boot-message*: play
+-----------> begin load title-vis [tit.DGO]
+Starting level load clock
+[44:47:345] [debug] [OVERLORD] Queue 0 (1/4), LoadDGO
+[44:47:345] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:345] [debug] [OVERLORD] FS Open TIT     DGO
+[44:47:346] [info] [Overlord DGO] Got DGO file header for TIT.DGO with 15 objects
+[44:47:346] [debug] link finish: static-screen
+[44:47:346] [debug] link finish: title-obs
+[44:47:346] [debug] link finish: tpage-1609
+[44:47:346] [debug] link finish: tpage-416
+[44:47:346] [debug] link finish: tpage-415
+[44:47:347] [debug] link finish: tpage-397
+[44:47:347] [debug] link finish: tpage-1499
+[44:47:347] [debug] link finish: logo
+[44:47:347] [debug] link finish: logo-black
+[44:47:347] [debug] link finish: logo-cam
+[44:47:347] [debug] link finish: logo-volumes
+[44:47:347] [debug] link finish: ndi
+[44:47:347] [debug] link finish: ndi-cam
+[44:47:348] [debug] link finish: ndi-volumes
+[44:47:348] [debug] [OVERLORD] FS_Close TIT     DGO @ 316/696
+Elapsed time for level =       0.0000s
+NOTICE: loaded title-vis, 193216 bytes (188.6875 K) at top 1323264
+[44:47:348] [debug] link finish: title-vis
+[44:47:348] [info] InitListenerConnect
+[44:47:348] [info] InitCheckListener
+kernel: machine started
+[44:47:348] [warn] sceGsResetGraph: mode 0 inter 1 omode 2 fmode 1
+A36-TXT-DIAG fmt="~D~S.TXT" dest=0x4c7294 fmtptr=0x1f09154 arg2=0x0 arg3=0x1f091f4 arg4=0x21231816d4
+A36-TXT-DIAG dispatch 'D'(0x44)
+A36-TXT-DIAG caseD in=0x0 len=-1 pad=0x20 kitoa="0" regidx=0 &ct=0x99c110 ct=30 31 32 33
+A36-TXT-DIAG dispatch 'S'(0x53)
+A36-TXT-DIAG out="0subtit.TXT"
+A36-STR-DIAG rpc name="0subtit.TXT" chunk=-1 ee_addr=0x1f09d40 maxlen=0x40000
+[44:47:348] [info] FBO Setup: requested 640x480, msaa 1
+[44:47:348] [debug] [OVERLORD] LoadISOFileToEE 0SUBTIT TXT, 262144/-1 bytes
+[44:47:348] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:47:348] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8D0
+[44:47:348] [debug] [OVERLORD] FS Open 0SUBTIT TXT
+[44:47:349] [info] FBO Setup: not using second temporary buffer
+[44:47:349] [debug] [OVERLORD] FS_Close 0SUBTIT TXT @ 23/120
+A36-TXT-DIAG fmt="~D~S.TXT" dest=0x4c7294 fmtptr=0x1f091d4 arg2=0x0 arg3=0x1f091f4 arg4=0x21231816d4
+A36-TXT-DIAG dispatch 'D'(0x44)
+A36-TXT-DIAG caseD in=0x0 len=-1 pad=0x20 kitoa="0" regidx=0 &ct=0x99c110 ct=30 31 32 33
+A36-TXT-DIAG dispatch 'S'(0x53)
+A36-TXT-DIAG out="0subtit.TXT"
+[44:47:349] [debug] link finish: 0subtit.TXT
+[00000000] vec4s
+	x: 0.0000
+	y: 0.0000
+	z: 0.0000
+	w: 0.0000
+(play :use-vis 0 :init-game 0) has been called!
+A36-TXT-DIAG fmt="~D~S.TXT" dest=0x4c7294 fmtptr=0x1d57a54 arg2=0x0 arg3=0x1d57ae4 arg4=0x21231816d4
+A36-TXT-DIAG dispatch 'D'(0x44)
+A36-TXT-DIAG caseD in=0x0 len=-1 pad=0x20 kitoa="0" regidx=0 &ct=0x99c110 ct=30 31 32 33
+A36-TXT-DIAG dispatch 'S'(0x53)
+A36-TXT-DIAG out="0common.TXT"
+A36-STR-DIAG rpc name="0common.TXT" chunk=-1 ee_addr=0x1d57f40 maxlen=0x10000
+[44:47:350] [debug] [OVERLORD] LoadISOFileToEE 0COMMON TXT, 65536/-1 bytes
+[44:47:351] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:47:351] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8D0
+[44:47:351] [debug] [OVERLORD] FS Open 0COMMON TXT
+[44:47:351] [debug] [OVERLORD] FS_Close 0COMMON TXT @ 0/48
+A36-TXT-DIAG fmt="~D~S.TXT" dest=0x4c7294 fmtptr=0x1d57ac4 arg2=0x0 arg3=0x1d57ae4 arg4=0x21231816d4
+A36-TXT-DIAG dispatch 'D'(0x44)
+A36-TXT-DIAG caseD in=0x0 len=-1 pad=0x20 kitoa="0" regidx=0 &ct=0x99c110 ct=30 31 32 33
+A36-TXT-DIAG dispatch 'S'(0x53)
+A36-TXT-DIAG out="0common.TXT"
+[44:47:351] [debug] link finish: 0common.TXT
+A36-TXT-DIAG fmt="~D~S.TXT" dest=0x4c7294 fmtptr=0x1d57a54 arg2=0x0 arg3=0x1d57af4 arg4=0x21231816d4
+A36-TXT-DIAG dispatch 'D'(0x44)
+A36-TXT-DIAG caseD in=0x0 len=-1 pad=0x20 kitoa="0" regidx=0 &ct=0x99c110 ct=30 31 32 33
+A36-TXT-DIAG dispatch 'S'(0x53)
+A36-TXT-DIAG out="0common.TXT"
+A36-STR-DIAG rpc name="0common.TXT" chunk=-1 ee_addr=0x1499a40 maxlen=0xc000
+[44:47:351] [debug] [OVERLORD] LoadISOFileToEE 0COMMON TXT, 49152/-1 bytes
+[44:47:351] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:47:351] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8D0
+[44:47:351] [debug] [OVERLORD] FS Open 0COMMON TXT
+[44:47:351] [debug] [OVERLORD] FS_Close 0COMMON TXT @ 0/48
+A36-TXT-DIAG fmt="~D~S.TXT" dest=0x4c7294 fmtptr=0x1d57ac4 arg2=0x0 arg3=0x1d57af4 arg4=0x21231816d4
+A36-TXT-DIAG dispatch 'D'(0x44)
+A36-TXT-DIAG caseD in=0x0 len=-1 pad=0x20 kitoa="0" regidx=0 &ct=0x99c110 ct=30 31 32 33
+A36-TXT-DIAG dispatch 'S'(0x53)
+A36-TXT-DIAG out="0common.TXT"
+[44:47:351] [debug] link finish: 0common.TXT
+Load music village1
+Displaying level title [display]
+Swapping in tit VIS [dumping #f]
+[44:47:351] [warn] Failed to find texture at 0, using random (direct: [ 3] sky-direct)
+GAMEPLAY: enter title
+[OVERLORD RAMDISK] loading file tit.VIS with size 16
+[44:47:352] [debug] [OVERLORD] LoadISOFileToIOP TIT     VIS, 16/-1 bytes
+[44:47:354] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:47:354] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0709DADA0
+[44:47:354] [debug] [OVERLORD] FS Open TIT     VIS
+[44:47:357] [debug] [OVERLORD] FS_Close TIT     VIS @ 71/48
+------------> Load from file: 0.001s, import 0.003s, decomp 0.003s unpack 0.000s
+Adding level village1
+-----------> begin load village1-vis [vi1.DGO]
+Starting level load clock
+Setting level title display command to special
+[44:47:366] [info] FBO Setup: requested 1920x1080, msaa 1
+[44:47:366] [debug] [OVERLORD] Queue 0 (1/4), LoadDGO
+[44:47:366] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:366] [debug] [OVERLORD] FS Open VI1     DGO
+[44:47:368] [info] [Overlord DGO] Got DGO file header for VI1.DGO with 55 objects
+[44:47:370] [info] FBO Setup: not using second temporary buffer
+GAMEPLAY: enter title
+A36-STR-DIAG rpc name="ndi-intro" chunk=0 ee_addr=0x84000 maxlen=0x3fc00
+[44:47:433] [debug] [OVERLORD] LoadISOFileToIOP NDINTRO STR, 512/-1 bytes
+[44:47:433] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:47:433] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:433] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8D0
+[44:47:433] [debug] [OVERLORD] FS Open NDINTRO STR
+[44:47:437] [debug] [OVERLORD] FS_Close NDINTRO STR @ 97/48
+[44:47:437] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:437] [debug] [OVERLORD] LoadISOFileChunkToEE NDINTRO STR : 116736 offset 1
+[44:47:438] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:47:438] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:438] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[44:47:438] [debug] [OVERLORD] FS Open NDINTRO STR
+[44:47:443] [debug] [OVERLORD] FS_Close NDINTRO STR @ 97/97
+[44:47:443] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:449] [debug] link finish: ndi-intro
+[44:47:449] [debug] link finish: villagep-obs
+[44:47:483] [debug] [OVERLORD] Queue 3 (1/4), QueueVAG
+[44:47:483] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:483] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[44:47:483] [debug] [OVERLORD] FS_OpenWad VAGWAD  ENG
+[44:47:533] [debug] link finish: oracle
+[44:47:616] [debug] link finish: farmer
+[44:47:699] [debug] link finish: explorer
+A36-STR-DIAG rpc name="ndi-intro" chunk=1 ee_addr=0xc1c00 maxlen=0x3fc00
+[44:47:733] [debug] [OVERLORD] LoadISOFileChunkToEE NDINTRO STR : 118784 offset 58
+[44:47:733] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:47:733] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:733] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[44:47:733] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[44:47:733] [debug] [OVERLORD] FS Open NDINTRO STR
+[44:47:743] [debug] [OVERLORD] FS_Close NDINTRO STR @ 97/154
+[44:47:743] [debug]   PRI 0 elt 0 LoadDGO @ #x9E97E0
+[44:47:743] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[44:47:751] [debug] link finish: ndi-intro
+NOTE: coming out of blackout on next frame, doing all loads now...
+Blackout loads done. Current status:  title is loaded.
+[44:47:783] [debug] link finish: assistant
+[44:47:866] [debug] link finish: sage
+Setting force-inside?[village1] to #t
+[44:47:949] [debug] link finish: yakow
+[44:48:033] [debug] link finish: village-obs
+[44:48:116] [debug] link finish: fishermans-boat
+[44:48:199] [debug] link finish: village1-part
+[44:48:283] [debug] link finish: village1-part2
+[44:48:366] [debug] link finish: sequence-a-village1
+[44:48:433] [debug] link finish: tpage-398
+[44:48:450] [debug] link finish: tpage-400
+[44:48:466] [debug] link finish: tpage-399
+[44:48:483] [debug] link finish: tpage-401
+[44:48:499] [debug] link finish: tpage-1470
+[44:48:516] [debug] link finish: assistant
+[44:48:533] [debug] link finish: evilplant
+[44:48:549] [debug] link finish: explorer
+[44:48:566] [debug] link finish: farmer
+[44:48:583] [debug] link finish: fishermans-boat
+[44:48:599] [debug] link finish: hutlamp
+[44:48:616] [debug] link finish: mayorgears
+[44:48:633] [debug] link finish: medres-beach
+[44:48:649] [debug] link finish: medres-beach1
+[44:48:666] [debug] link finish: medres-beach2
+[44:48:683] [debug] link finish: medres-beach3
+[44:48:699] [debug] link finish: medres-jungle
+[44:48:716] [debug] link finish: medres-jungle1
+[44:48:733] [debug] link finish: medres-jungle2
+[44:48:749] [debug] link finish: medres-misty
+[44:48:766] [debug] link finish: medres-training
+[44:48:783] [debug] link finish: medres-village11
+[44:48:799] [debug] link finish: medres-village12
+[44:48:821] [debug] link finish: medres-village13
+[44:48:847] [debug] link finish: oracle
+[44:48:864] [debug] link finish: orb-cache-top
+[44:48:880] [debug] link finish: reflector-middle
+[44:48:897] [debug] link finish: revcycle
+[44:48:913] [debug] link finish: revcycleprop
+[44:48:930] [debug] link finish: ropebridge-32
+[44:48:947] [debug] link finish: sage
+[44:48:964] [debug] link finish: sagesail
+[44:48:980] [debug] link finish: sharkey
+[44:48:997] [debug] link finish: villa-starfish
+[44:49:014] [debug] link finish: village-cam
+[44:49:031] [debug] link finish: village1cam
+[44:49:048] [debug] link finish: warp-gate-switch
+[44:49:064] [debug] link finish: warpgate
+[44:49:081] [debug] link finish: water-anim-village1
+[44:49:097] [debug] link finish: windmill-sail
+[44:49:114] [debug] link finish: windspinner
+[44:49:131] [debug] link finish: yakow
+[44:49:154] [debug] [OVERLORD] FS_Close VI1     DGO @ 295/5616
+[44:49:154] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+Elapsed time for level =       1.8166s
+NOTICE: loaded village1-vis, 7479408 bytes (7304.1093 K) at top 10713072
+[44:49:164] [debug] link finish: village1-vis
+------------> Load from file: 0.015s, import 0.024s, decomp 0.052s unpack 0.032s
+stage tie took 41.51 ms
+Loader::update slow setup: 41.5ms
+[44:49:390] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 69, offset 3145728, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:390] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 69, offset 4194304, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:390] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 69, offset 5242880, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:406] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 69, offset 6291456, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:406] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 69, offset 7340032, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:407] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 69, offset 8388608, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:423] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 69, offset 9437184, size 788288) to update a GL_STATIC_DRAW buffer
+[44:49:440] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 71, offset 3145728, size 358656) to update a GL_STATIC_DRAW buffer
+[44:49:473] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 75, offset 3145728, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:490] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 75, offset 4194304, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:490] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 75, offset 5242880, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:490] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 75, offset 6291456, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:506] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 75, offset 7340032, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:506] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 75, offset 8388608, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:507] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 75, offset 9437184, size 788288) to update a GL_STATIC_DRAW buffer
+[44:49:540] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 77, offset 3145728, size 358656) to update a GL_STATIC_DRAW buffer
+[44:49:573] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 81, offset 3145728, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:573] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 81, offset 4194304, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:590] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 81, offset 5242880, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:590] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 81, offset 6291456, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:590] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 81, offset 7340032, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:49:606] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 81, offset 8388608, size 955456) to update a GL_STATIC_DRAW buffer
+[44:49:640] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 87, offset 3145728, size 73728) to update a GL_STATIC_DRAW buffer
+[44:50:623] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 113, offset 3145728, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:50:640] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 113, offset 4194304, size 475744) to update a GL_STATIC_DRAW buffer
+[44:50:706] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 114, offset 3145728, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:50:723] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 114, offset 4194304, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:50:740] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 114, offset 5242880, size 1048576) to update a GL_STATIC_DRAW buffer
+[44:50:756] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 114, offset 6291456, size 902400) to update a GL_STATIC_DRAW buffer
+[44:50:806] [warn] [loader] OpenGL warn 0x1 S8246 T8250: using glBufferSubData(buffer 115, offset 393216, size 14972) to update a GL_STATIC_DRAW buffer
+A36-STR-DIAG rpc name="ndi-intro" chunk=2 ee_addr=0x84000 maxlen=0x3fc00
+[44:51:590] [debug] [OVERLORD] LoadISOFileChunkToEE NDINTRO STR : 104448 offset 116
+[44:51:590] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:51:590] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[44:51:590] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[44:51:590] [debug] [OVERLORD] FS Open NDINTRO STR
+[44:51:595] [debug] [OVERLORD] FS_Close NDINTRO STR @ 97/212
+[44:51:595] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[44:51:606] [debug] link finish: ndi-intro
+A36-STR-DIAG rpc name="ndi-intro" chunk=3 ee_addr=0xc1c00 maxlen=0x3fc00
+[44:55:397] [debug] [OVERLORD] LoadISOFileChunkToEE NDINTRO STR : 118784 offset 167
+[44:55:397] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:55:397] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[44:55:397] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[44:55:397] [debug] [OVERLORD] FS Open NDINTRO STR
+[44:55:403] [debug] [OVERLORD] FS_Close NDINTRO STR @ 97/263
+[44:55:403] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[44:55:414] [debug] link finish: ndi-intro
+A36-STR-DIAG rpc name="ndi-intro" chunk=0 ee_addr=0x84000 maxlen=0x3fc00
+[44:59:231] [debug] [OVERLORD] LoadISOFileChunkToEE NDINTRO STR : 116736 offset 1
+[44:59:231] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[44:59:231] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[44:59:231] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[44:59:231] [debug] [OVERLORD] FS Open NDINTRO STR
+[44:59:236] [debug] [OVERLORD] FS_Close NDINTRO STR @ 97/97
+[44:59:236] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[44:59:248] [debug] link finish: ndi-intro
+[45:03:030] [debug] [OVERLORD] FS_Close VAGWAD  ENG @ 280/43285
+A36-STR-DIAG rpc name="logo-intro" chunk=0 ee_addr=0xc1c00 maxlen=0x3fc00
+Displaying level village1 [display-self]
+[45:03:047] [debug] [OVERLORD] LoadISOFileToIOP LOINTRO STR, 512/-1 bytes
+[45:03:047] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:03:047] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8D0
+[45:03:047] [debug] [OVERLORD] FS Open LOINTRO STR
+[45:03:055] [debug] [OVERLORD] FS_Close LOINTRO STR @ 98/48
+[45:03:055] [debug] [OVERLORD] LoadISOFileChunkToEE LOINTRO STR : 47104 offset 1
+[45:03:056] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:03:056] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:03:056] [debug] [OVERLORD] FS Open LOINTRO STR
+[45:03:059] [debug] [OVERLORD] FS_Close LOINTRO STR @ 98/49
+[45:03:063] [debug] link finish: logo-intro
+Unload soundbank empty1
+Swapping in vi1 VIS [dumping tit]
+[OVERLORD RAMDISK] loading file vi1.VIS with size 617696
+[45:03:063] [debug] [OVERLORD] LoadISOFileToIOP VI1     VIS, 617696/-1 bytes
+[45:03:063] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:03:063] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0709DADA0
+[45:03:063] [debug] [OVERLORD] FS Open VI1     VIS
+[45:03:073] [info] TIE setup: 6.5ms
+[45:03:078] [debug] [OVERLORD] FS_Close VI1     VIS @ 50/336
+Load soundbank village1
+[45:03:097] [debug] [OVERLORD] Queue 3 (1/4), QueueVAG
+[45:03:097] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:03:097] [debug] [OVERLORD] FS_OpenWad VAGWAD  ENG
+Turning level village1 off
+----------- kill #<level active village1 @ #x4edd04> (status active)
+Setting force-inside?[village1] to #t
+[45:03:130] [debug] [OVERLORD] FS_Close VAGWAD  ENG @ 280/43093
+[45:03:165] [debug] [OVERLORD] Queue 3 (1/4), QueueVAG
+[45:03:165] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:03:165] [debug] [OVERLORD] FS_OpenWad VAGWAD  ENG
+WARNING: flushing RPC port #5
+[45:03:166] [debug] [OVERLORD] FS_Close VAGWAD  ENG @ 280/43081
+[45:03:166] [debug] [OVERLORD] Queue 3 (1/4), QueueVAG
+[45:03:166] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:03:166] [debug] [OVERLORD] FS_OpenWad VAGWAD  ENG
+A36-STR-DIAG rpc name="logo-intro" chunk=1 ee_addr=0x84000 maxlen=0x3fc00
+[45:03:180] [debug] [OVERLORD] LoadISOFileChunkToEE LOINTRO STR : 176128 offset 24
+[45:03:180] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:03:180] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:03:180] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:03:180] [debug] [OVERLORD] FS Open LOINTRO STR
+[45:03:187] [debug] [OVERLORD] FS_Close LOINTRO STR @ 98/144
+[45:03:187] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:03:197] [debug] link finish: logo-intro
+NOTE: coming out of blackout on next frame, doing all loads now...
+Blackout loads done. Current status:  village1 is loaded.
+  title is loaded.
+A36-STR-DIAG rpc name="logo-intro" chunk=2 ee_addr=0xc1c00 maxlen=0x3fc00
+[45:05:447] [debug] [OVERLORD] LoadISOFileChunkToEE LOINTRO STR : 53248 offset 110
+[45:05:447] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:05:447] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:05:447] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:05:447] [debug] [OVERLORD] FS Open LOINTRO STR
+[45:05:452] [debug] [OVERLORD] FS_Close LOINTRO STR @ 98/182
+[45:05:452] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:05:464] [debug] link finish: logo-intro
+Displaying level village1 [display-self]
+A36-STR-DIAG rpc name="logo-intro-2" chunk=0 ee_addr=0x84000 maxlen=0x3fc00
+[45:07:663] [debug] [OVERLORD] LoadISOFileToIOP LOI2    STR, 512/-1 bytes
+[45:07:663] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:07:663] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8D0
+[45:07:663] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:07:663] [debug] [OVERLORD] FS Open LOI2    STR
+[45:07:671] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/24
+[45:07:671] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:07:671] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 1
+[45:07:672] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:07:672] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:07:672] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:07:672] [debug] [OVERLORD] FS Open LOI2    STR
+[45:07:675] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/49
+[45:07:675] [debug]   PRI 3 elt 0 QueueVAG @ #x9EC260
+[45:07:680] [debug] link finish: logo-intro-2
+[45:09:864] [debug] [OVERLORD] FS_Close VAGWAD  ENG @ 280/43075
+A36-STR-DIAG rpc name="assistant-introduction-blue-eco-switch" chunk=0 ee_addr=0xc1c00 maxlen=0x3fc00
+[45:09:880] [debug] [OVERLORD] LoadISOFileToIOP ASIBESWISTR, 512/-1 bytes
+[45:09:880] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:09:880] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8D0
+[45:09:880] [debug] [OVERLORD] FS Open ASIBESWISTR
+[45:09:890] [debug] [OVERLORD] FS_Close ASIBESWISTR @ 133/48
+[45:09:890] [debug] [OVERLORD] LoadISOFileChunkToEE ASIBESWISTR : 145408 offset 1
+[45:09:890] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:09:890] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:09:890] [debug] [OVERLORD] FS Open ASIBESWISTR
+[45:09:896] [debug] [OVERLORD] FS_Close ASIBESWISTR @ 133/97
+[45:09:897] [debug] link finish: assistant-introduction-blue-eco-switch
+[45:11:863] [debug] [OVERLORD] Queue 3 (1/4), PlayVag
+[45:11:864] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+A36-STR-DIAG rpc name="logo-intro-2" chunk=1 ee_addr=0xc1c00 maxlen=0x3fc00
+[45:11:880] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 8
+[45:11:880] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:11:880] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:11:880] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:11:880] [debug] [OVERLORD] FS Open LOI2    STR
+[45:11:884] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/56
+[45:11:884] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:11:897] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=2 ee_addr=0x84000 maxlen=0x3fc00
+[45:15:748] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 15
+[45:15:748] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:15:748] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:15:748] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:15:748] [debug] [OVERLORD] FS Open LOI2    STR
+[45:15:751] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/63
+[45:15:751] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:15:764] [debug] link finish: logo-intro-2
+Setting level village1 display command to display
+Setting force-inside?[village1] to #f
+A36-STR-DIAG rpc name="logo-intro-2" chunk=3 ee_addr=0xc1c00 maxlen=0x3fc00
+[45:19:632] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 22
+[45:19:632] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:19:632] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:19:632] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:19:632] [debug] [OVERLORD] FS Open LOI2    STR
+[45:19:635] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/70
+[45:19:635] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:19:648] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=4 ee_addr=0x84000 maxlen=0x3fc00
+[45:23:532] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 29
+[45:23:532] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:23:532] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:23:532] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:23:532] [debug] [OVERLORD] FS Open LOI2    STR
+[45:23:535] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/77
+[45:23:535] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:23:549] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=5 ee_addr=0xc1c00 maxlen=0x3fc00
+[45:27:431] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 36
+[45:27:431] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:27:431] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:27:431] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:27:431] [debug] [OVERLORD] FS Open LOI2    STR
+[45:27:435] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/84
+[45:27:435] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:27:448] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=6 ee_addr=0x84000 maxlen=0x3fc00
+[45:31:315] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 43
+[45:31:315] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:31:315] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:31:315] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:31:315] [debug] [OVERLORD] FS Open LOI2    STR
+[45:31:318] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/91
+[45:31:318] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:31:332] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=7 ee_addr=0xc1c00 maxlen=0x3fc00
+[45:35:199] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 50
+[45:35:199] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:35:199] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:35:199] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:35:199] [debug] [OVERLORD] FS Open LOI2    STR
+[45:35:203] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/98
+[45:35:203] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:35:216] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=8 ee_addr=0x84000 maxlen=0x3fc00
+[45:39:099] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 57
+[45:39:099] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:39:099] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:39:099] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:39:099] [debug] [OVERLORD] FS Open LOI2    STR
+[45:39:102] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/105
+[45:39:102] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:39:115] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=9 ee_addr=0xc1c00 maxlen=0x3fc00
+[45:42:982] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 64
+[45:42:982] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:42:982] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:42:982] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:42:982] [debug] [OVERLORD] FS Open LOI2    STR
+[45:42:985] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/112
+[45:42:985] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:42:999] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=10 ee_addr=0x84000 maxlen=0x3fc00
+[45:46:849] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 71
+[45:46:849] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:46:849] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:46:849] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:46:849] [debug] [OVERLORD] FS Open LOI2    STR
+[45:46:852] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/119
+[45:46:852] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:46:865] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=11 ee_addr=0xc1c00 maxlen=0x3fc00
+[45:50:749] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 78
+[45:50:749] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:50:749] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:50:749] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:50:749] [debug] [OVERLORD] FS Open LOI2    STR
+[45:50:752] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/126
+[45:50:752] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:50:766] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=12 ee_addr=0x84000 maxlen=0x3fc00
+[45:54:632] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 85
+[45:54:633] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:54:633] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:54:633] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:54:633] [debug] [OVERLORD] FS Open LOI2    STR
+[45:54:636] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/133
+[45:54:636] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:54:649] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=13 ee_addr=0xc1c00 maxlen=0x3fc00
+[45:58:516] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 92
+[45:58:516] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[45:58:516] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[45:58:516] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:58:516] [debug] [OVERLORD] FS Open LOI2    STR
+[45:58:520] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/140
+[45:58:520] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[45:58:533] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-intro-2" chunk=14 ee_addr=0x84000 maxlen=0x3fc00
+[46:02:399] [debug] [OVERLORD] LoadISOFileChunkToEE LOI2    STR : 14336 offset 99
+[46:02:399] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[46:02:399] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[46:02:399] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[46:02:399] [debug] [OVERLORD] FS Open LOI2    STR
+[46:02:402] [debug] [OVERLORD] FS_Close LOI2    STR @ 100/147
+[46:02:402] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[46:02:415] [debug] link finish: logo-intro-2
+A36-STR-DIAG rpc name="logo-loop" chunk=0 ee_addr=0xc1c00 maxlen=0x3fc00
+[46:06:347] [debug] [OVERLORD] LoadISOFileToIOP LOLOOP  STR, 512/-1 bytes
+[46:06:347] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[46:06:347] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8D0
+[46:06:347] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[46:06:347] [debug] [OVERLORD] FS Open LOLOOP  STR
+[46:06:353] [debug] [OVERLORD] FS_Close LOLOOP  STR @ 99/48
+[46:06:353] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[46:06:353] [debug] [OVERLORD] LoadISOFileChunkToEE LOLOOP  STR : 14336 offset 1
+[46:06:353] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[46:06:353] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[46:06:353] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[46:06:353] [debug] [OVERLORD] FS Open LOLOOP  STR
+[46:06:356] [debug] [OVERLORD] FS_Close LOLOOP  STR @ 99/49
+[46:06:356] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[46:06:364] [debug] link finish: logo-loop
+A36-STR-DIAG rpc name="logo-loop" chunk=1 ee_addr=0x84000 maxlen=0x3fc00
+[46:12:249] [debug] [OVERLORD] LoadISOFileChunkToEE LOLOOP  STR : 14336 offset 8
+[46:12:250] [debug] [OVERLORD] Queue 2 (1/4), LoadSingle
+[46:12:250] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[46:12:250] [debug] [OVERLORD] FS Open LOLOOP  STR
+[46:12:252] [debug] [OVERLORD] Queue 3 (1/4), PlayVag
+[46:12:253] [debug]   PRI 2 elt 0 LoadSingle @ #x7FD0718DB8C0
+[46:12:253] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[46:12:254] [debug] [OVERLORD] FS_Close LOLOOP  STR @ 99/56
+[46:12:254] [debug]   PRI 3 elt 0 PlayVag @ #x9EC260
+[46:12:266] [debug] link finish: logo-loop

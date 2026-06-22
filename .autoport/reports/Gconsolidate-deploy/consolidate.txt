@@ -1,0 +1,128 @@
+================================================================================
+ Gconsolidate-deploy — DEVICE PERSISTENTLY RUNS A FRESH CONSISTENT HEAD BUILD
+ (28-file arm64 CGO/DGO set + fresh HEAD libgk, booting crash-free to gameplay,
+  data-resident fixes rendering == original; known-good backup refreshed)
+================================================================================
+
+RESULT: DEVICE RUNS FRESH CONSISTENT HEAD (boots, gameplay, data-fixes render)
+
+Device: eae4df44 (Redmi Note 9 Pro, arm64/Adreno), pkg org.opengoal.gk.jak1.
+
+--------------------------------------------------------------------------------
+ 1. THE CONSISTENT FRESH HEAD SET (28 files, internally consistent, sha-logged)
+--------------------------------------------------------------------------------
+Full clean build from HEAD: arm64 goalc CGO/DGO set (28 files: GAME/ENGINE/
+KERNEL.CGO + 25 level DGOs) AND libgk.so, one consistent build (no mixing).
+
+  fresh-build-hashes.txt  == reference-proven-good-hashes.txt   (diff EMPTY)
+  -> the fresh 28-file set is byte-identical to the prior proven-good build that
+     reached gameplay frame 11160, because since that build there are ZERO
+     goal_src and ZERO goalc changes (a CGO/DGO is a deterministic function of
+     goal_src+goalc); the only new content is libgk (Merc2.cpp + asm_funcs_arm64.s).
+
+  Key set members (sha256, first 8):
+    KERNEL.CGO 6973a44f   GAME.CGO daa22d53   ENGINE.CGO 1703f786   TIT.DGO d67028b8
+  These DIFFER from the stale June-11 set the device kept reverting to:
+    GAME   2b49f4ae -> daa22d53   (carries menu widescreen-widen 274f79104)
+    KERNEL 63d7707c -> 6973a44f   (carries gstate frame-180 enter-state fix)
+    ENGINE 1cb1343f -> 1703f786
+    TIT    13641655 -> d67028b8   (carries Gndlogo+Ghalo+Gtitle-pixelmatch)
+  => the fresh set carries the DATA-resident fixes the June-11 set lacked.
+
+  libgk.so sha (build==APK==device): ce01c10cb36c9a55 (deploy_verify PASS,
+  libgk newer than newest source, fresh HEAD a74ef105a).
+
+--------------------------------------------------------------------------------
+ 2. DEPLOYED AS A CONSISTENT SET + VERIFIED ON THE DEVICE
+--------------------------------------------------------------------------------
+  - Fresh libgk APK installed on eae4df44; deploy_verify.sh eae4df44 = PASS
+    (chain build==APK==device ce01c10c).
+  - All 28 consistent HEAD CGO/DGO pushed into files/iso_data/jak1 via run-as.
+  - RE-VERIFIED this attempt: on-device sha256 of all 28 files == the fresh
+    20260622 backup: checked=28 mismatch=0 missing=0. The device provably runs
+    the fresh consistent set (a bad/mixed CGO set SIGILLs at boot; this one does
+    not — see section 3).
+
+--------------------------------------------------------------------------------
+ 3. DEVICE BOOT -> GAMEPLAY, CRASH-FREE (the consistency proof)
+--------------------------------------------------------------------------------
+Run 'consolidated-deploy-ok' (run-ok.out): launch -> title attract -> START ->
+NEW GAME -> CONTINUE WITHOUT SAVING -> intro cinematic -> gameplay. Polled 3s.
+
+  highest render frame : 11160   (gameplay, frame 11160 >= 10500 threshold)
+  reached BREAK_FRAME   : 11100
+  crash sigs (4/6/11)   : 0       (sig(4/6/11)=0 across the whole boot->gameplay
+                                   window; crash-free)
+  foreground at end     : org.opengoal.gk.jak1/.MainActivity  pid=6721 crashed=no
+  A37 sp-process-block-3d: arm64 trampoline 0x4d22e0  (the 3D particle/sun/star
+                           builder is un-noop'd and ACTIVE on this build)
+  A42-STRCLK lines      : 59      (vblank pacer alive through gameplay)
+  GD3-MERC visible      : 3593    (merc/character geometry drawing in gameplay)
+
+  The fresh consistent set boots PAST the old frame-180 SIGILL and reaches
+  gameplay crash-free. (Note: an earlier run-attempt SIGABRT'd in warmup under
+  /data disk pressure — 1.9 GB free, below the 2048 MB floor — NOT a code fault;
+  the byte-identical set had reached 11160 with 6.3 GB free. Freeing a stale
+  1.2 GB leftover APK restored 3.0 GB and the same build then booted clean. See
+  run.out / run-ok.out and the fix-summary device-environment note.)
+
+--------------------------------------------------------------------------------
+ 4. DATA-RESIDENT FIXES RENDER == ORIGINAL (deterministic STATE dumps, NO pixels)
+--------------------------------------------------------------------------------
+The deployed CGO content is byte-identical to the artifacts the three dedicated
+re-do phases proved render-correct on fresh HEAD (device == our-x86 ==
+original-x86), so those deterministic values hold on this consolidated build. On
+the live consolidated run the permanent A37 marker confirms the arm64 builder
+that drives all three is active.
+
+  MENU placement (Gmenu-placement/menu.txt) — per-element X/Y @ 2400x1080 (20:9):
+    PART0 (centre) pos.x = 0.0
+    PART1 (L panel) pos.x = -220.0   pos.y = +16.0
+    PART2 (R panel) pos.x = +195.0   pos.y = +16.0   arscale = 1.6666
+    tint backdrop x-scale = 102400 (the stale June-11 value was the bunched 61440)
+    device == our-x86 == original-x86 (bit-identical); panels SPREAD for ultrawide
+    (|pos.x| GROWS 197->220 / 153->195 as aspect widens 4:3->20:9), they do NOT
+    bunch toward centre. The menu is placed correctly on the fresh set.
+
+  SUN corona (Gsun-halo/sun.txt) — title-screen sun SIZE:
+    CORONA (effects/starflash2) sx = sy = 24576.0   alpha {0.0000, 0.1882}
+    device 24576 == our-x86 24576 == original-x86 24576 (IDENTICAL); the stale
+    "~20% glow" was the corona builder noop'd (alpha 0). On the fresh set the small
+    textured sun corona renders at 24576 == original.
+
+  PARTICLES + night STARS (Gparticles-stars/parts.txt) — emitted/visible counts:
+    vproc3d (valid 3D sparticles emitted/frame): night 32..191, day 64..193 (>0)
+    night star-count starc -> 85 (spawned AND drawn, vproc3d>0)
+    device AFTER (vproc3d 32..193) == our-x86 (42..185) == original; the stale
+    "no particles / no stars" was vproc3d=0 (builder noop-bound). On the fresh set
+    particles + night stars RENDER == original.
+
+--------------------------------------------------------------------------------
+ 5. NEW KNOWN-GOOD BACKUP; JUNE-11 KEPT AS FALLBACK; RESTORE POINTS TO FRESH SET
+--------------------------------------------------------------------------------
+  - .autoport/backups/device-knowngood-cgos-20260622/ : 28 CGO/DGO, sha-verified
+    consistent (== fresh-build-hashes.txt, ALL MATCH).
+  - .autoport/backups/device-knowngood-cgos-20260618/ (June-11 f1c) : KEPT
+    untouched as a last-resort bootable fallback (NOT deleted).
+  - restore_knowngood_device.sh SRC -> device-knowngood-cgos-20260622 ; restore
+    now leaves the device on fresh HEAD instead of reverting the data fixes.
+
+--------------------------------------------------------------------------------
+ 6. 1-to-1 SOURCE / GOLDEN / x86 ORACLE
+--------------------------------------------------------------------------------
+  - goal_src/** UNCHANGED vs supervisor anchor f59138559 (1-to-1; this phase added
+    no goal_src). .autoport/gold left pristine.
+  - x86 desktop smoke still reaches `link finish: logo` (oracle in out/jak1/iso).
+  - No temporary instrumentation added this phase (the menu/sun/particle dumpers
+    were already removed in the dedicated phases; this phase relies on CGO
+    byte-identity + permanent A37/A42/GD3 markers).
+
+================================================================================
+ RESULT: DEVICE RUNS FRESH CONSISTENT HEAD — the 28-file arm64 CGO/DGO set
+ (byte-identical to the proven-good gameplay build) + fresh HEAD libgk ce01c10c
+ boot crash-free to gameplay frame 11160 with 0 sig(4/6/11)/Fatal, foreground
+ jak1; menu (PART0/-220/+195, tint 102400, spread), sun (corona 24576) and
+ particles/stars (vproc3d 32..193, starc 85) render == original; known-good
+ backup refreshed to 20260622 (June-11 kept as fallback) and restore points at
+ it, ending the stale-backup deployment regression. x86 1-to-1.
+================================================================================

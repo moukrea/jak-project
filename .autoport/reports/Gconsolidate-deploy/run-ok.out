@@ -45,3 +45,15 @@
    [55/440] render=9300 visible=3593 vblank=14701 fg=1 pid='6721'
    [60/440] render=9900 visible=3593 vblank=15901 fg=1 pid='6721'
    [65/440] render=10560 visible=3593 vblank=16801 fg=1 pid='6721'
+   >>> reached BREAK_FRAME 11100
+== teardown ==
+== scoreboard (consolidated-deploy-ok) ==
+  highest render   : 11160
+  A37 sp-proc-3d   : 06-22 03:35:31.280  6721  6855 I GK_STDERR: A37-MIPS2C-REAL sp-process-block-3d -> arm64 trampoline 0x4d22e0
+  A42-STRCLK lines : 59
+  GD3-MERC visible : visible=3593
+  3D sprite/tris   : 
+  crash sigs       : 0
+0
+  foreground end   :   mCurrentFocus=Window{bb20868 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}  pid=6721  crashed=no
+  routed-logcat    : .autoport/reports/Gconsolidate/consolidated-deploy-ok-routed-logcat.log
