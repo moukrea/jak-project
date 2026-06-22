@@ -350,15 +350,52 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   c->lw(s5, 104, s2);                               // lw s5, 104(s2)
   // nop                                            // sll r0, r0, 0
+  // GMENU-DBG (TEMP, removed before final): probe the user-hvdf matrix-index decision inputs.
+  {
+    static int dbgc = 0;
+    s32 dbg_lcmatrix = 0;
+    u32 dbg_s1a = c->gpr_addr(s1);
+    if (dbg_s1a > 16 && dbg_s1a < 0x7000000) {
+      memcpy(&dbg_lcmatrix, g_ee_main_mem + dbg_s1a + 28, 4);
+    }
+    bool s6eq64 = (c->sgpr64(s6) == c->sgpr64(s7));
+    bool s6eq32 = (c->gpr_addr(s6) == c->gpr_addr(s7));
+    if (dbgc < 600) {
+      dbgc++;
+      printf("GMENU-DBG s1=%x s6eq64=%d s6eq32=%d lc_matrix(s1+28)=%d s5flags=%llx\n", dbg_s1a,
+             (int)s6eq64, (int)s6eq32, dbg_lcmatrix, (unsigned long long)c->sgpr64(s5));
+    }
+  }
+#if defined(__aarch64__)
+  // Gmenu-textures (arm64): `bne s6, s7` tests "(launch-state override) != #f?"; when s6 is #f
+  // it must FALL THROUGH to the screen-space matrix-copy below (357-376) that writes the sprite's
+  // user-hvdf index (launch-control.matrix, s1+28) into flag-rot-sy.y (sp+148). On arm64 a full-64
+  // `sgpr64` compare MISSES #f (gpr s7 = full host base, a #f reg = bare low-32 offset), so this
+  // bne wrongly fires and JUMPS to block_23, SKIPPING the matrix write -> every progress-menu HUD
+  // sprite gets matrix index 0 -> the sprite3_3d shader falls back to the global hud_hvdf_offset
+  // (uhx/uhy=0) instead of the per-sprite user-hvdf -> all menu textures collapse to screen-center
+  // (the owner's "bunched menu"). Compare the representation-agnostic 32-bit GOAL ptr. x86
+  // unaffected (operands representation-consistent there). Same class as the GNG/Gbirds fixes.
+  bc = c->gpr_addr(s6) != c->gpr_addr(s7);          // bne s6, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(s6) != c->sgpr64(s7);              // bne s6, s7, L114
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_23;}                          // branch non-likely
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(s1) == c->gpr_addr(s7);          // beq s1, s7 (32-bit GOAL ptr; launch-control==#f?)
+#else
   bc = c->sgpr64(s1) == c->sgpr64(s7);              // beq s1, s7, L112
+#endif
   c->lw(v1, 12, s1);                                // lw v1, 12(s1)
   if (bc) {goto block_21;}                          // branch non-likely
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(v1) == c->gpr_addr(s7);          // beq v1, s7 (32-bit GOAL ptr; group==#f?)
+#else
   bc = c->sgpr64(v1) == c->sgpr64(s7);              // beq v1, s7, L112
+#endif
   c->lh(v1, 6, v1);                                 // lh v1, 6(v1)
   if (bc) {goto block_21;}                          // branch non-likely
 

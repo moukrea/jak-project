@@ -526,6 +526,17 @@
                    (- (-> *math-camera* hvdf-off z) (* 1024.0 (-> this particles s5-0 pos z)))
                    (-> *math-camera* hvdf-off w)))
     (spawn (-> this particles s5-0 part) *null-vector*))
+  ;; GMENU-DBG TEMP: dump per-particle user-hvdf matrix index + *sprite-hvdf-control* state,
+  ;; to localize why launch-control.matrix is 0 on arm64 (menu textures bunched to center).
+  (let ((nalloc 0) (firstfree -1))
+    (dotimes (i 76)
+      (when (nonzero? (-> *sprite-hvdf-control* alloc i)) (+! nalloc 1))
+      (when (and (< firstfree 0) (zero? (-> *sprite-hvdf-control* alloc i))) (set! firstfree i)))
+    (format 0 "GMENU-AS nb=~D m0=~D m1=~D m2=~D m3=~D~%"
+            (-> this nb-of-particles)
+            (-> this particles 0 part matrix) (-> this particles 1 part matrix)
+            (-> this particles 2 part matrix) (-> this particles 3 part matrix))
+    (format 0 "GMENU-AS2 nalloc=~D firstfree=~D~%" nalloc firstfree))
   0
   (none))
 
