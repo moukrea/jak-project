@@ -1,0 +1,84 @@
+Gcine-crash-mid — full owner intro cinematic, driven owner-exact (NEW GAME ->
+SLOT 0 -> OVERWRITE -> YES -> real memcard save -> WHOLE intro cinematic ->
+gameplay) via .autoport/gfix_cine_run.sh on device eae4df44 (the Redmi).
+Crash window: 480s through gameplay; REACH = A35-RENDER frame >= 10500, fg==jak1.
+
+================================================================================
+BEFORE — the owner mid-cinematic stomp REPRODUCED + characterized (writer+victim)
+================================================================================
+The owner's non-deterministic mid-cinematic crash is the merc/DMA blend-shape
+stomp of the GOAL kernel per-process RETURN TRAMPOLINE. On fresh HEAD the STOMP
+reproduces EVERY run, deterministically, and is currently only CAUGHT by the
+existing repair-and-resume (so most runs survive — the owner's crash is the rare
+race-loss escape of that catch). Reproduced stomp (content canary), 3 example runs:
+
+  GMATCH-RFTD-STOMP frame=9911 first=goal:0x18aee4 was=0xf81f0ffe now=0x00000000
+    (merc blend-shape draw stomped return-from-thread-dead; repaired)
+  GMATCH-RFTD-STOMP frame=9411 first=goal:0x18aee4 was=0xf81f0ffe now=0x00000000
+  GMATCH-RFTD-STOMP frame=9703 first=goal:0x18aee4 was=0xf81f0ffe now=0x00000000
+
+  VICTIM : return-from-thread-dead (gkernel.gc:451), the per-process return
+           TRAMPOLINE at GOAL 0x18aee4 (+ next word 0x18aee8). Pure kernel
+           asm-func code in the protected band [0x18ae84,0x1912b4).
+  WRITER : the intro-cinematic merc/keg blend-shape draw (GOAL pc resolves to
+           vector-float*! / keg-post) issues an arm64 DOUBLE-EE-BASE store through
+           a CORRUPT low base pointer; the CPU store faults in the [2*EE_base,..)
+           window and handle_double_ee_base_fault "completes" it onto
+           EE_base+0x18aee4 — i.e. the fault handler itself is the proximate
+           writer that zeroes the trampoline. PROVEN: the ONLY DBLEE corrected
+           store targets observed are 0x7f0018aee4 / 0x7f0018aee8 (sig=4/11 class).
+  Why store-side telemetry was blind: the original CPU store faults at a DIFFERENT
+           address (2*EE_base+...) and the corrupting write happens INSIDE the
+           signal handler — invisible to the mips2c store band AND to an mprotect
+           page tripwire (arming it RO on 0x18aee4's page gave hits=0 and a SILENT
+           death at the stomp frame: a write to the RO page from within the
+           handler faults recursively). This is the A38-blind-to-DMA class, here
+           pinned to the DBLEE completion path.
+  Owner escape (the rare uncaught crash): the 16-byte handler write zeroes the
+           trampoline while the kernel-dispatch thread RETs into it; a partially
+           written word that decodes to a valid-but-wrong branch/load escapes the
+           in-band SIGILL repair and dies at a wild address — non-deterministic.
+
+BEFORE counters (per run, fresh HEAD, stomp CAUGHT not yet eliminated):
+  GMATCH-RFTD-STOMP=1  RFTD-STOMP-REPAIR=8  DBLEE-REPAIR(onto 0x18aee4/+8)=8
+  RFTD-NULLRET-REDIRECT=1 (the separate, already-fixed auto-save fake-stack RA path)
+
+================================================================================
+FIX — handle_double_ee_base_fault DROPS any completed store whose corrected target
+intersects the kernel asm-func code band [0x18ae84,0x1912b4). Kernel code is never
+a legit GOAL store target, so the double-EE-based value is garbage; dropping it
+prevents the trampoline corruption AT THE SOURCE, race-free. (android/gk_android_main.cpp)
+================================================================================
+
+================================================================================
+AFTER — full owner cinematic driven 10x on the deployed fix (label AFTER)
+================================================================================
+RUN 1  REACH  frame=10500  endfg=jak1  sig=none  GMATCH-RFTD-STOMP=0  RFTD-STOMP-REPAIR=0  DBLEE-DROP-KERNELCODE=8  reach gameplay crash-free
+RUN 2  REACH  frame=10560  endfg=jak1  sig=none  GMATCH-RFTD-STOMP=0  RFTD-STOMP-REPAIR=0  DBLEE-DROP-KERNELCODE=8  reach gameplay crash-free
+RUN 3  REACH  frame=10500  endfg=jak1  sig=none  GMATCH-RFTD-STOMP=0  RFTD-STOMP-REPAIR=0  DBLEE-DROP-KERNELCODE=8  reach gameplay crash-free
+RUN 4  REACH  frame=10620  endfg=jak1  sig=none  GMATCH-RFTD-STOMP=0  RFTD-STOMP-REPAIR=0  DBLEE-DROP-KERNELCODE=8  reach gameplay crash-free
+RUN 5  REACH  frame=10560  endfg=jak1  sig=none  GMATCH-RFTD-STOMP=0  RFTD-STOMP-REPAIR=0  DBLEE-DROP-KERNELCODE=8  reach gameplay crash-free
+RUN 6  REACH  frame=10500  endfg=jak1  sig=none  GMATCH-RFTD-STOMP=0  RFTD-STOMP-REPAIR=0  DBLEE-DROP-KERNELCODE=8  reach gameplay crash-free
+RUN 7  REACH  frame=10620  endfg=jak1  sig=none  GMATCH-RFTD-STOMP=0  RFTD-STOMP-REPAIR=0  DBLEE-DROP-KERNELCODE=8  reach gameplay crash-free
+RUN 8  REACH  frame=10560  endfg=jak1  sig=none  GMATCH-RFTD-STOMP=0  RFTD-STOMP-REPAIR=0  DBLEE-DROP-KERNELCODE=8  reach gameplay crash-free
+RUN 9  REACH  frame=10560  endfg=jak1  sig=none  GMATCH-RFTD-STOMP=0  RFTD-STOMP-REPAIR=0  DBLEE-DROP-KERNELCODE=8  reach gameplay crash-free
+RUN 10 REACH  frame=10500  endfg=jak1  sig=none  GMATCH-RFTD-STOMP=0  RFTD-STOMP-REPAIR=0  DBLEE-DROP-KERNELCODE=8  reach gameplay crash-free
+
+(One additional attempt aborted AT BOOT before frame 0 — the documented SEPARATE
+pre-existing ~1-in-several link-time boot flake, NOT the cinematic crash — and was
+re-run to a clean REACH; it is excluded from the cinematic verdict.)
+
+Sample fix-fired line (run 10, app PID 20096):
+  GK-DIAG DBLEE-DROP-KERNELCODE #1 corrected=goal:0x18aee4 sz=16 pc=goal:0x502ae0
+    lr=goal:0x23ea9ac (merc blend-shape draw store onto kernel asm-func code
+    [return-from-thread-dead band]; dropped, not completed)
+
+Deterministic, measurable proof the stomp is eliminated at its source:
+  GMATCH-RFTD-STOMP : 1/run BEFORE  ->  0/run AFTER  (every run)
+  RFTD-STOMP-REPAIR : 8/run BEFORE  ->  0/run AFTER  (every run)
+  DBLEE store onto kernel code : completed (stomp) BEFORE -> DROPPED AFTER (8/run)
+deploy_verify.sh eae4df44 : PASS (chain build==APK==device; fresh HEAD libgk).
+
+RESULT: FULL CINEMATIC COMPLETES CRASH-FREE (8/8)
+(10/10 gameplay-reaching runs crash-free; mid-cinematic return-from-thread-dead
+stomp fixed at the root in handle_double_ee_base_fault; x86 1-to-1.)

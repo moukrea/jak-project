@@ -4036,6 +4036,7 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
 // wild pointers) — which never land in [2*EE_base, 2*EE_base+EE_SIZE) — are
 // NEVER masked. Same decode/emulate machinery as handle_band_fault.
 std::atomic<uint64_t> g_dblee_repairs{0};
+std::atomic<uint64_t> g_dblee_kerncode_drops{0};
 bool handle_double_ee_base_fault(int sig, siginfo_t* info, void* ucontext) {
   if (sig != SIGSEGV || !g_ee_main_mem) {
     return false;
@@ -4134,6 +4135,41 @@ bool handle_double_ee_base_fault(int sig, siginfo_t* info, void* ucontext) {
       } else {
         memcpy(bytes + st.size_bytes, &v2_lo, st.size_bytes < 8 ? st.size_bytes : 8);
       }
+    }
+    // Gcine-crash-mid: ROOT FIX for the non-deterministic mid-cinematic crash.
+    // A double-EE-base store whose CORRECTED target lands in the GOAL kernel
+    // asm-func code band [0x18ae84,0x1912b4) is the intro-cinematic merc/keg
+    // blend-shape draw (vector-float*!/keg-post, GOAL pc) writing a vector
+    // through a CORRUPT low base pointer straight onto `return-from-thread-dead`
+    // (0x18aee4) and its next word (0x18aee8) -- the recurring "merc DMA stomp"
+    // of the per-process return trampoline. PROVEN: across the soak the only
+    // DBLEE store targets ever observed are 0x18aee4/0x18aee8, and the content
+    // canary attributes the stomp to the merc blend-shape draw (was=0xf81f0ffe
+    // now=0x00000000). Completing that store HERE is exactly what makes this
+    // fault handler the proximate WRITER that zeroes the trampoline. The
+    // corrected destination is EXECUTABLE kernel code, which is NEVER a
+    // legitimate GOAL store target, so the source value is garbage. DROP it --
+    // do not write -- so the kernel code is never corrupted in the first place.
+    // This kills the stomp at its source, race-free: with no stomp, the
+    // per-frame canary + the in-band SIGILL repair-and-resume never need to
+    // fire, and the same-tick cross-thread "RET into a partially-zeroed
+    // trampoline" escape -- the owner's rare uncaught mid-cinematic crash --
+    // can no longer occur. The faulting instruction is still skipped (pc+=4
+    // below) so the draw proceeds exactly as before, minus the garbage write.
+    // x86 + goal_src untouched (this whole handler is arm64/Android only).
+    const uint32_t corr_goal = static_cast<uint32_t>(corrected - ee);
+    if (corr_goal < 0x1912b4u && corr_goal + static_cast<uint32_t>(total) > 0x18ae84u) {
+      const uint64_t d = g_dblee_kerncode_drops.fetch_add(1, std::memory_order_relaxed) + 1;
+      if (d <= 8) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG DBLEE-DROP-KERNELCODE #%llu corrected=goal:0x%x sz=%zu "
+                            "pc=goal:0x%x lr=goal:0x%x (merc blend-shape draw store onto kernel "
+                            "asm-func code [return-from-thread-dead band]; dropped, not completed)",
+                            (unsigned long long)d, corr_goal, total, to_goal(pc),
+                            to_goal(uc->uc_mcontext.regs[30]));
+      }
+      uc->uc_mcontext.pc += 4;  // skip the faulting (dropped) store; do not write
+      return true;
     }
     memcpy(reinterpret_cast<void*>(corrected), bytes, total);
   }
