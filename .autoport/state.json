@@ -115,7 +115,8 @@
     "Gffi-xmm-validate": 1,
     "Gsun-halo": 1,
     "Gparticles-stars": 2,
-    "Gmenu-placement": 1
+    "Gmenu-placement": 1,
+    "Gconsolidate-deploy": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -436,7 +437,7 @@
     "Gcine-cut": 1781936187.289037,
     "Grender-audit": 1781956108.6082983,
     "Gd1-cutscene-clock": 1781961047.086368,
-    "F1-gameplay-geyser-rock": 1782083367.3611376,
+    "F1-gameplay-geyser-rock": 1782089899.3858387,
     "Gd3-jak-cinematic": 1782013288.1353426,
     "Gd2-particles-sun": 1782023990.8373778,
     "Gconsolidate": 1782029441.4779482,
@@ -445,14 +446,16 @@
     "Gffi-xmm-validate": 1782063952.7544422,
     "Gsun-halo": 1782069201.950173,
     "Gparticles-stars": 1782078082.501728,
-    "Gmenu-placement": 1782083587.5380065
+    "Gmenu-placement": 1782083587.5380065,
+    "Gconsolidate-deploy": 1782090692.009406
   },
-  "last_update": "2026-06-22T00:32:34.844711+00:00",
+  "last_update": "2026-06-22T01:40:13.282797+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
     "Gnd-arm64-blendshape-dma-stomp": 1,
-    "Gcine-camfov": 1
+    "Gcine-camfov": 1,
+    "F1-gameplay-geyser-rock": 3
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",
