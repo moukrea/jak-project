@@ -602,6 +602,16 @@ void iop_vblank_pacer_loop() {
   const auto period = microseconds(16667);
   auto next = steady_clock::now() + period;
   bool logged = false;
+  // Phase F3: when debug.opengoal.f3.measure=1, log one "display tick" per
+  // fired vblank. This callback IS the IOP/overlord vblank that advances the
+  // game's *display* frame-counter / time at a true wall-clock 60 Hz, decoupled
+  // from render swap (the whole point of the Gd1 pacer). Logging it is an
+  // honest measurement of the SIMULATION rate for the F3 validator — it stays
+  // 60 Hz even when the renderer is capped to 30 FPS. OFF by default (one
+  // cached property read every 8 ticks); zero spam for normal runs.
+  uint64_t f3_ticks = 0;
+  unsigned f3_poll = 0;
+  bool f3_on = false;
   for (;;) {
     std::function<void()> cb;
     {
@@ -620,6 +630,17 @@ void iop_vblank_pacer_loop() {
                             "(decoupled from render swap; cutscene clock = real-time)");
       }
       cb();
+      if ((f3_poll++ & 7) == 0) {
+        char pv[8] = {0};
+        f3_on =
+            __system_property_get("debug.opengoal.f3.measure", pv) > 0 && pv[0] == '1';
+      }
+      if (f3_on) {
+        __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                            "Gd1-VBLANK display tick %llu (simulation 60 Hz; "
+                            "render rate decoupled)",
+                            (unsigned long long)(++f3_ticks));
+      }
     }
     next += period;
     auto now = steady_clock::now();

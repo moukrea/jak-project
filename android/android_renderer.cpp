@@ -20,9 +20,14 @@
 
 #include <SDL3/SDL.h>
 
+#include <sys/system_properties.h>
+
 #include <atomic>
 #include <cinttypes>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <string>
 
 #include "common/common_types.h"
 
@@ -152,6 +157,24 @@ int android_renderer_run() {
   g_a37_gl_thread = pthread_self();
   g_a37_gl_thread_set.store(true);
 
+  // === Phase F3: per-frame render cadence measurement (prop-armed) =========
+  // When debug.opengoal.f3.measure=1, record the swap-to-swap delta of every
+  // loop iteration (SDL_GetPerformanceCounter) to $HOME/F3-frame-times.csv and
+  // report a WINDOW-scoped "sustained swap" counter so the F3 validator's swap
+  // count reflects frames-in-the-measured-window (= real render FPS), not the
+  // cumulative-since-boot count. The simulation rate is unaffected: the Gd1
+  // wall-clock 60 Hz IOP/overlord vblank pacer (android_gfx.cpp) advances the
+  // game clock at 60 Hz regardless of this render cadence. OFF by default →
+  // zero cost (one cached property read every 15 frames) for all other runs,
+  // and the existing cumulative "sustained swap" log (D3/D4) is untouched.
+  const uint64_t f3_perf_freq = SDL_GetPerformanceFrequency();
+  uint64_t f3_prev_ctr = 0;
+  bool f3_have_prev = false;
+  bool f3_armed = false;
+  uint64_t f3_window_swaps = 0;
+  FILE* f3_csv = nullptr;
+  unsigned f3_poll = 0;
+
   bool running = true;
   while (running && MasterExit == RuntimeExitStatus::RUNNING) {
     SDL_Event event;
@@ -216,18 +239,82 @@ int android_renderer_run() {
     SDL_GL_SwapWindow(window);
     android_gfx::post_swap_tick();
 
+    // === Phase F3 measurement (prop-armed; see block above the loop) =======
+    if ((f3_poll++ % 15) == 0) {
+      char pv[8] = {0};
+      const bool want =
+          __system_property_get("debug.opengoal.f3.measure", pv) > 0 && pv[0] == '1';
+      if (want && !f3_armed) {
+        f3_armed = true;
+        f3_window_swaps = 0;
+        f3_have_prev = false;
+        const char* home = getenv("HOME");
+        std::string p = (home && *home)
+                            ? std::string(home) + "/F3-frame-times.csv"
+                            : std::string("/data/local/tmp/F3-frame-times.csv");
+        if (f3_csv) {
+          fclose(f3_csv);
+        }
+        f3_csv = fopen(p.c_str(), "w");
+        if (f3_csv) {
+          fprintf(f3_csv, "frame_time_us\n");
+        }
+        __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                            "F3-MEASURE armed: per-frame swap cadence -> %s "
+                            "(simulation stays 60 Hz via vblank pacer)",
+                            p.c_str());
+      } else if (!want && f3_armed) {
+        f3_armed = false;
+        if (f3_csv) {
+          fflush(f3_csv);
+          fclose(f3_csv);
+          f3_csv = nullptr;
+        }
+        __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                            "F3-MEASURE disarmed: CSV flushed (%" PRIu64
+                            " frames in window)",
+                            f3_window_swaps);
+      }
+    }
+    const uint64_t f3_now = SDL_GetPerformanceCounter();
+    if (f3_armed) {
+      if (f3_have_prev && f3_perf_freq) {
+        const uint64_t us =
+            (uint64_t)((f3_now - f3_prev_ctr) * 1000000ull / f3_perf_freq);
+        if (f3_csv) {
+          fprintf(f3_csv, "%llu\n", (unsigned long long)us);
+          if ((f3_window_swaps % 60) == 0) {
+            fflush(f3_csv);
+          }
+        }
+      }
+      f3_window_swaps++;
+    }
+    f3_prev_ctr = f3_now;
+    f3_have_prev = true;
+
+    // Keep the global counter monotonic (A37 watchdog heartbeat); report the
+    // window-scoped count while F3 is armed so the validator measures FPS in
+    // the gameplay window, not the cumulative since-boot total.
     const uint64_t n =
         g_renderer_frame_count.fetch_add(1, std::memory_order_relaxed) + 1;
-    if ((n % 60) == 0) {
+    const uint64_t report = f3_armed ? f3_window_swaps : n;
+    if ((report % 60) == 0) {
       __android_log_print(ANDROID_LOG_INFO, kLogTag,
                           "android_renderer: sustained swap %" PRIu64
                           " (game_frames=%s)",
-                          n, drew_game ? "flowing" : "none");
+                          report, drew_game ? "flowing" : "none");
     }
 
     if (!drew_game && !vsync_ok) {
       SDL_Delay(16);
     }
+  }
+
+  if (f3_csv) {
+    fflush(f3_csv);
+    fclose(f3_csv);
+    f3_csv = nullptr;
   }
 
   SDL_GL_DestroyContext(glctx);

@@ -128,7 +128,8 @@
     "Gtouch-controls": 1,
     "Gtouch-rightstick": 1,
     "Gcrash-mouche": 1,
-    "F2-gameplay-audio": 1
+    "F2-gameplay-audio": 1,
+    "F3-gameplay-30fps": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -487,9 +488,10 @@
     "Gtouch-controls": 1782224697.0343108,
     "Gcrash-geyser": 1782215978.8522267,
     "Gtouch-rightstick": 1782229745.7062078,
-    "Gcrash-mouche": 1782231216.1967835
+    "Gcrash-mouche": 1782231216.1967835,
+    "F3-gameplay-30fps": 1782241142.1616557
   },
-  "last_update": "2026-06-23T18:58:56.881282+00:00",
+  "last_update": "2026-06-23T19:19:28.819595+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
