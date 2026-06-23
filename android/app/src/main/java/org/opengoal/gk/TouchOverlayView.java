@@ -10,9 +10,15 @@
 //                  D-PAD in menus (the game navigates menus with the d-pad;
 //                  native tells us which via NativeGk.isInMenu())
 //   bottom-RIGHT : the face buttons  ✕ ○ □ △  (SOUTH/EAST/WEST/NORTH)
-//   right side   : the CAMERA — a touch-DRAG look zone (RIGHTX/RIGHTY from
-//                  the drag delta), NOT a visible joystick; any right-side
-//                  touch that misses a button pans the camera.
+//   right side   : the CAMERA — a FLOATING, INVISIBLE virtual stick. Any
+//                  right-side touch that misses a button ANCHORS an invisible
+//                  stick at the touch-down point; RIGHTX/RIGHTY = the
+//                  DEFLECTION (current finger - anchor), clamped + normalized,
+//                  so holding the finger deflected gives a SUSTAINED camera
+//                  pan (like a physical right stick), NOT a per-frame swipe
+//                  delta. Release zeroes the axes. Nothing is drawn (invisible)
+//                  — the left stick is fixed+visible, this one floats wherever
+//                  the finger lands (modern mobile "floating right stick").
 //
 // Dropped per owner: the two stick-press buttons and the standalone
 // directional pad (the left control IS the directional pad, in menu mode).
@@ -78,12 +84,19 @@ public class TouchOverlayView extends View {
 
     private static final int AXIS_MAX = 32767;   // SDL stick/trigger max
 
+    // Right camera = a FLOATING, INVISIBLE virtual stick (anchor+deflection),
+    // NOT a frame-delta drag. Full deflection (=AXIS_MAX pan rate) is reached at
+    // CAM_RADIUS_FRAC of the view height of finger travel from the anchor; a
+    // small radial deadzone suppresses anchor jitter. Owner-tunable feel.
+    private static final float CAM_RADIUS_FRAC = 0.16f;
+    private static final float CAM_DEADZONE_FRAC = 0.12f;
+
     // Control kinds.
     private static final int KIND_BUTTON = 0;  // single SDL button (face/start/select)
     private static final int KIND_L1R1 = 1;    // both shoulders
     private static final int KIND_L2R2 = 2;    // both triggers (axes)
     private static final int KIND_STICK = 3;   // left: analog stick OR menu d-pad
-    private static final int KIND_CAMERA = 4;  // right-side drag look
+    private static final int KIND_CAMERA = 4;  // right-side floating invisible deflection stick
 
     // Shapes.
     private static final int SHAPE_CIRCLE = 0;
@@ -132,7 +145,8 @@ public class TouchOverlayView extends View {
         Ctl ctl;            // null for camera / wake-only
         int kind;           // cached control kind (KIND_* or -1 for wake-only)
         boolean stickMenuMode; // latched at down: true => d-pad, false => analog
-        float lastX, lastY; // for camera drag delta
+        float lastX, lastY; // left-stick knob position (drawing only)
+        float anchorX, anchorY; // camera: floating-stick anchor, captured at touch-down
         long lastLogMs;     // per-pointer actuation-log throttle (camera/wake)
         // d-pad bits currently held by this stick-in-menu pointer.
         boolean dUp, dDown, dLeft, dRight;
@@ -296,8 +310,9 @@ public class TouchOverlayView extends View {
                 .append("->onPadAxis(LEFTX/LEFTY)[bottom-left,gameplay]");
         sb.append(" menu-dpad=<left-stick becomes a digital d-pad in menus>")
                 .append("->onPadButton(DPAD_UP/DOWN/LEFT/RIGHT)");
-        sb.append(" camera=<right-side drag, x>=").append((int) camRegionLeft)
-                .append(", not-a-visible-joystick>->onPadAxis(RIGHTX/RIGHTY)");
+        sb.append(" camera=<right-side FLOATING invisible deflection stick, anchors on touch-down at x>=")
+                .append((int) camRegionLeft)
+                .append(", RIGHTX/RIGHTY=(cur-anchor) sustained, not-drag-delta>->onPadAxis(RIGHTX/RIGHTY)");
         sb.append(" dropped=<the two stick-press buttons + the standalone directional pad>");
         Log.i(TAG, sb.toString());
     }
@@ -500,9 +515,16 @@ public class TouchOverlayView extends View {
         } else if (x >= camRegionLeft) {
             t.ctl = null;
             t.kind = KIND_CAMERA;
-            // camera begins at neutral; deltas arrive on MOVE
-            logActuate(t, "camera", "drag begin (x=" + (int) x + ",y=" + (int) y
-                    + ") -> onPadAxis(RIGHTX/RIGHTY) from drag delta", true);
+            // Anchor the floating invisible stick at the touch-down point. The
+            // camera axis is the DEFLECTION (current finger - anchor), so it
+            // starts at neutral and only pans once the finger moves off-anchor.
+            t.anchorX = x;
+            t.anchorY = y;
+            NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHTX, 0);
+            NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHTY, 0);
+            logActuate(t, "camera", "anchor (x=" + (int) x + ",y=" + (int) y
+                    + ") -> floating invisible RIGHTX/RIGHTY stick "
+                    + "(deflection = cur - anchor, sustained while held)", true);
         } else {
             t.kind = -1; // wake-only
         }
@@ -518,22 +540,17 @@ public class TouchOverlayView extends View {
                 t.lastX = x; t.lastY = y;
                 break;
             case KIND_CAMERA: {
-                float dx = x - t.lastX;
-                float dy = y - t.lastY;
-                t.lastX = x; t.lastY = y;
-                int vx = scaleCam(dx);
-                int vy = scaleCam(dy);
-                NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHTX, vx);
-                NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHTY, vy);
-                // Velocity-style look: the deflection tracks per-event motion,
-                // so a finger that holds still (no MOVE events) must decay to
-                // neutral or the camera would pan forever. Re-arm a short
-                // idle-decay after each movement.
-                handler.removeCallbacks(camIdle);
-                handler.postDelayed(camIdle, 90);
+                // Floating-stick deflection: the offset from the touch-down
+                // anchor (cur - anchor), clamped + normalized. A HELD finger
+                // keeps injecting the SAME value (sustained pan) — it does NOT
+                // decay to neutral like a per-frame swipe delta would.
+                int[] rv = camDeflection(x - t.anchorX, y - t.anchorY, camMaxRadius());
+                NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHTX, rv[0]);
+                NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHTY, rv[1]);
                 logActuateThrottled(t, "camera",
-                        "swipe -> onPadAxis(RIGHTX) value=" + vx
-                                + ", onPadAxis(RIGHTY) value=" + vy);
+                        "deflect dx=" + (int) (x - t.anchorX) + " dy=" + (int) (y - t.anchorY)
+                                + " -> onPadAxis(RIGHTX) value=" + rv[0]
+                                + ", onPadAxis(RIGHTY) value=" + rv[1] + " [sustained held]");
                 break;
             }
             default:
@@ -585,7 +602,8 @@ public class TouchOverlayView extends View {
                 }
                 break;
             case KIND_CAMERA:
-                handler.removeCallbacks(camIdle);
+                // Release the floating stick: it disappears and the look axes
+                // snap back to neutral.
                 NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHTX, 0);
                 NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHTY, 0);
                 logActuate(t, "camera", "release -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=0 (neutral)", true);
@@ -676,12 +694,28 @@ public class TouchOverlayView extends View {
         if (t.dRight) { NativeGk.onPadButton(SDL_GAMEPAD_BUTTON_DPAD_RIGHT, false); t.dRight = false; }
     }
 
-    private int scaleCam(float deltaPx) {
-        // A swipe of ~12% of the view height = full deflection. Velocity-like:
-        // the deflection tracks the per-event movement and snaps to neutral on
-        // release, like modern mobile look controls.
-        float full = Math.max(1f, getHeight() * 0.12f);
-        return clampAxis((int) (deltaPx / full * AXIS_MAX));
+    // Right-camera max-deflection radius in px: full stick (=AXIS_MAX) at
+    // CAM_RADIUS_FRAC of the view height of finger travel from the anchor.
+    private float camMaxRadius() {
+        return Math.max(60f, getHeight() * CAM_RADIUS_FRAC);
+    }
+
+    // Floating right-stick deflection. Pure function of the offset (cur -
+    // anchor) from the touch-down anchor: a small radial deadzone, then clamp
+    // to maxR and normalize to +/-AXIS_MAX. Because it reads the CURRENT offset
+    // (NOT a frame-to-frame delta), a held finger yields a SUSTAINED,
+    // non-decaying value — exactly like a physical right stick held deflected.
+    // Returns {RIGHTX, RIGHTY}. The same direction sense as the old swipe:
+    // finger right/below the anchor => +RIGHTX / +RIGHTY.
+    static int[] camDeflection(float dx, float dy, float maxR) {
+        float dead = maxR * CAM_DEADZONE_FRAC;
+        float d = (float) Math.hypot(dx, dy);
+        if (d < dead) return new int[]{0, 0};
+        float ox = dx, oy = dy;
+        if (d > maxR) { ox = dx / d * maxR; oy = dy / d * maxR; }
+        int vx = clampAxis((int) (ox / maxR * AXIS_MAX));
+        int vy = clampAxis((int) (oy / maxR * AXIS_MAX));
+        return new int[]{vx, vy};
     }
 
     private static int clampAxis(int v) {
@@ -746,15 +780,6 @@ public class TouchOverlayView extends View {
         heartbeatRunning = false;
         handler.removeCallbacks(heartbeat);
     }
-
-    // Camera idle-decay: zeroes the look axes shortly after the finger stops
-    // moving (see the camera MOVE handler).
-    private final Runnable camIdle = new Runnable() {
-        @Override public void run() {
-            NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHTX, 0);
-            NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_RIGHTY, 0);
-        }
-    };
 
     private final Runnable heartbeat = new Runnable() {
         @Override public void run() {

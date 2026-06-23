@@ -1,0 +1,25 @@
+view height=1080  camMaxRadius=172.8px  deadzone=20.7px
+
+ANCHOR at touch-down: (1800,540) -> RIGHTX=0 RIGHTY=0 (neutral)
+
+TEST 1 - finger HELD at a fixed offset (right, dx=+120), sampled 3x:
+  sample 1  finger=(1920,540)  NEW(cur-anchor) RIGHTX=22754 RIGHTY=0  |  OLD(cur-last delta) RIGHTX=30339
+  sample 2  finger=(1920,540)  NEW(cur-anchor) RIGHTX=22754 RIGHTY=0  |  OLD(cur-last delta) RIGHTX=0
+  sample 3  finger=(1920,540)  NEW(cur-anchor) RIGHTX=22754 RIGHTY=0  |  OLD(cur-last delta) RIGHTX=0
+  => NEW stays SUSTAINED (same +value while held); OLD decays to 0 after the first sample.
+
+TEST 2 - proportional to offset (held, increasing dx):
+  offset dx=20px -> RIGHTX=0 (0% of full)
+  offset dx=40px -> RIGHTX=7584 (23% of full)
+  offset dx=86px -> RIGHTX=16307 (50% of full)
+  offset dx=130px -> RIGHTX=24651 (75% of full)
+  offset dx=173px -> RIGHTX=32767 (100% of full)
+  offset dx=260px -> RIGHTX=32767 (100% of full)
+  => inside deadzone(<20.7px)=0; grows ~linearly; clamps at full beyond maxR(173px).
+
+TEST 3 - direction sense (held offsets):
+  finger BELOW anchor (dy=+120) -> RIGHTX=0 RIGHTY=22754 (+RIGHTY)
+  finger LEFT  of anchor (dx=-120) -> RIGHTX=-22754 RIGHTY=0 (-RIGHTX)
+  finger ABOVE anchor (dy=-120) -> RIGHTX=0 RIGHTY=-22754 (-RIGHTY)
+
+TEST 4 - release: onPadAxis(RIGHTX)=0, onPadAxis(RIGHTY)=0 (explicit zero pushed on UP/CANCEL).

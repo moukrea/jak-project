@@ -1,0 +1,35 @@
+== camera actuation harvest ==
+view=2298x1036 display=2400x1080
+anchor(view)=(1332,538) held1=(1446,538) held2=(1607,538) camRegionLeft=1034
+
+-- overlay-actuate: camera (Java side: anchor / deflect[sustained held] / release) --
+06-23 18:04:00.092 29381 29381 I opengoal-gk: overlay-actuate: camera anchor (x=1391,y=560) -> floating invisible RIGHTX/RIGHTY stick (deflection = cur - anchor, sustained while held)
+06-23 18:04:00.411 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=119 dy=0 -> onPadAxis(RIGHTX) value=22565, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:00.752 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=119 dy=0 -> onPadAxis(RIGHTX) value=22565, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:01.085 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=287 dy=0 -> onPadAxis(RIGHTX) value=32767, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:01.420 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=287 dy=0 -> onPadAxis(RIGHTX) value=32767, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:01.736 29381 29381 I opengoal-gk: overlay-actuate: camera release -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=0 (neutral)
+06-23 18:04:03.379 29381 29381 I opengoal-gk: overlay-actuate: camera anchor (x=1391,y=560) -> floating invisible RIGHTX/RIGHTY stick (deflection = cur - anchor, sustained while held)
+06-23 18:04:03.392 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=0 dy=0 -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:03.558 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=31 dy=0 -> onPadAxis(RIGHTX) value=5884, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:03.708 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=57 dy=0 -> onPadAxis(RIGHTX) value=10986, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:03.859 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=85 dy=0 -> onPadAxis(RIGHTX) value=16122, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:04.009 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=111 dy=0 -> onPadAxis(RIGHTX) value=21156, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:04.160 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=139 dy=0 -> onPadAxis(RIGHTX) value=26360, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:04.309 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=165 dy=0 -> onPadAxis(RIGHTX) value=31462, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:04.460 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=192 dy=0 -> onPadAxis(RIGHTX) value=32767, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:04.611 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=219 dy=0 -> onPadAxis(RIGHTX) value=32767, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:04.761 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=246 dy=0 -> onPadAxis(RIGHTX) value=32767, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:04.911 29381 29381 I opengoal-gk: overlay-actuate: camera deflect dx=273 dy=0 -> onPadAxis(RIGHTX) value=32767, onPadAxis(RIGHTY) value=0 [sustained held]
+06-23 18:04:04.979 29381 29381 I opengoal-gk: overlay-actuate: camera release -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=0 (neutral)
+
+-- onPadAxis: sdl_axis=2|3 (native JNI route reaching on_pad_axis -> cpad rx/ry) --
+06-23 18:04:00.092 29381 29381 I opengoal-gk: onPadAxis: sdl_axis=2 value=0 (JNI route from Java overlay; #0)
+06-23 18:04:03.808 29381 29381 I opengoal-gk: onPadAxis: sdl_axis=2 value=14387 (JNI route from Java overlay; #64)
+06-23 18:04:04.343 29381 29381 I opengoal-gk: onPadAxis: sdl_axis=2 value=32585 (JNI route from Java overlay; #128)
+06-23 18:04:04.878 29381 29381 I opengoal-gk: onPadAxis: sdl_axis=2 value=32767 (JNI route from Java overlay; #192)
+
+-- crash/liveness --
+fatal-signal lines: 0
+0
+06-23 18:03:50.468 29381 29451 D opengoal-gk: link finish: logo
