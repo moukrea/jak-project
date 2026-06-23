@@ -33,6 +33,14 @@ Any of these reproduces the collect crash without navigating. `cpad_inject` (syn
 available for movement if needed, but the listener-driven collect is the deterministic path.
 Fix this crash FIRST (it's reliable + instant), then verify the steps modes are also clean.
 
+**IMPORTANT (owner clarification): the fly is inside a CRATE — to collect it you BREAK the crate that
+contains it, which releases the fly. The owner does NOT know whether the CRATE-BREAK or the FLY-COLLECT
+is what crashes.** So ISOLATE the two steps: trigger (a) the fly-containing crate's BREAK
+(the crate spawns/releases its `buzzer` contents — the special "money/buzzer crate" type, distinct
+from a plain crate) and (b) the `buzzer` COLLECT, separately, and determine which one faults. Note the
+owner also reports plain crate-breaks make NO SOUND (a separate audio gap) — so the crate-break path
+is already suspect. The crash is whichever step (break-crate-releasing-fly OR collect) faults; fix that.
+
 ## Methodology — reproduce BOTH modes, name them, fix the root
 - Drive the owner's path via cpad_inject: in-game at Geyser Rock → move forward to the steps → **jump
   up the steps** → continue further. Run it **many times (≥8)** — it's intermittent, so a clean run
