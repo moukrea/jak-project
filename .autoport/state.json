@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 134,
+  "current_phase_idx": 135,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -128,7 +128,8 @@
     "Gtouch-controls": 1,
     "Gtouch-rightstick": 1,
     "Gcrash-mouche": 1,
-    "F2-gameplay-audio": 1
+    "F2-gameplay-audio": 1,
+    "F3-gameplay-30fps": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -246,6 +247,9 @@
     ],
     "Gconsolidate-deploy": [
       "b62e67382c57"
+    ],
+    "F3-gameplay-30fps": [
+      "d9f1056982fc"
     ]
   },
   "stuck_reasons": {
@@ -376,7 +380,8 @@
     "Gtouch-controls",
     "Gtouch-rightstick",
     "Gcrash-mouche",
-    "F2-gameplay-audio"
+    "F2-gameplay-audio",
+    "F3-gameplay-30fps"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -487,9 +492,10 @@
     "Gtouch-controls": 1782224697.0343108,
     "Gcrash-geyser": 1782215978.8522267,
     "Gtouch-rightstick": 1782229745.7062078,
-    "Gcrash-mouche": 1782231216.1967835
+    "Gcrash-mouche": 1782231216.1967835,
+    "F3-gameplay-30fps": 1782241142.1616557
   },
-  "last_update": "2026-06-23T18:58:56.881282+00:00",
+  "last_update": "2026-06-23T19:42:01.005784+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
