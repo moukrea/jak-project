@@ -38,4 +38,11 @@ void KernelCheckAndDispatch();
  */
 void KernelShutdown();
 
+/*!
+ * F1 (Geyser Rock) deterministic warp — env OG_F1_WARP / Android prop
+ * debug.opengoal.f1.warp, OFF by default. Fires once on the GOAL kernel thread
+ * from the dispatch loop; see kmachine.cpp for the full rationale.
+ */
+void f1_maybe_warp_to_geyser();
+
 }  // namespace jak1

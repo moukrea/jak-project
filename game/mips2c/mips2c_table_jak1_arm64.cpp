@@ -492,6 +492,35 @@ bool a37_name_is_real(const std::string& name) {
       // trampoline), but it is listed for family completeness.
       "init-ocean-far-regs", "render-ocean-quad", "draw-large-polygon-ocean",
       "ocean-interp-wave", "ocean-generate-verts",
+      // F1 (Geyser Rock gameplay): the collision query + collide-cache
+      // background-mesh-import family. On arm64 these mips2c bodies were
+      // noop-bound (logcat: 26x A37-MIPS2C-FALLBACK collide-* /
+      // moving-sphere-triangle-intersect -> shared noop, ZERO A37-MIPS2C-REAL).
+      // fill-using-bounding-box -> fill-from-background dispatches to the noop'd
+      // import methods (load-mesh-from-spad-in-box = (method 26 collide-cache),
+      // unpack-background-collide-mesh = m32, puyp-mesh = m30, cache builders
+      // m27/m28/m29) -> the collide-cache is filled with ZERO ground triangles ->
+      // moving-sphere-triangle-intersect finds no surface -> *target* gets no
+      // pat-surface ground and FREE-FALLS through the Geyser Rock floor (device Y
+      // 28259 -> -3.5M). x86 has no allowlist, binds the real bodies, and Jak
+      // lands + settles (Y 28259 -> 28317). Same arm64-only divergence class as
+      // Gsprite (sparticle) / Gwater (ocean). Enabled as a UNIT (cache fill +
+      // mesh intersect + probe + edge-grab) since the cache must be both
+      // populated AND queried — partial enablement leaves a populated-but-
+      // unqueried or queried-but-empty cache.
+      "(method 26 collide-cache)", "(method 27 collide-cache)",
+      "(method 28 collide-cache)", "(method 29 collide-cache)",
+      "(method 30 collide-cache)", "(method 32 collide-cache)",
+      "(method 9 collide-cache-prim)", "(method 10 collide-cache-prim)",
+      "(method 9 collide-puss-work)", "(method 10 collide-puss-work)",
+      "(method 11 collide-mesh)", "(method 12 collide-mesh)",
+      "(method 14 collide-mesh)", "(method 15 collide-mesh)",
+      "(method 12 collide-shape-prim-mesh)", "(method 13 collide-shape-prim-mesh)",
+      "(method 14 collide-shape-prim-mesh)", "(method 15 collide-edge-work)",
+      "(method 16 collide-edge-work)", "(method 18 collide-edge-work)",
+      "(method 10 collide-edge-hold-list)", "collide-do-primitives",
+      "moving-sphere-triangle-intersect", "collide-probe-node",
+      "collide-probe-instance-tie", "__pc-upload-collide-frag",
   };
   for (auto* n : kSet) {
     if (name == n) return true;
