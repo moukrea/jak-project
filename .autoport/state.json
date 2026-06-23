@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 127,
+  "current_phase_idx": 128,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -121,7 +121,8 @@
     "Gbirds-anim": 1,
     "Gcine-crash-mid": 1,
     "Glogo-smash": 1,
-    "Gmenu-textures": 1
+    "Gmenu-textures": 1,
+    "Glogo-garble": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -362,7 +363,8 @@
     "Gbirds-anim",
     "Gcine-crash-mid",
     "Glogo-smash",
-    "Gmenu-textures"
+    "Gmenu-textures",
+    "Glogo-garble"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -467,9 +469,10 @@
     "Gfinal-acceptance": 1782105032.8380966,
     "Gcine-crash-mid": 1782108462.914532,
     "Glogo-smash": 1782123019.0621583,
-    "Gmenu-textures": 1782163801.1671393
+    "Gmenu-textures": 1782163801.1671393,
+    "Glogo-garble": 1782191759.8555026
   },
-  "last_update": "2026-06-23T00:13:51.509593+00:00",
+  "last_update": "2026-06-23T07:11:48.360269+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
