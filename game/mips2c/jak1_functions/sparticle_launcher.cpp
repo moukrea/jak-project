@@ -350,22 +350,6 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   c->lw(s5, 104, s2);                               // lw s5, 104(s2)
   // nop                                            // sll r0, r0, 0
-  // GMENU-DBG (TEMP, removed before final): probe the user-hvdf matrix-index decision inputs.
-  {
-    static int dbgc = 0;
-    s32 dbg_lcmatrix = 0;
-    u32 dbg_s1a = c->gpr_addr(s1);
-    if (dbg_s1a > 16 && dbg_s1a < 0x7000000) {
-      memcpy(&dbg_lcmatrix, g_ee_main_mem + dbg_s1a + 28, 4);
-    }
-    bool s6eq64 = (c->sgpr64(s6) == c->sgpr64(s7));
-    bool s6eq32 = (c->gpr_addr(s6) == c->gpr_addr(s7));
-    if (dbgc < 600) {
-      dbgc++;
-      printf("GMENU-DBG s1=%x s6eq64=%d s6eq32=%d lc_matrix(s1+28)=%d s5flags=%llx\n", dbg_s1a,
-             (int)s6eq64, (int)s6eq32, dbg_lcmatrix, (unsigned long long)c->sgpr64(s5));
-    }
-  }
 #if defined(__aarch64__)
   // Gmenu-textures (arm64): `bne s6, s7` tests "(launch-state override) != #f?"; when s6 is #f
   // it must FALL THROUGH to the screen-space matrix-copy below (357-376) that writes the sprite's
@@ -590,7 +574,22 @@ u64 execute(void* ctxt) {
   c->jalr(call_addr);                               // jalr ra, t9
 
   block_39:
+#if defined(__aarch64__)
+  // Gmenu-textures (arm64) ROOT CAUSE: this `beq s6, s7` tests "(-> system is-3d) == #f?" to SKIP
+  // sp-euler-convert for 2D screen-space sprites. s6 = system.is-3d (lw s6,24,s3 -> bare low-32
+  // 0x14fd24 for #f), s7 = #f (full host base 0x7f0014fd24). A full-64 `sgpr64` compare MISSES #f
+  // on arm64, so the branch does NOT fire and a 2D menu particle WRONGLY runs sp-euler-convert
+  // (a0=sp+128 = the staging sprite). sp-euler-convert rebuilds flag-rot-sy from the euler angles,
+  // OVERWRITING flag-rot-sy.y (= sp+148 = the user-hvdf matrix INDEX written at block_22) with
+  // rotation data (~0 for a static HUD sprite). The lost index -> the sprite3 shader uses the
+  // global hud_hvdf_offset (centre) instead of hud_hvdf_user[idx] -> every menu icon collapses to
+  // screen-centre (the owner's "bunched menu"). x86's sgpr64 compare correctly skips euler-convert
+  // (operands representation-consistent there) so the index survives. Compare the 32-bit GOAL ptr;
+  // identical class to the is-3d fix at line ~379 and the GNG/Gbirds #f-guards.
+  bc = c->gpr_addr(s6) == c->gpr_addr(s7);          // beq s6, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(s6) == c->sgpr64(s7);              // beq s6, s7, L122
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_41;}                          // branch non-likely
 
