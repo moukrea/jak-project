@@ -1,0 +1,369 @@
+# Gmenu-textures GMENU-PROBE summary 2026-06-23T01:56:33+02:00
+device=eae4df44 reached_frame=5940 crash_sigs=0
+libgk_built=2026-06-23 01:54:01.935220038 +0200
+
+## GK-FPCR arm64 FPU control (fz=1 => denormal flush-to-zero ON = the bug; after clear, menu matrix should survive)
+GK-FPCR fz=0 dn=0 val=0
+
+## GK-COMMIT sp-launch: staging matrix (sp148) vs committed (v1_20) at the SAME point, gated sp148!=0
+   (sp148=1..34 & v1_20=1..34 => commit OK; sp148=1..34 & v1_20=0 => store-to-v1 broken; no lines => never reaches commit)
+GK-COMMIT sp148=1012487701 v1=1894af0 v1_20=1012487701
+GK-COMMIT sp148=1012487701 v1=1894b50 v1_20=1012487701
+GK-COMMIT sp148=1012487701 v1=1894bb0 v1_20=1012487701
+GK-COMMIT sp148=1013598669 v1=1895060 v1_20=1013598669
+GK-COMMIT sp148=1013598669 v1=18950c0 v1_20=1013598669
+GK-COMMIT sp148=1025425344 v1=1895090 v1_20=1025425344
+GK-COMMIT sp148=1025425344 v1=18950f0 v1_20=1025425344
+GK-COMMIT sp148=1028448908 v1=1894b20 v1_20=1028448908
+GK-COMMIT sp148=1028448908 v1=1894b80 v1_20=1028448908
+GK-COMMIT sp148=1037216319 v1=1894520 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=18945b0 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=18945e0 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=1894610 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=1894670 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=18946a0 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=18946d0 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=1894700 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=1894ca0 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=1894cd0 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=1894d00 v1_20=1037216319
+GK-COMMIT sp148=1037216319 v1=1894d30 v1_20=1037216319
+GK-COMMIT sp148=1044184304 v1=18952a0 v1_20=1044184304
+GK-COMMIT sp148=1044184304 v1=1895300 v1_20=1044184304
+GK-COMMIT sp148=1048464789 v1=1895d50 v1_20=1048464789
+GK-COMMIT sp148=1048464789 v1=1895db0 v1_20=1048464789
+GK-COMMIT sp148=1048464789 v1=1895e10 v1_20=1048464789
+GK-COMMIT sp148=1048759504 v1=1894520 v1_20=1048759504
+GK-COMMIT sp148=1049422933 v1=1895c90 v1_20=1049422933
+GK-COMMIT sp148=1049422933 v1=1895cf0 v1_20=1049422933
+GK-COMMIT sp148=1051826534 v1=1895360 v1_20=1051826534
+   -- distinct (sp148,v1_20) pairs --
+sp148=1012487701 v1_20=1012487701
+sp148=1013598669 v1_20=1013598669
+sp148=1025425344 v1_20=1025425344
+sp148=1028448908 v1_20=1028448908
+sp148=1037216319 v1_20=1037216319
+sp148=1044184304 v1_20=1044184304
+sp148=1048464789 v1_20=1048464789
+sp148=1048759504 v1_20=1048759504
+sp148=1049422933 v1_20=1049422933
+sp148=1051826534 v1_20=1051826534
+sp148=1054829510 v1_20=1054829510
+sp148=1055044359 v1_20=1055044359
+sp148=1056550848 v1_20=1056550848
+sp148=1057020775 v1_20=1057020775
+sp148=1057139749 v1_20=1057139749
+sp148=1057850362 v1_20=1057850362
+sp148=1058204460 v1_20=1058204460
+sp148=1060685637 v1_20=1060685637
+sp148=1061641486 v1_20=1061641486
+sp148=1064466086 v1_20=1064466086
+sp148=1064693304 v1_20=1064693304
+sp148=1064801139 v1_20=1064801139
+sp148=1065044038 v1_20=1065044038
+sp148=-1082357507 v1_20=-1082357507
+sp148=-1082369882 v1_20=-1082369882
+sp148=-1082430764 v1_20=-1082430764
+sp148=-1082460748 v1_20=-1082460748
+sp148=-1082689959 v1_20=-1082689959
+sp148=-1083165093 v1_20=-1083165093
+sp148=-1083754179 v1_20=-1083754179
+sp148=-1084138729 v1_20=-1084138729
+sp148=-1085782836 v1_20=-1085782836
+sp148=-1085937044 v1_20=-1085937044
+sp148=-1086186409 v1_20=-1086186409
+sp148=-1086371591 v1_20=-1086371591
+sp148=-1086730189 v1_20=-1086730189
+sp148=-1086793790 v1_20=-1086793790
+sp148=-1087336427 v1_20=-1087336427
+sp148=-1087687631 v1_20=-1087687631
+sp148=-1088666229 v1_20=-1088666229
+
+## GK-SPB-IN/OUT sp-process-block-2d: sprite matrix ENTERING vs LEAVING the per-frame processing
+   (IN has 1..34 but OUT has none => the per-particle processing/GOAL callback zeroed it; both 1..34 => loss is copy-from-spr/DMA; neither => copy-to-spr/spawn lost it)
+   -- GK-SPB-IN scratchpad addr range --
+GK-SPB-IN a=1a21d0
+GK-SPB-IN a=1a2200
+GK-SPB-IN a=1a2230
+   -- GK-SPB-IN matrix histogram --
+    300 mtx=1
+   -- GK-SPB-OUT matrix histogram --
+    300 mtx=1
+
+## GK-MWRITE sp-launch matrix SOURCE (launch-control.matrix s1+28) vs WRITTEN (sprite sp+148)
+   (src=1..34 written=1..34 => copy delivers index, loss downstream; written=0/1 => fallback/guard zeroed)
+      8 GK-MWRITE src=9 written=9
+      8 GK-MWRITE src=8 written=8
+      8 GK-MWRITE src=7 written=7
+      8 GK-MWRITE src=17 written=17
+      8 GK-MWRITE src=14 written=14
+      8 GK-MWRITE src=13 written=13
+      8 GK-MWRITE src=12 written=12
+      8 GK-MWRITE src=11 written=11
+      8 GK-MWRITE src=10 written=10
+      3 GK-MWRITE src=27 written=27
+      3 GK-MWRITE src=26 written=26
+      3 GK-MWRITE src=25 written=25
+      3 GK-MWRITE src=24 written=24
+      2 GK-MWRITE src=18 written=18
+      2 GK-MWRITE src=15 written=15
+      1 GK-MWRITE src=6 written=6
+      1 GK-MWRITE src=5 written=5
+      1 GK-MWRITE src=4 written=4
+      1 GK-MWRITE src=3 written=3
+      1 GK-MWRITE src=34 written=34
+      1 GK-MWRITE src=33 written=33
+      1 GK-MWRITE src=32 written=32
+      1 GK-MWRITE src=31 written=31
+      1 GK-MWRITE src=30 written=30
+      1 GK-MWRITE src=2 written=2
+   -- distinct (src,written) pairs --
+src=10 written=10
+src=11 written=11
+src=12 written=12
+src=13 written=13
+src=14 written=14
+src=15 written=15
+src=16 written=16
+src=17 written=17
+src=18 written=18
+src=19 written=19
+src=1 written=1
+src=20 written=20
+src=21 written=21
+src=22 written=22
+src=23 written=23
+src=24 written=24
+src=25 written=25
+src=26 written=26
+src=27 written=27
+src=28 written=28
+src=29 written=29
+src=2 written=2
+src=30 written=30
+src=31 written=31
+src=32 written=32
+src=33 written=33
+src=34 written=34
+src=3 written=3
+src=4 written=4
+src=5 written=5
+src=6 written=6
+src=7 written=7
+src=8 written=8
+src=9 written=9
+
+## GK-G1 render_2d_group1 (HUD/ModeHUD): chunks/sprites this frame + nonzero-matrix count + first 8 matrices
+   (sprites=0 => HUD group empty/routing bug; sprites>0 nz=0 => matrix index lost; nz>0 first=[1..34] => FIXED)
+    105 GK-G1 chunks=0 sprites=0 nz=0 first=[-99 -99 -99 -99 -99 -99 -99 -99]
+     94 GK-G1 chunks=3 sprites=128 nz=107 first=[1 2 3 4 5 6 7 7]
+   -- GK-G1 lines with sprites>0 (HUD active) --
+GK-G1 chunks=3 sprites=128 nz=107 first=[1 2 3 4 5 6 7 7]
+
+## counters (last GMENU-PROBE line: all2d total 2D-system spawns, nz = those with matrix!=0)
+all2d=105094 nz=2940
+all2d=105095 nz=2941
+all2d=105096 nz=2942
+
+## distinct nonzero-matrix (lcm!=0) GMENU-PROBE lines (THE MENU PARTICLES if source correct)
+06-23 01:54:40.942 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=2396 nz=1
+06-23 01:54:40.942 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=2397 nz=2
+06-23 01:54:40.942 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=2398 nz=3
+06-23 01:54:43.400 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=4 all2d=5464 nz=4
+06-23 01:54:43.400 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=4 all2d=5465 nz=5
+06-23 01:54:43.400 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=4 all2d=5466 nz=6
+06-23 01:54:43.439 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=4 all2d=5514 nz=7
+06-23 01:54:43.439 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=4 all2d=5515 nz=8
+06-23 01:54:43.439 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=4 all2d=5516 nz=9
+06-23 01:54:43.439 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=4 all2d=5517 nz=10
+06-23 01:54:43.439 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=4 all2d=5518 nz=11
+06-23 01:54:43.439 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=4 all2d=5519 nz=12
+06-23 01:54:43.439 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=4 all2d=5520 nz=13
+06-23 01:54:43.705 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=5877 nz=14
+06-23 01:54:43.705 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=5878 nz=15
+06-23 01:54:43.705 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=5879 nz=16
+06-23 01:54:43.705 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=5880 nz=17
+06-23 01:54:43.968 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6231 nz=18
+06-23 01:54:43.968 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6232 nz=19
+06-23 01:54:43.968 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6233 nz=20
+06-23 01:54:43.968 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6234 nz=21
+06-23 01:54:43.968 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6235 nz=22
+06-23 01:54:43.968 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6236 nz=23
+06-23 01:54:44.119 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6434 nz=24
+06-23 01:54:44.119 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6435 nz=25
+06-23 01:54:44.119 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6436 nz=26
+06-23 01:54:44.119 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6437 nz=27
+06-23 01:54:44.119 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6438 nz=28
+06-23 01:54:44.119 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=6439 nz=29
+06-23 01:54:44.922 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=7511 nz=30
+06-23 01:54:44.922 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=7512 nz=31
+06-23 01:54:44.922 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=7513 nz=32
+06-23 01:54:44.922 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=7514 nz=33
+06-23 01:54:44.922 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=7515 nz=34
+06-23 01:54:44.922 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=7516 nz=35
+06-23 01:54:44.922 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=7517 nz=36
+06-23 01:54:46.342 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9490 nz=37
+06-23 01:54:46.342 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9491 nz=38
+06-23 01:54:46.342 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9492 nz=39
+06-23 01:54:46.342 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9493 nz=40
+06-23 01:54:46.617 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9875 nz=41
+06-23 01:54:46.617 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9876 nz=42
+06-23 01:54:46.617 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9877 nz=43
+06-23 01:54:46.617 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9878 nz=44
+06-23 01:54:46.617 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9879 nz=45
+06-23 01:54:46.617 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9880 nz=46
+06-23 01:54:46.617 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=9881 nz=47
+06-23 01:54:47.306 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=11024 nz=48
+06-23 01:54:47.306 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=11025 nz=49
+06-23 01:54:47.306 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=11026 nz=50
+06-23 01:54:47.306 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=11027 nz=51
+06-23 01:54:47.306 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=11028 nz=52
+06-23 01:54:48.161 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=12498 nz=53
+06-23 01:54:48.161 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=12499 nz=54
+06-23 01:54:48.161 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=12500 nz=55
+06-23 01:54:48.272 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=12694 nz=56
+06-23 01:54:48.272 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=12695 nz=57
+06-23 01:54:48.272 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=12696 nz=58
+06-23 01:54:48.272 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=12697 nz=59
+06-23 01:54:48.272 29923 29983 I GK_STDOUT: GMENU-PROBE s1=14fd24 is2d32=1 is2d64=0 lcm=1572196 s5=c all2d=12698 nz=60
+
+## distinct lcm values seen (sorted)
+lcm=0
+lcm=1
+lcm=10
+lcm=11
+lcm=12
+lcm=13
+lcm=14
+lcm=15
+lcm=1572196
+lcm=16
+lcm=17
+lcm=18
+lcm=19
+lcm=2
+lcm=20
+lcm=21
+lcm=22
+lcm=23
+lcm=24
+lcm=25
+lcm=26
+lcm=27
+lcm=28
+lcm=29
+lcm=3
+lcm=30
+lcm=31
+lcm=32
+lcm=33
+lcm=34
+lcm=4
+lcm=5
+lcm=6
+lcm=7
+lcm=8
+lcm=9
+
+## is-3d guard divergence sample (is2d32=1 is2d64=0 means the 64-bit compare WOULD have wrongly skipped)
+   3447 is2d32=1 is2d64=0
+
+## zero-matrix sampled lines (background 2D activity, 1/200)
+06-23 01:54:39.268 29923 29983 I GK_STDOUT: GMENU-PROBE s1=1ffab4 is2d32=1 is2d64=0 lcm=0 s5=408c all2d=200 nz=0
+06-23 01:54:39.413 29923 29983 I GK_STDOUT: GMENU-PROBE s1=1ffab4 is2d32=1 is2d64=0 lcm=0 s5=408c all2d=400 nz=0
+06-23 01:54:39.519 29923 29983 I GK_STDOUT: GMENU-PROBE s1=1f23c4 is2d32=1 is2d64=0 lcm=0 s5=100 all2d=600 nz=0
+06-23 01:54:39.662 29923 29983 I GK_STDOUT: GMENU-PROBE s1=1f23c4 is2d32=1 is2d64=0 lcm=0 s5=100 all2d=800 nz=0
+06-23 01:54:39.851 29923 29983 I GK_STDOUT: GMENU-PROBE s1=1f8a44 is2d32=1 is2d64=0 lcm=0 s5=4008 all2d=1000 nz=0
+06-23 01:54:40.002 29923 29983 I GK_STDOUT: GMENU-PROBE s1=1f77c4 is2d32=1 is2d64=0 lcm=0 s5=400c all2d=1200 nz=0
+06-23 01:54:40.153 29923 29983 I GK_STDOUT: GMENU-PROBE s1=1f23c4 is2d32=1 is2d64=0 lcm=0 s5=100 all2d=1400 nz=0
+06-23 01:54:40.344 29923 29983 I GK_STDOUT: GMENU-PROBE s1=1f8a44 is2d32=1 is2d64=0 lcm=0 s5=4008 all2d=1600 nz=0
+06-23 01:54:40.494 29923 29983 I GK_STDOUT: GMENU-PROBE s1=1f8054 is2d32=1 is2d64=0 lcm=0 s5=400c all2d=1800 nz=0
+06-23 01:54:40.643 29923 29983 I GK_STDOUT: GMENU-PROBE s1=1f8054 is2d32=1 is2d64=0 lcm=0 s5=400c all2d=2000 nz=0
+
+## GMENU-ALLOC (sprite-allocate-user-hvdf returns) if present
+
+## GK-SPR3 HUD sprites (mode=2 = ModeHUD): on-screen px/py, consumed mtx index, user-hvdf uhx/uhy
+GK-SPR3 mode=2 idx=0 px=0.00 py=0.00 pz=0.00 sx=102400.0078 sy=47104.0000 mtx=1 uhx=2048.00 uhy=2048.00 tbp=0x2517 flag=0
+GK-SPR3 mode=2 idx=0 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=12 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=0 px=4300.80 py=0.00 pz=-0.00 sx=3276.8000 sy=3276.8000 mtx=27 uhx=1472.00 uhy=2110.00 tbp=0x21fd flag=0
+GK-SPR3 mode=2 idx=10 px=-100.24 py=89.27 pz=-154.67 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=103.46 py=88.35 pz=-153.08 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-104.56 py=-88.03 pz=152.51 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-108.62 py=-86.79 pz=150.37 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-113.47 py=85.23 pz=-147.66 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-113.51 py=85.21 pz=-147.63 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=114.50 py=-84.88 pz=147.07 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-116.52 py=-84.19 pz=145.87 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=117.44 py=-83.87 pz=145.31 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=117.89 py=83.71 pz=-145.04 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-118.32 py=83.56 pz=-144.77 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=118.39 py=-83.54 pz=144.74 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=11.92 py=102.20 pz=-177.07 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=121.34 py=-82.48 pz=142.89 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=121.35 py=82.47 pz=-142.88 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=123.63 py=81.62 pz=-141.41 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=12.43 py=102.19 pz=-177.05 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-1.24 py=-102.38 pz=177.37 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=126.00 py=-80.71 pz=139.83 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=126.03 py=-80.70 pz=139.81 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=12.97 py=-102.17 pz=177.02 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=13.03 py=-102.17 pz=177.02 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=132.96 py=77.87 pz=-134.91 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=133.52 py=77.63 pz=-134.50 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-137.07 py=-76.07 pz=131.79 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=137.11 py=76.05 pz=-131.76 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-137.83 py=75.72 pz=-131.20 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-137.87 py=75.70 pz=-131.16 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=140.56 py=74.46 pz=-129.00 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=140.93 py=74.28 pz=-128.70 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=142.22 py=-73.66 pz=127.63 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-142.24 py=73.66 pz=-127.62 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=143.25 py=73.16 pz=-126.76 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=144.01 py=72.79 pz=-126.12 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-144.45 py=72.57 pz=-125.74 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-144.90 py=-72.35 pz=125.35 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-145.19 py=-72.20 pz=125.10 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-145.62 py=71.99 pz=-124.72 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-148.14 py=70.69 pz=-122.48 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-148.16 py=-70.68 pz=122.46 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-148.22 py=-70.65 pz=122.41 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=148.23 py=70.64 pz=-122.39 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-151.76 py=-68.74 pz=119.11 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=152.13 py=-68.54 pz=118.75 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-152.55 py=-68.31 pz=118.36 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-155.28 py=66.75 pz=-115.65 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=155.42 py=66.67 pz=-115.51 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=155.69 py=66.51 pz=-115.24 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=157.51 py=-65.43 pz=113.36 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-158.00 py=-65.14 pz=112.85 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=159.07 py=-64.48 pz=111.72 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=161.41 py=63.02 pz=-109.18 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-161.42 py=-63.01 pz=109.17 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-167.10 py=-59.19 pz=102.55 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=168.20 py=-58.41 pz=101.20 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-168.36 py=58.29 pz=-100.99 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=168.82 py=57.96 pz=-100.41 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+
+## GK-SPR3 mtx histogram (consumed matrix index at draw time; mtx=0 => bunched to center)
+   2961 mtx=0
+   1128 mtx=9
+   1128 mtx=8
+   1128 mtx=7
+   1128 mtx=17
+   1128 mtx=14
+   1128 mtx=13
+   1128 mtx=12
+   1128 mtx=11
+   1128 mtx=10
+    423 mtx=27
+    423 mtx=26
+    423 mtx=25
+    423 mtx=24
+    282 mtx=18
+    282 mtx=15
+    141 mtx=6
+    141 mtx=5
+    141 mtx=4
+    141 mtx=34
+
+## crash signatures

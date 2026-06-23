@@ -17,7 +17,7 @@ HOLD_S="${HOLD_S:-45}"; WAIT_MAX="${WAIT_MAX:-360}"
 OUT=".autoport/reports/Gmenu-textures"
 LOG="$OUT/device-capture.log"
 SUM="$OUT/device-gtex.txt"
-GREP='GMENU-AS|GMENU-ALLOC |GMENU-DBG |GK-SPR3 mode=|GTEX (MENU|OFF|ICON|PART|DSTR|SMTX) |A35-RENDER frame=|link finish: logo|GK-DIAG sig=|Fatal signal|signal [0-9]+ \(SIG|backtrace:'
+GREP='GMENU-AS|GMENU-ALLOC |GMENU-DBG |GK-SPR3 mode=|GTEX-(INIT|WAIT|ADJ) |GTEX (MENU|OFF|ICON|PART|DSTR|SMTX) |A35-RENDER frame=|link finish: logo|GK-DIAG sig=|Fatal signal|signal [0-9]+ \(SIG|backtrace:'
 mkdir -p "$OUT"
 device_locked(){ "$ADB" shell dumpsys trust 2>/dev/null | grep -q 'deviceLocked=1'; }
 read_focus(){ "$ADB" shell dumpsys window 2>/dev/null | grep -iE 'mCurrentFocus' | head -1 | tr -d '\r'; }
@@ -88,6 +88,12 @@ echo; echo "## GMENU-ALLOC sprite-allocate-user-hvdf return probe (distinct)"
 grep -aoE 'GMENU-ALLOC .*' "$LOG" 2>/dev/null | sort -u
 echo; echo "## GMENU-DBG launch matrix-index decision probe (distinct)"
 grep -aoE 'GMENU-DBG .*' "$LOG" 2>/dev/null | sort -u
+echo; echo "## GTEX-INIT menu-particle matrix right after initialize-particles (distinct; expect mtx=-1)"
+grep -aoE 'GTEX-INIT .*' "$LOG" 2>/dev/null | sort -t= -k2 -n -u
+echo; echo "## GTEX-WAIT progress-waiting matrix pre/post sprite-allocate (distinct; expect pre=-1 post=1..34)"
+grep -aoE 'GTEX-WAIT .*' "$LOG" 2>/dev/null | sort -u
+echo; echo "## GTEX-ADJ adjust-sprites matrix at sprite-position time (distinct; expect mtx=1..34, px spread)"
+grep -aoE 'GTEX-ADJ .*' "$LOG" 2>/dev/null | sort -u
 echo; echo "## GK-SPR3 menu HUD/2D sprite vertex dump (distinct, mode=2 HUD / mode=0 2D)"
 grep -aoE 'GK-SPR3 mode=.*' "$LOG" 2>/dev/null | sort -u
 echo; echo "## GTEX MENU / OFF / ICON / SMTX (distinct)"

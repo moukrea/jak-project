@@ -1,0 +1,15 @@
+# Gmenu-textures GK-SPR3 device dump 2026-06-23T00:01:54+02:00
+device=eae4df44 reached_frame=3120 crash_sigs=0
+
+## GK-SPR3 mode=2 (ModeHUD) distinct sprites: px py = on-screen pos, mtx = matrix index, uhx uhy = user-hvdf offset
+
+## mtx histogram (consumed matrix index at draw; mtx=0 => sprite uses global hud offset = center)
+
+## px (on-screen X) distinct values for HUD sprites (spread vs bunched)
+
+## uhx (user-hvdf X) distinct values (the per-sprite hud offset that positions the sprite)
+uhx=0.00
+
+## mode=0 (Mode2D) distinct sprites
+
+## crash signatures
