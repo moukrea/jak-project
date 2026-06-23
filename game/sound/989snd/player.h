@@ -18,7 +18,14 @@
 #include "../common/synth.h"
 #include "game/sound/989snd/vagvoice.h"
 
+// Phase F2 (autoport): cubeb is the desktop OS-audio backend, confined to
+// this TU. On Android it is NOT linked (cubeb_export.h isn't even on the
+// NDK include path) — the SDL3 AAudio stream owns the device instead and
+// pulls PCM via RenderAudio()/Tick(). Guard every cubeb reference so the
+// 989snd synth cross-compiles on Bionic with no cubeb dependency.
+#ifndef __ANDROID__
 #include "third-party/cubeb/cubeb/include/cubeb/cubeb.h"
+#endif
 
 namespace snd {
 
@@ -63,6 +70,11 @@ class Player {
   void DestroyCubeb();
   s32 GetTick() { return mTick; };
   void StopAllSounds();
+  // Phase F2 (autoport): Android PCM pull. The SDL3 AAudio callback calls
+  // this to fill `frames` interleaved-stereo s16 frames — the exact same
+  // mix the desktop cubeb thread produces via Tick(). Public wrapper so the
+  // android_input_audio TU can reach the otherwise-private Tick().
+  void RenderAudio(s16Output* stream, int frames) { Tick(stream, frames); }
   s32 GetSoundUserData(BankHandle block_handle,
                        char* block_name,
                        s32 sound_id,
@@ -85,6 +97,7 @@ class Player {
   VoiceManager mVmanager;
   s32 mTick{0};
 
+#ifndef __ANDROID__
   cubeb* mCtx{nullptr};
   cubeb_stream* mStream{nullptr};
 
@@ -94,5 +107,6 @@ class Player {
                              void* output_buffer,
                              long len);
   static void state_callback(cubeb_stream* stream, void* user, cubeb_state state);
+#endif
 };
 }  // namespace snd

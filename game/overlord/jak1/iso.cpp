@@ -722,6 +722,12 @@ u32 ISOThread() {
               unk = 0;
             } else {
               PauseVAG(in_progress_vag_command);
+#ifdef __ANDROID__
+              // Phase F2 (autoport): audio-trigger marker — the active VAG
+              // stream is paused at the engine's explicit request.
+              printf("PauseStream @ #x%llX\n",
+                     (unsigned long long)(uintptr_t)in_progress_vag_command);
+#endif
               unk = 1;
             }
             vag_paused = 1;
@@ -1253,6 +1259,12 @@ static u32 ProcessVAGData(IsoMessage* _cmd, IsoBufferHeader* buffer_header) {
     }
     snd_keyOnVoiceRaw(gVoice & 1, gVoice >> 1);
     vag->started = 1;
+#ifdef __ANDROID__
+    // Phase F2 (autoport): audio-trigger marker — a streamed VAG (music /
+    // voice / ambience) has keyed on its SPU voice and begins playing. Fires
+    // at the same game-state point the desktop synth starts the stream.
+    printf("PlayVag @ #x%llX\n", (unsigned long long)(uintptr_t)vag);
+#endif
     vag->data_left -= buffer_header->data_size;
     buffer_header->data_size = 0;
   }
@@ -1363,6 +1375,11 @@ static s32 CheckVAGStreamProgress(VagCommand* vag) {
 }
 
 static void StopVAG(VagCommand* vag) {
+#ifdef __ANDROID__
+  // Phase F2 (autoport): audio-trigger marker — a streamed VAG is being
+  // stopped (RPC stop, higher-priority preemption, or end-of-stream).
+  printf("StopVag @ #x%llX\n", (unsigned long long)(uintptr_t)vag);
+#endif
   gPlaying = false;
   PauseVAG(vag);
   snd_keyOffVoiceRaw(gVoice & 1, gVoice >> 1);

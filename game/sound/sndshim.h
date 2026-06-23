@@ -86,3 +86,10 @@ s32 snd_GetSoundUserData(snd::BankHandle block_handle,
                          char* sound_name,
                          SFXUserData* dst);
 void snd_SetSoundReg(s32 sound_handle, s32 which, u8 val);
+
+// Phase F2 (autoport): Android audio sink bridge. The SDL3 AAudio callback
+// (android/android_input_audio.cpp) calls this to fill `frames` interleaved
+// stereo s16 frames straight from the 989snd synth — the same mix the
+// desktop cubeb thread renders via Player::Tick. Writes silence (and returns)
+// when the sound system isn't up yet. Stereo: out holds frames*2 s16 samples.
+void snd_AndroidPullStereoS16(s16* out, int frames);
