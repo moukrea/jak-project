@@ -77,11 +77,18 @@ A shell rm -f "$STAGE" >/dev/null 2>&1 || true
 # Deploy-landing guard: PROVE the device runs the freshly built HEAD libgk.so.
 bash .autoport/lib/deploy_verify.sh "$SERIAL" || { echo "FAIL: deploy_verify (device not running fresh HEAD libgk)"; exit 1; }
 
-echo "== F1 step 4/5: arm probe, launch, drive NEW GAME -> cinematic -> Geyser Rock =="
-# Arm the F1 census BEFORE launch (the probe's static-init reads the prop on the
-# first eichar draw). OFF by default; this run turns it on.
+echo "== F1 step 4/5: arm probe + deterministic warp, launch, settle at Geyser Rock =="
+# Arm the F1 census (reads *target* control trans) AND the deterministic warp
+# BEFORE launch. The warp (kmachine.cpp f1_maybe_warp_to_geyser) replicates the
+# desktop oracle's `(start 'play (get-continue-by-name *game-info* "game-start"))`
+# once on the GOAL kernel thread after the engine is ready, so the device reaches
+# the SAME Geyser Rock 'training game-start spawn the x86 oracle measures —
+# bypassing the (separately-tracked, still-broken) arm64 intro-cinematic
+# control-transfer, exactly as the oracle's listener warp bypasses it on desktop.
 A shell setprop debug.opengoal.f1.census 1 >/dev/null 2>&1 || true
+A shell setprop debug.opengoal.f1.warp   1 >/dev/null 2>&1 || true
 echo "  prop debug.opengoal.f1.census = $(A shell getprop debug.opengoal.f1.census | tr -d '\r')"
+echo "  prop debug.opengoal.f1.warp   = $(A shell getprop debug.opengoal.f1.warp | tr -d '\r')"
 
 A shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
 clear_inject
@@ -106,41 +113,26 @@ trap cleanup EXIT
 A shell am start -W -n "$PACKAGE/$ACTIVITY" >/tmp/f1-am.out 2>&1 || true
 grep -q 'Error' /tmp/f1-am.out && { cat /tmp/f1-am.out; echo "FAIL: am start"; exit 1; }
 
-# Warm up to the interactive title (poll for the title link milestone).
-echo "  warming up to title (link finish: logo, up to 90s)..."
-for i in $(seq 1 90); do grep -qa "link finish: logo" "$BOOT_LOG" && { echo "  title linked ~${i}s"; break; }; sleep 1; done
-sleep 40  # let the attract FULLY settle before the first START. 8s was too short:
-          # an unsettled title can eat the first injection and leave the game in
-          # the logo-intro attract loop. The proven G-phase reach scripts
-          # (gd3_device_census.sh / gcine_cut_reach.sh / gfix_cine_run.sh) all
-          # wait ~40s after `link finish: logo` before the first inject.
+# Warm up to the interactive title (poll for the title link milestone). NO input
+# is injected: the warp hook fires itself once the engine is ready (it gates on
+# *game-info*/*target-dead-pool* + a settle delay), so we just wait and watch.
+echo "  warming up to title (link finish: logo, up to 120s)..."
+for i in $(seq 1 120); do grep -qa "link finish: logo" "$BOOT_LOG" && { echo "  title linked ~${i}s"; break; }; sleep 1; done
 
-# Canonical NEW-GAME -> "continue without saving" injection (the proven Gd2/Gd3
-# sequence that reaches master-mode=game / Geyser Rock crash-free on this build).
-echo "  drive: START -> NEW GAME -> CONTINUE WITHOUT SAVING"
-inject "start"; sleep 1.2; clear_inject; sleep 4
-inject "down"; sleep 0.4; clear_inject; sleep 1.5
-inject "down"; sleep 0.4; clear_inject; sleep 1.5
-inject "up";   sleep 0.4; clear_inject; sleep 1
-inject "up";   sleep 0.4; clear_inject; sleep 1.5
-inject "x";    sleep 0.6; clear_inject; sleep 3
-inject "down"; sleep 0.4; clear_inject; sleep 1
-inject "down"; sleep 0.4; clear_inject; sleep 1
-inject "down"; sleep 0.4; clear_inject; sleep 1
-inject "down"; sleep 0.4; clear_inject; sleep 1
-inject "x";    sleep 0.6; clear_inject; sleep 4
+# Confirm the warp armed + fired (diagnostic; the real gate is training-vis below).
+echo "  waiting for the deterministic warp to fire (up to 90s)..."
+for i in $(seq 1 90); do
+    grep -qa "\[F1-WARP\] (start 'play game-start)" "$BOOT_LOG" && { echo "  warp fired ~${i}s after title"; break; }
+    sleep 1
+done
 
-# Two-phase settle. The probe now streams F1-STATE ONLY for the gameplay player
-# model (eichar-lod*), so the boot ND-logo / title-attract / cinematic puppets
-# (eichar-ndi-intro, eichar-*-intro-sequence) no longer pollute the capture.
-#  (1) Wait for the REAL training-level load — the new-game intro cinematic plays
-#      out first (~2-3 min). This is the unfakeable kernel marker the validator
-#      also checks; gating on it removes the old early-stop bug where the run
-#      latched onto the frozen title-attract samples and quit in ~44s.
+# Two-phase settle.
+#  (1) Wait for the REAL training-level load triggered by the warp's
+#      (start 'play game-start). This is the unfakeable kernel marker the
+#      validator also checks.
 #  (2) Once training is loaded, idle with NO input so Jak settles to the spawn
 #      rest, letting the probe accumulate a long STABLE run that mirrors the
-#      desktop oracle's 42 identical idle samples (the path-independent
-#      equilibrium of standing at the training-start continue point).
+#      desktop oracle's 42 identical idle samples at the training-start continue.
 crash_seen() {
     grep -qaE 'Fatal signal|signal (11|6|4) \(SIG|GK-DIAG sig=(4|6|11)' "$BOOT_LOG" \
         && grep -qaE '>>> org.opengoal.gk.jak1' "$BOOT_LOG"
@@ -168,13 +160,18 @@ if [ "$TRAIN_OK" = 1 ]; then
         sleep 5
         if crash_seen; then echo "   >>> native crash during settle"; break; fi
         NSAMP=$(grep -ac 'F1-STATE ' "$BOOT_LOG" 2>/dev/null || echo 0)
-        # longest stable run among ALL (gameplay-only) F1-STATE samples (rounded to 1 unit)
-        STABLE=$(grep -aE 'F1-STATE tx=' "$BOOT_LOG" 2>/dev/null | awk '
-            { if (match($0, /tx=([-0-9.]+) ty=([-0-9.]+) tz=([-0-9.]+)/, m)) {
+        # longest stable run among POST-WARP F1-STATE samples only (rounded to 1
+        # unit). Gating on the warp marker is essential: the pre-warp title-attract
+        # plateau is itself a long stable run and would false-trigger "settled"
+        # before the warp even fires, ending the capture before Jak's real spawn
+        # state develops (the bug that truncated the first runs to ~2s).
+        STABLE=$(awk '
+            /\[F1-WARP\] \(start .play game-start\)/ { warped=1; next }
+            warped && match($0, /tx=([-0-9.]+) ty=([-0-9.]+) tz=([-0-9.]+)/, m) {
                 k=sprintf("%d|%d|%d", m[1], m[2], m[3]);
                 if (k==prev) run++; else run=1; prev=k;
-                if (run>best) best=run } }
-            END { print best+0 }')
+                if (run>best) best=run }
+            END { print best+0 }' "$BOOT_LOG" 2>/dev/null)
         if (( i % 3 == 0 )); then echo "   [settle ${i}/${T2}] F1-STATE=$NSAMP stable_run=$STABLE"; fi
         if [ "${STABLE:-0}" -ge "$STABLE_NEEDED" ]; then
             echo "   >>> settled at spawn: stable_run=$STABLE (>= $STABLE_NEEDED)"; SETTLED=1
@@ -193,18 +190,30 @@ A pull /sdcard/F1-screencap.png "$SCREENCAP" >/dev/null 2>&1 || true
 A shell rm -f /sdcard/F1-screencap.png >/dev/null 2>&1 || true
 
 # Parse the settled F1-STATE -> JSON (longest stable run = Jak idle at the spawn).
+# Only POST-WARP samples count: the deterministic warp (start 'play game-start)
+# fires part-way through the capture, and the pre-warp title-attract plateau
+# (village1-hut, tx~-635000) would otherwise win the longest-stable-run vote and
+# false-green a position 6M units from the real Geyser Rock spawn. Gate on the
+# warp marker so we measure ONLY Jak's settled state at the training spawn.
 python3 - "$BOOT_LOG" "$STATE_DUMP" <<'PY'
 import sys, re, json
 log, out = sys.argv[1], sys.argv[2]
 pat = re.compile(r'F1-STATE tx=([-0-9.]+) ty=([-0-9.]+) tz=([-0-9.]+)')
+WARP_MARK = "[F1-WARP] (start 'play game-start)"
 samples = []
+warped = False
 with open(log, encoding='utf-8', errors='replace') as fh:
     for line in fh:
+        if not warped:
+            if WARP_MARK in line:
+                warped = True
+            continue
         m = pat.search(line)
         if m:
             samples.append(tuple(float(x) for x in m.groups()))
 if not samples:
-    print("F1-PARSE: no F1-STATE samples — device never reached gameplay probe", file=sys.stderr)
+    print("F1-PARSE: no post-warp F1-STATE samples — warp never reached gameplay probe",
+          file=sys.stderr)
     sys.exit(0)  # leave STATE_DUMP absent -> validator fails honestly with a clear msg
 # longest run of consecutive samples identical when rounded to 1 unit
 def key(s): return tuple(round(v) for v in s)

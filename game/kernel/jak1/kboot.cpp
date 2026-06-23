@@ -163,6 +163,12 @@ void KernelCheckAndDispatch() {
 
     ClearPending();
 
+    // F1 (Geyser Rock) deterministic warp — gated (env OG_F1_WARP / prop
+    // debug.opengoal.f1.warp), OFF by default, fires once. Runs here on the GOAL
+    // kernel thread, between dispatch frames — the same point a listener-injected
+    // form would run on the desktop oracle.
+    f1_maybe_warp_to_geyser();
+
     // if the listener function changed, it means the kernel ran it, so we should notify compiler.
     if (MasterDebug && ListenerFunction->value != old_listener) {
       SendAck();

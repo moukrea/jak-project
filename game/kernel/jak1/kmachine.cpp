@@ -44,6 +44,11 @@
 #include "game/sce/sif_ee.h"
 #include "game/sce/stubs.h"
 
+#include <cstdlib>
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
+
 using namespace ee;
 
 namespace jak1 {
@@ -640,6 +645,127 @@ void InitMachineScheme() {
     lg::info("calling play");
     call_goal_function_by_name("play");
   }
+}
+
+// ─── F1 (Geyser Rock gameplay) deterministic warp ──────────────────────────────
+// Env OG_F1_WARP / Android prop debug.opengoal.f1.warp — OFF by default.
+//
+// Replicates, ONCE on the GOAL kernel thread, the desktop F1 oracle's listener
+// command  (start 'play (get-continue-by-name *game-info* "game-start")) .
+// The Android build registers Deci2Server with NO socket (android_runtime_full.cpp),
+// so the device cannot be driven by the goalc listener the way f1_x86_dump.sh
+// drives the desktop oracle. This hook lets the device reach the SAME Geyser Rock
+// ('training) "game-start" spawn the x86 oracle measures, so the F1 device-vs-desktop
+// position match is a true apples-to-apples physics-settle determinism test — both
+// sides bypass the intro cinematic (whose arm64 control-transfer is a separate,
+// independently-tracked blocker). Verified on desktop x86 FIRST: with OG_F1_WARP=1
+// it must reproduce the listener oracle's settle (-5393129 / 28317 / 4362849).
+//
+// The explicit-pp C->GOAL trampoline (same one mips2c's jalr uses): runs a GOAL
+// function with a caller-chosen process pointer (GOAL reg R13). Needed because
+// the plain call_goal hardcodes pp = symbol-table base, which makes `start`'s
+// process-spawn deref a garbage parent and SIGSEGV. On arm64 the systemv name is
+// a thin wrapper to _call_goal8_asm_arm64 (linux_arm64_runtime_compat.cpp).
+extern "C" u64 _call_goal8_asm_systemv(void* func, u64* arg_array, u64 zero, u64 pp, u64 st,
+                                       void* off);
+
+// Builds a GOAL-callable trampoline around a C function (jak1/kscheme.cpp). Not
+// declared in any header, so forward-declare it here.
+Ptr<Function> make_function_from_c(void* func, bool arg3_is_pp);
+
+static bool f1_warp_requested() {
+  if (std::getenv("OG_F1_WARP")) {
+    return true;
+  }
+#if defined(__ANDROID__)
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("debug.opengoal.f1.warp", buf) > 0 && buf[0] == '1') {
+    return true;
+  }
+#endif
+  return false;
+}
+
+// The warp body — invoked BY THE KERNEL (kernel-dispatcher -> reset-and-call) as
+// *listener-function*, so it runs with a live current process (pp) on a real
+// process stack: the context `start`/`process-spawn` require. GOAL registers are
+// NOT preserved across the make_function_from_c trampoline, so re-read everything
+// and pass pp explicitly to the _call_goal8 trampoline (plain call_goal would
+// reset pp to the symbol-table base, which crashes process-spawn).
+static u64 f1_warp_run() {
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    lg::warn("[F1-WARP] run: *game-info* not ready");
+    return 0;
+  }
+  u64 name = make_string_from_c("game-start");
+  Ptr<Type> gi_type(*Ptr<u32>(gi - 4));  // basic: type tag is the word before field-0
+  u64 cont = call_method_of_type_arg2(gi, gi_type, 18 /*get-continue-by-name*/, (u32)name, 0);
+  lg::info("[F1-WARP] get-continue-by-name(\"game-start\") -> #x{:x}", (u32)cont);
+  if (cont == 0 || cont == (u32)s7.offset) {
+    lg::warn("[F1-WARP] continue 'game-start' not found; warp aborted");
+    return 0;
+  }
+  u32 start_fn = intern_from_c("start")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  u64 args[8] = {intern_from_c("play").offset, cont, 0, 0, 0, 0, 0, 0};
+  u64 tgt = _call_goal8_asm_systemv((void*)(g_ee_main_mem + start_fn), args, 0, (u64)lp,
+                                    (u64)s7.offset, g_ee_main_mem);
+  lg::info("[F1-WARP] (start 'play game-start) -> *target* #x{:x}", (u32)tgt);
+  return tgt;
+}
+
+void f1_maybe_warp_to_geyser() {
+  static bool s_done = false;
+  if (s_done) {
+    return;
+  }
+  if (!f1_warp_requested()) {
+    return;
+  }
+  // Readiness: *game-info* bound to a real boxed basic, and `start` bound to a fn.
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  u32 start_fn = intern_from_c("start")->value;
+  if (start_fn == 0 || start_fn == (u32)s7.offset) {
+    return;
+  }
+  // The spawn machinery `start` -> process-spawn draws from must exist, else the
+  // warp derefs uninitialized engine state and crashes. *target-dead-pool* (the
+  // :from pool of `start`'s process-spawn) is bound only after engine init, so it
+  // is a precise "engine ready for target spawn" gate.
+  u32 dead_pool = intern_from_c("*target-dead-pool*")->value;
+  if (dead_pool == 0 || dead_pool == (u32)s7.offset) {
+    return;
+  }
+  // Settle margin: tick count AFTER the engine is ready (the checks above all
+  // pass), letting the title attract fully come up before `(start 'play ...)`
+  // fires — mirroring the desktop oracle's wait past `link finish: logo`. Tunable
+  // via OG_F1_WARP_DELAY (kernel-dispatch ticks); default ~10s @ 60Hz.
+  int delay = 600;
+  if (const char* d = std::getenv("OG_F1_WARP_DELAY")) {
+    delay = atoi(d);
+  }
+  static int s_ticks = 0;
+  if (s_ticks++ < delay) {
+    return;
+  }
+  s_done = true;
+
+  // Hand the warp to the kernel's *listener-function* slot. kernel-dispatcher
+  // runs it via `reset-and-call` INSIDE the dispatch frame, on the listener
+  // process's own stack and with pp (GOAL reg R13) set to a real process — the
+  // exact context `start` -> `process-spawn` requires. A raw C-side call (even
+  // _call_goal8 with an explicit pp) runs `start` off the dispatch stack with no
+  // live process context and SIGSEGVs in process-spawn. This mirrors the desktop
+  // F1 oracle, which warps by sending `(start 'play game-start)` to the same
+  // listener-function slot over the goalc socket (unavailable on Android).
+  Ptr<Function> warp_fn = make_function_from_c((void*)f1_warp_run, false);
+  ListenerFunction->value = warp_fn.offset;
+  lg::info("[F1-WARP] armed *listener-function* = #x{:x}; kernel will run the warp in-context",
+           warp_fn.offset);
 }
 
 }  // namespace jak1
