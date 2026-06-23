@@ -1,0 +1,24 @@
+## buzz1 (BEFORE — crash reproduced, sig=4)
+06-23 19:04:52.232  5696  5756 I GK_STDOUT: MOUCHE-BUZZ #1 proc=#x1ec944 fact=#x38ac344 pos=#x1c5e60 status=#x20 name=#x21063c (real buzzer spawned at Jak)
+06-23 19:04:52.583  5696  5782 F opengoal-gk: GK-DIAG sig=4 fault=0x7f00000000 pc=0x7f00000000 lr=0x7f004d102c
+06-23 19:04:52.583  5696  5782 F opengoal-gk: A38-TRIPWIRE lr nearest-fn 'enter-state' start=0x4d0b84 off=+0x4a8 slot=0x154d84
+06-23 19:04:52.583  5696  5782 F opengoal-gk: GK-DIAG F1A-MERC-DRAW di=0/1 tex=0x30 first_bone=0 idx=1188+27127 vao=12 vtx=55 idx-buf=54 envmap=0 mod=0 nostrip=0
+06-23 19:04:52.583  5696  5782 F opengoal-gk: GK-DIAG GSPARK-PP pp=0x1ec944 (x13=0x1ec944)
+06-23 19:04:52.583  5696  5782 F opengoal-gk: GK-DIAG GSPARK-PP go-state=0x1f74f74 name-sym=0x14e894 exit=0x14fd24 code=0x1f6d744 trans=0x14fd24 post=0x14fd24 enter=0x1f6d6f4 event=0x1f6d654
+
+## buzz4 (split global heap — stomp followed)
+06-23 19:45:14.877 10432 10551 I GK_STDOUT: FSS-SPLIT old=0x1a0000 new=0x38b0000
+06-23 19:45:23.259 10432 10640 F opengoal-gk: GK-DIAG ENTER-STATE-CODE-REPAIR #1 sig=4 pp=0x1ec944 state=0x1f74f74 code=0x1f6d744 -> resumed into authoritative state code (enter-state spilled new-state stomped to 0 by a concurrent DMA write)
+06-23 19:50:59.063 11601 11655 I GK_STDOUT: FSS-SPLIT old=0x1a0000 new=0x38b0000
+06-23 19:51:07.437 11601 11686 F opengoal-gk: GK-DIAG ENTER-STATE-CODE-REPAIR #1 sig=4 pp=0x1ec944 state=0x1f74f74 code=0x1f6d744 -> resumed into authoritative state code (enter-state spilled new-state stomped to 0 by a concurrent DMA write)
+06-23 19:51:14.286 11601 11686 F opengoal-gk: GK-DIAG A37-HANG-FP[0] fp=0x7f038b7990 ret=0x7425b23530 _ZN2lg3logIJRKmRmEEEvNS_5levelERKNSt6__ndk112basic_stringIcNS5_11char_traitsIcEENS5_9allocatorIcEEEEDpOT_+0x40 (libgk.so)
+06-23 19:51:14.286 11601 11686 F opengoal-gk: GK-DIAG A37-HANG-FP[1] fp=0x7f038b7a10 ret=0x7425b23490 _Z28assert_print_buffer_has_roomPKh+0xac (libgk.so)
+
+## buzz6 (split debug heap — stomp followed)
+06-23 20:27:34.143 18554 18616 I GK_STDOUT: FSS-SPLIT old=0x1a0000 new=0x5310000
+06-23 20:27:42.507 18554 18642 F opengoal-gk: GK-DIAG ENTER-STATE-CODE-REPAIR #1 sig=4 pp=0x1ec944 state=0x1f74f74 code=0x1f6d744 -> resumed into authoritative state code (enter-state spilled new-state stomped to 0 by a concurrent DMA write)
+
+## buzz5 (format bound — still a format LOOP, 1.85M overflows)
+06-23 20:17:07.629 16962 17020 I GK_STDOUT: FSS-SPLIT old=0x1a0000 new=0x38b0000
+06-23 20:17:16.008 16962 17058 F opengoal-gk: GK-DIAG ENTER-STATE-CODE-REPAIR #1 sig=4 pp=0x1ec944 state=0x1f74f74 code=0x1f6d744 -> resumed into authoritative state code (enter-state spilled new-state stomped to 0 by a concurrent DMA write)
+Print Buffer Overflow count: 1854535

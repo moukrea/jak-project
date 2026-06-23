@@ -104,7 +104,14 @@ s32 format_impl_jak1(uint64_t* args) {
   char* format_ptr = format_cstring;
 
   // loop over the format string
+  // og:autoport — backstop: if any directive (or a corrupt/garbage format string)
+  // pushed output past the print-buffer headroom, stop now and truncate rather than
+  // run away megabytes past the buffer (the arm64 scout-fly collect format-runaway).
+  const char* fmt_out_lim = PrintBufArea.cast<char>().c() + (PrintBufSize - 1024);
   while (*format_ptr) {
+    if (output_ptr >= fmt_out_lim) {
+      break;  // print-buffer full — truncate the rest of this format
+    }
     // got a command?
     if (*format_ptr == '~') {
       char* arg_start = format_ptr;
@@ -240,8 +247,21 @@ s32 format_impl_jak1(uint64_t* args) {
         case 'g': {
           *output_ptr = 0;
           u32 in = arg_regs[arg_reg_idx++];
-          kstrcat(output_ptr, Ptr<char>(in).c());
-          output_ptr = strend(output_ptr);
+          // og:autoport — bound the C-string copy. The original kstrcat reads until a
+          // NULL; a GOAL fixed-width / non-NULL-terminated buffer (e.g. a sound
+          // `cmd name`) then reads megabytes, overflowing the print buffer and hanging
+          // (the arm64 scout-fly collect format-runaway; x86 happens to hit a NULL
+          // early). Cap at the print-buffer headroom AND the EE memory bound, so the
+          // worst case is a truncated string instead of a runaway.
+          char* g_dst = output_ptr;
+          const char* g_lim = PrintBufArea.cast<char>().c() + (PrintBufSize - 1024);
+          const char* g_src = Ptr<char>(in).c();
+          const char* g_src_end = (const char*)(g_ee_main_mem + EE_MAIN_MEM_SIZE);
+          while (g_dst < g_lim && g_src < g_src_end && *g_src) {
+            *g_dst++ = *g_src++;
+          }
+          *g_dst = 0;
+          output_ptr = g_dst;
         } break;
 
         case 'A':  // print a boxed object

@@ -1,0 +1,10 @@
+RESULT tag=buzz2 status=INCONCLUSIVE(fires=1,frames+0,focus=yes)
+  mouche_fires=1  render_frames +0 (from 480 to 480)  focus_app=yes
+  sig=none
+  mouche-markers: 06-23 19:17:10.494  7674  7752 I GK_STDOUT: MOUCHE-ARM fire 1/8 mode=buzzer (settle=300 gap=180);06-23 19:17:10.494  7674  7752 I GK_STDOUT: MOUCHE-BUZZ #1 proc=#x1ec944 fact=#x38ac344 pos=#x1c5e60 status=#x20 name=#x21063c (real buzzer spawned at Jak);
+  near-fn: none
+  merc-draw: none
+  symbolize: none
+  gspark: none
+  stomps: none
+  backtrace: none

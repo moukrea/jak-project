@@ -45,4 +45,12 @@ void KernelShutdown();
  */
 void f1_maybe_warp_to_geyser();
 
+/*!
+ * Gcrash-mouche — buzzer scout-fly pickup HUD-FX repro/verify. Env OG_MOUCHE_FX /
+ * Android prop debug.opengoal.mouche.fx, OFF by default. Spawns the manipy
+ * fly-to-HUD effect (the buzzer-collect crash path) repeatedly from the dispatch
+ * loop; see kmachine.cpp for the full rationale.
+ */
+void mouche_maybe_fire();
+
 }  // namespace jak1
