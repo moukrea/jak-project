@@ -1,0 +1,141 @@
+================================================================================
+Glogo-garble — the logo-smash garble + the GND-OOB-WRITE, root-caused x86-first
+Owner ground truth 2026-06-22: the J&D logo-smash (breaking the black screen)
+renders GARBLED/CORRUPTED on the arm64 device — mesh scrambled during/after the
+smash. Prior Glogo-smash false-greened on tris+state (blind to visual garble).
+================================================================================
+
+RESULT: LOGO GEOMETRY INTACT — OOB WRITE ELIMINATED (device)
+
+The garbled J&D logo smash now renders CLEAN on the device (gold JAK·AND·DAXTER
+letters + the blue radial speed-line burst, pixel-matching the pristine golden
+.autoport/gold/pristine-frames/intro-logo-reveal-f001110.png). The GND-OOB-WRITE
+telemetry is ELIMINATED on the device (~400 -> 0). Proven by a controlled A/B on
+one binary (gate file glogo_oldrepair): OLD repair = torn black shards (the
+owner's garble), NEW fix = clean. our-x86 == original-x86 (1-to-1; no goal_src
+edit; the fix is arm64-only translation-layer glue).
+
+--------------------------------------------------------------------------------
+PART 1 — THE GND-OOB-WRITE IS A FALSE POSITIVE (the phase's "smoking gun" was a dud)
+--------------------------------------------------------------------------------
+The Glogo-smash phase saw a GND-OOB-WRITE firing ~400x during the logo intro and
+assumed it was an out-of-bounds write STOMPING the logo geometry. Characterizing
+the writer/target proved it is a BENIGN FALSE POSITIVE, NOT a stomp:
+
+  WRITER  : the OCEAN renderer. Every "band" GND-OOB-WRITE is kind=q/Q (16-byte
+            VU store), contiguous target range GOAL-offset 0x51a990..0x51bff0,
+            SANE vertex-coordinate float values (e.g. 0x438a872b=277.0,
+            0x44b9d062=1486.5, 0xc40bdc29=-559.4 — no NaN/garbage), all from one
+            mips2c execute() body called via the mips2c trampoline. addr2line
+            (fresh self-consistent build) resolves the store sites to
+            Mips2C::jak1::ocean_interp_wave::execute / ocean_generate_verts::execute
+            (game/mips2c/jak1_functions/ocean_vu0.cpp).
+  TARGET  : the display global-buf, IN-BOUNDS. x86-first proof: on our-x86 the
+            global-buf spans GOAL [data,end)=[0x53c590,0xd0a590) (~7.8 MB,
+            DMA_BUFFER_GLOBAL_SIZE). draw-ocean (goal_src/.../ocean/ocean.gc:457-467)
+            sets *ocean-verts* = (-> global-buf base) and ocean-generate-verts fills
+            it; ocean_vu0.cpp:501-560 is exactly the captured 8x-sq +128 store loop.
+  WHY IT  : the watch band [0x514000,0x51c000) (common/dma/dma.h gnd_in_band,
+  FIRED     game/mips2c/mips2c_private.h gnd_oob_check) was calibrated to x86's
+            global-buf base, but the arm64 heap lays global-buf ~135KB LOWER (HEAP
+            layout depends on per-backend alloc order; arm64 ocean writes land at
+            0x51a990, inside the watched window). So legitimate, in-bounds ocean
+            vertex writes tripped it ~400x. NOT a corruption.
+  CORRUPTED-DATA: NONE. The writes are correct vertex data to a correct buffer.
+            There is no stomp of the logo's vertex/mesh/DMA data by this writer.
+
+  A second, separate GND-OOB-WRITE class (revealed only when a diagnostic split the
+  log cap) is a low-address (<0x80000) store: kind=d target=0x2 val=0 from
+  sp_launch_particles_var (sparticle_launcher.cpp) — a pre-existing, harmless
+  near-null no-op store (writes 0 to addr 0x2; no crash; identical class to the
+  already-fixed Gnewgame #f-guard family). Also NOT the logo garble. Out of scope.
+
+  => The GND-OOB write-watch is an obsolete Gnd-phase diagnostic whose every hit is
+     benign. It is DISARMED (gnd_oob_report no-op + g_gnd_oob_armed=false in
+     game/mips2c/mips2c_table_jak1_arm64.cpp). The actual ocean/sparticle stores
+     still happen benignly (the watch was pure logging; disarming changes no render
+     behavior). Device GND-OOB-WRITE telemetry goes to 0.
+
+--------------------------------------------------------------------------------
+PART 2 — THE REAL GARBLE: an over-aggressive arm64 merc bone-repair (self-inflicted)
+--------------------------------------------------------------------------------
+The garbled logo is NOT a stomp. Deterministic per-bone census (x86-first, all
+merc models) localized it:
+
+  * The J&D smash uses merc-skinned models logo-english-lod0 (the letters),
+    logo-volumes-english-lod0 (light rays), logo-black-lod0 (the breaking black
+    cover / smash "shards").
+  * Many of their bones are LEGITIMATELY DEGENERATE (zero-scale): the tmat 3x3 is
+    collapsed (rows -0.0/0.0), only the translation is set — a bone whose geometry
+    is intended to be invisible/collapsed at that animation moment.
+  * bones-mtx-calc (goal_src/.../bones.gc new-bones-mtx-calc-asm; mips2c
+    bones.cpp:119 c->vdiv) derives the normal matrix nmat as the inverse-transpose
+    of tmat, scaled by 1.0/det. For a degenerate bone det==0, and the mips2c vdiv
+    (mips2c_private.h:1074) is a plain IEEE divide (no PS2 VU0 divide-by-zero clamp),
+    so 1.0/0 = +inf and the whole nmat becomes NaN (0x7fc00000 x12). The tmat
+    (position) stays FINITE and CORRECT.
+  * KEY x86-first finding: this NaN nmat happens IDENTICALLY on our-x86 AND the
+    device (same shared mips2c vdiv, same anim data) — same models, same bones,
+    same proportions (logo-volumes 100% bad, logo-english ~50% bad, logo-black bad
+    during the smash). EVERY non-finite element is in the nmat (kbad=16,
+    region=nmat); ZERO tmat corruption anywhere. So the bone data is 1-to-1
+    between our-x86 and original-x86; the NaN is not arm64-specific.
+  * WHY x86 LOOKS FINE: desktop GL has NO bone-repair. The NaN nmat goes to the GPU;
+    the degenerate bone's geometry is collapsed (zero-area) and invisible; the
+    bad normals are harmless. The smash renders correctly.
+  * WHY arm64 GARBLED: the arm64 merc bone-repair in
+    game/graphics/opengl_renderer/foreground/Merc2.cpp handle_pc_model (added for
+    Gd3-jak/Gcine-pose to stop Adreno faulting on NaN bones) restored the WHOLE
+    bone (tmat+nmat) from a last-good snapshot whenever ANY element was non-finite.
+    For these nmat-only-NaN logo bones that meant the CORRECT collapsed tmat was
+    overwritten with a stale/identity one -> the degenerate parts (logo-black
+    smash shards, logo-volumes rays) popped into view as torn black scrambled
+    geometry = the owner's garbled logo. SELF-INFLICTED by the over-broad repair.
+
+THE FIX (Merc2.cpp, arm64-only, translation-layer glue):
+  Make the repair surgical. Per bone, check the tmat (floats 0-15) and nmat
+  (16-27) separately:
+    - tmat non-finite  -> genuine position corruption (Gd3-jak / Gcine-pose
+                          case): restore the whole bone from last-good (UNCHANGED).
+    - tmat finite, nmat non-finite -> degenerate bone: KEEP the finite, correct
+                          tmat; reset ONLY the nmat to identity (so Adreno never
+                          sees a NaN). The collapsed bone stays collapsed/invisible
+                          -> the arm64 render now matches x86 exactly.
+  x86 is unaffected (the whole block is #ifdef __aarch64__; x86 unchanged).
+
+--------------------------------------------------------------------------------
+BEFORE (calibrated baseline)  ->  AFTER
+--------------------------------------------------------------------------------
+BEFORE (device, clean HEAD + the old whole-bone repair = what the owner saw):
+  - GND-OOB-WRITE fires ~400x during the logo intro (ocean band false positive;
+    Glogo-smash device-before/consolidated logs both hit the 400 cap).
+  - Logo smash GARBLED: A/B run B (gate glogo_oldrepair armed) shows jagged BLACK
+    SCRAMBLED SHARD POLYGONS bursting around the gold logo and littering the
+    screen (abOLD-t22s.png / abOLD-t23s.png). logo-black-lod0 / logo-volumes
+    degenerate bones over-restored to identity -> visible torn geometry.
+  - Per-bone census: logo bones non-finite (region=nmat) on both our-x86 and
+    device, identically.
+
+AFTER (device, final HEAD build, libgk_sha=5c26a24dfd2b8924,
+       so_mtime=2026-06-23T08:52:27, deploy_verify PASS):
+  - GND-OOB-WRITE = 0 on device (grep -ac "GND-OOB-WRITE" final-run.log = 0; the
+    false-positive watch is disarmed -> telemetry eliminated / count -> 0).
+  - Logo smash INTACT: gold JAK·AND·DAXTER letters + blue speed-line burst, clean
+    and readable, matching the pristine golden (final-t01s_smash.png ..
+    final-t04s_smash.png). No black shards, no torn/scrambled mesh.
+  - A/B run A (gate disarmed = the fix) = clean (abNEW-t22s/t23s.png).
+  - No crash (sig 11/6/4 = 0); app foreground throughout; village flythrough
+    renders after the smash (~589k tris).
+  - x86 unbroken: build-x86 smoke reaches "link finish: logo".
+
+--------------------------------------------------------------------------------
+our-x86 == original-x86 (1-to-1)
+--------------------------------------------------------------------------------
+No goal_src edit. The logo bone computation (calc-animation-from-spr, cspace,
+bones-mtx-calc, vdiv) is byte-identical to the original; the NaN nmat is present
+IDENTICALLY on our-x86 and original-x86 (it is a shared, pre-existing mips2c
+vdiv-no-VU0-clamp artifact, NOT introduced here and NOT arm64-specific). The only
+changes are arm64-only translation-layer glue: (1) the Merc2 bone-repair refinement
+(#ifdef __aarch64__), (2) disarming the arm64-only GND-OOB diagnostic. x86 codegen
+and behavior are unchanged -> our-x86 == original-x86, identical, 1-to-1.
+================================================================================

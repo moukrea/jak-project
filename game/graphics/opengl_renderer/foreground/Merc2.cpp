@@ -723,18 +723,45 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         if (slot >= MAX_SKEL_BONES) {
           continue;
         }
-        const float* f = reinterpret_cast<const float*>(&skel_matrix_buffer[slot]);
-        bool bad = false;
-        for (int k = 0; k < 7 * 4; k++) {
+        float* f = reinterpret_cast<float*>(&skel_matrix_buffer[slot]);
+        // Separate the transform matrix (tmat, floats 0-15) from the normal matrix
+        // (nmat, floats 16-27). bones-mtx-calc derives nmat as the inverse-transpose of
+        // tmat scaled by 1/det. A LEGITIMATELY degenerate (zero-scale) bone has det==0,
+        // so the mips2c vdiv (1/0) yields inf and the whole nmat becomes NaN while the
+        // tmat stays finite & correct. This happens IDENTICALLY on x86 (which has no
+        // repair, so the collapsed bone simply renders invisible -- correct). The old
+        // code restored the WHOLE bone for ANY non-finite element, which on arm64
+        // replaced the CORRECT tmat with a stale/identity one -> the degenerate logo
+        // parts became visible/torn = the owner's "garbled logo". Fix: restore the whole
+        // bone ONLY when the tmat (the position) is itself corrupt (the Gd3-jak /
+        // Gcine-pose genuine-NaN case); when only the nmat is non-finite, KEEP the
+        // finite tmat and sanitize just the nmat to identity so Adreno never sees a NaN.
+        // This makes the arm64 logo render match x86 exactly.
+        bool tmat_bad = false;
+        for (int k = 0; k < 16; k++) {
           if (!std::isfinite(f[k])) {
-            bad = true;
+            tmat_bad = true;
             break;
           }
         }
-        if (bad) {
+        bool nmat_bad = false;
+        for (int k = 16; k < 7 * 4; k++) {
+          if (!std::isfinite(f[k])) {
+            nmat_bad = true;
+            break;
+          }
+        }
+        if (tmat_bad) {
           skel_matrix_buffer[slot] = (it != s_last_good.end() && slot < (int)it->second.size())
                                          ? it->second[slot]
                                          : kIdent;
+          gd3_bones_repaired++;
+        } else if (nmat_bad) {
+          // keep the finite, correct tmat; reset only the normal matrix to identity.
+          for (int k = 16; k < 32; k++) {
+            f[k] = 0.f;
+          }
+          f[16] = f[21] = f[26] = 1.f;  // nmat = identity
           gd3_bones_repaired++;
         }
       }
