@@ -12,11 +12,11 @@ R=.autoport/reports/Gtouch-controls/controls.txt
 grep -qiE 'RESULT:[[:space:]]*TOUCH[[:space:]]+CONTROLS[[:space:]]+COMPLETE' "$R" || fail "controls.txt lacks RESULT: TOUCH CONTROLS COMPLETE (...)"
 # full control set enumerated (every control must appear)
 # NO d-pad (removed per owner — left stick handles movement + menu nav)
-grep -qiE 'dpad|d-pad' "$R" && fail "controls.txt still references a d-pad (owner: NO d-pad — remove it)"
-for c in south east west north start 'select|back' 'l1|left_shoulder' 'r1|right_shoulder' 'l2|left_trigger' 'r2|right_trigger' 'l3|left_stick' 'r3|right_stick' 'left.?stick|leftx|lefty' 'right.?stick|rightx|righty'; do
+grep -qiE 'l3|r3|stick.*click|click.*stick' "$R" && fail "L3/R3 present (owner: dropped)"
+for c in south east west north start 'select|back' 'l1.{0,3}r1|l1/r1|combined.*(l1|shoulder)' 'l2.{0,3}r2|l2/r2|combined.*(l2|trigger)' 'left.?stick|leftx|lefty' 'menu.{0,8}d-?pad|d-?pad.{0,8}menu' 'camera|rightx|righty|right.?(side|drag|swipe)'; do
   grep -qiE "$c" "$R" || fail "controls.txt overlay-map missing control: $c"
 done
-ok "full control set enumerated (face/start/select/L1R1L2R2/L3R3/both sticks; NO d-pad)"
+ok "owner layout (face×4, combined L1R1+L2R2, START, SELECT, left-stick+menu d-pad, right camera; NO L3/R3)"
 # per-control actuation reaching native
 grep -qiE 'onPadButton|onPadAxis' "$R" || fail "controls.txt must show per-control actuation (onPadButton/onPadAxis reaching native)"
 grep -qiE 'actuat|tap.*->|inject.*button|axis.*value' "$R" || fail "controls.txt must document the actuation test (touch coords -> correct SDL button/axis)"
