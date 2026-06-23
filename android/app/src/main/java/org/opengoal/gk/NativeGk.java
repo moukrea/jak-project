@@ -81,6 +81,33 @@ public final class NativeGk {
     public static native void onPadButton(int sdlButton, boolean pressed);
 
     /**
+     * Phase Gtouch-controls (autoport): deliver an analog-axis deflection
+     * from the on-screen overlay (left virtual stick, right camera-drag
+     * zone, or the combined L2/R2 trigger button) to the runtime. Feeds
+     * the SAME native axis path a real gamepad's SDL_EVENT_GAMEPAD_AXIS_MOTION
+     * uses (android_input_audio::on_pad_axis -> the PS2 cpad mirror), so the
+     * injected event is byte-equivalent to a physical pad's.
+     *
+     * @param sdlAxis One of the SDL3 {@code SDL_GAMEPAD_AXIS_*} values:
+     *                LEFTX=0, LEFTY=1, RIGHTX=2, RIGHTY=3,
+     *                LEFT_TRIGGER=4, RIGHT_TRIGGER=5.
+     * @param value   SDL axis range: sticks -32768..32767 (0 = neutral),
+     *                triggers 0..32767. Out-of-range axes are dropped.
+     */
+    public static native void onPadAxis(int sdlAxis, int value);
+
+    /**
+     * Phase Gtouch-controls (autoport): true when the game is currently in
+     * a navigable MENU (the title option menu OR the in-game pause/progress
+     * menu), false during active gameplay. Computed on the GOAL thread from
+     * the live GOAL state (*progress-process* non-#f, or *master-mode* in
+     * {menu, progress}) and published via an atomic, so this read is cheap
+     * and race-free. The overlay polls it to switch the bottom-left control
+     * between the analog stick (gameplay) and a digital d-pad (menus).
+     */
+    public static native boolean isInMenu();
+
+    /**
      * Phase D3 (autoport): return the cumulative SDL_GL_SwapWindow count
      * since the most recent android_renderer_run entry. Used by the
      * supervisor's reality-check toolkit (D4) to assert that the
