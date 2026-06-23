@@ -1,0 +1,1 @@
+pass: AAudio open; 28 triggers; 2040 callbacks; pcm peak=5768

@@ -1,0 +1,6 @@
+RESULT mode=steps tag=sweep-A1 status=CRASH-FREE-render-advancing(+653 frames)
+  sig=none focus_app=yes F1-STATE +653 send_chain +1
+  near-fn: none
+  whosym: none
+  stomps: none
+  cur-proc: none

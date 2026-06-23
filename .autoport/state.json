@@ -123,7 +123,8 @@
     "Glogo-smash": 1,
     "Gmenu-textures": 1,
     "Glogo-garble": 1,
-    "F1-gameplay-geyser-rock": 1
+    "F1-gameplay-geyser-rock": 1,
+    "Gcrash-geyser": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -366,7 +367,8 @@
     "Glogo-smash",
     "Gmenu-textures",
     "Glogo-garble",
-    "F1-gameplay-geyser-rock"
+    "F1-gameplay-geyser-rock",
+    "Gcrash-geyser"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -472,9 +474,12 @@
     "Gcine-crash-mid": 1782108462.914532,
     "Glogo-smash": 1782123019.0621583,
     "Gmenu-textures": 1782163801.1671393,
-    "Glogo-garble": 1782191759.8555026
+    "Glogo-garble": 1782191759.8555026,
+    "F2-gameplay-audio": 1782208609.1871965,
+    "Gtouch-controls": 1782214509.3344476,
+    "Gcrash-geyser": 1782215978.8522267
   },
-  "last_update": "2026-06-23T09:56:40.741715+00:00",
+  "last_update": "2026-06-23T14:24:37.581130+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

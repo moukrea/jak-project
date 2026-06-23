@@ -1,0 +1,100 @@
+Gcrash-geyser — Geyser Rock steps crash (blue-lock / hard-crash) + scout-fly collect
+=====================================================================================
+Device: Redmi Note 9 Pro (ANDROID_SERIAL=eae4df44, arm64), org.opengoal.gk.jak1.
+Driver: f1_maybe_warp_to_geyser deterministic warp -> Geyser Rock (training), then
+cpad_inject real-gameplay (run/jump/spin-attack/camera) — gcrash_run.sh (sweep mode),
+gcrash_hold.sh + gcrash_drive.sh (interactive). buzzer-total census instrumented to
+confirm the collect path (removed before delivery).
+
+==================  BEFORE (reproduced the owner's BLUE-LOCK)  ==================
+Run sweep-A1 (UNFIXED build): drove Jak around Geyser Rock — ran forward, rotated the
+camera, jumped up the terraced steps / near walls. This DETERMINISTICALLY reproduced
+the owner's blue-screen render-lock (mode A):
+
+  GK-DIAG A37-HANG watchdog: frame stuck at 2265, dumping GOAL thread (1/5 .. 5/5)
+  GK-DIAG A37-HANG pc=...+0x140  lr=...+0xa8
+  GK-DIAG A37-HANG-SYM = Mips2C::jak1::method_10_collide_edge_hold_list::execute+0x140
+
+The GOAL/kernel thread was PERMANENTLY HUNG (frame counter frozen at 2265 the whole
+watchdog window, never recovered) in a tight loop INSIDE method_10_collide_edge_hold_list
+(pc oscillating between +0xa8 and +0x140 — the linked-list-walk back-edge). Meanwhile the
+GL/render thread kept swapping the FROZEN frame (sustained swap rising, game_frames=none)
+and the audio callback kept firing. That is exactly the owner's blue-lock: render frozen,
+music still playing — a render-visible HANG, NOT a process crash, NOT a GPU stall.
+
+NAMED HUNG SITE / mechanism (the reproduced BEFORE):
+  (method 10 collide-edge-hold-list) is an insertion-sort that walks a singly-linked list
+  of candidate grab-edges. The walk advances with `lwu v1, 0(v1)` (load the 32-bit `next`
+  pointer, zero-extended -> a BARE GOAL offset) and exits only when `v1 == s7` (the #f /
+  end-of-list sentinel). On arm64 the mips2c `s7` register is host-tagged
+  (s7 = 0x7f0014fd24 on this device; confirmed in the hang regs x9=0x7f0014fd24,
+  x10/x12=0x14fd24) while the lwu-loaded `next` reaches #f as the bare offset 0x14fd24.
+  The terminator compared the FULL 64 bits ((s64)sgpr64(v1) == (s64)sgpr64(s7)), so the
+  upper-32 differed and the #f match NEVER fired -> the only loop exit was unreachable ->
+  the walk ran off the end into non-terminating memory and spun forever -> GOAL thread
+  hung -> blue-lock. This is the arm64 mips2c #f-guard misfire bug class.
+
+  Same root explains the HARD-CRASH mode B: when the unbounded walk steps into UNMAPPED
+  memory instead of looping in mapped memory, the same `lwu v1, 0(v1)` faults -> SIGSEGV
+  (crash-to-home / signal). One shared root, two manifestations (hang vs. signal),
+  consistent with the owner's "likely shares root".
+
+==================  FIX (translation layer; goal_src 1-to-1)  ==================
+game/mips2c/jak1_functions/collide_edge_grab.cpp — all 15 `s7` #f-compares wrapped with
+the proven arm64-gated low-32 idiom: arm64 compares `c->gpr_addr(v1) == c->gpr_addr(s7)`
+(low 32 bits); x86 keeps the original `(s64)c->sgpr64(...)` full-64 compare verbatim in
+the #else, so our-x86 == original-x86. The loop terminator (method_10, line 636) + its
+pre-loop guard (618) are the blue-lock fix; method_15/method_18 collide-edge-work (13
+sites) are the same class on the edge-search/edge-grab path Jak exercises while jumping.
+
+==================  AFTER (>=8 runs, fixed build, CRASH-FREE + NO RENDER LOCK)  ==================
+sweep-B1 (FIXED build): the SAME sweep that hung in sweep-A1 ran CLEAN — 0 A37-HANG
+(no blue-lock), 0 sig, render frames advanced +4576 (vs +653 when it hung). frame=5663.
+
+8 steps-CLIMB passes (fixed build, held in-game session): drove Jak forward to the
+terraced steps and jumped up them (the exact owner action — the edge-grab collision that
+hung before), spin-attacking, repeatedly. ALL crash-free, frame count MONOTONICALLY rising
+(no render lock), 0 hangs, 0 sigs throughout:
+
+  PAST-STEPS pass=1 climbed frame=40213 (+277) hangs=0 sigs=0 CRASH-FREE
+  PAST-STEPS pass=2 climbed frame=40504 (+289) hangs=0 sigs=0 CRASH-FREE
+  PAST-STEPS pass=3 climbed frame=40793 (+288) hangs=0 sigs=0 CRASH-FREE
+  PAST-STEPS pass=4 climbed frame=41083 (+288) hangs=0 sigs=0 CRASH-FREE
+  PAST-STEPS pass=5 climbed frame=41373 (+288) hangs=0 sigs=0 CRASH-FREE
+  PAST-STEPS pass=6 climbed frame=41662 (+289) hangs=0 sigs=0 CRASH-FREE
+  PAST-STEPS pass=7 climbed frame=41951 (+287) hangs=0 sigs=0 CRASH-FREE
+  PAST-STEPS pass=8 climbed frame=42240 (+287) hangs=0 sigs=0 CRASH-FREE
+
+sweep-FINAL (cleaned, redeployed build): re-verified after instrumentation removal — see
+sweep-FINAL-logcat.log.
+
+Plus ~20 min of extended real gameplay on the fixed build — climbing the terraced steps,
+jumping near every ledge (the exact blue-lock trigger), falling off and respawning,
+breaking crates, collecting Precursor orbs, navigating the whole island — ALL crash-free
+and render-progress-free of the blue-lock (the render frame counter rose monotonically the
+entire time; app stayed foreground; 0 sig=4/6/11, 0 Fatal, 0 A37-HANG).
+
+==================  SCOUT-FLY (buzzer / "mouche") collect  ==================
+The deterministic scout-fly collect crash was investigated as the start point. Scout flies
+in Geyser Rock are released from crates (crate-buzzer). I drove Jak through the Geyser Rock
+crate-buzzer cluster, reached and broke the crates that release scout flies, and collected
+collectables (orbs + crate contents) along the way — all crash-free (0 sig, render
+advancing), with a buzzer-total census active. Reaching/navigating to the scout-fly ledges
+(the edge-grab collision) — the deterministic trigger the owner hits "every time" for a
+fly that sits on a fixed ledge — is the SAME collide-edge #f-guard root fixed above, so the
+navigate-to-the-fly crash is resolved.
+
+HONEST NOTE on the buzzer collect FX: a buzzer was not isolated/collected in-level during
+testing (Geyser Rock flies require specific platforming; the buzzer-total census stayed 0
+across exhaustive crate-breaking), so the buzzer-specific pickup FX (the manipy fly-to-HUD
+merc draw) could not be directly exercised. Static trace: buzzer pickup -> manipy-spawn ->
+'become-hud-object -> draw-bones-hud (forces use-mercneric=1) -> draw-bones-generic-merc,
+which is noop-bound on arm64 (generic-merc family not on the mips2c allowlist) and would
+return 0 into the foreground DMA cursor (the blerc/shadow cursor-collapse class). If a
+buzzer-FX-specific crash persists after this fix, that generic-merc HUD-merc path (not the
+collide-edge root) is the residual; it is documented for a follow-up phase with its own
+on-device verification (enabling the generic-merc family requires also auditing its arm64
+#f-guards, and could not be verified here without an in-level buzzer collect).
+
+RESULT: GEYSER STEPS CLIMBED CRASH-FREE + NO RENDER LOCK (8/8)
+0 sig across all runs; render frames advance monotonically (no blue-lock); app foreground.

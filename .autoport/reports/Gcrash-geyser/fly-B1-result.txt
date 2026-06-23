@@ -1,0 +1,6 @@
+RESULT mode=fly tag=fly-B1 status=CRASH-FREE-render-advancing(+1892 frames)
+  sig=none focus_app=yes F1-STATE +1892 send_chain +3
+  near-fn: none
+  whosym: none
+  stomps: none
+  cur-proc: none
