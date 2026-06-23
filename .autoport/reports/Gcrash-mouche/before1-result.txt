@@ -1,0 +1,10 @@
+RESULT tag=before1 status=BUZZER-FX-CRASH-FREE(fires=8,frames+5760)
+  mouche_fires=8  render_frames +5760 (from 780 to 6540)  focus_app=yes
+  sig=none
+  mouche-markers: 06-23 18:47:28.872  3431  3511 I GK_STDOUT: MOUCHE-ARM fire 3/8 (settle=300 gap=180);06-23 18:47:28.872  3431  3511 I GK_STDOUT: MOUCHE-FIRE #3 proc=#x23a684 hud=#x1dabb4 trans=#x1c5e60 (HUD-merc path armed);06-23 18:47:34.570  3431  3511 I GK_STDOUT: MOUCHE-ARM fire 4/8 (settle=300 gap=180);06-23 18:47:34.570  3431  3511 I GK_STDOUT: MOUCHE-FIRE #4 proc=#x23a684 hud=#x1dabb4 trans=#x1c5e60 (HUD-merc path armed);06-23 18:47:40.286  3431  3511 I GK_STDOUT: MOUCHE-ARM fire 5/8 (settle=300 gap=180);06-23 18:47:40.286  3431  3511 I GK_STDOUT: MOUCHE-FIRE #5 proc=#x23a684 hud=#x1dabb4 trans=#x1c5e60 (HUD-merc path armed);06-23 18:47:45.845  3431  3511 I GK_STDOUT: MOUCHE-ARM fire 6/8 (settle=300 gap=180);06-23 18:47:45.846  3431  3511 I GK_STDOUT: MOUCHE-FIRE #6 proc=#x23a684 hud=#x1dabb4 trans=#x1c5e60 (HUD-merc path armed);06-23 18:47:51.552  3431  3511 I GK_STDOUT: MOUCHE-ARM fire 7/8 (settle=300 gap=180);06-23 18:47:51.552  3431  3511 I GK_STDOUT: MOUCHE-FIRE #7 proc=#x23a684 hud=#x1dabb4 trans=#x1c5e60 (HUD-merc path armed);06-23 18:47:57.190  3431  3511 I GK_STDOUT: MOUCHE-ARM fire 8/8 (settle=300 gap=180);06-23 18:47:57.190  3431  3511 I GK_STDOUT: MOUCHE-FIRE #8 proc=#x23a684 hud=#x1dabb4 trans=#x1c5e60 (HUD-merc path armed);
+  near-fn: none
+  merc-draw: none
+  symbolize: none
+  gspark: none
+  stomps: none
+  backtrace: none

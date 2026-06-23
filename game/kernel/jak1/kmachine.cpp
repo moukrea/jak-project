@@ -792,6 +792,274 @@ void f1_maybe_warp_to_geyser() {
            warp_fn.offset);
 }
 
+// ─── Gcrash-mouche: buzzer scout-fly pickup HUD-FX repro ────────────────────────
+// Env OG_MOUCHE_FX / Android prop debug.opengoal.mouche.fx — OFF by default.
+//
+// Reproduces, on the GOAL kernel thread via *listener-function*, the buzzer
+// scout-fly pickup "fly-to-HUD" effect (collectables.gc:1273-1274, the buzzer
+// `pickup` state):
+//   (let ((v1-18 (manipy-spawn (-> self root trans) #f *buzzer-sg* #f :to *entity-pool*)))
+//     (send-event (ppointer->process v1-18) 'become-hud-object
+//                 (ppointer->process (-> *hud-parts* buzzers))))
+// On desktop x86 this does NOT crash (gmouche_x86.sh oracle, 3 spawns, kernel keeps
+// ticking). On Android the become-hud-object path forces use-mercneric=1 ->
+// draw-bones-generic-merc, whose generic-merc family is noop-bound on arm64
+// (mips2c_table_jak1_arm64.cpp kSet) -> the DMA `base` cursor collapses -> the
+// owner's deterministic buzzer-collect crash. The device has no goalc listener
+// socket (android_runtime_full.cpp registers Deci2Server with NO listener), and
+// the flies need platforming cpad_inject cannot do, so this hook drives the EXACT
+// FX the x86 oracle measures so the crash can be reproduced + a fix verified.
+//
+// manipy-spawn expands to: get-process (dead-pool method 14) -> activate
+// (process-tree method 9) -> run-function-in-process(manipy-init,...) ->
+// (-> new-proc ppointer). become-hud-object's handler (generic-obs.gc:162) just
+// calls convert-to-hud-object(self, hud); we call that directly with pp=manipy
+// (enter-state's `(!= current-process pp)` branch sets-to-run + returns — no
+// non-local exit, identical to the real event delivery). All runs with a live pp
+// because the kernel runs this as *listener-function* via reset-and-call.
+static u32 mouche_read32(u32 goal_addr) {
+  u32 v = 0;
+  if (goal_addr != 0 && goal_addr < (u32)(EE_MAIN_MEM_SIZE - 4)) {
+    std::memcpy(&v, g_ee_main_mem + goal_addr, 4);
+  }
+  return v;
+}
+
+static int s_mouche_fire_n = 0;
+
+static u64 mouche_fx_run() {
+  const u32 fnull = (u32)s7.offset;
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt == 0 || tgt == fnull) { printf("MOUCHE-SKIP reason=target-#f\n"); fflush(stdout); return 0; }
+  u32 buzzer_sg = intern_from_c("*buzzer-sg*")->value;
+  if (buzzer_sg == 0 || buzzer_sg == fnull) { printf("MOUCHE-SKIP reason=buzzer-sg-#f\n"); fflush(stdout); return 0; }
+  u32 entity_pool = intern_from_c("*entity-pool*")->value;
+  u32 dead_pool = intern_from_c("*default-dead-pool*")->value;
+  u32 manipy_type = intern_from_c("manipy")->value;
+  u32 manipy_init = intern_from_c("manipy-init")->value;
+  u32 hud_parts = intern_from_c("*hud-parts*")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (entity_pool == 0 || entity_pool == fnull || dead_pool == 0 || dead_pool == fnull ||
+      manipy_type == 0 || manipy_type == fnull || manipy_init == 0 || manipy_init == fnull ||
+      hud_parts == 0 || hud_parts == fnull) {
+    printf("MOUCHE-SKIP reason=env-not-ready ep=#x%x dp=#x%x mt=#x%x mi=#x%x hp=#x%x\n",
+           entity_pool, dead_pool, manipy_type, manipy_init, hud_parts);
+    fflush(stdout);
+    return 0;
+  }
+
+  // The crash only fires when (-> *hud-parts* buzzers) is non-#f (else
+  // convert-to-hud-object no-ops and the manipy draws as a normal WORLD merc,
+  // which is real on arm64). init-target -> activate-hud spawns the buzzers HUD
+  // during the warp; force it once if it is somehow absent.
+  u32 buzzers_pp = mouche_read32(hud_parts + 16);  // hud-parts buzzers @ +16
+  if (buzzers_pp == 0 || buzzers_pp == fnull) {
+    u32 ah = intern_from_c("activate-hud")->value;
+    if (ah != 0 && ah != fnull) {
+      u64 ah_args[8] = {tgt, 0, 0, 0, 0, 0, 0, 0};
+      _call_goal8_asm_systemv((void*)(g_ee_main_mem + ah), ah_args, 0, (u64)lp, (u64)s7.offset,
+                              g_ee_main_mem);
+      buzzers_pp = mouche_read32(hud_parts + 16);
+      printf("MOUCHE-HUD forced activate-hud -> buzzers=#x%x\n", buzzers_pp);
+      fflush(stdout);
+    }
+  }
+  // (ppointer->process (-> *hud-parts* buzzers)) : deref ppointer[0] then .self (@28)
+  u32 hud_proc = fnull;
+  if (buzzers_pp != 0 && buzzers_pp != fnull) {
+    u32 hud_obj = mouche_read32(buzzers_pp);
+    if (hud_obj != 0 && hud_obj != fnull) {
+      hud_proc = mouche_read32(hud_obj + 28);
+    }
+  }
+
+  // (-> *target* root trans): target root(control) @ +108, trans @ +12 (proven by F1-WARP).
+  u32 root_ptr = mouche_read32(tgt + 108);
+  u32 trans_vec = (root_ptr != 0 && root_ptr != fnull) ? (root_ptr + 12) : 0;
+  if (trans_vec == 0) { printf("MOUCHE-SKIP reason=no-trans\n"); fflush(stdout); return 0; }
+
+  // get-process(*default-dead-pool*, manipy, #x4000) — dead-pool method 14
+  u32 dp_type = mouche_read32(dead_pool - 4);
+  u64 npr = call_method_of_type_arg2(dead_pool, Ptr<Type>(dp_type), 14, manipy_type, 0x4000);
+  u32 new_proc = (u32)npr;
+  if (new_proc == 0 || new_proc == fnull) { printf("MOUCHE-SKIP reason=get-process-fail\n"); fflush(stdout); return 0; }
+
+  // activate(new_proc, *entity-pool*, 'manipy, *scratch-memory-top*) — process-tree method 9
+  Ptr<Type> mt(manipy_type);
+  u32 activate_fn = mt->get_method(9).offset;
+  u32 manipy_sym = intern_from_c("manipy").offset;  // the SYMBOL object 'manipy
+  u64 act_args[8] = {new_proc, entity_pool, manipy_sym, 0x70004000u /*scratch-memory-top*/, 0, 0, 0, 0};
+  _call_goal8_asm_systemv((void*)(g_ee_main_mem + activate_fn), act_args, 0, (u64)lp,
+                          (u64)s7.offset, g_ee_main_mem);
+
+  // run-function-in-process(new_proc, manipy-init, trans, #f, *buzzer-sg*, #f)
+  u32 run_fn = intern_from_c("run-function-in-process")->value;
+  u64 run_args[8] = {new_proc, manipy_init, trans_vec, (u64)fnull, buzzer_sg, (u64)fnull, 0, 0};
+  _call_goal8_asm_systemv((void*)(g_ee_main_mem + run_fn), run_args, 0, (u64)lp,
+                          (u64)s7.offset, g_ee_main_mem);
+
+  // become-hud-object: convert-to-hud-object(manipy, hud) with pp=manipy. This is
+  // verbatim what the manipy-idle 'become-hud-object event handler does. It sets
+  // dma-add-func=dma-add-process-drawable-hud and (go hud-collecting), so the next
+  // render draws the manipy through draw-bones-hud -> generic-merc (the crash).
+  u32 cvt_fn = intern_from_c("convert-to-hud-object")->value;
+  s_mouche_fire_n++;
+  if (cvt_fn != 0 && cvt_fn != fnull && hud_proc != fnull) {
+    u64 cvt_args[8] = {new_proc, hud_proc, 0, 0, 0, 0, 0, 0};
+    _call_goal8_asm_systemv((void*)(g_ee_main_mem + cvt_fn), cvt_args, 0, (u64)new_proc,
+                            (u64)s7.offset, g_ee_main_mem);
+    printf("MOUCHE-FIRE #%d proc=#x%x hud=#x%x trans=#x%x (HUD-merc path armed)\n",
+           s_mouche_fire_n, new_proc, hud_proc, trans_vec);
+  } else {
+    printf("MOUCHE-FIRE #%d proc=#x%x hud=#f (NO hud -> world-merc, NOT the crash path)\n",
+           s_mouche_fire_n, new_proc);
+  }
+  fflush(stdout);
+  return new_proc;
+}
+
+// ── REAL buzzer collect (full lifecycle, not just the FX) ──────────────────────
+// Spawns a real `buzzer` at Jak's position the EXACT way a crate's drop-pickup ->
+// birth-pickup-at-point does (get-process *default-dead-pool* buzzer #x4000 ->
+// activate (method 9) -> run-now-in-process buzzer-init-by-other(trans, vel, fact,
+// entity)). The buzzer lands in `wait` at Jak, runs its `animate` (group-buzzer-effect
+// 3D sparticle wings + optional victory-anim spool), and — because Jak is right on it
+// — the collide-shape touch fires -> (go-virtual pickup #f ...) -> the FULL pickup
+// :code (level-hint-spawn voice/STR, manipy fly-to-HUD FX, task bookkeeping). This
+// exercises everything a real scout-fly collect does, which the FX-only path did not.
+static u64 mouche_buzzer_run() {
+  using namespace jak1_symbols;  // FIX_SYM_GLOBAL_HEAP
+  const u32 fnull = (u32)s7.offset;
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt == 0 || tgt == fnull) { printf("MOUCHE-BUZZ-SKIP reason=target-#f\n"); fflush(stdout); return 0; }
+  u32 buzzer_type = intern_from_c("buzzer")->value;
+  u32 buzzer_init = intern_from_c("buzzer-init-by-other")->value;
+  u32 entity_pool = intern_from_c("*entity-pool*")->value;
+  u32 dead_pool = intern_from_c("*default-dead-pool*")->value;
+  u32 fact_type = intern_from_c("fact-info")->value;
+  u32 null_vec = intern_from_c("*null-vector*")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (buzzer_type == 0 || buzzer_type == fnull || buzzer_init == 0 || buzzer_init == fnull ||
+      entity_pool == 0 || entity_pool == fnull || dead_pool == 0 || dead_pool == fnull ||
+      fact_type == 0 || fact_type == fnull || null_vec == 0 || null_vec == fnull) {
+    printf("MOUCHE-BUZZ-SKIP reason=env-not-ready bt=#x%x bi=#x%x dp=#x%x ft=#x%x nv=#x%x\n",
+           buzzer_type, buzzer_init, dead_pool, fact_type, null_vec);
+    fflush(stdout);
+    return 0;
+  }
+
+  // fact-info (basic, size 0x28): pickup-type@8, pickup-amount@12, pickup-spawn-amount@16,
+  // options@24. C++ addr = obj + (deftype_offset - 4).
+  u32 fact = (u32)alloc_heap_object((s7 + FIX_SYM_GLOBAL_HEAP).offset, fact_type, 0x2c, UNKNOWN_PP);
+  if (fact == 0 || fact == fnull) { printf("MOUCHE-BUZZ-SKIP reason=fact-alloc-fail\n"); fflush(stdout); return 0; }
+  // pickup-amount encodes the scout-fly task: (game-task training-buzzer) = 95 is the
+  // real Geyser Rock ('training) scout-fly task, so the pickup :code's get-task-control /
+  // close-specific-task! bookkeeping resolves a VALID task (a fresh #x4000 fact would
+  // otherwise read task 1 -> "get-task-control received invalid task 1/#f" and hang —
+  // a harness artifact, not the buzzer bug). buzzer-init-by-other copies arg2's
+  // pickup-spawn-amount into the buzzer's fact pickup-amount.
+  { int32_t v = 8;       std::memcpy(g_ee_main_mem + fact + 4, &v, 4); }   // pickup-type = buzzer
+  { float v = 95.0f;     std::memcpy(g_ee_main_mem + fact + 8, &v, 4); }   // pickup-amount = training-buzzer
+  { float v = 95.0f;     std::memcpy(g_ee_main_mem + fact + 12, &v, 4); }  // pickup-spawn-amount = training-buzzer
+  { u32 v = 0;           std::memcpy(g_ee_main_mem + fact + 20, &v, 4); }  // options
+
+  u32 root_ptr = mouche_read32(tgt + 108);
+  u32 jak_pos = (root_ptr != 0 && root_ptr != fnull) ? (root_ptr + 12) : 0;
+  if (jak_pos == 0) { printf("MOUCHE-BUZZ-SKIP reason=no-trans\n"); fflush(stdout); return 0; }
+
+  u32 dp_type = mouche_read32(dead_pool - 4);
+  u64 bpr = call_method_of_type_arg2(dead_pool, Ptr<Type>(dp_type), 14, buzzer_type, 0x4000);
+  u32 buzzer_proc = (u32)bpr;
+  if (buzzer_proc == 0 || buzzer_proc == fnull) { printf("MOUCHE-BUZZ-SKIP reason=get-process-fail\n"); fflush(stdout); return 0; }
+
+  Ptr<Type> bt(buzzer_type);
+  u32 activate_fn = bt->get_method(9).offset;
+  u32 buzzer_sym = intern_from_c("buzzer").offset;
+  u64 act_args[8] = {buzzer_proc, entity_pool, buzzer_sym, 0x70004000u, 0, 0, 0, 0};
+  _call_goal8_asm_systemv((void*)(g_ee_main_mem + activate_fn), act_args, 0, (u64)lp, (u64)s7.offset, g_ee_main_mem);
+
+  // run-now-in-process(buzzer, buzzer-init-by-other, jak_pos, *null-vector*, fact, #f)
+  u32 run_fn = intern_from_c("run-function-in-process")->value;
+  u64 run_args[8] = {buzzer_proc, buzzer_init, jak_pos, null_vec, fact, (u64)fnull, 0, 0};
+  _call_goal8_asm_systemv((void*)(g_ee_main_mem + run_fn), run_args, 0, (u64)lp, (u64)s7.offset, g_ee_main_mem);
+
+  s_mouche_fire_n++;
+  u32 b_status = mouche_read32(buzzer_proc + 36);  // process status @ +36
+  u32 b_name = mouche_read32(buzzer_proc + 4);     // process-tree name @ +4
+  printf("MOUCHE-BUZZ #%d proc=#x%x fact=#x%x pos=#x%x status=#x%x name=#x%x (real buzzer spawned at Jak)\n",
+         s_mouche_fire_n, buzzer_proc, fact, jak_pos, b_status, b_name);
+  fflush(stdout);
+  return buzzer_proc;
+}
+
+void mouche_maybe_fire() {
+  static bool s_checked = false, s_enabled = false, s_buzz = false;
+  if (!s_checked) {
+    s_checked = true;
+    if (std::getenv("OG_MOUCHE_FX")) {
+      s_enabled = true;
+    }
+    if (std::getenv("OG_MOUCHE_BUZZ")) {
+      s_enabled = true;
+      s_buzz = true;
+    }
+#if defined(__ANDROID__)
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.mouche.fx", buf) > 0 && buf[0] == '1') {
+      s_enabled = true;
+    }
+    char bz[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.mouche.buzz", bz) > 0 && bz[0] == '1') {
+      s_enabled = true;
+      s_buzz = true;
+    }
+#endif
+  }
+  if (!s_enabled) {
+    return;
+  }
+
+  int count = 8, gap = 180, settle = 300;
+  if (const char* c = std::getenv("OG_MOUCHE_COUNT")) count = atoi(c);
+  if (const char* g = std::getenv("OG_MOUCHE_GAP")) gap = atoi(g);
+  if (const char* s = std::getenv("OG_MOUCHE_SETTLE")) settle = atoi(s);
+
+  static int s_fires = 0;
+  if (s_fires >= count) {
+    return;
+  }
+  // readiness: *target* alive + buzzer art loaded
+  u32 tgt = intern_from_c("*target*")->value;
+  u32 bsg = intern_from_c("*buzzer-sg*")->value;
+  if (tgt == 0 || tgt == (u32)s7.offset || bsg == 0 || bsg == (u32)s7.offset) {
+    return;
+  }
+  static int s_settle_ticks = 0;
+  if (s_settle_ticks++ < settle) {
+    return;
+  }
+  // only re-arm once the kernel has consumed the previous *listener-function*
+  if (ListenerFunction->value != s7.offset) {
+    return;
+  }
+  static int s_gap_ticks = 0;
+  if (s_gap_ticks++ < gap) {
+    return;
+  }
+  s_gap_ticks = 0;
+
+  static u32 s_fx_fn = 0;
+  if (s_fx_fn == 0) {
+    s_fx_fn = make_function_from_c(s_buzz ? (void*)mouche_buzzer_run : (void*)mouche_fx_run, false)
+                  .offset;
+  }
+  ListenerFunction->value = s_fx_fn;
+  s_fires++;
+  printf("MOUCHE-ARM fire %d/%d mode=%s (settle=%d gap=%d)\n", s_fires, count,
+         s_buzz ? "buzzer" : "fx", settle, gap);
+  fflush(stdout);
+}
+
 }  // namespace jak1
 
 #if defined(__GNUC__)

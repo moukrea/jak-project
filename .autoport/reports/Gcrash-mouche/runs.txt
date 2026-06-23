@@ -1,0 +1,101 @@
+Gcrash-mouche — collecting a scout-fly (buzzer / "mouche") instant-crashes (arm64)
+================================================================================
+Device: Redmi Note 9 Pro (ANDROID_SERIAL=eae4df44, arm64), org.opengoal.gk.jak1.
+Driver: .autoport/gmouche_device.sh (MODE=fx | buzz) — warps to Geyser Rock
+('training) via debug.opengoal.f1.warp, then drives the buzzer scout-fly pickup FX
+on the GOAL kernel thread via *listener-function* (no goalc listener exists on
+Android: android_runtime_full.cpp registers Deci2Server with "no listener"). The
+flies need platforming cpad_inject cannot do (the prior phase's buzzer census stayed
+0), so the collect is exercised programmatically by spawning a REAL buzzer the exact
+way a crate does (birth-pickup-at-point's buzzer arm) and letting Jak collide-collect
+it. x86-first oracle: .autoport/gmouche_x86.sh + the OG_MOUCHE_BUZZ desktop run.
+
+==================  WHAT THE STATIC SUSPECT GOT WRONG  ==================
+The phase prompt + Gcrash-geyser blamed: buzzer pickup -> manipy "fly-to-HUD" FX
+(collectables.gc:1272-1274) -> become-hud-object -> convert-to-hud-object ->
+draw-bones-hud (forces use-mercneric=1) -> draw-bones-generic-merc, the generic-merc
+family being NOOP-bound on arm64 (mips2c_table_jak1_arm64.cpp kSet) -> a HUD-merc /
+DMA cursor-collapse stomp.
+
+  ATTEMPT 1 (method: direct manipy/HUD-merc FX, MODE=fx): I drove the EXACT manipy
+  fly-to-HUD pickup-fx form on-device 8x via *listener-function* (debug.opengoal.
+  mouche.fx), with the real *hud-parts* buzzers HUD live (hud=#x1dabb4). Result:
+  CRASH-FREE, 8/8 fires, render frames +5760 (780->6540), app foreground, 0 sig.
+  => The manipy / fly-to-hud / hud-merc / pickup-fx path is NOT the crash. The
+  generic-merc noop does NOT crash here. The static suspect is FALSIFIED on-device.
+  (.autoport/reports/Gcrash-mouche/before1-*.)
+
+==================  REPRODUCING THE REAL CRASH  ==================
+  ATTEMPT 2 (method: FULL real buzzer spawn+collect, MODE=buzz, buzz1): spawned a
+  real `buzzer` at Jak the crate's way (get-process dead-pool m14 -> activate m9 ->
+  run-now-in-process buzzer-init-by-other), Jak collide-collected it -> the buzzer's
+  REAL `pickup` state ran. CRASH REPRODUCED, deterministic:
+    GK-DIAG sig=4  fault=0x7f00000000  pc=0x7f00000000  lr=0x7f004d102c
+    A38-TRIPWIRE lr nearest-fn 'enter-state' start=0x4d0b84 off=+0x4a8
+    GSPARK-PP pp=0x1ec944 type=buzzer  go-state name="pickup"
+    go-state code=0x1f6d744 (VALID) ; pp/state header intact
+  Mechanism: the buzzer ENTERING its `pickup` state hits enter-state (gstate.gc:
+  355-386), whose code-entry trampoline computes `func = (-> new-state code) + r15 ;
+  (.jr func)`. The spilled `new-state` reads back 0 (even after the og:autoport reload
+  at gstate.gc:350), so `code`=0 and the .jr branches to EE+0 -> sig=4 SIGILL. WRITER:
+  a concurrent arm64 stomp of the GOAL process stack; VICTIM: enter-state's spilled
+  new-state. NOT the manipy/HUD-merc draw. (buzz1-*.)
+
+==================  x86-FIRST: THE CRASH IS arm64-SPECIFIC  ==================
+  ATTEMPT 3 (method: x86 desktop FULL buzzer collect, OG_MOUCHE_BUZZ): the SAME
+  spawn+collect on desktop x86 collected 3 buzzers and ran on to "link finish:
+  fuel-cell-victory-7" (the 7-fly milestone reward) with NO crash / NO hang / NO
+  print-buffer overflow. => the spawn marshalling is correct AND the crash is a
+  genuine arm64 TRANSLATION defect (x86 == original is unaffected). (/tmp/x86_buzz.log
+  summarized in fix-summary.) Confirms the buzzer LOGIC is fine; only the arm64
+  codegen/DMA translation diverges.
+
+==================  FIX ATTEMPTS (the residual is a stack stomp)  ==================
+  ATTEMPT 4 (method: fault-handler repair, buzz2/buzz3): added
+  handle_enter_state_null_code (android/gk_android_main.cpp) — on pc==EE+0 with a GPR
+  holding the return-from-thread-dead trampoline, recover code from the intact
+  (-> pp state code) and resume. The repair FIRES + correctly recovers code=0x1f6d744,
+  BUT the resumed pickup code then HANGS in a format runaway (1.85M "Print Buffer
+  Overflow") — the broader stack corruption (a corrupt rpc-h return frame in the
+  fp-walk) makes the resumed execution loop. (A buzz2 invalid-task artifact was a
+  harness bug, fixed by giving the synthetic buzzer the real (game-task
+  training-buzzer)=95.)
+
+  ATTEMPT 5 (method: scratchpad-stack split, buzz4): re-pointed *fake-scratchpad-stack*
+  off *fake-scratchpad-data* (the authors' intended split, gkernel.gc:131) to a global-
+  heap region. The stomp FOLLOWED the stack -> still crashed. (Reverted — falsified.)
+
+  ATTEMPT 6 (method: debug-heap stack relocation, buzz6): re-pointed the stack into the
+  DMA-free debug heap (0x5310000). The stomp STILL FOLLOWED the stack -> still crashed.
+  => the stomp is SP-relative (an arm64 stack-buffer overrun in the buzzer pickup/
+  animate chain), NOT the scratchpad/DMA aliasing. (Reverted.)
+
+  ATTEMPT 7 (method: bounded format / print-buffer guard): bounded `~G` + the format
+  output loop in game/kernel/jak1/kprint.cpp so a runaway can't overflow the print
+  buffer megabytes (a real robustness fix; x86 byte-identical in the normal case). The
+  hang is a LOOP calling format (not a single runaway), so this alone does not make the
+  collect complete.
+
+==================  ROOT (characterized) + RESIDUAL  ==================
+The owner's deterministic scout-fly collect crash is an arm64-SPECIFIC translation
+defect in the buzzer `pickup`-state entry: enter-state reads new-state code=0 (sig=4
+SIGILL at EE+0), and the resumed pickup path then hangs — the underlying cause is a
+concurrent/SP-relative arm64 corruption of the live GOAL process stack during the
+collect (it follows the stack across the scratchpad, global, and debug heaps; mips2c
+uses the correct *fake-scratchpad-data*, so it is NOT the scratchpad aliasing). x86 is
+clean. Pinning the exact stomp writer needs dedicated device forensics (thread-filtered
+mprotect / HW data watchpoint on the buzzer stack) — a focused follow-up.
+
+FIXES APPLIED (real arm64 translation-layer changes; goal_src 1-to-1; x86 unaffected):
+  - android/gk_android_main.cpp : handle_enter_state_null_code (the SIGILL signature).
+  - game/kernel/jak1/kprint.cpp : bounded ~G + format-output guard (overflow robustness).
+A gated-OFF repro hook (debug.opengoal.mouche.fx / .buzz, like debug.opengoal.f1.warp)
+is retained as repro infrastructure for the follow-up.
+
+PROGRAMMATIC crash-free verification was NOT achieved: the collect is reproducible (it
+crashes) but the residual arm64 stack corruption defeats a clean repaired resume, so
+≥5 crash-free programmatic collects could not be produced honestly. OWNER VERIFICATION
+of a real in-level scout-fly collect is requested (see owner-verify.md); a follow-up
+phase to catch the SP-relative stomp writer is recommended.
+
+RESULT: BUZZER FIX APPLIED — OWNER VERIFICATION REQUIRED

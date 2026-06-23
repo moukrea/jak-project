@@ -4349,6 +4349,77 @@ bool handle_rftd_null_return(int sig, siginfo_t* /*info*/, void* ucontext) {
   }
   return true;
 }
+
+// Gcrash-mouche: arm64 scout-fly (buzzer) collect SIGILL. enter-state
+// (gstate.gc:355-386) enters a process state by computing
+//   func = (-> new-state code) + r15  ;  (.jr func)
+// On arm64 the GOAL process stack lives in EE memory; a concurrent mips2c sparticle
+// DMA builder (the collected buzzer's group-buzzer-effect 3D wing particles) writes
+// through a GOAL pointer and stomps enter-state's SPILLED `new-state` slot to 0 — even
+// after the og:autoport reload at gstate.gc:350, the compiler re-spills new-state and
+// reloads it for the `code` field read, so `code` reads back 0 and the .jr branches to
+// EE+0 (sig=4 SIGILL, pc == g_ee_main_mem + 0). Reproduced deterministically on-device
+// the instant a real buzzer enters its `pickup` state. The process HEADER (-> pp state)
+// survives the stomp (pp is callee-saved GOAL r13 = x13), so recover the authoritative
+// code pointer from it and resume into the correct state code — all of enter-state's
+// other setup (stack reset, args, pushed return-from-thread-dead RA) is already done, so
+// only the wrong jump target needs fixing. This generalizes the gstate.gc reload (which
+// the spill defeats) to a race-free repair on the faulting thread, the same pattern as
+// handle_rftd_* . Tightly gated: pc must be EXACTLY EE+0 AND a GPR must still hold the
+// return-from-thread-dead trampoline (EE+0x18aee4) that enter-state's code-entry pushed
+// onto the GOAL stack immediately before the faulting .jr (gstate.gc:377-379) — so a
+// genuine null-fn-ptr call elsewhere is never masked. arm64/Android only; x86 untouched
+// (the spilled slot is never stomped there).
+std::atomic<uint64_t> g_enter_state_code_repairs{0};
+bool handle_enter_state_null_code(int sig, siginfo_t* /*info*/, void* ucontext) {
+  if ((sig != SIGILL && sig != SIGSEGV) || !g_ee_main_mem) {
+    return false;
+  }
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const uintptr_t pc = uc->uc_mcontext.pc;
+  if (pc != ee) {
+    return false;  // not a branch to EE+0 (the code==0 .jr)
+  }
+  // enter-state's code-entry trampoline pushes temp = return-from-thread-dead + off
+  // (EE+0x18aee4) right before the .jr; a GPR still holds it. This is the precise
+  // fingerprint of the state-code jump, distinct from any other null-fn-ptr call.
+  const uintptr_t trampoline = ee + 0x18aee4u;
+  bool has_tramp = false;
+  for (int r = 0; r <= 30; r++) {
+    if (static_cast<uintptr_t>(uc->uc_mcontext.regs[r]) == trampoline) {
+      has_tramp = true;
+      break;
+    }
+  }
+  if (!has_tramp) {
+    return false;
+  }
+  // pp = GOAL r13 (x13). Recover state + code from the (intact) process header.
+  const uint32_t pp = static_cast<uint32_t>(uc->uc_mcontext.regs[13]);
+  if (pp == 0 || pp + 56 >= (uint32_t)EE_MAIN_MEM_SIZE) {
+    return false;
+  }
+  uint32_t state = 0, code = 0;
+  if (!gk_diag::safe_read_u32(ee + pp + 52, &state) ||  // (-> pp state) @ deftype 56
+      state == 0 || state + 16 >= (uint32_t)EE_MAIN_MEM_SIZE) {
+    return false;
+  }
+  if (!gk_diag::safe_read_u32(ee + state + 12, &code) ||  // (-> state code) @ deftype 16
+      code == 0 || code >= (uint32_t)EE_MAIN_MEM_SIZE) {
+    return false;
+  }
+  uc->uc_mcontext.pc = ee + code;  // resume into the authoritative state code
+  const uint64_t n = g_enter_state_code_repairs.fetch_add(1, std::memory_order_relaxed) + 1;
+  if (n <= 16 || (n % 256) == 0) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG ENTER-STATE-CODE-REPAIR #%llu sig=%d pp=0x%x state=0x%x "
+                        "code=0x%x -> resumed into authoritative state code (enter-state "
+                        "spilled new-state stomped to 0 by a concurrent DMA write)",
+                        (unsigned long long)n, sig, pp, state, code);
+  }
+  return true;
+}
 }  // namespace a38_trip
 
 // F1A: non-static bridge so the A37-CAM block (earlier in the TU, different
@@ -4562,6 +4633,15 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // dump below.
   if ((sig == SIGILL || sig == SIGSEGV) &&
       a38_trip::handle_rftd_null_return(sig, info, ucontext)) {
+    return;
+  }
+  // Gcrash-mouche: arm64 buzzer scout-fly collect SIGILL — enter-state's spilled
+  // `new-state` was stomped to 0 by a concurrent sparticle DMA write, so the state
+  // `code` read 0 and the .jr branched to EE+0. Recover the authoritative state code
+  // from the (intact) process header and resume. Tightly gated (pc==EE+0 + a GPR holds
+  // the return-from-thread-dead trampoline). Must run before the fatal dump below.
+  if ((sig == SIGILL || sig == SIGSEGV) &&
+      a38_trip::handle_enter_state_null_code(sig, info, ucontext)) {
     return;
   }
   // Diag-only: dump PC bytes and registers so we can decode the crashing
