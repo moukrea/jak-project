@@ -767,6 +767,12 @@ phases:
   validator: validators/phase-Glogo-garble.sh
   max_turns: 1500
   max_retries: 4
+- id: Gcrash-geyser
+  name: 'OWNER GROUND TRUTH 2026-06-23 (now top priority, blocks first level): Geyser Rock crash climbing the steps (must jump up). Non-deterministic: (A) BLUE-SCREEN render-lock at first steps (music keeps playing, A35-RENDER frames stop -> render thread hung, NOT a process crash) OR (B) HARD CRASH TO HOME further on (signal). Reproduce both via cpad_inject >=8x, name them (crash fp-walk/canary; blue-lock = hung GL site), fix the root. libgk; goal_src 1-to-1.'
+  prompt: prompts/phase-Gcrash-geyser.md
+  validator: validators/phase-Gcrash-geyser.sh
+  max_turns: 1600
+  max_retries: 4
 - id: Gtouch-controls
   name: 'OWNER REQUEST 2026-06-23 (priority 1): complete the Android on-screen touch controls. Existing TouchOverlayView is partial (9 buttons, ASCII letters, no shoulders/select/analog sticks, always-visible). Add FULL control set (face/dpad/start/select/L1R1L2R2/L3R3 + LEFT+RIGHT analog sticks), proper PlayStation icons (not letters), and show-on-touch + fade-after-10s-idle. android-only, goal_src 1-to-1.'
   prompt: prompts/phase-Gtouch-controls.md
