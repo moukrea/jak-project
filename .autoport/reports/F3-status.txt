@@ -1,5 +1,5 @@
-F3 device run 2026-06-23T21:19:26+02:00
+F3 device run 2026-06-23T21:29:37+02:00
   Geyser Rock gameplay window: 60s
-  sustained swap (window max): 4500  (need >=1800 = 30fps)
-  simulation ticks (60Hz):     3608    (need 3400..3800)
-  frame CSV rows:              2939
+  sustained swap (window max): 4620  (need >=1800 = 30fps)
+  simulation ticks (60Hz):     3600    (need 3400..3800)
+  frame CSV rows:              3089

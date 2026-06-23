@@ -247,6 +247,9 @@
     ],
     "Gconsolidate-deploy": [
       "b62e67382c57"
+    ],
+    "F3-gameplay-30fps": [
+      "d9f1056982fc"
     ]
   },
   "stuck_reasons": {
@@ -491,7 +494,7 @@
     "Gcrash-mouche": 1782231216.1967835,
     "F3-gameplay-30fps": 1782241142.1616557
   },
-  "last_update": "2026-06-23T19:19:28.819595+00:00",
+  "last_update": "2026-06-23T19:19:28.922804+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
