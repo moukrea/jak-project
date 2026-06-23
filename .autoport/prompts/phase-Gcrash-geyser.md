@@ -15,6 +15,14 @@ and sometimes faults (crash). Prime suspects: the deferred merc/DMA blend-shape/
 ([[a38-blind-to-dma-content-canary]], [[cross-thread-stomp-repair-resume]]), an arm64/GLES draw that
 hangs Adreno (a shader/texture/geometry first hit in that area), or a collision/object handler.
 
+### (C) DETERMINISTIC trigger — START HERE: collecting a SCOUT FLY ("mouche") = INSTANT CRASH
+The owner reports: **collecting a scout fly (the little Precursor "mouche" freed from boxes) crashes
+the game INSTANTLY, every time.** This is DETERMINISTIC (unlike the steps crash) — so it is your best
+handle: drive to a scout fly and collect it to reproduce on demand, capture the exact crash
+(sig/fp-walk/canary), and name it. It likely shares the root with the steps crash (a collect →
+pickup-sequence / particle / merc draw that stomps), OR is the same class as the orb-collect
+micro-cinematic path. Fix this FIRST (it's reliable), then verify the steps modes are also clean.
+
 ## Methodology — reproduce BOTH modes, name them, fix the root
 - Drive the owner's path via cpad_inject: in-game at Geyser Rock → move forward to the steps → **jump
   up the steps** → continue further. Run it **many times (≥8)** — it's intermittent, so a clean run
