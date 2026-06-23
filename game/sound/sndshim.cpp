@@ -1,6 +1,7 @@
 #include "sndshim.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "sdshim.h"
 
@@ -293,3 +294,22 @@ void snd_SetGlobalExcite(u8 value) {
     player->SetGlobalExcite(value);
   }
 }
+
+#ifdef __ANDROID__
+// Phase F2 (autoport): pull mixed stereo PCM for the SDL3 AAudio sink.
+// Runs on the SDL audio thread; Player::Tick takes the recursive tick lock,
+// so this is serialized against the overlord/GOAL control calls exactly the
+// way the desktop cubeb audio thread is.
+void snd_AndroidPullStereoS16(s16* out, int frames) {
+  if (frames <= 0) {
+    return;
+  }
+  if (player) {
+    player->RenderAudio(reinterpret_cast<snd::s16Output*>(out), frames);
+  } else {
+    // The SDL audio device opens (and the callback can fire) before the
+    // overlord runs snd_StartSoundSystem — emit silence until the synth is up.
+    std::memset(out, 0, static_cast<size_t>(frames) * 2 * sizeof(s16));
+  }
+}
+#endif
