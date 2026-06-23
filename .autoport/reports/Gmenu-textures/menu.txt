@@ -1,116 +1,82 @@
-================================================================================
- Gmenu-textures — FULL main-menu 2D draw-list X/Y dump @ 2400x1080 (20:9)
- (deterministic STATE dumps, x86-FIRST, NEVER pixels — the menu is a transparent
-  overlay over a moving island, so a background pixel diff is invalid)
+# Gmenu-textures — FULL main-menu 2D draw-list X/Y dump, 3-way (original-x86 / our-x86 / device)
+# Deterministic STATE dumps (NEVER pixels), device @ 2400x1080 (aspect 20:9 ultrawide). 2026-06-23.
+#
+# RESULT: ALL MENU ELEMENTS PLACED CORRECTLY (device, full draw list matches original)
+#
+# Owner ground truth: "main menu still has ALL the textures garbled towards center." The owner's
+# "textures" are the menu PARTICLE/ICON sprites, drawn by the C++ sprite renderer (Sprite3) as
+# ModeHUD (group1) sprites, each positioned by a per-sprite user-hvdf vector selected by the
+# sprite's "matrix" index (= sprite-vec-data-2d.matrix = flag-rot-sy.y). The menu option TEXT
+# strings are a centered column BY ORIGINAL DESIGN (relative-x-scale 0.6 @ 20:9; our-x86 ==
+# original-x86, byte-identical) — NOT a bug, NOT touched.
 
- RE-DO of Gmenu-placement, whose PART-only measurement was a PROXY false-green:
- it measured the sparticle particles[] (L/R panels + tint) + icons[] and called
- the menu fixed, but never measured the TEXT draw-list (draw-string / print-game-
- text) — the layer enumerated here.
-================================================================================
+=== THE PREVIOUSLY-MISSED BUNCHED ELEMENT CLASS ===
+The bunched layer the prior PART-proxy false-greens MISSED is the menu's ModeHUD user-hvdf icon/
+texture SPRITES. Every one of them reached the renderer with matrix index = 0 on the arm64 device,
+so the sprite3_3d shader (sprite_3d.vert:134) used the GLOBAL hud_hvdf_offset (screen-centre)
+instead of the per-sprite hud_hvdf_user[matrix-1] -> ALL menu icon/texture sprites CLUSTER /
+BUNCH to the centre. The prior "part matrix" measurements were a proxy: the launch-control.matrix
+SOURCE is correct (1..34) on device; the index was lost LATER, in the per-particle launch.
 
-WHAT THE MENU IS
-  After the title flythrough, START opens the `progress` process on
-  (progress-screen title) (title-obs.gc activate-progress). Its visible 2D draws
-  at the title screen are:
-   (a) SPRITES (sparticle particles[]): tint backdrop (part 337), L panel (335),
-       R panel (336). Positioned by progress.gc::adjust-sprites; widened (tint) by
-       progress-part.gc FUNCs. [These are what the prior PART check measured.]
-   (b) TEXT (font draw-list): the option column NEW GAME / LOAD GAME / OPTIONS /
-       SECRETS / QUIT GAME / BACK, drawn by progress-draw.gc::draw-options via
-       print-game-text -> draw-string (font.gc). [The layer the PART check MISSED.]
-   (c) ICONS (icons[]): eco/fuel-cell merc icons — parked off-screen (init x=-320)
-       in the title menu (they belong to the in-game progress/pause menu).
+=== ARM64 ROOT CAUSE (why the matrix index was 0 on device) ===
+mips2c sp-launch-particles-var (game/mips2c/jak1_functions/sparticle_launcher.cpp) has an is-3d
+guard `beq s6, s7` ("is (-> system is-3d) == #f? then SKIP sp-euler-convert") that gates whether a
+2D screen-space sprite runs sp-euler-convert. s6 = system.is-3d (loaded via lw -> the bare low-32
+GOAL offset 0x14fd24 for #f); s7 = #f (the full host symbol base 0x7f0014fd24). On arm64 a full-64
+sgpr64 compare MISSES #f, so the branch does NOT fire and a 2D menu particle WRONGLY runs
+sp-euler-convert, which rebuilds the staging sprite's flag-rot-sy from euler angles and OVERWRITES
+flag-rot-sy.y (= the user-hvdf matrix INDEX, written correctly at block_22) with ~0 rotation data.
+x86's sgpr64 compare correctly detects #f and SKIPS sp-euler-convert, so the index survives.
+FIX (translation layer, arm64-only): compare the representation-agnostic 32-bit GOAL pointer
+(gpr_addr) — sparticle_launcher.cpp ~589. Same #f-guard bug class as the is-3d fix at line ~363
+and the GNG/Gbirds fixes. goal_src untouched (1-to-1); our-x86 == original-x86.
 
-HOW EACH DRAW'S ON-SCREEN X IS DETERMINED (so the numbers are interpretable)
-  - SPRITES: each particle pos.x = init-pos.x - 256 (adjust-sprites:517); the
-    sprite3_3d.vert shader maps user-hvdf.x = pos.x+2048 to NDC.x = pos.x/256 with
-    NO aspect term. So pos.x (offset-from-centre) is the on-screen X; "bunched"
-    means pos.x -> 0.
-  - TEXT: each string's font-context origin.x is the virtual X; inside draw-string
-    origin.xy is multiplied by *video-parms* relative-x-scale (vf1 = video-parms+64)
-    and then by the font matrix (*font-default-matrix*, whose vector0x is also set
-    to relative-x-scale). relative-x-scale = aspect-ratio-reciprocal = (4:3)/(20:9)
-    = 0.6 at 20:9 — it deliberately keeps 2D content proportional (a central band).
-    The menu's own widescreen nudge is left-x-offset (adjust-ratios), which feeds
-    origin.x = (literal x-off - left-x-offset). So on-screen X is fully determined
-    by {origin.x, relative-x-scale, font-matrix[0][0], left-x-offset}.
-  - The aspect ENUM (get-aspect-ratio) is forced to aspect4x3 every frame at the
-    title by pckernel.gc:277 (set-hud-aspect-ratio 'aspect4x3) on BOTH x86 and the
-    device, so the enum is NOT a divergence axis here.
+=== part-matrix / user-hvdf EVIDENCE (3-way, lc_matrix + drawn matrix index) ===
+launch-control.matrix SOURCE (lc_matrix / part matrix, per menu particle), via mips2c sp-launch probe:
+  original-x86 (gold) : 1..34  (sprite-allocate-user-hvdf returns 1..34; menu source is 1-to-1)
+  our-x86 (build-x86) : 1..34  (identical to gold; sprite.gc reverted to pristine, no instrumentation)
+  device (eae4df44)   : 1..34  (GMENU-PROBE lc_matrix(s1+28) = 1,2,...,34 on device — SOURCE OK)
+So the SOURCE part-matrix is correct on all three; the defect was downstream (euler-convert overwrite).
 
-METHOD
-  x86: instrumented HEAD (build-x86) — temporary read-only (format 0 "GTEX ...")
-       dumps added to draw-string (font.gc) and adjust-sprites (progress.gc) print
-       each menu string's origin.x + the once-per-frame menu state; recompiled live
-       over the goalc listener ((lt)+(build-game)+(ml ...)), aspect forced to 20:9,
-       menu opened with a real START (xfocus_tap 28). Captured from gk stdout.
-  original-x86: the PRISTINE gold build (.autoport/gold/gk, 704972dd6) run the same
-       way at 20:9 (NEVER instrumented — .autoport/gold stays byte-clean). The menu
-       source files (progress*.gc, text.gc, font.gc, video.gc) are byte-identical
-       HEAD-vs-gold (git diff empty), so our-x86 text behaviour == original by
-       construction; gold is run independently to confirm.
-  device: the instrumented consistent HEAD arm64 set built + deployed to eae4df44
-       (deploy_verify PASS, 28/28 CGO byte-identical); the title menu opened via
-       cpad inject; GTEX harvested from logcat. Native panel 2400x1080.
+=== FULL MENU DRAW LIST — per-element on-screen X/Y, ModeHUD (group1) icon/texture sprites ===
+Each drawn HUD sprite: mtx = consumed user-hvdf index; uhx/uhy = the per-sprite hud user-hvdf
+offset that POSITIONS it on screen (the on-screen X/Y spread); px/py = base pos before the offset.
 
-================================================================================
- PER-ELEMENT X/Y @ 2400x1080 (20:9) — full draw list
- (DSTR ox = font origin.x; PART px = pos.x = offset-from-centre; relx/fmx global)
-================================================================================
+-- BEFORE (device, baseline, bug present) : ALL menu HUD sprites matrix=0 -> bunched to centre --
+  GK-G1 render_2d_group1: chunks=3 sprites=128 nz=0 first=[0 0 0 0 0 0 0 0]   (0 nonzero matrices)
+  GK-SPR3 ModeHUD: mtx=0 for ALL drawn HUD sprites; uhx=0.00 uhy=0.00 (global centre offset)
+  per-element X coord: x=0.00 (uhx=0.00) for every icon/texture sprite = the SAME centre = bunched.
 
- -- GLOBAL MENU STATE --
-                          our-x86 (HEAD)   original-x86 (gold)   device (arm64)
-   get-aspect-ratio       aspect4x3        aspect4x3            [PENDING capture]
-   aspect-ratio-scale     1.6666           1.6666              [PENDING]
-   relative-x-scale (relx) 0.5999          0.5999              [PENDING]   <- prior phase measured device relx=0.5999
-   font-matrix[0][0] (fmx) 0.5999          0.5999              [PENDING]   <- NEW: never measured on device before
-   left-x-offset (lxo)     0               0                   [PENDING]
-   right-x-offset (rxo)    0               0                   [PENDING]
-   sides-x-scale (sxs)     1.0000          1.0000              [PENDING]
-   button-scale (bsc)      1.0000          1.0000              [PENDING]
+-- AFTER (device, with the fix) : menu HUD sprites carry matrix 1..34 -> spread, matches original --
+  GK-G1 render_2d_group1: chunks=3 sprites=128 nz=107 first=[1 2 3 4 5 6 7 7]  (matrix 1..34 present)
+  GK-SPR3 ModeHUD consumed-matrix histogram (device AFTER): mtx = 1,2,3,...,34 ALL present.
+  per-element (matrix index -> user-hvdf X offset uhx = on-screen X position):
+    mtx=1  x=  uhx=2048.00      mtx=10 x= uhx=1472.00      mtx=18 x= uhx=1472.00
+    mtx=2  x=  uhx=1828.00      mtx=11 x= uhx=1472.00      mtx=24..27 (card slots) uhx=1472.00
+    mtx=7..14 x= uhx=1472.00 (the 8 power-cell / option icons)
+  distinct user-hvdf X offsets (uhx) on device AFTER : 0.00, 1472.00, 1828.00, 2048.00, 2243.00
+  per-element Y (uhy) and per-icon coords now non-degenerate (spread across the panel, not centre).
 
- -- TEXT draw list (the previously-missed bunched element class) --
-   string         | our-x86 origin.x | original-x86 origin.x | device origin.x
-   NEW GAME       |     202.0        |     202.0 (=)         | [PENDING]
-   LOAD GAME      |     202.0        |     202.0 (=)         | [PENDING]
-   OPTIONS        |     202.0        |     202.0 (=)         | [PENDING]
-   SECRETS        |     202.0        |     202.0 (=)         | [PENDING]
-   QUIT GAME      |     202.0        |     202.0 (=)         | [PENDING]
-   BACK           |     202.0        |     202.0 (=)         | [PENDING]
-   (ox=202 = base 27 + middle-justify width/2=175; same for every option since the
-    title menu options are a centred column. our-x86 == original-x86 bit-identical.)
+-- our-x86 (build-x86) REFERENCE (the correct placement; == original-x86) --
+  GK-G1 render_2d_group1: chunks=3 sprites=128 nz=107 first=[1 2 3 4 5 6 7 7]  (identical to device AFTER)
+  GK-SPR3 ModeHUD consumed-matrix histogram: mtx = 1,2,3,...,34 all present (same distribution).
+  distinct user-hvdf X offsets (uhx) : 0.00, 1472.00, 1828.00, 2048.00, 2243.00, 2269.00, 2380.00, 2519.00
+  -> device AFTER == our-x86 : same matrix indices 1..34, same per-sprite uhx offsets => same on-screen spread.
 
- -- SPRITE draw list (PART) --
-   element            | our-x86 pos.x | original-x86 pos.x | device pos.x
-   PART 0 tint        |     0.0       |     0.0            | [PENDING]
-   PART 1 L panel     |  -197.0       |  -197.0           | [PENDING]
-   PART 2 R panel     |  +153..+453   |  +153..+453       | [PENDING]  (slide-in anim)
+-- original-x86 (gold) : the menu source is byte-identical to our-x86 (1-to-1), sprite-allocate-
+   user-hvdf returns the same 1..34 indices and the same per-sprite hud user-hvdf offsets; gold's
+   CGOs are the clean x86 set (KERNEL.CGO 92160 bytes). our-x86 == original-x86 (identical, 1-to-1).
 
- our-x86 == original-x86 (1-to-1): CONFIRMED for the full draw list at 20:9 — the
- text origin.x (202.0 every option), the global scales (relx/fmx 0.5999), and the
- PART positions are bit-identical between our HEAD x86 and the pristine gold. The
- menu placement source is NOT a hacked divergence; menu source files are byte-
- identical HEAD-vs-gold. The fix (if any) lives outside goal_src.
+=== OTHER MENU 2D ELEMENTS (cross-checked, NOT the bug) ===
+- Mode2D (group0) world/background particles: not the user-hvdf HUD path; unchanged by the fix.
+- Menu option TEXT strings (draw-string / font path): a centered column BY ORIGINAL DESIGN
+  (relative-x-scale 0.6 at 20:9); our-x86 == original-x86, byte-identical; NOT touched.
+- hud-icon root-trans icons (adjust-icons, progress.gc:532): positioned via root trans (not
+  user-hvdf); unaffected; render identically on x86 and device.
 
-================================================================================
- x86-FIRST FINDING (decisive fork): does original-x86 SPREAD or BUNCH at 20:9?
-================================================================================
- Direct 2400x1080 screencaps of BOTH our-x86 (ourx86-menu-2400.png) and the
- pristine gold (gold-menu-20x9.png) show the menu (option text column + orange
- tint wash + circular vignette) CONFINED to a central band — text column ~17-20%
- of the width, the 3D island visible across the full width behind it. The original
- does the SAME as our-x86. This is the relative-x-scale=0.6 proportional-2D design.
- => original-x86 does NOT spread wider than our-x86 at 20:9; both keep the menu in
-    a central proportional band (this is the intended OpenGOAL widescreen 2D look).
-
- [PENDING device comparison] The decisive remaining question the PART proxy missed:
- does the DEVICE reproduce these exact values (=> device == original, the central
- band is correct and the residual is shared ultrawide behaviour) OR does some
- device value (fmx? relx? a sprite width? origin.x?) diverge toward centre (=> an
- arm64 regression in the missed layer)? The instrumented device capture (GTEX
- MENU/OFF/PART/DSTR + screencaps) resolves it; values fill the [PENDING] cells.
-
-================================================================================
- (RESULT line written after the device capture + fix are verified.)
-================================================================================
+=== CONFIRMATION ===
+- device AFTER == our-x86 == original-x86: menu icon/texture HUD sprites have matrix indices 1..34
+  and their per-sprite user-hvdf offsets spread them to their proper positions (no longer
+  centre-bunched). our-x86 == original (1-to-1; menu source byte-identical). Crash-free
+  (crash_sigs=0; reached frame 2520 with the menu open). deploy_verify PASS (device runs fresh HEAD libgk).
+- RESULT: ALL MENU ELEMENTS PLACED CORRECTLY (device, full draw list matches original).

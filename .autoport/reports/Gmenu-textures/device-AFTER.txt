@@ -1,0 +1,47 @@
+# Gmenu-textures DEVICE AFTER (line-640 is-3d/euler-convert fix) 2026-06-23T01:57:43+02:00
+## GK-G1 render_2d_group1 HUD sprites (matrix index now 1..34, matching x86)
+     94 GK-G1 chunks=3 sprites=128 nz=107 first=[1 2 3 4 5 6 7 7]
+## GK-SPR3 ModeHUD consumed matrix histogram (1..34 present = spread, not bunched)
+   2961 mtx=0
+    141 mtx=1
+    141 mtx=2
+    141 mtx=3
+    141 mtx=4
+    141 mtx=5
+    141 mtx=6
+   1128 mtx=7
+   1128 mtx=8
+   1128 mtx=9
+   1128 mtx=10
+   1128 mtx=11
+   1128 mtx=12
+   1128 mtx=13
+   1128 mtx=14
+    282 mtx=15
+    141 mtx=16
+   1128 mtx=17
+    282 mtx=18
+    141 mtx=19
+    141 mtx=20
+    141 mtx=21
+    141 mtx=22
+    141 mtx=23
+    423 mtx=24
+    423 mtx=25
+    423 mtx=26
+    423 mtx=27
+    141 mtx=28
+    141 mtx=29
+    141 mtx=30
+    141 mtx=31
+    141 mtx=32
+    141 mtx=33
+    141 mtx=34
+## GK-SPR3 ModeHUD distinct uhx (per-sprite user-hvdf X offsets = the menu spread)
+uhx=0.00
+uhx=1472.00
+uhx=1828.00
+uhx=2048.00
+uhx=2243.00
+## crash sigs
+0
