@@ -17,6 +17,9 @@ N=$(grep -acE 'PAST[- ]STEPS|past the steps|climbed|REACH|frame=[0-9]{4,}' "$R" 
 # both failure modes addressed
 grep -qiE 'blue|render.?lock|frame.*stop|stuck|hang' "$R" || fail "runs.txt must address the BLUE-LOCK render-hang mode (frames stop advancing)"
 grep -qiE 'sig=(4|6|11)|fatal|crash.?to.?home|signal' "$R" || fail "runs.txt must address the HARD-CRASH mode"
+# the DETERMINISTIC scout-fly ("mouche") collect crash must be reproduced + fixed (collect crash-free)
+grep -qiE 'scout.?fly|mouche|fly.?collect|collect.*fly' "$R" || fail "runs.txt must cover the scout-fly (mouche) collect crash"
+grep -qiE 'collect.*(crash-?free|no.?crash|sig=0|0 sig)|fly.*(crash-?free|reach|past)' "$R" || fail "runs.txt must show collecting a scout fly is now crash-free"
 # calibration: a reproduced BEFORE (a mode named with site/writer), or honest >=20-run non-repro
 if grep -qiE 'could not reproduce|not reproduc|no repro' "$R"; then
   grep -qiE '2[0-9]|[3-9][0-9]' "$R" || fail "non-repro claim must cite >=20 runs"
