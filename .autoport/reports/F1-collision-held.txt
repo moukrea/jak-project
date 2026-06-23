@@ -1,0 +1,1 @@
+held: stable_run=918 settle=(-5392877.5,28345.1,4363629.0) spawn_ty=28259.5
