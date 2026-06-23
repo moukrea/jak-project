@@ -1,6 +1,6 @@
 # Phase F1 — Geyser Rock gameplay launch report
 
-_Generated: 2026-06-22T13:18:23+02:00_
+_Generated: 2026-06-23T11:55:38+02:00_
 
 ## Determination
 
@@ -8,15 +8,15 @@ _Generated: 2026-06-22T13:18:23+02:00_
 
 ## Artefacts
 
-- boot log:   `.autoport/reports/F1-boot.log` (59026 lines)
-- state dump: `.autoport/reports/F1-state-frame-600.json` -> { "target_trans": { "x": -543372.9375, "y": 189225.125, "z": 874363.75 }}
-- screencap:  `.autoport/reports/F1-screencap-frame-600.png` (1237130 bytes)
+- boot log:   `.autoport/reports/F1-boot.log` (5499 lines)
+- state dump: `.autoport/reports/F1-state-frame-600.json` -> { "target_trans": { "x": -5393740.5, "y": 28259.533203, "z": 4360945.5 }}
+- screencap:  `.autoport/reports/F1-screencap-frame-600.png` (3406059 bytes)
 
 ## Marker scoreboard
 
 ```
-  link finish: logo              12
+  link finish: logo              4
   engine: state=in-game          1
-  F1-STATE tx=                   10660
+  F1-STATE tx=                   1090
   Fatal signal                   0
 ```
