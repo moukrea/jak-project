@@ -779,6 +779,12 @@ phases:
   validator: validators/phase-Gtouch-controls.sh
   max_turns: 1600
   max_retries: 3
+- id: Gtouch-rightstick
+  name: 'OWNER 2026-06-23 testing the overlay: the right camera control is a mouse/trackpad drag-delta (horrible, low sens). Make it a FLOATING INVISIBLE virtual stick on the right 3/4 (non-button): anchor at touch-down, RIGHTX/RIGHTY = deflection (offset-from-anchor, sustained), like the left stick but invisible+dynamic. android-only.'
+  prompt: prompts/phase-Gtouch-rightstick.md
+  validator: validators/phase-Gtouch-rightstick.sh
+  max_turns: 1200
+  max_retries: 3
 - id: Gcrash-mouche
   name: "OWNER GROUND TRUTH 2026-06-23: collecting a scout fly (buzzer/mouche) INSTANT-crashes (deterministic) \u2014 UNRESOLVED (Gcrash-geyser only fixed the steps blue-lock, could not collect a buzzer). Lead: buzzer pickup -> manipy fly-to-HUD merc draw (merc/DMA stomp class). Exercise the REAL buzzer pickup FX (NOT orbs) via listener spawn/trigger; if exhaustively unreproducible, fix the manipy/HUD-merc path + require owner verification."
   prompt: prompts/phase-Gcrash-mouche.md
