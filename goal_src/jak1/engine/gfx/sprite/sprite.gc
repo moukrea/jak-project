@@ -777,9 +777,7 @@
   (dotimes (v1-0 76)
     (when (zero? (-> *sprite-hvdf-control* alloc v1-0))
       (set! (-> *sprite-hvdf-control* alloc v1-0) 1)
-      (when *progress-process* (format 0 "GMENU-ALLOC ret=~D~%" v1-0)) ;; GMENU-DBG TEMP
       (return v1-0)))
-  (when *progress-process* (format 0 "GMENU-ALLOC FULL ret=0~%")) ;; GMENU-DBG TEMP
   0)
 
 (defun sprite-release-user-hvdf ((arg0 int))
