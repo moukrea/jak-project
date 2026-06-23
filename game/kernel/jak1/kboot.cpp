@@ -169,6 +169,12 @@ void KernelCheckAndDispatch() {
     // form would run on the desktop oracle.
     f1_maybe_warp_to_geyser();
 
+    // Gcrash-mouche (Geyser Rock buzzer scout-fly pickup HUD-FX) repro/verify —
+    // gated (env OG_MOUCHE_FX / prop debug.opengoal.mouche.fx), OFF by default.
+    // Drives the manipy fly-to-HUD effect (the deterministic buzzer-collect crash)
+    // via *listener-function*, the same dispatch-loop point the desktop oracle uses.
+    mouche_maybe_fire();
+
     // if the listener function changed, it means the kernel ran it, so we should notify compiler.
     if (MasterDebug && ListenerFunction->value != old_listener) {
       SendAck();
