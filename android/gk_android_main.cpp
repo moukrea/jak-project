@@ -106,6 +106,15 @@ constexpr const char* kGkLogTag = "opengoal-gk";
 // Phase 14+ replace this with SDL_PushEvent().
 std::atomic<uint32_t> g_touch_events_seen{0};
 
+// Phase Gtouch-controls (autoport): menu-vs-gameplay flag for the on-screen
+// touch overlay. Written on the GOAL thread by a36_tree_scan_per_frame from
+// the live GOAL state (*progress-process* non-#f, or *master-mode* ==
+// menu/progress); read on the UI thread via NativeGk.isInMenu(). The overlay
+// uses it to switch the bottom-left control between the analog stick
+// (gameplay) and a digital d-pad (menus, which the game navigates with the
+// d-pad). Default false so the overlay defaults to analog before boot.
+std::atomic<bool> g_overlay_in_menu{false};
+
 // Repeat startGame calls (e.g. after a configuration change) must be idempotent.
 std::atomic<bool> g_runtime_booted{false};
 
@@ -2596,6 +2605,26 @@ extern "C" void a36_tree_scan_per_frame() {
     // *target* is alive even in target-title-wait, but master-mode only
     // becomes 'play/'game once (start 'play ...) actually runs.
     const bool in_play = (!strcmp(mmn, "play") || !strcmp(mmn, "game"));
+
+    // Phase Gtouch-controls (autoport): publish menu-vs-gameplay for the
+    // on-screen overlay's bottom-left control. A navigable menu is up when
+    // *progress-process* is non-#f — this covers BOTH the title option menu
+    // (title-obs.gc target-title-wait -> activate-progress) AND the in-game
+    // pause/progress menu (main.gc toggle-pause -> set-master-mode 'progress
+    // -> activate-progress). *master-mode* in {menu, progress} catches the
+    // debug menu too. Read on this (GOAL) thread; the UI thread only reads
+    // the resulting atomic via NativeGk.isInMenu(), so no symbol table race.
+    {
+      bool in_menu = (!strcmp(mmn, "menu") || !strcmp(mmn, "progress"));
+      auto pp = jak1::intern_from_c("*progress-process*");
+      if (pp.offset) {
+        const uint32_t v = pp->value;
+        if (v != 0 && v != (uint32_t)s7.offset) {
+          in_menu = true;  // a progress/option menu process is alive
+        }
+      }
+      g_overlay_in_menu.store(in_menu, std::memory_order_release);
+    }
     if (in_play) {
       static std::atomic<bool> s_play_logged{false};
       bool expected = false;
@@ -5982,6 +6011,42 @@ Java_org_opengoal_gk_NativeGk_onPadButton(JNIEnv* /*env*/, jclass /*clazz*/,
                       "(JNI route from Java SDLActivity)",
                       (int)sdl_button, pressed == JNI_TRUE ? 1 : 0);
   android_input_audio::on_pad_button((int)sdl_button, pressed == JNI_TRUE);
+}
+
+// Phase Gtouch-controls (autoport): analog-axis injection from the overlay
+// (left virtual stick LEFTX/LEFTY, right camera-drag zone RIGHTX/RIGHTY,
+// combined L2/R2 button via the LEFT/RIGHT_TRIGGER axes). Routes into the
+// SAME on_pad_axis the real-gamepad SDL_EVENT_GAMEPAD_AXIS_MOTION path uses
+// (process_sdl_event), so the injected deflection is byte-equivalent to a
+// physical pad's and reaches the GOAL cpad mirror via get_cpad_state.
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_onPadAxis(JNIEnv* /*env*/, jclass /*clazz*/,
+                                        jint sdl_axis, jint value) {
+  // The analog stick + camera drag call this every touch-move (continuous),
+  // so throttle the marker: log the first crossing + one per 64 thereafter.
+  // The native axis path itself runs every call (smooth input); only the
+  // logcat line is throttled so it can't flood the device log. The Java-side
+  // `overlay-actuate:` lines carry the per-control proof.
+  static std::atomic<uint32_t> s_axis_log_count{0};
+  const uint32_t n = s_axis_log_count.fetch_add(1, std::memory_order_relaxed);
+  if (n == 0 || (n & 0x3Fu) == 0) {
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                        "onPadAxis: sdl_axis=%d value=%d "
+                        "(JNI route from Java overlay; #%u)",
+                        (int)sdl_axis, (int)value, (unsigned)n);
+  }
+  android_input_audio::on_pad_axis((int)sdl_axis, (int)value);
+}
+
+// Phase Gtouch-controls (autoport): expose the GOAL-thread-computed
+// menu-vs-gameplay flag to the overlay. The overlay polls this to switch
+// the bottom-left control between the analog stick (gameplay) and a digital
+// d-pad (menus). Just an atomic read — no symbol-table access on this
+// (UI) thread, so it can never race the kernel's intern.
+JNIEXPORT jboolean JNICALL
+Java_org_opengoal_gk_NativeGk_isInMenu(JNIEnv* /*env*/, jclass /*clazz*/) {
+  return g_overlay_in_menu.load(std::memory_order_acquire) ? JNI_TRUE
+                                                           : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL

@@ -543,6 +543,29 @@ void on_pad_axis(int sdl_axis, int value) {
     case SDL_GAMEPAD_AXIS_LEFTY:  g_stick_ly.store(v, std::memory_order_release); break;
     case SDL_GAMEPAD_AXIS_RIGHTX: g_stick_rx.store(v, std::memory_order_release); break;
     case SDL_GAMEPAD_AXIS_RIGHTY: g_stick_ry.store(v, std::memory_order_release); break;
+    // Phase Gtouch-controls (autoport): on a PS2 pad L2/R2 are DIGITAL
+    // button0 bits (8 = L2, 9 = R2), but SDL exposes them as analog
+    // triggers (0..32767). The desktop input path converts a pulled
+    // trigger into the digital L2/R2 bit; mirror that here so BOTH a real
+    // Bluetooth pad's triggers AND the overlay's combined L2/R2 button
+    // (which injects these trigger axes) reach the game identically — the
+    // same byte-for-byte cpad state. Threshold at ~50% deflection. The
+    // non-atomic read-modify-store matches on_pad_button's existing pattern
+    // on g_overlay_button0.
+    case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: {
+      const uint16_t mask = (uint16_t)(1u << 8);  // PS2 L2
+      uint16_t before = g_overlay_button0.load(std::memory_order_relaxed);
+      uint16_t after = (value > 16383) ? (before | mask) : (before & ~mask);
+      g_overlay_button0.store(after, std::memory_order_release);
+      break;
+    }
+    case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: {
+      const uint16_t mask = (uint16_t)(1u << 9);  // PS2 R2
+      uint16_t before = g_overlay_button0.load(std::memory_order_relaxed);
+      uint16_t after = (value > 16383) ? (before | mask) : (before & ~mask);
+      g_overlay_button0.store(after, std::memory_order_release);
+      break;
+    }
     default: break;
   }
 }

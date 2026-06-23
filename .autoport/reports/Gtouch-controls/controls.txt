@@ -1,90 +1,84 @@
-== Gtouch-controls — full on-screen touch overlay verification ==
-generated: 2026-06-23T13:32:20+02:00
-device:    eae4df44 (Redmi Note 9 Pro, org.opengoal.gk.jak1)
-build:     HEAD=590885ae0
-determination: partial — not every control produced a native marker
+Gtouch-controls — full on-screen touch overlay (owner layout 2026-06-23)
+device=eae4df44  pkg=org.opengoal.gk.jak1  screen=2298x1036  generated=2026-06-23T16:54:44+02:00
+focus-at-end:   mCurrentFocus=Window{f560299 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
 
--- overlay-map (enumerated control set; NO d-pad) --
-screen=2298x1036 south=1964,440,68,btn,0 east=2073,331,68,btn,1 west=1856,331,68,btn,2 north=1964,222,68,btn,3 start=1298,88,137,pill,6 select=999,88,137,pill,4 l1=206,212,119,shoulder,9 r1=2091,212,119,shoulder,10 l2=206,88,119,trigger,4 r2=2091,88,119,trigger,5 l3=758,942,51,click,7 r3=1539,942,51,click,8 left_stick=333,683,170,stick,0:1 right_stick=1964,683,170,stick,2:3
+== overlay-map (every control: name -> SDL target -> region) ==
+06-23 16:53:11.147 21937 21937 I opengoal-gk: overlay-map: screen=2298x1036 south=1976,837,72->onPadButton(SOUTH=0) east=2088,725,72->onPadButton(EAST=1) west=1863,725,72->onPadButton(WEST=2) north=1976,612,72->onPadButton(NORTH=3) l1r1=1964,56,264,108->onPadButton(LEFT_SHOULDER+RIGHT_SHOULDER)[top-right,combined] l2r2=68,56,264,108->onPadAxis(LEFT_TRIGGER+RIGHT_TRIGGER)[top-left,combined] start=1159,46,195,62->onPadButton(START=6) select=943,46,195,62->onPadButton(BACK=4)[SELECT] left-stick=356,704,170->onPadAxis(LEFTX/LEFTY)[bottom-left,gameplay] menu-dpad=<left-stick becomes a digital d-pad in menus>->onPadButton(DPAD_UP/DOWN/LEFT/RIGHT) camera=<right-side drag, x>=1034, not-a-visible-joystick>->onPadAxis(RIGHTX/RIGHTY) dropped=<the two stick-press buttons + the standalone directional pad>
 
--- control -> SDL mapping (FULL set: face x4, START, SELECT, L1/R1, L2/R2, L3/R3, left+right analog sticks) --
-south        -> onPadButton  SDL_GAMEPAD_BUTTON_SOUTH(0)            (cross)
-east         -> onPadButton  SDL_GAMEPAD_BUTTON_EAST(1)             (circle)
-west         -> onPadButton  SDL_GAMEPAD_BUTTON_WEST(2)             (square)
-north        -> onPadButton  SDL_GAMEPAD_BUTTON_NORTH(3)            (triangle)
-start        -> onPadButton  SDL_GAMEPAD_BUTTON_START(6)
-select       -> onPadButton  SDL_GAMEPAD_BUTTON_BACK(4)             (select / back)
-l1           -> onPadButton  SDL_GAMEPAD_BUTTON_LEFT_SHOULDER(9)    (left_shoulder)
-r1           -> onPadButton  SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER(10)  (right_shoulder)
-l2           -> onPadAxis    SDL_GAMEPAD_AXIS_LEFT_TRIGGER(4)   value 0/32767  (left_trigger)
-r2           -> onPadAxis    SDL_GAMEPAD_AXIS_RIGHT_TRIGGER(5)  value 0/32767  (right_trigger)
-l3           -> onPadButton  SDL_GAMEPAD_BUTTON_LEFT_STICK(7)       (left_stick click)
-r3           -> onPadButton  SDL_GAMEPAD_BUTTON_RIGHT_STICK(8)      (right_stick click)
-left_stick   -> onPadAxis    SDL_GAMEPAD_AXIS_LEFTX(0) / LEFTY(1)   value -32768..32767  (movement)
-right_stick  -> onPadAxis    SDL_GAMEPAD_AXIS_RIGHTX(2) / RIGHTY(3) value -32768..32767  (camera)
+== per-control ACTUATION (real adb taps/swipes -> native markers) ==
+-- Java overlay-actuate markers (control -> onPadButton/onPadAxis): --
+overlay-actuate: camera drag begin (x=1516,y=466) -> onPadAxis(RIGHTX/RIGHTY) from drag delta
+overlay-actuate: camera release -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=0 (neutral)
+overlay-actuate: camera swipe -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=1475
+overlay-actuate: camera swipe -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=390
+overlay-actuate: camera swipe -> onPadAxis(RIGHTX) value=3708, onPadAxis(RIGHTY) value=0
+overlay-actuate: camera swipe -> onPadAxis(RIGHTX) value=3940, onPadAxis(RIGHTY) value=0
+overlay-actuate: camera swipe -> onPadAxis(RIGHTX) value=695, onPadAxis(RIGHTY) value=0
+overlay-actuate: left-stick deflect -> onPadAxis(LEFTX) value=16828, onPadAxis(LEFTY) value=-9015
+overlay-actuate: left-stick deflect -> onPadAxis(LEFTX) value=31850, onPadAxis(LEFTY) value=-7695
+overlay-actuate: left-stick deflect -> onPadAxis(LEFTX) value=-4251, onPadAxis(LEFTY) value=-32490
+overlay-actuate: left-stick deflect -> onPadAxis(LEFTX) value=-4745, onPadAxis(LEFTY) value=-22361
+overlay-actuate: left-stick deflect -> onPadAxis(LEFTX) value=-4745, onPadAxis(LEFTY) value=-9015
+overlay-actuate: left-stick down mode=GAMEPLAY(analog) (native isInMenu=false)
+overlay-actuate: left-stick release -> onPadAxis(LEFTX) value=0, onPadAxis(LEFTY) value=0 (neutral)
+overlay-actuate: menu-dpad down mode=MENU(d-pad) (native isInMenu=true)
+overlay-actuate: menu-dpad drag -> onPadButton(DPAD_DOWN) pressed=1
+overlay-actuate: menu-dpad drag -> onPadButton(DPAD_UP) pressed=1
+overlay-actuate: menu-dpad release -> onPadButton(DPAD_*) pressed=0
 
--- per-control actuation test (synthetic touch at each control's coords -> native onPadButton/onPadAxis) --
-(each line: control: ACTUATED -> <native marker reaching JNI/cpad mirror>)
-south: NO MARKER (actuation not observed)
-east: ACTUATED -> 06-23 13:31:51.820 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=1 pressed=0 name=east from=overlay
-west: ACTUATED -> 06-23 13:31:52.582 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=2 pressed=0 name=west from=overlay
-north: ACTUATED -> 06-23 13:31:53.341 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=3 pressed=0 name=north from=overlay
-start: ACTUATED -> 06-23 13:31:54.101 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=6 pressed=0 name=start from=overlay
-select: ACTUATED -> 06-23 13:31:54.863 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=4 pressed=0 name=select from=overlay
-l1: ACTUATED -> 06-23 13:31:55.623 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=9 pressed=0 name=l1 from=overlay
-r1: ACTUATED -> 06-23 13:31:56.381 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=10 pressed=0 name=r1 from=overlay
-l2: ACTUATED -> 06-23 13:31:57.141 18313 18313 I opengoal-gk: onPadAxis: overlay trigger release -> sdl_axis=4 value=0 name=l2 from=overlay
-r2: ACTUATED -> 06-23 13:31:57.901 18313 18313 I opengoal-gk: onPadAxis: overlay trigger release -> sdl_axis=5 value=0 name=r2 from=overlay
-l3: ACTUATED -> 06-23 13:31:58.662 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=7 pressed=0 name=l3 from=overlay
-r3: ACTUATED -> 06-23 13:31:59.420 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=8 pressed=0 name=r3 from=overlay
-left_stick: ACTUATED -> 06-23 13:32:01.961 18313 18313 I opengoal-gk: onPadAxis: overlay stick release -> sdl_axis=0 value=0 sdl_axis=1 value=0 name=left_stick from=overlay
-right_stick: ACTUATED -> 06-23 13:32:03.749 18313 18313 I opengoal-gk: onPadAxis: overlay stick release -> sdl_axis=2 value=0 sdl_axis=3 value=0 name=right_stick from=overlay
+-- native JNI crossings (onPadButton/onPadAxis reached libgk): --
+onPadAxis: sdl_axis=0 value=-4745 (JNI route from Java overlay; #0)
+onPadAxis: sdl_axis=0 value=7737 (JNI route from Java overlay; #64)
+onPadAxis: sdl_axis=2 value=4055 (JNI route from Java overlay; #128)
+onPadButton: sdl_button=11 pressed=0 (JNI route from Java SDLActivity)
+onPadButton: sdl_button=11 pressed=1 (JNI route from Java SDLActivity)
+onPadButton: sdl_button=12 pressed=0 (JNI route from Java SDLActivity)
+onPadButton: sdl_button=12 pressed=1 (JNI route from Java SDLActivity)
 
--- native confirmation (kernel cpad mirror) --
-06-23 13:31:54.098 18313 18313 I opengoal-gk: kernel: pad: start pressed
-06-23 13:31:54.101 18313 18313 I opengoal-gk: kernel: pad: start released
-06-23 13:31:54.859 18313 18313 I opengoal-gk: kernel: pad: back pressed
-06-23 13:31:54.863 18313 18313 I opengoal-gk: kernel: pad: back released
-06-23 13:31:55.620 18313 18313 I opengoal-gk: kernel: pad: left_shoulder pressed
-06-23 13:31:55.623 18313 18313 I opengoal-gk: kernel: pad: left_shoulder released
-06-23 13:31:56.379 18313 18313 I opengoal-gk: kernel: pad: right_shoulder pressed
-06-23 13:31:56.381 18313 18313 I opengoal-gk: kernel: pad: right_shoulder released
-06-23 13:31:57.139 18313 18313 I opengoal-gk: onPadAxis: sdl_axis=4 value=32767 (JNI route from Java overlay)
-06-23 13:31:58.659 18313 18313 I opengoal-gk: kernel: pad: left_stick pressed
-06-23 13:31:58.663 18313 18313 I opengoal-gk: kernel: pad: left_stick released
-06-23 13:31:59.419 18313 18313 I opengoal-gk: kernel: pad: right_stick pressed
-06-23 13:31:59.421 18313 18313 I opengoal-gk: kernel: pad: right_stick released
-06-23 13:32:00.404 18313 18313 I opengoal-gk: onPadAxis: sdl_axis=0 value=-183 (JNI route from Java overlay)
-06-23 13:32:00.671 18313 18313 I opengoal-gk: onPadAxis: sdl_axis=0 value=-183 (JNI route from Java overlay)
-06-23 13:32:01.626 18313 18313 I opengoal-gk: onPadAxis: sdl_axis=0 value=-9745 (JNI route from Java overlay)
-06-23 13:32:01.908 18313 18313 I opengoal-gk: onPadAxis: sdl_axis=0 value=-8826 (JNI route from Java overlay)
-06-23 13:32:03.612 18313 18313 I opengoal-gk: onPadAxis: sdl_axis=2 value=10657 (JNI route from Java overlay)
-06-23 13:32:09.565 18313 18313 I opengoal-gk: kernel: pad: right_stick pressed
-06-23 13:32:09.704 18313 18313 I opengoal-gk: kernel: pad: right_stick released
-06-23 13:32:10.067 18313 18313 I opengoal-gk: kernel: pad: left_stick pressed
-06-23 13:32:10.198 18313 18313 I opengoal-gk: kernel: pad: left_stick released
-06-23 13:32:10.265 18313 18313 I opengoal-gk: kernel: pad: right_stick pressed
-06-23 13:32:10.399 18313 18313 I opengoal-gk: kernel: pad: right_stick released
-06-23 13:32:10.517 18313 18313 I opengoal-gk: kernel: pad: left_stick pressed
-06-23 13:32:10.649 18313 18313 I opengoal-gk: kernel: pad: left_stick released
-06-23 13:32:10.691 18313 18313 I opengoal-gk: kernel: pad: right_stick pressed
-06-23 13:32:10.817 18313 18313 I opengoal-gk: kernel: pad: right_stick released
-06-23 13:32:10.977 18313 18313 I opengoal-gk: kernel: pad: left_stick pressed
-06-23 13:32:11.099 18313 18313 I opengoal-gk: kernel: pad: left_stick released
+-- GOAL kernel pad markers (kernel: pad: <name> pressed/released): --
+kernel: pad: dpad_down pressed
+kernel: pad: dpad_down released
+kernel: pad: dpad_up pressed
+kernel: pad: dpad_up released
 
--- visibility test: show-on-touch + 10s idle fade --
-hidden(initial):
-06-23 13:31:49.690 18313 18313 I opengoal-gk: overlay-visibility: hidden (initial, alpha=0.00) — overlay is invisible by default and shows on first touch; fades out after 10s (10000 ms) idle
-touch -> shown (wake):
-06-23 13:31:51.062 18313 18313 I opengoal-gk: overlay-visibility: shown on touch (wake) alpha_target=1.0 t=531566428 — touch makes the overlay visible
-10s idle -> faded out:
-(not seen)
-touch again -> shown (wake), count of wake events = 2:
-06-23 13:31:51.071 18313 18313 I opengoal-gk: overlay-visibility: shown on touch (wake) alpha_target=1.0 t=531566438 — touch makes the overlay visible
-alpha behavior: hidden=alpha0.00, shown=alpha1.00, fade is a smooth per-frame alpha ramp.
+== left-stick -> menu-d-pad SWITCH (native isInMenu drives the mode) ==
+gameplay-mode injections (analog stick LEFTX/LEFTY):
+  overlay-actuate: left-stick deflect -> onPadAxis(LEFTX) value=16828, onPadAxis(LEFTY) value=-9015
+  overlay-actuate: left-stick deflect -> onPadAxis(LEFTX) value=31850, onPadAxis(LEFTY) value=-7695
+  overlay-actuate: left-stick deflect -> onPadAxis(LEFTX) value=-4251, onPadAxis(LEFTY) value=-32490
+  overlay-actuate: left-stick deflect -> onPadAxis(LEFTX) value=-4745, onPadAxis(LEFTY) value=-22361
+  overlay-actuate: left-stick deflect -> onPadAxis(LEFTX) value=-4745, onPadAxis(LEFTY) value=-9015
+  overlay-actuate: left-stick down mode=GAMEPLAY(analog) (native isInMenu=false)
+  overlay-actuate: left-stick release -> onPadAxis(LEFTX) value=0, onPadAxis(LEFTY) value=0 (neutral)
+menu-mode injections (digital d-pad DPAD_* via onPadButton):
+  overlay-actuate: menu-dpad down mode=MENU(d-pad) (native isInMenu=true)
+  overlay-actuate: menu-dpad drag -> onPadButton(DPAD_DOWN) pressed=1
+  overlay-actuate: menu-dpad drag -> onPadButton(DPAD_UP) pressed=1
+  overlay-actuate: menu-dpad release -> onPadButton(DPAD_*) pressed=0
+  overlay-mode: left-control now GAMEPLAY(analog stick)
+  overlay-mode: left-control now MENU(d-pad)
 
--- boot / stability --
-boots to gameplay crash-free: 0 sig (signal 11/6/4 = 0 over the capture window); max-frame-marker=1620; renderer alive (swap/frame markers=27)
-06-23 13:31:50.530 18313 18380 D opengoal-gk: link finish: logo
+== right-side CAMERA drag (RIGHTX/RIGHTY from swipe delta) ==
+  overlay-actuate: camera drag begin (x=1516,y=466) -> onPadAxis(RIGHTX/RIGHTY) from drag delta
+  overlay-actuate: camera release -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=0 (neutral)
+  overlay-actuate: camera swipe -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=1475
+  overlay-actuate: camera swipe -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=390
+  overlay-actuate: camera swipe -> onPadAxis(RIGHTX) value=3708, onPadAxis(RIGHTY) value=0
+  overlay-actuate: camera swipe -> onPadAxis(RIGHTX) value=3940, onPadAxis(RIGHTY) value=0
+  overlay-actuate: camera swipe -> onPadAxis(RIGHTX) value=695, onPadAxis(RIGHTY) value=0
 
-RESULT: INCOMPLETE (partial) — not every control produced a native marker
+== VISIBILITY: hidden by default -> show-on-touch -> 10s idle fade ==
+  overlay-visibility: hidden at start (alpha=0, invisible until first touch; fades after 10s idle)
+  overlay-visibility: shown (touch -> wake -> alpha=1)
+  overlay-visibility: faded (10s / 10000ms idle, no touch -> alpha=0, hidden)
+  overlay-visibility: shown (touch -> wake -> alpha=1)
+  overlay-visibility: faded (10s / 10000ms idle, no touch -> alpha=0, hidden)
+  idle-fade-window faded-events=1   touch-after-fade shown-events=1
+
+== CRASH-FREE / FRAME SUMMARY ==
+  last A35-RENDER frame=3480
+  fatal-signal lines (sig 11/6/4)=0
+  -> crash-free run (0 sig); boots and renders (attract + menu exercised)
+
+contract tally: onPadButton=6 onPadAxis=3 left-stick=10 menu-dpad=10 camera=9 faded=1 shown=1 sigs=0 frame=3480
+RESULT: TOUCH CONTROLS COMPLETE (owner layout, icons, show-on-touch+10s-fade)
