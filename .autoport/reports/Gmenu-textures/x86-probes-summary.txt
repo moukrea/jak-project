@@ -1,0 +1,108 @@
+# Gmenu-textures x86 PROBES 2026-06-23T01:24:51+02:00  title_reached=1
+
+## GK-MWRITE (sp-launch matrix src vs written sp+148) — distinct (src,written)
+
+## GK-COMMIT (matrix committed to sprite vec-data v1+20) — distinct (v1,mtx) + mtx histogram
+GK-COMMIT v1=158adf0 mtx=1
+GK-COMMIT v1=158ae20 mtx=1
+GK-COMMIT v1=158ae50 mtx=1
+GK-COMMIT v1=158ae80 mtx=1
+GK-COMMIT v1=158aeb0 mtx=1
+GK-COMMIT v1=158aee0 mtx=1
+GK-COMMIT v1=158af10 mtx=1
+GK-COMMIT v1=158af40 mtx=1
+GK-COMMIT v1=158af70 mtx=1
+GK-COMMIT v1=158afa0 mtx=1
+GK-COMMIT v1=158afd0 mtx=1
+GK-COMMIT v1=158b000 mtx=1
+      1 mtx=-1203924069
+      1 mtx=-1141413751
+      1 mtx=-1132512562
+      1 mtx=-1130986207
+      1 mtx=-1130848335
+      1 mtx=-1128372736
+      1 mtx=-1124659321
+      1 mtx=-1122375349
+      2 mtx=-1120329994
+      1 mtx=-1119473669
+      1 mtx=-1117932751
+      2 mtx=-1117345216
+      1 mtx=-1114983784
+      1 mtx=-1111641907
+      1 mtx=-1109969009
+      2 mtx=-1102461824
+      2 mtx=-1100574778
+      1 mtx=-1100455473
+      1 mtx=-1099511995
+      1 mtx=-1098715864
+      1 mtx=-1098469934
+      1 mtx=-1097969238
+      1 mtx=-1097773266
+      1 mtx=-1097212892
+      1 mtx=-1097012321
+      1 mtx=-1096849066
+      1 mtx=-1096063771
+      1 mtx=-1095972480
+      1 mtx=-1095129162
+      1 mtx=-1094753816
+      1 mtx=-1094473192
+      1 mtx=-1093794318
+      1 mtx=-1092813567
+      1 mtx=-1092081000
+      1 mtx=-1091853092
+      1 mtx=-1091618757
+      1 mtx=-1091478820
+      1 mtx=-1091360666
+      2 mtx=-1091332521
+      1 mtx=-1091270654
+
+## GK-SPB-IN (matrix entering sp-process-block-2d) — addr + histogram
+GK-SPB-IN a=1a21d0
+GK-SPB-IN a=1a2200
+GK-SPB-IN a=1a2230
+GK-SPB-IN a=1a2260
+    300 mtx=1
+
+## GK-SPB-OUT (matrix leaving sp-process-block-2d) — histogram
+    300 mtx=1
+
+## GK-G1 render_2d_group1 (HUD): chunks/sprites/nz
+    225 GK-G1 chunks=0 sprites=0 nz=0 first=[-99 -99 -99 -99 -99 -99 -99 -99]
+     11 GK-G1 chunks=3 sprites=128 nz=107 first=[1 2 3 4 5 6 7 7]
+
+## GK-SPR3 ModeHUD (mode=2) mtx histogram
+    336 mtx=0
+     16 mtx=1
+     16 mtx=2
+     16 mtx=3
+     16 mtx=4
+     16 mtx=5
+     16 mtx=6
+    128 mtx=7
+    128 mtx=8
+    128 mtx=9
+    128 mtx=10
+    128 mtx=11
+    128 mtx=12
+    128 mtx=13
+    128 mtx=14
+     32 mtx=15
+     16 mtx=16
+    128 mtx=17
+     32 mtx=18
+     16 mtx=19
+     16 mtx=20
+     16 mtx=21
+     16 mtx=22
+     16 mtx=23
+     48 mtx=24
+     48 mtx=25
+     48 mtx=26
+     48 mtx=27
+     16 mtx=28
+     16 mtx=29
+     16 mtx=30
+     16 mtx=31
+     16 mtx=32
+     16 mtx=33
+     16 mtx=34

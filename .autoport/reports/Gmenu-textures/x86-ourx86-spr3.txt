@@ -1,0 +1,244 @@
+# Gmenu-textures x86 GK-SPR3 dump TAG=ourx86 2026-06-23T00:21:43+02:00
+GK=build-x86/game/gk
+title_reached=1  gk_log_lines=233036
+
+## total GK-SPR3 lines + mode histogram (1=Mode2D 2=ModeHUD 3=Mode3D)
+ 229075 GK-SPR3 mode=1
+   1920 GK-SPR3 mode=2
+
+## (mode,mtx) combos top 30
+ 165847 GK-SPR3 mode=1 mtx=0
+  63227 GK-SPR3 mode=1 mtx=1
+    315 GK-SPR3 mode=2 mtx=0
+    120 GK-SPR3 mode=2 mtx=9
+    120 GK-SPR3 mode=2 mtx=8
+    120 GK-SPR3 mode=2 mtx=7
+    120 GK-SPR3 mode=2 mtx=17
+    120 GK-SPR3 mode=2 mtx=14
+    120 GK-SPR3 mode=2 mtx=13
+    120 GK-SPR3 mode=2 mtx=12
+    120 GK-SPR3 mode=2 mtx=11
+    120 GK-SPR3 mode=2 mtx=10
+     45 GK-SPR3 mode=2 mtx=27
+     45 GK-SPR3 mode=2 mtx=26
+     45 GK-SPR3 mode=2 mtx=25
+     45 GK-SPR3 mode=2 mtx=24
+     30 GK-SPR3 mode=2 mtx=18
+     30 GK-SPR3 mode=2 mtx=15
+     15 GK-SPR3 mode=2 mtx=6
+     15 GK-SPR3 mode=2 mtx=5
+     15 GK-SPR3 mode=2 mtx=4
+     15 GK-SPR3 mode=2 mtx=34
+     15 GK-SPR3 mode=2 mtx=33
+     15 GK-SPR3 mode=2 mtx=32
+     15 GK-SPR3 mode=2 mtx=31
+     15 GK-SPR3 mode=2 mtx=30
+     15 GK-SPR3 mode=2 mtx=3
+     15 GK-SPR3 mode=2 mtx=29
+     15 GK-SPR3 mode=2 mtx=28
+     15 GK-SPR3 mode=2 mtx=23
+
+## distinct ModeHUD (mode=2) sprites (px py = on-screen, mtx index, uhx/uhy = user-hvdf offset)
+GK-SPR3 mode=2 idx=0 px=0.00 py=0.00 pz=0.00 sx=102400.0078 sy=47104.0000 mtx=1 uhx=2048.00 uhy=2048.00 tbp=0x2517 flag=0
+GK-SPR3 mode=2 idx=0 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=12 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=0 px=4300.80 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=27 uhx=1472.00 uhy=2110.00 tbp=0x21fd flag=0
+GK-SPR3 mode=2 idx=10 px=125.90 py=80.75 pz=-139.90 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=129.80 py=-79.19 pz=137.20 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-14.77 py=-102.11 pz=176.91 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=149.61 py=-69.91 pz=121.13 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=151.39 py=-68.95 pz=119.46 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=175.07 py=53.13 pz=-92.04 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-181.71 py=47.23 pz=-81.82 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-186.61 py=-42.18 pz=73.07 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-187.68 py=-40.98 pz=70.99 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=19.28 py=101.92 pz=-176.59 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-204.40 py=-6.42 pz=11.13 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=-204.77 py=1.79 pz=-3.09 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=245760.00 py=0.00 pz=0.00 sx=819.2000 sy=819.2000 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=10 px=245760.00 py=0.00 pz=0.00 sx=819.2000 sy=819.2000 mtx=7 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=10 px=69.15 py=96.36 pz=-166.96 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=75.61 py=95.14 pz=-164.84 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=10 px=92.75 py=-91.28 pz=158.15 sx=6144.0000 sy=6144.0000 mtx=18 uhx=1472.00 uhy=2033.00 tbp=0x25c2 flag=0
+GK-SPR3 mode=2 idx=11 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=11 px=245760.00 py=0.00 pz=2160.00 sx=9830.4004 sy=8192.0000 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=11 px=245760.00 py=0.00 pz=2160.00 sx=9830.4004 sy=8192.0000 mtx=7 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=12 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=12 px=245760.00 py=0.00 pz=2160.00 sx=8192.0000 sy=7372.7998 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=12 px=245760.00 py=0.00 pz=2160.00 sx=8192.0000 sy=7372.7998 mtx=7 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=13 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=13 px=0.00 py=0.00 pz=0.00 sx=4915.2002 sy=4915.2002 mtx=13 uhx=1472.00 uhy=2033.00 tbp=0x252e flag=0
+GK-SPR3 mode=2 idx=13 px=0.00 py=0.00 pz=0.00 sx=4915.2002 sy=4915.2002 mtx=7 uhx=1472.00 uhy=2033.00 tbp=0x252e flag=0
+GK-SPR3 mode=2 idx=14 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=14 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=14 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=8 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=15 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=15 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=15 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=8 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=16 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=16 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=16 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=8 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=17 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=17 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=17 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=8 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=18 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=18 px=245760.00 py=0.00 pz=0.00 sx=819.2000 sy=819.2000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=18 px=245760.00 py=0.00 pz=0.00 sx=819.2000 sy=819.2000 mtx=8 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=19 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=19 px=245760.00 py=0.00 pz=2160.00 sx=9830.4004 sy=8192.0000 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=19 px=245760.00 py=0.00 pz=2160.00 sx=9830.4004 sy=8192.0000 mtx=8 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=1 px=0.00 py=0.00 pz=0.00 sx=14336.0000 sy=53248.0000 mtx=2 uhx=1828.00 uhy=2064.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=1 px=0.00 py=0.00 pz=0.00 sx=17736.0000 sy=56648.0000 mtx=2 uhx=1828.00 uhy=2064.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=1 px=0.00 py=0.00 pz=0.00 sx=19596.0000 sy=58508.0000 mtx=2 uhx=1828.00 uhy=2064.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=1 px=0.00 py=0.00 pz=0.00 sx=3276.8000 sy=3276.8000 mtx=27 uhx=1472.00 uhy=2110.00 tbp=0x21df flag=0
+GK-SPR3 mode=2 idx=1 px=0.00 py=0.00 pz=0.00 sx=51736.0000 sy=90648.0000 mtx=2 uhx=1828.00 uhy=2064.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=1 px=245760.00 py=0.00 pz=0.00 sx=1228.8000 sy=1228.8000 mtx=12 uhx=1472.00 uhy=2033.00 tbp=0x252d flag=0
+GK-SPR3 mode=2 idx=20 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=20 px=245760.00 py=0.00 pz=2160.00 sx=8192.0000 sy=7372.7998 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=20 px=245760.00 py=0.00 pz=2160.00 sx=8192.0000 sy=7372.7998 mtx=8 uhx=1472.00 uhy=2033.00 tbp=0x2506 flag=0
+GK-SPR3 mode=2 idx=21 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+GK-SPR3 mode=2 idx=21 px=0.00 py=0.00 pz=0.00 sx=4915.2002 sy=4915.2002 mtx=14 uhx=1472.00 uhy=2033.00 tbp=0x252e flag=0
+GK-SPR3 mode=2 idx=21 px=0.00 py=0.00 pz=0.00 sx=4915.2002 sy=4915.2002 mtx=8 uhx=1472.00 uhy=2033.00 tbp=0x252e flag=0
+GK-SPR3 mode=2 idx=22 px=0.00 py=0.00 pz=0.00 sx=0.0000 sy=0.0000 mtx=0 uhx=0.00 uhy=0.00 tbp=0x0 flag=0
+
+## ModeHUD mtx histogram
+    315 mtx=0
+     15 mtx=1
+     15 mtx=2
+     15 mtx=3
+     15 mtx=4
+     15 mtx=5
+     15 mtx=6
+    120 mtx=7
+    120 mtx=8
+    120 mtx=9
+    120 mtx=10
+    120 mtx=11
+    120 mtx=12
+    120 mtx=13
+    120 mtx=14
+     30 mtx=15
+     15 mtx=16
+    120 mtx=17
+     30 mtx=18
+     15 mtx=19
+     15 mtx=20
+     15 mtx=21
+     15 mtx=22
+     15 mtx=23
+     45 mtx=24
+     45 mtx=25
+     45 mtx=26
+     45 mtx=27
+     15 mtx=28
+     15 mtx=29
+     15 mtx=30
+     15 mtx=31
+     15 mtx=32
+     15 mtx=33
+     15 mtx=34
+
+## ModeHUD distinct uhx (user-hvdf X offsets — the menu spread)
+uhx=0.00
+uhx=1472.00
+uhx=1828.00
+uhx=2048.00
+uhx=2243.00
+uhx=2268.00
+uhx=2281.00
+uhx=2518.00
+
+## ModeHUD distinct px (on-screen X)
+ px=0.00
+ px=101.85
+ px=101.88
+ px=-105.54
+ px=106.12
+ px=11.30
+ px=-113.33
+ px=118.37
+ px=125.90
+ px=12.66
+ px=129.80
+ px=-133.43
+ px=-14.77
+ px=149.61
+ px=151.39
+ px=-172.22
+ px=175.07
+ px=-181.71
+ px=-184.95
+ px=-186.61
+ px=-187.68
+ px=19.28
+ px=-193.91
+ px=193.92
+ px=-204.40
+ px=-204.77
+ px=209.41
+ px=21.07
+ px=-213.67
+ px=215.42
+ px=-23.40
+ px=-238.74
+ px=245760.00
+ px=-248.15
+ px=248.16
+ px=-259.50
+ px=259.52
+ px=-2.70
+ px=-282.59
+ px=292.64
+ px=292.67
+ px=298.61
+ px=-305.99
+ px=311.98
+ px=321.02
+ px=324.98
+ px=325.29
+ px=-331.39
+ px=340.03
+ px=-345.09
+ px=357.96
+ px=-358.63
+ px=-363.59
+ px=374.21
+ px=-380.83
+ px=-394.51
+ px=-398.78
+ px=403.36
+ px=-403.71
+ px=-403.98
+ px=407.35
+ px=424.31
+ px=-424.38
+ px=-42.84
+ px=4300.80
+ px=-437.35
+ px=443.20
+ px=444.47
+ px=-45.91
+ px=461.19
+ px=-467.49
+ px=-474.03
+ px=494.39
+ px=-504.82
+ px=509.73
+ px=-53.93
+ px=-54.28
+ px=54.28
+ px=59.83
+ px=677.60
+ px=69.15
+ px=-706.86
+ px=75.61
+ px=-7.94
+ px=879.98
+ px=-894.33
+ px=-925.53
+ px=92.75
+ px=929.90
+ px=9420.80
+ px=96.37
+ px=99.30
+
+## GMENU-ALLOC (sprite-allocate-user-hvdf returns) if present
