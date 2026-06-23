@@ -15,10 +15,12 @@ SEPARATE later phase — do not do it here.)
 - has only: ×○□△, d-pad(4), START — drawn as ASCII letters, ALWAYS visible.
 Missing: **L1/R1/L2/R2, L3/R3, SELECT/BACK**, **the analog STICKS** (left = movement — without it
 Jak can't move properly; right = camera), **PS icons**, and the **show-on-touch + 10s-fade** behavior.
+**NO D-PAD** (owner 2026-06-23): the d-pad is unused in-game and the left stick handles both
+movement AND menu navigation — so REMOVE the existing d-pad hit-zones; do not draw or wire a d-pad.
 
 ## Mandate (android-only; goal_src 1-to-1; this is allowed runtime/platform glue)
-1. **Full control set** mapped to the correct SDL gamepad buttons/axes:
-   - face ×○□△ (SOUTH/EAST/WEST/NORTH), d-pad (UP/DOWN/LEFT/RIGHT), START, SELECT/BACK,
+1. **Full control set** mapped to the correct SDL gamepad buttons/axes (NO D-PAD — removed per owner):
+   - face ×○□△ (SOUTH/EAST/WEST/NORTH), START, SELECT/BACK,
    - shoulders L1/R1 (LEFT/RIGHT_SHOULDER) and triggers L2/R2 (LEFT/RIGHT_TRIGGER axes), L3/R3
      (LEFT/RIGHT_STICK click),
    - **a virtual LEFT analog stick** (movement) and **RIGHT analog stick** (camera) that inject the
@@ -37,7 +39,7 @@ Jak can't move properly; right = camera), **PS icons**, and the **show-on-touch 
 
 ## Validator (`phase-Gtouch-controls.sh`) PASS requires
 1. `.autoport/reports/Gtouch-controls/controls.txt`: the `overlay-map:` line enumerates the FULL set
-   (face×4, dpad×4, START, SELECT, L1,R1,L2,R2,L3,R3, left-stick, right-stick) with each control's
+   (face×4, START, SELECT, L1,R1,L2,R2,L3,R3, left-stick, right-stick — NO d-pad) with each control's
    SDL button/axis; a per-control **actuation test** — a synthetic touch at each control's coords
    produces the correct `onPadButton`/`onPadAxis` (button bit / axis value) reaching native; and a
    **visibility test** — overlay hidden→(touch)→visible→(10s idle)→faded→(touch)→visible (cite the
