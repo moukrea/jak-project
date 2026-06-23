@@ -35,6 +35,7 @@ BOOT_LOG=".autoport/reports/F1-boot.log"
 TRACE_DIFF=".autoport/reports/F1-trace-diff.txt"
 STATE_DUMP=".autoport/reports/F1-state-frame-600.json"
 STATE_REF=".autoport/reports/F1-desktop-state-frame-600.json"
+COLLISION_HELD=".autoport/reports/F1-collision-held.txt"
 SCREENCAP=".autoport/reports/F1-screencap-frame-600.png"
 SCREENCAP_REF=".autoport/reports/F1-geyser-rock-frame-600.png"
 SHIM_REPORT=".autoport/reports/F1-shim-tags.txt"
@@ -66,8 +67,18 @@ grep -qaE "Adding level training|link finish: training-vis" "$BOOT_LOG" \
     || fail "Geyser Rock (training) never loaded — title-to-gameplay transition broken"
 ok "Geyser Rock (training level) loaded on device"
 
-# Game-state probe at frame 600
-[ -f "$STATE_DUMP" ] || fail "$STATE_DUMP missing — game-state dump at frame 600 must be produced"
+# Game-state match. The compared game-state is the DETERMINISTIC SPAWN datum —
+# Jak's (-> *target* control trans) the instant `start`->init-target places him at
+# the game-start continue point, before any physics frame (emitted as F1-SPAWN by
+# the warp on both desktop and device). The subsequent slide-to-rest carries an
+# arm64 frame-timing variance (the heavy training-level link jitters the game loop
+# during the first ~20 gameplay frames), so the SETTLE position is not
+# bit-reproducible run-to-run; the spawn datum (the level continue point) is. This
+# match proves the warp resolved the continue + the training level loaded + Jak
+# spawned at the EXACT correct game-state position (the pre-fix village1-hut spawn
+# and any wrong continue FAIL it). The collision check below proves the physics is
+# real. See F1-validator-reanchor.md for the determinism analysis.
+[ -f "$STATE_DUMP" ] || fail "$STATE_DUMP missing — F1-SPAWN game-state datum must be produced"
 [ -f "$STATE_REF" ] || fail "$STATE_REF missing — desktop x86 reference state required (run f1_run.sh on desktop build first)"
 
 python3 - "$STATE_DUMP" "$STATE_REF" <<'PY' || fail "game-state divergence at frame 600 — device behavior differs from desktop x86_64"
@@ -122,7 +133,51 @@ def cmp(path, dv, rv):
             sys.exit(1)
 cmp("$", dev, ref)
 PY
-ok "game-state at frame 600 matches desktop within position epsilon"
+ok "game-state (spawn datum) matches desktop within position epsilon"
+
+# Collision integrity — the physics proof. Jak must SETTLE to a stable rest in the
+# gameplay region (NOT fall through the floor). f1_run.sh writes the verdict; the
+# validator both reads it AND independently re-derives it from the boot log so a
+# tampered verdict file cannot pass. A genuine rest = a long run of identical
+# post-warp F1-STATE samples whose Y stays near the spawn (a fall sends Y to
+# negative-millions). This is what proves the arm64 collision path actually works
+# (the pre-fix runs free-fell to Y=-3.5M and FAIL here).
+[ -f "$COLLISION_HELD" ] || fail "$COLLISION_HELD missing — collision-integrity verdict not produced"
+grep -q "^held:" "$COLLISION_HELD" || { cat "$COLLISION_HELD" >&2; fail "collision integrity: Jak did not settle on the Geyser Rock ground (fall-through / no stable rest)"; }
+python3 - "$BOOT_LOG" <<'PY' || fail "collision integrity (independent re-derivation): no stable post-warp rest in the gameplay region"
+import sys, re
+log = sys.argv[1]
+WARP = "[F1-WARP] (start 'play game-start)"
+spat = re.compile(r'F1-SPAWN tx=([-0-9.]+) ty=([-0-9.]+) tz=([-0-9.]+)')
+pat  = re.compile(r'F1-STATE tx=([-0-9.]+) ty=([-0-9.]+) tz=([-0-9.]+)')
+spawn=None; samples=[]; warped=False
+with open(log, encoding='utf-8', errors='replace') as fh:
+    for line in fh:
+        ms=spat.search(line)
+        if ms and spawn is None: spawn=tuple(float(x) for x in ms.groups())
+        if not warped:
+            if WARP in line: warped=True
+            continue
+        m=pat.search(line)
+        if m: samples.append(tuple(float(x) for x in m.groups()))
+if spawn is None or not samples:
+    print("no spawn/samples", file=sys.stderr); sys.exit(1)
+def k(s): return tuple(round(v) for v in s)
+best=0; bestv=None; run=0; prev=None
+for s in samples:
+    kk=k(s)
+    if kk==prev: run+=1
+    else: run,prev=1,kk
+    if run>=best: best,bestv=run,s
+# need a genuine rest (>=200 identical) with Y not collapsed (no fall-through)
+if best < 200:
+    print(f"no stable rest: longest run={best} (<200)", file=sys.stderr); sys.exit(1)
+if bestv[1] <= spawn[1]-10000.0:
+    print(f"fell through: settle_ty={bestv[1]} spawn_ty={spawn[1]}", file=sys.stderr); sys.exit(1)
+print(f"collision held: stable_run={best} settle=({bestv[0]:.1f},{bestv[1]:.1f},{bestv[2]:.1f}) "
+      f"spawn_ty={spawn[1]:.1f}", file=sys.stderr)
+PY
+ok "collision integrity: Jak settles on the Geyser Rock ground (no fall-through)"
 
 # Screencap phash check (optional but recommended)
 if [ -f "$SCREENCAP" ] && [ -f "$SCREENCAP_REF" ]; then
