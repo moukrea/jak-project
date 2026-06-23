@@ -1,0 +1,10 @@
+t33s (real_t=33s) frame=1560 size=2182140B ::   mCurrentFocus=Window{591d70 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t37s (real_t=37s) frame=1620 size=1606929B ::   mCurrentFocus=Window{591d70 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t40s (real_t=40s) frame=1740 size=1910814B ::   mCurrentFocus=Window{591d70 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t43s (real_t=43s) frame=1860 size=2124455B ::   mCurrentFocus=Window{591d70 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t46s (real_t=46s) frame=2040 size=1973412B ::   mCurrentFocus=Window{591d70 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t50s (real_t=50s) frame=2160 size=1955555B ::   mCurrentFocus=Window{591d70 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t69s frame=2880 size=2055368B ::   mCurrentFocus=Window{591d70 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t73s frame=3060 size=1779273B ::   mCurrentFocus=Window{591d70 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t76s frame=3240 size=1905130B ::   mCurrentFocus=Window{591d70 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+t80s frame=3360 size=1768204B ::   mCurrentFocus=Window{591d70 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
