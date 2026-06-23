@@ -4546,6 +4546,20 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                       "GK-DIAG sig=%d fault=0x%lx pc=0x%lx lr=0x%lx",
                       sig, (unsigned long)fault, (unsigned long)pc,
                       (unsigned long)lr);
+  // Gcrash-geyser: name the faulting GOAL function for an INTERIOR crashing PC
+  // (not just a BLR-through-symbol, which A37-WHOSYM already covers). The fatal
+  // headline otherwise prints only the raw EE offset; this resolves pc/lr/fault
+  // to "<goal-fn>+off" so a GOAL-code crash is named in one line. Bounds-checked
+  // symbol-table walk only — async-signal-safe (same primitives the A38 path uses).
+  if (uint32_t g = a38_trip::to_goal(pc)) {
+    a38_trip::log_nearest_goal_fn("pc", g);
+  }
+  if (uint32_t g = a38_trip::to_goal(lr)) {
+    a38_trip::log_nearest_goal_fn("lr", g);
+  }
+  if (uint32_t g = a38_trip::to_goal(fault)) {
+    a38_trip::log_nearest_goal_fn("fault", g);
+  }
   // F1a: name the bucket whose render() was live when a GL-thread crash
   // lands inside the driver (run-4: fault in libGLESv2_adreno, fp-walk
   // dead-ends — the breadcrumb is the only caller evidence). Fixed buffer,

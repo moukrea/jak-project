@@ -1,0 +1,14 @@
+south: NO MARKER (actuation not observed)
+east: ACTUATED -> 06-23 13:31:51.820 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=1 pressed=0 name=east from=overlay
+west: ACTUATED -> 06-23 13:31:52.582 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=2 pressed=0 name=west from=overlay
+north: ACTUATED -> 06-23 13:31:53.341 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=3 pressed=0 name=north from=overlay
+start: ACTUATED -> 06-23 13:31:54.101 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=6 pressed=0 name=start from=overlay
+select: ACTUATED -> 06-23 13:31:54.863 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=4 pressed=0 name=select from=overlay
+l1: ACTUATED -> 06-23 13:31:55.623 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=9 pressed=0 name=l1 from=overlay
+r1: ACTUATED -> 06-23 13:31:56.381 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=10 pressed=0 name=r1 from=overlay
+l2: ACTUATED -> 06-23 13:31:57.141 18313 18313 I opengoal-gk: onPadAxis: overlay trigger release -> sdl_axis=4 value=0 name=l2 from=overlay
+r2: ACTUATED -> 06-23 13:31:57.901 18313 18313 I opengoal-gk: onPadAxis: overlay trigger release -> sdl_axis=5 value=0 name=r2 from=overlay
+l3: ACTUATED -> 06-23 13:31:58.662 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=7 pressed=0 name=l3 from=overlay
+r3: ACTUATED -> 06-23 13:31:59.420 18313 18313 I opengoal-gk: onPadButton: overlay tap -> sdl_button=8 pressed=0 name=r3 from=overlay
+left_stick: ACTUATED -> 06-23 13:32:01.961 18313 18313 I opengoal-gk: onPadAxis: overlay stick release -> sdl_axis=0 value=0 sdl_axis=1 value=0 name=left_stick from=overlay
+right_stick: ACTUATED -> 06-23 13:32:03.749 18313 18313 I opengoal-gk: onPadAxis: overlay stick release -> sdl_axis=2 value=0 sdl_axis=3 value=0 name=right_stick from=overlay

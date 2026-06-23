@@ -492,7 +492,11 @@ u64 execute(void* ctxt) {
   //if (bc) {goto block_26;}                          // branch non-likely
   sub_l20_b26(c);
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(t0) == c->gpr_addr(s7);          // beq t0, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(t0) == c->sgpr64(s7);              // beq t0, s7, L24
+#endif
   c->mov64(a2, t0);                                 // or a2, t0, r0
   if (bc) {goto block_40;}                          // branch non-likely
 
@@ -501,7 +505,11 @@ u64 execute(void* ctxt) {
   //if (bc) {goto block_26;}                          // branch non-likely
   sub_l20_b26(c);
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(t0) == c->gpr_addr(s7);          // beq t0, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(t0) == c->sgpr64(s7);              // beq t0, s7, L24
+#endif
   c->mov64(a3, t0);                                 // or a3, t0, r0
   if (bc) {goto block_40;}                          // branch non-likely
 
@@ -510,7 +518,11 @@ u64 execute(void* ctxt) {
   //if (bc) {goto block_26;}                          // branch non-likely
   sub_l20_b26(c);
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(t0) == c->gpr_addr(s7);          // beq t0, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(t0) == c->sgpr64(s7);              // beq t0, s7, L24
+#endif
   c->mov64(t0, t0);                                 // or t0, t0, r0
   if (bc) {goto block_40;}                          // branch non-likely
 
@@ -521,7 +533,11 @@ u64 execute(void* ctxt) {
   //if (bc) {goto block_15;}                          // branch non-likely
   sub_l16_b15(c);
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(t4) == c->gpr_addr(s7);          // beq t4, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(t4) == c->sgpr64(s7);              // beq t4, s7, L25
+#endif
   c->mov64(t1, a3);                                 // or t1, a3, r0
   if (bc) {goto block_41;}                          // branch non-likely
 
@@ -530,7 +546,11 @@ u64 execute(void* ctxt) {
   //if (bc) {goto block_15;}                          // branch non-likely
   sub_l16_b15(c);
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(t4) == c->gpr_addr(s7);          // beq t4, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(t4) == c->sgpr64(s7);              // beq t4, s7, L25
+#endif
   c->mov64(t1, t0);                                 // or t1, t0, r0
   if (bc) {goto block_41;}                          // branch non-likely
 
@@ -539,7 +559,11 @@ u64 execute(void* ctxt) {
   //if (bc) {goto block_15;}                          // branch non-likely
   sub_l16_b15(c);
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(t1) == c->gpr_addr(s7);          // beq t1, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(t1) == c->sgpr64(s7);              // beq t1, s7, L25
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_41;}                          // branch non-likely
 
@@ -615,7 +639,11 @@ u64 execute(void* ctxt) {
   c->daddu(a2, a2, a3);                             // daddu a2, a2, a3
   c->sw(t0, 4, a0);                                 // sw t0, 4(a0)
   c->sqc2(vf1, 0, a2);                              // sqc2 vf1, 0(a2)
+#if defined(__aarch64__)
+  if (c->gpr_addr(v1) == c->gpr_addr(s7)) {          // beql v1, s7 (arm64: 32-bit GOAL ptr)
+#else
   if (((s64)c->sgpr64(v1)) == ((s64)c->sgpr64(s7))) {// beql v1, s7, L68
+#endif
     c->sw(a1, 8, a0);                               // sw a1, 8(a0)
     goto block_10;
   }
@@ -633,7 +661,11 @@ u64 execute(void* ctxt) {
 
   block_5:
   c->lwu(v1, 0, v1);                                // lwu v1, 0(v1)
+#if defined(__aarch64__)
+  if (c->gpr_addr(v1) == c->gpr_addr(s7)) {          // beql v1, s7 (arm64: 32-bit GOAL ptr)
+#else
   if (((s64)c->sgpr64(v1)) == ((s64)c->sgpr64(s7))) {// beql v1, s7, L70
+#endif
     c->sw(a1, 0, a0);                               // sw a1, 0(a0)
     goto block_12;
   }
@@ -722,7 +754,11 @@ u64 execute(void* ctxt) {
   if (bc) {goto block_25;}                          // branch non-likely
 
   c->lwu(s1, 8, s5);                                // lwu s1, 8(s5)
+#if defined(__aarch64__)
+  bc = c->gpr_addr(s1) == c->gpr_addr(s7);          // beq s1, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(s1) == c->sgpr64(s7);              // beq s1, s7, L64
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_25;}                          // branch non-likely
 
@@ -735,7 +771,11 @@ u64 execute(void* ctxt) {
   c->sll(v0, ra, 0);                                // sll v0, ra, 0
   c->jalr(call_addr);                               // jalr ra, t9
   c->mov64(v1, v0);                                 // or v1, v0, r0
+#if defined(__aarch64__)
+  bc = c->gpr_addr(v1) == c->gpr_addr(s7);          // beq v1, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(v1) == c->sgpr64(s7);              // beq v1, s7, L59
+#endif
   c->lwu(v1, 0, s1);                                // lwu v1, 0(s1)
   if (bc) {goto block_5;}                           // branch non-likely
 
@@ -796,7 +836,11 @@ u64 execute(void* ctxt) {
   c->sll(v0, ra, 0);                                // sll v0, ra, 0
   c->jalr(call_addr);                               // jalr ra, t9
   c->mov64(v1, v0);                                 // or v1, v0, r0
+#if defined(__aarch64__)
+  bc = c->gpr_addr(v1) == c->gpr_addr(s7);          // beq v1, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(v1) == c->sgpr64(s7);              // beq v1, s7, L60
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_12;}                          // branch non-likely
 
@@ -845,7 +889,11 @@ u64 execute(void* ctxt) {
   c->sll(v0, ra, 0);                                // sll v0, ra, 0
   c->jalr(call_addr);                               // jalr ra, t9
   c->mov64(v1, v0);                                 // or v1, v0, r0
+#if defined(__aarch64__)
+  bc = c->gpr_addr(v1) == c->gpr_addr(s7);          // beq v1, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(v1) == c->sgpr64(s7);              // beq v1, s7, L58
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_1;}                           // branch non-likely
 
@@ -858,7 +906,11 @@ u64 execute(void* ctxt) {
   c->jalr(call_addr);                               // jalr ra, t9
   c->mov64(v1, v0);                                 // or v1, v0, r0
   c->lwu(v1, 4, s3);                                // lwu v1, 4(s3)
+#if defined(__aarch64__)
+  bc = c->gpr_addr(v1) == c->gpr_addr(s7);          // beq v1, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(v1) == c->sgpr64(s7);              // beq v1, s7, L61
+#endif
   c->lwu(v1, 0, s5);                                // lwu v1, 0(s5)
   if (bc) {goto block_16;}                          // branch non-likely
 
@@ -907,7 +959,11 @@ u64 execute(void* ctxt) {
   c->sll(v0, ra, 0);                                // sll v0, ra, 0
   c->jalr(call_addr);                               // jalr ra, t9
   c->mov64(v1, v0);                                 // or v1, v0, r0
+#if defined(__aarch64__)
+  bc = c->gpr_addr(v1) == c->gpr_addr(s7);          // beq v1, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(v1) == c->sgpr64(s7);              // beq v1, s7, L58
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_1;}                           // branch non-likely
 
@@ -960,7 +1016,11 @@ u64 execute(void* ctxt) {
   c->sll(v0, ra, 0);                                // sll v0, ra, 0
   c->jalr(call_addr);                               // jalr ra, t9
   c->mov64(v1, v0);                                 // or v1, v0, r0
+#if defined(__aarch64__)
+  bc = c->gpr_addr(v1) == c->gpr_addr(s7);          // beq v1, s7 (arm64: 32-bit GOAL ptr)
+#else
   bc = c->sgpr64(v1) == c->sgpr64(s7);              // beq v1, s7, L58
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_1;}                           // branch non-likely
 

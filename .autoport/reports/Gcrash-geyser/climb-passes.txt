@@ -1,0 +1,31 @@
+== Geyser Rock STEPS-CLIMB passes (fixed build, held session) ==
+baseline hangs=0
+0 sigs=0
+0
+PAST-STEPS pass=1 climbed frame=40213 (+277) hangs=0
+0 sigs=0
+0 ty=30860.082031 -> CRASH-FREE
+PAST-STEPS pass=2 climbed frame=40504 (+289) hangs=0
+0 sigs=0
+0 ty=13747.291992 -> CRASH-FREE
+PAST-STEPS pass=3 climbed frame=40793 (+288) hangs=0
+0 sigs=0
+0 ty=13470.305664 -> CRASH-FREE
+PAST-STEPS pass=4 climbed frame=41083 (+288) hangs=0
+0 sigs=0
+0 ty=1139.664062 -> CRASH-FREE
+PAST-STEPS pass=5 climbed frame=41373 (+288) hangs=0
+0 sigs=0
+0 ty=-5899.724609 -> CRASH-FREE
+PAST-STEPS pass=6 climbed frame=41662 (+289) hangs=0
+0 sigs=0
+0 ty=-7438.565430 -> CRASH-FREE
+PAST-STEPS pass=7 climbed frame=41951 (+287) hangs=0
+0 sigs=0
+0 ty=-20613.816406 -> CRASH-FREE
+PAST-STEPS pass=8 climbed frame=42240 (+287) hangs=0
+0 sigs=0
+0 ty=-5805.584961 -> CRASH-FREE
+final: hangs=0
+0 sigs=0
+0

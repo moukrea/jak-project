@@ -1,0 +1,6 @@
+RESULT mode=fly tag=fly-D1 status=CRASH-FREE-render-advancing(+2658 frames)
+  sig=none focus_app=yes F1-STATE +2658 send_chain +5
+  near-fn: none
+  whosym: none
+  stomps: none
+  cur-proc: none

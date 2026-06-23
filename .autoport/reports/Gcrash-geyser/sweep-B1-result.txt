@@ -1,0 +1,6 @@
+RESULT mode=steps tag=sweep-B1 status=CRASH-FREE-render-advancing(+4576 frames)
+  sig=none focus_app=yes F1-STATE +4576 send_chain +8
+  near-fn: none
+  whosym: none
+  stomps: none
+  cur-proc: none
