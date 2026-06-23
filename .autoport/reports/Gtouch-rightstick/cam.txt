@@ -1,0 +1,176 @@
+== Gtouch-rightstick — the right camera is now a FLOATING INVISIBLE DEFLECTION stick ==
+generated for phase Gtouch-rightstick (autoport); device eae4df44 (Redmi Note 9 Pro)
+file: android/app/src/main/java/org/opengoal/gk/TouchOverlayView.java
+
+------------------------------------------------------------------------------
+1. MODEL — anchor + deflection (FLOATING, INVISIBLE), NOT a frame-delta drag
+------------------------------------------------------------------------------
+The right 3/4 of the screen (x >= camRegionLeft = 0.45*W), on any touch that
+MISSES every button, is a floating invisible virtual stick:
+
+  * touch-DOWN  -> ANCHOR the stick at the touch-down point and start at neutral:
+      onPointerDown(): t.anchorX = x; t.anchorY = y;
+                       NativeGk.onPadAxis(RIGHTX, 0); onPadAxis(RIGHTY, 0);
+      log: "overlay-actuate: camera anchor (x=..,y=..) -> floating invisible
+            RIGHTX/RIGHTY stick (deflection = cur - anchor, sustained while held)"
+
+  * touch-MOVE  -> the camera axis = the DEFLECTION = (current finger - anchor),
+                   clamped to camMaxRadius() and normalized to +/-AXIS_MAX:
+      onPointerMove() KIND_CAMERA:
+        int[] rv = camDeflection(x - t.anchorX, y - t.anchorY, camMaxRadius());
+        NativeGk.onPadAxis(RIGHTX, rv[0]); NativeGk.onPadAxis(RIGHTY, rv[1]);
+
+      static int[] camDeflection(float dx, float dy, float maxR) {
+        float dead = maxR * CAM_DEADZONE_FRAC;           // 0.12*maxR
+        float d = (float) Math.hypot(dx, dy);
+        if (d < dead) return {0, 0};
+        float ox = dx, oy = dy;
+        if (d > maxR) { ox = dx/d*maxR; oy = dy/d*maxR; } // clamp to radius
+        int vx = clampAxis((int)(ox / maxR * AXIS_MAX));  // normalize [-1,1]
+        int vy = clampAxis((int)(oy / maxR * AXIS_MAX));
+        return {vx, vy};
+      }
+      camMaxRadius() = max(60, getHeight() * CAM_RADIUS_FRAC=0.16)
+
+  * touch-UP/CANCEL -> the stick disappears; RIGHTX/RIGHTY return to 0:
+      releaseTouch() KIND_CAMERA: onPadAxis(RIGHTX, 0); onPadAxis(RIGHTY, 0);
+      log: "overlay-actuate: camera release -> onPadAxis(RIGHTX) value=0,
+            onPadAxis(RIGHTY) value=0 (neutral)"
+
+Because the move handler reads the CURRENT offset (cur - anchor) and NOT a
+frame-to-frame delta (cur - last), holding the finger deflected keeps injecting
+the SAME value every event -> a SUSTAINED pan. It does NOT decay to neutral when
+the finger stops, which is exactly the difference from the old mouse-drag delta.
+
+NATIVE PATH (unchanged, byte-equivalent to a physical right stick):
+  NativeGk.onPadAxis(RIGHTX=2/RIGHTY=3,v) -> JNI Java_..._onPadAxis
+  (gk_android_main.cpp:6023) -> android_input_audio::on_pad_axis
+  (android_input_audio.cpp:544) -> g_stick_rx/ry.store(sdl_axis_to_ps2(v)) ->
+  get_cpad_state picks injected rx/ry -> PS2 cpad right-stick -> GOAL camera.
+
+------------------------------------------------------------------------------
+2. GREP-PROOF — the camera axis no longer comes from a lastX/lastY frame-delta
+------------------------------------------------------------------------------
+The OLD code computed `dx = x - t.lastX; dy = y - t.lastY;` then scaleCam() and
+re-armed a 90ms `camIdle` decay. ALL of that is gone:
+  * `scaleCam` and `camIdle` no longer exist in the file (removed).
+  * `lastX/lastY` survive ONLY for the LEFT stick knob drawing + the wake-only
+    path; the KIND_CAMERA move handler never reads them.
+  * the camera axis is derived from `anchorX/anchorY` (captured at touch-down).
+
+GREP OUTPUT (source = TouchOverlayView.java):
+  A) scaleCam / camIdle removed -> no matches:
+       $ grep -nE 'scaleCam|camIdle' TouchOverlayView.java   ->   (no matches)
+  B) camera axis from anchorX/anchorY:
+       149:  float anchorX, anchorY; // camera: floating-stick anchor, captured at touch-down
+       521:  t.anchorX = x;                                  (onPointerDown, camera branch)
+       547:  int[] rv = camDeflection(x - t.anchorX, y - t.anchorY, camMaxRadius());
+  C) lastX/lastY only feed the LEFT-stick knob draw (433) + wake-only path (557);
+     the KIND_CAMERA move handler (547) reads anchorX/anchorY, never lastX/lastY:
+       148:  float lastX, lastY; // left-stick knob position (drawing only)
+       433:  if (t != null) { kx = t.lastX; ky = t.lastY; }  (drawLeftControl knob)
+       540:  t.lastX = x; t.lastY = y;                       (KIND_STICK move)
+       557:  t.lastX = x; t.lastY = y;                       (wake-only move)
+
+------------------------------------------------------------------------------
+3. ACTUATION TEST (A) — deterministic math proof (camDeflection verbatim)
+------------------------------------------------------------------------------
+A standalone harness ran the EXACT camDeflection / clampAxis / AXIS_MAX / CAM_*
+copied verbatim from the source. The key result: feeding the SAME held finger
+position repeatedly yields the SAME non-zero RIGHTX (SUSTAINED); the old delta
+model yields a value once then 0 (decays). Output (.../logic-proof.txt):
+
+  view height=1080  camMaxRadius=172.8px  deadzone=20.7px
+
+  ANCHOR at touch-down: (1800,540) -> RIGHTX=0 RIGHTY=0 (neutral)
+
+  TEST 1 - finger HELD at a fixed offset (right, dx=+120), sampled 3x:
+    sample 1  finger=(1920,540)  NEW(cur-anchor) RIGHTX=22754 RIGHTY=0  |  OLD(cur-last delta) RIGHTX=30339
+    sample 2  finger=(1920,540)  NEW(cur-anchor) RIGHTX=22754 RIGHTY=0  |  OLD(cur-last delta) RIGHTX=0
+    sample 3  finger=(1920,540)  NEW(cur-anchor) RIGHTX=22754 RIGHTY=0  |  OLD(cur-last delta) RIGHTX=0
+    => NEW stays SUSTAINED (same +value while held); OLD decays to 0 after the first sample.
+
+  TEST 2 - proportional to offset (held, increasing dx):
+    offset dx=20px -> RIGHTX=0 (0% of full)
+    offset dx=40px -> RIGHTX=7584 (23% of full)
+    offset dx=86px -> RIGHTX=16307 (50% of full)
+    offset dx=130px -> RIGHTX=24651 (75% of full)
+    offset dx=173px -> RIGHTX=32767 (100% of full)
+    offset dx=260px -> RIGHTX=32767 (100% of full)
+    => inside deadzone(<20.7px)=0; grows ~linearly; clamps at full beyond maxR(173px).
+
+  TEST 3 - direction sense (held offsets):
+    finger BELOW anchor (dy=+120) -> RIGHTX=0 RIGHTY=22754 (+RIGHTY)
+    finger LEFT  of anchor (dx=-120) -> RIGHTX=-22754 RIGHTY=0 (-RIGHTX)
+    finger ABOVE anchor (dy=-120) -> RIGHTX=0 RIGHTY=-22754 (-RIGHTY)
+
+  TEST 4 - release: onPadAxis(RIGHTX)=0, onPadAxis(RIGHTY)=0 (explicit zero pushed on UP/CANCEL).
+
+INTERPRETATION:
+  * TEST 1: a HELD offset (dx=+120) gives a SUSTAINED RIGHTX=22754 on every
+    sample; the OLD delta gives 30339 then 0,0 (decays the moment the finger
+    holds still). => floating deflection stick, NOT a frame-delta.
+  * TEST 2: RIGHTX is PROPORTIONAL to the offset (0 in deadzone, ~linear, clamps
+    at full beyond the max radius).
+  * TEST 3: direction sense preserved (below=+RIGHTY, left=-RIGHTX, above=-RIGHTY).
+  * TEST 4: release -> RIGHTX/RIGHTY = 0.
+
+------------------------------------------------------------------------------
+4. ACTUATION TEST (B) — real device (eae4df44) synthetic-touch harvest
+------------------------------------------------------------------------------
+Device: eae4df44 (Redmi Note 9 Pro, org.opengoal.gk.jak1, PID 29381, slim APK on
+restored full gameplay data). overlay onSizeChanged reported screen=2298x1036; the
+View's runtime getHeight()=1080 so camMaxRadius = 0.16*1080 = 172.8 px (the device
+values below match this EXACTLY: dx=119 -> 119/172.8*32767 = 22565). overlay-map
+camera token:
+  camera=<right-side FLOATING invisible deflection stick, anchors on touch-down at
+  x>=1034, RIGHTX/RIGHTY=(cur-anchor) sustained, not-drag-delta>->onPadAxis(RIGHTX/RIGHTY)
+
+Synthetic touches injected in the camera zone (anchor x=1391 >= 1034, clear of every
+mapped button: face cluster x=1863..2088, shoulders/start/select elsewhere).
+VERBATIM logcat (PID 29381):
+
+(A) anchor + HELD offset  --  the sustained-not-delta proof:
+  18:04:00.092  camera anchor (x=1391,y=560) -> floating invisible RIGHTX/RIGHTY stick (deflection = cur - anchor, sustained while held)
+  18:04:00.411  camera deflect dx=119 dy=0 -> onPadAxis(RIGHTX) value=22565, onPadAxis(RIGHTY) value=0 [sustained held]
+  18:04:00.752  camera deflect dx=119 dy=0 -> onPadAxis(RIGHTX) value=22565, onPadAxis(RIGHTY) value=0 [sustained held]
+  18:04:01.085  camera deflect dx=287 dy=0 -> onPadAxis(RIGHTX) value=32767, onPadAxis(RIGHTY) value=0 [sustained held]
+  18:04:01.420  camera deflect dx=287 dy=0 -> onPadAxis(RIGHTX) value=32767, onPadAxis(RIGHTY) value=0 [sustained held]
+  18:04:01.736  camera release -> onPadAxis(RIGHTX) value=0, onPadAxis(RIGHTY) value=0 (neutral)
+
+  PROOF: the SAME held offset dx=119 (finger stationary, 341 ms apart) injected the
+  SAME value 22565 BOTH times -> SUSTAINED, does NOT decay. A frame-delta drag would
+  inject ~0 on the second sample (no movement = no delta). The larger held offset
+  dx=287 (> max radius) clamped to 32767 and held there. Release -> RIGHTX/RIGHTY = 0.
+
+(B) long swipe  --  proportional growth + clamp tail = the deflection signature:
+  dx=  0 -> 0       dx= 31 -> 5884    dx= 57 -> 10986   dx= 85 -> 16122
+  dx=111 -> 21156   dx=139 -> 26360   dx=165 -> 31462
+  dx=192 -> 32767   dx=219 -> 32767   dx=246 -> 32767   dx=273 -> 32767 (pinned)
+  release -> RIGHTX/RIGHTY = 0
+  RIGHTX rises ~linearly with distance-from-anchor (matches the 0.16*1080 px max
+  radius) then PINS at the clamp for the tail -> sustained-at-max while the finger
+  keeps deflecting. A constant-velocity swipe under the OLD delta model would have
+  produced a roughly CONSTANT small value, never this growth-then-clamp.
+
+(C) native path reached (the JNI marker throttles to 1-in-64):
+  onPadAxis: sdl_axis=2 value=0      (#0)
+  onPadAxis: sdl_axis=2 value=14387  (#64)
+  onPadAxis: sdl_axis=2 value=32585  (#128)
+  onPadAxis: sdl_axis=2 value=32767  (#192)
+  sdl_axis=2 = RIGHTX. The injected value reached android_input_audio::on_pad_axis ->
+  g_stick_rx -> cpad rx. No sdl_axis=3 (RIGHTY) lines only because the synthetic sweep
+  was horizontal (dy=0); the RIGHTY code path is identical (see logic-proof TEST 3).
+
+Stability: 0 fatal-signal lines across the boot+actuation window; `link finish: logo`
+at 18:03:50 (PID 29381). deploy_verify.sh eae4df44 = PASS (build==APK==device chain
+0ddaa3b019923b43; libgk.so fresh; device provably runs HEAD).
+
+------------------------------------------------------------------------------
+RESULT: RIGHT CAMERA IS A FLOATING DEFLECTION STICK (sustained, not delta)
+------------------------------------------------------------------------------
+A right-zone touch anchors an invisible stick at the touch-down point; RIGHTX/
+RIGHTY = (cur - anchor) clamped+normalized, so a HELD offset gives a SUSTAINED,
+proportional pan that does NOT decay like a delta; release -> RIGHTX/RIGHTY = 0.
+Feel/sensitivity (CAM_RADIUS_FRAC=0.16, CAM_DEADZONE_FRAC=0.12) is owner-eye-final.
+</content>
