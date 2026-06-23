@@ -18,10 +18,20 @@ hangs Adreno (a shader/texture/geometry first hit in that area), or a collision/
 ### (C) DETERMINISTIC trigger — START HERE: collecting a SCOUT FLY ("mouche") = INSTANT CRASH
 The owner reports: **collecting a scout fly (the little Precursor "mouche" freed from boxes) crashes
 the game INSTANTLY, every time.** This is DETERMINISTIC (unlike the steps crash) — so it is your best
-handle: drive to a scout fly and collect it to reproduce on demand, capture the exact crash
-(sig/fp-walk/canary), and name it. It likely shares the root with the steps crash (a collect →
-pickup-sequence / particle / merc draw that stomps), OR is the same class as the orb-collect
-micro-cinematic path. Fix this FIRST (it's reliable), then verify the steps modes are also clean.
+handle. The crash is in the COLLECT/pickup code, not the platforming to reach it.
+
+**Reach the collect PROGRAMMATICALLY — do NOT try to platform Jak to the fly blind** (the owner only
+got there with manual touch controls; you don't have those and don't need them). Use the most
+reliable trigger:
+- **Directly invoke the scout-fly pickup** via the GOAL listener (find the fly/`fly-trap`/
+  `money`/`buzzer`-style pickup or `(send-event ... 'touch ...)` / `pickup` handler and call it on a
+  live fly), OR
+- **Teleport Jak onto a scout fly** (`(set! (-> *target* control trans) <fly-pos>)` / a debug
+  move-to) so the proximity-collect fires, OR
+- **Spawn a scout fly at Jak's position** and let the collect trigger.
+Any of these reproduces the collect crash without navigating. `cpad_inject` (synthetic gamepad) is
+available for movement if needed, but the listener-driven collect is the deterministic path.
+Fix this crash FIRST (it's reliable + instant), then verify the steps modes are also clean.
 
 ## Methodology — reproduce BOTH modes, name them, fix the root
 - Drive the owner's path via cpad_inject: in-game at Geyser Rock → move forward to the steps → **jump
