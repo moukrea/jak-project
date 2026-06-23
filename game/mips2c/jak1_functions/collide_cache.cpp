@@ -83,7 +83,20 @@ u64 execute(void* ctxt) {
   // daddiu a0, fp, L307                            // daddiu a0, fp, L307
   // handled at the lq's
   // nop                                            // sll r0, r0, 0
+#if defined(__aarch64__)
+  // F1 (Geyser Rock collision, arm64): this `beq a2, s7` tests "(-> frag inst) == #f?"
+  // to pick the no-instance-transform background-mesh path (block_6). For background
+  // collision the driver passes inst = #f (collide-cache.gc:135). On arm64 a full-64
+  // `sgpr64` compare MISSES #f — the bare-offset arg and the host-tagged s7 register
+  // disagree in their upper-32 bits — so the branch is NOT taken and method 32 wrongly
+  // runs the instance-matrix-transform leg, producing degenerate vertices. The
+  // collide-cache then fills with no valid ground triangles -> *target* free-falls
+  // through the Geyser Rock floor. Compare the representation-agnostic 32-bit GOAL ptr
+  // (gpr_addr/low32). x86 unaffected. Same class as the sparticle/menu/GNG #f-guards.
+  bc = c->gpr_addr(a2) == c->gpr_addr(s7);          // beq a2, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(a2) == c->sgpr64(s7);              // beq a2, s7, L293
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_6;}                           // branch non-likely
 
@@ -1592,7 +1605,11 @@ u64 execute(void* ctxt) {
   c->lwu(s3, 68, s5);                               // lwu s3, 68(s5)
   c->daddiu(v1, gp, 108);                           // daddiu v1, gp, 108
   c->lwu(a0, 4, gp);                                // lwu a0, 4(gp)
+#if defined(__aarch64__)
+  bc = c->gpr_addr(s3) == c->gpr_addr(s7);          // beq s3, s7 (32-bit GOAL ptr #f-guard, F1)
+#else
   bc = c->sgpr64(s3) == c->sgpr64(s7);              // beq s3, s7, L147
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_15;}                          // branch non-likely
 
@@ -1838,7 +1855,11 @@ u64 execute(void* ctxt) {
   c->lwu(s3, 68, s5);                               // lwu s3, 68(s5)
   c->daddiu(v1, gp, 108);                           // daddiu v1, gp, 108
   c->lwu(a0, 4, gp);                                // lwu a0, 4(gp)
+#if defined(__aarch64__)
+  bc = c->gpr_addr(s3) == c->gpr_addr(s7);          // beq s3, s7 (32-bit GOAL ptr #f-guard, F1)
+#else
   bc = c->sgpr64(s3) == c->sgpr64(s7);              // beq s3, s7, L112
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_15;}                          // branch non-likely
 
@@ -2084,7 +2105,11 @@ u64 execute(void* ctxt) {
   c->lwu(s3, 68, s5);                               // lwu s3, 68(s5)
   c->daddiu(v1, gp, 108);                           // daddiu v1, gp, 108
   c->lwu(a0, 4, gp);                                // lwu a0, 4(gp)
+#if defined(__aarch64__)
+  bc = c->gpr_addr(s3) == c->gpr_addr(s7);          // beq s3, s7 (32-bit GOAL ptr #f-guard, F1)
+#else
   bc = c->sgpr64(s3) == c->sgpr64(s7);              // beq s3, s7, L77
+#endif
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_15;}                          // branch non-likely
 
