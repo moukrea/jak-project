@@ -394,12 +394,9 @@ void CacheFlush(void* mem, int size) {
 #include "common/versions/versions.h"
 
 // snd::SoundFlavaHack — set from game/kernel/common/ksound.cpp::set_flava_hack
-// (a kscheme-callable). Real value lives in 989snd's ame_handler.cpp, which
-// isn't ported yet. The variable stays at zero; setting it is observable
-// (we log) but has no audible effect until 989snd lands on Android.
-namespace snd {
-u64 SoundFlavaHack = 0;
-}
+// (a kscheme-callable). Phase F2 (autoport): the real 989snd ame_handler.cpp
+// now compiles into the Android build and owns this definition, so the
+// phase-27 placeholder here is gone (it would duplicate the real symbol).
 
 // Gfx::g_global_settings — owned by android_graphics_stubs.cpp.
 //

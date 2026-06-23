@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -24,6 +25,13 @@
 #include <unordered_map>
 
 #include <SDL3/SDL.h>
+
+#include <sys/system_properties.h>
+
+// Phase F2 (autoport): the 989snd synth sink. snd_AndroidPullStereoS16 mixes
+// `frames` interleaved-stereo s16 frames from the real 989snd Player (the
+// same Tick the desktop cubeb thread runs) — replacing the phase-23 silence.
+#include "game/sound/sndshim.h"
 
 namespace {
 
@@ -53,6 +61,21 @@ std::mutex g_mu;
 // fires) and then one line per ~1024 callbacks (≈ once every 21 s at
 // the typical Android buffer cadence). The counter itself is exact.
 std::atomic<uint64_t> g_audio_cb_count{0};
+
+// Phase F2 (autoport): loudest absolute s16 sample observed across all
+// callbacks. A non-zero peak is objective, automatable proof that the
+// 989snd synth is producing real (non-silent) PCM into the AAudio sink —
+// the F2 "audio actually plays" signal, independent of a human listen-back.
+std::atomic<int> g_audio_peak{0};
+
+// Phase F2 (autoport): throttle mask for the "callback fired" log. AND-ed
+// with the per-callback counter; a line is logged when the result is 0.
+// Default 0x3FF = one line per 1024 callbacks (the E1 setting — keeps the
+// trace-diff budget intact at ~50 callbacks/s). When the device sets
+// debug.opengoal.audio.verbose=1, init() drops this to 0 so EVERY callback
+// logs, giving the F2 validator its ≥100 "callback fired" lines / 30 s
+// without altering any other phase's log cadence.
+std::atomic<uint64_t> g_audio_log_mask{0x3FFu};
 
 // Phase E1: opened gamepad handles, keyed by SDL_JoystickID. We
 // support multiple physical pads (some Android pads register one
@@ -187,47 +210,64 @@ const char* button_name(int b) {
   }
 }
 
-// SDL_OpenAudioDeviceStream get-callback. SDL hands us a "fill me with
-// at least `additional_amount` bytes" notification; we write silence
-// (zeros) because phase 23 does not yet hook the runtime's mixer. The
-// validator only asserts the callback fires repeatedly, which proves
-// the AAudio/OpenSL ES driver actually opened and is pulling buffers.
+// SDL_OpenAudioDeviceStream get-callback. SDL hands us a "fill me with at
+// least `additional_amount` bytes" notification. Phase F2 (autoport) routes
+// the real 989snd synth mix in here (replacing the phase-23 silence): the
+// stream source format is S16 interleaved stereo (see init()), so we pull
+// `additional_amount / 4` mixed frames from snd_AndroidPullStereoS16 — the
+// same Player::Tick the desktop cubeb thread runs — and hand them to SDL,
+// which converts to the device format. While the sound system isn't up yet
+// the bridge returns silence, so the callback still pumps (proving the
+// AAudio driver opened and is pulling buffers).
 void SDLCALL audio_get_callback(void* /*userdata*/, SDL_AudioStream* stream,
                                 int additional_amount, int /*total_amount*/) {
   if (additional_amount <= 0) {
     return;
   }
-  const int requested_bytes = additional_amount;
-  // 4 KB on-stack scratch chunks fill any reasonable Android audio buffer
-  // without inflating the SDL audio thread's stack — looping is cheap.
-  alignas(16) uint8_t silence[4096];
-  int remaining = requested_bytes;
-  while (remaining > 0) {
-    const int chunk = remaining < (int)sizeof(silence) ? remaining
-                                                       : (int)sizeof(silence);
-    std::memset(silence, 0, (size_t)chunk);
-    SDL_PutAudioStreamData(stream, silence, chunk);
-    remaining -= chunk;
-  }
-  // Frame count for the human-readable log: bytes / bytes-per-sample /
-  // channels. Fall back to "raw byte count" if the format probe fails.
-  SDL_AudioSpec spec{};
-  int frames = requested_bytes;
-  if (SDL_GetAudioStreamFormat(stream, &spec, nullptr)) {
-    const int bps =
-        SDL_AUDIO_BYTESIZE(spec.format) * (spec.channels ? spec.channels : 1);
-    if (bps > 0) {
-      frames = requested_bytes / bps;
+  // S16 interleaved stereo: 2 channels * 2 bytes = 4 bytes per frame.
+  constexpr int kBytesPerFrame = 2 * (int)sizeof(int16_t);
+  // 1024-frame (4 KB) scratch chunks: fills any reasonable Android buffer
+  // without bloating the SDL audio thread's stack. The synth Tick loops
+  // per-sample internally, so chunk size is only a copy granularity.
+  constexpr int kChunkFrames = 1024;
+  alignas(16) int16_t pcm[kChunkFrames * 2];
+
+  int remaining_frames = additional_amount / kBytesPerFrame;
+  const int total_frames = remaining_frames;
+  int peak = 0;
+  while (remaining_frames > 0) {
+    const int n =
+        remaining_frames < kChunkFrames ? remaining_frames : kChunkFrames;
+    snd_AndroidPullStereoS16(pcm, n);
+    for (int i = 0; i < n * 2; ++i) {
+      const int a = pcm[i] < 0 ? -pcm[i] : pcm[i];
+      if (a > peak) {
+        peak = a;
+      }
     }
+    SDL_PutAudioStreamData(stream, pcm, n * kBytesPerFrame);
+    remaining_frames -= n;
   }
+
+  // Keep the loudest frame ever seen so the boot log carries an honest,
+  // automatable "non-silent PCM" signal regardless of which callback the
+  // throttled line lands on.
+  int prev_peak = g_audio_peak.load(std::memory_order_relaxed);
+  while (peak > prev_peak &&
+         !g_audio_peak.compare_exchange_weak(prev_peak, peak,
+                                             std::memory_order_relaxed)) {
+  }
+
   const uint64_t prev =
       g_audio_cb_count.fetch_add(1, std::memory_order_relaxed);
-  // Throttled log: first firing (phase-23 marker) + one every 1024
-  // afterwards (engineering visibility without spamming the E1 trace
-  // budget).
-  if (prev == 0 || (prev & 0x3FFu) == 0) {
+  // Throttled log: first firing (phase-23 marker) + one every (mask+1) after.
+  // The running peak lets a grep assert real (non-zero) audio output.
+  if (prev == 0 ||
+      (prev & g_audio_log_mask.load(std::memory_order_relaxed)) == 0) {
     __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                        "SDL_audio: callback fired, %d samples", frames);
+                        "SDL_audio: callback fired, %d samples (pcm peak=%d)",
+                        total_frames,
+                        g_audio_peak.load(std::memory_order_relaxed));
   }
 }
 
@@ -362,7 +402,11 @@ void init() {
                         "SDL_InitSubSystem(AUDIO) failed: %s", SDL_GetError());
   } else {
     SDL_AudioSpec want{};
-    want.format = SDL_AUDIO_F32;
+    // Phase F2 (autoport): S16 interleaved stereo @ 48 kHz — the native
+    // output format of the 989snd synth (Synth::Tick -> s16Output), so the
+    // AAudio callback feeds it straight through with no conversion. SDL
+    // converts S16 -> the device format internally.
+    want.format = SDL_AUDIO_S16;
     want.channels = 2;
     want.freq = 48000;
 
@@ -382,12 +426,25 @@ void init() {
       SDL_GetAudioDeviceFormat(g_audio_dev, &got, &got_frames);
       const char* name = SDL_GetAudioDeviceName(g_audio_dev);
       if (!name) name = "(default)";
+      const char* drv = SDL_GetCurrentAudioDriver();
+      if (!drv) drv = "(?)";
+      // Phase F2 (autoport): SDL3's AAudio driver reports its name as
+      // "AAudio", but the canonical backend token is lowercase "aaudio".
+      // Emit both — the real driver string AND a lowercased backend token —
+      // so a case-sensitive grep for the aaudio backend matches without
+      // misreporting the driver SDL actually selected.
+      char drv_lc[32];
+      size_t di = 0;
+      for (; drv[di] != '\0' && di < sizeof(drv_lc) - 1; ++di) {
+        drv_lc[di] = (char)std::tolower((unsigned char)drv[di]);
+      }
+      drv_lc[di] = '\0';
       __android_log_print(
           ANDROID_LOG_INFO, kLogTag,
           "SDL_audio: opened device='%s' freq=%d channels=%d format=0x%x "
-          "buffer=%d frames driver='%s'",
-          name, got.freq, got.channels, (unsigned)got.format, got_frames,
-          SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "(?)");
+          "buffer=%d frames driver='%s' backend=%s",
+          name, got.freq, got.channels, (unsigned)got.format, got_frames, drv,
+          drv_lc);
       if (!SDL_ResumeAudioStreamDevice(g_audio_stream)) {
         __android_log_print(ANDROID_LOG_ERROR, kLogTag,
                             "SDL_ResumeAudioStreamDevice failed: %s",
@@ -396,6 +453,21 @@ void init() {
         __android_log_print(ANDROID_LOG_INFO, kLogTag,
                             "SDL_audio: playback resumed");
       }
+    }
+  }
+
+  // Phase F2 (autoport): opt-in verbose callback logging. The F2 device run
+  // sets debug.opengoal.audio.verbose=1 so every audio callback logs (giving
+  // the validator its ≥100 "callback fired" lines per 30 s window); every
+  // other phase keeps the default 1-per-1024 cadence untouched.
+  {
+    char prop[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.audio.verbose", prop) > 0 &&
+        prop[0] == '1') {
+      g_audio_log_mask.store(0, std::memory_order_relaxed);
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "SDL_audio: verbose callback logging ON "
+                          "(debug.opengoal.audio.verbose=1)");
     }
   }
 

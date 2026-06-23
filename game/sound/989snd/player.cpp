@@ -28,6 +28,11 @@ Player::~Player() {
 }
 
 void Player::InitCubeb() {
+// Phase F2 (autoport): on Android the SDL3 AAudio stream owns the device,
+// so the synth must NOT open a cubeb device. The body is compiled out and
+// the ctor's InitCubeb() call becomes a no-op — synth + voices + SPU RAM
+// are still set up by snd_StartSoundSystem.
+#ifndef __ANDROID__
 #ifdef _WIN32
   HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   m_coinitialized = SUCCEEDED(hr);
@@ -67,9 +72,11 @@ void Player::InitCubeb() {
     lg::error("Cubeb init failed");
     return;
   }
+#endif  // !__ANDROID__
 }
 
 void Player::DestroyCubeb() {
+#ifndef __ANDROID__
   cubeb_stream_stop(mStream);
   cubeb_stream_destroy(mStream);
   cubeb_destroy(mCtx);
@@ -79,8 +86,10 @@ void Player::DestroyCubeb() {
     m_coinitialized = false;
   }
 #endif
+#endif  // !__ANDROID__
 }
 
+#ifndef __ANDROID__
 long Player::sound_callback([[maybe_unused]] cubeb_stream* stream,
                             void* user,
                             [[maybe_unused]] const void* input,
@@ -93,6 +102,7 @@ long Player::sound_callback([[maybe_unused]] cubeb_stream* stream,
 void Player::state_callback([[maybe_unused]] cubeb_stream* stream,
                             [[maybe_unused]] void* user,
                             [[maybe_unused]] cubeb_state state) {}
+#endif  // !__ANDROID__
 
 void Player::Tick(s16Output* stream, int samples) {
   std::scoped_lock lock(mTickLock);

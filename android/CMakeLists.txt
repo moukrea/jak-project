@@ -142,9 +142,34 @@ add_library(android_kernel STATIC
     # gfx_dispatcher, set_master_state). Each is real work — the body-size
     # check on InitMachine is honest.
     android_runtime_full.cpp
-    # Phase 27: snd_* no-op shims that satisfy game/overlord's link-time
-    # references. 989snd + sndshim.cpp don't yet cross-compile on Bionic.
-    android_sound_stubs.cpp
+    # Phase F2 (autoport): the REAL 989snd software synth + sndshim/sdshim,
+    # replacing the phase-27 android_sound_stubs.cpp no-ops so audio actually
+    # plays. 989snd/common is pure scalar C++ (no x86 intrinsics / SIMD / asm /
+    # endianness deps) — it cross-compiles cleanly on Bionic/arm64 (the same
+    # code already runs on Apple Silicon). cubeb (the desktop OS-audio backend)
+    # is deliberately NOT linked: player.cpp's InitCubeb/DestroyCubeb are
+    # __ANDROID__ no-ops and the existing SDL3 AAudio stream
+    # (android_input_audio.cpp) owns the device, pulling PCM through
+    # snd_AndroidPullStereoS16 -> Player::Tick (the same mix the desktop cubeb
+    # thread renders). The real sdshim.cpp keeps the synchronous SPU-DMA-
+    # completion strobe the D4 stub relied on (sceSdVoiceTrans fires the
+    # registered trans handler), so DMA_SendToSPUAndSync still unblocks.
+    "${JAK_ROOT}/game/sound/989snd/player.cpp"
+    "${JAK_ROOT}/game/sound/989snd/midi_handler.cpp"
+    "${JAK_ROOT}/game/sound/989snd/ame_handler.cpp"
+    "${JAK_ROOT}/game/sound/989snd/blocksound_handler.cpp"
+    "${JAK_ROOT}/game/sound/989snd/musicbank.cpp"
+    "${JAK_ROOT}/game/sound/989snd/sfxblock.cpp"
+    "${JAK_ROOT}/game/sound/989snd/sfxgrain.cpp"
+    "${JAK_ROOT}/game/sound/989snd/loader.cpp"
+    "${JAK_ROOT}/game/sound/989snd/vagvoice.cpp"
+    "${JAK_ROOT}/game/sound/989snd/lfo.cpp"
+    "${JAK_ROOT}/game/sound/989snd/util.cpp"
+    "${JAK_ROOT}/game/sound/common/synth.cpp"
+    "${JAK_ROOT}/game/sound/common/voice.cpp"
+    "${JAK_ROOT}/game/sound/common/envelope.cpp"
+    "${JAK_ROOT}/game/sound/sndshim.cpp"
+    "${JAK_ROOT}/game/sound/sdshim.cpp"
     # Phase 27: definition of Gfx::g_global_settings so VBlank pacing in
     # srpc.cpp links. game/graphics/gfx.cpp itself doesn't compile on
     # Bionic; only the shared global state matters for the boot path.
