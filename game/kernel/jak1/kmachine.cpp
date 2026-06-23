@@ -45,6 +45,7 @@
 #include "game/sce/stubs.h"
 
 #include <cstdlib>
+#include <cstring>
 #if defined(__ANDROID__)
 #include <sys/system_properties.h>
 #endif
@@ -712,6 +713,29 @@ static u64 f1_warp_run() {
   u64 tgt = _call_goal8_asm_systemv((void*)(g_ee_main_mem + start_fn), args, 0, (u64)lp,
                                     (u64)s7.offset, g_ee_main_mem);
   lg::info("[F1-WARP] (start 'play game-start) -> *target* #x{:x}", (u32)tgt);
+
+  // Deterministic spawn datum. `start`->init-target ran synchronously and set
+  // *target*'s position to the game-start continue point; the slide-to-rest that
+  // follows over the next ~20 kernel frames carries an arm64 frame-timing variance
+  // (the heavy training-level load jitters the game loop), so the SETTLE position
+  // is NOT bit-reproducible — but the SPAWN (read here, before any physics frame)
+  // is the continue datum, identical on desktop and device. Emit it the same way
+  // the Merc2 F1 probe emits F1-STATE (control offset 108 -> trans offset 12), so
+  // f1_run.sh can capture this deterministic game-state for the device-vs-desktop
+  // match.
+  u32 tgt32 = (u32)tgt;
+  if (tgt32 != 0 && tgt32 != (u32)s7.offset && tgt32 < (u32)(EE_MAIN_MEM_SIZE - 4)) {
+    u32 ctrl = 0;
+    std::memcpy(&ctrl, g_ee_main_mem + tgt32 + 108, 4);
+    if (ctrl != 0 && ctrl != (u32)s7.offset && ctrl < (u32)(EE_MAIN_MEM_SIZE - 24)) {
+      float sx = 0.f, sy = 0.f, sz = 0.f;
+      std::memcpy(&sx, g_ee_main_mem + ctrl + 12 + 0, 4);
+      std::memcpy(&sy, g_ee_main_mem + ctrl + 12 + 4, 4);
+      std::memcpy(&sz, g_ee_main_mem + ctrl + 12 + 8, 4);
+      printf("F1-SPAWN tx=%f ty=%f tz=%f\n", sx, sy, sz);
+      fflush(stdout);
+    }
+  }
   return tgt;
 }
 
