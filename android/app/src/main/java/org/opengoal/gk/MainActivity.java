@@ -157,9 +157,13 @@ public class MainActivity extends SDLActivity {
         mLayout.addView(mTouchOverlay, lp);
         mTouchOverlay.bringToFront();
         // Marker line the validator greps (`touch overlay enabled` matches
-        // the BOOT_LOG check; `overlay visible` is the OR branch).
-        Log.i(TAG, "touch overlay enabled — overlay visible "
-                + "(no gamepad at startup)");
+        // the BOOT_LOG check). Gtouch-controls: the overlay now starts HIDDEN
+        // (alpha 0, still touchable) and fades in on the first touch, then
+        // fades out after 10 s idle — so it is enabled-but-hidden at startup,
+        // not always-visible. The overlay still auto-hides outright if a real
+        // gamepad connects (pollGamepadCount below).
+        Log.i(TAG, "touch overlay enabled — hidden until first touch "
+                + "(show-on-touch + 10s idle fade; no gamepad at startup)");
 
         // Poll the SDL-managed open gamepad count on the UI thread. SDL
         // emits SDL_EVENT_GAMEPAD_ADDED off the SDL main thread; rather
