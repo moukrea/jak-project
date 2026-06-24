@@ -1019,7 +1019,7 @@ void mouche_maybe_fire() {
     return;
   }
 
-  int count = 8, gap = 180, settle = 300;
+  int count = 2, gap = 240, settle = 300;
   if (const char* c = std::getenv("OG_MOUCHE_COUNT")) count = atoi(c);
   if (const char* g = std::getenv("OG_MOUCHE_GAP")) gap = atoi(g);
   if (const char* s = std::getenv("OG_MOUCHE_SETTLE")) settle = atoi(s);

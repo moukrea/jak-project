@@ -4409,14 +4409,47 @@ bool handle_enter_state_null_code(int sig, siginfo_t* /*info*/, void* ucontext) 
       code == 0 || code >= (uint32_t)EE_MAIN_MEM_SIZE) {
     return false;
   }
+  // G2 RETURN-residual fix, scoped to this enter-state code-entry .jr.
+  // enter-state pushed the return-from-thread-dead trampoline (ee+0x18aee4)
+  // right before the faulting .jr, but on arm64 the .jr keeps a STALE X30 (the
+  // title's suspend-looping attract states REQUIRE that stale X30, so pop-RA
+  // cannot be a codegen default — see goalc/compiler/CodeGenerator.cpp G1/G2
+  // note: F1f's global pop-RA fixed the RETURN path but regressed the title).
+  // Without the trampoline in X30, when the repaired state code RETURNS it RETs
+  // back into enter-state's own body against a reset stack and the process
+  // re-dispatches in a corrupt loop that spams *sound-player-rpc* (port 0) while
+  // never returning to main.gc swap-sound-buffers — the 128-slot sound buffer
+  // overflows -> "too many sound commands"/flush/STALL flood -> Print Buffer
+  // Overflow -> the render thread starves (the BLUE-LOCK).
+  //
+  // The fix sets ONLY X30 = trampoline. We must NOT also advance SP past the
+  // pushed RA word (the `LDR X30,[SP],#16` half of pop-RA): that +16 shift is
+  // the precise thing that regressed the title — for states that SUSPEND
+  // instead of returning, the shifted SP propagates through thread-suspend/
+  // thread-resume and a later kernel dispatch reads a null fn-ptr slot (the
+  // earlier fix2 froze the moment a suspend-looping child process — pp 0x23b7d4
+  // — got the SP+16). Leaving SP alone is harmless for suspend states (X30 is
+  // never consumed there) and correct for return states (the state code's own
+  // epilogue ldp restores X30=trampoline and RETs to it). Guarded on [SP]
+  // actually holding the trampoline so an unrelated fault is never touched.
+  bool ra_fixed = false;
+  {
+    uint32_t t_lo = 0, t_hi = 0;
+    if (gk_diag::safe_read_u32(uc->uc_mcontext.sp, &t_lo) &&
+        gk_diag::safe_read_u32(uc->uc_mcontext.sp + 4, &t_hi) &&
+        ((static_cast<uintptr_t>(t_lo)) | (static_cast<uintptr_t>(t_hi) << 32)) == trampoline) {
+      uc->uc_mcontext.regs[30] = trampoline;  // X30 = return-from-thread-dead
+      ra_fixed = true;
+    }
+  }
   uc->uc_mcontext.pc = ee + code;  // resume into the authoritative state code
   const uint64_t n = g_enter_state_code_repairs.fetch_add(1, std::memory_order_relaxed) + 1;
   if (n <= 16 || (n % 256) == 0) {
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                         "GK-DIAG ENTER-STATE-CODE-REPAIR #%llu sig=%d pp=0x%x state=0x%x "
-                        "code=0x%x -> resumed into authoritative state code (enter-state "
-                        "spilled new-state stomped to 0 by a concurrent DMA write)",
-                        (unsigned long long)n, sig, pp, state, code);
+                        "code=0x%x ra_fixed=%d -> resumed into authoritative state code with "
+                        "deactivate-trampoline return (G2 RETURN-residual fix)",
+                        (unsigned long long)n, sig, pp, state, code, (int)ra_fixed);
   }
   return true;
 }
