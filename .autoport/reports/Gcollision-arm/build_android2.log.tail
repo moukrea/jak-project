@@ -1,0 +1,14 @@
+  building gk target (incremental; first build can take 3-5 min)...
+[0/2] Re-checking globbed directories...
+[1/12] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/versions/versions.cpp.o
+[2/12] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/kboot.cpp.o
+[3/12] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/collide_mesh.cpp.o
+[4/12] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/collide_func.cpp.o
+[5/12] Building CXX object android/CMakeFiles/gk.dir/android_goal_main.cpp.o
+[6/12] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/collide_edge_grab.cpp.o
+[7/12] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/collide_probe.cpp.o
+[8/12] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/collide_cache.cpp.o
+[9/12] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/kmachine.cpp.o
+[10/12] Linking CXX static library android/libandroid_kernel.a
+[11/12] Linking CXX shared library lib/arm64-v8a/libgk.so
+  libgk.so produced at build-android/lib/arm64-v8a/libgk.so (65600128 bytes)

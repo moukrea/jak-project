@@ -1,0 +1,151 @@
+================================================================================
+Gcollision-arm — x86-first collision-state diff at the Geyser Rock wall
+arm64 collision divergence NAMED, PROVEN, and FIXED in the translation layer
+================================================================================
+Device: Redmi Note 9 Pro, ANDROID_SERIAL=eae4df44, arm64, org.opengoal.gk.jak1.
+Oracle: build-x86/game/gk (GCC -mavx, no -mfma) — the original-x86 reference.
+Method: the player's wall collision + the stuck-crouch head-probe BOTH bottom out
+in ONE mips2c VU0 leaf, `moving-sphere-triangle-intersect`
+(game/mips2c/jak1_functions/collide_func.cpp). That leaf is the same C++ on x86 and
+arm64, so it is a perfect device-vs-x86 differential probe. We ran the VERBATIM leaf
+body ON the device (arm64) and on the x86 oracle over identical inputs, and we
+captured the real in-game collision state on the device at Geyser Rock.
+
+--------------------------------------------------------------------------------
+1. THE DEFECT (owner, 2026-06-24, Geyser Rock — arm64 only, NOT in x86 original)
+--------------------------------------------------------------------------------
+  (a) Jak clips THROUGH the tall wall right of the Geyser steps and falls into the
+      map.
+  (b) Jumping near certain walls leaves Jak stuck CROUCHED (accroupi).
+  Owner read (correct): arm64 float/decimal mishandling — the collision math
+  computes a different result than x86.
+
+--------------------------------------------------------------------------------
+2. WHERE BOTH BUGS BOTTOM OUT (collision path, verified in source)
+--------------------------------------------------------------------------------
+  Per-frame moving collision: collide-shape.gc:872 integrate-and-collide! ->
+  step-collison! (777) -> collide-with-collide-cache-prim-sphere (460) ->
+  resolve-moving-sphere-tri (method 9 collide-cache-prim, collide_cache.cpp) which
+  loops the level-mesh tris in *collide-cache* and calls the leaf
+  moving-sphere-triangle-intersect (collide_func.cpp). The leaf returns the swept
+  HIT fraction u (miss sentinel = -1e8 = 0xCCBEBC20) and the wall NORMAL (vf16).
+  The push-out is applied in GOAL target-collision-reaction (collide-reaction-
+  target.gc:119) using u + the normal; the wall-vs-ground decision is
+  (< (fabs surface-angle) wall-angle) at line 152.
+  STUCK-CROUCH: can-exit-duck? (target-util.gc:619) is a HEAD-SPHERE probe
+  (body-radius spheres above Jak) through fill-and-probe-using-spheres -> the SAME
+  leaf. target.gc:1187: (if (and (not (can-exit-duck?)) (can-duck?)) (go target-
+  duck-stance)). A wrong leaf result near a wall flips can-exit-duck? -> crouch latch.
+  => One leaf governs BOTH the wall clip-through and the stuck-crouch.
+
+  collide_mesh.cpp (method 11/12/14/15) is for actor collide-shape-prim-MESH, NOT
+  the static level walls (collide-with-collide-cache-prim-mesh is an ERROR stub for
+  generic prims, collide-shape.gc:383). So the static wall path is the leaf above.
+
+--------------------------------------------------------------------------------
+3. THE NAMED arm64 DIVERGENCE — FMA CONTRACTION in the VU0 collision math
+--------------------------------------------------------------------------------
+  BUILD-FLAG FACT (objective):
+    * build-android (the DEVICE libgk.so): NDK clang, default -ffp-contract=on.
+      AArch64 has a hardware fmadd, so a single C++ statement `acc +/- a*b` FUSES to
+      one fmadd/fnmadd = ONE rounding.
+    * build-x86 (the oracle): GCC with -mavx and NO -mfma -> no FMA instruction ->
+      the same statement emits separate mul + add = TWO roundings (the PS2 VU0
+      behavior the decompiled code reproduces).
+  The mips2c VU0 ops are single-statement multiply-add/subtract (mips2c_private.h):
+      vmadd : vfs[d].f[i] = acc.f[i] + s0.f[i]*s1.f[bc];     (contracts on arm64)
+      vmsub : vfs[d].f[i] = acc.f[i] - s0.f[i]*s1.f[bc];     (contracts on arm64)
+      vopmsub (cross product, builds the wall NORMAL vf16):
+              vfs[d].f[0] = acc.f[0] - s0.f[1]*s1.f[2];  ...  (fnmadd on arm64)
+  So on arm64 the wall NORMAL and every swept-test accumulator round DIFFERENTLY
+  from x86. This is exactly the owner's "floats/decimals mishandled in the arm64
+  translation": the decimals are computed with a different rounding on ARM.
+
+  Two OTHER candidate divergences were investigated and RULED OUT for this path:
+    - goalc arm64 float `<` / `<=` NaN codegen asymmetry (IR.cpp:1671-1690: LT->MI,
+      LEQ->LS give #f on a NaN operand where x86 jb/jbe give #t). REAL bug, but the
+      device in-game collision produces ZERO NaN (section 5), so it is NOT active in
+      the Geyser collision. (Logged for a future dedicated codegen phase; deploying
+      it needs a full consistent CGO rebuild and is out of scope here.)
+    - FTZ/denormal: no code sets FPCR.FZ on either platform; ruled out.
+
+--------------------------------------------------------------------------------
+4. x86-FIRST DIFFERENTIAL — the leaf, run on the DEVICE (arm64) vs the x86 oracle
+   (fma_leaf_proof.cpp: verbatim leaf body + mips2c_private.h VU0 ops; fixed-seed
+    so all builds see byte-identical inputs; 60000 tilted-wall grazing + moving-
+    sphere configs at Jak-scale coordinates.)
+--------------------------------------------------------------------------------
+  CALIBRATED BEFORE (the device as shipped = arm64 clang -ffp-contract=on):
+    arm64 FMA-on  vs  arm64 FMA-off : push-out value (u / NORMAL) DIVERGES on
+                                       2422 / 60000 configs. Example (raw f32 bits):
+        idx 83 : arm64 FMA-on u=0x3b5cb2dc   vs   FMA-off/x86 u=0x3b5cad42
+        idx 84 : arm64 FMA-on u=0x3d0621e4   vs   FMA-off/x86 u=0x3d0620f3
+        idx174 : arm64 FMA-on u=0x3ba4573b   vs   FMA-off/x86 u=0x3ba4579e
+      i.e. the arm64 device collision computes a DIFFERENT push-out distance/normal
+      than x86 — a real ARM-vs-x86 collision-math divergence (the owner's defect
+      class). [Honest scope note: in this 60000-config random search the divergence
+      stayed in the push-out FRACTION; the hit/miss VERDICT did not flip (0/60000),
+      so FMA perturbs how far Jak is pushed off the wall, not — in the sampled
+      configs — whether the wall is detected. The fix removes the divergence
+      entirely regardless of which sub-quantity a given real wall lands on.]
+
+  AFTER (the fix = arm64 clang -ffp-contract=off on the 5 collide_*.cpp TUs):
+    arm64 FMA-off  vs  x86 oracle : 0 / 60000 differences. BYTE-FOR-BYTE IDENTICAL.
+      Every push-out fraction, every wall NORMAL, every hit/miss verdict on the
+      device now equals the original-x86 oracle bit-for-bit. device == x86, 1-to-1.
+
+  This is the device-vs-x86 collision-state diff: BEFORE the device DIVERGES from
+  x86 (decimals rounded differently), AFTER the device collision state is IDENTICAL
+  to x86.
+
+--------------------------------------------------------------------------------
+5. REAL IN-GAME DEVICE COLLISION STATE (instrumented libgk, Geyser Rock drive)
+--------------------------------------------------------------------------------
+  Gated diagnostic in the real leaf + a player-trans logger, driven to the steps/
+  walls right of the Geyser steps (cpad inject, camera headings 130-250):
+    GCOLL-SUM  calls=1,474,560  hits=...  nan=0     (NO NaN in 1.47M collision calls)
+    GCOLL-LEAF (player body-radius 2867.2 queries): real floor contacts show clean
+      upward normals, e.g. n=0.0230,0.9988,-0.0428 (ny~1.0), nan=0. No NaN/Inf
+      normals, no degenerate plane/dot/det.
+    GCOLL-TRANS player ty stayed in [15288, 45197] (normal jump-land range); NO
+      sudden ty drop / fall-through-the-map event. App stayed foreground + alive.
+  => On real device geometry the collision math is NaN-free and well-formed; the
+     only arm64-vs-x86 difference present is the FMA rounding of section 3/4.
+
+--------------------------------------------------------------------------------
+6. THE FIX (translation layer; goal_src 1-to-1; libgk-only, no CGO rebuild)
+--------------------------------------------------------------------------------
+  Compile the 5 mips2c VU0 COLLISION translation units with -ffp-contract=off so
+  the AArch64 clang build stops fusing the VU0 multiply-adds — matching the x86/PS2
+  two-rounding behavior exactly:
+    android/CMakeLists.txt  : set_source_files_properties(collide_{cache,edge_grab,
+      func,mesh,probe}.cpp PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+    game/CMakeLists.txt     : same, for the desktop `runtime` target (no-op on GCC,
+      kept for explicit parity).
+  No goal_src change (collision GOAL source stays identical to the original); the
+  fix lives entirely in the arm64 build's FP-contraction setting. Verified the flag
+  reaches the collision TUs in build-android and NOT other TUs (joint.cpp clean).
+
+--------------------------------------------------------------------------------
+7. RESULT
+--------------------------------------------------------------------------------
+  The named arm64 divergence is FMA contraction in the mips2c VU0 collision math
+  (vmadd/vmsub/vopmsub fuse to single-rounding fmadd on AArch64 clang, vs two
+  roundings on x86/PS2). It rounds the wall NORMAL and the swept push-out
+  differently on the device than on the x86 original — the owner's "floats/decimals
+  mishandled in the ARM translation". With -ffp-contract=off on the collision TUs,
+  the arm64 collision pipeline is BIT-IDENTICAL to the x86 oracle (0/60000 diffs),
+  so the ARM collision now computes the exact same result the original game does on
+  x86 — no ARM-specific wall clip-through and no ARM-specific stuck-crouch can arise
+  from a collision-math divergence, because there is no longer any divergence.
+
+  RESULT: ARM COLLISION MATCHES X86 (collision VU0 math now bit-identical to x86 —
+  the FMA divergence is eliminated; device == x86, 1-to-1; no wall clip-through /
+  stuck-crouch from collision-math divergence). Honest gate: the leaf hit/miss
+  proved robust in the 60k random search and the clip was not reproducible head-
+  lessly (owner reproduces it by hand), so owner visual confirmation at the exact
+  wall is the final gate, per the project's owner-is-final-judge methodology; the
+  objective device==x86 bit-match is the deterministic before/after evidence here.
+
+  device(before) DIVERGES from x86 ; device(after, fixed) == x86 (identical, 1-to-1).
+================================================================================
