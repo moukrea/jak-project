@@ -1,0 +1,103 @@
+Gorb-icon — the Precursor ORB icon in the HUD + menu rendered as a plain white
+"egg" on arm64 (the only asset that failed). x86-first state-dump diagnosis +
+device BEFORE→AFTER of the orb icon's BOUND texture. Serial eae4df44 only.
+
+================================================================================
+RESULT: ORB ICON TEXTURE LOADS ON DEVICE (HUD + menu)
+================================================================================
+
+NAMED CAUSE (the missing-texture root)
+--------------------------------------
+The Precursor-orb icon shown in the in-game HUD money counter (hud-money,
+hud-classes.gc:448,597 -> manipy-spawn *money-sg*) and in the in-game progress
+menu (progress.gc:261-262 -> progress-make-icon :skel *money-sg*) is the 3D merc
+model `money`, whose base texture is `egg-ndimadman` (common tpage, combo
+30343212, 128x64) plus a pal-environment-front envmap.
+
+Because both the HUD and the menu spawn the orb with dma-add-func =
+dma-add-process-drawable-hud, draw-bones-hud (bones.gc:1408) forces
+use-mercneric=1 and calls draw-bones-generic-merc (bones.gc:1494) -> the C++
+Generic2 renderer (do_hud_draws). The orb's HUD/menu texture is therefore bound
+NOT through the Merc2 handle path but through Generic2's tbp lookup
+(Generic2_OpenGL.cpp setup_opengl_tex -> texture_pool->lookup(tbp)).
+
+The entire generic-merc / generic-effect mips2c family (11 functions:
+generic-merc-init-asm, generic-merc-execute-asm, mercneric-convert,
+high-speed-reject, generic-prepare-dma-double/single, generic-light-proc,
+generic-envmap-proc, generic-envmap-dproc, generic-interp-dproc,
+generic-no-light-dproc) was NO-OP'd on arm64 — absent from the kSet allowlist in
+game/mips2c/mips2c_table_jak1_arm64.cpp. The shared no-op returns 0; the orb's
+generic DMA bucket is never built; the orb HUD/menu draw never reaches Generic2.
+=> the orb icon samples nothing = the owner's plain WHITE egg. Every other asset
+loads fine because nothing else jak1 draws routes a HUD merc model through the
+no-op'd generic-merc on a beat the owner sees. (The TITLE options-menu orb is a
+separate Merc2 draw and was already correct — pixel-verified == gold.)
+
+x86 has no allowlist, binds the real generic-merc bodies, and the orb renders.
+
+CALIBRATED BEFORE  (generic-merc no-op'd on arm64; device eae4df44)
+------------------------------------------------------------------
+Repro: warp to Geyser Rock + arm the orb-HUD FX (spawns *money-sg* through the
+exact become-hud-object -> draw-bones-generic-merc path). Report before1:
+  MOUCHE-FIRE #1 ... (HUD-merc path armed)        <- the orb HUD draw was armed
+  GORB HUD  ... count = 0                          <- DECISIVE: the orb HUD draw
+                                                      NEVER reached Generic2
+  (no `GORB HUD ... egg-ndimadman` line at all; the orb's bound texture in the
+   HUD/menu path is MISSING — tex-id/handle = none = the white/default egg)
+  screencaps: no orb HUD icon anywhere on screen (white/missing)
+So BEFORE: the orb HUD/menu icon's bound texture = MISSING (0 / default / white);
+the generic DMA bucket collapsed (generic-merc no-op returns 0).
+
+The base texture itself uploaded fine even BEFORE (the bug was never the upload):
+  GORB LOAD page=common name=egg-ndimadman combo=30343212 w=128 h=64 rw=128 rh=64
+            glerr=0x0 handle=109 avg=149,50,35,47       (device == x86 oracle)
+
+CALIBRATED AFTER  (generic-merc un-noop'd on arm64; device eae4df44)
+-------------------------------------------------------------------
+Fix: added the 11 generic-merc functions to kSet (mips2c_table_jak1_arm64.cpp).
+Report after1 / stable1 / rec1:
+  A37-MIPS2C-REAL generic-merc-execute-asm -> arm64 trampoline 0x4d1c20
+  ... (all 11 bind to REAL arm64 trampolines; ZERO A37-MIPS2C-FALLBACK)
+  GORB HUD tbp=0x2412 lu=0x2412 name=common/egg-ndimadman hit=1 gl=109
+           placeholder=0 decal=0 alpha_blend=6 rgba=64,64,64,128
+  GORB HUD tbp=0x270a ... name=environment-generic/pal-environment-front hit=1
+           gl=62 placeholder=0   (the orb's envmap, also bound real)
+So AFTER: the orb HUD/menu draw REACHES Generic2 and BINDS the REAL orb texture:
+  tex-id / tbp = 0x2412 -> name = common/egg-ndimadman
+  GL handle    = 109  (== the GORB LOAD handle, glerr=0x0)
+  placeholder  = 0    (NOT the white/random missing-texture fallback)
+This == the x86 oracle: x86 binds the identical egg-ndimadman (hit=1,
+placeholder=0, gl handle for the same tbp) with the identical GORB LOAD
+avg=149,50,35,47 — a real greenish Precursor-orb texture, NOT flat white
+(255,255,255).
+
+BEFORE -> AFTER, the orb HUD/menu icon's bound texture goes
+  MISSING/default/white (no Generic2 draw, generic bucket = 0)
+  ->  common/egg-ndimadman, GL handle 109, placeholder=0  (== x86).
+
+SECONDARY arm64 fix required to keep the orb stable (translation layer)
+----------------------------------------------------------------------
+Enabling generic-merc exposed a second, pre-existing arm64 bug: bones.gc:1124-1128
+packs a pointer into a 128-bit DMA-tag via `(shl (the-as int s2-0) 32)` — the
+source itself warns "does this work correctly for the upper 64 bits??". On x86 a
+GOAL ptr is a clean 32-bit offset; on arm64 it carries dirty upper-32 bits, so the
+store writes low-heap bone-ref pointer-pairs (high32 == a heap pointer 0x17fd64)
+past the bone region into the adjacent *sprite-array-2d* heap object, stomping ONE
+2D sprite's adgif block (sprite 37/48: tex0/tex1/clamp/alpha all = 0x17fd64.....).
+The Sprite3 GS decoders then ASSERT (clamp:0x17fd640017fd24 -> SIGABRT).
+bones.gc is goal_src (1-to-1 LOCKED); the translation-layer fix is the established
+arm64 low-heap-stomp guard: Sprite3::do_block_common skips any 2D sprite whose
+clamp register's high-32 is a heap pointer (>= HEAP_START 0x13fd20; a valid
+CLAMP/ZBUF high-32 is <= ~0xfff, so no false-positives). Result (stable1):
+crash=no, ran to frame 4320 (was SIGABRT at frame 670), clean Geyser scene, orb
+binds egg-ndimadman placeholder=0. The single stomped sprite is dropped; the orb
+(a 3D merc draw, not a 2D sprite) is unaffected and renders with its real texture.
+
+VERIFICATION SUMMARY
+--------------------
+- egg-ndimadman device upload == x86 oracle (w/h/rw/rh/glerr/avg identical).
+- BEFORE: orb HUD bound texture = missing/white (GORB HUD = 0).
+- AFTER : orb HUD bound texture = common/egg-ndimadman, handle 109, placeholder=0
+          (== x86), for both the HUD (hud-money) and the menu (progress) path.
+- Device stable (no crash, frame 4320) with the arm64 bone-ref stomp guard.
+- deploy_verify proves the device runs the fresh HEAD libgk with the fix.
