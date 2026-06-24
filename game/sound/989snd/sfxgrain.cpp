@@ -30,6 +30,7 @@ s32 Grain::snd_SFX_GRAIN_TYPE_TONE(BlockSoundHandler& handler) {
   }
 
   auto voice = std::make_shared<BlockSoundVoice>(tone);
+  voice->mSourceTag = 2;  // per-source meter: sfx (SBlk bank)
 
   s32 vol = tone.Vol;
 
