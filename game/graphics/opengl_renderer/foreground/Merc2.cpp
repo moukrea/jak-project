@@ -58,6 +58,25 @@ static bool f1_census_on() {
   return s_f1_census;
 }
 
+// Gecho-pool: Merc2 model-name census (env OG_GECHO_MERC / prop debug.opengoal.gecho.merc,
+// OFF by default). Logs which merc models render through Merc2 each frame, to locate where the
+// dark-eco-pool (model "water-anim-misty") goes on arm64. Diagnostic only; no behavior change.
+static bool gecho_merc_on() {
+  static const bool s_on = [] {
+    if (std::getenv("OG_GECHO_MERC")) {
+      return true;
+    }
+#ifdef __ANDROID__
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.gecho.merc", buf) > 0 && buf[0] == '1') {
+      return true;
+    }
+#endif
+    return false;
+  }();
+  return s_on;
+}
+
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/util/fnv.h"
 #include "common/util/simd_util.h"
@@ -957,6 +976,20 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
           name, num_effects, (unsigned long long)current_effect_enable_bits,
           (unsigned long long)current_ignore_alpha_bits, gd3_vis_tris, gd3_bones_repaired,
           s_repaired_total);
+      fflush(stdout);
+    }
+  }
+
+  // Gecho-pool Merc2 census (TEMPORARY): log models rendering via Merc2. Always logs any
+  // model whose name looks pool/water-related; samples others every 32 calls to bound volume.
+  if (gecho_merc_on()) {
+    const bool poolish = std::strstr(name, "water") || std::strstr(name, "eco") ||
+                         std::strstr(name, "anim") || std::strstr(name, "misty") ||
+                         std::strstr(name, "ripple");
+    static int s_merc_tick = 0;
+    if (poolish || (s_merc_tick++ % 32) == 0) {
+      printf("GECHO-MERC model=%s neff=%d tris=%d poolish=%d\n", name, num_effects, gd3_vis_tris,
+             poolish ? 1 : 0);
       fflush(stdout);
     }
   }
