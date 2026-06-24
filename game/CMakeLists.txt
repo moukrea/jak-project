@@ -351,6 +351,26 @@ set(RUNTIME_SOURCE
 
 add_subdirectory(sound)
 
+# Gcollision-arm (1-to-1 ARM==x86 collision): force IEEE-strict, non-contracted FP
+# for the mips2c VU0 collision translation units. The Android NDK clang build
+# defaults to -ffp-contract=on (AArch64 has fmadd), so single-statement multiply-
+# add/subtract in the VU0 emulation (vmadd/vmsub and the vopmsub cross product that
+# computes the wall NORMAL — collide_func.cpp / mips2c_private.h) FUSE to fmadd:
+# ONE rounding instead of the PS2/x86 TWO roundings. The x86 oracle (GCC -mavx, no
+# -mfma) cannot emit FMA, so it stays non-contracted. That asymmetry makes arm64
+# collision math diverge bit-for-bit from x86 (push-out distance / normal), the
+# owner-reported "floats/decimals mishandled in the ARM translation". Disabling
+# contraction here makes the arm64 collision pipeline BIT-IDENTICAL to x86 (proven:
+# .autoport/reports/Gcollision-arm/). No-op on the x86 build (GCC has no FMA to
+# disable). See .autoport/reports/Gcollision-arm-fix-summary.md.
+set_source_files_properties(
+        mips2c/jak1_functions/collide_cache.cpp
+        mips2c/jak1_functions/collide_edge_grab.cpp
+        mips2c/jak1_functions/collide_func.cpp
+        mips2c/jak1_functions/collide_mesh.cpp
+        mips2c/jak1_functions/collide_probe.cpp
+        PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+
 # we build the runtime as a static library.
 add_library(runtime STATIC ${RUNTIME_SOURCE} "../third-party/glad/src/glad.c")
 

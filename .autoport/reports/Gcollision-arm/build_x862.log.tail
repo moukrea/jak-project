@@ -1,0 +1,25 @@
+      |   [01;35m[K~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/emeric/code/jak-project/game/system/hid/display_manager.cpp:[m[K In member function « [01m[Kvoid DisplayManager::[01;32m[Kupdate_resolutions[m[K()[m[K »:
+[01m[K/home/emeric/code/jak-project/game/system/hid/display_manager.cpp:471:28:[m[K [01;35m[Kattention: [m[Kcomparaison d'expressions entières de types signés différents: « [01m[Kconst int[m[K » et « [01m[Kstd::vector<DisplayMode>::size_type[m[K » {aka « [01m[Klong unsigned int[m[K »} [[01;35m[K-Wsign-compare[m[K]
+  471 |   if ([01;35m[Kactive_display_index >= m_current_display_modes.size()[m[K) {
+      |       [01;35m[K~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/emeric/code/jak-project/game/system/hid/input_manager.cpp:[m[K In constructor « [01m[KInputManager::[01;32m[KInputManager[m[K(SDL_Window*)[m[K »:
+[01m[K/home/emeric/code/jak-project/game/system/hid/input_manager.cpp:38:12:[m[K [01;35m[Kattention: [m[Kla déclaration de « [01m[Kp[m[K » masque la déclaration locale précédente [[01;35m[K-Wshadow[m[K]
+   38 |       auto [01;35m[Kp[m[K = scoped_prof("input_manager::init::sdl_init_subsystem");
+      |            [01;35m[K^[m[K
+[01m[K/home/emeric/code/jak-project/game/system/hid/input_manager.cpp:26:10:[m[K [01;36m[Knote: [m[Kla déclaration masquée est ici
+   26 |     auto [01;36m[Kp[m[K = scoped_prof("input_manager::init");
+      |          [01;36m[K^[m[K
+[100%] Building CXX object game/CMakeFiles/runtime.dir/system/IOP_Kernel.cpp.o
+[100%] Building CXX object game/CMakeFiles/runtime.dir/system/iop_thread.cpp.o
+[100%] Building CXX object game/CMakeFiles/runtime.dir/system/SystemThread.cpp.o
+[100%] Building CXX object game/CMakeFiles/runtime.dir/tools/filter_menu/filter_menu.cpp.o
+[100%] Building CXX object game/CMakeFiles/runtime.dir/tools/subtitle_editor/subtitle_editor_db.cpp.o
+[100%] Building CXX object game/CMakeFiles/runtime.dir/tools/subtitle_editor/subtitle_editor_repl_client.cpp.o
+[100%] Building CXX object game/CMakeFiles/runtime.dir/tools/subtitle_editor/subtitle_editor.cpp.o
+[100%] Building C object game/CMakeFiles/runtime.dir/__/third-party/glad/src/glad.c.o
+[100%] Linking CXX static library libruntime.a
+[100%] Built target runtime
+[100%] Linking CXX executable gk
+[100%] Built target gk
+make : on quitte le répertoire « /home/emeric/code/jak-project/build-x86 »
