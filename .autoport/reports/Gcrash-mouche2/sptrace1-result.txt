@@ -1,0 +1,10 @@
+RESULT tag=sptrace1 status=BUZZER-FX-CRASH(sig=GK-DIAG sig=4)
+  mouche_fires=1  render_frames +0 (from 480 to 480)  focus_app=no
+  sig=GK-DIAG sig=4
+  mouche-markers: 06-24 11:23:44.580 21908 21977 I GK_STDOUT: MOUCHE-ARM fire 1/8 mode=buzzer (settle=300 gap=180);06-24 11:23:44.580 21908 21977 I GK_STDOUT: MOUCHE-BUZZ #1 proc=#x1ec944 fact=#x38ac344 pos=#x1c5e60 status=#x20 name=#x21063c (real buzzer spawned at Jak);
+  near-fn: 06-24 11:23:44.930 21908 22016 F opengoal-gk: A38-TRIPWIRE sptrace nearest-fn 'enter-state' start=0x4d0b84 off=+0x4a8 slot=0x154d84;06-24 11:23:44.931 21908 22016 F opengoal-gk: A38-TRIPWIRE lr nearest-fn 'enter-state' start=0x4d0b84 off=+0x4a8 slot=0x154d84;
+  merc-draw: 06-24 11:23:44.931 21908 22016 F opengoal-gk: GK-DIAG F1A-BUCKET in-render=l0-tfrag-generic id=11;06-24 11:23:44.931 21908 22016 F opengoal-gk: GK-DIAG F1A-MERC-DRAW di=0/1 tex=0x30 first_bone=0 idx=1188+27127 vao=12 vtx=55 idx-buf=54 envmap=0 mod=0 nostrip=0;06-24 11:23:44.931 21908 22016 F opengoal-gk: GK-DIAG F1E-MERC-TEX branch=1 name=454 is=1 size=49 bind=454 fbo=61 status=0x8cd5 err=0x0 load_id=0 fsl=481;
+  symbolize: none
+  gspark: 06-24 11:23:44.935 21908 22016 F opengoal-gk: GK-DIAG GSPARK-OBJ X1 goff=0x14fd24 tag=0x17fd64 type=0x14fd24 name=0x17fd64 next=0x14fd2c exit=0x17fd64 code=0x17fde4 trans=0x17fd64 post=0x180854 enter=0x17fd64 event=0x17fda4 w24=0x17fd64;06-24 11:23:44.935 21908 22016 F opengoal-gk: GK-DIAG GSPARK-OBJ X0 goff=0x14fd24 tag=0x17fd64 type=0x14fd24 name=0x17fd64 next=0x14fd2c exit=0x17fd64 code=0x17fde4 trans=0x17fd64 post=0x180854 enter=0x17fd64 event=0x17fda4 w24=0x17fd64;06-24 11:23:44.935 21908 22016 F opengoal-gk: GK-DIAG GSPARK-OBJ X4 goff=0x1ee880 tag=0x0 type=0x0 name=0x0 next=0x0 exit=0x0 code=0x0 trans=0x0 post=0x0 enter=0x0 event=0x0 w24=0x0;
+  stomps: none
+  backtrace: none

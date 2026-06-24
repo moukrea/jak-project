@@ -4409,6 +4409,69 @@ bool handle_enter_state_null_code(int sig, siginfo_t* /*info*/, void* ucontext) 
       code == 0 || code >= (uint32_t)EE_MAIN_MEM_SIZE) {
     return false;
   }
+  // Gcrash-mouche2 TEMP SP-climb trace (gated debug.opengoal.mouche.sptrace=1,
+  // one-shot): the band write-watch proved new-state=0 is NOT an external stomp —
+  // enter-state runs with SP ABOVE the buzzer GOAL stack-top, so its own saves
+  // read uninitialised above-top memory. Dump SP vs stack-top and walk the x29
+  // frame chain INTO enter-state, naming each GOAL caller + flagging where fp
+  // first exceeds stack-top — to pin the arm64 stack-pointer-climb source. Then
+  // crash cleanly (return false) so the dump survives the post-resume sound flood.
+  {
+    static std::atomic<bool> s_spt{false};
+    char tb[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.mouche.sptrace", tb) > 0 && tb[0] == '1') {
+      bool ex = false;
+      if (s_spt.compare_exchange_strong(ex, true)) {
+        uint32_t mthr = 0, stop_goal = 0;
+        gk_diag::safe_read_u32(ee + pp + 40, &mthr);
+        if (mthr && mthr < (uint32_t)EE_MAIN_MEM_SIZE) {
+          gk_diag::safe_read_u32(ee + mthr + 28, &stop_goal);
+        }
+        const uintptr_t sp = uc->uc_mcontext.sp;
+        const uintptr_t stop_host = ee + stop_goal;
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG SPTRACE pp=0x%x main-thread=0x%x stack-top=goal:0x%x "
+                            "sp=goal:0x%lx delta(sp-top)=%ld %s",
+                            pp, mthr, stop_goal, (unsigned long)(sp - ee),
+                            (long)((intptr_t)(sp - ee) - (intptr_t)stop_goal),
+                            (sp > stop_host) ? "SP-ABOVE-STACK-TOP" : "sp-below-top");
+        // Walk the x29 frame chain; name each saved-lr's GOAL fn; flag fp>stack-top.
+        uintptr_t fp = uc->uc_mcontext.regs[29];
+        for (int i = 0; i < 24; i++) {
+          if (fp < ee + 0x1000 || fp >= ee + (uintptr_t)EE_MAIN_MEM_SIZE) {
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG SPTRACE frame[%d] fp=0x%lx OUT-OF-EE stop", i,
+                                (unsigned long)fp);
+            break;
+          }
+          uint32_t nfp_lo = 0, nfp_hi = 0, lr_lo = 0, lr_hi = 0;
+          gk_diag::safe_read_u32(fp, &nfp_lo);
+          gk_diag::safe_read_u32(fp + 4, &nfp_hi);
+          gk_diag::safe_read_u32(fp + 8, &lr_lo);
+          gk_diag::safe_read_u32(fp + 12, &lr_hi);
+          uintptr_t next_fp = (uintptr_t)nfp_lo | ((uintptr_t)nfp_hi << 32);
+          uintptr_t lr = (uintptr_t)lr_lo | ((uintptr_t)lr_hi << 32);
+          uint32_t lrg = to_goal(lr);
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG SPTRACE frame[%d] fp=goal:0x%lx ret=goal:0x%x %s",
+                              i, (unsigned long)(fp - ee), lrg,
+                              (fp > stop_host) ? "(fp ABOVE stack-top)" : "");
+          if (lrg >= 0x1000) {
+            a38_trip::log_nearest_goal_fn("sptrace", lrg);
+          }
+          if (next_fp <= fp || next_fp == 0) {
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG SPTRACE frame[%d] next-fp=0x%lx not-ascending stop", i,
+                                (unsigned long)next_fp);
+            break;
+          }
+          fp = next_fp;
+        }
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG SPTRACE end");
+      }
+      return false;  // crash cleanly; dump preserved
+    }
+  }
   uc->uc_mcontext.pc = ee + code;  // resume into the authoritative state code
   const uint64_t n = g_enter_state_code_repairs.fetch_add(1, std::memory_order_relaxed) + 1;
   if (n <= 16 || (n % 256) == 0) {

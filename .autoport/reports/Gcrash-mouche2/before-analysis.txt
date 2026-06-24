@@ -1,0 +1,62 @@
+Gcrash-mouche2 — BEFORE analysis (fresh HEAD 1a0076306, MODE=buzz, eae4df44)
+Captured 2026-06-24. Logcat: .autoport/reports/Gcrash-mouche2/head-before-logcat.log (65 MB)
+Process PID=6952. Render thread=7026. GOAL kernel thread=7041. Audio/OVERLORD thread=7039.
+
+VERDICT: BLUE-LOCK REPRODUCED (deterministic, 1/1). No signal. App+audio alive; render frozen.
+deploy_verify PASS: device provably runs fresh HEAD libgk.so (chain 50c7076cdc5cc8aa).
+
+(a) ENTER-STATE-CODE-REPAIR (SIGILL repair fired) — count=1:
+06-24 09:03:53.992  6952  7041 F opengoal-gk: GK-DIAG ENTER-STATE-CODE-REPAIR #1 sig=4 pp=0x1ec944 state=0x1f74f74 code=0x1f6d744 -> resumed into authoritative state code (enter-state spilled new-state stomped to 0 by a concurrent DMA write)
+  ^ pp=0x1ec944 == the MOUCHE-BUZZ proc. Repair caught the sig=4 enter-state stomp and resumed.
+
+(b) Print Buffer Overflow — count=674035 (format runaway on kernel thread 7041):
+06-24 09:03:54.427  6952  7041 F opengoal-gk: Print Buffer Overflow: size 0x1ffc01 of 0x200000
+  ^ buffer full (0x1ffc01 of 0x200000 = ~2MB). First at 09:03:54.427 (~435ms after repair). Repeats to log end.
+
+(c) RENDER FREEZE TIMELINE:
+  A35-RENDER lines: 14. MIN frame=1, MAX frame=480.
+  FIRST: 06-24 09:03:45.617  6952  7026 I opengoal-gk: A35-RENDER frame=1 chain_bytes=11408 buckets_drawn=1 skipped=0 draws=0 tris=0
+  LAST : 06-24 09:03:53.622  6952  7026 I opengoal-gk: A35-RENDER frame=480 chain_bytes=31088 buckets_drawn=24 skipped=1 draws=46 tris=8161
+  LAST line of whole log: 06-24 09:04:00.384  6952  7041 F opengoal-gk: Print Buffer Overflow: size 0x1ffc01 of 0x200000
+  => Render stopped at 09:03:53.622 (frame 480). Log keeps going ~6.76s later (kernel thread 7041 spins).
+     Script live watch confirmed frames+0 (480->480) over the full 200s window, focus_app=yes throughout.
+     (64MB logcat buffer rotated under 674k overflow lines, so captured file spans only first ~15s.)
+
+(d) AUDIO/MUSIC ALIVE after last render frame (09:03:53.622):
+  06-24 09:03:53.641  6952  7039 D opengoal-gk:   PRI 3 elt 0 QueueVAG @ #x74215B01A8
+  06-24 09:03:53.647  6952  7039 D opengoal-gk:   PRI 3 elt 0 QueueVAG @ #x74215B01A8
+  (village1 music streaming via VAG/AAudio; SDL_audio AAudio backend opened 48000/2ch earlier.)
+  Threads still emitting AFTER 09:03:54.0: 7041=690176 lines, 7026(render)=2, 7042=1, main=1, 7014=1.
+  => Process alive, render dead, kernel thread spinning. Classic blue-lock.
+
+(e) FINAL FOCUS: mCurrentFocus=com.miui.home Launcher — because the script EXIT-trap force-stops
+    the app after the watch window (expected, not a crash). During the live run the script measured
+    focus_app=yes for the whole 200s. PID 6952 emitted lines to the capture end (09:04:00.384) => alive.
+
+(f) FATAL SIGNAL / signal (4|6|11) / GK-DIAG sig= : ZERO of each. Clean blue-lock, no crash.
+    (The only sig=4 in the log is the repaired one inside the ENTER-STATE-CODE-REPAIR message text.)
+
+(g) HANG mechanism (no fp-walk markers because there's NO fault — kernel thread busy-spins in GOAL):
+    A37-HANG-FP=0, '#NN pc'=0, nearest-fn=0, assert_print_buffer_has_room=0, lg::log=0, A36-SYMBOLIZE=0.
+    Message breakdown on thread 7041 AFTER 09:03:53.99:
+       674035  Print Buffer Overflow
+         2144  too many sound commands queued
+         2143  WARNING: flushing RPC port (#0)
+         1494  STALL: waiting for IOP on RPC port (#0)
+    Exact sequence on 7041 (the WHERE):
+      09:03:53.659  link finish: ndi-intro
+      09:03:53.659  2017604  #x1ec944  0.0000  #<buzzer buzzer waiting-to-run :state #f :flags  :stack 0/256 :heap 4320/4320 @ #x1ec944>
+      09:03:53.840  GK-DIAG F1D target-pos f=495 *target* 0x1c5784 =(-635598.9 222551.7 710496.2) master-mode=game
+      09:03:53.992  ENTER-STATE-CODE-REPAIR #1  (resume)
+      09:03:53.992+ WARNING: flushing RPC port #0 / STALL: waiting for IOP on RPC port #0 / too many sound commands queued  (INFINITE)
+      09:03:54.427+ Print Buffer Overflow x674035  (to log end 09:04:00.384)
+    ROOT (where in buzzer-pickup it hangs): the resumed buzzer-pickup state code drives the SOUND RPC.
+    RPC port #0 = kernel/sound port (started [DEB1] for KERNEL.CGO; rpc-call->RpcCall_wrapper, rpc-busy?->RpcBusy).
+    Buzzer is :state #f (the stomp wiped new-state to 0). After resume it floods sound commands
+    ("too many sound commands queued"), then loops forever flushing RPC port #0 while the IOP never
+    drains it ("STALL: waiting for IOP on RPC port #0"). The flush/stall format spam overflows the
+    2MB print buffer. NOT a merc/manipy draw hang — it is the sound-RPC flush spin on the kernel thread.
+
+(h) MOUCHE-BUZZ (the spawn) VERBATIM:
+  06-24 09:03:53.641  6952  7014 I GK_STDOUT: MOUCHE-ARM fire 1/8 mode=buzzer (settle=300 gap=180)
+  06-24 09:03:53.641  6952  7014 I GK_STDOUT: MOUCHE-BUZZ #1 proc=#x1ec944 fact=#x38ac344 pos=#x1c5e60 status=#x20 name=#x21063c (real buzzer spawned at Jak)

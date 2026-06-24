@@ -1,0 +1,130 @@
+=================================================================
+Gcrash-mouche2 — fix1 device verification verdict
+Device: Redmi Note 9 Pro (ANDROID_SERIAL=eae4df44, arm64), pkg org.opengoal.gk.jak1
+Run: 2026-06-24 ~10:43  |  MODE=buzz WATCH_S=200
+Build: fresh HEAD libgk.so (deploy_verify PASS, chain build==APK==device 33fe12e6831e7e7d)
+Fix under test: enter-state SIGILL repair handler now RESUMES past the faulting
+  behavior BLR (mode=skip-blr) instead of jumping from a corrupt stack.
+=================================================================
+
+VERDICT: FAIL — NOT FIXED. The buzzer collect STILL BLUE-LOCKS.
+
+The skip-blr resume stopped the process crash (0 sig) but the render thread
+still HANGS on the FIRST buzzer collect (the deterministic blue-lock the phase
+describes is reproduced, not resolved). App + audio thread stay alive, render
+freezes — classic blue-lock. The collect-driver only managed to fire 1 of its
+intended 8 buzzers because the game/kernel thread wedged immediately after #1,
+so the frame-based gap timer never advanced to spawn #2-8.
+
+-----------------------------------------------------------------
+KEY QUESTION ANSWER
+-----------------------------------------------------------------
+Did ALL buzzer collects (>=5) stay crash-free with render frames ADVANCING
+(no freeze, no blue-lock, 0 sig, no sound-RPC flood)?
+  -> NO. Only 1 buzzer collect occurred; it BLUE-LOCKED. 0 crash signals, but:
+     - render froze (last A35-RENDER frame=480 @10:43:02.939; watchdog: "frame
+       stuck at 504"); game_frames flowing -> none immediately after the buzz.
+     - massive sound-RPC flood (too-many-sound 2144, flushing-RPC 2143,
+       STALL-IOP 1603) starting the same instant the repair fired.
+     - Print Buffer Overflow flood: 2,857,925 lines (10:43:03.776 -> 10:43:30.721).
+  The "<5 buzzers" itself is a direct consequence of the hang on #1.
+
+-----------------------------------------------------------------
+a) MOUCHE-BUZZ # spawn lines (buzzers spawned/collected)
+-----------------------------------------------------------------
+COUNT = 1 (expected up to 8; the rest never fired because the game thread
+wedged on #1 before the 180-frame gap could elapse)
+  10:43:02.957  MOUCHE-ARM fire 1/8 mode=buzzer (settle=300 gap=180)
+  10:43:02.957  MOUCHE-BUZZ #1 proc=#x1ec944 fact=#x38ac344 pos=#x1c5e60 status=#x20 name=#x21063c (real buzzer spawned at Jak)
+
+-----------------------------------------------------------------
+b) GK-DIAG ENTER-STATE-CODE-REPAIR lines
+-----------------------------------------------------------------
+COUNT = 1 (mode=skip-blr confirmed; repair claims "recovered" but render hangs)
+  #1: 10:43:03.310  GK-DIAG ENTER-STATE-CODE-REPAIR #1 sig=4 pp=0x1ec944
+      state=0x1f74f74 code=0x1f6d744 lr=0x7f004d102c mode=skip-blr -> recovered
+      (new-state diverged to 0 in the arm64 pickup-state dispatch; resumed to
+      reach the gstate.gc:350 reload + stack-reset rlet)
+  (only 1 repair fired — there was only 1 collect)
+
+-----------------------------------------------------------------
+c) RENDER PROGRESSION (A35-RENDER frame=N)  — per-buzz table
+-----------------------------------------------------------------
+A35-RENDER lines total = 14; min frame = 1; max frame = 480.
+Frames step normally up to 480, then STOP (no A35-RENDER after 10:43:02.939).
+Render thread (TID 16391) keeps swapping but reports game_frames=none; its own
+A37-HANG watchdog reports "frame stuck at 504".
+
+  buzz#  frame-before(@buzz ts)   frame-after(~10s later)   advanced?
+  ----   ---------------------    ----------------------    ---------
+   1      480 (10:43:02.939)      480 (no new A35-RENDER;    NO  (FROZEN)
+                                  watchdog: stuck @504)
+  (buzz #2-8 never occurred — game thread hung on #1)
+
+  => render FROZE on the only collect; did NOT keep advancing. BLUE-LOCK.
+
+-----------------------------------------------------------------
+d) Print Buffer Overflow
+-----------------------------------------------------------------
+COUNT = 2,857,925  (expected 0/tiny). FLOOD. Span 10:43:03.776 -> 10:43:30.721
+(~27s of solid overflow on kernel TID 16406).
+
+-----------------------------------------------------------------
+e) Crash signals (Fatal signal / signal 4|6|11 / standalone GK-DIAG sig=)
+-----------------------------------------------------------------
+Fatal signal = 0 ; signal (4|6|11)(SIG = 0 ; standalone GK-DIAG sig=(4|6|11) = 0
+(the lone sig=4 token is inside the repair line, not a process crash)
+=> 0 process crash signals — consistent with BLUE-LOCK (app alive, render dead),
+   NOT a clean recovery.
+
+-----------------------------------------------------------------
+f) Final mCurrentFocus
+-----------------------------------------------------------------
+mCurrentFocus = com.miui.home/...Launcher  (NOT org.opengoal.gk.jak1)
+pidof org.opengoal.gk.jak1 = none.
+This is the DRIVER EXIT-TRAP force-stop (gmouche_device.sh cleanup() + tail
+force-stop), NOT an app crash. During the run, focus_app=yes (app was foreground
+and alive while frozen — the blue-lock). After the trap it was force-stopped.
+
+-----------------------------------------------------------------
+g) Old blue-lock sound-RPC signature
+-----------------------------------------------------------------
+"too many sound commands queued"  = 2144   (expected 0)
+"flushing RPC port"               = 2143   (expected 0)
+"STALL: waiting for IOP"          = 1603   (expected 0)
+=> the OLD BLUE-LOCK SIGNATURE IS PRESENT and starts at the exact instant the
+   repair fires (10:43:03.310). The skip-blr resume dumps the kernel thread into
+   the sound-RPC flush loop -> Print Buffer Overflow flood -> render starvation.
+
+-----------------------------------------------------------------
+h) deploy_verify
+-----------------------------------------------------------------
+PASS. "DEPLOY-VERIFY PASS: device eae4df44 provably runs the fresh HEAD
+(1a0076306) libgk.so" ; chain build==APK==device 33fe12e6831e7e7d ; libgk.so
+newer than newest source. (Working-tree edits to android/gk_android_main.cpp +
+game/kernel/jak1/kmachine.cpp ARE compiled into this libgk.)
+
+-----------------------------------------------------------------
+MECHANISM (honest)
+-----------------------------------------------------------------
+Chronology on TID 16406 (GOAL/kernel) vs 16391 (GL/render):
+ 10:43:02.939  16391  A35-RENDER frame=480 chain_bytes=31088 draws=46 tris=8161
+               (buzzer manipy merc draw now in the chain)
+ 10:43:02.957  16380  MOUCHE-BUZZ #1 (real buzzer spawned at Jak)
+ 10:43:02.975  16406  link finish: ndi-intro ; buzzer -> waiting-to-run :state #f
+ 10:43:03.310  16406  ENTER-STATE-CODE-REPAIR #1 mode=skip-blr -> "recovered"
+ 10:43:03.310+ 16406  too many sound commands / flushing RPC #0 / STALL IOP (loop)
+ 10:43:03.776+ 16406  Print Buffer Overflow x2.85M (~27s)
+ 10:43:0x+     16391  sustained swap ... game_frames=none (render starved)
+ 10:43:09.720  16407  A37-HANG watchdog: frame stuck at 504; GOAL thread dump:
+                      16406 wedged in syscall+0x24 -> pthread_mutex_unlock+0x78
+
+The skip-blr "resume" did NOT let enter-state reach a clean dispatch. After it
+resumes, the kernel thread spins forever in the print/sound-RPC path
+(pthread_mutex_unlock/syscall), the GOAL VM never yields a new game frame, and
+the render thread hangs at frame 504. The residual SP-relative / dispatch
+corruption from the buzzer (manipy) collect is still present; skip-blr only
+converted the SIGILL hard-crash into an equivalent infinite-loop blue-lock.
+
+CLEANUP: restore_knowngood_device.sh -> all 28 files restored + sha256-verified.
+Forensic props debug.opengoal.mouche.dump/watch confirmed = 0 throughout.
