@@ -245,6 +245,7 @@ void MidiHandler::NoteOn() {
       voice->current_pb = m_cur_pm;
 
       voice->group = m_sound.VolGroup;
+      voice->mSourceTag = 3;  // per-source meter: music (SBv2 MusicBank MIDI)
       m_vm.StartTone(voice);
       m_voices.emplace_front(voice);
     }

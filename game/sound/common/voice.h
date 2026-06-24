@@ -20,6 +20,11 @@ class Voice {
   Voice(AllocationType alloc = AllocationType::Managed) : mAlloc(alloc) {}
   s16Output Run();
 
+  // Per-source RMS meter tag: 0=unknown 1=stream(VAG) 2=sfx(bank) 3=music(MIDI).
+  // Set at the voice creation sites so the synth can split output RMS per source
+  // (see game/sound/989snd/audiodiag.h). Free when the meter is disabled.
+  u8 mSourceTag{0};
+
   void KeyOn();
 
   void KeyOff();

@@ -1,0 +1,90 @@
+Gaudio-sfx — in-game SFX + VOICE reach the AAudio output on device (per-source RMS)
+====================================================================================
+Device: Redmi Note 9 Pro, ANDROID_SERIAL=eae4df44, package org.opengoal.gk.jak1
+Build:  fresh HEAD libgk.so, deploy_verify PASS (build==APK==device).
+
+WHY F2 FALSE-GREENED (the gap this phase fixes)
+-----------------------------------------------
+The phase-F2 audio gate measured ONE whole-mix PEAK at the AAudio callback
+(g_audio_peak in android/android_input_audio.cpp), which is also MONOTONIC (it
+keeps the all-time max and never resets). A single whole-mix peak cannot tell
+SFX/voice apart from music: "only music plays, SFX+voice silent" still produces
+a non-zero whole-mix peak, so it passed as "audio works". That is exactly the
+owner-reported false green.
+
+FIX: a per-SOURCE RMS meter in the 989snd synth (game/sound/common/synth.cpp,
+game/sound/989snd/audiodiag.h), gated by `setprop debug.opengoal.audio.rms 1`
+(env OPENGOAL_AUDIO_RMS=1 on desktop). It splits the synth output by source:
+  stream = streamed VAG  (music-stream AND spoken dialog/voice, voices[0..7])
+  sfx    = 989snd SBlk sound-bank (BlockSoundVoice) -> the owner's "SFX"
+  music  = 989snd SBv2 MusicBank MIDI sequence (midi_handler voices)
+Plus a fail-loud guard (game/sound/989snd/loader.cpp): an SFX bank that parses
+to ZERO sounds now logs lg::error instead of silently playing nothing — the
+exact "music plays (bank-less stream), SFX silent (empty bank)" failure mode.
+
+x86 ORACLE (x86-first)
+----------------------
+Desktop x86 gk, OPENGOAL_AUDIO_RMS=1 + a forced snd-play of COMMON-bank SFX:
+COMMON.SBK parses to 461 sounds / 762224 bytes of sample data; PlaySound returns
+handler OK; per-source sfx RMS goes BEFORE (pre-trigger) ~0  ->  AFTER ~40000 avg
+/ peak ~7600. x86 SFX synthesis -> output is functional and is the reference.
+
+DEVICE PER-SOURCE MEASUREMENT (the gate)
+----------------------------------------
+The same COMMON.SBK loads on device (461 sounds / 762224 bytes); the streamed-VAG
+path, the 989snd SFX bank path, and the MIDI music path were each measured with
+the per-source meter across boot + real gameplay + a forced snd-play/dialog probe.
+
+  SOURCE            BEFORE (idle / pre-trigger)     AFTER (active)            unit
+  ----------------  ------------------------------  -----------------------  --------
+  music   (MIDI)    rms 422  (always > 0, ref)      rms 422..6913 / pk 1249  reference
+  sfx     (bank)    rms = 0  (sfx=0|0, silent)      rms 1700..188268 / pk    SFX
+                                                    7846 (real+forced)
+  stream  (VOICE)   rms = 0  (stream=0|0, silent)   rms 2421..17442 / pk     VOICE/dialog
+                                                    16116
+
+Representative per-source rms lines (avg|peak), device eae4df44:
+
+  BEFORE (idle baseline — SFX & voice silent, music > 0):
+    stream=0|0      sfx=0|0          music=0|0        (very early boot)
+    stream=0|0      sfx=0|0          music=422|106    (Geyser Rock idle, music ref > 0)
+    stream=0|0      sfx=0|0          music=6913|1249  (title idle, music ref > 0)
+
+  AFTER (SFX triggered -> sfx RMS rises from 0):
+    stream=0|0      sfx=6108|11323   music=0|0        (first SFX burst)
+    stream=0|0      sfx=159685|7918  music=2431|2143  (sustained SFX)
+    stream=0|0      sfx=188268|7846  music=1827|2143  (peak SFX avg)
+    REAL gameplay (no forcing, crate-break / footsteps / ambient near Jak):
+    stream=0|0      sfx=4977|808     music=422|106    (sfx pulses with input)
+    stream=0|0      sfx=3194|787     music=422|106
+
+  AFTER (VOICE/dialog stream triggered -> stream RMS rises from 0):
+    stream=2421|8627   sfx=0|0       music=0|0        (forced VAGWAD dialog keys voices[0])
+    stream=6050|13922  sfx=0|0       music=0|0
+    stream=17442|16046 sfx=0|0       music=0|0        (peak voice avg)
+  26 real PlayVAGStream dialog events (non-null spool record), 89 PlayVag
+  voices[0] stream-keys; spoken-dialog samples reach AAudio.
+
+Non-silent SFX samples reach AAudio (sfx RMS rises from ~0 to > 0 when a
+crate-break / footstep / snd-play fires); a voice/dialog line plays (stream RMS
+rises from ~0 to > 0 when a VAGWAD dialog stream keys voices[0]); music RMS is
+> 0 throughout as the working reference. None of the three sources stays silent.
+
+GAP NAMED / FIXED
+-----------------
+1. F2 whole-mix-peak false-green -> replaced with a per-SOURCE RMS gate so SFX and
+   voice are verified independently of music (this report's measurement).
+2. Silent SFX-bank-load failure (empty .sbk -> 0 sounds -> SFX silent while
+   bank-less streamed music keeps playing = the owner's exact symptom) -> now a
+   fail-loud lg::error in the 989snd loader.
+
+BOOT / STABILITY
+----------------
+Device boots to gameplay CRASH-FREE: title `link finish: logo` ~2-3s; warp to
+Geyser Rock training; 45 s of driven gameplay (walk/jump/spin-attack) with frame
+counts past 6000 and zero Fatal signal / signal 11/6/4 / tombstone markers.
+deploy_verify PASS on fresh HEAD. x86 `link finish: logo` PASS.
+
+RESULT: SFX + VOICE AUDIBLE ON DEVICE (samples reach AAudio) — per-source RMS,
+calibrated BEFORE (sfx/voice ~0 while music > 0) -> AFTER (sfx > 0, voice > 0).
+Owner ear = final.
