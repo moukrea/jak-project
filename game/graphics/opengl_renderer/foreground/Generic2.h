@@ -21,6 +21,27 @@ class Generic2 {
   void draw_debug_window();
   bool empty() { return m_empty; }
 
+  // Gecho-pool probe (TEMPORARY): per-bucket-call totals, valid right after render_in_mode().
+  u32 dbg_vert_count() const { return m_next_free_vert; }
+  u32 dbg_frag_count() const { return m_next_free_frag; }
+  u32 dbg_adgif_count() const { return m_next_free_adgif; }
+  u32 dbg_idx_count() const { return m_next_free_idx; }
+  u32 dbg_tri_count() const {
+    u32 t = 0;
+    for (u32 i = 0; i < m_next_free_bucket; i++) t += m_buckets[i].tri_count;
+    return t;
+  }
+
+  // Gecho-pool probe (TEMPORARY): dump per-draw tbp/mode breakdown for this bucket call.
+  void dbg_dump_draws(const char* bname, int bid) const {
+    for (u32 i = 0; i < m_next_free_bucket; i++) {
+      printf("GECHO-DRAW bucket=%s id=%d draw=%u tbp=0x%x mode=0x%llx idx=%u tris=%u\n", bname, bid,
+             i, m_buckets[i].tbp, (unsigned long long)m_buckets[i].mode.as_int(),
+             m_buckets[i].idx_count, m_buckets[i].tri_count);
+    }
+    fflush(stdout);
+  }
+
   struct Vertex {
     math::Vector<float, 3> xyz;
     math::Vector<u8, 4> rgba;

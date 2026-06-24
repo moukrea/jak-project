@@ -1,9 +1,19 @@
 
 //--------------------------MIPS2C---------------------
+#include <cstdlib>
+
 #include "game/kernel/jak1/kscheme.h"
 #include "game/mips2c/mips2c_private.h"
 using namespace jak1;
 namespace Mips2C::jak1 {
+
+// Gecho-pool TEMPORARY x86 experiment: emulate the arm64 shared-noop binding for the
+// ripple builders (env OG_NOOP_RIPPLE, OFF by default) to test whether no-op'ing
+// ripple drops the dark-eco-pool's generic draw or merely flattens it.
+static inline bool gecho_noop_ripple() {
+  static const bool s_on = std::getenv("OG_NOOP_RIPPLE") != nullptr;
+  return s_on;
+}
 
 struct RippleVu0 {
   Vf data_mem[256];
@@ -25,6 +35,7 @@ struct Cache {
 // clang-format off
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
+  if (gecho_noop_ripple()) { c->gprs[v0].du64[0] = 0; return c->gprs[v0].du64[0]; }
   bool bc = false;
   c->daddiu(sp, sp, -16);                           // daddiu sp, sp, -16
   c->sd(fp, 8, sp);                                 // sd fp, 8(sp)
@@ -105,6 +116,7 @@ struct Cache {
 
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
+  if (gecho_noop_ripple()) { c->gprs[v0].du64[0] = 0; return c->gprs[v0].du64[0]; }
   bool bc = false;
   u16 vi1, vi2;
   u32 call_addr = 0;
@@ -429,6 +441,7 @@ struct Cache {
 
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
+  if (gecho_noop_ripple()) { c->gprs[v0].du64[0] = 0; return c->gprs[v0].du64[0]; }
 
   bool bc = false;
   get_fake_spad_addr(v1, cache.fake_scratchpad_data, 0, c);// lui v1, 28672
@@ -529,6 +542,7 @@ namespace Mips2C::jak1 {
 namespace ripple_matrix_scale {
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
+  if (gecho_noop_ripple()) { c->gprs[v0].du64[0] = 0; return c->gprs[v0].du64[0]; }
   bool bc = false;
   c->mov128_vf_gpr(vf1, a3);                        // qmtc2.i vf1, a3
   c->mov128_vf_gpr(vf2, a2);                        // qmtc2.i vf2, a2
