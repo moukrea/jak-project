@@ -827,6 +827,12 @@ phases:
   validator: validators/phase-Gcollision-arm.sh
   max_turns: 1600
   max_retries: 4
+- id: Gorb-icon
+  name: "OWNER 2026-06-23: the Precursor ORB icon is a plain white egg in the HUD + menu (the ONLY asset that fails to load) \u2014 a single missing/unbound texture on arm64. x86-first: find which orb texture/tpage/TextureAnimator path is not loaded/bound on device; fix in translation layer; goal_src 1-to-1."
+  prompt: prompts/phase-Gorb-icon.md
+  validator: validators/phase-Gorb-icon.sh
+  max_turns: 1400
+  max_retries: 3
 - id: Gaudio-hint-voices
   name: 'OWNER CLARIFICATION 2026-06-24 (note for later): cinematic voices + background SFX are FINE; the IN-GAME tutorial/hint dialog VOICES (Sage explaining orbs/items during play) are SILENT on arm64, + some action sounds missing. Targeted fix of the in-game talker/hint voice trigger+route (distinct from the working cinematic-voice path). goal_src 1-to-1.'
   prompt: prompts/phase-Gaudio-hint-voices.md
