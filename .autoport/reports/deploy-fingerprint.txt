@@ -317,3 +317,8 @@ deploy-verify PASS 2026-06-24T15:03:21+02:00  commit=38c6aebc8  libgk_sha=ce5815
 deploy-verify PASS 2026-06-24T15:06:10+02:00  commit=38c6aebc8  libgk_sha=ce581579a497e3d3  so_mtime=2026-06-24T15:02:20+02:00
 deploy-verify PASS 2026-06-24T15:10:17+02:00  commit=c7acfd781  libgk_sha=ce581579a497e3d3  so_mtime=2026-06-24T15:02:20+02:00
 deploy-verify PASS 2026-06-24T15:13:46+02:00  commit=c7acfd781  libgk_sha=ce581579a497e3d3  so_mtime=2026-06-24T15:02:20+02:00
+deploy-verify PASS 2026-06-24T16:02:58+02:00  commit=9489444fa  libgk_sha=29a23f3b84f8181e  so_mtime=2026-06-24T16:00:04+02:00
+deploy-verify PASS 2026-06-24T16:26:31+02:00  commit=9489444fa  libgk_sha=70e093a47065c4ab  so_mtime=2026-06-24T16:19:24+02:00
+deploy-verify PASS 2026-06-24T16:30:56+02:00  commit=9489444fa  libgk_sha=70e093a47065c4ab  so_mtime=2026-06-24T16:19:24+02:00
+deploy-verify PASS 2026-06-24T16:34:35+02:00  commit=49cc24b58  libgk_sha=70e093a47065c4ab  so_mtime=2026-06-24T16:19:24+02:00
+deploy-verify PASS 2026-06-24T16:38:26+02:00  commit=49cc24b58  libgk_sha=70e093a47065c4ab  so_mtime=2026-06-24T16:19:24+02:00

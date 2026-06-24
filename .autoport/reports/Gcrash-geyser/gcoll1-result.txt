@@ -1,0 +1,6 @@
+RESULT mode=steps tag=gcoll1 status=CRASH-FREE-render-advancing(+5496 frames)
+  sig=none focus_app=yes F1-STATE +5496 send_chain +9
+  near-fn: none
+  whosym: none
+  stomps: none
+  cur-proc: none
