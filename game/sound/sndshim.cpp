@@ -8,6 +8,7 @@
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
 
+#include "989snd/audiodiag.h"
 #include "989snd/player.h"
 
 std::unique_ptr<snd::Player> player;
@@ -18,8 +19,13 @@ void snd_StartSoundSystem() {
   for (auto& voice : voices) {
     voice = std::make_shared<snd::Voice>(snd::Voice::AllocationType::Permanent);
     voice->SetSample((u16*)spu_memory);
+    // Per-source meter: the permanent voices carry streamed VAG (music-stream
+    // AND spoken dialog/voice). Tag them so the meter can separate that band
+    // from bank SFX and MIDI music. See game/sound/989snd/audiodiag.h.
+    voice->mSourceTag = 1;  // stream
     player->SubmitVoice(voice);
   }
+  snd::diag::init();  // read the debug.opengoal.audio.rms gate once
 }
 
 void snd_StopSoundSystem() {

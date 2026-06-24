@@ -4,6 +4,7 @@
 
 #include <fstream>
 
+#include "audiodiag.h"
 #include "sfxblock.h"
 
 #include "fmt/format.h"
@@ -137,6 +138,7 @@ void Player::Tick(s16Output* stream, int samples) {
     htick++;
     *stream++ = mSynth.Tick();
   }
+  diag::log_if_due();  // per-source RMS meter (audiodiag.h); no-op when disabled
 }
 
 u32 Player::PlaySound(BankHandle bank_id, u32 sound_id, s32 vol, s32 pan, s32 pm, s32 pb) {

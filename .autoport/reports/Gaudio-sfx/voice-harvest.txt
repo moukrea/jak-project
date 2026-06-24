@@ -1,0 +1,70 @@
+### state markers seen:
+### distinct RPC PLAY names by spool (spool=1 = VOICE/dialog):
+    832 name='fire-pop' spool=0
+    354 name='fly7' spool=0
+     83 name='drip-on-wood' spool=0
+      4 name='bird-2' spool=0
+      1 name='seagulls-2' spool=0
+### spool=1 (VOICE) RPC PLAY lines (first 20, raw):
+### PlayVag stream-key events (count + first 10):
+20
+06-24 07:26:46.527 15345 15406 I GK_STDOUT: PlayVag @ #x742293FBD8
+06-24 07:27:02.170 15345 15406 I GK_STDOUT: PlayVag @ #x742293FBD8
+06-24 07:27:02.255 15345 15406 I GK_STDOUT: PlayVag @ #x742293FBD8
+06-24 07:27:02.266 15345 15432 D opengoal-gk:   PRI 3 elt 0 PlayVag @ #x742293FBD8
+06-24 07:27:02.271 15345 15406 I GK_STDOUT: PlayVag @ #x742293FBD8
+06-24 07:27:02.276 15345 15432 D opengoal-gk:   PRI 3 elt 0 PlayVag @ #x742293FBD8
+06-24 07:27:04.519 15345 15432 D opengoal-gk:   PRI 3 elt 0 PlayVag @ #x742293FBD8
+06-24 07:27:04.524 15345 15432 D opengoal-gk:   PRI 3 elt 0 PlayVag @ #x742293FBD8
+06-24 07:27:06.778 15345 15432 D opengoal-gk:   PRI 3 elt 0 PlayVag @ #x742293FBD8
+06-24 07:27:06.786 15345 15432 D opengoal-gk:   PRI 3 elt 0 PlayVag @ #x742293FBD8
+### rms: total / sfx>0 / music>0 / stream>0 (stream = VOICE/streamed-VAG):
+total=385 sfx>0=20 music>0=339 stream>0=45
+### rms lines where stream(VOICE)>0 (first 25):
+06-24 07:26:47.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=1898|6665  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:47.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=1379|7950  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:48.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2584|6595  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:48.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=1913|6020  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:49.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=3249|7704  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:49.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=1036|3246  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:50.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2824|9035  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:50.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2045|3827  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:51.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2989|9580  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:51.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=1884|4870  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:52.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=3080|8469  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:52.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2130|4898  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:53.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=3177|8436  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:53.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=6417|11529  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:54.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=5312|11535  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:54.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=3846|7899  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:55.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=3572|11481  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:55.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=4153|11460  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:56.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=1879|5082  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:56.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2918|7714  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:57.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2478|6950  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:57.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2803|7446  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:58.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2210|6420  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:58.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2231|9468  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+06-24 07:26:59.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=2180|8774  sfx=0|0  music=0|0  unknown=0|0  (n=24000)
+### last 20 rms lines overall:
+06-24 07:29:48.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:48.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:49.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:49.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:50.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:50.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:51.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:51.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:52.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:52.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:53.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:53.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:54.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:54.662 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:55.163 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:55.662 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:56.162 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:56.663 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:57.162 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+06-24 07:29:57.664 15345 15406 I GK_STDOUT: AUDIODIAG rms avg|peak  stream=0|0  sfx=0|0  music=6913|1249  unknown=0|0  (n=24000)
+### crash markers:

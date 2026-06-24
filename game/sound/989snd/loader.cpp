@@ -431,12 +431,20 @@ BankHandle Loader::BankLoad(std::span<u8> bank) {
 
     auto bank = MusicBank::ReadBank(bank_data, sample_data, midi_data);
     mBanks.emplace_back(bank);
-
     return bank;
   } else if (fourcc == snd::fourcc("SBlk")) {
     auto block = SFXBlock::ReadBlock(bank_data, sample_data);
     mBanks.emplace_back(block);
-
+    // Fail-loud guard (phase Gaudio-sfx): a sound-effect bank that parses to
+    // ZERO sounds plays NO SFX while bank-less streamed VAG music keeps going —
+    // exactly the "music plays, SFX silent" symptom. The old path swallowed
+    // this silently; surface it so a missing/empty .sbk is never invisible.
+    if (block && block->Sounds.empty()) {
+      lg::error(
+          "989snd: SFX bank loaded with 0 sounds (sampledata={} bytes) — SFX "
+          "from this bank will be SILENT. Check the .sbk resolved on device.",
+          sample_data.size());
+    }
     return block;
   }
 
