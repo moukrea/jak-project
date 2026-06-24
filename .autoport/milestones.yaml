@@ -809,6 +809,24 @@ phases:
   validator: validators/phase-F3-gameplay-30fps.sh
   max_turns: 600
   max_retries: 20
+- id: Gaudio-sfx
+  name: 'OWNER GROUND TRUTH 2026-06-23 (F2-audio false-greened): in-game only MUSIC plays; SFX (crates, orb collect) + VOICE (sage, woman) are SILENT. Wire the sound-bank/989snd SFX synth + voice path to the AAudio output (music VAG-stream works, SFX bank path silent). Measure non-silent SFX/voice RMS at output (calibrated BEFORE silent -> AFTER audible), not a call-count proxy. goal_src 1-to-1.'
+  prompt: prompts/phase-Gaudio-sfx.md
+  validator: validators/phase-Gaudio-sfx.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gcrash-mouche2
+  name: "OWNER VERIFICATION 2026-06-24: buzzer collect now BLUE-LOCKS (music continues, must force-kill) instead of hard-crashing \u2014 the residual SP-relative stack stomp after Gcrash-mouche partial fix. DETERMINISTIC. Reproduce the blue-lock (render frames stop, app alive), catch the SP-relative stomp writer (content canary / HW watchpoint on the manipy/buzzer path), fix the root so collecting a buzzer keeps rendering 5/5. goal_src 1-to-1."
+  prompt: prompts/phase-Gcrash-mouche2.md
+  validator: validators/phase-Gcrash-mouche2.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gcollision-arm
+  name: "OWNER GROUND TRUTH 2026-06-24: arm64 collision divergences NOT in x86 original \u2014 (1) Jak clips THROUGH the taller wall right of the Geyser steps and falls into the map; (2) jumping near certain walls leaves Jak stuck CROUCHED. Owner: likely arm64 float/decimal/codegen mishandling. x86-first collision-state diff, name the arm64 divergence, fix in TRANSLATION layer so arm64==x86. NO collision-logic rewrite (must stay the identical game)."
+  prompt: prompts/phase-Gcollision-arm.md
+  validator: validators/phase-Gcollision-arm.sh
+  max_turns: 1600
+  max_retries: 4
 global:
   git:
     push_after_each_phase: true
