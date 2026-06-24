@@ -1,0 +1,12 @@
+===== GORB HUD (the HUD/menu orb DRAW via Generic2 do_hud_draws — DECISIVE) =====
+===== GORB MODEL (boot) =====
+===== GORB LOAD egg-ndimadman (orb base texture upload state) =====
+===== GORB LOAD fuel-cell controls (render FINE — contrast) =====
+===== GORB MERC (orb-family bound at draw via Merc2 world path) =====
+===== generic2 / texture-pool MISS warnings =====
+06-24 21:00:25.679  4651  4734 W opengoal-gk: Failed to find texture at 0, using random (direct: [ 3] sky-direct)
+===== render / status =====
+max_frame=4680
+focus_app=yes
+crash=no
+sig=

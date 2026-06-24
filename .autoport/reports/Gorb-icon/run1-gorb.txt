@@ -1,0 +1,51 @@
+===== GORB MODEL (boot) =====
+06-24 18:43:54.082 13820 13880 I GK_STDERR: GORB MODEL fuel-cell-lod0 eff=0 ENVMAP envmap_texture=209 page=environment-generic name=pal-environment-front
+06-24 18:43:54.082 13820 13880 I GK_STDERR: GORB MODEL fuel-cell-lod0 lev= eff=0 tree_tex_id=210 page=common name=cmn-precursor-metal-plain-01small
+06-24 18:43:54.082 13820 13880 I GK_STDERR: GORB MODEL fuel-cell-lod0 lev= eff=0 tree_tex_id=211 page=common name=fuel-cell-endcaps
+06-24 18:43:54.082 13820 13880 I GK_STDERR: GORB MODEL fuelcell-naked-lod0 lev= eff=0 tree_tex_id=311 page=common name=fuel-cell-inside
+06-24 18:43:54.082 13820 13880 I GK_STDERR: GORB MODEL money-lod0 eff=0 ENVMAP envmap_texture=212 page=environment-generic name=pal-environment-front
+06-24 18:43:54.082 13820 13880 I GK_STDERR: GORB MODEL money-lod0 lev= eff=0 tree_tex_id=215 page=common name=egg-ndimadman
+06-24 18:43:54.082 13820 13880 I GK_STDERR: GORB MODEL money-lod1 eff=0 ENVMAP envmap_texture=213 page=environment-generic name=pal-environment-front
+06-24 18:43:54.082 13820 13880 I GK_STDERR: GORB MODEL money-lod1 lev= eff=0 tree_tex_id=216 page=common name=egg-ndimadman
+06-24 18:43:54.082 13820 13880 I GK_STDERR: GORB MODEL money-lod2 eff=0 ENVMAP envmap_texture=214 page=environment-generic name=pal-environment-front
+06-24 18:43:54.082 13820 13880 I GK_STDERR: GORB MODEL money-lod2 lev= eff=0 tree_tex_id=217 page=common name=egg-ndimadman
+===== GORB LOAD egg-ndimadman (ORB BASE — decisive) =====
+06-24 18:43:54.045 13820 13880 I GK_STDERR: GORB LOAD page=common name=egg-ndimadman combo=30343212 w=128 h=64 rw=128 rh=64 glerr=0x0 handle=109 avg=149,50,35,47
+06-24 18:43:54.063 13820 13880 I GK_STDERR: GORB LOAD page=common name=egg-ndimadman combo=30343212 w=128 h=64 rw=128 rh=64 glerr=0x0 handle=217 avg=149,50,35,47
+06-24 18:43:54.064 13820 13880 I GK_STDERR: GORB LOAD page=common name=egg-ndimadman combo=30343212 w=128 h=64 rw=128 rh=64 glerr=0x0 handle=218 avg=149,50,35,47
+06-24 18:43:54.064 13820 13880 I GK_STDERR: GORB LOAD page=common name=egg-ndimadman combo=30343212 w=128 h=64 rw=128 rh=64 glerr=0x0 handle=219 avg=149,50,35,47
+===== GORB LOAD pal-environment-front (envmap, shared w/ fuel-cell) =====
+06-24 18:43:54.023 13820 13880 I GK_STDERR: GORB LOAD page=environment-generic name=pal-environment-front combo=16777216 w=64 h=64 rw=64 rh=64 glerr=0x0 handle=62 avg=87,86,83,96
+06-24 18:43:54.062 13820 13880 I GK_STDERR: GORB LOAD page=environment-generic name=pal-environment-front combo=16777216 w=64 h=64 rw=64 rh=64 glerr=0x0 handle=211 avg=87,86,83,96
+06-24 18:43:54.063 13820 13880 I GK_STDERR: GORB LOAD page=environment-generic name=pal-environment-front combo=16777216 w=64 h=64 rw=64 rh=64 glerr=0x0 handle=214 avg=87,86,83,96
+06-24 18:43:54.063 13820 13880 I GK_STDERR: GORB LOAD page=environment-generic name=pal-environment-front combo=16777216 w=64 h=64 rw=64 rh=64 glerr=0x0 handle=215 avg=87,86,83,96
+===== GORB LOAD fuel-cell controls (render FINE) =====
+06-24 18:43:54.026 13820 13880 I GK_STDERR: GORB LOAD page=common name=fuel-cell-endcaps combo=30343173 w=16 h=16 rw=16 rh=16 glerr=0x0 handle=70 avg=142,88,54,32
+06-24 18:43:54.027 13820 13880 I GK_STDERR: GORB LOAD page=common name=fuel-cell-inside combo=30343175 w=8 h=8 rw=8 rh=8 glerr=0x0 handle=72 avg=133,81,91,128
+06-24 18:43:54.045 13820 13880 I GK_STDERR: GORB LOAD page=common name=cmn-precursor-metal-plain-01small combo=30343208 w=32 h=32 rw=32 rh=32 glerr=0x0 handle=105 avg=157,102,68,85
+06-24 18:43:54.062 13820 13880 I GK_STDERR: GORB LOAD page=common name=cmn-precursor-metal-plain-01small combo=30343208 w=32 h=32 rw=32 rh=32 glerr=0x0 handle=212 avg=157,102,68,85
+06-24 18:43:54.063 13820 13880 I GK_STDERR: GORB LOAD page=common name=fuel-cell-endcaps combo=30343173 w=16 h=16 rw=16 rh=16 glerr=0x0 handle=213 avg=142,88,54,32
+06-24 18:43:54.078 13820 13880 I GK_STDERR: GORB LOAD page=common name=fuel-cell-inside combo=30343175 w=8 h=8 rw=8 rh=8 glerr=0x0 handle=313 avg=133,81,91,128
+===== GORB MERC (orb-family bound at draw) =====
+06-24 18:43:54.564 13820 13880 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=330 handle=332
+06-24 18:44:01.365 13820 13880 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=313 handle=315
+06-24 18:44:03.269 13820 13880 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=218 handle=220
+06-24 18:44:03.269 13820 13880 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=219 handle=221
+06-24 18:44:04.891 13820 13880 I GK_STDERR: GORB MERC lev=village1 page=common name=jng-precursor-metal-plain-01-lores idx=467 handle=922
+06-24 18:44:04.891 13820 13880 I GK_STDERR: GORB MERC lev=village1 page=common name=v1-lores-rolling-precursor-3 idx=468 handle=923
+06-24 18:44:04.958 13820 13880 I GK_STDERR: GORB MERC lev= page=common name=egg-ndimadman idx=215 handle=217
+06-24 18:44:04.959 13820 13880 I GK_STDERR: GORB MERC lev= page=common name=cmn-precursor-metal-plain-01small idx=210 handle=212
+06-24 18:44:04.959 13820 13880 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=212 handle=214
+06-24 18:44:04.960 13820 13880 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=228 handle=230
+06-24 18:44:04.960 13820 13880 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=231 handle=233
+06-24 18:44:04.962 13820 13880 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=209 handle=211
+06-24 18:44:04.964 13820 13880 I GK_STDERR: GORB MERC lev=village1 page=village1-vis-tfrag name=precursor-tube-script-01 idx=617 handle=1072
+06-24 18:44:04.965 13820 13880 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=pal-environment-front idx=616 handle=1071
+06-24 18:44:05.218 13820 13880 I GK_STDERR: GORB MERC lev=training page=training-vis-tfrag name=sun-precursor-metal-edge-01 idx=129 handle=1251
+06-24 18:44:05.240 13820 13880 I GK_STDERR: GORB MERC lev=training page=environment-generic name=pal-environment-front idx=179 handle=1301
+06-24 18:44:05.240 13820 13880 I GK_STDERR: GORB MERC lev=training page=environment-generic name=pal-environment-front idx=241 handle=1363
+===== render / status =====
+max_frame=4500
+focus_app=yes
+crash=no
+sig=

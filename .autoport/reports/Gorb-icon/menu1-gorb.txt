@@ -1,0 +1,61 @@
+===== GORB HUD (the HUD/menu orb DRAW via Generic2 do_hud_draws — DECISIVE) =====
+===== GORB MODEL (boot) =====
+06-24 18:58:13.862 14922 14983 I GK_STDERR: GORB MODEL fuel-cell-lod0 eff=0 ENVMAP envmap_texture=209 page=environment-generic name=pal-environment-front
+06-24 18:58:13.862 14922 14983 I GK_STDERR: GORB MODEL fuel-cell-lod0 lev= eff=0 tree_tex_id=210 page=common name=cmn-precursor-metal-plain-01small
+06-24 18:58:13.862 14922 14983 I GK_STDERR: GORB MODEL fuel-cell-lod0 lev= eff=0 tree_tex_id=211 page=common name=fuel-cell-endcaps
+06-24 18:58:13.862 14922 14983 I GK_STDERR: GORB MODEL money-lod0 eff=0 ENVMAP envmap_texture=212 page=environment-generic name=pal-environment-front
+06-24 18:58:13.862 14922 14983 I GK_STDERR: GORB MODEL money-lod0 lev= eff=0 tree_tex_id=215 page=common name=egg-ndimadman
+06-24 18:58:13.862 14922 14983 I GK_STDERR: GORB MODEL money-lod1 lev= eff=0 tree_tex_id=216 page=common name=egg-ndimadman
+06-24 18:58:13.863 14922 14983 I GK_STDERR: GORB MODEL fuelcell-naked-lod0 lev= eff=0 tree_tex_id=311 page=common name=fuel-cell-inside
+06-24 18:58:13.863 14922 14983 I GK_STDERR: GORB MODEL money-lod1 eff=0 ENVMAP envmap_texture=213 page=environment-generic name=pal-environment-front
+06-24 18:58:13.863 14922 14983 I GK_STDERR: GORB MODEL money-lod2 eff=0 ENVMAP envmap_texture=214 page=environment-generic name=pal-environment-front
+06-24 18:58:13.863 14922 14983 I GK_STDERR: GORB MODEL money-lod2 lev= eff=0 tree_tex_id=217 page=common name=egg-ndimadman
+===== GORB LOAD egg-ndimadman (orb base texture upload state) =====
+06-24 18:58:13.836 14922 14983 I GK_STDERR: GORB LOAD page=common name=egg-ndimadman combo=30343212 w=128 h=64 rw=128 rh=64 glerr=0x0 handle=109 avg=149,50,35,47
+06-24 18:58:13.848 14922 14983 I GK_STDERR: GORB LOAD page=common name=egg-ndimadman combo=30343212 w=128 h=64 rw=128 rh=64 glerr=0x0 handle=217 avg=149,50,35,47
+06-24 18:58:13.849 14922 14983 I GK_STDERR: GORB LOAD page=common name=egg-ndimadman combo=30343212 w=128 h=64 rw=128 rh=64 glerr=0x0 handle=218 avg=149,50,35,47
+06-24 18:58:13.849 14922 14983 I GK_STDERR: GORB LOAD page=common name=egg-ndimadman combo=30343212 w=128 h=64 rw=128 rh=64 glerr=0x0 handle=219 avg=149,50,35,47
+===== GORB LOAD fuel-cell controls (render FINE — contrast) =====
+06-24 18:58:13.831 14922 14983 I GK_STDERR: GORB LOAD page=common name=fuel-cell-endcaps combo=30343173 w=16 h=16 rw=16 rh=16 glerr=0x0 handle=70 avg=142,88,54,32
+06-24 18:58:13.832 14922 14983 I GK_STDERR: GORB LOAD page=common name=fuel-cell-inside combo=30343175 w=8 h=8 rw=8 rh=8 glerr=0x0 handle=72 avg=133,81,91,128
+06-24 18:58:13.836 14922 14983 I GK_STDERR: GORB LOAD page=common name=cmn-precursor-metal-plain-01small combo=30343208 w=32 h=32 rw=32 rh=32 glerr=0x0 handle=105 avg=157,102,68,85
+06-24 18:58:13.848 14922 14983 I GK_STDERR: GORB LOAD page=common name=cmn-precursor-metal-plain-01small combo=30343208 w=32 h=32 rw=32 rh=32 glerr=0x0 handle=212 avg=157,102,68,85
+06-24 18:58:13.848 14922 14983 I GK_STDERR: GORB LOAD page=common name=fuel-cell-endcaps combo=30343173 w=16 h=16 rw=16 rh=16 glerr=0x0 handle=213 avg=142,88,54,32
+06-24 18:58:13.859 14922 14983 I GK_STDERR: GORB LOAD page=common name=fuel-cell-inside combo=30343175 w=8 h=8 rw=8 rh=8 glerr=0x0 handle=313 avg=133,81,91,128
+===== GORB MERC (orb-family bound at draw via Merc2 world path) =====
+06-24 18:58:14.314 14922 14983 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=330 handle=332
+06-24 18:58:21.116 14922 14983 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=313 handle=315
+06-24 18:58:23.000 14922 14983 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=218 handle=220
+06-24 18:58:23.000 14922 14983 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=219 handle=221
+06-24 18:58:29.752 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=common name=jng-precursor-metal-plain-01-lores idx=484 handle=939
+06-24 18:58:29.780 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=pal-environment-front idx=548 handle=1003
+06-24 18:58:29.781 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=pal-environment-front idx=311 handle=766
+06-24 18:58:29.781 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=pal-environment-front idx=531 handle=986
+06-24 18:58:29.781 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=pal-environment-front idx=557 handle=1012
+06-24 18:58:29.781 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=pal-environment-front idx=558 handle=1013
+06-24 18:58:29.787 14922 14983 I GK_STDERR: GORB MERC lev=title page=environment-generic name=pal-environment-front idx=22 handle=428
+06-24 18:58:29.787 14922 14983 I GK_STDERR: GORB MERC lev=title page=environment-generic name=pal-environment-front idx=23 handle=429
+06-24 18:58:29.787 14922 14983 I GK_STDERR: GORB MERC lev=title page=title-vis-pris name=precursor_legacy idx=30 handle=436
+06-24 18:58:33.907 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=common name=jng-precursor-metal-plain-01-lores idx=467 handle=922
+06-24 18:58:33.908 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=common name=v1-lores-rolling-precursor-3 idx=468 handle=923
+06-24 18:58:33.908 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=pal-environment-front idx=524 handle=979
+06-24 18:58:33.909 14922 14983 I GK_STDERR: GORB MERC lev= page=common name=cmn-precursor-metal-plain-01small idx=210 handle=212
+06-24 18:58:33.909 14922 14983 I GK_STDERR: GORB MERC lev= page=common name=egg-ndimadman idx=215 handle=217
+06-24 18:58:33.909 14922 14983 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=209 handle=211
+06-24 18:58:33.909 14922 14983 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=212 handle=214
+06-24 18:58:33.909 14922 14983 I GK_STDERR: GORB MERC lev= page=environment-generic name=pal-environment-front idx=231 handle=233
+06-24 18:58:33.942 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=village1-vis-pris name=gen-precursor-tube-script idx=517 handle=972
+06-24 18:58:33.943 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=pal-environment-front idx=339 handle=794
+06-24 18:58:33.943 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=pal-environment-front idx=511 handle=966
+06-24 18:58:33.943 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=pal-environment-front idx=512 handle=967
+06-24 18:58:33.950 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=environment-ocean idx=621 handle=1076
+06-24 18:58:33.951 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=environment-ocean idx=622 handle=1077
+06-24 18:58:33.951 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=environment-ocean idx=623 handle=1078
+06-24 18:58:33.951 14922 14983 I GK_STDERR: GORB MERC lev=village1 page=environment-generic name=environment-ocean idx=624 handle=1079
+===== generic2 / texture-pool MISS warnings =====
+06-24 18:58:13.972 14922 14993 W opengoal-gk: Failed to find texture at 0, using random (direct: [ 3] sky-direct)
+===== render / status =====
+max_frame=4140
+focus_app=yes
+crash=no
+sig=
