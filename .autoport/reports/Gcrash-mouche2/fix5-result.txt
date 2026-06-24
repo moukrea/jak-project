@@ -1,0 +1,10 @@
+RESULT tag=fix5 status=BUZZER-FX-CRASH-FREE(fires=2,frames+720)
+  mouche_fires=2  render_frames +720 (from 780 to 1500)  focus_app=yes
+  sig=none
+  mouche-markers: 06-24 13:31:35.440  7035  7091 I GK_STDOUT: MOUCHE-ARM fire 1/8 mode=buzzer (settle=300 gap=600);06-24 13:31:35.441  7035  7091 I GK_STDOUT: MOUCHE-BUZZ #1 proc=#x23a684 fact=#x38acb74 pos=#x1c5e60 status=#xd1 name=#x21063c (real buzzer spawned at Jak);06-24 13:31:58.762  7035  7091 I GK_STDOUT: MOUCHE-ARM fire 2/8 mode=buzzer (settle=300 gap=600);06-24 13:31:58.762  7035  7091 I GK_STDOUT: MOUCHE-BUZZ #2 proc=#x23a684 fact=#x38acbc4 pos=#x1c5e60 status=#xd6 name=#x21063c (real buzzer spawned at Jak);
+  near-fn: none
+  merc-draw: none
+  symbolize: none
+  gspark: none
+  stomps:       1 RFTD-NULLRET-REDIRECT;
+  backtrace: none
