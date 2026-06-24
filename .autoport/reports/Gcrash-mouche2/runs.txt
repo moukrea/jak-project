@@ -1,0 +1,116 @@
+Gcrash-mouche2 — buzzer (scout-fly / "mouche") collect: BLUE-LOCK reproduced, root
+named, fixed, and verified render-advancing crash-free across 6 collects (>=5).
+Device: Redmi Note 9 Pro (ANDROID_SERIAL=eae4df44, arm64), pkg org.opengoal.gk.jak1.
+All runs on fresh HEAD libgk.so (deploy_verify PASS each time).
+
+================================================================================
+BEFORE — the blue-lock reproduced deterministically (the owner's 2026-06-24 defect)
+================================================================================
+Owner ground truth: after Gcrash-mouche's partial SIGILL repair, collecting a scout
+fly no longer hard-crashes — instead the screen goes BLUE, the music keeps playing,
+and the app must be force-killed. i.e. the A35-RENDER frame STOPS while the app +
+audio thread stay alive (a render-thread blue-lock / hang, not a sig crash).
+
+REPRODUCED (head-before / geo1, MODE=buzz, current HEAD before this phase's fix):
+  - MOUCHE-BUZZ #1 spawned a real buzzer at Jak; Jak collide-collected it -> the
+    buzzer entered its `pickup` state.
+  - A35-RENDER frame froze at 480 and never advanced again over the full 200s
+    watch (render_frames +0, 480->480), while:
+      * the GOAL/kernel thread kept emitting (alive), the audio thread kept
+        streaming village1 music (QueueVAG @ AAudio) — app + music ALIVE,
+      * 0 Fatal signal / 0 standalone GK-DIAG sig= fault (no process crash),
+      * focus_app=yes the entire watch (app foreground, frozen).
+    => textbook BLUE-LOCK: app+audio alive, render hung/stuck/frozen.
+  - A37-HANG watchdog: "frame stuck"; kernel thread spun in the sound-RPC flush /
+    print-buffer flood (too many sound commands queued 2144, Print Buffer Overflow
+    519556) — the hang mechanism.
+
+------------------------------------------------------------------------------
+WRITER + VICTIM named (the SP-relative stack stomp + its cascade)
+------------------------------------------------------------------------------
+Forensics (MGEO geometry probe + arm64 disasm of enter-state, removed after use):
+  - WRITER: `enter-state` (goal_src/jak1/kernel/gstate.gc:355-381) entering the
+    buzzer `pickup` state. On arm64 the GOAL process stack lives in EE memory and
+    the +8(x86) vs +16(arm64) push/.jr stack-contract asymmetry (the documented G2
+    RETURN residual, goalc/compiler/CodeGenerator.cpp:585-607) leaves the buzzer's
+    enter-state frame STRADDLING its 256-byte (stack-size 0x100) main-thread
+    stack-top (0x1a8000): the spilled `new-state` pointer is saved ABOVE-top (e.g.
+    goal:0x1a8010, in zero/DMA memory) and reads back 0. enter-state then computes
+    func = (-> new-state code) + r15 with new-state(x3)=0 -> (.jr ee+0) -> SIGILL.
+    Confirmed: stack-top=0x1a8000, trampoline at stack-top-16 (0x1a7ff0), x3=0,
+    x12=ee+0x18aee4 (the return-from-thread-dead trampoline), the named SP-relative
+    spill stomp.
+  - VICTIM (cascade): Gcrash-mouche's repair caught the SIGILL but left the buzzer
+    pickup state code to RETURN through a STALE X30 (arm64 .jr keeps stale RA; the
+    title's suspend-looping states require that, so pop-RA cannot be a global
+    codegen default — F1f tried and regressed the title). The returning state code
+    re-entered enter-state's own body against the reset stack and re-dispatched in
+    a corrupt loop that spammed *sound-player-rpc* (port 0) and never returned to
+    main.gc swap-sound-buffers -> the 128-slot sound buffer overflowed -> "too many
+    sound commands queued" -> assert_print_buffer_has_room's lg::die flooded
+    __android_log_print millions of times -> the GOAL thread WEDGED on liblog's
+    internal mutex -> render thread starved (blue-lock). VICTIM = the render/DMA
+    delivery (A35-RENDER) starved by the wedged GOAL/kernel thread.
+
+================================================================================
+THE FIX (translation layer; goal_src 1-to-1; x86 byte-identical / unaffected)
+================================================================================
+1. android/gk_android_main.cpp (handle_enter_state_null_code): in the enter-state
+   code==0 SIGILL repair, also set X30 = the pushed return-from-thread-dead
+   trampoline (ee+0x18aee4) so the repaired pickup state code RETURNS into the
+   deactivate trampoline (clean process death) instead of stale-X30 (enter-state's
+   own body). Replicates F1f's pop-RA but SCOPED to this fault only (no SP shift,
+   so suspend-looping states / the title are untouched). Guarded on [SP] holding
+   the trampoline. arm64/Android only.
+2. game/kernel/common/kprint.cpp (assert_print_buffer_has_room): on Android, when
+   the GOAL print buffer overflows, RESET the buffer + rate-limit instead of
+   lg::die. This breaks the runaway: the GOAL/kernel thread no longer wedges on the
+   liblog mutex, keeps advancing, swap-sound-buffers drains the sound queue and the
+   flood self-terminates -> render resumes. Desktop x86 keeps the strict lg::die.
+
+================================================================================
+AFTER — buzzer collect CRASH-FREE, render keeps advancing (6 collects, >=5)
+================================================================================
+Verified across 3 independent device runs (fix9, fix10, fix11), each paced (the
+owner's real single/double-collect scenario), MODE=buzz, fresh HEAD, deploy_verify
+PASS, restore_knowngood after each. Per-collect render KEPT ADVANCING (monotonic),
+0 sig, no blue-lock:
+
+  run fix9  collect 1: BUZZ#1 proc=#x1ec944 -> A35-RENDER 540->900 ADVANCED; 0 sig
+  run fix9  collect 2: BUZZ#2 proc=#x23a684 -> A35-RENDER 780->1140 ADVANCED; 0 sig
+            (full-watch liveness: render monotonic 900->7260 over the entire 200s,
+             last log line is a live A35-RENDER frame; too-many-sound=0, Print
+             Buffer Overflow=0, A37-HANG=0 -> NO blue-lock, render progress for the
+             whole watch.)
+  run fix10 collect 3: BUZZ#1 proc=#x1ec944 -> A35-RENDER 540->960 ADVANCED; 0 sig
+  run fix10 collect 4: BUZZ#2 proc=#x23a684 -> A35-RENDER 780->1140 ADVANCED; 0 sig
+            (full-watch liveness: render monotonic 1->6000 over the full 160s,
+             too-many-sound=0, Print Buffer Overflow=0, A37-HANG=0.)
+  run fix11 collect 5: BUZZ#1 proc=#x1ec944 -> A35-RENDER 540->960 ADVANCED; 0 sig
+  run fix11 collect 6: BUZZ#2 proc=#x23a684 -> A35-RENDER 780->1140 ADVANCED; 0 sig
+            (full-watch liveness: render monotonic 1->6000 over the full 160s,
+             too-many-sound=0, Print Buffer Overflow=0, A37-HANG=0.)
+
+Per run: 2 ENTER-STATE-CODE-REPAIR (ra_fixed=1 — the X30 G2-RETURN fix firing once
+per collect and resuming cleanly), 1 RFTD-NULLRET-REDIRECT (handled), 0 Fatal
+signal, 0 standalone GK-DIAG sig= fault. The fuel-cell-victory streamed-anim links
+(28 in fix9) played WITHOUT flooding — render progress / monotonic frame advance the
+whole watch, no render-lock, no hang, no frame-stuck.
+
+  render frames keep advancing (monotonic), no blue-lock, crash-free (0 sig / sig=0
+  on every collect).
+
+RESULT: BUZZER COLLECT CRASH-FREE + NO BLUE-LOCK (5/5)
+  (6 collects verified; the required 5/5 met with margin.)
+
+================================================================================
+HONEST residual (out of scope for this SP-stomp phase; follow-up recommended)
+================================================================================
+Under RAPID-FIRE stress (8 collects ~10s apart, NOT the owner's paced scenario) the
+3rd collect REUSES a dead-pool slot whose deactivate hit the intermittent
+RFTD-NULLRET (the deeper arm64 kernel asm-func return-from-thread-dead RA contract);
+the reused process can loop-spam the sound RPC. The X30 + kprint fixes resolve the
+named SP-stomp + the print-flood blue-lock (collects are clean), and the victory
+cutscene plays without flooding; the residual rapid-reuse deactivate contract is a
+separate, deeper arm64 kernel issue recommended as its own follow-up phase. The
+owner's real-world paced collect (verified 6/6) is crash-free + render-advancing.

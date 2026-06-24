@@ -588,6 +588,35 @@ void kqtoa() {
 void assert_print_buffer_has_room(const u8* ptr) {
   const size_t size_used = ptr - PrintBufArea.c();
   if (size_used > (PrintBufSize - 1024)) {
+#if defined(__ANDROID__)
+    // Gcrash-mouche2 — arm64/Android blue-lock cascade breaker.
+    // A runaway GOAL format loop fills this buffer (e.g. a momentarily-stalled
+    // kernel spamming "too many sound commands queued" while a heavy cutscene's
+    // sound RPC is mid-flight). The original lg::die path then calls
+    // __android_log_print on EVERY overflowing format — millions of times — and
+    // the calling GOAL/kernel thread WEDGES on liblog's internal mutex. That
+    // converts a transient flood into a PERMANENT blue-lock: the kernel never
+    // returns to swap-sound-buffers (so the sound queue never drains and the
+    // flood self-perpetuates) and the render thread blocks forever on the
+    // stalled kernel (A37-HANG at a frozen frame; observed on the buzzer-collect
+    // -> fuel-cell-victory path). Instead, RESET the buffer here so format keeps
+    // succeeding and the kernel keeps advancing — swap-sound-buffers then drains
+    // the queue and the flood self-terminates, render resumes. The reset only
+    // ever fires when the buffer is genuinely full (normal play flushes it long
+    // before), and the dropped bytes are the overflow spam itself. The warning
+    // is hard rate-limited so the fix can never re-create the liblog flood.
+    // Desktop x86 keeps the strict lg::die: its listener drains the buffer every
+    // frame, so an overflow there is a real bug, not a transient flood.
+    *Ptr<u8>(PrintBufArea + sizeof(ListenerMessageHeader)) = 0;
+    PrintPending = Ptr<u8>(PrintBufArea + sizeof(ListenerMessageHeader));
+    static uint64_t s_print_overflow_resets = 0;
+    const uint64_t n = ++s_print_overflow_resets;
+    if (n <= 4 || (n % 200000) == 0) {
+      lg::warn("Print Buffer Overflow (arm64 reset+continue #{}): size 0x{:x} of 0x{:x}", n,
+               size_used, PrintBufSize);
+    }
+#else
     lg::die("Print Buffer Overflow: size 0x{:x} of 0x{:x}", size_used, PrintBufSize);
+#endif
   }
 }

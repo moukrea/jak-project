@@ -4409,67 +4409,37 @@ bool handle_enter_state_null_code(int sig, siginfo_t* /*info*/, void* ucontext) 
       code == 0 || code >= (uint32_t)EE_MAIN_MEM_SIZE) {
     return false;
   }
-  // Gcrash-mouche2 TEMP SP-climb trace (gated debug.opengoal.mouche.sptrace=1,
-  // one-shot): the band write-watch proved new-state=0 is NOT an external stomp —
-  // enter-state runs with SP ABOVE the buzzer GOAL stack-top, so its own saves
-  // read uninitialised above-top memory. Dump SP vs stack-top and walk the x29
-  // frame chain INTO enter-state, naming each GOAL caller + flagging where fp
-  // first exceeds stack-top — to pin the arm64 stack-pointer-climb source. Then
-  // crash cleanly (return false) so the dump survives the post-resume sound flood.
+  // G2 RETURN-residual fix, scoped to this enter-state code-entry .jr.
+  // enter-state pushed the return-from-thread-dead trampoline (ee+0x18aee4)
+  // right before the faulting .jr, but on arm64 the .jr keeps a STALE X30 (the
+  // title's suspend-looping attract states REQUIRE that stale X30, so pop-RA
+  // cannot be a codegen default — see goalc/compiler/CodeGenerator.cpp G1/G2
+  // note: F1f's global pop-RA fixed the RETURN path but regressed the title).
+  // Without the trampoline in X30, when the repaired state code RETURNS it RETs
+  // back into enter-state's own body against a reset stack and the process
+  // re-dispatches in a corrupt loop that spams *sound-player-rpc* (port 0) while
+  // never returning to main.gc swap-sound-buffers — the 128-slot sound buffer
+  // overflows -> "too many sound commands"/flush/STALL flood -> Print Buffer
+  // Overflow -> the render thread starves (the BLUE-LOCK).
+  //
+  // The fix sets ONLY X30 = trampoline. We must NOT also advance SP past the
+  // pushed RA word (the `LDR X30,[SP],#16` half of pop-RA): that +16 shift is
+  // the precise thing that regressed the title — for states that SUSPEND
+  // instead of returning, the shifted SP propagates through thread-suspend/
+  // thread-resume and a later kernel dispatch reads a null fn-ptr slot (the
+  // earlier fix2 froze the moment a suspend-looping child process — pp 0x23b7d4
+  // — got the SP+16). Leaving SP alone is harmless for suspend states (X30 is
+  // never consumed there) and correct for return states (the state code's own
+  // epilogue ldp restores X30=trampoline and RETs to it). Guarded on [SP]
+  // actually holding the trampoline so an unrelated fault is never touched.
+  bool ra_fixed = false;
   {
-    static std::atomic<bool> s_spt{false};
-    char tb[PROP_VALUE_MAX] = {0};
-    if (__system_property_get("debug.opengoal.mouche.sptrace", tb) > 0 && tb[0] == '1') {
-      bool ex = false;
-      if (s_spt.compare_exchange_strong(ex, true)) {
-        uint32_t mthr = 0, stop_goal = 0;
-        gk_diag::safe_read_u32(ee + pp + 40, &mthr);
-        if (mthr && mthr < (uint32_t)EE_MAIN_MEM_SIZE) {
-          gk_diag::safe_read_u32(ee + mthr + 28, &stop_goal);
-        }
-        const uintptr_t sp = uc->uc_mcontext.sp;
-        const uintptr_t stop_host = ee + stop_goal;
-        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
-                            "GK-DIAG SPTRACE pp=0x%x main-thread=0x%x stack-top=goal:0x%x "
-                            "sp=goal:0x%lx delta(sp-top)=%ld %s",
-                            pp, mthr, stop_goal, (unsigned long)(sp - ee),
-                            (long)((intptr_t)(sp - ee) - (intptr_t)stop_goal),
-                            (sp > stop_host) ? "SP-ABOVE-STACK-TOP" : "sp-below-top");
-        // Walk the x29 frame chain; name each saved-lr's GOAL fn; flag fp>stack-top.
-        uintptr_t fp = uc->uc_mcontext.regs[29];
-        for (int i = 0; i < 24; i++) {
-          if (fp < ee + 0x1000 || fp >= ee + (uintptr_t)EE_MAIN_MEM_SIZE) {
-            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
-                                "GK-DIAG SPTRACE frame[%d] fp=0x%lx OUT-OF-EE stop", i,
-                                (unsigned long)fp);
-            break;
-          }
-          uint32_t nfp_lo = 0, nfp_hi = 0, lr_lo = 0, lr_hi = 0;
-          gk_diag::safe_read_u32(fp, &nfp_lo);
-          gk_diag::safe_read_u32(fp + 4, &nfp_hi);
-          gk_diag::safe_read_u32(fp + 8, &lr_lo);
-          gk_diag::safe_read_u32(fp + 12, &lr_hi);
-          uintptr_t next_fp = (uintptr_t)nfp_lo | ((uintptr_t)nfp_hi << 32);
-          uintptr_t lr = (uintptr_t)lr_lo | ((uintptr_t)lr_hi << 32);
-          uint32_t lrg = to_goal(lr);
-          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
-                              "GK-DIAG SPTRACE frame[%d] fp=goal:0x%lx ret=goal:0x%x %s",
-                              i, (unsigned long)(fp - ee), lrg,
-                              (fp > stop_host) ? "(fp ABOVE stack-top)" : "");
-          if (lrg >= 0x1000) {
-            a38_trip::log_nearest_goal_fn("sptrace", lrg);
-          }
-          if (next_fp <= fp || next_fp == 0) {
-            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
-                                "GK-DIAG SPTRACE frame[%d] next-fp=0x%lx not-ascending stop", i,
-                                (unsigned long)next_fp);
-            break;
-          }
-          fp = next_fp;
-        }
-        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG SPTRACE end");
-      }
-      return false;  // crash cleanly; dump preserved
+    uint32_t t_lo = 0, t_hi = 0;
+    if (gk_diag::safe_read_u32(uc->uc_mcontext.sp, &t_lo) &&
+        gk_diag::safe_read_u32(uc->uc_mcontext.sp + 4, &t_hi) &&
+        ((static_cast<uintptr_t>(t_lo)) | (static_cast<uintptr_t>(t_hi) << 32)) == trampoline) {
+      uc->uc_mcontext.regs[30] = trampoline;  // X30 = return-from-thread-dead
+      ra_fixed = true;
     }
   }
   uc->uc_mcontext.pc = ee + code;  // resume into the authoritative state code
@@ -4477,9 +4447,9 @@ bool handle_enter_state_null_code(int sig, siginfo_t* /*info*/, void* ucontext) 
   if (n <= 16 || (n % 256) == 0) {
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                         "GK-DIAG ENTER-STATE-CODE-REPAIR #%llu sig=%d pp=0x%x state=0x%x "
-                        "code=0x%x -> resumed into authoritative state code (enter-state "
-                        "spilled new-state stomped to 0 by a concurrent DMA write)",
-                        (unsigned long long)n, sig, pp, state, code);
+                        "code=0x%x ra_fixed=%d -> resumed into authoritative state code with "
+                        "deactivate-trampoline return (G2 RETURN-residual fix)",
+                        (unsigned long long)n, sig, pp, state, code, (int)ra_fixed);
   }
   return true;
 }
