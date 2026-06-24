@@ -1,0 +1,10 @@
+RESULT tag=fix3 status=BUZZER-FX-CRASH-FREE(fires=4,frames+300)
+  mouche_fires=4  render_frames +300 (from 720 to 1020)  focus_app=yes
+  sig=none
+  mouche-markers: 06-24 12:49:51.009  1294  1390 I GK_STDOUT: MOUCHE-ARM fire 1/8 mode=buzzer (settle=300 gap=180);06-24 12:49:51.009  1294  1390 I GK_STDOUT: MOUCHE-BUZZ #1 proc=#x1ec944 fact=#x38ac344 pos=#x1c5e60 status=#x20 name=#x21063c (real buzzer spawned at Jak);06-24 12:49:54.494  1294  1390 I GK_STDOUT: MOUCHE-ARM fire 2/8 mode=buzzer (settle=300 gap=180);06-24 12:49:54.495  1294  1390 I GK_STDOUT: MOUCHE-BUZZ #2 proc=#x23a684 fact=#x38acba4 pos=#x1c5e60 status=#xd2 name=#x21063c (real buzzer spawned at Jak);06-24 12:50:01.582  1294  1390 I GK_STDOUT: MOUCHE-ARM fire 3/8 mode=buzzer (settle=300 gap=180);06-24 12:50:01.583  1294  1390 I GK_STDOUT: MOUCHE-BUZZ #3 proc=#x23b7d4 fact=#x38acbd4 pos=#x1c5e60 status=#xd4 name=#x21063c (real buzzer spawned at Jak);06-24 12:50:08.950  1294  1390 I GK_STDOUT: MOUCHE-ARM fire 4/8 mode=buzzer (settle=300 gap=180);06-24 12:50:08.951  1294  1390 I GK_STDOUT: MOUCHE-BUZZ #4 proc=#x23b7d4 fact=#x38acc04 pos=#x1c5e60 status=#xd9 name=#x21063c (real buzzer spawned at Jak);
+  near-fn: none
+  merc-draw: none
+  symbolize: none
+  gspark: none
+  stomps:       1 RFTD-NULLRET-REDIRECT;
+  backtrace: none
