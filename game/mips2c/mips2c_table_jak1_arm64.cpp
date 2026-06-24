@@ -521,6 +521,37 @@ bool a37_name_is_real(const std::string& name) {
       "(method 10 collide-edge-hold-list)", "collide-do-primitives",
       "moving-sphere-triangle-intersect", "collide-probe-node",
       "collide-probe-instance-tie", "__pc-upload-collide-frag",
+      // Gorb-icon: the generic-merc / generic-effect family. The Precursor ORB
+      // HUD/menu icon (money skelgroup) is drawn as a HUD object: its
+      // dma-add-func is dma-add-process-drawable-hud, so draw-bones-hud
+      // (bones.gc:1408) forces use-mercneric=1 and calls draw-bones-generic-merc
+      // (bones.gc:1494) for EVERY HUD merc model. That routes the orb through the
+      // generic-merc pipeline, whose 11 mips2c builders were ALL noop-bound on
+      // arm64 (absent from this kSet) -> the shared noop returns 0. The
+      // generic-merc.gc:88-93 caller round-trips global-buf base through the
+      // scratchpad `saves basep`: it stores base to SPAD, calls
+      // generic-merc-execute-asm (which must WRITE the advanced cursor back into
+      // SPAD), then restores base FROM SPAD. With execute-asm noop'd, SPAD basep
+      // stayed 0 -> the orb's generic DMA bucket was never built -> the orb HUD
+      // draw never reached the C++ Generic2 do_hud_draws (device BEFORE:
+      // GORB HUD count=0 with the FX armed) -> the orb icon is white/missing on
+      // device while the world orb (Merc2, not generic-merc) renders fine. x86 has
+      // no allowlist so it binds the real bodies and the orb HUD renders. Same
+      // arm64-only divergence class as Gsprite/Gwater/Gd2/F1-collision. The C++
+      // bodies already exist (generic_merc.cpp / generic_effect.cpp /
+      // generic_effect2.cpp, all in CMakeLists). Enabled as a UNIT (the family is
+      // self-contained: execute-asm directly ::execute()'s the other 10, and the
+      // only external callees are 3 plain GOAL defuns — upload-vu0-program,
+      // vector-matrix*!, merc-death-spawn — reached via the proven
+      // _call_goal8_asm_arm64 FFI arg-shuffle trampoline that Gsprite/Gwater
+      // already exercise). Verified hazard-free: none of the 11 use integer
+      // idiv/mod (no X8/R8 drop) and all s7 compares in execute-asm are the
+      // self-relative `daddiu reg,s7,8; beq` #t/boolean idiom (operands share s7's
+      // upper-32, so the mips2c #f-guard upper-32 misfire class cannot occur).
+      "generic-merc-init-asm", "generic-merc-execute-asm", "mercneric-convert",
+      "high-speed-reject", "generic-prepare-dma-double", "generic-light-proc",
+      "generic-envmap-proc", "generic-prepare-dma-single", "generic-envmap-dproc",
+      "generic-interp-dproc", "generic-no-light-dproc",
   };
   for (auto* n : kSet) {
     if (name == n) return true;
