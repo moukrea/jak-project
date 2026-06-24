@@ -809,6 +809,12 @@ phases:
   validator: validators/phase-F3-gameplay-30fps.sh
   max_turns: 600
   max_retries: 20
+- id: Gaudio-sfx
+  name: 'OWNER GROUND TRUTH 2026-06-23 (F2-audio false-greened): in-game only MUSIC plays; SFX (crates, orb collect) + VOICE (sage, woman) are SILENT. Wire the sound-bank/989snd SFX synth + voice path to the AAudio output (music VAG-stream works, SFX bank path silent). Measure non-silent SFX/voice RMS at output (calibrated BEFORE silent -> AFTER audible), not a call-count proxy. goal_src 1-to-1.'
+  prompt: prompts/phase-Gaudio-sfx.md
+  validator: validators/phase-Gaudio-sfx.sh
+  max_turns: 1600
+  max_retries: 4
 global:
   git:
     push_after_each_phase: true
