@@ -812,6 +812,25 @@ void Sprite3::do_block_common(SpriteMode mode,
     }
 
     auto& adgif = m_adgif[sprite_idx];
+    // GORB-ICON: skip a 2D sprite whose adgif block was stomped by the arm64
+    // bone-ref overrun. Drawing the Precursor-orb HUD/menu icon routes through
+    // generic-merc (bones.gc draw-bones-hud -> draw-bones-generic-merc); on
+    // arm64 the bone-ref dma-tag packing at bones.gc:1124-1128 (`shl (the-as
+    // int ptr) 32` — the source itself flags "does this work correctly for the
+    // upper 64 bits??") writes low-heap pointer pairs (high32 == a heap
+    // pointer, e.g. 0x17fd64) past the bone region into the adjacent
+    // *sprite-array-2d* object, stomping one sprite's adgif. A valid CLAMP/ZBUF
+    // register's high 32 bits are zero; a stomped one carries a heap pointer
+    // (>= HEAP_START). Skipping that single corrupt sprite keeps the 2D chain +
+    // the orb's own draw rendering instead of aborting in the GS decoders.
+    // (bones.gc is goal_src 1-to-1 locked; this is the translation-layer guard.)
+    // The CLAMP/ZBUF register's high 32 bits are ~0 when valid; a stomped adgif
+    // carries a heap pointer there. (tex0's high bits can legitimately hold a
+    // large clut base, so only the clamp field is a safe tell.)
+    constexpr u64 kGorbHeapStart = 0x13fd20;  // game/kernel/common/memory_layout.h HEAP_START
+    if ((adgif.clamp_data >> 32) >= kGorbHeapStart) {
+      continue;
+    }
     handle_tex0(adgif.tex0_data, render_state, prof);
     handle_tex1(adgif.tex1_data, render_state, prof);
     if (GsRegisterAddress(adgif.clamp_addr) == GsRegisterAddress::ZBUF_1) {
