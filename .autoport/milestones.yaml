@@ -815,6 +815,12 @@ phases:
   validator: validators/phase-Gaudio-sfx.sh
   max_turns: 1600
   max_retries: 4
+- id: Gcollision-arm
+  name: "OWNER GROUND TRUTH 2026-06-24: arm64 collision divergences NOT in x86 original \u2014 (1) Jak clips THROUGH the taller wall right of the Geyser steps and falls into the map; (2) jumping near certain walls leaves Jak stuck CROUCHED. Owner: likely arm64 float/decimal/codegen mishandling. x86-first collision-state diff, name the arm64 divergence, fix in TRANSLATION layer so arm64==x86. NO collision-logic rewrite (must stay the identical game)."
+  prompt: prompts/phase-Gcollision-arm.md
+  validator: validators/phase-Gcollision-arm.sh
+  max_turns: 1600
+  max_retries: 4
 global:
   git:
     push_after_each_phase: true
