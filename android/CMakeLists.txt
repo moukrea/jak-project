@@ -373,6 +373,24 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/overlord/jak1/stream.cpp"
 )
 
+# Gcollision-arm (1-to-1 ARM==x86 collision): force IEEE-strict, non-contracted FP
+# for the mips2c VU0 COLLISION translation units in this libgk.so build. The NDK
+# clang default is -ffp-contract=on (AArch64 has fmadd), so the VU0 vmadd/vmsub and
+# the vopmsub cross product that builds the wall NORMAL (collide_func.cpp) FUSE to a
+# single-rounding fmadd, diverging bit-for-bit from the PS2/x86 oracle (GCC -mavx,
+# no -mfma -> two roundings). That is the owner-reported "floats/decimals mishandled
+# in the ARM translation" of the Geyser collision. Disabling contraction makes the
+# arm64 collision pipeline bit-identical to x86 (proven in
+# .autoport/reports/Gcollision-arm/). Scoped to the 5 collide_*.cpp TUs only;
+# set in this directory scope so it reaches the android_kernel target.
+set_source_files_properties(
+    "${JAK_ROOT}/game/mips2c/jak1_functions/collide_cache.cpp"
+    "${JAK_ROOT}/game/mips2c/jak1_functions/collide_edge_grab.cpp"
+    "${JAK_ROOT}/game/mips2c/jak1_functions/collide_func.cpp"
+    "${JAK_ROOT}/game/mips2c/jak1_functions/collide_mesh.cpp"
+    "${JAK_ROOT}/game/mips2c/jak1_functions/collide_probe.cpp"
+    PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+
 # Pick the right assembler dialect for the aarch64 trampoline.
 #
 # Upstream asm_funcs_arm64.s uses macOS-style `;;` comments because the
