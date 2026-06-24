@@ -833,6 +833,12 @@ phases:
   validator: validators/phase-Gorb-icon.sh
   max_turns: 1400
   max_retries: 3
+- id: Gecho-pool
+  name: 'OWNER 2026-06-23: in the NEW-GAME intro cinematic the BLACK dark-eco pool Daxter falls into is NOT rendered on arm64 -> his ottsel (animal) form shows through prematurely (the black eco should hide it). Sole cinematic issue. x86-first: find the unrendered dark-eco-pool draw (renderer-family noop/subset gap likely), fix in translation layer; goal_src 1-to-1.'
+  prompt: prompts/phase-Gecho-pool.md
+  validator: validators/phase-Gecho-pool.sh
+  max_turns: 1500
+  max_retries: 3
 - id: Gaudio-hint-voices
   name: 'OWNER CLARIFICATION 2026-06-24 (note for later): cinematic voices + background SFX are FINE; the IN-GAME tutorial/hint dialog VOICES (Sage explaining orbs/items during play) are SILENT on arm64, + some action sounds missing. Targeted fix of the in-game talker/hint voice trigger+route (distinct from the working cinematic-voice path). goal_src 1-to-1.'
   prompt: prompts/phase-Gaudio-hint-voices.md
