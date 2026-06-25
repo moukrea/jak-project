@@ -134,7 +134,7 @@
     "Gcrash-mouche2": 2,
     "Gcollision-arm": 1,
     "Gorb-icon": 1,
-    "Gecho-pool": 2
+    "Gcrash-mouche3": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -258,9 +258,6 @@
     ],
     "Gcrash-mouche2": [
       "1188997ff2ca"
-    ],
-    "Gecho-pool": [
-      "a5ad5a835d29"
     ]
   },
   "stuck_reasons": {
@@ -514,9 +511,10 @@
     "Gcollision-arm": 1782306843.4434962,
     "Gorb-icon": 1782316897.3821118,
     "Gaudio-hint-voices": 1782328824.867719,
-    "Gecho-pool": 1782330228.5323615
+    "Gecho-pool": 1782330228.5323615,
+    "Gcrash-mouche3": 1782381135.733917
   },
-  "last_update": "2026-06-25T01:33:23.408879+00:00",
+  "last_update": "2026-06-25T09:58:51.397604+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

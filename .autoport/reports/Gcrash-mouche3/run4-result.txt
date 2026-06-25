@@ -1,0 +1,17 @@
+=== Gcrash-mouche3 REAL crate->fly->collect drive (tag=run4) ===
+  pass1 crate0 (fly0): collect attempt  flycount=1 frame+180 focus=yes
+  pass1 crate1 (fly1): collect attempt  flycount=1 frame+0 focus=yes
+  pass1 crate2 (fly2): collect attempt  flycount=1 frame+0 focus=yes
+  pass1 crate3 (fly3): collect attempt  flycount=1 frame+0 focus=yes
+  pass1 crate4 (fly4): collect attempt  flycount=1 frame+0 focus=yes
+  pass1 crate5 (fly5): collect attempt  flycount=1 frame+0 focus=yes
+  pass1 crate6 (fly6): collect attempt  flycount=1 frame+0 focus=yes
+
+RESULT tag=run4 status=INCONCLUSIVE(flies=1,teleports=1,focus=yes)
+  flycount(final)=1  teleports=1  collect_attempts=7  render_frame(max)=1200  focus_app=yes
+  sig=none
+  flycount-progression: M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=0 M3-FLYCOUNT total=1 M3-FLYCOUNT total=1 M3-FLYCOUNT total=1 M3-FLYCOUNT total=1 
+  rftd/repair-markers:       9 ENTER-STATE-CODE-REPAIR;      1 RFTD-NULLRET-REDIRECT;
+  near-fn: none
+  a34/fp-walk: none
+  backtrace: none
