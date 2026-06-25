@@ -1,0 +1,11 @@
+==== x86 crouch-probe at run1 DEVICE latched coords (blocked=#f -> x86 CAN stand) ====
+=== SPOT A ===
+GWPROBE p=(-5320167.5000 31294.6992 4409588.5000) blocked=#t ntris=3
+=== SPOT B ===
+GWPROBE p=(-5158796.0000 30565.1992 4169322.2500) blocked=#t ntris=14
+=== SPOT C ===
+GWPROBE p=(-5375474.0000 22620.8007 4169809.2500) blocked=#f ntris=6
+=== SPOT D ===
+GWPROBE p=(-5302928.0000 29401.8007 4418750.5000) blocked=#t ntris=7
+=== SPOT E ===
+GWPROBE p=(-5474086.5000 27223.5000 4100840.5000) blocked=#f ntris=6

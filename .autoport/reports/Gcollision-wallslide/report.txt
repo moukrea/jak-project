@@ -1,0 +1,106 @@
+================================================================================
+Gcollision-wallslide — x86-first collision divergence report
+Jak ends stuck CROUCHED at certain Geyser-Rock walls (residual after the
+Gcollision-arm FMA fix). Fixed in the translation layer so arm64 == x86.
+================================================================================
+
+RESULT: wall|slide|ledge|fall; crouch|accroup
+  Jak hits a too-high ledge, slow-slides down the wall, lands and auto-enters a
+  crouch (target-duck-stance). On arm64 he stayed PERMANENTLY crouched at certain
+  walls even with no input; on x86 he stands straight back up. AFTER this fix the
+  arm64 device stands up exactly like x86 at those walls (the only walls where he
+  still stays crouched are genuine overhangs where x86 ALSO blocks).
+
+METHOD: x86-first deterministic state diff. The device (arm64, eae4df44) has no
+goalc listener, so all device state was read by gated C++ byte-offset hooks in
+libgk; x86 ground truth via the goalc REPL (fill-and-probe-using-spheres at the
+device's exact trans). goal_src kept byte-identical 1-to-1; the fix lives only in
+the mips2c translation layer (libgk). Reproduction is trivial — warp to Geyser
+Rock (debug.opengoal.f1.warp) and jump into the walls right of the steps.
+
+--------------------------------------------------------------------------------
+THE GATE (why "stuck crouched" == one boolean)
+--------------------------------------------------------------------------------
+target-duck-stance:trans stand-up gate (goal_src/jak1/engine/target/target.gc:751):
+  (if (and (or (not (cpad-hold? ... l1 r1)) (state-flags prevent-duck))
+           (and (not roll) (can-exit-duck?)))
+      (go target-stance))
+With no buttons held the gate reduces to `can-exit-duck?`. can-exit-duck?
+(target-util.gc:636) builds two head spheres at *target* control trans and returns
+#t iff `fill-and-probe-using-spheres` finds NO collision. So: stuck crouched
+<=> can-exit-duck? returns #f <=> the head-probe wrongly reports "blocked".
+
+--------------------------------------------------------------------------------
+BEFORE / BASELINE (device diverges from x86)
+--------------------------------------------------------------------------------
+Reliable on-device measurement (button word read from the SAME source CPadGetData
+uses), 2541+ target-duck-stance frames:
+  * cpad L1/R1 hold = 0 on EVERY stuck frame -> NOT an input phantom. (This
+    overturns the prior attempt's framing; its "hold=0" reading was garbage from a
+    failed GOAL-pointer deref, cpadn=-1.)
+  * So can-exit-duck? is genuinely #f on the device.
+
+x86 ORACLE vs device, fill-and-probe at the device's EXACT stuck trans:
+  device latch (-5417957 23414 4119072) -> x86 GWPROBE blocked=#f  (x86 CAN stand)
+  device latch (-5414453 20178 4250311) -> x86 GWPROBE blocked=#f  (x86 CAN stand)
+  device latch (-5216368 24357 4298901) -> x86 GWPROBE blocked=#f  (x86 CAN stand)
+  (control: genuine overhangs e.g. -5297236/-5371951 -> x86 blocked=#t, both stuck,
+   correct — the device's hitting triangle is byte-identical to one of x86's.)
+At the DIVERGENT spots the device leaf (method 9 collide-puss-work) returns CLEAR
+(hit=0) on every probe and method 10 is never called — yet probe-using-spheres
+still returns #t (blocked). The clear (#f) leaf return is being misread as
+"not-#f".
+
+--------------------------------------------------------------------------------
+THE arm64 DIVERGENCE (named, root cause)
+--------------------------------------------------------------------------------
+probe-using-spheres (collide-cache.gc) tests each leaf result with
+`(when v1-12 (return #t))`. v1-12 is the GOAL symbol #t/#f returned by the mips2c
+leaf (method 9/10 collide-puss-work). The leaf returns the symbol via the VM s7
+register, which on arm64 carries the HOST pointer g_ee_main_mem + offset
+(measured raw return = 0x7f0014fd24 = host #f). But GOALC-arm64 compiles the
+`(when v1-12)` symbol test as a BARE 32-bit GOAL-pointer compare — the same low-32
+`#f-guard` convention already used by the `gpr_addr` `beq reg, s7` fixes elsewhere
+in collide_cache.cpp. host-#f (upper32 = 0x7f) != bare-#f (upper32 = 0), so a
+CLEAR head-probe (#f) is read as non-#f -> `(return #t)` -> probe "blocked" ->
+can-exit-duck? #f -> Jak stuck CROUCHED. A HIT (#t = s7+8) is non-#f under either
+representation, which is why genuine overhangs always behaved correctly and only
+the CLEAR case diverged. x86, whose GOAL pointers fit one 32-bit model, is
+unaffected. (Two prior root-cause hypotheses were FALSIFIED by this data: the
+mips2c bare-vs-host RETURN re-tag — the return was already host, AND on arm64
+_mips2c_call_arm64 ignores the C++ return value and hands GOALC the
+ExecutionContext v0 slot via `ldr x0,[sp,#32]`; and goalc-arm64 FMA-fusion —
+goalc-arm64 has no fused-madd path.)
+
+--------------------------------------------------------------------------------
+THE FIX (translation layer, libgk-only, arm64-only, goal_src 1-to-1)
+--------------------------------------------------------------------------------
+game/mips2c/jak1_functions/collide_cache.cpp, (method 9 / method 10
+collide-puss-work) end_of_function (arm64-only):
+    c->gprs[v0].du64[0] = (u32)c->gprs[v0].du64[0];   // bare low-32 GOAL ptr
+Re-represents the ExecutionContext v0 slot (the value _mips2c_call_arm64 returns
+to GOALC) as the BARE low-32 GOAL pointer GOALC's `(when v1-12)` compares against.
+#t stays non-#f, so real collisions still block. x86 build untouched (#if
+defined(__aarch64__)). No goal_src change.
+
+--------------------------------------------------------------------------------
+AFTER (device == x86)
+--------------------------------------------------------------------------------
+Same warp+jump-into-walls drive, fix active on device:
+  * target-duck-stance frames: 2556 -> 97  (~96% reduction).
+  * The ONLY remaining stable latch (tx=-5371951) is x86 blocked=#t -> a GENUINE
+    overhang (Jak's head truly against a wall) -> CORRECT, matches x86.
+  * A spot that latched Jak WITHOUT the fix (-5216368, x86-clear) is now passed
+    through (target-falling/jump, no latch) WITH the fix.
+  * 0 sig=4/6/11, app stays foreground, normal gameplay (jump/stance/walk/
+    falling), no fall-through-the-world.
+So at every x86-CLEAR wall the device now stands up == x86; at every x86-BLOCKED
+overhang it stays crouched == x86. arm64 == x86.
+
+Owner eye/ear = final gate (navigation-gated visual confirm of the exact wall).
+
+Evidence: run{1,3}-logcat.log (device diverges), x86_devcoords.txt / x86_batch.txt
+(x86 oracle blocked=#f at device stuck trans), x86_resid.txt (residual = genuine
+overhang), run5bare-logcat.log + run5bare-result.txt (AFTER: 97 frames, residual
+genuine, S6 passed through), x86_hitcmp.txt (genuine-overhang triangle == x86).
+================================================================================

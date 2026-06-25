@@ -3087,6 +3087,23 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   // nop                                            // sll r0, r0, 0
   end_of_function:
+#if defined(__aarch64__)
+  // Gcollision-wallslide (1-to-1 arm64==x86): collide-puss-work returns the GOAL
+  // symbol #t/#f to the GOALC-compiled probe-using-spheres, whose
+  // `(when v1-12 (return #t))` tests the result as a BARE 32-bit GOAL pointer (the
+  // same low-32 #f-guard convention as the gpr_addr `beq reg, s7` fixes elsewhere in
+  // this file). The mips2c VM returns the symbol via its s7 register, which on arm64
+  // carries the HOST pointer (g_ee_main_mem + offset); the nonzero upper 32 bits make
+  // a CLEAR (#f) head-probe return compare unequal to GOALC's bare #f, so a clear
+  // probe is read as "blocked" -> can-exit-duck? returns #f and Jak is stuck CROUCHED
+  // at certain Geyser-Rock walls even with no input (owner defect; x86's single
+  // 32-bit pointer model is unaffected). #t (s7+8) is non-#f either way, so genuine
+  // overhangs still block. _mips2c_call_arm64 (asm_funcs_arm64.s) hands GOALC the
+  // ExecutionContext v0 slot via `ldr x0,[sp,#32]` (the C++ return value is ignored
+  // on arm64), so re-represent THAT to the bare low-32 GOAL pointer GOALC compares
+  // against. arm64-only; the x86 return path is byte-for-byte untouched.
+  c->gprs[v0].du64[0] = (u32)c->gprs[v0].du64[0];
+#endif
   return c->gprs[v0].du64[0];
 }
 
@@ -3291,6 +3308,16 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   // nop                                            // sll r0, r0, 0
   end_of_function:
+#if defined(__aarch64__)
+  // Gcollision-wallslide (1-to-1 arm64==x86): see the (method 10 collide-puss-work)
+  // return above for the full rationale. The mips2c VM returns the GOAL symbol via
+  // s7 (a HOST pointer on arm64); GOALC's probe-using-spheres `(when v1-12 ...)`
+  // compares it as a BARE low-32 GOAL pointer, so a clear (#f) head-probe return is
+  // misread as "blocked" -> can-exit-duck? #f -> stuck crouch. Re-represent the
+  // ExecutionContext v0 slot (which _mips2c_call_arm64 returns to GOALC) as the bare
+  // low-32 GOAL pointer. arm64-only; x86 untouched.
+  c->gprs[v0].du64[0] = (u32)c->gprs[v0].du64[0];
+#endif
   return c->gprs[v0].du64[0];
 }
 
