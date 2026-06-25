@@ -343,6 +343,10 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/system/IOP_Kernel.cpp"
     "${JAK_ROOT}/game/system/iop_thread.cpp"
     "${JAK_ROOT}/game/system/Deci2Server.cpp"
+    # Phase Ginput-replay (autoport): host-side input record/replay harness,
+    # tapped from android_runtime_compat.cpp::CPadGetData (backend-agnostic core,
+    # also compiled into the desktop gk via game/CMakeLists.txt).
+    "${JAK_ROOT}/game/system/pad_replay.cpp"
     # NOTE: game/system/background_worker.cpp needs libcurl, which we
     # don't ship on Android. android_runtime_compat.cpp owns a
     # default-constructed BackgroundWorker so runtime.h's extern

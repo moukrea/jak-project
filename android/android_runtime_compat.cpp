@@ -44,6 +44,7 @@
 
 #include "game/common/game_common_types.h"
 #include "game/system/background_worker.h"
+#include "game/system/pad_replay.h"
 
 #include "android_input_audio.h"
 
@@ -684,6 +685,13 @@ u64 CPadGetData(u64 cpad_info) {
       cpad->rightx = rx;
       cpad->righty = ry;
       for (auto& b : cpad->abutton) b = 0;  // no pressure-sensitivity
+      // Phase Ginput-replay (autoport): tap the consumed pad state at the same
+      // boundary the desktop build taps (CPadGetData). Record captures
+      // controller 0's absolute state this logic tick; Replay overwrites it from
+      // a demo recorded on EITHER backend, so the SAME demo reproduces a crash
+      // bit-identically on x86 and on this device. No-op unless armed.
+      pad_replay::on_cpad_read(cpad->number, &cpad->button0, &cpad->leftx,
+                               &cpad->lefty, &cpad->rightx, &cpad->righty);
       // One-time authoritative proof that the GOAL kernel actually read a
       // START press out of the cpad (button0 bit 3 = ButtonIndex::START).
       // This is what the title's (cpad-pressed? 0 start) consumes.

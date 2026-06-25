@@ -332,6 +332,7 @@ set(RUNTIME_SOURCE
         settings/settings.cpp
         system/background_worker.cpp
         system/Deci2Server.cpp
+        system/pad_replay.cpp
         system/hid/devices/dualsense_effects.cpp
         system/hid/devices/game_controller.cpp
         system/hid/devices/keyboard.cpp

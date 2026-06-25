@@ -24,6 +24,7 @@
 #include "game/sce/libpad.h"
 #include "game/sce/libscf.h"
 #include "game/sce/sif_ee.h"
+#include "game/system/pad_replay.h"
 
 /*!
  * Where does OVERLORD load its data from?
@@ -263,6 +264,13 @@ u64 CPadGetData(u64 cpad_info) {
     case 90:
       break;  // unsupported controller. too bad!
   }
+  // Phase Ginput-replay (autoport): tap the consumed pad state at the single
+  // boundary the game reads — AFTER the live merge, BEFORE GOAL uses it. Record
+  // captures controller 0's absolute state this logic tick; Replay overwrites it
+  // from the recorded demo. goal_src is untouched. No-op unless the harness is
+  // armed (--pad-replay-* / OG_PAD_REPLAY_*).
+  pad_replay::on_cpad_read(cpad->number, &cpad->button0, &cpad->leftx,
+                           &cpad->lefty, &cpad->rightx, &cpad->righty);
   return cpad_info;
 }
 
@@ -1055,6 +1063,14 @@ u32 pc_rand() {
   return (u32)extra_random_generator();
 }
 
+// Phase Ginput-replay (autoport): reseed the host RNG so a replayed demo is
+// deterministic. pc_rand() is mixed into the GOAL gameplay RNG (rand-vu), so a
+// bit-identical replay must restore the same host RNG state. Registered as the
+// pad_replay rng-seed callback; invoked once at the first replayed logic tick.
+void pc_set_rand_seed(u32 seed) {
+  extra_random_generator.seed(seed);
+}
+
 void pc_treat_pad0_as_pad1(u32 symptr) {
   Gfx::g_debug_settings.treat_pad0_as_pad1 = symbol_to_bool(symptr);
 }
@@ -1198,6 +1214,10 @@ void init_common_pc_port_functions(
 
   // RNG
   make_func_symbol_func("pc-rand", (void*)pc_rand);
+  // Phase Ginput-replay (autoport): let the input-replay harness reseed the host
+  // RNG at the first replayed logic tick, so a recorded demo replays
+  // deterministically (pc-rand feeds the GOAL gameplay rand-vu).
+  pad_replay::set_rng_seed_callback(&pc_set_rand_seed);
 
   // text
   make_func_symbol_func("pc-encode-utf8-string", (void*)pc_encode_utf8_string);
