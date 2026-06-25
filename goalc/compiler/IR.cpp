@@ -2452,10 +2452,18 @@ void IR_JumpReg::do_codegen_arm64(emitter::ObjectGenerator* gen,
   if (m_arm64_pop_ra) {
     // Pop the RA pushed by the preceding `.push` into X30 so the BR'd-to
     // function's paired-LDP epilogue returns there (x86: the function's
-    // `ret` would pop this word from [rsp]). Same encoding as
-    // IR_AsmRet's pop: LDR X30, [SP], #16.
+    // `ret` would pop this word from [rsp]).
+    //   LDR X30, [SP], #16  (0xF84107FE) — advances SP; the asm-func contract
+    //     (reset-and-call / set-to-run-bootstrap), same as IR_AsmRet's pop.
+    //   LDR X30, [SP]       (0xF94003FE) — Gcollectible-state: delivers the RA
+    //     into X30 WITHOUT moving SP, used only for enter-state so a state
+    //     :code that falls off the end RETs to return-from-thread-dead while
+    //     suspend-looping states keep the byte-identical SP of the stale-X30
+    //     path (no F1f +16 title regression).
     constexpr uint32_t kLdrX30PopSP = 0xF84107FEu;
-    gen->add_instr(emitter::InstructionARM64(kLdrX30PopSP), irec);
+    constexpr uint32_t kLdrX30KeepSP = 0xF94003FEu;
+    gen->add_instr(
+        emitter::InstructionARM64(m_arm64_pop_ra_no_sp ? kLdrX30KeepSP : kLdrX30PopSP), irec);
   }
   gen->add_instr(emitter::IGen::ARM64::jmp_r64(src_reg), irec);
 }

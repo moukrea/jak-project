@@ -459,7 +459,7 @@ static bool epilogue_x30_trace_emit_enabled() {
 // epilogue against the freshly-reset (zero-filled) process stack, and
 // LDP'd X29=0/X30=0 → RET → pc=0/fp=0/lr=0 — the F1d §7b load-game
 // restore crash signature (2/2 deterministic).
-static void mark_push_jr_pop_ra_arm64(FunctionEnv* env) {
+static void mark_push_jr_pop_ra_arm64(FunctionEnv* env, bool no_sp_adjust = false) {
   for (int jr_idx = 0; jr_idx < int(env->code().size()); jr_idx++) {
     auto* jr = dynamic_cast<IR_JumpReg*>(env->code().at(jr_idx).get());
     if (!jr) {
@@ -475,7 +475,14 @@ static void mark_push_jr_pop_ra_arm64(FunctionEnv* env) {
         continue;
       }
       if (dynamic_cast<IR_AsmPush*>(prev)) {
-        jr->mark_arm64_pop_ra();
+        // no_sp_adjust: deliver the RA into X30 with LDR X30,[SP] (no SP move),
+        // for enter-state's fall-off-the-end RETURN path — see the call site
+        // in do_goal_function_arm64 and IR_JumpReg::mark_arm64_pop_ra_no_sp.
+        if (no_sp_adjust) {
+          jr->mark_arm64_pop_ra_no_sp();
+        } else {
+          jr->mark_arm64_pop_ra();
+        }
       }
       break;
     }
@@ -605,6 +612,23 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   // RETURN path stays the documented G2 residual — see G1-fix-summary.md).
   // The asm-func sites (reset-and-call, set-to-run-bootstrap) still run the
   // scan via do_asm_function_arm64 — their A34 contract is unchanged.
+  //
+  // Gcollectible-state — re-enable the pop-RA for enter-state ONLY, using the
+  // NO-SP-ADJUST encoding (LDR X30,[SP], not LDR X30,[SP],#16). enter-state is
+  // the lone non-asm-func with a `.push return-from-thread-dead; .jr code`
+  // trampoline (gstate.gc:376-381; the other `.push;.jr` sites are asm-funcs).
+  // Without this, a state :code that FALLS OFF THE END (e.g. crate `die`, which
+  // ends with `(suspend-for (seconds 5))` and returns) RETs to a stale X30
+  // instead of the deactivate trampoline, so the process is never deactivated:
+  // the broken crate re-runs its `die` state every ~4s forever, re-dropping its
+  // pickup ("infinite green eco") and re-spawning its debris ("debris flicker").
+  // The no-SP-adjust form leaves SP byte-identical to the current stale-X30 path
+  // for suspend-LOOPING states (which never return), so it cannot reproduce the
+  // F1f +16 title regression that forced the G1 revert above — it only changes
+  // the RETURN target of fall-off-the-end :code, which is exactly the bug.
+  if (env->name() == "enter-state") {
+    mark_push_jr_pop_ra_arm64(env, /*no_sp_adjust=*/true);
+  }
 
   for (int ir_idx = 0; ir_idx < int(env->code().size()); ir_idx++) {
     auto& ir = env->code().at(ir_idx);
