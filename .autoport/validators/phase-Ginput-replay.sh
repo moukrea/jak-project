@@ -24,12 +24,22 @@ grep -qiE 'full|all[[:space:]]*button|per[- ]frame|absolute[- ]state|bitmask' "$
 grep -qiE 'flush|per[- ]frame.*(write|sync)|crash.*(frame|tail).*(log|captur)' "$R" || fail "must document flush-every-frame (crash frame in log)"
 grep -qiE 'idle|first[- ]input|non[- ]neutral|frame[[:space:]]*0' "$R" || fail "must document idle-until-first-input start"
 grep -qiE 'seed|rng|determinis|frame[- ]lock|continue[- ]?point|fingerprint' "$R" || fail "must document the determinism/start-state mechanism (rng seed etc.)"
-# Determinism: two replays identical
-grep -qiE 'determinis|2[[:space:]]*replay|twice|identical[[:space:]]*(state[[:space:]]*)?trace|replay.*==.*replay' "$R" || fail "must prove determinism (2 replays identical state trace)"
-# Cross-backend: x86 + arm64 replay both ran, divergence-diff mechanism documented
+# Determinism: two replays bit-identical state dumps
+grep -qiE 'determinis|2[[:space:]]*replay|twice|bit-?identical|identical[[:space:]]*(state[[:space:]]*)?(dump|trace)|replay.*==.*replay' "$R" || fail "must prove determinism (2 replays bit-identical state dumps)"
+# Cross-backend: x86 + arm64 replay both ran
 grep -qiE 'x86' "$R" || fail "must show x86 replay"
 grep -qiE 'arm64|device|eae4df44' "$R" || fail "must show arm64/device replay"
-grep -qiE 'diverg|first[- ]frame|frame.*differ|state[- ]?trace[- ]?diff|compare.*(value|state)' "$R" || fail "must document the x86-vs-arm64 first-divergence diff mechanism"
+# Comparison MUST be STATE-anchored (deterministic logical state), NOT render-frame-indexed (framerate-dependent)
+grep -qiE 'logic[- ]?tick|logical[- ]?state|state-?anchor|process[- ]?state|control[- ]?state|game[- ]?event|deterministic[- ]?(state|tick)|tick-?lock|framerate-?independ' "$R" \
+  || fail "comparison must be anchored on the deterministic LOGICAL STATE (logic tick / process-state / event), NOT render frames"
+grep -qiE 'bit-?identical|identical.*(value|float|state)|same[[:space:]]*(value|float|state)' "$R" \
+  || fail "must assert variables/floats are BIT-IDENTICAL at matching logical states across x86 vs arm64"
+grep -qiE 'diverg|first.*(state|variable|value).*(differ|diverg)|first[- ]?divergent' "$R" \
+  || fail "must document the first-divergent-STATE/VARIABLE localizer (not a frame index)"
+# Reject a render-frame-indexed methodology slipping back in
+if grep -qiE 'first[- ]?divergent[- ]?frame|per[- ]?render[- ]?frame|align.*by.*frame[- ]?(index|number)' "$R"; then
+  fail "report uses render-frame-indexed comparison (framerate-dependent) — must be STATE-anchored"
+fi
 # self-test demo artifact present + non-trivial
 D=.autoport/demos/selftest.inputs
 [ -f "$D" ] || fail "no .autoport/demos/selftest.inputs artifact"

@@ -8,8 +8,10 @@ trying to drive there programmatically. Use the `Ginput-replay` harness:
    crash ONCE; the demo `.autoport/demos/portal-crash.inputs` is pulled from the device.
 2. Replay the demo **deterministically on arm64** (reproduces the crash every time, no owner) and on
    **x86** (does NOT crash). Capture sig/pc/lr/fp-walk + content canary at the arm64 crash frame.
-3. Diff the per-frame **state trace x86 vs arm64** → the **first divergent frame/value** names the
-   arm64 bug. Fix it in the translation layer; **replay-verify** ≥5× crash-free with x86==arm64 trace.
+3. Compare the **state x86 vs arm64 anchored on the deterministic LOGICAL state** (process/control
+   state, game event, logic tick — NOT render frames, which are framerate-dependent): variables/floats
+   must be bit-identical; the **first divergent state/value** names the arm64 bug. Fix it in the
+   translation layer; **replay-verify** ≥5× crash-free with arm64 state == x86 state.
 If the harness is unavailable, fall back to the x86-first method below.
 
 ## Method (mandatory) — x86-first, fix the ARM divergence in the TRANSLATION layer, goal_src 1-to-1
