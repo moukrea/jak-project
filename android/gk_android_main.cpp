@@ -57,6 +57,7 @@
 #include "game/kernel/common/ksocket.h"
 #include "game/kernel/jak1/kscheme.h"
 #include "game/runtime.h"
+#include "game/system/pad_replay.h"
 
 // A11: jak1::InitHeapAndSymbol exposes a chainable hook that fires
 // between the kernel-CGO load and the kernel-version check. We chain
@@ -6038,6 +6039,33 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
         files_dir.empty() ? std::string(data_root) + "/cpad_inject"
                           : files_dir + "/cpad_inject";
     android_input_audio::start_inject_watcher(inject_path.c_str());
+  }
+
+  // Phase Ginput-replay (autoport): arm the input record/replay harness from an
+  // app property (Android has no argv). Default OFF — a normal boot is untouched,
+  // so deploy_verify and gameplay are unaffected.
+  //   debug.opengoal.pad_replay = selftest -> run the record/replay byte-identity
+  //       self-test, write the demo + per-logic-tick state dump under <files>,
+  //       log "PAD DIFF: 0/N"; then continue booting.
+  //   debug.opengoal.pad_replay = record   -> record live input to
+  //       <files>/pad_demo.inputs (flush-per-tick; the owner-records-once path).
+  //   debug.opengoal.pad_replay = replay   -> replay <files>/pad_demo.inputs
+  //       (the worker reproduces the recorded crash deterministically).
+  {
+    char prb[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.pad_replay", prb) > 0 && prb[0]) {
+      std::string base = files_dir.empty() ? std::string(data_root) : files_dir;
+      if (std::strcmp(prb, "selftest") == 0) {
+        std::string out = base + "/selftest.inputs";
+        int rc = pad_replay::run_selftest(out, 120);
+        __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                            "pad_replay: SELFTEST rc=%d -> %s", rc, out.c_str());
+      } else if (std::strcmp(prb, "record") == 0) {
+        pad_replay::init(pad_replay::Mode::Record, base + "/pad_demo.inputs");
+      } else if (std::strcmp(prb, "replay") == 0) {
+        pad_replay::init(pad_replay::Mode::Replay, base + "/pad_demo.inputs");
+      }
+    }
   }
 
   // Canonical argv shape:

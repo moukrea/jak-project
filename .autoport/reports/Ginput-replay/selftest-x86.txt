@@ -1,0 +1,10 @@
+pad_replay: SELFTEST begin (120 logic ticks) -> /tmp/selftest_verify.inputs
+pad_replay: RECORD -> /tmp/selftest_verify.inputs (per-logic-tick, flush-per-tick, idle-until-first-input)
+pad_replay: REPLAY <- /tmp/selftest_verify.inputs (120 logic ticks, seed=0x0ad12345)
+pad_replay: REPLAY <- /tmp/selftest_verify.inputs (120 logic ticks, seed=0x0ad12345)
+pad_replay: idle-until-first-input: 3 neutral ticks skipped, frame 0 = first input (OK)
+pad_replay: demo size 784 bytes (expected 784: 64B header + 120*6)
+PAD DIFF: 0/120
+DETERMINISM: 2 replays differ at 0/120 logic ticks (bit-identical state dumps expected)
+FIRST DIVERGENCE: none — all 120 logic ticks bit-identical (record == replay)
+pad_replay: SELFTEST PASS

@@ -20,6 +20,7 @@
 
 #include "game/common/game_common_types.h"
 #include "game/kernel/common/kmemcard.h"
+#include "game/system/pad_replay.h"
 #include "graphics/gfx_test.h"
 
 #include "third-party/CLI11.hpp"
@@ -96,6 +97,22 @@ int goal_main(int argc, char** argv);
 #ifndef __ANDROID__
 int goal_main(int argc, char** argv) {
   ArgumentGuard u8_guard(argc, argv);
+
+  // Phase Ginput-replay (autoport): self-test entry. `--pad-replay-selftest
+  // <out>` runs the record->replay byte-identity proof through the REAL
+  // pad_replay tap and exits, before any runtime/gfx init (no game boot needed).
+  // This is what the validator runs to prove all-input capture + determinism.
+  for (int i = 1; i < argc; ++i) {
+    if (argv[i] && std::string(argv[i]) == "--pad-replay-selftest") {
+      std::string out = (i + 1 < argc && argv[i + 1]) ? std::string(argv[i + 1])
+                                                       : std::string("selftest.inputs");
+      return pad_replay::run_selftest(out, 120);
+    }
+  }
+  // Arm live record/replay from the environment (OG_PAD_REPLAY_RECORD /
+  // OG_PAD_REPLAY_REPLAY). No-op unless set — used by the crash phases to record
+  // a real playthrough and replay it deterministically.
+  pad_replay::init_from_env();
 
   // Phase E3 (autoport): scan argv for the save-portability flags BEFORE
   // CLI11 parsing. CLI11 reserves single-dash for short options, so

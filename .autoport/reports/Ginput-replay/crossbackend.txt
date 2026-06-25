@@ -1,0 +1,2 @@
+CROSS-BACKEND: statedump BIT-IDENTICAL at all matching logic ticks (x86 == arm64)
+CROSS-BACKEND: recorded demo bytes BIT-IDENTICAL (x86 == arm64)
