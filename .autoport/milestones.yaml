@@ -833,24 +833,6 @@ phases:
   validator: validators/phase-Gorb-icon.sh
   max_turns: 1400
   max_retries: 3
-- id: Gcrash-mouche3
-  name: "OWNER VERIFY 2026-06-24: real in-level scout-fly collect STILL crashes on the latest build (Gcrash-mouche2 6/6 was a FALSE GREEN \u2014 programmatic collect != real crate->fly->collect). Re-do: exercise the REAL crate-break+pickup path OR owner-in-the-loop crash capture (armed forensics, owner collects a fly), name the real crash, fix. After the current queue per owner."
-  prompt: prompts/phase-Gcrash-mouche3.md
-  validator: validators/phase-Gcrash-mouche3.sh
-  max_turns: 1600
-  max_retries: 4
-- id: Gaudio-hint-voices
-  name: 'OWNER CLARIFICATION 2026-06-24 (note for later): cinematic voices + background SFX are FINE; the IN-GAME tutorial/hint dialog VOICES (Sage explaining orbs/items during play) are SILENT on arm64, + some action sounds missing. Targeted fix of the in-game talker/hint voice trigger+route (distinct from the working cinematic-voice path). goal_src 1-to-1.'
-  prompt: prompts/phase-Gaudio-hint-voices.md
-  validator: validators/phase-Gaudio-hint-voices.sh
-  max_turns: 1400
-  max_retries: 3
-- id: Gportal-crash
-  name: 'OWNER 2026-06-25: game CRASHES at the blue-eco portal/gate you charge to open. arm64 crash (merc/DMA/float class); not on x86. Reproduce+capture+fix.'
-  prompt: prompts/phase-Gportal-crash.md
-  validator: validators/phase-Gportal-crash.sh
-  max_turns: 1500
-  max_retries: 4
 - id: Gcollision-wallslide
   name: 'OWNER 2026-06-25: hitting a ledge too high -> Jak slow-slides down the wall (falling state, stuck vs wall) + ends CROUCHED, differs from x86. Residual collision/float divergence (clip-through already FMA-fixed). x86-first diff, fix arm64==x86.'
   prompt: prompts/phase-Gcollision-wallslide.md
@@ -869,12 +851,30 @@ phases:
   validator: validators/phase-Gsfx-actions.sh
   max_turns: 1500
   max_retries: 4
+- id: Gaudio-hint-voices
+  name: 'OWNER CLARIFICATION 2026-06-24 (note for later): cinematic voices + background SFX are FINE; the IN-GAME tutorial/hint dialog VOICES (Sage explaining orbs/items during play) are SILENT on arm64, + some action sounds missing. Targeted fix of the in-game talker/hint voice trigger+route (distinct from the working cinematic-voice path). goal_src 1-to-1.'
+  prompt: prompts/phase-Gaudio-hint-voices.md
+  validator: validators/phase-Gaudio-hint-voices.sh
+  max_turns: 1400
+  max_retries: 3
 - id: Gecho-pool
   name: 'OWNER 2026-06-23: in the NEW-GAME intro cinematic the BLACK dark-eco pool Daxter falls into is NOT rendered on arm64 -> his ottsel (animal) form shows through prematurely (the black eco should hide it). Sole cinematic issue. x86-first: find the unrendered dark-eco-pool draw (renderer-family noop/subset gap likely), fix in translation layer; goal_src 1-to-1.'
   prompt: prompts/phase-Gecho-pool.md
   validator: validators/phase-Gecho-pool.sh
   max_turns: 1500
   max_retries: 3
+- id: Gportal-crash
+  name: 'OWNER 2026-06-25: game CRASHES at the blue-eco portal/gate you charge to open. arm64 crash (merc/DMA/float class); not on x86. Reproduce+capture+fix.'
+  prompt: prompts/phase-Gportal-crash.md
+  validator: validators/phase-Gportal-crash.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gcrash-mouche3
+  name: "OWNER VERIFY 2026-06-24: real in-level scout-fly collect STILL crashes on the latest build (Gcrash-mouche2 6/6 was a FALSE GREEN \u2014 programmatic collect != real crate->fly->collect). Re-do: exercise the REAL crate-break+pickup path OR owner-in-the-loop crash capture (armed forensics, owner collects a fly), name the real crash, fix. After the current queue per owner."
+  prompt: prompts/phase-Gcrash-mouche3.md
+  validator: validators/phase-Gcrash-mouche3.sh
+  max_turns: 1600
+  max_retries: 4
 global:
   git:
     push_after_each_phase: true
