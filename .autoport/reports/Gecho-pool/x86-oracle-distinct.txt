@@ -1,0 +1,2 @@
+GECHO-DRAW bucket=l1-tfrag-generic id=18 tex=misty-vis-tfrag/environment-darkeco mode=0xff9a00fd tris_max=156
+GECHO-DRAW bucket=l1-tfrag-generic id=18 tex=misty-vis-tfragmis-darkecowater mode=0xfe1a00dd tris_max=156

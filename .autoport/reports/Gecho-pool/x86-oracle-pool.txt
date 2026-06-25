@@ -1,0 +1,6 @@
+GECHO-DRAW bucket=l1-tfrag-generic id=18 draw=0 tbp=0x1aca tex=misty-vis-tfragmis-darkecowater mode=0xfe1a00dd idx=209 tris=98
+GECHO-DRAW bucket=l1-tfrag-generic id=18 draw=0 tbp=0x1aca tex=misty-vis-tfragmis-darkecowater mode=0xfe1a00dd idx=220 tris=100
+GECHO-DRAW bucket=l1-tfrag-generic id=18 draw=0 tbp=0x1aca tex=misty-vis-tfragmis-darkecowater mode=0xfe1a00dd idx=315 tris=156
+GECHO-DRAW bucket=l1-tfrag-generic id=18 draw=1 tbp=0x131 tex=misty-vis-tfrag/environment-darkeco mode=0xff9a00fd idx=209 tris=98
+GECHO-DRAW bucket=l1-tfrag-generic id=18 draw=1 tbp=0x131 tex=misty-vis-tfrag/environment-darkeco mode=0xff9a00fd idx=220 tris=100
+GECHO-DRAW bucket=l1-tfrag-generic id=18 draw=1 tbp=0x131 tex=misty-vis-tfrag/environment-darkeco mode=0xff9a00fd idx=315 tris=156

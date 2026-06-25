@@ -51,7 +51,7 @@ void Generic2BucketRenderer::render(DmaFollower& dma,
       printf("GECHO-GEN bucket=%s id=%d verts=%u frags=%u adgifs=%u idx=%u tris=%u\n", name().c_str(),
              m_my_id, v, f, a, m_generic->dbg_idx_count(), m_generic->dbg_tri_count());
       fflush(stdout);
-      if (v > 0) m_generic->dbg_dump_draws(name().c_str(), m_my_id);
+      if (v > 0) m_generic->dbg_dump_draws(name().c_str(), m_my_id, render_state);
     }
   }
   m_empty = m_generic->empty();

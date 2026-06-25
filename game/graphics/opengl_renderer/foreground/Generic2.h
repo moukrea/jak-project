@@ -32,11 +32,17 @@ class Generic2 {
     return t;
   }
 
-  // Gecho-pool probe (TEMPORARY): dump per-draw tbp/mode breakdown for this bucket call.
-  void dbg_dump_draws(const char* bname, int bid) const {
+  // Gecho-pool probe (TEMPORARY): dump per-draw tbp/mode/tex-name breakdown for this bucket call.
+  // Resolving tbp -> texture name makes the dark-eco-pool's generic draw identifiable in the log
+  // on BOTH x86 and arm64 (the pool is forced through generic-merc, so it has no model name here).
+  void dbg_dump_draws(const char* bname, int bid, SharedRenderState* rs) const {
     for (u32 i = 0; i < m_next_free_bucket; i++) {
-      printf("GECHO-DRAW bucket=%s id=%d draw=%u tbp=0x%x mode=0x%llx idx=%u tris=%u\n", bname, bid,
-             i, m_buckets[i].tbp, (unsigned long long)m_buckets[i].mode.as_int(),
+      std::string tex = "?";
+      if (rs && rs->texture_pool) {
+        tex = rs->texture_pool->get_debug_texture_name_from_tbp(m_buckets[i].tbp & 0x7fff);
+      }
+      printf("GECHO-DRAW bucket=%s id=%d draw=%u tbp=0x%x tex=%s mode=0x%llx idx=%u tris=%u\n", bname,
+             bid, i, m_buckets[i].tbp, tex.c_str(), (unsigned long long)m_buckets[i].mode.as_int(),
              m_buckets[i].idx_count, m_buckets[i].tri_count);
     }
     fflush(stdout);
