@@ -833,12 +833,6 @@ phases:
   validator: validators/phase-Gorb-icon.sh
   max_turns: 1400
   max_retries: 3
-- id: Gecho-pool
-  name: 'OWNER 2026-06-23: in the NEW-GAME intro cinematic the BLACK dark-eco pool Daxter falls into is NOT rendered on arm64 -> his ottsel (animal) form shows through prematurely (the black eco should hide it). Sole cinematic issue. x86-first: find the unrendered dark-eco-pool draw (renderer-family noop/subset gap likely), fix in translation layer; goal_src 1-to-1.'
-  prompt: prompts/phase-Gecho-pool.md
-  validator: validators/phase-Gecho-pool.sh
-  max_turns: 1500
-  max_retries: 3
 - id: Gcrash-mouche3
   name: "OWNER VERIFY 2026-06-24: real in-level scout-fly collect STILL crashes on the latest build (Gcrash-mouche2 6/6 was a FALSE GREEN \u2014 programmatic collect != real crate->fly->collect). Re-do: exercise the REAL crate-break+pickup path OR owner-in-the-loop crash capture (armed forensics, owner collects a fly), name the real crash, fix. After the current queue per owner."
   prompt: prompts/phase-Gcrash-mouche3.md
@@ -875,6 +869,12 @@ phases:
   validator: validators/phase-Gsfx-actions.sh
   max_turns: 1500
   max_retries: 4
+- id: Gecho-pool
+  name: 'OWNER 2026-06-23: in the NEW-GAME intro cinematic the BLACK dark-eco pool Daxter falls into is NOT rendered on arm64 -> his ottsel (animal) form shows through prematurely (the black eco should hide it). Sole cinematic issue. x86-first: find the unrendered dark-eco-pool draw (renderer-family noop/subset gap likely), fix in translation layer; goal_src 1-to-1.'
+  prompt: prompts/phase-Gecho-pool.md
+  validator: validators/phase-Gecho-pool.sh
+  max_turns: 1500
+  max_retries: 3
 global:
   git:
     push_after_each_phase: true
