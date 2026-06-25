@@ -839,6 +839,12 @@ phases:
   validator: validators/phase-Gcollision-wallslide.sh
   max_turns: 1500
   max_retries: 4
+- id: Ginput-replay
+  name: 'OWNER DIRECTIVE 2026-06-25: foundational input record/replay harness — boot, idle until first input, RECORD every input faithfully (full pad state per frame, flush-per-frame) until the crash -> infinitely-replayable demo the worker replays autonomously; + replay the SAME demo on x86 vs arm64 and diff the per-frame state trace to localize ANY divergence (crash OR state) to the first differing frame/value. Self-verified: record->replay byte-identical (ALL inputs captured). Unblocks Gportal-crash + Gcrash-mouche3 + sharpens every state phase. goal_src 1-to-1.'
+  prompt: prompts/phase-Ginput-replay.md
+  validator: validators/phase-Ginput-replay.sh
+  max_turns: 1600
+  max_retries: 4
 - id: Gcollectible-state
   name: 'OWNER 2026-06-25: green eco RESPAWNS after collect (not consumed, infinite-money-like) = arm64 state/variable divergence; + crate DEBRIS flicker (appear/disappear loop) = render/state. x86-first, fix arm64==x86.'
   prompt: prompts/phase-Gcollectible-state.md

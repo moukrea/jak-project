@@ -26,6 +26,15 @@ scout fly in Geyser Rock** so the crash is logged, and STOP for the supervisor t
 test + pull the logcat. Then analyze the REAL captured crash and fix it. The diagnosis must come from
 the OWNER's real crash, not a synthetic one.
 
+### Route C — PREFERRED: Ginput-replay demo (owner records once → infinite deterministic replay)
+Use the `Ginput-replay` harness. Supervisor boots the device build with recording armed; the OWNER
+plays from idle and does the REAL crate-break→buzzer→collect ONCE; the demo
+`.autoport/demos/mouche-crash.inputs` is pulled from the device. Then replay it **deterministically on
+arm64** (reproduces the collect-crash every time, no owner) and on **x86** (no crash); diff the
+per-frame **state trace x86 vs arm64** → the first divergent frame names the bug; fix it in the
+translation layer; **replay-verify** the real demo ≥5× crash-free + render-advancing with x86==arm64
+trace. This is the faithful real-path repro the earlier programmatic shortcut lacked.
+
 ## Validator (`phase-Gcrash-mouche3.sh`) PASS requires ONE of:
 - **Route A:** `.autoport/reports/Gcrash-mouche3/runs.txt`: the REAL crate→fly→collect reproduced the
   crash BEFORE (sig/writer/victim, on the real path — documented as the real crate-break+pickup, not a
