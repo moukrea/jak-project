@@ -1,0 +1,119 @@
+================================================================================
+Gcollectible-state — green eco RESPAWNS after collect + crate DEBRIS flicker
+  arm64-vs-x86 divergence, x86-first, fixed in the goalc arm64 translation layer
+================================================================================
+
+RESULT: eco/green eco no longer RESPAWNS after collect (not consumed -> correctly
+consumed) AND crate DEBRIS flicker (appear/disappear loop) GONE. Both were ONE
+arm64 codegen divergence: a broken crate (and any placed entity whose state :code
+falls off the end) never DEACTIVATED on arm64, so it re-ran its `die` state every
+~4s forever -> re-dropped its pickup (infinite green eco / "collect/consum" wrong)
+and re-spawned its debris part-tracker (the crate/flicker). Fixed so arm64 == x86.
+
+--------------------------------------------------------------------------------
+THE OWNER-OBSERVED SYMPTOMS (2026-06-25)
+--------------------------------------------------------------------------------
+  1. green eco RESPAWNS after collect (not consumed, infinite-money-like)
+  2. crate DEBRIS flicker (appear/disappear loop)
+Both differ from the original x86 build; both are an arm64 state divergence.
+
+--------------------------------------------------------------------------------
+ROOT CAUSE (single divergence explains BOTH symptoms)
+--------------------------------------------------------------------------------
+Green eco pickups (GOAL types `health` / `eco-pill`) and crates are *entity-actors*.
+When collected/broken they run a terminal `die` state whose `:code` ends by
+FALLING OFF THE END (e.g. crate `die` ends with `(suspend-for (seconds 5))` then
+returns; collectables.gc:530 / crates.gc:630-707). A state `:code` that returns is
+supposed to DEACTIVATE the process: `enter-state` (gstate.gc:355-386, branch 3)
+pushes `return-from-thread-dead` as the return address via `.push;.jr`, so when
+`:code` returns it lands on that trampoline and runs `(deactivate pp)`.
+
+On x86 the `:code` epilogue `ret` POPS that pushed word -> return-from-thread-dead
+-> deactivate -> entity-deactivate-handler -> the process is gone for good.
+
+On arm64 GOAL functions use the register-RA contract (paired STP/LDP of X30; the
+`ret` returns to X30, it does NOT pop a stack word). The G1 revert
+(CodeGenerator.cpp:585-607) removed the pop-RA scan from `do_goal_function_arm64`
+because F1f's `LDR X30,[SP],#16` (+16 SP) regressed the title's suspend states. So
+`enter-state`'s `.jr` left a STALE X30: a `:code` that falls off the end RETs to a
+stale address instead of return-from-thread-dead. The process is NEVER deactivated;
+the kernel keeps its `die` next-state and re-dispatches it -> `die :code` re-runs
+every ~4s, re-calling `drop-pickup` (re-spawns the green eco -> "respawns / not
+consumed") and re-spawning the crate-explode part-tracker (-> "debris flicker").
+
+Why it doesn't break everything: almost every state either loops forever on
+`(suspend)` (never returns; stale X30 harmless) or calls `(deactivate self)` /
+`(go ...)` explicitly. ONLY a terminal state that DIES BY FALLING OFF THE END
+(crate die, placed-eco die) hits the broken return path. enter-state is the lone
+non-asm-func with this `.push RA;.jr` trampoline (the other sites — reset-and-call
+gkernel.gc:535, set-to-run-bootstrap gkernel.gc:1858 — are asm-funcs already
+covered by do_asm_function_arm64).
+
+--------------------------------------------------------------------------------
+x86-FIRST DETERMINISTIC STATE DIFF (state-anchored, NOT framerate-indexed)
+--------------------------------------------------------------------------------
+A temporary 3-point lifecycle probe was baked into entity.gc (GDBG-PES at
+process-entity-status! dead, GDBG-DEACT at entity-deactivate-handler, GDBG-BIRTH
+at birth!) and compiled into BOTH backends. The SAME action — break ONE crate at
+Geyser Rock (training) — was driven on x86 (goalc listener, find crate + send
+'attack) and on the arm64 device (warp + cpad spin-attack).
+
+x86 (ORIGINAL / correct), broken crate self=#x1ebcd4:
+    GDBG-PES   type=crate ... eq=#t pre=#x0       (x1)
+    GDBG-PES-SET type=crate post=#x4              (x1, dead bit set)
+    GDBG-DEACT type=crate ... eq=#t status=#x44   (x1) -> DEACTIVATED, stops.
+    => GDBG-PES type=crate = 1, GDBG-DEACT type=crate = 1.
+
+arm64 device BEFORE fix, broken crate self=#x1fdee4:
+    GDBG-PES type=crate ... pre=#x44   repeated every ~4s for 7+ minutes (108x)
+    GDBG-DEACT type=crate              = 0   (NEVER deactivated)
+    same eco-pill #x23a684 re-dropped 108x (the "infinite eco" / debris re-spawn)
+    => GDBG-PES type=crate = 108, GDBG-DEACT type=crate = 0.  FIRST DIVERGENT
+       STATE: the deactivation event is MISSING on arm64.
+
+The dead bit itself (perm-status 0x4) WAS set and sticky on arm64 (pre=#x44) — so
+the divergence is NOT the dead-mark; it is the missing process DEACTIVATION when
+the die :code returns. Confirmed via host goalc disassembly: the codegen of
+process-entity-status!/birth?/the eco/crate die bodies is x86==arm64-equivalent;
+the divergence is the enter-state `.jr` stale-X30, a runtime control-flow bug.
+
+arm64 device AFTER fix, broken crate self=#x201674:
+    GDBG-PES   type=crate ... eq=#t pre=#x0     (x1)
+    GDBG-PES-SET type=crate post=#x4            (x1)
+    GDBG-DEACT type=crate ... eq=#t status=#x44 (x1) -> DEACTIVATED, stops.
+    => GDBG-PES type=crate = 1, GDBG-DEACT type=crate = 1  ==  x86. FIXED.
+    No eco re-drop, no debris re-spawn, no crate respawn (GDBG-BIRTH crate = 0).
+
+--------------------------------------------------------------------------------
+THE FIX (translation layer only; goal_src 1-to-1; no x86 emitter touched)
+--------------------------------------------------------------------------------
+goalc arm64 codegen — re-enable the pop-RA for `enter-state` ONLY, using a NEW
+NO-SP-ADJUST encoding `LDR X30,[SP]` (0xF94003FE) instead of F1f's `LDR X30,[SP],#16`
+(0xF84107FE). It delivers the pushed return-from-thread-dead into X30 WITHOUT
+moving SP, so:
+  - a state :code that falls off the end RETs to return-from-thread-dead ->
+    deactivate (crate/eco fixed, arm64 == x86), and
+  - suspend-LOOPING states keep the BYTE-IDENTICAL SP of today's stale-X30 path
+    (they never return), so the F1f +16 title regression CANNOT recur.
+Files (all arm64-only; IGenX86_64.* untouched; x86 output byte-identical):
+  - goalc/compiler/IR.h            : IR_JumpReg::mark_arm64_pop_ra_no_sp()
+  - goalc/compiler/IR.cpp          : emit LDR X30,[SP] vs LDR X30,[SP],#16
+  - goalc/compiler/CodeGenerator.cpp: mark_push_jr_pop_ra_arm64(env, no_sp_adjust)
+                                      called for env->name()=="enter-state" only.
+
+--------------------------------------------------------------------------------
+PROOF / VALIDATION
+--------------------------------------------------------------------------------
+  - BEFORE(device diverges): GDBG-PES type=crate 108x, GDBG-DEACT type=crate 0  (loop).
+  - AFTER (device == x86):    GDBG-PES type=crate 1x,   GDBG-DEACT type=crate 1  (deactivates).
+  - x86 reference == AFTER (1/1). x86-first confirmed; first divergent state named.
+  - TITLE / suspend-state REGRESSION GATE: title + attract render, vblank climbs
+    to 43801, zero crashes (enter-state runs for every state transition -> boot +
+    title is a live proof the no-SP fix does not regress suspend states).
+  - Clean (no-instrumentation) HEAD build deployed: deploy_verify.sh eae4df44 PASS;
+    boot + title + gameplay crash-free (no signal 11/6/4).
+  - x86 smoke: link finish: logo. goal_src 1-to-1 (instrumentation reverted).
+  - .autoport/gold pristine.
+
+Owner eye/ear = final.
+================================================================================

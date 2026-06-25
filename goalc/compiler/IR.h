@@ -633,10 +633,24 @@ class IR_JumpReg : public IR_Asm {
   // emission pops that word into X30 before the BR — delivering the RA
   // through the arm64 register contract instead.
   void mark_arm64_pop_ra() { m_arm64_pop_ra = true; }
+  // Gcollectible-state — no-SP-adjust variant of the pop-RA, used ONLY for
+  // enter-state's branch-3 `.jr` (the lone `.push return-from-thread-dead;
+  // .jr code` in a non-asm-func, gstate.gc:376-381). It delivers the pushed
+  // RA into X30 with `LDR X30,[SP]` (no post-index) instead of
+  // `LDR X30,[SP],#16`, so a state :code that FALLS OFF THE END (e.g. crate
+  // `die`) RETs to return-from-thread-dead -> deactivate, while suspend-looping
+  // states keep the byte-identical SP of today's stale-X30 path. F1f used the
+  // +16 form here and regressed the title (suspend states shifted 16 bytes,
+  // CodeGenerator.cpp G1 revert); leaving SP untouched cannot regress them.
+  void mark_arm64_pop_ra_no_sp() {
+    m_arm64_pop_ra = true;
+    m_arm64_pop_ra_no_sp = true;
+  }
 
  protected:
   const RegVal* m_src = nullptr;
   bool m_arm64_pop_ra = false;
+  bool m_arm64_pop_ra_no_sp = false;
 };
 
 class IR_RegSetAsm : public IR_Asm {
