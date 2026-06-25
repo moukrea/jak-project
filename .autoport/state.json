@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 139,
+  "current_phase_idx": 140,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -134,7 +134,7 @@
     "Gcrash-mouche2": 2,
     "Gcollision-arm": 1,
     "Gorb-icon": 1,
-    "Gcollision-wallslide": 1
+    "Gcollision-wallslide": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -258,6 +258,9 @@
     ],
     "Gcrash-mouche2": [
       "1188997ff2ca"
+    ],
+    "Gcollision-wallslide": [
+      "33f1b13a7d19"
     ]
   },
   "stuck_reasons": {
@@ -393,7 +396,8 @@
     "Gaudio-sfx",
     "Gcrash-mouche2",
     "Gcollision-arm",
-    "Gorb-icon"
+    "Gorb-icon",
+    "Gcollision-wallslide"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -515,7 +519,7 @@
     "Gcrash-mouche3": 1782381135.733917,
     "Gcollision-wallslide": 1782381670.9086006
   },
-  "last_update": "2026-06-25T15:30:42.498271+00:00",
+  "last_update": "2026-06-25T18:03:19.679279+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

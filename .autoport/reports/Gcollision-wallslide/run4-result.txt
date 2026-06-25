@@ -1,0 +1,55 @@
+== ANALYSIS ==
+-- distinct states seen --
+   3498 st=target-duck-walk
+   2694 st=target-duck-stance
+   1615 st=target-jump
+    693 st=target-swim-jump-jump
+    194 st=target-swim-jump
+    103 st=target-stance
+     92 st=target-swim-walk
+     87 st=target-walk
+     48 st=target-swim-stance
+     40 st=target-falling
+     37 st=target-title
+     24 st=target-death
+     15 st=target-grab
+      4 st=target-continue
+      2 st=target-warp-in
+      1 st=target-slide-down
+      1 st=target-edge-grab
+-- duck-stance frames: l1r1 distribution --
+   2695 l1r1=0
+-- duck-stance sample lines (first 6, last 6) --
+06-25 19:22:46.641 I/GK_STDOUT( 8776): GWALL2 f=681 st=target-duck-stance tx=-5392828.0 ty=28350.6 tz=4363783.0 ta=0.3154 f60=-0.0335 f61=0.0351 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=1 nprims=2
+06-25 19:23:18.379 I/GK_STDOUT( 8776): GWALL2 f=1643 st=target-duck-stance tx=-5117346.5 ty=29650.6 tz=4173276.0 ta=1.0000 f60=0.0335 f61=-0.0096 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=1 nprims=4098
+06-25 19:23:19.491 I/GK_STDOUT( 8776): GWALL2 f=1684 st=target-duck-stance tx=-5117346.5 ty=29650.7 tz=4173281.8 ta=1.0000 f60=0.0335 f61=-0.0096 button0=0x4000 l1r1=0 ov=0x0000 ij=0x4000 ntris=1 nprims=4098
+06-25 19:23:21.597 I/GK_STDOUT( 8776): GWALL2 f=1763 st=target-duck-stance tx=-5104892.0 ty=21811.4 tz=4192804.8 ta=0.7921 f60=0.0109 f61=-0.0594 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=0 nprims=2
+06-25 19:23:21.621 I/GK_STDOUT( 8776): GWALL2 f=1764 st=target-duck-stance tx=-5104887.0 ty=21809.0 tz=4192813.2 ta=1.0000 f60=0.0109 f61=-0.0594 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=0 nprims=2
+06-25 19:23:21.645 I/GK_STDOUT( 8776): GWALL2 f=1765 st=target-duck-stance tx=-5104887.0 ty=21809.0 tz=4192813.2 ta=1.0000 f60=0.0109 f61=-0.0594 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=0 nprims=2
+  ...
+06-25 19:27:36.765 I/GK_STDOUT( 8776): GWALL2 f=15336 st=target-duck-stance tx=-5289363.0 ty=32613.8 tz=4079201.2 ta=1.0000 f60=0.0162 f61=-0.2291 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=1 nprims=4098
+06-25 19:27:36.781 I/GK_STDOUT( 8776): GWALL2 f=15337 st=target-duck-stance tx=-5289363.0 ty=32613.8 tz=4079201.2 ta=1.0000 f60=0.0162 f61=-0.2291 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=1 nprims=4098
+06-25 19:27:36.799 I/GK_STDOUT( 8776): GWALL2 f=15338 st=target-duck-stance tx=-5289363.0 ty=32613.8 tz=4079201.2 ta=1.0000 f60=0.0162 f61=-0.2291 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=1 nprims=4098
+06-25 19:27:36.814 I/GK_STDOUT( 8776): GWALL2 f=15339 st=target-duck-stance tx=-5289363.0 ty=32613.8 tz=4079201.2 ta=1.0000 f60=0.0162 f61=-0.2291 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=1 nprims=4098
+06-25 19:27:36.831 I/GK_STDOUT( 8776): GWALL2 f=15340 st=target-duck-stance tx=-5289363.0 ty=32613.8 tz=4079201.2 ta=1.0000 f60=0.0162 f61=-0.2291 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=1 nprims=4098
+06-25 19:27:36.848 I/GK_STDOUT( 8776): GWALL2 f=15341 st=target-duck-stance tx=-5289363.0 ty=32613.8 tz=4079201.2 ta=1.0000 f60=0.0162 f61=-0.2291 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=1 nprims=4098
+-- LATCHED runs (>=20 consecutive duck-stance frames at same tx) --
+  latched 55 frames tx=-5104887.0 l1r1=0
+  latched 48 frames tx=-5117967.5 l1r1=0
+  latched 71 frames tx=-5089720.0 l1r1=0
+  latched 282 frames tx=-5022378.5 l1r1=0
+  latched 96 frames tx=-4883203.5 l1r1=0
+  latched 80 frames tx=-5365112.0 l1r1=0
+  latched 97 frames tx=-5386436.5 l1r1=0
+  latched 96 frames tx=-5380932.5 l1r1=0
+  latched 327 frames tx=-5386185.0 l1r1=0
+  latched 90 frames tx=-5386336.0 l1r1=0
+  latched 92 frames tx=-5386378.5 l1r1=0
+  latched 96 frames tx=-5380914.5 l1r1=0
+  latched 95 frames tx=-5386745.0 l1r1=0
+  latched 95 frames tx=-5292289.5 l1r1=0
+  latched 97 frames tx=-5289354.0 l1r1=0
+  latched 898 frames tx=-5289363.0 l1r1=0
+-- any non-finite floats? --
+0
+focus_app=1  logcat=.autoport/reports/Gcollision-wallslide/run4-logcat.log

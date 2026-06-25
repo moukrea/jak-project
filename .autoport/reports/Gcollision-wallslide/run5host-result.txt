@@ -1,0 +1,32 @@
+== ANALYSIS ==
+-- distinct states seen --
+    587 st=target-jump
+    271 st=target-swim-jump-jump
+    197 st=target-falling
+    183 st=target-duck-walk
+    108 st=target-stance
+    106 st=target-walk
+     77 st=target-swim-jump
+     48 st=target-swim-walk
+     37 st=target-title
+     35 st=target-slide-down
+     16 st=target-swim-stance
+     16 st=target-death
+     15 st=target-grab
+      7 st=target-wade-walk
+      6 st=target-wade-stance
+      3 st=target-edge-grab
+      3 st=target-continue
+      2 st=target-warp-in
+      2 st=target-hit-ground
+      1 st=target-duck-stance
+-- duck-stance frames: l1r1 distribution --
+      1 l1r1=0
+-- duck-stance sample lines (first 6, last 6) --
+06-25 19:38:29.759 I/GK_STDOUT(13752): GWALL2 f=680 st=target-duck-stance tx=-5392828.0 ty=28350.6 tz=4363783.0 ta=0.3154 f60=-0.0335 f61=0.0351 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=1 nprims=2
+  ...
+06-25 19:38:29.759 I/GK_STDOUT(13752): GWALL2 f=680 st=target-duck-stance tx=-5392828.0 ty=28350.6 tz=4363783.0 ta=0.3154 f60=-0.0335 f61=0.0351 button0=0x0000 l1r1=0 ov=0x0000 ij=0x0000 ntris=1 nprims=2
+-- LATCHED runs (>=20 consecutive duck-stance frames at same tx) --
+-- any non-finite floats? --
+0
+focus_app=0  logcat=.autoport/reports/Gcollision-wallslide/run5host-logcat.log
