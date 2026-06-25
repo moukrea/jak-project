@@ -851,6 +851,30 @@ phases:
   validator: validators/phase-Gaudio-hint-voices.sh
   max_turns: 1400
   max_retries: 3
+- id: Gportal-crash
+  name: 'OWNER 2026-06-25: game CRASHES at the blue-eco portal/gate you charge to open. arm64 crash (merc/DMA/float class); not on x86. Reproduce+capture+fix.'
+  prompt: prompts/phase-Gportal-crash.md
+  validator: validators/phase-Gportal-crash.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gcollision-wallslide
+  name: 'OWNER 2026-06-25: hitting a ledge too high -> Jak slow-slides down the wall (falling state, stuck vs wall) + ends CROUCHED, differs from x86. Residual collision/float divergence (clip-through already FMA-fixed). x86-first diff, fix arm64==x86.'
+  prompt: prompts/phase-Gcollision-wallslide.md
+  validator: validators/phase-Gcollision-wallslide.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gcollectible-state
+  name: 'OWNER 2026-06-25: green eco RESPAWNS after collect (not consumed, infinite-money-like) = arm64 state/variable divergence; + crate DEBRIS flicker (appear/disappear loop) = render/state. x86-first, fix arm64==x86.'
+  prompt: prompts/phase-Gcollectible-state.md
+  validator: validators/phase-Gcollectible-state.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gsfx-actions
+  name: 'OWNER 2026-06-25: no SOUND on crate-break + orb/blue-eco/green-eco-stock collect (x86 plays them). Per-source RMS find which action snd-play triggers produce 0 on device, fix.'
+  prompt: prompts/phase-Gsfx-actions.md
+  validator: validators/phase-Gsfx-actions.sh
+  max_turns: 1500
+  max_retries: 4
 global:
   git:
     push_after_each_phase: true
