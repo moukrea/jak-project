@@ -1,0 +1,30 @@
+# PUSS9 hit=1 extract — Gcollision-wallslide multi-spot capture jeu. 25 juin 2026 15:06:31 CEST
+# format: PUSS<n> sy=<sphere-y> sph=<ptr> dmr=<dist2-radius2> hit=1 cpt=(x y z)
+
+## SPOT1  frozen GWALL: st=target-duck-stance tx=-5289353.5 ty=32616.6 tz=4079193.8 (CONTINUOUS per-frame block)
+   1470 PUSS9 sy=41218.2 sph=1a0090 dmr=-474303.500 hit=1 cpt=(-5291513.5 41260.5 4077439.0)
+   1287 PUSS9 sy=41218.2 sph=1a0090 dmr=-474304.000 hit=1 cpt=(-5291513.5 41260.5 4077439.0)
+     16 PUSS9 sy=41219.1 sph=1a0090 dmr=-477341.500 hit=1 cpt=(-5291513.5 41261.4 4077439.5)
+     11 PUSS9 sy=41219.1 sph=1a0090 dmr=-474303.500 hit=1 cpt=(-5291513.5 41261.4 4077439.2)
+      1 PUSS9 sy=41220.8 sph=1a0090 dmr=-491240.000 hit=1 cpt=(-5291514.5 41263.0 4077440.5)
+      1 PUSS9 sy=41200.1 sph=1a0090 dmr=-474304.000 hit=1 cpt=(-5291562.0 41242.3 4077498.2)
+
+## SPOT2  frozen GWALL: st=target-duck-stance tx=-5342971.0 ty=23828.3 tz=4094617.8 (LANDING-ONLY block, then latched)
+  06-25 14:58:36.815  PUSS9 sy=34422.4 sph=1a0090 dmr=-148344.000 hit=1 cpt=(-5335829.5 34399.5 4093854.8)
+  06-25 14:58:36.834  PUSS9 sy=34460.0 sph=1a0090 dmr=-75598.500 hit=1 cpt=(-5335827.0 34415.8 4093854.2)
+  06-25 14:58:36.851  PUSS9 sy=31627.4 sph=1a00c0 dmr=-64382.500 hit=1 cpt=(-5336244.0 31628.4 4093916.2)
+
+## SPOT3  frozen GWALL: st=target-duck-stance tx=-5237659.0 ty=9111.6 tz=4512007.0 (ZERO hit=1 at stuck pos; latched duck)
+  (no hit=1 lines at tz~4512007; 8728 head-probes all hit=0)
+
+## SPOT4 (transient, near steps right) GWALL: tx around -5117947..-5129888 ty~28954-29621 tz~4171906-4172284
+      2 PUSS9 sy=38223.2 sph=1a0090 dmr=-114289.000 hit=1 cpt=(-5118606.5 38306.9 4169137.5)
+      2 PUSS9 sy=38223.1 sph=1a0090 dmr=-114288.500 hit=1 cpt=(-5118606.5 38306.9 4169137.5)
+      1 PUSS9 sy=38286.9 sph=1a0090 dmr=-57174.500 hit=1 cpt=(-5149975.0 38292.5 4167461.0)
+      1 PUSS9 sy=38268.7 sph=1a0090 dmr=-64259.000 hit=1 cpt=(-5149690.5 38274.2 4167497.2)
+      1 PUSS9 sy=38252.2 sph=1a0090 dmr=-64259.000 hit=1 cpt=(-5149435.5 38257.8 4167529.5)
+      1 PUSS9 sy=38236.9 sph=1a0090 dmr=-62842.500 hit=1 cpt=(-5149198.0 38242.4 4167559.5)
+      1 PUSS9 sy=38227.8 sph=1a0090 dmr=-644067.000 hit=1 cpt=(-5115222.5 38282.6 4171495.2)
+      1 PUSS9 sy=38227.2 sph=1a0090 dmr=-635592.500 hit=1 cpt=(-5115222.5 38281.6 4171495.2)
+      1 PUSS9 sy=38226.6 sph=1a0090 dmr=-624688.500 hit=1 cpt=(-5115222.5 38280.6 4171495.0)
+      1 PUSS9 sy=38226.2 sph=1a0090 dmr=-54074.000 hit=1 cpt=(-5118610.0 38310.2 4169138.2)

@@ -1,0 +1,32 @@
+==================== Gcollision-wallslide x86 probe ====================
+---- (1) field offsets ----
+GWOFF target.control=108
+GWOFF csm.surface-angle=416
+GWOFF csm.poly-angle=420
+GWOFF csm.touch-angle=424
+GWOFF csm.status=268
+GWOFF csm.reaction-flag=292
+GWOFF proc.next-state=72
+GWOFF state.name=0
+---- (2) NaN truth table ----
+GWNAN bits nanv=(0 0 0) nan=0
+GWNAN minmax fmax(0.5,nan)=0.5000 fmax(nan,0.5)=0.5000 fmin(0.5,nan)=0.0000 fmin(nan,0.5)=0.0000
+---- (3) touch-angle producer ----
+GWPROD arg2=ZERO touch-angle=0.0000 bits=0 (>=0.7? #t)
+GWPROD arg2=TINY touch-angle=0.0000 bits=0 (>=0.7? #t)
+GWPROD arg2=NORM touch-angle=0.0000 bits=0 (>=0.7? #t)
+---- (4) live target state ----
+(none)
+---- goalc errors (first 12) ----
+[1m[38;2;220;020;060m-- Compilation Error! --
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error

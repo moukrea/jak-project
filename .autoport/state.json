@@ -134,7 +134,7 @@
     "Gcrash-mouche2": 2,
     "Gcollision-arm": 1,
     "Gorb-icon": 1,
-    "Gcrash-mouche3": 1
+    "Gcollision-wallslide": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -512,9 +512,10 @@
     "Gorb-icon": 1782316897.3821118,
     "Gaudio-hint-voices": 1782328824.867719,
     "Gecho-pool": 1782330228.5323615,
-    "Gcrash-mouche3": 1782381135.733917
+    "Gcrash-mouche3": 1782381135.733917,
+    "Gcollision-wallslide": 1782381670.9086006
   },
-  "last_update": "2026-06-25T09:58:51.397604+00:00",
+  "last_update": "2026-06-25T15:30:42.498271+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

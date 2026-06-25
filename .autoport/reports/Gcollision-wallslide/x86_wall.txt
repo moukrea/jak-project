@@ -1,0 +1,54 @@
+==== Gcollision-wallslide x86 wall oracle ====
+---- state-name resolution ----
+GWLNAME st=target-stance nameoff=0
+---- can-exit-duck probe verdicts (blocked=#f -> CAN stand) ----
+(none)
+---- x86 behavior after teleport to frozen-wedge ----
+GWWEDGE st=target-stance sa=0.9988 ta=1.0000 tx=-5393129.0000 ty=28317.4628 tz=4362849.5000
+GWWEDGE st=target-stance sa=0.9988 ta=1.0000 tx=-5393129.0000 ty=28317.4628 tz=4362849.5000
+GWWEDGE st=target-stance sa=0.9988 ta=1.0000 tx=-5393129.0000 ty=28317.4628 tz=4362849.5000
+GWWEDGE st=target-stance sa=0.9988 ta=1.0000 tx=-5393129.0000 ty=28317.4628 tz=4362849.5000
+GWWEDGE st=target-stance sa=0.9988 ta=1.0000 tx=-5393129.0000 ty=28317.4628 tz=4362849.5000
+GWWEDGE st=target-stance sa=0.9988 ta=1.0000 tx=-5393129.0000 ty=28317.4628 tz=4362849.5000
+---- x86 GWALL stream sample (last 30) ----
+GWALL f=2912 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=2920 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03515 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=2928 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=2936 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=2944 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=2952 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=2960 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=2968 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=2976 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03369 f61=0.03515 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=2984 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03515 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=2992 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3000 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3008 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3016 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03515 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3024 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03517 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3032 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3040 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3048 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03515 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3056 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03366 f61=0.03517 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3064 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03517 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3072 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3080 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3088 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3096 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3104 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3112 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3120 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03517 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3128 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03368 f61=0.03516 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3136 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03517 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+GWALL f=3144 st=? sa=0.99881 pa=0.99882 ta=1.00000 f60=-0.03367 f61=0.03517 status=1007 snx=0.0230 sny=0.9988 snz=-0.0429 tx=-5393129.0 ty=28317.5 tz=4362849.5 nf=0
+---- goalc errors ----
+[1m[38;2;220;020;060m-- Compilation Error! --
+[0m[1mThe symbol px was looked up as a global variable, but it does not exist.
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --
+[0m[1mThe symbol py was looked up as a global variable, but it does not exist.
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --
+[0m[1mThe symbol pz was looked up as a global variable, but it does not exist.
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --

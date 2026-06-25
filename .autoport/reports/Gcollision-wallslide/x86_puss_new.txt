@@ -1,0 +1,7 @@
+==== x86 per-triangle crouch-probe dump (stuck spot -5278032 15825.9 4412783.5) ====
+GWPROBE blocked=#t ntris=5 nprims=1
+---- PUSS9 per-triangle (dmr = dist^2 - radius^2; hit=1 if <0) ----
+PUSS9 s=(-5330629.5 39374.0 4403733.5) r=8220835.5 tri=1a0090 dmr=79938480.0000 hit=0
+PUSS9 s=(-5330629.5 36506.8 4403733.5) r=8220835.5 tri=1a00c0 dmr=124154208.0000 hit=0
+PUSS9 s=(-5330629.5 39374.0 4403733.5) r=8220835.5 tri=1a0090 dmr=-195382.5000 hit=1
+PUSS9 count: 3; hits: 1

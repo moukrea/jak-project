@@ -1,0 +1,10 @@
+==== Gcollision-wallslide x86 crouch-probe verdicts ====
+GWBR body-radius=2867.1999
+(blocked=#f -> Jak CAN stand; truthy -> stays crouched)
+GWPROBE p=(-5393129.0000 50000.0000 4362849.0000) blocked=#f
+GWPROBE p=(-5393129.0000 27000.0000 4362849.0000) blocked=#f
+GWPROBE p=(-5386376.0000 24615.8007 4064680.7500) blocked=#t
+GWPROBE p=(-5353232.0000 23424.0000 4087960.0000) blocked=#t
+GWPROBE p=(-5353231.5000 23423.9003 4087960.5000) blocked=#t
+GWPROBE p=(-4890822.0000 -3631.0000 4318821.0000) blocked=#t
+---- goalc errors ----

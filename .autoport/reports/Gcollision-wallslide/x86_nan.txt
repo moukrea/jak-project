@@ -1,0 +1,27 @@
+==== Gcollision-wallslide x86 NaN/normalize oracle ====
+NANBITS 7fc00000
+CMPLT a=#t b=#t
+CMPLE a=#t b=#t
+CMPGE a=#f b=#f
+CMPGT a=#f b=#f
+MINMAX fmax=NaN fmin=NaN
+NORMZERO d0=0 d1=0 d2=0
+NORMTINY d0=3f800000 d1=0 d2=0
+VLEN0 0.0000 bits=0
+LV-A st=target-stance sa=0.9988 pa=0.9988 ta=1.0000
+LV-B f60=0.9988 f61=-0.0337 status=1007 tz=4362849.5000
+LV-A st=target-stance sa=0.9988 pa=0.9988 ta=1.0000
+LV-B f60=0.9988 f61=-0.0337 status=1007 tz=4362849.5000
+LV-A st=target-stance sa=0.9988 pa=0.9988 ta=1.0000
+LV-B f60=0.9988 f61=-0.0337 status=1007 tz=4362849.5000
+LV-A st=target-stance sa=0.9988 pa=0.9988 ta=1.0000
+LV-B f60=0.9988 f61=-0.0337 status=1007 tz=4362849.5000
+---- goalc errors ----
+[1m[38;2;220;020;060m-- Compilation Error! --
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
+[1m[38;2;220;020;060m-- Compilation Error! --
+[1m[38;2;255;255;000m[Warning] [0mREPL Error: Compilation Error
