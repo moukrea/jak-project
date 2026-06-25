@@ -1,0 +1,41 @@
+===== BOOT / WARP / SPAWN markers =====
+06-25 21:15:18.889 27099 27201 D opengoal-gk: link finish: logo
+06-25 21:15:18.890 27099 27201 D opengoal-gk: link finish: logo-black
+06-25 21:15:18.890 27099 27201 D opengoal-gk: link finish: logo-cam
+06-25 21:15:18.891 27099 27201 D opengoal-gk: link finish: logo-volumes
+06-25 21:15:29.675 27099 27227 I opengoal-gk: [F1-WARP] armed *listener-function* = #x38ac2c4; kernel will run the warp in-context
+06-25 21:15:29.676 27099 27227 I opengoal-gk: [F1-WARP] get-continue-by-name("game-start") -> #x1d94104
+06-25 21:15:29.676 27099 27227 I opengoal-gk: [F1-WARP] (start 'play game-start) -> *target* #x1c5784
+06-25 21:15:29.676 27099 27180 I GK_STDOUT: F1-SPAWN tx=-5393740.500000 ty=28259.533203 tz=4360945.500000
+06-25 21:15:29.706 27099 27227 I opengoal-gk: Adding level training
+06-25 21:15:30.228 27099 27227 D opengoal-gk: link finish: training-vis
+
+===== collectible code modules linked (link and exec) =====
+06-25 21:15:18.738 27099 27201 D opengoal-gk: [link and exec] collectables-part  0  52743 heap-use 31536416  3150020: 0x1f53240
+06-25 21:15:18.739 27099 27201 D opengoal-gk: [link and exec] collectables       0 146419 heap-use 31576738  3150020: 0x1f5cfc2
+06-25 21:15:18.758 27099 27201 D opengoal-gk: [link and exec] crates             0  60898 heap-use 31829988  3150020: 0x1f9ad04
+06-25 21:15:18.811 27099 27201 D opengoal-gk: [link and exec] fuel-cell          0  21728 heap-use 33154776  3150020: 0x20de3f8
+06-25 21:15:18.812 27099 27201 D opengoal-gk: [link and exec] money              0   6400 heap-use 33176070  3150020: 0x20e3726
+06-25 21:15:18.814 27099 27201 D opengoal-gk: [link and exec] ecovalve           0   5280 heap-use 33193728  3150020: 0x20e7c20
+06-25 21:15:18.815 27099 27201 D opengoal-gk: [link and exec] crate              0  64416 heap-use 33198608  3150020: 0x20e8f30
+06-25 21:15:18.832 27099 27201 D opengoal-gk: [link and exec] dark-eco-pool      0  11100 heap-use 35287376  3150020: 0x22e6e70
+
+===== GECHO-MERC collectible model draw COUNTS (whole session) =====
+  46310 GECHO-MERC model=money-lod0
+  31130 GECHO-MERC model=crate-wood-lod0
+  12522 GECHO-MERC model=crate-iron-lod0
+   2126 GECHO-MERC model=fuel-cell-lod0
+
+===== money orb / egg texture actually DRAWN with geometry (GECHO-DRAW tex=egg) =====
+06-25 21:27:50.664 27099 27180 I GK_STDOUT: GECHO-DRAW bucket=l0-tfrag-generic id=11 draw=0 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=101 tris=50
+06-25 21:27:50.664 27099 27180 I GK_STDOUT: GECHO-DRAW bucket=l0-tfrag-generic id=11 draw=2 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=97 tris=52
+06-25 21:27:50.664 27099 27180 I GK_STDOUT: GECHO-DRAW bucket=l0-tfrag-generic id=11 draw=4 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=90 tris=54
+  (total egg-ndimadman GECHO-DRAW lines: 815)
+
+===== CRASH SCAN (should be empty) =====
+0
+  signatures above ^ (0 = no crash)
+
+===== last render/vblank state =====
+A35-RENDER frame=104640
+A42-STRCLK vblank=166501

@@ -1,0 +1,372 @@
+06-25 23:26:48.187 I/opengoal-gk(13613): GDBG-BIRTH etype=med-res-level tx=1478664.2500 tz=-1071587.3750 status=#x80
+06-25 23:26:48.187 I/opengoal-gk(13613): GDBG-BIRTH etype=med-res-level tx=-649728.0000 tz=-215105.5312 status=#x80
+06-25 23:26:48.187 I/opengoal-gk(13613): GDBG-BIRTH etype=med-res-level tx=0.0000 tz=0.0000 status=#x80
+06-25 23:26:48.187 I/opengoal-gk(13613): GDBG-BIRTH etype=med-res-level tx=-649728.0000 tz=-215105.5312 status=#x80
+06-25 23:26:48.187 I/opengoal-gk(13613): GDBG-BIRTH etype=med-res-level tx=-649728.0000 tz=-215105.5312 status=#x80
+06-25 23:26:48.187 I/opengoal-gk(13613): GDBG-BIRTH etype=med-res-level tx=1478664.2500 tz=-1071587.3750 status=#x80
+06-25 23:26:48.187 I/opengoal-gk(13613): GDBG-BIRTH etype=med-res-level tx=1478664.2500 tz=-1071587.3750 status=#x80
+06-25 23:26:48.187 I/opengoal-gk(13613): GDBG-BIRTH etype=med-res-level tx=-649728.0000 tz=-215105.5312 status=#x80
+06-25 23:26:48.187 I/opengoal-gk(13613): GDBG-BIRTH etype=med-res-level tx=0.0000 tz=0.0000 status=#x80
+06-25 23:26:48.187 I/opengoal-gk(13613): GDBG-BIRTH etype=med-res-level tx=0.0000 tz=0.0000 status=#x80
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4911251.5000 tz=3791118.5000 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4899189.0000 tz=3797946.5000 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4885760.5000 tz=3785656.0000 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4879388.0000 tz=3809326.5000 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4863683.5000 tz=3818658.0000 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4812626.0000 tz=3741546.2500 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4799714.0000 tz=3757206.7500 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4727083.0000 tz=3853338.5000 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4736606.5000 tz=3876733.0000 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4719285.0000 tz=3895227.5000 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4915299.5000 tz=3868957.7500 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4889971.5000 tz=3854278.0000 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4862148.5000 tz=3868523.2500 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-5262358.5000 tz=3523644.7500 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-5288465.5000 tz=3515786.5000 status=#x0
+06-25 23:26:48.280 I/opengoal-gk(13613): GDBG-BIRTH etype=m
+06-25 23:26:48.292 I/opengoal-gk(13613): GDBG-DEACT type=warpgate self=#x23a624 eproc=#x23a624 eq=#t status=#x4
+06-25 23:26:48.292 I/opengoal-gk(13613): GDBG-DEACT type=camera-start self=#x213354 eproc=#x213354 eq=#t status=#x4
+06-25 23:31:37.602 I/opengoal-gk(13613): GDBG-DEACT type=symbol self=#x14fd24 eproc=#x14fd24 eq=#t status=#x4
+06-25 23:31:37.602 I/opengoal-gk(13613): GDBG-DEACT type=symbol self=#x14fd24 eproc=#x14fd24 eq=#t status=#x4
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4911251.5000 tz=3791118.5000 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4899189.0000 tz=3797946.5000 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4885760.5000 tz=3785656.0000 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4879388.0000 tz=3809326.5000 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4863683.5000 tz=3818658.0000 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4812626.0000 tz=3741546.2500 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4799714.0000 tz=3757206.7500 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4727083.0000 tz=3853338.5000 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4736606.5000 tz=3876733.0000 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4719285.0000 tz=3895227.5000 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4915299.5000 tz=3868957.7500 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4889971.5000 tz=3854278.0000 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-4862148.5000 tz=3868523.2500 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-5262358.5000 tz=3523644.7500 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=money tx=-5288465.5000 tz=3515786.5000 status=#x0
+06-25 23:31:37.710 I/opengoal-gk(13613): GDBG-BIRTH etype=m
+06-25 23:31:37.730 I/opengoal-gk(13613): GDBG-DEACT type=warpgate self=#x235f54 eproc=#x235f54 eq=#t status=#x4
+06-25 23:31:37.730 I/opengoal-gk(13613): GDBG-DEACT type=camera-start self=#x20ec84 eproc=#x20ec84 eq=#t status=#x4
+06-25 23:32:37.881 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x0
+06-25 23:32:37.881 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x4
+06-25 23:32:40.685 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23b094 NO-ENTITY
+06-25 23:32:40.685 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a9f4 NO-ENTITY
+06-25 23:32:42.086 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:32:42.086 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:32:46.748 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:32:46.748 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:32:51.306 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:32:51.306 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:32:55.638 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:32:55.638 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:32:56.508 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23ad24 NO-ENTITY
+06-25 23:32:56.508 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:00.270 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:00.270 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:01.165 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23ad24 NO-ENTITY
+06-25 23:33:01.165 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:04.408 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:04.408 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:05.257 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:08.753 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:08.753 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:09.627 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:13.064 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:13.064 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:13.922 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:17.292 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:17.292 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:18.191 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:21.673 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:21.673 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:22.541 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:26.021 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:26.021 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:27.004 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:30.407 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:30.407 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:31.181 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:34.271 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:34.271 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:35.021 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:38.069 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:38.069 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:38.860 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:41.901 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:41.901 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:42.719 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:45.962 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:45.962 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:46.729 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:49.778 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:49.778 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:50.536 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:53.590 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:53.590 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:54.337 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:33:57.414 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:33:57.414 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:33:58.177 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:01.338 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:01.338 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:02.116 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:05.187 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:05.187 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:05.932 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:08.950 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:08.950 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:09.711 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:12.770 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:12.770 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:13.539 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:16.585 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:16.585 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:17.359 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:20.338 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:20.338 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:21.123 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:24.140 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:24.140 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:24.941 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:27.887 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:27.887 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:28.660 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:31.642 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:31.642 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:32.436 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:35.484 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:35.484 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:36.265 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:39.424 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:39.424 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:40.182 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:43.217 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:43.217 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:43.970 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:47.029 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:47.029 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:47.818 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:50.890 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:50.890 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:51.651 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:54.736 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:54.736 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:55.489 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:34:58.533 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:34:58.533 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:34:59.290 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:02.418 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:02.418 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:03.207 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:06.395 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:06.395 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:07.252 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:10.458 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:10.458 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:11.275 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:14.495 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:14.495 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:15.297 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:18.342 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:18.342 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:19.091 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:22.058 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:22.058 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:22.816 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:25.835 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:25.835 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:26.599 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:29.670 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:29.670 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:30.481 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:33.468 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:33.468 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:34.200 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:37.238 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:37.238 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:37.982 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:41.258 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:41.258 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:42.008 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:44.979 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:44.979 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:45.712 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:48.696 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:48.696 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:49.487 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:52.500 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:52.500 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:53.292 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:35:56.529 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:35:56.529 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:35:57.431 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:00.428 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:00.428 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:01.194 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:04.178 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:04.178 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:04.951 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:07.967 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:07.967 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:08.705 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:11.739 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:11.739 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:12.497 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:15.754 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:15.754 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:16.594 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:20.502 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:20.502 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:21.449 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:25.460 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:25.460 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:26.465 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:30.490 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:30.490 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:31.512 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:35.540 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:35.540 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:36.475 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:40.346 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:40.346 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:41.330 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:45.208 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:45.208 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:46.056 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:49.458 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:49.458 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:50.328 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:53.609 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:53.609 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:54.404 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:36:57.659 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:36:57.659 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:36:58.495 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:01.808 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:01.808 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:02.638 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:06.015 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:06.015 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:06.899 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:10.287 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:10.287 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:11.052 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:14.602 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:14.602 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:15.485 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:19.017 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:19.017 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:19.799 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:23.185 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:23.185 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:24.056 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:27.482 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:27.482 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:28.278 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:31.694 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:31.694 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:32.439 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:35.789 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:35.789 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:36.571 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:39.898 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:39.898 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:40.603 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:43.893 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:43.893 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:44.635 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:47.718 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:47.718 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:48.411 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:51.408 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:51.408 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:52.096 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:55.115 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:55.115 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:37:55.971 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:37:59.693 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:37:59.693 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:00.566 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:04.094 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:04.094 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:04.869 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:07.971 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:07.971 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:08.685 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:11.738 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:11.738 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:12.512 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:15.544 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:15.544 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:16.255 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:19.144 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:19.144 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:19.991 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:22.929 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:22.929 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:23.634 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:26.648 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:26.648 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:27.356 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:30.309 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:30.309 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:31.078 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:34.079 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:34.079 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:34.853 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:37.784 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:37.784 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:38.497 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:41.400 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:41.400 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:42.079 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:45.032 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:45.032 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:45.741 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:48.745 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:48.745 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:49.530 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:52.449 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:52.449 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:53.157 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:56.036 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:56.036 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:38:56.741 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:38:59.609 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:38:59.609 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:00.391 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:03.306 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:03.306 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:04.208 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:07.214 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:07.214 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:07.929 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:10.816 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:10.816 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:11.531 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:14.618 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:14.618 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:15.392 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:18.564 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:18.564 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:19.239 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:22.237 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:22.237 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:22.948 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:25.850 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:25.850 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:26.559 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:29.541 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:29.541 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:30.232 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:33.198 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:33.198 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:33.866 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:36.857 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:36.857 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:37.543 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:40.546 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:40.546 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:41.288 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
+06-25 23:39:44.162 I/opengoal-gk(13613): GDBG-PES type=crate a2=#t self=#x1fdee4 eproc=#x1fdee4 eq=#t pre=#x44
+06-25 23:39:44.162 I/opengoal-gk(13613): GDBG-PES-SET type=crate post=#x44
+06-25 23:39:44.914 I/opengoal-gk(13613): GDBG-PES type=eco-pill a2=#t self=#x23a684 NO-ENTITY
