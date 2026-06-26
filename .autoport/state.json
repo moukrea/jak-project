@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 143,
+  "current_phase_idx": 144,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -137,7 +137,8 @@
     "Gcollision-wallslide": 2,
     "Ginput-replay": 1,
     "Gcollectible-state": 1,
-    "Gsfx-actions": 1
+    "Gsfx-actions": 1,
+    "Gaudio-hint-voices": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -403,7 +404,8 @@
     "Gcollision-wallslide",
     "Ginput-replay",
     "Gcollectible-state",
-    "Gsfx-actions"
+    "Gsfx-actions",
+    "Gaudio-hint-voices"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -520,7 +522,7 @@
     "Gcrash-mouche2": 1782284323.923564,
     "Gcollision-arm": 1782306843.4434962,
     "Gorb-icon": 1782316897.3821118,
-    "Gaudio-hint-voices": 1782328824.867719,
+    "Gaudio-hint-voices": 1782438105.1279657,
     "Gecho-pool": 1782330228.5323615,
     "Gcrash-mouche3": 1782381135.733917,
     "Gcollision-wallslide": 1782381670.9086006,
@@ -528,7 +530,7 @@
     "Gcollectible-state": 1782413372.600891,
     "Gsfx-actions": 1782430239.035448
   },
-  "last_update": "2026-06-26T01:40:33.894491+00:00",
+  "last_update": "2026-06-26T02:44:10.819833+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

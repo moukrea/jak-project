@@ -142,6 +142,27 @@ void* RPC_Player(unsigned int /*fno*/, void* data, int size) {
 
             auto vagfile = FindVAGFile(namebuf);
 
+            // Gaudio-hint-voices: a "spool-<NAME>" sound is a STREAMED VOICE — the in-game
+            // tutorial/hint dialog (the Sage explaining orbs/items/mechanics) and cutscene
+            // speech. If FindVAGFile can't resolve <NAME> in the VAG directory we drop the
+            // play here and the voice is SILENT — historically with NO diagnostic. That
+            // silent drop is exactly what made the arm64 128-bit sound-name corruption
+            // invisible (a garbled runtime name never matched a VAGDIR entry, so every
+            // in-game hint voice was dropped here while cutscene voices — requested by a
+            // plain string basename, immune to the bug — kept playing). The codegen root
+            // cause is fixed (goalc Function.cpp/Type.cpp, is_128bit_simd arg classing);
+            // fail LOUD so any future unresolved hint/voice can never be silent again.
+            if (vagfile == nullptr) {
+              char want[9];
+              for (int i = 0; i < 8; i++) {
+                char c = namebuf[i];
+                want[i] = (c >= 0x20 && c < 0x7f) ? c : '?';
+              }
+              want[8] = 0;
+              lg::error("[hint-voice] streamed voice 'spool-{}' (id={}) unresolved in VAGDIR -> DROPPED (silent)",
+                        want, cmd->play.sound_id);
+            }
+
             memcpy(namebuf, "VAGWAD  ", 8);
             strcpy(&namebuf[8], gLanguage);
 
