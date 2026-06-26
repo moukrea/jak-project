@@ -193,7 +193,14 @@ Val* Compiler::compile_lambda(const goos::Object& form, const goos::Object& rest
       constr.instr_idx = 0;  // constraint at function start
       auto ireg_arg = new_func_env->make_ireg(
           lambda.params.at(i).type,
-          arg_regs.at(i).is_gpr(m_instr_set) ? RegClass::GPR_64 : RegClass::INT_128);
+          // Gsfx-actions: classify a 128-bit (uint128 / sound-name) VALUE argument as
+          // INT_128, mirroring the return-value classing (is_128bit_simd, Function.cpp:615/649).
+          // The old `is_gpr` test is arm64-native-id-broken — is_gpr(ARM64) is true for the
+          // x86-model XMM id range 16-31 (A33 already fixed is_128bit_simd but left is_gpr),
+          // so every 128-bit value arg was mis-classed GPR_64 → truncated via `fmov x,d` and
+          // clobbered across the intervening call inside sound-play-by-name → silent SFX.
+          // is_128bit_simd is x86-model-correct on BOTH backends, so x86 output is unchanged.
+          arg_regs.at(i).is_128bit_simd(m_instr_set) ? RegClass::INT_128 : RegClass::GPR_64);
       ireg_arg->mark_as_settable();
       constr.ireg = ireg_arg->ireg();
       constr.desired_register = arg_regs.at(i);
@@ -232,7 +239,9 @@ Val* Compiler::compile_lambda(const goos::Object& form, const goos::Object& rest
     for (u32 i = 0; i < lambda.params.size(); i++) {
       auto ireg = new_func_env->make_ireg(
           lambda.params.at(i).type,
-          arg_regs.at(i).is_gpr(m_instr_set) ? RegClass::GPR_64 : RegClass::INT_128);
+          // Gsfx-actions: 128-bit value arg = INT_128 (see make_ireg above; is_128bit_simd is
+          // x86-model-correct on both backends, unlike the arm64-broken is_gpr).
+          arg_regs.at(i).is_128bit_simd(m_instr_set) ? RegClass::INT_128 : RegClass::GPR_64);
       ireg->mark_as_settable();
       if (!new_func_env->params.insert({m_goos.intern_ptr(lambda.params.at(i).name), ireg})
                .second) {
