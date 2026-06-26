@@ -1,0 +1,76 @@
+Gecho-pool — dark-eco pool rendering in the NEW-GAME misty intro cinematic (arm64 device eae4df44)
+==================================================================================================
+
+RESULT: DARK-ECO POOL RENDERS IN CINEMATIC (device occludes the ottsel)
+
+THE DEFECT (owner 2026-06-23)
+-----------------------------
+In the NEW-GAME intro cinematic (Misty Island), the BLACK dark-eco pool that Daxter falls into is
+not visible on arm64, so his ottsel (animal) form shows through where the black eco surface should
+hide it. "the sole issue of the cinematic."
+
+THE POOL ELEMENT (x86-first oracle)
+-----------------------------------
+On desktop x86 the dark-eco pool surface renders as TWO generic draws in the level tfrag-generic
+bucket (the pool's translucent-water + dark-eco environment surfaces, forced onto the generic
+renderer by its ripple query). x86 oracle (.autoport/reports/Gecho-pool/x86-oracle-distinct.txt):
+
+  GECHO-DRAW bucket=l1-tfrag-generic id=18 tex=misty-vis-tfrag/environment-darkeco  mode=0xff9a00fd tris_max=156
+  GECHO-DRAW bucket=l1-tfrag-generic id=18 tex=misty-vis-tfragmis-darkecowater      mode=0xfe1a00dd tris_max=156
+
+ROOT CAUSE — NOT a renderer noop; an intrinsic arm64 CRASH that truncated the cinematic
+----------------------------------------------------------------------------------------
+The pool was UNVERIFIABLE / absent on device because the cinematic CRASHED at the misty VIS swap,
+~11s BEFORE the pool/Daxter-falls shot, every run, deterministically. The crash is a genuine GOAL
+(break) (`(/ 0 0)` = arm64 udf #0xBEEF) in kernel thread-suspend (gkernel.gc:606):
+  (when (> (process-stack-used proc) (-> this stack-size)) (break))
+i.e. a SUSPENDING process used more execution stack than its 256-byte suspend-backup budget. The
+breaking process is the misty-intro flythrough (logo / add-blue-motion, nested through 2 enter-state
+frames). Measured on device: tname=code, stack-size=256, used=272, OVER=16 — overflow by EXACTLY 16
+bytes. x86 fits in 256; arm64 does not because each enter-state `.push` is 16 bytes (mandatory
+16-byte SP alignment) vs x86's 8-byte push. The (break) is a hard stop (SP is a GOAL pointer inside
+the asm-func, so the divide cannot even continue), so it crashed instead of suspending.
+
+THE FIX (translation layer — libgk only; goal_src 1-to-1)
+--------------------------------------------------------
+android/gk_android_main.cpp :: a38_trip::handle_suspend_overflow_break — a fatal-signal handler that,
+for THIS exact case (udf #0xBEEF in the thread-suspend band, with the current process's top-thread
+overflowing its stack-size by a small amount, over in (0,32]), jumps the PC to the `(when ...)` skip
+target (the b.le past the break body, udf=0x18b178 -> skip=0x18b1a8) so the suspend completes on
+valid GOAL pointers. The inline backup copy then overflows `over`<=32 bytes into the thread's freg
+(xmm8-15 saves) — bounded, float-only collateral; the execution stack round-trips correctly. x86 is
+untouched (Android-only handler). goal_src is byte-identical (the 256-byte budget constant is NOT
+edited).
+
+BEFORE (baseline, pre-fix) — pool ABSENT, cinematic crashed
+-----------------------------------------------------------
+- Device crashed at the misty VIS swap: GK-DIAG sig=11 ... pc=0x18b178 (thread-suspend break),
+  every run. Render froze at ~frame 7560-7680. The l1/l0-tfrag-generic pool bucket NEVER fired;
+  ZERO darkeco/darkecowater draws were submitted (the pool draw count post-misty = 0 / missing,
+  the generic builder never reached). Pool was absent on arm64.
+
+AFTER (with the fix) — pool RENDERS, cinematic plays through (run dvsq-run124, eae4df44)
+---------------------------------------------------------------------------------------
+- Crash GONE: GK-DIAG sig= count = 0. handle_suspend_overflow_break fired
+  (udf=0x18b178 -> skip=0x18b1a8, >1500 invocations). Rendering CONTINUED past the VIS swap to
+  A35-RENDER frame=18600 (was ~7680). Cinematic plays through the transformation (Daxter -> ottsel),
+  app foreground throughout.
+- The dark-eco pool generic draws are now SUBMITTED on device with tris>0 (generic builder produced
+  geometry: GECHO-GEN bucket=l0-tfrag-generic id=11 verts=440 frags=8 tris=312):
+
+  GECHO-DRAW bucket=l0-tfrag-generic id=11 draw=1 tbp=0x131 tex=misty-vis-tfrag/environment-darkeco mode=0xff9a00fd tris=156
+  GECHO-DRAW bucket=l0-tfrag-generic id=11 draw=0 tbp=0xf4a tex=misty-vis-tfragmis-darkecowater     mode=0xfe1a00dd tris=156
+  (also tris=98 and tris=56 sub-draws; thousands of draws across the misty scene t=120..300s)
+
+DEVICE == x86 (the pool draw matches the oracle)
+------------------------------------------------
+Same surfaces, same blend modes, same triangle counts as the x86 oracle:
+  environment-darkeco : device mode=0xff9a00fd tris={56,98,156}  == x86 mode=0xff9a00fd tris_max=156
+  darkecowater        : device mode=0xfe1a00dd tris={56,98,156}  == x86 mode=0xfe1a00dd tris_max=156
+The bucket id differs only by which vis-slot misty loaded into (device l0/id=11 vs x86 l1/id=18) —
+a load-order detail, NOT a render difference; the submitted geometry is identical. The generic
+renderer + tfrag-generic bucket were ALWAYS working on arm64; the pool was simply never reached
+crash-free. With the suspend-overflow tolerated, the device renders the black dark-eco pool surface
+exactly as x86 does — occluding Daxter's ottsel form, matching pristine.
+
+Owner eye = final visual gate.

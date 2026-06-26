@@ -139,7 +139,7 @@
     "Gcollectible-state": 1,
     "Gsfx-actions": 1,
     "Gaudio-hint-voices": 1,
-    "Gecho-pool": 2
+    "Gecho-pool": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -268,6 +268,7 @@
       "33f1b13a7d19"
     ],
     "Gecho-pool": [
+      "a5ad5a835d29",
       "a5ad5a835d29"
     ]
   },
@@ -534,7 +535,7 @@
     "Gcollectible-state": 1782413372.600891,
     "Gsfx-actions": 1782430239.035448
   },
-  "last_update": "2026-06-26T06:20:33.807495+00:00",
+  "last_update": "2026-06-26T09:20:52.913124+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
