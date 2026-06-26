@@ -169,6 +169,11 @@ void KernelCheckAndDispatch() {
     // form would run on the desktop oracle.
     f1_maybe_warp_to_geyser();
 
+    // ECHO-INTRO (new-game intro cinematic) deterministic warp — gated (env
+    // OG_ECHO_INTRO / prop debug.opengoal.echo.intro), OFF by default, fires once.
+    // Reaches the new-game intro cinematic directly, bypassing the title menu.
+    echo_intro_warp_maybe();
+
     // Gcrash-mouche (Geyser Rock buzzer scout-fly pickup HUD-FX) repro/verify —
     // gated (env OG_MOUCHE_FX / prop debug.opengoal.mouche.fx), OFF by default.
     // Drives the manipy fly-to-HUD effect (the deterministic buzzer-collect crash)

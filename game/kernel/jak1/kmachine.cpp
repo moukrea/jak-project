@@ -792,6 +792,98 @@ void f1_maybe_warp_to_geyser() {
            warp_fn.offset);
 }
 
+// ─── ECHO-INTRO (new-game intro cinematic) deterministic warp ───────────────────
+// Env OG_ECHO_INTRO / Android prop debug.opengoal.echo.intro — OFF by default.
+// TEMPORARY arm64/Android diagnostic. Reaches the NEW-GAME intro cinematic
+// DIRECTLY (bypassing title-menu navigation) by replaying the GOAL form that the
+// menu's "New Game" / progress.gc fire:
+//   (initialize! *game-info* 'game (the-as game-save #f) "intro-start")
+// Modeled EXACTLY on f1_maybe_warp_to_geyser above (same gate/readiness/tick-delay
+// /listener-function trampoline pattern); kept fully INDEPENDENT of F1-WARP (own
+// prop/env, own s_done). x86 is unaffected: the body only runs when armed.
+static bool echo_intro_warp_requested() {
+  if (std::getenv("OG_ECHO_INTRO")) {
+    return true;
+  }
+#if defined(__ANDROID__)
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("debug.opengoal.echo.intro", buf) > 0 && buf[0] == '1') {
+    return true;
+  }
+#endif
+  return false;
+}
+
+// The warp body — invoked BY THE KERNEL as *listener-function* (same context
+// f1_warp_run runs in), so it executes with a live current process on a real
+// process stack: the context `initialize!` -> process-spawn require. GOAL regs are
+// NOT preserved across the make_function_from_c trampoline, so re-read everything
+// and pass pp explicitly to the _call_goal8 trampoline.
+static u64 echo_intro_warp_run() {
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    lg::warn("[ECHO-INTRO-WARP] run: *game-info* not ready");
+    return 0;
+  }
+  // Resolve initialize! (method id 9 of game-info) the same way call_method_of_type
+  // does: gi_type = type tag word before field-0; the method table starts at
+  // type+16 (Type::new_method) with 4-byte Ptr<Function> entries, so
+  // get_method(9) = *(u32*)(type + 16 + 9*4). (game-info-h.gc:168-169 — basic
+  // methods 0-8, initialize! is the first custom method = id 9.)
+  Ptr<Type> gi_type(*Ptr<u32>(gi - 4));  // basic: type tag is the word before field-0
+  u32 init_fn = gi_type->get_method(9 /*initialize!*/).offset;
+  if (init_fn == 0 || init_fn == (u32)s7.offset) {
+    lg::warn("[ECHO-INTRO-WARP] initialize! (method 9) not bound; warp aborted");
+    return 0;
+  }
+  u32 lp = intern_from_c("*listener-process*")->value;
+  // (initialize! *game-info* 'game (the-as game-save #f) "intro-start")
+  u64 args[8] = {gi,
+                 intern_from_c("game").offset,    // the 'game symbol
+                 (u64)s7.offset,                  // (the-as game-save #f)
+                 make_string_from_c("intro-start"),
+                 0, 0, 0, 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + init_fn), args, 0, (u64)lp,
+                                  (u64)s7.offset, g_ee_main_mem);
+  lg::info("[ECHO-INTRO-WARP] initialize! 'game intro-start -> #x{:x}", (u32)r);
+  return r;
+}
+
+void echo_intro_warp_maybe() {
+  static bool s_done = false;
+  if (s_done) {
+    return;
+  }
+  if (!echo_intro_warp_requested()) {
+    return;
+  }
+  // Readiness: *game-info* bound to a real boxed basic (engine far enough along
+  // that initialize! can spawn). Same gate shape as f1_maybe_warp_to_geyser.
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  // Settle margin after readiness — let the title attract fully come up before the
+  // intro warp fires. Tunable via OG_ECHO_INTRO_DELAY (kernel-dispatch ticks).
+  int delay = 600;
+  if (const char* d = std::getenv("OG_ECHO_INTRO_DELAY")) {
+    delay = atoi(d);
+  }
+  static int s_ticks = 0;
+  if (s_ticks++ < delay) {
+    return;
+  }
+  s_done = true;
+
+  // Hand the warp to the kernel's *listener-function* slot — kernel-dispatcher runs
+  // it via reset-and-call INSIDE the dispatch frame with a live process context,
+  // exactly as f1_maybe_warp_to_geyser does.
+  Ptr<Function> warp_fn = make_function_from_c((void*)echo_intro_warp_run, false);
+  ListenerFunction->value = warp_fn.offset;
+  lg::info("[ECHO-INTRO-WARP] armed *listener-function* = #x{:x}; kernel will run the warp in-context",
+           warp_fn.offset);
+}
+
 // ─── Gcrash-mouche: buzzer scout-fly pickup HUD-FX repro ────────────────────────
 // Env OG_MOUCHE_FX / Android prop debug.opengoal.mouche.fx — OFF by default.
 //

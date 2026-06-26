@@ -3538,6 +3538,21 @@ void a40_dproc_probe(const char* tag) {
                         "pool=0x%x state=0x%x next-state=0x%x top-thread=0x%x",
                         tag, dproc, nn[0] ? nn : "?", name, st[0] ? st : "?", status, (int)pid,
                         mask, pool, stt, nstate, tthr);
+    // Gecho-pool TEMP probe: the thread-suspend (break) fires on the TOP-thread (a
+    // 256-byte PROCESS_STACK_SAVE_SIZE child), not mthr. Dump its used-vs-size to size
+    // the arm64 frame-overflow. Removed before the phase passes.
+    if (tthr >= 0x1000 && tthr < EE_MAIN_MEM_SIZE - 64) {
+      uint32_t tpc = 0, tsp = 0, tstop = 0, tssz = 0;
+      rd(tthr + 20, &tpc);
+      rd(tthr + 24, &tsp);
+      rd(tthr + 28, &tstop);
+      rd(tthr + 32, &tssz);
+      __android_log_print(
+          ANDROID_LOG_FATAL, kGkLogTag,
+          "A40-DPROC %s TOPTHR=0x%x pc=0x%x sp=0x%x stack-top=0x%x stack-size=%d used=%d OVER=%d",
+          tag, tthr, tpc, tsp, tstop, (int)tssz, (int)((int)tstop - (int)tsp),
+          (int)(((int)tstop - (int)tsp) - (int)tssz));
+    }
     if (mthr >= 0x1000 && mthr < EE_MAIN_MEM_SIZE - 64) {
       uint32_t pc = 0, sp = 0, stop_ = 0, ssz = 0, shook = 0, rhook = 0;
       rd(mthr + 12, &shook); // thread.suspend-hook (deftype 16)

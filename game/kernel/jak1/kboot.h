@@ -46,6 +46,15 @@ void KernelShutdown();
 void f1_maybe_warp_to_geyser();
 
 /*!
+ * ECHO-INTRO (new-game intro cinematic) deterministic warp — env OG_ECHO_INTRO /
+ * Android prop debug.opengoal.echo.intro, OFF by default. Fires once on the GOAL
+ * kernel thread from the dispatch loop, replaying
+ * (initialize! *game-info* 'game (the-as game-save #f) "intro-start") to reach the
+ * new-game intro cinematic directly; see kmachine.cpp for the full rationale.
+ */
+void echo_intro_warp_maybe();
+
+/*!
  * Gcrash-mouche — buzzer scout-fly pickup HUD-FX repro/verify. Env OG_MOUCHE_FX /
  * Android prop debug.opengoal.mouche.fx, OFF by default. Spawns the manipy
  * fly-to-HUD effect (the buzzer-collect crash path) repeatedly from the dispatch

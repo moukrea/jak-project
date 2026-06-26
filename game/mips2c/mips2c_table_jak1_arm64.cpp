@@ -41,10 +41,13 @@ void _mips2c_call_arm64();
 #ifdef __aarch64__
 #include <atomic>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
+#include <unwind.h>
 #ifdef __ANDROID__
 #include <android/log.h>
+#include <sys/system_properties.h>
 #endif
 // Gnd OOB write-watch globals + reporter. Defined in this arm64-only TU
 // because it is linked into android libgk.so via --whole-archive (the desktop
@@ -52,21 +55,67 @@ void _mips2c_call_arm64();
 // mips2c store helpers in mips2c_private.h call gnd_oob_check -> gnd_oob_report.
 // Glogo-garble: disarmed (see gnd_oob_report below) -- all flagged writes proved benign.
 std::atomic<bool> g_gnd_oob_armed{false};
-__attribute__((noinline)) void gnd_oob_report(char /*kind*/, unsigned int /*target*/,
-                                              unsigned long long /*lo*/, unsigned long long /*hi*/,
-                                              int /*nbytes*/) {
-  // Glogo-garble: DISARMED. This GND-OOB write-watch was a Gnd-phase diagnostic. The
-  // Glogo-garble investigation proved every address it flagged during the logo intro
-  // is a BENIGN FALSE POSITIVE, NOT a stomp:
-  //   * the ~400 "band" hits are the ocean (ocean-interp-wave / ocean-generate-verts)
-  //     filling the display global-buf IN-BOUNDS. The [0x514000,0x51c000) band was
-  //     calibrated to x86's global-buf base, but the arm64 heap lays global-buf ~135KB
-  //     lower, so legitimate ocean vertex writes land in the watched window.
-  //   * the low-address (<0x80000) hits are a pre-existing, harmless sparticle
-  //     near-null no-op store (sp-launch-particles-var, val 0 -> addr 0x2).
-  // None corrupt the logo. (The real garbled-logo cause was an over-aggressive arm64
-  // merc bone-repair over-restoring a legitimately-degenerate bone; fixed in Merc2.cpp.)
-  // The reporter is a no-op so the false-positive telemetry no longer fires (count -> 0).
+
+// Gecho-pool probe: TEMPORARY arm64-only diagnostic. When the watched code
+// bands (see gnd_oob_check in mips2c_private.h) take a mips2c store, dump a
+// libgk-relative host backtrace so the offending mips2c execute() body can be
+// named offline (addr2line). Gated OFF by default (g_gnd_oob_armed). Removed
+// after the scattering builder is identified.
+namespace {
+struct GndUnwindState {
+  uintptr_t* frames;
+  int cap;
+  int count;
+};
+_Unwind_Reason_Code gnd_unwind_cb(_Unwind_Context* ctx, void* arg) {
+  auto* st = static_cast<GndUnwindState*>(arg);
+  if (st->count >= st->cap) {
+    return _URC_END_OF_STACK;
+  }
+  uintptr_t ip = _Unwind_GetIP(ctx);
+  if (ip) {
+    st->frames[st->count++] = ip;
+  }
+  return _URC_NO_REASON;
+}
+}  // namespace
+
+__attribute__((noinline)) void gnd_oob_report(char kind, unsigned int target,
+                                              unsigned long long lo, unsigned long long /*hi*/,
+                                              int nbytes) {
+  static std::atomic<int> s_count{0};
+  int n = s_count.fetch_add(1, std::memory_order_relaxed);
+  if (n >= 80) {
+    return;
+  }
+
+  constexpr int kMaxFrames = 10;
+  uintptr_t frames[kMaxFrames] = {0};
+  GndUnwindState st{frames, kMaxFrames, 0};
+  _Unwind_Backtrace(gnd_unwind_cb, &st);
+
+  uintptr_t base = 0;
+  Dl_info di;
+  if (dladdr((void*)&gnd_oob_report, &di)) {
+    base = (uintptr_t)di.dli_fbase;
+  }
+
+  char line[512];
+  int off = 0;
+  int w = snprintf(line + off, sizeof(line) - off,
+                   "GECHO-OOB #%d kind=%c target=0x%x val=0x%llx nb=%d frames:", n, kind, target,
+                   lo, nbytes);
+  if (w > 0) {
+    off += (w < (int)sizeof(line) - off) ? w : (int)sizeof(line) - off - 1;
+  }
+  for (int i = 0; i < st.count && off < (int)sizeof(line) - 1; i++) {
+    uintptr_t rel = (frames[i] >= base) ? (frames[i] - base) : frames[i];
+    w = snprintf(line + off, sizeof(line) - off, " 0x%lx", (unsigned long)rel);
+    if (w > 0) {
+      off += (w < (int)sizeof(line) - off) ? w : (int)sizeof(line) - off - 1;
+    }
+  }
+  fprintf(stderr, "%s\n", line);
 }
 #endif
 
@@ -267,6 +316,30 @@ u32 a37_shared_noop_offset();
 }  // namespace
 
 extern "C" void a37_mips2c_prealloc_arena() {
+#ifdef __aarch64__
+  // Gecho-pool probe arming. TEMPORARY diagnostic, OFF by default. Runs once
+  // regardless of the early-return below (env / system property opt-in).
+  {
+    static bool s_arm_checked = false;
+    if (!s_arm_checked) {
+      s_arm_checked = true;
+      bool arm = false;
+      if (std::getenv("OG_ECHO_OOB"))
+        arm = true;
+#ifdef __ANDROID__
+      {
+        char b[PROP_VALUE_MAX] = {0};
+        if (__system_property_get("debug.opengoal.echo.oob", b) > 0 && b[0] == '1')
+          arm = true;
+      }
+#endif
+      if (arm) {
+        g_gnd_oob_armed.store(true, std::memory_order_relaxed);
+        fprintf(stderr, "GECHO-OOB armed (code-band write watch)\n");
+      }
+    }
+  }
+#endif
   if (s_a37_arena || SymbolTable2.offset == 0) {
     return;
   }
