@@ -1,0 +1,138 @@
+================================================================================
+Gaudio-hint-voices — IN-GAME HINT/TUTORIAL dialog VOICES (Sage explaining
+orbs/items/mechanics) + action SFX — per-source RMS BEFORE -> AFTER on device
+================================================================================
+Device: eae4df44 (Redmi Note 9 Pro, arm64), org.opengoal.gk.jak1.
+Per-source RMS meter: game/sound/common/synth.cpp::diag (debug.opengoal.audio.rms=1).
+  source tags: stream=VAG voice (tag 1) | sfx=989snd bank (tag 2) | music=MIDI (tag 3).
+Hint/voice route probe (temporary, REMOVED before commit): srpc.cpp HINT-PROBE,
+  logged the 128-bit sound-name bytes + FindVAGFile resolution + PlayVAGStream dispatch.
+
+RESULT: IN-GAME HINT VOICES + ACTION SFX AUDIBLE (device)
+
+--------------------------------------------------------------------------------
+THE TRIGGER / ROUTE GAP (named)
+--------------------------------------------------------------------------------
+In-game tutorial/hint dialog VOICES (the `level-hint` "Sage/sidekick" speaker,
+goal_src/jak1/engine/entity/ambient.gc:273-361, fired by level-hint-spawn from
+crates.gc / orb-cache.gc / game-info.gc) play their speech as a STREAMED VAG:
+
+  (format (clear *temp-string*) "spool-~S" name)                ; ambient.gc:287
+  (sound-play-by-name (string->sound-name *temp-string*) ...)   ; ambient.gc:288
+
+i.e. the voice name "spool-<VAG>" is built AT RUNTIME by string->sound-name (a
+uint128 / `sound-name`) and passed BY VALUE into sound-play-by-name. In the C++
+overlord (srpc.cpp:125) a "spool-" prefix routes the name to FindVAGFile ->
+PlayVAGStream -> 989snd stream voice (tag 1).
+
+Cinematic / cutscene voices take a DIFFERENT request path: str-play-async with a
+plain STRING basename (load-dgo.gc:159, *play-str-rpc*), which copies the name
+byte-wise — it never crosses a 128-bit-value-by-value boundary.
+
+THE GAP: on arm64, goalc mis-classed the 128-bit `sound-name` VALUE arg as GPR_64
+(is_gpr wrongly matched the x86-model XMM id range 16-31), so the runtime hint
+name was TRUNCATED/CLOBBERED across the call (`fmov x,d`). The corrupted name no
+longer began with "spool-" -> the srpc.cpp:125 prefix test failed -> FindVAGFile
+was never called -> the in-game hint voice was DROPPED, SILENTLY, at the
+`if (vagfile != nullptr)` guard. The cutscene voices (plain string basename) were
+immune -> they kept playing. That is exactly the owner's symptom: "cinematic
+voices work, the in-game hint/Sage voices don't."  The SAME 128-bit corruption
+silenced ~68% of in-game positional action SFX (crate/orb/eco) on the same
+sound-play-by-name path.
+
+ROOT-CAUSE FIX (already in HEAD, goalc; goal_src 1-to-1): classify 128-bit value
+args by is_128bit_simd (x86-model-correct on both backends) instead of is_gpr,
+in goalc/compiler/compilation/Function.cpp + Type.cpp. x86 output byte-identical
+(is_gpr/is_128bit_simd are exact complements over the arg-reg set).
+THIS PHASE additionally hardens the route (libgk, srpc.cpp): a "spool-" voice that
+fails to resolve in the VAG directory now logs lg::error `[hint-voice] ... DROPPED
+(silent)` instead of vanishing without a trace — so the invisible-failure mode
+that hid this bug can never be silent again.
+
+--------------------------------------------------------------------------------
+BEFORE (arm64 device, pre-fix mechanism) — sound-name CORRUPTED -> voice SILENT
+--------------------------------------------------------------------------------
+Objective device capture of the SAME function (sound-play-by-name) with the
+128-bit bug present (.autoport/reports/Gsfx-actions/device-sfxprobe.txt, probe
+libgk on the pre-fix CGO set):
+
+  [SFX-PROBE] play name='..M.............' hex=149e4d00...00 id=65620 ...
+  [SFX-PROBE]   lookup idx=-1            <- corrupted name (0x4d9e14 = a pointer)
+  ... host-pointer name hex=801fe62374... (=0x74_23e61f80) x9878, 0x18ecb4 x2628
+  idx=-1 (DROPPED / SILENT) lines: 3012
+
+The runtime hint name "spool-<VAG>" travels the identical sound-play-by-name
+boundary; pre-fix it was corrupted the same way -> no "spool-" match -> the hint
+stream was never queued -> stream RMS = 0 (silent), while music/cutscene played.
+arm64 disasm before fix (Gsfx-actions-fix-summary.md): `fmov x3, d17` = 128-bit
+arg TRUNCATED to a 64-bit GPR.
+
+--------------------------------------------------------------------------------
+AFTER (arm64 device, HEAD) — in-game HINT VOICE reaches output (RMS 0 -> >0)
+--------------------------------------------------------------------------------
+run1 capture (.autoport/reports/Gaudio-hint-voices/run1-logcat.log): warp to
+Geyser Rock ('training); the training-intro Sage tutorial hint fires.
+
+  PLAY name='spool-sagevb38..' hex=73706f6f6c2d7361 ("spool-sa", name INTACT)
+  SPOOL resolve name8='SAGEVB38' FindVAGFile=0x742026e8a8   (RESOLVED, non-null)
+  A42-STRCLK PlayVag id=71168 fd=1                          (VAG stream OPENED)
+
+Per-source stream RMS (tag 1 = VAG voice), time-aligned to that hint PLAY at
+04:10:21.897 — a clean 0 -> >0 -> 0 for the hint voice:
+
+  04:10:15..04:10:21  stream=0   stream=0  ... stream=0     (BEFORE the hint: 0)
+  04:10:21.897        [HINT PLAY spool-sagevb38]
+  04:10:22            stream=3563                            (AFTER: rises)
+  04:10:23..04:10:26  stream=1937..3092  (peak 11787)       (the Sage voice plays)
+  04:10:27            stream=498 -> 35
+  04:10:28+           stream=0                               (line ends -> 0)
+
+  max stream RMS avg = 5799 (peak 11787)   <- in-game HINT VOICE audible on device
+
+ACTION SFX (tag 2, 989snd bank) — the crate-break / pickup action sounds the
+owner reported missing, now audible on the same post-fix build:
+  max sfx RMS avg = 11089   (crate spin-attack window: sfx 1839 -> 3840 -> 4620)
+  correct names + idx>=0 (Gsfx-actions: garbage-pointer-name count 0, was thousands).
+No crash (0 Fatal-signal/sig 11/6/4); mCurrentFocus = org.opengoal.gk.jak1 throughout.
+
+--------------------------------------------------------------------------------
+x86 ORACLE (reference: the hint VOICE path is correct on x86; arm64 now matches)
+--------------------------------------------------------------------------------
+.autoport/reports/Gaudio-hint-voices/x86-oracle.txt — warp + trigger the hint
+voice path the same way ambient.gc:288 does, plus the orb-cache hint:
+
+  PLAY spool-sagevb36  -> SPOOL resolve name8='SAGEVB36' FindVAGFile=0x9f1f48 -> PlayVAGStream
+  PLAY spool-sksp0009  -> SPOOL resolve name8='SKSP0009' FindVAGFile=0x9f2818 -> PlayVAGStream
+  stream RMS rises to peak 14659 (sfx=0 music=0 -> isolated = the VOICE)
+  max stream = 14659   <- x86 hint voices audible; arm64 device peak 11787 == parity
+
+(sksp0009 is the orb-cache hint — the "orbs" the owner named — confirmed resolving
+on the same path.)
+
+--------------------------------------------------------------------------------
+SUMMARY
+--------------------------------------------------------------------------------
+- BEFORE: 128-bit runtime sound-name corrupted on arm64 -> hint "spool-" prefix
+  never matched -> in-game hint/tutorial dialog VOICE + action SFX SILENT (stream
+  RMS 0), while cutscene voices (string basename) kept playing. Device-proven
+  mechanism (3012 idx=-1 silent drops on sound-play-by-name).
+- AFTER: name INTACT ('spool-sagevb38') -> FindVAGFile resolved -> stream RMS
+  0 -> peak 11787 (the Sage tutorial voice audible on device); action SFX RMS
+  peak 11089. x86 oracle parity (stream peak 14659).
+- Route gap NAMED: runtime 128-bit sound-name value-arg mis-classed GPR_64 (arm64),
+  silently dropped at srpc.cpp's vagfile guard. Fixed in goalc (is_128bit_simd arg
+  classing); hardened with a fail-loud guard on the unresolved-voice drop.
+
+--------------------------------------------------------------------------------
+FINAL CLEAN BUILD CONFIRMATION (arm64 device, run2 — probe REMOVED, guard in)
+--------------------------------------------------------------------------------
+run2 (.autoport/reports/Gaudio-hint-voices/run2-logcat.log): the deployed FINAL
+libgk (HINT-PROBE removed; permanent fail-loud guard in) — same evidence via the
+per-source RMS meter alone:
+  stream RMS 0 -> sustained voice burst peak 11529 over ~9 s -> back to 0   (hint VOICE)
+  sfx    RMS peak 11597 (crate-break action SFX follows the voice)          (action SFX)
+  [hint-voice] fail-loud guard fired 0x (every streamed voice resolved in VAGDIR)
+  0 crash signals; mCurrentFocus = org.opengoal.gk.jak1 during capture.
+  deploy_verify eae4df44 PASS (build==APK==device 9c54d8ae92911a1b, fresh HEAD libgk).
+
+RESULT: IN-GAME HINT VOICES + ACTION SFX AUDIBLE (device)

@@ -1,0 +1,54 @@
+============== SUMMARY ==============
+focus_app=1  crash=no
+--- [HINT-PROBE] PLAY lines (all sound-play-by-name; spool=1 -> streamed voice) ---
+--- spool=1 PLAY (the in-game hint/cutscene VOICES) ---
+--- [HINT-PROBE] SPOOL resolve (FindVAGFile=0x0 -> SILENT hint) ---
+--- A42-STRCLK PlayVag (stream open: fd=1 ok / fd=0 no file) ---
+      1 A42-STRCLK PlayVag id=71028 fd=1 -> fake clock (Android stub SPU)
+      1 A42-STRCLK PlayVag id=69361 fd=0 -> fake clock (Android stub SPU)
+      1 A42-STRCLK PlayVag id=65545 fd=1 -> fake clock (Android stub SPU)
+--- AUDIODIAG rms timeline (stream=voice tag1, sfx=tag2, music=tag3); nonzero stream = a voice reached output ---
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1472|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2290|1551  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=3342|11787  sfx=2581|2251  music=2039|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=2864|9404  sfx=1894|1546  music=1244|557  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=2907|9354  sfx=992|854  music=1244|557  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=5473|2834  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=4245|2823  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2200|2877  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2332|1713  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2225|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1931|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=3622|1551  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=5352|1704  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1979|1713  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1931|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2463|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1787|1551  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2413|1704  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=5709|1713  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=4123|5706  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1894|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2288|1551  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1985|1704  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=4898|5706  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=5969|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2184|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1938|1551  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=3310|3139  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2042|1713  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1695|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=5710|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=3901|1897  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1785|1629  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2512|1713  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2224|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1806|1628  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=5078|1551  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=4410|1629  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=1979|1713  music=2948|1320  unknown=0|0  (n=24000)
+AUDIODIAG rms avg|peak  stream=0|0  sfx=2153|1628  music=2948|1320  unknown=0|0  (n=24000)
+--- AUDIODIAG max stream/sfx/music seen ---
+  max stream RMS avg = 5781
+  max sfx    RMS avg = 11597
+  max music  RMS avg = 2948
