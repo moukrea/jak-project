@@ -575,7 +575,11 @@ Val* Compiler::compile_defmethod(const goos::Object& form, const goos::Object& _
     constr.instr_idx = 0;  // constraint at function start
     auto ireg_arg = new_func_env->make_ireg(
         lambda.params.at(i).type,
-        arg_regs.at(i).is_gpr(m_instr_set) ? RegClass::GPR_64 : RegClass::INT_128);
+        // Gsfx-actions: 128-bit (uint128 / sound-name) value method-arg = INT_128, matching the
+        // return-value classing. is_gpr(ARM64) wrongly includes x86-model XMM ids 16-31, so
+        // 128-bit value args were mis-classed GPR_64 → truncated/clobbered (silent SFX).
+        // is_128bit_simd is x86-model-correct on both backends; x86 output is unchanged.
+        arg_regs.at(i).is_128bit_simd(m_instr_set) ? RegClass::INT_128 : RegClass::GPR_64);
     ireg_arg->mark_as_settable();
     constr.ireg = ireg_arg->ireg();
     constr.desired_register = arg_regs.at(i);
@@ -612,9 +616,12 @@ Val* Compiler::compile_defmethod(const goos::Object& form, const goos::Object& _
   func_block_env->emit_ir<IR_ValueReset>(form, reset_args_for_coloring);
 
   for (u32 i = 0; i < lambda.params.size(); i++) {
-    auto ireg = new_func_env->make_ireg(lambda.params.at(i).type, arg_regs.at(i).is_gpr(m_instr_set)
-                                                                      ? RegClass::GPR_64
-                                                                      : RegClass::INT_128);
+    // Gsfx-actions: 128-bit value method-arg = INT_128 (see ireg_arg above; is_128bit_simd is
+    // x86-model-correct on both backends, unlike the arm64-broken is_gpr).
+    auto ireg = new_func_env->make_ireg(lambda.params.at(i).type,
+                                        arg_regs.at(i).is_128bit_simd(m_instr_set)
+                                            ? RegClass::INT_128
+                                            : RegClass::GPR_64);
     ireg->mark_as_settable();
     if (!new_func_env->params.insert({m_goos.intern_ptr(lambda.params.at(i).name), ireg}).second) {
       throw_compiler_error(form, "defmethod has multiple arguments named {}",

@@ -1,0 +1,119 @@
+================================================================================
+Gsfx-actions — action SFX audible (crate / orb / blue-eco / green-eco)
+x86-first arm64-divergence localization + fix
+================================================================================
+
+RESULT: crate|orb|eco; snd-play in-game positional SFX were SILENT on arm64
+        because the 16-byte sound-name reached the 989snd RPC CORRUPTED (a
+        host/GOAL pointer, not the packed name) -> LookupSoundIndex idx=-1 ->
+        no sound. Root cause = goalc arm64 128-bit (uint128 / sound-name) VALUE
+        ARGUMENT mis-classification. Fixed -> device == x86: every action sound
+        now transmits the correct name + resolves to a real bank index.
+
+OWNER REPORT (2026-06-25)
+  On device, breaking a crate and collecting orbs / blue-eco / green-eco produce
+  NO SOUND; x86 plays them. Method: per-source RMS / per-sound-name, find which
+  action snd-play triggers produce 0 on device, fix the arm64 divergence in the
+  translation layer (goal_src stays 1-to-1).
+
+METHOD — x86-first, per-sound-name name+lookup capture
+  A gated debug probe was added to the 989snd PLAY handler
+  (game/overlord/jak1/srpc.cpp, since REMOVED) logging, for every PLAY command,
+  the raw 16-byte cmd->play.name (printable + hex), sound_id, volume, pitch,
+  bend, trans, falloff, mask, the LookupSoundIndex result, and the voice handle.
+  The same probe was run on the x86 desktop build (ground truth) and on the
+  arm64 device (eae4df44), at the title flythrough AND in Geyser Rock gameplay.
+
+--------------------------------------------------------------------------------
+BEFORE (device DIVERGES from x86) — baseline
+--------------------------------------------------------------------------------
+x86 (ground truth, Geyser Rock / training, names pack + resolve correctly):
+    wcrate-break  hex=7763726174652d627265616b00000000  idx=65   (crate break)
+    icrate-break  hex=6963726174652d627265616b00000000  idx=66
+    scrate-break  hex=7363726174652d627265616b00000000  idx=67
+    dcrate-break  hex=6463726174652d627265616b00000000  idx=69
+    buzzer-pickup hex=62757a7a65722d7069636b7570000000  idx=352  (orb / scout-fly)
+    cell-prize    hex=63656c6c2d7072697a65000000000000  idx=192
+    water-drop    hex=77617465722d64726f70000000000000  idx=415  (continuous ambient)
+  -> all packed correctly, all resolve (idx>=0), all play.
+
+arm64 DEVICE (same scene) — names ARRIVE CORRUPTED, ~68% of in-game SFX silent:
+    name='...#t...'  hex=801fe62374000000... (x9878)  idx=-1   (= 0x74_23e61f80, a HOST pointer)
+    name='........'  hex=b4ec1800000000...   (x2628)  idx=-1   (= 0x18ecb4, a GOAL pointer)
+    name='pnO.....'  hex=706e4f0000000000... (x128)   idx=-1
+    name='./......'  hex=c02ff40100000000... (x23)    idx=-1
+    water-drop  -> ABSENT (count 0)  [an immediate (sound-play "water-drop")]
+  device lookup idx distribution: 3012 of 5217 plays = idx=-1 (NOT FOUND).
+  The CORRUPTED name is a POINTER, not the packed string -> 16-byte memcmp in
+  LookupSoundIndex fails -> index<0 -> the PLAY is dropped -> SILENT.
+  (The 989snd synth path itself was already proven functional in Gaudio-sfx;
+   the corruption is upstream, in how GOAL arm64 fills cmd->play.name.)
+
+--------------------------------------------------------------------------------
+ROOT CAUSE (arm64 codegen) — proven by disassembly
+--------------------------------------------------------------------------------
+sound-name is (deftype sound-name (uint128) ...) — a 128-bit VALUE type. It is
+passed BY VALUE in a SIMD/XMM-model register. In goalc, register ids are
+x86-model THROUGHOUT (XMM0..XMM15 = ids 16..31; the AArch64 bank split is encode-
+time only). Register::is_gpr(ARM64) wrongly returns true for the entire id range
+0..31 (it tests X0..X30 = native ids), so it ALSO matches the x86-model XMM ids.
+The function/method ARGUMENT classifier in goalc
+  goalc/compiler/compilation/Function.cpp (defun args) and
+  goalc/compiler/compilation/Type.cpp     (defmethod args)
+used  `is_gpr(m_instr_set) ? GPR_64 : INT_128`,
+so on arm64 EVERY 128-bit value argument was mis-classed GPR_64. A disassembly
+of a minimal repro (uint128 arg, intervening call, store into a field) shows:
+  BEFORE: fmov x3, d17        ; mov igpr-3, igpr-0  -> arg TRUNCATED to 64-bit GPR,
+          ...                  ;   high 64 bits lost + value clobbered across the call
+  AFTER : mov v24.16b, v17.16b ; mov ii128-3, ii128-0 -> FULL 128-bit value in a V reg,
+          str q24, [sp,#-0x10]!;   saved across the call, then
+          str q24, [x16,#0x10] ;   FULL 128-bit store of the name. No truncation.
+This is the A33-flagged x86-model-vs-arm64-native id inversion, fixed there for
+is_128bit_simd but left in place for the argument classer.
+
+THE FIX (translation layer only; goal_src untouched, 1-to-1)
+  Classify a 128-bit value argument by is_128bit_simd (already x86-model-correct
+  on BOTH backends, and already used for the RETURN value), not by the arm64-
+  broken is_gpr:
+    -  arg_regs.at(i).is_gpr(m_instr_set) ? RegClass::GPR_64 : RegClass::INT_128
+    +  arg_regs.at(i).is_128bit_simd(m_instr_set) ? RegClass::INT_128 : RegClass::GPR_64
+  Files: goalc/compiler/compilation/Function.cpp (2 sites), Type.cpp (2 sites).
+  x86-NEUTRAL by construction: every x86 arg register is a GPR (ids 1..11) or an
+  XMM (XMM1..XMM8 = ids 17..24); is_gpr and is_128bit_simd are exact complements
+  over that set, so x86 RegClass assignments — and x86 bytes — are unchanged.
+
+--------------------------------------------------------------------------------
+AFTER (device == x86) — fixed arm64 CGO set deployed (006771712 + fix)
+--------------------------------------------------------------------------------
+arm64 DEVICE, same Geyser Rock scene, fixed build, SFX probe re-run:
+    GARBAGE pointer-name count (b4ec18/801fe623/706e4f/c02ff401/...) = 0  (was thousands)
+    wcrate-break  hex=7763726174652d627265616b00000000  id valid  (CRATE BREAK now plays)
+    water-drop    hex=77617465722d64726f70000000000000  idx=415   (REAPPEARED, was absent)
+    eco-bg-blue   hex=65636f2d62672d626c75650000000000  idx=62    (BLUE eco ambient)
+    pill-pickup   hex=70696c6c2d7069636b75700000000000  resolves  (green-eco pill collect)
+    training-amb, water-lap-cls, geyser, waterfall, walk-grass1/2, land-sand,
+    spin-kick, spin-hit, jump, grunt, breath-*  -> all CORRECT ASCII, all idx>=0
+  device lookup idx distribution: NO idx=-1 in the top distribution — every name
+  now resolves to a real bank index. Every hex decodes to clean ASCII.
+  Boot: link finish: logo, warp to Geyser Rock (link finish: training), drove +
+  spin-attacked (broke a real wooden crate -> wcrate-break), 0 Fatal/SIG markers.
+
+VERIFICATION / GATES
+  * x86 smoke: gk -boot reaches `link finish: logo` (fix is x86-neutral).
+  * arm64: full consistent 28-file CGO/DGO set rebuilt with the fixed goalc,
+    compiled with ZERO codegen asserts (1317 targets), promoted to the device
+    known-good backup (old kept as ...-pre-gsfx-0 fallback).
+  * Device eae4df44: clean (probe-removed) HEAD libgk installed; deploy_verify
+    PASS (build==APK==device); 3-min boot smoke crash-free (logo x4, training x4,
+    0 sig); SFX-PROBE absent from the clean build's logcat (probe removed).
+  * Owner ear = final: re-test crate-break / orb / blue-eco / green-eco collect
+    on this device — they now reach the speaker (correct name -> bank hit -> voice).
+
+CONCLUSION
+  The owner's silent action SFX were one symptom of a single goalc arm64 defect:
+  128-bit (uint128 / sound-name) VALUE arguments were truncated/clobbered because
+  the argument classer trusted the arm64-broken is_gpr. The one-line-per-site fix
+  (use is_128bit_simd, matching the return-value classer) makes arm64 == x86 for
+  every 128-bit-argument function — crate/orb/eco and all in-game positional SFX
+  now transmit their correct names and play. goal_src stays byte-identical (1-to-1).
+================================================================================
