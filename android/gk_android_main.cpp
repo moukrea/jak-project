@@ -3538,6 +3538,21 @@ void a40_dproc_probe(const char* tag) {
                         "pool=0x%x state=0x%x next-state=0x%x top-thread=0x%x",
                         tag, dproc, nn[0] ? nn : "?", name, st[0] ? st : "?", status, (int)pid,
                         mask, pool, stt, nstate, tthr);
+    // Gecho-pool TEMP probe: the thread-suspend (break) fires on the TOP-thread (a
+    // 256-byte PROCESS_STACK_SAVE_SIZE child), not mthr. Dump its used-vs-size to size
+    // the arm64 frame-overflow. Removed before the phase passes.
+    if (tthr >= 0x1000 && tthr < EE_MAIN_MEM_SIZE - 64) {
+      uint32_t tpc = 0, tsp = 0, tstop = 0, tssz = 0;
+      rd(tthr + 20, &tpc);
+      rd(tthr + 24, &tsp);
+      rd(tthr + 28, &tstop);
+      rd(tthr + 32, &tssz);
+      __android_log_print(
+          ANDROID_LOG_FATAL, kGkLogTag,
+          "A40-DPROC %s TOPTHR=0x%x pc=0x%x sp=0x%x stack-top=0x%x stack-size=%d used=%d OVER=%d",
+          tag, tthr, tpc, tsp, tstop, (int)tssz, (int)((int)tstop - (int)tsp),
+          (int)(((int)tstop - (int)tsp) - (int)tssz));
+    }
     if (mthr >= 0x1000 && mthr < EE_MAIN_MEM_SIZE - 64) {
       uint32_t pc = 0, sp = 0, stop_ = 0, ssz = 0, shook = 0, rhook = 0;
       rd(mthr + 12, &shook); // thread.suspend-hook (deftype 16)
@@ -3564,6 +3579,62 @@ void a40_dproc_probe(const char* tag) {
       }
     }
   }
+  // === Gecho-pool TEMP: dump the SUSPENDING process (*kernel-context*.current-process). ===
+  // This is the process whose 256-byte temp/main thread overflowed at thread-suspend's (break).
+  if (curproc >= 0x1000 && curproc < EE_MAIN_MEM_SIZE - 128) {
+    uint32_t cname = 0, cstatus = 0, cpid = 0, cmthr = 0, ctthr = 0, cstate = 0, cnstate = 0;
+    rd(curproc + 0, &cname);     // process.name  (deftype 4)
+    rd(curproc + 32, &cstatus);  // status        (deftype 36)
+    rd(curproc + 36, &cpid);     // pid           (deftype 40)
+    rd(curproc + 40, &cmthr);    // main-thread   (deftype 44)
+    rd(curproc + 44, &ctthr);    // top-thread    (deftype 48)
+    rd(curproc + 52, &cstate);   // state         (deftype 56)
+    rd(curproc + 72, &cnstate);  // next-state    (deftype 76)
+    char cnn[40], cst[40], csn[40], cnsn[40];
+    a40_sym_name(ee, cname, cnn, sizeof(cnn));
+    a40_sym_name(ee, cstatus, cst, sizeof(cst));
+    a40_sym_name(ee, cstate, csn, sizeof(csn));
+    a40_sym_name(ee, cnstate, cnsn, sizeof(cnsn));
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+        "A40-DPROC %s CURPROC=0x%x name=%s(0x%x) status=%s pid=%d main-thread=0x%x top-thread=0x%x state=%s(0x%x) next-state=%s",
+        tag, curproc, cnn[0]?cnn:"?", cname, cst[0]?cst:"?", (int)cpid, cmthr, ctthr, csn[0]?csn:"?", cstate, cnsn[0]?cnsn:"?");
+    uint32_t st = (ctthr >= 0x1000) ? ctthr : cmthr;  // the suspending (top) thread
+    if (st >= 0x1000 && st < EE_MAIN_MEM_SIZE - 64) {
+      uint32_t tname = 0, tpc = 0, tsp = 0, tstop = 0, tssz = 0;
+      rd(st + 0, &tname);   // thread.name        (deftype 4)
+      rd(st + 20, &tpc);    // thread.pc          (deftype 24)
+      rd(st + 24, &tsp);    // thread.sp          (deftype 28)
+      rd(st + 28, &tstop);  // thread.stack-top   (deftype 32)
+      rd(st + 32, &tssz);   // thread.stack-size  (deftype 36)
+      char tnn[40];
+      a40_sym_name(ee, tname, tnn, sizeof(tnn));
+      int used = (int)tstop - (int)tsp;
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+          "A40-DPROC %s CURTHR=0x%x tname=%s pc=0x%x sp=0x%x stack-top=0x%x stack-size=%d used=%d OVER=%d",
+          tag, st, tnn[0]?tnn:"?", tpc, tsp, tstop, (int)tssz, used, used - (int)tssz);
+      // === Gecho-pool TEMP: walk the suspending thread's stack to name the frame chain ===
+      // The stack holds 64-bit host values (saved x29/FP = host stack ptr, x30/LR = host
+      // code ptr). Read each 8-byte slot (two 32-bit words), and if it converts to a GOAL
+      // code address, name the function — that LR identifies a frame's call site.
+      for (uint32_t a = tsp; a + 8 <= tstop && a < tsp + 0x220; a += 8) {
+        uint32_t lo = 0, hi = 0;
+        if (!rd(a, &lo) || !rd(a + 4, &hi)) continue;
+        uint64_t v = ((uint64_t)hi << 32) | (uint64_t)lo;
+        uint32_t g = to_goal((uintptr_t)v);  // 0 if v is not an EE-region host pointer
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+            "A40-DPROC %s CURSTK +0x%-3x: 0x%016llx goal=0x%x", tag, a - tsp,
+            (unsigned long long)v, g);
+        if (g >= 0x10000 && g < 0x3000000) {
+          // code-range GOAL address (a saved LR / frame return site) — name it
+          char lbl[28];
+          snprintf(lbl, sizeof(lbl), "CURSTK+0x%x", a - tsp);
+          log_nearest_goal_fn(lbl, g);
+        }
+      }
+      // === end Gecho-pool stack-walk ===
+    }
+  }
+  // === end Gecho-pool CURPROC dump ===
   // Display buffers, sampled alongside the process state: on-screen,
   // last-screen, and both frames' global-buf {field, base, data} — the
   // walk shows as buf base ≫ data with no resets between samples.
@@ -4454,6 +4525,71 @@ bool handle_enter_state_null_code(int sig, siginfo_t* /*info*/, void* ucontext) 
   }
   return true;
 }
+
+// Gecho-pool: tolerate a TINY arm64 process-suspend stack overflow.
+// thread-suspend (gkernel.gc:606) does `(when (> used stack-size) (break))`. On arm64 a
+// deeply-nested enter-state suspend on a 256-byte process exceeds the budget by a few
+// bytes (the .push is 16B vs x86's 8B). x86 never trips this. For a SMALL overflow we
+// skip the (break) (a `(/ 0 0)` = udf #0xBEEF) so the suspend proceeds; the inline backup
+// copy then spills `over` bytes into the thread's freg (xmm8-15 saves), bounded+float-only
+// for over<=32. Returns true (resume) only for this exact, small-overflow case.
+std::atomic<uint64_t> g_suspend_overflow_tolerated{0};
+bool handle_suspend_overflow_break(int sig, siginfo_t* /*info*/, void* ucontext) {
+  if (sig != SIGILL && sig != SIGSEGV) return false;
+  if (!g_ee_main_mem) return false;
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  uintptr_t pc = uc->uc_mcontext.pc;
+  uint32_t pcg = to_goal(pc);
+  if (pcg < 0x1000) return false;
+  // faulting instruction must be UDF #0xBEEF (the (break)/div-by-zero trap)
+  uint32_t instr = 0;
+  if (!a36_tree::rd32(pcg, &instr)) return false;
+  if (((instr & 0xFFFFu) != 0xBEEFu) || ((instr >> 16) != 0u)) return false;
+  // belt: only inside the kernel asm-func band (reset-and-call / thread-suspend cluster)
+  if (pcg < 0x180000 || pcg >= 0x190000) return false;
+  // identify the suspending thread = *kernel-context*.current-process -> top-thread
+  auto kc = jak1::intern_from_c("*kernel-context*");
+  uint32_t kctx = kc.offset ? kc->value : 0;
+  if (kctx < 0x1000) return false;
+  uint32_t curproc = 0;
+  if (!a36_tree::rd32(kctx + 20, &curproc) || curproc < 0x1000) return false;  // current-process
+  uint32_t tthr = 0;
+  if (!a36_tree::rd32(curproc + 44, &tthr) || tthr < 0x1000) return false;     // top-thread
+  uint32_t tsp = 0, tstop = 0, tssz = 0;
+  if (!a36_tree::rd32(tthr + 24, &tsp)) return false;     // thread.sp
+  if (!a36_tree::rd32(tthr + 28, &tstop)) return false;   // thread.stack-top
+  if (!a36_tree::rd32(tthr + 32, &tssz)) return false;    // thread.stack-size
+  int over = (int)(tstop - tsp) - (int)tssz;
+  if (over <= 0 || over > 32) return false;   // not the small-overflow break -> let it crash
+  // The (break) is a HARD trap inside thread-suspend, where SP is a GOAL pointer (the
+  // asm-func converted it). We CANNOT just resume past the udf — the (/ 0 0) divide's
+  // spill (`sub sp,#16; str x8,[sp]`) would store through the GOAL-pointer SP and fault.
+  // Instead jump to the `(when (> used size) (break))` SKIP target: the B.cond (b.le) a
+  // few instrs before the udf branches PAST the whole break body to the no-overflow
+  // continuation (gkernel.gc:612: set status; copy stack; restore regs; RET). Jumping
+  // there lets the suspend complete on valid GOAL pointers; the inline backup copy then
+  // overflows `over`<=32 bytes into the thread's freg (xmm8-15 saves) — bounded, float-only.
+  uint32_t target_g = 0;
+  for (int back = 1; back <= 12; back++) {
+    uint32_t a = pcg - 4u * (uint32_t)back;
+    uint32_t bi = 0;
+    if (!a36_tree::rd32(a, &bi)) continue;
+    if ((bi & 0xFF000010u) != 0x54000000u) continue;  // B.cond
+    int32_t imm19 = (int32_t)((bi >> 5) & 0x7FFFFu);
+    if (imm19 & 0x40000) imm19 -= 0x80000;            // sign-extend 19 bits
+    uint32_t tg = a + (uint32_t)(imm19 * 4);
+    if (tg > pcg && tg < pcg + 0x100) { target_g = tg; break; }  // forward skip target
+  }
+  if (target_g == 0) return false;  // couldn't locate the (when) skip branch -> let it crash
+  uc->uc_mcontext.pc = reinterpret_cast<uintptr_t>(g_ee_main_mem) + target_g;
+  const uint64_t s_n = g_suspend_overflow_tolerated.fetch_add(1, std::memory_order_relaxed);
+  if (s_n < 5 || (s_n % 300) == 0) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+        "GK-DIAG ECHO-SUSPEND-TOLERATE proc=0x%x over=%d (used=%d size=%d) udf=0x%x -> skip=0x%x #%llu",
+        curproc, over, (int)(tstop - tsp), (int)tssz, pcg, target_g, (unsigned long long)s_n);
+  }
+  return true;
+}
 }  // namespace a38_trip
 
 // F1A: non-static bridge so the A37-CAM block (earlier in the TU, different
@@ -4678,6 +4814,12 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
       a38_trip::handle_enter_state_null_code(sig, info, ucontext)) {
     return;
   }
+  // Gecho-pool: tolerate the tiny arm64 process-suspend stack overflow (thread-suspend
+  // (break)) at the title/cinematic — skip the over-strict break and let suspend proceed.
+  if ((sig == SIGILL || sig == SIGSEGV) &&
+      a38_trip::handle_suspend_overflow_break(sig, info, ucontext)) {
+    return;
+  }
   // Diag-only: dump PC bytes and registers so we can decode the crashing
   // GOAL bytecode at offset (PC - g_ee_main_mem). Re-raise after dumping
   // by restoring SIG_DFL.
@@ -4703,6 +4845,37 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   if (uint32_t g = a38_trip::to_goal(fault)) {
     a38_trip::log_nearest_goal_fn("fault", g);
   }
+  // === Gecho-pool TEMPORARY diagnostic: thread-suspend (break) stack-overflow probe ===
+  // The (break) macro = (/ 0 0) = arm64 udf #0xBEEF; fires in thread-suspend when a
+  // suspending process overflowed its backup-stack budget. Brute-force scan GPRs as
+  // candidate GOAL cpu-thread pointers; print the one whose stack-used > stack-size.
+  // Read-only, bounds-checked, async-signal-safe (no malloc, only guarded EE reads +
+  // the existing __android_log_print). REMOVE before the final fix.
+  {
+    // Local replica of a36_tree::rd32 — same bounds check — kept self-contained so the
+    // block does not depend on cross-namespace inline visibility.
+    auto rd32 = [](uint32_t goal, uint32_t* out) -> bool {
+      if (!g_ee_main_mem || goal < 0x1000 || goal >= EE_MAIN_MEM_SIZE - 4) return false;
+      *out = *reinterpret_cast<const uint32_t*>(g_ee_main_mem + goal);
+      return true;
+    };
+    auto* uc2 = reinterpret_cast<ucontext_t*>(ucontext);
+    uintptr_t pcx = uc2->uc_mcontext.pc;
+    uint32_t instr_at_pc = 0;
+    if (g_ee_main_mem && pcx) {
+      // pc points into executable goal code; read the 4-byte instruction guardedly.
+      uint32_t pcg = a38_trip::to_goal(pcx);
+      if (pcg >= 0x1000) {
+        uint32_t w;
+        if (rd32(pcg, &w)) instr_at_pc = w;
+      }
+    }
+    bool is_break = ((instr_at_pc & 0xFFFFu) == 0xBEEFu) && ((instr_at_pc >> 16) == 0u);
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG GECHO break-probe pc-instr=0x%08x is_break=%d", instr_at_pc,
+                        (int)is_break);
+  }
+  // === end Gecho-pool diagnostic ===
   // F1a: name the bucket whose render() was live when a GL-thread crash
   // lands inside the driver (run-4: fault in libGLESv2_adreno, fp-walk
   // dead-ends — the breadcrumb is the only caller evidence). Fixed buffer,

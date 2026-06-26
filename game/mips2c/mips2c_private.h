@@ -34,7 +34,9 @@ __attribute__((noinline)) void gnd_oob_report(char kind, unsigned int target,
                                               int nbytes);
 inline void gnd_oob_check(char kind, unsigned int target, const void* valptr, int nbytes) {
   if (__builtin_expect(g_gnd_oob_armed.load(std::memory_order_relaxed), 0)) {
-    if (target < 0x80000u || (target >= 0x514000u && target < 0x51c000u)) {
+    // Gecho-pool probe: kernel asm-func band [0x18ae84,0x1912b4) + engine-code band [0x1900000,0x1918000)
+    if ((target >= 0x18ae84u && target < 0x1912b4u) ||
+        (target >= 0x1900000u && target < 0x1918000u)) {
       unsigned long long lo = 0, hi = 0;
       std::memcpy(&lo, valptr, nbytes >= 8 ? 8 : nbytes);
       if (nbytes >= 16) std::memcpy(&hi, (const unsigned char*)valptr + 8, 8);
