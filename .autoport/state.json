@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 144,
+  "current_phase_idx": 145,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -269,7 +269,8 @@
     ],
     "Gecho-pool": [
       "a5ad5a835d29",
-      "a5ad5a835d29"
+      "a5ad5a835d29",
+      "9ecaf28b7607"
     ]
   },
   "stuck_reasons": {
@@ -428,7 +429,8 @@
     "A20-goalc-arm64-field-offset",
     "A38-android-float-spray-tripwire-goal-frame",
     "Grefen-english-pristine-frames-audit",
-    "Gmenu-pixelmatch"
+    "Gmenu-pixelmatch",
+    "Gecho-pool"
   ],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
@@ -535,7 +537,7 @@
     "Gcollectible-state": 1782413372.600891,
     "Gsfx-actions": 1782430239.035448
   },
-  "last_update": "2026-06-26T09:20:52.913124+00:00",
+  "last_update": "2026-06-26T09:20:56.438788+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
