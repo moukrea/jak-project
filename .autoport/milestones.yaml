@@ -893,6 +893,18 @@ phases:
   validator: validators/phase-Gledge-glitch.sh
   max_turns: 1500
   max_retries: 4
+- id: Gpkg-branding
+  name: 'OWNER 2026-06-27 (do LAST): ship as a real product — app label "Jak & Daxter" (keep package id org.opengoal.gk.jak1) + proper adaptive launcher icon at all densities. Icon art is owner-provided (copyright); else clean placeholder. APK packaging only, engine/goal_src untouched.'
+  prompt: prompts/phase-Gpkg-branding.md
+  validator: validators/phase-Gpkg-branding.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gpkg-distributable
+  name: 'OWNER 2026-06-27 (do LAST): self-contained distributable APK — first-launch UI asks for the users original ISO (SAF picker) + extracts assets ON-DEVICE (arm64 extractor) with progress, then boots; idempotent on later launches; ships engine+extractor only, NO bundled copyrighted assets. Anyone can run APK + their ISO, no PC build. Large; may split into sub-phases.'
+  prompt: prompts/phase-Gpkg-distributable.md
+  validator: validators/phase-Gpkg-distributable.sh
+  max_turns: 1600
+  max_retries: 4
 global:
   git:
     push_after_each_phase: true
