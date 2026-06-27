@@ -881,6 +881,18 @@ phases:
   validator: validators/phase-Gcrash-mouche3.sh
   max_turns: 1600
   max_retries: 4
+- id: Gdeath-crash
+  name: 'OWNER 2026-06-27: dying CRASHES the app (back to Android home, process killed) in the first real level. mouche+blue-eco-portal crashes now GONE (owner finished the level). arm64-vs-x86 divergence in the death/respawn/checkpoint path; x86 does not crash on death. Reproduce (trigger a death; demo .autoport/demos/death-crash.inputs as aid), name the arm64 divergence, fix in translation layer, goal_src 1-to-1.'
+  prompt: prompts/phase-Gdeath-crash.md
+  validator: validators/phase-Gdeath-crash.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gledge-glitch
+  name: 'OWNER 2026-06-27: at ledges/borders you grab or fall off, collision glitches badly and PROJECTS/launches Jak (ca projette). arm64 collision-RESPONSE divergence (velocity/normal/edge-grab). Regression-check vs recent collide_cache/collide_edge_grab/FMA fixes FIRST. x86-first diff, fix arm64==x86, goal_src 1-to-1.'
+  prompt: prompts/phase-Gledge-glitch.md
+  validator: validators/phase-Gledge-glitch.sh
+  max_turns: 1500
+  max_retries: 4
 global:
   git:
     push_after_each_phase: true
