@@ -1,10 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Phase Gpkg-branding (autoport 2026-06-27): adaptive-icon background.
+  Deep sky-blue -> eco-teal gradient (Jak & Daxter placeholder palette).
+  Vector so it scales crisply at every density; the matching legacy
+  mipmap-*dpi PNGs bake the same gradient. Owner-replaceable.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#1F2A44"
-        android:pathData="M0,0 H108 V108 H0 Z"/>
+    <path android:pathData="M0,0 H108 V108 H0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0" android:startY="0"
+                android:endX="0" android:endY="108">
+                <item android:offset="0.0" android:color="#FF16324F"/>
+                <item android:offset="1.0" android:color="#FF1E7A5A"/>
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>
