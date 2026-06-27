@@ -191,13 +191,18 @@ tasks.named("preBuild") {
 
 // Phase Gpkg-distributable (autoport 2026-06-27): build the COMPRESSED
 // runtime-asset archive that the normal jak1 APK ships and LoaderActivity
-// decompresses on first run. The PC pipeline still extracts the raw assets
-// into src/jak1/assets/{iso_data,fr3}; this task packs them into
+// decompresses on first run. The script assembles the FULL, internally
+// consistent set straight from the authoritative PC build outputs —
+// out/jak1/iso (data) + out/jak1-arm64-full/iso (the arm64 CGO/DGO) +
+// out/jak1/fr3 (all 26 texture packs) — and packs them into
 // src/jak1/assets-bundled/bundle/jak1_assets.zip (+ manifest.properties)
-// just before AGP merges that flavor's assets. The script is idempotent and
-// returns in ~1s when the zip is already current, so it runs every assemble
-// without a repack cost. Skipped for -PslimIso=true (the slim build ships no
-// payload — fr3 only — for fast libgk.so iteration).
+// just before AGP merges that flavor's assets. Sourcing the build outputs
+// (not the on-disk staging dirs, which drifted to a slim/stale set and
+// caused a false-green) makes the bundle complete + consistent by
+// construction; the script HARD-FAILS if anything is missing or stale. It
+// is idempotent and returns in ~1s when the zip is already current, so it
+// runs every assemble without a repack cost. Skipped for -PslimIso=true (the
+// slim build ships no payload — fr3 only — for fast libgk.so iteration).
 val bundleJak1Assets by tasks.registering(Exec::class) {
     workingDir = rootProject.file("..")
     commandLine("bash", "android/build_asset_bundle.sh", "jak1")

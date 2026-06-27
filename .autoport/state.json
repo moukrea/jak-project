@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 150,
+  "current_phase_idx": 151,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -142,7 +142,8 @@
     "Gecho-pool": 3,
     "Gdeath-crash": 1,
     "Gledge-glitch": 1,
-    "Gpkg-branding": 1
+    "Gpkg-branding": 1,
+    "Gpkg-distributable": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -419,7 +420,8 @@
     "Gcrash-mouche3",
     "Gdeath-crash",
     "Gledge-glitch",
-    "Gpkg-branding"
+    "Gpkg-branding",
+    "Gpkg-distributable"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -547,9 +549,9 @@
     "Gdeath-crash": 1782523512.5146377,
     "Gledge-glitch": 1782529037.288677,
     "Gpkg-branding": 1782545402.321816,
-    "Gpkg-distributable": 1782546686.971213
+    "Gpkg-distributable": 1782551791.2328017
   },
-  "last_update": "2026-06-27T08:38:58.119177+00:00",
+  "last_update": "2026-06-27T10:19:35.003629+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
