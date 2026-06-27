@@ -1152,6 +1152,218 @@ void mouche_maybe_fire() {
   fflush(stdout);
 }
 
+// ─── Gdeath-crash: deterministic death/respawn repro + verify ───────────────────
+// Env OG_DIE / Android prop debug.opengoal.die — OFF by default. Forces Jak to die
+// N times so the arm64 death/respawn crash can be reproduced and ">=5 crash-free
+// deaths" proven. Modeled EXACTLY on mouche_maybe_fire / echo_intro_warp (same
+// listener-function trampoline + readiness gate + tick cadence). x86 is unaffected
+// unless armed. Mode (env OG_DIE_MODE / prop debug.opengoal.die.mode):
+//   "respawn"      -> (initialize! *game-info* 'die #f #f): respawn/loader path only.
+//   "endlessfall"  -> send-event 'attack-invinc mode='endlessfall (fall death; DEFAULT).
+//   "drown-death"  -> send-event 'attack-invinc mode='drown-death (drown death).
+//   <other symbol> -> send-event 'attack-invinc with that attack-mode symbol.
+// The death :code (target-death.gc:911-914) always ends in
+//   (initialize! game 'dead) -> kill+respawn target -> init-target -> target-continue,
+// so EVERY mode exercises the common respawn/loader path; the mode selects only the
+// preceding animation branch (endlessfall/drown vs. respawn-only).
+static char s_die_event_mode[64] = "endlessfall";
+
+static bool die_requested() {
+  if (std::getenv("OG_DIE")) {
+    return true;
+  }
+#if defined(__ANDROID__)
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("debug.opengoal.die", buf) > 0 && buf[0] == '1') {
+    return true;
+  }
+#endif
+  return false;
+}
+
+// TRIGGER 1 — respawn-only. Replays the debug "New Life" menu form
+// (default-menu.gc:2271) (initialize! *game-info* 'die #f #f), which falls through
+// to the mode='play respawn reload. Same get_method(9)+_call_goal8 pattern as the
+// echo-intro hook's initialize! call. Runs as *listener-function* (live pp).
+static u64 die_respawn_run() {
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    lg::warn("[GDEATH] respawn: *game-info* not ready");
+    return 0;
+  }
+  Ptr<Type> gi_type(*Ptr<u32>(gi - 4));  // basic: type tag is the word before field-0
+  u32 init_fn = gi_type->get_method(9).offset;  // initialize!
+  u32 lp = intern_from_c("*listener-process*")->value;
+  u64 args[8] = {gi, intern_from_c("die").offset, (u64)s7.offset, (u64)s7.offset, 0, 0, 0, 0};
+  _call_goal8_asm_systemv((void*)(g_ee_main_mem + init_fn), args, 0, (u64)lp, (u64)s7.offset,
+                          g_ee_main_mem);
+  printf("GDEATH-FIRE mode=respawn (initialize! *game-info* 'die)\n");
+  fflush(stdout);
+  return 0;
+}
+
+// TRIGGER 2 — full death state via the engine's own force-death event
+// (logic-target.gc:674): (send-event *target* 'attack-invinc #f
+// (static-attack-info ((mode <mode>)))). attack-info + event-message-block are
+// `structure`s (NO type tag) -> raw kmalloc + RAW field offsets (NOT the basic -4
+// rule). Routes target-hit -> (go target-death <mode>); endlessfall/drown-death are
+// handled death branches. Runs as *listener-function* (live pp).
+static u64 die_event_run() {
+  const u32 fnull = (u32)s7.offset;
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt == 0 || tgt == fnull) {
+    printf("GDEATH-SKIP reason=target-#f\n");
+    fflush(stdout);
+    return 0;
+  }
+  u32 lp = intern_from_c("*listener-process*")->value;
+  u32 sef = intern_from_c("send-event-function")->value;
+  // "movie" -> the generic death-MOVIE (else) branch in target-death.gc:872-910
+  // (blerc 'blend-shape + pov-camera death spool — the prime arm64 merc suspect).
+  // That branch is reached only when health<=0 forces (go target-death <mode>) for a
+  // mode NOT explicitly handled in the :code case; 'tar lands in the else branch
+  // (case at target-death.gc:873-874). So for "movie" we zero Jak's health first
+  // (target.fact @ proc-drawable off 144 -> fact-info-target.health @ off 64; both
+  // basic, so C++ addr = field_off - 4) and send the attack with mode='tar, which
+  // target-hit's health<=0 guard (target-death.gc:613) routes to (go target-death 'tar).
+  bool movie = (std::strcmp(s_die_event_mode, "movie") == 0);
+  const char* mode_name = movie ? "tar" : s_die_event_mode;
+  u32 mode_sym = intern_from_c(mode_name).offset;
+  if (sef == 0 || sef == fnull || mode_sym == 0) {
+    printf("GDEATH-SKIP reason=env sef=#x%x mode=#x%x\n", sef, mode_sym);
+    fflush(stdout);
+    return 0;
+  }
+  if (movie) {
+    u32 fact_ptr = 0;
+    std::memcpy(&fact_ptr, g_ee_main_mem + tgt + 140, 4);  // (-> target fact)
+    if (fact_ptr != 0 && fact_ptr != fnull && fact_ptr < (u32)(EE_MAIN_MEM_SIZE - 64)) {
+      float z = 0.0f;
+      std::memcpy(g_ee_main_mem + fact_ptr + 60, &z, 4);  // (-> target fact health) = 0.0
+      printf("GDEATH-MOVIE zeroed health fact=#x%x\n", fact_ptr);
+    }
+  }
+  // attack-info (structure, size 0x68): mask@64, mode@68 (RAW offsets).
+  u32 atk = (u32)kmalloc(kglobalheap, 0x68, KMALLOC_MEMSET, "die-atk").offset;
+  if (atk == 0) {
+    printf("GDEATH-SKIP reason=atk-alloc\n");
+    fflush(stdout);
+    return 0;
+  }
+  { u32 v = 0x20; std::memcpy(g_ee_main_mem + atk + 64, &v, 4); }       // mask = (attack-mask mode)
+  { u32 v = mode_sym; std::memcpy(g_ee_main_mem + atk + 68, &v, 4); }   // mode = <mode-sym>
+  // event-message-block (structure, size 0x48): from@4, num-params@8, message@12,
+  // param[i]@16+8*i (RAW offsets).
+  u32 blk = (u32)kmalloc(kglobalheap, 0x48, KMALLOC_MEMSET, "die-evt").offset;
+  if (blk == 0) {
+    printf("GDEATH-SKIP reason=blk-alloc\n");
+    fflush(stdout);
+    return 0;
+  }
+  { u32 v = tgt; std::memcpy(g_ee_main_mem + blk + 4, &v, 4); }         // from = *target*
+  { s32 v = 2; std::memcpy(g_ee_main_mem + blk + 8, &v, 4); }          // num-params = 2
+  { u32 v = intern_from_c("attack-invinc").offset;
+    std::memcpy(g_ee_main_mem + blk + 12, &v, 4); }                     // message = 'attack-invinc
+  { u64 v = (u64)fnull; std::memcpy(g_ee_main_mem + blk + 16, &v, 8); } // param0 = #f (touching-shapes)
+  { u64 v = (u64)atk; std::memcpy(g_ee_main_mem + blk + 24, &v, 8); }   // param1 = attack-info
+  u64 args[8] = {tgt, blk, 0, 0, 0, 0, 0, 0};
+  _call_goal8_asm_systemv((void*)(g_ee_main_mem + sef), args, 0, (u64)lp, (u64)s7.offset,
+                          g_ee_main_mem);
+  printf("GDEATH-FIRE mode=%s (send-event *target* 'attack-invinc) atk=#x%x blk=#x%x\n",
+         s_die_event_mode, atk, blk);
+  fflush(stdout);
+  return 0;
+}
+
+void die_maybe_fire() {
+  static bool s_checked = false, s_enabled = false, s_respawn = false;
+  static int s_count = 6;
+  if (!s_checked) {
+    s_checked = true;
+    if (die_requested()) {
+      s_enabled = true;
+    }
+    const char* m = std::getenv("OG_DIE_MODE");
+#if defined(__ANDROID__)
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.die.mode", pbuf) > 0 && pbuf[0]) {
+      m = pbuf;
+    }
+#endif
+    if (m && m[0]) {
+      std::strncpy(s_die_event_mode, m, sizeof(s_die_event_mode) - 1);
+      s_die_event_mode[sizeof(s_die_event_mode) - 1] = 0;
+    }
+    if (std::strcmp(s_die_event_mode, "respawn") == 0) {
+      s_respawn = true;
+    }
+    if (const char* c = std::getenv("OG_DIE_COUNT")) {
+      s_count = atoi(c);
+    }
+#if defined(__ANDROID__)
+    char cbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.die.count", cbuf) > 0 && cbuf[0]) {
+      s_count = atoi(cbuf);
+    }
+#endif
+    if (s_count < 1) {
+      s_count = 1;
+    }
+  }
+  if (!s_enabled) {
+    return;
+  }
+
+  int settle = 600, gap = 480;
+  if (const char* s = std::getenv("OG_DIE_SETTLE")) settle = atoi(s);
+  if (const char* g = std::getenv("OG_DIE_GAP")) gap = atoi(g);
+
+  static int s_fires = 0;
+  if (s_fires >= s_count) {
+    return;
+  }
+  // readiness: *target* alive AND game in 'play, so the respawn branch runs and we
+  // never fire during a cutscene/menu/respawn transition (when *target* is #f).
+  // game-info `mode` is at deftype offset 4 -> C++ addr gi+0 (basic -4 rule).
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt == 0 || tgt == (u32)s7.offset) {
+    return;
+  }
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4) {
+    return;
+  }
+  u32 gi_mode = 0;
+  std::memcpy(&gi_mode, g_ee_main_mem + gi + 0, 4);
+  if (gi_mode != intern_from_c("play").offset) {
+    return;
+  }
+  static int s_settle_ticks = 0;
+  if (s_settle_ticks++ < settle) {
+    return;
+  }
+  // only re-arm once the kernel consumed the previous *listener-function*
+  if (ListenerFunction->value != s7.offset) {
+    return;
+  }
+  static int s_gap_ticks = 0;
+  if (s_gap_ticks++ < gap) {
+    return;
+  }
+  s_gap_ticks = 0;
+
+  static u32 s_fn = 0;
+  if (s_fn == 0) {
+    s_fn = make_function_from_c(s_respawn ? (void*)die_respawn_run : (void*)die_event_run, false)
+               .offset;
+  }
+  ListenerFunction->value = s_fn;
+  s_fires++;
+  printf("GDEATH-ARM fire %d/%d mode=%s (settle=%d gap=%d)\n", s_fires, s_count,
+         s_respawn ? "respawn" : s_die_event_mode, settle, gap);
+  fflush(stdout);
+}
+
 }  // namespace jak1
 
 #if defined(__GNUC__)

@@ -180,6 +180,12 @@ void KernelCheckAndDispatch() {
     // via *listener-function*, the same dispatch-loop point the desktop oracle uses.
     mouche_maybe_fire();
 
+    // Gdeath-crash — deterministic death/respawn repro+verify. Gated (env OG_DIE /
+    // prop debug.opengoal.die), OFF by default. Forces Jak to die repeatedly via
+    // *listener-function*, the same in-context dispatch point the desktop oracle
+    // uses; see kmachine.cpp for the full rationale.
+    die_maybe_fire();
+
     // if the listener function changed, it means the kernel ran it, so we should notify compiler.
     if (MasterDebug && ListenerFunction->value != old_listener) {
       SendAck();

@@ -1,0 +1,6 @@
+RESULT mode=movie tag=movie-build status=HARD-CRASH-after-1-fires
+  fires=1/6 crash=YES focus_app=no frame +540 (F0=720 F1=1260)
+  sig=GK-DIAG sig=11 fp-walk-lines=0
+  near-fn: 06-27 04:18:43.057 25089 25167 F opengoal-gk: A38-TRIPWIRE pc nearest-fn 'reset-and-call' start=0x18af74 off=+0x204 slot=0x149ffc;06-27 04:18:43.057 25089 25167 F opengoal-gk: A38-TRIPWIRE lr nearest-fn 'ja-play-spooled-anim' start=0x1ce3844 off=+0x1a24 slot=0x15545c;
+  cur-proc: 06-27 04:18:43.058 25089 25167 F opengoal-gk: GK-DIAG A34-DIAG pp=0x23b354 type=0x189064 name=0x15d9f4 'd' status=0x100 pid=2339668 state=0x14fd24 next-state=0x0;06-27 04:18:43.058 25089 25167 F opengoal-gk: GK-DIAG A34-DIAG state-name-sym=0x14fd24;
+  stomps: none

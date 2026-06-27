@@ -62,4 +62,13 @@ void echo_intro_warp_maybe();
  */
 void mouche_maybe_fire();
 
+/*!
+ * Gdeath-crash — deterministic death/respawn repro+verify. Env OG_DIE / Android
+ * prop debug.opengoal.die, OFF by default. Forces Jak to die N times (mode via
+ * OG_DIE_MODE / debug.opengoal.die.mode: respawn | endlessfall | drown-death |
+ * movie | <attack-mode-symbol>) from the dispatch loop, so the arm64 death crash
+ * can be reproduced and ">=5 crash-free deaths" proven; see kmachine.cpp.
+ */
+void die_maybe_fire();
+
 }  // namespace jak1

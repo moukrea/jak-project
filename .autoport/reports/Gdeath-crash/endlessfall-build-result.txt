@@ -1,0 +1,6 @@
+RESULT mode=endlessfall tag=endlessfall-build status=DEATH-CRASH-FREE-6/6-render+4620
+  fires=6/6 crash=no focus_app=yes frame +4620 (F0=720 F1=5340)
+  sig=none fp-walk-lines=0
+  near-fn: none
+  cur-proc: none
+  stomps: none

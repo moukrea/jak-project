@@ -1,0 +1,19 @@
+START 2026-06-27T03:53:40+02:00
+launched 2026-06-27T03:53:44+02:00
+training ~15s
+TR=1
+begin death-seeking inject 2026-06-27T03:54:19+02:00
+  heading rx=0 lastpos: target-pos f=2610 *target* 0x1c5794 =(-5268633.0 17128.5 4449733.0)
+  heading rx=32 lastpos: target-pos f=3300 *target* 0x1c5794 =(-5199422.5 22875.5 4428292.0)
+  heading rx=64 lastpos: target-pos f=4005 *target* 0x1c5794 =(-5287135.0 4325.2 4560244.0)
+  heading rx=96 lastpos: target-pos f=4830 *target* 0x1c5794 =(-5292330.0 -4749.9 4560971.5)
+  heading rx=128 lastpos: target-pos f=5655 *target* 0x1c5794 =(-5348555.5 -8192.0 4711166.0)
+  heading rx=160 lastpos: target-pos f=6465 *target* 0x1c5794 =(-5335835.5 -6651.1 4901837.0)
+  heading rx=192 lastpos: target-pos f=6930 *target* 0x1c5794 =(-5393626.5 28072.4 4332472.5)
+  heading rx=224 lastpos: target-pos f=7380 *target* 0x1c5794 =(-5255321.5 29695.9 4179960.2)
+DEATH-MARKERS:       2 target-death;
+FOCUS:   mCurrentFocus=Window{1128314 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+PID: 21472
+CRASH: no
+DONE 2026-06-27T03:56:49+02:00
+loglines: 12706

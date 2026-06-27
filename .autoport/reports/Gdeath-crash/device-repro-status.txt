@@ -1,0 +1,8 @@
+START 2026-06-27T03:32:35+02:00
+replay-armed prop=replay
+launched 2026-06-27T03:32:40+02:00
+FOCUS_AT_END:   mCurrentFocus=Window{4046e7 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+PID_AT_END: 17973
+CRASH_AT: none
+DONE 2026-06-27T03:40:40+02:00
+logcat lines: 5892

@@ -1,0 +1,97 @@
+================================================================================
+Gdeath-crash — dying crashes the app (back to Android home). REPORT
+================================================================================
+
+RESULT: DEATH CRASH-FREE (5/5)
+  (verified 6/6 forced movie-deaths crash-free on device arm64 — >= 5 required;
+   app stays FOREGROUND and the renderer keeps advancing across every respawn.)
+
+--------------------------------------------------------------------------------
+THE DEFECT (owner, 2026-06-27)
+--------------------------------------------------------------------------------
+On the device build, after Geyser Rock + the Sage hut, entering the first real
+level and then DYING crashes the app: it returns to the Android home screen and
+the process is killed. x86 does NOT crash on death. arm64-vs-x86 divergence in
+the death / respawn path.
+
+--------------------------------------------------------------------------------
+REPRODUCTION (x86-first; deterministic death hook)
+--------------------------------------------------------------------------------
+The owner demo death-crash.inputs was recorded from an in-level checkpoint, so
+replaying it from a fresh boot stalls in the title attract loop (does not re-reach
+the death). I built a deterministic, repeatable death trigger (prop debug.opengoal.die,
+OFF by default) that warps to Geyser Rock and forces Jak to die N times; modes:
+respawn / endlessfall / drown-death / movie. The death always funnels through the
+common respawn (initialize! 'dead -> kill+respawn target), and the mode selects the
+preceding death animation.
+
+x86-first BASELINE (build-x86/game/gk):
+  - movie deaths 5/5 crash-free, the death movie (death-0202/0187/0182 spools) plays
+    and Jak respawns. x86 NEVER crashes on death (the reference).
+
+BEFORE — the reproduced crash (device arm64, movie mode):
+  .autoport/reports/Gdeath-crash/movie-build-result.txt =>
+    HARD-CRASH after 1 death; sig=11 (SIGSEGV) fault=0x0 pc=0x7f0018b178 lr=0x7f01ce5268;
+    focus_app=no  (app killed -> Android home, exactly the owner's symptom).
+  Forensics: pc 0x18b178 = thread-suspend's compiled (break) (udf #0xBEEF), lr =
+    ja-play-spooled-anim (the death-movie spool player). Crashing thread = pov-camera
+    death-movie 'code' thread: stack-size=256 used=304 OVER=48.
+  - endlessfall death (device): run 1..6 = 6/6 crash-free -> the crash is SPECIFIC to
+    the death-MOVIE path, not the common respawn/loader.
+
+--------------------------------------------------------------------------------
+ROOT CAUSE — the arm64 DIVERGENCE (not a memory stomp)
+--------------------------------------------------------------------------------
+The "merc stomps KERNEL.CGO" stomp hypothesis was FALSIFIED: the faulting word
+0x0000beef at pc 0x18b178 is LEGITIMATE on-disk arm64 kernel code (verified vs
+KERNEL.CGO file-offset 0x17602) — the (break)/divide-by-zero guard inside
+thread-suspend (gkernel.gc:606). All content canaries correctly did NOT fire
+(stomps: none; kernel band byte-intact; GMATCH-RFTD canary/memcmp clean; no
+writer/victim because nothing was stomped).
+
+thread-suspend: (when (> (process-stack-used proc) (-> this stack-size)) (break)).
+The pov-camera death-movie code thread used 304 bytes of a 256-byte backup stack
+(OVER=48) and tripped the (break). The DIVERGENCE: on arm64 the same GOAL code uses
+more stack than x86 because the arm64 .push is 16-byte-aligned vs x86's 8 bytes
+(the arm64 stack-inflation class). x86 stays under 256 -> never trips it. pov-camera
+keeps the small default budget (its set-stack-size! is a no-op, pov-camera.gc:124).
+This is the same class Gecho-pool handled, but its handler capped tolerance at
+over<=32, so the 48-byte death-movie overflow was rejected -> fatal (break) -> SIGSEGV.
+No NaN/float/pointer/codegen/mips2c/dma/merc/ldp corruption is involved — purely a
+stack-budget divergence.
+
+--------------------------------------------------------------------------------
+THE FIX (android/gk_android_main.cpp; goal_src 1-to-1)
+--------------------------------------------------------------------------------
+handle_suspend_overflow_break: raise the tolerated overflow ceiling from over>32 to
+over>48. On the (break) trap the handler redirects PC past the break body so the
+suspend completes; the inline backup copy then spills `over` bytes into the SAME
+cpu-thread's freg (xmm8-15, transient) + rreg5,6 (a4/a5, "overwritten anyway" per
+gkernel.gc:716-728). 48 = freg(32)+rreg5,6(16) is the EXACT safe maximum: it keeps
+the spill floor at offset 80, leaving callee-saved s0-s4 (rreg0-4) intact; thread-resume
+restores the execution stack from the (preserved) spilled bytes BEFORE reading rreg0-4,
+so the resumed execution is correct. over>48 still crashes (would corrupt s0-s4).
+Fix lives entirely in the arm64/Android runtime glue. goal_src is byte-for-byte
+unchanged. x86 unaffected (Android-only TU; x86 never overflows).
+
+--------------------------------------------------------------------------------
+AFTER — verified crash-free (device arm64)
+--------------------------------------------------------------------------------
+.autoport/reports/Gdeath-crash/movie-fixed-result.txt =>
+  status = DEATH-CRASH-FREE 6/6, crash=no, focus_app=yes (FOREGROUND), render +4500 frames.
+  Handler fired each death: "ECHO-SUSPEND-TOLERATE proc=0x23a9a4 over=48 (used=304 size=256)
+  udf=0x18b178 -> skip=0x18b1a8". sig=0 (no SIGSEGV/SIGABRT/SIGILL).
+
+  movie death run 1: crash-free, respawn OK, app foreground
+  movie death run 2: crash-free, respawn OK, app foreground
+  movie death run 3: crash-free, respawn OK, app foreground
+  movie death run 4: crash-free, respawn OK, app foreground
+  movie death run 5: crash-free, respawn OK, app foreground
+  movie death run 6: crash-free, respawn OK, app foreground
+  endlessfall deaths: 6/6 crash-free (no regression; fix is strictly additive).
+
+App stayed FOREGROUND (focus_app=yes) and the renderer kept advancing (+4500 frames)
+across all respawns. 0 sig after the fix. Deterministic over=48 every death (tolerated).
+
+deploy_verify eae4df44: PASS (device provably runs the fresh HEAD libgk.so).
+================================================================================
