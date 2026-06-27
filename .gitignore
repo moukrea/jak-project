@@ -113,5 +113,14 @@ android/app/src/jak1/assets/iso_data/
 android/app/src/jak2/assets/iso_data/
 android/app/src/jak3/assets/iso_data/
 
+# Phase Gpkg-distributable: the compressed runtime-asset bundle (zip +
+# manifest) is a build artifact produced from the raw assets above by
+# android/build_asset_bundle.sh. ~1 GB — never commit it.
+android/app/src/*/assets-bundled/
+
+# Stray CMake build dir from an earlier on-device-extractor exploration
+# (scrapped — the distributable bundles compressed assets instead).
+build-android-extract/
+
 # /goal prompt files for the ARM64 differential tooling effort (local-only)
 goal-prompt/
