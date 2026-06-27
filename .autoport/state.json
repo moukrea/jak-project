@@ -146,7 +146,7 @@
     "Gpkg-distributable": 1,
     "Gcollision-systemic": 1,
     "Ginput-replay-determinism": 1,
-    "Gcollision-replay-diff": 2
+    "Gcollision-replay-diff": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -280,6 +280,7 @@
       "9ecaf28b7607"
     ],
     "Gcollision-replay-diff": [
+      "8d3dcb5b6fe2",
       "8d3dcb5b6fe2"
     ]
   },
@@ -562,7 +563,7 @@
     "Gcollision-replay-diff": 1782575133.7180176,
     "Ginput-replay-determinism": 1782568890.6695716
   },
-  "last_update": "2026-06-27T16:46:34.129136+00:00",
+  "last_update": "2026-06-27T17:38:08.046523+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

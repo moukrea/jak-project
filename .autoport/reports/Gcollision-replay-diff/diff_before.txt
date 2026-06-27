@@ -1,0 +1,74 @@
+x86 frames=15724  arm frames=16366  common=15724
+common range 0..15723
+
+[bit-exact] first byte divergence: frame 2837 (2837 frames bit-identical)
+
+[per-field] first frame exceeding NOISE / GROSS tolerance:
+  trans                kind=pos  maxΔ=8.834e+05  noise>8.0@2837  GROSS@2838
+  quat                 kind=ang  maxΔ=1.995  noise>0.01@2837  GROSS@3074
+  transv               kind=vel  maxΔ=2.695e+05  noise>8.0@2837  GROSS@2837
+  rotv                 kind=vel  maxΔ=0  noise>8.0@None
+  status               kind=ang  maxΔ=1e+09  noise>0.01@2848  GROSS@2848
+  local-normal         kind=norm maxΔ=0.9638  noise>0.001@2848  GROSS@2848
+  surface-normal       kind=norm maxΔ=1.936  noise>0.001@2848  GROSS@2848
+  poly-normal          kind=norm maxΔ=1.989  noise>0.001@2848  GROSS@2848
+  ground-poly-normal   kind=norm maxΔ=0.9036  noise>0.001@2848  GROSS@2929
+  ground-touch-point   kind=pos  maxΔ=8.83e+05  noise>8.0@2848  GROSS@2848
+  ground-impact-vel    kind=vel  maxΔ=2.459e+05  noise>8.0@2848  GROSS@2848
+  surface-angle        kind=ang  maxΔ=1.712  noise>0.01@2867  GROSS@2867
+  poly-angle           kind=ang  maxΔ=1.966  noise>0.01@2867  GROSS@2867
+  touch-angle          kind=ang  maxΔ=1  noise>0.01@2848  GROSS@2932
+  coverage             kind=ang  maxΔ=1  noise>0.01@2848  GROSS@2964
+
+RESULT: FIRST GROSS DIVERGENCE at logic frame 2837 in field 'transv'
+  x86=[6372.8, -32657, -12791, 1]
+  arm=[0, 0, 0, 0]
+
+  context 'transv' frames 2833..2841:
+    f2833: x86=[5689.8, -16273, -9796.1, 1]  arm=[5689.8, -16273, -9796.1, 1]
+    f2834: x86=[5878.9, -20369, -10541, 1]  arm=[5878.9, -20369, -10541, 1]
+    f2835: x86=[6055.7, -24465, -11288, 1]  arm=[6055.7, -24465, -11288, 1]
+    f2836: x86=[6217.1, -28561, -12039, 1]  arm=[6217.1, -28561, -12039, 1]
+    f2837: x86=[6372.8, -32657, -12791, 1]  arm=[0, 0, 0, 0] <-- FIRST GROSS
+    f2838: x86=[6527, -36753, -13543, 1]  arm=[0, 0, 0, 0]
+    f2839: x86=[6684.4, -40849, -14295, 1]  arm=[0, 0, 0, 0]
+    f2840: x86=[6848.1, -44945, -15045, 1]  arm=[0, 0, 0, 0]
+    f2841: x86=[6163.3, -49041, -13541, 1]  arm=[0, 0, 0, 0]
+
+  ALL fields at frame 2837:
+    trans                Δ=1822  x86=[-5.2311e+06, 57009, 4.1323e+06, 1]  arm=[-5.2293e+06, 57815, 4.131e+06, 1]
+    quat                 Δ=0.8847  x86=[-1.4357e-08, 0.98925, -2.1226e-09, 0.14626]  arm=[0, 0.1045, 0, 0.99452]
+    transv               Δ=3.266e+04  x86=[6372.8, -32657, -12791, 1]  arm=[0, 0, 0, 0]
+    rotv                 Δ=0  x86=[0, 0, 0, 0]  arm=[0, 0, 0, 0]
+    status               Δ=0  x86=0x0000000000000000  arm=0x0000000000000000
+    local-normal         Δ=0  x86=[0, 1, 0, 1]  arm=[0, 1, 0, 1]
+    surface-normal       Δ=0  x86=[0, 1, 0, 1]  arm=[0, 1, 0, 1]
+    poly-normal          Δ=0  x86=[0, 1, 0, 1]  arm=[0, 1, 0, 1]
+    ground-poly-normal   Δ=0  x86=[-0.095372, 0.98507, -0.14335, 1]  arm=[-0.095372, 0.98507, -0.14335, 1]
+    ground-touch-point   Δ=0  x86=[-5.2325e+06, 46045, 4.1361e+06, 14599]  arm=[-5.2325e+06, 46045, 4.1361e+06, 14599]
+    ground-impact-vel    Δ=0  x86=39160  arm=39160
+    surface-angle        Δ=0  x86=0.985065  arm=0.985065
+    poly-angle           Δ=0  x86=0.985066  arm=0.985066
+    touch-angle          Δ=0  x86=0  arm=0
+    coverage             Δ=0  x86=0  arm=0
+x86 frames=15724  arm frames=16366  common=15724
+common range: 0..15723
+RESULT: FIRST DIVERGENCE at logic frame 2837  (2837 frames matched before it)
+  diverging fields at frame 2837: trans, quat, transv
+    trans                x86=[-5.2311e+06, 57009, 4.1323e+06, 1]
+                         arm=[-5.2293e+06, 57815, 4.131e+06, 1]
+    quat                 x86=[-1.4357e-08, 0.98925, -2.1226e-09, 0.14626]
+                         arm=[0, 0.1045, 0, 0.99452]
+    transv               x86=[6372.8, -32657, -12791, 1]
+                         arm=[0, 0, 0, 0]
+
+  context for first-diverging field 'trans' (frames 2834..2840):
+    frame 2834: x86=[-5.2314e+06, 59297, 4.1329e+06, 1] arm=[-5.2314e+06, 59297, 4.1329e+06, 1]
+    frame 2835: x86=[-5.2313e+06, 58603, 4.1327e+06, 1] arm=[-5.2313e+06, 58603, 4.1327e+06, 1]
+    frame 2836: x86=[-5.2312e+06, 57840, 4.1325e+06, 1] arm=[-5.2312e+06, 57840, 4.1325e+06, 1]
+    frame 2837: x86=[-5.2311e+06, 57009, 4.1323e+06, 1] arm=[-5.2293e+06, 57815, 4.131e+06, 1] <-- FIRST DIFF
+    frame 2838: x86=[-5.231e+06, 56110, 4.1321e+06, 1] arm=[-5.2283e+06, 57803, 4.1302e+06, 1]
+    frame 2839: x86=[-5.2309e+06, 55142, 4.1319e+06, 1] arm=[-5.2273e+06, 57790, 4.1295e+06, 1]
+    frame 2840: x86=[-5.2308e+06, 54106, 4.1316e+06, 1] arm=[-5.2264e+06, 57777, 4.1287e+06, 1]
+
+  total diverging common frames: 12887/15724
