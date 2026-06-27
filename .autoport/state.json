@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 151,
+  "current_phase_idx": 150,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -142,8 +142,7 @@
     "Gecho-pool": 3,
     "Gdeath-crash": 1,
     "Gledge-glitch": 1,
-    "Gpkg-branding": 1,
-    "Gpkg-distributable": 2
+    "Gpkg-branding": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -420,8 +419,7 @@
     "Gcrash-mouche3",
     "Gdeath-crash",
     "Gledge-glitch",
-    "Gpkg-branding",
-    "Gpkg-distributable"
+    "Gpkg-branding"
   ],
   "blocked": [
     "A6-emitter-off-register",

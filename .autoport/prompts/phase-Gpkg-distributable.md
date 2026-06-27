@@ -9,10 +9,15 @@ the owner builds on PC; first run unpacks the assets once, then it just plays.
 ## Scope / design
 - **Build (PC, unchanged):** the host pipeline extracts the jak1 runtime data into `out/jak1/` (the
   CGO/DGO/fr3/texture set) exactly as today.
-- **Bundle COMPRESSED in the APK:** package that runtime data set into a compressed archive (single
-  archive or per-asset; pick a fast decompressor — e.g. zstd/zip/xz) shipped inside the APK (an
-  `assets/` blob, raw resource, or jniLibs-style payload). Compressed so the APK is reasonably sized and
-  the raw assets aren't laid out until first run. Wire it into `android/CMakeLists.txt`/gradle packaging.
+- **Bundle the FULL asset set COMPRESSED in the APK:** package that runtime data set into a compressed
+  archive (single archive or per-asset; pick a fast decompressor — e.g. zstd/zip/xz) shipped inside the
+  APK. **CRITICAL — bundle the COMPLETE asset set, identical to the full PC build (`out/jak1`), NOT the
+  `slimIso`/assets-slim subset.** A prior attempt false-greened by bundling a slim/partial set: it
+  booted but DROPPED assets, breaking the menu orange tint backdrop on device. The decompressed set on
+  device MUST equal the full build's file list/count.
+- **Verify RENDERING, not just boot:** after first-run decompression, confirm the game actually RENDERS
+  correctly — at minimum the main menu (the orange tint backdrop must render, not a broken block) plus a
+  gameplay frame — via an oracle/state check, not just "reached link finish". Boot-only is NOT enough.
 - **First-run decompression UI:** on launch, if the data dir is absent/incomplete, show a clean
   one-time "Setting up… / Decompressing assets" screen with a **progress bar**, decompress the bundled
   archive into the app-private data dir the runtime reads (the same fakeiso data root), then boot.
