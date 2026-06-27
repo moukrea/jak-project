@@ -701,6 +701,14 @@ InstructionARM64 int32_to_float(Register dst, Register src);
  */
 InstructionARM64 float_to_int32(Register dst, Register src);
 
+// Gcollision-systemic — x86 cvttss2si/cvttps2dq saturation emulation helpers
+// (arm64-only; used by IR_FloatToInt / IR_VFMath2Asm do_codegen_arm64 to fix up
+// the +ovf/+Inf/NaN lanes FCVTZS saturates differently from x86).
+InstructionARM64 csel(Register dst, Register n, Register m, uint32_t cond);
+InstructionARM64 movi_4s_lsl24(Register dst, uint32_t imm8);
+InstructionARM64 fcmgt_4s(Register dst, Register a, Register b);
+InstructionARM64 bif_16b(Register dst, Register n, Register m);
+
 InstructionARM64 nop();
 
 // TODO - rsqrt / abs / sqrt

@@ -1961,11 +1961,28 @@ void IR_FloatToInt::do_codegen_x86(emitter::ObjectGenerator* gen,
 void IR_FloatToInt::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                      const AllocationResult& allocs,
                                      emitter::IR_Record irec) {
-  auto dst = get_reg(m_dest, allocs, irec);
-  auto src = get_reg(m_src, allocs, irec);
-  gen->add_instr(emitter::IGen::ARM64::float_to_int32(dst, src), irec);
-  // Sign-extend Wd → Xd to match the x86 movsx that follows.
-  gen->add_instr(emitter::IGen::ARM64::movsx_r64_r32(dst, dst), irec);
+  namespace A = emitter::IGen::ARM64;
+  auto dst = get_reg(m_dest, allocs, irec);  // GOAL GPR -> X0..X15
+  auto src = get_reg(m_src, allocs, irec);   // GOAL XMM (float) -> V16..V31
+  // Gcollision-systemic (autoport 1-to-1 arm64==x86): the x86 oracle emits
+  // cvttss2si, which maps NaN / +ovf / +Inf (and -ovf/-Inf) all to INT_MIN
+  // (0x80000000). AArch64 FCVTZS instead saturates NaN->0 and +ovf/+Inf->INT_MAX
+  // (0x7fffffff); only -ovf/-Inf->INT_MIN and the in-range truncation already
+  // match. So FCVTZS, then override ONLY the +ovf/+Inf (Wd==INT_MAX) and NaN lanes
+  // to INT_MIN. X16/X17 (= GOAL ids XMM0/XMM1 used in GPR-bank ops) are goalc's
+  // documented free scratch — never assigned a live GOAL value. x86 codegen
+  // (do_codegen_x86) is untouched, so our-x86 stays byte-identical to the oracle.
+  emitter::Register x16(emitter::XMM0);  // physical X16 scratch
+  emitter::Register x17(emitter::XMM1);  // physical X17 scratch
+  gen->add_instr(A::float_to_int32(dst, src), irec);              // FCVTZS Wd, Ssrc
+  gen->add_instr(A::movz_gpr64_imm16_lsl(x16, 0x8000, 1), irec);  // X16 = 0x80000000 (INT_MIN)
+  gen->add_instr(A::movz_gpr64_imm16_lsl(x17, 0xffff, 0), irec);  // X17 = 0x0000ffff
+  gen->add_instr(A::movk_gpr64_imm16_lsl(x17, 0x7fff, 1), irec);  // X17 = 0x7fffffff (INT_MAX)
+  gen->add_instr(A::cmp_gpr64_gpr64(dst, x17), irec);             // Wd == INT_MAX ? (+ovf/+Inf)
+  gen->add_instr(A::csel(dst, x16, dst, A::ARM_COND_EQ), irec);   // yes -> INT_MIN
+  gen->add_instr(A::cmp_flt_flt(src, src), irec);                 // FCMP Ssrc,Ssrc -> VS if NaN
+  gen->add_instr(A::csel(dst, x16, dst, A::ARM_COND_VS), irec);   // NaN -> INT_MIN
+  gen->add_instr(A::movsx_r64_r32(dst, dst), irec);               // SXTW Xd, Wd (match x86 movsx)
 }
 
 ///////////////////////
@@ -2934,9 +2951,27 @@ void IR_VFMath2Asm::do_codegen_arm64(emitter::ObjectGenerator* gen,
     case Kind::ITOF:
       gen->add_instr(emitter::IGen::ARM64::itof_vf(dst, src), irec);
       break;
-    case Kind::FTOI:
-      gen->add_instr(emitter::IGen::ARM64::ftoi_vf(dst, src), irec);
-      break;
+    case Kind::FTOI: {
+      namespace A = emitter::IGen::ARM64;
+      // Gcollision-systemic (autoport 1-to-1 arm64==x86): x86 .ftoi.vf emits
+      // cvttps2dq, which maps every out-of-range lane (NaN / +-Inf / +-ovf) to
+      // INT_MIN (0x80000000). AArch64 FCVTZS.4S instead saturates NaN->0 and
+      // +ovf/+Inf->INT_MAX; only -ovf/-Inf->INT_MIN and the in-range truncation
+      // match. The collision spatial-hash / bbox quantization (collide-cache/mesh/
+      // edge-grab) runs this on degenerate/overflow geometry, so the wrong lanes
+      // pick a different grid cell on arm64 -> wrong collision triangle (owner:
+      // clip-through, eject, invisible-wall). Override only the divergent lanes
+      // [+ovf/+Inf/NaN == !(Vn < 2^31 ordered)] to INT_MIN, matching cvttps2dq.
+      // V0/V1/V2 are free NEON scratch (GOAL floats occupy V16..V31). The keep-
+      // mask is built from Vn BEFORE the FCVTZS so this is correct even in-place
+      // (dst==src). x86 codegen is untouched (byte-identical to the oracle).
+      emitter::Register v0(0), v1(1), v2(2);  // physical V0/V1/V2 scratch
+      gen->add_instr(A::movi_4s_lsl24(v0, 0x4f), irec);   // V0 = 0x4F000000 = 2^31 per lane
+      gen->add_instr(A::fcmgt_4s(v1, v0, src), irec);     // V1 = (2^31 > Vn) ordered -> keep-mask
+      gen->add_instr(A::ftoi_vf(dst, src), irec);         // FCVTZS Vd.4S, Vn.4S
+      gen->add_instr(A::movi_4s_lsl24(v2, 0x80), irec);   // V2 = 0x80000000 = INT_MIN per lane
+      gen->add_instr(A::bif_16b(dst, v2, v1), irec);      // keep==0 lanes -> INT_MIN
+    } break;
     default:
       ASSERT(false);
   }
