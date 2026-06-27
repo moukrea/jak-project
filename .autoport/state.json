@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 145,
+  "current_phase_idx": 147,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -411,7 +411,9 @@
     "Ginput-replay",
     "Gcollectible-state",
     "Gsfx-actions",
-    "Gaudio-hint-voices"
+    "Gaudio-hint-voices",
+    "Gportal-crash",
+    "Gcrash-mouche3"
   ],
   "blocked": [
     "A6-emitter-off-register",
