@@ -2350,6 +2350,61 @@ InstructionARM64 float_to_int32(Register dst, Register src) {
   return fcvtzs_w_s(dst, src);
 }
 
+// ---------------------------------------------------------------------------
+// Gcollision-systemic — x86 cvttss2si / cvttps2dq saturation emulation helpers.
+//
+// AArch64 FCVTZS (scalar Wd,Sn and vector .4S) saturates float->int differently
+// from the x86 oracle the GOAL code was decompiled/validated against:
+//        input          x86 cvttss2si/cvttps2dq   AArch64 FCVTZS
+//   in s32 range         trunc-toward-zero          trunc-toward-zero   (same)
+//   -ovf / -Inf          0x80000000 (INT_MIN)       0x80000000          (same)
+//   +ovf / +Inf          0x80000000                 0x7fffffff (INT_MAX) DIVERGES
+//   NaN                  0x80000000                 0                    DIVERGES
+// The collision pipeline (collide-cache/mesh/edge-grab, GAME+ENGINE CGOs) does
+// vector float->int (.ftoi.vf) on NaN/overflow geometry; the wrong saturation lands
+// a triangle / Jak's query box in a different grid cell on arm64 than x86 -> wrong
+// collision (clip-through, eject, invisible-wall). These helpers let the IR codegen
+// fix up only the divergent (+ovf/+Inf/NaN) lanes to INT_MIN, matching x86 exactly.
+// All are arm64-only and emitted inside do_codegen_arm64; the x86 path is untouched.
+
+// CSEL Xd, Xn, Xm, cond  — 64-bit conditional select (Xd = cond ? Xn : Xm).
+//   base 0x9A800000 | (Rm<<16) | (cond<<12) | (Rn<<5) | Rd
+InstructionARM64 csel(Register dst, Register n, Register m, uint32_t cond) {
+  uint32_t enc = 0x9A800000u | (arm64_reg5(m) << 16) | ((cond & 0xfu) << 12) |
+                 (arm64_reg5(n) << 5) | arm64_reg5(dst);
+  return InstructionARM64(enc);
+}
+
+// MOVI Vd.4S, #imm8, LSL #24  — broadcast (imm8 << 24) into each 32-bit lane.
+//   base 0x4F006400 | (abc<<16) | (defgh<<5) | Rd ; abc=imm8[7:5], defgh=imm8[4:0]
+// (cmode=0b0110 = 32-bit shifted-by-24). Used to build 0x4F000000 (=2^31 float)
+// and 0x80000000 (=INT_MIN) lane constants.
+InstructionARM64 movi_4s_lsl24(Register dst, uint32_t imm8) {
+  uint32_t abc = (imm8 >> 5) & 0x7u;
+  uint32_t defgh = imm8 & 0x1fu;
+  uint32_t enc = 0x4F006400u | (abc << 16) | (defgh << 5) | arm64_reg5(dst);
+  return InstructionARM64(enc);
+}
+
+// FCMGT Vd.4S, Vn.4S, Vm.4S  — per lane: (Vn > Vm) ordered ? all-ones : 0 (NaN->0).
+//   base 0x6EA0E400 | (Rm<<16) | (Rn<<5) | Rd
+InstructionARM64 fcmgt_4s(Register dst, Register a, Register b) {
+  uint32_t enc =
+      0x6EA0E400u | (arm64_reg5(b) << 16) | (arm64_reg5(a) << 5) | arm64_reg5(dst);
+  return InstructionARM64(enc);
+}
+
+// BIF Vd.16B, Vn.16B, Vm.16B  — bitwise insert-if-false: per bit, Vd = Vm ? Vd : Vn
+// (insert Vn where the Vm mask bit is 0). size=0b11 (bits23:22) distinguishes BIF
+// from BIT (0b10) — they are OPPOSITE, so the base MUST be 0x6EE01C00 (verified
+// against the assembler: `bif v0.16b,v3.16b,v4.16b` == 0x6ee41c60).
+//   base 0x6EE01C00 | (Rm<<16) | (Rn<<5) | Rd
+InstructionARM64 bif_16b(Register dst, Register n, Register m) {
+  uint32_t enc =
+      0x6EE01C00u | (arm64_reg5(m) << 16) | (arm64_reg5(n) << 5) | arm64_reg5(dst);
+  return InstructionARM64(enc);
+}
+
 InstructionARM64 nop() {
   return InstructionARM64(0xd503201fu);  // ARM64 NOP — phase-24 safe fallback for unimplemented encoders
 }
