@@ -1,101 +1,112 @@
 # Gpkg-distributable — fix summary
 
-**Goal (owner directive 2026-06-27, REVISED).** Keep the PC build. Make the
-*final* APK a self-contained, owned-copy product: bundle the PC-extracted jak1
-runtime assets **compressed** inside the APK, and **decompress them once at first
-run** behind a progress UI, version-stamped and idempotent. No file-chooser, no
-decompiler/transcoder running on the phone (that earlier draft was scrapped —
-"would be a massacre"). Packaging + UX only; engine and goal_src stay 1-to-1.
+**Goal (owner directive 2026-06-27, REVISED — do LAST).** Keep the PC build.
+Ship ONE self-contained jak1 APK that bundles the full PC-extracted runtime
+assets COMPRESSED, and decompresses them once on FIRST LAUNCH (progress UI,
+version-stamped / idempotent). No ISO file picker, no on-phone asset extractor
+(that idea was scrapped). Packaging/UX only — goal_src stays 1-to-1.
 
-## Why the previous attempt failed
+## Why this was a re-run (the prior false-green)
 
-Validator said `no report.txt`. Attempt 1 had pivoted toward the *scrapped*
-on-phone-extractor design and left only dead scaffolding:
-- a `OG_ANDROID_EXTRACTOR` block added to root `CMakeLists.txt` (cross-builds the
-  decompiler+goalc for Android — the scrapped path), OFF by default but engine-tree
-  pollution all the same;
-- `__ANDROID__` guards added to `common/cross_os_debug/xdbg.cpp` purely so that
-  scrapped extractor's `common` sub-build would compile;
-- a 282-file `build-android-extract/` CMake config dir, staged into git;
-- and **no** report / no actual packaging change.
+The first pass got the *mechanism* right but shipped the wrong *content*. Its
+`build_asset_bundle.sh` packed the on-disk staging dirs
+`android/app/src/jak1/assets/{iso_data,fr3}`. Those staging dirs had drifted:
 
-The current `build-android/lib/arm64-v8a/libgk.so` (mtime 07:50) was built *before*
-those edits (08:11), so reverting them is consistent with the deployed engine.
+- `assets/fr3` was the **slim** fast-iteration subset — only **4 of 26** fr3
+  texture packs (GAME, intro, title, village1).
+- `assets/iso_data/jak1` carried the **stale June-11** CGO/DGO code set, predating
+  many later arm64 codegen fixes.
 
-## What I did
+The APK booted, but with assets DROPPED the main-menu orange tint backdrop
+rendered as a broken narrow band with the blue night sky bleeding through the
+sides (owner screencap `reports/Gregress-menu-overlay/device-105736.png`). The
+hardened validator now requires the bundle to equal the FULL PC build AND
+requires verified in-game RENDERING (the menu tint), not just boot.
 
-### 1. Reverted the scrapped-approach cruft (engine/build back to pristine HEAD)
-- `git checkout HEAD -- CMakeLists.txt common/cross_os_debug/xdbg.cpp`
-- removed `build-android-extract/` and added it + the bundle artifact to
-  `.gitignore`. Engine is now provably unaffected (deploy_verify chain PASS).
+## Root cause
 
-### 2. PC build step — `android/build_asset_bundle.sh` (new)
-- Packs `app/src/jak1/assets/iso_data/jak1` + `app/src/jak1/assets/fr3` into ONE
-  DEFLATE archive `app/src/jak1/assets-bundled/bundle/jak1_assets.zip` plus a
-  `manifest.properties` (version, file_count, raw_bytes, zip_bytes).
-- Entry layout is the on-device *relative* layout: `iso_data/jak1/*` and `fr3/*`
-  (LoaderActivity remaps `fr3/*` → `out/jak1/fr3/*`).
-- Idempotent: repacks only when the zip is missing/older than any raw input or the
-  version changed — so it is a ~1 s no-op on every subsequent build.
-- `zip -6` (balanced): the STR/VAG/SBK/MUS payload is audio-heavy ADPCM and barely
-  compresses, so a higher level buys little for a lot more time.
+Staging dirs drift. The bundle must be assembled from the *authoritative build
+outputs*, not from a hand-maintained staging copy that can silently go slim/stale.
+There was also a correctness subtlety: the device is arm64, so the CGO/DGO must be
+the **arm64-compiled** set, internally consistent with the HEAD `libgk.so` — not
+the x86 oracle in `out/jak1/iso`, and not an older arm64 build (mixed-build SIGILL
+risk, the owner's #1 "no mixed builds" rule).
 
-### 3. APK packaging — `android/app/build.gradle.kts`
-- jak1 assets srcDir → `assets-bundled/` (the compressed archive), **not** the raw
-  `src/jak1/assets` dirs (kept on disk only as the bundle's build input). `-PslimIso`
-  fast-iteration build preserved (fr3-only, no payload).
-- `androidResources.noCompress = ["zip"]` so AGP **stores** the already-DEFLATE'd
-  archive verbatim — re-compressing a ~1 GB compressed file buys nothing and risks
-  the mergeAssets/package GC death-spiral the old raw-payload build fought.
-- Registered `bundleJak1Assets` (Exec → the script) and wired it as a dependency of
-  the `merge*Jak1*Assets` tasks, gated off for `-PslimIso`.
+## The asset layout (what "full + consistent" means here)
 
-### 4. First-run decompression UI — `LoaderActivity.java` (rewritten)
-- Reads `bundle/manifest.properties` for version + raw-byte total + file count.
-- **Idempotent / version stamp:** `<filesDir>/.asset_bundle_stamp` holds the bundle
-  version; if present and matching, boot straight through (no unpack). A bumped
-  version (new APK) forces a single clean re-decompress.
-- **Determinate progress bar:** a real horizontal `ProgressBar` (permille of the
-  manifest raw-byte total) + "Decompressing game data… NN%" status, updated from a
-  background worker thread (UI thread would ANR).
-- **Decompress:** streams the archive from the APK via `AssetManager.open(...,
-  ACCESS_STREAMING)` → `ZipInputStream` (the ~1 GB archive is never materialised in
-  RAM), writing each entry to its on-device home.
-- **Low-storage pre-check:** `StatFs` free bytes vs raw_bytes × 1.05 → clean error
-  instead of filling the disk mid-write.
-- **Integrity:** `ZipInputStream.closeEntry()` validates each entry's CRC32 against
-  the archive (corrupt/truncated → throws); after the loop the written file count +
-  byte total are cross-checked against the manifest.
-- **Crash-tolerant:** the stamp is written LAST, only after a fully-verified unpack,
-  so a kill mid-unpack is "not done" and the next launch wipes + redoes it.
-- Path-traversal guard rejects any entry resolving outside filesDir.
+- `out/jak1/iso/` = 321 files: **293** arch-independent data files
+  (STR/VAG/TXT/VIS/…, identical across x86/arm64 builds) + **28** `*.CGO`/`*.DGO`
+  (the x86 oracle copies live here).
+- `out/jak1-arm64-full/iso/` = the **28 ARM64-compiled** CGO/DGO, built in one
+  internally-consistent pass by `.autoport/build_arm64_full_consistent.sh`
+  (June 26, after the last goalc codegen change June 26 03:31 — verified
+  consistent with HEAD; Gledge/Gdeath since then touched only libgk runtime, not
+  codegen or the linker ABI).
+- `out/jak1/fr3/` = the **full 26** renderer texture packs (all levels).
 
-## Measured result
+Full consistent bundle = 293 data + 28 ARM64 code (overlaid) + 26 fr3 = **347**.
 
-| metric | value |
-|---|---|
-| raw runtime assets | 1,441,122,917 B (1.34 GiB, 325 files) |
-| compressed bundle (zip) | 950,871,866 B (907 MiB) = **66.0% of raw**, ~490 MB saved |
-| final jak1 APK | 1,024,325,765 B (977 MiB) |
-| first-run decompress | 325 files / 1,441,122,917 B in **40,659 ms**, integrity OK |
-| first-run boot | reached `link finish: logo`, 43 GLES shaders, Adreno 618, frame 240 |
-| second run | `already unpacked (version=1) — skipping decompress`; 0 re-decompress |
-| deploy_verify (eae4df44) | PASS — device runs fresh HEAD b2208f88d libgk.so |
+## The fix (packaging only)
 
-## Verification
+`android/build_asset_bundle.sh` rewritten to:
 
-`bash .autoport/reports/Gpkg-distributable/run_device_test.sh` drives the whole
-cycle on eae4df44 (build → prove bundle stored-compressed in APK → install →
-wipe-then-first-run decompress+boot → second-run skip → deploy_verify). All
-artifacts are saved under `.autoport/reports/Gpkg-distributable/` (10–23 + 16 PNG).
-I read the raw logcat + APK listing + on-device state myself rather than trusting
-the harness summary; the on-device count check was re-captured correctly into
-`19b-firstrun-ondevice-verified.txt` after a shell-quoting bug was fixed in the
-driver.
+1. Assemble from the authoritative outputs above into a **symlink farm** under
+   `out/jak1-bundle-stage/` (`zip` dereferences symlinks and stores real content,
+   so the ~1.6 GiB set is packed with no multi-GiB intermediate copy — PC disk is
+   tight). The farm always points at the current build outputs, so the bundle
+   can never drift to a stale staging copy again.
+2. **HARD-FAIL guards** (the false-green guard):
+   - iso staged count must == full `out/jak1/iso` (321);
+   - fr3 count must == full `out/jak1/fr3` (26) and must be `>= 26` (slim guard);
+   - `KERNEL.CGO` content must == the arm64 build **and** must `!=` the x86 oracle
+     (mixed-build guard).
+3. Bump bundle **version 1 -> 2** so devices that ran the slim v1 re-decompress.
+4. Fixed a `sort | head` SIGPIPE under `set -o pipefail` (broke the Gradle task);
+   replaced with a single-pass `awk` max-mtime in the staleness check.
 
-## Scope / 1-to-1
+`android/app/build.gradle.kts`: updated the `bundleJak1Assets` comment to describe
+the new authoritative-output sourcing. `LoaderActivity.java` was already correct
+and is unchanged: it streams the zip from the APK, maps `iso_data/<game>/*` and
+`fr3/* -> out/<game>/fr3/*`, version-stamps for idempotency, pre-wipes on a
+version change, StatFs low-storage pre-check, per-entry CRC32, file-count + byte
+integrity, stamp written last.
 
-- goal_src: **0** files changed.
-- Engine: libgk.so unchanged (deploy_verify build==APK==device chain PASS).
-- `.autoport/gold`: untouched (pristine).
-- Only packaging/UX files changed (script, gradle, LoaderActivity.java, .gitignore).
+## Verification (device eae4df44, fresh install — no unpacked data)
+
+- **Bundle**: 347 files, `version=2`, raw 1,639,349,155 B -> zip 1,145,911,923 B
+  (69.9% via DEFLATE -6). Ships all 26 fr3 + the arm64 CGO/DGO (KERNEL.CGO
+  c0c9bab4…, != x86 oracle 0b2d5fcc…).
+- **APK**: 1.14 GiB, the zip Stored (noCompress, not re-deflated); libgk
+  build==APK==device (babe446a). Clean repackage removed ~950 MB of AGP
+  incremental dead bytes.
+- **First run**: progress UI captured ("Decompressing game data… 86% 1,32 GB" +
+  determinate bar); StatFs precheck ran ("storage ok: need 1,60 GB, have
+  3,67 GB"); "asset bundle decompressed: 347 files, 1639349155 bytes in 56253ms
+  (version=2)"; on-device `iso_data/jak1=321`, `out/jak1/fr3=26` (COMPLETE);
+  booted (kernel "play", InitMachine 0, frame 9780+, 0 crashes); title renders.
+- **Menu render gate**: reached the MAIN MENU; the orange tint backdrop renders
+  full-width and uniform. Objective vs oracle + regression — backdrop tint
+  warmth (R-B) across 8 bands: device min +88 / **0 blue bands** ~ oracle min
+  +101 / 0 blue bands; regression min -71 / **2 blue bands**. Device matches the
+  oracle; the owner-reported menu defect is FIXED.
+- **Second run**: "asset bundle already unpacked (version=2) — skipping
+  decompress, data ready" in 3s; booted directly (idempotent).
+- **Error handling**: low-storage StatFs precheck + per-entry CRC32 + count/byte
+  integrity + crash-tolerant stamp-last + path-traversal guard.
+- **Gates**: goal_src 1-to-1 (clean); `.autoport/gold` pristine; deploy_verify
+  eae4df44 PASS.
+
+## Note on the MIUI fresh-install gate
+
+On this Redmi, MIUI allows adb `pm install -r` *updates* but blocks *new* USB
+installs (USER_RESTRICTED). The fresh install required approving MIUI's
+`AdbInstallActivity` dialog once (tapped Install + "remember my choice" so future
+re-installs don't prompt). Updates over the now-installed package are unaffected.
+
+## Files changed
+
+- `android/build_asset_bundle.sh` — rewritten (authoritative-output assembly +
+  completeness/consistency guards + version 2 + SIGPIPE fix).
+- `android/app/build.gradle.kts` — comment update only (bundleJak1Assets sourcing).
+- (LoaderActivity.java unchanged — already correct.)
+- goal_src: untouched (1-to-1).

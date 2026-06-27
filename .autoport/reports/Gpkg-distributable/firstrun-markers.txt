@@ -1,0 +1,6 @@
+06-27 11:54:54.877 24873 24930 I opengoal-gk: storage ok: need 1,60 GB, have 3,67 GB
+06-27 11:55:51.131 24873 24930 I opengoal-gk: asset bundle decompressed: 347 files, 1639349155 bytes in 56253ms (version=2)
+06-27 11:55:52.516 24873 25112 I opengoal-gk: *kernel-boot-message*: play
+06-27 11:55:52.528 24873 25112 I opengoal-gk: goal_main: InitMachine returned 0
+06-27 11:55:53.907 24873 25112 I opengoal-gk: A41-TEX flushing 12 queued pre-ready texture calls (boot-order race)
+A35-RENDER frame=9780

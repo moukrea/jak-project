@@ -547,9 +547,9 @@
     "Gdeath-crash": 1782523512.5146377,
     "Gledge-glitch": 1782529037.288677,
     "Gpkg-branding": 1782545402.321816,
-    "Gpkg-distributable": 1782546686.971213
+    "Gpkg-distributable": 1782551791.2328017
   },
-  "last_update": "2026-06-27T08:38:58.119177+00:00",
+  "last_update": "2026-06-27T09:16:31.232805+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

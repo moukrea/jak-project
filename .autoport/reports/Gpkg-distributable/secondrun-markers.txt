@@ -1,0 +1,3 @@
+06-27 12:00:16.805 25411 25443 I opengoal-gk: asset bundle already unpacked (version=2) — skipping decompress, data ready
+06-27 12:00:18.174 25411 25472 I opengoal-gk: *kernel-boot-message*: play
+06-27 12:00:18.187 25411 25472 I opengoal-gk: goal_main: InitMachine returned 0

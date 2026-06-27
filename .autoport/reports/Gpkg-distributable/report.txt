@@ -1,136 +1,173 @@
-Phase Gpkg-distributable — self-contained APK: PC-built runtime assets bundled
-COMPRESSED inside the APK and DECOMPRESSED once at first run (progress UI,
-version-stamped / idempotent). Packaging + UX only; engine and goal_src 1-to-1.
-Date: 2026-06-27   Device: eae4df44 (Redmi Note 9 Pro, arm64)   HEAD: b2208f88d
+================================================================================
+Phase Gpkg-distributable — self-contained jak1 APK: PC-built runtime assets
+bundled COMPRESSED, decompressed at FIRST RUN (progress UI, idempotent).
+================================================================================
 
 RESULT: SELF-CONTAINED APK — BUNDLED COMPRESSED ASSETS DECOMPRESS AT FIRST RUN
 
+Device: Redmi Note 9 Pro (ANDROID_SERIAL=eae4df44, arm64), pkg org.opengoal.gk.jak1.
+Date:   2026-06-27.   goal_src: 1-to-1 (pristine, 0 changes) — packaging/UX only.
+
+--------------------------------------------------------------------------------
+WHY THIS RE-RUN (the prior false-green)
+--------------------------------------------------------------------------------
+The first pass shipped a SLIM/incomplete bundle: it packed the on-disk staging
+dirs (android/app/src/jak1/assets/{iso_data,fr3}), which had drifted to only
+4 of 26 fr3 texture packs + the stale June-11 CGO/DGO code set. The APK booted
+but DROPPED assets, so the main-menu orange tint backdrop rendered as a broken
+narrow band with blue sky bleeding through the sides (owner screencap in
+.autoport/reports/Gregress-menu-overlay/device-105736.png). The hardened
+validator now gates on asset COMPLETENESS (== the full PC build) AND on in-game
+RENDERING (the menu tint), not just boot/decompress/idempotency.
+
+--------------------------------------------------------------------------------
+THE FIX (packaging only — engine and goal_src untouched)
+--------------------------------------------------------------------------------
+android/build_asset_bundle.sh was rewritten to assemble the bundle straight from
+the AUTHORITATIVE PC build outputs (not the staging dirs, which drift):
+  - out/jak1/iso/            321 files: the 293 arch-independent data files
+                               (STR/VAG/TXT/VIS/...) PLUS the 28 *.CGO/*.DGO.
+  - out/jak1-arm64-full/iso/ the 28 ARM64-compiled CGO/DGO, built in one
+                               internally-consistent pass with the same HEAD
+                               goalc/libgk (no mixed-build SIGILL). These OVERLAY
+                               the x86 oracle copies from out/jak1/iso.
+  - out/jak1/fr3/            the FULL 26 renderer texture packs (all levels).
+The bundle's iso_data/jak1 = 293 data + 28 ARM64 CGO/DGO = 321; fr3 = 26.
+TOTAL = 347 files == the full PC build (file_count matches out/jak1; NOT slim).
+The assembly is a symlink farm (zip dereferences symlinks -> real content), so the
+full ~1.6 GiB set is packed with no multi-GiB intermediate copy, and the bundle
+can never drift to a stale staging copy again. The script HARD-FAILS if the iso
+count != full, if fr3 < 26 (slim-regression guard), or if KERNEL.CGO is the x86
+oracle instead of the arm64 build (mixed-build guard).
+Bundle version bumped 1 -> 2 so devices that ran the slim v1 re-decompress.
+
+--------------------------------------------------------------------------------
+1. COMPRESSED ASSET BUNDLE IN THE APK (format + compressed vs raw size)
+--------------------------------------------------------------------------------
+Format: ONE DEFLATE zip archive (level -6), shipped inside the APK as
+        assets/bundle/jak1_assets.zip + assets/bundle/manifest.properties.
+manifest.properties (inside the APK):
+        version=2  game=jak1  file_count=347
+        raw_bytes=1639349155  zip_bytes=1145911923
+Compressed vs raw:  raw 1,639,349,155 B (1.53 GiB) -> zip 1,145,911,923 B
+        (1.07 GiB) = 69.9% of raw (DEFLATE; STR/VAG audio + fr3 textures dominate
+        and compress poorly, so -6 is the balanced choice).
+APK is STORED (noCompress "zip"): the already-DEFLATE'd archive is not re-deflated
+by AGP. Verified: `unzip -v` shows assets/bundle/jak1_assets.zip method=Stored.
+APK size: 1,219,365,821 B (1.14 GiB)  app-jak1-debug.apk.
+        (A clean repackage was used: AGP's incremental package step had left
+        ~950 MB of orphaned dead bytes from the prior slim APK in the file; a
+        clean build removed it. APK file size == central-directory entry sum.)
+libgk.so chain: build == APK == device (sha256 babe446ab67607c4...), via
+        deploy_verify.sh.
+
+--------------------------------------------------------------------------------
+2. ASSET COMPLETENESS — the decompressed set == the FULL PC build (NOT slim)
+--------------------------------------------------------------------------------
+Bundle file_count = 347 = out/jak1/iso (321) + out/jak1/fr3 (26).  This matches
+the full PC build's file list/count exactly; it is the FULL set, NOT the slim
+subset that broke the prior run. The shipped bundle is the FULL asset set, not
+slim. fr3 ships all 26 level packs (beach, citadel, jungle, sunken, village1/2/3,
+... NOT just the slim 4 = GAME/intro/title/village1).
+ON-DEVICE after first-run decompress (run-as ls | wc -l):
+        files/iso_data/jak1 = 321   (want 321)  COMPLETE
+        files/out/jak1/fr3  = 26    (want 26)   COMPLETE
+The bundled CGO/DGO are the ARM64 build (KERNEL.CGO md5 c0c9bab4..., == the
+arm64-full set, != the x86 oracle 0b2d5fcc...), internally consistent with the
+HEAD libgk.so — so no mixed-build crash.
+
+--------------------------------------------------------------------------------
+3. FIRST-RUN DECOMPRESSION + PROGRESS UI + BOOT
+--------------------------------------------------------------------------------
+Fresh device with NO unpacked data (uninstalled first, then installed the
+self-contained APK; filesDir had NO_ISO / NO_STAMP before launch).
+First launch (LoaderActivity):
+  - Progress UI: a one-time "Decompressing game data…" screen with a determinate
+    progress BAR. Screencap firstrun-progress.png shows "Decompressing game
+    data… 86%  1,32 GB" with the bar ~86% filled.
+  - Low-storage pre-check RAN: logcat "storage ok: need 1,60 GB, have 3,67 GB"
+    (StatFs; refuses with a clear error instead of a half-unpack).
+  - Decompress: logcat "asset bundle decompressed: 347 files, 1639349155 bytes
+    in 56253ms (version=2)" — streamed from the APK via ZipInputStream.
+  - Boots / in-game: kernel boot reached "*kernel-boot-message*: play" and
+    "InitMachine returned 0"; renderer ran to frame 9780+ with 0 crash signals;
+    the TITLE screen renders correctly (full Sandover village panorama + the
+    "JAK AND DAXTER — The Precursor Legacy" logo at correct widescreen
+    placement). Screencap firstrun-title.png.
+
+--------------------------------------------------------------------------------
+4. IN-GAME RENDERING VERIFIED — the MAIN MENU orange tint backdrop renders OK
+--------------------------------------------------------------------------------
+Reached the MAIN MENU on device (press START at the title -> NEW GAME / LOAD GAME
+/ OPTIONS / SECRETS / QUIT GAME / BACK).  Screencap device-menu-verified.png.
+The menu orange tint backdrop renders CORRECTLY — full-width and uniform, the
+same as the oracle, NOT the broken narrow band of the regression. Verified
+OBJECTIVELY against the original (.autoport/gold/TRUE-original-v033/05-main-menu.png)
+and the regression (.autoport/reports/Gregress-menu-overlay/device-105736.png):
+
+  Backdrop tint warmth (R-B) across 8 vertical bands of the menu mid-rows
+  (orange tint => positive; blue sky bleed-through => negative):
+    device (full bundle): [108,114,115,87,104,100,89,99]  min +88  blue_bands=0
+    oracle (correct)    : [141,141,156,112,150,151,149,100] min +101 blue_bands=0
+    regression (broken) : [-70,-5,95,76,103,109,9,95]      min -71  blue_bands=2
+  The device tint profile MATCHES the oracle (all bands warm, 0 blue bands) and
+  is categorically different from the regression (2 blue edge bands, min -71).
+  Side-band warmth: device left +110 / right +104 ; oracle left +141 / right +129
+  ; regression left -74 (BLUE) / right +40.  => menu tint renders correctly; no
+  render regress. The owner-reported menu defect is FIXED.
+
+--------------------------------------------------------------------------------
+5. IDEMPOTENT SECOND LAUNCH (version-stamp; no re-decompress)
+--------------------------------------------------------------------------------
+Second launch detected the version-stamped data and SKIPPED decompression:
+  logcat "asset bundle already unpacked (version=2) — skipping decompress,
+  data ready"  — reached in 3s (vs ~56s decompress), then booted directly.
+The on-device stamp files/.asset_bundle_stamp = "2". A new APK (bumped bundle
+version) would force a clean re-decompress; same version boots straight through.
+
+--------------------------------------------------------------------------------
+6. INTEGRITY + LOW-STORAGE ERROR HANDLING (LoaderActivity.java)
+--------------------------------------------------------------------------------
+  - Low storage: StatFs pre-check (raw_bytes * 1.05); throws a clear "Not enough
+    free storage. Need …, only … free." instead of a half-unpack. DEMONSTRATED:
+    "storage ok: need 1,60 GB, have 3,67 GB" on the real run.
+  - Corrupt/truncated bundle: ZipInputStream.closeEntry() verifies each entry's
+    CRC32 against the zip's stored value (all 347 entries validated this run).
+  - Integrity cross-check: after the stream, filesWritten (347) and bytesWritten
+    (1,639,349,155) are checked against manifest file_count + raw_bytes before
+    the stamp is written; a short/extra/truncated archive throws. This check RAN
+    and PASSED (347 == 347, bytes == manifest) this run.
+  - Crash tolerance: the version stamp is written LAST, after every output file
+    is closed; a kill mid-unpack leaves no stamp, so the next launch wipes the
+    partial data and restarts — never boots off a half-unpack.
+  - Path-traversal guard: entries whose canonical path escapes filesDir are
+    refused.
+
+--------------------------------------------------------------------------------
+7. GATES
+--------------------------------------------------------------------------------
+  - goal_src 1-to-1: git diff goal_src = empty (packaging/UX only).
+  - .autoport/gold: pristine (untouched).
+  - deploy_verify.sh eae4df44: PASS — "device eae4df44 provably runs the fresh
+    HEAD libgk.so" (chain build==APK==device, babe446ab67607c4).
+  - fix-summary: .autoport/reports/Gpkg-distributable-fix-summary.md (>= 60 lines).
+
+EVIDENCE FILES (.autoport/reports/Gpkg-distributable/):
+  firstrun-progress.png      decompression progress UI ("86%  1,32 GB" + bar)
+  firstrun-title.png         title screen renders (full village + logo)
+  device-menu-verified.png   MAIN MENU — full-width orange tint backdrop (FIXED)
+  firstrun-markers.txt       first-launch markers (storage/decompress/boot/frame)
+  secondrun-markers.txt      second-launch markers (idempotent skip + boot)
+  launch-test-run.log        device test transcript
+  device_test.sh             full fresh-install + first-run + menu + 2nd-launch test
+  launch_test.sh             launch-only variant (install already done)
+
 ================================================================================
-DESIGN (kept the PC build; changed only how its output ships + first-run UX)
+RESULT: SELF-CONTAINED APK — BUNDLED COMPRESSED ASSETS DECOMPRESS AT FIRST RUN
+The jak1 APK bundles the FULL PC-built runtime assets as one compressed DEFLATE
+archive; first launch shows a progress UI and decompresses the COMPLETE set (321
+iso + 26 fr3 == the full build, not slim) to the data dir; the game boots and the
+MAIN MENU orange tint backdrop renders correctly (oracle-matched, not the broken
+band); second launch is idempotent (version stamp, no re-decompress); low-storage
+and corrupt/integrity errors are handled.
 ================================================================================
-The PC pipeline still extracts the jak1 runtime data into
-  android/app/src/jak1/assets/iso_data/jak1/   (321 files: CGO/DGO/STR/VIS/SBK/...)
-  android/app/src/jak1/assets/fr3/             (4 fr3 texture files)
-exactly as before — that path is untouched.
-
-What changed: the APK no longer bundles those as ~1.34 GiB of RAW, uncompressed
-dirs. They are now packed into ONE DEFLATE archive that the on-device loader
-DECOMPRESSES into the app-private data dir at first launch.
-
-  1. PC build step — android/build_asset_bundle.sh (wired into Gradle as the
-     bundleJak1Assets task, run before mergeJak1DebugAssets):
-       packs assets/iso_data/jak1 + assets/fr3 into
-       assets-bundled/bundle/jak1_assets.zip  (DEFLATE level 6, java.util.zip
-       readable, single archive) + a small manifest.properties (version, file
-       count, raw byte total) used to drive the progress bar, pre-check free
-       storage, and verify the unpack. Idempotent: repacks only when stale.
-
-  2. APK packaging — android/app/build.gradle.kts:
-       - the jak1 assets srcDir is now assets-bundled/ (the compressed archive),
-         NOT the raw src/jak1/assets dirs (which stay on disk only as the
-         bundle's build input).
-       - androidResources.noCompress = ["zip"] so AGP STORES the already-DEFLATE'd
-         archive verbatim (re-compressing a ~1 GB compressed file buys nothing and
-         walks into the mergeAssets/package GC death-spiral the raw build hit).
-       - the -PslimIso fast-iteration build is preserved (fr3 only, no payload).
-
-  3. First-run decompression UI — LoaderActivity.java (the LAUNCHER activity):
-       on launch, if the on-device version stamp is absent or its version differs
-       from the APK's bundle version, it streams the archive from the APK through
-       java.util.zip.ZipInputStream and writes each entry to its on-device home,
-       behind a one-time "Setting up game data… / Decompressing game data… NN%"
-       screen with a determinate horizontal PROGRESS bar (permille of the manifest
-       raw-byte total). Targets:
-         iso_data/jak1/*  -> <filesDir>/iso_data/jak1/*   (fakeiso data root)
-         fr3/*            -> <filesDir>/out/jak1/fr3/*     (renderer textures)
-
-  4. Idempotent / version-stamped: a stamp file <filesDir>/.asset_bundle_stamp
-     holds the bundle version. Second and later launches find the stamp, match the
-     version, and boot straight to the game with NO re-decompress. A new APK that
-     ships a bumped bundle version re-decompresses once.
-
-  5. Integrity + low-storage: before unpacking, a StatFs free-space pre-check
-     (raw bytes x 1.05 margin) errors out cleanly instead of filling the disk
-     mid-write. During the unpack, ZipInputStream validates each entry's CRC32
-     against the archive (a corrupt/truncated archive throws); after the unpack
-     the loader cross-checks the written file count + byte total against the
-     manifest. The stamp is written LAST, only after a fully-verified unpack, so a
-     kill mid-unpack is treated as "not done" and the next launch redoes it (never
-     boots off a half-written, corrupt data set).
-
-What this is NOT: there is no file-chooser dialog, and no decompiler / transcoder
-runs on the phone. The owner's earlier draft of that approach was scrapped ("would
-be a massacre"); the runtime data is produced on PC and the APK is a single
-owned-copy product that just decompresses its own bundled data once.
-
-================================================================================
-COMPRESSED ASSET BUNDLE — FORMAT + SIZES (measured)
-================================================================================
-Archive format : ZIP / DEFLATE level 6 (single archive, java.util.zip-decodable)
-In the APK     : assets/bundle/jak1_assets.zip, stored method = 'stor'
-                 (AGP stores it verbatim — it is already compressed)
-                 + assets/bundle/manifest.properties (138 bytes)
-
-  raw (uncompressed) runtime assets : 1,441,122,917 bytes  (1.34 GiB, 325 files)
-  compressed bundle (zip)           :   950,871,866 bytes  (907 MiB)
-  compression ratio                 :   66.0% of raw  (~490 MB / ~0.46 GiB saved)
-  final jak1 APK                    : 1,024,325,765 bytes  (977 MiB)
-
-  (The payload is STR/VAG/SBK/MUS audio-heavy — already near-incompressible ADPCM —
-   so 66% is a realistic DEFLATE result; the CGO/DGO/VIS/TXT portions compress well.
-   A higher level or zstd/xz would shave more but needs a native decoder; DEFLATE
-   via java.util.zip ships zero new runtime dependencies.)
-
-Manifest (assets/bundle/manifest.properties):
-  version=1  game=jak1  file_count=325  raw_bytes=1441122917  zip_bytes=950871866
-
-================================================================================
-DEVICE VERIFICATION (eae4df44 — full run, artifacts in this directory)
-================================================================================
-Reproducible driver: .autoport/reports/Gpkg-distributable/run_device_test.sh
-
-(a) BUILD — full non-slim APK ........... gradle_rc=0  (BUILD SUCCESSFUL)         [10-gradle-rc.txt]
-(b) BUNDLE IN APK ....................... assets/bundle/jak1_assets.zip method 'stor',
-    950,871,866 B; manifest 138 B; raw_iso_data_entries_in_apk=0 (no raw dirs)    [12-apk-bundle-entries.txt]
-(c) INSTALL ............................. Success (eae4df44)                       [13-install.txt]
-
-(d) FIRST RUN (on-device stamp + data wiped first to force a clean first run):
-      10:28:48 LoaderActivity: first-run decompress check for jak1
-      10:28:49 storage ok: need 1,41 GB, have 11,32 GB         <- low-storage pre-check ran
-      10:29:29 asset bundle decompressed: 325 files, 1441122917 bytes in 40659ms (version=1)
-                                                               <- integrity count+bytes matched manifest
-      10:29:31 link finish: logo                               <- GAME BOOTS after the unpack
-      ... A35-RENDER all 43 shaders compiled under GLES 3.20; GL_RENDERER=Adreno (TM) 618;
-          sustained rendering to frame=240 draws=28 tris=3916; focus = org.opengoal.gk.jak1.
-      Mid-decompress progress UI captured (focus = .LoaderActivity)               [16-firstrun-progress.png / 16-firstrun-focus.txt]
-                                                                                  [18-firstrun-summary.txt / 17-firstrun-logcat.log]
-
-(e) ON-DEVICE STATE AFTER FIRST RUN:
-      .asset_bundle_stamp content = "1" (= bundle version)
-      files/iso_data/jak1 = 321 files (1.3G)
-      files/out/jak1/fr3  = 4 files (GAME/intro/title/village1.fr3)               [19b-firstrun-ondevice-verified.txt]
-
-(f) SECOND RUN (stamp present) — IDEMPOTENT SKIP:
-      10:29:39 asset bundle already unpacked (version=1) — skipping decompress, data ready
-      second_run_decompress_lines=0 (no re-decompress); booted directly to the game [22-secondrun-summary.txt / 21-secondrun-logcat.log]
-
-(g) DEPLOY VERIFY ...................... DEPLOY-VERIFY PASS — device provably runs the fresh
-      HEAD (b2208f88d) libgk.so; chain build==APK==device libgk.so = babe446ab67607c4;
-      deploy_verify_rc=0. Engine unaffected (libgk.so unchanged by this phase).   [23-deploy-verify.txt]
-
-================================================================================
-1-TO-1 / SCOPE
-================================================================================
-- goal_src: 0 files changed (git diff goal_src = empty). Packaging + Java UX only.
-- Engine (libgk.so) unaffected — same .so before/after; deploy_verify chain PASS.
-- An earlier attempt's scrapped-approach edits to root CMakeLists.txt and
-  common/cross_os_debug/xdbg.cpp were reverted to pristine HEAD; the stray
-  build-android-extract/ config dir was removed and .gitignore'd.
-- .autoport/gold: untouched (pristine).
-- Files changed by this phase:
-    android/build_asset_bundle.sh                                  (new — PC bundle builder)
-    android/app/build.gradle.kts                                   (assets srcDir + noCompress + bundle task)
-    android/app/src/main/java/org/opengoal/gk/LoaderActivity.java  (decompress + progress + stamp + integrity)
-    .gitignore                                                     (ignore the ~1 GB bundle artifact + stray dir)
-
-VALIDATOR: bash .autoport/validators/phase-Gpkg-distributable.sh  -> expected PASS
