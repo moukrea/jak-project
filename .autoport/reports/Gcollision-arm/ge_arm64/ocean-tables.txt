@@ -1,0 +1,381 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+ocean-tables.gc:20
+-> (define *ocean-spheres-village1*
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov '*ocean-spheres-village1*, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+ocean-tables.gc:65
+-> (define *ocean-colors-village1*
+  [0x10020] adrp x9, #0x10000                                mov-sva igpr-1, static-structure
+  [0x10024] add x9, x9, #0
+  [0x10028] sub x9, x9, x15
+  [0x1002C] adrp x16, #0x10000                               mov '*ocean-colors-village1*, igpr-1
+  [0x10030] add x16, x16, #0
+  [0x10034] str w9, [x16]
+
+ocean-tables.gc:2622
+-> (define *ocean-near-indices-village1*
+  [0x10038] adrp x9, #0x10000                                mov-sva igpr-2, static-structure
+  [0x1003C] add x9, x9, #0
+  [0x10040] sub x9, x9, x15
+  [0x10044] adrp x16, #0x10000                               mov '*ocean-near-indices-village1*, igpr-2
+  [0x10048] add x16, x16, #0
+  [0x1004C] str w9, [x16]
+
+ocean-tables.gc:3261
+-> (define *ocean-trans-indices-village1*
+  [0x10050] adrp x9, #0x10000                                mov-sva igpr-3, static-structure
+  [0x10054] add x9, x9, #0
+  [0x10058] sub x9, x9, x15
+  [0x1005C] adrp x16, #0x10000                               mov '*ocean-trans-indices-village1*, igpr-3
+  [0x10060] add x16, x16, #0
+  [0x10064] str w9, [x16]
+
+ocean-tables.gc:5574
+-> (define *ocean-mid-indices-village1*
+  [0x10068] adrp x9, #0x10000                                mov-sva igpr-4, static-structure
+  [0x1006C] add x9, x9, #0
+  [0x10070] sub x9, x9, x15
+  [0x10074] adrp x16, #0x10000                               mov '*ocean-mid-indices-village1*, igpr-4
+  [0x10078] add x16, x16, #0
+  [0x1007C] str w9, [x16]
+
+ocean-tables.gc:5619
+-> (define *ocean-mid-masks-village1*
+  [0x10080] adrp x9, #0x10000                                mov-sva igpr-5, static-structure
+  [0x10084] add x9, x9, #0
+  [0x10088] sub x9, x9, x15
+  [0x1008C] adrp x16, #0x10000                               mov '*ocean-mid-masks-village1*, igpr-5
+  [0x10090] add x16, x16, #0
+  [0x10094] str w9, [x16]
+
+ocean-tables.gc:5950
+-> (define *ocean-spheres-village2*
+  [0x10098] adrp x9, #0x10000                                mov-sva igpr-6, static-structure
+  [0x1009C] add x9, x9, #0
+  [0x100A0] sub x9, x9, x15
+  [0x100A4] adrp x16, #0x10000                               mov '*ocean-spheres-village2*, igpr-6
+  [0x100A8] add x16, x16, #0
+  [0x100AC] str w9, [x16]
+
+ocean-tables.gc:5995
+-> (define *ocean-colors-village2*
+  [0x100B0] adrp x9, #0x10000                                mov-sva igpr-7, static-structure
+  [0x100B4] add x9, x9, #0
+  [0x100B8] sub x9, x9, x15
+  [0x100BC] adrp x16, #0x10000                               mov '*ocean-colors-village2*, igpr-7
+  [0x100C0] add x16, x16, #0
+  [0x100C4] str w9, [x16]
+
+ocean-tables.gc:8552
+-> (define *ocean-near-indices-village2*
+  [0x100C8] adrp x9, #0x10000                                mov-sva igpr-8, static-structure
+  [0x100CC] add x9, x9, #0
+  [0x100D0] sub x9, x9, x15
+  [0x100D4] adrp x16, #0x10000                               mov '*ocean-near-indices-village2*, igpr-8
+  [0x100D8] add x16, x16, #0
+  [0x100DC] str w9, [x16]
+
+ocean-tables.gc:8726
+-> (define *ocean-trans-indices-village2*
+  [0x100E0] adrp x9, #0x10000                                mov-sva igpr-9, static-structure
+  [0x100E4] add x9, x9, #0
+  [0x100E8] sub x9, x9, x15
+  [0x100EC] adrp x16, #0x10000                               mov '*ocean-trans-indices-village2*, igpr-9
+  [0x100F0] add x16, x16, #0
+  [0x100F4] str w9, [x16]
+
+ocean-tables.gc:11039
+-> (define *ocean-mid-indices-village2*
+  [0x100F8] adrp x9, #0x10000                                mov-sva igpr-10, static-structure
+  [0x100FC] add x9, x9, #0
+  [0x10100] sub x9, x9, x15
+  [0x10104] adrp x16, #0x10000                               mov '*ocean-mid-indices-village2*, igpr-10
+  [0x10108] add x16, x16, #0
+  [0x1010C] str w9, [x16]
+
+ocean-tables.gc:11084
+-> (define *ocean-mid-masks-village2*
+  [0x10110] adrp x9, #0x10000                                mov-sva igpr-11, static-structure
+  [0x10114] add x9, x9, #0
+  [0x10118] sub x9, x9, x15
+  [0x1011C] adrp x16, #0x10000                               mov '*ocean-mid-masks-village2*, igpr-11
+  [0x10120] add x16, x16, #0
+  [0x10124] str w9, [x16]
+
+ocean-tables.gc:11195
+-> (define *ocean-near-indices-sunken*
+  [0x10128] adrp x9, #0x10000                                mov-sva igpr-12, static-structure
+  [0x1012C] add x9, x9, #0
+  [0x10130] sub x9, x9, x15
+  [0x10134] adrp x16, #0x10000                               mov '*ocean-near-indices-sunken*, igpr-12
+  [0x10138] add x16, x16, #0
+  [0x1013C] str w9, [x16]
+
+ocean-tables.gc:11198
+-> (define *ocean-trans-indices-sunken* (new 'static 'ocean-trans-indices))
+  [0x10140] adrp x9, #0x10000                                mov-sva igpr-13, static-structure
+  [0x10144] add x9, x9, #0
+  [0x10148] sub x9, x9, x15
+  [0x1014C] adrp x16, #0x10000                               mov '*ocean-trans-indices-sunken*, igpr-13
+  [0x10150] add x16, x16, #0
+  [0x10154] str w9, [x16]
+
+ocean-tables.gc:11200
+-> (define *ocean-mid-indices-sunken* (new 'static 'ocean-mid-indices))
+  [0x10158] adrp x9, #0x10000                                mov-sva igpr-14, static-structure
+  [0x1015C] add x9, x9, #0
+  [0x10160] sub x9, x9, x15
+  [0x10164] adrp x16, #0x10000                               mov '*ocean-mid-indices-sunken*, igpr-14
+  [0x10168] add x16, x16, #0
+  [0x1016C] str w9, [x16]
+
+ocean-tables.gc:11202
+-> (define *ocean-mid-masks-sunken*
+  [0x10170] adrp x9, #0x10000                                mov-sva igpr-15, static-structure
+  [0x10174] add x9, x9, #0
+  [0x10178] sub x9, x9, x15
+  [0x1017C] adrp x16, #0x10000                               mov '*ocean-mid-masks-sunken*, igpr-15
+  [0x10180] add x16, x16, #0
+  [0x10184] str w9, [x16]
+
+ocean-tables.gc:11208
+-> (define *ocean-map-village1*
+  [0x10188] adrp x9, #0x10000                                mov-sva igpr-16, static-structure
+  [0x1018C] add x9, x9, #0
+  [0x10190] sub x9, x9, x15
+  [0x10194] adrp x16, #0x10000                               mov '*ocean-map-village1*, igpr-16
+  [0x10198] add x16, x16, #0
+  [0x1019C] str w9, [x16]
+
+ocean-tables.gc:11216
+-> (set! (-> *ocean-map-village1* ocean-spheres) *ocean-spheres-village1*)
+  [0x101A0] adrp x16, #0x10000                               mov igpr-17, '*ocean-spheres-village1*
+  [0x101A4] add x16, x16, #0
+  [0x101A8] ldr w9, [x16]
+  [0x101AC] adrp x16, #0x10000                               mov igpr-18, '*ocean-map-village1*
+  [0x101B0] add x16, x16, #0
+  [0x101B4] ldr w8, [x16]
+  [0x101B8] add x16, x8, x15                                 move [igpr-18 + 44], igpr-17
+  [0x101BC] str w9, [x16, #0x2c] ;; misaligned with debug data
+
+ocean-tables.gc:11218
+-> (set! (-> *ocean-map-village1* ocean-colors) *ocean-colors-village1*)
+  [0x101C0] adrp x16, #0x10000                               mov igpr-19, '*ocean-colors-village1*
+  [0x101C4] add x16, x16, #0
+  [0x101C8] ldr w9, [x16]
+  [0x101CC] adrp x16, #0x10000                               mov igpr-20, '*ocean-map-village1*
+  [0x101D0] add x16, x16, #0
+  [0x101D4] ldr w8, [x16]
+  [0x101D8] add x16, x8, x15                                 move [igpr-20 + 48], igpr-19
+  [0x101DC] str w9, [x16, #0x30] ;; misaligned with debug data
+
+ocean-tables.gc:11220
+-> (set! (-> *ocean-map-village1* ocean-mid-masks) *ocean-mid-masks-village1*)
+  [0x101E0] adrp x16, #0x10000                               mov igpr-21, '*ocean-mid-masks-village1*
+  [0x101E4] add x16, x16, #0
+  [0x101E8] ldr w9, [x16]
+  [0x101EC] adrp x16, #0x10000                               mov igpr-22, '*ocean-map-village1*
+  [0x101F0] add x16, x16, #0
+  [0x101F4] ldr w8, [x16]
+  [0x101F8] add x16, x8, x15                                 move [igpr-22 + 64], igpr-21
+  [0x101FC] str w9, [x16, #0x40] ;; misaligned with debug data
+
+ocean-tables.gc:11222
+-> (set! (-> *ocean-map-village1* ocean-mid-indices) *ocean-mid-indices-village1*)
+  [0x10200] adrp x16, #0x10000                               mov igpr-23, '*ocean-mid-indices-village1*
+  [0x10204] add x16, x16, #0
+  [0x10208] ldr w9, [x16]
+  [0x1020C] adrp x16, #0x10000                               mov igpr-24, '*ocean-map-village1*
+  [0x10210] add x16, x16, #0
+  [0x10214] ldr w8, [x16]
+  [0x10218] add x16, x8, x15                                 move [igpr-24 + 52], igpr-23
+  [0x1021C] str w9, [x16, #0x34] ;; misaligned with debug data
+
+ocean-tables.gc:11224
+-> (set! (-> *ocean-map-village1* ocean-trans-indices) *ocean-trans-indices-village1*)
+  [0x10220] adrp x16, #0x10000                               mov igpr-25, '*ocean-trans-indices-village1*
+  [0x10224] add x16, x16, #0
+  [0x10228] ldr w9, [x16]
+  [0x1022C] adrp x16, #0x10000                               mov igpr-26, '*ocean-map-village1*
+  [0x10230] add x16, x16, #0
+  [0x10234] ldr w8, [x16]
+  [0x10238] add x16, x8, x15                                 move [igpr-26 + 56], igpr-25
+  [0x1023C] str w9, [x16, #0x38] ;; misaligned with debug data
+
+ocean-tables.gc:11226
+-> (set! (-> *ocean-map-village1* ocean-near-indices) *ocean-near-indices-village1*)
+  [0x10240] adrp x16, #0x10000                               mov igpr-27, '*ocean-near-indices-village1*
+  [0x10244] add x16, x16, #0
+  [0x10248] ldr w9, [x16]
+  [0x1024C] adrp x16, #0x10000                               mov igpr-28, '*ocean-map-village1*
+  [0x10250] add x16, x16, #0
+  [0x10254] ldr w8, [x16]
+  [0x10258] add x16, x8, x15                                 move [igpr-28 + 60], igpr-27
+  [0x1025C] str w9, [x16, #0x3c] ;; misaligned with debug data
+
+ocean-tables.gc:11228
+-> (define *ocean-map-village2*
+  [0x10260] adrp x9, #0x10000                                mov-sva igpr-29, static-structure
+  [0x10264] add x9, x9, #0
+  [0x10268] sub x9, x9, x15
+  [0x1026C] adrp x16, #0x10000                               mov '*ocean-map-village2*, igpr-29
+  [0x10270] add x16, x16, #0
+  [0x10274] str w9, [x16]
+
+ocean-tables.gc:11236
+-> (set! (-> *ocean-map-village2* ocean-spheres) *ocean-spheres-village2*)
+  [0x10278] adrp x16, #0x10000                               mov igpr-30, '*ocean-spheres-village2*
+  [0x1027C] add x16, x16, #0
+  [0x10280] ldr w9, [x16]
+  [0x10284] adrp x16, #0x10000                               mov igpr-31, '*ocean-map-village2*
+  [0x10288] add x16, x16, #0
+  [0x1028C] ldr w8, [x16]
+  [0x10290] add x16, x8, x15                                 move [igpr-31 + 44], igpr-30
+  [0x10294] str w9, [x16, #0x2c] ;; misaligned with debug data
+
+ocean-tables.gc:11238
+-> (set! (-> *ocean-map-village2* ocean-colors) *ocean-colors-village2*)
+  [0x10298] adrp x16, #0x10000                               mov igpr-32, '*ocean-colors-village2*
+  [0x1029C] add x16, x16, #0
+  [0x102A0] ldr w9, [x16]
+  [0x102A4] adrp x16, #0x10000                               mov igpr-33, '*ocean-map-village2*
+  [0x102A8] add x16, x16, #0
+  [0x102AC] ldr w8, [x16]
+  [0x102B0] add x16, x8, x15                                 move [igpr-33 + 48], igpr-32
+  [0x102B4] str w9, [x16, #0x30] ;; misaligned with debug data
+
+ocean-tables.gc:11240
+-> (set! (-> *ocean-map-village2* ocean-mid-masks) *ocean-mid-masks-village2*)
+  [0x102B8] adrp x16, #0x10000                               mov igpr-34, '*ocean-mid-masks-village2*
+  [0x102BC] add x16, x16, #0
+  [0x102C0] ldr w9, [x16]
+  [0x102C4] adrp x16, #0x10000                               mov igpr-35, '*ocean-map-village2*
+  [0x102C8] add x16, x16, #0
+  [0x102CC] ldr w8, [x16]
+  [0x102D0] add x16, x8, x15                                 move [igpr-35 + 64], igpr-34
+  [0x102D4] str w9, [x16, #0x40] ;; misaligned with debug data
+
+ocean-tables.gc:11242
+-> (set! (-> *ocean-map-village2* ocean-mid-indices) *ocean-mid-indices-village2*)
+  [0x102D8] adrp x16, #0x10000                               mov igpr-36, '*ocean-mid-indices-village2*
+  [0x102DC] add x16, x16, #0
+  [0x102E0] ldr w9, [x16]
+  [0x102E4] adrp x16, #0x10000                               mov igpr-37, '*ocean-map-village2*
+  [0x102E8] add x16, x16, #0
+  [0x102EC] ldr w8, [x16]
+  [0x102F0] add x16, x8, x15                                 move [igpr-37 + 52], igpr-36
+  [0x102F4] str w9, [x16, #0x34] ;; misaligned with debug data
+
+ocean-tables.gc:11244
+-> (set! (-> *ocean-map-village2* ocean-trans-indices) *ocean-trans-indices-village2*)
+  [0x102F8] adrp x16, #0x10000                               mov igpr-38, '*ocean-trans-indices-village2*
+  [0x102FC] add x16, x16, #0
+  [0x10300] ldr w9, [x16]
+  [0x10304] adrp x16, #0x10000                               mov igpr-39, '*ocean-map-village2*
+  [0x10308] add x16, x16, #0
+  [0x1030C] ldr w8, [x16]
+  [0x10310] add x16, x8, x15                                 move [igpr-39 + 56], igpr-38
+  [0x10314] str w9, [x16, #0x38] ;; misaligned with debug data
+
+ocean-tables.gc:11246
+-> (set! (-> *ocean-map-village2* ocean-near-indices) *ocean-near-indices-village2*)
+  [0x10318] adrp x16, #0x10000                               mov igpr-40, '*ocean-near-indices-village2*
+  [0x1031C] add x16, x16, #0
+  [0x10320] ldr w9, [x16]
+  [0x10324] adrp x16, #0x10000                               mov igpr-41, '*ocean-map-village2*
+  [0x10328] add x16, x16, #0
+  [0x1032C] ldr w8, [x16]
+  [0x10330] add x16, x8, x15                                 move [igpr-41 + 60], igpr-40
+  [0x10334] str w9, [x16, #0x3c] ;; misaligned with debug data
+
+ocean-tables.gc:11248
+-> (define *ocean-map-sunken*
+  [0x10338] adrp x9, #0x10000                                mov-sva igpr-42, static-structure
+  [0x1033C] add x9, x9, #0
+  [0x10340] sub x9, x9, x15
+  [0x10344] adrp x16, #0x10000                               mov '*ocean-map-sunken*, igpr-42
+  [0x10348] add x16, x16, #0
+  [0x1034C] str w9, [x16]
+
+ocean-tables.gc:11256
+-> (set! (-> *ocean-map-sunken* ocean-spheres) *ocean-spheres-village2*)
+  [0x10350] adrp x16, #0x10000                               mov igpr-43, '*ocean-spheres-village2*
+  [0x10354] add x16, x16, #0
+  [0x10358] ldr w9, [x16]
+  [0x1035C] adrp x16, #0x10000                               mov igpr-44, '*ocean-map-sunken*
+  [0x10360] add x16, x16, #0
+  [0x10364] ldr w8, [x16]
+  [0x10368] add x16, x8, x15                                 move [igpr-44 + 44], igpr-43
+  [0x1036C] str w9, [x16, #0x2c] ;; misaligned with debug data
+
+ocean-tables.gc:11258
+-> (set! (-> *ocean-map-sunken* ocean-colors) *ocean-colors-village2*)
+  [0x10370] adrp x16, #0x10000                               mov igpr-45, '*ocean-colors-village2*
+  [0x10374] add x16, x16, #0
+  [0x10378] ldr w9, [x16]
+  [0x1037C] adrp x16, #0x10000                               mov igpr-46, '*ocean-map-sunken*
+  [0x10380] add x16, x16, #0
+  [0x10384] ldr w8, [x16]
+  [0x10388] add x16, x8, x15                                 move [igpr-46 + 48], igpr-45
+  [0x1038C] str w9, [x16, #0x30] ;; misaligned with debug data
+
+ocean-tables.gc:11260
+-> (set! (-> *ocean-map-sunken* ocean-mid-masks) *ocean-mid-masks-sunken*)
+  [0x10390] adrp x16, #0x10000                               mov igpr-47, '*ocean-mid-masks-sunken*
+  [0x10394] add x16, x16, #0
+  [0x10398] ldr w9, [x16]
+  [0x1039C] adrp x16, #0x10000                               mov igpr-48, '*ocean-map-sunken*
+  [0x103A0] add x16, x16, #0
+  [0x103A4] ldr w8, [x16]
+  [0x103A8] add x16, x8, x15                                 move [igpr-48 + 64], igpr-47
+  [0x103AC] str w9, [x16, #0x40] ;; misaligned with debug data
+
+ocean-tables.gc:11262
+-> (set! (-> *ocean-map-sunken* ocean-mid-indices) *ocean-mid-indices-sunken*)
+  [0x103B0] adrp x16, #0x10000                               mov igpr-49, '*ocean-mid-indices-sunken*
+  [0x103B4] add x16, x16, #0
+  [0x103B8] ldr w9, [x16]
+  [0x103BC] adrp x16, #0x10000                               mov igpr-50, '*ocean-map-sunken*
+  [0x103C0] add x16, x16, #0
+  [0x103C4] ldr w8, [x16]
+  [0x103C8] add x16, x8, x15                                 move [igpr-50 + 52], igpr-49
+  [0x103CC] str w9, [x16, #0x34] ;; misaligned with debug data
+
+ocean-tables.gc:11264
+-> (set! (-> *ocean-map-sunken* ocean-trans-indices) *ocean-trans-indices-sunken*)
+  [0x103D0] adrp x16, #0x10000                               mov igpr-51, '*ocean-trans-indices-sunken*
+  [0x103D4] add x16, x16, #0
+  [0x103D8] ldr w9, [x16]
+  [0x103DC] adrp x16, #0x10000                               mov igpr-52, '*ocean-map-sunken*
+  [0x103E0] add x16, x16, #0
+  [0x103E4] ldr w8, [x16]
+  [0x103E8] add x16, x8, x15                                 move [igpr-52 + 56], igpr-51
+  [0x103EC] str w9, [x16, #0x38] ;; misaligned with debug data
+
+ocean-tables.gc:11266
+-> (set! (-> *ocean-map-sunken* ocean-near-indices) *ocean-near-indices-sunken*)
+  [0x103F0] adrp x16, #0x10000                               mov igpr-53, '*ocean-near-indices-sunken*
+  [0x103F4] add x16, x16, #0
+  [0x103F8] ldr w0, [x16]
+  [0x103FC] adrp x16, #0x10000                               mov igpr-54, '*ocean-map-sunken*
+  [0x10400] add x16, x16, #0
+  [0x10404] ldr w9, [x16]
+  [0x10408] add x16, x9, x15                                 move [igpr-54 + 60], igpr-53
+  [0x1040C] str w0, [x16, #0x3c] ;; misaligned with debug data
+
+ocean-tables.gc:1
+-> ;-*-Lisp-*-
+  [0x10410] mov x0, x0                                       ret igpr-55 igpr-53
+  [0x10414] ldp x29, x30, [sp], #0x10
+  [0x10418] ret
+
+
+

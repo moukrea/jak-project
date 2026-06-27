@@ -1,0 +1,834 @@
+[generic-initialize]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+generic-effect.gc:135
+-> (defun generic-initialize ((arg0 generic-dma-foreground-sink) (arg1 matrix) (arg2 vu-lights))
+  [0x1000C] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x10010] mov x5, x6                                       mov igpr-5, igpr-1
+  [0x10014] mov x3, x2                                       mov igpr-6, igpr-2
+
+generic-effect.gc:136
+->   (generic-work-init arg0)
+  [0x10018] adrp x16, #0x10000                               mov igpr-7, 'generic-work-init
+  [0x1001C] add x16, x16, #0
+  [0x10020] ldr w9, [x16]
+  [0x10024] mov x9, x9                                       mov igpr-10, igpr-7
+  [0x10028] mov x7, x7                                       mov igpr-9, igpr-4
+  [0x1002C] add x9, x9, x15                                  call igpr-10 (ret igpr-8) (args igpr-9)
+  [0x10030] stp x3, x5, [sp, #-0x10]!
+  [0x10034] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10038] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1003C] blr x9 ;; misaligned with debug data
+  [0x10040] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10044] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10048] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1004C] mov x12, x12                                     mov igpr-11, igpr-8
+
+generic-effect.gc:137
+->   (generic-upload-vu0)
+  [0x10050] adrp x16, #0x10000                               mov igpr-12, 'generic-upload-vu0
+  [0x10054] add x16, x16, #0
+  [0x10058] ldr w9, [x16]
+  [0x1005C] mov x9, x9                                       mov igpr-14, igpr-12
+  [0x10060] add x9, x9, x15                                  call igpr-14 (ret igpr-13) (args)
+  [0x10064] stp x3, x5, [sp, #-0x10]!
+  [0x10068] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1006C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10070] blr x9 ;; misaligned with debug data
+  [0x10074] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10078] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1007C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10080] mov x12, x12                                     mov igpr-15, igpr-13
+
+generic-effect.gc:139
+->   (let ((a2-1 (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts matrix))
+  [0x10084] adrp x16, #0x10000                               mov igpr-16, '*fake-scratchpad-data*
+  [0x10088] add x16, x16, #0
+  [0x1008C] ldr w9, [x16]
+  [0x10090] mov x9, x9                                       mov igpr-17, igpr-16
+  [0x10094] movz x8, #0                                      mov-ic igpr-18, 0
+  [0x10098] add x9, x9, x8                                   addi igpr-17, igpr-18
+
+generic-effect.gc:139
+->   (let ((a2-1 (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts matrix))
+  [0x1009C] movz x8, #0x2e20                                 mov-ic igpr-19, 11808
+  [0x100A0] mov x9, x9                                       mov igpr-20, igpr-17
+  [0x100A4] add x8, x8, x9                                   addi igpr-19, igpr-20
+
+generic-effect.gc:140
+->         (v1-1 (-> arg1 vector 0 quad))
+  [0x100A8] add x16, x5, x15                                 mov ii128-21, [igpr-5 + 0]
+  [0x100AC] ldr q23, [x16] ;; misaligned with debug data
+
+generic-effect.gc:141
+->         (a0-2 (-> arg1 vector 1 quad))
+  [0x100B0] add x16, x5, x15                                 mov ii128-22, [igpr-5 + 16]
+  [0x100B4] ldr q22, [x16, #0x10] ;; misaligned with debug data
+
+generic-effect.gc:142
+->         (a1-1 (-> arg1 vector 2 quad))
+  [0x100B8] add x16, x5, x15                                 mov ii128-23, [igpr-5 + 32]
+  [0x100BC] ldr q21, [x16, #0x20] ;; misaligned with debug data
+
+generic-effect.gc:143
+->         (a3-0 (-> arg1 vector 3 quad)))
+  [0x100C0] add x16, x5, x15                                 mov ii128-24, [igpr-5 + 48]
+  [0x100C4] ldr q20, [x16, #0x30] ;; misaligned with debug data
+
+generic-effect.gc:139
+->   (let ((a2-1 (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts matrix))
+  [0x100C8] mov x8, x8                                       mov igpr-25, igpr-19
+  [0x100CC] mov v23.16b, v23.16b                             mov ii128-26, ii128-21
+  [0x100D0] mov v22.16b, v22.16b                             mov ii128-27, ii128-22
+  [0x100D4] mov v21.16b, v21.16b                             mov ii128-28, ii128-23
+  [0x100D8] mov v20.16b, v20.16b                             mov ii128-29, ii128-24
+
+generic-effect.gc:144
+->     (set! (-> a2-1 vector 0 quad) v1-1)
+  [0x100DC] mov v23.16b, v23.16b                             mov ii128-30, ii128-26
+  [0x100E0] add x16, x8, x15                                 move [igpr-25 + 0], ii128-30
+  [0x100E4] str q23, [x16] ;; misaligned with debug data
+
+generic-effect.gc:145
+->     (set! (-> a2-1 vector 1 quad) a0-2)
+  [0x100E8] mov v22.16b, v22.16b                             mov ii128-31, ii128-27
+  [0x100EC] add x16, x8, x15                                 move [igpr-25 + 16], ii128-31
+  [0x100F0] str q22, [x16, #0x10] ;; misaligned with debug data
+
+generic-effect.gc:146
+->     (set! (-> a2-1 vector 2 quad) a1-1)
+  [0x100F4] mov v21.16b, v21.16b                             mov ii128-32, ii128-28
+  [0x100F8] add x16, x8, x15                                 move [igpr-25 + 32], ii128-32
+  [0x100FC] str q21, [x16, #0x20] ;; misaligned with debug data
+
+generic-effect.gc:147
+->     (set! (-> a2-1 vector 3 quad) a3-0))
+  [0x10100] mov v20.16b, v20.16b                             mov ii128-33, ii128-29
+  [0x10104] add x16, x8, x15                                 move [igpr-25 + 48], ii128-33
+  [0x10108] str q20, [x16, #0x30] ;; misaligned with debug data
+
+generic-effect.gc:148
+->   (if arg2
+  [0x1010C] mov x9, x14                                      mov-symptr igpr-35, '#f
+  [0x10110] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10114] cmp x3, x9                                       j(igpr-6 == igpr-35) label-59
+  [0x10118] b.eq #0x10194
+
+generic-effect.gc:149
+->     (quad-copy! (the-as pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work lights))
+  [0x1011C] adrp x16, #0x10000                               mov igpr-36, 'quad-copy!
+  [0x10120] add x16, x16, #0
+  [0x10124] ldr w9, [x16]
+
+generic-effect.gc:149
+->     (quad-copy! (the-as pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work lights))
+  [0x10128] adrp x16, #0x10000                               mov igpr-37, '*fake-scratchpad-data*
+  [0x1012C] add x16, x16, #0
+  [0x10130] ldr w8, [x16]
+  [0x10134] mov x8, x8                                       mov igpr-38, igpr-37
+  [0x10138] movz x1, #0                                      mov-ic igpr-39, 0
+  [0x1013C] add x8, x8, x1                                   addi igpr-38, igpr-39
+
+generic-effect.gc:149
+->     (quad-copy! (the-as pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work lights))
+  [0x10140] movz x7, #0x3190                                 mov-ic igpr-40, 12688
+  [0x10144] mov x8, x8                                       mov igpr-41, igpr-38
+  [0x10148] add x7, x7, x8                                   addi igpr-40, igpr-41
+  [0x1014C] mov x7, x7                                       mov igpr-42, igpr-40
+
+generic-effect.gc:150
+->                 (the-as pointer arg2)
+  [0x10150] mov x3, x3                                       mov igpr-43, igpr-6
+
+generic-effect.gc:148
+->   (if arg2
+  [0x10154] movz x2, #0x7                                    mov-ic igpr-44, 7
+
+generic-effect.gc:149
+->     (quad-copy! (the-as pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work lights))
+  [0x10158] mov x9, x9                                       mov igpr-49, igpr-36
+  [0x1015C] mov x7, x7                                       mov igpr-46, igpr-42
+  [0x10160] mov x6, x3                                       mov igpr-47, igpr-43
+  [0x10164] mov x2, x2                                       mov igpr-48, igpr-44
+  [0x10168] add x9, x9, x15                                  call igpr-49 (ret igpr-45) (args igpr-46 igpr-47 igpr-48)
+  [0x1016C] stp x3, x5, [sp, #-0x10]!
+  [0x10170] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10174] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10178] blr x9 ;; misaligned with debug data
+  [0x1017C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10180] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10184] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10188] mov x3, x3                                       mov igpr-50, igpr-45
+
+generic-effect.gc:148
+->   (if arg2
+  [0x1018C] mov x3, x3                                       mov igpr-34, igpr-50
+  [0x10190] b #0x1019c                                       goto label-60
+  [0x10194] mov x3, x14                                      mov-symptr igpr-34, '#f
+  [0x10198] sub x3, x3, x15 ;; misaligned with debug data
+
+generic-effect.gc:135
+-> (defun generic-initialize ((arg0 generic-dma-foreground-sink) (arg1 matrix) (arg2 vu-lights))
+  [0x1019C] movz x9, #0                                      mov-ic igpr-51, 0
+  [0x101A0] add sp, sp, #0x10
+  [0x101A4] ldp x29, x30, [sp], #0x10
+  [0x101A8] ret
+
+
+[generic-initialize-without-sink]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+generic-effect.gc:108
+-> (defun generic-initialize-without-sink ((arg0 matrix) (arg1 vu-lights))
+  [0x1000C] mov x5, x7                                       mov igpr-3, igpr-0
+  [0x10010] mov x3, x6                                       mov igpr-4, igpr-1
+
+generic-effect.gc:112
+->   (upload-vu0-program generic-vu0-block (the-as pointer #x70000064))
+  [0x10014] adrp x16, #0x10000                               mov igpr-5, 'upload-vu0-program
+  [0x10018] add x16, x16, #0
+  [0x1001C] ldr w9, [x16]
+
+generic-effect.gc:108
+-> (defun generic-initialize-without-sink ((arg0 matrix) (arg1 vu-lights))
+  [0x10020] adrp x16, #0x10000                               mov igpr-6, 'generic-vu0-block
+  [0x10024] add x16, x16, #0
+  [0x10028] ldr w7, [x16]
+
+generic-effect.gc:112
+->   (upload-vu0-program generic-vu0-block (the-as pointer #x70000064))
+  [0x1002C] movz x6, #0x64                                   mov-ic igpr-7, 1879048292
+  [0x10030] movk x6, #0x7000, lsl #16
+  [0x10034] mov x6, x6                                       mov igpr-8, igpr-7
+
+generic-effect.gc:112
+->   (upload-vu0-program generic-vu0-block (the-as pointer #x70000064))
+  [0x10038] mov x9, x9                                       mov igpr-12, igpr-5
+  [0x1003C] mov x7, x7                                       mov igpr-10, igpr-6
+  [0x10040] mov x6, x6                                       mov igpr-11, igpr-8
+  [0x10044] add x9, x9, x15                                  call igpr-12 (ret igpr-9) (args igpr-10 igpr-11)
+  [0x10048] stp x3, x5, [sp, #-0x10]!
+  [0x1004C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10050] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10054] blr x9 ;; misaligned with debug data
+  [0x10058] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1005C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] mov x12, x12                                     mov igpr-13, igpr-9
+
+generic-effect.gc:114
+->         (a2-0 (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts matrix))
+  [0x10068] adrp x16, #0x10000                               mov igpr-14, '*fake-scratchpad-data*
+  [0x1006C] add x16, x16, #0
+  [0x10070] ldr w9, [x16]
+  [0x10074] mov x9, x9                                       mov igpr-15, igpr-14
+  [0x10078] movz x8, #0                                      mov-ic igpr-16, 0
+  [0x1007C] add x9, x9, x8                                   addi igpr-15, igpr-16
+
+generic-effect.gc:114
+->         (a2-0 (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts matrix))
+  [0x10080] movz x8, #0x2e20                                 mov-ic igpr-17, 11808
+  [0x10084] mov x9, x9                                       mov igpr-18, igpr-15
+  [0x10088] add x8, x8, x9                                   addi igpr-17, igpr-18
+
+generic-effect.gc:115
+->         (v1-1 (-> arg0 vector 0 quad))
+  [0x1008C] add x16, x5, x15                                 mov ii128-19, [igpr-3 + 0]
+  [0x10090] ldr q23, [x16] ;; misaligned with debug data
+
+generic-effect.gc:116
+->         (a0-3 (-> arg0 vector 1 quad))
+  [0x10094] add x16, x5, x15                                 mov ii128-20, [igpr-3 + 16]
+  [0x10098] ldr q22, [x16, #0x10] ;; misaligned with debug data
+
+generic-effect.gc:117
+->         (a1-2 (-> arg0 vector 2 quad))
+  [0x1009C] add x16, x5, x15                                 mov ii128-21, [igpr-3 + 32]
+  [0x100A0] ldr q21, [x16, #0x20] ;; misaligned with debug data
+
+generic-effect.gc:118
+->         (a3-0 (-> arg0 vector 3 quad)))
+  [0x100A4] add x16, x5, x15                                 mov ii128-22, [igpr-3 + 48]
+  [0x100A8] ldr q20, [x16, #0x30] ;; misaligned with debug data
+
+generic-effect.gc:113
+->   (let (;(a2-0 (+ #x2e20 (the-as int (the-as terrain-context #x70000000))))
+  [0x100AC] mov x8, x8                                       mov igpr-23, igpr-17
+  [0x100B0] mov v23.16b, v23.16b                             mov ii128-24, ii128-19
+  [0x100B4] mov v22.16b, v22.16b                             mov ii128-25, ii128-20
+  [0x100B8] mov v21.16b, v21.16b                             mov ii128-26, ii128-21
+  [0x100BC] mov v20.16b, v20.16b                             mov ii128-27, ii128-22
+
+generic-effect.gc:120
+->     (set! (-> a2-0 vector 0 quad) v1-1)
+  [0x100C0] mov v23.16b, v23.16b                             mov ii128-28, ii128-24
+  [0x100C4] add x16, x8, x15                                 move [igpr-23 + 0], ii128-28
+  [0x100C8] str q23, [x16] ;; misaligned with debug data
+
+generic-effect.gc:122
+->     (set! (-> a2-0 vector 1 quad) a0-3)
+  [0x100CC] mov v22.16b, v22.16b                             mov ii128-29, ii128-25
+  [0x100D0] add x16, x8, x15                                 move [igpr-23 + 16], ii128-29
+  [0x100D4] str q22, [x16, #0x10] ;; misaligned with debug data
+
+generic-effect.gc:124
+->     (set! (-> a2-0 vector 2 quad) a1-2)
+  [0x100D8] mov v21.16b, v21.16b                             mov ii128-30, ii128-26
+  [0x100DC] add x16, x8, x15                                 move [igpr-23 + 32], ii128-30
+  [0x100E0] str q21, [x16, #0x20] ;; misaligned with debug data
+
+generic-effect.gc:126
+->     (set! (-> a2-0 vector 3 quad) a3-0))
+  [0x100E4] mov v20.16b, v20.16b                             mov ii128-31, ii128-27
+  [0x100E8] add x16, x8, x15                                 move [igpr-23 + 48], ii128-31
+  [0x100EC] str q20, [x16, #0x30] ;; misaligned with debug data
+
+generic-effect.gc:127
+->   (if arg1
+  [0x100F0] mov x9, x14                                      mov-symptr igpr-33, '#f
+  [0x100F4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100F8] cmp x3, x9                                       j(igpr-4 == igpr-33) label-58
+  [0x100FC] b.eq #0x10178
+
+generic-effect.gc:129
+->     (quad-copy! (the pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work lights))
+  [0x10100] adrp x16, #0x10000                               mov igpr-34, 'quad-copy!
+  [0x10104] add x16, x16, #0
+  [0x10108] ldr w9, [x16]
+
+generic-effect.gc:129
+->     (quad-copy! (the pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work lights))
+  [0x1010C] adrp x16, #0x10000                               mov igpr-35, '*fake-scratchpad-data*
+  [0x10110] add x16, x16, #0
+  [0x10114] ldr w8, [x16]
+  [0x10118] mov x8, x8                                       mov igpr-36, igpr-35
+  [0x1011C] movz x1, #0                                      mov-ic igpr-37, 0
+  [0x10120] add x8, x8, x1                                   addi igpr-36, igpr-37
+
+generic-effect.gc:129
+->     (quad-copy! (the pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work lights))
+  [0x10124] movz x7, #0x3190                                 mov-ic igpr-38, 12688
+  [0x10128] mov x8, x8                                       mov igpr-39, igpr-36
+  [0x1012C] add x7, x7, x8                                   addi igpr-38, igpr-39
+  [0x10130] mov x7, x7                                       mov igpr-40, igpr-38
+
+generic-effect.gc:130
+->                 (the-as pointer arg1)
+  [0x10134] mov x3, x3                                       mov igpr-41, igpr-4
+
+generic-effect.gc:127
+->   (if arg1
+  [0x10138] movz x2, #0x7                                    mov-ic igpr-42, 7
+
+generic-effect.gc:129
+->     (quad-copy! (the pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work lights))
+  [0x1013C] mov x9, x9                                       mov igpr-47, igpr-34
+  [0x10140] mov x7, x7                                       mov igpr-44, igpr-40
+  [0x10144] mov x6, x3                                       mov igpr-45, igpr-41
+  [0x10148] mov x2, x2                                       mov igpr-46, igpr-42
+  [0x1014C] add x9, x9, x15                                  call igpr-47 (ret igpr-43) (args igpr-44 igpr-45 igpr-46)
+  [0x10150] stp x3, x5, [sp, #-0x10]!
+  [0x10154] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10158] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1015C] blr x9 ;; misaligned with debug data
+  [0x10160] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10164] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10168] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1016C] mov x3, x3                                       mov igpr-48, igpr-43
+
+generic-effect.gc:127
+->   (if arg1
+  [0x10170] mov x3, x3                                       mov igpr-32, igpr-48
+  [0x10174] b #0x10180                                       goto label-59
+  [0x10178] mov x3, x14                                      mov-symptr igpr-32, '#f
+  [0x1017C] sub x3, x3, x15 ;; misaligned with debug data
+
+generic-effect.gc:108
+-> (defun generic-initialize-without-sink ((arg0 matrix) (arg1 vu-lights))
+  [0x10180] movz x9, #0                                      mov-ic igpr-49, 0
+  [0x10184] add sp, sp, #0x10
+  [0x10188] ldp x29, x30, [sp], #0x10
+  [0x1018C] ret
+
+
+[generic-upload-vu0]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] ldp x29, x30, [sp], #0x10
+  [0x1000C] ret
+
+
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+generic-effect.gc:11
+-> (define *target-lock* (the-as symbol 0))
+  [0x1000C] movz x9, #0                                      mov-ic igpr-0, 0
+  [0x10010] mov x9, x9                                       mov igpr-1, igpr-0
+  [0x10014] adrp x16, #0x10000                               mov '*target-lock*, igpr-1
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+generic-effect.gc:13
+-> (define *generic-consts*
+  [0x10020] adrp x9, #0x10000                                mov-sva igpr-2, static-structure
+  [0x10024] add x9, x9, #0
+  [0x10028] sub x9, x9, x15
+  [0x1002C] adrp x16, #0x10000                               mov '*generic-consts*, igpr-2
+  [0x10030] add x16, x16, #0
+  [0x10034] str w9, [x16]
+  [0x10038] adrp x9, #0x10000                                mov-fa igpr-3, function-generic-work-init
+  [0x1003C] add x9, x9, #0
+  [0x10040] sub x9, x9, x15
+
+generic-effect.gc:74
+-> (defun generic-work-init ((arg0 generic-dma-foreground-sink))
+  [0x10044] adrp x16, #0x10000                               mov 'generic-work-init, igpr-3
+  [0x10048] add x16, x16, #0
+  [0x1004C] str w9, [x16]
+  [0x10050] adrp x9, #0x10000                                mov-fa igpr-4, function-upload-vu0-program
+  [0x10054] add x9, x9, #0
+  [0x10058] sub x9, x9, x15
+
+generic-effect.gc:98
+-> (defun upload-vu0-program ((func vu-function) (wait-ptr pointer))
+  [0x1005C] adrp x16, #0x10000                               mov 'upload-vu0-program, igpr-4
+  [0x10060] add x16, x16, #0
+  [0x10064] str w9, [x16]
+  [0x10068] adrp x9, #0x10000                                mov-fa igpr-5, function-generic-upload-vu0
+  [0x1006C] add x9, x9, #0
+  [0x10070] sub x9, x9, x15
+
+generic-effect.gc:103
+-> (defun generic-upload-vu0 ()
+  [0x10074] adrp x16, #0x10000                               mov 'generic-upload-vu0, igpr-5
+  [0x10078] add x16, x16, #0
+  [0x1007C] str w9, [x16]
+  [0x10080] adrp x9, #0x10000                                mov-fa igpr-6, function-generic-initialize-without-sink
+  [0x10084] add x9, x9, #0
+  [0x10088] sub x9, x9, x15
+
+generic-effect.gc:108
+-> (defun generic-initialize-without-sink ((arg0 matrix) (arg1 vu-lights))
+  [0x1008C] adrp x16, #0x10000                               mov 'generic-initialize-without-sink, igpr-6
+  [0x10090] add x16, x16, #0
+  [0x10094] str w9, [x16]
+  [0x10098] adrp x9, #0x10000                                mov-fa igpr-7, function-generic-initialize
+  [0x1009C] add x9, x9, #0
+  [0x100A0] sub x9, x9, x15
+
+generic-effect.gc:135
+-> (defun generic-initialize ((arg0 generic-dma-foreground-sink) (arg1 matrix) (arg2 vu-lights))
+  [0x100A4] adrp x16, #0x10000                               mov 'generic-initialize, igpr-7
+  [0x100A8] add x16, x16, #0
+  [0x100AC] str w9, [x16]
+  [0x100B0] adrp x9, #0x10000                                mov-fa igpr-8, function-generic-wrapup
+  [0x100B4] add x9, x9, #0
+  [0x100B8] sub x9, x9, x15
+
+generic-effect.gc:155
+-> (defun generic-wrapup ((arg0 generic-dma-foreground-sink))
+  [0x100BC] adrp x16, #0x10000                               mov 'generic-wrapup, igpr-8
+  [0x100C0] add x16, x16, #0
+  [0x100C4] str w9, [x16]
+
+generic-effect.gc:160
+-> (def-mips2c generic-prepare-dma-single function)
+  [0x100C8] adrp x16, #0x10000                               mov igpr-9, '__pc-get-mips2c
+  [0x100CC] add x16, x16, #0
+  [0x100D0] ldr w9, [x16]
+  [0x100D4] adrp x7, #0x10000                                mov-sva igpr-10, static-string "generic-prepare-dma-single"
+  [0x100D8] add x7, x7, #0
+  [0x100DC] sub x7, x7, x15
+  [0x100E0] mov x9, x9                                       mov igpr-13, igpr-9
+  [0x100E4] mov x7, x7                                       mov igpr-12, igpr-10
+  [0x100E8] add x9, x9, x15                                  call igpr-13 (ret igpr-11) (args igpr-12)
+  [0x100EC] stp x3, x5, [sp, #-0x10]!
+  [0x100F0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F8] blr x9 ;; misaligned with debug data
+  [0x100FC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10100] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10104] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10108] mov x0, x0                                       mov igpr-14, igpr-11
+  [0x1010C] mov x0, x0                                       mov igpr-15, igpr-14
+  [0x10110] adrp x16, #0x10000                               mov 'generic-prepare-dma-single, igpr-15
+  [0x10114] add x16, x16, #0
+  [0x10118] str w0, [x16]
+
+generic-effect.gc:162
+-> (def-mips2c generic-prepare-dma-double function)
+  [0x1011C] adrp x16, #0x10000                               mov igpr-16, '__pc-get-mips2c
+  [0x10120] add x16, x16, #0
+  [0x10124] ldr w9, [x16]
+  [0x10128] adrp x7, #0x10000                                mov-sva igpr-17, static-string "generic-prepare-dma-double"
+  [0x1012C] add x7, x7, #0
+  [0x10130] sub x7, x7, x15
+  [0x10134] mov x9, x9                                       mov igpr-20, igpr-16
+  [0x10138] mov x7, x7                                       mov igpr-19, igpr-17
+  [0x1013C] add x9, x9, x15                                  call igpr-20 (ret igpr-18) (args igpr-19)
+  [0x10140] stp x3, x5, [sp, #-0x10]!
+  [0x10144] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10148] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1014C] blr x9 ;; misaligned with debug data
+  [0x10150] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10154] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10158] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1015C] mov x0, x0                                       mov igpr-21, igpr-18
+  [0x10160] mov x0, x0                                       mov igpr-22, igpr-21
+  [0x10164] adrp x16, #0x10000                               mov 'generic-prepare-dma-double, igpr-22
+  [0x10168] add x16, x16, #0
+  [0x1016C] str w0, [x16]
+
+generic-effect.gc:164
+-> (def-mips2c generic-light-proc function)
+  [0x10170] adrp x16, #0x10000                               mov igpr-23, '__pc-get-mips2c
+  [0x10174] add x16, x16, #0
+  [0x10178] ldr w9, [x16]
+  [0x1017C] adrp x7, #0x10000                                mov-sva igpr-24, static-string "generic-light-proc"
+  [0x10180] add x7, x7, #0
+  [0x10184] sub x7, x7, x15
+  [0x10188] mov x9, x9                                       mov igpr-27, igpr-23
+  [0x1018C] mov x7, x7                                       mov igpr-26, igpr-24
+  [0x10190] add x9, x9, x15                                  call igpr-27 (ret igpr-25) (args igpr-26)
+  [0x10194] stp x3, x5, [sp, #-0x10]!
+  [0x10198] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1019C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101A0] blr x9 ;; misaligned with debug data
+  [0x101A4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101A8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101AC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101B0] mov x0, x0                                       mov igpr-28, igpr-25
+  [0x101B4] mov x0, x0                                       mov igpr-29, igpr-28
+  [0x101B8] adrp x16, #0x10000                               mov 'generic-light-proc, igpr-29
+  [0x101BC] add x16, x16, #0
+  [0x101C0] str w0, [x16]
+
+generic-effect.gc:166
+-> (def-mips2c generic-envmap-proc function)
+  [0x101C4] adrp x16, #0x10000                               mov igpr-30, '__pc-get-mips2c
+  [0x101C8] add x16, x16, #0
+  [0x101CC] ldr w9, [x16]
+  [0x101D0] adrp x7, #0x10000                                mov-sva igpr-31, static-string "generic-envmap-proc"
+  [0x101D4] add x7, x7, #0
+  [0x101D8] sub x7, x7, x15
+  [0x101DC] mov x9, x9                                       mov igpr-34, igpr-30
+  [0x101E0] mov x7, x7                                       mov igpr-33, igpr-31
+  [0x101E4] add x9, x9, x15                                  call igpr-34 (ret igpr-32) (args igpr-33)
+  [0x101E8] stp x3, x5, [sp, #-0x10]!
+  [0x101EC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101F0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101F4] blr x9 ;; misaligned with debug data
+  [0x101F8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101FC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10200] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10204] mov x0, x0                                       mov igpr-35, igpr-32
+  [0x10208] mov x0, x0                                       mov igpr-36, igpr-35
+  [0x1020C] adrp x16, #0x10000                               mov 'generic-envmap-proc, igpr-36
+  [0x10210] add x16, x16, #0
+  [0x10214] str w0, [x16]
+
+generic-effect.gc:1
+-> ;-*-Lisp-*-
+  [0x10218] mov x0, x0                                       ret igpr-37 igpr-36
+  [0x1021C] add sp, sp, #0x10
+  [0x10220] ldp x29, x30, [sp], #0x10
+  [0x10224] ret
+
+
+[upload-vu0-program]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+generic-effect.gc:98
+-> (defun upload-vu0-program ((func vu-function) (wait-ptr pointer))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+  [0x10010] ldp x29, x30, [sp], #0x10
+  [0x10014] ret
+
+
+[generic-wrapup]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+generic-effect.gc:155
+-> (defun generic-wrapup ((arg0 generic-dma-foreground-sink))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+generic-effect.gc:156
+->   (set! (-> arg0 state gifbuf-adr) (-> (scratchpad-object terrain-context) work foreground generic-work saves gifbuf-adr))
+  [0x1000C] adrp x16, #0x10000                               mov igpr-3, '*fake-scratchpad-data*
+  [0x10010] add x16, x16, #0
+  [0x10014] ldr w9, [x16]
+  [0x10018] mov x9, x9                                       mov igpr-4, igpr-3
+  [0x1001C] movz x8, #0                                      mov-ic igpr-5, 0
+  [0x10020] add x9, x9, x8                                   addi igpr-4, igpr-5
+
+generic-effect.gc:156
+->   (set! (-> arg0 state gifbuf-adr) (-> (scratchpad-object terrain-context) work foreground generic-work saves gifbuf-adr))
+  [0x10024] mov x9, x9                                       mov igpr-7, igpr-4
+  [0x10028] add x16, x9, x15                                 mov igpr-6, [igpr-7 + 84]
+  [0x1002C] ldr w9, [x16, #0x54] ;; misaligned with debug data
+  [0x10030] add x16, x7, x15                                 move [igpr-2 + 8], igpr-6
+  [0x10034] str w9, [x16, #8] ;; misaligned with debug data
+
+generic-effect.gc:157
+->   (set! (-> arg0 state inbuf-adr) (-> (scratchpad-object terrain-context) work foreground generic-work saves inbuf-adr))
+  [0x10038] adrp x16, #0x10000                               mov igpr-8, '*fake-scratchpad-data*
+  [0x1003C] add x16, x16, #0
+  [0x10040] ldr w9, [x16]
+  [0x10044] mov x9, x9                                       mov igpr-9, igpr-8
+  [0x10048] movz x8, #0                                      mov-ic igpr-10, 0
+  [0x1004C] add x9, x9, x8                                   addi igpr-9, igpr-10
+
+generic-effect.gc:157
+->   (set! (-> arg0 state inbuf-adr) (-> (scratchpad-object terrain-context) work foreground generic-work saves inbuf-adr))
+  [0x10050] mov x9, x9                                       mov igpr-12, igpr-9
+  [0x10054] add x16, x9, x15                                 mov igpr-11, [igpr-12 + 88]
+  [0x10058] ldr w9, [x16, #0x58] ;; misaligned with debug data
+  [0x1005C] add x16, x7, x15                                 move [igpr-2 + 12], igpr-11
+  [0x10060] str w9, [x16, #0xc] ;; misaligned with debug data
+  [0x10064] ldp x29, x30, [sp], #0x10
+  [0x10068] ret
+
+
+[generic-work-init]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+generic-effect.gc:74
+-> (defun generic-work-init ((arg0 generic-dma-foreground-sink))
+  [0x1000C] mov x3, x7                                       mov igpr-2, igpr-0
+
+generic-effect.gc:77
+->   (quad-copy! (the-as pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts))
+  [0x10010] adrp x16, #0x10000                               mov igpr-3, 'quad-copy!
+  [0x10014] add x16, x16, #0
+  [0x10018] ldr w9, [x16]
+
+generic-effect.gc:77
+->   (quad-copy! (the-as pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts))
+  [0x1001C] adrp x16, #0x10000                               mov igpr-4, '*fake-scratchpad-data*
+  [0x10020] add x16, x16, #0
+  [0x10024] ldr w8, [x16]
+  [0x10028] mov x8, x8                                       mov igpr-5, igpr-4
+  [0x1002C] movz x1, #0                                      mov-ic igpr-6, 0
+  [0x10030] add x8, x8, x1                                   addi igpr-5, igpr-6
+
+generic-effect.gc:77
+->   (quad-copy! (the-as pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts))
+  [0x10034] movz x7, #0x2de0                                 mov-ic igpr-7, 11744
+  [0x10038] mov x8, x8                                       mov igpr-8, igpr-5
+  [0x1003C] add x7, x7, x8                                   addi igpr-7, igpr-8
+  [0x10040] mov x7, x7                                       mov igpr-9, igpr-7
+
+generic-effect.gc:78
+->               (the-as pointer *generic-consts*)
+  [0x10044] adrp x16, #0x10000                               mov igpr-10, '*generic-consts*
+  [0x10048] add x16, x16, #0
+  [0x1004C] ldr w6, [x16]
+  [0x10050] mov x6, x6                                       mov igpr-11, igpr-10
+
+generic-effect.gc:74
+-> (defun generic-work-init ((arg0 generic-dma-foreground-sink))
+  [0x10054] movz x2, #0x1b                                   mov-ic igpr-12, 27
+
+generic-effect.gc:77
+->   (quad-copy! (the-as pointer (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts))
+  [0x10058] mov x9, x9                                       mov igpr-17, igpr-3
+  [0x1005C] mov x7, x7                                       mov igpr-14, igpr-9
+  [0x10060] mov x6, x6                                       mov igpr-15, igpr-11
+  [0x10064] mov x2, x2                                       mov igpr-16, igpr-12
+  [0x10068] add x9, x9, x15                                  call igpr-17 (ret igpr-13) (args igpr-14 igpr-15 igpr-16)
+  [0x1006C] stp x3, x5, [sp, #-0x10]!
+  [0x10070] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10074] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10078] blr x9 ;; misaligned with debug data
+  [0x1007C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10080] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10084] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10088] mov x5, x5                                       mov igpr-18, igpr-13
+
+generic-effect.gc:81
+->   (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves gifbuf-adr) (-> arg0 state gifbuf-adr))
+  [0x1008C] add x16, x3, x15                                 mov igpr-19, [igpr-2 + 8]
+  [0x10090] ldr w9, [x16, #8] ;; misaligned with debug data
+
+generic-effect.gc:81
+->   (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves gifbuf-adr) (-> arg0 state gifbuf-adr))
+  [0x10094] adrp x16, #0x10000                               mov igpr-20, '*fake-scratchpad-data*
+  [0x10098] add x16, x16, #0
+  [0x1009C] ldr w8, [x16]
+  [0x100A0] mov x8, x8                                       mov igpr-21, igpr-20
+  [0x100A4] movz x1, #0                                      mov-ic igpr-22, 0
+  [0x100A8] add x8, x8, x1                                   addi igpr-21, igpr-22
+
+generic-effect.gc:81
+->   (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves gifbuf-adr) (-> arg0 state gifbuf-adr))
+  [0x100AC] mov x8, x8                                       mov igpr-23, igpr-21
+  [0x100B0] add x16, x8, x15                                 move [igpr-23 + 84], igpr-19
+  [0x100B4] str w9, [x16, #0x54] ;; misaligned with debug data
+
+generic-effect.gc:82
+->   (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves inbuf-adr) (-> arg0 state inbuf-adr))
+  [0x100B8] add x16, x3, x15                                 mov igpr-24, [igpr-2 + 12]
+  [0x100BC] ldr w9, [x16, #0xc] ;; misaligned with debug data
+
+generic-effect.gc:82
+->   (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves inbuf-adr) (-> arg0 state inbuf-adr))
+  [0x100C0] adrp x16, #0x10000                               mov igpr-25, '*fake-scratchpad-data*
+  [0x100C4] add x16, x16, #0
+  [0x100C8] ldr w8, [x16]
+  [0x100CC] mov x8, x8                                       mov igpr-26, igpr-25
+  [0x100D0] movz x1, #0                                      mov-ic igpr-27, 0
+  [0x100D4] add x8, x8, x1                                   addi igpr-26, igpr-27
+
+generic-effect.gc:82
+->   (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves inbuf-adr) (-> arg0 state inbuf-adr))
+  [0x100D8] mov x8, x8                                       mov igpr-28, igpr-26
+  [0x100DC] add x16, x8, x15                                 move [igpr-28 + 88], igpr-24
+  [0x100E0] str w9, [x16, #0x58] ;; misaligned with debug data
+
+generic-effect.gc:84
+->         (the-as uint (+ 8192 (scratchpad-object int))))
+  [0x100E4] movz x9, #0x2000                                 mov-ic igpr-30, 8192
+  [0x100E8] mov x9, x9                                       mov igpr-29, igpr-30
+
+generic-effect.gc:84
+->         (the-as uint (+ 8192 (scratchpad-object int))))
+  [0x100EC] adrp x16, #0x10000                               mov igpr-31, '*fake-scratchpad-data*
+  [0x100F0] add x16, x16, #0
+  [0x100F4] ldr w8, [x16]
+  [0x100F8] mov x8, x8                                       mov igpr-32, igpr-31
+  [0x100FC] movz x1, #0                                      mov-ic igpr-33, 0
+  [0x10100] add x8, x8, x1                                   addi igpr-32, igpr-33
+
+generic-effect.gc:84
+->         (the-as uint (+ 8192 (scratchpad-object int))))
+  [0x10104] mov x8, x8                                       mov igpr-34, igpr-32
+  [0x10108] add x9, x9, x8                                   addi igpr-29, igpr-34
+
+generic-effect.gc:83
+->   (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves cur-outbuf)
+  [0x1010C] mov x9, x9                                       mov igpr-35, igpr-29
+
+generic-effect.gc:83
+->   (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves cur-outbuf)
+  [0x10110] adrp x16, #0x10000                               mov igpr-36, '*fake-scratchpad-data*
+  [0x10114] add x16, x16, #0
+  [0x10118] ldr w8, [x16]
+  [0x1011C] mov x8, x8                                       mov igpr-37, igpr-36
+  [0x10120] movz x1, #0                                      mov-ic igpr-38, 0
+  [0x10124] add x8, x8, x1                                   addi igpr-37, igpr-38
+
+generic-effect.gc:83
+->   (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves cur-outbuf)
+  [0x10128] mov x8, x8                                       mov igpr-39, igpr-37
+  [0x1012C] add x16, x8, x15                                 move [igpr-39 + 40], igpr-35
+  [0x10130] str w9, [x16, #0x28] ;; misaligned with debug data
+
+generic-effect.gc:86
+->   (let ((gp-1 (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts envmap shader)))
+  [0x10134] adrp x16, #0x10000                               mov igpr-40, '*fake-scratchpad-data*
+  [0x10138] add x16, x16, #0
+  [0x1013C] ldr w9, [x16]
+  [0x10140] mov x9, x9                                       mov igpr-41, igpr-40
+  [0x10144] movz x8, #0                                      mov-ic igpr-42, 0
+  [0x10148] add x9, x9, x8                                   addi igpr-41, igpr-42
+
+generic-effect.gc:86
+->   (let ((gp-1 (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts envmap shader)))
+  [0x1014C] movz x3, #0x2f20                                 mov-ic igpr-43, 12064
+  [0x10150] mov x9, x9                                       mov igpr-44, igpr-41
+  [0x10154] add x3, x3, x9                                   addi igpr-43, igpr-44
+
+generic-effect.gc:86
+->   (let ((gp-1 (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts envmap shader)))
+  [0x10158] mov x3, x3                                       mov igpr-45, igpr-43
+
+generic-effect.gc:87
+->     (let ((a1-1 *generic-envmap-texture*)) (adgif-shader<-texture! gp-1 a1-1))
+  [0x1015C] adrp x16, #0x10000                               mov igpr-46, '*generic-envmap-texture*
+  [0x10160] add x16, x16, #0
+  [0x10164] ldr w6, [x16]
+  [0x10168] mov x6, x6                                       mov igpr-47, igpr-46
+
+generic-effect.gc:87
+->     (let ((a1-1 *generic-envmap-texture*)) (adgif-shader<-texture! gp-1 a1-1))
+  [0x1016C] adrp x16, #0x10000                               mov igpr-48, 'adgif-shader<-texture!
+  [0x10170] add x16, x16, #0
+  [0x10174] ldr w9, [x16]
+  [0x10178] mov x9, x9                                       mov igpr-52, igpr-48
+  [0x1017C] mov x7, x3                                       mov igpr-50, igpr-45
+  [0x10180] mov x6, x6                                       mov igpr-51, igpr-47
+  [0x10184] add x9, x9, x15                                  call igpr-52 (ret igpr-49) (args igpr-50 igpr-51)
+  [0x10188] stp x3, x5, [sp, #-0x10]!
+  [0x1018C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10190] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10194] blr x9 ;; misaligned with debug data
+  [0x10198] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1019C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101A0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101A4] mov x0, x0                                       mov igpr-53, igpr-49
+
+generic-effect.gc:88
+->     (set! (-> gp-1 tex1) (new 'static 'gs-tex1 :mmag #x1 :mmin #x1))
+  [0x101A8] movz x9, #0x60                                   mov-ic igpr-54, 96
+  [0x101AC] add x16, x3, x15                                 move [igpr-45 + 16], igpr-54
+  [0x101B0] str x9, [x16, #0x10] ;; misaligned with debug data
+
+generic-effect.gc:89
+->     (set! (-> gp-1 clamp) (new 'static 'gs-clamp :wms (gs-tex-wrap-mode clamp) :wmt (gs-tex-wrap-mode clamp)))
+  [0x101B4] movz x9, #0x5                                    mov-ic igpr-55, 5
+  [0x101B8] add x16, x3, x15                                 move [igpr-45 + 48], igpr-55
+  [0x101BC] str x9, [x16, #0x30] ;; misaligned with debug data
+
+generic-effect.gc:90
+->     (set! (-> gp-1 alpha) (new 'static 'gs-alpha :b #x2 :c #x1 :d #x1))
+  [0x101C0] movz x9, #0x58                                   mov-ic igpr-56, 88
+  [0x101C4] add x16, x3, x15                                 move [igpr-45 + 64], igpr-56
+  [0x101C8] str x9, [x16, #0x40] ;; misaligned with debug data
+
+generic-effect.gc:91
+->     (set! (-> gp-1 prims 1) (gs-reg64 tex0-1))
+  [0x101CC] movz x9, #0x6                                    mov-ic igpr-57, 6
+  [0x101D0] add x16, x3, x15                                 move [igpr-45 + 8], igpr-57
+  [0x101D4] str x9, [x16, #8] ;; misaligned with debug data
+
+generic-effect.gc:92
+->     (set! (-> gp-1 prims 3) (gs-reg64 tex1-1))
+  [0x101D8] movz x9, #0x14                                   mov-ic igpr-58, 20
+  [0x101DC] add x16, x3, x15                                 move [igpr-45 + 24], igpr-58
+  [0x101E0] str x9, [x16, #0x18] ;; misaligned with debug data
+
+generic-effect.gc:93
+->     (set! (-> gp-1 prims 5) (gs-reg64 miptbp1-1))
+  [0x101E4] movz x9, #0x34                                   mov-ic igpr-59, 52
+  [0x101E8] add x16, x3, x15                                 move [igpr-45 + 40], igpr-59
+  [0x101EC] str x9, [x16, #0x28] ;; misaligned with debug data
+
+generic-effect.gc:94
+->     (set! (-> gp-1 clamp-reg) (gs-reg64 clamp-1))
+  [0x101F0] movz x9, #0x8                                    mov-ic igpr-60, 8
+  [0x101F4] add x16, x3, x15                                 move [igpr-45 + 56], igpr-60
+  [0x101F8] str x9, [x16, #0x38] ;; misaligned with debug data
+
+generic-effect.gc:95
+->     (set! (-> gp-1 prims 9) (gs-reg64 alpha-1)))
+  [0x101FC] movz x9, #0x42                                   mov-ic igpr-61, 66
+  [0x10200] add x16, x3, x15                                 move [igpr-45 + 72], igpr-61
+  [0x10204] str x9, [x16, #0x48] ;; misaligned with debug data
+  [0x10208] add sp, sp, #0x10
+  [0x1020C] ldp x29, x30, [sp], #0x10
+  [0x10210] ret
+
+
+

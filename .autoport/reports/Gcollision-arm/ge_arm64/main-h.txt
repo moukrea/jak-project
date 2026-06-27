@@ -1,0 +1,1080 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+main-h.gc:9
+-> (define *stats-poly* #f)
+  [0x1000C] mov x9, x14                                      mov-symptr igpr-0, '#f
+  [0x10010] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10014] adrp x16, #0x10000                               mov '*stats-poly*, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+main-h.gc:11
+-> (define *stats-memory* #f)
+  [0x10020] mov x9, x14                                      mov-symptr igpr-1, '#f
+  [0x10024] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10028] adrp x16, #0x10000                               mov '*stats-memory*, igpr-1
+  [0x1002C] add x16, x16, #0
+  [0x10030] str w9, [x16]
+
+main-h.gc:13
+-> (define *stats-memory-short* #f)
+  [0x10034] mov x9, x14                                      mov-symptr igpr-2, '#f
+  [0x10038] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1003C] adrp x16, #0x10000                               mov '*stats-memory-short*, igpr-2
+  [0x10040] add x16, x16, #0
+  [0x10044] str w9, [x16]
+
+main-h.gc:15
+-> (define *stats-collide* #f)
+  [0x10048] mov x9, x14                                      mov-symptr igpr-3, '#f
+  [0x1004C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10050] adrp x16, #0x10000                               mov '*stats-collide*, igpr-3
+  [0x10054] add x16, x16, #0
+  [0x10058] str w9, [x16]
+
+main-h.gc:17
+-> (define *stats-bsp* #f)
+  [0x1005C] mov x9, x14                                      mov-symptr igpr-4, '#f
+  [0x10060] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10064] adrp x16, #0x10000                               mov '*stats-bsp*, igpr-4
+  [0x10068] add x16, x16, #0
+  [0x1006C] str w9, [x16]
+
+main-h.gc:19
+-> (define *stats-buffer* #f)
+  [0x10070] mov x9, x14                                      mov-symptr igpr-5, '#f
+  [0x10074] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10078] adrp x16, #0x10000                               mov '*stats-buffer*, igpr-5
+  [0x1007C] add x16, x16, #0
+  [0x10080] str w9, [x16]
+
+main-h.gc:21
+-> (define *stats-target* #f)
+  [0x10084] mov x9, x14                                      mov-symptr igpr-6, '#f
+  [0x10088] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1008C] adrp x16, #0x10000                               mov '*stats-target*, igpr-6
+  [0x10090] add x16, x16, #0
+  [0x10094] str w9, [x16]
+
+main-h.gc:23
+-> (define *stats-dma-test* #f)
+  [0x10098] mov x9, x14                                      mov-symptr igpr-7, '#f
+  [0x1009C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100A0] adrp x16, #0x10000                               mov '*stats-dma-test*, igpr-7
+  [0x100A4] add x16, x16, #0
+  [0x100A8] str w9, [x16]
+
+main-h.gc:25
+-> (define *artist-all-visible* #f)
+  [0x100AC] mov x9, x14                                      mov-symptr igpr-8, '#f
+  [0x100B0] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100B4] adrp x16, #0x10000                               mov '*artist-all-visible*, igpr-8
+  [0x100B8] add x16, x16, #0
+  [0x100BC] str w9, [x16]
+
+main-h.gc:27
+-> (define *artist-flip-visible* #f)
+  [0x100C0] mov x9, x14                                      mov-symptr igpr-9, '#f
+  [0x100C4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100C8] adrp x16, #0x10000                               mov '*artist-flip-visible*, igpr-9
+  [0x100CC] add x16, x16, #0
+  [0x100D0] str w9, [x16]
+
+main-h.gc:29
+-> (define *artist-fix-visible* #f)
+  [0x100D4] mov x9, x14                                      mov-symptr igpr-10, '#f
+  [0x100D8] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100DC] adrp x16, #0x10000                               mov '*artist-fix-visible*, igpr-10
+  [0x100E0] add x16, x16, #0
+  [0x100E4] str w9, [x16]
+
+main-h.gc:31
+-> (define *artist-fix-frustum* #f)
+  [0x100E8] mov x9, x14                                      mov-symptr igpr-11, '#f
+  [0x100EC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100F0] adrp x16, #0x10000                               mov '*artist-fix-frustum*, igpr-11
+  [0x100F4] add x16, x16, #0
+  [0x100F8] str w9, [x16]
+
+main-h.gc:33
+-> (define *artist-error-spheres* #f)
+  [0x100FC] mov x9, x14                                      mov-symptr igpr-12, '#f
+  [0x10100] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10104] adrp x16, #0x10000                               mov '*artist-error-spheres*, igpr-12
+  [0x10108] add x16, x16, #0
+  [0x1010C] str w9, [x16]
+
+main-h.gc:35
+-> (define *artist-use-menu-subdiv* #f)
+  [0x10110] mov x9, x14                                      mov-symptr igpr-13, '#f
+  [0x10114] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10118] adrp x16, #0x10000                               mov '*artist-use-menu-subdiv*, igpr-13
+  [0x1011C] add x16, x16, #0
+  [0x10120] str w9, [x16]
+
+main-h.gc:37
+-> (define *display-profile* #t)
+  [0x10124] add x9, x14, #8                                  mov-symptr igpr-14, '#t
+  [0x10128] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1012C] adrp x16, #0x10000                               mov '*display-profile*, igpr-14
+  [0x10130] add x16, x16, #0
+  [0x10134] str w9, [x16]
+
+main-h.gc:39
+-> (define *display-sidekick-stats* #f)
+  [0x10138] mov x9, x14                                      mov-symptr igpr-15, '#f
+  [0x1013C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10140] adrp x16, #0x10000                               mov '*display-sidekick-stats*, igpr-15
+  [0x10144] add x16, x16, #0
+  [0x10148] str w9, [x16]
+
+main-h.gc:41
+-> (define *display-quad-stats* #f)
+  [0x1014C] mov x9, x14                                      mov-symptr igpr-16, '#f
+  [0x10150] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10154] adrp x16, #0x10000                               mov '*display-quad-stats*, igpr-16
+  [0x10158] add x16, x16, #0
+  [0x1015C] str w9, [x16]
+
+main-h.gc:43
+-> (define *display-tri-stats* #f)
+  [0x10160] mov x9, x14                                      mov-symptr igpr-17, '#f
+  [0x10164] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10168] adrp x16, #0x10000                               mov '*display-tri-stats*, igpr-17
+  [0x1016C] add x16, x16, #0
+  [0x10170] str w9, [x16]
+
+main-h.gc:45
+-> (define *display-perf-stats* #f)
+  [0x10174] mov x9, x14                                      mov-symptr igpr-18, '#f
+  [0x10178] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1017C] adrp x16, #0x10000                               mov '*display-perf-stats*, igpr-18
+  [0x10180] add x16, x16, #0
+  [0x10184] str w9, [x16]
+
+main-h.gc:47
+-> (define *display-ground-stats* #f)
+  [0x10188] mov x9, x14                                      mov-symptr igpr-19, '#f
+  [0x1018C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10190] adrp x16, #0x10000                               mov '*display-ground-stats*, igpr-19
+  [0x10194] add x16, x16, #0
+  [0x10198] str w9, [x16]
+
+main-h.gc:49
+-> (define *display-collision-marks* #f)
+  [0x1019C] mov x9, x14                                      mov-symptr igpr-20, '#f
+  [0x101A0] sub x9, x9, x15 ;; misaligned with debug data
+  [0x101A4] adrp x16, #0x10000                               mov '*display-collision-marks*, igpr-20
+  [0x101A8] add x16, x16, #0
+  [0x101AC] str w9, [x16]
+
+main-h.gc:51
+-> (define *display-collide-cache* #f)
+  [0x101B0] mov x9, x14                                      mov-symptr igpr-21, '#f
+  [0x101B4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x101B8] adrp x16, #0x10000                               mov '*display-collide-cache*, igpr-21
+  [0x101BC] add x16, x16, #0
+  [0x101C0] str w9, [x16]
+
+main-h.gc:53
+-> (define *display-render-collision* #f)
+  [0x101C4] mov x9, x14                                      mov-symptr igpr-22, '#f
+  [0x101C8] sub x9, x9, x15 ;; misaligned with debug data
+  [0x101CC] adrp x16, #0x10000                               mov '*display-render-collision*, igpr-22
+  [0x101D0] add x16, x16, #0
+  [0x101D4] str w9, [x16]
+
+main-h.gc:55
+-> (define *display-hipri-collision-marks* #f)
+  [0x101D8] mov x9, x14                                      mov-symptr igpr-23, '#f
+  [0x101DC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x101E0] adrp x16, #0x10000                               mov '*display-hipri-collision-marks*, igpr-23
+  [0x101E4] add x16, x16, #0
+  [0x101E8] str w9, [x16]
+
+main-h.gc:57
+-> (define *display-edge-collision-marks* #f)
+  [0x101EC] mov x9, x14                                      mov-symptr igpr-24, '#f
+  [0x101F0] sub x9, x9, x15 ;; misaligned with debug data
+  [0x101F4] adrp x16, #0x10000                               mov '*display-edge-collision-marks*, igpr-24
+  [0x101F8] add x16, x16, #0
+  [0x101FC] str w9, [x16]
+
+main-h.gc:59
+-> (define *display-geo-marks* #f)
+  [0x10200] mov x9, x14                                      mov-symptr igpr-25, '#f
+  [0x10204] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10208] adrp x16, #0x10000                               mov '*display-geo-marks*, igpr-25
+  [0x1020C] add x16, x16, #0
+  [0x10210] str w9, [x16]
+
+main-h.gc:61
+-> (define *display-target-marks* #f)
+  [0x10214] mov x9, x14                                      mov-symptr igpr-26, '#f
+  [0x10218] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1021C] adrp x16, #0x10000                               mov '*display-target-marks*, igpr-26
+  [0x10220] add x16, x16, #0
+  [0x10224] str w9, [x16]
+
+main-h.gc:63
+-> (define *display-collide-history* 0)
+  [0x10228] movz x9, #0                                      mov-ic igpr-27, 0
+  [0x1022C] adrp x16, #0x10000                               mov '*display-collide-history*, igpr-27
+  [0x10230] add x16, x16, #0
+  [0x10234] str w9, [x16]
+
+main-h.gc:65
+-> (define *display-xyz-axes* #f)
+  [0x10238] mov x9, x14                                      mov-symptr igpr-28, '#f
+  [0x1023C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10240] adrp x16, #0x10000                               mov '*display-xyz-axes*, igpr-28
+  [0x10244] add x16, x16, #0
+  [0x10248] str w9, [x16]
+
+main-h.gc:67
+-> (define *display-cam-collide-history* #f)
+  [0x1024C] mov x9, x14                                      mov-symptr igpr-29, '#f
+  [0x10250] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10254] adrp x16, #0x10000                               mov '*display-cam-collide-history*, igpr-29
+  [0x10258] add x16, x16, #0
+  [0x1025C] str w9, [x16]
+
+main-h.gc:69
+-> (define *record-cam-collide-history* #f)
+  [0x10260] mov x9, x14                                      mov-symptr igpr-30, '#f
+  [0x10264] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10268] adrp x16, #0x10000                               mov '*record-cam-collide-history*, igpr-30
+  [0x1026C] add x16, x16, #0
+  [0x10270] str w9, [x16]
+
+main-h.gc:71
+-> (define *display-cam-master-marks* #f)
+  [0x10274] mov x9, x14                                      mov-symptr igpr-31, '#f
+  [0x10278] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1027C] adrp x16, #0x10000                               mov '*display-cam-master-marks*, igpr-31
+  [0x10280] add x16, x16, #0
+  [0x10284] str w9, [x16]
+
+main-h.gc:73
+-> (define *display-cam-other* #f)
+  [0x10288] mov x9, x14                                      mov-symptr igpr-32, '#f
+  [0x1028C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10290] adrp x16, #0x10000                               mov '*display-cam-other*, igpr-32
+  [0x10294] add x16, x16, #0
+  [0x10298] str w9, [x16]
+
+main-h.gc:75
+-> (define *display-camera-marks* #f)
+  [0x1029C] mov x9, x14                                      mov-symptr igpr-33, '#f
+  [0x102A0] sub x9, x9, x15 ;; misaligned with debug data
+  [0x102A4] adrp x16, #0x10000                               mov '*display-camera-marks*, igpr-33
+  [0x102A8] add x16, x16, #0
+  [0x102AC] str w9, [x16]
+
+main-h.gc:77
+-> (define *camera-no-mip-correction* #f)
+  [0x102B0] mov x9, x14                                      mov-symptr igpr-34, '#f
+  [0x102B4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x102B8] adrp x16, #0x10000                               mov '*camera-no-mip-correction*, igpr-34
+  [0x102BC] add x16, x16, #0
+  [0x102C0] str w9, [x16]
+
+main-h.gc:79
+-> (define *display-cam-los-info* #f)
+  [0x102C4] mov x9, x14                                      mov-symptr igpr-35, '#f
+  [0x102C8] sub x9, x9, x15 ;; misaligned with debug data
+  [0x102CC] adrp x16, #0x10000                               mov '*display-cam-los-info*, igpr-35
+  [0x102D0] add x16, x16, #0
+  [0x102D4] str w9, [x16]
+
+main-h.gc:81
+-> (define *display-cam-los-debug* #f)
+  [0x102D8] mov x9, x14                                      mov-symptr igpr-36, '#f
+  [0x102DC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x102E0] adrp x16, #0x10000                               mov '*display-cam-los-debug*, igpr-36
+  [0x102E4] add x16, x16, #0
+  [0x102E8] str w9, [x16]
+
+main-h.gc:83
+-> (define *display-cam-los-marks* #f)
+  [0x102EC] mov x9, x14                                      mov-symptr igpr-37, '#f
+  [0x102F0] sub x9, x9, x15 ;; misaligned with debug data
+  [0x102F4] adrp x16, #0x10000                               mov '*display-cam-los-marks*, igpr-37
+  [0x102F8] add x16, x16, #0
+  [0x102FC] str w9, [x16]
+
+main-h.gc:85
+-> (define *display-cam-coll-marks* #f)
+  [0x10300] mov x9, x14                                      mov-symptr igpr-38, '#f
+  [0x10304] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10308] adrp x16, #0x10000                               mov '*display-cam-coll-marks*, igpr-38
+  [0x1030C] add x16, x16, #0
+  [0x10310] str w9, [x16]
+
+main-h.gc:87
+-> (define *display-camera-info* #f)
+  [0x10314] mov x9, x14                                      mov-symptr igpr-39, '#f
+  [0x10318] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1031C] adrp x16, #0x10000                               mov '*display-camera-info*, igpr-39
+  [0x10320] add x16, x16, #0
+  [0x10324] str w9, [x16]
+
+main-h.gc:89
+-> (define *display-camera-old-stats* #f)
+  [0x10328] mov x9, x14                                      mov-symptr igpr-40, '#f
+  [0x1032C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10330] adrp x16, #0x10000                               mov '*display-camera-old-stats*, igpr-40
+  [0x10334] add x16, x16, #0
+  [0x10338] str w9, [x16]
+
+main-h.gc:91
+-> (define *display-camera-last-attacker* #f)
+  [0x1033C] mov x9, x14                                      mov-symptr igpr-41, '#f
+  [0x10340] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10344] adrp x16, #0x10000                               mov '*display-camera-last-attacker*, igpr-41
+  [0x10348] add x16, x16, #0
+  [0x1034C] str w9, [x16]
+
+main-h.gc:93
+-> (define *display-file-info* #f)
+  [0x10350] mov x9, x14                                      mov-symptr igpr-42, '#f
+  [0x10354] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10358] adrp x16, #0x10000                               mov '*display-file-info*, igpr-42
+  [0x1035C] add x16, x16, #0
+  [0x10360] str w9, [x16]
+
+main-h.gc:95
+-> (define *display-actor-marks* #f)
+  [0x10364] mov x9, x14                                      mov-symptr igpr-43, '#f
+  [0x10368] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1036C] adrp x16, #0x10000                               mov '*display-actor-marks*, igpr-43
+  [0x10370] add x16, x16, #0
+  [0x10374] str w9, [x16]
+
+main-h.gc:97
+-> (define *display-ambient-hint-marks* #f)
+  [0x10378] mov x9, x14                                      mov-symptr igpr-44, '#f
+  [0x1037C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10380] adrp x16, #0x10000                               mov '*display-ambient-hint-marks*, igpr-44
+  [0x10384] add x16, x16, #0
+  [0x10388] str w9, [x16]
+
+main-h.gc:99
+-> (define *display-ambient-sound-marks* #f)
+  [0x1038C] mov x9, x14                                      mov-symptr igpr-45, '#f
+  [0x10390] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10394] adrp x16, #0x10000                               mov '*display-ambient-sound-marks*, igpr-45
+  [0x10398] add x16, x16, #0
+  [0x1039C] str w9, [x16]
+
+main-h.gc:101
+-> (define *display-ambient-poi-marks* #f)
+  [0x103A0] mov x9, x14                                      mov-symptr igpr-46, '#f
+  [0x103A4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x103A8] adrp x16, #0x10000                               mov '*display-ambient-poi-marks*, igpr-46
+  [0x103AC] add x16, x16, #0
+  [0x103B0] str w9, [x16]
+
+main-h.gc:103
+-> (define *display-ambient-light-marks* #f)
+  [0x103B4] mov x9, x14                                      mov-symptr igpr-47, '#f
+  [0x103B8] sub x9, x9, x15 ;; misaligned with debug data
+  [0x103BC] adrp x16, #0x10000                               mov '*display-ambient-light-marks*, igpr-47
+  [0x103C0] add x16, x16, #0
+  [0x103C4] str w9, [x16]
+
+main-h.gc:105
+-> (define *display-ambient-dark-marks* #f)
+  [0x103C8] mov x9, x14                                      mov-symptr igpr-48, '#f
+  [0x103CC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x103D0] adrp x16, #0x10000                               mov '*display-ambient-dark-marks*, igpr-48
+  [0x103D4] add x16, x16, #0
+  [0x103D8] str w9, [x16]
+
+main-h.gc:107
+-> (define *display-ambient-weather-off-marks* #f)
+  [0x103DC] mov x9, x14                                      mov-symptr igpr-49, '#f
+  [0x103E0] sub x9, x9, x15 ;; misaligned with debug data
+  [0x103E4] adrp x16, #0x10000                               mov '*display-ambient-weather-off-marks*, igpr-49
+  [0x103E8] add x16, x16, #0
+  [0x103EC] str w9, [x16]
+
+main-h.gc:109
+-> (define *display-ambient-ocean-off-marks* #f)
+  [0x103F0] mov x9, x14                                      mov-symptr igpr-50, '#f
+  [0x103F4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x103F8] adrp x16, #0x10000                               mov '*display-ambient-ocean-off-marks*, igpr-50
+  [0x103FC] add x16, x16, #0
+  [0x10400] str w9, [x16]
+
+main-h.gc:111
+-> (define *display-ambient-ocean-near-off-marks* #f)
+  [0x10404] mov x9, x14                                      mov-symptr igpr-51, '#f
+  [0x10408] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1040C] adrp x16, #0x10000                               mov '*display-ambient-ocean-near-off-marks*, igpr-51
+  [0x10410] add x16, x16, #0
+  [0x10414] str w9, [x16]
+
+main-h.gc:113
+-> (define *display-ambient-music-marks* #f)
+  [0x10418] mov x9, x14                                      mov-symptr igpr-52, '#f
+  [0x1041C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10420] adrp x16, #0x10000                               mov '*display-ambient-music-marks*, igpr-52
+  [0x10424] add x16, x16, #0
+  [0x10428] str w9, [x16]
+
+main-h.gc:115
+-> (define *display-sprite-info* #f)
+  [0x1042C] mov x9, x14                                      mov-symptr igpr-53, '#f
+  [0x10430] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10434] adrp x16, #0x10000                               mov '*display-sprite-info*, igpr-53
+  [0x10438] add x16, x16, #0
+  [0x1043C] str w9, [x16]
+
+main-h.gc:117
+-> (define *display-entity-errors* #t)
+  [0x10440] add x9, x14, #8                                  mov-symptr igpr-54, '#t
+  [0x10444] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10448] adrp x16, #0x10000                               mov '*display-entity-errors*, igpr-54
+  [0x1044C] add x16, x16, #0
+  [0x10450] str w9, [x16]
+
+main-h.gc:119
+-> (define *display-lights* #f)
+  [0x10454] mov x9, x14                                      mov-symptr igpr-55, '#f
+  [0x10458] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1045C] adrp x16, #0x10000                               mov '*display-lights*, igpr-55
+  [0x10460] add x16, x16, #0
+  [0x10464] str w9, [x16]
+
+main-h.gc:121
+-> (define *display-instance-info* #f)
+  [0x10468] mov x9, x14                                      mov-symptr igpr-56, '#f
+  [0x1046C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10470] adrp x16, #0x10000                               mov '*display-instance-info*, igpr-56
+  [0x10474] add x16, x16, #0
+  [0x10478] str w9, [x16]
+
+main-h.gc:123
+-> (define *display-deci-count* #f)
+  [0x1047C] mov x9, x14                                      mov-symptr igpr-57, '#f
+  [0x10480] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10484] adrp x16, #0x10000                               mov '*display-deci-count*, igpr-57
+  [0x10488] add x16, x16, #0
+  [0x1048C] str w9, [x16]
+
+main-h.gc:125
+-> (define *sync-dma* #f)
+  [0x10490] mov x9, x14                                      mov-symptr igpr-58, '#f
+  [0x10494] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10498] adrp x16, #0x10000                               mov '*sync-dma*, igpr-58
+  [0x1049C] add x16, x16, #0
+  [0x104A0] str w9, [x16]
+
+main-h.gc:127
+-> (define *display-strip-lines* 0)
+  [0x104A4] movz x9, #0                                      mov-ic igpr-59, 0
+  [0x104A8] adrp x16, #0x10000                               mov '*display-strip-lines*, igpr-59
+  [0x104AC] add x16, x16, #0
+  [0x104B0] str w9, [x16]
+
+main-h.gc:129
+-> (define *display-nav-marks* #f)
+  [0x104B4] mov x9, x14                                      mov-symptr igpr-60, '#f
+  [0x104B8] sub x9, x9, x15 ;; misaligned with debug data
+  [0x104BC] adrp x16, #0x10000                               mov '*display-nav-marks*, igpr-60
+  [0x104C0] add x16, x16, #0
+  [0x104C4] str w9, [x16]
+
+main-h.gc:131
+-> (define *display-path-marks* #f)
+  [0x104C8] mov x9, x14                                      mov-symptr igpr-61, '#f
+  [0x104CC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x104D0] adrp x16, #0x10000                               mov '*display-path-marks*, igpr-61
+  [0x104D4] add x16, x16, #0
+  [0x104D8] str w9, [x16]
+
+main-h.gc:133
+-> (define *display-vol-marks* #f)
+  [0x104DC] mov x9, x14                                      mov-symptr igpr-62, '#f
+  [0x104E0] sub x9, x9, x15 ;; misaligned with debug data
+  [0x104E4] adrp x16, #0x10000                               mov '*display-vol-marks*, igpr-62
+  [0x104E8] add x16, x16, #0
+  [0x104EC] str w9, [x16]
+
+main-h.gc:135
+-> (define *display-water-marks* #f)
+  [0x104F0] mov x9, x14                                      mov-symptr igpr-63, '#f
+  [0x104F4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x104F8] adrp x16, #0x10000                               mov '*display-water-marks*, igpr-63
+  [0x104FC] add x16, x16, #0
+  [0x10500] str w9, [x16]
+
+main-h.gc:137
+-> (define *display-actor-anim* (the string #f))
+  [0x10504] mov x9, x14                                      mov-symptr igpr-64, '#f
+  [0x10508] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1050C] mov x9, x9                                       mov igpr-65, igpr-64
+  [0x10510] adrp x16, #0x10000                               mov '*display-actor-anim*, igpr-65
+  [0x10514] add x16, x16, #0
+  [0x10518] str w9, [x16]
+
+main-h.gc:139
+-> (define *display-process-anim* (the-as (pointer process) #f))
+  [0x1051C] mov x9, x14                                      mov-symptr igpr-66, '#f
+  [0x10520] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10524] mov x9, x9                                       mov igpr-67, igpr-66
+  [0x10528] adrp x16, #0x10000                               mov '*display-process-anim*, igpr-67
+  [0x1052C] add x16, x16, #0
+  [0x10530] str w9, [x16]
+
+main-h.gc:141
+-> (define *display-actor-vis* #f)
+  [0x10534] mov x9, x14                                      mov-symptr igpr-68, '#f
+  [0x10538] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1053C] adrp x16, #0x10000                               mov '*display-actor-vis*, igpr-68
+  [0x10540] add x16, x16, #0
+  [0x10544] str w9, [x16]
+
+main-h.gc:143
+-> (define *display-actor-graph* #f)
+  [0x10548] mov x9, x14                                      mov-symptr igpr-69, '#f
+  [0x1054C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10550] adrp x16, #0x10000                               mov '*display-actor-graph*, igpr-69
+  [0x10554] add x16, x16, #0
+  [0x10558] str w9, [x16]
+
+main-h.gc:145
+-> (define *display-level-border* #f)
+  [0x1055C] mov x9, x14                                      mov-symptr igpr-70, '#f
+  [0x10560] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10564] adrp x16, #0x10000                               mov '*display-level-border*, igpr-70
+  [0x10568] add x16, x16, #0
+  [0x1056C] str w9, [x16]
+
+main-h.gc:147
+-> (define *display-load-boundaries* #f)
+  [0x10570] mov x9, x14                                      mov-symptr igpr-71, '#f
+  [0x10574] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10578] adrp x16, #0x10000                               mov '*display-load-boundaries*, igpr-71
+  [0x1057C] add x16, x16, #0
+  [0x10580] str w9, [x16]
+
+main-h.gc:149
+-> (define *display-memcard-info* #f)
+  [0x10584] mov x9, x14                                      mov-symptr igpr-72, '#f
+  [0x10588] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1058C] adrp x16, #0x10000                               mov '*display-memcard-info*, igpr-72
+  [0x10590] add x16, x16, #0
+  [0x10594] str w9, [x16]
+
+main-h.gc:151
+-> (define *display-split-boxes* #f)
+  [0x10598] mov x9, x14                                      mov-symptr igpr-73, '#f
+  [0x1059C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x105A0] adrp x16, #0x10000                               mov '*display-split-boxes*, igpr-73
+  [0x105A4] add x16, x16, #0
+  [0x105A8] str w9, [x16]
+
+main-h.gc:153
+-> (define *display-split-box-info* #f)
+  [0x105AC] mov x9, x14                                      mov-symptr igpr-74, '#f
+  [0x105B0] sub x9, x9, x15 ;; misaligned with debug data
+  [0x105B4] adrp x16, #0x10000                               mov '*display-split-box-info*, igpr-74
+  [0x105B8] add x16, x16, #0
+  [0x105BC] str w9, [x16]
+
+main-h.gc:155
+-> (define *display-texture-download* #f)
+  [0x105C0] mov x9, x14                                      mov-symptr igpr-75, '#f
+  [0x105C4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x105C8] adrp x16, #0x10000                               mov '*display-texture-download*, igpr-75
+  [0x105CC] add x16, x16, #0
+  [0x105D0] str w9, [x16]
+
+main-h.gc:157
+-> (define *display-art-control* #f)
+  [0x105D4] mov x9, x14                                      mov-symptr igpr-76, '#f
+  [0x105D8] sub x9, x9, x15 ;; misaligned with debug data
+  [0x105DC] adrp x16, #0x10000                               mov '*display-art-control*, igpr-76
+  [0x105E0] add x16, x16, #0
+  [0x105E4] str w9, [x16]
+
+main-h.gc:159
+-> (define *display-level-spheres* #f)
+  [0x105E8] mov x9, x14                                      mov-symptr igpr-77, '#f
+  [0x105EC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x105F0] adrp x16, #0x10000                               mov '*display-level-spheres*, igpr-77
+  [0x105F4] add x16, x16, #0
+  [0x105F8] str w9, [x16]
+
+main-h.gc:161
+-> (define *time-of-day-effects* #t)
+  [0x105FC] add x9, x14, #8                                  mov-symptr igpr-78, '#t
+  [0x10600] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10604] adrp x16, #0x10000                               mov '*time-of-day-effects*, igpr-78
+  [0x10608] add x16, x16, #0
+  [0x1060C] str w9, [x16]
+
+main-h.gc:163
+-> (define *time-of-day-fast* #t)
+  [0x10610] add x9, x14, #8                                  mov-symptr igpr-79, '#t
+  [0x10614] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10618] adrp x16, #0x10000                               mov '*time-of-day-fast*, igpr-79
+  [0x1061C] add x16, x16, #0
+  [0x10620] str w9, [x16]
+
+main-h.gc:165
+-> (define *display-iop-info* #f)
+  [0x10624] mov x9, x14                                      mov-symptr igpr-80, '#f
+  [0x10628] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1062C] adrp x16, #0x10000                               mov '*display-iop-info*, igpr-80
+  [0x10630] add x16, x16, #0
+  [0x10634] str w9, [x16]
+
+main-h.gc:167
+-> (define *ambient-sound-class* #t)
+  [0x10638] add x9, x14, #8                                  mov-symptr igpr-81, '#t
+  [0x1063C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10640] adrp x16, #0x10000                               mov '*ambient-sound-class*, igpr-81
+  [0x10644] add x16, x16, #0
+  [0x10648] str w9, [x16]
+
+main-h.gc:169
+-> (define *slow-frame-rate* #f)
+  [0x1064C] mov x9, x14                                      mov-symptr igpr-82, '#f
+  [0x10650] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10654] adrp x16, #0x10000                               mov '*slow-frame-rate*, igpr-82
+  [0x10658] add x16, x16, #0
+  [0x1065C] str w9, [x16]
+
+main-h.gc:171
+-> (define *weather-off* #f)
+  [0x10660] mov x9, x14                                      mov-symptr igpr-83, '#f
+  [0x10664] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10668] adrp x16, #0x10000                               mov '*weather-off*, igpr-83
+  [0x1066C] add x16, x16, #0
+  [0x10670] str w9, [x16]
+
+main-h.gc:173
+-> (define *debug-pause* #f)
+  [0x10674] mov x9, x14                                      mov-symptr igpr-84, '#f
+  [0x10678] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1067C] adrp x16, #0x10000                               mov '*debug-pause*, igpr-84
+  [0x10680] add x16, x16, #0
+  [0x10684] str w9, [x16]
+
+main-h.gc:175
+-> (define *subdivide-draw-mode* 0)
+  [0x10688] movz x9, #0                                      mov-ic igpr-85, 0
+  [0x1068C] adrp x16, #0x10000                               mov '*subdivide-draw-mode*, igpr-85
+  [0x10690] add x16, x16, #0
+  [0x10694] str w9, [x16]
+
+main-h.gc:177
+-> (define *ocean-subdivide-draw-mode* 0)
+  [0x10698] movz x9, #0                                      mov-ic igpr-86, 0
+  [0x1069C] adrp x16, #0x10000                               mov '*ocean-subdivide-draw-mode*, igpr-86
+  [0x106A0] add x16, x16, #0
+  [0x106A4] str w9, [x16]
+
+main-h.gc:186
+-> (define-perm *dproc* process #f)
+  [0x106A8] adrp x16, #0x10000                               mov igpr-89, '*dproc*
+  [0x106AC] add x16, x16, #0
+  [0x106B0] ldr w9, [x16]
+  [0x106B4] mov x8, x14                                      mov-symptr igpr-90, '#f
+  [0x106B8] sub x8, x8, x15 ;; misaligned with debug data
+  [0x106BC] mov x1, x14                                      mov-symptr igpr-91, '#f
+  [0x106C0] sub x1, x1, x15 ;; misaligned with debug data
+  [0x106C4] cmp x9, x8                                       j(igpr-89 != igpr-90) label-178
+  [0x106C8] b.ne #0x106d8
+  [0x106CC] add x1, x14, #8                                  mov-symptr igpr-92, '#t
+  [0x106D0] sub x1, x1, x15 ;; misaligned with debug data
+  [0x106D4] mov x1, x1                                       mov igpr-91, igpr-92
+  [0x106D8] mov x9, x1                                       mov igpr-88, igpr-91
+  [0x106DC] mov x8, x14                                      mov-symptr igpr-93, '#f
+  [0x106E0] sub x8, x8, x15 ;; misaligned with debug data
+  [0x106E4] cmp x9, x8                                       j(igpr-88 != igpr-93) label-188
+  [0x106E8] b.ne #0x1071c
+  [0x106EC] adrp x16, #0x10000                               mov igpr-94, '*dproc*
+  [0x106F0] add x16, x16, #0
+  [0x106F4] ldr w9, [x16]
+  [0x106F8] movz x8, #0                                      mov-ic igpr-95, 0
+  [0x106FC] mov x1, x14                                      mov-symptr igpr-96, '#f
+  [0x10700] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10704] cmp x9, x8                                       j(igpr-94 != igpr-95) label-187
+  [0x10708] b.ne #0x10718
+  [0x1070C] add x1, x14, #8                                  mov-symptr igpr-97, '#t
+  [0x10710] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10714] mov x1, x1                                       mov igpr-96, igpr-97
+  [0x10718] mov x9, x1                                       mov igpr-88, igpr-96
+  [0x1071C] mov x8, x14                                      mov-symptr igpr-98, '#f
+  [0x10720] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10724] cmp x9, x8                                       j(igpr-88 == igpr-98) label-194
+  [0x10728] b.eq #0x10748
+  [0x1072C] mov x9, x14                                      mov-symptr igpr-99, '#f
+  [0x10730] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10734] adrp x16, #0x10000                               mov '*dproc*, igpr-99
+  [0x10738] add x16, x16, #0
+  [0x1073C] str w9, [x16]
+  [0x10740] mov x9, x9                                       mov igpr-87, igpr-99
+  [0x10744] b #0x10750                                       goto label-195
+  [0x10748] mov x9, x14                                      mov-symptr igpr-87, '#f
+  [0x1074C] sub x9, x9, x15 ;; misaligned with debug data
+
+main-h.gc:189
+-> (define *run* #f)
+  [0x10750] mov x9, x14                                      mov-symptr igpr-100, '#f
+  [0x10754] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10758] adrp x16, #0x10000                               mov '*run*, igpr-100
+  [0x1075C] add x16, x16, #0
+  [0x10760] str w9, [x16]
+
+main-h.gc:193
+-> (define *teleport* #f)
+  [0x10764] mov x9, x14                                      mov-symptr igpr-101, '#f
+  [0x10768] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1076C] adrp x16, #0x10000                               mov '*teleport*, igpr-101
+  [0x10770] add x16, x16, #0
+  [0x10774] str w9, [x16]
+
+main-h.gc:196
+-> (define *teleport-count* 0)
+  [0x10778] movz x9, #0                                      mov-ic igpr-102, 0
+  [0x1077C] adrp x16, #0x10000                               mov '*teleport-count*, igpr-102
+  [0x10780] add x16, x16, #0
+  [0x10784] str w9, [x16]
+
+main-h.gc:199
+-> (define *draw-hook* nothing)
+  [0x10788] adrp x16, #0x10000                               mov igpr-103, 'nothing
+  [0x1078C] add x16, x16, #0
+  [0x10790] ldr w9, [x16]
+  [0x10794] adrp x16, #0x10000                               mov '*draw-hook*, igpr-103
+  [0x10798] add x16, x16, #0
+  [0x1079C] str w9, [x16]
+
+main-h.gc:202
+-> (define *debug-hook* nothing)
+  [0x107A0] adrp x16, #0x10000                               mov igpr-104, 'nothing
+  [0x107A4] add x16, x16, #0
+  [0x107A8] ldr w9, [x16]
+  [0x107AC] adrp x16, #0x10000                               mov '*debug-hook*, igpr-104
+  [0x107B0] add x16, x16, #0
+  [0x107B4] str w9, [x16]
+
+main-h.gc:207
+-> (define *menu-hook* (the (function debug-menu-context) nothing))
+  [0x107B8] adrp x16, #0x10000                               mov igpr-105, 'nothing
+  [0x107BC] add x16, x16, #0
+  [0x107C0] ldr w9, [x16]
+  [0x107C4] mov x9, x9                                       mov igpr-106, igpr-105
+  [0x107C8] adrp x16, #0x10000                               mov '*menu-hook*, igpr-106
+  [0x107CC] add x16, x16, #0
+  [0x107D0] str w9, [x16]
+
+main-h.gc:210
+-> (define *progress-hook* nothing)
+  [0x107D4] adrp x16, #0x10000                               mov igpr-107, 'nothing
+  [0x107D8] add x16, x16, #0
+  [0x107DC] ldr w9, [x16]
+  [0x107E0] adrp x16, #0x10000                               mov '*progress-hook*, igpr-107
+  [0x107E4] add x16, x16, #0
+  [0x107E8] str w9, [x16]
+
+main-h.gc:213
+-> (define *dma-timeout-hook* nothing)
+  [0x107EC] adrp x16, #0x10000                               mov igpr-108, 'nothing
+  [0x107F0] add x16, x16, #0
+  [0x107F4] ldr w9, [x16]
+  [0x107F8] adrp x16, #0x10000                               mov '*dma-timeout-hook*, igpr-108
+  [0x107FC] add x16, x16, #0
+  [0x10800] str w9, [x16]
+
+main-h.gc:216
+-> (deftype frame-stats (structure)
+  [0x10804] adrp x16, #0x10000                               mov igpr-109, 'type
+  [0x10808] add x16, x16, #0
+  [0x1080C] ldr w9, [x16]
+  [0x10810] add x16, x9, x15                                 mov igpr-110, [igpr-109 + 16]
+  [0x10814] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x10818] adrp x7, #0x10000                                mov-symptr igpr-111, 'frame-stats
+  [0x1081C] add x7, x7, #0
+  [0x10820] adrp x16, #0x10000                               mov igpr-112, 'structure
+  [0x10824] add x16, x16, #0
+  [0x10828] ldr w6, [x16]
+  [0x1082C] movz x2, #0x14                                   mov-ic igpr-113, 38654705684
+  [0x10830] movk x2, #0x9, lsl #32
+  [0x10834] mov x9, x9                                       mov igpr-118, igpr-110
+  [0x10838] mov x7, x7                                       mov igpr-115, igpr-111
+  [0x1083C] mov x6, x6                                       mov igpr-116, igpr-112
+  [0x10840] mov x2, x2                                       mov igpr-117, igpr-113
+  [0x10844] add x9, x9, x15                                  call igpr-118 (ret igpr-114) (args igpr-115 igpr-116 igpr-117)
+  [0x10848] stp x3, x5, [sp, #-0x10]!
+  [0x1084C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10850] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10854] blr x9 ;; misaligned with debug data
+  [0x10858] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1085C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10860] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10864] mov x0, x0                                       mov igpr-119, igpr-114
+  [0x10868] adrp x16, #0x10000                               mov igpr-120, 'frame-stats
+  [0x1086C] add x16, x16, #0
+  [0x10870] ldr w7, [x16]
+  [0x10874] movz x6, #0x3                                    mov-ic igpr-121, 3
+  [0x10878] adrp x16, #0x10000                               mov igpr-122, 'method-set!
+  [0x1087C] add x16, x16, #0
+  [0x10880] ldr w9, [x16]
+  [0x10884] adrp x2, #0x10000                                mov-fa igpr-123, function-autogenerated-inspect-method-of-frame-stats
+  [0x10888] add x2, x2, #0
+  [0x1088C] sub x2, x2, x15
+  [0x10890] mov x9, x9                                       mov igpr-128, igpr-122
+  [0x10894] mov x7, x7                                       mov igpr-125, igpr-120
+  [0x10898] mov x6, x6                                       mov igpr-126, igpr-121
+  [0x1089C] mov x2, x2                                       mov igpr-127, igpr-123
+  [0x108A0] add x9, x9, x15                                  call igpr-128 (ret igpr-124) (args igpr-125 igpr-126 igpr-127)
+  [0x108A4] stp x3, x5, [sp, #-0x10]!
+  [0x108A8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x108AC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x108B0] blr x9 ;; misaligned with debug data
+  [0x108B4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x108B8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x108BC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x108C0] mov x3, x3                                       mov igpr-129, igpr-124
+
+main-h.gc:220
+-> (define *frame-stats* (new 'static 'frame-stats))
+  [0x108C4] adrp x9, #0x10000                                mov-sva igpr-130, static-structure
+  [0x108C8] add x9, x9, #0
+  [0x108CC] sub x9, x9, x15
+  [0x108D0] adrp x16, #0x10000                               mov '*frame-stats*, igpr-130
+  [0x108D4] add x16, x16, #0
+  [0x108D8] str w9, [x16]
+
+main-h.gc:223
+-> (deftype screen-filter (basic)
+  [0x108DC] adrp x16, #0x10000                               mov igpr-131, 'type
+  [0x108E0] add x16, x16, #0
+  [0x108E4] ldr w9, [x16]
+  [0x108E8] add x16, x9, x15                                 mov igpr-132, [igpr-131 + 16]
+  [0x108EC] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x108F0] adrp x7, #0x10000                                mov-symptr igpr-133, 'screen-filter
+  [0x108F4] add x7, x7, #0
+  [0x108F8] adrp x16, #0x10000                               mov igpr-134, 'basic
+  [0x108FC] add x16, x16, #0
+  [0x10900] ldr w6, [x16]
+  [0x10904] movz x2, #0xc                                    mov-ic igpr-135, 42949672972
+  [0x10908] movk x2, #0xa, lsl #32
+  [0x1090C] mov x9, x9                                       mov igpr-140, igpr-132
+  [0x10910] mov x7, x7                                       mov igpr-137, igpr-133
+  [0x10914] mov x6, x6                                       mov igpr-138, igpr-134
+  [0x10918] mov x2, x2                                       mov igpr-139, igpr-135
+  [0x1091C] add x9, x9, x15                                  call igpr-140 (ret igpr-136) (args igpr-137 igpr-138 igpr-139)
+  [0x10920] stp x3, x5, [sp, #-0x10]!
+  [0x10924] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10928] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1092C] blr x9 ;; misaligned with debug data
+  [0x10930] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10934] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10938] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1093C] mov x0, x0                                       mov igpr-141, igpr-136
+  [0x10940] adrp x16, #0x10000                               mov igpr-142, 'screen-filter
+  [0x10944] add x16, x16, #0
+  [0x10948] ldr w7, [x16]
+  [0x1094C] movz x6, #0x3                                    mov-ic igpr-143, 3
+  [0x10950] adrp x16, #0x10000                               mov igpr-144, 'method-set!
+  [0x10954] add x16, x16, #0
+  [0x10958] ldr w9, [x16]
+  [0x1095C] adrp x2, #0x10000                                mov-fa igpr-145, function-autogenerated-inspect-method-of-screen-filter
+  [0x10960] add x2, x2, #0
+  [0x10964] sub x2, x2, x15
+  [0x10968] mov x9, x9                                       mov igpr-150, igpr-144
+  [0x1096C] mov x7, x7                                       mov igpr-147, igpr-142
+  [0x10970] mov x6, x6                                       mov igpr-148, igpr-143
+  [0x10974] mov x2, x2                                       mov igpr-149, igpr-145
+  [0x10978] add x9, x9, x15                                  call igpr-150 (ret igpr-146) (args igpr-147 igpr-148 igpr-149)
+  [0x1097C] stp x3, x5, [sp, #-0x10]!
+  [0x10980] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10984] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10988] blr x9 ;; misaligned with debug data
+  [0x1098C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10990] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10994] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10998] mov x3, x3                                       mov igpr-151, igpr-146
+  [0x1099C] add sp, sp, #0x10
+  [0x109A0] ldp x29, x30, [sp], #0x10
+  [0x109A4] ret
+
+
+[autogenerated-inspect-method-of-screen-filter]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+main-h.gc:223
+-> (deftype screen-filter (basic)
+  [0x1000C] mov x3, x7                                       mov igpr-1, igpr-0
+  [0x10010] add x16, x3, x15                                 mov igpr-2, [igpr-1 + -4]
+  [0x10014] ldur w1, [x16, #-4] ;; misaligned with debug data
+  [0x10018] adrp x6, #0x10000                                mov-sva igpr-3, static-string "[~8x] ~A~%"
+  [0x1001C] add x6, x6, #0x2f4
+  [0x10020] sub x6, x6, x15
+  [0x10024] add x7, x14, #8                                  mov-symptr igpr-4, '#t
+  [0x10028] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1002C] adrp x16, #0x10000                               mov igpr-5, '_format
+  [0x10030] add x16, x16, #0
+  [0x10034] ldr w9, [x16]
+  [0x10038] mov x9, x9                                       mov igpr-11, igpr-5
+  [0x1003C] mov x7, x7                                       mov igpr-7, igpr-4
+  [0x10040] mov x6, x6                                       mov igpr-8, igpr-3
+  [0x10044] mov x2, x3                                       mov igpr-9, igpr-1
+  [0x10048] mov x1, x1                                       mov igpr-10, igpr-2
+  [0x1004C] add x9, x9, x15                                  call igpr-11 (ret igpr-6) (args igpr-7 igpr-8 igpr-9 igpr-10)
+  [0x10050] stp x3, x5, [sp, #-0x10]!
+  [0x10054] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10058] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] blr x9 ;; misaligned with debug data
+  [0x10060] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] mov x0, x0                                       mov igpr-12, igpr-6
+  [0x10070] add x16, x3, x15                                 mov igpr-13, [igpr-1 + 0]
+  [0x10074] ldr w2, [x16] ;; misaligned with debug data
+  [0x10078] adrp x6, #0x10000                                mov-sva igpr-14, static-string "~Tdraw?: ~A~%"
+  [0x1007C] add x6, x6, #0x314
+  [0x10080] sub x6, x6, x15
+  [0x10084] add x7, x14, #8                                  mov-symptr igpr-15, '#t
+  [0x10088] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1008C] adrp x16, #0x10000                               mov igpr-16, '_format
+  [0x10090] add x16, x16, #0
+  [0x10094] ldr w9, [x16]
+  [0x10098] mov x9, x9                                       mov igpr-21, igpr-16
+  [0x1009C] mov x7, x7                                       mov igpr-18, igpr-15
+  [0x100A0] mov x6, x6                                       mov igpr-19, igpr-14
+  [0x100A4] mov x2, x2                                       mov igpr-20, igpr-13
+  [0x100A8] add x9, x9, x15                                  call igpr-21 (ret igpr-17) (args igpr-18 igpr-19 igpr-20)
+  [0x100AC] stp x3, x5, [sp, #-0x10]!
+  [0x100B0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B8] blr x9 ;; misaligned with debug data
+  [0x100BC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100C4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C8] mov x0, x0                                       mov igpr-22, igpr-17
+  [0x100CC] add x16, x3, x15                                 mov igpr-23, [igpr-1 + 4]
+  [0x100D0] ldr w2, [x16, #4] ;; misaligned with debug data
+  [0x100D4] adrp x6, #0x10000                                mov-sva igpr-24, static-string "~Tcolor: ~D~%"
+  [0x100D8] add x6, x6, #0x334
+  [0x100DC] sub x6, x6, x15
+  [0x100E0] add x7, x14, #8                                  mov-symptr igpr-25, '#t
+  [0x100E4] sub x7, x7, x15 ;; misaligned with debug data
+  [0x100E8] adrp x16, #0x10000                               mov igpr-26, '_format
+  [0x100EC] add x16, x16, #0
+  [0x100F0] ldr w9, [x16]
+  [0x100F4] mov x9, x9                                       mov igpr-31, igpr-26
+  [0x100F8] mov x7, x7                                       mov igpr-28, igpr-25
+  [0x100FC] mov x6, x6                                       mov igpr-29, igpr-24
+  [0x10100] mov x2, x2                                       mov igpr-30, igpr-23
+  [0x10104] add x9, x9, x15                                  call igpr-31 (ret igpr-27) (args igpr-28 igpr-29 igpr-30)
+  [0x10108] stp x3, x5, [sp, #-0x10]!
+  [0x1010C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10110] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10114] blr x9 ;; misaligned with debug data
+  [0x10118] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1011C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10120] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10124] mov x0, x0                                       mov igpr-32, igpr-27
+  [0x10128] mov x0, x3                                       ret igpr-33 igpr-1
+  [0x1012C] add sp, sp, #0x10
+  [0x10130] ldp x29, x30, [sp], #0x10
+  [0x10134] ret
+
+
+[autogenerated-inspect-method-of-frame-stats]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+main-h.gc:216
+-> (deftype frame-stats (structure)
+  [0x1000C] mov x3, x7                                       mov igpr-1, igpr-0
+  [0x10010] adrp x1, #0x10000                                mov-symptr igpr-2, 'frame-stats
+  [0x10014] add x1, x1, #0
+  [0x10018] adrp x6, #0x10000                                mov-sva igpr-3, static-string "[~8x] ~A~%"
+  [0x1001C] add x6, x6, #0x284
+  [0x10020] sub x6, x6, x15
+  [0x10024] add x7, x14, #8                                  mov-symptr igpr-4, '#t
+  [0x10028] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1002C] adrp x16, #0x10000                               mov igpr-5, '_format
+  [0x10030] add x16, x16, #0
+  [0x10034] ldr w9, [x16]
+  [0x10038] mov x9, x9                                       mov igpr-11, igpr-5
+  [0x1003C] mov x7, x7                                       mov igpr-7, igpr-4
+  [0x10040] mov x6, x6                                       mov igpr-8, igpr-3
+  [0x10044] mov x2, x3                                       mov igpr-9, igpr-1
+  [0x10048] mov x1, x1                                       mov igpr-10, igpr-2
+  [0x1004C] add x9, x9, x15                                  call igpr-11 (ret igpr-6) (args igpr-7 igpr-8 igpr-9 igpr-10)
+  [0x10050] stp x3, x5, [sp, #-0x10]!
+  [0x10054] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10058] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] blr x9 ;; misaligned with debug data
+  [0x10060] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] mov x0, x0                                       mov igpr-12, igpr-6
+  [0x10070] mov x2, x3                                       mov igpr-13, igpr-1
+  [0x10074] adrp x6, #0x10000                                mov-sva igpr-14, static-string "~Tfield-time[2] @ #x~X~%"
+  [0x10078] add x6, x6, #0x2a4
+  [0x1007C] sub x6, x6, x15
+  [0x10080] add x7, x14, #8                                  mov-symptr igpr-15, '#t
+  [0x10084] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10088] adrp x16, #0x10000                               mov igpr-16, '_format
+  [0x1008C] add x16, x16, #0
+  [0x10090] ldr w9, [x16]
+  [0x10094] mov x9, x9                                       mov igpr-21, igpr-16
+  [0x10098] mov x7, x7                                       mov igpr-18, igpr-15
+  [0x1009C] mov x6, x6                                       mov igpr-19, igpr-14
+  [0x100A0] mov x2, x2                                       mov igpr-20, igpr-13
+  [0x100A4] add x9, x9, x15                                  call igpr-21 (ret igpr-17) (args igpr-18 igpr-19 igpr-20)
+  [0x100A8] stp x3, x5, [sp, #-0x10]!
+  [0x100AC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B4] blr x9 ;; misaligned with debug data
+  [0x100B8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100BC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C4] mov x0, x0                                       mov igpr-22, igpr-17
+  [0x100C8] add x16, x3, x15                                 mov igpr-23, [igpr-1 + 16]
+  [0x100CC] ldrsw x2, [x16, #0x10] ;; misaligned with debug data
+  [0x100D0] adrp x6, #0x10000                                mov-sva igpr-24, static-string "~Tfield: ~D~%"
+  [0x100D4] add x6, x6, #0x2d4
+  [0x100D8] sub x6, x6, x15
+  [0x100DC] add x7, x14, #8                                  mov-symptr igpr-25, '#t
+  [0x100E0] sub x7, x7, x15 ;; misaligned with debug data
+  [0x100E4] adrp x16, #0x10000                               mov igpr-26, '_format
+  [0x100E8] add x16, x16, #0
+  [0x100EC] ldr w9, [x16]
+  [0x100F0] mov x9, x9                                       mov igpr-31, igpr-26
+  [0x100F4] mov x7, x7                                       mov igpr-28, igpr-25
+  [0x100F8] mov x6, x6                                       mov igpr-29, igpr-24
+  [0x100FC] mov x2, x2                                       mov igpr-30, igpr-23
+  [0x10100] add x9, x9, x15                                  call igpr-31 (ret igpr-27) (args igpr-28 igpr-29 igpr-30)
+  [0x10104] stp x3, x5, [sp, #-0x10]!
+  [0x10108] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1010C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10110] blr x9 ;; misaligned with debug data
+  [0x10114] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10118] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1011C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10120] mov x0, x0                                       mov igpr-32, igpr-27
+  [0x10124] mov x0, x3                                       ret igpr-33 igpr-1
+  [0x10128] add sp, sp, #0x10
+  [0x1012C] ldp x29, x30, [sp], #0x10
+  [0x10130] ret
+
+
+

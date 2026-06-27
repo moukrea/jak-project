@@ -1,0 +1,530 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+generic.gc:7
+-> (define *generic-foreground-sinks*
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov '*generic-foreground-sinks*, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+generic.gc:10
+-> (set! (-> *generic-foreground-sinks* 0) (-> *level* level0 tfrag-tex-foreground-sink-group generic-sink))
+  [0x10020] adrp x16, #0x10000                               mov igpr-2, '*level*
+  [0x10024] add x16, x16, #0
+  [0x10028] ldr w9, [x16]
+  [0x1002C] add x16, x9, x15                                 mov igpr-1, [igpr-2 + 276]
+  [0x10030] ldr w9, [x16, #0x114] ;; misaligned with debug data
+  [0x10034] adrp x16, #0x10000                               mov igpr-3, '*generic-foreground-sinks*
+  [0x10038] add x16, x16, #0
+  [0x1003C] ldr w8, [x16]
+  [0x10040] add x16, x8, x15                                 move [igpr-3 + 12], igpr-1
+  [0x10044] str w9, [x16, #0xc] ;; misaligned with debug data
+
+generic.gc:12
+-> (set! (-> *generic-foreground-sinks* 1) (-> *level* level0 pris-tex-foreground-sink-group generic-sink))
+  [0x10048] adrp x16, #0x10000                               mov igpr-5, '*level*
+  [0x1004C] add x16, x16, #0
+  [0x10050] ldr w9, [x16]
+  [0x10054] add x16, x9, x15                                 mov igpr-4, [igpr-5 + 308]
+  [0x10058] ldr w9, [x16, #0x134] ;; misaligned with debug data
+  [0x1005C] adrp x16, #0x10000                               mov igpr-6, '*generic-foreground-sinks*
+  [0x10060] add x16, x16, #0
+  [0x10064] ldr w8, [x16]
+  [0x10068] add x16, x8, x15                                 move [igpr-6 + 16], igpr-4
+  [0x1006C] str w9, [x16, #0x10] ;; misaligned with debug data
+
+generic.gc:14
+-> (set! (-> *generic-foreground-sinks* 2) (-> *level* level1 tfrag-tex-foreground-sink-group generic-sink))
+  [0x10070] adrp x16, #0x10000                               mov igpr-8, '*level*
+  [0x10074] add x16, x16, #0
+  [0x10078] ldr w9, [x16]
+  [0x1007C] add x16, x9, x15                                 mov igpr-7, [igpr-8 + 2884]
+  [0x10080] ldr w9, [x16, #0xb44] ;; misaligned with debug data
+  [0x10084] adrp x16, #0x10000                               mov igpr-9, '*generic-foreground-sinks*
+  [0x10088] add x16, x16, #0
+  [0x1008C] ldr w8, [x16]
+  [0x10090] add x16, x8, x15                                 move [igpr-9 + 20], igpr-7
+  [0x10094] str w9, [x16, #0x14] ;; misaligned with debug data
+
+generic.gc:16
+-> (set! (-> *generic-foreground-sinks* 3) (-> *level* level1 pris-tex-foreground-sink-group generic-sink))
+  [0x10098] adrp x16, #0x10000                               mov igpr-11, '*level*
+  [0x1009C] add x16, x16, #0
+  [0x100A0] ldr w9, [x16]
+  [0x100A4] add x16, x9, x15                                 mov igpr-10, [igpr-11 + 2916]
+  [0x100A8] ldr w9, [x16, #0xb64] ;; misaligned with debug data
+  [0x100AC] adrp x16, #0x10000                               mov igpr-12, '*generic-foreground-sinks*
+  [0x100B0] add x16, x16, #0
+  [0x100B4] ldr w8, [x16]
+  [0x100B8] add x16, x8, x15                                 move [igpr-12 + 24], igpr-10
+  [0x100BC] str w9, [x16, #0x18] ;; misaligned with debug data
+
+generic.gc:18
+-> (set! (-> *generic-foreground-sinks* 4) (-> *level* level-default tfrag-tex-foreground-sink-group generic-sink))
+  [0x100C0] adrp x16, #0x10000                               mov igpr-14, '*level*
+  [0x100C4] add x16, x16, #0
+  [0x100C8] ldr w9, [x16]
+  [0x100CC] add x16, x9, x15                                 mov igpr-13, [igpr-14 + 5492]
+  [0x100D0] ldr w9, [x16, #0x1574] ;; misaligned with debug data
+  [0x100D4] adrp x16, #0x10000                               mov igpr-15, '*generic-foreground-sinks*
+  [0x100D8] add x16, x16, #0
+  [0x100DC] ldr w8, [x16]
+  [0x100E0] add x16, x8, x15                                 move [igpr-15 + 28], igpr-13
+  [0x100E4] str w9, [x16, #0x1c] ;; misaligned with debug data
+
+generic.gc:20
+-> (set! (-> *generic-foreground-sinks* 5) (-> *level* level-default pris-tex-foreground-sink-group generic-sink))
+  [0x100E8] adrp x16, #0x10000                               mov igpr-17, '*level*
+  [0x100EC] add x16, x16, #0
+  [0x100F0] ldr w9, [x16]
+  [0x100F4] add x16, x9, x15                                 mov igpr-16, [igpr-17 + 5524]
+  [0x100F8] ldr w9, [x16, #0x1594] ;; misaligned with debug data
+  [0x100FC] adrp x16, #0x10000                               mov igpr-18, '*generic-foreground-sinks*
+  [0x10100] add x16, x16, #0
+  [0x10104] ldr w8, [x16]
+  [0x10108] add x16, x8, x15                                 move [igpr-18 + 32], igpr-16
+  [0x1010C] str w9, [x16, #0x20] ;; misaligned with debug data
+
+generic.gc:22
+-> (set! (-> *generic-foreground-sinks* 6) (new 'static 'generic-dma-foreground-sink :bucket (bucket-id shrub-generic1)))
+  [0x10110] adrp x9, #0x10000                                mov-sva igpr-19, static-structure
+  [0x10114] add x9, x9, #0
+  [0x10118] sub x9, x9, x15
+  [0x1011C] adrp x16, #0x10000                               mov igpr-20, '*generic-foreground-sinks*
+  [0x10120] add x16, x16, #0
+  [0x10124] ldr w8, [x16]
+  [0x10128] add x16, x8, x15                                 move [igpr-20 + 36], igpr-19
+  [0x1012C] str w9, [x16, #0x24] ;; misaligned with debug data
+
+generic.gc:24
+-> (set! (-> *generic-foreground-sinks* 7) (-> *level* level0 water-tex-foreground-sink-group generic-sink))
+  [0x10130] adrp x16, #0x10000                               mov igpr-22, '*level*
+  [0x10134] add x16, x16, #0
+  [0x10138] ldr w9, [x16]
+  [0x1013C] add x16, x9, x15                                 mov igpr-21, [igpr-22 + 340]
+  [0x10140] ldr w9, [x16, #0x154] ;; misaligned with debug data
+  [0x10144] adrp x16, #0x10000                               mov igpr-23, '*generic-foreground-sinks*
+  [0x10148] add x16, x16, #0
+  [0x1014C] ldr w8, [x16]
+  [0x10150] add x16, x8, x15                                 move [igpr-23 + 40], igpr-21
+  [0x10154] str w9, [x16, #0x28] ;; misaligned with debug data
+
+generic.gc:26
+-> (set! (-> *generic-foreground-sinks* 8) (-> *level* level1 water-tex-foreground-sink-group generic-sink))
+  [0x10158] adrp x16, #0x10000                               mov igpr-25, '*level*
+  [0x1015C] add x16, x16, #0
+  [0x10160] ldr w9, [x16]
+  [0x10164] add x16, x9, x15                                 mov igpr-24, [igpr-25 + 2948]
+  [0x10168] ldr w9, [x16, #0xb84] ;; misaligned with debug data
+  [0x1016C] adrp x16, #0x10000                               mov igpr-26, '*generic-foreground-sinks*
+  [0x10170] add x16, x16, #0
+  [0x10174] ldr w8, [x16]
+  [0x10178] add x16, x8, x15                                 move [igpr-26 + 44], igpr-24
+  [0x1017C] str w9, [x16, #0x2c] ;; misaligned with debug data
+  [0x10180] adrp x9, #0x10000                                mov-fa igpr-27, function-generic-dma-foreground-sink-init
+  [0x10184] add x9, x9, #0
+  [0x10188] sub x9, x9, x15
+
+generic.gc:28
+-> (defun generic-dma-foreground-sink-init ((arg0 generic-dma-foreground-sink))
+  [0x1018C] adrp x16, #0x10000                               mov 'generic-dma-foreground-sink-init, igpr-27
+  [0x10190] add x16, x16, #0
+  [0x10194] str w9, [x16]
+  [0x10198] adrp x9, #0x10000                                mov-fa igpr-28, function-generic-init-buffers
+  [0x1019C] add x9, x9, #0
+  [0x101A0] sub x9, x9, x15
+
+generic.gc:33
+-> (defun generic-init-buffers ()
+  [0x101A4] adrp x16, #0x10000                               mov 'generic-init-buffers, igpr-28
+  [0x101A8] add x16, x16, #0
+  [0x101AC] str w9, [x16]
+  [0x101B0] adrp x0, #0x10000                                mov-fa igpr-29, function-generic-sink
+  [0x101B4] add x0, x0, #0
+  [0x101B8] sub x0, x0, x15
+
+generic.gc:46
+-> (defun generic-sink ((i int))
+  [0x101BC] adrp x16, #0x10000                               mov 'generic-sink, igpr-29
+  [0x101C0] add x16, x16, #0
+  [0x101C4] str w0, [x16]
+
+generic.gc:1
+-> ;-*-Lisp-*-
+  [0x101C8] mov x0, x0                                       ret igpr-30 igpr-29
+  [0x101CC] ldp x29, x30, [sp], #0x10
+  [0x101D0] ret
+
+
+[generic-sink]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+generic.gc:46
+-> (defun generic-sink ((i int))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+generic.gc:48
+->   (-> *generic-foreground-sinks* i))
+  [0x1000C] movz x9, #0xc                                    mov-ic igpr-3, 12
+  [0x10010] mov x7, x7                                       mov igpr-4, igpr-2
+  [0x10014] lsl x7, x7, #2                                   shl igpr-4, 2
+  [0x10018] add x7, x7, x9                                   addi igpr-4, igpr-3
+  [0x1001C] mov x7, x7                                       mov igpr-6, igpr-4
+  [0x10020] adrp x16, #0x10000                               mov igpr-7, '*generic-foreground-sinks*
+  [0x10024] add x16, x16, #0
+  [0x10028] ldr w9, [x16]
+  [0x1002C] add x7, x7, x9                                   addi igpr-6, igpr-7
+  [0x10030] add x16, x7, x15                                 mov igpr-5, [igpr-6 + 0]
+  [0x10034] ldr w0, [x16] ;; misaligned with debug data
+
+generic.gc:46
+-> (defun generic-sink ((i int))
+  [0x10038] mov x0, x0                                       ret igpr-1 igpr-5
+  [0x1003C] ldp x29, x30, [sp], #0x10
+  [0x10040] ret
+
+
+[generic-init-buffers]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+generic.gc:34
+->   (vu-lights-default! *default-lights*)
+  [0x1000C] adrp x16, #0x10000                               mov igpr-1, 'vu-lights-default!
+  [0x10010] add x16, x16, #0
+  [0x10014] ldr w9, [x16]
+
+generic.gc:33
+-> (defun generic-init-buffers ()
+  [0x10018] adrp x16, #0x10000                               mov igpr-2, '*default-lights*
+  [0x1001C] add x16, x16, #0
+  [0x10020] ldr w7, [x16]
+
+generic.gc:34
+->   (vu-lights-default! *default-lights*)
+  [0x10024] mov x9, x9                                       mov igpr-5, igpr-1
+  [0x10028] mov x7, x7                                       mov igpr-4, igpr-2
+  [0x1002C] add x9, x9, x15                                  call igpr-5 (ret igpr-3) (args igpr-4)
+  [0x10030] stp x3, x5, [sp, #-0x10]!
+  [0x10034] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10038] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1003C] blr x9 ;; misaligned with debug data
+  [0x10040] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10044] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10048] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1004C] mov x0, x0                                       mov igpr-6, igpr-3
+
+generic.gc:35
+->   (let ((gp-0 (new 'static 'gs-zbuf :zbp #x1c0 :psm (gs-psm ct24)))
+  [0x10050] movz x3, #0x1c0                                  mov-ic igpr-7, 16777664
+  [0x10054] movk x3, #0x100, lsl #16
+
+generic.gc:36
+->         (s5-0 (new 'static 'gs-zbuf :zbp #x1c0 :psm (gs-psm ct24) :zmsk #x1)))
+  [0x10058] movz x5, #0x1c0                                  mov-ic igpr-8, 4311744960
+  [0x1005C] movk x5, #0x100, lsl #16
+  [0x10060] movk x5, #0x1, lsl #32
+
+generic.gc:35
+->   (let ((gp-0 (new 'static 'gs-zbuf :zbp #x1c0 :psm (gs-psm ct24)))
+  [0x10064] mov x12, x3                                      mov igpr-9, igpr-7
+  [0x10068] mov x5, x5                                       mov igpr-10, igpr-8
+
+generic.gc:37
+->     (dotimes (s4-0 9)
+  [0x1006C] movz x3, #0                                      mov-ic igpr-11, 0
+  [0x10070] mov x11, x3                                      mov igpr-12, igpr-11
+  [0x10074] b #0x1032c                                       goto label-116
+
+generic.gc:38
+->       (let ((s1-0 (-> *generic-foreground-sinks* s4-0)))
+  [0x10078] movz x9, #0xc                                    mov-ic igpr-16, 12
+  [0x1007C] mov x8, x11                                      mov igpr-17, igpr-12
+  [0x10080] lsl x8, x8, #2                                   shl igpr-17, 2
+  [0x10084] add x8, x8, x9                                   addi igpr-17, igpr-16
+  [0x10088] mov x8, x8                                       mov igpr-19, igpr-17
+  [0x1008C] adrp x16, #0x10000                               mov igpr-20, '*generic-foreground-sinks*
+  [0x10090] add x16, x16, #0
+  [0x10094] ldr w9, [x16]
+  [0x10098] add x8, x8, x9                                   addi igpr-19, igpr-20
+  [0x1009C] add x16, x8, x15                                 mov igpr-18, [igpr-19 + 0]
+  [0x100A0] ldr w3, [x16] ;; misaligned with debug data
+
+generic.gc:38
+->       (let ((s1-0 (-> *generic-foreground-sinks* s4-0)))
+  [0x100A4] mov x3, x3                                       mov igpr-21, igpr-18
+  [0x100A8] str x3, [sp, #8]
+
+generic.gc:39
+->         (when s1-0
+  [0x100AC] mov x8, x14                                      mov-symptr igpr-23, '#f
+  [0x100B0] sub x8, x8, x15 ;; misaligned with debug data
+  [0x100B4] ldr x9, [sp, #8]                                 j(igpr-21 == igpr-23) label-110
+  [0x100B8] cmp x9, x8
+  [0x100BC] b.eq #0x10314
+
+generic.gc:40
+->           (let ((s3-0 (-> s1-0 bucket)))
+  [0x100C0] ldr x9, [sp, #8]                                 mov igpr-24, [igpr-21 + 0]
+  [0x100C4] add x16, x9, x15
+  [0x100C8] ldrsw x3, [x16] ;; misaligned with debug data
+
+generic.gc:40
+->           (let ((s3-0 (-> s1-0 bucket)))
+  [0x100CC] mov x10, x3                                      mov igpr-25, igpr-24
+
+generic.gc:41
+->             (with-dma-buffer-add-bucket ((s0-0 (-> (current-frame) global-buf)) s3-0)
+  [0x100D0] adrp x16, #0x10000                               mov igpr-27, '*display*
+  [0x100D4] add x16, x16, #0
+  [0x100D8] ldr w9, [x16]
+  [0x100DC] add x16, x9, x15                                 mov igpr-26, [igpr-27 + 556]
+  [0x100E0] ldrsw x9, [x16, #0x22c] ;; misaligned with debug data
+  [0x100E4] mov x9, x9                                       mov igpr-28, igpr-26
+  [0x100E8] lsl x9, x9, #5                                   shl igpr-28, 5
+
+generic.gc:41
+->             (with-dma-buffer-add-bucket ((s0-0 (-> (current-frame) global-buf)) s3-0)
+  [0x100EC] mov x9, x9                                       mov igpr-31, igpr-28
+  [0x100F0] movz x8, #0x234                                  mov-ic igpr-32, 564
+  [0x100F4] adrp x16, #0x10000                               mov igpr-33, '*display*
+  [0x100F8] add x16, x16, #0
+  [0x100FC] ldr w1, [x16]
+  [0x10100] add x8, x8, x1                                   addi igpr-32, igpr-33
+  [0x10104] add x9, x9, x8                                   addi igpr-31, igpr-32
+  [0x10108] add x16, x9, x15                                 mov igpr-30, [igpr-31 + 16]
+  [0x1010C] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x10110] add x16, x9, x15                                 mov igpr-29, [igpr-30 + 36]
+  [0x10114] ldr w3, [x16, #0x24] ;; misaligned with debug data
+
+generic.gc:41
+->             (with-dma-buffer-add-bucket ((s0-0 (-> (current-frame) global-buf)) s3-0)
+  [0x10118] mov x3, x3                                       mov igpr-34, igpr-29
+  [0x1011C] str x3, [sp]
+  [0x10120] ldr x9, [sp]                                     mov igpr-35, [igpr-34 + 4]
+  [0x10124] add x16, x9, x15
+  [0x10128] ldr w3, [x16, #4] ;; misaligned with debug data
+  [0x1012C] mov x3, x3                                       mov igpr-36, igpr-35
+
+generic.gc:42
+->               (if (>= s4-0 7) (generic-init-buf s0-0 1 s5-0) (generic-init-buf s0-0 1 gp-0))
+  [0x10130] movz x9, #0x7                                    mov-ic igpr-38, 7
+  [0x10134] cmp x11, x9                                      j(igpr-12 < igpr-38) label-53
+  [0x10138] b.lt #0x1018c
+
+generic.gc:42
+->               (if (>= s4-0 7) (generic-init-buf s0-0 1 s5-0) (generic-init-buf s0-0 1 gp-0))
+  [0x1013C] adrp x16, #0x10000                               mov igpr-39, 'generic-init-buf
+  [0x10140] add x16, x16, #0
+  [0x10144] ldr w9, [x16]
+
+generic.gc:42
+->               (if (>= s4-0 7) (generic-init-buf s0-0 1 s5-0) (generic-init-buf s0-0 1 gp-0))
+  [0x10148] movz x6, #0x1                                    mov-ic igpr-40, 1
+
+generic.gc:42
+->               (if (>= s4-0 7) (generic-init-buf s0-0 1 s5-0) (generic-init-buf s0-0 1 gp-0))
+  [0x1014C] mov x8, x9                                       mov igpr-45, igpr-39
+  [0x10150] ldr x9, [sp]                                     mov igpr-42, igpr-34
+  [0x10154] mov x7, x9
+  [0x10158] mov x6, x6                                       mov igpr-43, igpr-40
+  [0x1015C] mov x2, x5                                       mov igpr-44, igpr-10
+  [0x10160] add x8, x8, x15                                  call igpr-45 (ret igpr-41) (args igpr-42 igpr-43 igpr-44)
+  [0x10164] stp x3, x5, [sp, #-0x10]!
+  [0x10168] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1016C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10170] blr x8 ;; misaligned with debug data
+  [0x10174] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10178] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1017C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10180] mov x9, x9                                       mov igpr-46, igpr-41
+
+generic.gc:42
+->               (if (>= s4-0 7) (generic-init-buf s0-0 1 s5-0) (generic-init-buf s0-0 1 gp-0))
+  [0x10184] mov x9, x9                                       mov igpr-37, igpr-46
+  [0x10188] b #0x101d8                                       goto label-62
+
+generic.gc:42
+->               (if (>= s4-0 7) (generic-init-buf s0-0 1 s5-0) (generic-init-buf s0-0 1 gp-0))
+  [0x1018C] adrp x16, #0x10000                               mov igpr-47, 'generic-init-buf
+  [0x10190] add x16, x16, #0
+  [0x10194] ldr w9, [x16]
+
+generic.gc:42
+->               (if (>= s4-0 7) (generic-init-buf s0-0 1 s5-0) (generic-init-buf s0-0 1 gp-0))
+  [0x10198] movz x6, #0x1                                    mov-ic igpr-48, 1
+
+generic.gc:42
+->               (if (>= s4-0 7) (generic-init-buf s0-0 1 s5-0) (generic-init-buf s0-0 1 gp-0))
+  [0x1019C] mov x8, x9                                       mov igpr-53, igpr-47
+  [0x101A0] ldr x9, [sp]                                     mov igpr-50, igpr-34
+  [0x101A4] mov x7, x9
+  [0x101A8] mov x6, x6                                       mov igpr-51, igpr-48
+  [0x101AC] mov x2, x12                                      mov igpr-52, igpr-9
+  [0x101B0] add x8, x8, x15                                  call igpr-53 (ret igpr-49) (args igpr-50 igpr-51 igpr-52)
+  [0x101B4] stp x3, x5, [sp, #-0x10]!
+  [0x101B8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101BC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C0] blr x8 ;; misaligned with debug data
+  [0x101C4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101C8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101CC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101D0] mov x9, x9                                       mov igpr-54, igpr-49
+
+generic.gc:42
+->               (if (>= s4-0 7) (generic-init-buf s0-0 1 s5-0) (generic-init-buf s0-0 1 gp-0))
+  [0x101D4] mov x9, x9                                       mov igpr-37, igpr-54
+
+generic.gc:43
+->               (generic-dma-foreground-sink-init s1-0)))))))
+  [0x101D8] adrp x16, #0x10000                               mov igpr-55, 'generic-dma-foreground-sink-init
+  [0x101DC] add x16, x16, #0
+  [0x101E0] ldr w9, [x16]
+  [0x101E4] mov x8, x9                                       mov igpr-58, igpr-55
+  [0x101E8] ldr x7, [sp, #8]                                 mov igpr-57, igpr-21
+  [0x101EC] mov x7, x7
+  [0x101F0] add x8, x8, x15                                  call igpr-58 (ret igpr-56) (args igpr-57)
+  [0x101F4] stp x3, x5, [sp, #-0x10]!
+  [0x101F8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101FC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10200] blr x8 ;; misaligned with debug data
+  [0x10204] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10208] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1020C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10210] mov x9, x9                                       mov igpr-59, igpr-56
+
+generic.gc:41
+->             (with-dma-buffer-add-bucket ((s0-0 (-> (current-frame) global-buf)) s3-0)
+  [0x10214] ldr x9, [sp]                                     mov igpr-60, [igpr-34 + 4]
+  [0x10218] add x16, x9, x15
+  [0x1021C] ldr w1, [x16, #4] ;; misaligned with debug data
+  [0x10220] mov x1, x1                                       mov igpr-61, igpr-60
+  [0x10224] mov x1, x1                                       mov igpr-62, igpr-61
+  [0x10228] ldr x9, [sp]                                     mov igpr-63, [igpr-34 + 4]
+  [0x1022C] add x16, x9, x15
+  [0x10230] ldr w8, [x16, #4] ;; misaligned with debug data
+  [0x10234] mov x8, x8                                       mov igpr-64, igpr-63
+  [0x10238] mov x8, x8                                       mov igpr-65, igpr-64
+  [0x1023C] movz x9, #0                                      mov-ic igpr-66, 536870912
+  [0x10240] movk x9, #0x2000, lsl #16
+  [0x10244] add x16, x8, x15                                 move [igpr-65 + 0], igpr-66
+  [0x10248] str x9, [x16] ;; misaligned with debug data
+  [0x1024C] movz x9, #0                                      mov-ic igpr-67, 0
+  [0x10250] add x16, x8, x15                                 move [igpr-65 + 8], igpr-67
+  [0x10254] str w9, [x16, #8] ;; misaligned with debug data
+  [0x10258] movz x9, #0                                      mov-ic igpr-68, 0
+  [0x1025C] add x16, x8, x15                                 move [igpr-65 + 12], igpr-68
+  [0x10260] str w9, [x16, #0xc] ;; misaligned with debug data
+  [0x10264] mov x8, x8                                       mov igpr-69, igpr-65
+  [0x10268] mov x8, x8                                       mov igpr-70, igpr-69
+  [0x1026C] movz x9, #0x10                                   mov-ic igpr-71, 16
+  [0x10270] add x8, x8, x9                                   addi igpr-70, igpr-71
+  [0x10274] ldr x9, [sp]                                     move [igpr-34 + 4], igpr-70
+  [0x10278] add x16, x9, x15
+  [0x1027C] str w8, [x16, #4] ;; misaligned with debug data
+  [0x10280] adrp x16, #0x10000                               mov igpr-72, 'dma-bucket-insert-tag
+  [0x10284] add x16, x16, #0
+  [0x10288] ldr w9, [x16]
+
+dma-buffer.gc:268
+-> (defmacro with-dma-buffer-add-bucket (bindings &key (bucket-group (-> (current-frame) bucket-group)) &rest body)
+  [0x1028C] adrp x16, #0x10000                               mov igpr-74, '*display*
+  [0x10290] add x16, x16, #0
+  [0x10294] ldr w8, [x16]
+  [0x10298] add x16, x8, x15                                 mov igpr-73, [igpr-74 + 556]
+  [0x1029C] ldrsw x8, [x16, #0x22c] ;; misaligned with debug data
+  [0x102A0] mov x8, x8                                       mov igpr-75, igpr-73
+  [0x102A4] lsl x8, x8, #5                                   shl igpr-75, 5
+
+dma-buffer.gc:268
+-> (defmacro with-dma-buffer-add-bucket (bindings &key (bucket-group (-> (current-frame) bucket-group)) &rest body)
+  [0x102A8] mov x8, x8                                       mov igpr-78, igpr-75
+  [0x102AC] movz x2, #0x234                                  mov-ic igpr-79, 564
+  [0x102B0] adrp x16, #0x10000                               mov igpr-80, '*display*
+  [0x102B4] add x16, x16, #0
+  [0x102B8] ldr w6, [x16]
+  [0x102BC] add x2, x2, x6                                   addi igpr-79, igpr-80
+  [0x102C0] add x8, x8, x2                                   addi igpr-78, igpr-79
+  [0x102C4] add x16, x8, x15                                 mov igpr-77, [igpr-78 + 16]
+  [0x102C8] ldr w8, [x16, #0x10] ;; misaligned with debug data
+  [0x102CC] add x16, x8, x15                                 mov igpr-76, [igpr-77 + 40]
+  [0x102D0] ldr w7, [x16, #0x28] ;; misaligned with debug data
+
+generic.gc:41
+->             (with-dma-buffer-add-bucket ((s0-0 (-> (current-frame) global-buf)) s3-0)
+  [0x102D4] mov x9, x9                                       mov igpr-86, igpr-72
+  [0x102D8] mov x7, x7                                       mov igpr-82, igpr-76
+  [0x102DC] mov x6, x10                                      mov igpr-83, igpr-25
+  [0x102E0] mov x2, x3                                       mov igpr-84, igpr-36
+  [0x102E4] mov x1, x1                                       mov igpr-85, igpr-62
+  [0x102E8] add x9, x9, x15                                  call igpr-86 (ret igpr-81) (args igpr-82 igpr-83 igpr-84 igpr-85)
+  [0x102EC] stp x3, x5, [sp, #-0x10]!
+  [0x102F0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102F4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102F8] blr x9 ;; misaligned with debug data
+  [0x102FC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10300] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10304] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10308] mov x0, x0                                       mov igpr-87, igpr-81
+
+generic.gc:39
+->         (when s1-0
+  [0x1030C] mov x0, x0                                       mov igpr-22, igpr-87
+  [0x10310] b #0x1031c                                       goto label-111
+  [0x10314] mov x0, x14                                      mov-symptr igpr-22, '#f
+  [0x10318] sub x0, x0, x15 ;; misaligned with debug data
+
+generic.gc:37
+->     (dotimes (s4-0 9)
+  [0x1031C] mov x3, x11                                      mov igpr-88, igpr-12
+  [0x10320] movz x9, #0x1                                    mov-ic igpr-89, 1
+  [0x10324] add x3, x3, x9                                   addi igpr-88, igpr-89
+  [0x10328] mov x11, x3                                      mov igpr-12, igpr-88
+  [0x1032C] movz x9, #0x9                                    mov-ic igpr-90, 9
+  [0x10330] cmp x11, x9                                      j(igpr-12 < igpr-90) label-14
+  [0x10334] b.lt #0x10078
+  [0x10338] mov x9, x14                                      mov-symptr igpr-91, '#f
+  [0x1033C] sub x9, x9, x15 ;; misaligned with debug data
+
+generic.gc:33
+-> (defun generic-init-buffers ()
+  [0x10340] mov x0, x14                                      mov-symptr igpr-92, '#f
+  [0x10344] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10348] mov x0, x0                                       ret igpr-0 igpr-92
+  [0x1034C] add sp, sp, #0x10
+  [0x10350] ldp x29, x30, [sp], #0x10
+  [0x10354] ret
+
+
+[generic-dma-foreground-sink-init]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+generic.gc:28
+-> (defun generic-dma-foreground-sink-init ((arg0 generic-dma-foreground-sink))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+generic.gc:29
+->   (set! (-> arg0 state gifbuf-adr) (the-as uint 837))
+  [0x1000C] movz x9, #0x345                                  mov-ic igpr-3, 837
+  [0x10010] mov x9, x9                                       mov igpr-4, igpr-3
+  [0x10014] add x16, x7, x15                                 move [igpr-2 + 8], igpr-4
+  [0x10018] str w9, [x16, #8] ;; misaligned with debug data
+
+generic.gc:30
+->   (set! (-> arg0 state inbuf-adr) (the-as uint 9))
+  [0x1001C] movz x9, #0x9                                    mov-ic igpr-5, 9
+  [0x10020] mov x9, x9                                       mov igpr-6, igpr-5
+  [0x10024] add x16, x7, x15                                 move [igpr-2 + 12], igpr-6
+  [0x10028] str w9, [x16, #0xc] ;; misaligned with debug data
+  [0x1002C] ldp x29, x30, [sp], #0x10
+  [0x10030] ret
+
+
+

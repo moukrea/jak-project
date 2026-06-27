@@ -1,0 +1,210 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+progress-static.gc:11
+-> (define *main-options*
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov '*main-options*, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+progress-static.gc:54
+-> (define *title*
+  [0x10020] adrp x9, #0x10000                                mov-sva igpr-1, static-structure
+  [0x10024] add x9, x9, #0
+  [0x10028] sub x9, x9, x15
+  [0x1002C] adrp x16, #0x10000                               mov '*title*, igpr-1
+  [0x10030] add x16, x16, #0
+  [0x10034] str w9, [x16]
+
+progress-static.gc:79
+-> (define *options*
+  [0x10038] adrp x9, #0x10000                                mov-sva igpr-2, static-structure
+  [0x1003C] add x9, x9, #0
+  [0x10040] sub x9, x9, x15
+  [0x10044] adrp x16, #0x10000                               mov '*options*, igpr-2
+  [0x10048] add x16, x16, #0
+  [0x1004C] str w9, [x16]
+
+progress-static.gc:104
+-> (define *main-options-demo*
+  [0x10050] adrp x9, #0x10000                                mov-sva igpr-3, static-structure
+  [0x10054] add x9, x9, #0
+  [0x10058] sub x9, x9, x15
+  [0x1005C] adrp x16, #0x10000                               mov '*main-options-demo*, igpr-3
+  [0x10060] add x16, x16, #0
+  [0x10064] str w9, [x16]
+
+progress-static.gc:129
+-> (define *main-options-demo-shared*
+  [0x10068] adrp x9, #0x10000                                mov-sva igpr-4, static-structure
+  [0x1006C] add x9, x9, #0
+  [0x10070] sub x9, x9, x15
+  [0x10074] adrp x16, #0x10000                               mov '*main-options-demo-shared*, igpr-4
+  [0x10078] add x16, x16, #0
+  [0x1007C] str w9, [x16]
+
+progress-static.gc:155
+-> (define *game-options*
+  [0x10080] adrp x9, #0x10000                                mov-sva igpr-5, static-structure
+  [0x10084] add x9, x9, #0
+  [0x10088] sub x9, x9, x15
+  [0x1008C] adrp x16, #0x10000                               mov '*game-options*, igpr-5
+  [0x10090] add x16, x16, #0
+  [0x10094] str w9, [x16]
+
+progress-static.gc:165
+-> (define *game-options-japan*
+  [0x10098] adrp x9, #0x10000                                mov-sva igpr-6, static-structure
+  [0x1009C] add x9, x9, #0
+  [0x100A0] sub x9, x9, x15
+  [0x100A4] adrp x16, #0x10000                               mov '*game-options-japan*, igpr-6
+  [0x100A8] add x16, x16, #0
+  [0x100AC] str w9, [x16]
+
+progress-static.gc:174
+-> (define *game-options-demo*
+  [0x100B0] adrp x9, #0x10000                                mov-sva igpr-7, static-structure
+  [0x100B4] add x9, x9, #0
+  [0x100B8] sub x9, x9, x15
+  [0x100BC] adrp x16, #0x10000                               mov '*game-options-demo*, igpr-7
+  [0x100C0] add x16, x16, #0
+  [0x100C4] str w9, [x16]
+
+progress-static.gc:183
+-> (define *graphic-options*
+  [0x100C8] adrp x9, #0x10000                                mov-sva igpr-8, static-structure
+  [0x100CC] add x9, x9, #0
+  [0x100D0] sub x9, x9, x15
+  [0x100D4] adrp x16, #0x10000                               mov '*graphic-options*, igpr-8
+  [0x100D8] add x16, x16, #0
+  [0x100DC] str w9, [x16]
+
+progress-static.gc:192
+-> (define *graphic-title-options-pal*
+  [0x100E0] adrp x9, #0x10000                                mov-sva igpr-9, static-structure
+  [0x100E4] add x9, x9, #0
+  [0x100E8] sub x9, x9, x15
+  [0x100EC] adrp x16, #0x10000                               mov '*graphic-title-options-pal*, igpr-9
+  [0x100F0] add x16, x16, #0
+  [0x100F4] str w9, [x16]
+
+progress-static.gc:202
+-> (define *sound-options*
+  [0x100F8] adrp x9, #0x10000                                mov-sva igpr-10, static-structure
+  [0x100FC] add x9, x9, #0
+  [0x10100] sub x9, x9, x15
+  [0x10104] adrp x16, #0x10000                               mov '*sound-options*, igpr-10
+  [0x10108] add x16, x16, #0
+  [0x1010C] str w9, [x16]
+
+progress-static.gc:212
+-> (define *yes-no-options*
+  [0x10110] adrp x9, #0x10000                                mov-sva igpr-11, static-structure
+  [0x10114] add x9, x9, #0
+  [0x10118] sub x9, x9, x15
+  [0x1011C] adrp x16, #0x10000                               mov '*yes-no-options*, igpr-11
+  [0x10120] add x16, x16, #0
+  [0x10124] str w9, [x16]
+
+progress-static.gc:215
+-> (define *ok-options*
+  [0x10128] adrp x9, #0x10000                                mov-sva igpr-12, static-structure
+  [0x1012C] add x9, x9, #0
+  [0x10130] sub x9, x9, x15
+  [0x10134] adrp x16, #0x10000                               mov '*ok-options*, igpr-12
+  [0x10138] add x16, x16, #0
+  [0x1013C] str w9, [x16]
+
+progress-static.gc:222
+-> (define *load-options*
+  [0x10140] adrp x9, #0x10000                                mov-sva igpr-13, static-structure
+  [0x10144] add x9, x9, #0
+  [0x10148] sub x9, x9, x15
+  [0x1014C] adrp x16, #0x10000                               mov '*load-options*, igpr-13
+  [0x10150] add x16, x16, #0
+  [0x10154] str w9, [x16]
+
+progress-static.gc:233
+-> (define *save-options*
+  [0x10158] adrp x9, #0x10000                                mov-sva igpr-14, static-structure
+  [0x1015C] add x9, x9, #0
+  [0x10160] sub x9, x9, x15
+  [0x10164] adrp x16, #0x10000                               mov '*save-options*, igpr-14
+  [0x10168] add x16, x16, #0
+  [0x1016C] str w9, [x16]
+
+progress-static.gc:244
+-> (define *save-options-title*
+  [0x10170] adrp x9, #0x10000                                mov-sva igpr-15, static-structure
+  [0x10174] add x9, x9, #0
+  [0x10178] sub x9, x9, x15
+  [0x1017C] adrp x16, #0x10000                               mov '*save-options-title*, igpr-15
+  [0x10180] add x16, x16, #0
+  [0x10184] str w9, [x16]
+
+progress-static.gc:258
+-> (define *options-remap*
+  [0x10188] adrp x9, #0x10000                                mov-sva igpr-16, static-structure
+  [0x1018C] add x9, x9, #0
+  [0x10190] sub x9, x9, x15
+  [0x10194] adrp x16, #0x10000                               mov '*options-remap*, igpr-16
+  [0x10198] add x16, x16, #0
+  [0x1019C] str w9, [x16]
+
+progress-static.gc:283
+-> (define *level-task-data-remap*
+  [0x101A0] adrp x9, #0x10000                                mov-sva igpr-17, static-structure
+  [0x101A4] add x9, x9, #0
+  [0x101A8] sub x9, x9, x15
+  [0x101AC] adrp x16, #0x10000                               mov '*level-task-data-remap*, igpr-17
+  [0x101B0] add x16, x16, #0
+  [0x101B4] str w9, [x16]
+
+progress-static.gc:314
+-> (define *language-name-remap*
+  [0x101B8] adrp x9, #0x10000                                mov-sva igpr-18, static-structure
+  [0x101BC] add x9, x9, #0
+  [0x101C0] sub x9, x9, x15
+  [0x101C4] adrp x16, #0x10000                               mov '*language-name-remap*, igpr-18
+  [0x101C8] add x16, x16, #0
+  [0x101CC] str w9, [x16]
+
+progress-static.gc:327
+-> (define *level-task-data*
+  [0x101D0] adrp x9, #0x10000                                mov-sva igpr-19, static-structure
+  [0x101D4] add x9, x9, #0
+  [0x101D8] sub x9, x9, x15
+  [0x101DC] adrp x16, #0x10000                               mov '*level-task-data*, igpr-19
+  [0x101E0] add x16, x16, #0
+  [0x101E4] str w9, [x16]
+
+progress-static.gc:1402
+-> (define *task-egg-starting-x* (new 'static 'boxed-array :type int32 218 194 171 147 124 100 77 53 30))
+  [0x101E8] adrp x9, #0x10000                                mov-sva igpr-20, static-structure
+  [0x101EC] add x9, x9, #0
+  [0x101F0] sub x9, x9, x15
+  [0x101F4] adrp x16, #0x10000                               mov '*task-egg-starting-x*, igpr-20
+  [0x101F8] add x16, x16, #0
+  [0x101FC] str w9, [x16]
+
+progress-static.gc:1404
+-> (define *game-counts* (the-as game-count-info #f))
+  [0x10200] mov x0, x14                                      mov-symptr igpr-21, '#f
+  [0x10204] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10208] mov x0, x0                                       mov igpr-22, igpr-21
+  [0x1020C] adrp x16, #0x10000                               mov '*game-counts*, igpr-22
+  [0x10210] add x16, x16, #0
+  [0x10214] str w0, [x16]
+
+progress-static.gc:1
+-> ;-*-Lisp-*-
+  [0x10218] mov x0, x0                                       ret igpr-23 igpr-22
+  [0x1021C] ldp x29, x30, [sp], #0x10
+  [0x10220] ret
+
+
+

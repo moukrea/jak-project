@@ -1,0 +1,1182 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] adrp x9, #0x10000                                mov-fa igpr-0, function-add-fake-shadow-to-buffer
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+
+shadow.gc:12
+-> (defun add-fake-shadow-to-buffer ((arg0 vector) (arg1 vector) (arg2 float) (arg3 int))
+  [0x10014] adrp x16, #0x10000                               mov 'add-fake-shadow-to-buffer, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+  [0x10020] adrp x9, #0x10000                                mov-fa igpr-1, function-swap-fake-shadow-buffers
+  [0x10024] add x9, x9, #0
+  [0x10028] sub x9, x9, x15
+
+shadow.gc:28
+-> (defun swap-fake-shadow-buffers ()
+  [0x1002C] adrp x16, #0x10000                               mov 'swap-fake-shadow-buffers, igpr-1
+  [0x10030] add x16, x16, #0
+  [0x10034] str w9, [x16]
+  [0x10038] adrp x9, #0x10000                                mov-fa igpr-2, function-draw-shadow
+  [0x1003C] add x9, x9, #0
+  [0x10040] sub x9, x9, x15
+
+shadow.gc:35
+-> (defun draw-shadow ((arg0 vector) (arg1 vector) (arg2 vector) (arg3 float) (arg4 float) (arg5 float))
+  [0x10044] adrp x16, #0x10000                               mov 'draw-shadow, igpr-2
+  [0x10048] add x16, x16, #0
+  [0x1004C] str w9, [x16]
+  [0x10050] adrp x9, #0x10000                                mov-fa igpr-3, function-compute-and-draw-shadow
+  [0x10054] add x9, x9, #0
+  [0x10058] sub x9, x9, x15
+
+shadow.gc:41
+-> (defun compute-and-draw-shadow ((arg0 vector) (arg1 vector) (arg2 vector) (arg3 vector) (arg4 float) (arg5 float))
+  [0x1005C] adrp x16, #0x10000                               mov 'compute-and-draw-shadow, igpr-3
+  [0x10060] add x16, x16, #0
+  [0x10064] str w9, [x16]
+  [0x10068] adrp x9, #0x10000                                mov-fa igpr-4, function-find-ground-and-draw-shadow
+  [0x1006C] add x9, x9, #0
+  [0x10070] sub x9, x9, x15
+
+shadow.gc:79
+-> (defun find-ground-and-draw-shadow ((arg0 vector) (arg1 vector) (arg2 float) (arg3 collide-kind) (arg4 process-drawable) (arg5 float) (arg6 float))
+  [0x10074] adrp x16, #0x10000                               mov 'find-ground-and-draw-shadow, igpr-4
+  [0x10078] add x16, x16, #0
+  [0x1007C] str w9, [x16]
+  [0x10080] adrp x9, #0x10000                                mov-fa igpr-5, function-do-target-shadow
+  [0x10084] add x9, x9, #0
+  [0x10088] sub x9, x9, x15
+
+shadow.gc:94
+-> (defbehavior do-target-shadow target ()
+  [0x1008C] adrp x16, #0x10000                               mov 'do-target-shadow, igpr-5
+  [0x10090] add x16, x16, #0
+  [0x10094] str w9, [x16]
+
+shadow.gc:111
+-> (defpart 362
+  [0x10098] adrp x0, #0x10000                                mov-sva igpr-6, static-structure
+  [0x1009C] add x0, x0, #0
+  [0x100A0] sub x0, x0, x15
+  [0x100A4] adrp x16, #0x10000                               mov igpr-7, '*part-id-table*
+  [0x100A8] add x16, x16, #0
+  [0x100AC] ldr w9, [x16]
+  [0x100B0] add x16, x9, x15                                 move [igpr-7 + 1460], igpr-6
+  [0x100B4] str w0, [x16, #0x5b4] ;; misaligned with debug data
+
+shadow.gc:1
+-> ;-*-Lisp-*-
+  [0x100B8] mov x0, x0                                       ret igpr-8 igpr-6
+  [0x100BC] ldp x29, x30, [sp], #0x10
+  [0x100C0] ret
+
+
+[do-target-shadow]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+shadow.gc:95
+->   (if (and (logtest? (-> self control status) (cshape-moving-flags onsurf))
+  [0x1000C] add x16, x13, x15                                mov igpr-5, [igpr-0 + 108]
+  [0x10010] ldr w9, [x16, #0x6c] ;; misaligned with debug data
+  [0x10014] add x16, x9, x15                                 mov igpr-4, [igpr-5 + 268]
+  [0x10018] add x16, x16, #0x10c ;; misaligned with debug data
+  [0x1001C] ldr x9, [x16] ;; misaligned with debug data
+  [0x10020] movz x8, #0x1                                    mov-ic igpr-6, 1
+  [0x10024] mov x9, x9                                       mov igpr-7, igpr-4
+  [0x10028] and x9, x9, x8                                   and igpr-7, igpr-6
+  [0x1002C] movz x8, #0                                      mov-ic igpr-8, 0
+  [0x10030] mov x1, x14                                      mov-symptr igpr-9, '#f
+  [0x10034] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10038] cmp x9, x8                                       j(igpr-7 == igpr-8) label-11
+  [0x1003C] b.eq #0x1004c
+  [0x10040] add x1, x14, #8                                  mov-symptr igpr-10, '#t
+  [0x10044] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10048] mov x1, x1                                       mov igpr-9, igpr-10
+  [0x1004C] mov x9, x1                                       mov igpr-3, igpr-9
+  [0x10050] mov x8, x14                                      mov-symptr igpr-11, '#f
+  [0x10054] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10058] cmp x9, x8                                       j(igpr-3 == igpr-11) label-57
+  [0x1005C] b.eq #0x10188
+
+shadow.gc:96
+->            (!= (-> self control unknown-surface00 mode) 'swim)
+  [0x10060] add x16, x13, x15                                mov igpr-14, [igpr-0 + 108]
+  [0x10064] ldr w9, [x16, #0x6c] ;; misaligned with debug data
+  [0x10068] add x16, x9, x15                                 mov igpr-13, [igpr-14 + 656]
+  [0x1006C] ldr w9, [x16, #0x290] ;; misaligned with debug data
+  [0x10070] add x16, x9, x15                                 mov igpr-12, [igpr-13 + 140]
+  [0x10074] ldr w9, [x16, #0x8c] ;; misaligned with debug data
+  [0x10078] adrp x8, #0x10000                                mov-symptr igpr-15, 'swim
+  [0x1007C] add x8, x8, #0
+  [0x10080] mov x1, x14                                      mov-symptr igpr-16, '#f
+  [0x10084] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10088] cmp x9, x8                                       j(igpr-12 == igpr-15) label-22
+  [0x1008C] b.eq #0x1009c
+  [0x10090] add x1, x14, #8                                  mov-symptr igpr-17, '#t
+  [0x10094] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10098] mov x1, x1                                       mov igpr-16, igpr-17
+  [0x1009C] mov x9, x1                                       mov igpr-3, igpr-16
+  [0x100A0] mov x8, x14                                      mov-symptr igpr-18, '#f
+  [0x100A4] sub x8, x8, x15 ;; misaligned with debug data
+  [0x100A8] cmp x9, x8                                       j(igpr-3 == igpr-18) label-57
+  [0x100AC] b.eq #0x10188
+
+shadow.gc:97
+->            (!= (-> self control unknown-surface00 mode) 'dive)
+  [0x100B0] add x16, x13, x15                                mov igpr-21, [igpr-0 + 108]
+  [0x100B4] ldr w9, [x16, #0x6c] ;; misaligned with debug data
+  [0x100B8] add x16, x9, x15                                 mov igpr-20, [igpr-21 + 656]
+  [0x100BC] ldr w9, [x16, #0x290] ;; misaligned with debug data
+  [0x100C0] add x16, x9, x15                                 mov igpr-19, [igpr-20 + 140]
+  [0x100C4] ldr w9, [x16, #0x8c] ;; misaligned with debug data
+  [0x100C8] adrp x8, #0x10000                                mov-symptr igpr-22, 'dive
+  [0x100CC] add x8, x8, #0
+  [0x100D0] mov x1, x14                                      mov-symptr igpr-23, '#f
+  [0x100D4] sub x1, x1, x15 ;; misaligned with debug data
+  [0x100D8] cmp x9, x8                                       j(igpr-19 == igpr-22) label-33
+  [0x100DC] b.eq #0x100ec
+  [0x100E0] add x1, x14, #8                                  mov-symptr igpr-24, '#t
+  [0x100E4] sub x1, x1, x15 ;; misaligned with debug data
+  [0x100E8] mov x1, x1                                       mov igpr-23, igpr-24
+  [0x100EC] mov x9, x1                                       mov igpr-3, igpr-23
+  [0x100F0] mov x8, x14                                      mov-symptr igpr-25, '#f
+  [0x100F4] sub x8, x8, x15 ;; misaligned with debug data
+  [0x100F8] cmp x9, x8                                       j(igpr-3 == igpr-25) label-57
+  [0x100FC] b.eq #0x10188
+
+shadow.gc:98
+->            (!= (-> self next-state name) 'target-flop)
+  [0x10100] add x16, x13, x15                                mov igpr-27, [igpr-0 + 72]
+  [0x10104] ldr w9, [x16, #0x48] ;; misaligned with debug data
+  [0x10108] add x16, x9, x15                                 mov igpr-26, [igpr-27 + 0]
+  [0x1010C] ldr w9, [x16] ;; misaligned with debug data
+  [0x10110] adrp x8, #0x10000                                mov-symptr igpr-28, 'target-flop
+  [0x10114] add x8, x8, #0
+  [0x10118] mov x1, x14                                      mov-symptr igpr-29, '#f
+  [0x1011C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10120] cmp x9, x8                                       j(igpr-26 == igpr-28) label-43
+  [0x10124] b.eq #0x10134
+  [0x10128] add x1, x14, #8                                  mov-symptr igpr-30, '#t
+  [0x1012C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10130] mov x1, x1                                       mov igpr-29, igpr-30
+  [0x10134] mov x9, x1                                       mov igpr-3, igpr-29
+  [0x10138] mov x8, x14                                      mov-symptr igpr-31, '#f
+  [0x1013C] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10140] cmp x9, x8                                       j(igpr-3 == igpr-31) label-57
+  [0x10144] b.eq #0x10188
+
+shadow.gc:95
+->   (if (and (logtest? (-> self control status) (cshape-moving-flags onsurf))
+  [0x10148] add x16, x13, x15                                mov igpr-33, [igpr-0 + 116]
+  [0x1014C] ldr w9, [x16, #0x74] ;; misaligned with debug data
+  [0x10150] add x16, x9, x15                                 mov igpr-32, [igpr-33 + 0]
+  [0x10154] ldrb w9, [x16] ;; misaligned with debug data
+  [0x10158] movz x8, #0x26                                   mov-ic igpr-34, 38
+  [0x1015C] mov x9, x9                                       mov igpr-35, igpr-32
+  [0x10160] and x9, x9, x8                                   and igpr-35, igpr-34
+
+shadow.gc:99
+->            (not (logtest? (-> self draw status) (draw-status hidden no-anim skip-bones))))
+  [0x10164] movz x8, #0                                      mov-ic igpr-36, 0
+
+shadow.gc:99
+->            (not (logtest? (-> self draw status) (draw-status hidden no-anim skip-bones))))
+  [0x10168] mov x1, x14                                      mov-symptr igpr-37, '#f
+  [0x1016C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10170] cmp x9, x8                                       j(igpr-35 != igpr-36) label-56
+  [0x10174] b.ne #0x10184
+  [0x10178] add x1, x14, #8                                  mov-symptr igpr-38, '#t
+  [0x1017C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10180] mov x1, x1                                       mov igpr-37, igpr-38
+  [0x10184] mov x9, x1                                       mov igpr-3, igpr-37
+
+shadow.gc:95
+->   (if (and (logtest? (-> self control status) (cshape-moving-flags onsurf))
+  [0x10188] mov x8, x14                                      mov-symptr igpr-39, '#f
+  [0x1018C] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10190] cmp x9, x8                                       j(igpr-3 == igpr-39) label-66
+  [0x10194] b.eq #0x101c8
+
+shadow.gc:100
+->     (set! (-> self control shadow-pos quad) (-> self control trans quad))
+  [0x10198] add x16, x13, x15                                mov igpr-41, [igpr-0 + 108]
+  [0x1019C] ldr w9, [x16, #0x6c] ;; misaligned with debug data
+  [0x101A0] add x16, x9, x15                                 mov ii128-40, [igpr-41 + 12]
+  [0x101A4] ldur q23, [x16, #0xc] ;; misaligned with debug data
+  [0x101A8] mov v23.16b, v23.16b                             mov ii128-42, ii128-40
+  [0x101AC] add x16, x13, x15                                mov igpr-43, [igpr-0 + 108]
+  [0x101B0] ldr w9, [x16, #0x6c] ;; misaligned with debug data
+  [0x101B4] add x16, x9, x15                                 move [igpr-43 + 396], ii128-42
+  [0x101B8] add x16, x16, #0x18c ;; misaligned with debug data
+  [0x101BC] str q23, [x16] ;; misaligned with debug data
+
+shadow.gc:95
+->   (if (and (logtest? (-> self control status) (cshape-moving-flags onsurf))
+  [0x101C0] fmov x9, d23                                     mov igpr-2, ii128-42
+  [0x101C4] b #0x1027c                                       goto label-91
+
+shadow.gc:101
+->     (find-ground-and-draw-shadow (-> self control trans)
+  [0x101C8] adrp x16, #0x10000                               mov igpr-44, 'find-ground-and-draw-shadow
+  [0x101CC] add x16, x16, #0
+  [0x101D0] ldr w9, [x16]
+
+shadow.gc:101
+->     (find-ground-and-draw-shadow (-> self control trans)
+  [0x101D4] movz x7, #0xc                                    mov-ic igpr-45, 12
+  [0x101D8] add x16, x13, x15                                mov igpr-46, [igpr-0 + 108]
+  [0x101DC] ldr w8, [x16, #0x6c] ;; misaligned with debug data
+  [0x101E0] add x7, x7, x8                                   addi igpr-45, igpr-46
+
+shadow.gc:102
+->                                  (-> self control shadow-pos)
+  [0x101E4] movz x6, #0x18c                                  mov-ic igpr-47, 396
+  [0x101E8] add x16, x13, x15                                mov igpr-48, [igpr-0 + 108]
+  [0x101EC] ldr w8, [x16, #0x6c] ;; misaligned with debug data
+  [0x101F0] add x6, x6, x8                                   addi igpr-47, igpr-48
+
+shadow.gc:95
+->   (if (and (logtest? (-> self control status) (cshape-moving-flags onsurf))
+  [0x101F4] adrp x16, #0x10000                               mov-svl ifpr-49, [(sf 0)]
+  [0x101F8] ldr s23, [x16, #0xb70]
+
+shadow.gc:104
+->                                  (-> (the-as collide-shape-prim (-> self control root-prim)) collide-with)
+  [0x101FC] add x16, x13, x15                                mov igpr-52, [igpr-0 + 108]
+  [0x10200] ldr w8, [x16, #0x6c] ;; misaligned with debug data
+  [0x10204] add x16, x8, x15                                 mov igpr-51, [igpr-52 + 156]
+  [0x10208] ldr w8, [x16, #0x9c] ;; misaligned with debug data
+  [0x1020C] mov x8, x8                                       mov igpr-53, igpr-51
+  [0x10210] add x16, x8, x15                                 mov igpr-50, [igpr-53 + 60]
+  [0x10214] ldur x1, [x16, #0x3c] ;; misaligned with debug data
+
+shadow.gc:95
+->   (if (and (logtest? (-> self control status) (cshape-moving-flags onsurf))
+  [0x10218] adrp x16, #0x10000                               mov-svl ifpr-54, [(sf 0)]
+  [0x1021C] ldr s22, [x16, #0xb74]
+  [0x10220] adrp x16, #0x10000                               mov-svl ifpr-55, [(sf 81920)]
+  [0x10224] ldr s21, [x16, #0xb78]
+
+shadow.gc:101
+->     (find-ground-and-draw-shadow (-> self control trans)
+  [0x10228] mov x0, x9                                       mov igpr-64, igpr-44
+  [0x1022C] mov x7, x7                                       mov igpr-57, igpr-45
+  [0x10230] mov x6, x6                                       mov igpr-58, igpr-47
+  [0x10234] fmov w2, s23                                     mov igpr-59, ifpr-49
+  [0x10238] sxtw x2, w2
+  [0x1023C] mov x1, x1                                       mov igpr-60, igpr-50
+  [0x10240] mov x8, x13                                      mov igpr-61, igpr-0
+  [0x10244] fmov w9, s22                                     mov igpr-62, ifpr-54
+  [0x10248] sxtw x9, w9
+  [0x1024C] fmov w10, s21                                    mov igpr-63, ifpr-55
+  [0x10250] sxtw x10, w10
+  [0x10254] add x0, x0, x15                                  call igpr-64 (ret igpr-56) (args igpr-57 igpr-58 igpr-59 igpr-60 igpr-61 igpr-62 igpr-63)
+  [0x10258] stp x3, x5, [sp, #-0x10]!
+  [0x1025C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10260] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10264] blr x0 ;; misaligned with debug data
+  [0x10268] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1026C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10270] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10274] mov x3, x3                                       mov igpr-65, igpr-56
+
+shadow.gc:95
+->   (if (and (logtest? (-> self control status) (cshape-moving-flags onsurf))
+  [0x10278] mov x9, x3                                       mov igpr-2, igpr-65
+
+shadow.gc:94
+-> (defbehavior do-target-shadow target ()
+  [0x1027C] movz x9, #0                                      mov-ic igpr-66, 0
+  [0x10280] add sp, sp, #0x10
+  [0x10284] ldp x29, x30, [sp], #0x10
+  [0x10288] ret
+
+
+[compute-and-draw-shadow]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0xf0
+  [0x1000C] str q26, [sp, #0xd0]
+  [0x10010] str d24, [sp, #0xe0]
+  [0x10014] str d25, [sp, #0xe8]
+
+shadow.gc:41
+-> (defun compute-and-draw-shadow ((arg0 vector) (arg1 vector) (arg2 vector) (arg3 vector) (arg4 float) (arg5 float))
+  [0x10018] mov x11, x7                                      mov igpr-7, igpr-0
+  [0x1001C] mov x10, x6                                      mov igpr-8, igpr-1
+  [0x10020] mov x2, x2                                       mov igpr-9, igpr-2
+  [0x10024] mov x1, x1                                       mov igpr-10, igpr-3
+  [0x10028] mov x8, x8                                       mov igpr-11, igpr-4
+  [0x1002C] mov x9, x9                                       mov igpr-12, igpr-5
+
+shadow.gc:46
+->     (init-vf0-vector)
+  [0x10030] adrp x16, #0x10000                               mov-svl ivf-15, [static-structure]
+  [0x10034] ldr q26, [x16, #0xb40]
+
+shadow.gc:47
+->     (let ((sv-96 arg2)
+  [0x10038] mov x2, x2                                       mov igpr-18, igpr-9
+  [0x1003C] str x2, [sp, #0xb8]
+  [0x10040] mov x1, x1                                       mov igpr-19, igpr-10
+  [0x10044] str x1, [sp, #0xb0]
+  [0x10048] fmov s24, w8                                     mov ifpr-20, igpr-11
+  [0x1004C] fmov s25, w9                                     mov ifpr-21, igpr-12
+
+shadow.gc:51
+->       (when (< (- (-> arg0 y) (-> arg1 y)) s3-0)
+  [0x10050] add x16, x11, x15                                mov ifpr-24, [igpr-7 + 4]
+  [0x10054] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10058] mov v23.16b, v23.16b                             mov ifpr-23, ifpr-24
+  [0x1005C] add x16, x10, x15                                mov ifpr-25, [igpr-8 + 4]
+  [0x10060] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x10064] fsub s23, s23, s22                               subss ifpr-23, ifpr-25
+
+shadow.gc:51
+->       (when (< (- (-> arg0 y) (-> arg1 y)) s3-0)
+  [0x10068] fcmp s23, s24                                    j(ifpr-23 >= ifpr-20) label-91
+  [0x1006C] b.ge #0x102c0
+
+shadow.gc:52
+->         (let ((sv-144 (new 'stack-no-clear 'vector))
+  [0x10070] mov x3, sp                                       mov igpr-26, stack-slot-0
+  [0x10074] sub x3, x3, x15
+
+shadow.gc:53
+->               (s0-0 (new 'stack-no-clear 'vector))
+  [0x10078] add x5, sp, #0x10                                mov igpr-27, stack-slot-2
+  [0x1007C] sub x5, x5, x15
+
+shadow.gc:54
+->               (s1-0 (new 'stack-no-clear 'sparticle-cpuinfo)))
+  [0x10080] add x12, sp, #0x20                               mov igpr-28, stack-slot-4
+  [0x10084] sub x12, x12, x15
+
+shadow.gc:52
+->         (let ((sv-144 (new 'stack-no-clear 'vector))
+  [0x10088] mov x3, x3                                       mov igpr-29, igpr-26
+  [0x1008C] mov x5, x5                                       mov igpr-30, igpr-27
+  [0x10090] mov x12, x12                                     mov igpr-31, igpr-28
+
+shadow.gc:55
+->           (+! (-> arg1 y) 40.96)
+  [0x10094] add x16, x10, x15                                mov ifpr-33, [igpr-8 + 4]
+  [0x10098] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x1009C] mov v23.16b, v23.16b                             mov ifpr-32, ifpr-33
+  [0x100A0] adrp x16, #0x10000                               mov-svl ifpr-34, [(sf 40.96)]
+  [0x100A4] ldr s22, [x16, #0xb50]
+  [0x100A8] fadd s23, s23, s22                               addss ifpr-32, ifpr-34
+  [0x100AC] add x16, x10, x15                                move [igpr-8 + 4], ifpr-32
+  [0x100B0] str s23, [x16, #4] ;; misaligned with debug data
+
+shadow.gc:56
+->           (set! (-> sv-144 x) (-> sv-96 z))
+  [0x100B4] ldr x9, [sp, #0xb8]                              mov ifpr-35, [igpr-18 + 8]
+  [0x100B8] add x16, x9, x15
+  [0x100BC] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x100C0] add x16, x3, x15                                 move [igpr-29 + 0], ifpr-35
+  [0x100C4] str s23, [x16] ;; misaligned with debug data
+
+shadow.gc:57
+->           (set! (-> sv-144 y) 0.0)
+  [0x100C8] adrp x16, #0x10000                               mov-svl ifpr-36, [(sf 0)]
+  [0x100CC] ldr s23, [x16, #0xb54]
+  [0x100D0] add x16, x3, x15                                 move [igpr-29 + 4], ifpr-36
+  [0x100D4] str s23, [x16, #4] ;; misaligned with debug data
+
+shadow.gc:58
+->           (set! (-> sv-144 z) (- (-> sv-96 x)))
+  [0x100D8] adrp x16, #0x10000                               mov-svl ifpr-37, [(sf 0)]
+  [0x100DC] ldr s23, [x16, #0xb58]
+  [0x100E0] ldr x9, [sp, #0xb8]                              mov ifpr-38, [igpr-18 + 0]
+  [0x100E4] add x16, x9, x15
+  [0x100E8] ldr s22, [x16] ;; misaligned with debug data
+  [0x100EC] fsub s23, s23, s22                               subss ifpr-37, ifpr-38
+
+shadow.gc:58
+->           (set! (-> sv-144 z) (- (-> sv-96 x)))
+  [0x100F0] add x16, x3, x15                                 move [igpr-29 + 8], ifpr-37
+  [0x100F4] str s23, [x16, #8] ;; misaligned with debug data
+
+shadow.gc:59
+->           (vector-normalize! sv-144 1.0)
+  [0x100F8] adrp x16, #0x10000                               mov igpr-39, 'vector-normalize!
+  [0x100FC] add x16, x16, #0
+  [0x10100] ldr w9, [x16]
+
+shadow.gc:52
+->         (let ((sv-144 (new 'stack-no-clear 'vector))
+  [0x10104] adrp x16, #0x10000                               mov-svl ifpr-40, [(sf 1)]
+  [0x10108] ldr s23, [x16, #0xb5c]
+
+shadow.gc:59
+->           (vector-normalize! sv-144 1.0)
+  [0x1010C] mov x9, x9                                       mov igpr-44, igpr-39
+  [0x10110] mov x7, x3                                       mov igpr-42, igpr-29
+  [0x10114] fmov w6, s23                                     mov igpr-43, ifpr-40
+  [0x10118] sxtw x6, w6
+  [0x1011C] add x9, x9, x15                                  call igpr-44 (ret igpr-41) (args igpr-42 igpr-43)
+  [0x10120] stp x3, x5, [sp, #-0x10]!
+  [0x10124] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10128] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1012C] blr x9 ;; misaligned with debug data
+  [0x10130] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10134] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10138] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1013C] mov x0, x0                                       mov igpr-45, igpr-41
+
+shadow.gc:60
+->           (quaternion-vector-angle! (the-as quaternion s0-0) sv-144 (acos (-> sv-96 y)))
+  [0x10140] adrp x16, #0x10000                               mov igpr-46, 'quaternion-vector-angle!
+  [0x10144] add x16, x16, #0
+  [0x10148] ldr w9, [x16]
+  [0x1014C] str x9, [sp, #0xc0]
+
+shadow.gc:60
+->           (quaternion-vector-angle! (the-as quaternion s0-0) sv-144 (acos (-> sv-96 y)))
+  [0x10150] mov x9, x5                                       mov igpr-47, igpr-30
+  [0x10154] str x9, [sp, #0xc8]
+
+shadow.gc:60
+->           (quaternion-vector-angle! (the-as quaternion s0-0) sv-144 (acos (-> sv-96 y)))
+  [0x10158] adrp x16, #0x10000                               mov igpr-48, 'acos
+  [0x1015C] add x16, x16, #0
+  [0x10160] ldr w8, [x16]
+
+shadow.gc:60
+->           (quaternion-vector-angle! (the-as quaternion s0-0) sv-144 (acos (-> sv-96 y)))
+  [0x10164] ldr x9, [sp, #0xb8]                              mov ifpr-49, [igpr-18 + 4]
+  [0x10168] add x16, x9, x15
+  [0x1016C] ldr s23, [x16, #4] ;; misaligned with debug data
+
+shadow.gc:60
+->           (quaternion-vector-angle! (the-as quaternion s0-0) sv-144 (acos (-> sv-96 y)))
+  [0x10170] mov x8, x8                                       mov igpr-52, igpr-48
+  [0x10174] fmov w7, s23                                     mov igpr-51, ifpr-49
+  [0x10178] sxtw x7, w7
+  [0x1017C] add x8, x8, x15                                  call igpr-52 (ret igpr-50) (args igpr-51)
+  [0x10180] stp x3, x5, [sp, #-0x10]!
+  [0x10184] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10188] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1018C] blr x8 ;; misaligned with debug data
+  [0x10190] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10194] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10198] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1019C] mov x0, x0                                       mov igpr-53, igpr-50
+
+shadow.gc:60
+->           (quaternion-vector-angle! (the-as quaternion s0-0) sv-144 (acos (-> sv-96 y)))
+  [0x101A0] ldr x9, [sp, #0xc0]                              mov igpr-58, igpr-46
+  [0x101A4] mov x8, x9
+  [0x101A8] ldr x7, [sp, #0xc8]                              mov igpr-55, igpr-47
+  [0x101AC] mov x7, x7
+  [0x101B0] mov x6, x3                                       mov igpr-56, igpr-29
+  [0x101B4] mov x2, x0                                       mov igpr-57, igpr-53
+  [0x101B8] add x8, x8, x15                                  call igpr-58 (ret igpr-54) (args igpr-55 igpr-56 igpr-57)
+  [0x101BC] stp x3, x5, [sp, #-0x10]!
+  [0x101C0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C8] blr x8 ;; misaligned with debug data
+  [0x101CC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101D0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101D4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101D8] mov x0, x0                                       mov igpr-59, igpr-54
+
+shadow.gc:61
+->           (let ((v1-9 s1-0))
+  [0x101DC] mov x9, x12                                      mov igpr-60, igpr-31
+
+shadow.gc:63
+->               ((< (-> s0-0 w) 0.0)
+  [0x101E0] add x16, x5, x15                                 mov ifpr-62, [igpr-30 + 12]
+  [0x101E4] ldr s23, [x16, #0xc] ;; misaligned with debug data
+  [0x101E8] adrp x16, #0x10000                               mov-svl ifpr-63, [(sf 0)]
+  [0x101EC] ldr s22, [x16, #0xb60]
+  [0x101F0] fcmp s23, s22                                    j(ifpr-62 >= ifpr-63) label-68
+  [0x101F4] b.ge #0x10228
+
+shadow.gc:64
+->                (.lvf vf1 (&-> v1-9 vel-sxvel quad))
+  [0x101F8] add x16, x9, x15                                 mov ivf-16, [igpr-60 + 16]
+  [0x101FC] ldr q23, [x16, #0x10] ;; misaligned with debug data
+
+shadow.gc:65
+->                (.lvf vf2 (&-> s0-0 quad))
+  [0x10200] add x16, x5, x15                                 mov ivf-17, [igpr-30 + 0]
+  [0x10204] ldr q22, [x16] ;; misaligned with debug data
+
+shadow.gc:66
+->                (.sub.vf.xyz vf1 vf0 vf2)
+  [0x10208] fsub v22.4s, v26.4s, v22.4s                      .sub.vf ivf-64, ivf-15, ivf-17
+  [0x1020C] ins v23.s[0], v22.s[0]                           .blend.vf ivf-16, ivf-16, ivf-64, 7
+  [0x10210] ins v23.s[1], v22.s[1] ;; misaligned with debug data
+  [0x10214] ins v23.s[2], v22.s[2] ;; misaligned with debug data
+
+shadow.gc:67
+->                (.svf (&-> v1-9 vel-sxvel quad) vf1)
+  [0x10218] add x16, x9, x15                                 move [igpr-60 + 16], ivf-16
+  [0x1021C] str q23, [x16, #0x10] ;; misaligned with debug data
+
+shadow.gc:68
+->                (.mov v1-10 vf1))
+  [0x10220] mov v23.16b, v23.16b                             .mov ifpr-13 ivf-16
+
+shadow.gc:63
+->               ((< (-> s0-0 w) 0.0)
+  [0x10224] b #0x10254                                       goto label-74
+
+shadow.gc:70
+->                (.lvf vf1 (&-> v1-9 vel-sxvel quad))
+  [0x10228] add x16, x9, x15                                 mov ivf-16, [igpr-60 + 16]
+  [0x1022C] ldr q23, [x16, #0x10] ;; misaligned with debug data
+
+shadow.gc:71
+->                (.lvf vf2 (&-> s0-0 quad))
+  [0x10230] add x16, x5, x15                                 mov ivf-17, [igpr-30 + 0]
+  [0x10234] ldr q22, [x16] ;; misaligned with debug data
+
+shadow.gc:72
+->                (.add.vf.xyz vf1 vf0 vf2)
+  [0x10238] fadd v22.4s, v26.4s, v22.4s                      .add.vf ivf-65, ivf-15, ivf-17
+  [0x1023C] ins v23.s[0], v22.s[0]                           .blend.vf ivf-16, ivf-16, ivf-65, 7
+  [0x10240] ins v23.s[1], v22.s[1] ;; misaligned with debug data
+  [0x10244] ins v23.s[2], v22.s[2] ;; misaligned with debug data
+
+shadow.gc:73
+->                (.svf (&-> v1-9 vel-sxvel quad) vf1)
+  [0x10248] add x16, x9, x15                                 move [igpr-60 + 16], ivf-16
+  [0x1024C] str q23, [x16, #0x10] ;; misaligned with debug data
+
+shadow.gc:74
+->                (.mov v1-11 vf1))))
+  [0x10250] mov v23.16b, v23.16b                             .mov ifpr-14 ivf-16
+
+shadow.gc:75
+->           (draw-shadow arg0 arg1 (-> s1-0 vel-sxvel) (the-as float s4-0) s3-0 s2-0))))
+  [0x10254] adrp x16, #0x10000                               mov igpr-66, 'draw-shadow
+  [0x10258] add x16, x16, #0
+  [0x1025C] ldr w8, [x16]
+
+shadow.gc:75
+->           (draw-shadow arg0 arg1 (-> s1-0 vel-sxvel) (the-as float s4-0) s3-0 s2-0))))
+  [0x10260] movz x2, #0x10                                   mov-ic igpr-67, 16
+  [0x10264] add x2, x2, x12                                  addi igpr-67, igpr-31
+
+shadow.gc:75
+->           (draw-shadow arg0 arg1 (-> s1-0 vel-sxvel) (the-as float s4-0) s3-0 s2-0))))
+  [0x10268] ldr x9, [sp, #0xb0]                              mov igpr-68, igpr-19
+  [0x1026C] mov x1, x9
+
+shadow.gc:75
+->           (draw-shadow arg0 arg1 (-> s1-0 vel-sxvel) (the-as float s4-0) s3-0 s2-0))))
+  [0x10270] mov x0, x8                                       mov igpr-76, igpr-66
+  [0x10274] mov x7, x11                                      mov igpr-70, igpr-7
+  [0x10278] mov x6, x10                                      mov igpr-71, igpr-8
+  [0x1027C] mov x2, x2                                       mov igpr-72, igpr-67
+  [0x10280] mov x1, x1                                       mov igpr-73, igpr-68
+  [0x10284] fmov w8, s24                                     mov igpr-74, ifpr-20
+  [0x10288] sxtw x8, w8
+  [0x1028C] fmov w9, s25                                     mov igpr-75, ifpr-21
+  [0x10290] sxtw x9, w9
+  [0x10294] add x0, x0, x15                                  call igpr-76 (ret igpr-69) (args igpr-70 igpr-71 igpr-72 igpr-73 igpr-74 igpr-75)
+  [0x10298] stp x3, x5, [sp, #-0x10]!
+  [0x1029C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102A0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102A4] blr x0 ;; misaligned with debug data
+  [0x102A8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x102AC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x102B0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x102B4] mov x3, x3                                       mov igpr-77, igpr-69
+
+shadow.gc:51
+->       (when (< (- (-> arg0 y) (-> arg1 y)) s3-0)
+  [0x102B8] mov x3, x3                                       mov igpr-22, igpr-77
+  [0x102BC] b #0x102c8                                       goto label-92
+  [0x102C0] mov x3, x14                                      mov-symptr igpr-22, '#f
+  [0x102C4] sub x3, x3, x15 ;; misaligned with debug data
+
+shadow.gc:41
+-> (defun compute-and-draw-shadow ((arg0 vector) (arg1 vector) (arg2 vector) (arg3 vector) (arg4 float) (arg5 float))
+  [0x102C8] movz x9, #0                                      mov-ic igpr-78, 0
+  [0x102CC] ldr q26, [sp, #0xd0]
+  [0x102D0] ldr d24, [sp, #0xe0]
+  [0x102D4] ldr d25, [sp, #0xe8]
+  [0x102D8] add sp, sp, #0xf0
+  [0x102DC] ldp x29, x30, [sp], #0x10
+  [0x102E0] ret
+
+
+[draw-shadow]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+shadow.gc:35
+-> (defun draw-shadow ((arg0 vector) (arg1 vector) (arg2 vector) (arg3 float) (arg4 float) (arg5 float))
+  [0x1000C] mov x7, x7                                       mov igpr-7, igpr-0
+  [0x10010] mov x6, x6                                       mov igpr-8, igpr-1
+  [0x10014] mov x2, x2                                       mov igpr-9, igpr-2
+  [0x10018] mov x1, x1                                       mov igpr-10, igpr-3
+  [0x1001C] mov x8, x8                                       mov igpr-11, igpr-4
+  [0x10020] mov x9, x9                                       mov igpr-12, igpr-5
+
+shadow.gc:36
+->   (let ((f0-1 (- (-> arg0 y) (-> arg1 y))))
+  [0x10024] add x16, x7, x15                                 mov ifpr-14, [igpr-7 + 4]
+  [0x10028] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x1002C] mov v23.16b, v23.16b                             mov ifpr-13, ifpr-14
+  [0x10030] add x16, x6, x15                                 mov ifpr-15, [igpr-8 + 4]
+  [0x10034] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x10038] fsub s23, s23, s22                               subss ifpr-13, ifpr-15
+
+shadow.gc:36
+->   (let ((f0-1 (- (-> arg0 y) (-> arg1 y))))
+  [0x1003C] mov v23.16b, v23.16b                             mov ifpr-16, ifpr-13
+
+shadow.gc:37
+->     (if (< f0-1 arg4) (add-fake-shadow-to-buffer arg1 arg2 (* (- 1.0 (/ f0-1 arg4)) arg3) (the-as int arg5))))
+  [0x10040] fmov s22, w8                                     mov ifpr-18, igpr-11
+  [0x10044] fcmp s23, s22                                    j(ifpr-16 >= ifpr-18) label-46
+  [0x10048] b.ge #0x10110
+
+shadow.gc:37
+->     (if (< f0-1 arg4) (add-fake-shadow-to-buffer arg1 arg2 (* (- 1.0 (/ f0-1 arg4)) arg3) (the-as int arg5))))
+  [0x1004C] adrp x16, #0x10000                               mov igpr-19, 'add-fake-shadow-to-buffer
+  [0x10050] add x16, x16, #0
+  [0x10054] ldr w7, [x16]
+
+shadow.gc:37
+->     (if (< f0-1 arg4) (add-fake-shadow-to-buffer arg1 arg2 (* (- 1.0 (/ f0-1 arg4)) arg3) (the-as int arg5))))
+  [0x10058] adrp x16, #0x10000                               mov-svl ifpr-21, [(sf 1)]
+  [0x1005C] ldr s22, [x16, #0xb30]
+  [0x10060] mov v22.16b, v22.16b                             mov ifpr-20, ifpr-21
+
+shadow.gc:37
+->     (if (< f0-1 arg4) (add-fake-shadow-to-buffer arg1 arg2 (* (- 1.0 (/ f0-1 arg4)) arg3) (the-as int arg5))))
+  [0x10064] fmov s21, w8                                     mov ifpr-22, igpr-11
+  [0x10068] adrp x16, #0x10000                               mov-svl ifpr-24, [(sf 0)]
+  [0x1006C] ldr s20, [x16, #0xb34]
+  [0x10070] fcmp s20, s21                                    j(ifpr-24 == ifpr-22) label-23
+  [0x10074] b.eq #0x10084
+  [0x10078] mov v23.16b, v23.16b                             mov ifpr-23, ifpr-16
+  [0x1007C] fdiv s23, s23, s21                               divss ifpr-23, ifpr-22
+  [0x10080] b #0x100b8                                       goto label-32
+  [0x10084] movz x8, #0xffff                                 mov-ic igpr-25, 2139095039
+  [0x10088] movk x8, #0x7f7f, lsl #16
+  [0x1008C] movz x0, #0                                      mov-ic igpr-26, 2147483648
+  [0x10090] movk x0, #0x8000, lsl #16
+  [0x10094] fmov w3, s23                                     mov igpr-27, ifpr-16
+  [0x10098] sxtw x3, w3
+  [0x1009C] and x3, x3, x0                                   and igpr-27, igpr-26
+  [0x100A0] eor x8, x8, x3                                   xor igpr-25, igpr-27
+  [0x100A4] fmov w3, s21                                     mov igpr-27, ifpr-22
+  [0x100A8] sxtw x3, w3
+  [0x100AC] and x3, x3, x0                                   and igpr-27, igpr-26
+  [0x100B0] eor x8, x8, x3                                   xor igpr-25, igpr-27
+  [0x100B4] fmov s23, w8                                     mov ifpr-23, igpr-25
+
+shadow.gc:37
+->     (if (< f0-1 arg4) (add-fake-shadow-to-buffer arg1 arg2 (* (- 1.0 (/ f0-1 arg4)) arg3) (the-as int arg5))))
+  [0x100B8] fsub s22, s22, s23                               subss ifpr-20, ifpr-23
+
+shadow.gc:37
+->     (if (< f0-1 arg4) (add-fake-shadow-to-buffer arg1 arg2 (* (- 1.0 (/ f0-1 arg4)) arg3) (the-as int arg5))))
+  [0x100BC] mov v22.16b, v22.16b                             mov ifpr-28, ifpr-20
+  [0x100C0] fmov s23, w1                                     mov ifpr-29, igpr-10
+  [0x100C4] fmul s22, s22, s23                               mulss ifpr-28, ifpr-29
+
+shadow.gc:37
+->     (if (< f0-1 arg4) (add-fake-shadow-to-buffer arg1 arg2 (* (- 1.0 (/ f0-1 arg4)) arg3) (the-as int arg5))))
+  [0x100C8] mov x9, x9                                       mov igpr-30, igpr-12
+
+shadow.gc:37
+->     (if (< f0-1 arg4) (add-fake-shadow-to-buffer arg1 arg2 (* (- 1.0 (/ f0-1 arg4)) arg3) (the-as int arg5))))
+  [0x100CC] mov x8, x7                                       mov igpr-36, igpr-19
+  [0x100D0] mov x7, x6                                       mov igpr-32, igpr-8
+  [0x100D4] mov x6, x2                                       mov igpr-33, igpr-9
+  [0x100D8] fmov w2, s22                                     mov igpr-34, ifpr-28
+  [0x100DC] sxtw x2, w2
+  [0x100E0] mov x1, x9                                       mov igpr-35, igpr-30
+  [0x100E4] add x8, x8, x15                                  call igpr-36 (ret igpr-31) (args igpr-32 igpr-33 igpr-34 igpr-35)
+  [0x100E8] stp x3, x5, [sp, #-0x10]!
+  [0x100EC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F4] blr x8 ;; misaligned with debug data
+  [0x100F8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100FC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10100] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10104] mov x3, x3                                       mov igpr-37, igpr-31
+
+shadow.gc:37
+->     (if (< f0-1 arg4) (add-fake-shadow-to-buffer arg1 arg2 (* (- 1.0 (/ f0-1 arg4)) arg3) (the-as int arg5))))
+  [0x10108] mov x3, x3                                       mov igpr-17, igpr-37
+  [0x1010C] b #0x10118                                       goto label-47
+  [0x10110] mov x3, x14                                      mov-symptr igpr-17, '#f
+  [0x10114] sub x3, x3, x15 ;; misaligned with debug data
+
+shadow.gc:35
+-> (defun draw-shadow ((arg0 vector) (arg1 vector) (arg2 vector) (arg3 float) (arg4 float) (arg5 float))
+  [0x10118] movz x9, #0                                      mov-ic igpr-38, 0
+  [0x1011C] add sp, sp, #0x10
+  [0x10120] ldp x29, x30, [sp], #0x10
+  [0x10124] ret
+
+
+[swap-fake-shadow-buffers]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+shadow.gc:30
+->         (if (= *fake-shadow-buffer* *fake-shadow-buffer-1*) *fake-shadow-buffer-2* *fake-shadow-buffer-1*))
+  [0x10008] adrp x16, #0x10000                               mov igpr-2, '*fake-shadow-buffer*
+  [0x1000C] add x16, x16, #0
+  [0x10010] ldr w9, [x16]
+  [0x10014] adrp x16, #0x10000                               mov igpr-3, '*fake-shadow-buffer-1*
+  [0x10018] add x16, x16, #0
+  [0x1001C] ldr w8, [x16]
+  [0x10020] cmp x9, x8                                       j(igpr-2 != igpr-3) label-7
+  [0x10024] b.ne #0x1003c
+
+shadow.gc:30
+->         (if (= *fake-shadow-buffer* *fake-shadow-buffer-1*) *fake-shadow-buffer-2* *fake-shadow-buffer-1*))
+  [0x10028] adrp x16, #0x10000                               mov igpr-4, '*fake-shadow-buffer-2*
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w9, [x16]
+  [0x10034] mov x9, x9                                       mov igpr-1, igpr-4
+  [0x10038] b #0x1004c                                       goto label-9
+  [0x1003C] adrp x16, #0x10000                               mov igpr-5, '*fake-shadow-buffer-1*
+  [0x10040] add x16, x16, #0
+  [0x10044] ldr w9, [x16]
+  [0x10048] mov x9, x9                                       mov igpr-1, igpr-5
+
+shadow.gc:29
+->   (set! *fake-shadow-buffer*
+  [0x1004C] adrp x16, #0x10000                               mov '*fake-shadow-buffer*, igpr-1
+  [0x10050] add x16, x16, #0
+  [0x10054] str w9, [x16]
+
+shadow.gc:31
+->   (set! (-> *fake-shadow-buffer* num-shadows) 0)
+  [0x10058] movz x9, #0                                      mov-ic igpr-6, 0
+  [0x1005C] adrp x16, #0x10000                               mov igpr-7, '*fake-shadow-buffer*
+  [0x10060] add x16, x16, #0
+  [0x10064] ldr w8, [x16]
+  [0x10068] add x16, x8, x15                                 move [igpr-7 + 0], igpr-6
+  [0x1006C] str w9, [x16] ;; misaligned with debug data
+
+shadow.gc:28
+-> (defun swap-fake-shadow-buffers ()
+  [0x10070] movz x9, #0                                      mov-ic igpr-8, 0
+  [0x10074] ldp x29, x30, [sp], #0x10
+  [0x10078] ret
+
+
+[find-ground-and-draw-shadow]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0xa0
+
+shadow.gc:79
+-> (defun find-ground-and-draw-shadow ((arg0 vector) (arg1 vector) (arg2 float) (arg3 collide-kind) (arg4 process-drawable) (arg5 float) (arg6 float))
+  [0x1000C] mov x7, x7                                       mov igpr-8, igpr-0
+  [0x10010] str x7, [sp, #0x98]
+  [0x10014] mov x12, x6                                      mov igpr-9, igpr-1
+  [0x10018] mov x2, x2                                       mov igpr-10, igpr-2
+  [0x1001C] str x2, [sp, #0x80]
+  [0x10020] mov x1, x1                                       mov igpr-11, igpr-3
+  [0x10024] mov x8, x8                                       mov igpr-12, igpr-4
+  [0x10028] mov x2, x9                                       mov igpr-13, igpr-5
+  [0x1002C] mov x11, x10                                     mov igpr-14, igpr-6
+
+shadow.gc:80
+->   (let ((s2-0 (new 'stack-no-clear 'vector)))
+  [0x10030] mov x3, sp                                       mov igpr-15, stack-slot-0
+  [0x10034] sub x3, x3, x15
+
+shadow.gc:80
+->   (let ((s2-0 (new 'stack-no-clear 'vector)))
+  [0x10038] mov x3, x3                                       mov igpr-16, igpr-15
+  [0x1003C] str x3, [sp, #0x88]
+
+shadow.gc:81
+->     (set! (-> s2-0 quad) (-> arg0 quad))
+  [0x10040] ldr x9, [sp, #0x98]                              mov ii128-17, [igpr-8 + 0]
+  [0x10044] add x16, x9, x15
+  [0x10048] ldr q23, [x16] ;; misaligned with debug data
+  [0x1004C] mov v23.16b, v23.16b                             mov ii128-18, ii128-17
+  [0x10050] ldr x9, [sp, #0x88]                              move [igpr-16 + 0], ii128-18
+  [0x10054] add x16, x9, x15
+  [0x10058] str q23, [x16] ;; misaligned with debug data
+
+shadow.gc:82
+->     (new 'stack-no-clear 'vector)
+  [0x1005C] add x9, sp, #0x10                                mov igpr-19, stack-slot-2
+  [0x10060] sub x9, x9, x15
+
+shadow.gc:83
+->     (+! (-> s2-0 y) arg5)
+  [0x10064] ldr x9, [sp, #0x88]                              mov ifpr-21, [igpr-16 + 4]
+  [0x10068] add x16, x9, x15
+  [0x1006C] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10070] mov v23.16b, v23.16b                             mov ifpr-20, ifpr-21
+  [0x10074] fmov s22, w2                                     mov ifpr-22, igpr-13
+  [0x10078] fadd s23, s23, s22                               addss ifpr-20, ifpr-22
+  [0x1007C] ldr x9, [sp, #0x88]                              move [igpr-16 + 4], ifpr-20
+  [0x10080] add x16, x9, x15
+  [0x10084] str s23, [x16, #4] ;; misaligned with debug data
+
+shadow.gc:84
+->     (let ((s4-0 (new 'stack-no-clear 'collide-tri-result)))
+  [0x10088] add x3, sp, #0x20                                mov igpr-23, stack-slot-4
+  [0x1008C] sub x3, x3, x15
+
+shadow.gc:84
+->     (let ((s4-0 (new 'stack-no-clear 'collide-tri-result)))
+  [0x10090] mov x3, x3                                       mov igpr-24, igpr-23
+  [0x10094] adrp x16, #0x10000                               mov igpr-26, '*collide-cache*
+  [0x10098] add x16, x16, #0
+  [0x1009C] ldr w7, [x16]
+
+shadow.gc:86
+->         ((>= (fill-and-probe-using-y-probe *collide-cache* s2-0 arg6 arg3 arg4 s4-0 (new 'static 'pat-surface :noentity #x1)) 0.0)
+  [0x100A0] movz x10, #0x1                                   mov-ic igpr-27, 1
+
+shadow.gc:86
+->         ((>= (fill-and-probe-using-y-probe *collide-cache* s2-0 arg6 arg3 arg4 s4-0 (new 'static 'pat-surface :noentity #x1)) 0.0)
+  [0x100A4] add x16, x7, x15                                 mov igpr-28, [igpr-26 + -4]
+  [0x100A8] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x100AC] add x16, x9, x15                                 mov igpr-29, [igpr-28 + 64]
+  [0x100B0] ldr w9, [x16, #0x40] ;; misaligned with debug data
+  [0x100B4] mov x9, x9                                       mov igpr-38, igpr-29
+  [0x100B8] str x9, [sp, #0x90]
+  [0x100BC] mov x7, x7                                       mov igpr-31, igpr-26
+  [0x100C0] ldr x9, [sp, #0x88]                              mov igpr-32, igpr-16
+  [0x100C4] mov x6, x9
+  [0x100C8] mov x2, x11                                      mov igpr-33, igpr-14
+  [0x100CC] mov x1, x1                                       mov igpr-34, igpr-11
+  [0x100D0] mov x8, x8                                       mov igpr-35, igpr-12
+  [0x100D4] mov x9, x3                                       mov igpr-36, igpr-24
+  [0x100D8] mov x10, x10                                     mov igpr-37, igpr-27
+  [0x100DC] ldr x5, [sp, #0x90]                              call igpr-38 (ret igpr-30) (args igpr-31 igpr-32 igpr-33 igpr-34 igpr-35 igpr-36 igpr-37)
+  [0x100E0] add x5, x5, x15
+  [0x100E4] stp x3, x5, [sp, #-0x10]!
+  [0x100E8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100EC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F0] blr x5 ;; misaligned with debug data
+  [0x100F4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100F8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100FC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10100] str x5, [sp, #0x90]
+  [0x10104] mov x0, x0                                       mov igpr-39, igpr-30
+
+shadow.gc:86
+->         ((>= (fill-and-probe-using-y-probe *collide-cache* s2-0 arg6 arg3 arg4 s4-0 (new 'static 'pat-surface :noentity #x1)) 0.0)
+  [0x10108] fmov s23, w0                                     mov ifpr-40, igpr-39
+  [0x1010C] adrp x16, #0x10000                               mov-svl ifpr-41, [(sf 0)]
+  [0x10110] ldr s22, [x16, #0xb64]
+  [0x10114] fcmp s23, s22                                    j(ifpr-40 < ifpr-41) label-84
+  [0x10118] b.mi #0x1023c
+
+shadow.gc:87
+->          (if (!= arg2 0.0)
+  [0x1011C] ldr x9, [sp, #0x80]                              mov ifpr-43, igpr-10
+  [0x10120] fmov s23, w9
+  [0x10124] adrp x16, #0x10000                               mov-svl ifpr-44, [(sf 0)]
+  [0x10128] ldr s22, [x16, #0xb68]
+  [0x1012C] fcmp s23, s22                                    j(ifpr-43 == ifpr-44) label-60
+  [0x10130] b.eq #0x101ac
+
+shadow.gc:88
+->            (compute-and-draw-shadow s2-0 (-> s4-0 intersect) (-> s4-0 normal) (the-as vector arg2) arg6 (the-as float 0)))
+  [0x10134] adrp x16, #0x10000                               mov igpr-45, 'compute-and-draw-shadow
+  [0x10138] add x16, x16, #0
+  [0x1013C] ldr w8, [x16]
+
+shadow.gc:88
+->            (compute-and-draw-shadow s2-0 (-> s4-0 intersect) (-> s4-0 normal) (the-as vector arg2) arg6 (the-as float 0)))
+  [0x10140] movz x6, #0x30                                   mov-ic igpr-46, 48
+  [0x10144] add x6, x6, x3                                   addi igpr-46, igpr-24
+
+shadow.gc:88
+->            (compute-and-draw-shadow s2-0 (-> s4-0 intersect) (-> s4-0 normal) (the-as vector arg2) arg6 (the-as float 0)))
+  [0x10148] movz x2, #0x40                                   mov-ic igpr-47, 64
+  [0x1014C] add x2, x2, x3                                   addi igpr-47, igpr-24
+
+shadow.gc:88
+->            (compute-and-draw-shadow s2-0 (-> s4-0 intersect) (-> s4-0 normal) (the-as vector arg2) arg6 (the-as float 0)))
+  [0x10150] ldr x9, [sp, #0x80]                              mov igpr-48, igpr-10
+  [0x10154] mov x1, x9
+
+shadow.gc:88
+->            (compute-and-draw-shadow s2-0 (-> s4-0 intersect) (-> s4-0 normal) (the-as vector arg2) arg6 (the-as float 0)))
+  [0x10158] movz x9, #0                                      mov-ic igpr-49, 0
+  [0x1015C] mov x9, x9                                       mov igpr-50, igpr-49
+
+shadow.gc:88
+->            (compute-and-draw-shadow s2-0 (-> s4-0 intersect) (-> s4-0 normal) (the-as vector arg2) arg6 (the-as float 0)))
+  [0x10160] mov x0, x8                                       mov igpr-58, igpr-45
+  [0x10164] ldr x7, [sp, #0x88]                              mov igpr-52, igpr-16
+  [0x10168] mov x7, x7
+  [0x1016C] mov x6, x6                                       mov igpr-53, igpr-46
+  [0x10170] mov x2, x2                                       mov igpr-54, igpr-47
+  [0x10174] mov x1, x1                                       mov igpr-55, igpr-48
+  [0x10178] mov x8, x11                                      mov igpr-56, igpr-14
+  [0x1017C] mov x9, x9                                       mov igpr-57, igpr-50
+  [0x10180] add x0, x0, x15                                  call igpr-58 (ret igpr-51) (args igpr-52 igpr-53 igpr-54 igpr-55 igpr-56 igpr-57)
+  [0x10184] stp x3, x5, [sp, #-0x10]!
+  [0x10188] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1018C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10190] blr x0 ;; misaligned with debug data
+  [0x10194] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10198] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1019C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101A0] mov x5, x5                                       mov igpr-59, igpr-51
+
+shadow.gc:87
+->          (if (!= arg2 0.0)
+  [0x101A4] mov x5, x5                                       mov igpr-42, igpr-59
+  [0x101A8] b #0x101b4                                       goto label-61
+  [0x101AC] mov x5, x14                                      mov-symptr igpr-42, '#f
+  [0x101B0] sub x5, x5, x15 ;; misaligned with debug data
+
+shadow.gc:89
+->          (if (and arg1 (!= (-> s4-0 pat material) 3)) (set! (-> arg1 quad) (-> s4-0 intersect quad))))
+  [0x101B4] mov x9, x12                                      mov igpr-61, igpr-9
+  [0x101B8] mov x8, x14                                      mov-symptr igpr-62, '#f
+  [0x101BC] sub x8, x8, x15 ;; misaligned with debug data
+  [0x101C0] cmp x9, x8                                       j(igpr-61 == igpr-62) label-74
+  [0x101C4] b.eq #0x10200
+
+shadow.gc:89
+->          (if (and arg1 (!= (-> s4-0 pat material) 3)) (set! (-> arg1 quad) (-> s4-0 intersect quad))))
+  [0x101C8] add x16, x3, x15                                 mov igpr-64, [igpr-24 + 80]
+  [0x101CC] ldr w9, [x16, #0x50] ;; misaligned with debug data
+  [0x101D0] mov x9, x9                                       mov igpr-63, igpr-64
+  [0x101D4] lsl x9, x9, #0x34                                shl igpr-63, 52
+  [0x101D8] lsr x9, x9, #0x3a                                shr igpr-63, 58
+  [0x101DC] movz x8, #0x3                                    mov-ic igpr-65, 3
+  [0x101E0] mov x1, x14                                      mov-symptr igpr-66, '#f
+  [0x101E4] sub x1, x1, x15 ;; misaligned with debug data
+  [0x101E8] cmp x9, x8                                       j(igpr-63 == igpr-65) label-73
+  [0x101EC] b.eq #0x101fc
+  [0x101F0] add x1, x14, #8                                  mov-symptr igpr-67, '#t
+  [0x101F4] sub x1, x1, x15 ;; misaligned with debug data
+  [0x101F8] mov x1, x1                                       mov igpr-66, igpr-67
+  [0x101FC] mov x9, x1                                       mov igpr-61, igpr-66
+
+shadow.gc:89
+->          (if (and arg1 (!= (-> s4-0 pat material) 3)) (set! (-> arg1 quad) (-> s4-0 intersect quad))))
+  [0x10200] mov x8, x14                                      mov-symptr igpr-68, '#f
+  [0x10204] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10208] cmp x9, x8                                       j(igpr-61 == igpr-68) label-81
+  [0x1020C] b.eq #0x1022c
+
+shadow.gc:89
+->          (if (and arg1 (!= (-> s4-0 pat material) 3)) (set! (-> arg1 quad) (-> s4-0 intersect quad))))
+  [0x10210] add x16, x3, x15                                 mov ii128-69, [igpr-24 + 48]
+  [0x10214] ldr q23, [x16, #0x30] ;; misaligned with debug data
+  [0x10218] mov v23.16b, v23.16b                             mov ii128-70, ii128-69
+  [0x1021C] add x16, x12, x15                                move [igpr-9 + 0], ii128-70
+  [0x10220] str q23, [x16] ;; misaligned with debug data
+
+shadow.gc:89
+->          (if (and arg1 (!= (-> s4-0 pat material) 3)) (set! (-> arg1 quad) (-> s4-0 intersect quad))))
+  [0x10224] mov v23.16b, v23.16b                             mov ii128-60, ii128-70
+  [0x10228] b #0x10234                                       goto label-82
+  [0x1022C] mov x23, x14                                     mov-symptr ii128-60, '#f
+  [0x10230] sub x23, x23, x15 ;; misaligned with debug data
+
+shadow.gc:86
+->         ((>= (fill-and-probe-using-y-probe *collide-cache* s2-0 arg6 arg3 arg4 s4-0 (new 'static 'pat-surface :noentity #x1)) 0.0)
+  [0x10234] fmov x9, d23                                     mov igpr-25, ii128-60
+  [0x10238] b #0x102d0                                       goto label-104
+
+shadow.gc:90
+->         (else (if arg1 (vector+float*! arg1 arg0 (-> *standard-dynamics* gravity-normal) (- arg6)))))))
+  [0x1023C] mov x9, x14                                      mov-symptr igpr-72, '#f
+  [0x10240] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10244] cmp x12, x9                                      j(igpr-9 == igpr-72) label-102
+  [0x10248] b.eq #0x102c4
+
+shadow.gc:90
+->         (else (if arg1 (vector+float*! arg1 arg0 (-> *standard-dynamics* gravity-normal) (- arg6)))))))
+  [0x1024C] adrp x16, #0x10000                               mov igpr-73, 'vector+float*!
+  [0x10250] add x16, x16, #0
+  [0x10254] ldr w9, [x16]
+
+shadow.gc:90
+->         (else (if arg1 (vector+float*! arg1 arg0 (-> *standard-dynamics* gravity-normal) (- arg6)))))))
+  [0x10258] movz x2, #0x1c                                   mov-ic igpr-74, 28
+  [0x1025C] adrp x16, #0x10000                               mov igpr-75, '*standard-dynamics*
+  [0x10260] add x16, x16, #0
+  [0x10264] ldr w8, [x16]
+  [0x10268] add x2, x2, x8                                   addi igpr-74, igpr-75
+
+shadow.gc:90
+->         (else (if arg1 (vector+float*! arg1 arg0 (-> *standard-dynamics* gravity-normal) (- arg6)))))))
+  [0x1026C] adrp x16, #0x10000                               mov-svl ifpr-76, [(sf 0)]
+  [0x10270] ldr s23, [x16, #0xb6c]
+  [0x10274] fmov s22, w11                                    mov ifpr-77, igpr-14
+  [0x10278] fsub s23, s23, s22                               subss ifpr-76, ifpr-77
+
+shadow.gc:90
+->         (else (if arg1 (vector+float*! arg1 arg0 (-> *standard-dynamics* gravity-normal) (- arg6)))))))
+  [0x1027C] mov x9, x9                                       mov igpr-83, igpr-73
+  [0x10280] mov x7, x12                                      mov igpr-79, igpr-9
+  [0x10284] ldr x6, [sp, #0x98]                              mov igpr-80, igpr-8
+  [0x10288] mov x6, x6
+  [0x1028C] mov x2, x2                                       mov igpr-81, igpr-74
+  [0x10290] fmov w1, s23                                     mov igpr-82, ifpr-76
+  [0x10294] sxtw x1, w1
+  [0x10298] add x9, x9, x15                                  call igpr-83 (ret igpr-78) (args igpr-79 igpr-80 igpr-81 igpr-82)
+  [0x1029C] stp x3, x5, [sp, #-0x10]!
+  [0x102A0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102A4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102A8] blr x9 ;; misaligned with debug data
+  [0x102AC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x102B0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x102B4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x102B8] mov x0, x0                                       mov igpr-84, igpr-78
+
+shadow.gc:90
+->         (else (if arg1 (vector+float*! arg1 arg0 (-> *standard-dynamics* gravity-normal) (- arg6)))))))
+  [0x102BC] mov x0, x0                                       mov igpr-71, igpr-84
+  [0x102C0] b #0x102cc                                       goto label-103
+  [0x102C4] mov x0, x14                                      mov-symptr igpr-71, '#f
+  [0x102C8] sub x0, x0, x15 ;; misaligned with debug data
+
+shadow.gc:90
+->         (else (if arg1 (vector+float*! arg1 arg0 (-> *standard-dynamics* gravity-normal) (- arg6)))))))
+  [0x102CC] mov x9, x0                                       mov igpr-25, igpr-71
+
+shadow.gc:79
+-> (defun find-ground-and-draw-shadow ((arg0 vector) (arg1 vector) (arg2 float) (arg3 collide-kind) (arg4 process-drawable) (arg5 float) (arg6 float))
+  [0x102D0] movz x9, #0                                      mov-ic igpr-85, 0
+  [0x102D4] add sp, sp, #0xa0
+  [0x102D8] ldp x29, x30, [sp], #0x10
+  [0x102DC] ret
+
+
+[add-fake-shadow-to-buffer]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+shadow.gc:12
+-> (defun add-fake-shadow-to-buffer ((arg0 vector) (arg1 vector) (arg2 float) (arg3 int))
+  [0x10008] mov x7, x7                                       mov igpr-5, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-6, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-7, igpr-2
+  [0x10014] mov x1, x1                                       mov igpr-8, igpr-3
+
+shadow.gc:13
+->   (let ((v1-0 *fake-shadow-buffer*))
+  [0x10018] adrp x16, #0x10000                               mov igpr-9, '*fake-shadow-buffer*
+  [0x1001C] add x16, x16, #0
+  [0x10020] ldr w9, [x16]
+  [0x10024] mov x9, x9                                       mov igpr-10, igpr-9
+
+shadow.gc:14
+->     (when (< (-> v1-0 num-shadows) 32)
+  [0x10028] add x16, x9, x15                                 mov igpr-12, [igpr-10 + 0]
+  [0x1002C] ldrsw x8, [x16] ;; misaligned with debug data
+  [0x10030] movz x0, #0x20                                   mov-ic igpr-13, 32
+  [0x10034] cmp x8, x0                                       j(igpr-12 >= igpr-13) label-40
+  [0x10038] b.ge #0x100f4
+
+shadow.gc:15
+->       (let ((t0-5 (-> v1-0 data (-> v1-0 num-shadows))))
+  [0x1003C] add x16, x9, x15                                 mov igpr-14, [igpr-10 + 0]
+  [0x10040] ldrsw x8, [x16] ;; misaligned with debug data
+  [0x10044] mov x8, x8                                       mov igpr-15, igpr-14
+  [0x10048] lsl x8, x8, #5                                   shl igpr-15, 5
+  [0x1004C] mov x8, x8                                       mov igpr-16, igpr-15
+  [0x10050] movz x0, #0x4                                    mov-ic igpr-17, 4
+  [0x10054] add x0, x0, x9                                   addi igpr-17, igpr-10
+  [0x10058] add x8, x8, x0                                   addi igpr-16, igpr-17
+
+shadow.gc:15
+->       (let ((t0-5 (-> v1-0 data (-> v1-0 num-shadows))))
+  [0x1005C] mov x8, x8                                       mov igpr-18, igpr-16
+
+shadow.gc:16
+->         (set! (-> t0-5 px) (-> arg0 x))
+  [0x10060] add x16, x7, x15                                 mov ifpr-19, [igpr-5 + 0]
+  [0x10064] ldr s23, [x16] ;; misaligned with debug data
+  [0x10068] add x16, x8, x15                                 move [igpr-18 + 0], ifpr-19
+  [0x1006C] str s23, [x16] ;; misaligned with debug data
+
+shadow.gc:17
+->         (set! (-> t0-5 py) (-> arg0 y))
+  [0x10070] add x16, x7, x15                                 mov ifpr-20, [igpr-5 + 4]
+  [0x10074] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10078] add x16, x8, x15                                 move [igpr-18 + 4], ifpr-20
+  [0x1007C] str s23, [x16, #4] ;; misaligned with debug data
+
+shadow.gc:18
+->         (set! (-> t0-5 pz) (-> arg0 z))
+  [0x10080] add x16, x7, x15                                 mov ifpr-21, [igpr-5 + 8]
+  [0x10084] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x10088] add x16, x8, x15                                 move [igpr-18 + 8], ifpr-21
+  [0x1008C] str s23, [x16, #8] ;; misaligned with debug data
+
+shadow.gc:19
+->         (set! (-> t0-5 scale) arg2)
+  [0x10090] add x16, x8, x15                                 move [igpr-18 + 12], igpr-7
+  [0x10094] str w2, [x16, #0xc] ;; misaligned with debug data
+
+shadow.gc:20
+->         (set! (-> t0-5 qx) (-> arg1 x))
+  [0x10098] add x16, x6, x15                                 mov ifpr-22, [igpr-6 + 0]
+  [0x1009C] ldr s23, [x16] ;; misaligned with debug data
+  [0x100A0] add x16, x8, x15                                 move [igpr-18 + 16], ifpr-22
+  [0x100A4] str s23, [x16, #0x10] ;; misaligned with debug data
+
+shadow.gc:21
+->         (set! (-> t0-5 qy) (-> arg1 y))
+  [0x100A8] add x16, x6, x15                                 mov ifpr-23, [igpr-6 + 4]
+  [0x100AC] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x100B0] add x16, x8, x15                                 move [igpr-18 + 20], ifpr-23
+  [0x100B4] str s23, [x16, #0x14] ;; misaligned with debug data
+
+shadow.gc:22
+->         (set! (-> t0-5 qz) (-> arg1 z))
+  [0x100B8] add x16, x6, x15                                 mov ifpr-24, [igpr-6 + 8]
+  [0x100BC] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x100C0] add x16, x8, x15                                 move [igpr-18 + 24], ifpr-24
+  [0x100C4] str s23, [x16, #0x18] ;; misaligned with debug data
+
+shadow.gc:23
+->         (set! (-> t0-5 flags) arg3))
+  [0x100C8] add x16, x8, x15                                 move [igpr-18 + 28], igpr-8
+  [0x100CC] str w1, [x16, #0x1c] ;; misaligned with debug data
+
+shadow.gc:24
+->       (+! (-> v1-0 num-shadows) 1)))
+  [0x100D0] add x16, x9, x15                                 mov igpr-26, [igpr-10 + 0]
+  [0x100D4] ldrsw x8, [x16] ;; misaligned with debug data
+  [0x100D8] mov x8, x8                                       mov igpr-25, igpr-26
+  [0x100DC] movz x1, #0x1                                    mov-ic igpr-27, 1
+  [0x100E0] add x8, x8, x1                                   addi igpr-25, igpr-27
+  [0x100E4] add x16, x9, x15                                 move [igpr-10 + 0], igpr-25
+  [0x100E8] str w8, [x16] ;; misaligned with debug data
+
+shadow.gc:14
+->     (when (< (-> v1-0 num-shadows) 32)
+  [0x100EC] mov x9, x8                                       mov igpr-11, igpr-25
+  [0x100F0] b #0x100fc                                       goto label-41
+  [0x100F4] mov x9, x14                                      mov-symptr igpr-11, '#f
+  [0x100F8] sub x9, x9, x15 ;; misaligned with debug data
+
+shadow.gc:12
+-> (defun add-fake-shadow-to-buffer ((arg0 vector) (arg1 vector) (arg2 float) (arg3 int))
+  [0x100FC] movz x9, #0                                      mov-ic igpr-28, 0
+  [0x10100] ldp x29, x30, [sp], #0x10
+  [0x10104] ret
+
+
+

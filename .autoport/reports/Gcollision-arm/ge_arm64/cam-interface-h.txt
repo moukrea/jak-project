@@ -1,0 +1,212 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+cam-interface-h.gc:12
+-> (define *camera-read-analog* #t)
+  [0x10008] add x9, x14, #8                                  mov-symptr igpr-0, '#t
+  [0x1000C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10010] adrp x16, #0x10000                               mov '*camera-read-analog*, igpr-0
+  [0x10014] add x16, x16, #0
+  [0x10018] str w9, [x16]
+
+cam-interface-h.gc:14
+-> (define *camera-read-buttons* #t)
+  [0x1001C] add x9, x14, #8                                  mov-symptr igpr-1, '#t
+  [0x10020] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10024] adrp x16, #0x10000                               mov '*camera-read-buttons*, igpr-1
+  [0x10028] add x16, x16, #0
+  [0x1002C] str w9, [x16]
+
+cam-interface-h.gc:16
+-> (define *cam-free-move-along-z* #t)
+  [0x10030] add x9, x14, #8                                  mov-symptr igpr-2, '#t
+  [0x10034] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10038] adrp x16, #0x10000                               mov '*cam-free-move-along-z*, igpr-2
+  [0x1003C] add x16, x16, #0
+  [0x10040] str w9, [x16]
+
+cam-interface-h.gc:18
+-> (define-perm *camera-init-mat* matrix #f)
+  [0x10044] adrp x16, #0x10000                               mov igpr-5, '*camera-init-mat*
+  [0x10048] add x16, x16, #0
+  [0x1004C] ldr w9, [x16]
+  [0x10050] mov x8, x14                                      mov-symptr igpr-6, '#f
+  [0x10054] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10058] mov x1, x14                                      mov-symptr igpr-7, '#f
+  [0x1005C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10060] cmp x9, x8                                       j(igpr-5 != igpr-6) label-12
+  [0x10064] b.ne #0x10074
+  [0x10068] add x1, x14, #8                                  mov-symptr igpr-8, '#t
+  [0x1006C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10070] mov x1, x1                                       mov igpr-7, igpr-8
+  [0x10074] mov x9, x1                                       mov igpr-4, igpr-7
+  [0x10078] mov x8, x14                                      mov-symptr igpr-9, '#f
+  [0x1007C] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10080] cmp x9, x8                                       j(igpr-4 != igpr-9) label-22
+  [0x10084] b.ne #0x100b8
+  [0x10088] adrp x16, #0x10000                               mov igpr-10, '*camera-init-mat*
+  [0x1008C] add x16, x16, #0
+  [0x10090] ldr w9, [x16]
+  [0x10094] movz x8, #0                                      mov-ic igpr-11, 0
+  [0x10098] mov x1, x14                                      mov-symptr igpr-12, '#f
+  [0x1009C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x100A0] cmp x9, x8                                       j(igpr-10 != igpr-11) label-21
+  [0x100A4] b.ne #0x100b4
+  [0x100A8] add x1, x14, #8                                  mov-symptr igpr-13, '#t
+  [0x100AC] sub x1, x1, x15 ;; misaligned with debug data
+  [0x100B0] mov x1, x1                                       mov igpr-12, igpr-13
+  [0x100B4] mov x9, x1                                       mov igpr-4, igpr-12
+  [0x100B8] mov x8, x14                                      mov-symptr igpr-14, '#f
+  [0x100BC] sub x8, x8, x15 ;; misaligned with debug data
+  [0x100C0] cmp x9, x8                                       j(igpr-4 == igpr-14) label-28
+  [0x100C4] b.eq #0x100e4
+  [0x100C8] mov x9, x14                                      mov-symptr igpr-15, '#f
+  [0x100CC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100D0] adrp x16, #0x10000                               mov '*camera-init-mat*, igpr-15
+  [0x100D4] add x16, x16, #0
+  [0x100D8] str w9, [x16]
+  [0x100DC] mov x9, x9                                       mov igpr-3, igpr-15
+  [0x100E0] b #0x100ec                                       goto label-29
+  [0x100E4] mov x9, x14                                      mov-symptr igpr-3, '#f
+  [0x100E8] sub x9, x9, x15 ;; misaligned with debug data
+
+cam-interface-h.gc:20
+-> (define-perm *camera* camera-master #f)
+  [0x100EC] adrp x16, #0x10000                               mov igpr-18, '*camera*
+  [0x100F0] add x16, x16, #0
+  [0x100F4] ldr w9, [x16]
+  [0x100F8] mov x8, x14                                      mov-symptr igpr-19, '#f
+  [0x100FC] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10100] mov x1, x14                                      mov-symptr igpr-20, '#f
+  [0x10104] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10108] cmp x9, x8                                       j(igpr-18 != igpr-19) label-35
+  [0x1010C] b.ne #0x1011c
+  [0x10110] add x1, x14, #8                                  mov-symptr igpr-21, '#t
+  [0x10114] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10118] mov x1, x1                                       mov igpr-20, igpr-21
+  [0x1011C] mov x9, x1                                       mov igpr-17, igpr-20
+  [0x10120] mov x8, x14                                      mov-symptr igpr-22, '#f
+  [0x10124] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10128] cmp x9, x8                                       j(igpr-17 != igpr-22) label-45
+  [0x1012C] b.ne #0x10160
+  [0x10130] adrp x16, #0x10000                               mov igpr-23, '*camera*
+  [0x10134] add x16, x16, #0
+  [0x10138] ldr w9, [x16]
+  [0x1013C] movz x8, #0                                      mov-ic igpr-24, 0
+  [0x10140] mov x1, x14                                      mov-symptr igpr-25, '#f
+  [0x10144] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10148] cmp x9, x8                                       j(igpr-23 != igpr-24) label-44
+  [0x1014C] b.ne #0x1015c
+  [0x10150] add x1, x14, #8                                  mov-symptr igpr-26, '#t
+  [0x10154] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10158] mov x1, x1                                       mov igpr-25, igpr-26
+  [0x1015C] mov x9, x1                                       mov igpr-17, igpr-25
+  [0x10160] mov x8, x14                                      mov-symptr igpr-27, '#f
+  [0x10164] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10168] cmp x9, x8                                       j(igpr-17 == igpr-27) label-51
+  [0x1016C] b.eq #0x1018c
+  [0x10170] mov x9, x14                                      mov-symptr igpr-28, '#f
+  [0x10174] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10178] adrp x16, #0x10000                               mov '*camera*, igpr-28
+  [0x1017C] add x16, x16, #0
+  [0x10180] str w9, [x16]
+  [0x10184] mov x9, x9                                       mov igpr-16, igpr-28
+  [0x10188] b #0x10194                                       goto label-52
+  [0x1018C] mov x9, x14                                      mov-symptr igpr-16, '#f
+  [0x10190] sub x9, x9, x15 ;; misaligned with debug data
+
+cam-interface-h.gc:22
+-> (define-perm *camera-combiner* camera-combiner #f)
+  [0x10194] adrp x16, #0x10000                               mov igpr-31, '*camera-combiner*
+  [0x10198] add x16, x16, #0
+  [0x1019C] ldr w9, [x16]
+  [0x101A0] mov x8, x14                                      mov-symptr igpr-32, '#f
+  [0x101A4] sub x8, x8, x15 ;; misaligned with debug data
+  [0x101A8] mov x1, x14                                      mov-symptr igpr-33, '#f
+  [0x101AC] sub x1, x1, x15 ;; misaligned with debug data
+  [0x101B0] cmp x9, x8                                       j(igpr-31 != igpr-32) label-58
+  [0x101B4] b.ne #0x101c4
+  [0x101B8] add x1, x14, #8                                  mov-symptr igpr-34, '#t
+  [0x101BC] sub x1, x1, x15 ;; misaligned with debug data
+  [0x101C0] mov x1, x1                                       mov igpr-33, igpr-34
+  [0x101C4] mov x9, x1                                       mov igpr-30, igpr-33
+  [0x101C8] mov x8, x14                                      mov-symptr igpr-35, '#f
+  [0x101CC] sub x8, x8, x15 ;; misaligned with debug data
+  [0x101D0] cmp x9, x8                                       j(igpr-30 != igpr-35) label-68
+  [0x101D4] b.ne #0x10208
+  [0x101D8] adrp x16, #0x10000                               mov igpr-36, '*camera-combiner*
+  [0x101DC] add x16, x16, #0
+  [0x101E0] ldr w9, [x16]
+  [0x101E4] movz x8, #0                                      mov-ic igpr-37, 0
+  [0x101E8] mov x1, x14                                      mov-symptr igpr-38, '#f
+  [0x101EC] sub x1, x1, x15 ;; misaligned with debug data
+  [0x101F0] cmp x9, x8                                       j(igpr-36 != igpr-37) label-67
+  [0x101F4] b.ne #0x10204
+  [0x101F8] add x1, x14, #8                                  mov-symptr igpr-39, '#t
+  [0x101FC] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10200] mov x1, x1                                       mov igpr-38, igpr-39
+  [0x10204] mov x9, x1                                       mov igpr-30, igpr-38
+  [0x10208] mov x8, x14                                      mov-symptr igpr-40, '#f
+  [0x1020C] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10210] cmp x9, x8                                       j(igpr-30 == igpr-40) label-74
+  [0x10214] b.eq #0x10234
+  [0x10218] mov x9, x14                                      mov-symptr igpr-41, '#f
+  [0x1021C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10220] adrp x16, #0x10000                               mov '*camera-combiner*, igpr-41
+  [0x10224] add x16, x16, #0
+  [0x10228] str w9, [x16]
+  [0x1022C] mov x9, x9                                       mov igpr-29, igpr-41
+  [0x10230] b #0x1023c                                       goto label-75
+  [0x10234] mov x9, x14                                      mov-symptr igpr-29, '#f
+  [0x10238] sub x9, x9, x15 ;; misaligned with debug data
+
+cam-interface-h.gc:24
+-> (define-perm *camera-orbit-target* (pointer process-drawable) #f)
+  [0x1023C] adrp x16, #0x10000                               mov igpr-44, '*camera-orbit-target*
+  [0x10240] add x16, x16, #0
+  [0x10244] ldr w9, [x16]
+  [0x10248] mov x8, x14                                      mov-symptr igpr-45, '#f
+  [0x1024C] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10250] mov x1, x14                                      mov-symptr igpr-46, '#f
+  [0x10254] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10258] cmp x9, x8                                       j(igpr-44 != igpr-45) label-81
+  [0x1025C] b.ne #0x1026c
+  [0x10260] add x1, x14, #8                                  mov-symptr igpr-47, '#t
+  [0x10264] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10268] mov x1, x1                                       mov igpr-46, igpr-47
+  [0x1026C] mov x9, x1                                       mov igpr-43, igpr-46
+  [0x10270] mov x8, x14                                      mov-symptr igpr-48, '#f
+  [0x10274] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10278] cmp x9, x8                                       j(igpr-43 != igpr-48) label-91
+  [0x1027C] b.ne #0x102b0
+  [0x10280] adrp x16, #0x10000                               mov igpr-49, '*camera-orbit-target*
+  [0x10284] add x16, x16, #0
+  [0x10288] ldr w9, [x16]
+  [0x1028C] movz x8, #0                                      mov-ic igpr-50, 0
+  [0x10290] mov x1, x14                                      mov-symptr igpr-51, '#f
+  [0x10294] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10298] cmp x9, x8                                       j(igpr-49 != igpr-50) label-90
+  [0x1029C] b.ne #0x102ac
+  [0x102A0] add x1, x14, #8                                  mov-symptr igpr-52, '#t
+  [0x102A4] sub x1, x1, x15 ;; misaligned with debug data
+  [0x102A8] mov x1, x1                                       mov igpr-51, igpr-52
+  [0x102AC] mov x9, x1                                       mov igpr-43, igpr-51
+  [0x102B0] mov x8, x14                                      mov-symptr igpr-53, '#f
+  [0x102B4] sub x8, x8, x15 ;; misaligned with debug data
+  [0x102B8] cmp x9, x8                                       j(igpr-43 == igpr-53) label-97
+  [0x102BC] b.eq #0x102dc
+  [0x102C0] mov x9, x14                                      mov-symptr igpr-54, '#f
+  [0x102C4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x102C8] adrp x16, #0x10000                               mov '*camera-orbit-target*, igpr-54
+  [0x102CC] add x16, x16, #0
+  [0x102D0] str w9, [x16]
+  [0x102D4] mov x9, x9                                       mov igpr-42, igpr-54
+  [0x102D8] b #0x102e4                                       goto label-98
+  [0x102DC] mov x9, x14                                      mov-symptr igpr-42, '#f
+  [0x102E0] sub x9, x9, x15 ;; misaligned with debug data
+  [0x102E4] ldp x29, x30, [sp], #0x10
+  [0x102E8] ret
+
+
+

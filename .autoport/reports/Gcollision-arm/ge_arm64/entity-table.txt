@@ -1,0 +1,169 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+entity-table.gc:18
+-> (define *entity-info*
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov '*entity-info*, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+  [0x10020] adrp x0, #0x10000                                mov-fa igpr-1, function-entity-info-lookup
+  [0x10024] add x0, x0, #0
+  [0x10028] sub x0, x0, x15
+
+entity-table.gc:199
+-> (defun entity-info-lookup ((arg0 type))
+  [0x1002C] adrp x16, #0x10000                               mov 'entity-info-lookup, igpr-1
+  [0x10030] add x16, x16, #0
+  [0x10034] str w0, [x16]
+
+entity-table.gc:1
+-> ;-*-Lisp-*-
+  [0x10038] mov x0, x0                                       ret igpr-2 igpr-1
+  [0x1003C] ldp x29, x30, [sp], #0x10
+  [0x10040] ret
+
+
+[entity-info-lookup]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+entity-table.gc:199
+-> (defun entity-info-lookup ((arg0 type))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+entity-table.gc:205
+->             ((nonzero? (-> arg0 method-table 13))
+  [0x1000C] add x16, x7, x15                                 mov igpr-4, [igpr-2 + 68]
+  [0x10010] ldr w9, [x16, #0x44] ;; misaligned with debug data
+  [0x10014] movz x8, #0                                      mov-ic igpr-5, 0
+  [0x10018] cmp x9, x8                                       j(igpr-4 == igpr-5) label-8
+  [0x1001C] b.eq #0x10030
+
+entity-table.gc:207
+->              (-> arg0 method-table 13))
+  [0x10020] add x16, x7, x15                                 mov igpr-6, [igpr-2 + 68]
+  [0x10024] ldr w0, [x16, #0x44] ;; misaligned with debug data
+
+entity-table.gc:205
+->             ((nonzero? (-> arg0 method-table 13))
+  [0x10028] mov x0, x0                                       mov igpr-3, igpr-6
+  [0x1002C] b #0x10120                                       goto label-55
+
+entity-table.gc:210
+->              (let ((v1-1 *entity-info*))
+  [0x10030] adrp x16, #0x10000                               mov igpr-7, '*entity-info*
+  [0x10034] add x16, x16, #0
+  [0x10038] ldr w9, [x16]
+  [0x1003C] mov x9, x9                                       mov igpr-8, igpr-7
+
+entity-table.gc:211
+->                (dotimes (a1-0 (-> v1-1 length))
+  [0x10040] movz x8, #0                                      mov-ic igpr-9, 0
+  [0x10044] mov x8, x8                                       mov igpr-10, igpr-9
+  [0x10048] b #0x100ec                                       goto label-46
+
+entity-table.gc:212
+->                  (when (= arg0 (-> v1-1 a1-0 ptype))
+  [0x1004C] movz x1, #0xc                                    mov-ic igpr-15, 12
+  [0x10050] mov x2, x8                                       mov igpr-16, igpr-10
+  [0x10054] lsl x2, x2, #2                                   shl igpr-16, 2
+  [0x10058] add x2, x2, x1                                   addi igpr-16, igpr-15
+
+entity-table.gc:212
+->                  (when (= arg0 (-> v1-1 a1-0 ptype))
+  [0x1005C] mov x2, x2                                       mov igpr-19, igpr-16
+  [0x10060] add x2, x2, x9                                   addi igpr-19, igpr-8
+  [0x10064] add x16, x2, x15                                 mov igpr-18, [igpr-19 + 0]
+  [0x10068] ldr w1, [x16] ;; misaligned with debug data
+  [0x1006C] add x16, x1, x15                                 mov igpr-17, [igpr-18 + 0]
+  [0x10070] ldr w1, [x16] ;; misaligned with debug data
+  [0x10074] cmp x7, x1                                       j(igpr-2 != igpr-17) label-41
+  [0x10078] b.ne #0x100d4
+
+entity-table.gc:214
+->                    (set! (-> arg0 method-table 13) (the-as function (-> v1-1 a1-0)))
+  [0x1007C] movz x1, #0xc                                    mov-ic igpr-20, 12
+  [0x10080] mov x2, x8                                       mov igpr-21, igpr-10
+  [0x10084] lsl x2, x2, #2                                   shl igpr-21, 2
+  [0x10088] add x2, x2, x1                                   addi igpr-21, igpr-20
+
+entity-table.gc:214
+->                    (set! (-> arg0 method-table 13) (the-as function (-> v1-1 a1-0)))
+  [0x1008C] mov x2, x2                                       mov igpr-23, igpr-21
+  [0x10090] add x2, x2, x9                                   addi igpr-23, igpr-8
+  [0x10094] add x16, x2, x15                                 mov igpr-22, [igpr-23 + 0]
+  [0x10098] ldr w1, [x16] ;; misaligned with debug data
+  [0x1009C] mov x1, x1                                       mov igpr-24, igpr-22
+  [0x100A0] add x16, x7, x15                                 move [igpr-2 + 68], igpr-24
+  [0x100A4] str w1, [x16, #0x44] ;; misaligned with debug data
+
+entity-table.gc:215
+->                    (return (-> v1-1 a1-0)))))
+  [0x100A8] movz x1, #0xc                                    mov-ic igpr-25, 12
+  [0x100AC] mov x8, x8                                       mov igpr-26, igpr-10
+  [0x100B0] lsl x8, x8, #2                                   shl igpr-26, 2
+  [0x100B4] add x8, x8, x1                                   addi igpr-26, igpr-25
+
+entity-table.gc:199
+-> (defun entity-info-lookup ((arg0 type))
+  [0x100B8] mov x8, x8                                       mov igpr-28, igpr-26
+  [0x100BC] add x8, x8, x9                                   addi igpr-28, igpr-8
+  [0x100C0] add x16, x8, x15                                 mov igpr-27, [igpr-28 + 0]
+  [0x100C4] ldr w0, [x16] ;; misaligned with debug data
+
+entity-table.gc:215
+->                    (return (-> v1-1 a1-0)))))
+  [0x100C8] mov x0, x0                                       mov igpr-1, igpr-27
+  [0x100CC] b #0x10128                                       goto label-57
+
+entity-table.gc:212
+->                  (when (= arg0 (-> v1-1 a1-0 ptype))
+  [0x100D0] b #0x100dc                                       goto label-42
+  [0x100D4] mov x1, x14                                      mov-symptr igpr-14, '#f
+  [0x100D8] sub x1, x1, x15 ;; misaligned with debug data
+
+entity-table.gc:211
+->                (dotimes (a1-0 (-> v1-1 length))
+  [0x100DC] mov x8, x8                                       mov igpr-29, igpr-10
+  [0x100E0] movz x1, #0x1                                    mov-ic igpr-30, 1
+  [0x100E4] add x8, x8, x1                                   addi igpr-29, igpr-30
+  [0x100E8] mov x8, x8                                       mov igpr-10, igpr-29
+  [0x100EC] add x16, x9, x15                                 mov igpr-31, [igpr-8 + 0]
+  [0x100F0] ldrsw x1, [x16] ;; misaligned with debug data
+  [0x100F4] cmp x8, x1                                       j(igpr-10 < igpr-31) label-13
+  [0x100F8] b.lt #0x1004c
+  [0x100FC] mov x9, x14                                      mov-symptr igpr-32, '#f
+  [0x10100] sub x9, x9, x15 ;; misaligned with debug data
+
+entity-table.gc:217
+->              (set! (-> arg0 method-table 13) #f)
+  [0x10104] mov x9, x14                                      mov-symptr igpr-33, '#f
+  [0x10108] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1010C] add x16, x7, x15                                 move [igpr-2 + 68], igpr-33
+  [0x10110] str w9, [x16, #0x44] ;; misaligned with debug data
+
+entity-table.gc:199
+-> (defun entity-info-lookup ((arg0 type))
+  [0x10114] mov x0, x14                                      mov-symptr igpr-34, '#f
+  [0x10118] sub x0, x0, x15 ;; misaligned with debug data
+
+entity-table.gc:208
+->             (else
+  [0x1011C] mov x0, x0                                       mov igpr-3, igpr-34
+
+entity-table.gc:203
+->   (the-as entity-info
+  [0x10120] mov x0, x0                                       mov igpr-35, igpr-3
+
+entity-table.gc:199
+-> (defun entity-info-lookup ((arg0 type))
+  [0x10124] mov x0, x0                                       ret igpr-1 igpr-35
+  [0x10128] ldp x29, x30, [sp], #0x10
+  [0x1012C] ret
+
+
+

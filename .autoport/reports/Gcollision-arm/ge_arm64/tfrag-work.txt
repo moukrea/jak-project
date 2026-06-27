@@ -1,0 +1,93 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+tfrag-work.gc:10
+-> (define *tfrag-work*
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov '*tfrag-work*, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+tfrag-work.gc:54
+-> (set! (-> *tfrag-work* color-ptr x) (+ 6160 (the-as int *fake-scratchpad-data*)))
+  [0x10020] movz x9, #0x1810                                 mov-ic igpr-2, 6160
+  [0x10024] mov x9, x9                                       mov igpr-1, igpr-2
+  [0x10028] adrp x16, #0x10000                               mov igpr-3, '*fake-scratchpad-data*
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w8, [x16]
+  [0x10034] mov x8, x8                                       mov igpr-4, igpr-3
+  [0x10038] add x9, x9, x8                                   addi igpr-1, igpr-4
+
+tfrag-work.gc:54
+-> (set! (-> *tfrag-work* color-ptr x) (+ 6160 (the-as int *fake-scratchpad-data*)))
+  [0x1003C] adrp x16, #0x10000                               mov igpr-5, '*tfrag-work*
+  [0x10040] add x16, x16, #0
+  [0x10044] ldr w8, [x16]
+  [0x10048] add x16, x8, x15                                 move [igpr-5 + 128], igpr-1
+  [0x1004C] str w9, [x16, #0x80] ;; misaligned with debug data
+
+tfrag-work.gc:57
+-> (set! (-> *tfrag-work* color-ptr y) (+ 6160 (the-as int *fake-scratchpad-data*)))
+  [0x10050] movz x9, #0x1810                                 mov-ic igpr-7, 6160
+  [0x10054] mov x9, x9                                       mov igpr-6, igpr-7
+  [0x10058] adrp x16, #0x10000                               mov igpr-8, '*fake-scratchpad-data*
+  [0x1005C] add x16, x16, #0
+  [0x10060] ldr w8, [x16]
+  [0x10064] mov x8, x8                                       mov igpr-9, igpr-8
+  [0x10068] add x9, x9, x8                                   addi igpr-6, igpr-9
+
+tfrag-work.gc:57
+-> (set! (-> *tfrag-work* color-ptr y) (+ 6160 (the-as int *fake-scratchpad-data*)))
+  [0x1006C] adrp x16, #0x10000                               mov igpr-10, '*tfrag-work*
+  [0x10070] add x16, x16, #0
+  [0x10074] ldr w8, [x16]
+  [0x10078] add x16, x8, x15                                 move [igpr-10 + 132], igpr-6
+  [0x1007C] str w9, [x16, #0x84] ;; misaligned with debug data
+
+tfrag-work.gc:60
+-> (set! (-> *tfrag-work* color-ptr z) (+ 6160 (the-as int *fake-scratchpad-data*)))
+  [0x10080] movz x9, #0x1810                                 mov-ic igpr-12, 6160
+  [0x10084] mov x9, x9                                       mov igpr-11, igpr-12
+  [0x10088] adrp x16, #0x10000                               mov igpr-13, '*fake-scratchpad-data*
+  [0x1008C] add x16, x16, #0
+  [0x10090] ldr w8, [x16]
+  [0x10094] mov x8, x8                                       mov igpr-14, igpr-13
+  [0x10098] add x9, x9, x8                                   addi igpr-11, igpr-14
+
+tfrag-work.gc:60
+-> (set! (-> *tfrag-work* color-ptr z) (+ 6160 (the-as int *fake-scratchpad-data*)))
+  [0x1009C] adrp x16, #0x10000                               mov igpr-15, '*tfrag-work*
+  [0x100A0] add x16, x16, #0
+  [0x100A4] ldr w8, [x16]
+  [0x100A8] add x16, x8, x15                                 move [igpr-15 + 136], igpr-11
+  [0x100AC] str w9, [x16, #0x88] ;; misaligned with debug data
+
+tfrag-work.gc:63
+-> (set! (-> *tfrag-work* color-ptr w) (+ 6160 (the-as int *fake-scratchpad-data*)))
+  [0x100B0] movz x0, #0x1810                                 mov-ic igpr-17, 6160
+  [0x100B4] mov x0, x0                                       mov igpr-16, igpr-17
+  [0x100B8] adrp x16, #0x10000                               mov igpr-18, '*fake-scratchpad-data*
+  [0x100BC] add x16, x16, #0
+  [0x100C0] ldr w9, [x16]
+  [0x100C4] mov x9, x9                                       mov igpr-19, igpr-18
+  [0x100C8] add x0, x0, x9                                   addi igpr-16, igpr-19
+
+tfrag-work.gc:63
+-> (set! (-> *tfrag-work* color-ptr w) (+ 6160 (the-as int *fake-scratchpad-data*)))
+  [0x100CC] adrp x16, #0x10000                               mov igpr-20, '*tfrag-work*
+  [0x100D0] add x16, x16, #0
+  [0x100D4] ldr w9, [x16]
+  [0x100D8] add x16, x9, x15                                 move [igpr-20 + 140], igpr-16
+  [0x100DC] str w0, [x16, #0x8c] ;; misaligned with debug data
+
+tfrag-work.gc:1
+-> ;-*-Lisp-*-
+  [0x100E0] mov x0, x0                                       ret igpr-21 igpr-16
+  [0x100E4] ldp x29, x30, [sp], #0x10
+  [0x100E8] ret
+
+
+

@@ -1,0 +1,258 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] adrp x9, #0x10000                                mov-fa igpr-0, function-dma-buffer-add-buckets
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+
+dma-bucket.gc:31
+-> (defun dma-buffer-add-buckets ((dma-buf dma-buffer) (count int))
+  [0x10014] adrp x16, #0x10000                               mov 'dma-buffer-add-buckets, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+  [0x10020] adrp x9, #0x10000                                mov-fa igpr-1, function-dma-buffer-patch-buckets
+  [0x10024] add x9, x9, #0
+  [0x10028] sub x9, x9, x15
+
+dma-bucket.gc:51
+-> (defun dma-buffer-patch-buckets ((bucket (inline-array dma-bucket)) (count int))
+  [0x1002C] adrp x16, #0x10000                               mov 'dma-buffer-patch-buckets, igpr-1
+  [0x10030] add x16, x16, #0
+  [0x10034] str w9, [x16]
+  [0x10038] adrp x0, #0x10000                                mov-fa igpr-2, function-dma-bucket-insert-tag
+  [0x1003C] add x0, x0, #0
+  [0x10040] sub x0, x0, x15
+
+dma-bucket.gc:64
+-> (defun dma-bucket-insert-tag ((base (inline-array dma-bucket)) (idx bucket-id) (tag-start pointer) (tag-end (pointer dma-tag)))
+  [0x10044] adrp x16, #0x10000                               mov 'dma-bucket-insert-tag, igpr-2
+  [0x10048] add x16, x16, #0
+  [0x1004C] str w0, [x16]
+
+dma-bucket.gc:1
+-> ;-*-Lisp-*-
+  [0x10050] mov x0, x0                                       ret igpr-3 igpr-2
+  [0x10054] ldp x29, x30, [sp], #0x10
+  [0x10058] ret
+
+
+[dma-bucket-insert-tag]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+dma-bucket.gc:64
+-> (defun dma-bucket-insert-tag ((base (inline-array dma-bucket)) (idx bucket-id) (tag-start pointer) (tag-end (pointer dma-tag)))
+  [0x10008] mov x7, x7                                       mov igpr-5, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-6, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-7, igpr-2
+  [0x10014] mov x1, x1                                       mov igpr-8, igpr-3
+
+dma-bucket.gc:67
+->   (let ((bucket (-> base idx)))
+  [0x10018] mov x6, x6                                       mov igpr-9, igpr-6
+  [0x1001C] lsl x6, x6, #4                                   shl igpr-9, 4
+  [0x10020] mov x6, x6                                       mov igpr-10, igpr-9
+  [0x10024] add x6, x6, x7                                   addi igpr-10, igpr-5
+
+dma-bucket.gc:67
+->   (let ((bucket (-> base idx)))
+  [0x10028] mov x6, x6                                       mov igpr-11, igpr-10
+
+dma-bucket.gc:70
+->     (set! (-> (the-as dma-bucket (-> bucket last)) next) (the-as uint tag-start))
+  [0x1002C] mov x9, x2                                       mov igpr-12, igpr-7
+  [0x10030] add x16, x6, x15                                 mov igpr-13, [igpr-11 + 8]
+  [0x10034] ldr w8, [x16, #8] ;; misaligned with debug data
+  [0x10038] mov x8, x8                                       mov igpr-14, igpr-13
+  [0x1003C] add x16, x8, x15                                 move [igpr-14 + 4], igpr-12
+  [0x10040] str w9, [x16, #4] ;; misaligned with debug data
+
+dma-bucket.gc:72
+->     (set! (-> bucket last) tag-end))
+  [0x10044] add x16, x6, x15                                 move [igpr-11 + 8], igpr-8
+  [0x10048] str w1, [x16, #8] ;; misaligned with debug data
+
+dma-bucket.gc:64
+-> (defun dma-bucket-insert-tag ((base (inline-array dma-bucket)) (idx bucket-id) (tag-start pointer) (tag-end (pointer dma-tag)))
+  [0x1004C] mov x0, x2                                       ret igpr-4 igpr-7
+  [0x10050] ldp x29, x30, [sp], #0x10
+  [0x10054] ret
+
+
+[dma-buffer-patch-buckets]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+dma-bucket.gc:51
+-> (defun dma-buffer-patch-buckets ((bucket (inline-array dma-bucket)) (count int))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+dma-bucket.gc:54
+->   (when (nonzero? bucket)
+  [0x10010] movz x9, #0                                      mov-ic igpr-6, 0
+  [0x10014] cmp x7, x9                                       j(igpr-3 == igpr-6) label-39
+  [0x10018] b.eq #0x100c4
+
+dma-bucket.gc:55
+->     (dotimes (i count)
+  [0x1001C] movz x9, #0                                      mov-ic igpr-7, 0
+  [0x10020] mov x9, x9                                       mov igpr-8, igpr-7
+  [0x10024] b #0x100ac                                       goto label-34
+
+dma-bucket.gc:57
+->       (set! (-> bucket 0 last 0 addr) (the-as int (the-as pointer (-> bucket 1))))
+  [0x10028] movz x8, #0x10                                   mov-ic igpr-12, 16
+  [0x1002C] add x8, x8, x7                                   addi igpr-12, igpr-3
+  [0x10030] mov x8, x8                                       mov igpr-13, igpr-12
+  [0x10034] mov x8, x8                                       mov igpr-14, igpr-13
+  [0x10038] add x16, x7, x15                                 mov igpr-16, [igpr-3 + 8]
+  [0x1003C] ldr w1, [x16, #8] ;; misaligned with debug data
+  [0x10040] add x16, x1, x15                                 mov igpr-15, [igpr-16 + 0]
+  [0x10044] ldr x1, [x16] ;; misaligned with debug data
+  [0x10048] mov x1, x1                                       mov igpr-17, igpr-15
+  [0x1004C] movz x2, #0xffff                                 mov-ic igpr-18, 9223372041149743103
+  [0x10050] movk x2, #0xffff, lsl #16
+  [0x10054] movk x2, #0x8000, lsl #48
+  [0x10058] and x1, x1, x2                                   and igpr-17, igpr-18
+  [0x1005C] mov x2, x8                                       mov igpr-18, igpr-14
+  [0x10060] lsl x2, x2, #0x21                                shl igpr-18, 33
+  [0x10064] lsr x2, x2, #1                                   shr igpr-18, 1
+  [0x10068] orr x1, x1, x2                                   or igpr-17, igpr-18
+  [0x1006C] add x16, x7, x15                                 mov igpr-19, [igpr-3 + 8]
+  [0x10070] ldr w8, [x16, #8] ;; misaligned with debug data
+  [0x10074] add x16, x8, x15                                 move [igpr-19 + 0], igpr-17
+  [0x10078] str x1, [x16] ;; misaligned with debug data
+
+dma-bucket.gc:59
+->       (set! (-> bucket 0 last) (the-as (pointer dma-tag) 0))
+  [0x1007C] movz x8, #0                                      mov-ic igpr-20, 0
+  [0x10080] mov x8, x8                                       mov igpr-21, igpr-20
+  [0x10084] add x16, x7, x15                                 move [igpr-3 + 8], igpr-21
+  [0x10088] str w8, [x16, #8] ;; misaligned with debug data
+
+dma-bucket.gc:61
+->       (set! bucket (the-as (inline-array dma-bucket) (-> bucket 1)))))
+  [0x1008C] movz x8, #0x10                                   mov-ic igpr-22, 16
+  [0x10090] add x8, x8, x7                                   addi igpr-22, igpr-3
+  [0x10094] mov x7, x8                                       mov igpr-23, igpr-22
+  [0x10098] mov x7, x7                                       mov igpr-3, igpr-23
+
+dma-bucket.gc:55
+->     (dotimes (i count)
+  [0x1009C] mov x9, x9                                       mov igpr-24, igpr-8
+  [0x100A0] movz x8, #0x1                                    mov-ic igpr-25, 1
+  [0x100A4] add x9, x9, x8                                   addi igpr-24, igpr-25
+  [0x100A8] mov x9, x9                                       mov igpr-8, igpr-24
+  [0x100AC] cmp x9, x6                                       j(igpr-8 < igpr-4) label-8
+  [0x100B0] b.lt #0x10028
+  [0x100B4] mov x9, x14                                      mov-symptr igpr-26, '#f
+  [0x100B8] sub x9, x9, x15 ;; misaligned with debug data
+
+dma-bucket.gc:54
+->   (when (nonzero? bucket)
+  [0x100BC] mov x9, x9                                       mov igpr-5, igpr-26
+  [0x100C0] b #0x100cc                                       goto label-40
+  [0x100C4] mov x9, x14                                      mov-symptr igpr-5, '#f
+  [0x100C8] sub x9, x9, x15 ;; misaligned with debug data
+
+dma-bucket.gc:51
+-> (defun dma-buffer-patch-buckets ((bucket (inline-array dma-bucket)) (count int))
+  [0x100CC] mov x0, x7                                       ret igpr-2 igpr-3
+  [0x100D0] ldp x29, x30, [sp], #0x10
+  [0x100D4] ret
+
+
+[dma-buffer-add-buckets]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+dma-bucket.gc:31
+-> (defun dma-buffer-add-buckets ((dma-buf dma-buffer) (count int))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+dma-bucket.gc:33
+->   (let* ((initial-bucket (the-as dma-bucket (-> dma-buf base)))
+  [0x10010] add x16, x7, x15                                 mov igpr-5, [igpr-3 + 4]
+  [0x10014] ldr w0, [x16, #4] ;; misaligned with debug data
+  [0x10018] mov x0, x0                                       mov igpr-6, igpr-5
+
+dma-bucket.gc:33
+->   (let* ((initial-bucket (the-as dma-bucket (-> dma-buf base)))
+  [0x1001C] mov x0, x0                                       mov igpr-7, igpr-6
+  [0x10020] mov x9, x0                                       mov igpr-8, igpr-7
+
+dma-bucket.gc:36
+->     (dotimes (i count)
+  [0x10024] movz x8, #0                                      mov-ic igpr-9, 0
+  [0x10028] mov x8, x8                                       mov igpr-10, igpr-9
+  [0x1002C] b #0x10090                                       goto label-31
+
+dma-bucket.gc:42
+->             (new 'static 'dma-tag :id (dma-tag-id next) :addr (the-as int (&+ (the-as pointer current-bucket) 16))))
+  [0x10030] mov x1, x9                                       mov igpr-14, igpr-8
+  [0x10034] mov x1, x1                                       mov igpr-15, igpr-14
+  [0x10038] movz x2, #0x10                                   mov-ic igpr-16, 16
+  [0x1003C] add x1, x1, x2                                   addi igpr-15, igpr-16
+
+dma-bucket.gc:42
+->             (new 'static 'dma-tag :id (dma-tag-id next) :addr (the-as int (&+ (the-as pointer current-bucket) 16))))
+  [0x10040] mov x1, x1                                       mov igpr-17, igpr-15
+
+dma-bucket.gc:42
+->             (new 'static 'dma-tag :id (dma-tag-id next) :addr (the-as int (&+ (the-as pointer current-bucket) 16))))
+  [0x10044] movz x2, #0                                      mov-ic igpr-18, 536870912
+  [0x10048] movk x2, #0x2000, lsl #16
+  [0x1004C] mov x1, x1                                       mov igpr-19, igpr-17
+  [0x10050] lsl x1, x1, #0x21                                shl igpr-19, 33
+  [0x10054] lsr x1, x1, #1                                   shr igpr-19, 1
+  [0x10058] orr x2, x2, x1                                   or igpr-18, igpr-19
+
+dma-bucket.gc:41
+->       (set! (-> current-bucket tag)
+  [0x1005C] add x16, x9, x15                                 move [igpr-8 + 0], igpr-18
+  [0x10060] str x2, [x16] ;; misaligned with debug data
+
+dma-bucket.gc:44
+->       (set! (-> current-bucket last) (the-as (pointer dma-tag) current-bucket))
+  [0x10064] mov x1, x9                                       mov igpr-20, igpr-8
+  [0x10068] add x16, x9, x15                                 move [igpr-8 + 8], igpr-20
+  [0x1006C] str w1, [x16, #8] ;; misaligned with debug data
+
+dma-bucket.gc:46
+->       (&+! current-bucket 16))
+  [0x10070] mov x9, x9                                       mov igpr-21, igpr-8
+  [0x10074] movz x1, #0x10                                   mov-ic igpr-22, 16
+  [0x10078] add x9, x9, x1                                   addi igpr-21, igpr-22
+  [0x1007C] mov x9, x9                                       mov igpr-8, igpr-21
+
+dma-bucket.gc:36
+->     (dotimes (i count)
+  [0x10080] mov x8, x8                                       mov igpr-23, igpr-10
+  [0x10084] movz x1, #0x1                                    mov-ic igpr-24, 1
+  [0x10088] add x8, x8, x1                                   addi igpr-23, igpr-24
+  [0x1008C] mov x8, x8                                       mov igpr-10, igpr-23
+  [0x10090] cmp x8, x6                                       j(igpr-10 < igpr-4) label-10
+  [0x10094] b.lt #0x10030
+  [0x10098] mov x8, x14                                      mov-symptr igpr-25, '#f
+  [0x1009C] sub x8, x8, x15 ;; misaligned with debug data
+
+dma-bucket.gc:48
+->     (set! (-> dma-buf base) (the-as pointer current-bucket))
+  [0x100A0] mov x9, x9                                       mov igpr-26, igpr-8
+  [0x100A4] add x16, x7, x15                                 move [igpr-3 + 4], igpr-26
+  [0x100A8] str w9, [x16, #4] ;; misaligned with debug data
+
+dma-bucket.gc:49
+->     (the (inline-array dma-bucket) initial-bucket)))
+  [0x100AC] mov x0, x0                                       mov igpr-27, igpr-7
+
+dma-bucket.gc:31
+-> (defun dma-buffer-add-buckets ((dma-buf dma-buffer) (count int))
+  [0x100B0] mov x0, x0                                       ret igpr-2 igpr-27
+  [0x100B4] ldp x29, x30, [sp], #0x10
+  [0x100B8] ret
+
+
+

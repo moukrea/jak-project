@@ -1,0 +1,80 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+ocean-vu0.gc:7
+-> (define *ocean-vu0-work*
+  [0x1000C] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x10010] add x9, x9, #0
+  [0x10014] sub x9, x9, x15
+  [0x10018] adrp x16, #0x10000                               mov '*ocean-vu0-work*, igpr-0
+  [0x1001C] add x16, x16, #0
+  [0x10020] str w9, [x16]
+
+ocean-vu0.gc:17
+-> (def-mips2c ocean-interp-wave (function ocean-wave-info uint none)) ;; TODO mips2c
+  [0x10024] adrp x16, #0x10000                               mov igpr-1, '__pc-get-mips2c
+  [0x10028] add x16, x16, #0
+  [0x1002C] ldr w9, [x16]
+  [0x10030] adrp x7, #0x10000                                mov-sva igpr-2, static-string "ocean-interp-wave"
+  [0x10034] add x7, x7, #0
+  [0x10038] sub x7, x7, x15
+  [0x1003C] mov x9, x9                                       mov igpr-5, igpr-1
+  [0x10040] mov x7, x7                                       mov igpr-4, igpr-2
+  [0x10044] add x9, x9, x15                                  call igpr-5 (ret igpr-3) (args igpr-4)
+  [0x10048] stp x3, x5, [sp, #-0x10]!
+  [0x1004C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10050] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10054] blr x9 ;; misaligned with debug data
+  [0x10058] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1005C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] mov x0, x0                                       mov igpr-6, igpr-3
+  [0x10068] mov x0, x0                                       mov igpr-7, igpr-6
+  [0x1006C] adrp x16, #0x10000                               mov 'ocean-interp-wave, igpr-7
+  [0x10070] add x16, x16, #0
+  [0x10074] str w0, [x16]
+
+ocean-vu0.gc:19
+-> (define ocean-vu0-block (new 'static 'vu-function :length #x0 :qlength #x0))
+  [0x10078] adrp x9, #0x10000                                mov-sva igpr-8, static-structure
+  [0x1007C] add x9, x9, #0
+  [0x10080] sub x9, x9, x15
+  [0x10084] adrp x16, #0x10000                               mov 'ocean-vu0-block, igpr-8
+  [0x10088] add x16, x16, #0
+  [0x1008C] str w9, [x16]
+
+ocean-vu0.gc:21
+-> (def-mips2c ocean-generate-verts (function (inline-array vector) ocean-wave-info none)) ;; TODO mips2c
+  [0x10090] adrp x16, #0x10000                               mov igpr-9, '__pc-get-mips2c
+  [0x10094] add x16, x16, #0
+  [0x10098] ldr w9, [x16]
+  [0x1009C] adrp x7, #0x10000                                mov-sva igpr-10, static-string "ocean-generate-verts"
+  [0x100A0] add x7, x7, #0
+  [0x100A4] sub x7, x7, x15
+  [0x100A8] mov x9, x9                                       mov igpr-13, igpr-9
+  [0x100AC] mov x7, x7                                       mov igpr-12, igpr-10
+  [0x100B0] add x9, x9, x15                                  call igpr-13 (ret igpr-11) (args igpr-12)
+  [0x100B4] stp x3, x5, [sp, #-0x10]!
+  [0x100B8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100BC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100C0] blr x9 ;; misaligned with debug data
+  [0x100C4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100C8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100CC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100D0] mov x0, x0                                       mov igpr-14, igpr-11
+  [0x100D4] mov x0, x0                                       mov igpr-15, igpr-14
+  [0x100D8] adrp x16, #0x10000                               mov 'ocean-generate-verts, igpr-15
+  [0x100DC] add x16, x16, #0
+  [0x100E0] str w0, [x16]
+
+ocean-vu0.gc:1
+-> ;-*-Lisp-*-
+  [0x100E4] mov x0, x0                                       ret igpr-16 igpr-15
+  [0x100E8] add sp, sp, #0x10
+  [0x100EC] ldp x29, x30, [sp], #0x10
+  [0x100F0] ret
+
+
+

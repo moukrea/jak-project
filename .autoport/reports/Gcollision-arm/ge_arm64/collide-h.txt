@@ -1,0 +1,20 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collide-h.gc:4
+-> (define *collide-test-flag* #f)
+  [0x10008] mov x0, x14                                      mov-symptr igpr-0, '#f
+  [0x1000C] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10010] adrp x16, #0x10000                               mov '*collide-test-flag*, igpr-0
+  [0x10014] add x16, x16, #0
+  [0x10018] str w0, [x16]
+
+collide-h.gc:1
+-> ;-*-Lisp-*-
+  [0x1001C] mov x0, x0                                       ret igpr-1 igpr-0
+  [0x10020] ldp x29, x30, [sp], #0x10
+  [0x10024] ret
+
+
+

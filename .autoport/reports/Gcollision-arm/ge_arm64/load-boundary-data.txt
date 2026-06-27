@@ -1,0 +1,113 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+load-boundary-data.gc:9
+-> (set! (-> *lb-editor-parms* boundary) #f)
+  [0x1000C] mov x9, x14                                      mov-symptr igpr-0, '#f
+  [0x10010] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10014] adrp x16, #0x10000                               mov igpr-1, '*lb-editor-parms*
+  [0x10018] add x16, x16, #0
+  [0x1001C] ldr w8, [x16]
+  [0x10020] add x16, x8, x15                                 move [igpr-1 + 0], igpr-0
+  [0x10024] str w9, [x16] ;; misaligned with debug data
+
+load-boundary-data.gc:12
+-> (set! *load-boundary-list* (the-as load-boundary #f))
+  [0x10028] mov x9, x14                                      mov-symptr igpr-2, '#f
+  [0x1002C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10030] mov x9, x9                                       mov igpr-3, igpr-2
+  [0x10034] adrp x16, #0x10000                               mov '*load-boundary-list*, igpr-3
+  [0x10038] add x16, x16, #0
+  [0x1003C] str w9, [x16]
+
+load-boundary-data.gc:14
+-> (define *static-load-boundary-list*
+  [0x10040] adrp x9, #0x10000                                mov-sva igpr-4, static-structure
+  [0x10044] add x9, x9, #0
+  [0x10048] sub x9, x9, x15
+  [0x1004C] adrp x16, #0x10000                               mov '*static-load-boundary-list*, igpr-4
+  [0x10050] add x16, x16, #0
+  [0x10054] str w9, [x16]
+
+load-boundary-data.gc:1500
+-> (doarray (i *static-load-boundary-list*) (load-boundary-from-template (the-as (array object) i)))
+  [0x10058] adrp x16, #0x10000                               mov igpr-6, '*static-load-boundary-list*
+  [0x1005C] add x16, x16, #0
+  [0x10060] ldr w9, [x16]
+  [0x10064] add x16, x9, x15                                 mov igpr-5, [igpr-6 + 0]
+  [0x10068] ldrsw x3, [x16] ;; misaligned with debug data
+  [0x1006C] mov x5, x3                                       mov igpr-7, igpr-5
+  [0x10070] movz x3, #0                                      mov-ic igpr-8, 0
+  [0x10074] mov x3, x3                                       mov igpr-9, igpr-8
+  [0x10078] movz x9, #0xc                                    mov-ic igpr-10, 12
+  [0x1007C] mov x8, x3                                       mov igpr-11, igpr-9
+  [0x10080] lsl x8, x8, #2                                   shl igpr-11, 2
+  [0x10084] add x8, x8, x9                                   addi igpr-11, igpr-10
+  [0x10088] mov x8, x8                                       mov igpr-13, igpr-11
+  [0x1008C] adrp x16, #0x10000                               mov igpr-14, '*static-load-boundary-list*
+  [0x10090] add x16, x16, #0
+  [0x10094] ldr w9, [x16]
+  [0x10098] add x8, x8, x9                                   addi igpr-13, igpr-14
+  [0x1009C] add x16, x8, x15                                 mov igpr-12, [igpr-13 + 0]
+  [0x100A0] ldr w9, [x16] ;; misaligned with debug data
+  [0x100A4] mov x9, x9                                       mov igpr-15, igpr-12
+  [0x100A8] b #0x10128                                       goto label-42
+
+load-boundary-data.gc:1500
+-> (doarray (i *static-load-boundary-list*) (load-boundary-from-template (the-as (array object) i)))
+  [0x100AC] adrp x16, #0x10000                               mov igpr-19, 'load-boundary-from-template
+  [0x100B0] add x16, x16, #0
+  [0x100B4] ldr w8, [x16]
+
+load-boundary-data.gc:1500
+-> (doarray (i *static-load-boundary-list*) (load-boundary-from-template (the-as (array object) i)))
+  [0x100B8] mov x7, x9                                       mov igpr-20, igpr-15
+
+load-boundary-data.gc:1500
+-> (doarray (i *static-load-boundary-list*) (load-boundary-from-template (the-as (array object) i)))
+  [0x100BC] mov x8, x8                                       mov igpr-23, igpr-19
+  [0x100C0] mov x7, x7                                       mov igpr-22, igpr-20
+  [0x100C4] add x8, x8, x15                                  call igpr-23 (ret igpr-21) (args igpr-22)
+  [0x100C8] stp x3, x5, [sp, #-0x10]!
+  [0x100CC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100D0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100D4] blr x8 ;; misaligned with debug data
+  [0x100D8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100DC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100E0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100E4] mov x12, x12                                     mov igpr-24, igpr-21
+
+load-boundary-data.gc:1500
+-> (doarray (i *static-load-boundary-list*) (load-boundary-from-template (the-as (array object) i)))
+  [0x100E8] mov x3, x3                                       mov igpr-25, igpr-9
+  [0x100EC] movz x9, #0x1                                    mov-ic igpr-26, 1
+  [0x100F0] add x3, x3, x9                                   addi igpr-25, igpr-26
+  [0x100F4] mov x3, x3                                       mov igpr-9, igpr-25
+  [0x100F8] movz x9, #0xc                                    mov-ic igpr-27, 12
+  [0x100FC] mov x8, x3                                       mov igpr-28, igpr-9
+  [0x10100] lsl x8, x8, #2                                   shl igpr-28, 2
+  [0x10104] add x8, x8, x9                                   addi igpr-28, igpr-27
+  [0x10108] mov x8, x8                                       mov igpr-30, igpr-28
+  [0x1010C] adrp x16, #0x10000                               mov igpr-31, '*static-load-boundary-list*
+  [0x10110] add x16, x16, #0
+  [0x10114] ldr w9, [x16]
+  [0x10118] add x8, x8, x9                                   addi igpr-30, igpr-31
+  [0x1011C] add x16, x8, x15                                 mov igpr-29, [igpr-30 + 0]
+  [0x10120] ldr w9, [x16] ;; misaligned with debug data
+  [0x10124] mov x9, x9                                       mov igpr-15, igpr-29
+  [0x10128] cmp x3, x5                                       j(igpr-9 < igpr-7) label-23
+  [0x1012C] b.lt #0x100ac
+  [0x10130] mov x0, x14                                      mov-symptr igpr-32, '#f
+  [0x10134] sub x0, x0, x15 ;; misaligned with debug data
+
+load-boundary-data.gc:1
+-> ;-*-Lisp-*-
+  [0x10138] mov x0, x0                                       ret igpr-33 igpr-32
+  [0x1013C] add sp, sp, #0x10
+  [0x10140] ldp x29, x30, [sp], #0x10
+  [0x10144] ret
+
+
+

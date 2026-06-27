@@ -1,0 +1,567 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+  [0x1000C] adrp x9, #0x10000                                mov-fa igpr-0, function-light-slerp
+  [0x10010] add x9, x9, #0
+  [0x10014] sub x9, x9, x15
+
+lights.gc:8
+-> (defun light-slerp ((out light) (a light) (b light) (alpha float))
+  [0x10018] adrp x16, #0x10000                               mov 'light-slerp, igpr-0
+  [0x1001C] add x16, x16, #0
+  [0x10020] str w9, [x16]
+  [0x10024] adrp x9, #0x10000                                mov-fa igpr-1, function-light-group-slerp
+  [0x10028] add x9, x9, #0
+  [0x1002C] sub x9, x9, x15
+
+lights.gc:18
+-> (defun light-group-slerp ((out light-group) (a light-group) (b light-group) (alpha float))
+  [0x10030] adrp x16, #0x10000                               mov 'light-group-slerp, igpr-1
+  [0x10034] add x16, x16, #0
+  [0x10038] str w9, [x16]
+  [0x1003C] adrp x9, #0x10000                                mov-fa igpr-2, function-light-group-process!
+  [0x10040] add x9, x9, #0
+  [0x10044] sub x9, x9, x15
+
+lights.gc:25
+-> (defun light-group-process! ((arg0 vu-lights) (arg1 light-group) (arg2 vector) (arg3 vector))
+  [0x10048] adrp x16, #0x10000                               mov 'light-group-process!, igpr-2
+  [0x1004C] add x16, x16, #0
+  [0x10050] str w9, [x16]
+
+lights.gc:31
+-> (define *default-lights* (new 'global 'vu-lights))
+  [0x10054] adrp x7, #0x10000                                mov-symptr igpr-3, 'global
+  [0x10058] add x7, x7, #0
+  [0x1005C] adrp x16, #0x10000                               mov igpr-4, 'vu-lights
+  [0x10060] add x16, x16, #0
+  [0x10064] ldr w6, [x16]
+  [0x10068] adrp x16, #0x10000                               mov igpr-5, 'vu-lights
+  [0x1006C] add x16, x16, #0
+  [0x10070] ldr w9, [x16]
+  [0x10074] add x16, x9, x15                                 mov igpr-6, [igpr-5 + 16]
+  [0x10078] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x1007C] mov x9, x9                                       mov igpr-10, igpr-6
+  [0x10080] mov x7, x7                                       mov igpr-8, igpr-3
+  [0x10084] mov x6, x6                                       mov igpr-9, igpr-4
+  [0x10088] add x9, x9, x15                                  call igpr-10 (ret igpr-7) (args igpr-8 igpr-9)
+  [0x1008C] stp x3, x5, [sp, #-0x10]!
+  [0x10090] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10094] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10098] blr x9 ;; misaligned with debug data
+  [0x1009C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100A0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100A4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100A8] mov x0, x0                                       mov igpr-11, igpr-7
+
+lights.gc:31
+-> (define *default-lights* (new 'global 'vu-lights))
+  [0x100AC] adrp x16, #0x10000                               mov '*default-lights*, igpr-11
+  [0x100B0] add x16, x16, #0
+  [0x100B4] str w0, [x16]
+  [0x100B8] adrp x0, #0x10000                                mov-fa igpr-12, function-vu-lights-default!
+  [0x100BC] add x0, x0, #0
+  [0x100C0] sub x0, x0, x15
+
+lights.gc:33
+-> (defun vu-lights-default! ((lights vu-lights))
+  [0x100C4] adrp x16, #0x10000                               mov 'vu-lights-default!, igpr-12
+  [0x100C8] add x16, x16, #0
+  [0x100CC] str w0, [x16]
+
+lights.gc:1
+-> ;-*-Lisp-*-
+  [0x100D0] mov x0, x0                                       ret igpr-13 igpr-12
+  [0x100D4] add sp, sp, #0x10
+  [0x100D8] ldp x29, x30, [sp], #0x10
+  [0x100DC] ret
+
+
+[light-group-process!]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+lights.gc:25
+-> (defun light-group-process! ((arg0 vu-lights) (arg1 light-group) (arg2 vector) (arg3 vector))
+  [0x1000C] mov x3, x7                                       mov igpr-5, igpr-0
+  [0x10010] mov x5, x6                                       mov igpr-6, igpr-1
+  [0x10014] mov x2, x2                                       mov igpr-7, igpr-2
+  [0x10018] mov x1, x1                                       mov igpr-8, igpr-3
+
+lights.gc:27
+->   (rotate-y<-vector+vector arg3 arg2)
+  [0x1001C] adrp x16, #0x10000                               mov igpr-9, 'rotate-y<-vector+vector
+  [0x10020] add x16, x16, #0
+  [0x10024] ldr w9, [x16]
+  [0x10028] mov x9, x9                                       mov igpr-13, igpr-9
+  [0x1002C] mov x7, x1                                       mov igpr-11, igpr-8
+  [0x10030] mov x6, x2                                       mov igpr-12, igpr-7
+  [0x10034] add x9, x9, x15                                  call igpr-13 (ret igpr-10) (args igpr-11 igpr-12)
+  [0x10038] stp x3, x5, [sp, #-0x10]!
+  [0x1003C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10040] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10044] blr x9 ;; misaligned with debug data
+  [0x10048] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1004C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10050] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10054] mov x0, x0                                       mov igpr-14, igpr-10
+
+lights.gc:28
+->   (vu-lights<-light-group! arg0 arg1)
+  [0x10058] adrp x16, #0x10000                               mov igpr-15, 'vu-lights<-light-group!
+  [0x1005C] add x16, x16, #0
+  [0x10060] ldr w9, [x16]
+  [0x10064] mov x9, x9                                       mov igpr-19, igpr-15
+  [0x10068] mov x7, x3                                       mov igpr-17, igpr-5
+  [0x1006C] mov x6, x5                                       mov igpr-18, igpr-6
+  [0x10070] add x9, x9, x15                                  call igpr-19 (ret igpr-16) (args igpr-17 igpr-18)
+  [0x10074] stp x3, x5, [sp, #-0x10]!
+  [0x10078] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1007C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10080] blr x9 ;; misaligned with debug data
+  [0x10084] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10088] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1008C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10090] mov x3, x3                                       mov igpr-20, igpr-16
+  [0x10094] add sp, sp, #0x10
+  [0x10098] ldp x29, x30, [sp], #0x10
+  [0x1009C] ret
+
+
+[vu-lights-default!]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+lights.gc:33
+-> (defun vu-lights-default! ((lights vu-lights))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+lights.gc:35
+->   (set-vector! (-> lights ambient) 0.3 0.3 0.3 1.0)
+  [0x1000C] movz x9, #0x60                                   mov-ic igpr-3, 96
+  [0x10010] add x9, x9, x7                                   addi igpr-3, igpr-2
+
+lights.gc:35
+->   (set-vector! (-> lights ambient) 0.3 0.3 0.3 1.0)
+  [0x10014] mov x9, x9                                       mov igpr-4, igpr-3
+  [0x10018] adrp x16, #0x10000                               mov-svl ifpr-5, [(sf 0.3)]
+  [0x1001C] ldr s23, [x16, #0x514]
+  [0x10020] add x16, x9, x15                                 move [igpr-4 + 0], ifpr-5
+  [0x10024] str s23, [x16] ;; misaligned with debug data
+  [0x10028] adrp x16, #0x10000                               mov-svl ifpr-6, [(sf 0.3)]
+  [0x1002C] ldr s23, [x16, #0x518]
+  [0x10030] add x16, x9, x15                                 move [igpr-4 + 4], ifpr-6
+  [0x10034] str s23, [x16, #4] ;; misaligned with debug data
+  [0x10038] adrp x16, #0x10000                               mov-svl ifpr-7, [(sf 0.3)]
+  [0x1003C] ldr s23, [x16, #0x51c]
+  [0x10040] add x16, x9, x15                                 move [igpr-4 + 8], ifpr-7
+  [0x10044] str s23, [x16, #8] ;; misaligned with debug data
+  [0x10048] adrp x16, #0x10000                               mov-svl ifpr-8, [(sf 1)]
+  [0x1004C] ldr s23, [x16, #0x520]
+  [0x10050] add x16, x9, x15                                 move [igpr-4 + 12], ifpr-8
+  [0x10054] str s23, [x16, #0xc] ;; misaligned with debug data
+
+lights.gc:36
+->   (set-vector! (-> lights color 0) 1.0 1.0 1.0 1.0)
+  [0x10058] movz x9, #0x30                                   mov-ic igpr-9, 48
+  [0x1005C] add x9, x9, x7                                   addi igpr-9, igpr-2
+
+lights.gc:36
+->   (set-vector! (-> lights color 0) 1.0 1.0 1.0 1.0)
+  [0x10060] mov x9, x9                                       mov igpr-10, igpr-9
+  [0x10064] adrp x16, #0x10000                               mov-svl ifpr-11, [(sf 1)]
+  [0x10068] ldr s23, [x16, #0x524]
+  [0x1006C] add x16, x9, x15                                 move [igpr-10 + 0], ifpr-11
+  [0x10070] str s23, [x16] ;; misaligned with debug data
+  [0x10074] adrp x16, #0x10000                               mov-svl ifpr-12, [(sf 1)]
+  [0x10078] ldr s23, [x16, #0x528]
+  [0x1007C] add x16, x9, x15                                 move [igpr-10 + 4], ifpr-12
+  [0x10080] str s23, [x16, #4] ;; misaligned with debug data
+  [0x10084] adrp x16, #0x10000                               mov-svl ifpr-13, [(sf 1)]
+  [0x10088] ldr s23, [x16, #0x52c]
+  [0x1008C] add x16, x9, x15                                 move [igpr-10 + 8], ifpr-13
+  [0x10090] str s23, [x16, #8] ;; misaligned with debug data
+  [0x10094] adrp x16, #0x10000                               mov-svl ifpr-14, [(sf 1)]
+  [0x10098] ldr s23, [x16, #0x530]
+  [0x1009C] add x16, x9, x15                                 move [igpr-10 + 12], ifpr-14
+  [0x100A0] str s23, [x16, #0xc] ;; misaligned with debug data
+
+lights.gc:37
+->   (set-vector! (-> lights color 1) 0.2 0.2 0.2 1.0)
+  [0x100A4] movz x9, #0x40                                   mov-ic igpr-15, 64
+  [0x100A8] add x9, x9, x7                                   addi igpr-15, igpr-2
+
+lights.gc:37
+->   (set-vector! (-> lights color 1) 0.2 0.2 0.2 1.0)
+  [0x100AC] mov x9, x9                                       mov igpr-16, igpr-15
+  [0x100B0] adrp x16, #0x10000                               mov-svl ifpr-17, [(sf 0.2)]
+  [0x100B4] ldr s23, [x16, #0x534]
+  [0x100B8] add x16, x9, x15                                 move [igpr-16 + 0], ifpr-17
+  [0x100BC] str s23, [x16] ;; misaligned with debug data
+  [0x100C0] adrp x16, #0x10000                               mov-svl ifpr-18, [(sf 0.2)]
+  [0x100C4] ldr s23, [x16, #0x538]
+  [0x100C8] add x16, x9, x15                                 move [igpr-16 + 4], ifpr-18
+  [0x100CC] str s23, [x16, #4] ;; misaligned with debug data
+  [0x100D0] adrp x16, #0x10000                               mov-svl ifpr-19, [(sf 0.2)]
+  [0x100D4] ldr s23, [x16, #0x53c]
+  [0x100D8] add x16, x9, x15                                 move [igpr-16 + 8], ifpr-19
+  [0x100DC] str s23, [x16, #8] ;; misaligned with debug data
+  [0x100E0] adrp x16, #0x10000                               mov-svl ifpr-20, [(sf 1)]
+  [0x100E4] ldr s23, [x16, #0x540]
+  [0x100E8] add x16, x9, x15                                 move [igpr-16 + 12], ifpr-20
+  [0x100EC] str s23, [x16, #0xc] ;; misaligned with debug data
+
+lights.gc:38
+->   (set-vector! (-> lights color 2) 0.0 0.0 0.0 1.0)
+  [0x100F0] movz x9, #0x50                                   mov-ic igpr-21, 80
+  [0x100F4] add x9, x9, x7                                   addi igpr-21, igpr-2
+
+lights.gc:38
+->   (set-vector! (-> lights color 2) 0.0 0.0 0.0 1.0)
+  [0x100F8] mov x9, x9                                       mov igpr-22, igpr-21
+  [0x100FC] adrp x16, #0x10000                               mov-svl ifpr-23, [(sf 0)]
+  [0x10100] ldr s23, [x16, #0x544]
+  [0x10104] add x16, x9, x15                                 move [igpr-22 + 0], ifpr-23
+  [0x10108] str s23, [x16] ;; misaligned with debug data
+  [0x1010C] adrp x16, #0x10000                               mov-svl ifpr-24, [(sf 0)]
+  [0x10110] ldr s23, [x16, #0x548]
+  [0x10114] add x16, x9, x15                                 move [igpr-22 + 4], ifpr-24
+  [0x10118] str s23, [x16, #4] ;; misaligned with debug data
+  [0x1011C] adrp x16, #0x10000                               mov-svl ifpr-25, [(sf 0)]
+  [0x10120] ldr s23, [x16, #0x54c]
+  [0x10124] add x16, x9, x15                                 move [igpr-22 + 8], ifpr-25
+  [0x10128] str s23, [x16, #8] ;; misaligned with debug data
+  [0x1012C] adrp x16, #0x10000                               mov-svl ifpr-26, [(sf 1)]
+  [0x10130] ldr s23, [x16, #0x550]
+  [0x10134] add x16, x9, x15                                 move [igpr-22 + 12], ifpr-26
+  [0x10138] str s23, [x16, #0xc] ;; misaligned with debug data
+
+lights.gc:39
+->   (set-vector! (-> lights direction 0) 1.0 0.0 0.0 1.0)
+  [0x1013C] mov x9, x7                                       mov igpr-27, igpr-2
+
+lights.gc:39
+->   (set-vector! (-> lights direction 0) 1.0 0.0 0.0 1.0)
+  [0x10140] mov x9, x9                                       mov igpr-28, igpr-27
+  [0x10144] adrp x16, #0x10000                               mov-svl ifpr-29, [(sf 1)]
+  [0x10148] ldr s23, [x16, #0x554]
+  [0x1014C] add x16, x9, x15                                 move [igpr-28 + 0], ifpr-29
+  [0x10150] str s23, [x16] ;; misaligned with debug data
+  [0x10154] adrp x16, #0x10000                               mov-svl ifpr-30, [(sf 0)]
+  [0x10158] ldr s23, [x16, #0x558]
+  [0x1015C] add x16, x9, x15                                 move [igpr-28 + 4], ifpr-30
+  [0x10160] str s23, [x16, #4] ;; misaligned with debug data
+  [0x10164] adrp x16, #0x10000                               mov-svl ifpr-31, [(sf 0)]
+  [0x10168] ldr s23, [x16, #0x55c]
+  [0x1016C] add x16, x9, x15                                 move [igpr-28 + 8], ifpr-31
+  [0x10170] str s23, [x16, #8] ;; misaligned with debug data
+  [0x10174] adrp x16, #0x10000                               mov-svl ifpr-32, [(sf 1)]
+  [0x10178] ldr s23, [x16, #0x560]
+  [0x1017C] add x16, x9, x15                                 move [igpr-28 + 12], ifpr-32
+  [0x10180] str s23, [x16, #0xc] ;; misaligned with debug data
+
+lights.gc:40
+->   (set-vector! (-> lights direction 1) 0.0 1.0 0.0 1.0)
+  [0x10184] movz x9, #0x10                                   mov-ic igpr-33, 16
+  [0x10188] add x9, x9, x7                                   addi igpr-33, igpr-2
+
+lights.gc:40
+->   (set-vector! (-> lights direction 1) 0.0 1.0 0.0 1.0)
+  [0x1018C] mov x9, x9                                       mov igpr-34, igpr-33
+  [0x10190] adrp x16, #0x10000                               mov-svl ifpr-35, [(sf 0)]
+  [0x10194] ldr s23, [x16, #0x564]
+  [0x10198] add x16, x9, x15                                 move [igpr-34 + 0], ifpr-35
+  [0x1019C] str s23, [x16] ;; misaligned with debug data
+  [0x101A0] adrp x16, #0x10000                               mov-svl ifpr-36, [(sf 1)]
+  [0x101A4] ldr s23, [x16, #0x568]
+  [0x101A8] add x16, x9, x15                                 move [igpr-34 + 4], ifpr-36
+  [0x101AC] str s23, [x16, #4] ;; misaligned with debug data
+  [0x101B0] adrp x16, #0x10000                               mov-svl ifpr-37, [(sf 0)]
+  [0x101B4] ldr s23, [x16, #0x56c]
+  [0x101B8] add x16, x9, x15                                 move [igpr-34 + 8], ifpr-37
+  [0x101BC] str s23, [x16, #8] ;; misaligned with debug data
+  [0x101C0] adrp x16, #0x10000                               mov-svl ifpr-38, [(sf 1)]
+  [0x101C4] ldr s23, [x16, #0x570]
+  [0x101C8] add x16, x9, x15                                 move [igpr-34 + 12], ifpr-38
+  [0x101CC] str s23, [x16, #0xc] ;; misaligned with debug data
+
+lights.gc:41
+->   (set-vector! (-> lights direction 2) 0.0 0.0 1.0 1.0)
+  [0x101D0] movz x9, #0x20                                   mov-ic igpr-39, 32
+  [0x101D4] add x9, x9, x7                                   addi igpr-39, igpr-2
+
+lights.gc:41
+->   (set-vector! (-> lights direction 2) 0.0 0.0 1.0 1.0)
+  [0x101D8] mov x9, x9                                       mov igpr-40, igpr-39
+  [0x101DC] adrp x16, #0x10000                               mov-svl ifpr-41, [(sf 0)]
+  [0x101E0] ldr s23, [x16, #0x574]
+  [0x101E4] add x16, x9, x15                                 move [igpr-40 + 0], ifpr-41
+  [0x101E8] str s23, [x16] ;; misaligned with debug data
+  [0x101EC] adrp x16, #0x10000                               mov-svl ifpr-42, [(sf 0)]
+  [0x101F0] ldr s23, [x16, #0x578]
+  [0x101F4] add x16, x9, x15                                 move [igpr-40 + 4], ifpr-42
+  [0x101F8] str s23, [x16, #4] ;; misaligned with debug data
+  [0x101FC] adrp x16, #0x10000                               mov-svl ifpr-43, [(sf 1)]
+  [0x10200] ldr s23, [x16, #0x57c]
+  [0x10204] add x16, x9, x15                                 move [igpr-40 + 8], ifpr-43
+  [0x10208] str s23, [x16, #8] ;; misaligned with debug data
+  [0x1020C] adrp x16, #0x10000                               mov-svl ifpr-44, [(sf 1)]
+  [0x10210] ldr s23, [x16, #0x580]
+  [0x10214] add x16, x9, x15                                 move [igpr-40 + 12], ifpr-44
+  [0x10218] str s23, [x16, #0xc] ;; misaligned with debug data
+
+lights.gc:33
+-> (defun vu-lights-default! ((lights vu-lights))
+  [0x1021C] mov x0, x7                                       ret igpr-1 igpr-2
+  [0x10220] ldp x29, x30, [sp], #0x10
+  [0x10224] ret
+
+
+[light-group-slerp]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+lights.gc:18
+-> (defun light-group-slerp ((out light-group) (a light-group) (b light-group) (alpha float))
+  [0x1000C] mov x5, x7                                       mov igpr-5, igpr-0
+  [0x10010] mov x12, x6                                      mov igpr-6, igpr-1
+  [0x10014] mov x11, x2                                      mov igpr-7, igpr-2
+  [0x10018] mov x10, x1                                      mov igpr-8, igpr-3
+
+lights.gc:21
+->   (dotimes (vec-index 4)
+  [0x1001C] movz x3, #0                                      mov-ic igpr-9, 0
+  [0x10020] mov x3, x3                                       mov igpr-10, igpr-9
+  [0x10024] b #0x100b8                                       goto label-35
+
+lights.gc:22
+->     (light-slerp (-> out lights vec-index) (-> a lights vec-index) (-> b lights vec-index) alpha))
+  [0x10028] adrp x16, #0x10000                               mov igpr-14, 'light-slerp
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w9, [x16]
+
+lights.gc:22
+->     (light-slerp (-> out lights vec-index) (-> a lights vec-index) (-> b lights vec-index) alpha))
+  [0x10034] movz x7, #0x30                                   mov-ic igpr-15, 48
+  [0x10038] mul x7, x7, x3                                   imul igpr-15, igpr-10
+  [0x1003C] mov x7, x7                                       mov igpr-16, igpr-15
+  [0x10040] mov x8, x5                                       mov igpr-17, igpr-5
+  [0x10044] add x7, x7, x8                                   addi igpr-16, igpr-17
+
+lights.gc:22
+->     (light-slerp (-> out lights vec-index) (-> a lights vec-index) (-> b lights vec-index) alpha))
+  [0x10048] movz x6, #0x30                                   mov-ic igpr-18, 48
+  [0x1004C] mul x6, x6, x3                                   imul igpr-18, igpr-10
+  [0x10050] mov x6, x6                                       mov igpr-19, igpr-18
+  [0x10054] mov x8, x12                                      mov igpr-20, igpr-6
+  [0x10058] add x6, x6, x8                                   addi igpr-19, igpr-20
+
+lights.gc:22
+->     (light-slerp (-> out lights vec-index) (-> a lights vec-index) (-> b lights vec-index) alpha))
+  [0x1005C] movz x2, #0x30                                   mov-ic igpr-21, 48
+  [0x10060] mul x2, x2, x3                                   imul igpr-21, igpr-10
+  [0x10064] mov x2, x2                                       mov igpr-22, igpr-21
+  [0x10068] mov x8, x11                                      mov igpr-23, igpr-7
+  [0x1006C] add x2, x2, x8                                   addi igpr-22, igpr-23
+
+lights.gc:22
+->     (light-slerp (-> out lights vec-index) (-> a lights vec-index) (-> b lights vec-index) alpha))
+  [0x10070] mov x9, x9                                       mov igpr-29, igpr-14
+  [0x10074] mov x7, x7                                       mov igpr-25, igpr-16
+  [0x10078] mov x6, x6                                       mov igpr-26, igpr-19
+  [0x1007C] mov x2, x2                                       mov igpr-27, igpr-22
+  [0x10080] mov x1, x10                                      mov igpr-28, igpr-8
+  [0x10084] add x9, x9, x15                                  call igpr-29 (ret igpr-24) (args igpr-25 igpr-26 igpr-27 igpr-28)
+  [0x10088] stp x3, x5, [sp, #-0x10]!
+  [0x1008C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10090] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10094] blr x9 ;; misaligned with debug data
+  [0x10098] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1009C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100A0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100A4] mov x0, x0                                       mov igpr-30, igpr-24
+
+lights.gc:21
+->   (dotimes (vec-index 4)
+  [0x100A8] mov x3, x3                                       mov igpr-31, igpr-10
+  [0x100AC] movz x9, #0x1                                    mov-ic igpr-32, 1
+  [0x100B0] add x3, x3, x9                                   addi igpr-31, igpr-32
+  [0x100B4] mov x3, x3                                       mov igpr-10, igpr-31
+  [0x100B8] movz x9, #0x4                                    mov-ic igpr-33, 4
+  [0x100BC] cmp x3, x9                                       j(igpr-10 < igpr-33) label-8
+  [0x100C0] b.lt #0x10028
+  [0x100C4] mov x9, x14                                      mov-symptr igpr-34, '#f
+  [0x100C8] sub x9, x9, x15 ;; misaligned with debug data
+
+lights.gc:18
+-> (defun light-group-slerp ((out light-group) (a light-group) (b light-group) (alpha float))
+  [0x100CC] mov x0, x5                                       ret igpr-4 igpr-5
+  [0x100D0] add sp, sp, #0x10
+  [0x100D4] ldp x29, x30, [sp], #0x10
+  [0x100D8] ret
+
+
+[light-slerp]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x20
+  [0x1000C] str d24, [sp, #0x10]
+
+lights.gc:8
+-> (defun light-slerp ((out light) (a light) (b light) (alpha float))
+  [0x10010] mov x3, x7                                       mov igpr-5, igpr-0
+  [0x10014] mov x5, x6                                       mov igpr-6, igpr-1
+  [0x10018] mov x12, x2                                      mov igpr-7, igpr-2
+  [0x1001C] mov x1, x1                                       mov igpr-8, igpr-3
+
+lights.gc:10
+->   (let ((clamped-alpha (fmax 0.0 (fmin 1.0 alpha))))
+  [0x10020] adrp x16, #0x10000                               mov-svl ifpr-10, [(sf 0)]
+  [0x10024] ldr s24, [x16, #0x50c]
+  [0x10028] mov v24.16b, v24.16b                             mov ifpr-9, ifpr-10
+
+lights.gc:10
+->   (let ((clamped-alpha (fmax 0.0 (fmin 1.0 alpha))))
+  [0x1002C] adrp x16, #0x10000                               mov-svl ifpr-12, [(sf 1)]
+  [0x10030] ldr s23, [x16, #0x510]
+  [0x10034] mov v23.16b, v23.16b                             mov ifpr-11, ifpr-12
+  [0x10038] fmov s22, w1                                     mov ifpr-13, igpr-8
+  [0x1003C] fmin s23, s23, s22                               minss ifpr-11, ifpr-13
+
+lights.gc:10
+->   (let ((clamped-alpha (fmax 0.0 (fmin 1.0 alpha))))
+  [0x10040] fmax s24, s24, s23                               maxss ifpr-9, ifpr-11
+
+lights.gc:10
+->   (let ((clamped-alpha (fmax 0.0 (fmin 1.0 alpha))))
+  [0x10044] mov v24.16b, v24.16b                             mov ifpr-14, ifpr-9
+
+lights.gc:11
+->     (vector-lerp! (-> out color) (-> a color) (-> b color) clamped-alpha)
+  [0x10048] adrp x16, #0x10000                               mov igpr-15, 'vector-lerp!
+  [0x1004C] add x16, x16, #0
+  [0x10050] ldr w9, [x16]
+
+lights.gc:11
+->     (vector-lerp! (-> out color) (-> a color) (-> b color) clamped-alpha)
+  [0x10054] movz x7, #0x10                                   mov-ic igpr-16, 16
+  [0x10058] add x7, x7, x3                                   addi igpr-16, igpr-5
+
+lights.gc:11
+->     (vector-lerp! (-> out color) (-> a color) (-> b color) clamped-alpha)
+  [0x1005C] movz x6, #0x10                                   mov-ic igpr-17, 16
+  [0x10060] add x6, x6, x5                                   addi igpr-17, igpr-6
+
+lights.gc:11
+->     (vector-lerp! (-> out color) (-> a color) (-> b color) clamped-alpha)
+  [0x10064] movz x2, #0x10                                   mov-ic igpr-18, 16
+  [0x10068] add x2, x2, x12                                  addi igpr-18, igpr-7
+
+lights.gc:11
+->     (vector-lerp! (-> out color) (-> a color) (-> b color) clamped-alpha)
+  [0x1006C] mov x9, x9                                       mov igpr-24, igpr-15
+  [0x10070] mov x7, x7                                       mov igpr-20, igpr-16
+  [0x10074] mov x6, x6                                       mov igpr-21, igpr-17
+  [0x10078] mov x2, x2                                       mov igpr-22, igpr-18
+  [0x1007C] fmov w1, s24                                     mov igpr-23, ifpr-14
+  [0x10080] sxtw x1, w1
+  [0x10084] add x9, x9, x15                                  call igpr-24 (ret igpr-19) (args igpr-20 igpr-21 igpr-22 igpr-23)
+  [0x10088] stp x3, x5, [sp, #-0x10]!
+  [0x1008C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10090] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10094] blr x9 ;; misaligned with debug data
+  [0x10098] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1009C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100A0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100A4] mov x0, x0                                       mov igpr-25, igpr-19
+
+lights.gc:12
+->     (vector-deg-slerp (-> out direction) (-> a direction) (-> b direction) clamped-alpha)
+  [0x100A8] adrp x16, #0x10000                               mov igpr-26, 'vector-deg-slerp
+  [0x100AC] add x16, x16, #0
+  [0x100B0] ldr w9, [x16]
+
+lights.gc:12
+->     (vector-deg-slerp (-> out direction) (-> a direction) (-> b direction) clamped-alpha)
+  [0x100B4] mov x7, x3                                       mov igpr-27, igpr-5
+
+lights.gc:12
+->     (vector-deg-slerp (-> out direction) (-> a direction) (-> b direction) clamped-alpha)
+  [0x100B8] mov x6, x5                                       mov igpr-28, igpr-6
+
+lights.gc:12
+->     (vector-deg-slerp (-> out direction) (-> a direction) (-> b direction) clamped-alpha)
+  [0x100BC] mov x2, x12                                      mov igpr-29, igpr-7
+
+lights.gc:12
+->     (vector-deg-slerp (-> out direction) (-> a direction) (-> b direction) clamped-alpha)
+  [0x100C0] mov x9, x9                                       mov igpr-35, igpr-26
+  [0x100C4] mov x7, x7                                       mov igpr-31, igpr-27
+  [0x100C8] mov x6, x6                                       mov igpr-32, igpr-28
+  [0x100CC] mov x2, x2                                       mov igpr-33, igpr-29
+  [0x100D0] fmov w1, s24                                     mov igpr-34, ifpr-14
+  [0x100D4] sxtw x1, w1
+  [0x100D8] add x9, x9, x15                                  call igpr-35 (ret igpr-30) (args igpr-31 igpr-32 igpr-33 igpr-34)
+  [0x100DC] stp x3, x5, [sp, #-0x10]!
+  [0x100E0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E8] blr x9 ;; misaligned with debug data
+  [0x100EC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100F0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100F4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100F8] mov x0, x0                                       mov igpr-36, igpr-30
+
+lights.gc:13
+->     (let ((f0-2 (-> a levels x))
+  [0x100FC] add x16, x5, x15                                 mov ifpr-37, [igpr-6 + 32]
+  [0x10100] ldr s23, [x16, #0x20] ;; misaligned with debug data
+
+lights.gc:14
+->           (f1-2 (-> b levels x)))
+  [0x10104] add x16, x12, x15                                mov ifpr-38, [igpr-7 + 32]
+  [0x10108] ldr s22, [x16, #0x20] ;; misaligned with debug data
+
+lights.gc:13
+->     (let ((f0-2 (-> a levels x))
+  [0x1010C] mov v23.16b, v23.16b                             mov ifpr-39, ifpr-37
+  [0x10110] mov v22.16b, v22.16b                             mov ifpr-40, ifpr-38
+
+lights.gc:15
+->       (set! (-> out levels x) (+ f0-2 (* clamped-alpha (- f1-2 f0-2))))))
+  [0x10114] mov v21.16b, v23.16b                             mov ifpr-41, ifpr-39
+
+lights.gc:15
+->       (set! (-> out levels x) (+ f0-2 (* clamped-alpha (- f1-2 f0-2))))))
+  [0x10118] mov v24.16b, v24.16b                             mov ifpr-42, ifpr-14
+
+lights.gc:15
+->       (set! (-> out levels x) (+ f0-2 (* clamped-alpha (- f1-2 f0-2))))))
+  [0x1011C] mov v22.16b, v22.16b                             mov ifpr-43, ifpr-40
+  [0x10120] fsub s22, s22, s23                               subss ifpr-43, ifpr-39
+
+lights.gc:15
+->       (set! (-> out levels x) (+ f0-2 (* clamped-alpha (- f1-2 f0-2))))))
+  [0x10124] fmul s24, s24, s22                               mulss ifpr-42, ifpr-43
+
+lights.gc:15
+->       (set! (-> out levels x) (+ f0-2 (* clamped-alpha (- f1-2 f0-2))))))
+  [0x10128] fadd s21, s21, s24                               addss ifpr-41, ifpr-42
+
+lights.gc:15
+->       (set! (-> out levels x) (+ f0-2 (* clamped-alpha (- f1-2 f0-2))))))
+  [0x1012C] add x16, x3, x15                                 move [igpr-5 + 32], ifpr-41
+  [0x10130] str s21, [x16, #0x20] ;; misaligned with debug data
+
+lights.gc:8
+-> (defun light-slerp ((out light) (a light) (b light) (alpha float))
+  [0x10134] mov x0, x3                                       ret igpr-4 igpr-5
+  [0x10138] ldr d24, [sp, #0x10]
+  [0x1013C] add sp, sp, #0x20
+  [0x10140] ldp x29, x30, [sp], #0x10
+  [0x10144] ret
+
+
+

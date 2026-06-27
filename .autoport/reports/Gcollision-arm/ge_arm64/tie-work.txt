@@ -1,0 +1,90 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+tie-work.gc:11
+-> (define *instance-tie-work*
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov '*instance-tie-work*, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+tie-work.gc:49
+-> (set! (-> *instance-tie-work* upload-color-2 vif1) (new 'static 'vif-tag :cmd (vif-cmd mscal) :msk #x1))
+  [0x10020] movz x9, #0                                      mov-ic igpr-1, 335544320
+  [0x10024] movk x9, #0x1400, lsl #16
+  [0x10028] adrp x16, #0x10000                               mov igpr-2, '*instance-tie-work*
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w8, [x16]
+  [0x10034] add x16, x8, x15                                 move [igpr-2 + 236], igpr-1
+  [0x10038] str w9, [x16, #0xec] ;; misaligned with debug data
+
+tie-work.gc:51
+-> (set! (-> *instance-tie-work* upload-color-ret vif1) (new 'static 'vif-tag :cmd (vif-cmd mscal) :msk #x1))
+  [0x1003C] movz x9, #0                                      mov-ic igpr-3, 335544320
+  [0x10040] movk x9, #0x1400, lsl #16
+  [0x10044] adrp x16, #0x10000                               mov igpr-4, '*instance-tie-work*
+  [0x10048] add x16, x16, #0
+  [0x1004C] ldr w8, [x16]
+  [0x10050] add x16, x8, x15                                 move [igpr-4 + 252], igpr-3
+  [0x10054] str w9, [x16, #0xfc] ;; misaligned with debug data
+
+tie-work.gc:54
+-> (define *prototype-tie-work*
+  [0x10058] adrp x9, #0x10000                                mov-sva igpr-5, static-structure
+  [0x1005C] add x9, x9, #0
+  [0x10060] sub x9, x9, x15
+  [0x10064] adrp x16, #0x10000                               mov '*prototype-tie-work*, igpr-5
+  [0x10068] add x16, x16, #0
+  [0x1006C] str w9, [x16]
+
+tie-work.gc:144
+-> (set! (-> *prototype-tie-work* upload-model-1 vif0) (new 'static 'vif-tag :imm #x4 :cmd (vif-cmd mscal) :msk #x1))
+  [0x10070] movz x9, #0x4                                    mov-ic igpr-6, 335544324
+  [0x10074] movk x9, #0x1400, lsl #16
+  [0x10078] adrp x16, #0x10000                               mov igpr-7, '*prototype-tie-work*
+  [0x1007C] add x16, x16, #0
+  [0x10080] ldr w8, [x16]
+  [0x10084] add x16, x8, x15                                 move [igpr-7 + 56], igpr-6
+  [0x10088] str w9, [x16, #0x38] ;; misaligned with debug data
+
+tie-work.gc:146
+-> (set! (-> *prototype-tie-work* upload-model-3 vif0) (new 'static 'vif-tag :imm #x6 :cmd (vif-cmd mscal) :msk #x1))
+  [0x1008C] movz x9, #0x6                                    mov-ic igpr-8, 335544326
+  [0x10090] movk x9, #0x1400, lsl #16
+  [0x10094] adrp x16, #0x10000                               mov igpr-9, '*prototype-tie-work*
+  [0x10098] add x16, x16, #0
+  [0x1009C] ldr w8, [x16]
+  [0x100A0] add x16, x8, x15                                 move [igpr-9 + 88], igpr-8
+  [0x100A4] str w9, [x16, #0x58] ;; misaligned with debug data
+
+tie-work.gc:148
+-> (set! (-> *prototype-tie-work* upload-model-near-1 vif0) (new 'static 'vif-tag :imm #x4 :cmd (vif-cmd mscal) :msk #x1))
+  [0x100A8] movz x9, #0x4                                    mov-ic igpr-10, 335544324
+  [0x100AC] movk x9, #0x1400, lsl #16
+  [0x100B0] adrp x16, #0x10000                               mov igpr-11, '*prototype-tie-work*
+  [0x100B4] add x16, x16, #0
+  [0x100B8] ldr w8, [x16]
+  [0x100BC] add x16, x8, x15                                 move [igpr-11 + 120], igpr-10
+  [0x100C0] str w9, [x16, #0x78] ;; misaligned with debug data
+
+tie-work.gc:150
+-> (set! (-> *prototype-tie-work* upload-model-near-4 vif0) (new 'static 'vif-tag :imm #x6 :cmd (vif-cmd mscal) :msk #x1))
+  [0x100C4] movz x0, #0x6                                    mov-ic igpr-12, 335544326
+  [0x100C8] movk x0, #0x1400, lsl #16
+  [0x100CC] adrp x16, #0x10000                               mov igpr-13, '*prototype-tie-work*
+  [0x100D0] add x16, x16, #0
+  [0x100D4] ldr w9, [x16]
+  [0x100D8] add x16, x9, x15                                 move [igpr-13 + 168], igpr-12
+  [0x100DC] str w0, [x16, #0xa8] ;; misaligned with debug data
+
+tie-work.gc:1
+-> ;-*-Lisp-*-
+  [0x100E0] mov x0, x0                                       ret igpr-14 igpr-12
+  [0x100E4] ldp x29, x30, [sp], #0x10
+  [0x100E8] ret
+
+
+

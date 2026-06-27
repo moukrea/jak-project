@@ -1,0 +1,2859 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+  [0x1000C] adrp x9, #0x10000                                mov-fa igpr-0, function-creates-new-method?
+  [0x10010] add x9, x9, #0
+  [0x10014] sub x9, x9, x15
+
+collide-probe.gc:23
+-> (defun creates-new-method? ((arg0 type) (arg1 int))
+  [0x10018] adrp x16, #0x10000                               mov 'creates-new-method?, igpr-0
+  [0x1001C] add x16, x16, #0
+  [0x10020] str w9, [x16]
+  [0x10024] adrp x9, #0x10000                                mov-fa igpr-1, function-overrides-parent-method?
+  [0x10028] add x9, x9, #0
+  [0x1002C] sub x9, x9, x15
+
+collide-probe.gc:28
+-> (defun overrides-parent-method? ((arg0 type) (arg1 int))
+  [0x10030] adrp x16, #0x10000                               mov 'overrides-parent-method?, igpr-1
+  [0x10034] add x16, x16, #0
+  [0x10038] str w9, [x16]
+  [0x1003C] adrp x9, #0x10000                                mov-fa igpr-2, function-describe-methods
+  [0x10040] add x9, x9, #0
+  [0x10044] sub x9, x9, x15
+
+collide-probe.gc:32
+-> (defun describe-methods ((arg0 type))
+  [0x10048] adrp x16, #0x10000                               mov 'describe-methods, igpr-2
+  [0x1004C] add x16, x16, #0
+  [0x10050] str w9, [x16]
+  [0x10054] adrp x9, #0x10000                                mov-fa igpr-3, function-indent-to
+  [0x10058] add x9, x9, #0
+  [0x1005C] sub x9, x9, x15
+
+collide-probe.gc:52
+-> (defun indent-to ((arg0 int))
+  [0x10060] adrp x16, #0x10000                               mov 'indent-to, igpr-3
+  [0x10064] add x16, x16, #0
+  [0x10068] str w9, [x16]
+  [0x1006C] adrp x9, #0x10000                                mov-fa igpr-4, function-probe-traverse-draw-node
+  [0x10070] add x9, x9, #0
+  [0x10074] sub x9, x9, x15
+
+collide-probe.gc:58
+-> (defun-recursive probe-traverse-draw-node none ((arg0 draw-node) (arg1 int))
+  [0x10078] adrp x16, #0x10000                               mov 'probe-traverse-draw-node, igpr-4
+  [0x1007C] add x16, x16, #0
+  [0x10080] str w9, [x16]
+  [0x10084] adrp x9, #0x10000                                mov-fa igpr-5, function-probe-traverse-inline-array-node
+  [0x10088] add x9, x9, #0
+  [0x1008C] sub x9, x9, x15
+
+collide-probe.gc:79
+-> (defun probe-traverse-inline-array-node ((arg0 drawable-inline-array-node) (arg1 int))
+  [0x10090] adrp x16, #0x10000                               mov 'probe-traverse-inline-array-node, igpr-5
+  [0x10094] add x16, x16, #0
+  [0x10098] str w9, [x16]
+  [0x1009C] adrp x9, #0x10000                                mov-fa igpr-6, function-probe-traverse-collide-fragment
+  [0x100A0] add x9, x9, #0
+  [0x100A4] sub x9, x9, x15
+
+collide-probe.gc:90
+-> (defun probe-traverse-collide-fragment ((arg0 drawable-tree-collide-fragment) (arg1 int))
+  [0x100A8] adrp x16, #0x10000                               mov 'probe-traverse-collide-fragment, igpr-6
+  [0x100AC] add x16, x16, #0
+  [0x100B0] str w9, [x16]
+
+collide-probe.gc:106
+-> (deftype collide-probe-stack-elem (structure)
+  [0x100B4] adrp x16, #0x10000                               mov igpr-7, 'type
+  [0x100B8] add x16, x16, #0
+  [0x100BC] ldr w9, [x16]
+  [0x100C0] add x16, x9, x15                                 mov igpr-8, [igpr-7 + 16]
+  [0x100C4] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x100C8] adrp x7, #0x10000                                mov-symptr igpr-9, 'collide-probe-stack-elem
+  [0x100CC] add x7, x7, #0
+  [0x100D0] adrp x16, #0x10000                               mov igpr-10, 'structure
+  [0x100D4] add x16, x16, #0
+  [0x100D8] ldr w6, [x16]
+  [0x100DC] movz x2, #0x8                                    mov-ic igpr-11, 38654705672
+  [0x100E0] movk x2, #0x9, lsl #32
+  [0x100E4] mov x9, x9                                       mov igpr-16, igpr-8
+  [0x100E8] mov x7, x7                                       mov igpr-13, igpr-9
+  [0x100EC] mov x6, x6                                       mov igpr-14, igpr-10
+  [0x100F0] mov x2, x2                                       mov igpr-15, igpr-11
+  [0x100F4] add x9, x9, x15                                  call igpr-16 (ret igpr-12) (args igpr-13 igpr-14 igpr-15)
+  [0x100F8] stp x3, x5, [sp, #-0x10]!
+  [0x100FC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10100] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10104] blr x9 ;; misaligned with debug data
+  [0x10108] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1010C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10110] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10114] mov x0, x0                                       mov igpr-17, igpr-12
+  [0x10118] adrp x16, #0x10000                               mov igpr-18, 'collide-probe-stack-elem
+  [0x1011C] add x16, x16, #0
+  [0x10120] ldr w7, [x16]
+  [0x10124] movz x6, #0x3                                    mov-ic igpr-19, 3
+  [0x10128] adrp x16, #0x10000                               mov igpr-20, 'method-set!
+  [0x1012C] add x16, x16, #0
+  [0x10130] ldr w9, [x16]
+  [0x10134] adrp x2, #0x10000                                mov-fa igpr-21, function-autogenerated-inspect-method-of-collide-probe-stack-elem
+  [0x10138] add x2, x2, #0
+  [0x1013C] sub x2, x2, x15
+  [0x10140] mov x9, x9                                       mov igpr-26, igpr-20
+  [0x10144] mov x7, x7                                       mov igpr-23, igpr-18
+  [0x10148] mov x6, x6                                       mov igpr-24, igpr-19
+  [0x1014C] mov x2, x2                                       mov igpr-25, igpr-21
+  [0x10150] add x9, x9, x15                                  call igpr-26 (ret igpr-22) (args igpr-23 igpr-24 igpr-25)
+  [0x10154] stp x3, x5, [sp, #-0x10]!
+  [0x10158] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1015C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10160] blr x9 ;; misaligned with debug data
+  [0x10164] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10168] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1016C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10170] mov x3, x3                                       mov igpr-27, igpr-22
+
+collide-probe.gc:110
+-> (deftype collide-probe-stack (structure)
+  [0x10174] adrp x16, #0x10000                               mov igpr-28, 'type
+  [0x10178] add x16, x16, #0
+  [0x1017C] ldr w9, [x16]
+  [0x10180] add x16, x9, x15                                 mov igpr-29, [igpr-28 + 16]
+  [0x10184] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x10188] adrp x7, #0x10000                                mov-symptr igpr-30, 'collide-probe-stack
+  [0x1018C] add x7, x7, #0
+  [0x10190] adrp x16, #0x10000                               mov igpr-31, 'structure
+  [0x10194] add x16, x16, #0
+  [0x10198] ldr w6, [x16]
+  [0x1019C] movz x2, #0x4000                                 mov-ic igpr-32, 38654722048
+  [0x101A0] movk x2, #0x9, lsl #32
+  [0x101A4] mov x9, x9                                       mov igpr-37, igpr-29
+  [0x101A8] mov x7, x7                                       mov igpr-34, igpr-30
+  [0x101AC] mov x6, x6                                       mov igpr-35, igpr-31
+  [0x101B0] mov x2, x2                                       mov igpr-36, igpr-32
+  [0x101B4] add x9, x9, x15                                  call igpr-37 (ret igpr-33) (args igpr-34 igpr-35 igpr-36)
+  [0x101B8] stp x3, x5, [sp, #-0x10]!
+  [0x101BC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C4] blr x9 ;; misaligned with debug data
+  [0x101C8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101CC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101D0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101D4] mov x0, x0                                       mov igpr-38, igpr-33
+  [0x101D8] adrp x16, #0x10000                               mov igpr-39, 'collide-probe-stack
+  [0x101DC] add x16, x16, #0
+  [0x101E0] ldr w7, [x16]
+  [0x101E4] movz x6, #0x3                                    mov-ic igpr-40, 3
+  [0x101E8] adrp x16, #0x10000                               mov igpr-41, 'method-set!
+  [0x101EC] add x16, x16, #0
+  [0x101F0] ldr w9, [x16]
+  [0x101F4] adrp x2, #0x10000                                mov-fa igpr-42, function-autogenerated-inspect-method-of-collide-probe-stack
+  [0x101F8] add x2, x2, #0
+  [0x101FC] sub x2, x2, x15
+  [0x10200] mov x9, x9                                       mov igpr-47, igpr-41
+  [0x10204] mov x7, x7                                       mov igpr-44, igpr-39
+  [0x10208] mov x6, x6                                       mov igpr-45, igpr-40
+  [0x1020C] mov x2, x2                                       mov igpr-46, igpr-42
+  [0x10210] add x9, x9, x15                                  call igpr-47 (ret igpr-43) (args igpr-44 igpr-45 igpr-46)
+  [0x10214] stp x3, x5, [sp, #-0x10]!
+  [0x10218] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1021C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10220] blr x9 ;; misaligned with debug data
+  [0x10224] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10228] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1022C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10230] mov x3, x3                                       mov igpr-48, igpr-43
+
+collide-probe.gc:114
+-> (define *collide-probe-stack* (scratchpad-object collide-probe-stack :offset 4192))
+  [0x10234] adrp x16, #0x10000                               mov igpr-49, '*fake-scratchpad-data*
+  [0x10238] add x16, x16, #0
+  [0x1023C] ldr w9, [x16]
+  [0x10240] mov x9, x9                                       mov igpr-50, igpr-49
+  [0x10244] movz x8, #0x1060                                 mov-ic igpr-51, 4192
+  [0x10248] add x9, x9, x8                                   addi igpr-50, igpr-51
+
+collide-probe.gc:114
+-> (define *collide-probe-stack* (scratchpad-object collide-probe-stack :offset 4192))
+  [0x1024C] mov x9, x9                                       mov igpr-52, igpr-50
+  [0x10250] adrp x16, #0x10000                               mov '*collide-probe-stack*, igpr-52
+  [0x10254] add x16, x16, #0
+  [0x10258] str w9, [x16]
+
+collide-probe.gc:116
+-> (define collide-vu0-block (new 'static 'vu-function))
+  [0x1025C] adrp x9, #0x10000                                mov-sva igpr-53, static-structure
+  [0x10260] add x9, x9, #0
+  [0x10264] sub x9, x9, x15
+  [0x10268] adrp x16, #0x10000                               mov 'collide-vu0-block, igpr-53
+  [0x1026C] add x16, x16, #0
+  [0x10270] str w9, [x16]
+
+collide-probe.gc:118
+-> (def-mips2c collide-probe-node (function (inline-array draw-node) int collide-list int))
+  [0x10274] adrp x16, #0x10000                               mov igpr-54, '__pc-get-mips2c
+  [0x10278] add x16, x16, #0
+  [0x1027C] ldr w9, [x16]
+  [0x10280] adrp x7, #0x10000                                mov-sva igpr-55, static-string "collide-probe-node"
+  [0x10284] add x7, x7, #0
+  [0x10288] sub x7, x7, x15
+  [0x1028C] mov x9, x9                                       mov igpr-58, igpr-54
+  [0x10290] mov x7, x7                                       mov igpr-57, igpr-55
+  [0x10294] add x9, x9, x15                                  call igpr-58 (ret igpr-56) (args igpr-57)
+  [0x10298] stp x3, x5, [sp, #-0x10]!
+  [0x1029C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102A0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102A4] blr x9 ;; misaligned with debug data
+  [0x102A8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x102AC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x102B0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x102B4] mov x0, x0                                       mov igpr-59, igpr-56
+  [0x102B8] mov x0, x0                                       mov igpr-60, igpr-59
+  [0x102BC] adrp x16, #0x10000                               mov 'collide-probe-node, igpr-60
+  [0x102C0] add x16, x16, #0
+  [0x102C4] str w0, [x16]
+  [0x102C8] adrp x9, #0x10000                                mov-fa igpr-61, function-print-out
+  [0x102CC] add x9, x9, #0
+  [0x102D0] sub x9, x9, x15
+
+collide-probe.gc:120
+-> (defun print-out ((arg0 int))
+  [0x102D4] adrp x16, #0x10000                               mov 'print-out, igpr-61
+  [0x102D8] add x16, x16, #0
+  [0x102DC] str w9, [x16]
+  [0x102E0] adrp x9, #0x10000                                mov-fa igpr-62, function-collide-probe-instance-tie-collide-frags
+  [0x102E4] add x9, x9, #0
+  [0x102E8] sub x9, x9, x15
+
+collide-probe.gc:123
+-> (defun collide-probe-instance-tie-collide-frags ()
+  [0x102EC] adrp x16, #0x10000                               mov 'collide-probe-instance-tie-collide-frags, igpr-62
+  [0x102F0] add x16, x16, #0
+  [0x102F4] str w9, [x16]
+
+collide-probe.gc:128
+-> (def-mips2c collide-probe-instance-tie (function object int collide-list int int))
+  [0x102F8] adrp x16, #0x10000                               mov igpr-63, '__pc-get-mips2c
+  [0x102FC] add x16, x16, #0
+  [0x10300] ldr w9, [x16]
+  [0x10304] adrp x7, #0x10000                                mov-sva igpr-64, static-string "collide-probe-instance-tie"
+  [0x10308] add x7, x7, #0
+  [0x1030C] sub x7, x7, x15
+  [0x10310] mov x9, x9                                       mov igpr-67, igpr-63
+  [0x10314] mov x7, x7                                       mov igpr-66, igpr-64
+  [0x10318] add x9, x9, x15                                  call igpr-67 (ret igpr-65) (args igpr-66)
+  [0x1031C] stp x3, x5, [sp, #-0x10]!
+  [0x10320] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10324] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10328] blr x9 ;; misaligned with debug data
+  [0x1032C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10330] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10334] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10338] mov x0, x0                                       mov igpr-68, igpr-65
+  [0x1033C] mov x0, x0                                       mov igpr-69, igpr-68
+  [0x10340] adrp x16, #0x10000                               mov 'collide-probe-instance-tie, igpr-69
+  [0x10344] add x16, x16, #0
+  [0x10348] str w0, [x16]
+  [0x1034C] adrp x9, #0x10000                                mov-fa igpr-70, function-collide-probe-collide-fragment-tree-make-list
+  [0x10350] add x9, x9, #0
+  [0x10354] sub x9, x9, x15
+
+collide-probe.gc:134
+-> (defun collide-probe-collide-fragment-tree-make-list ((arg0 drawable-tree-collide-fragment) (arg1 collide-list))
+  [0x10358] adrp x16, #0x10000                               mov 'collide-probe-collide-fragment-tree-make-list, igpr-70
+  [0x1035C] add x16, x16, #0
+  [0x10360] str w9, [x16]
+  [0x10364] adrp x9, #0x10000                                mov-fa igpr-71, function-collide-probe-instance-tie-tree-make-list
+  [0x10368] add x9, x9, #0
+  [0x1036C] sub x9, x9, x15
+
+collide-probe.gc:147
+-> (defun collide-probe-instance-tie-tree-make-list ((arg0 drawable-tree-instance-tie) (arg1 collide-list))
+  [0x10370] adrp x16, #0x10000                               mov 'collide-probe-instance-tie-tree-make-list, igpr-71
+  [0x10374] add x16, x16, #0
+  [0x10378] str w9, [x16]
+  [0x1037C] adrp x9, #0x10000                                mov-fa igpr-72, function-collide-upload-vu0
+  [0x10380] add x9, x9, #0
+  [0x10384] sub x9, x9, x15
+
+collide-probe.gc:166
+-> (defun collide-upload-vu0 ()
+  [0x10388] adrp x16, #0x10000                               mov 'collide-upload-vu0, igpr-72
+  [0x1038C] add x16, x16, #0
+  [0x10390] str w9, [x16]
+  [0x10394] adrp x9, #0x10000                                mov-fa igpr-73, function-collide-probe-make-list
+  [0x10398] add x9, x9, #0
+  [0x1039C] sub x9, x9, x15
+
+collide-probe.gc:191
+-> (defun collide-probe-make-list ((arg0 level) (arg1 collide-list))
+  [0x103A0] adrp x16, #0x10000                               mov 'collide-probe-make-list, igpr-73
+  [0x103A4] add x16, x16, #0
+  [0x103A8] str w9, [x16]
+  [0x103AC] adrp x9, #0x10000                                mov-fa igpr-74, function-distc
+  [0x103B0] add x9, x9, #0
+  [0x103B4] sub x9, x9, x15
+
+collide-probe.gc:239
+-> (defun distc ((arg0 vector) (arg1 vector))
+  [0x103B8] adrp x16, #0x10000                               mov 'distc, igpr-74
+  [0x103BC] add x16, x16, #0
+  [0x103C0] str w9, [x16]
+  [0x103C4] adrp x9, #0x10000                                mov-fa igpr-75, function-interpolate
+  [0x103C8] add x9, x9, #0
+  [0x103CC] sub x9, x9, x15
+
+collide-probe.gc:242
+-> (defun interpolate ((arg0 float) (arg1 float) (arg2 float) (arg3 float) (arg4 float))
+  [0x103D0] adrp x16, #0x10000                               mov 'interpolate, igpr-75
+  [0x103D4] add x16, x16, #0
+  [0x103D8] str w9, [x16]
+  [0x103DC] adrp x9, #0x10000                                mov-fa igpr-76, function-misty-ambush-height
+  [0x103E0] add x9, x9, #0
+  [0x103E4] sub x9, x9, x15
+
+collide-probe.gc:248
+-> (defun misty-ambush-height ((arg0 vector))
+  [0x103E8] adrp x16, #0x10000                               mov 'misty-ambush-height, igpr-76
+  [0x103EC] add x16, x16, #0
+  [0x103F0] str w9, [x16]
+  [0x103F4] adrp x9, #0x10000                                mov-fa igpr-77, function-misty-ambush-height-probe
+  [0x103F8] add x9, x9, #0
+  [0x103FC] sub x9, x9, x15
+
+collide-probe.gc:258
+-> (defun misty-ambush-height-probe ((arg0 vector) (arg1 float))
+  [0x10400] adrp x16, #0x10000                               mov 'misty-ambush-height-probe, igpr-77
+  [0x10404] add x16, x16, #0
+  [0x10408] str w9, [x16]
+  [0x1040C] adrp x0, #0x10000                                mov-fa igpr-78, function-pke-collide-test
+  [0x10410] add x0, x0, #0
+  [0x10414] sub x0, x0, x15
+
+collide-probe.gc:265
+-> (defun pke-collide-test ()
+  [0x10418] adrp x16, #0x10000                               mov 'pke-collide-test, igpr-78
+  [0x1041C] add x16, x16, #0
+  [0x10420] str w0, [x16]
+
+collide-probe.gc:1
+-> ;-*-Lisp-*-
+  [0x10424] mov x0, x0                                       ret igpr-79 igpr-78
+  [0x10428] add sp, sp, #0x10
+  [0x1042C] ldp x29, x30, [sp], #0x10
+  [0x10430] ret
+
+
+[pke-collide-test]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collide-probe.gc:265
+-> (defun pke-collide-test ()
+  [0x10008] movz x9, #0                                      mov-ic igpr-1, 0
+  [0x1000C] ldp x29, x30, [sp], #0x10
+  [0x10010] ret
+
+
+[misty-ambush-height]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:248
+-> (defun misty-ambush-height ((arg0 vector))
+  [0x1000C] mov x7, x7                                       mov igpr-2, igpr-0
+
+collide-probe.gc:249
+->   (let* ((a1-0 (new 'static 'vector :x -808960.0 :y 111656.96 :z 3924992.0))
+  [0x10010] adrp x6, #0x10000                                mov-sva igpr-3, static-structure
+  [0x10014] add x6, x6, #0x950
+  [0x10018] sub x6, x6, x15
+
+collide-probe.gc:249
+->   (let* ((a1-0 (new 'static 'vector :x -808960.0 :y 111656.96 :z 3924992.0))
+  [0x1001C] mov x6, x6                                       mov igpr-4, igpr-3
+
+collide-probe.gc:250
+->          (f0-0 (distc arg0 a1-0)))
+  [0x10020] adrp x16, #0x10000                               mov igpr-5, 'distc
+  [0x10024] add x16, x16, #0
+  [0x10028] ldr w9, [x16]
+  [0x1002C] mov x9, x9                                       mov igpr-9, igpr-5
+  [0x10030] mov x7, x7                                       mov igpr-7, igpr-2
+  [0x10034] mov x6, x6                                       mov igpr-8, igpr-4
+  [0x10038] add x9, x9, x15                                  call igpr-9 (ret igpr-6) (args igpr-7 igpr-8)
+  [0x1003C] stp x3, x5, [sp, #-0x10]!
+  [0x10040] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10044] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10048] blr x9 ;; misaligned with debug data
+  [0x1004C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10050] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10054] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10058] mov x0, x0                                       mov igpr-10, igpr-6
+
+collide-probe.gc:249
+->   (let* ((a1-0 (new 'static 'vector :x -808960.0 :y 111656.96 :z 3924992.0))
+  [0x1005C] fmov s23, w0                                     mov ifpr-11, igpr-10
+
+collide-probe.gc:252
+->       ((< f0-0 52019.2) 111656.96)
+  [0x10060] adrp x16, #0x10000                               mov-svl ifpr-13, [(sf 52019.2)]
+  [0x10064] ldr s22, [x16, #0x960]
+  [0x10068] fcmp s23, s22                                    j(ifpr-11 >= ifpr-13) label-16
+  [0x1006C] b.ge #0x10084
+
+collide-probe.gc:249
+->   (let* ((a1-0 (new 'static 'vector :x -808960.0 :y 111656.96 :z 3924992.0))
+  [0x10070] adrp x16, #0x10000                               mov-svl ifpr-14, [(sf 111656.96)]
+  [0x10074] ldr s23, [x16, #0x964]
+
+collide-probe.gc:252
+->       ((< f0-0 52019.2) 111656.96)
+  [0x10078] fmov w0, s23                                     mov igpr-12, ifpr-14
+  [0x1007C] sxtw x0, w0
+  [0x10080] b #0x10250                                       goto label-69
+
+collide-probe.gc:253
+->       ((>= 58982.4 f0-0) (interpolate f0-0 52019.2 111656.96 58982.4 116776.96))
+  [0x10084] adrp x16, #0x10000                               mov-svl ifpr-15, [(sf 58982.4)]
+  [0x10088] ldr s22, [x16, #0x968]
+  [0x1008C] fcmp s22, s23                                    j(ifpr-15 < ifpr-11) label-33
+  [0x10090] b.mi #0x10118
+
+collide-probe.gc:253
+->       ((>= 58982.4 f0-0) (interpolate f0-0 52019.2 111656.96 58982.4 116776.96))
+  [0x10094] adrp x16, #0x10000                               mov igpr-16, 'interpolate
+  [0x10098] add x16, x16, #0
+  [0x1009C] ldr w9, [x16]
+
+collide-probe.gc:249
+->   (let* ((a1-0 (new 'static 'vector :x -808960.0 :y 111656.96 :z 3924992.0))
+  [0x100A0] adrp x16, #0x10000                               mov-svl ifpr-17, [(sf 52019.2)]
+  [0x100A4] ldr s22, [x16, #0x96c]
+  [0x100A8] adrp x16, #0x10000                               mov-svl ifpr-18, [(sf 111656.96)]
+  [0x100AC] ldr s21, [x16, #0x970]
+  [0x100B0] adrp x16, #0x10000                               mov-svl ifpr-19, [(sf 58982.4)]
+  [0x100B4] ldr s20, [x16, #0x974]
+  [0x100B8] adrp x16, #0x10000                               mov-svl ifpr-20, [(sf 116776.96)]
+  [0x100BC] ldr s19, [x16, #0x978]
+
+collide-probe.gc:253
+->       ((>= 58982.4 f0-0) (interpolate f0-0 52019.2 111656.96 58982.4 116776.96))
+  [0x100C0] mov x9, x9                                       mov igpr-27, igpr-16
+  [0x100C4] fmov w7, s23                                     mov igpr-22, ifpr-11
+  [0x100C8] sxtw x7, w7
+  [0x100CC] fmov w6, s22                                     mov igpr-23, ifpr-17
+  [0x100D0] sxtw x6, w6
+  [0x100D4] fmov w2, s21                                     mov igpr-24, ifpr-18
+  [0x100D8] sxtw x2, w2
+  [0x100DC] fmov w1, s20                                     mov igpr-25, ifpr-19
+  [0x100E0] sxtw x1, w1
+  [0x100E4] fmov w8, s19                                     mov igpr-26, ifpr-20
+  [0x100E8] sxtw x8, w8
+  [0x100EC] add x9, x9, x15                                  call igpr-27 (ret igpr-21) (args igpr-22 igpr-23 igpr-24 igpr-25 igpr-26)
+  [0x100F0] stp x3, x5, [sp, #-0x10]!
+  [0x100F4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100FC] blr x9 ;; misaligned with debug data
+  [0x10100] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10104] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10108] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1010C] mov x0, x0                                       mov igpr-28, igpr-21
+
+collide-probe.gc:253
+->       ((>= 58982.4 f0-0) (interpolate f0-0 52019.2 111656.96 58982.4 116776.96))
+  [0x10110] mov x0, x0                                       mov igpr-12, igpr-28
+  [0x10114] b #0x10250                                       goto label-69
+
+collide-probe.gc:254
+->       ((>= 124436.48 f0-0) (interpolate f0-0 58982.4 116776.96 124436.48 114688.0))
+  [0x10118] adrp x16, #0x10000                               mov-svl ifpr-29, [(sf 124436.48)]
+  [0x1011C] ldr s22, [x16, #0x97c]
+  [0x10120] fcmp s22, s23                                    j(ifpr-29 < ifpr-11) label-50
+  [0x10124] b.mi #0x101ac
+
+collide-probe.gc:254
+->       ((>= 124436.48 f0-0) (interpolate f0-0 58982.4 116776.96 124436.48 114688.0))
+  [0x10128] adrp x16, #0x10000                               mov igpr-30, 'interpolate
+  [0x1012C] add x16, x16, #0
+  [0x10130] ldr w9, [x16]
+
+collide-probe.gc:249
+->   (let* ((a1-0 (new 'static 'vector :x -808960.0 :y 111656.96 :z 3924992.0))
+  [0x10134] adrp x16, #0x10000                               mov-svl ifpr-31, [(sf 58982.4)]
+  [0x10138] ldr s22, [x16, #0x980]
+  [0x1013C] adrp x16, #0x10000                               mov-svl ifpr-32, [(sf 116776.96)]
+  [0x10140] ldr s21, [x16, #0x984]
+  [0x10144] adrp x16, #0x10000                               mov-svl ifpr-33, [(sf 124436.48)]
+  [0x10148] ldr s20, [x16, #0x988]
+  [0x1014C] adrp x16, #0x10000                               mov-svl ifpr-34, [(sf 114688)]
+  [0x10150] ldr s19, [x16, #0x98c]
+
+collide-probe.gc:254
+->       ((>= 124436.48 f0-0) (interpolate f0-0 58982.4 116776.96 124436.48 114688.0))
+  [0x10154] mov x9, x9                                       mov igpr-41, igpr-30
+  [0x10158] fmov w7, s23                                     mov igpr-36, ifpr-11
+  [0x1015C] sxtw x7, w7
+  [0x10160] fmov w6, s22                                     mov igpr-37, ifpr-31
+  [0x10164] sxtw x6, w6
+  [0x10168] fmov w2, s21                                     mov igpr-38, ifpr-32
+  [0x1016C] sxtw x2, w2
+  [0x10170] fmov w1, s20                                     mov igpr-39, ifpr-33
+  [0x10174] sxtw x1, w1
+  [0x10178] fmov w8, s19                                     mov igpr-40, ifpr-34
+  [0x1017C] sxtw x8, w8
+  [0x10180] add x9, x9, x15                                  call igpr-41 (ret igpr-35) (args igpr-36 igpr-37 igpr-38 igpr-39 igpr-40)
+  [0x10184] stp x3, x5, [sp, #-0x10]!
+  [0x10188] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1018C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10190] blr x9 ;; misaligned with debug data
+  [0x10194] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10198] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1019C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101A0] mov x0, x0                                       mov igpr-42, igpr-35
+
+collide-probe.gc:254
+->       ((>= 124436.48 f0-0) (interpolate f0-0 58982.4 116776.96 124436.48 114688.0))
+  [0x101A4] mov x0, x0                                       mov igpr-12, igpr-42
+  [0x101A8] b #0x10250                                       goto label-69
+
+collide-probe.gc:255
+->       ((>= 219217.92 f0-0) (interpolate f0-0 124436.48 114688.0 219217.92 113254.4))
+  [0x101AC] adrp x16, #0x10000                               mov-svl ifpr-43, [(sf 219217.92)]
+  [0x101B0] ldr s22, [x16, #0x990]
+  [0x101B4] fcmp s22, s23                                    j(ifpr-43 < ifpr-11) label-67
+  [0x101B8] b.mi #0x10240
+
+collide-probe.gc:255
+->       ((>= 219217.92 f0-0) (interpolate f0-0 124436.48 114688.0 219217.92 113254.4))
+  [0x101BC] adrp x16, #0x10000                               mov igpr-44, 'interpolate
+  [0x101C0] add x16, x16, #0
+  [0x101C4] ldr w9, [x16]
+
+collide-probe.gc:249
+->   (let* ((a1-0 (new 'static 'vector :x -808960.0 :y 111656.96 :z 3924992.0))
+  [0x101C8] adrp x16, #0x10000                               mov-svl ifpr-45, [(sf 124436.48)]
+  [0x101CC] ldr s22, [x16, #0x994]
+  [0x101D0] adrp x16, #0x10000                               mov-svl ifpr-46, [(sf 114688)]
+  [0x101D4] ldr s21, [x16, #0x998]
+  [0x101D8] adrp x16, #0x10000                               mov-svl ifpr-47, [(sf 219217.92)]
+  [0x101DC] ldr s20, [x16, #0x99c]
+  [0x101E0] adrp x16, #0x10000                               mov-svl ifpr-48, [(sf 113254.4)]
+  [0x101E4] ldr s19, [x16, #0x9a0]
+
+collide-probe.gc:255
+->       ((>= 219217.92 f0-0) (interpolate f0-0 124436.48 114688.0 219217.92 113254.4))
+  [0x101E8] mov x9, x9                                       mov igpr-55, igpr-44
+  [0x101EC] fmov w7, s23                                     mov igpr-50, ifpr-11
+  [0x101F0] sxtw x7, w7
+  [0x101F4] fmov w6, s22                                     mov igpr-51, ifpr-45
+  [0x101F8] sxtw x6, w6
+  [0x101FC] fmov w2, s21                                     mov igpr-52, ifpr-46
+  [0x10200] sxtw x2, w2
+  [0x10204] fmov w1, s20                                     mov igpr-53, ifpr-47
+  [0x10208] sxtw x1, w1
+  [0x1020C] fmov w8, s19                                     mov igpr-54, ifpr-48
+  [0x10210] sxtw x8, w8
+  [0x10214] add x9, x9, x15                                  call igpr-55 (ret igpr-49) (args igpr-50 igpr-51 igpr-52 igpr-53 igpr-54)
+  [0x10218] stp x3, x5, [sp, #-0x10]!
+  [0x1021C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10220] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10224] blr x9 ;; misaligned with debug data
+  [0x10228] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1022C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10230] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10234] mov x0, x0                                       mov igpr-56, igpr-49
+
+collide-probe.gc:255
+->       ((>= 219217.92 f0-0) (interpolate f0-0 124436.48 114688.0 219217.92 113254.4))
+  [0x10238] mov x0, x0                                       mov igpr-12, igpr-56
+  [0x1023C] b #0x10250                                       goto label-69
+
+collide-probe.gc:249
+->   (let* ((a1-0 (new 'static 'vector :x -808960.0 :y 111656.96 :z 3924992.0))
+  [0x10240] adrp x16, #0x10000                               mov-svl ifpr-57, [(sf 113254.4)]
+  [0x10244] ldr s23, [x16, #0x9a4]
+
+collide-probe.gc:256
+->       (else 113254.4))))
+  [0x10248] fmov w0, s23                                     mov igpr-12, ifpr-57
+  [0x1024C] sxtw x0, w0
+
+collide-probe.gc:248
+-> (defun misty-ambush-height ((arg0 vector))
+  [0x10250] mov x0, x0                                       ret igpr-1 igpr-12
+  [0x10254] add sp, sp, #0x10
+  [0x10258] ldp x29, x30, [sp], #0x10
+  [0x1025C] ret
+
+
+[interpolate]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collide-probe.gc:242
+-> (defun interpolate ((arg0 float) (arg1 float) (arg2 float) (arg3 float) (arg4 float))
+  [0x10008] mov x7, x7                                       mov igpr-6, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-7, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-8, igpr-2
+  [0x10014] mov x1, x1                                       mov igpr-9, igpr-3
+  [0x10018] mov x8, x8                                       mov igpr-10, igpr-4
+
+collide-probe.gc:243
+->   (let ((f0-1 (- arg3 arg1))
+  [0x1001C] fmov s23, w1                                     mov ifpr-12, igpr-9
+  [0x10020] mov v23.16b, v23.16b                             mov ifpr-11, ifpr-12
+  [0x10024] fmov s22, w6                                     mov ifpr-13, igpr-7
+  [0x10028] fsub s23, s23, s22                               subss ifpr-11, ifpr-13
+
+collide-probe.gc:244
+->         (f1-2 (- arg4 arg2))
+  [0x1002C] fmov s22, w8                                     mov ifpr-15, igpr-10
+  [0x10030] mov v22.16b, v22.16b                             mov ifpr-14, ifpr-15
+  [0x10034] fmov s21, w2                                     mov ifpr-16, igpr-8
+  [0x10038] fsub s22, s22, s21                               subss ifpr-14, ifpr-16
+
+collide-probe.gc:245
+->         (f3-1 (- arg0 arg1)))
+  [0x1003C] fmov s21, w7                                     mov ifpr-18, igpr-6
+  [0x10040] mov v21.16b, v21.16b                             mov ifpr-17, ifpr-18
+  [0x10044] fmov s20, w6                                     mov ifpr-19, igpr-7
+  [0x10048] fsub s21, s21, s20                               subss ifpr-17, ifpr-19
+
+collide-probe.gc:243
+->   (let ((f0-1 (- arg3 arg1))
+  [0x1004C] mov v23.16b, v23.16b                             mov ifpr-20, ifpr-11
+  [0x10050] mov v22.16b, v22.16b                             mov ifpr-21, ifpr-14
+  [0x10054] mov v21.16b, v21.16b                             mov ifpr-22, ifpr-17
+
+collide-probe.gc:246
+->     (+ arg2 (/ (* f3-1 f1-2) f0-1))))
+  [0x10058] fmov s20, w2                                     mov ifpr-24, igpr-8
+  [0x1005C] mov v20.16b, v20.16b                             mov ifpr-23, ifpr-24
+
+collide-probe.gc:246
+->     (+ arg2 (/ (* f3-1 f1-2) f0-1))))
+  [0x10060] mov v21.16b, v21.16b                             mov ifpr-25, ifpr-22
+  [0x10064] fmul s21, s21, s22                               mulss ifpr-25, ifpr-21
+
+collide-probe.gc:246
+->     (+ arg2 (/ (* f3-1 f1-2) f0-1))))
+  [0x10068] adrp x16, #0x10000                               mov-svl ifpr-27, [(sf 0)]
+  [0x1006C] ldr s22, [x16, #0x948]
+  [0x10070] fcmp s22, s23                                    j(ifpr-27 == ifpr-20) label-30
+  [0x10074] b.eq #0x10084
+  [0x10078] mov v21.16b, v21.16b                             mov ifpr-26, ifpr-25
+  [0x1007C] fdiv s21, s21, s23                               divss ifpr-26, ifpr-20
+  [0x10080] b #0x100b8                                       goto label-39
+  [0x10084] movz x9, #0xffff                                 mov-ic igpr-28, 2139095039
+  [0x10088] movk x9, #0x7f7f, lsl #16
+  [0x1008C] movz x8, #0                                      mov-ic igpr-29, 2147483648
+  [0x10090] movk x8, #0x8000, lsl #16
+  [0x10094] fmov w1, s21                                     mov igpr-30, ifpr-25
+  [0x10098] sxtw x1, w1
+  [0x1009C] and x1, x1, x8                                   and igpr-30, igpr-29
+  [0x100A0] eor x9, x9, x1                                   xor igpr-28, igpr-30
+  [0x100A4] fmov w1, s23                                     mov igpr-30, ifpr-20
+  [0x100A8] sxtw x1, w1
+  [0x100AC] and x1, x1, x8                                   and igpr-30, igpr-29
+  [0x100B0] eor x9, x9, x1                                   xor igpr-28, igpr-30
+  [0x100B4] fmov s21, w9                                     mov ifpr-26, igpr-28
+
+collide-probe.gc:246
+->     (+ arg2 (/ (* f3-1 f1-2) f0-1))))
+  [0x100B8] fadd s20, s20, s21                               addss ifpr-23, ifpr-26
+
+collide-probe.gc:242
+-> (defun interpolate ((arg0 float) (arg1 float) (arg2 float) (arg3 float) (arg4 float))
+  [0x100BC] fmov w0, s20                                     mov igpr-31, ifpr-23
+  [0x100C0] sxtw x0, w0
+  [0x100C4] mov x0, x0                                       ret igpr-5 igpr-31
+  [0x100C8] ldp x29, x30, [sp], #0x10
+  [0x100CC] ret
+
+
+[misty-ambush-height-probe]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:258
+-> (defun misty-ambush-height-probe ((arg0 vector) (arg1 float))
+  [0x1000C] mov x3, x7                                       mov igpr-3, igpr-0
+  [0x10010] mov x5, x6                                       mov igpr-4, igpr-1
+
+collide-probe.gc:260
+->   (let ((f0-0 (misty-ambush-height arg0)))
+  [0x10014] adrp x16, #0x10000                               mov igpr-5, 'misty-ambush-height
+  [0x10018] add x16, x16, #0
+  [0x1001C] ldr w9, [x16]
+  [0x10020] mov x9, x9                                       mov igpr-8, igpr-5
+  [0x10024] mov x7, x3                                       mov igpr-7, igpr-3
+  [0x10028] add x9, x9, x15                                  call igpr-8 (ret igpr-6) (args igpr-7)
+  [0x1002C] stp x3, x5, [sp, #-0x10]!
+  [0x10030] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10034] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10038] blr x9 ;; misaligned with debug data
+  [0x1003C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10040] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10044] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10048] mov x0, x0                                       mov igpr-9, igpr-6
+
+collide-probe.gc:260
+->   (let ((f0-0 (misty-ambush-height arg0)))
+  [0x1004C] fmov s23, w0                                     mov ifpr-10, igpr-9
+
+collide-probe.gc:262
+->       ((< f0-0 (-> arg0 y)) (/ (- (-> arg0 y) f0-0) arg1))
+  [0x10050] add x16, x3, x15                                 mov ifpr-12, [igpr-3 + 4]
+  [0x10054] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x10058] fcmp s23, s22                                    j(ifpr-10 >= ifpr-12) label-31
+  [0x1005C] b.ge #0x100d0
+
+collide-probe.gc:262
+->       ((< f0-0 (-> arg0 y)) (/ (- (-> arg0 y) f0-0) arg1))
+  [0x10060] add x16, x3, x15                                 mov ifpr-14, [igpr-3 + 4]
+  [0x10064] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x10068] mov v22.16b, v22.16b                             mov ifpr-13, ifpr-14
+  [0x1006C] fsub s22, s22, s23                               subss ifpr-13, ifpr-10
+
+collide-probe.gc:262
+->       ((< f0-0 (-> arg0 y)) (/ (- (-> arg0 y) f0-0) arg1))
+  [0x10070] fmov s23, w5                                     mov ifpr-15, igpr-4
+  [0x10074] adrp x16, #0x10000                               mov-svl ifpr-17, [(sf 0)]
+  [0x10078] ldr s21, [x16, #0x9a8]
+  [0x1007C] fcmp s21, s23                                    j(ifpr-17 == ifpr-15) label-20
+  [0x10080] b.eq #0x10090
+  [0x10084] mov v22.16b, v22.16b                             mov ifpr-16, ifpr-13
+  [0x10088] fdiv s22, s22, s23                               divss ifpr-16, ifpr-15
+  [0x1008C] b #0x100c4                                       goto label-29
+  [0x10090] movz x9, #0xffff                                 mov-ic igpr-18, 2139095039
+  [0x10094] movk x9, #0x7f7f, lsl #16
+  [0x10098] movz x8, #0                                      mov-ic igpr-19, 2147483648
+  [0x1009C] movk x8, #0x8000, lsl #16
+  [0x100A0] fmov w1, s22                                     mov igpr-20, ifpr-13
+  [0x100A4] sxtw x1, w1
+  [0x100A8] and x1, x1, x8                                   and igpr-20, igpr-19
+  [0x100AC] eor x9, x9, x1                                   xor igpr-18, igpr-20
+  [0x100B0] fmov w1, s23                                     mov igpr-20, ifpr-15
+  [0x100B4] sxtw x1, w1
+  [0x100B8] and x1, x1, x8                                   and igpr-20, igpr-19
+  [0x100BC] eor x9, x9, x1                                   xor igpr-18, igpr-20
+  [0x100C0] fmov s22, w9                                     mov ifpr-16, igpr-18
+
+collide-probe.gc:262
+->       ((< f0-0 (-> arg0 y)) (/ (- (-> arg0 y) f0-0) arg1))
+  [0x100C4] fmov w0, s22                                     mov igpr-11, ifpr-16
+  [0x100C8] sxtw x0, w0
+  [0x100CC] b #0x101f4                                       goto label-74
+
+collide-probe.gc:263
+->       (else (format 0 "WARNING: ~%height = ~f, pos.y = ~f" (/ f0-0 METER_LENGTH) (/ (-> arg0 y) METER_LENGTH)) -1.0))))
+  [0x100D0] adrp x16, #0x10000                               mov igpr-21, 'format
+  [0x100D4] add x16, x16, #0
+  [0x100D8] ldr w9, [x16]
+
+collide-probe.gc:260
+->   (let ((f0-0 (misty-ambush-height arg0)))
+  [0x100DC] movz x7, #0                                      mov-ic igpr-22, 0
+  [0x100E0] adrp x6, #0x10000                                mov-sva igpr-23, static-string "WARNING: ~%height = ~f, pos.y = ~f"
+  [0x100E4] add x6, x6, #0x9b4
+  [0x100E8] sub x6, x6, x15
+
+collide-probe.gc:263
+->       (else (format 0 "WARNING: ~%height = ~f, pos.y = ~f" (/ f0-0 METER_LENGTH) (/ (-> arg0 y) METER_LENGTH)) -1.0))))
+  [0x100EC] adrp x16, #0x10000                               mov-svl ifpr-24, [(sf 4096)]
+  [0x100F0] ldr s22, [x16, #0x9dc]
+  [0x100F4] adrp x16, #0x10000                               mov-svl ifpr-26, [(sf 0)]
+  [0x100F8] ldr s21, [x16, #0x9e0]
+  [0x100FC] fcmp s21, s22                                    j(ifpr-26 == ifpr-24) label-40
+  [0x10100] b.eq #0x10110
+  [0x10104] mov v23.16b, v23.16b                             mov ifpr-25, ifpr-10
+  [0x10108] fdiv s23, s23, s22                               divss ifpr-25, ifpr-24
+  [0x1010C] b #0x10144                                       goto label-49
+  [0x10110] movz x8, #0xffff                                 mov-ic igpr-27, 2139095039
+  [0x10114] movk x8, #0x7f7f, lsl #16
+  [0x10118] movz x1, #0                                      mov-ic igpr-28, 2147483648
+  [0x1011C] movk x1, #0x8000, lsl #16
+  [0x10120] fmov w2, s23                                     mov igpr-29, ifpr-10
+  [0x10124] sxtw x2, w2
+  [0x10128] and x2, x2, x1                                   and igpr-29, igpr-28
+  [0x1012C] eor x8, x8, x2                                   xor igpr-27, igpr-29
+  [0x10130] fmov w2, s22                                     mov igpr-29, ifpr-24
+  [0x10134] sxtw x2, w2
+  [0x10138] and x2, x2, x1                                   and igpr-29, igpr-28
+  [0x1013C] eor x8, x8, x2                                   xor igpr-27, igpr-29
+  [0x10140] fmov s23, w8                                     mov ifpr-25, igpr-27
+
+collide-probe.gc:263
+->       (else (format 0 "WARNING: ~%height = ~f, pos.y = ~f" (/ f0-0 METER_LENGTH) (/ (-> arg0 y) METER_LENGTH)) -1.0))))
+  [0x10144] add x16, x3, x15                                 mov ifpr-30, [igpr-3 + 4]
+  [0x10148] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x1014C] adrp x16, #0x10000                               mov-svl ifpr-31, [(sf 4096)]
+  [0x10150] ldr s21, [x16, #0x9e4]
+  [0x10154] adrp x16, #0x10000                               mov-svl ifpr-33, [(sf 0)]
+  [0x10158] ldr s20, [x16, #0x9e8]
+  [0x1015C] fcmp s20, s21                                    j(ifpr-33 == ifpr-31) label-56
+  [0x10160] b.eq #0x10170
+  [0x10164] mov v22.16b, v22.16b                             mov ifpr-32, ifpr-30
+  [0x10168] fdiv s22, s22, s21                               divss ifpr-32, ifpr-31
+  [0x1016C] b #0x101a4                                       goto label-65
+  [0x10170] movz x8, #0xffff                                 mov-ic igpr-34, 2139095039
+  [0x10174] movk x8, #0x7f7f, lsl #16
+  [0x10178] movz x1, #0                                      mov-ic igpr-35, 2147483648
+  [0x1017C] movk x1, #0x8000, lsl #16
+  [0x10180] fmov w2, s22                                     mov igpr-36, ifpr-30
+  [0x10184] sxtw x2, w2
+  [0x10188] and x2, x2, x1                                   and igpr-36, igpr-35
+  [0x1018C] eor x8, x8, x2                                   xor igpr-34, igpr-36
+  [0x10190] fmov w2, s21                                     mov igpr-36, ifpr-31
+  [0x10194] sxtw x2, w2
+  [0x10198] and x2, x2, x1                                   and igpr-36, igpr-35
+  [0x1019C] eor x8, x8, x2                                   xor igpr-34, igpr-36
+  [0x101A0] fmov s22, w8                                     mov ifpr-32, igpr-34
+
+collide-probe.gc:263
+->       (else (format 0 "WARNING: ~%height = ~f, pos.y = ~f" (/ f0-0 METER_LENGTH) (/ (-> arg0 y) METER_LENGTH)) -1.0))))
+  [0x101A4] mov x9, x9                                       mov igpr-42, igpr-21
+  [0x101A8] mov x7, x7                                       mov igpr-38, igpr-22
+  [0x101AC] mov x6, x6                                       mov igpr-39, igpr-23
+  [0x101B0] fmov w2, s23                                     mov igpr-40, ifpr-25
+  [0x101B4] sxtw x2, w2
+  [0x101B8] fmov w1, s22                                     mov igpr-41, ifpr-32
+  [0x101BC] sxtw x1, w1
+  [0x101C0] add x9, x9, x15                                  call igpr-42 (ret igpr-37) (args igpr-38 igpr-39 igpr-40 igpr-41)
+  [0x101C4] stp x3, x5, [sp, #-0x10]!
+  [0x101C8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101CC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101D0] blr x9 ;; misaligned with debug data
+  [0x101D4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101D8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101DC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101E0] mov x0, x0                                       mov igpr-43, igpr-37
+
+collide-probe.gc:260
+->   (let ((f0-0 (misty-ambush-height arg0)))
+  [0x101E4] adrp x16, #0x10000                               mov-svl ifpr-44, [(sf -1)]
+  [0x101E8] ldr s23, [x16, #0x9ec]
+
+collide-probe.gc:263
+->       (else (format 0 "WARNING: ~%height = ~f, pos.y = ~f" (/ f0-0 METER_LENGTH) (/ (-> arg0 y) METER_LENGTH)) -1.0))))
+  [0x101EC] fmov w0, s23                                     mov igpr-11, ifpr-44
+  [0x101F0] sxtw x0, w0
+
+collide-probe.gc:258
+-> (defun misty-ambush-height-probe ((arg0 vector) (arg1 float))
+  [0x101F4] mov x0, x0                                       ret igpr-2 igpr-11
+  [0x101F8] add sp, sp, #0x10
+  [0x101FC] ldp x29, x30, [sp], #0x10
+  [0x10200] ret
+
+
+[distc]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collide-probe.gc:239
+-> (defun distc ((arg0 vector) (arg1 vector))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10010] add x16, x7, x15                                 mov ifpr-7, [igpr-3 + 0]
+  [0x10014] ldr s23, [x16] ;; misaligned with debug data
+  [0x10018] mov v23.16b, v23.16b                             mov ifpr-6, ifpr-7
+  [0x1001C] add x16, x6, x15                                 mov ifpr-8, [igpr-4 + 0]
+  [0x10020] ldr s22, [x16] ;; misaligned with debug data
+  [0x10024] fsub s23, s23, s22                               subss ifpr-6, ifpr-8
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10028] mov v23.16b, v23.16b                             mov ifpr-9, ifpr-6
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x1002C] add x16, x7, x15                                 mov ifpr-11, [igpr-3 + 0]
+  [0x10030] ldr s22, [x16] ;; misaligned with debug data
+  [0x10034] mov v22.16b, v22.16b                             mov ifpr-10, ifpr-11
+  [0x10038] add x16, x6, x15                                 mov ifpr-12, [igpr-4 + 0]
+  [0x1003C] ldr s21, [x16] ;; misaligned with debug data
+  [0x10040] fsub s22, s22, s21                               subss ifpr-10, ifpr-12
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10044] fmul s23, s23, s22                               mulss ifpr-9, ifpr-10
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10048] mov v23.16b, v23.16b                             mov ifpr-13, ifpr-9
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x1004C] add x16, x7, x15                                 mov ifpr-15, [igpr-3 + 8]
+  [0x10050] ldr s22, [x16, #8] ;; misaligned with debug data
+  [0x10054] mov v22.16b, v22.16b                             mov ifpr-14, ifpr-15
+  [0x10058] add x16, x6, x15                                 mov ifpr-16, [igpr-4 + 8]
+  [0x1005C] ldr s21, [x16, #8] ;; misaligned with debug data
+  [0x10060] fsub s22, s22, s21                               subss ifpr-14, ifpr-16
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10064] mov v22.16b, v22.16b                             mov ifpr-17, ifpr-14
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10068] add x16, x7, x15                                 mov ifpr-19, [igpr-3 + 8]
+  [0x1006C] ldr s21, [x16, #8] ;; misaligned with debug data
+  [0x10070] mov v21.16b, v21.16b                             mov ifpr-18, ifpr-19
+  [0x10074] add x16, x6, x15                                 mov ifpr-20, [igpr-4 + 8]
+  [0x10078] ldr s20, [x16, #8] ;; misaligned with debug data
+  [0x1007C] fsub s21, s21, s20                               subss ifpr-18, ifpr-20
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10080] fmul s22, s22, s21                               mulss ifpr-17, ifpr-18
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10084] fadd s23, s23, s22                               addss ifpr-13, ifpr-17
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10088] movz x9, #0                                      mov-ic igpr-22, 0
+  [0x1008C] scvtf s22, w9                                    i2f ifpr-21, igpr-22
+  [0x10090] fcmp s23, s22                                    j(ifpr-13 >= ifpr-21) label-54
+  [0x10094] b.ge #0x10128
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10098] add x16, x7, x15                                 mov ifpr-24, [igpr-3 + 0]
+  [0x1009C] ldr s23, [x16] ;; misaligned with debug data
+  [0x100A0] mov v23.16b, v23.16b                             mov ifpr-23, ifpr-24
+  [0x100A4] add x16, x6, x15                                 mov ifpr-25, [igpr-4 + 0]
+  [0x100A8] ldr s22, [x16] ;; misaligned with debug data
+  [0x100AC] fsub s23, s23, s22                               subss ifpr-23, ifpr-25
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x100B0] mov v23.16b, v23.16b                             mov ifpr-26, ifpr-23
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x100B4] add x16, x7, x15                                 mov ifpr-28, [igpr-3 + 0]
+  [0x100B8] ldr s22, [x16] ;; misaligned with debug data
+  [0x100BC] mov v22.16b, v22.16b                             mov ifpr-27, ifpr-28
+  [0x100C0] add x16, x6, x15                                 mov ifpr-29, [igpr-4 + 0]
+  [0x100C4] ldr s21, [x16] ;; misaligned with debug data
+  [0x100C8] fsub s22, s22, s21                               subss ifpr-27, ifpr-29
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x100CC] fmul s23, s23, s22                               mulss ifpr-26, ifpr-27
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x100D0] mov v23.16b, v23.16b                             mov ifpr-30, ifpr-26
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x100D4] add x16, x7, x15                                 mov ifpr-32, [igpr-3 + 8]
+  [0x100D8] ldr s22, [x16, #8] ;; misaligned with debug data
+  [0x100DC] mov v22.16b, v22.16b                             mov ifpr-31, ifpr-32
+  [0x100E0] add x16, x6, x15                                 mov ifpr-33, [igpr-4 + 8]
+  [0x100E4] ldr s21, [x16, #8] ;; misaligned with debug data
+  [0x100E8] fsub s22, s22, s21                               subss ifpr-31, ifpr-33
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x100EC] mov v22.16b, v22.16b                             mov ifpr-34, ifpr-31
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x100F0] add x16, x7, x15                                 mov ifpr-36, [igpr-3 + 8]
+  [0x100F4] ldr s21, [x16, #8] ;; misaligned with debug data
+  [0x100F8] mov v21.16b, v21.16b                             mov ifpr-35, ifpr-36
+  [0x100FC] add x16, x6, x15                                 mov ifpr-37, [igpr-4 + 8]
+  [0x10100] ldr s20, [x16, #8] ;; misaligned with debug data
+  [0x10104] fsub s21, s21, s20                               subss ifpr-35, ifpr-37
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10108] fmul s22, s22, s21                               mulss ifpr-34, ifpr-35
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x1010C] fadd s23, s23, s22                               addss ifpr-30, ifpr-34
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10110] adrp x16, #0x10000                               mov-svl ifpr-38, [(sf 0)]
+  [0x10114] ldr s22, [x16, #0x944]
+  [0x10118] fsub s22, s22, s23                               subss ifpr-38, ifpr-30
+  [0x1011C] fmov w9, s22                                     mov igpr-5, ifpr-38
+  [0x10120] sxtw x9, w9
+  [0x10124] b #0x101a8                                       goto label-77
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10128] add x16, x7, x15                                 mov ifpr-40, [igpr-3 + 0]
+  [0x1012C] ldr s23, [x16] ;; misaligned with debug data
+  [0x10130] mov v23.16b, v23.16b                             mov ifpr-39, ifpr-40
+  [0x10134] add x16, x6, x15                                 mov ifpr-41, [igpr-4 + 0]
+  [0x10138] ldr s22, [x16] ;; misaligned with debug data
+  [0x1013C] fsub s23, s23, s22                               subss ifpr-39, ifpr-41
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10140] mov v23.16b, v23.16b                             mov ifpr-42, ifpr-39
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10144] add x16, x7, x15                                 mov ifpr-44, [igpr-3 + 0]
+  [0x10148] ldr s22, [x16] ;; misaligned with debug data
+  [0x1014C] mov v22.16b, v22.16b                             mov ifpr-43, ifpr-44
+  [0x10150] add x16, x6, x15                                 mov ifpr-45, [igpr-4 + 0]
+  [0x10154] ldr s21, [x16] ;; misaligned with debug data
+  [0x10158] fsub s22, s22, s21                               subss ifpr-43, ifpr-45
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x1015C] fmul s23, s23, s22                               mulss ifpr-42, ifpr-43
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10160] mov v23.16b, v23.16b                             mov ifpr-46, ifpr-42
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10164] add x16, x7, x15                                 mov ifpr-48, [igpr-3 + 8]
+  [0x10168] ldr s22, [x16, #8] ;; misaligned with debug data
+  [0x1016C] mov v22.16b, v22.16b                             mov ifpr-47, ifpr-48
+  [0x10170] add x16, x6, x15                                 mov ifpr-49, [igpr-4 + 8]
+  [0x10174] ldr s21, [x16, #8] ;; misaligned with debug data
+  [0x10178] fsub s22, s22, s21                               subss ifpr-47, ifpr-49
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x1017C] mov v22.16b, v22.16b                             mov ifpr-50, ifpr-47
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10180] add x16, x7, x15                                 mov ifpr-52, [igpr-3 + 8]
+  [0x10184] ldr s21, [x16, #8] ;; misaligned with debug data
+  [0x10188] mov v21.16b, v21.16b                             mov ifpr-51, ifpr-52
+  [0x1018C] add x16, x6, x15                                 mov ifpr-53, [igpr-4 + 8]
+  [0x10190] ldr s20, [x16, #8] ;; misaligned with debug data
+  [0x10194] fsub s21, s21, s20                               subss ifpr-51, ifpr-53
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x10198] fmul s22, s22, s21                               mulss ifpr-50, ifpr-51
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x1019C] fadd s23, s23, s22                               addss ifpr-46, ifpr-50
+
+collide-probe.gc:240
+->   (sqrtf (+ (square (- (-> arg0 x) (-> arg1 x))) (square (- (-> arg0 z) (-> arg1 z))))))
+  [0x101A0] fmov w9, s23                                     mov igpr-5, ifpr-46
+  [0x101A4] sxtw x9, w9
+  [0x101A8] fmov s23, w9                                     mov ifpr-55, igpr-5
+  [0x101AC] fsqrt s23, s23                                   sqrtss ifpr-54, ifpr-55
+
+collide-probe.gc:239
+-> (defun distc ((arg0 vector) (arg1 vector))
+  [0x101B0] fmov w0, s23                                     mov igpr-56, ifpr-54
+  [0x101B4] sxtw x0, w0
+  [0x101B8] mov x0, x0                                       ret igpr-2 igpr-56
+  [0x101BC] ldp x29, x30, [sp], #0x10
+  [0x101C0] ret
+
+
+[collide-probe-make-list]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:191
+-> (defun collide-probe-make-list ((arg0 level) (arg1 collide-list))
+  [0x1000C] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x10010] mov x5, x6                                       mov igpr-4, igpr-1
+
+collide-probe.gc:193
+->   (let ((s5-0 (-> arg0 bsp)))
+  [0x10014] add x16, x7, x15                                 mov igpr-5, [igpr-3 + 44]
+  [0x10018] ldr w3, [x16, #0x2c] ;; misaligned with debug data
+
+collide-probe.gc:193
+->   (let ((s5-0 (-> arg0 bsp)))
+  [0x1001C] mov x3, x3                                       mov igpr-6, igpr-5
+  [0x10020] movz x9, #0                                      mov-ic igpr-7, 0
+
+collide-probe.gc:196
+->     (collide-upload-vu0)
+  [0x10024] adrp x16, #0x10000                               mov igpr-8, 'collide-upload-vu0
+  [0x10028] add x16, x16, #0
+  [0x1002C] ldr w9, [x16]
+  [0x10030] mov x9, x9                                       mov igpr-10, igpr-8
+  [0x10034] add x9, x9, x15                                  call igpr-10 (ret igpr-9) (args)
+  [0x10038] stp x3, x5, [sp, #-0x10]!
+  [0x1003C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10040] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10044] blr x9 ;; misaligned with debug data
+  [0x10048] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1004C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10050] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10054] mov x12, x12                                     mov igpr-11, igpr-9
+
+collide-probe.gc:198
+->     (let ((s5-1 (-> s5-0 drawable-trees)))
+  [0x10058] add x16, x3, x15                                 mov igpr-12, [igpr-6 + 36]
+  [0x1005C] ldr w3, [x16, #0x24] ;; misaligned with debug data
+
+collide-probe.gc:198
+->     (let ((s5-1 (-> s5-0 drawable-trees)))
+  [0x10060] mov x12, x3                                      mov igpr-13, igpr-12
+
+collide-probe.gc:199
+->       (dotimes (s4-0 (-> s5-1 length))
+  [0x10064] movz x3, #0                                      mov-ic igpr-14, 0
+  [0x10068] mov x3, x3                                       mov igpr-15, igpr-14
+  [0x1006C] b #0x10294                                       goto label-109
+
+collide-probe.gc:200
+->         (let ((v1-3 (-> s5-1 trees s4-0)))
+  [0x10070] mov x9, x3                                       mov igpr-19, igpr-15
+  [0x10074] lsl x9, x9, #2                                   shl igpr-19, 2
+  [0x10078] mov x9, x9                                       mov igpr-21, igpr-19
+  [0x1007C] movz x8, #0x1c                                   mov-ic igpr-22, 28
+  [0x10080] add x8, x8, x12                                  addi igpr-22, igpr-13
+  [0x10084] add x9, x9, x8                                   addi igpr-21, igpr-22
+  [0x10088] add x16, x9, x15                                 mov igpr-20, [igpr-21 + 0]
+  [0x1008C] ldr w9, [x16] ;; misaligned with debug data
+
+collide-probe.gc:200
+->         (let ((v1-3 (-> s5-1 trees s4-0)))
+  [0x10090] mov x9, x9                                       mov igpr-23, igpr-20
+
+collide-probe.gc:202
+->             ((= (-> v1-3 type) drawable-tree-instance-tie)
+  [0x10094] add x16, x9, x15                                 mov igpr-25, [igpr-23 + -4]
+  [0x10098] ldur w8, [x16, #-4] ;; misaligned with debug data
+  [0x1009C] adrp x16, #0x10000                               mov igpr-26, 'drawable-tree-instance-tie
+  [0x100A0] add x16, x16, #0
+  [0x100A4] ldr w1, [x16]
+  [0x100A8] cmp x8, x1                                       j(igpr-25 != igpr-26) label-76
+  [0x100AC] b.ne #0x101d8
+
+collide-probe.gc:204
+->              (let ((a2-0 arg1))
+  [0x100B0] mov x2, x5                                       mov igpr-27, igpr-4
+
+collide-probe.gc:206
+->                  ((< 1 (-> v1-3 length))
+  [0x100B4] movz x8, #0x1                                    mov-ic igpr-29, 1
+  [0x100B8] add x16, x9, x15                                 mov igpr-30, [igpr-23 + 2]
+  [0x100BC] ldrsh x1, [x16, #2] ;; misaligned with debug data
+  [0x100C0] cmp x8, x1                                       j(igpr-29 >= igpr-30) label-49
+  [0x100C4] b.ge #0x1013c
+
+collide-probe.gc:207
+->                   (let ((v1-4 (-> v1-3 data 0)))
+  [0x100C8] add x16, x9, x15                                 mov igpr-31, [igpr-23 + 28]
+  [0x100CC] ldr w9, [x16, #0x1c] ;; misaligned with debug data
+
+collide-probe.gc:207
+->                   (let ((v1-4 (-> v1-3 data 0)))
+  [0x100D0] mov x9, x9                                       mov igpr-32, igpr-31
+
+collide-probe.gc:208
+->                     (collide-probe-instance-tie (-> (the-as drawable-inline-array-node v1-4) data)
+  [0x100D4] adrp x16, #0x10000                               mov igpr-33, 'collide-probe-instance-tie
+  [0x100D8] add x16, x16, #0
+  [0x100DC] ldr w8, [x16]
+
+collide-probe.gc:208
+->                     (collide-probe-instance-tie (-> (the-as drawable-inline-array-node v1-4) data)
+  [0x100E0] movz x7, #0x20                                   mov-ic igpr-34, 32
+  [0x100E4] mov x1, x9                                       mov igpr-35, igpr-32
+  [0x100E8] add x7, x7, x1                                   addi igpr-34, igpr-35
+
+collide-probe.gc:209
+->                                                 (-> (the-as drawable-inline-array-node v1-4) length)
+  [0x100EC] mov x9, x9                                       mov igpr-37, igpr-32
+  [0x100F0] add x16, x9, x15                                 mov igpr-36, [igpr-37 + 2]
+  [0x100F4] ldrsh x6, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:207
+->                   (let ((v1-4 (-> v1-3 data 0)))
+  [0x100F8] movz x1, #0x1                                    mov-ic igpr-38, 1
+
+collide-probe.gc:208
+->                     (collide-probe-instance-tie (-> (the-as drawable-inline-array-node v1-4) data)
+  [0x100FC] mov x8, x8                                       mov igpr-44, igpr-33
+  [0x10100] mov x7, x7                                       mov igpr-40, igpr-34
+  [0x10104] mov x6, x6                                       mov igpr-41, igpr-36
+  [0x10108] mov x2, x2                                       mov igpr-42, igpr-27
+  [0x1010C] mov x1, x1                                       mov igpr-43, igpr-38
+  [0x10110] add x8, x8, x15                                  call igpr-44 (ret igpr-39) (args igpr-40 igpr-41 igpr-42 igpr-43)
+  [0x10114] stp x3, x5, [sp, #-0x10]!
+  [0x10118] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1011C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10120] blr x8 ;; misaligned with debug data
+  [0x10124] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10128] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1012C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10130] mov x0, x0                                       mov igpr-45, igpr-39
+
+collide-probe.gc:206
+->                  ((< 1 (-> v1-3 length))
+  [0x10134] mov x0, x0                                       mov igpr-28, igpr-45
+  [0x10138] b #0x101cc                                       goto label-72
+
+collide-probe.gc:212
+->                  ((= (-> v1-3 length) 1)
+  [0x1013C] add x16, x9, x15                                 mov igpr-46, [igpr-23 + 2]
+  [0x10140] ldrsh x8, [x16, #2] ;; misaligned with debug data
+  [0x10144] movz x1, #0x1                                    mov-ic igpr-47, 1
+  [0x10148] cmp x8, x1                                       j(igpr-46 != igpr-47) label-71
+  [0x1014C] b.ne #0x101c4
+
+collide-probe.gc:213
+->                   (let ((v1-6 (-> v1-3 data 0)))
+  [0x10150] add x16, x9, x15                                 mov igpr-48, [igpr-23 + 28]
+  [0x10154] ldr w9, [x16, #0x1c] ;; misaligned with debug data
+
+collide-probe.gc:213
+->                   (let ((v1-6 (-> v1-3 data 0)))
+  [0x10158] mov x9, x9                                       mov igpr-49, igpr-48
+
+collide-probe.gc:214
+->                     (collide-probe-instance-tie (-> (the-as drawable-inline-array-instance-tie v1-6) data)
+  [0x1015C] adrp x16, #0x10000                               mov igpr-50, 'collide-probe-instance-tie
+  [0x10160] add x16, x16, #0
+  [0x10164] ldr w8, [x16]
+
+collide-probe.gc:214
+->                     (collide-probe-instance-tie (-> (the-as drawable-inline-array-instance-tie v1-6) data)
+  [0x10168] movz x7, #0x20                                   mov-ic igpr-51, 32
+  [0x1016C] mov x1, x9                                       mov igpr-52, igpr-49
+  [0x10170] add x7, x7, x1                                   addi igpr-51, igpr-52
+
+collide-probe.gc:215
+->                                                 (-> (the-as drawable-inline-array-instance-tie v1-6) length)
+  [0x10174] mov x9, x9                                       mov igpr-54, igpr-49
+  [0x10178] add x16, x9, x15                                 mov igpr-53, [igpr-54 + 2]
+  [0x1017C] ldrsh x6, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:213
+->                   (let ((v1-6 (-> v1-3 data 0)))
+  [0x10180] movz x1, #0                                      mov-ic igpr-55, 0
+
+collide-probe.gc:214
+->                     (collide-probe-instance-tie (-> (the-as drawable-inline-array-instance-tie v1-6) data)
+  [0x10184] mov x8, x8                                       mov igpr-61, igpr-50
+  [0x10188] mov x7, x7                                       mov igpr-57, igpr-51
+  [0x1018C] mov x6, x6                                       mov igpr-58, igpr-53
+  [0x10190] mov x2, x2                                       mov igpr-59, igpr-27
+  [0x10194] mov x1, x1                                       mov igpr-60, igpr-55
+  [0x10198] add x8, x8, x15                                  call igpr-61 (ret igpr-56) (args igpr-57 igpr-58 igpr-59 igpr-60)
+  [0x1019C] stp x3, x5, [sp, #-0x10]!
+  [0x101A0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101A4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101A8] blr x8 ;; misaligned with debug data
+  [0x101AC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101B0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101B4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101B8] mov x0, x0                                       mov igpr-62, igpr-56
+
+collide-probe.gc:212
+->                  ((= (-> v1-3 length) 1)
+  [0x101BC] mov x0, x0                                       mov igpr-28, igpr-62
+  [0x101C0] b #0x101cc                                       goto label-72
+
+collide-probe.gc:205
+->                (cond
+  [0x101C4] mov x0, x14                                      mov-symptr igpr-28, '#f
+  [0x101C8] sub x0, x0, x15 ;; misaligned with debug data
+
+collide-probe.gc:200
+->         (let ((v1-3 (-> s5-1 trees s4-0)))
+  [0x101CC] movz x9, #0                                      mov-ic igpr-63, 0
+
+collide-probe.gc:202
+->             ((= (-> v1-3 type) drawable-tree-instance-tie)
+  [0x101D0] mov x9, x9                                       mov igpr-24, igpr-63
+  [0x101D4] b #0x10284                                       goto label-104
+
+collide-probe.gc:219
+->             ((= (-> v1-3 type) drawable-tree-collide-fragment)
+  [0x101D8] add x16, x9, x15                                 mov igpr-64, [igpr-23 + -4]
+  [0x101DC] ldur w8, [x16, #-4] ;; misaligned with debug data
+  [0x101E0] adrp x16, #0x10000                               mov igpr-65, 'drawable-tree-collide-fragment
+  [0x101E4] add x16, x16, #0
+  [0x101E8] ldr w1, [x16]
+  [0x101EC] cmp x8, x1                                       j(igpr-64 != igpr-65) label-104
+  [0x101F0] b.ne #0x10284
+
+collide-probe.gc:221
+->              (let ((a2-1 arg1))
+  [0x101F4] mov x2, x5                                       mov igpr-66, igpr-4
+
+collide-probe.gc:223
+->                  ((< 1 (-> v1-3 length))
+  [0x101F8] movz x8, #0x1                                    mov-ic igpr-68, 1
+  [0x101FC] add x16, x9, x15                                 mov igpr-69, [igpr-23 + 2]
+  [0x10200] ldrsh x1, [x16, #2] ;; misaligned with debug data
+  [0x10204] cmp x8, x1                                       j(igpr-68 >= igpr-69) label-100
+  [0x10208] b.ge #0x10278
+
+collide-probe.gc:224
+->                   (let ((v1-9 (-> v1-3 data 0)))
+  [0x1020C] add x16, x9, x15                                 mov igpr-70, [igpr-23 + 28]
+  [0x10210] ldr w9, [x16, #0x1c] ;; misaligned with debug data
+
+collide-probe.gc:224
+->                   (let ((v1-9 (-> v1-3 data 0)))
+  [0x10214] mov x9, x9                                       mov igpr-71, igpr-70
+
+collide-probe.gc:225
+->                     (collide-probe-node (-> (the-as drawable-inline-array-node v1-9) data)
+  [0x10218] adrp x16, #0x10000                               mov igpr-72, 'collide-probe-node
+  [0x1021C] add x16, x16, #0
+  [0x10220] ldr w8, [x16]
+
+collide-probe.gc:225
+->                     (collide-probe-node (-> (the-as drawable-inline-array-node v1-9) data)
+  [0x10224] movz x7, #0x20                                   mov-ic igpr-73, 32
+  [0x10228] mov x1, x9                                       mov igpr-74, igpr-71
+  [0x1022C] add x7, x7, x1                                   addi igpr-73, igpr-74
+
+collide-probe.gc:226
+->                                         (-> (the-as drawable-inline-array-node v1-9) length)
+  [0x10230] mov x9, x9                                       mov igpr-76, igpr-71
+  [0x10234] add x16, x9, x15                                 mov igpr-75, [igpr-76 + 2]
+  [0x10238] ldrsh x6, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:225
+->                     (collide-probe-node (-> (the-as drawable-inline-array-node v1-9) data)
+  [0x1023C] mov x8, x8                                       mov igpr-81, igpr-72
+  [0x10240] mov x7, x7                                       mov igpr-78, igpr-73
+  [0x10244] mov x6, x6                                       mov igpr-79, igpr-75
+  [0x10248] mov x2, x2                                       mov igpr-80, igpr-66
+  [0x1024C] add x8, x8, x15                                  call igpr-81 (ret igpr-77) (args igpr-78 igpr-79 igpr-80)
+  [0x10250] stp x3, x5, [sp, #-0x10]!
+  [0x10254] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10258] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1025C] blr x8 ;; misaligned with debug data
+  [0x10260] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10264] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10268] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1026C] mov x0, x0                                       mov igpr-82, igpr-77
+
+collide-probe.gc:223
+->                  ((< 1 (-> v1-3 length))
+  [0x10270] mov x0, x0                                       mov igpr-67, igpr-82
+  [0x10274] b #0x10278                                       goto label-100
+
+collide-probe.gc:200
+->         (let ((v1-3 (-> s5-1 trees s4-0)))
+  [0x10278] movz x9, #0                                      mov-ic igpr-83, 0
+
+collide-probe.gc:219
+->             ((= (-> v1-3 type) drawable-tree-collide-fragment)
+  [0x1027C] mov x9, x9                                       mov igpr-24, igpr-83
+  [0x10280] b #0x10284                                       goto label-104
+
+collide-probe.gc:199
+->       (dotimes (s4-0 (-> s5-1 length))
+  [0x10284] mov x3, x3                                       mov igpr-84, igpr-15
+  [0x10288] movz x9, #0x1                                    mov-ic igpr-85, 1
+  [0x1028C] add x3, x3, x9                                   addi igpr-84, igpr-85
+  [0x10290] mov x3, x3                                       mov igpr-15, igpr-84
+  [0x10294] add x16, x12, x15                                mov igpr-86, [igpr-13 + 2]
+  [0x10298] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x1029C] cmp x3, x9                                       j(igpr-15 < igpr-86) label-15
+  [0x102A0] b.lt #0x10070
+  [0x102A4] mov x9, x14                                      mov-symptr igpr-87, '#f
+  [0x102A8] sub x9, x9, x15 ;; misaligned with debug data
+  [0x102AC] add sp, sp, #0x10
+  [0x102B0] ldp x29, x30, [sp], #0x10
+  [0x102B4] ret
+
+
+[collide-upload-vu0]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collide-probe.gc:166
+-> (defun collide-upload-vu0 ()
+  [0x10008] movz x9, #0                                      mov-ic igpr-1, 0
+  [0x1000C] ldp x29, x30, [sp], #0x10
+  [0x10010] ret
+
+
+[collide-probe-instance-tie-tree-make-list]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:147
+-> (defun collide-probe-instance-tie-tree-make-list ((arg0 drawable-tree-instance-tie) (arg1 collide-list))
+  [0x1000C] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x10010] mov x2, x6                                       mov igpr-4, igpr-1
+
+collide-probe.gc:151
+->     ((< 1 (-> arg0 length))
+  [0x10014] movz x9, #0x1                                    mov-ic igpr-6, 1
+  [0x10018] add x16, x7, x15                                 mov igpr-7, [igpr-3 + 2]
+  [0x1001C] ldrsh x8, [x16, #2] ;; misaligned with debug data
+  [0x10020] cmp x9, x8                                       j(igpr-6 >= igpr-7) label-25
+  [0x10024] b.ge #0x1009c
+
+collide-probe.gc:152
+->      (let ((v1-2 (-> arg0 data 0)))
+  [0x10028] add x16, x7, x15                                 mov igpr-8, [igpr-3 + 28]
+  [0x1002C] ldr w9, [x16, #0x1c] ;; misaligned with debug data
+
+collide-probe.gc:152
+->      (let ((v1-2 (-> arg0 data 0)))
+  [0x10030] mov x9, x9                                       mov igpr-9, igpr-8
+
+collide-probe.gc:153
+->        (collide-probe-instance-tie (-> (the-as drawable-inline-array-node v1-2) data)
+  [0x10034] adrp x16, #0x10000                               mov igpr-10, 'collide-probe-instance-tie
+  [0x10038] add x16, x16, #0
+  [0x1003C] ldr w8, [x16]
+
+collide-probe.gc:153
+->        (collide-probe-instance-tie (-> (the-as drawable-inline-array-node v1-2) data)
+  [0x10040] movz x7, #0x20                                   mov-ic igpr-11, 32
+  [0x10044] mov x1, x9                                       mov igpr-12, igpr-9
+  [0x10048] add x7, x7, x1                                   addi igpr-11, igpr-12
+
+collide-probe.gc:154
+->                                    (-> (the-as drawable-inline-array-node v1-2) length)
+  [0x1004C] mov x9, x9                                       mov igpr-14, igpr-9
+  [0x10050] add x16, x9, x15                                 mov igpr-13, [igpr-14 + 2]
+  [0x10054] ldrsh x6, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:152
+->      (let ((v1-2 (-> arg0 data 0)))
+  [0x10058] movz x1, #0x1                                    mov-ic igpr-15, 1
+
+collide-probe.gc:153
+->        (collide-probe-instance-tie (-> (the-as drawable-inline-array-node v1-2) data)
+  [0x1005C] mov x8, x8                                       mov igpr-21, igpr-10
+  [0x10060] mov x7, x7                                       mov igpr-17, igpr-11
+  [0x10064] mov x6, x6                                       mov igpr-18, igpr-13
+  [0x10068] mov x2, x2                                       mov igpr-19, igpr-4
+  [0x1006C] mov x1, x1                                       mov igpr-20, igpr-15
+  [0x10070] add x8, x8, x15                                  call igpr-21 (ret igpr-16) (args igpr-17 igpr-18 igpr-19 igpr-20)
+  [0x10074] stp x3, x5, [sp, #-0x10]!
+  [0x10078] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1007C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10080] blr x8 ;; misaligned with debug data
+  [0x10084] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10088] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1008C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10090] mov x0, x0                                       mov igpr-22, igpr-16
+
+collide-probe.gc:151
+->     ((< 1 (-> arg0 length))
+  [0x10094] mov x0, x0                                       mov igpr-5, igpr-22
+  [0x10098] b #0x1012c                                       goto label-48
+
+collide-probe.gc:157
+->     ((= (-> arg0 length) 1)
+  [0x1009C] add x16, x7, x15                                 mov igpr-23, [igpr-3 + 2]
+  [0x100A0] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x100A4] movz x8, #0x1                                    mov-ic igpr-24, 1
+  [0x100A8] cmp x9, x8                                       j(igpr-23 != igpr-24) label-47
+  [0x100AC] b.ne #0x10124
+
+collide-probe.gc:159
+->      (let ((v1-7 (-> arg0 data 0)))
+  [0x100B0] add x16, x7, x15                                 mov igpr-25, [igpr-3 + 28]
+  [0x100B4] ldr w9, [x16, #0x1c] ;; misaligned with debug data
+
+collide-probe.gc:159
+->      (let ((v1-7 (-> arg0 data 0)))
+  [0x100B8] mov x9, x9                                       mov igpr-26, igpr-25
+
+collide-probe.gc:160
+->        (collide-probe-instance-tie (-> (the-as drawable-inline-array-instance-tie v1-7) data)
+  [0x100BC] adrp x16, #0x10000                               mov igpr-27, 'collide-probe-instance-tie
+  [0x100C0] add x16, x16, #0
+  [0x100C4] ldr w8, [x16]
+
+collide-probe.gc:160
+->        (collide-probe-instance-tie (-> (the-as drawable-inline-array-instance-tie v1-7) data)
+  [0x100C8] movz x7, #0x20                                   mov-ic igpr-28, 32
+  [0x100CC] mov x1, x9                                       mov igpr-29, igpr-26
+  [0x100D0] add x7, x7, x1                                   addi igpr-28, igpr-29
+
+collide-probe.gc:161
+->                                    (-> (the-as drawable-inline-array-instance-tie v1-7) length)
+  [0x100D4] mov x9, x9                                       mov igpr-31, igpr-26
+  [0x100D8] add x16, x9, x15                                 mov igpr-30, [igpr-31 + 2]
+  [0x100DC] ldrsh x6, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:159
+->      (let ((v1-7 (-> arg0 data 0)))
+  [0x100E0] movz x1, #0                                      mov-ic igpr-32, 0
+
+collide-probe.gc:160
+->        (collide-probe-instance-tie (-> (the-as drawable-inline-array-instance-tie v1-7) data)
+  [0x100E4] mov x8, x8                                       mov igpr-38, igpr-27
+  [0x100E8] mov x7, x7                                       mov igpr-34, igpr-28
+  [0x100EC] mov x6, x6                                       mov igpr-35, igpr-30
+  [0x100F0] mov x2, x2                                       mov igpr-36, igpr-4
+  [0x100F4] mov x1, x1                                       mov igpr-37, igpr-32
+  [0x100F8] add x8, x8, x15                                  call igpr-38 (ret igpr-33) (args igpr-34 igpr-35 igpr-36 igpr-37)
+  [0x100FC] stp x3, x5, [sp, #-0x10]!
+  [0x10100] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10104] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10108] blr x8 ;; misaligned with debug data
+  [0x1010C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10110] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10114] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10118] mov x0, x0                                       mov igpr-39, igpr-33
+
+collide-probe.gc:157
+->     ((= (-> arg0 length) 1)
+  [0x1011C] mov x0, x0                                       mov igpr-5, igpr-39
+  [0x10120] b #0x1012c                                       goto label-48
+
+collide-probe.gc:150
+->   (cond
+  [0x10124] mov x0, x14                                      mov-symptr igpr-5, '#f
+  [0x10128] sub x0, x0, x15 ;; misaligned with debug data
+
+collide-probe.gc:147
+-> (defun collide-probe-instance-tie-tree-make-list ((arg0 drawable-tree-instance-tie) (arg1 collide-list))
+  [0x1012C] movz x0, #0                                      mov-ic igpr-40, 0
+  [0x10130] mov x0, x0                                       ret igpr-2 igpr-40
+  [0x10134] add sp, sp, #0x10
+  [0x10138] ldp x29, x30, [sp], #0x10
+  [0x1013C] ret
+
+
+[collide-probe-collide-fragment-tree-make-list]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:134
+-> (defun collide-probe-collide-fragment-tree-make-list ((arg0 drawable-tree-collide-fragment) (arg1 collide-list))
+  [0x1000C] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x10010] mov x2, x6                                       mov igpr-4, igpr-1
+
+collide-probe.gc:138
+->     ((< 1 (-> arg0 length))
+  [0x10014] movz x9, #0x1                                    mov-ic igpr-6, 1
+  [0x10018] add x16, x7, x15                                 mov igpr-7, [igpr-3 + 2]
+  [0x1001C] ldrsh x8, [x16, #2] ;; misaligned with debug data
+  [0x10020] cmp x9, x8                                       j(igpr-6 >= igpr-7) label-22
+  [0x10024] b.ge #0x10090
+
+collide-probe.gc:139
+->      (let ((v1-1 (-> arg0 data-override)))
+  [0x10028] add x16, x7, x15                                 mov igpr-8, [igpr-3 + 28]
+  [0x1002C] ldr w9, [x16, #0x1c] ;; misaligned with debug data
+
+collide-probe.gc:139
+->      (let ((v1-1 (-> arg0 data-override)))
+  [0x10030] mov x9, x9                                       mov igpr-9, igpr-8
+
+collide-probe.gc:140
+->        (collide-probe-node (-> (the-as drawable-inline-array-node v1-1) data) (-> v1-1 length) arg1)))
+  [0x10034] adrp x16, #0x10000                               mov igpr-10, 'collide-probe-node
+  [0x10038] add x16, x16, #0
+  [0x1003C] ldr w8, [x16]
+
+collide-probe.gc:140
+->        (collide-probe-node (-> (the-as drawable-inline-array-node v1-1) data) (-> v1-1 length) arg1)))
+  [0x10040] movz x7, #0x20                                   mov-ic igpr-11, 32
+  [0x10044] mov x1, x9                                       mov igpr-12, igpr-9
+  [0x10048] add x7, x7, x1                                   addi igpr-11, igpr-12
+
+collide-probe.gc:140
+->        (collide-probe-node (-> (the-as drawable-inline-array-node v1-1) data) (-> v1-1 length) arg1)))
+  [0x1004C] add x16, x9, x15                                 mov igpr-13, [igpr-9 + 2]
+  [0x10050] ldrsh x6, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:140
+->        (collide-probe-node (-> (the-as drawable-inline-array-node v1-1) data) (-> v1-1 length) arg1)))
+  [0x10054] mov x8, x8                                       mov igpr-18, igpr-10
+  [0x10058] mov x7, x7                                       mov igpr-15, igpr-11
+  [0x1005C] mov x6, x6                                       mov igpr-16, igpr-13
+  [0x10060] mov x2, x2                                       mov igpr-17, igpr-4
+  [0x10064] add x8, x8, x15                                  call igpr-18 (ret igpr-14) (args igpr-15 igpr-16 igpr-17)
+  [0x10068] stp x3, x5, [sp, #-0x10]!
+  [0x1006C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10070] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10074] blr x8 ;; misaligned with debug data
+  [0x10078] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1007C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10080] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10084] mov x0, x0                                       mov igpr-19, igpr-14
+
+collide-probe.gc:138
+->     ((< 1 (-> arg0 length))
+  [0x10088] mov x0, x0                                       mov igpr-5, igpr-19
+  [0x1008C] b #0x10090                                       goto label-22
+
+collide-probe.gc:134
+-> (defun collide-probe-collide-fragment-tree-make-list ((arg0 drawable-tree-collide-fragment) (arg1 collide-list))
+  [0x10090] movz x9, #0                                      mov-ic igpr-20, 0
+  [0x10094] add sp, sp, #0x10
+  [0x10098] ldp x29, x30, [sp], #0x10
+  [0x1009C] ret
+
+
+[collide-probe-instance-tie-collide-frags]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collide-probe.gc:123
+-> (defun collide-probe-instance-tie-collide-frags ()
+  [0x10008] movz x9, #0                                      mov-ic igpr-1, 0
+  [0x1000C] ldp x29, x30, [sp], #0x10
+  [0x10010] ret
+
+
+[autogenerated-inspect-method-of-collide-probe-stack]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:110
+-> (deftype collide-probe-stack (structure)
+  [0x1000C] mov x3, x7                                       mov igpr-1, igpr-0
+  [0x10010] adrp x1, #0x10000                                mov-symptr igpr-2, 'collide-probe-stack
+  [0x10014] add x1, x1, #0
+  [0x10018] adrp x6, #0x10000                                mov-sva igpr-3, static-string "[~8x] ~A~%"
+  [0x1001C] add x6, x6, #0x284
+  [0x10020] sub x6, x6, x15
+  [0x10024] add x7, x14, #8                                  mov-symptr igpr-4, '#t
+  [0x10028] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1002C] adrp x16, #0x10000                               mov igpr-5, '_format
+  [0x10030] add x16, x16, #0
+  [0x10034] ldr w9, [x16]
+  [0x10038] mov x9, x9                                       mov igpr-11, igpr-5
+  [0x1003C] mov x7, x7                                       mov igpr-7, igpr-4
+  [0x10040] mov x6, x6                                       mov igpr-8, igpr-3
+  [0x10044] mov x2, x3                                       mov igpr-9, igpr-1
+  [0x10048] mov x1, x1                                       mov igpr-10, igpr-2
+  [0x1004C] add x9, x9, x15                                  call igpr-11 (ret igpr-6) (args igpr-7 igpr-8 igpr-9 igpr-10)
+  [0x10050] stp x3, x5, [sp, #-0x10]!
+  [0x10054] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10058] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] blr x9 ;; misaligned with debug data
+  [0x10060] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] mov x0, x0                                       mov igpr-12, igpr-6
+  [0x10070] mov x2, x3                                       mov igpr-13, igpr-1
+  [0x10074] adrp x6, #0x10000                                mov-sva igpr-14, static-string "~Tdata[1024] @ #x~X~%"
+  [0x10078] add x6, x6, #0x2a4
+  [0x1007C] sub x6, x6, x15
+  [0x10080] add x7, x14, #8                                  mov-symptr igpr-15, '#t
+  [0x10084] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10088] adrp x16, #0x10000                               mov igpr-16, '_format
+  [0x1008C] add x16, x16, #0
+  [0x10090] ldr w9, [x16]
+  [0x10094] mov x9, x9                                       mov igpr-21, igpr-16
+  [0x10098] mov x7, x7                                       mov igpr-18, igpr-15
+  [0x1009C] mov x6, x6                                       mov igpr-19, igpr-14
+  [0x100A0] mov x2, x2                                       mov igpr-20, igpr-13
+  [0x100A4] add x9, x9, x15                                  call igpr-21 (ret igpr-17) (args igpr-18 igpr-19 igpr-20)
+  [0x100A8] stp x3, x5, [sp, #-0x10]!
+  [0x100AC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B4] blr x9 ;; misaligned with debug data
+  [0x100B8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100BC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C4] mov x0, x0                                       mov igpr-22, igpr-17
+  [0x100C8] mov x0, x3                                       ret igpr-23 igpr-1
+  [0x100CC] add sp, sp, #0x10
+  [0x100D0] ldp x29, x30, [sp], #0x10
+  [0x100D4] ret
+
+
+[probe-traverse-collide-fragment]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:90
+-> (defun probe-traverse-collide-fragment ((arg0 drawable-tree-collide-fragment) (arg1 int))
+  [0x1000C] mov x5, x7                                       mov igpr-3, igpr-0
+  [0x10010] mov x12, x6                                      mov igpr-4, igpr-1
+
+collide-probe.gc:92
+->   (indent-to arg1)
+  [0x10014] adrp x16, #0x10000                               mov igpr-5, 'indent-to
+  [0x10018] add x16, x16, #0
+  [0x1001C] ldr w9, [x16]
+  [0x10020] mov x9, x9                                       mov igpr-8, igpr-5
+  [0x10024] mov x7, x12                                      mov igpr-7, igpr-4
+  [0x10028] add x9, x9, x15                                  call igpr-8 (ret igpr-6) (args igpr-7)
+  [0x1002C] stp x3, x5, [sp, #-0x10]!
+  [0x10030] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10034] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10038] blr x9 ;; misaligned with debug data
+  [0x1003C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10040] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10044] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10048] mov x3, x3                                       mov igpr-9, igpr-6
+
+collide-probe.gc:93
+->   (format #t "[~08x] drawable-tree-collide-fragment: length = ~d~%" arg0 (-> arg0 length))
+  [0x1004C] adrp x16, #0x10000                               mov igpr-10, 'format
+  [0x10050] add x16, x16, #0
+  [0x10054] ldr w9, [x16]
+
+collide-probe.gc:90
+-> (defun probe-traverse-collide-fragment ((arg0 drawable-tree-collide-fragment) (arg1 int))
+  [0x10058] add x7, x14, #8                                  mov-symptr igpr-11, '#t
+  [0x1005C] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10060] adrp x6, #0x11000                                mov-sva igpr-12, static-string "[~08x] drawable-tree-collide-fragment: length = ~d~%"
+  [0x10064] add x6, x6, #0x884
+  [0x10068] sub x6, x6, x15
+
+collide-probe.gc:93
+->   (format #t "[~08x] drawable-tree-collide-fragment: length = ~d~%" arg0 (-> arg0 length))
+  [0x1006C] add x16, x5, x15                                 mov igpr-13, [igpr-3 + 2]
+  [0x10070] ldrsh x1, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:93
+->   (format #t "[~08x] drawable-tree-collide-fragment: length = ~d~%" arg0 (-> arg0 length))
+  [0x10074] mov x9, x9                                       mov igpr-19, igpr-10
+  [0x10078] mov x7, x7                                       mov igpr-15, igpr-11
+  [0x1007C] mov x6, x6                                       mov igpr-16, igpr-12
+  [0x10080] mov x2, x5                                       mov igpr-17, igpr-3
+  [0x10084] mov x1, x1                                       mov igpr-18, igpr-13
+  [0x10088] add x9, x9, x15                                  call igpr-19 (ret igpr-14) (args igpr-15 igpr-16 igpr-17 igpr-18)
+  [0x1008C] stp x3, x5, [sp, #-0x10]!
+  [0x10090] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10094] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10098] blr x9 ;; misaligned with debug data
+  [0x1009C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100A0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100A4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100A8] mov x0, x0                                       mov igpr-20, igpr-14
+
+collide-probe.gc:94
+->   (let ((s4-0 (-> arg0 length)))
+  [0x100AC] add x16, x5, x15                                 mov igpr-21, [igpr-3 + 2]
+  [0x100B0] ldrsh x3, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:94
+->   (let ((s4-0 (-> arg0 length)))
+  [0x100B4] mov x11, x3                                      mov igpr-22, igpr-21
+
+collide-probe.gc:95
+->     (dotimes (s3-0 (+ s4-0 -1))
+  [0x100B8] movz x3, #0                                      mov-ic igpr-23, 0
+  [0x100BC] mov x3, x3                                       mov igpr-24, igpr-23
+  [0x100C0] b #0x10234                                       goto label-79
+
+collide-probe.gc:96
+->       (indent-to arg1)
+  [0x100C4] adrp x16, #0x10000                               mov igpr-28, 'indent-to
+  [0x100C8] add x16, x16, #0
+  [0x100CC] ldr w9, [x16]
+  [0x100D0] mov x9, x9                                       mov igpr-31, igpr-28
+  [0x100D4] mov x7, x12                                      mov igpr-30, igpr-4
+  [0x100D8] add x9, x9, x15                                  call igpr-31 (ret igpr-29) (args igpr-30)
+  [0x100DC] stp x3, x5, [sp, #-0x10]!
+  [0x100E0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E8] blr x9 ;; misaligned with debug data
+  [0x100EC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100F0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100F4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100F8] mov x10, x10                                     mov igpr-32, igpr-29
+
+collide-probe.gc:97
+->       (if (= (-> arg0 data s3-0 type) drawable-inline-array-node)
+  [0x100FC] mov x9, x3                                       mov igpr-34, igpr-24
+  [0x10100] lsl x9, x9, #2                                   shl igpr-34, 2
+
+collide-probe.gc:97
+->       (if (= (-> arg0 data s3-0 type) drawable-inline-array-node)
+  [0x10104] mov x9, x9                                       mov igpr-37, igpr-34
+  [0x10108] movz x8, #0x1c                                   mov-ic igpr-38, 28
+  [0x1010C] add x8, x8, x5                                   addi igpr-38, igpr-3
+  [0x10110] add x9, x9, x8                                   addi igpr-37, igpr-38
+  [0x10114] add x16, x9, x15                                 mov igpr-36, [igpr-37 + 0]
+  [0x10118] ldr w9, [x16] ;; misaligned with debug data
+  [0x1011C] add x16, x9, x15                                 mov igpr-35, [igpr-36 + -4]
+  [0x10120] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x10124] adrp x16, #0x10000                               mov igpr-39, 'drawable-inline-array-node
+  [0x10128] add x16, x16, #0
+  [0x1012C] ldr w8, [x16]
+  [0x10130] cmp x9, x8                                       j(igpr-35 != igpr-39) label-58
+  [0x10134] b.ne #0x101ac
+
+collide-probe.gc:98
+->         (probe-traverse-inline-array-node (the-as drawable-inline-array-node (-> arg0 data s3-0)) (+ arg1 1))
+  [0x10138] adrp x16, #0x10000                               mov igpr-40, 'probe-traverse-inline-array-node
+  [0x1013C] add x16, x16, #0
+  [0x10140] ldr w9, [x16]
+
+collide-probe.gc:98
+->         (probe-traverse-inline-array-node (the-as drawable-inline-array-node (-> arg0 data s3-0)) (+ arg1 1))
+  [0x10144] mov x8, x3                                       mov igpr-41, igpr-24
+  [0x10148] lsl x8, x8, #2                                   shl igpr-41, 2
+
+collide-probe.gc:98
+->         (probe-traverse-inline-array-node (the-as drawable-inline-array-node (-> arg0 data s3-0)) (+ arg1 1))
+  [0x1014C] mov x8, x8                                       mov igpr-43, igpr-41
+  [0x10150] movz x1, #0x1c                                   mov-ic igpr-44, 28
+  [0x10154] add x1, x1, x5                                   addi igpr-44, igpr-3
+  [0x10158] add x8, x8, x1                                   addi igpr-43, igpr-44
+  [0x1015C] add x16, x8, x15                                 mov igpr-42, [igpr-43 + 0]
+  [0x10160] ldr w7, [x16] ;; misaligned with debug data
+  [0x10164] mov x7, x7                                       mov igpr-45, igpr-42
+
+collide-probe.gc:98
+->         (probe-traverse-inline-array-node (the-as drawable-inline-array-node (-> arg0 data s3-0)) (+ arg1 1))
+  [0x10168] mov x6, x12                                      mov igpr-46, igpr-4
+  [0x1016C] movz x8, #0x1                                    mov-ic igpr-47, 1
+  [0x10170] add x6, x6, x8                                   addi igpr-46, igpr-47
+
+collide-probe.gc:98
+->         (probe-traverse-inline-array-node (the-as drawable-inline-array-node (-> arg0 data s3-0)) (+ arg1 1))
+  [0x10174] mov x9, x9                                       mov igpr-51, igpr-40
+  [0x10178] mov x7, x7                                       mov igpr-49, igpr-45
+  [0x1017C] mov x6, x6                                       mov igpr-50, igpr-46
+  [0x10180] add x9, x9, x15                                  call igpr-51 (ret igpr-48) (args igpr-49 igpr-50)
+  [0x10184] stp x3, x5, [sp, #-0x10]!
+  [0x10188] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1018C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10190] blr x9 ;; misaligned with debug data
+  [0x10194] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10198] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1019C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101A0] mov x10, x10                                     mov igpr-52, igpr-48
+
+collide-probe.gc:97
+->       (if (= (-> arg0 data s3-0 type) drawable-inline-array-node)
+  [0x101A4] mov x10, x10                                     mov igpr-33, igpr-52
+  [0x101A8] b #0x10224                                       goto label-75
+
+collide-probe.gc:99
+->         (format #t "unknown: ~a~%" (-> arg0 data s3-0)))))
+  [0x101AC] adrp x16, #0x10000                               mov igpr-53, 'format
+  [0x101B0] add x16, x16, #0
+  [0x101B4] ldr w9, [x16]
+
+collide-probe.gc:97
+->       (if (= (-> arg0 data s3-0 type) drawable-inline-array-node)
+  [0x101B8] add x7, x14, #8                                  mov-symptr igpr-54, '#t
+  [0x101BC] sub x7, x7, x15 ;; misaligned with debug data
+  [0x101C0] adrp x6, #0x11000                                mov-sva igpr-55, static-string "unknown: ~a~%"
+  [0x101C4] add x6, x6, #0x8c4
+  [0x101C8] sub x6, x6, x15
+
+collide-probe.gc:99
+->         (format #t "unknown: ~a~%" (-> arg0 data s3-0)))))
+  [0x101CC] mov x8, x3                                       mov igpr-56, igpr-24
+  [0x101D0] lsl x8, x8, #2                                   shl igpr-56, 2
+  [0x101D4] mov x8, x8                                       mov igpr-58, igpr-56
+  [0x101D8] movz x1, #0x1c                                   mov-ic igpr-59, 28
+  [0x101DC] add x1, x1, x5                                   addi igpr-59, igpr-3
+  [0x101E0] add x8, x8, x1                                   addi igpr-58, igpr-59
+  [0x101E4] add x16, x8, x15                                 mov igpr-57, [igpr-58 + 0]
+  [0x101E8] ldr w2, [x16] ;; misaligned with debug data
+
+collide-probe.gc:99
+->         (format #t "unknown: ~a~%" (-> arg0 data s3-0)))))
+  [0x101EC] mov x9, x9                                       mov igpr-64, igpr-53
+  [0x101F0] mov x7, x7                                       mov igpr-61, igpr-54
+  [0x101F4] mov x6, x6                                       mov igpr-62, igpr-55
+  [0x101F8] mov x2, x2                                       mov igpr-63, igpr-57
+  [0x101FC] add x9, x9, x15                                  call igpr-64 (ret igpr-60) (args igpr-61 igpr-62 igpr-63)
+  [0x10200] stp x3, x5, [sp, #-0x10]!
+  [0x10204] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10208] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1020C] blr x9 ;; misaligned with debug data
+  [0x10210] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10214] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10218] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1021C] mov x0, x0                                       mov igpr-65, igpr-60
+
+collide-probe.gc:97
+->       (if (= (-> arg0 data s3-0 type) drawable-inline-array-node)
+  [0x10220] mov x10, x0                                      mov igpr-33, igpr-65
+
+collide-probe.gc:95
+->     (dotimes (s3-0 (+ s4-0 -1))
+  [0x10224] mov x3, x3                                       mov igpr-66, igpr-24
+  [0x10228] movz x9, #0x1                                    mov-ic igpr-67, 1
+  [0x1022C] add x3, x3, x9                                   addi igpr-66, igpr-67
+  [0x10230] mov x3, x3                                       mov igpr-24, igpr-66
+
+collide-probe.gc:95
+->     (dotimes (s3-0 (+ s4-0 -1))
+  [0x10234] mov x9, x11                                      mov igpr-68, igpr-22
+  [0x10238] movz x8, #0xffff                                 mov-ic igpr-69, 18446744073709551615
+  [0x1023C] movk x8, #0xffff, lsl #16
+  [0x10240] movk x8, #0xffff, lsl #32
+  [0x10244] movk x8, #0xffff, lsl #48
+  [0x10248] add x9, x9, x8                                   addi igpr-68, igpr-69
+
+collide-probe.gc:95
+->     (dotimes (s3-0 (+ s4-0 -1))
+  [0x1024C] cmp x3, x9                                       j(igpr-24 < igpr-68) label-24
+  [0x10250] b.lt #0x100c4
+  [0x10254] mov x9, x14                                      mov-symptr igpr-70, '#f
+  [0x10258] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1025C] add sp, sp, #0x10
+  [0x10260] ldp x29, x30, [sp], #0x10
+  [0x10264] ret
+
+
+[probe-traverse-inline-array-node]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:79
+-> (defun probe-traverse-inline-array-node ((arg0 drawable-inline-array-node) (arg1 int))
+  [0x1000C] mov x5, x7                                       mov igpr-3, igpr-0
+  [0x10010] mov x12, x6                                      mov igpr-4, igpr-1
+
+collide-probe.gc:81
+->   (indent-to arg1)
+  [0x10014] adrp x16, #0x10000                               mov igpr-5, 'indent-to
+  [0x10018] add x16, x16, #0
+  [0x1001C] ldr w9, [x16]
+  [0x10020] mov x9, x9                                       mov igpr-8, igpr-5
+  [0x10024] mov x7, x12                                      mov igpr-7, igpr-4
+  [0x10028] add x9, x9, x15                                  call igpr-8 (ret igpr-6) (args igpr-7)
+  [0x1002C] stp x3, x5, [sp, #-0x10]!
+  [0x10030] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10034] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10038] blr x9 ;; misaligned with debug data
+  [0x1003C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10040] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10044] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10048] mov x3, x3                                       mov igpr-9, igpr-6
+
+collide-probe.gc:82
+->   (format #t "[~08x] drawable-inline-array-node: length = ~d~%" arg0 (-> arg0 length))
+  [0x1004C] adrp x16, #0x10000                               mov igpr-10, 'format
+  [0x10050] add x16, x16, #0
+  [0x10054] ldr w9, [x16]
+
+collide-probe.gc:79
+-> (defun probe-traverse-inline-array-node ((arg0 drawable-inline-array-node) (arg1 int))
+  [0x10058] add x7, x14, #8                                  mov-symptr igpr-11, '#t
+  [0x1005C] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10060] adrp x6, #0x11000                                mov-sva igpr-12, static-string "[~08x] drawable-inline-array-node: length = ~d~%"
+  [0x10064] add x6, x6, #0x824
+  [0x10068] sub x6, x6, x15
+
+collide-probe.gc:82
+->   (format #t "[~08x] drawable-inline-array-node: length = ~d~%" arg0 (-> arg0 length))
+  [0x1006C] add x16, x5, x15                                 mov igpr-13, [igpr-3 + 2]
+  [0x10070] ldrsh x1, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:82
+->   (format #t "[~08x] drawable-inline-array-node: length = ~d~%" arg0 (-> arg0 length))
+  [0x10074] mov x9, x9                                       mov igpr-19, igpr-10
+  [0x10078] mov x7, x7                                       mov igpr-15, igpr-11
+  [0x1007C] mov x6, x6                                       mov igpr-16, igpr-12
+  [0x10080] mov x2, x5                                       mov igpr-17, igpr-3
+  [0x10084] mov x1, x1                                       mov igpr-18, igpr-13
+  [0x10088] add x9, x9, x15                                  call igpr-19 (ret igpr-14) (args igpr-15 igpr-16 igpr-17 igpr-18)
+  [0x1008C] stp x3, x5, [sp, #-0x10]!
+  [0x10090] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10094] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10098] blr x9 ;; misaligned with debug data
+  [0x1009C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100A0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100A4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100A8] mov x0, x0                                       mov igpr-20, igpr-14
+
+collide-probe.gc:83
+->   (let ((s4-0 (-> arg0 length)))
+  [0x100AC] add x16, x5, x15                                 mov igpr-21, [igpr-3 + 2]
+  [0x100B0] ldrsh x3, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:83
+->   (let ((s4-0 (-> arg0 length)))
+  [0x100B4] mov x11, x3                                      mov igpr-22, igpr-21
+
+collide-probe.gc:84
+->     (dotimes (s3-0 s4-0)
+  [0x100B8] movz x3, #0                                      mov-ic igpr-23, 0
+  [0x100BC] mov x3, x3                                       mov igpr-24, igpr-23
+  [0x100C0] b #0x10220                                       goto label-76
+
+collide-probe.gc:85
+->       (indent-to arg1)
+  [0x100C4] adrp x16, #0x10000                               mov igpr-28, 'indent-to
+  [0x100C8] add x16, x16, #0
+  [0x100CC] ldr w9, [x16]
+  [0x100D0] mov x9, x9                                       mov igpr-31, igpr-28
+  [0x100D4] mov x7, x12                                      mov igpr-30, igpr-4
+  [0x100D8] add x9, x9, x15                                  call igpr-31 (ret igpr-29) (args igpr-30)
+  [0x100DC] stp x3, x5, [sp, #-0x10]!
+  [0x100E0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E8] blr x9 ;; misaligned with debug data
+  [0x100EC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100F0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100F4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100F8] mov x10, x10                                     mov igpr-32, igpr-29
+
+collide-probe.gc:86
+->       (format #t "(~3d) ~a~%" s3-0 (-> arg0 data s3-0))
+  [0x100FC] adrp x16, #0x10000                               mov igpr-33, 'format
+  [0x10100] add x16, x16, #0
+  [0x10104] ldr w9, [x16]
+
+collide-probe.gc:84
+->     (dotimes (s3-0 s4-0)
+  [0x10108] add x7, x14, #8                                  mov-symptr igpr-34, '#t
+  [0x1010C] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10110] adrp x6, #0x11000                                mov-sva igpr-35, static-string "(~3d) ~a~%"
+  [0x10114] add x6, x6, #0x864
+  [0x10118] sub x6, x6, x15
+
+collide-probe.gc:86
+->       (format #t "(~3d) ~a~%" s3-0 (-> arg0 data s3-0))
+  [0x1011C] mov x1, x3                                       mov igpr-36, igpr-24
+  [0x10120] lsl x1, x1, #5                                   shl igpr-36, 5
+  [0x10124] mov x1, x1                                       mov igpr-37, igpr-36
+  [0x10128] movz x8, #0x20                                   mov-ic igpr-38, 32
+  [0x1012C] add x8, x8, x5                                   addi igpr-38, igpr-3
+  [0x10130] add x1, x1, x8                                   addi igpr-37, igpr-38
+
+collide-probe.gc:86
+->       (format #t "(~3d) ~a~%" s3-0 (-> arg0 data s3-0))
+  [0x10134] mov x9, x9                                       mov igpr-44, igpr-33
+  [0x10138] mov x7, x7                                       mov igpr-40, igpr-34
+  [0x1013C] mov x6, x6                                       mov igpr-41, igpr-35
+  [0x10140] mov x2, x3                                       mov igpr-42, igpr-24
+  [0x10144] mov x1, x1                                       mov igpr-43, igpr-37
+  [0x10148] add x9, x9, x15                                  call igpr-44 (ret igpr-39) (args igpr-40 igpr-41 igpr-42 igpr-43)
+  [0x1014C] stp x3, x5, [sp, #-0x10]!
+  [0x10150] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10154] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10158] blr x9 ;; misaligned with debug data
+  [0x1015C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10160] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10164] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10168] mov x0, x0                                       mov igpr-45, igpr-39
+
+collide-probe.gc:87
+->       (if (= (-> arg0 data s3-0 type) draw-node) (probe-traverse-draw-node (-> arg0 data s3-0) (+ arg1 1)))))
+  [0x1016C] mov x9, x3                                       mov igpr-47, igpr-24
+  [0x10170] lsl x9, x9, #5                                   shl igpr-47, 5
+
+collide-probe.gc:87
+->       (if (= (-> arg0 data s3-0 type) draw-node) (probe-traverse-draw-node (-> arg0 data s3-0) (+ arg1 1)))))
+  [0x10174] mov x9, x9                                       mov igpr-49, igpr-47
+  [0x10178] movz x8, #0x20                                   mov-ic igpr-50, 32
+  [0x1017C] add x8, x8, x5                                   addi igpr-50, igpr-3
+  [0x10180] add x9, x9, x8                                   addi igpr-49, igpr-50
+  [0x10184] add x16, x9, x15                                 mov igpr-48, [igpr-49 + -4]
+  [0x10188] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x1018C] adrp x16, #0x10000                               mov igpr-51, 'draw-node
+  [0x10190] add x16, x16, #0
+  [0x10194] ldr w8, [x16]
+  [0x10198] cmp x9, x8                                       j(igpr-48 != igpr-51) label-71
+  [0x1019C] b.ne #0x10208
+
+collide-probe.gc:87
+->       (if (= (-> arg0 data s3-0 type) draw-node) (probe-traverse-draw-node (-> arg0 data s3-0) (+ arg1 1)))))
+  [0x101A0] adrp x16, #0x10000                               mov igpr-52, 'probe-traverse-draw-node
+  [0x101A4] add x16, x16, #0
+  [0x101A8] ldr w9, [x16]
+
+collide-probe.gc:87
+->       (if (= (-> arg0 data s3-0 type) draw-node) (probe-traverse-draw-node (-> arg0 data s3-0) (+ arg1 1)))))
+  [0x101AC] mov x7, x3                                       mov igpr-53, igpr-24
+  [0x101B0] lsl x7, x7, #5                                   shl igpr-53, 5
+  [0x101B4] mov x7, x7                                       mov igpr-54, igpr-53
+  [0x101B8] movz x8, #0x20                                   mov-ic igpr-55, 32
+  [0x101BC] add x8, x8, x5                                   addi igpr-55, igpr-3
+  [0x101C0] add x7, x7, x8                                   addi igpr-54, igpr-55
+
+collide-probe.gc:87
+->       (if (= (-> arg0 data s3-0 type) draw-node) (probe-traverse-draw-node (-> arg0 data s3-0) (+ arg1 1)))))
+  [0x101C4] mov x6, x12                                      mov igpr-56, igpr-4
+  [0x101C8] movz x8, #0x1                                    mov-ic igpr-57, 1
+  [0x101CC] add x6, x6, x8                                   addi igpr-56, igpr-57
+
+collide-probe.gc:87
+->       (if (= (-> arg0 data s3-0 type) draw-node) (probe-traverse-draw-node (-> arg0 data s3-0) (+ arg1 1)))))
+  [0x101D0] mov x9, x9                                       mov igpr-61, igpr-52
+  [0x101D4] mov x7, x7                                       mov igpr-59, igpr-54
+  [0x101D8] mov x6, x6                                       mov igpr-60, igpr-56
+  [0x101DC] add x9, x9, x15                                  call igpr-61 (ret igpr-58) (args igpr-59 igpr-60)
+  [0x101E0] stp x3, x5, [sp, #-0x10]!
+  [0x101E4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101E8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101EC] blr x9 ;; misaligned with debug data
+  [0x101F0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101F4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101F8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101FC] mov x10, x10                                     mov igpr-62, igpr-58
+
+collide-probe.gc:87
+->       (if (= (-> arg0 data s3-0 type) draw-node) (probe-traverse-draw-node (-> arg0 data s3-0) (+ arg1 1)))))
+  [0x10200] mov x10, x10                                     mov igpr-46, igpr-62
+  [0x10204] b #0x10210                                       goto label-72
+  [0x10208] mov x10, x14                                     mov-symptr igpr-46, '#f
+  [0x1020C] sub x10, x10, x15 ;; misaligned with debug data
+
+collide-probe.gc:84
+->     (dotimes (s3-0 s4-0)
+  [0x10210] mov x3, x3                                       mov igpr-63, igpr-24
+  [0x10214] movz x9, #0x1                                    mov-ic igpr-64, 1
+  [0x10218] add x3, x3, x9                                   addi igpr-63, igpr-64
+  [0x1021C] mov x3, x3                                       mov igpr-24, igpr-63
+  [0x10220] cmp x3, x11                                      j(igpr-24 < igpr-22) label-24
+  [0x10224] b.lt #0x100c4
+  [0x10228] mov x9, x14                                      mov-symptr igpr-65, '#f
+  [0x1022C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10230] add sp, sp, #0x10
+  [0x10234] ldp x29, x30, [sp], #0x10
+  [0x10238] ret
+
+
+[autogenerated-inspect-method-of-collide-probe-stack-elem]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:106
+-> (deftype collide-probe-stack-elem (structure)
+  [0x1000C] mov x3, x7                                       mov igpr-1, igpr-0
+  [0x10010] adrp x1, #0x10000                                mov-symptr igpr-2, 'collide-probe-stack-elem
+  [0x10014] add x1, x1, #0
+  [0x10018] adrp x6, #0x10000                                mov-sva igpr-3, static-string "[~8x] ~A~%"
+  [0x1001C] add x6, x6, #0x224
+  [0x10020] sub x6, x6, x15
+  [0x10024] add x7, x14, #8                                  mov-symptr igpr-4, '#t
+  [0x10028] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1002C] adrp x16, #0x10000                               mov igpr-5, '_format
+  [0x10030] add x16, x16, #0
+  [0x10034] ldr w9, [x16]
+  [0x10038] mov x9, x9                                       mov igpr-11, igpr-5
+  [0x1003C] mov x7, x7                                       mov igpr-7, igpr-4
+  [0x10040] mov x6, x6                                       mov igpr-8, igpr-3
+  [0x10044] mov x2, x3                                       mov igpr-9, igpr-1
+  [0x10048] mov x1, x1                                       mov igpr-10, igpr-2
+  [0x1004C] add x9, x9, x15                                  call igpr-11 (ret igpr-6) (args igpr-7 igpr-8 igpr-9 igpr-10)
+  [0x10050] stp x3, x5, [sp, #-0x10]!
+  [0x10054] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10058] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] blr x9 ;; misaligned with debug data
+  [0x10060] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] mov x0, x0                                       mov igpr-12, igpr-6
+  [0x10070] add x16, x3, x15                                 mov igpr-13, [igpr-1 + 0]
+  [0x10074] ldr w2, [x16] ;; misaligned with debug data
+  [0x10078] adrp x6, #0x10000                                mov-sva igpr-14, static-string "~Tchild: ~D~%"
+  [0x1007C] add x6, x6, #0x244
+  [0x10080] sub x6, x6, x15
+  [0x10084] add x7, x14, #8                                  mov-symptr igpr-15, '#t
+  [0x10088] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1008C] adrp x16, #0x10000                               mov igpr-16, '_format
+  [0x10090] add x16, x16, #0
+  [0x10094] ldr w9, [x16]
+  [0x10098] mov x9, x9                                       mov igpr-21, igpr-16
+  [0x1009C] mov x7, x7                                       mov igpr-18, igpr-15
+  [0x100A0] mov x6, x6                                       mov igpr-19, igpr-14
+  [0x100A4] mov x2, x2                                       mov igpr-20, igpr-13
+  [0x100A8] add x9, x9, x15                                  call igpr-21 (ret igpr-17) (args igpr-18 igpr-19 igpr-20)
+  [0x100AC] stp x3, x5, [sp, #-0x10]!
+  [0x100B0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B8] blr x9 ;; misaligned with debug data
+  [0x100BC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100C4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C8] mov x0, x0                                       mov igpr-22, igpr-17
+  [0x100CC] add x16, x3, x15                                 mov igpr-23, [igpr-1 + 4]
+  [0x100D0] ldr w2, [x16, #4] ;; misaligned with debug data
+  [0x100D4] adrp x6, #0x10000                                mov-sva igpr-24, static-string "~Tcount: ~D~%"
+  [0x100D8] add x6, x6, #0x264
+  [0x100DC] sub x6, x6, x15
+  [0x100E0] add x7, x14, #8                                  mov-symptr igpr-25, '#t
+  [0x100E4] sub x7, x7, x15 ;; misaligned with debug data
+  [0x100E8] adrp x16, #0x10000                               mov igpr-26, '_format
+  [0x100EC] add x16, x16, #0
+  [0x100F0] ldr w9, [x16]
+  [0x100F4] mov x9, x9                                       mov igpr-31, igpr-26
+  [0x100F8] mov x7, x7                                       mov igpr-28, igpr-25
+  [0x100FC] mov x6, x6                                       mov igpr-29, igpr-24
+  [0x10100] mov x2, x2                                       mov igpr-30, igpr-23
+  [0x10104] add x9, x9, x15                                  call igpr-31 (ret igpr-27) (args igpr-28 igpr-29 igpr-30)
+  [0x10108] stp x3, x5, [sp, #-0x10]!
+  [0x1010C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10110] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10114] blr x9 ;; misaligned with debug data
+  [0x10118] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1011C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10120] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10124] mov x0, x0                                       mov igpr-32, igpr-27
+  [0x10128] mov x0, x3                                       ret igpr-33 igpr-1
+  [0x1012C] add sp, sp, #0x10
+  [0x10130] ldp x29, x30, [sp], #0x10
+  [0x10134] ret
+
+
+[probe-traverse-draw-node]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:58
+-> (defun-recursive probe-traverse-draw-node none ((arg0 draw-node) (arg1 int))
+  [0x1000C] mov x5, x7                                       mov igpr-3, igpr-0
+  [0x10010] mov x12, x6                                      mov igpr-4, igpr-1
+
+collide-probe.gc:60
+->   (indent-to arg1)
+  [0x10014] adrp x16, #0x10000                               mov igpr-5, 'indent-to
+  [0x10018] add x16, x16, #0
+  [0x1001C] ldr w9, [x16]
+  [0x10020] mov x9, x9                                       mov igpr-8, igpr-5
+  [0x10024] mov x7, x12                                      mov igpr-7, igpr-4
+  [0x10028] add x9, x9, x15                                  call igpr-8 (ret igpr-6) (args igpr-7)
+  [0x1002C] stp x3, x5, [sp, #-0x10]!
+  [0x10030] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10034] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10038] blr x9 ;; misaligned with debug data
+  [0x1003C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10040] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10044] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10048] mov x3, x3                                       mov igpr-9, igpr-6
+
+collide-probe.gc:61
+->   (format #t
+  [0x1004C] adrp x16, #0x10000                               mov igpr-10, 'format
+  [0x10050] add x16, x16, #0
+  [0x10054] ldr w9, [x16]
+
+collide-probe.gc:58
+-> (defun-recursive probe-traverse-draw-node none ((arg0 draw-node) (arg1 int))
+  [0x10058] add x7, x14, #8                                  mov-symptr igpr-11, '#t
+  [0x1005C] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10060] adrp x6, #0x11000                                mov-sva igpr-12, static-string "[~08x] child-count: ~d, flags: ~d, dist: ~f, child: ~a~%"
+  [0x10064] add x6, x6, #0x7d4
+  [0x10068] sub x6, x6, x15
+
+collide-probe.gc:64
+->           (-> arg0 child-count)
+  [0x1006C] add x16, x5, x15                                 mov igpr-13, [igpr-3 + 2]
+  [0x10070] ldrb w1, [x16, #2] ;; misaligned with debug data
+
+collide-probe.gc:65
+->           (-> arg0 flags)
+  [0x10074] add x16, x5, x15                                 mov igpr-14, [igpr-3 + 3]
+  [0x10078] ldrb w8, [x16, #3] ;; misaligned with debug data
+
+collide-probe.gc:66
+->           (-> arg0 distance)
+  [0x1007C] add x16, x5, x15                                 mov ifpr-15, [igpr-3 + 8]
+  [0x10080] ldr s23, [x16, #8] ;; misaligned with debug data
+
+collide-probe.gc:67
+->           (-> arg0 child))
+  [0x10084] add x16, x5, x15                                 mov igpr-16, [igpr-3 + 4]
+  [0x10088] ldr w10, [x16, #4] ;; misaligned with debug data
+
+collide-probe.gc:61
+->   (format #t
+  [0x1008C] mov x3, x9                                       mov igpr-25, igpr-10
+  [0x10090] mov x7, x7                                       mov igpr-18, igpr-11
+  [0x10094] mov x6, x6                                       mov igpr-19, igpr-12
+  [0x10098] mov x2, x5                                       mov igpr-20, igpr-3
+  [0x1009C] mov x1, x1                                       mov igpr-21, igpr-13
+  [0x100A0] mov x8, x8                                       mov igpr-22, igpr-14
+  [0x100A4] fmov w9, s23                                     mov igpr-23, ifpr-15
+  [0x100A8] sxtw x9, w9
+  [0x100AC] mov x10, x10                                     mov igpr-24, igpr-16
+  [0x100B0] add x3, x3, x15                                  call igpr-25 (ret igpr-17) (args igpr-18 igpr-19 igpr-20 igpr-21 igpr-22 igpr-23 igpr-24)
+  [0x100B4] stp x3, x5, [sp, #-0x10]!
+  [0x100B8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100BC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100C0] blr x3 ;; misaligned with debug data
+  [0x100C4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100C8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100CC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100D0] mov x0, x0                                       mov igpr-26, igpr-17
+
+collide-probe.gc:69
+->     ((nonzero? (-> arg0 flags))
+  [0x100D4] add x16, x5, x15                                 mov igpr-28, [igpr-3 + 3]
+  [0x100D8] ldrb w9, [x16, #3] ;; misaligned with debug data
+  [0x100DC] movz x8, #0                                      mov-ic igpr-29, 0
+  [0x100E0] cmp x9, x8                                       j(igpr-28 == igpr-29) label-60
+  [0x100E4] b.eq #0x10194
+
+collide-probe.gc:70
+->      (let ((s4-0 (-> arg0 child)))
+  [0x100E8] add x16, x5, x15                                 mov igpr-30, [igpr-3 + 4]
+  [0x100EC] ldr w3, [x16, #4] ;; misaligned with debug data
+
+collide-probe.gc:70
+->      (let ((s4-0 (-> arg0 child)))
+  [0x100F0] mov x11, x3                                      mov igpr-31, igpr-30
+
+collide-probe.gc:71
+->        (dotimes (s3-0 (the-as int (-> arg0 child-count)))
+  [0x100F4] movz x3, #0                                      mov-ic igpr-32, 0
+  [0x100F8] mov x3, x3                                       mov igpr-33, igpr-32
+  [0x100FC] b #0x10170                                       goto label-52
+
+collide-probe.gc:72
+->          (probe-traverse-draw-node (the-as draw-node (+ (the-as uint s4-0) (* s3-0 32))) (+ arg1 1)))))
+  [0x10100] adrp x16, #0x10000                               mov igpr-37, 'probe-traverse-draw-node
+  [0x10104] add x16, x16, #0
+  [0x10108] ldr w9, [x16]
+
+collide-probe.gc:72
+->          (probe-traverse-draw-node (the-as draw-node (+ (the-as uint s4-0) (* s3-0 32))) (+ arg1 1)))))
+  [0x1010C] mov x7, x11                                      mov igpr-39, igpr-31
+  [0x10110] mov x7, x7                                       mov igpr-38, igpr-39
+
+collide-probe.gc:72
+->          (probe-traverse-draw-node (the-as draw-node (+ (the-as uint s4-0) (* s3-0 32))) (+ arg1 1)))))
+  [0x10114] mov x8, x3                                       mov igpr-40, igpr-33
+  [0x10118] lsl x8, x8, #5                                   shl igpr-40, 5
+
+collide-probe.gc:72
+->          (probe-traverse-draw-node (the-as draw-node (+ (the-as uint s4-0) (* s3-0 32))) (+ arg1 1)))))
+  [0x1011C] add x7, x7, x8                                   addi igpr-38, igpr-40
+
+collide-probe.gc:72
+->          (probe-traverse-draw-node (the-as draw-node (+ (the-as uint s4-0) (* s3-0 32))) (+ arg1 1)))))
+  [0x10120] mov x7, x7                                       mov igpr-41, igpr-38
+
+collide-probe.gc:72
+->          (probe-traverse-draw-node (the-as draw-node (+ (the-as uint s4-0) (* s3-0 32))) (+ arg1 1)))))
+  [0x10124] mov x6, x12                                      mov igpr-42, igpr-4
+  [0x10128] movz x8, #0x1                                    mov-ic igpr-43, 1
+  [0x1012C] add x6, x6, x8                                   addi igpr-42, igpr-43
+
+collide-probe.gc:72
+->          (probe-traverse-draw-node (the-as draw-node (+ (the-as uint s4-0) (* s3-0 32))) (+ arg1 1)))))
+  [0x10130] mov x9, x9                                       mov igpr-47, igpr-37
+  [0x10134] mov x7, x7                                       mov igpr-45, igpr-41
+  [0x10138] mov x6, x6                                       mov igpr-46, igpr-42
+  [0x1013C] add x9, x9, x15                                  call igpr-47 (ret igpr-44) (args igpr-45 igpr-46)
+  [0x10140] stp x3, x5, [sp, #-0x10]!
+  [0x10144] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10148] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1014C] blr x9 ;; misaligned with debug data
+  [0x10150] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10154] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10158] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1015C] mov x10, x10                                     mov igpr-48, igpr-44
+
+collide-probe.gc:71
+->        (dotimes (s3-0 (the-as int (-> arg0 child-count)))
+  [0x10160] mov x3, x3                                       mov igpr-49, igpr-33
+  [0x10164] movz x9, #0x1                                    mov-ic igpr-50, 1
+  [0x10168] add x3, x3, x9                                   addi igpr-49, igpr-50
+  [0x1016C] mov x3, x3                                       mov igpr-33, igpr-49
+  [0x10170] add x16, x5, x15                                 mov igpr-51, [igpr-3 + 2]
+  [0x10174] ldrb w9, [x16, #2] ;; misaligned with debug data
+  [0x10178] mov x9, x9                                       mov igpr-52, igpr-51
+  [0x1017C] cmp x3, x9                                       j(igpr-33 < igpr-52) label-33
+  [0x10180] b.lt #0x10100
+  [0x10184] mov x9, x14                                      mov-symptr igpr-53, '#f
+  [0x10188] sub x9, x9, x15 ;; misaligned with debug data
+
+collide-probe.gc:69
+->     ((nonzero? (-> arg0 flags))
+  [0x1018C] mov x9, x9                                       mov igpr-27, igpr-53
+  [0x10190] b #0x10194                                       goto label-60
+
+collide-probe.gc:58
+-> (defun-recursive probe-traverse-draw-node none ((arg0 draw-node) (arg1 int))
+  [0x10194] movz x9, #0                                      mov-ic igpr-54, 0
+  [0x10198] add sp, sp, #0x10
+  [0x1019C] ldp x29, x30, [sp], #0x10
+  [0x101A0] ret
+
+
+[indent-to]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:52
+-> (defun indent-to ((arg0 int))
+  [0x1000C] mov x5, x7                                       mov igpr-2, igpr-0
+
+collide-probe.gc:54
+->   (dotimes (s5-0 arg0)
+  [0x10010] movz x3, #0                                      mov-ic igpr-3, 0
+  [0x10014] mov x3, x3                                       mov igpr-4, igpr-3
+  [0x10018] b #0x1007c                                       goto label-17
+
+collide-probe.gc:55
+->     (format #t " "))
+  [0x1001C] adrp x16, #0x10000                               mov igpr-8, 'format
+  [0x10020] add x16, x16, #0
+  [0x10024] ldr w9, [x16]
+
+collide-probe.gc:54
+->   (dotimes (s5-0 arg0)
+  [0x10028] add x7, x14, #8                                  mov-symptr igpr-9, '#t
+  [0x1002C] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10030] adrp x6, #0x11000                                mov-sva igpr-10, static-string " "
+  [0x10034] add x6, x6, #0x7c4
+  [0x10038] sub x6, x6, x15
+
+collide-probe.gc:55
+->     (format #t " "))
+  [0x1003C] mov x9, x9                                       mov igpr-14, igpr-8
+  [0x10040] mov x7, x7                                       mov igpr-12, igpr-9
+  [0x10044] mov x6, x6                                       mov igpr-13, igpr-10
+  [0x10048] add x9, x9, x15                                  call igpr-14 (ret igpr-11) (args igpr-12 igpr-13)
+  [0x1004C] stp x3, x5, [sp, #-0x10]!
+  [0x10050] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10054] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10058] blr x9 ;; misaligned with debug data
+  [0x1005C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] mov x0, x0                                       mov igpr-15, igpr-11
+
+collide-probe.gc:54
+->   (dotimes (s5-0 arg0)
+  [0x1006C] mov x3, x3                                       mov igpr-16, igpr-4
+  [0x10070] movz x9, #0x1                                    mov-ic igpr-17, 1
+  [0x10074] add x3, x3, x9                                   addi igpr-16, igpr-17
+  [0x10078] mov x3, x3                                       mov igpr-4, igpr-16
+  [0x1007C] cmp x3, x5                                       j(igpr-4 < igpr-2) label-5
+  [0x10080] b.lt #0x1001c
+  [0x10084] mov x9, x14                                      mov-symptr igpr-18, '#f
+  [0x10088] sub x9, x9, x15 ;; misaligned with debug data
+  [0x1008C] add sp, sp, #0x10
+  [0x10090] ldp x29, x30, [sp], #0x10
+  [0x10094] ret
+
+
+[print-out]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:120
+-> (defun print-out ((arg0 int))
+  [0x1000C] mov x2, x7                                       mov igpr-2, igpr-0
+
+collide-probe.gc:121
+->   (format *stdcon* "~d~%" arg0))
+  [0x10010] adrp x16, #0x10000                               mov igpr-3, 'format
+  [0x10014] add x16, x16, #0
+  [0x10018] ldr w9, [x16]
+
+collide-probe.gc:120
+-> (defun print-out ((arg0 int))
+  [0x1001C] adrp x16, #0x10000                               mov igpr-4, '*stdcon*
+  [0x10020] add x16, x16, #0
+  [0x10024] ldr w7, [x16]
+  [0x10028] adrp x6, #0x11000                                mov-sva igpr-5, static-string "~d~%"
+  [0x1002C] add x6, x6, #0x914
+  [0x10030] sub x6, x6, x15
+
+collide-probe.gc:121
+->   (format *stdcon* "~d~%" arg0))
+  [0x10034] mov x9, x9                                       mov igpr-10, igpr-3
+  [0x10038] mov x7, x7                                       mov igpr-7, igpr-4
+  [0x1003C] mov x6, x6                                       mov igpr-8, igpr-5
+  [0x10040] mov x2, x2                                       mov igpr-9, igpr-2
+  [0x10044] add x9, x9, x15                                  call igpr-10 (ret igpr-6) (args igpr-7 igpr-8 igpr-9)
+  [0x10048] stp x3, x5, [sp, #-0x10]!
+  [0x1004C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10050] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10054] blr x9 ;; misaligned with debug data
+  [0x10058] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1005C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] mov x0, x0                                       mov igpr-11, igpr-6
+
+collide-probe.gc:120
+-> (defun print-out ((arg0 int))
+  [0x10068] mov x0, x0                                       ret igpr-1 igpr-11
+  [0x1006C] add sp, sp, #0x10
+  [0x10070] ldp x29, x30, [sp], #0x10
+  [0x10074] ret
+
+
+[describe-methods]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collide-probe.gc:32
+-> (defun describe-methods ((arg0 type))
+  [0x1000C] mov x5, x7                                       mov igpr-2, igpr-0
+
+collide-probe.gc:34
+->   (let ((s5-0 (-> arg0 allocated-length)))
+  [0x10010] add x16, x5, x15                                 mov igpr-3, [igpr-2 + 14]
+  [0x10014] ldrh w3, [x16, #0xe] ;; misaligned with debug data
+
+collide-probe.gc:34
+->   (let ((s5-0 (-> arg0 allocated-length)))
+  [0x10018] mov x12, x3                                      mov igpr-4, igpr-3
+
+collide-probe.gc:35
+->     (dotimes (s4-0 (the-as int s5-0))
+  [0x1001C] movz x3, #0                                      mov-ic igpr-5, 0
+  [0x10020] mov x3, x3                                       mov igpr-6, igpr-5
+  [0x10024] b #0x1027c                                       goto label-85
+
+collide-probe.gc:36
+->       (let ((s3-0 arg0))
+  [0x10028] mov x11, x5                                      mov igpr-10, igpr-2
+
+collide-probe.gc:37
+->         (format #t "~3d:~%" s4-0)
+  [0x1002C] adrp x16, #0x10000                               mov igpr-11, 'format
+  [0x10030] add x16, x16, #0
+  [0x10034] ldr w9, [x16]
+
+collide-probe.gc:36
+->       (let ((s3-0 arg0))
+  [0x10038] add x7, x14, #8                                  mov-symptr igpr-12, '#t
+  [0x1003C] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10040] adrp x6, #0x11000                                mov-sva igpr-13, static-string "~3d:~%"
+  [0x10044] add x6, x6, #0x774
+  [0x10048] sub x6, x6, x15
+
+collide-probe.gc:37
+->         (format #t "~3d:~%" s4-0)
+  [0x1004C] mov x9, x9                                       mov igpr-18, igpr-11
+  [0x10050] mov x7, x7                                       mov igpr-15, igpr-12
+  [0x10054] mov x6, x6                                       mov igpr-16, igpr-13
+  [0x10058] mov x2, x3                                       mov igpr-17, igpr-6
+  [0x1005C] add x9, x9, x15                                  call igpr-18 (ret igpr-14) (args igpr-15 igpr-16 igpr-17)
+  [0x10060] stp x3, x5, [sp, #-0x10]!
+  [0x10064] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10068] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1006C] blr x9 ;; misaligned with debug data
+  [0x10070] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10074] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10078] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1007C] mov x0, x0                                       mov igpr-19, igpr-14
+
+collide-probe.gc:38
+->         (while (!= s3-0 basic)
+  [0x10080] b #0x10250                                       goto label-77
+
+collide-probe.gc:40
+->             ((creates-new-method? s3-0 s4-0) (format #t "   created by ~s.~%" (symbol->string (-> s3-0 symbol))) (set! s3-0 basic))
+  [0x10084] adrp x16, #0x10000                               mov igpr-23, 'creates-new-method?
+  [0x10088] add x16, x16, #0
+  [0x1008C] ldr w9, [x16]
+  [0x10090] mov x9, x9                                       mov igpr-27, igpr-23
+  [0x10094] mov x7, x11                                      mov igpr-25, igpr-10
+  [0x10098] mov x6, x3                                       mov igpr-26, igpr-6
+  [0x1009C] add x9, x9, x15                                  call igpr-27 (ret igpr-24) (args igpr-25 igpr-26)
+  [0x100A0] stp x3, x5, [sp, #-0x10]!
+  [0x100A4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100A8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100AC] blr x9 ;; misaligned with debug data
+  [0x100B0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100B4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100B8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100BC] mov x0, x0                                       mov igpr-28, igpr-24
+  [0x100C0] mov x9, x14                                      mov-symptr igpr-29, '#f
+  [0x100C4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100C8] cmp x0, x9                                       j(igpr-28 == igpr-29) label-46
+  [0x100CC] b.eq #0x10164
+
+collide-probe.gc:40
+->             ((creates-new-method? s3-0 s4-0) (format #t "   created by ~s.~%" (symbol->string (-> s3-0 symbol))) (set! s3-0 basic))
+  [0x100D0] adrp x16, #0x10000                               mov igpr-30, 'format
+  [0x100D4] add x16, x16, #0
+  [0x100D8] ldr w9, [x16]
+
+collide-probe.gc:38
+->         (while (!= s3-0 basic)
+  [0x100DC] add x7, x14, #8                                  mov-symptr igpr-31, '#t
+  [0x100E0] sub x7, x7, x15 ;; misaligned with debug data
+  [0x100E4] adrp x6, #0x11000                                mov-sva igpr-32, static-string "   created by ~s.~%"
+  [0x100E8] add x6, x6, #0x784
+  [0x100EC] sub x6, x6, x15
+
+collide-probe.gc:40
+->             ((creates-new-method? s3-0 s4-0) (format #t "   created by ~s.~%" (symbol->string (-> s3-0 symbol))) (set! s3-0 basic))
+  [0x100F0] movz x8, #0                                      mov-ic igpr-34, 131072
+  [0x100F4] movk x8, #0x2, lsl #16
+  [0x100F8] mov x8, x8                                       mov igpr-33, igpr-34
+  [0x100FC] add x16, x11, x15                                mov igpr-35, [igpr-10 + 0]
+  [0x10100] ldr w1, [x16] ;; misaligned with debug data
+  [0x10104] mov x1, x1                                       mov igpr-36, igpr-35
+  [0x10108] add x8, x8, x1                                   addi igpr-33, igpr-36
+  [0x1010C] mov x8, x8                                       mov igpr-38, igpr-33
+  [0x10110] add x16, x8, x15                                 mov igpr-37, [igpr-38 + 0]
+  [0x10114] ldr w2, [x16] ;; misaligned with debug data
+
+collide-probe.gc:40
+->             ((creates-new-method? s3-0 s4-0) (format #t "   created by ~s.~%" (symbol->string (-> s3-0 symbol))) (set! s3-0 basic))
+  [0x10118] mov x9, x9                                       mov igpr-43, igpr-30
+  [0x1011C] mov x7, x7                                       mov igpr-40, igpr-31
+  [0x10120] mov x6, x6                                       mov igpr-41, igpr-32
+  [0x10124] mov x2, x2                                       mov igpr-42, igpr-37
+  [0x10128] add x9, x9, x15                                  call igpr-43 (ret igpr-39) (args igpr-40 igpr-41 igpr-42)
+  [0x1012C] stp x3, x5, [sp, #-0x10]!
+  [0x10130] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10134] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10138] blr x9 ;; misaligned with debug data
+  [0x1013C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10140] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10144] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10148] mov x0, x0                                       mov igpr-44, igpr-39
+
+collide-probe.gc:40
+->             ((creates-new-method? s3-0 s4-0) (format #t "   created by ~s.~%" (symbol->string (-> s3-0 symbol))) (set! s3-0 basic))
+  [0x1014C] adrp x16, #0x10000                               mov igpr-45, 'basic
+  [0x10150] add x16, x16, #0
+  [0x10154] ldr w9, [x16]
+  [0x10158] mov x11, x9                                      mov igpr-10, igpr-45
+
+collide-probe.gc:40
+->             ((creates-new-method? s3-0 s4-0) (format #t "   created by ~s.~%" (symbol->string (-> s3-0 symbol))) (set! s3-0 basic))
+  [0x1015C] mov x9, x9                                       mov igpr-22, igpr-45
+  [0x10160] b #0x10250                                       goto label-77
+
+collide-probe.gc:41
+->             ((overrides-parent-method? s3-0 s4-0)
+  [0x10164] adrp x16, #0x10000                               mov igpr-46, 'overrides-parent-method?
+  [0x10168] add x16, x16, #0
+  [0x1016C] ldr w9, [x16]
+  [0x10170] mov x9, x9                                       mov igpr-50, igpr-46
+  [0x10174] mov x7, x11                                      mov igpr-48, igpr-10
+  [0x10178] mov x6, x3                                       mov igpr-49, igpr-6
+  [0x1017C] add x9, x9, x15                                  call igpr-50 (ret igpr-47) (args igpr-48 igpr-49)
+  [0x10180] stp x3, x5, [sp, #-0x10]!
+  [0x10184] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10188] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1018C] blr x9 ;; misaligned with debug data
+  [0x10190] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10194] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10198] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1019C] mov x0, x0                                       mov igpr-51, igpr-47
+  [0x101A0] mov x9, x14                                      mov-symptr igpr-52, '#f
+  [0x101A4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x101A8] cmp x0, x9                                       j(igpr-51 == igpr-52) label-74
+  [0x101AC] b.eq #0x10240
+
+collide-probe.gc:42
+->              (format #t "   overridden by ~s.~%" (symbol->string (-> s3-0 symbol)))
+  [0x101B0] adrp x16, #0x10000                               mov igpr-53, 'format
+  [0x101B4] add x16, x16, #0
+  [0x101B8] ldr w9, [x16]
+
+collide-probe.gc:38
+->         (while (!= s3-0 basic)
+  [0x101BC] add x7, x14, #8                                  mov-symptr igpr-54, '#t
+  [0x101C0] sub x7, x7, x15 ;; misaligned with debug data
+  [0x101C4] adrp x6, #0x11000                                mov-sva igpr-55, static-string "   overridden by ~s.~%"
+  [0x101C8] add x6, x6, #0x7a4
+  [0x101CC] sub x6, x6, x15
+
+collide-probe.gc:42
+->              (format #t "   overridden by ~s.~%" (symbol->string (-> s3-0 symbol)))
+  [0x101D0] movz x8, #0                                      mov-ic igpr-57, 131072
+  [0x101D4] movk x8, #0x2, lsl #16
+  [0x101D8] mov x8, x8                                       mov igpr-56, igpr-57
+  [0x101DC] add x16, x11, x15                                mov igpr-58, [igpr-10 + 0]
+  [0x101E0] ldr w1, [x16] ;; misaligned with debug data
+  [0x101E4] mov x1, x1                                       mov igpr-59, igpr-58
+  [0x101E8] add x8, x8, x1                                   addi igpr-56, igpr-59
+  [0x101EC] mov x8, x8                                       mov igpr-61, igpr-56
+  [0x101F0] add x16, x8, x15                                 mov igpr-60, [igpr-61 + 0]
+  [0x101F4] ldr w2, [x16] ;; misaligned with debug data
+
+collide-probe.gc:42
+->              (format #t "   overridden by ~s.~%" (symbol->string (-> s3-0 symbol)))
+  [0x101F8] mov x9, x9                                       mov igpr-66, igpr-53
+  [0x101FC] mov x7, x7                                       mov igpr-63, igpr-54
+  [0x10200] mov x6, x6                                       mov igpr-64, igpr-55
+  [0x10204] mov x2, x2                                       mov igpr-65, igpr-60
+  [0x10208] add x9, x9, x15                                  call igpr-66 (ret igpr-62) (args igpr-63 igpr-64 igpr-65)
+  [0x1020C] stp x3, x5, [sp, #-0x10]!
+  [0x10210] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10214] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10218] blr x9 ;; misaligned with debug data
+  [0x1021C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10220] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10224] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10228] mov x0, x0                                       mov igpr-67, igpr-62
+
+collide-probe.gc:43
+->              (set! s3-0 (-> s3-0 parent)))
+  [0x1022C] add x16, x11, x15                                mov igpr-68, [igpr-10 + 4]
+  [0x10230] ldr w9, [x16, #4] ;; misaligned with debug data
+  [0x10234] mov x11, x9                                      mov igpr-10, igpr-68
+
+collide-probe.gc:41
+->             ((overrides-parent-method? s3-0 s4-0)
+  [0x10238] mov x9, x9                                       mov igpr-22, igpr-68
+  [0x1023C] b #0x10250                                       goto label-77
+
+collide-probe.gc:44
+->             (else (set! s3-0 (-> s3-0 parent))))))))
+  [0x10240] add x16, x11, x15                                mov igpr-69, [igpr-10 + 4]
+  [0x10244] ldr w9, [x16, #4] ;; misaligned with debug data
+  [0x10248] mov x11, x9                                      mov igpr-10, igpr-69
+
+collide-probe.gc:44
+->             (else (set! s3-0 (-> s3-0 parent))))))))
+  [0x1024C] mov x9, x9                                       mov igpr-22, igpr-69
+
+collide-probe.gc:38
+->         (while (!= s3-0 basic)
+  [0x10250] adrp x16, #0x10000                               mov igpr-70, 'basic
+  [0x10254] add x16, x16, #0
+  [0x10258] ldr w9, [x16]
+
+collide-probe.gc:38
+->         (while (!= s3-0 basic)
+  [0x1025C] cmp x11, x9                                      j(igpr-10 != igpr-70) label-18
+  [0x10260] b.ne #0x10084
+  [0x10264] mov x9, x14                                      mov-symptr igpr-71, '#f
+  [0x10268] sub x9, x9, x15 ;; misaligned with debug data
+
+collide-probe.gc:35
+->     (dotimes (s4-0 (the-as int s5-0))
+  [0x1026C] mov x3, x3                                       mov igpr-72, igpr-6
+  [0x10270] movz x9, #0x1                                    mov-ic igpr-73, 1
+  [0x10274] add x3, x3, x9                                   addi igpr-72, igpr-73
+  [0x10278] mov x3, x3                                       mov igpr-6, igpr-72
+  [0x1027C] mov x9, x12                                      mov igpr-74, igpr-4
+  [0x10280] cmp x3, x9                                       j(igpr-6 < igpr-74) label-7
+  [0x10284] b.lt #0x10028
+  [0x10288] mov x9, x14                                      mov-symptr igpr-75, '#f
+  [0x1028C] sub x9, x9, x15 ;; misaligned with debug data
+
+collide-probe.gc:32
+-> (defun describe-methods ((arg0 type))
+  [0x10290] mov x0, x14                                      mov-symptr igpr-76, '#f
+  [0x10294] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10298] mov x0, x0                                       ret igpr-1 igpr-76
+  [0x1029C] add sp, sp, #0x10
+  [0x102A0] ldp x29, x30, [sp], #0x10
+  [0x102A4] ret
+
+
+[overrides-parent-method?]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collide-probe.gc:28
+-> (defun overrides-parent-method? ((arg0 type) (arg1 int))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+collide-probe.gc:30
+->   (!= (-> arg0 method-table arg1) (-> arg0 parent method-table arg1)))
+  [0x10010] mov x9, x6                                       mov igpr-5, igpr-4
+  [0x10014] lsl x9, x9, #2                                   shl igpr-5, 2
+
+collide-probe.gc:30
+->   (!= (-> arg0 method-table arg1) (-> arg0 parent method-table arg1)))
+  [0x10018] mov x6, x6                                       mov igpr-6, igpr-4
+  [0x1001C] lsl x6, x6, #2                                   shl igpr-6, 2
+
+collide-probe.gc:30
+->   (!= (-> arg0 method-table arg1) (-> arg0 parent method-table arg1)))
+  [0x10020] mov x9, x9                                       mov igpr-8, igpr-5
+  [0x10024] movz x8, #0x10                                   mov-ic igpr-9, 16
+  [0x10028] add x8, x8, x7                                   addi igpr-9, igpr-3
+  [0x1002C] add x9, x9, x8                                   addi igpr-8, igpr-9
+  [0x10030] add x16, x9, x15                                 mov igpr-7, [igpr-8 + 0]
+  [0x10034] ldr w9, [x16] ;; misaligned with debug data
+  [0x10038] mov x6, x6                                       mov igpr-11, igpr-6
+  [0x1003C] movz x8, #0x10                                   mov-ic igpr-12, 16
+  [0x10040] add x16, x7, x15                                 mov igpr-13, [igpr-3 + 4]
+  [0x10044] ldr w1, [x16, #4] ;; misaligned with debug data
+  [0x10048] add x8, x8, x1                                   addi igpr-12, igpr-13
+  [0x1004C] add x6, x6, x8                                   addi igpr-11, igpr-12
+  [0x10050] add x16, x6, x15                                 mov igpr-10, [igpr-11 + 0]
+  [0x10054] ldr w8, [x16] ;; misaligned with debug data
+  [0x10058] mov x0, x14                                      mov-symptr igpr-14, '#f
+  [0x1005C] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10060] cmp x9, x8                                       j(igpr-7 == igpr-10) label-22
+  [0x10064] b.eq #0x10074
+  [0x10068] add x0, x14, #8                                  mov-symptr igpr-15, '#t
+  [0x1006C] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10070] mov x0, x0                                       mov igpr-14, igpr-15
+
+collide-probe.gc:28
+-> (defun overrides-parent-method? ((arg0 type) (arg1 int))
+  [0x10074] mov x0, x0                                       ret igpr-2 igpr-14
+  [0x10078] ldp x29, x30, [sp], #0x10
+  [0x1007C] ret
+
+
+[creates-new-method?]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collide-probe.gc:23
+-> (defun creates-new-method? ((arg0 type) (arg1 int))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+collide-probe.gc:26
+->   (let ((v1-1 (-> arg0 parent allocated-length))) (-> arg0 allocated-length) (>= arg1 (the-as int v1-1))))
+  [0x10010] add x16, x7, x15                                 mov igpr-6, [igpr-3 + 4]
+  [0x10014] ldr w9, [x16, #4] ;; misaligned with debug data
+  [0x10018] add x16, x9, x15                                 mov igpr-5, [igpr-6 + 14]
+  [0x1001C] ldrh w9, [x16, #0xe] ;; misaligned with debug data
+
+collide-probe.gc:26
+->   (let ((v1-1 (-> arg0 parent allocated-length))) (-> arg0 allocated-length) (>= arg1 (the-as int v1-1))))
+  [0x10020] mov x9, x9                                       mov igpr-7, igpr-5
+
+collide-probe.gc:26
+->   (let ((v1-1 (-> arg0 parent allocated-length))) (-> arg0 allocated-length) (>= arg1 (the-as int v1-1))))
+  [0x10024] add x16, x7, x15                                 mov igpr-8, [igpr-3 + 14]
+  [0x10028] ldrh w8, [x16, #0xe] ;; misaligned with debug data
+
+collide-probe.gc:26
+->   (let ((v1-1 (-> arg0 parent allocated-length))) (-> arg0 allocated-length) (>= arg1 (the-as int v1-1))))
+  [0x1002C] mov x9, x9                                       mov igpr-9, igpr-7
+  [0x10030] mov x0, x14                                      mov-symptr igpr-10, '#f
+  [0x10034] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10038] cmp x6, x9                                       j(igpr-4 < igpr-9) label-12
+  [0x1003C] b.lt #0x1004c
+  [0x10040] add x0, x14, #8                                  mov-symptr igpr-11, '#t
+  [0x10044] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10048] mov x0, x0                                       mov igpr-10, igpr-11
+
+collide-probe.gc:23
+-> (defun creates-new-method? ((arg0 type) (arg1 int))
+  [0x1004C] mov x0, x0                                       ret igpr-2 igpr-10
+  [0x10050] ldp x29, x30, [sp], #0x10
+  [0x10054] ret
+
+
+

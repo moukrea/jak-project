@@ -1,0 +1,2238 @@
+[(method overlap-test collide-mesh)]
+[1m[38;2;255;000;000m- [0x10000] [0msub rsp, 0x48
+  [0x10004] movdqa [rsp], xmm8
+  [0x1000A] movdqa [rsp+0x10], xmm9
+  [0x10011] movdqa [rsp+0x20], xmm10
+  [0x10018] movdqa [rsp+0x30], xmm11
+  [0x1001F] push rbx
+  [0x10020] push rbp
+  [0x10021] push r10
+  [0x10023] push r11
+  [0x10025] push r12
+  [0x10027] sub rsp, 0x48
+[1m
+collide-mesh.gc:270
+[0m[38;2;255;165;000m-> (defmethod overlap-test ((this collide-mesh) (arg0 collide-mesh-cache-tri) (arg1 vector))
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x1002B] mov rbx, rdx                                     mov igpr-6, igpr-2
+[1m
+collide-mesh.gc:289
+[0m[38;2;255;165;000m->     (init-vf0-vector)
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x1002E] vmovaps xmm10, [0x0000000000010036]              mov-svl ivf-17, [static-structure]
+[1m
+collide-mesh.gc:290
+[0m[38;2;255;165;000m->     (set! zero (the-as uint128 0))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x10036] xor r9, r9                                       mov-ic igpr-24, 0
+  [0x10039] movq xmm11, r9                                   mov ii128-7, igpr-25
+[1m
+collide-mesh.gc:291
+[0m[38;2;255;165;000m->     (let ((s5-0 (new 'stack-no-clear 'matrix))
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x1003E] mov rbp, rsp                                     mov igpr-26, stack-slot-0
+  [0x10041] sub rbp, r15
+[1m
+collide-mesh.gc:291
+[0m[38;2;255;165;000m->     (let ((s5-0 (new 'stack-no-clear 'matrix))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x10044] mov r12, rsi                                     mov igpr-28, igpr-5
+[1m
+collide-mesh.gc:293
+[0m[38;2;255;165;000m->       (.lvf vf2 (&-> arg1 quad))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10047] vmovaps xmm4, [r15+rbx*1]                        mov ivf-19, [igpr-6 + 0]
+[1m
+collide-mesh.gc:294
+[0m[38;2;255;165;000m->       (let ((s3-0 (-> this num-tris)))
+[0m[1m[38;2;050;205;050m                      ^
+[0m  [0x1004D] mov r11d, [r15+rdi*1+0x04]                       mov igpr-29, [igpr-4 + 4]
+[1m
+collide-mesh.gc:295
+[0m[38;2;255;165;000m->         (.sub.w.vf vf5 vf2 vf2)
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x10052] vshufps xmm7, xmm4, xmm4, 0xFF                   .splat.vf ivf-31, ivf-19, 3
+  [0x10057] vsubps xmm6, xmm4, xmm7                          .sub.vf ivf-22, ivf-19, ivf-31
+[1m
+collide-mesh.gc:296
+[0m[38;2;255;165;000m->         (.add.w.vf vf6 vf2 vf2)
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x1005B] vshufps xmm7, xmm4, xmm4, 0xFF                   .splat.vf ivf-32, ivf-19, 3
+  [0x10060] vaddps xmm5, xmm4, xmm7                          .add.vf ivf-23, ivf-19, ivf-32
+[1m
+collide-mesh.gc:297
+[0m[38;2;255;165;000m->         (.ftoi.vf vf5 vf5)
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x10064] vcvttps2dq xmm6, xmm6                            .ftoi.vf ivf-22, ivf-22
+[1m
+collide-mesh.gc:298
+[0m[38;2;255;165;000m->         (.ftoi.vf vf6 vf6)
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x10068] vcvttps2dq xmm5, xmm5                            .ftoi.vf ivf-23, ivf-23
+[1m
+collide-mesh.gc:299
+[0m[38;2;255;165;000m->         (.mov v1-0 vf5)
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x1006C] vmovaps xmm7, xmm6                               .mov ii128-8 ivf-22
+[1m
+collide-mesh.gc:300
+[0m[38;2;255;165;000m->         (.svf (&-> s5-0 vector 1 quad) vf5)
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x10070] vmovaps [r15+rbp*1+0x10], xmm6                   move [igpr-27 + 16], ivf-22
+[1m
+collide-mesh.gc:301
+[0m[38;2;255;165;000m->         (.mov a0-1 vf6)
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x10077] vmovaps xmm6, xmm5                               .mov ii128-9 ivf-23
+[1m
+collide-mesh.gc:302
+[0m[38;2;255;165;000m->         (.svf (&-> s5-0 vector 2 quad) vf6)
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x1007B] vmovaps [r15+rbp*1+0x20], xmm5                   move [igpr-27 + 32], ivf-23
+[1m
+collide-mesh.gc:304
+[0m[38;2;255;165;000m->         (b! (zero? s3-0) cfg-7 :delay (set! a2-1 (-> s4-0 bbox4w min quad)))
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10082] xor r9, r9                                       mov-ic igpr-33, 0
+  [0x10085] mov r8, r14                                      mov-symptr igpr-34, '#f
+  [0x10088] cmp r11, r9                                      j(igpr-30 != igpr-33) label-29
+  [0x1008B] jnz 0x0000000000010096
+  [0x10091] lea r8, [r14+0x08]                               mov-symptr igpr-35, '#t
+[1m
+collide-mesh.gc:304
+[0m[38;2;255;165;000m->         (b! (zero? s3-0) cfg-7 :delay (set! a2-1 (-> s4-0 bbox4w min quad)))
+[0m[1m[38;2;050;205;050m                                          ^
+[0m  [0x10096] vmovaps xmm5, [r12+r15*1+0x40]                   mov ii128-37, [igpr-28 + 64]
+[1m
+collide-mesh.gc:304
+[0m[38;2;255;165;000m->         (b! (zero? s3-0) cfg-7 :delay (set! a2-1 (-> s4-0 bbox4w min quad)))
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x1009D] mov r9, r14                                      mov-symptr igpr-39, '#f
+  [0x100A0] cmp r8, r9                                       j(igpr-36 == igpr-39) label-37
+  [0x100A3] jz 0x00000000000100B8
+  [0x100A9] lea r9, [r14-0x0A]                               mov-symptr igpr-40, '_empty_
+  [0x100AE] jmp 0x0000000000010255                           goto label-158
+  [0x100B3] jmp 0x00000000000100BB                           goto label-38
+  [0x100B8] mov r9, r14                                      mov-symptr igpr-38, '#f
+[1m
+collide-mesh.gc:305
+[0m[38;2;255;165;000m->         (+! s3-0 -1))
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x100BB] mov r9, 0xFFFFFFFFFFFFFFFF                       mov-ic igpr-42, 18446744073709551615
+  [0x100C2] add r11, r9                                      addi igpr-41, igpr-42
+[1m
+collide-mesh.gc:306
+[0m[38;2;255;165;000m->       (let ((a1-1 (-> s4-0 bbox4w max quad))) (.pcgtw a2-2 a2-1 a0-1) (.pcgtw a1-2 v1-0 a1-1))
+[0m[1m[38;2;050;205;050m                      ^
+[0m  [0x100C5] vmovaps xmm4, [r12+r15*1+0x50]                   mov ii128-43, [igpr-28 + 80]
+[1m
+collide-mesh.gc:306
+[0m[38;2;255;165;000m->       (let ((a1-1 (-> s4-0 bbox4w max quad))) (.pcgtw a2-2 a2-1 a0-1) (.pcgtw a1-2 v1-0 a1-1))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x100CC] vmovaps xmm3, xmm4                               mov ii128-44, ii128-43
+[1m
+collide-mesh.gc:306
+[0m[38;2;255;165;000m->       (let ((a1-1 (-> s4-0 bbox4w max quad))) (.pcgtw a2-2 a2-1 a0-1) (.pcgtw a1-2 v1-0 a1-1))
+[0m[1m[38;2;050;205;050m                                                  ^
+[0m  [0x100D0] vpcmpgtd xmm4, xmm5, xmm6                        .pcgtw ii128-15, ii128-14, ii128-9
+[1m
+collide-mesh.gc:306
+[0m[38;2;255;165;000m->       (let ((a1-1 (-> s4-0 bbox4w max quad))) (.pcgtw a2-2 a2-1 a0-1) (.pcgtw a1-2 v1-0 a1-1))
+[0m[1m[38;2;050;205;050m                                                                          ^
+[0m  [0x100D4] vpcmpgtd xmm5, xmm7, xmm3                        .pcgtw ii128-10, ii128-8, ii128-44
+[1m
+collide-mesh.gc:307
+[0m[38;2;255;165;000m->       (.por a1-3 a2-2 a1-2)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x100D8] vpor xmm5, xmm5, xmm4                            .por ii128-11, ii128-15, ii128-10
+[1m
+collide-mesh.gc:308
+[0m[38;2;255;165;000m->       (nop!)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x100DC] nop                                              nop
+[1m
+collide-mesh.gc:309
+[0m[38;2;255;165;000m->       (.ppach a1-4 zero a1-3)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x100DD] vpshuflw xmm4, xmm11, 0x88                       .VPSHUFLW ii128-45, ii128-7, 136
+  [0x100E3] vpshuflw xmm5, xmm5, 0x88                        .VPSHUFLW ii128-12, ii128-11, 136
+  [0x100E8] vpshufhw xmm4, xmm4, 0x88                        .VPSHUFHW ii128-45, ii128-45, 136
+  [0x100ED] vpshufhw xmm5, xmm5, 0x88                        .VPSHUFHW ii128-12, ii128-12, 136
+  [0x100F2] vpsrldq xmm4, xmm4, 0x04                         .VPSRLDQ ii128-45, ii128-45, 4
+  [0x100F7] vpsrldq xmm5, xmm5, 0x04                         .VPSRLDQ ii128-12, ii128-12, 4
+  [0x100FC] vpunpcklqdq xmm5, xmm5, xmm4                     .pcpyld ii128-12, ii128-45, ii128-12
+[1m
+collide-mesh.gc:310
+[0m[38;2;255;165;000m->       (let ((a1-5 (shl (the-as int a1-4) 16))) (nop!) (b! (nonzero? a1-5) cfg-1 :likely-delay (set! s4-0 (&+ s4-0 96))))
+[0m[1m[38;2;050;205;050m                      ^
+[0m  [0x10100] movq r9, xmm5                                    mov igpr-47, ii128-46
+  [0x10105] shl r9, 0x10                                     shl igpr-48, 16
+[1m
+collide-mesh.gc:310
+[0m[38;2;255;165;000m->       (let ((a1-5 (shl (the-as int a1-4) 16))) (nop!) (b! (nonzero? a1-5) cfg-1 :likely-delay (set! s4-0 (&+ s4-0 96))))
+[0m[1m[38;2;050;205;050m                                                   ^
+[0m  [0x10109] nop                                              nop
+[1m
+collide-mesh.gc:310
+[0m[38;2;255;165;000m->       (let ((a1-5 (shl (the-as int a1-4) 16))) (nop!) (b! (nonzero? a1-5) cfg-1 :likely-delay (set! s4-0 (&+ s4-0 96))))
+[0m[1m[38;2;050;205;050m                                                              ^
+[0m  [0x1010A] xor r8, r8                                       mov-ic igpr-50, 0
+  [0x1010D] mov rcx, r14                                     mov-symptr igpr-51, '#f
+  [0x10110] cmp r9, r8                                       j(igpr-49 == igpr-50) label-69
+  [0x10113] jz 0x000000000001011E
+  [0x10119] lea rcx, [r14+0x08]                              mov-symptr igpr-52, '#t
+[1m
+collide-mesh.gc:310
+[0m[38;2;255;165;000m->       (let ((a1-5 (shl (the-as int a1-4) 16))) (nop!) (b! (nonzero? a1-5) cfg-1 :likely-delay (set! s4-0 (&+ s4-0 96))))
+[0m[1m[38;2;050;205;050m                                                          ^
+[0m  [0x1011E] lea r9, [r14-0x0A]                               mov-symptr igpr-54, '_empty_
+  [0x10123] mov r9, r14                                      mov-symptr igpr-56, '#f
+  [0x10126] cmp rcx, r9                                      j(igpr-53 == igpr-56) label-79
+  [0x10129] jz 0x0000000000010142
+[1m
+collide-mesh.gc:310
+[0m[38;2;255;165;000m->       (let ((a1-5 (shl (the-as int a1-4) 16))) (nop!) (b! (nonzero? a1-5) cfg-1 :likely-delay (set! s4-0 (&+ s4-0 96))))
+[0m[1m[38;2;050;205;050m                                                                                                             ^
+[0m  [0x1012F] mov r9d, 0x60                                    mov-ic igpr-58, 96
+  [0x10135] add r12, r9                                      addi igpr-57, igpr-58
+[1m
+collide-mesh.gc:310
+[0m[38;2;255;165;000m->       (let ((a1-5 (shl (the-as int a1-4) 16))) (nop!) (b! (nonzero? a1-5) cfg-1 :likely-delay (set! s4-0 (&+ s4-0 96))))
+[0m[1m[38;2;050;205;050m                                                          ^
+[0m  [0x10138] jmp 0x0000000000010082                           goto label-24
+  [0x1013D] jmp 0x0000000000010145                           goto label-80
+  [0x10142] mov r9, r14                                      mov-symptr igpr-55, '#f
+[1m
+collide-mesh.gc:311
+[0m[38;2;255;165;000m->       (closest-pt-in-triangle (the-as vector (-> s5-0 vector)) arg1 (the-as matrix (-> s4-0 vertex)) (-> s4-0 normal))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10145] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-59, 'closest-pt-in-triangle
+[1m
+collide-mesh.gc:311
+[0m[38;2;255;165;000m->       (closest-pt-in-triangle (the-as vector (-> s5-0 vector)) arg1 (the-as matrix (-> s4-0 vertex)) (-> s4-0 normal))
+[0m[1m[38;2;050;205;050m                                  ^
+[0m  [0x1014D] mov rdi, rbp                                     mov igpr-60, igpr-27
+[1m
+collide-mesh.gc:311
+[0m[38;2;255;165;000m->       (closest-pt-in-triangle (the-as vector (-> s5-0 vector)) arg1 (the-as matrix (-> s4-0 vertex)) (-> s4-0 normal))
+[0m[1m[38;2;050;205;050m                                                                        ^
+[0m  [0x10150] mov rdx, r12                                     mov igpr-62, igpr-28
+[1m
+collide-mesh.gc:311
+[0m[38;2;255;165;000m->       (closest-pt-in-triangle (the-as vector (-> s5-0 vector)) arg1 (the-as matrix (-> s4-0 vertex)) (-> s4-0 normal))
+[0m[1m[38;2;050;205;050m                                                                                                         ^
+[0m  [0x10153] mov ecx, 0x30                                    mov-ic igpr-64, 48
+  [0x10158] add rcx, r12                                     addi igpr-64, igpr-28
+[1m
+collide-mesh.gc:311
+[0m[38;2;255;165;000m->       (closest-pt-in-triangle (the-as vector (-> s5-0 vector)) arg1 (the-as matrix (-> s4-0 vertex)) (-> s4-0 normal))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x1015B] mov rsi, rbx                                     mov igpr-67, igpr-6
+  [0x1015E] add r9, r15                                      call igpr-70 (ret igpr-65) (args igpr-66 igpr-67 igpr-68 igpr-69)
+  [0x10161] call r9
+[1m
+collide-mesh.gc:312
+[0m[38;2;255;165;000m->       (.lvf vf1 (&-> s5-0 vector 0 quad))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10164] vmovaps xmm5, [r15+rbp*1]                        mov ivf-18, [igpr-27 + 0]
+[1m
+collide-mesh.gc:313
+[0m[38;2;255;165;000m->       (.lvf vf2 (&-> arg1 quad))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x1016A] vmovaps xmm4, [r15+rbx*1]                        mov ivf-19, [igpr-6 + 0]
+[1m
+collide-mesh.gc:314
+[0m[38;2;255;165;000m->       (set! v1-0 (-> s5-0 vector 1 quad))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10170] vmovaps xmm7, [r15+rbp*1+0x10]                   mov ii128-72, [igpr-27 + 16]
+[1m
+collide-mesh.gc:315
+[0m[38;2;255;165;000m->       (set! a0-1 (-> s5-0 vector 2 quad))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10177] vmovaps xmm6, [r15+rbp*1+0x20]                   mov ii128-73, [igpr-27 + 32]
+[1m
+collide-mesh.gc:316
+[0m[38;2;255;165;000m->       (.sub.vf vf3 vf2 vf1)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x1017E] vsubps xmm5, xmm4, xmm5                          .sub.vf ivf-20, ivf-19, ivf-18
+[1m
+collide-mesh.gc:317
+[0m[38;2;255;165;000m->       (.mul.w.vf.w vf4 vf2 vf2)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10182] vshufps xmm3, xmm4, xmm4, 0xFF                   .splat.vf ivf-74, ivf-19, 3
+  [0x10187] vmulps xmm3, xmm4, xmm3                          .mul.vf ivf-74, ivf-19, ivf-74
+  [0x1018B] vblendps xmm9, xmm9, xmm3, 0x08                  .blend.vf ivf-21, ivf-21, ivf-74, 8
+[1m
+collide-mesh.gc:318
+[0m[38;2;255;165;000m->       (.mul.vf vf3 vf3 vf3)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10191] vmulps xmm5, xmm5, xmm5                          .mul.vf ivf-20, ivf-20, ivf-20
+[1m
+collide-mesh.gc:319
+[0m[38;2;255;165;000m->       (.mul.x.vf.w acc vf0 vf3)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10195] vshufps xmm4, xmm5, xmm5, 0x00                   .splat.vf ivf-75, ivf-20, 0
+  [0x1019A] vmulps xmm4, xmm10, xmm4                         .mul.vf ivf-75, ivf-17, ivf-75
+  [0x1019E] vblendps xmm8, xmm8, xmm4, 0x08                  .blend.vf ivf-16, ivf-16, ivf-75, 8
+[1m
+collide-mesh.gc:320
+[0m[38;2;255;165;000m->       (.add.mul.y.vf.w acc vf0 vf3 acc)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x101A4] vshufps xmm4, xmm5, xmm5, 0x55                   .splat.vf ivf-76, ivf-20, 1
+  [0x101A9] vmulps xmm4, xmm10, xmm4                         .mul.vf ivf-76, ivf-17, ivf-76
+  [0x101AD] vaddps xmm4, xmm8, xmm4                          .add.vf ivf-76, ivf-16, ivf-76
+  [0x101B1] vblendps xmm8, xmm8, xmm4, 0x08                  .blend.vf ivf-16, ivf-16, ivf-76, 8
+[1m
+collide-mesh.gc:321
+[0m[38;2;255;165;000m->       (.add.mul.z.vf.w vf3 vf0 vf3 acc)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x101B7] vshufps xmm4, xmm5, xmm5, 0xAA                   .splat.vf ivf-77, ivf-20, 2
+  [0x101BC] vmulps xmm4, xmm10, xmm4                         .mul.vf ivf-77, ivf-17, ivf-77
+  [0x101C0] vaddps xmm4, xmm8, xmm4                          .add.vf ivf-77, ivf-16, ivf-77
+  [0x101C4] vblendps xmm5, xmm5, xmm4, 0x08                  .blend.vf ivf-20, ivf-20, ivf-77, 8
+[1m
+collide-mesh.gc:322
+[0m[38;2;255;165;000m->       (.sub.w.vf.w vf3 vf3 vf4)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x101CA] vshufps xmm4, xmm9, xmm9, 0xFF                   .splat.vf ivf-78, ivf-21, 3
+  [0x101D0] vsubps xmm4, xmm5, xmm4                          .sub.vf ivf-78, ivf-20, ivf-78
+  [0x101D4] vblendps xmm5, xmm5, xmm4, 0x08                  .blend.vf ivf-20, ivf-20, ivf-78, 8
+[1m
+collide-mesh.gc:323
+[0m[38;2;255;165;000m->       (.add.w.vf.y vf3 vf0 vf3)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x101DA] vshufps xmm4, xmm5, xmm5, 0xFF                   .splat.vf ivf-79, ivf-20, 3
+  [0x101DF] vaddps xmm4, xmm10, xmm4                         .add.vf ivf-79, ivf-17, ivf-79
+  [0x101E3] vblendps xmm5, xmm5, xmm4, 0x02                  .blend.vf ivf-20, ivf-20, ivf-79, 2
+[1m
+collide-mesh.gc:324
+[0m[38;2;255;165;000m->       (.mov a1-7 vf3)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x101E9] movq r9, xmm5                                    .mov igpr-13 ivf-20
+[1m
+collide-mesh.gc:325
+[0m[38;2;255;165;000m->       (b! (>= (the-as int a1-7) 0) cfg-1 :delay (set! s4-0 (&+ s4-0 96))))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101EE] xor r8, r8                                       mov-ic igpr-81, 0
+  [0x101F1] mov rcx, r14                                     mov-symptr igpr-82, '#f
+  [0x101F4] cmp r9, r8                                       j(igpr-80 < igpr-81) label-131
+  [0x101F7] jl 0x0000000000010202
+  [0x101FD] lea rcx, [r14+0x08]                              mov-symptr igpr-83, '#t
+[1m
+collide-mesh.gc:325
+[0m[38;2;255;165;000m->       (b! (>= (the-as int a1-7) 0) cfg-1 :delay (set! s4-0 (&+ s4-0 96))))
+[0m[1m[38;2;050;205;050m                                                               ^
+[0m  [0x10202] mov r9d, 0x60                                    mov-ic igpr-86, 96
+  [0x10208] add r12, r9                                      addi igpr-85, igpr-86
+[1m
+collide-mesh.gc:325
+[0m[38;2;255;165;000m->       (b! (>= (the-as int a1-7) 0) cfg-1 :delay (set! s4-0 (&+ s4-0 96))))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x1020B] mov r9, r14                                      mov-symptr igpr-88, '#f
+  [0x1020E] cmp rcx, r9                                      j(igpr-84 == igpr-88) label-141
+  [0x10211] jz 0x0000000000010226
+  [0x10217] lea r9, [r14-0x0A]                               mov-symptr igpr-89, '_empty_
+  [0x1021C] jmp 0x0000000000010082                           goto label-24
+  [0x10221] jmp 0x0000000000010229                           goto label-142
+  [0x10226] mov r9, r14                                      mov-symptr igpr-87, '#f
+[1m
+collide-mesh.gc:326
+[0m[38;2;255;165;000m->     (let ((v0-1 #t)) (b! #t cfg-8 :delay (nop!)) (the-as none 0) (label cfg-7) (set! v0-1 #f) (label cfg-8) v0-1)))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x10229] lea rax, [r14+0x08]                              mov-symptr igpr-90, '#t
+[1m
+collide-mesh.gc:326
+[0m[38;2;255;165;000m->     (let ((v0-1 #t)) (b! #t cfg-8 :delay (nop!)) (the-as none 0) (label cfg-7) (set! v0-1 #f) (label cfg-8) v0-1)))
+[0m[1m[38;2;050;205;050m                         ^
+[0m  [0x1022E] lea r9, [r14+0x08]                               mov-symptr igpr-92, '#t
+[1m
+collide-mesh.gc:326
+[0m[38;2;255;165;000m->     (let ((v0-1 #t)) (b! #t cfg-8 :delay (nop!)) (the-as none 0) (label cfg-7) (set! v0-1 #f) (label cfg-8) v0-1)))
+[0m[1m[38;2;050;205;050m                                             ^
+[0m  [0x10233] nop                                              nop
+[1m
+collide-mesh.gc:326
+[0m[38;2;255;165;000m->     (let ((v0-1 #t)) (b! #t cfg-8 :delay (nop!)) (the-as none 0) (label cfg-7) (set! v0-1 #f) (label cfg-8) v0-1)))
+[0m[1m[38;2;050;205;050m                         ^
+[0m  [0x10234] mov r8, r14                                      mov-symptr igpr-95, '#f
+  [0x10237] cmp r9, r8                                       j(igpr-93 == igpr-95) label-154
+  [0x1023A] jz 0x000000000001024F
+  [0x10240] lea r9, [r14-0x0A]                               mov-symptr igpr-96, '_empty_
+  [0x10245] jmp 0x0000000000010258                           goto label-160
+  [0x1024A] jmp 0x0000000000010252                           goto label-155
+  [0x1024F] mov r9, r14                                      mov-symptr igpr-94, '#f
+[1m
+collide-mesh.gc:326
+[0m[38;2;255;165;000m->     (let ((v0-1 #t)) (b! #t cfg-8 :delay (nop!)) (the-as none 0) (label cfg-7) (set! v0-1 #f) (label cfg-8) v0-1)))
+[0m[1m[38;2;050;205;050m                                                     ^
+[0m  [0x10252] xor r9, r9                                       mov-ic igpr-97, 0
+[1m
+collide-mesh.gc:326
+[0m[38;2;255;165;000m->     (let ((v0-1 #t)) (b! #t cfg-8 :delay (nop!)) (the-as none 0) (label cfg-7) (set! v0-1 #f) (label cfg-8) v0-1)))
+[0m[1m[38;2;050;205;050m                                                                                   ^
+[0m  [0x10255] mov rax, r14                                     mov-symptr igpr-99, '#f
+  [0x10258] add rsp, 0x48
+  [0x1025C] pop r12
+  [0x1025E] pop r11
+  [0x10260] pop r10
+  [0x10262] pop rbp
+  [0x10263] pop rbx
+  [0x10264] movdqa xmm11, [rsp+0x30]
+  [0x1026B] movdqa xmm10, [rsp+0x20]
+  [0x10272] movdqa xmm9, [rsp+0x10]
+  [0x10279] movdqa xmm8, [rsp]
+  [0x1027F] add rsp, 0x48
+  [0x10283] ret
+
+
+[autogenerated-inspect-method-of-oot-work]
+[1m[38;2;255;000;000m- [0x10000] [0mpush rbx
+[1m
+collide-mesh.gc:266
+[0m[38;2;255;165;000m-> (deftype oot-work (structure)
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10001] mov rbx, rdi                                     mov igpr-1, igpr-0
+  [0x10004] lea rcx, [r14+0xAFECAFE]                         mov-symptr igpr-2, 'oot-work
+  [0x1000C] lea rsi, [0x0000000000010013]                    mov-sva igpr-3, static-string "[~8x] ~A~%"
+  [0x10013] sub rsi, r15
+  [0x10016] lea rdi, [r14+0x08]                              mov-symptr igpr-4, '#t
+  [0x1001B] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-5, '_format
+  [0x10023] mov rdx, rbx                                     mov igpr-9, igpr-1
+  [0x10026] add r9, r15                                      call igpr-11 (ret igpr-6) (args igpr-7 igpr-8 igpr-9 igpr-10)
+  [0x10029] call r9
+  [0x1002C] mov rdx, rbx                                     mov igpr-13, igpr-1
+  [0x1002F] lea rsi, [0x0000000000010036]                    mov-sva igpr-14, static-string "~Tintersect: ~`vector`P~%"
+  [0x10036] sub rsi, r15
+  [0x10039] lea rdi, [r14+0x08]                              mov-symptr igpr-15, '#t
+  [0x1003E] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-16, '_format
+  [0x10046] add r9, r15                                      call igpr-21 (ret igpr-17) (args igpr-18 igpr-19 igpr-20)
+  [0x10049] call r9
+  [0x1004C] mov edx, 0x10                                    mov-ic igpr-23, 16
+  [0x10051] add rdx, rbx                                     addi igpr-23, igpr-1
+  [0x10054] lea rsi, [0x000000000001005B]                    mov-sva igpr-24, static-string "~Tsphere-bbox4w: #<bounding-box4w @ #x~X>~%"
+  [0x1005B] sub rsi, r15
+  [0x1005E] lea rdi, [r14+0x08]                              mov-symptr igpr-25, '#t
+  [0x10063] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-26, '_format
+  [0x1006B] add r9, r15                                      call igpr-31 (ret igpr-27) (args igpr-28 igpr-29 igpr-30)
+  [0x1006E] call r9
+  [0x10071] mov rax, rbx                                     ret igpr-33 igpr-1
+  [0x10074] pop rbx
+  [0x10075] ret
+
+
+[top-level]
+[1m[38;2;255;000;000m- [0x10000] [0mpush rbx
+  [0x10001] push rbp
+  [0x10002] push r12
+[1m
+collide-mesh.gc:10
+[0m[38;2;255;165;000m-> (defmethod asize-of ((this collide-mesh))
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10004] mov edi, [r15+r14*1+0xBADBEEF]                   mov igpr-0, 'collide-mesh
+  [0x1000C] mov esi, 0x05                                    mov-ic igpr-1, 5
+  [0x10011] lea rdx, [0x0000000000010018]                    mov-fa igpr-2, function-(method asize-of collide-mesh)
+  [0x10018] sub rdx, r15
+  [0x1001B] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-3, 'method-set!
+  [0x10023] add r9, r15                                      call igpr-8 (ret igpr-4) (args igpr-5 igpr-6 igpr-7)
+  [0x10026] call r9
+[1m
+collide-mesh.gc:14
+[0m[38;2;255;165;000m-> (defmethod mem-usage ((this collide-mesh) (arg0 memory-usage-block) (arg1 int))
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10029] mov edi, [r15+r14*1+0xBADBEEF]                   mov igpr-10, 'collide-mesh
+  [0x10031] mov esi, 0x08                                    mov-ic igpr-11, 8
+  [0x10036] lea rdx, [0x000000000001003D]                    mov-fa igpr-12, function-(method mem-usage collide-mesh)
+  [0x1003D] sub rdx, r15
+  [0x10040] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-13, 'method-set!
+  [0x10048] add r9, r15                                      call igpr-18 (ret igpr-14) (args igpr-15 igpr-16 igpr-17)
+  [0x1004B] call r9
+[1m
+collide-mesh.gc:28
+[0m[38;2;255;165;000m-> (defmethod debug-draw-tris ((this collide-mesh) (arg0 process-drawable) (arg1 int))
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x1004E] mov edi, [r15+r14*1+0xBADBEEF]                   mov igpr-20, 'collide-mesh
+  [0x10056] mov esi, 0x09                                    mov-ic igpr-21, 9
+  [0x1005B] lea rdx, [0x0000000000010062]                    mov-fa igpr-22, function-(method debug-draw-tris collide-mesh)
+  [0x10062] sub rdx, r15
+  [0x10065] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-23, 'method-set!
+  [0x1006D] add r9, r15                                      call igpr-28 (ret igpr-24) (args igpr-25 igpr-26 igpr-27)
+  [0x10070] call r9
+[1m
+collide-mesh.gc:74
+[0m[38;2;255;165;000m-> (deftype sopt-work (structure)
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10073] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-30, 'type
+  [0x1007B] mov r9d, [r15+r9*1+0x10]                         mov igpr-31, [igpr-30 + 16]
+  [0x10080] lea rdi, [r14+0xAFECAFE]                         mov-symptr igpr-32, 'sopt-work
+  [0x10088] mov esi, [r15+r14*1+0xBADBEEF]                   mov igpr-33, 'structure
+  [0x10090] mov rdx, 0x900000030                             mov-ic igpr-34, 38654705712
+  [0x1009A] add r9, r15                                      call igpr-39 (ret igpr-35) (args igpr-36 igpr-37 igpr-38)
+  [0x1009D] call r9
+  [0x100A0] mov edi, [r15+r14*1+0xBADBEEF]                   mov igpr-41, 'sopt-work
+  [0x100A8] mov esi, 0x03                                    mov-ic igpr-42, 3
+  [0x100AD] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-43, 'method-set!
+  [0x100B5] lea rdx, [0x00000000000100BC]                    mov-fa igpr-44, function-autogenerated-inspect-method-of-sopt-work
+  [0x100BC] sub rdx, r15
+  [0x100BF] add r9, r15                                      call igpr-49 (ret igpr-45) (args igpr-46 igpr-47 igpr-48)
+  [0x100C2] call r9
+[1m
+collide-mesh.gc:78
+[0m[38;2;255;165;000m-> (defmethod-mips2c "(method 12 collide-mesh)" 12 collide-mesh)
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x100C5] mov ebx, [r15+r14*1+0xBADBEEF]                   mov igpr-51, 'method-set!
+  [0x100CD] mov ebp, [r15+r14*1+0xBADBEEF]                   mov igpr-52, 'collide-mesh
+  [0x100D5] mov r12d, 0x0C                                   mov-ic igpr-53, 12
+  [0x100DB] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-54, '__pc-get-mips2c
+  [0x100E3] lea rdi, [0x00000000000100EA]                    mov-sva igpr-55, static-string "(method 12 collide-mesh)"
+  [0x100EA] sub rdi, r15
+  [0x100ED] add r9, r15                                      call igpr-58 (ret igpr-56) (args igpr-57)
+  [0x100F0] call r9
+  [0x100F3] mov rdi, rbp                                     mov igpr-61, igpr-52
+  [0x100F6] mov rsi, r12                                     mov igpr-62, igpr-53
+  [0x100F9] mov rdx, rax                                     mov igpr-63, igpr-59
+  [0x100FC] mov r9, rbx                                      mov igpr-64, igpr-51
+  [0x100FF] add r9, r15                                      call igpr-64 (ret igpr-60) (args igpr-61 igpr-62 igpr-63)
+  [0x10102] call r9
+[1m
+collide-mesh.gc:80
+[0m[38;2;255;165;000m-> (deftype spat-work (structure)
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10105] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-66, 'type
+  [0x1010D] mov r9d, [r15+r9*1+0x10]                         mov igpr-67, [igpr-66 + 16]
+  [0x10112] lea rdi, [r14+0xAFECAFE]                         mov-symptr igpr-68, 'spat-work
+  [0x1011A] mov esi, [r15+r14*1+0xBADBEEF]                   mov igpr-69, 'structure
+  [0x10122] mov rdx, 0x900000030                             mov-ic igpr-70, 38654705712
+  [0x1012C] add r9, r15                                      call igpr-75 (ret igpr-71) (args igpr-72 igpr-73 igpr-74)
+  [0x1012F] call r9
+  [0x10132] mov edi, [r15+r14*1+0xBADBEEF]                   mov igpr-77, 'spat-work
+  [0x1013A] mov esi, 0x03                                    mov-ic igpr-78, 3
+  [0x1013F] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-79, 'method-set!
+  [0x10147] lea rdx, [0x000000000001014E]                    mov-fa igpr-80, function-autogenerated-inspect-method-of-spat-work
+  [0x1014E] sub rdx, r15
+  [0x10151] add r9, r15                                      call igpr-85 (ret igpr-81) (args igpr-82 igpr-83 igpr-84)
+  [0x10154] call r9
+[1m
+collide-mesh.gc:84
+[0m[38;2;255;165;000m-> (defmethod-mips2c "(method 11 collide-mesh)" 11 collide-mesh)
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10157] mov ebx, [r15+r14*1+0xBADBEEF]                   mov igpr-87, 'method-set!
+  [0x1015F] mov r12d, [r15+r14*1+0xBADBEEF]                  mov igpr-88, 'collide-mesh
+  [0x10167] mov ebp, 0x0B                                    mov-ic igpr-89, 11
+  [0x1016C] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-90, '__pc-get-mips2c
+  [0x10174] lea rdi, [0x000000000001017B]                    mov-sva igpr-91, static-string "(method 11 collide-mesh)"
+  [0x1017B] sub rdi, r15
+  [0x1017E] add r9, r15                                      call igpr-94 (ret igpr-92) (args igpr-93)
+  [0x10181] call r9
+  [0x10184] mov rdi, r12                                     mov igpr-97, igpr-88
+  [0x10187] mov rsi, rbp                                     mov igpr-98, igpr-89
+  [0x1018A] mov rdx, rax                                     mov igpr-99, igpr-95
+  [0x1018D] mov r9, rbx                                      mov igpr-100, igpr-87
+  [0x10190] add r9, r15                                      call igpr-100 (ret igpr-96) (args igpr-97 igpr-98 igpr-99)
+  [0x10193] call r9
+[1m
+collide-mesh.gc:86
+[0m[38;2;255;165;000m-> (defmethod-mips2c "(method 14 collide-mesh)" 14 collide-mesh)
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10196] mov ebx, [r15+r14*1+0xBADBEEF]                   mov igpr-102, 'method-set!
+  [0x1019E] mov r12d, [r15+r14*1+0xBADBEEF]                  mov igpr-103, 'collide-mesh
+  [0x101A6] mov ebp, 0x0E                                    mov-ic igpr-104, 14
+  [0x101AB] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-105, '__pc-get-mips2c
+  [0x101B3] lea rdi, [0x00000000000101BA]                    mov-sva igpr-106, static-string "(method 14 collide-mesh)"
+  [0x101BA] sub rdi, r15
+  [0x101BD] add r9, r15                                      call igpr-109 (ret igpr-107) (args igpr-108)
+  [0x101C0] call r9
+  [0x101C3] mov rdi, r12                                     mov igpr-112, igpr-103
+  [0x101C6] mov rsi, rbp                                     mov igpr-113, igpr-104
+  [0x101C9] mov rdx, rax                                     mov igpr-114, igpr-110
+  [0x101CC] mov r9, rbx                                      mov igpr-115, igpr-102
+  [0x101CF] add r9, r15                                      call igpr-115 (ret igpr-111) (args igpr-112 igpr-113 igpr-114)
+  [0x101D2] call r9
+[1m
+collide-mesh.gc:88
+[0m[38;2;255;165;000m-> (defmethod-mips2c "(method 15 collide-mesh)" 15 collide-mesh)
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x101D5] mov ebx, [r15+r14*1+0xBADBEEF]                   mov igpr-117, 'method-set!
+  [0x101DD] mov ebp, [r15+r14*1+0xBADBEEF]                   mov igpr-118, 'collide-mesh
+  [0x101E5] mov r12d, 0x0F                                   mov-ic igpr-119, 15
+  [0x101EB] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-120, '__pc-get-mips2c
+  [0x101F3] lea rdi, [0x00000000000101FA]                    mov-sva igpr-121, static-string "(method 15 collide-mesh)"
+  [0x101FA] sub rdi, r15
+  [0x101FD] add r9, r15                                      call igpr-124 (ret igpr-122) (args igpr-123)
+  [0x10200] call r9
+  [0x10203] mov rdi, rbp                                     mov igpr-127, igpr-118
+  [0x10206] mov rsi, r12                                     mov igpr-128, igpr-119
+  [0x10209] mov rdx, rax                                     mov igpr-129, igpr-125
+  [0x1020C] mov r9, rbx                                      mov igpr-130, igpr-117
+  [0x1020F] add r9, r15                                      call igpr-130 (ret igpr-126) (args igpr-127 igpr-128 igpr-129)
+  [0x10212] call r9
+[1m
+collide-mesh.gc:90
+[0m[38;2;255;165;000m-> (defmethod allocate! ((this collide-mesh-cache) (arg0 int))
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10215] mov edi, [r15+r14*1+0xBADBEEF]                   mov igpr-132, 'collide-mesh-cache
+  [0x1021D] mov esi, 0x09                                    mov-ic igpr-133, 9
+  [0x10222] lea rdx, [0x0000000000010229]                    mov-fa igpr-134, function-(method allocate! collide-mesh-cache)
+  [0x10229] sub rdx, r15
+  [0x1022C] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-135, 'method-set!
+  [0x10234] add r9, r15                                      call igpr-140 (ret igpr-136) (args igpr-137 igpr-138 igpr-139)
+  [0x10237] call r9
+[1m
+collide-mesh.gc:118
+[0m[38;2;255;165;000m-> (defmethod populate-cache! ((this collide-mesh) (arg0 collide-mesh-cache-tri) (arg1 matrix))
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x1023A] mov edi, [r15+r14*1+0xBADBEEF]                   mov igpr-142, 'collide-mesh
+  [0x10242] mov esi, 0x0D                                    mov-ic igpr-143, 13
+  [0x10247] lea rdx, [0x000000000001024E]                    mov-fa igpr-144, function-(method populate-cache! collide-mesh)
+  [0x1024E] sub rdx, r15
+  [0x10251] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-145, 'method-set!
+  [0x10259] add r9, r15                                      call igpr-150 (ret igpr-146) (args igpr-147 igpr-148 igpr-149)
+  [0x1025C] call r9
+[1m
+collide-mesh.gc:266
+[0m[38;2;255;165;000m-> (deftype oot-work (structure)
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x1025F] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-152, 'type
+  [0x10267] mov r9d, [r15+r9*1+0x10]                         mov igpr-153, [igpr-152 + 16]
+  [0x1026C] lea rdi, [r14+0xAFECAFE]                         mov-symptr igpr-154, 'oot-work
+  [0x10274] mov esi, [r15+r14*1+0xBADBEEF]                   mov igpr-155, 'structure
+  [0x1027C] mov rdx, 0x900000030                             mov-ic igpr-156, 38654705712
+  [0x10286] add r9, r15                                      call igpr-161 (ret igpr-157) (args igpr-158 igpr-159 igpr-160)
+  [0x10289] call r9
+  [0x1028C] mov edi, [r15+r14*1+0xBADBEEF]                   mov igpr-163, 'oot-work
+  [0x10294] mov esi, 0x03                                    mov-ic igpr-164, 3
+  [0x10299] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-165, 'method-set!
+  [0x102A1] lea rdx, [0x00000000000102A8]                    mov-fa igpr-166, function-autogenerated-inspect-method-of-oot-work
+  [0x102A8] sub rdx, r15
+  [0x102AB] add r9, r15                                      call igpr-171 (ret igpr-167) (args igpr-168 igpr-169 igpr-170)
+  [0x102AE] call r9
+[1m
+collide-mesh.gc:270
+[0m[38;2;255;165;000m-> (defmethod overlap-test ((this collide-mesh) (arg0 collide-mesh-cache-tri) (arg1 vector))
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x102B1] mov edi, [r15+r14*1+0xBADBEEF]                   mov igpr-173, 'collide-mesh
+  [0x102B9] mov esi, 0x0A                                    mov-ic igpr-174, 10
+  [0x102BE] lea rdx, [0x00000000000102C5]                    mov-fa igpr-175, function-(method overlap-test collide-mesh)
+  [0x102C5] sub rdx, r15
+  [0x102C8] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-176, 'method-set!
+  [0x102D0] add r9, r15                                      call igpr-181 (ret igpr-177) (args igpr-178 igpr-179 igpr-180)
+  [0x102D3] call r9
+[1m
+collide-mesh.gc:1
+[0m[38;2;255;165;000m-> ;-*-Lisp-*-
+[0m[1m[38;2;050;205;050m   ^
+[0m  [0x102D6] mov rax, rbx                                     ret igpr-183 igpr-182
+  [0x102D9] pop r12
+  [0x102DB] pop rbp
+  [0x102DC] pop rbx
+  [0x102DD] ret
+
+
+[(method populate-cache! collide-mesh)]
+[1m[38;2;255;000;000m- [0x10000] [0msub rsp, 0x68
+  [0x10004] movdqa [rsp], xmm8
+  [0x1000A] movdqa [rsp+0x10], xmm9
+  [0x10011] movdqa [rsp+0x20], xmm10
+  [0x10018] movdqa [rsp+0x30], xmm11
+  [0x1001F] movdqa [rsp+0x40], xmm12
+  [0x10026] movdqa [rsp+0x50], xmm13
+  [0x1002D] push rbx
+  [0x1002E] push rbp
+  [0x1002F] push r12
+[1m
+collide-mesh.gc:135
+[0m[38;2;255;165;000m->     (init-vf0-vector)
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x10031] vmovaps xmm6, [0x0000000000010039]               mov-svl ivf-10, [static-structure]
+[1m
+collide-mesh.gc:136
+[0m[38;2;255;165;000m->     (nop!)
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x10039] nop                                              nop
+[1m
+collide-mesh.gc:137
+[0m[38;2;255;165;000m->     (let ((t0-0 (scratchpad-object int))
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x1003A] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-23, '*fake-scratchpad-data*
+  [0x10042] xor r8, r8                                       mov-ic igpr-25, 0
+  [0x10045] add r9, r8                                       addi igpr-24, igpr-25
+[1m
+collide-mesh.gc:138
+[0m[38;2;255;165;000m->           (v1-0 (-> this num-verts)))
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x10048] mov r8d, [r15+rdi*1+0x08]                        mov igpr-27, [igpr-4 + 8]
+[1m
+collide-mesh.gc:139
+[0m[38;2;255;165;000m->       (nop!)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x1004D] nop                                              nop
+[1m
+collide-mesh.gc:140
+[0m[38;2;255;165;000m->       (let ((a3-0 (-> this vertex-data)))
+[0m[1m[38;2;050;205;050m                      ^
+[0m  [0x1004E] mov ecx, [r15+rdi*1+0x0C]                        mov igpr-30, [igpr-4 + 12]
+[1m
+collide-mesh.gc:141
+[0m[38;2;255;165;000m->         (b! (zero? v1-0) cfg-3 :delay (.lvf vf1 (&-> arg1 vector 0 quad)))
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10053] xor rax, rax                                     mov-ic igpr-32, 0
+  [0x10056] mov rbx, r14                                     mov-symptr igpr-33, '#f
+  [0x10059] cmp r8, rax                                      j(igpr-29 != igpr-32) label-22
+  [0x1005C] jnz 0x0000000000010067
+  [0x10062] lea rbx, [r14+0x08]                              mov-symptr igpr-34, '#t
+[1m
+collide-mesh.gc:141
+[0m[38;2;255;165;000m->         (b! (zero? v1-0) cfg-3 :delay (.lvf vf1 (&-> arg1 vector 0 quad)))
+[0m[1m[38;2;050;205;050m                                          ^
+[0m  [0x10067] vmovaps xmm5, [r15+rdx*1]                        mov ivf-11, [igpr-6 + 0]
+[1m
+collide-mesh.gc:141
+[0m[38;2;255;165;000m->         (b! (zero? v1-0) cfg-3 :delay (.lvf vf1 (&-> arg1 vector 0 quad)))
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x1006D] mov rax, r14                                     mov-symptr igpr-37, '#f
+  [0x10070] cmp rbx, rax                                     j(igpr-35 == igpr-37) label-29
+  [0x10073] jz 0x0000000000010088
+  [0x10079] lea r9, [r14-0x0A]                               mov-symptr igpr-38, '_empty_
+  [0x1007E] jmp 0x0000000000010251                           goto label-152
+  [0x10083] jmp 0x000000000001008B                           goto label-30
+  [0x10088] mov rax, r14                                     mov-symptr igpr-36, '#f
+[1m
+collide-mesh.gc:142
+[0m[38;2;255;165;000m->         (nop!)
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x1008B] nop                                              nop
+[1m
+collide-mesh.gc:143
+[0m[38;2;255;165;000m->         (.lvf vf2 (&-> arg1 vector 1 quad))
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x1008C] vmovaps xmm2, [r15+rdx*1+0x10]                   mov ivf-15, [igpr-6 + 16]
+[1m
+collide-mesh.gc:144
+[0m[38;2;255;165;000m->         (let ((t0-1 (+ t0-0 -64)))
+[0m[1m[38;2;050;205;050m                        ^
+[0m  [0x10093] mov rax, 0xFFFFFFFFFFFFFFC0                      mov-ic igpr-40, 18446744073709551552
+  [0x1009A] add r9, rax                                      addi igpr-39, igpr-40
+[1m
+collide-mesh.gc:145
+[0m[38;2;255;165;000m->           (.lvf vf3 (&-> arg1 vector 2 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1009D] vmovaps xmm1, [r15+rdx*1+0x20]                   mov ivf-16, [igpr-6 + 32]
+[1m
+collide-mesh.gc:146
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100A4] nop                                              nop
+[1m
+collide-mesh.gc:147
+[0m[38;2;255;165;000m->           (.lvf vf4 (&-> arg1 vector 3 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100A5] vmovaps xmm0, [r15+rdx*1+0x30]                   mov ivf-17, [igpr-6 + 48]
+[1m
+collide-mesh.gc:148
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100AC] nop                                              nop
+[1m
+collide-mesh.gc:149
+[0m[38;2;255;165;000m->           (.lvf vf5 (&-> a3-0 0 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100AD] vmovaps xmm8, [r15+rcx*1]                        mov ivf-18, [igpr-31 + 0]
+[1m
+collide-mesh.gc:150
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100B3] nop                                              nop
+[1m
+collide-mesh.gc:151
+[0m[38;2;255;165;000m->           (.lvf vf6 (&-> a3-0 1 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100B4] vmovaps xmm9, [r15+rcx*1+0x10]                   mov ivf-19, [igpr-31 + 16]
+[1m
+collide-mesh.gc:152
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100BB] nop                                              nop
+[1m
+collide-mesh.gc:153
+[0m[38;2;255;165;000m->           (.lvf vf7 (&-> a3-0 2 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100BC] vmovaps xmm10, [r15+rcx*1+0x20]                  mov ivf-20, [igpr-31 + 32]
+[1m
+collide-mesh.gc:154
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100C3] nop                                              nop
+[1m
+collide-mesh.gc:155
+[0m[38;2;255;165;000m->           (.lvf vf8 (&-> a3-0 3 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100C4] vmovaps xmm11, [r15+rcx*1+0x30]                  mov ivf-21, [igpr-31 + 48]
+[1m
+collide-mesh.gc:157
+[0m[38;2;255;165;000m->           (.mul.w.vf acc vf4 vf0)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100CB] vshufps xmm7, xmm6, xmm6, 0xFF                   .splat.vf ivf-42, ivf-10, 3
+  [0x100D0] vmulps xmm7, xmm0, xmm7                          .mul.vf ivf-8, ivf-17, ivf-42
+[1m
+collide-mesh.gc:158
+[0m[38;2;255;165;000m->           (set! a3-0 (the-as (inline-array vector) (-> a3-0 4)))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100D4] mov edx, 0x40                                    mov-ic igpr-43, 64
+  [0x100D9] add rdx, rcx                                     addi igpr-43, igpr-31
+  [0x100DC] mov rcx, rdx                                     mov igpr-31, igpr-44
+[1m
+collide-mesh.gc:159
+[0m[38;2;255;165;000m->           (.add.mul.x.vf acc vf1 vf5 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100DF] vshufps xmm4, xmm8, xmm8, 0x00                   .splat.vf ivf-45, ivf-18, 0
+  [0x100E5] vmulps xmm4, xmm5, xmm4                          .mul.vf ivf-45, ivf-11, ivf-45
+  [0x100E9] vaddps xmm7, xmm7, xmm4                          .add.vf ivf-8, ivf-8, ivf-45
+[1m
+collide-mesh.gc:160
+[0m[38;2;255;165;000m->           (+! t0-1 64)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100ED] mov edx, 0x40                                    mov-ic igpr-47, 64
+  [0x100F2] add r9, rdx                                      addi igpr-46, igpr-47
+[1m
+collide-mesh.gc:161
+[0m[38;2;255;165;000m->           (.add.mul.y.vf acc vf2 vf5 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100F5] vshufps xmm4, xmm8, xmm8, 0x55                   .splat.vf ivf-48, ivf-18, 1
+  [0x100FB] vmulps xmm4, xmm2, xmm4                          .mul.vf ivf-48, ivf-15, ivf-48
+  [0x100FF] vaddps xmm7, xmm7, xmm4                          .add.vf ivf-8, ivf-8, ivf-48
+[1m
+collide-mesh.gc:162
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10103] nop                                              nop
+[1m
+collide-mesh.gc:163
+[0m[38;2;255;165;000m->           (.add.mul.z.vf vf9 vf3 vf5 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10104] vshufps xmm4, xmm8, xmm8, 0xAA                   .splat.vf ivf-49, ivf-18, 2
+  [0x1010A] vmulps xmm4, xmm1, xmm4                          .mul.vf ivf-49, ivf-16, ivf-49
+  [0x1010E] vaddps xmm12, xmm7, xmm4                         .add.vf ivf-22, ivf-8, ivf-49
+[1m
+collide-mesh.gc:164
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10112] nop                                              nop
+[1m
+collide-mesh.gc:165
+[0m[38;2;255;165;000m->           (.mul.w.vf acc vf4 vf0)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10113] vshufps xmm7, xmm6, xmm6, 0xFF                   .splat.vf ivf-50, ivf-10, 3
+  [0x10118] vmulps xmm7, xmm0, xmm7                          .mul.vf ivf-8, ivf-17, ivf-50
+[1m
+collide-mesh.gc:166
+[0m[38;2;255;165;000m->           (.lvf vf5 (&-> a3-0 0 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1011C] vmovaps xmm8, [r15+rcx*1]                        mov ivf-18, [igpr-31 + 0]
+[1m
+collide-mesh.gc:167
+[0m[38;2;255;165;000m->           (.add.mul.x.vf acc vf1 vf6 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10122] vshufps xmm4, xmm9, xmm9, 0x00                   .splat.vf ivf-51, ivf-19, 0
+  [0x10128] vmulps xmm4, xmm5, xmm4                          .mul.vf ivf-51, ivf-11, ivf-51
+  [0x1012C] vaddps xmm7, xmm7, xmm4                          .add.vf ivf-8, ivf-8, ivf-51
+[1m
+collide-mesh.gc:168
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10130] nop                                              nop
+[1m
+collide-mesh.gc:169
+[0m[38;2;255;165;000m->           (.add.mul.y.vf acc vf2 vf6 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10131] vshufps xmm4, xmm9, xmm9, 0x55                   .splat.vf ivf-52, ivf-19, 1
+  [0x10137] vmulps xmm4, xmm2, xmm4                          .mul.vf ivf-52, ivf-15, ivf-52
+  [0x1013B] vaddps xmm7, xmm7, xmm4                          .add.vf ivf-8, ivf-8, ivf-52
+[1m
+collide-mesh.gc:170
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1013F] nop                                              nop
+[1m
+collide-mesh.gc:171
+[0m[38;2;255;165;000m->           (.add.mul.z.vf vf10 vf3 vf6 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10140] vshufps xmm4, xmm9, xmm9, 0xAA                   .splat.vf ivf-53, ivf-19, 2
+  [0x10146] vmulps xmm4, xmm1, xmm4                          .mul.vf ivf-53, ivf-16, ivf-53
+  [0x1014A] vaddps xmm4, xmm7, xmm4                          .add.vf ivf-12, ivf-8, ivf-53
+[1m
+collide-mesh.gc:172
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1014E] nop                                              nop
+[1m
+collide-mesh.gc:173
+[0m[38;2;255;165;000m->           (.mul.w.vf acc vf4 vf0)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1014F] vshufps xmm7, xmm6, xmm6, 0xFF                   .splat.vf ivf-54, ivf-10, 3
+  [0x10154] vmulps xmm7, xmm0, xmm7                          .mul.vf ivf-8, ivf-17, ivf-54
+[1m
+collide-mesh.gc:174
+[0m[38;2;255;165;000m->           (.lvf vf6 (&-> a3-0 1 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10158] vmovaps xmm9, [r15+rcx*1+0x10]                   mov ivf-19, [igpr-31 + 16]
+[1m
+collide-mesh.gc:175
+[0m[38;2;255;165;000m->           (.add.mul.x.vf acc vf1 vf7 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1015F] vshufps xmm3, xmm10, xmm10, 0x00                 .splat.vf ivf-55, ivf-20, 0
+  [0x10165] vmulps xmm3, xmm5, xmm3                          .mul.vf ivf-55, ivf-11, ivf-55
+  [0x10169] vaddps xmm7, xmm7, xmm3                          .add.vf ivf-8, ivf-8, ivf-55
+[1m
+collide-mesh.gc:176
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1016D] nop                                              nop
+[1m
+collide-mesh.gc:177
+[0m[38;2;255;165;000m->           (.add.mul.y.vf acc vf2 vf7 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1016E] vshufps xmm3, xmm10, xmm10, 0x55                 .splat.vf ivf-56, ivf-20, 1
+  [0x10174] vmulps xmm3, xmm2, xmm3                          .mul.vf ivf-56, ivf-15, ivf-56
+  [0x10178] vaddps xmm7, xmm7, xmm3                          .add.vf ivf-8, ivf-8, ivf-56
+[1m
+collide-mesh.gc:178
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1017C] nop                                              nop
+[1m
+collide-mesh.gc:179
+[0m[38;2;255;165;000m->           (.add.mul.z.vf vf11 vf3 vf7 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1017D] vshufps xmm3, xmm10, xmm10, 0xAA                 .splat.vf ivf-57, ivf-20, 2
+  [0x10183] vmulps xmm3, xmm1, xmm3                          .mul.vf ivf-57, ivf-16, ivf-57
+  [0x10187] vaddps xmm3, xmm7, xmm3                          .add.vf ivf-13, ivf-8, ivf-57
+[1m
+collide-mesh.gc:180
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1018B] nop                                              nop
+[1m
+collide-mesh.gc:181
+[0m[38;2;255;165;000m->           (.mul.w.vf acc vf4 vf0)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1018C] vshufps xmm7, xmm6, xmm6, 0xFF                   .splat.vf ivf-58, ivf-10, 3
+  [0x10191] vmulps xmm7, xmm0, xmm7                          .mul.vf ivf-8, ivf-17, ivf-58
+[1m
+collide-mesh.gc:182
+[0m[38;2;255;165;000m->           (.lvf vf7 (&-> a3-0 2 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10195] vmovaps xmm10, [r15+rcx*1+0x20]                  mov ivf-20, [igpr-31 + 32]
+[1m
+collide-mesh.gc:183
+[0m[38;2;255;165;000m->           (.add.mul.x.vf acc vf1 vf8 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1019C] vshufps xmm13, xmm11, xmm11, 0x00                .splat.vf ivf-59, ivf-21, 0
+  [0x101A2] vmulps xmm13, xmm5, xmm13                        .mul.vf ivf-59, ivf-11, ivf-59
+  [0x101A7] vaddps xmm7, xmm7, xmm13                         .add.vf ivf-8, ivf-8, ivf-59
+[1m
+collide-mesh.gc:184
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101AC] nop                                              nop
+[1m
+collide-mesh.gc:185
+[0m[38;2;255;165;000m->           (.add.mul.y.vf acc vf2 vf8 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101AD] vshufps xmm13, xmm11, xmm11, 0x55                .splat.vf ivf-60, ivf-21, 1
+  [0x101B3] vmulps xmm13, xmm2, xmm13                        .mul.vf ivf-60, ivf-15, ivf-60
+  [0x101B8] vaddps xmm7, xmm7, xmm13                         .add.vf ivf-8, ivf-8, ivf-60
+[1m
+collide-mesh.gc:186
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101BD] nop                                              nop
+[1m
+collide-mesh.gc:187
+[0m[38;2;255;165;000m->           (.add.mul.z.vf vf12 vf3 vf8 acc)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101BE] vshufps xmm11, xmm11, xmm11, 0xAA                .splat.vf ivf-61, ivf-21, 2
+  [0x101C4] vmulps xmm11, xmm1, xmm11                        .mul.vf ivf-61, ivf-16, ivf-61
+  [0x101C9] vaddps xmm7, xmm7, xmm11                         .add.vf ivf-14, ivf-8, ivf-61
+[1m
+collide-mesh.gc:188
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101CE] nop                                              nop
+[1m
+collide-mesh.gc:189
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101CF] nop                                              nop
+[1m
+collide-mesh.gc:190
+[0m[38;2;255;165;000m->           (.lvf vf8 (&-> a3-0 3 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101D0] vmovaps xmm11, [r15+rcx*1+0x30]                  mov ivf-21, [igpr-31 + 48]
+[1m
+collide-mesh.gc:191
+[0m[38;2;255;165;000m->           (+! v1-0 -4)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101D7] mov rdx, 0xFFFFFFFFFFFFFFFC                      mov-ic igpr-63, 18446744073709551612
+  [0x101DE] add r8, rdx                                      addi igpr-62, igpr-63
+[1m
+collide-mesh.gc:192
+[0m[38;2;255;165;000m->           (.svf t0-1 vf9)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101E1] vmovaps [r15+r9*1], xmm12                        move [igpr-41 + 0], ivf-22
+[1m
+collide-mesh.gc:193
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101E7] nop                                              nop
+[1m
+collide-mesh.gc:194
+[0m[38;2;255;165;000m->           (.svf (+ t0-1 16) vf10)
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x101E8] mov rdx, r9                                      mov igpr-64, igpr-41
+  [0x101EB] mov eax, 0x10                                    mov-ic igpr-65, 16
+  [0x101F0] add rdx, rax                                     addi igpr-64, igpr-65
+[1m
+collide-mesh.gc:194
+[0m[38;2;255;165;000m->           (.svf (+ t0-1 16) vf10)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101F3] vmovaps [r15+rdx*1], xmm4                        move [igpr-64 + 0], ivf-12
+[1m
+collide-mesh.gc:195
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101F9] nop                                              nop
+[1m
+collide-mesh.gc:196
+[0m[38;2;255;165;000m->           (.svf (+ t0-1 32) vf11)
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x101FA] mov rdx, r9                                      mov igpr-66, igpr-41
+  [0x101FD] mov eax, 0x20                                    mov-ic igpr-67, 32
+  [0x10202] add rdx, rax                                     addi igpr-66, igpr-67
+[1m
+collide-mesh.gc:196
+[0m[38;2;255;165;000m->           (.svf (+ t0-1 32) vf11)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10205] vmovaps [r15+rdx*1], xmm3                        move [igpr-66 + 0], ivf-13
+[1m
+collide-mesh.gc:197
+[0m[38;2;255;165;000m->           (b! (> (the-as int v1-0) 0) cfg-2 :delay (.svf (+ t0-1 48) vf12)))))
+[0m[1m[38;2;050;205;050m                  ^
+[0m  [0x1020B] mov rdx, r8                                      mov igpr-68, igpr-29
+  [0x1020E] xor rax, rax                                     mov-ic igpr-69, 0
+  [0x10211] mov rbx, r14                                     mov-symptr igpr-70, '#f
+  [0x10214] cmp rdx, rax                                     j(igpr-68 <= igpr-69) label-137
+  [0x10217] jle 0x0000000000010222
+  [0x1021D] lea rbx, [r14+0x08]                              mov-symptr igpr-71, '#t
+[1m
+collide-mesh.gc:197
+[0m[38;2;255;165;000m->           (b! (> (the-as int v1-0) 0) cfg-2 :delay (.svf (+ t0-1 48) vf12)))))
+[0m[1m[38;2;050;205;050m                                                             ^
+[0m  [0x10222] mov rdx, r9                                      mov igpr-73, igpr-41
+  [0x10225] mov eax, 0x30                                    mov-ic igpr-74, 48
+  [0x1022A] add rdx, rax                                     addi igpr-73, igpr-74
+[1m
+collide-mesh.gc:197
+[0m[38;2;255;165;000m->           (b! (> (the-as int v1-0) 0) cfg-2 :delay (.svf (+ t0-1 48) vf12)))))
+[0m[1m[38;2;050;205;050m                                                       ^
+[0m  [0x1022D] vmovaps [r15+rdx*1], xmm7                        move [igpr-73 + 0], ivf-14
+[1m
+collide-mesh.gc:197
+[0m[38;2;255;165;000m->           (b! (> (the-as int v1-0) 0) cfg-2 :delay (.svf (+ t0-1 48) vf12)))))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10233] mov rdx, r14                                     mov-symptr igpr-76, '#f
+  [0x10236] cmp rbx, rdx                                     j(igpr-72 == igpr-76) label-147
+  [0x10239] jz 0x000000000001024E
+  [0x1023F] lea rdx, [r14-0x0A]                              mov-symptr igpr-77, '_empty_
+  [0x10244] jmp 0x00000000000100CB                           goto label-48
+  [0x10249] jmp 0x0000000000010251                           goto label-148
+  [0x1024E] mov r9, r14                                      mov-symptr igpr-75, '#f
+[1m
+collide-mesh.gc:199
+[0m[38;2;255;165;000m->     (let ((v1-1 (the-as collide-mesh-tri (-> this tris))))
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x10251] mov r9d, 0x1C                                    mov-ic igpr-78, 28
+  [0x10257] add r9, rdi                                      addi igpr-78, igpr-4
+[1m
+collide-mesh.gc:199
+[0m[38;2;255;165;000m->     (let ((v1-1 (the-as collide-mesh-tri (-> this tris))))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x1025A] mov r8, r9                                       mov igpr-80, igpr-79
+[1m
+collide-mesh.gc:200
+[0m[38;2;255;165;000m->       (nop!)
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x1025D] nop                                              nop
+[1m
+collide-mesh.gc:201
+[0m[38;2;255;165;000m->       (let ((a2-1 (scratchpad-object int))
+[0m[1m[38;2;050;205;050m                      ^
+[0m  [0x1025E] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-81, '*fake-scratchpad-data*
+  [0x10266] xor rcx, rcx                                     mov-ic igpr-83, 0
+  [0x10269] add r9, rcx                                      addi igpr-82, igpr-83
+[1m
+collide-mesh.gc:202
+[0m[38;2;255;165;000m->             (a0-1 (-> this num-tris)))
+[0m[1m[38;2;050;205;050m                      ^
+[0m  [0x1026C] mov ecx, [r15+rdi*1+0x04]                        mov igpr-85, [igpr-4 + 4]
+[1m
+collide-mesh.gc:201
+[0m[38;2;255;165;000m->       (let ((a2-1 (scratchpad-object int))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10271] mov rdx, r9                                      mov igpr-86, igpr-84
+[1m
+collide-mesh.gc:203
+[0m[38;2;255;165;000m->         (b! (zero? a0-1) cfg-6 :delay (set! t0-2 (-> v1-1 vertex-index 0)))
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10274] xor r9, r9                                       mov-ic igpr-88, 0
+  [0x10277] mov rdi, r14                                     mov-symptr igpr-89, '#f
+  [0x1027A] cmp rcx, r9                                      j(igpr-87 != igpr-88) label-170
+  [0x1027D] jnz 0x0000000000010288
+  [0x10283] lea rdi, [r14+0x08]                              mov-symptr igpr-90, '#t
+[1m
+collide-mesh.gc:203
+[0m[38;2;255;165;000m->         (b! (zero? a0-1) cfg-6 :delay (set! t0-2 (-> v1-1 vertex-index 0)))
+[0m[1m[38;2;050;205;050m                                          ^
+[0m  [0x10288] movzx r9, byte ptr [r15+r8*1]                    mov igpr-92, [igpr-80 + 0]
+[1m
+collide-mesh.gc:203
+[0m[38;2;255;165;000m->         (b! (zero? a0-1) cfg-6 :delay (set! t0-2 (-> v1-1 vertex-index 0)))
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x1028D] mov rax, r14                                     mov-symptr igpr-94, '#f
+  [0x10290] cmp rdi, rax                                     j(igpr-91 == igpr-94) label-178
+  [0x10293] jz 0x00000000000102A8
+  [0x10299] lea r9, [r14-0x0A]                               mov-symptr igpr-95, '_empty_
+  [0x1029E] jmp 0x0000000000010446                           goto label-331
+  [0x102A3] jmp 0x00000000000102AB                           goto label-179
+  [0x102A8] mov rdi, r14                                     mov-symptr igpr-93, '#f
+[1m
+collide-mesh.gc:204
+[0m[38;2;255;165;000m->         (let* ((a1-1 (&+ arg0 -96))
+[0m[1m[38;2;050;205;050m                         ^
+[0m  [0x102AB] mov rdi, 0xFFFFFFFFFFFFFFA0                      mov-ic igpr-97, 18446744073709551520
+  [0x102B2] add rsi, rdi                                     addi igpr-96, igpr-97
+[1m
+collide-mesh.gc:205
+[0m[38;2;255;165;000m->                (a3-1 (-> v1-1 vertex-index 1))
+[0m[1m[38;2;050;205;050m                         ^
+[0m  [0x102B5] movzx rdi, byte ptr [r15+r8*1+0x01]              mov igpr-99, [igpr-80 + 1]
+[1m
+collide-mesh.gc:206
+[0m[38;2;255;165;000m->                (t0-3 (* t0-2 16))
+[0m[1m[38;2;050;205;050m                         ^
+[0m  [0x102BB] shl r9, 0x04                                     shl igpr-101, 4
+[1m
+collide-mesh.gc:207
+[0m[38;2;255;165;000m->                (t2-0 (-> v1-1 vertex-index 2))
+[0m[1m[38;2;050;205;050m                         ^
+[0m  [0x102BF] movzx rax, byte ptr [r15+r8*1+0x02]              mov igpr-103, [igpr-80 + 2]
+[1m
+collide-mesh.gc:208
+[0m[38;2;255;165;000m->                (t1-0 (* a3-1 16))
+[0m[1m[38;2;050;205;050m                         ^
+[0m  [0x102C5] shl rdi, 0x04                                    shl igpr-105, 4
+[1m
+collide-mesh.gc:209
+[0m[38;2;255;165;000m->                (a3-2 (-> v1-1 pat)))
+[0m[1m[38;2;050;205;050m                         ^
+[0m  [0x102C9] mov ebx, [r15+r8*1+0x04]                         mov igpr-107, [igpr-80 + 4]
+[1m
+collide-mesh.gc:210
+[0m[38;2;255;165;000m->           (let* ((t2-1 (* t2-0 16))
+[0m[1m[38;2;050;205;050m                           ^
+[0m  [0x102CE] shl rax, 0x04                                    shl igpr-109, 4
+[1m
+collide-mesh.gc:211
+[0m[38;2;255;165;000m->                  (t0-4 (+ t0-3 a2-1))
+[0m[1m[38;2;050;205;050m                           ^
+[0m  [0x102D2] add r9, rdx                                      addi igpr-111, igpr-86
+[1m
+collide-mesh.gc:212
+[0m[38;2;255;165;000m->                  (t1-1 (+ t1-0 a2-1))
+[0m[1m[38;2;050;205;050m                           ^
+[0m  [0x102D5] add rdi, rdx                                     addi igpr-113, igpr-86
+[1m
+collide-mesh.gc:213
+[0m[38;2;255;165;000m->                  (t2-2 (+ t2-1 a2-1)))
+[0m[1m[38;2;050;205;050m                           ^
+[0m  [0x102D8] add rax, rdx                                     addi igpr-115, igpr-86
+[1m
+collide-mesh.gc:215
+[0m[38;2;255;165;000m->             (+! a0-1 -1)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x102DB] mov rbp, 0xFFFFFFFFFFFFFFFF                      mov-ic igpr-118, 18446744073709551615
+  [0x102E2] add rcx, rbp                                     addi igpr-117, igpr-118
+[1m
+collide-mesh.gc:216
+[0m[38;2;255;165;000m->             (.lvf vf1 t0-4)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x102E5] vmovaps xmm5, [r15+r9*1]                         mov ivf-11, [igpr-112 + 0]
+[1m
+collide-mesh.gc:217
+[0m[38;2;255;165;000m->             (&+! v1-1 8)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x102EB] mov r9d, 0x08                                    mov-ic igpr-120, 8
+  [0x102F1] add r8, r9                                       addi igpr-119, igpr-120
+[1m
+collide-mesh.gc:218
+[0m[38;2;255;165;000m->             (.lvf vf2 t1-1)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x102F4] vmovaps xmm2, [r15+rdi*1]                        mov ivf-15, [igpr-114 + 0]
+[1m
+collide-mesh.gc:219
+[0m[38;2;255;165;000m->             (&+! a1-1 96)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x102FA] mov r9d, 0x60                                    mov-ic igpr-122, 96
+  [0x10300] add rsi, r9                                      addi igpr-121, igpr-122
+[1m
+collide-mesh.gc:220
+[0m[38;2;255;165;000m->             (.lvf vf3 t2-2)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10303] vmovaps xmm1, [r15+rax*1]                        mov ivf-16, [igpr-116 + 0]
+[1m
+collide-mesh.gc:221
+[0m[38;2;255;165;000m->             (.sub.vf vf4 vf2 vf1)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10309] vsubps xmm0, xmm2, xmm5                          .sub.vf ivf-17, ivf-15, ivf-11
+[1m
+collide-mesh.gc:222
+[0m[38;2;255;165;000m->             (.svf (&-> a1-1 vertex 0 quad) vf1)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x1030D] vmovaps [r15+rsi*1], xmm5                        move [igpr-98 + 0], ivf-11
+[1m
+collide-mesh.gc:223
+[0m[38;2;255;165;000m->             (.min.vf vf8 vf1 vf2)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10313] vminps xmm11, xmm5, xmm2                         .min.vf ivf-21, ivf-11, ivf-15
+[1m
+collide-mesh.gc:224
+[0m[38;2;255;165;000m->             (.svf (&-> a1-1 vertex 1 quad) vf2)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10317] vmovaps [r15+rsi*1+0x10], xmm2                   move [igpr-98 + 16], ivf-15
+[1m
+collide-mesh.gc:225
+[0m[38;2;255;165;000m->             (.sub.vf vf5 vf3 vf1)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x1031E] vsubps xmm8, xmm1, xmm5                          .sub.vf ivf-18, ivf-16, ivf-11
+[1m
+collide-mesh.gc:226
+[0m[38;2;255;165;000m->             (.svf (&-> a1-1 vertex 2 quad) vf3)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10322] vmovaps [r15+rsi*1+0x20], xmm1                   move [igpr-98 + 32], ivf-16
+[1m
+collide-mesh.gc:227
+[0m[38;2;255;165;000m->             (.max.vf vf9 vf1 vf2)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10329] vmaxps xmm12, xmm5, xmm2                         .max.vf ivf-22, ivf-11, ivf-15
+[1m
+collide-mesh.gc:228
+[0m[38;2;255;165;000m->             (let ((t1-2 (-> v1-1 vertex-index 0)))
+[0m[1m[38;2;050;205;050m                            ^
+[0m  [0x1032D] movzx r9, byte ptr [r15+r8*1]                    mov igpr-123, [igpr-80 + 0]
+[1m
+collide-mesh.gc:229
+[0m[38;2;255;165;000m->               (.outer.product.a.vf acc vf4 vf5)
+[0m[1m[38;2;050;205;050m                  ^
+[0m  [0x10332] vshufps xmm7, xmm0, xmm0, 0x09                   .swizzle.vf ivf-125, ivf-17, 9
+  [0x10337] vshufps xmm5, xmm8, xmm8, 0x12                   .swizzle.vf ivf-126, ivf-18, 18
+  [0x1033D] vmulps xmm7, xmm7, xmm5                          .mul.vf ivf-125, ivf-125, ivf-126
+  [0x10341] vblendps xmm7, xmm7, xmm7, 0x07                  .blend.vf ivf-8, ivf-125, ivf-125, 7
+[1m
+collide-mesh.gc:230
+[0m[38;2;255;165;000m->               (let ((t2-3 (-> v1-1 vertex-index 1)))
+[0m[1m[38;2;050;205;050m                              ^
+[0m  [0x10347] movzx rdi, byte ptr [r15+r8*1+0x01]              mov igpr-127, [igpr-80 + 1]
+[1m
+collide-mesh.gc:231
+[0m[38;2;255;165;000m->                 (.outer.product.b.vf vf6 vf5 vf4 acc)
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x1034D] vshufps xmm5, xmm8, xmm8, 0x09                   .swizzle.vf ivf-129, ivf-18, 9
+  [0x10353] vshufps xmm4, xmm0, xmm0, 0x12                   .swizzle.vf ivf-130, ivf-17, 18
+  [0x10358] vmulps xmm5, xmm5, xmm4                          .mul.vf ivf-129, ivf-129, ivf-130
+  [0x1035C] vsubps xmm5, xmm7, xmm5                          .sub.vf ivf-129, ivf-8, ivf-129
+  [0x10360] vblendps xmm9, xmm5, xmm5, 0x07                  .blend.vf ivf-19, ivf-129, ivf-129, 7
+[1m
+collide-mesh.gc:232
+[0m[38;2;255;165;000m->                 (let ((t0-5 (-> v1-1 vertex-index 2)))
+[0m[1m[38;2;050;205;050m                                ^
+[0m  [0x10366] movzx rax, byte ptr [r15+r8*1+0x02]              mov igpr-131, [igpr-80 + 2]
+[1m
+collide-mesh.gc:233
+[0m[38;2;255;165;000m->                   (.mul.vf vf7 vf6 vf6)
+[0m[1m[38;2;050;205;050m                      ^
+[0m  [0x1036C] vmulps xmm10, xmm9, xmm9                         .mul.vf ivf-20, ivf-19, ivf-19
+[1m
+collide-mesh.gc:234
+[0m[38;2;255;165;000m->                   (nop!)
+[0m[1m[38;2;050;205;050m                      ^
+[0m  [0x10371] nop                                              nop
+[1m
+collide-mesh.gc:235
+[0m[38;2;255;165;000m->                   (.min.vf vf8 vf8 vf3)
+[0m[1m[38;2;050;205;050m                      ^
+[0m  [0x10372] vminps xmm11, xmm11, xmm1                        .min.vf ivf-21, ivf-21, ivf-16
+[1m
+collide-mesh.gc:236
+[0m[38;2;255;165;000m->                   (let ((t1-3 (* t1-2 16)))
+[0m[1m[38;2;050;205;050m                                  ^
+[0m  [0x10376] shl r9, 0x04                                     shl igpr-133, 4
+[1m
+collide-mesh.gc:237
+[0m[38;2;255;165;000m->                     (.max.vf vf9 vf9 vf3)
+[0m[1m[38;2;050;205;050m                        ^
+[0m  [0x1037A] vmaxps xmm12, xmm12, xmm1                        .max.vf ivf-22, ivf-22, ivf-16
+[1m
+collide-mesh.gc:238
+[0m[38;2;255;165;000m->                     (let ((t2-4 (* t2-3 16)))
+[0m[1m[38;2;050;205;050m                                    ^
+[0m  [0x1037E] shl rdi, 0x04                                    shl igpr-135, 4
+[1m
+collide-mesh.gc:239
+[0m[38;2;255;165;000m->                       (.mul.x.vf.w acc vf0 vf7)
+[0m[1m[38;2;050;205;050m                          ^
+[0m  [0x10382] vshufps xmm5, xmm10, xmm10, 0x00                 .splat.vf ivf-137, ivf-20, 0
+  [0x10388] vmulps xmm5, xmm6, xmm5                          .mul.vf ivf-137, ivf-10, ivf-137
+  [0x1038C] vblendps xmm7, xmm7, xmm5, 0x08                  .blend.vf ivf-8, ivf-8, ivf-137, 8
+[1m
+collide-mesh.gc:240
+[0m[38;2;255;165;000m->                       (let ((t3-0 (* t0-5 16)))
+[0m[1m[38;2;050;205;050m                                      ^
+[0m  [0x10392] shl rax, 0x04                                    shl igpr-138, 4
+[1m
+collide-mesh.gc:241
+[0m[38;2;255;165;000m->                         (.add.mul.y.vf.w acc vf0 vf7 acc)
+[0m[1m[38;2;050;205;050m                            ^
+[0m  [0x10396] vshufps xmm5, xmm10, xmm10, 0x55                 .splat.vf ivf-140, ivf-20, 1
+  [0x1039C] vmulps xmm5, xmm6, xmm5                          .mul.vf ivf-140, ivf-10, ivf-140
+  [0x103A0] vaddps xmm5, xmm7, xmm5                          .add.vf ivf-140, ivf-8, ivf-140
+  [0x103A4] vblendps xmm7, xmm7, xmm5, 0x08                  .blend.vf ivf-8, ivf-8, ivf-140, 8
+[1m
+collide-mesh.gc:242
+[0m[38;2;255;165;000m->                         (set! t0-4 (+ t1-3 a2-1))
+[0m[1m[38;2;050;205;050m                                       ^
+[0m  [0x103AA] add r9, rdx                                      addi igpr-141, igpr-86
+[1m
+collide-mesh.gc:243
+[0m[38;2;255;165;000m->                         (.add.mul.z.vf.w vf7 vf0 vf7 acc)
+[0m[1m[38;2;050;205;050m                            ^
+[0m  [0x103AD] vshufps xmm5, xmm10, xmm10, 0xAA                 .splat.vf ivf-142, ivf-20, 2
+  [0x103B3] vmulps xmm5, xmm6, xmm5                          .mul.vf ivf-142, ivf-10, ivf-142
+  [0x103B7] vaddps xmm5, xmm7, xmm5                          .add.vf ivf-142, ivf-8, ivf-142
+  [0x103BB] vblendps xmm10, xmm10, xmm5, 0x08                .blend.vf ivf-20, ivf-20, ivf-142, 8
+[1m
+collide-mesh.gc:244
+[0m[38;2;255;165;000m->                         (set! t1-1 (+ t2-4 a2-1))
+[0m[1m[38;2;050;205;050m                                       ^
+[0m  [0x103C1] add rdi, rdx                                     addi igpr-143, igpr-86
+[1m
+collide-mesh.gc:245
+[0m[38;2;255;165;000m->                         (.isqrt.vf Q vf0 vf7 :fsf #b11 :ftf #b11)
+[0m[1m[38;2;050;205;050m                            ^
+[0m  [0x103C4] vshufps xmm7, xmm6, xmm6, 0xFF                   .splat.vf ivf-9, ivf-10, 3
+  [0x103C9] vshufps xmm5, xmm10, xmm10, 0xFF                 .splat.vf ivf-144, ivf-20, 3
+  [0x103CF] vsqrtps xmm5, xmm5                               .sqrt.vf ivf-144, ivf-144
+  [0x103D3] vdivps xmm7, xmm7, xmm5                          .div.vf ivf-9, ivf-9, ivf-144
+[1m
+collide-mesh.gc:246
+[0m[38;2;255;165;000m->                         (set! t2-2 (+ t3-0 a2-1)))))))))
+[0m[1m[38;2;050;205;050m                                       ^
+[0m  [0x103D7] add rax, rdx                                     addi igpr-145, igpr-86
+[1m
+collide-mesh.gc:247
+[0m[38;2;255;165;000m->           (.ftoi.vf vf8 vf8)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x103DA] vcvttps2dq xmm11, xmm11                          .ftoi.vf ivf-21, ivf-21
+[1m
+collide-mesh.gc:248
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x103DF] nop                                              nop
+[1m
+collide-mesh.gc:249
+[0m[38;2;255;165;000m->           (.ftoi.vf vf9 vf9)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x103E0] vcvttps2dq xmm12, xmm12                          .ftoi.vf ivf-22, ivf-22
+[1m
+collide-mesh.gc:250
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x103E5] nop                                              nop
+[1m
+collide-mesh.gc:251
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x103E6] nop                                              nop
+[1m
+collide-mesh.gc:252
+[0m[38;2;255;165;000m->           (.svf (&-> a1-1 bbox4w min quad) vf8)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x103E7] vmovaps [r15+rsi*1+0x40], xmm11                  move [igpr-98 + 64], ivf-21
+[1m
+collide-mesh.gc:253
+[0m[38;2;255;165;000m->           (.wait.vf)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x103EE] fwait                                            .wait.vf
+[1m
+collide-mesh.gc:254
+[0m[38;2;255;165;000m->           (.svf (&-> a1-1 bbox4w max quad) vf9)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x103EF] vmovaps [r15+rsi*1+0x50], xmm12                  move [igpr-98 + 80], ivf-22
+[1m
+collide-mesh.gc:255
+[0m[38;2;255;165;000m->           (.mul.vf.xyz vf6 vf6 Q)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x103F6] vmulps xmm7, xmm9, xmm7                          .mul.vf ivf-146, ivf-19, ivf-9
+  [0x103FA] vblendps xmm9, xmm9, xmm7, 0x07                  .blend.vf ivf-19, ivf-19, ivf-146, 7
+[1m
+collide-mesh.gc:256
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10400] nop                                              nop
+[1m
+collide-mesh.gc:257
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10401] nop                                              nop
+[1m
+collide-mesh.gc:258
+[0m[38;2;255;165;000m->           (.svf (&-> a1-1 normal quad) vf6)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10402] vmovaps [r15+rsi*1+0x30], xmm9                   move [igpr-98 + 48], ivf-19
+[1m
+collide-mesh.gc:259
+[0m[38;2;255;165;000m->           (nop!)
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10409] nop                                              nop
+[1m
+collide-mesh.gc:260
+[0m[38;2;255;165;000m->           (set! (-> a1-1 normal w) (the-as float a3-2))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1040A] mov [r15+rsi*1+0x3C], ebx                        move [igpr-98 + 60], igpr-147
+[1m
+collide-mesh.gc:261
+[0m[38;2;255;165;000m->           (b! (nonzero? a0-1) cfg-5 :delay (set! a3-2 (-> v1-1 pat))))))
+[0m[1m[38;2;050;205;050m                  ^
+[0m  [0x1040F] xor rbx, rbx                                     mov-ic igpr-148, 0
+  [0x10412] mov rbp, r14                                     mov-symptr igpr-149, '#f
+  [0x10415] cmp rcx, rbx                                     j(igpr-87 == igpr-148) label-313
+  [0x10418] jz 0x0000000000010423
+  [0x1041E] lea rbp, [r14+0x08]                              mov-symptr igpr-150, '#t
+[1m
+collide-mesh.gc:261
+[0m[38;2;255;165;000m->           (b! (nonzero? a0-1) cfg-5 :delay (set! a3-2 (-> v1-1 pat))))))
+[0m[1m[38;2;050;205;050m                                               ^
+[0m  [0x10423] mov ebx, [r15+r8*1+0x04]                         mov igpr-152, [igpr-80 + 4]
+[1m
+collide-mesh.gc:261
+[0m[38;2;255;165;000m->           (b! (nonzero? a0-1) cfg-5 :delay (set! a3-2 (-> v1-1 pat))))))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10428] mov r12, r14                                     mov-symptr igpr-154, '#f
+  [0x1042B] cmp rbp, r12                                     j(igpr-151 == igpr-154) label-321
+  [0x1042E] jz 0x0000000000010443
+  [0x10434] lea rbp, [r14-0x0A]                              mov-symptr igpr-155, '_empty_
+  [0x10439] jmp 0x00000000000102DB                           goto label-208
+  [0x1043E] jmp 0x0000000000010446                           goto label-322
+  [0x10443] mov r9, r14                                      mov-symptr igpr-153, '#f
+  [0x10446] xor r9, r9                                       mov-ic igpr-156, 0
+  [0x10449] pop r12
+  [0x1044B] pop rbp
+  [0x1044C] pop rbx
+  [0x1044D] movdqa xmm13, [rsp+0x50]
+  [0x10454] movdqa xmm12, [rsp+0x40]
+  [0x1045B] movdqa xmm11, [rsp+0x30]
+  [0x10462] movdqa xmm10, [rsp+0x20]
+  [0x10469] movdqa xmm9, [rsp+0x10]
+  [0x10470] movdqa xmm8, [rsp]
+  [0x10476] add rsp, 0x68
+  [0x1047A] ret
+
+
+[autogenerated-inspect-method-of-spat-work]
+[1m[38;2;255;000;000m- [0x10000] [0mpush rbx
+[1m
+collide-mesh.gc:80
+[0m[38;2;255;165;000m-> (deftype spat-work (structure)
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10001] mov rbx, rdi                                     mov igpr-1, igpr-0
+  [0x10004] lea rcx, [r14+0xAFECAFE]                         mov-symptr igpr-2, 'spat-work
+  [0x1000C] lea rsi, [0x0000000000010013]                    mov-sva igpr-3, static-string "[~8x] ~A~%"
+  [0x10013] sub rsi, r15
+  [0x10016] lea rdi, [r14+0x08]                              mov-symptr igpr-4, '#t
+  [0x1001B] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-5, '_format
+  [0x10023] mov rdx, rbx                                     mov igpr-9, igpr-1
+  [0x10026] add r9, r15                                      call igpr-11 (ret igpr-6) (args igpr-7 igpr-8 igpr-9 igpr-10)
+  [0x10029] call r9
+  [0x1002C] mov rdx, rbx                                     mov igpr-13, igpr-1
+  [0x1002F] lea rsi, [0x0000000000010036]                    mov-sva igpr-14, static-string "~Tintersect: ~`vector`P~%"
+  [0x10036] sub rsi, r15
+  [0x10039] lea rdi, [r14+0x08]                              mov-symptr igpr-15, '#t
+  [0x1003E] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-16, '_format
+  [0x10046] add r9, r15                                      call igpr-21 (ret igpr-17) (args igpr-18 igpr-19 igpr-20)
+  [0x10049] call r9
+  [0x1004C] mov edx, 0x10                                    mov-ic igpr-23, 16
+  [0x10051] add rdx, rbx                                     addi igpr-23, igpr-1
+  [0x10054] lea rsi, [0x000000000001005B]                    mov-sva igpr-24, static-string "~Tsphere-bbox4w: #<bounding-box4w @ #x~X>~%"
+  [0x1005B] sub rsi, r15
+  [0x1005E] lea rdi, [r14+0x08]                              mov-symptr igpr-25, '#t
+  [0x10063] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-26, '_format
+  [0x1006B] add r9, r15                                      call igpr-31 (ret igpr-27) (args igpr-28 igpr-29 igpr-30)
+  [0x1006E] call r9
+  [0x10071] mov rax, rbx                                     ret igpr-33 igpr-1
+  [0x10074] pop rbx
+  [0x10075] ret
+
+
+[autogenerated-inspect-method-of-sopt-work]
+[1m[38;2;255;000;000m- [0x10000] [0mpush rbx
+[1m
+collide-mesh.gc:74
+[0m[38;2;255;165;000m-> (deftype sopt-work (structure)
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10001] mov rbx, rdi                                     mov igpr-1, igpr-0
+  [0x10004] lea rcx, [r14+0xAFECAFE]                         mov-symptr igpr-2, 'sopt-work
+  [0x1000C] lea rsi, [0x0000000000010013]                    mov-sva igpr-3, static-string "[~8x] ~A~%"
+  [0x10013] sub rsi, r15
+  [0x10016] lea rdi, [r14+0x08]                              mov-symptr igpr-4, '#t
+  [0x1001B] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-5, '_format
+  [0x10023] mov rdx, rbx                                     mov igpr-9, igpr-1
+  [0x10026] add r9, r15                                      call igpr-11 (ret igpr-6) (args igpr-7 igpr-8 igpr-9 igpr-10)
+  [0x10029] call r9
+  [0x1002C] mov rdx, rbx                                     mov igpr-13, igpr-1
+  [0x1002F] lea rsi, [0x0000000000010036]                    mov-sva igpr-14, static-string "~Tintersect: ~`vector`P~%"
+  [0x10036] sub rsi, r15
+  [0x10039] lea rdi, [r14+0x08]                              mov-symptr igpr-15, '#t
+  [0x1003E] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-16, '_format
+  [0x10046] add r9, r15                                      call igpr-21 (ret igpr-17) (args igpr-18 igpr-19 igpr-20)
+  [0x10049] call r9
+  [0x1004C] mov edx, 0x10                                    mov-ic igpr-23, 16
+  [0x10051] add rdx, rbx                                     addi igpr-23, igpr-1
+  [0x10054] lea rsi, [0x000000000001005B]                    mov-sva igpr-24, static-string "~Tsphere-bbox4w: #<bounding-box4w @ #x~X>~%"
+  [0x1005B] sub rsi, r15
+  [0x1005E] lea rdi, [r14+0x08]                              mov-symptr igpr-25, '#t
+  [0x10063] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-26, '_format
+  [0x1006B] add r9, r15                                      call igpr-31 (ret igpr-27) (args igpr-28 igpr-29 igpr-30)
+  [0x1006E] call r9
+  [0x10071] mov rax, rbx                                     ret igpr-33 igpr-1
+  [0x10074] pop rbx
+  [0x10075] ret
+
+
+[(method debug-draw-tris collide-mesh)]
+[1m[38;2;255;000;000m- [0x10000] [0msub rsp, 0x28
+  [0x10004] movdqa [rsp], xmm8
+  [0x1000A] movdqa [rsp+0x10], xmm9
+  [0x10011] push rbx
+  [0x10012] push rbp
+  [0x10013] push r10
+  [0x10015] push r11
+  [0x10017] push r12
+  [0x10019] sub rsp, 0x38
+[1m
+collide-mesh.gc:28
+[0m[38;2;255;165;000m-> (defmethod debug-draw-tris ((this collide-mesh) (arg0 process-drawable) (arg1 int))
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x1001D] mov rbx, rdi                                     mov igpr-4, igpr-0
+[1m
+collide-mesh.gc:39
+[0m[38;2;255;165;000m->     (init-vf0-vector)
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x10020] vmovaps xmm8, [0x0000000000010028]               mov-svl ivf-8, [static-structure]
+[1m
+collide-mesh.gc:40
+[0m[38;2;255;165;000m->     (let ((s5-0 (the-as object (-> this tris)))
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x10028] mov ebp, 0x1C                                    mov-ic igpr-16, 28
+  [0x1002D] add rbp, rbx                                     addi igpr-16, igpr-4
+[1m
+collide-mesh.gc:41
+[0m[38;2;255;165;000m->           (s4-0 (-> arg0 node-list data arg1 bone transform)))
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x10030] shl rdx, 0x05                                    shl igpr-18, 5
+  [0x10034] mov r9d, 0x0C                                    mov-ic igpr-22, 12
+  [0x1003A] mov r8d, [r15+rsi*1+0x70]                        mov igpr-23, [igpr-5 + 112]
+  [0x1003F] add r9, r8                                       addi igpr-22, igpr-23
+  [0x10042] add rdx, r9                                      addi igpr-21, igpr-22
+  [0x10045] mov r12d, [r15+rdx*1+0x10]                       mov igpr-20, [igpr-21 + 16]
+[1m
+collide-mesh.gc:42
+[0m[38;2;255;165;000m->       (countdown (s3-0 (-> this num-tris))
+[0m[1m[38;2;050;205;050m                           ^
+[0m  [0x1004A] mov r11d, [r15+rbx*1+0x04]                       mov igpr-26, [igpr-4 + 4]
+[1m
+collide-mesh.gc:42
+[0m[38;2;255;165;000m->       (countdown (s3-0 (-> this num-tris))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x1004F] jmp 0x00000000000101F6                           goto label-137
+  [0x10054] mov r9d, 0x01                                    mov-ic igpr-31, 1
+  [0x1005A] sub r11, r9                                      subi igpr-30, igpr-31
+[1m
+collide-mesh.gc:43
+[0m[38;2;255;165;000m->         (let ((a2-1 (new 'stack-no-clear 'vector))
+[0m[1m[38;2;050;205;050m                        ^
+[0m  [0x1005D] mov rdx, rsp                                     mov igpr-32, stack-slot-0
+  [0x10060] sub rdx, r15
+[1m
+collide-mesh.gc:44
+[0m[38;2;255;165;000m->               (a3-0 (new 'stack-no-clear 'vector))
+[0m[1m[38;2;050;205;050m                        ^
+[0m  [0x10063] lea rcx, [rsp+0x10]                              mov igpr-33, stack-slot-2
+  [0x10068] sub rcx, r15
+[1m
+collide-mesh.gc:45
+[0m[38;2;255;165;000m->               (t0-0 (new 'stack-no-clear 'vector)))
+[0m[1m[38;2;050;205;050m                        ^
+[0m  [0x1006B] lea r8, [rsp+0x20]                               mov igpr-34, stack-slot-4
+  [0x10070] sub r8, r15
+[1m
+collide-mesh.gc:46
+[0m[38;2;255;165;000m->           (.lvf vf4 (&-> s4-0 vector 0 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10073] vmovaps xmm3, [r12+r15*1]                        mov ivf-12, [igpr-25 + 0]
+[1m
+collide-mesh.gc:47
+[0m[38;2;255;165;000m->           (.lvf vf5 (&-> s4-0 vector 1 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10079] vmovaps xmm2, [r12+r15*1+0x10]                   mov ivf-13, [igpr-25 + 16]
+[1m
+collide-mesh.gc:48
+[0m[38;2;255;165;000m->           (.lvf vf6 (&-> s4-0 vector 2 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10080] vmovaps xmm1, [r12+r15*1+0x20]                   mov ivf-14, [igpr-25 + 32]
+[1m
+collide-mesh.gc:49
+[0m[38;2;255;165;000m->           (.lvf vf7 (&-> s4-0 vector 3 quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10087] vmovaps xmm0, [r12+r15*1+0x30]                   mov ivf-15, [igpr-25 + 48]
+[1m
+collide-mesh.gc:50
+[0m[38;2;255;165;000m->           (.lvf vf1 (&-> (-> this vertex-data (-> (the-as collide-mesh-tri s5-0) vertex-index 0)) quad))
+[0m[1m[38;2;050;205;050m                             ^
+[0m  [0x1008E] mov r9, rbp                                      mov igpr-39, igpr-24
+  [0x10091] movzx r9, byte ptr [r15+r9*1]                    mov igpr-38, [igpr-39 + 0]
+  [0x10096] shl r9, 0x04                                     shl igpr-40, 4
+[1m
+collide-mesh.gc:50
+[0m[38;2;255;165;000m->           (.lvf vf1 (&-> (-> this vertex-data (-> (the-as collide-mesh-tri s5-0) vertex-index 0)) quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x1009A] mov esi, [r15+rbx*1+0x0C]                        mov igpr-42, [igpr-4 + 12]
+  [0x1009F] add r9, rsi                                      addi igpr-41, igpr-42
+  [0x100A2] vmovaps xmm6, [r15+r9*1]                         mov ivf-9, [igpr-41 + 0]
+[1m
+collide-mesh.gc:51
+[0m[38;2;255;165;000m->           (.lvf vf2 (&-> (-> this vertex-data (-> (the-as collide-mesh-tri s5-0) vertex-index 1)) quad))
+[0m[1m[38;2;050;205;050m                             ^
+[0m  [0x100A8] mov r9, rbp                                      mov igpr-44, igpr-24
+  [0x100AB] movzx r9, byte ptr [r15+r9*1+0x01]               mov igpr-43, [igpr-44 + 1]
+  [0x100B1] shl r9, 0x04                                     shl igpr-45, 4
+[1m
+collide-mesh.gc:51
+[0m[38;2;255;165;000m->           (.lvf vf2 (&-> (-> this vertex-data (-> (the-as collide-mesh-tri s5-0) vertex-index 1)) quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100B5] mov esi, [r15+rbx*1+0x0C]                        mov igpr-47, [igpr-4 + 12]
+  [0x100BA] add r9, rsi                                      addi igpr-46, igpr-47
+  [0x100BD] vmovaps xmm5, [r15+r9*1]                         mov ivf-10, [igpr-46 + 0]
+[1m
+collide-mesh.gc:52
+[0m[38;2;255;165;000m->           (.lvf vf3 (&-> (-> this vertex-data (-> (the-as collide-mesh-tri s5-0) vertex-index 2)) quad))
+[0m[1m[38;2;050;205;050m                             ^
+[0m  [0x100C3] mov r9, rbp                                      mov igpr-49, igpr-24
+  [0x100C6] movzx r9, byte ptr [r15+r9*1+0x02]               mov igpr-48, [igpr-49 + 2]
+  [0x100CC] shl r9, 0x04                                     shl igpr-50, 4
+[1m
+collide-mesh.gc:52
+[0m[38;2;255;165;000m->           (.lvf vf3 (&-> (-> this vertex-data (-> (the-as collide-mesh-tri s5-0) vertex-index 2)) quad))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x100D0] mov esi, [r15+rbx*1+0x0C]                        mov igpr-52, [igpr-4 + 12]
+  [0x100D5] add r9, rsi                                      addi igpr-51, igpr-52
+  [0x100D8] vmovaps xmm4, [r15+r9*1]                         mov ivf-11, [igpr-51 + 0]
+[1m
+collide-mesh.gc:53
+[0m[38;2;255;165;000m->           (let ((t1-0 (copy-and-set-field (-> *pat-mode-info* (-> (the-as collide-mesh-tri s5-0) pat mode) color) a 16)))
+[0m[1m[38;2;050;205;050m                                              ^
+[0m  [0x100DE] mov r9, rbp                                      mov igpr-55, igpr-24
+  [0x100E1] mov r9d, [r15+r9*1+0x04]                         mov igpr-54, [igpr-55 + 4]
+  [0x100E6] shl r9, 0x3A                                     shl igpr-53, 58
+  [0x100EA] shr r9, 0x3D                                     shr igpr-53, 61
+  [0x100EE] shl r9, 0x04                                     shl igpr-56, 4
+  [0x100F2] mov esi, [r15+r14*1+0xBADBEEF]                   mov igpr-59, '*pat-mode-info*
+  [0x100FA] add r9, rsi                                      addi igpr-58, igpr-59
+  [0x100FD] mov r9d, [r15+r9*1+0x08]                         mov igpr-57, [igpr-58 + 8]
+[1m
+collide-mesh.gc:53
+[0m[38;2;255;165;000m->           (let ((t1-0 (copy-and-set-field (-> *pat-mode-info* (-> (the-as collide-mesh-tri s5-0) pat mode) color) a 16)))
+[0m[1m[38;2;050;205;050m                          ^
+[0m  [0x10102] mov esi, 0x10                                    mov-ic igpr-61, 16
+  [0x10107] mov rdi, 0xFFFFFFFF00FFFFFF                      mov-ic igpr-63, 18446744069431361535
+  [0x10111] and r9, rdi                                      and igpr-62, igpr-63
+  [0x10114] mov rdi, rsi                                     mov igpr-63, igpr-61
+  [0x10117] shl rdi, 0x38                                    shl igpr-63, 56
+  [0x1011B] shr rdi, 0x20                                    shr igpr-63, 32
+  [0x1011F] or r9, rdi                                       or igpr-62, igpr-63
+[1m
+collide-mesh.gc:54
+[0m[38;2;255;165;000m->             (.mul.w.vf acc vf7 vf0)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10122] vshufps xmm7, xmm8, xmm8, 0xFF                   .splat.vf ivf-65, ivf-8, 3
+  [0x10128] vmulps xmm7, xmm0, xmm7                          .mul.vf ivf-7, ivf-15, ivf-65
+[1m
+collide-mesh.gc:55
+[0m[38;2;255;165;000m->             (.add.mul.x.vf acc vf4 vf1 acc)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x1012C] vshufps xmm9, xmm6, xmm6, 0x00                   .splat.vf ivf-66, ivf-9, 0
+  [0x10131] vmulps xmm9, xmm3, xmm9                          .mul.vf ivf-66, ivf-12, ivf-66
+  [0x10136] vaddps xmm7, xmm7, xmm9                          .add.vf ivf-7, ivf-7, ivf-66
+[1m
+collide-mesh.gc:56
+[0m[38;2;255;165;000m->             (.add.mul.y.vf acc vf5 vf1 acc)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x1013B] vshufps xmm9, xmm6, xmm6, 0x55                   .splat.vf ivf-67, ivf-9, 1
+  [0x10140] vmulps xmm9, xmm2, xmm9                          .mul.vf ivf-67, ivf-13, ivf-67
+  [0x10145] vaddps xmm7, xmm7, xmm9                          .add.vf ivf-7, ivf-7, ivf-67
+[1m
+collide-mesh.gc:57
+[0m[38;2;255;165;000m->             (.add.mul.z.vf vf1 vf6 vf1 acc)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x1014A] vshufps xmm6, xmm6, xmm6, 0xAA                   .splat.vf ivf-68, ivf-9, 2
+  [0x1014F] vmulps xmm6, xmm1, xmm6                          .mul.vf ivf-68, ivf-14, ivf-68
+  [0x10153] vaddps xmm6, xmm7, xmm6                          .add.vf ivf-9, ivf-7, ivf-68
+[1m
+collide-mesh.gc:58
+[0m[38;2;255;165;000m->             (.mul.w.vf acc vf7 vf0)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10157] vshufps xmm7, xmm8, xmm8, 0xFF                   .splat.vf ivf-69, ivf-8, 3
+  [0x1015D] vmulps xmm7, xmm0, xmm7                          .mul.vf ivf-7, ivf-15, ivf-69
+[1m
+collide-mesh.gc:59
+[0m[38;2;255;165;000m->             (.add.mul.x.vf acc vf4 vf2 acc)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10161] vshufps xmm9, xmm5, xmm5, 0x00                   .splat.vf ivf-70, ivf-10, 0
+  [0x10166] vmulps xmm9, xmm3, xmm9                          .mul.vf ivf-70, ivf-12, ivf-70
+  [0x1016B] vaddps xmm7, xmm7, xmm9                          .add.vf ivf-7, ivf-7, ivf-70
+[1m
+collide-mesh.gc:60
+[0m[38;2;255;165;000m->             (.add.mul.y.vf acc vf5 vf2 acc)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10170] vshufps xmm9, xmm5, xmm5, 0x55                   .splat.vf ivf-71, ivf-10, 1
+  [0x10175] vmulps xmm9, xmm2, xmm9                          .mul.vf ivf-71, ivf-13, ivf-71
+  [0x1017A] vaddps xmm7, xmm7, xmm9                          .add.vf ivf-7, ivf-7, ivf-71
+[1m
+collide-mesh.gc:61
+[0m[38;2;255;165;000m->             (.add.mul.z.vf vf2 vf6 vf2 acc)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x1017F] vshufps xmm5, xmm5, xmm5, 0xAA                   .splat.vf ivf-72, ivf-10, 2
+  [0x10184] vmulps xmm5, xmm1, xmm5                          .mul.vf ivf-72, ivf-14, ivf-72
+  [0x10188] vaddps xmm5, xmm7, xmm5                          .add.vf ivf-10, ivf-7, ivf-72
+[1m
+collide-mesh.gc:62
+[0m[38;2;255;165;000m->             (.mul.w.vf acc vf7 vf0)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x1018C] vshufps xmm7, xmm8, xmm8, 0xFF                   .splat.vf ivf-73, ivf-8, 3
+  [0x10192] vmulps xmm7, xmm0, xmm7                          .mul.vf ivf-7, ivf-15, ivf-73
+[1m
+collide-mesh.gc:63
+[0m[38;2;255;165;000m->             (.add.mul.x.vf acc vf4 vf3 acc)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x10196] vshufps xmm0, xmm4, xmm4, 0x00                   .splat.vf ivf-74, ivf-11, 0
+  [0x1019B] vmulps xmm0, xmm3, xmm0                          .mul.vf ivf-74, ivf-12, ivf-74
+  [0x1019F] vaddps xmm7, xmm7, xmm0                          .add.vf ivf-7, ivf-7, ivf-74
+[1m
+collide-mesh.gc:64
+[0m[38;2;255;165;000m->             (.add.mul.y.vf acc vf5 vf3 acc)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x101A3] vshufps xmm3, xmm4, xmm4, 0x55                   .splat.vf ivf-75, ivf-11, 1
+  [0x101A8] vmulps xmm3, xmm2, xmm3                          .mul.vf ivf-75, ivf-13, ivf-75
+  [0x101AC] vaddps xmm7, xmm7, xmm3                          .add.vf ivf-7, ivf-7, ivf-75
+[1m
+collide-mesh.gc:65
+[0m[38;2;255;165;000m->             (.add.mul.z.vf vf3 vf6 vf3 acc)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x101B0] vshufps xmm4, xmm4, xmm4, 0xAA                   .splat.vf ivf-76, ivf-11, 2
+  [0x101B5] vmulps xmm4, xmm1, xmm4                          .mul.vf ivf-76, ivf-14, ivf-76
+  [0x101B9] vaddps xmm4, xmm7, xmm4                          .add.vf ivf-11, ivf-7, ivf-76
+[1m
+collide-mesh.gc:66
+[0m[38;2;255;165;000m->             (.svf (&-> a2-1 quad) vf1)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x101BD] vmovaps [r15+rdx*1], xmm6                        move [igpr-35 + 0], ivf-9
+[1m
+collide-mesh.gc:67
+[0m[38;2;255;165;000m->             (.svf (&-> a3-0 quad) vf2)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x101C3] vmovaps [r15+rcx*1], xmm5                        move [igpr-36 + 0], ivf-10
+[1m
+collide-mesh.gc:68
+[0m[38;2;255;165;000m->             (.svf (&-> t0-0 quad) vf3)
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x101C9] vmovaps [r15+r8*1], xmm4                         move [igpr-37 + 0], ivf-11
+[1m
+collide-mesh.gc:69
+[0m[38;2;255;165;000m->             (add-debug-flat-triangle #t (bucket-id debug-no-zbuf) a2-1 a3-0 t0-0 t1-0)))
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x101CF] mov eax, [r15+r14*1+0xBADBEEF]                   mov igpr-77, 'add-debug-flat-triangle
+[1m
+collide-mesh.gc:53
+[0m[38;2;255;165;000m->           (let ((t1-0 (copy-and-set-field (-> *pat-mode-info* (-> (the-as collide-mesh-tri s5-0) pat mode) color) a 16)))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x101D7] lea rdi, [r14+0x08]                              mov-symptr igpr-78, '#t
+[1m
+collide-mesh.gc:69
+[0m[38;2;255;165;000m->             (add-debug-flat-triangle #t (bucket-id debug-no-zbuf) a2-1 a3-0 t0-0 t1-0)))
+[0m[1m[38;2;050;205;050m                                            ^
+[0m  [0x101DC] mov esi, 0x44                                    mov-ic igpr-79, 68
+[1m
+collide-mesh.gc:69
+[0m[38;2;255;165;000m->             (add-debug-flat-triangle #t (bucket-id debug-no-zbuf) a2-1 a3-0 t0-0 t1-0)))
+[0m[1m[38;2;050;205;050m                ^
+[0m  [0x101E1] mov r10, rax                                     mov igpr-87, igpr-77
+  [0x101E4] add r10, r15                                     call igpr-87 (ret igpr-80) (args igpr-81 igpr-82 igpr-83 igpr-84 igpr-85 igpr-86)
+  [0x101E7] call r10
+[1m
+collide-mesh.gc:70
+[0m[38;2;255;165;000m->         (set! s5-0 (-> (the-as (inline-array collide-mesh-tri) s5-0) 1))))
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x101EA] mov r9d, 0x08                                    mov-ic igpr-89, 8
+  [0x101F0] add r9, rbp                                      addi igpr-89, igpr-90
+  [0x101F3] mov rbp, r9                                      mov igpr-24, igpr-89
+[1m
+collide-mesh.gc:42
+[0m[38;2;255;165;000m->       (countdown (s3-0 (-> this num-tris))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x101F6] xor r9, r9                                       mov-ic igpr-91, 0
+  [0x101F9] cmp r11, r9                                      j(igpr-27 != igpr-91) label-22
+  [0x101FC] jnz 0x0000000000010054
+  [0x10202] mov r9, r14                                      mov-symptr igpr-92, '#f
+  [0x10205] xor r9, r9                                       mov-ic igpr-93, 0
+  [0x10208] add rsp, 0x38
+  [0x1020C] pop r12
+  [0x1020E] pop r11
+  [0x10210] pop r10
+  [0x10212] pop rbp
+  [0x10213] pop rbx
+  [0x10214] movdqa xmm9, [rsp+0x10]
+  [0x1021B] movdqa xmm8, [rsp]
+  [0x10221] add rsp, 0x28
+  [0x10225] ret
+
+
+[(method allocate! collide-mesh-cache)]
+[1m[38;2;255;000;000m- [0x10000] [0mpush rbx
+  [0x10001] push rbp
+  [0x10002] push rbx
+[1m
+collide-mesh.gc:92
+[0m[38;2;255;165;000m->   (let* ((v1-0 (+ arg0 15))
+[0m[1m[38;2;050;205;050m                   ^
+[0m  [0x10003] mov r9d, 0x0F                                    mov-ic igpr-8, 15
+  [0x10009] add rsi, r9                                      addi igpr-7, igpr-8
+[1m
+collide-mesh.gc:93
+[0m[38;2;255;165;000m->          (a1-1 (-> this used-size))
+[0m[1m[38;2;050;205;050m                   ^
+[0m  [0x1000C] mov r9d, [r15+rdi*1]                             mov igpr-10, [igpr-3 + 0]
+[1m
+collide-mesh.gc:94
+[0m[38;2;255;165;000m->          (v1-1 (/ v1-0 16))
+[0m[1m[38;2;050;205;050m                   ^
+[0m  [0x10010] sar rsi, 0x04                                    sar igpr-12, 4
+[1m
+collide-mesh.gc:95
+[0m[38;2;255;165;000m->          (a3-0 (-> this data))
+[0m[1m[38;2;050;205;050m                   ^
+[0m  [0x10014] mov eax, 0x1C                                    mov-ic igpr-14, 28
+  [0x10019] add rax, rdi                                     addi igpr-14, igpr-3
+[1m
+collide-mesh.gc:96
+[0m[38;2;255;165;000m->          (a2-0 (-> this max-size))
+[0m[1m[38;2;050;205;050m                   ^
+[0m  [0x1001C] mov r8d, [r15+rdi*1+0x04]                        mov igpr-16, [igpr-3 + 4]
+[1m
+collide-mesh.gc:97
+[0m[38;2;255;165;000m->          (v1-2 (* v1-1 16))
+[0m[1m[38;2;050;205;050m                   ^
+[0m  [0x10021] shl rsi, 0x04                                    shl igpr-18, 4
+[1m
+collide-mesh.gc:98
+[0m[38;2;255;165;000m->          (a3-1 (&+ a3-0 a1-1)))
+[0m[1m[38;2;050;205;050m                   ^
+[0m  [0x10025] add rax, r9                                      addi igpr-20, igpr-11
+[1m
+collide-mesh.gc:99
+[0m[38;2;255;165;000m->     (let ((t1-0 (- a2-0 (the-as uint v1-2)))
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x10028] mov rcx, r8                                      mov igpr-22, igpr-17
+  [0x1002B] mov rdx, rsi                                     mov igpr-23, igpr-19
+  [0x1002E] sub rcx, rdx                                     subi igpr-22, igpr-23
+[1m
+collide-mesh.gc:100
+[0m[38;2;255;165;000m->           (t0-0 (-> this id)))
+[0m[1m[38;2;050;205;050m                    ^
+[0m  [0x10031] mov rdx, [r15+rdi*1+0x0C]                        mov igpr-24, [igpr-3 + 12]
+[1m
+collide-mesh.gc:101
+[0m[38;2;255;165;000m->       (b! (< (the-as int t1-0) 0) cfg-6 :delay (set! a1-2 (the-as int (+ a1-1 v1-2))))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10036] xor rbx, rbx                                     mov-ic igpr-28, 0
+  [0x10039] mov rbp, r14                                     mov-symptr igpr-29, '#f
+  [0x1003C] cmp rcx, rbx                                     j(igpr-27 >= igpr-28) label-35
+  [0x1003F] jnl 0x000000000001004A
+  [0x10045] lea rbp, [r14+0x08]                              mov-symptr igpr-30, '#t
+[1m
+collide-mesh.gc:101
+[0m[38;2;255;165;000m->       (b! (< (the-as int t1-0) 0) cfg-6 :delay (set! a1-2 (the-as int (+ a1-1 v1-2))))
+[0m[1m[38;2;050;205;050m                                                                          ^
+[0m  [0x1004A] add r9, rsi                                      addi igpr-32, igpr-19
+[1m
+collide-mesh.gc:101
+[0m[38;2;255;165;000m->       (b! (< (the-as int t1-0) 0) cfg-6 :delay (set! a1-2 (the-as int (+ a1-1 v1-2))))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x1004D] mov rcx, r14                                     mov-symptr igpr-35, '#f
+  [0x10050] cmp rbp, rcx                                     j(igpr-31 == igpr-35) label-45
+  [0x10053] jz 0x0000000000010068
+  [0x10059] lea r9, [r14-0x0A]                               mov-symptr igpr-36, '_empty_
+  [0x1005E] jmp 0x0000000000010122                           goto label-105
+  [0x10063] jmp 0x000000000001006B                           goto label-46
+  [0x10068] mov rcx, r14                                     mov-symptr igpr-34, '#f
+[1m
+collide-mesh.gc:102
+[0m[38;2;255;165;000m->       (b! (>= (the-as int (- a2-0 (the-as uint a1-2))) 0) cfg-5 :delay (set! a2-2 (the-as int (+ t0-0 1)))))
+[0m[1m[38;2;050;205;050m                              ^
+[0m  [0x1006B] mov rcx, r9                                      mov igpr-38, igpr-5
+  [0x1006E] sub r8, rcx                                      subi igpr-37, igpr-38
+[1m
+collide-mesh.gc:102
+[0m[38;2;255;165;000m->       (b! (>= (the-as int (- a2-0 (the-as uint a1-2))) 0) cfg-5 :delay (set! a2-2 (the-as int (+ t0-0 1)))))
+[0m[1m[38;2;050;205;050m              ^
+[0m  [0x10071] xor rcx, rcx                                     mov-ic igpr-40, 0
+  [0x10074] mov rbx, r14                                     mov-symptr igpr-41, '#f
+  [0x10077] cmp r8, rcx                                      j(igpr-39 < igpr-40) label-56
+  [0x1007A] jl 0x0000000000010085
+  [0x10080] lea rbx, [r14+0x08]                              mov-symptr igpr-42, '#t
+[1m
+collide-mesh.gc:102
+[0m[38;2;255;165;000m->       (b! (>= (the-as int (- a2-0 (the-as uint a1-2))) 0) cfg-5 :delay (set! a2-2 (the-as int (+ t0-0 1)))))
+[0m[1m[38;2;050;205;050m                                                                                                  ^
+[0m  [0x10085] mov r8d, 0x01                                    mov-ic igpr-45, 1
+  [0x1008B] add rdx, r8                                      addi igpr-44, igpr-45
+[1m
+collide-mesh.gc:102
+[0m[38;2;255;165;000m->       (b! (>= (the-as int (- a2-0 (the-as uint a1-2))) 0) cfg-5 :delay (set! a2-2 (the-as int (+ t0-0 1)))))
+[0m[1m[38;2;050;205;050m                                                                           ^
+[0m  [0x1008E] mov r8, rdx                                      mov igpr-6, igpr-46
+[1m
+collide-mesh.gc:102
+[0m[38;2;255;165;000m->       (b! (>= (the-as int (- a2-0 (the-as uint a1-2))) 0) cfg-5 :delay (set! a2-2 (the-as int (+ t0-0 1)))))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10091] mov rcx, r14                                     mov-symptr igpr-48, '#f
+  [0x10094] cmp rbx, rcx                                     j(igpr-43 == igpr-48) label-67
+  [0x10097] jz 0x00000000000100AC
+  [0x1009D] lea r8, [r14-0x0A]                               mov-symptr igpr-49, '_empty_
+  [0x100A2] jmp 0x00000000000100FA                           goto label-92
+  [0x100A7] jmp 0x00000000000100AF                           goto label-68
+  [0x100AC] mov r9, r14                                      mov-symptr igpr-47, '#f
+[1m
+collide-mesh.gc:103
+[0m[38;2;255;165;000m->     (b! (zero? (the-as uint a2-2)) cfg-4 :likely-delay (set! a2-2 1))
+[0m[1m[38;2;050;205;050m            ^
+[0m  [0x100AF] mov r9, r8                                       mov igpr-50, igpr-6
+  [0x100B2] xor rcx, rcx                                     mov-ic igpr-51, 0
+  [0x100B5] mov rdx, r14                                     mov-symptr igpr-52, '#f
+  [0x100B8] cmp r9, rcx                                      j(igpr-50 != igpr-51) label-76
+  [0x100BB] jnz 0x00000000000100C6
+  [0x100C1] lea rdx, [r14+0x08]                              mov-symptr igpr-53, '#t
+[1m
+collide-mesh.gc:103
+[0m[38;2;255;165;000m->     (b! (zero? (the-as uint a2-2)) cfg-4 :likely-delay (set! a2-2 1))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x100C6] lea r9, [r14-0x0A]                               mov-symptr igpr-55, '_empty_
+  [0x100CB] mov r9, r14                                      mov-symptr igpr-57, '#f
+  [0x100CE] cmp rdx, r9                                      j(igpr-54 == igpr-57) label-84
+  [0x100D1] jz 0x00000000000100E7
+[1m
+collide-mesh.gc:103
+[0m[38;2;255;165;000m->     (b! (zero? (the-as uint a2-2)) cfg-4 :likely-delay (set! a2-2 1))
+[0m[1m[38;2;050;205;050m                                                           ^
+[0m  [0x100D7] mov r8d, 0x01                                    mov-ic igpr-58, 1
+[1m
+collide-mesh.gc:103
+[0m[38;2;255;165;000m->     (b! (zero? (the-as uint a2-2)) cfg-4 :likely-delay (set! a2-2 1))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x100DD] jmp 0x00000000000100EA                           goto label-86
+  [0x100E2] jmp 0x00000000000100EA                           goto label-85
+  [0x100E7] mov r9, r14                                      mov-symptr igpr-56, '#f
+[1m
+collide-mesh.gc:105
+[0m[38;2;255;165;000m->     (set! a1-2 v1-2)
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x100EA] mov r9, rsi                                      mov igpr-5, igpr-19
+[1m
+collide-mesh.gc:106
+[0m[38;2;255;165;000m->     (set! a3-1 (-> this data))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x100ED] mov eax, 0x1C                                    mov-ic igpr-59, 28
+  [0x100F2] add rax, rdi                                     addi igpr-59, igpr-3
+[1m
+collide-mesh.gc:107
+[0m[38;2;255;165;000m->     (set! (-> this id) (the-as uint a2-2))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x100F5] mov [r15+rdi*1+0x0C], r8                         move [igpr-3 + 12], igpr-60
+[1m
+collide-mesh.gc:109
+[0m[38;2;255;165;000m->     (set! (-> this used-size) (the-as uint a1-2))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x100FA] mov [r15+rdi*1], r9d                             move [igpr-3 + 0], igpr-61
+[1m
+collide-mesh.gc:111
+[0m[38;2;255;165;000m->       (b! #t cfg-7 :delay (nop!))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x100FE] lea r9, [r14+0x08]                               mov-symptr igpr-63, '#t
+[1m
+collide-mesh.gc:111
+[0m[38;2;255;165;000m->       (b! #t cfg-7 :delay (nop!))
+[0m[1m[38;2;050;205;050m                              ^
+[0m  [0x10103] nop                                              nop
+[1m
+collide-mesh.gc:111
+[0m[38;2;255;165;000m->       (b! #t cfg-7 :delay (nop!))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10104] mov r8, r14                                      mov-symptr igpr-66, '#f
+  [0x10107] cmp r9, r8                                       j(igpr-64 == igpr-66) label-103
+  [0x1010A] jz 0x000000000001011F
+  [0x10110] lea r9, [r14-0x0A]                               mov-symptr igpr-67, '_empty_
+  [0x10115] jmp 0x0000000000010140                           goto label-116
+  [0x1011A] jmp 0x0000000000010122                           goto label-104
+  [0x1011F] mov r9, r14                                      mov-symptr igpr-65, '#f
+[1m
+collide-mesh.gc:113
+[0m[38;2;255;165;000m->       (format 0 "ERROR: Attempted to allocate something bigger than the entire mesh cache!~%")
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10122] mov r9d, [r15+r14*1+0xBADBEEF]                   mov igpr-68, 'format
+[1m
+collide-mesh.gc:110
+[0m[38;2;255;165;000m->     (let ((v0-0 a3-1))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x1012A] xor rdi, rdi                                     mov-ic igpr-69, 0
+  [0x1012D] lea rsi, [0x0000000000010134]                    mov-sva igpr-70, static-string "ERROR: Attempted to allocate something bigger than the entire mesh cache!~%"
+  [0x10134] sub rsi, r15
+[1m
+collide-mesh.gc:113
+[0m[38;2;255;165;000m->       (format 0 "ERROR: Attempted to allocate something bigger than the entire mesh cache!~%")
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10137] add r9, r15                                      call igpr-74 (ret igpr-71) (args igpr-72 igpr-73)
+  [0x1013A] call r9
+[1m
+collide-mesh.gc:114
+[0m[38;2;255;165;000m->       (set! v0-0 (the-as (pointer uint8) #f))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x1013D] mov rax, r14                                     mov-symptr igpr-76, '#f
+  [0x10140] pop rbx
+  [0x10141] pop rbp
+  [0x10142] pop rbx
+  [0x10143] ret
+
+
+[(method mem-usage collide-mesh)]
+[1m[38;2;255;000;000m- [0x10000] [0mpush rbx
+  [0x10001] push rbp
+  [0x10002] push rbx
+[1m
+collide-mesh.gc:14
+[0m[38;2;255;165;000m-> (defmethod mem-usage ((this collide-mesh) (arg0 memory-usage-block) (arg1 int))
+[0m[1m[38;2;050;205;050m    ^
+[0m  [0x10003] mov rbp, rdi                                     mov igpr-4, igpr-0
+  [0x10006] mov rbx, rsi                                     mov igpr-5, igpr-1
+  [0x10009] mov r9d, 0x4F                                    mov-ic igpr-7, 79
+[1m
+collide-mesh.gc:16
+[0m[38;2;255;165;000m->   (set! (-> arg0 length) (max 79 (-> arg0 length)))
+[0m[1m[38;2;050;205;050m                                     ^
+[0m  [0x1000F] movsxd r8, dword ptr [r15+rbx*1+0x04]            mov igpr-8, [igpr-5 + 4]
+[1m
+gcommon.gc:147
+[0m[38;2;255;165;000m->   (if (> a b) a b))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x10014] cmp r9, r8                                       j(igpr-9 <= igpr-10) label-11
+  [0x10017] jle 0x0000000000010022
+[1m
+gcommon.gc:147
+[0m[38;2;255;165;000m->   (if (> a b) a b))
+[0m[1m[38;2;050;205;050m      ^
+[0m  [0x1001D] jmp 0x0000000000010025                           goto label-12
+  [0x10022] mov r9, r8                                       mov igpr-12, igpr-10
+[1m
+collide-mesh.gc:16
+[0m[38;2;255;165;000m->   (set! (-> arg0 length) (max 79 (-> arg0 length)))
+[0m[1m[38;2;050;205;050m      ^
+[0m  [0x10025] mov [r15+rbx*1+0x04], r9d                        move [igpr-5 + 4], igpr-12
+[1m
+collide-mesh.gc:17
+[0m[38;2;255;165;000m->   (set! (-> arg0 data 78 name) "collide-mesh")
+[0m[1m[38;2;050;205;050m      ^
+[0m  [0x1002A] lea r9, [0x0000000000010031]                     mov-sva igpr-13, static-string "collide-mesh"
+  [0x10031] sub r9, r15
+  [0x10034] mov [r15+rbx*1+0x4EC], r9d                       move [igpr-5 + 1260], igpr-13
+[1m
+collide-mesh.gc:18
+[0m[38;2;255;165;000m->   (+! (-> arg0 data 78 count) 1)
+[0m[1m[38;2;050;205;050m      ^
+[0m  [0x1003C] movsxd r9, dword ptr [r15+rbx*1+0x4F0]           mov igpr-15, [igpr-5 + 1264]
+  [0x10044] mov r8d, 0x01                                    mov-ic igpr-16, 1
+  [0x1004A] add r9, r8                                       addi igpr-14, igpr-16
+  [0x1004D] mov [r15+rbx*1+0x4F0], r9d                       move [igpr-5 + 1264], igpr-14
+[1m
+collide-mesh.gc:19
+[0m[38;2;255;165;000m->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 78 used) v1-6) (+! (-> arg0 data 78 total) (logand -16 (+ v1-6 15))))
+[0m[1m[38;2;050;205;050m                  ^
+[0m  [0x10055] mov r9d, [r15+rbp*1-0x04]                        mov igpr-17, [igpr-4 + -4]
+  [0x1005A] mov r9d, [r15+r9*1+0x24]                         mov igpr-18, [igpr-17 + 36]
+  [0x1005F] mov rdi, rbp                                     mov igpr-20, igpr-4
+  [0x10062] add r9, r15                                      call igpr-21 (ret igpr-19) (args igpr-20)
+  [0x10065] call r9
+[1m
+collide-mesh.gc:19
+[0m[38;2;255;165;000m->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 78 used) v1-6) (+! (-> arg0 data 78 total) (logand -16 (+ v1-6 15))))
+[0m[1m[38;2;050;205;050m                                    ^
+[0m  [0x10068] movsxd r9, dword ptr [r15+rbx*1+0x4F4]           mov igpr-25, [igpr-5 + 1268]
+  [0x10070] add r9, rax                                      addi igpr-24, igpr-23
+  [0x10073] mov [r15+rbx*1+0x4F4], r9d                       move [igpr-5 + 1268], igpr-24
+[1m
+collide-mesh.gc:19
+[0m[38;2;255;165;000m->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 78 used) v1-6) (+! (-> arg0 data 78 total) (logand -16 (+ v1-6 15))))
+[0m[1m[38;2;050;205;050m                                                                     ^
+[0m  [0x1007B] movsxd r9, dword ptr [r15+rbx*1+0x4F8]           mov igpr-27, [igpr-5 + 1272]
+[1m
+collide-mesh.gc:19
+[0m[38;2;255;165;000m->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 78 used) v1-6) (+! (-> arg0 data 78 total) (logand -16 (+ v1-6 15))))
+[0m[1m[38;2;050;205;050m                                                                                                 ^
+[0m  [0x10083] mov r8, 0xFFFFFFFFFFFFFFF0                       mov-ic igpr-28, 18446744073709551600
+[1m
+collide-mesh.gc:19
+[0m[38;2;255;165;000m->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 78 used) v1-6) (+! (-> arg0 data 78 total) (logand -16 (+ v1-6 15))))
+[0m[1m[38;2;050;205;050m                                                                                                             ^
+[0m  [0x1008A] mov ecx, 0x0F                                    mov-ic igpr-30, 15
+  [0x1008F] add rax, rcx                                     addi igpr-29, igpr-30
+[1m
+collide-mesh.gc:19
+[0m[38;2;255;165;000m->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 78 used) v1-6) (+! (-> arg0 data 78 total) (logand -16 (+ v1-6 15))))
+[0m[1m[38;2;050;205;050m                                                                                                 ^
+[0m  [0x10092] and r8, rax                                      and igpr-31, igpr-29
+[1m
+collide-mesh.gc:19
+[0m[38;2;255;165;000m->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 78 used) v1-6) (+! (-> arg0 data 78 total) (logand -16 (+ v1-6 15))))
+[0m[1m[38;2;050;205;050m                                                                     ^
+[0m  [0x10095] add r9, r8                                       addi igpr-26, igpr-31
+  [0x10098] mov [r15+rbx*1+0x4F8], r9d                       move [igpr-5 + 1272], igpr-26
+  [0x100A0] mov r9d, 0x4F                                    mov-ic igpr-32, 79
+[1m
+collide-mesh.gc:20
+[0m[38;2;255;165;000m->   (set! (-> arg0 length) (max 79 (-> arg0 length)))
+[0m[1m[38;2;050;205;050m                                     ^
+[0m  [0x100A6] movsxd r8, dword ptr [r15+rbx*1+0x04]            mov igpr-33, [igpr-5 + 4]
+[1m
+gcommon.gc:147
+[0m[38;2;255;165;000m->   (if (> a b) a b))
+[0m[1m[38;2;050;205;050m          ^
+[0m  [0x100AB] cmp r9, r8                                       j(igpr-34 <= igpr-35) label-50
+  [0x100AE] jle 0x00000000000100B9
+[1m
+gcommon.gc:147
+[0m[38;2;255;165;000m->   (if (> a b) a b))
+[0m[1m[38;2;050;205;050m      ^
+[0m  [0x100B4] jmp 0x00000000000100BC                           goto label-51
+  [0x100B9] mov r9, r8                                       mov igpr-37, igpr-35
+[1m
+collide-mesh.gc:20
+[0m[38;2;255;165;000m->   (set! (-> arg0 length) (max 79 (-> arg0 length)))
+[0m[1m[38;2;050;205;050m      ^
+[0m  [0x100BC] mov [r15+rbx*1+0x04], r9d                        move [igpr-5 + 4], igpr-37
+[1m
+collide-mesh.gc:21
+[0m[38;2;255;165;000m->   (set! (-> arg0 data 78 name) "collide-mesh")
+[0m[1m[38;2;050;205;050m      ^
+[0m  [0x100C1] lea r9, [0x00000000000100C8]                     mov-sva igpr-38, static-string "collide-mesh"
+  [0x100C8] sub r9, r15
+  [0x100CB] mov [r15+rbx*1+0x4EC], r9d                       move [igpr-5 + 1260], igpr-38
+[1m
+collide-mesh.gc:22
+[0m[38;2;255;165;000m->   (+! (-> arg0 data 78 count) 1)
+[0m[1m[38;2;050;205;050m      ^
+[0m  [0x100D3] movsxd r9, dword ptr [r15+rbx*1+0x4F0]           mov igpr-40, [igpr-5 + 1264]
+  [0x100DB] mov r8d, 0x01                                    mov-ic igpr-41, 1
+  [0x100E1] add r9, r8                                       addi igpr-39, igpr-41
+  [0x100E4] mov [r15+rbx*1+0x4F0], r9d                       move [igpr-5 + 1264], igpr-39
+[1m
+collide-mesh.gc:23
+[0m[38;2;255;165;000m->   (let ((v1-16 (* (-> this num-verts) 16)))
+[0m[1m[38;2;050;205;050m                   ^
+[0m  [0x100EC] mov r9d, [r15+rbp*1+0x08]                        mov igpr-43, [igpr-4 + 8]
+  [0x100F1] shl r9, 0x04                                     shl igpr-42, 4
+[1m
+collide-mesh.gc:24
+[0m[38;2;255;165;000m->     (+! (-> arg0 data 78 used) v1-16)
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x100F5] movsxd r8, dword ptr [r15+rbx*1+0x4F4]           mov igpr-46, [igpr-5 + 1268]
+  [0x100FD] add r8, r9                                       addi igpr-45, igpr-44
+  [0x10100] mov [r15+rbx*1+0x4F4], r8d                       move [igpr-5 + 1268], igpr-45
+[1m
+collide-mesh.gc:25
+[0m[38;2;255;165;000m->     (+! (-> arg0 data 78 total) (logand -16 (+ v1-16 15))))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x10108] movsxd r8, dword ptr [r15+rbx*1+0x4F8]           mov igpr-48, [igpr-5 + 1272]
+[1m
+collide-mesh.gc:25
+[0m[38;2;255;165;000m->     (+! (-> arg0 data 78 total) (logand -16 (+ v1-16 15))))
+[0m[1m[38;2;050;205;050m                                    ^
+[0m  [0x10110] mov rcx, 0xFFFFFFFFFFFFFFF0                      mov-ic igpr-49, 18446744073709551600
+[1m
+collide-mesh.gc:25
+[0m[38;2;255;165;000m->     (+! (-> arg0 data 78 total) (logand -16 (+ v1-16 15))))
+[0m[1m[38;2;050;205;050m                                                ^
+[0m  [0x10117] mov edx, 0x0F                                    mov-ic igpr-51, 15
+  [0x1011C] add r9, rdx                                      addi igpr-50, igpr-51
+[1m
+collide-mesh.gc:25
+[0m[38;2;255;165;000m->     (+! (-> arg0 data 78 total) (logand -16 (+ v1-16 15))))
+[0m[1m[38;2;050;205;050m                                    ^
+[0m  [0x1011F] and rcx, r9                                      and igpr-52, igpr-50
+[1m
+collide-mesh.gc:25
+[0m[38;2;255;165;000m->     (+! (-> arg0 data 78 total) (logand -16 (+ v1-16 15))))
+[0m[1m[38;2;050;205;050m        ^
+[0m  [0x10122] add r8, rcx                                      addi igpr-47, igpr-52
+  [0x10125] mov [r15+rbx*1+0x4F8], r8d                       move [igpr-5 + 1272], igpr-47
+[1m
+collide-mesh.gc:26
+[0m[38;2;255;165;000m->   (the-as collide-mesh 0))
+[0m[1m[38;2;050;205;050m      ^
+[0m  [0x1012D] xor rax, rax                                     mov-ic igpr-53, 0
+  [0x10130] pop rbx
+  [0x10131] pop rbp
+  [0x10132] pop rbx
+  [0x10133] ret
+
+
+[(method asize-of collide-mesh)]
+[1m
+collide-mesh.gc:12
+[0m[38;2;255;165;000m->   (the-as int (+ (-> collide-mesh size) (* (+ (-> this num-tris) -1) 8))))
+[0m[1m[38;2;050;205;050m                  ^
+[0m[1m[38;2;255;000;000m- [0x10000] [0mmov r9d, [r15+r14*1+0xBADBEEF] mov igpr-5, 'collide-mesh
+  [0x10008] movzx rax, word ptr [r15+r9*1+0x08]              mov igpr-4, [igpr-5 + 8]
+[1m
+collide-mesh.gc:12
+[0m[38;2;255;165;000m->   (the-as int (+ (-> collide-mesh size) (* (+ (-> this num-tris) -1) 8))))
+[0m[1m[38;2;050;205;050m                                               ^
+[0m  [0x1000E] mov r9d, [r15+rdi*1+0x04]                        mov igpr-7, [igpr-2 + 4]
+  [0x10013] mov r8, 0xFFFFFFFFFFFFFFFF                       mov-ic igpr-8, 18446744073709551615
+  [0x1001A] add r9, r8                                       addi igpr-6, igpr-8
+[1m
+collide-mesh.gc:12
+[0m[38;2;255;165;000m->   (the-as int (+ (-> collide-mesh size) (* (+ (-> this num-tris) -1) 8))))
+[0m[1m[38;2;050;205;050m                                            ^
+[0m  [0x1001D] shl r9, 0x03                                     shl igpr-9, 3
+[1m
+collide-mesh.gc:12
+[0m[38;2;255;165;000m->   (the-as int (+ (-> collide-mesh size) (* (+ (-> this num-tris) -1) 8))))
+[0m[1m[38;2;050;205;050m                  ^
+[0m  [0x10021] add rax, r9                                      addi igpr-3, igpr-9
+  [0x10024] ret
+
+
+

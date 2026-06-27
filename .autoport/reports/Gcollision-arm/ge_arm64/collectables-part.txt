@@ -1,0 +1,2136 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] adrp x9, #0x10000                                mov-fa igpr-0, function-eco-fadeout
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+
+collectables-part.gc:20
+-> (defun eco-fadeout ((arg0 sparticle-system) (arg1 sparticle-cpuinfo))
+  [0x10014] adrp x16, #0x10000                               mov 'eco-fadeout, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+  [0x10020] adrp x9, #0x10000                                mov-fa igpr-1, function-eco-track-root-prim-fadeout
+  [0x10024] add x9, x9, #0
+  [0x10028] sub x9, x9, x15
+
+collectables-part.gc:26
+-> (defun eco-track-root-prim-fadeout ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x1002C] adrp x16, #0x10000                               mov 'eco-track-root-prim-fadeout, igpr-1
+  [0x10030] add x16, x16, #0
+  [0x10034] str w9, [x16]
+  [0x10038] adrp x9, #0x10000                                mov-fa igpr-2, function-part-tracker-track-root
+  [0x1003C] add x9, x9, #0
+  [0x10040] sub x9, x9, x15
+
+collectables-part.gc:37
+-> (defun part-tracker-track-root ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x10044] adrp x16, #0x10000                               mov 'part-tracker-track-root, igpr-2
+  [0x10048] add x16, x16, #0
+  [0x1004C] str w9, [x16]
+  [0x10050] adrp x9, #0x10000                                mov-fa igpr-3, function-part-tracker-move-to-target
+  [0x10054] add x9, x9, #0
+  [0x10058] sub x9, x9, x15
+
+collectables-part.gc:45
+-> (defun part-tracker-move-to-target ((arg0 part-tracker))
+  [0x1005C] adrp x16, #0x10000                               mov 'part-tracker-move-to-target, igpr-3
+  [0x10060] add x16, x16, #0
+  [0x10064] str w9, [x16]
+  [0x10068] adrp x9, #0x10000                                mov-fa igpr-4, function-part-tracker-track-target
+  [0x1006C] add x9, x9, #0
+  [0x10070] sub x9, x9, x15
+
+collectables-part.gc:53
+-> (defun part-tracker-track-target ((arg0 part-tracker))
+  [0x10074] adrp x16, #0x10000                               mov 'part-tracker-track-target, igpr-4
+  [0x10078] add x16, x16, #0
+  [0x1007C] str w9, [x16]
+
+collectables-part.gc:61
+-> (defpartgroup group-eco-blue
+  [0x10080] adrp x9, #0x10000                                mov-sva igpr-5, static-structure
+  [0x10084] add x9, x9, #0
+  [0x10088] sub x9, x9, x15
+  [0x1008C] adrp x16, #0x10000                               mov igpr-6, '*part-group-id-table*
+  [0x10090] add x16, x16, #0
+  [0x10094] ldr w8, [x16]
+  [0x10098] add x16, x8, x15                                 move [igpr-6 + 180], igpr-5
+  [0x1009C] str w9, [x16, #0xb4] ;; misaligned with debug data
+
+collectables-part.gc:86
+-> (defpart 2
+  [0x100A0] adrp x9, #0x10000                                mov-sva igpr-7, static-structure
+  [0x100A4] add x9, x9, #0
+  [0x100A8] sub x9, x9, x15
+  [0x100AC] adrp x16, #0x10000                               mov igpr-8, '*part-id-table*
+  [0x100B0] add x16, x16, #0
+  [0x100B4] ldr w8, [x16]
+  [0x100B8] add x16, x8, x15                                 move [igpr-8 + 20], igpr-7
+  [0x100BC] str w9, [x16, #0x14] ;; misaligned with debug data
+
+collectables-part.gc:97
+-> (defpart 3
+  [0x100C0] adrp x9, #0x10000                                mov-sva igpr-9, static-structure
+  [0x100C4] add x9, x9, #0
+  [0x100C8] sub x9, x9, x15
+  [0x100CC] adrp x16, #0x10000                               mov igpr-10, '*part-id-table*
+  [0x100D0] add x16, x16, #0
+  [0x100D4] ldr w8, [x16]
+  [0x100D8] add x16, x8, x15                                 move [igpr-10 + 24], igpr-9
+  [0x100DC] str w9, [x16, #0x18] ;; misaligned with debug data
+
+collectables-part.gc:121
+-> (defpart 4
+  [0x100E0] adrp x9, #0x10000                                mov-sva igpr-11, static-structure
+  [0x100E4] add x9, x9, #0
+  [0x100E8] sub x9, x9, x15
+  [0x100EC] adrp x16, #0x10000                               mov igpr-12, '*part-id-table*
+  [0x100F0] add x16, x16, #0
+  [0x100F4] ldr w8, [x16]
+  [0x100F8] add x16, x8, x15                                 move [igpr-12 + 28], igpr-11
+  [0x100FC] str w9, [x16, #0x1c] ;; misaligned with debug data
+
+collectables-part.gc:124
+-> (defpart 5
+  [0x10100] adrp x9, #0x10000                                mov-sva igpr-13, static-structure
+  [0x10104] add x9, x9, #0
+  [0x10108] sub x9, x9, x15
+  [0x1010C] adrp x16, #0x10000                               mov igpr-14, '*part-id-table*
+  [0x10110] add x16, x16, #0
+  [0x10114] ldr w8, [x16]
+  [0x10118] add x16, x8, x15                                 move [igpr-14 + 32], igpr-13
+  [0x1011C] str w9, [x16, #0x20] ;; misaligned with debug data
+
+collectables-part.gc:148
+-> (defpart 6
+  [0x10120] adrp x9, #0x10000                                mov-sva igpr-15, static-structure
+  [0x10124] add x9, x9, #0
+  [0x10128] sub x9, x9, x15
+  [0x1012C] adrp x16, #0x10000                               mov igpr-16, '*part-id-table*
+  [0x10130] add x16, x16, #0
+  [0x10134] ldr w8, [x16]
+  [0x10138] add x16, x8, x15                                 move [igpr-16 + 36], igpr-15
+  [0x1013C] str w9, [x16, #0x24] ;; misaligned with debug data
+
+collectables-part.gc:151
+-> (defpart 7
+  [0x10140] adrp x9, #0x10000                                mov-sva igpr-17, static-structure
+  [0x10144] add x9, x9, #0
+  [0x10148] sub x9, x9, x15
+  [0x1014C] adrp x16, #0x10000                               mov igpr-18, '*part-id-table*
+  [0x10150] add x16, x16, #0
+  [0x10154] ldr w8, [x16]
+  [0x10158] add x16, x8, x15                                 move [igpr-18 + 40], igpr-17
+  [0x1015C] str w9, [x16, #0x28] ;; misaligned with debug data
+
+collectables-part.gc:169
+-> (defpart 8
+  [0x10160] adrp x9, #0x10000                                mov-sva igpr-19, static-structure
+  [0x10164] add x9, x9, #0
+  [0x10168] sub x9, x9, x15
+  [0x1016C] adrp x16, #0x10000                               mov igpr-20, '*part-id-table*
+  [0x10170] add x16, x16, #0
+  [0x10174] ldr w8, [x16]
+  [0x10178] add x16, x8, x15                                 move [igpr-20 + 44], igpr-19
+  [0x1017C] str w9, [x16, #0x2c] ;; misaligned with debug data
+
+collectables-part.gc:187
+-> (defpart 9
+  [0x10180] adrp x9, #0x10000                                mov-sva igpr-21, static-structure
+  [0x10184] add x9, x9, #0
+  [0x10188] sub x9, x9, x15
+  [0x1018C] adrp x16, #0x10000                               mov igpr-22, '*part-id-table*
+  [0x10190] add x16, x16, #0
+  [0x10194] ldr w8, [x16]
+  [0x10198] add x16, x8, x15                                 move [igpr-22 + 48], igpr-21
+  [0x1019C] str w9, [x16, #0x30] ;; misaligned with debug data
+
+collectables-part.gc:205
+-> (defpart 10
+  [0x101A0] adrp x9, #0x10000                                mov-sva igpr-23, static-structure
+  [0x101A4] add x9, x9, #0
+  [0x101A8] sub x9, x9, x15
+  [0x101AC] adrp x16, #0x10000                               mov igpr-24, '*part-id-table*
+  [0x101B0] add x16, x16, #0
+  [0x101B4] ldr w8, [x16]
+  [0x101B8] add x16, x8, x15                                 move [igpr-24 + 52], igpr-23
+  [0x101BC] str w9, [x16, #0x34] ;; misaligned with debug data
+
+collectables-part.gc:218
+-> (defpartgroup group-eco-blue-collect
+  [0x101C0] adrp x9, #0x10000                                mov-sva igpr-25, static-structure
+  [0x101C4] add x9, x9, #0
+  [0x101C8] sub x9, x9, x15
+  [0x101CC] adrp x16, #0x10000                               mov igpr-26, '*part-group-id-table*
+  [0x101D0] add x16, x16, #0
+  [0x101D4] ldr w8, [x16]
+  [0x101D8] add x16, x8, x15                                 move [igpr-26 + 184], igpr-25
+  [0x101DC] str w9, [x16, #0xb8] ;; misaligned with debug data
+
+collectables-part.gc:243
+-> (defpart 11
+  [0x101E0] adrp x9, #0x10000                                mov-sva igpr-27, static-structure
+  [0x101E4] add x9, x9, #0
+  [0x101E8] sub x9, x9, x15
+  [0x101EC] adrp x16, #0x10000                               mov igpr-28, '*part-id-table*
+  [0x101F0] add x16, x16, #0
+  [0x101F4] ldr w8, [x16]
+  [0x101F8] add x16, x8, x15                                 move [igpr-28 + 56], igpr-27
+  [0x101FC] str w9, [x16, #0x38] ;; misaligned with debug data
+
+collectables-part.gc:261
+-> (defpart 12
+  [0x10200] adrp x9, #0x10000                                mov-sva igpr-29, static-structure
+  [0x10204] add x9, x9, #0
+  [0x10208] sub x9, x9, x15
+  [0x1020C] adrp x16, #0x10000                               mov igpr-30, '*part-id-table*
+  [0x10210] add x16, x16, #0
+  [0x10214] ldr w8, [x16]
+  [0x10218] add x16, x8, x15                                 move [igpr-30 + 60], igpr-29
+  [0x1021C] str w9, [x16, #0x3c] ;; misaligned with debug data
+
+collectables-part.gc:281
+-> (defpart 13
+  [0x10220] adrp x9, #0x10000                                mov-sva igpr-31, static-structure
+  [0x10224] add x9, x9, #0
+  [0x10228] sub x9, x9, x15
+  [0x1022C] adrp x16, #0x10000                               mov igpr-32, '*part-id-table*
+  [0x10230] add x16, x16, #0
+  [0x10234] ldr w8, [x16]
+  [0x10238] add x16, x8, x15                                 move [igpr-32 + 64], igpr-31
+  [0x1023C] str w9, [x16, #0x40] ;; misaligned with debug data
+
+collectables-part.gc:299
+-> (defpart 14
+  [0x10240] adrp x9, #0x10000                                mov-sva igpr-33, static-structure
+  [0x10244] add x9, x9, #0
+  [0x10248] sub x9, x9, x15
+  [0x1024C] adrp x16, #0x10000                               mov igpr-34, '*part-id-table*
+  [0x10250] add x16, x16, #0
+  [0x10254] ldr w8, [x16]
+  [0x10258] add x16, x8, x15                                 move [igpr-34 + 68], igpr-33
+  [0x1025C] str w9, [x16, #0x44] ;; misaligned with debug data
+
+collectables-part.gc:317
+-> (defpart 147
+  [0x10260] adrp x9, #0x10000                                mov-sva igpr-35, static-structure
+  [0x10264] add x9, x9, #0
+  [0x10268] sub x9, x9, x15
+  [0x1026C] adrp x16, #0x10000                               mov igpr-36, '*part-id-table*
+  [0x10270] add x16, x16, #0
+  [0x10274] ldr w8, [x16]
+  [0x10278] add x16, x8, x15                                 move [igpr-36 + 600], igpr-35
+  [0x1027C] str w9, [x16, #0x258] ;; misaligned with debug data
+
+collectables-part.gc:335
+-> (defpartgroup group-part-vent-blue-active
+  [0x10280] adrp x9, #0x10000                                mov-sva igpr-37, static-structure
+  [0x10284] add x9, x9, #0
+  [0x10288] sub x9, x9, x15
+  [0x1028C] adrp x16, #0x10000                               mov igpr-38, '*part-group-id-table*
+  [0x10290] add x16, x16, #0
+  [0x10294] ldr w8, [x16]
+  [0x10298] add x16, x8, x15                                 move [igpr-38 + 188], igpr-37
+  [0x1029C] str w9, [x16, #0xbc] ;; misaligned with debug data
+
+collectables-part.gc:355
+-> (defpartgroup group-part-vent-blue-inactive
+  [0x102A0] adrp x9, #0x10000                                mov-sva igpr-39, static-structure
+  [0x102A4] add x9, x9, #0
+  [0x102A8] sub x9, x9, x15
+  [0x102AC] adrp x16, #0x10000                               mov igpr-40, '*part-group-id-table*
+  [0x102B0] add x16, x16, #0
+  [0x102B4] ldr w8, [x16]
+  [0x102B8] add x16, x8, x15                                 move [igpr-40 + 192], igpr-39
+  [0x102BC] str w9, [x16, #0xc0] ;; misaligned with debug data
+
+collectables-part.gc:360
+-> (defpart 150
+  [0x102C0] adrp x9, #0x10000                                mov-sva igpr-41, static-structure
+  [0x102C4] add x9, x9, #0
+  [0x102C8] sub x9, x9, x15
+  [0x102CC] adrp x16, #0x10000                               mov igpr-42, '*part-id-table*
+  [0x102D0] add x16, x16, #0
+  [0x102D4] ldr w8, [x16]
+  [0x102D8] add x16, x8, x15                                 move [igpr-42 + 612], igpr-41
+  [0x102DC] str w9, [x16, #0x264] ;; misaligned with debug data
+
+collectables-part.gc:378
+-> (defpart 149
+  [0x102E0] adrp x9, #0x10000                                mov-sva igpr-43, static-structure
+  [0x102E4] add x9, x9, #0
+  [0x102E8] sub x9, x9, x15
+  [0x102EC] adrp x16, #0x10000                               mov igpr-44, '*part-id-table*
+  [0x102F0] add x16, x16, #0
+  [0x102F4] ldr w8, [x16]
+  [0x102F8] add x16, x8, x15                                 move [igpr-44 + 608], igpr-43
+  [0x102FC] str w9, [x16, #0x260] ;; misaligned with debug data
+
+collectables-part.gc:395
+-> (defpart 156
+  [0x10300] adrp x9, #0x10000                                mov-sva igpr-45, static-structure
+  [0x10304] add x9, x9, #0
+  [0x10308] sub x9, x9, x15
+  [0x1030C] adrp x16, #0x10000                               mov igpr-46, '*part-id-table*
+  [0x10310] add x16, x16, #0
+  [0x10314] ldr w8, [x16]
+  [0x10318] add x16, x8, x15                                 move [igpr-46 + 636], igpr-45
+  [0x1031C] str w9, [x16, #0x27c] ;; misaligned with debug data
+
+collectables-part.gc:413
+-> (defpart 155
+  [0x10320] adrp x9, #0x10000                                mov-sva igpr-47, static-structure
+  [0x10324] add x9, x9, #0
+  [0x10328] sub x9, x9, x15
+  [0x1032C] adrp x16, #0x10000                               mov igpr-48, '*part-id-table*
+  [0x10330] add x16, x16, #0
+  [0x10334] ldr w8, [x16]
+  [0x10338] add x16, x8, x15                                 move [igpr-48 + 632], igpr-47
+  [0x1033C] str w9, [x16, #0x278] ;; misaligned with debug data
+
+collectables-part.gc:431
+-> (defpart 154
+  [0x10340] adrp x9, #0x10000                                mov-sva igpr-49, static-structure
+  [0x10344] add x9, x9, #0
+  [0x10348] sub x9, x9, x15
+  [0x1034C] adrp x16, #0x10000                               mov igpr-50, '*part-id-table*
+  [0x10350] add x16, x16, #0
+  [0x10354] ldr w8, [x16]
+  [0x10358] add x16, x8, x15                                 move [igpr-50 + 628], igpr-49
+  [0x1035C] str w9, [x16, #0x274] ;; misaligned with debug data
+
+collectables-part.gc:449
+-> (defpart 151
+  [0x10360] adrp x9, #0x10000                                mov-sva igpr-51, static-structure
+  [0x10364] add x9, x9, #0
+  [0x10368] sub x9, x9, x15
+  [0x1036C] adrp x16, #0x10000                               mov igpr-52, '*part-id-table*
+  [0x10370] add x16, x16, #0
+  [0x10374] ldr w8, [x16]
+  [0x10378] add x16, x8, x15                                 move [igpr-52 + 616], igpr-51
+  [0x1037C] str w9, [x16, #0x268] ;; misaligned with debug data
+
+collectables-part.gc:470
+-> (defpart 152
+  [0x10380] adrp x9, #0x10000                                mov-sva igpr-53, static-structure
+  [0x10384] add x9, x9, #0
+  [0x10388] sub x9, x9, x15
+  [0x1038C] adrp x16, #0x10000                               mov igpr-54, '*part-id-table*
+  [0x10390] add x16, x16, #0
+  [0x10394] ldr w8, [x16]
+  [0x10398] add x16, x8, x15                                 move [igpr-54 + 620], igpr-53
+  [0x1039C] str w9, [x16, #0x26c] ;; misaligned with debug data
+
+collectables-part.gc:491
+-> (defpart 153
+  [0x103A0] adrp x9, #0x10000                                mov-sva igpr-55, static-structure
+  [0x103A4] add x9, x9, #0
+  [0x103A8] sub x9, x9, x15
+  [0x103AC] adrp x16, #0x10000                               mov igpr-56, '*part-id-table*
+  [0x103B0] add x16, x16, #0
+  [0x103B4] ldr w8, [x16]
+  [0x103B8] add x16, x8, x15                                 move [igpr-56 + 624], igpr-55
+  [0x103BC] str w9, [x16, #0x270] ;; misaligned with debug data
+
+collectables-part.gc:512
+-> (defpart 146
+  [0x103C0] adrp x9, #0x10000                                mov-sva igpr-57, static-structure
+  [0x103C4] add x9, x9, #0
+  [0x103C8] sub x9, x9, x15
+  [0x103CC] adrp x16, #0x10000                               mov igpr-58, '*part-id-table*
+  [0x103D0] add x16, x16, #0
+  [0x103D4] ldr w8, [x16]
+  [0x103D8] add x16, x8, x15                                 move [igpr-58 + 596], igpr-57
+  [0x103DC] str w9, [x16, #0x254] ;; misaligned with debug data
+
+collectables-part.gc:515
+-> (defpartgroup group-eco-red
+  [0x103E0] adrp x9, #0x10000                                mov-sva igpr-59, static-structure
+  [0x103E4] add x9, x9, #0
+  [0x103E8] sub x9, x9, x15
+  [0x103EC] adrp x16, #0x10000                               mov igpr-60, '*part-group-id-table*
+  [0x103F0] add x16, x16, #0
+  [0x103F4] ldr w8, [x16]
+  [0x103F8] add x16, x8, x15                                 move [igpr-60 + 204], igpr-59
+  [0x103FC] str w9, [x16, #0xcc] ;; misaligned with debug data
+
+collectables-part.gc:536
+-> (defpart 160
+  [0x10400] adrp x9, #0x10000                                mov-sva igpr-61, static-structure
+  [0x10404] add x9, x9, #0
+  [0x10408] sub x9, x9, x15
+  [0x1040C] adrp x16, #0x10000                               mov igpr-62, '*part-id-table*
+  [0x10410] add x16, x16, #0
+  [0x10414] ldr w8, [x16]
+  [0x10418] add x16, x8, x15                                 move [igpr-62 + 652], igpr-61
+  [0x1041C] str w9, [x16, #0x28c] ;; misaligned with debug data
+
+collectables-part.gc:547
+-> (defpart 161
+  [0x10420] adrp x9, #0x10000                                mov-sva igpr-63, static-structure
+  [0x10424] add x9, x9, #0
+  [0x10428] sub x9, x9, x15
+  [0x1042C] adrp x16, #0x10000                               mov igpr-64, '*part-id-table*
+  [0x10430] add x16, x16, #0
+  [0x10434] ldr w8, [x16]
+  [0x10438] add x16, x8, x15                                 move [igpr-64 + 656], igpr-63
+  [0x1043C] str w9, [x16, #0x290] ;; misaligned with debug data
+
+collectables-part.gc:571
+-> (defpart 165
+  [0x10440] adrp x9, #0x10000                                mov-sva igpr-65, static-structure
+  [0x10444] add x9, x9, #0
+  [0x10448] sub x9, x9, x15
+  [0x1044C] adrp x16, #0x10000                               mov igpr-66, '*part-id-table*
+  [0x10450] add x16, x16, #0
+  [0x10454] ldr w8, [x16]
+  [0x10458] add x16, x8, x15                                 move [igpr-66 + 672], igpr-65
+  [0x1045C] str w9, [x16, #0x2a0] ;; misaligned with debug data
+
+collectables-part.gc:574
+-> (defpart 162
+  [0x10460] adrp x9, #0x10000                                mov-sva igpr-67, static-structure
+  [0x10464] add x9, x9, #0
+  [0x10468] sub x9, x9, x15
+  [0x1046C] adrp x16, #0x10000                               mov igpr-68, '*part-id-table*
+  [0x10470] add x16, x16, #0
+  [0x10474] ldr w8, [x16]
+  [0x10478] add x16, x8, x15                                 move [igpr-68 + 660], igpr-67
+  [0x1047C] str w9, [x16, #0x294] ;; misaligned with debug data
+
+collectables-part.gc:595
+-> (defpart 166
+  [0x10480] adrp x9, #0x10000                                mov-sva igpr-69, static-structure
+  [0x10484] add x9, x9, #0
+  [0x10488] sub x9, x9, x15
+  [0x1048C] adrp x16, #0x10000                               mov igpr-70, '*part-id-table*
+  [0x10490] add x16, x16, #0
+  [0x10494] ldr w8, [x16]
+  [0x10498] add x16, x8, x15                                 move [igpr-70 + 676], igpr-69
+  [0x1049C] str w9, [x16, #0x2a4] ;; misaligned with debug data
+
+collectables-part.gc:598
+-> (defpart 163
+  [0x104A0] adrp x9, #0x10000                                mov-sva igpr-71, static-structure
+  [0x104A4] add x9, x9, #0
+  [0x104A8] sub x9, x9, x15
+  [0x104AC] adrp x16, #0x10000                               mov igpr-72, '*part-id-table*
+  [0x104B0] add x16, x16, #0
+  [0x104B4] ldr w8, [x16]
+  [0x104B8] add x16, x8, x15                                 move [igpr-72 + 664], igpr-71
+  [0x104BC] str w9, [x16, #0x298] ;; misaligned with debug data
+
+collectables-part.gc:617
+-> (defpart 164
+  [0x104C0] adrp x9, #0x10000                                mov-sva igpr-73, static-structure
+  [0x104C4] add x9, x9, #0
+  [0x104C8] sub x9, x9, x15
+  [0x104CC] adrp x16, #0x10000                               mov igpr-74, '*part-id-table*
+  [0x104D0] add x16, x16, #0
+  [0x104D4] ldr w8, [x16]
+  [0x104D8] add x16, x8, x15                                 move [igpr-74 + 668], igpr-73
+  [0x104DC] str w9, [x16, #0x29c] ;; misaligned with debug data
+
+collectables-part.gc:639
+-> (defpart 167
+  [0x104E0] adrp x9, #0x10000                                mov-sva igpr-75, static-structure
+  [0x104E4] add x9, x9, #0
+  [0x104E8] sub x9, x9, x15
+  [0x104EC] adrp x16, #0x10000                               mov igpr-76, '*part-id-table*
+  [0x104F0] add x16, x16, #0
+  [0x104F4] ldr w8, [x16]
+  [0x104F8] add x16, x8, x15                                 move [igpr-76 + 680], igpr-75
+  [0x104FC] str w9, [x16, #0x2a8] ;; misaligned with debug data
+
+collectables-part.gc:642
+-> (defpartgroup group-eco-red-collect
+  [0x10500] adrp x9, #0x10000                                mov-sva igpr-77, static-structure
+  [0x10504] add x9, x9, #0
+  [0x10508] sub x9, x9, x15
+  [0x1050C] adrp x16, #0x10000                               mov igpr-78, '*part-group-id-table*
+  [0x10510] add x16, x16, #0
+  [0x10514] ldr w8, [x16]
+  [0x10518] add x16, x8, x15                                 move [igpr-78 + 208], igpr-77
+  [0x1051C] str w9, [x16, #0xd0] ;; misaligned with debug data
+
+collectables-part.gc:661
+-> (defpart 168
+  [0x10520] adrp x9, #0x10000                                mov-sva igpr-79, static-structure
+  [0x10524] add x9, x9, #0
+  [0x10528] sub x9, x9, x15
+  [0x1052C] adrp x16, #0x10000                               mov igpr-80, '*part-id-table*
+  [0x10530] add x16, x16, #0
+  [0x10534] ldr w8, [x16]
+  [0x10538] add x16, x8, x15                                 move [igpr-80 + 684], igpr-79
+  [0x1053C] str w9, [x16, #0x2ac] ;; misaligned with debug data
+
+collectables-part.gc:679
+-> (defpart 169
+  [0x10540] adrp x9, #0x10000                                mov-sva igpr-81, static-structure
+  [0x10544] add x9, x9, #0
+  [0x10548] sub x9, x9, x15
+  [0x1054C] adrp x16, #0x10000                               mov igpr-82, '*part-id-table*
+  [0x10550] add x16, x16, #0
+  [0x10554] ldr w8, [x16]
+  [0x10558] add x16, x8, x15                                 move [igpr-82 + 688], igpr-81
+  [0x1055C] str w9, [x16, #0x2b0] ;; misaligned with debug data
+
+collectables-part.gc:699
+-> (defpart 170
+  [0x10560] adrp x9, #0x10000                                mov-sva igpr-83, static-structure
+  [0x10564] add x9, x9, #0
+  [0x10568] sub x9, x9, x15
+  [0x1056C] adrp x16, #0x10000                               mov igpr-84, '*part-id-table*
+  [0x10570] add x16, x16, #0
+  [0x10574] ldr w8, [x16]
+  [0x10578] add x16, x8, x15                                 move [igpr-84 + 692], igpr-83
+  [0x1057C] str w9, [x16, #0x2b4] ;; misaligned with debug data
+
+collectables-part.gc:722
+-> (defpartgroup group-part-vent-red-active
+  [0x10580] adrp x9, #0x10000                                mov-sva igpr-85, static-structure
+  [0x10584] add x9, x9, #0
+  [0x10588] sub x9, x9, x15
+  [0x1058C] adrp x16, #0x10000                               mov igpr-86, '*part-group-id-table*
+  [0x10590] add x16, x16, #0
+  [0x10594] ldr w8, [x16]
+  [0x10598] add x16, x8, x15                                 move [igpr-86 + 212], igpr-85
+  [0x1059C] str w9, [x16, #0xd4] ;; misaligned with debug data
+
+collectables-part.gc:758
+-> (defpartgroup group-part-vent-red-inactive
+  [0x105A0] adrp x9, #0x10000                                mov-sva igpr-87, static-structure
+  [0x105A4] add x9, x9, #0
+  [0x105A8] sub x9, x9, x15
+  [0x105AC] adrp x16, #0x10000                               mov igpr-88, '*part-group-id-table*
+  [0x105B0] add x16, x16, #0
+  [0x105B4] ldr w8, [x16]
+  [0x105B8] add x16, x8, x15                                 move [igpr-88 + 216], igpr-87
+  [0x105BC] str w9, [x16, #0xd8] ;; misaligned with debug data
+
+collectables-part.gc:763
+-> (defpart 177
+  [0x105C0] adrp x9, #0x10000                                mov-sva igpr-89, static-structure
+  [0x105C4] add x9, x9, #0
+  [0x105C8] sub x9, x9, x15
+  [0x105CC] adrp x16, #0x10000                               mov igpr-90, '*part-id-table*
+  [0x105D0] add x16, x16, #0
+  [0x105D4] ldr w8, [x16]
+  [0x105D8] add x16, x8, x15                                 move [igpr-90 + 720], igpr-89
+  [0x105DC] str w9, [x16, #0x2d0] ;; misaligned with debug data
+
+collectables-part.gc:783
+-> (defpart 176
+  [0x105E0] adrp x9, #0x10000                                mov-sva igpr-91, static-structure
+  [0x105E4] add x9, x9, #0
+  [0x105E8] sub x9, x9, x15
+  [0x105EC] adrp x16, #0x10000                               mov igpr-92, '*part-id-table*
+  [0x105F0] add x16, x16, #0
+  [0x105F4] ldr w8, [x16]
+  [0x105F8] add x16, x8, x15                                 move [igpr-92 + 716], igpr-91
+  [0x105FC] str w9, [x16, #0x2cc] ;; misaligned with debug data
+
+collectables-part.gc:803
+-> (defpart 172
+  [0x10600] adrp x9, #0x10000                                mov-sva igpr-93, static-structure
+  [0x10604] add x9, x9, #0
+  [0x10608] sub x9, x9, x15
+  [0x1060C] adrp x16, #0x10000                               mov igpr-94, '*part-id-table*
+  [0x10610] add x16, x16, #0
+  [0x10614] ldr w8, [x16]
+  [0x10618] add x16, x8, x15                                 move [igpr-94 + 700], igpr-93
+  [0x1061C] str w9, [x16, #0x2bc] ;; misaligned with debug data
+
+collectables-part.gc:817
+-> (defpart 173
+  [0x10620] adrp x9, #0x10000                                mov-sva igpr-95, static-structure
+  [0x10624] add x9, x9, #0
+  [0x10628] sub x9, x9, x15
+  [0x1062C] adrp x16, #0x10000                               mov igpr-96, '*part-id-table*
+  [0x10630] add x16, x16, #0
+  [0x10634] ldr w8, [x16]
+  [0x10638] add x16, x8, x15                                 move [igpr-96 + 704], igpr-95
+  [0x1063C] str w9, [x16, #0x2c0] ;; misaligned with debug data
+
+collectables-part.gc:839
+-> (defpart 174
+  [0x10640] adrp x9, #0x10000                                mov-sva igpr-97, static-structure
+  [0x10644] add x9, x9, #0
+  [0x10648] sub x9, x9, x15
+  [0x1064C] adrp x16, #0x10000                               mov igpr-98, '*part-id-table*
+  [0x10650] add x16, x16, #0
+  [0x10654] ldr w8, [x16]
+  [0x10658] add x16, x8, x15                                 move [igpr-98 + 708], igpr-97
+  [0x1065C] str w9, [x16, #0x2c4] ;; misaligned with debug data
+
+collectables-part.gc:857
+-> (defpart 175
+  [0x10660] adrp x9, #0x10000                                mov-sva igpr-99, static-structure
+  [0x10664] add x9, x9, #0
+  [0x10668] sub x9, x9, x15
+  [0x1066C] adrp x16, #0x10000                               mov igpr-100, '*part-id-table*
+  [0x10670] add x16, x16, #0
+  [0x10674] ldr w8, [x16]
+  [0x10678] add x16, x8, x15                                 move [igpr-100 + 712], igpr-99
+  [0x1067C] str w9, [x16, #0x2c8] ;; misaligned with debug data
+
+collectables-part.gc:880
+-> (defpart 171
+  [0x10680] adrp x9, #0x10000                                mov-sva igpr-101, static-structure
+  [0x10684] add x9, x9, #0
+  [0x10688] sub x9, x9, x15
+  [0x1068C] adrp x16, #0x10000                               mov igpr-102, '*part-id-table*
+  [0x10690] add x16, x16, #0
+  [0x10694] ldr w8, [x16]
+  [0x10698] add x16, x8, x15                                 move [igpr-102 + 696], igpr-101
+  [0x1069C] str w9, [x16, #0x2b8] ;; misaligned with debug data
+
+collectables-part.gc:883
+-> (defpartgroup group-part-vent-yellow-active
+  [0x106A0] adrp x9, #0x10000                                mov-sva igpr-103, static-structure
+  [0x106A4] add x9, x9, #0
+  [0x106A8] sub x9, x9, x15
+  [0x106AC] adrp x16, #0x10000                               mov igpr-104, '*part-group-id-table*
+  [0x106B0] add x16, x16, #0
+  [0x106B4] ldr w8, [x16]
+  [0x106B8] add x16, x8, x15                                 move [igpr-104 + 220], igpr-103
+  [0x106BC] str w9, [x16, #0xdc] ;; misaligned with debug data
+
+collectables-part.gc:919
+-> (defpartgroup group-part-vent-yellow-inactive
+  [0x106C0] adrp x9, #0x10000                                mov-sva igpr-105, static-structure
+  [0x106C4] add x9, x9, #0
+  [0x106C8] sub x9, x9, x15
+  [0x106CC] adrp x16, #0x10000                               mov igpr-106, '*part-group-id-table*
+  [0x106D0] add x16, x16, #0
+  [0x106D4] ldr w8, [x16]
+  [0x106D8] add x16, x8, x15                                 move [igpr-106 + 224], igpr-105
+  [0x106DC] str w9, [x16, #0xe0] ;; misaligned with debug data
+
+collectables-part.gc:924
+-> (defpart 183
+  [0x106E0] adrp x9, #0x10000                                mov-sva igpr-107, static-structure
+  [0x106E4] add x9, x9, #0
+  [0x106E8] sub x9, x9, x15
+  [0x106EC] adrp x16, #0x10000                               mov igpr-108, '*part-id-table*
+  [0x106F0] add x16, x16, #0
+  [0x106F4] ldr w8, [x16]
+  [0x106F8] add x16, x8, x15                                 move [igpr-108 + 744], igpr-107
+  [0x106FC] str w9, [x16, #0x2e8] ;; misaligned with debug data
+
+collectables-part.gc:944
+-> (defpart 182
+  [0x10700] adrp x9, #0x10000                                mov-sva igpr-109, static-structure
+  [0x10704] add x9, x9, #0
+  [0x10708] sub x9, x9, x15
+  [0x1070C] adrp x16, #0x10000                               mov igpr-110, '*part-id-table*
+  [0x10710] add x16, x16, #0
+  [0x10714] ldr w8, [x16]
+  [0x10718] add x16, x8, x15                                 move [igpr-110 + 740], igpr-109
+  [0x1071C] str w9, [x16, #0x2e4] ;; misaligned with debug data
+
+collectables-part.gc:964
+-> (defpart 178
+  [0x10720] adrp x9, #0x10000                                mov-sva igpr-111, static-structure
+  [0x10724] add x9, x9, #0
+  [0x10728] sub x9, x9, x15
+  [0x1072C] adrp x16, #0x10000                               mov igpr-112, '*part-id-table*
+  [0x10730] add x16, x16, #0
+  [0x10734] ldr w8, [x16]
+  [0x10738] add x16, x8, x15                                 move [igpr-112 + 724], igpr-111
+  [0x1073C] str w9, [x16, #0x2d4] ;; misaligned with debug data
+
+collectables-part.gc:978
+-> (defpart 179
+  [0x10740] adrp x9, #0x10000                                mov-sva igpr-113, static-structure
+  [0x10744] add x9, x9, #0
+  [0x10748] sub x9, x9, x15
+  [0x1074C] adrp x16, #0x10000                               mov igpr-114, '*part-id-table*
+  [0x10750] add x16, x16, #0
+  [0x10754] ldr w8, [x16]
+  [0x10758] add x16, x8, x15                                 move [igpr-114 + 728], igpr-113
+  [0x1075C] str w9, [x16, #0x2d8] ;; misaligned with debug data
+
+collectables-part.gc:997
+-> (defpart 180
+  [0x10760] adrp x9, #0x10000                                mov-sva igpr-115, static-structure
+  [0x10764] add x9, x9, #0
+  [0x10768] sub x9, x9, x15
+  [0x1076C] adrp x16, #0x10000                               mov igpr-116, '*part-id-table*
+  [0x10770] add x16, x16, #0
+  [0x10774] ldr w8, [x16]
+  [0x10778] add x16, x8, x15                                 move [igpr-116 + 732], igpr-115
+  [0x1077C] str w9, [x16, #0x2dc] ;; misaligned with debug data
+
+collectables-part.gc:1016
+-> (defpart 181
+  [0x10780] adrp x9, #0x10000                                mov-sva igpr-117, static-structure
+  [0x10784] add x9, x9, #0
+  [0x10788] sub x9, x9, x15
+  [0x1078C] adrp x16, #0x10000                               mov igpr-118, '*part-id-table*
+  [0x10790] add x16, x16, #0
+  [0x10794] ldr w8, [x16]
+  [0x10798] add x16, x8, x15                                 move [igpr-118 + 736], igpr-117
+  [0x1079C] str w9, [x16, #0x2e0] ;; misaligned with debug data
+
+collectables-part.gc:1042
+-> (defpart 190
+  [0x107A0] adrp x9, #0x10000                                mov-sva igpr-119, static-structure
+  [0x107A4] add x9, x9, #0
+  [0x107A8] sub x9, x9, x15
+  [0x107AC] adrp x16, #0x10000                               mov igpr-120, '*part-id-table*
+  [0x107B0] add x16, x16, #0
+  [0x107B4] ldr w8, [x16]
+  [0x107B8] add x16, x8, x15                                 move [igpr-120 + 772], igpr-119
+  [0x107BC] str w9, [x16, #0x304] ;; misaligned with debug data
+
+collectables-part.gc:1045
+-> (defpartgroup group-eco-yellow
+  [0x107C0] adrp x9, #0x10000                                mov-sva igpr-121, static-structure
+  [0x107C4] add x9, x9, #0
+  [0x107C8] sub x9, x9, x15
+  [0x107CC] adrp x16, #0x10000                               mov igpr-122, '*part-group-id-table*
+  [0x107D0] add x16, x16, #0
+  [0x107D4] ldr w8, [x16]
+  [0x107D8] add x16, x8, x15                                 move [igpr-122 + 236], igpr-121
+  [0x107DC] str w9, [x16, #0xec] ;; misaligned with debug data
+
+collectables-part.gc:1069
+-> (defpart 191
+  [0x107E0] adrp x9, #0x10000                                mov-sva igpr-123, static-structure
+  [0x107E4] add x9, x9, #0
+  [0x107E8] sub x9, x9, x15
+  [0x107EC] adrp x16, #0x10000                               mov igpr-124, '*part-id-table*
+  [0x107F0] add x16, x16, #0
+  [0x107F4] ldr w8, [x16]
+  [0x107F8] add x16, x8, x15                                 move [igpr-124 + 776], igpr-123
+  [0x107FC] str w9, [x16, #0x308] ;; misaligned with debug data
+
+collectables-part.gc:1080
+-> (defpart 192
+  [0x10800] adrp x9, #0x10000                                mov-sva igpr-125, static-structure
+  [0x10804] add x9, x9, #0
+  [0x10808] sub x9, x9, x15
+  [0x1080C] adrp x16, #0x10000                               mov igpr-126, '*part-id-table*
+  [0x10810] add x16, x16, #0
+  [0x10814] ldr w8, [x16]
+  [0x10818] add x16, x8, x15                                 move [igpr-126 + 780], igpr-125
+  [0x1081C] str w9, [x16, #0x30c] ;; misaligned with debug data
+
+collectables-part.gc:1104
+-> (defpart 196
+  [0x10820] adrp x9, #0x10000                                mov-sva igpr-127, static-structure
+  [0x10824] add x9, x9, #0
+  [0x10828] sub x9, x9, x15
+  [0x1082C] adrp x16, #0x10000                               mov igpr-128, '*part-id-table*
+  [0x10830] add x16, x16, #0
+  [0x10834] ldr w8, [x16]
+  [0x10838] add x16, x8, x15                                 move [igpr-128 + 796], igpr-127
+  [0x1083C] str w9, [x16, #0x31c] ;; misaligned with debug data
+
+collectables-part.gc:1107
+-> (defpart 193
+  [0x10840] adrp x9, #0x10000                                mov-sva igpr-129, static-structure
+  [0x10844] add x9, x9, #0
+  [0x10848] sub x9, x9, x15
+  [0x1084C] adrp x16, #0x10000                               mov igpr-130, '*part-id-table*
+  [0x10850] add x16, x16, #0
+  [0x10854] ldr w8, [x16]
+  [0x10858] add x16, x8, x15                                 move [igpr-130 + 784], igpr-129
+  [0x1085C] str w9, [x16, #0x310] ;; misaligned with debug data
+
+collectables-part.gc:1128
+-> (defpart 197
+  [0x10860] adrp x9, #0x10000                                mov-sva igpr-131, static-structure
+  [0x10864] add x9, x9, #0
+  [0x10868] sub x9, x9, x15
+  [0x1086C] adrp x16, #0x10000                               mov igpr-132, '*part-id-table*
+  [0x10870] add x16, x16, #0
+  [0x10874] ldr w8, [x16]
+  [0x10878] add x16, x8, x15                                 move [igpr-132 + 800], igpr-131
+  [0x1087C] str w9, [x16, #0x320] ;; misaligned with debug data
+
+collectables-part.gc:1131
+-> (defpart 194
+  [0x10880] adrp x9, #0x10000                                mov-sva igpr-133, static-structure
+  [0x10884] add x9, x9, #0
+  [0x10888] sub x9, x9, x15
+  [0x1088C] adrp x16, #0x10000                               mov igpr-134, '*part-id-table*
+  [0x10890] add x16, x16, #0
+  [0x10894] ldr w8, [x16]
+  [0x10898] add x16, x8, x15                                 move [igpr-134 + 788], igpr-133
+  [0x1089C] str w9, [x16, #0x314] ;; misaligned with debug data
+
+collectables-part.gc:1150
+-> (defpart 195
+  [0x108A0] adrp x9, #0x10000                                mov-sva igpr-135, static-structure
+  [0x108A4] add x9, x9, #0
+  [0x108A8] sub x9, x9, x15
+  [0x108AC] adrp x16, #0x10000                               mov igpr-136, '*part-id-table*
+  [0x108B0] add x16, x16, #0
+  [0x108B4] ldr w8, [x16]
+  [0x108B8] add x16, x8, x15                                 move [igpr-136 + 792], igpr-135
+  [0x108BC] str w9, [x16, #0x318] ;; misaligned with debug data
+
+collectables-part.gc:1170
+-> (defpart 198
+  [0x108C0] adrp x9, #0x10000                                mov-sva igpr-137, static-structure
+  [0x108C4] add x9, x9, #0
+  [0x108C8] sub x9, x9, x15
+  [0x108CC] adrp x16, #0x10000                               mov igpr-138, '*part-id-table*
+  [0x108D0] add x16, x16, #0
+  [0x108D4] ldr w8, [x16]
+  [0x108D8] add x16, x8, x15                                 move [igpr-138 + 804], igpr-137
+  [0x108DC] str w9, [x16, #0x324] ;; misaligned with debug data
+
+collectables-part.gc:1173
+-> (defpartgroup group-eco-yellow-collect
+  [0x108E0] adrp x9, #0x10000                                mov-sva igpr-139, static-structure
+  [0x108E4] add x9, x9, #0
+  [0x108E8] sub x9, x9, x15
+  [0x108EC] adrp x16, #0x10000                               mov igpr-140, '*part-group-id-table*
+  [0x108F0] add x16, x16, #0
+  [0x108F4] ldr w8, [x16]
+  [0x108F8] add x16, x8, x15                                 move [igpr-140 + 240], igpr-139
+  [0x108FC] str w9, [x16, #0xf0] ;; misaligned with debug data
+
+collectables-part.gc:1191
+-> (defpart 199
+  [0x10900] adrp x9, #0x10000                                mov-sva igpr-141, static-structure
+  [0x10904] add x9, x9, #0
+  [0x10908] sub x9, x9, x15
+  [0x1090C] adrp x16, #0x10000                               mov igpr-142, '*part-id-table*
+  [0x10910] add x16, x16, #0
+  [0x10914] ldr w8, [x16]
+  [0x10918] add x16, x8, x15                                 move [igpr-142 + 808], igpr-141
+  [0x1091C] str w9, [x16, #0x328] ;; misaligned with debug data
+
+collectables-part.gc:1209
+-> (defpart 200
+  [0x10920] adrp x9, #0x10000                                mov-sva igpr-143, static-structure
+  [0x10924] add x9, x9, #0
+  [0x10928] sub x9, x9, x15
+  [0x1092C] adrp x16, #0x10000                               mov igpr-144, '*part-id-table*
+  [0x10930] add x16, x16, #0
+  [0x10934] ldr w8, [x16]
+  [0x10938] add x16, x8, x15                                 move [igpr-144 + 812], igpr-143
+  [0x1093C] str w9, [x16, #0x32c] ;; misaligned with debug data
+
+collectables-part.gc:1229
+-> (defpart 201
+  [0x10940] adrp x9, #0x10000                                mov-sva igpr-145, static-structure
+  [0x10944] add x9, x9, #0
+  [0x10948] sub x9, x9, x15
+  [0x1094C] adrp x16, #0x10000                               mov igpr-146, '*part-id-table*
+  [0x10950] add x16, x16, #0
+  [0x10954] ldr w8, [x16]
+  [0x10958] add x16, x8, x15                                 move [igpr-146 + 816], igpr-145
+  [0x1095C] str w9, [x16, #0x330] ;; misaligned with debug data
+
+collectables-part.gc:1249
+-> (defpartgroup group-eco-green
+  [0x10960] adrp x9, #0x10000                                mov-sva igpr-147, static-structure
+  [0x10964] add x9, x9, #0
+  [0x10968] sub x9, x9, x15
+  [0x1096C] adrp x16, #0x10000                               mov igpr-148, '*part-group-id-table*
+  [0x10970] add x16, x16, #0
+  [0x10974] ldr w8, [x16]
+  [0x10978] add x16, x8, x15                                 move [igpr-148 + 244], igpr-147
+  [0x1097C] str w9, [x16, #0xf4] ;; misaligned with debug data
+
+collectables-part.gc:1272
+-> (defpart 202
+  [0x10980] adrp x9, #0x10000                                mov-sva igpr-149, static-structure
+  [0x10984] add x9, x9, #0
+  [0x10988] sub x9, x9, x15
+  [0x1098C] adrp x16, #0x10000                               mov igpr-150, '*part-id-table*
+  [0x10990] add x16, x16, #0
+  [0x10994] ldr w8, [x16]
+  [0x10998] add x16, x8, x15                                 move [igpr-150 + 820], igpr-149
+  [0x1099C] str w9, [x16, #0x334] ;; misaligned with debug data
+
+collectables-part.gc:1286
+-> (defpart 203
+  [0x109A0] adrp x9, #0x10000                                mov-sva igpr-151, static-structure
+  [0x109A4] add x9, x9, #0
+  [0x109A8] sub x9, x9, x15
+  [0x109AC] adrp x16, #0x10000                               mov igpr-152, '*part-id-table*
+  [0x109B0] add x16, x16, #0
+  [0x109B4] ldr w8, [x16]
+  [0x109B8] add x16, x8, x15                                 move [igpr-152 + 824], igpr-151
+  [0x109BC] str w9, [x16, #0x338] ;; misaligned with debug data
+
+collectables-part.gc:1309
+-> (defpart 206
+  [0x109C0] adrp x9, #0x10000                                mov-sva igpr-153, static-structure
+  [0x109C4] add x9, x9, #0
+  [0x109C8] sub x9, x9, x15
+  [0x109CC] adrp x16, #0x10000                               mov igpr-154, '*part-id-table*
+  [0x109D0] add x16, x16, #0
+  [0x109D4] ldr w8, [x16]
+  [0x109D8] add x16, x8, x15                                 move [igpr-154 + 836], igpr-153
+  [0x109DC] str w9, [x16, #0x344] ;; misaligned with debug data
+
+collectables-part.gc:1312
+-> (defpart 204
+  [0x109E0] adrp x9, #0x10000                                mov-sva igpr-155, static-structure
+  [0x109E4] add x9, x9, #0
+  [0x109E8] sub x9, x9, x15
+  [0x109EC] adrp x16, #0x10000                               mov igpr-156, '*part-id-table*
+  [0x109F0] add x16, x16, #0
+  [0x109F4] ldr w8, [x16]
+  [0x109F8] add x16, x8, x15                                 move [igpr-156 + 828], igpr-155
+  [0x109FC] str w9, [x16, #0x33c] ;; misaligned with debug data
+
+collectables-part.gc:1333
+-> (defpart 207
+  [0x10A00] adrp x9, #0x10000                                mov-sva igpr-157, static-structure
+  [0x10A04] add x9, x9, #0
+  [0x10A08] sub x9, x9, x15
+  [0x10A0C] adrp x16, #0x10000                               mov igpr-158, '*part-id-table*
+  [0x10A10] add x16, x16, #0
+  [0x10A14] ldr w8, [x16]
+  [0x10A18] add x16, x8, x15                                 move [igpr-158 + 840], igpr-157
+  [0x10A1C] str w9, [x16, #0x348] ;; misaligned with debug data
+
+collectables-part.gc:1336
+-> (defpart 205
+  [0x10A20] adrp x9, #0x10000                                mov-sva igpr-159, static-structure
+  [0x10A24] add x9, x9, #0
+  [0x10A28] sub x9, x9, x15
+  [0x10A2C] adrp x16, #0x10000                               mov igpr-160, '*part-id-table*
+  [0x10A30] add x16, x16, #0
+  [0x10A34] ldr w8, [x16]
+  [0x10A38] add x16, x8, x15                                 move [igpr-160 + 832], igpr-159
+  [0x10A3C] str w9, [x16, #0x340] ;; misaligned with debug data
+
+collectables-part.gc:1356
+-> (defpart 208
+  [0x10A40] adrp x9, #0x10000                                mov-sva igpr-161, static-structure
+  [0x10A44] add x9, x9, #0
+  [0x10A48] sub x9, x9, x15
+  [0x10A4C] adrp x16, #0x10000                               mov igpr-162, '*part-id-table*
+  [0x10A50] add x16, x16, #0
+  [0x10A54] ldr w8, [x16]
+  [0x10A58] add x16, x8, x15                                 move [igpr-162 + 844], igpr-161
+  [0x10A5C] str w9, [x16, #0x34c] ;; misaligned with debug data
+
+collectables-part.gc:1359
+-> (defpartgroup group-eco-green-pill
+  [0x10A60] adrp x9, #0x10000                                mov-sva igpr-163, static-structure
+  [0x10A64] add x9, x9, #0
+  [0x10A68] sub x9, x9, x15
+  [0x10A6C] adrp x16, #0x10000                               mov igpr-164, '*part-group-id-table*
+  [0x10A70] add x16, x16, #0
+  [0x10A74] ldr w8, [x16]
+  [0x10A78] add x16, x8, x15                                 move [igpr-164 + 248], igpr-163
+  [0x10A7C] str w9, [x16, #0xf8] ;; misaligned with debug data
+
+collectables-part.gc:1372
+-> (defpart 209
+  [0x10A80] adrp x9, #0x10000                                mov-sva igpr-165, static-structure
+  [0x10A84] add x9, x9, #0
+  [0x10A88] sub x9, x9, x15
+  [0x10A8C] adrp x16, #0x10000                               mov igpr-166, '*part-id-table*
+  [0x10A90] add x16, x16, #0
+  [0x10A94] ldr w8, [x16]
+  [0x10A98] add x16, x8, x15                                 move [igpr-166 + 848], igpr-165
+  [0x10A9C] str w9, [x16, #0x350] ;; misaligned with debug data
+
+collectables-part.gc:1385
+-> (defpart 210
+  [0x10AA0] adrp x9, #0x10000                                mov-sva igpr-167, static-structure
+  [0x10AA4] add x9, x9, #0
+  [0x10AA8] sub x9, x9, x15
+  [0x10AAC] adrp x16, #0x10000                               mov igpr-168, '*part-id-table*
+  [0x10AB0] add x16, x16, #0
+  [0x10AB4] ldr w8, [x16]
+  [0x10AB8] add x16, x8, x15                                 move [igpr-168 + 852], igpr-167
+  [0x10ABC] str w9, [x16, #0x354] ;; misaligned with debug data
+
+collectables-part.gc:1408
+-> (defpart 214
+  [0x10AC0] adrp x9, #0x10000                                mov-sva igpr-169, static-structure
+  [0x10AC4] add x9, x9, #0
+  [0x10AC8] sub x9, x9, x15
+  [0x10ACC] adrp x16, #0x10000                               mov igpr-170, '*part-id-table*
+  [0x10AD0] add x16, x16, #0
+  [0x10AD4] ldr w8, [x16]
+  [0x10AD8] add x16, x8, x15                                 move [igpr-170 + 868], igpr-169
+  [0x10ADC] str w9, [x16, #0x364] ;; misaligned with debug data
+
+collectables-part.gc:1411
+-> (defpart 211
+  [0x10AE0] adrp x9, #0x10000                                mov-sva igpr-171, static-structure
+  [0x10AE4] add x9, x9, #0
+  [0x10AE8] sub x9, x9, x15
+  [0x10AEC] adrp x16, #0x10000                               mov igpr-172, '*part-id-table*
+  [0x10AF0] add x16, x16, #0
+  [0x10AF4] ldr w8, [x16]
+  [0x10AF8] add x16, x8, x15                                 move [igpr-172 + 856], igpr-171
+  [0x10AFC] str w9, [x16, #0x358] ;; misaligned with debug data
+
+collectables-part.gc:1434
+-> (defpart 212
+  [0x10B00] adrp x9, #0x10000                                mov-sva igpr-173, static-structure
+  [0x10B04] add x9, x9, #0
+  [0x10B08] sub x9, x9, x15
+  [0x10B0C] adrp x16, #0x10000                               mov igpr-174, '*part-id-table*
+  [0x10B10] add x16, x16, #0
+  [0x10B14] ldr w8, [x16]
+  [0x10B18] add x16, x8, x15                                 move [igpr-174 + 860], igpr-173
+  [0x10B1C] str w9, [x16, #0x35c] ;; misaligned with debug data
+
+collectables-part.gc:1455
+-> (defpart 215
+  [0x10B20] adrp x9, #0x10000                                mov-sva igpr-175, static-structure
+  [0x10B24] add x9, x9, #0
+  [0x10B28] sub x9, x9, x15
+  [0x10B2C] adrp x16, #0x10000                               mov igpr-176, '*part-id-table*
+  [0x10B30] add x16, x16, #0
+  [0x10B34] ldr w8, [x16]
+  [0x10B38] add x16, x8, x15                                 move [igpr-176 + 872], igpr-175
+  [0x10B3C] str w9, [x16, #0x368] ;; misaligned with debug data
+
+collectables-part.gc:1458
+-> (defpart 213
+  [0x10B40] adrp x9, #0x10000                                mov-sva igpr-177, static-structure
+  [0x10B44] add x9, x9, #0
+  [0x10B48] sub x9, x9, x15
+  [0x10B4C] adrp x16, #0x10000                               mov igpr-178, '*part-id-table*
+  [0x10B50] add x16, x16, #0
+  [0x10B54] ldr w8, [x16]
+  [0x10B58] add x16, x8, x15                                 move [igpr-178 + 864], igpr-177
+  [0x10B5C] str w9, [x16, #0x360] ;; misaligned with debug data
+
+collectables-part.gc:1478
+-> (defpartgroup group-eco-green-pill-collect
+  [0x10B60] adrp x9, #0x10000                                mov-sva igpr-179, static-structure
+  [0x10B64] add x9, x9, #0
+  [0x10B68] sub x9, x9, x15
+  [0x10B6C] adrp x16, #0x10000                               mov igpr-180, '*part-group-id-table*
+  [0x10B70] add x16, x16, #0
+  [0x10B74] ldr w8, [x16]
+  [0x10B78] add x16, x8, x15                                 move [igpr-180 + 252], igpr-179
+  [0x10B7C] str w9, [x16, #0xfc] ;; misaligned with debug data
+
+collectables-part.gc:1496
+-> (defpartgroup group-eco-green-collect
+  [0x10B80] adrp x9, #0x10000                                mov-sva igpr-181, static-structure
+  [0x10B84] add x9, x9, #0
+  [0x10B88] sub x9, x9, x15
+  [0x10B8C] adrp x16, #0x10000                               mov igpr-182, '*part-group-id-table*
+  [0x10B90] add x16, x16, #0
+  [0x10B94] ldr w8, [x16]
+  [0x10B98] add x16, x8, x15                                 move [igpr-182 + 256], igpr-181
+  [0x10B9C] str w9, [x16, #0x100] ;; misaligned with debug data
+
+collectables-part.gc:1514
+-> (defpart 216
+  [0x10BA0] adrp x9, #0x10000                                mov-sva igpr-183, static-structure
+  [0x10BA4] add x9, x9, #0
+  [0x10BA8] sub x9, x9, x15
+  [0x10BAC] adrp x16, #0x10000                               mov igpr-184, '*part-id-table*
+  [0x10BB0] add x16, x16, #0
+  [0x10BB4] ldr w8, [x16]
+  [0x10BB8] add x16, x8, x15                                 move [igpr-184 + 876], igpr-183
+  [0x10BBC] str w9, [x16, #0x36c] ;; misaligned with debug data
+
+collectables-part.gc:1531
+-> (defpart 148
+  [0x10BC0] adrp x9, #0x10000                                mov-sva igpr-185, static-structure
+  [0x10BC4] add x9, x9, #0
+  [0x10BC8] sub x9, x9, x15
+  [0x10BCC] adrp x16, #0x10000                               mov igpr-186, '*part-id-table*
+  [0x10BD0] add x16, x16, #0
+  [0x10BD4] ldr w8, [x16]
+  [0x10BD8] add x16, x8, x15                                 move [igpr-186 + 604], igpr-185
+  [0x10BDC] str w9, [x16, #0x25c] ;; misaligned with debug data
+
+collectables-part.gc:1534
+-> (defpart 219
+  [0x10BE0] adrp x9, #0x10000                                mov-sva igpr-187, static-structure
+  [0x10BE4] add x9, x9, #0
+  [0x10BE8] sub x9, x9, x15
+  [0x10BEC] adrp x16, #0x10000                               mov igpr-188, '*part-id-table*
+  [0x10BF0] add x16, x16, #0
+  [0x10BF4] ldr w8, [x16]
+  [0x10BF8] add x16, x8, x15                                 move [igpr-188 + 888], igpr-187
+  [0x10BFC] str w9, [x16, #0x378] ;; misaligned with debug data
+
+collectables-part.gc:1553
+-> (defpart 217
+  [0x10C00] adrp x9, #0x10000                                mov-sva igpr-189, static-structure
+  [0x10C04] add x9, x9, #0
+  [0x10C08] sub x9, x9, x15
+  [0x10C0C] adrp x16, #0x10000                               mov igpr-190, '*part-id-table*
+  [0x10C10] add x16, x16, #0
+  [0x10C14] ldr w8, [x16]
+  [0x10C18] add x16, x8, x15                                 move [igpr-190 + 880], igpr-189
+  [0x10C1C] str w9, [x16, #0x370] ;; misaligned with debug data
+
+collectables-part.gc:1572
+-> (defpart 220
+  [0x10C20] adrp x9, #0x10000                                mov-sva igpr-191, static-structure
+  [0x10C24] add x9, x9, #0
+  [0x10C28] sub x9, x9, x15
+  [0x10C2C] adrp x16, #0x10000                               mov igpr-192, '*part-id-table*
+  [0x10C30] add x16, x16, #0
+  [0x10C34] ldr w8, [x16]
+  [0x10C38] add x16, x8, x15                                 move [igpr-192 + 892], igpr-191
+  [0x10C3C] str w9, [x16, #0x37c] ;; misaligned with debug data
+
+collectables-part.gc:1592
+-> (defpart 218
+  [0x10C40] adrp x9, #0x10000                                mov-sva igpr-193, static-structure
+  [0x10C44] add x9, x9, #0
+  [0x10C48] sub x9, x9, x15
+  [0x10C4C] adrp x16, #0x10000                               mov igpr-194, '*part-id-table*
+  [0x10C50] add x16, x16, #0
+  [0x10C54] ldr w8, [x16]
+  [0x10C58] add x16, x8, x15                                 move [igpr-194 + 884], igpr-193
+  [0x10C5C] str w9, [x16, #0x374] ;; misaligned with debug data
+
+collectables-part.gc:1612
+-> (defpartgroup group-part-vent-green-active
+  [0x10C60] adrp x9, #0x10000                                mov-sva igpr-195, static-structure
+  [0x10C64] add x9, x9, #0
+  [0x10C68] sub x9, x9, x15
+  [0x10C6C] adrp x16, #0x10000                               mov igpr-196, '*part-group-id-table*
+  [0x10C70] add x16, x16, #0
+  [0x10C74] ldr w8, [x16]
+  [0x10C78] add x16, x8, x15                                 move [igpr-196 + 260], igpr-195
+  [0x10C7C] str w9, [x16, #0x104] ;; misaligned with debug data
+
+collectables-part.gc:1655
+-> (defpart 226
+  [0x10C80] adrp x9, #0x10000                                mov-sva igpr-197, static-structure
+  [0x10C84] add x9, x9, #0
+  [0x10C88] sub x9, x9, x15
+  [0x10C8C] adrp x16, #0x10000                               mov igpr-198, '*part-id-table*
+  [0x10C90] add x16, x16, #0
+  [0x10C94] ldr w8, [x16]
+  [0x10C98] add x16, x8, x15                                 move [igpr-198 + 916], igpr-197
+  [0x10C9C] str w9, [x16, #0x394] ;; misaligned with debug data
+
+collectables-part.gc:1675
+-> (defpart 225
+  [0x10CA0] adrp x9, #0x10000                                mov-sva igpr-199, static-structure
+  [0x10CA4] add x9, x9, #0
+  [0x10CA8] sub x9, x9, x15
+  [0x10CAC] adrp x16, #0x10000                               mov igpr-200, '*part-id-table*
+  [0x10CB0] add x16, x16, #0
+  [0x10CB4] ldr w8, [x16]
+  [0x10CB8] add x16, x8, x15                                 move [igpr-200 + 912], igpr-199
+  [0x10CBC] str w9, [x16, #0x390] ;; misaligned with debug data
+
+collectables-part.gc:1695
+-> (defpart 222
+  [0x10CC0] adrp x9, #0x10000                                mov-sva igpr-201, static-structure
+  [0x10CC4] add x9, x9, #0
+  [0x10CC8] sub x9, x9, x15
+  [0x10CCC] adrp x16, #0x10000                               mov igpr-202, '*part-id-table*
+  [0x10CD0] add x16, x16, #0
+  [0x10CD4] ldr w8, [x16]
+  [0x10CD8] add x16, x8, x15                                 move [igpr-202 + 900], igpr-201
+  [0x10CDC] str w9, [x16, #0x384] ;; misaligned with debug data
+
+collectables-part.gc:1707
+-> (defpart 223
+  [0x10CE0] adrp x9, #0x10000                                mov-sva igpr-203, static-structure
+  [0x10CE4] add x9, x9, #0
+  [0x10CE8] sub x9, x9, x15
+  [0x10CEC] adrp x16, #0x10000                               mov igpr-204, '*part-id-table*
+  [0x10CF0] add x16, x16, #0
+  [0x10CF4] ldr w8, [x16]
+  [0x10CF8] add x16, x8, x15                                 move [igpr-204 + 904], igpr-203
+  [0x10CFC] str w9, [x16, #0x388] ;; misaligned with debug data
+
+collectables-part.gc:1729
+-> (defpart 227
+  [0x10D00] adrp x9, #0x10000                                mov-sva igpr-205, static-structure
+  [0x10D04] add x9, x9, #0
+  [0x10D08] sub x9, x9, x15
+  [0x10D0C] adrp x16, #0x10000                               mov igpr-206, '*part-id-table*
+  [0x10D10] add x16, x16, #0
+  [0x10D14] ldr w8, [x16]
+  [0x10D18] add x16, x8, x15                                 move [igpr-206 + 920], igpr-205
+  [0x10D1C] str w9, [x16, #0x398] ;; misaligned with debug data
+
+collectables-part.gc:1732
+-> (defpart 224
+  [0x10D20] adrp x9, #0x10000                                mov-sva igpr-207, static-structure
+  [0x10D24] add x9, x9, #0
+  [0x10D28] sub x9, x9, x15
+  [0x10D2C] adrp x16, #0x10000                               mov igpr-208, '*part-id-table*
+  [0x10D30] add x16, x16, #0
+  [0x10D34] ldr w8, [x16]
+  [0x10D38] add x16, x8, x15                                 move [igpr-208 + 908], igpr-207
+  [0x10D3C] str w9, [x16, #0x38c] ;; misaligned with debug data
+
+collectables-part.gc:1751
+-> (defpartgroup group-fuel-cell-starburst
+  [0x10D40] adrp x9, #0x10000                                mov-sva igpr-209, static-structure
+  [0x10D44] add x9, x9, #0
+  [0x10D48] sub x9, x9, x15
+  [0x10D4C] adrp x16, #0x10000                               mov igpr-210, '*part-group-id-table*
+  [0x10D50] add x16, x16, #0
+  [0x10D54] ldr w8, [x16]
+  [0x10D58] add x16, x8, x15                                 move [igpr-210 + 264], igpr-209
+  [0x10D5C] str w9, [x16, #0x108] ;; misaligned with debug data
+
+collectables-part.gc:1760
+-> (defpart 228
+  [0x10D60] adrp x9, #0x10000                                mov-sva igpr-211, static-structure
+  [0x10D64] add x9, x9, #0
+  [0x10D68] sub x9, x9, x15
+  [0x10D6C] adrp x16, #0x10000                               mov igpr-212, '*part-id-table*
+  [0x10D70] add x16, x16, #0
+  [0x10D74] ldr w8, [x16]
+  [0x10D78] add x16, x8, x15                                 move [igpr-212 + 924], igpr-211
+  [0x10D7C] str w9, [x16, #0x39c] ;; misaligned with debug data
+
+collectables-part.gc:1782
+-> (defpart 232
+  [0x10D80] adrp x9, #0x10000                                mov-sva igpr-213, static-structure
+  [0x10D84] add x9, x9, #0
+  [0x10D88] sub x9, x9, x15
+  [0x10D8C] adrp x16, #0x10000                               mov igpr-214, '*part-id-table*
+  [0x10D90] add x16, x16, #0
+  [0x10D94] ldr w8, [x16]
+  [0x10D98] add x16, x8, x15                                 move [igpr-214 + 940], igpr-213
+  [0x10D9C] str w9, [x16, #0x3ac] ;; misaligned with debug data
+
+collectables-part.gc:1785
+-> (defpart 229
+  [0x10DA0] adrp x9, #0x10000                                mov-sva igpr-215, static-structure
+  [0x10DA4] add x9, x9, #0
+  [0x10DA8] sub x9, x9, x15
+  [0x10DAC] adrp x16, #0x10000                               mov igpr-216, '*part-id-table*
+  [0x10DB0] add x16, x16, #0
+  [0x10DB4] ldr w8, [x16]
+  [0x10DB8] add x16, x8, x15                                 move [igpr-216 + 928], igpr-215
+  [0x10DBC] str w9, [x16, #0x3a0] ;; misaligned with debug data
+
+collectables-part.gc:1806
+-> (defpart 230
+  [0x10DC0] adrp x9, #0x10000                                mov-sva igpr-217, static-structure
+  [0x10DC4] add x9, x9, #0
+  [0x10DC8] sub x9, x9, x15
+  [0x10DCC] adrp x16, #0x10000                               mov igpr-218, '*part-id-table*
+  [0x10DD0] add x16, x16, #0
+  [0x10DD4] ldr w8, [x16]
+  [0x10DD8] add x16, x8, x15                                 move [igpr-218 + 932], igpr-217
+  [0x10DDC] str w9, [x16, #0x3a4] ;; misaligned with debug data
+
+collectables-part.gc:1822
+-> (defpart 231
+  [0x10DE0] adrp x9, #0x10000                                mov-sva igpr-219, static-structure
+  [0x10DE4] add x9, x9, #0
+  [0x10DE8] sub x9, x9, x15
+  [0x10DEC] adrp x16, #0x10000                               mov igpr-220, '*part-id-table*
+  [0x10DF0] add x16, x16, #0
+  [0x10DF4] ldr w8, [x16]
+  [0x10DF8] add x16, x8, x15                                 move [igpr-220 + 936], igpr-219
+  [0x10DFC] str w9, [x16, #0x3a8] ;; misaligned with debug data
+  [0x10E00] adrp x9, #0x10000                                mov-fa igpr-221, function-sparticle-track-root-money
+  [0x10E04] add x9, x9, #0
+  [0x10E08] sub x9, x9, x15
+
+collectables-part.gc:1838
+-> (defun sparticle-track-root-money ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x10E0C] adrp x16, #0x10000                               mov 'sparticle-track-root-money, igpr-221
+  [0x10E10] add x16, x16, #0
+  [0x10E14] str w9, [x16]
+
+collectables-part.gc:1848
+-> (defpart 233
+  [0x10E18] adrp x9, #0x10000                                mov-sva igpr-222, static-structure
+  [0x10E1C] add x9, x9, #0
+  [0x10E20] sub x9, x9, x15
+  [0x10E24] adrp x16, #0x10000                               mov igpr-223, '*part-id-table*
+  [0x10E28] add x16, x16, #0
+  [0x10E2C] ldr w8, [x16]
+  [0x10E30] add x16, x8, x15                                 move [igpr-223 + 944], igpr-222
+  [0x10E34] str w9, [x16, #0x3b0] ;; misaligned with debug data
+
+collectables-part.gc:1869
+-> (defpart 234
+  [0x10E38] adrp x9, #0x10000                                mov-sva igpr-224, static-structure
+  [0x10E3C] add x9, x9, #0
+  [0x10E40] sub x9, x9, x15
+  [0x10E44] adrp x16, #0x10000                               mov igpr-225, '*part-id-table*
+  [0x10E48] add x16, x16, #0
+  [0x10E4C] ldr w8, [x16]
+  [0x10E50] add x16, x8, x15                                 move [igpr-225 + 948], igpr-224
+  [0x10E54] str w9, [x16, #0x3b4] ;; misaligned with debug data
+
+collectables-part.gc:1872
+-> (defpart 235
+  [0x10E58] adrp x9, #0x10000                                mov-sva igpr-226, static-structure
+  [0x10E5C] add x9, x9, #0
+  [0x10E60] sub x9, x9, x15
+  [0x10E64] adrp x16, #0x10000                               mov igpr-227, '*part-id-table*
+  [0x10E68] add x16, x16, #0
+  [0x10E6C] ldr w8, [x16]
+  [0x10E70] add x16, x8, x15                                 move [igpr-227 + 952], igpr-226
+  [0x10E74] str w9, [x16, #0x3b8] ;; misaligned with debug data
+
+collectables-part.gc:1892
+-> (defpart 236
+  [0x10E78] adrp x9, #0x10000                                mov-sva igpr-228, static-structure
+  [0x10E7C] add x9, x9, #0
+  [0x10E80] sub x9, x9, x15
+  [0x10E84] adrp x16, #0x10000                               mov igpr-229, '*part-id-table*
+  [0x10E88] add x16, x16, #0
+  [0x10E8C] ldr w8, [x16]
+  [0x10E90] add x16, x8, x15                                 move [igpr-229 + 956], igpr-228
+  [0x10E94] str w9, [x16, #0x3bc] ;; misaligned with debug data
+
+collectables-part.gc:1908
+-> (defpart 237
+  [0x10E98] adrp x9, #0x10000                                mov-sva igpr-230, static-structure
+  [0x10E9C] add x9, x9, #0
+  [0x10EA0] sub x9, x9, x15
+  [0x10EA4] adrp x16, #0x10000                               mov igpr-231, '*part-id-table*
+  [0x10EA8] add x16, x16, #0
+  [0x10EAC] ldr w8, [x16]
+  [0x10EB0] add x16, x8, x15                                 move [igpr-231 + 960], igpr-230
+  [0x10EB4] str w9, [x16, #0x3c0] ;; misaligned with debug data
+
+collectables-part.gc:1925
+-> (defpart 238
+  [0x10EB8] adrp x9, #0x10000                                mov-sva igpr-232, static-structure
+  [0x10EBC] add x9, x9, #0
+  [0x10EC0] sub x9, x9, x15
+  [0x10EC4] adrp x16, #0x10000                               mov igpr-233, '*part-id-table*
+  [0x10EC8] add x16, x16, #0
+  [0x10ECC] ldr w8, [x16]
+  [0x10ED0] add x16, x8, x15                                 move [igpr-233 + 964], igpr-232
+  [0x10ED4] str w9, [x16, #0x3c4] ;; misaligned with debug data
+
+collectables-part.gc:1939
+-> (defpartgroup group-money-starburst
+  [0x10ED8] adrp x9, #0x10000                                mov-sva igpr-234, static-structure
+  [0x10EDC] add x9, x9, #0
+  [0x10EE0] sub x9, x9, x15
+  [0x10EE4] adrp x16, #0x10000                               mov igpr-235, '*part-group-id-table*
+  [0x10EE8] add x16, x16, #0
+  [0x10EEC] ldr w8, [x16]
+  [0x10EF0] add x16, x8, x15                                 move [igpr-235 + 268], igpr-234
+  [0x10EF4] str w9, [x16, #0x10c] ;; misaligned with debug data
+
+collectables-part.gc:1944
+-> (defpartgroup group-buzzer-effect
+  [0x10EF8] adrp x9, #0x10000                                mov-sva igpr-236, static-structure
+  [0x10EFC] add x9, x9, #0
+  [0x10F00] sub x9, x9, x15
+  [0x10F04] adrp x16, #0x10000                               mov igpr-237, '*part-group-id-table*
+  [0x10F08] add x16, x16, #0
+  [0x10F0C] ldr w8, [x16]
+  [0x10F10] add x16, x8, x15                                 move [igpr-237 + 272], igpr-236
+  [0x10F14] str w9, [x16, #0x110] ;; misaligned with debug data
+
+collectables-part.gc:1949
+-> (defpart 239
+  [0x10F18] adrp x9, #0x10000                                mov-sva igpr-238, static-structure
+  [0x10F1C] add x9, x9, #0
+  [0x10F20] sub x9, x9, x15
+  [0x10F24] adrp x16, #0x10000                               mov igpr-239, '*part-id-table*
+  [0x10F28] add x16, x16, #0
+  [0x10F2C] ldr w8, [x16]
+  [0x10F30] add x16, x8, x15                                 move [igpr-239 + 968], igpr-238
+  [0x10F34] str w9, [x16, #0x3c8] ;; misaligned with debug data
+
+collectables-part.gc:1967
+-> (defpart 240
+  [0x10F38] adrp x9, #0x10000                                mov-sva igpr-240, static-structure
+  [0x10F3C] add x9, x9, #0
+  [0x10F40] sub x9, x9, x15
+  [0x10F44] adrp x16, #0x10000                               mov igpr-241, '*part-id-table*
+  [0x10F48] add x16, x16, #0
+  [0x10F4C] ldr w8, [x16]
+  [0x10F50] add x16, x8, x15                                 move [igpr-241 + 972], igpr-240
+  [0x10F54] str w9, [x16, #0x3cc] ;; misaligned with debug data
+
+collectables-part.gc:1985
+-> (defpartgroup group-green-collect
+  [0x10F58] adrp x9, #0x10000                                mov-sva igpr-242, static-structure
+  [0x10F5C] add x9, x9, #0
+  [0x10F60] sub x9, x9, x15
+  [0x10F64] adrp x16, #0x10000                               mov igpr-243, '*part-group-id-table*
+  [0x10F68] add x16, x16, #0
+  [0x10F6C] ldr w8, [x16]
+  [0x10F70] add x16, x8, x15                                 move [igpr-243 + 276], igpr-242
+  [0x10F74] str w9, [x16, #0x114] ;; misaligned with debug data
+
+collectables-part.gc:1993
+-> (defpart 241
+  [0x10F78] adrp x9, #0x10000                                mov-sva igpr-244, static-structure
+  [0x10F7C] add x9, x9, #0
+  [0x10F80] sub x9, x9, x15
+  [0x10F84] adrp x16, #0x10000                               mov igpr-245, '*part-id-table*
+  [0x10F88] add x16, x16, #0
+  [0x10F8C] ldr w8, [x16]
+  [0x10F90] add x16, x8, x15                                 move [igpr-245 + 976], igpr-244
+  [0x10F94] str w9, [x16, #0x3d0] ;; misaligned with debug data
+
+collectables-part.gc:2015
+-> (defpart 242
+  [0x10F98] adrp x9, #0x10000                                mov-sva igpr-246, static-structure
+  [0x10F9C] add x9, x9, #0
+  [0x10FA0] sub x9, x9, x15
+  [0x10FA4] adrp x16, #0x10000                               mov igpr-247, '*part-id-table*
+  [0x10FA8] add x16, x16, #0
+  [0x10FAC] ldr w8, [x16]
+  [0x10FB0] add x16, x8, x15                                 move [igpr-247 + 980], igpr-246
+  [0x10FB4] str w9, [x16, #0x3d4] ;; misaligned with debug data
+
+collectables-part.gc:2036
+-> (defpart 243
+  [0x10FB8] adrp x9, #0x10000                                mov-sva igpr-248, static-structure
+  [0x10FBC] add x9, x9, #0
+  [0x10FC0] sub x9, x9, x15
+  [0x10FC4] adrp x16, #0x10000                               mov igpr-249, '*part-id-table*
+  [0x10FC8] add x16, x16, #0
+  [0x10FCC] ldr w8, [x16]
+  [0x10FD0] add x16, x8, x15                                 move [igpr-249 + 984], igpr-248
+  [0x10FD4] str w9, [x16, #0x3d8] ;; misaligned with debug data
+
+collectables-part.gc:2057
+-> (defpartgroup group-blue-collect
+  [0x10FD8] adrp x9, #0x10000                                mov-sva igpr-250, static-structure
+  [0x10FDC] add x9, x9, #0
+  [0x10FE0] sub x9, x9, x15
+  [0x10FE4] adrp x16, #0x10000                               mov igpr-251, '*part-group-id-table*
+  [0x10FE8] add x16, x16, #0
+  [0x10FEC] ldr w8, [x16]
+  [0x10FF0] add x16, x8, x15                                 move [igpr-251 + 280], igpr-250
+  [0x10FF4] str w9, [x16, #0x118] ;; misaligned with debug data
+
+collectables-part.gc:2065
+-> (defpart 246
+  [0x10FF8] adrp x9, #0x10000                                mov-sva igpr-252, static-structure
+  [0x10FFC] add x9, x9, #0
+  [0x11000] sub x9, x9, x15
+  [0x11004] adrp x16, #0x11000                               mov igpr-253, '*part-id-table*
+  [0x11008] add x16, x16, #0
+  [0x1100C] ldr w8, [x16]
+  [0x11010] add x16, x8, x15                                 move [igpr-253 + 996], igpr-252
+  [0x11014] str w9, [x16, #0x3e4] ;; misaligned with debug data
+
+collectables-part.gc:2087
+-> (defpart 247
+  [0x11018] adrp x9, #0x11000                                mov-sva igpr-254, static-structure
+  [0x1101C] add x9, x9, #0
+  [0x11020] sub x9, x9, x15
+  [0x11024] adrp x16, #0x11000                               mov igpr-255, '*part-id-table*
+  [0x11028] add x16, x16, #0
+  [0x1102C] ldr w8, [x16]
+  [0x11030] add x16, x8, x15                                 move [igpr-255 + 1000], igpr-254
+  [0x11034] str w9, [x16, #0x3e8] ;; misaligned with debug data
+
+collectables-part.gc:2108
+-> (defpart 248
+  [0x11038] adrp x9, #0x11000                                mov-sva igpr-256, static-structure
+  [0x1103C] add x9, x9, #0
+  [0x11040] sub x9, x9, x15
+  [0x11044] adrp x16, #0x11000                               mov igpr-257, '*part-id-table*
+  [0x11048] add x16, x16, #0
+  [0x1104C] ldr w8, [x16]
+  [0x11050] add x16, x8, x15                                 move [igpr-257 + 1004], igpr-256
+  [0x11054] str w9, [x16, #0x3ec] ;; misaligned with debug data
+
+collectables-part.gc:2129
+-> (defpartgroup group-yellow-collect
+  [0x11058] adrp x9, #0x11000                                mov-sva igpr-258, static-structure
+  [0x1105C] add x9, x9, #0
+  [0x11060] sub x9, x9, x15
+  [0x11064] adrp x16, #0x11000                               mov igpr-259, '*part-group-id-table*
+  [0x11068] add x16, x16, #0
+  [0x1106C] ldr w8, [x16]
+  [0x11070] add x16, x8, x15                                 move [igpr-259 + 284], igpr-258
+  [0x11074] str w9, [x16, #0x11c] ;; misaligned with debug data
+
+collectables-part.gc:2137
+-> (defpart 249
+  [0x11078] adrp x9, #0x11000                                mov-sva igpr-260, static-structure
+  [0x1107C] add x9, x9, #0
+  [0x11080] sub x9, x9, x15
+  [0x11084] adrp x16, #0x11000                               mov igpr-261, '*part-id-table*
+  [0x11088] add x16, x16, #0
+  [0x1108C] ldr w8, [x16]
+  [0x11090] add x16, x8, x15                                 move [igpr-261 + 1008], igpr-260
+  [0x11094] str w9, [x16, #0x3f0] ;; misaligned with debug data
+
+collectables-part.gc:2159
+-> (defpart 244
+  [0x11098] adrp x9, #0x11000                                mov-sva igpr-262, static-structure
+  [0x1109C] add x9, x9, #0
+  [0x110A0] sub x9, x9, x15
+  [0x110A4] adrp x16, #0x11000                               mov igpr-263, '*part-id-table*
+  [0x110A8] add x16, x16, #0
+  [0x110AC] ldr w8, [x16]
+  [0x110B0] add x16, x8, x15                                 move [igpr-263 + 988], igpr-262
+  [0x110B4] str w9, [x16, #0x3dc] ;; misaligned with debug data
+
+collectables-part.gc:2162
+-> (defpart 250
+  [0x110B8] adrp x9, #0x11000                                mov-sva igpr-264, static-structure
+  [0x110BC] add x9, x9, #0
+  [0x110C0] sub x9, x9, x15
+  [0x110C4] adrp x16, #0x11000                               mov igpr-265, '*part-id-table*
+  [0x110C8] add x16, x16, #0
+  [0x110CC] ldr w8, [x16]
+  [0x110D0] add x16, x8, x15                                 move [igpr-265 + 1012], igpr-264
+  [0x110D4] str w9, [x16, #0x3f4] ;; misaligned with debug data
+
+collectables-part.gc:2183
+-> (defpart 251
+  [0x110D8] adrp x9, #0x11000                                mov-sva igpr-266, static-structure
+  [0x110DC] add x9, x9, #0
+  [0x110E0] sub x9, x9, x15
+  [0x110E4] adrp x16, #0x11000                               mov igpr-267, '*part-id-table*
+  [0x110E8] add x16, x16, #0
+  [0x110EC] ldr w8, [x16]
+  [0x110F0] add x16, x8, x15                                 move [igpr-267 + 1016], igpr-266
+  [0x110F4] str w9, [x16, #0x3f8] ;; misaligned with debug data
+
+collectables-part.gc:2204
+-> (defpart 245
+  [0x110F8] adrp x9, #0x11000                                mov-sva igpr-268, static-structure
+  [0x110FC] add x9, x9, #0
+  [0x11100] sub x9, x9, x15
+  [0x11104] adrp x16, #0x11000                               mov igpr-269, '*part-id-table*
+  [0x11108] add x16, x16, #0
+  [0x1110C] ldr w8, [x16]
+  [0x11110] add x16, x8, x15                                 move [igpr-269 + 992], igpr-268
+  [0x11114] str w9, [x16, #0x3e0] ;; misaligned with debug data
+
+collectables-part.gc:2207
+-> (defpartgroup group-red-collect
+  [0x11118] adrp x9, #0x11000                                mov-sva igpr-270, static-structure
+  [0x1111C] add x9, x9, #0
+  [0x11120] sub x9, x9, x15
+  [0x11124] adrp x16, #0x11000                               mov igpr-271, '*part-group-id-table*
+  [0x11128] add x16, x16, #0
+  [0x1112C] ldr w8, [x16]
+  [0x11130] add x16, x8, x15                                 move [igpr-271 + 288], igpr-270
+  [0x11134] str w9, [x16, #0x120] ;; misaligned with debug data
+
+collectables-part.gc:2215
+-> (defpart 252
+  [0x11138] adrp x9, #0x11000                                mov-sva igpr-272, static-structure
+  [0x1113C] add x9, x9, #0
+  [0x11140] sub x9, x9, x15
+  [0x11144] adrp x16, #0x11000                               mov igpr-273, '*part-id-table*
+  [0x11148] add x16, x16, #0
+  [0x1114C] ldr w8, [x16]
+  [0x11150] add x16, x8, x15                                 move [igpr-273 + 1020], igpr-272
+  [0x11154] str w9, [x16, #0x3fc] ;; misaligned with debug data
+
+collectables-part.gc:2237
+-> (defpart 253
+  [0x11158] adrp x9, #0x11000                                mov-sva igpr-274, static-structure
+  [0x1115C] add x9, x9, #0
+  [0x11160] sub x9, x9, x15
+  [0x11164] adrp x16, #0x11000                               mov igpr-275, '*part-id-table*
+  [0x11168] add x16, x16, #0
+  [0x1116C] ldr w8, [x16]
+  [0x11170] add x16, x8, x15                                 move [igpr-275 + 1024], igpr-274
+  [0x11174] str w9, [x16, #0x400] ;; misaligned with debug data
+
+collectables-part.gc:2258
+-> (defpart 254
+  [0x11178] adrp x0, #0x11000                                mov-sva igpr-276, static-structure
+  [0x1117C] add x0, x0, #0
+  [0x11180] sub x0, x0, x15
+  [0x11184] adrp x16, #0x11000                               mov igpr-277, '*part-id-table*
+  [0x11188] add x16, x16, #0
+  [0x1118C] ldr w9, [x16]
+  [0x11190] add x16, x9, x15                                 move [igpr-277 + 1028], igpr-276
+  [0x11194] str w0, [x16, #0x404] ;; misaligned with debug data
+
+collectables-part.gc:1
+-> ;-*-Lisp-*-
+  [0x11198] mov x0, x0                                       ret igpr-278 igpr-276
+  [0x1119C] ldp x29, x30, [sp], #0x10
+  [0x111A0] ret
+
+
+[part-tracker-track-target]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collectables-part.gc:53
+-> (defun part-tracker-track-target ((arg0 part-tracker))
+  [0x1000C] mov x3, x7                                       mov igpr-2, igpr-0
+
+collectables-part.gc:54
+->   (set! (-> arg0 linger-callback) (-> arg0 callback))
+  [0x10010] add x16, x3, x15                                 mov igpr-3, [igpr-2 + 124]
+  [0x10014] ldr w9, [x16, #0x7c] ;; misaligned with debug data
+  [0x10018] add x16, x3, x15                                 move [igpr-2 + 128], igpr-3
+  [0x1001C] str w9, [x16, #0x80] ;; misaligned with debug data
+
+collectables-part.gc:55
+->   (let* ((v1-1 *target*)
+  [0x10020] adrp x16, #0x10000                               mov igpr-4, '*target*
+  [0x10024] add x16, x16, #0
+  [0x10028] ldr w9, [x16]
+  [0x1002C] mov x9, x9                                       mov igpr-5, igpr-4
+
+collectables-part.gc:56
+->          (v1-3 (if (not v1-1) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-1 node-list data 5))))
+  [0x10030] mov x8, x14                                      mov-symptr igpr-7, '#f
+  [0x10034] sub x8, x8, x15 ;; misaligned with debug data
+
+collectables-part.gc:56
+->          (v1-3 (if (not v1-1) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-1 node-list data 5))))
+  [0x10038] cmp x9, x8                                       j(igpr-5 != igpr-7) label-13
+  [0x1003C] b.ne #0x10058
+
+collectables-part.gc:56
+->          (v1-3 (if (not v1-1) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-1 node-list data 5))))
+  [0x10040] movz x9, #0xc                                    mov-ic igpr-8, 12
+  [0x10044] add x16, x3, x15                                 mov igpr-9, [igpr-2 + 108]
+  [0x10048] ldr w8, [x16, #0x6c] ;; misaligned with debug data
+  [0x1004C] add x9, x9, x8                                   addi igpr-8, igpr-9
+
+collectables-part.gc:56
+->          (v1-3 (if (not v1-1) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-1 node-list data 5))))
+  [0x10050] mov x9, x9                                       mov igpr-6, igpr-8
+  [0x10054] b #0x100b0                                       goto label-24
+
+collectables-part.gc:56
+->          (v1-3 (if (not v1-1) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-1 node-list data 5))))
+  [0x10058] adrp x16, #0x10000                               mov igpr-10, 'vector<-cspace!
+  [0x1005C] add x16, x16, #0
+  [0x10060] ldr w8, [x16]
+
+collectables-part.gc:56
+->          (v1-3 (if (not v1-1) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-1 node-list data 5))))
+  [0x10064] mov x7, sp                                       mov igpr-11, stack-slot-0
+  [0x10068] sub x7, x7, x15
+
+collectables-part.gc:56
+->          (v1-3 (if (not v1-1) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-1 node-list data 5))))
+  [0x1006C] movz x6, #0xac                                   mov-ic igpr-12, 172
+  [0x10070] add x16, x9, x15                                 mov igpr-13, [igpr-5 + 112]
+  [0x10074] ldr w9, [x16, #0x70] ;; misaligned with debug data
+  [0x10078] add x6, x6, x9                                   addi igpr-12, igpr-13
+
+collectables-part.gc:56
+->          (v1-3 (if (not v1-1) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-1 node-list data 5))))
+  [0x1007C] mov x8, x8                                       mov igpr-17, igpr-10
+  [0x10080] mov x7, x7                                       mov igpr-15, igpr-11
+  [0x10084] mov x6, x6                                       mov igpr-16, igpr-12
+  [0x10088] add x8, x8, x15                                  call igpr-17 (ret igpr-14) (args igpr-15 igpr-16)
+  [0x1008C] stp x3, x5, [sp, #-0x10]!
+  [0x10090] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10094] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10098] blr x8 ;; misaligned with debug data
+  [0x1009C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100A0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100A4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100A8] mov x0, x0                                       mov igpr-18, igpr-14
+
+collectables-part.gc:56
+->          (v1-3 (if (not v1-1) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-1 node-list data 5))))
+  [0x100AC] mov x9, x0                                       mov igpr-6, igpr-18
+
+collectables-part.gc:55
+->   (let* ((v1-1 *target*)
+  [0x100B0] mov x9, x9                                       mov igpr-19, igpr-6
+
+collectables-part.gc:57
+->          (v0-1 (-> arg0 root trans)))
+  [0x100B4] movz x0, #0xc                                    mov-ic igpr-20, 12
+  [0x100B8] add x16, x3, x15                                 mov igpr-21, [igpr-2 + 108]
+  [0x100BC] ldr w8, [x16, #0x6c] ;; misaligned with debug data
+  [0x100C0] add x0, x0, x8                                   addi igpr-20, igpr-21
+
+collectables-part.gc:55
+->   (let* ((v1-1 *target*)
+  [0x100C4] mov x0, x0                                       mov igpr-22, igpr-20
+
+collectables-part.gc:58
+->     (set! (-> v0-1 quad) (-> v1-3 quad))
+  [0x100C8] add x16, x9, x15                                 mov ii128-23, [igpr-19 + 0]
+  [0x100CC] ldr q23, [x16] ;; misaligned with debug data
+  [0x100D0] mov v23.16b, v23.16b                             mov ii128-24, ii128-23
+  [0x100D4] add x16, x0, x15                                 move [igpr-22 + 0], ii128-24
+  [0x100D8] str q23, [x16] ;; misaligned with debug data
+
+collectables-part.gc:53
+-> (defun part-tracker-track-target ((arg0 part-tracker))
+  [0x100DC] mov x0, x0                                       ret igpr-1 igpr-22
+  [0x100E0] add sp, sp, #0x10
+  [0x100E4] ldp x29, x30, [sp], #0x10
+  [0x100E8] ret
+
+
+[part-tracker-move-to-target]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+collectables-part.gc:45
+-> (defun part-tracker-move-to-target ((arg0 part-tracker))
+  [0x1000C] mov x3, x7                                       mov igpr-2, igpr-0
+
+collectables-part.gc:46
+->   (let* ((v1-0 *target*)
+  [0x10010] adrp x16, #0x10000                               mov igpr-3, '*target*
+  [0x10014] add x16, x16, #0
+  [0x10018] ldr w9, [x16]
+  [0x1001C] mov x9, x9                                       mov igpr-4, igpr-3
+
+collectables-part.gc:47
+->          (a2-0 (if (not v1-0) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-0 node-list data 5)))))
+  [0x10020] mov x8, x14                                      mov-symptr igpr-6, '#f
+  [0x10024] sub x8, x8, x15 ;; misaligned with debug data
+
+collectables-part.gc:47
+->          (a2-0 (if (not v1-0) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-0 node-list data 5)))))
+  [0x10028] cmp x9, x8                                       j(igpr-4 != igpr-6) label-11
+  [0x1002C] b.ne #0x10048
+
+collectables-part.gc:47
+->          (a2-0 (if (not v1-0) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-0 node-list data 5)))))
+  [0x10030] movz x2, #0xc                                    mov-ic igpr-7, 12
+  [0x10034] add x16, x3, x15                                 mov igpr-8, [igpr-2 + 108]
+  [0x10038] ldr w9, [x16, #0x6c] ;; misaligned with debug data
+  [0x1003C] add x2, x2, x9                                   addi igpr-7, igpr-8
+
+collectables-part.gc:47
+->          (a2-0 (if (not v1-0) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-0 node-list data 5)))))
+  [0x10040] mov x2, x2                                       mov igpr-5, igpr-7
+  [0x10044] b #0x100a0                                       goto label-22
+
+collectables-part.gc:47
+->          (a2-0 (if (not v1-0) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-0 node-list data 5)))))
+  [0x10048] adrp x16, #0x10000                               mov igpr-9, 'vector<-cspace!
+  [0x1004C] add x16, x16, #0
+  [0x10050] ldr w8, [x16]
+
+collectables-part.gc:47
+->          (a2-0 (if (not v1-0) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-0 node-list data 5)))))
+  [0x10054] mov x7, sp                                       mov igpr-10, stack-slot-0
+  [0x10058] sub x7, x7, x15
+
+collectables-part.gc:47
+->          (a2-0 (if (not v1-0) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-0 node-list data 5)))))
+  [0x1005C] movz x6, #0xac                                   mov-ic igpr-11, 172
+  [0x10060] add x16, x9, x15                                 mov igpr-12, [igpr-4 + 112]
+  [0x10064] ldr w9, [x16, #0x70] ;; misaligned with debug data
+  [0x10068] add x6, x6, x9                                   addi igpr-11, igpr-12
+
+collectables-part.gc:47
+->          (a2-0 (if (not v1-0) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-0 node-list data 5)))))
+  [0x1006C] mov x8, x8                                       mov igpr-16, igpr-9
+  [0x10070] mov x7, x7                                       mov igpr-14, igpr-10
+  [0x10074] mov x6, x6                                       mov igpr-15, igpr-11
+  [0x10078] add x8, x8, x15                                  call igpr-16 (ret igpr-13) (args igpr-14 igpr-15)
+  [0x1007C] stp x3, x5, [sp, #-0x10]!
+  [0x10080] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10084] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10088] blr x8 ;; misaligned with debug data
+  [0x1008C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10090] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10094] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10098] mov x0, x0                                       mov igpr-17, igpr-13
+
+collectables-part.gc:47
+->          (a2-0 (if (not v1-0) (-> arg0 root trans) (vector<-cspace! (new 'stack-no-clear 'vector) (-> v1-0 node-list data 5)))))
+  [0x1009C] mov x2, x0                                       mov igpr-5, igpr-17
+
+collectables-part.gc:46
+->   (let* ((v1-0 *target*)
+  [0x100A0] mov x2, x2                                       mov igpr-18, igpr-5
+
+collectables-part.gc:48
+->     (vector-lerp! (-> arg0 root trans)
+  [0x100A4] adrp x16, #0x10000                               mov igpr-19, 'vector-lerp!
+  [0x100A8] add x16, x16, #0
+  [0x100AC] ldr w9, [x16]
+
+collectables-part.gc:48
+->     (vector-lerp! (-> arg0 root trans)
+  [0x100B0] movz x7, #0xc                                    mov-ic igpr-20, 12
+  [0x100B4] add x16, x3, x15                                 mov igpr-21, [igpr-2 + 108]
+  [0x100B8] ldr w8, [x16, #0x6c] ;; misaligned with debug data
+  [0x100BC] add x7, x7, x8                                   addi igpr-20, igpr-21
+
+collectables-part.gc:49
+->                   (-> arg0 offset)
+  [0x100C0] movz x6, #0x9c                                   mov-ic igpr-22, 156
+  [0x100C4] add x6, x6, x3                                   addi igpr-22, igpr-2
+
+collectables-part.gc:51
+->                   (* 0.006666667 (the float (- (current-time) (-> arg0 start-time)))))))
+  [0x100C8] adrp x16, #0x10000                               mov-svl ifpr-24, [(sf 0.006666667)]
+  [0x100CC] ldr s23, [x16, #0x520]
+  [0x100D0] mov v23.16b, v23.16b                             mov ifpr-23, ifpr-24
+
+collectables-part.gc:51
+->                   (* 0.006666667 (the float (- (current-time) (-> arg0 start-time)))))))
+  [0x100D4] adrp x16, #0x10000                               mov igpr-27, '*display*
+  [0x100D8] add x16, x16, #0
+  [0x100DC] ldr w8, [x16]
+  [0x100E0] add x16, x8, x15                                 mov igpr-26, [igpr-27 + 780]
+  [0x100E4] add x16, x16, #0x30c ;; misaligned with debug data
+  [0x100E8] ldr x8, [x16] ;; misaligned with debug data
+  [0x100EC] mov x8, x8                                       mov igpr-25, igpr-26
+  [0x100F0] add x16, x3, x15                                 mov igpr-28, [igpr-2 + 148]
+  [0x100F4] ldur x1, [x16, #0x94] ;; misaligned with debug data
+  [0x100F8] sub x8, x8, x1                                   subi igpr-25, igpr-28
+
+collectables-part.gc:51
+->                   (* 0.006666667 (the float (- (current-time) (-> arg0 start-time)))))))
+  [0x100FC] scvtf s22, w8                                    i2f ifpr-29, igpr-25
+
+collectables-part.gc:51
+->                   (* 0.006666667 (the float (- (current-time) (-> arg0 start-time)))))))
+  [0x10100] fmul s23, s23, s22                               mulss ifpr-23, ifpr-29
+
+collectables-part.gc:48
+->     (vector-lerp! (-> arg0 root trans)
+  [0x10104] mov x9, x9                                       mov igpr-35, igpr-19
+  [0x10108] mov x7, x7                                       mov igpr-31, igpr-20
+  [0x1010C] mov x6, x6                                       mov igpr-32, igpr-22
+  [0x10110] mov x2, x2                                       mov igpr-33, igpr-18
+  [0x10114] fmov w1, s23                                     mov igpr-34, ifpr-23
+  [0x10118] sxtw x1, w1
+  [0x1011C] add x9, x9, x15                                  call igpr-35 (ret igpr-30) (args igpr-31 igpr-32 igpr-33 igpr-34)
+  [0x10120] stp x3, x5, [sp, #-0x10]!
+  [0x10124] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10128] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1012C] blr x9 ;; misaligned with debug data
+  [0x10130] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10134] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10138] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1013C] mov x0, x0                                       mov igpr-36, igpr-30
+
+collectables-part.gc:45
+-> (defun part-tracker-move-to-target ((arg0 part-tracker))
+  [0x10140] mov x0, x0                                       ret igpr-1 igpr-36
+  [0x10144] add sp, sp, #0x10
+  [0x10148] ldp x29, x30, [sp], #0x10
+  [0x1014C] ret
+
+
+[sparticle-track-root-money]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collectables-part.gc:1838
+-> (defun sparticle-track-root-money ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x10008] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-6, igpr-2
+
+collectables-part.gc:1839
+->   (let ((v1-1 (-> arg1 key proc)))
+  [0x10014] add x16, x6, x15                                 mov igpr-8, [igpr-5 + 132]
+  [0x10018] ldr w9, [x16, #0x84] ;; misaligned with debug data
+  [0x1001C] add x16, x9, x15                                 mov igpr-7, [igpr-8 + 16]
+  [0x10020] ldr w9, [x16, #0x10] ;; misaligned with debug data
+
+collectables-part.gc:1839
+->   (let ((v1-1 (-> arg1 key proc)))
+  [0x10024] mov x9, x9                                       mov igpr-9, igpr-7
+
+collectables-part.gc:1840
+->     (when (!= (-> v1-1 type) hud-money)
+  [0x10028] add x16, x9, x15                                 mov igpr-11, [igpr-9 + -4]
+  [0x1002C] ldur w8, [x16, #-4] ;; misaligned with debug data
+  [0x10030] adrp x16, #0x10000                               mov igpr-12, 'hud-money
+  [0x10034] add x16, x16, #0
+  [0x10038] ldr w1, [x16]
+  [0x1003C] cmp x8, x1                                       j(igpr-11 == igpr-12) label-27
+  [0x10040] b.eq #0x100a8
+
+collectables-part.gc:1841
+->       (let ((v1-3 (-> (the-as process-drawable v1-1) root trans)))
+  [0x10044] movz x8, #0xc                                    mov-ic igpr-13, 12
+  [0x10048] mov x9, x9                                       mov igpr-15, igpr-9
+  [0x1004C] add x16, x9, x15                                 mov igpr-14, [igpr-15 + 108]
+  [0x10050] ldr w9, [x16, #0x6c] ;; misaligned with debug data
+  [0x10054] add x8, x8, x9                                   addi igpr-13, igpr-14
+
+collectables-part.gc:1841
+->       (let ((v1-3 (-> (the-as process-drawable v1-1) root trans)))
+  [0x10058] mov x8, x8                                       mov igpr-16, igpr-13
+
+collectables-part.gc:1842
+->         (set! (-> arg2 x) (-> v1-3 x))
+  [0x1005C] add x16, x8, x15                                 mov ifpr-17, [igpr-16 + 0]
+  [0x10060] ldr s23, [x16] ;; misaligned with debug data
+  [0x10064] add x16, x2, x15                                 move [igpr-6 + 0], ifpr-17
+  [0x10068] str s23, [x16] ;; misaligned with debug data
+
+collectables-part.gc:1843
+->         (set! (-> arg2 y) (+ 2048.0 (-> v1-3 y)))
+  [0x1006C] adrp x16, #0x18000                               mov-svl ifpr-19, [(sf 2048)]
+  [0x10070] ldr s23, [x16, #0x180]
+  [0x10074] mov v23.16b, v23.16b                             mov ifpr-18, ifpr-19
+  [0x10078] add x16, x8, x15                                 mov ifpr-20, [igpr-16 + 4]
+  [0x1007C] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x10080] fadd s23, s23, s22                               addss ifpr-18, ifpr-20
+
+collectables-part.gc:1843
+->         (set! (-> arg2 y) (+ 2048.0 (-> v1-3 y)))
+  [0x10084] add x16, x2, x15                                 move [igpr-6 + 4], ifpr-18
+  [0x10088] str s23, [x16, #4] ;; misaligned with debug data
+
+collectables-part.gc:1844
+->         (set! (-> arg2 z) (-> v1-3 z)))))
+  [0x1008C] add x16, x8, x15                                 mov ifpr-21, [igpr-16 + 8]
+  [0x10090] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x10094] add x16, x2, x15                                 move [igpr-6 + 8], ifpr-21
+  [0x10098] str s23, [x16, #8] ;; misaligned with debug data
+
+collectables-part.gc:1840
+->     (when (!= (-> v1-1 type) hud-money)
+  [0x1009C] fmov w9, s23                                     mov igpr-10, ifpr-21
+  [0x100A0] sxtw x9, w9
+  [0x100A4] b #0x100b0                                       goto label-28
+  [0x100A8] mov x9, x14                                      mov-symptr igpr-10, '#f
+  [0x100AC] sub x9, x9, x15 ;; misaligned with debug data
+
+collectables-part.gc:1838
+-> (defun sparticle-track-root-money ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x100B0] movz x9, #0                                      mov-ic igpr-22, 0
+  [0x100B4] ldp x29, x30, [sp], #0x10
+  [0x100B8] ret
+
+
+[part-tracker-track-root]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collectables-part.gc:37
+-> (defun part-tracker-track-root ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x10008] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-6, igpr-2
+
+collectables-part.gc:38
+->   (let ((v1-3 (-> (the-as process-drawable (-> arg1 key proc)) root trans)))
+  [0x10014] movz x9, #0xc                                    mov-ic igpr-7, 12
+  [0x10018] add x16, x6, x15                                 mov igpr-10, [igpr-5 + 132]
+  [0x1001C] ldr w8, [x16, #0x84] ;; misaligned with debug data
+  [0x10020] add x16, x8, x15                                 mov igpr-9, [igpr-10 + 16]
+  [0x10024] ldr w8, [x16, #0x10] ;; misaligned with debug data
+  [0x10028] mov x8, x8                                       mov igpr-11, igpr-9
+  [0x1002C] add x16, x8, x15                                 mov igpr-8, [igpr-11 + 108]
+  [0x10030] ldr w8, [x16, #0x6c] ;; misaligned with debug data
+  [0x10034] add x9, x9, x8                                   addi igpr-7, igpr-8
+
+collectables-part.gc:38
+->   (let ((v1-3 (-> (the-as process-drawable (-> arg1 key proc)) root trans)))
+  [0x10038] mov x9, x9                                       mov igpr-12, igpr-7
+
+collectables-part.gc:39
+->     (set! (-> arg2 x) (-> v1-3 x))
+  [0x1003C] add x16, x9, x15                                 mov ifpr-13, [igpr-12 + 0]
+  [0x10040] ldr s23, [x16] ;; misaligned with debug data
+  [0x10044] add x16, x2, x15                                 move [igpr-6 + 0], ifpr-13
+  [0x10048] str s23, [x16] ;; misaligned with debug data
+
+collectables-part.gc:40
+->     (set! (-> arg2 y) (-> v1-3 y))
+  [0x1004C] add x16, x9, x15                                 mov ifpr-14, [igpr-12 + 4]
+  [0x10050] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10054] add x16, x2, x15                                 move [igpr-6 + 4], ifpr-14
+  [0x10058] str s23, [x16, #4] ;; misaligned with debug data
+
+collectables-part.gc:41
+->     (set! (-> arg2 z) (-> v1-3 z)))
+  [0x1005C] add x16, x9, x15                                 mov ifpr-15, [igpr-12 + 8]
+  [0x10060] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x10064] add x16, x2, x15                                 move [igpr-6 + 8], ifpr-15
+  [0x10068] str s23, [x16, #8] ;; misaligned with debug data
+
+collectables-part.gc:37
+-> (defun part-tracker-track-root ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x1006C] movz x9, #0                                      mov-ic igpr-16, 0
+  [0x10070] ldp x29, x30, [sp], #0x10
+  [0x10074] ret
+
+
+[eco-track-root-prim-fadeout]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collectables-part.gc:26
+-> (defun eco-track-root-prim-fadeout ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x10008] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-6, igpr-2
+
+collectables-part.gc:27
+->   (let ((v1-1 (the-as process-drawable (-> arg1 key proc))))
+  [0x10014] add x16, x6, x15                                 mov igpr-8, [igpr-5 + 132]
+  [0x10018] ldr w9, [x16, #0x84] ;; misaligned with debug data
+  [0x1001C] add x16, x9, x15                                 mov igpr-7, [igpr-8 + 16]
+  [0x10020] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x10024] mov x9, x9                                       mov igpr-9, igpr-7
+
+collectables-part.gc:27
+->   (let ((v1-1 (the-as process-drawable (-> arg1 key proc))))
+  [0x10028] mov x9, x9                                       mov igpr-10, igpr-9
+
+collectables-part.gc:28
+->     (let ((a0-3 (-> (the-as collide-shape-moving (-> v1-1 root)) root-prim prim-core)))
+  [0x1002C] movz x8, #0xc                                    mov-ic igpr-11, 12
+  [0x10030] add x16, x9, x15                                 mov igpr-13, [igpr-10 + 108]
+  [0x10034] ldr w1, [x16, #0x6c] ;; misaligned with debug data
+  [0x10038] mov x1, x1                                       mov igpr-14, igpr-13
+  [0x1003C] add x16, x1, x15                                 mov igpr-12, [igpr-14 + 156]
+  [0x10040] ldr w1, [x16, #0x9c] ;; misaligned with debug data
+  [0x10044] add x8, x8, x1                                   addi igpr-11, igpr-12
+
+collectables-part.gc:28
+->     (let ((a0-3 (-> (the-as collide-shape-moving (-> v1-1 root)) root-prim prim-core)))
+  [0x10048] mov x8, x8                                       mov igpr-15, igpr-11
+
+collectables-part.gc:29
+->       (set! (-> arg2 x) (-> a0-3 world-sphere x))
+  [0x1004C] add x16, x8, x15                                 mov ifpr-16, [igpr-15 + 0]
+  [0x10050] ldr s23, [x16] ;; misaligned with debug data
+  [0x10054] add x16, x2, x15                                 move [igpr-6 + 0], ifpr-16
+  [0x10058] str s23, [x16] ;; misaligned with debug data
+
+collectables-part.gc:30
+->       (set! (-> arg2 y) (-> a0-3 world-sphere y))
+  [0x1005C] add x16, x8, x15                                 mov ifpr-17, [igpr-15 + 4]
+  [0x10060] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10064] add x16, x2, x15                                 move [igpr-6 + 4], ifpr-17
+  [0x10068] str s23, [x16, #4] ;; misaligned with debug data
+
+collectables-part.gc:31
+->       (set! (-> arg2 z) (-> a0-3 world-sphere z)))
+  [0x1006C] add x16, x8, x15                                 mov ifpr-18, [igpr-15 + 8]
+  [0x10070] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x10074] add x16, x2, x15                                 move [igpr-6 + 8], ifpr-18
+  [0x10078] str s23, [x16, #8] ;; misaligned with debug data
+
+collectables-part.gc:32
+->     (if (not (logtest? (-> v1-1 state-flags) (state-flags fade-out-particles)))
+  [0x1007C] add x16, x9, x15                                 mov igpr-20, [igpr-10 + 160]
+  [0x10080] ldr w9, [x16, #0xa0] ;; misaligned with debug data
+  [0x10084] movz x8, #0x1                                    mov-ic igpr-21, 1
+  [0x10088] mov x9, x9                                       mov igpr-22, igpr-20
+  [0x1008C] and x9, x9, x8                                   and igpr-22, igpr-21
+
+collectables-part.gc:32
+->     (if (not (logtest? (-> v1-1 state-flags) (state-flags fade-out-particles)))
+  [0x10090] movz x8, #0                                      mov-ic igpr-23, 0
+
+collectables-part.gc:32
+->     (if (not (logtest? (-> v1-1 state-flags) (state-flags fade-out-particles)))
+  [0x10094] cmp x9, x8                                       j(igpr-22 != igpr-23) label-37
+  [0x10098] b.ne #0x100d8
+
+collectables-part.gc:33
+->       (set! (-> arg1 next-time) (the-as uint (* (-> *sp-frame-time* x) 2)))))
+  [0x1009C] adrp x16, #0x10000                               mov igpr-26, '*sp-frame-time*
+  [0x100A0] add x16, x16, #0
+  [0x100A4] ldr w9, [x16]
+  [0x100A8] add x16, x9, x15                                 mov ifpr-25, [igpr-26 + 0]
+  [0x100AC] ldr s23, [x16] ;; misaligned with debug data
+  [0x100B0] mov v23.16b, v23.16b                             mov ifpr-24, ifpr-25
+  [0x100B4] movz x9, #0x2                                    mov-ic igpr-28, 2
+  [0x100B8] scvtf s22, w9                                    i2f ifpr-27, igpr-28
+  [0x100BC] fmul s23, s23, s22                               mulss ifpr-24, ifpr-27
+
+collectables-part.gc:33
+->       (set! (-> arg1 next-time) (the-as uint (* (-> *sp-frame-time* x) 2)))))
+  [0x100C0] mov v23.16b, v23.16b                             mov ifpr-29, ifpr-24
+  [0x100C4] add x16, x6, x15                                 move [igpr-5 + 116], ifpr-29
+  [0x100C8] str s23, [x16, #0x74] ;; misaligned with debug data
+
+collectables-part.gc:32
+->     (if (not (logtest? (-> v1-1 state-flags) (state-flags fade-out-particles)))
+  [0x100CC] fmov w9, s23                                     mov igpr-19, ifpr-29
+  [0x100D0] sxtw x9, w9
+  [0x100D4] b #0x100e0                                       goto label-38
+  [0x100D8] mov x9, x14                                      mov-symptr igpr-19, '#f
+  [0x100DC] sub x9, x9, x15 ;; misaligned with debug data
+
+collectables-part.gc:26
+-> (defun eco-track-root-prim-fadeout ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x100E0] movz x9, #0                                      mov-ic igpr-30, 0
+  [0x100E4] ldp x29, x30, [sp], #0x10
+  [0x100E8] ret
+
+
+[eco-fadeout]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+collectables-part.gc:20
+-> (defun eco-fadeout ((arg0 sparticle-system) (arg1 sparticle-cpuinfo))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+collectables-part.gc:21
+->   (if (not (logtest? (-> (the-as process-drawable (-> arg1 key proc)) state-flags) (state-flags fade-out-particles)))
+  [0x10010] add x16, x6, x15                                 mov igpr-8, [igpr-4 + 132]
+  [0x10014] ldr w9, [x16, #0x84] ;; misaligned with debug data
+  [0x10018] add x16, x9, x15                                 mov igpr-7, [igpr-8 + 16]
+  [0x1001C] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x10020] mov x9, x9                                       mov igpr-9, igpr-7
+  [0x10024] add x16, x9, x15                                 mov igpr-6, [igpr-9 + 160]
+  [0x10028] ldr w9, [x16, #0xa0] ;; misaligned with debug data
+  [0x1002C] movz x8, #0x1                                    mov-ic igpr-10, 1
+  [0x10030] mov x9, x9                                       mov igpr-11, igpr-6
+  [0x10034] and x9, x9, x8                                   and igpr-11, igpr-10
+
+collectables-part.gc:21
+->   (if (not (logtest? (-> (the-as process-drawable (-> arg1 key proc)) state-flags) (state-flags fade-out-particles)))
+  [0x10038] movz x8, #0                                      mov-ic igpr-12, 0
+
+collectables-part.gc:21
+->   (if (not (logtest? (-> (the-as process-drawable (-> arg1 key proc)) state-flags) (state-flags fade-out-particles)))
+  [0x1003C] cmp x9, x8                                       j(igpr-11 != igpr-12) label-22
+  [0x10040] b.ne #0x10080
+
+collectables-part.gc:22
+->     (set! (-> arg1 next-time) (the-as uint (* (-> *sp-frame-time* x) 2))))
+  [0x10044] adrp x16, #0x10000                               mov igpr-15, '*sp-frame-time*
+  [0x10048] add x16, x16, #0
+  [0x1004C] ldr w9, [x16]
+  [0x10050] add x16, x9, x15                                 mov ifpr-14, [igpr-15 + 0]
+  [0x10054] ldr s23, [x16] ;; misaligned with debug data
+  [0x10058] mov v23.16b, v23.16b                             mov ifpr-13, ifpr-14
+  [0x1005C] movz x9, #0x2                                    mov-ic igpr-17, 2
+  [0x10060] scvtf s22, w9                                    i2f ifpr-16, igpr-17
+  [0x10064] fmul s23, s23, s22                               mulss ifpr-13, ifpr-16
+
+collectables-part.gc:22
+->     (set! (-> arg1 next-time) (the-as uint (* (-> *sp-frame-time* x) 2))))
+  [0x10068] mov v23.16b, v23.16b                             mov ifpr-18, ifpr-13
+  [0x1006C] add x16, x6, x15                                 move [igpr-4 + 116], ifpr-18
+  [0x10070] str s23, [x16, #0x74] ;; misaligned with debug data
+
+collectables-part.gc:21
+->   (if (not (logtest? (-> (the-as process-drawable (-> arg1 key proc)) state-flags) (state-flags fade-out-particles)))
+  [0x10074] fmov w9, s23                                     mov igpr-5, ifpr-18
+  [0x10078] sxtw x9, w9
+  [0x1007C] b #0x10088                                       goto label-23
+  [0x10080] mov x9, x14                                      mov-symptr igpr-5, '#f
+  [0x10084] sub x9, x9, x15 ;; misaligned with debug data
+
+collectables-part.gc:20
+-> (defun eco-fadeout ((arg0 sparticle-system) (arg1 sparticle-cpuinfo))
+  [0x10088] movz x9, #0                                      mov-ic igpr-19, 0
+  [0x1008C] ldp x29, x30, [sp], #0x10
+  [0x10090] ret
+
+
+

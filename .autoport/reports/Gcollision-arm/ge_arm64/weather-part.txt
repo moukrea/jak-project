@@ -1,0 +1,2093 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+weather-part.gc:11
+-> (defpartgroup group-rain-screend-drop-real
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov igpr-1, '*part-group-id-table*
+  [0x10018] add x16, x16, #0
+  [0x1001C] ldr w8, [x16]
+  [0x10020] add x16, x8, x15                                 move [igpr-1 + 764], igpr-0
+  [0x10024] str w9, [x16, #0x2fc] ;; misaligned with debug data
+
+weather-part.gc:83
+-> (define group-rain-screend-drop (-> *part-group-id-table* 188))
+  [0x10028] adrp x16, #0x10000                               mov igpr-3, '*part-group-id-table*
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w9, [x16]
+  [0x10034] add x16, x9, x15                                 mov igpr-2, [igpr-3 + 764]
+  [0x10038] ldr w9, [x16, #0x2fc] ;; misaligned with debug data
+  [0x1003C] adrp x16, #0x10000                               mov 'group-rain-screend-drop, igpr-2
+  [0x10040] add x16, x16, #0
+  [0x10044] str w9, [x16]
+
+weather-part.gc:85
+-> (defpart 21
+  [0x10048] adrp x9, #0x10000                                mov-sva igpr-4, static-structure
+  [0x1004C] add x9, x9, #0
+  [0x10050] sub x9, x9, x15
+  [0x10054] adrp x16, #0x10000                               mov igpr-5, '*part-id-table*
+  [0x10058] add x16, x16, #0
+  [0x1005C] ldr w8, [x16]
+  [0x10060] add x16, x8, x15                                 move [igpr-5 + 96], igpr-4
+  [0x10064] str w9, [x16, #0x60] ;; misaligned with debug data
+
+weather-part.gc:104
+-> (defpart 22
+  [0x10068] adrp x9, #0x10000                                mov-sva igpr-6, static-structure
+  [0x1006C] add x9, x9, #0
+  [0x10070] sub x9, x9, x15
+  [0x10074] adrp x16, #0x10000                               mov igpr-7, '*part-id-table*
+  [0x10078] add x16, x16, #0
+  [0x1007C] ldr w8, [x16]
+  [0x10080] add x16, x8, x15                                 move [igpr-7 + 100], igpr-6
+  [0x10084] str w9, [x16, #0x64] ;; misaligned with debug data
+
+weather-part.gc:123
+-> (defpart 24
+  [0x10088] adrp x9, #0x10000                                mov-sva igpr-8, static-structure
+  [0x1008C] add x9, x9, #0
+  [0x10090] sub x9, x9, x15
+  [0x10094] adrp x16, #0x10000                               mov igpr-9, '*part-id-table*
+  [0x10098] add x16, x16, #0
+  [0x1009C] ldr w8, [x16]
+  [0x100A0] add x16, x8, x15                                 move [igpr-9 + 108], igpr-8
+  [0x100A4] str w9, [x16, #0x6c] ;; misaligned with debug data
+
+weather-part.gc:126
+-> (defpart 23
+  [0x100A8] adrp x9, #0x10000                                mov-sva igpr-10, static-structure
+  [0x100AC] add x9, x9, #0
+  [0x100B0] sub x9, x9, x15
+  [0x100B4] adrp x16, #0x10000                               mov igpr-11, '*part-id-table*
+  [0x100B8] add x16, x16, #0
+  [0x100BC] ldr w8, [x16]
+  [0x100C0] add x16, x8, x15                                 move [igpr-11 + 104], igpr-10
+  [0x100C4] str w9, [x16, #0x68] ;; misaligned with debug data
+
+weather-part.gc:142
+-> (defpart 25
+  [0x100C8] adrp x9, #0x10000                                mov-sva igpr-12, static-structure
+  [0x100CC] add x9, x9, #0
+  [0x100D0] sub x9, x9, x15
+  [0x100D4] adrp x16, #0x10000                               mov igpr-13, '*part-id-table*
+  [0x100D8] add x16, x16, #0
+  [0x100DC] ldr w8, [x16]
+  [0x100E0] add x16, x8, x15                                 move [igpr-13 + 112], igpr-12
+  [0x100E4] str w9, [x16, #0x70] ;; misaligned with debug data
+
+weather-part.gc:145
+-> (defpart 18
+  [0x100E8] adrp x9, #0x10000                                mov-sva igpr-14, static-structure
+  [0x100EC] add x9, x9, #0
+  [0x100F0] sub x9, x9, x15
+  [0x100F4] adrp x16, #0x10000                               mov igpr-15, '*part-id-table*
+  [0x100F8] add x16, x16, #0
+  [0x100FC] ldr w8, [x16]
+  [0x10100] add x16, x8, x15                                 move [igpr-15 + 84], igpr-14
+  [0x10104] str w9, [x16, #0x54] ;; misaligned with debug data
+
+weather-part.gc:164
+-> (defpart 19
+  [0x10108] adrp x9, #0x10000                                mov-sva igpr-16, static-structure
+  [0x1010C] add x9, x9, #0
+  [0x10110] sub x9, x9, x15
+  [0x10114] adrp x16, #0x10000                               mov igpr-17, '*part-id-table*
+  [0x10118] add x16, x16, #0
+  [0x1011C] ldr w8, [x16]
+  [0x10120] add x16, x8, x15                                 move [igpr-17 + 88], igpr-16
+  [0x10124] str w9, [x16, #0x58] ;; misaligned with debug data
+
+weather-part.gc:183
+-> (defpart 26
+  [0x10128] adrp x9, #0x10000                                mov-sva igpr-18, static-structure
+  [0x1012C] add x9, x9, #0
+  [0x10130] sub x9, x9, x15
+  [0x10134] adrp x16, #0x10000                               mov igpr-19, '*part-id-table*
+  [0x10138] add x16, x16, #0
+  [0x1013C] ldr w8, [x16]
+  [0x10140] add x16, x8, x15                                 move [igpr-19 + 116], igpr-18
+  [0x10144] str w9, [x16, #0x74] ;; misaligned with debug data
+
+weather-part.gc:186
+-> (defpart 20
+  [0x10148] adrp x9, #0x10000                                mov-sva igpr-20, static-structure
+  [0x1014C] add x9, x9, #0
+  [0x10150] sub x9, x9, x15
+  [0x10154] adrp x16, #0x10000                               mov igpr-21, '*part-id-table*
+  [0x10158] add x16, x16, #0
+  [0x1015C] ldr w8, [x16]
+  [0x10160] add x16, x8, x15                                 move [igpr-21 + 92], igpr-20
+  [0x10164] str w9, [x16, #0x5c] ;; misaligned with debug data
+
+weather-part.gc:202
+-> (defpart 27
+  [0x10168] adrp x9, #0x10000                                mov-sva igpr-22, static-structure
+  [0x1016C] add x9, x9, #0
+  [0x10170] sub x9, x9, x15
+  [0x10174] adrp x16, #0x10000                               mov igpr-23, '*part-id-table*
+  [0x10178] add x16, x16, #0
+  [0x1017C] ldr w8, [x16]
+  [0x10180] add x16, x8, x15                                 move [igpr-23 + 120], igpr-22
+  [0x10184] str w9, [x16, #0x78] ;; misaligned with debug data
+
+weather-part.gc:205
+-> (defpartgroup group-stars
+  [0x10188] adrp x9, #0x10000                                mov-sva igpr-24, static-structure
+  [0x1018C] add x9, x9, #0
+  [0x10190] sub x9, x9, x15
+  [0x10194] adrp x16, #0x10000                               mov igpr-25, '*part-group-id-table*
+  [0x10198] add x16, x16, #0
+  [0x1019C] ldr w8, [x16]
+  [0x101A0] add x16, x8, x15                                 move [igpr-25 + 148], igpr-24
+  [0x101A4] str w9, [x16, #0x94] ;; misaligned with debug data
+
+weather-part.gc:211
+-> (defpart 28
+  [0x101A8] adrp x9, #0x10000                                mov-sva igpr-26, static-structure
+  [0x101AC] add x9, x9, #0
+  [0x101B0] sub x9, x9, x15
+  [0x101B4] adrp x16, #0x10000                               mov igpr-27, '*part-id-table*
+  [0x101B8] add x16, x16, #0
+  [0x101BC] ldr w8, [x16]
+  [0x101C0] add x16, x8, x15                                 move [igpr-27 + 124], igpr-26
+  [0x101C4] str w9, [x16, #0x7c] ;; misaligned with debug data
+
+weather-part.gc:231
+-> (defpart 31
+  [0x101C8] adrp x9, #0x10000                                mov-sva igpr-28, static-structure
+  [0x101CC] add x9, x9, #0
+  [0x101D0] sub x9, x9, x15
+  [0x101D4] adrp x16, #0x10000                               mov igpr-29, '*part-id-table*
+  [0x101D8] add x16, x16, #0
+  [0x101DC] ldr w8, [x16]
+  [0x101E0] add x16, x8, x15                                 move [igpr-29 + 136], igpr-28
+  [0x101E4] str w9, [x16, #0x88] ;; misaligned with debug data
+
+weather-part.gc:234
+-> (defpart 32
+  [0x101E8] adrp x9, #0x10000                                mov-sva igpr-30, static-structure
+  [0x101EC] add x9, x9, #0
+  [0x101F0] sub x9, x9, x15
+  [0x101F4] adrp x16, #0x10000                               mov igpr-31, '*part-id-table*
+  [0x101F8] add x16, x16, #0
+  [0x101FC] ldr w8, [x16]
+  [0x10200] add x16, x8, x15                                 move [igpr-31 + 140], igpr-30
+  [0x10204] str w9, [x16, #0x8c] ;; misaligned with debug data
+
+weather-part.gc:237
+-> (defpart 29
+  [0x10208] adrp x9, #0x10000                                mov-sva igpr-32, static-structure
+  [0x1020C] add x9, x9, #0
+  [0x10210] sub x9, x9, x15
+  [0x10214] adrp x16, #0x10000                               mov igpr-33, '*part-id-table*
+  [0x10218] add x16, x16, #0
+  [0x1021C] ldr w8, [x16]
+  [0x10220] add x16, x8, x15                                 move [igpr-33 + 128], igpr-32
+  [0x10224] str w9, [x16, #0x80] ;; misaligned with debug data
+
+weather-part.gc:257
+-> (defpart 30
+  [0x10228] adrp x9, #0x10000                                mov-sva igpr-34, static-structure
+  [0x1022C] add x9, x9, #0
+  [0x10230] sub x9, x9, x15
+  [0x10234] adrp x16, #0x10000                               mov igpr-35, '*part-id-table*
+  [0x10238] add x16, x16, #0
+  [0x1023C] ldr w8, [x16]
+  [0x10240] add x16, x8, x15                                 move [igpr-35 + 132], igpr-34
+  [0x10244] str w9, [x16, #0x84] ;; misaligned with debug data
+
+weather-part.gc:277
+-> (defpart 33
+  [0x10248] adrp x9, #0x10000                                mov-sva igpr-36, static-structure
+  [0x1024C] add x9, x9, #0
+  [0x10250] sub x9, x9, x15
+  [0x10254] adrp x16, #0x10000                               mov igpr-37, '*part-id-table*
+  [0x10258] add x16, x16, #0
+  [0x1025C] ldr w8, [x16]
+  [0x10260] add x16, x8, x15                                 move [igpr-37 + 144], igpr-36
+  [0x10264] str w9, [x16, #0x90] ;; misaligned with debug data
+
+weather-part.gc:300
+-> (defpart 34
+  [0x10268] adrp x9, #0x10000                                mov-sva igpr-38, static-structure
+  [0x1026C] add x9, x9, #0
+  [0x10270] sub x9, x9, x15
+  [0x10274] adrp x16, #0x10000                               mov igpr-39, '*part-id-table*
+  [0x10278] add x16, x16, #0
+  [0x1027C] ldr w8, [x16]
+  [0x10280] add x16, x8, x15                                 move [igpr-39 + 148], igpr-38
+  [0x10284] str w9, [x16, #0x94] ;; misaligned with debug data
+
+weather-part.gc:323
+-> (defpart 35
+  [0x10288] adrp x9, #0x10000                                mov-sva igpr-40, static-structure
+  [0x1028C] add x9, x9, #0
+  [0x10290] sub x9, x9, x15
+  [0x10294] adrp x16, #0x10000                               mov igpr-41, '*part-id-table*
+  [0x10298] add x16, x16, #0
+  [0x1029C] ldr w8, [x16]
+  [0x102A0] add x16, x8, x15                                 move [igpr-41 + 152], igpr-40
+  [0x102A4] str w9, [x16, #0x98] ;; misaligned with debug data
+
+weather-part.gc:326
+-> (defpart 36
+  [0x102A8] adrp x9, #0x10000                                mov-sva igpr-42, static-structure
+  [0x102AC] add x9, x9, #0
+  [0x102B0] sub x9, x9, x15
+  [0x102B4] adrp x16, #0x10000                               mov igpr-43, '*part-id-table*
+  [0x102B8] add x16, x16, #0
+  [0x102BC] ldr w8, [x16]
+  [0x102C0] add x16, x8, x15                                 move [igpr-43 + 156], igpr-42
+  [0x102C4] str w9, [x16, #0x9c] ;; misaligned with debug data
+  [0x102C8] adrp x9, #0x10000                                mov-fa igpr-44, function-update-snow
+  [0x102CC] add x9, x9, #0
+  [0x102D0] sub x9, x9, x15
+
+weather-part.gc:329
+-> (defun update-snow ((arg0 target))
+  [0x102D4] adrp x16, #0x10000                               mov 'update-snow, igpr-44
+  [0x102D8] add x16, x16, #0
+  [0x102DC] str w9, [x16]
+
+weather-part.gc:340
+-> (defpart 37
+  [0x102E0] adrp x9, #0x10000                                mov-sva igpr-45, static-structure
+  [0x102E4] add x9, x9, #0
+  [0x102E8] sub x9, x9, x15
+  [0x102EC] adrp x16, #0x10000                               mov igpr-46, '*part-id-table*
+  [0x102F0] add x16, x16, #0
+  [0x102F4] ldr w8, [x16]
+  [0x102F8] add x16, x8, x15                                 move [igpr-46 + 160], igpr-45
+  [0x102FC] str w9, [x16, #0xa0] ;; misaligned with debug data
+
+weather-part.gc:359
+-> (defpart 38
+  [0x10300] adrp x9, #0x10000                                mov-sva igpr-47, static-structure
+  [0x10304] add x9, x9, #0
+  [0x10308] sub x9, x9, x15
+  [0x1030C] adrp x16, #0x10000                               mov igpr-48, '*part-id-table*
+  [0x10310] add x16, x16, #0
+  [0x10314] ldr w8, [x16]
+  [0x10318] add x16, x8, x15                                 move [igpr-48 + 164], igpr-47
+  [0x1031C] str w9, [x16, #0xa4] ;; misaligned with debug data
+
+weather-part.gc:376
+-> (defpart 39
+  [0x10320] adrp x9, #0x10000                                mov-sva igpr-49, static-structure
+  [0x10324] add x9, x9, #0
+  [0x10328] sub x9, x9, x15
+  [0x1032C] adrp x16, #0x10000                               mov igpr-50, '*part-id-table*
+  [0x10330] add x16, x16, #0
+  [0x10334] ldr w8, [x16]
+  [0x10338] add x16, x8, x15                                 move [igpr-50 + 168], igpr-49
+  [0x1033C] str w9, [x16, #0xa8] ;; misaligned with debug data
+
+weather-part.gc:394
+-> (defpart 40
+  [0x10340] adrp x9, #0x10000                                mov-sva igpr-51, static-structure
+  [0x10344] add x9, x9, #0
+  [0x10348] sub x9, x9, x15
+  [0x1034C] adrp x16, #0x10000                               mov igpr-52, '*part-id-table*
+  [0x10350] add x16, x16, #0
+  [0x10354] ldr w8, [x16]
+  [0x10358] add x16, x8, x15                                 move [igpr-52 + 172], igpr-51
+  [0x1035C] str w9, [x16, #0xac] ;; misaligned with debug data
+  [0x10360] adrp x9, #0x10000                                mov-fa igpr-53, function-check-drop-level-rain
+  [0x10364] add x9, x9, #0
+  [0x10368] sub x9, x9, x15
+
+weather-part.gc:413
+-> (defun check-drop-level-rain ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x1036C] adrp x16, #0x10000                               mov 'check-drop-level-rain, igpr-53
+  [0x10370] add x16, x16, #0
+  [0x10374] str w9, [x16]
+  [0x10378] adrp x9, #0x10000                                mov-fa igpr-54, function-update-rain
+  [0x1037C] add x9, x9, #0
+  [0x10380] sub x9, x9, x15
+
+weather-part.gc:422
+-> (defun update-rain ((arg0 target))
+  [0x10384] adrp x16, #0x10000                               mov 'update-rain, igpr-54
+  [0x10388] add x16, x16, #0
+  [0x1038C] str w9, [x16]
+  [0x10390] adrp x9, #0x10000                                mov-fa igpr-55, function-cam-master-effect
+  [0x10394] add x9, x9, #0
+  [0x10398] sub x9, x9, x15
+
+weather-part.gc:448
+-> (defbehavior cam-master-effect camera-master ()
+  [0x1039C] adrp x16, #0x10000                               mov 'cam-master-effect, igpr-55
+  [0x103A0] add x16, x16, #0
+  [0x103A4] str w9, [x16]
+  [0x103A8] adrp x9, #0x10000                                mov-fa igpr-56, function-sparticle-track-sun
+  [0x103AC] add x9, x9, #0
+  [0x103B0] sub x9, x9, x15
+
+weather-part.gc:460
+-> (defun sparticle-track-sun ((arg0 int) (arg1 sparticle-cpuinfo) (arg2 matrix))
+  [0x103B4] adrp x16, #0x10000                               mov 'sparticle-track-sun, igpr-56
+  [0x103B8] add x16, x16, #0
+  [0x103BC] str w9, [x16]
+
+weather-part.gc:482
+-> (defpartgroup group-sun
+  [0x103C0] adrp x9, #0x10000                                mov-sva igpr-57, static-structure
+  [0x103C4] add x9, x9, #0
+  [0x103C8] sub x9, x9, x15
+  [0x103CC] adrp x16, #0x10000                               mov igpr-58, '*part-group-id-table*
+  [0x103D0] add x16, x16, #0
+  [0x103D4] ldr w8, [x16]
+  [0x103D8] add x16, x8, x15                                 move [igpr-58 + 152], igpr-57
+  [0x103DC] str w9, [x16, #0x98] ;; misaligned with debug data
+
+weather-part.gc:488
+-> (defpart 1950
+  [0x103E0] adrp x9, #0x10000                                mov-sva igpr-59, static-structure
+  [0x103E4] add x9, x9, #0
+  [0x103E8] sub x9, x9, x15
+  [0x103EC] adrp x16, #0x10000                               mov igpr-60, '*part-id-table*
+  [0x103F0] add x16, x16, #0
+  [0x103F4] ldr w8, [x16]
+  [0x103F8] add x16, x8, x15                                 move [igpr-60 + 7812], igpr-59
+  [0x103FC] str w9, [x16, #0x1e84] ;; misaligned with debug data
+
+weather-part.gc:503
+-> (defpart 1951
+  [0x10400] adrp x9, #0x10000                                mov-sva igpr-61, static-structure
+  [0x10404] add x9, x9, #0
+  [0x10408] sub x9, x9, x15
+  [0x1040C] adrp x16, #0x10000                               mov igpr-62, '*part-id-table*
+  [0x10410] add x16, x16, #0
+  [0x10414] ldr w8, [x16]
+  [0x10418] add x16, x8, x15                                 move [igpr-62 + 7816], igpr-61
+  [0x1041C] str w9, [x16, #0x1e88] ;; misaligned with debug data
+
+weather-part.gc:520
+-> (defpart 1952
+  [0x10420] adrp x9, #0x10000                                mov-sva igpr-63, static-structure
+  [0x10424] add x9, x9, #0
+  [0x10428] sub x9, x9, x15
+  [0x1042C] adrp x16, #0x10000                               mov igpr-64, '*part-id-table*
+  [0x10430] add x16, x16, #0
+  [0x10434] ldr w8, [x16]
+  [0x10438] add x16, x8, x15                                 move [igpr-64 + 7820], igpr-63
+  [0x1043C] str w9, [x16, #0x1e8c] ;; misaligned with debug data
+
+weather-part.gc:537
+-> (defpartgroup group-green-sun
+  [0x10440] adrp x9, #0x10000                                mov-sva igpr-65, static-structure
+  [0x10444] add x9, x9, #0
+  [0x10448] sub x9, x9, x15
+  [0x1044C] adrp x16, #0x10000                               mov igpr-66, '*part-group-id-table*
+  [0x10450] add x16, x16, #0
+  [0x10454] ldr w8, [x16]
+  [0x10458] add x16, x8, x15                                 move [igpr-66 + 156], igpr-65
+  [0x1045C] str w9, [x16, #0x9c] ;; misaligned with debug data
+
+weather-part.gc:543
+-> (defpart 1974
+  [0x10460] adrp x9, #0x10000                                mov-sva igpr-67, static-structure
+  [0x10464] add x9, x9, #0
+  [0x10468] sub x9, x9, x15
+  [0x1046C] adrp x16, #0x10000                               mov igpr-68, '*part-id-table*
+  [0x10470] add x16, x16, #0
+  [0x10474] ldr w8, [x16]
+  [0x10478] add x16, x8, x15                                 move [igpr-68 + 7908], igpr-67
+  [0x1047C] str w9, [x16, #0x1ee4] ;; misaligned with debug data
+
+weather-part.gc:558
+-> (defpart 1975
+  [0x10480] adrp x9, #0x10000                                mov-sva igpr-69, static-structure
+  [0x10484] add x9, x9, #0
+  [0x10488] sub x9, x9, x15
+  [0x1048C] adrp x16, #0x10000                               mov igpr-70, '*part-id-table*
+  [0x10490] add x16, x16, #0
+  [0x10494] ldr w8, [x16]
+  [0x10498] add x16, x8, x15                                 move [igpr-70 + 7912], igpr-69
+  [0x1049C] str w9, [x16, #0x1ee8] ;; misaligned with debug data
+
+weather-part.gc:575
+-> (defpart 1976
+  [0x104A0] adrp x0, #0x10000                                mov-sva igpr-71, static-structure
+  [0x104A4] add x0, x0, #0
+  [0x104A8] sub x0, x0, x15
+  [0x104AC] adrp x16, #0x10000                               mov igpr-72, '*part-id-table*
+  [0x104B0] add x16, x16, #0
+  [0x104B4] ldr w9, [x16]
+  [0x104B8] add x16, x9, x15                                 move [igpr-72 + 7916], igpr-71
+  [0x104BC] str w0, [x16, #0x1eec] ;; misaligned with debug data
+
+weather-part.gc:1
+-> ;-*-Lisp-*-
+  [0x104C0] mov x0, x0                                       ret igpr-73 igpr-71
+  [0x104C4] ldp x29, x30, [sp], #0x10
+  [0x104C8] ret
+
+
+[sparticle-track-sun]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+weather-part.gc:460
+-> (defun sparticle-track-sun ((arg0 int) (arg1 sparticle-cpuinfo) (arg2 matrix))
+  [0x1000C] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x10010] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10014] mov x5, x2                                       mov igpr-6, igpr-2
+
+weather-part.gc:461
+->   (-> arg1 key)
+  [0x10018] add x16, x6, x15                                 mov igpr-7, [igpr-5 + 132]
+  [0x1001C] ldr w9, [x16, #0x84] ;; misaligned with debug data
+
+weather-part.gc:462
+->   (let ((s5-0 (the int (-> arg1 user-float))))
+  [0x10020] add x16, x6, x15                                 mov ifpr-9, [igpr-5 + 108]
+  [0x10024] ldr s23, [x16, #0x6c] ;; misaligned with debug data
+  [0x10028] fcvtzs w3, s23                                   f2i igpr-8, ifpr-9
+  [0x1002C] sxtw x3, w3
+
+weather-part.gc:462
+->   (let ((s5-0 (the int (-> arg1 user-float))))
+  [0x10030] mov x3, x3                                       mov igpr-10, igpr-8
+
+weather-part.gc:463
+->     (let* ((a1-1 (math-camera-pos))
+  [0x10034] adrp x16, #0x10000                               mov igpr-11, 'math-camera-pos
+  [0x10038] add x16, x16, #0
+  [0x1003C] ldr w9, [x16]
+  [0x10040] mov x9, x9                                       mov igpr-13, igpr-11
+  [0x10044] add x9, x9, x15                                  call igpr-13 (ret igpr-12) (args)
+  [0x10048] stp x3, x5, [sp, #-0x10]!
+  [0x1004C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10050] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10054] blr x9 ;; misaligned with debug data
+  [0x10058] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1005C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] mov x0, x0                                       mov igpr-14, igpr-12
+
+weather-part.gc:463
+->     (let* ((a1-1 (math-camera-pos))
+  [0x10068] mov x0, x0                                       mov igpr-15, igpr-14
+
+weather-part.gc:464
+->            (a2-1 (-> *sky-parms* upload-data sun (/ s5-0 4)))
+  [0x1006C] mov x2, x3                                       mov igpr-16, igpr-10
+  [0x10070] asr x2, x2, #2                                   sar igpr-16, 2
+
+weather-part.gc:464
+->            (a2-1 (-> *sky-parms* upload-data sun (/ s5-0 4)))
+  [0x10074] mov x2, x2                                       mov igpr-17, igpr-16
+  [0x10078] lsl x2, x2, #6                                   shl igpr-17, 6
+  [0x1007C] mov x2, x2                                       mov igpr-18, igpr-17
+  [0x10080] movz x9, #0x18c                                  mov-ic igpr-19, 396
+  [0x10084] adrp x16, #0x10000                               mov igpr-20, '*sky-parms*
+  [0x10088] add x16, x16, #0
+  [0x1008C] ldr w8, [x16]
+  [0x10090] add x9, x9, x8                                   addi igpr-19, igpr-20
+  [0x10094] add x2, x2, x9                                   addi igpr-18, igpr-19
+
+weather-part.gc:463
+->     (let* ((a1-1 (math-camera-pos))
+  [0x10098] mov x2, x2                                       mov igpr-21, igpr-18
+
+weather-part.gc:465
+->            (v1-3 (vector+float*! (new 'stack-no-clear 'vector) a1-1 (the-as vector a2-1) 4096.0)))
+  [0x1009C] adrp x16, #0x10000                               mov igpr-22, 'vector+float*!
+  [0x100A0] add x16, x16, #0
+  [0x100A4] ldr w9, [x16]
+
+weather-part.gc:465
+->            (v1-3 (vector+float*! (new 'stack-no-clear 'vector) a1-1 (the-as vector a2-1) 4096.0)))
+  [0x100A8] mov x7, sp                                       mov igpr-23, stack-slot-0
+  [0x100AC] sub x7, x7, x15
+
+weather-part.gc:465
+->            (v1-3 (vector+float*! (new 'stack-no-clear 'vector) a1-1 (the-as vector a2-1) 4096.0)))
+  [0x100B0] mov x2, x2                                       mov igpr-24, igpr-21
+
+weather-part.gc:463
+->     (let* ((a1-1 (math-camera-pos))
+  [0x100B4] adrp x16, #0x12000                               mov-svl ifpr-25, [(sf 4096)]
+  [0x100B8] ldr s23, [x16, #0xf10]
+
+weather-part.gc:465
+->            (v1-3 (vector+float*! (new 'stack-no-clear 'vector) a1-1 (the-as vector a2-1) 4096.0)))
+  [0x100BC] mov x9, x9                                       mov igpr-31, igpr-22
+  [0x100C0] mov x7, x7                                       mov igpr-27, igpr-23
+  [0x100C4] mov x6, x0                                       mov igpr-28, igpr-15
+  [0x100C8] mov x2, x2                                       mov igpr-29, igpr-24
+  [0x100CC] fmov w1, s23                                     mov igpr-30, ifpr-25
+  [0x100D0] sxtw x1, w1
+  [0x100D4] add x9, x9, x15                                  call igpr-31 (ret igpr-26) (args igpr-27 igpr-28 igpr-29 igpr-30)
+  [0x100D8] stp x3, x5, [sp, #-0x10]!
+  [0x100DC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E4] blr x9 ;; misaligned with debug data
+  [0x100E8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100EC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100F0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100F4] mov x0, x0                                       mov igpr-32, igpr-26
+
+weather-part.gc:463
+->     (let* ((a1-1 (math-camera-pos))
+  [0x100F8] mov x0, x0                                       mov igpr-33, igpr-32
+
+weather-part.gc:466
+->       (set! (-> arg2 vector 0 x) (-> v1-3 x))
+  [0x100FC] add x16, x0, x15                                 mov ifpr-34, [igpr-33 + 0]
+  [0x10100] ldr s23, [x16] ;; misaligned with debug data
+  [0x10104] add x16, x5, x15                                 move [igpr-6 + 0], ifpr-34
+  [0x10108] str s23, [x16] ;; misaligned with debug data
+
+weather-part.gc:467
+->       (set! (-> arg2 vector 0 y) (-> v1-3 y))
+  [0x1010C] add x16, x0, x15                                 mov ifpr-35, [igpr-33 + 4]
+  [0x10110] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10114] add x16, x5, x15                                 move [igpr-6 + 4], ifpr-35
+  [0x10118] str s23, [x16, #4] ;; misaligned with debug data
+
+weather-part.gc:468
+->       (set! (-> arg2 vector 0 z) (-> v1-3 z)))
+  [0x1011C] add x16, x0, x15                                 mov ifpr-36, [igpr-33 + 8]
+  [0x10120] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x10124] add x16, x5, x15                                 move [igpr-6 + 8], ifpr-36
+  [0x10128] str s23, [x16, #8] ;; misaligned with debug data
+
+weather-part.gc:469
+->     (if (!= (-> arg2 vector 2 w) 0.0) (set! (-> arg2 vector 2 w) (* 128.0 (-> *time-of-day-context* sun-fade))))
+  [0x1012C] add x16, x5, x15                                 mov ifpr-38, [igpr-6 + 44]
+  [0x10130] ldr s23, [x16, #0x2c] ;; misaligned with debug data
+  [0x10134] adrp x16, #0x12000                               mov-svl ifpr-39, [(sf 0)]
+  [0x10138] ldr s22, [x16, #0xf14]
+  [0x1013C] fcmp s23, s22                                    j(ifpr-38 == ifpr-39) label-55
+  [0x10140] b.eq #0x1017c
+
+weather-part.gc:469
+->     (if (!= (-> arg2 vector 2 w) 0.0) (set! (-> arg2 vector 2 w) (* 128.0 (-> *time-of-day-context* sun-fade))))
+  [0x10144] adrp x16, #0x12000                               mov-svl ifpr-41, [(sf 128)]
+  [0x10148] ldr s23, [x16, #0xf18]
+  [0x1014C] mov v23.16b, v23.16b                             mov ifpr-40, ifpr-41
+  [0x10150] adrp x16, #0x10000                               mov igpr-43, '*time-of-day-context*
+  [0x10154] add x16, x16, #0
+  [0x10158] ldr w9, [x16]
+  [0x1015C] add x16, x9, x15                                 mov ifpr-42, [igpr-43 + 2108]
+  [0x10160] ldr s22, [x16, #0x83c] ;; misaligned with debug data
+  [0x10164] fmul s23, s23, s22                               mulss ifpr-40, ifpr-42
+
+weather-part.gc:469
+->     (if (!= (-> arg2 vector 2 w) 0.0) (set! (-> arg2 vector 2 w) (* 128.0 (-> *time-of-day-context* sun-fade))))
+  [0x10168] add x16, x5, x15                                 move [igpr-6 + 44], ifpr-40
+  [0x1016C] str s23, [x16, #0x2c] ;; misaligned with debug data
+
+weather-part.gc:469
+->     (if (!= (-> arg2 vector 2 w) 0.0) (set! (-> arg2 vector 2 w) (* 128.0 (-> *time-of-day-context* sun-fade))))
+  [0x10170] fmov w9, s23                                     mov igpr-37, ifpr-40
+  [0x10174] sxtw x9, w9
+  [0x10178] b #0x10184                                       goto label-56
+  [0x1017C] mov x9, x14                                      mov-symptr igpr-37, '#f
+  [0x10180] sub x9, x9, x15 ;; misaligned with debug data
+
+weather-part.gc:471
+->       ((zero? s5-0)
+  [0x10184] movz x9, #0                                      mov-ic igpr-45, 0
+  [0x10188] cmp x3, x9                                       j(igpr-10 != igpr-45) label-69
+  [0x1018C] b.ne #0x101f0
+
+weather-part.gc:472
+->        (set! (-> arg2 vector 2 x) (-> *time-of-day-context* current-sun sun-color x))
+  [0x10190] adrp x16, #0x10000                               mov igpr-47, '*time-of-day-context*
+  [0x10194] add x16, x16, #0
+  [0x10198] ldr w9, [x16]
+  [0x1019C] add x16, x9, x15                                 mov ifpr-46, [igpr-47 + 76]
+  [0x101A0] ldr s23, [x16, #0x4c] ;; misaligned with debug data
+  [0x101A4] add x16, x5, x15                                 move [igpr-6 + 32], ifpr-46
+  [0x101A8] str s23, [x16, #0x20] ;; misaligned with debug data
+
+weather-part.gc:473
+->        (set! (-> arg2 vector 2 y) (-> *time-of-day-context* current-sun sun-color y))
+  [0x101AC] adrp x16, #0x10000                               mov igpr-49, '*time-of-day-context*
+  [0x101B0] add x16, x16, #0
+  [0x101B4] ldr w9, [x16]
+  [0x101B8] add x16, x9, x15                                 mov ifpr-48, [igpr-49 + 80]
+  [0x101BC] ldr s23, [x16, #0x50] ;; misaligned with debug data
+  [0x101C0] add x16, x5, x15                                 move [igpr-6 + 36], ifpr-48
+  [0x101C4] str s23, [x16, #0x24] ;; misaligned with debug data
+
+weather-part.gc:474
+->        (set! (-> arg2 vector 2 z) (-> *time-of-day-context* current-sun sun-color z)))
+  [0x101C8] adrp x16, #0x10000                               mov igpr-51, '*time-of-day-context*
+  [0x101CC] add x16, x16, #0
+  [0x101D0] ldr w9, [x16]
+  [0x101D4] add x16, x9, x15                                 mov ifpr-50, [igpr-51 + 84]
+  [0x101D8] ldr s23, [x16, #0x54] ;; misaligned with debug data
+  [0x101DC] add x16, x5, x15                                 move [igpr-6 + 40], ifpr-50
+  [0x101E0] str s23, [x16, #0x28] ;; misaligned with debug data
+
+weather-part.gc:471
+->       ((zero? s5-0)
+  [0x101E4] fmov w9, s23                                     mov igpr-44, ifpr-50
+  [0x101E8] sxtw x9, w9
+  [0x101EC] b #0x103c8                                       goto label-145
+
+weather-part.gc:475
+->       ((or (= s5-0 1) (= s5-0 2))
+  [0x101F0] movz x9, #0x1                                    mov-ic igpr-53, 1
+  [0x101F4] mov x8, x14                                      mov-symptr igpr-54, '#f
+  [0x101F8] sub x8, x8, x15 ;; misaligned with debug data
+  [0x101FC] cmp x3, x9                                       j(igpr-10 != igpr-53) label-74
+  [0x10200] b.ne #0x10210
+  [0x10204] add x8, x14, #8                                  mov-symptr igpr-55, '#t
+  [0x10208] sub x8, x8, x15 ;; misaligned with debug data
+  [0x1020C] mov x8, x8                                       mov igpr-54, igpr-55
+  [0x10210] mov x9, x8                                       mov igpr-52, igpr-54
+  [0x10214] mov x8, x14                                      mov-symptr igpr-56, '#f
+  [0x10218] sub x8, x8, x15 ;; misaligned with debug data
+  [0x1021C] cmp x9, x8                                       j(igpr-52 != igpr-56) label-83
+  [0x10220] b.ne #0x10248
+
+weather-part.gc:475
+->       ((or (= s5-0 1) (= s5-0 2))
+  [0x10224] movz x9, #0x2                                    mov-ic igpr-57, 2
+  [0x10228] mov x8, x14                                      mov-symptr igpr-58, '#f
+  [0x1022C] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10230] cmp x3, x9                                       j(igpr-10 != igpr-57) label-82
+  [0x10234] b.ne #0x10244
+  [0x10238] add x8, x14, #8                                  mov-symptr igpr-59, '#t
+  [0x1023C] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10240] mov x8, x8                                       mov igpr-58, igpr-59
+  [0x10244] mov x9, x8                                       mov igpr-52, igpr-58
+
+weather-part.gc:475
+->       ((or (= s5-0 1) (= s5-0 2))
+  [0x10248] mov x8, x14                                      mov-symptr igpr-60, '#f
+  [0x1024C] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10250] cmp x9, x8                                       j(igpr-52 == igpr-60) label-144
+  [0x10254] b.eq #0x103c0
+
+weather-part.gc:476
+->        (set! (-> arg2 vector 2 x) (/ (-> *time-of-day-context* current-sun sun-color x) 4))
+  [0x10258] adrp x16, #0x10000                               mov igpr-62, '*time-of-day-context*
+  [0x1025C] add x16, x16, #0
+  [0x10260] ldr w9, [x16]
+  [0x10264] add x16, x9, x15                                 mov ifpr-61, [igpr-62 + 76]
+  [0x10268] ldr s23, [x16, #0x4c] ;; misaligned with debug data
+  [0x1026C] movz x9, #0x4                                    mov-ic igpr-64, 4
+  [0x10270] scvtf s22, w9                                    i2f ifpr-63, igpr-64
+  [0x10274] adrp x16, #0x11000                               mov-svl ifpr-66, [(sf 0)]
+  [0x10278] ldr s21, [x16, #0xf1c]
+  [0x1027C] fcmp s21, s22                                    j(ifpr-66 == ifpr-63) label-94
+  [0x10280] b.eq #0x10290
+  [0x10284] mov v23.16b, v23.16b                             mov ifpr-65, ifpr-61
+  [0x10288] fdiv s23, s23, s22                               divss ifpr-65, ifpr-63
+  [0x1028C] b #0x102c4                                       goto label-103
+  [0x10290] movz x9, #0xffff                                 mov-ic igpr-67, 2139095039
+  [0x10294] movk x9, #0x7f7f, lsl #16
+  [0x10298] movz x8, #0                                      mov-ic igpr-68, 2147483648
+  [0x1029C] movk x8, #0x8000, lsl #16
+  [0x102A0] fmov w1, s23                                     mov igpr-69, ifpr-61
+  [0x102A4] sxtw x1, w1
+  [0x102A8] and x1, x1, x8                                   and igpr-69, igpr-68
+  [0x102AC] eor x9, x9, x1                                   xor igpr-67, igpr-69
+  [0x102B0] fmov w1, s22                                     mov igpr-69, ifpr-63
+  [0x102B4] sxtw x1, w1
+  [0x102B8] and x1, x1, x8                                   and igpr-69, igpr-68
+  [0x102BC] eor x9, x9, x1                                   xor igpr-67, igpr-69
+  [0x102C0] fmov s23, w9                                     mov ifpr-65, igpr-67
+
+weather-part.gc:476
+->        (set! (-> arg2 vector 2 x) (/ (-> *time-of-day-context* current-sun sun-color x) 4))
+  [0x102C4] add x16, x5, x15                                 move [igpr-6 + 32], ifpr-65
+  [0x102C8] str s23, [x16, #0x20] ;; misaligned with debug data
+
+weather-part.gc:477
+->        (set! (-> arg2 vector 2 y) (/ (-> *time-of-day-context* current-sun sun-color y) 4))
+  [0x102CC] adrp x16, #0x10000                               mov igpr-71, '*time-of-day-context*
+  [0x102D0] add x16, x16, #0
+  [0x102D4] ldr w9, [x16]
+  [0x102D8] add x16, x9, x15                                 mov ifpr-70, [igpr-71 + 80]
+  [0x102DC] ldr s23, [x16, #0x50] ;; misaligned with debug data
+  [0x102E0] movz x9, #0x4                                    mov-ic igpr-73, 4
+  [0x102E4] scvtf s22, w9                                    i2f ifpr-72, igpr-73
+  [0x102E8] adrp x16, #0x11000                               mov-svl ifpr-75, [(sf 0)]
+  [0x102EC] ldr s21, [x16, #0xf20]
+  [0x102F0] fcmp s21, s22                                    j(ifpr-75 == ifpr-72) label-113
+  [0x102F4] b.eq #0x10304
+  [0x102F8] mov v23.16b, v23.16b                             mov ifpr-74, ifpr-70
+  [0x102FC] fdiv s23, s23, s22                               divss ifpr-74, ifpr-72
+  [0x10300] b #0x10338                                       goto label-122
+  [0x10304] movz x9, #0xffff                                 mov-ic igpr-76, 2139095039
+  [0x10308] movk x9, #0x7f7f, lsl #16
+  [0x1030C] movz x8, #0                                      mov-ic igpr-77, 2147483648
+  [0x10310] movk x8, #0x8000, lsl #16
+  [0x10314] fmov w1, s23                                     mov igpr-78, ifpr-70
+  [0x10318] sxtw x1, w1
+  [0x1031C] and x1, x1, x8                                   and igpr-78, igpr-77
+  [0x10320] eor x9, x9, x1                                   xor igpr-76, igpr-78
+  [0x10324] fmov w1, s22                                     mov igpr-78, ifpr-72
+  [0x10328] sxtw x1, w1
+  [0x1032C] and x1, x1, x8                                   and igpr-78, igpr-77
+  [0x10330] eor x9, x9, x1                                   xor igpr-76, igpr-78
+  [0x10334] fmov s23, w9                                     mov ifpr-74, igpr-76
+
+weather-part.gc:477
+->        (set! (-> arg2 vector 2 y) (/ (-> *time-of-day-context* current-sun sun-color y) 4))
+  [0x10338] add x16, x5, x15                                 move [igpr-6 + 36], ifpr-74
+  [0x1033C] str s23, [x16, #0x24] ;; misaligned with debug data
+
+weather-part.gc:478
+->        (set! (-> arg2 vector 2 z) (/ (-> *time-of-day-context* current-sun sun-color z) 4)))))
+  [0x10340] adrp x16, #0x10000                               mov igpr-80, '*time-of-day-context*
+  [0x10344] add x16, x16, #0
+  [0x10348] ldr w9, [x16]
+  [0x1034C] add x16, x9, x15                                 mov ifpr-79, [igpr-80 + 84]
+  [0x10350] ldr s23, [x16, #0x54] ;; misaligned with debug data
+  [0x10354] movz x9, #0x4                                    mov-ic igpr-82, 4
+  [0x10358] scvtf s22, w9                                    i2f ifpr-81, igpr-82
+  [0x1035C] adrp x16, #0x11000                               mov-svl ifpr-84, [(sf 0)]
+  [0x10360] ldr s21, [x16, #0xf24]
+  [0x10364] fcmp s21, s22                                    j(ifpr-84 == ifpr-81) label-132
+  [0x10368] b.eq #0x10378
+  [0x1036C] mov v23.16b, v23.16b                             mov ifpr-83, ifpr-79
+  [0x10370] fdiv s23, s23, s22                               divss ifpr-83, ifpr-81
+  [0x10374] b #0x103ac                                       goto label-141
+  [0x10378] movz x9, #0xffff                                 mov-ic igpr-85, 2139095039
+  [0x1037C] movk x9, #0x7f7f, lsl #16
+  [0x10380] movz x8, #0                                      mov-ic igpr-86, 2147483648
+  [0x10384] movk x8, #0x8000, lsl #16
+  [0x10388] fmov w1, s23                                     mov igpr-87, ifpr-79
+  [0x1038C] sxtw x1, w1
+  [0x10390] and x1, x1, x8                                   and igpr-87, igpr-86
+  [0x10394] eor x9, x9, x1                                   xor igpr-85, igpr-87
+  [0x10398] fmov w1, s22                                     mov igpr-87, ifpr-81
+  [0x1039C] sxtw x1, w1
+  [0x103A0] and x1, x1, x8                                   and igpr-87, igpr-86
+  [0x103A4] eor x9, x9, x1                                   xor igpr-85, igpr-87
+  [0x103A8] fmov s23, w9                                     mov ifpr-83, igpr-85
+
+weather-part.gc:478
+->        (set! (-> arg2 vector 2 z) (/ (-> *time-of-day-context* current-sun sun-color z) 4)))))
+  [0x103AC] add x16, x5, x15                                 move [igpr-6 + 40], ifpr-83
+  [0x103B0] str s23, [x16, #0x28] ;; misaligned with debug data
+
+weather-part.gc:475
+->       ((or (= s5-0 1) (= s5-0 2))
+  [0x103B4] fmov w9, s23                                     mov igpr-44, ifpr-83
+  [0x103B8] sxtw x9, w9
+  [0x103BC] b #0x103c8                                       goto label-145
+
+weather-part.gc:470
+->     (cond
+  [0x103C0] mov x9, x14                                      mov-symptr igpr-44, '#f
+  [0x103C4] sub x9, x9, x15 ;; misaligned with debug data
+
+weather-part.gc:460
+-> (defun sparticle-track-sun ((arg0 int) (arg1 sparticle-cpuinfo) (arg2 matrix))
+  [0x103C8] movz x9, #0                                      mov-ic igpr-88, 0
+  [0x103CC] add sp, sp, #0x10
+  [0x103D0] ldp x29, x30, [sp], #0x10
+  [0x103D4] ret
+
+
+[cam-master-effect]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+weather-part.gc:449
+->   (when (< (+ (current-time) (seconds -10)) (-> self water-drip-time))
+  [0x1000C] adrp x16, #0x10000                               mov igpr-5, '*display*
+  [0x10010] add x16, x16, #0
+  [0x10014] ldr w9, [x16]
+  [0x10018] add x16, x9, x15                                 mov igpr-4, [igpr-5 + 780]
+  [0x1001C] add x16, x16, #0x30c ;; misaligned with debug data
+  [0x10020] ldr x9, [x16] ;; misaligned with debug data
+  [0x10024] mov x9, x9                                       mov igpr-3, igpr-4
+  [0x10028] movz x8, #0xf448                                 mov-ic igpr-6, 18446744073709548616
+  [0x1002C] movk x8, #0xffff, lsl #16
+  [0x10030] movk x8, #0xffff, lsl #32
+  [0x10034] movk x8, #0xffff, lsl #48
+  [0x10038] add x9, x9, x8                                   addi igpr-3, igpr-6
+
+weather-part.gc:449
+->   (when (< (+ (current-time) (seconds -10)) (-> self water-drip-time))
+  [0x1003C] add x16, x13, x15                                mov igpr-7, [igpr-0 + 2380]
+  [0x10040] add x16, x16, #0x94c ;; misaligned with debug data
+  [0x10044] ldr x8, [x16] ;; misaligned with debug data
+  [0x10048] cmp x9, x8                                       j(igpr-3 >= igpr-7) label-64
+  [0x1004C] b.ge #0x10204
+
+weather-part.gc:450
+->     (set! (-> *part-id-table* 21 init-specs 1 initial-valuef) (-> self water-drip-mult))
+  [0x10050] add x16, x13, x15                                mov ifpr-8, [igpr-0 + 2392]
+  [0x10054] ldr s23, [x16, #0x958] ;; misaligned with debug data
+  [0x10058] adrp x16, #0x10000                               mov igpr-11, '*part-id-table*
+  [0x1005C] add x16, x16, #0
+  [0x10060] ldr w9, [x16]
+  [0x10064] add x16, x9, x15                                 mov igpr-10, [igpr-11 + 96]
+  [0x10068] ldr w9, [x16, #0x60] ;; misaligned with debug data
+  [0x1006C] add x16, x9, x15                                 mov igpr-9, [igpr-10 + 8]
+  [0x10070] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x10074] add x16, x9, x15                                 move [igpr-9 + 20], ifpr-8
+  [0x10078] str s23, [x16, #0x14] ;; misaligned with debug data
+
+weather-part.gc:451
+->     (set! (-> *part-id-table* 18 init-specs 1 initial-valuef) (* 0.9 (-> self water-drip-mult)))
+  [0x1007C] adrp x16, #0x12000                               mov-svl ifpr-13, [(sf 0.9)]
+  [0x10080] ldr s23, [x16, #0xefc]
+  [0x10084] mov v23.16b, v23.16b                             mov ifpr-12, ifpr-13
+  [0x10088] add x16, x13, x15                                mov ifpr-14, [igpr-0 + 2392]
+  [0x1008C] ldr s22, [x16, #0x958] ;; misaligned with debug data
+  [0x10090] fmul s23, s23, s22                               mulss ifpr-12, ifpr-14
+
+weather-part.gc:451
+->     (set! (-> *part-id-table* 18 init-specs 1 initial-valuef) (* 0.9 (-> self water-drip-mult)))
+  [0x10094] adrp x16, #0x10000                               mov igpr-17, '*part-id-table*
+  [0x10098] add x16, x16, #0
+  [0x1009C] ldr w9, [x16]
+  [0x100A0] add x16, x9, x15                                 mov igpr-16, [igpr-17 + 84]
+  [0x100A4] ldr w9, [x16, #0x54] ;; misaligned with debug data
+  [0x100A8] add x16, x9, x15                                 mov igpr-15, [igpr-16 + 8]
+  [0x100AC] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x100B0] add x16, x9, x15                                 move [igpr-15 + 20], ifpr-12
+  [0x100B4] str s23, [x16, #0x14] ;; misaligned with debug data
+
+weather-part.gc:452
+->     (set! (-> *part-id-table* 22 init-specs 11 initial-valuef) (* -2.7306666 (-> self water-drip-speed)))
+  [0x100B8] adrp x16, #0x12000                               mov-svl ifpr-19, [(sf -2.7306666)]
+  [0x100BC] ldr s23, [x16, #0xf00]
+  [0x100C0] mov v23.16b, v23.16b                             mov ifpr-18, ifpr-19
+  [0x100C4] add x16, x13, x15                                mov ifpr-20, [igpr-0 + 2396]
+  [0x100C8] ldr s22, [x16, #0x95c] ;; misaligned with debug data
+  [0x100CC] fmul s23, s23, s22                               mulss ifpr-18, ifpr-20
+
+weather-part.gc:452
+->     (set! (-> *part-id-table* 22 init-specs 11 initial-valuef) (* -2.7306666 (-> self water-drip-speed)))
+  [0x100D0] adrp x16, #0x10000                               mov igpr-23, '*part-id-table*
+  [0x100D4] add x16, x16, #0
+  [0x100D8] ldr w9, [x16]
+  [0x100DC] add x16, x9, x15                                 mov igpr-22, [igpr-23 + 100]
+  [0x100E0] ldr w9, [x16, #0x64] ;; misaligned with debug data
+  [0x100E4] add x16, x9, x15                                 mov igpr-21, [igpr-22 + 8]
+  [0x100E8] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x100EC] add x16, x9, x15                                 move [igpr-21 + 180], ifpr-18
+  [0x100F0] str s23, [x16, #0xb4] ;; misaligned with debug data
+
+weather-part.gc:453
+->     (set! (-> *part-id-table* 23 init-specs 8 initial-valuef) (* -2.7306666 (-> self water-drip-speed)))
+  [0x100F4] adrp x16, #0x12000                               mov-svl ifpr-25, [(sf -2.7306666)]
+  [0x100F8] ldr s23, [x16, #0xf04]
+  [0x100FC] mov v23.16b, v23.16b                             mov ifpr-24, ifpr-25
+  [0x10100] add x16, x13, x15                                mov ifpr-26, [igpr-0 + 2396]
+  [0x10104] ldr s22, [x16, #0x95c] ;; misaligned with debug data
+  [0x10108] fmul s23, s23, s22                               mulss ifpr-24, ifpr-26
+
+weather-part.gc:453
+->     (set! (-> *part-id-table* 23 init-specs 8 initial-valuef) (* -2.7306666 (-> self water-drip-speed)))
+  [0x1010C] adrp x16, #0x10000                               mov igpr-29, '*part-id-table*
+  [0x10110] add x16, x16, #0
+  [0x10114] ldr w9, [x16]
+  [0x10118] add x16, x9, x15                                 mov igpr-28, [igpr-29 + 104]
+  [0x1011C] ldr w9, [x16, #0x68] ;; misaligned with debug data
+  [0x10120] add x16, x9, x15                                 mov igpr-27, [igpr-28 + 8]
+  [0x10124] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x10128] add x16, x9, x15                                 move [igpr-27 + 132], ifpr-24
+  [0x1012C] str s23, [x16, #0x84] ;; misaligned with debug data
+
+weather-part.gc:454
+->     (set! (-> *part-id-table* 19 init-specs 11 initial-valuef) (* -2.7306666 (-> self water-drip-speed)))
+  [0x10130] adrp x16, #0x12000                               mov-svl ifpr-31, [(sf -2.7306666)]
+  [0x10134] ldr s23, [x16, #0xf08]
+  [0x10138] mov v23.16b, v23.16b                             mov ifpr-30, ifpr-31
+  [0x1013C] add x16, x13, x15                                mov ifpr-32, [igpr-0 + 2396]
+  [0x10140] ldr s22, [x16, #0x95c] ;; misaligned with debug data
+  [0x10144] fmul s23, s23, s22                               mulss ifpr-30, ifpr-32
+
+weather-part.gc:454
+->     (set! (-> *part-id-table* 19 init-specs 11 initial-valuef) (* -2.7306666 (-> self water-drip-speed)))
+  [0x10148] adrp x16, #0x10000                               mov igpr-35, '*part-id-table*
+  [0x1014C] add x16, x16, #0
+  [0x10150] ldr w9, [x16]
+  [0x10154] add x16, x9, x15                                 mov igpr-34, [igpr-35 + 88]
+  [0x10158] ldr w9, [x16, #0x58] ;; misaligned with debug data
+  [0x1015C] add x16, x9, x15                                 mov igpr-33, [igpr-34 + 8]
+  [0x10160] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x10164] add x16, x9, x15                                 move [igpr-33 + 180], ifpr-30
+  [0x10168] str s23, [x16, #0xb4] ;; misaligned with debug data
+
+weather-part.gc:455
+->     (set! (-> *part-id-table* 20 init-specs 8 initial-valuef) (* -2.7306666 (-> self water-drip-speed)))
+  [0x1016C] adrp x16, #0x12000                               mov-svl ifpr-37, [(sf -2.7306666)]
+  [0x10170] ldr s23, [x16, #0xf0c]
+  [0x10174] mov v23.16b, v23.16b                             mov ifpr-36, ifpr-37
+  [0x10178] add x16, x13, x15                                mov ifpr-38, [igpr-0 + 2396]
+  [0x1017C] ldr s22, [x16, #0x95c] ;; misaligned with debug data
+  [0x10180] fmul s23, s23, s22                               mulss ifpr-36, ifpr-38
+
+weather-part.gc:455
+->     (set! (-> *part-id-table* 20 init-specs 8 initial-valuef) (* -2.7306666 (-> self water-drip-speed)))
+  [0x10184] adrp x16, #0x10000                               mov igpr-41, '*part-id-table*
+  [0x10188] add x16, x16, #0
+  [0x1018C] ldr w9, [x16]
+  [0x10190] add x16, x9, x15                                 mov igpr-40, [igpr-41 + 92]
+  [0x10194] ldr w9, [x16, #0x5c] ;; misaligned with debug data
+  [0x10198] add x16, x9, x15                                 mov igpr-39, [igpr-40 + 8]
+  [0x1019C] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x101A0] add x16, x9, x15                                 move [igpr-39 + 132], ifpr-36
+  [0x101A4] str s23, [x16, #0x84] ;; misaligned with debug data
+
+weather-part.gc:456
+->     (spawn (-> self water-drip) *zero-vector*))
+  [0x101A8] add x16, x13, x15                                mov igpr-42, [igpr-0 + 2388]
+  [0x101AC] ldr w7, [x16, #0x954] ;; misaligned with debug data
+
+weather-part.gc:449
+->   (when (< (+ (current-time) (seconds -10)) (-> self water-drip-time))
+  [0x101B0] adrp x16, #0x10000                               mov igpr-43, '*zero-vector*
+  [0x101B4] add x16, x16, #0
+  [0x101B8] ldr w6, [x16]
+
+weather-part.gc:456
+->     (spawn (-> self water-drip) *zero-vector*))
+  [0x101BC] add x16, x7, x15                                 mov igpr-44, [igpr-42 + -4]
+  [0x101C0] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x101C4] add x16, x9, x15                                 mov igpr-45, [igpr-44 + 60]
+  [0x101C8] ldr w9, [x16, #0x3c] ;; misaligned with debug data
+  [0x101CC] mov x9, x9                                       mov igpr-49, igpr-45
+  [0x101D0] mov x7, x7                                       mov igpr-47, igpr-42
+  [0x101D4] mov x6, x6                                       mov igpr-48, igpr-43
+  [0x101D8] add x9, x9, x15                                  call igpr-49 (ret igpr-46) (args igpr-47 igpr-48)
+  [0x101DC] stp x3, x5, [sp, #-0x10]!
+  [0x101E0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101E4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101E8] blr x9 ;; misaligned with debug data
+  [0x101EC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101F0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101F4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101F8] mov x0, x0                                       mov igpr-50, igpr-46
+
+weather-part.gc:449
+->   (when (< (+ (current-time) (seconds -10)) (-> self water-drip-time))
+  [0x101FC] mov x0, x0                                       mov igpr-2, igpr-50
+  [0x10200] b #0x1020c                                       goto label-65
+  [0x10204] mov x0, x14                                      mov-symptr igpr-2, '#f
+  [0x10208] sub x0, x0, x15 ;; misaligned with debug data
+
+weather-part.gc:448
+-> (defbehavior cam-master-effect camera-master ()
+  [0x1020C] movz x9, #0                                      mov-ic igpr-51, 0
+  [0x10210] add sp, sp, #0x10
+  [0x10214] ldp x29, x30, [sp], #0x10
+  [0x10218] ret
+
+
+[update-rain]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x80
+  [0x1000C] str d24, [sp, #0x70]
+  [0x10010] str d25, [sp, #0x78]
+
+weather-part.gc:422
+-> (defun update-rain ((arg0 target))
+  [0x10014] mov x7, x7                                       mov igpr-2, igpr-0
+
+weather-part.gc:423
+->   (let ((a2-0 (new 'stack-no-clear 'vector)))
+  [0x10018] mov x2, sp                                       mov igpr-3, stack-slot-0
+  [0x1001C] sub x2, x2, x15
+
+weather-part.gc:423
+->   (let ((a2-0 (new 'stack-no-clear 'vector)))
+  [0x10020] mov x2, x2                                       mov igpr-4, igpr-3
+
+weather-part.gc:424
+->     (set! (-> a2-0 x) (-> arg0 control transv x))
+  [0x10024] add x16, x7, x15                                 mov igpr-6, [igpr-2 + 108]
+  [0x10028] ldr w9, [x16, #0x6c] ;; misaligned with debug data
+  [0x1002C] add x16, x9, x15                                 mov ifpr-5, [igpr-6 + 60]
+  [0x10030] ldr s23, [x16, #0x3c] ;; misaligned with debug data
+  [0x10034] add x16, x2, x15                                 move [igpr-4 + 0], ifpr-5
+  [0x10038] str s23, [x16] ;; misaligned with debug data
+
+weather-part.gc:425
+->     (set! (-> a2-0 y) 0.0)
+  [0x1003C] adrp x16, #0x12000                               mov-svl ifpr-7, [(sf 0)]
+  [0x10040] ldr s23, [x16, #0xe9c]
+  [0x10044] add x16, x2, x15                                 move [igpr-4 + 4], ifpr-7
+  [0x10048] str s23, [x16, #4] ;; misaligned with debug data
+
+weather-part.gc:426
+->     (set! (-> a2-0 z) (-> arg0 control transv z))
+  [0x1004C] add x16, x7, x15                                 mov igpr-9, [igpr-2 + 108]
+  [0x10050] ldr w9, [x16, #0x6c] ;; misaligned with debug data
+  [0x10054] add x16, x9, x15                                 mov ifpr-8, [igpr-9 + 68]
+  [0x10058] ldr s23, [x16, #0x44] ;; misaligned with debug data
+  [0x1005C] add x16, x2, x15                                 move [igpr-4 + 8], ifpr-8
+  [0x10060] str s23, [x16, #8] ;; misaligned with debug data
+
+weather-part.gc:427
+->     (set! (-> a2-0 w) 1.0)
+  [0x10064] adrp x16, #0x12000                               mov-svl ifpr-10, [(sf 1)]
+  [0x10068] ldr s23, [x16, #0xea0]
+  [0x1006C] add x16, x2, x15                                 move [igpr-4 + 12], ifpr-10
+  [0x10070] str s23, [x16, #0xc] ;; misaligned with debug data
+
+weather-part.gc:428
+->     (let ((gp-0 (vector+float*! (new 'stack-no-clear 'vector) (-> arg0 control trans) a2-0 0.0)))
+  [0x10074] adrp x16, #0x10000                               mov igpr-11, 'vector+float*!
+  [0x10078] add x16, x16, #0
+  [0x1007C] ldr w9, [x16]
+
+weather-part.gc:428
+->     (let ((gp-0 (vector+float*! (new 'stack-no-clear 'vector) (-> arg0 control trans) a2-0 0.0)))
+  [0x10080] add x8, sp, #0x10                                mov igpr-12, stack-slot-2
+  [0x10084] sub x8, x8, x15
+
+weather-part.gc:428
+->     (let ((gp-0 (vector+float*! (new 'stack-no-clear 'vector) (-> arg0 control trans) a2-0 0.0)))
+  [0x10088] movz x6, #0xc                                    mov-ic igpr-13, 12
+  [0x1008C] add x16, x7, x15                                 mov igpr-14, [igpr-2 + 108]
+  [0x10090] ldr w1, [x16, #0x6c] ;; misaligned with debug data
+  [0x10094] add x6, x6, x1                                   addi igpr-13, igpr-14
+
+weather-part.gc:428
+->     (let ((gp-0 (vector+float*! (new 'stack-no-clear 'vector) (-> arg0 control trans) a2-0 0.0)))
+  [0x10098] adrp x16, #0x12000                               mov-svl ifpr-15, [(sf 0)]
+  [0x1009C] ldr s23, [x16, #0xea4]
+
+weather-part.gc:428
+->     (let ((gp-0 (vector+float*! (new 'stack-no-clear 'vector) (-> arg0 control trans) a2-0 0.0)))
+  [0x100A0] mov x9, x9                                       mov igpr-21, igpr-11
+  [0x100A4] mov x7, x8                                       mov igpr-17, igpr-12
+  [0x100A8] mov x6, x6                                       mov igpr-18, igpr-13
+  [0x100AC] mov x2, x2                                       mov igpr-19, igpr-4
+  [0x100B0] fmov w1, s23                                     mov igpr-20, ifpr-15
+  [0x100B4] sxtw x1, w1
+  [0x100B8] add x9, x9, x15                                  call igpr-21 (ret igpr-16) (args igpr-17 igpr-18 igpr-19 igpr-20)
+  [0x100BC] stp x3, x5, [sp, #-0x10]!
+  [0x100C0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100C4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100C8] blr x9 ;; misaligned with debug data
+  [0x100CC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100D0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100D4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100D8] mov x0, x0                                       mov igpr-22, igpr-16
+
+weather-part.gc:428
+->     (let ((gp-0 (vector+float*! (new 'stack-no-clear 'vector) (-> arg0 control trans) a2-0 0.0)))
+  [0x100DC] mov x3, x0                                       mov igpr-23, igpr-22
+
+weather-part.gc:429
+->       (let* ((s5-0 (matrix-local->world #f #f))
+  [0x100E0] adrp x16, #0x10000                               mov igpr-24, 'matrix-local->world
+  [0x100E4] add x16, x16, #0
+  [0x100E8] ldr w9, [x16]
+
+weather-part.gc:429
+->       (let* ((s5-0 (matrix-local->world #f #f))
+  [0x100EC] mov x7, x14                                      mov-symptr igpr-25, '#f
+  [0x100F0] sub x7, x7, x15 ;; misaligned with debug data
+  [0x100F4] mov x6, x14                                      mov-symptr igpr-26, '#f
+  [0x100F8] sub x6, x6, x15 ;; misaligned with debug data
+
+weather-part.gc:429
+->       (let* ((s5-0 (matrix-local->world #f #f))
+  [0x100FC] mov x9, x9                                       mov igpr-30, igpr-24
+  [0x10100] mov x7, x7                                       mov igpr-28, igpr-25
+  [0x10104] mov x6, x6                                       mov igpr-29, igpr-26
+  [0x10108] add x9, x9, x15                                  call igpr-30 (ret igpr-27) (args igpr-28 igpr-29)
+  [0x1010C] stp x3, x5, [sp, #-0x10]!
+  [0x10110] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10114] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10118] blr x9 ;; misaligned with debug data
+  [0x1011C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10120] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10124] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10128] mov x0, x0                                       mov igpr-31, igpr-27
+
+weather-part.gc:429
+->       (let* ((s5-0 (matrix-local->world #f #f))
+  [0x1012C] mov x5, x0                                       mov igpr-32, igpr-31
+
+weather-part.gc:430
+->              (f28-0 (lerp-scale 122.88 245.76 (fabs (-> s5-0 vector 2 y)) 0.0 0.7))
+  [0x10130] adrp x16, #0x10000                               mov igpr-33, 'lerp-scale
+  [0x10134] add x16, x16, #0
+  [0x10138] ldr w9, [x16]
+
+weather-part.gc:429
+->       (let* ((s5-0 (matrix-local->world #f #f))
+  [0x1013C] adrp x16, #0x12000                               mov-svl ifpr-34, [(sf 122.88)]
+  [0x10140] ldr s23, [x16, #0xea8]
+  [0x10144] adrp x16, #0x12000                               mov-svl ifpr-35, [(sf 245.76)]
+  [0x10148] ldr s22, [x16, #0xeac]
+
+weather-part.gc:430
+->              (f28-0 (lerp-scale 122.88 245.76 (fabs (-> s5-0 vector 2 y)) 0.0 0.7))
+  [0x1014C] movz x8, #0                                      mov-ic igpr-38, 0
+  [0x10150] scvtf s21, w8                                    i2f ifpr-37, igpr-38
+  [0x10154] add x16, x5, x15                                 mov ifpr-39, [igpr-32 + 36]
+  [0x10158] ldr s20, [x16, #0x24] ;; misaligned with debug data
+  [0x1015C] fcmp s20, s21                                    j(ifpr-39 >= ifpr-37) label-49
+  [0x10160] b.ge #0x10184
+  [0x10164] adrp x16, #0x12000                               mov-svl ifpr-40, [(sf 0)]
+  [0x10168] ldr s21, [x16, #0xeb0]
+  [0x1016C] add x16, x5, x15                                 mov ifpr-41, [igpr-32 + 36]
+  [0x10170] ldr s20, [x16, #0x24] ;; misaligned with debug data
+  [0x10174] fsub s21, s21, s20                               subss ifpr-40, ifpr-41
+  [0x10178] fmov w2, s21                                     mov igpr-36, ifpr-40
+  [0x1017C] sxtw x2, w2
+  [0x10180] b #0x10194                                       goto label-51
+  [0x10184] add x16, x5, x15                                 mov ifpr-42, [igpr-32 + 36]
+  [0x10188] ldr s21, [x16, #0x24] ;; misaligned with debug data
+  [0x1018C] fmov w2, s21                                     mov igpr-36, ifpr-42
+  [0x10190] sxtw x2, w2
+
+weather-part.gc:429
+->       (let* ((s5-0 (matrix-local->world #f #f))
+  [0x10194] adrp x16, #0x12000                               mov-svl ifpr-43, [(sf 0)]
+  [0x10198] ldr s21, [x16, #0xeb4]
+  [0x1019C] adrp x16, #0x12000                               mov-svl ifpr-44, [(sf 0.7)]
+  [0x101A0] ldr s20, [x16, #0xeb8]
+
+weather-part.gc:430
+->              (f28-0 (lerp-scale 122.88 245.76 (fabs (-> s5-0 vector 2 y)) 0.0 0.7))
+  [0x101A4] mov x9, x9                                       mov igpr-51, igpr-33
+  [0x101A8] fmov w7, s23                                     mov igpr-46, ifpr-34
+  [0x101AC] sxtw x7, w7
+  [0x101B0] fmov w6, s22                                     mov igpr-47, ifpr-35
+  [0x101B4] sxtw x6, w6
+  [0x101B8] mov x2, x2                                       mov igpr-48, igpr-36
+  [0x101BC] fmov w1, s21                                     mov igpr-49, ifpr-43
+  [0x101C0] sxtw x1, w1
+  [0x101C4] fmov w8, s20                                     mov igpr-50, ifpr-44
+  [0x101C8] sxtw x8, w8
+  [0x101CC] add x9, x9, x15                                  call igpr-51 (ret igpr-45) (args igpr-46 igpr-47 igpr-48 igpr-49 igpr-50)
+  [0x101D0] stp x3, x5, [sp, #-0x10]!
+  [0x101D4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101D8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101DC] blr x9 ;; misaligned with debug data
+  [0x101E0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101E4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101E8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101EC] mov x0, x0                                       mov igpr-52, igpr-45
+
+weather-part.gc:429
+->       (let* ((s5-0 (matrix-local->world #f #f))
+  [0x101F0] fmov s24, w0                                     mov ifpr-53, igpr-52
+
+weather-part.gc:431
+->              (f30-0 (lerp-scale 2048.0 245.76 (fabs (-> s5-0 vector 2 y)) 0.0 0.7)))
+  [0x101F4] adrp x16, #0x10000                               mov igpr-54, 'lerp-scale
+  [0x101F8] add x16, x16, #0
+  [0x101FC] ldr w9, [x16]
+
+weather-part.gc:429
+->       (let* ((s5-0 (matrix-local->world #f #f))
+  [0x10200] adrp x16, #0x12000                               mov-svl ifpr-55, [(sf 2048)]
+  [0x10204] ldr s23, [x16, #0xebc]
+  [0x10208] adrp x16, #0x12000                               mov-svl ifpr-56, [(sf 245.76)]
+  [0x1020C] ldr s22, [x16, #0xec0]
+
+weather-part.gc:431
+->              (f30-0 (lerp-scale 2048.0 245.76 (fabs (-> s5-0 vector 2 y)) 0.0 0.7)))
+  [0x10210] movz x8, #0                                      mov-ic igpr-59, 0
+  [0x10214] scvtf s21, w8                                    i2f ifpr-58, igpr-59
+  [0x10218] add x16, x5, x15                                 mov ifpr-60, [igpr-32 + 36]
+  [0x1021C] ldr s20, [x16, #0x24] ;; misaligned with debug data
+  [0x10220] fcmp s20, s21                                    j(ifpr-60 >= ifpr-58) label-74
+  [0x10224] b.ge #0x10248
+  [0x10228] adrp x16, #0x12000                               mov-svl ifpr-61, [(sf 0)]
+  [0x1022C] ldr s21, [x16, #0xec4]
+  [0x10230] add x16, x5, x15                                 mov ifpr-62, [igpr-32 + 36]
+  [0x10234] ldr s20, [x16, #0x24] ;; misaligned with debug data
+  [0x10238] fsub s21, s21, s20                               subss ifpr-61, ifpr-62
+  [0x1023C] fmov w2, s21                                     mov igpr-57, ifpr-61
+  [0x10240] sxtw x2, w2
+  [0x10244] b #0x10258                                       goto label-76
+  [0x10248] add x16, x5, x15                                 mov ifpr-63, [igpr-32 + 36]
+  [0x1024C] ldr s21, [x16, #0x24] ;; misaligned with debug data
+  [0x10250] fmov w2, s21                                     mov igpr-57, ifpr-63
+  [0x10254] sxtw x2, w2
+
+weather-part.gc:429
+->       (let* ((s5-0 (matrix-local->world #f #f))
+  [0x10258] adrp x16, #0x12000                               mov-svl ifpr-64, [(sf 0)]
+  [0x1025C] ldr s21, [x16, #0xec8]
+  [0x10260] adrp x16, #0x12000                               mov-svl ifpr-65, [(sf 0.7)]
+  [0x10264] ldr s20, [x16, #0xecc]
+
+weather-part.gc:431
+->              (f30-0 (lerp-scale 2048.0 245.76 (fabs (-> s5-0 vector 2 y)) 0.0 0.7)))
+  [0x10268] mov x9, x9                                       mov igpr-72, igpr-54
+  [0x1026C] fmov w7, s23                                     mov igpr-67, ifpr-55
+  [0x10270] sxtw x7, w7
+  [0x10274] fmov w6, s22                                     mov igpr-68, ifpr-56
+  [0x10278] sxtw x6, w6
+  [0x1027C] mov x2, x2                                       mov igpr-69, igpr-57
+  [0x10280] fmov w1, s21                                     mov igpr-70, ifpr-64
+  [0x10284] sxtw x1, w1
+  [0x10288] fmov w8, s20                                     mov igpr-71, ifpr-65
+  [0x1028C] sxtw x8, w8
+  [0x10290] add x9, x9, x15                                  call igpr-72 (ret igpr-66) (args igpr-67 igpr-68 igpr-69 igpr-70 igpr-71)
+  [0x10294] stp x3, x5, [sp, #-0x10]!
+  [0x10298] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1029C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102A0] blr x9 ;; misaligned with debug data
+  [0x102A4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x102A8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x102AC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x102B0] mov x0, x0                                       mov igpr-73, igpr-66
+
+weather-part.gc:429
+->       (let* ((s5-0 (matrix-local->world #f #f))
+  [0x102B4] fmov s25, w0                                     mov ifpr-74, igpr-73
+
+weather-part.gc:432
+->         (let ((f26-0 (lerp-scale 0.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7))
+  [0x102B8] adrp x16, #0x10000                               mov igpr-75, 'lerp-scale
+  [0x102BC] add x16, x16, #0
+  [0x102C0] ldr w9, [x16]
+
+weather-part.gc:432
+->         (let ((f26-0 (lerp-scale 0.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7))
+  [0x102C4] adrp x16, #0x12000                               mov-svl ifpr-76, [(sf 0)]
+  [0x102C8] ldr s23, [x16, #0xed0]
+  [0x102CC] adrp x16, #0x12000                               mov-svl ifpr-77, [(sf 0.1)]
+  [0x102D0] ldr s22, [x16, #0xed4]
+
+weather-part.gc:432
+->         (let ((f26-0 (lerp-scale 0.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7))
+  [0x102D4] add x16, x5, x15                                 mov ifpr-78, [igpr-32 + 36]
+  [0x102D8] ldr s21, [x16, #0x24] ;; misaligned with debug data
+
+weather-part.gc:432
+->         (let ((f26-0 (lerp-scale 0.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7))
+  [0x102DC] adrp x16, #0x12000                               mov-svl ifpr-79, [(sf 0.3)]
+  [0x102E0] ldr s20, [x16, #0xed8]
+  [0x102E4] adrp x16, #0x12000                               mov-svl ifpr-80, [(sf 0.7)]
+  [0x102E8] ldr s19, [x16, #0xedc]
+
+weather-part.gc:432
+->         (let ((f26-0 (lerp-scale 0.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7))
+  [0x102EC] mov x9, x9                                       mov igpr-87, igpr-75
+  [0x102F0] fmov w7, s23                                     mov igpr-82, ifpr-76
+  [0x102F4] sxtw x7, w7
+  [0x102F8] fmov w6, s22                                     mov igpr-83, ifpr-77
+  [0x102FC] sxtw x6, w6
+  [0x10300] fmov w2, s21                                     mov igpr-84, ifpr-78
+  [0x10304] sxtw x2, w2
+  [0x10308] fmov w1, s20                                     mov igpr-85, ifpr-79
+  [0x1030C] sxtw x1, w1
+  [0x10310] fmov w8, s19                                     mov igpr-86, ifpr-80
+  [0x10314] sxtw x8, w8
+  [0x10318] add x9, x9, x15                                  call igpr-87 (ret igpr-81) (args igpr-82 igpr-83 igpr-84 igpr-85 igpr-86)
+  [0x1031C] stp x3, x5, [sp, #-0x10]!
+  [0x10320] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10324] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10328] blr x9 ;; misaligned with debug data
+  [0x1032C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10330] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10334] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10338] mov x12, x0                                      mov igpr-88, igpr-81
+
+weather-part.gc:433
+->               (f0-10 (lerp-scale 1.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7)))
+  [0x1033C] adrp x16, #0x10000                               mov igpr-89, 'lerp-scale
+  [0x10340] add x16, x16, #0
+  [0x10344] ldr w9, [x16]
+
+weather-part.gc:432
+->         (let ((f26-0 (lerp-scale 0.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7))
+  [0x10348] adrp x16, #0x12000                               mov-svl ifpr-90, [(sf 1)]
+  [0x1034C] ldr s23, [x16, #0xee0]
+  [0x10350] adrp x16, #0x12000                               mov-svl ifpr-91, [(sf 0.1)]
+  [0x10354] ldr s22, [x16, #0xee4]
+
+weather-part.gc:433
+->               (f0-10 (lerp-scale 1.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7)))
+  [0x10358] add x16, x5, x15                                 mov ifpr-92, [igpr-32 + 36]
+  [0x1035C] ldr s21, [x16, #0x24] ;; misaligned with debug data
+
+weather-part.gc:432
+->         (let ((f26-0 (lerp-scale 0.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7))
+  [0x10360] adrp x16, #0x12000                               mov-svl ifpr-93, [(sf 0.3)]
+  [0x10364] ldr s20, [x16, #0xee8]
+  [0x10368] adrp x16, #0x12000                               mov-svl ifpr-94, [(sf 0.7)]
+  [0x1036C] ldr s19, [x16, #0xeec]
+
+weather-part.gc:433
+->               (f0-10 (lerp-scale 1.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7)))
+  [0x10370] mov x9, x9                                       mov igpr-101, igpr-89
+  [0x10374] fmov w7, s23                                     mov igpr-96, ifpr-90
+  [0x10378] sxtw x7, w7
+  [0x1037C] fmov w6, s22                                     mov igpr-97, ifpr-91
+  [0x10380] sxtw x6, w6
+  [0x10384] fmov w2, s21                                     mov igpr-98, ifpr-92
+  [0x10388] sxtw x2, w2
+  [0x1038C] fmov w1, s20                                     mov igpr-99, ifpr-93
+  [0x10390] sxtw x1, w1
+  [0x10394] fmov w8, s19                                     mov igpr-100, ifpr-94
+  [0x10398] sxtw x8, w8
+  [0x1039C] add x9, x9, x15                                  call igpr-101 (ret igpr-95) (args igpr-96 igpr-97 igpr-98 igpr-99 igpr-100)
+  [0x103A0] stp x3, x5, [sp, #-0x10]!
+  [0x103A4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x103A8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x103AC] blr x9 ;; misaligned with debug data
+  [0x103B0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x103B4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x103B8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x103BC] mov x0, x0                                       mov igpr-102, igpr-95
+
+weather-part.gc:432
+->         (let ((f26-0 (lerp-scale 0.0 0.1 (-> s5-0 vector 2 y) 0.3 0.7))
+  [0x103C0] fmov s23, w12                                    mov ifpr-103, igpr-88
+  [0x103C4] fmov s22, w0                                     mov ifpr-104, igpr-102
+
+weather-part.gc:434
+->           (if (< 0.0 f26-0) (send-event *camera* 'part-water-drip f26-0 f0-10)))
+  [0x103C8] adrp x16, #0x12000                               mov-svl ifpr-106, [(sf 0)]
+  [0x103CC] ldr s21, [x16, #0xef0]
+  [0x103D0] fcmp s21, s23                                    j(ifpr-106 >= ifpr-103) label-143
+  [0x103D4] b.ge #0x10480
+
+weather-part.gc:434
+->           (if (< 0.0 f26-0) (send-event *camera* 'part-water-drip f26-0 f0-10)))
+  [0x103D8] add x6, sp, #0x20                                mov igpr-107, stack-slot-4
+  [0x103DC] sub x6, x6, x15
+  [0x103E0] mov x6, x6                                       mov igpr-108, igpr-107
+  [0x103E4] add x16, x6, x15                                 move [igpr-108 + 4], igpr-109
+  [0x103E8] str w13, [x16, #4] ;; misaligned with debug data
+  [0x103EC] movz x9, #0x2                                    mov-ic igpr-110, 2
+  [0x103F0] add x16, x6, x15                                 move [igpr-108 + 8], igpr-110
+  [0x103F4] str w9, [x16, #8] ;; misaligned with debug data
+  [0x103F8] adrp x9, #0x10000                                mov-symptr igpr-111, 'part-water-drip
+  [0x103FC] add x9, x9, #0
+  [0x10400] add x16, x6, x15                                 move [igpr-108 + 12], igpr-111
+  [0x10404] str w9, [x16, #0xc] ;; misaligned with debug data
+  [0x10408] mov v23.16b, v23.16b                             mov ifpr-112, ifpr-103
+  [0x1040C] fmov w9, s23                                     mov igpr-113, ifpr-112
+  [0x10410] sxtw x9, w9
+  [0x10414] add x16, x6, x15                                 move [igpr-108 + 16], igpr-113
+  [0x10418] str x9, [x16, #0x10] ;; misaligned with debug data
+  [0x1041C] mov v22.16b, v22.16b                             mov ifpr-114, ifpr-104
+  [0x10420] fmov w9, s22                                     mov igpr-115, ifpr-114
+  [0x10424] sxtw x9, w9
+  [0x10428] add x16, x6, x15                                 move [igpr-108 + 24], igpr-115
+  [0x1042C] str x9, [x16, #0x18] ;; misaligned with debug data
+  [0x10430] adrp x16, #0x10000                               mov igpr-116, 'send-event-function
+  [0x10434] add x16, x16, #0
+  [0x10438] ldr w9, [x16]
+  [0x1043C] adrp x16, #0x10000                               mov igpr-117, '*camera*
+  [0x10440] add x16, x16, #0
+  [0x10444] ldr w7, [x16]
+  [0x10448] mov x9, x9                                       mov igpr-121, igpr-116
+  [0x1044C] mov x7, x7                                       mov igpr-119, igpr-117
+  [0x10450] mov x6, x6                                       mov igpr-120, igpr-108
+  [0x10454] add x9, x9, x15                                  call igpr-121 (ret igpr-118) (args igpr-119 igpr-120)
+  [0x10458] stp x3, x5, [sp, #-0x10]!
+  [0x1045C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10460] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10464] blr x9 ;; misaligned with debug data
+  [0x10468] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1046C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10470] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10474] mov x0, x0                                       mov igpr-122, igpr-118
+
+weather-part.gc:434
+->           (if (< 0.0 f26-0) (send-event *camera* 'part-water-drip f26-0 f0-10)))
+  [0x10478] mov x0, x0                                       mov igpr-105, igpr-122
+  [0x1047C] b #0x10488                                       goto label-144
+  [0x10480] mov x0, x14                                      mov-symptr igpr-105, '#f
+  [0x10484] sub x0, x0, x15 ;; misaligned with debug data
+
+weather-part.gc:435
+->         (set! (-> *part-id-table* 37 init-specs 4 initial-valuef) f28-0)
+  [0x10488] adrp x16, #0x10000                               mov igpr-125, '*part-id-table*
+  [0x1048C] add x16, x16, #0
+  [0x10490] ldr w9, [x16]
+  [0x10494] add x16, x9, x15                                 mov igpr-124, [igpr-125 + 160]
+  [0x10498] ldr w9, [x16, #0xa0] ;; misaligned with debug data
+  [0x1049C] add x16, x9, x15                                 mov igpr-123, [igpr-124 + 8]
+  [0x104A0] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x104A4] add x16, x9, x15                                 move [igpr-123 + 68], ifpr-53
+  [0x104A8] str s24, [x16, #0x44] ;; misaligned with debug data
+
+weather-part.gc:436
+->         (set! (-> *part-id-table* 37 init-specs 4 random-rangef) f28-0)
+  [0x104AC] adrp x16, #0x10000                               mov igpr-128, '*part-id-table*
+  [0x104B0] add x16, x16, #0
+  [0x104B4] ldr w9, [x16]
+  [0x104B8] add x16, x9, x15                                 mov igpr-127, [igpr-128 + 160]
+  [0x104BC] ldr w9, [x16, #0xa0] ;; misaligned with debug data
+  [0x104C0] add x16, x9, x15                                 mov igpr-126, [igpr-127 + 8]
+  [0x104C4] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x104C8] add x16, x9, x15                                 move [igpr-126 + 72], ifpr-53
+  [0x104CC] str s24, [x16, #0x48] ;; misaligned with debug data
+
+weather-part.gc:437
+->         (set! (-> *part-id-table* 38 init-specs 4 initial-valuef) f28-0)
+  [0x104D0] adrp x16, #0x10000                               mov igpr-131, '*part-id-table*
+  [0x104D4] add x16, x16, #0
+  [0x104D8] ldr w9, [x16]
+  [0x104DC] add x16, x9, x15                                 mov igpr-130, [igpr-131 + 164]
+  [0x104E0] ldr w9, [x16, #0xa4] ;; misaligned with debug data
+  [0x104E4] add x16, x9, x15                                 mov igpr-129, [igpr-130 + 8]
+  [0x104E8] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x104EC] add x16, x9, x15                                 move [igpr-129 + 68], ifpr-53
+  [0x104F0] str s24, [x16, #0x44] ;; misaligned with debug data
+
+weather-part.gc:438
+->         (set! (-> *part-id-table* 38 init-specs 4 random-rangef) f28-0)
+  [0x104F4] adrp x16, #0x10000                               mov igpr-134, '*part-id-table*
+  [0x104F8] add x16, x16, #0
+  [0x104FC] ldr w9, [x16]
+  [0x10500] add x16, x9, x15                                 mov igpr-133, [igpr-134 + 164]
+  [0x10504] ldr w9, [x16, #0xa4] ;; misaligned with debug data
+  [0x10508] add x16, x9, x15                                 mov igpr-132, [igpr-133 + 8]
+  [0x1050C] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x10510] add x16, x9, x15                                 move [igpr-132 + 72], ifpr-53
+  [0x10514] str s24, [x16, #0x48] ;; misaligned with debug data
+
+weather-part.gc:439
+->         (set! (-> *part-id-table* 37 init-specs 5 initial-valuef) f30-0)
+  [0x10518] adrp x16, #0x10000                               mov igpr-137, '*part-id-table*
+  [0x1051C] add x16, x16, #0
+  [0x10520] ldr w9, [x16]
+  [0x10524] add x16, x9, x15                                 mov igpr-136, [igpr-137 + 160]
+  [0x10528] ldr w9, [x16, #0xa0] ;; misaligned with debug data
+  [0x1052C] add x16, x9, x15                                 mov igpr-135, [igpr-136 + 8]
+  [0x10530] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x10534] add x16, x9, x15                                 move [igpr-135 + 84], ifpr-74
+  [0x10538] str s25, [x16, #0x54] ;; misaligned with debug data
+
+weather-part.gc:440
+->         (set! (-> *part-id-table* 37 init-specs 5 random-rangef) f30-0)
+  [0x1053C] adrp x16, #0x10000                               mov igpr-140, '*part-id-table*
+  [0x10540] add x16, x16, #0
+  [0x10544] ldr w9, [x16]
+  [0x10548] add x16, x9, x15                                 mov igpr-139, [igpr-140 + 160]
+  [0x1054C] ldr w9, [x16, #0xa0] ;; misaligned with debug data
+  [0x10550] add x16, x9, x15                                 mov igpr-138, [igpr-139 + 8]
+  [0x10554] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x10558] add x16, x9, x15                                 move [igpr-138 + 88], ifpr-74
+  [0x1055C] str s25, [x16, #0x58] ;; misaligned with debug data
+
+weather-part.gc:441
+->         (set! (-> *part-id-table* 38 init-specs 5 initial-valuef) f30-0)
+  [0x10560] adrp x16, #0x10000                               mov igpr-143, '*part-id-table*
+  [0x10564] add x16, x16, #0
+  [0x10568] ldr w9, [x16]
+  [0x1056C] add x16, x9, x15                                 mov igpr-142, [igpr-143 + 164]
+  [0x10570] ldr w9, [x16, #0xa4] ;; misaligned with debug data
+  [0x10574] add x16, x9, x15                                 mov igpr-141, [igpr-142 + 8]
+  [0x10578] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x1057C] add x16, x9, x15                                 move [igpr-141 + 84], ifpr-74
+  [0x10580] str s25, [x16, #0x54] ;; misaligned with debug data
+
+weather-part.gc:442
+->         (set! (-> *part-id-table* 38 init-specs 5 random-rangef) f30-0))
+  [0x10584] adrp x16, #0x10000                               mov igpr-146, '*part-id-table*
+  [0x10588] add x16, x16, #0
+  [0x1058C] ldr w9, [x16]
+  [0x10590] add x16, x9, x15                                 mov igpr-145, [igpr-146 + 164]
+  [0x10594] ldr w9, [x16, #0xa4] ;; misaligned with debug data
+  [0x10598] add x16, x9, x15                                 mov igpr-144, [igpr-145 + 8]
+  [0x1059C] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x105A0] add x16, x9, x15                                 move [igpr-144 + 88], ifpr-74
+  [0x105A4] str s25, [x16, #0x58] ;; misaligned with debug data
+
+weather-part.gc:443
+->       (launch-particles (-> *part-id-table* 37) gp-0)
+  [0x105A8] adrp x16, #0x10000                               mov igpr-147, 'sp-launch-particles-var
+  [0x105AC] add x16, x16, #0
+  [0x105B0] ldr w9, [x16]
+  [0x105B4] adrp x16, #0x10000                               mov igpr-148, '*sp-particle-system-2d*
+  [0x105B8] add x16, x16, #0
+  [0x105BC] ldr w7, [x16]
+
+weather-part.gc:443
+->       (launch-particles (-> *part-id-table* 37) gp-0)
+  [0x105C0] adrp x16, #0x10000                               mov igpr-150, '*part-id-table*
+  [0x105C4] add x16, x16, #0
+  [0x105C8] ldr w8, [x16]
+  [0x105CC] add x16, x8, x15                                 mov igpr-149, [igpr-150 + 160]
+  [0x105D0] ldr w6, [x16, #0xa0] ;; misaligned with debug data
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x105D4] mov x1, x14                                      mov-symptr igpr-151, '#f
+  [0x105D8] sub x1, x1, x15 ;; misaligned with debug data
+  [0x105DC] mov x1, x1                                       mov igpr-152, igpr-151
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x105E0] mov x8, x14                                      mov-symptr igpr-153, '#f
+  [0x105E4] sub x8, x8, x15 ;; misaligned with debug data
+  [0x105E8] mov x8, x8                                       mov igpr-154, igpr-153
+
+weather-part.gc:443
+->       (launch-particles (-> *part-id-table* 37) gp-0)
+  [0x105EC] adrp x16, #0x12000                               mov-svl ifpr-155, [(sf 1)]
+  [0x105F0] ldr s23, [x16, #0xef4]
+  [0x105F4] mov x0, x9                                       mov igpr-163, igpr-147
+  [0x105F8] mov x7, x7                                       mov igpr-157, igpr-148
+  [0x105FC] mov x6, x6                                       mov igpr-158, igpr-149
+  [0x10600] mov x2, x3                                       mov igpr-159, igpr-23
+  [0x10604] mov x1, x1                                       mov igpr-160, igpr-152
+  [0x10608] mov x8, x8                                       mov igpr-161, igpr-154
+  [0x1060C] fmov w9, s23                                     mov igpr-162, ifpr-155
+  [0x10610] sxtw x9, w9
+  [0x10614] add x0, x0, x15                                  call igpr-163 (ret igpr-156) (args igpr-157 igpr-158 igpr-159 igpr-160 igpr-161 igpr-162)
+  [0x10618] stp x3, x5, [sp, #-0x10]!
+  [0x1061C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10620] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10624] blr x0 ;; misaligned with debug data
+  [0x10628] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1062C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10630] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10634] mov x5, x5                                       mov igpr-164, igpr-156
+
+weather-part.gc:444
+->       (launch-particles (-> *part-id-table* 38) gp-0)))
+  [0x10638] adrp x16, #0x10000                               mov igpr-165, 'sp-launch-particles-var
+  [0x1063C] add x16, x16, #0
+  [0x10640] ldr w9, [x16]
+  [0x10644] adrp x16, #0x10000                               mov igpr-166, '*sp-particle-system-2d*
+  [0x10648] add x16, x16, #0
+  [0x1064C] ldr w7, [x16]
+
+weather-part.gc:444
+->       (launch-particles (-> *part-id-table* 38) gp-0)))
+  [0x10650] adrp x16, #0x10000                               mov igpr-168, '*part-id-table*
+  [0x10654] add x16, x16, #0
+  [0x10658] ldr w8, [x16]
+  [0x1065C] add x16, x8, x15                                 mov igpr-167, [igpr-168 + 164]
+  [0x10660] ldr w6, [x16, #0xa4] ;; misaligned with debug data
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x10664] mov x1, x14                                      mov-symptr igpr-169, '#f
+  [0x10668] sub x1, x1, x15 ;; misaligned with debug data
+  [0x1066C] mov x1, x1                                       mov igpr-170, igpr-169
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x10670] mov x8, x14                                      mov-symptr igpr-171, '#f
+  [0x10674] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10678] mov x8, x8                                       mov igpr-172, igpr-171
+
+weather-part.gc:444
+->       (launch-particles (-> *part-id-table* 38) gp-0)))
+  [0x1067C] adrp x16, #0x12000                               mov-svl ifpr-173, [(sf 1)]
+  [0x10680] ldr s23, [x16, #0xef8]
+  [0x10684] mov x0, x9                                       mov igpr-181, igpr-165
+  [0x10688] mov x7, x7                                       mov igpr-175, igpr-166
+  [0x1068C] mov x6, x6                                       mov igpr-176, igpr-167
+  [0x10690] mov x2, x3                                       mov igpr-177, igpr-23
+  [0x10694] mov x1, x1                                       mov igpr-178, igpr-170
+  [0x10698] mov x8, x8                                       mov igpr-179, igpr-172
+  [0x1069C] fmov w9, s23                                     mov igpr-180, ifpr-173
+  [0x106A0] sxtw x9, w9
+  [0x106A4] add x0, x0, x15                                  call igpr-181 (ret igpr-174) (args igpr-175 igpr-176 igpr-177 igpr-178 igpr-179 igpr-180)
+  [0x106A8] stp x3, x5, [sp, #-0x10]!
+  [0x106AC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x106B0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x106B4] blr x0 ;; misaligned with debug data
+  [0x106B8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x106BC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x106C0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x106C4] mov x3, x3                                       mov igpr-182, igpr-174
+
+weather-part.gc:422
+-> (defun update-rain ((arg0 target))
+  [0x106C8] movz x9, #0                                      mov-ic igpr-183, 0
+  [0x106CC] ldr d24, [sp, #0x70]
+  [0x106D0] ldr d25, [sp, #0x78]
+  [0x106D4] add sp, sp, #0x80
+  [0x106D8] ldp x29, x30, [sp], #0x10
+  [0x106DC] ret
+
+
+[check-drop-level-rain]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+weather-part.gc:413
+-> (defun check-drop-level-rain ((arg0 sparticle-system) (arg1 sparticle-cpuinfo) (arg2 vector))
+  [0x1000C] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x10010] mov x12, x6                                      mov igpr-5, igpr-1
+  [0x10014] mov x5, x2                                       mov igpr-6, igpr-2
+
+weather-part.gc:414
+->   (when (< (-> arg2 y) (-> arg1 user-float))
+  [0x10018] add x16, x5, x15                                 mov ifpr-8, [igpr-6 + 4]
+  [0x1001C] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10020] add x16, x12, x15                                mov ifpr-9, [igpr-5 + 108]
+  [0x10024] ldr s22, [x16, #0x6c] ;; misaligned with debug data
+  [0x10028] fcmp s23, s22                                    j(ifpr-8 >= ifpr-9) label-64
+  [0x1002C] b.ge #0x101e4
+
+weather-part.gc:415
+->     (let ((gp-0 (new 'stack-no-clear 'vector)))
+  [0x10030] mov x3, sp                                       mov igpr-10, stack-slot-0
+  [0x10034] sub x3, x3, x15
+
+weather-part.gc:415
+->     (let ((gp-0 (new 'stack-no-clear 'vector)))
+  [0x10038] mov x3, x3                                       mov igpr-11, igpr-10
+
+weather-part.gc:416
+->       (sp-kill-particle arg0 arg1)
+  [0x1003C] adrp x16, #0x10000                               mov igpr-12, 'sp-kill-particle
+  [0x10040] add x16, x16, #0
+  [0x10044] ldr w9, [x16]
+  [0x10048] mov x9, x9                                       mov igpr-16, igpr-12
+  [0x1004C] mov x7, x7                                       mov igpr-14, igpr-4
+  [0x10050] mov x6, x12                                      mov igpr-15, igpr-5
+  [0x10054] add x9, x9, x15                                  call igpr-16 (ret igpr-13) (args igpr-14 igpr-15)
+  [0x10058] stp x3, x5, [sp, #-0x10]!
+  [0x1005C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10060] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10064] blr x9 ;; misaligned with debug data
+  [0x10068] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10074] mov x11, x11                                     mov igpr-17, igpr-13
+
+weather-part.gc:417
+->       (set-vector! gp-0 (-> arg2 x) (-> arg1 user-float) (-> arg2 z) 1.0)
+  [0x10078] mov x9, x3                                       mov igpr-18, igpr-11
+  [0x1007C] add x16, x5, x15                                 mov ifpr-19, [igpr-6 + 0]
+  [0x10080] ldr s23, [x16] ;; misaligned with debug data
+  [0x10084] add x16, x9, x15                                 move [igpr-18 + 0], ifpr-19
+  [0x10088] str s23, [x16] ;; misaligned with debug data
+  [0x1008C] add x16, x12, x15                                mov ifpr-20, [igpr-5 + 108]
+  [0x10090] ldr s23, [x16, #0x6c] ;; misaligned with debug data
+  [0x10094] add x16, x9, x15                                 move [igpr-18 + 4], ifpr-20
+  [0x10098] str s23, [x16, #4] ;; misaligned with debug data
+  [0x1009C] add x16, x5, x15                                 mov ifpr-21, [igpr-6 + 8]
+  [0x100A0] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x100A4] add x16, x9, x15                                 move [igpr-18 + 8], ifpr-21
+  [0x100A8] str s23, [x16, #8] ;; misaligned with debug data
+  [0x100AC] adrp x16, #0x12000                               mov-svl ifpr-22, [(sf 1)]
+  [0x100B0] ldr s23, [x16, #0xe90]
+  [0x100B4] add x16, x9, x15                                 move [igpr-18 + 12], ifpr-22
+  [0x100B8] str s23, [x16, #0xc] ;; misaligned with debug data
+
+weather-part.gc:418
+->       (launch-particles (-> *part-id-table* 39) gp-0 :rate 1.0)
+  [0x100BC] adrp x16, #0x10000                               mov igpr-23, 'sp-launch-particles-var
+  [0x100C0] add x16, x16, #0
+  [0x100C4] ldr w9, [x16]
+  [0x100C8] adrp x16, #0x10000                               mov igpr-24, '*sp-particle-system-2d*
+  [0x100CC] add x16, x16, #0
+  [0x100D0] ldr w7, [x16]
+
+weather-part.gc:418
+->       (launch-particles (-> *part-id-table* 39) gp-0 :rate 1.0)
+  [0x100D4] adrp x16, #0x10000                               mov igpr-26, '*part-id-table*
+  [0x100D8] add x16, x16, #0
+  [0x100DC] ldr w8, [x16]
+  [0x100E0] add x16, x8, x15                                 mov igpr-25, [igpr-26 + 168]
+  [0x100E4] ldr w6, [x16, #0xa8] ;; misaligned with debug data
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x100E8] mov x1, x14                                      mov-symptr igpr-27, '#f
+  [0x100EC] sub x1, x1, x15 ;; misaligned with debug data
+  [0x100F0] mov x1, x1                                       mov igpr-28, igpr-27
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x100F4] mov x8, x14                                      mov-symptr igpr-29, '#f
+  [0x100F8] sub x8, x8, x15 ;; misaligned with debug data
+  [0x100FC] mov x8, x8                                       mov igpr-30, igpr-29
+
+weather-part.gc:418
+->       (launch-particles (-> *part-id-table* 39) gp-0 :rate 1.0)
+  [0x10100] adrp x16, #0x12000                               mov-svl ifpr-31, [(sf 1)]
+  [0x10104] ldr s23, [x16, #0xe94]
+  [0x10108] mov x0, x9                                       mov igpr-39, igpr-23
+  [0x1010C] mov x7, x7                                       mov igpr-33, igpr-24
+  [0x10110] mov x6, x6                                       mov igpr-34, igpr-25
+  [0x10114] mov x2, x3                                       mov igpr-35, igpr-11
+  [0x10118] mov x1, x1                                       mov igpr-36, igpr-28
+  [0x1011C] mov x8, x8                                       mov igpr-37, igpr-30
+  [0x10120] fmov w9, s23                                     mov igpr-38, ifpr-31
+  [0x10124] sxtw x9, w9
+  [0x10128] add x0, x0, x15                                  call igpr-39 (ret igpr-32) (args igpr-33 igpr-34 igpr-35 igpr-36 igpr-37 igpr-38)
+  [0x1012C] stp x3, x5, [sp, #-0x10]!
+  [0x10130] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10134] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10138] blr x0 ;; misaligned with debug data
+  [0x1013C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10140] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10144] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10148] mov x5, x5                                       mov igpr-40, igpr-32
+
+weather-part.gc:419
+->       (launch-particles :system *sp-particle-system-3d* (-> *part-id-table* 40) gp-0 :rate 1.0)))
+  [0x1014C] adrp x16, #0x10000                               mov igpr-41, 'sp-launch-particles-var
+  [0x10150] add x16, x16, #0
+  [0x10154] ldr w9, [x16]
+  [0x10158] adrp x16, #0x10000                               mov igpr-42, '*sp-particle-system-3d*
+  [0x1015C] add x16, x16, #0
+  [0x10160] ldr w7, [x16]
+
+weather-part.gc:419
+->       (launch-particles :system *sp-particle-system-3d* (-> *part-id-table* 40) gp-0 :rate 1.0)))
+  [0x10164] adrp x16, #0x10000                               mov igpr-44, '*part-id-table*
+  [0x10168] add x16, x16, #0
+  [0x1016C] ldr w8, [x16]
+  [0x10170] add x16, x8, x15                                 mov igpr-43, [igpr-44 + 172]
+  [0x10174] ldr w6, [x16, #0xac] ;; misaligned with debug data
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x10178] mov x1, x14                                      mov-symptr igpr-45, '#f
+  [0x1017C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10180] mov x1, x1                                       mov igpr-46, igpr-45
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x10184] mov x8, x14                                      mov-symptr igpr-47, '#f
+  [0x10188] sub x8, x8, x15 ;; misaligned with debug data
+  [0x1018C] mov x8, x8                                       mov igpr-48, igpr-47
+
+weather-part.gc:419
+->       (launch-particles :system *sp-particle-system-3d* (-> *part-id-table* 40) gp-0 :rate 1.0)))
+  [0x10190] adrp x16, #0x12000                               mov-svl ifpr-49, [(sf 1)]
+  [0x10194] ldr s23, [x16, #0xe98]
+  [0x10198] mov x0, x9                                       mov igpr-57, igpr-41
+  [0x1019C] mov x7, x7                                       mov igpr-51, igpr-42
+  [0x101A0] mov x6, x6                                       mov igpr-52, igpr-43
+  [0x101A4] mov x2, x3                                       mov igpr-53, igpr-11
+  [0x101A8] mov x1, x1                                       mov igpr-54, igpr-46
+  [0x101AC] mov x8, x8                                       mov igpr-55, igpr-48
+  [0x101B0] fmov w9, s23                                     mov igpr-56, ifpr-49
+  [0x101B4] sxtw x9, w9
+  [0x101B8] add x0, x0, x15                                  call igpr-57 (ret igpr-50) (args igpr-51 igpr-52 igpr-53 igpr-54 igpr-55 igpr-56)
+  [0x101BC] stp x3, x5, [sp, #-0x10]!
+  [0x101C0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C8] blr x0 ;; misaligned with debug data
+  [0x101CC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101D0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101D4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101D8] mov x3, x3                                       mov igpr-58, igpr-50
+
+weather-part.gc:414
+->   (when (< (-> arg2 y) (-> arg1 user-float))
+  [0x101DC] mov x3, x3                                       mov igpr-7, igpr-58
+  [0x101E0] b #0x101ec                                       goto label-65
+  [0x101E4] mov x3, x14                                      mov-symptr igpr-7, '#f
+  [0x101E8] sub x3, x3, x15 ;; misaligned with debug data
+  [0x101EC] add sp, sp, #0x10
+  [0x101F0] ldp x29, x30, [sp], #0x10
+  [0x101F4] ret
+
+
+[update-snow]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x20
+  [0x1000C] str d24, [sp, #0x10]
+  [0x10010] str d25, [sp, #0x18]
+
+weather-part.gc:329
+-> (defun update-snow ((arg0 target))
+  [0x10014] mov x5, x7                                       mov igpr-2, igpr-0
+
+weather-part.gc:330
+->   (let ((gp-0 (-> arg0 control trans)))
+  [0x10018] movz x3, #0xc                                    mov-ic igpr-3, 12
+  [0x1001C] add x16, x5, x15                                 mov igpr-4, [igpr-2 + 108]
+  [0x10020] ldr w9, [x16, #0x6c] ;; misaligned with debug data
+  [0x10024] add x3, x3, x9                                   addi igpr-3, igpr-4
+
+weather-part.gc:330
+->   (let ((gp-0 (-> arg0 control trans)))
+  [0x10028] mov x3, x3                                       mov igpr-5, igpr-3
+
+weather-part.gc:331
+->     (let ((f0-0 (lerp-scale 0.0 1.0 (vector-length (-> arg0 control transv)) 2048.0 40960.0)))
+  [0x1002C] adrp x16, #0x10000                               mov igpr-6, 'lerp-scale
+  [0x10030] add x16, x16, #0
+  [0x10034] ldr w12, [x16]
+
+weather-part.gc:331
+->     (let ((f0-0 (lerp-scale 0.0 1.0 (vector-length (-> arg0 control transv)) 2048.0 40960.0)))
+  [0x10038] adrp x16, #0x12000                               mov-svl ifpr-7, [(sf 0)]
+  [0x1003C] ldr s24, [x16, #0xa10]
+  [0x10040] adrp x16, #0x12000                               mov-svl ifpr-8, [(sf 1)]
+  [0x10044] ldr s25, [x16, #0xa14]
+
+weather-part.gc:331
+->     (let ((f0-0 (lerp-scale 0.0 1.0 (vector-length (-> arg0 control transv)) 2048.0 40960.0)))
+  [0x10048] adrp x16, #0x10000                               mov igpr-9, 'vector-length
+  [0x1004C] add x16, x16, #0
+  [0x10050] ldr w9, [x16]
+
+weather-part.gc:331
+->     (let ((f0-0 (lerp-scale 0.0 1.0 (vector-length (-> arg0 control transv)) 2048.0 40960.0)))
+  [0x10054] movz x7, #0x3c                                   mov-ic igpr-10, 60
+  [0x10058] add x16, x5, x15                                 mov igpr-11, [igpr-2 + 108]
+  [0x1005C] ldr w8, [x16, #0x6c] ;; misaligned with debug data
+  [0x10060] add x7, x7, x8                                   addi igpr-10, igpr-11
+
+weather-part.gc:331
+->     (let ((f0-0 (lerp-scale 0.0 1.0 (vector-length (-> arg0 control transv)) 2048.0 40960.0)))
+  [0x10064] mov x9, x9                                       mov igpr-14, igpr-9
+  [0x10068] mov x7, x7                                       mov igpr-13, igpr-10
+  [0x1006C] add x9, x9, x15                                  call igpr-14 (ret igpr-12) (args igpr-13)
+  [0x10070] stp x3, x5, [sp, #-0x10]!
+  [0x10074] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10078] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1007C] blr x9 ;; misaligned with debug data
+  [0x10080] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10084] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10088] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1008C] mov x0, x0                                       mov igpr-15, igpr-12
+
+weather-part.gc:331
+->     (let ((f0-0 (lerp-scale 0.0 1.0 (vector-length (-> arg0 control transv)) 2048.0 40960.0)))
+  [0x10090] adrp x16, #0x12000                               mov-svl ifpr-16, [(sf 2048)]
+  [0x10094] ldr s23, [x16, #0xa18]
+  [0x10098] adrp x16, #0x12000                               mov-svl ifpr-17, [(sf 40960)]
+  [0x1009C] ldr s22, [x16, #0xa1c]
+
+weather-part.gc:331
+->     (let ((f0-0 (lerp-scale 0.0 1.0 (vector-length (-> arg0 control transv)) 2048.0 40960.0)))
+  [0x100A0] mov x12, x12                                     mov igpr-24, igpr-6
+  [0x100A4] fmov w7, s24                                     mov igpr-19, ifpr-7
+  [0x100A8] sxtw x7, w7
+  [0x100AC] fmov w6, s25                                     mov igpr-20, ifpr-8
+  [0x100B0] sxtw x6, w6
+  [0x100B4] mov x2, x0                                       mov igpr-21, igpr-15
+  [0x100B8] fmov w1, s23                                     mov igpr-22, ifpr-16
+  [0x100BC] sxtw x1, w1
+  [0x100C0] fmov w8, s22                                     mov igpr-23, ifpr-17
+  [0x100C4] sxtw x8, w8
+  [0x100C8] add x12, x12, x15                                call igpr-24 (ret igpr-18) (args igpr-19 igpr-20 igpr-21 igpr-22 igpr-23)
+  [0x100CC] stp x3, x5, [sp, #-0x10]!
+  [0x100D0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100D4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100D8] blr x12 ;; misaligned with debug data
+  [0x100DC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100E0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100E4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100E8] mov x0, x0                                       mov igpr-25, igpr-18
+
+weather-part.gc:331
+->     (let ((f0-0 (lerp-scale 0.0 1.0 (vector-length (-> arg0 control transv)) 2048.0 40960.0)))
+  [0x100EC] fmov s23, w0                                     mov ifpr-26, igpr-25
+
+weather-part.gc:332
+->       (set! (-> *part-id-table* 34 init-specs 1 initial-valuef) (- 1.0 f0-0))
+  [0x100F0] adrp x16, #0x12000                               mov-svl ifpr-28, [(sf 1)]
+  [0x100F4] ldr s22, [x16, #0xa20]
+  [0x100F8] mov v22.16b, v22.16b                             mov ifpr-27, ifpr-28
+  [0x100FC] fsub s22, s22, s23                               subss ifpr-27, ifpr-26
+
+weather-part.gc:332
+->       (set! (-> *part-id-table* 34 init-specs 1 initial-valuef) (- 1.0 f0-0))
+  [0x10100] adrp x16, #0x10000                               mov igpr-31, '*part-id-table*
+  [0x10104] add x16, x16, #0
+  [0x10108] ldr w9, [x16]
+  [0x1010C] add x16, x9, x15                                 mov igpr-30, [igpr-31 + 148]
+  [0x10110] ldr w9, [x16, #0x94] ;; misaligned with debug data
+  [0x10114] add x16, x9, x15                                 mov igpr-29, [igpr-30 + 8]
+  [0x10118] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x1011C] add x16, x9, x15                                 move [igpr-29 + 20], ifpr-27
+  [0x10120] str s22, [x16, #0x14] ;; misaligned with debug data
+
+weather-part.gc:333
+->       (set! (-> *part-id-table* 33 init-specs 1 initial-valuef) (* 4.0 f0-0)))
+  [0x10124] adrp x16, #0x12000                               mov-svl ifpr-33, [(sf 4)]
+  [0x10128] ldr s22, [x16, #0xa24]
+  [0x1012C] mov v22.16b, v22.16b                             mov ifpr-32, ifpr-33
+  [0x10130] fmul s22, s22, s23                               mulss ifpr-32, ifpr-26
+
+weather-part.gc:333
+->       (set! (-> *part-id-table* 33 init-specs 1 initial-valuef) (* 4.0 f0-0)))
+  [0x10134] adrp x16, #0x10000                               mov igpr-36, '*part-id-table*
+  [0x10138] add x16, x16, #0
+  [0x1013C] ldr w9, [x16]
+  [0x10140] add x16, x9, x15                                 mov igpr-35, [igpr-36 + 144]
+  [0x10144] ldr w9, [x16, #0x90] ;; misaligned with debug data
+  [0x10148] add x16, x9, x15                                 mov igpr-34, [igpr-35 + 8]
+  [0x1014C] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x10150] add x16, x9, x15                                 move [igpr-34 + 20], ifpr-32
+  [0x10154] str s22, [x16, #0x14] ;; misaligned with debug data
+
+weather-part.gc:334
+->     (set! (-> *part-id-table* 33 init-specs 19 initial-valuef) (+ 32768.0 (vector-y-angle (-> arg0 control transv))))
+  [0x10158] adrp x16, #0x12000                               mov-svl ifpr-38, [(sf 32768)]
+  [0x1015C] ldr s24, [x16, #0xa28]
+  [0x10160] mov v24.16b, v24.16b                             mov ifpr-37, ifpr-38
+
+weather-part.gc:334
+->     (set! (-> *part-id-table* 33 init-specs 19 initial-valuef) (+ 32768.0 (vector-y-angle (-> arg0 control transv))))
+  [0x10164] adrp x16, #0x10000                               mov igpr-39, 'vector-y-angle
+  [0x10168] add x16, x16, #0
+  [0x1016C] ldr w9, [x16]
+
+weather-part.gc:334
+->     (set! (-> *part-id-table* 33 init-specs 19 initial-valuef) (+ 32768.0 (vector-y-angle (-> arg0 control transv))))
+  [0x10170] movz x7, #0x3c                                   mov-ic igpr-40, 60
+  [0x10174] add x16, x5, x15                                 mov igpr-41, [igpr-2 + 108]
+  [0x10178] ldr w8, [x16, #0x6c] ;; misaligned with debug data
+  [0x1017C] add x7, x7, x8                                   addi igpr-40, igpr-41
+
+weather-part.gc:334
+->     (set! (-> *part-id-table* 33 init-specs 19 initial-valuef) (+ 32768.0 (vector-y-angle (-> arg0 control transv))))
+  [0x10180] mov x9, x9                                       mov igpr-44, igpr-39
+  [0x10184] mov x7, x7                                       mov igpr-43, igpr-40
+  [0x10188] add x9, x9, x15                                  call igpr-44 (ret igpr-42) (args igpr-43)
+  [0x1018C] stp x3, x5, [sp, #-0x10]!
+  [0x10190] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10194] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10198] blr x9 ;; misaligned with debug data
+  [0x1019C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101A0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101A4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101A8] mov x0, x0                                       mov igpr-45, igpr-42
+
+weather-part.gc:334
+->     (set! (-> *part-id-table* 33 init-specs 19 initial-valuef) (+ 32768.0 (vector-y-angle (-> arg0 control transv))))
+  [0x101AC] fmov s23, w0                                     mov ifpr-46, igpr-45
+  [0x101B0] fadd s24, s24, s23                               addss ifpr-37, ifpr-46
+
+weather-part.gc:334
+->     (set! (-> *part-id-table* 33 init-specs 19 initial-valuef) (+ 32768.0 (vector-y-angle (-> arg0 control transv))))
+  [0x101B4] adrp x16, #0x10000                               mov igpr-49, '*part-id-table*
+  [0x101B8] add x16, x16, #0
+  [0x101BC] ldr w9, [x16]
+  [0x101C0] add x16, x9, x15                                 mov igpr-48, [igpr-49 + 144]
+  [0x101C4] ldr w9, [x16, #0x90] ;; misaligned with debug data
+  [0x101C8] add x16, x9, x15                                 mov igpr-47, [igpr-48 + 8]
+  [0x101CC] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x101D0] add x16, x9, x15                                 move [igpr-47 + 308], ifpr-37
+  [0x101D4] str s24, [x16, #0x134] ;; misaligned with debug data
+
+weather-part.gc:335
+->     (launch-particles (-> *part-id-table* 34) gp-0)
+  [0x101D8] adrp x16, #0x10000                               mov igpr-50, 'sp-launch-particles-var
+  [0x101DC] add x16, x16, #0
+  [0x101E0] ldr w9, [x16]
+  [0x101E4] adrp x16, #0x10000                               mov igpr-51, '*sp-particle-system-2d*
+  [0x101E8] add x16, x16, #0
+  [0x101EC] ldr w7, [x16]
+
+weather-part.gc:335
+->     (launch-particles (-> *part-id-table* 34) gp-0)
+  [0x101F0] adrp x16, #0x10000                               mov igpr-53, '*part-id-table*
+  [0x101F4] add x16, x16, #0
+  [0x101F8] ldr w8, [x16]
+  [0x101FC] add x16, x8, x15                                 mov igpr-52, [igpr-53 + 148]
+  [0x10200] ldr w6, [x16, #0x94] ;; misaligned with debug data
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x10204] mov x1, x14                                      mov-symptr igpr-54, '#f
+  [0x10208] sub x1, x1, x15 ;; misaligned with debug data
+  [0x1020C] mov x1, x1                                       mov igpr-55, igpr-54
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x10210] mov x8, x14                                      mov-symptr igpr-56, '#f
+  [0x10214] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10218] mov x8, x8                                       mov igpr-57, igpr-56
+
+weather-part.gc:335
+->     (launch-particles (-> *part-id-table* 34) gp-0)
+  [0x1021C] adrp x16, #0x12000                               mov-svl ifpr-58, [(sf 1)]
+  [0x10220] ldr s23, [x16, #0xa2c]
+  [0x10224] mov x0, x9                                       mov igpr-66, igpr-50
+  [0x10228] mov x7, x7                                       mov igpr-60, igpr-51
+  [0x1022C] mov x6, x6                                       mov igpr-61, igpr-52
+  [0x10230] mov x2, x3                                       mov igpr-62, igpr-5
+  [0x10234] mov x1, x1                                       mov igpr-63, igpr-55
+  [0x10238] mov x8, x8                                       mov igpr-64, igpr-57
+  [0x1023C] fmov w9, s23                                     mov igpr-65, ifpr-58
+  [0x10240] sxtw x9, w9
+  [0x10244] add x0, x0, x15                                  call igpr-66 (ret igpr-59) (args igpr-60 igpr-61 igpr-62 igpr-63 igpr-64 igpr-65)
+  [0x10248] stp x3, x5, [sp, #-0x10]!
+  [0x1024C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10250] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10254] blr x0 ;; misaligned with debug data
+  [0x10258] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1025C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10260] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10264] mov x5, x5                                       mov igpr-67, igpr-59
+
+weather-part.gc:336
+->     (launch-particles (-> *part-id-table* 33) gp-0))
+  [0x10268] adrp x16, #0x10000                               mov igpr-68, 'sp-launch-particles-var
+  [0x1026C] add x16, x16, #0
+  [0x10270] ldr w9, [x16]
+  [0x10274] adrp x16, #0x10000                               mov igpr-69, '*sp-particle-system-2d*
+  [0x10278] add x16, x16, #0
+  [0x1027C] ldr w7, [x16]
+
+weather-part.gc:336
+->     (launch-particles (-> *part-id-table* 33) gp-0))
+  [0x10280] adrp x16, #0x10000                               mov igpr-71, '*part-id-table*
+  [0x10284] add x16, x16, #0
+  [0x10288] ldr w8, [x16]
+  [0x1028C] add x16, x8, x15                                 mov igpr-70, [igpr-71 + 144]
+  [0x10290] ldr w6, [x16, #0x90] ;; misaligned with debug data
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x10294] mov x1, x14                                      mov-symptr igpr-72, '#f
+  [0x10298] sub x1, x1, x15 ;; misaligned with debug data
+  [0x1029C] mov x1, x1                                       mov igpr-73, igpr-72
+
+sparticle-launcher.gc:14
+-> (defmacro launch-particles (&key (system *sp-particle-system-2d*) particle origin &key (launch-state (the-as sparticle-launch-state #f)) &key (launch-control (the-as sparticle-launch-control #f)) &key (rate 1.0))
+  [0x102A0] mov x8, x14                                      mov-symptr igpr-74, '#f
+  [0x102A4] sub x8, x8, x15 ;; misaligned with debug data
+  [0x102A8] mov x8, x8                                       mov igpr-75, igpr-74
+
+weather-part.gc:336
+->     (launch-particles (-> *part-id-table* 33) gp-0))
+  [0x102AC] adrp x16, #0x12000                               mov-svl ifpr-76, [(sf 1)]
+  [0x102B0] ldr s23, [x16, #0xa30]
+  [0x102B4] mov x0, x9                                       mov igpr-84, igpr-68
+  [0x102B8] mov x7, x7                                       mov igpr-78, igpr-69
+  [0x102BC] mov x6, x6                                       mov igpr-79, igpr-70
+  [0x102C0] mov x2, x3                                       mov igpr-80, igpr-5
+  [0x102C4] mov x1, x1                                       mov igpr-81, igpr-73
+  [0x102C8] mov x8, x8                                       mov igpr-82, igpr-75
+  [0x102CC] fmov w9, s23                                     mov igpr-83, ifpr-76
+  [0x102D0] sxtw x9, w9
+  [0x102D4] add x0, x0, x15                                  call igpr-84 (ret igpr-77) (args igpr-78 igpr-79 igpr-80 igpr-81 igpr-82 igpr-83)
+  [0x102D8] stp x3, x5, [sp, #-0x10]!
+  [0x102DC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102E0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102E4] blr x0 ;; misaligned with debug data
+  [0x102E8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x102EC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x102F0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x102F4] mov x3, x3                                       mov igpr-85, igpr-77
+
+weather-part.gc:329
+-> (defun update-snow ((arg0 target))
+  [0x102F8] movz x9, #0                                      mov-ic igpr-86, 0
+  [0x102FC] ldr d24, [sp, #0x10]
+  [0x10300] ldr d25, [sp, #0x18]
+  [0x10304] add sp, sp, #0x20
+  [0x10308] ldp x29, x30, [sp], #0x10
+  [0x1030C] ret
+
+
+

@@ -1,0 +1,661 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] adrp x9, #0x10000                                mov-fa igpr-0, function-drawable-sphere-box-intersect?
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+
+main-collide.gc:13
+-> (defun drawable-sphere-box-intersect? ((arg0 drawable) (arg1 bounding-box4w))
+  [0x10014] adrp x16, #0x10000                               mov 'drawable-sphere-box-intersect?, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+  [0x10020] adrp x9, #0x10000                                mov-fa igpr-1, function-instance-sphere-box-intersect?
+  [0x10024] add x9, x9, #0
+  [0x10028] sub x9, x9, x15
+
+main-collide.gc:58
+-> (defun instance-sphere-box-intersect? ((arg0 drawable) (arg1 instance-tie) (arg2 bounding-box4w))
+  [0x1002C] adrp x16, #0x10000                               mov 'instance-sphere-box-intersect?, igpr-1
+  [0x10030] add x16, x16, #0
+  [0x10034] str w9, [x16]
+  [0x10038] adrp x0, #0x10000                                mov-fa igpr-2, function-instance-tfragment-add-debug-sphere
+  [0x1003C] add x0, x0, #0
+  [0x10040] sub x0, x0, x15
+
+main-collide.gc:157
+-> (defun instance-tfragment-add-debug-sphere ((arg0 drawable) (arg1 instance-tie))
+  [0x10044] adrp x16, #0x10000                               mov 'instance-tfragment-add-debug-sphere, igpr-2
+  [0x10048] add x16, x16, #0
+  [0x1004C] str w0, [x16]
+
+main-collide.gc:1
+-> ;-*-Lisp-*-
+  [0x10050] mov x0, x0                                       ret igpr-3 igpr-2
+  [0x10054] ldp x29, x30, [sp], #0x10
+  [0x10058] ret
+
+
+[instance-tfragment-add-debug-sphere]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+main-collide.gc:157
+-> (defun instance-tfragment-add-debug-sphere ((arg0 drawable) (arg1 instance-tie))
+  [0x1000C] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x10010] mov x6, x6                                       mov igpr-4, igpr-1
+
+main-collide.gc:164
+->     (init-vf0-vector)
+  [0x10014] adrp x16, #0x10000                               mov-svl ivf-9, [static-structure]
+  [0x10018] ldr q22, [x16, #0x500]
+
+main-collide.gc:166
+->     (let ((v1-0 (the-as uint128 (-> arg1 origin vector4h 3 long)))) (.pextlh v1-1 v1-0 r0-0))
+  [0x1001C] add x16, x6, x15                                 mov igpr-14, [igpr-4 + 52]
+  [0x10020] ldur x9, [x16, #0x34] ;; misaligned with debug data
+  [0x10024] mov x9, x9                                       mov igpr-15, igpr-14
+
+main-collide.gc:166
+->     (let ((v1-0 (the-as uint128 (-> arg1 origin vector4h 3 long)))) (.pextlh v1-1 v1-0 r0-0))
+  [0x10028] fmov d21, x9                                     mov ii128-16, igpr-15
+
+main-collide.gc:166
+->     (let ((v1-0 (the-as uint128 (-> arg1 origin vector4h 3 long)))) (.pextlh v1-1 v1-0 r0-0))
+  [0x1002C] zip1 v23.8h, v23.8h, v21.8h                      .pextlh ii128-6, ii128-16, ii128-5
+
+main-collide.gc:167
+->     (.lvf vf9 (&-> arg0 bsphere quad))
+  [0x10030] add x16, x7, x15                                 mov ivf-13, [igpr-3 + 12]
+  [0x10034] ldur q19, [x16, #0xc] ;; misaligned with debug data
+
+main-collide.gc:168
+->     (.pw.sra v1-2 v1-1 10)
+  [0x10038] sshr v23.4s, v23.4s, #0xa                        .pw.sra ii128-7, ii128-6, 10
+
+main-collide.gc:169
+->     (.lvf vf10 (&-> arg1 bsphere quad))
+  [0x1003C] add x16, x6, x15                                 mov ivf-10, [igpr-4 + 12]
+  [0x10040] ldur q21, [x16, #0xc] ;; misaligned with debug data
+
+main-collide.gc:171
+->     (.mov vf12 v1-2)
+  [0x10044] mov v23.16b, v23.16b                             .mov ivf-12 ii128-7
+
+main-collide.gc:172
+->     (.itof.vf vf12 vf12)
+  [0x10048] scvtf v23.4s, v23.4s                             .itof.vf ivf-12, ivf-12
+
+main-collide.gc:174
+->     (.add.vf.xyz vf10 vf10 vf12)
+  [0x1004C] fadd v23.4s, v21.4s, v23.4s                      .add.vf ivf-17, ivf-10, ivf-12
+  [0x10050] ins v21.s[0], v23.s[0]                           .blend.vf ivf-10, ivf-10, ivf-17, 7
+  [0x10054] ins v21.s[1], v23.s[1] ;; misaligned with debug data
+  [0x10058] ins v21.s[2], v23.s[2] ;; misaligned with debug data
+
+main-collide.gc:176
+->     (.add.vf.xyz vf9 vf9 vf10)
+  [0x1005C] fadd v23.4s, v19.4s, v21.4s                      .add.vf ivf-18, ivf-13, ivf-10
+  [0x10060] ins v19.s[0], v23.s[0]                           .blend.vf ivf-13, ivf-13, ivf-18, 7
+  [0x10064] ins v19.s[1], v23.s[1] ;; misaligned with debug data
+  [0x10068] ins v19.s[2], v23.s[2] ;; misaligned with debug data
+
+main-collide.gc:178
+->     (.add.w.vf.x vf11 vf0 vf9)
+  [0x1006C] dup v23.4s, v19.s[3]                             .splat.vf ivf-19, ivf-13, 3
+  [0x10070] fadd v23.4s, v22.4s, v23.4s                      .add.vf ivf-19, ivf-9, ivf-19
+  [0x10074] ins v20.s[0], v23.s[0]                           .blend.vf ivf-11, ivf-11, ivf-19, 1
+
+main-collide.gc:180
+->     (.mov a3-0 vf11)
+  [0x10078] mov v23.16b, v20.16b                             .mov ifpr-8 ivf-11
+
+main-collide.gc:182
+->     (let ((a2-0 (new-stack-vector0)))
+  [0x1007C] mov x2, sp                                       mov igpr-20, stack-slot-0
+  [0x10080] sub x2, x2, x15
+  [0x10084] mov x2, x2                                       mov igpr-21, igpr-20
+  [0x10088] movz x9, #0                                      mov-ic igpr-22, 0
+  [0x1008C] mov x9, x9                                       mov igpr-23, igpr-22
+  [0x10090] fmov d22, x9                                     mov ii128-24, igpr-23
+  [0x10094] add x16, x2, x15                                 move [igpr-21 + 0], ii128-24
+  [0x10098] str q22, [x16] ;; misaligned with debug data
+
+main-collide.gc:182
+->     (let ((a2-0 (new-stack-vector0)))
+  [0x1009C] mov x2, x2                                       mov igpr-25, igpr-21
+
+main-collide.gc:183
+->       (.svf (&-> a2-0 quad) vf9)
+  [0x100A0] add x16, x2, x15                                 move [igpr-25 + 0], ivf-13
+  [0x100A4] str q19, [x16] ;; misaligned with debug data
+
+main-collide.gc:184
+->       (add-debug-sphere #t (bucket-id debug) a2-0 a3-0 (new 'static 'rgba :r #x80 :g #x80 :b #x80 :a #x80)))))
+  [0x100A8] adrp x16, #0x10000                               mov igpr-26, 'add-debug-sphere
+  [0x100AC] add x16, x16, #0
+  [0x100B0] ldr w9, [x16]
+
+main-collide.gc:182
+->     (let ((a2-0 (new-stack-vector0)))
+  [0x100B4] add x7, x14, #8                                  mov-symptr igpr-27, '#t
+  [0x100B8] sub x7, x7, x15 ;; misaligned with debug data
+
+main-collide.gc:184
+->       (add-debug-sphere #t (bucket-id debug) a2-0 a3-0 (new 'static 'rgba :r #x80 :g #x80 :b #x80 :a #x80)))))
+  [0x100BC] movz x6, #0x43                                   mov-ic igpr-28, 67
+
+main-collide.gc:184
+->       (add-debug-sphere #t (bucket-id debug) a2-0 a3-0 (new 'static 'rgba :r #x80 :g #x80 :b #x80 :a #x80)))))
+  [0x100C0] movz x8, #0x8080                                 mov-ic igpr-29, 2155905152
+  [0x100C4] movk x8, #0x8080, lsl #16
+
+main-collide.gc:184
+->       (add-debug-sphere #t (bucket-id debug) a2-0 a3-0 (new 'static 'rgba :r #x80 :g #x80 :b #x80 :a #x80)))))
+  [0x100C8] mov x9, x9                                       mov igpr-36, igpr-26
+  [0x100CC] mov x7, x7                                       mov igpr-31, igpr-27
+  [0x100D0] mov x6, x6                                       mov igpr-32, igpr-28
+  [0x100D4] mov x2, x2                                       mov igpr-33, igpr-25
+  [0x100D8] fmov w1, s23                                     mov igpr-34, ifpr-8
+  [0x100DC] sxtw x1, w1
+  [0x100E0] mov x8, x8                                       mov igpr-35, igpr-29
+  [0x100E4] add x9, x9, x15                                  call igpr-36 (ret igpr-30) (args igpr-31 igpr-32 igpr-33 igpr-34 igpr-35)
+  [0x100E8] stp x3, x5, [sp, #-0x10]!
+  [0x100EC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F4] blr x9 ;; misaligned with debug data
+  [0x100F8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100FC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10100] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10104] mov x0, x0                                       mov igpr-37, igpr-30
+
+main-collide.gc:157
+-> (defun instance-tfragment-add-debug-sphere ((arg0 drawable) (arg1 instance-tie))
+  [0x10108] mov x0, x0                                       ret igpr-2 igpr-37
+  [0x1010C] add sp, sp, #0x10
+  [0x10110] ldp x29, x30, [sp], #0x10
+  [0x10114] ret
+
+
+[instance-sphere-box-intersect?]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x20
+  [0x1000C] str q24, [sp]
+  [0x10010] str q25, [sp, #0x10]
+
+main-collide.gc:58
+-> (defun instance-sphere-box-intersect? ((arg0 drawable) (arg1 instance-tie) (arg2 bounding-box4w))
+  [0x10014] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x10018] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x1001C] mov x2, x2                                       mov igpr-6, igpr-2
+
+main-collide.gc:88
+->     (init-vf0-vector)
+  [0x10020] adrp x16, #0x10000                               mov-svl ivf-24, [static-structure]
+  [0x10024] ldr q19, [x16, #0x4e0]
+
+main-collide.gc:90
+->     (let ((v1-0 (-> arg1 max-scale)))
+  [0x10028] add x16, x6, x15                                 mov igpr-35, [igpr-5 + 34]
+  [0x1002C] ldrh w9, [x16, #0x22] ;; misaligned with debug data
+
+main-collide.gc:90
+->     (let ((v1-0 (-> arg1 max-scale)))
+  [0x10030] mov x9, x9                                       mov igpr-36, igpr-35
+
+main-collide.gc:92
+->       (let ((a3-0 (the-as uint128 (-> arg1 origin vector4h 3 long))))
+  [0x10034] add x16, x6, x15                                 mov igpr-37, [igpr-5 + 52]
+  [0x10038] ldur x8, [x16, #0x34] ;; misaligned with debug data
+  [0x1003C] mov x8, x8                                       mov igpr-38, igpr-37
+
+main-collide.gc:92
+->       (let ((a3-0 (the-as uint128 (-> arg1 origin vector4h 3 long))))
+  [0x10040] fmov d22, x8                                     mov ii128-39, igpr-38
+
+main-collide.gc:94
+->         (let ((t2-0 (the-as uint128 (-> arg1 origin vector4h 0 long))))
+  [0x10044] add x16, x6, x15                                 mov igpr-40, [igpr-5 + 28]
+  [0x10048] ldur x8, [x16, #0x1c] ;; misaligned with debug data
+  [0x1004C] mov x8, x8                                       mov igpr-41, igpr-40
+
+main-collide.gc:94
+->         (let ((t2-0 (the-as uint128 (-> arg1 origin vector4h 0 long))))
+  [0x10050] fmov d20, x8                                     mov ii128-42, igpr-41
+
+main-collide.gc:95
+->           (.pextlh a3-1 a3-0 zero)
+  [0x10054] zip1 v22.8h, v23.8h, v22.8h                      .pextlh ii128-14, ii128-39, ii128-7
+
+main-collide.gc:96
+->           (let ((t0-0 (the-as uint128 (-> arg1 origin vector4h 1 long))))
+  [0x10058] add x16, x6, x15                                 mov igpr-43, [igpr-5 + 36]
+  [0x1005C] ldur x8, [x16, #0x24] ;; misaligned with debug data
+  [0x10060] mov x8, x8                                       mov igpr-44, igpr-43
+
+main-collide.gc:96
+->           (let ((t0-0 (the-as uint128 (-> arg1 origin vector4h 1 long))))
+  [0x10064] fmov d17, x8                                     mov ii128-45, igpr-44
+
+main-collide.gc:97
+->             (.pw.sra t1-0 a3-1 10)
+  [0x10068] sshr v21.4s, v22.4s, #0xa                        .pw.sra ii128-19, ii128-14, 10
+
+main-collide.gc:98
+->             (let ((a3-2 (the-as uint128 (-> arg1 origin vector4h 2 long))))
+  [0x1006C] add x16, x6, x15                                 mov igpr-46, [igpr-5 + 44]
+  [0x10070] ldur x8, [x16, #0x2c] ;; misaligned with debug data
+  [0x10074] mov x8, x8                                       mov igpr-47, igpr-46
+
+main-collide.gc:98
+->             (let ((a3-2 (the-as uint128 (-> arg1 origin vector4h 2 long))))
+  [0x10078] fmov d16, x8                                     mov ii128-48, igpr-47
+
+main-collide.gc:99
+->               (.pextlh t2-1 t2-0 zero)
+  [0x1007C] zip1 v22.8h, v23.8h, v20.8h                      .pextlh ii128-20, ii128-42, ii128-7
+
+main-collide.gc:100
+->               (.pw.sra t2-2 t2-1 16)
+  [0x10080] sshr v20.4s, v22.4s, #0x10                       .pw.sra ii128-21, ii128-20, 16
+
+main-collide.gc:101
+->               (.pextlh t0-1 t0-0 zero)
+  [0x10084] zip1 v22.8h, v23.8h, v17.8h                      .pextlh ii128-17, ii128-45, ii128-7
+
+main-collide.gc:102
+->               (.mov vf8 t1-0)
+  [0x10088] mov v24.16b, v21.16b                             .mov ivf-33 ii128-19
+
+main-collide.gc:103
+->               (.pw.sra t0-2 t0-1 16)
+  [0x1008C] sshr v21.4s, v22.4s, #0x10                       .pw.sra ii128-18, ii128-17, 16
+
+main-collide.gc:104
+->               (.mov vf5 t2-2)
+  [0x10090] mov v20.16b, v20.16b                             .mov ivf-30 ii128-21
+
+main-collide.gc:105
+->               (.pextlh a3-3 a3-2 zero)))))
+  [0x10094] zip1 v22.8h, v23.8h, v16.8h                      .pextlh ii128-15, ii128-48, ii128-7
+
+main-collide.gc:106
+->       (.mov vf6 t0-2)
+  [0x10098] mov v17.16b, v21.16b                             .mov ivf-31 ii128-18
+
+main-collide.gc:107
+->       (.pw.sra a3-4 a3-3 16)
+  [0x1009C] sshr v22.4s, v22.4s, #0x10                       .pw.sra ii128-16, ii128-15, 16
+
+main-collide.gc:108
+->       (.lvf vf9 (&-> arg1 bsphere quad))
+  [0x100A0] add x16, x6, x15                                 mov ivf-34, [igpr-5 + 12]
+  [0x100A4] ldur q25, [x16, #0xc] ;; misaligned with debug data
+
+main-collide.gc:110
+->       (.mov vf7 a3-4)
+  [0x100A8] mov v16.16b, v22.16b                             .mov ivf-32 ii128-16
+
+main-collide.gc:112
+->       (.mov vf10 v1-0))
+  [0x100AC] fmov d21, x9                                     .mov ivf-26 igpr-36
+
+main-collide.gc:113
+->     (.itof.vf vf8 vf8)
+  [0x100B0] scvtf v24.4s, v24.4s                             .itof.vf ivf-33, ivf-33
+
+main-collide.gc:115
+->     (vitof12.xyzw vf5 vf5)
+  [0x100B4] scvtf v20.4s, v20.4s                             .itof.vf ivf-30, ivf-30
+  [0x100B8] adrp x16, #0x10000                               mov-svl ifpr-50, [(sf 0.00024414062)]
+  [0x100BC] ldr s22, [x16, #0x4f0]
+  [0x100C0] mov v22.16b, v22.16b                             mov ivf-49, ifpr-50
+  [0x100C4] dup v22.4s, v22.s[0]                             .splat.vf ivf-51, ivf-49, 0
+  [0x100C8] fmul v20.4s, v20.4s, v22.4s                      .mul.vf ivf-30, ivf-30, ivf-51
+
+main-collide.gc:117
+->     (vitof12.xyzw vf6 vf6)
+  [0x100CC] scvtf v17.4s, v17.4s                             .itof.vf ivf-31, ivf-31
+  [0x100D0] adrp x16, #0x10000                               mov-svl ifpr-53, [(sf 0.00024414062)]
+  [0x100D4] ldr s22, [x16, #0x4f4]
+  [0x100D8] mov v22.16b, v22.16b                             mov ivf-52, ifpr-53
+  [0x100DC] dup v22.4s, v22.s[0]                             .splat.vf ivf-54, ivf-52, 0
+  [0x100E0] fmul v17.4s, v17.4s, v22.4s                      .mul.vf ivf-31, ivf-31, ivf-54
+
+main-collide.gc:119
+->     (vitof12.xyzw vf7 vf7)
+  [0x100E4] scvtf v16.4s, v16.4s                             .itof.vf ivf-32, ivf-32
+  [0x100E8] adrp x16, #0x10000                               mov-svl ifpr-56, [(sf 0.00024414062)]
+  [0x100EC] ldr s22, [x16, #0x4f8]
+  [0x100F0] mov v22.16b, v22.16b                             mov ivf-55, ifpr-56
+  [0x100F4] dup v22.4s, v22.s[0]                             .splat.vf ivf-57, ivf-55, 0
+  [0x100F8] fmul v16.4s, v16.4s, v22.4s                      .mul.vf ivf-32, ivf-32, ivf-57
+
+main-collide.gc:121
+->     (.add.vf.xyz vf8 vf8 vf9)
+  [0x100FC] fadd v22.4s, v24.4s, v25.4s                      .add.vf ivf-58, ivf-33, ivf-34
+  [0x10100] ins v24.s[0], v22.s[0]                           .blend.vf ivf-33, ivf-33, ivf-58, 7
+  [0x10104] ins v24.s[1], v22.s[1] ;; misaligned with debug data
+  [0x10108] ins v24.s[2], v22.s[2] ;; misaligned with debug data
+
+main-collide.gc:124
+->     (.lvf vf9 (&-> arg0 bsphere quad))
+  [0x1010C] add x16, x7, x15                                 mov ivf-34, [igpr-4 + 12]
+  [0x10110] ldur q25, [x16, #0xc] ;; misaligned with debug data
+
+main-collide.gc:125
+->     (vitof12.xyzw vf10 vf10)
+  [0x10114] scvtf v21.4s, v21.4s                             .itof.vf ivf-26, ivf-26
+  [0x10118] adrp x16, #0x10000                               mov-svl ifpr-60, [(sf 0.00024414062)]
+  [0x1011C] ldr s22, [x16, #0x4fc]
+  [0x10120] mov v22.16b, v22.16b                             mov ivf-59, ifpr-60
+  [0x10124] dup v22.4s, v22.s[0]                             .splat.vf ivf-61, ivf-59, 0
+  [0x10128] fmul v21.4s, v21.4s, v22.4s                      .mul.vf ivf-26, ivf-26, ivf-61
+
+main-collide.gc:127
+->     (.mul.w.vf.x vf10 vf10 vf9)
+  [0x1012C] dup v22.4s, v25.s[3]                             .splat.vf ivf-62, ivf-34, 3
+  [0x10130] fmul v22.4s, v21.4s, v22.4s                      .mul.vf ivf-62, ivf-26, ivf-62
+  [0x10134] ins v21.s[0], v22.s[0]                           .blend.vf ivf-26, ivf-26, ivf-62, 1
+
+main-collide.gc:129
+->     (.mul.x.vf acc vf5 vf9)
+  [0x10138] dup v22.4s, v25.s[0]                             .splat.vf ivf-63, ivf-34, 0
+  [0x1013C] fmul v22.4s, v20.4s, v22.4s                      .mul.vf ivf-23, ivf-30, ivf-63
+
+main-collide.gc:131
+->     (.add.mul.y.vf acc vf6 vf9 acc)
+  [0x10140] dup v20.4s, v25.s[1]                             .splat.vf ivf-64, ivf-34, 1
+  [0x10144] fmul v20.4s, v17.4s, v20.4s                      .mul.vf ivf-64, ivf-31, ivf-64
+  [0x10148] fadd v22.4s, v22.4s, v20.4s                      .add.vf ivf-23, ivf-23, ivf-64
+
+main-collide.gc:132
+->     (let ((v1-2 (-> arg2 min quad)))
+  [0x1014C] add x16, x2, x15                                 mov ii128-65, [igpr-6 + 0]
+  [0x10150] ldr q20, [x16] ;; misaligned with debug data
+
+main-collide.gc:132
+->     (let ((v1-2 (-> arg2 min quad)))
+  [0x10154] mov v17.16b, v20.16b                             mov ii128-66, ii128-65
+
+main-collide.gc:133
+->       (.add.mul.z.vf acc vf7 vf9 acc)
+  [0x10158] dup v20.4s, v25.s[2]                             .splat.vf ivf-67, ivf-34, 2
+  [0x1015C] fmul v20.4s, v16.4s, v20.4s                      .mul.vf ivf-67, ivf-32, ivf-67
+  [0x10160] fadd v22.4s, v22.4s, v20.4s                      .add.vf ivf-23, ivf-23, ivf-67
+
+main-collide.gc:134
+->       (let ((a1-1 (-> arg2 max quad)))
+  [0x10164] add x16, x2, x15                                 mov ii128-68, [igpr-6 + 16]
+  [0x10168] ldr q20, [x16, #0x10] ;; misaligned with debug data
+
+main-collide.gc:134
+->       (let ((a1-1 (-> arg2 max quad)))
+  [0x1016C] mov v16.16b, v20.16b                             mov ii128-69, ii128-68
+
+main-collide.gc:135
+->         (.add.mul.w.vf vf1 vf8 vf0 acc)
+  [0x10170] dup v20.4s, v19.s[3]                             .splat.vf ivf-70, ivf-24, 3
+  [0x10174] fmul v20.4s, v24.4s, v20.4s                      .mul.vf ivf-70, ivf-33, ivf-70
+  [0x10178] fadd v22.4s, v22.4s, v20.4s                      .add.vf ivf-25, ivf-23, ivf-70
+
+main-collide.gc:137
+->         (.add.x.vf.xyz vf2 vf1 vf10)
+  [0x1017C] dup v20.4s, v21.s[0]                             .splat.vf ivf-71, ivf-26, 0
+  [0x10180] fadd v20.4s, v22.4s, v20.4s                      .add.vf ivf-71, ivf-25, ivf-71
+  [0x10184] ins v18.s[0], v20.s[0]                           .blend.vf ivf-27, ivf-27, ivf-71, 7
+  [0x10188] ins v18.s[1], v20.s[1] ;; misaligned with debug data
+  [0x1018C] ins v18.s[2], v20.s[2] ;; misaligned with debug data
+
+main-collide.gc:139
+->         (.sub.x.vf.xyz vf1 vf1 vf10)
+  [0x10190] dup v21.4s, v21.s[0]                             .splat.vf ivf-72, ivf-26, 0
+  [0x10194] fsub v21.4s, v22.4s, v21.4s                      .sub.vf ivf-72, ivf-25, ivf-72
+  [0x10198] ins v22.s[0], v21.s[0]                           .blend.vf ivf-25, ivf-25, ivf-72, 7
+  [0x1019C] ins v22.s[1], v21.s[1] ;; misaligned with debug data
+  [0x101A0] ins v22.s[2], v21.s[2] ;; misaligned with debug data
+
+main-collide.gc:141
+->         (.ftoi.vf vf4 vf2)
+  [0x101A4] fcvtzs v20.4s, v18.4s                            .ftoi.vf ivf-29, ivf-27
+
+main-collide.gc:143
+->         (.ftoi.vf vf3 vf1)
+  [0x101A8] fcvtzs v21.4s, v22.4s                            .ftoi.vf ivf-28, ivf-25
+
+main-collide.gc:145
+->         (.mov a0-2 vf4)
+  [0x101AC] mov v22.16b, v20.16b                             .mov ii128-11 ivf-29
+
+main-collide.gc:147
+->         (.mov a2-1 vf3)
+  [0x101B0] mov v21.16b, v21.16b                             .mov ii128-13 ivf-28
+
+main-collide.gc:149
+->         (.pcgtw a1-2 a2-1 a1-1))
+  [0x101B4] cmgt v21.4s, v21.4s, v16.4s                      .pcgtw ii128-12, ii128-13, ii128-69
+
+main-collide.gc:150
+->       (.pcgtw v1-3 v1-2 a0-2))
+  [0x101B8] cmgt v22.4s, v17.4s, v22.4s                      .pcgtw ii128-8, ii128-66, ii128-11
+
+main-collide.gc:151
+->     (.por v1-4 a1-2 v1-3)
+  [0x101BC] orr v22.16b, v22.16b, v21.16b                    .por ii128-9, ii128-12, ii128-8
+
+main-collide.gc:152
+->     (.ppach v1-5 zero v1-4)
+  [0x101C0] mov v0.16b, v23.16b                              .VPSHUFLW ii128-73, ii128-7, 136
+  [0x101C4] mov v21.16b, v23.16b ;; misaligned with debug data
+  [0x101C8] ins v21.h[0], v0.h[0] ;; misaligned with debug data
+  [0x101CC] ins v21.h[1], v0.h[2] ;; misaligned with debug data
+  [0x101D0] ins v21.h[2], v0.h[0] ;; misaligned with debug data
+  [0x101D4] ins v21.h[3], v0.h[2] ;; misaligned with debug data
+  [0x101D8] mov v0.16b, v22.16b                              .VPSHUFLW ii128-10, ii128-9, 136
+  [0x101DC] mov v23.16b, v22.16b ;; misaligned with debug data
+  [0x101E0] ins v23.h[0], v0.h[0] ;; misaligned with debug data
+  [0x101E4] ins v23.h[1], v0.h[2] ;; misaligned with debug data
+  [0x101E8] ins v23.h[2], v0.h[0] ;; misaligned with debug data
+  [0x101EC] ins v23.h[3], v0.h[2] ;; misaligned with debug data
+  [0x101F0] mov v0.16b, v21.16b                              .VPSHUFHW ii128-73, ii128-73, 136
+  [0x101F4] ins v21.h[4], v0.h[4] ;; misaligned with debug data
+  [0x101F8] ins v21.h[5], v0.h[6] ;; misaligned with debug data
+  [0x101FC] ins v21.h[6], v0.h[4] ;; misaligned with debug data
+  [0x10200] ins v21.h[7], v0.h[6] ;; misaligned with debug data
+  [0x10204] mov v0.16b, v23.16b                              .VPSHUFHW ii128-10, ii128-10, 136
+  [0x10208] ins v23.h[4], v0.h[4] ;; misaligned with debug data
+  [0x1020C] ins v23.h[5], v0.h[6] ;; misaligned with debug data
+  [0x10210] ins v23.h[6], v0.h[4] ;; misaligned with debug data
+  [0x10214] ins v23.h[7], v0.h[6] ;; misaligned with debug data
+  [0x10218] movi v0.16b, #0                                  .VPSRLDQ ii128-73, ii128-73, 4
+  [0x1021C] ext v21.16b, v21.16b, v0.16b, #4 ;; misaligned with debug data
+  [0x10220] movi v0.16b, #0                                  .VPSRLDQ ii128-10, ii128-10, 4
+  [0x10224] ext v23.16b, v23.16b, v0.16b, #4 ;; misaligned with debug data
+  [0x10228] zip1 v23.2d, v23.2d, v21.2d                      .pcpyld ii128-10, ii128-73, ii128-10
+
+main-collide.gc:153
+->     (let ((v1-6 (shl (the-as int v1-5) 16))) (nop!) (zero? v1-6))))
+  [0x1022C] mov v23.16b, v23.16b                             mov ii128-74, ii128-10
+  [0x10230] fmov x9, d23                                     mov igpr-75, ii128-74
+  [0x10234] mov x9, x9                                       mov igpr-76, igpr-75
+  [0x10238] lsl x9, x9, #0x10                                shl igpr-76, 16
+
+main-collide.gc:153
+->     (let ((v1-6 (shl (the-as int v1-5) 16))) (nop!) (zero? v1-6))))
+  [0x1023C] mov x9, x9                                       mov igpr-77, igpr-76
+
+main-collide.gc:153
+->     (let ((v1-6 (shl (the-as int v1-5) 16))) (nop!) (zero? v1-6))))
+  [0x10240] movz x8, #0                                      mov-ic igpr-78, 0
+  [0x10244] mov x0, x14                                      mov-symptr igpr-79, '#f
+  [0x10248] sub x0, x0, x15 ;; misaligned with debug data
+  [0x1024C] cmp x9, x8                                       j(igpr-77 != igpr-78) label-134
+  [0x10250] b.ne #0x10260
+  [0x10254] add x0, x14, #8                                  mov-symptr igpr-80, '#t
+  [0x10258] sub x0, x0, x15 ;; misaligned with debug data
+  [0x1025C] mov x0, x0                                       mov igpr-79, igpr-80
+
+main-collide.gc:58
+-> (defun instance-sphere-box-intersect? ((arg0 drawable) (arg1 instance-tie) (arg2 bounding-box4w))
+  [0x10260] mov x0, x0                                       ret igpr-3 igpr-79
+  [0x10264] ldr q24, [sp]
+  [0x10268] ldr q25, [sp, #0x10]
+  [0x1026C] add sp, sp, #0x20
+  [0x10270] ldp x29, x30, [sp], #0x10
+  [0x10274] ret
+
+
+[drawable-sphere-box-intersect?]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+main-collide.gc:13
+-> (defun drawable-sphere-box-intersect? ((arg0 drawable) (arg1 bounding-box4w))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+main-collide.gc:32
+->     (.lvf vf1 (&-> arg0 bsphere quad))
+  [0x10010] add x16, x7, x15                                 mov ivf-16, [igpr-3 + 12]
+  [0x10014] ldur q23, [x16, #0xc] ;; misaligned with debug data
+
+main-collide.gc:33
+->     (.add.w.vf.xyz vf2 vf1 vf1)
+  [0x10018] dup v21.4s, v23.s[3]                             .splat.vf ivf-20, ivf-16, 3
+  [0x1001C] fadd v21.4s, v23.4s, v21.4s                      .add.vf ivf-20, ivf-16, ivf-20
+  [0x10020] ins v22.s[0], v21.s[0]                           .blend.vf ivf-17, ivf-17, ivf-20, 7
+  [0x10024] ins v22.s[1], v21.s[1] ;; misaligned with debug data
+  [0x10028] ins v22.s[2], v21.s[2] ;; misaligned with debug data
+
+main-collide.gc:34
+->     (let ((v1-0 (-> arg1 min quad)))
+  [0x1002C] add x16, x6, x15                                 mov ii128-21, [igpr-4 + 0]
+  [0x10030] ldr q21, [x16] ;; misaligned with debug data
+
+main-collide.gc:34
+->     (let ((v1-0 (-> arg1 min quad)))
+  [0x10034] mov v20.16b, v21.16b                             mov ii128-22, ii128-21
+
+main-collide.gc:35
+->       (.sub.w.vf.xyz vf1 vf1 vf1)
+  [0x10038] dup v21.4s, v23.s[3]                             .splat.vf ivf-23, ivf-16, 3
+  [0x1003C] fsub v21.4s, v23.4s, v21.4s                      .sub.vf ivf-23, ivf-16, ivf-23
+  [0x10040] ins v23.s[0], v21.s[0]                           .blend.vf ivf-16, ivf-16, ivf-23, 7
+  [0x10044] ins v23.s[1], v21.s[1] ;; misaligned with debug data
+  [0x10048] ins v23.s[2], v21.s[2] ;; misaligned with debug data
+
+main-collide.gc:36
+->       (let ((a1-1 (-> arg1 max quad)))
+  [0x1004C] add x16, x6, x15                                 mov ii128-24, [igpr-4 + 16]
+  [0x10050] ldr q21, [x16, #0x10] ;; misaligned with debug data
+
+main-collide.gc:36
+->       (let ((a1-1 (-> arg1 max quad)))
+  [0x10054] mov v19.16b, v21.16b                             mov ii128-25, ii128-24
+
+main-collide.gc:37
+->         (.ftoi.vf vf4 vf2)
+  [0x10058] fcvtzs v21.4s, v22.4s                            .ftoi.vf ivf-19, ivf-17
+
+main-collide.gc:39
+->         (.ftoi.vf vf3 vf1)
+  [0x1005C] fcvtzs v22.4s, v23.4s                            .ftoi.vf ivf-18, ivf-16
+
+main-collide.gc:41
+->         (.mov a0-1 vf4)
+  [0x10060] mov v23.16b, v21.16b                             .mov ii128-12 ivf-19
+
+main-collide.gc:43
+->         (.mov a2-0 vf3)
+  [0x10064] mov v22.16b, v22.16b                             .mov ii128-14 ivf-18
+
+main-collide.gc:45
+->         (.pcgtw a1-2 a2-0 a1-1))
+  [0x10068] cmgt v22.4s, v22.4s, v19.4s                      .pcgtw ii128-13, ii128-14, ii128-25
+
+main-collide.gc:46
+->       (.mov r0-0 f31-0)
+  [0x1006C] mov x9, x8                                       .mov igpr-5 igpr-15
+
+main-collide.gc:47
+->       (.pcgtw v1-1 v1-0 a0-1))
+  [0x10070] cmgt v23.4s, v20.4s, v23.4s                      .pcgtw ii128-9, ii128-22, ii128-12
+
+main-collide.gc:48
+->     (.mov r0-1 f31-0)
+  [0x10074] mov x9, x8                                       .mov igpr-6 igpr-15
+
+main-collide.gc:49
+->     (.por v1-2 a1-2 v1-1)
+  [0x10078] orr v22.16b, v23.16b, v22.16b                    .por ii128-10, ii128-13, ii128-9
+
+main-collide.gc:50
+->     (.mov r0-2 f31-0)
+  [0x1007C] fmov d23, x8                                     .mov ii128-7 igpr-15
+
+main-collide.gc:51
+->     (.ppach v1-3 r0-2 v1-2)
+  [0x10080] mov v0.16b, v23.16b                              .VPSHUFLW ii128-26, ii128-7, 136
+  [0x10084] mov v21.16b, v23.16b ;; misaligned with debug data
+  [0x10088] ins v21.h[0], v0.h[0] ;; misaligned with debug data
+  [0x1008C] ins v21.h[1], v0.h[2] ;; misaligned with debug data
+  [0x10090] ins v21.h[2], v0.h[0] ;; misaligned with debug data
+  [0x10094] ins v21.h[3], v0.h[2] ;; misaligned with debug data
+  [0x10098] mov v0.16b, v22.16b                              .VPSHUFLW ii128-11, ii128-10, 136
+  [0x1009C] mov v23.16b, v22.16b ;; misaligned with debug data
+  [0x100A0] ins v23.h[0], v0.h[0] ;; misaligned with debug data
+  [0x100A4] ins v23.h[1], v0.h[2] ;; misaligned with debug data
+  [0x100A8] ins v23.h[2], v0.h[0] ;; misaligned with debug data
+  [0x100AC] ins v23.h[3], v0.h[2] ;; misaligned with debug data
+  [0x100B0] mov v0.16b, v21.16b                              .VPSHUFHW ii128-26, ii128-26, 136
+  [0x100B4] ins v21.h[4], v0.h[4] ;; misaligned with debug data
+  [0x100B8] ins v21.h[5], v0.h[6] ;; misaligned with debug data
+  [0x100BC] ins v21.h[6], v0.h[4] ;; misaligned with debug data
+  [0x100C0] ins v21.h[7], v0.h[6] ;; misaligned with debug data
+  [0x100C4] mov v0.16b, v23.16b                              .VPSHUFHW ii128-11, ii128-11, 136
+  [0x100C8] ins v23.h[4], v0.h[4] ;; misaligned with debug data
+  [0x100CC] ins v23.h[5], v0.h[6] ;; misaligned with debug data
+  [0x100D0] ins v23.h[6], v0.h[4] ;; misaligned with debug data
+  [0x100D4] ins v23.h[7], v0.h[6] ;; misaligned with debug data
+  [0x100D8] movi v0.16b, #0                                  .VPSRLDQ ii128-26, ii128-26, 4
+  [0x100DC] ext v21.16b, v21.16b, v0.16b, #4 ;; misaligned with debug data
+  [0x100E0] movi v0.16b, #0                                  .VPSRLDQ ii128-11, ii128-11, 4
+  [0x100E4] ext v23.16b, v23.16b, v0.16b, #4 ;; misaligned with debug data
+  [0x100E8] zip1 v23.2d, v23.2d, v21.2d                      .pcpyld ii128-11, ii128-26, ii128-11
+
+main-collide.gc:52
+->     (.mov r0-3 f31-0)
+  [0x100EC] mov x9, x8                                       .mov igpr-8 igpr-15
+
+main-collide.gc:53
+->     (let ((v1-4 (shl (the-as int v1-3) 16))) (nop!) (zero? v1-4))))
+  [0x100F0] mov v23.16b, v23.16b                             mov ii128-27, ii128-11
+  [0x100F4] fmov x9, d23                                     mov igpr-28, ii128-27
+  [0x100F8] mov x9, x9                                       mov igpr-29, igpr-28
+  [0x100FC] lsl x9, x9, #0x10                                shl igpr-29, 16
+
+main-collide.gc:53
+->     (let ((v1-4 (shl (the-as int v1-3) 16))) (nop!) (zero? v1-4))))
+  [0x10100] mov x9, x9                                       mov igpr-30, igpr-29
+
+main-collide.gc:53
+->     (let ((v1-4 (shl (the-as int v1-3) 16))) (nop!) (zero? v1-4))))
+  [0x10104] movz x8, #0                                      mov-ic igpr-31, 0
+  [0x10108] mov x0, x14                                      mov-symptr igpr-32, '#f
+  [0x1010C] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10110] cmp x9, x8                                       j(igpr-30 != igpr-31) label-51
+  [0x10114] b.ne #0x10124
+  [0x10118] add x0, x14, #8                                  mov-symptr igpr-33, '#t
+  [0x1011C] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10120] mov x0, x0                                       mov igpr-32, igpr-33
+
+main-collide.gc:13
+-> (defun drawable-sphere-box-intersect? ((arg0 drawable) (arg1 bounding-box4w))
+  [0x10124] mov x0, x0                                       ret igpr-2 igpr-32
+  [0x10128] ldp x29, x30, [sp], #0x10
+  [0x1012C] ret
+
+
+

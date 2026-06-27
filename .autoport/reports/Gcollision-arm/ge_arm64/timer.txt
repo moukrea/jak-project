@@ -1,0 +1,971 @@
+[stopwatch-elapsed-seconds]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x20
+  [0x1000C] str d24, [sp, #0x10]
+
+timer.gc:138
+-> (defun stopwatch-elapsed-seconds ((obj stopwatch))
+  [0x10010] mov x7, x7                                       mov igpr-2, igpr-0
+
+timer.gc:133
+-> (defglobalconstant EE_SECONDS_PER_TICK (/ 1.0 300000000)) ;; 300MHz is a "decent enough" estimate
+  [0x10014] adrp x16, #0x10000                               mov-svl ifpr-3, [(sf 1)]
+  [0x10018] ldr s23, [x16, #0x8f8]
+  [0x1001C] movz x9, #0xa300                                 mov-ic igpr-5, 300000000
+  [0x10020] movk x9, #0x11e1, lsl #16
+  [0x10024] scvtf s22, w9                                    i2f ifpr-4, igpr-5
+  [0x10028] adrp x16, #0x10000                               mov-svl ifpr-7, [(sf 0)]
+  [0x1002C] ldr s21, [x16, #0x8fc]
+  [0x10030] fcmp s21, s22                                    j(ifpr-7 == ifpr-4) label-10
+  [0x10034] b.eq #0x10044
+  [0x10038] mov v24.16b, v23.16b                             mov ifpr-6, ifpr-3
+  [0x1003C] fdiv s24, s24, s22                               divss ifpr-6, ifpr-4
+  [0x10040] b #0x10078                                       goto label-19
+  [0x10044] movz x9, #0xffff                                 mov-ic igpr-8, 2139095039
+  [0x10048] movk x9, #0x7f7f, lsl #16
+  [0x1004C] movz x8, #0                                      mov-ic igpr-9, 2147483648
+  [0x10050] movk x8, #0x8000, lsl #16
+  [0x10054] fmov w1, s23                                     mov igpr-10, ifpr-3
+  [0x10058] sxtw x1, w1
+  [0x1005C] and x1, x1, x8                                   and igpr-10, igpr-9
+  [0x10060] eor x9, x9, x1                                   xor igpr-8, igpr-10
+  [0x10064] fmov w1, s22                                     mov igpr-10, ifpr-4
+  [0x10068] sxtw x1, w1
+  [0x1006C] and x1, x1, x8                                   and igpr-10, igpr-9
+  [0x10070] eor x9, x9, x1                                   xor igpr-8, igpr-10
+  [0x10074] fmov s24, w9                                     mov ifpr-6, igpr-8
+
+timer.gc:140
+->   (cpu-ticks-to-seconds (stopwatch-elapsed-ticks obj)))
+  [0x10078] mov v24.16b, v24.16b                             mov ifpr-11, ifpr-6
+
+timer.gc:140
+->   (cpu-ticks-to-seconds (stopwatch-elapsed-ticks obj)))
+  [0x1007C] adrp x16, #0x10000                               mov igpr-12, 'stopwatch-elapsed-ticks
+  [0x10080] add x16, x16, #0
+  [0x10084] ldr w9, [x16]
+  [0x10088] mov x9, x9                                       mov igpr-15, igpr-12
+  [0x1008C] mov x7, x7                                       mov igpr-14, igpr-2
+  [0x10090] add x9, x9, x15                                  call igpr-15 (ret igpr-13) (args igpr-14)
+  [0x10094] stp x3, x5, [sp, #-0x10]!
+  [0x10098] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1009C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100A0] blr x9 ;; misaligned with debug data
+  [0x100A4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100A8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100AC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100B0] mov x0, x0                                       mov igpr-16, igpr-13
+
+timer.gc:140
+->   (cpu-ticks-to-seconds (stopwatch-elapsed-ticks obj)))
+  [0x100B4] scvtf s23, w0                                    i2f ifpr-17, igpr-16
+  [0x100B8] fmul s24, s24, s23                               mulss ifpr-11, ifpr-17
+
+timer.gc:138
+-> (defun stopwatch-elapsed-seconds ((obj stopwatch))
+  [0x100BC] fmov w0, s24                                     mov igpr-18, ifpr-11
+  [0x100C0] sxtw x0, w0
+  [0x100C4] mov x0, x0                                       ret igpr-1 igpr-18
+  [0x100C8] ldr d24, [sp, #0x10]
+  [0x100CC] add sp, sp, #0x20
+  [0x100D0] ldp x29, x30, [sp], #0x10
+  [0x100D4] ret
+
+
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] adrp x9, #0x10000                                mov-fa igpr-0, function-timer-reset
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+
+timer.gc:11
+-> (defun timer-reset ((timer timer-bank))
+  [0x10014] adrp x16, #0x10000                               mov 'timer-reset, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+  [0x10020] adrp x9, #0x10000                                mov-fa igpr-1, function-timer-count
+  [0x10024] add x9, x9, #0
+  [0x10028] sub x9, x9, x15
+
+timer.gc:21
+-> (defun timer-count ((timer timer-bank))
+  [0x1002C] adrp x16, #0x10000                               mov 'timer-count, igpr-1
+  [0x10030] add x16, x16, #0
+  [0x10034] str w9, [x16]
+  [0x10038] adrp x9, #0x10000                                mov-fa igpr-2, function-disable-irq
+  [0x1003C] add x9, x9, #0
+  [0x10040] sub x9, x9, x15
+
+timer.gc:38
+-> (defun disable-irq ()
+  [0x10044] adrp x16, #0x10000                               mov 'disable-irq, igpr-2
+  [0x10048] add x16, x16, #0
+  [0x1004C] str w9, [x16]
+  [0x10050] adrp x9, #0x10000                                mov-fa igpr-3, function-enable-irq
+  [0x10054] add x9, x9, #0
+  [0x10058] sub x9, x9, x15
+
+timer.gc:47
+-> (defun enable-irq ()
+  [0x1005C] adrp x16, #0x10000                               mov 'enable-irq, igpr-3
+  [0x10060] add x16, x16, #0
+  [0x10064] str w9, [x16]
+  [0x10068] adrp x9, #0x10000                                mov-fa igpr-4, function-stopwatch-init
+  [0x1006C] add x9, x9, #0
+  [0x10070] sub x9, x9, x15
+
+timer.gc:59
+-> (defun stopwatch-init ((obj stopwatch))
+  [0x10074] adrp x16, #0x10000                               mov 'stopwatch-init, igpr-4
+  [0x10078] add x16, x16, #0
+  [0x1007C] str w9, [x16]
+  [0x10080] adrp x9, #0x10000                                mov-fa igpr-5, function-stopwatch-reset
+  [0x10084] add x9, x9, #0
+  [0x10088] sub x9, x9, x15
+
+timer.gc:64
+-> (defun stopwatch-reset ((obj stopwatch))
+  [0x1008C] adrp x16, #0x10000                               mov 'stopwatch-reset, igpr-5
+  [0x10090] add x16, x16, #0
+  [0x10094] str w9, [x16]
+  [0x10098] adrp x9, #0x10000                                mov-fa igpr-6, function-stopwatch-start
+  [0x1009C] add x9, x9, #0
+  [0x100A0] sub x9, x9, x15
+
+timer.gc:74
+-> (defun stopwatch-start ((obj stopwatch))
+  [0x100A4] adrp x16, #0x10000                               mov 'stopwatch-start, igpr-6
+  [0x100A8] add x16, x16, #0
+  [0x100AC] str w9, [x16]
+  [0x100B0] adrp x9, #0x10000                                mov-fa igpr-7, function-stopwatch-stop
+  [0x100B4] add x9, x9, #0
+  [0x100B8] sub x9, x9, x15
+
+timer.gc:84
+-> (defun stopwatch-stop ((obj stopwatch))
+  [0x100BC] adrp x16, #0x10000                               mov 'stopwatch-stop, igpr-7
+  [0x100C0] add x16, x16, #0
+  [0x100C4] str w9, [x16]
+  [0x100C8] adrp x9, #0x10000                                mov-fa igpr-8, function-stopwatch-begin
+  [0x100CC] add x9, x9, #0
+  [0x100D0] sub x9, x9, x15
+
+timer.gc:96
+-> (defun stopwatch-begin ((obj stopwatch))
+  [0x100D4] adrp x16, #0x10000                               mov 'stopwatch-begin, igpr-8
+  [0x100D8] add x16, x16, #0
+  [0x100DC] str w9, [x16]
+  [0x100E0] adrp x9, #0x10000                                mov-fa igpr-9, function-stopwatch-end
+  [0x100E4] add x9, x9, #0
+  [0x100E8] sub x9, x9, x15
+
+timer.gc:106
+-> (defun stopwatch-end ((obj stopwatch))
+  [0x100EC] adrp x16, #0x10000                               mov 'stopwatch-end, igpr-9
+  [0x100F0] add x16, x16, #0
+  [0x100F4] str w9, [x16]
+  [0x100F8] adrp x9, #0x10000                                mov-fa igpr-10, function-stopwatch-elapsed-ticks
+  [0x100FC] add x9, x9, #0
+  [0x10100] sub x9, x9, x15
+
+timer.gc:120
+-> (defun stopwatch-elapsed-ticks ((obj stopwatch))
+  [0x10104] adrp x16, #0x10000                               mov 'stopwatch-elapsed-ticks, igpr-10
+  [0x10108] add x16, x16, #0
+  [0x1010C] str w9, [x16]
+  [0x10110] adrp x0, #0x10000                                mov-fa igpr-11, function-stopwatch-elapsed-seconds
+  [0x10114] add x0, x0, #0
+  [0x10118] sub x0, x0, x15
+
+timer.gc:138
+-> (defun stopwatch-elapsed-seconds ((obj stopwatch))
+  [0x1011C] adrp x16, #0x10000                               mov 'stopwatch-elapsed-seconds, igpr-11
+  [0x10120] add x16, x16, #0
+  [0x10124] str w0, [x16]
+
+timer.gc:1
+-> ;-*-Lisp-*-
+  [0x10128] mov x0, x0                                       ret igpr-12 igpr-11
+  [0x1012C] ldp x29, x30, [sp], #0x10
+  [0x10130] ret
+
+
+[stopwatch-stop]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+timer.gc:84
+-> (defun stopwatch-stop ((obj stopwatch))
+  [0x1000C] mov x3, x7                                       mov igpr-2, igpr-0
+
+timer.gc:86
+->   (when (> (-> obj begin-level) 0)
+  [0x10010] add x16, x3, x15                                 mov igpr-4, [igpr-2 + 20]
+  [0x10014] ldrsw x9, [x16, #0x14] ;; misaligned with debug data
+  [0x10018] movz x8, #0                                      mov-ic igpr-5, 0
+  [0x1001C] cmp x9, x8                                       j(igpr-4 <= igpr-5) label-32
+  [0x10020] b.le #0x100c0
+
+timer.gc:87
+->     (set! (-> obj begin-level) 0)
+  [0x10024] movz x9, #0                                      mov-ic igpr-6, 0
+  [0x10028] add x16, x3, x15                                 move [igpr-2 + 20], igpr-6
+  [0x1002C] str w9, [x16, #0x14] ;; misaligned with debug data
+
+timer.gc:88
+->     (let ((count 0))
+  [0x10030] movz x9, #0                                      mov-ic igpr-7, 0
+  [0x10034] mov x9, x9                                       mov igpr-8, igpr-7
+
+timer.gc:89
+->       (let ((count 0))
+  [0x10038] movz x9, #0                                      mov-ic igpr-9, 0
+  [0x1003C] mov x9, x9                                       mov igpr-10, igpr-9
+
+timer.gc:92
+->           (set! count (the int (get-cpu-clock))))
+  [0x10040] movz x5, #0xffff                                 mov-ic igpr-11, 4294967295
+  [0x10044] movk x5, #0xffff, lsl #16
+  [0x10048] adrp x16, #0x10000                               mov igpr-12, '__read-ee-timer
+  [0x1004C] add x16, x16, #0
+  [0x10050] ldr w9, [x16]
+  [0x10054] mov x9, x9                                       mov igpr-14, igpr-12
+  [0x10058] add x9, x9, x15                                  call igpr-14 (ret igpr-13) (args)
+  [0x1005C] stp x3, x5, [sp, #-0x10]!
+  [0x10060] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10064] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10068] blr x9 ;; misaligned with debug data
+  [0x1006C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10074] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10078] mov x0, x0                                       mov igpr-15, igpr-13
+  [0x1007C] mov x5, x5                                       mov igpr-16, igpr-11
+  [0x10080] and x5, x5, x0                                   and igpr-16, igpr-15
+
+timer.gc:92
+->           (set! count (the int (get-cpu-clock))))
+  [0x10084] mov x5, x5                                       mov igpr-17, igpr-16
+  [0x10088] mov x5, x5                                       mov igpr-18, igpr-17
+  [0x1008C] mov x9, x5                                       mov igpr-10, igpr-18
+
+timer.gc:93
+->         (+! (-> obj prev-time-elapsed) (- count (-> obj start-time))))))
+  [0x10090] add x16, x3, x15                                 mov igpr-20, [igpr-2 + 4]
+  [0x10094] ldur x8, [x16, #4] ;; misaligned with debug data
+  [0x10098] mov x8, x8                                       mov igpr-19, igpr-20
+
+timer.gc:93
+->         (+! (-> obj prev-time-elapsed) (- count (-> obj start-time))))))
+  [0x1009C] mov x9, x9                                       mov igpr-21, igpr-10
+  [0x100A0] add x16, x3, x15                                 mov igpr-22, [igpr-2 + 12]
+  [0x100A4] ldur x1, [x16, #0xc] ;; misaligned with debug data
+  [0x100A8] sub x9, x9, x1                                   subi igpr-21, igpr-22
+
+timer.gc:93
+->         (+! (-> obj prev-time-elapsed) (- count (-> obj start-time))))))
+  [0x100AC] add x8, x8, x9                                   addi igpr-19, igpr-21
+  [0x100B0] add x16, x3, x15                                 move [igpr-2 + 4], igpr-19
+  [0x100B4] stur x8, [x16, #4] ;; misaligned with debug data
+
+timer.gc:86
+->   (when (> (-> obj begin-level) 0)
+  [0x100B8] mov x9, x8                                       mov igpr-3, igpr-19
+  [0x100BC] b #0x100c8                                       goto label-33
+  [0x100C0] mov x9, x14                                      mov-symptr igpr-3, '#f
+  [0x100C4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100C8] add sp, sp, #0x10
+  [0x100CC] ldp x29, x30, [sp], #0x10
+  [0x100D0] ret
+
+
+[stopwatch-start]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+timer.gc:74
+-> (defun stopwatch-start ((obj stopwatch))
+  [0x1000C] mov x3, x7                                       mov igpr-2, igpr-0
+
+timer.gc:76
+->   (when (zero? (-> obj begin-level))
+  [0x10010] add x16, x3, x15                                 mov igpr-4, [igpr-2 + 20]
+  [0x10014] ldrsw x9, [x16, #0x14] ;; misaligned with debug data
+  [0x10018] movz x8, #0                                      mov-ic igpr-5, 0
+  [0x1001C] cmp x9, x8                                       j(igpr-4 != igpr-5) label-23
+  [0x10020] b.ne #0x10098
+
+timer.gc:77
+->     (set! (-> obj begin-level) 1)
+  [0x10024] movz x9, #0x1                                    mov-ic igpr-6, 1
+  [0x10028] add x16, x3, x15                                 move [igpr-2 + 20], igpr-6
+  [0x1002C] str w9, [x16, #0x14] ;; misaligned with debug data
+
+timer.gc:78
+->     (let ((count 0))
+  [0x10030] movz x0, #0                                      mov-ic igpr-7, 0
+  [0x10034] mov x0, x0                                       mov igpr-8, igpr-7
+
+timer.gc:81
+->         (set! count (the int (get-cpu-clock))))
+  [0x10038] movz x5, #0xffff                                 mov-ic igpr-9, 4294967295
+  [0x1003C] movk x5, #0xffff, lsl #16
+  [0x10040] adrp x16, #0x10000                               mov igpr-10, '__read-ee-timer
+  [0x10044] add x16, x16, #0
+  [0x10048] ldr w9, [x16]
+  [0x1004C] mov x9, x9                                       mov igpr-12, igpr-10
+  [0x10050] add x9, x9, x15                                  call igpr-12 (ret igpr-11) (args)
+  [0x10054] stp x3, x5, [sp, #-0x10]!
+  [0x10058] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10060] blr x9 ;; misaligned with debug data
+  [0x10064] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] mov x0, x0                                       mov igpr-13, igpr-11
+  [0x10074] mov x5, x5                                       mov igpr-14, igpr-9
+  [0x10078] and x5, x5, x0                                   and igpr-14, igpr-13
+
+timer.gc:81
+->         (set! count (the int (get-cpu-clock))))
+  [0x1007C] mov x5, x5                                       mov igpr-15, igpr-14
+  [0x10080] mov x5, x5                                       mov igpr-16, igpr-15
+  [0x10084] mov x0, x5                                       mov igpr-8, igpr-16
+
+timer.gc:82
+->       (set! (-> obj start-time) count))))
+  [0x10088] add x16, x3, x15                                 move [igpr-2 + 12], igpr-8
+  [0x1008C] stur x0, [x16, #0xc] ;; misaligned with debug data
+
+timer.gc:76
+->   (when (zero? (-> obj begin-level))
+  [0x10090] mov x0, x0                                       mov igpr-3, igpr-8
+  [0x10094] b #0x100a0                                       goto label-24
+  [0x10098] mov x0, x14                                      mov-symptr igpr-3, '#f
+  [0x1009C] sub x0, x0, x15 ;; misaligned with debug data
+
+timer.gc:74
+-> (defun stopwatch-start ((obj stopwatch))
+  [0x100A0] mov x0, x0                                       ret igpr-1 igpr-3
+  [0x100A4] add sp, sp, #0x10
+  [0x100A8] ldp x29, x30, [sp], #0x10
+  [0x100AC] ret
+
+
+[stopwatch-reset]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+timer.gc:64
+-> (defun stopwatch-reset ((obj stopwatch))
+  [0x1000C] mov x3, x7                                       mov igpr-2, igpr-0
+
+timer.gc:66
+->   (set! (-> obj prev-time-elapsed) 0)
+  [0x10010] movz x9, #0                                      mov-ic igpr-3, 0
+  [0x10014] add x16, x3, x15                                 move [igpr-2 + 4], igpr-3
+  [0x10018] stur x9, [x16, #4] ;; misaligned with debug data
+
+timer.gc:67
+->   (when (> (-> obj begin-level) 0)
+  [0x1001C] add x16, x3, x15                                 mov igpr-5, [igpr-2 + 20]
+  [0x10020] ldrsw x9, [x16, #0x14] ;; misaligned with debug data
+  [0x10024] movz x8, #0                                      mov-ic igpr-6, 0
+  [0x10028] cmp x9, x8                                       j(igpr-5 <= igpr-6) label-23
+  [0x1002C] b.le #0x10098
+
+timer.gc:68
+->     (let ((count 0))
+  [0x10030] movz x0, #0                                      mov-ic igpr-7, 0
+  [0x10034] mov x0, x0                                       mov igpr-8, igpr-7
+
+timer.gc:71
+->         (set! count (the int (get-cpu-clock))))
+  [0x10038] movz x5, #0xffff                                 mov-ic igpr-9, 4294967295
+  [0x1003C] movk x5, #0xffff, lsl #16
+  [0x10040] adrp x16, #0x10000                               mov igpr-10, '__read-ee-timer
+  [0x10044] add x16, x16, #0
+  [0x10048] ldr w9, [x16]
+  [0x1004C] mov x9, x9                                       mov igpr-12, igpr-10
+  [0x10050] add x9, x9, x15                                  call igpr-12 (ret igpr-11) (args)
+  [0x10054] stp x3, x5, [sp, #-0x10]!
+  [0x10058] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10060] blr x9 ;; misaligned with debug data
+  [0x10064] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] mov x0, x0                                       mov igpr-13, igpr-11
+  [0x10074] mov x5, x5                                       mov igpr-14, igpr-9
+  [0x10078] and x5, x5, x0                                   and igpr-14, igpr-13
+
+timer.gc:71
+->         (set! count (the int (get-cpu-clock))))
+  [0x1007C] mov x5, x5                                       mov igpr-15, igpr-14
+  [0x10080] mov x5, x5                                       mov igpr-16, igpr-15
+  [0x10084] mov x0, x5                                       mov igpr-8, igpr-16
+
+timer.gc:72
+->       (set! (-> obj start-time) count))))
+  [0x10088] add x16, x3, x15                                 move [igpr-2 + 12], igpr-8
+  [0x1008C] stur x0, [x16, #0xc] ;; misaligned with debug data
+
+timer.gc:67
+->   (when (> (-> obj begin-level) 0)
+  [0x10090] mov x0, x0                                       mov igpr-4, igpr-8
+  [0x10094] b #0x100a0                                       goto label-24
+  [0x10098] mov x0, x14                                      mov-symptr igpr-4, '#f
+  [0x1009C] sub x0, x0, x15 ;; misaligned with debug data
+
+timer.gc:64
+-> (defun stopwatch-reset ((obj stopwatch))
+  [0x100A0] mov x0, x0                                       ret igpr-1 igpr-4
+  [0x100A4] add sp, sp, #0x10
+  [0x100A8] ldp x29, x30, [sp], #0x10
+  [0x100AC] ret
+
+
+[stopwatch-begin]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+timer.gc:96
+-> (defun stopwatch-begin ((obj stopwatch))
+  [0x1000C] mov x3, x7                                       mov igpr-2, igpr-0
+
+timer.gc:98
+->   (when (zero? (-> obj begin-level))
+  [0x10010] add x16, x3, x15                                 mov igpr-4, [igpr-2 + 20]
+  [0x10014] ldrsw x9, [x16, #0x14] ;; misaligned with debug data
+  [0x10018] movz x8, #0                                      mov-ic igpr-5, 0
+  [0x1001C] cmp x9, x8                                       j(igpr-4 != igpr-5) label-21
+  [0x10020] b.ne #0x1008c
+
+timer.gc:99
+->     (let ((count 0))
+  [0x10024] movz x9, #0                                      mov-ic igpr-6, 0
+  [0x10028] mov x9, x9                                       mov igpr-7, igpr-6
+
+timer.gc:102
+->         (set! count (the int (get-cpu-clock))))
+  [0x1002C] movz x5, #0xffff                                 mov-ic igpr-8, 4294967295
+  [0x10030] movk x5, #0xffff, lsl #16
+  [0x10034] adrp x16, #0x10000                               mov igpr-9, '__read-ee-timer
+  [0x10038] add x16, x16, #0
+  [0x1003C] ldr w9, [x16]
+  [0x10040] mov x9, x9                                       mov igpr-11, igpr-9
+  [0x10044] add x9, x9, x15                                  call igpr-11 (ret igpr-10) (args)
+  [0x10048] stp x3, x5, [sp, #-0x10]!
+  [0x1004C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10050] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10054] blr x9 ;; misaligned with debug data
+  [0x10058] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1005C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] mov x0, x0                                       mov igpr-12, igpr-10
+  [0x10068] mov x5, x5                                       mov igpr-13, igpr-8
+  [0x1006C] and x5, x5, x0                                   and igpr-13, igpr-12
+
+timer.gc:102
+->         (set! count (the int (get-cpu-clock))))
+  [0x10070] mov x5, x5                                       mov igpr-14, igpr-13
+  [0x10074] mov x5, x5                                       mov igpr-15, igpr-14
+  [0x10078] mov x9, x5                                       mov igpr-7, igpr-15
+
+timer.gc:103
+->       (set! (-> obj start-time) count)))
+  [0x1007C] add x16, x3, x15                                 move [igpr-2 + 12], igpr-7
+  [0x10080] stur x9, [x16, #0xc] ;; misaligned with debug data
+
+timer.gc:98
+->   (when (zero? (-> obj begin-level))
+  [0x10084] mov x9, x9                                       mov igpr-3, igpr-7
+  [0x10088] b #0x10094                                       goto label-22
+  [0x1008C] mov x9, x14                                      mov-symptr igpr-3, '#f
+  [0x10090] sub x9, x9, x15 ;; misaligned with debug data
+
+timer.gc:104
+->   (+! (-> obj begin-level) 1))
+  [0x10094] add x16, x3, x15                                 mov igpr-17, [igpr-2 + 20]
+  [0x10098] ldrsw x0, [x16, #0x14] ;; misaligned with debug data
+  [0x1009C] mov x0, x0                                       mov igpr-16, igpr-17
+  [0x100A0] movz x9, #0x1                                    mov-ic igpr-18, 1
+  [0x100A4] add x0, x0, x9                                   addi igpr-16, igpr-18
+  [0x100A8] add x16, x3, x15                                 move [igpr-2 + 20], igpr-16
+  [0x100AC] str w0, [x16, #0x14] ;; misaligned with debug data
+
+timer.gc:96
+-> (defun stopwatch-begin ((obj stopwatch))
+  [0x100B0] mov x0, x0                                       ret igpr-1 igpr-16
+  [0x100B4] add sp, sp, #0x10
+  [0x100B8] ldp x29, x30, [sp], #0x10
+  [0x100BC] ret
+
+
+[enable-irq]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+timer.gc:51
+->     (logior! status COP0_STATUS_IE)
+  [0x10008] mov x9, x9                                       mov igpr-2, igpr-1
+  [0x1000C] movz x8, #0x1                                    mov-ic igpr-3, 1
+  [0x10010] mov x8, x8                                       mov igpr-4, igpr-3
+  [0x10014] orr x9, x9, x8                                   or igpr-2, igpr-4
+  [0x10018] mov x9, x9                                       mov igpr-1, igpr-2
+  [0x1001C] ldp x29, x30, [sp], #0x10
+  [0x10020] ret
+
+
+[stopwatch-end]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+timer.gc:106
+-> (defun stopwatch-end ((obj stopwatch))
+  [0x1000C] mov x3, x7                                       mov igpr-2, igpr-0
+
+timer.gc:110
+->   (+! (-> obj begin-level) -1)
+  [0x10010] add x16, x3, x15                                 mov igpr-4, [igpr-2 + 20]
+  [0x10014] ldrsw x9, [x16, #0x14] ;; misaligned with debug data
+  [0x10018] mov x9, x9                                       mov igpr-3, igpr-4
+  [0x1001C] movz x8, #0xffff                                 mov-ic igpr-5, 18446744073709551615
+  [0x10020] movk x8, #0xffff, lsl #16
+  [0x10024] movk x8, #0xffff, lsl #32
+  [0x10028] movk x8, #0xffff, lsl #48
+  [0x1002C] add x9, x9, x8                                   addi igpr-3, igpr-5
+  [0x10030] add x16, x3, x15                                 move [igpr-2 + 20], igpr-3
+  [0x10034] str w9, [x16, #0x14] ;; misaligned with debug data
+
+timer.gc:111
+->   (when (zero? (-> obj begin-level))
+  [0x10038] add x16, x3, x15                                 mov igpr-7, [igpr-2 + 20]
+  [0x1003C] ldrsw x9, [x16, #0x14] ;; misaligned with debug data
+  [0x10040] movz x8, #0                                      mov-ic igpr-8, 0
+  [0x10044] cmp x9, x8                                       j(igpr-7 != igpr-8) label-34
+  [0x10048] b.ne #0x100e0
+
+timer.gc:112
+->     (set! (-> obj begin-level) 0)
+  [0x1004C] movz x9, #0                                      mov-ic igpr-9, 0
+  [0x10050] add x16, x3, x15                                 move [igpr-2 + 20], igpr-9
+  [0x10054] str w9, [x16, #0x14] ;; misaligned with debug data
+
+timer.gc:113
+->     (let ((count 0))
+  [0x10058] movz x9, #0                                      mov-ic igpr-10, 0
+  [0x1005C] mov x9, x9                                       mov igpr-11, igpr-10
+
+timer.gc:116
+->         (set! count (the int (get-cpu-clock))))
+  [0x10060] movz x5, #0xffff                                 mov-ic igpr-12, 4294967295
+  [0x10064] movk x5, #0xffff, lsl #16
+  [0x10068] adrp x16, #0x10000                               mov igpr-13, '__read-ee-timer
+  [0x1006C] add x16, x16, #0
+  [0x10070] ldr w9, [x16]
+  [0x10074] mov x9, x9                                       mov igpr-15, igpr-13
+  [0x10078] add x9, x9, x15                                  call igpr-15 (ret igpr-14) (args)
+  [0x1007C] stp x3, x5, [sp, #-0x10]!
+  [0x10080] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10084] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10088] blr x9 ;; misaligned with debug data
+  [0x1008C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10090] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10094] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10098] mov x0, x0                                       mov igpr-16, igpr-14
+  [0x1009C] mov x5, x5                                       mov igpr-17, igpr-12
+  [0x100A0] and x5, x5, x0                                   and igpr-17, igpr-16
+
+timer.gc:116
+->         (set! count (the int (get-cpu-clock))))
+  [0x100A4] mov x5, x5                                       mov igpr-18, igpr-17
+  [0x100A8] mov x5, x5                                       mov igpr-19, igpr-18
+  [0x100AC] mov x9, x5                                       mov igpr-11, igpr-19
+
+timer.gc:117
+->       (+! (-> obj prev-time-elapsed) (- count (-> obj start-time)))))
+  [0x100B0] add x16, x3, x15                                 mov igpr-21, [igpr-2 + 4]
+  [0x100B4] ldur x8, [x16, #4] ;; misaligned with debug data
+  [0x100B8] mov x8, x8                                       mov igpr-20, igpr-21
+
+timer.gc:117
+->       (+! (-> obj prev-time-elapsed) (- count (-> obj start-time)))))
+  [0x100BC] mov x9, x9                                       mov igpr-22, igpr-11
+  [0x100C0] add x16, x3, x15                                 mov igpr-23, [igpr-2 + 12]
+  [0x100C4] ldur x1, [x16, #0xc] ;; misaligned with debug data
+  [0x100C8] sub x9, x9, x1                                   subi igpr-22, igpr-23
+
+timer.gc:117
+->       (+! (-> obj prev-time-elapsed) (- count (-> obj start-time)))))
+  [0x100CC] add x8, x8, x9                                   addi igpr-20, igpr-22
+  [0x100D0] add x16, x3, x15                                 move [igpr-2 + 4], igpr-20
+  [0x100D4] stur x8, [x16, #4] ;; misaligned with debug data
+
+timer.gc:111
+->   (when (zero? (-> obj begin-level))
+  [0x100D8] mov x9, x8                                       mov igpr-6, igpr-20
+  [0x100DC] b #0x100e8                                       goto label-35
+  [0x100E0] mov x9, x14                                      mov-symptr igpr-6, '#f
+  [0x100E4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100E8] add sp, sp, #0x10
+  [0x100EC] ldp x29, x30, [sp], #0x10
+  [0x100F0] ret
+
+
+[stopwatch-init]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+timer.gc:59
+-> (defun stopwatch-init ((obj stopwatch))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+timer.gc:61
+->   (set! (-> obj begin-level) 0)
+  [0x1000C] movz x9, #0                                      mov-ic igpr-3, 0
+  [0x10010] add x16, x7, x15                                 move [igpr-2 + 20], igpr-3
+  [0x10014] str w9, [x16, #0x14] ;; misaligned with debug data
+
+timer.gc:62
+->   (set! (-> obj prev-time-elapsed) 0))
+  [0x10018] movz x0, #0                                      mov-ic igpr-4, 0
+  [0x1001C] add x16, x7, x15                                 move [igpr-2 + 4], igpr-4
+  [0x10020] stur x0, [x16, #4] ;; misaligned with debug data
+
+timer.gc:59
+-> (defun stopwatch-init ((obj stopwatch))
+  [0x10024] mov x0, x0                                       ret igpr-1 igpr-4
+  [0x10028] ldp x29, x30, [sp], #0x10
+  [0x1002C] ret
+
+
+[disable-irq]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+timer.gc:41
+->     (let ((status-mask (lognot COP0_STATUS_IE)))
+  [0x10008] movz x8, #0x1                                    mov-ic igpr-2, 1
+  [0x1000C] mov x8, x8                                       mov igpr-3, igpr-2
+  [0x10010] mov x8, x8                                       mov igpr-4, igpr-3
+  [0x10014] mvn x8, x8                                       not igpr-4
+
+timer.gc:41
+->     (let ((status-mask (lognot COP0_STATUS_IE)))
+  [0x10018] mov x8, x8                                       mov igpr-5, igpr-4
+
+timer.gc:43
+->       (logand! status status-mask) ;; should status-mask be replaced directly?
+  [0x1001C] mov x9, x9                                       mov igpr-6, igpr-1
+  [0x10020] and x9, x9, x8                                   and igpr-6, igpr-5
+  [0x10024] mov x9, x9                                       mov igpr-1, igpr-6
+  [0x10028] ldp x29, x30, [sp], #0x10
+  [0x1002C] ret
+
+
+[timer-count]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+timer.gc:21
+-> (defun timer-count ((timer timer-bank))
+  [0x1000C] mov x3, x7                                       mov igpr-2, igpr-0
+
+timer.gc:24
+->     (when (= timer TIMER1_BANK)
+  [0x10010] movz x9, #0x800                                  mov-ic igpr-4, 268437504
+  [0x10014] movk x9, #0x1000, lsl #16
+  [0x10018] cmp x3, x9                                       j(igpr-2 != igpr-4) label-20
+  [0x1001C] b.ne #0x10090
+
+timer.gc:25
+->       (return (- (get-bus-clock/256) *timer-reset-value*)))
+  [0x10020] movz x3, #0xffff                                 mov-ic igpr-5, 4294967295
+  [0x10024] movk x3, #0xffff, lsl #16
+  [0x10028] adrp x16, #0x10000                               mov igpr-6, '__read-ee-timer
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w9, [x16]
+  [0x10034] mov x9, x9                                       mov igpr-8, igpr-6
+  [0x10038] add x9, x9, x15                                  call igpr-8 (ret igpr-7) (args)
+  [0x1003C] stp x3, x5, [sp, #-0x10]!
+  [0x10040] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10044] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10048] blr x9 ;; misaligned with debug data
+  [0x1004C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10050] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10054] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10058] mov x0, x0                                       mov igpr-9, igpr-7
+  [0x1005C] mov x0, x0                                       mov igpr-10, igpr-9
+  [0x10060] lsr x0, x0, #9                                   shr igpr-10, 9
+  [0x10064] mov x3, x3                                       mov igpr-11, igpr-5
+  [0x10068] and x3, x3, x0                                   and igpr-11, igpr-10
+
+timer.gc:25
+->       (return (- (get-bus-clock/256) *timer-reset-value*)))
+  [0x1006C] mov x3, x3                                       mov igpr-13, igpr-11
+  [0x10070] mov x0, x3                                       mov igpr-12, igpr-13
+  [0x10074] adrp x16, #0x10000                               mov igpr-14, '*timer-reset-value*
+  [0x10078] add x16, x16, #0
+  [0x1007C] ldr w9, [x16]
+  [0x10080] sub x0, x0, x9                                   subi igpr-12, igpr-14
+
+timer.gc:25
+->       (return (- (get-bus-clock/256) *timer-reset-value*)))
+  [0x10084] mov x0, x0                                       mov igpr-1, igpr-12
+  [0x10088] b #0x100f8                                       goto label-34
+
+timer.gc:24
+->     (when (= timer TIMER1_BANK)
+  [0x1008C] b #0x10098                                       goto label-21
+  [0x10090] mov x9, x14                                      mov-symptr igpr-3, '#f
+  [0x10094] sub x9, x9, x15 ;; misaligned with debug data
+
+timer.gc:26
+->     (format 0 "Unknown timer #x~X requested.~%" timer))
+  [0x10098] adrp x16, #0x10000                               mov igpr-15, 'format
+  [0x1009C] add x16, x16, #0
+  [0x100A0] ldr w9, [x16]
+
+timer.gc:23
+->   (#when PC_PORT
+  [0x100A4] movz x7, #0                                      mov-ic igpr-16, 0
+  [0x100A8] adrp x6, #0x10000                                mov-sva igpr-17, static-string "Unknown timer #x~X requested.~%"
+  [0x100AC] add x6, x6, #0x8d4
+  [0x100B0] sub x6, x6, x15
+
+timer.gc:26
+->     (format 0 "Unknown timer #x~X requested.~%" timer))
+  [0x100B4] mov x9, x9                                       mov igpr-22, igpr-15
+  [0x100B8] mov x7, x7                                       mov igpr-19, igpr-16
+  [0x100BC] mov x6, x6                                       mov igpr-20, igpr-17
+  [0x100C0] mov x2, x3                                       mov igpr-21, igpr-2
+  [0x100C4] add x9, x9, x15                                  call igpr-22 (ret igpr-18) (args igpr-19 igpr-20 igpr-21)
+  [0x100C8] stp x3, x5, [sp, #-0x10]!
+  [0x100CC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100D0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100D4] blr x9 ;; misaligned with debug data
+  [0x100D8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100DC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100E0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100E4] mov x0, x0                                       mov igpr-23, igpr-18
+
+timer.gc:28
+->   (let ((count (-> timer count))) (.sync.l) count))
+  [0x100E8] add x16, x3, x15                                 mov igpr-24, [igpr-2 + 0]
+  [0x100EC] ldr w0, [x16] ;; misaligned with debug data
+
+timer.gc:28
+->   (let ((count (-> timer count))) (.sync.l) count))
+  [0x100F0] mov x0, x0                                       mov igpr-25, igpr-24
+
+timer.gc:21
+-> (defun timer-count ((timer timer-bank))
+  [0x100F4] mov x0, x0                                       ret igpr-1 igpr-25
+  [0x100F8] add sp, sp, #0x10
+  [0x100FC] ldp x29, x30, [sp], #0x10
+  [0x10100] ret
+
+
+[stopwatch-elapsed-ticks]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+timer.gc:120
+-> (defun stopwatch-elapsed-ticks ((obj stopwatch))
+  [0x1000C] mov x5, x7                                       mov igpr-2, igpr-0
+
+timer.gc:122
+->   (let ((elapsed (-> obj prev-time-elapsed)))
+  [0x10010] add x16, x5, x15                                 mov igpr-3, [igpr-2 + 4]
+  [0x10014] ldur x3, [x16, #4] ;; misaligned with debug data
+
+timer.gc:122
+->   (let ((elapsed (-> obj prev-time-elapsed)))
+  [0x10018] mov x3, x3                                       mov igpr-4, igpr-3
+
+timer.gc:123
+->     (when (> (-> obj begin-level) 0)
+  [0x1001C] add x16, x5, x15                                 mov igpr-6, [igpr-2 + 20]
+  [0x10020] ldrsw x9, [x16, #0x14] ;; misaligned with debug data
+  [0x10024] movz x8, #0                                      mov-ic igpr-7, 0
+  [0x10028] cmp x9, x8                                       j(igpr-6 <= igpr-7) label-29
+  [0x1002C] b.le #0x100b0
+
+timer.gc:124
+->       (let ((count 0))
+  [0x10030] movz x9, #0                                      mov-ic igpr-8, 0
+  [0x10034] mov x9, x9                                       mov igpr-9, igpr-8
+
+timer.gc:127
+->           (set! count (the int (get-cpu-clock))))
+  [0x10038] movz x12, #0xffff                                mov-ic igpr-10, 4294967295
+  [0x1003C] movk x12, #0xffff, lsl #16
+  [0x10040] adrp x16, #0x10000                               mov igpr-11, '__read-ee-timer
+  [0x10044] add x16, x16, #0
+  [0x10048] ldr w9, [x16]
+  [0x1004C] mov x9, x9                                       mov igpr-13, igpr-11
+  [0x10050] add x9, x9, x15                                  call igpr-13 (ret igpr-12) (args)
+  [0x10054] stp x3, x5, [sp, #-0x10]!
+  [0x10058] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10060] blr x9 ;; misaligned with debug data
+  [0x10064] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] mov x0, x0                                       mov igpr-14, igpr-12
+  [0x10074] mov x12, x12                                     mov igpr-15, igpr-10
+  [0x10078] and x12, x12, x0                                 and igpr-15, igpr-14
+
+timer.gc:127
+->           (set! count (the int (get-cpu-clock))))
+  [0x1007C] mov x12, x12                                     mov igpr-16, igpr-15
+  [0x10080] mov x12, x12                                     mov igpr-17, igpr-16
+  [0x10084] mov x9, x12                                      mov igpr-9, igpr-17
+
+timer.gc:128
+->         (+! elapsed (- count (-> obj start-time)))
+  [0x10088] mov x3, x3                                       mov igpr-18, igpr-4
+
+timer.gc:128
+->         (+! elapsed (- count (-> obj start-time)))
+  [0x1008C] mov x9, x9                                       mov igpr-19, igpr-9
+  [0x10090] add x16, x5, x15                                 mov igpr-20, [igpr-2 + 12]
+  [0x10094] ldur x8, [x16, #0xc] ;; misaligned with debug data
+  [0x10098] sub x9, x9, x8                                   subi igpr-19, igpr-20
+
+timer.gc:128
+->         (+! elapsed (- count (-> obj start-time)))
+  [0x1009C] add x3, x3, x9                                   addi igpr-18, igpr-19
+  [0x100A0] mov x3, x3                                       mov igpr-4, igpr-18
+
+timer.gc:129
+->         (set! count elapsed) ;; ??
+  [0x100A4] mov x9, x3                                       mov igpr-9, igpr-4
+
+timer.gc:123
+->     (when (> (-> obj begin-level) 0)
+  [0x100A8] mov x9, x3                                       mov igpr-5, igpr-4
+  [0x100AC] b #0x100b8                                       goto label-30
+  [0x100B0] mov x9, x14                                      mov-symptr igpr-5, '#f
+  [0x100B4] sub x9, x9, x15 ;; misaligned with debug data
+
+timer.gc:120
+-> (defun stopwatch-elapsed-ticks ((obj stopwatch))
+  [0x100B8] mov x0, x3                                       ret igpr-1 igpr-4
+  [0x100BC] add sp, sp, #0x10
+  [0x100C0] ldp x29, x30, [sp], #0x10
+  [0x100C4] ret
+
+
+[timer-reset]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+timer.gc:11
+-> (defun timer-reset ((timer timer-bank))
+  [0x1000C] mov x7, x7                                       mov igpr-2, igpr-0
+
+timer.gc:15
+->     (if (= timer TIMER1_BANK) (set! *timer-reset-value* (get-bus-clock/256)) (format 0 "Unknown timer #x~X in timer-reset~%"))
+  [0x10010] movz x9, #0x800                                  mov-ic igpr-4, 268437504
+  [0x10014] movk x9, #0x1000, lsl #16
+  [0x10018] cmp x7, x9                                       j(igpr-2 != igpr-4) label-17
+  [0x1001C] b.ne #0x10084
+
+timer.gc:15
+->     (if (= timer TIMER1_BANK) (set! *timer-reset-value* (get-bus-clock/256)) (format 0 "Unknown timer #x~X in timer-reset~%"))
+  [0x10020] movz x3, #0xffff                                 mov-ic igpr-5, 4294967295
+  [0x10024] movk x3, #0xffff, lsl #16
+  [0x10028] adrp x16, #0x10000                               mov igpr-6, '__read-ee-timer
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w9, [x16]
+  [0x10034] mov x9, x9                                       mov igpr-8, igpr-6
+  [0x10038] add x9, x9, x15                                  call igpr-8 (ret igpr-7) (args)
+  [0x1003C] stp x3, x5, [sp, #-0x10]!
+  [0x10040] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10044] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10048] blr x9 ;; misaligned with debug data
+  [0x1004C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10050] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10054] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10058] mov x0, x0                                       mov igpr-9, igpr-7
+  [0x1005C] mov x0, x0                                       mov igpr-10, igpr-9
+  [0x10060] lsr x0, x0, #9                                   shr igpr-10, 9
+  [0x10064] mov x3, x3                                       mov igpr-11, igpr-5
+  [0x10068] and x3, x3, x0                                   and igpr-11, igpr-10
+
+timer.gc:15
+->     (if (= timer TIMER1_BANK) (set! *timer-reset-value* (get-bus-clock/256)) (format 0 "Unknown timer #x~X in timer-reset~%"))
+  [0x1006C] mov x3, x3                                       mov igpr-12, igpr-11
+  [0x10070] adrp x16, #0x10000                               mov '*timer-reset-value*, igpr-12
+  [0x10074] add x16, x16, #0
+  [0x10078] str w3, [x16]
+
+timer.gc:15
+->     (if (= timer TIMER1_BANK) (set! *timer-reset-value* (get-bus-clock/256)) (format 0 "Unknown timer #x~X in timer-reset~%"))
+  [0x1007C] mov x3, x3                                       mov igpr-3, igpr-12
+  [0x10080] b #0x100d4                                       goto label-26
+
+timer.gc:15
+->     (if (= timer TIMER1_BANK) (set! *timer-reset-value* (get-bus-clock/256)) (format 0 "Unknown timer #x~X in timer-reset~%"))
+  [0x10084] adrp x16, #0x10000                               mov igpr-13, 'format
+  [0x10088] add x16, x16, #0
+  [0x1008C] ldr w9, [x16]
+
+timer.gc:15
+->     (if (= timer TIMER1_BANK) (set! *timer-reset-value* (get-bus-clock/256)) (format 0 "Unknown timer #x~X in timer-reset~%"))
+  [0x10090] movz x7, #0                                      mov-ic igpr-14, 0
+  [0x10094] adrp x6, #0x10000                                mov-sva igpr-15, static-string "Unknown timer #x~X in timer-reset~%"
+  [0x10098] add x6, x6, #0x8a4
+  [0x1009C] sub x6, x6, x15
+
+timer.gc:15
+->     (if (= timer TIMER1_BANK) (set! *timer-reset-value* (get-bus-clock/256)) (format 0 "Unknown timer #x~X in timer-reset~%"))
+  [0x100A0] mov x9, x9                                       mov igpr-19, igpr-13
+  [0x100A4] mov x7, x7                                       mov igpr-17, igpr-14
+  [0x100A8] mov x6, x6                                       mov igpr-18, igpr-15
+  [0x100AC] add x9, x9, x15                                  call igpr-19 (ret igpr-16) (args igpr-17 igpr-18)
+  [0x100B0] stp x3, x5, [sp, #-0x10]!
+  [0x100B4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100BC] blr x9 ;; misaligned with debug data
+  [0x100C0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100C4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100C8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100CC] mov x0, x0                                       mov igpr-20, igpr-16
+
+timer.gc:15
+->     (if (= timer TIMER1_BANK) (set! *timer-reset-value* (get-bus-clock/256)) (format 0 "Unknown timer #x~X in timer-reset~%"))
+  [0x100D0] mov x3, x0                                       mov igpr-3, igpr-20
+
+timer.gc:11
+-> (defun timer-reset ((timer timer-bank))
+  [0x100D4] movz x9, #0                                      mov-ic igpr-21, 0
+  [0x100D8] mov x9, x9                                       mov igpr-22, igpr-21
+
+timer.gc:16
+->     (return (the uint 0)))
+  [0x100DC] mov x9, x9                                       mov igpr-1, igpr-22
+  [0x100E0] b #0x100f0                                       goto label-32
+
+timer.gc:18
+->   (set! (-> timer count) 0)
+  [0x100E4] movz x9, #0                                      mov-ic igpr-23, 0
+  [0x100E8] add x16, x7, x15                                 move [igpr-2 + 0], igpr-23
+  [0x100EC] str w9, [x16] ;; misaligned with debug data
+  [0x100F0] add sp, sp, #0x10
+  [0x100F4] ldp x29, x30, [sp], #0x10
+  [0x100F8] ret
+
+
+

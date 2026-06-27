@@ -1,0 +1,184 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+ocean-trans-tables.gc:11
+-> (define *ocean-left-table*
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov '*ocean-left-table*, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+ocean-trans-tables.gc:46
+-> (define *ocean-right-table*
+  [0x10020] adrp x9, #0x10000                                mov-sva igpr-1, static-structure
+  [0x10024] add x9, x9, #0
+  [0x10028] sub x9, x9, x15
+  [0x1002C] adrp x16, #0x10000                               mov '*ocean-right-table*, igpr-1
+  [0x10030] add x16, x16, #0
+  [0x10034] str w9, [x16]
+
+ocean-trans-tables.gc:81
+-> (define *ocean-up-table*
+  [0x10038] adrp x9, #0x10000                                mov-sva igpr-2, static-structure
+  [0x1003C] add x9, x9, #0
+  [0x10040] sub x9, x9, x15
+  [0x10044] adrp x16, #0x10000                               mov '*ocean-up-table*, igpr-2
+  [0x10048] add x16, x16, #0
+  [0x1004C] str w9, [x16]
+
+ocean-trans-tables.gc:116
+-> (define *ocean-down-table*
+  [0x10050] adrp x9, #0x10000                                mov-sva igpr-3, static-structure
+  [0x10054] add x9, x9, #0
+  [0x10058] sub x9, x9, x15
+  [0x1005C] adrp x16, #0x10000                               mov '*ocean-down-table*, igpr-3
+  [0x10060] add x16, x16, #0
+  [0x10064] str w9, [x16]
+
+ocean-trans-tables.gc:151
+-> (define *ocean-down-left-table*
+  [0x10068] adrp x9, #0x10000                                mov-sva igpr-4, static-structure
+  [0x1006C] add x9, x9, #0
+  [0x10070] sub x9, x9, x15
+  [0x10074] adrp x16, #0x10000                               mov '*ocean-down-left-table*, igpr-4
+  [0x10078] add x16, x16, #0
+  [0x1007C] str w9, [x16]
+
+ocean-trans-tables.gc:198
+-> (define *ocean-down-right-table*
+  [0x10080] adrp x9, #0x10000                                mov-sva igpr-5, static-structure
+  [0x10084] add x9, x9, #0
+  [0x10088] sub x9, x9, x15
+  [0x1008C] adrp x16, #0x10000                               mov '*ocean-down-right-table*, igpr-5
+  [0x10090] add x16, x16, #0
+  [0x10094] str w9, [x16]
+
+ocean-trans-tables.gc:245
+-> (define *ocean-up-right-table*
+  [0x10098] adrp x9, #0x10000                                mov-sva igpr-6, static-structure
+  [0x1009C] add x9, x9, #0
+  [0x100A0] sub x9, x9, x15
+  [0x100A4] adrp x16, #0x10000                               mov '*ocean-up-right-table*, igpr-6
+  [0x100A8] add x16, x16, #0
+  [0x100AC] str w9, [x16]
+
+ocean-trans-tables.gc:292
+-> (define *ocean-up-left-table*
+  [0x100B0] adrp x9, #0x10000                                mov-sva igpr-7, static-structure
+  [0x100B4] add x9, x9, #0
+  [0x100B8] sub x9, x9, x15
+  [0x100BC] adrp x16, #0x10000                               mov '*ocean-up-left-table*, igpr-7
+  [0x100C0] add x16, x16, #0
+  [0x100C4] str w9, [x16]
+
+ocean-trans-tables.gc:339
+-> (define *ocean-trans-left-table*
+  [0x100C8] adrp x9, #0x10000                                mov-sva igpr-8, static-structure
+  [0x100CC] add x9, x9, #0
+  [0x100D0] sub x9, x9, x15
+  [0x100D4] adrp x16, #0x10000                               mov '*ocean-trans-left-table*, igpr-8
+  [0x100D8] add x16, x16, #0
+  [0x100DC] str w9, [x16]
+
+ocean-trans-tables.gc:390
+-> (define *ocean-trans-right-table*
+  [0x100E0] adrp x9, #0x10000                                mov-sva igpr-9, static-structure
+  [0x100E4] add x9, x9, #0
+  [0x100E8] sub x9, x9, x15
+  [0x100EC] adrp x16, #0x10000                               mov '*ocean-trans-right-table*, igpr-9
+  [0x100F0] add x16, x16, #0
+  [0x100F4] str w9, [x16]
+
+ocean-trans-tables.gc:441
+-> (define *ocean-trans-up-table*
+  [0x100F8] adrp x9, #0x10000                                mov-sva igpr-10, static-structure
+  [0x100FC] add x9, x9, #0
+  [0x10100] sub x9, x9, x15
+  [0x10104] adrp x16, #0x10000                               mov '*ocean-trans-up-table*, igpr-10
+  [0x10108] add x16, x16, #0
+  [0x1010C] str w9, [x16]
+
+ocean-trans-tables.gc:492
+-> (define *ocean-trans-down-table*
+  [0x10110] adrp x9, #0x10000                                mov-sva igpr-11, static-structure
+  [0x10114] add x9, x9, #0
+  [0x10118] sub x9, x9, x15
+  [0x1011C] adrp x16, #0x10000                               mov '*ocean-trans-down-table*, igpr-11
+  [0x10120] add x16, x16, #0
+  [0x10124] str w9, [x16]
+
+ocean-trans-tables.gc:543
+-> (define *ocean-trans-down-left-table*
+  [0x10128] adrp x9, #0x10000                                mov-sva igpr-12, static-structure
+  [0x1012C] add x9, x9, #0
+  [0x10130] sub x9, x9, x15
+  [0x10134] adrp x16, #0x10000                               mov '*ocean-trans-down-left-table*, igpr-12
+  [0x10138] add x16, x16, #0
+  [0x1013C] str w9, [x16]
+
+ocean-trans-tables.gc:622
+-> (define *ocean-trans-down-right-table*
+  [0x10140] adrp x9, #0x10000                                mov-sva igpr-13, static-structure
+  [0x10144] add x9, x9, #0
+  [0x10148] sub x9, x9, x15
+  [0x1014C] adrp x16, #0x10000                               mov '*ocean-trans-down-right-table*, igpr-13
+  [0x10150] add x16, x16, #0
+  [0x10154] str w9, [x16]
+
+ocean-trans-tables.gc:701
+-> (define *ocean-trans-up-right-table*
+  [0x10158] adrp x9, #0x10000                                mov-sva igpr-14, static-structure
+  [0x1015C] add x9, x9, #0
+  [0x10160] sub x9, x9, x15
+  [0x10164] adrp x16, #0x10000                               mov '*ocean-trans-up-right-table*, igpr-14
+  [0x10168] add x16, x16, #0
+  [0x1016C] str w9, [x16]
+
+ocean-trans-tables.gc:780
+-> (define *ocean-trans-up-left-table*
+  [0x10170] adrp x9, #0x10000                                mov-sva igpr-15, static-structure
+  [0x10174] add x9, x9, #0
+  [0x10178] sub x9, x9, x15
+  [0x1017C] adrp x16, #0x10000                               mov '*ocean-trans-up-left-table*, igpr-15
+  [0x10180] add x16, x16, #0
+  [0x10184] str w9, [x16]
+
+ocean-trans-tables.gc:859
+-> (define *ocean-trans-corner-table*
+  [0x10188] adrp x9, #0x10000                                mov-sva igpr-16, static-structure
+  [0x1018C] add x9, x9, #0
+  [0x10190] sub x9, x9, x15
+  [0x10194] mov x9, x9                                       mov igpr-17, igpr-16
+  [0x10198] adrp x16, #0x10000                               mov '*ocean-trans-corner-table*, igpr-17
+  [0x1019C] add x16, x16, #0
+  [0x101A0] str w9, [x16]
+
+ocean-trans-tables.gc:967
+-> (define *ocean-trans-strip-array*
+  [0x101A4] adrp x9, #0x10000                                mov-sva igpr-18, static-structure
+  [0x101A8] add x9, x9, #0
+  [0x101AC] sub x9, x9, x15
+  [0x101B0] adrp x16, #0x10000                               mov '*ocean-trans-strip-array*, igpr-18
+  [0x101B4] add x16, x16, #0
+  [0x101B8] str w9, [x16]
+
+ocean-trans-tables.gc:1134
+-> (define *ocean-trans-st-table*
+  [0x101BC] adrp x0, #0x10000                                mov-sva igpr-19, static-structure
+  [0x101C0] add x0, x0, #0
+  [0x101C4] sub x0, x0, x15
+  [0x101C8] adrp x16, #0x10000                               mov '*ocean-trans-st-table*, igpr-19
+  [0x101CC] add x16, x16, #0
+  [0x101D0] str w0, [x16]
+
+ocean-trans-tables.gc:1
+-> ;-*-Lisp-*-
+  [0x101D4] mov x0, x0                                       ret igpr-20 igpr-19
+  [0x101D8] ldp x29, x30, [sp], #0x10
+  [0x101DC] ret
+
+
+

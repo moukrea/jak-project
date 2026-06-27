@@ -1,0 +1,804 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+tfrag-near.gc:8
+-> (define tnear-vu1-block (new 'static 'vu-function :length #x0 :qlength #x0))
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov 'tnear-vu1-block, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+tfrag-near.gc:10
+-> (defun-debug tfrag-details ((arg0 tfragment))
+  [0x10020] adrp x16, #0x10000                               mov igpr-2, '*debug-segment*
+  [0x10024] add x16, x16, #0
+  [0x10028] ldr w9, [x16]
+  [0x1002C] mov x8, x14                                      mov-symptr igpr-3, '#f
+  [0x10030] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10034] cmp x9, x8                                       j(igpr-2 == igpr-3) label-9
+  [0x10038] b.eq #0x1005c
+  [0x1003C] adrp x9, #0x10000                                mov-fa igpr-4, function-tfrag-details
+  [0x10040] add x9, x9, #0
+  [0x10044] sub x9, x9, x15
+  [0x10048] adrp x16, #0x10000                               mov 'tfrag-details, igpr-4
+  [0x1004C] add x16, x16, #0
+  [0x10050] str w9, [x16]
+  [0x10054] mov x9, x9                                       mov igpr-1, igpr-4
+  [0x10058] b #0x10078                                       goto label-12
+  [0x1005C] adrp x16, #0x10000                               mov igpr-5, 'nothing
+  [0x10060] add x16, x16, #0
+  [0x10064] ldr w9, [x16]
+  [0x10068] adrp x16, #0x10000                               mov 'tfrag-details, igpr-5
+  [0x1006C] add x16, x16, #0
+  [0x10070] str w9, [x16]
+  [0x10074] mov x9, x9                                       mov igpr-1, igpr-5
+
+tfrag-near.gc:36
+-> (defun-debug clip-restore ()
+  [0x10078] adrp x16, #0x10000                               mov igpr-7, '*debug-segment*
+  [0x1007C] add x16, x16, #0
+  [0x10080] ldr w9, [x16]
+  [0x10084] mov x8, x14                                      mov-symptr igpr-8, '#f
+  [0x10088] sub x8, x8, x15 ;; misaligned with debug data
+  [0x1008C] cmp x9, x8                                       j(igpr-7 == igpr-8) label-19
+  [0x10090] b.eq #0x100b4
+  [0x10094] adrp x0, #0x10000                                mov-fa igpr-9, function-clip-restore
+  [0x10098] add x0, x0, #0
+  [0x1009C] sub x0, x0, x15
+  [0x100A0] adrp x16, #0x10000                               mov 'clip-restore, igpr-9
+  [0x100A4] add x16, x16, #0
+  [0x100A8] str w0, [x16]
+  [0x100AC] mov x0, x0                                       mov igpr-6, igpr-9
+  [0x100B0] b #0x100d0                                       goto label-22
+  [0x100B4] adrp x16, #0x10000                               mov igpr-10, 'nothing
+  [0x100B8] add x16, x16, #0
+  [0x100BC] ldr w0, [x16]
+  [0x100C0] adrp x16, #0x10000                               mov 'clip-restore, igpr-10
+  [0x100C4] add x16, x16, #0
+  [0x100C8] str w0, [x16]
+  [0x100CC] mov x0, x0                                       mov igpr-6, igpr-10
+
+tfrag-near.gc:1
+-> ;-*-Lisp-*-
+  [0x100D0] mov x0, x0                                       ret igpr-11 igpr-6
+  [0x100D4] ldp x29, x30, [sp], #0x10
+  [0x100D8] ret
+
+
+[clip-restore]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x50
+
+tfrag-near.gc:38
+->   (let ((a0-0 (new-stack-vector0))
+  [0x1000C] mov x7, sp                                       mov igpr-1, stack-slot-0
+  [0x10010] sub x7, x7, x15
+  [0x10014] mov x7, x7                                       mov igpr-2, igpr-1
+  [0x10018] movz x9, #0                                      mov-ic igpr-3, 0
+  [0x1001C] mov x9, x9                                       mov igpr-4, igpr-3
+  [0x10020] fmov d23, x9                                     mov ii128-5, igpr-4
+  [0x10024] add x16, x7, x15                                 move [igpr-2 + 0], ii128-5
+  [0x10028] str q23, [x16] ;; misaligned with debug data
+
+tfrag-near.gc:39
+->         (a1-0 (new-stack-matrix0)))
+  [0x1002C] add x6, sp, #0x10                                mov igpr-6, stack-slot-2
+  [0x10030] sub x6, x6, x15
+  [0x10034] mov x6, x6                                       mov igpr-7, igpr-6
+  [0x10038] movz x9, #0                                      mov-ic igpr-8, 0
+  [0x1003C] mov x9, x9                                       mov igpr-9, igpr-8
+  [0x10040] fmov d23, x9                                     mov ii128-10, igpr-9
+  [0x10044] add x16, x6, x15                                 move [igpr-7 + 0], ii128-10
+  [0x10048] str q23, [x16] ;; misaligned with debug data
+  [0x1004C] movz x9, #0                                      mov-ic igpr-11, 0
+  [0x10050] mov x9, x9                                       mov igpr-12, igpr-11
+  [0x10054] fmov d23, x9                                     mov ii128-13, igpr-12
+  [0x10058] add x16, x6, x15                                 move [igpr-7 + 16], ii128-13
+  [0x1005C] str q23, [x16, #0x10] ;; misaligned with debug data
+  [0x10060] movz x9, #0                                      mov-ic igpr-14, 0
+  [0x10064] mov x9, x9                                       mov igpr-15, igpr-14
+  [0x10068] fmov d23, x9                                     mov ii128-16, igpr-15
+  [0x1006C] add x16, x6, x15                                 move [igpr-7 + 32], ii128-16
+  [0x10070] str q23, [x16, #0x20] ;; misaligned with debug data
+  [0x10074] movz x9, #0                                      mov-ic igpr-17, 0
+  [0x10078] mov x9, x9                                       mov igpr-18, igpr-17
+  [0x1007C] fmov d23, x9                                     mov ii128-19, igpr-18
+  [0x10080] add x16, x6, x15                                 move [igpr-7 + 48], ii128-19
+  [0x10084] str q23, [x16, #0x30] ;; misaligned with debug data
+
+tfrag-near.gc:38
+->   (let ((a0-0 (new-stack-vector0))
+  [0x10088] mov x7, x7                                       mov igpr-20, igpr-2
+  [0x1008C] mov x6, x6                                       mov igpr-21, igpr-7
+
+tfrag-near.gc:40
+->     (set! (-> a0-0 x) 92648.22)
+  [0x10090] adrp x16, #0x10000                               mov-svl ifpr-22, [(sf 92648.22)]
+  [0x10094] ldr s23, [x16, #0x820]
+  [0x10098] add x16, x7, x15                                 move [igpr-20 + 0], ifpr-22
+  [0x1009C] str s23, [x16] ;; misaligned with debug data
+
+tfrag-near.gc:41
+->     (set! (-> a0-0 y) 238025.03)
+  [0x100A0] adrp x16, #0x10000                               mov-svl ifpr-23, [(sf 238025.03)]
+  [0x100A4] ldr s23, [x16, #0x824]
+  [0x100A8] add x16, x7, x15                                 move [igpr-20 + 4], ifpr-23
+  [0x100AC] str s23, [x16, #4] ;; misaligned with debug data
+
+tfrag-near.gc:42
+->     (set! (-> a0-0 z) 199836.31)
+  [0x100B0] adrp x16, #0x10000                               mov-svl ifpr-24, [(sf 199836.31)]
+  [0x100B4] ldr s23, [x16, #0x828]
+  [0x100B8] add x16, x7, x15                                 move [igpr-20 + 8], ifpr-24
+  [0x100BC] str s23, [x16, #8] ;; misaligned with debug data
+
+tfrag-near.gc:43
+->     (set! (-> a0-0 w) 1.0)
+  [0x100C0] adrp x16, #0x10000                               mov-svl ifpr-25, [(sf 1)]
+  [0x100C4] ldr s23, [x16, #0x82c]
+  [0x100C8] add x16, x7, x15                                 move [igpr-20 + 12], ifpr-25
+  [0x100CC] str s23, [x16, #0xc] ;; misaligned with debug data
+
+tfrag-near.gc:44
+->     (set! (-> a1-0 vector 0 x) -0.9283)
+  [0x100D0] adrp x16, #0x10000                               mov-svl ifpr-26, [(sf -0.9283)]
+  [0x100D4] ldr s23, [x16, #0x830]
+  [0x100D8] add x16, x6, x15                                 move [igpr-21 + 0], ifpr-26
+  [0x100DC] str s23, [x16] ;; misaligned with debug data
+
+tfrag-near.gc:45
+->     (set! (-> a1-0 vector 0 y) 0.0)
+  [0x100E0] adrp x16, #0x10000                               mov-svl ifpr-27, [(sf 0)]
+  [0x100E4] ldr s23, [x16, #0x834]
+  [0x100E8] add x16, x6, x15                                 move [igpr-21 + 4], ifpr-27
+  [0x100EC] str s23, [x16, #4] ;; misaligned with debug data
+
+tfrag-near.gc:46
+->     (set! (-> a1-0 vector 0 z) 0.3716)
+  [0x100F0] adrp x16, #0x10000                               mov-svl ifpr-28, [(sf 0.3716)]
+  [0x100F4] ldr s23, [x16, #0x838]
+  [0x100F8] add x16, x6, x15                                 move [igpr-21 + 8], ifpr-28
+  [0x100FC] str s23, [x16, #8] ;; misaligned with debug data
+
+tfrag-near.gc:47
+->     (set! (-> a1-0 vector 0 w) 0.0)
+  [0x10100] adrp x16, #0x10000                               mov-svl ifpr-29, [(sf 0)]
+  [0x10104] ldr s23, [x16, #0x83c]
+  [0x10108] add x16, x6, x15                                 move [igpr-21 + 12], ifpr-29
+  [0x1010C] str s23, [x16, #0xc] ;; misaligned with debug data
+
+tfrag-near.gc:48
+->     (set! (-> a1-0 vector 1 x) -0.2257)
+  [0x10110] adrp x16, #0x10000                               mov-svl ifpr-30, [(sf -0.2257)]
+  [0x10114] ldr s23, [x16, #0x840]
+  [0x10118] add x16, x6, x15                                 move [igpr-21 + 16], ifpr-30
+  [0x1011C] str s23, [x16, #0x10] ;; misaligned with debug data
+
+tfrag-near.gc:49
+->     (set! (-> a1-0 vector 1 y) 0.7945)
+  [0x10120] adrp x16, #0x10000                               mov-svl ifpr-31, [(sf 0.7945)]
+  [0x10124] ldr s23, [x16, #0x844]
+  [0x10128] add x16, x6, x15                                 move [igpr-21 + 20], ifpr-31
+  [0x1012C] str s23, [x16, #0x14] ;; misaligned with debug data
+
+tfrag-near.gc:50
+->     (set! (-> a1-0 vector 1 z) -0.5637)
+  [0x10130] adrp x16, #0x10000                               mov-svl ifpr-32, [(sf -0.5637)]
+  [0x10134] ldr s23, [x16, #0x848]
+  [0x10138] add x16, x6, x15                                 move [igpr-21 + 24], ifpr-32
+  [0x1013C] str s23, [x16, #0x18] ;; misaligned with debug data
+
+tfrag-near.gc:51
+->     (set! (-> a1-0 vector 1 w) 0.0)
+  [0x10140] adrp x16, #0x10000                               mov-svl ifpr-33, [(sf 0)]
+  [0x10144] ldr s23, [x16, #0x84c]
+  [0x10148] add x16, x6, x15                                 move [igpr-21 + 28], ifpr-33
+  [0x1014C] str s23, [x16, #0x1c] ;; misaligned with debug data
+
+tfrag-near.gc:52
+->     (set! (-> a1-0 vector 2 x) -0.2952)
+  [0x10150] adrp x16, #0x10000                               mov-svl ifpr-34, [(sf -0.2952)]
+  [0x10154] ldr s23, [x16, #0x850]
+  [0x10158] add x16, x6, x15                                 move [igpr-21 + 32], ifpr-34
+  [0x1015C] str s23, [x16, #0x20] ;; misaligned with debug data
+
+tfrag-near.gc:53
+->     (set! (-> a1-0 vector 2 y) -0.6072)
+  [0x10160] adrp x16, #0x10000                               mov-svl ifpr-35, [(sf -0.6072)]
+  [0x10164] ldr s23, [x16, #0x854]
+  [0x10168] add x16, x6, x15                                 move [igpr-21 + 36], ifpr-35
+  [0x1016C] str s23, [x16, #0x24] ;; misaligned with debug data
+
+tfrag-near.gc:54
+->     (set! (-> a1-0 vector 2 z) -0.7375)
+  [0x10170] adrp x16, #0x10000                               mov-svl ifpr-36, [(sf -0.7375)]
+  [0x10174] ldr s23, [x16, #0x858]
+  [0x10178] add x16, x6, x15                                 move [igpr-21 + 40], ifpr-36
+  [0x1017C] str s23, [x16, #0x28] ;; misaligned with debug data
+
+tfrag-near.gc:55
+->     (set! (-> a1-0 vector 2 w) 0.0)
+  [0x10180] adrp x16, #0x10000                               mov-svl ifpr-37, [(sf 0)]
+  [0x10184] ldr s23, [x16, #0x85c]
+  [0x10188] add x16, x6, x15                                 move [igpr-21 + 44], ifpr-37
+  [0x1018C] str s23, [x16, #0x2c] ;; misaligned with debug data
+
+tfrag-near.gc:56
+->     (set! (-> a1-0 vector 3 x) 0.0)
+  [0x10190] adrp x16, #0x10000                               mov-svl ifpr-38, [(sf 0)]
+  [0x10194] ldr s23, [x16, #0x860]
+  [0x10198] add x16, x6, x15                                 move [igpr-21 + 48], ifpr-38
+  [0x1019C] str s23, [x16, #0x30] ;; misaligned with debug data
+
+tfrag-near.gc:57
+->     (set! (-> a1-0 vector 3 y) 0.0)
+  [0x101A0] adrp x16, #0x10000                               mov-svl ifpr-39, [(sf 0)]
+  [0x101A4] ldr s23, [x16, #0x864]
+  [0x101A8] add x16, x6, x15                                 move [igpr-21 + 52], ifpr-39
+  [0x101AC] str s23, [x16, #0x34] ;; misaligned with debug data
+
+tfrag-near.gc:58
+->     (set! (-> a1-0 vector 3 z) 0.0)
+  [0x101B0] adrp x16, #0x10000                               mov-svl ifpr-40, [(sf 0)]
+  [0x101B4] ldr s23, [x16, #0x868]
+  [0x101B8] add x16, x6, x15                                 move [igpr-21 + 56], ifpr-40
+  [0x101BC] str s23, [x16, #0x38] ;; misaligned with debug data
+
+tfrag-near.gc:59
+->     (set! (-> a1-0 vector 3 w) 1.0)
+  [0x101C0] adrp x16, #0x10000                               mov-svl ifpr-41, [(sf 1)]
+  [0x101C4] ldr s23, [x16, #0x86c]
+  [0x101C8] add x16, x6, x15                                 move [igpr-21 + 60], ifpr-41
+  [0x101CC] str s23, [x16, #0x3c] ;; misaligned with debug data
+
+tfrag-near.gc:60
+->     (debug-set-camera-pos-rot! a0-0 a1-0))
+  [0x101D0] adrp x16, #0x10000                               mov igpr-42, 'debug-set-camera-pos-rot!
+  [0x101D4] add x16, x16, #0
+  [0x101D8] ldr w9, [x16]
+  [0x101DC] mov x9, x9                                       mov igpr-46, igpr-42
+  [0x101E0] mov x7, x7                                       mov igpr-44, igpr-20
+  [0x101E4] mov x6, x6                                       mov igpr-45, igpr-21
+  [0x101E8] add x9, x9, x15                                  call igpr-46 (ret igpr-43) (args igpr-44 igpr-45)
+  [0x101EC] stp x3, x5, [sp, #-0x10]!
+  [0x101F0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101F4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101F8] blr x9 ;; misaligned with debug data
+  [0x101FC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10200] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10204] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10208] mov x0, x0                                       mov igpr-47, igpr-43
+  [0x1020C] add sp, sp, #0x50
+  [0x10210] ldp x29, x30, [sp], #0x10
+  [0x10214] ret
+
+
+[tfrag-details]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+tfrag-near.gc:10
+-> (defun-debug tfrag-details ((arg0 tfragment))
+  [0x1000C] mov x12, x7                                      mov igpr-2, igpr-0
+
+tfrag-near.gc:13
+->   (format 0 "id = ~d~%" (-> arg0 id))
+  [0x10010] adrp x16, #0x10000                               mov igpr-3, 'format
+  [0x10014] add x16, x16, #0
+  [0x10018] ldr w9, [x16]
+
+tfrag-near.gc:10
+-> (defun-debug tfrag-details ((arg0 tfragment))
+  [0x1001C] movz x7, #0                                      mov-ic igpr-4, 0
+  [0x10020] adrp x6, #0x10000                                mov-sva igpr-5, static-string "id = ~d~%"
+  [0x10024] add x6, x6, #0x714
+  [0x10028] sub x6, x6, x15
+
+tfrag-near.gc:13
+->   (format 0 "id = ~d~%" (-> arg0 id))
+  [0x1002C] add x16, x12, x15                                mov igpr-6, [igpr-2 + 0]
+  [0x10030] ldrsh x2, [x16] ;; misaligned with debug data
+
+tfrag-near.gc:13
+->   (format 0 "id = ~d~%" (-> arg0 id))
+  [0x10034] mov x9, x9                                       mov igpr-11, igpr-3
+  [0x10038] mov x7, x7                                       mov igpr-8, igpr-4
+  [0x1003C] mov x6, x6                                       mov igpr-9, igpr-5
+  [0x10040] mov x2, x2                                       mov igpr-10, igpr-6
+  [0x10044] add x9, x9, x15                                  call igpr-11 (ret igpr-7) (args igpr-8 igpr-9 igpr-10)
+  [0x10048] stp x3, x5, [sp, #-0x10]!
+  [0x1004C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10050] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10054] blr x9 ;; misaligned with debug data
+  [0x10058] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1005C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] mov x0, x0                                       mov igpr-12, igpr-7
+
+tfrag-near.gc:14
+->   (format 0 "common:~%")
+  [0x10068] adrp x16, #0x10000                               mov igpr-13, 'format
+  [0x1006C] add x16, x16, #0
+  [0x10070] ldr w9, [x16]
+
+tfrag-near.gc:10
+-> (defun-debug tfrag-details ((arg0 tfragment))
+  [0x10074] movz x7, #0                                      mov-ic igpr-14, 0
+  [0x10078] adrp x6, #0x10000                                mov-sva igpr-15, static-string "common:~%"
+  [0x1007C] add x6, x6, #0x734
+  [0x10080] sub x6, x6, x15
+
+tfrag-near.gc:14
+->   (format 0 "common:~%")
+  [0x10084] mov x9, x9                                       mov igpr-19, igpr-13
+  [0x10088] mov x7, x7                                       mov igpr-17, igpr-14
+  [0x1008C] mov x6, x6                                       mov igpr-18, igpr-15
+  [0x10090] add x9, x9, x15                                  call igpr-19 (ret igpr-16) (args igpr-17 igpr-18)
+  [0x10094] stp x3, x5, [sp, #-0x10]!
+  [0x10098] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1009C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100A0] blr x9 ;; misaligned with debug data
+  [0x100A4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100A8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100AC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100B0] mov x0, x0                                       mov igpr-20, igpr-16
+
+tfrag-near.gc:15
+->   (let ((s5-0 (-> arg0 dma-qwc 0))
+  [0x100B4] add x16, x12, x15                                mov igpr-21, [igpr-2 + 40]
+  [0x100B8] ldrb w3, [x16, #0x28] ;; misaligned with debug data
+
+tfrag-near.gc:16
+->         (s4-0 (-> arg0 dma-common)))
+  [0x100BC] add x16, x12, x15                                mov igpr-22, [igpr-2 + 28]
+  [0x100C0] ldr w5, [x16, #0x1c] ;; misaligned with debug data
+
+tfrag-near.gc:15
+->   (let ((s5-0 (-> arg0 dma-qwc 0))
+  [0x100C4] mov x3, x3                                       mov igpr-23, igpr-21
+  [0x100C8] mov x5, x5                                       mov igpr-24, igpr-22
+
+tfrag-near.gc:17
+->     (format 0 "qwc = ~d, ref = ~x~%" s5-0 s4-0)
+  [0x100CC] adrp x16, #0x10000                               mov igpr-25, 'format
+  [0x100D0] add x16, x16, #0
+  [0x100D4] ldr w9, [x16]
+
+tfrag-near.gc:15
+->   (let ((s5-0 (-> arg0 dma-qwc 0))
+  [0x100D8] movz x7, #0                                      mov-ic igpr-26, 0
+  [0x100DC] adrp x6, #0x10000                                mov-sva igpr-27, static-string "qwc = ~d, ref = ~x~%"
+  [0x100E0] add x6, x6, #0x754
+  [0x100E4] sub x6, x6, x15
+
+tfrag-near.gc:17
+->     (format 0 "qwc = ~d, ref = ~x~%" s5-0 s4-0)
+  [0x100E8] mov x9, x9                                       mov igpr-33, igpr-25
+  [0x100EC] mov x7, x7                                       mov igpr-29, igpr-26
+  [0x100F0] mov x6, x6                                       mov igpr-30, igpr-27
+  [0x100F4] mov x2, x3                                       mov igpr-31, igpr-23
+  [0x100F8] mov x1, x5                                       mov igpr-32, igpr-24
+  [0x100FC] add x9, x9, x15                                  call igpr-33 (ret igpr-28) (args igpr-29 igpr-30 igpr-31 igpr-32)
+  [0x10100] stp x3, x5, [sp, #-0x10]!
+  [0x10104] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10108] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1010C] blr x9 ;; misaligned with debug data
+  [0x10110] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10114] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10118] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1011C] mov x0, x0                                       mov igpr-34, igpr-28
+
+tfrag-near.gc:18
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-0) (the-as int (* s5-0 4)) (the-as symbol 0) #t))
+  [0x10120] adrp x16, #0x10000                               mov igpr-35, 'disasm-vif-tag
+  [0x10124] add x16, x16, #0
+  [0x10128] ldr w9, [x16]
+
+tfrag-near.gc:18
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-0) (the-as int (* s5-0 4)) (the-as symbol 0) #t))
+  [0x1012C] mov x5, x5                                       mov igpr-36, igpr-24
+
+tfrag-near.gc:18
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-0) (the-as int (* s5-0 4)) (the-as symbol 0) #t))
+  [0x10130] mov x3, x3                                       mov igpr-37, igpr-23
+  [0x10134] lsl x3, x3, #2                                   shl igpr-37, 2
+
+tfrag-near.gc:18
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-0) (the-as int (* s5-0 4)) (the-as symbol 0) #t))
+  [0x10138] mov x3, x3                                       mov igpr-38, igpr-37
+
+tfrag-near.gc:18
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-0) (the-as int (* s5-0 4)) (the-as symbol 0) #t))
+  [0x1013C] movz x2, #0                                      mov-ic igpr-39, 0
+  [0x10140] mov x2, x2                                       mov igpr-40, igpr-39
+
+tfrag-near.gc:15
+->   (let ((s5-0 (-> arg0 dma-qwc 0))
+  [0x10144] add x1, x14, #8                                  mov-symptr igpr-41, '#t
+  [0x10148] sub x1, x1, x15 ;; misaligned with debug data
+
+tfrag-near.gc:18
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-0) (the-as int (* s5-0 4)) (the-as symbol 0) #t))
+  [0x1014C] mov x9, x9                                       mov igpr-47, igpr-35
+  [0x10150] mov x7, x5                                       mov igpr-43, igpr-36
+  [0x10154] mov x6, x3                                       mov igpr-44, igpr-38
+  [0x10158] mov x2, x2                                       mov igpr-45, igpr-40
+  [0x1015C] mov x1, x1                                       mov igpr-46, igpr-41
+  [0x10160] add x9, x9, x15                                  call igpr-47 (ret igpr-42) (args igpr-43 igpr-44 igpr-45 igpr-46)
+  [0x10164] stp x3, x5, [sp, #-0x10]!
+  [0x10168] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1016C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10170] blr x9 ;; misaligned with debug data
+  [0x10174] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10178] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1017C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10180] mov x0, x0                                       mov igpr-48, igpr-42
+
+tfrag-near.gc:19
+->   (format 0 "base:~%")
+  [0x10184] adrp x16, #0x10000                               mov igpr-49, 'format
+  [0x10188] add x16, x16, #0
+  [0x1018C] ldr w9, [x16]
+
+tfrag-near.gc:10
+-> (defun-debug tfrag-details ((arg0 tfragment))
+  [0x10190] movz x7, #0                                      mov-ic igpr-50, 0
+  [0x10194] adrp x6, #0x10000                                mov-sva igpr-51, static-string "base:~%"
+  [0x10198] add x6, x6, #0x774
+  [0x1019C] sub x6, x6, x15
+
+tfrag-near.gc:19
+->   (format 0 "base:~%")
+  [0x101A0] mov x9, x9                                       mov igpr-55, igpr-49
+  [0x101A4] mov x7, x7                                       mov igpr-53, igpr-50
+  [0x101A8] mov x6, x6                                       mov igpr-54, igpr-51
+  [0x101AC] add x9, x9, x15                                  call igpr-55 (ret igpr-52) (args igpr-53 igpr-54)
+  [0x101B0] stp x3, x5, [sp, #-0x10]!
+  [0x101B4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101B8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101BC] blr x9 ;; misaligned with debug data
+  [0x101C0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101C4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101C8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101CC] mov x0, x0                                       mov igpr-56, igpr-52
+
+tfrag-near.gc:20
+->   (let ((s5-1 (-> arg0 dma-qwc 1))
+  [0x101D0] add x16, x12, x15                                mov igpr-57, [igpr-2 + 41]
+  [0x101D4] ldrb w3, [x16, #0x29] ;; misaligned with debug data
+
+tfrag-near.gc:21
+->         (s4-1 (-> arg0 dma-base)))
+  [0x101D8] add x16, x12, x15                                mov igpr-58, [igpr-2 + 32]
+  [0x101DC] ldr w5, [x16, #0x20] ;; misaligned with debug data
+
+tfrag-near.gc:20
+->   (let ((s5-1 (-> arg0 dma-qwc 1))
+  [0x101E0] mov x3, x3                                       mov igpr-59, igpr-57
+  [0x101E4] mov x5, x5                                       mov igpr-60, igpr-58
+
+tfrag-near.gc:22
+->     (format 0 "qwc = ~d, ref = ~x~%" s5-1 s4-1)
+  [0x101E8] adrp x16, #0x10000                               mov igpr-61, 'format
+  [0x101EC] add x16, x16, #0
+  [0x101F0] ldr w9, [x16]
+
+tfrag-near.gc:20
+->   (let ((s5-1 (-> arg0 dma-qwc 1))
+  [0x101F4] movz x7, #0                                      mov-ic igpr-62, 0
+  [0x101F8] adrp x6, #0x10000                                mov-sva igpr-63, static-string "qwc = ~d, ref = ~x~%"
+  [0x101FC] add x6, x6, #0x784
+  [0x10200] sub x6, x6, x15
+
+tfrag-near.gc:22
+->     (format 0 "qwc = ~d, ref = ~x~%" s5-1 s4-1)
+  [0x10204] mov x9, x9                                       mov igpr-69, igpr-61
+  [0x10208] mov x7, x7                                       mov igpr-65, igpr-62
+  [0x1020C] mov x6, x6                                       mov igpr-66, igpr-63
+  [0x10210] mov x2, x3                                       mov igpr-67, igpr-59
+  [0x10214] mov x1, x5                                       mov igpr-68, igpr-60
+  [0x10218] add x9, x9, x15                                  call igpr-69 (ret igpr-64) (args igpr-65 igpr-66 igpr-67 igpr-68)
+  [0x1021C] stp x3, x5, [sp, #-0x10]!
+  [0x10220] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10224] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10228] blr x9 ;; misaligned with debug data
+  [0x1022C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10230] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10234] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10238] mov x0, x0                                       mov igpr-70, igpr-64
+
+tfrag-near.gc:23
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-1) (the-as int (* s5-1 4)) (the-as symbol 0) #t))
+  [0x1023C] adrp x16, #0x10000                               mov igpr-71, 'disasm-vif-tag
+  [0x10240] add x16, x16, #0
+  [0x10244] ldr w9, [x16]
+
+tfrag-near.gc:23
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-1) (the-as int (* s5-1 4)) (the-as symbol 0) #t))
+  [0x10248] mov x5, x5                                       mov igpr-72, igpr-60
+
+tfrag-near.gc:23
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-1) (the-as int (* s5-1 4)) (the-as symbol 0) #t))
+  [0x1024C] mov x3, x3                                       mov igpr-73, igpr-59
+  [0x10250] lsl x3, x3, #2                                   shl igpr-73, 2
+
+tfrag-near.gc:23
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-1) (the-as int (* s5-1 4)) (the-as symbol 0) #t))
+  [0x10254] mov x3, x3                                       mov igpr-74, igpr-73
+
+tfrag-near.gc:23
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-1) (the-as int (* s5-1 4)) (the-as symbol 0) #t))
+  [0x10258] movz x2, #0                                      mov-ic igpr-75, 0
+  [0x1025C] mov x2, x2                                       mov igpr-76, igpr-75
+
+tfrag-near.gc:20
+->   (let ((s5-1 (-> arg0 dma-qwc 1))
+  [0x10260] add x1, x14, #8                                  mov-symptr igpr-77, '#t
+  [0x10264] sub x1, x1, x15 ;; misaligned with debug data
+
+tfrag-near.gc:23
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-1) (the-as int (* s5-1 4)) (the-as symbol 0) #t))
+  [0x10268] mov x9, x9                                       mov igpr-83, igpr-71
+  [0x1026C] mov x7, x5                                       mov igpr-79, igpr-72
+  [0x10270] mov x6, x3                                       mov igpr-80, igpr-74
+  [0x10274] mov x2, x2                                       mov igpr-81, igpr-76
+  [0x10278] mov x1, x1                                       mov igpr-82, igpr-77
+  [0x1027C] add x9, x9, x15                                  call igpr-83 (ret igpr-78) (args igpr-79 igpr-80 igpr-81 igpr-82)
+  [0x10280] stp x3, x5, [sp, #-0x10]!
+  [0x10284] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10288] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1028C] blr x9 ;; misaligned with debug data
+  [0x10290] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10294] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10298] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1029C] mov x0, x0                                       mov igpr-84, igpr-78
+
+tfrag-near.gc:24
+->   (format 0 "level-0:~%")
+  [0x102A0] adrp x16, #0x10000                               mov igpr-85, 'format
+  [0x102A4] add x16, x16, #0
+  [0x102A8] ldr w9, [x16]
+
+tfrag-near.gc:10
+-> (defun-debug tfrag-details ((arg0 tfragment))
+  [0x102AC] movz x7, #0                                      mov-ic igpr-86, 0
+  [0x102B0] adrp x6, #0x10000                                mov-sva igpr-87, static-string "level-0:~%"
+  [0x102B4] add x6, x6, #0x7a4
+  [0x102B8] sub x6, x6, x15
+
+tfrag-near.gc:24
+->   (format 0 "level-0:~%")
+  [0x102BC] mov x9, x9                                       mov igpr-91, igpr-85
+  [0x102C0] mov x7, x7                                       mov igpr-89, igpr-86
+  [0x102C4] mov x6, x6                                       mov igpr-90, igpr-87
+  [0x102C8] add x9, x9, x15                                  call igpr-91 (ret igpr-88) (args igpr-89 igpr-90)
+  [0x102CC] stp x3, x5, [sp, #-0x10]!
+  [0x102D0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102D4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102D8] blr x9 ;; misaligned with debug data
+  [0x102DC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x102E0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x102E4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x102E8] mov x0, x0                                       mov igpr-92, igpr-88
+
+tfrag-near.gc:25
+->   (let ((s5-2 (-> arg0 dma-qwc 3))
+  [0x102EC] add x16, x12, x15                                mov igpr-93, [igpr-2 + 43]
+  [0x102F0] ldrb w3, [x16, #0x2b] ;; misaligned with debug data
+
+tfrag-near.gc:26
+->         (s4-2 (-> (the-as (pointer uint32) arg0) 10)))
+  [0x102F4] mov x9, x12                                      mov igpr-95, igpr-2
+  [0x102F8] add x16, x9, x15                                 mov igpr-94, [igpr-95 + 40]
+  [0x102FC] ldr w5, [x16, #0x28] ;; misaligned with debug data
+
+tfrag-near.gc:25
+->   (let ((s5-2 (-> arg0 dma-qwc 3))
+  [0x10300] mov x3, x3                                       mov igpr-96, igpr-93
+  [0x10304] mov x5, x5                                       mov igpr-97, igpr-94
+
+tfrag-near.gc:27
+->     (format 0 "qwc = ~d, ref = ~x~%" s5-2 s4-2)
+  [0x10308] adrp x16, #0x10000                               mov igpr-98, 'format
+  [0x1030C] add x16, x16, #0
+  [0x10310] ldr w9, [x16]
+
+tfrag-near.gc:25
+->   (let ((s5-2 (-> arg0 dma-qwc 3))
+  [0x10314] movz x7, #0                                      mov-ic igpr-99, 0
+  [0x10318] adrp x6, #0x10000                                mov-sva igpr-100, static-string "qwc = ~d, ref = ~x~%"
+  [0x1031C] add x6, x6, #0x7c4
+  [0x10320] sub x6, x6, x15
+
+tfrag-near.gc:27
+->     (format 0 "qwc = ~d, ref = ~x~%" s5-2 s4-2)
+  [0x10324] mov x9, x9                                       mov igpr-106, igpr-98
+  [0x10328] mov x7, x7                                       mov igpr-102, igpr-99
+  [0x1032C] mov x6, x6                                       mov igpr-103, igpr-100
+  [0x10330] mov x2, x3                                       mov igpr-104, igpr-96
+  [0x10334] mov x1, x5                                       mov igpr-105, igpr-97
+  [0x10338] add x9, x9, x15                                  call igpr-106 (ret igpr-101) (args igpr-102 igpr-103 igpr-104 igpr-105)
+  [0x1033C] stp x3, x5, [sp, #-0x10]!
+  [0x10340] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10344] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10348] blr x9 ;; misaligned with debug data
+  [0x1034C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10350] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10354] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10358] mov x0, x0                                       mov igpr-107, igpr-101
+
+tfrag-near.gc:28
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-2) (the-as int (* s5-2 4)) (the-as symbol 0) #t))
+  [0x1035C] adrp x16, #0x10000                               mov igpr-108, 'disasm-vif-tag
+  [0x10360] add x16, x16, #0
+  [0x10364] ldr w9, [x16]
+
+tfrag-near.gc:28
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-2) (the-as int (* s5-2 4)) (the-as symbol 0) #t))
+  [0x10368] mov x5, x5                                       mov igpr-109, igpr-97
+
+tfrag-near.gc:28
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-2) (the-as int (* s5-2 4)) (the-as symbol 0) #t))
+  [0x1036C] mov x3, x3                                       mov igpr-110, igpr-96
+  [0x10370] lsl x3, x3, #2                                   shl igpr-110, 2
+
+tfrag-near.gc:28
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-2) (the-as int (* s5-2 4)) (the-as symbol 0) #t))
+  [0x10374] mov x3, x3                                       mov igpr-111, igpr-110
+
+tfrag-near.gc:28
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-2) (the-as int (* s5-2 4)) (the-as symbol 0) #t))
+  [0x10378] movz x2, #0                                      mov-ic igpr-112, 0
+  [0x1037C] mov x2, x2                                       mov igpr-113, igpr-112
+
+tfrag-near.gc:25
+->   (let ((s5-2 (-> arg0 dma-qwc 3))
+  [0x10380] add x1, x14, #8                                  mov-symptr igpr-114, '#t
+  [0x10384] sub x1, x1, x15 ;; misaligned with debug data
+
+tfrag-near.gc:28
+->     (disasm-vif-tag (the-as (pointer vif-tag) s4-2) (the-as int (* s5-2 4)) (the-as symbol 0) #t))
+  [0x10388] mov x9, x9                                       mov igpr-120, igpr-108
+  [0x1038C] mov x7, x5                                       mov igpr-116, igpr-109
+  [0x10390] mov x6, x3                                       mov igpr-117, igpr-111
+  [0x10394] mov x2, x2                                       mov igpr-118, igpr-113
+  [0x10398] mov x1, x1                                       mov igpr-119, igpr-114
+  [0x1039C] add x9, x9, x15                                  call igpr-120 (ret igpr-115) (args igpr-116 igpr-117 igpr-118 igpr-119)
+  [0x103A0] stp x3, x5, [sp, #-0x10]!
+  [0x103A4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x103A8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x103AC] blr x9 ;; misaligned with debug data
+  [0x103B0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x103B4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x103B8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x103BC] mov x0, x0                                       mov igpr-121, igpr-115
+
+tfrag-near.gc:29
+->   (format 0 "level-1:~%")
+  [0x103C0] adrp x16, #0x10000                               mov igpr-122, 'format
+  [0x103C4] add x16, x16, #0
+  [0x103C8] ldr w9, [x16]
+
+tfrag-near.gc:10
+-> (defun-debug tfrag-details ((arg0 tfragment))
+  [0x103CC] movz x7, #0                                      mov-ic igpr-123, 0
+  [0x103D0] adrp x6, #0x10000                                mov-sva igpr-124, static-string "level-1:~%"
+  [0x103D4] add x6, x6, #0x7e4
+  [0x103D8] sub x6, x6, x15
+
+tfrag-near.gc:29
+->   (format 0 "level-1:~%")
+  [0x103DC] mov x9, x9                                       mov igpr-128, igpr-122
+  [0x103E0] mov x7, x7                                       mov igpr-126, igpr-123
+  [0x103E4] mov x6, x6                                       mov igpr-127, igpr-124
+  [0x103E8] add x9, x9, x15                                  call igpr-128 (ret igpr-125) (args igpr-126 igpr-127)
+  [0x103EC] stp x3, x5, [sp, #-0x10]!
+  [0x103F0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x103F4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x103F8] blr x9 ;; misaligned with debug data
+  [0x103FC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10400] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10404] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10408] mov x0, x0                                       mov igpr-129, igpr-125
+
+tfrag-near.gc:30
+->   (let ((s5-3 (-> arg0 dma-qwc 2))
+  [0x1040C] add x16, x12, x15                                mov igpr-130, [igpr-2 + 42]
+  [0x10410] ldrb w3, [x16, #0x2a] ;; misaligned with debug data
+
+tfrag-near.gc:31
+->         (gp-1 (-> arg0 dma-level-1)))
+  [0x10414] add x16, x12, x15                                mov igpr-131, [igpr-2 + 36]
+  [0x10418] ldr w5, [x16, #0x24] ;; misaligned with debug data
+
+tfrag-near.gc:30
+->   (let ((s5-3 (-> arg0 dma-qwc 2))
+  [0x1041C] mov x3, x3                                       mov igpr-132, igpr-130
+  [0x10420] mov x5, x5                                       mov igpr-133, igpr-131
+
+tfrag-near.gc:32
+->     (format 0 "qwc = ~d, ref = ~x~%" s5-3 gp-1)
+  [0x10424] adrp x16, #0x10000                               mov igpr-134, 'format
+  [0x10428] add x16, x16, #0
+  [0x1042C] ldr w9, [x16]
+
+tfrag-near.gc:30
+->   (let ((s5-3 (-> arg0 dma-qwc 2))
+  [0x10430] movz x7, #0                                      mov-ic igpr-135, 0
+  [0x10434] adrp x6, #0x10000                                mov-sva igpr-136, static-string "qwc = ~d, ref = ~x~%"
+  [0x10438] add x6, x6, #0x804
+  [0x1043C] sub x6, x6, x15
+
+tfrag-near.gc:32
+->     (format 0 "qwc = ~d, ref = ~x~%" s5-3 gp-1)
+  [0x10440] mov x9, x9                                       mov igpr-142, igpr-134
+  [0x10444] mov x7, x7                                       mov igpr-138, igpr-135
+  [0x10448] mov x6, x6                                       mov igpr-139, igpr-136
+  [0x1044C] mov x2, x3                                       mov igpr-140, igpr-132
+  [0x10450] mov x1, x5                                       mov igpr-141, igpr-133
+  [0x10454] add x9, x9, x15                                  call igpr-142 (ret igpr-137) (args igpr-138 igpr-139 igpr-140 igpr-141)
+  [0x10458] stp x3, x5, [sp, #-0x10]!
+  [0x1045C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10460] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10464] blr x9 ;; misaligned with debug data
+  [0x10468] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1046C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10470] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10474] mov x0, x0                                       mov igpr-143, igpr-137
+
+tfrag-near.gc:33
+->     (disasm-vif-tag (the-as (pointer vif-tag) gp-1) (the-as int (* s5-3 4)) (the-as symbol 0) #t))
+  [0x10478] adrp x16, #0x10000                               mov igpr-144, 'disasm-vif-tag
+  [0x1047C] add x16, x16, #0
+  [0x10480] ldr w9, [x16]
+
+tfrag-near.gc:33
+->     (disasm-vif-tag (the-as (pointer vif-tag) gp-1) (the-as int (* s5-3 4)) (the-as symbol 0) #t))
+  [0x10484] mov x5, x5                                       mov igpr-145, igpr-133
+
+tfrag-near.gc:33
+->     (disasm-vif-tag (the-as (pointer vif-tag) gp-1) (the-as int (* s5-3 4)) (the-as symbol 0) #t))
+  [0x10488] mov x3, x3                                       mov igpr-146, igpr-132
+  [0x1048C] lsl x3, x3, #2                                   shl igpr-146, 2
+
+tfrag-near.gc:33
+->     (disasm-vif-tag (the-as (pointer vif-tag) gp-1) (the-as int (* s5-3 4)) (the-as symbol 0) #t))
+  [0x10490] mov x3, x3                                       mov igpr-147, igpr-146
+
+tfrag-near.gc:33
+->     (disasm-vif-tag (the-as (pointer vif-tag) gp-1) (the-as int (* s5-3 4)) (the-as symbol 0) #t))
+  [0x10494] movz x2, #0                                      mov-ic igpr-148, 0
+  [0x10498] mov x2, x2                                       mov igpr-149, igpr-148
+
+tfrag-near.gc:30
+->   (let ((s5-3 (-> arg0 dma-qwc 2))
+  [0x1049C] add x1, x14, #8                                  mov-symptr igpr-150, '#t
+  [0x104A0] sub x1, x1, x15 ;; misaligned with debug data
+
+tfrag-near.gc:33
+->     (disasm-vif-tag (the-as (pointer vif-tag) gp-1) (the-as int (* s5-3 4)) (the-as symbol 0) #t))
+  [0x104A4] mov x9, x9                                       mov igpr-156, igpr-144
+  [0x104A8] mov x7, x5                                       mov igpr-152, igpr-145
+  [0x104AC] mov x6, x3                                       mov igpr-153, igpr-147
+  [0x104B0] mov x2, x2                                       mov igpr-154, igpr-149
+  [0x104B4] mov x1, x1                                       mov igpr-155, igpr-150
+  [0x104B8] add x9, x9, x15                                  call igpr-156 (ret igpr-151) (args igpr-152 igpr-153 igpr-154 igpr-155)
+  [0x104BC] stp x3, x5, [sp, #-0x10]!
+  [0x104C0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x104C4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x104C8] blr x9 ;; misaligned with debug data
+  [0x104CC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x104D0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x104D4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x104D8] mov x0, x0                                       mov igpr-157, igpr-151
+  [0x104DC] add sp, sp, #0x10
+  [0x104E0] ldp x29, x30, [sp], #0x10
+  [0x104E4] ret
+
+
+

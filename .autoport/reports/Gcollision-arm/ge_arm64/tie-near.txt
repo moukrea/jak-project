@@ -1,0 +1,1639 @@
+[tie-near-float-reg]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+tie-near.gc:128
+-> (defun tie-near-float-reg ((arg0 int))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1000C] mov x7, x7                                       mov igpr-3, igpr-2
+
+tie-near.gc:131
+->       ((zero? v1-0) "zero")
+  [0x10010] movz x9, #0                                      mov-ic igpr-5, 0
+  [0x10014] cmp x7, x9                                       j(igpr-3 != igpr-5) label-8
+  [0x10018] b.ne #0x10030
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1001C] adrp x0, #0x10000                                mov-sva igpr-6, static-string "zero"
+  [0x10020] add x0, x0, #0xa94
+  [0x10024] sub x0, x0, x15
+
+tie-near.gc:131
+->       ((zero? v1-0) "zero")
+  [0x10028] mov x0, x0                                       mov igpr-4, igpr-6
+  [0x1002C] b #0x10458                                       goto label-174
+
+tie-near.gc:132
+->       ((= v1-0 1) "vtx-0")
+  [0x10030] movz x9, #0x1                                    mov-ic igpr-7, 1
+  [0x10034] cmp x7, x9                                       j(igpr-3 != igpr-7) label-13
+  [0x10038] b.ne #0x10050
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1003C] adrp x0, #0x10000                                mov-sva igpr-8, static-string "vtx-0"
+  [0x10040] add x0, x0, #0xaa4
+  [0x10044] sub x0, x0, x15
+
+tie-near.gc:132
+->       ((= v1-0 1) "vtx-0")
+  [0x10048] mov x0, x0                                       mov igpr-4, igpr-8
+  [0x1004C] b #0x10458                                       goto label-174
+
+tie-near.gc:133
+->       ((= v1-0 2) "vtx-1")
+  [0x10050] movz x9, #0x2                                    mov-ic igpr-9, 2
+  [0x10054] cmp x7, x9                                       j(igpr-3 != igpr-9) label-18
+  [0x10058] b.ne #0x10070
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1005C] adrp x0, #0x10000                                mov-sva igpr-10, static-string "vtx-1"
+  [0x10060] add x0, x0, #0xab4
+  [0x10064] sub x0, x0, x15
+
+tie-near.gc:133
+->       ((= v1-0 2) "vtx-1")
+  [0x10068] mov x0, x0                                       mov igpr-4, igpr-10
+  [0x1006C] b #0x10458                                       goto label-174
+
+tie-near.gc:134
+->       ((= v1-0 3) "vtx-2")
+  [0x10070] movz x9, #0x3                                    mov-ic igpr-11, 3
+  [0x10074] cmp x7, x9                                       j(igpr-3 != igpr-11) label-23
+  [0x10078] b.ne #0x10090
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1007C] adrp x0, #0x10000                                mov-sva igpr-12, static-string "vtx-2"
+  [0x10080] add x0, x0, #0xac4
+  [0x10084] sub x0, x0, x15
+
+tie-near.gc:134
+->       ((= v1-0 3) "vtx-2")
+  [0x10088] mov x0, x0                                       mov igpr-4, igpr-12
+  [0x1008C] b #0x10458                                       goto label-174
+
+tie-near.gc:135
+->       ((= v1-0 4) "vtx-3")
+  [0x10090] movz x9, #0x4                                    mov-ic igpr-13, 4
+  [0x10094] cmp x7, x9                                       j(igpr-3 != igpr-13) label-28
+  [0x10098] b.ne #0x100b0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1009C] adrp x0, #0x10000                                mov-sva igpr-14, static-string "vtx-3"
+  [0x100A0] add x0, x0, #0xad4
+  [0x100A4] sub x0, x0, x15
+
+tie-near.gc:135
+->       ((= v1-0 4) "vtx-3")
+  [0x100A8] mov x0, x0                                       mov igpr-4, igpr-14
+  [0x100AC] b #0x10458                                       goto label-174
+
+tie-near.gc:136
+->       ((= v1-0 5) "hvtx-0")
+  [0x100B0] movz x9, #0x5                                    mov-ic igpr-15, 5
+  [0x100B4] cmp x7, x9                                       j(igpr-3 != igpr-15) label-33
+  [0x100B8] b.ne #0x100d0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x100BC] adrp x0, #0x10000                                mov-sva igpr-16, static-string "hvtx-0"
+  [0x100C0] add x0, x0, #0xae4
+  [0x100C4] sub x0, x0, x15
+
+tie-near.gc:136
+->       ((= v1-0 5) "hvtx-0")
+  [0x100C8] mov x0, x0                                       mov igpr-4, igpr-16
+  [0x100CC] b #0x10458                                       goto label-174
+
+tie-near.gc:137
+->       ((= v1-0 6) "hvtx-1")
+  [0x100D0] movz x9, #0x6                                    mov-ic igpr-17, 6
+  [0x100D4] cmp x7, x9                                       j(igpr-3 != igpr-17) label-38
+  [0x100D8] b.ne #0x100f0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x100DC] adrp x0, #0x10000                                mov-sva igpr-18, static-string "hvtx-1"
+  [0x100E0] add x0, x0, #0xaf4
+  [0x100E4] sub x0, x0, x15
+
+tie-near.gc:137
+->       ((= v1-0 6) "hvtx-1")
+  [0x100E8] mov x0, x0                                       mov igpr-4, igpr-18
+  [0x100EC] b #0x10458                                       goto label-174
+
+tie-near.gc:138
+->       ((= v1-0 7) "hvtx-2")
+  [0x100F0] movz x9, #0x7                                    mov-ic igpr-19, 7
+  [0x100F4] cmp x7, x9                                       j(igpr-3 != igpr-19) label-43
+  [0x100F8] b.ne #0x10110
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x100FC] adrp x0, #0x10000                                mov-sva igpr-20, static-string "hvtx-2"
+  [0x10100] add x0, x0, #0xb04
+  [0x10104] sub x0, x0, x15
+
+tie-near.gc:138
+->       ((= v1-0 7) "hvtx-2")
+  [0x10108] mov x0, x0                                       mov igpr-4, igpr-20
+  [0x1010C] b #0x10458                                       goto label-174
+
+tie-near.gc:139
+->       ((= v1-0 8) "hvtx-3")
+  [0x10110] movz x9, #0x8                                    mov-ic igpr-21, 8
+  [0x10114] cmp x7, x9                                       j(igpr-3 != igpr-21) label-48
+  [0x10118] b.ne #0x10130
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1011C] adrp x0, #0x10000                                mov-sva igpr-22, static-string "hvtx-3"
+  [0x10120] add x0, x0, #0xb14
+  [0x10124] sub x0, x0, x15
+
+tie-near.gc:139
+->       ((= v1-0 8) "hvtx-3")
+  [0x10128] mov x0, x0                                       mov igpr-4, igpr-22
+  [0x1012C] b #0x10458                                       goto label-174
+
+tie-near.gc:140
+->       ((= v1-0 9) "tex-0")
+  [0x10130] movz x9, #0x9                                    mov-ic igpr-23, 9
+  [0x10134] cmp x7, x9                                       j(igpr-3 != igpr-23) label-53
+  [0x10138] b.ne #0x10150
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1013C] adrp x0, #0x10000                                mov-sva igpr-24, static-string "tex-0"
+  [0x10140] add x0, x0, #0xb24
+  [0x10144] sub x0, x0, x15
+
+tie-near.gc:140
+->       ((= v1-0 9) "tex-0")
+  [0x10148] mov x0, x0                                       mov igpr-4, igpr-24
+  [0x1014C] b #0x10458                                       goto label-174
+
+tie-near.gc:141
+->       ((= v1-0 10) "tex-1")
+  [0x10150] movz x9, #0xa                                    mov-ic igpr-25, 10
+  [0x10154] cmp x7, x9                                       j(igpr-3 != igpr-25) label-58
+  [0x10158] b.ne #0x10170
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1015C] adrp x0, #0x10000                                mov-sva igpr-26, static-string "tex-1"
+  [0x10160] add x0, x0, #0xb34
+  [0x10164] sub x0, x0, x15
+
+tie-near.gc:141
+->       ((= v1-0 10) "tex-1")
+  [0x10168] mov x0, x0                                       mov igpr-4, igpr-26
+  [0x1016C] b #0x10458                                       goto label-174
+
+tie-near.gc:142
+->       ((= v1-0 11) "tex-2")
+  [0x10170] movz x9, #0xb                                    mov-ic igpr-27, 11
+  [0x10174] cmp x7, x9                                       j(igpr-3 != igpr-27) label-63
+  [0x10178] b.ne #0x10190
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1017C] adrp x0, #0x10000                                mov-sva igpr-28, static-string "tex-2"
+  [0x10180] add x0, x0, #0xb44
+  [0x10184] sub x0, x0, x15
+
+tie-near.gc:142
+->       ((= v1-0 11) "tex-2")
+  [0x10188] mov x0, x0                                       mov igpr-4, igpr-28
+  [0x1018C] b #0x10458                                       goto label-174
+
+tie-near.gc:143
+->       ((= v1-0 12) "tex-3")
+  [0x10190] movz x9, #0xc                                    mov-ic igpr-29, 12
+  [0x10194] cmp x7, x9                                       j(igpr-3 != igpr-29) label-68
+  [0x10198] b.ne #0x101b0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1019C] adrp x0, #0x10000                                mov-sva igpr-30, static-string "tex-3"
+  [0x101A0] add x0, x0, #0xb54
+  [0x101A4] sub x0, x0, x15
+
+tie-near.gc:143
+->       ((= v1-0 12) "tex-3")
+  [0x101A8] mov x0, x0                                       mov igpr-4, igpr-30
+  [0x101AC] b #0x10458                                       goto label-174
+
+tie-near.gc:144
+->       ((= v1-0 13) "deltas")
+  [0x101B0] movz x9, #0xd                                    mov-ic igpr-31, 13
+  [0x101B4] cmp x7, x9                                       j(igpr-3 != igpr-31) label-73
+  [0x101B8] b.ne #0x101d0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x101BC] adrp x0, #0x10000                                mov-sva igpr-32, static-string "deltas"
+  [0x101C0] add x0, x0, #0xb64
+  [0x101C4] sub x0, x0, x15
+
+tie-near.gc:144
+->       ((= v1-0 13) "deltas")
+  [0x101C8] mov x0, x0                                       mov igpr-4, igpr-32
+  [0x101CC] b #0x10458                                       goto label-174
+
+tie-near.gc:145
+->       ((= v1-0 14) "invh")
+  [0x101D0] movz x9, #0xe                                    mov-ic igpr-33, 14
+  [0x101D4] cmp x7, x9                                       j(igpr-3 != igpr-33) label-78
+  [0x101D8] b.ne #0x101f0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x101DC] adrp x0, #0x10000                                mov-sva igpr-34, static-string "invh"
+  [0x101E0] add x0, x0, #0xb74
+  [0x101E4] sub x0, x0, x15
+
+tie-near.gc:145
+->       ((= v1-0 14) "invh")
+  [0x101E8] mov x0, x0                                       mov igpr-4, igpr-34
+  [0x101EC] b #0x10458                                       goto label-174
+
+tie-near.gc:146
+->       ((= v1-0 15) "hvdfcl")
+  [0x101F0] movz x9, #0xf                                    mov-ic igpr-35, 15
+  [0x101F4] cmp x7, x9                                       j(igpr-3 != igpr-35) label-83
+  [0x101F8] b.ne #0x10210
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x101FC] adrp x0, #0x10000                                mov-sva igpr-36, static-string "hvdfcl"
+  [0x10200] add x0, x0, #0xb84
+  [0x10204] sub x0, x0, x15
+
+tie-near.gc:146
+->       ((= v1-0 15) "hvdfcl")
+  [0x10208] mov x0, x0                                       mov igpr-4, igpr-36
+  [0x1020C] b #0x10458                                       goto label-174
+
+tie-near.gc:147
+->       ((= v1-0 16) "hvdfnc")
+  [0x10210] movz x9, #0x10                                   mov-ic igpr-37, 16
+  [0x10214] cmp x7, x9                                       j(igpr-3 != igpr-37) label-88
+  [0x10218] b.ne #0x10230
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1021C] adrp x0, #0x10000                                mov-sva igpr-38, static-string "hvdfnc"
+  [0x10220] add x0, x0, #0xb94
+  [0x10224] sub x0, x0, x15
+
+tie-near.gc:147
+->       ((= v1-0 16) "hvdfnc")
+  [0x10228] mov x0, x0                                       mov igpr-4, igpr-38
+  [0x1022C] b #0x10458                                       goto label-174
+
+tie-near.gc:148
+->       ((= v1-0 17) "--")
+  [0x10230] movz x9, #0x11                                   mov-ic igpr-39, 17
+  [0x10234] cmp x7, x9                                       j(igpr-3 != igpr-39) label-93
+  [0x10238] b.ne #0x10250
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1023C] adrp x0, #0x10000                                mov-sva igpr-40, static-string "--"
+  [0x10240] add x0, x0, #0xba4
+  [0x10244] sub x0, x0, x15
+
+tie-near.gc:148
+->       ((= v1-0 17) "--")
+  [0x10248] mov x0, x0                                       mov igpr-4, igpr-40
+  [0x1024C] b #0x10458                                       goto label-174
+
+tie-near.gc:149
+->       ((= v1-0 18) "--")
+  [0x10250] movz x9, #0x12                                   mov-ic igpr-41, 18
+  [0x10254] cmp x7, x9                                       j(igpr-3 != igpr-41) label-98
+  [0x10258] b.ne #0x10270
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1025C] adrp x0, #0x10000                                mov-sva igpr-42, static-string "--"
+  [0x10260] add x0, x0, #0xbb4
+  [0x10264] sub x0, x0, x15
+
+tie-near.gc:149
+->       ((= v1-0 18) "--")
+  [0x10268] mov x0, x0                                       mov igpr-4, igpr-42
+  [0x1026C] b #0x10458                                       goto label-174
+
+tie-near.gc:150
+->       ((= v1-0 19) "--")
+  [0x10270] movz x9, #0x13                                   mov-ic igpr-43, 19
+  [0x10274] cmp x7, x9                                       j(igpr-3 != igpr-43) label-103
+  [0x10278] b.ne #0x10290
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1027C] adrp x0, #0x10000                                mov-sva igpr-44, static-string "--"
+  [0x10280] add x0, x0, #0xbc4
+  [0x10284] sub x0, x0, x15
+
+tie-near.gc:150
+->       ((= v1-0 19) "--")
+  [0x10288] mov x0, x0                                       mov igpr-4, igpr-44
+  [0x1028C] b #0x10458                                       goto label-174
+
+tie-near.gc:151
+->       ((= v1-0 20) "--")
+  [0x10290] movz x9, #0x14                                   mov-ic igpr-45, 20
+  [0x10294] cmp x7, x9                                       j(igpr-3 != igpr-45) label-108
+  [0x10298] b.ne #0x102b0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1029C] adrp x0, #0x10000                                mov-sva igpr-46, static-string "--"
+  [0x102A0] add x0, x0, #0xbd4
+  [0x102A4] sub x0, x0, x15
+
+tie-near.gc:151
+->       ((= v1-0 20) "--")
+  [0x102A8] mov x0, x0                                       mov igpr-4, igpr-46
+  [0x102AC] b #0x10458                                       goto label-174
+
+tie-near.gc:152
+->       ((= v1-0 19) "--")
+  [0x102B0] movz x9, #0x13                                   mov-ic igpr-47, 19
+  [0x102B4] cmp x7, x9                                       j(igpr-3 != igpr-47) label-113
+  [0x102B8] b.ne #0x102d0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x102BC] adrp x0, #0x10000                                mov-sva igpr-48, static-string "--"
+  [0x102C0] add x0, x0, #0xbe4
+  [0x102C4] sub x0, x0, x15
+
+tie-near.gc:152
+->       ((= v1-0 19) "--")
+  [0x102C8] mov x0, x0                                       mov igpr-4, igpr-48
+  [0x102CC] b #0x10458                                       goto label-174
+
+tie-near.gc:153
+->       ((= v1-0 20) "--")
+  [0x102D0] movz x9, #0x14                                   mov-ic igpr-49, 20
+  [0x102D4] cmp x7, x9                                       j(igpr-3 != igpr-49) label-118
+  [0x102D8] b.ne #0x102f0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x102DC] adrp x0, #0x10000                                mov-sva igpr-50, static-string "--"
+  [0x102E0] add x0, x0, #0xbf4
+  [0x102E4] sub x0, x0, x15
+
+tie-near.gc:153
+->       ((= v1-0 20) "--")
+  [0x102E8] mov x0, x0                                       mov igpr-4, igpr-50
+  [0x102EC] b #0x10458                                       goto label-174
+
+tie-near.gc:154
+->       ((= v1-0 21) "gifbuf")
+  [0x102F0] movz x9, #0x15                                   mov-ic igpr-51, 21
+  [0x102F4] cmp x7, x9                                       j(igpr-3 != igpr-51) label-123
+  [0x102F8] b.ne #0x10310
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x102FC] adrp x0, #0x10000                                mov-sva igpr-52, static-string "gifbuf"
+  [0x10300] add x0, x0, #0xc04
+  [0x10304] sub x0, x0, x15
+
+tie-near.gc:154
+->       ((= v1-0 21) "gifbuf")
+  [0x10308] mov x0, x0                                       mov igpr-4, igpr-52
+  [0x1030C] b #0x10458                                       goto label-174
+
+tie-near.gc:155
+->       ((= v1-0 22) "clrbuf")
+  [0x10310] movz x9, #0x16                                   mov-ic igpr-53, 22
+  [0x10314] cmp x7, x9                                       j(igpr-3 != igpr-53) label-128
+  [0x10318] b.ne #0x10330
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1031C] adrp x0, #0x10000                                mov-sva igpr-54, static-string "clrbuf"
+  [0x10320] add x0, x0, #0xc14
+  [0x10324] sub x0, x0, x15
+
+tie-near.gc:155
+->       ((= v1-0 22) "clrbuf")
+  [0x10328] mov x0, x0                                       mov igpr-4, igpr-54
+  [0x1032C] b #0x10458                                       goto label-174
+
+tie-near.gc:156
+->       ((= v1-0 23) "extra")
+  [0x10330] movz x9, #0x17                                   mov-ic igpr-55, 23
+  [0x10334] cmp x7, x9                                       j(igpr-3 != igpr-55) label-133
+  [0x10338] b.ne #0x10350
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1033C] adrp x0, #0x10000                                mov-sva igpr-56, static-string "extra"
+  [0x10340] add x0, x0, #0xc24
+  [0x10344] sub x0, x0, x15
+
+tie-near.gc:156
+->       ((= v1-0 23) "extra")
+  [0x10348] mov x0, x0                                       mov igpr-4, igpr-56
+  [0x1034C] b #0x10458                                       goto label-174
+
+tie-near.gc:157
+->       ((= v1-0 24) "inds")
+  [0x10350] movz x9, #0x18                                   mov-ic igpr-57, 24
+  [0x10354] cmp x7, x9                                       j(igpr-3 != igpr-57) label-138
+  [0x10358] b.ne #0x10370
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1035C] adrp x0, #0x10000                                mov-sva igpr-58, static-string "inds"
+  [0x10360] add x0, x0, #0xc34
+  [0x10364] sub x0, x0, x15
+
+tie-near.gc:157
+->       ((= v1-0 24) "inds")
+  [0x10368] mov x0, x0                                       mov igpr-4, igpr-58
+  [0x1036C] b #0x10458                                       goto label-174
+
+tie-near.gc:158
+->       ((= v1-0 25) "--")
+  [0x10370] movz x9, #0x19                                   mov-ic igpr-59, 25
+  [0x10374] cmp x7, x9                                       j(igpr-3 != igpr-59) label-143
+  [0x10378] b.ne #0x10390
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1037C] adrp x0, #0x10000                                mov-sva igpr-60, static-string "--"
+  [0x10380] add x0, x0, #0xc44
+  [0x10384] sub x0, x0, x15
+
+tie-near.gc:158
+->       ((= v1-0 25) "--")
+  [0x10388] mov x0, x0                                       mov igpr-4, igpr-60
+  [0x1038C] b #0x10458                                       goto label-174
+
+tie-near.gc:159
+->       ((= v1-0 26) "--")
+  [0x10390] movz x9, #0x1a                                   mov-ic igpr-61, 26
+  [0x10394] cmp x7, x9                                       j(igpr-3 != igpr-61) label-148
+  [0x10398] b.ne #0x103b0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1039C] adrp x0, #0x10000                                mov-sva igpr-62, static-string "--"
+  [0x103A0] add x0, x0, #0xc54
+  [0x103A4] sub x0, x0, x15
+
+tie-near.gc:159
+->       ((= v1-0 26) "--")
+  [0x103A8] mov x0, x0                                       mov igpr-4, igpr-62
+  [0x103AC] b #0x10458                                       goto label-174
+
+tie-near.gc:160
+->       ((= v1-0 27) "morph")
+  [0x103B0] movz x9, #0x1b                                   mov-ic igpr-63, 27
+  [0x103B4] cmp x7, x9                                       j(igpr-3 != igpr-63) label-153
+  [0x103B8] b.ne #0x103d0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x103BC] adrp x0, #0x10000                                mov-sva igpr-64, static-string "morph"
+  [0x103C0] add x0, x0, #0xc64
+  [0x103C4] sub x0, x0, x15
+
+tie-near.gc:160
+->       ((= v1-0 27) "morph")
+  [0x103C8] mov x0, x0                                       mov igpr-4, igpr-64
+  [0x103CC] b #0x10458                                       goto label-174
+
+tie-near.gc:161
+->       ((= v1-0 28) "xyzofs")
+  [0x103D0] movz x9, #0x1c                                   mov-ic igpr-65, 28
+  [0x103D4] cmp x7, x9                                       j(igpr-3 != igpr-65) label-158
+  [0x103D8] b.ne #0x103f0
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x103DC] adrp x0, #0x10000                                mov-sva igpr-66, static-string "xyzofs"
+  [0x103E0] add x0, x0, #0xc74
+  [0x103E4] sub x0, x0, x15
+
+tie-near.gc:161
+->       ((= v1-0 28) "xyzofs")
+  [0x103E8] mov x0, x0                                       mov igpr-4, igpr-66
+  [0x103EC] b #0x10458                                       goto label-174
+
+tie-near.gc:162
+->       ((= v1-0 29) "--")
+  [0x103F0] movz x9, #0x1d                                   mov-ic igpr-67, 29
+  [0x103F4] cmp x7, x9                                       j(igpr-3 != igpr-67) label-163
+  [0x103F8] b.ne #0x10410
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x103FC] adrp x0, #0x10000                                mov-sva igpr-68, static-string "--"
+  [0x10400] add x0, x0, #0xc84
+  [0x10404] sub x0, x0, x15
+
+tie-near.gc:162
+->       ((= v1-0 29) "--")
+  [0x10408] mov x0, x0                                       mov igpr-4, igpr-68
+  [0x1040C] b #0x10458                                       goto label-174
+
+tie-near.gc:163
+->       ((= v1-0 30) "--")
+  [0x10410] movz x9, #0x1e                                   mov-ic igpr-69, 30
+  [0x10414] cmp x7, x9                                       j(igpr-3 != igpr-69) label-168
+  [0x10418] b.ne #0x10430
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1041C] adrp x0, #0x10000                                mov-sva igpr-70, static-string "--"
+  [0x10420] add x0, x0, #0xc94
+  [0x10424] sub x0, x0, x15
+
+tie-near.gc:163
+->       ((= v1-0 30) "--")
+  [0x10428] mov x0, x0                                       mov igpr-4, igpr-70
+  [0x1042C] b #0x10458                                       goto label-174
+
+tie-near.gc:164
+->       ((= v1-0 31) "--"))))
+  [0x10430] movz x9, #0x1f                                   mov-ic igpr-71, 31
+  [0x10434] cmp x7, x9                                       j(igpr-3 != igpr-71) label-173
+  [0x10438] b.ne #0x10450
+
+tie-near.gc:129
+->   (let ((v1-0 arg0))
+  [0x1043C] adrp x0, #0x10000                                mov-sva igpr-72, static-string "--"
+  [0x10440] add x0, x0, #0xca4
+  [0x10444] sub x0, x0, x15
+
+tie-near.gc:164
+->       ((= v1-0 31) "--"))))
+  [0x10448] mov x0, x0                                       mov igpr-4, igpr-72
+  [0x1044C] b #0x10458                                       goto label-174
+
+tie-near.gc:130
+->     (cond
+  [0x10450] mov x0, x14                                      mov-symptr igpr-4, '#f
+  [0x10454] sub x0, x0, x15 ;; misaligned with debug data
+
+tie-near.gc:128
+-> (defun tie-near-float-reg ((arg0 int))
+  [0x10458] mov x0, x0                                       ret igpr-1 igpr-4
+  [0x1045C] ldp x29, x30, [sp], #0x10
+  [0x10460] ret
+
+
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+tie-near.gc:19
+-> (deftype tie-near-consts (structure)
+  [0x1000C] adrp x16, #0x10000                               mov igpr-0, 'type
+  [0x10010] add x16, x16, #0
+  [0x10014] ldr w9, [x16]
+  [0x10018] add x16, x9, x15                                 mov igpr-1, [igpr-0 + 16]
+  [0x1001C] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x10020] adrp x7, #0x10000                                mov-symptr igpr-2, 'tie-near-consts
+  [0x10024] add x7, x7, #0
+  [0x10028] adrp x16, #0x10000                               mov igpr-3, 'structure
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w6, [x16]
+  [0x10034] movz x2, #0xb0                                   mov-ic igpr-4, 38654705840
+  [0x10038] movk x2, #0x9, lsl #32
+  [0x1003C] mov x9, x9                                       mov igpr-9, igpr-1
+  [0x10040] mov x7, x7                                       mov igpr-6, igpr-2
+  [0x10044] mov x6, x6                                       mov igpr-7, igpr-3
+  [0x10048] mov x2, x2                                       mov igpr-8, igpr-4
+  [0x1004C] add x9, x9, x15                                  call igpr-9 (ret igpr-5) (args igpr-6 igpr-7 igpr-8)
+  [0x10050] stp x3, x5, [sp, #-0x10]!
+  [0x10054] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10058] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] blr x9 ;; misaligned with debug data
+  [0x10060] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] mov x0, x0                                       mov igpr-10, igpr-5
+  [0x10070] adrp x16, #0x10000                               mov igpr-11, 'tie-near-consts
+  [0x10074] add x16, x16, #0
+  [0x10078] ldr w7, [x16]
+  [0x1007C] movz x6, #0x3                                    mov-ic igpr-12, 3
+  [0x10080] adrp x16, #0x10000                               mov igpr-13, 'method-set!
+  [0x10084] add x16, x16, #0
+  [0x10088] ldr w9, [x16]
+  [0x1008C] adrp x2, #0x10000                                mov-fa igpr-14, function-autogenerated-inspect-method-of-tie-near-consts
+  [0x10090] add x2, x2, #0
+  [0x10094] sub x2, x2, x15
+  [0x10098] mov x9, x9                                       mov igpr-19, igpr-13
+  [0x1009C] mov x7, x7                                       mov igpr-16, igpr-11
+  [0x100A0] mov x6, x6                                       mov igpr-17, igpr-12
+  [0x100A4] mov x2, x2                                       mov igpr-18, igpr-14
+  [0x100A8] add x9, x9, x15                                  call igpr-19 (ret igpr-15) (args igpr-16 igpr-17 igpr-18)
+  [0x100AC] stp x3, x5, [sp, #-0x10]!
+  [0x100B0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B8] blr x9 ;; misaligned with debug data
+  [0x100BC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100C4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C8] mov x3, x3                                       mov igpr-20, igpr-15
+
+tie-near.gc:34
+-> (define tie-near-vu1-block (new 'static 'vu-function :length #x6f8 :qlength #x37c))
+  [0x100CC] adrp x9, #0x10000                                mov-sva igpr-21, static-structure
+  [0x100D0] add x9, x9, #0
+  [0x100D4] sub x9, x9, x15
+  [0x100D8] adrp x16, #0x10000                               mov 'tie-near-vu1-block, igpr-21
+  [0x100DC] add x16, x16, #0
+  [0x100E0] str w9, [x16]
+  [0x100E4] adrp x9, #0x10000                                mov-fa igpr-22, function-tie-near-init-consts
+  [0x100E8] add x9, x9, #0
+  [0x100EC] sub x9, x9, x15
+
+tie-near.gc:36
+-> (defun tie-near-init-consts ((arg0 tie-near-consts) (arg1 int))
+  [0x100F0] adrp x16, #0x10000                               mov 'tie-near-init-consts, igpr-22
+  [0x100F4] add x16, x16, #0
+  [0x100F8] str w9, [x16]
+  [0x100FC] adrp x9, #0x10000                                mov-fa igpr-23, function-tie-near-make-perspective-matrix
+  [0x10100] add x9, x9, #0
+  [0x10104] sub x9, x9, x15
+
+tie-near.gc:111
+-> (defun tie-near-make-perspective-matrix ((arg0 matrix))
+  [0x10108] adrp x16, #0x10000                               mov 'tie-near-make-perspective-matrix, igpr-23
+  [0x1010C] add x16, x16, #0
+  [0x10110] str w9, [x16]
+  [0x10114] adrp x9, #0x10000                                mov-fa igpr-24, function-tie-near-int-reg
+  [0x10118] add x9, x9, #0
+  [0x1011C] sub x9, x9, x15
+
+tie-near.gc:114
+-> (defun tie-near-int-reg ((arg0 int))
+  [0x10120] adrp x16, #0x10000                               mov 'tie-near-int-reg, igpr-24
+  [0x10124] add x16, x16, #0
+  [0x10128] str w9, [x16]
+  [0x1012C] adrp x0, #0x10000                                mov-fa igpr-25, function-tie-near-float-reg
+  [0x10130] add x0, x0, #0
+  [0x10134] sub x0, x0, x15
+
+tie-near.gc:128
+-> (defun tie-near-float-reg ((arg0 int))
+  [0x10138] adrp x16, #0x10000                               mov 'tie-near-float-reg, igpr-25
+  [0x1013C] add x16, x16, #0
+  [0x10140] str w0, [x16]
+
+tie-near.gc:1
+-> ;-*-Lisp-*-
+  [0x10144] mov x0, x0                                       ret igpr-26 igpr-25
+  [0x10148] add sp, sp, #0x10
+  [0x1014C] ldp x29, x30, [sp], #0x10
+  [0x10150] ret
+
+
+[tie-near-make-perspective-matrix]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+tie-near.gc:111
+-> (defun tie-near-make-perspective-matrix ((arg0 matrix))
+  [0x1000C] mov x7, x7                                       mov igpr-2, igpr-0
+
+tie-near.gc:112
+->   (column-scale-matrix! arg0 (-> *math-camera* hmge-scale) (-> *math-camera* camera-temp)))
+  [0x10010] adrp x16, #0x10000                               mov igpr-3, 'column-scale-matrix!
+  [0x10014] add x16, x16, #0
+  [0x10018] ldr w9, [x16]
+
+tie-near.gc:112
+->   (column-scale-matrix! arg0 (-> *math-camera* hmge-scale) (-> *math-camera* camera-temp)))
+  [0x1001C] movz x6, #0x2bc                                  mov-ic igpr-4, 700
+  [0x10020] adrp x16, #0x10000                               mov igpr-5, '*math-camera*
+  [0x10024] add x16, x16, #0
+  [0x10028] ldr w8, [x16]
+  [0x1002C] add x6, x6, x8                                   addi igpr-4, igpr-5
+
+tie-near.gc:112
+->   (column-scale-matrix! arg0 (-> *math-camera* hmge-scale) (-> *math-camera* camera-temp)))
+  [0x10030] movz x2, #0x23c                                  mov-ic igpr-6, 572
+  [0x10034] adrp x16, #0x10000                               mov igpr-7, '*math-camera*
+  [0x10038] add x16, x16, #0
+  [0x1003C] ldr w8, [x16]
+  [0x10040] add x2, x2, x8                                   addi igpr-6, igpr-7
+
+tie-near.gc:112
+->   (column-scale-matrix! arg0 (-> *math-camera* hmge-scale) (-> *math-camera* camera-temp)))
+  [0x10044] mov x9, x9                                       mov igpr-12, igpr-3
+  [0x10048] mov x7, x7                                       mov igpr-9, igpr-2
+  [0x1004C] mov x6, x6                                       mov igpr-10, igpr-4
+  [0x10050] mov x2, x2                                       mov igpr-11, igpr-6
+  [0x10054] add x9, x9, x15                                  call igpr-12 (ret igpr-8) (args igpr-9 igpr-10 igpr-11)
+  [0x10058] stp x3, x5, [sp, #-0x10]!
+  [0x1005C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10060] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10064] blr x9 ;; misaligned with debug data
+  [0x10068] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10074] mov x0, x0                                       mov igpr-13, igpr-8
+
+tie-near.gc:111
+-> (defun tie-near-make-perspective-matrix ((arg0 matrix))
+  [0x10078] mov x0, x0                                       ret igpr-1 igpr-13
+  [0x1007C] add sp, sp, #0x10
+  [0x10080] ldp x29, x30, [sp], #0x10
+  [0x10084] ret
+
+
+[tie-near-int-reg]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+tie-near.gc:114
+-> (defun tie-near-int-reg ((arg0 int))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x1000C] mov x7, x7                                       mov igpr-3, igpr-2
+
+tie-near.gc:117
+->       ((zero? v1-0) "zero")
+  [0x10010] movz x9, #0                                      mov-ic igpr-5, 0
+  [0x10014] cmp x7, x9                                       j(igpr-3 != igpr-5) label-8
+  [0x10018] b.ne #0x10030
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x1001C] adrp x0, #0x10000                                mov-sva igpr-6, static-string "zero"
+  [0x10020] add x0, x0, #0x9e4
+  [0x10024] sub x0, x0, x15
+
+tie-near.gc:117
+->       ((zero? v1-0) "zero")
+  [0x10028] mov x0, x0                                       mov igpr-4, igpr-6
+  [0x1002C] b #0x10158                                       goto label-54
+
+tie-near.gc:118
+->       ((= v1-0 1) "itemp")
+  [0x10030] movz x9, #0x1                                    mov-ic igpr-7, 1
+  [0x10034] cmp x7, x9                                       j(igpr-3 != igpr-7) label-13
+  [0x10038] b.ne #0x10050
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x1003C] adrp x0, #0x10000                                mov-sva igpr-8, static-string "itemp"
+  [0x10040] add x0, x0, #0x9f4
+  [0x10044] sub x0, x0, x15
+
+tie-near.gc:118
+->       ((= v1-0 1) "itemp")
+  [0x10048] mov x0, x0                                       mov igpr-4, igpr-8
+  [0x1004C] b #0x10158                                       goto label-54
+
+tie-near.gc:119
+->       ((= v1-0 2) "delta")
+  [0x10050] movz x9, #0x2                                    mov-ic igpr-9, 2
+  [0x10054] cmp x7, x9                                       j(igpr-3 != igpr-9) label-18
+  [0x10058] b.ne #0x10070
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x1005C] adrp x0, #0x10000                                mov-sva igpr-10, static-string "delta"
+  [0x10060] add x0, x0, #0xa04
+  [0x10064] sub x0, x0, x15
+
+tie-near.gc:119
+->       ((= v1-0 2) "delta")
+  [0x10068] mov x0, x0                                       mov igpr-4, igpr-10
+  [0x1006C] b #0x10158                                       goto label-54
+
+tie-near.gc:120
+->       ((= v1-0 3) "dest-0")
+  [0x10070] movz x9, #0x3                                    mov-ic igpr-11, 3
+  [0x10074] cmp x7, x9                                       j(igpr-3 != igpr-11) label-23
+  [0x10078] b.ne #0x10090
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x1007C] adrp x0, #0x10000                                mov-sva igpr-12, static-string "dest-0"
+  [0x10080] add x0, x0, #0xa14
+  [0x10084] sub x0, x0, x15
+
+tie-near.gc:120
+->       ((= v1-0 3) "dest-0")
+  [0x10088] mov x0, x0                                       mov igpr-4, igpr-12
+  [0x1008C] b #0x10158                                       goto label-54
+
+tie-near.gc:121
+->       ((= v1-0 4) "dest-1")
+  [0x10090] movz x9, #0x4                                    mov-ic igpr-13, 4
+  [0x10094] cmp x7, x9                                       j(igpr-3 != igpr-13) label-28
+  [0x10098] b.ne #0x100b0
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x1009C] adrp x0, #0x10000                                mov-sva igpr-14, static-string "dest-1"
+  [0x100A0] add x0, x0, #0xa24
+  [0x100A4] sub x0, x0, x15
+
+tie-near.gc:121
+->       ((= v1-0 4) "dest-1")
+  [0x100A8] mov x0, x0                                       mov igpr-4, igpr-14
+  [0x100AC] b #0x10158                                       goto label-54
+
+tie-near.gc:122
+->       ((= v1-0 5) "dest-2")
+  [0x100B0] movz x9, #0x5                                    mov-ic igpr-15, 5
+  [0x100B4] cmp x7, x9                                       j(igpr-3 != igpr-15) label-33
+  [0x100B8] b.ne #0x100d0
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x100BC] adrp x0, #0x10000                                mov-sva igpr-16, static-string "dest-2"
+  [0x100C0] add x0, x0, #0xa34
+  [0x100C4] sub x0, x0, x15
+
+tie-near.gc:122
+->       ((= v1-0 5) "dest-2")
+  [0x100C8] mov x0, x0                                       mov igpr-4, igpr-16
+  [0x100CC] b #0x10158                                       goto label-54
+
+tie-near.gc:123
+->       ((= v1-0 6) "dest-3")
+  [0x100D0] movz x9, #0x6                                    mov-ic igpr-17, 6
+  [0x100D4] cmp x7, x9                                       j(igpr-3 != igpr-17) label-38
+  [0x100D8] b.ne #0x100f0
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x100DC] adrp x0, #0x10000                                mov-sva igpr-18, static-string "dest-3"
+  [0x100E0] add x0, x0, #0xa44
+  [0x100E4] sub x0, x0, x15
+
+tie-near.gc:123
+->       ((= v1-0 6) "dest-3")
+  [0x100E8] mov x0, x0                                       mov igpr-4, igpr-18
+  [0x100EC] b #0x10158                                       goto label-54
+
+tie-near.gc:124
+->       ((= v1-0 7) "delta-ptr")
+  [0x100F0] movz x9, #0x7                                    mov-ic igpr-19, 7
+  [0x100F4] cmp x7, x9                                       j(igpr-3 != igpr-19) label-43
+  [0x100F8] b.ne #0x10110
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x100FC] adrp x0, #0x10000                                mov-sva igpr-20, static-string "delta-ptr"
+  [0x10100] add x0, x0, #0xa54
+  [0x10104] sub x0, x0, x15
+
+tie-near.gc:124
+->       ((= v1-0 7) "delta-ptr")
+  [0x10108] mov x0, x0                                       mov igpr-4, igpr-20
+  [0x1010C] b #0x10158                                       goto label-54
+
+tie-near.gc:125
+->       ((= v1-0 8) "prev")
+  [0x10110] movz x9, #0x8                                    mov-ic igpr-21, 8
+  [0x10114] cmp x7, x9                                       j(igpr-3 != igpr-21) label-48
+  [0x10118] b.ne #0x10130
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x1011C] adrp x0, #0x10000                                mov-sva igpr-22, static-string "prev"
+  [0x10120] add x0, x0, #0xa74
+  [0x10124] sub x0, x0, x15
+
+tie-near.gc:125
+->       ((= v1-0 8) "prev")
+  [0x10128] mov x0, x0                                       mov igpr-4, igpr-22
+  [0x1012C] b #0x10158                                       goto label-54
+
+tie-near.gc:126
+->       ((= v1-0 9) "itemp2"))))
+  [0x10130] movz x9, #0x9                                    mov-ic igpr-23, 9
+  [0x10134] cmp x7, x9                                       j(igpr-3 != igpr-23) label-53
+  [0x10138] b.ne #0x10150
+
+tie-near.gc:115
+->   (let ((v1-0 arg0))
+  [0x1013C] adrp x0, #0x10000                                mov-sva igpr-24, static-string "itemp2"
+  [0x10140] add x0, x0, #0xa84
+  [0x10144] sub x0, x0, x15
+
+tie-near.gc:126
+->       ((= v1-0 9) "itemp2"))))
+  [0x10148] mov x0, x0                                       mov igpr-4, igpr-24
+  [0x1014C] b #0x10158                                       goto label-54
+
+tie-near.gc:116
+->     (cond
+  [0x10150] mov x0, x14                                      mov-symptr igpr-4, '#f
+  [0x10154] sub x0, x0, x15 ;; misaligned with debug data
+
+tie-near.gc:114
+-> (defun tie-near-int-reg ((arg0 int))
+  [0x10158] mov x0, x0                                       ret igpr-1 igpr-4
+  [0x1015C] ldp x29, x30, [sp], #0x10
+  [0x10160] ret
+
+
+[tie-near-init-consts]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+tie-near.gc:36
+-> (defun tie-near-init-consts ((arg0 tie-near-consts) (arg1 int))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+tie-near.gc:38
+->   (set! (-> arg0 adgif tag) (new 'static 'gif-tag64 :nloop #x5 :nreg #x1))
+  [0x10010] movz x9, #0x5                                    mov-ic igpr-5, 1152921504606846981
+  [0x10014] movk x9, #0x1000, lsl #48
+  [0x10018] add x16, x7, x15                                 move [igpr-3 + 48], igpr-5
+  [0x1001C] str x9, [x16, #0x30] ;; misaligned with debug data
+
+tie-near.gc:39
+->   (set! (-> arg0 adgif regs) (new 'static 'gif-tag-regs :regs0 (gif-reg-id a+d)))
+  [0x10020] movz x9, #0xe                                    mov-ic igpr-6, 14
+  [0x10024] add x16, x7, x15                                 move [igpr-3 + 56], igpr-6
+  [0x10028] str x9, [x16, #0x38] ;; misaligned with debug data
+
+tie-near.gc:40
+->   (set! (-> arg0 atest-tra cmds) (the-as uint 71))
+  [0x1002C] movz x9, #0x47                                   mov-ic igpr-7, 71
+  [0x10030] mov x9, x9                                       mov igpr-8, igpr-7
+  [0x10034] add x16, x7, x15                                 move [igpr-3 + 152], igpr-8
+  [0x10038] str x9, [x16, #0x98] ;; misaligned with debug data
+
+tie-near.gc:41
+->   (set! (-> arg0 atest-tra data) (the-as uint #x5026b))
+  [0x1003C] movz x9, #0x26b                                  mov-ic igpr-9, 328299
+  [0x10040] movk x9, #0x5, lsl #16
+  [0x10044] mov x9, x9                                       mov igpr-10, igpr-9
+  [0x10048] add x16, x7, x15                                 move [igpr-3 + 144], igpr-10
+  [0x1004C] str x9, [x16, #0x90] ;; misaligned with debug data
+
+tie-near.gc:42
+->   (set! (-> arg0 atest-def cmds) (the-as uint 71))
+  [0x10050] movz x9, #0x47                                   mov-ic igpr-11, 71
+  [0x10054] mov x9, x9                                       mov igpr-12, igpr-11
+  [0x10058] add x16, x7, x15                                 move [igpr-3 + 168], igpr-12
+  [0x1005C] str x9, [x16, #0xa8] ;; misaligned with debug data
+
+tie-near.gc:43
+->   (set! (-> arg0 atest-def data) (the-as uint #x5000e))
+  [0x10060] movz x9, #0xe                                    mov-ic igpr-13, 327694
+  [0x10064] movk x9, #0x5, lsl #16
+  [0x10068] mov x9, x9                                       mov igpr-14, igpr-13
+  [0x1006C] add x16, x7, x15                                 move [igpr-3 + 160], igpr-14
+  [0x10070] str x9, [x16, #0xa0] ;; misaligned with debug data
+
+tie-near.gc:45
+->     ((zero? *subdivide-draw-mode*)
+  [0x10074] adrp x16, #0x10000                               mov igpr-16, '*subdivide-draw-mode*
+  [0x10078] add x16, x16, #0
+  [0x1007C] ldrsw x9, [x16]
+  [0x10080] movz x8, #0                                      mov-ic igpr-17, 0
+  [0x10084] cmp x9, x8                                       j(igpr-16 != igpr-17) label-35
+  [0x10088] b.ne #0x100cc
+
+tie-near.gc:52
+->                 (new 'static 'gs-prim :prim (gs-prim-type tri-strip) :iip #x1 :tme #x1 :fge #x1 :abe arg1))))
+  [0x1008C] movz x9, #0x3c                                   mov-ic igpr-18, 60
+  [0x10090] mov x8, x6                                       mov igpr-19, igpr-4
+  [0x10094] lsl x8, x8, #0x3f                                shl igpr-19, 63
+  [0x10098] lsr x8, x8, #0x39                                shr igpr-19, 57
+  [0x1009C] orr x9, x9, x8                                   or igpr-18, igpr-19
+
+tie-near.gc:47
+->            (new 'static
+  [0x100A0] movz x8, #0                                      mov-ic igpr-20, 3458834882564718592
+  [0x100A4] movk x8, #0x4000, lsl #32
+  [0x100A8] movk x8, #0x3000, lsl #48
+  [0x100AC] mov x9, x9                                       mov igpr-21, igpr-18
+  [0x100B0] lsl x9, x9, #0x35                                shl igpr-21, 53
+  [0x100B4] lsr x9, x9, #6                                   shr igpr-21, 6
+  [0x100B8] orr x8, x8, x9                                   or igpr-20, igpr-21
+
+tie-near.gc:46
+->      (set! (-> arg0 strgif tag)
+  [0x100BC] add x16, x7, x15                                 move [igpr-3 + 64], igpr-20
+  [0x100C0] str x8, [x16, #0x40] ;; misaligned with debug data
+
+tie-near.gc:45
+->     ((zero? *subdivide-draw-mode*)
+  [0x100C4] mov x9, x8                                       mov igpr-15, igpr-20
+  [0x100C8] b #0x101cc                                       goto label-80
+
+tie-near.gc:53
+->     ((= *subdivide-draw-mode* 3)
+  [0x100CC] adrp x16, #0x10000                               mov igpr-22, '*subdivide-draw-mode*
+  [0x100D0] add x16, x16, #0
+  [0x100D4] ldrsw x9, [x16]
+  [0x100D8] movz x8, #0x3                                    mov-ic igpr-23, 3
+  [0x100DC] cmp x9, x8                                       j(igpr-22 != igpr-23) label-47
+  [0x100E0] b.ne #0x10114
+
+tie-near.gc:59
+->                 (new 'static 'gs-prim :prim (gs-prim-type tri-strip) :iip #x1 :tme #x1 :fge #x1)
+  [0x100E4] movz x9, #0x3c                                   mov-ic igpr-24, 60
+
+tie-near.gc:55
+->            (new 'static
+  [0x100E8] movz x8, #0                                      mov-ic igpr-25, 3458834882564718592
+  [0x100EC] movk x8, #0x4000, lsl #32
+  [0x100F0] movk x8, #0x3000, lsl #48
+  [0x100F4] mov x9, x9                                       mov igpr-26, igpr-24
+  [0x100F8] lsl x9, x9, #0x35                                shl igpr-26, 53
+  [0x100FC] lsr x9, x9, #6                                   shr igpr-26, 6
+  [0x10100] orr x8, x8, x9                                   or igpr-25, igpr-26
+
+tie-near.gc:54
+->      (set! (-> arg0 strgif tag)
+  [0x10104] add x16, x7, x15                                 move [igpr-3 + 64], igpr-25
+  [0x10108] str x8, [x16, #0x40] ;; misaligned with debug data
+
+tie-near.gc:53
+->     ((= *subdivide-draw-mode* 3)
+  [0x1010C] mov x9, x8                                       mov igpr-15, igpr-25
+  [0x10110] b #0x101cc                                       goto label-80
+
+tie-near.gc:61
+->     ((= *subdivide-draw-mode* 1)
+  [0x10114] adrp x16, #0x10000                               mov igpr-27, '*subdivide-draw-mode*
+  [0x10118] add x16, x16, #0
+  [0x1011C] ldrsw x9, [x16]
+  [0x10120] movz x8, #0x1                                    mov-ic igpr-28, 1
+  [0x10124] cmp x9, x8                                       j(igpr-27 != igpr-28) label-63
+  [0x10128] b.ne #0x1016c
+
+tie-near.gc:68
+->                 (new 'static 'gs-prim :prim (gs-prim-type line-strip) :iip #x1 :fge #x1 :abe arg1))))
+  [0x1012C] movz x9, #0x2a                                   mov-ic igpr-29, 42
+  [0x10130] mov x8, x6                                       mov igpr-30, igpr-4
+  [0x10134] lsl x8, x8, #0x3f                                shl igpr-30, 63
+  [0x10138] lsr x8, x8, #0x39                                shr igpr-30, 57
+  [0x1013C] orr x9, x9, x8                                   or igpr-29, igpr-30
+
+tie-near.gc:63
+->            (new 'static
+  [0x10140] movz x8, #0                                      mov-ic igpr-31, 3458834882564718592
+  [0x10144] movk x8, #0x4000, lsl #32
+  [0x10148] movk x8, #0x3000, lsl #48
+  [0x1014C] mov x9, x9                                       mov igpr-32, igpr-29
+  [0x10150] lsl x9, x9, #0x35                                shl igpr-32, 53
+  [0x10154] lsr x9, x9, #6                                   shr igpr-32, 6
+  [0x10158] orr x8, x8, x9                                   or igpr-31, igpr-32
+
+tie-near.gc:62
+->      (set! (-> arg0 strgif tag)
+  [0x1015C] add x16, x7, x15                                 move [igpr-3 + 64], igpr-31
+  [0x10160] str x8, [x16, #0x40] ;; misaligned with debug data
+
+tie-near.gc:61
+->     ((= *subdivide-draw-mode* 1)
+  [0x10164] mov x9, x8                                       mov igpr-15, igpr-31
+  [0x10168] b #0x101cc                                       goto label-80
+
+tie-near.gc:69
+->     ((= *subdivide-draw-mode* 2)
+  [0x1016C] adrp x16, #0x10000                               mov igpr-33, '*subdivide-draw-mode*
+  [0x10170] add x16, x16, #0
+  [0x10174] ldrsw x9, [x16]
+  [0x10178] movz x8, #0x2                                    mov-ic igpr-34, 2
+  [0x1017C] cmp x9, x8                                       j(igpr-33 != igpr-34) label-79
+  [0x10180] b.ne #0x101c4
+
+tie-near.gc:76
+->                 (new 'static 'gs-prim :prim (gs-prim-type tri-strip) :iip #x1 :fge #x1 :abe arg1)))))
+  [0x10184] movz x9, #0x2c                                   mov-ic igpr-35, 44
+  [0x10188] mov x8, x6                                       mov igpr-36, igpr-4
+  [0x1018C] lsl x8, x8, #0x3f                                shl igpr-36, 63
+  [0x10190] lsr x8, x8, #0x39                                shr igpr-36, 57
+  [0x10194] orr x9, x9, x8                                   or igpr-35, igpr-36
+
+tie-near.gc:71
+->            (new 'static
+  [0x10198] movz x8, #0                                      mov-ic igpr-37, 3458834882564718592
+  [0x1019C] movk x8, #0x4000, lsl #32
+  [0x101A0] movk x8, #0x3000, lsl #48
+  [0x101A4] mov x9, x9                                       mov igpr-38, igpr-35
+  [0x101A8] lsl x9, x9, #0x35                                shl igpr-38, 53
+  [0x101AC] lsr x9, x9, #6                                   shr igpr-38, 6
+  [0x101B0] orr x8, x8, x9                                   or igpr-37, igpr-38
+
+tie-near.gc:70
+->      (set! (-> arg0 strgif tag)
+  [0x101B4] add x16, x7, x15                                 move [igpr-3 + 64], igpr-37
+  [0x101B8] str x8, [x16, #0x40] ;; misaligned with debug data
+
+tie-near.gc:69
+->     ((= *subdivide-draw-mode* 2)
+  [0x101BC] mov x9, x8                                       mov igpr-15, igpr-37
+  [0x101C0] b #0x101cc                                       goto label-80
+
+tie-near.gc:44
+->   (cond
+  [0x101C4] mov x9, x14                                      mov-symptr igpr-15, '#f
+  [0x101C8] sub x9, x9, x15 ;; misaligned with debug data
+
+tie-near.gc:77
+->   (set! (-> arg0 strgif regs)
+  [0x101CC] movz x9, #0x412                                  mov-ic igpr-39, 1042
+  [0x101D0] add x16, x7, x15                                 move [igpr-3 + 72], igpr-39
+  [0x101D4] str x9, [x16, #0x48] ;; misaligned with debug data
+
+tie-near.gc:85
+->              (new 'static 'gs-prim :prim (gs-prim-type tri-fan) :iip #x1 :tme #x1 :fge #x1 :abe arg1)))
+  [0x101D8] movz x9, #0x3d                                   mov-ic igpr-40, 61
+  [0x101DC] mov x6, x6                                       mov igpr-41, igpr-4
+  [0x101E0] lsl x6, x6, #0x3f                                shl igpr-41, 63
+  [0x101E4] lsr x6, x6, #0x39                                shr igpr-41, 57
+  [0x101E8] orr x9, x9, x6                                   or igpr-40, igpr-41
+
+tie-near.gc:80
+->         (new 'static
+  [0x101EC] movz x8, #0                                      mov-ic igpr-42, 3458834882564718592
+  [0x101F0] movk x8, #0x4000, lsl #32
+  [0x101F4] movk x8, #0x3000, lsl #48
+  [0x101F8] mov x9, x9                                       mov igpr-43, igpr-40
+  [0x101FC] lsl x9, x9, #0x35                                shl igpr-43, 53
+  [0x10200] lsr x9, x9, #6                                   shr igpr-43, 6
+  [0x10204] orr x8, x8, x9                                   or igpr-42, igpr-43
+
+tie-near.gc:79
+->   (set! (-> arg0 fangif tag)
+  [0x10208] add x16, x7, x15                                 move [igpr-3 + 80], igpr-42
+  [0x1020C] str x8, [x16, #0x50] ;; misaligned with debug data
+
+tie-near.gc:86
+->   (set! (-> arg0 fangif regs)
+  [0x10210] movz x9, #0x412                                  mov-ic igpr-44, 1042
+  [0x10214] add x16, x7, x15                                 move [igpr-3 + 88], igpr-44
+  [0x10218] str x9, [x16, #0x58] ;; misaligned with debug data
+
+tie-near.gc:88
+->   (let ((f1-0 8388894.0)
+  [0x1021C] adrp x16, #0x10000                               mov-svl ifpr-45, [(sf 8388894)]
+  [0x10220] ldr s23, [x16, #0x9cc]
+  [0x10224] adrp x16, #0x10000                               mov-svl ifpr-46, [(sf 8389078)]
+  [0x10228] ldr s22, [x16, #0x9d0]
+  [0x1022C] adrp x16, #0x10000                               mov-svl ifpr-47, [(sf 8389262)]
+  [0x10230] ldr s21, [x16, #0x9d4]
+  [0x10234] mov v23.16b, v23.16b                             mov ifpr-48, ifpr-45
+  [0x10238] mov v22.16b, v22.16b                             mov ifpr-49, ifpr-46
+  [0x1023C] mov v21.16b, v21.16b                             mov ifpr-50, ifpr-47
+
+tie-near.gc:91
+->     (set! (-> arg0 gifbufs vector4w x) (the-as int f0-0))
+  [0x10240] mov v20.16b, v21.16b                             mov ifpr-51, ifpr-50
+  [0x10244] add x16, x7, x15                                 move [igpr-3 + 16], ifpr-51
+  [0x10248] str s20, [x16, #0x10] ;; misaligned with debug data
+
+tie-near.gc:92
+->     (set! (-> arg0 gifbufs vector4w y) (the-as int f2-0))
+  [0x1024C] mov v20.16b, v22.16b                             mov ifpr-52, ifpr-49
+  [0x10250] add x16, x7, x15                                 move [igpr-3 + 20], ifpr-52
+  [0x10254] str s20, [x16, #0x14] ;; misaligned with debug data
+
+tie-near.gc:93
+->     (set! (-> arg0 gifbufs vector4w z) (the-as int f0-0))
+  [0x10258] mov v20.16b, v21.16b                             mov ifpr-53, ifpr-50
+  [0x1025C] add x16, x7, x15                                 move [igpr-3 + 24], ifpr-53
+  [0x10260] str s20, [x16, #0x18] ;; misaligned with debug data
+
+tie-near.gc:94
+->     (set! (-> arg0 gifbufs vector4w w) (the-as int f2-0))
+  [0x10264] mov v20.16b, v22.16b                             mov ifpr-54, ifpr-49
+  [0x10268] add x16, x7, x15                                 move [igpr-3 + 28], ifpr-54
+  [0x1026C] str s20, [x16, #0x1c] ;; misaligned with debug data
+
+tie-near.gc:95
+->     (set! (-> arg0 extra vector4w x) (the-as int (+ f1-0 f2-0 f0-0)))
+  [0x10270] mov v20.16b, v23.16b                             mov ifpr-55, ifpr-48
+  [0x10274] fadd s20, s20, s22                               addss ifpr-55, ifpr-49
+  [0x10278] fadd s20, s20, s21                               addss ifpr-55, ifpr-50
+
+tie-near.gc:95
+->     (set! (-> arg0 extra vector4w x) (the-as int (+ f1-0 f2-0 f0-0)))
+  [0x1027C] mov v20.16b, v20.16b                             mov ifpr-56, ifpr-55
+  [0x10280] add x16, x7, x15                                 move [igpr-3 + 0], ifpr-56
+  [0x10284] str s20, [x16] ;; misaligned with debug data
+
+tie-near.gc:96
+->     (set! (-> arg0 extra vector4w y) (the-as int 0.0))
+  [0x10288] adrp x16, #0x10000                               mov-svl ifpr-57, [(sf 0)]
+  [0x1028C] ldr s20, [x16, #0x9d8]
+  [0x10290] mov v20.16b, v20.16b                             mov ifpr-58, ifpr-57
+  [0x10294] add x16, x7, x15                                 move [igpr-3 + 4], ifpr-58
+  [0x10298] str s20, [x16, #4] ;; misaligned with debug data
+
+tie-near.gc:97
+->     (set! (-> arg0 extra vector4w z) (the-as int (+ f1-0 f2-0 f0-0))))
+  [0x1029C] mov v23.16b, v23.16b                             mov ifpr-59, ifpr-48
+  [0x102A0] fadd s23, s23, s22                               addss ifpr-59, ifpr-49
+  [0x102A4] fadd s23, s23, s21                               addss ifpr-59, ifpr-50
+
+tie-near.gc:97
+->     (set! (-> arg0 extra vector4w z) (the-as int (+ f1-0 f2-0 f0-0))))
+  [0x102A8] mov v23.16b, v23.16b                             mov ifpr-60, ifpr-59
+  [0x102AC] add x16, x7, x15                                 move [igpr-3 + 8], ifpr-60
+  [0x102B0] str s23, [x16, #8] ;; misaligned with debug data
+
+tie-near.gc:98
+->   (set! (-> arg0 clrbufs vector4w x) 198)
+  [0x102B4] movz x9, #0xc6                                   mov-ic igpr-61, 198
+  [0x102B8] add x16, x7, x15                                 move [igpr-3 + 32], igpr-61
+  [0x102BC] str w9, [x16, #0x20] ;; misaligned with debug data
+
+tie-near.gc:99
+->   (set! (-> arg0 clrbufs vector4w y) 242)
+  [0x102C0] movz x9, #0xf2                                   mov-ic igpr-62, 242
+  [0x102C4] add x16, x7, x15                                 move [igpr-3 + 36], igpr-62
+  [0x102C8] str w9, [x16, #0x24] ;; misaligned with debug data
+
+tie-near.gc:100
+->   (set! (-> arg0 clrbufs vector4w z) 198)
+  [0x102CC] movz x9, #0xc6                                   mov-ic igpr-63, 198
+  [0x102D0] add x16, x7, x15                                 move [igpr-3 + 40], igpr-63
+  [0x102D4] str w9, [x16, #0x28] ;; misaligned with debug data
+
+tie-near.gc:101
+->   (set! (-> arg0 clrbufs vector4w w) 242)
+  [0x102D8] movz x9, #0xf2                                   mov-ic igpr-64, 242
+  [0x102DC] add x16, x7, x15                                 move [igpr-3 + 44], igpr-64
+  [0x102E0] str w9, [x16, #0x2c] ;; misaligned with debug data
+
+tie-near.gc:102
+->   (let ((v1-41 *math-camera*))
+  [0x102E4] adrp x16, #0x10000                               mov igpr-65, '*math-camera*
+  [0x102E8] add x16, x16, #0
+  [0x102EC] ldr w9, [x16]
+  [0x102F0] mov x9, x9                                       mov igpr-66, igpr-65
+
+tie-near.gc:103
+->     (set! (-> arg0 invhscale quad) (-> v1-41 inv-hmge-scale quad))
+  [0x102F4] add x16, x9, x15                                 mov ii128-67, [igpr-66 + 716]
+  [0x102F8] add x16, x16, #0x2cc ;; misaligned with debug data
+  [0x102FC] ldr q23, [x16] ;; misaligned with debug data
+  [0x10300] mov v23.16b, v23.16b                             mov ii128-68, ii128-67
+  [0x10304] add x16, x7, x15                                 move [igpr-3 + 112], ii128-68
+  [0x10308] str q23, [x16, #0x70] ;; misaligned with debug data
+
+tie-near.gc:104
+->     (set! (-> arg0 hvdfoffs quad) (-> v1-41 hvdf-off quad))
+  [0x1030C] add x16, x9, x15                                 mov ii128-69, [igpr-66 + 732]
+  [0x10310] add x16, x16, #0x2dc ;; misaligned with debug data
+  [0x10314] ldr q23, [x16] ;; misaligned with debug data
+  [0x10318] mov v23.16b, v23.16b                             mov ii128-70, ii128-69
+  [0x1031C] add x16, x7, x15                                 move [igpr-3 + 96], ii128-70
+  [0x10320] str q23, [x16, #0x60] ;; misaligned with debug data
+
+tie-near.gc:105
+->     (set! (-> arg0 guard quad) (-> v1-41 guard quad)))
+  [0x10324] add x16, x9, x15                                 mov ii128-71, [igpr-66 + 748]
+  [0x10328] add x16, x16, #0x2ec ;; misaligned with debug data
+  [0x1032C] ldr q23, [x16] ;; misaligned with debug data
+  [0x10330] mov v23.16b, v23.16b                             mov ii128-72, ii128-71
+  [0x10334] add x16, x7, x15                                 move [igpr-3 + 128], ii128-72
+  [0x10338] str q23, [x16, #0x80] ;; misaligned with debug data
+  [0x1033C] ldp x29, x30, [sp], #0x10
+  [0x10340] ret
+
+
+[autogenerated-inspect-method-of-tie-near-consts]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+tie-near.gc:19
+-> (deftype tie-near-consts (structure)
+  [0x1000C] mov x3, x7                                       mov igpr-1, igpr-0
+  [0x10010] adrp x1, #0x10000                                mov-symptr igpr-2, 'tie-near-consts
+  [0x10014] add x1, x1, #0
+  [0x10018] adrp x6, #0x10000                                mov-sva igpr-3, static-string "[~8x] ~A~%"
+  [0x1001C] add x6, x6, #0x4d4
+  [0x10020] sub x6, x6, x15
+  [0x10024] add x7, x14, #8                                  mov-symptr igpr-4, '#t
+  [0x10028] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1002C] adrp x16, #0x10000                               mov igpr-5, '_format
+  [0x10030] add x16, x16, #0
+  [0x10034] ldr w9, [x16]
+  [0x10038] mov x9, x9                                       mov igpr-11, igpr-5
+  [0x1003C] mov x7, x7                                       mov igpr-7, igpr-4
+  [0x10040] mov x6, x6                                       mov igpr-8, igpr-3
+  [0x10044] mov x2, x3                                       mov igpr-9, igpr-1
+  [0x10048] mov x1, x1                                       mov igpr-10, igpr-2
+  [0x1004C] add x9, x9, x15                                  call igpr-11 (ret igpr-6) (args igpr-7 igpr-8 igpr-9 igpr-10)
+  [0x10050] stp x3, x5, [sp, #-0x10]!
+  [0x10054] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10058] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] blr x9 ;; misaligned with debug data
+  [0x10060] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] mov x0, x0                                       mov igpr-12, igpr-6
+  [0x10070] mov x2, x3                                       mov igpr-13, igpr-1
+  [0x10074] adrp x6, #0x10000                                mov-sva igpr-14, static-string "~Textra: #<qword @ #x~X>~%"
+  [0x10078] add x6, x6, #0x4f4
+  [0x1007C] sub x6, x6, x15
+  [0x10080] add x7, x14, #8                                  mov-symptr igpr-15, '#t
+  [0x10084] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10088] adrp x16, #0x10000                               mov igpr-16, '_format
+  [0x1008C] add x16, x16, #0
+  [0x10090] ldr w9, [x16]
+  [0x10094] mov x9, x9                                       mov igpr-21, igpr-16
+  [0x10098] mov x7, x7                                       mov igpr-18, igpr-15
+  [0x1009C] mov x6, x6                                       mov igpr-19, igpr-14
+  [0x100A0] mov x2, x2                                       mov igpr-20, igpr-13
+  [0x100A4] add x9, x9, x15                                  call igpr-21 (ret igpr-17) (args igpr-18 igpr-19 igpr-20)
+  [0x100A8] stp x3, x5, [sp, #-0x10]!
+  [0x100AC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B4] blr x9 ;; misaligned with debug data
+  [0x100B8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100BC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C4] mov x0, x0                                       mov igpr-22, igpr-17
+  [0x100C8] movz x2, #0x10                                   mov-ic igpr-23, 16
+  [0x100CC] add x2, x2, x3                                   addi igpr-23, igpr-1
+  [0x100D0] adrp x6, #0x10000                                mov-sva igpr-24, static-string "~Tgifbufs: #<qword @ #x~X>~%"
+  [0x100D4] add x6, x6, #0x524
+  [0x100D8] sub x6, x6, x15
+  [0x100DC] add x7, x14, #8                                  mov-symptr igpr-25, '#t
+  [0x100E0] sub x7, x7, x15 ;; misaligned with debug data
+  [0x100E4] adrp x16, #0x10000                               mov igpr-26, '_format
+  [0x100E8] add x16, x16, #0
+  [0x100EC] ldr w9, [x16]
+  [0x100F0] mov x9, x9                                       mov igpr-31, igpr-26
+  [0x100F4] mov x7, x7                                       mov igpr-28, igpr-25
+  [0x100F8] mov x6, x6                                       mov igpr-29, igpr-24
+  [0x100FC] mov x2, x2                                       mov igpr-30, igpr-23
+  [0x10100] add x9, x9, x15                                  call igpr-31 (ret igpr-27) (args igpr-28 igpr-29 igpr-30)
+  [0x10104] stp x3, x5, [sp, #-0x10]!
+  [0x10108] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1010C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10110] blr x9 ;; misaligned with debug data
+  [0x10114] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10118] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1011C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10120] mov x0, x0                                       mov igpr-32, igpr-27
+  [0x10124] movz x2, #0x20                                   mov-ic igpr-33, 32
+  [0x10128] add x2, x2, x3                                   addi igpr-33, igpr-1
+  [0x1012C] adrp x6, #0x10000                                mov-sva igpr-34, static-string "~Tclrbufs: #<qword @ #x~X>~%"
+  [0x10130] add x6, x6, #0x554
+  [0x10134] sub x6, x6, x15
+  [0x10138] add x7, x14, #8                                  mov-symptr igpr-35, '#t
+  [0x1013C] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10140] adrp x16, #0x10000                               mov igpr-36, '_format
+  [0x10144] add x16, x16, #0
+  [0x10148] ldr w9, [x16]
+  [0x1014C] mov x9, x9                                       mov igpr-41, igpr-36
+  [0x10150] mov x7, x7                                       mov igpr-38, igpr-35
+  [0x10154] mov x6, x6                                       mov igpr-39, igpr-34
+  [0x10158] mov x2, x2                                       mov igpr-40, igpr-33
+  [0x1015C] add x9, x9, x15                                  call igpr-41 (ret igpr-37) (args igpr-38 igpr-39 igpr-40)
+  [0x10160] stp x3, x5, [sp, #-0x10]!
+  [0x10164] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10168] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1016C] blr x9 ;; misaligned with debug data
+  [0x10170] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10174] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10178] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1017C] mov x0, x0                                       mov igpr-42, igpr-37
+  [0x10180] movz x2, #0x30                                   mov-ic igpr-43, 48
+  [0x10184] add x2, x2, x3                                   addi igpr-43, igpr-1
+  [0x10188] adrp x6, #0x10000                                mov-sva igpr-44, static-string "~Tadgif: #<gs-gif-tag @ #x~X>~%"
+  [0x1018C] add x6, x6, #0x584
+  [0x10190] sub x6, x6, x15
+  [0x10194] add x7, x14, #8                                  mov-symptr igpr-45, '#t
+  [0x10198] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1019C] adrp x16, #0x10000                               mov igpr-46, '_format
+  [0x101A0] add x16, x16, #0
+  [0x101A4] ldr w9, [x16]
+  [0x101A8] mov x9, x9                                       mov igpr-51, igpr-46
+  [0x101AC] mov x7, x7                                       mov igpr-48, igpr-45
+  [0x101B0] mov x6, x6                                       mov igpr-49, igpr-44
+  [0x101B4] mov x2, x2                                       mov igpr-50, igpr-43
+  [0x101B8] add x9, x9, x15                                  call igpr-51 (ret igpr-47) (args igpr-48 igpr-49 igpr-50)
+  [0x101BC] stp x3, x5, [sp, #-0x10]!
+  [0x101C0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C8] blr x9 ;; misaligned with debug data
+  [0x101CC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101D0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101D4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101D8] mov x0, x0                                       mov igpr-52, igpr-47
+  [0x101DC] movz x2, #0x40                                   mov-ic igpr-53, 64
+  [0x101E0] add x2, x2, x3                                   addi igpr-53, igpr-1
+  [0x101E4] adrp x6, #0x10000                                mov-sva igpr-54, static-string "~Tstrgif: #<gs-gif-tag @ #x~X>~%"
+  [0x101E8] add x6, x6, #0x5b4
+  [0x101EC] sub x6, x6, x15
+  [0x101F0] add x7, x14, #8                                  mov-symptr igpr-55, '#t
+  [0x101F4] sub x7, x7, x15 ;; misaligned with debug data
+  [0x101F8] adrp x16, #0x10000                               mov igpr-56, '_format
+  [0x101FC] add x16, x16, #0
+  [0x10200] ldr w9, [x16]
+  [0x10204] mov x9, x9                                       mov igpr-61, igpr-56
+  [0x10208] mov x7, x7                                       mov igpr-58, igpr-55
+  [0x1020C] mov x6, x6                                       mov igpr-59, igpr-54
+  [0x10210] mov x2, x2                                       mov igpr-60, igpr-53
+  [0x10214] add x9, x9, x15                                  call igpr-61 (ret igpr-57) (args igpr-58 igpr-59 igpr-60)
+  [0x10218] stp x3, x5, [sp, #-0x10]!
+  [0x1021C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10220] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10224] blr x9 ;; misaligned with debug data
+  [0x10228] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1022C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10230] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10234] mov x0, x0                                       mov igpr-62, igpr-57
+  [0x10238] movz x2, #0x50                                   mov-ic igpr-63, 80
+  [0x1023C] add x2, x2, x3                                   addi igpr-63, igpr-1
+  [0x10240] adrp x6, #0x10000                                mov-sva igpr-64, static-string "~Tfangif: #<gs-gif-tag @ #x~X>~%"
+  [0x10244] add x6, x6, #0x5e4
+  [0x10248] sub x6, x6, x15
+  [0x1024C] add x7, x14, #8                                  mov-symptr igpr-65, '#t
+  [0x10250] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10254] adrp x16, #0x10000                               mov igpr-66, '_format
+  [0x10258] add x16, x16, #0
+  [0x1025C] ldr w9, [x16]
+  [0x10260] mov x9, x9                                       mov igpr-71, igpr-66
+  [0x10264] mov x7, x7                                       mov igpr-68, igpr-65
+  [0x10268] mov x6, x6                                       mov igpr-69, igpr-64
+  [0x1026C] mov x2, x2                                       mov igpr-70, igpr-63
+  [0x10270] add x9, x9, x15                                  call igpr-71 (ret igpr-67) (args igpr-68 igpr-69 igpr-70)
+  [0x10274] stp x3, x5, [sp, #-0x10]!
+  [0x10278] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1027C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10280] blr x9 ;; misaligned with debug data
+  [0x10284] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10288] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1028C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10290] mov x0, x0                                       mov igpr-72, igpr-67
+  [0x10294] movz x2, #0x60                                   mov-ic igpr-73, 96
+  [0x10298] add x2, x2, x3                                   addi igpr-73, igpr-1
+  [0x1029C] adrp x6, #0x10000                                mov-sva igpr-74, static-string "~Thvdfoffs: ~`vector`P~%"
+  [0x102A0] add x6, x6, #0x614
+  [0x102A4] sub x6, x6, x15
+  [0x102A8] add x7, x14, #8                                  mov-symptr igpr-75, '#t
+  [0x102AC] sub x7, x7, x15 ;; misaligned with debug data
+  [0x102B0] adrp x16, #0x10000                               mov igpr-76, '_format
+  [0x102B4] add x16, x16, #0
+  [0x102B8] ldr w9, [x16]
+  [0x102BC] mov x9, x9                                       mov igpr-81, igpr-76
+  [0x102C0] mov x7, x7                                       mov igpr-78, igpr-75
+  [0x102C4] mov x6, x6                                       mov igpr-79, igpr-74
+  [0x102C8] mov x2, x2                                       mov igpr-80, igpr-73
+  [0x102CC] add x9, x9, x15                                  call igpr-81 (ret igpr-77) (args igpr-78 igpr-79 igpr-80)
+  [0x102D0] stp x3, x5, [sp, #-0x10]!
+  [0x102D4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102D8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102DC] blr x9 ;; misaligned with debug data
+  [0x102E0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x102E4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x102E8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x102EC] mov x0, x0                                       mov igpr-82, igpr-77
+  [0x102F0] movz x2, #0x70                                   mov-ic igpr-83, 112
+  [0x102F4] add x2, x2, x3                                   addi igpr-83, igpr-1
+  [0x102F8] adrp x6, #0x10000                                mov-sva igpr-84, static-string "~Tinvhscale: ~`vector`P~%"
+  [0x102FC] add x6, x6, #0x644
+  [0x10300] sub x6, x6, x15
+  [0x10304] add x7, x14, #8                                  mov-symptr igpr-85, '#t
+  [0x10308] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1030C] adrp x16, #0x10000                               mov igpr-86, '_format
+  [0x10310] add x16, x16, #0
+  [0x10314] ldr w9, [x16]
+  [0x10318] mov x9, x9                                       mov igpr-91, igpr-86
+  [0x1031C] mov x7, x7                                       mov igpr-88, igpr-85
+  [0x10320] mov x6, x6                                       mov igpr-89, igpr-84
+  [0x10324] mov x2, x2                                       mov igpr-90, igpr-83
+  [0x10328] add x9, x9, x15                                  call igpr-91 (ret igpr-87) (args igpr-88 igpr-89 igpr-90)
+  [0x1032C] stp x3, x5, [sp, #-0x10]!
+  [0x10330] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10334] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10338] blr x9 ;; misaligned with debug data
+  [0x1033C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10340] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10344] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10348] mov x0, x0                                       mov igpr-92, igpr-87
+  [0x1034C] movz x2, #0x80                                   mov-ic igpr-93, 128
+  [0x10350] add x2, x2, x3                                   addi igpr-93, igpr-1
+  [0x10354] adrp x6, #0x10000                                mov-sva igpr-94, static-string "~Tguard: ~`vector`P~%"
+  [0x10358] add x6, x6, #0x674
+  [0x1035C] sub x6, x6, x15
+  [0x10360] add x7, x14, #8                                  mov-symptr igpr-95, '#t
+  [0x10364] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10368] adrp x16, #0x10000                               mov igpr-96, '_format
+  [0x1036C] add x16, x16, #0
+  [0x10370] ldr w9, [x16]
+  [0x10374] mov x9, x9                                       mov igpr-101, igpr-96
+  [0x10378] mov x7, x7                                       mov igpr-98, igpr-95
+  [0x1037C] mov x6, x6                                       mov igpr-99, igpr-94
+  [0x10380] mov x2, x2                                       mov igpr-100, igpr-93
+  [0x10384] add x9, x9, x15                                  call igpr-101 (ret igpr-97) (args igpr-98 igpr-99 igpr-100)
+  [0x10388] stp x3, x5, [sp, #-0x10]!
+  [0x1038C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10390] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10394] blr x9 ;; misaligned with debug data
+  [0x10398] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1039C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x103A0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x103A4] mov x0, x0                                       mov igpr-102, igpr-97
+  [0x103A8] movz x2, #0x90                                   mov-ic igpr-103, 144
+  [0x103AC] add x2, x2, x3                                   addi igpr-103, igpr-1
+  [0x103B0] adrp x6, #0x10000                                mov-sva igpr-104, static-string "~Tatest[2] @ #x~X~%"
+  [0x103B4] add x6, x6, #0x694
+  [0x103B8] sub x6, x6, x15
+  [0x103BC] add x7, x14, #8                                  mov-symptr igpr-105, '#t
+  [0x103C0] sub x7, x7, x15 ;; misaligned with debug data
+  [0x103C4] adrp x16, #0x10000                               mov igpr-106, '_format
+  [0x103C8] add x16, x16, #0
+  [0x103CC] ldr w9, [x16]
+  [0x103D0] mov x9, x9                                       mov igpr-111, igpr-106
+  [0x103D4] mov x7, x7                                       mov igpr-108, igpr-105
+  [0x103D8] mov x6, x6                                       mov igpr-109, igpr-104
+  [0x103DC] mov x2, x2                                       mov igpr-110, igpr-103
+  [0x103E0] add x9, x9, x15                                  call igpr-111 (ret igpr-107) (args igpr-108 igpr-109 igpr-110)
+  [0x103E4] stp x3, x5, [sp, #-0x10]!
+  [0x103E8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x103EC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x103F0] blr x9 ;; misaligned with debug data
+  [0x103F4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x103F8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x103FC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10400] mov x0, x0                                       mov igpr-112, igpr-107
+  [0x10404] movz x2, #0x90                                   mov-ic igpr-113, 144
+  [0x10408] add x2, x2, x3                                   addi igpr-113, igpr-1
+  [0x1040C] adrp x6, #0x10000                                mov-sva igpr-114, static-string "~Tatest-tra: #<ad-cmd @ #x~X>~%"
+  [0x10410] add x6, x6, #0x6b4
+  [0x10414] sub x6, x6, x15
+  [0x10418] add x7, x14, #8                                  mov-symptr igpr-115, '#t
+  [0x1041C] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10420] adrp x16, #0x10000                               mov igpr-116, '_format
+  [0x10424] add x16, x16, #0
+  [0x10428] ldr w9, [x16]
+  [0x1042C] mov x9, x9                                       mov igpr-121, igpr-116
+  [0x10430] mov x7, x7                                       mov igpr-118, igpr-115
+  [0x10434] mov x6, x6                                       mov igpr-119, igpr-114
+  [0x10438] mov x2, x2                                       mov igpr-120, igpr-113
+  [0x1043C] add x9, x9, x15                                  call igpr-121 (ret igpr-117) (args igpr-118 igpr-119 igpr-120)
+  [0x10440] stp x3, x5, [sp, #-0x10]!
+  [0x10444] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10448] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1044C] blr x9 ;; misaligned with debug data
+  [0x10450] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10454] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10458] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1045C] mov x0, x0                                       mov igpr-122, igpr-117
+  [0x10460] movz x2, #0xa0                                   mov-ic igpr-123, 160
+  [0x10464] add x2, x2, x3                                   addi igpr-123, igpr-1
+  [0x10468] adrp x6, #0x10000                                mov-sva igpr-124, static-string "~Tatest-def: #<ad-cmd @ #x~X>~%"
+  [0x1046C] add x6, x6, #0x6e4
+  [0x10470] sub x6, x6, x15
+  [0x10474] add x7, x14, #8                                  mov-symptr igpr-125, '#t
+  [0x10478] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1047C] adrp x16, #0x10000                               mov igpr-126, '_format
+  [0x10480] add x16, x16, #0
+  [0x10484] ldr w9, [x16]
+  [0x10488] mov x9, x9                                       mov igpr-131, igpr-126
+  [0x1048C] mov x7, x7                                       mov igpr-128, igpr-125
+  [0x10490] mov x6, x6                                       mov igpr-129, igpr-124
+  [0x10494] mov x2, x2                                       mov igpr-130, igpr-123
+  [0x10498] add x9, x9, x15                                  call igpr-131 (ret igpr-127) (args igpr-128 igpr-129 igpr-130)
+  [0x1049C] stp x3, x5, [sp, #-0x10]!
+  [0x104A0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x104A4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x104A8] blr x9 ;; misaligned with debug data
+  [0x104AC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x104B0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x104B4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x104B8] mov x0, x0                                       mov igpr-132, igpr-127
+  [0x104BC] mov x0, x3                                       ret igpr-133 igpr-1
+  [0x104C0] add sp, sp, #0x10
+  [0x104C4] ldp x29, x30, [sp], #0x10
+  [0x104C8] ret
+
+
+

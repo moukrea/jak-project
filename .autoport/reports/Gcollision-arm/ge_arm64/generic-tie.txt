@@ -1,0 +1,1021 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+generic-tie.gc:9
+-> (define *generic-tie* #t)
+  [0x1000C] add x9, x14, #8                                  mov-symptr igpr-0, '#t
+  [0x10010] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10014] adrp x16, #0x10000                               mov '*generic-tie*, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+generic-tie.gc:11
+-> (def-mips2c generic-tie-dma-to-spad-sync (function object object none))
+  [0x10020] adrp x16, #0x10000                               mov igpr-1, '__pc-get-mips2c
+  [0x10024] add x16, x16, #0
+  [0x10028] ldr w9, [x16]
+  [0x1002C] adrp x7, #0x10000                                mov-sva igpr-2, static-string "generic-tie-dma-to-spad-sync"
+  [0x10030] add x7, x7, #0
+  [0x10034] sub x7, x7, x15
+  [0x10038] mov x9, x9                                       mov igpr-5, igpr-1
+  [0x1003C] mov x7, x7                                       mov igpr-4, igpr-2
+  [0x10040] add x9, x9, x15                                  call igpr-5 (ret igpr-3) (args igpr-4)
+  [0x10044] stp x3, x5, [sp, #-0x10]!
+  [0x10048] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1004C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10050] blr x9 ;; misaligned with debug data
+  [0x10054] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10058] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1005C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] mov x0, x0                                       mov igpr-6, igpr-3
+  [0x10064] mov x0, x0                                       mov igpr-7, igpr-6
+  [0x10068] adrp x16, #0x10000                               mov 'generic-tie-dma-to-spad-sync, igpr-7
+  [0x1006C] add x16, x16, #0
+  [0x10070] str w0, [x16]
+
+generic-tie.gc:13
+-> (def-mips2c generic-envmap-dproc function)
+  [0x10074] adrp x16, #0x10000                               mov igpr-8, '__pc-get-mips2c
+  [0x10078] add x16, x16, #0
+  [0x1007C] ldr w9, [x16]
+  [0x10080] adrp x7, #0x10000                                mov-sva igpr-9, static-string "generic-envmap-dproc"
+  [0x10084] add x7, x7, #0
+  [0x10088] sub x7, x7, x15
+  [0x1008C] mov x9, x9                                       mov igpr-12, igpr-8
+  [0x10090] mov x7, x7                                       mov igpr-11, igpr-9
+  [0x10094] add x9, x9, x15                                  call igpr-12 (ret igpr-10) (args igpr-11)
+  [0x10098] stp x3, x5, [sp, #-0x10]!
+  [0x1009C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100A0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100A4] blr x9 ;; misaligned with debug data
+  [0x100A8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100AC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100B0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100B4] mov x0, x0                                       mov igpr-13, igpr-10
+  [0x100B8] mov x0, x0                                       mov igpr-14, igpr-13
+  [0x100BC] adrp x16, #0x10000                               mov 'generic-envmap-dproc, igpr-14
+  [0x100C0] add x16, x16, #0
+  [0x100C4] str w0, [x16]
+
+generic-tie.gc:15
+-> (def-mips2c generic-interp-dproc function)
+  [0x100C8] adrp x16, #0x10000                               mov igpr-15, '__pc-get-mips2c
+  [0x100CC] add x16, x16, #0
+  [0x100D0] ldr w9, [x16]
+  [0x100D4] adrp x7, #0x10000                                mov-sva igpr-16, static-string "generic-interp-dproc"
+  [0x100D8] add x7, x7, #0
+  [0x100DC] sub x7, x7, x15
+  [0x100E0] mov x9, x9                                       mov igpr-19, igpr-15
+  [0x100E4] mov x7, x7                                       mov igpr-18, igpr-16
+  [0x100E8] add x9, x9, x15                                  call igpr-19 (ret igpr-17) (args igpr-18)
+  [0x100EC] stp x3, x5, [sp, #-0x10]!
+  [0x100F0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F8] blr x9 ;; misaligned with debug data
+  [0x100FC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10100] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10104] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10108] mov x0, x0                                       mov igpr-20, igpr-17
+  [0x1010C] mov x0, x0                                       mov igpr-21, igpr-20
+  [0x10110] adrp x16, #0x10000                               mov 'generic-interp-dproc, igpr-21
+  [0x10114] add x16, x16, #0
+  [0x10118] str w0, [x16]
+
+generic-tie.gc:17
+-> (def-mips2c generic-no-light-dproc function)
+  [0x1011C] adrp x16, #0x10000                               mov igpr-22, '__pc-get-mips2c
+  [0x10120] add x16, x16, #0
+  [0x10124] ldr w9, [x16]
+  [0x10128] adrp x7, #0x10000                                mov-sva igpr-23, static-string "generic-no-light-dproc"
+  [0x1012C] add x7, x7, #0
+  [0x10130] sub x7, x7, x15
+  [0x10134] mov x9, x9                                       mov igpr-26, igpr-22
+  [0x10138] mov x7, x7                                       mov igpr-25, igpr-23
+  [0x1013C] add x9, x9, x15                                  call igpr-26 (ret igpr-24) (args igpr-25)
+  [0x10140] stp x3, x5, [sp, #-0x10]!
+  [0x10144] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10148] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1014C] blr x9 ;; misaligned with debug data
+  [0x10150] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10154] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10158] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1015C] mov x0, x0                                       mov igpr-27, igpr-24
+  [0x10160] mov x0, x0                                       mov igpr-28, igpr-27
+  [0x10164] adrp x16, #0x10000                               mov 'generic-no-light-dproc, igpr-28
+  [0x10168] add x16, x16, #0
+  [0x1016C] str w0, [x16]
+
+generic-tie.gc:19
+-> (def-mips2c generic-tie-convert (function none))
+  [0x10170] adrp x16, #0x10000                               mov igpr-29, '__pc-get-mips2c
+  [0x10174] add x16, x16, #0
+  [0x10178] ldr w9, [x16]
+  [0x1017C] adrp x7, #0x10000                                mov-sva igpr-30, static-string "generic-tie-convert"
+  [0x10180] add x7, x7, #0
+  [0x10184] sub x7, x7, x15
+  [0x10188] mov x9, x9                                       mov igpr-33, igpr-29
+  [0x1018C] mov x7, x7                                       mov igpr-32, igpr-30
+  [0x10190] add x9, x9, x15                                  call igpr-33 (ret igpr-31) (args igpr-32)
+  [0x10194] stp x3, x5, [sp, #-0x10]!
+  [0x10198] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1019C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101A0] blr x9 ;; misaligned with debug data
+  [0x101A4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101A8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101AC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101B0] mov x0, x0                                       mov igpr-34, igpr-31
+  [0x101B4] mov x0, x0                                       mov igpr-35, igpr-34
+  [0x101B8] adrp x16, #0x10000                               mov 'generic-tie-convert, igpr-35
+  [0x101BC] add x16, x16, #0
+  [0x101C0] str w0, [x16]
+  [0x101C4] adrp x0, #0x10000                                mov-fa igpr-36, function-generic-tie-execute
+  [0x101C8] add x0, x0, #0
+  [0x101CC] sub x0, x0, x15
+
+generic-tie.gc:21
+-> (defun generic-tie-execute ((arg0 generic-dma-foreground-sink) (arg1 dma-buffer) (arg2 basic))
+  [0x101D0] adrp x16, #0x10000                               mov 'generic-tie-execute, igpr-36
+  [0x101D4] add x16, x16, #0
+  [0x101D8] str w0, [x16]
+
+generic-tie.gc:1
+-> ;-*-Lisp-*-
+  [0x101DC] mov x0, x0                                       ret igpr-37 igpr-36
+  [0x101E0] add sp, sp, #0x10
+  [0x101E4] ldp x29, x30, [sp], #0x10
+  [0x101E8] ret
+
+
+[generic-tie-execute]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+generic-tie.gc:21
+-> (defun generic-tie-execute ((arg0 generic-dma-foreground-sink) (arg1 dma-buffer) (arg2 basic))
+  [0x1000C] mov x12, x7                                      mov igpr-4, igpr-0
+  [0x10010] mov x5, x6                                       mov igpr-5, igpr-1
+  [0x10014] mov x11, x2                                      mov igpr-6, igpr-2
+
+generic-tie.gc:24
+->   (when (logtest? *vu1-enable-user* (vu1-renderer-mask generic))
+  [0x10018] adrp x16, #0x10000                               mov igpr-8, '*vu1-enable-user*
+  [0x1001C] add x16, x16, #0
+  [0x10020] ldrsw x9, [x16]
+  [0x10024] movz x8, #0x200                                  mov-ic igpr-9, 512
+  [0x10028] mov x9, x9                                       mov igpr-10, igpr-8
+  [0x1002C] and x9, x9, x8                                   and igpr-10, igpr-9
+
+generic-tie.gc:24
+->   (when (logtest? *vu1-enable-user* (vu1-renderer-mask generic))
+  [0x10030] movz x8, #0                                      mov-ic igpr-11, 0
+  [0x10034] cmp x9, x8                                       j(igpr-10 == igpr-11) label-336
+  [0x10038] b.eq #0x108dc
+
+generic-tie.gc:25
+->     (when *generic-tie*
+  [0x1003C] adrp x16, #0x10000                               mov igpr-13, '*generic-tie*
+  [0x10040] add x16, x16, #0
+  [0x10044] ldr w9, [x16]
+  [0x10048] mov x8, x14                                      mov-symptr igpr-14, '#f
+  [0x1004C] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10050] cmp x9, x8                                       j(igpr-13 == igpr-14) label-332
+  [0x10054] b.eq #0x108c8
+
+generic-tie.gc:26
+->       (if *debug-segment*
+  [0x10058] adrp x16, #0x10000                               mov igpr-16, '*debug-segment*
+  [0x1005C] add x16, x16, #0
+  [0x10060] ldr w9, [x16]
+  [0x10064] mov x8, x14                                      mov-symptr igpr-17, '#f
+  [0x10068] sub x8, x8, x15 ;; misaligned with debug data
+  [0x1006C] cmp x9, x8                                       j(igpr-16 == igpr-17) label-39
+  [0x10070] b.eq #0x10118
+
+generic-tie.gc:27
+->         (add-frame (-> *display* frames (-> *display* on-screen) frame profile-bar 0)
+  [0x10074] adrp x16, #0x10000                               mov igpr-19, '*display*
+  [0x10078] add x16, x16, #0
+  [0x1007C] ldr w9, [x16]
+  [0x10080] add x16, x9, x15                                 mov igpr-18, [igpr-19 + 556]
+  [0x10084] ldrsw x9, [x16, #0x22c] ;; misaligned with debug data
+  [0x10088] mov x9, x9                                       mov igpr-20, igpr-18
+  [0x1008C] lsl x9, x9, #5                                   shl igpr-20, 5
+  [0x10090] mov x9, x9                                       mov igpr-23, igpr-20
+  [0x10094] movz x8, #0x234                                  mov-ic igpr-24, 564
+  [0x10098] adrp x16, #0x10000                               mov igpr-25, '*display*
+  [0x1009C] add x16, x16, #0
+  [0x100A0] ldr w1, [x16]
+  [0x100A4] add x8, x8, x1                                   addi igpr-24, igpr-25
+  [0x100A8] add x9, x9, x8                                   addi igpr-23, igpr-24
+  [0x100AC] add x16, x9, x15                                 mov igpr-22, [igpr-23 + 16]
+  [0x100B0] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x100B4] add x16, x9, x15                                 mov igpr-21, [igpr-22 + 44]
+  [0x100B8] ldr w7, [x16, #0x2c] ;; misaligned with debug data
+
+generic-tie.gc:26
+->       (if *debug-segment*
+  [0x100BC] adrp x6, #0x10000                                mov-symptr igpr-26, 'draw
+  [0x100C0] add x6, x6, #0
+
+generic-tie.gc:29
+->                    (new 'static 'rgba :r #x40 :b #x40 :a #x80)))
+  [0x100C4] movz x2, #0x40                                   mov-ic igpr-27, 2151678016
+  [0x100C8] movk x2, #0x8040, lsl #16
+
+generic-tie.gc:27
+->         (add-frame (-> *display* frames (-> *display* on-screen) frame profile-bar 0)
+  [0x100CC] add x16, x7, x15                                 mov igpr-28, [igpr-21 + -4]
+  [0x100D0] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x100D4] add x16, x9, x15                                 mov igpr-29, [igpr-28 + 60]
+  [0x100D8] ldr w9, [x16, #0x3c] ;; misaligned with debug data
+  [0x100DC] mov x9, x9                                       mov igpr-34, igpr-29
+  [0x100E0] mov x7, x7                                       mov igpr-31, igpr-21
+  [0x100E4] mov x6, x6                                       mov igpr-32, igpr-26
+  [0x100E8] mov x2, x2                                       mov igpr-33, igpr-27
+  [0x100EC] add x9, x9, x15                                  call igpr-34 (ret igpr-30) (args igpr-31 igpr-32 igpr-33)
+  [0x100F0] stp x3, x5, [sp, #-0x10]!
+  [0x100F4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100FC] blr x9 ;; misaligned with debug data
+  [0x10100] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10104] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10108] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1010C] mov x0, x0                                       mov igpr-35, igpr-30
+
+generic-tie.gc:26
+->       (if *debug-segment*
+  [0x10110] mov x0, x0                                       mov igpr-15, igpr-35
+  [0x10114] b #0x10120                                       goto label-40
+  [0x10118] mov x0, x14                                      mov-symptr igpr-15, '#f
+  [0x1011C] sub x0, x0, x15 ;; misaligned with debug data
+
+generic-tie.gc:30
+->       (reset! (-> *perf-stats* data 2))
+  [0x10120] movz x7, #0x74                                   mov-ic igpr-36, 116
+  [0x10124] adrp x16, #0x10000                               mov igpr-37, '*perf-stats*
+  [0x10128] add x16, x16, #0
+  [0x1012C] ldr w9, [x16]
+  [0x10130] add x7, x7, x9                                   addi igpr-36, igpr-37
+
+generic-tie.gc:30
+->       (reset! (-> *perf-stats* data 2))
+  [0x10134] adrp x16, #0x10000                               mov igpr-38, 'perf-stat
+  [0x10138] add x16, x16, #0
+  [0x1013C] ldr w9, [x16]
+  [0x10140] add x16, x9, x15                                 mov igpr-39, [igpr-38 + 60]
+  [0x10144] ldr w9, [x16, #0x3c] ;; misaligned with debug data
+  [0x10148] mov x9, x9                                       mov igpr-42, igpr-39
+  [0x1014C] mov x7, x7                                       mov igpr-41, igpr-36
+  [0x10150] add x9, x9, x15                                  call igpr-42 (ret igpr-40) (args igpr-41)
+  [0x10154] stp x3, x5, [sp, #-0x10]!
+  [0x10158] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1015C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10160] blr x9 ;; misaligned with debug data
+  [0x10164] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10168] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1016C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10170] mov x3, x3                                       mov igpr-43, igpr-40
+
+generic-tie.gc:31
+->       (when (nonzero? arg2)
+  [0x10174] movz x9, #0                                      mov-ic igpr-45, 0
+  [0x10178] cmp x11, x9                                      j(igpr-6 == igpr-45) label-293
+  [0x1017C] b.eq #0x1079c
+
+generic-tie.gc:32
+->         (let ((s4-0 (-> arg1 base)))
+  [0x10180] add x16, x5, x15                                 mov igpr-46, [igpr-5 + 4]
+  [0x10184] ldr w3, [x16, #4] ;; misaligned with debug data
+
+generic-tie.gc:32
+->         (let ((s4-0 (-> arg1 base)))
+  [0x10188] mov x3, x3                                       mov igpr-47, igpr-46
+
+generic-tie.gc:33
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves basep) (the-as uint (-> arg1 base)))
+  [0x1018C] add x16, x5, x15                                 mov igpr-48, [igpr-5 + 4]
+  [0x10190] ldr w9, [x16, #4] ;; misaligned with debug data
+  [0x10194] mov x9, x9                                       mov igpr-49, igpr-48
+
+generic-tie.gc:33
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves basep) (the-as uint (-> arg1 base)))
+  [0x10198] adrp x16, #0x10000                               mov igpr-50, '*fake-scratchpad-data*
+  [0x1019C] add x16, x16, #0
+  [0x101A0] ldr w8, [x16]
+  [0x101A4] mov x8, x8                                       mov igpr-51, igpr-50
+  [0x101A8] movz x1, #0                                      mov-ic igpr-52, 0
+  [0x101AC] add x8, x8, x1                                   addi igpr-51, igpr-52
+
+generic-tie.gc:33
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves basep) (the-as uint (-> arg1 base)))
+  [0x101B0] mov x8, x8                                       mov igpr-53, igpr-51
+  [0x101B4] add x16, x8, x15                                 move [igpr-53 + 76], igpr-49
+  [0x101B8] str w9, [x16, #0x4c] ;; misaligned with debug data
+
+generic-tie.gc:34
+->           (generic-initialize arg0 (-> *math-camera* perspective) *default-lights*)
+  [0x101BC] adrp x16, #0x10000                               mov igpr-54, 'generic-initialize
+  [0x101C0] add x16, x16, #0
+  [0x101C4] ldr w9, [x16]
+
+generic-tie.gc:34
+->           (generic-initialize arg0 (-> *math-camera* perspective) *default-lights*)
+  [0x101C8] movz x6, #0x9c                                   mov-ic igpr-55, 156
+  [0x101CC] adrp x16, #0x10000                               mov igpr-56, '*math-camera*
+  [0x101D0] add x16, x16, #0
+  [0x101D4] ldr w8, [x16]
+  [0x101D8] add x6, x6, x8                                   addi igpr-55, igpr-56
+
+generic-tie.gc:32
+->         (let ((s4-0 (-> arg1 base)))
+  [0x101DC] adrp x16, #0x10000                               mov igpr-57, '*default-lights*
+  [0x101E0] add x16, x16, #0
+  [0x101E4] ldr w2, [x16]
+
+generic-tie.gc:34
+->           (generic-initialize arg0 (-> *math-camera* perspective) *default-lights*)
+  [0x101E8] mov x9, x9                                       mov igpr-62, igpr-54
+  [0x101EC] mov x7, x12                                      mov igpr-59, igpr-4
+  [0x101F0] mov x6, x6                                       mov igpr-60, igpr-55
+  [0x101F4] mov x2, x2                                       mov igpr-61, igpr-57
+  [0x101F8] add x9, x9, x15                                  call igpr-62 (ret igpr-58) (args igpr-59 igpr-60 igpr-61)
+  [0x101FC] stp x3, x5, [sp, #-0x10]!
+  [0x10200] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10204] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10208] blr x9 ;; misaligned with debug data
+  [0x1020C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10210] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10214] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10218] mov x10, x10                                     mov igpr-63, igpr-58
+
+generic-tie.gc:35
+->           (generic-tie-dma-to-spad-sync arg2
+  [0x1021C] adrp x16, #0x10000                               mov igpr-64, 'generic-tie-dma-to-spad-sync
+  [0x10220] add x16, x16, #0
+  [0x10224] ldr w9, [x16]
+
+generic-tie.gc:36
+->                                         (-> (scratchpad-object terrain-context) work foreground generic-work in-buf tie input-a))
+  [0x10228] adrp x16, #0x10000                               mov igpr-65, '*fake-scratchpad-data*
+  [0x1022C] add x16, x16, #0
+  [0x10230] ldr w8, [x16]
+  [0x10234] mov x8, x8                                       mov igpr-66, igpr-65
+  [0x10238] movz x1, #0                                      mov-ic igpr-67, 0
+  [0x1023C] add x8, x8, x1                                   addi igpr-66, igpr-67
+
+generic-tie.gc:36
+->                                         (-> (scratchpad-object terrain-context) work foreground generic-work in-buf tie input-a))
+  [0x10240] movz x6, #0x300                                  mov-ic igpr-68, 768
+  [0x10244] mov x8, x8                                       mov igpr-69, igpr-66
+  [0x10248] add x6, x6, x8                                   addi igpr-68, igpr-69
+
+generic-tie.gc:35
+->           (generic-tie-dma-to-spad-sync arg2
+  [0x1024C] mov x9, x9                                       mov igpr-73, igpr-64
+  [0x10250] mov x7, x11                                      mov igpr-71, igpr-6
+  [0x10254] mov x6, x6                                       mov igpr-72, igpr-68
+  [0x10258] add x9, x9, x15                                  call igpr-73 (ret igpr-70) (args igpr-71 igpr-72)
+  [0x1025C] stp x3, x5, [sp, #-0x10]!
+  [0x10260] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10264] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10268] blr x9 ;; misaligned with debug data
+  [0x1026C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10270] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10274] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10278] mov x11, x11                                     mov igpr-74, igpr-70
+
+generic-tie.gc:39
+->           (let ((v1-24 (-> (scratchpad-object terrain-context) work foreground generic-work in-buf tie shadow)))
+  [0x1027C] adrp x16, #0x10000                               mov igpr-75, '*fake-scratchpad-data*
+  [0x10280] add x16, x16, #0
+  [0x10284] ldr w9, [x16]
+  [0x10288] mov x9, x9                                       mov igpr-76, igpr-75
+  [0x1028C] movz x8, #0                                      mov-ic igpr-77, 0
+  [0x10290] add x9, x9, x8                                   addi igpr-76, igpr-77
+
+generic-tie.gc:39
+->           (let ((v1-24 (-> (scratchpad-object terrain-context) work foreground generic-work in-buf tie shadow)))
+  [0x10294] movz x8, #0x2cc                                  mov-ic igpr-78, 716
+  [0x10298] mov x9, x9                                       mov igpr-79, igpr-76
+  [0x1029C] add x8, x8, x9                                   addi igpr-78, igpr-79
+
+generic-tie.gc:39
+->           (let ((v1-24 (-> (scratchpad-object terrain-context) work foreground generic-work in-buf tie shadow)))
+  [0x102A0] mov x8, x8                                       mov igpr-80, igpr-78
+
+generic-tie.gc:40
+->             (set! (-> v1-24 end-of-chain) (the-as uint 0))
+  [0x102A4] movz x9, #0                                      mov-ic igpr-81, 0
+  [0x102A8] mov x9, x9                                       mov igpr-82, igpr-81
+  [0x102AC] add x16, x8, x15                                 move [igpr-80 + 24], igpr-82
+  [0x102B0] str w9, [x16, #0x18] ;; misaligned with debug data
+
+generic-tie.gc:41
+->             (set! (-> v1-24 tie-type) 0)
+  [0x102B4] movz x9, #0                                      mov-ic igpr-83, 0
+  [0x102B8] add x16, x8, x15                                 move [igpr-80 + 8], igpr-83
+  [0x102BC] str w9, [x16, #8] ;; misaligned with debug data
+
+generic-tie.gc:42
+->             (set! (-> v1-24 out-buf) *gsf-buffer*)
+  [0x102C0] adrp x16, #0x10000                               mov igpr-84, '*gsf-buffer*
+  [0x102C4] add x16, x16, #0
+  [0x102C8] ldr w9, [x16]
+  [0x102CC] add x16, x8, x15                                 move [igpr-80 + 0], igpr-84
+  [0x102D0] str w9, [x16] ;; misaligned with debug data
+
+generic-tie.gc:43
+->             (set! (-> v1-24 ptr-buf) (the-as uint (+ 768 (scratchpad-object int))))
+  [0x102D4] movz x9, #0x300                                  mov-ic igpr-86, 768
+  [0x102D8] mov x9, x9                                       mov igpr-85, igpr-86
+
+generic-tie.gc:43
+->             (set! (-> v1-24 ptr-buf) (the-as uint (+ 768 (scratchpad-object int))))
+  [0x102DC] adrp x16, #0x10000                               mov igpr-87, '*fake-scratchpad-data*
+  [0x102E0] add x16, x16, #0
+  [0x102E4] ldr w1, [x16]
+  [0x102E8] mov x1, x1                                       mov igpr-88, igpr-87
+  [0x102EC] movz x2, #0                                      mov-ic igpr-89, 0
+  [0x102F0] add x1, x1, x2                                   addi igpr-88, igpr-89
+
+generic-tie.gc:43
+->             (set! (-> v1-24 ptr-buf) (the-as uint (+ 768 (scratchpad-object int))))
+  [0x102F4] mov x1, x1                                       mov igpr-90, igpr-88
+  [0x102F8] add x9, x9, x1                                   addi igpr-85, igpr-90
+
+generic-tie.gc:43
+->             (set! (-> v1-24 ptr-buf) (the-as uint (+ 768 (scratchpad-object int))))
+  [0x102FC] mov x9, x9                                       mov igpr-91, igpr-85
+  [0x10300] add x16, x8, x15                                 move [igpr-80 + 16], igpr-91
+  [0x10304] str w9, [x16, #0x10] ;; misaligned with debug data
+
+generic-tie.gc:44
+->             (set! (-> v1-24 ptr-inst) (the-as uint (+ 3648 (scratchpad-object int))))
+  [0x10308] movz x9, #0xe40                                  mov-ic igpr-93, 3648
+  [0x1030C] mov x9, x9                                       mov igpr-92, igpr-93
+
+generic-tie.gc:44
+->             (set! (-> v1-24 ptr-inst) (the-as uint (+ 3648 (scratchpad-object int))))
+  [0x10310] adrp x16, #0x10000                               mov igpr-94, '*fake-scratchpad-data*
+  [0x10314] add x16, x16, #0
+  [0x10318] ldr w1, [x16]
+  [0x1031C] mov x1, x1                                       mov igpr-95, igpr-94
+  [0x10320] movz x2, #0                                      mov-ic igpr-96, 0
+  [0x10324] add x1, x1, x2                                   addi igpr-95, igpr-96
+
+generic-tie.gc:44
+->             (set! (-> v1-24 ptr-inst) (the-as uint (+ 3648 (scratchpad-object int))))
+  [0x10328] mov x1, x1                                       mov igpr-97, igpr-95
+  [0x1032C] add x9, x9, x1                                   addi igpr-92, igpr-97
+
+generic-tie.gc:44
+->             (set! (-> v1-24 ptr-inst) (the-as uint (+ 3648 (scratchpad-object int))))
+  [0x10330] mov x9, x9                                       mov igpr-98, igpr-92
+  [0x10334] add x16, x8, x15                                 move [igpr-80 + 12], igpr-98
+  [0x10338] str w9, [x16, #0xc] ;; misaligned with debug data
+
+generic-tie.gc:45
+->             (set! (-> v1-24 inst-xor) 4640)
+  [0x1033C] movz x9, #0x1220                                 mov-ic igpr-99, 4640
+  [0x10340] add x16, x8, x15                                 move [igpr-80 + 20], igpr-99
+  [0x10344] str w9, [x16, #0x14] ;; misaligned with debug data
+
+generic-tie.gc:46
+->             (set! (-> v1-24 write-limit) (the-as uint (&+ (-> arg1 end) -65536))))
+  [0x10348] add x16, x5, x15                                 mov igpr-100, [igpr-5 + 8]
+  [0x1034C] ldr w9, [x16, #8] ;; misaligned with debug data
+  [0x10350] mov x9, x9                                       mov igpr-101, igpr-100
+  [0x10354] movz x1, #0                                      mov-ic igpr-102, 18446744073709486080
+  [0x10358] movk x1, #0xffff, lsl #16
+  [0x1035C] movk x1, #0xffff, lsl #32
+  [0x10360] movk x1, #0xffff, lsl #48
+  [0x10364] add x9, x9, x1                                   addi igpr-101, igpr-102
+
+generic-tie.gc:46
+->             (set! (-> v1-24 write-limit) (the-as uint (&+ (-> arg1 end) -65536))))
+  [0x10368] mov x9, x9                                       mov igpr-103, igpr-101
+  [0x1036C] add x16, x8, x15                                 move [igpr-80 + 28], igpr-103
+  [0x10370] str w9, [x16, #0x1c] ;; misaligned with debug data
+
+generic-tie.gc:48
+->           (let ((v1-26 (-> (scratchpad-object terrain-context) work foreground generic-work in-buf tie shadow calls)))
+  [0x10374] adrp x16, #0x10000                               mov igpr-104, '*fake-scratchpad-data*
+  [0x10378] add x16, x16, #0
+  [0x1037C] ldr w9, [x16]
+  [0x10380] mov x9, x9                                       mov igpr-105, igpr-104
+  [0x10384] movz x8, #0                                      mov-ic igpr-106, 0
+  [0x10388] add x9, x9, x8                                   addi igpr-105, igpr-106
+
+generic-tie.gc:48
+->           (let ((v1-26 (-> (scratchpad-object terrain-context) work foreground generic-work in-buf tie shadow calls)))
+  [0x1038C] movz x8, #0x2ec                                  mov-ic igpr-107, 748
+  [0x10390] mov x9, x9                                       mov igpr-108, igpr-105
+  [0x10394] add x8, x8, x9                                   addi igpr-107, igpr-108
+
+generic-tie.gc:48
+->           (let ((v1-26 (-> (scratchpad-object terrain-context) work foreground generic-work in-buf tie shadow calls)))
+  [0x10398] mov x8, x8                                       mov igpr-109, igpr-107
+
+generic-tie.gc:49
+->             (set! (-> v1-26 generic-prepare-dma-double) generic-prepare-dma-double)
+  [0x1039C] adrp x16, #0x10000                               mov igpr-110, 'generic-prepare-dma-double
+  [0x103A0] add x16, x16, #0
+  [0x103A4] ldr w9, [x16]
+  [0x103A8] add x16, x8, x15                                 move [igpr-109 + 0], igpr-110
+  [0x103AC] str w9, [x16] ;; misaligned with debug data
+
+generic-tie.gc:50
+->             (set! (-> v1-26 generic-envmap-dproc) generic-envmap-dproc) ;; todo
+  [0x103B0] adrp x16, #0x10000                               mov igpr-111, 'generic-envmap-dproc
+  [0x103B4] add x16, x16, #0
+  [0x103B8] ldr w9, [x16]
+  [0x103BC] add x16, x8, x15                                 move [igpr-109 + 4], igpr-111
+  [0x103C0] str w9, [x16, #4] ;; misaligned with debug data
+
+generic-tie.gc:51
+->             (set! (-> v1-26 generic-interp-dproc) generic-interp-dproc) ;; todo
+  [0x103C4] adrp x16, #0x10000                               mov igpr-112, 'generic-interp-dproc
+  [0x103C8] add x16, x16, #0
+  [0x103CC] ldr w9, [x16]
+  [0x103D0] add x16, x8, x15                                 move [igpr-109 + 8], igpr-112
+  [0x103D4] str w9, [x16, #8] ;; misaligned with debug data
+
+generic-tie.gc:52
+->             (set! (-> v1-26 generic-no-light-dproc) generic-no-light-dproc) ;; todo
+  [0x103D8] adrp x16, #0x10000                               mov igpr-113, 'generic-no-light-dproc
+  [0x103DC] add x16, x16, #0
+  [0x103E0] ldr w9, [x16]
+  [0x103E4] add x16, x8, x15                                 move [igpr-109 + 12], igpr-113
+  [0x103E8] str w9, [x16, #0xc] ;; misaligned with debug data
+
+generic-tie.gc:55
+->                 (the int (-> *time-of-day-context* current-sun env-color x)))
+  [0x103EC] adrp x16, #0x10000                               mov igpr-116, '*time-of-day-context*
+  [0x103F0] add x16, x16, #0
+  [0x103F4] ldr w9, [x16]
+  [0x103F8] add x16, x9, x15                                 mov ifpr-115, [igpr-116 + 92]
+  [0x103FC] ldr s23, [x16, #0x5c] ;; misaligned with debug data
+  [0x10400] fcvtzs w9, s23                                   f2i igpr-114, ifpr-115
+  [0x10404] sxtw x9, w9
+
+generic-tie.gc:54
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves time-of-day-color r)
+  [0x10408] adrp x16, #0x10000                               mov igpr-117, '*fake-scratchpad-data*
+  [0x1040C] add x16, x16, #0
+  [0x10410] ldr w8, [x16]
+  [0x10414] mov x8, x8                                       mov igpr-118, igpr-117
+  [0x10418] movz x1, #0                                      mov-ic igpr-119, 0
+  [0x1041C] add x8, x8, x1                                   addi igpr-118, igpr-119
+
+generic-tie.gc:54
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves time-of-day-color r)
+  [0x10420] mov x1, x8                                       mov igpr-121, igpr-118
+  [0x10424] add x16, x1, x15                                 mov igpr-120, [igpr-121 + 96]
+  [0x10428] ldr w1, [x16, #0x60] ;; misaligned with debug data
+  [0x1042C] mov x1, x1                                       mov igpr-122, igpr-120
+  [0x10430] movz x2, #0xff00                                 mov-ic igpr-123, 18446744073709551360
+  [0x10434] movk x2, #0xffff, lsl #16
+  [0x10438] movk x2, #0xffff, lsl #32
+  [0x1043C] movk x2, #0xffff, lsl #48
+  [0x10440] and x1, x1, x2                                   and igpr-122, igpr-123
+  [0x10444] mov x2, x9                                       mov igpr-123, igpr-114
+  [0x10448] lsl x2, x2, #0x38                                shl igpr-123, 56
+  [0x1044C] lsr x2, x2, #0x38                                shr igpr-123, 56
+  [0x10450] orr x1, x1, x2                                   or igpr-122, igpr-123
+  [0x10454] mov x8, x8                                       mov igpr-124, igpr-118
+  [0x10458] add x16, x8, x15                                 move [igpr-124 + 96], igpr-122
+  [0x1045C] str w1, [x16, #0x60] ;; misaligned with debug data
+
+generic-tie.gc:57
+->                 (the int (-> *time-of-day-context* current-sun env-color y)))
+  [0x10460] adrp x16, #0x10000                               mov igpr-127, '*time-of-day-context*
+  [0x10464] add x16, x16, #0
+  [0x10468] ldr w9, [x16]
+  [0x1046C] add x16, x9, x15                                 mov ifpr-126, [igpr-127 + 96]
+  [0x10470] ldr s23, [x16, #0x60] ;; misaligned with debug data
+  [0x10474] fcvtzs w9, s23                                   f2i igpr-125, ifpr-126
+  [0x10478] sxtw x9, w9
+
+generic-tie.gc:56
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves time-of-day-color g)
+  [0x1047C] adrp x16, #0x10000                               mov igpr-128, '*fake-scratchpad-data*
+  [0x10480] add x16, x16, #0
+  [0x10484] ldr w8, [x16]
+  [0x10488] mov x8, x8                                       mov igpr-129, igpr-128
+  [0x1048C] movz x1, #0                                      mov-ic igpr-130, 0
+  [0x10490] add x8, x8, x1                                   addi igpr-129, igpr-130
+
+generic-tie.gc:56
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves time-of-day-color g)
+  [0x10494] mov x1, x8                                       mov igpr-132, igpr-129
+  [0x10498] add x16, x1, x15                                 mov igpr-131, [igpr-132 + 96]
+  [0x1049C] ldr w1, [x16, #0x60] ;; misaligned with debug data
+  [0x104A0] mov x1, x1                                       mov igpr-133, igpr-131
+  [0x104A4] movz x2, #0xff                                   mov-ic igpr-134, 18446744073709486335
+  [0x104A8] movk x2, #0xffff, lsl #16
+  [0x104AC] movk x2, #0xffff, lsl #32
+  [0x104B0] movk x2, #0xffff, lsl #48
+  [0x104B4] and x1, x1, x2                                   and igpr-133, igpr-134
+  [0x104B8] mov x2, x9                                       mov igpr-134, igpr-125
+  [0x104BC] lsl x2, x2, #0x38                                shl igpr-134, 56
+  [0x104C0] lsr x2, x2, #0x30                                shr igpr-134, 48
+  [0x104C4] orr x1, x1, x2                                   or igpr-133, igpr-134
+  [0x104C8] mov x8, x8                                       mov igpr-135, igpr-129
+  [0x104CC] add x16, x8, x15                                 move [igpr-135 + 96], igpr-133
+  [0x104D0] str w1, [x16, #0x60] ;; misaligned with debug data
+
+generic-tie.gc:59
+->                 (the int (-> *time-of-day-context* current-sun env-color z)))
+  [0x104D4] adrp x16, #0x10000                               mov igpr-138, '*time-of-day-context*
+  [0x104D8] add x16, x16, #0
+  [0x104DC] ldr w9, [x16]
+  [0x104E0] add x16, x9, x15                                 mov ifpr-137, [igpr-138 + 100]
+  [0x104E4] ldr s23, [x16, #0x64] ;; misaligned with debug data
+  [0x104E8] fcvtzs w9, s23                                   f2i igpr-136, ifpr-137
+  [0x104EC] sxtw x9, w9
+
+generic-tie.gc:58
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves time-of-day-color b)
+  [0x104F0] adrp x16, #0x10000                               mov igpr-139, '*fake-scratchpad-data*
+  [0x104F4] add x16, x16, #0
+  [0x104F8] ldr w8, [x16]
+  [0x104FC] mov x8, x8                                       mov igpr-140, igpr-139
+  [0x10500] movz x1, #0                                      mov-ic igpr-141, 0
+  [0x10504] add x8, x8, x1                                   addi igpr-140, igpr-141
+
+generic-tie.gc:58
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves time-of-day-color b)
+  [0x10508] mov x1, x8                                       mov igpr-143, igpr-140
+  [0x1050C] add x16, x1, x15                                 mov igpr-142, [igpr-143 + 96]
+  [0x10510] ldr w1, [x16, #0x60] ;; misaligned with debug data
+  [0x10514] mov x1, x1                                       mov igpr-144, igpr-142
+  [0x10518] movz x2, #0xffff                                 mov-ic igpr-145, 18446744073692839935
+  [0x1051C] movk x2, #0xff00, lsl #16
+  [0x10520] movk x2, #0xffff, lsl #32
+  [0x10524] movk x2, #0xffff, lsl #48
+  [0x10528] and x1, x1, x2                                   and igpr-144, igpr-145
+  [0x1052C] mov x2, x9                                       mov igpr-145, igpr-136
+  [0x10530] lsl x2, x2, #0x38                                shl igpr-145, 56
+  [0x10534] lsr x2, x2, #0x28                                shr igpr-145, 40
+  [0x10538] orr x1, x1, x2                                   or igpr-144, igpr-145
+  [0x1053C] mov x8, x8                                       mov igpr-146, igpr-140
+  [0x10540] add x16, x8, x15                                 move [igpr-146 + 96], igpr-144
+  [0x10544] str w1, [x16, #0x60] ;; misaligned with debug data
+
+generic-tie.gc:61
+->                 (the int (-> *time-of-day-context* current-sun env-color w)))
+  [0x10548] adrp x16, #0x10000                               mov igpr-149, '*time-of-day-context*
+  [0x1054C] add x16, x16, #0
+  [0x10550] ldr w9, [x16]
+  [0x10554] add x16, x9, x15                                 mov ifpr-148, [igpr-149 + 104]
+  [0x10558] ldr s23, [x16, #0x68] ;; misaligned with debug data
+  [0x1055C] fcvtzs w9, s23                                   f2i igpr-147, ifpr-148
+  [0x10560] sxtw x9, w9
+
+generic-tie.gc:60
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves time-of-day-color a)
+  [0x10564] adrp x16, #0x10000                               mov igpr-150, '*fake-scratchpad-data*
+  [0x10568] add x16, x16, #0
+  [0x1056C] ldr w8, [x16]
+  [0x10570] mov x8, x8                                       mov igpr-151, igpr-150
+  [0x10574] movz x1, #0                                      mov-ic igpr-152, 0
+  [0x10578] add x8, x8, x1                                   addi igpr-151, igpr-152
+
+generic-tie.gc:60
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work saves time-of-day-color a)
+  [0x1057C] mov x1, x8                                       mov igpr-154, igpr-151
+  [0x10580] add x16, x1, x15                                 mov igpr-153, [igpr-154 + 96]
+  [0x10584] ldr w1, [x16, #0x60] ;; misaligned with debug data
+  [0x10588] mov x1, x1                                       mov igpr-155, igpr-153
+  [0x1058C] movz x2, #0xffff                                 mov-ic igpr-156, 18446744069431361535
+  [0x10590] movk x2, #0xff, lsl #16
+  [0x10594] movk x2, #0xffff, lsl #32
+  [0x10598] movk x2, #0xffff, lsl #48
+  [0x1059C] and x1, x1, x2                                   and igpr-155, igpr-156
+  [0x105A0] mov x2, x9                                       mov igpr-156, igpr-147
+  [0x105A4] lsl x2, x2, #0x38                                shl igpr-156, 56
+  [0x105A8] lsr x2, x2, #0x20                                shr igpr-156, 32
+  [0x105AC] orr x1, x1, x2                                   or igpr-155, igpr-156
+  [0x105B0] mov x8, x8                                       mov igpr-157, igpr-151
+  [0x105B4] add x16, x8, x15                                 move [igpr-157 + 96], igpr-155
+  [0x105B8] str w1, [x16, #0x60] ;; misaligned with debug data
+
+generic-tie.gc:72
+->           (generic-tie-convert)
+  [0x105BC] adrp x16, #0x10000                               mov igpr-158, 'generic-tie-convert
+  [0x105C0] add x16, x16, #0
+  [0x105C4] ldr w9, [x16]
+  [0x105C8] mov x9, x9                                       mov igpr-160, igpr-158
+  [0x105CC] add x9, x9, x15                                  call igpr-160 (ret igpr-159) (args)
+  [0x105D0] stp x3, x5, [sp, #-0x10]!
+  [0x105D4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x105D8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x105DC] blr x9 ;; misaligned with debug data
+  [0x105E0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x105E4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x105E8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x105EC] mov x11, x11                                     mov igpr-161, igpr-159
+
+generic-tie.gc:73
+->           (set! (-> arg1 base) (the-as pointer (-> (scratchpad-object terrain-context) work foreground generic-work saves basep)))
+  [0x105F0] adrp x16, #0x10000                               mov igpr-162, '*fake-scratchpad-data*
+  [0x105F4] add x16, x16, #0
+  [0x105F8] ldr w9, [x16]
+  [0x105FC] mov x9, x9                                       mov igpr-163, igpr-162
+  [0x10600] movz x8, #0                                      mov-ic igpr-164, 0
+  [0x10604] add x9, x9, x8                                   addi igpr-163, igpr-164
+
+generic-tie.gc:73
+->           (set! (-> arg1 base) (the-as pointer (-> (scratchpad-object terrain-context) work foreground generic-work saves basep)))
+  [0x10608] mov x9, x9                                       mov igpr-166, igpr-163
+  [0x1060C] add x16, x9, x15                                 mov igpr-165, [igpr-166 + 76]
+  [0x10610] ldr w9, [x16, #0x4c] ;; misaligned with debug data
+  [0x10614] mov x9, x9                                       mov igpr-167, igpr-165
+  [0x10618] add x16, x5, x15                                 move [igpr-5 + 4], igpr-167
+  [0x1061C] str w9, [x16, #4] ;; misaligned with debug data
+
+generic-tie.gc:74
+->           (generic-wrapup arg0)
+  [0x10620] adrp x16, #0x10000                               mov igpr-168, 'generic-wrapup
+  [0x10624] add x16, x16, #0
+  [0x10628] ldr w9, [x16]
+  [0x1062C] mov x9, x9                                       mov igpr-171, igpr-168
+  [0x10630] mov x7, x12                                      mov igpr-170, igpr-4
+  [0x10634] add x9, x9, x15                                  call igpr-171 (ret igpr-169) (args igpr-170)
+  [0x10638] stp x3, x5, [sp, #-0x10]!
+  [0x1063C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10640] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10644] blr x9 ;; misaligned with debug data
+  [0x10648] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1064C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10650] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10654] mov x12, x12                                     mov igpr-172, igpr-169
+
+generic-tie.gc:76
+->                 (logior (logand (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts mscal-tag) -65536)
+  [0x10658] adrp x16, #0x10000                               mov igpr-173, '*fake-scratchpad-data*
+  [0x1065C] add x16, x16, #0
+  [0x10660] ldr w9, [x16]
+  [0x10664] mov x9, x9                                       mov igpr-174, igpr-173
+  [0x10668] movz x8, #0                                      mov-ic igpr-175, 0
+  [0x1066C] add x9, x9, x8                                   addi igpr-174, igpr-175
+
+generic-tie.gc:76
+->                 (logior (logand (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts mscal-tag) -65536)
+  [0x10670] mov x9, x9                                       mov igpr-177, igpr-174
+  [0x10674] add x16, x9, x15                                 mov igpr-176, [igpr-177 + 11984]
+  [0x10678] ldr w9, [x16, #0x2ed0] ;; misaligned with debug data
+  [0x1067C] movz x8, #0                                      mov-ic igpr-178, 18446744073709486080
+  [0x10680] movk x8, #0xffff, lsl #16
+  [0x10684] movk x8, #0xffff, lsl #32
+  [0x10688] movk x8, #0xffff, lsl #48
+  [0x1068C] mov x9, x9                                       mov igpr-179, igpr-176
+  [0x10690] and x9, x9, x8                                   and igpr-179, igpr-178
+
+generic-tie.gc:76
+->                 (logior (logand (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts mscal-tag) -65536)
+  [0x10694] mov x9, x9                                       mov igpr-180, igpr-179
+  [0x10698] movz x8, #0x6                                    mov-ic igpr-181, 6
+  [0x1069C] orr x9, x9, x8                                   or igpr-180, igpr-181
+
+generic-tie.gc:75
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts mscal-tag)
+  [0x106A0] adrp x16, #0x10000                               mov igpr-182, '*fake-scratchpad-data*
+  [0x106A4] add x16, x16, #0
+  [0x106A8] ldr w8, [x16]
+  [0x106AC] mov x8, x8                                       mov igpr-183, igpr-182
+  [0x106B0] movz x1, #0                                      mov-ic igpr-184, 0
+  [0x106B4] add x8, x8, x1                                   addi igpr-183, igpr-184
+
+generic-tie.gc:75
+->           (set! (-> (scratchpad-object terrain-context) work foreground generic-work fx-buf work consts mscal-tag)
+  [0x106B8] mov x8, x8                                       mov igpr-185, igpr-183
+  [0x106BC] add x16, x8, x15                                 move [igpr-185 + 11984], igpr-180
+  [0x106C0] str w9, [x16, #0x2ed0] ;; misaligned with debug data
+
+generic-tie.gc:79
+->           (let ((v1-37 *dma-mem-usage*))
+  [0x106C4] adrp x16, #0x10000                               mov igpr-186, '*dma-mem-usage*
+  [0x106C8] add x16, x16, #0
+  [0x106CC] ldr w9, [x16]
+  [0x106D0] mov x9, x9                                       mov igpr-187, igpr-186
+
+generic-tie.gc:80
+->             (when (nonzero? v1-37)
+  [0x106D4] movz x8, #0                                      mov-ic igpr-189, 0
+  [0x106D8] cmp x9, x8                                       j(igpr-187 == igpr-189) label-288
+  [0x106DC] b.eq #0x1078c
+
+generic-tie.gc:80
+->             (when (nonzero? v1-37)
+  [0x106E0] movz x8, #0x12                                   mov-ic igpr-190, 18
+
+generic-tie.gc:81
+->               (set! (-> v1-37 length) (max 18 (-> v1-37 length)))
+  [0x106E4] add x16, x9, x15                                 mov igpr-191, [igpr-187 + 4]
+  [0x106E8] ldrsw x1, [x16, #4] ;; misaligned with debug data
+
+generic-tie.gc:81
+->               (set! (-> v1-37 length) (max 18 (-> v1-37 length)))
+  [0x106EC] mov x8, x8                                       mov igpr-192, igpr-190
+  [0x106F0] mov x1, x1                                       mov igpr-193, igpr-191
+
+gcommon.gc:147
+->   (if (> a b) a b))
+  [0x106F4] cmp x8, x1                                       j(igpr-192 <= igpr-193) label-264
+  [0x106F8] b.le #0x10704
+
+gcommon.gc:147
+->   (if (> a b) a b))
+  [0x106FC] mov x8, x8                                       mov igpr-195, igpr-192
+  [0x10700] b #0x10708                                       goto label-265
+  [0x10704] mov x8, x1                                       mov igpr-195, igpr-193
+
+generic-tie.gc:81
+->               (set! (-> v1-37 length) (max 18 (-> v1-37 length)))
+  [0x10708] add x16, x9, x15                                 move [igpr-187 + 4], igpr-195
+  [0x1070C] str w8, [x16, #4] ;; misaligned with debug data
+
+generic-tie.gc:82
+->               (set! (-> v1-37 data 17 name) "tie-generic")
+  [0x10710] adrp x8, #0x10000                                mov-sva igpr-196, static-string "tie-generic"
+  [0x10714] add x8, x8, #0x9b4
+  [0x10718] sub x8, x8, x15
+  [0x1071C] add x16, x9, x15                                 move [igpr-187 + 284], igpr-196
+  [0x10720] str w8, [x16, #0x11c] ;; misaligned with debug data
+
+generic-tie.gc:83
+->               (+! (-> v1-37 data 17 count) 1)
+  [0x10724] add x16, x9, x15                                 mov igpr-198, [igpr-187 + 288]
+  [0x10728] ldrsw x8, [x16, #0x120] ;; misaligned with debug data
+  [0x1072C] mov x8, x8                                       mov igpr-197, igpr-198
+  [0x10730] movz x1, #0x1                                    mov-ic igpr-199, 1
+  [0x10734] add x8, x8, x1                                   addi igpr-197, igpr-199
+  [0x10738] add x16, x9, x15                                 move [igpr-187 + 288], igpr-197
+  [0x1073C] str w8, [x16, #0x120] ;; misaligned with debug data
+
+generic-tie.gc:84
+->               (+! (-> v1-37 data 17 used) (&- (-> arg1 base) (the-as uint s4-0)))
+  [0x10740] add x16, x9, x15                                 mov igpr-201, [igpr-187 + 292]
+  [0x10744] ldrsw x8, [x16, #0x124] ;; misaligned with debug data
+  [0x10748] mov x8, x8                                       mov igpr-200, igpr-201
+
+generic-tie.gc:84
+->               (+! (-> v1-37 data 17 used) (&- (-> arg1 base) (the-as uint s4-0)))
+  [0x1074C] add x16, x5, x15                                 mov igpr-203, [igpr-5 + 4]
+  [0x10750] ldr w1, [x16, #4] ;; misaligned with debug data
+  [0x10754] mov x1, x1                                       mov igpr-204, igpr-203
+  [0x10758] mov x1, x1                                       mov igpr-202, igpr-204
+  [0x1075C] mov x3, x3                                       mov igpr-205, igpr-47
+  [0x10760] mov x3, x3                                       mov igpr-206, igpr-205
+  [0x10764] sub x1, x1, x3                                   subi igpr-202, igpr-206
+
+generic-tie.gc:84
+->               (+! (-> v1-37 data 17 used) (&- (-> arg1 base) (the-as uint s4-0)))
+  [0x10768] add x8, x8, x1                                   addi igpr-200, igpr-202
+  [0x1076C] add x16, x9, x15                                 move [igpr-187 + 292], igpr-200
+  [0x10770] str w8, [x16, #0x124] ;; misaligned with debug data
+
+generic-tie.gc:85
+->               (set! (-> v1-37 data 17 total) (-> v1-37 data 17 used))))))
+  [0x10774] add x16, x9, x15                                 mov igpr-207, [igpr-187 + 292]
+  [0x10778] ldrsw x8, [x16, #0x124] ;; misaligned with debug data
+  [0x1077C] add x16, x9, x15                                 move [igpr-187 + 296], igpr-207
+  [0x10780] str w8, [x16, #0x128] ;; misaligned with debug data
+
+generic-tie.gc:80
+->             (when (nonzero? v1-37)
+  [0x10784] mov x9, x8                                       mov igpr-188, igpr-207
+  [0x10788] b #0x10794                                       goto label-289
+  [0x1078C] mov x9, x14                                      mov-symptr igpr-188, '#f
+  [0x10790] sub x9, x9, x15 ;; misaligned with debug data
+
+generic-tie.gc:31
+->       (when (nonzero? arg2)
+  [0x10794] mov x9, x9                                       mov igpr-44, igpr-188
+  [0x10798] b #0x107a4                                       goto label-294
+  [0x1079C] mov x9, x14                                      mov-symptr igpr-44, '#f
+  [0x107A0] sub x9, x9, x15 ;; misaligned with debug data
+
+generic-tie.gc:86
+->       (read! (-> *perf-stats* data 2))
+  [0x107A4] movz x7, #0x74                                   mov-ic igpr-208, 116
+  [0x107A8] adrp x16, #0x10000                               mov igpr-209, '*perf-stats*
+  [0x107AC] add x16, x16, #0
+  [0x107B0] ldr w9, [x16]
+  [0x107B4] add x7, x7, x9                                   addi igpr-208, igpr-209
+
+generic-tie.gc:86
+->       (read! (-> *perf-stats* data 2))
+  [0x107B8] adrp x16, #0x10000                               mov igpr-210, 'perf-stat
+  [0x107BC] add x16, x16, #0
+  [0x107C0] ldr w9, [x16]
+  [0x107C4] add x16, x9, x15                                 mov igpr-211, [igpr-210 + 64]
+  [0x107C8] ldr w9, [x16, #0x40] ;; misaligned with debug data
+  [0x107CC] mov x9, x9                                       mov igpr-214, igpr-211
+  [0x107D0] mov x7, x7                                       mov igpr-213, igpr-208
+  [0x107D4] add x9, x9, x15                                  call igpr-214 (ret igpr-212) (args igpr-213)
+  [0x107D8] stp x3, x5, [sp, #-0x10]!
+  [0x107DC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x107E0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x107E4] blr x9 ;; misaligned with debug data
+  [0x107E8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x107EC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x107F0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x107F4] mov x3, x3                                       mov igpr-215, igpr-212
+
+generic-tie.gc:87
+->       (if *debug-segment*
+  [0x107F8] adrp x16, #0x10000                               mov igpr-217, '*debug-segment*
+  [0x107FC] add x16, x16, #0
+  [0x10800] ldr w9, [x16]
+  [0x10804] mov x8, x14                                      mov-symptr igpr-218, '#f
+  [0x10808] sub x8, x8, x15 ;; misaligned with debug data
+  [0x1080C] cmp x9, x8                                       j(igpr-217 == igpr-218) label-329
+  [0x10810] b.eq #0x108b8
+
+generic-tie.gc:88
+->         (add-frame (-> *display* frames (-> *display* on-screen) frame profile-bar 0)
+  [0x10814] adrp x16, #0x10000                               mov igpr-220, '*display*
+  [0x10818] add x16, x16, #0
+  [0x1081C] ldr w9, [x16]
+  [0x10820] add x16, x9, x15                                 mov igpr-219, [igpr-220 + 556]
+  [0x10824] ldrsw x9, [x16, #0x22c] ;; misaligned with debug data
+  [0x10828] mov x9, x9                                       mov igpr-221, igpr-219
+  [0x1082C] lsl x9, x9, #5                                   shl igpr-221, 5
+  [0x10830] mov x9, x9                                       mov igpr-224, igpr-221
+  [0x10834] movz x8, #0x234                                  mov-ic igpr-225, 564
+  [0x10838] adrp x16, #0x10000                               mov igpr-226, '*display*
+  [0x1083C] add x16, x16, #0
+  [0x10840] ldr w1, [x16]
+  [0x10844] add x8, x8, x1                                   addi igpr-225, igpr-226
+  [0x10848] add x9, x9, x8                                   addi igpr-224, igpr-225
+  [0x1084C] add x16, x9, x15                                 mov igpr-223, [igpr-224 + 16]
+  [0x10850] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x10854] add x16, x9, x15                                 mov igpr-222, [igpr-223 + 44]
+  [0x10858] ldr w7, [x16, #0x2c] ;; misaligned with debug data
+
+generic-tie.gc:87
+->       (if *debug-segment*
+  [0x1085C] adrp x6, #0x10000                                mov-symptr igpr-227, 'draw
+  [0x10860] add x6, x6, #0
+
+generic-tie.gc:90
+->                    (new 'static 'rgba :r #xd2 :g #xd2 :b #x50 :a #x80))))
+  [0x10864] movz x2, #0xd2d2                                 mov-ic igpr-228, 2152780498
+  [0x10868] movk x2, #0x8050, lsl #16
+
+generic-tie.gc:88
+->         (add-frame (-> *display* frames (-> *display* on-screen) frame profile-bar 0)
+  [0x1086C] add x16, x7, x15                                 mov igpr-229, [igpr-222 + -4]
+  [0x10870] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x10874] add x16, x9, x15                                 mov igpr-230, [igpr-229 + 60]
+  [0x10878] ldr w9, [x16, #0x3c] ;; misaligned with debug data
+  [0x1087C] mov x9, x9                                       mov igpr-235, igpr-230
+  [0x10880] mov x7, x7                                       mov igpr-232, igpr-222
+  [0x10884] mov x6, x6                                       mov igpr-233, igpr-227
+  [0x10888] mov x2, x2                                       mov igpr-234, igpr-228
+  [0x1088C] add x9, x9, x15                                  call igpr-235 (ret igpr-231) (args igpr-232 igpr-233 igpr-234)
+  [0x10890] stp x3, x5, [sp, #-0x10]!
+  [0x10894] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10898] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1089C] blr x9 ;; misaligned with debug data
+  [0x108A0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x108A4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x108A8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x108AC] mov x0, x0                                       mov igpr-236, igpr-231
+
+generic-tie.gc:87
+->       (if *debug-segment*
+  [0x108B0] mov x0, x0                                       mov igpr-216, igpr-236
+  [0x108B4] b #0x108c0                                       goto label-330
+  [0x108B8] mov x0, x14                                      mov-symptr igpr-216, '#f
+  [0x108BC] sub x0, x0, x15 ;; misaligned with debug data
+
+generic-tie.gc:25
+->     (when *generic-tie*
+  [0x108C0] mov x0, x0                                       mov igpr-12, igpr-216
+  [0x108C4] b #0x108d0                                       goto label-333
+  [0x108C8] mov x0, x14                                      mov-symptr igpr-12, '#f
+  [0x108CC] sub x0, x0, x15 ;; misaligned with debug data
+
+generic-tie.gc:24
+->   (when (logtest? *vu1-enable-user* (vu1-renderer-mask generic))
+  [0x108D0] movz x9, #0                                      mov-ic igpr-237, 0
+  [0x108D4] mov x9, x9                                       mov igpr-7, igpr-237
+  [0x108D8] b #0x108e4                                       goto label-337
+  [0x108DC] mov x9, x14                                      mov-symptr igpr-7, '#f
+  [0x108E0] sub x9, x9, x15 ;; misaligned with debug data
+
+generic-tie.gc:21
+-> (defun generic-tie-execute ((arg0 generic-dma-foreground-sink) (arg1 dma-buffer) (arg2 basic))
+  [0x108E4] movz x9, #0                                      mov-ic igpr-238, 0
+  [0x108E8] add sp, sp, #0x10
+  [0x108EC] ldp x29, x30, [sp], #0x10
+  [0x108F0] ret
+
+
+

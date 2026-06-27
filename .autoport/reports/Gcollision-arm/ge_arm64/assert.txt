@@ -1,0 +1,520 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+assert.gc:5
+-> (define *run-time-assert-enable* #t)
+  [0x10008] add x9, x14, #8                                  mov-symptr igpr-0, '#t
+  [0x1000C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10010] adrp x16, #0x10000                               mov '*run-time-assert-enable*, igpr-0
+  [0x10014] add x16, x16, #0
+  [0x10018] str w9, [x16]
+  [0x1001C] adrp x9, #0x10000                                mov-fa igpr-1, function-__assert
+  [0x10020] add x9, x9, #0
+  [0x10024] sub x9, x9, x15
+
+assert.gc:9
+-> (defun __assert ((expr symbol) (msg string))
+  [0x10028] adrp x16, #0x10000                               mov '__assert, igpr-1
+  [0x1002C] add x16, x16, #0
+  [0x10030] str w9, [x16]
+  [0x10034] adrp x9, #0x10000                                mov-fa igpr-2, function-__assert-min-max-range-float
+  [0x10038] add x9, x9, #0
+  [0x1003C] sub x9, x9, x15
+
+assert.gc:16
+-> (defun __assert-min-max-range-float ((expr float) (minimum float) (maximum float) (msg-expr string) (msg-min string) (msg-max string))
+  [0x10040] adrp x16, #0x10000                               mov '__assert-min-max-range-float, igpr-2
+  [0x10044] add x16, x16, #0
+  [0x10048] str w9, [x16]
+  [0x1004C] adrp x9, #0x10000                                mov-fa igpr-3, function-__assert-min-max-range-int
+  [0x10050] add x9, x9, #0
+  [0x10054] sub x9, x9, x15
+
+assert.gc:30
+-> (defun __assert-min-max-range-int ((expr int) (minimum int) (maximum int) (msg-expr string) (msg-min string) (msg-max string))
+  [0x10058] adrp x16, #0x10000                               mov '__assert-min-max-range-int, igpr-3
+  [0x1005C] add x16, x16, #0
+  [0x10060] str w9, [x16]
+  [0x10064] adrp x0, #0x10000                                mov-fa igpr-4, function-__assert-zero-lim-range-int
+  [0x10068] add x0, x0, #0
+  [0x1006C] sub x0, x0, x15
+
+assert.gc:44
+-> (defun __assert-zero-lim-range-int ((expr int) (maximum int) (msg-expr string) (msg-max string))
+  [0x10070] adrp x16, #0x10000                               mov '__assert-zero-lim-range-int, igpr-4
+  [0x10074] add x16, x16, #0
+  [0x10078] str w0, [x16]
+
+assert.gc:1
+-> ;-*-Lisp-*-
+  [0x1007C] mov x0, x0                                       ret igpr-5 igpr-4
+  [0x10080] ldp x29, x30, [sp], #0x10
+  [0x10084] ret
+
+
+[__assert-zero-lim-range-int]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+assert.gc:44
+-> (defun __assert-zero-lim-range-int ((expr int) (maximum int) (msg-expr string) (msg-max string))
+  [0x1000C] mov x8, x7                                       mov igpr-5, igpr-0
+  [0x10010] mov x9, x6                                       mov igpr-6, igpr-1
+  [0x10014] mov x2, x2                                       mov igpr-7, igpr-2
+  [0x10018] mov x1, x1                                       mov igpr-8, igpr-3
+
+assert.gc:46
+->   (when (or (< expr 0) (>= expr max))
+  [0x1001C] movz x6, #0                                      mov-ic igpr-11, 0
+  [0x10020] mov x7, x14                                      mov-symptr igpr-12, '#f
+  [0x10024] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10028] cmp x8, x6                                       j(igpr-5 >= igpr-11) label-10
+  [0x1002C] b.ge #0x1003c
+  [0x10030] add x7, x14, #8                                  mov-symptr igpr-13, '#t
+  [0x10034] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10038] mov x7, x7                                       mov igpr-12, igpr-13
+  [0x1003C] mov x6, x7                                       mov igpr-10, igpr-12
+  [0x10040] mov x7, x14                                      mov-symptr igpr-14, '#f
+  [0x10044] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10048] cmp x6, x7                                       j(igpr-10 != igpr-14) label-19
+  [0x1004C] b.ne #0x1007c
+
+assert.gc:46
+->   (when (or (< expr 0) (>= expr max))
+  [0x10050] adrp x16, #0x10000                               mov igpr-15, 'max
+  [0x10054] add x16, x16, #0
+  [0x10058] ldr w6, [x16]
+  [0x1005C] mov x7, x14                                      mov-symptr igpr-16, '#f
+  [0x10060] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10064] cmp x8, x6                                       j(igpr-5 < igpr-15) label-18
+  [0x10068] b.lt #0x10078
+  [0x1006C] add x7, x14, #8                                  mov-symptr igpr-17, '#t
+  [0x10070] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10074] mov x7, x7                                       mov igpr-16, igpr-17
+  [0x10078] mov x6, x7                                       mov igpr-10, igpr-16
+
+assert.gc:46
+->   (when (or (< expr 0) (>= expr max))
+  [0x1007C] mov x7, x14                                      mov-symptr igpr-18, '#f
+  [0x10080] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10084] cmp x6, x7                                       j(igpr-10 == igpr-18) label-42
+  [0x10088] b.eq #0x10140
+
+assert.gc:47
+->     (format #t "(ASSERT_ZERO_LIM_RANGE_INT ~S ~S) FAILED (values ~D ~D) in " msg-expr msg-max expr maximum)
+  [0x1008C] adrp x16, #0x10000                               mov igpr-19, 'format
+  [0x10090] add x16, x16, #0
+  [0x10094] ldr w0, [x16]
+
+assert.gc:46
+->   (when (or (< expr 0) (>= expr max))
+  [0x10098] add x7, x14, #8                                  mov-symptr igpr-20, '#t
+  [0x1009C] sub x7, x7, x15 ;; misaligned with debug data
+  [0x100A0] adrp x6, #0x10000                                mov-sva igpr-21, static-string "(ASSERT_ZERO_LIM_RANGE_INT ~S ~S) FAILED (values ~D ~D) in "
+  [0x100A4] add x6, x6, #0x5e4
+  [0x100A8] sub x6, x6, x15
+
+assert.gc:47
+->     (format #t "(ASSERT_ZERO_LIM_RANGE_INT ~S ~S) FAILED (values ~D ~D) in " msg-expr msg-max expr maximum)
+  [0x100AC] mov x3, x0                                       mov igpr-29, igpr-19
+  [0x100B0] mov x7, x7                                       mov igpr-23, igpr-20
+  [0x100B4] mov x6, x6                                       mov igpr-24, igpr-21
+  [0x100B8] mov x2, x2                                       mov igpr-25, igpr-7
+  [0x100BC] mov x1, x1                                       mov igpr-26, igpr-8
+  [0x100C0] mov x8, x8                                       mov igpr-27, igpr-5
+  [0x100C4] mov x9, x9                                       mov igpr-28, igpr-6
+  [0x100C8] add x3, x3, x15                                  call igpr-29 (ret igpr-22) (args igpr-23 igpr-24 igpr-25 igpr-26 igpr-27 igpr-28)
+  [0x100CC] stp x3, x5, [sp, #-0x10]!
+  [0x100D0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100D4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100D8] blr x3 ;; misaligned with debug data
+  [0x100DC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100E0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100E4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100E8] mov x0, x0                                       mov igpr-30, igpr-22
+
+assert.gc:46
+->   (when (or (< expr 0) (>= expr max))
+  [0x100EC] adrp x16, #0x10000                               mov igpr-31, '*__private-assert-info*
+  [0x100F0] add x16, x16, #0
+  [0x100F4] ldr w7, [x16]
+
+assert.gc:48
+->     (print-pos *__private-assert-info*))
+  [0x100F8] adrp x16, #0x10000                               mov igpr-32, '__assert-info-private-struct
+  [0x100FC] add x16, x16, #0
+  [0x10100] ldr w9, [x16]
+  [0x10104] add x16, x9, x15                                 mov igpr-33, [igpr-32 + 56]
+  [0x10108] ldr w9, [x16, #0x38] ;; misaligned with debug data
+  [0x1010C] mov x9, x9                                       mov igpr-36, igpr-33
+  [0x10110] mov x7, x7                                       mov igpr-35, igpr-31
+  [0x10114] add x9, x9, x15                                  call igpr-36 (ret igpr-34) (args igpr-35)
+  [0x10118] stp x3, x5, [sp, #-0x10]!
+  [0x1011C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10120] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10124] blr x9 ;; misaligned with debug data
+  [0x10128] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1012C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10130] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10134] mov x0, x0                                       mov igpr-37, igpr-34
+
+assert.gc:46
+->   (when (or (< expr 0) (>= expr max))
+  [0x10138] mov x0, x0                                       mov igpr-9, igpr-37
+  [0x1013C] b #0x10148                                       goto label-43
+  [0x10140] mov x0, x14                                      mov-symptr igpr-9, '#f
+  [0x10144] sub x0, x0, x15 ;; misaligned with debug data
+
+assert.gc:44
+-> (defun __assert-zero-lim-range-int ((expr int) (maximum int) (msg-expr string) (msg-max string))
+  [0x10148] movz x0, #0                                      mov-ic igpr-38, 0
+  [0x1014C] mov x0, x0                                       ret igpr-4 igpr-38
+  [0x10150] add sp, sp, #0x10
+  [0x10154] ldp x29, x30, [sp], #0x10
+  [0x10158] ret
+
+
+[__assert-min-max-range-int]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+assert.gc:30
+-> (defun __assert-min-max-range-int ((expr int) (minimum int) (maximum int) (msg-expr string) (msg-min string) (msg-max string))
+  [0x1000C] mov x0, x7                                       mov igpr-7, igpr-0
+  [0x10010] mov x10, x6                                      mov igpr-8, igpr-1
+  [0x10014] mov x11, x2                                      mov igpr-9, igpr-2
+  [0x10018] mov x1, x1                                       mov igpr-10, igpr-3
+  [0x1001C] mov x8, x8                                       mov igpr-11, igpr-4
+  [0x10020] mov x9, x9                                       mov igpr-12, igpr-5
+
+assert.gc:32
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x10024] mov x2, x14                                      mov-symptr igpr-15, '#f
+  [0x10028] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1002C] cmp x0, x10                                      j(igpr-7 >= igpr-8) label-11
+  [0x10030] b.ge #0x10040
+  [0x10034] add x2, x14, #8                                  mov-symptr igpr-16, '#t
+  [0x10038] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1003C] mov x2, x2                                       mov igpr-15, igpr-16
+  [0x10040] mov x2, x2                                       mov igpr-14, igpr-15
+  [0x10044] mov x6, x14                                      mov-symptr igpr-17, '#f
+  [0x10048] sub x6, x6, x15 ;; misaligned with debug data
+  [0x1004C] cmp x2, x6                                       j(igpr-14 != igpr-17) label-19
+  [0x10050] b.ne #0x10074
+
+assert.gc:32
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x10054] mov x2, x14                                      mov-symptr igpr-18, '#f
+  [0x10058] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1005C] cmp x11, x0                                      j(igpr-9 >= igpr-7) label-18
+  [0x10060] b.ge #0x10070
+  [0x10064] add x2, x14, #8                                  mov-symptr igpr-19, '#t
+  [0x10068] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1006C] mov x2, x2                                       mov igpr-18, igpr-19
+  [0x10070] mov x2, x2                                       mov igpr-14, igpr-18
+
+assert.gc:32
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x10074] mov x6, x14                                      mov-symptr igpr-20, '#f
+  [0x10078] sub x6, x6, x15 ;; misaligned with debug data
+  [0x1007C] cmp x2, x6                                       j(igpr-14 == igpr-20) label-44
+  [0x10080] b.eq #0x10140
+
+assert.gc:33
+->     (format #t
+  [0x10084] adrp x16, #0x10000                               mov igpr-21, 'format
+  [0x10088] add x16, x16, #0
+  [0x1008C] ldr w2, [x16]
+
+assert.gc:32
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x10090] add x7, x14, #8                                  mov-symptr igpr-22, '#t
+  [0x10094] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10098] adrp x6, #0x10000                                mov-sva igpr-23, static-string "(ASSERT_MIN_MAX_RANGE_INT ~S ~S ~S) FAILED (values ~D ~D ~D) in "
+  [0x1009C] add x6, x6, #0x594
+  [0x100A0] sub x6, x6, x15
+
+assert.gc:33
+->     (format #t
+  [0x100A4] mov x3, x2                                       mov igpr-33, igpr-21
+  [0x100A8] mov x7, x7                                       mov igpr-25, igpr-22
+  [0x100AC] mov x6, x6                                       mov igpr-26, igpr-23
+  [0x100B0] mov x2, x1                                       mov igpr-27, igpr-10
+  [0x100B4] mov x1, x8                                       mov igpr-28, igpr-11
+  [0x100B8] mov x8, x9                                       mov igpr-29, igpr-12
+  [0x100BC] mov x9, x0                                       mov igpr-30, igpr-7
+  [0x100C0] mov x10, x10                                     mov igpr-31, igpr-8
+  [0x100C4] mov x11, x11                                     mov igpr-32, igpr-9
+  [0x100C8] add x3, x3, x15                                  call igpr-33 (ret igpr-24) (args igpr-25 igpr-26 igpr-27 igpr-28 igpr-29 igpr-30 igpr-31 igpr-32)
+  [0x100CC] stp x3, x5, [sp, #-0x10]!
+  [0x100D0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100D4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100D8] blr x3 ;; misaligned with debug data
+  [0x100DC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100E0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100E4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100E8] mov x0, x0                                       mov igpr-34, igpr-24
+
+assert.gc:32
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x100EC] adrp x16, #0x10000                               mov igpr-35, '*__private-assert-info*
+  [0x100F0] add x16, x16, #0
+  [0x100F4] ldr w7, [x16]
+
+assert.gc:41
+->     (print-pos *__private-assert-info*))
+  [0x100F8] adrp x16, #0x10000                               mov igpr-36, '__assert-info-private-struct
+  [0x100FC] add x16, x16, #0
+  [0x10100] ldr w9, [x16]
+  [0x10104] add x16, x9, x15                                 mov igpr-37, [igpr-36 + 56]
+  [0x10108] ldr w9, [x16, #0x38] ;; misaligned with debug data
+  [0x1010C] mov x9, x9                                       mov igpr-40, igpr-37
+  [0x10110] mov x7, x7                                       mov igpr-39, igpr-35
+  [0x10114] add x9, x9, x15                                  call igpr-40 (ret igpr-38) (args igpr-39)
+  [0x10118] stp x3, x5, [sp, #-0x10]!
+  [0x1011C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10120] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10124] blr x9 ;; misaligned with debug data
+  [0x10128] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1012C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10130] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10134] mov x0, x0                                       mov igpr-41, igpr-38
+
+assert.gc:32
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x10138] mov x0, x0                                       mov igpr-13, igpr-41
+  [0x1013C] b #0x10148                                       goto label-45
+  [0x10140] mov x0, x14                                      mov-symptr igpr-13, '#f
+  [0x10144] sub x0, x0, x15 ;; misaligned with debug data
+
+assert.gc:30
+-> (defun __assert-min-max-range-int ((expr int) (minimum int) (maximum int) (msg-expr string) (msg-min string) (msg-max string))
+  [0x10148] movz x0, #0                                      mov-ic igpr-42, 0
+  [0x1014C] mov x0, x0                                       ret igpr-6 igpr-42
+  [0x10150] add sp, sp, #0x10
+  [0x10154] ldp x29, x30, [sp], #0x10
+  [0x10158] ret
+
+
+[__assert-min-max-range-float]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+assert.gc:16
+-> (defun __assert-min-max-range-float ((expr float) (minimum float) (maximum float) (msg-expr string) (msg-min string) (msg-max string))
+  [0x1000C] mov x0, x7                                       mov igpr-7, igpr-0
+  [0x10010] mov x10, x6                                      mov igpr-8, igpr-1
+  [0x10014] mov x11, x2                                      mov igpr-9, igpr-2
+  [0x10018] mov x1, x1                                       mov igpr-10, igpr-3
+  [0x1001C] mov x8, x8                                       mov igpr-11, igpr-4
+  [0x10020] mov x9, x9                                       mov igpr-12, igpr-5
+
+assert.gc:18
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x10024] fmov s23, w0                                     mov ifpr-15, igpr-7
+  [0x10028] fmov s22, w10                                    mov ifpr-16, igpr-8
+  [0x1002C] mov x2, x14                                      mov-symptr igpr-17, '#f
+  [0x10030] sub x2, x2, x15 ;; misaligned with debug data
+  [0x10034] fcmp s23, s22                                    j(ifpr-15 >= ifpr-16) label-13
+  [0x10038] b.ge #0x10048
+  [0x1003C] add x2, x14, #8                                  mov-symptr igpr-18, '#t
+  [0x10040] sub x2, x2, x15 ;; misaligned with debug data
+  [0x10044] mov x2, x2                                       mov igpr-17, igpr-18
+  [0x10048] mov x2, x2                                       mov igpr-14, igpr-17
+  [0x1004C] mov x6, x14                                      mov-symptr igpr-19, '#f
+  [0x10050] sub x6, x6, x15 ;; misaligned with debug data
+  [0x10054] cmp x2, x6                                       j(igpr-14 != igpr-19) label-23
+  [0x10058] b.ne #0x10084
+
+assert.gc:18
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x1005C] fmov s23, w11                                    mov ifpr-20, igpr-9
+  [0x10060] fmov s22, w0                                     mov ifpr-21, igpr-7
+  [0x10064] mov x2, x14                                      mov-symptr igpr-22, '#f
+  [0x10068] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1006C] fcmp s23, s22                                    j(ifpr-20 >= ifpr-21) label-22
+  [0x10070] b.ge #0x10080
+  [0x10074] add x2, x14, #8                                  mov-symptr igpr-23, '#t
+  [0x10078] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1007C] mov x2, x2                                       mov igpr-22, igpr-23
+  [0x10080] mov x2, x2                                       mov igpr-14, igpr-22
+
+assert.gc:18
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x10084] mov x6, x14                                      mov-symptr igpr-24, '#f
+  [0x10088] sub x6, x6, x15 ;; misaligned with debug data
+  [0x1008C] cmp x2, x6                                       j(igpr-14 == igpr-24) label-48
+  [0x10090] b.eq #0x10150
+
+assert.gc:19
+->     (format #t
+  [0x10094] adrp x16, #0x10000                               mov igpr-25, 'format
+  [0x10098] add x16, x16, #0
+  [0x1009C] ldr w2, [x16]
+
+assert.gc:18
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x100A0] add x7, x14, #8                                  mov-symptr igpr-26, '#t
+  [0x100A4] sub x7, x7, x15 ;; misaligned with debug data
+  [0x100A8] adrp x6, #0x10000                                mov-sva igpr-27, static-string "(ASSERT_MIN_MAX_RANGE_FLOAT ~S ~S ~S) FAILED (values ~F ~F ~F) in "
+  [0x100AC] add x6, x6, #0x544
+  [0x100B0] sub x6, x6, x15
+
+assert.gc:19
+->     (format #t
+  [0x100B4] mov x3, x2                                       mov igpr-37, igpr-25
+  [0x100B8] mov x7, x7                                       mov igpr-29, igpr-26
+  [0x100BC] mov x6, x6                                       mov igpr-30, igpr-27
+  [0x100C0] mov x2, x1                                       mov igpr-31, igpr-10
+  [0x100C4] mov x1, x8                                       mov igpr-32, igpr-11
+  [0x100C8] mov x8, x9                                       mov igpr-33, igpr-12
+  [0x100CC] mov x9, x0                                       mov igpr-34, igpr-7
+  [0x100D0] mov x10, x10                                     mov igpr-35, igpr-8
+  [0x100D4] mov x11, x11                                     mov igpr-36, igpr-9
+  [0x100D8] add x3, x3, x15                                  call igpr-37 (ret igpr-28) (args igpr-29 igpr-30 igpr-31 igpr-32 igpr-33 igpr-34 igpr-35 igpr-36)
+  [0x100DC] stp x3, x5, [sp, #-0x10]!
+  [0x100E0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E8] blr x3 ;; misaligned with debug data
+  [0x100EC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100F0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100F4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100F8] mov x0, x0                                       mov igpr-38, igpr-28
+
+assert.gc:18
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x100FC] adrp x16, #0x10000                               mov igpr-39, '*__private-assert-info*
+  [0x10100] add x16, x16, #0
+  [0x10104] ldr w7, [x16]
+
+assert.gc:27
+->     (print-pos *__private-assert-info*))
+  [0x10108] adrp x16, #0x10000                               mov igpr-40, '__assert-info-private-struct
+  [0x1010C] add x16, x16, #0
+  [0x10110] ldr w9, [x16]
+  [0x10114] add x16, x9, x15                                 mov igpr-41, [igpr-40 + 56]
+  [0x10118] ldr w9, [x16, #0x38] ;; misaligned with debug data
+  [0x1011C] mov x9, x9                                       mov igpr-44, igpr-41
+  [0x10120] mov x7, x7                                       mov igpr-43, igpr-39
+  [0x10124] add x9, x9, x15                                  call igpr-44 (ret igpr-42) (args igpr-43)
+  [0x10128] stp x3, x5, [sp, #-0x10]!
+  [0x1012C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10130] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10134] blr x9 ;; misaligned with debug data
+  [0x10138] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1013C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10140] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10144] mov x0, x0                                       mov igpr-45, igpr-42
+
+assert.gc:18
+->   (when (or (< expr minimum) (< maximum expr))
+  [0x10148] mov x0, x0                                       mov igpr-13, igpr-45
+  [0x1014C] b #0x10158                                       goto label-49
+  [0x10150] mov x0, x14                                      mov-symptr igpr-13, '#f
+  [0x10154] sub x0, x0, x15 ;; misaligned with debug data
+
+assert.gc:16
+-> (defun __assert-min-max-range-float ((expr float) (minimum float) (maximum float) (msg-expr string) (msg-min string) (msg-max string))
+  [0x10158] movz x0, #0                                      mov-ic igpr-46, 0
+  [0x1015C] mov x0, x0                                       ret igpr-6 igpr-46
+  [0x10160] add sp, sp, #0x10
+  [0x10164] ldp x29, x30, [sp], #0x10
+  [0x10168] ret
+
+
+[__assert]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+assert.gc:9
+-> (defun __assert ((expr symbol) (msg string))
+  [0x1000C] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x10010] mov x2, x6                                       mov igpr-4, igpr-1
+
+assert.gc:11
+->   (when (not expr)
+  [0x10014] mov x9, x14                                      mov-symptr igpr-6, '#f
+  [0x10018] sub x9, x9, x15 ;; misaligned with debug data
+
+assert.gc:11
+->   (when (not expr)
+  [0x1001C] cmp x7, x9                                       j(igpr-3 != igpr-6) label-23
+  [0x10020] b.ne #0x100cc
+
+assert.gc:12
+->     (format #t "(ASSERT ~S) FAILED in " msg)
+  [0x10024] adrp x16, #0x10000                               mov igpr-7, 'format
+  [0x10028] add x16, x16, #0
+  [0x1002C] ldr w9, [x16]
+
+assert.gc:11
+->   (when (not expr)
+  [0x10030] add x7, x14, #8                                  mov-symptr igpr-8, '#t
+  [0x10034] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10038] adrp x6, #0x10000                                mov-sva igpr-9, static-string "(ASSERT ~S) FAILED in "
+  [0x1003C] add x6, x6, #0x524
+  [0x10040] sub x6, x6, x15
+
+assert.gc:12
+->     (format #t "(ASSERT ~S) FAILED in " msg)
+  [0x10044] mov x9, x9                                       mov igpr-14, igpr-7
+  [0x10048] mov x7, x7                                       mov igpr-11, igpr-8
+  [0x1004C] mov x6, x6                                       mov igpr-12, igpr-9
+  [0x10050] mov x2, x2                                       mov igpr-13, igpr-4
+  [0x10054] add x9, x9, x15                                  call igpr-14 (ret igpr-10) (args igpr-11 igpr-12 igpr-13)
+  [0x10058] stp x3, x5, [sp, #-0x10]!
+  [0x1005C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10060] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10064] blr x9 ;; misaligned with debug data
+  [0x10068] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10074] mov x0, x0                                       mov igpr-15, igpr-10
+
+assert.gc:11
+->   (when (not expr)
+  [0x10078] adrp x16, #0x10000                               mov igpr-16, '*__private-assert-info*
+  [0x1007C] add x16, x16, #0
+  [0x10080] ldr w7, [x16]
+
+assert.gc:13
+->     (print-pos *__private-assert-info*))
+  [0x10084] adrp x16, #0x10000                               mov igpr-17, '__assert-info-private-struct
+  [0x10088] add x16, x16, #0
+  [0x1008C] ldr w9, [x16]
+  [0x10090] add x16, x9, x15                                 mov igpr-18, [igpr-17 + 56]
+  [0x10094] ldr w9, [x16, #0x38] ;; misaligned with debug data
+  [0x10098] mov x9, x9                                       mov igpr-21, igpr-18
+  [0x1009C] mov x7, x7                                       mov igpr-20, igpr-16
+  [0x100A0] add x9, x9, x15                                  call igpr-21 (ret igpr-19) (args igpr-20)
+  [0x100A4] stp x3, x5, [sp, #-0x10]!
+  [0x100A8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100AC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B0] blr x9 ;; misaligned with debug data
+  [0x100B4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100B8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100BC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] mov x0, x0                                       mov igpr-22, igpr-19
+
+assert.gc:11
+->   (when (not expr)
+  [0x100C4] mov x0, x0                                       mov igpr-5, igpr-22
+  [0x100C8] b #0x100d4                                       goto label-24
+  [0x100CC] mov x0, x14                                      mov-symptr igpr-5, '#f
+  [0x100D0] sub x0, x0, x15 ;; misaligned with debug data
+
+assert.gc:9
+-> (defun __assert ((expr symbol) (msg string))
+  [0x100D4] movz x0, #0                                      mov-ic igpr-23, 0
+  [0x100D8] mov x0, x0                                       ret igpr-2 igpr-23
+  [0x100DC] add sp, sp, #0x10
+  [0x100E0] ldp x29, x30, [sp], #0x10
+  [0x100E4] ret
+
+
+

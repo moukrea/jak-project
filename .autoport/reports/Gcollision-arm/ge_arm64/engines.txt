@@ -1,0 +1,194 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+engines.gc:12
+-> (define *background-draw-engine* (new 'global 'engine 'draw 10))
+  [0x1000C] adrp x7, #0x10000                                mov-symptr igpr-0, 'global
+  [0x10010] add x7, x7, #0
+  [0x10014] adrp x16, #0x10000                               mov igpr-1, 'engine
+  [0x10018] add x16, x16, #0
+  [0x1001C] ldr w6, [x16]
+  [0x10020] adrp x2, #0x10000                                mov-symptr igpr-2, 'draw
+  [0x10024] add x2, x2, #0
+  [0x10028] movz x1, #0xa                                    mov-ic igpr-3, 10
+  [0x1002C] adrp x16, #0x10000                               mov igpr-4, 'engine
+  [0x10030] add x16, x16, #0
+  [0x10034] ldr w9, [x16]
+  [0x10038] add x16, x9, x15                                 mov igpr-5, [igpr-4 + 16]
+  [0x1003C] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x10040] mov x9, x9                                       mov igpr-11, igpr-5
+  [0x10044] mov x7, x7                                       mov igpr-7, igpr-0
+  [0x10048] mov x6, x6                                       mov igpr-8, igpr-1
+  [0x1004C] mov x2, x2                                       mov igpr-9, igpr-2
+  [0x10050] mov x1, x1                                       mov igpr-10, igpr-3
+  [0x10054] add x9, x9, x15                                  call igpr-11 (ret igpr-6) (args igpr-7 igpr-8 igpr-9 igpr-10)
+  [0x10058] stp x3, x5, [sp, #-0x10]!
+  [0x1005C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10060] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10064] blr x9 ;; misaligned with debug data
+  [0x10068] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10074] mov x0, x0                                       mov igpr-12, igpr-6
+
+engines.gc:12
+-> (define *background-draw-engine* (new 'global 'engine 'draw 10))
+  [0x10078] adrp x16, #0x10000                               mov '*background-draw-engine*, igpr-12
+  [0x1007C] add x16, x16, #0
+  [0x10080] str w0, [x16]
+
+engines.gc:16
+-> (define *matrix-engine* (new 'global 'boxed-array handle MATRIX_ENGINE_AMOUNT))
+  [0x10084] adrp x7, #0x10000                                mov-symptr igpr-13, 'global
+  [0x10088] add x7, x7, #0
+  [0x1008C] adrp x16, #0x10000                               mov igpr-14, 'array
+  [0x10090] add x16, x16, #0
+  [0x10094] ldr w6, [x16]
+  [0x10098] adrp x16, #0x10000                               mov igpr-15, 'handle
+  [0x1009C] add x16, x16, #0
+  [0x100A0] ldr w2, [x16]
+
+engines.gc:9
+-> (defconstant MATRIX_ENGINE_AMOUNT (* 1024 PROCESS_HEAP_MULT))
+  [0x100A4] movz x1, #0x400                                  mov-ic igpr-17, 1024
+  [0x100A8] mov x1, x1                                       mov igpr-16, igpr-17
+  [0x100AC] movz x9, #0x3                                    mov-ic igpr-18, 3
+  [0x100B0] mul x1, x1, x9                                   imul igpr-16, igpr-18
+
+engines.gc:16
+-> (define *matrix-engine* (new 'global 'boxed-array handle MATRIX_ENGINE_AMOUNT))
+  [0x100B4] adrp x16, #0x10000                               mov igpr-19, 'array
+  [0x100B8] add x16, x16, #0
+  [0x100BC] ldr w9, [x16]
+  [0x100C0] add x16, x9, x15                                 mov igpr-20, [igpr-19 + 16]
+  [0x100C4] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x100C8] mov x9, x9                                       mov igpr-26, igpr-20
+  [0x100CC] mov x7, x7                                       mov igpr-22, igpr-13
+  [0x100D0] mov x6, x6                                       mov igpr-23, igpr-14
+  [0x100D4] mov x2, x2                                       mov igpr-24, igpr-15
+  [0x100D8] mov x1, x1                                       mov igpr-25, igpr-16
+  [0x100DC] add x9, x9, x15                                  call igpr-26 (ret igpr-21) (args igpr-22 igpr-23 igpr-24 igpr-25)
+  [0x100E0] stp x3, x5, [sp, #-0x10]!
+  [0x100E4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100EC] blr x9 ;; misaligned with debug data
+  [0x100F0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100F4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100F8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100FC] mov x0, x0                                       mov igpr-27, igpr-21
+
+engines.gc:16
+-> (define *matrix-engine* (new 'global 'boxed-array handle MATRIX_ENGINE_AMOUNT))
+  [0x10100] adrp x16, #0x10000                               mov '*matrix-engine*, igpr-27
+  [0x10104] add x16, x16, #0
+  [0x10108] str w0, [x16]
+
+engines.gc:18
+-> (set! (-> *matrix-engine* length) 0)
+  [0x1010C] movz x9, #0                                      mov-ic igpr-28, 0
+  [0x10110] adrp x16, #0x10000                               mov igpr-29, '*matrix-engine*
+  [0x10114] add x16, x16, #0
+  [0x10118] ldr w8, [x16]
+  [0x1011C] add x16, x8, x15                                 move [igpr-29 + 0], igpr-28
+  [0x10120] str w9, [x16] ;; misaligned with debug data
+
+engines.gc:21
+-> (define *camera-engine* (new 'global 'engine 'camera-eng 128))
+  [0x10124] adrp x7, #0x10000                                mov-symptr igpr-30, 'global
+  [0x10128] add x7, x7, #0
+  [0x1012C] adrp x16, #0x10000                               mov igpr-31, 'engine
+  [0x10130] add x16, x16, #0
+  [0x10134] ldr w6, [x16]
+  [0x10138] adrp x2, #0x10000                                mov-symptr igpr-32, 'camera-eng
+  [0x1013C] add x2, x2, #0
+  [0x10140] movz x1, #0x80                                   mov-ic igpr-33, 128
+  [0x10144] adrp x16, #0x10000                               mov igpr-34, 'engine
+  [0x10148] add x16, x16, #0
+  [0x1014C] ldr w9, [x16]
+  [0x10150] add x16, x9, x15                                 mov igpr-35, [igpr-34 + 16]
+  [0x10154] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x10158] mov x9, x9                                       mov igpr-41, igpr-35
+  [0x1015C] mov x7, x7                                       mov igpr-37, igpr-30
+  [0x10160] mov x6, x6                                       mov igpr-38, igpr-31
+  [0x10164] mov x2, x2                                       mov igpr-39, igpr-32
+  [0x10168] mov x1, x1                                       mov igpr-40, igpr-33
+  [0x1016C] add x9, x9, x15                                  call igpr-41 (ret igpr-36) (args igpr-37 igpr-38 igpr-39 igpr-40)
+  [0x10170] stp x3, x5, [sp, #-0x10]!
+  [0x10174] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10178] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1017C] blr x9 ;; misaligned with debug data
+  [0x10180] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10184] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10188] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1018C] mov x0, x0                                       mov igpr-42, igpr-36
+
+engines.gc:21
+-> (define *camera-engine* (new 'global 'engine 'camera-eng 128))
+  [0x10190] adrp x16, #0x10000                               mov '*camera-engine*, igpr-42
+  [0x10194] add x16, x16, #0
+  [0x10198] str w0, [x16]
+
+engines.gc:24
+-> (if *debug-segment* (define *debug-engine* (new 'debug 'engine 'debug 512)))
+  [0x1019C] adrp x16, #0x10000                               mov igpr-44, '*debug-segment*
+  [0x101A0] add x16, x16, #0
+  [0x101A4] ldr w9, [x16]
+  [0x101A8] mov x8, x14                                      mov-symptr igpr-45, '#f
+  [0x101AC] sub x8, x8, x15 ;; misaligned with debug data
+  [0x101B0] cmp x9, x8                                       j(igpr-44 == igpr-45) label-67
+  [0x101B4] b.eq #0x10238
+
+engines.gc:24
+-> (if *debug-segment* (define *debug-engine* (new 'debug 'engine 'debug 512)))
+  [0x101B8] adrp x7, #0x10000                                mov-symptr igpr-46, 'debug
+  [0x101BC] add x7, x7, #0
+  [0x101C0] adrp x16, #0x10000                               mov igpr-47, 'engine
+  [0x101C4] add x16, x16, #0
+  [0x101C8] ldr w6, [x16]
+  [0x101CC] adrp x2, #0x10000                                mov-symptr igpr-48, 'debug
+  [0x101D0] add x2, x2, #0
+  [0x101D4] movz x1, #0x200                                  mov-ic igpr-49, 512
+  [0x101D8] adrp x16, #0x10000                               mov igpr-50, 'engine
+  [0x101DC] add x16, x16, #0
+  [0x101E0] ldr w9, [x16]
+  [0x101E4] add x16, x9, x15                                 mov igpr-51, [igpr-50 + 16]
+  [0x101E8] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x101EC] mov x9, x9                                       mov igpr-57, igpr-51
+  [0x101F0] mov x7, x7                                       mov igpr-53, igpr-46
+  [0x101F4] mov x6, x6                                       mov igpr-54, igpr-47
+  [0x101F8] mov x2, x2                                       mov igpr-55, igpr-48
+  [0x101FC] mov x1, x1                                       mov igpr-56, igpr-49
+  [0x10200] add x9, x9, x15                                  call igpr-57 (ret igpr-52) (args igpr-53 igpr-54 igpr-55 igpr-56)
+  [0x10204] stp x3, x5, [sp, #-0x10]!
+  [0x10208] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1020C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10210] blr x9 ;; misaligned with debug data
+  [0x10214] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10218] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1021C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10220] mov x0, x0                                       mov igpr-58, igpr-52
+
+engines.gc:24
+-> (if *debug-segment* (define *debug-engine* (new 'debug 'engine 'debug 512)))
+  [0x10224] adrp x16, #0x10000                               mov '*debug-engine*, igpr-58
+  [0x10228] add x16, x16, #0
+  [0x1022C] str w0, [x16]
+
+engines.gc:24
+-> (if *debug-segment* (define *debug-engine* (new 'debug 'engine 'debug 512)))
+  [0x10230] mov x0, x0                                       mov igpr-43, igpr-58
+  [0x10234] b #0x10240                                       goto label-68
+  [0x10238] mov x0, x14                                      mov-symptr igpr-43, '#f
+  [0x1023C] sub x0, x0, x15 ;; misaligned with debug data
+
+engines.gc:1
+-> ;-*-Lisp-*-
+  [0x10240] mov x0, x0                                       ret igpr-59 igpr-43
+  [0x10244] add sp, sp, #0x10
+  [0x10248] ldp x29, x30, [sp], #0x10
+  [0x1024C] ret
+
+
+

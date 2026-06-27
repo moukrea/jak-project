@@ -1,0 +1,1778 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+hint-control.gc:11
+-> (set! (-> *game-info* hint-control)
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov igpr-1, '*game-info*
+  [0x10018] add x16, x16, #0
+  [0x1001C] ldr w8, [x16]
+  [0x10020] add x16, x8, x15                                 move [igpr-1 + 144], igpr-0
+  [0x10024] str w9, [x16, #0x90] ;; misaligned with debug data
+
+hint-control.gc:153
+-> (set! (-> *game-info* task-hint-control)
+  [0x10028] adrp x9, #0x10000                                mov-sva igpr-2, static-structure
+  [0x1002C] add x9, x9, #0
+  [0x10030] sub x9, x9, x15
+  [0x10034] adrp x16, #0x10000                               mov igpr-3, '*game-info*
+  [0x10038] add x16, x16, #0
+  [0x1003C] ldr w8, [x16]
+  [0x10040] add x16, x8, x15                                 move [igpr-3 + 148], igpr-2
+  [0x10044] str w9, [x16, #0x94] ;; misaligned with debug data
+  [0x10048] adrp x9, #0x10000                                mov-fa igpr-4, function-find-hint-control-index
+  [0x1004C] add x9, x9, #0
+  [0x10050] sub x9, x9, x15
+
+hint-control.gc:268
+-> (defun find-hint-control-index ((arg0 text-id))
+  [0x10054] adrp x16, #0x10000                               mov 'find-hint-control-index, igpr-4
+  [0x10058] add x16, x16, #0
+  [0x1005C] str w9, [x16]
+  [0x10060] adrp x9, #0x10000                                mov-fa igpr-5, function-start-hint-timer
+  [0x10064] add x9, x9, #0
+  [0x10068] sub x9, x9, x15
+
+hint-control.gc:277
+-> (defun start-hint-timer ((arg0 text-id))
+  [0x1006C] adrp x16, #0x10000                               mov 'start-hint-timer, igpr-5
+  [0x10070] add x16, x16, #0
+  [0x10074] str w9, [x16]
+  [0x10078] adrp x9, #0x10000                                mov-fa igpr-6, function-increment-success-for-hint
+  [0x1007C] add x9, x9, #0
+  [0x10080] sub x9, x9, x15
+
+hint-control.gc:287
+-> (defun increment-success-for-hint ((arg0 text-id))
+  [0x10084] adrp x16, #0x10000                               mov 'increment-success-for-hint, igpr-6
+  [0x10088] add x16, x16, #0
+  [0x1008C] str w9, [x16]
+  [0x10090] adrp x9, #0x10000                                mov-fa igpr-7, function-can-hint-be-played?
+  [0x10094] add x9, x9, #0
+  [0x10098] sub x9, x9, x15
+
+hint-control.gc:296
+-> (defun can-hint-be-played? ((arg0 text-id) (arg1 entity) (arg2 string))
+  [0x1009C] adrp x16, #0x10000                               mov 'can-hint-be-played?, igpr-7
+  [0x100A0] add x16, x16, #0
+  [0x100A4] str w9, [x16]
+  [0x100A8] adrp x9, #0x10000                                mov-fa igpr-8, function-reset-all-hint-controls
+  [0x100AC] add x9, x9, #0
+  [0x100B0] sub x9, x9, x15
+
+hint-control.gc:343
+-> (defun reset-all-hint-controls ()
+  [0x100B4] adrp x16, #0x10000                               mov 'reset-all-hint-controls, igpr-8
+  [0x100B8] add x16, x16, #0
+  [0x100BC] str w9, [x16]
+  [0x100C0] adrp x0, #0x10000                                mov-fa igpr-9, function-update-task-hints
+  [0x100C4] add x0, x0, #0
+  [0x100C8] sub x0, x0, x15
+
+hint-control.gc:355
+-> (defun update-task-hints ()
+  [0x100CC] adrp x16, #0x10000                               mov 'update-task-hints, igpr-9
+  [0x100D0] add x16, x16, #0
+  [0x100D4] str w0, [x16]
+
+hint-control.gc:1
+-> ;-*-Lisp-*-
+  [0x100D8] mov x0, x0                                       ret igpr-10 igpr-9
+  [0x100DC] ldp x29, x30, [sp], #0x10
+  [0x100E0] ret
+
+
+[can-hint-be-played?]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+hint-control.gc:296
+-> (defun can-hint-be-played? ((arg0 text-id) (arg1 entity) (arg2 string))
+  [0x1000C] mov x3, x7                                       mov igpr-4, igpr-0
+  [0x10010] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10014] mov x2, x2                                       mov igpr-6, igpr-2
+
+hint-control.gc:297
+->   (let ((v1-0 (not (str-is-playing?))))
+  [0x10018] adrp x16, #0x10000                               mov igpr-7, 'str-is-playing?
+  [0x1001C] add x16, x16, #0
+  [0x10020] ldr w9, [x16]
+  [0x10024] mov x9, x9                                       mov igpr-9, igpr-7
+  [0x10028] add x9, x9, x15                                  call igpr-9 (ret igpr-8) (args)
+  [0x1002C] stp x3, x5, [sp, #-0x10]!
+  [0x10030] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10034] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10038] blr x9 ;; misaligned with debug data
+  [0x1003C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10040] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10044] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10048] mov x0, x0                                       mov igpr-10, igpr-8
+  [0x1004C] mov x9, x14                                      mov-symptr igpr-11, '#f
+  [0x10050] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:297
+->   (let ((v1-0 (not (str-is-playing?))))
+  [0x10054] mov x8, x14                                      mov-symptr igpr-12, '#f
+  [0x10058] sub x8, x8, x15 ;; misaligned with debug data
+  [0x1005C] cmp x0, x9                                       j(igpr-10 != igpr-11) label-13
+  [0x10060] b.ne #0x10070
+  [0x10064] add x8, x14, #8                                  mov-symptr igpr-13, '#t
+  [0x10068] sub x8, x8, x15 ;; misaligned with debug data
+  [0x1006C] mov x8, x8                                       mov igpr-12, igpr-13
+
+hint-control.gc:297
+->   (let ((v1-0 (not (str-is-playing?))))
+  [0x10070] mov x8, x8                                       mov igpr-14, igpr-12
+
+hint-control.gc:298
+->     (if (and v1-0 (nonzero? arg0)) (set! v1-0 (not (seen-text? *game-info* arg0))))
+  [0x10074] mov x9, x8                                       mov igpr-16, igpr-14
+  [0x10078] mov x1, x14                                      mov-symptr igpr-17, '#f
+  [0x1007C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10080] cmp x9, x1                                       j(igpr-16 == igpr-17) label-23
+  [0x10084] b.eq #0x100ac
+
+hint-control.gc:298
+->     (if (and v1-0 (nonzero? arg0)) (set! v1-0 (not (seen-text? *game-info* arg0))))
+  [0x10088] movz x9, #0                                      mov-ic igpr-18, 0
+  [0x1008C] mov x1, x14                                      mov-symptr igpr-19, '#f
+  [0x10090] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10094] cmp x3, x9                                       j(igpr-4 == igpr-18) label-22
+  [0x10098] b.eq #0x100a8
+  [0x1009C] add x1, x14, #8                                  mov-symptr igpr-20, '#t
+  [0x100A0] sub x1, x1, x15 ;; misaligned with debug data
+  [0x100A4] mov x1, x1                                       mov igpr-19, igpr-20
+  [0x100A8] mov x9, x1                                       mov igpr-16, igpr-19
+
+hint-control.gc:298
+->     (if (and v1-0 (nonzero? arg0)) (set! v1-0 (not (seen-text? *game-info* arg0))))
+  [0x100AC] mov x1, x14                                      mov-symptr igpr-21, '#f
+  [0x100B0] sub x1, x1, x15 ;; misaligned with debug data
+  [0x100B4] cmp x9, x1                                       j(igpr-16 == igpr-21) label-41
+  [0x100B8] b.eq #0x10138
+
+hint-control.gc:298
+->     (if (and v1-0 (nonzero? arg0)) (set! v1-0 (not (seen-text? *game-info* arg0))))
+  [0x100BC] adrp x16, #0x10000                               mov igpr-22, '*game-info*
+  [0x100C0] add x16, x16, #0
+  [0x100C4] ldr w7, [x16]
+
+hint-control.gc:298
+->     (if (and v1-0 (nonzero? arg0)) (set! v1-0 (not (seen-text? *game-info* arg0))))
+  [0x100C8] add x16, x7, x15                                 mov igpr-23, [igpr-22 + -4]
+  [0x100CC] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x100D0] add x16, x9, x15                                 mov igpr-24, [igpr-23 + 100]
+  [0x100D4] ldr w9, [x16, #0x64] ;; misaligned with debug data
+  [0x100D8] mov x9, x9                                       mov igpr-28, igpr-24
+  [0x100DC] mov x7, x7                                       mov igpr-26, igpr-22
+  [0x100E0] mov x6, x3                                       mov igpr-27, igpr-4
+  [0x100E4] add x9, x9, x15                                  call igpr-28 (ret igpr-25) (args igpr-26 igpr-27)
+  [0x100E8] stp x3, x5, [sp, #-0x10]!
+  [0x100EC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F4] blr x9 ;; misaligned with debug data
+  [0x100F8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100FC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10100] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10104] mov x0, x0                                       mov igpr-29, igpr-25
+  [0x10108] mov x9, x14                                      mov-symptr igpr-30, '#f
+  [0x1010C] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:298
+->     (if (and v1-0 (nonzero? arg0)) (set! v1-0 (not (seen-text? *game-info* arg0))))
+  [0x10110] mov x1, x14                                      mov-symptr igpr-31, '#f
+  [0x10114] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10118] cmp x0, x9                                       j(igpr-29 != igpr-30) label-38
+  [0x1011C] b.ne #0x1012c
+  [0x10120] add x1, x14, #8                                  mov-symptr igpr-32, '#t
+  [0x10124] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10128] mov x1, x1                                       mov igpr-31, igpr-32
+
+hint-control.gc:298
+->     (if (and v1-0 (nonzero? arg0)) (set! v1-0 (not (seen-text? *game-info* arg0))))
+  [0x1012C] mov x8, x1                                       mov igpr-14, igpr-31
+
+hint-control.gc:298
+->     (if (and v1-0 (nonzero? arg0)) (set! v1-0 (not (seen-text? *game-info* arg0))))
+  [0x10130] mov x9, x1                                       mov igpr-15, igpr-31
+  [0x10134] b #0x10140                                       goto label-42
+  [0x10138] mov x9, x14                                      mov-symptr igpr-15, '#f
+  [0x1013C] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:299
+->     (when v1-0
+  [0x10140] mov x9, x14                                      mov-symptr igpr-34, '#f
+  [0x10144] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10148] cmp x8, x9                                       j(igpr-14 == igpr-34) label-149
+  [0x1014C] b.eq #0x10444
+
+hint-control.gc:300
+->       (when *hint-semaphore*
+  [0x10150] adrp x16, #0x10000                               mov igpr-36, '*hint-semaphore*
+  [0x10154] add x16, x16, #0
+  [0x10158] ldr w9, [x16]
+  [0x1015C] mov x1, x14                                      mov-symptr igpr-37, '#f
+  [0x10160] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10164] cmp x9, x1                                       j(igpr-36 == igpr-37) label-69
+  [0x10168] b.eq #0x10200
+
+hint-control.gc:301
+->         (set! v1-0 (appeared-for-long-enough? (the-as level-hint (ppointer->process *hint-semaphore*))))
+  [0x1016C] adrp x16, #0x10000                               mov igpr-38, '*hint-semaphore*
+  [0x10170] add x16, x16, #0
+  [0x10174] ldr w9, [x16]
+  [0x10178] mov x9, x9                                       mov igpr-39, igpr-38
+  [0x1017C] mov x8, x14                                      mov-symptr igpr-41, '#f
+  [0x10180] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10184] cmp x9, x8                                       j(igpr-39 == igpr-41) label-55
+  [0x10188] b.eq #0x101a4
+  [0x1018C] add x16, x9, x15                                 mov igpr-43, [igpr-39 + 0]
+  [0x10190] ldr w9, [x16] ;; misaligned with debug data
+  [0x10194] add x16, x9, x15                                 mov igpr-42, [igpr-43 + 24]
+  [0x10198] ldr w7, [x16, #0x18] ;; misaligned with debug data
+  [0x1019C] mov x7, x7                                       mov igpr-40, igpr-42
+  [0x101A0] b #0x101ac                                       goto label-56
+  [0x101A4] mov x7, x14                                      mov-symptr igpr-40, '#f
+  [0x101A8] sub x7, x7, x15 ;; misaligned with debug data
+  [0x101AC] mov x7, x7                                       mov igpr-44, igpr-40
+
+hint-control.gc:301
+->         (set! v1-0 (appeared-for-long-enough? (the-as level-hint (ppointer->process *hint-semaphore*))))
+  [0x101B0] mov x7, x7                                       mov igpr-45, igpr-44
+
+hint-control.gc:301
+->         (set! v1-0 (appeared-for-long-enough? (the-as level-hint (ppointer->process *hint-semaphore*))))
+  [0x101B4] add x16, x7, x15                                 mov igpr-46, [igpr-45 + -4]
+  [0x101B8] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x101BC] add x16, x9, x15                                 mov igpr-47, [igpr-46 + 76]
+  [0x101C0] ldr w9, [x16, #0x4c] ;; misaligned with debug data
+  [0x101C4] mov x9, x9                                       mov igpr-50, igpr-47
+  [0x101C8] mov x7, x7                                       mov igpr-49, igpr-45
+  [0x101CC] add x9, x9, x15                                  call igpr-50 (ret igpr-48) (args igpr-49)
+  [0x101D0] stp x3, x5, [sp, #-0x10]!
+  [0x101D4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101D8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101DC] blr x9 ;; misaligned with debug data
+  [0x101E0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101E4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101E8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101EC] mov x0, x0                                       mov igpr-51, igpr-48
+
+hint-control.gc:301
+->         (set! v1-0 (appeared-for-long-enough? (the-as level-hint (ppointer->process *hint-semaphore*))))
+  [0x101F0] mov x8, x0                                       mov igpr-14, igpr-51
+
+hint-control.gc:300
+->       (when *hint-semaphore*
+  [0x101F4] movz x9, #0                                      mov-ic igpr-52, 0
+  [0x101F8] mov x9, x9                                       mov igpr-35, igpr-52
+  [0x101FC] b #0x10208                                       goto label-70
+  [0x10200] mov x9, x14                                      mov-symptr igpr-35, '#f
+  [0x10204] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:303
+->       (when (and v1-0 (not (time-elapsed? (-> *game-info* hint-play-time) (seconds 0.1))))
+  [0x10208] mov x9, x8                                       mov igpr-54, igpr-14
+  [0x1020C] mov x1, x14                                      mov-symptr igpr-55, '#f
+  [0x10210] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10214] cmp x9, x1                                       j(igpr-54 == igpr-55) label-85
+  [0x10218] b.eq #0x10274
+  [0x1021C] adrp x16, #0x10000                               mov igpr-58, '*display*
+  [0x10220] add x16, x16, #0
+  [0x10224] ldr w9, [x16]
+  [0x10228] add x16, x9, x15                                 mov igpr-57, [igpr-58 + 780]
+  [0x1022C] add x16, x16, #0x30c ;; misaligned with debug data
+  [0x10230] ldr x9, [x16] ;; misaligned with debug data
+  [0x10234] mov x9, x9                                       mov igpr-56, igpr-57
+  [0x10238] adrp x16, #0x10000                               mov igpr-60, '*game-info*
+  [0x1023C] add x16, x16, #0
+  [0x10240] ldr w1, [x16]
+  [0x10244] add x16, x1, x15                                 mov igpr-59, [igpr-60 + 236]
+  [0x10248] ldur x1, [x16, #0xec] ;; misaligned with debug data
+  [0x1024C] sub x9, x9, x1                                   subi igpr-56, igpr-59
+
+hint-control.gc:303
+->       (when (and v1-0 (not (time-elapsed? (-> *game-info* hint-play-time) (seconds 0.1))))
+  [0x10250] movz x1, #0x1e                                   mov-ic igpr-61, 30
+
+hint-control.gc:303
+->       (when (and v1-0 (not (time-elapsed? (-> *game-info* hint-play-time) (seconds 0.1))))
+  [0x10254] mov x2, x14                                      mov-symptr igpr-62, '#f
+  [0x10258] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1025C] cmp x9, x1                                       j(igpr-56 >= igpr-61) label-84
+  [0x10260] b.ge #0x10270
+  [0x10264] add x2, x14, #8                                  mov-symptr igpr-63, '#t
+  [0x10268] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1026C] mov x2, x2                                       mov igpr-62, igpr-63
+  [0x10270] mov x9, x2                                       mov igpr-54, igpr-62
+
+hint-control.gc:303
+->       (when (and v1-0 (not (time-elapsed? (-> *game-info* hint-play-time) (seconds 0.1))))
+  [0x10274] mov x1, x14                                      mov-symptr igpr-64, '#f
+  [0x10278] sub x1, x1, x15 ;; misaligned with debug data
+  [0x1027C] cmp x9, x1                                       j(igpr-54 == igpr-64) label-92
+  [0x10280] b.eq #0x1029c
+
+hint-control.gc:304
+->         (set! v1-0 #f)
+  [0x10284] mov x8, x14                                      mov-symptr igpr-65, '#f
+  [0x10288] sub x8, x8, x15 ;; misaligned with debug data
+  [0x1028C] mov x8, x8                                       mov igpr-14, igpr-65
+
+hint-control.gc:303
+->       (when (and v1-0 (not (time-elapsed? (-> *game-info* hint-play-time) (seconds 0.1))))
+  [0x10290] movz x9, #0                                      mov-ic igpr-66, 0
+  [0x10294] mov x9, x9                                       mov igpr-53, igpr-66
+  [0x10298] b #0x102a4                                       goto label-93
+  [0x1029C] mov x9, x14                                      mov-symptr igpr-53, '#f
+  [0x102A0] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:299
+->     (when v1-0
+  [0x102A4] mov x8, x8                                       mov igpr-67, igpr-14
+  [0x102A8] mov x9, x14                                      mov-symptr igpr-68, '#f
+  [0x102AC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x102B0] cmp x8, x9                                       j(igpr-67 == igpr-68) label-145
+  [0x102B4] b.eq #0x10434
+
+hint-control.gc:308
+->                  (not (-> *setting-control* current talking))
+  [0x102B8] adrp x16, #0x10000                               mov igpr-70, '*setting-control*
+  [0x102BC] add x16, x16, #0
+  [0x102C0] ldr w9, [x16]
+  [0x102C4] add x16, x9, x15                                 mov igpr-69, [igpr-70 + 64]
+  [0x102C8] ldr w9, [x16, #0x40] ;; misaligned with debug data
+  [0x102CC] mov x8, x14                                      mov-symptr igpr-71, '#f
+  [0x102D0] sub x8, x8, x15 ;; misaligned with debug data
+
+hint-control.gc:308
+->                  (not (-> *setting-control* current talking))
+  [0x102D4] mov x1, x14                                      mov-symptr igpr-72, '#f
+  [0x102D8] sub x1, x1, x15 ;; misaligned with debug data
+  [0x102DC] cmp x9, x8                                       j(igpr-69 != igpr-71) label-103
+  [0x102E0] b.ne #0x102f0
+  [0x102E4] add x1, x14, #8                                  mov-symptr igpr-73, '#t
+  [0x102E8] sub x1, x1, x15 ;; misaligned with debug data
+  [0x102EC] mov x1, x1                                       mov igpr-72, igpr-73
+  [0x102F0] mov x8, x1                                       mov igpr-67, igpr-72
+  [0x102F4] mov x9, x14                                      mov-symptr igpr-74, '#f
+  [0x102F8] sub x9, x9, x15 ;; misaligned with debug data
+  [0x102FC] cmp x8, x9                                       j(igpr-67 == igpr-74) label-145
+  [0x10300] b.eq #0x10434
+
+hint-control.gc:309
+->                  (not (-> *setting-control* current spooling))
+  [0x10304] adrp x16, #0x10000                               mov igpr-76, '*setting-control*
+  [0x10308] add x16, x16, #0
+  [0x1030C] ldr w9, [x16]
+  [0x10310] add x16, x9, x15                                 mov igpr-75, [igpr-76 + 68]
+  [0x10314] ldr w9, [x16, #0x44] ;; misaligned with debug data
+  [0x10318] mov x8, x14                                      mov-symptr igpr-77, '#f
+  [0x1031C] sub x8, x8, x15 ;; misaligned with debug data
+
+hint-control.gc:309
+->                  (not (-> *setting-control* current spooling))
+  [0x10320] mov x1, x14                                      mov-symptr igpr-78, '#f
+  [0x10324] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10328] cmp x9, x8                                       j(igpr-75 != igpr-77) label-113
+  [0x1032C] b.ne #0x1033c
+  [0x10330] add x1, x14, #8                                  mov-symptr igpr-79, '#t
+  [0x10334] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10338] mov x1, x1                                       mov igpr-78, igpr-79
+  [0x1033C] mov x8, x1                                       mov igpr-67, igpr-78
+  [0x10340] mov x9, x14                                      mov-symptr igpr-80, '#f
+  [0x10344] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10348] cmp x8, x9                                       j(igpr-67 == igpr-80) label-145
+  [0x1034C] b.eq #0x10434
+
+hint-control.gc:310
+->                  (not (-> *setting-control* current hint))
+  [0x10350] adrp x16, #0x10000                               mov igpr-82, '*setting-control*
+  [0x10354] add x16, x16, #0
+  [0x10358] ldr w9, [x16]
+  [0x1035C] add x16, x9, x15                                 mov igpr-81, [igpr-82 + 72]
+  [0x10360] ldr w9, [x16, #0x48] ;; misaligned with debug data
+  [0x10364] mov x8, x14                                      mov-symptr igpr-83, '#f
+  [0x10368] sub x8, x8, x15 ;; misaligned with debug data
+
+hint-control.gc:310
+->                  (not (-> *setting-control* current hint))
+  [0x1036C] mov x1, x14                                      mov-symptr igpr-84, '#f
+  [0x10370] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10374] cmp x9, x8                                       j(igpr-81 != igpr-83) label-123
+  [0x10378] b.ne #0x10388
+  [0x1037C] add x1, x14, #8                                  mov-symptr igpr-85, '#t
+  [0x10380] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10384] mov x1, x1                                       mov igpr-84, igpr-85
+  [0x10388] mov x8, x1                                       mov igpr-67, igpr-84
+  [0x1038C] mov x9, x14                                      mov-symptr igpr-86, '#f
+  [0x10390] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10394] cmp x8, x9                                       j(igpr-67 == igpr-86) label-145
+  [0x10398] b.eq #0x10434
+
+hint-control.gc:311
+->                  (not (-> *setting-control* current ambient))
+  [0x1039C] adrp x16, #0x10000                               mov igpr-88, '*setting-control*
+  [0x103A0] add x16, x16, #0
+  [0x103A4] ldr w9, [x16]
+  [0x103A8] add x16, x9, x15                                 mov igpr-87, [igpr-88 + 76]
+  [0x103AC] ldr w9, [x16, #0x4c] ;; misaligned with debug data
+  [0x103B0] mov x8, x14                                      mov-symptr igpr-89, '#f
+  [0x103B4] sub x8, x8, x15 ;; misaligned with debug data
+
+hint-control.gc:311
+->                  (not (-> *setting-control* current ambient))
+  [0x103B8] mov x1, x14                                      mov-symptr igpr-90, '#f
+  [0x103BC] sub x1, x1, x15 ;; misaligned with debug data
+  [0x103C0] cmp x9, x8                                       j(igpr-87 != igpr-89) label-133
+  [0x103C4] b.ne #0x103d4
+  [0x103C8] add x1, x14, #8                                  mov-symptr igpr-91, '#t
+  [0x103CC] sub x1, x1, x15 ;; misaligned with debug data
+  [0x103D0] mov x1, x1                                       mov igpr-90, igpr-91
+  [0x103D4] mov x8, x1                                       mov igpr-67, igpr-90
+  [0x103D8] mov x9, x14                                      mov-symptr igpr-92, '#f
+  [0x103DC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x103E0] cmp x8, x9                                       j(igpr-67 == igpr-92) label-145
+  [0x103E4] b.eq #0x10434
+
+hint-control.gc:312
+->                  (>= (current-time) (-> *game-info* blackout-time))))
+  [0x103E8] adrp x16, #0x10000                               mov igpr-94, '*display*
+  [0x103EC] add x16, x16, #0
+  [0x103F0] ldr w9, [x16]
+  [0x103F4] add x16, x9, x15                                 mov igpr-93, [igpr-94 + 780]
+  [0x103F8] add x16, x16, #0x30c ;; misaligned with debug data
+  [0x103FC] ldr x9, [x16] ;; misaligned with debug data
+  [0x10400] adrp x16, #0x10000                               mov igpr-96, '*game-info*
+  [0x10404] add x16, x16, #0
+  [0x10408] ldr w8, [x16]
+  [0x1040C] add x16, x8, x15                                 mov igpr-95, [igpr-96 + 220]
+  [0x10410] ldur x8, [x16, #0xdc] ;; misaligned with debug data
+  [0x10414] mov x1, x14                                      mov-symptr igpr-97, '#f
+  [0x10418] sub x1, x1, x15 ;; misaligned with debug data
+  [0x1041C] cmp x9, x8                                       j(igpr-93 < igpr-95) label-144
+  [0x10420] b.lt #0x10430
+  [0x10424] add x1, x14, #8                                  mov-symptr igpr-98, '#t
+  [0x10428] sub x1, x1, x15 ;; misaligned with debug data
+  [0x1042C] mov x1, x1                                       mov igpr-97, igpr-98
+  [0x10430] mov x8, x1                                       mov igpr-67, igpr-97
+
+hint-control.gc:306
+->       (set! v1-0
+  [0x10434] mov x8, x8                                       mov igpr-14, igpr-67
+
+hint-control.gc:299
+->     (when v1-0
+  [0x10438] movz x9, #0                                      mov-ic igpr-99, 0
+  [0x1043C] mov x9, x9                                       mov igpr-33, igpr-99
+  [0x10440] b #0x1044c                                       goto label-150
+  [0x10444] mov x9, x14                                      mov-symptr igpr-33, '#f
+  [0x10448] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:297
+->   (let ((v1-0 (not (str-is-playing?))))
+  [0x1044C] mov x9, x14                                      mov-symptr igpr-101, '#f
+  [0x10450] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10454] cmp x8, x9                                       j(igpr-14 == igpr-101) label-318
+  [0x10458] b.eq #0x108b8
+
+hint-control.gc:316
+->        (let ((v1-16 (find-hint-control-index arg0)))
+  [0x1045C] adrp x16, #0x10000                               mov igpr-102, 'find-hint-control-index
+  [0x10460] add x16, x16, #0
+  [0x10464] ldr w9, [x16]
+  [0x10468] mov x9, x9                                       mov igpr-105, igpr-102
+  [0x1046C] mov x7, x3                                       mov igpr-104, igpr-4
+  [0x10470] add x9, x9, x15                                  call igpr-105 (ret igpr-103) (args igpr-104)
+  [0x10474] stp x3, x5, [sp, #-0x10]!
+  [0x10478] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1047C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10480] blr x9 ;; misaligned with debug data
+  [0x10484] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10488] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1048C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10490] mov x0, x0                                       mov igpr-106, igpr-103
+
+hint-control.gc:316
+->        (let ((v1-16 (find-hint-control-index arg0)))
+  [0x10494] mov x0, x0                                       mov igpr-107, igpr-106
+
+hint-control.gc:318
+->            ((< v1-16 0) #t)
+  [0x10498] movz x9, #0                                      mov-ic igpr-109, 0
+  [0x1049C] cmp x0, x9                                       j(igpr-107 >= igpr-109) label-163
+  [0x104A0] b.ge #0x104b4
+
+hint-control.gc:316
+->        (let ((v1-16 (find-hint-control-index arg0)))
+  [0x104A4] add x0, x14, #8                                  mov-symptr igpr-110, '#t
+  [0x104A8] sub x0, x0, x15 ;; misaligned with debug data
+
+hint-control.gc:318
+->            ((< v1-16 0) #t)
+  [0x104AC] mov x0, x0                                       mov igpr-108, igpr-110
+  [0x104B0] b #0x108b0                                       goto label-315
+
+hint-control.gc:320
+->             (let ((gp-1 (-> *game-info* hint-control v1-16))
+  [0x104B4] movz x9, #0xc                                    mov-ic igpr-111, 12
+  [0x104B8] mov x8, x0                                       mov igpr-112, igpr-107
+  [0x104BC] lsl x8, x8, #2                                   shl igpr-112, 2
+  [0x104C0] add x8, x8, x9                                   addi igpr-112, igpr-111
+  [0x104C4] mov x8, x8                                       mov igpr-114, igpr-112
+  [0x104C8] adrp x16, #0x10000                               mov igpr-116, '*game-info*
+  [0x104CC] add x16, x16, #0
+  [0x104D0] ldr w9, [x16]
+  [0x104D4] add x16, x9, x15                                 mov igpr-115, [igpr-116 + 144]
+  [0x104D8] ldr w9, [x16, #0x90] ;; misaligned with debug data
+  [0x104DC] add x8, x8, x9                                   addi igpr-114, igpr-115
+  [0x104E0] add x16, x8, x15                                 mov igpr-113, [igpr-114 + 0]
+  [0x104E4] ldr w3, [x16] ;; misaligned with debug data
+
+hint-control.gc:321
+->                   (a0-24 (- (current-time) (-> *game-info* hint-control v1-16 last-time-called)))
+  [0x104E8] adrp x16, #0x10000                               mov igpr-119, '*display*
+  [0x104EC] add x16, x16, #0
+  [0x104F0] ldr w9, [x16]
+  [0x104F4] add x16, x9, x15                                 mov igpr-118, [igpr-119 + 780]
+  [0x104F8] add x16, x16, #0x30c ;; misaligned with debug data
+  [0x104FC] ldr x9, [x16] ;; misaligned with debug data
+  [0x10500] mov x9, x9                                       mov igpr-117, igpr-118
+
+hint-control.gc:321
+->                   (a0-24 (- (current-time) (-> *game-info* hint-control v1-16 last-time-called)))
+  [0x10504] movz x8, #0xc                                    mov-ic igpr-120, 12
+  [0x10508] mov x0, x0                                       mov igpr-121, igpr-107
+  [0x1050C] lsl x0, x0, #2                                   shl igpr-121, 2
+  [0x10510] add x0, x0, x8                                   addi igpr-121, igpr-120
+
+hint-control.gc:321
+->                   (a0-24 (- (current-time) (-> *game-info* hint-control v1-16 last-time-called)))
+  [0x10514] mov x0, x0                                       mov igpr-124, igpr-121
+  [0x10518] adrp x16, #0x10000                               mov igpr-126, '*game-info*
+  [0x1051C] add x16, x16, #0
+  [0x10520] ldr w8, [x16]
+  [0x10524] add x16, x8, x15                                 mov igpr-125, [igpr-126 + 144]
+  [0x10528] ldr w8, [x16, #0x90] ;; misaligned with debug data
+  [0x1052C] add x0, x0, x8                                   addi igpr-124, igpr-125
+  [0x10530] add x16, x0, x15                                 mov igpr-123, [igpr-124 + 0]
+  [0x10534] ldr w8, [x16] ;; misaligned with debug data
+  [0x10538] add x16, x8, x15                                 mov igpr-122, [igpr-123 + 24]
+  [0x1053C] ldr x8, [x16, #0x18] ;; misaligned with debug data
+  [0x10540] sub x9, x9, x8                                   subi igpr-117, igpr-122
+
+hint-control.gc:320
+->             (let ((gp-1 (-> *game-info* hint-control v1-16))
+  [0x10544] add x8, x14, #8                                  mov-symptr igpr-127, '#t
+  [0x10548] sub x8, x8, x15 ;; misaligned with debug data
+  [0x1054C] mov x3, x3                                       mov igpr-128, igpr-113
+  [0x10550] mov x9, x9                                       mov igpr-129, igpr-117
+  [0x10554] mov x8, x8                                       mov igpr-130, igpr-127
+
+hint-control.gc:323
+->               (if (and (= (-> gp-1 num-attempts-before-playing) 1) (< a0-24 (seconds 0.1))) (+! (-> gp-1 start-time) a0-24))
+  [0x10558] add x16, x3, x15                                 mov igpr-133, [igpr-128 + 12]
+  [0x1055C] ldrsb x1, [x16, #0xc] ;; misaligned with debug data
+  [0x10560] movz x2, #0x1                                    mov-ic igpr-134, 1
+  [0x10564] mov x6, x14                                      mov-symptr igpr-135, '#f
+  [0x10568] sub x6, x6, x15 ;; misaligned with debug data
+  [0x1056C] cmp x1, x2                                       j(igpr-133 != igpr-134) label-196
+  [0x10570] b.ne #0x10580
+  [0x10574] add x6, x14, #8                                  mov-symptr igpr-136, '#t
+  [0x10578] sub x6, x6, x15 ;; misaligned with debug data
+  [0x1057C] mov x6, x6                                       mov igpr-135, igpr-136
+  [0x10580] mov x1, x6                                       mov igpr-132, igpr-135
+  [0x10584] mov x2, x14                                      mov-symptr igpr-137, '#f
+  [0x10588] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1058C] cmp x1, x2                                       j(igpr-132 == igpr-137) label-205
+  [0x10590] b.eq #0x105b8
+
+hint-control.gc:323
+->               (if (and (= (-> gp-1 num-attempts-before-playing) 1) (< a0-24 (seconds 0.1))) (+! (-> gp-1 start-time) a0-24))
+  [0x10594] movz x1, #0x1e                                   mov-ic igpr-138, 30
+  [0x10598] mov x2, x14                                      mov-symptr igpr-139, '#f
+  [0x1059C] sub x2, x2, x15 ;; misaligned with debug data
+  [0x105A0] cmp x9, x1                                       j(igpr-129 >= igpr-138) label-204
+  [0x105A4] b.ge #0x105b4
+  [0x105A8] add x2, x14, #8                                  mov-symptr igpr-140, '#t
+  [0x105AC] sub x2, x2, x15 ;; misaligned with debug data
+  [0x105B0] mov x2, x2                                       mov igpr-139, igpr-140
+  [0x105B4] mov x1, x2                                       mov igpr-132, igpr-139
+
+hint-control.gc:323
+->               (if (and (= (-> gp-1 num-attempts-before-playing) 1) (< a0-24 (seconds 0.1))) (+! (-> gp-1 start-time) a0-24))
+  [0x105B8] mov x2, x14                                      mov-symptr igpr-141, '#f
+  [0x105BC] sub x2, x2, x15 ;; misaligned with debug data
+  [0x105C0] cmp x1, x2                                       j(igpr-132 == igpr-141) label-213
+  [0x105C4] b.eq #0x105e8
+
+hint-control.gc:323
+->               (if (and (= (-> gp-1 num-attempts-before-playing) 1) (< a0-24 (seconds 0.1))) (+! (-> gp-1 start-time) a0-24))
+  [0x105C8] add x16, x3, x15                                 mov igpr-143, [igpr-128 + 16]
+  [0x105CC] ldr x1, [x16, #0x10] ;; misaligned with debug data
+  [0x105D0] mov x1, x1                                       mov igpr-142, igpr-143
+  [0x105D4] add x1, x1, x9                                   addi igpr-142, igpr-129
+  [0x105D8] add x16, x3, x15                                 move [igpr-128 + 16], igpr-142
+  [0x105DC] str x1, [x16, #0x10] ;; misaligned with debug data
+
+hint-control.gc:323
+->               (if (and (= (-> gp-1 num-attempts-before-playing) 1) (< a0-24 (seconds 0.1))) (+! (-> gp-1 start-time) a0-24))
+  [0x105E0] mov x9, x1                                       mov igpr-131, igpr-142
+  [0x105E4] b #0x105f0                                       goto label-214
+  [0x105E8] mov x9, x14                                      mov-symptr igpr-131, '#f
+  [0x105EC] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:325
+->                 ((and (!= (-> gp-1 num-attempts-before-playing) 1)
+  [0x105F0] add x16, x3, x15                                 mov igpr-146, [igpr-128 + 12]
+  [0x105F4] ldrsb x9, [x16, #0xc] ;; misaligned with debug data
+  [0x105F8] movz x1, #0x1                                    mov-ic igpr-147, 1
+  [0x105FC] mov x2, x14                                      mov-symptr igpr-148, '#f
+  [0x10600] sub x2, x2, x15 ;; misaligned with debug data
+  [0x10604] cmp x9, x1                                       j(igpr-146 == igpr-147) label-220
+  [0x10608] b.eq #0x10618
+  [0x1060C] add x2, x14, #8                                  mov-symptr igpr-149, '#t
+  [0x10610] sub x2, x2, x15 ;; misaligned with debug data
+  [0x10614] mov x2, x2                                       mov igpr-148, igpr-149
+  [0x10618] mov x9, x2                                       mov igpr-145, igpr-148
+  [0x1061C] mov x1, x14                                      mov-symptr igpr-150, '#f
+  [0x10620] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10624] cmp x9, x1                                       j(igpr-145 == igpr-150) label-243
+  [0x10628] b.eq #0x106b4
+
+hint-control.gc:326
+->                       (nonzero? (-> gp-1 last-time-called))
+  [0x1062C] add x16, x3, x15                                 mov igpr-151, [igpr-128 + 24]
+  [0x10630] ldr x9, [x16, #0x18] ;; misaligned with debug data
+  [0x10634] movz x1, #0                                      mov-ic igpr-152, 0
+  [0x10638] mov x2, x14                                      mov-symptr igpr-153, '#f
+  [0x1063C] sub x2, x2, x15 ;; misaligned with debug data
+  [0x10640] cmp x9, x1                                       j(igpr-151 == igpr-152) label-229
+  [0x10644] b.eq #0x10654
+  [0x10648] add x2, x14, #8                                  mov-symptr igpr-154, '#t
+  [0x1064C] sub x2, x2, x15 ;; misaligned with debug data
+  [0x10650] mov x2, x2                                       mov igpr-153, igpr-154
+  [0x10654] mov x9, x2                                       mov igpr-145, igpr-153
+  [0x10658] mov x1, x14                                      mov-symptr igpr-155, '#f
+  [0x1065C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10660] cmp x9, x1                                       j(igpr-145 == igpr-155) label-243
+  [0x10664] b.eq #0x106b4
+
+hint-control.gc:320
+->             (let ((gp-1 (-> *game-info* hint-control v1-16))
+  [0x10668] adrp x16, #0x10000                               mov igpr-158, '*display*
+  [0x1066C] add x16, x16, #0
+  [0x10670] ldr w9, [x16]
+  [0x10674] add x16, x9, x15                                 mov igpr-157, [igpr-158 + 780]
+  [0x10678] add x16, x16, #0x30c ;; misaligned with debug data
+  [0x1067C] ldr x9, [x16] ;; misaligned with debug data
+  [0x10680] mov x9, x9                                       mov igpr-156, igpr-157
+  [0x10684] add x16, x3, x15                                 mov igpr-159, [igpr-128 + 24]
+  [0x10688] ldr x1, [x16, #0x18] ;; misaligned with debug data
+  [0x1068C] sub x9, x9, x1                                   subi igpr-156, igpr-159
+
+hint-control.gc:327
+->                       (not (time-elapsed? (-> gp-1 last-time-called) (seconds 0.5))))
+  [0x10690] movz x1, #0x96                                   mov-ic igpr-160, 150
+
+hint-control.gc:327
+->                       (not (time-elapsed? (-> gp-1 last-time-called) (seconds 0.5))))
+  [0x10694] mov x2, x14                                      mov-symptr igpr-161, '#f
+  [0x10698] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1069C] cmp x9, x1                                       j(igpr-156 >= igpr-160) label-242
+  [0x106A0] b.ge #0x106b0
+  [0x106A4] add x2, x14, #8                                  mov-symptr igpr-162, '#t
+  [0x106A8] sub x2, x2, x15 ;; misaligned with debug data
+  [0x106AC] mov x2, x2                                       mov igpr-161, igpr-162
+  [0x106B0] mov x9, x2                                       mov igpr-145, igpr-161
+
+hint-control.gc:325
+->                 ((and (!= (-> gp-1 num-attempts-before-playing) 1)
+  [0x106B4] mov x1, x14                                      mov-symptr igpr-163, '#f
+  [0x106B8] sub x1, x1, x15 ;; misaligned with debug data
+  [0x106BC] cmp x9, x1                                       j(igpr-145 == igpr-163) label-251
+  [0x106C0] b.eq #0x106f4
+
+hint-control.gc:328
+->                  (set-time! (-> gp-1 last-time-called))
+  [0x106C4] adrp x16, #0x10000                               mov igpr-165, '*display*
+  [0x106C8] add x16, x16, #0
+  [0x106CC] ldr w9, [x16]
+  [0x106D0] add x16, x9, x15                                 mov igpr-164, [igpr-165 + 780]
+  [0x106D4] add x16, x16, #0x30c ;; misaligned with debug data
+  [0x106D8] ldr x9, [x16] ;; misaligned with debug data
+  [0x106DC] add x16, x3, x15                                 move [igpr-128 + 24], igpr-164
+  [0x106E0] str x9, [x16, #0x18] ;; misaligned with debug data
+
+hint-control.gc:320
+->             (let ((gp-1 (-> *game-info* hint-control v1-16))
+  [0x106E4] mov x0, x14                                      mov-symptr igpr-166, '#f
+  [0x106E8] sub x0, x0, x15 ;; misaligned with debug data
+
+hint-control.gc:325
+->                 ((and (!= (-> gp-1 num-attempts-before-playing) 1)
+  [0x106EC] mov x0, x0                                       mov igpr-144, igpr-166
+  [0x106F0] b #0x108ac                                       goto label-313
+
+hint-control.gc:331
+->                  (set-time! (-> gp-1 last-time-called))
+  [0x106F4] adrp x16, #0x10000                               mov igpr-168, '*display*
+  [0x106F8] add x16, x16, #0
+  [0x106FC] ldr w9, [x16]
+  [0x10700] add x16, x9, x15                                 mov igpr-167, [igpr-168 + 780]
+  [0x10704] add x16, x16, #0x30c ;; misaligned with debug data
+  [0x10708] ldr x9, [x16] ;; misaligned with debug data
+  [0x1070C] add x16, x3, x15                                 move [igpr-128 + 24], igpr-167
+  [0x10710] str x9, [x16, #0x18] ;; misaligned with debug data
+
+hint-control.gc:332
+->                  (when (nonzero? (-> gp-1 delay-before-playing))
+  [0x10714] add x16, x3, x15                                 mov igpr-170, [igpr-128 + 0]
+  [0x10718] ldr x9, [x16] ;; misaligned with debug data
+  [0x1071C] movz x1, #0                                      mov-ic igpr-171, 0
+  [0x10720] cmp x9, x1                                       j(igpr-170 == igpr-171) label-268
+  [0x10724] b.eq #0x10768
+
+hint-control.gc:333
+->                    (if (< (-> gp-1 start-time) (-> gp-1 delay-before-playing)) (set! v1-21 #f))
+  [0x10728] add x16, x3, x15                                 mov igpr-173, [igpr-128 + 16]
+  [0x1072C] ldr x9, [x16, #0x10] ;; misaligned with debug data
+  [0x10730] add x16, x3, x15                                 mov igpr-174, [igpr-128 + 0]
+  [0x10734] ldr x1, [x16] ;; misaligned with debug data
+  [0x10738] cmp x9, x1                                       j(igpr-173 >= igpr-174) label-264
+  [0x1073C] b.ge #0x10754
+
+hint-control.gc:333
+->                    (if (< (-> gp-1 start-time) (-> gp-1 delay-before-playing)) (set! v1-21 #f))
+  [0x10740] mov x9, x14                                      mov-symptr igpr-175, '#f
+  [0x10744] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10748] mov x8, x9                                       mov igpr-130, igpr-175
+
+hint-control.gc:333
+->                    (if (< (-> gp-1 start-time) (-> gp-1 delay-before-playing)) (set! v1-21 #f))
+  [0x1074C] mov x9, x9                                       mov igpr-172, igpr-175
+  [0x10750] b #0x1075c                                       goto label-265
+  [0x10754] mov x9, x14                                      mov-symptr igpr-172, '#f
+  [0x10758] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:332
+->                  (when (nonzero? (-> gp-1 delay-before-playing))
+  [0x1075C] movz x9, #0                                      mov-ic igpr-176, 0
+  [0x10760] mov x9, x9                                       mov igpr-169, igpr-176
+  [0x10764] b #0x10770                                       goto label-269
+  [0x10768] mov x9, x14                                      mov-symptr igpr-169, '#f
+  [0x1076C] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:320
+->             (let ((gp-1 (-> *game-info* hint-control v1-16))
+  [0x10770] mov x9, x14                                      mov-symptr igpr-178, '#f
+  [0x10774] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10778] cmp x8, x9                                       j(igpr-130 == igpr-178) label-310
+  [0x1077C] b.eq #0x1089c
+
+hint-control.gc:337
+->                     (seekl! (-> gp-1 num-attempts) 127 1)
+  [0x10780] adrp x16, #0x10000                               mov igpr-179, 'seekl
+  [0x10784] add x16, x16, #0
+  [0x10788] ldr w9, [x16]
+
+hint-control.gc:337
+->                     (seekl! (-> gp-1 num-attempts) 127 1)
+  [0x1078C] add x16, x3, x15                                 mov igpr-180, [igpr-128 + 14]
+  [0x10790] ldrsb x7, [x16, #0xe] ;; misaligned with debug data
+
+hint-control.gc:337
+->                     (seekl! (-> gp-1 num-attempts) 127 1)
+  [0x10794] movz x6, #0x7f                                   mov-ic igpr-181, 127
+  [0x10798] movz x2, #0x1                                    mov-ic igpr-182, 1
+  [0x1079C] mov x9, x9                                       mov igpr-187, igpr-179
+  [0x107A0] mov x7, x7                                       mov igpr-184, igpr-180
+  [0x107A4] mov x6, x6                                       mov igpr-185, igpr-181
+  [0x107A8] mov x2, x2                                       mov igpr-186, igpr-182
+  [0x107AC] add x9, x9, x15                                  call igpr-187 (ret igpr-183) (args igpr-184 igpr-185 igpr-186)
+  [0x107B0] stp x3, x5, [sp, #-0x10]!
+  [0x107B4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x107B8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x107BC] blr x9 ;; misaligned with debug data
+  [0x107C0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x107C4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x107C8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x107CC] mov x0, x0                                       mov igpr-188, igpr-183
+  [0x107D0] add x16, x3, x15                                 move [igpr-128 + 14], igpr-188
+  [0x107D4] strb w0, [x16, #0xe] ;; misaligned with debug data
+
+hint-control.gc:338
+->                     (and (>= (-> gp-1 num-attempts) (-> gp-1 num-attempts-before-playing))
+  [0x107D8] add x16, x3, x15                                 mov igpr-190, [igpr-128 + 14]
+  [0x107DC] ldrsb x9, [x16, #0xe] ;; misaligned with debug data
+  [0x107E0] add x16, x3, x15                                 mov igpr-191, [igpr-128 + 12]
+  [0x107E4] ldrsb x8, [x16, #0xc] ;; misaligned with debug data
+  [0x107E8] mov x0, x14                                      mov-symptr igpr-192, '#f
+  [0x107EC] sub x0, x0, x15 ;; misaligned with debug data
+  [0x107F0] cmp x9, x8                                       j(igpr-190 < igpr-191) label-288
+  [0x107F4] b.lt #0x10804
+  [0x107F8] add x0, x14, #8                                  mov-symptr igpr-193, '#t
+  [0x107FC] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10800] mov x0, x0                                       mov igpr-192, igpr-193
+  [0x10804] mov x0, x0                                       mov igpr-189, igpr-192
+  [0x10808] mov x9, x14                                      mov-symptr igpr-194, '#f
+  [0x1080C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10810] cmp x0, x9                                       j(igpr-189 == igpr-194) label-308
+  [0x10814] b.eq #0x10894
+
+hint-control.gc:339
+->                          (or (= (-> gp-1 num-success-before-killing) -1) (< (-> gp-1 num-success) (-> gp-1 num-success-before-killing)))))
+  [0x10818] add x16, x3, x15                                 mov igpr-196, [igpr-128 + 13]
+  [0x1081C] ldrsb x9, [x16, #0xd] ;; misaligned with debug data
+  [0x10820] movz x8, #0xffff                                 mov-ic igpr-197, 18446744073709551615
+  [0x10824] movk x8, #0xffff, lsl #16
+  [0x10828] movk x8, #0xffff, lsl #32
+  [0x1082C] movk x8, #0xffff, lsl #48
+  [0x10830] mov x0, x14                                      mov-symptr igpr-198, '#f
+  [0x10834] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10838] cmp x9, x8                                       j(igpr-196 != igpr-197) label-297
+  [0x1083C] b.ne #0x1084c
+  [0x10840] add x0, x14, #8                                  mov-symptr igpr-199, '#t
+  [0x10844] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10848] mov x0, x0                                       mov igpr-198, igpr-199
+  [0x1084C] mov x0, x0                                       mov igpr-195, igpr-198
+  [0x10850] mov x9, x14                                      mov-symptr igpr-200, '#f
+  [0x10854] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10858] cmp x0, x9                                       j(igpr-195 != igpr-200) label-307
+  [0x1085C] b.ne #0x10890
+
+hint-control.gc:339
+->                          (or (= (-> gp-1 num-success-before-killing) -1) (< (-> gp-1 num-success) (-> gp-1 num-success-before-killing)))))
+  [0x10860] add x16, x3, x15                                 mov igpr-201, [igpr-128 + 15]
+  [0x10864] ldrsb x9, [x16, #0xf] ;; misaligned with debug data
+  [0x10868] add x16, x3, x15                                 mov igpr-202, [igpr-128 + 13]
+  [0x1086C] ldrsb x8, [x16, #0xd] ;; misaligned with debug data
+  [0x10870] mov x0, x14                                      mov-symptr igpr-203, '#f
+  [0x10874] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10878] cmp x9, x8                                       j(igpr-201 >= igpr-202) label-306
+  [0x1087C] b.ge #0x1088c
+  [0x10880] add x0, x14, #8                                  mov-symptr igpr-204, '#t
+  [0x10884] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10888] mov x0, x0                                       mov igpr-203, igpr-204
+  [0x1088C] mov x0, x0                                       mov igpr-195, igpr-203
+
+hint-control.gc:339
+->                          (or (= (-> gp-1 num-success-before-killing) -1) (< (-> gp-1 num-success) (-> gp-1 num-success-before-killing)))))
+  [0x10890] mov x0, x0                                       mov igpr-189, igpr-195
+
+hint-control.gc:336
+->                    (v1-21
+  [0x10894] mov x0, x0                                       mov igpr-177, igpr-189
+  [0x10898] b #0x108a8                                       goto label-312
+
+hint-control.gc:320
+->             (let ((gp-1 (-> *game-info* hint-control v1-16))
+  [0x1089C] mov x0, x14                                      mov-symptr igpr-205, '#f
+  [0x108A0] sub x0, x0, x15 ;; misaligned with debug data
+
+hint-control.gc:340
+->                    (else #f)))))))))
+  [0x108A4] mov x0, x0                                       mov igpr-177, igpr-205
+
+hint-control.gc:330
+->                 (else
+  [0x108A8] mov x0, x0                                       mov igpr-144, igpr-177
+
+hint-control.gc:319
+->            (else
+  [0x108AC] mov x0, x0                                       mov igpr-108, igpr-144
+
+hint-control.gc:315
+->       (v1-0
+  [0x108B0] mov x0, x0                                       mov igpr-100, igpr-108
+  [0x108B4] b #0x108c4                                       goto label-320
+
+hint-control.gc:297
+->   (let ((v1-0 (not (str-is-playing?))))
+  [0x108B8] mov x0, x14                                      mov-symptr igpr-206, '#f
+  [0x108BC] sub x0, x0, x15 ;; misaligned with debug data
+
+hint-control.gc:341
+->       (else #f))))
+  [0x108C0] mov x0, x0                                       mov igpr-100, igpr-206
+
+hint-control.gc:296
+-> (defun can-hint-be-played? ((arg0 text-id) (arg1 entity) (arg2 string))
+  [0x108C4] mov x0, x0                                       ret igpr-3 igpr-100
+  [0x108C8] add sp, sp, #0x10
+  [0x108CC] ldp x29, x30, [sp], #0x10
+  [0x108D0] ret
+
+
+[update-task-hints]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+hint-control.gc:356
+->   (when *target*
+  [0x1000C] adrp x16, #0x10000                               mov igpr-2, '*target*
+  [0x10010] add x16, x16, #0
+  [0x10014] ldr w9, [x16]
+  [0x10018] mov x8, x14                                      mov-symptr igpr-3, '#f
+  [0x1001C] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10020] cmp x9, x8                                       j(igpr-2 == igpr-3) label-168
+  [0x10024] b.eq #0x10404
+
+hint-control.gc:357
+->     (let ((a0-0 (+ (-> *target* current-level info index) -1))
+  [0x10028] adrp x16, #0x10000                               mov igpr-8, '*target*
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w9, [x16]
+  [0x10034] add x16, x9, x15                                 mov igpr-7, [igpr-8 + 472]
+  [0x10038] ldr w9, [x16, #0x1d8] ;; misaligned with debug data
+  [0x1003C] add x16, x9, x15                                 mov igpr-6, [igpr-7 + 52]
+  [0x10040] ldr w9, [x16, #0x34] ;; misaligned with debug data
+  [0x10044] add x16, x9, x15                                 mov igpr-5, [igpr-6 + 12]
+  [0x10048] ldrsw x9, [x16, #0xc] ;; misaligned with debug data
+  [0x1004C] mov x9, x9                                       mov igpr-4, igpr-5
+  [0x10050] movz x8, #0xffff                                 mov-ic igpr-9, 18446744073709551615
+  [0x10054] movk x8, #0xffff, lsl #16
+  [0x10058] movk x8, #0xffff, lsl #32
+  [0x1005C] movk x8, #0xffff, lsl #48
+  [0x10060] add x9, x9, x8                                   addi igpr-4, igpr-9
+
+hint-control.gc:358
+->           (v1-7 (-> *game-info* task-hint-control)))
+  [0x10064] adrp x16, #0x10000                               mov igpr-11, '*game-info*
+  [0x10068] add x16, x16, #0
+  [0x1006C] ldr w8, [x16]
+  [0x10070] add x16, x8, x15                                 mov igpr-10, [igpr-11 + 148]
+  [0x10074] ldr w8, [x16, #0x94] ;; misaligned with debug data
+
+hint-control.gc:357
+->     (let ((a0-0 (+ (-> *target* current-level info index) -1))
+  [0x10078] mov x9, x9                                       mov igpr-12, igpr-4
+  [0x1007C] mov x8, x8                                       mov igpr-13, igpr-10
+
+hint-control.gc:359
+->       (when (and (>= a0-0 0) (< a0-0 (-> *level-task-data-remap* length)))
+  [0x10080] movz x1, #0                                      mov-ic igpr-16, 0
+  [0x10084] mov x2, x14                                      mov-symptr igpr-17, '#f
+  [0x10088] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1008C] cmp x9, x1                                       j(igpr-12 < igpr-16) label-20
+  [0x10090] b.lt #0x100a0
+  [0x10094] add x2, x14, #8                                  mov-symptr igpr-18, '#t
+  [0x10098] sub x2, x2, x15 ;; misaligned with debug data
+  [0x1009C] mov x2, x2                                       mov igpr-17, igpr-18
+  [0x100A0] mov x1, x2                                       mov igpr-15, igpr-17
+  [0x100A4] mov x2, x14                                      mov-symptr igpr-19, '#f
+  [0x100A8] sub x2, x2, x15 ;; misaligned with debug data
+  [0x100AC] cmp x1, x2                                       j(igpr-15 == igpr-19) label-30
+  [0x100B0] b.eq #0x100e8
+
+hint-control.gc:359
+->       (when (and (>= a0-0 0) (< a0-0 (-> *level-task-data-remap* length)))
+  [0x100B4] adrp x16, #0x10000                               mov igpr-21, '*level-task-data-remap*
+  [0x100B8] add x16, x16, #0
+  [0x100BC] ldr w1, [x16]
+  [0x100C0] add x16, x1, x15                                 mov igpr-20, [igpr-21 + 0]
+  [0x100C4] ldrsw x1, [x16] ;; misaligned with debug data
+  [0x100C8] mov x2, x14                                      mov-symptr igpr-22, '#f
+  [0x100CC] sub x2, x2, x15 ;; misaligned with debug data
+  [0x100D0] cmp x9, x1                                       j(igpr-12 >= igpr-20) label-29
+  [0x100D4] b.ge #0x100e4
+  [0x100D8] add x2, x14, #8                                  mov-symptr igpr-23, '#t
+  [0x100DC] sub x2, x2, x15 ;; misaligned with debug data
+  [0x100E0] mov x2, x2                                       mov igpr-22, igpr-23
+  [0x100E4] mov x1, x2                                       mov igpr-15, igpr-22
+
+hint-control.gc:359
+->       (when (and (>= a0-0 0) (< a0-0 (-> *level-task-data-remap* length)))
+  [0x100E8] mov x2, x14                                      mov-symptr igpr-24, '#f
+  [0x100EC] sub x2, x2, x15 ;; misaligned with debug data
+  [0x100F0] cmp x1, x2                                       j(igpr-15 == igpr-24) label-164
+  [0x100F4] b.eq #0x103f4
+
+hint-control.gc:360
+->         (let ((a0-3 (-> *level-task-data-remap* a0-0)))
+  [0x100F8] movz x1, #0xc                                    mov-ic igpr-25, 12
+  [0x100FC] mov x9, x9                                       mov igpr-26, igpr-12
+  [0x10100] lsl x9, x9, #2                                   shl igpr-26, 2
+  [0x10104] add x9, x9, x1                                   addi igpr-26, igpr-25
+  [0x10108] mov x9, x9                                       mov igpr-28, igpr-26
+  [0x1010C] adrp x16, #0x10000                               mov igpr-29, '*level-task-data-remap*
+  [0x10110] add x16, x16, #0
+  [0x10114] ldr w1, [x16]
+  [0x10118] add x9, x9, x1                                   addi igpr-28, igpr-29
+  [0x1011C] add x16, x9, x15                                 mov igpr-27, [igpr-28 + 0]
+  [0x10120] ldrsw x9, [x16] ;; misaligned with debug data
+
+hint-control.gc:360
+->         (let ((a0-3 (-> *level-task-data-remap* a0-0)))
+  [0x10124] mov x9, x9                                       mov igpr-30, igpr-27
+
+hint-control.gc:361
+->           (when (< a0-3 (-> v1-7 length))
+  [0x10128] add x16, x8, x15                                 mov igpr-32, [igpr-13 + 0]
+  [0x1012C] ldrsw x1, [x16] ;; misaligned with debug data
+  [0x10130] cmp x9, x1                                       j(igpr-30 >= igpr-32) label-160
+  [0x10134] b.ge #0x103e4
+
+hint-control.gc:362
+->             (let ((gp-0 (-> v1-7 a0-3 tasks)))
+  [0x10138] movz x1, #0xc                                    mov-ic igpr-33, 12
+  [0x1013C] mov x2, x9                                       mov igpr-34, igpr-30
+  [0x10140] lsl x2, x2, #2                                   shl igpr-34, 2
+  [0x10144] add x2, x2, x1                                   addi igpr-34, igpr-33
+  [0x10148] mov x2, x2                                       mov igpr-37, igpr-34
+  [0x1014C] add x2, x2, x8                                   addi igpr-37, igpr-13
+  [0x10150] add x16, x2, x15                                 mov igpr-36, [igpr-37 + 0]
+  [0x10154] ldr w8, [x16] ;; misaligned with debug data
+  [0x10158] add x16, x8, x15                                 mov igpr-35, [igpr-36 + 0]
+  [0x1015C] ldr w3, [x16] ;; misaligned with debug data
+
+hint-control.gc:362
+->             (let ((gp-0 (-> v1-7 a0-3 tasks)))
+  [0x10160] mov x5, x3                                       mov igpr-38, igpr-35
+
+hint-control.gc:363
+->               (when (and (!= gp-0 0) (nonzero? (-> gp-0 length)))
+  [0x10164] movz x8, #0                                      mov-ic igpr-41, 0
+  [0x10168] mov x1, x14                                      mov-symptr igpr-42, '#f
+  [0x1016C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10170] cmp x5, x8                                       j(igpr-38 == igpr-41) label-57
+  [0x10174] b.eq #0x10184
+  [0x10178] add x1, x14, #8                                  mov-symptr igpr-43, '#t
+  [0x1017C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10180] mov x1, x1                                       mov igpr-42, igpr-43
+  [0x10184] mov x8, x1                                       mov igpr-40, igpr-42
+  [0x10188] mov x1, x14                                      mov-symptr igpr-44, '#f
+  [0x1018C] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10190] cmp x8, x1                                       j(igpr-40 == igpr-44) label-67
+  [0x10194] b.eq #0x101c4
+
+hint-control.gc:363
+->               (when (and (!= gp-0 0) (nonzero? (-> gp-0 length)))
+  [0x10198] add x16, x5, x15                                 mov igpr-45, [igpr-38 + 0]
+  [0x1019C] ldrsw x8, [x16] ;; misaligned with debug data
+  [0x101A0] movz x1, #0                                      mov-ic igpr-46, 0
+  [0x101A4] mov x2, x14                                      mov-symptr igpr-47, '#f
+  [0x101A8] sub x2, x2, x15 ;; misaligned with debug data
+  [0x101AC] cmp x8, x1                                       j(igpr-45 == igpr-46) label-66
+  [0x101B0] b.eq #0x101c0
+  [0x101B4] add x2, x14, #8                                  mov-symptr igpr-48, '#t
+  [0x101B8] sub x2, x2, x15 ;; misaligned with debug data
+  [0x101BC] mov x2, x2                                       mov igpr-47, igpr-48
+  [0x101C0] mov x8, x2                                       mov igpr-40, igpr-47
+
+hint-control.gc:363
+->               (when (and (!= gp-0 0) (nonzero? (-> gp-0 length)))
+  [0x101C4] mov x1, x14                                      mov-symptr igpr-49, '#f
+  [0x101C8] sub x1, x1, x15 ;; misaligned with debug data
+  [0x101CC] cmp x8, x1                                       j(igpr-40 == igpr-49) label-156
+  [0x101D0] b.eq #0x103d4
+
+hint-control.gc:364
+->                 (let ((s5-0 (-> *game-info* in-level-time a0-3)))
+  [0x101D4] movz x8, #0xc                                    mov-ic igpr-50, 12
+  [0x101D8] mov x9, x9                                       mov igpr-51, igpr-30
+  [0x101DC] lsl x9, x9, #3                                   shl igpr-51, 3
+  [0x101E0] add x9, x9, x8                                   addi igpr-51, igpr-50
+  [0x101E4] mov x9, x9                                       mov igpr-53, igpr-51
+  [0x101E8] adrp x16, #0x10000                               mov igpr-55, '*game-info*
+  [0x101EC] add x16, x16, #0
+  [0x101F0] ldr w8, [x16]
+  [0x101F4] add x16, x8, x15                                 mov igpr-54, [igpr-55 + 212]
+  [0x101F8] ldr w8, [x16, #0xd4] ;; misaligned with debug data
+  [0x101FC] add x9, x9, x8                                   addi igpr-53, igpr-54
+  [0x10200] add x16, x9, x15                                 mov igpr-52, [igpr-53 + 0]
+  [0x10204] ldr x3, [x16] ;; misaligned with debug data
+
+hint-control.gc:364
+->                 (let ((s5-0 (-> *game-info* in-level-time a0-3)))
+  [0x10208] mov x12, x3                                      mov igpr-56, igpr-52
+
+hint-control.gc:365
+->                   (dotimes (s4-0 (-> gp-0 length))
+  [0x1020C] movz x3, #0                                      mov-ic igpr-57, 0
+  [0x10210] mov x3, x3                                       mov igpr-58, igpr-57
+  [0x10214] b #0x103b4                                       goto label-149
+
+hint-control.gc:366
+->                     (case (get-task-status (-> gp-0 s4-0 task))
+  [0x10218] adrp x16, #0x10000                               mov igpr-62, 'get-task-status
+  [0x1021C] add x16, x16, #0
+  [0x10220] ldr w9, [x16]
+
+hint-control.gc:366
+->                     (case (get-task-status (-> gp-0 s4-0 task))
+  [0x10224] movz x8, #0xc                                    mov-ic igpr-63, 12
+  [0x10228] mov x1, x3                                       mov igpr-64, igpr-58
+  [0x1022C] lsl x1, x1, #2                                   shl igpr-64, 2
+  [0x10230] add x1, x1, x8                                   addi igpr-64, igpr-63
+  [0x10234] mov x1, x1                                       mov igpr-67, igpr-64
+  [0x10238] add x1, x1, x5                                   addi igpr-67, igpr-38
+  [0x1023C] add x16, x1, x15                                 mov igpr-66, [igpr-67 + 0]
+  [0x10240] ldr w8, [x16] ;; misaligned with debug data
+  [0x10244] add x16, x8, x15                                 mov igpr-65, [igpr-66 + 0]
+  [0x10248] ldrb w7, [x16] ;; misaligned with debug data
+
+hint-control.gc:366
+->                     (case (get-task-status (-> gp-0 s4-0 task))
+  [0x1024C] mov x9, x9                                       mov igpr-70, igpr-62
+  [0x10250] mov x7, x7                                       mov igpr-69, igpr-65
+  [0x10254] add x9, x9, x15                                  call igpr-70 (ret igpr-68) (args igpr-69)
+  [0x10258] stp x3, x5, [sp, #-0x10]!
+  [0x1025C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10260] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10264] blr x9 ;; misaligned with debug data
+  [0x10268] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1026C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10270] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10274] mov x0, x0                                       mov igpr-71, igpr-68
+
+hint-control.gc:366
+->                     (case (get-task-status (-> gp-0 s4-0 task))
+  [0x10278] mov x0, x0                                       mov igpr-72, igpr-71
+  [0x1027C] movz x9, #0x2                                    mov-ic igpr-75, 2
+  [0x10280] mov x8, x14                                      mov-symptr igpr-76, '#f
+  [0x10284] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10288] cmp x0, x9                                       j(igpr-72 != igpr-75) label-101
+  [0x1028C] b.ne #0x1029c
+  [0x10290] add x8, x14, #8                                  mov-symptr igpr-77, '#t
+  [0x10294] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10298] mov x8, x8                                       mov igpr-76, igpr-77
+  [0x1029C] mov x9, x8                                       mov igpr-74, igpr-76
+  [0x102A0] mov x8, x14                                      mov-symptr igpr-78, '#f
+  [0x102A4] sub x8, x8, x15 ;; misaligned with debug data
+  [0x102A8] cmp x9, x8                                       j(igpr-74 != igpr-78) label-110
+  [0x102AC] b.ne #0x102d4
+  [0x102B0] movz x9, #0x1                                    mov-ic igpr-79, 1
+  [0x102B4] mov x8, x14                                      mov-symptr igpr-80, '#f
+  [0x102B8] sub x8, x8, x15 ;; misaligned with debug data
+  [0x102BC] cmp x0, x9                                       j(igpr-72 != igpr-79) label-109
+  [0x102C0] b.ne #0x102d0
+  [0x102C4] add x8, x14, #8                                  mov-symptr igpr-81, '#t
+  [0x102C8] sub x8, x8, x15 ;; misaligned with debug data
+  [0x102CC] mov x8, x8                                       mov igpr-80, igpr-81
+  [0x102D0] mov x9, x8                                       mov igpr-74, igpr-80
+  [0x102D4] mov x8, x14                                      mov-symptr igpr-82, '#f
+  [0x102D8] sub x8, x8, x15 ;; misaligned with debug data
+  [0x102DC] cmp x9, x8                                       j(igpr-74 == igpr-82) label-143
+  [0x102E0] b.eq #0x1039c
+
+hint-control.gc:368
+->                        (if (< (the-as uint (-> gp-0 s4-0 delay)) (the-as uint s5-0))
+  [0x102E4] movz x9, #0xc                                    mov-ic igpr-84, 12
+  [0x102E8] mov x8, x3                                       mov igpr-85, igpr-58
+  [0x102EC] lsl x8, x8, #2                                   shl igpr-85, 2
+  [0x102F0] add x8, x8, x9                                   addi igpr-85, igpr-84
+
+hint-control.gc:368
+->                        (if (< (the-as uint (-> gp-0 s4-0 delay)) (the-as uint s5-0))
+  [0x102F4] mov x8, x8                                       mov igpr-88, igpr-85
+  [0x102F8] add x8, x8, x5                                   addi igpr-88, igpr-38
+  [0x102FC] add x16, x8, x15                                 mov igpr-87, [igpr-88 + 0]
+  [0x10300] ldr w9, [x16] ;; misaligned with debug data
+  [0x10304] add x16, x9, x15                                 mov igpr-86, [igpr-87 + 8]
+  [0x10308] ldr x9, [x16, #8] ;; misaligned with debug data
+  [0x1030C] mov x9, x9                                       mov igpr-89, igpr-86
+  [0x10310] mov x8, x12                                      mov igpr-90, igpr-56
+  [0x10314] cmp x9, x8                                       j(igpr-89 >= igpr-90) label-140
+  [0x10318] b.hs #0x1038c
+
+hint-control.gc:369
+->                          (close-specific-task! (-> gp-0 s4-0 task) (task-status need-hint))))))))))))))
+  [0x1031C] adrp x16, #0x10000                               mov igpr-91, 'close-specific-task!
+  [0x10320] add x16, x16, #0
+  [0x10324] ldr w9, [x16]
+
+hint-control.gc:369
+->                          (close-specific-task! (-> gp-0 s4-0 task) (task-status need-hint))))))))))))))
+  [0x10328] movz x8, #0xc                                    mov-ic igpr-92, 12
+  [0x1032C] mov x1, x3                                       mov igpr-93, igpr-58
+  [0x10330] lsl x1, x1, #2                                   shl igpr-93, 2
+  [0x10334] add x1, x1, x8                                   addi igpr-93, igpr-92
+  [0x10338] mov x1, x1                                       mov igpr-96, igpr-93
+  [0x1033C] add x1, x1, x5                                   addi igpr-96, igpr-38
+  [0x10340] add x16, x1, x15                                 mov igpr-95, [igpr-96 + 0]
+  [0x10344] ldr w8, [x16] ;; misaligned with debug data
+  [0x10348] add x16, x8, x15                                 mov igpr-94, [igpr-95 + 0]
+  [0x1034C] ldrb w7, [x16] ;; misaligned with debug data
+
+hint-control.gc:369
+->                          (close-specific-task! (-> gp-0 s4-0 task) (task-status need-hint))))))))))))))
+  [0x10350] movz x6, #0x2                                    mov-ic igpr-97, 2
+
+hint-control.gc:369
+->                          (close-specific-task! (-> gp-0 s4-0 task) (task-status need-hint))))))))))))))
+  [0x10354] mov x9, x9                                       mov igpr-101, igpr-91
+  [0x10358] mov x7, x7                                       mov igpr-99, igpr-94
+  [0x1035C] mov x6, x6                                       mov igpr-100, igpr-97
+  [0x10360] add x9, x9, x15                                  call igpr-101 (ret igpr-98) (args igpr-99 igpr-100)
+  [0x10364] stp x3, x5, [sp, #-0x10]!
+  [0x10368] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1036C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10370] blr x9 ;; misaligned with debug data
+  [0x10374] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10378] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1037C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10380] mov x0, x0                                       mov igpr-102, igpr-98
+
+hint-control.gc:368
+->                        (if (< (the-as uint (-> gp-0 s4-0 delay)) (the-as uint s5-0))
+  [0x10384] mov x0, x0                                       mov igpr-83, igpr-102
+  [0x10388] b #0x10394                                       goto label-141
+  [0x1038C] mov x0, x14                                      mov-symptr igpr-83, '#f
+  [0x10390] sub x0, x0, x15 ;; misaligned with debug data
+
+hint-control.gc:366
+->                     (case (get-task-status (-> gp-0 s4-0 task))
+  [0x10394] mov x0, x0                                       mov igpr-73, igpr-83
+  [0x10398] b #0x103a4                                       goto label-144
+  [0x1039C] mov x0, x14                                      mov-symptr igpr-73, '#f
+  [0x103A0] sub x0, x0, x15 ;; misaligned with debug data
+
+hint-control.gc:365
+->                   (dotimes (s4-0 (-> gp-0 length))
+  [0x103A4] mov x3, x3                                       mov igpr-103, igpr-58
+  [0x103A8] movz x9, #0x1                                    mov-ic igpr-104, 1
+  [0x103AC] add x3, x3, x9                                   addi igpr-103, igpr-104
+  [0x103B0] mov x3, x3                                       mov igpr-58, igpr-103
+  [0x103B4] add x16, x5, x15                                 mov igpr-105, [igpr-38 + 0]
+  [0x103B8] ldrsw x9, [x16] ;; misaligned with debug data
+  [0x103BC] cmp x3, x9                                       j(igpr-58 < igpr-105) label-82
+  [0x103C0] b.lt #0x10218
+  [0x103C4] mov x9, x14                                      mov-symptr igpr-106, '#f
+  [0x103C8] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:363
+->               (when (and (!= gp-0 0) (nonzero? (-> gp-0 length)))
+  [0x103CC] mov x9, x9                                       mov igpr-39, igpr-106
+  [0x103D0] b #0x103dc                                       goto label-157
+  [0x103D4] mov x9, x14                                      mov-symptr igpr-39, '#f
+  [0x103D8] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:361
+->           (when (< a0-3 (-> v1-7 length))
+  [0x103DC] mov x9, x9                                       mov igpr-31, igpr-39
+  [0x103E0] b #0x103ec                                       goto label-161
+  [0x103E4] mov x9, x14                                      mov-symptr igpr-31, '#f
+  [0x103E8] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:359
+->       (when (and (>= a0-0 0) (< a0-0 (-> *level-task-data-remap* length)))
+  [0x103EC] mov x9, x9                                       mov igpr-14, igpr-31
+  [0x103F0] b #0x103fc                                       goto label-165
+  [0x103F4] mov x9, x14                                      mov-symptr igpr-14, '#f
+  [0x103F8] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:356
+->   (when *target*
+  [0x103FC] mov x9, x9                                       mov igpr-1, igpr-14
+  [0x10400] b #0x1040c                                       goto label-169
+  [0x10404] mov x9, x14                                      mov-symptr igpr-1, '#f
+  [0x10408] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:355
+-> (defun update-task-hints ()
+  [0x1040C] movz x9, #0                                      mov-ic igpr-107, 0
+  [0x10410] add sp, sp, #0x10
+  [0x10414] ldp x29, x30, [sp], #0x10
+  [0x10418] ret
+
+
+[increment-success-for-hint]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+hint-control.gc:287
+-> (defun increment-success-for-hint ((arg0 text-id))
+  [0x1000C] mov x7, x7                                       mov igpr-2, igpr-0
+
+hint-control.gc:288
+->   (let ((gp-0 (find-hint-control-index arg0)))
+  [0x10010] adrp x16, #0x10000                               mov igpr-3, 'find-hint-control-index
+  [0x10014] add x16, x16, #0
+  [0x10018] ldr w9, [x16]
+  [0x1001C] mov x9, x9                                       mov igpr-6, igpr-3
+  [0x10020] mov x7, x7                                       mov igpr-5, igpr-2
+  [0x10024] add x9, x9, x15                                  call igpr-6 (ret igpr-4) (args igpr-5)
+  [0x10028] stp x3, x5, [sp, #-0x10]!
+  [0x1002C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10030] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10034] blr x9 ;; misaligned with debug data
+  [0x10038] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1003C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10040] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10044] mov x0, x0                                       mov igpr-7, igpr-4
+
+hint-control.gc:288
+->   (let ((gp-0 (find-hint-control-index arg0)))
+  [0x10048] mov x3, x0                                       mov igpr-8, igpr-7
+
+hint-control.gc:289
+->     (when (>= gp-0 0)
+  [0x1004C] movz x9, #0                                      mov-ic igpr-10, 0
+  [0x10050] cmp x3, x9                                       j(igpr-8 < igpr-10) label-42
+  [0x10054] b.lt #0x10124
+
+hint-control.gc:290
+->       (seekl! (-> *game-info* hint-control gp-0 num-success) 127 1)
+  [0x10058] adrp x16, #0x10000                               mov igpr-11, 'seekl
+  [0x1005C] add x16, x16, #0
+  [0x10060] ldr w9, [x16]
+
+hint-control.gc:290
+->       (seekl! (-> *game-info* hint-control gp-0 num-success) 127 1)
+  [0x10064] movz x8, #0xc                                    mov-ic igpr-12, 12
+  [0x10068] mov x1, x3                                       mov igpr-13, igpr-8
+  [0x1006C] lsl x1, x1, #2                                   shl igpr-13, 2
+  [0x10070] add x1, x1, x8                                   addi igpr-13, igpr-12
+  [0x10074] mov x1, x1                                       mov igpr-16, igpr-13
+  [0x10078] adrp x16, #0x10000                               mov igpr-18, '*game-info*
+  [0x1007C] add x16, x16, #0
+  [0x10080] ldr w8, [x16]
+  [0x10084] add x16, x8, x15                                 mov igpr-17, [igpr-18 + 144]
+  [0x10088] ldr w8, [x16, #0x90] ;; misaligned with debug data
+  [0x1008C] add x1, x1, x8                                   addi igpr-16, igpr-17
+  [0x10090] add x16, x1, x15                                 mov igpr-15, [igpr-16 + 0]
+  [0x10094] ldr w8, [x16] ;; misaligned with debug data
+  [0x10098] add x16, x8, x15                                 mov igpr-14, [igpr-15 + 15]
+  [0x1009C] ldrsb x7, [x16, #0xf] ;; misaligned with debug data
+
+hint-control.gc:290
+->       (seekl! (-> *game-info* hint-control gp-0 num-success) 127 1)
+  [0x100A0] movz x6, #0x7f                                   mov-ic igpr-19, 127
+  [0x100A4] movz x2, #0x1                                    mov-ic igpr-20, 1
+  [0x100A8] mov x9, x9                                       mov igpr-25, igpr-11
+  [0x100AC] mov x7, x7                                       mov igpr-22, igpr-14
+  [0x100B0] mov x6, x6                                       mov igpr-23, igpr-19
+  [0x100B4] mov x2, x2                                       mov igpr-24, igpr-20
+  [0x100B8] add x9, x9, x15                                  call igpr-25 (ret igpr-21) (args igpr-22 igpr-23 igpr-24)
+  [0x100BC] stp x3, x5, [sp, #-0x10]!
+  [0x100C0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100C4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100C8] blr x9 ;; misaligned with debug data
+  [0x100CC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100D0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100D4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100D8] mov x0, x0                                       mov igpr-26, igpr-21
+
+hint-control.gc:290
+->       (seekl! (-> *game-info* hint-control gp-0 num-success) 127 1)
+  [0x100DC] movz x9, #0xc                                    mov-ic igpr-27, 12
+  [0x100E0] mov x3, x3                                       mov igpr-28, igpr-8
+  [0x100E4] lsl x3, x3, #2                                   shl igpr-28, 2
+  [0x100E8] add x3, x3, x9                                   addi igpr-28, igpr-27
+
+hint-control.gc:290
+->       (seekl! (-> *game-info* hint-control gp-0 num-success) 127 1)
+  [0x100EC] mov x3, x3                                       mov igpr-30, igpr-28
+  [0x100F0] adrp x16, #0x10000                               mov igpr-32, '*game-info*
+  [0x100F4] add x16, x16, #0
+  [0x100F8] ldr w9, [x16]
+  [0x100FC] add x16, x9, x15                                 mov igpr-31, [igpr-32 + 144]
+  [0x10100] ldr w9, [x16, #0x90] ;; misaligned with debug data
+  [0x10104] add x3, x3, x9                                   addi igpr-30, igpr-31
+  [0x10108] add x16, x3, x15                                 mov igpr-29, [igpr-30 + 0]
+  [0x1010C] ldr w9, [x16] ;; misaligned with debug data
+  [0x10110] add x16, x9, x15                                 move [igpr-29 + 15], igpr-26
+  [0x10114] strb w0, [x16, #0xf] ;; misaligned with debug data
+
+hint-control.gc:289
+->     (when (>= gp-0 0)
+  [0x10118] movz x9, #0                                      mov-ic igpr-33, 0
+  [0x1011C] mov x9, x9                                       mov igpr-9, igpr-33
+  [0x10120] b #0x1012c                                       goto label-43
+  [0x10124] mov x9, x14                                      mov-symptr igpr-9, '#f
+  [0x10128] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:287
+-> (defun increment-success-for-hint ((arg0 text-id))
+  [0x1012C] movz x9, #0                                      mov-ic igpr-34, 0
+  [0x10130] add sp, sp, #0x10
+  [0x10134] ldp x29, x30, [sp], #0x10
+  [0x10138] ret
+
+
+[reset-all-hint-controls]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+hint-control.gc:344
+->   (let ((v1-2 (length (-> *game-info* hint-control))))
+  [0x1000C] adrp x16, #0x10000                               mov igpr-2, '*game-info*
+  [0x10010] add x16, x16, #0
+  [0x10014] ldr w9, [x16]
+  [0x10018] add x16, x9, x15                                 mov igpr-1, [igpr-2 + 144]
+  [0x1001C] ldr w7, [x16, #0x90] ;; misaligned with debug data
+
+hint-control.gc:344
+->   (let ((v1-2 (length (-> *game-info* hint-control))))
+  [0x10020] add x16, x7, x15                                 mov igpr-3, [igpr-1 + -4]
+  [0x10024] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x10028] add x16, x9, x15                                 mov igpr-4, [igpr-3 + 32]
+  [0x1002C] ldr w9, [x16, #0x20] ;; misaligned with debug data
+  [0x10030] mov x9, x9                                       mov igpr-7, igpr-4
+  [0x10034] mov x7, x7                                       mov igpr-6, igpr-1
+  [0x10038] add x9, x9, x15                                  call igpr-7 (ret igpr-5) (args igpr-6)
+  [0x1003C] stp x3, x5, [sp, #-0x10]!
+  [0x10040] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10044] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10048] blr x9 ;; misaligned with debug data
+  [0x1004C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10050] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10054] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10058] mov x0, x0                                       mov igpr-8, igpr-5
+
+hint-control.gc:344
+->   (let ((v1-2 (length (-> *game-info* hint-control))))
+  [0x1005C] mov x0, x0                                       mov igpr-9, igpr-8
+
+hint-control.gc:345
+->     (dotimes (a0-1 v1-2)
+  [0x10060] movz x9, #0                                      mov-ic igpr-10, 0
+  [0x10064] mov x9, x9                                       mov igpr-11, igpr-10
+  [0x10068] b #0x100e8                                       goto label-37
+
+hint-control.gc:346
+->       (let ((a1-2 (-> *game-info* hint-control a0-1)))
+  [0x1006C] movz x8, #0xc                                    mov-ic igpr-15, 12
+  [0x10070] mov x1, x9                                       mov igpr-16, igpr-11
+  [0x10074] lsl x1, x1, #2                                   shl igpr-16, 2
+  [0x10078] add x1, x1, x8                                   addi igpr-16, igpr-15
+  [0x1007C] mov x1, x1                                       mov igpr-18, igpr-16
+  [0x10080] adrp x16, #0x10000                               mov igpr-20, '*game-info*
+  [0x10084] add x16, x16, #0
+  [0x10088] ldr w8, [x16]
+  [0x1008C] add x16, x8, x15                                 mov igpr-19, [igpr-20 + 144]
+  [0x10090] ldr w8, [x16, #0x90] ;; misaligned with debug data
+  [0x10094] add x1, x1, x8                                   addi igpr-18, igpr-19
+  [0x10098] add x16, x1, x15                                 mov igpr-17, [igpr-18 + 0]
+  [0x1009C] ldr w8, [x16] ;; misaligned with debug data
+
+hint-control.gc:346
+->       (let ((a1-2 (-> *game-info* hint-control a0-1)))
+  [0x100A0] mov x8, x8                                       mov igpr-21, igpr-17
+
+hint-control.gc:347
+->         (set! (-> a1-2 start-time) 0)
+  [0x100A4] movz x1, #0                                      mov-ic igpr-22, 0
+  [0x100A8] add x16, x8, x15                                 move [igpr-21 + 16], igpr-22
+  [0x100AC] str x1, [x16, #0x10] ;; misaligned with debug data
+
+hint-control.gc:348
+->         (set! (-> a1-2 last-time-called) 0)
+  [0x100B0] movz x1, #0                                      mov-ic igpr-23, 0
+  [0x100B4] add x16, x8, x15                                 move [igpr-21 + 24], igpr-23
+  [0x100B8] str x1, [x16, #0x18] ;; misaligned with debug data
+
+hint-control.gc:349
+->         (set! (-> a1-2 num-attempts) 0)
+  [0x100BC] movz x1, #0                                      mov-ic igpr-24, 0
+  [0x100C0] add x16, x8, x15                                 move [igpr-21 + 14], igpr-24
+  [0x100C4] strb w1, [x16, #0xe] ;; misaligned with debug data
+
+hint-control.gc:350
+->         (set! (-> a1-2 num-success) 0))
+  [0x100C8] movz x1, #0                                      mov-ic igpr-25, 0
+  [0x100CC] add x16, x8, x15                                 move [igpr-21 + 15], igpr-25
+  [0x100D0] strb w1, [x16, #0xf] ;; misaligned with debug data
+
+hint-control.gc:345
+->     (dotimes (a0-1 v1-2)
+  [0x100D4] movz x8, #0                                      mov-ic igpr-26, 0
+  [0x100D8] mov x9, x9                                       mov igpr-27, igpr-11
+  [0x100DC] movz x8, #0x1                                    mov-ic igpr-28, 1
+  [0x100E0] add x9, x9, x8                                   addi igpr-27, igpr-28
+  [0x100E4] mov x9, x9                                       mov igpr-11, igpr-27
+  [0x100E8] cmp x9, x0                                       j(igpr-11 < igpr-9) label-13
+  [0x100EC] b.lt #0x1006c
+  [0x100F0] mov x9, x14                                      mov-symptr igpr-29, '#f
+  [0x100F4] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:343
+-> (defun reset-all-hint-controls ()
+  [0x100F8] movz x9, #0                                      mov-ic igpr-30, 0
+  [0x100FC] add sp, sp, #0x10
+  [0x10100] ldp x29, x30, [sp], #0x10
+  [0x10104] ret
+
+
+[start-hint-timer]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+hint-control.gc:277
+-> (defun start-hint-timer ((arg0 text-id))
+  [0x1000C] mov x7, x7                                       mov igpr-2, igpr-0
+
+hint-control.gc:278
+->   (let ((v1-0 (find-hint-control-index arg0)))
+  [0x10010] adrp x16, #0x10000                               mov igpr-3, 'find-hint-control-index
+  [0x10014] add x16, x16, #0
+  [0x10018] ldr w9, [x16]
+  [0x1001C] mov x9, x9                                       mov igpr-6, igpr-3
+  [0x10020] mov x7, x7                                       mov igpr-5, igpr-2
+  [0x10024] add x9, x9, x15                                  call igpr-6 (ret igpr-4) (args igpr-5)
+  [0x10028] stp x3, x5, [sp, #-0x10]!
+  [0x1002C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10030] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10034] blr x9 ;; misaligned with debug data
+  [0x10038] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1003C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10040] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10044] mov x0, x0                                       mov igpr-7, igpr-4
+
+hint-control.gc:278
+->   (let ((v1-0 (find-hint-control-index arg0)))
+  [0x10048] mov x0, x0                                       mov igpr-8, igpr-7
+
+hint-control.gc:279
+->     (when (and (>= v1-0 0)
+  [0x1004C] movz x9, #0                                      mov-ic igpr-11, 0
+  [0x10050] mov x8, x14                                      mov-symptr igpr-12, '#f
+  [0x10054] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10058] cmp x0, x9                                       j(igpr-8 < igpr-11) label-13
+  [0x1005C] b.lt #0x1006c
+  [0x10060] add x8, x14, #8                                  mov-symptr igpr-13, '#t
+  [0x10064] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10068] mov x8, x8                                       mov igpr-12, igpr-13
+  [0x1006C] mov x9, x8                                       mov igpr-10, igpr-12
+  [0x10070] mov x8, x14                                      mov-symptr igpr-14, '#f
+  [0x10074] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10078] cmp x9, x8                                       j(igpr-10 == igpr-14) label-50
+  [0x1007C] b.eq #0x10150
+
+hint-control.gc:280
+->                (zero? (-> *game-info* hint-control v1-0 start-time))
+  [0x10080] movz x9, #0xc                                    mov-ic igpr-15, 12
+  [0x10084] mov x8, x0                                       mov igpr-16, igpr-8
+  [0x10088] lsl x8, x8, #2                                   shl igpr-16, 2
+  [0x1008C] add x8, x8, x9                                   addi igpr-16, igpr-15
+
+hint-control.gc:280
+->                (zero? (-> *game-info* hint-control v1-0 start-time))
+  [0x10090] mov x8, x8                                       mov igpr-19, igpr-16
+  [0x10094] adrp x16, #0x10000                               mov igpr-21, '*game-info*
+  [0x10098] add x16, x16, #0
+  [0x1009C] ldr w9, [x16]
+  [0x100A0] add x16, x9, x15                                 mov igpr-20, [igpr-21 + 144]
+  [0x100A4] ldr w9, [x16, #0x90] ;; misaligned with debug data
+  [0x100A8] add x8, x8, x9                                   addi igpr-19, igpr-20
+  [0x100AC] add x16, x8, x15                                 mov igpr-18, [igpr-19 + 0]
+  [0x100B0] ldr w9, [x16] ;; misaligned with debug data
+  [0x100B4] add x16, x9, x15                                 mov igpr-17, [igpr-18 + 16]
+  [0x100B8] ldr x9, [x16, #0x10] ;; misaligned with debug data
+  [0x100BC] movz x8, #0                                      mov-ic igpr-22, 0
+  [0x100C0] mov x1, x14                                      mov-symptr igpr-23, '#f
+  [0x100C4] sub x1, x1, x15 ;; misaligned with debug data
+  [0x100C8] cmp x9, x8                                       j(igpr-17 != igpr-22) label-31
+  [0x100CC] b.ne #0x100dc
+  [0x100D0] add x1, x14, #8                                  mov-symptr igpr-24, '#t
+  [0x100D4] sub x1, x1, x15 ;; misaligned with debug data
+  [0x100D8] mov x1, x1                                       mov igpr-23, igpr-24
+  [0x100DC] mov x9, x1                                       mov igpr-10, igpr-23
+  [0x100E0] mov x8, x14                                      mov-symptr igpr-25, '#f
+  [0x100E4] sub x8, x8, x15 ;; misaligned with debug data
+  [0x100E8] cmp x9, x8                                       j(igpr-10 == igpr-25) label-50
+  [0x100EC] b.eq #0x10150
+
+hint-control.gc:281
+->                (!= (-> *game-info* hint-control v1-0 num-attempts-before-playing) 1))
+  [0x100F0] movz x9, #0xc                                    mov-ic igpr-26, 12
+  [0x100F4] mov x8, x0                                       mov igpr-27, igpr-8
+  [0x100F8] lsl x8, x8, #2                                   shl igpr-27, 2
+  [0x100FC] add x8, x8, x9                                   addi igpr-27, igpr-26
+
+hint-control.gc:281
+->                (!= (-> *game-info* hint-control v1-0 num-attempts-before-playing) 1))
+  [0x10100] mov x8, x8                                       mov igpr-30, igpr-27
+  [0x10104] adrp x16, #0x10000                               mov igpr-32, '*game-info*
+  [0x10108] add x16, x16, #0
+  [0x1010C] ldr w9, [x16]
+  [0x10110] add x16, x9, x15                                 mov igpr-31, [igpr-32 + 144]
+  [0x10114] ldr w9, [x16, #0x90] ;; misaligned with debug data
+  [0x10118] add x8, x8, x9                                   addi igpr-30, igpr-31
+  [0x1011C] add x16, x8, x15                                 mov igpr-29, [igpr-30 + 0]
+  [0x10120] ldr w9, [x16] ;; misaligned with debug data
+  [0x10124] add x16, x9, x15                                 mov igpr-28, [igpr-29 + 12]
+  [0x10128] ldrsb x9, [x16, #0xc] ;; misaligned with debug data
+  [0x1012C] movz x8, #0x1                                    mov-ic igpr-33, 1
+  [0x10130] mov x1, x14                                      mov-symptr igpr-34, '#f
+  [0x10134] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10138] cmp x9, x8                                       j(igpr-28 == igpr-33) label-49
+  [0x1013C] b.eq #0x1014c
+  [0x10140] add x1, x14, #8                                  mov-symptr igpr-35, '#t
+  [0x10144] sub x1, x1, x15 ;; misaligned with debug data
+  [0x10148] mov x1, x1                                       mov igpr-34, igpr-35
+  [0x1014C] mov x9, x1                                       mov igpr-10, igpr-34
+
+hint-control.gc:279
+->     (when (and (>= v1-0 0)
+  [0x10150] mov x8, x14                                      mov-symptr igpr-36, '#f
+  [0x10154] sub x8, x8, x15 ;; misaligned with debug data
+  [0x10158] cmp x9, x8                                       j(igpr-10 == igpr-36) label-67
+  [0x1015C] b.eq #0x101c0
+
+hint-control.gc:282
+->       (set-time! (-> *game-info* hint-control v1-0 start-time))
+  [0x10160] adrp x16, #0x10000                               mov igpr-38, '*display*
+  [0x10164] add x16, x16, #0
+  [0x10168] ldr w9, [x16]
+  [0x1016C] add x16, x9, x15                                 mov igpr-37, [igpr-38 + 780]
+  [0x10170] add x16, x16, #0x30c ;; misaligned with debug data
+  [0x10174] ldr x9, [x16] ;; misaligned with debug data
+
+hint-control.gc:282
+->       (set-time! (-> *game-info* hint-control v1-0 start-time))
+  [0x10178] movz x8, #0xc                                    mov-ic igpr-39, 12
+  [0x1017C] mov x0, x0                                       mov igpr-40, igpr-8
+  [0x10180] lsl x0, x0, #2                                   shl igpr-40, 2
+  [0x10184] add x0, x0, x8                                   addi igpr-40, igpr-39
+
+hint-control.gc:282
+->       (set-time! (-> *game-info* hint-control v1-0 start-time))
+  [0x10188] mov x0, x0                                       mov igpr-42, igpr-40
+  [0x1018C] adrp x16, #0x10000                               mov igpr-44, '*game-info*
+  [0x10190] add x16, x16, #0
+  [0x10194] ldr w8, [x16]
+  [0x10198] add x16, x8, x15                                 mov igpr-43, [igpr-44 + 144]
+  [0x1019C] ldr w8, [x16, #0x90] ;; misaligned with debug data
+  [0x101A0] add x0, x0, x8                                   addi igpr-42, igpr-43
+  [0x101A4] add x16, x0, x15                                 mov igpr-41, [igpr-42 + 0]
+  [0x101A8] ldr w8, [x16] ;; misaligned with debug data
+  [0x101AC] add x16, x8, x15                                 move [igpr-41 + 16], igpr-37
+  [0x101B0] str x9, [x16, #0x10] ;; misaligned with debug data
+
+hint-control.gc:279
+->     (when (and (>= v1-0 0)
+  [0x101B4] movz x9, #0                                      mov-ic igpr-45, 0
+  [0x101B8] mov x9, x9                                       mov igpr-9, igpr-45
+  [0x101BC] b #0x101c8                                       goto label-68
+  [0x101C0] mov x9, x14                                      mov-symptr igpr-9, '#f
+  [0x101C4] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:277
+-> (defun start-hint-timer ((arg0 text-id))
+  [0x101C8] movz x9, #0                                      mov-ic igpr-46, 0
+  [0x101CC] add sp, sp, #0x10
+  [0x101D0] ldp x29, x30, [sp], #0x10
+  [0x101D4] ret
+
+
+[find-hint-control-index]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+hint-control.gc:268
+-> (defun find-hint-control-index ((arg0 text-id))
+  [0x1000C] mov x5, x7                                       mov igpr-2, igpr-0
+
+hint-control.gc:269
+->   (let ((gp-0 -1))
+  [0x10010] movz x3, #0xffff                                 mov-ic igpr-3, 18446744073709551615
+  [0x10014] movk x3, #0xffff, lsl #16
+  [0x10018] movk x3, #0xffff, lsl #32
+  [0x1001C] movk x3, #0xffff, lsl #48
+  [0x10020] mov x3, x3                                       mov igpr-4, igpr-3
+
+hint-control.gc:270
+->     (let ((v1-2 (length (-> *game-info* hint-control))))
+  [0x10024] adrp x16, #0x10000                               mov igpr-6, '*game-info*
+  [0x10028] add x16, x16, #0
+  [0x1002C] ldr w9, [x16]
+  [0x10030] add x16, x9, x15                                 mov igpr-5, [igpr-6 + 144]
+  [0x10034] ldr w7, [x16, #0x90] ;; misaligned with debug data
+
+hint-control.gc:270
+->     (let ((v1-2 (length (-> *game-info* hint-control))))
+  [0x10038] add x16, x7, x15                                 mov igpr-7, [igpr-5 + -4]
+  [0x1003C] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x10040] add x16, x9, x15                                 mov igpr-8, [igpr-7 + 32]
+  [0x10044] ldr w9, [x16, #0x20] ;; misaligned with debug data
+  [0x10048] mov x9, x9                                       mov igpr-11, igpr-8
+  [0x1004C] mov x7, x7                                       mov igpr-10, igpr-5
+  [0x10050] add x9, x9, x15                                  call igpr-11 (ret igpr-9) (args igpr-10)
+  [0x10054] stp x3, x5, [sp, #-0x10]!
+  [0x10058] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10060] blr x9 ;; misaligned with debug data
+  [0x10064] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] mov x0, x0                                       mov igpr-12, igpr-9
+
+hint-control.gc:270
+->     (let ((v1-2 (length (-> *game-info* hint-control))))
+  [0x10074] mov x0, x0                                       mov igpr-13, igpr-12
+
+hint-control.gc:271
+->       (dotimes (a0-2 v1-2)
+  [0x10078] movz x9, #0                                      mov-ic igpr-14, 0
+  [0x1007C] mov x9, x9                                       mov igpr-15, igpr-14
+  [0x10080] b #0x100f0                                       goto label-36
+
+hint-control.gc:272
+->         (when (= (-> *game-info* hint-control a0-2 id) arg0)
+  [0x10084] movz x8, #0xc                                    mov-ic igpr-20, 12
+  [0x10088] mov x1, x9                                       mov igpr-21, igpr-15
+  [0x1008C] lsl x1, x1, #2                                   shl igpr-21, 2
+  [0x10090] add x1, x1, x8                                   addi igpr-21, igpr-20
+
+hint-control.gc:272
+->         (when (= (-> *game-info* hint-control a0-2 id) arg0)
+  [0x10094] mov x1, x1                                       mov igpr-24, igpr-21
+  [0x10098] adrp x16, #0x10000                               mov igpr-26, '*game-info*
+  [0x1009C] add x16, x16, #0
+  [0x100A0] ldr w8, [x16]
+  [0x100A4] add x16, x8, x15                                 mov igpr-25, [igpr-26 + 144]
+  [0x100A8] ldr w8, [x16, #0x90] ;; misaligned with debug data
+  [0x100AC] add x1, x1, x8                                   addi igpr-24, igpr-25
+  [0x100B0] add x16, x1, x15                                 mov igpr-23, [igpr-24 + 0]
+  [0x100B4] ldr w8, [x16] ;; misaligned with debug data
+  [0x100B8] add x16, x8, x15                                 mov igpr-22, [igpr-23 + 8]
+  [0x100BC] ldr w8, [x16, #8] ;; misaligned with debug data
+  [0x100C0] cmp x8, x5                                       j(igpr-22 != igpr-2) label-31
+  [0x100C4] b.ne #0x100d8
+
+hint-control.gc:273
+->           (set! gp-0 a0-2)
+  [0x100C8] mov x3, x9                                       mov igpr-4, igpr-15
+
+hint-control.gc:274
+->           (set! a0-2 v1-2))))
+  [0x100CC] mov x9, x0                                       mov igpr-15, igpr-13
+
+hint-control.gc:272
+->         (when (= (-> *game-info* hint-control a0-2 id) arg0)
+  [0x100D0] mov x8, x0                                       mov igpr-19, igpr-13
+  [0x100D4] b #0x100e0                                       goto label-32
+  [0x100D8] mov x8, x14                                      mov-symptr igpr-19, '#f
+  [0x100DC] sub x8, x8, x15 ;; misaligned with debug data
+
+hint-control.gc:271
+->       (dotimes (a0-2 v1-2)
+  [0x100E0] mov x9, x9                                       mov igpr-27, igpr-15
+  [0x100E4] movz x8, #0x1                                    mov-ic igpr-28, 1
+  [0x100E8] add x9, x9, x8                                   addi igpr-27, igpr-28
+  [0x100EC] mov x9, x9                                       mov igpr-15, igpr-27
+  [0x100F0] cmp x9, x0                                       j(igpr-15 < igpr-13) label-16
+  [0x100F4] b.lt #0x10084
+  [0x100F8] mov x9, x14                                      mov-symptr igpr-29, '#f
+  [0x100FC] sub x9, x9, x15 ;; misaligned with debug data
+
+hint-control.gc:268
+-> (defun find-hint-control-index ((arg0 text-id))
+  [0x10100] mov x0, x3                                       ret igpr-1 igpr-4
+  [0x10104] add sp, sp, #0x10
+  [0x10108] ldp x29, x30, [sp], #0x10
+  [0x1010C] ret
+
+
+

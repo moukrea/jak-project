@@ -1,0 +1,795 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+shrub-work.gc:11
+-> (define *instance-shrub-work*
+  [0x10008] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x9, x9, #0
+  [0x10010] sub x9, x9, x15
+  [0x10014] adrp x16, #0x10000                               mov '*instance-shrub-work*, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w9, [x16]
+
+shrub-work.gc:486
+-> (set! (-> *instance-shrub-work* mscalf-tmpl vif0 imm) 103)
+  [0x10020] movz x9, #0x67                                   mov-ic igpr-1, 103
+  [0x10024] adrp x16, #0x10000                               mov igpr-3, '*instance-shrub-work*
+  [0x10028] add x16, x16, #0
+  [0x1002C] ldr w8, [x16]
+  [0x10030] add x16, x8, x15                                 mov igpr-2, [igpr-3 + 5048]
+  [0x10034] ldr w8, [x16, #0x13b8] ;; misaligned with debug data
+  [0x10038] mov x8, x8                                       mov igpr-4, igpr-2
+  [0x1003C] movz x1, #0                                      mov-ic igpr-5, 18446744073709486080
+  [0x10040] movk x1, #0xffff, lsl #16
+  [0x10044] movk x1, #0xffff, lsl #32
+  [0x10048] movk x1, #0xffff, lsl #48
+  [0x1004C] and x8, x8, x1                                   and igpr-4, igpr-5
+  [0x10050] mov x1, x9                                       mov igpr-5, igpr-1
+  [0x10054] lsl x1, x1, #0x30                                shl igpr-5, 48
+  [0x10058] lsr x1, x1, #0x30                                shr igpr-5, 48
+  [0x1005C] orr x8, x8, x1                                   or igpr-4, igpr-5
+  [0x10060] adrp x16, #0x10000                               mov igpr-6, '*instance-shrub-work*
+  [0x10064] add x16, x16, #0
+  [0x10068] ldr w9, [x16]
+  [0x1006C] add x16, x9, x15                                 move [igpr-6 + 5048], igpr-4
+  [0x10070] str w8, [x16, #0x13b8] ;; misaligned with debug data
+
+shrub-work.gc:488
+-> (set! (-> *instance-shrub-work* mscalf-ret-tmpl vif0 imm) 103)
+  [0x10074] movz x9, #0x67                                   mov-ic igpr-7, 103
+  [0x10078] adrp x16, #0x10000                               mov igpr-9, '*instance-shrub-work*
+  [0x1007C] add x16, x16, #0
+  [0x10080] ldr w8, [x16]
+  [0x10084] add x16, x8, x15                                 mov igpr-8, [igpr-9 + 5064]
+  [0x10088] ldr w8, [x16, #0x13c8] ;; misaligned with debug data
+  [0x1008C] mov x8, x8                                       mov igpr-10, igpr-8
+  [0x10090] movz x1, #0                                      mov-ic igpr-11, 18446744073709486080
+  [0x10094] movk x1, #0xffff, lsl #16
+  [0x10098] movk x1, #0xffff, lsl #32
+  [0x1009C] movk x1, #0xffff, lsl #48
+  [0x100A0] and x8, x8, x1                                   and igpr-10, igpr-11
+  [0x100A4] mov x1, x9                                       mov igpr-11, igpr-7
+  [0x100A8] lsl x1, x1, #0x30                                shl igpr-11, 48
+  [0x100AC] lsr x1, x1, #0x30                                shr igpr-11, 48
+  [0x100B0] orr x8, x8, x1                                   or igpr-10, igpr-11
+  [0x100B4] adrp x16, #0x10000                               mov igpr-12, '*instance-shrub-work*
+  [0x100B8] add x16, x16, #0
+  [0x100BC] ldr w9, [x16]
+  [0x100C0] add x16, x9, x15                                 move [igpr-12 + 5064], igpr-10
+  [0x100C4] str w8, [x16, #0x13c8] ;; misaligned with debug data
+  [0x100C8] adrp x0, #0x10000                                mov-fa igpr-13, function-upload-generic-shrub
+  [0x100CC] add x0, x0, #0
+  [0x100D0] sub x0, x0, x15
+
+shrub-work.gc:490
+-> (defun upload-generic-shrub ((arg0 dma-buffer) (arg1 generic-shrub-fragment) (arg2 int) (arg3 int))
+  [0x100D4] adrp x16, #0x10000                               mov 'upload-generic-shrub, igpr-13
+  [0x100D8] add x16, x16, #0
+  [0x100DC] str w0, [x16]
+
+shrub-work.gc:1
+-> ;-*-Lisp-*-
+  [0x100E0] mov x0, x0                                       ret igpr-14 igpr-13
+  [0x100E4] ldp x29, x30, [sp], #0x10
+  [0x100E8] ret
+
+
+[upload-generic-shrub]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+shrub-work.gc:490
+-> (defun upload-generic-shrub ((arg0 dma-buffer) (arg1 generic-shrub-fragment) (arg2 int) (arg3 int))
+  [0x10008] mov x7, x7                                       mov igpr-5, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-6, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-7, igpr-2
+  [0x10014] mov x1, x1                                       mov igpr-8, igpr-3
+
+shrub-work.gc:491
+->   (let* ((v1-0 arg0)
+  [0x10018] mov x9, x7                                       mov igpr-9, igpr-5
+
+shrub-work.gc:492
+->          (t0-0 (the-as object (-> v1-0 base))))
+  [0x1001C] add x16, x9, x15                                 mov igpr-10, [igpr-9 + 4]
+  [0x10020] ldr w8, [x16, #4] ;; misaligned with debug data
+  [0x10024] mov x8, x8                                       mov igpr-11, igpr-10
+
+shrub-work.gc:491
+->   (let* ((v1-0 arg0)
+  [0x10028] mov x8, x8                                       mov igpr-12, igpr-11
+
+shrub-work.gc:493
+->     (set! (-> (the-as dma-packet t0-0) dma) (new 'static 'dma-tag :qwc #x6 :id (dma-tag-id cnt)))
+  [0x1002C] movz x0, #0x6                                    mov-ic igpr-13, 268435462
+  [0x10030] movk x0, #0x1000, lsl #16
+  [0x10034] mov x3, x8                                       mov igpr-14, igpr-12
+  [0x10038] add x16, x3, x15                                 move [igpr-14 + 0], igpr-13
+  [0x1003C] str x0, [x16] ;; misaligned with debug data
+
+shrub-work.gc:494
+->     (set! (-> (the-as dma-packet t0-0) vif0) (new 'static 'vif-tag :imm #x404 :cmd (vif-cmd stcycl)))
+  [0x10040] movz x0, #0x404                                  mov-ic igpr-15, 16778244
+  [0x10044] movk x0, #0x100, lsl #16
+  [0x10048] mov x3, x8                                       mov igpr-16, igpr-12
+  [0x1004C] add x16, x3, x15                                 move [igpr-16 + 8], igpr-15
+  [0x10050] str w0, [x16, #8] ;; misaligned with debug data
+
+shrub-work.gc:496
+->           (new 'static 'vif-tag :num #x6 :cmd (vif-cmd unpack-v4-32) :imm (shr (shl arg2 54) 54)))
+  [0x10054] mov x0, x2                                       mov igpr-17, igpr-7
+  [0x10058] lsl x0, x0, #0x36                                shl igpr-17, 54
+
+shrub-work.gc:496
+->           (new 'static 'vif-tag :num #x6 :cmd (vif-cmd unpack-v4-32) :imm (shr (shl arg2 54) 54)))
+  [0x1005C] mov x0, x0                                       mov igpr-18, igpr-17
+  [0x10060] lsr x0, x0, #0x36                                shr igpr-18, 54
+
+shrub-work.gc:496
+->           (new 'static 'vif-tag :num #x6 :cmd (vif-cmd unpack-v4-32) :imm (shr (shl arg2 54) 54)))
+  [0x10064] movz x3, #0                                      mov-ic igpr-19, 1812332544
+  [0x10068] movk x3, #0x6c06, lsl #16
+  [0x1006C] mov x0, x0                                       mov igpr-20, igpr-18
+  [0x10070] lsl x0, x0, #0x30                                shl igpr-20, 48
+  [0x10074] lsr x0, x0, #0x30                                shr igpr-20, 48
+  [0x10078] orr x3, x3, x0                                   or igpr-19, igpr-20
+
+shrub-work.gc:495
+->     (set! (-> (the-as dma-packet t0-0) vif1)
+  [0x1007C] mov x0, x8                                       mov igpr-21, igpr-12
+  [0x10080] add x16, x0, x15                                 move [igpr-21 + 12], igpr-19
+  [0x10084] str w3, [x16, #0xc] ;; misaligned with debug data
+
+shrub-work.gc:497
+->     (set! (-> v1-0 base) (&+ (the-as pointer t0-0) 16)))
+  [0x10088] mov x8, x8                                       mov igpr-22, igpr-12
+  [0x1008C] mov x8, x8                                       mov igpr-23, igpr-22
+  [0x10090] movz x0, #0x10                                   mov-ic igpr-24, 16
+  [0x10094] add x8, x8, x0                                   addi igpr-23, igpr-24
+
+shrub-work.gc:497
+->     (set! (-> v1-0 base) (&+ (the-as pointer t0-0) 16)))
+  [0x10098] add x16, x9, x15                                 move [igpr-9 + 4], igpr-23
+  [0x1009C] str w8, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:498
+->   (let* ((v1-1 (the-as matrix (-> arg0 base)))
+  [0x100A0] add x16, x7, x15                                 mov igpr-25, [igpr-5 + 4]
+  [0x100A4] ldr w9, [x16, #4] ;; misaligned with debug data
+  [0x100A8] mov x9, x9                                       mov igpr-26, igpr-25
+
+shrub-work.gc:498
+->   (let* ((v1-1 (the-as matrix (-> arg0 base)))
+  [0x100AC] mov x9, x9                                       mov igpr-27, igpr-26
+
+shrub-work.gc:499
+->          (t3-0 (-> *math-camera* camera-temp))
+  [0x100B0] movz x8, #0x23c                                  mov-ic igpr-28, 572
+  [0x100B4] adrp x16, #0x10000                               mov igpr-29, '*math-camera*
+  [0x100B8] add x16, x16, #0
+  [0x100BC] ldr w0, [x16]
+  [0x100C0] add x8, x8, x0                                   addi igpr-28, igpr-29
+
+shrub-work.gc:498
+->   (let* ((v1-1 (the-as matrix (-> arg0 base)))
+  [0x100C4] mov x8, x8                                       mov igpr-30, igpr-28
+
+shrub-work.gc:500
+->          (t0-3 (-> t3-0 vector 0 quad))
+  [0x100C8] add x16, x8, x15                                 mov ii128-31, [igpr-30 + 0]
+  [0x100CC] ldr q23, [x16] ;; misaligned with debug data
+
+shrub-work.gc:498
+->   (let* ((v1-1 (the-as matrix (-> arg0 base)))
+  [0x100D0] mov v23.16b, v23.16b                             mov ii128-32, ii128-31
+
+shrub-work.gc:501
+->          (t1-4 (-> t3-0 vector 1 quad))
+  [0x100D4] add x16, x8, x15                                 mov ii128-33, [igpr-30 + 16]
+  [0x100D8] ldr q22, [x16, #0x10] ;; misaligned with debug data
+
+shrub-work.gc:498
+->   (let* ((v1-1 (the-as matrix (-> arg0 base)))
+  [0x100DC] mov v22.16b, v22.16b                             mov ii128-34, ii128-33
+
+shrub-work.gc:502
+->          (t2-4 (-> t3-0 vector 2 quad))
+  [0x100E0] add x16, x8, x15                                 mov ii128-35, [igpr-30 + 32]
+  [0x100E4] ldr q21, [x16, #0x20] ;; misaligned with debug data
+
+shrub-work.gc:498
+->   (let* ((v1-1 (the-as matrix (-> arg0 base)))
+  [0x100E8] mov v21.16b, v21.16b                             mov ii128-36, ii128-35
+
+shrub-work.gc:503
+->          (t3-1 (-> t3-0 vector 3 quad)))
+  [0x100EC] add x16, x8, x15                                 mov ii128-37, [igpr-30 + 48]
+  [0x100F0] ldr q20, [x16, #0x30] ;; misaligned with debug data
+
+shrub-work.gc:498
+->   (let* ((v1-1 (the-as matrix (-> arg0 base)))
+  [0x100F4] mov v20.16b, v20.16b                             mov ii128-38, ii128-37
+
+shrub-work.gc:504
+->     (set! (-> v1-1 vector 0 quad) t0-3)
+  [0x100F8] mov v23.16b, v23.16b                             mov ii128-39, ii128-32
+  [0x100FC] add x16, x9, x15                                 move [igpr-27 + 0], ii128-39
+  [0x10100] str q23, [x16] ;; misaligned with debug data
+
+shrub-work.gc:505
+->     (set! (-> v1-1 vector 1 quad) t1-4)
+  [0x10104] mov v22.16b, v22.16b                             mov ii128-40, ii128-34
+  [0x10108] add x16, x9, x15                                 move [igpr-27 + 16], ii128-40
+  [0x1010C] str q22, [x16, #0x10] ;; misaligned with debug data
+
+shrub-work.gc:506
+->     (set! (-> v1-1 vector 2 quad) t2-4)
+  [0x10110] mov v21.16b, v21.16b                             mov ii128-41, ii128-36
+  [0x10114] add x16, x9, x15                                 move [igpr-27 + 32], ii128-41
+  [0x10118] str q21, [x16, #0x20] ;; misaligned with debug data
+
+shrub-work.gc:507
+->     (set! (-> v1-1 vector 3 quad) t3-1))
+  [0x1011C] mov v20.16b, v20.16b                             mov ii128-42, ii128-38
+  [0x10120] add x16, x9, x15                                 move [igpr-27 + 48], ii128-42
+  [0x10124] str q20, [x16, #0x30] ;; misaligned with debug data
+
+shrub-work.gc:508
+->   (&+! (-> arg0 base) 64)
+  [0x10128] add x16, x7, x15                                 mov igpr-43, [igpr-5 + 4]
+  [0x1012C] ldr w9, [x16, #4] ;; misaligned with debug data
+  [0x10130] mov x9, x9                                       mov igpr-44, igpr-43
+  [0x10134] movz x8, #0x40                                   mov-ic igpr-45, 64
+  [0x10138] add x9, x9, x8                                   addi igpr-44, igpr-45
+  [0x1013C] add x16, x7, x15                                 move [igpr-5 + 4], igpr-44
+  [0x10140] str w9, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:509
+->   (let* ((v1-4 arg0)
+  [0x10144] mov x9, x7                                       mov igpr-46, igpr-5
+
+shrub-work.gc:510
+->          (t0-4 (the-as object (-> v1-4 base))))
+  [0x10148] add x16, x9, x15                                 mov igpr-47, [igpr-46 + 4]
+  [0x1014C] ldr w8, [x16, #4] ;; misaligned with debug data
+  [0x10150] mov x8, x8                                       mov igpr-48, igpr-47
+
+shrub-work.gc:509
+->   (let* ((v1-4 arg0)
+  [0x10154] mov x8, x8                                       mov igpr-49, igpr-48
+
+shrub-work.gc:511
+->     (set! (-> (the-as vector4w-2 t0-4) vector 0 x) #x3f800000)
+  [0x10158] movz x0, #0                                      mov-ic igpr-50, 1065353216
+  [0x1015C] movk x0, #0x3f80, lsl #16
+  [0x10160] mov x3, x8                                       mov igpr-51, igpr-49
+  [0x10164] add x16, x3, x15                                 move [igpr-51 + 0], igpr-50
+  [0x10168] str w0, [x16] ;; misaligned with debug data
+
+shrub-work.gc:512
+->     (set! (-> (the-as vector4w-2 t0-4) vector 0 y) #x3f800000)
+  [0x1016C] movz x0, #0                                      mov-ic igpr-52, 1065353216
+  [0x10170] movk x0, #0x3f80, lsl #16
+  [0x10174] mov x3, x8                                       mov igpr-53, igpr-49
+  [0x10178] add x16, x3, x15                                 move [igpr-53 + 4], igpr-52
+  [0x1017C] str w0, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:513
+->     (set! (-> (the-as vector4w-2 t0-4) vector 0 z) #x3f800000)
+  [0x10180] movz x0, #0                                      mov-ic igpr-54, 1065353216
+  [0x10184] movk x0, #0x3f80, lsl #16
+  [0x10188] mov x3, x8                                       mov igpr-55, igpr-49
+  [0x1018C] add x16, x3, x15                                 move [igpr-55 + 8], igpr-54
+  [0x10190] str w0, [x16, #8] ;; misaligned with debug data
+
+shrub-work.gc:514
+->     (set! (-> (the-as vector4w-2 t0-4) vector 0 w) 128)
+  [0x10194] movz x0, #0x80                                   mov-ic igpr-56, 128
+  [0x10198] mov x3, x8                                       mov igpr-57, igpr-49
+  [0x1019C] add x16, x3, x15                                 move [igpr-57 + 12], igpr-56
+  [0x101A0] str w0, [x16, #0xc] ;; misaligned with debug data
+
+shrub-work.gc:515
+->     (set! (-> (the-as vector4w-2 t0-4) vector 1 x) (the-as int (-> arg1 vtx-cnt)))
+  [0x101A4] add x16, x6, x15                                 mov igpr-58, [igpr-6 + 4]
+  [0x101A8] ldr w0, [x16, #4] ;; misaligned with debug data
+  [0x101AC] mov x0, x0                                       mov igpr-59, igpr-58
+  [0x101B0] mov x3, x8                                       mov igpr-60, igpr-49
+  [0x101B4] add x16, x3, x15                                 move [igpr-60 + 16], igpr-59
+  [0x101B8] str w0, [x16, #0x10] ;; misaligned with debug data
+
+shrub-work.gc:516
+->     (set! (-> (the-as vector4w-2 t0-4) vector 1 y) 0)
+  [0x101BC] movz x0, #0                                      mov-ic igpr-61, 0
+  [0x101C0] mov x3, x8                                       mov igpr-62, igpr-49
+  [0x101C4] add x16, x3, x15                                 move [igpr-62 + 20], igpr-61
+  [0x101C8] str w0, [x16, #0x14] ;; misaligned with debug data
+
+shrub-work.gc:517
+->     (set! (-> (the-as vector4w-2 t0-4) vector 1 z) 0)
+  [0x101CC] movz x0, #0                                      mov-ic igpr-63, 0
+  [0x101D0] mov x3, x8                                       mov igpr-64, igpr-49
+  [0x101D4] add x16, x3, x15                                 move [igpr-64 + 24], igpr-63
+  [0x101D8] str w0, [x16, #0x18] ;; misaligned with debug data
+
+shrub-work.gc:518
+->     (set! (-> (the-as vector4w-2 t0-4) vector 1 w) 0)
+  [0x101DC] movz x0, #0                                      mov-ic igpr-65, 0
+  [0x101E0] mov x3, x8                                       mov igpr-66, igpr-49
+  [0x101E4] add x16, x3, x15                                 move [igpr-66 + 28], igpr-65
+  [0x101E8] str w0, [x16, #0x1c] ;; misaligned with debug data
+
+shrub-work.gc:519
+->     (set! (-> v1-4 base) (&+ (the-as pointer t0-4) 32)))
+  [0x101EC] mov x8, x8                                       mov igpr-67, igpr-49
+  [0x101F0] mov x8, x8                                       mov igpr-68, igpr-67
+  [0x101F4] movz x0, #0x20                                   mov-ic igpr-69, 32
+  [0x101F8] add x8, x8, x0                                   addi igpr-68, igpr-69
+
+shrub-work.gc:519
+->     (set! (-> v1-4 base) (&+ (the-as pointer t0-4) 32)))
+  [0x101FC] add x16, x9, x15                                 move [igpr-46 + 4], igpr-68
+  [0x10200] str w8, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:520
+->   (let* ((v1-5 arg0)
+  [0x10204] mov x9, x7                                       mov igpr-70, igpr-5
+
+shrub-work.gc:521
+->          (t0-6 (the-as object (-> v1-5 base))))
+  [0x10208] add x16, x9, x15                                 mov igpr-71, [igpr-70 + 4]
+  [0x1020C] ldr w8, [x16, #4] ;; misaligned with debug data
+  [0x10210] mov x8, x8                                       mov igpr-72, igpr-71
+
+shrub-work.gc:520
+->   (let* ((v1-5 arg0)
+  [0x10214] mov x8, x8                                       mov igpr-73, igpr-72
+
+shrub-work.gc:523
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 cnt) :qwc (-> arg1 cnt-qwc)))
+  [0x10218] add x16, x6, x15                                 mov igpr-74, [igpr-6 + 12]
+  [0x1021C] ldr w0, [x16, #0xc] ;; misaligned with debug data
+
+shrub-work.gc:523
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 cnt) :qwc (-> arg1 cnt-qwc)))
+  [0x10220] add x16, x6, x15                                 mov igpr-75, [igpr-6 + 8]
+  [0x10224] ldrb w3, [x16, #8] ;; misaligned with debug data
+
+shrub-work.gc:523
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 cnt) :qwc (-> arg1 cnt-qwc)))
+  [0x10228] movz x5, #0                                      mov-ic igpr-76, 805306368
+  [0x1022C] movk x5, #0x3000, lsl #16
+  [0x10230] mov x0, x0                                       mov igpr-77, igpr-74
+  [0x10234] lsl x0, x0, #0x21                                shl igpr-77, 33
+  [0x10238] lsr x0, x0, #1                                   shr igpr-77, 1
+  [0x1023C] orr x5, x5, x0                                   or igpr-76, igpr-77
+  [0x10240] mov x3, x3                                       mov igpr-78, igpr-75
+  [0x10244] lsl x3, x3, #0x30                                shl igpr-78, 48
+  [0x10248] lsr x3, x3, #0x30                                shr igpr-78, 48
+  [0x1024C] orr x5, x5, x3                                   or igpr-76, igpr-78
+
+shrub-work.gc:522
+->     (set! (-> (the-as dma-packet t0-6) dma)
+  [0x10250] mov x0, x8                                       mov igpr-79, igpr-73
+  [0x10254] add x16, x0, x15                                 move [igpr-79 + 0], igpr-76
+  [0x10258] str x5, [x16] ;; misaligned with debug data
+
+shrub-work.gc:524
+->     (set! (-> (the-as dma-packet t0-6) vif0) (new 'static 'vif-tag))
+  [0x1025C] movz x0, #0                                      mov-ic igpr-80, 0
+  [0x10260] mov x3, x8                                       mov igpr-81, igpr-73
+  [0x10264] add x16, x3, x15                                 move [igpr-81 + 8], igpr-80
+  [0x10268] str w0, [x16, #8] ;; misaligned with debug data
+
+shrub-work.gc:526
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v4-32) :imm (shr (shl (+ arg2 6) 54) 54) :num (-> arg1 cnt-qwc)))
+  [0x1026C] mov x2, x2                                       mov igpr-82, igpr-7
+  [0x10270] movz x0, #0x6                                    mov-ic igpr-83, 6
+  [0x10274] add x2, x2, x0                                   addi igpr-82, igpr-83
+
+shrub-work.gc:526
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v4-32) :imm (shr (shl (+ arg2 6) 54) 54) :num (-> arg1 cnt-qwc)))
+  [0x10278] mov x2, x2                                       mov igpr-84, igpr-82
+  [0x1027C] lsl x2, x2, #0x36                                shl igpr-84, 54
+
+shrub-work.gc:526
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v4-32) :imm (shr (shl (+ arg2 6) 54) 54) :num (-> arg1 cnt-qwc)))
+  [0x10280] mov x2, x2                                       mov igpr-85, igpr-84
+  [0x10284] lsr x2, x2, #0x36                                shr igpr-85, 54
+
+shrub-work.gc:526
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v4-32) :imm (shr (shl (+ arg2 6) 54) 54) :num (-> arg1 cnt-qwc)))
+  [0x10288] add x16, x6, x15                                 mov igpr-86, [igpr-6 + 8]
+  [0x1028C] ldrb w0, [x16, #8] ;; misaligned with debug data
+
+shrub-work.gc:526
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v4-32) :imm (shr (shl (+ arg2 6) 54) 54) :num (-> arg1 cnt-qwc)))
+  [0x10290] movz x3, #0                                      mov-ic igpr-87, 1811939328
+  [0x10294] movk x3, #0x6c00, lsl #16
+  [0x10298] mov x2, x2                                       mov igpr-88, igpr-85
+  [0x1029C] lsl x2, x2, #0x30                                shl igpr-88, 48
+  [0x102A0] lsr x2, x2, #0x30                                shr igpr-88, 48
+  [0x102A4] orr x3, x3, x2                                   or igpr-87, igpr-88
+  [0x102A8] mov x0, x0                                       mov igpr-89, igpr-86
+  [0x102AC] lsl x0, x0, #0x38                                shl igpr-89, 56
+  [0x102B0] lsr x0, x0, #0x28                                shr igpr-89, 40
+  [0x102B4] orr x3, x3, x0                                   or igpr-87, igpr-89
+
+shrub-work.gc:525
+->     (set! (-> (the-as dma-packet t0-6) vif1)
+  [0x102B8] mov x2, x8                                       mov igpr-90, igpr-73
+  [0x102BC] add x16, x2, x15                                 move [igpr-90 + 12], igpr-87
+  [0x102C0] str w3, [x16, #0xc] ;; misaligned with debug data
+
+shrub-work.gc:527
+->     (set! (-> v1-5 base) (&+ (the-as pointer t0-6) 16)))
+  [0x102C4] mov x8, x8                                       mov igpr-91, igpr-73
+  [0x102C8] mov x8, x8                                       mov igpr-92, igpr-91
+  [0x102CC] movz x2, #0x10                                   mov-ic igpr-93, 16
+  [0x102D0] add x8, x8, x2                                   addi igpr-92, igpr-93
+
+shrub-work.gc:527
+->     (set! (-> v1-5 base) (&+ (the-as pointer t0-6) 16)))
+  [0x102D4] add x16, x9, x15                                 move [igpr-70 + 4], igpr-92
+  [0x102D8] str w8, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:528
+->   (let* ((v1-6 arg0)
+  [0x102DC] mov x9, x7                                       mov igpr-94, igpr-5
+
+shrub-work.gc:529
+->          (a2-8 (the-as object (-> v1-6 base))))
+  [0x102E0] add x16, x9, x15                                 mov igpr-95, [igpr-94 + 4]
+  [0x102E4] ldr w8, [x16, #4] ;; misaligned with debug data
+  [0x102E8] mov x8, x8                                       mov igpr-96, igpr-95
+
+shrub-work.gc:528
+->   (let* ((v1-6 arg0)
+  [0x102EC] mov x8, x8                                       mov igpr-97, igpr-96
+
+shrub-work.gc:531
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 stq) :qwc (-> arg1 stq-qwc)))
+  [0x102F0] add x16, x6, x15                                 mov igpr-98, [igpr-6 + 24]
+  [0x102F4] ldr w2, [x16, #0x18] ;; misaligned with debug data
+
+shrub-work.gc:531
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 stq) :qwc (-> arg1 stq-qwc)))
+  [0x102F8] add x16, x6, x15                                 mov igpr-99, [igpr-6 + 11]
+  [0x102FC] ldrb w0, [x16, #0xb] ;; misaligned with debug data
+
+shrub-work.gc:531
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 stq) :qwc (-> arg1 stq-qwc)))
+  [0x10300] movz x3, #0                                      mov-ic igpr-100, 805306368
+  [0x10304] movk x3, #0x3000, lsl #16
+  [0x10308] mov x2, x2                                       mov igpr-101, igpr-98
+  [0x1030C] lsl x2, x2, #0x21                                shl igpr-101, 33
+  [0x10310] lsr x2, x2, #1                                   shr igpr-101, 1
+  [0x10314] orr x3, x3, x2                                   or igpr-100, igpr-101
+  [0x10318] mov x0, x0                                       mov igpr-102, igpr-99
+  [0x1031C] lsl x0, x0, #0x30                                shl igpr-102, 48
+  [0x10320] lsr x0, x0, #0x30                                shr igpr-102, 48
+  [0x10324] orr x3, x3, x0                                   or igpr-100, igpr-102
+
+shrub-work.gc:530
+->     (set! (-> (the-as dma-packet a2-8) dma)
+  [0x10328] mov x2, x8                                       mov igpr-103, igpr-97
+  [0x1032C] add x16, x2, x15                                 move [igpr-103 + 0], igpr-100
+  [0x10330] str x3, [x16] ;; misaligned with debug data
+
+shrub-work.gc:532
+->     (set! (-> (the-as dma-packet a2-8) vif0) (new 'static 'vif-tag :imm #x103 :cmd (vif-cmd stcycl)))
+  [0x10334] movz x2, #0x103                                  mov-ic igpr-104, 16777475
+  [0x10338] movk x2, #0x100, lsl #16
+  [0x1033C] mov x0, x8                                       mov igpr-105, igpr-97
+  [0x10340] add x16, x0, x15                                 move [igpr-105 + 8], igpr-104
+  [0x10344] str w2, [x16, #8] ;; misaligned with debug data
+
+shrub-work.gc:534
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v2-16) :imm (shr (shl arg3 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10348] mov x2, x1                                       mov igpr-106, igpr-8
+  [0x1034C] lsl x2, x2, #0x36                                shl igpr-106, 54
+
+shrub-work.gc:534
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v2-16) :imm (shr (shl arg3 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10350] mov x2, x2                                       mov igpr-107, igpr-106
+  [0x10354] lsr x2, x2, #0x36                                shr igpr-107, 54
+
+shrub-work.gc:534
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v2-16) :imm (shr (shl arg3 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10358] add x16, x6, x15                                 mov igpr-108, [igpr-6 + 4]
+  [0x1035C] ldr w0, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:534
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v2-16) :imm (shr (shl arg3 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10360] movz x3, #0                                      mov-ic igpr-109, 1694498816
+  [0x10364] movk x3, #0x6500, lsl #16
+  [0x10368] mov x2, x2                                       mov igpr-110, igpr-107
+  [0x1036C] lsl x2, x2, #0x30                                shl igpr-110, 48
+  [0x10370] lsr x2, x2, #0x30                                shr igpr-110, 48
+  [0x10374] orr x3, x3, x2                                   or igpr-109, igpr-110
+  [0x10378] mov x0, x0                                       mov igpr-111, igpr-108
+  [0x1037C] lsl x0, x0, #0x38                                shl igpr-111, 56
+  [0x10380] lsr x0, x0, #0x28                                shr igpr-111, 40
+  [0x10384] orr x3, x3, x0                                   or igpr-109, igpr-111
+
+shrub-work.gc:533
+->     (set! (-> (the-as dma-packet a2-8) vif1)
+  [0x10388] mov x2, x8                                       mov igpr-112, igpr-97
+  [0x1038C] add x16, x2, x15                                 move [igpr-112 + 12], igpr-109
+  [0x10390] str w3, [x16, #0xc] ;; misaligned with debug data
+
+shrub-work.gc:535
+->     (set! (-> v1-6 base) (&+ (the-as pointer a2-8) 16)))
+  [0x10394] mov x8, x8                                       mov igpr-113, igpr-97
+  [0x10398] mov x8, x8                                       mov igpr-114, igpr-113
+  [0x1039C] movz x2, #0x10                                   mov-ic igpr-115, 16
+  [0x103A0] add x8, x8, x2                                   addi igpr-114, igpr-115
+
+shrub-work.gc:535
+->     (set! (-> v1-6 base) (&+ (the-as pointer a2-8) 16)))
+  [0x103A4] add x16, x9, x15                                 move [igpr-94 + 4], igpr-114
+  [0x103A8] str w8, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:536
+->   (let* ((v1-7 arg0)
+  [0x103AC] mov x9, x7                                       mov igpr-116, igpr-5
+
+shrub-work.gc:537
+->          (a2-10 (the-as object (-> v1-7 base))))
+  [0x103B0] add x16, x9, x15                                 mov igpr-117, [igpr-116 + 4]
+  [0x103B4] ldr w8, [x16, #4] ;; misaligned with debug data
+  [0x103B8] mov x8, x8                                       mov igpr-118, igpr-117
+
+shrub-work.gc:536
+->   (let* ((v1-7 arg0)
+  [0x103BC] mov x8, x8                                       mov igpr-119, igpr-118
+
+shrub-work.gc:539
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 col) :qwc (-> arg1 col-qwc)))
+  [0x103C0] add x16, x6, x15                                 mov igpr-120, [igpr-6 + 20]
+  [0x103C4] ldr w2, [x16, #0x14] ;; misaligned with debug data
+
+shrub-work.gc:539
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 col) :qwc (-> arg1 col-qwc)))
+  [0x103C8] add x16, x6, x15                                 mov igpr-121, [igpr-6 + 10]
+  [0x103CC] ldrb w0, [x16, #0xa] ;; misaligned with debug data
+
+shrub-work.gc:539
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 col) :qwc (-> arg1 col-qwc)))
+  [0x103D0] movz x3, #0                                      mov-ic igpr-122, 805306368
+  [0x103D4] movk x3, #0x3000, lsl #16
+  [0x103D8] mov x2, x2                                       mov igpr-123, igpr-120
+  [0x103DC] lsl x2, x2, #0x21                                shl igpr-123, 33
+  [0x103E0] lsr x2, x2, #1                                   shr igpr-123, 1
+  [0x103E4] orr x3, x3, x2                                   or igpr-122, igpr-123
+  [0x103E8] mov x0, x0                                       mov igpr-124, igpr-121
+  [0x103EC] lsl x0, x0, #0x30                                shl igpr-124, 48
+  [0x103F0] lsr x0, x0, #0x30                                shr igpr-124, 48
+  [0x103F4] orr x3, x3, x0                                   or igpr-122, igpr-124
+
+shrub-work.gc:538
+->     (set! (-> (the-as dma-packet a2-10) dma)
+  [0x103F8] mov x2, x8                                       mov igpr-125, igpr-119
+  [0x103FC] add x16, x2, x15                                 move [igpr-125 + 0], igpr-122
+  [0x10400] str x3, [x16] ;; misaligned with debug data
+
+shrub-work.gc:540
+->     (set! (-> (the-as dma-packet a2-10) vif0) (new 'static 'vif-tag))
+  [0x10404] movz x2, #0                                      mov-ic igpr-126, 0
+  [0x10408] mov x0, x8                                       mov igpr-127, igpr-119
+  [0x1040C] add x16, x0, x15                                 move [igpr-127 + 8], igpr-126
+  [0x10410] str w2, [x16, #8] ;; misaligned with debug data
+
+shrub-work.gc:542
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v3-8) :imm (shr (shl (+ arg3 1) 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10414] mov x2, x1                                       mov igpr-128, igpr-8
+  [0x10418] movz x0, #0x1                                    mov-ic igpr-129, 1
+  [0x1041C] add x2, x2, x0                                   addi igpr-128, igpr-129
+
+shrub-work.gc:542
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v3-8) :imm (shr (shl (+ arg3 1) 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10420] mov x2, x2                                       mov igpr-130, igpr-128
+  [0x10424] lsl x2, x2, #0x36                                shl igpr-130, 54
+
+shrub-work.gc:542
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v3-8) :imm (shr (shl (+ arg3 1) 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10428] mov x2, x2                                       mov igpr-131, igpr-130
+  [0x1042C] lsr x2, x2, #0x36                                shr igpr-131, 54
+
+shrub-work.gc:542
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v3-8) :imm (shr (shl (+ arg3 1) 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10430] add x16, x6, x15                                 mov igpr-132, [igpr-6 + 4]
+  [0x10434] ldr w0, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:542
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v3-8) :imm (shr (shl (+ arg3 1) 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10438] movz x3, #0                                      mov-ic igpr-133, 1778384896
+  [0x1043C] movk x3, #0x6a00, lsl #16
+  [0x10440] mov x2, x2                                       mov igpr-134, igpr-131
+  [0x10444] lsl x2, x2, #0x30                                shl igpr-134, 48
+  [0x10448] lsr x2, x2, #0x30                                shr igpr-134, 48
+  [0x1044C] orr x3, x3, x2                                   or igpr-133, igpr-134
+  [0x10450] mov x0, x0                                       mov igpr-135, igpr-132
+  [0x10454] lsl x0, x0, #0x38                                shl igpr-135, 56
+  [0x10458] lsr x0, x0, #0x28                                shr igpr-135, 40
+  [0x1045C] orr x3, x3, x0                                   or igpr-133, igpr-135
+
+shrub-work.gc:541
+->     (set! (-> (the-as dma-packet a2-10) vif1)
+  [0x10460] mov x2, x8                                       mov igpr-136, igpr-119
+  [0x10464] add x16, x2, x15                                 move [igpr-136 + 12], igpr-133
+  [0x10468] str w3, [x16, #0xc] ;; misaligned with debug data
+
+shrub-work.gc:543
+->     (set! (-> v1-7 base) (&+ (the-as pointer a2-10) 16)))
+  [0x1046C] mov x8, x8                                       mov igpr-137, igpr-119
+  [0x10470] mov x8, x8                                       mov igpr-138, igpr-137
+  [0x10474] movz x2, #0x10                                   mov-ic igpr-139, 16
+  [0x10478] add x8, x8, x2                                   addi igpr-138, igpr-139
+
+shrub-work.gc:543
+->     (set! (-> v1-7 base) (&+ (the-as pointer a2-10) 16)))
+  [0x1047C] add x16, x9, x15                                 move [igpr-116 + 4], igpr-138
+  [0x10480] str w8, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:544
+->   (let* ((v1-8 arg0)
+  [0x10484] mov x9, x7                                       mov igpr-140, igpr-5
+
+shrub-work.gc:545
+->          (a2-12 (the-as object (-> v1-8 base))))
+  [0x10488] add x16, x9, x15                                 mov igpr-141, [igpr-140 + 4]
+  [0x1048C] ldr w8, [x16, #4] ;; misaligned with debug data
+  [0x10490] mov x8, x8                                       mov igpr-142, igpr-141
+
+shrub-work.gc:544
+->   (let* ((v1-8 arg0)
+  [0x10494] mov x8, x8                                       mov igpr-143, igpr-142
+
+shrub-work.gc:547
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 vtx) :qwc (-> arg1 vtx-qwc)))
+  [0x10498] add x16, x6, x15                                 mov igpr-144, [igpr-6 + 16]
+  [0x1049C] ldr w2, [x16, #0x10] ;; misaligned with debug data
+
+shrub-work.gc:547
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 vtx) :qwc (-> arg1 vtx-qwc)))
+  [0x104A0] add x16, x6, x15                                 mov igpr-145, [igpr-6 + 9]
+  [0x104A4] ldrb w0, [x16, #9] ;; misaligned with debug data
+
+shrub-work.gc:547
+->           (new 'static 'dma-tag :id (dma-tag-id ref) :addr (-> arg1 vtx) :qwc (-> arg1 vtx-qwc)))
+  [0x104A8] movz x3, #0                                      mov-ic igpr-146, 805306368
+  [0x104AC] movk x3, #0x3000, lsl #16
+  [0x104B0] mov x2, x2                                       mov igpr-147, igpr-144
+  [0x104B4] lsl x2, x2, #0x21                                shl igpr-147, 33
+  [0x104B8] lsr x2, x2, #1                                   shr igpr-147, 1
+  [0x104BC] orr x3, x3, x2                                   or igpr-146, igpr-147
+  [0x104C0] mov x0, x0                                       mov igpr-148, igpr-145
+  [0x104C4] lsl x0, x0, #0x30                                shl igpr-148, 48
+  [0x104C8] lsr x0, x0, #0x30                                shr igpr-148, 48
+  [0x104CC] orr x3, x3, x0                                   or igpr-146, igpr-148
+
+shrub-work.gc:546
+->     (set! (-> (the-as dma-packet a2-12) dma)
+  [0x104D0] mov x2, x8                                       mov igpr-149, igpr-143
+  [0x104D4] add x16, x2, x15                                 move [igpr-149 + 0], igpr-146
+  [0x104D8] str x3, [x16] ;; misaligned with debug data
+
+shrub-work.gc:548
+->     (set! (-> (the-as dma-packet a2-12) vif0) (new 'static 'vif-tag))
+  [0x104DC] movz x2, #0                                      mov-ic igpr-150, 0
+  [0x104E0] mov x0, x8                                       mov igpr-151, igpr-143
+  [0x104E4] add x16, x0, x15                                 move [igpr-151 + 8], igpr-150
+  [0x104E8] str w2, [x16, #8] ;; misaligned with debug data
+
+shrub-work.gc:550
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v3-16) :imm (shr (shl (+ arg3 2) 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x104EC] mov x1, x1                                       mov igpr-152, igpr-8
+  [0x104F0] movz x2, #0x2                                    mov-ic igpr-153, 2
+  [0x104F4] add x1, x1, x2                                   addi igpr-152, igpr-153
+
+shrub-work.gc:550
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v3-16) :imm (shr (shl (+ arg3 2) 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x104F8] mov x1, x1                                       mov igpr-154, igpr-152
+  [0x104FC] lsl x1, x1, #0x36                                shl igpr-154, 54
+
+shrub-work.gc:550
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v3-16) :imm (shr (shl (+ arg3 2) 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10500] mov x1, x1                                       mov igpr-155, igpr-154
+  [0x10504] lsr x1, x1, #0x36                                shr igpr-155, 54
+
+shrub-work.gc:550
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v3-16) :imm (shr (shl (+ arg3 2) 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10508] add x16, x6, x15                                 mov igpr-156, [igpr-6 + 4]
+  [0x1050C] ldr w2, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:550
+->           (new 'static 'vif-tag :cmd (vif-cmd unpack-v3-16) :imm (shr (shl (+ arg3 2) 54) 54) :num (-> arg1 vtx-cnt)))
+  [0x10510] movz x6, #0                                      mov-ic igpr-157, 1761607680
+  [0x10514] movk x6, #0x6900, lsl #16
+  [0x10518] mov x1, x1                                       mov igpr-158, igpr-155
+  [0x1051C] lsl x1, x1, #0x30                                shl igpr-158, 48
+  [0x10520] lsr x1, x1, #0x30                                shr igpr-158, 48
+  [0x10524] orr x6, x6, x1                                   or igpr-157, igpr-158
+  [0x10528] mov x2, x2                                       mov igpr-159, igpr-156
+  [0x1052C] lsl x2, x2, #0x38                                shl igpr-159, 56
+  [0x10530] lsr x2, x2, #0x28                                shr igpr-159, 40
+  [0x10534] orr x6, x6, x2                                   or igpr-157, igpr-159
+
+shrub-work.gc:549
+->     (set! (-> (the-as dma-packet a2-12) vif1)
+  [0x10538] mov x1, x8                                       mov igpr-160, igpr-143
+  [0x1053C] add x16, x1, x15                                 move [igpr-160 + 12], igpr-157
+  [0x10540] str w6, [x16, #0xc] ;; misaligned with debug data
+
+shrub-work.gc:551
+->     (set! (-> v1-8 base) (&+ (the-as pointer a2-12) 16)))
+  [0x10544] mov x8, x8                                       mov igpr-161, igpr-143
+  [0x10548] mov x8, x8                                       mov igpr-162, igpr-161
+  [0x1054C] movz x1, #0x10                                   mov-ic igpr-163, 16
+  [0x10550] add x8, x8, x1                                   addi igpr-162, igpr-163
+
+shrub-work.gc:551
+->     (set! (-> v1-8 base) (&+ (the-as pointer a2-12) 16)))
+  [0x10554] add x16, x9, x15                                 move [igpr-140 + 4], igpr-162
+  [0x10558] str w8, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:552
+->   (let* ((v1-9 arg0)
+  [0x1055C] mov x9, x7                                       mov igpr-164, igpr-5
+
+shrub-work.gc:553
+->          (a1-7 (the-as object (-> v1-9 base))))
+  [0x10560] add x16, x9, x15                                 mov igpr-165, [igpr-164 + 4]
+  [0x10564] ldr w8, [x16, #4] ;; misaligned with debug data
+  [0x10568] mov x8, x8                                       mov igpr-166, igpr-165
+
+shrub-work.gc:552
+->   (let* ((v1-9 arg0)
+  [0x1056C] mov x8, x8                                       mov igpr-167, igpr-166
+
+shrub-work.gc:554
+->     (set! (-> (the-as dma-packet a1-7) dma) (new 'static 'dma-tag :id (dma-tag-id cnt)))
+  [0x10570] movz x1, #0                                      mov-ic igpr-168, 268435456
+  [0x10574] movk x1, #0x1000, lsl #16
+  [0x10578] mov x2, x8                                       mov igpr-169, igpr-167
+  [0x1057C] add x16, x2, x15                                 move [igpr-169 + 0], igpr-168
+  [0x10580] str x1, [x16] ;; misaligned with debug data
+
+shrub-work.gc:555
+->     (set! (-> (the-as dma-packet a1-7) vif0) (new 'static 'vif-tag :imm #x404 :cmd (vif-cmd stcycl)))
+  [0x10584] movz x1, #0x404                                  mov-ic igpr-170, 16778244
+  [0x10588] movk x1, #0x100, lsl #16
+  [0x1058C] mov x2, x8                                       mov igpr-171, igpr-167
+  [0x10590] add x16, x2, x15                                 move [igpr-171 + 8], igpr-170
+  [0x10594] str w1, [x16, #8] ;; misaligned with debug data
+
+shrub-work.gc:556
+->     (set! (-> (the-as dma-packet a1-7) vif1) (new 'static 'vif-tag :imm #xa :cmd (vif-cmd mscal) :msk #x1))
+  [0x10598] movz x1, #0xa                                    mov-ic igpr-172, 335544330
+  [0x1059C] movk x1, #0x1400, lsl #16
+  [0x105A0] mov x2, x8                                       mov igpr-173, igpr-167
+  [0x105A4] add x16, x2, x15                                 move [igpr-173 + 12], igpr-172
+  [0x105A8] str w1, [x16, #0xc] ;; misaligned with debug data
+
+shrub-work.gc:557
+->     (set! (-> v1-9 base) (&+ (the-as pointer a1-7) 16)))
+  [0x105AC] mov x8, x8                                       mov igpr-174, igpr-167
+  [0x105B0] mov x8, x8                                       mov igpr-175, igpr-174
+  [0x105B4] movz x1, #0x10                                   mov-ic igpr-176, 16
+  [0x105B8] add x8, x8, x1                                   addi igpr-175, igpr-176
+
+shrub-work.gc:557
+->     (set! (-> v1-9 base) (&+ (the-as pointer a1-7) 16)))
+  [0x105BC] add x16, x9, x15                                 move [igpr-164 + 4], igpr-175
+  [0x105C0] str w8, [x16, #4] ;; misaligned with debug data
+
+shrub-work.gc:490
+-> (defun upload-generic-shrub ((arg0 dma-buffer) (arg1 generic-shrub-fragment) (arg2 int) (arg3 int))
+  [0x105C4] mov x0, x7                                       ret igpr-4 igpr-5
+  [0x105C8] ldp x29, x30, [sp], #0x10
+  [0x105CC] ret
+
+
+

@@ -1,0 +1,1220 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+trajectory.gc:10
+-> (defmethod eval-position! ((this trajectory) (time float) (result vector))
+  [0x1000C] adrp x16, #0x10000                               mov igpr-0, 'trajectory
+  [0x10010] add x16, x16, #0
+  [0x10014] ldr w7, [x16]
+  [0x10018] movz x6, #0x9                                    mov-ic igpr-1, 9
+  [0x1001C] adrp x2, #0x10000                                mov-fa igpr-2, function-(method eval-position! trajectory)
+  [0x10020] add x2, x2, #0
+  [0x10024] sub x2, x2, x15
+  [0x10028] adrp x16, #0x10000                               mov igpr-3, 'method-set!
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w9, [x16]
+  [0x10034] mov x9, x9                                       mov igpr-8, igpr-3
+  [0x10038] mov x7, x7                                       mov igpr-5, igpr-0
+  [0x1003C] mov x6, x6                                       mov igpr-6, igpr-1
+  [0x10040] mov x2, x2                                       mov igpr-7, igpr-2
+  [0x10044] add x9, x9, x15                                  call igpr-8 (ret igpr-4) (args igpr-5 igpr-6 igpr-7)
+  [0x10048] stp x3, x5, [sp, #-0x10]!
+  [0x1004C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10050] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10054] blr x9 ;; misaligned with debug data
+  [0x10058] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1005C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] mov x3, x3                                       mov igpr-9, igpr-4
+
+trajectory.gc:19
+-> (defmethod eval-velocity! ((this trajectory) (time float) (result vector))
+  [0x10068] adrp x16, #0x10000                               mov igpr-10, 'trajectory
+  [0x1006C] add x16, x16, #0
+  [0x10070] ldr w7, [x16]
+  [0x10074] movz x6, #0xa                                    mov-ic igpr-11, 10
+  [0x10078] adrp x2, #0x10000                                mov-fa igpr-12, function-(method eval-velocity! trajectory)
+  [0x1007C] add x2, x2, #0
+  [0x10080] sub x2, x2, x15
+  [0x10084] adrp x16, #0x10000                               mov igpr-13, 'method-set!
+  [0x10088] add x16, x16, #0
+  [0x1008C] ldr w9, [x16]
+  [0x10090] mov x9, x9                                       mov igpr-18, igpr-13
+  [0x10094] mov x7, x7                                       mov igpr-15, igpr-10
+  [0x10098] mov x6, x6                                       mov igpr-16, igpr-11
+  [0x1009C] mov x2, x2                                       mov igpr-17, igpr-12
+  [0x100A0] add x9, x9, x15                                  call igpr-18 (ret igpr-14) (args igpr-15 igpr-16 igpr-17)
+  [0x100A4] stp x3, x5, [sp, #-0x10]!
+  [0x100A8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100AC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B0] blr x9 ;; misaligned with debug data
+  [0x100B4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100B8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100BC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] mov x3, x3                                       mov igpr-19, igpr-14
+
+trajectory.gc:25
+-> (defmethod setup-from-to-duration! ((this trajectory) (from vector) (to vector) (duration float) (grav float))
+  [0x100C4] adrp x16, #0x10000                               mov igpr-20, 'trajectory
+  [0x100C8] add x16, x16, #0
+  [0x100CC] ldr w7, [x16]
+  [0x100D0] movz x6, #0xb                                    mov-ic igpr-21, 11
+  [0x100D4] adrp x2, #0x10000                                mov-fa igpr-22, function-(method setup-from-to-duration! trajectory)
+  [0x100D8] add x2, x2, #0
+  [0x100DC] sub x2, x2, x15
+  [0x100E0] adrp x16, #0x10000                               mov igpr-23, 'method-set!
+  [0x100E4] add x16, x16, #0
+  [0x100E8] ldr w9, [x16]
+  [0x100EC] mov x9, x9                                       mov igpr-28, igpr-23
+  [0x100F0] mov x7, x7                                       mov igpr-25, igpr-20
+  [0x100F4] mov x6, x6                                       mov igpr-26, igpr-21
+  [0x100F8] mov x2, x2                                       mov igpr-27, igpr-22
+  [0x100FC] add x9, x9, x15                                  call igpr-28 (ret igpr-24) (args igpr-25 igpr-26 igpr-27)
+  [0x10100] stp x3, x5, [sp, #-0x10]!
+  [0x10104] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10108] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1010C] blr x9 ;; misaligned with debug data
+  [0x10110] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10114] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10118] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1011C] mov x3, x3                                       mov igpr-29, igpr-24
+
+trajectory.gc:41
+-> (defmethod setup-from-to-xz-vel! ((this trajectory) (from vector) (to vector) (xz-vel float) (grav float))
+  [0x10120] adrp x16, #0x10000                               mov igpr-30, 'trajectory
+  [0x10124] add x16, x16, #0
+  [0x10128] ldr w7, [x16]
+  [0x1012C] movz x6, #0xc                                    mov-ic igpr-31, 12
+  [0x10130] adrp x2, #0x10000                                mov-fa igpr-32, function-(method setup-from-to-xz-vel! trajectory)
+  [0x10134] add x2, x2, #0
+  [0x10138] sub x2, x2, x15
+  [0x1013C] adrp x16, #0x10000                               mov igpr-33, 'method-set!
+  [0x10140] add x16, x16, #0
+  [0x10144] ldr w9, [x16]
+  [0x10148] mov x9, x9                                       mov igpr-38, igpr-33
+  [0x1014C] mov x7, x7                                       mov igpr-35, igpr-30
+  [0x10150] mov x6, x6                                       mov igpr-36, igpr-31
+  [0x10154] mov x2, x2                                       mov igpr-37, igpr-32
+  [0x10158] add x9, x9, x15                                  call igpr-38 (ret igpr-34) (args igpr-35 igpr-36 igpr-37)
+  [0x1015C] stp x3, x5, [sp, #-0x10]!
+  [0x10160] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10164] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10168] blr x9 ;; misaligned with debug data
+  [0x1016C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10170] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10174] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10178] mov x3, x3                                       mov igpr-39, igpr-34
+
+trajectory.gc:48
+-> (defmethod setup-from-to-y-vel! ((this trajectory) (from vector) (to vector) (y-vel float) (grav float))
+  [0x1017C] adrp x16, #0x10000                               mov igpr-40, 'trajectory
+  [0x10180] add x16, x16, #0
+  [0x10184] ldr w7, [x16]
+  [0x10188] movz x6, #0xd                                    mov-ic igpr-41, 13
+  [0x1018C] adrp x2, #0x10000                                mov-fa igpr-42, function-(method setup-from-to-y-vel! trajectory)
+  [0x10190] add x2, x2, #0
+  [0x10194] sub x2, x2, x15
+  [0x10198] adrp x16, #0x10000                               mov igpr-43, 'method-set!
+  [0x1019C] add x16, x16, #0
+  [0x101A0] ldr w9, [x16]
+  [0x101A4] mov x9, x9                                       mov igpr-48, igpr-43
+  [0x101A8] mov x7, x7                                       mov igpr-45, igpr-40
+  [0x101AC] mov x6, x6                                       mov igpr-46, igpr-41
+  [0x101B0] mov x2, x2                                       mov igpr-47, igpr-42
+  [0x101B4] add x9, x9, x15                                  call igpr-48 (ret igpr-44) (args igpr-45 igpr-46 igpr-47)
+  [0x101B8] stp x3, x5, [sp, #-0x10]!
+  [0x101BC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C4] blr x9 ;; misaligned with debug data
+  [0x101C8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101CC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101D0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101D4] mov x3, x3                                       mov igpr-49, igpr-44
+
+trajectory.gc:57
+-> (defmethod setup-from-to-height! ((this trajectory) (arg0 vector) (arg1 vector) (arg2 float) (arg3 float))
+  [0x101D8] adrp x16, #0x10000                               mov igpr-50, 'trajectory
+  [0x101DC] add x16, x16, #0
+  [0x101E0] ldr w7, [x16]
+  [0x101E4] movz x6, #0xe                                    mov-ic igpr-51, 14
+  [0x101E8] adrp x2, #0x10000                                mov-fa igpr-52, function-(method setup-from-to-height! trajectory)
+  [0x101EC] add x2, x2, #0
+  [0x101F0] sub x2, x2, x15
+  [0x101F4] adrp x16, #0x10000                               mov igpr-53, 'method-set!
+  [0x101F8] add x16, x16, #0
+  [0x101FC] ldr w9, [x16]
+  [0x10200] mov x9, x9                                       mov igpr-58, igpr-53
+  [0x10204] mov x7, x7                                       mov igpr-55, igpr-50
+  [0x10208] mov x6, x6                                       mov igpr-56, igpr-51
+  [0x1020C] mov x2, x2                                       mov igpr-57, igpr-52
+  [0x10210] add x9, x9, x15                                  call igpr-58 (ret igpr-54) (args igpr-55 igpr-56 igpr-57)
+  [0x10214] stp x3, x5, [sp, #-0x10]!
+  [0x10218] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1021C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10220] blr x9 ;; misaligned with debug data
+  [0x10224] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10228] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1022C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10230] mov x3, x3                                       mov igpr-59, igpr-54
+
+trajectory.gc:67
+-> (defmethod debug-draw! ((this trajectory))
+  [0x10234] adrp x16, #0x10000                               mov igpr-60, 'trajectory
+  [0x10238] add x16, x16, #0
+  [0x1023C] ldr w7, [x16]
+  [0x10240] movz x6, #0xf                                    mov-ic igpr-61, 15
+  [0x10244] adrp x2, #0x10000                                mov-fa igpr-62, function-(method debug-draw! trajectory)
+  [0x10248] add x2, x2, #0
+  [0x1024C] sub x2, x2, x15
+  [0x10250] adrp x16, #0x10000                               mov igpr-63, 'method-set!
+  [0x10254] add x16, x16, #0
+  [0x10258] ldr w9, [x16]
+  [0x1025C] mov x9, x9                                       mov igpr-68, igpr-63
+  [0x10260] mov x7, x7                                       mov igpr-65, igpr-60
+  [0x10264] mov x6, x6                                       mov igpr-66, igpr-61
+  [0x10268] mov x2, x2                                       mov igpr-67, igpr-62
+  [0x1026C] add x9, x9, x15                                  call igpr-68 (ret igpr-64) (args igpr-65 igpr-66 igpr-67)
+  [0x10270] stp x3, x5, [sp, #-0x10]!
+  [0x10274] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10278] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1027C] blr x9 ;; misaligned with debug data
+  [0x10280] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10284] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10288] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1028C] mov x3, x3                                       mov igpr-69, igpr-64
+
+trajectory.gc:1
+-> ;-*-Lisp-*-
+  [0x10290] mov x0, x3                                       ret igpr-70 igpr-69
+  [0x10294] add sp, sp, #0x10
+  [0x10298] ldp x29, x30, [sp], #0x10
+  [0x1029C] ret
+
+
+[(method debug-draw! trajectory)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x40
+
+trajectory.gc:67
+-> (defmethod debug-draw! ((this trajectory))
+  [0x1000C] mov x7, x7                                       mov igpr-2, igpr-0
+  [0x10010] str x7, [sp, #0x30]
+
+trajectory.gc:69
+->   (let ((prev-pos (new 'stack-no-clear 'vector))
+  [0x10014] mov x3, sp                                       mov igpr-3, stack-slot-0
+  [0x10018] sub x3, x3, x15
+
+trajectory.gc:70
+->         (pos (new 'stack-no-clear 'vector))
+  [0x1001C] add x5, sp, #0x10                                mov igpr-4, stack-slot-2
+  [0x10020] sub x5, x5, x15
+
+trajectory.gc:69
+->   (let ((prev-pos (new 'stack-no-clear 'vector))
+  [0x10024] movz x12, #0xa                                   mov-ic igpr-5, 10
+  [0x10028] mov x3, x3                                       mov igpr-6, igpr-3
+  [0x1002C] str x3, [sp, #0x20]
+  [0x10030] mov x5, x5                                       mov igpr-7, igpr-4
+  [0x10034] mov x12, x12                                     mov igpr-8, igpr-5
+
+trajectory.gc:72
+->     (set! (-> pos quad) (-> this initial-position quad))
+  [0x10038] ldr x9, [sp, #0x30]                              mov ii128-9, [igpr-2 + 0]
+  [0x1003C] add x16, x9, x15
+  [0x10040] ldr q23, [x16] ;; misaligned with debug data
+  [0x10044] mov v23.16b, v23.16b                             mov ii128-10, ii128-9
+  [0x10048] add x16, x5, x15                                 move [igpr-7 + 0], ii128-10
+  [0x1004C] str q23, [x16] ;; misaligned with debug data
+
+trajectory.gc:73
+->     (dotimes (s2-0 num-segments)
+  [0x10050] movz x3, #0                                      mov-ic igpr-11, 0
+  [0x10054] mov x3, x3                                       mov igpr-12, igpr-11
+  [0x10058] b #0x101e4                                       goto label-70
+
+trajectory.gc:74
+->       (set! (-> prev-pos quad) (-> pos quad))
+  [0x1005C] add x16, x5, x15                                 mov ii128-16, [igpr-7 + 0]
+  [0x10060] ldr q23, [x16] ;; misaligned with debug data
+  [0x10064] mov v23.16b, v23.16b                             mov ii128-17, ii128-16
+  [0x10068] ldr x9, [sp, #0x20]                              move [igpr-6 + 0], ii128-17
+  [0x1006C] add x16, x9, x15
+  [0x10070] str q23, [x16] ;; misaligned with debug data
+
+trajectory.gc:75
+->       (let ((t-eval (* (-> this time) (/ (+ 1.0 (the float s2-0)) (the float num-segments)))))
+  [0x10074] ldr x9, [sp, #0x30]                              mov ifpr-19, [igpr-2 + 32]
+  [0x10078] add x16, x9, x15
+  [0x1007C] ldr s23, [x16, #0x20] ;; misaligned with debug data
+  [0x10080] mov v23.16b, v23.16b                             mov ifpr-18, ifpr-19
+
+trajectory.gc:75
+->       (let ((t-eval (* (-> this time) (/ (+ 1.0 (the float s2-0)) (the float num-segments)))))
+  [0x10084] adrp x16, #0x10000                               mov-svl ifpr-21, [(sf 1)]
+  [0x10088] ldr s22, [x16, #0xb0c]
+  [0x1008C] mov v22.16b, v22.16b                             mov ifpr-20, ifpr-21
+
+trajectory.gc:75
+->       (let ((t-eval (* (-> this time) (/ (+ 1.0 (the float s2-0)) (the float num-segments)))))
+  [0x10090] scvtf s21, w3                                    i2f ifpr-22, igpr-12
+
+trajectory.gc:75
+->       (let ((t-eval (* (-> this time) (/ (+ 1.0 (the float s2-0)) (the float num-segments)))))
+  [0x10094] fadd s22, s22, s21                               addss ifpr-20, ifpr-22
+
+trajectory.gc:75
+->       (let ((t-eval (* (-> this time) (/ (+ 1.0 (the float s2-0)) (the float num-segments)))))
+  [0x10098] scvtf s21, w12                                   i2f ifpr-23, igpr-8
+
+trajectory.gc:75
+->       (let ((t-eval (* (-> this time) (/ (+ 1.0 (the float s2-0)) (the float num-segments)))))
+  [0x1009C] adrp x16, #0x10000                               mov-svl ifpr-25, [(sf 0)]
+  [0x100A0] ldr s20, [x16, #0xb10]
+  [0x100A4] fcmp s20, s21                                    j(ifpr-25 == ifpr-23) label-29
+  [0x100A8] b.eq #0x100b8
+  [0x100AC] mov v22.16b, v22.16b                             mov ifpr-24, ifpr-20
+  [0x100B0] fdiv s22, s22, s21                               divss ifpr-24, ifpr-23
+  [0x100B4] b #0x100ec                                       goto label-38
+  [0x100B8] movz x9, #0xffff                                 mov-ic igpr-26, 2139095039
+  [0x100BC] movk x9, #0x7f7f, lsl #16
+  [0x100C0] movz x8, #0                                      mov-ic igpr-27, 2147483648
+  [0x100C4] movk x8, #0x8000, lsl #16
+  [0x100C8] fmov w1, s22                                     mov igpr-28, ifpr-20
+  [0x100CC] sxtw x1, w1
+  [0x100D0] and x1, x1, x8                                   and igpr-28, igpr-27
+  [0x100D4] eor x9, x9, x1                                   xor igpr-26, igpr-28
+  [0x100D8] fmov w1, s21                                     mov igpr-28, ifpr-23
+  [0x100DC] sxtw x1, w1
+  [0x100E0] and x1, x1, x8                                   and igpr-28, igpr-27
+  [0x100E4] eor x9, x9, x1                                   xor igpr-26, igpr-28
+  [0x100E8] fmov s22, w9                                     mov ifpr-24, igpr-26
+
+trajectory.gc:75
+->       (let ((t-eval (* (-> this time) (/ (+ 1.0 (the float s2-0)) (the float num-segments)))))
+  [0x100EC] fmul s23, s23, s22                               mulss ifpr-18, ifpr-24
+
+trajectory.gc:75
+->       (let ((t-eval (* (-> this time) (/ (+ 1.0 (the float s2-0)) (the float num-segments)))))
+  [0x100F0] mov v23.16b, v23.16b                             mov ifpr-29, ifpr-18
+
+trajectory.gc:76
+->         (eval-position! this t-eval pos))
+  [0x100F4] adrp x16, #0x10000                               mov igpr-30, 'trajectory
+  [0x100F8] add x16, x16, #0
+  [0x100FC] ldr w9, [x16]
+  [0x10100] add x16, x9, x15                                 mov igpr-31, [igpr-30 + 52]
+  [0x10104] ldr w9, [x16, #0x34] ;; misaligned with debug data
+  [0x10108] mov x9, x9                                       mov igpr-36, igpr-31
+  [0x1010C] ldr x8, [sp, #0x30]                              mov igpr-33, igpr-2
+  [0x10110] mov x7, x8
+  [0x10114] fmov w6, s23                                     mov igpr-34, ifpr-29
+  [0x10118] sxtw x6, w6
+  [0x1011C] mov x2, x5                                       mov igpr-35, igpr-7
+  [0x10120] add x9, x9, x15                                  call igpr-36 (ret igpr-32) (args igpr-33 igpr-34 igpr-35)
+  [0x10124] stp x3, x5, [sp, #-0x10]!
+  [0x10128] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1012C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10130] blr x9 ;; misaligned with debug data
+  [0x10134] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10138] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1013C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10140] mov x0, x0                                       mov igpr-37, igpr-32
+
+trajectory.gc:77
+->       (add-debug-line #t (bucket-id debug-no-zbuf) prev-pos pos (new 'static 'rgba :r #xff :a #x80) #f (the-as rgba -1))))
+  [0x10144] adrp x16, #0x10000                               mov igpr-38, 'add-debug-line
+  [0x10148] add x16, x16, #0
+  [0x1014C] ldr w9, [x16]
+
+trajectory.gc:73
+->     (dotimes (s2-0 num-segments)
+  [0x10150] add x7, x14, #8                                  mov-symptr igpr-39, '#t
+  [0x10154] sub x7, x7, x15 ;; misaligned with debug data
+
+trajectory.gc:77
+->       (add-debug-line #t (bucket-id debug-no-zbuf) prev-pos pos (new 'static 'rgba :r #xff :a #x80) #f (the-as rgba -1))))
+  [0x10158] movz x6, #0x44                                   mov-ic igpr-40, 68
+
+trajectory.gc:77
+->       (add-debug-line #t (bucket-id debug-no-zbuf) prev-pos pos (new 'static 'rgba :r #xff :a #x80) #f (the-as rgba -1))))
+  [0x1015C] movz x8, #0xff                                   mov-ic igpr-41, 2147483903
+  [0x10160] movk x8, #0x8000, lsl #16
+
+trajectory.gc:73
+->     (dotimes (s2-0 num-segments)
+  [0x10164] mov x0, x14                                      mov-symptr igpr-42, '#f
+  [0x10168] sub x0, x0, x15 ;; misaligned with debug data
+
+trajectory.gc:77
+->       (add-debug-line #t (bucket-id debug-no-zbuf) prev-pos pos (new 'static 'rgba :r #xff :a #x80) #f (the-as rgba -1))))
+  [0x1016C] movz x10, #0xffff                                mov-ic igpr-43, 18446744073709551615
+  [0x10170] movk x10, #0xffff, lsl #16
+  [0x10174] movk x10, #0xffff, lsl #32
+  [0x10178] movk x10, #0xffff, lsl #48
+  [0x1017C] mov x10, x10                                     mov igpr-44, igpr-43
+
+trajectory.gc:77
+->       (add-debug-line #t (bucket-id debug-no-zbuf) prev-pos pos (new 'static 'rgba :r #xff :a #x80) #f (the-as rgba -1))))
+  [0x10180] mov x9, x9                                       mov igpr-53, igpr-38
+  [0x10184] str x9, [sp, #0x28]
+  [0x10188] mov x7, x7                                       mov igpr-46, igpr-39
+  [0x1018C] mov x6, x6                                       mov igpr-47, igpr-40
+  [0x10190] ldr x9, [sp, #0x20]                              mov igpr-48, igpr-6
+  [0x10194] mov x2, x9
+  [0x10198] mov x1, x5                                       mov igpr-49, igpr-7
+  [0x1019C] mov x8, x8                                       mov igpr-50, igpr-41
+  [0x101A0] mov x9, x0                                       mov igpr-51, igpr-42
+  [0x101A4] mov x10, x10                                     mov igpr-52, igpr-44
+  [0x101A8] ldr x11, [sp, #0x28]                             call igpr-53 (ret igpr-45) (args igpr-46 igpr-47 igpr-48 igpr-49 igpr-50 igpr-51 igpr-52)
+  [0x101AC] add x11, x11, x15
+  [0x101B0] stp x3, x5, [sp, #-0x10]!
+  [0x101B4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101B8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101BC] blr x11 ;; misaligned with debug data
+  [0x101C0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101C4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101C8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101CC] str x11, [sp, #0x28]
+  [0x101D0] mov x0, x0                                       mov igpr-54, igpr-45
+
+trajectory.gc:73
+->     (dotimes (s2-0 num-segments)
+  [0x101D4] mov x3, x3                                       mov igpr-55, igpr-12
+  [0x101D8] movz x9, #0x1                                    mov-ic igpr-56, 1
+  [0x101DC] add x3, x3, x9                                   addi igpr-55, igpr-56
+  [0x101E0] mov x3, x3                                       mov igpr-12, igpr-55
+  [0x101E4] cmp x3, x12                                      j(igpr-12 < igpr-8) label-14
+  [0x101E8] b.lt #0x1005c
+  [0x101EC] mov x9, x14                                      mov-symptr igpr-57, '#f
+  [0x101F0] sub x9, x9, x15 ;; misaligned with debug data
+  [0x101F4] add sp, sp, #0x40
+  [0x101F8] ldp x29, x30, [sp], #0x10
+  [0x101FC] ret
+
+
+[(method setup-from-to-y-vel! trajectory)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+trajectory.gc:48
+-> (defmethod setup-from-to-y-vel! ((this trajectory) (from vector) (to vector) (y-vel float) (grav float))
+  [0x1000C] mov x7, x7                                       mov igpr-6, igpr-0
+  [0x10010] mov x6, x6                                       mov igpr-7, igpr-1
+  [0x10014] mov x2, x2                                       mov igpr-8, igpr-2
+  [0x10018] mov x1, x1                                       mov igpr-9, igpr-3
+  [0x1001C] mov x8, x8                                       mov igpr-10, igpr-4
+
+trajectory.gc:49
+->   (let ((f1-3 (- (square y-vel) (* 2.0 (- (-> from y) (-> to y)) grav)))
+  [0x10020] fmov s23, w1                                     mov ifpr-12, igpr-9
+  [0x10024] mov v23.16b, v23.16b                             mov ifpr-11, ifpr-12
+  [0x10028] fmov s22, w1                                     mov ifpr-13, igpr-9
+  [0x1002C] fmul s23, s23, s22                               mulss ifpr-11, ifpr-13
+
+trajectory.gc:49
+->   (let ((f1-3 (- (square y-vel) (* 2.0 (- (-> from y) (-> to y)) grav)))
+  [0x10030] mov v23.16b, v23.16b                             mov ifpr-14, ifpr-11
+
+trajectory.gc:49
+->   (let ((f1-3 (- (square y-vel) (* 2.0 (- (-> from y) (-> to y)) grav)))
+  [0x10034] adrp x16, #0x10000                               mov-svl ifpr-16, [(sf 2)]
+  [0x10038] ldr s22, [x16, #0xadc]
+  [0x1003C] mov v22.16b, v22.16b                             mov ifpr-15, ifpr-16
+
+trajectory.gc:49
+->   (let ((f1-3 (- (square y-vel) (* 2.0 (- (-> from y) (-> to y)) grav)))
+  [0x10040] add x16, x6, x15                                 mov ifpr-18, [igpr-7 + 4]
+  [0x10044] ldr s21, [x16, #4] ;; misaligned with debug data
+  [0x10048] mov v21.16b, v21.16b                             mov ifpr-17, ifpr-18
+  [0x1004C] add x16, x2, x15                                 mov ifpr-19, [igpr-8 + 4]
+  [0x10050] ldr s20, [x16, #4] ;; misaligned with debug data
+  [0x10054] fsub s21, s21, s20                               subss ifpr-17, ifpr-19
+
+trajectory.gc:49
+->   (let ((f1-3 (- (square y-vel) (* 2.0 (- (-> from y) (-> to y)) grav)))
+  [0x10058] fmul s22, s22, s21                               mulss ifpr-15, ifpr-17
+  [0x1005C] fmov s21, w8                                     mov ifpr-20, igpr-10
+  [0x10060] fmul s22, s22, s21                               mulss ifpr-15, ifpr-20
+
+trajectory.gc:49
+->   (let ((f1-3 (- (square y-vel) (* 2.0 (- (-> from y) (-> to y)) grav)))
+  [0x10064] fsub s23, s23, s22                               subss ifpr-14, ifpr-15
+
+trajectory.gc:49
+->   (let ((f1-3 (- (square y-vel) (* 2.0 (- (-> from y) (-> to y)) grav)))
+  [0x10068] adrp x16, #0x10000                               mov-svl ifpr-21, [(sf 900)]
+  [0x1006C] ldr s22, [x16, #0xae0]
+  [0x10070] mov v23.16b, v23.16b                             mov ifpr-22, ifpr-14
+  [0x10074] mov v22.16b, v22.16b                             mov ifpr-23, ifpr-21
+
+trajectory.gc:51
+->     (when (>= f1-3 0.0)
+  [0x10078] adrp x16, #0x10000                               mov-svl ifpr-25, [(sf 0)]
+  [0x1007C] ldr s21, [x16, #0xae4]
+  [0x10080] fcmp s23, s21                                    j(ifpr-22 < ifpr-25) label-83
+  [0x10084] b.mi #0x101b4
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x10088] movz x9, #0                                      mov-ic igpr-28, 0
+  [0x1008C] scvtf s22, w9                                    i2f ifpr-27, igpr-28
+  [0x10090] fcmp s23, s22                                    j(ifpr-22 >= ifpr-27) label-33
+  [0x10094] b.ge #0x100b0
+  [0x10098] adrp x16, #0x10000                               mov-svl ifpr-29, [(sf 0)]
+  [0x1009C] ldr s22, [x16, #0xae8]
+  [0x100A0] fsub s22, s22, s23                               subss ifpr-29, ifpr-22
+  [0x100A4] fmov w9, s22                                     mov igpr-26, ifpr-29
+  [0x100A8] sxtw x9, w9
+  [0x100AC] b #0x100b8                                       goto label-34
+  [0x100B0] fmov w9, s23                                     mov igpr-26, ifpr-22
+  [0x100B4] sxtw x9, w9
+  [0x100B8] fmov s23, w9                                     mov ifpr-31, igpr-26
+  [0x100BC] fsqrt s23, s23                                   sqrtss ifpr-30, ifpr-31
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x100C0] mov v23.16b, v23.16b                             mov ifpr-32, ifpr-30
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x100C4] adrp x16, #0x10000                               mov-svl ifpr-33, [(sf 0)]
+  [0x100C8] ldr s22, [x16, #0xaec]
+  [0x100CC] fmov s21, w1                                     mov ifpr-34, igpr-9
+  [0x100D0] fsub s22, s22, s21                               subss ifpr-33, ifpr-34
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x100D4] mov v22.16b, v22.16b                             mov ifpr-35, ifpr-33
+  [0x100D8] fsub s22, s22, s23                               subss ifpr-35, ifpr-32
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x100DC] fmov s21, w8                                     mov ifpr-36, igpr-10
+  [0x100E0] adrp x16, #0x10000                               mov-svl ifpr-38, [(sf 0)]
+  [0x100E4] ldr s20, [x16, #0xaf0]
+  [0x100E8] fcmp s20, s21                                    j(ifpr-38 == ifpr-36) label-48
+  [0x100EC] b.eq #0x100fc
+  [0x100F0] mov v22.16b, v22.16b                             mov ifpr-37, ifpr-35
+  [0x100F4] fdiv s22, s22, s21                               divss ifpr-37, ifpr-36
+  [0x100F8] b #0x10130                                       goto label-57
+  [0x100FC] movz x9, #0xffff                                 mov-ic igpr-39, 2139095039
+  [0x10100] movk x9, #0x7f7f, lsl #16
+  [0x10104] movz x0, #0                                      mov-ic igpr-40, 2147483648
+  [0x10108] movk x0, #0x8000, lsl #16
+  [0x1010C] fmov w3, s22                                     mov igpr-41, ifpr-35
+  [0x10110] sxtw x3, w3
+  [0x10114] and x3, x3, x0                                   and igpr-41, igpr-40
+  [0x10118] eor x9, x9, x3                                   xor igpr-39, igpr-41
+  [0x1011C] fmov w3, s21                                     mov igpr-41, ifpr-36
+  [0x10120] sxtw x3, w3
+  [0x10124] and x3, x3, x0                                   and igpr-41, igpr-40
+  [0x10128] eor x9, x9, x3                                   xor igpr-39, igpr-41
+  [0x1012C] fmov s22, w9                                     mov ifpr-37, igpr-39
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x10130] mov v21.16b, v22.16b                             mov ifpr-42, ifpr-37
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x10134] adrp x16, #0x10000                               mov-svl ifpr-43, [(sf 0)]
+  [0x10138] ldr s22, [x16, #0xaf4]
+  [0x1013C] fmov s20, w1                                     mov ifpr-44, igpr-9
+  [0x10140] fsub s22, s22, s20                               subss ifpr-43, ifpr-44
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x10144] mov v22.16b, v22.16b                             mov ifpr-45, ifpr-43
+  [0x10148] fadd s22, s22, s23                               addss ifpr-45, ifpr-32
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x1014C] fmov s23, w8                                     mov ifpr-46, igpr-10
+  [0x10150] adrp x16, #0x10000                               mov-svl ifpr-48, [(sf 0)]
+  [0x10154] ldr s20, [x16, #0xaf8]
+  [0x10158] fcmp s20, s23                                    j(ifpr-48 == ifpr-46) label-69
+  [0x1015C] b.eq #0x1016c
+  [0x10160] mov v22.16b, v22.16b                             mov ifpr-47, ifpr-45
+  [0x10164] fdiv s22, s22, s23                               divss ifpr-47, ifpr-46
+  [0x10168] b #0x101a0                                       goto label-78
+  [0x1016C] movz x9, #0xffff                                 mov-ic igpr-49, 2139095039
+  [0x10170] movk x9, #0x7f7f, lsl #16
+  [0x10174] movz x1, #0                                      mov-ic igpr-50, 2147483648
+  [0x10178] movk x1, #0x8000, lsl #16
+  [0x1017C] fmov w0, s22                                     mov igpr-51, ifpr-45
+  [0x10180] sxtw x0, w0
+  [0x10184] and x0, x0, x1                                   and igpr-51, igpr-50
+  [0x10188] eor x9, x9, x0                                   xor igpr-49, igpr-51
+  [0x1018C] fmov w0, s23                                     mov igpr-51, ifpr-46
+  [0x10190] sxtw x0, w0
+  [0x10194] and x0, x0, x1                                   and igpr-51, igpr-50
+  [0x10198] eor x9, x9, x0                                   xor igpr-49, igpr-51
+  [0x1019C] fmov s22, w9                                     mov ifpr-47, igpr-49
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x101A0] fmax s21, s21, s22                               maxss ifpr-42, ifpr-47
+
+trajectory.gc:52
+->       (let ((f0-4 (sqrtf f1-3))) (set! f0-3 (fmax (/ (- (- y-vel) f0-4) grav) (/ (+ (- y-vel) f0-4) grav)))))
+  [0x101A4] mov v22.16b, v21.16b                             mov ifpr-23, ifpr-42
+
+trajectory.gc:51
+->     (when (>= f1-3 0.0)
+  [0x101A8] fmov w9, s21                                     mov igpr-24, ifpr-42
+  [0x101AC] sxtw x9, w9
+  [0x101B0] b #0x101bc                                       goto label-84
+  [0x101B4] mov x9, x14                                      mov-symptr igpr-24, '#f
+  [0x101B8] sub x9, x9, x15 ;; misaligned with debug data
+
+trajectory.gc:53
+->     (setup-from-to-duration! this from to f0-3 grav))
+  [0x101BC] adrp x16, #0x10000                               mov igpr-52, 'trajectory
+  [0x101C0] add x16, x16, #0
+  [0x101C4] ldr w9, [x16]
+  [0x101C8] add x16, x9, x15                                 mov igpr-53, [igpr-52 + 60]
+  [0x101CC] ldr w9, [x16, #0x3c] ;; misaligned with debug data
+  [0x101D0] mov x9, x9                                       mov igpr-60, igpr-53
+  [0x101D4] mov x7, x7                                       mov igpr-55, igpr-6
+  [0x101D8] mov x6, x6                                       mov igpr-56, igpr-7
+  [0x101DC] mov x2, x2                                       mov igpr-57, igpr-8
+  [0x101E0] fmov w1, s22                                     mov igpr-58, ifpr-23
+  [0x101E4] sxtw x1, w1
+  [0x101E8] mov x8, x8                                       mov igpr-59, igpr-10
+  [0x101EC] add x9, x9, x15                                  call igpr-60 (ret igpr-54) (args igpr-55 igpr-56 igpr-57 igpr-58 igpr-59)
+  [0x101F0] stp x3, x5, [sp, #-0x10]!
+  [0x101F4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101F8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101FC] blr x9 ;; misaligned with debug data
+  [0x10200] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10204] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10208] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1020C] mov x3, x3                                       mov igpr-61, igpr-54
+  [0x10210] add sp, sp, #0x10
+  [0x10214] ldp x29, x30, [sp], #0x10
+  [0x10218] ret
+
+
+[(method setup-from-to-xz-vel! trajectory)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+trajectory.gc:41
+-> (defmethod setup-from-to-xz-vel! ((this trajectory) (from vector) (to vector) (xz-vel float) (grav float))
+  [0x1000C] mov x3, x7                                       mov igpr-6, igpr-0
+  [0x10010] mov x5, x6                                       mov igpr-7, igpr-1
+  [0x10014] mov x12, x2                                      mov igpr-8, igpr-2
+  [0x10018] mov x10, x1                                      mov igpr-9, igpr-3
+  [0x1001C] mov x11, x8                                      mov igpr-10, igpr-4
+
+trajectory.gc:44
+->   (let ((duration (/ (vector-vector-xz-distance to from) xz-vel))) (setup-from-to-duration! this from to duration grav))
+  [0x10020] adrp x16, #0x10000                               mov igpr-11, 'vector-vector-xz-distance
+  [0x10024] add x16, x16, #0
+  [0x10028] ldr w9, [x16]
+  [0x1002C] mov x9, x9                                       mov igpr-15, igpr-11
+  [0x10030] mov x7, x12                                      mov igpr-13, igpr-8
+  [0x10034] mov x6, x5                                       mov igpr-14, igpr-7
+  [0x10038] add x9, x9, x15                                  call igpr-15 (ret igpr-12) (args igpr-13 igpr-14)
+  [0x1003C] stp x3, x5, [sp, #-0x10]!
+  [0x10040] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10044] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10048] blr x9 ;; misaligned with debug data
+  [0x1004C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10050] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10054] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10058] mov x0, x0                                       mov igpr-16, igpr-12
+
+trajectory.gc:44
+->   (let ((duration (/ (vector-vector-xz-distance to from) xz-vel))) (setup-from-to-duration! this from to duration grav))
+  [0x1005C] fmov s23, w0                                     mov ifpr-17, igpr-16
+  [0x10060] fmov s22, w10                                    mov ifpr-18, igpr-9
+  [0x10064] adrp x16, #0x10000                               mov-svl ifpr-20, [(sf 0)]
+  [0x10068] ldr s21, [x16, #0xad8]
+  [0x1006C] fcmp s21, s22                                    j(ifpr-20 == ifpr-18) label-19
+  [0x10070] b.eq #0x10080
+  [0x10074] mov v23.16b, v23.16b                             mov ifpr-19, ifpr-17
+  [0x10078] fdiv s23, s23, s22                               divss ifpr-19, ifpr-18
+  [0x1007C] b #0x100b4                                       goto label-28
+  [0x10080] movz x9, #0xffff                                 mov-ic igpr-21, 2139095039
+  [0x10084] movk x9, #0x7f7f, lsl #16
+  [0x10088] movz x8, #0                                      mov-ic igpr-22, 2147483648
+  [0x1008C] movk x8, #0x8000, lsl #16
+  [0x10090] fmov w1, s23                                     mov igpr-23, ifpr-17
+  [0x10094] sxtw x1, w1
+  [0x10098] and x1, x1, x8                                   and igpr-23, igpr-22
+  [0x1009C] eor x9, x9, x1                                   xor igpr-21, igpr-23
+  [0x100A0] fmov w1, s22                                     mov igpr-23, ifpr-18
+  [0x100A4] sxtw x1, w1
+  [0x100A8] and x1, x1, x8                                   and igpr-23, igpr-22
+  [0x100AC] eor x9, x9, x1                                   xor igpr-21, igpr-23
+  [0x100B0] fmov s23, w9                                     mov ifpr-19, igpr-21
+
+trajectory.gc:44
+->   (let ((duration (/ (vector-vector-xz-distance to from) xz-vel))) (setup-from-to-duration! this from to duration grav))
+  [0x100B4] mov v23.16b, v23.16b                             mov ifpr-24, ifpr-19
+
+trajectory.gc:44
+->   (let ((duration (/ (vector-vector-xz-distance to from) xz-vel))) (setup-from-to-duration! this from to duration grav))
+  [0x100B8] adrp x16, #0x10000                               mov igpr-25, 'trajectory
+  [0x100BC] add x16, x16, #0
+  [0x100C0] ldr w9, [x16]
+  [0x100C4] add x16, x9, x15                                 mov igpr-26, [igpr-25 + 60]
+  [0x100C8] ldr w9, [x16, #0x3c] ;; misaligned with debug data
+  [0x100CC] mov x9, x9                                       mov igpr-33, igpr-26
+  [0x100D0] mov x7, x3                                       mov igpr-28, igpr-6
+  [0x100D4] mov x6, x5                                       mov igpr-29, igpr-7
+  [0x100D8] mov x2, x12                                      mov igpr-30, igpr-8
+  [0x100DC] fmov w1, s23                                     mov igpr-31, ifpr-24
+  [0x100E0] sxtw x1, w1
+  [0x100E4] mov x8, x11                                      mov igpr-32, igpr-10
+  [0x100E8] add x9, x9, x15                                  call igpr-33 (ret igpr-27) (args igpr-28 igpr-29 igpr-30 igpr-31 igpr-32)
+  [0x100EC] stp x3, x5, [sp, #-0x10]!
+  [0x100F0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100F8] blr x9 ;; misaligned with debug data
+  [0x100FC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10100] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10104] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10108] mov x3, x3                                       mov igpr-34, igpr-27
+  [0x1010C] add sp, sp, #0x10
+  [0x10110] ldp x29, x30, [sp], #0x10
+  [0x10114] ret
+
+
+[(method setup-from-to-duration! trajectory)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+trajectory.gc:25
+-> (defmethod setup-from-to-duration! ((this trajectory) (from vector) (to vector) (duration float) (grav float))
+  [0x1000C] mov x3, x7                                       mov igpr-6, igpr-0
+  [0x10010] mov x12, x6                                      mov igpr-7, igpr-1
+  [0x10014] mov x11, x2                                      mov igpr-8, igpr-2
+  [0x10018] mov x5, x1                                       mov igpr-9, igpr-3
+  [0x1001C] mov x8, x8                                       mov igpr-10, igpr-4
+
+trajectory.gc:27
+->   (set! (-> this initial-position quad) (-> from quad))
+  [0x10020] add x16, x12, x15                                mov ii128-11, [igpr-7 + 0]
+  [0x10024] ldr q23, [x16] ;; misaligned with debug data
+  [0x10028] mov v23.16b, v23.16b                             mov ii128-12, ii128-11
+  [0x1002C] add x16, x3, x15                                 move [igpr-6 + 0], ii128-12
+  [0x10030] str q23, [x16] ;; misaligned with debug data
+
+trajectory.gc:28
+->   (set! (-> this gravity) grav)
+  [0x10034] add x16, x3, x15                                 move [igpr-6 + 36], igpr-10
+  [0x10038] str w8, [x16, #0x24] ;; misaligned with debug data
+
+trajectory.gc:29
+->   (set! (-> this time) duration)
+  [0x1003C] add x16, x3, x15                                 move [igpr-6 + 32], igpr-9
+  [0x10040] str w5, [x16, #0x20] ;; misaligned with debug data
+
+trajectory.gc:31
+->   (let ((xz-vel (/ (vector-vector-xz-distance to from) duration)))
+  [0x10044] adrp x16, #0x10000                               mov igpr-13, 'vector-vector-xz-distance
+  [0x10048] add x16, x16, #0
+  [0x1004C] ldr w9, [x16]
+  [0x10050] mov x9, x9                                       mov igpr-17, igpr-13
+  [0x10054] mov x7, x11                                      mov igpr-15, igpr-8
+  [0x10058] mov x6, x12                                      mov igpr-16, igpr-7
+  [0x1005C] add x9, x9, x15                                  call igpr-17 (ret igpr-14) (args igpr-15 igpr-16)
+  [0x10060] stp x3, x5, [sp, #-0x10]!
+  [0x10064] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10068] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1006C] blr x9 ;; misaligned with debug data
+  [0x10070] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10074] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10078] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1007C] mov x0, x0                                       mov igpr-18, igpr-14
+
+trajectory.gc:31
+->   (let ((xz-vel (/ (vector-vector-xz-distance to from) duration)))
+  [0x10080] fmov s23, w0                                     mov ifpr-19, igpr-18
+  [0x10084] fmov s22, w5                                     mov ifpr-20, igpr-9
+  [0x10088] adrp x16, #0x10000                               mov-svl ifpr-22, [(sf 0)]
+  [0x1008C] ldr s21, [x16, #0xab8]
+  [0x10090] fcmp s21, s22                                    j(ifpr-22 == ifpr-20) label-24
+  [0x10094] b.eq #0x100a4
+  [0x10098] mov v23.16b, v23.16b                             mov ifpr-21, ifpr-19
+  [0x1009C] fdiv s23, s23, s22                               divss ifpr-21, ifpr-20
+  [0x100A0] b #0x100d8                                       goto label-33
+  [0x100A4] movz x9, #0xffff                                 mov-ic igpr-23, 2139095039
+  [0x100A8] movk x9, #0x7f7f, lsl #16
+  [0x100AC] movz x8, #0                                      mov-ic igpr-24, 2147483648
+  [0x100B0] movk x8, #0x8000, lsl #16
+  [0x100B4] fmov w1, s23                                     mov igpr-25, ifpr-19
+  [0x100B8] sxtw x1, w1
+  [0x100BC] and x1, x1, x8                                   and igpr-25, igpr-24
+  [0x100C0] eor x9, x9, x1                                   xor igpr-23, igpr-25
+  [0x100C4] fmov w1, s22                                     mov igpr-25, ifpr-20
+  [0x100C8] sxtw x1, w1
+  [0x100CC] and x1, x1, x8                                   and igpr-25, igpr-24
+  [0x100D0] eor x9, x9, x1                                   xor igpr-23, igpr-25
+  [0x100D4] fmov s23, w9                                     mov ifpr-21, igpr-23
+
+trajectory.gc:31
+->   (let ((xz-vel (/ (vector-vector-xz-distance to from) duration)))
+  [0x100D8] mov v23.16b, v23.16b                             mov ifpr-26, ifpr-21
+
+trajectory.gc:33
+->     (vector-! (-> this initial-velocity) to from)
+  [0x100DC] movz x9, #0x10                                   mov-ic igpr-27, 16
+  [0x100E0] add x9, x9, x3                                   addi igpr-27, igpr-6
+
+trajectory.gc:33
+->     (vector-! (-> this initial-velocity) to from)
+  [0x100E4] mov x9, x9                                       mov igpr-28, igpr-27
+  [0x100E8] mov x8, x11                                      mov igpr-29, igpr-8
+  [0x100EC] mov x1, x12                                      mov igpr-30, igpr-7
+
+vector-h.gc:470
+->     (.lvf vf2 a)
+  [0x100F0] add x16, x8, x15                                 mov ivf-34, [igpr-29 + 0]
+  [0x100F4] ldr q21, [x16] ;; misaligned with debug data
+
+vector-h.gc:471
+->     (.lvf vf3 b)
+  [0x100F8] add x16, x1, x15                                 mov ivf-35, [igpr-30 + 0]
+  [0x100FC] ldr q20, [x16] ;; misaligned with debug data
+
+vector-h.gc:472
+->     (init-vf0-vector)
+  [0x10100] adrp x16, #0x10000                               mov-svl ivf-32, [static-structure]
+  [0x10104] ldr q22, [x16, #0xac0]
+
+vector-h.gc:474
+->     (.sub.vf vf1 vf2 vf3)
+  [0x10108] fsub v21.4s, v21.4s, v20.4s                      .sub.vf ivf-33, ivf-34, ivf-35
+
+vector-h.gc:476
+->     (.blend.vf.w vf1 vf1 vf0)
+  [0x1010C] ins v21.s[3], v22.s[3]                           .blend.vf ivf-33, ivf-33, ivf-32, 8
+
+vector-h.gc:478
+->     (.svf dst vf1))
+  [0x10110] add x16, x9, x15                                 move [igpr-28 + 0], ivf-33
+  [0x10114] str q21, [x16] ;; misaligned with debug data
+
+trajectory.gc:35
+->     (vector-xz-normalize! (-> this initial-velocity) xz-vel))
+  [0x10118] adrp x16, #0x10000                               mov igpr-36, 'vector-xz-normalize!
+  [0x1011C] add x16, x16, #0
+  [0x10120] ldr w9, [x16]
+
+trajectory.gc:35
+->     (vector-xz-normalize! (-> this initial-velocity) xz-vel))
+  [0x10124] movz x7, #0x10                                   mov-ic igpr-37, 16
+  [0x10128] add x7, x7, x3                                   addi igpr-37, igpr-6
+
+trajectory.gc:35
+->     (vector-xz-normalize! (-> this initial-velocity) xz-vel))
+  [0x1012C] mov x9, x9                                       mov igpr-41, igpr-36
+  [0x10130] mov x7, x7                                       mov igpr-39, igpr-37
+  [0x10134] fmov w6, s23                                     mov igpr-40, ifpr-26
+  [0x10138] sxtw x6, w6
+  [0x1013C] add x9, x9, x15                                  call igpr-41 (ret igpr-38) (args igpr-39 igpr-40)
+  [0x10140] stp x3, x5, [sp, #-0x10]!
+  [0x10144] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10148] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1014C] blr x9 ;; misaligned with debug data
+  [0x10150] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10154] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10158] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1015C] mov x0, x0                                       mov igpr-42, igpr-38
+
+trajectory.gc:37
+->   (set! (-> this initial-velocity y) (- (/ (- (-> to y) (-> from y)) duration) (* (/ duration 2) (-> this gravity))))
+  [0x10160] add x16, x11, x15                                mov ifpr-44, [igpr-8 + 4]
+  [0x10164] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10168] mov v23.16b, v23.16b                             mov ifpr-43, ifpr-44
+  [0x1016C] add x16, x12, x15                                mov ifpr-45, [igpr-7 + 4]
+  [0x10170] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x10174] fsub s23, s23, s22                               subss ifpr-43, ifpr-45
+
+trajectory.gc:37
+->   (set! (-> this initial-velocity y) (- (/ (- (-> to y) (-> from y)) duration) (* (/ duration 2) (-> this gravity))))
+  [0x10178] fmov s22, w5                                     mov ifpr-46, igpr-9
+  [0x1017C] adrp x16, #0x10000                               mov-svl ifpr-48, [(sf 0)]
+  [0x10180] ldr s21, [x16, #0xad0]
+  [0x10184] fcmp s21, s22                                    j(ifpr-48 == ifpr-46) label-65
+  [0x10188] b.eq #0x10198
+  [0x1018C] mov v23.16b, v23.16b                             mov ifpr-47, ifpr-43
+  [0x10190] fdiv s23, s23, s22                               divss ifpr-47, ifpr-46
+  [0x10194] b #0x101cc                                       goto label-74
+  [0x10198] movz x9, #0xffff                                 mov-ic igpr-49, 2139095039
+  [0x1019C] movk x9, #0x7f7f, lsl #16
+  [0x101A0] movz x8, #0                                      mov-ic igpr-50, 2147483648
+  [0x101A4] movk x8, #0x8000, lsl #16
+  [0x101A8] fmov w1, s23                                     mov igpr-51, ifpr-43
+  [0x101AC] sxtw x1, w1
+  [0x101B0] and x1, x1, x8                                   and igpr-51, igpr-50
+  [0x101B4] eor x9, x9, x1                                   xor igpr-49, igpr-51
+  [0x101B8] fmov w1, s22                                     mov igpr-51, ifpr-46
+  [0x101BC] sxtw x1, w1
+  [0x101C0] and x1, x1, x8                                   and igpr-51, igpr-50
+  [0x101C4] eor x9, x9, x1                                   xor igpr-49, igpr-51
+  [0x101C8] fmov s23, w9                                     mov ifpr-47, igpr-49
+
+trajectory.gc:37
+->   (set! (-> this initial-velocity y) (- (/ (- (-> to y) (-> from y)) duration) (* (/ duration 2) (-> this gravity))))
+  [0x101CC] mov v23.16b, v23.16b                             mov ifpr-52, ifpr-47
+
+trajectory.gc:37
+->   (set! (-> this initial-velocity y) (- (/ (- (-> to y) (-> from y)) duration) (* (/ duration 2) (-> this gravity))))
+  [0x101D0] fmov s22, w5                                     mov ifpr-53, igpr-9
+  [0x101D4] movz x9, #0x2                                    mov-ic igpr-55, 2
+  [0x101D8] scvtf s21, w9                                    i2f ifpr-54, igpr-55
+  [0x101DC] adrp x16, #0x10000                               mov-svl ifpr-57, [(sf 0)]
+  [0x101E0] ldr s20, [x16, #0xad4]
+  [0x101E4] fcmp s20, s21                                    j(ifpr-57 == ifpr-54) label-83
+  [0x101E8] b.eq #0x101f8
+  [0x101EC] mov v22.16b, v22.16b                             mov ifpr-56, ifpr-53
+  [0x101F0] fdiv s22, s22, s21                               divss ifpr-56, ifpr-54
+  [0x101F4] b #0x1022c                                       goto label-92
+  [0x101F8] movz x9, #0xffff                                 mov-ic igpr-58, 2139095039
+  [0x101FC] movk x9, #0x7f7f, lsl #16
+  [0x10200] movz x8, #0                                      mov-ic igpr-59, 2147483648
+  [0x10204] movk x8, #0x8000, lsl #16
+  [0x10208] fmov w1, s22                                     mov igpr-60, ifpr-53
+  [0x1020C] sxtw x1, w1
+  [0x10210] and x1, x1, x8                                   and igpr-60, igpr-59
+  [0x10214] eor x9, x9, x1                                   xor igpr-58, igpr-60
+  [0x10218] fmov w1, s21                                     mov igpr-60, ifpr-54
+  [0x1021C] sxtw x1, w1
+  [0x10220] and x1, x1, x8                                   and igpr-60, igpr-59
+  [0x10224] eor x9, x9, x1                                   xor igpr-58, igpr-60
+  [0x10228] fmov s22, w9                                     mov ifpr-56, igpr-58
+
+trajectory.gc:37
+->   (set! (-> this initial-velocity y) (- (/ (- (-> to y) (-> from y)) duration) (* (/ duration 2) (-> this gravity))))
+  [0x1022C] mov v22.16b, v22.16b                             mov ifpr-61, ifpr-56
+  [0x10230] add x16, x3, x15                                 mov ifpr-62, [igpr-6 + 36]
+  [0x10234] ldr s21, [x16, #0x24] ;; misaligned with debug data
+  [0x10238] fmul s22, s22, s21                               mulss ifpr-61, ifpr-62
+
+trajectory.gc:37
+->   (set! (-> this initial-velocity y) (- (/ (- (-> to y) (-> from y)) duration) (* (/ duration 2) (-> this gravity))))
+  [0x1023C] fsub s23, s23, s22                               subss ifpr-52, ifpr-61
+
+trajectory.gc:37
+->   (set! (-> this initial-velocity y) (- (/ (- (-> to y) (-> from y)) duration) (* (/ duration 2) (-> this gravity))))
+  [0x10240] add x16, x3, x15                                 move [igpr-6 + 20], ifpr-52
+  [0x10244] str s23, [x16, #0x14] ;; misaligned with debug data
+  [0x10248] add sp, sp, #0x10
+  [0x1024C] ldp x29, x30, [sp], #0x10
+  [0x10250] ret
+
+
+[(method setup-from-to-height! trajectory)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+trajectory.gc:57
+-> (defmethod setup-from-to-height! ((this trajectory) (arg0 vector) (arg1 vector) (arg2 float) (arg3 float))
+  [0x1000C] mov x7, x7                                       mov igpr-6, igpr-0
+  [0x10010] mov x6, x6                                       mov igpr-7, igpr-1
+  [0x10014] mov x2, x2                                       mov igpr-8, igpr-2
+  [0x10018] mov x1, x1                                       mov igpr-9, igpr-3
+  [0x1001C] mov x8, x8                                       mov igpr-10, igpr-4
+
+trajectory.gc:59
+->   (let* ((f1-2 (+ arg2 (fmax (-> arg0 y) (-> arg1 y))))
+  [0x10020] fmov s23, w1                                     mov ifpr-12, igpr-9
+  [0x10024] mov v23.16b, v23.16b                             mov ifpr-11, ifpr-12
+
+trajectory.gc:59
+->   (let* ((f1-2 (+ arg2 (fmax (-> arg0 y) (-> arg1 y))))
+  [0x10028] add x16, x6, x15                                 mov ifpr-14, [igpr-7 + 4]
+  [0x1002C] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x10030] mov v22.16b, v22.16b                             mov ifpr-13, ifpr-14
+  [0x10034] add x16, x2, x15                                 mov ifpr-15, [igpr-8 + 4]
+  [0x10038] ldr s21, [x16, #4] ;; misaligned with debug data
+  [0x1003C] fmax s22, s22, s21                               maxss ifpr-13, ifpr-15
+
+trajectory.gc:59
+->   (let* ((f1-2 (+ arg2 (fmax (-> arg0 y) (-> arg1 y))))
+  [0x10040] fadd s23, s23, s22                               addss ifpr-11, ifpr-13
+
+trajectory.gc:59
+->   (let* ((f1-2 (+ arg2 (fmax (-> arg0 y) (-> arg1 y))))
+  [0x10044] mov v23.16b, v23.16b                             mov ifpr-16, ifpr-11
+
+trajectory.gc:60
+->          (f1-5 (* 2.0 (- (-> arg0 y) f1-2) arg3))
+  [0x10048] adrp x16, #0x10000                               mov-svl ifpr-18, [(sf 2)]
+  [0x1004C] ldr s22, [x16, #0xafc]
+  [0x10050] mov v22.16b, v22.16b                             mov ifpr-17, ifpr-18
+
+trajectory.gc:60
+->          (f1-5 (* 2.0 (- (-> arg0 y) f1-2) arg3))
+  [0x10054] add x16, x6, x15                                 mov ifpr-20, [igpr-7 + 4]
+  [0x10058] ldr s21, [x16, #4] ;; misaligned with debug data
+  [0x1005C] mov v21.16b, v21.16b                             mov ifpr-19, ifpr-20
+  [0x10060] fsub s21, s21, s23                               subss ifpr-19, ifpr-16
+
+trajectory.gc:60
+->          (f1-5 (* 2.0 (- (-> arg0 y) f1-2) arg3))
+  [0x10064] fmul s22, s22, s21                               mulss ifpr-17, ifpr-19
+  [0x10068] fmov s23, w8                                     mov ifpr-21, igpr-10
+  [0x1006C] fmul s22, s22, s23                               mulss ifpr-17, ifpr-21
+
+trajectory.gc:59
+->   (let* ((f1-2 (+ arg2 (fmax (-> arg0 y) (-> arg1 y))))
+  [0x10070] mov v22.16b, v22.16b                             mov ifpr-22, ifpr-17
+  [0x10074] adrp x16, #0x10000                               mov-svl ifpr-23, [(sf 4096)]
+  [0x10078] ldr s23, [x16, #0xb00]
+  [0x1007C] mov v23.16b, v23.16b                             mov ifpr-24, ifpr-23
+
+trajectory.gc:62
+->     (if (< 0.0 f1-5) (set! f0-3 (sqrtf f1-5)))
+  [0x10080] adrp x16, #0x10000                               mov-svl ifpr-26, [(sf 0)]
+  [0x10084] ldr s21, [x16, #0xb04]
+  [0x10088] fcmp s21, s22                                    j(ifpr-26 >= ifpr-22) label-40
+  [0x1008C] b.ge #0x100d8
+
+trajectory.gc:62
+->     (if (< 0.0 f1-5) (set! f0-3 (sqrtf f1-5)))
+  [0x10090] movz x9, #0                                      mov-ic igpr-29, 0
+  [0x10094] scvtf s23, w9                                    i2f ifpr-28, igpr-29
+  [0x10098] fcmp s22, s23                                    j(ifpr-22 >= ifpr-28) label-34
+  [0x1009C] b.ge #0x100b8
+  [0x100A0] adrp x16, #0x10000                               mov-svl ifpr-30, [(sf 0)]
+  [0x100A4] ldr s23, [x16, #0xb08]
+  [0x100A8] fsub s23, s23, s22                               subss ifpr-30, ifpr-22
+  [0x100AC] fmov w9, s23                                     mov igpr-27, ifpr-30
+  [0x100B0] sxtw x9, w9
+  [0x100B4] b #0x100c0                                       goto label-35
+  [0x100B8] fmov w9, s22                                     mov igpr-27, ifpr-22
+  [0x100BC] sxtw x9, w9
+  [0x100C0] fmov s23, w9                                     mov ifpr-32, igpr-27
+  [0x100C4] fsqrt s22, s23                                   sqrtss ifpr-31, ifpr-32
+
+trajectory.gc:62
+->     (if (< 0.0 f1-5) (set! f0-3 (sqrtf f1-5)))
+  [0x100C8] mov v23.16b, v22.16b                             mov ifpr-24, ifpr-31
+
+trajectory.gc:62
+->     (if (< 0.0 f1-5) (set! f0-3 (sqrtf f1-5)))
+  [0x100CC] fmov w9, s22                                     mov igpr-25, ifpr-31
+  [0x100D0] sxtw x9, w9
+  [0x100D4] b #0x100e0                                       goto label-41
+  [0x100D8] mov x9, x14                                      mov-symptr igpr-25, '#f
+  [0x100DC] sub x9, x9, x15 ;; misaligned with debug data
+
+trajectory.gc:63
+->     (setup-from-to-y-vel! this arg0 arg1 f0-3 arg3))
+  [0x100E0] adrp x16, #0x10000                               mov igpr-33, 'trajectory
+  [0x100E4] add x16, x16, #0
+  [0x100E8] ldr w9, [x16]
+  [0x100EC] add x16, x9, x15                                 mov igpr-34, [igpr-33 + 68]
+  [0x100F0] ldr w9, [x16, #0x44] ;; misaligned with debug data
+  [0x100F4] mov x9, x9                                       mov igpr-41, igpr-34
+  [0x100F8] mov x7, x7                                       mov igpr-36, igpr-6
+  [0x100FC] mov x6, x6                                       mov igpr-37, igpr-7
+  [0x10100] mov x2, x2                                       mov igpr-38, igpr-8
+  [0x10104] fmov w1, s23                                     mov igpr-39, ifpr-24
+  [0x10108] sxtw x1, w1
+  [0x1010C] mov x8, x8                                       mov igpr-40, igpr-10
+  [0x10110] add x9, x9, x15                                  call igpr-41 (ret igpr-35) (args igpr-36 igpr-37 igpr-38 igpr-39 igpr-40)
+  [0x10114] stp x3, x5, [sp, #-0x10]!
+  [0x10118] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1011C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10120] blr x9 ;; misaligned with debug data
+  [0x10124] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10128] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1012C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10130] mov x3, x3                                       mov igpr-42, igpr-35
+  [0x10134] add sp, sp, #0x10
+  [0x10138] ldp x29, x30, [sp], #0x10
+  [0x1013C] ret
+
+
+[(method eval-velocity! trajectory)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+trajectory.gc:19
+-> (defmethod eval-velocity! ((this trajectory) (time float) (result vector))
+  [0x10008] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-6, igpr-2
+
+trajectory.gc:21
+->   (set! (-> result quad) (-> this initial-velocity quad))
+  [0x10014] add x16, x7, x15                                 mov ii128-7, [igpr-4 + 16]
+  [0x10018] ldr q23, [x16, #0x10] ;; misaligned with debug data
+  [0x1001C] mov v23.16b, v23.16b                             mov ii128-8, ii128-7
+  [0x10020] add x16, x2, x15                                 move [igpr-6 + 0], ii128-8
+  [0x10024] str q23, [x16] ;; misaligned with debug data
+
+trajectory.gc:22
+->   (+! (-> result y) (* time (-> this gravity)))
+  [0x10028] add x16, x2, x15                                 mov ifpr-10, [igpr-6 + 4]
+  [0x1002C] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10030] mov v23.16b, v23.16b                             mov ifpr-9, ifpr-10
+
+trajectory.gc:22
+->   (+! (-> result y) (* time (-> this gravity)))
+  [0x10034] fmov s22, w6                                     mov ifpr-12, igpr-5
+  [0x10038] mov v22.16b, v22.16b                             mov ifpr-11, ifpr-12
+  [0x1003C] add x16, x7, x15                                 mov ifpr-13, [igpr-4 + 36]
+  [0x10040] ldr s21, [x16, #0x24] ;; misaligned with debug data
+  [0x10044] fmul s22, s22, s21                               mulss ifpr-11, ifpr-13
+
+trajectory.gc:22
+->   (+! (-> result y) (* time (-> this gravity)))
+  [0x10048] fadd s23, s23, s22                               addss ifpr-9, ifpr-11
+  [0x1004C] add x16, x2, x15                                 move [igpr-6 + 4], ifpr-9
+  [0x10050] str s23, [x16, #4] ;; misaligned with debug data
+
+trajectory.gc:19
+-> (defmethod eval-velocity! ((this trajectory) (time float) (result vector))
+  [0x10054] mov x0, x2                                       ret igpr-3 igpr-6
+  [0x10058] ldp x29, x30, [sp], #0x10
+  [0x1005C] ret
+
+
+[(method eval-position! trajectory)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+trajectory.gc:10
+-> (defmethod eval-position! ((this trajectory) (time float) (result vector))
+  [0x10008] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-6, igpr-2
+
+trajectory.gc:12
+->   (set! (-> result quad) (-> this initial-position quad))
+  [0x10014] add x16, x7, x15                                 mov ii128-7, [igpr-4 + 0]
+  [0x10018] ldr q23, [x16] ;; misaligned with debug data
+  [0x1001C] mov v23.16b, v23.16b                             mov ii128-8, ii128-7
+  [0x10020] add x16, x2, x15                                 move [igpr-6 + 0], ii128-8
+  [0x10024] str q23, [x16] ;; misaligned with debug data
+
+trajectory.gc:13
+->   (+! (-> result x) (* time (-> this initial-velocity x)))
+  [0x10028] add x16, x2, x15                                 mov ifpr-10, [igpr-6 + 0]
+  [0x1002C] ldr s23, [x16] ;; misaligned with debug data
+  [0x10030] mov v23.16b, v23.16b                             mov ifpr-9, ifpr-10
+
+trajectory.gc:13
+->   (+! (-> result x) (* time (-> this initial-velocity x)))
+  [0x10034] fmov s22, w6                                     mov ifpr-12, igpr-5
+  [0x10038] mov v22.16b, v22.16b                             mov ifpr-11, ifpr-12
+  [0x1003C] add x16, x7, x15                                 mov ifpr-13, [igpr-4 + 16]
+  [0x10040] ldr s21, [x16, #0x10] ;; misaligned with debug data
+  [0x10044] fmul s22, s22, s21                               mulss ifpr-11, ifpr-13
+
+trajectory.gc:13
+->   (+! (-> result x) (* time (-> this initial-velocity x)))
+  [0x10048] fadd s23, s23, s22                               addss ifpr-9, ifpr-11
+  [0x1004C] add x16, x2, x15                                 move [igpr-6 + 0], ifpr-9
+  [0x10050] str s23, [x16] ;; misaligned with debug data
+
+trajectory.gc:14
+->   (+! (-> result y) (* time (-> this initial-velocity y)))
+  [0x10054] add x16, x2, x15                                 mov ifpr-15, [igpr-6 + 4]
+  [0x10058] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x1005C] mov v23.16b, v23.16b                             mov ifpr-14, ifpr-15
+
+trajectory.gc:14
+->   (+! (-> result y) (* time (-> this initial-velocity y)))
+  [0x10060] fmov s22, w6                                     mov ifpr-17, igpr-5
+  [0x10064] mov v22.16b, v22.16b                             mov ifpr-16, ifpr-17
+  [0x10068] add x16, x7, x15                                 mov ifpr-18, [igpr-4 + 20]
+  [0x1006C] ldr s21, [x16, #0x14] ;; misaligned with debug data
+  [0x10070] fmul s22, s22, s21                               mulss ifpr-16, ifpr-18
+
+trajectory.gc:14
+->   (+! (-> result y) (* time (-> this initial-velocity y)))
+  [0x10074] fadd s23, s23, s22                               addss ifpr-14, ifpr-16
+  [0x10078] add x16, x2, x15                                 move [igpr-6 + 4], ifpr-14
+  [0x1007C] str s23, [x16, #4] ;; misaligned with debug data
+
+trajectory.gc:15
+->   (+! (-> result z) (* time (-> this initial-velocity z)))
+  [0x10080] add x16, x2, x15                                 mov ifpr-20, [igpr-6 + 8]
+  [0x10084] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x10088] mov v23.16b, v23.16b                             mov ifpr-19, ifpr-20
+
+trajectory.gc:15
+->   (+! (-> result z) (* time (-> this initial-velocity z)))
+  [0x1008C] fmov s22, w6                                     mov ifpr-22, igpr-5
+  [0x10090] mov v22.16b, v22.16b                             mov ifpr-21, ifpr-22
+  [0x10094] add x16, x7, x15                                 mov ifpr-23, [igpr-4 + 24]
+  [0x10098] ldr s21, [x16, #0x18] ;; misaligned with debug data
+  [0x1009C] fmul s22, s22, s21                               mulss ifpr-21, ifpr-23
+
+trajectory.gc:15
+->   (+! (-> result z) (* time (-> this initial-velocity z)))
+  [0x100A0] fadd s23, s23, s22                               addss ifpr-19, ifpr-21
+  [0x100A4] add x16, x2, x15                                 move [igpr-6 + 8], ifpr-19
+  [0x100A8] str s23, [x16, #8] ;; misaligned with debug data
+
+trajectory.gc:16
+->   (+! (-> result y) (* (/ time 2) time (-> this gravity)))
+  [0x100AC] add x16, x2, x15                                 mov ifpr-25, [igpr-6 + 4]
+  [0x100B0] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x100B4] mov v23.16b, v23.16b                             mov ifpr-24, ifpr-25
+
+trajectory.gc:16
+->   (+! (-> result y) (* (/ time 2) time (-> this gravity)))
+  [0x100B8] fmov s22, w6                                     mov ifpr-26, igpr-5
+  [0x100BC] movz x9, #0x2                                    mov-ic igpr-28, 2
+  [0x100C0] scvtf s21, w9                                    i2f ifpr-27, igpr-28
+  [0x100C4] adrp x16, #0x10000                               mov-svl ifpr-30, [(sf 0)]
+  [0x100C8] ldr s20, [x16, #0xab4]
+  [0x100CC] fcmp s20, s21                                    j(ifpr-30 == ifpr-27) label-41
+  [0x100D0] b.eq #0x100e0
+  [0x100D4] mov v22.16b, v22.16b                             mov ifpr-29, ifpr-26
+  [0x100D8] fdiv s22, s22, s21                               divss ifpr-29, ifpr-27
+  [0x100DC] b #0x10114                                       goto label-50
+  [0x100E0] movz x9, #0xffff                                 mov-ic igpr-31, 2139095039
+  [0x100E4] movk x9, #0x7f7f, lsl #16
+  [0x100E8] movz x8, #0                                      mov-ic igpr-32, 2147483648
+  [0x100EC] movk x8, #0x8000, lsl #16
+  [0x100F0] fmov w1, s22                                     mov igpr-33, ifpr-26
+  [0x100F4] sxtw x1, w1
+  [0x100F8] and x1, x1, x8                                   and igpr-33, igpr-32
+  [0x100FC] eor x9, x9, x1                                   xor igpr-31, igpr-33
+  [0x10100] fmov w1, s21                                     mov igpr-33, ifpr-27
+  [0x10104] sxtw x1, w1
+  [0x10108] and x1, x1, x8                                   and igpr-33, igpr-32
+  [0x1010C] eor x9, x9, x1                                   xor igpr-31, igpr-33
+  [0x10110] fmov s22, w9                                     mov ifpr-29, igpr-31
+
+trajectory.gc:16
+->   (+! (-> result y) (* (/ time 2) time (-> this gravity)))
+  [0x10114] mov v22.16b, v22.16b                             mov ifpr-34, ifpr-29
+  [0x10118] fmov s21, w6                                     mov ifpr-35, igpr-5
+  [0x1011C] fmul s22, s22, s21                               mulss ifpr-34, ifpr-35
+  [0x10120] add x16, x7, x15                                 mov ifpr-36, [igpr-4 + 36]
+  [0x10124] ldr s21, [x16, #0x24] ;; misaligned with debug data
+  [0x10128] fmul s22, s22, s21                               mulss ifpr-34, ifpr-36
+
+trajectory.gc:16
+->   (+! (-> result y) (* (/ time 2) time (-> this gravity)))
+  [0x1012C] fadd s23, s23, s22                               addss ifpr-24, ifpr-34
+  [0x10130] add x16, x2, x15                                 move [igpr-6 + 4], ifpr-24
+  [0x10134] str s23, [x16, #4] ;; misaligned with debug data
+
+trajectory.gc:10
+-> (defmethod eval-position! ((this trajectory) (time float) (result vector))
+  [0x10138] mov x0, x2                                       ret igpr-3 igpr-6
+  [0x1013C] ldp x29, x30, [sp], #0x10
+  [0x10140] ret
+
+
+

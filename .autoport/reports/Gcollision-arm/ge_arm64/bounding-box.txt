@@ -1,0 +1,1007 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+  [0x1000C] adrp x9, #0x10000                                mov-fa igpr-0, function-box-vector-enside?
+  [0x10010] add x9, x9, #0
+  [0x10014] sub x9, x9, x15
+
+bounding-box.gc:9
+-> (defun box-vector-enside? ((box bounding-box) (pt vector))
+  [0x10018] adrp x16, #0x10000                               mov 'box-vector-enside?, igpr-0
+  [0x1001C] add x16, x16, #0
+  [0x10020] str w9, [x16]
+  [0x10024] adrp x9, #0x10000                                mov-fa igpr-1, function-box-vector-inside?
+  [0x10028] add x9, x9, #0
+  [0x1002C] sub x9, x9, x15
+
+bounding-box.gc:18
+-> (defun box-vector-inside? ((box bounding-box) (pt vector))
+  [0x10030] adrp x16, #0x10000                               mov 'box-vector-inside?, igpr-1
+  [0x10034] add x16, x16, #0
+  [0x10038] str w9, [x16]
+
+bounding-box.gc:27
+-> (defmethod set-from-point-offset! ((this bounding-box) (arg0 vector3s) (arg1 vector3s))
+  [0x1003C] adrp x16, #0x10000                               mov igpr-2, 'bounding-box
+  [0x10040] add x16, x16, #0
+  [0x10044] ldr w7, [x16]
+  [0x10048] movz x6, #0xb                                    mov-ic igpr-3, 11
+  [0x1004C] adrp x2, #0x10000                                mov-fa igpr-4, function-(method set-from-point-offset! bounding-box)
+  [0x10050] add x2, x2, #0
+  [0x10054] sub x2, x2, x15
+  [0x10058] adrp x16, #0x10000                               mov igpr-5, 'method-set!
+  [0x1005C] add x16, x16, #0
+  [0x10060] ldr w9, [x16]
+  [0x10064] mov x9, x9                                       mov igpr-10, igpr-5
+  [0x10068] mov x7, x7                                       mov igpr-7, igpr-2
+  [0x1006C] mov x6, x6                                       mov igpr-8, igpr-3
+  [0x10070] mov x2, x2                                       mov igpr-9, igpr-4
+  [0x10074] add x9, x9, x15                                  call igpr-10 (ret igpr-6) (args igpr-7 igpr-8 igpr-9)
+  [0x10078] stp x3, x5, [sp, #-0x10]!
+  [0x1007C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10080] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10084] blr x9 ;; misaligned with debug data
+  [0x10088] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1008C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10090] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10094] mov x3, x3                                       mov igpr-11, igpr-6
+
+bounding-box.gc:47
+-> (defmethod add-point! ((this bounding-box) (arg0 vector3s))
+  [0x10098] adrp x16, #0x10000                               mov igpr-12, 'bounding-box
+  [0x1009C] add x16, x16, #0
+  [0x100A0] ldr w7, [x16]
+  [0x100A4] movz x6, #0xa                                    mov-ic igpr-13, 10
+  [0x100A8] adrp x2, #0x10000                                mov-fa igpr-14, function-(method add-point! bounding-box)
+  [0x100AC] add x2, x2, #0
+  [0x100B0] sub x2, x2, x15
+  [0x100B4] adrp x16, #0x10000                               mov igpr-15, 'method-set!
+  [0x100B8] add x16, x16, #0
+  [0x100BC] ldr w9, [x16]
+  [0x100C0] mov x9, x9                                       mov igpr-20, igpr-15
+  [0x100C4] mov x7, x7                                       mov igpr-17, igpr-12
+  [0x100C8] mov x6, x6                                       mov igpr-18, igpr-13
+  [0x100CC] mov x2, x2                                       mov igpr-19, igpr-14
+  [0x100D0] add x9, x9, x15                                  call igpr-20 (ret igpr-16) (args igpr-17 igpr-18 igpr-19)
+  [0x100D4] stp x3, x5, [sp, #-0x10]!
+  [0x100D8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100DC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E0] blr x9 ;; misaligned with debug data
+  [0x100E4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100E8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100EC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100F0] mov x3, x3                                       mov igpr-21, igpr-16
+
+bounding-box.gc:61
+-> (defmethod add-box! ((this bounding-box) (arg0 bounding-box))
+  [0x100F4] adrp x16, #0x10000                               mov igpr-22, 'bounding-box
+  [0x100F8] add x16, x16, #0
+  [0x100FC] ldr w7, [x16]
+  [0x10100] movz x6, #0xf                                    mov-ic igpr-23, 15
+  [0x10104] adrp x2, #0x10000                                mov-fa igpr-24, function-(method add-box! bounding-box)
+  [0x10108] add x2, x2, #0
+  [0x1010C] sub x2, x2, x15
+  [0x10110] adrp x16, #0x10000                               mov igpr-25, 'method-set!
+  [0x10114] add x16, x16, #0
+  [0x10118] ldr w9, [x16]
+  [0x1011C] mov x9, x9                                       mov igpr-30, igpr-25
+  [0x10120] mov x7, x7                                       mov igpr-27, igpr-22
+  [0x10124] mov x6, x6                                       mov igpr-28, igpr-23
+  [0x10128] mov x2, x2                                       mov igpr-29, igpr-24
+  [0x1012C] add x9, x9, x15                                  call igpr-30 (ret igpr-26) (args igpr-27 igpr-28 igpr-29)
+  [0x10130] stp x3, x5, [sp, #-0x10]!
+  [0x10134] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10138] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1013C] blr x9 ;; misaligned with debug data
+  [0x10140] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10144] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10148] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1014C] mov x3, x3                                       mov igpr-31, igpr-26
+
+bounding-box.gc:77
+-> (defmethod set-from-point-offset-pad! ((this bounding-box) (arg0 vector3s) (arg1 vector3s) (arg2 float))
+  [0x10150] adrp x16, #0x10000                               mov igpr-32, 'bounding-box
+  [0x10154] add x16, x16, #0
+  [0x10158] ldr w7, [x16]
+  [0x1015C] movz x6, #0xc                                    mov-ic igpr-33, 12
+  [0x10160] adrp x2, #0x10000                                mov-fa igpr-34, function-(method set-from-point-offset-pad! bounding-box)
+  [0x10164] add x2, x2, #0
+  [0x10168] sub x2, x2, x15
+  [0x1016C] adrp x16, #0x10000                               mov igpr-35, 'method-set!
+  [0x10170] add x16, x16, #0
+  [0x10174] ldr w9, [x16]
+  [0x10178] mov x9, x9                                       mov igpr-40, igpr-35
+  [0x1017C] mov x7, x7                                       mov igpr-37, igpr-32
+  [0x10180] mov x6, x6                                       mov igpr-38, igpr-33
+  [0x10184] mov x2, x2                                       mov igpr-39, igpr-34
+  [0x10188] add x9, x9, x15                                  call igpr-40 (ret igpr-36) (args igpr-37 igpr-38 igpr-39)
+  [0x1018C] stp x3, x5, [sp, #-0x10]!
+  [0x10190] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10194] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10198] blr x9 ;; misaligned with debug data
+  [0x1019C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101A0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101A4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101A8] mov x3, x3                                       mov igpr-41, igpr-36
+
+bounding-box.gc:101
+-> (defmethod set-from-sphere! ((this bounding-box) (arg0 sphere))
+  [0x101AC] adrp x16, #0x10000                               mov igpr-42, 'bounding-box
+  [0x101B0] add x16, x16, #0
+  [0x101B4] ldr w7, [x16]
+  [0x101B8] movz x6, #0xd                                    mov-ic igpr-43, 13
+  [0x101BC] adrp x2, #0x10000                                mov-fa igpr-44, function-(method set-from-sphere! bounding-box)
+  [0x101C0] add x2, x2, #0
+  [0x101C4] sub x2, x2, x15
+  [0x101C8] adrp x16, #0x10000                               mov igpr-45, 'method-set!
+  [0x101CC] add x16, x16, #0
+  [0x101D0] ldr w9, [x16]
+  [0x101D4] mov x9, x9                                       mov igpr-50, igpr-45
+  [0x101D8] mov x7, x7                                       mov igpr-47, igpr-42
+  [0x101DC] mov x6, x6                                       mov igpr-48, igpr-43
+  [0x101E0] mov x2, x2                                       mov igpr-49, igpr-44
+  [0x101E4] add x9, x9, x15                                  call igpr-50 (ret igpr-46) (args igpr-47 igpr-48 igpr-49)
+  [0x101E8] stp x3, x5, [sp, #-0x10]!
+  [0x101EC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101F0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101F4] blr x9 ;; misaligned with debug data
+  [0x101F8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101FC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10200] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10204] mov x3, x3                                       mov igpr-51, igpr-46
+
+bounding-box.gc:123
+-> (defmethod add-spheres! ((this bounding-box) (spheres (inline-array sphere)) (count int))
+  [0x10208] adrp x16, #0x10000                               mov igpr-52, 'bounding-box
+  [0x1020C] add x16, x16, #0
+  [0x10210] ldr w7, [x16]
+  [0x10214] movz x6, #0x9                                    mov-ic igpr-53, 9
+  [0x10218] adrp x2, #0x10000                                mov-fa igpr-54, function-(method add-spheres! bounding-box)
+  [0x1021C] add x2, x2, #0
+  [0x10220] sub x2, x2, x15
+  [0x10224] adrp x16, #0x10000                               mov igpr-55, 'method-set!
+  [0x10228] add x16, x16, #0
+  [0x1022C] ldr w9, [x16]
+  [0x10230] mov x9, x9                                       mov igpr-60, igpr-55
+  [0x10234] mov x7, x7                                       mov igpr-57, igpr-52
+  [0x10238] mov x6, x6                                       mov igpr-58, igpr-53
+  [0x1023C] mov x2, x2                                       mov igpr-59, igpr-54
+  [0x10240] add x9, x9, x15                                  call igpr-60 (ret igpr-56) (args igpr-57 igpr-58 igpr-59)
+  [0x10244] stp x3, x5, [sp, #-0x10]!
+  [0x10248] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1024C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10250] blr x9 ;; misaligned with debug data
+  [0x10254] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10258] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1025C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10260] mov x3, x3                                       mov igpr-61, igpr-56
+
+bounding-box.gc:147
+-> (defmethod set-from-spheres! ((this bounding-box) (spheres (inline-array sphere)) (count int))
+  [0x10264] adrp x16, #0x10000                               mov igpr-62, 'bounding-box
+  [0x10268] add x16, x16, #0
+  [0x1026C] ldr w7, [x16]
+  [0x10270] movz x6, #0xe                                    mov-ic igpr-63, 14
+  [0x10274] adrp x2, #0x10000                                mov-fa igpr-64, function-(method set-from-spheres! bounding-box)
+  [0x10278] add x2, x2, #0
+  [0x1027C] sub x2, x2, x15
+  [0x10280] adrp x16, #0x10000                               mov igpr-65, 'method-set!
+  [0x10284] add x16, x16, #0
+  [0x10288] ldr w9, [x16]
+  [0x1028C] mov x9, x9                                       mov igpr-70, igpr-65
+  [0x10290] mov x7, x7                                       mov igpr-67, igpr-62
+  [0x10294] mov x6, x6                                       mov igpr-68, igpr-63
+  [0x10298] mov x2, x2                                       mov igpr-69, igpr-64
+  [0x1029C] add x9, x9, x15                                  call igpr-70 (ret igpr-66) (args igpr-67 igpr-68 igpr-69)
+  [0x102A0] stp x3, x5, [sp, #-0x10]!
+  [0x102A4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102A8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102AC] blr x9 ;; misaligned with debug data
+  [0x102B0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x102B4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x102B8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x102BC] mov x3, x3                                       mov igpr-71, igpr-66
+
+bounding-box.gc:1
+-> ;-*-Lisp-*-
+  [0x102C0] mov x0, x3                                       ret igpr-72 igpr-71
+  [0x102C4] add sp, sp, #0x10
+  [0x102C8] ldp x29, x30, [sp], #0x10
+  [0x102CC] ret
+
+
+[(method set-from-spheres! bounding-box)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+bounding-box.gc:147
+-> (defmethod set-from-spheres! ((this bounding-box) (spheres (inline-array sphere)) (count int))
+  [0x10008] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-6, igpr-2
+
+bounding-box.gc:157
+->     (init-vf0-vector)
+  [0x10014] adrp x16, #0x10000                               mov-svl ivf-7, [static-structure]
+  [0x10018] ldr q23, [x16, #0x780]
+
+bounding-box.gc:159
+->     (set! current-min vf0)
+  [0x1001C] mov v22.16b, v23.16b                             mov ivf-8, ivf-7
+
+bounding-box.gc:160
+->     (set! current-max vf0)
+  [0x10020] mov v23.16b, v23.16b                             mov ivf-9, ivf-7
+
+bounding-box.gc:161
+->     (dotimes (i count)
+  [0x10024] movz x9, #0                                      mov-ic igpr-13, 0
+  [0x10028] mov x9, x9                                       mov igpr-14, igpr-13
+  [0x1002C] b #0x100bc                                       goto label-35
+
+bounding-box.gc:162
+->       (.lvf sph (-> spheres i))
+  [0x10030] mov x8, x9                                       mov igpr-18, igpr-14
+  [0x10034] lsl x8, x8, #4                                   shl igpr-18, 4
+
+bounding-box.gc:162
+->       (.lvf sph (-> spheres i))
+  [0x10038] mov x8, x8                                       mov igpr-19, igpr-18
+  [0x1003C] add x8, x8, x6                                   addi igpr-19, igpr-5
+  [0x10040] add x16, x8, x15                                 mov ivf-12, [igpr-19 + 0]
+  [0x10044] ldr q19, [x16] ;; misaligned with debug data
+
+bounding-box.gc:163
+->       (.sub.w.vf.xyz sph-min sph sph)
+  [0x10048] dup v18.4s, v19.s[3]                             .splat.vf ivf-20, ivf-12, 3
+  [0x1004C] fsub v18.4s, v19.4s, v18.4s                      .sub.vf ivf-20, ivf-12, ivf-20
+  [0x10050] ins v21.s[0], v18.s[0]                           .blend.vf ivf-10, ivf-10, ivf-20, 7
+  [0x10054] ins v21.s[1], v18.s[1] ;; misaligned with debug data
+  [0x10058] ins v21.s[2], v18.s[2] ;; misaligned with debug data
+
+bounding-box.gc:164
+->       (.add.w.vf.xyz sph-max sph sph)
+  [0x1005C] dup v18.4s, v19.s[3]                             .splat.vf ivf-21, ivf-12, 3
+  [0x10060] fadd v18.4s, v19.4s, v18.4s                      .add.vf ivf-21, ivf-12, ivf-21
+  [0x10064] ins v20.s[0], v18.s[0]                           .blend.vf ivf-11, ivf-11, ivf-21, 7
+  [0x10068] ins v20.s[1], v18.s[1] ;; misaligned with debug data
+  [0x1006C] ins v20.s[2], v18.s[2] ;; misaligned with debug data
+
+bounding-box.gc:166
+->         ((zero? i) (set! current-min sph-min) (set! current-max sph-max))
+  [0x10070] movz x8, #0                                      mov-ic igpr-23, 0
+  [0x10074] cmp x9, x8                                       j(igpr-14 != igpr-23) label-27
+  [0x10078] b.ne #0x1008c
+
+bounding-box.gc:166
+->         ((zero? i) (set! current-min sph-min) (set! current-max sph-max))
+  [0x1007C] mov v22.16b, v21.16b                             mov ivf-8, ivf-10
+
+bounding-box.gc:166
+->         ((zero? i) (set! current-min sph-min) (set! current-max sph-max))
+  [0x10080] mov v23.16b, v20.16b                             mov ivf-9, ivf-11
+
+bounding-box.gc:166
+->         ((zero? i) (set! current-min sph-min) (set! current-max sph-max))
+  [0x10084] fmov x8, d20                                     mov igpr-22, ivf-11
+  [0x10088] b #0x100ac                                       goto label-31
+
+bounding-box.gc:167
+->         (else (.min.vf.xyz current-min current-min sph-min) (.max.vf.xyz current-max current-max sph-max))))
+  [0x1008C] fmin v19.4s, v22.4s, v21.4s                      .min.vf ivf-24, ivf-8, ivf-10
+  [0x10090] ins v22.s[0], v19.s[0]                           .blend.vf ivf-8, ivf-8, ivf-24, 7
+  [0x10094] ins v22.s[1], v19.s[1] ;; misaligned with debug data
+  [0x10098] ins v22.s[2], v19.s[2] ;; misaligned with debug data
+
+bounding-box.gc:167
+->         (else (.min.vf.xyz current-min current-min sph-min) (.max.vf.xyz current-max current-max sph-max))))
+  [0x1009C] fmax v19.4s, v23.4s, v20.4s                      .max.vf ivf-25, ivf-9, ivf-11
+  [0x100A0] ins v23.s[0], v19.s[0]                           .blend.vf ivf-9, ivf-9, ivf-25, 7
+  [0x100A4] ins v23.s[1], v19.s[1] ;; misaligned with debug data
+  [0x100A8] ins v23.s[2], v19.s[2] ;; misaligned with debug data
+
+bounding-box.gc:161
+->     (dotimes (i count)
+  [0x100AC] mov x9, x9                                       mov igpr-26, igpr-14
+  [0x100B0] movz x8, #0x1                                    mov-ic igpr-27, 1
+  [0x100B4] add x9, x9, x8                                   addi igpr-26, igpr-27
+  [0x100B8] mov x9, x9                                       mov igpr-14, igpr-26
+  [0x100BC] cmp x9, x2                                       j(igpr-14 < igpr-6) label-10
+  [0x100C0] b.lt #0x10030
+  [0x100C4] mov x9, x14                                      mov-symptr igpr-28, '#f
+  [0x100C8] sub x9, x9, x15 ;; misaligned with debug data
+
+bounding-box.gc:168
+->     (.svf (-> this min) current-min)
+  [0x100CC] add x16, x7, x15                                 move [igpr-4 + 0], ivf-8
+  [0x100D0] str q22, [x16] ;; misaligned with debug data
+
+bounding-box.gc:169
+->     (.svf (-> this max) current-max))
+  [0x100D4] add x16, x7, x15                                 move [igpr-4 + 16], ivf-9
+  [0x100D8] str q23, [x16, #0x10] ;; misaligned with debug data
+  [0x100DC] movz x0, #0                                      mov-ic igpr-29, 0
+
+bounding-box.gc:147
+-> (defmethod set-from-spheres! ((this bounding-box) (spheres (inline-array sphere)) (count int))
+  [0x100E0] mov x0, x0                                       ret igpr-3 igpr-29
+  [0x100E4] ldp x29, x30, [sp], #0x10
+  [0x100E8] ret
+
+
+[(method set-from-sphere! bounding-box)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+bounding-box.gc:101
+-> (defmethod set-from-sphere! ((this bounding-box) (arg0 sphere))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+bounding-box.gc:107
+->     (init-vf0-vector)
+  [0x10010] adrp x16, #0x10000                               mov-svl ivf-5, [static-structure]
+  [0x10014] ldr q23, [x16, #0x770]
+
+bounding-box.gc:108
+->     (.lvf vf1 arg0)
+  [0x10018] add x16, x6, x15                                 mov ivf-6, [igpr-4 + 0]
+  [0x1001C] ldr q22, [x16] ;; misaligned with debug data
+
+bounding-box.gc:109
+->     (.sub.w.vf.xyz vf2 vf1 vf1)
+  [0x10020] dup v19.4s, v22.s[3]                             .splat.vf ivf-9, ivf-6, 3
+  [0x10024] fsub v19.4s, v22.4s, v19.4s                      .sub.vf ivf-9, ivf-6, ivf-9
+  [0x10028] ins v21.s[0], v19.s[0]                           .blend.vf ivf-7, ivf-7, ivf-9, 7
+  [0x1002C] ins v21.s[1], v19.s[1] ;; misaligned with debug data
+  [0x10030] ins v21.s[2], v19.s[2] ;; misaligned with debug data
+
+bounding-box.gc:110
+->     (.add.w.vf.xyz vf3 vf1 vf1)
+  [0x10034] dup v19.4s, v22.s[3]                             .splat.vf ivf-10, ivf-6, 3
+  [0x10038] fadd v19.4s, v22.4s, v19.4s                      .add.vf ivf-10, ivf-6, ivf-10
+  [0x1003C] ins v20.s[0], v19.s[0]                           .blend.vf ivf-8, ivf-8, ivf-10, 7
+  [0x10040] ins v20.s[1], v19.s[1] ;; misaligned with debug data
+  [0x10044] ins v20.s[2], v19.s[2] ;; misaligned with debug data
+
+bounding-box.gc:111
+->     (.mov.vf.w vf2 vf0)
+  [0x10048] ins v21.s[3], v23.s[3]                           .blend.vf ivf-7, ivf-7, ivf-5, 8
+
+bounding-box.gc:112
+->     (.mov.vf.w vf3 vf0)
+  [0x1004C] ins v20.s[3], v23.s[3]                           .blend.vf ivf-8, ivf-8, ivf-5, 8
+
+bounding-box.gc:113
+->     (.svf this vf2)
+  [0x10050] add x16, x7, x15                                 move [igpr-3 + 0], ivf-7
+  [0x10054] str q21, [x16] ;; misaligned with debug data
+
+bounding-box.gc:114
+->     (.svf this vf3 :offset 16)
+  [0x10058] add x16, x7, x15                                 move [igpr-3 + 16], ivf-8
+  [0x1005C] str q20, [x16, #0x10] ;; misaligned with debug data
+  [0x10060] movz x0, #0                                      mov-ic igpr-11, 0
+
+bounding-box.gc:101
+-> (defmethod set-from-sphere! ((this bounding-box) (arg0 sphere))
+  [0x10064] mov x0, x0                                       ret igpr-2 igpr-11
+  [0x10068] ldp x29, x30, [sp], #0x10
+  [0x1006C] ret
+
+
+[(method add-box! bounding-box)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+bounding-box.gc:61
+-> (defmethod add-box! ((this bounding-box) (arg0 bounding-box))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+bounding-box.gc:67
+->     (.lvf vf1 (&-> this min quad))
+  [0x10010] add x16, x7, x15                                 mov ivf-5, [igpr-3 + 0]
+  [0x10014] ldr q23, [x16] ;; misaligned with debug data
+
+bounding-box.gc:68
+->     (.lvf vf2 (&-> this max quad))
+  [0x10018] add x16, x7, x15                                 mov ivf-6, [igpr-3 + 16]
+  [0x1001C] ldr q22, [x16, #0x10] ;; misaligned with debug data
+
+bounding-box.gc:69
+->     (.lvf vf3 (&-> arg0 min quad))
+  [0x10020] add x16, x6, x15                                 mov ivf-7, [igpr-4 + 0]
+  [0x10024] ldr q21, [x16] ;; misaligned with debug data
+
+bounding-box.gc:70
+->     (.lvf vf4 (&-> arg0 max quad))
+  [0x10028] add x16, x6, x15                                 mov ivf-8, [igpr-4 + 16]
+  [0x1002C] ldr q20, [x16, #0x10] ;; misaligned with debug data
+
+bounding-box.gc:71
+->     (.min.vf vf1 vf1 vf3)
+  [0x10030] fmin v23.4s, v23.4s, v21.4s                      .min.vf ivf-5, ivf-5, ivf-7
+
+bounding-box.gc:72
+->     (.max.vf vf2 vf2 vf4)
+  [0x10034] fmax v22.4s, v22.4s, v20.4s                      .max.vf ivf-6, ivf-6, ivf-8
+
+bounding-box.gc:73
+->     (.svf (&-> this min quad) vf1)
+  [0x10038] add x16, x7, x15                                 move [igpr-3 + 0], ivf-5
+  [0x1003C] str q23, [x16] ;; misaligned with debug data
+
+bounding-box.gc:74
+->     (.svf (&-> this max quad) vf2)
+  [0x10040] add x16, x7, x15                                 move [igpr-3 + 16], ivf-6
+  [0x10044] str q22, [x16, #0x10] ;; misaligned with debug data
+  [0x10048] movz x0, #0                                      mov-ic igpr-9, 0
+
+bounding-box.gc:61
+-> (defmethod add-box! ((this bounding-box) (arg0 bounding-box))
+  [0x1004C] mov x0, x0                                       ret igpr-2 igpr-9
+  [0x10050] ldp x29, x30, [sp], #0x10
+  [0x10054] ret
+
+
+[(method add-point! bounding-box)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+bounding-box.gc:47
+-> (defmethod add-point! ((this bounding-box) (arg0 vector3s))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+bounding-box.gc:52
+->     (.lvf vf1 (&-> this min quad))
+  [0x10010] add x16, x7, x15                                 mov ivf-5, [igpr-3 + 0]
+  [0x10014] ldr q23, [x16] ;; misaligned with debug data
+
+bounding-box.gc:53
+->     (.lvf vf2 (&-> this max quad))
+  [0x10018] add x16, x7, x15                                 mov ivf-6, [igpr-3 + 16]
+  [0x1001C] ldr q22, [x16, #0x10] ;; misaligned with debug data
+
+bounding-box.gc:54
+->     (.lvf vf3 arg0)
+  [0x10020] add x16, x6, x15                                 mov ivf-7, [igpr-4 + 0]
+  [0x10024] ldr q21, [x16] ;; misaligned with debug data
+
+bounding-box.gc:55
+->     (.min.vf vf1 vf1 vf3)
+  [0x10028] fmin v23.4s, v23.4s, v21.4s                      .min.vf ivf-5, ivf-5, ivf-7
+
+bounding-box.gc:56
+->     (.max.vf vf2 vf2 vf3)
+  [0x1002C] fmax v22.4s, v22.4s, v21.4s                      .max.vf ivf-6, ivf-6, ivf-7
+
+bounding-box.gc:57
+->     (.svf (&-> this min quad) vf1)
+  [0x10030] add x16, x7, x15                                 move [igpr-3 + 0], ivf-5
+  [0x10034] str q23, [x16] ;; misaligned with debug data
+
+bounding-box.gc:58
+->     (.svf (&-> this max quad) vf2)
+  [0x10038] add x16, x7, x15                                 move [igpr-3 + 16], ivf-6
+  [0x1003C] str q22, [x16, #0x10] ;; misaligned with debug data
+  [0x10040] movz x0, #0                                      mov-ic igpr-8, 0
+
+bounding-box.gc:47
+-> (defmethod add-point! ((this bounding-box) (arg0 vector3s))
+  [0x10044] mov x0, x0                                       ret igpr-2 igpr-8
+  [0x10048] ldp x29, x30, [sp], #0x10
+  [0x1004C] ret
+
+
+[(method set-from-point-offset! bounding-box)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+bounding-box.gc:27
+-> (defmethod set-from-point-offset! ((this bounding-box) (arg0 vector3s) (arg1 vector3s))
+  [0x10008] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-6, igpr-2
+
+bounding-box.gc:35
+->     (init-vf0-vector)
+  [0x10014] adrp x16, #0x10000                               mov-svl ivf-7, [static-structure]
+  [0x10018] ldr q23, [x16, #0x750]
+
+bounding-box.gc:36
+->     (.lvf vf3 arg1)
+  [0x1001C] add x16, x2, x15                                 mov ivf-10, [igpr-6 + 0]
+  [0x10020] ldr q22, [x16] ;; misaligned with debug data
+
+bounding-box.gc:37
+->     (.lvf vf4 arg0)
+  [0x10024] add x16, x6, x15                                 mov ivf-11, [igpr-5 + 0]
+  [0x10028] ldr q21, [x16] ;; misaligned with debug data
+
+bounding-box.gc:38
+->     (.add.vf vf5 vf4 vf3)
+  [0x1002C] fadd v20.4s, v21.4s, v22.4s                      .add.vf ivf-12, ivf-11, ivf-10
+
+bounding-box.gc:39
+->     (.min.vf vf1 vf4 vf5)
+  [0x10030] fmin v22.4s, v21.4s, v20.4s                      .min.vf ivf-8, ivf-11, ivf-12
+
+bounding-box.gc:40
+->     (.max.vf vf2 vf4 vf5)
+  [0x10034] fmax v21.4s, v21.4s, v20.4s                      .max.vf ivf-9, ivf-11, ivf-12
+
+bounding-box.gc:41
+->     (.mov.vf.w vf1 vf0)
+  [0x10038] ins v22.s[3], v23.s[3]                           .blend.vf ivf-8, ivf-8, ivf-7, 8
+
+bounding-box.gc:42
+->     (.mov.vf.w vf2 vf0)
+  [0x1003C] ins v21.s[3], v23.s[3]                           .blend.vf ivf-9, ivf-9, ivf-7, 8
+
+bounding-box.gc:43
+->     (.svf (&-> this min quad) vf1)
+  [0x10040] add x16, x7, x15                                 move [igpr-4 + 0], ivf-8
+  [0x10044] str q22, [x16] ;; misaligned with debug data
+
+bounding-box.gc:44
+->     (.svf (&-> this max quad) vf2)
+  [0x10048] add x16, x7, x15                                 move [igpr-4 + 16], ivf-9
+  [0x1004C] str q21, [x16, #0x10] ;; misaligned with debug data
+  [0x10050] movz x0, #0                                      mov-ic igpr-13, 0
+
+bounding-box.gc:27
+-> (defmethod set-from-point-offset! ((this bounding-box) (arg0 vector3s) (arg1 vector3s))
+  [0x10054] mov x0, x0                                       ret igpr-3 igpr-13
+  [0x10058] ldp x29, x30, [sp], #0x10
+  [0x1005C] ret
+
+
+[(method add-spheres! bounding-box)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+bounding-box.gc:123
+-> (defmethod add-spheres! ((this bounding-box) (spheres (inline-array sphere)) (count int))
+  [0x10008] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-6, igpr-2
+
+bounding-box.gc:133
+->     (when (nonzero? count)
+  [0x10014] movz x9, #0                                      mov-ic igpr-13, 0
+  [0x10018] cmp x2, x9                                       j(igpr-6 == igpr-13) label-36
+  [0x1001C] b.eq #0x100d0
+
+bounding-box.gc:135
+->       (.lvf current-min (-> this min))
+  [0x10020] add x16, x7, x15                                 mov ivf-7, [igpr-4 + 0]
+  [0x10024] ldr q23, [x16] ;; misaligned with debug data
+
+bounding-box.gc:136
+->       (.lvf current-max (-> this max))
+  [0x10028] add x16, x7, x15                                 mov ivf-8, [igpr-4 + 16]
+  [0x1002C] ldr q22, [x16, #0x10] ;; misaligned with debug data
+
+bounding-box.gc:137
+->       (dotimes (i count)
+  [0x10030] movz x9, #0                                      mov-ic igpr-14, 0
+  [0x10034] mov x9, x9                                       mov igpr-15, igpr-14
+  [0x10038] b #0x100ac                                       goto label-30
+
+bounding-box.gc:138
+->         (.lvf sph (-> spheres i))
+  [0x1003C] mov x8, x9                                       mov igpr-19, igpr-15
+  [0x10040] lsl x8, x8, #4                                   shl igpr-19, 4
+
+bounding-box.gc:138
+->         (.lvf sph (-> spheres i))
+  [0x10044] mov x8, x8                                       mov igpr-20, igpr-19
+  [0x10048] add x8, x8, x6                                   addi igpr-20, igpr-5
+  [0x1004C] add x16, x8, x15                                 mov ivf-11, [igpr-20 + 0]
+  [0x10050] ldr q19, [x16] ;; misaligned with debug data
+
+bounding-box.gc:139
+->         (.sub.w.vf.xyz sph-min sph sph)
+  [0x10054] dup v18.4s, v19.s[3]                             .splat.vf ivf-21, ivf-11, 3
+  [0x10058] fsub v18.4s, v19.4s, v18.4s                      .sub.vf ivf-21, ivf-11, ivf-21
+  [0x1005C] ins v21.s[0], v18.s[0]                           .blend.vf ivf-9, ivf-9, ivf-21, 7
+  [0x10060] ins v21.s[1], v18.s[1] ;; misaligned with debug data
+  [0x10064] ins v21.s[2], v18.s[2] ;; misaligned with debug data
+
+bounding-box.gc:140
+->         (.add.w.vf.xyz sph-max sph sph)
+  [0x10068] dup v18.4s, v19.s[3]                             .splat.vf ivf-22, ivf-11, 3
+  [0x1006C] fadd v18.4s, v19.4s, v18.4s                      .add.vf ivf-22, ivf-11, ivf-22
+  [0x10070] ins v20.s[0], v18.s[0]                           .blend.vf ivf-10, ivf-10, ivf-22, 7
+  [0x10074] ins v20.s[1], v18.s[1] ;; misaligned with debug data
+  [0x10078] ins v20.s[2], v18.s[2] ;; misaligned with debug data
+
+bounding-box.gc:141
+->         (.min.vf.xyz current-min current-min sph-min)
+  [0x1007C] fmin v19.4s, v23.4s, v21.4s                      .min.vf ivf-23, ivf-7, ivf-9
+  [0x10080] ins v23.s[0], v19.s[0]                           .blend.vf ivf-7, ivf-7, ivf-23, 7
+  [0x10084] ins v23.s[1], v19.s[1] ;; misaligned with debug data
+  [0x10088] ins v23.s[2], v19.s[2] ;; misaligned with debug data
+
+bounding-box.gc:142
+->         (.max.vf.xyz current-max current-max sph-max))
+  [0x1008C] fmax v19.4s, v22.4s, v20.4s                      .max.vf ivf-24, ivf-8, ivf-10
+  [0x10090] ins v22.s[0], v19.s[0]                           .blend.vf ivf-8, ivf-8, ivf-24, 7
+  [0x10094] ins v22.s[1], v19.s[1] ;; misaligned with debug data
+  [0x10098] ins v22.s[2], v19.s[2] ;; misaligned with debug data
+
+bounding-box.gc:137
+->       (dotimes (i count)
+  [0x1009C] mov x9, x9                                       mov igpr-25, igpr-15
+  [0x100A0] movz x8, #0x1                                    mov-ic igpr-26, 1
+  [0x100A4] add x9, x9, x8                                   addi igpr-25, igpr-26
+  [0x100A8] mov x9, x9                                       mov igpr-15, igpr-25
+  [0x100AC] cmp x9, x2                                       j(igpr-15 < igpr-6) label-11
+  [0x100B0] b.lt #0x1003c
+  [0x100B4] mov x9, x14                                      mov-symptr igpr-27, '#f
+  [0x100B8] sub x9, x9, x15 ;; misaligned with debug data
+
+bounding-box.gc:143
+->       (.svf (-> this min) current-min)
+  [0x100BC] add x16, x7, x15                                 move [igpr-4 + 0], ivf-7
+  [0x100C0] str q23, [x16] ;; misaligned with debug data
+
+bounding-box.gc:144
+->       (.svf (-> this max) current-max)))
+  [0x100C4] add x16, x7, x15                                 move [igpr-4 + 16], ivf-8
+  [0x100C8] str q22, [x16, #0x10] ;; misaligned with debug data
+
+bounding-box.gc:133
+->     (when (nonzero? count)
+  [0x100CC] b #0x100d8                                       goto label-37
+  [0x100D0] mov x9, x14                                      mov-symptr igpr-12, '#f
+  [0x100D4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100D8] movz x0, #0                                      mov-ic igpr-28, 0
+
+bounding-box.gc:123
+-> (defmethod add-spheres! ((this bounding-box) (spheres (inline-array sphere)) (count int))
+  [0x100DC] mov x0, x0                                       ret igpr-3 igpr-28
+  [0x100E0] ldp x29, x30, [sp], #0x10
+  [0x100E4] ret
+
+
+[(method set-from-point-offset-pad! bounding-box)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+bounding-box.gc:77
+-> (defmethod set-from-point-offset-pad! ((this bounding-box) (arg0 vector3s) (arg1 vector3s) (arg2 float))
+  [0x10008] mov x7, x7                                       mov igpr-5, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-6, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-7, igpr-2
+  [0x10014] mov x1, x1                                       mov igpr-8, igpr-3
+
+bounding-box.gc:86
+->     (init-vf0-vector)
+  [0x10018] adrp x16, #0x10000                               mov-svl ivf-9, [static-structure]
+  [0x1001C] ldr q23, [x16, #0x760]
+
+bounding-box.gc:87
+->     (.lvf vf4 arg1)
+  [0x10020] add x16, x2, x15                                 mov ivf-13, [igpr-7 + 0]
+  [0x10024] ldr q21, [x16] ;; misaligned with debug data
+
+bounding-box.gc:88
+->     (.lvf vf5 arg0)
+  [0x10028] add x16, x6, x15                                 mov ivf-14, [igpr-6 + 0]
+  [0x1002C] ldr q20, [x16] ;; misaligned with debug data
+
+bounding-box.gc:89
+->     (.mov vf1 arg2)
+  [0x10030] fmov d22, x1                                     .mov ivf-10 igpr-8
+
+bounding-box.gc:90
+->     (.add.vf vf6 vf5 vf4)
+  [0x10034] fadd v19.4s, v20.4s, v21.4s                      .add.vf ivf-15, ivf-14, ivf-13
+
+bounding-box.gc:91
+->     (.min.vf vf2 vf5 vf6)
+  [0x10038] fmin v21.4s, v20.4s, v19.4s                      .min.vf ivf-11, ivf-14, ivf-15
+
+bounding-box.gc:92
+->     (.max.vf vf3 vf5 vf6)
+  [0x1003C] fmax v20.4s, v20.4s, v19.4s                      .max.vf ivf-12, ivf-14, ivf-15
+
+bounding-box.gc:93
+->     (.add.x.vf.xyz vf3 vf3 vf1)
+  [0x10040] dup v19.4s, v22.s[0]                             .splat.vf ivf-16, ivf-10, 0
+  [0x10044] fadd v19.4s, v20.4s, v19.4s                      .add.vf ivf-16, ivf-12, ivf-16
+  [0x10048] ins v20.s[0], v19.s[0]                           .blend.vf ivf-12, ivf-12, ivf-16, 7
+  [0x1004C] ins v20.s[1], v19.s[1] ;; misaligned with debug data
+  [0x10050] ins v20.s[2], v19.s[2] ;; misaligned with debug data
+
+bounding-box.gc:94
+->     (.sub.x.vf.xyz vf2 vf2 vf1)
+  [0x10054] dup v22.4s, v22.s[0]                             .splat.vf ivf-17, ivf-10, 0
+  [0x10058] fsub v22.4s, v21.4s, v22.4s                      .sub.vf ivf-17, ivf-11, ivf-17
+  [0x1005C] ins v21.s[0], v22.s[0]                           .blend.vf ivf-11, ivf-11, ivf-17, 7
+  [0x10060] ins v21.s[1], v22.s[1] ;; misaligned with debug data
+  [0x10064] ins v21.s[2], v22.s[2] ;; misaligned with debug data
+
+bounding-box.gc:95
+->     (.mov.vf.w vf2 vf0)
+  [0x10068] ins v21.s[3], v23.s[3]                           .blend.vf ivf-11, ivf-11, ivf-9, 8
+
+bounding-box.gc:96
+->     (.mov.vf.w vf3 vf0)
+  [0x1006C] ins v20.s[3], v23.s[3]                           .blend.vf ivf-12, ivf-12, ivf-9, 8
+
+bounding-box.gc:97
+->     (.svf (&-> this min quad) vf2)
+  [0x10070] add x16, x7, x15                                 move [igpr-5 + 0], ivf-11
+  [0x10074] str q21, [x16] ;; misaligned with debug data
+
+bounding-box.gc:98
+->     (.svf (&-> this max quad) vf3)
+  [0x10078] add x16, x7, x15                                 move [igpr-5 + 16], ivf-12
+  [0x1007C] str q20, [x16, #0x10] ;; misaligned with debug data
+  [0x10080] movz x0, #0                                      mov-ic igpr-18, 0
+
+bounding-box.gc:77
+-> (defmethod set-from-point-offset-pad! ((this bounding-box) (arg0 vector3s) (arg1 vector3s) (arg2 float))
+  [0x10084] mov x0, x0                                       ret igpr-4 igpr-18
+  [0x10088] ldp x29, x30, [sp], #0x10
+  [0x1008C] ret
+
+
+[box-vector-inside?]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+bounding-box.gc:18
+-> (defun box-vector-inside? ((box bounding-box) (pt vector))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+bounding-box.gc:20
+->   (and (>= (-> pt x) (-> box min x))
+  [0x10010] add x16, x6, x15                                 mov ifpr-6, [igpr-4 + 0]
+  [0x10014] ldr s23, [x16] ;; misaligned with debug data
+  [0x10018] add x16, x7, x15                                 mov ifpr-7, [igpr-3 + 0]
+  [0x1001C] ldr s22, [x16] ;; misaligned with debug data
+  [0x10020] mov x0, x14                                      mov-symptr igpr-8, '#f
+  [0x10024] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10028] fcmp s23, s22                                    j(ifpr-6 < ifpr-7) label-9
+  [0x1002C] b.mi #0x1003c
+  [0x10030] add x0, x14, #8                                  mov-symptr igpr-9, '#t
+  [0x10034] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10038] mov x0, x0                                       mov igpr-8, igpr-9
+  [0x1003C] mov x0, x0                                       mov igpr-5, igpr-8
+  [0x10040] mov x9, x14                                      mov-symptr igpr-10, '#f
+  [0x10044] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10048] cmp x0, x9                                       j(igpr-5 == igpr-10) label-55
+  [0x1004C] b.eq #0x10180
+
+bounding-box.gc:21
+->        (>= (-> pt y) (-> box min y))
+  [0x10050] add x16, x6, x15                                 mov ifpr-11, [igpr-4 + 4]
+  [0x10054] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10058] add x16, x7, x15                                 mov ifpr-12, [igpr-3 + 4]
+  [0x1005C] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x10060] mov x0, x14                                      mov-symptr igpr-13, '#f
+  [0x10064] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10068] fcmp s23, s22                                    j(ifpr-11 < ifpr-12) label-18
+  [0x1006C] b.mi #0x1007c
+  [0x10070] add x0, x14, #8                                  mov-symptr igpr-14, '#t
+  [0x10074] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10078] mov x0, x0                                       mov igpr-13, igpr-14
+  [0x1007C] mov x0, x0                                       mov igpr-5, igpr-13
+  [0x10080] mov x9, x14                                      mov-symptr igpr-15, '#f
+  [0x10084] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10088] cmp x0, x9                                       j(igpr-5 == igpr-15) label-55
+  [0x1008C] b.eq #0x10180
+
+bounding-box.gc:22
+->        (>= (-> pt z) (-> box min z))
+  [0x10090] add x16, x6, x15                                 mov ifpr-16, [igpr-4 + 8]
+  [0x10094] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x10098] add x16, x7, x15                                 mov ifpr-17, [igpr-3 + 8]
+  [0x1009C] ldr s22, [x16, #8] ;; misaligned with debug data
+  [0x100A0] mov x0, x14                                      mov-symptr igpr-18, '#f
+  [0x100A4] sub x0, x0, x15 ;; misaligned with debug data
+  [0x100A8] fcmp s23, s22                                    j(ifpr-16 < ifpr-17) label-27
+  [0x100AC] b.mi #0x100bc
+  [0x100B0] add x0, x14, #8                                  mov-symptr igpr-19, '#t
+  [0x100B4] sub x0, x0, x15 ;; misaligned with debug data
+  [0x100B8] mov x0, x0                                       mov igpr-18, igpr-19
+  [0x100BC] mov x0, x0                                       mov igpr-5, igpr-18
+  [0x100C0] mov x9, x14                                      mov-symptr igpr-20, '#f
+  [0x100C4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100C8] cmp x0, x9                                       j(igpr-5 == igpr-20) label-55
+  [0x100CC] b.eq #0x10180
+
+bounding-box.gc:23
+->        (>= (-> box max x) (-> pt x))
+  [0x100D0] add x16, x7, x15                                 mov ifpr-21, [igpr-3 + 16]
+  [0x100D4] ldr s23, [x16, #0x10] ;; misaligned with debug data
+  [0x100D8] add x16, x6, x15                                 mov ifpr-22, [igpr-4 + 0]
+  [0x100DC] ldr s22, [x16] ;; misaligned with debug data
+  [0x100E0] mov x0, x14                                      mov-symptr igpr-23, '#f
+  [0x100E4] sub x0, x0, x15 ;; misaligned with debug data
+  [0x100E8] fcmp s23, s22                                    j(ifpr-21 < ifpr-22) label-36
+  [0x100EC] b.mi #0x100fc
+  [0x100F0] add x0, x14, #8                                  mov-symptr igpr-24, '#t
+  [0x100F4] sub x0, x0, x15 ;; misaligned with debug data
+  [0x100F8] mov x0, x0                                       mov igpr-23, igpr-24
+  [0x100FC] mov x0, x0                                       mov igpr-5, igpr-23
+  [0x10100] mov x9, x14                                      mov-symptr igpr-25, '#f
+  [0x10104] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10108] cmp x0, x9                                       j(igpr-5 == igpr-25) label-55
+  [0x1010C] b.eq #0x10180
+
+bounding-box.gc:24
+->        (>= (-> box max y) (-> pt y))
+  [0x10110] add x16, x7, x15                                 mov ifpr-26, [igpr-3 + 20]
+  [0x10114] ldr s23, [x16, #0x14] ;; misaligned with debug data
+  [0x10118] add x16, x6, x15                                 mov ifpr-27, [igpr-4 + 4]
+  [0x1011C] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x10120] mov x0, x14                                      mov-symptr igpr-28, '#f
+  [0x10124] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10128] fcmp s23, s22                                    j(ifpr-26 < ifpr-27) label-45
+  [0x1012C] b.mi #0x1013c
+  [0x10130] add x0, x14, #8                                  mov-symptr igpr-29, '#t
+  [0x10134] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10138] mov x0, x0                                       mov igpr-28, igpr-29
+  [0x1013C] mov x0, x0                                       mov igpr-5, igpr-28
+  [0x10140] mov x9, x14                                      mov-symptr igpr-30, '#f
+  [0x10144] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10148] cmp x0, x9                                       j(igpr-5 == igpr-30) label-55
+  [0x1014C] b.eq #0x10180
+
+bounding-box.gc:25
+->        (>= (-> box max z) (-> pt z))))
+  [0x10150] add x16, x7, x15                                 mov ifpr-31, [igpr-3 + 24]
+  [0x10154] ldr s23, [x16, #0x18] ;; misaligned with debug data
+  [0x10158] add x16, x6, x15                                 mov ifpr-32, [igpr-4 + 8]
+  [0x1015C] ldr s22, [x16, #8] ;; misaligned with debug data
+  [0x10160] mov x0, x14                                      mov-symptr igpr-33, '#f
+  [0x10164] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10168] fcmp s23, s22                                    j(ifpr-31 < ifpr-32) label-54
+  [0x1016C] b.mi #0x1017c
+  [0x10170] add x0, x14, #8                                  mov-symptr igpr-34, '#t
+  [0x10174] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10178] mov x0, x0                                       mov igpr-33, igpr-34
+  [0x1017C] mov x0, x0                                       mov igpr-5, igpr-33
+
+bounding-box.gc:18
+-> (defun box-vector-inside? ((box bounding-box) (pt vector))
+  [0x10180] mov x0, x0                                       ret igpr-2 igpr-5
+  [0x10184] ldp x29, x30, [sp], #0x10
+  [0x10188] ret
+
+
+[box-vector-enside?]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+bounding-box.gc:9
+-> (defun box-vector-enside? ((box bounding-box) (pt vector))
+  [0x10008] mov x7, x7                                       mov igpr-3, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-4, igpr-1
+
+bounding-box.gc:11
+->   (and (< (-> box min x) (-> pt x))
+  [0x10010] add x16, x7, x15                                 mov ifpr-6, [igpr-3 + 0]
+  [0x10014] ldr s23, [x16] ;; misaligned with debug data
+  [0x10018] add x16, x6, x15                                 mov ifpr-7, [igpr-4 + 0]
+  [0x1001C] ldr s22, [x16] ;; misaligned with debug data
+  [0x10020] mov x0, x14                                      mov-symptr igpr-8, '#f
+  [0x10024] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10028] fcmp s23, s22                                    j(ifpr-6 >= ifpr-7) label-9
+  [0x1002C] b.ge #0x1003c
+  [0x10030] add x0, x14, #8                                  mov-symptr igpr-9, '#t
+  [0x10034] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10038] mov x0, x0                                       mov igpr-8, igpr-9
+  [0x1003C] mov x0, x0                                       mov igpr-5, igpr-8
+  [0x10040] mov x9, x14                                      mov-symptr igpr-10, '#f
+  [0x10044] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10048] cmp x0, x9                                       j(igpr-5 == igpr-10) label-55
+  [0x1004C] b.eq #0x10180
+
+bounding-box.gc:12
+->        (< (-> box min y) (-> pt y))
+  [0x10050] add x16, x7, x15                                 mov ifpr-11, [igpr-3 + 4]
+  [0x10054] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10058] add x16, x6, x15                                 mov ifpr-12, [igpr-4 + 4]
+  [0x1005C] ldr s22, [x16, #4] ;; misaligned with debug data
+  [0x10060] mov x0, x14                                      mov-symptr igpr-13, '#f
+  [0x10064] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10068] fcmp s23, s22                                    j(ifpr-11 >= ifpr-12) label-18
+  [0x1006C] b.ge #0x1007c
+  [0x10070] add x0, x14, #8                                  mov-symptr igpr-14, '#t
+  [0x10074] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10078] mov x0, x0                                       mov igpr-13, igpr-14
+  [0x1007C] mov x0, x0                                       mov igpr-5, igpr-13
+  [0x10080] mov x9, x14                                      mov-symptr igpr-15, '#f
+  [0x10084] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10088] cmp x0, x9                                       j(igpr-5 == igpr-15) label-55
+  [0x1008C] b.eq #0x10180
+
+bounding-box.gc:13
+->        (< (-> box min z) (-> pt z))
+  [0x10090] add x16, x7, x15                                 mov ifpr-16, [igpr-3 + 8]
+  [0x10094] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x10098] add x16, x6, x15                                 mov ifpr-17, [igpr-4 + 8]
+  [0x1009C] ldr s22, [x16, #8] ;; misaligned with debug data
+  [0x100A0] mov x0, x14                                      mov-symptr igpr-18, '#f
+  [0x100A4] sub x0, x0, x15 ;; misaligned with debug data
+  [0x100A8] fcmp s23, s22                                    j(ifpr-16 >= ifpr-17) label-27
+  [0x100AC] b.ge #0x100bc
+  [0x100B0] add x0, x14, #8                                  mov-symptr igpr-19, '#t
+  [0x100B4] sub x0, x0, x15 ;; misaligned with debug data
+  [0x100B8] mov x0, x0                                       mov igpr-18, igpr-19
+  [0x100BC] mov x0, x0                                       mov igpr-5, igpr-18
+  [0x100C0] mov x9, x14                                      mov-symptr igpr-20, '#f
+  [0x100C4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100C8] cmp x0, x9                                       j(igpr-5 == igpr-20) label-55
+  [0x100CC] b.eq #0x10180
+
+bounding-box.gc:14
+->        (< (-> pt x) (-> box max x))
+  [0x100D0] add x16, x6, x15                                 mov ifpr-21, [igpr-4 + 0]
+  [0x100D4] ldr s23, [x16] ;; misaligned with debug data
+  [0x100D8] add x16, x7, x15                                 mov ifpr-22, [igpr-3 + 16]
+  [0x100DC] ldr s22, [x16, #0x10] ;; misaligned with debug data
+  [0x100E0] mov x0, x14                                      mov-symptr igpr-23, '#f
+  [0x100E4] sub x0, x0, x15 ;; misaligned with debug data
+  [0x100E8] fcmp s23, s22                                    j(ifpr-21 >= ifpr-22) label-36
+  [0x100EC] b.ge #0x100fc
+  [0x100F0] add x0, x14, #8                                  mov-symptr igpr-24, '#t
+  [0x100F4] sub x0, x0, x15 ;; misaligned with debug data
+  [0x100F8] mov x0, x0                                       mov igpr-23, igpr-24
+  [0x100FC] mov x0, x0                                       mov igpr-5, igpr-23
+  [0x10100] mov x9, x14                                      mov-symptr igpr-25, '#f
+  [0x10104] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10108] cmp x0, x9                                       j(igpr-5 == igpr-25) label-55
+  [0x1010C] b.eq #0x10180
+
+bounding-box.gc:15
+->        (< (-> pt y) (-> box max y))
+  [0x10110] add x16, x6, x15                                 mov ifpr-26, [igpr-4 + 4]
+  [0x10114] ldr s23, [x16, #4] ;; misaligned with debug data
+  [0x10118] add x16, x7, x15                                 mov ifpr-27, [igpr-3 + 20]
+  [0x1011C] ldr s22, [x16, #0x14] ;; misaligned with debug data
+  [0x10120] mov x0, x14                                      mov-symptr igpr-28, '#f
+  [0x10124] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10128] fcmp s23, s22                                    j(ifpr-26 >= ifpr-27) label-45
+  [0x1012C] b.ge #0x1013c
+  [0x10130] add x0, x14, #8                                  mov-symptr igpr-29, '#t
+  [0x10134] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10138] mov x0, x0                                       mov igpr-28, igpr-29
+  [0x1013C] mov x0, x0                                       mov igpr-5, igpr-28
+  [0x10140] mov x9, x14                                      mov-symptr igpr-30, '#f
+  [0x10144] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10148] cmp x0, x9                                       j(igpr-5 == igpr-30) label-55
+  [0x1014C] b.eq #0x10180
+
+bounding-box.gc:16
+->        (< (-> pt z) (-> box max z))))
+  [0x10150] add x16, x6, x15                                 mov ifpr-31, [igpr-4 + 8]
+  [0x10154] ldr s23, [x16, #8] ;; misaligned with debug data
+  [0x10158] add x16, x7, x15                                 mov ifpr-32, [igpr-3 + 24]
+  [0x1015C] ldr s22, [x16, #0x18] ;; misaligned with debug data
+  [0x10160] mov x0, x14                                      mov-symptr igpr-33, '#f
+  [0x10164] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10168] fcmp s23, s22                                    j(ifpr-31 >= ifpr-32) label-54
+  [0x1016C] b.ge #0x1017c
+  [0x10170] add x0, x14, #8                                  mov-symptr igpr-34, '#t
+  [0x10174] sub x0, x0, x15 ;; misaligned with debug data
+  [0x10178] mov x0, x0                                       mov igpr-33, igpr-34
+  [0x1017C] mov x0, x0                                       mov igpr-5, igpr-33
+
+bounding-box.gc:9
+-> (defun box-vector-enside? ((box bounding-box) (pt vector))
+  [0x10180] mov x0, x0                                       ret igpr-2 igpr-5
+  [0x10184] ldp x29, x30, [sp], #0x10
+  [0x10188] ret
+
+
+

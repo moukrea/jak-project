@@ -1,0 +1,213 @@
+[(method debug-draw drawable-inline-array)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+drawable-inline-array.gc:25
+-> (defmethod debug-draw ((this drawable-inline-array) (arg0 drawable) (arg1 display-frame))
+  [0x10008] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-6, igpr-2
+  [0x10014] ldp x29, x30, [sp], #0x10
+  [0x10018] ret
+
+
+[(method collect-stats drawable-inline-array)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+drawable-inline-array.gc:21
+-> (defmethod collect-stats ((this drawable-inline-array))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+  [0x1000C] ldp x29, x30, [sp], #0x10
+  [0x10010] ret
+
+
+[(method draw drawable-inline-array)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+drawable-inline-array.gc:17
+-> (defmethod draw ((this drawable-inline-array) (arg0 drawable-inline-array) (arg1 display-frame))
+  [0x10008] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x1000C] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10010] mov x2, x2                                       mov igpr-6, igpr-2
+  [0x10014] ldp x29, x30, [sp], #0x10
+  [0x10018] ret
+
+
+[(method login drawable-inline-array)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+drawable-inline-array.gc:14
+-> (defmethod login ((this drawable-inline-array))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+  [0x1000C] mov x0, x7                                       ret igpr-1 igpr-2
+  [0x10010] ldp x29, x30, [sp], #0x10
+  [0x10014] ret
+
+
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-inline-array.gc:11
+-> (defmethod length ((this drawable-inline-array))
+  [0x1000C] adrp x16, #0x10000                               mov igpr-0, 'drawable-inline-array
+  [0x10010] add x16, x16, #0
+  [0x10014] ldr w7, [x16]
+  [0x10018] movz x6, #0x4                                    mov-ic igpr-1, 4
+  [0x1001C] adrp x2, #0x10000                                mov-fa igpr-2, function-(method length drawable-inline-array)
+  [0x10020] add x2, x2, #0
+  [0x10024] sub x2, x2, x15
+  [0x10028] adrp x16, #0x10000                               mov igpr-3, 'method-set!
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w9, [x16]
+  [0x10034] mov x9, x9                                       mov igpr-8, igpr-3
+  [0x10038] mov x7, x7                                       mov igpr-5, igpr-0
+  [0x1003C] mov x6, x6                                       mov igpr-6, igpr-1
+  [0x10040] mov x2, x2                                       mov igpr-7, igpr-2
+  [0x10044] add x9, x9, x15                                  call igpr-8 (ret igpr-4) (args igpr-5 igpr-6 igpr-7)
+  [0x10048] stp x3, x5, [sp, #-0x10]!
+  [0x1004C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10050] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10054] blr x9 ;; misaligned with debug data
+  [0x10058] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1005C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] mov x3, x3                                       mov igpr-9, igpr-4
+
+drawable-inline-array.gc:14
+-> (defmethod login ((this drawable-inline-array))
+  [0x10068] adrp x16, #0x10000                               mov igpr-10, 'drawable-inline-array
+  [0x1006C] add x16, x16, #0
+  [0x10070] ldr w7, [x16]
+  [0x10074] movz x6, #0x9                                    mov-ic igpr-11, 9
+  [0x10078] adrp x2, #0x10000                                mov-fa igpr-12, function-(method login drawable-inline-array)
+  [0x1007C] add x2, x2, #0
+  [0x10080] sub x2, x2, x15
+  [0x10084] adrp x16, #0x10000                               mov igpr-13, 'method-set!
+  [0x10088] add x16, x16, #0
+  [0x1008C] ldr w9, [x16]
+  [0x10090] mov x9, x9                                       mov igpr-18, igpr-13
+  [0x10094] mov x7, x7                                       mov igpr-15, igpr-10
+  [0x10098] mov x6, x6                                       mov igpr-16, igpr-11
+  [0x1009C] mov x2, x2                                       mov igpr-17, igpr-12
+  [0x100A0] add x9, x9, x15                                  call igpr-18 (ret igpr-14) (args igpr-15 igpr-16 igpr-17)
+  [0x100A4] stp x3, x5, [sp, #-0x10]!
+  [0x100A8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100AC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B0] blr x9 ;; misaligned with debug data
+  [0x100B4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100B8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100BC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] mov x3, x3                                       mov igpr-19, igpr-14
+
+drawable-inline-array.gc:17
+-> (defmethod draw ((this drawable-inline-array) (arg0 drawable-inline-array) (arg1 display-frame))
+  [0x100C4] adrp x16, #0x10000                               mov igpr-20, 'drawable-inline-array
+  [0x100C8] add x16, x16, #0
+  [0x100CC] ldr w7, [x16]
+  [0x100D0] movz x6, #0xa                                    mov-ic igpr-21, 10
+  [0x100D4] adrp x2, #0x10000                                mov-fa igpr-22, function-(method draw drawable-inline-array)
+  [0x100D8] add x2, x2, #0
+  [0x100DC] sub x2, x2, x15
+  [0x100E0] adrp x16, #0x10000                               mov igpr-23, 'method-set!
+  [0x100E4] add x16, x16, #0
+  [0x100E8] ldr w9, [x16]
+  [0x100EC] mov x9, x9                                       mov igpr-28, igpr-23
+  [0x100F0] mov x7, x7                                       mov igpr-25, igpr-20
+  [0x100F4] mov x6, x6                                       mov igpr-26, igpr-21
+  [0x100F8] mov x2, x2                                       mov igpr-27, igpr-22
+  [0x100FC] add x9, x9, x15                                  call igpr-28 (ret igpr-24) (args igpr-25 igpr-26 igpr-27)
+  [0x10100] stp x3, x5, [sp, #-0x10]!
+  [0x10104] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10108] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1010C] blr x9 ;; misaligned with debug data
+  [0x10110] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10114] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10118] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1011C] mov x3, x3                                       mov igpr-29, igpr-24
+
+drawable-inline-array.gc:21
+-> (defmethod collect-stats ((this drawable-inline-array))
+  [0x10120] adrp x16, #0x10000                               mov igpr-30, 'drawable-inline-array
+  [0x10124] add x16, x16, #0
+  [0x10128] ldr w7, [x16]
+  [0x1012C] movz x6, #0xe                                    mov-ic igpr-31, 14
+  [0x10130] adrp x2, #0x10000                                mov-fa igpr-32, function-(method collect-stats drawable-inline-array)
+  [0x10134] add x2, x2, #0
+  [0x10138] sub x2, x2, x15
+  [0x1013C] adrp x16, #0x10000                               mov igpr-33, 'method-set!
+  [0x10140] add x16, x16, #0
+  [0x10144] ldr w9, [x16]
+  [0x10148] mov x9, x9                                       mov igpr-38, igpr-33
+  [0x1014C] mov x7, x7                                       mov igpr-35, igpr-30
+  [0x10150] mov x6, x6                                       mov igpr-36, igpr-31
+  [0x10154] mov x2, x2                                       mov igpr-37, igpr-32
+  [0x10158] add x9, x9, x15                                  call igpr-38 (ret igpr-34) (args igpr-35 igpr-36 igpr-37)
+  [0x1015C] stp x3, x5, [sp, #-0x10]!
+  [0x10160] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10164] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10168] blr x9 ;; misaligned with debug data
+  [0x1016C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10170] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10174] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10178] mov x3, x3                                       mov igpr-39, igpr-34
+
+drawable-inline-array.gc:25
+-> (defmethod debug-draw ((this drawable-inline-array) (arg0 drawable) (arg1 display-frame))
+  [0x1017C] adrp x16, #0x10000                               mov igpr-40, 'drawable-inline-array
+  [0x10180] add x16, x16, #0
+  [0x10184] ldr w7, [x16]
+  [0x10188] movz x6, #0xf                                    mov-ic igpr-41, 15
+  [0x1018C] adrp x2, #0x10000                                mov-fa igpr-42, function-(method debug-draw drawable-inline-array)
+  [0x10190] add x2, x2, #0
+  [0x10194] sub x2, x2, x15
+  [0x10198] adrp x16, #0x10000                               mov igpr-43, 'method-set!
+  [0x1019C] add x16, x16, #0
+  [0x101A0] ldr w9, [x16]
+  [0x101A4] mov x9, x9                                       mov igpr-48, igpr-43
+  [0x101A8] mov x7, x7                                       mov igpr-45, igpr-40
+  [0x101AC] mov x6, x6                                       mov igpr-46, igpr-41
+  [0x101B0] mov x2, x2                                       mov igpr-47, igpr-42
+  [0x101B4] add x9, x9, x15                                  call igpr-48 (ret igpr-44) (args igpr-45 igpr-46 igpr-47)
+  [0x101B8] stp x3, x5, [sp, #-0x10]!
+  [0x101BC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C4] blr x9 ;; misaligned with debug data
+  [0x101C8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101CC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101D0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101D4] mov x3, x3                                       mov igpr-49, igpr-44
+
+drawable-inline-array.gc:1
+-> ;-*-Lisp-*-
+  [0x101D8] mov x0, x3                                       ret igpr-50 igpr-49
+  [0x101DC] add sp, sp, #0x10
+  [0x101E0] ldp x29, x30, [sp], #0x10
+  [0x101E4] ret
+
+
+[(method length drawable-inline-array)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+drawable-inline-array.gc:11
+-> (defmethod length ((this drawable-inline-array))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+drawable-inline-array.gc:12
+->   (-> this length))
+  [0x1000C] add x16, x7, x15                                 mov igpr-3, [igpr-2 + 2]
+  [0x10010] ldrsh x0, [x16, #2] ;; misaligned with debug data
+
+drawable-inline-array.gc:11
+-> (defmethod length ((this drawable-inline-array))
+  [0x10014] mov x0, x0                                       ret igpr-1 igpr-3
+  [0x10018] ldp x29, x30, [sp], #0x10
+  [0x1001C] ret
+
+
+

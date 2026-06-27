@@ -1,0 +1,21 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+generic-vu0.gc:5
+-> (define generic-vu0-block (new 'static 'vu-function :length #x0 :qlength #x0))
+  [0x10008] adrp x0, #0x10000                                mov-sva igpr-0, static-structure
+  [0x1000C] add x0, x0, #0
+  [0x10010] sub x0, x0, x15
+  [0x10014] adrp x16, #0x10000                               mov 'generic-vu0-block, igpr-0
+  [0x10018] add x16, x16, #0
+  [0x1001C] str w0, [x16]
+
+generic-vu0.gc:1
+-> ;-*-Lisp-*-
+  [0x10020] mov x0, x0                                       ret igpr-1 igpr-0
+  [0x10024] ldp x29, x30, [sp], #0x10
+  [0x10028] ret
+
+
+

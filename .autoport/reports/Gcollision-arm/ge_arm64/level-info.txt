@@ -1,0 +1,301 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+level-info.gc:11
+-> (define training
+  [0x1000C] adrp x9, #0x10000                                mov-sva igpr-0, static-structure
+  [0x10010] add x9, x9, #0
+  [0x10014] sub x9, x9, x15
+  [0x10018] adrp x16, #0x10000                               mov 'training, igpr-0
+  [0x1001C] add x16, x16, #0
+  [0x10020] str w9, [x16]
+
+level-info.gc:131
+-> (define village1
+  [0x10024] adrp x9, #0x10000                                mov-sva igpr-1, static-structure
+  [0x10028] add x9, x9, #0
+  [0x1002C] sub x9, x9, x15
+  [0x10030] adrp x16, #0x10000                               mov 'village1, igpr-1
+  [0x10034] add x16, x16, #0
+  [0x10038] str w9, [x16]
+
+level-info.gc:275
+-> (define beach
+  [0x1003C] adrp x9, #0x10000                                mov-sva igpr-2, static-structure
+  [0x10040] add x9, x9, #0
+  [0x10044] sub x9, x9, x15
+  [0x10048] adrp x16, #0x10000                               mov 'beach, igpr-2
+  [0x1004C] add x16, x16, #0
+  [0x10050] str w9, [x16]
+
+level-info.gc:328
+-> (define jungle
+  [0x10054] adrp x9, #0x10000                                mov-sva igpr-3, static-structure
+  [0x10058] add x9, x9, #0
+  [0x1005C] sub x9, x9, x15
+  [0x10060] adrp x16, #0x10000                               mov 'jungle, igpr-3
+  [0x10064] add x16, x16, #0
+  [0x10068] str w9, [x16]
+
+level-info.gc:381
+-> (define jungleb
+  [0x1006C] adrp x9, #0x10000                                mov-sva igpr-4, static-structure
+  [0x10070] add x9, x9, #0
+  [0x10074] sub x9, x9, x15
+  [0x10078] adrp x16, #0x10000                               mov 'jungleb, igpr-4
+  [0x1007C] add x16, x16, #0
+  [0x10080] str w9, [x16]
+
+level-info.gc:432
+-> (define misty
+  [0x10084] adrp x9, #0x10000                                mov-sva igpr-5, static-structure
+  [0x10088] add x9, x9, #0
+  [0x1008C] sub x9, x9, x15
+  [0x10090] adrp x16, #0x10000                               mov 'misty, igpr-5
+  [0x10094] add x16, x16, #0
+  [0x10098] str w9, [x16]
+
+level-info.gc:616
+-> (define firecanyon
+  [0x1009C] adrp x9, #0x10000                                mov-sva igpr-6, static-structure
+  [0x100A0] add x9, x9, #0
+  [0x100A4] sub x9, x9, x15
+  [0x100A8] adrp x16, #0x10000                               mov 'firecanyon, igpr-6
+  [0x100AC] add x16, x16, #0
+  [0x100B0] str w9, [x16]
+
+level-info.gc:687
+-> (define village2
+  [0x100B4] adrp x9, #0x10000                                mov-sva igpr-7, static-structure
+  [0x100B8] add x9, x9, #0
+  [0x100BC] sub x9, x9, x15
+  [0x100C0] adrp x16, #0x10000                               mov 'village2, igpr-7
+  [0x100C4] add x16, x16, #0
+  [0x100C8] str w9, [x16]
+
+level-info.gc:778
+-> (define sunken
+  [0x100CC] adrp x9, #0x10000                                mov-sva igpr-8, static-structure
+  [0x100D0] add x9, x9, #0
+  [0x100D4] sub x9, x9, x15
+  [0x100D8] adrp x16, #0x10000                               mov 'sunken, igpr-8
+  [0x100DC] add x16, x16, #0
+  [0x100E0] str w9, [x16]
+
+level-info.gc:887
+-> (define sunkenb
+  [0x100E4] adrp x9, #0x10000                                mov-sva igpr-9, static-structure
+  [0x100E8] add x9, x9, #0
+  [0x100EC] sub x9, x9, x15
+  [0x100F0] adrp x16, #0x10000                               mov 'sunkenb, igpr-9
+  [0x100F4] add x16, x16, #0
+  [0x100F8] str w9, [x16]
+
+level-info.gc:959
+-> (define swamp
+  [0x100FC] adrp x9, #0x10000                                mov-sva igpr-10, static-structure
+  [0x10100] add x9, x9, #0
+  [0x10104] sub x9, x9, x15
+  [0x10108] adrp x16, #0x10000                               mov 'swamp, igpr-10
+  [0x1010C] add x16, x16, #0
+  [0x10110] str w9, [x16]
+
+level-info.gc:1160
+-> (define rolling
+  [0x10114] adrp x9, #0x10000                                mov-sva igpr-11, static-structure
+  [0x10118] add x9, x9, #0
+  [0x1011C] sub x9, x9, x15
+  [0x10120] adrp x16, #0x10000                               mov 'rolling, igpr-11
+  [0x10124] add x16, x16, #0
+  [0x10128] str w9, [x16]
+
+level-info.gc:1212
+-> (define ogre
+  [0x1012C] adrp x9, #0x10000                                mov-sva igpr-12, static-structure
+  [0x10130] add x9, x9, #0
+  [0x10134] sub x9, x9, x15
+  [0x10138] adrp x16, #0x10000                               mov 'ogre, igpr-12
+  [0x1013C] add x16, x16, #0
+  [0x10140] str w9, [x16]
+
+level-info.gc:1302
+-> (define village3
+  [0x10144] adrp x9, #0x10000                                mov-sva igpr-13, static-structure
+  [0x10148] add x9, x9, #0
+  [0x1014C] sub x9, x9, x15
+  [0x10150] adrp x16, #0x10000                               mov 'village3, igpr-13
+  [0x10154] add x16, x16, #0
+  [0x10158] str w9, [x16]
+
+level-info.gc:1393
+-> (define snow
+  [0x1015C] adrp x9, #0x10000                                mov-sva igpr-14, static-structure
+  [0x10160] add x9, x9, #0
+  [0x10164] sub x9, x9, x15
+  [0x10168] adrp x16, #0x10000                               mov 'snow, igpr-14
+  [0x1016C] add x16, x16, #0
+  [0x10170] str w9, [x16]
+
+level-info.gc:1598
+-> (define maincave
+  [0x10174] adrp x9, #0x10000                                mov-sva igpr-15, static-structure
+  [0x10178] add x9, x9, #0
+  [0x1017C] sub x9, x9, x15
+  [0x10180] adrp x16, #0x10000                               mov 'maincave, igpr-15
+  [0x10184] add x16, x16, #0
+  [0x10188] str w9, [x16]
+
+level-info.gc:1688
+-> (define darkcave
+  [0x1018C] adrp x9, #0x10000                                mov-sva igpr-16, static-structure
+  [0x10190] add x9, x9, #0
+  [0x10194] sub x9, x9, x15
+  [0x10198] adrp x16, #0x10000                               mov 'darkcave, igpr-16
+  [0x1019C] add x16, x16, #0
+  [0x101A0] str w9, [x16]
+
+level-info.gc:1740
+-> (define robocave
+  [0x101A4] adrp x9, #0x10000                                mov-sva igpr-17, static-structure
+  [0x101A8] add x9, x9, #0
+  [0x101AC] sub x9, x9, x15
+  [0x101B0] adrp x16, #0x10000                               mov 'robocave, igpr-17
+  [0x101B4] add x16, x16, #0
+  [0x101B8] str w9, [x16]
+
+level-info.gc:1811
+-> (define lavatube
+  [0x101BC] adrp x9, #0x10000                                mov-sva igpr-18, static-structure
+  [0x101C0] add x9, x9, #0
+  [0x101C4] sub x9, x9, x15
+  [0x101C8] adrp x16, #0x10000                               mov 'lavatube, igpr-18
+  [0x101CC] add x16, x16, #0
+  [0x101D0] str w9, [x16]
+
+level-info.gc:1920
+-> (define citadel
+  [0x101D4] adrp x9, #0x10000                                mov-sva igpr-19, static-structure
+  [0x101D8] add x9, x9, #0
+  [0x101DC] sub x9, x9, x15
+  [0x101E0] adrp x16, #0x10000                               mov 'citadel, igpr-19
+  [0x101E4] add x16, x16, #0
+  [0x101E8] str w9, [x16]
+
+level-info.gc:2144
+-> (define finalboss
+  [0x101EC] adrp x9, #0x10000                                mov-sva igpr-20, static-structure
+  [0x101F0] add x9, x9, #0
+  [0x101F4] sub x9, x9, x15
+  [0x101F8] adrp x16, #0x10000                               mov 'finalboss, igpr-20
+  [0x101FC] add x16, x16, #0
+  [0x10200] str w9, [x16]
+
+level-info.gc:2216
+-> (define intro
+  [0x10204] adrp x9, #0x10000                                mov-sva igpr-21, static-structure
+  [0x10208] add x9, x9, #0
+  [0x1020C] sub x9, x9, x15
+  [0x10210] adrp x16, #0x10000                               mov 'intro, igpr-21
+  [0x10214] add x16, x16, #0
+  [0x10218] str w9, [x16]
+
+level-info.gc:2249
+-> (define demo
+  [0x1021C] adrp x9, #0x10000                                mov-sva igpr-22, static-structure
+  [0x10220] add x9, x9, #0
+  [0x10224] sub x9, x9, x15
+  [0x10228] adrp x16, #0x10000                               mov 'demo, igpr-22
+  [0x1022C] add x16, x16, #0
+  [0x10230] str w9, [x16]
+
+level-info.gc:2301
+-> (define title
+  [0x10234] adrp x9, #0x10000                                mov-sva igpr-23, static-structure
+  [0x10238] add x9, x9, #0
+  [0x1023C] sub x9, x9, x15
+  [0x10240] adrp x16, #0x10000                               mov 'title, igpr-23
+  [0x10244] add x16, x16, #0
+  [0x10248] str w9, [x16]
+
+level-info.gc:2355
+-> (define halfpipe
+  [0x1024C] adrp x9, #0x10000                                mov-sva igpr-24, static-structure
+  [0x10250] add x9, x9, #0
+  [0x10254] sub x9, x9, x15
+  [0x10258] adrp x16, #0x10000                               mov 'halfpipe, igpr-24
+  [0x1025C] add x16, x16, #0
+  [0x10260] str w9, [x16]
+
+level-info.gc:2409
+-> (define default-level
+  [0x10264] adrp x9, #0x10000                                mov-sva igpr-25, static-structure
+  [0x10268] add x9, x9, #0
+  [0x1026C] sub x9, x9, x15
+  [0x10270] adrp x16, #0x10000                               mov 'default-level, igpr-25
+  [0x10274] add x16, x16, #0
+  [0x10278] str w9, [x16]
+
+level-info.gc:2444
+-> (define *level-load-list*
+  [0x1027C] adrp x9, #0x10000                                mov-sva igpr-26, static-structure
+  [0x10280] add x9, x9, #0
+  [0x10284] sub x9, x9, x15
+  [0x10288] adrp x16, #0x10000                               mov '*level-load-list*, igpr-26
+  [0x1028C] add x16, x16, #0
+  [0x10290] str w9, [x16]
+
+level-info.gc:2472
+-> (define test-zone
+  [0x10294] adrp x9, #0x10000                                mov-sva igpr-27, static-structure
+  [0x10298] add x9, x9, #0
+  [0x1029C] sub x9, x9, x15
+  [0x102A0] adrp x16, #0x10000                               mov 'test-zone, igpr-27
+  [0x102A4] add x16, x16, #0
+  [0x102A8] str w9, [x16]
+
+level-info.gc:2528
+-> (cons! *level-load-list* 'test-zone)
+  [0x102AC] adrp x7, #0x10000                                mov-symptr igpr-28, 'global
+  [0x102B0] add x7, x7, #0
+  [0x102B4] adrp x16, #0x10000                               mov igpr-29, 'pair
+  [0x102B8] add x16, x16, #0
+  [0x102BC] ldr w6, [x16]
+  [0x102C0] adrp x2, #0x10000                                mov-symptr igpr-30, 'test-zone
+  [0x102C4] add x2, x2, #0
+  [0x102C8] adrp x16, #0x10000                               mov igpr-31, '*level-load-list*
+  [0x102CC] add x16, x16, #0
+  [0x102D0] ldr w1, [x16]
+  [0x102D4] adrp x16, #0x10000                               mov igpr-32, 'pair
+  [0x102D8] add x16, x16, #0
+  [0x102DC] ldr w9, [x16]
+  [0x102E0] add x16, x9, x15                                 mov igpr-33, [igpr-32 + 16]
+  [0x102E4] ldr w9, [x16, #0x10] ;; misaligned with debug data
+  [0x102E8] mov x9, x9                                       mov igpr-39, igpr-33
+  [0x102EC] mov x7, x7                                       mov igpr-35, igpr-28
+  [0x102F0] mov x6, x6                                       mov igpr-36, igpr-29
+  [0x102F4] mov x2, x2                                       mov igpr-37, igpr-30
+  [0x102F8] mov x1, x1                                       mov igpr-38, igpr-31
+  [0x102FC] add x9, x9, x15                                  call igpr-39 (ret igpr-34) (args igpr-35 igpr-36 igpr-37 igpr-38)
+  [0x10300] stp x3, x5, [sp, #-0x10]!
+  [0x10304] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10308] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1030C] blr x9 ;; misaligned with debug data
+  [0x10310] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10314] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10318] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1031C] mov x0, x0                                       mov igpr-40, igpr-34
+  [0x10320] adrp x16, #0x10000                               mov '*level-load-list*, igpr-40
+  [0x10324] add x16, x16, #0
+  [0x10328] str w0, [x16]
+
+level-info.gc:1
+-> ;-*-Lisp-*-
+  [0x1032C] mov x0, x0                                       ret igpr-41 igpr-40
+  [0x10330] add sp, sp, #0x10
+  [0x10334] ldp x29, x30, [sp], #0x10
+  [0x10338] ret
+
+
+

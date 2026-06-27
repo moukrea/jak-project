@@ -1,0 +1,89 @@
+[1m[38;2;220;020;060m-- Type Error! --
+[0m[38;2;255;255;000mType collide-shape is unknown
+[0m[1m[38;2;220;020;060m-- Compilation Error! --
+[0m[1mType Error: Type collide-shape is unknown
+
+[0m[1m[38;2;255;255;000mFunction:
+[0mtop-level
+[1m[38;2;255;255;000mLocation:
+[0m/home/emeric/code/jak-project/goal_src/jak1/engine/collide/collide-shape.gc:30
+(defmethod should-push-away ((obj collide-shape) (arg0 collide-shape) (arg1 collide-overlap-result))
+ ^
+[1m[38;2;255;255;000mCode:
+[0m(defmethod should-push-away ((obj collide-shape) (arg0 collide-shape) (arg1 collide-overlap-result))
+  "Find the overlap between two collide shapes.  This is the main entry point for the overlap algorithm.
+   The result is returned in arg1. The obj is collided _with_ arg0 (meaning obj uses its collide-with, arg0 uses colide-as).
+   The best-dist is only valid if the result is #t (it should be negative then)"
+  (local-vars (v1-3 collide-action) (v1-4 float) (a2-2 collide-action) (a3-2 collide-action))
+  (rlet ((acc :class vf)
+         (vf0 :class vf)
+         (vf1 :class vf)
+         (vf2 :class vf)
+         (vf3 :class vf)
+         (vf4 :class vf)
+         (vf5 :class vf)
+         )
+    (init-vf0-vector)
+    (let ((v1-0 arg1))
+      (set! (-> v1-0 best-dist) 0.0)
+      (set! (-> v1-0 best-from-prim) #f)
+      (set! (-> v1-0 best-to-prim) #f)
+      )
+    (let ((a0-1 (-> obj root-prim))
+          (a1-1 (-> arg0 root-prim))
+          )
+      (let ((a3-0 (-> a0-1 collide-with))
+            (t0-0 (-> a1-1 prim-core collide-as))
+            (v1-2 (-> a0-1 prim-core action))
+            )
+        (let ((a2-1 (-> a1-1 prim-core action)))
+          (b! (zero? (logand a3-0 t0-0)) cfg-8 :delay (set! a3-2 (logand a2-1 1)))
+          (b! (zero? a3-2) cfg-8 :delay (set! a2-2 (logand a2-1 8)))
+          )
+        (b! (nonzero? a2-2) cfg-8 :delay (set! v1-3 (logand v1-2 1)))
+        )
+      (b! (zero? v1-3) cfg-8 :delay (nop!))
+      (.lvf vf1 (&-> a0-1 prim-core world-sphere quad))
+      (.lvf vf2 (&-> a1-1 prim-core world-sphere quad))
+      (.sub.vf vf3 vf1 vf2)
+      (.add.w.vf.w vf4 vf1 vf2)
+      (.mul.vf.xyz vf3 vf3 vf3)
+      (.mul.w.vf.w vf4 vf4 vf4)
+      (.mul.x.vf.w acc vf0 vf3)
+      (.add.mul.y.vf.w acc vf0 vf3 acc)
+      (.add.mul.z.vf.w vf3 vf0 vf3 acc)
+      (.sub.w.vf.w vf5 vf3 vf4)
+      (let ((f0-1 0.0))
+        (.add.w.vf.x vf5 vf0 vf5)
+        (.mov v1-4 vf5)
+        (b! (<= f0-1 v1-4) cfg-8)
+        )
+      (should-push-away-test a0-1 a1-1 arg1)
+      )
+    (let ((v0-1 (< (-> arg1 best-dist) 0.0)))
+      (b! #t cfg-9 :delay (nop!))
+      (label cfg-8)
+      (set! v0-1 #f)
+      (label cfg-9)
+      v0-1
+      )
+    )
+  )
+--------------------------------------------------------------------------------
+[1m[38;2;220;020;060m-- Compilation Error! --
+[0m[1mError while compiling file: Compiler Exception
+[0m[1m[38;2;255;255;000mForm:
+[0m(asm-file "goal_src/jak1/engine/collide/collide-shape.gc" :color :disassemble "/home/emeric/code/jak-project/.autoport/reports/Gcollision-arm/collide-shape-arm64.txt")
+[1m[38;2;255;255;000mFunction:
+[0mtop-level
+[1m[38;2;255;255;000mLocation:
+[0mProgram string:1
+(asm-file "goal_src/jak1/engine/collide/collide-shape.gc" :color :disassemble "/home/emeric/code/jak-project/.autoport/reports/Gcollision-arm/collide-shape-arm64.txt")
+^
+[1m[38;2;255;255;000mCode:
+[0m(asm-file
+  "goal_src/jak1/engine/collide/collide-shape.gc"
+  :color :disassemble "/home/emeric/code/jak-project/.autoport/reports/Gcollision-arm/collide-shape-arm64.txt"
+  )
+--------------------------------------------------------------------------------
+[09:08:955] [error] Compiler Fatal Error: Compilation Error

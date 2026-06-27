@@ -1,0 +1,1544 @@
+[top-level]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-group.gc:8
+-> (defmethod new drawable-group ((allocation symbol) (type-to-make type) (arg0 int))
+  [0x1000C] adrp x16, #0x10000                               mov igpr-0, 'drawable-group
+  [0x10010] add x16, x16, #0
+  [0x10014] ldr w7, [x16]
+  [0x10018] movz x6, #0                                      mov-ic igpr-1, 0
+  [0x1001C] adrp x2, #0x10000                                mov-fa igpr-2, function-(method new drawable-group)
+  [0x10020] add x2, x2, #0
+  [0x10024] sub x2, x2, x15
+  [0x10028] adrp x16, #0x10000                               mov igpr-3, 'method-set!
+  [0x1002C] add x16, x16, #0
+  [0x10030] ldr w9, [x16]
+  [0x10034] mov x9, x9                                       mov igpr-8, igpr-3
+  [0x10038] mov x7, x7                                       mov igpr-5, igpr-0
+  [0x1003C] mov x6, x6                                       mov igpr-6, igpr-1
+  [0x10040] mov x2, x2                                       mov igpr-7, igpr-2
+  [0x10044] add x9, x9, x15                                  call igpr-8 (ret igpr-4) (args igpr-5 igpr-6 igpr-7)
+  [0x10048] stp x3, x5, [sp, #-0x10]!
+  [0x1004C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10050] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10054] blr x9 ;; misaligned with debug data
+  [0x10058] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1005C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10060] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] mov x3, x3                                       mov igpr-9, igpr-4
+
+drawable-group.gc:14
+-> (defmethod inspect ((this drawable-group))
+  [0x10068] adrp x16, #0x10000                               mov igpr-10, 'drawable-group
+  [0x1006C] add x16, x16, #0
+  [0x10070] ldr w7, [x16]
+  [0x10074] movz x6, #0x3                                    mov-ic igpr-11, 3
+  [0x10078] adrp x2, #0x10000                                mov-fa igpr-12, function-(method inspect drawable-group)
+  [0x1007C] add x2, x2, #0
+  [0x10080] sub x2, x2, x15
+  [0x10084] adrp x16, #0x10000                               mov igpr-13, 'method-set!
+  [0x10088] add x16, x16, #0
+  [0x1008C] ldr w9, [x16]
+  [0x10090] mov x9, x9                                       mov igpr-18, igpr-13
+  [0x10094] mov x7, x7                                       mov igpr-15, igpr-10
+  [0x10098] mov x6, x6                                       mov igpr-16, igpr-11
+  [0x1009C] mov x2, x2                                       mov igpr-17, igpr-12
+  [0x100A0] add x9, x9, x15                                  call igpr-18 (ret igpr-14) (args igpr-15 igpr-16 igpr-17)
+  [0x100A4] stp x3, x5, [sp, #-0x10]!
+  [0x100A8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100AC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B0] blr x9 ;; misaligned with debug data
+  [0x100B4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100B8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100BC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] mov x3, x3                                       mov igpr-19, igpr-14
+
+drawable-group.gc:23
+-> (defmethod print ((this drawable-group))
+  [0x100C4] adrp x16, #0x10000                               mov igpr-20, 'drawable-group
+  [0x100C8] add x16, x16, #0
+  [0x100CC] ldr w7, [x16]
+  [0x100D0] movz x6, #0x2                                    mov-ic igpr-21, 2
+  [0x100D4] adrp x2, #0x10000                                mov-fa igpr-22, function-(method print drawable-group)
+  [0x100D8] add x2, x2, #0
+  [0x100DC] sub x2, x2, x15
+  [0x100E0] adrp x16, #0x10000                               mov igpr-23, 'method-set!
+  [0x100E4] add x16, x16, #0
+  [0x100E8] ldr w9, [x16]
+  [0x100EC] mov x9, x9                                       mov igpr-28, igpr-23
+  [0x100F0] mov x7, x7                                       mov igpr-25, igpr-20
+  [0x100F4] mov x6, x6                                       mov igpr-26, igpr-21
+  [0x100F8] mov x2, x2                                       mov igpr-27, igpr-22
+  [0x100FC] add x9, x9, x15                                  call igpr-28 (ret igpr-24) (args igpr-25 igpr-26 igpr-27)
+  [0x10100] stp x3, x5, [sp, #-0x10]!
+  [0x10104] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10108] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1010C] blr x9 ;; misaligned with debug data
+  [0x10110] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10114] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10118] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1011C] mov x3, x3                                       mov igpr-29, igpr-24
+
+drawable-group.gc:30
+-> (defmethod length ((this drawable-group))
+  [0x10120] adrp x16, #0x10000                               mov igpr-30, 'drawable-group
+  [0x10124] add x16, x16, #0
+  [0x10128] ldr w7, [x16]
+  [0x1012C] movz x6, #0x4                                    mov-ic igpr-31, 4
+  [0x10130] adrp x2, #0x10000                                mov-fa igpr-32, function-(method length drawable-group)
+  [0x10134] add x2, x2, #0
+  [0x10138] sub x2, x2, x15
+  [0x1013C] adrp x16, #0x10000                               mov igpr-33, 'method-set!
+  [0x10140] add x16, x16, #0
+  [0x10144] ldr w9, [x16]
+  [0x10148] mov x9, x9                                       mov igpr-38, igpr-33
+  [0x1014C] mov x7, x7                                       mov igpr-35, igpr-30
+  [0x10150] mov x6, x6                                       mov igpr-36, igpr-31
+  [0x10154] mov x2, x2                                       mov igpr-37, igpr-32
+  [0x10158] add x9, x9, x15                                  call igpr-38 (ret igpr-34) (args igpr-35 igpr-36 igpr-37)
+  [0x1015C] stp x3, x5, [sp, #-0x10]!
+  [0x10160] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10164] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10168] blr x9 ;; misaligned with debug data
+  [0x1016C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10170] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10174] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10178] mov x3, x3                                       mov igpr-39, igpr-34
+
+drawable-group.gc:33
+-> (defmethod asize-of ((this drawable-group))
+  [0x1017C] adrp x16, #0x10000                               mov igpr-40, 'drawable-group
+  [0x10180] add x16, x16, #0
+  [0x10184] ldr w7, [x16]
+  [0x10188] movz x6, #0x5                                    mov-ic igpr-41, 5
+  [0x1018C] adrp x2, #0x10000                                mov-fa igpr-42, function-(method asize-of drawable-group)
+  [0x10190] add x2, x2, #0
+  [0x10194] sub x2, x2, x15
+  [0x10198] adrp x16, #0x10000                               mov igpr-43, 'method-set!
+  [0x1019C] add x16, x16, #0
+  [0x101A0] ldr w9, [x16]
+  [0x101A4] mov x9, x9                                       mov igpr-48, igpr-43
+  [0x101A8] mov x7, x7                                       mov igpr-45, igpr-40
+  [0x101AC] mov x6, x6                                       mov igpr-46, igpr-41
+  [0x101B0] mov x2, x2                                       mov igpr-47, igpr-42
+  [0x101B4] add x9, x9, x15                                  call igpr-48 (ret igpr-44) (args igpr-45 igpr-46 igpr-47)
+  [0x101B8] stp x3, x5, [sp, #-0x10]!
+  [0x101BC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C0] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101C4] blr x9 ;; misaligned with debug data
+  [0x101C8] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x101CC] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x101D0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x101D4] mov x3, x3                                       mov igpr-49, igpr-44
+
+drawable-group.gc:36
+-> (defmethod mem-usage ((this drawable-group) (arg0 memory-usage-block) (arg1 int))
+  [0x101D8] adrp x16, #0x10000                               mov igpr-50, 'drawable-group
+  [0x101DC] add x16, x16, #0
+  [0x101E0] ldr w7, [x16]
+  [0x101E4] movz x6, #0x8                                    mov-ic igpr-51, 8
+  [0x101E8] adrp x2, #0x10000                                mov-fa igpr-52, function-(method mem-usage drawable-group)
+  [0x101EC] add x2, x2, #0
+  [0x101F0] sub x2, x2, x15
+  [0x101F4] adrp x16, #0x10000                               mov igpr-53, 'method-set!
+  [0x101F8] add x16, x16, #0
+  [0x101FC] ldr w9, [x16]
+  [0x10200] mov x9, x9                                       mov igpr-58, igpr-53
+  [0x10204] mov x7, x7                                       mov igpr-55, igpr-50
+  [0x10208] mov x6, x6                                       mov igpr-56, igpr-51
+  [0x1020C] mov x2, x2                                       mov igpr-57, igpr-52
+  [0x10210] add x9, x9, x15                                  call igpr-58 (ret igpr-54) (args igpr-55 igpr-56 igpr-57)
+  [0x10214] stp x3, x5, [sp, #-0x10]!
+  [0x10218] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1021C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10220] blr x9 ;; misaligned with debug data
+  [0x10224] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10228] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1022C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10230] mov x3, x3                                       mov igpr-59, igpr-54
+
+drawable-group.gc:45
+-> (defmethod login ((this drawable-group))
+  [0x10234] adrp x16, #0x10000                               mov igpr-60, 'drawable-group
+  [0x10238] add x16, x16, #0
+  [0x1023C] ldr w7, [x16]
+  [0x10240] movz x6, #0x9                                    mov-ic igpr-61, 9
+  [0x10244] adrp x2, #0x10000                                mov-fa igpr-62, function-(method login drawable-group)
+  [0x10248] add x2, x2, #0
+  [0x1024C] sub x2, x2, x15
+  [0x10250] adrp x16, #0x10000                               mov igpr-63, 'method-set!
+  [0x10254] add x16, x16, #0
+  [0x10258] ldr w9, [x16]
+  [0x1025C] mov x9, x9                                       mov igpr-68, igpr-63
+  [0x10260] mov x7, x7                                       mov igpr-65, igpr-60
+  [0x10264] mov x6, x6                                       mov igpr-66, igpr-61
+  [0x10268] mov x2, x2                                       mov igpr-67, igpr-62
+  [0x1026C] add x9, x9, x15                                  call igpr-68 (ret igpr-64) (args igpr-65 igpr-66 igpr-67)
+  [0x10270] stp x3, x5, [sp, #-0x10]!
+  [0x10274] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10278] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1027C] blr x9 ;; misaligned with debug data
+  [0x10280] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10284] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10288] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1028C] mov x3, x3                                       mov igpr-69, igpr-64
+
+drawable-group.gc:50
+-> (defmethod draw ((this drawable-group) (arg0 drawable-group) (arg1 display-frame))
+  [0x10290] adrp x16, #0x10000                               mov igpr-70, 'drawable-group
+  [0x10294] add x16, x16, #0
+  [0x10298] ldr w7, [x16]
+  [0x1029C] movz x6, #0xa                                    mov-ic igpr-71, 10
+  [0x102A0] adrp x2, #0x10000                                mov-fa igpr-72, function-(method draw drawable-group)
+  [0x102A4] add x2, x2, #0
+  [0x102A8] sub x2, x2, x15
+  [0x102AC] adrp x16, #0x10000                               mov igpr-73, 'method-set!
+  [0x102B0] add x16, x16, #0
+  [0x102B4] ldr w9, [x16]
+  [0x102B8] mov x9, x9                                       mov igpr-78, igpr-73
+  [0x102BC] mov x7, x7                                       mov igpr-75, igpr-70
+  [0x102C0] mov x6, x6                                       mov igpr-76, igpr-71
+  [0x102C4] mov x2, x2                                       mov igpr-77, igpr-72
+  [0x102C8] add x9, x9, x15                                  call igpr-78 (ret igpr-74) (args igpr-75 igpr-76 igpr-77)
+  [0x102CC] stp x3, x5, [sp, #-0x10]!
+  [0x102D0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102D4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x102D8] blr x9 ;; misaligned with debug data
+  [0x102DC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x102E0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x102E4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x102E8] mov x3, x3                                       mov igpr-79, igpr-74
+
+drawable-group.gc:58
+-> (defmethod collect-stats ((this drawable-group))
+  [0x102EC] adrp x16, #0x10000                               mov igpr-80, 'drawable-group
+  [0x102F0] add x16, x16, #0
+  [0x102F4] ldr w7, [x16]
+  [0x102F8] movz x6, #0xe                                    mov-ic igpr-81, 14
+  [0x102FC] adrp x2, #0x10000                                mov-fa igpr-82, function-(method collect-stats drawable-group)
+  [0x10300] add x2, x2, #0
+  [0x10304] sub x2, x2, x15
+  [0x10308] adrp x16, #0x10000                               mov igpr-83, 'method-set!
+  [0x1030C] add x16, x16, #0
+  [0x10310] ldr w9, [x16]
+  [0x10314] mov x9, x9                                       mov igpr-88, igpr-83
+  [0x10318] mov x7, x7                                       mov igpr-85, igpr-80
+  [0x1031C] mov x6, x6                                       mov igpr-86, igpr-81
+  [0x10320] mov x2, x2                                       mov igpr-87, igpr-82
+  [0x10324] add x9, x9, x15                                  call igpr-88 (ret igpr-84) (args igpr-85 igpr-86 igpr-87)
+  [0x10328] stp x3, x5, [sp, #-0x10]!
+  [0x1032C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10330] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10334] blr x9 ;; misaligned with debug data
+  [0x10338] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1033C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10340] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10344] mov x3, x3                                       mov igpr-89, igpr-84
+
+drawable-group.gc:66
+-> (defmethod debug-draw ((this drawable-group) (arg0 drawable) (arg1 display-frame))
+  [0x10348] adrp x16, #0x10000                               mov igpr-90, 'drawable-group
+  [0x1034C] add x16, x16, #0
+  [0x10350] ldr w7, [x16]
+  [0x10354] movz x6, #0xf                                    mov-ic igpr-91, 15
+  [0x10358] adrp x2, #0x10000                                mov-fa igpr-92, function-(method debug-draw drawable-group)
+  [0x1035C] add x2, x2, #0
+  [0x10360] sub x2, x2, x15
+  [0x10364] adrp x16, #0x10000                               mov igpr-93, 'method-set!
+  [0x10368] add x16, x16, #0
+  [0x1036C] ldr w9, [x16]
+  [0x10370] mov x9, x9                                       mov igpr-98, igpr-93
+  [0x10374] mov x7, x7                                       mov igpr-95, igpr-90
+  [0x10378] mov x6, x6                                       mov igpr-96, igpr-91
+  [0x1037C] mov x2, x2                                       mov igpr-97, igpr-92
+  [0x10380] add x9, x9, x15                                  call igpr-98 (ret igpr-94) (args igpr-95 igpr-96 igpr-97)
+  [0x10384] stp x3, x5, [sp, #-0x10]!
+  [0x10388] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1038C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10390] blr x9 ;; misaligned with debug data
+  [0x10394] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10398] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1039C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x103A0] mov x3, x3                                       mov igpr-99, igpr-94
+
+drawable-group.gc:74
+-> (defmethod unpack-vis ((this drawable-group) (arg0 (pointer int8)) (arg1 (pointer int8)))
+  [0x103A4] adrp x16, #0x10000                               mov igpr-100, 'drawable-group
+  [0x103A8] add x16, x16, #0
+  [0x103AC] ldr w7, [x16]
+  [0x103B0] movz x6, #0x10                                   mov-ic igpr-101, 16
+  [0x103B4] adrp x2, #0x10000                                mov-fa igpr-102, function-(method unpack-vis drawable-group)
+  [0x103B8] add x2, x2, #0
+  [0x103BC] sub x2, x2, x15
+  [0x103C0] adrp x16, #0x10000                               mov igpr-103, 'method-set!
+  [0x103C4] add x16, x16, #0
+  [0x103C8] ldr w9, [x16]
+  [0x103CC] mov x9, x9                                       mov igpr-108, igpr-103
+  [0x103D0] mov x7, x7                                       mov igpr-105, igpr-100
+  [0x103D4] mov x6, x6                                       mov igpr-106, igpr-101
+  [0x103D8] mov x2, x2                                       mov igpr-107, igpr-102
+  [0x103DC] add x9, x9, x15                                  call igpr-108 (ret igpr-104) (args igpr-105 igpr-106 igpr-107)
+  [0x103E0] stp x3, x5, [sp, #-0x10]!
+  [0x103E4] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x103E8] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x103EC] blr x9 ;; misaligned with debug data
+  [0x103F0] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x103F4] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x103F8] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x103FC] mov x3, x3                                       mov igpr-109, igpr-104
+
+drawable-group.gc:1
+-> ;-*-Lisp-*-
+  [0x10400] mov x0, x3                                       ret igpr-110 igpr-109
+  [0x10404] add sp, sp, #0x10
+  [0x10408] ldp x29, x30, [sp], #0x10
+  [0x1040C] ret
+
+
+[(method debug-draw drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-group.gc:66
+-> (defmethod debug-draw ((this drawable-group) (arg0 drawable) (arg1 display-frame))
+  [0x1000C] mov x5, x7                                       mov igpr-4, igpr-0
+  [0x10010] mov x12, x6                                      mov igpr-5, igpr-1
+  [0x10014] mov x11, x2                                      mov igpr-6, igpr-2
+
+drawable-group.gc:67
+->   (when (vis-cull (-> this id))
+  [0x10018] adrp x16, #0x10000                               mov igpr-8, 'vis-cull
+  [0x1001C] add x16, x16, #0
+  [0x10020] ldr w9, [x16]
+
+drawable-group.gc:67
+->   (when (vis-cull (-> this id))
+  [0x10024] add x16, x5, x15                                 mov igpr-9, [igpr-4 + 0]
+  [0x10028] ldrsh x7, [x16] ;; misaligned with debug data
+
+drawable-group.gc:67
+->   (when (vis-cull (-> this id))
+  [0x1002C] mov x9, x9                                       mov igpr-12, igpr-8
+  [0x10030] mov x7, x7                                       mov igpr-11, igpr-9
+  [0x10034] add x9, x9, x15                                  call igpr-12 (ret igpr-10) (args igpr-11)
+  [0x10038] stp x3, x5, [sp, #-0x10]!
+  [0x1003C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10040] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10044] blr x9 ;; misaligned with debug data
+  [0x10048] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1004C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10050] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10054] mov x0, x0                                       mov igpr-13, igpr-10
+  [0x10058] mov x9, x14                                      mov-symptr igpr-14, '#f
+  [0x1005C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10060] cmp x0, x9                                       j(igpr-13 == igpr-14) label-60
+  [0x10064] b.eq #0x1018c
+
+drawable-group.gc:68
+->     (when (sphere-cull (-> this bsphere))
+  [0x10068] adrp x16, #0x10000                               mov igpr-16, 'sphere-cull
+  [0x1006C] add x16, x16, #0
+  [0x10070] ldr w9, [x16]
+
+drawable-group.gc:68
+->     (when (sphere-cull (-> this bsphere))
+  [0x10074] movz x7, #0xc                                    mov-ic igpr-17, 12
+  [0x10078] add x7, x7, x5                                   addi igpr-17, igpr-4
+
+drawable-group.gc:68
+->     (when (sphere-cull (-> this bsphere))
+  [0x1007C] mov x9, x9                                       mov igpr-20, igpr-16
+  [0x10080] mov x7, x7                                       mov igpr-19, igpr-17
+  [0x10084] add x9, x9, x15                                  call igpr-20 (ret igpr-18) (args igpr-19)
+  [0x10088] stp x3, x5, [sp, #-0x10]!
+  [0x1008C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10090] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10094] blr x9 ;; misaligned with debug data
+  [0x10098] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1009C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100A0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100A4] mov x0, x0                                       mov igpr-21, igpr-18
+  [0x100A8] mov x9, x14                                      mov-symptr igpr-22, '#f
+  [0x100AC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100B0] cmp x0, x9                                       j(igpr-21 == igpr-22) label-57
+  [0x100B4] b.eq #0x1017c
+
+drawable-group.gc:69
+->       (dotimes (s3-0 (-> this length))
+  [0x100B8] movz x3, #0                                      mov-ic igpr-23, 0
+  [0x100BC] mov x3, x3                                       mov igpr-24, igpr-23
+  [0x100C0] b #0x1015c                                       goto label-51
+
+drawable-group.gc:70
+->         (debug-draw (-> this data s3-0) (-> (the-as drawable-group arg0) data s3-0) arg1))))
+  [0x100C4] mov x9, x3                                       mov igpr-28, igpr-24
+  [0x100C8] lsl x9, x9, #2                                   shl igpr-28, 2
+  [0x100CC] mov x9, x9                                       mov igpr-30, igpr-28
+  [0x100D0] movz x8, #0x1c                                   mov-ic igpr-31, 28
+  [0x100D4] add x8, x8, x5                                   addi igpr-31, igpr-4
+  [0x100D8] add x9, x9, x8                                   addi igpr-30, igpr-31
+  [0x100DC] add x16, x9, x15                                 mov igpr-29, [igpr-30 + 0]
+  [0x100E0] ldr w7, [x16] ;; misaligned with debug data
+
+drawable-group.gc:70
+->         (debug-draw (-> this data s3-0) (-> (the-as drawable-group arg0) data s3-0) arg1))))
+  [0x100E4] mov x9, x3                                       mov igpr-32, igpr-24
+  [0x100E8] lsl x9, x9, #2                                   shl igpr-32, 2
+  [0x100EC] mov x9, x9                                       mov igpr-34, igpr-32
+  [0x100F0] movz x8, #0x1c                                   mov-ic igpr-35, 28
+  [0x100F4] mov x1, x12                                      mov igpr-36, igpr-5
+  [0x100F8] add x8, x8, x1                                   addi igpr-35, igpr-36
+  [0x100FC] add x9, x9, x8                                   addi igpr-34, igpr-35
+  [0x10100] add x16, x9, x15                                 mov igpr-33, [igpr-34 + 0]
+  [0x10104] ldr w6, [x16] ;; misaligned with debug data
+
+drawable-group.gc:70
+->         (debug-draw (-> this data s3-0) (-> (the-as drawable-group arg0) data s3-0) arg1))))
+  [0x10108] add x16, x7, x15                                 mov igpr-37, [igpr-29 + -4]
+  [0x1010C] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x10110] add x16, x9, x15                                 mov igpr-38, [igpr-37 + 76]
+  [0x10114] ldr w9, [x16, #0x4c] ;; misaligned with debug data
+  [0x10118] mov x9, x9                                       mov igpr-43, igpr-38
+  [0x1011C] mov x7, x7                                       mov igpr-40, igpr-29
+  [0x10120] mov x6, x6                                       mov igpr-41, igpr-33
+  [0x10124] mov x2, x11                                      mov igpr-42, igpr-6
+  [0x10128] add x9, x9, x15                                  call igpr-43 (ret igpr-39) (args igpr-40 igpr-41 igpr-42)
+  [0x1012C] stp x3, x5, [sp, #-0x10]!
+  [0x10130] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10134] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10138] blr x9 ;; misaligned with debug data
+  [0x1013C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10140] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10144] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10148] mov x10, x10                                     mov igpr-44, igpr-39
+
+drawable-group.gc:69
+->       (dotimes (s3-0 (-> this length))
+  [0x1014C] mov x3, x3                                       mov igpr-45, igpr-24
+  [0x10150] movz x9, #0x1                                    mov-ic igpr-46, 1
+  [0x10154] add x3, x3, x9                                   addi igpr-45, igpr-46
+  [0x10158] mov x3, x3                                       mov igpr-24, igpr-45
+  [0x1015C] add x16, x5, x15                                 mov igpr-47, [igpr-4 + 2]
+  [0x10160] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x10164] cmp x3, x9                                       j(igpr-24 < igpr-47) label-24
+  [0x10168] b.lt #0x100c4
+  [0x1016C] mov x9, x14                                      mov-symptr igpr-48, '#f
+  [0x10170] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:68
+->     (when (sphere-cull (-> this bsphere))
+  [0x10174] mov x9, x9                                       mov igpr-15, igpr-48
+  [0x10178] b #0x10184                                       goto label-58
+  [0x1017C] mov x9, x14                                      mov-symptr igpr-15, '#f
+  [0x10180] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:67
+->   (when (vis-cull (-> this id))
+  [0x10184] mov x9, x9                                       mov igpr-7, igpr-15
+  [0x10188] b #0x10194                                       goto label-61
+  [0x1018C] mov x9, x14                                      mov-symptr igpr-7, '#f
+  [0x10190] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10194] add sp, sp, #0x10
+  [0x10198] ldp x29, x30, [sp], #0x10
+  [0x1019C] ret
+
+
+[(method collect-stats drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-group.gc:58
+-> (defmethod collect-stats ((this drawable-group))
+  [0x1000C] mov x5, x7                                       mov igpr-2, igpr-0
+
+drawable-group.gc:59
+->   (when (vis-cull (-> this id))
+  [0x10010] adrp x16, #0x10000                               mov igpr-4, 'vis-cull
+  [0x10014] add x16, x16, #0
+  [0x10018] ldr w9, [x16]
+
+drawable-group.gc:59
+->   (when (vis-cull (-> this id))
+  [0x1001C] add x16, x5, x15                                 mov igpr-5, [igpr-2 + 0]
+  [0x10020] ldrsh x7, [x16] ;; misaligned with debug data
+
+drawable-group.gc:59
+->   (when (vis-cull (-> this id))
+  [0x10024] mov x9, x9                                       mov igpr-8, igpr-4
+  [0x10028] mov x7, x7                                       mov igpr-7, igpr-5
+  [0x1002C] add x9, x9, x15                                  call igpr-8 (ret igpr-6) (args igpr-7)
+  [0x10030] stp x3, x5, [sp, #-0x10]!
+  [0x10034] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10038] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1003C] blr x9 ;; misaligned with debug data
+  [0x10040] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10044] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10048] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1004C] mov x0, x0                                       mov igpr-9, igpr-6
+  [0x10050] mov x9, x14                                      mov-symptr igpr-10, '#f
+  [0x10054] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10058] cmp x0, x9                                       j(igpr-9 == igpr-10) label-48
+  [0x1005C] b.eq #0x10158
+
+drawable-group.gc:60
+->     (when (sphere-cull (-> this bsphere))
+  [0x10060] adrp x16, #0x10000                               mov igpr-12, 'sphere-cull
+  [0x10064] add x16, x16, #0
+  [0x10068] ldr w9, [x16]
+
+drawable-group.gc:60
+->     (when (sphere-cull (-> this bsphere))
+  [0x1006C] movz x7, #0xc                                    mov-ic igpr-13, 12
+  [0x10070] add x7, x7, x5                                   addi igpr-13, igpr-2
+
+drawable-group.gc:60
+->     (when (sphere-cull (-> this bsphere))
+  [0x10074] mov x9, x9                                       mov igpr-16, igpr-12
+  [0x10078] mov x7, x7                                       mov igpr-15, igpr-13
+  [0x1007C] add x9, x9, x15                                  call igpr-16 (ret igpr-14) (args igpr-15)
+  [0x10080] stp x3, x5, [sp, #-0x10]!
+  [0x10084] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10088] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1008C] blr x9 ;; misaligned with debug data
+  [0x10090] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10094] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10098] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1009C] mov x0, x0                                       mov igpr-17, igpr-14
+  [0x100A0] mov x9, x14                                      mov-symptr igpr-18, '#f
+  [0x100A4] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100A8] cmp x0, x9                                       j(igpr-17 == igpr-18) label-45
+  [0x100AC] b.eq #0x10148
+
+drawable-group.gc:61
+->       (dotimes (s5-0 (-> this length))
+  [0x100B0] movz x3, #0                                      mov-ic igpr-19, 0
+  [0x100B4] mov x3, x3                                       mov igpr-20, igpr-19
+  [0x100B8] b #0x10128                                       goto label-39
+
+drawable-group.gc:62
+->         (collect-stats (-> this data s5-0)))))
+  [0x100BC] mov x9, x3                                       mov igpr-24, igpr-20
+  [0x100C0] lsl x9, x9, #2                                   shl igpr-24, 2
+  [0x100C4] mov x9, x9                                       mov igpr-26, igpr-24
+  [0x100C8] movz x8, #0x1c                                   mov-ic igpr-27, 28
+  [0x100CC] add x8, x8, x5                                   addi igpr-27, igpr-2
+  [0x100D0] add x9, x9, x8                                   addi igpr-26, igpr-27
+  [0x100D4] add x16, x9, x15                                 mov igpr-25, [igpr-26 + 0]
+  [0x100D8] ldr w7, [x16] ;; misaligned with debug data
+
+drawable-group.gc:62
+->         (collect-stats (-> this data s5-0)))))
+  [0x100DC] add x16, x7, x15                                 mov igpr-28, [igpr-25 + -4]
+  [0x100E0] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x100E4] add x16, x9, x15                                 mov igpr-29, [igpr-28 + 72]
+  [0x100E8] ldr w9, [x16, #0x48] ;; misaligned with debug data
+  [0x100EC] mov x9, x9                                       mov igpr-32, igpr-29
+  [0x100F0] mov x7, x7                                       mov igpr-31, igpr-25
+  [0x100F4] add x9, x9, x15                                  call igpr-32 (ret igpr-30) (args igpr-31)
+  [0x100F8] stp x3, x5, [sp, #-0x10]!
+  [0x100FC] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10100] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10104] blr x9 ;; misaligned with debug data
+  [0x10108] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1010C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10110] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10114] mov x12, x12                                     mov igpr-33, igpr-30
+
+drawable-group.gc:61
+->       (dotimes (s5-0 (-> this length))
+  [0x10118] mov x3, x3                                       mov igpr-34, igpr-20
+  [0x1011C] movz x9, #0x1                                    mov-ic igpr-35, 1
+  [0x10120] add x3, x3, x9                                   addi igpr-34, igpr-35
+  [0x10124] mov x3, x3                                       mov igpr-20, igpr-34
+  [0x10128] add x16, x5, x15                                 mov igpr-36, [igpr-2 + 2]
+  [0x1012C] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x10130] cmp x3, x9                                       j(igpr-20 < igpr-36) label-22
+  [0x10134] b.lt #0x100bc
+  [0x10138] mov x9, x14                                      mov-symptr igpr-37, '#f
+  [0x1013C] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:60
+->     (when (sphere-cull (-> this bsphere))
+  [0x10140] mov x9, x9                                       mov igpr-11, igpr-37
+  [0x10144] b #0x10150                                       goto label-46
+  [0x10148] mov x9, x14                                      mov-symptr igpr-11, '#f
+  [0x1014C] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:59
+->   (when (vis-cull (-> this id))
+  [0x10150] mov x9, x9                                       mov igpr-3, igpr-11
+  [0x10154] b #0x10160                                       goto label-49
+  [0x10158] mov x9, x14                                      mov-symptr igpr-3, '#f
+  [0x1015C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10160] add sp, sp, #0x10
+  [0x10164] ldp x29, x30, [sp], #0x10
+  [0x10168] ret
+
+
+[(method unpack-vis drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-group.gc:74
+-> (defmethod unpack-vis ((this drawable-group) (arg0 (pointer int8)) (arg1 (pointer int8)))
+  [0x1000C] mov x5, x7                                       mov igpr-4, igpr-0
+  [0x10010] mov x12, x6                                      mov igpr-5, igpr-1
+  [0x10014] mov x2, x2                                       mov igpr-6, igpr-2
+
+drawable-group.gc:75
+->   (dotimes (s4-0 (-> this length))
+  [0x10018] movz x3, #0                                      mov-ic igpr-7, 0
+  [0x1001C] mov x3, x3                                       mov igpr-8, igpr-7
+  [0x10020] b #0x1009c                                       goto label-27
+
+drawable-group.gc:76
+->     (set! arg1 (unpack-vis (-> this data s4-0) arg0 arg1)))
+  [0x10024] mov x9, x3                                       mov igpr-12, igpr-8
+  [0x10028] lsl x9, x9, #2                                   shl igpr-12, 2
+  [0x1002C] mov x9, x9                                       mov igpr-14, igpr-12
+  [0x10030] movz x8, #0x1c                                   mov-ic igpr-15, 28
+  [0x10034] add x8, x8, x5                                   addi igpr-15, igpr-4
+  [0x10038] add x9, x9, x8                                   addi igpr-14, igpr-15
+  [0x1003C] add x16, x9, x15                                 mov igpr-13, [igpr-14 + 0]
+  [0x10040] ldr w7, [x16] ;; misaligned with debug data
+
+drawable-group.gc:76
+->     (set! arg1 (unpack-vis (-> this data s4-0) arg0 arg1)))
+  [0x10044] add x16, x7, x15                                 mov igpr-16, [igpr-13 + -4]
+  [0x10048] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x1004C] add x16, x9, x15                                 mov igpr-17, [igpr-16 + 80]
+  [0x10050] ldr w9, [x16, #0x50] ;; misaligned with debug data
+  [0x10054] mov x9, x9                                       mov igpr-22, igpr-17
+  [0x10058] mov x7, x7                                       mov igpr-19, igpr-13
+  [0x1005C] mov x6, x12                                      mov igpr-20, igpr-5
+  [0x10060] mov x2, x2                                       mov igpr-21, igpr-6
+  [0x10064] add x9, x9, x15                                  call igpr-22 (ret igpr-18) (args igpr-19 igpr-20 igpr-21)
+  [0x10068] stp x3, x5, [sp, #-0x10]!
+  [0x1006C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10070] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10074] blr x9 ;; misaligned with debug data
+  [0x10078] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1007C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10080] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10084] mov x0, x0                                       mov igpr-23, igpr-18
+
+drawable-group.gc:76
+->     (set! arg1 (unpack-vis (-> this data s4-0) arg0 arg1)))
+  [0x10088] mov x2, x0                                       mov igpr-6, igpr-23
+
+drawable-group.gc:75
+->   (dotimes (s4-0 (-> this length))
+  [0x1008C] mov x3, x3                                       mov igpr-24, igpr-8
+  [0x10090] movz x9, #0x1                                    mov-ic igpr-25, 1
+  [0x10094] add x3, x3, x9                                   addi igpr-24, igpr-25
+  [0x10098] mov x3, x3                                       mov igpr-8, igpr-24
+  [0x1009C] add x16, x5, x15                                 mov igpr-26, [igpr-4 + 2]
+  [0x100A0] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x100A4] cmp x3, x9                                       j(igpr-8 < igpr-26) label-7
+  [0x100A8] b.lt #0x10024
+  [0x100AC] mov x9, x14                                      mov-symptr igpr-27, '#f
+  [0x100B0] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:74
+-> (defmethod unpack-vis ((this drawable-group) (arg0 (pointer int8)) (arg1 (pointer int8)))
+  [0x100B4] mov x0, x2                                       ret igpr-3 igpr-6
+  [0x100B8] add sp, sp, #0x10
+  [0x100BC] ldp x29, x30, [sp], #0x10
+  [0x100C0] ret
+
+
+[(method draw drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-group.gc:50
+-> (defmethod draw ((this drawable-group) (arg0 drawable-group) (arg1 display-frame))
+  [0x1000C] mov x5, x7                                       mov igpr-4, igpr-0
+  [0x10010] mov x12, x6                                      mov igpr-5, igpr-1
+  [0x10014] mov x11, x2                                      mov igpr-6, igpr-2
+
+drawable-group.gc:51
+->   (when (vis-cull (-> this id))
+  [0x10018] adrp x16, #0x10000                               mov igpr-8, 'vis-cull
+  [0x1001C] add x16, x16, #0
+  [0x10020] ldr w9, [x16]
+
+drawable-group.gc:51
+->   (when (vis-cull (-> this id))
+  [0x10024] add x16, x5, x15                                 mov igpr-9, [igpr-4 + 0]
+  [0x10028] ldrsh x7, [x16] ;; misaligned with debug data
+
+drawable-group.gc:51
+->   (when (vis-cull (-> this id))
+  [0x1002C] mov x9, x9                                       mov igpr-12, igpr-8
+  [0x10030] mov x7, x7                                       mov igpr-11, igpr-9
+  [0x10034] add x9, x9, x15                                  call igpr-12 (ret igpr-10) (args igpr-11)
+  [0x10038] stp x3, x5, [sp, #-0x10]!
+  [0x1003C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10040] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10044] blr x9 ;; misaligned with debug data
+  [0x10048] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1004C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10050] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10054] mov x0, x0                                       mov igpr-13, igpr-10
+  [0x10058] mov x9, x14                                      mov-symptr igpr-14, '#f
+  [0x1005C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10060] cmp x0, x9                                       j(igpr-13 == igpr-14) label-59
+  [0x10064] b.eq #0x10188
+
+drawable-group.gc:52
+->     (when (sphere-cull (-> this bsphere))
+  [0x10068] adrp x16, #0x10000                               mov igpr-16, 'sphere-cull
+  [0x1006C] add x16, x16, #0
+  [0x10070] ldr w9, [x16]
+
+drawable-group.gc:52
+->     (when (sphere-cull (-> this bsphere))
+  [0x10074] movz x7, #0xc                                    mov-ic igpr-17, 12
+  [0x10078] add x7, x7, x5                                   addi igpr-17, igpr-4
+
+drawable-group.gc:52
+->     (when (sphere-cull (-> this bsphere))
+  [0x1007C] mov x9, x9                                       mov igpr-20, igpr-16
+  [0x10080] mov x7, x7                                       mov igpr-19, igpr-17
+  [0x10084] add x9, x9, x15                                  call igpr-20 (ret igpr-18) (args igpr-19)
+  [0x10088] stp x3, x5, [sp, #-0x10]!
+  [0x1008C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10090] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10094] blr x9 ;; misaligned with debug data
+  [0x10098] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1009C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100A0] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100A4] mov x0, x0                                       mov igpr-21, igpr-18
+  [0x100A8] mov x9, x14                                      mov-symptr igpr-22, '#f
+  [0x100AC] sub x9, x9, x15 ;; misaligned with debug data
+  [0x100B0] cmp x0, x9                                       j(igpr-21 == igpr-22) label-56
+  [0x100B4] b.eq #0x10178
+
+drawable-group.gc:53
+->       (dotimes (s3-0 (-> this length))
+  [0x100B8] movz x3, #0                                      mov-ic igpr-23, 0
+  [0x100BC] mov x3, x3                                       mov igpr-24, igpr-23
+  [0x100C0] b #0x10158                                       goto label-50
+
+drawable-group.gc:54
+->         (draw (-> this data s3-0) (-> arg0 data s3-0) arg1))))
+  [0x100C4] mov x9, x3                                       mov igpr-28, igpr-24
+  [0x100C8] lsl x9, x9, #2                                   shl igpr-28, 2
+  [0x100CC] mov x9, x9                                       mov igpr-30, igpr-28
+  [0x100D0] movz x8, #0x1c                                   mov-ic igpr-31, 28
+  [0x100D4] add x8, x8, x5                                   addi igpr-31, igpr-4
+  [0x100D8] add x9, x9, x8                                   addi igpr-30, igpr-31
+  [0x100DC] add x16, x9, x15                                 mov igpr-29, [igpr-30 + 0]
+  [0x100E0] ldr w7, [x16] ;; misaligned with debug data
+
+drawable-group.gc:54
+->         (draw (-> this data s3-0) (-> arg0 data s3-0) arg1))))
+  [0x100E4] mov x9, x3                                       mov igpr-32, igpr-24
+  [0x100E8] lsl x9, x9, #2                                   shl igpr-32, 2
+  [0x100EC] mov x9, x9                                       mov igpr-34, igpr-32
+  [0x100F0] movz x8, #0x1c                                   mov-ic igpr-35, 28
+  [0x100F4] add x8, x8, x12                                  addi igpr-35, igpr-5
+  [0x100F8] add x9, x9, x8                                   addi igpr-34, igpr-35
+  [0x100FC] add x16, x9, x15                                 mov igpr-33, [igpr-34 + 0]
+  [0x10100] ldr w6, [x16] ;; misaligned with debug data
+
+drawable-group.gc:54
+->         (draw (-> this data s3-0) (-> arg0 data s3-0) arg1))))
+  [0x10104] add x16, x7, x15                                 mov igpr-36, [igpr-29 + -4]
+  [0x10108] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x1010C] add x16, x9, x15                                 mov igpr-37, [igpr-36 + 56]
+  [0x10110] ldr w9, [x16, #0x38] ;; misaligned with debug data
+  [0x10114] mov x9, x9                                       mov igpr-42, igpr-37
+  [0x10118] mov x7, x7                                       mov igpr-39, igpr-29
+  [0x1011C] mov x6, x6                                       mov igpr-40, igpr-33
+  [0x10120] mov x2, x11                                      mov igpr-41, igpr-6
+  [0x10124] add x9, x9, x15                                  call igpr-42 (ret igpr-38) (args igpr-39 igpr-40 igpr-41)
+  [0x10128] stp x3, x5, [sp, #-0x10]!
+  [0x1012C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10130] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10134] blr x9 ;; misaligned with debug data
+  [0x10138] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1013C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10140] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10144] mov x10, x10                                     mov igpr-43, igpr-38
+
+drawable-group.gc:53
+->       (dotimes (s3-0 (-> this length))
+  [0x10148] mov x3, x3                                       mov igpr-44, igpr-24
+  [0x1014C] movz x9, #0x1                                    mov-ic igpr-45, 1
+  [0x10150] add x3, x3, x9                                   addi igpr-44, igpr-45
+  [0x10154] mov x3, x3                                       mov igpr-24, igpr-44
+  [0x10158] add x16, x5, x15                                 mov igpr-46, [igpr-4 + 2]
+  [0x1015C] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x10160] cmp x3, x9                                       j(igpr-24 < igpr-46) label-24
+  [0x10164] b.lt #0x100c4
+  [0x10168] mov x9, x14                                      mov-symptr igpr-47, '#f
+  [0x1016C] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:52
+->     (when (sphere-cull (-> this bsphere))
+  [0x10170] mov x9, x9                                       mov igpr-15, igpr-47
+  [0x10174] b #0x10180                                       goto label-57
+  [0x10178] mov x9, x14                                      mov-symptr igpr-15, '#f
+  [0x1017C] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:51
+->   (when (vis-cull (-> this id))
+  [0x10180] mov x9, x9                                       mov igpr-7, igpr-15
+  [0x10184] b #0x10190                                       goto label-60
+  [0x10188] mov x9, x14                                      mov-symptr igpr-7, '#f
+  [0x1018C] sub x9, x9, x15 ;; misaligned with debug data
+  [0x10190] add sp, sp, #0x10
+  [0x10194] ldp x29, x30, [sp], #0x10
+  [0x10198] ret
+
+
+[(method login drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-group.gc:45
+-> (defmethod login ((this drawable-group))
+  [0x1000C] mov x5, x7                                       mov igpr-2, igpr-0
+
+drawable-group.gc:46
+->   (dotimes (s5-0 (-> this length))
+  [0x10010] movz x3, #0                                      mov-ic igpr-3, 0
+  [0x10014] mov x3, x3                                       mov igpr-4, igpr-3
+  [0x10018] b #0x10088                                       goto label-22
+
+drawable-group.gc:47
+->     (login (-> this data s5-0)))
+  [0x1001C] mov x9, x3                                       mov igpr-8, igpr-4
+  [0x10020] lsl x9, x9, #2                                   shl igpr-8, 2
+  [0x10024] mov x9, x9                                       mov igpr-10, igpr-8
+  [0x10028] movz x8, #0x1c                                   mov-ic igpr-11, 28
+  [0x1002C] add x8, x8, x5                                   addi igpr-11, igpr-2
+  [0x10030] add x9, x9, x8                                   addi igpr-10, igpr-11
+  [0x10034] add x16, x9, x15                                 mov igpr-9, [igpr-10 + 0]
+  [0x10038] ldr w7, [x16] ;; misaligned with debug data
+
+drawable-group.gc:47
+->     (login (-> this data s5-0)))
+  [0x1003C] add x16, x7, x15                                 mov igpr-12, [igpr-9 + -4]
+  [0x10040] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x10044] add x16, x9, x15                                 mov igpr-13, [igpr-12 + 52]
+  [0x10048] ldr w9, [x16, #0x34] ;; misaligned with debug data
+  [0x1004C] mov x9, x9                                       mov igpr-16, igpr-13
+  [0x10050] mov x7, x7                                       mov igpr-15, igpr-9
+  [0x10054] add x9, x9, x15                                  call igpr-16 (ret igpr-14) (args igpr-15)
+  [0x10058] stp x3, x5, [sp, #-0x10]!
+  [0x1005C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10060] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10064] blr x9 ;; misaligned with debug data
+  [0x10068] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10074] mov x0, x0                                       mov igpr-17, igpr-14
+
+drawable-group.gc:46
+->   (dotimes (s5-0 (-> this length))
+  [0x10078] mov x3, x3                                       mov igpr-18, igpr-4
+  [0x1007C] movz x9, #0x1                                    mov-ic igpr-19, 1
+  [0x10080] add x3, x3, x9                                   addi igpr-18, igpr-19
+  [0x10084] mov x3, x3                                       mov igpr-4, igpr-18
+  [0x10088] add x16, x5, x15                                 mov igpr-20, [igpr-2 + 2]
+  [0x1008C] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x10090] cmp x3, x9                                       j(igpr-4 < igpr-20) label-5
+  [0x10094] b.lt #0x1001c
+  [0x10098] mov x9, x14                                      mov-symptr igpr-21, '#f
+  [0x1009C] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:45
+-> (defmethod login ((this drawable-group))
+  [0x100A0] mov x0, x5                                       ret igpr-1 igpr-2
+  [0x100A4] add sp, sp, #0x10
+  [0x100A8] ldp x29, x30, [sp], #0x10
+  [0x100AC] ret
+
+
+[(method asize-of drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+drawable-group.gc:33
+-> (defmethod asize-of ((this drawable-group))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+drawable-group.gc:34
+->   (the-as int (+ (-> drawable-group size) (* (+ (-> this length) -1) 4))))
+  [0x1000C] adrp x16, #0x10000                               mov igpr-5, 'drawable-group
+  [0x10010] add x16, x16, #0
+  [0x10014] ldr w9, [x16]
+  [0x10018] add x16, x9, x15                                 mov igpr-4, [igpr-5 + 8]
+  [0x1001C] ldrh w0, [x16, #8] ;; misaligned with debug data
+  [0x10020] mov x0, x0                                       mov igpr-3, igpr-4
+
+drawable-group.gc:34
+->   (the-as int (+ (-> drawable-group size) (* (+ (-> this length) -1) 4))))
+  [0x10024] add x16, x7, x15                                 mov igpr-7, [igpr-2 + 2]
+  [0x10028] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x1002C] mov x9, x9                                       mov igpr-6, igpr-7
+  [0x10030] movz x8, #0xffff                                 mov-ic igpr-8, 18446744073709551615
+  [0x10034] movk x8, #0xffff, lsl #16
+  [0x10038] movk x8, #0xffff, lsl #32
+  [0x1003C] movk x8, #0xffff, lsl #48
+  [0x10040] add x9, x9, x8                                   addi igpr-6, igpr-8
+
+drawable-group.gc:34
+->   (the-as int (+ (-> drawable-group size) (* (+ (-> this length) -1) 4))))
+  [0x10044] mov x9, x9                                       mov igpr-9, igpr-6
+  [0x10048] lsl x9, x9, #2                                   shl igpr-9, 2
+
+drawable-group.gc:34
+->   (the-as int (+ (-> drawable-group size) (* (+ (-> this length) -1) 4))))
+  [0x1004C] add x0, x0, x9                                   addi igpr-3, igpr-9
+
+drawable-group.gc:34
+->   (the-as int (+ (-> drawable-group size) (* (+ (-> this length) -1) 4))))
+  [0x10050] mov x0, x0                                       mov igpr-10, igpr-3
+
+drawable-group.gc:33
+-> (defmethod asize-of ((this drawable-group))
+  [0x10054] mov x0, x0                                       ret igpr-1 igpr-10
+  [0x10058] ldp x29, x30, [sp], #0x10
+  [0x1005C] ret
+
+
+[(method length drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+
+drawable-group.gc:30
+-> (defmethod length ((this drawable-group))
+  [0x10008] mov x7, x7                                       mov igpr-2, igpr-0
+
+drawable-group.gc:31
+->   (-> this length))
+  [0x1000C] add x16, x7, x15                                 mov igpr-3, [igpr-2 + 2]
+  [0x10010] ldrsh x0, [x16, #2] ;; misaligned with debug data
+
+drawable-group.gc:30
+-> (defmethod length ((this drawable-group))
+  [0x10014] mov x0, x0                                       ret igpr-1 igpr-3
+  [0x10018] ldp x29, x30, [sp], #0x10
+  [0x1001C] ret
+
+
+[(method print drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-group.gc:23
+-> (defmethod print ((this drawable-group))
+  [0x1000C] mov x5, x7                                       mov igpr-2, igpr-0
+
+drawable-group.gc:24
+->   (format #t "#<~A @ #x~X [~D]" (-> this type) this (-> this length))
+  [0x10010] adrp x16, #0x10000                               mov igpr-3, 'format
+  [0x10014] add x16, x16, #0
+  [0x10018] ldr w9, [x16]
+  [0x1001C] add x7, x14, #8                                  mov-symptr igpr-4, '#t
+  [0x10020] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10024] adrp x6, #0x10000                                mov-sva igpr-5, static-string "#<~A @ #x~X [~D]"
+  [0x10028] add x6, x6, #0xdf4
+  [0x1002C] sub x6, x6, x15
+
+drawable-group.gc:24
+->   (format #t "#<~A @ #x~X [~D]" (-> this type) this (-> this length))
+  [0x10030] add x16, x5, x15                                 mov igpr-6, [igpr-2 + -4]
+  [0x10034] ldur w2, [x16, #-4] ;; misaligned with debug data
+
+drawable-group.gc:24
+->   (format #t "#<~A @ #x~X [~D]" (-> this type) this (-> this length))
+  [0x10038] add x16, x5, x15                                 mov igpr-7, [igpr-2 + 2]
+  [0x1003C] ldrsh x8, [x16, #2] ;; misaligned with debug data
+
+drawable-group.gc:24
+->   (format #t "#<~A @ #x~X [~D]" (-> this type) this (-> this length))
+  [0x10040] mov x9, x9                                       mov igpr-14, igpr-3
+  [0x10044] mov x7, x7                                       mov igpr-9, igpr-4
+  [0x10048] mov x6, x6                                       mov igpr-10, igpr-5
+  [0x1004C] mov x2, x2                                       mov igpr-11, igpr-6
+  [0x10050] mov x1, x5                                       mov igpr-12, igpr-2
+  [0x10054] mov x8, x8                                       mov igpr-13, igpr-7
+  [0x10058] add x9, x9, x15                                  call igpr-14 (ret igpr-8) (args igpr-9 igpr-10 igpr-11 igpr-12 igpr-13)
+  [0x1005C] stp x3, x5, [sp, #-0x10]!
+  [0x10060] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10064] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10068] blr x9 ;; misaligned with debug data
+  [0x1006C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10070] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10074] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10078] mov x0, x0                                       mov igpr-15, igpr-8
+
+drawable-group.gc:25
+->   (dotimes (s5-0 (-> this length))
+  [0x1007C] movz x3, #0                                      mov-ic igpr-16, 0
+  [0x10080] mov x3, x3                                       mov igpr-17, igpr-16
+  [0x10084] b #0x1010c                                       goto label-38
+
+drawable-group.gc:26
+->     (format #t " ~A" (-> this data s5-0)))
+  [0x10088] adrp x16, #0x10000                               mov igpr-21, 'format
+  [0x1008C] add x16, x16, #0
+  [0x10090] ldr w9, [x16]
+
+drawable-group.gc:25
+->   (dotimes (s5-0 (-> this length))
+  [0x10094] add x7, x14, #8                                  mov-symptr igpr-22, '#t
+  [0x10098] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1009C] adrp x6, #0x10000                                mov-sva igpr-23, static-string " ~A"
+  [0x100A0] add x6, x6, #0xe14
+  [0x100A4] sub x6, x6, x15
+
+drawable-group.gc:26
+->     (format #t " ~A" (-> this data s5-0)))
+  [0x100A8] mov x8, x3                                       mov igpr-24, igpr-17
+  [0x100AC] lsl x8, x8, #2                                   shl igpr-24, 2
+  [0x100B0] mov x8, x8                                       mov igpr-26, igpr-24
+  [0x100B4] movz x1, #0x1c                                   mov-ic igpr-27, 28
+  [0x100B8] add x1, x1, x5                                   addi igpr-27, igpr-2
+  [0x100BC] add x8, x8, x1                                   addi igpr-26, igpr-27
+  [0x100C0] add x16, x8, x15                                 mov igpr-25, [igpr-26 + 0]
+  [0x100C4] ldr w2, [x16] ;; misaligned with debug data
+
+drawable-group.gc:26
+->     (format #t " ~A" (-> this data s5-0)))
+  [0x100C8] mov x9, x9                                       mov igpr-32, igpr-21
+  [0x100CC] mov x7, x7                                       mov igpr-29, igpr-22
+  [0x100D0] mov x6, x6                                       mov igpr-30, igpr-23
+  [0x100D4] mov x2, x2                                       mov igpr-31, igpr-25
+  [0x100D8] add x9, x9, x15                                  call igpr-32 (ret igpr-28) (args igpr-29 igpr-30 igpr-31)
+  [0x100DC] stp x3, x5, [sp, #-0x10]!
+  [0x100E0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100E8] blr x9 ;; misaligned with debug data
+  [0x100EC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100F0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100F4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100F8] mov x0, x0                                       mov igpr-33, igpr-28
+
+drawable-group.gc:25
+->   (dotimes (s5-0 (-> this length))
+  [0x100FC] mov x3, x3                                       mov igpr-34, igpr-17
+  [0x10100] movz x9, #0x1                                    mov-ic igpr-35, 1
+  [0x10104] add x3, x3, x9                                   addi igpr-34, igpr-35
+  [0x10108] mov x3, x3                                       mov igpr-17, igpr-34
+  [0x1010C] add x16, x5, x15                                 mov igpr-36, [igpr-2 + 2]
+  [0x10110] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x10114] cmp x3, x9                                       j(igpr-17 < igpr-36) label-18
+  [0x10118] b.lt #0x10088
+  [0x1011C] mov x9, x14                                      mov-symptr igpr-37, '#f
+  [0x10120] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:27
+->   (format #t ">")
+  [0x10124] adrp x16, #0x10000                               mov igpr-38, 'format
+  [0x10128] add x16, x16, #0
+  [0x1012C] ldr w9, [x16]
+  [0x10130] add x7, x14, #8                                  mov-symptr igpr-39, '#t
+  [0x10134] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10138] adrp x6, #0x10000                                mov-sva igpr-40, static-string ">"
+  [0x1013C] add x6, x6, #0xe24
+  [0x10140] sub x6, x6, x15
+  [0x10144] mov x9, x9                                       mov igpr-44, igpr-38
+  [0x10148] mov x7, x7                                       mov igpr-42, igpr-39
+  [0x1014C] mov x6, x6                                       mov igpr-43, igpr-40
+  [0x10150] add x9, x9, x15                                  call igpr-44 (ret igpr-41) (args igpr-42 igpr-43)
+  [0x10154] stp x3, x5, [sp, #-0x10]!
+  [0x10158] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1015C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10160] blr x9 ;; misaligned with debug data
+  [0x10164] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10168] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1016C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10170] mov x0, x0                                       mov igpr-45, igpr-41
+
+drawable-group.gc:23
+-> (defmethod print ((this drawable-group))
+  [0x10174] mov x0, x5                                       ret igpr-1 igpr-2
+  [0x10178] add sp, sp, #0x10
+  [0x1017C] ldp x29, x30, [sp], #0x10
+  [0x10180] ret
+
+
+[(method mem-usage drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-group.gc:36
+-> (defmethod mem-usage ((this drawable-group) (arg0 memory-usage-block) (arg1 int))
+  [0x1000C] mov x5, x7                                       mov igpr-4, igpr-0
+  [0x10010] mov x12, x6                                      mov igpr-5, igpr-1
+  [0x10014] mov x11, x2                                      mov igpr-6, igpr-2
+  [0x10018] movz x9, #0x1                                    mov-ic igpr-7, 1
+
+drawable-group.gc:37
+->   (set! (-> arg0 length) (max 1 (-> arg0 length)))
+  [0x1001C] add x16, x12, x15                                mov igpr-8, [igpr-5 + 4]
+  [0x10020] ldrsw x8, [x16, #4] ;; misaligned with debug data
+
+drawable-group.gc:37
+->   (set! (-> arg0 length) (max 1 (-> arg0 length)))
+  [0x10024] mov x9, x9                                       mov igpr-9, igpr-7
+  [0x10028] mov x8, x8                                       mov igpr-10, igpr-8
+
+gcommon.gc:147
+->   (if (> a b) a b))
+  [0x1002C] cmp x9, x8                                       j(igpr-9 <= igpr-10) label-11
+  [0x10030] b.le #0x1003c
+
+gcommon.gc:147
+->   (if (> a b) a b))
+  [0x10034] mov x9, x9                                       mov igpr-12, igpr-9
+  [0x10038] b #0x10040                                       goto label-12
+  [0x1003C] mov x9, x8                                       mov igpr-12, igpr-10
+
+drawable-group.gc:37
+->   (set! (-> arg0 length) (max 1 (-> arg0 length)))
+  [0x10040] add x16, x12, x15                                move [igpr-5 + 4], igpr-12
+  [0x10044] str w9, [x16, #4] ;; misaligned with debug data
+
+drawable-group.gc:38
+->   (set! (-> arg0 data 0 name) "drawable-group")
+  [0x10048] adrp x9, #0x10000                                mov-sva igpr-13, static-string "drawable-group"
+  [0x1004C] add x9, x9, #0xe34
+  [0x10050] sub x9, x9, x15
+  [0x10054] add x16, x12, x15                                move [igpr-5 + 12], igpr-13
+  [0x10058] str w9, [x16, #0xc] ;; misaligned with debug data
+
+drawable-group.gc:39
+->   (+! (-> arg0 data 0 count) 1)
+  [0x1005C] add x16, x12, x15                                mov igpr-15, [igpr-5 + 16]
+  [0x10060] ldrsw x9, [x16, #0x10] ;; misaligned with debug data
+  [0x10064] mov x9, x9                                       mov igpr-14, igpr-15
+  [0x10068] movz x8, #0x1                                    mov-ic igpr-16, 1
+  [0x1006C] add x9, x9, x8                                   addi igpr-14, igpr-16
+  [0x10070] add x16, x12, x15                                move [igpr-5 + 16], igpr-14
+  [0x10074] str w9, [x16, #0x10] ;; misaligned with debug data
+
+drawable-group.gc:40
+->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 0 used) v1-6) (+! (-> arg0 data 0 total) (logand -16 (+ v1-6 15))))
+  [0x10078] add x16, x5, x15                                 mov igpr-17, [igpr-4 + -4]
+  [0x1007C] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x10080] add x16, x9, x15                                 mov igpr-18, [igpr-17 + 36]
+  [0x10084] ldr w9, [x16, #0x24] ;; misaligned with debug data
+  [0x10088] mov x9, x9                                       mov igpr-21, igpr-18
+  [0x1008C] mov x7, x5                                       mov igpr-20, igpr-4
+  [0x10090] add x9, x9, x15                                  call igpr-21 (ret igpr-19) (args igpr-20)
+  [0x10094] stp x3, x5, [sp, #-0x10]!
+  [0x10098] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1009C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100A0] blr x9 ;; misaligned with debug data
+  [0x100A4] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100A8] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100AC] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100B0] mov x0, x0                                       mov igpr-22, igpr-19
+
+drawable-group.gc:40
+->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 0 used) v1-6) (+! (-> arg0 data 0 total) (logand -16 (+ v1-6 15))))
+  [0x100B4] mov x0, x0                                       mov igpr-23, igpr-22
+
+drawable-group.gc:40
+->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 0 used) v1-6) (+! (-> arg0 data 0 total) (logand -16 (+ v1-6 15))))
+  [0x100B8] add x16, x12, x15                                mov igpr-25, [igpr-5 + 20]
+  [0x100BC] ldrsw x9, [x16, #0x14] ;; misaligned with debug data
+  [0x100C0] mov x9, x9                                       mov igpr-24, igpr-25
+  [0x100C4] add x9, x9, x0                                   addi igpr-24, igpr-23
+  [0x100C8] add x16, x12, x15                                move [igpr-5 + 20], igpr-24
+  [0x100CC] str w9, [x16, #0x14] ;; misaligned with debug data
+
+drawable-group.gc:40
+->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 0 used) v1-6) (+! (-> arg0 data 0 total) (logand -16 (+ v1-6 15))))
+  [0x100D0] add x16, x12, x15                                mov igpr-27, [igpr-5 + 24]
+  [0x100D4] ldrsw x9, [x16, #0x18] ;; misaligned with debug data
+  [0x100D8] mov x9, x9                                       mov igpr-26, igpr-27
+
+drawable-group.gc:40
+->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 0 used) v1-6) (+! (-> arg0 data 0 total) (logand -16 (+ v1-6 15))))
+  [0x100DC] movz x8, #0xfff0                                 mov-ic igpr-28, 18446744073709551600
+  [0x100E0] movk x8, #0xffff, lsl #16
+  [0x100E4] movk x8, #0xffff, lsl #32
+  [0x100E8] movk x8, #0xffff, lsl #48
+
+drawable-group.gc:40
+->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 0 used) v1-6) (+! (-> arg0 data 0 total) (logand -16 (+ v1-6 15))))
+  [0x100EC] mov x0, x0                                       mov igpr-29, igpr-23
+  [0x100F0] movz x1, #0xf                                    mov-ic igpr-30, 15
+  [0x100F4] add x0, x0, x1                                   addi igpr-29, igpr-30
+
+drawable-group.gc:40
+->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 0 used) v1-6) (+! (-> arg0 data 0 total) (logand -16 (+ v1-6 15))))
+  [0x100F8] mov x8, x8                                       mov igpr-31, igpr-28
+  [0x100FC] and x8, x8, x0                                   and igpr-31, igpr-29
+
+drawable-group.gc:40
+->   (let ((v1-6 (asize-of this))) (+! (-> arg0 data 0 used) v1-6) (+! (-> arg0 data 0 total) (logand -16 (+ v1-6 15))))
+  [0x10100] add x9, x9, x8                                   addi igpr-26, igpr-31
+  [0x10104] add x16, x12, x15                                move [igpr-5 + 24], igpr-26
+  [0x10108] str w9, [x16, #0x18] ;; misaligned with debug data
+
+drawable-group.gc:41
+->   (dotimes (s3-0 (-> this length))
+  [0x1010C] movz x3, #0                                      mov-ic igpr-32, 0
+  [0x10110] mov x3, x3                                       mov igpr-33, igpr-32
+  [0x10114] b #0x1018c                                       goto label-65
+
+drawable-group.gc:42
+->     (mem-usage (-> this data s3-0) arg0 arg1))
+  [0x10118] mov x9, x3                                       mov igpr-37, igpr-33
+  [0x1011C] lsl x9, x9, #2                                   shl igpr-37, 2
+  [0x10120] mov x9, x9                                       mov igpr-39, igpr-37
+  [0x10124] movz x8, #0x1c                                   mov-ic igpr-40, 28
+  [0x10128] add x8, x8, x5                                   addi igpr-40, igpr-4
+  [0x1012C] add x9, x9, x8                                   addi igpr-39, igpr-40
+  [0x10130] add x16, x9, x15                                 mov igpr-38, [igpr-39 + 0]
+  [0x10134] ldr w7, [x16] ;; misaligned with debug data
+
+drawable-group.gc:42
+->     (mem-usage (-> this data s3-0) arg0 arg1))
+  [0x10138] add x16, x7, x15                                 mov igpr-41, [igpr-38 + -4]
+  [0x1013C] ldur w9, [x16, #-4] ;; misaligned with debug data
+  [0x10140] add x16, x9, x15                                 mov igpr-42, [igpr-41 + 48]
+  [0x10144] ldr w9, [x16, #0x30] ;; misaligned with debug data
+  [0x10148] mov x9, x9                                       mov igpr-47, igpr-42
+  [0x1014C] mov x7, x7                                       mov igpr-44, igpr-38
+  [0x10150] mov x6, x12                                      mov igpr-45, igpr-5
+  [0x10154] mov x2, x11                                      mov igpr-46, igpr-6
+  [0x10158] add x9, x9, x15                                  call igpr-47 (ret igpr-43) (args igpr-44 igpr-45 igpr-46)
+  [0x1015C] stp x3, x5, [sp, #-0x10]!
+  [0x10160] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10164] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10168] blr x9 ;; misaligned with debug data
+  [0x1016C] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10170] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10174] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10178] mov x0, x0                                       mov igpr-48, igpr-43
+
+drawable-group.gc:41
+->   (dotimes (s3-0 (-> this length))
+  [0x1017C] mov x3, x3                                       mov igpr-49, igpr-33
+  [0x10180] movz x9, #0x1                                    mov-ic igpr-50, 1
+  [0x10184] add x3, x3, x9                                   addi igpr-49, igpr-50
+  [0x10188] mov x3, x3                                       mov igpr-33, igpr-49
+  [0x1018C] add x16, x5, x15                                 mov igpr-51, [igpr-4 + 2]
+  [0x10190] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x10194] cmp x3, x9                                       j(igpr-33 < igpr-51) label-46
+  [0x10198] b.lt #0x10118
+  [0x1019C] mov x9, x14                                      mov-symptr igpr-52, '#f
+  [0x101A0] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:36
+-> (defmethod mem-usage ((this drawable-group) (arg0 memory-usage-block) (arg1 int))
+  [0x101A4] mov x0, x5                                       ret igpr-3 igpr-4
+  [0x101A8] add sp, sp, #0x10
+  [0x101AC] ldp x29, x30, [sp], #0x10
+  [0x101B0] ret
+
+
+[(method inspect drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-group.gc:14
+-> (defmethod inspect ((this drawable-group))
+  [0x1000C] mov x5, x7                                       mov igpr-2, igpr-0
+
+drawable-group.gc:15
+->   (format #t "[~8x] ~A~%" this (-> this type))
+  [0x10010] adrp x16, #0x10000                               mov igpr-3, 'format
+  [0x10014] add x16, x16, #0
+  [0x10018] ldr w9, [x16]
+  [0x1001C] add x7, x14, #8                                  mov-symptr igpr-4, '#t
+  [0x10020] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10024] adrp x6, #0x10000                                mov-sva igpr-5, static-string "[~8x] ~A~%"
+  [0x10028] add x6, x6, #0xd54
+  [0x1002C] sub x6, x6, x15
+
+drawable-group.gc:15
+->   (format #t "[~8x] ~A~%" this (-> this type))
+  [0x10030] add x16, x5, x15                                 mov igpr-6, [igpr-2 + -4]
+  [0x10034] ldur w1, [x16, #-4] ;; misaligned with debug data
+
+drawable-group.gc:15
+->   (format #t "[~8x] ~A~%" this (-> this type))
+  [0x10038] mov x9, x9                                       mov igpr-12, igpr-3
+  [0x1003C] mov x7, x7                                       mov igpr-8, igpr-4
+  [0x10040] mov x6, x6                                       mov igpr-9, igpr-5
+  [0x10044] mov x2, x5                                       mov igpr-10, igpr-2
+  [0x10048] mov x1, x1                                       mov igpr-11, igpr-6
+  [0x1004C] add x9, x9, x15                                  call igpr-12 (ret igpr-7) (args igpr-8 igpr-9 igpr-10 igpr-11)
+  [0x10050] stp x3, x5, [sp, #-0x10]!
+  [0x10054] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10058] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1005C] blr x9 ;; misaligned with debug data
+  [0x10060] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10064] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10068] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1006C] mov x0, x0                                       mov igpr-13, igpr-7
+
+drawable-group.gc:16
+->   (format #t "~Tid: ~D~%" (-> this id))
+  [0x10070] adrp x16, #0x10000                               mov igpr-14, 'format
+  [0x10074] add x16, x16, #0
+  [0x10078] ldr w9, [x16]
+  [0x1007C] add x7, x14, #8                                  mov-symptr igpr-15, '#t
+  [0x10080] sub x7, x7, x15 ;; misaligned with debug data
+  [0x10084] adrp x6, #0x10000                                mov-sva igpr-16, static-string "~Tid: ~D~%"
+  [0x10088] add x6, x6, #0xd74
+  [0x1008C] sub x6, x6, x15
+
+drawable-group.gc:16
+->   (format #t "~Tid: ~D~%" (-> this id))
+  [0x10090] add x16, x5, x15                                 mov igpr-17, [igpr-2 + 0]
+  [0x10094] ldrsh x2, [x16] ;; misaligned with debug data
+
+drawable-group.gc:16
+->   (format #t "~Tid: ~D~%" (-> this id))
+  [0x10098] mov x9, x9                                       mov igpr-22, igpr-14
+  [0x1009C] mov x7, x7                                       mov igpr-19, igpr-15
+  [0x100A0] mov x6, x6                                       mov igpr-20, igpr-16
+  [0x100A4] mov x2, x2                                       mov igpr-21, igpr-17
+  [0x100A8] add x9, x9, x15                                  call igpr-22 (ret igpr-18) (args igpr-19 igpr-20 igpr-21)
+  [0x100AC] stp x3, x5, [sp, #-0x10]!
+  [0x100B0] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B4] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x100B8] blr x9 ;; misaligned with debug data
+  [0x100BC] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x100C0] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x100C4] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x100C8] mov x0, x0                                       mov igpr-23, igpr-18
+
+drawable-group.gc:17
+->   (format #t "~Tlength: ~D~%" (-> this length))
+  [0x100CC] adrp x16, #0x10000                               mov igpr-24, 'format
+  [0x100D0] add x16, x16, #0
+  [0x100D4] ldr w9, [x16]
+  [0x100D8] add x7, x14, #8                                  mov-symptr igpr-25, '#t
+  [0x100DC] sub x7, x7, x15 ;; misaligned with debug data
+  [0x100E0] adrp x6, #0x10000                                mov-sva igpr-26, static-string "~Tlength: ~D~%"
+  [0x100E4] add x6, x6, #0xd94
+  [0x100E8] sub x6, x6, x15
+
+drawable-group.gc:17
+->   (format #t "~Tlength: ~D~%" (-> this length))
+  [0x100EC] add x16, x5, x15                                 mov igpr-27, [igpr-2 + 2]
+  [0x100F0] ldrsh x2, [x16, #2] ;; misaligned with debug data
+
+drawable-group.gc:17
+->   (format #t "~Tlength: ~D~%" (-> this length))
+  [0x100F4] mov x9, x9                                       mov igpr-32, igpr-24
+  [0x100F8] mov x7, x7                                       mov igpr-29, igpr-25
+  [0x100FC] mov x6, x6                                       mov igpr-30, igpr-26
+  [0x10100] mov x2, x2                                       mov igpr-31, igpr-27
+  [0x10104] add x9, x9, x15                                  call igpr-32 (ret igpr-28) (args igpr-29 igpr-30 igpr-31)
+  [0x10108] stp x3, x5, [sp, #-0x10]!
+  [0x1010C] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10110] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10114] blr x9 ;; misaligned with debug data
+  [0x10118] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x1011C] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10120] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10124] mov x0, x0                                       mov igpr-33, igpr-28
+
+drawable-group.gc:18
+->   (format #t "~Tdata[~D]: @ #x~X~%" (-> this length) (-> this data))
+  [0x10128] adrp x16, #0x10000                               mov igpr-34, 'format
+  [0x1012C] add x16, x16, #0
+  [0x10130] ldr w9, [x16]
+  [0x10134] add x7, x14, #8                                  mov-symptr igpr-35, '#t
+  [0x10138] sub x7, x7, x15 ;; misaligned with debug data
+  [0x1013C] adrp x6, #0x10000                                mov-sva igpr-36, static-string "~Tdata[~D]: @ #x~X~%"
+  [0x10140] add x6, x6, #0xdb4
+  [0x10144] sub x6, x6, x15
+
+drawable-group.gc:18
+->   (format #t "~Tdata[~D]: @ #x~X~%" (-> this length) (-> this data))
+  [0x10148] add x16, x5, x15                                 mov igpr-37, [igpr-2 + 2]
+  [0x1014C] ldrsh x2, [x16, #2] ;; misaligned with debug data
+
+drawable-group.gc:18
+->   (format #t "~Tdata[~D]: @ #x~X~%" (-> this length) (-> this data))
+  [0x10150] movz x1, #0x1c                                   mov-ic igpr-38, 28
+  [0x10154] add x1, x1, x5                                   addi igpr-38, igpr-2
+
+drawable-group.gc:18
+->   (format #t "~Tdata[~D]: @ #x~X~%" (-> this length) (-> this data))
+  [0x10158] mov x9, x9                                       mov igpr-44, igpr-34
+  [0x1015C] mov x7, x7                                       mov igpr-40, igpr-35
+  [0x10160] mov x6, x6                                       mov igpr-41, igpr-36
+  [0x10164] mov x2, x2                                       mov igpr-42, igpr-37
+  [0x10168] mov x1, x1                                       mov igpr-43, igpr-38
+  [0x1016C] add x9, x9, x15                                  call igpr-44 (ret igpr-39) (args igpr-40 igpr-41 igpr-42 igpr-43)
+  [0x10170] stp x3, x5, [sp, #-0x10]!
+  [0x10174] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10178] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1017C] blr x9 ;; misaligned with debug data
+  [0x10180] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10184] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x10188] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x1018C] mov x0, x0                                       mov igpr-45, igpr-39
+
+drawable-group.gc:19
+->   (dotimes (s5-0 (-> this length))
+  [0x10190] movz x3, #0                                      mov-ic igpr-46, 0
+  [0x10194] mov x3, x3                                       mov igpr-47, igpr-46
+  [0x10198] b #0x10224                                       goto label-70
+
+drawable-group.gc:20
+->     (format #t "~T  [~D] ~A~%" s5-0 (-> this data s5-0)))
+  [0x1019C] adrp x16, #0x10000                               mov igpr-51, 'format
+  [0x101A0] add x16, x16, #0
+  [0x101A4] ldr w9, [x16]
+
+drawable-group.gc:19
+->   (dotimes (s5-0 (-> this length))
+  [0x101A8] add x7, x14, #8                                  mov-symptr igpr-52, '#t
+  [0x101AC] sub x7, x7, x15 ;; misaligned with debug data
+  [0x101B0] adrp x6, #0x10000                                mov-sva igpr-53, static-string "~T  [~D] ~A~%"
+  [0x101B4] add x6, x6, #0xdd4
+  [0x101B8] sub x6, x6, x15
+
+drawable-group.gc:20
+->     (format #t "~T  [~D] ~A~%" s5-0 (-> this data s5-0)))
+  [0x101BC] mov x8, x3                                       mov igpr-54, igpr-47
+  [0x101C0] lsl x8, x8, #2                                   shl igpr-54, 2
+  [0x101C4] mov x8, x8                                       mov igpr-56, igpr-54
+  [0x101C8] movz x1, #0x1c                                   mov-ic igpr-57, 28
+  [0x101CC] add x1, x1, x5                                   addi igpr-57, igpr-2
+  [0x101D0] add x8, x8, x1                                   addi igpr-56, igpr-57
+  [0x101D4] add x16, x8, x15                                 mov igpr-55, [igpr-56 + 0]
+  [0x101D8] ldr w1, [x16] ;; misaligned with debug data
+
+drawable-group.gc:20
+->     (format #t "~T  [~D] ~A~%" s5-0 (-> this data s5-0)))
+  [0x101DC] mov x9, x9                                       mov igpr-63, igpr-51
+  [0x101E0] mov x7, x7                                       mov igpr-59, igpr-52
+  [0x101E4] mov x6, x6                                       mov igpr-60, igpr-53
+  [0x101E8] mov x2, x3                                       mov igpr-61, igpr-47
+  [0x101EC] mov x1, x1                                       mov igpr-62, igpr-55
+  [0x101F0] add x9, x9, x15                                  call igpr-63 (ret igpr-58) (args igpr-59 igpr-60 igpr-61 igpr-62)
+  [0x101F4] stp x3, x5, [sp, #-0x10]!
+  [0x101F8] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x101FC] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10200] blr x9 ;; misaligned with debug data
+  [0x10204] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10208] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1020C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10210] mov x0, x0                                       mov igpr-64, igpr-58
+
+drawable-group.gc:19
+->   (dotimes (s5-0 (-> this length))
+  [0x10214] mov x3, x3                                       mov igpr-65, igpr-47
+  [0x10218] movz x9, #0x1                                    mov-ic igpr-66, 1
+  [0x1021C] add x3, x3, x9                                   addi igpr-65, igpr-66
+  [0x10220] mov x3, x3                                       mov igpr-47, igpr-65
+  [0x10224] add x16, x5, x15                                 mov igpr-67, [igpr-2 + 2]
+  [0x10228] ldrsh x9, [x16, #2] ;; misaligned with debug data
+  [0x1022C] cmp x3, x9                                       j(igpr-47 < igpr-67) label-49
+  [0x10230] b.lt #0x1019c
+  [0x10234] mov x9, x14                                      mov-symptr igpr-68, '#f
+  [0x10238] sub x9, x9, x15 ;; misaligned with debug data
+
+drawable-group.gc:14
+-> (defmethod inspect ((this drawable-group))
+  [0x1023C] mov x0, x5                                       ret igpr-1 igpr-2
+  [0x10240] add sp, sp, #0x10
+  [0x10244] ldp x29, x30, [sp], #0x10
+  [0x10248] ret
+
+
+[(method new drawable-group)]
+  [0x10000] stp x29, x30, [sp, #-0x10]!
+  [0x10004] mov x29, sp
+  [0x10008] sub sp, sp, #0x10
+
+drawable-group.gc:8
+-> (defmethod new drawable-group ((allocation symbol) (type-to-make type) (arg0 int))
+  [0x1000C] mov x7, x7                                       mov igpr-4, igpr-0
+  [0x10010] mov x6, x6                                       mov igpr-5, igpr-1
+  [0x10014] mov x3, x2                                       mov igpr-6, igpr-2
+
+drawable-group.gc:10
+->   (let ((v0-0 (object-new allocation type-to-make (the-as int (+ (-> type-to-make size) (* (+ arg0 -1) 4))))))
+  [0x10018] adrp x16, #0x10000                               mov igpr-7, 'object
+  [0x1001C] add x16, x16, #0
+  [0x10020] ldr w9, [x16]
+  [0x10024] add x16, x9, x15                                 mov igpr-8, [igpr-7 + 16]
+  [0x10028] ldr w9, [x16, #0x10] ;; misaligned with debug data
+
+drawable-group.gc:10
+->   (let ((v0-0 (object-new allocation type-to-make (the-as int (+ (-> type-to-make size) (* (+ arg0 -1) 4))))))
+  [0x1002C] add x16, x6, x15                                 mov igpr-10, [igpr-5 + 8]
+  [0x10030] ldrh w2, [x16, #8] ;; misaligned with debug data
+  [0x10034] mov x2, x2                                       mov igpr-9, igpr-10
+
+drawable-group.gc:10
+->   (let ((v0-0 (object-new allocation type-to-make (the-as int (+ (-> type-to-make size) (* (+ arg0 -1) 4))))))
+  [0x10038] mov x8, x3                                       mov igpr-11, igpr-6
+  [0x1003C] movz x1, #0xffff                                 mov-ic igpr-12, 18446744073709551615
+  [0x10040] movk x1, #0xffff, lsl #16
+  [0x10044] movk x1, #0xffff, lsl #32
+  [0x10048] movk x1, #0xffff, lsl #48
+  [0x1004C] add x8, x8, x1                                   addi igpr-11, igpr-12
+
+drawable-group.gc:10
+->   (let ((v0-0 (object-new allocation type-to-make (the-as int (+ (-> type-to-make size) (* (+ arg0 -1) 4))))))
+  [0x10050] mov x8, x8                                       mov igpr-13, igpr-11
+  [0x10054] lsl x8, x8, #2                                   shl igpr-13, 2
+
+drawable-group.gc:10
+->   (let ((v0-0 (object-new allocation type-to-make (the-as int (+ (-> type-to-make size) (* (+ arg0 -1) 4))))))
+  [0x10058] add x2, x2, x8                                   addi igpr-9, igpr-13
+
+drawable-group.gc:10
+->   (let ((v0-0 (object-new allocation type-to-make (the-as int (+ (-> type-to-make size) (* (+ arg0 -1) 4))))))
+  [0x1005C] mov x2, x2                                       mov igpr-14, igpr-9
+
+drawable-group.gc:10
+->   (let ((v0-0 (object-new allocation type-to-make (the-as int (+ (-> type-to-make size) (* (+ arg0 -1) 4))))))
+  [0x10060] mov x9, x9                                       mov igpr-19, igpr-8
+  [0x10064] mov x7, x7                                       mov igpr-16, igpr-4
+  [0x10068] mov x6, x6                                       mov igpr-17, igpr-5
+  [0x1006C] mov x2, x2                                       mov igpr-18, igpr-14
+  [0x10070] add x9, x9, x15                                  call igpr-19 (ret igpr-15) (args igpr-16 igpr-17 igpr-18)
+  [0x10074] stp x3, x5, [sp, #-0x10]!
+  [0x10078] stp x10, x11, [sp, #-0x10]! ;; misaligned with debug data
+  [0x1007C] stp x12, x23, [sp, #-0x10]! ;; misaligned with debug data
+  [0x10080] blr x9 ;; misaligned with debug data
+  [0x10084] ldp x12, x23, [sp], #0x10 ;; misaligned with debug data
+  [0x10088] ldp x10, x11, [sp], #0x10 ;; misaligned with debug data
+  [0x1008C] ldp x3, x5, [sp], #0x10 ;; misaligned with debug data
+  [0x10090] mov x0, x0                                       mov igpr-20, igpr-15
+  [0x10094] mov x0, x0                                       mov igpr-21, igpr-20
+
+drawable-group.gc:10
+->   (let ((v0-0 (object-new allocation type-to-make (the-as int (+ (-> type-to-make size) (* (+ arg0 -1) 4))))))
+  [0x10098] mov x0, x0                                       mov igpr-22, igpr-21
+
+drawable-group.gc:11
+->     (set! (-> v0-0 length) arg0)
+  [0x1009C] add x16, x0, x15                                 move [igpr-22 + 2], igpr-6
+  [0x100A0] strh w3, [x16, #2] ;; misaligned with debug data
+
+drawable-group.gc:8
+-> (defmethod new drawable-group ((allocation symbol) (type-to-make type) (arg0 int))
+  [0x100A4] mov x0, x0                                       ret igpr-3 igpr-22
+  [0x100A8] add sp, sp, #0x10
+  [0x100AC] ldp x29, x30, [sp], #0x10
+  [0x100B0] ret
+
+
+
