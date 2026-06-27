@@ -400,6 +400,15 @@ namespace method_21_cloth_system { extern void link(); }
 
 LinkedFunctionTable gLinkedFunctionTable;
 Rng gRng;
+
+// Ginput-replay-determinism (autoport): reseed the mips2c RNG to a fixed, known
+// state so a replayed clip's mips2c'd gameplay code (collision, merc, etc.) is
+// bit-deterministic from the gameplay anchor. Mirrors rand-vu-init: R is reset to
+// a valid [1.0, 2.0) float bit pattern and the host mt19937 is reseeded.
+void reseed_rng(u32 seed) {
+  gRng.extra_random_generator.seed(seed);
+  gRng.R = gRng.from23_bits((u32)(0x3F800000u | (seed & 0x007FFFFFu)));
+}
 PerGameVersion<std::unordered_map<std::string, std::vector<void (*)()>>> gMips2CLinkCallbacks = {
     //////// JAK 1
     {{"font", {jak1::draw_string::link}},

@@ -1214,10 +1214,16 @@ void init_common_pc_port_functions(
 
   // RNG
   make_func_symbol_func("pc-rand", (void*)pc_rand);
-  // Phase Ginput-replay (autoport): let the input-replay harness reseed the host
-  // RNG at the first replayed logic tick, so a recorded demo replays
-  // deterministically (pc-rand feeds the GOAL gameplay rand-vu).
-  pad_replay::set_rng_seed_callback(&pc_set_rand_seed);
+  // Ginput-replay-determinism (autoport): the input-replay harness forces EVERY
+  // RNG stream to a fixed seed at the gameplay anchor, so a recorded real-gameplay
+  // clip replays bit-identically. Register the host RNG reseeds here:
+  //   * extra_random_generator — feeds the GOAL gameplay rand-vu via pc-rand.
+  //   * mips2c gRng — the RNG inside mips2c'd functions (collision, merc, ...).
+  // The jak1 runtime additionally registers the GOAL-side reseed (*_vu-reg-R_*,
+  // *random-generator*) from InitMachineScheme; Android registers its own pc-rand
+  // generator's reseed.
+  pad_replay::add_rng_reseed_callback(&pc_set_rand_seed);
+  pad_replay::add_rng_reseed_callback(&Mips2C::reseed_rng);
 
   // text
   make_func_symbol_func("pc-encode-utf8-string", (void*)pc_encode_utf8_string);

@@ -38,6 +38,7 @@
 #include "game/kernel/jak1/kscheme.h"
 #include "game/kernel/jak1/ksound.h"
 #include "game/sce/deci2.h"
+#include "game/system/pad_replay.h"
 #include "game/sce/libcdvd_ee.h"
 #include "game/sce/libdma.h"
 #include "game/sce/libgraph.h"
@@ -574,6 +575,78 @@ void InitMachine_PCPort() {
   intern_from_c("*pc-settings-built-sha*")->value = make_string_from_c(build_revision().c_str());
 }
 
+// ─── Ginput-replay-determinism (autoport): jak1 providers for the deterministic
+//     record/replay harness ────────────────────────────────────────────────────
+// The harness indexes records by the game-LOGIC frame (*display*
+// actual-frame-counter) RELATIVE to a gameplay ANCHOR (*target* spawned), and
+// forces every RNG stream to a fixed seed at the anchor. These reads use the same
+// intern_from_c + g_ee_main_mem + s7 #f-guard pattern as the F1 warp / Merc2
+// probes; field offsets are the deftype :offset-assert MINUS 4 (the GOAL basic
+// type-tag adjustment) — e.g. *display* actual-frame-counter :offset-assert 816 ->
+// C++ raw 812 (matches the A38-verified display on-screen 560 -> 556).
+
+// Forward decls: the F1 warp (defined later in this TU) is the deterministic
+// gameplay entry for the determinism proof / collision diff. When it is armed, the
+// gameplay anchor defers until the warp has actually spawned Jak at Geyser (post
+// title + post level-load), so the variable boot/title/load is fully absorbed and
+// no title-phase input pollutes the recorded clip.
+static bool f1_warp_requested();
+static bool s_pad_replay_warp_gameplay = false;  // set true by f1_warp_run after spawn
+
+// Deterministic game-logic frame = *display* actual-frame-counter (int64): +1 per
+// UNPAUSED simulated frame, pacing-independent — NOT the render/read counter.
+static int64_t pad_replay_logic_frame() {
+  u32 disp = intern_from_c("*display*")->value;
+  if (disp == 0 || disp == (u32)s7.offset || disp >= (u32)(EE_MAIN_MEM_SIZE - 820)) {
+    return 0;
+  }
+  int64_t fc = 0;
+  std::memcpy(&fc, g_ee_main_mem + disp + 812, 8);  // actual-frame-counter (816 - 4)
+  return fc;
+}
+
+// Gameplay anchor = *target* (Jak) is a live process (non-#f, in EE memory). When
+// the F1 warp is the gameplay entry, defer until the warp has spawned Jak at
+// Geyser (post title + level-load): *target* is ALSO valid during the title
+// (the title-state Jak), so anchoring on bare validity would latch at the title,
+// leaving the variable level-load between the anchor and gameplay un-absorbed.
+static bool pad_replay_anchor_reached() {
+  u32 tgt = intern_from_c("*target*")->value;
+  bool tgt_valid = (tgt != 0 && tgt != (u32)s7.offset && tgt < (u32)(EE_MAIN_MEM_SIZE - 4));
+  if (!tgt_valid) {
+    return false;
+  }
+  if (f1_warp_requested() && !s_pad_replay_warp_gameplay) {
+    return false;
+  }
+  return true;
+}
+
+// Force the GOAL-side RNG to a fixed, known state at the anchor (record & replay):
+//   *_vu-reg-R_*       — rand-vu's R register (a symbol holding an int); set to a
+//                        valid [1.0,2.0) float bit pattern exactly as rand-vu-init.
+//   *random-generator* — basic with a uint32 `seed` at obj+0 (:offset-assert 4 -4).
+static void pad_replay_force_goal_rng(u32 seed) {
+  intern_from_c("*_vu-reg-R_*")->value = (u32)(0x3F800000u | (seed & 0x007FFFFFu));
+  u32 rg = intern_from_c("*random-generator*")->value;
+  if (rg != 0 && rg != (u32)s7.offset && rg < (u32)(EE_MAIN_MEM_SIZE - 4)) {
+    u32 derived = seed ^ 0x9E3779B9u;
+    std::memcpy(g_ee_main_mem + rg, &derived, 4);  // seed @ obj+0 (4 - 4)
+  }
+}
+
+// Force a FIXED game-logic timestep while the harness is armed. *ticks-per-frame*
+// (the symbol's int value) only feeds the engine's time-ratio (drawable.gc:979,982)
+// and the cosmetic perf bar. Setting it very high makes float-time-ratio
+// (= timer-count / *ticks-per-frame*) ~0 < 1.3, so the PC-port clamp pins
+// time-ratio to 1.0 EVERY frame: each drawn frame is exactly one 1/60s logic step,
+// so the simulation no longer depends on the (variable) real frame duration. Set
+// every frame so a mid-run video-mode reset (video.gc) cannot undo it. Default OFF
+// — only ever called while the input-replay harness is recording/replaying.
+static void pad_replay_force_timestep() {
+  intern_from_c("*ticks-per-frame*")->value = 0x40000000;
+}
+
 /*!
  * Final initialization of the system after the kernel is loaded.
  * This is called from InitHeapAndSymbol at the very end.
@@ -594,6 +667,15 @@ void InitMachineScheme() {
   make_function_symbol_from_c("flush-cache", (void*)FlushCache);              // used
   make_function_symbol_from_c("cpad-open", (void*)CPadOpen);                  // used
   make_function_symbol_from_c("cpad-get-data", (void*)CPadGetData);           // used
+  // Ginput-replay-determinism (autoport): wire the deterministic record/replay
+  // harness to jak1 game state — index by the game-logic frame (*display*
+  // actual-frame-counter), anchor on *target* spawn, and force the GOAL RNG
+  // (*_vu-reg-R_*, *random-generator*) at the anchor. Backend-agnostic: this runs
+  // on x86 and on the arm64 device. No-op unless the harness is armed.
+  pad_replay::set_logic_frame_provider(&pad_replay_logic_frame);
+  pad_replay::set_anchor_provider(&pad_replay_anchor_reached);
+  pad_replay::add_rng_reseed_callback(&pad_replay_force_goal_rng);
+  pad_replay::set_timestep_force_callback(&pad_replay_force_timestep);
   make_function_symbol_from_c("install-handler", (void*)InstallHandler);      // used
   make_function_symbol_from_c("install-debug-handler", (void*)InstallDebugHandler);       // used
   make_function_symbol_from_c("file-stream-open", (void*)kopen);                          // used
@@ -736,6 +818,9 @@ static u64 f1_warp_run() {
       fflush(stdout);
     }
   }
+  // The input-replay harness anchors its recorded clip here: Jak has spawned at
+  // Geyser, the title and the variable level-load are behind us.
+  s_pad_replay_warp_gameplay = true;
   return tgt;
 }
 

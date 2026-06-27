@@ -1,5 +1,5 @@
-// Phase Ginput-replay (autoport): implementation of the host-side input
-// record/replay harness. See pad_replay.h for the design rationale.
+// Phase Ginput-replay / Ginput-replay-determinism (autoport): implementation of
+// the host-side input record/replay harness. See pad_replay.h for the design.
 
 #include "pad_replay.h"
 
@@ -26,24 +26,20 @@ namespace {
 
 constexpr char kMagic[8] = {'O', 'G', 'P', 'A', 'D', 'R', 'P', '1'};
 constexpr uint8_t kNeutral = 127;
-// Fixed default seed used for self-test / record runs so a replay reseeds the
-// host RNG to a known value. The mt19937 default-construct seed is 5489; we
-// pick a distinct constant so it is obvious in a hex dump that the harness owns
-// the seed.
+// Fixed seed forced into every RNG stream at the gameplay anchor. A replay forces
+// the SAME value at its own anchor, so the gameplay simulation is bit-identical
+// from the anchor onward regardless of the (variable) boot/load RNG consumption.
 constexpr uint32_t kDefaultSeed = 0x0AD12345u;
 
-// 64-byte demo header. Captures everything a replay needs to reconstruct the
-// deterministic start state (frame 0). fingerprint[] is reserved for the crash
-// phases to stash the continue-point + Jak's spawn position; it does not affect
-// the self-test.
+// 64-byte demo header. version 2 = game-logic-frame-anchored format.
 #pragma pack(push, 1)
 struct Header {
-  char magic[8];          // "OGPADRP1"
-  uint32_t version;       // 1
-  uint32_t record_size;   // sizeof(PadRecord) == 6
-  uint32_t seed;          // rng seed for deterministic replay
+  char magic[8];         // "OGPADRP1"
+  uint32_t version;      // 2 (anchored, logic-frame indexed)
+  uint32_t record_size;  // sizeof(PadRecord) == 6
+  uint32_t seed;         // rng seed forced at the anchor
   uint32_t reserved0;
-  uint64_t start_frame;   // kernel frame counter at frame 0 (first input)
+  int64_t anchor_frame;  // record run's anchor logic frame (informational)
   uint8_t fingerprint[32];
 };
 #pragma pack(pop)
@@ -52,15 +48,30 @@ static_assert(sizeof(Header) == 64, "Header must be 64 bytes");
 struct State {
   Mode mode = Mode::Off;
   std::string path;
-  FILE* f = nullptr;          // record: append handle
-  uint64_t tick = 0;          // logic-tick index (controller-0 reads)
-  bool header_done = false;   // record: header written at first input?
+  FILE* f = nullptr;  // record: append handle
   uint32_t seed = kDefaultSeed;
-  uint64_t start_frame = 0;
-  void (*seed_fn)(uint32_t) = nullptr;
-  bool seeded = false;        // replay: reseed performed?
+
+  // ── determinism providers / rng reseed ──
+  int64_t (*logic_frame_fn)() = nullptr;
+  bool (*anchor_fn)() = nullptr;
+  void (*timestep_fn)() = nullptr;
+  void (*reseed_fns[8])(uint32_t) = {};
+  int n_reseed = 0;
+
+  // ── deterministic (anchored) state ──
+  bool anchored = false;
+  int64_t anchor_frame = 0;
+  int64_t records_written = 0;  // record: next idx not yet written to disk
+  int64_t cur_frame = -1;       // logic frame since anchor for the current read
+
+  // ── legacy / self-test state (no providers registered) ──
+  uint64_t read_count = 0;     // controller-read counter
+  uint64_t legacy_tick = 0;    // legacy logic-tick (post idle-skip)
+  bool header_done = false;    // record: header written?
+  bool legacy_seeded = false;  // replay: legacy one-shot reseed done?
+
   std::vector<PadRecord> records;  // replay: full demo
-  FILE* trace = nullptr;      // state-trace handle
+  FILE* trace = nullptr;           // state-trace handle
 };
 
 State g;
@@ -74,29 +85,109 @@ void write_header() {
   Header h;
   std::memset(&h, 0, sizeof(h));
   std::memcpy(h.magic, kMagic, sizeof(kMagic));
-  h.version = 1;
+  h.version = 2;
   h.record_size = sizeof(PadRecord);
   h.seed = g.seed;
-  h.start_frame = g.start_frame;
+  h.anchor_frame = g.anchor_frame;
   std::fwrite(&h, sizeof(h), 1, g.f);
   std::fflush(g.f);
 }
 
+bool have_providers() {
+  return g.logic_frame_fn != nullptr || g.anchor_fn != nullptr;
+}
+
+void fire_reseed() {
+  for (int i = 0; i < g.n_reseed; ++i) {
+    if (g.reseed_fns[i]) {
+      g.reseed_fns[i](g.seed);
+    }
+  }
+}
+
+// ── legacy controller-read path (run_selftest, no providers) ────────────────────
+void legacy_on_cpad_read(uint16_t* button0, uint8_t* leftx, uint8_t* lefty,
+                         uint8_t* rightx, uint8_t* righty) {
+  if (g.mode == Mode::Record) {
+    if (!g.f) {
+      return;
+    }
+    PadRecord rec{*button0, *leftx, *lefty, *rightx, *righty};
+    if (!g.header_done) {
+      if (is_neutral(rec)) {  // idle-until-first-input
+        return;
+      }
+      g.anchor_frame = 0;
+      write_header();
+      g.header_done = true;
+    }
+    std::fwrite(&rec, sizeof(rec), 1, g.f);
+    std::fflush(g.f);
+    g.cur_frame = (int64_t)g.legacy_tick;
+    g.legacy_tick++;
+  } else if (g.mode == Mode::Replay) {
+    if (!g.legacy_seeded) {
+      fire_reseed();
+      g.legacy_seeded = true;
+    }
+    if (g.legacy_tick < g.records.size()) {
+      const PadRecord& rec = g.records[g.legacy_tick];
+      *button0 = rec.button0;
+      *leftx = rec.leftx;
+      *lefty = rec.lefty;
+      *rightx = rec.rightx;
+      *righty = rec.righty;
+    }
+    g.cur_frame = (int64_t)g.legacy_tick;
+    g.legacy_tick++;
+  }
+}
+
 }  // namespace
 
-void set_rng_seed_callback(void (*fn)(uint32_t)) {
-  g.seed_fn = fn;
+void set_logic_frame_provider(int64_t (*fn)()) {
+  g.logic_frame_fn = fn;
+}
+void set_anchor_provider(bool (*fn)()) {
+  g.anchor_fn = fn;
+}
+void add_rng_reseed_callback(void (*fn)(uint32_t)) {
+  if (g.n_reseed < (int)(sizeof(g.reseed_fns) / sizeof(g.reseed_fns[0]))) {
+    g.reseed_fns[g.n_reseed++] = fn;
+  }
+}
+void set_timestep_force_callback(void (*fn)()) {
+  g.timestep_fn = fn;
 }
 
 void init(Mode mode, const std::string& path) {
-  shutdown();  // clean any prior session
+  // Preserve registered providers/reseed callbacks across init (they are wired
+  // once at machine init, before the harness is armed).
+  auto lf = g.logic_frame_fn;
+  auto af = g.anchor_fn;
+  auto tf = g.timestep_fn;
+  decltype(g.reseed_fns) rs;
+  std::memcpy(rs, g.reseed_fns, sizeof(rs));
+  int nrs = g.n_reseed;
+
+  shutdown();
+  g.logic_frame_fn = lf;
+  g.anchor_fn = af;
+  g.timestep_fn = tf;
+  std::memcpy(g.reseed_fns, rs, sizeof(rs));
+  g.n_reseed = nrs;
+
   g.mode = mode;
   g.path = path;
-  g.tick = 0;
-  g.header_done = false;
-  g.seeded = false;
   g.seed = kDefaultSeed;
-  g.start_frame = 0;
+  g.anchored = false;
+  g.anchor_frame = 0;
+  g.records_written = 0;
+  g.cur_frame = -1;
+  g.read_count = 0;
+  g.legacy_tick = 0;
+  g.header_done = false;
+  g.legacy_seeded = false;
   g.records.clear();
 
   if (mode == Mode::Record) {
@@ -106,9 +197,8 @@ void init(Mode mode, const std::string& path) {
       g.mode = Mode::Off;
       return;
     }
-    PR_LOG("pad_replay: RECORD -> %s (per-logic-tick, flush-per-tick, "
-           "idle-until-first-input)",
-           path.c_str());
+    PR_LOG("pad_replay: RECORD -> %s (logic-frame anchored, providers=%s)",
+           path.c_str(), have_providers() ? "yes" : "no(legacy)");
   } else if (mode == Mode::Replay) {
     FILE* in = std::fopen(path.c_str(), "rb");
     if (!in) {
@@ -126,14 +216,15 @@ void init(Mode mode, const std::string& path) {
       return;
     }
     g.seed = h.seed;
-    g.start_frame = h.start_frame;
+    g.anchor_frame = h.anchor_frame;  // informational; replay uses its own anchor
     PadRecord r;
     while (std::fread(&r, sizeof(r), 1, in) == 1) {
       g.records.push_back(r);
     }
     std::fclose(in);
-    PR_LOG("pad_replay: REPLAY <- %s (%zu logic ticks, seed=0x%08x)",
-           path.c_str(), g.records.size(), g.seed);
+    PR_LOG("pad_replay: REPLAY <- %s (v%u, %zu logic frames, seed=0x%08x, providers=%s)",
+           path.c_str(), h.version, g.records.size(), g.seed,
+           have_providers() ? "yes" : "no(legacy)");
   }
 }
 
@@ -155,9 +246,14 @@ void shutdown() {
   }
   close_state_trace();
   g.mode = Mode::Off;
-  g.tick = 0;
+  g.anchored = false;
+  g.anchor_frame = 0;
+  g.records_written = 0;
+  g.cur_frame = -1;
+  g.read_count = 0;
+  g.legacy_tick = 0;
   g.header_done = false;
-  g.seeded = false;
+  g.legacy_seeded = false;
   g.records.clear();
 }
 
@@ -168,7 +264,10 @@ Mode mode() {
   return g.mode;
 }
 uint64_t current_tick() {
-  return g.tick;
+  return g.read_count;
+}
+int64_t current_frame() {
+  return g.cur_frame;
 }
 uint32_t replay_seed() {
   return g.seed;
@@ -183,49 +282,90 @@ void on_cpad_read(int controller_number,
   if (g.mode == Mode::Off) {
     return;
   }
-  // Only controller 0 anchors the logic tick. The game polls 4 pads per frame;
-  // recording all of them would multiply the tick index by 4 and desync replay.
+  // Only controller 0 anchors the harness. The game polls 4 pads per frame.
   if (controller_number != 0) {
     return;
   }
 
-  if (g.mode == Mode::Record) {
-    if (!g.f) {
+  // Force a fixed game-logic timestep while armed (record AND replay), so the
+  // simulation advances by exactly one 1/60s step per frame regardless of real
+  // frame pacing — the prerequisite for a bit-deterministic clip.
+  if (g.timestep_fn) {
+    g.timestep_fn();
+  }
+
+  // Legacy controller-read path (self-test / no game runtime).
+  if (!have_providers()) {
+    legacy_on_cpad_read(button0, leftx, lefty, rightx, righty);
+    return;
+  }
+
+  // ── deterministic, game-logic-frame-anchored path ──
+  if (!g.anchored) {
+    bool at_anchor = g.anchor_fn ? g.anchor_fn() : true;
+    if (!at_anchor) {
+      // Pre-anchor: boot / title / level-load. Leave the live input untouched
+      // (a deterministic boot — e.g. the OG_F1_WARP warp — drives this), record
+      // nothing, and do not advance the index. The variable boot/load frame
+      // count is thereby fully absorbed.
+      g.cur_frame = -1;
+      g.read_count++;
       return;
     }
-    PadRecord rec{*button0, *leftx, *lefty, *rightx, *righty};
-    if (!g.header_done) {
-      // Idle-until-first-input: do not start the demo (and do not advance the
-      // logic tick) until the first non-neutral pad state. Frame 0 of the demo
-      // is the first real input.
-      if (is_neutral(rec)) {
-        return;
-      }
+    g.anchored = true;
+    g.anchor_frame = g.logic_frame_fn ? g.logic_frame_fn() : 0;
+    // Force EVERY RNG stream to the demo seed at the anchor — record and replay
+    // alike — so the gameplay simulation is bit-deterministic from here.
+    fire_reseed();
+    if (g.mode == Mode::Record && !g.header_done) {
       write_header();
       g.header_done = true;
     }
-    std::fwrite(&rec, sizeof(rec), 1, g.f);
-    std::fflush(g.f);  // flush-per-tick: a crash at tick K still has 0..K
-    g.tick++;
-  } else if (g.mode == Mode::Replay) {
-    if (!g.seeded) {
-      if (g.seed_fn) {
-        g.seed_fn(g.seed);  // deterministic start state
-      }
-      g.seeded = true;
+    PR_LOG("pad_replay: ANCHOR reached at logic frame %lld (%s); rng forced to 0x%08x",
+           (long long)g.anchor_frame, g.mode == Mode::Record ? "record" : "replay", g.seed);
+  }
+
+  int64_t lf = g.logic_frame_fn ? g.logic_frame_fn() : (int64_t)g.read_count;
+  int64_t idx = lf - g.anchor_frame;
+  if (idx < 0) {
+    idx = 0;  // logic frame ran backwards (should not happen) — clamp
+  }
+  g.cur_frame = idx;
+
+  if (g.mode == Mode::Record) {
+    if (!g.f) {
+      g.read_count++;
+      return;
     }
-    if (g.tick < g.records.size()) {
-      const PadRecord& rec = g.records[g.tick];
+    PadRecord rec{*button0, *leftx, *lefty, *rightx, *righty};
+    if (idx >= g.records_written) {
+      // Dense, idx-keyed append. A clean (unpaused, ≥46fps) gameplay frame
+      // advances the logic frame by exactly 1, so idx == records_written and we
+      // append one record. If the logic frame ever skips (it should not during
+      // gameplay), fill the gap with neutral so file position == idx.
+      PadRecord neutral{0, kNeutral, kNeutral, kNeutral, kNeutral};
+      while (g.records_written < idx) {
+        std::fwrite(&neutral, sizeof(neutral), 1, g.f);
+        g.records_written++;
+      }
+      std::fwrite(&rec, sizeof(rec), 1, g.f);
+      std::fflush(g.f);  // flush-per-frame: a crash at frame K still has 0..K
+      g.records_written = idx + 1;
+    }
+    // idx < records_written: the logic frame did not advance (paused frame read
+    // twice) — already recorded; leave the (drive-applied) input as-is.
+  } else {  // Replay
+    if (idx >= 0 && (size_t)idx < g.records.size()) {
+      const PadRecord& rec = g.records[(size_t)idx];
       *button0 = rec.button0;
       *leftx = rec.leftx;
       *lefty = rec.lefty;
       *rightx = rec.rightx;
       *righty = rec.righty;
     }
-    // Past the end of the demo we leave the live input untouched (the crash the
-    // demo reproduces is expected to have already fired).
-    g.tick++;
+    // Past the end of the demo: leave the live input untouched.
   }
+  g.read_count++;
 }
 
 void open_state_trace(const std::string& path) {
@@ -237,9 +377,12 @@ void dump_state(const char* label, const void* data, size_t len) {
   if (!g.trace) {
     return;
   }
-  // State-anchored line: keyed by the logic tick, NOT a render frame.
-  std::fprintf(g.trace, "%s tick=%llu", label,
-               (unsigned long long)g.tick);
+  // Only dump comparable gameplay frames (skip pre-anchor boot/load frames).
+  if (g.cur_frame < 0) {
+    return;
+  }
+  // Keyed by the logic frame since the anchor (NOT a render frame).
+  std::fprintf(g.trace, "%s frame=%lld", label, (long long)g.cur_frame);
   const uint8_t* p = static_cast<const uint8_t*>(data);
   for (size_t i = 0; i < len; ++i) {
     std::fprintf(g.trace, " %02x", p[i]);
@@ -255,10 +398,13 @@ void close_state_trace() {
   }
 }
 
+bool trace_active() {
+  return g.trace != nullptr;
+}
+
 namespace {
 // Deterministic, varied scripted input as a function of the logic tick. Touches
-// every button bit over 16 ticks and ramps all four analog axes, so the demo is
-// genuinely non-trivial (not a constant hold).
+// every button bit over 16 ticks and ramps all four analog axes.
 PadRecord scripted(int t) {
   PadRecord r;
   r.button0 = (uint16_t)(((1u << (t % 16)) | ((uint32_t)(t * 37u) & 0x55AAu)));
@@ -274,36 +420,41 @@ int run_selftest(const std::string& out_path, int n_ticks) {
   if (n_ticks < 1) {
     n_ticks = 120;
   }
-  PR_LOG("pad_replay: SELFTEST begin (%d logic ticks) -> %s", n_ticks,
-         out_path.c_str());
+  // The self-test drives the tap directly with NO game engine and NO providers,
+  // so it exercises the legacy controller-read path (pad-byte round-trip only).
+  // It is NOT a real-gameplay determinism test — that is proven in-engine.
+  auto saved_lf = g.logic_frame_fn;
+  auto saved_af = g.anchor_fn;
+  g.logic_frame_fn = nullptr;
+  g.anchor_fn = nullptr;
+
+  PR_LOG("pad_replay: SELFTEST begin (%d logic ticks) -> %s", n_ticks, out_path.c_str());
 
   // ---- RECORD through the real tap ------------------------------------------
   init(Mode::Record, out_path);
   if (g.mode != Mode::Record) {
     PR_LOG("pad_replay: SELFTEST FAILED — could not open demo for record");
+    g.logic_frame_fn = saved_lf;
+    g.anchor_fn = saved_af;
     return 1;
   }
-  // Idle-until-first-input: 3 leading NEUTRAL ticks that MUST be skipped (they
-  // must NOT advance the logic tick or land in the demo).
-  for (int k = 0; k < 3; ++k) {
+  for (int k = 0; k < 3; ++k) {  // 3 leading NEUTRAL ticks must be skipped
     uint16_t b = 0;
     uint8_t lx = kNeutral, ly = kNeutral, rx = kNeutral, ry = kNeutral;
     on_cpad_read(0, &b, &lx, &ly, &rx, &ry);
   }
-  bool idle_ok = (current_tick() == 0);
+  bool idle_ok = (g.legacy_tick == 0);
   std::vector<PadRecord> recorded(n_ticks);
   for (int t = 0; t < n_ticks; ++t) {
     PadRecord s = scripted(t);
     uint16_t b = s.button0;
     uint8_t lx = s.leftx, ly = s.lefty, rx = s.rightx, ry = s.righty;
-    on_cpad_read(0, &b, &lx, &ly, &rx, &ry);  // record observes & writes
+    on_cpad_read(0, &b, &lx, &ly, &rx, &ry);
     recorded[t] = PadRecord{b, lx, ly, rx, ry};
   }
-  uint64_t recorded_ticks = current_tick();
+  uint64_t recorded_ticks = g.legacy_tick;
   shutdown();
 
-  // On-disk size check: header + exactly n_ticks records (no truncation, no
-  // stray idle ticks).
   long expect = (long)sizeof(Header) + (long)n_ticks * (long)sizeof(PadRecord);
   long actual = -1;
   if (FILE* fz = std::fopen(out_path.c_str(), "rb")) {
@@ -312,12 +463,12 @@ int run_selftest(const std::string& out_path, int n_ticks) {
     std::fclose(fz);
   }
 
-  // ---- REPLAY #1 through the real tap; dump per-logic-tick state ------------
+  // ---- REPLAY #1 through the real tap; dump per-tick state ------------------
   init(Mode::Replay, out_path);
   open_state_trace(out_path + ".statedump.txt");
   std::vector<PadRecord> replay1(n_ticks);
   for (int t = 0; t < n_ticks; ++t) {
-    uint16_t b = 0;  // neutral "live" input — replay must override it
+    uint16_t b = 0;
     uint8_t lx = kNeutral, ly = kNeutral, rx = kNeutral, ry = kNeutral;
     on_cpad_read(0, &b, &lx, &ly, &rx, &ry);
     replay1[t] = PadRecord{b, lx, ly, rx, ry};
@@ -338,8 +489,8 @@ int run_selftest(const std::string& out_path, int n_ticks) {
   shutdown();
 
   // ---- compare --------------------------------------------------------------
-  int pad_diff = 0;       // fidelity: replay applied != recorded
-  int first_div = -1;     // first divergent logic tick
+  int pad_diff = 0;
+  int first_div = -1;
   for (int t = 0; t < n_ticks; ++t) {
     if (std::memcmp(&recorded[t], &replay1[t], sizeof(PadRecord)) != 0) {
       pad_diff++;
@@ -348,33 +499,30 @@ int run_selftest(const std::string& out_path, int n_ticks) {
       }
     }
   }
-  int det_diff = 0;       // determinism: replay#1 != replay#2
+  int det_diff = 0;
   for (int t = 0; t < n_ticks; ++t) {
     if (std::memcmp(&replay1[t], &replay2[t], sizeof(PadRecord)) != 0) {
       det_diff++;
     }
   }
 
-  PR_LOG("pad_replay: idle-until-first-input: 3 neutral ticks skipped, "
-         "frame 0 = first input (%s)",
+  PR_LOG("pad_replay: idle-until-first-input: 3 neutral ticks skipped (%s)",
          idle_ok ? "OK" : "FAIL");
-  PR_LOG("pad_replay: demo size %ld bytes (expected %ld: 64B header + %d*6)",
-         actual, expect, n_ticks);
+  PR_LOG("pad_replay: demo size %ld bytes (expected %ld)", actual, expect);
   PR_LOG("PAD DIFF: %d/%d", pad_diff, n_ticks);
-  PR_LOG("DETERMINISM: 2 replays differ at %d/%d logic ticks (bit-identical "
-         "state dumps expected)",
-         det_diff, n_ticks);
+  PR_LOG("DETERMINISM: 2 replays differ at %d/%d logic ticks", det_diff, n_ticks);
   if (first_div < 0) {
-    PR_LOG("FIRST DIVERGENCE: none — all %d logic ticks bit-identical "
-           "(record == replay)",
-           n_ticks);
+    PR_LOG("FIRST DIVERGENCE: none — all %d ticks bit-identical (record == replay)", n_ticks);
   } else {
-    PR_LOG("FIRST DIVERGENCE: logic tick %d (field-level localizer)", first_div);
+    PR_LOG("FIRST DIVERGENCE: logic tick %d", first_div);
   }
 
   bool pass = (pad_diff == 0) && (det_diff == 0) && idle_ok &&
               ((uint64_t)n_ticks == recorded_ticks) && (actual == expect);
   PR_LOG("pad_replay: SELFTEST %s", pass ? "PASS" : "FAIL");
+
+  g.logic_frame_fn = saved_lf;
+  g.anchor_fn = saved_af;
   return pass ? 0 : 1;
 }
 
