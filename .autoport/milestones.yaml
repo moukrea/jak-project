@@ -911,6 +911,18 @@ phases:
   validator: validators/phase-Gcollision-systemic.sh
   max_turns: 1800
   max_retries: 5
+- id: Ginput-replay-determinism
+  name: 'OWNER 2026-06-27 (PRIORITY, blocks collision diff): replay does NOT reproduce a real-gameplay recording — Jak does the recorded moves but at the wrong place/direction from the first seconds (owner-observed). Harness records inputs faithfully but the GAME trajectory diverges = hidden non-determinism. Prime suspect: inputs indexed on the controller-READ counter (advances during load/cinematics, variable) instead of the deterministic game-logic frame; + unrestored rng. Fix so record-trace==replay-trace (same backend, bit-identical) on a REAL clip. goal_src 1-to-1.'
+  prompt: prompts/phase-Ginput-replay-determinism.md
+  validator: validators/phase-Ginput-replay-determinism.sh
+  max_turns: 1800
+  max_retries: 5
+- id: Gcollision-replay-diff
+  name: 'OWNER 2026-06-27 (PRIORITY): the Gcollision-systemic FCVTZS fix was a FALSE GREEN (owner: different glitches, not fixed). Diagnose the REAL arm64 collision divergence from the OWNER recorded glitch playthrough (.autoport/demos/collision-glitch.inputs, 28229 ticks): replay it on x86 AND arm64 with per-logic-tick collision dumps, compare, name the FIRST divergent tick + real root op, fix in translation layer. Demo-driven, NOT synthetic. goal_src 1-to-1. Owner re-plays to confirm.'
+  prompt: prompts/phase-Gcollision-replay-diff.md
+  validator: validators/phase-Gcollision-replay-diff.sh
+  max_turns: 1800
+  max_retries: 5
 global:
   git:
     push_after_each_phase: true
