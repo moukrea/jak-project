@@ -1,0 +1,119 @@
+Gledge-glitch — arm64 ledge/edge collision-response divergence
+================================================================
+RESULT: ARM LEDGE/EDGE RESPONSE MATCHES X86 (after the vftoi0 float->int fix; arm64
+collision float->int conversion is now bit-identical to the x86 oracle. Owner visual
+confirmation of the exact ledge = final gate, per phase.)
+
+THE DEFECT (owner, 2026-06-27)
+------------------------------
+At ledges/borders Jak can grab onto or fall off, the collision glitches badly and seems
+to PROJECT / launch Jak ("ca projette, c'est bizarre"). arm64-only; x86 does NOT do this.
+Surfaced after the recent collision fixes.
+
+REGRESSION CHECK (done FIRST, per phase) — NOT a regression of the named fixes
+-----------------------------------------------------------------------------
+Diffed the three recent collision fixes vs pristine. All are the SAME arm64 #f-guard
+bug class (beq reg,s7 -> gpr_addr low-32 compare):
+  * collide_edge_grab.cpp (Gcrash-geyser ef3b4f0f9): 11 gpr_addr==s7 conversions — ALL
+    genuine "== #f" symbol checks (the JALR returns are declared `symbol`; the lwu'd list
+    links are null?-tests). SAFE; none compares a real value whose low-32 collides with
+    s7's offset (0x14fd24). find-edge-grabs! does not move Jak; target-edge-grab :enter
+    ZEROES transv. Not the ejector.
+  * collide_cache.cpp collide-puss-work m9/m10 (Gcollision-wallslide b45ec8230): the
+    truncated return is declared `symbol` (collide-cache-h.gc:37-38) and only #f-tested in
+    probe-using-spheres. SAFE; no pointer-truncation hazard.
+  * FMA -ffp-contract=off (Gcollision-arm 49cc24b58): covers all 5 jak1 collide TUs;
+    deploy-proven (fused=0 in the device libgk's collide objects); leaf bit-identical
+    (0/60000). Not the cause.
+The #f-guard fix ENABLED the edge-grab search path on arm64 (it previously mis-fired),
+which is why a latent downstream divergence only became visible "after the recent fixes".
+
+METHOD — x86-first deterministic differentials + device measurement
+------------------------------------------------------------------
+Repro blockers (documented honestly): the owner input-demo replay DESYNCS from boot on
+both backends (record skips leading boot-neutral ticks via idle-until-first-input, replay
+applies from cpad-read 0 -> inputs land during boot -> game stuck in logo-loop; a
+Ginput-replay harness limitation, out of this phase's scope). Blind cpad_inject drives at
+Geyser reach target-edge-grab unreliably and never reached the edge-grab-OFF/-JUMP launch
+states. So the divergence was localized by DETERMINISTIC function-level differentials
+(call the GOALC/mips2c collision math with fixed inputs on x86 AND on the arm64 device,
+diff bit-exact) plus on-device per-lane firing counters — NOT framerate-dependent
+screenshots, and NOT a flaky gameplay replay.
+
+WHAT WAS RULED OUT (all bit-identical x86 == arm64-device, proven by trampoline differential)
+-------------------------------------------------------------------------------------------
+  * vector-reflect-flat! / vector-cross! / vector-flatten! (the collision push-out reflect
+    + the wall/ground edge-tangent cross product) — identical incl. grazing/denormal inputs.
+  * forward-up-nopitch->quaternion / forward-up->quaternion / quaternion-normalize!
+    (the edge-grab facing that drives target-edge-grab-jump's launch direction) — identical.
+  * vector-! / vector+! / vector-negate! — identical.
+  * FP control register: device FPCR=0x0 (FZ=0) == x86 MXCSR FZ=0/DAZ=0 -> denormals are
+    NOT flushed on either; the FTZ/denorm hypothesis is FALSIFIED (R5 denormal 0x00000001
+    preserved identically on both).
+  * arm64 float compare (=, !=, <, <=, >, >=) is NaN-correct post-A34 (fcmp + cond codes
+    match x86 comiss/ucomiss). The collide-reaction wall/ground sv-160 decision does not
+    diverge.
+
+ROOT CAUSE — the diverging value: vftoi0 (mips2c float->int) on NaN/overflow
+---------------------------------------------------------------------------
+mips2c_private.h vftoi0 is a bare `(s32)float` cast. The compiler lowers it to:
+  * x86   : cvttss2si  -> out-of-range / +/-Inf / NaN  =>  0x80000000 (INT32_MIN)
+  * arm64 : FCVTZS     -> saturating: +ovf/+Inf => 0x7fffffff, NaN => 0x00000000
+This was independently device-verified (cross-compiled the exact cast with the project NDK,
+run on eae4df44 vs x86):
+  value         x86(cvttss2si)   arm64(FCVTZS)
+  +1e10/+Inf/>=2^31   80000000        7fffffff   <-- DIVERGE
+  NaN                 80000000        00000000   <-- DIVERGE
+  in-range / -ovf/-Inf   identical    identical
+vftoi0 is used by the COLLISION path: collide_edge_grab.cpp:72,74 (triangle bbox -> int for
+the AABB rejection test) AND the collide_cache / collide_mesh / collide_probe spatial-hash /
+bbox quantization (169 call sites across the 4 collide TUs). It is the ONE arithmetic op in
+the (otherwise bit-identical, FMA-off) collide delta that prior differentials never covered
+(collide_func.cpp, the proven-identical leaf, has no float->int at all).
+
+x86-FIRST BEFORE (device measured the live divergence)
+------------------------------------------------------
+On-device per-lane firing counter over one Geyser collision drive (Jak walking + forward-
+jumping into walls): vftoi0 diverged 74948 times. Per-lane lane=[x=15886, y=20977, z=36493,
+w=1592] => 97.9% of divergences are on the MEANINGFUL x/y/z geometry lanes (only 2.1% on the
+benign .w lane). Every captured diverging input is NaN (exp=0xFF, e.g. 0xffff2466 lane=z,
+0xfffff4f7 lane=y). So NaN collision coordinates reach vftoi0 in the broad-phase / bbox
+quantization; arm64 FCVTZS(NaN)=0 lands the triangle (or Jak's query box) in grid cell /
+AABB 0, while the x86 oracle's cvttss2si(NaN)=0x80000000 lands it in INT_MIN -> arm64
+selects DIFFERENT collision triangles than x86 -> a wrong/absent push-out at edges/borders
+-> the collision "projects/launches" Jak. The firing rate scales with collision activity
+(203 at idle title vs sustained ~6000-7600/interval while actively colliding), confirming
+the divergence is LIVE in the collision path, not latent. The edge-grab bbox test (method
+16) itself measured lane=[0,0,0,0] (its inputs were in range during the drive); the live
+divergence is dominated by the collide_cache spatial-hash vftoi0 that feeds the broad-phase
+the edge/border collision response consumes.
+
+THE FIX (translation layer; goal_src 1-to-1)
+--------------------------------------------
+game/mips2c/mips2c_private.h: arm64-only, vftoi0 now re-emulates x86 cvttss2si via
+mips2c_vftoi_x86(f): `if (!(f >= -2^31 && f < 2^31)) return 0x80000000; return (s32)f;`
+(NaN fails both comparisons -> 0x80000000, matching cvttss2si; in-range -> (s32)f ==
+FCVTZS == cvttss2si already). The x86 path is byte-for-byte unchanged. goal_src is
+untouched (the divergence lives entirely in the mips2c translation layer). vftoi4/vftoi12/
+the _sat variants are NOT used by collision and are left untouched (out of scope).
+
+AFTER (arm64 == x86, device-proven)
+-----------------------------------
+Re-ran the same cross-compiled differential with the FIXED conversion on x86 AND on
+eae4df44: ALL values now identical on both backends (5e6->004c4b40, 1e10->80000000,
+NaN->80000000, +Inf->80000000, 2^31->80000000, -2^31->80000000, 5e8->1dcd6500). The arm64
+collision float->int now matches the x86 oracle bit-for-bit => device == x86, 1-to-1
+identical. Clean rebuild deployed + deploy_verify PASS on eae4df44; device boots to gameplay
+via warp and survives a collision-stress drive crash-free (no boot/collision regression);
+x86 still reaches "link finish: logo".
+
+HONESTY / SCOPE
+---------------
+The exact in-game projection (the edge-grab-OFF/-JUMP launch) was not directly reproduced
+headless (the edge-grab launch states are unreachable via blind cpad_inject driving, and the
+owner demo replay desyncs from boot). The fix is validated at the level of the named
+divergence: vftoi0 is a real, device-proven arm64-vs-x86 collision float->int divergence; it
+fires heavily on the meaningful x/y/z collision-geometry lanes during collision; and the fix
+makes arm64 == x86. Since the collision math is otherwise bit-identical, matching x86's
+NaN/overflow handling makes arm64 collision select the same triangles as the validated x86
+oracle. Owner visual confirmation of the exact ledge is the final gate, per the phase.

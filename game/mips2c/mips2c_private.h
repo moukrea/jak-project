@@ -1448,11 +1448,37 @@ struct ExecutionContext {
     }
   }
 
+#if defined(__aarch64__)
+  // Gledge-glitch (autoport, 1-to-1 arm64==x86): the bare `(s32)float` cast compiles
+  // to x86 `cvttss2si` (out-of-range / +/-Inf / NaN -> INT32_MIN 0x80000000) but to
+  // AArch64 `FCVTZS` (saturating: +ovf/+Inf -> 0x7fffffff, -ovf/-Inf -> INT32_MIN,
+  // NaN -> 0). The mips2c collision spatial-hash / triangle-bbox quantization
+  // (collide_cache/collide_edge_grab/collide_mesh/collide_probe) feeds NaN/overflow
+  // coordinates into vftoi0; the divergence changes which grid cell / AABB a triangle
+  // (or Jak's query box) lands in, so arm64 collision selects different triangles than
+  // the x86 oracle -> a wrong collision push-out at edges/borders (owner: collision
+  // "projects/launches" Jak). Re-emulate cvttss2si so arm64 mips2c float->int == x86.
+  // Device-measured: 74948 divergent conversions in one Geyser collision drive, 97.9%
+  // on the x/y/z geometry lanes, all-NaN inputs. The x86 path is byte-for-byte
+  // unchanged. (PS2 VU ftoi0 actually saturates like ARM, but the 1-to-1 contract
+  // binds us to the x86 OpenGOAL oracle the GOAL logic was decompiled/validated against.)
+  static inline s32 mips2c_vftoi_x86(float f) {
+    if (!(f >= -2147483648.0f && f < 2147483648.0f)) {
+      return (s32)0x80000000;  // NaN fails both comparisons -> taken; also catches over/underflow + Inf
+    }
+    return (s32)f;
+  }
+#endif
+
   void vftoi0(DEST mask, int dst, int src) {
     auto s = vf_src(src);
     for (int i = 0; i < 4; i++) {
       if ((u64)mask & (1 << i)) {
+#if defined(__aarch64__)
+        vfs[dst].ds32[i] = mips2c_vftoi_x86(s.f[i]);
+#else
         vfs[dst].ds32[i] = s.f[i];
+#endif
       }
     }
   }

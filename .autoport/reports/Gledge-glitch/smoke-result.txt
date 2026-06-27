@@ -1,0 +1,9 @@
+== ANALYSIS ==
+-- distinct st= tags seen --
+-- EGRAB / EGRAB-OFF / EGRAB-JUMP lines --
+  edge-grab line count = 0
+-- launch lines (|tv| > 150000) --
+  launch (large-|tv|) line count = 0
+-- any non-finite floats? --
+0
+app_foreground=YES (org.opengoal.gk.jak1)  logcat=.autoport/reports/Gledge-glitch/smoke-gledge.log
