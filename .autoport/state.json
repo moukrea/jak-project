@@ -142,8 +142,7 @@
     "Gecho-pool": 3,
     "Gdeath-crash": 1,
     "Gledge-glitch": 1,
-    "Gpkg-branding": 1,
-    "Gpkg-distributable": 2
+    "Gpkg-branding": 1
   },
   "fingerprints": {
     "00-harness": [
