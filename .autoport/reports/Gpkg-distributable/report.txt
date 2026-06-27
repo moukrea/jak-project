@@ -1,0 +1,136 @@
+Phase Gpkg-distributable — self-contained APK: PC-built runtime assets bundled
+COMPRESSED inside the APK and DECOMPRESSED once at first run (progress UI,
+version-stamped / idempotent). Packaging + UX only; engine and goal_src 1-to-1.
+Date: 2026-06-27   Device: eae4df44 (Redmi Note 9 Pro, arm64)   HEAD: b2208f88d
+
+RESULT: SELF-CONTAINED APK — BUNDLED COMPRESSED ASSETS DECOMPRESS AT FIRST RUN
+
+================================================================================
+DESIGN (kept the PC build; changed only how its output ships + first-run UX)
+================================================================================
+The PC pipeline still extracts the jak1 runtime data into
+  android/app/src/jak1/assets/iso_data/jak1/   (321 files: CGO/DGO/STR/VIS/SBK/...)
+  android/app/src/jak1/assets/fr3/             (4 fr3 texture files)
+exactly as before — that path is untouched.
+
+What changed: the APK no longer bundles those as ~1.34 GiB of RAW, uncompressed
+dirs. They are now packed into ONE DEFLATE archive that the on-device loader
+DECOMPRESSES into the app-private data dir at first launch.
+
+  1. PC build step — android/build_asset_bundle.sh (wired into Gradle as the
+     bundleJak1Assets task, run before mergeJak1DebugAssets):
+       packs assets/iso_data/jak1 + assets/fr3 into
+       assets-bundled/bundle/jak1_assets.zip  (DEFLATE level 6, java.util.zip
+       readable, single archive) + a small manifest.properties (version, file
+       count, raw byte total) used to drive the progress bar, pre-check free
+       storage, and verify the unpack. Idempotent: repacks only when stale.
+
+  2. APK packaging — android/app/build.gradle.kts:
+       - the jak1 assets srcDir is now assets-bundled/ (the compressed archive),
+         NOT the raw src/jak1/assets dirs (which stay on disk only as the
+         bundle's build input).
+       - androidResources.noCompress = ["zip"] so AGP STORES the already-DEFLATE'd
+         archive verbatim (re-compressing a ~1 GB compressed file buys nothing and
+         walks into the mergeAssets/package GC death-spiral the raw build hit).
+       - the -PslimIso fast-iteration build is preserved (fr3 only, no payload).
+
+  3. First-run decompression UI — LoaderActivity.java (the LAUNCHER activity):
+       on launch, if the on-device version stamp is absent or its version differs
+       from the APK's bundle version, it streams the archive from the APK through
+       java.util.zip.ZipInputStream and writes each entry to its on-device home,
+       behind a one-time "Setting up game data… / Decompressing game data… NN%"
+       screen with a determinate horizontal PROGRESS bar (permille of the manifest
+       raw-byte total). Targets:
+         iso_data/jak1/*  -> <filesDir>/iso_data/jak1/*   (fakeiso data root)
+         fr3/*            -> <filesDir>/out/jak1/fr3/*     (renderer textures)
+
+  4. Idempotent / version-stamped: a stamp file <filesDir>/.asset_bundle_stamp
+     holds the bundle version. Second and later launches find the stamp, match the
+     version, and boot straight to the game with NO re-decompress. A new APK that
+     ships a bumped bundle version re-decompresses once.
+
+  5. Integrity + low-storage: before unpacking, a StatFs free-space pre-check
+     (raw bytes x 1.05 margin) errors out cleanly instead of filling the disk
+     mid-write. During the unpack, ZipInputStream validates each entry's CRC32
+     against the archive (a corrupt/truncated archive throws); after the unpack
+     the loader cross-checks the written file count + byte total against the
+     manifest. The stamp is written LAST, only after a fully-verified unpack, so a
+     kill mid-unpack is treated as "not done" and the next launch redoes it (never
+     boots off a half-written, corrupt data set).
+
+What this is NOT: there is no file-chooser dialog, and no decompiler / transcoder
+runs on the phone. The owner's earlier draft of that approach was scrapped ("would
+be a massacre"); the runtime data is produced on PC and the APK is a single
+owned-copy product that just decompresses its own bundled data once.
+
+================================================================================
+COMPRESSED ASSET BUNDLE — FORMAT + SIZES (measured)
+================================================================================
+Archive format : ZIP / DEFLATE level 6 (single archive, java.util.zip-decodable)
+In the APK     : assets/bundle/jak1_assets.zip, stored method = 'stor'
+                 (AGP stores it verbatim — it is already compressed)
+                 + assets/bundle/manifest.properties (138 bytes)
+
+  raw (uncompressed) runtime assets : 1,441,122,917 bytes  (1.34 GiB, 325 files)
+  compressed bundle (zip)           :   950,871,866 bytes  (907 MiB)
+  compression ratio                 :   66.0% of raw  (~490 MB / ~0.46 GiB saved)
+  final jak1 APK                    : 1,024,325,765 bytes  (977 MiB)
+
+  (The payload is STR/VAG/SBK/MUS audio-heavy — already near-incompressible ADPCM —
+   so 66% is a realistic DEFLATE result; the CGO/DGO/VIS/TXT portions compress well.
+   A higher level or zstd/xz would shave more but needs a native decoder; DEFLATE
+   via java.util.zip ships zero new runtime dependencies.)
+
+Manifest (assets/bundle/manifest.properties):
+  version=1  game=jak1  file_count=325  raw_bytes=1441122917  zip_bytes=950871866
+
+================================================================================
+DEVICE VERIFICATION (eae4df44 — full run, artifacts in this directory)
+================================================================================
+Reproducible driver: .autoport/reports/Gpkg-distributable/run_device_test.sh
+
+(a) BUILD — full non-slim APK ........... gradle_rc=0  (BUILD SUCCESSFUL)         [10-gradle-rc.txt]
+(b) BUNDLE IN APK ....................... assets/bundle/jak1_assets.zip method 'stor',
+    950,871,866 B; manifest 138 B; raw_iso_data_entries_in_apk=0 (no raw dirs)    [12-apk-bundle-entries.txt]
+(c) INSTALL ............................. Success (eae4df44)                       [13-install.txt]
+
+(d) FIRST RUN (on-device stamp + data wiped first to force a clean first run):
+      10:28:48 LoaderActivity: first-run decompress check for jak1
+      10:28:49 storage ok: need 1,41 GB, have 11,32 GB         <- low-storage pre-check ran
+      10:29:29 asset bundle decompressed: 325 files, 1441122917 bytes in 40659ms (version=1)
+                                                               <- integrity count+bytes matched manifest
+      10:29:31 link finish: logo                               <- GAME BOOTS after the unpack
+      ... A35-RENDER all 43 shaders compiled under GLES 3.20; GL_RENDERER=Adreno (TM) 618;
+          sustained rendering to frame=240 draws=28 tris=3916; focus = org.opengoal.gk.jak1.
+      Mid-decompress progress UI captured (focus = .LoaderActivity)               [16-firstrun-progress.png / 16-firstrun-focus.txt]
+                                                                                  [18-firstrun-summary.txt / 17-firstrun-logcat.log]
+
+(e) ON-DEVICE STATE AFTER FIRST RUN:
+      .asset_bundle_stamp content = "1" (= bundle version)
+      files/iso_data/jak1 = 321 files (1.3G)
+      files/out/jak1/fr3  = 4 files (GAME/intro/title/village1.fr3)               [19b-firstrun-ondevice-verified.txt]
+
+(f) SECOND RUN (stamp present) — IDEMPOTENT SKIP:
+      10:29:39 asset bundle already unpacked (version=1) — skipping decompress, data ready
+      second_run_decompress_lines=0 (no re-decompress); booted directly to the game [22-secondrun-summary.txt / 21-secondrun-logcat.log]
+
+(g) DEPLOY VERIFY ...................... DEPLOY-VERIFY PASS — device provably runs the fresh
+      HEAD (b2208f88d) libgk.so; chain build==APK==device libgk.so = babe446ab67607c4;
+      deploy_verify_rc=0. Engine unaffected (libgk.so unchanged by this phase).   [23-deploy-verify.txt]
+
+================================================================================
+1-TO-1 / SCOPE
+================================================================================
+- goal_src: 0 files changed (git diff goal_src = empty). Packaging + Java UX only.
+- Engine (libgk.so) unaffected — same .so before/after; deploy_verify chain PASS.
+- An earlier attempt's scrapped-approach edits to root CMakeLists.txt and
+  common/cross_os_debug/xdbg.cpp were reverted to pristine HEAD; the stray
+  build-android-extract/ config dir was removed and .gitignore'd.
+- .autoport/gold: untouched (pristine).
+- Files changed by this phase:
+    android/build_asset_bundle.sh                                  (new — PC bundle builder)
+    android/app/build.gradle.kts                                   (assets srcDir + noCompress + bundle task)
+    android/app/src/main/java/org/opengoal/gk/LoaderActivity.java  (decompress + progress + stamp + integrity)
+    .gitignore                                                     (ignore the ~1 GB bundle artifact + stray dir)
+
+VALIDATOR: bash .autoport/validators/phase-Gpkg-distributable.sh  -> expected PASS

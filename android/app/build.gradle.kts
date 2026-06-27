@@ -65,15 +65,24 @@ android {
         getByName("main") {
             jniLibs.srcDirs("src/main/jniLibs")
         }
-        // A40: `-PslimIso=true` builds the APK without the ~1.4 GB iso_data
-        // payload (fr3 textures stay bundled via assets-slim/). The device
-        // keeps its extracted files/iso_data/<game>/ + .extracted_v1
-        // sentinel (LoaderActivity checks the sentinel before it ever asks
-        // the AssetManager), so iterating on libgk.so costs a ~100 MB
-        // install instead of a ~2.7 GB transient on a storage-starved
-        // device. Seed the data once with adb push + run-as cp.
-        if (project.findProperty("slimIso") == "true") {
-            getByName("jak1") { assets.setSrcDirs(listOf("src/jak1/assets-slim")) }
+        // Phase Gpkg-distributable (autoport 2026-06-27): the normal jak1
+        // APK no longer bundles the raw ~1.34 GiB iso_data/fr3 dirs. Instead
+        // it ships ONE DEFLATE archive — src/jak1/assets-bundled/bundle/
+        // jak1_assets.zip (+ manifest.properties) produced on PC by
+        // build_asset_bundle.sh (wired via the bundleJak1Assets task below) —
+        // which LoaderActivity decompresses into filesDir on first run. So
+        // the default assets srcDir becomes assets-bundled, NOT the raw
+        // src/jak1/assets (which stays on disk as the bundle's input only).
+        //
+        // A40 `-PslimIso=true` still builds an assets-light APK (fr3 only,
+        // no payload) for fast libgk.so iteration: the device keeps its
+        // already-unpacked files/iso_data/<game>/, so a slim install costs
+        // ~100 MB instead of the full ~1 GB compressed bundle.
+        getByName("jak1") {
+            assets.setSrcDirs(listOf(
+                if (project.findProperty("slimIso") == "true") "src/jak1/assets-slim"
+                else "src/jak1/assets-bundled"
+            ))
         }
     }
 
@@ -96,19 +105,13 @@ android {
     }
 
     androidResources {
-        // Phase 14: ISO data files (CGO, STR, VAG, DGO, etc.) are already
-        // in their final binary on-disc form. Skipping compression keeps
-        // mergeAssets/package out of the GC death-spiral on the ~1.4 GB
-        // Jak 1 payload.
-        noCompress += listOf(
-            "cgo", "CGO",
-            "str", "STR",
-            "vag", "VAG",
-            "txt", "TXT",
-            "dgo", "DGO",
-            "bsp", "BSP",
-            "go",  "GO"
-        )
+        // Phase Gpkg-distributable: the runtime payload now ships as ONE
+        // already-DEFLATE'd archive (assets/bundle/<game>_assets.zip). Storing
+        // it (noCompress) is essential: AGP re-DEFLATE of a ~1 GB compressed
+        // file buys ~nothing AND walks straight into the mergeAssets/package
+        // GC death-spiral the raw-payload build hit. The tiny manifest stays
+        // compressible. (assets-slim's fr3 files are already small.)
+        noCompress += listOf("zip")
     }
 }
 
@@ -184,4 +187,25 @@ val copyNativeLibs by tasks.registering(Copy::class) {
 
 tasks.named("preBuild") {
     dependsOn(copyNativeLibs)
+}
+
+// Phase Gpkg-distributable (autoport 2026-06-27): build the COMPRESSED
+// runtime-asset archive that the normal jak1 APK ships and LoaderActivity
+// decompresses on first run. The PC pipeline still extracts the raw assets
+// into src/jak1/assets/{iso_data,fr3}; this task packs them into
+// src/jak1/assets-bundled/bundle/jak1_assets.zip (+ manifest.properties)
+// just before AGP merges that flavor's assets. The script is idempotent and
+// returns in ~1s when the zip is already current, so it runs every assemble
+// without a repack cost. Skipped for -PslimIso=true (the slim build ships no
+// payload — fr3 only — for fast libgk.so iteration).
+val bundleJak1Assets by tasks.registering(Exec::class) {
+    workingDir = rootProject.file("..")
+    commandLine("bash", "android/build_asset_bundle.sh", "jak1")
+    onlyIf { project.findProperty("slimIso") != "true" }
+}
+
+tasks.matching {
+    it.name.startsWith("merge") && it.name.contains("Jak1") && it.name.endsWith("Assets")
+}.configureEach {
+    dependsOn(bundleJak1Assets)
 }

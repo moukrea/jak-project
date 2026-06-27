@@ -1,0 +1,6 @@
+950871866  01-01-1981 01:01   assets/bundle/jak1_assets.zip
+      138  01-01-1981 01:01   assets/bundle/manifest.properties
+--- compression method of the bundle (expect 'stor') ---
+-rw-r--r--  0.0 unx 950871866 b- stor 81-Jan-01 01:01 assets/bundle/jak1_assets.zip
+--- raw iso_data dirs must be ABSENT from the APK (only the zip ships) ---
+raw_iso_data_entries_in_apk=0 (expect 0)

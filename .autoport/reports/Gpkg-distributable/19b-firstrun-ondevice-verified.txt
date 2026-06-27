@@ -1,0 +1,4 @@
+stamp_content=1
+iso_data/jak1 files=321 (expect 321)
+out/jak1/fr3 files=4 (expect 4)
+iso_data size=1.3G

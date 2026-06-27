@@ -1,0 +1,7 @@
+rm: Needs 1 argument (see "rm --help")
+--- confirm no stamp + no iso_data before launch ---
+cache
+code_cache
+files
+shared_prefs
+ls: files/iso_data: No such file or directory

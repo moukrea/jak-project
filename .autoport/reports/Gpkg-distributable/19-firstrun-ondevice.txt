@@ -1,0 +1,6 @@
+sh: -c: requires an argument
+stamp:  (content=version)
+ls: files/iso_data/jak1: No such file or directory
+iso_data/jak1 files: 0
+out/jak1/fr3 files: 0
+iso_data size: 
