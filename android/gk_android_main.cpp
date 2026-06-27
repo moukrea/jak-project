@@ -6267,6 +6267,23 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
     }
   }
 
+  // Gcollision-replay-diff (autoport) — TEMP per-logic-frame collision-state trace.
+  //   debug.opengoal.pad_trace = 1        -> <files>/pad_trace.statedump.txt
+  //   debug.opengoal.pad_trace = <name>   -> <files>/<name>
+  // Mirrors the x86 OG_PAD_REPLAY_TRACE env path. Removed before phase close.
+  {
+    char ptb[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.pad_trace", ptb) > 0 && ptb[0]) {
+      std::string base = files_dir.empty() ? std::string(data_root) : files_dir;
+      std::string tp = (std::strcmp(ptb, "1") == 0)
+                           ? (base + "/pad_trace.statedump.txt")
+                           : (base + "/" + ptb);
+      pad_replay::open_state_trace(tp);
+      __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "pad_replay: TRACE -> %s",
+                          tp.c_str());
+    }
+  }
+
   // Canonical argv shape:
   //   gk --game <name> --portable -fakeiso -iso-data <data_root> -boot -debug-mem
   // The runtime accepts CLI11 long flags AND the legacy kmachine `-foo`

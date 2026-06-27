@@ -55,6 +55,7 @@ struct State {
   int64_t (*logic_frame_fn)() = nullptr;
   bool (*anchor_fn)() = nullptr;
   void (*timestep_fn)() = nullptr;
+  void (*state_dump_fn)() = nullptr;
   void (*reseed_fns[8])(uint32_t) = {};
   int n_reseed = 0;
 
@@ -63,6 +64,7 @@ struct State {
   int64_t anchor_frame = 0;
   int64_t records_written = 0;  // record: next idx not yet written to disk
   int64_t cur_frame = -1;       // logic frame since anchor for the current read
+  int64_t last_dump_frame = -1; // last logic frame the state dump fired on
 
   // ── legacy / self-test state (no providers registered) ──
   uint64_t read_count = 0;     // controller-read counter
@@ -159,6 +161,9 @@ void add_rng_reseed_callback(void (*fn)(uint32_t)) {
 void set_timestep_force_callback(void (*fn)()) {
   g.timestep_fn = fn;
 }
+void set_state_dump_callback(void (*fn)()) {
+  g.state_dump_fn = fn;
+}
 
 void init(Mode mode, const std::string& path) {
   // Preserve registered providers/reseed callbacks across init (they are wired
@@ -184,6 +189,7 @@ void init(Mode mode, const std::string& path) {
   g.anchor_frame = 0;
   g.records_written = 0;
   g.cur_frame = -1;
+  g.last_dump_frame = -1;
   g.read_count = 0;
   g.legacy_tick = 0;
   g.header_done = false;
@@ -236,6 +242,11 @@ void init_from_env() {
   } else if (rec && rec[0]) {
     init(Mode::Record, rec);
   }
+  // Optional per-logic-frame state trace (collision diff instrumentation).
+  const char* tr = std::getenv("OG_PAD_REPLAY_TRACE");
+  if (tr && tr[0]) {
+    open_state_trace(tr);
+  }
 }
 
 void shutdown() {
@@ -250,6 +261,7 @@ void shutdown() {
   g.anchor_frame = 0;
   g.records_written = 0;
   g.cur_frame = -1;
+  g.last_dump_frame = -1;
   g.read_count = 0;
   g.legacy_tick = 0;
   g.header_done = false;
@@ -366,6 +378,17 @@ void on_cpad_read(int controller_number,
     // Past the end of the demo: leave the live input untouched.
   }
   g.read_count++;
+
+  // Per-logic-frame collision-state dump (Gcollision-replay-diff instrumentation).
+  // Fires once per NEW logic frame, post-anchor, only when a trace file is open. The
+  // jak1 runtime's registered callback reads *target*'s collide-shape-moving fields
+  // and writes them via dump_state, keyed by g.cur_frame — identical on x86 and the
+  // arm64 device, so the two traces diff byte-for-byte at matching logic frames.
+  if (g.trace && g.anchored && g.state_dump_fn && g.cur_frame >= 0 &&
+      g.cur_frame != g.last_dump_frame) {
+    g.last_dump_frame = g.cur_frame;
+    g.state_dump_fn();
+  }
 }
 
 void open_state_trace(const std::string& path) {

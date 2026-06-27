@@ -124,6 +124,14 @@ void add_rng_reseed_callback(void (*fn)(uint32_t));
 // callback is invoked every frame the harness is active (record AND replay).
 void set_timestep_force_callback(void (*fn)());
 
+// Register a callback that dumps the GOAL collision state for the CURRENT logic
+// frame (via dump_state) — invoked once per NEW logic frame, post-anchor, only when
+// a state trace is open. The jak1 runtime registers a reader of *target*'s
+// collide-shape-moving fields. Backend-agnostic: x86 and the arm64 device dump the
+// same fields in the same order, so the two traces are byte-comparable at matching
+// logic frames (the x86-vs-arm64 collision divergence localizer).
+void set_state_dump_callback(void (*fn)());
+
 // ── State-anchored trace ────────────────────────────────────────────────────────
 // dump_state() writes the GOAL state under test (Jak pos/orientation/velocity,
 // camera, ...) keyed by the current logic frame since the anchor:

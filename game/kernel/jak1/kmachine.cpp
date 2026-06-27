@@ -647,6 +647,47 @@ static void pad_replay_force_timestep() {
   intern_from_c("*ticks-per-frame*")->value = 0x40000000;
 }
 
+// Gcollision-replay-diff (autoport) — TEMP collision-state dump. Reads the numeric
+// collide-shape-moving fields of *target* (Jak) that drive the owner-reported
+// collision glitches and writes them, keyed by the logic frame, via the harness
+// state trace. Pure read of EE memory; field offsets are the GOAL deftype offsets
+// (read at root + (offset - 4)), identical on x86 and arm64, so the two backends'
+// traces are byte-comparable. POINTER fields are excluded (heap addresses differ per
+// backend). No-op unless a trace is open. REMOVED before phase close.
+static void pad_replay_dump_collision_state() {
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt == 0 || tgt == (u32)s7.offset || tgt >= (u32)(EE_MAIN_MEM_SIZE - 4)) {
+    return;
+  }
+  u32 root = 0;
+  std::memcpy(&root, g_ee_main_mem + tgt + 108, 4);  // (-> *target* root)
+  if (root == 0 || root == (u32)s7.offset || root >= (u32)(EE_MAIN_MEM_SIZE - 512)) {
+    return;
+  }
+  u8 buf[256];
+  size_t n = 0;
+  auto put = [&](int deftype_off, size_t len) {
+    std::memcpy(buf + n, g_ee_main_mem + root + (deftype_off - 4), len);
+    n += len;
+  };
+  put(16, 16);   // trans (position)
+  put(32, 16);   // quat (orientation)
+  put(64, 16);   // transv (velocity)
+  put(80, 16);   // rotv (angular velocity)
+  put(272, 8);   // status (collision/control flags)
+  put(320, 16);  // local-normal
+  put(336, 16);  // surface-normal
+  put(352, 16);  // poly-normal
+  put(368, 16);  // ground-poly-normal
+  put(384, 16);  // ground-touch-point
+  put(416, 4);   // ground-impact-vel
+  put(420, 4);   // surface-angle
+  put(424, 4);   // poly-angle
+  put(428, 4);   // touch-angle
+  put(432, 4);   // coverage
+  pad_replay::dump_state("ci", buf, n);
+}
+
 /*!
  * Final initialization of the system after the kernel is loaded.
  * This is called from InitHeapAndSymbol at the very end.
@@ -676,6 +717,7 @@ void InitMachineScheme() {
   pad_replay::set_anchor_provider(&pad_replay_anchor_reached);
   pad_replay::add_rng_reseed_callback(&pad_replay_force_goal_rng);
   pad_replay::set_timestep_force_callback(&pad_replay_force_timestep);
+  pad_replay::set_state_dump_callback(&pad_replay_dump_collision_state);  // TEMP (Gcollision-replay-diff)
   make_function_symbol_from_c("install-handler", (void*)InstallHandler);      // used
   make_function_symbol_from_c("install-debug-handler", (void*)InstallDebugHandler);       // used
   make_function_symbol_from_c("file-stream-open", (void*)kopen);                          // used
