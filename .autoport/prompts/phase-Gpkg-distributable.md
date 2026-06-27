@@ -1,44 +1,39 @@
-# Phase Gpkg-distributable — self-contained APK: first-launch ISO picker + on-device asset extraction
+# Phase Gpkg-distributable — self-contained APK: PC-built assets bundled COMPRESSED, decompressed at first run
 
-## Goal (owner directive 2026-06-27, do LAST — after branding)
-Anyone can take the built APK + their OWN original Jak & Daxter ISO and play — **no PC build step, no
-pre-bundled copyrighted assets.** On first launch the app detects missing game data, shows a clean
-onboarding UI that asks for the ISO, runs the OpenGOAL extractor ON-DEVICE to produce the runtime data,
-shows progress, then launches the game. Subsequent launches skip straight to the game.
+## Goal (owner directive 2026-06-27, REVISED — do LAST after branding)
+Keep the **PC build** (extracting/decompiling assets on-device would be a massacre — scrapped). Instead
+the **final compiled APK bundles all runtime assets COMPRESSED**, and **decompresses them on first
+launch** into the app data dir. No ISO picker, no on-device extractor. Result: one self-contained APK
+the owner builds on PC; first run unpacks the assets once, then it just plays.
 
 ## Scope / design
-- **Ship clean:** the distributable APK bundles ONLY the engine (`libgk.so`) + the extractor — NOT the
-  extracted CGO/DGO/textures (those are copyrighted, and they come from the user's ISO). Today assets are
-  extracted on the build host into `out/jak1/` and bundled; this phase moves extraction on-device.
-- **On-device extractor:** OpenGOAL already has the `extractor`/decompiler pipeline (ISO → decompile →
-  build → fakeiso data dir). Cross-compile/bundle it for Android arm64 (or expose the needed entrypoints
-  in `libgk`), so it runs on the phone. This is the big piece — may need sub-phases (build the arm64
-  extractor; wire it; handle the multi-minute run + storage).
-- **First-launch UI (SAF):** an onboarding Activity — if the data dir is absent/incomplete, present
-  "Select your Jak & Daxter (NTSC) ISO" via the Storage Access Framework file picker; copy/stream the
-  ISO; run the extractor with a **progress bar + step labels**; on success mark data ready + launch the
-  game; on failure (wrong/corrupt ISO, low storage) show a clear error. Validate the ISO (expected
-  size/hash of the supported release) before extracting.
-- **Idempotent:** detect already-extracted data (version-stamped) and skip extraction on later launches.
+- **Build (PC, unchanged):** the host pipeline extracts the jak1 runtime data into `out/jak1/` (the
+  CGO/DGO/fr3/texture set) exactly as today.
+- **Bundle COMPRESSED in the APK:** package that runtime data set into a compressed archive (single
+  archive or per-asset; pick a fast decompressor — e.g. zstd/zip/xz) shipped inside the APK (an
+  `assets/` blob, raw resource, or jniLibs-style payload). Compressed so the APK is reasonably sized and
+  the raw assets aren't laid out until first run. Wire it into `android/CMakeLists.txt`/gradle packaging.
+- **First-run decompression UI:** on launch, if the data dir is absent/incomplete, show a clean
+  one-time "Setting up… / Decompressing assets" screen with a **progress bar**, decompress the bundled
+  archive into the app-private data dir the runtime reads (the same fakeiso data root), then boot.
+- **Idempotent:** version-stamp the unpacked data; on later launches detect it and boot straight to the
+  game (no re-decompress). Re-decompress only if the stamp/version changed (new APK).
+- **Integrity + space:** verify the unpack (count/size or hash) and handle low-storage with a clear error.
 
-## OWNER INPUT NEEDED (when this phase runs)
-Confirm the target: supported ISO region/version (NTSC jak1 v?), and whether the extractor should run
-fully on-device (preferred for "anyone can run it") vs an adb-assisted fallback. A test ISO must be
-available at the [[reference-iso-data]] path for the validator.
+## What changed vs the earlier draft
+SCRAPPED: SAF ISO picker, on-device OpenGOAL extractor/decompiler, "ship engine-only / no assets". The
+APK now DOES bundle the (PC-extracted) assets, compressed. This is the owner's project / owned copy.
 
 ## Validator PASS requires
-1. The distributable APK contains the engine + extractor but **NO pre-bundled copyrighted game assets**
-   (assert the CGO/DGO/textures are absent from the clean APK).
-2. On a device with NO extracted data, the first-launch flow: ISO picker shown → extraction runs to
-   completion from the test ISO → game boots to `link finish: logo` / in-game. Second launch skips
-   extraction and boots directly.
-3. Clear error handling for missing/invalid ISO + low storage. Report
-   `.autoport/reports/Gpkg-distributable/report.txt` with `RESULT: SELF-CONTAINED APK — ISO ONBOARDING + ON-DEVICE EXTRACTION OK`.
-4. goal_src 1-to-1 (packaging/UX + extractor port, no game-logic change); fix-summary ≥60 lines; golden pristine.
-
-## Note
-Large/likely needs splitting into sub-phases when reached (arm64 extractor build → onboarding UI →
-extraction run/progress → idempotent data-ready gate). Refine the breakdown at that time.
+1. The built jak1 APK contains the runtime assets as a COMPRESSED bundle (not raw uncompressed dirs);
+   document the archive format + compressed vs raw size.
+2. On a device with NO unpacked data: first launch shows the decompression/progress UI, unpacks to the
+   data dir, and the game boots (`link finish: logo` / in-game). SECOND launch detects the unpacked,
+   version-stamped data and boots directly (no re-decompress).
+3. Low-storage / corrupt-bundle error handling. Report `.autoport/reports/Gpkg-distributable/report.txt`
+   with `RESULT: SELF-CONTAINED APK — BUNDLED COMPRESSED ASSETS DECOMPRESS AT FIRST RUN`.
+4. goal_src 1-to-1 (packaging/UX only); fix-summary ≥60 lines; `.autoport/gold` pristine;
+   `deploy_verify.sh eae4df44` still PASS (engine unaffected).
 
 ## Locks: ANDROID_SERIAL=eae4df44 only; .autoport/gold READ-ONLY.
-## Max: max_turns 1600, max_retries 4.
+## Max: max_turns 1500, max_retries 4.

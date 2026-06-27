@@ -900,7 +900,7 @@ phases:
   max_turns: 1200
   max_retries: 3
 - id: Gpkg-distributable
-  name: 'OWNER 2026-06-27 (do LAST): self-contained distributable APK — first-launch UI asks for the users original ISO (SAF picker) + extracts assets ON-DEVICE (arm64 extractor) with progress, then boots; idempotent on later launches; ships engine+extractor only, NO bundled copyrighted assets. Anyone can run APK + their ISO, no PC build. Large; may split into sub-phases.'
+  name: 'OWNER 2026-06-27 REVISED (do LAST): self-contained APK — KEEP PC build; bundle the PC-extracted runtime assets COMPRESSED in the APK and DECOMPRESS them at FIRST RUN (progress UI, idempotent version-stamp). No ISO picker / no on-device extractor (scrapped — would be a massacre). Packaging/UX only, goal_src 1-to-1.'
   prompt: prompts/phase-Gpkg-distributable.md
   validator: validators/phase-Gpkg-distributable.sh
   max_turns: 1600
