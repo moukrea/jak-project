@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 147,
+  "current_phase_idx": 148,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -139,7 +139,8 @@
     "Gcollectible-state": 1,
     "Gsfx-actions": 1,
     "Gaudio-hint-voices": 1,
-    "Gecho-pool": 3
+    "Gecho-pool": 3,
+    "Gdeath-crash": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -413,7 +414,8 @@
     "Gsfx-actions",
     "Gaudio-hint-voices",
     "Gportal-crash",
-    "Gcrash-mouche3"
+    "Gcrash-mouche3",
+    "Gdeath-crash"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -537,9 +539,10 @@
     "Gcollision-wallslide": 1782381670.9086006,
     "Ginput-replay": 1782410769.8916278,
     "Gcollectible-state": 1782413372.600891,
-    "Gsfx-actions": 1782430239.035448
+    "Gsfx-actions": 1782430239.035448,
+    "Gdeath-crash": 1782523512.5146377
   },
-  "last_update": "2026-06-26T09:20:56.438788+00:00",
+  "last_update": "2026-06-27T02:55:17.497852+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

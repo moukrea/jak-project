@@ -1,0 +1,6 @@
+RESULT mode=movie tag=movie-final status=DEATH-CRASH-FREE-6/6-render+4380
+  fires=6/6 crash=no focus_app=yes frame +4380 (F0=720 F1=5100)
+  sig=none fp-walk-lines=0
+  near-fn: none
+  cur-proc: none
+  stomps: none
