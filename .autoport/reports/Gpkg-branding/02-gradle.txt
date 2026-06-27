@@ -1,0 +1,49 @@
+> Task :app:configureNativeLibs SKIPPED
+> Task :app:buildNativeLibs UP-TO-DATE
+> Task :app:copyNativeLibs UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preJak1DebugBuild UP-TO-DATE
+> Task :app:mergeJak1DebugNativeDebugMetadata NO-SOURCE
+> Task :app:javaPreCompileJak1Debug UP-TO-DATE
+> Task :app:checkJak1DebugAarMetadata UP-TO-DATE
+> Task :app:generateJak1DebugResValues
+> Task :app:mapJak1DebugSourceSetPaths
+> Task :app:generateJak1DebugResources
+> Task :app:packageJak1DebugResources
+> Task :app:createJak1DebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksJak1Debug UP-TO-DATE
+> Task :app:processJak1DebugMainManifest UP-TO-DATE
+> Task :app:processJak1DebugManifest UP-TO-DATE
+> Task :app:processJak1DebugManifestForPackage UP-TO-DATE
+> Task :app:mergeJak1DebugShaders UP-TO-DATE
+> Task :app:compileJak1DebugShaders NO-SOURCE
+> Task :app:generateJak1DebugAssets UP-TO-DATE
+> Task :app:mergeJak1DebugResources
+> Task :app:parseJak1DebugLocalResources
+> Task :app:mergeJak1DebugAssets
+> Task :app:checkJak1DebugDuplicateClasses UP-TO-DATE
+> Task :app:compressJak1DebugAssets
+> Task :app:desugarJak1DebugFileDependencies UP-TO-DATE
+> Task :app:mergeJak1DebugStartupProfile UP-TO-DATE
+> Task :app:mergeExtDexJak1Debug UP-TO-DATE
+> Task :app:processJak1DebugJavaRes NO-SOURCE
+> Task :app:mergeJak1DebugJavaResource UP-TO-DATE
+> Task :app:mergeLibDexJak1Debug UP-TO-DATE
+> Task :app:mergeJak1DebugJniLibFolders UP-TO-DATE
+> Task :app:mergeJak1DebugNativeLibs UP-TO-DATE
+> Task :app:stripJak1DebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningJak1Debug UP-TO-DATE
+> Task :app:writeJak1DebugAppMetadata UP-TO-DATE
+> Task :app:writeJak1DebugSigningConfigVersions UP-TO-DATE
+> Task :app:processJak1DebugResources
+> Task :app:compileJak1DebugJavaWithJavac UP-TO-DATE
+> Task :app:dexBuilderJak1Debug
+> Task :app:mergeJak1DebugGlobalSynthetics UP-TO-DATE
+> Task :app:mergeProjectDexJak1Debug
+> Task :app:packageJak1Debug
+> Task :app:createJak1DebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleJak1Debug
+
+BUILD SUCCESSFUL in 16s
+37 actionable tasks: 12 executed, 25 up-to-date
+gradle_rc=0

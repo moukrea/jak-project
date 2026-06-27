@@ -33,25 +33,30 @@ android {
 
     flavorDimensions += "game"
     productFlavors {
+        // Phase Gpkg-branding (autoport 2026-06-27): app_name moved to
+        // res/values/strings.xml ("Jak & Daxter") so the launcher label
+        // lives in the manifest resource graph and isn't duplicated across
+        // flavors (a per-flavor resValue + a strings.xml entry of the same
+        // name collide as a duplicate resource). game_name stays per-flavor:
+        // the Java loader reads R.string.game_name to select which game's
+        // data to extract/boot. applicationId/suffix are UNCHANGED so the
+        // package id stays org.opengoal.gk.jak1 (installs/saves intact).
         create("jak1") {
             dimension = "game"
             applicationIdSuffix = ".jak1"
             versionNameSuffix = "-jak1"
-            resValue("string", "app_name", "OpenGOAL — Jak 1")
             resValue("string", "game_name", "jak1")
         }
         create("jak2") {
             dimension = "game"
             applicationIdSuffix = ".jak2"
             versionNameSuffix = "-jak2"
-            resValue("string", "app_name", "OpenGOAL — Jak 2")
             resValue("string", "game_name", "jak2")
         }
         create("jak3") {
             dimension = "game"
             applicationIdSuffix = ".jak3"
             versionNameSuffix = "-jak3"
-            resValue("string", "app_name", "OpenGOAL — Jak 3")
             resValue("string", "game_name", "jak3")
         }
     }

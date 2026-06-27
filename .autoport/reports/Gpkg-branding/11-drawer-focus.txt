@@ -1,0 +1,2 @@
+  mCurrentFocus=Window{7c0249e u0 com.google.android.googlequicksearchbox/com.google.android.googlequicksearchbox.GoogleAppGlobalSearchImplicitGatewayInternal}
+-rw-r--r--. 1 emeric emeric 262675 27 juin  09:43 .autoport/reports/Gpkg-branding/12-drawer.png

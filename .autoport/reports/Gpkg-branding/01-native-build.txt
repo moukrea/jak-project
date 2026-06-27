@@ -1,0 +1,6 @@
+-- Configuring done (0.2s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/emeric/code/jak-project/build-android
+[0/4] Re-checking globbed directories...
+ninja: no work to do.
+native_build_rc=0

@@ -1,0 +1,3 @@
+  mCurrentFocus=Window{179ab59 u0 com.miui.home/com.miui.home.launcher.Launcher}
+  mFocusedApp=ActivityRecord{d2333e8 u0 com.miui.home/.launcher.Launcher t2}
+-rw-r--r--. 1 emeric emeric 4526743 27 juin  09:43 .autoport/reports/Gpkg-branding/10-launcher.png

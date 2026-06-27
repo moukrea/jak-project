@@ -1,0 +1,2 @@
+  mCurrentFocus=Window{d904113 u0 com.miui.securitycenter/com.miui.appmanager.ApplicationsDetailsActivity}
+-rw-r--r--. 1 emeric emeric 200738 27 juin  09:43 .autoport/reports/Gpkg-branding/15-appinfo.png

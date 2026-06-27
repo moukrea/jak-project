@@ -1,0 +1,3 @@
+List of devices attached
+eae4df44               device usb:1-6 product:joyeuse_global model:Redmi_Note_9_Pro device:joyeuse transport_id:1
+

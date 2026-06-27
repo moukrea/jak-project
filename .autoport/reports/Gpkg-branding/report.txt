@@ -1,0 +1,74 @@
+Phase Gpkg-branding — ship as a real product: app label "Jak & Daxter" + proper
+adaptive launcher icon at all densities. APK packaging only; engine/goal_src untouched.
+Date: 2026-06-27   Device: eae4df44 (Redmi Note 9 Pro, arm64)   HEAD: 01e3366f2
+
+RESULT: APP NAME + ICON SHIPPED
+
+================================================================================
+WHAT CHANGED (resources/packaging only — no engine, no goal_src)
+================================================================================
+1. APP LABEL -> "Jak & Daxter"
+   - android/app/src/main/res/values/strings.xml: added
+       <string name="app_name">Jak &amp; Daxter</string>
+   - android/app/build.gradle.kts: removed the per-flavor `app_name` resValue()
+     from jak1/jak2/jak3 (it would collide with the strings.xml entry as a
+     duplicate resource). Kept the per-flavor `game_name` resValue() — the Java
+     loader reads R.string.game_name to choose which game's data to extract/boot.
+   - AndroidManifest.xml keeps android:label="@string/app_name" (now resolves to
+     "Jak & Daxter").
+   - Package id UNCHANGED: applicationId org.opengoal.gk + ".jak1" suffix =>
+     org.opengoal.gk.jak1 (installs/saves intact).
+
+2. LAUNCHER ICON -> proper adaptive icon at all densities (PLACEHOLDER art)
+   - Adaptive (API 26+): res/mipmap-anydpi-v26/ic_launcher.xml + ic_launcher_round.xml
+       background = @drawable/ic_launcher_background  (vector: deep-blue -> eco-teal gradient)
+       foreground = @mipmap/ic_launcher_foreground    (density "J&D" monogram, safe-zone padded)
+   - Legacy PNGs at mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi: ic_launcher.png + ic_launcher_round.png
+     (gradient + gold "J&D" monogram; round variant circular-masked).
+   - Adaptive foreground PNGs at all 5 densities.
+   - Wired via android:icon="@mipmap/ic_launcher" / android:roundIcon="@mipmap/ic_launcher_round".
+   - Removed the old placeholder triangle drawable/ic_launcher_foreground.xml (superseded).
+   - Generator (reproducible): .autoport/assets/gen_icon.py
+     Master reference: .autoport/assets/icon-src-placeholder.png (512x512)
+
+   >>> PLACEHOLDER NOTICE — for the OWNER to replace <<<
+   The icon is a clean, non-copyrighted PLACEHOLDER: a typographic "J&D"
+   (Jak & Daxter) monogram in Precursor-gold on a deep-blue->eco-teal gradient.
+   It ships NO scraped/copyrighted character art by design. To install final
+   cover art, drop a >=512x512 PNG and re-run the generator (or hand-replace the
+   mipmap-*dpi PNGs + the adaptive foreground/background). See
+   .autoport/assets/README-icon.md. This is a temporary placeholder pending
+   owner-supplied artwork.
+
+================================================================================
+VALIDATOR EVIDENCE (all captured in .autoport/reports/Gpkg-branding/)
+================================================================================
+- 02-gradle.txt        : ./gradlew assembleJak1Debug -PslimIso=true  -> BUILD SUCCESSFUL (gradle_rc=0)
+- 04-badging.txt       : aapt dump badging -> application-label:'Jak & Daxter'  (single value, all locales)
+                         package name='org.opengoal.gk.jak1' (unchanged)
+                         application-icon-{160,480,640} -> res/mipmap-anydpi-v26/ic_launcher.xml
+- 05-apk-icon-resources.txt : 17 ic_launcher resource entries in the APK
+                         (anydpi-v26 launcher+round + 5 densities x {launcher, round, foreground})
+- 06-install.txt       : pm install -r -d -t -i com.android.vending -> Success  (device eae4df44)
+- 07-ondevice-label.txt: resolve-activity org.opengoal.gk.jak1/.LoaderActivity
+- 08-deploy-verify.txt : DEPLOY-VERIFY PASS — device provably runs fresh HEAD (01e3366f2) libgk.so
+                         (chain build==APK==device libgk.so = babe446ab67607c4; engine unaffected)
+- 15-appinfo.png       : on-device App Info shows "Jak & Daxter" + the green/gold "J&D" icon,
+                         version 0.1-autoport-phase13-jak1. (Authoritative on-screen label+icon proof.)
+                         (A MIUI home-screen capture was discarded: the fresh icon did not land on
+                         the visible home page, so it showed no icon — App Info is the on-screen proof.)
+
+Notes:
+- SLIM APK used for the device verification (-PslimIso=true): the branding lives
+  entirely in src/main/res (flavor/payload-independent), so the full shippable APK
+  carries the identical label + icon. libgk.so is byte-identical (sha babe446ab676...),
+  so deploy_verify holds for either payload.
+- Only eae4df44 (physical Redmi) was attached; no emulator touched.
+
+================================================================================
+SCOPE CHECK
+================================================================================
+- goal_src: 1-to-1, untouched (git status clean under goal_src/).
+- .autoport/gold: pristine, untouched.
+- Engine/libgk.so: unchanged (sha babe446ab676...); deploy_verify PASS.
+- Changes confined to android/ (res, manifest stays, build.gradle.kts) + .autoport/assets/.

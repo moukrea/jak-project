@@ -1,0 +1,1 @@
+-rw-r--r--. 1 emeric emeric 1284300181 27 juin  09:41 android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk

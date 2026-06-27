@@ -1,0 +1,2 @@
+android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk: 1 file pushed, 0 skipped. 571.7 MB/s (1284300181 bytes in 2.142s)
+Success

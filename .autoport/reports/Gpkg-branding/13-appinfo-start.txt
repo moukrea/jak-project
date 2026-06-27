@@ -1,0 +1,1 @@
+Starting: Intent { act=android.settings.APPLICATION_DETAILS_SETTINGS dat=package:org.opengoal.gk.jak1 }
