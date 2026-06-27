@@ -1,0 +1,109 @@
+Ginput-replay-determinism — replay must FAITHFULLY reproduce a real-gameplay recording
+=====================================================================================
+
+RESULT: REPLAY REPRODUCES REAL GAMEPLAY (RECORD==REPLAY)
+
+A REAL-gameplay clip (the actual jak1 engine running, Jak spawned and moving in
+Geyser Rock — running, jumping, camera, collision/physics live) was RECORDED with a
+per-game-logic-frame state dump (the record-trace), then REPLAYED on the SAME backend
+(x86) with the same dump (the replay-trace). The two traces are BIT-IDENTICAL over the
+whole clip, keyed by the deterministic game-logic frame. This is the real determinism
+gate the scripted self-test never exercised (that test only round-trips pad bytes with
+NO game engine).
+
+This is NOT the scripted self-test. It is in-engine, real-gameplay: Jak is spawned via
+the deterministic OG_F1_WARP Geyser Rock warp ((start 'play game-start)), then driven
+through real movement by a reproducible in-engine input sequence (sustained run +
+arcing heading + periodic jumps + camera pan). The dumped state is Jak's actual
+collision/control state: position (trans), orientation (quaternion), velocity (transv),
+plus the camera (math-camera trans + rotation) — read live from *target* and
+*math-camera* each game-logic frame.
+
+THE DEFECT (owner, 2026-06-27)
+------------------------------
+Replaying a recorded REAL-gameplay clip did NOT reproduce it: "Jak does the recorded
+moves but at the wrong place/direction from the first seconds." The scripted pad-byte
+self-test passed, but real gameplay diverged immediately. This blocked the owner-demo
+collision diff (you cannot diff two runs of one demo if the demo does not even
+reproduce on the SAME backend).
+
+THE BEFORE (replay diverged from record) — two non-determinism layers, both shown
+---------------------------------------------------------------------------------
+1. INDEX = CONTROLLER-READ COUNTER (the original harness). Records were keyed by a
+   counter incremented once per controller-0 read = once per RENDERED frame, which
+   advances at a VARIABLE rate during boot / title / level-LOAD / pause / cinematics
+   (a load takes a different number of rendered frames each run; a device runs at a
+   different framerate than the desktop). PLUS an idle-until-first-input ASYMMETRY:
+   record skipped leading neutral but replay applied records[0] from the very first
+   read (early boot). So recorded gameplay inputs landed at the WRONG game moments.
+   BEFORE evidence: the prior Gcollision-replay-diff x86_coll.trace (replaying the
+   owner's 28229-tick device demo on x86) ran the counter to tick 61594 (2.18x
+   overrun), Jak FROZEN at the title-state position the whole run — the gameplay
+   inputs were consumed during boot and never reached gameplay.
+
+2. REAL-TIME-DELTA CLOCK (uncovered by per-logic-frame state diff). Even after keying
+   by the game-logic frame + restoring RNG, the engine advanced the simulation by the
+   MEASURED real frame duration (time-ratio = timer-count / *ticks-per-frame*, clamped
+   to 1.0 only below 1.3). A wall-clock hitch made time-ratio jump to 2+, doubling the
+   per-frame physics/counter advance. So a recorded clip diverged run-to-run at a
+   RANDOM frame.
+   BEFORE evidence (this phase, logic-frame index + RNG restore in, fixed timestep
+   NOT yet): record-trace vs replay-trace diverged at game-logic frame 202;
+   replay#1 vs replay#2 at 202; record vs replay#2 at 515 — a NON-DETERMINISTIC
+   divergence point = the per-run wall-clock hitch.
+
+NON-DETERMINISM SOURCES FOUND + FIXED (host/runtime only; goal_src 1-to-1)
+--------------------------------------------------------------------------
+A. TICK INDEX. Replaced the controller-read counter with the DETERMINISTIC game-logic
+   frame: jak1 *display* actual-frame-counter (+1 per UNPAUSED simulated frame,
+   pacing-independent), keyed RELATIVE to a gameplay ANCHOR (the frame *target* spawns
+   in Geyser, post title + post level-load). Pre-anchor reads record nothing and do
+   not advance the index, so the variable boot/title/load before gameplay is fully
+   ABSORBED. The anchor latched at logic frame 153 in both record and replay here.
+B. RNG. At the anchor (record AND replay) every RNG stream is forced to one fixed
+   seed: desktop host extra_random_generator (feeds GOAL rand-vu via pc-rand), mips2c
+   gRng, GOAL *_vu-reg-R_* (rand-vu's R register) and *random-generator* seed, and the
+   Android a35_pc_rand generator (previously random_device-seeded, ignored the seed).
+C. FIXED TIMESTEP. While the harness is armed, *ticks-per-frame* is forced high so
+   time-ratio clamps to 1.0 EVERY frame — each drawn frame is exactly one 1/60s logic
+   step, so the simulation no longer depends on the (variable) real frame duration.
+
+THE AFTER — record-trace == replay-trace, bit-identical (x86, same backend)
+---------------------------------------------------------------------------
+SHORT clip (~60s of gameplay): 3812 game-logic frames. Jak does real gameplay —
+3490 distinct positions over the clip (running, jumping, roaming Geyser Rock).
+  record-trace  vs replay-trace #1: IDENTICAL (0 divergences over all 3812 frames)
+  record-trace  vs replay-trace #2: IDENTICAL
+  replay #1     vs replay #2      : IDENTICAL
+  sha256 of all three common prefixes: 684c8901f0765bb9d4ba3afa46bd49836d9524b8f7fc38e4fab1ce55993a5aad
+  anchor: logic frame 153; rng forced to 0x0ad12345 (record == replay)
+
+LONG clip (>= 3 min of gameplay): record 14261 game-logic frames, replay 13681
+(the wall-clock timeout cut each run at a slightly different frame); 13681-frame
+common prefix. Jak does ~4 minutes of real gameplay — 13197 distinct positions
+(running, jumping, roaming Geyser Rock).
+  record-trace vs replay-trace: IDENTICAL (0 divergences over all 13681 common frames)
+  sha256 (common prefix): 6a8084576b7bd778dc6acc5e8f4d4aa01c16fa4604ba0ff9e3bc6a3f8fa605d6
+  anchor: logic frame 153; rng forced to 0x0ad12345 (record == replay)
+
+(The traces are keyed `coll frame=<game-logic-frame> <hex bytes...>`: bytes 0..12 =
+Jak position, 12..24 = velocity, 96..112 = orientation quaternion, 112..128 = camera
+position, 128..176 = camera rotation. The trailing few frames differ only in COUNT —
+the wall-clock timeout cut each run at a slightly different frame — so all comparisons
+are over the common prefix, which is bit-identical.)
+
+CONCLUSION
+----------
+On the same backend, replaying a real-gameplay recording now reproduces it
+bit-identically over both a short and a >=3-min clip. The non-determinism sources
+(controller-read tick index, unrestored multi-source RNG, real-time-delta clock) are
+captured/restored or eliminated. The owner-demo collision diff (Gcollision-replay-diff)
+is unblocked: a demo now reproduces faithfully on one backend, so an x86-vs-arm64
+diff of the same demo is meaningful.
+
+Fix is host/runtime only (game/system/pad_replay.*, game/kernel/{common,jak1}/kmachine.cpp,
+game/mips2c/mips2c_table.*, android/gk_android_main.cpp). goal_src is byte-identical.
+Demo format bumped to v2 (logic-frame anchored): the owner's existing v1 *.inputs must
+be re-recorded with the fixed harness before the collision diff (owner in the loop).
+See Ginput-replay-determinism-fix-summary.md. The temporary state dump + scripted drive
+used to PROVE this are removed.

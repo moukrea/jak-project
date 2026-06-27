@@ -560,9 +560,17 @@ u64 a35_pc_get_unix_timestamp() {
   return (u64)std::time(nullptr);
 }
 
+static std::mt19937 a35_rand_gen(std::random_device{}());
 u32 a35_pc_rand() {
-  static std::mt19937 gen(std::random_device{}());
-  return (u32)gen();
+  return (u32)a35_rand_gen();
+}
+// Ginput-replay-determinism (autoport): the Android pc-rand generator is its own
+// (random_device-seeded) mt19937 — distinct from the desktop extra_random_generator
+// — so it must be reseeded through the input-replay harness's RNG-reseed chain or a
+// replayed clip would never reproduce on device (rand-vu mixes in pc-rand). Registered
+// alongside the desktop reseed; invoked at the gameplay anchor.
+void a35_pc_set_rand_seed(u32 seed) {
+  a35_rand_gen.seed(seed);
 }
 
 void a35_pc_set_game_resolution(s64 w, s64 h) {
@@ -676,6 +684,9 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-prof", d);
   // RNG
   jak1::make_function_symbol_from_c("pc-rand", (void*)a35_pc_rand);
+  // Ginput-replay-determinism (autoport): wire THIS backend's pc-rand generator
+  // into the harness reseed chain so a replayed clip restores it at the anchor.
+  pad_replay::add_rng_reseed_callback(&a35_pc_set_rand_seed);
   // Text
   jak1::make_function_symbol_from_c("pc-encode-utf8-string", d);
   // Debug

@@ -76,4 +76,7 @@ struct Rng {
 };
 
 extern Rng gRng;
+
+// Ginput-replay-determinism (autoport): reseed gRng to a fixed state (see .cpp).
+void reseed_rng(u32 seed);
 }  // namespace Mips2C
