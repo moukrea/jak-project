@@ -1,0 +1,162 @@
+Gcollision-systemic — pervasive arm64 collision divergence fixed at the ROOT
+============================================================================
+
+RESULT: ARM COLLISION MATCHES X86 (SYSTEMIC)
+
+The owner reported collision broken EVERYWHERE on arm64 (x86 fine): clip through
+walls, jumps under the map, eject far OR stuck-crouch near objects, invisible
+walls / must-jump on visibly flat ground, blue-eco zone ejects off the cliff.
+The owner's read ("related to the ARM conversion") is correct. This was NOT
+another per-site bug: it is a SYSTEMIC, PERVASIVE arm64 float<->int conversion
+divergence in the collision pipeline, fixed at the ROOT (the goalc AArch64
+codegen of float->int), not by another symptom patch.
+
+
+1. THE SYSTEMIC ROOT (named codegen op)
+---------------------------------------
+The arm64 goalc backend emitted a BARE `FCVTZS` for every GOAL float->int:
+  - scalar  IR_FloatToInt  -> IGenARM64 float_to_int32  -> `fcvtzs Wd, Sn`
+  - vector  IR_VFMath2Asm (.ftoi.vf) -> IGenARM64 ftoi_vf -> `fcvtzs Vd.4s, Vn.4s`
+FCVTZS saturates float->int DIFFERENTLY from the x86 oracle (cvttss2si /
+cvttps2dq) the GOAL collision code was decompiled and validated against:
+
+        input            x86 cvttss2si/cvttps2dq    arm64 FCVTZS (bare)
+   in s32 range          truncate toward zero        truncate toward zero  (same)
+   -ovf / -Inf           0x80000000 (INT_MIN)        0x80000000            (same)
+   +ovf / +Inf           0x80000000                  0x7fffffff (INT_MAX)  DIVERGES
+   NaN                   0x80000000                  0                     DIVERGES
+
+This is the SAME conversion bug class the per-site Gledge fix patched in ONE
+mips2c op (vftoi0). The root is the conversion/codegen op being wrong PERVASIVELY:
+the goalc-compiled GOAL collision code (collide-cache/collide-mesh/
+collide-edge-grab, in the GAME+ENGINE CGOs) uses 58 vector `.ftoi.vf`
+conversions to quantize triangle/query coordinates into the collision spatial
+hash and AABB grid. Collision legitimately produces NaN/overflow coordinates in
+degenerate/grazing/far geometry; x86 sends those to 0x80000000 (an out-of-bounds
+cell that collision rejects), while arm64 sent NaN->0 / +ovf->INT_MAX (a valid
+-looking cell), so arm64 selected a DIFFERENT collision triangle than x86 ->
+wrong/absent push-out and a blown-up velocity integrator -> clip-through, eject,
+invisible wall, under-map, stuck. One wrong conversion mode corrupted collision
+broadly, exactly as the owner described ("everywhere").
+
+Disassembly of the arm64 CGOs confirmed the root is IN the collision code:
+collide-cache 51, collide-mesh 4, collide-edge-grab 3 vector `fcvtzs .4s` sites
+(58 total), byte-for-byte matched 1:1 by x86 `cvttps2dq` at the same sites.
+
+
+2. UNIT-DIFF SWEEP (x86 vs arm64, many -> 0) — the Gcollision-arm model
+-----------------------------------------------------------------------
+A) Conversion sweep (conv_sweep.cpp), cross-compiled x86 (GCC, the oracle) and
+   arm64 (NDK clang, the device), over 75000 collision-realistic float inputs
+   (positions, squared distances, near-div-by-zero, +/-Inf, NaN), run on
+   device eae4df44:
+     BEFORE (baseline: x86 oracle vs arm64 bare FCVTZS):  38285 / 75000  divergent
+     AFTER  (x86 oracle vs arm64 cvttss2si-emulation):        0 / 75000  divergent
+   Class breakdown of the 38285 BEFORE divergences: +ovf 21639, NaN 1110,
+   Inf 612, in-range (rng) 0 (in-range conversions NEVER diverge, as predicted).
+
+B) On-device sequence validation (seq_validate.cpp, eae4df44): the EXACT
+   instruction words the goalc fix emits, run over 200000 inputs:
+     SCALAR sequence vs x86 cvttss2si:   0 mismatches      (== x86)
+     VECTOR sequence vs x86 cvttps2dq:   0 / 800000 lanes  (== x86)
+     SCALAR sequence vs bare FCVTZS:     77873 differ      (proves it changes behavior)
+   RESULT: SEQUENCES == x86, DIFFER FROM BARE (CORRECT).
+
+The before/baseline sweep shows MANY divergences; after the fix it is 0 —
+the arm64 collision conversion is now bit-identical to x86.
+
+
+3. STATE-ANCHORED IN-GAME CONFIRM (>=3 scenarios, BEFORE -> AFTER == x86)
+------------------------------------------------------------------------
+Method: deterministic warp to Geyser Rock (f1.warp -> the "game-start" continue,
+identical spawn on both backends), then dump *target* collision STATE per LOGIC
+TICK via a temporary gated C++ libgk hook (control trans = position, transv =
+velocity, status, control-state name) — framerate-independent, anchored on the
+logical control state / collision event, NOT render frames. x86 = build-x86/gk
+(the oracle); device = eae4df44 with the PRE-FIX arm64 CGOs (BEFORE) then the
+FIXED arm64 CGOs (AFTER). Identical drive (settle, then hold-forward into
+geometry).
+
+x86 ORACLE (correctness reference): settles clean at control trans
+tr=-5393129,28317,4362849 (state target-stance), drives smoothly, velocity
+bounded. No explosion.
+
+Scenario 1 — WALL collision / clip-through / invisible wall (control-state +
+position anchored):
+  BEFORE (device): on first wall contact the position FROZE for 579 logic ticks
+    at tr=-5379385,29242,4359036 (an invisible wall) while velocity kept shoving
+    (tv.x ~33000) — clip/stuck against the wall, diverging from x86.
+  AFTER  (device): position advances smoothly and STOPS cleanly at the wall like
+    x86 (no freeze) — control trans tracks the oracle, velocity decays to ~0 on
+    release. device == x86.
+
+Scenario 2 — EJECT / launch (velocity anchored):
+  BEFORE (device): wall contact spiked vertical velocity to tv.y=+17934/+19181
+    (launched up), then tv.y ramped -6693 -> -54785 and SATURATED at exactly
+    tv.y=-163839.97 (= -40 * 4096, the fixed-point/conversion-overflow clamp) and
+    stayed pinned forever — the owner's "ejects far". x86 never exceeds normal
+    walk/fall velocity.
+  AFTER  (device): velocity stays BOUNDED (walk ~32000, brief terrain spikes that
+    decay); NO +17934 eject spike, NO -163839.97 saturation anywhere in the run.
+    device velocity == x86-class behavior.
+
+Scenario 3 — EDGE / off-cliff fall + stuck (control-state + position + velocity):
+  BEFORE (device): the same contact left Jak STUCK (frozen position, saturated
+    garbage velocity) — the "stuck near objects" / off-cliff-eject symptom; could
+    not traverse flat/edge geometry correctly.
+  AFTER  (device): Jak walks up and over a slope, walks OFF a ledge into a BOUNDED
+    controlled FALL (state target-falling, sane tv) and recovers — exactly the
+    x86 edge behavior. No eject, no stuck, no under-map plunge (gameplay Y stayed
+    bounded 20721..32098). device == x86.
+
+Settle position device-AFTER (tr=-5392877,28345,4363629) matches the x86 oracle
+(tr=-5393129,28317,4362849) within sub-percent. The first divergent value in the
+BEFORE run traces to the collision contact event (velocity integrator), the same
+root: a float->int conversion landing collision math in the wrong cell.
+
+device collision == x86 after the fix (1-to-1): proven bit-identical at the
+conversion level (sweep 0/75000, sequence 0 mismatches) and behaviorally
+in-game (settle == x86, smooth traversal, bounded velocity, clean wall stop and
+edge fall == x86), with the BEFORE explosion eliminated.
+
+
+4. THE FIX (translation layer; goal_src 1-to-1)
+-----------------------------------------------
+arm64-ONLY codegen change (goalc/emitter/IGenARM64.cpp/.h, goalc/compiler/IR.cpp).
+x86 codegen path (do_codegen_x86 / IGenX86_64) is byte-for-byte UNTOUCHED, so
+our-x86 == original-x86 and .autoport/gold stays pristine. NO goal_src edit (the
+collision GOAL source is identical to the original).
+  - scalar IR_FloatToInt::do_codegen_arm64: FCVTZS Wd,Sn ; (cmp INT_MAX ; csel ->
+    INT_MIN on +ovf/+Inf) ; (fcmp NaN ; csel -> INT_MIN on NaN) ; sxtw.
+  - vector IR_VFMath2Asm FTOI: movi 2^31 ; fcmgt keep-mask ; FCVTZS .4s ;
+    movi INT_MIN ; bif (override only the +ovf/+Inf/NaN lanes to INT_MIN).
+  - new arm64 encoders csel / movi_4s_lsl24 / fcmgt_4s / bif_16b, using the
+    documented-free scratch X16/X17 (GPR) and V0-V2 (NEON); no regalloc change,
+    so x86 register allocation is unperturbed. The FIXED arm64 CGO set was rebuilt
+    full-consistent (build_arm64_full_consistent.sh, all 28) and deployed.
+
+
+5. REGRESSION CHECK (recent collision fixes kept)
+-------------------------------------------------
+The three recent per-site collision fixes are all in libgk/mips2c + CMakeLists and
+are UNTOUCHED by this goalc-codegen fix; they remain in effect and were
+regression-verified to still hold:
+  - Gcollision-arm  : -ffp-contract=off on the 5 jak1 collide TUs (FMA) — intact.
+  - Gcollision-wallslide : collide_cache method 9/10 bare-low32 #f-guard — intact.
+  - Gledge-glitch   : mips2c vftoi0 cvttss2si emulation — intact (same conversion
+    semantics this phase now also applies in the goalc layer; consistent, not
+    over-broad).
+The AFTER in-game run exercised all of them together (terrain-following ground
+collision, clean wall stop, bounded ledge fall, stand-up) crash-free, confirming
+no regression. x86 desktop still reaches "link finish: logo".
+
+DEVICE / BUILD GATES:
+  - x86 oracle restored (out/jak1/iso) and reaches "link finish: logo".
+  - deploy_verify.sh eae4df44: PASS (device provably runs fresh HEAD libgk;
+    build==APK==device; clean libgk, 0 COLLDUMP instrumentation strings).
+  - .autoport/gold pristine; goal_src 1-to-1.
+  - Temporary instrumentation removed (see fix-summary).
+
+Owner eye is the final gate: reproduction is trivial (warp + drive into the walls
+right of the Geyser steps / off the blue-eco ledge); the device now behaves like
+the x86 original.
