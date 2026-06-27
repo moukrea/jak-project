@@ -4526,13 +4526,27 @@ bool handle_enter_state_null_code(int sig, siginfo_t* /*info*/, void* ucontext) 
   return true;
 }
 
-// Gecho-pool: tolerate a TINY arm64 process-suspend stack overflow.
+// Gecho-pool / Gdeath-crash: tolerate a BOUNDED arm64 process-suspend stack overflow.
 // thread-suspend (gkernel.gc:606) does `(when (> used stack-size) (break))`. On arm64 a
-// deeply-nested enter-state suspend on a 256-byte process exceeds the budget by a few
-// bytes (the .push is 16B vs x86's 8B). x86 never trips this. For a SMALL overflow we
-// skip the (break) (a `(/ 0 0)` = udf #0xBEEF) so the suspend proceeds; the inline backup
-// copy then spills `over` bytes into the thread's freg (xmm8-15 saves), bounded+float-only
-// for over<=32. Returns true (resume) only for this exact, small-overflow case.
+// deeply-nested suspend on a small-stack process exceeds the x86-calibrated budget,
+// because the arm64 .push is 16B vs x86's 8B (the same code uses more stack). x86 never
+// trips this. For a BOUNDED overflow we skip the (break) (a `(/ 0 0)` = udf #0xBEEF) so
+// the suspend proceeds.
+//
+// SAFETY BOUND (cpu-thread layout, all-types.gc:1790): the suspend's inline backup copy
+// fills `stack`[0..stack-size] from its END downward; an overflow of `over` bytes spills
+// BACKWARD into the SAME cpu-thread, region [128-over, 128):
+//   freg   (off 96..128, 32B) = the xmm8-15 saves   -> transient floats (visual-only)
+//   rreg5,6(off 80..96,  16B) = a4/a5               -> "overwritten anyway" on a normal
+//                                                       resume (gkernel.gc:716-728), harmless
+//   rreg0-4(off 40..80,  40B) = s0-s4 (callee-saved POINTERS) -> corrupting these CRASHES
+// thread-resume copies the backup BACK to the execution stack FIRST (gkernel.gc:678-683),
+// fully restoring the stack (incl. the spilled bytes) BEFORE it reads rreg0-4 — so as long
+// as the spill stays out of rreg0-4 the execution is correct. The spill floor is 128-over;
+// to keep it >= 80 (rreg5 start, leaving s0-s4 intact) requires over <= 48. So the safe
+// ceiling is exactly 48 = freg(32) + rreg5,6(16). The Gdeath-crash pov-camera death-movie
+// suspend (inside ja-play-spooled-anim) is deterministically over=48 (used=304, size=256).
+// Returns true (resume) only for this bounded case; over>48 still crashes (would hit s0-s4).
 std::atomic<uint64_t> g_suspend_overflow_tolerated{0};
 bool handle_suspend_overflow_break(int sig, siginfo_t* /*info*/, void* ucontext) {
   if (sig != SIGILL && sig != SIGSEGV) return false;
@@ -4560,7 +4574,7 @@ bool handle_suspend_overflow_break(int sig, siginfo_t* /*info*/, void* ucontext)
   if (!a36_tree::rd32(tthr + 28, &tstop)) return false;   // thread.stack-top
   if (!a36_tree::rd32(tthr + 32, &tssz)) return false;    // thread.stack-size
   int over = (int)(tstop - tsp) - (int)tssz;
-  if (over <= 0 || over > 32) return false;   // not the small-overflow break -> let it crash
+  if (over <= 0 || over > 48) return false;   // bounded overflow only (see SAFETY BOUND above); >48 hits s0-s4 -> crash
   // The (break) is a HARD trap inside thread-suspend, where SP is a GOAL pointer (the
   // asm-func converted it). We CANNOT just resume past the udf — the (/ 0 0) divide's
   // spill (`sub sp,#16; str x8,[sp]`) would store through the GOAL-pointer SP and fault.
@@ -4568,7 +4582,8 @@ bool handle_suspend_overflow_break(int sig, siginfo_t* /*info*/, void* ucontext)
   // few instrs before the udf branches PAST the whole break body to the no-overflow
   // continuation (gkernel.gc:612: set status; copy stack; restore regs; RET). Jumping
   // there lets the suspend complete on valid GOAL pointers; the inline backup copy then
-  // overflows `over`<=32 bytes into the thread's freg (xmm8-15 saves) — bounded, float-only.
+  // overflows `over`<=48 bytes into the thread's freg (xmm8-15) + rreg5,6 (a4/a5) — bounded
+  // and harmless (see SAFETY BOUND above); s0-s4 (rreg0-4) stay intact.
   uint32_t target_g = 0;
   for (int back = 1; back <= 12; back++) {
     uint32_t a = pcg - 4u * (uint32_t)back;
