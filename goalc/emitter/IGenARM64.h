@@ -708,6 +708,12 @@ InstructionARM64 csel(Register dst, Register n, Register m, uint32_t cond);
 InstructionARM64 movi_4s_lsl24(Register dst, uint32_t imm8);
 InstructionARM64 fcmgt_4s(Register dst, Register a, Register b);
 InstructionARM64 bif_16b(Register dst, Register n, Register m);
+// Gcollision-nanroot — x86 MINSS/MAXSS/MINPS/MAXPS "return operand-2 on unordered"
+// emulation (arm64-only; used by IR_FloatMath / IR_VFMath3Asm do_codegen_arm64 so
+// arm64 fmin/fmax/.min.vf/.max.vf match x86's NaN handling instead of FMIN/FMAX
+// propagating NaN).
+InstructionARM64 fcsel_s(Register dst, Register n, Register m, uint32_t cond);
+InstructionARM64 bsl_16b(Register dst, Register n, Register m);
 
 InstructionARM64 nop();
 

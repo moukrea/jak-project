@@ -2375,6 +2375,28 @@ InstructionARM64 csel(Register dst, Register n, Register m, uint32_t cond) {
   return InstructionARM64(enc);
 }
 
+// FCSEL Sd, Sn, Sm, cond  — scalar single-precision conditional select
+//   (Sd = cond ? Sn : Sm). Used to emulate x86 MINSS/MAXSS "return operand-2 on
+//   unordered" (FCMP + FCSEL ..,MI), which AArch64 FMIN/FMAX cannot do (they
+//   propagate NaN). base 0x1E200C00 | (Rm<<16) | (cond<<12) | (Rn<<5) | Rd
+//   (verified vs assembler: `fcsel s0,s1,s2,mi` == 0x1e224c20). [Gcollision-nanroot]
+InstructionARM64 fcsel_s(Register dst, Register n, Register m, uint32_t cond) {
+  uint32_t enc = 0x1E200C00u | (arm64_reg5(m) << 16) | ((cond & 0xfu) << 12) |
+                 (arm64_reg5(n) << 5) | arm64_reg5(dst);
+  return InstructionARM64(enc);
+}
+
+// BSL Vd.16B, Vn.16B, Vm.16B  — bitwise select: per bit, Vd = Vd ? Vn : Vm (Vd is
+// the select mask, replaced by the result). size=0b01 distinguishes BSL from
+// BIT(0b10)/BIF(0b11). Used with FCMGT to emulate x86 MINPS/MAXPS "return src2 on
+// unordered". base 0x6E601C00 (verified vs assembler: `bsl v0.16b,v1.16b,v2.16b`
+// == 0x6e621c20). [Gcollision-nanroot]
+InstructionARM64 bsl_16b(Register dst, Register n, Register m) {
+  uint32_t enc =
+      0x6E601C00u | (arm64_reg5(m) << 16) | (arm64_reg5(n) << 5) | arm64_reg5(dst);
+  return InstructionARM64(enc);
+}
+
 // MOVI Vd.4S, #imm8, LSL #24  — broadcast (imm8 << 24) into each 32-bit lane.
 //   base 0x4F006400 | (abc<<16) | (defgh<<5) | Rd ; abc=imm8[7:5], defgh=imm8[4:0]
 // (cmode=0b0110 = 32-bit shifted-by-24). Used to build 0x4F000000 (=2^31 float)

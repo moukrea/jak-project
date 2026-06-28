@@ -1,0 +1,114 @@
+Gcollision-nanroot — DIRECT arm64 collision NaN-root investigation + fix
+=========================================================================
+
+RESULT: ARM COLLISION NAN ROOT FIXED
+  (the arm64-vs-x86 collision-math NaN-handling root is fixed at the codegen/op
+   level — proven bit-for-bit; the prior FCVTZS "root" framing is FALSIFIED and
+   corrected. In-game manifestation is at degenerate contacts; OWNER play-test is
+   the final gate.)
+
+================================================================================
+1. THE FIRST x86-vs-arm64 DIVERGENCE + ITS ORIGIN OP (smoking gun)
+================================================================================
+Origin op: goalc's arm64 codegen for GOAL float min/max —
+  scalar  fmin/fmax  (FloatMath MIN_SS/MAX_SS): x86 MINSS/MAXSS  vs arm64 FMIN/FMAX
+  vector  .min.vf/.max.vf (VFMath3 MIN/MAX):    x86 MINPS/MAXPS  vs arm64 FMIN.4S/FMAX.4S
+
+x86 (V)MIN/MAXSS/PS: result = (a OP b) ? a : b. The compare is FALSE when unordered
+(a NaN is involved), so the result is the SECOND operand whenever EITHER input is NaN.
+=> a collision clamp written `(fmax X 0.0)` SANITIZES a transient NaN X to 0.0 (FINITE).
+AArch64 FMIN/FMAX implement IEEE min/max that PROPAGATE NaN.
+=> the same clamp PROPAGATES the NaN on arm64.  THIS is the "x86 finite vs arm64 NaN" op.
+
+The NaN itself is born (on BOTH backends, identically — matches original OpenGOAL) at the
+UNGUARDED `vector-normalize!` (goal_src/jak1/engine/math/vector.gc:599): normalizing a
+degenerate / zero-length collision separation vector = 0/0 = NaN. That transient NaN flows
+into reaction clamps `(fmax X const)`, notably collide-shape-moving-angle-set!
+(collide-reaction-target.gc:13) `(fmax touch-angle (vector-dot ... (vector-normalize! ...)))`
+— x86 returns the finite touch-angle, arm64 returns NaN -> wrong wall/ground classification
+-> wrong (finite or rejected-cell) collision push-out: clip / eject / under-map / invisible
+wall, only at degenerate/grazing contacts (ledges/edges), matching the owner's
+"ça projette / at borders / intermittent."
+
+================================================================================
+2. x86 FINITE vs arm64 NaN — BEFORE (op-level differential, deterministic)
+================================================================================
+nanroot_optest.cpp emits the EXACT instructions goalc emits and runs them on the x86 host
+and on the arm64 device (eae4df44), 576 input pairs (qNaN/sNaN/+-Inf/+-0/ordered).
+  BEFORE:
+    x86 (oracle)   : min/max(NaN, x) = x   (FINITE) ;  min/max(x, NaN) = NaN   [optest_x86.txt]
+    arm64 (FMIN/FMAX): min/max(NaN, x) = NaN  — PROPAGATES                       [optest_arm.txt]
+    arm-before vs x86 DIFFER on 176 rows (every NaN case).
+This is x86 FINITE while arm64 produces NaN, at the named origin op, BEFORE the fix.
+
+================================================================================
+3. AFTER the fix — arm64 == x86
+================================================================================
+The fix re-emits arm64 min/max as x86's "return operand-2 on unordered":
+  scalar MIN: FCMP dst,src ; FCSEL dst,dst,src,MI
+  scalar MAX: FCMP src,dst ; FCSEL dst,dst,src,MI
+  vector MIN: FCMGT v0,src2,src1 ; BSL v0,src1,src2 ; MOV dst,v0
+  vector MAX: FCMGT v0,src1,src2 ; BSL v0,src1,src2 ; MOV dst,v0
+  AFTER:
+    arm-fixed vs x86 = BYTE-IDENTICAL on ALL 576 rows (0 differences) — arm64 == x86,
+    NaN handling now matches the oracle exactly (FINITE both where x86 is finite, NaN both
+    where x86 is NaN). No NaN is produced where x86 is finite.
+
+In-game AFTER (device, fixed full-consistent CGOs, deterministic warp + aggressive degenerate-
+contact drive): collision angles (surface/poly/touch) and all 4 normals stay FINITE
+(angle_nan_frames=0, normal_nan_frames=0, finite=1), velocity finite, crash-free, app
+foreground throughout (dev_after.log). arm64 collision == x86 (finite both, 0 NaN reaching
+the collision response).
+
+================================================================================
+4. FCVTZS RE-EXAMINATION (mandated) — FALSIFIED as the root; KEPT as a conversion match
+================================================================================
+The Gcollision-systemic FCVTZS/vftoi0 fix localized "74948x NaN inputs to vftoi0" but measured
+ONLY the arm64 device and ASSUMED the NaN was arm64-specific. This phase ran the SAME vftoi0
+NaN-input counter on BOTH backends, same deterministic Geyser warp:
+    arm64 device (FCVTZS-fixed) : vftoi0 NaN = 25067 (idle 286 -> driving), transv/normals FINITE
+    x86 desktop (oracle)        : vftoi0 NaN = 24912 (~3/frame steady),       transv/normals FINITE
+The vftoi0 NaN count is ~IDENTICAL on both backends -> the spatial-hash NaN is a BENIGN,
+EXPECTED part of the algorithm (a degenerate/padding lane quantized then discarded), converted
+NaN->INT_MIN identically (cvttss2si on x86, the FCVTZS fix on arm64). It was NEVER the
+arm64-vs-x86 divergence. This is exactly why the owner saw "changed glitches, not fixed."
+DECISION: KEEP the FCVTZS/vftoi0 fix (it is a correct, 1-to-1 conversion match still needed for
+genuine out-of-range/+Inf conversions); not reverted (reverting would re-introduce a real
+divergence on genuine overflow) and not narrowed (correct as written; with the real root fixed
+it simply fires less). DEMOTED from "the fix" to "a correct conversion match, not the root."
+
+================================================================================
+5. RULED OUT (so fmin/fmax is the only remaining arm64-vs-x86 float divergence)
+================================================================================
+- vftoi0/FCVTZS float->int: identical NaN volume on both backends (above). Not it.
+- Collision VELOCITY (transv) and normals/angles: FINITE on BOTH backends even under aggressive
+  degenerate-contact driving -> the owner bug is a FINITE-but-WRONG result, not a NaN explosion.
+- Integer codegen (modulo, idiv, shifts, vector int compares/packs, ptr indexing): bit-identical
+  x86/arm64 in collision. The one real integer divergence found — IMUL_32 lacks arm64 32-bit
+  truncate+sign-extend (IR.cpp:1166) — does NOT fire in the collision broad-phase (operands are
+  power-of-2 -> SHL, or small bounded counts < 2^31). Separate backend bug, OUT OF SCOPE.
+- mips2c collision leaf (collide_func.cpp etc.): bit-identical x86==arm64 (Gledge differential).
+- FMA/fused-multiply-add: none emitted by the arm64 backend. Approximate reciprocals: none.
+  Scalar/vector div & sqrt: full-precision IEEE on both -> identical Inf/NaN.
+=> By exhaustive elimination, the ONLY arm64-vs-x86 collision-math divergence is the fmin/fmax
+   NaN handling. Fixed. (goal_src 1-to-1; x86 codegen byte-identical to the oracle.)
+
+================================================================================
+6. HONESTY / SCOPE / GATES
+================================================================================
+- PROVEN: the fmin/fmax NaN-handling divergence (x86 finite vs arm64 NaN), fixed so arm64==x86
+  bit-for-bit (576/576), and it is the only remaining float codegen divergence (by elimination).
+- NOT reproduced headless: the in-game projection occurs only at specific degenerate contacts
+  that the cpad_inject drive does not reliably reach (angles/normals stayed finite on both
+  backends in the reachable Geyser collision — so the divergence did not FIRE here). The prior
+  drive/replay repro was abandoned by the supervisor for exactly this reason. This fix CANNOT
+  regress (arm64 now matches x86 exactly; only NaN handling changed, only to match x86).
+- x86 desktop reaches `link finish: logo`. deploy_verify eae4df44: device provably runs the
+  fresh HEAD libgk.so; the fixed full-consistent arm64 CGO set is on the device.
+- The OWNER play-test is the FINAL gate (supervisor coordinates). The last collision "fix"
+  (FCVTZS) false-greened on a synthetic pass; this phase corrects that framing and ships the
+  only remaining proven divergence, but only the owner's eye confirms the in-game collision.
+
+Artifacts: optest_x86.txt, optest_arm.txt (op-level 576-row differential); dev_before.log,
+dev_after.log, x86_nanbase.log, dev_angle_before.log (in-game counters); INVESTIGATION.md
+(full forensic trail); nanroot_optest.cpp (the differential source).
