@@ -1,0 +1,35 @@
+cmp_oracle — arm64-vs-x86 goalc FLOAT-comparison NaN differential
+=================================================================
+Ran the REAL instructions on the REAL device (eae4df44) and the x86 host. Each row is one GOAL
+float comparison op on a pair of operands. x86 column = `ucomiss a,b` + the goalc UNSIGNED jcc
+(LT=jb, LEQ=jbe, GT=ja, GEQ=jae, EQ=je, NE=jne) — this is the 1-to-1 target (our-x86 == original).
+arm_cur = the CURRENTLY-DEPLOYED goalc arm64 codegen (LT=b.MI, LEQ=b.LS, GT=b.GT, GEQ=b.GE).
+arm_fix = the fix in this phase (LT=b.LT, LEQ=b.LE; GT/GEQ unchanged). 11 operands tested,
+including the EXACT 0.0/0.0 NaN the collision reaction produces (collide-shape.gc:740 /
+collide-reaction-target.gc:139 vector-normalize! of a zero-length vector at a degenerate contact).
+
+DIVERGENCE COUNTS (726 rows):
+  BEFORE fix (arm_cur != x86): 84 rows   — LT 21, LEQ 21, EQ 21, NE 21  (EVERY one involves a NaN operand)
+  AFTER  fix (arm_fix != x86): 42 rows   — EQ 21, NE 21  (LT/LEQ fully fixed; EQ/NE = separate residual)
+
+LT/LEQ: 42/42 divergent rows now arm64 == x86. Zero regression on finite/Inf/±0 operands
+(only the unordered/NaN result changed; the ordered results were already identical — verified by
+the op-test: arm_fix matches x86 on ALL non-NaN rows for LT/LEQ).
+
+EQ/NE residual (42 rows): x86 `ucomiss`+`je`/`jne` treats an unordered (NaN) compare as EQUAL
+(ZF=1) — a quirk of the x86 flag encoding. Matching it on arm64 needs a multi-instruction
+fold-in of the V (unordered) flag on EVERY float ==/!= branch. This is OUT OF SCOPE here: it is
+NOT on the collision push-out path (the collision divergence is `<`, ranked sites are all LT —
+collide-reaction-target.gc:141/145), float == with a NaN operand is rare, and the extra
+instructions risk the delicate float-branch codegen (cf. the A34 SIGSEGV history). Left unchanged;
+documented as a known, non-collision residual.
+
+THE COLLISION-RELEVANT ROW — `(< coverage 0.0)` (collide-reaction-target.gc:141) with coverage =
+the degenerate-contact 0.0/0.0 NaN:
+  x86     : (< NaN 0.0) = 1 (#t)  -> ENTERS the coverage-recovery + low-coverage branch (correct surface push-out)
+  arm_cur : (< NaN 0.0) = 0 (#f)  -> SKIPS it -> NaN coverage persists + wrong surface class -> clip/eject/under-map
+  arm_fix : (< NaN 0.0) = 1 (#t)  == x86   (FIXED)
+
+Files: cmp_oracle.cpp (the harness), cmp_x86.txt (x86 oracle output), cmp_arm.txt (device output,
+arm_cur + arm_fix columns). Rebuild/run: g++ -O2 cmp_oracle.cpp -o cmp_x86 && ./cmp_x86;
+<NDK>aarch64-linux-android35-clang++ -O2 cmp_oracle.cpp -o cmp_arm; adb push + run on device.

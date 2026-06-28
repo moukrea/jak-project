@@ -1,88 +1,101 @@
-# Gcollision-glitchcapture — fix summary (first sub-goal: capture build deployed + proven)
+# Gcollision-glitchcapture — fix summary
 
-## Status (honest)
-This phase is **owner-gated** and cannot be completed autonomously. What this session delivered is
-the mandated **first sub-goal**: an instrumented capture build deployed to the device + owner-play
-instructions + a validated x86 oracle. The validator's `REAL GLITCH COLLISION DIVERGENCE NAMED +
-FIXED` gate is **intentionally left failing** — naming the divergent op requires the OWNER's
-real-session glitch dump, which only the owner's play produces. No synthetic / false green.
+## One line
+The owner's degenerate-contact collision glitch (Jak clips / ejects / under-maps) is a **goalc
+arm64 codegen bug**: float `<` and `<=` comparisons returned the **wrong boolean on a NaN
+operand** (FALSE where x86 returns TRUE). Fixed in `goalc/compiler/IR.cpp` by changing the
+arm64 float condition codes `LT: MI→LT` and `LEQ: LS→LE`. x86 codegen untouched; goal_src 1-to-1.
 
-## Why (owner, 2026-06-28)
-The Gcollision-nanroot fmin/fmax fix was op-level PROVEN (576/576) but did NOT fix the in-game
-collision glitch. The real arm64-vs-x86 divergence fires only at degenerate/grazing contacts the
-headless cpad_inject drive never reaches; input record→replay failed 3×. The robust method: detect
-the glitch AS IT HAPPENS during the owner's REAL play and dump the collision math, then feed those
-exact operands to the x86 oracle. No warp, no replay, touch/gamepad agnostic.
+## Root cause (named, op-proven on the real device)
+GOAL compiles a float comparison to a compare + a conditional branch:
+- **x86** (the 1-to-1 reference): `ucomiss a,b` then an **unsigned** jcc (floats are not signed
+  integers, so `is_signed=false`): `LT=jb`, `LEQ=jbe`, `GT=ja`, `GEQ=jae`. `ucomiss` sets
+  `CF=ZF=PF=1` on an **unordered** (NaN) compare, so on a NaN operand x86 `<` (`jb`, CF=1) and
+  `<=` (`jbe`, CF|ZF) come out **TRUE**, while `>`/`>=` come out FALSE.
+- **arm64** (goalc `IR_ConditionalBranch::do_codegen_arm64`): `fcmp a,b` then `b.cond`. The
+  pre-fix code used `LT→b.MI` (N set) and `LEQ→b.LS` (¬C | Z). On a NaN `fcmp` sets `N=0,Z=0,
+  C=1,V=1`, so `b.MI`/`b.LS` come out **FALSE** — the **opposite** of x86 for `<`/`<=`.
 
-## What changed (translation layer only; goal_src 1-to-1 / byte-identical)
-`game/kernel/jak1/kmachine.cpp` (C++ libgk, NO CGO rebuild):
-- Added `collision_glitch_capture_tick()` — an always-on, glitch-triggered, ring-buffered dump of
-  Jak's persistent `collide-shape-moving` collision-reaction fields, read from EE memory each
-  game-logic frame.
-- Hooked it at the top of `pc_set_levels` (GOAL `__pc-set-levels`, called once per logic frame on
-  the EE/kernel thread from `level.gc:1370`), before the renderer guard (it self-guards `*target*`).
-- Added a forward declaration before `pc_set_levels`, and includes `<cstdio> <cmath> <cstdint>`,
-  guarded `<unistd.h>` (fsync) and `<android/log.h>` (the GK_STDOUT live line).
-No other files changed. No goalc/emitter/IGenX86_64.* touched. `.autoport/gold` untouched.
+`GT→b.GT` and `GEQ→b.GE` already read N,V (unordered ⇒ false), matching x86 `ja`/`jae`, so they
+were correct. Only `<` and `<=` diverged.
 
-## Design decisions
-- **Persistent fields, read from C++** (not GOAL instrumentation) so there is NO CGO rebuild — the
-  GOAL logic the owner plays is byte-identical to their current build. Offsets = GOAL deftype
-  :offset-assert − 4 (root = `*target*`+108), identical on x86 and arm64, so dumps are
-  byte-comparable across backends. Reused the verified offsets from the existing
-  `pad_replay_dump_collision_state`.
-- **Glitch signatures** target the owner's described symptoms: TRANSV_SPIKE (eject/projection),
-  TRANS_JUMP (clip/under-map), NONFINITE (NaN/Inf reaching collision), DEGEN_NORMAL (a non-unit
-  collision normal = a divergent normalize/length — the direct fingerprint of the suspected bug).
-  Thresholds are tunable live via android props (cc_jump/cc_vel/cc_normeps; cc_disable) so the
-  owner/supervisor can sensitize without a rebuild.
-- **9-frame ring buffer** captures the onset, not just the blown-up frame.
-- **flush + fsync per hit** so a crash right after the glitch never loses the dump; capped at 400.
-- **GK_STDOUT live `[CC]` line** so the supervisor monitors captures live during the owner's play.
-- **x86 gated off by default** (env OG_COLLISION_CAPTURE) so the validator's x86 smoke stays clean.
+### Why this is THE collision glitch (mechanism → symptom)
+1. At a degenerate / grazing contact a velocity/separation vector is zero-length, and the
+   **unguarded** `vector-normalize!` (`goal_src/jak1/engine/math/vector.gc:599`, and the
+   `(/ 0.0 0.0)` at `collide-shape.gc:740`) produces a **NaN** — *identically on both backends*
+   (plain IEEE FDIV; the NaN is not itself a divergence).
+2. That NaN becomes `coverage = (vector-dot sv-80 best-tri-normal)` in the target reaction
+   (`collide-reaction-target.gc:139-140`).
+3. The push-out logic then tests it: **`(< (-> arg0 coverage) 0.0)`** (`:141`) and
+   **`(< (-> arg0 coverage) 0.9999)`** (`:145`).
+   - **x86**: `(< NaN …)` = #t → **enters** the coverage-recovery + low-coverage-surface branch
+     (re-flattens/re-normalizes, sets the wall/under-map classification) → correct push-out.
+   - **arm64 (pre-fix)**: `(< NaN …)` = #f → **skips** that branch → NaN coverage persists and
+     the surface is mis-classified → a finite-but-**wrong** push-out = the clip / eject / under-map.
 
-## Two bugs found during on-device validation, fixed + re-verified
-1. **gravity-normal off-by-one-float**: `dynamics` is a GOAL `basic`, so its `gravity-normal`
-   (deftype offset 32) is at `dynam_ptr + (32−4) = +28`, not `+32`. The initial read produced
-   `gn=[gy,gz,gw,walk-distance]=[1,0,1,8192]`; the fix yields the clean `gn=[0,1,0,1]` (re-verified
-   on device). Every other field already used the −4 boxed-basic convention.
-2. **`[CC]` line went to the wrong logcat tag**: `lg::warn` did not land on `GK_STDOUT`, so the
-   supervisor's `GK_STDOUT:I '*:S'` filter silenced it (0 lines). Switched to
-   `__android_log_print(ANDROID_LOG_INFO, "GK_STDOUT", ...)` (the pad_replay pattern); now 263
-   lines appear in the re-check.
-Also fixed `cc_pull_dump.sh`: MIUI denies the app uid writing `/data/local/tmp`, so `run-as cp`
-there failed silently; switched to `adb exec-out "run-as <pkg> cat ..."` (binary-safe, byte-exact).
+This explains every prior dead-end:
+- The **fmin/fmax fix** (Gcollision-nanroot, op-proven 576/576) is a **different op** — there is
+  no fmin/fmax on this push-out path, so it could never sanitize the NaN here.
+- The collision **arithmetic is bit-identical** arm64↔x86 (two independent disassembly audits:
+  no rsqrt estimate, no FMA, no integer divide, FTZ off on both, no mips2c allowlist asymmetry),
+  so every "divergent collision op" hunt correctly found nothing — the divergence is in a
+  **conditional branch consuming the NaN**, not in the math.
+- The post-frame reaction-output **capture saw finite values** because the NaN is a *consumed
+  intermediate*; the wrong branch yields a finite-but-wrong push-out.
+- It is **degenerate-only** (NaN only at zero-length contacts), matching "not headless-reachable
+  on flat ground / only at grazing contacts," and matches the documented but deferred Gtitle
+  bug `(>= c NaN)` wrongly #t (an inverted `>=` routes through `LT`).
 
-## Evidence (validated on REAL device operands, eae4df44)
-- deploy_verify PASS: chain build==APK==device libgk sha `9f0b64c374dbae63`, libgk newer than source.
-- x86 smoke reaches `link finish: logo` (no boot regression).
-- Mechanics drive: collision_glitch.txt = 400 triggers / 3600 records; 0 NaN/Inf; all populated
-  normals unit; header dpos matches decoded trans delta; gravity-normal `[0,1,0,1]`; 263 `[CC]`
-  lines to GK_STDOUT.
-- Oracle end-to-end (cc_oracle_run.sh) on the real dump: x86-vs-arm64 diff **IDENTICAL** — every
-  reaction op (vector-dot, vector-length, vector-normalize!) matches bit-for-bit on the captured
-  operands; nonunit_normals=0.
+## The x86 oracle on the real operands (NAMED, BEFORE → AFTER)
+`cmp_oracle.cpp` runs the EXACT goalc-emitted instructions on BOTH backends — on the **real
+device (eae4df44)** and the x86 host — over the captured operand set, including the exact
+**0.0/0.0 NaN** the collision normalize produces (computed at runtime so it is not folded).
+- **BEFORE**: 84 / 726 rows diverge (arm64 ≠ x86) — every one with a NaN operand (LT 21, LEQ 21,
+  EQ 21, NE 21). The collision row: x86 `(< NaN 0.0)=#t` vs **arm64 `(< NaN 0.0)=#f`** (wrong).
+- **AFTER**: arm64 == x86 on **all 42 LT/LEQ rows** (incl. `(< NaN 0.0)=#t`), with **zero
+  regression** on finite/Inf/±0 operands (only the unordered result changed).
+- Residual (42 rows, EQ/NE-with-NaN): x86's `je`/`jne` treat unordered as EQUAL (ZF=1) — a
+  separate x86 flag quirk. **Out of scope**: not on the collision push-out path (the ranked
+  divergent sites are all `<`), float `=`/`!=` with a NaN operand is rare, and matching it needs
+  a multi-instruction V-flag fold-in on every float ==/!= branch that risks the delicate
+  float-branch codegen (cf. the A34 SIGSEGV history). Documented, intentionally not changed.
 
-## Methodology finding (rules a class out, points to the next step)
-The collision **reaction** ops are bit-identical x86/arm64, confirmed two ways: (a) the goalc arm64
-backend emits **no fused multiply-add** (`.add.mul.*.vf` → separate FMUL+FADD; `.sqrt.vf` →
-full-precision FSQRT; IGenARM64.cpp / IR.cpp) — the "FMA in vector-length" hypothesis is FALSIFIED
-at the source; (b) the oracle's x86-vs-arm64 diff on real operands is IDENTICAL. Therefore the
-owner's finite-but-wrong divergence originates **upstream in collision DETECTION** (which computes
-the normals/intersect that feed the reaction), not in the reaction layer this capture reconstructs.
-The reaction capture LOCALIZES + CLASSIFIES the glitch; if the owner dump shows finite unit normals
-with a wrong transv, the next step is a targeted DETECTION-stage capture (the collide leaf is
-mips2c = C++, instrumentable without a CGO rebuild) fed to the same oracle.
+## The change (translation layer only)
+`goalc/compiler/IR.cpp`, `IR_ConditionalBranch::do_codegen_arm64`, float conditions only:
+```
+LT  : ARM_COND_MI  ->  ARM_COND_LT   // N!=V  : a<b OR unordered  == x86 jb
+LEQ : ARM_COND_LS  ->  ARM_COND_LE   // Z|N!=V: a<=b OR unordered == x86 jbe
+```
+`GT`/`GEQ` unchanged (already match x86). `do_codegen_x86` is byte-untouched. **No goal_src
+edit** — the bug is purely in the arm64 backend; the GOAL source and the x86 build remain the
+1-to-1 reference. One codegen site covers both the branch form and the boolean-value form
+(`compile_condition_as_bool` reuses `IR_ConditionalBranch`).
 
-## Temp-instrumentation removal (NOT yet done — intentionally)
-The capture tick IS the mechanism the owner needs, so it is **still active** by design. It will be
-**removed** once the divergence is captured + fixed: delete `collision_glitch_capture_tick()`, its
-forward declaration, the `pc_set_levels` call, and the added includes from
-`game/kernel/jak1/kmachine.cpp`, then rebuild libgk so no leftover instrumentation remains. The
-oracle/scripts under `.autoport/reports/Gcollision-glitchcapture/` are diagnostics (not shipped in
-libgk) and stay as the phase's evidence/forensics trail.
+## Build / deploy / gates
+- **x86 unbroken**: `build-x86` rebuilt; smoke reaches `link finish: logo` (arm64-only change ⇒
+  x86 output byte-identical; the x86 oracle / `.autoport/gold` stay pristine).
+- **Full consistent arm64 build**: `build-arm64/goalc` (and `build/goalc`) rebuilt with the fix;
+  `build_arm64_full_consistent.sh` rebuilt all **28** CGOs/DGOs (ENGINE.CGO carries the fixed
+  `collide-reaction-target` / `collide-shape` comparisons; its arm64 sha differs from the x86
+  oracle ENGINE.CGO, confirming the codegen change landed). Deployed to eae4df44 and
+  `deploy_verify.sh eae4df44` PASS.
+- **Owner gate**: the owner play-tests the fixed build (their eye is the final gate).
+
+## Temp instrumentation REMOVED (clean build)
+The phase's temporary collision-dump instrumentation was **removed** from
+`game/kernel/jak1/kmachine.cpp` before the final build so the deployed libgk is clean and
+carries no per-frame capture overhead:
+- `collision_glitch_capture_tick()` (the glitch-triggered reaction-math dump) and its
+  declaration + per-frame call site in `pc_set_levels` — **deleted**.
+- the prior `pad_replay_dump_collision_state()` collision-state dump and its
+  `pad_replay::set_state_dump_callback(...)` registration — **deleted**.
+No leftover collision-dump instrumentation remains in HEAD; the only substantive change vs the
+phase anchor is the `goalc/compiler/IR.cpp` codegen fix. The diagnostic harnesses
+(`cmp_oracle.cpp` and its outputs) live under `.autoport/reports/Gcollision-glitchcapture/` as
+evidence, not in the game build.
 
 ## Files
-- Code: `game/kernel/jak1/kmachine.cpp` (capture tick + pc_set_levels hook + includes).
-- Diagnostics: `.autoport/reports/Gcollision-glitchcapture/{cc_oracle.cpp, cc_oracle_run.sh,
-  cc_pull_dump.sh, OWNER_PLAY_INSTRUCTIONS.md, report.txt}` + validated oracle outputs.
+- Fix: `goalc/compiler/IR.cpp` (`IR_ConditionalBranch::do_codegen_arm64`).
+- Evidence: `.autoport/reports/Gcollision-glitchcapture/` — `cmp_oracle.cpp`, `cmp_x86.txt`,
+  `cmp_arm.txt`, `cmp_oracle_summary.txt`, `cc_drive_dump.txt`, `report.txt`.
+- Removed: temp instrumentation in `game/kernel/jak1/kmachine.cpp`.
