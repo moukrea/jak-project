@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 153,
+  "current_phase_idx": 154,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -145,7 +145,8 @@
     "Gpkg-branding": 1,
     "Gpkg-distributable": 1,
     "Gcollision-systemic": 1,
-    "Ginput-replay-determinism": 1
+    "Ginput-replay-determinism": 1,
+    "Ginput-replay-liverecord": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -425,7 +426,8 @@
     "Gpkg-branding",
     "Gpkg-distributable",
     "Gcollision-systemic",
-    "Ginput-replay-determinism"
+    "Ginput-replay-determinism",
+    "Ginput-replay-liverecord"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -556,9 +558,10 @@
     "Gpkg-distributable": 1782551791.2328017,
     "Gcollision-systemic": 1782556567.922291,
     "Gcollision-replay-diff": 1782575133.7180176,
-    "Ginput-replay-determinism": 1782568890.6695716
+    "Ginput-replay-determinism": 1782568890.6695716,
+    "Ginput-replay-liverecord": 1782595232.2671432
   },
-  "last_update": "2026-06-27T17:38:08.463959+00:00",
+  "last_update": "2026-06-28T07:24:44.184670+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
