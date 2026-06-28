@@ -168,6 +168,11 @@ public class TouchOverlayView extends View {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean heartbeatRunning = false;
     private boolean shown = false;        // logical visible state
+    // Ginput-replay-realinput (autoport): while an input record/replay is armed,
+    // keep the controls visible (don't idle-fade) so the owner SEES that touch
+    // controls are available to record with — otherwise a record made with a
+    // silent Bluetooth gamepad and an invisible overlay is silently all-neutral.
+    private boolean persistentVisible = false;
     private long lastTouchMs = 0;
     private boolean lastMenuMode = false; // cached for glyph redraws
     private boolean mapLogged = false;
@@ -770,6 +775,21 @@ public class TouchOverlayView extends View {
         Log.i(TAG, "overlay-visibility: faded (10s / 10000ms idle, no touch -> alpha=0, hidden)");
     }
 
+    // Ginput-replay-realinput (autoport): keep the controls visible (no idle fade)
+    // while an input record/replay is armed, so the owner can SEE and use the touch
+    // controls to capture a demo — a record must never silently produce all-neutral
+    // because the only available input source was an invisible overlay.
+    public void setPersistentVisible(boolean p) {
+        persistentVisible = p;
+        if (p) {
+            lastTouchMs = SystemClock.uptimeMillis();
+            if (!shown) fadeIn();
+            startHeartbeat();
+            Log.i(TAG, "overlay-visibility: PERSISTENT (input record/replay armed) — "
+                    + "controls stay visible so touch is a usable, recordable input");
+        }
+    }
+
     private void startHeartbeat() {
         if (heartbeatRunning) return;
         heartbeatRunning = true;
@@ -785,7 +805,7 @@ public class TouchOverlayView extends View {
         @Override public void run() {
             if (!heartbeatRunning) return;
             long idle = SystemClock.uptimeMillis() - lastTouchMs;
-            if (shown && idle >= IDLE_FADE_MS && active.size() == 0) {
+            if (shown && idle >= IDLE_FADE_MS && active.size() == 0 && !persistentVisible) {
                 fadeOut();
                 stopHeartbeat(); // nothing to poll while hidden; touch restarts us
                 return;
