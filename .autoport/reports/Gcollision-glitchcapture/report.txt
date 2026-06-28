@@ -87,6 +87,34 @@ KEY METHODOLOGY FINDING (rules a class out, points to the next step):
      rebuild) fed to the x86 oracle. fmin/fmax (Gcollision-nanroot) is KEPT (real conversion fix).
 
 ================================================================================================
+3b. AUTONOMOUS FALSIFICATION LEDGER (every reachable collision op is bit-identical x86/arm64)
+================================================================================================
+Before/without the owner dump, this session exhaustively tested every systematic arm64-vs-x86
+divergence mechanism reachable headless. ALL are falsified — confirming the divergence needs the
+owner's specific degenerate-contact geometry (which headless drives do not reach), not a
+broadly-firing op:
+  - goalc-level FMA: the arm64 backend emits NO fused multiply-add (IGenARM64.cpp has zero FMA
+    encoders; .add.mul.*.vf -> separate FMUL+FADD; .sqrt.vf -> full FSQRT). FALSIFIED.
+  - mips2c collision-leaf FMA: disassembly of moving_sphere_triangle_intersect::execute shows
+    108 fmul / 52 fsub / 30 fadd / 2 fdiv / 1 fsqrt and ZERO fused ops; across ALL 26 collision
+    mips2c functions the fused-op count is 0 (the 1748 fmadd in libgk are renderer/merc/joint, not
+    collision). The collision leaf is separate-ops on BOTH arches. FALSIFIED.
+  - reaction ops: cc_oracle x86-vs-arm64 diff on REAL device operands = IDENTICAL (dot/length/
+    normalize match bit-for-bit). FALSIFIED.
+  - vftoi0/FCVTZS spatial-hash index: identical for finite coordinates (cvttss2si == FCVTZS
+    truncate-toward-zero in range); only NaN/overflow differ (the FCVTZS fix handles that).
+    Re-confirmed. FALSIFIED as the finite-value divergence.
+  - denormal flush (FTZ/DAZ): arm64 FPCR FZ=0 (joint.cpp:2581; 0 msr-fpcr in libgk) AND x86 sets
+    no MXCSR FTZ/DAZ -> BOTH preserve denormals. FALSIFIED.
+  => Every collision op testable headless is bit-identical x86/arm64. The owner's finite-but-wrong
+     divergence therefore fires only at degenerate/grazing geometry the headless drive cannot reach
+     (matches the owner's report + the abandoned-reproduction history). The owner-play capture is
+     the necessary AND sufficient next step. (If the owner dump shows the reaction still consistent
+     but a wrong normal/transv, escalate to the detection-leaf differential: capture
+     moving_sphere_triangle_intersect's 84-byte input set on the glitch frame and re-run that pure
+     mips2c function on x86 vs arm64 -- a sound capture-on-arm64/replay-on-x86 differential.)
+
+================================================================================================
 4. EXACT NEXT STEPS (supervisor-coordinated; the owner's play is required)
 ================================================================================================
   1. OWNER plays a REAL session on the deployed capture build and reaches the glitch spots
