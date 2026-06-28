@@ -26,11 +26,15 @@ prior failure (determinism, input capture under warp, replay desync).
    onset is captured, not just the blown-up frame.
 2. **Owner plays a REAL session** (supervisor coordinates): natural play (no warp), reach the glitch spots
    (steps/walls, blue-eco, ledges, the under-map jumps). Each glitch appends a dump. Pull the dump file.
-3. **x86 oracle on the captured operands:** feed the dumped operands (the exact values at the glitch) into
-   the x86 build's collision-math ops (a small differential harness / the existing op-test) and compare to
-   the arm64 values in the dump. The FIRST op whose x86 result differs from the arm64 dump = the real
-   divergence (x86 finite/correct vs arm64 wrong). This is the actual in-game bug, on real degenerate
-   inputs the headless drive missed.
+3. **x86 oracle on the captured operands — use the PRISTINE ORIGINAL, not our ARM-compat x86 (owner
+   requirement 2026-06-28):** the oracle MUST be the unaltered original OpenGOAL x86 (`.autoport/gold` /
+   `/home/emeric/code/jak-original-v033`), NOT our build (which carries arm64-gated changes). Either build
+   the leaf differential from the pristine original source, OR prove our-x86 leaf path is byte-identical to
+   the original — note: `collide_func.cpp` IS byte-identical to original and the arm64 changes are all
+   `#if __aarch64__`-gated in mips2c_private.h, so the x86 path == original (verify the specific helpers
+   used: vrsqrt/vdiv/vmini/vmax). Temporary debug instrumentation is fine; it must NOT alter the golden
+   semantics. Feed the dumped operands into the pristine-x86 ops; the FIRST op whose pristine-x86 result
+   differs from the arm64 dump = the real divergence (the actual in-game bug, on real inputs).
 4. **Fix** that op in the translation layer (mips2c / goalc arm64), goal_src 1-to-1. Re-examine whether
    fmin/fmax (kept) is involved or if it's a different op.
 5. Deploy the fix; the OWNER play-tests (final gate).
