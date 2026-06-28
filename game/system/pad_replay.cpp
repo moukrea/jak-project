@@ -65,6 +65,13 @@ struct State {
   int64_t records_written = 0;  // record: next idx not yet written to disk
   int64_t cur_frame = -1;       // logic frame since anchor for the current read
   int64_t last_dump_frame = -1; // last logic frame the state dump fired on
+  // Ginput-replay-liverecord (autoport): honest-failure guard. A LIVE record
+  // that captures only neutral frames is a SILENT failure — the owner's 20-min
+  // re-record produced 71354 all-neutral frames with no indication the live
+  // input never reached the recorder. Track captured non-neutral input and warn
+  // loudly + repeatedly while a record stays all-neutral.
+  int64_t nonneutral_recorded = 0;  // record: # non-neutral frames written so far
+  int64_t last_neutral_warn = -1;   // last idx a "still all-neutral" warning fired
 
   // ── legacy / self-test state (no providers registered) ──
   uint64_t read_count = 0;     // controller-read counter
@@ -190,6 +197,8 @@ void init(Mode mode, const std::string& path) {
   g.records_written = 0;
   g.cur_frame = -1;
   g.last_dump_frame = -1;
+  g.nonneutral_recorded = 0;
+  g.last_neutral_warn = -1;
   g.read_count = 0;
   g.legacy_tick = 0;
   g.header_done = false;
@@ -262,6 +271,8 @@ void shutdown() {
   g.records_written = 0;
   g.cur_frame = -1;
   g.last_dump_frame = -1;
+  g.nonneutral_recorded = 0;
+  g.last_neutral_warn = -1;
   g.read_count = 0;
   g.legacy_tick = 0;
   g.header_done = false;
@@ -363,6 +374,22 @@ void on_cpad_read(int controller_number,
       std::fwrite(&rec, sizeof(rec), 1, g.f);
       std::fflush(g.f);  // flush-per-frame: a crash at frame K still has 0..K
       g.records_written = idx + 1;
+      if (!is_neutral(rec)) {
+        g.nonneutral_recorded++;
+      }
+      // Honest-failure guard (Ginput-replay-liverecord): while a LIVE record has
+      // captured ZERO non-neutral input, warn loudly every ~300 logic frames
+      // (~5s) so a misdirected / missing input source (controller, on-screen
+      // overlay, or the headless injector not reaching the recorder) is caught
+      // immediately — instead of silently producing a useless all-neutral demo,
+      // the way the owner's 20-min re-record did.
+      if (g.nonneutral_recorded == 0 && idx > 0 &&
+          (g.last_neutral_warn < 0 || idx - g.last_neutral_warn >= 300)) {
+        g.last_neutral_warn = idx;
+        PR_LOG("pad_replay: LIVE-RECORD WARNING — %lld frames recorded, 0 non-neutral: "
+               "the live input (controller/overlay/inject) is NOT reaching the recorder",
+               (long long)(idx + 1));
+      }
     }
     // idx < records_written: the logic frame did not advance (paused frame read
     // twice) — already recorded; leave the (drive-applied) input as-is.

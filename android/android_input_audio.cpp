@@ -636,8 +636,10 @@ void start_inject_watcher(const char* inject_file_path) {
   }
   std::string path(inject_file_path);
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "F1D-INJECT: watcher armed on '%s' (headless cpad "
-                      "injection: write held button/stick STATE here)",
+                      "F1D-INJECT: watcher armed on file '%s' AND system property "
+                      "debug.opengoal.cpad_inject (headless cpad injection: write "
+                      "held button/stick STATE to either; the property is "
+                      "run-as/CWD-independent and preferred for autonomous tests)",
                       path.c_str());
   std::thread([path]() {
     std::string last_applied;
@@ -654,6 +656,25 @@ void start_inject_watcher(const char* inject_file_path) {
         buf[n] = '\0';
         content.assign(buf, n);
         std::fclose(fp);
+      }
+      // Ginput-replay-liverecord (autoport): a robust, CWD-independent headless
+      // inject channel. The app-private control FILE write is fragile — a
+      // `run-as <pkg> sh -c '... > files/cpad_inject'` redirect is performed by
+      // the ADB-side shell in ITS working directory, not the app home, so it
+      // silently lands in the wrong place and the record captures all-neutral
+      // with no warning (the failure mode behind the owner's 71354-frame neutral
+      // demo). The system property debug.opengoal.cpad_inject is set with a
+      // plain `adb shell setprop` (no run-as, no path, no CWD), so autonomous
+      // input injection can't be silently misdirected. Tokens from the property
+      // AND the file are both honoured (the property is appended).
+      {
+        char prop[PROP_VALUE_MAX] = {0};
+        if (__system_property_get("debug.opengoal.cpad_inject", prop) > 0 && prop[0]) {
+          if (!content.empty()) {
+            content.push_back(' ');
+          }
+          content.append(prop);
+        }
       }
       // Tokenise on whitespace.
       {
