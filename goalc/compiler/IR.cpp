@@ -1450,12 +1450,24 @@ void IR_FloatMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
     case FloatMathKind::SUB_SS:
       gen->add_instr(emitter::IGen::ARM64::subss_xmm_xmm(dst, src), irec);
       break;
-    case FloatMathKind::MAX_SS:
-      gen->add_instr(emitter::IGen::ARM64::maxss_xmm_xmm(dst, src), irec);
-      break;
-    case FloatMathKind::MIN_SS:
-      gen->add_instr(emitter::IGen::ARM64::minss_xmm_xmm(dst, src), irec);
-      break;
+    case FloatMathKind::MAX_SS: {
+      // [Gcollision-nanroot] 1-to-1 arm64==x86: x86 MAXSS dst,src = (dst>src)?dst:src,
+      // returning the SECOND operand (src) on ANY NaN (unordered compare is false).
+      // AArch64 FMAX PROPAGATES NaN -> diverges (a clamp that sanitizes a transient
+      // NaN on x86 propagates it on arm64). Emulate MAXSS with FCMP+FCSEL: fcmp src,dst
+      // (MI = src<dst => dst>src); fcsel dst,dst,src,MI (NaN -> MI false -> src).
+      namespace A = emitter::IGen::ARM64;
+      gen->add_instr(A::cmp_flt_flt(src, dst), irec);
+      gen->add_instr(A::fcsel_s(dst, dst, src, A::ARM_COND_MI), irec);
+    } break;
+    case FloatMathKind::MIN_SS: {
+      // [Gcollision-nanroot] 1-to-1 arm64==x86: x86 MINSS dst,src = (dst<src)?dst:src,
+      // returning SRC on ANY NaN. AArch64 FMIN PROPAGATES NaN. Emulate MINSS with
+      // FCMP+FCSEL: fcmp dst,src (MI = dst<src); fcsel dst,dst,src,MI (NaN -> src).
+      namespace A = emitter::IGen::ARM64;
+      gen->add_instr(A::cmp_flt_flt(dst, src), irec);
+      gen->add_instr(A::fcsel_s(dst, dst, src, A::ARM_COND_MI), irec);
+    } break;
     case FloatMathKind::SQRT_SS:
       gen->add_instr(emitter::IGen::ARM64::sqrts_xmm(dst, src), irec);
       break;
@@ -2633,12 +2645,29 @@ void IR_VFMath3Asm::do_codegen_arm64(emitter::ObjectGenerator* gen,
     case Kind::MUL:
       gen->add_instr(emitter::IGen::ARM64::mul_vf(dst, src1, src2), irec);
       break;
-    case Kind::MAX:
-      gen->add_instr(emitter::IGen::ARM64::max_vf(dst, src1, src2), irec);
-      break;
-    case Kind::MIN:
-      gen->add_instr(emitter::IGen::ARM64::min_vf(dst, src1, src2), irec);
-      break;
+    case Kind::MAX: {
+      // [Gcollision-nanroot] 1-to-1 arm64==x86: x86 .max.vf = (V)MAXPS dst,src1,src2 =
+      // per lane (src1>src2)?src1:src2, returning SRC2 on any NaN lane. AArch64 FMAX.4S
+      // PROPAGATES NaN. Emulate with FCMGT+BSL: mask=(src1>src2) [fcmgt NaN->0];
+      // result=mask?src1:src2 (NaN lane -> src2). V0 is free NEON scratch (GOAL floats
+      // are V16..V31); dst written last so it may alias src1/src2.
+      namespace A = emitter::IGen::ARM64;
+      emitter::Register v0(0);
+      gen->add_instr(A::fcmgt_4s(v0, src1, src2), irec);  // v0 = (src1 > src2) ordered mask
+      gen->add_instr(A::bsl_16b(v0, src1, src2), irec);   // v0 = mask ? src1 : src2
+      gen->add_instr(A::mov_vf_vf(dst, v0), irec);        // dst = result
+    } break;
+    case Kind::MIN: {
+      // [Gcollision-nanroot] 1-to-1 arm64==x86: x86 .min.vf = (V)MINPS dst,src1,src2 =
+      // per lane (src1<src2)?src1:src2, returning SRC2 on any NaN lane. AArch64 FMIN.4S
+      // PROPAGATES NaN. Emulate with FCMGT+BSL: mask=(src2>src1)=(src1<src2) [NaN->0];
+      // result=mask?src1:src2 (NaN lane -> src2).
+      namespace A = emitter::IGen::ARM64;
+      emitter::Register v0(0);
+      gen->add_instr(A::fcmgt_4s(v0, src2, src1), irec);  // v0 = (src2 > src1) = (src1 < src2)
+      gen->add_instr(A::bsl_16b(v0, src1, src2), irec);   // v0 = mask ? src1 : src2
+      gen->add_instr(A::mov_vf_vf(dst, v0), irec);        // dst = result
+    } break;
     case Kind::DIV:
       gen->add_instr(emitter::IGen::ARM64::div_vf(dst, src1, src2), irec);
       break;
