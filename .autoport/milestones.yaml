@@ -935,6 +935,12 @@ phases:
   validator: validators/phase-Gcollision-nanroot.sh
   max_turns: 1800
   max_retries: 5
+- id: Gcollision-glitchcapture
+  name: 'OWNER 2026-06-28 (PRIORITY): fmin/fmax fix proven op-level but did NOT fix the in-game glitch (only fires at degenerate contacts headless cant reach); record->replay failed 3x. NEW robust method: instrument a device build that GLITCH-TRIGGERS a dump of the collision-reaction math (separation vec, normalize in/out, fmin/fmax in/out, normals, transv) when Jak projects/clips/under-maps during the owner REAL play (no warp, no replay, touch/gamepad agnostic); feed the dumped operands to the x86 oracle to name the first divergent op; fix; owner play-tests. goal_src 1-to-1.'
+  prompt: prompts/phase-Gcollision-glitchcapture.md
+  validator: validators/phase-Gcollision-glitchcapture.sh
+  max_turns: 1800
+  max_retries: 5
 - id: Gcollision-replay-diff
   name: 'OWNER 2026-06-27 (PRIORITY): the Gcollision-systemic FCVTZS fix was a FALSE GREEN (owner: different glitches, not fixed). Diagnose the REAL arm64 collision divergence from the OWNER recorded glitch playthrough (.autoport/demos/collision-glitch.inputs, 28229 ticks): replay it on x86 AND arm64 with per-logic-tick collision dumps, compare, name the FIRST divergent tick + real root op, fix in translation layer. Demo-driven, NOT synthetic. goal_src 1-to-1. Owner re-plays to confirm.'
   prompt: prompts/phase-Gcollision-replay-diff.md
