@@ -929,6 +929,12 @@ phases:
   validator: validators/phase-Ginput-replay-realinput.sh
   max_turns: 1600
   max_retries: 5
+- id: Gcollision-nanroot
+  name: 'OWNER 2026-06-28 (PRIORITY): DROP the input-replay approach (going in circles). Direct fix of the arm64 collision NaN root: a NaN reaches collision (vftoi0 inputs all NaN, 74948x) where x86 is finite -> clip/eject/under-map. FCVTZS fix was a false-green (symptom not root). Instrument the collision-reaction math (warp+nudge, systemic so any collision shows it), find the FIRST arm64 op that makes a NaN where x86 is finite (normalize/divide/rsqrt of a degenerate vector?), fix it x86==arm64. Re-examine/revert FCVTZS as needed. goal_src 1-to-1. OWNER play-tests the fix (final gate, no synthetic pass).'
+  prompt: prompts/phase-Gcollision-nanroot.md
+  validator: validators/phase-Gcollision-nanroot.sh
+  max_turns: 1800
+  max_retries: 5
 - id: Gcollision-replay-diff
   name: 'OWNER 2026-06-27 (PRIORITY): the Gcollision-systemic FCVTZS fix was a FALSE GREEN (owner: different glitches, not fixed). Diagnose the REAL arm64 collision divergence from the OWNER recorded glitch playthrough (.autoport/demos/collision-glitch.inputs, 28229 ticks): replay it on x86 AND arm64 with per-logic-tick collision dumps, compare, name the FIRST divergent tick + real root op, fix in translation layer. Demo-driven, NOT synthetic. goal_src 1-to-1. Owner re-plays to confirm.'
   prompt: prompts/phase-Gcollision-replay-diff.md
