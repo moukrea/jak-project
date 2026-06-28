@@ -148,7 +148,8 @@
     "Ginput-replay-determinism": 1,
     "Ginput-replay-liverecord": 1,
     "Ginput-replay-realinput": 1,
-    "Gcollision-nanroot": 1
+    "Gcollision-nanroot": 1,
+    "Gcollision-glitchcapture": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -566,9 +567,10 @@
     "Ginput-replay-determinism": 1782568890.6695716,
     "Ginput-replay-liverecord": 1782595232.2671432,
     "Ginput-replay-realinput": 1782642139.795707,
-    "Gcollision-nanroot": 1782647902.4431229
+    "Gcollision-nanroot": 1782647902.4431229,
+    "Gcollision-glitchcapture": 1782660225.3022556
   },
-  "last_update": "2026-06-28T13:30:57.864062+00:00",
+  "last_update": "2026-06-28T16:30:57.665995+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
