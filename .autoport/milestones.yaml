@@ -923,6 +923,12 @@ phases:
   validator: validators/phase-Ginput-replay-liverecord.sh
   max_turns: 1600
   max_retries: 5
+- id: Ginput-replay-realinput
+  name: 'OWNER 2026-06-28 (PRIORITY, blocks collision diff): under the warp anchor the v2 record drops the owner REAL input (touch overlay / gamepad merge) — 2 owner re-captures (~20min, ~2.5h) recorded ALL-NEUTRAL. Ginput-replay-liverecord false-greened (verified only the headless cpad_inject, which survives the warp). Supervisor confirmed: adb-input real touch is 0% captured under warp. Fix so the real touch/gamepad merge reaches the record tap under the anchor; VERIFY with adb input (NOT cpad_inject). goal_src 1-to-1.'
+  prompt: prompts/phase-Ginput-replay-realinput.md
+  validator: validators/phase-Ginput-replay-realinput.sh
+  max_turns: 1600
+  max_retries: 5
 - id: Gcollision-replay-diff
   name: 'OWNER 2026-06-27 (PRIORITY): the Gcollision-systemic FCVTZS fix was a FALSE GREEN (owner: different glitches, not fixed). Diagnose the REAL arm64 collision divergence from the OWNER recorded glitch playthrough (.autoport/demos/collision-glitch.inputs, 28229 ticks): replay it on x86 AND arm64 with per-logic-tick collision dumps, compare, name the FIRST divergent tick + real root op, fix in translation layer. Demo-driven, NOT synthetic. goal_src 1-to-1. Owner re-plays to confirm.'
   prompt: prompts/phase-Gcollision-replay-diff.md
