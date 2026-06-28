@@ -43,6 +43,13 @@ public class MainActivity extends SDLActivity {
     private TouchOverlayView mTouchOverlay;
     private Handler mGamepadPollHandler;
     private int mLastGamepadCount = -1;
+    // Ginput-replay-realinput (autoport): true when the input record/replay
+    // harness is armed (debug.opengoal.pad_replay = record|replay). While armed,
+    // the touch overlay is GUARANTEED to stay a live, touch-capable input path —
+    // it is force-added even when the gamepad default would disable it, and the
+    // gamepad auto-hide keeps it touch-capable (never View.GONE) instead of
+    // removing it from hit-testing. Rationale below in setupTouchOverlay().
+    private boolean mInputRecordArmed = false;
 
     @Override
     protected String[] getLibraries() {
@@ -141,9 +148,33 @@ public class MainActivity extends SDLActivity {
         }
         boolean enabled = prefs.getBoolean(PREF_TOUCH_OVERLAY_ENABLED, defaultEnabled);
 
+        // Ginput-replay-realinput (autoport): when the input record/replay harness
+        // is armed, GUARANTEE a capturable input path. The record tap (CPadGetData
+        // -> pad_replay) only ever sees input that reached the cpad mirror via
+        // on_pad_button/on_pad_axis; the touch overlay is the one input source we
+        // can always provide. If the overlay is disabled here (a gamepad was
+        // present at first launch, so PREF_TOUCH_OVERLAY_ENABLED defaulted false
+        // and persisted) AND the selected Bluetooth gamepad isn't actually
+        // delivering Android input events (bonded-but-not-connected / HID quirk —
+        // common for the owner's Switch Pro / DualShock pads), there is NO input
+        // path at all and the record is SILENTLY all-neutral. That is exactly the
+        // owner's 20-min / 90-min wasted captures (0/71354, 0/335077 non-neutral).
+        // So while a record/replay is armed, force the overlay on and keep it
+        // touch-capable (see pollGamepadCount) — a record can then never be
+        // silently input-less; the owner always has a working, recordable touch
+        // fallback even if their gamepad stays silent.
+        mInputRecordArmed = isInputRecordArmed();
+        if (mInputRecordArmed && !enabled) {
+            Log.i(TAG, "touch overlay: pad_replay record/replay armed — FORCING the "
+                    + "overlay ON despite the disabled setting, so a record always "
+                    + "has a capturable touch input path (no silent all-neutral)");
+            enabled = true;
+        }
+
         Log.i(TAG, "touch overlay setting: enabled=" + enabled
                 + " default=" + defaultEnabled
-                + " gamepads_at_start=" + gamepadsAtStart);
+                + " gamepads_at_start=" + gamepadsAtStart
+                + " record_armed=" + mInputRecordArmed);
 
         if (!enabled) {
             Log.i(TAG, "touch overlay disabled by settings (gamepad present or user-off)");
@@ -164,6 +195,14 @@ public class MainActivity extends SDLActivity {
         // gamepad connects (pollGamepadCount below).
         Log.i(TAG, "touch overlay enabled — hidden until first touch "
                 + "(show-on-touch + 10s idle fade; no gamepad at startup)");
+
+        // Ginput-replay-realinput (autoport): while a record/replay is armed, keep
+        // the controls visible (no idle fade) so the owner can see and use them to
+        // capture a demo — guaranteeing a discoverable, recordable touch input even
+        // if the selected Bluetooth gamepad is silent.
+        if (mInputRecordArmed) {
+            mTouchOverlay.setPersistentVisible(true);
+        }
 
         // Poll the SDL-managed open gamepad count on the UI thread. SDL
         // emits SDL_EVENT_GAMEPAD_ADDED off the SDL main thread; rather
@@ -189,9 +228,22 @@ public class MainActivity extends SDLActivity {
         mLastGamepadCount = n;
         if (prev <= 0 && n > 0 && mTouchOverlay != null
                 && mTouchOverlay.getVisibility() == View.VISIBLE) {
-            Log.i(TAG, "gamepad detected: hiding touch overlay "
-                    + "(open_gamepad_count=" + n + ")");
-            mTouchOverlay.setVisibility(View.GONE);
+            if (mInputRecordArmed) {
+                // Ginput-replay-realinput (autoport): a record/replay is armed.
+                // Do NOT View.GONE the overlay — GONE removes it from touch
+                // hit-testing, killing the only guaranteed-capturable input path.
+                // Keep it touch-capable; it stays visually hidden (alpha 0) until
+                // touched, so a gamepad user isn't disturbed, but a touch always
+                // reaches the recorder. This prevents the owner's silent
+                // all-neutral when a Bluetooth pad is selected but not delivering.
+                Log.i(TAG, "gamepad detected during record/replay: keeping touch "
+                        + "overlay touch-capable (NOT View.GONE) so touch stays a "
+                        + "recordable fallback (open_gamepad_count=" + n + ")");
+            } else {
+                Log.i(TAG, "gamepad detected: hiding touch overlay "
+                        + "(open_gamepad_count=" + n + ")");
+                mTouchOverlay.setVisibility(View.GONE);
+            }
         } else if (prev > 0 && n == 0 && mTouchOverlay != null
                 && mTouchOverlay.getVisibility() != View.VISIBLE) {
             // User unplugged the pad — re-show overlay so the game stays
@@ -213,6 +265,32 @@ public class MainActivity extends SDLActivity {
             // treat as "no gamepads" so the default is overlay-on.
             return 0;
         }
+    }
+
+    // Ginput-replay-realinput (autoport): is the input record/replay harness armed?
+    // The harness is selected by the system property debug.opengoal.pad_replay
+    // (set with `adb setprop` BEFORE launch; read by native in gk_android_main).
+    // onCreate runs before the native SDL thread reads the property, so we read
+    // the property DIRECTLY here (getprop) rather than via a JNI getter — the
+    // property value is already present at launch. Used to guarantee a capturable
+    // touch input path while recording (see setupTouchOverlay / pollGamepadCount).
+    private static boolean isInputRecordArmed() {
+        try {
+            Process p = Runtime.getRuntime().exec(
+                    new String[] { "getprop", "debug.opengoal.pad_replay" });
+            java.io.BufferedReader r = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(p.getInputStream()));
+            String line = r.readLine();
+            r.close();
+            p.waitFor();
+            if (line != null) {
+                line = line.trim();
+                return line.equals("record") || line.equals("replay");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "isInputRecordArmed: getprop read failed: " + e);
+        }
+        return false;
     }
 
     @Override

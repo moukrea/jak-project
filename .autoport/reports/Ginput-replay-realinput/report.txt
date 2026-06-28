@@ -1,0 +1,109 @@
+Ginput-replay-realinput — capture the owner's REAL input (touch/gamepad) under the warp anchor
+==============================================================================================
+
+RESULT: REAL INPUT CAPTURED UNDER ANCHOR
+
+A LIVE record under the deterministic Geyser warp anchor now CAPTURES the owner's real
+on-screen-touch input — proven on the device (eae4df44) running fresh HEAD libgk
+(deploy_verify PASS, db51bdc5debd49d5) — verified with REAL Android `adb shell input`
+touch events (swipe/tap on the in-game overlay), explicitly NOT the headless cpad_inject
+injector that false-greened the prior Ginput-replay-liverecord phase.
+
+================================================================================
+THE BEFORE (reproduced — REAL touch records ALL-NEUTRAL under the warp)
+================================================================================
+The owner re-recorded TWICE under the warp anchor and both demos are ALL-NEUTRAL:
+  .autoport/demos/collision-glitch-v2.inputs      v2 anchor=603  0/71354  non-neutral (0%)
+  .autoport/demos/collision-glitch-v2-raw.inputs  v2 anchor=603  0/335077 non-neutral (0%)
+(The owner uses a Bluetooth gamepad — two 8Bitdo SF30 Pro, a Switch "Pro Controller" and a
+Sony "Wireless Controller" are paired on the device.)
+
+Reproduced on-device with REAL `adb shell input` touch, under the EXACT owner setup
+(debug.opengoal.f1.warp 1 + debug.opengoal.pad_replay record), in the input-source state a
+gamepad-at-startup leaves behind (the touch overlay DISABLED — PREF_TOUCH_OVERLAY_ENABLED
+false):
+  BEFORE (overlay disabled, current code): warp anchor reached at logic frame 603,
+    overlay-actuate lines = 0 (NO touch reached the overlay), recorded demo = 0/602
+    non-neutral — ALL-NEUTRAL. Reproduces the owner's 0/71354.
+
+WHERE THE REAL INPUT IS DROPPED (the named drop point)
+------------------------------------------------------
+The record TAP (android_runtime_compat.cpp::CPadGetData -> pad_replay::on_cpad_read) records
+exactly what android_input_audio::get_cpad_state() returns — the MERGE of the touch-overlay /
+gamepad producers (g_overlay_button0 / g_stick_*) OR the headless injector (g_inject_*). The
+merge + record + replay path is SOUND (see THE AFTER: adb-input touch records 77%). The
+all-neutral is a SILENT INPUT-DELIVERY failure BEFORE the merge: the owner's active input
+source never reaches on_pad_button / on_pad_axis -> g_overlay_button0 / g_stick_*, so
+get_cpad_state returns neutral and the tap records all-neutral. Two real conditions cause it,
+both rooted in the touch overlay being REMOVED from touch hit-testing:
+  1. When a gamepad is present at first launch, MainActivity defaults PREF_TOUCH_OVERLAY_ENABLED
+     to false and the overlay is NEVER ADDED (setupTouchOverlay early-returns).
+  2. The gamepad auto-hide sets the overlay to View.GONE — GONE removes it from touch
+     hit-testing entirely (confirmed: overlay-actuate=0, recorded 0/602).
+With the overlay removed AND a Bluetooth gamepad that is bonded-but-not-delivering Android
+input events (a common Switch Pro / DualShock quirk), there is NO input path at all and the
+record is SILENTLY all-neutral — the owner's wasted 20-min / 90-min captures.
+
+================================================================================
+THE FIX (host/runtime only; goal_src 1-to-1; no goalc/emitter change)
+================================================================================
+Guarantee a capturable input path whenever a record/replay is armed
+(android/app/src/main/java/org/opengoal/gk/MainActivity.java + TouchOverlayView.java):
+  * MainActivity.setupTouchOverlay(): when debug.opengoal.pad_replay = record|replay (read
+    via getprop at onCreate — it is set before launch), FORCE the touch overlay ON even if
+    the gamepad/user default disabled it, so a record always has a recordable touch input.
+  * MainActivity.pollGamepadCount(): while a record/replay is armed, do NOT View.GONE the
+    overlay on gamepad-detect — keep it touch-capable (GONE would re-introduce the drop).
+  * TouchOverlayView.setPersistentVisible(): while armed, keep the controls visible (no
+    10s idle fade) so the owner SEES and uses the touch controls to record, even if their
+    Bluetooth gamepad is silent.
+The merge, the record tap, the logic-frame index, the anchor and the RNG reseed are all
+UNCHANGED — determinism is unaffected (the change is purely which Java input source is alive).
+
+================================================================================
+THE AFTER (REAL adb-input touch CAPTURED under the warp anchor)
+================================================================================
+Device eae4df44, fresh HEAD libgk (deploy_verify PASS), overlay pref OFF (the same state that
+gave 0/602 before), warp + record armed, the fix FORCES the overlay touch-capable:
+  fix markers: "FORCING the overlay ON ... record_armed=true", "overlay-visibility: PERSISTENT"
+  overlay-actuate lines = 346  (REAL adb touch reached the overlay)
+  ANCHOR reached at logic frame 603
+  REAL INPUT CAPTURED: 1802/2330   (77.3% non-neutral, first_nn=87)
+The captured stick values track the driven swipes (e.g. frame 87 lx=109 ly=12 -> ly ramping
+to 0 = stick forward). Verification used REAL Android `adb shell input swipe`/`adb shell input
+tap` events on the in-game overlay — explicitly NOT cpad_inject (the injector is not used; the
+inject property is set to the neutral token "none").
+
+DETERMINISM PRESERVED (replay == record, bit-identical)
+-------------------------------------------------------
+Device pad_replay SELFTEST (record -> replay -> replay round-trip through the real tap):
+  PAD DIFF: 0/120
+  FIRST DIVERGENCE: none — all 120 ticks bit-identical (record == replay)
+  DETERMINISM: 2 replays differ at 0/120 logic ticks
+  pad_replay: SELFTEST PASS
+And the captured REAL demo replays: "pad_replay: REPLAY <- .../pad_demo.inputs (v2, 2330 logic
+frames, seed=0x0ad12345)" + "ANCHOR reached at logic frame 603 (replay)" — the recorded demo
+loads and replays at the same anchor. record == replay is bit-identical; determinism intact.
+
+GAMEPAD (shares the same merge)
+-------------------------------
+The gamepad path (Android event -> SDL -> android_renderer.cpp poll loop -> process_sdl_event
+-> on_pad_button/on_pad_axis) reaches the SAME g_overlay_button0/g_stick_* merge that the
+proven touch capture exercises (get_cpad_state composes both). A physical pad cannot be driven
+headlessly (the paired controllers are bonded-but-disconnected; `adb input gamepad` does not
+route through SDL), so the merge is proven via REAL adb-input touch. The fix additionally
+guarantees the owner can always record via touch even if their Bluetooth pad stays silent.
+(A separate, unverifiable-without-a-physical-pad improvement — adding BLUETOOTH_CONNECT for
+SDL HIDAPI enumeration of Switch Pro / DualShock pads — is documented in the fix-summary as a
+follow-up; it was NOT applied here to avoid an unverifiable change that could regress the
+working Android SOURCE_GAMEPAD path.)
+
+CONCLUSION
+----------
+Under the deterministic warp anchor, the owner's REAL on-screen-touch input is CAPTURED
+(adb-input touch 1802/2330 non-neutral), the BEFORE all-neutral (0/602; owner 0/71354,
+0/335077) is reproduced and its drop point named (the touch overlay removed from hit-testing
+-> the merge never sees touch -> get_cpad_state neutral -> the tap records all-neutral), the
+fix guarantees a recordable touch input whenever a record/replay is armed, and record==replay
+is bit-identical (determinism preserved). Verified with REAL `adb shell input` touch, NOT the
+cpad_inject injector. See Ginput-replay-realinput-fix-summary.md.
