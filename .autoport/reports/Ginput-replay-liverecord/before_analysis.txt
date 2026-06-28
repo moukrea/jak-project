@@ -1,0 +1,7 @@
+demo: before.inputs v2 anchor=603 frames=1247
+injected string: 'lx=200 ly=60 circle'
+expected injected record: button0=0x2000 lx=200 ly=60 rx=127 ry=127  bytes=0020c83c7f7f
+INPUT CAPTURED: 0/1247 non-neutral  (0.0%)  first_nn=-1
+byte-match injected: 0/1247 records == injected value  (0.0%)
+distinct records seen: 1
+VERDICT: ALL-NEUTRAL — bug reproduced (injected input NOT captured)

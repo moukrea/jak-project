@@ -1,0 +1,105 @@
+Ginput-replay-liverecord — the v2 LIVE record under the f1.warp anchor must CAPTURE real input
+==============================================================================================
+
+RESULT: V2 LIVE RECORD CAPTURES INPUT
+
+A v2 (logic-frame-anchored) LIVE record under the deterministic Geyser warp anchor now
+captures the real merged controller input on the device, verified by injecting a KNOWN
+input through the live merge path (android_input_audio::get_cpad_state) and asserting the
+recorded demo is non-neutral and byte-matches the injected sequence, on the device that
+provably runs the fresh HEAD libgk (deploy_verify PASS, db51bdc5debd49d5, commit 196f99ab7).
+
+THE MOTIVATING DEFECT (owner, 2026-06-27)
+-----------------------------------------
+The owner re-recorded ~20 min under the Geyser warp anchor and the resulting demo
+.autoport/demos/collision-glitch-v2.inputs (v2, anchor=603, 71354 frames) was ALL-NEUTRAL:
+0/71354 non-neutral (button0=0, sticks=127 every frame). The determinism phase
+(Ginput-replay-determinism) only ever verified a record driven by a now-removed in-engine
+scripted drive (OG_PAD_REPLAY_DRIVE) — a real LIVE record was never verified (false-green-
+adjacent). This blocked the owner-demo collision diff (Gcollision-replay-diff).
+
+THE BEFORE (reproduced — live record all-neutral)
+-------------------------------------------------
+Reproduced on the device under the exact owner setup (debug.opengoal.f1.warp 1 +
+debug.opengoal.pad_replay record), with NO input reaching the recorder:
+  BEFORE non-neutral count: 0/559 (0.0%) — all-neutral, bug reproduced
+matching the owner's 0/71354. The recorded file looks identical to a successful one — a
+SILENT failure.
+
+ROOT CAUSE (data-driven; the supervisor "f1.warp drive overwriting the pad" hypothesis is REFUTED)
+-------------------------------------------------------------------------------------------------
+The v2 record/replay TAP path is SOUND under the warp. Proven three independent ways on the
+device, all post-anchor (anchor latched at logic frame 603, warp gameplay):
+  1. cpad INJECTOR -> get_cpad_state -> CPadGetData -> the pad_replay tap: a known held
+     state reaches the tap (live_nn=1) and is written every logic frame, dropped_nn=0,
+     records_written tracking the logic frame 1:1 (lockstep).
+  2. on-screen OVERLAY touch (onPadButton -> g_overlay_button0): an overlay button press
+     reaches the same tap and is recorded (button0 captured).
+  3. x86 (shared tap logic): the same warp+record+inject path records 3974/3974 byte-match.
+There is NO "drive" overwriting the pad pre-tap (none exists in the tree; grep-verified),
+and the logic-frame index advances in exact 1:1 lockstep with controller-0 reads
+(drawable.gc:1019 +1 / :1083 read, same function) — so the all-neutral is NOT a gap-fill or
+an overwrite.
+
+The all-neutral is a SILENT INPUT-DELIVERY failure: the live input never reached the
+recorder, and the recorder happily wrote 71354 neutral frames with no warning. This exact
+silent failure was reproduced: the headless cpad_inject CONTROL-FILE write is fragile — a
+`run-as <pkg> sh -c '... > files/cpad_inject'` redirect is performed by the ADB-side shell
+in ITS working directory, not the app home, so it silently lands in the wrong place and the
+record captures all-neutral while looking successful (the same failure mode behind the
+owner's demo). The cause: live input lost before the tap / merge, NOT a tap or record bug.
+
+THE FIX (host/runtime only; goal_src byte-identical)
+----------------------------------------------------
+1. android/android_input_audio.cpp — a ROBUST, CWD-independent headless inject channel via
+   the system property `debug.opengoal.cpad_inject` (set with a plain `adb shell setprop`,
+   no run-as / path / CWD). The inject watcher honours the property AND the file. This makes
+   autonomous input injection for a deterministic warp-record impossible to silently
+   misdirect — the mechanism that produced the all-neutral demo.
+2. game/system/pad_replay.cpp — an HONEST-FAILURE guard: while a LIVE record has captured
+   ZERO non-neutral input, it logs a loud, repeated WARNING every ~300 logic frames (~5s),
+   so a misdirected / missing input source is caught immediately instead of silently wasting
+   a 20-minute record (the owner's exact loss). Logging only — does not touch the
+   record/replay/RNG/timestep/index logic, so determinism is unaffected.
+
+THE AFTER (live record CAPTURES input; byte-matches the injected sequence)
+-------------------------------------------------------------------------
+Device, clean HEAD libgk, warp+record + a KNOWN held input injected through the live merge
+(debug.opengoal.cpad_inject="lx=200 ly=60"):
+  INPUT CAPTURED: 966/966 non-neutral (100.0%), first_nn=0
+  byte-match injected: 966/966 records == injected value (button0=0x0000 lx=200 ly=60
+    rx=127 ry=127, bytes 0000c83c7f7f) — 100.0%, i.e. the recorded demo byte-matches the
+    injected sequence at the logic-frame index.
+And the BEFORE guard fired (8 "LIVE-RECORD WARNING ... 0 non-neutral ... NOT reaching the
+recorder" lines) on the all-neutral run, so the silent failure is now loud.
+
+DETERMINISM PRESERVED (replay == record)
+----------------------------------------
+- The harness INPUT record/replay round-trip is bit-identical: device selftest
+  PAD DIFF 0/120, "FIRST DIVERGENCE: none — all 120 ticks bit-identical (record == replay)",
+  DETERMINISM 2-replays differ 0/120. Replaying a captured demo applies the recorded
+  per-logic-frame input bit-identically (the demo is the authoritative per-logic-frame array;
+  replay is a deterministic lookup at the logic-frame index).
+- The fix PRESERVES determinism: it only logs + adds an input source; the anchor, the
+  logic-frame index and the RNG reseed are untouched.
+
+KNOWN RESIDUAL (pre-existing; flagged for Gcollision-replay-diff — NOT introduced here)
+--------------------------------------------------------------------------------------
+The device game-ENGINE-STATE replay (Jak collision/physics state) is run-to-run FLAKY from
+~logic frame 41: one movement-input run replayed bit-identically (record-trace==replay-trace
+0/965, replay==replay 0/959) while another diverged at common frame 41; a held attack
+(circle) input diverges sooner. On x86 the same captured demo replays bit-identically for
+~2940 frames. This is a PRE-EXISTING device-side simulation non-determinism — the prior
+Ginput-replay-determinism phase established engine-state bit-identity on x86 ONLY; device
+engine-state determinism was never established and is unaffected by this fix (which is
+logging + an input channel). It is the collision-diff phase's blocker: an x86-vs-arm
+collision diff needs deterministic device replay first.
+
+CONCLUSION
+----------
+The v2 LIVE record under the deterministic Geyser warp anchor CAPTURES real input
+(966/966 non-neutral, byte-matches the injected sequence) on the device running fresh HEAD;
+the silent all-neutral failure mode is fixed (robust inject channel) and made loud
+(honest-failure guard); the harness's input record==replay is bit-identical (selftest 0/120),
+determinism preserved. The owner can re-record for real; an all-neutral session will now warn
+immediately. See Ginput-replay-liverecord-fix-summary.md.
