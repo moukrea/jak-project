@@ -557,11 +557,11 @@
     "Gpkg-branding": 1782545402.321816,
     "Gpkg-distributable": 1782551791.2328017,
     "Gcollision-systemic": 1782556567.922291,
-    "Gcollision-replay-diff": 1782575133.7180176,
+    "Gcollision-replay-diff": 1782631635.4461453,
     "Ginput-replay-determinism": 1782568890.6695716,
     "Ginput-replay-liverecord": 1782595232.2671432
   },
-  "last_update": "2026-06-28T07:24:44.184670+00:00",
+  "last_update": "2026-06-28T07:27:15.446196+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
