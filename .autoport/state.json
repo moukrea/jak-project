@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 155,
+  "current_phase_idx": 156,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -147,7 +147,8 @@
     "Gcollision-systemic": 1,
     "Ginput-replay-determinism": 1,
     "Ginput-replay-liverecord": 1,
-    "Ginput-replay-realinput": 1
+    "Ginput-replay-realinput": 1,
+    "Gcollision-nanroot": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -429,7 +430,8 @@
     "Gcollision-systemic",
     "Ginput-replay-determinism",
     "Ginput-replay-liverecord",
-    "Ginput-replay-realinput"
+    "Ginput-replay-realinput",
+    "Gcollision-nanroot"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -563,9 +565,10 @@
     "Gcollision-replay-diff": 1782646510.9161184,
     "Ginput-replay-determinism": 1782568890.6695716,
     "Ginput-replay-liverecord": 1782595232.2671432,
-    "Ginput-replay-realinput": 1782642139.795707
+    "Ginput-replay-realinput": 1782642139.795707,
+    "Gcollision-nanroot": 1782647902.4431229
   },
-  "last_update": "2026-06-28T11:35:10.916162+00:00",
+  "last_update": "2026-06-28T13:30:57.864062+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
