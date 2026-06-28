@@ -18,6 +18,9 @@ grep -qiE 'dump|captur|trigger|signature|transv.*spike|jump|projection|under-?ma
 grep -qiE 'separation|normalize|fmin|fmax|normal|angle|transv|operand' "$R" || fail "must dump the collision-math operands at the glitch"
 # x86 oracle on the dumped operands names the divergent op
 grep -qiE 'x86' "$R" || fail "must run the x86 oracle on the dumped operands"
+# the x86 oracle MUST be the PRISTINE original, NOT our ARM-compat build (owner requirement 2026-06-28)
+grep -qiE 'pristine|original|golden|jak-original|\.autoport/gold|unaltered|byte-?identical.*original|arm64-?gated' "$R" \
+  || fail "x86 oracle must be the PRISTINE original (jak-original-v033 / .autoport/gold), NOT our ARM-compat x86 — or prove our-x86 leaf path == original byte-identical (arm64 changes #if-gated)"
 grep -qiE 'first.*diverg|diverg.*op|the op|root|arm64.*(!=|differ|vs).*x86|x86.*(finite|correct).*arm64' "$R" || fail "must name the FIRST op that diverges (arm64 vs x86 on the dumped operands)"
 grep -qiE 'before' "$R" || fail "must show BEFORE (arm64 wrong vs x86 on the glitch operands)"
 grep -qiE 'after' "$R" || fail "must show AFTER (arm64 == x86 on the dumped operands)"
