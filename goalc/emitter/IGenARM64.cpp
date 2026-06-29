@@ -2204,6 +2204,19 @@ InstructionARM64 cmp_gpr64_gpr64(Register a, Register b) {
   return InstructionARM64(enc);
 }
 
+// CMP Wn, Wm = SUBS wzr, Wn, Wm (32-bit, sf=0 → base 0x6B00001F)
+// Gcollision-glitch (autoport): used for GOAL symbol/#f-pointer truthiness compares
+// on arm64. A GOAL pointer is a 32-bit offset (low32 = address; upper-32 is
+// don't-care and inconsistent between the symbol-table register and mips2c returns).
+// A full-64 CMP misfires on that upper-32 garbage — e.g. find-best-grab!'s #f return
+// vs the #f symbol read as (st-off) — flipping `(when (find-best-grab! ...))` truthy
+// and spuriously grabbing ledges. Comparing low-32 only matches the "GOAL ptr=low32"
+// convention. x86 emitter untouched (x86 GOAL ptrs keep a consistent upper-32).
+InstructionARM64 cmp_gpr32_gpr32(Register a, Register b) {
+  uint32_t enc = 0x6B00001Fu | (arm64_reg5(b) << 16) | (arm64_reg5(a) << 5);
+  return InstructionARM64(enc);
+}
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //   BIT STUFF
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

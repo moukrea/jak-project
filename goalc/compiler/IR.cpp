@@ -1720,9 +1720,44 @@ void IR_ConditionalBranch::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                                      get_reg(condition.b, allocs, irec)),
                    irec);
   } else {
-    gen->add_instr(emitter::IGen::ARM64::cmp_gpr64_gpr64(get_reg(condition.a, allocs, irec),
-                                                         get_reg(condition.b, allocs, irec)),
-                   irec);
+    // Gcollision-glitch (autoport, arm64-only): EQUAL/NOT_EQUAL between GOAL POINTER
+    // operands (symbol/#f, basic, structure, type, pair, function, user refs) must
+    // compare the low-32 only. A GOAL pointer is a 32-bit offset; on arm64 its
+    // upper-32 is don't-care and INCONSISTENT between the symbol-table register
+    // (#f = st-off, built `mov x9,x14; sub x9,x9,x15`) and a mips2c function's
+    // returned symbol (e.g. find-best-grab! returns v0=context.s7 with a different
+    // upper-32). A full-64 CMP then sees a #f return as NON-#f → `(when (find-best-grab
+    // ...))` (collide-edge-grab.gc:70) fires a SPURIOUS (send-event 'edge-grab) →
+    // Jak grabs ledges he shouldn't (the owner "ça projette" glitch). Comparing
+    // low-32 is the established "GOAL ptr = low32" convention and matches what x86
+    // does implicitly (x86 GOAL ptrs carry a consistent upper-32, so its 64-bit CMP
+    // never diverges — x86 emitter byte-untouched). Numeric (int/uint/float)
+    // EQ/NE keep the full-64 compare. Magnitude compares (LT/GT/LEQ/GEQ) are numeric
+    // and never reach this pointer path. Only narrowed for EQUAL/NOT_EQUAL.
+    bool is_eq_ne = (condition.kind == ConditionKind::EQUAL ||
+                     condition.kind == ConditionKind::NOT_EQUAL);
+    auto is_goal_pointer = [](const RegVal* rv) -> bool {
+      if (!rv) {
+        return false;
+      }
+      const std::string& bt = rv->type().base_type();
+      // GOAL 64-bit numeric types keep the full-64 compare.
+      return !(bt == "int" || bt == "uint" || bt == "int8" || bt == "uint8" ||
+               bt == "int16" || bt == "uint16" || bt == "int32" || bt == "uint32" ||
+               bt == "int64" || bt == "uint64" || bt == "int128" || bt == "uint128" ||
+               bt == "float" || bt == "binteger" || bt == "seconds" || bt == "time-frame" ||
+               bt == "object" || bt == "number" || bt == "integer");
+    };
+    bool use_32 = is_eq_ne && is_goal_pointer(condition.a) && is_goal_pointer(condition.b);
+    if (use_32) {
+      gen->add_instr(emitter::IGen::ARM64::cmp_gpr32_gpr32(get_reg(condition.a, allocs, irec),
+                                                           get_reg(condition.b, allocs, irec)),
+                     irec);
+    } else {
+      gen->add_instr(emitter::IGen::ARM64::cmp_gpr64_gpr64(get_reg(condition.a, allocs, irec),
+                                                           get_reg(condition.b, allocs, irec)),
+                     irec);
+    }
   }
   auto jump_rec =
       gen->add_instr(emitter::IGen::ARM64::b_cond_placeholder(cond), irec);
