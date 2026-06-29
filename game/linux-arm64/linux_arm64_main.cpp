@@ -3100,6 +3100,103 @@ void a34_probe_level_load_list() {
                idx, node == empty_goal ? "'()" : "NOT-EMPTY");
   std::fflush(stdout);
 }
+
+// Zone-crash sweep (autoport, qemu-arm64, device-independent). After the
+// boot CGOs + TIT.DGO are linked, drive each level DGO named in
+// OG_ZONE_SWEEP_DGOS (space-separated basenames, e.g. "JUN.DGO BEA.DGO")
+// through the SAME direct_load_dgo link+execute engine the boot stages use.
+// This exercises every level object's link-time fixups and top-level forms
+// (the LOAD-TIME arm64 crash class: malformed-DGO codegen SIGILL, top-level
+// init null-BLR, the title-vis-style coroutine stack overflow at link). It
+// does NOT run steady-state gameplay (no game loop in this headless build),
+// so it cannot catch a runtime enemy-AI coroutine crash — that class is
+// device-only. A signal during a DGO's link is caught by the installed
+// sigsegv/sigabrt diag and aborts the process; the harness driving qemu
+// reads which DGO printed "SWEEP loading" last but never "SWEEP ... OK".
+//
+// Each level DGO is linked into a FRESH dedicated heap (carved from the
+// otherwise-unused DEBUG_HEAP region at 0x5000000, ~32 MiB — kdebugheap is
+// disabled in this headless build), NOT into kglobalheap. This matters: the
+// level DGOs share engine objects (default-menu, tfrag-methods, tie-methods,
+// …) that are ALSO in already-linked CGOs, and the real game loads each level
+// into its own level heap that is reset between loads. Linking a 10–12 MiB
+// level DGO on top of a global heap that already holds KERNEL+ENGINE+GAME+TIT
+// overflows it (sig=11 in the shared linker path at the SAME pc for EVERY
+// level — a heap-exhaustion artifact, not a per-level bug). A fresh per-DGO
+// heap removes that confound so a link crash is attributable to THAT DGO's
+// content/codegen. The harness still loads ONE DGO per qemu invocation, so the
+// fresh heap is pristine each run.
+void zone_sweep_dgos() {
+  const char* env = std::getenv("OG_ZONE_SWEEP_DGOS");
+  if (!env || !*env) {
+    return;
+  }
+  // Default: link+relocate every object WITHOUT executing top-levels. The
+  // codegen/relocation surface (where a real arm64 codegen bug in a level's
+  // objects would crash) is exercised by the link; executing the top-levels
+  // additionally runs the tpage texture-upload forms, which dereference GL/DMA
+  // texture state that does not exist in this headless build → a UNIFORM sig=11
+  // in the no-GL texture path for EVERY level (proven: known-good VI1 and JUN
+  // crash identically right after their tpage-* objects). Set OG_ZONE_SWEEP_EXEC
+  // to also execute (to reproduce the no-GL artifact deliberately).
+  u32 kSweepLinkFlags = LINK_FLAG_OUTPUT_LOAD | LINK_FLAG_PRINT_LOGIN;
+  if (std::getenv("OG_ZONE_SWEEP_EXEC")) {
+    kSweepLinkFlags |= LINK_FLAG_EXECUTE;
+  }
+  // Dedicated sweep heap: place its kheapinfo in the unused debug-heap-info
+  // slot and back it with the unused debug-heap memory region.
+  constexpr u32 kSweepHeapInfoAddr = DEBUG_HEAP_INFO_ADDR;  // 0x13AD10
+  constexpr u32 kSweepHeapStart = DEBUG_HEAP_START;         // 0x5000000
+  constexpr u32 kSweepHeapSize = 0x2000000;                 // 32 MiB
+  std::string list(env);
+  size_t pos = 0;
+  while (pos < list.size()) {
+    size_t sp = list.find(' ', pos);
+    std::string name =
+        (sp == std::string::npos) ? list.substr(pos) : list.substr(pos, sp - pos);
+    pos = (sp == std::string::npos) ? list.size() : sp + 1;
+    if (name.empty()) {
+      continue;
+    }
+    std::string path = std::string("out/jak1-arm64/iso/") + name;
+    if (FILE* fp = std::fopen(path.c_str(), "rb")) {
+      std::fclose(fp);
+    } else {
+      std::fprintf(stdout, "linux-arm64: SWEEP %s MISSING — skipping\n",
+                   name.c_str());
+      std::fflush(stdout);
+      continue;
+    }
+    // Re-init the fresh heap before each load so repeated loads in one
+    // process (when the harness batches) each start clean.
+    Ptr<kheapinfo> sweep_heap(kSweepHeapInfoAddr);
+    kinitheap(sweep_heap, Ptr<u8>(kSweepHeapStart), kSweepHeapSize);
+    std::fprintf(stdout, "linux-arm64: SWEEP loading %s (heap @0x%x size 0x%x)\n",
+                 name.c_str(), kSweepHeapStart, kSweepHeapSize);
+    std::fflush(stdout);
+    (*EnableMethodSet)++;
+    // Level DGOs carry large per-level visibility (*-vis) data objects
+    // (village1-vis 7.5 MB, jungle-vis 6.4 MB); the 2 MB boot buffer rejects
+    // them with RC=-5 (a clean reject, not a crash). The direct-DGO buffer
+    // lives at fixed GOAL offset 0x4000000 with ~64 MB of EE headroom above
+    // it, so an 8 MB sweep buffer fully links every level object.
+    constexpr s32 kSweepDgoBufferSize = 0x800000;  // 8 MiB
+    int rc = linux_arm64::direct_load_dgo(path.c_str(), sweep_heap,
+                                          kSweepLinkFlags, kSweepDgoBufferSize);
+    (*EnableMethodSet)--;
+    if (rc != 0) {
+      std::fprintf(stdout, "linux-arm64: SWEEP %s LINK-RC=%d (non-zero)\n",
+                   name.c_str(), rc);
+      std::fflush(stdout);
+      continue;
+    }
+    std::fprintf(stdout, "linux-arm64: SWEEP %s OK (NumSymbols=%u)\n",
+                 name.c_str(), (unsigned)NumSymbols);
+    std::fflush(stdout);
+  }
+  std::fprintf(stdout, "linux-arm64: SWEEP done\n");
+  std::fflush(stdout);
+}
 }  // namespace
 
 int goal_main(int argc, char** argv) {
@@ -3147,6 +3244,7 @@ int goal_main(int argc, char** argv) {
       return rc;
     }
     a34_probe_level_load_list();
+    zone_sweep_dgos();
   }
 
   return 0;
