@@ -391,6 +391,7 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     m_render_state.version = GameVersion::Jak1;
     m_render_state.frame_idx++;
     dispatch_buckets_jak1(dma, prof);
+    m_stats.buckets_cpu_s = prof.get_elapsed_time();
   }
 
   // A36 probe: the FBO content at frame 100/600 — distinguishes "geometry
@@ -412,12 +413,18 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
   {
     auto prof = m_profiler.root()->make_scoped_child("pcrtc");
     do_pcrtc_effects(settings.pmode_alp_register, &m_render_state, prof);
+    m_stats.pcrtc_cpu_s = prof.get_elapsed_time();
   }
   m_last_pmode_alp = settings.pmode_alp_register;
 
   m_profiler.finish();
   m_stats.draw_calls = m_profiler.root()->stats().draw_calls;
   m_stats.triangles = m_profiler.root()->stats().triangles;
+
+  // Surface the already-measured GL-thread CPU time so a profiling run can
+  // attribute the frame budget. render_cpu_s is the whole render() call;
+  // buckets_cpu_s / pcrtc_cpu_s are captured at their scoped nodes (below).
+  m_stats.render_cpu_s = m_profiler.root_time();
 }
 
 void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
@@ -432,18 +439,34 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   window_fb.multisample_count = 1;
   window_fb.multisampled = false;
 
+  // Render-scaling: the 3D scene FBO is game_res * (render_scale_pct/100).
+  // do_pcrtc_effects upscale-blits it to the native window, so 100 == current
+  // behavior and lower values shrink only the offscreen fragment work. Clamp to
+  // [25,100] and keep dims >= 1. The whole renderer (viewport, projection,
+  // bucket draws, FBO probe) keys off these dims, so nothing downstream needs
+  // to know about the scale — the GOAL game_res_w/h is never touched.
+  int scale = settings.render_scale_pct;
+  if (scale < 25) scale = 25;
+  if (scale > 100) scale = 100;
+  const int scaled_w = (settings.game_res_w * scale + 50) / 100;
+  const int scaled_h = (settings.game_res_h * scale + 50) / 100;
+  const int fbo_w = scaled_w > 0 ? scaled_w : 1;
+  const int fbo_h = scaled_h > 0 ? scaled_h : 1;
+  m_stats.fbo_w = fbo_w;
+  m_stats.fbo_h = fbo_h;
+
   if (window_resized || !m_fbo_state.render_fbo ||
-      !m_fbo_state.render_fbo->matches(settings.game_res_w, settings.game_res_h, 1)) {
-    lg::info("A35-RENDER FBO setup: {}x{} (window {}x{})", settings.game_res_w,
-             settings.game_res_h, settings.window_fb_w, settings.window_fb_h);
+      !m_fbo_state.render_fbo->matches(fbo_w, fbo_h, 1)) {
+    lg::info("A35-RENDER FBO setup: {}x{} (game_res {}x{} scale {}% window {}x{})", fbo_w, fbo_h,
+             settings.game_res_w, settings.game_res_h, scale, settings.window_fb_w,
+             settings.window_fb_h);
     m_fbo_state.render_buffer.clear();
-    m_fbo_state.render_buffer = a35_make_fbo(settings.game_res_w, settings.game_res_h);
+    m_fbo_state.render_buffer = a35_make_fbo(fbo_w, fbo_h);
     m_fbo_state.render_fbo = &m_fbo_state.render_buffer;
   }
 
-  ASSERT_MSG(settings.game_res_w > 0 && settings.game_res_h > 0,
-             fmt::format("Bad viewport size from game_res: {}x{}\n", settings.game_res_w,
-                         settings.game_res_h));
+  ASSERT_MSG(fbo_w > 0 && fbo_h > 0,
+             fmt::format("Bad viewport size from game_res: {}x{}\n", fbo_w, fbo_h));
 
   // jak1 frame clear — desktop setup_frame parity.
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -466,9 +489,15 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   // (OpenGLRenderer.cpp:1290). A35's port left the window-sized viewport
   // active, so every bucket rasterized a 2298x934 projection into the
   // 640x480 FBO — geometry clipped off to a corner, screen stayed black
-  // (run-26 FBO probe: all-zero center with 64k tris drawn).
-  glViewport(0, 0, settings.game_res_w, settings.game_res_h);
+  // (run-26 FBO probe: all-zero center with 64k tris drawn). With render-
+  // scaling the FBO (and thus this viewport) is game_res*scale; the GOAL
+  // projection is resolution-independent (NDC), so the scene fills the
+  // smaller FBO exactly as it filled the full one, then upscales on blit.
+  glViewport(0, 0, fbo_w, fbo_h);
 
+  // draw_region (the letterbox rect inside the native window) is unchanged by
+  // render-scaling: the blit always targets the full native draw region, so
+  // the upscaled 3D image keeps its on-screen size/aspect.
   m_render_state.draw_region_w = settings.draw_region_w;
   m_render_state.draw_region_h = settings.draw_region_h;
   m_render_state.draw_offset_x = (settings.window_fb_w - m_render_state.draw_region_w) / 2;
@@ -482,9 +511,9 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
 
   m_render_state.render_fb_x = 0;
   m_render_state.render_fb_y = 0;
-  m_render_state.render_fb_w = settings.game_res_w;
-  m_render_state.render_fb_h = settings.game_res_h;
-  glViewport(0, 0, settings.game_res_w, settings.game_res_h);
+  m_render_state.render_fb_w = fbo_w;
+  m_render_state.render_fb_h = fbo_h;
+  glViewport(0, 0, fbo_w, fbo_h);
 }
 
 void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfilerNode& prof) {

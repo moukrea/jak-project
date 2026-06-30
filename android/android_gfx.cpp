@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -412,6 +413,37 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     }
     options.pmode_alp_register = d->pmode_alp.load();
 
+    // Render-scaling knob (debug.opengoal.render.scale = 25..100, default 100).
+    // Sizes the offscreen 3D FBO; the upscale blit to the native window keeps
+    // the on-screen image full-size. A pure GPU fill-rate lever for measuring
+    // whether Geyser Rock is fill-bound or draw-call-bound. Cached + polled
+    // every 30 frames so a value changed via `setprop` takes effect live
+    // without a per-frame property read. Host/runtime only — GOAL game_res
+    // and the render logic are untouched. Owner default 100 == unchanged.
+    {
+      static int s_render_scale = 100;
+      static unsigned s_scale_poll = 0;
+      if ((s_scale_poll++ % 30) == 0) {
+        char pv[16] = {0};
+        if (__system_property_get("debug.opengoal.render.scale", pv) > 0) {
+          int v = atoi(pv);
+          if (v >= 25 && v <= 100 && v != s_render_scale) {
+            s_render_scale = v;
+            __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                                "RENDER-SCALE set to %d%% (offscreen 3D FBO scale; "
+                                "UI upscales to native window)",
+                                s_render_scale);
+          } else if ((v < 25 || v > 100) && s_render_scale != 100) {
+            // out-of-range / cleared prop -> back to native
+            s_render_scale = 100;
+            __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                                "RENDER-SCALE reset to 100%% (prop cleared/invalid)");
+          }
+        }
+      }
+      options.render_scale_pct = s_render_scale;
+    }
+
     d->renderer->render(DmaFollower(d->chain_data, d->chain_offset), options);
 
     const auto& st = d->renderer->stats();
@@ -538,9 +570,12 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
         s_last_logged_skips = st.buckets_skipped;
         __android_log_print(ANDROID_LOG_INFO, kLogTag,
                             "A35-RENDER frame=%llu chain_bytes=%u buckets_drawn=%u skipped=%u "
-                            "draws=%u tris=%u",
+                            "draws=%u tris=%u fbo=%dx%d render_ms=%.2f buckets_ms=%.2f "
+                            "pcrtc_ms=%.2f",
                             (unsigned long long)st.frame_idx, st.chain_bytes, st.buckets_drawn,
-                            st.buckets_skipped, st.draw_calls, st.triangles);
+                            st.buckets_skipped, st.draw_calls, st.triangles, st.fbo_w, st.fbo_h,
+                            st.render_cpu_s * 1000.0, st.buckets_cpu_s * 1000.0,
+                            st.pcrtc_cpu_s * 1000.0);
       }
     }
   }
