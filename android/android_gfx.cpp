@@ -51,8 +51,14 @@ extern "C" void gpose_joint_frame_tick(unsigned long long frame_idx);
 // (ratio 3). Owners who prefer maximum crispness over framerate can raise the
 // prop (e.g. 200 for 1280x960 @ ~20fps); owners who hit a heavier untested
 // scene that regresses can drop to 100 (the original 640x480). Range 25..400.
+// DEFAULT = 100 (original 640x480, neutral). The 120%/768x576 "sweet spot" above
+// is device-SPECIFIC (Adreno 618) — per the owner, internal resolution must be a
+// user-facing OPTION (graphics-options backlog: native-detect + a per-aspect-ratio
+// resolution ladder + a render-scale %), NOT a hardcoded per-device default. The
+// runtime knob (debug.opengoal.render.scale, 25..400) stays as the plumbing the
+// future menu drives; until the menu exists we ship the neutral original res.
 #ifndef RENDER_SCALE_DEFAULT
-#define RENDER_SCALE_DEFAULT 120
+#define RENDER_SCALE_DEFAULT 100
 #endif
 
 // Gmatch: known-good snapshot of the GOAL kernel asm-func return-from-thread-dead
