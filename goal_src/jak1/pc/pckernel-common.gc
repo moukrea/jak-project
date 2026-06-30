@@ -122,11 +122,14 @@
   (when (!= 'fullscreen (pc-get-display-mode))
     (pc-set-frame-rate (-> obj target-fps)))
   ;; do game resolution
-  ;; render-scale (graphics option): the offscreen 3D FBO is sized to
-  ;; game_res * render-scale%. Lowering it trades sharpness for fill-rate. We scale
-  ;; ONLY the game-resolution passed here (the FBO) — aspect-ratio, letterbox and
-  ;; framebuffer-scissor are untouched, so the on-screen draw region / HUD x-offsets
-  ;; do not shift. 100 = native (default). Clamp to [10,100].
+  ;; ORDER (batch 2 + 3): the "Game Resolution" picker sets the BASE game res
+  ;; ((-> obj width)/(-> obj height) in fullscreen, framebuffer-scissor in windowed);
+  ;; the RENDER SCALE % then multiplies it HERE to size the offscreen 3D FBO
+  ;; (game_res * render-scale%). e.g. base 1280x720 x 50% = 640x360 FBO. Applied
+  ;; exactly once (on Android render_scale_pct stays 100 so no double-scaling). We
+  ;; scale ONLY the game-resolution passed here (the FBO) — aspect-ratio, letterbox
+  ;; and framebuffer-scissor are untouched, so the on-screen draw region / HUD
+  ;; x-offsets do not shift. 100 = native (default). Clamp to [10,100].
   (let* ((rs (cond ((< (-> obj render-scale) 10.0) 10.0)
                    ((> (-> obj render-scale) 100.0) 100.0)
                    (else (-> obj render-scale))))
