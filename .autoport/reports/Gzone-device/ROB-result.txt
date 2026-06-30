@@ -1,0 +1,10 @@
+=== zone_warp_device ROB (continue=robocave-start) 2026-06-29T23:47:20+02:00 ===
+RESULT zone=ROB continue=robocave-start status=LOADS+RENDERS(frame+480,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1080 advanced=480 focus_app=yes screencap_bytes=1860810
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level maincave;Adding level robocave;
+  last link-finish: link finish: spiderwebs link finish: water-anim-robocave link finish: robocave-vis link finish: fuel-cell-victory link finish: fuel-cell-victory-4 link finish: fuel-cell-victory 
+  a34-fp-walk: none

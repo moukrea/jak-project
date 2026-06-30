@@ -1,0 +1,10 @@
+=== zone_warp_device MIS (continue=misty-start) 2026-06-29T23:38:30+02:00 ===
+RESULT zone=MIS continue=misty-start status=LOADS+RENDERS(frame+900,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1500 advanced=900 focus_app=yes screencap_bytes=2793337
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level misty;
+  last link-finish: link finish: wheel link finish: windturbine link finish: misty-vis link finish: fishermans-boat-ride-to-village1 link finish: muse-victory link finish: fishermans-boat-ride-to-village1 
+  a34-fp-walk: none

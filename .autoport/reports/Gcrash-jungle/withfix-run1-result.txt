@@ -1,0 +1,10 @@
+=== Gcrash-jungle device repro (tag=withfix-run1) 2026-06-29T18:15:20+02:00 ===
+RESULT tag=withfix-run1 status=INCONCLUSIVE(warp=0,frame=0,focus=no)
+  warp_fired=0  jungle_loaded=0  render_frame(max)=0  focus_app=no
+  sig=none
+  gk-diag: none
+  last link-finish: none
+  near-fn/state: none
+  rftd/repair-markers: none
+  a-diag/fp-walk: none
+  backtrace: none

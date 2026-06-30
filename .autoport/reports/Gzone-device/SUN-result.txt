@@ -1,0 +1,10 @@
+=== zone_warp_device SUN (continue=sunken-start) 2026-06-29T23:42:31+02:00 ===
+RESULT zone=SUN continue=sunken-start status=LOADS+RENDERS(frame+720,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1320 advanced=720 focus_app=yes screencap_bytes=2040528
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level sunken;Adding level village2;
+  last link-finish: link finish: warpgate link finish: warrior link finish: water-anim-village2 link finish: village2-vis link finish: fuel-cell-victory-5 link finish: fuel-cell-victory-2 
+  a34-fp-walk: none

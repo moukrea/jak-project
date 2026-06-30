@@ -1,0 +1,10 @@
+=== zone_warp_device FIC (continue=firecanyon-start) 2026-06-29T23:39:49+02:00 ===
+RESULT zone=FIC continue=firecanyon-start status=LOADS+RENDERS(frame+720,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1320 advanced=720 focus_app=yes screencap_bytes=2695498
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level firecanyon;
+  last link-finish: link finish: ef-plane link finish: racer link finish: spike link finish: firecanyon-vis link finish: fishermans-boat-ride-to-misty link finish: fishermans-boat-ride-to-misty 
+  a34-fp-walk: none

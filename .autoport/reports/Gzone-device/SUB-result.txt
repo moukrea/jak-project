@@ -1,0 +1,10 @@
+=== zone_warp_device SUB (continue=sunkenb-start) 2026-06-29T23:47:59+02:00 ===
+RESULT zone=SUB continue=sunkenb-start status=LOADS+RENDERS(frame+600,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1200 advanced=600 focus_app=yes screencap_bytes=1793424
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level sunken;Adding level sunkenb;
+  last link-finish: link finish: wall-plat link finish: water-anim-sunken link finish: water-anim-sunken-dark-eco link finish: sunkenb-vis link finish: fuel-cell-victory-5 link finish: fuel-cell-victory-2 
+  a34-fp-walk: none

@@ -1,0 +1,10 @@
+=== zone_warp_device SWA (continue=swamp-start) 2026-06-29T23:43:11+02:00 ===
+RESULT zone=SWA continue=swamp-start status=LOADS+RENDERS(frame+600,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1200 advanced=600 focus_app=yes screencap_bytes=2209922
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level swamp;Adding level village2;
+  last link-finish: link finish: warp-gate-switch link finish: warpgate link finish: warrior link finish: water-anim-village2 link finish: village2-vis link finish: gambler-introduction-1 
+  a34-fp-walk: none

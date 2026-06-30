@@ -1,0 +1,10 @@
+=== zone_warp_device VI3 (continue=village3-start) 2026-06-29T23:36:23+02:00 ===
+RESULT zone=VI3 continue=village3-start status=LOADS+RENDERS(frame+840,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1440 advanced=840 focus_app=yes screencap_bytes=2695102
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level village3;Adding level ogre;
+  last link-finish: link finish: shortcut-boulder link finish: tntbarrel link finish: water-anim-ogre link finish: ogre-vis link finish: sage-village3-introduction link finish: oracle-intro-3 
+  a34-fp-walk: none

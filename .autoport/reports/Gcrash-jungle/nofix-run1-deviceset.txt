@@ -1,0 +1,3 @@
+fe550b15f2fd64ce33820abcf5784870205396c910de0eb858d112a5a5a53101  files/iso_data/jak1/JUN.DGO
+f76d80cd9f09df92e948579a89141ecd3893eb8f02cbe11bafb2fe2aaa142f0e  files/iso_data/jak1/KERNEL.CGO
+32af0ac9f60d2eb0e75c668a9c4ee5a14a8d2cd5a84cd304bf917f524b18a06b  files/iso_data/jak1/GAME.CGO

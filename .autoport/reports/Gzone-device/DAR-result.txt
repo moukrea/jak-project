@@ -1,0 +1,10 @@
+=== zone_warp_device DAR (continue=darkcave-start) 2026-06-29T23:45:18+02:00 ===
+RESULT zone=DAR continue=darkcave-start status=LOADS+RENDERS(frame+1080,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1680 advanced=1080 focus_app=yes screencap_bytes=1859850
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level maincave;Adding level darkcave;
+  last link-finish: link finish: dark-crystal link finish: mother-spider link finish: spider-egg link finish: water-anim-darkcave link finish: darkcave-vis link finish: fuel-cell-victory-7 
+  a34-fp-walk: none

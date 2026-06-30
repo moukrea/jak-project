@@ -1,0 +1,10 @@
+=== zone_warp_device TRA (continue=training-start) 2026-06-29T23:39:10+02:00 ===
+RESULT zone=TRA continue=training-start status=LOADS+RENDERS(frame+900,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1500 advanced=900 focus_app=yes screencap_bytes=3481773
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level training;
+  last link-finish: link finish: water-anim-training link finish: training-vis link finish: fuel-cell-victory-3 link finish: fuel-cell-victory-7 link finish: eichar-ambient-4 link finish: fuel-cell-victory-3 
+  a34-fp-walk: none

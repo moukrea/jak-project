@@ -1,0 +1,10 @@
+=== zone_warp_device JUN (continue=jungle-start) 2026-06-29T23:37:42+02:00 ===
+RESULT zone=JUN continue=jungle-start status=LOADS+RENDERS(frame+540,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1140 advanced=540 focus_app=yes screencap_bytes=3422020
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level jungle;
+  last link-finish: link finish: sharkey link finish: sidedoor link finish: towertop link finish: water-anim-jungle link finish: jungle-vis link finish: fishermans-boat-ride-to-misty 
+  a34-fp-walk: none

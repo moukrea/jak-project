@@ -1,0 +1,10 @@
+=== zone_warp_device ROL (continue=rolling-start) 2026-06-29T23:41:52+02:00 ===
+RESULT zone=ROL continue=rolling-start status=LOADS+RENDERS(frame+660,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1260 advanced=660 focus_app=yes screencap_bytes=2532920
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level rolling;Adding level village2;
+  last link-finish: link finish: warp-gate-switch link finish: warpgate link finish: warrior link finish: water-anim-village2 link finish: village2-vis link finish: geologist-introduction 
+  a34-fp-walk: none

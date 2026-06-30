@@ -1,0 +1,10 @@
+=== zone_warp_device SNO (continue=snow-start) 2026-06-29T23:41:12+02:00 ===
+RESULT zone=SNO continue=snow-start status=LOADS+RENDERS(frame+720,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=1320 advanced=720 focus_app=yes screencap_bytes=2272358
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level snow;Adding level village3;
+  last link-finish: link finish: water-anim-village3 link finish: village3-vis link finish: sage-village3-introduction link finish: gondola-ride-down link finish: sage-village3-introduction link finish: gondola-ride-down 
+  a34-fp-walk: none

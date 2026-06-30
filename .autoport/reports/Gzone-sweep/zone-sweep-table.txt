@@ -1,0 +1,29 @@
+=== Gzone-sweep (qemu-arm64, link-only) 2026-06-29T21:44:48+02:00 ===
+gk built-sha: a7c90ef2b  gk: build-arm64-linux/game/linux-arm64/gk
+DGO        | RESULT   | detail
+-----------+----------+------------------------------------------
+VI1.DGO    | OK       | all objects linked+relocated, NumSymbols=6111
+VI2.DGO    | OK       | all objects linked+relocated, NumSymbols=6054
+VI3.DGO    | OK       | all objects linked+relocated, NumSymbols=5973
+BEA.DGO    | OK       | all objects linked+relocated, NumSymbols=6145
+JUN.DGO    | OK       | all objects linked+relocated, NumSymbols=6104
+MIS.DGO    | OK       | all objects linked+relocated, NumSymbols=6274
+TRA.DGO    | OK       | all objects linked+relocated, NumSymbols=5946
+FIC.DGO    | OK       | all objects linked+relocated, NumSymbols=5988
+OGR.DGO    | OK       | all objects linked+relocated, NumSymbols=6148
+ROL.DGO    | OK       | all objects linked+relocated, NumSymbols=6114
+SUN.DGO    | OK       | all objects linked+relocated, NumSymbols=6198
+SWA.DGO    | OK       | all objects linked+relocated, NumSymbols=6184
+LAV.DGO    | OK       | all objects linked+relocated, NumSymbols=6043
+CIT.DGO    | OK       | all objects linked+relocated, NumSymbols=6173
+DAR.DGO    | OK       | all objects linked+relocated, NumSymbols=5936
+FIN.DGO    | OK       | all objects linked+relocated, NumSymbols=6102
+INT.DGO    | OK       | all objects linked+relocated, NumSymbols=5908
+JUB.DGO    | OK       | all objects linked+relocated, NumSymbols=5987
+MAI.DGO    | OK       | all objects linked+relocated, NumSymbols=6073
+ROB.DGO    | OK       | all objects linked+relocated, NumSymbols=5978
+SNO.DGO    | OK       | all objects linked+relocated, NumSymbols=6159
+SUB.DGO    | OK       | all objects linked+relocated, NumSymbols=5956
+DEM.DGO    | OK       | all objects linked+relocated, NumSymbols=5903
+TSZ.DGO    | OK       | all objects linked+relocated, NumSymbols=5907
+=== sweep complete 2026-06-29T21:45:30+02:00 ===
