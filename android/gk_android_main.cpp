@@ -428,8 +428,30 @@ extern "C" u64 a17_pc_default() {
 // block) — file-scope there, so declare it here.
 extern Timer ee_clock_timer;
 
+// Gspeed: the renderer publishes a stable-grid-driven EE-tick count for the
+// engine game-clock (see android_gfx.cpp). The frame clock reads this timer via
+// get-bus-clock/256 == (__read-ee-timer >> 9), so to deliver N bus-ticks we
+// return (N << 9).
+// g_gspeed_clock_ticks / g_gspeed_clock_active are declared in android_gfx.h
+// (included above) and defined in android_gfx.cpp.
+
 extern "C" {
 u64 a35_read_ee_timer() {
+  // ===== Gspeed: render-decoupled, vblank-stable engine game-clock ===========
+  // Once the GL render loop is publishing its stable-grid clock, feed the GOAL
+  // frame clock from it instead of raw wall-time. The published counter is in
+  // bus-ticks (get-bus-clock/256 units, == raw_ee_ticks >> 9), advanced by
+  // (step - 0.5) * *ticks-per-frame* per rendered frame, so the engine's
+  // per-frame time-ratio is a STABLE integer == the renderer's vblanks-per-frame
+  // and game-time advances at a constant real-time 60 Hz regardless of render
+  // jitter (owner: "logic speed varies with render speed"). We shift back up by
+  // 9 because the GOAL macro re-applies >>9. Pre-publish (boot/link) and if the
+  // grid is disabled (debug.opengoal.gspeed.off=1 stops the renderer publishing)
+  // we fall back to the original free-running wall clock. arm64/Android only;
+  // x86/desktop + goal_src untouched.
+  if (android_gfx::g_gspeed_clock_active.load(std::memory_order_acquire)) {
+    return android_gfx::g_gspeed_clock_ticks.load(std::memory_order_relaxed) << 9;
+  }
   // desktop read_ee_timer: EE clock at 294.912 MHz ~= ns * 3 / 10.
   u64 ns = ee_clock_timer.getNs();
   return (ns * 3) / 10;

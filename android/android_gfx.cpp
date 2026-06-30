@@ -141,6 +141,23 @@ std::atomic<int> g_refresh_rate{0};
 
 }  // namespace
 
+// ===== Gspeed: engine game-clock driven by the renderer's stable vblank grid ==
+// Published by the GL render loop (android_renderer.cpp) once per swap and read
+// by the EE frame-clock timer (a35_read_ee_timer in gk_android_main.cpp). It is
+// a monotonically-increasing count of EE timer ticks (the unit GOAL's
+// (timer-count #x10000800) consumes; ~585938 ticks/s, *ticks-per-frame*==9765)
+// that advances by EXACTLY (step - 0.5) frame-budgets per rendered frame, where
+// `step` is the renderer's current stable vblanks-per-frame (1 at 60 fps, 2 at
+// 30 fps). The half-budget bias makes the GOAL formula
+//   time-ratio = floor(timer_count / 9765) + 1   (clamp <1.3 -> 1.0)
+// resolve a `step`-frame to time-ratio == step (step=1 -> 0.5 budgets -> clamp
+// -> 1; step=2 -> 1.5 budgets -> floor 1 +1 -> 2), with NO fractional jitter and
+// NO off-by-one. Game advances `step` integer timesteps per real `step` vblanks
+// == a constant real-time 60 Hz, stable regardless of render load. Zero before
+// the renderer publishes (boot): the timer then falls back to wall-clock.
+std::atomic<unsigned long long> g_gspeed_clock_ticks{0};
+std::atomic<bool> g_gspeed_clock_active{false};
+
 bool get_window_size(int* w, int* h) {
   int ww = g_window_w.load();
   int hh = g_window_h.load();
@@ -720,7 +737,10 @@ u32 vsync() {
 
   // Post-ready: block on the swap chain so each vsync() corresponds to one
   // rendered+swapped frame (game-chain pacing). The vblank that paces spooled
-  // cutscenes is fired separately at wall-clock 60 Hz by the pacer thread.
+  // cutscenes is fired separately at wall-clock 60 Hz by the pacer thread. The
+  // GAME-CLOCK SPEED fix lives in the quantized frame-clock timer (see
+  // a35_read_ee_timer / gspeed_quantized_ee_ticks in gk_android_main.cpp), NOT
+  // here -- this barrier stays the 1:1 game-chain<->swap pacer it always was.
   auto* d = g_data;
   std::unique_lock<std::mutex> lock(d->dma_mutex);
   auto init_frame = d->frame_idx_of_input_data;
