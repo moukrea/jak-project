@@ -125,8 +125,9 @@
   ;; ORDER (batch 2 + 3): the "Game Resolution" picker sets the BASE game res
   ;; ((-> obj width)/(-> obj height) in fullscreen, framebuffer-scissor in windowed);
   ;; the RENDER SCALE % then multiplies it HERE to size the offscreen 3D FBO
-  ;; (game_res * render-scale%). e.g. base 1280x720 x 50% = 640x360 FBO. Applied
-  ;; exactly once (on Android render_scale_pct stays 100 so no double-scaling). We
+  ;; (game_res * render-scale%). e.g. base 1280x720 x 50% = 640x360 FBO. Both the
+  ;; picker (base game-size) and RENDER SCALE % are user-adjustable on x86 AND Android;
+  ;; they compose here exactly once (base first, then scale), never double-applied. We
   ;; scale ONLY the game-resolution passed here (the FBO) — aspect-ratio, letterbox
   ;; and framebuffer-scissor are untouched, so the on-screen draw region / HUD
   ;; x-offsets do not shift. 100 = native (default). Clamp to [10,100].
@@ -474,11 +475,30 @@
      ;; on some machines, this has been proven to cause the black-screen issue https://github.com/open-goal/jak-project/issues/3563
      ;; Correlating with logs like:
      ;; - OpenGL error 0x502 S8246 T824C: GL_INVALID_OPERATION error generated. Source and destination dimensions must be identical with the current filtering modes.
+     ;; Gres-picker: the "Game Resolution" picker (build-resolution-options) offers
+     ;; aspect-correct COMPUTED render sizes (e.g. 1280x576) that are NOT SDL-
+     ;; enumerated display modes, so pc-is-supported-resolution? (an exact display-
+     ;; mode membership test; a no-op returning #f on Android) rejects them on reload
+     ;; and snaps back to native -> the user's pick would not persist. On this single-
+     ;; FBO engine the game-size is just the offscreen 3D render target (the very same
+     ;; mechanism as RENDER SCALE %, which already runs at arbitrary sizes), so any
+     ;; sane in-bounds size is valid. Accept a saved size if it is a real display mode
+     ;; OR within [PC_MIN .. native]; still reject garbage / oversized sizes (preserves
+     ;; the #3563 black-screen guard noted above). Works on x86 AND Android.
      (let* ((saved-width (file-stream-read-int file))
             (saved-height (file-stream-read-int file))
-            (supported-resolution? (pc-is-supported-resolution? saved-width saved-height)))
+            (native-w 0)
+            (native-h 0))
+       (pc-get-active-display-size (& native-w) (& native-h))
+       ;; if the display size isn't known yet, don't clamp a valid pick away
+       (when (<= native-w 0) (set! native-w 16384))
+       (when (<= native-h 0) (set! native-h 16384))
        (cond
-         (supported-resolution?
+         ((or (pc-is-supported-resolution? saved-width saved-height)
+              (and (>= saved-width PC_MIN_WIDTH)
+                   (>= saved-height PC_MIN_HEIGHT)
+                   (<= saved-width native-w)
+                   (<= saved-height native-h)))
           (format 0 "[PC Settings]: Valid game-size resolution ~D x ~D~%" saved-width saved-height)
           (set! (-> obj width) saved-width)
           (set! (-> obj height) saved-height))
