@@ -36,3 +36,10 @@ cutscene-speed ok; x86 link finish: logo; the lock removed + target-fps wired (f
 
 ## Locks: ANDROID_SERIAL=eae4df44; no goalc/emitter/IGenX86_64.*; engine goal_src untouched; .autoport/gold READ-ONLY.
 ## Max: max_turns 1800, max_retries 5. device: true, owner_verify: true.
+
+## OWNER ADD (2026-06-30, during attempt 1) — CAMERA must also be smooth
+Beyond movement speed: the owner reports the CAMERA feels choppy / "the view doesn't follow the
+framerate, it jumps". This is likely the SAME root (camera advance uses time-adjust-ratio, wrong when
+target-fps is hardcoded 60). The owner play-test (final gate) must confirm the CAMERA is smooth — not
+just that Jak's movement speed is constant. If the camera still stutters after the fix, the phase is
+NOT done (owner withholds the token); investigate camera interpolation / render-vs-camera cadence.
