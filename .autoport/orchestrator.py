@@ -866,6 +866,99 @@ def git_push() -> None:
 
 
 # ============================================================
+# Close-gate — defense-in-depth against false-greens
+# ============================================================
+#
+# Owner mandate (2026-06-30): per-phase validators kept FALSE-GREENING (marking
+# work "done" that wasn't) — collision/jungle/flicker all slipped a lax validator
+# and only the owner's eye caught them. This central gate runs AFTER a phase's own
+# validator exits 0 and re-checks the three false-green patterns we actually hit,
+# so NO phase can close on them regardless of how weak its own validator is:
+#   1. validator passes on ZERO code change (a stub / no-op phase),
+#   2. validator passes while the DEVICE runs a stale/mixed build,
+#   3. validator passes but the OWNER's play-test (final gate) hasn't happened.
+# Each gate is opt-in/opt-out via milestones.yaml phase fields.
+
+def _supervisor_anchor() -> str:
+    """The most recent [autoport/supervisor] commit — the 'no new game fix' anchor
+    the per-phase validators already use. Falls back to HEAD~1."""
+    r = subprocess.run(
+        ["git", "log", "--format=%H", "--grep", r"\[autoport/supervisor\]"],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    lines = [l for l in r.stdout.splitlines() if l.strip()]
+    return lines[0] if lines else "HEAD~1"
+
+
+def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
+    """Run after a phase's validator exits 0. Returns (status, reason):
+      ("pass", "")            -> all gates clear; the phase may complete
+      ("fail", reason)        -> a FIXABLE gate failed; retry + feed reason back
+      ("awaiting-owner", "")  -> validator+gates clear, owner play-test pending
+    """
+    pid = phase["id"]
+
+    # GATE 1 — real translation-layer code change (anti-stub false-green).
+    # F1b was marked done with ZERO code. Require a real change since the
+    # supervisor anchor in a port/translation dir, unless the phase declares
+    # `no_code: true` (pure asset/packaging/investigation phases).
+    if not phase.get("no_code", False):
+        anchor = _supervisor_anchor()
+        paths = ["game/", "android/", "goalc/", "goal_src/"]
+        committed = subprocess.run(
+            ["git", "diff", "--name-only", anchor, "--", *paths],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+        ).stdout.splitlines()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--", *paths],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+        ).stdout.splitlines()
+        # x86 emitter is LOCKED (our-x86 must == original-x86) — a change there
+        # is not a legitimate port fix, so it doesn't count toward "real work".
+        real = [f for f in (committed + dirty)
+                if f.strip() and "IGenX86_64" not in f]
+        if not real:
+            return ("fail",
+                    "CLOSE-GATE/code: validator exit 0 but NO translation-layer code "
+                    "changed since the supervisor anchor — refusing the false-green. "
+                    "A real fix must touch game/ android/ goalc/ goal_src/ (not the "
+                    "locked x86 emitter). If this phase legitimately ships no code, "
+                    "set `no_code: true` in milestones.yaml.")
+
+    # GATE 2 — device runs the fresh, CONSISTENT build (anti stale/mixed-build).
+    # The validator can pass while the phone still runs an old libgk, or a MIXED
+    # build (fresh CGOs + stale libgk, or vice-versa — exactly the 2026-06-30
+    # flicker incident). deploy_verify proves build==APK==device for libgk;
+    # phases that touch CGOs should also assert CGO-consistency in their own
+    # validator, but this gate at minimum stops the stale-.so false-green.
+    if phase.get("device", False):
+        serial = phase.get("device_serial") or os.environ.get("ANDROID_SERIAL", "eae4df44")
+        dv = AUTOPORT_DIR / "lib" / "deploy_verify.sh"
+        if dv.exists():
+            r = subprocess.run(["bash", str(dv), serial],
+                               cwd=REPO_ROOT, capture_output=True, text=True)
+            if r.returncode != 0:
+                tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-4:])
+                return ("fail",
+                        "CLOSE-GATE/deploy: deploy_verify FAILED — the device is NOT "
+                        "provably running the fresh HEAD build (stale or mixed "
+                        "CGO/libgk). Rebuild a CONSISTENT set (CGOs + libgk together) "
+                        "and redeploy before this phase can close.\n" + tail)
+
+    # GATE 3 — owner play-test is the FINAL gate (the owner's eye overrides any
+    # synthetic pass; the collision fix false-greened a validator twice before
+    # the owner confirmed it). For `owner_verify: true` phases, validator pass is
+    # NOT completion: require an owner-OK token the supervisor drops after the
+    # owner play-tests (touch .autoport/owner-ok/<pid>).
+    if phase.get("owner_verify", False):
+        token = AUTOPORT_DIR / "owner-ok" / pid
+        if not token.exists():
+            return ("awaiting-owner", "")
+
+    return ("pass", "")
+
+
+# ============================================================
 # Phase execution
 # ============================================================
 
@@ -1208,7 +1301,20 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     save_state(state)
 
     if v.returncode == 0:
-        return "pass", "", []
+        # The phase's own validator passed — but run the central close-gate to
+        # catch false-greens a lax validator misses (no-code stub, stale/mixed
+        # device build, missing owner play-test). Only "pass" lets it complete.
+        gate_status, gate_reason = close_gate(phase, validator_log)
+        if gate_status == "pass":
+            return "pass", "", []
+        if gate_status == "awaiting-owner":
+            return "awaiting-owner", "", []
+        # Fixable gate failure: append the reason to the validator log and fall
+        # through to the normal failure path (checkpoint, fingerprint, retry —
+        # the worker sees gate_reason as feedback on the next attempt).
+        with validator_log.open("a") as f:
+            f.write("\n\n" + gate_reason + "\n")
+        console.print(f"[yellow]{gate_reason}[/yellow]")
 
     # AUTO-CHECKPOINT (owner 2026-06-13): version EVERY failed attempt's work.
     # The orchestrator used to commit ONLY on PASS, so a long failing/iterating
@@ -1296,6 +1402,29 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
 
+        # Owner-gate resume: if a prior run already validated this owner_verify
+        # phase, don't re-run the worker. If the owner has since dropped the OK
+        # token, complete + advance; if not, pause again (zero worker burn).
+        if phase.get("owner_verify", False) and pid in state.get("validator_passed", []):
+            token = AUTOPORT_DIR / "owner-ok" / pid
+            if token.exists():
+                console.print(f"[bold green]✓ Phase {pid} owner-confirmed[/bold green]")
+                state["completed"].append(pid)
+                state["current_phase_idx"] += 1
+                save_state(state)
+                notify(f"✓ phase {pid} owner-confirmed — advancing.", level="ok")
+                continue
+            console.print(
+                f"[yellow]Phase {pid} still awaiting owner play-test "
+                f"(touch {AUTOPORT_DIR / 'owner-ok' / pid}).[/yellow]"
+            )
+            notify(
+                f"⏸ phase {pid} still awaiting your play-test. "
+                f"Confirm with: touch {AUTOPORT_DIR / 'owner-ok' / pid}",
+                level="alert",
+            )
+            return 0
+
         if not wait_for_quota():
             return 0
 
@@ -1341,6 +1470,36 @@ def main(argv: list[str] | None = None) -> int:
                 f"{remaining} phase{'s' if remaining != 1 else ''} remaining.",
                 level="ok",
             )
+
+        elif result == "awaiting-owner":
+            # Validator + close-gate passed, but this phase is owner_verify: the
+            # owner's eye is the final gate. Commit the work (so it's versioned),
+            # record that it validated, and PAUSE — do NOT mark it done. The loop
+            # resumes (top-of-loop shortcut) once the owner drops the OK token.
+            state.setdefault("validator_passed", [])
+            if pid not in state["validator_passed"]:
+                state["validator_passed"].append(pid)
+            save_state(state)
+            if git_commit(pid, phase["name"] + " (validator+gates passed — AWAITING OWNER PLAY-TEST, NOT done)"):
+                console.print("[green]  committed (awaiting-owner checkpoint)[/green]")
+                if plan.get("global", {}).get("git", {}).get("push_after_each_phase", True):
+                    git_push()
+            token_path = AUTOPORT_DIR / "owner-ok" / pid
+            console.print(Panel.fit(
+                f"[bold yellow]⏸ Phase {pid} AWAITING OWNER PLAY-TEST[/bold yellow]\n\n"
+                f"Validator + close-gate passed, but {pid} is owner_verify — the "
+                f"owner's eye is the final gate.\n\n"
+                f"If it's good, confirm and continue:\n  touch {token_path}\n"
+                f"then relaunch the orchestrator.",
+                border_style="yellow",
+                title="HUMAN GATE",
+            ))
+            notify(
+                f"⏸ phase {pid} validator+gates PASSED — awaiting your play-test "
+                f"(owner's eye = final gate). If good: touch {token_path}",
+                level="alert",
+            )
+            return 0
 
         elif result == "stuck":
             console.print(Panel.fit(
