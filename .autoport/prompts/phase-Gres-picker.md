@@ -37,3 +37,14 @@ comparison (screencaps), the render-scale interaction order, x86 link finish: lo
 
 ## Locks: ANDROID_SERIAL=eae4df44; no goalc/emitter/IGenX86_64.*; engine goal_src untouched; pc/ only goal_src; .autoport/gold READ-ONLY.
 ## Max: max_turns 1800, max_retries 5. device: true, owner_verify: true.
+
+## OWNER REFINEMENT (2026-06-30) — NATIVE must ADAPT to the selected aspect ratio
+Owner play-test: otherwise perfect, but the "NATIVE" entry must NOT be the raw panel size when the
+chosen aspect ratio differs from the panel aspect. NATIVE = the LARGEST resolution at the CURRENTLY
+SELECTED aspect ratio that fits within the physical panel:
+  - if chosen aspect is WIDER than the panel aspect → fit to panel WIDTH, compute height;
+  - if chosen aspect is NARROWER/taller than the panel → fit to panel HEIGHT, compute width.
+Example (owner's): panel 1080 tall (~2.22:1), choose 4:3 → 4:3 is narrower than panel → height-
+constrained → NATIVE = 1440 x 1080 (1080*4/3). Choose 16:9 → 1920 x 1080. Choose the panel's own
+aspect → the real panel size. The NATIVE entry's resolution must recompute when the aspect changes.
+Keep everything else (the ladder, persistence, render-scale coexistence) as-is.

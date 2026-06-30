@@ -150,8 +150,7 @@
     "Ginput-replay-realinput": 1,
     "Gcollision-nanroot": 1,
     "Gcollision-glitchcapture": 2,
-    "Gframerate-variable": 1,
-    "Gres-picker": 1
+    "Gframerate-variable": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -600,7 +599,6 @@
     "reason": "Phases 26-31 built on relocated kStateSeq cheat (game/kernel/common/android_dispatch_signals.cpp), stubbed weak_jak1_* bridge, and synthetic gradient renderer. See SUPERVISOR_JOURNAL.md."
   },
   "validator_passed": [
-    "Gframerate-variable",
-    "Gres-picker"
+    "Gframerate-variable"
   ]
 }
