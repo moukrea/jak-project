@@ -111,6 +111,73 @@
          (set! (-> obj framebuffer-scissor-height) (-> obj framebuffer-height))))))
   (none))
 
+;; ---------------------------------------------------------------------------
+;; Gdynamic-renderscale: adaptive render-scale controller (pc/ runtime; engine
+;; goal_src untouched). Drives the existing render-scale lever (game_res FBO) from
+;; the measured fps to hold dyn-target-fps within [min-render-scale,100]. Anti-thrash:
+;; a 2nd-stage fps EMA on top of the C++ measured_fps EMA + a dead-band + asymmetric
+;; cooldown/steps (lower fast, raise slow) + a floor clamp + skip during
+;; loads/cutscenes/menus. OFF -> returns the manual render-scale (controller idle).
+;; ---------------------------------------------------------------------------
+(define *dyn-rs-scale* 100.0)             ;; live dynamic render scale %
+(define *dyn-rs-fps-ema* 60.0)            ;; 2nd-stage smoothed fps
+(define *dyn-rs-last-adjust-time* (the-as time-frame 0)) ;; real-time of last scale change
+(define *dyn-rs-last-log-time* (the-as time-frame 0))    ;; real-time of last heartbeat log
+
+(defun dynamic-render-scale-update ((obj pc-settings))
+  "Return the effective render-scale % to use this frame. OFF -> the manual
+   render-scale (controller idle). ON -> auto-adjusted scale clamped to [floor,100]."
+  (cond
+    ((not (-> obj dynamic-render-scale?))
+     ;; disabled: keep the live scale primed at native so a later enable starts at 100
+     (set! *dyn-rs-scale* 100.0)
+     (-> obj render-scale))
+    (else
+     (let ((floor-scale (-> obj min-render-scale))
+           (target (-> obj dyn-target-fps))
+           (now (real-current-time)))
+       ;; clamp floor into the lever's hard [10,100] range
+       (cond ((< floor-scale 10.0) (set! floor-scale 10.0))
+             ((> floor-scale 100.0) (set! floor-scale 100.0)))
+       ;; 2nd-stage EMA over the C++ ~10-frame measured_fps EMA (extra ~0.5-1s smoothing)
+       (set! *dyn-rs-fps-ema* (+ (* 0.75 *dyn-rs-fps-ema*) (* 0.25 (the float (pc-get-fps)))))
+       (cond
+         ;; transition (load / cutscene / not in-game): HOLD scale, re-prime ema, reset
+         ;; cooldown so a post-transition spike/dip doesn't trigger a bogus move.
+         ((or (movie?)
+              (!= (-> *level* loading-level) (-> *level* level-default))
+              (!= *master-mode* 'game))
+          (set! *dyn-rs-fps-ema* target)
+          (set! *dyn-rs-last-adjust-time* now))
+         (else
+          (let ((ema *dyn-rs-fps-ema*)
+                (since (- now *dyn-rs-last-adjust-time*))
+                (cur *dyn-rs-scale*))
+            (cond
+              ;; persistently BELOW target -> lower fast (8%), >=0.5s cooldown, respect floor
+              ((and (< ema (- target 1.0)) (>= since (seconds 0.5)) (> cur floor-scale))
+               (set! cur (- cur 8.0))
+               (if (< cur floor-scale) (set! cur floor-scale))
+               (set! *dyn-rs-scale* cur)
+               (set! *dyn-rs-last-adjust-time* now)
+               (format 0 "[dyn-rs] fps ~,,1f < target ~,,0f -> LOWER scale to ~,,0f%~%" ema target cur))
+              ;; sustained HEADROOM (> target+8) -> raise slow (4%), >=1.5s cooldown, cap 100
+              ((and (> ema (+ target 8.0)) (>= since (seconds 1.5)) (< cur 100.0))
+               (set! cur (+ cur 4.0))
+               (if (> cur 100.0) (set! cur 100.0))
+               (set! *dyn-rs-scale* cur)
+               (set! *dyn-rs-last-adjust-time* now)
+               (format 0 "[dyn-rs] fps ~,,1f > target+hr ~,,0f -> RAISE scale to ~,,0f%~%" ema (+ target 8.0) cur))))))
+       ;; throttled heartbeat (~every 2s) so the heavy/light trace is legible in logcat
+       (when (>= (- now *dyn-rs-last-log-time*) (seconds 2))
+         (set! *dyn-rs-last-log-time* now)
+         (format 0 "[dyn-rs] state fps=~,,1f scale=~,,0f% target=~,,0f floor=~,,0f~%"
+                 *dyn-rs-fps-ema* *dyn-rs-scale* target floor-scale))
+       ;; final clamp to [floor,100] and return
+       (cond ((< *dyn-rs-scale* floor-scale) (set! *dyn-rs-scale* floor-scale))
+             ((> *dyn-rs-scale* 100.0) (set! *dyn-rs-scale* 100.0)))
+       *dyn-rs-scale*))))
+
 (defmethod update-to-os ((obj pc-settings))
   "Update settings from GOAL to the C kernel."
   ;; TODO - move the below out of this function that runs every frame
@@ -131,9 +198,10 @@
   ;; scale ONLY the game-resolution passed here (the FBO) — aspect-ratio, letterbox
   ;; and framebuffer-scissor are untouched, so the on-screen draw region / HUD
   ;; x-offsets do not shift. 100 = native (default). Clamp to [10,100].
-  (let* ((rs (cond ((< (-> obj render-scale) 10.0) 10.0)
-                   ((> (-> obj render-scale) 100.0) 100.0)
-                   (else (-> obj render-scale))))
+  (let* ((eff-scale (dynamic-render-scale-update obj))
+         (rs (cond ((< eff-scale 10.0) 10.0)
+                   ((> eff-scale 100.0) 100.0)
+                   (else eff-scale)))
          (rs-frac (/ rs 100.0))
          (base-w (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-width) (-> obj width)))
          (base-h (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-height) (-> obj height)))
@@ -539,6 +607,9 @@
     (("gfx-anisotropy") (set! (-> obj gfx-anisotropy) (file-stream-read-float file)))
     (("fps-counter?") (set! (-> obj fps-counter?) (file-stream-read-symbol file)))
     (("render-scale") (set! (-> obj render-scale) (file-stream-read-float file)))
+    (("min-render-scale") (set! (-> obj min-render-scale) (file-stream-read-float file)))
+    (("dynamic-render-scale?") (set! (-> obj dynamic-render-scale?) (file-stream-read-symbol file)))
+    (("dyn-target-fps") (set! (-> obj dyn-target-fps) (file-stream-read-float file)))
     (("shrub-dist-mod") (set! (-> obj shrub-dist-mod) (file-stream-read-float file)))
     (("lod-dist-mod") (set! (-> obj lod-dist-mod) (file-stream-read-float file)))
     (("lod-force-tfrag") (set! (-> obj lod-force-tfrag) (file-stream-read-int file)))
@@ -602,6 +673,9 @@
   (format file "  (msaa ~D)~%" (-> obj gfx-msaa))
   (format file "  (fps-counter? ~A)~%" (-> obj fps-counter?))
   (format file "  (render-scale ~f)~%" (-> obj render-scale))
+  (format file "  (min-render-scale ~f)~%" (-> obj min-render-scale))
+  (format file "  (dynamic-render-scale? ~A)~%" (-> obj dynamic-render-scale?))
+  (format file "  (dyn-target-fps ~f)~%" (-> obj dyn-target-fps))
   (format file
           "  (aspect-state ~A ~D ~D ~A)~%"
           (get-game-setting obj 'aspect-ratio)
