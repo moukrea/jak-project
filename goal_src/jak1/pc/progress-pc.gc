@@ -333,7 +333,11 @@
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
 ;; via the game-option name-override path which progress-pc.gc honors for on-off rows)
-(define *fps-counter-label* "FPS Counter")
+;; NOTE: all-uppercase — the jak1 menu font maps uppercase ASCII to the correct
+;; glyphs (matching the other menu rows), but lowercase ASCII bytes do NOT map to
+;; lowercase glyphs in this font's encoding (they render as garbage). The rest of
+;; the menu reads as all-caps anyway, so this matches the existing style.
+(define *fps-counter-label* "FPS COUNTER")
 
 (define *sound-options-pc*
   (new 'static

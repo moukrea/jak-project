@@ -575,7 +575,11 @@ u64 a35_pc_get_display_mode() {
 }
 
 u64 a35_pc_get_os() {
-  return jak1::intern_from_c("linux").offset;
+  // autoport graphics-options batch 1: report 'android (not 'linux) so the GOAL
+  // progress menu hides the items that don't apply to a single-display phone
+  // (Display mode / Display / Frame rate). Android defines both __ANDROID__ and
+  // __linux__, which is why the desktop pc_get_os mis-reported 'linux here too.
+  return jak1::intern_from_c("android").offset;
 }
 
 u64 a35_pc_get_unix_timestamp() {
@@ -611,6 +615,16 @@ void a35_pc_set_vsync(u32 sym_val) {
 
 void a35_pc_set_frame_rate(s64 rate) {
   Gfx::g_global_settings.target_fps = (float)rate;
+}
+
+// autoport graphics-options batch 1: store the FPS-counter overlay toggle so the
+// GOAL update-to-os call to pc-set-fps-counter has a real binding on Android (an
+// unbound pc-* symbol would BLR into junk). The shared Gfx flag is honored by the
+// desktop OpenGLRenderer present pass. NOTE: the Android renderer (android_gfx)
+// has no ImGui/text-overlay pass yet, so the on-screen number does not draw on
+// device — the flag is stored, but the visual overlay is a renderer follow-up.
+void a35_pc_set_fps_counter(u32 sym_val) {
+  Gfx::g_global_settings.display_fps = (sym_val != s7.offset);
 }
 }  // extern "C"
 
@@ -691,6 +705,7 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-set-collision-wireframe", d);
   jak1::make_function_symbol_from_c("pc-set-collision", d);
   jak1::make_function_symbol_from_c("pc-set-gfx-hack", d);
+  jak1::make_function_symbol_from_c("pc-set-fps-counter", (void*)a35_pc_set_fps_counter);
   // Other
   jak1::make_function_symbol_from_c("pc-get-os", (void*)a35_pc_get_os);
   jak1::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
