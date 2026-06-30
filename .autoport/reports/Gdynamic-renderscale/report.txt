@@ -1,168 +1,178 @@
 ================================================================================
 Phase Gdynamic-renderscale — adaptive render scale to HOLD a target framerate
 RESULT: DYNAMIC RENDER SCALE HOLDS TARGET FPS
+ATTEMPT 2 — fixes the owner reject: RAISE-BACK now works at a VSYNC-CAPPED target.
 ================================================================================
-Owner ask (2026-06-30, PRIORITY before the launcher): the static RENDER SCALE %
-(Grender-split) trades sharpness for fps MANUALLY. Add an AUTOMATIC mode that keeps
-the framerate at/above a chosen target by dynamically LOWERING the 3D render scale
-(within an allowed range) when a zone gets heavy, and RAISING it back toward 100%
-when there is headroom. Must be SMART — no thrashing. UI/HUD stay native (the
-Grender-split split is unchanged). Algorithm lives in the renderer/runtime; engine
-goal_src untouched so the gold oracle stays clean.
+Owner reject (2026-06-30, attempt 1): LOWERING worked, but RAISING the scale back
+up did NOT at a vsync-capped target. With target = 60 (= the 60Hz panel cap) the fps
+sits at 57/58/59/60 and NEVER exceeds 60, so attempt-1's "raise only when fps >
+target + margin" condition was UNSATISFIABLE -> the scale got STUCK at the lowest it
+ever reached (the floor) even with plenty of GPU headroom. (At target 45 it recovered
+only because the game ran well above 45, i.e. real fps-headroom above target.)
+
+THE FIX: raise on FRAME-TIME headroom, not on "fps above target". At a vsync cap the
+fps saturates and carries no headroom information, so the controller now measures the
+actual render WORK TIME per frame and compares it to the per-target vblank budget. It
+raises OPPORTUNISTICALLY (probing) whenever the frame work is comfortably under budget
+AND fps is still meeting target within a small tolerance — even while fps == the cap.
 
 --------------------------------------------------------------------------------
 0. WHERE IT LIVES (scope / locks)
 --------------------------------------------------------------------------------
-Implemented ENTIRELY in goal_src/jak1/pc/ (the PC-port runtime glue, which the
-locks explicitly allow) — three files, NO C++, NO engine goal_src, NO goalc/emitter,
-.autoport/gold untouched/pristine. Both builds (x86 + Android) get it from the same
-source; nothing is an Android-only UI hack.
-  - goal_src/jak1/pc/pckernel-h.gc     : 3 new pc-settings fields + their defaults.
-  - goal_src/jak1/pc/pckernel-common.gc: the adaptive controller + persistence.
-  - goal_src/jak1/pc/progress-pc.gc    : the 3 menu entries + dynamic relabel/retarget.
+The controller stays in goal_src/jak1/pc/ (the locks allow pc/ goal_src). Attempt 2
+ADDS one real renderer signal in C++ (game/graphics + android/, both allowed by the
+locks) — the per-frame render WORK time — because that signal cannot be derived from
+fps at a vsync cap. Engine goal_src untouched (gold oracle stays clean); no
+goalc/emitter/IGenX86_64.*; .autoport/gold pristine.
 
-The controller DRIVES THE EXISTING render-scale lever. update-to-os already computes
-the offscreen 3D FBO every frame as game_res = base x render-scale% (the Grender-split
-split then keeps UI/HUD/text native). The controller simply substitutes an
-auto-computed effective scale for the static render-scale when dynamic mode is on, so
-it reuses the proven, owner-confirmed Grender-split/Gres-picker FBO path verbatim —
-no new rendering code, no new resolution-dependent effects to break.
+  C++ (new FRAME-TIME signal, both renderer present paths):
+   - game/graphics/gfx.h ............ + float measured_frame_busy_ms (smoothed render
+       WORK time, ms; EXCLUDES the framelimiter sleep + vsync/swap wait).
+   - game/graphics/pipelines/opengl.cpp . desktop: time render_game_frame (work only),
+       EMA, publish measured_frame_busy_ms.
+   - android/android_gfx.cpp ......... Android: publish the renderer's render_cpu_s
+       (already measured) EMA into measured_frame_busy_ms.
+   - game/kernel/common/kmachine.cpp . + pc-get-frame-busy-us bridge (desktop).
+   - android/gk_android_main.cpp ..... + a35_pc_get_frame_busy_us bridge (Android).
+  GOAL (controller rewrite):
+   - goal_src/jak1/pc/pckernel-h.gc ..... + (define-extern pc-get-frame-busy-us ...).
+   - goal_src/jak1/pc/pckernel-common.gc  dynamic-render-scale-update rewritten around
+       FRAME-TIME headroom + opportunistic probing (see section 2).
+  (Menu untouched from attempt 1: progress-pc.gc already has the 3 entries.)
 
---------------------------------------------------------------------------------
-1. THE THREE MENU SETTINGS (pc/ menu + pc-settings, BOTH builds, persisted)
---------------------------------------------------------------------------------
-Added to the in-game Graphics options (desktop *graphic-options-pc*, Android
-*graphic-options-pc-android*), persisted to pc-settings.gc via the existing
-commit-to-file / read-from-file / handle-output-settings machinery:
-
- 1. "DYNAMIC RENDER SCALE"  — ON/OFF toggle, default OFF (manual behavior unchanged).
-       field: dynamic-render-scale? (symbol).
- 2. "RENDER SCALE" entry RELABELS to "MIN RENDER SCALE" when dynamic is ON, and then
-       edits a SEPARATE floor field (default 40%) instead of the manual fixed scale.
-       The toggle's on-change re-points + relabels that slider row live
-       (apply-dynamic-rs-menu-mode!): OFF -> edits render-scale (manual %, "RENDER
-       SCALE"); ON -> edits min-render-scale (the auto-scaler FLOOR, "MIN RENDER
-       SCALE"). fields: render-scale (manual, default 100), min-render-scale (floor,
-       default 40).
- 3. "MIN TARGET FPS"        — slider 25..60 step 5 -> {25,30,35,40,45,50,55,60},
-       default 30. field: dyn-target-fps (float). This is the MINIMUM framerate the
-       auto-scaler tries to hold (distinct from the vsync target-fps / panel refresh).
-
-All three persist (verified on device: edited pc-settings.gc keys took effect —
-target=55/30 and floor=40 appear in the runtime trace). The auto-scaler range =
-[min-render-scale, 100%].
+The controller still DRIVES the existing render-scale lever (update-to-os computes the
+3D FBO game_res = base x effective-scale%, the Grender-split keeps UI/HUD native). On
+Android the device prop debug.opengoal.render.scale (render_scale_pct) is left at its
+neutral 100 so the GOAL controller is the SOLE scale driver.
 
 --------------------------------------------------------------------------------
-2. THE ADAPTIVE ALGORITHM (anti-thrash — the owner's key requirement)
+1. THE THREE MENU SETTINGS (pc/ menu + pc-settings, BOTH builds, persisted) — unchanged
 --------------------------------------------------------------------------------
-dynamic-render-scale-update (runs once/frame inside update-to-os):
+ 1. "DYNAMIC RENDER SCALE"  ON/OFF toggle, default OFF (manual behavior unchanged).
+ 2. "RENDER SCALE" relabels to "MIN RENDER SCALE" (the auto-scaler FLOOR, default 40)
+       when dynamic is ON; OFF it stays the manual fixed RENDER SCALE %.
+ 3. "MIN TARGET FPS"        slider 25..60 step 5 (default 30) -> dyn-target-fps.
+Range the auto-scaler may use = [Minimum Render Scale, 100%]. All three commit-to-file.
 
- OFF  -> returns the manual render-scale; the live dynamic scale is kept primed at
-         100 so a later enable starts native and eases DOWN under load. Controller
-         otherwise idle, ZERO overhead, byte-identical to the shipped manual path.
+--------------------------------------------------------------------------------
+2. THE ADAPTIVE ALGORITHM — attempt 2 (FRAME-TIME headroom + probing; anti-thrash)
+--------------------------------------------------------------------------------
+TWO measured signals, both meaningful at a vsync cap:
+  * pc-get-fps          -> smoothed presented fps (SATURATES at the cap).
+  * pc-get-frame-busy-us -> smoothed render WORK time (does NOT saturate at the cap).
+Per-target vblank budget = 1000 / dyn-target-fps ms (e.g. target 60 -> 16.6ms,
+target 30 -> 33.3ms). Both signals get a 2nd-stage EMA on top of the C++ EMAs.
 
- ON   -> reads the real measured fps via (pc-get-fps) (the measured_fps EMA already
-         added for the FPS counter; C++ ~10-frame EMA on dt) and holds fps >= target
-         within [floor,100]. Intelligence (all present):
-   * SMOOTHED fps: a 2nd-stage EMA on top of the C++ EMA
-       ema = 0.75*ema + 0.25*fps  (extra ~0.5-1s smoothing) — acts on the smoothed
-       value, never single frames.
-   * DEAD-BAND around the target: no change while (target-1) <= ema <= (target+8).
-   * SMALL bounded STEPS with a COOLDOWN: lower in -8% steps no more often than every
-       0.5s; raise in +4% steps no more often than every 1.5s.
-   * ASYMMETRIC: lowers quickly-ish when persistently below target; raises SLOWLY and
-       conservatively (smaller step, longer cooldown, only when ema > target+8) to
-       avoid hunting. Eases toward equilibrium instead of oscillating.
-   * FLOOR clamp: scale is clamped to [floor,100] every frame; the boundary cannot be
-       crossed (no below-floor, no above-100 limit cycle).
-   * SKIP during loads / cutscenes / non-gameplay: when (movie?) OR a level is
-       loading (loading-level != level-default) OR master-mode != 'game, the
-       controller HOLDS the scale, re-primes the ema to target, and resets the
-       cooldown, so a load-spike / cut-dip can't trigger a bogus adjustment.
+ OFF  -> returns the manual render-scale; live dynamic scale kept primed at 100 so a
+         later enable starts native. Controller idle, zero overhead.
 
-Cooldown timebase = the engine real-time frame counter ((real-current-time) /
-(seconds N)), which advances at constant real rate regardless of fps — no new C++.
+ ON, in-game:
+   LOWER (real load only): fps < target-1 AND render-work >= 0.98*budget AND >=0.5s
+       since last change AND scale > floor -> scale -= 7%, clamp floor, arm a >=2s
+       raise-lockout. The frame-time gate is the OTHER half of the fix: it stops
+       vsync JITTER (fps reads a touch under a capped target while the GPU has plenty
+       of headroom) from spuriously lowering.
+   RAISE (the fix — opportunistic probe on FRAME-TIME headroom, NOT fps>target):
+       scale < 100 AND fps >= target-5 (so a 3-4 fps dip at a 60 cap does NOT block it)
+       AND render-work <= 0.80*budget (clear headroom) AND >=1s since last change AND
+       >=2s clear of the last lower -> scale += 5%. Each raise is a PROBE: the next
+       cycle re-measures; if work crossed budget / fps dropped under target the LOWER
+       path steps back; otherwise it keeps climbing toward 100%.
+   ANTI-THRASH: 2nd-stage EMAs (act on smoothed, never single frames); a wide busy
+       DEAD-BAND [0.80,0.98]*budget where nothing changes; asymmetric bounded steps
+       (lower -7% fast, raise +5% slow); cooldowns + a post-lower raise lockout; floor
+       clamp every frame; and a SKIP during loads/cutscenes/menus (hold + re-prime).
 
 --------------------------------------------------------------------------------
 3. VERIFY — x86
 --------------------------------------------------------------------------------
-Full iso rebuilt from the new pc/ source (Successfully built all targets). Boot
-smoke = the validator command:
-   build-x86/game/gk --game jak1 --portable -fakeiso ... -boot -debug-mem
-   -> "link finish: logo" x1, NO asserts / NO crash, healthy title-loop steady state.
-OFF is the default, so x86 boots exactly as before. x86 link finish: logo confirmed.
+Full iso rebuilt from the new pc/ + C++ source (goalc (mi): "Successfully built all
+546 targets"; pckernel-common.gc/pckernel-h.gc/progress-pc.gc compiled clean). Boot
+smoke = the validator command -> "link finish: logo" x1, no asserts/crash, healthy
+title loop. OFF is the default so x86 boots exactly as before. x86 link finish: logo.
 
 --------------------------------------------------------------------------------
 4. VERIFY — Android device eae4df44 (the owner's Redmi), state + behaviour
 --------------------------------------------------------------------------------
-CONSISTENT build: all 28 arm64 CGO/DGO rebuilt in one pass from the new source
-(build_arm64_full_consistent.sh) and deployed; libgk rebuilt + installed.
-  - deploy_verify.sh PASS: chain build==APK==device (libgk 5582c0dd5b1a80f5),
-    device provably runs the fresh HEAD libgk.so.
-  - device GAME/KERNEL/ENGINE.CGO sha256 == local fresh build (device runs the new
-    GOAL code — the [dyn-rs] trace below only the new code can emit, confirming it).
-  - No crashes (no sig 11/6/4 / SIGSEGV / SIGABRT / tombstone across all runs).
+CONSISTENT build: all 28 arm64 CGO/DGO rebuilt in one pass from the new source +
+libgk rebuilt, shipped as the FULL consistent bundle APK (1.2G) and clean-extracted.
+  - deploy_verify.sh PASS: chain build==APK==device (libgk 7af525277d246f33), device
+    provably runs the fresh HEAD (df3c40f87) libgk.so.
+  - device iso_data/jak1/KERNEL.CGO sha256 == local arm64 build
+    (956ed7a1cae46591cbb788cc454b52ea172890b14511b7800611ac0e2ad58b42) — device runs
+    THIS arm64 code (the [dyn-rs] state lines log "busy=..ms budget=..ms", which only
+    the new attempt-2 controller emits, confirming it).
+  - No crashes (0 sig 11/6/4 / SIGSEGV / SIGABRT) across ALL four runs.
 
-HEAVY-vs-LIGHT trace (in-game at Geyser Rock; the heavy 3D zone after the title warp
-drops the Adreno well below 55fps; the title/menu is the light/idle phase where the
-controller stays idle at 100%):
+A) Dynamic ON, MIN TARGET FPS = 60 (= the 60Hz vsync cap — the owner's FAILING case),
+   floor 40, heavy zone (Geyser Rock). 70s. (evidence: t60_floor40.log)
+   - Entering the heavy zone fps falls below 60 while render-work exceeds the 16.6ms
+     budget -> scale LOWERS (100 ->93->86->79->72->65->58->51->44->40), every LOWER
+     logged with fps<60 AND busy>=16.6ms (REAL load, not jitter). Floor 40 respected
+     (never below 40).
+   - Crucially, the controller is NOT STUCK at the floor: while fps is PINNED at the
+     59.6-59.9 cap (never above 60), it issues RAISE(probe) steps whenever the render
+     work drops under 0.80*budget. ALL 5 raises in the run fired at fps 59.7-59.9
+     (at/under the target), e.g.:
+       RAISE(probe) to 50% (busy 12.8<=0.8budget 16.6ms, fps 59.9 tgt 60)
+       RAISE(probe) to 49% (busy 13.3<=0.8budget 16.6ms, fps 59.9 tgt 60)
+     This is exactly the bug attempt-1 had (raise needed fps>target, impossible at the
+     cap) now FIXED: the raise is driven by FRAME-TIME headroom while fps == the cap.
+   - Final scale 43% / fps 59.6 / busy 14.7ms of the 16.6ms budget. Honest note: at a
+     genuinely GPU-bound zone like Geyser, holding 60 NEEDS a low scale, so the
+     equilibrium hovers in the low 40s and the controller continuously eases up/down
+     (lower<->raise) around that GPU-bound point — that is the feature working, NOT a
+     pinned floor (attempt-1 sank to and stuck at the floor with ZERO raises).
 
- A) Dynamic ON, MIN TARGET FPS = 55 (a target heavier than this Adreno can sustain):
-    pre-warp (title, master-mode != game): state fps~58 scale=100% (controller idle).
-    entering the heavy zone, fps falls below target -> scale auto-LOWERS, stepping
-       100 -> 92 -> 84 -> 76 -> 68 -> 60 -> 52 -> 44 -> 40   (-8% steps)
-    then PINS at 40% (= the floor) and NEVER goes below it; fps recovers/converges to
-    ~48-50 (the hardware ceiling — 55 is unreachable even at 40%, so the controller
-    correctly HOLDS the floor rather than overshooting downward). Floor respected.
+B) CLIMB demo — Dynamic ON, target=60, floor 40, with a controlled HEAVY->LIGHT
+   transition (at half-time the neutral C++ render_scale_pct is dropped to 45, cutting
+   the render work so genuine headroom appears) to isolate the raise-back cleanly. 90s.
+   (evidence: t60_climb.log) RESULT — after the light phase begins the scale CLIMBS
+   monotonically back toward 100% while fps stays pinned at the 60 cap the whole time:
+       51% -> 56% -> 61% -> 66% -> 71% -> 76%
+       (fps 60.4 / 59.6 / 59.9 / 59.9 / 59.9, each gated on busy<=0.80*budget)
+   This is the unambiguous demonstration: at a vsync-capped target, with real
+   frame-time headroom, the scale RECOVERS toward 100% — the owner's reject is fixed.
 
- B) Dynamic ON, MIN TARGET FPS = 30 (reachable) — closed-loop CONVERGENCE:
-    lowers 100 -> ... -> 60 (fps below 30 while loading/heavy), then once fps has
-    headroom it RAISES +4% (60 -> 64), then settles in the DEAD-BAND: held ~32s with
-    NO change while fps sat in [30,38], a single corrective LOWER to 56, and steady
-    state at scale 56% / fps ~35-36 — i.e. fps CONVERGES to sit comfortably >= the
-    target with headroom, scale as high as it can be without dipping under target.
-    Both directions (lower AND raise) exercised; equilibrium reached, no hunting.
+C) Dynamic ON, MIN TARGET FPS = 30 (headroom case), floor 40. 55s.
+   (evidence: t30_floor40.log) The scene holds 60-ish naturally (render-work 7.7-22.5ms
+   << the 33.3ms budget for 30), so the controller correctly sits at 100% the entire
+   run (no lower warranted) with fps 40-60 (>= the 30 target with large headroom). The
+   higher target-headroom -> higher scale (100%) vs the 60-target run's low-40s.
 
- C) Dynamic OFF: ZERO [dyn-rs] lines across the whole run; the game renders normally
-    on the manual fixed RENDER SCALE. OFF = unchanged manual behavior (regression
-    clean, foreground-verified frame).
+D) Dynamic OFF: ZERO [dyn-rs] lines across the run; the game renders on the manual
+   fixed RENDER SCALE (maxframe advancing). OFF = unchanged manual behavior.
 
-ANTI-THRASH, QUANTIFIED (adjustment cadence proves no oscillation):
-  - LOWER adjustments were ~0.5s apart (timestamps 22:18:47.257 / .749 / 48.266 /
-    .782 / 49.291 / .799 / 50.309 / .801) = exactly the >=0.5s lower cooldown, NOT
-    per-frame (a frame at ~25fps = 0.04s). The scale change is SMOOTH / bounded-rate.
-  - The RAISE came 1.81s after the prior change (>=1.5s raise cooldown), +4% only.
-  - Dead-band HELD for ~32s with zero changes while fps was in [target, target+8].
-  - Heartbeat state log cadence ~2.000s. No rapid oscillation anywhere in the trace.
-
-Evidence (.autoport/reports/Gdynamic-renderscale/evidence/):
-  dynrs_target55.log  (62 [dyn-rs] lines: 100->40 lower cascade, floor=40 held)
-  dynrs_target30.log  (48 [dyn-rs] lines: lower->raise->dead-band convergence)
-  dynrs_off.log       (0  [dyn-rs] lines: controller idle when OFF)
-  t55_floor40_frame.png / t30_frame.png / off_frame.png
-       (foreground=org.opengoal.gk.jak1 verified; three distinct render-scale states,
-        crisp HUD/FPS text over the scaled 3D in every one).
+ANTI-THRASH, QUANTIFIED (adjustment cadence proves no rapid oscillation):
+  - Both ON-at-60 runs: min gap between adjustments = 0.49s, MEAN gap 3.31s / 7.16s.
+    The 0.49s minimum occurs only during the initial rapid LOWER cascade reacting to a
+    sharp load spike (the asymmetric "lower fast" path, ~0.5s cooldown); steady-state
+    changes are seconds apart. No per-frame oscillation anywhere (a frame at 60fps =
+    0.017s; the controller is ~30-400x slower than per-frame).
+  - The wide busy DEAD-BAND [0.80,0.98]*budget + the >=2s post-lower raise lockout keep
+    it from hunting: e.g. in B it held scale 56% for ~28s (00:43:37-00:44:04) with fps
+    pinned ~60 before resuming the climb.
 
 --------------------------------------------------------------------------------
 5. HONEST NOTES
 --------------------------------------------------------------------------------
-- target=55 pinned at the 40% floor (fps ~48-50) rather than reaching 55: that is the
-  controller behaving CORRECTLY against a hardware ceiling (this Adreno can't hit 55
-  even at 40% scale — consistent with the Grender-audit throughput finding), and it is
-  the honest demonstration that the floor clamp works. target=30 is the clean
-  "converges at an intermediate scale holding the target" demonstration.
-- The dead-band is intentionally 8fps wide, so for target=30 the controller settles at
-  scale 56% / fps ~36 (clearly above target, inside the band) instead of hunting up to
-  100%. This is the anti-thrash trade-off the owner asked for (stability over chasing
-  the last few % of scale).
-- Deployment hazard recorded: on this device a SLIM reinstall over an extracted FULL
-  bundle makes LoaderActivity wipe iso_data on the version mismatch; the final state
-  was deployed as the FULL consistent bundle + the 28 fresh CGOs re-pushed and
-  sha-verified. deploy_verify + CGO sha checks are all against that correct final state.
+- The render-work signal on Android is the renderer's CPU render() time (render_cpu_s);
+  on this Adreno it couples with load enough to drive correct decisions (LOWER fired at
+  busy 17-23ms on real fps drops; RAISE fired at busy 12.8-13.3ms with fps ~60). It is
+  noisy frame-to-frame, which is why the controller acts on a 2nd-stage EMA and a wide
+  dead-band, and why the equilibrium at a heavy zone wanders a few % rather than sitting
+  on one exact value. The MIDDROP climb demo (B) isolates the raise from that noise.
+- At target=60 in a permanently heavy zone the scale settles LOW (low-40s) because
+  60fps there genuinely requires a low scale; that is the feature (trade sharpness for
+  the target), not the bug. The fix is that it now RAISES whenever headroom appears
+  (proven by the 5 raises in A at fps~60 and the clean 51->76% climb in B), instead of
+  attempt-1's monotonic sink-and-stick at the floor.
+- 0.49s min adjustment gap is marginally under the 0.5s nominal lower cooldown (timer
+  rounding during the rapid spike cascade); steady-state cadence is multi-second.
 
-OWNER PLAY-TEST is the final gate. To try it: Graphics options -> turn "DYNAMIC RENDER
-SCALE" ON (the "RENDER SCALE" row becomes "MIN RENDER SCALE" = the floor), set "MIN
-TARGET FPS", then play — in a heavy zone the 3D softens (scale drops, bounded, never
-below the floor) to hold the fps, and eases back toward sharp when the zone lightens;
-UI/HUD/text stay native-crisp throughout. OFF = the old manual fixed RENDER SCALE.
+OWNER PLAY-TEST is the final gate. To try it: Graphics options -> "DYNAMIC RENDER
+SCALE" ON, set "MIN TARGET FPS" (e.g. 60), play — in a heavy zone the 3D softens
+(bounded, never below the MIN RENDER SCALE floor) to hold the fps, and as the zone
+lightens the scale eases back UP toward sharp EVEN at the 60 cap (it now reads the GPU
+frame-time headroom, not just fps). UI/HUD/text stay native. OFF = the old manual scale.
 ================================================================================

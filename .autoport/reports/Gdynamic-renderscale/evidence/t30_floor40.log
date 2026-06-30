@@ -1,0 +1,74 @@
+07-01 00:44:46.334  3041  3135 I opengoal-gk: A35-RENDER frame=1 chain_bytes=11408 buckets_drawn=1 skipped=0 draws=0 tris=0 fbo=640x480 render_ms=8.52 buckets_ms=2.11 pcrtc_ms=0.40
+07-01 00:44:46.346  3041  3135 I opengoal-gk: A35-RENDER frame=2 chain_bytes=21312 buckets_drawn=21 skipped=0 draws=1 tris=2 fbo=640x480 render_ms=3.96 buckets_ms=1.10 pcrtc_ms=0.12
+07-01 00:44:46.346  3041  3155 I opengoal-gk: [dyn-rs] state fps=59.0 busy=16.1ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:44:46.367  3041  3135 I opengoal-gk: A35-RENDER frame=3 chain_bytes=22144 buckets_drawn=21 skipped=0 draws=1 tris=2 fbo=640x480 render_ms=8.50 buckets_ms=1.92 pcrtc_ms=0.06
+07-01 00:44:46.379  3041  3135 I opengoal-gk: A35-RENDER frame=4 chain_bytes=21312 buckets_drawn=21 skipped=0 draws=2 tris=4 fbo=640x480 render_ms=3.90 buckets_ms=0.40 pcrtc_ms=0.06
+07-01 00:44:46.394  3041  3135 I opengoal-gk: A35-RENDER frame=5 chain_bytes=21312 buckets_drawn=21 skipped=0 draws=2 tris=4 fbo=640x480 render_ms=2.22 buckets_ms=0.41 pcrtc_ms=0.07
+07-01 00:44:46.735  3041  3135 I opengoal-gk: A35-RENDER frame=25 chain_bytes=36352 buckets_drawn=24 skipped=1 draws=32 tris=4046 fbo=640x480 render_ms=10.08 buckets_ms=7.26 pcrtc_ms=0.09
+07-01 00:44:47.313  3041  3135 I opengoal-gk: A35-RENDER frame=60 chain_bytes=28128 buckets_drawn=24 skipped=1 draws=28 tris=3916 fbo=640x480 render_ms=5.14 buckets_ms=4.55 pcrtc_ms=0.29
+07-01 00:44:48.317  3041  3135 I opengoal-gk: A35-RENDER frame=120 chain_bytes=28128 buckets_drawn=24 skipped=1 draws=28 tris=3916 fbo=640x480 render_ms=8.48 buckets_ms=7.47 pcrtc_ms=0.23
+07-01 00:44:48.342  3041  3155 I opengoal-gk: [dyn-rs] state fps=58.6 busy=7.7ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:44:49.318  3041  3135 I opengoal-gk: A35-RENDER frame=180 chain_bytes=28128 buckets_drawn=24 skipped=1 draws=28 tris=3916 fbo=640x480 render_ms=9.87 buckets_ms=5.68 pcrtc_ms=0.06
+07-01 00:44:50.320  3041  3135 I opengoal-gk: A35-RENDER frame=240 chain_bytes=28128 buckets_drawn=24 skipped=1 draws=28 tris=3916 fbo=640x480 render_ms=11.90 buckets_ms=11.32 pcrtc_ms=0.09
+07-01 00:44:50.342  3041  3155 I opengoal-gk: [dyn-rs] state fps=59.9 busy=11.2ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:44:51.323  3041  3135 I opengoal-gk: A35-RENDER frame=300 chain_bytes=28128 buckets_drawn=24 skipped=1 draws=28 tris=3916 fbo=640x480 render_ms=14.48 buckets_ms=14.04 pcrtc_ms=0.15
+07-01 00:44:52.325  3041  3135 I opengoal-gk: A35-RENDER frame=360 chain_bytes=28128 buckets_drawn=24 skipped=1 draws=28 tris=3916 fbo=640x480 render_ms=13.91 buckets_ms=12.75 pcrtc_ms=0.07
+07-01 00:44:52.343  3041  3155 I opengoal-gk: [dyn-rs] state fps=59.9 busy=14.6ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:44:53.328  3041  3135 I opengoal-gk: A35-RENDER frame=420 chain_bytes=28128 buckets_drawn=24 skipped=1 draws=28 tris=3916 fbo=640x480 render_ms=14.45 buckets_ms=13.56 pcrtc_ms=0.09
+07-01 00:44:54.332  3041  3135 I opengoal-gk: A35-RENDER frame=480 chain_bytes=31088 buckets_drawn=24 skipped=1 draws=46 tris=8161 fbo=640x480 render_ms=16.94 buckets_ms=16.59 pcrtc_ms=0.11
+07-01 00:44:54.335  3041  3155 I opengoal-gk: [dyn-rs] state fps=59.7 busy=14.6ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:44:55.333  3041  3135 I opengoal-gk: A35-RENDER frame=540 chain_bytes=31088 buckets_drawn=24 skipped=1 draws=46 tris=8161 fbo=640x480 render_ms=15.02 buckets_ms=14.49 pcrtc_ms=0.08
+07-01 00:44:56.338  3041  3135 I opengoal-gk: A35-RENDER frame=600 chain_bytes=31088 buckets_drawn=24 skipped=1 draws=46 tris=8161 fbo=640x480 render_ms=16.85 buckets_ms=14.23 pcrtc_ms=0.15
+07-01 00:44:56.340  3041  3155 I opengoal-gk: [dyn-rs] state fps=59.7 busy=14.8ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:44:57.531  3041  3135 I opengoal-gk: A35-RENDER frame=660 chain_bytes=272720 buckets_drawn=33 skipped=0 draws=534 tris=324410 fbo=640x480 render_ms=19.17 buckets_ms=18.85 pcrtc_ms=0.04
+07-01 00:44:58.156  3041  3135 I opengoal-gk: A35-RENDER frame=688 chain_bytes=383632 buckets_drawn=33 skipped=1 draws=537 tris=325922 fbo=640x480 render_ms=19.52 buckets_ms=19.20 pcrtc_ms=0.08
+07-01 00:44:58.429  3041  3155 I opengoal-gk: [dyn-rs] state fps=44.5 busy=20.2ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:44:58.923  3041  3135 I opengoal-gk: A35-RENDER frame=720 chain_bytes=444000 buckets_drawn=34 skipped=1 draws=573 tris=328822 fbo=640x480 render_ms=23.21 buckets_ms=22.76 pcrtc_ms=0.15
+07-01 00:45:00.393  3041  3135 I opengoal-gk: A35-RENDER frame=780 chain_bytes=337424 buckets_drawn=34 skipped=1 draws=570 tris=327166 fbo=640x480 render_ms=22.05 buckets_ms=21.72 pcrtc_ms=0.04
+07-01 00:45:00.418  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.9 busy=21.6ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:01.918  3041  3135 I opengoal-gk: A35-RENDER frame=840 chain_bytes=370288 buckets_drawn=34 skipped=1 draws=570 tris=326554 fbo=640x480 render_ms=21.00 buckets_ms=20.71 pcrtc_ms=0.05
+07-01 00:45:02.429  3041  3155 I opengoal-gk: [dyn-rs] state fps=40.9 busy=22.1ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:03.375  3041  3135 I opengoal-gk: A35-RENDER frame=900 chain_bytes=419552 buckets_drawn=34 skipped=1 draws=573 tris=326408 fbo=640x480 render_ms=22.32 buckets_ms=21.38 pcrtc_ms=0.05
+07-01 00:45:04.440  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.9 busy=21.8ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:04.821  3041  3135 I opengoal-gk: A35-RENDER frame=960 chain_bytes=419552 buckets_drawn=34 skipped=1 draws=572 tris=326214 fbo=640x480 render_ms=22.51 buckets_ms=22.15 pcrtc_ms=0.04
+07-01 00:45:06.269  3041  3135 I opengoal-gk: A35-RENDER frame=1020 chain_bytes=419552 buckets_drawn=34 skipped=1 draws=572 tris=326320 fbo=640x480 render_ms=19.65 buckets_ms=19.32 pcrtc_ms=0.04
+07-01 00:45:06.446  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.0 busy=21.8ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:07.738  3041  3135 I opengoal-gk: A35-RENDER frame=1080 chain_bytes=403136 buckets_drawn=34 skipped=1 draws=571 tris=326344 fbo=640x480 render_ms=22.13 buckets_ms=21.83 pcrtc_ms=0.05
+07-01 00:45:08.455  3041  3155 I opengoal-gk: [dyn-rs] state fps=40.7 busy=22.4ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:09.198  3041  3135 I opengoal-gk: A35-RENDER frame=1140 chain_bytes=312784 buckets_drawn=34 skipped=1 draws=571 tris=326070 fbo=640x480 render_ms=21.67 buckets_ms=21.34 pcrtc_ms=0.04
+07-01 00:45:10.450  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.1 busy=22.1ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:10.640  3041  3135 I opengoal-gk: A35-RENDER frame=1200 chain_bytes=403136 buckets_drawn=34 skipped=1 draws=572 tris=327486 fbo=640x480 render_ms=22.03 buckets_ms=21.56 pcrtc_ms=0.05
+07-01 00:45:12.195  3041  3135 I opengoal-gk: A35-RENDER frame=1260 chain_bytes=436000 buckets_drawn=34 skipped=1 draws=573 tris=328596 fbo=640x480 render_ms=22.58 buckets_ms=22.14 pcrtc_ms=0.07
+07-01 00:45:12.493  3041  3155 I opengoal-gk: [dyn-rs] state fps=39.9 busy=22.5ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:13.672  3041  3135 I opengoal-gk: A35-RENDER frame=1320 chain_bytes=436000 buckets_drawn=34 skipped=1 draws=573 tris=328724 fbo=640x480 render_ms=22.38 buckets_ms=22.02 pcrtc_ms=0.07
+07-01 00:45:14.515  3041  3155 I opengoal-gk: [dyn-rs] state fps=40.9 busy=22.5ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:15.153  3041  3135 I opengoal-gk: A35-RENDER frame=1380 chain_bytes=427776 buckets_drawn=34 skipped=1 draws=572 tris=328662 fbo=640x480 render_ms=22.48 buckets_ms=22.09 pcrtc_ms=0.06
+07-01 00:45:16.522  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.4 busy=21.4ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:16.616  3041  3135 I opengoal-gk: A35-RENDER frame=1440 chain_bytes=345632 buckets_drawn=34 skipped=1 draws=571 tris=327272 fbo=640x480 render_ms=22.14 buckets_ms=21.80 pcrtc_ms=0.05
+07-01 00:45:18.057  3041  3135 I opengoal-gk: A35-RENDER frame=1500 chain_bytes=386704 buckets_drawn=34 skipped=1 draws=571 tris=326778 fbo=640x480 render_ms=21.69 buckets_ms=21.39 pcrtc_ms=0.05
+07-01 00:45:18.519  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.5 busy=21.6ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:19.501  3041  3135 I opengoal-gk: A35-RENDER frame=1560 chain_bytes=427776 buckets_drawn=34 skipped=1 draws=572 tris=326482 fbo=640x480 render_ms=22.21 buckets_ms=21.83 pcrtc_ms=0.05
+07-01 00:45:20.509  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.9 busy=21.8ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:20.938  3041  3135 I opengoal-gk: A35-RENDER frame=1620 chain_bytes=427776 buckets_drawn=34 skipped=1 draws=571 tris=326338 fbo=640x480 render_ms=21.71 buckets_ms=21.35 pcrtc_ms=0.05
+07-01 00:45:22.420  3041  3135 I opengoal-gk: A35-RENDER frame=1680 chain_bytes=427776 buckets_drawn=34 skipped=1 draws=571 tris=326468 fbo=640x480 render_ms=21.35 buckets_ms=21.03 pcrtc_ms=0.04
+07-01 00:45:22.518  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.6 busy=21.9ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:23.875  3041  3135 I opengoal-gk: A35-RENDER frame=1740 chain_bytes=419552 buckets_drawn=34 skipped=1 draws=571 tris=326564 fbo=640x480 render_ms=19.40 buckets_ms=19.09 pcrtc_ms=0.05
+07-01 00:45:24.527  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.9 busy=21.7ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:25.314  3041  3135 I opengoal-gk: A35-RENDER frame=1800 chain_bytes=312784 buckets_drawn=34 skipped=1 draws=571 tris=326128 fbo=640x480 render_ms=21.46 buckets_ms=21.08 pcrtc_ms=0.04
+07-01 00:45:26.535  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.9 busy=21.8ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:26.747  3041  3135 I opengoal-gk: A35-RENDER frame=1860 chain_bytes=411344 buckets_drawn=34 skipped=1 draws=571 tris=327550 fbo=640x480 render_ms=18.61 buckets_ms=18.32 pcrtc_ms=0.04
+07-01 00:45:28.208  3041  3135 I opengoal-gk: A35-RENDER frame=1920 chain_bytes=436000 buckets_drawn=34 skipped=1 draws=573 tris=328594 fbo=640x480 render_ms=22.19 buckets_ms=21.74 pcrtc_ms=0.07
+07-01 00:45:28.534  3041  3155 I opengoal-gk: [dyn-rs] state fps=40.5 busy=22.5ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:29.690  3041  3135 I opengoal-gk: A35-RENDER frame=1980 chain_bytes=427776 buckets_drawn=34 skipped=1 draws=572 tris=328588 fbo=640x480 render_ms=21.86 buckets_ms=21.50 pcrtc_ms=0.07
+07-01 00:45:30.532  3041  3155 I opengoal-gk: [dyn-rs] state fps=40.8 busy=22.2ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:31.170  3041  3135 I opengoal-gk: A35-RENDER frame=2040 chain_bytes=427776 buckets_drawn=34 skipped=1 draws=572 tris=328670 fbo=640x480 render_ms=20.91 buckets_ms=20.58 pcrtc_ms=0.09
+07-01 00:45:32.529  3041  3155 I opengoal-gk: [dyn-rs] state fps=40.9 busy=21.9ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:32.646  3041  3135 I opengoal-gk: A35-RENDER frame=2100 chain_bytes=345632 buckets_drawn=34 skipped=1 draws=571 tris=327256 fbo=640x480 render_ms=21.86 buckets_ms=20.62 pcrtc_ms=0.05
+07-01 00:45:34.094  3041  3135 I opengoal-gk: A35-RENDER frame=2160 chain_bytes=386704 buckets_drawn=34 skipped=1 draws=571 tris=326774 fbo=640x480 render_ms=22.01 buckets_ms=21.47 pcrtc_ms=0.05
+07-01 00:45:34.528  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.9 busy=21.8ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:35.531  3041  3135 I opengoal-gk: A35-RENDER frame=2220 chain_bytes=427776 buckets_drawn=34 skipped=1 draws=572 tris=326466 fbo=640x480 render_ms=21.57 buckets_ms=21.24 pcrtc_ms=0.05
+07-01 00:45:36.540  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.9 busy=21.9ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:36.971  3041  3135 I opengoal-gk: A35-RENDER frame=2280 chain_bytes=427776 buckets_drawn=34 skipped=1 draws=571 tris=326300 fbo=640x480 render_ms=22.05 buckets_ms=21.72 pcrtc_ms=0.05
+07-01 00:45:38.415  3041  3135 I opengoal-gk: A35-RENDER frame=2340 chain_bytes=427776 buckets_drawn=34 skipped=1 draws=571 tris=326470 fbo=640x480 render_ms=21.86 buckets_ms=21.47 pcrtc_ms=0.05
+07-01 00:45:38.540  3041  3155 I opengoal-gk: [dyn-rs] state fps=41.0 busy=22.0ms budget=33.3ms scale=100% target=30 floor=40
+07-01 00:45:39.878  3041  3135 I opengoal-gk: A35-RENDER frame=2400 chain_bytes=419552 buckets_drawn=34 skipped=1 draws=571 tris=326524 fbo=640x480 render_ms=22.31 buckets_ms=21.73 pcrtc_ms=0.05

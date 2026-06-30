@@ -732,6 +732,16 @@ void a35_pc_set_fps_counter(u32 sym_val) {
 s64 a35_pc_get_fps() {
   return (s64)(Gfx::g_global_settings.measured_fps + 0.5f);
 }
+
+// Gdynamic-renderscale: smoothed per-frame render WORK time in microseconds (the CPU
+// wall-clock of the renderer render(), excluding the vsync()/framelimiter sleep + the
+// SwapWindow vsync wait). android_gfx publishes measured_frame_busy_ms. Read by the
+// GOAL adaptive render-scale controller as a FRAME-TIME headroom signal that does NOT
+// saturate at the vsync cap (unlike measured_fps), so it can raise the scale back
+// toward 100% even when fps is pinned at a capped target.
+s64 a35_pc_get_frame_busy_us() {
+  return (s64)(Gfx::g_global_settings.measured_frame_busy_ms * 1000.f + 0.5f);
+}
 }  // extern "C"
 
 void a17_bind_pc_helpers() {
@@ -813,6 +823,7 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-set-gfx-hack", d);
   jak1::make_function_symbol_from_c("pc-set-fps-counter", (void*)a35_pc_set_fps_counter);
   jak1::make_function_symbol_from_c("pc-get-fps", (void*)a35_pc_get_fps);
+  jak1::make_function_symbol_from_c("pc-get-frame-busy-us", (void*)a35_pc_get_frame_busy_us);
   // Other
   jak1::make_function_symbol_from_c("pc-get-os", (void*)a35_pc_get_os);
   jak1::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
