@@ -700,6 +700,23 @@ void GLDisplay::render() {
     auto p = scoped_prof("debug-gui");
     g_gfx_data->debug_gui.draw(g_gfx_data->dma_copier.get_last_result().stats);
   }
+
+  // Measure the REAL render rate on the graphics thread and publish it for the
+  // GOAL on-screen FPS counter (pc-get-fps). The number itself is drawn GOAL-side
+  // via the game font so it renders identically on desktop (GL) AND Android (GLES,
+  // which has no ImGui pass) — one portable path, gated on g_global_settings.
+  {
+    static Timer s_fps_timer;
+    static float s_fps_smoothed_dt = 1.f / 60.f;
+    float dt = s_fps_timer.getSeconds();
+    s_fps_timer.start();
+    if (dt > 0.f) {
+      s_fps_smoothed_dt = (0.9f * s_fps_smoothed_dt) + (0.1f * dt);
+    }
+    Gfx::g_global_settings.measured_fps =
+        (s_fps_smoothed_dt > 0.f) ? (1.f / s_fps_smoothed_dt) : 0.f;
+  }
+
   {
     auto p = scoped_prof("imgui-render");
     ImGui::Render();

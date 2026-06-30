@@ -428,8 +428,30 @@ extern "C" u64 a17_pc_default() {
 // block) — file-scope there, so declare it here.
 extern Timer ee_clock_timer;
 
+// Gspeed: the renderer publishes a stable-grid-driven EE-tick count for the
+// engine game-clock (see android_gfx.cpp). The frame clock reads this timer via
+// get-bus-clock/256 == (__read-ee-timer >> 9), so to deliver N bus-ticks we
+// return (N << 9).
+// g_gspeed_clock_ticks / g_gspeed_clock_active are declared in android_gfx.h
+// (included above) and defined in android_gfx.cpp.
+
 extern "C" {
 u64 a35_read_ee_timer() {
+  // ===== Gspeed: render-decoupled, vblank-stable engine game-clock ===========
+  // Once the GL render loop is publishing its stable-grid clock, feed the GOAL
+  // frame clock from it instead of raw wall-time. The published counter is in
+  // bus-ticks (get-bus-clock/256 units, == raw_ee_ticks >> 9), advanced by
+  // (step - 0.5) * *ticks-per-frame* per rendered frame, so the engine's
+  // per-frame time-ratio is a STABLE integer == the renderer's vblanks-per-frame
+  // and game-time advances at a constant real-time 60 Hz regardless of render
+  // jitter (owner: "logic speed varies with render speed"). We shift back up by
+  // 9 because the GOAL macro re-applies >>9. Pre-publish (boot/link) and if the
+  // grid is disabled (debug.opengoal.gspeed.off=1 stops the renderer publishing)
+  // we fall back to the original free-running wall clock. arm64/Android only;
+  // x86/desktop + goal_src untouched.
+  if (android_gfx::g_gspeed_clock_active.load(std::memory_order_acquire)) {
+    return android_gfx::g_gspeed_clock_ticks.load(std::memory_order_relaxed) << 9;
+  }
   // desktop read_ee_timer: EE clock at 294.912 MHz ~= ns * 3 / 10.
   u64 ns = ee_clock_timer.getNs();
   return (ns * 3) / 10;
@@ -553,7 +575,11 @@ u64 a35_pc_get_display_mode() {
 }
 
 u64 a35_pc_get_os() {
-  return jak1::intern_from_c("linux").offset;
+  // autoport graphics-options batch 1: report 'android (not 'linux) so the GOAL
+  // progress menu hides the items that don't apply to a single-display phone
+  // (Display mode / Display / Frame rate). Android defines both __ANDROID__ and
+  // __linux__, which is why the desktop pc_get_os mis-reported 'linux here too.
+  return jak1::intern_from_c("android").offset;
 }
 
 u64 a35_pc_get_unix_timestamp() {
@@ -589,6 +615,21 @@ void a35_pc_set_vsync(u32 sym_val) {
 
 void a35_pc_set_frame_rate(s64 rate) {
   Gfx::g_global_settings.target_fps = (float)rate;
+}
+
+// autoport graphics-options batch 1: store the FPS-counter overlay toggle so the
+// GOAL update-to-os call to pc-set-fps-counter has a real binding on Android (an
+// unbound pc-* symbol would BLR into junk). The on-screen number is drawn GOAL-
+// side (game font, both renderers); this just stores the toggle flag.
+void a35_pc_set_fps_counter(u32 sym_val) {
+  Gfx::g_global_settings.display_fps = (sym_val != s7.offset);
+}
+
+// Real measured render fps for the GOAL on-screen FPS counter. android_renderer
+// publishes the true presented-frame rate into measured_fps (NOT the Gspeed
+// vblank-stable engine clock), so this reads ~30 at Geyser as the owner sees.
+s64 a35_pc_get_fps() {
+  return (s64)(Gfx::g_global_settings.measured_fps + 0.5f);
 }
 }  // extern "C"
 
@@ -669,6 +710,8 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-set-collision-wireframe", d);
   jak1::make_function_symbol_from_c("pc-set-collision", d);
   jak1::make_function_symbol_from_c("pc-set-gfx-hack", d);
+  jak1::make_function_symbol_from_c("pc-set-fps-counter", (void*)a35_pc_set_fps_counter);
+  jak1::make_function_symbol_from_c("pc-get-fps", (void*)a35_pc_get_fps);
   // Other
   jak1::make_function_symbol_from_c("pc-get-os", (void*)a35_pc_get_os);
   jak1::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);

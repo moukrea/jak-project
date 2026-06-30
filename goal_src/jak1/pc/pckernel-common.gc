@@ -122,15 +122,31 @@
   (when (!= 'fullscreen (pc-get-display-mode))
     (pc-set-frame-rate (-> obj target-fps)))
   ;; do game resolution
-  (if (= (pc-get-display-mode) 'windowed)
-    (pc-set-game-resolution (-> obj framebuffer-scissor-width) (-> obj framebuffer-scissor-height))
-    (pc-set-game-resolution (-> obj width) (-> obj height)))
+  ;; ORDER (batch 2 + 3): the "Game Resolution" picker sets the BASE game res
+  ;; ((-> obj width)/(-> obj height) in fullscreen, framebuffer-scissor in windowed);
+  ;; the RENDER SCALE % then multiplies it HERE to size the offscreen 3D FBO
+  ;; (game_res * render-scale%). e.g. base 1280x720 x 50% = 640x360 FBO. Applied
+  ;; exactly once (on Android render_scale_pct stays 100 so no double-scaling). We
+  ;; scale ONLY the game-resolution passed here (the FBO) — aspect-ratio, letterbox
+  ;; and framebuffer-scissor are untouched, so the on-screen draw region / HUD
+  ;; x-offsets do not shift. 100 = native (default). Clamp to [10,100].
+  (let* ((rs (cond ((< (-> obj render-scale) 10.0) 10.0)
+                   ((> (-> obj render-scale) 100.0) 100.0)
+                   (else (-> obj render-scale))))
+         (rs-frac (/ rs 100.0))
+         (base-w (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-width) (-> obj width)))
+         (base-h (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-height) (-> obj height)))
+         (rw (max 1 (the int (* (the float base-w) rs-frac))))
+         (rh (max 1 (the int (* (the float base-h) rs-frac)))))
+    (pc-set-game-resolution rw rh))
   ;; set msaa sample rate. if invalid, just reset to 2.
   (let ((valid? #f))
     (dotimes (i 31)
       (if (= (-> obj gfx-msaa) (ash 1 i)) (true! valid?)))
     (if (not valid?) (set! (-> obj gfx-msaa) PC_DEFAULT_MSAA))
     (pc-set-msaa (-> obj gfx-msaa)))
+  ;; push the FPS-counter overlay toggle down to the C kernel
+  (pc-set-fps-counter (-> obj fps-counter?))
   ;; -- end TODO
   (pc-discord-rpc-set (if (-> obj discord-rpc?) 1 0))
   (when #t ;; (not (-> obj ps2-lod-dist?))
@@ -202,6 +218,9 @@
   (update-cheats obj)
   ;; music.
   (update-music-log obj)
+  ;; on-screen FPS counter (graphics option). draws into the just-started frame's
+  ;; global-buf; renders on both x86 and Android via the game font.
+  (draw-pc-fps-counter)
   (none))
 
 (defmethod update-cheats ((obj pc-settings))
@@ -498,6 +517,8 @@
     (("gfx-renderer") (set! (-> obj gfx-renderer) (the-as pc-gfx-renderer (file-stream-read-int file))))
     (("gfx-resolution") (set! (-> obj gfx-resolution) (file-stream-read-float file)))
     (("gfx-anisotropy") (set! (-> obj gfx-anisotropy) (file-stream-read-float file)))
+    (("fps-counter?") (set! (-> obj fps-counter?) (file-stream-read-symbol file)))
+    (("render-scale") (set! (-> obj render-scale) (file-stream-read-float file)))
     (("shrub-dist-mod") (set! (-> obj shrub-dist-mod) (file-stream-read-float file)))
     (("lod-dist-mod") (set! (-> obj lod-dist-mod) (file-stream-read-float file)))
     (("lod-force-tfrag") (set! (-> obj lod-force-tfrag) (file-stream-read-int file)))
@@ -559,6 +580,8 @@
   "handle the text writing output for the 'settings' group"
   (format file "  (fps ~D)~%" (-> obj target-fps))
   (format file "  (msaa ~D)~%" (-> obj gfx-msaa))
+  (format file "  (fps-counter? ~A)~%" (-> obj fps-counter?))
+  (format file "  (render-scale ~f)~%" (-> obj render-scale))
   (format file
           "  (aspect-state ~A ~D ~D ~A)~%"
           (get-game-setting obj 'aspect-ratio)

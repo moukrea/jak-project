@@ -40,6 +40,17 @@ struct AndroidRenderOptions {
   int draw_region_w = 0;
   int draw_region_h = 0;
   float pmode_alp_register = 1.f;
+
+  // Render-scaling knob (debug.opengoal.render.scale = 25..400, default set in
+  // android_gfx.cpp). The whole 3D scene is rendered into an offscreen FBO
+  // sized game_res * (render_scale_pct/100), keeping the 4:3 aspect;
+  // do_pcrtc_effects then GL_LINEAR resample-blits that FBO to the native draw
+  // region. 100 == original 640x480 behavior. <100 trades sharpness for fill-
+  // rate; >100 SUPERSAMPLES the 3D (e.g. 200 -> 1280x960) for crispness. Draw-
+  // call/triangle submission is identical at every scale (only the fragment
+  // sample count changes). Host-only; GOAL render logic and game_res_w/h are
+  // untouched.
+  int render_scale_pct = 100;
 };
 
 struct AndroidFrameStats {
@@ -50,6 +61,17 @@ struct AndroidFrameStats {
   u32 buckets_skipped = 0; // buckets with data handled by SkipRenderer
   u32 draw_calls = 0;
   u32 triangles = 0;
+
+  // GL-thread CPU timing (seconds) from the per-frame Profiler tree. Surfaces
+  // the already-measured node durations so a profiling run can attribute the
+  // frame budget: render_cpu_s = whole render() call, buckets_cpu_s = bucket
+  // dispatch (GL submission), pcrtc_cpu_s = the upscale blit + blackout.
+  float render_cpu_s = 0.f;
+  float buckets_cpu_s = 0.f;
+  float pcrtc_cpu_s = 0.f;
+  // Effective offscreen FBO size after render-scaling (for the stat log).
+  int fbo_w = 0;
+  int fbo_h = 0;
 };
 
 class AndroidOpenGLRenderer {

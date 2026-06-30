@@ -533,14 +533,7 @@ void update_discord_rpc(u32 discord_info) {
   }
 }
 
-// Gcollision-glitchcapture (autoport): defined below; ticked once per logic frame here.
-static void collision_glitch_capture_tick();
-
 void pc_set_levels(u32 l0, u32 l1) {
-  // Gcollision-glitchcapture (autoport): always-on, glitch-triggered collision-math dump. Runs
-  // every game-logic frame on the EE/kernel thread (this fn is GOAL __pc-set-levels, level.gc:1370),
-  // BEFORE the renderer guard so it ticks during loads too (it guards *target* validity itself).
-  collision_glitch_capture_tick();
   if (!Gfx::GetCurrentRenderer()) {
     return;
   }
@@ -661,289 +654,6 @@ static void pad_replay_force_timestep() {
   intern_from_c("*ticks-per-frame*")->value = 0x40000000;
 }
 
-// Gcollision-replay-diff (autoport) — TEMP collision-state dump. Reads the numeric
-// collide-shape-moving fields of *target* (Jak) that drive the owner-reported
-// collision glitches and writes them, keyed by the logic frame, via the harness
-// state trace. Pure read of EE memory; field offsets are the GOAL deftype offsets
-// (read at root + (offset - 4)), identical on x86 and arm64, so the two backends'
-// traces are byte-comparable. POINTER fields are excluded (heap addresses differ per
-// backend). No-op unless a trace is open. REMOVED before phase close.
-static void pad_replay_dump_collision_state() {
-  u32 tgt = intern_from_c("*target*")->value;
-  if (tgt == 0 || tgt == (u32)s7.offset || tgt >= (u32)(EE_MAIN_MEM_SIZE - 4)) {
-    return;
-  }
-  u32 root = 0;
-  std::memcpy(&root, g_ee_main_mem + tgt + 108, 4);  // (-> *target* root)
-  if (root == 0 || root == (u32)s7.offset || root >= (u32)(EE_MAIN_MEM_SIZE - 512)) {
-    return;
-  }
-  u8 buf[256];
-  size_t n = 0;
-  auto put = [&](int deftype_off, size_t len) {
-    std::memcpy(buf + n, g_ee_main_mem + root + (deftype_off - 4), len);
-    n += len;
-  };
-  put(16, 16);   // trans (position)
-  put(32, 16);   // quat (orientation)
-  put(64, 16);   // transv (velocity)
-  put(80, 16);   // rotv (angular velocity)
-  put(272, 8);   // status (collision/control flags)
-  put(320, 16);  // local-normal
-  put(336, 16);  // surface-normal
-  put(352, 16);  // poly-normal
-  put(368, 16);  // ground-poly-normal
-  put(384, 16);  // ground-touch-point
-  put(416, 4);   // ground-impact-vel
-  put(420, 4);   // surface-angle
-  put(424, 4);   // poly-angle
-  put(428, 4);   // touch-angle
-  put(432, 4);   // coverage
-  pad_replay::dump_state("ci", buf, n);
-}
-
-// ─── Gcollision-glitchcapture (autoport): ALWAYS-ON glitch-triggered collision-math dump ──────
-// The Gcollision-nanroot fmin/fmax fix was op-level-PROVEN (576/576) but did NOT fix the owner's
-// in-game collision glitch: the real arm64-vs-x86 divergence only fires at degenerate/grazing
-// contacts the headless cpad_inject drive never reaches, and input record->replay failed 3x. This
-// captures the collision-reaction math AT the glitch during the owner's REAL play (no warp, no
-// replay, touch/gamepad agnostic). Each game-logic frame it reads Jak's persistent
-// collide-shape-moving fields (the operands + results of default-collision-reaction,
-// collide-shape.gc:697 — surface-normal = normalized separation vector, poly-normal = best-tri
-// normal, the dot-product angles, transv, trans), keeps a small ring buffer, and when a glitch
-// SIGNATURE fires (a one-frame trans teleport / a transv magnitude spike / a non-finite value / a
-// NON-UNIT collision normal — the direct fingerprint of a divergent normalize/dot) it appends the
-// ring buffer + trigger frame to a dump file (flush+fsync per hit). The dumped operands are then
-// fed to the x86 oracle (.autoport/.../cc_oracle.cpp) to name the FIRST op whose x86 result differs
-// from the arm64 dump on those exact inputs. Pure read of EE memory; field offsets = GOAL deftype
-// :offset-assert - 4 (root = *target* + 108), identical on x86/arm64 so the dump is byte-comparable.
-// NO CGO rebuild — the GOAL game logic the owner plays is byte-identical. Active on Android by
-// default (capture build); on x86 only when OG_COLLISION_CAPTURE is set (keeps the validator's x86
-// smoke clean). TEMP instrumentation — REMOVED once the divergence is captured + fixed (phase-close).
-namespace {
-constexpr int CC_RING = 9;          // ring depth: 8 pre-glitch frames + the trigger frame
-constexpr int CC_MAX_DUMPS = 400;   // bound the dump file over a long owner session
-constexpr int CC_COOLDOWN = 3;      // frames to suppress repeat non-fatal triggers
-
-struct CcFrame {
-  bool valid = false;
-  int64_t frame = 0;
-  float trans[4], quat[4], transv[4], rotv[4];
-  float lnorm[4], snorm[4], pnorm[4], gpnorm[4], gtouch[4], gnorm[4];
-  float gimpvel = 0, surf_angle = 0, poly_angle = 0, touch_angle = 0, coverage = 0;
-  uint64_t status = 0;
-  uint32_t prev_status = 0;
-};
-
-CcFrame cc_ring[CC_RING];
-int cc_head = 0, cc_count = 0, cc_dumps = 0, cc_cooldown = 0;
-bool cc_have_prev = false, cc_init_done = false, cc_enabled = false;
-float cc_prev_trans[3] = {0, 0, 0};
-std::FILE* cc_fp = nullptr;
-std::string cc_path;
-float cc_jump_m = 20.0f;    // 1-frame trans teleport (meters) — clip/under-map
-float cc_vel_mps = 50.0f;   // transv magnitude spike (m/s)  — eject/projection
-float cc_norm_eps = 0.03f;  // |collision normal| deviation from unit — divergent normalize/dot
-
-inline bool cc_nonfinite(float f) {
-  uint32_t u;
-  std::memcpy(&u, &f, 4);
-  return (u & 0x7f800000u) == 0x7f800000u;  // Inf or NaN
-}
-inline uint32_t cc_fb(float f) {
-  uint32_t u;
-  std::memcpy(&u, &f, 4);
-  return u;
-}
-inline float cc_len3(const float* v) {
-  return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-}
-inline bool cc_anf(const float* v, int n) {
-  for (int i = 0; i < n; i++)
-    if (cc_nonfinite(v[i]))
-      return true;
-  return false;
-}
-void cc_hex4(std::FILE* fp, const char* tag, const float* v) {
-  std::fprintf(fp, " %s=%08x,%08x,%08x,%08x", tag, cc_fb(v[0]), cc_fb(v[1]), cc_fb(v[2]), cc_fb(v[3]));
-}
-void cc_emit(std::FILE* fp, const CcFrame& g) {
-  std::fprintf(fp, "F %lld", (long long)g.frame);
-  cc_hex4(fp, "tr", g.trans);
-  cc_hex4(fp, "q", g.quat);
-  cc_hex4(fp, "tv", g.transv);
-  cc_hex4(fp, "rv", g.rotv);
-  cc_hex4(fp, "ln", g.lnorm);
-  cc_hex4(fp, "sn", g.snorm);
-  cc_hex4(fp, "pn", g.pnorm);
-  cc_hex4(fp, "gp", g.gpnorm);
-  cc_hex4(fp, "gt", g.gtouch);
-  cc_hex4(fp, "gn", g.gnorm);
-  std::fprintf(fp, " st=%016llx ps=%08x gi=%08x sa=%08x pa=%08x ta=%08x cov=%08x\n",
-               (unsigned long long)g.status, g.prev_status, cc_fb(g.gimpvel), cc_fb(g.surf_angle),
-               cc_fb(g.poly_angle), cc_fb(g.touch_angle), cc_fb(g.coverage));
-}
-void cc_init() {
-  cc_init_done = true;
-#if defined(__ANDROID__)
-  char buf[PROP_VALUE_MAX] = {0};
-  if (__system_property_get("debug.opengoal.cc_disable", buf) > 0 && buf[0] == '1') {
-    cc_enabled = false;
-    return;
-  }
-  cc_enabled = true;  // capture build: ON by default on the device
-  if (__system_property_get("debug.opengoal.cc_jump", buf) > 0) {
-    float v = (float)atof(buf);
-    if (v > 0) cc_jump_m = v;
-  }
-  if (__system_property_get("debug.opengoal.cc_vel", buf) > 0) {
-    float v = (float)atof(buf);
-    if (v > 0) cc_vel_mps = v;
-  }
-  if (__system_property_get("debug.opengoal.cc_normeps", buf) > 0) {
-    float v = (float)atof(buf);
-    if (v > 0) cc_norm_eps = v;
-  }
-#else
-  cc_enabled = (std::getenv("OG_COLLISION_CAPTURE") != nullptr);
-  if (const char* e = std::getenv("OG_CC_JUMP")) {
-    float v = (float)atof(e);
-    if (v > 0) cc_jump_m = v;
-  }
-  if (const char* e = std::getenv("OG_CC_VEL")) {
-    float v = (float)atof(e);
-    if (v > 0) cc_vel_mps = v;
-  }
-  if (const char* e = std::getenv("OG_CC_NORMEPS")) {
-    float v = (float)atof(e);
-    if (v > 0) cc_norm_eps = v;
-  }
-#endif
-  if (!cc_enabled) return;
-  const char* home = std::getenv("HOME");
-  cc_path = std::string(home ? home : ".") + "/collision_glitch.txt";
-}
-}  // namespace
-
-// Called once per game-logic frame on the EE/kernel thread from pc_set_levels (post engine update,
-// so *target*'s collide-shape-moving fields are this frame's collision result).
-static void collision_glitch_capture_tick() {
-  if (!cc_init_done) cc_init();
-  if (!cc_enabled || cc_dumps >= CC_MAX_DUMPS) return;
-
-  u32 tgt = intern_from_c("*target*")->value;
-  if (tgt == 0 || tgt == (u32)s7.offset || tgt >= (u32)(EE_MAIN_MEM_SIZE - 4)) return;
-  u32 root = 0;
-  std::memcpy(&root, g_ee_main_mem + tgt + 108, 4);  // (-> *target* root) = control-info
-  if (root == 0 || root == (u32)s7.offset || root >= (u32)(EE_MAIN_MEM_SIZE - 512)) return;
-
-  CcFrame f;
-  f.valid = true;
-  f.frame = pad_replay_logic_frame();
-  auto rd = [&](int deftype_off, void* dst, size_t len) {
-    std::memcpy(dst, g_ee_main_mem + root + (deftype_off - 4), len);
-  };
-  rd(16, f.trans, 16);
-  rd(32, f.quat, 16);
-  rd(64, f.transv, 16);
-  rd(80, f.rotv, 16);
-  rd(272, &f.status, 8);
-  rd(288, &f.prev_status, 4);
-  rd(320, f.lnorm, 16);
-  rd(336, f.snorm, 16);
-  rd(352, f.pnorm, 16);
-  rd(368, f.gpnorm, 16);
-  rd(384, f.gtouch, 16);
-  rd(416, &f.gimpvel, 4);
-  rd(420, &f.surf_angle, 4);
-  rd(424, &f.poly_angle, 4);
-  rd(428, &f.touch_angle, 4);
-  rd(432, &f.coverage, 4);
-  // gravity-normal: dynam is a boxed `dynamics` (basic) pointer at deftype 436 -> raw root+432;
-  // gravity-normal :offset-assert 32 inside that basic -> raw dynam+(32-4)=dynam+28 (same -4 boxed
-  // convention as every field above; dynam+32 reads [gy,gz,gw,walk-distance], off by one float).
-  for (int i = 0; i < 4; i++) f.gnorm[i] = 0.0f;
-  u32 dynam = 0;
-  std::memcpy(&dynam, g_ee_main_mem + root + (436 - 4), 4);
-  if (dynam != 0 && dynam != (u32)s7.offset && dynam < (u32)(EE_MAIN_MEM_SIZE - 48)) {
-    std::memcpy(f.gnorm, g_ee_main_mem + dynam + (32 - 4), 16);
-  }
-
-  // ---- glitch signatures (units: 1 meter = 4096.0; transv is meters/sec * 4096) ----
-  float dpos = 0.0f;
-  if (cc_have_prev) {
-    float dx = f.trans[0] - cc_prev_trans[0];
-    float dy = f.trans[1] - cc_prev_trans[1];
-    float dz = f.trans[2] - cc_prev_trans[2];
-    dpos = std::sqrt(dx * dx + dy * dy + dz * dz);
-  }
-  float vmag = cc_len3(f.transv);
-  float snlen = cc_len3(f.snorm);
-  float pnlen = cc_len3(f.pnorm);
-  bool nonfin = cc_anf(f.trans, 3) || cc_anf(f.transv, 3) || cc_anf(f.snorm, 3) ||
-                cc_anf(f.pnorm, 3) || cc_anf(f.lnorm, 3) || cc_anf(f.gnorm, 3) ||
-                cc_nonfinite(f.surf_angle) || cc_nonfinite(f.poly_angle) ||
-                cc_nonfinite(f.touch_angle) || cc_nonfinite(f.coverage);
-  bool degen = (snlen > 0.05f && std::fabs(snlen - 1.0f) > cc_norm_eps) ||
-               (pnlen > 0.05f && std::fabs(pnlen - 1.0f) > cc_norm_eps);
-  bool velspike = (vmag > cc_vel_mps * 4096.0f);
-  bool jump = cc_have_prev && (dpos > cc_jump_m * 4096.0f);
-
-  // push current into the ring (so the buffer carries pre-glitch context)
-  cc_ring[cc_head] = f;
-  cc_head = (cc_head + 1) % CC_RING;
-  if (cc_count < CC_RING) cc_count++;
-  cc_have_prev = true;
-  cc_prev_trans[0] = f.trans[0];
-  cc_prev_trans[1] = f.trans[1];
-  cc_prev_trans[2] = f.trans[2];
-  if (cc_cooldown > 0) cc_cooldown--;
-
-  const char* reason = nullptr;
-  if (nonfin)
-    reason = "NONFINITE";  // always dump (bypasses cooldown)
-  else if (cc_cooldown == 0 && degen)
-    reason = "DEGEN_NORMAL";
-  else if (cc_cooldown == 0 && jump)
-    reason = "TRANS_JUMP";
-  else if (cc_cooldown == 0 && velspike)
-    reason = "TRANSV_SPIKE";
-  if (!reason) return;
-
-  char detail[256];
-  std::snprintf(detail, sizeof(detail),
-                "dpos=%.3fm vmag=%.3fm/s snlen=%.5f pnlen=%.5f sa=%.5f pa=%.5f ta=%.5f cov=%.5f",
-                dpos / 4096.0, vmag / 4096.0, snlen, pnlen, f.surf_angle, f.poly_angle,
-                f.touch_angle, f.coverage);
-
-  if (!cc_fp) cc_fp = std::fopen(cc_path.c_str(), "a");
-  if (!cc_fp) {
-    cc_enabled = false;  // can't open: disable to avoid per-frame retry spam
-    return;
-  }
-  std::fprintf(cc_fp, "=== GLITCH #%d frame=%lld reason=%s %s ===\n", cc_dumps + 1,
-               (long long)f.frame, reason, detail);
-  int start = (cc_head - cc_count + CC_RING) % CC_RING;
-  for (int i = 0; i < cc_count; i++) {
-    const CcFrame& g = cc_ring[(start + i) % CC_RING];
-    if (g.valid) cc_emit(cc_fp, g);
-  }
-  std::fprintf(cc_fp, "=== END frame=%lld ===\n", (long long)f.frame);
-  std::fflush(cc_fp);
-#if defined(__ANDROID__) || defined(__linux__)
-  fsync(fileno(cc_fp));
-#endif
-  cc_dumps++;
-  cc_cooldown = CC_COOLDOWN;
-  // Live trigger line for the supervisor (GK_STDOUT tag = the one logcat:I filter watches).
-#if defined(__ANDROID__)
-  __android_log_print(ANDROID_LOG_INFO, "GK_STDOUT", "[CC] GLITCH #%d frame=%lld reason=%s %s",
-                      cc_dumps, (long long)f.frame, reason, detail);
-#else
-  std::fprintf(stderr, "[CC] GLITCH #%d frame=%lld reason=%s %s\n", cc_dumps, (long long)f.frame,
-               reason, detail);
-#endif
-}
 
 /*!
  * Final initialization of the system after the kernel is loaded.
@@ -974,7 +684,6 @@ void InitMachineScheme() {
   pad_replay::set_anchor_provider(&pad_replay_anchor_reached);
   pad_replay::add_rng_reseed_callback(&pad_replay_force_goal_rng);
   pad_replay::set_timestep_force_callback(&pad_replay_force_timestep);
-  pad_replay::set_state_dump_callback(&pad_replay_dump_collision_state);  // TEMP (Gcollision-replay-diff)
   make_function_symbol_from_c("install-handler", (void*)InstallHandler);      // used
   make_function_symbol_from_c("install-debug-handler", (void*)InstallDebugHandler);       // used
   make_function_symbol_from_c("file-stream-open", (void*)kopen);                          // used
@@ -1174,6 +883,113 @@ void f1_maybe_warp_to_geyser() {
   ListenerFunction->value = warp_fn.offset;
   lg::info("[F1-WARP] armed *listener-function* = #x{:x}; kernel will run the warp in-context",
            warp_fn.offset);
+}
+
+// ─── GENERIC LEVEL WARP (debug-only zone-sweep tool) ───────────────────────────
+// Env OG_LEVEL_WARP=<continue-name> / Android prop debug.opengoal.level.warp=<name>
+// — OFF by default (empty/unset). A generalization of f1_maybe_warp_to_geyser: the
+// F1 warp hardcodes the "game-start" continue; this reads the continue-point NAME
+// from the prop/env so a device build can be warped DIRECTLY into ANY jak1 level by
+// its continue name (e.g. "jungle-start", "beach-start", "village2-start", ...) to
+// confirm that level LOADS + RUNS crash-free on the real arm64 + GL device — a check
+// the qemu link-only sweep structurally cannot make.
+//
+// Mechanism is byte-for-byte the F1 warp's: on the GOAL kernel thread, via the
+// kernel's *listener-function* slot (so it runs with a live process context),
+//   (start 'play (get-continue-by-name *game-info* "<name>"))
+// the exact listener form the desktop oracle uses. DEBUG-ONLY: the prop is never set
+// in the shipped APK, so this body never runs in production. x86 is unaffected unless
+// OG_LEVEL_WARP is explicitly exported. goal_src / x86 emitter / gold are untouched.
+// Sized independently of PROP_VALUE_MAX (Android-only macro) so the x86 desktop build
+// compiles; PROP_VALUE_MAX is 92, 128 covers it and any env value comfortably.
+static char s_level_warp_name[128] = {0};
+
+static bool level_warp_requested() {
+  if (const char* e = std::getenv("OG_LEVEL_WARP")) {
+    if (e[0]) {
+      std::strncpy(s_level_warp_name, e, sizeof(s_level_warp_name) - 1);
+      s_level_warp_name[sizeof(s_level_warp_name) - 1] = 0;
+      return true;
+    }
+  }
+#if defined(__ANDROID__)
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("debug.opengoal.level.warp", buf) > 0 && buf[0]) {
+    std::strncpy(s_level_warp_name, buf, sizeof(s_level_warp_name) - 1);
+    s_level_warp_name[sizeof(s_level_warp_name) - 1] = 0;
+    return true;
+  }
+#endif
+  return false;
+}
+
+// The warp body — invoked BY THE KERNEL as *listener-function* (same in-context
+// trampoline f1_warp_run uses). Re-reads every symbol and passes pp explicitly.
+static u64 level_warp_run() {
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    lg::warn("[LEVEL-WARP] run: *game-info* not ready");
+    return 0;
+  }
+  u64 name = make_string_from_c(s_level_warp_name);
+  Ptr<Type> gi_type(*Ptr<u32>(gi - 4));  // basic: type tag is the word before field-0
+  u64 cont = call_method_of_type_arg2(gi, gi_type, 18 /*get-continue-by-name*/, (u32)name, 0);
+  lg::info("[LEVEL-WARP] get-continue-by-name(\"{}\") -> #x{:x}", s_level_warp_name, (u32)cont);
+  if (cont == 0 || cont == (u32)s7.offset) {
+    lg::warn("[LEVEL-WARP] continue '{}' not found; warp aborted", s_level_warp_name);
+    printf("LEVEL-WARP-FAIL name=%s reason=continue-not-found\n", s_level_warp_name);
+    fflush(stdout);
+    return 0;
+  }
+  u32 start_fn = intern_from_c("start")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  u64 args[8] = {intern_from_c("play").offset, cont, 0, 0, 0, 0, 0, 0};
+  u64 tgt = _call_goal8_asm_systemv((void*)(g_ee_main_mem + start_fn), args, 0, (u64)lp,
+                                    (u64)s7.offset, g_ee_main_mem);
+  lg::info("[LEVEL-WARP] (start 'play {}) -> *target* #x{:x}", s_level_warp_name, (u32)tgt);
+  printf("LEVEL-WARP-SPAWN name=%s target=#x%x\n", s_level_warp_name, (u32)tgt);
+  fflush(stdout);
+  return tgt;
+}
+
+void level_warp_maybe() {
+  static bool s_done = false;
+  if (s_done) {
+    return;
+  }
+  if (!level_warp_requested()) {
+    return;
+  }
+  // Readiness: same gate as f1_maybe_warp_to_geyser — *game-info* boxed-basic,
+  // `start` bound, and *target-dead-pool* (engine-ready-for-spawn) bound.
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  u32 start_fn = intern_from_c("start")->value;
+  if (start_fn == 0 || start_fn == (u32)s7.offset) {
+    return;
+  }
+  u32 dead_pool = intern_from_c("*target-dead-pool*")->value;
+  if (dead_pool == 0 || dead_pool == (u32)s7.offset) {
+    return;
+  }
+  // Settle margin after readiness — let the title attract fully come up before the
+  // warp fires. Tunable via OG_LEVEL_WARP_DELAY (kernel-dispatch ticks); default ~10s.
+  int delay = 600;
+  if (const char* d = std::getenv("OG_LEVEL_WARP_DELAY")) {
+    delay = atoi(d);
+  }
+  static int s_ticks = 0;
+  if (s_ticks++ < delay) {
+    return;
+  }
+  s_done = true;
+
+  Ptr<Function> warp_fn = make_function_from_c((void*)level_warp_run, false);
+  ListenerFunction->value = warp_fn.offset;
+  lg::info("[LEVEL-WARP] armed *listener-function* = #x{:x} for continue '{}'",
+           warp_fn.offset, s_level_warp_name);
 }
 
 // ─── ECHO-INTRO (new-game intro cinematic) deterministic warp ───────────────────

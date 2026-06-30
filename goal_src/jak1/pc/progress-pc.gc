@@ -290,7 +290,92 @@
             :name (text-id ps2-options)
             :scale #t
             :param3 (game-option-menu gfx-ps2-options))
+       ;; FPS-counter overlay toggle (autoport graphics-options overhaul, batch 1).
+       ;; on-off; bound to *pc-settings* fps-counter? in init-game-options.
+       ;; label is provided at runtime via name-override (no engine text-id added).
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       ;; RENDER SCALE slider (batch 2): internal 3D render-scale %, 10..100 step 10.
+       ;; value-to-modify -> *pc-settings* render-scale; on-change persists. label via
+       ;; name-override. wired in init-game-options.
+       (new 'static
+            'game-option
+            :option-type (game-option-type slider)
+            :name (text-id vsync)
+            :scale #t
+            :param1 10.0
+            :param2 100.0
+            :slider-step-size 10.0
+            :slider-show-decimal? #f
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* render-scale) (the-as float val))
+              (none)))
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+
+;; Android-only graphics options. Same as *graphic-options-pc* but with the menu
+;; items that don't make sense on a single-display phone HIDDEN (truly omitted,
+;; since the progress menu renderer has no per-item hide flag — only disable):
+;;   - "Display mode" (windowed/fullscreen/borderless: Android is always fullscreen)
+;;   - "Display" (monitor select: Android has exactly one display)
+;;   - "Frame rate (experimental)" (permanently greyed on the 60Hz panel)
+;; The FPS-counter toggle is included. Wired in init-game-options.
+(define *graphic-options-pc-android*
+  (new 'static
+       'boxed-array
+       :type
+       game-option
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id game-resolution)
+            :scale #t
+            :param3 (game-option-menu resolution))
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id aspect-ratio)
+            :scale #t
+            :param3 (game-option-menu aspect-ratio))
+       (new 'static 'game-option :option-type (game-option-type msaa) :name (text-id msaa) :scale #t)
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id ps2-options)
+            :scale #t
+            :param3 (game-option-menu gfx-ps2-options))
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       ;; RENDER SCALE slider (batch 2) — same as desktop, index 6 on Android.
+       (new 'static
+            'game-option
+            :option-type (game-option-type slider)
+            :name (text-id vsync)
+            :scale #t
+            :param1 10.0
+            :param2 100.0
+            :slider-step-size 10.0
+            :slider-show-decimal? #f
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* render-scale) (the-as float val))
+              (none)))
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+
+;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
+;; via the game-option name-override path which progress-pc.gc honors for on-off rows)
+;; NOTE: all-uppercase — the jak1 menu font maps uppercase ASCII to the correct
+;; glyphs (matching the other menu rows), but lowercase ASCII bytes do NOT map to
+;; lowercase glyphs in this font's encoding (they render as garbage). The rest of
+;; the menu reads as all-caps anyway, so this matches the existing style.
+(define *fps-counter-label* "FPS COUNTER")
+
+;; label for the RENDER SCALE slider (uppercase ASCII for the menu font; see the
+;; FPS-counter label note above). Shown via the game-option name-override path.
+(define *render-scale-label* "RENDER SCALE")
+
+;; label for the NATIVE (panel resolution) entry at the top of the Game Resolution
+;; list (uppercase for the menu font; shown via name-override).
+(define *resolution-native-label* "NATIVE")
 
 (define *sound-options-pc*
   (new 'static
@@ -1204,46 +1289,94 @@
     (1+! (-> *temp-options* length))))
 
 (defmacro add-resolution-option (x y)
-  "add a resolution button to *temp-options* with specified size"
+  "add a resolution button to *temp-options*, labelled cleanly via name-override
+   ('W x H' in the menu font), avoiding the localized resolution-fmt glyphs."
   `(let ((option (-> *temp-options* (length *temp-options*))))
     (set! (-> option option-type) (game-option-type resolution))
     (set! (-> option option-disabled-func) #f)
     (set! (-> option name) (text-id resolution-fmt))
+    ;; format 'W x H' into the pre-allocated name-override string for this slot.
+    (format (clear (-> option name-override)) "~D X ~D" ,x ,y)
     (set! (-> option param1) (the float ,x))
     (set! (-> option param2) (the float ,y))
     (set! (-> option scale) #t)
     (1+! (-> *temp-options* length))))
 
+(defmacro add-named-resolution-option (label x y)
+  "add a resolution button labelled via name-override (e.g. NATIVE W x H)"
+  `(let ((option (-> *temp-options* (length *temp-options*))))
+    (set! (-> option option-type) (game-option-type resolution))
+    (set! (-> option option-disabled-func) #f)
+    (set! (-> option name) (text-id resolution-fmt))
+    (format (clear (-> option name-override)) "~S ~D X ~D" ,label ,x ,y)
+    (set! (-> option param1) (the float ,x))
+    (set! (-> option param2) (the float ,y))
+    (set! (-> option scale) #t)
+    (1+! (-> *temp-options* length))))
+
+;; Standard resolution WIDTHS (the owner's table, by the constrained axis). The
+;; ladder is generated by computing the height at the CURRENT aspect ratio for each
+;; width — so for a standard aspect these reproduce the named resolutions (16:9:
+;; 1280x720, 1920x1080, 2560x1440, 3840x2160 ... ; 4:3: 640x480, 800x600 ...),
+;; and for a NON-standard aspect (e.g. the device's auto ~2.22) it still yields an
+;; aspect-correct ladder. Each is clamped to [floor, native].
+(define *resolution-ladder-widths*
+  (new 'static 'boxed-array :type int32
+       640 800 1024 1280 1600 1920 2048 2560 3440 3840 4096 5120 6144 7680 8192))
+;; standard heights, used to ladder height-constrained (portrait / aspect < 1) cases.
+(define *resolution-ladder-heights*
+  (new 'static 'boxed-array :type int32
+       480 600 720 768 900 1024 1050 1080 1152 1200 1440 1600 2160 2880 4320))
+
 (defun build-resolution-options ()
+  "Build the Game Resolution list for the CURRENT aspect ratio: a NATIVE entry (the
+   device panel resolution) + a standard ladder generated AT the current aspect ratio
+   and clamped to [floor, native]. Floor = 640 wide for width-constrained aspects
+   (the common case), else 480 tall. Works on x86 and Android (one shared path).
+   Re-runs every frame in respond-common, so it re-filters when the aspect changes."
   (set! (-> *temp-options* length) 0)
-  ;; Enumerate the available resolutions from C++
-  (let ((window-width 0)
-        (window-height 0)
-        (window-aspect-ratio 0.0)
-        (num-resolutions (pc-get-num-resolutions (= (pc-get-display-mode) 'windowed)))
-        (num-resolutions-added 0))
-    (when (> num-resolutions 0)
-      (pc-get-window-size (& window-width) (& window-height))
-      (set! window-aspect-ratio (/ (the float window-width) (the float window-height)))
-      (dotimes (i num-resolutions)
-        (let ((res-width 0)
-              (res-height 0)
-              (res-aspect-ratio 0.0))
-          (pc-get-resolution i (= (pc-get-display-mode) 'windowed) (& res-width) (& res-height))
-          (set! res-aspect-ratio (/ (the float res-width) (the float res-height)))
-          ;; Ignore those that aren't relevant to the current window's aspect ratio
-          ;; we only do this when we aren't in windowed mode, because in windowed mode
-          ;; you are using the resolution menu to change it...so it doesn't make sense to base it on the size
-          (when (or (= (pc-get-display-mode) 'windowed) (< (fabs (- window-aspect-ratio res-aspect-ratio)) 0.05))
-            (add-resolution-option res-width res-height)
-            (1+! num-resolutions-added)))))
-    ;; if we didn't add any options, inform them they have a weird aspect ratio
-    (cond
-      ((zero? num-resolutions-added) (add-message-option (text-id progress-no-other-resolution-options)))
-      ((fullscreen?)
-       ;; for the weird people that want a more "PS2-like" experience
-       (add-resolution-option 512 448)
-       (add-resolution-option 512 224)))
+  (let ((native-w 0)
+        (native-h 0)
+        (added 0))
+    (pc-get-active-display-size (& native-w) (& native-h))
+    (when (or (<= native-w 0) (<= native-h 0))
+      (set! native-w 640)
+      (set! native-h 480))
+    (let* ((aspect (-> *pc-settings* aspect-ratio))
+           (aspect (if (< aspect 0.1) 1.0 aspect)) ;; guard against a bogus 0 aspect
+           (width-constrained? (>= aspect 1.0)))
+      ;; NATIVE entry first (the actual panel resolution).
+      (add-named-resolution-option *resolution-native-label* native-w native-h)
+      (1+! added)
+      (cond
+        (width-constrained?
+         ;; ladder by standard WIDTH; height = round(width / aspect).
+         (dotimes (i (-> *resolution-ladder-widths* length))
+           (let* ((rw (-> *resolution-ladder-widths* i))
+                  (rh (the int (+ 0.5 (/ (the float rw) aspect)))))
+             (when (and (>= rw 640)          ;; floor
+                        (<= rw native-w)      ;; ceiling = native width
+                        (<= rh native-h)      ;; fits panel height
+                        (not (and (= rw native-w) (= rh native-h)))) ;; NATIVE already covers
+               (add-resolution-option rw rh)
+               (1+! added)))))
+        (else
+         ;; height-constrained (aspect < 1): ladder by standard HEIGHT; width = round(height * aspect).
+         (dotimes (i (-> *resolution-ladder-heights* length))
+           (let* ((rh (-> *resolution-ladder-heights* i))
+                  (rw (the int (+ 0.5 (* (the float rh) aspect)))))
+             (when (and (>= rh 480)
+                        (<= rh native-h)
+                        (<= rw native-w)
+                        (not (and (= rw native-w) (= rh native-h))))
+               (add-resolution-option rw rh)
+               (1+! added))))))
+      ;; PS2-like extras only for 4:3 fullscreen (preserve prior behavior).
+      (when (and (fullscreen?) (< (fabs (- aspect ASPECT_4X3)) 0.06))
+        (add-resolution-option 512 448)
+        (add-resolution-option 512 224))
+      (when (zero? added)
+        (add-message-option (text-id progress-no-other-resolution-options))))
     (add-back-option)))
 
 (defun build-flava-player-options ((mus-idx int))
@@ -2053,7 +2186,9 @@
   (set! (-> *options-remap* (progress-screen settings))
         (if (or *cheat-mode* (nonzero? (-> *pc-settings* cheats-known))) *main-options-secrets* *main-options-pc*))
   (set! (-> *options-remap* (progress-screen game-settings)) *game-options-pc*)
-  (set! (-> *options-remap* (progress-screen graphic-settings)) *graphic-options-pc*)
+  ;; on Android use the trimmed graphics-options array (Display mode / Display / Frame rate hidden)
+  (set! (-> *options-remap* (progress-screen graphic-settings))
+        (if (= (-> *pc-settings* os) 'android) *graphic-options-pc-android* *graphic-options-pc*))
   (let ((max-refresh-rate (pc-get-active-display-refresh-rate)))
     (cond
       ((> max-refresh-rate 100) (set! *carousell-frame-rate* *carousell-frame-rate-150fps*))
@@ -2138,6 +2273,19 @@
   (set! (-> *graphic-options-pc* 3 value-to-modify) (&-> *pc-settings* vsync?))
   (set! (-> *graphic-options-pc* 5 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *graphic-options-pc* 6 value-to-modify) (&-> *progress-carousell* int-backup))
+  ;; FPS-counter toggle (index 8, just before the back button on desktop)
+  (set! (-> *graphic-options-pc* 8 value-to-modify) (&-> *pc-settings* fps-counter?))
+  (set! (-> *graphic-options-pc* 8 name-override) *fps-counter-label*)
+  ;; RENDER SCALE slider (index 9 on desktop)
+  (set! (-> *graphic-options-pc* 9 value-to-modify) (&-> *pc-settings* render-scale))
+  (set! (-> *graphic-options-pc* 9 name-override) *render-scale-label*)
+  ;; Android graphics-options array: vsync(1), msaa(3), fps-counter(5), render-scale(6)
+  (set! (-> *graphic-options-pc-android* 1 value-to-modify) (&-> *pc-settings* vsync?))
+  (set! (-> *graphic-options-pc-android* 3 value-to-modify) (&-> *progress-carousell* int-backup))
+  (set! (-> *graphic-options-pc-android* 5 value-to-modify) (&-> *pc-settings* fps-counter?))
+  (set! (-> *graphic-options-pc-android* 5 name-override) *fps-counter-label*)
+  (set! (-> *graphic-options-pc-android* 6 value-to-modify) (&-> *pc-settings* render-scale))
+  (set! (-> *graphic-options-pc-android* 6 name-override) *render-scale-label*)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))
   (set! (-> *misc-options* 2 value-to-modify) (&-> *pc-settings* skip-movies?))
@@ -3060,10 +3208,14 @@
                  (set! option-str locked-str)))
               (((game-option-type resolution) (game-option-type aspect-new))
                ;; resolution settings
-               (set! option-str
-                     (string-format (lookup-text! *common-text* (-> options index name) #f)
-                                    (the int (-> options index param1))
-                                    (the int (-> options index param2)))))
+               ;; prefer a runtime name-override label when one was set: it already
+               ;; contains the full clean text (e.g. 'NATIVE 2400 X 1080' / '1280 X 576')
+               (if (nonzero? (-> options index name-override))
+                 (set! option-str (string-format "~S" (-> options index name-override)))
+                 (set! option-str
+                       (string-format (lookup-text! *common-text* (-> options index name) #f)
+                                      (the int (-> options index param1))
+                                      (the int (-> options index param2))))))
               (((game-option-type monitor))
                ;; monitor list
                (if (nonzero? (-> options index name-override))
@@ -3097,7 +3249,10 @@
                         (set! (-> obj selected-option) #f)
                         (sound-play "cursor-options"))
                       (print-game-text (string-format "~S (~4L~D~0L)" (-> options index name-override) time-left) font #f 128 22))
-                    (print-game-text (lookup-text! *common-text* (-> options index name) #f) font #f 128 22))
+                    ;; prefer a runtime name-override label when one was set (e.g. FPS-counter toggle)
+                    (if (nonzero? (-> options index name-override))
+                      (print-game-text (-> options index name-override) font #f 128 22)
+                      (print-game-text (lookup-text! *common-text* (-> options index name) #f) font #f 128 22)))
                   (set! option-y (+ y-off 7))
                   (case (-> options index option-type)
                     (((game-option-type slider))
@@ -3227,15 +3382,22 @@
                       (game-option-type normal-inverted)
                       (game-option-type confirmation))
                      ;; slider and aspect ratio options just show their text
-                     (set! option-str (lookup-text! *common-text* (-> options index name) #f)))
+                     ;; prefer a runtime name-override label when one was set (e.g. RENDER SCALE)
+                     (if (nonzero? (-> options index name-override))
+                       (set! option-str (-> options index name-override))
+                       (set! option-str (lookup-text! *common-text* (-> options index name) #f))))
                     (((game-option-type on-off) (game-option-type aspect-native))
                      ;; on-off options show their text + on or off
-                     (set! option-str
-                           (string-format "~S: ~S"
-                                          (lookup-text! *common-text* (-> options index name) #f)
-                                          (if (-> (the-as (pointer uint32) (-> options index value-to-modify)))
-                                            (lookup-text! *common-text* (text-id on) #f)
-                                            (lookup-text! *common-text* (text-id off) #f)))))
+                     ;; prefer a runtime name-override label when one was set (e.g. FPS-counter toggle)
+                     (let ((label (if (nonzero? (-> options index name-override))
+                                    (-> options index name-override)
+                                    (lookup-text! *common-text* (-> options index name) #f))))
+                       (set! option-str
+                             (string-format "~S: ~S"
+                                            label
+                                            (if (-> (the-as (pointer uint32) (-> options index value-to-modify)))
+                                              (lookup-text! *common-text* (text-id on) #f)
+                                              (lookup-text! *common-text* (text-id off) #f))))))
                     (((game-option-type binding-assignment))
                      ;; binding assignment options show their input + the current binding
                      (let ((bind (pc-get-current-bind (-> options index bind-info) *pc-cpp-temp-string*)))

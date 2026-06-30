@@ -1028,8 +1028,21 @@ void pc_set_gfx_hack(u64 which, u32 symptr) {
   }
 }
 
+void pc_set_fps_counter(u32 symptr) {
+  Gfx::g_global_settings.display_fps = symbol_to_bool(symptr);
+}
+
+// Real measured render fps, for the GOAL-side on-screen FPS counter.
+s32 pc_get_fps() {
+  return (s32)(Gfx::g_global_settings.measured_fps + 0.5f);
+}
+
 u32 pc_get_os() {
-#ifdef _WIN32
+#ifdef __ANDROID__
+  // NOTE: must come before the __linux__ branch — Android defines both
+  // __ANDROID__ and __linux__, so without this it mis-reports 'linux.
+  return g_pc_port_funcs.intern_from_c("android").offset;
+#elif _WIN32
   return g_pc_port_funcs.intern_from_c("windows").offset;
 #elif __linux__
   return g_pc_port_funcs.intern_from_c("linux").offset;
@@ -1194,6 +1207,8 @@ void init_common_pc_port_functions(
   make_func_symbol_func("pc-set-collision-wireframe", (void*)pc_set_collision_wireframe);
   make_func_symbol_func("pc-set-collision", (void*)pc_set_collision);
   make_func_symbol_func("pc-set-gfx-hack", (void*)pc_set_gfx_hack);
+  make_func_symbol_func("pc-set-fps-counter", (void*)pc_set_fps_counter);
+  make_func_symbol_func("pc-get-fps", (void*)pc_get_fps);
 
   // -- OTHER --
   // Return the current OS as a symbol. Actually returns what it was compiled for!

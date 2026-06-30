@@ -204,11 +204,33 @@ Val* Compiler::compile_define_constant(const goos::Object& form,
     rest = &pair_cdr(*rest);
   }
 
-  auto& value = pair_car(*rest);
+  auto value = pair_car(*rest);
 
   rest = &rest->as_pair()->cdr;
   if (!rest->is_empty_list()) {
     throw_compiler_error(form, "invalid constant definition");
+  }
+
+  // ── arm64 (autoport, codegen-layer, x86 byte-untouched) ─────────────────────
+  // PROCESS_STACK_SAVE_SIZE is the per-process backup-stack size (gkernel-h.gc).
+  // When a process is preempted, thread-suspend copies up to this many bytes of
+  // its live coroutine stack into a heap buffer of exactly this size; if the live
+  // stack used more, thread-suspend hits (break) (its "too much stack" guard at
+  // gkernel.gc:606) and corrupts the process heap. The original 256 is sized for
+  // x86 GOAL frames. The arm64 backend's per-frame footprint is strictly larger
+  // (mandatory STP x29,x30 FP/LR save = +16 B every function, 16-byte SP
+  // alignment, and the A40 callee-side q-reg saves), so a deep coroutine that fit
+  // in 256 on x86 overflows on arm64 — the Forbidden Jungle's `hopper` enemy
+  // (nav-enemy-turn-to-face-dir / nav-enemy-patrol) measured 368/256 on device →
+  // (break) → sig=11 the instant the jungle loads. This is the same class the A40
+  // comment flags ("blew small process suspend backups … thread-suspend's (break)
+  // at title-vis"). Enlarge the backup budget for arm64 ONLY; x86 keeps 256 so
+  // x86 CGOs stay byte-identical to the pristine golden. Doubling (256→512) costs
+  // 256 B per process thread out of its ≥16 KiB heap and covers ~2x the x86 depth.
+  if (goal && m_instr_set == emitter::InstructionSet::ARM64 &&
+      std::string(sym.name_ptr) == "PROCESS_STACK_SAVE_SIZE" && value.is_int() &&
+      value.as_int() == 256) {
+    value = goos::Object::make_integer(512);
   }
 
   // GOAL constant

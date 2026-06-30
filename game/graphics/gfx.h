@@ -95,6 +95,14 @@ struct GfxGlobalSettings {
   // fancy effect things
   bool hack_no_tex = false;
 
+  // show an on-screen FPS counter overlay (set from GOAL pc-settings)
+  bool display_fps = false;
+  // real measured frames-per-second, smoothed, published by the renderer present
+  // path (desktop opengl.cpp + Android android_renderer). Read by GOAL via
+  // pc-get-fps for the portable on-screen counter. Reflects the TRUE render rate
+  // (e.g. ~30 at Geyser), not the engine target.
+  float measured_fps = 0.f;
+
   // collision renderer settings
   bool collision_enable = false;
   bool collision_wireframe = true;

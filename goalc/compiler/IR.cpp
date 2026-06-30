@@ -1663,16 +1663,28 @@ void IR_ConditionalBranch::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                             emitter::IR_Record irec) {
   ASSERT(m_resolved);
   int cond = emitter::IGen::ARM64::ARM_COND_EQ;
-  // A34: float conditions compare via FCMP and must use the FP-flag
-  // condition codes (LT->MI, LEQ->LS; GT/GE read N,V which FCMP sets so
-  // unordered compares come out false, matching ordered x86 COMISS use).
-  // The pre-A34 code emitted an INTEGER CMP Xa,Xb for float conditions —
-  // with float values living in the SIMD bank, the X-regs with the same
-  // numbers hold host C++ callee-saved junk (X22/X23), so every float
-  // branch in the game was decided by garbage. On-device this fired the
-  // cam-string :enter outro path ((!= outro-t-step 0.0) "true" with the
-  // field = 0.0) into curve-get-pos! on a zeroed outro-curve -> the
-  // post-title-vis curve-evaluate! SIGSEGV at EE-4.
+  // A34: float conditions compare via FCMP and must use the FP-flag condition codes
+  // (not the integer X-reg CMP the pre-A34 code used — that decided every float branch
+  // by host C++ callee-saved junk in X22/X23, e.g. the cam-string :enter outro
+  // curve-evaluate! SIGSEGV at EE-4).
+  //
+  // [Gcollision-glitchcapture] 1-to-1 arm64==x86 NaN handling for ordered float
+  // comparisons. x86 emits `ucomiss a,b` + an UNSIGNED jcc (is_signed=false for floats):
+  // LT=jb(CF), LEQ=jbe(CF|ZF), GT=ja, GEQ=jae. ucomiss sets CF=ZF=PF=1 on an unordered
+  // (NaN) compare, so x86 `<` and `<=` come out TRUE when either operand is NaN, while
+  // `>`/`>=` come out FALSE. The A34 choice of MI(LT)/LS(LEQ) made UNORDERED come out
+  // FALSE — the OPPOSITE of x86 for `<`/`<=`. That diverges at degenerate collision
+  // contacts: a zero-length vector-normalize! (collide-shape.gc / collide-reaction-
+  // target.gc) yields a NaN `coverage`, and `(< coverage 0.0)` / `(< coverage 0.9999)`
+  // (collide-reaction-target.gc:141/145) wrongly SKIP the coverage-recovery / low-
+  // coverage branch on arm64 -> wrong surface push-out -> clip/eject/under-map (the
+  // owner's collision glitch; op-proven on-device, see cmp_oracle). Fix: float
+  // LT->ARM_COND_LT (N!=V: a<b OR unordered) and LEQ->ARM_COND_LE (Z|N!=V: a<=b OR
+  // unordered), which replicate x86 jb/jbe exactly (verified vs x86 ucomiss on the
+  // real device for all NaN/Inf/±0/finite operands). GT/GEQ already match (GT/GE read
+  // N,V so unordered is false, = x86 ja/jae). x86 codegen (do_codegen_x86) untouched.
+  // Inverted `>=`/`>` route to LT/LEQ (ControlFlow.cpp), so this also fixes the
+  // documented "(>= c NaN) wrongly #t" (Gtitle) case.
   switch (condition.kind) {
     case ConditionKind::EQUAL:
       cond = emitter::IGen::ARM64::ARM_COND_EQ;
@@ -1681,7 +1693,7 @@ void IR_ConditionalBranch::do_codegen_arm64(emitter::ObjectGenerator* gen,
       cond = emitter::IGen::ARM64::ARM_COND_NE;
       break;
     case ConditionKind::LEQ:
-      cond = condition.is_float ? emitter::IGen::ARM64::ARM_COND_LS
+      cond = condition.is_float ? emitter::IGen::ARM64::ARM_COND_LE  // x86 jbe: a<=b OR unordered
              : condition.is_signed ? emitter::IGen::ARM64::ARM_COND_LE
                                    : emitter::IGen::ARM64::ARM_COND_LS;
       break;
@@ -1691,7 +1703,7 @@ void IR_ConditionalBranch::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                    : emitter::IGen::ARM64::ARM_COND_CS;
       break;
     case ConditionKind::LT:
-      cond = condition.is_float ? emitter::IGen::ARM64::ARM_COND_MI
+      cond = condition.is_float ? emitter::IGen::ARM64::ARM_COND_LT  // x86 jb: a<b OR unordered
              : condition.is_signed ? emitter::IGen::ARM64::ARM_COND_LT
                                    : emitter::IGen::ARM64::ARM_COND_CC;
       break;
@@ -1708,9 +1720,44 @@ void IR_ConditionalBranch::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                                      get_reg(condition.b, allocs, irec)),
                    irec);
   } else {
-    gen->add_instr(emitter::IGen::ARM64::cmp_gpr64_gpr64(get_reg(condition.a, allocs, irec),
-                                                         get_reg(condition.b, allocs, irec)),
-                   irec);
+    // Gcollision-glitch (autoport, arm64-only): EQUAL/NOT_EQUAL between GOAL POINTER
+    // operands (symbol/#f, basic, structure, type, pair, function, user refs) must
+    // compare the low-32 only. A GOAL pointer is a 32-bit offset; on arm64 its
+    // upper-32 is don't-care and INCONSISTENT between the symbol-table register
+    // (#f = st-off, built `mov x9,x14; sub x9,x9,x15`) and a mips2c function's
+    // returned symbol (e.g. find-best-grab! returns v0=context.s7 with a different
+    // upper-32). A full-64 CMP then sees a #f return as NON-#f → `(when (find-best-grab
+    // ...))` (collide-edge-grab.gc:70) fires a SPURIOUS (send-event 'edge-grab) →
+    // Jak grabs ledges he shouldn't (the owner "ça projette" glitch). Comparing
+    // low-32 is the established "GOAL ptr = low32" convention and matches what x86
+    // does implicitly (x86 GOAL ptrs carry a consistent upper-32, so its 64-bit CMP
+    // never diverges — x86 emitter byte-untouched). Numeric (int/uint/float)
+    // EQ/NE keep the full-64 compare. Magnitude compares (LT/GT/LEQ/GEQ) are numeric
+    // and never reach this pointer path. Only narrowed for EQUAL/NOT_EQUAL.
+    bool is_eq_ne = (condition.kind == ConditionKind::EQUAL ||
+                     condition.kind == ConditionKind::NOT_EQUAL);
+    auto is_goal_pointer = [](const RegVal* rv) -> bool {
+      if (!rv) {
+        return false;
+      }
+      const std::string& bt = rv->type().base_type();
+      // GOAL 64-bit numeric types keep the full-64 compare.
+      return !(bt == "int" || bt == "uint" || bt == "int8" || bt == "uint8" ||
+               bt == "int16" || bt == "uint16" || bt == "int32" || bt == "uint32" ||
+               bt == "int64" || bt == "uint64" || bt == "int128" || bt == "uint128" ||
+               bt == "float" || bt == "binteger" || bt == "seconds" || bt == "time-frame" ||
+               bt == "object" || bt == "number" || bt == "integer");
+    };
+    bool use_32 = is_eq_ne && is_goal_pointer(condition.a) && is_goal_pointer(condition.b);
+    if (use_32) {
+      gen->add_instr(emitter::IGen::ARM64::cmp_gpr32_gpr32(get_reg(condition.a, allocs, irec),
+                                                           get_reg(condition.b, allocs, irec)),
+                     irec);
+    } else {
+      gen->add_instr(emitter::IGen::ARM64::cmp_gpr64_gpr64(get_reg(condition.a, allocs, irec),
+                                                           get_reg(condition.b, allocs, irec)),
+                     irec);
+    }
   }
   auto jump_rec =
       gen->add_instr(emitter::IGen::ARM64::b_cond_placeholder(cond), irec);

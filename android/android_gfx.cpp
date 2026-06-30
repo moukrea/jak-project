@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -37,6 +38,33 @@ extern "C" void gk_a38_tripwire_frame_hook(int chain_phase);
 // Gcine-pose joint-sanity tripwire: per-frame bucket of cspace joint skips /
 // bad bone matrices (defined in game/mips2c/jak1_functions/joint.cpp).
 extern "C" void gpose_joint_frame_tick(unsigned long long frame_idx);
+
+// Default internal 3D render scale (% of the 640x480 GOAL game_res, 4:3) when
+// debug.opengoal.render.scale is unset. 120% = 768x576: the on-device sweet
+// spot from the fps-vs-resolution sweep — the HIGHEST 4:3 internal resolution
+// that holds the baseline stable 30fps (time-ratio 2) on BOTH measured scenes
+// (Geyser Rock, the tighter/heavier-fill case, and village1). It is a modest
+// (1.2x linear / 1.44x pixels) but real sharpness gain with no fps regression
+// and no broken effects. Higher is genuinely NOT free here: Geyser Rock is
+// already at the 2-vblank boundary at 640x480 (render ~21ms of a 33ms budget),
+// so fill-rate bites immediately above ~120% — 200% (1280x960) drops to ~20fps
+// (ratio 3). Owners who prefer maximum crispness over framerate can raise the
+// prop (e.g. 200 for 1280x960 @ ~20fps); owners who hit a heavier untested
+// scene that regresses can drop to 100 (the original 640x480). Range 25..400.
+// DEFAULT = 100 (original 640x480, neutral). The 120%/768x576 "sweet spot" above
+// is device-SPECIFIC (Adreno 618) — per the owner, internal resolution must be a
+// user-facing OPTION (graphics-options backlog: native-detect + a per-aspect-ratio
+// resolution ladder + a render-scale %), NOT a hardcoded per-device default.
+//
+// BATCH 2 (autoport): the user-facing RENDER SCALE menu option is now the real
+// control. It scales the GOAL game_res in update-to-os (pckernel-common.gc), which
+// flows into Gfx::g_global_settings.game_res_w/h (options.game_res_w/h below). With
+// the default (100) prop, render_scale_pct stays 100 here so the menu setting is
+// applied EXACTLY ONCE (no double-scaling). debug.opengoal.render.scale remains a
+// DEV-ONLY override that multiplies ON TOP of the menu setting (25..400).
+#ifndef RENDER_SCALE_DEFAULT
+#define RENDER_SCALE_DEFAULT 100
+#endif
 
 // Gmatch: known-good snapshot of the GOAL kernel asm-func return-from-thread-dead
 // (the per-process return trampoline at GOAL 0x18aee4). Published here by the
@@ -140,6 +168,23 @@ std::atomic<int> g_window_h{0};
 std::atomic<int> g_refresh_rate{0};
 
 }  // namespace
+
+// ===== Gspeed: engine game-clock driven by the renderer's stable vblank grid ==
+// Published by the GL render loop (android_renderer.cpp) once per swap and read
+// by the EE frame-clock timer (a35_read_ee_timer in gk_android_main.cpp). It is
+// a monotonically-increasing count of EE timer ticks (the unit GOAL's
+// (timer-count #x10000800) consumes; ~585938 ticks/s, *ticks-per-frame*==9765)
+// that advances by EXACTLY (step - 0.5) frame-budgets per rendered frame, where
+// `step` is the renderer's current stable vblanks-per-frame (1 at 60 fps, 2 at
+// 30 fps). The half-budget bias makes the GOAL formula
+//   time-ratio = floor(timer_count / 9765) + 1   (clamp <1.3 -> 1.0)
+// resolve a `step`-frame to time-ratio == step (step=1 -> 0.5 budgets -> clamp
+// -> 1; step=2 -> 1.5 budgets -> floor 1 +1 -> 2), with NO fractional jitter and
+// NO off-by-one. Game advances `step` integer timesteps per real `step` vblanks
+// == a constant real-time 60 Hz, stable regardless of render load. Zero before
+// the renderer publishes (boot): the timer then falls back to wall-clock.
+std::atomic<unsigned long long> g_gspeed_clock_ticks{0};
+std::atomic<bool> g_gspeed_clock_active{false};
 
 bool get_window_size(int* w, int* h) {
   int ww = g_window_w.load();
@@ -395,6 +440,45 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     }
     options.pmode_alp_register = d->pmode_alp.load();
 
+    // Render-scaling knob (debug.opengoal.render.scale = 25..400, default
+    // RENDER_SCALE_DEFAULT). Sizes the offscreen 3D FBO as game_res*(scale/100)
+    // keeping the GOAL 4:3 aspect; the blit to the native window then up- or
+    // down-samples it to the on-screen draw region, so the image stays full-
+    // size and correctly placed at any scale. <100 trades sharpness for fill-
+    // rate (a pure GPU lever); >100 SUPERSAMPLES the 3D for crispness, which is
+    // ~free here because Geyser Rock is draw-call-bound, not fill-bound (proven:
+    // fps pinned at 30 from 640x480 down to 160x120). UI/HUD/text are drawn by
+    // the game into this same FBO so they supersample too at >100. Cached +
+    // polled every 30 frames; a setprop takes effect live. Host/runtime only —
+    // GOAL game_res and the render logic are untouched.
+    {
+      // Default chosen after the on-device fps-vs-resolution sweep: the highest
+      // 4:3 internal res with no fps regression and no broken effects.
+      static const int kRenderScaleDefault = RENDER_SCALE_DEFAULT;
+      static int s_render_scale = kRenderScaleDefault;
+      static unsigned s_scale_poll = 0;
+      if ((s_scale_poll++ % 30) == 0) {
+        char pv[16] = {0};
+        if (__system_property_get("debug.opengoal.render.scale", pv) > 0) {
+          int v = atoi(pv);
+          if (v >= 25 && v <= 400 && v != s_render_scale) {
+            s_render_scale = v;
+            __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                                "RENDER-SCALE set to %d%% (offscreen 3D FBO scale; "
+                                "blit resamples to native window)",
+                                s_render_scale);
+          } else if ((v < 25 || v > 400) && s_render_scale != kRenderScaleDefault) {
+            // out-of-range / cleared prop -> back to the chosen default
+            s_render_scale = kRenderScaleDefault;
+            __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                                "RENDER-SCALE reset to default %d%% (prop cleared/invalid)",
+                                kRenderScaleDefault);
+          }
+        }
+      }
+      options.render_scale_pct = s_render_scale;
+    }
+
     d->renderer->render(DmaFollower(d->chain_data, d->chain_offset), options);
 
     const auto& st = d->renderer->stats();
@@ -521,9 +605,12 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
         s_last_logged_skips = st.buckets_skipped;
         __android_log_print(ANDROID_LOG_INFO, kLogTag,
                             "A35-RENDER frame=%llu chain_bytes=%u buckets_drawn=%u skipped=%u "
-                            "draws=%u tris=%u",
+                            "draws=%u tris=%u fbo=%dx%d render_ms=%.2f buckets_ms=%.2f "
+                            "pcrtc_ms=%.2f",
                             (unsigned long long)st.frame_idx, st.chain_bytes, st.buckets_drawn,
-                            st.buckets_skipped, st.draw_calls, st.triangles);
+                            st.buckets_skipped, st.draw_calls, st.triangles, st.fbo_w, st.fbo_h,
+                            st.render_cpu_s * 1000.0, st.buckets_cpu_s * 1000.0,
+                            st.pcrtc_cpu_s * 1000.0);
       }
     }
   }
@@ -720,7 +807,10 @@ u32 vsync() {
 
   // Post-ready: block on the swap chain so each vsync() corresponds to one
   // rendered+swapped frame (game-chain pacing). The vblank that paces spooled
-  // cutscenes is fired separately at wall-clock 60 Hz by the pacer thread.
+  // cutscenes is fired separately at wall-clock 60 Hz by the pacer thread. The
+  // GAME-CLOCK SPEED fix lives in the quantized frame-clock timer (see
+  // a35_read_ee_timer / gspeed_quantized_ee_ticks in gk_android_main.cpp), NOT
+  // here -- this barrier stays the 1:1 game-chain<->swap pacer it always was.
   auto* d = g_data;
   std::unique_lock<std::mutex> lock(d->dma_mutex);
   auto init_frame = d->frame_idx_of_input_data;

@@ -169,6 +169,12 @@ void KernelCheckAndDispatch() {
     // form would run on the desktop oracle.
     f1_maybe_warp_to_geyser();
 
+    // GENERIC LEVEL WARP (debug-only zone-sweep) — gated (env OG_LEVEL_WARP=<name>
+    // / prop debug.opengoal.level.warp=<continue-name>), OFF by default. Warps
+    // directly into any jak1 level by its continue-point name to confirm it loads +
+    // runs crash-free on the real device. Same in-context dispatch point as F1.
+    level_warp_maybe();
+
     // ECHO-INTRO (new-game intro cinematic) deterministic warp — gated (env
     // OG_ECHO_INTRO / prop debug.opengoal.echo.intro), OFF by default, fires once.
     // Reaches the new-game intro cinematic directly, bypassing the title menu.

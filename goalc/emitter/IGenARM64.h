@@ -457,6 +457,7 @@ InstructionARM64 movsx_r64_r32(Register dst, Register src);
  * todo UNTESTED
  */
 InstructionARM64 cmp_gpr64_gpr64(Register a, Register b);
+InstructionARM64 cmp_gpr32_gpr32(Register a, Register b);
 
 // AArch64-only helpers (phase 24 minimum-viable backend).
 //

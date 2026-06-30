@@ -41,8 +41,10 @@ set -euo pipefail
 GAME="${1:-jak1}"
 # BUNDLE_VERSION stamps the on-device unpack; a bump forces a clean re-decompress
 # on the next launch (a new APK shipped a new payload). Bumped 1 -> 2 to replace
-# the slim/stale v1 unpack on devices that ran the false-green build.
-VERSION="${BUNDLE_VERSION:-2}"
+# the slim/stale v1 unpack on devices that ran the false-green build. Bumped 2 -> 3
+# (autoport 2026-06-29) so the collision-fix arm64 CGO/DGO payload re-unpacks over a
+# device that still holds the pre-fix v2 data.
+VERSION="${BUNDLE_VERSION:-3}"
 
 cd "$(git rev-parse --show-toplevel)"
 

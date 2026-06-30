@@ -12,6 +12,7 @@
 //                 clears the flag, swaps, frame_idx++
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 
@@ -20,6 +21,14 @@
 struct GfxRendererModule;
 
 namespace android_gfx {
+
+// Gspeed: stable-grid engine game-clock published by the GL render loop and read
+// by the EE frame-clock timer (a35_read_ee_timer). See definitions/notes in
+// android_gfx.cpp. g_gspeed_clock_ticks is in bus-ticks (get-bus-clock/256
+// units), advanced by (step-0.5)*9765 per rendered frame; active once the
+// renderer's stable-rate lock is running.
+extern std::atomic<unsigned long long> g_gspeed_clock_ticks;
+extern std::atomic<bool> g_gspeed_clock_active;
 
 // GL-thread side ------------------------------------------------------------
 // Called once after SDL_GL_MakeCurrent succeeded. Loads GL entry points via
