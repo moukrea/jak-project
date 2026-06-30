@@ -204,6 +204,9 @@
   (update-cheats obj)
   ;; music.
   (update-music-log obj)
+  ;; on-screen FPS counter (graphics option). draws into the just-started frame's
+  ;; global-buf; renders on both x86 and Android via the game font.
+  (draw-pc-fps-counter)
   (none))
 
 (defmethod update-cheats ((obj pc-settings))

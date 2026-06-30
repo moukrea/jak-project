@@ -1032,6 +1032,11 @@ void pc_set_fps_counter(u32 symptr) {
   Gfx::g_global_settings.display_fps = symbol_to_bool(symptr);
 }
 
+// Real measured render fps, for the GOAL-side on-screen FPS counter.
+s32 pc_get_fps() {
+  return (s32)(Gfx::g_global_settings.measured_fps + 0.5f);
+}
+
 u32 pc_get_os() {
 #ifdef __ANDROID__
   // NOTE: must come before the __linux__ branch — Android defines both
@@ -1203,6 +1208,7 @@ void init_common_pc_port_functions(
   make_func_symbol_func("pc-set-collision", (void*)pc_set_collision);
   make_func_symbol_func("pc-set-gfx-hack", (void*)pc_set_gfx_hack);
   make_func_symbol_func("pc-set-fps-counter", (void*)pc_set_fps_counter);
+  make_func_symbol_func("pc-get-fps", (void*)pc_get_fps);
 
   // -- OTHER --
   // Return the current OS as a symbol. Actually returns what it was compiled for!

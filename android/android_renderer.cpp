@@ -33,6 +33,7 @@
 
 #include "common/common_types.h"
 
+#include "game/graphics/gfx.h"
 #include "game/kernel/common/kboot.h"
 
 #include "android_gfx.h"
@@ -265,6 +266,27 @@ int android_renderer_run() {
     if (present_this_cycle) {
       SDL_GL_SwapWindow(window);
       android_gfx::post_swap_tick();
+      // Publish the REAL measured render rate for the GOAL on-screen FPS counter
+      // (pc-get-fps). Measured here on actual presented frames, so it reflects the
+      // true Adreno cadence (e.g. ~30 at Geyser), NOT the Gspeed vblank-stable
+      // engine clock. Smoothed with the same 0.9/0.1 EMA as the desktop path.
+      {
+        using namespace std::chrono;
+        static steady_clock::time_point s_fps_last{};
+        static bool s_fps_have_last = false;
+        static float s_fps_smoothed_dt = 1.f / 60.f;
+        auto fps_now = steady_clock::now();
+        if (s_fps_have_last) {
+          float dt = duration_cast<duration<float>>(fps_now - s_fps_last).count();
+          if (dt > 0.f && dt < 1.f) {
+            s_fps_smoothed_dt = (0.9f * s_fps_smoothed_dt) + (0.1f * dt);
+          }
+        }
+        s_fps_last = fps_now;
+        s_fps_have_last = true;
+        Gfx::g_global_settings.measured_fps =
+            (s_fps_smoothed_dt > 0.f) ? (1.f / s_fps_smoothed_dt) : 0.f;
+      }
     }
 
     // ===== Gspeed: STABLE frame-rate lock (arm64/Android) ====================

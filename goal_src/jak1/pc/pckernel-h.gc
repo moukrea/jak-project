@@ -102,6 +102,12 @@
 ;; C kernel function to toggle the on-screen FPS counter overlay.
 ;; (declared here in pc/ to keep the engine kernel-defs gold oracle untouched)
 (define-extern pc-set-fps-counter (function symbol none))
+;; C kernel function returning the real measured render fps (int), for the
+;; GOAL-side on-screen FPS counter. Works on both x86 and Android backends.
+(define-extern pc-get-fps (function int))
+;; on-screen FPS counter draw (defined in pckernel.gc, called per-frame from the
+;; pc-settings update method in pckernel-common.gc — forward-declared here).
+(define-extern draw-pc-fps-counter (function none))
 
 ;; All of the configuration for the PC port in GOAL. Access things from here!
 ;; Includes some methods to change parameters.

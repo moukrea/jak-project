@@ -534,6 +534,22 @@
                     (font-color flat-yellow)
                     (font-flags shadow kerning))))
 
+;; autoport graphics-options batch 1: on-screen FPS counter, drawn GOAL-side via
+;; the game font so it renders on BOTH x86 (GL) and Android (GLES, no ImGui pass).
+;; Gated on the fps-counter? graphics option; reads the REAL measured render fps
+;; published by the renderer present path (pc-get-fps). Called every frame from
+;; (update *pc-settings*).
+(defun draw-pc-fps-counter ()
+  (when (-> *pc-settings* fps-counter?)
+    (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf))
+      (draw-string-xy (string-format "FPS ~D" (pc-get-fps))
+                      buf
+                      16
+                      (the int (* 16.0 (-> (get-video-params) relative-y-scale)))
+                      (font-color flat-yellow)
+                      (font-flags shadow kerning large))))
+  (none))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; process pools
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -619,12 +619,17 @@ void a35_pc_set_frame_rate(s64 rate) {
 
 // autoport graphics-options batch 1: store the FPS-counter overlay toggle so the
 // GOAL update-to-os call to pc-set-fps-counter has a real binding on Android (an
-// unbound pc-* symbol would BLR into junk). The shared Gfx flag is honored by the
-// desktop OpenGLRenderer present pass. NOTE: the Android renderer (android_gfx)
-// has no ImGui/text-overlay pass yet, so the on-screen number does not draw on
-// device — the flag is stored, but the visual overlay is a renderer follow-up.
+// unbound pc-* symbol would BLR into junk). The on-screen number is drawn GOAL-
+// side (game font, both renderers); this just stores the toggle flag.
 void a35_pc_set_fps_counter(u32 sym_val) {
   Gfx::g_global_settings.display_fps = (sym_val != s7.offset);
+}
+
+// Real measured render fps for the GOAL on-screen FPS counter. android_renderer
+// publishes the true presented-frame rate into measured_fps (NOT the Gspeed
+// vblank-stable engine clock), so this reads ~30 at Geyser as the owner sees.
+s64 a35_pc_get_fps() {
+  return (s64)(Gfx::g_global_settings.measured_fps + 0.5f);
 }
 }  // extern "C"
 
@@ -706,6 +711,7 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-set-collision", d);
   jak1::make_function_symbol_from_c("pc-set-gfx-hack", d);
   jak1::make_function_symbol_from_c("pc-set-fps-counter", (void*)a35_pc_set_fps_counter);
+  jak1::make_function_symbol_from_c("pc-get-fps", (void*)a35_pc_get_fps);
   // Other
   jak1::make_function_symbol_from_c("pc-get-os", (void*)a35_pc_get_os);
   jak1::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
