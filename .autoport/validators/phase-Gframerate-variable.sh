@@ -14,7 +14,27 @@ grep -qiE 'RESULT:[[:space:]]*VARIABLE[[:space:]]+FPS[[:space:]]*\+?[[:space:]]*
 # state-anchored: constant game-time across >=3 fps regimes (the owner's rule, not frame-indexed)
 grep -qiE 'game.?units|units/real|game-time|per[ -]real-?sec|state-?anchored' "$R" || fail "must show state-anchored game-time per real second"
 grep -qiE '30|45|50|60' "$R" || fail "must report multiple fps regimes"
-grep -qiE 'constant|==|equal|same.*speed|flat' "$R" || fail "must show speed is CONSTANT across fps regimes"
+# NUMERIC anti-false-green (owner 2026-06-30): don't pass on the WORD "flat" — require the
+# per-regime game_units_per_real_sec NUMBERS to actually be (a) constant across fps regimes
+# and (b) spike-free. The 'min/avg/max=A/B/C' triples must show cross-regime avg consistency
+# and bounded transient spikes (the owner's slow-mo↔hyper-accel symptom = exactly these spikes).
+python3 - "$R" <<'PY' || fail "speed numbers not constant/spike-free across regimes (see message)"
+import re,sys
+t=open(sys.argv[1],errors='replace').read()
+trip=re.findall(r'game.?units[^=\n]*=\s*([\d.]+)\s*/\s*([\d.]+)\s*/\s*([\d.]+)', t, re.I)
+if len(trip)<3:
+    print("FAIL: need >=3 per-regime 'game_units_per_real_sec [min/avg/max]=A/B/C' triples in the report",file=sys.stderr); sys.exit(1)
+mins=[float(a) for a,b,c in trip]; avgs=[float(b) for a,b,c in trip]; maxs=[float(c) for a,b,c in trip]
+# (a) constant speed regardless of fps: regime averages must agree within 15%
+if min(avgs)<=0 or max(avgs)/min(avgs) > 1.15:
+    print(f"FAIL: game-speed NOT constant across fps regimes — regime avgs {avgs} spread {max(avgs)/max(min(avgs),1e-9):.2f}x (need <=1.15x). The fix must make speed fps-INDEPENDENT.",file=sys.stderr); sys.exit(1)
+# (b) no transient spikes (the owner's momentary hyper-acceleration): per regime max<=1.6*avg, min>=0.6*avg
+for a,b,c in trip:
+    a,b,c=float(a),float(b),float(c)
+    if c > 1.6*b or a < 0.6*b:
+        print(f"FAIL: speed SPIKES within a regime (min/avg/max={a}/{b}/{c}) — momentary slow-mo/hyper-accel still present (need max<=1.6*avg, min>=0.6*avg). Exclude warm-up frames OR fix the real spike.",file=sys.stderr); sys.exit(1)
+print(f"OK: speed constant across regimes (avgs {avgs}) and spike-free")
+PY
 grep -qiE 'flicker|black.*frame|0/|no black' "$R" || fail "must confirm zero black flicker (regression guard on 8b330f996)"
 grep -qiE 'target-?fps|set-frame-rate|refresh' "$R" || fail "must show target-fps wired to the real refresh"
 grep -qiE 'cutscene|slow-?mo|iop|pacer' "$R" || fail "must confirm cutscene speed (IOP pacer unpinned)"

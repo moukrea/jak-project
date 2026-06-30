@@ -43,3 +43,12 @@ framerate, it jumps". This is likely the SAME root (camera advance uses time-adj
 target-fps is hardcoded 60). The owner play-test (final gate) must confirm the CAMERA is smooth — not
 just that Jak's movement speed is constant. If the camera still stutters after the fix, the phase is
 NOT done (owner withholds the token); investigate camera interpolation / render-vs-camera cadence.
+
+## OWNER ADD (2026-06-30) — MULTI-ZONE, not just Geyser; numbers must be FLAT (not the word)
+The owner notes speed variation "depends on the zone". Verifying by warping ONLY to Geyser and
+faking fps via render-scale is insufficient. The validator now NUMERICALLY requires the per-regime
+`game_units_per_real_sec [min/avg/max]` to be constant across fps regimes (avg spread <=1.15x) AND
+spike-free (max<=1.6*avg, min>=0.6*avg) — the current attempt's numbers (avg ~75-100, max ~300)
+are the owner's slow-mo↔hyper-accel symptom and must be eliminated, not labelled "flat". Prefer
+measuring across REAL zones (different zones render at different real fps) in addition to render-scale
+regimes. The owner play-test must cover MULTIPLE zones (light + heavy) + the CAMERA smoothness.
