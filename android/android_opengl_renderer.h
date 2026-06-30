@@ -89,6 +89,10 @@ class AndroidOpenGLRenderer {
   void dispatch_buckets_jak1(DmaFollower dma, ScopedProfilerNode& prof);
   void do_pcrtc_effects(float alp, SharedRenderState* render_state, ScopedProfilerNode& prof);
   u32 count_chain_bytes(DmaFollower dma);
+  // Grender-split: composite the scaled 3D scene FBO into the native-resolution UI
+  // FBO and re-target rendering there. Installed into m_render_state.begin_2d_ui_pass
+  // when the split is active; idempotent within a frame.
+  void begin_ui_pass();
 
   SharedRenderState m_render_state;
   Profiler m_profiler;
@@ -102,8 +106,12 @@ class AndroidOpenGLRenderer {
   struct {
     Fbo window;
     Fbo render_buffer;
+    Fbo ui_buffer;  // Grender-split: native-res buffer for the 2D UI pass
     Fbo* render_fbo = nullptr;
   } m_fbo_state;
+
+  // Grender-split: true once begin_ui_pass() has composited+switched this frame.
+  bool m_ui_pass_active = false;
 
   GLuint m_screen_vao = 0;
   GLuint m_screen_vbo = 0;

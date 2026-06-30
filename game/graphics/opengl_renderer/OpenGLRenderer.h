@@ -86,6 +86,10 @@ class OpenGLRenderer {
                         int brightness_contrast_alpha,
                         SharedRenderState* render_state,
                         ScopedProfilerNode& prof);
+  // Grender-split: composite the scaled 3D scene FBO into the native-resolution
+  // UI FBO and re-target rendering there. Installed into m_render_state as
+  // begin_2d_ui_pass when the split is active; idempotent within a frame.
+  void begin_ui_pass();
   void blit_display(ScopedProfilerNode& prof);
   void init_bucket_renderers_jak1();
   void init_bucket_renderers_jak2();
@@ -138,10 +142,14 @@ class OpenGLRenderer {
       Fbo window;          // provided by glfw
       Fbo render_buffer;   // temporary buffer to render to
       Fbo resolve_buffer;  // temporary buffer to resolve to
+      Fbo ui_buffer;       // Grender-split: native-res buffer for the 2D UI pass
     } resources;
 
     Fbo* render_fbo = nullptr;  // the selected fbo from the three above to use for rendering
   } m_fbo_state;
+
+  // Grender-split: true once begin_ui_pass() has composited+switched this frame.
+  bool m_ui_pass_active = false;
 
   GLuint screen_vao = 0;  // vertex array object for a screen-space draw
   GLuint screen_vbo = 0;  // vertex buffer object for a screen-space draw

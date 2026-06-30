@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -80,6 +81,19 @@ struct SharedRenderState {
   int draw_region_h = 0;
   int draw_offset_x = 0;
   int draw_offset_y = 0;
+
+  // Grender-split (UI native + 3D scaled): when the 3D scene is rendered to a
+  // smaller FBO than the native display (RENDER SCALE % / a low Game Resolution
+  // upscaled to fill the screen), the 2D UI/HUD/text must stay crisp. The frame
+  // orchestrator (OpenGLRenderer / AndroidOpenGLRenderer) installs this callback
+  // each frame when the split is active. It is invoked at the 3D->2D boundary:
+  //   - by Sprite3::render_jak1, right before the HUD sprite group (group1), and
+  //   - by the bucket dispatch loop, right before the DEBUG bucket (a fallback so
+  //     all DirectRenderer text stays native even if the sprite bucket was empty).
+  // First call composites (upscale-blits) the scaled scene FBO into the native UI
+  // FBO and re-targets rendering there; subsequent calls in the same frame no-op.
+  // nullptr => split disabled, everything renders to the single scene FBO as before.
+  std::function<void()> begin_2d_ui_pass = nullptr;
 
   int bucket_for_vis_copy = 0;
   int num_vis_to_copy = 0;

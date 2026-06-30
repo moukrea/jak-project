@@ -1288,6 +1288,75 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
   m_render_state.render_fb_w = settings.game_res_w;
   m_render_state.render_fb_h = settings.game_res_h;
   glViewport(0, 0, settings.game_res_w, settings.game_res_h);
+
+  // Grender-split (UI native + 3D scaled): the 3D scene renders into render_fbo
+  // at game_res (= chosen Game Resolution x RENDER SCALE %). When that is smaller
+  // than the native on-screen draw region, the 2D UI/HUD/text is instead drawn
+  // into a separate native-resolution FBO so it stays crisp while only the 3D is
+  // upscaled. Inactive (and zero-cost) when the scene already fills the display.
+  m_ui_pass_active = false;
+  const int native_ui_w = m_render_state.draw_region_w;
+  const int native_ui_h = m_render_state.draw_region_h;
+  const bool split_active = (settings.game_res_w < native_ui_w ||
+                             settings.game_res_h < native_ui_h) &&
+                            native_ui_w > 0 && native_ui_h > 0;
+  if (split_active) {
+    if (!m_fbo_state.resources.ui_buffer.matches(native_ui_w, native_ui_h, 1)) {
+      m_fbo_state.resources.ui_buffer.clear();
+      m_fbo_state.resources.ui_buffer = make_fbo(native_ui_w, native_ui_h, 1, true);
+    }
+    m_render_state.begin_2d_ui_pass = [this]() { begin_ui_pass(); };
+    // make_fbo bound the new UI fbo; restore the scaled scene target for the 3D pass.
+    glBindFramebuffer(GL_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
+    glViewport(0, 0, settings.game_res_w, settings.game_res_h);
+  } else {
+    m_render_state.begin_2d_ui_pass = nullptr;
+  }
+}
+
+void OpenGLRenderer::begin_ui_pass() {
+  if (m_ui_pass_active) {
+    return;  // idempotent: only composite+switch once per frame
+  }
+  m_ui_pass_active = true;
+
+  auto& ui = m_fbo_state.resources.ui_buffer;
+
+  // The scene may be multisampled; resolve to a single-sample buffer first so we
+  // can blit it as a normal texture. (matches do_pcrtc_effects' resolve step.)
+  Fbo* scene = m_fbo_state.render_fbo;
+  if (m_fbo_state.resources.resolve_buffer.valid) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo_state.resources.resolve_buffer.fbo_id);
+    glBlitFramebuffer(0, 0, m_fbo_state.render_fbo->width, m_fbo_state.render_fbo->height, 0, 0,
+                      m_fbo_state.resources.resolve_buffer.width,
+                      m_fbo_state.resources.resolve_buffer.height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    scene = &m_fbo_state.resources.resolve_buffer;
+  }
+
+  // Upscale-blit the scaled 3D scene into the native UI FBO: this is the
+  // "upscale 3D" composite. The UI is then drawn on top at native resolution.
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, scene->fbo_id);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ui.fbo_id);
+  glBlitFramebuffer(0, 0, scene->width, scene->height, 0, 0, ui.width, ui.height,
+                    GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
+  // Re-target the UI FBO for the 2D pass. Keep the composited color; clear depth so
+  // the always-on-top HUD/menu (GEQUAL vs cleared 0) is not occluded by stale depth.
+  glBindFramebuffer(GL_FRAMEBUFFER, ui.fbo_id);
+  glDepthMask(GL_TRUE);
+  glClearDepthf(0.0f);
+  glClearStencil(0);
+  glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  glDisable(GL_BLEND);
+  glViewport(0, 0, ui.width, ui.height);
+
+  m_render_state.render_fb = ui.fbo_id;
+  m_render_state.render_fb_x = 0;
+  m_render_state.render_fb_y = 0;
+  m_render_state.render_fb_w = ui.width;
+  m_render_state.render_fb_h = ui.height;
+  m_render_state.stencil_dirty = false;
 }
 
 void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
@@ -1330,6 +1399,13 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     auto& renderer = m_bucket_renderers[bucket_id];
     auto bucket_prof = prof.make_scoped_child(renderer->name_and_id());
     g_current_renderer = renderer->name_and_id();
+    // Grender-split: the DirectRenderer UI buckets (DEBUG/DEBUG_NO_ZBUF/SUBTITLE
+    // carry all 2D text/HUD numbers/menu/subtitles) come after the 3D scene. Make
+    // sure the native UI pass has begun before them — a fallback for the case where
+    // the sprite bucket was empty and didn't trigger it.
+    if (bucket_id == (int)jak1::BucketId::DEBUG && m_render_state.begin_2d_ui_pass) {
+      m_render_state.begin_2d_ui_pass();
+    }
     // lg::info("Render: {} start", g_current_renderer);
     renderer->render(dma, &m_render_state, bucket_prof);
     if (sync_after_buckets) {
@@ -1622,7 +1698,12 @@ void OpenGLRenderer::do_pcrtc_effects(float alp,
                                       SharedRenderState* render_state,
                                       ScopedProfilerNode& prof) {
   Fbo* window_blit_src = nullptr;
-  if (m_fbo_state.resources.resolve_buffer.valid) {
+  if (m_ui_pass_active) {
+    // Grender-split: the UI FBO already holds the composited image (upscaled 3D
+    // scene + native-resolution 2D UI) at the native draw-region size; blit it
+    // straight to the window. The scene was resolved during begin_ui_pass().
+    window_blit_src = &m_fbo_state.resources.ui_buffer;
+  } else if (m_fbo_state.resources.resolve_buffer.valid) {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo_state.resources.resolve_buffer.fbo_id);
     glBlitFramebuffer(0,                                            // srcX0
