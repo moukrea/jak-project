@@ -19,6 +19,8 @@ grep -qiE 'lower|raise|up|down|adjust' "$R" || fail "must show scale auto-loweri
 grep -qiE 'thrash|oscillat|dead.?band|cooldown|smooth|EMA|hysteres|cadence|bounded' "$R" || fail "must document the anti-thrash design (the owner's key requirement)"
 grep -qiE 'floor|never below|>= ?min|respect' "$R" || fail "must confirm the floor is respected (never below Minimum Render Scale)"
 grep -qiE 'off.*(manual|unchanged|fixed)|manual.*off' "$R" || fail "must confirm OFF = unchanged manual RENDER SCALE behavior"
+grep -qiE 'frame.?time|budget|headroom|ms.*budget|vblank.*budget|probe|opportunistic' "$R" || fail "RAISE must use FRAME-TIME headroom (not fps-above-target) — owner: at a 60 vsync cap fps never exceeds target so the scale got stuck at the floor"
+grep -qiE 'cap|60.*target|target.*60|recover.*(60|cap|target)|raise.*(60|cap)|climb.*100|toward 100' "$R" || fail "must demonstrate the scale RECOVERS toward 100% at a VSYNC-CAPPED target (target=60, fps~60), not only when fps exceeds target"
 ok "report: dynamic toggle + floor + target + convergence + anti-thrash + floor-respected + OFF=manual"
 
 # real renderer/pc change, engine goal_src untouched
