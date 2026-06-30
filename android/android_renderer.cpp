@@ -229,17 +229,43 @@ int android_renderer_run() {
         }
       }
     }
-    if (!drew_game && glad_glClearDepthf) {
-      // No chain this frame (boot, paused, or kernel dead): dark-blue
-      // clear, visibly distinct from a rendered black game frame.
+    // Gspeed-flicker fix: NEVER present a buffer the game did not draw this
+    // cycle. The vblank-locked pacing below runs the engine at a stable
+    // sub-60 rate, so some GL iterations get no fresh chain (render_frame_on_
+    // gl_thread times out, or we spin while the engine is mid-frame). The old
+    // code unconditionally cleared-to-blue + swapped on every chainless
+    // iteration, flashing an undrawn frame between good frames -> the owner's
+    // "clignotte noir/bleu" regression. Instead:
+    //   * boot, before the FIRST real game frame: keep the dark-blue clear+swap
+    //     (the intended boot indicator) so the screen isn't a frozen garbage
+    //     buffer while the renderer/level loads.
+    //   * once a real game frame has been presented: on a chainless iteration,
+    //     do NOT clear and do NOT swap -- the compositor holds the last good
+    //     front buffer, so the screen stays on the last drawn frame (no flash).
+    // This keeps the constant-speed behavior (clock + pacing still advance only
+    // on real drawn frames, below) while eliminating the black/blue flicker.
+    static bool s_ever_drew = false;
+    bool present_this_cycle;
+    if (drew_game) {
+      s_ever_drew = true;
+      present_this_cycle = true;
+    } else if (!s_ever_drew && glad_glClearDepthf) {
+      // Boot only: dark-blue clear so a chainless pre-title frame is a clean
+      // boot color, not a stale/garbage buffer.
       glViewport(0, 0, win_w, win_h);
       glClearColor(0.05f, 0.10f, 0.30f, 1.0f);
       glClearDepthf(1.0f);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      present_this_cycle = true;
+    } else {
+      // Mid-game chainless iteration: hold the last good frame (no swap).
+      present_this_cycle = false;
     }
 
-    SDL_GL_SwapWindow(window);
-    android_gfx::post_swap_tick();
+    if (present_this_cycle) {
+      SDL_GL_SwapWindow(window);
+      android_gfx::post_swap_tick();
+    }
 
     // ===== Gspeed: STABLE frame-rate lock (arm64/Android) ====================
     // The GOAL engine game-clock (drawable.gc display-frame-start) is paced 1:1
@@ -278,7 +304,16 @@ int android_renderer_run() {
         char pv[8] = {0};
         s_off = __system_property_get("debug.opengoal.gspeed.off", pv) > 0 && pv[0] == '1';
       }
-      if (!s_off) {
+      // Only PACE + advance the game-clock on a REAL drawn+presented frame. A
+      // chainless iteration (no fresh game frame this cycle) must NOT advance the
+      // clock (that would over-advance game-time = the speed bug) and must NOT
+      // pad the grid; instead hold briefly so we don't busy-spin, then retry for
+      // the chain. This pairs with the "don't swap an undrawn buffer" logic above
+      // so a chainless cycle neither flashes nor speeds up game-time.
+      if (!s_off && !drew_game) {
+        std::this_thread::sleep_for(microseconds(1500));
+      }
+      if (!s_off && drew_game) {
         auto now = steady_clock::now();
         if (!s_init) { s_init = true; s_work_start = now; }
         // Measure the ACTUAL render+engine work this frame: real time from the
