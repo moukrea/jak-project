@@ -175,6 +175,9 @@
    (gfx-msaa                         int32) ;; for MSAA
    (fps-counter?                     symbol) ;; show an on-screen FPS counter overlay
    (render-scale                     float) ;; internal 3D render scale, % of game res (100 = native)
+   (min-render-scale                 float) ;; Gdynamic-renderscale: auto-scaler FLOOR (% of game res)
+   (dynamic-render-scale?            symbol) ;; Gdynamic-renderscale: if on, auto-adjust render scale to hold dyn-target-fps
+   (dyn-target-fps                   float) ;; Gdynamic-renderscale: minimum target framerate the auto-scaler holds
    ;; ps2 settings
    (ps2-read-speed?                  symbol) ;; emulate DVD loads
    (ps2-parts?                       symbol) ;; if off, increase particle cap
@@ -367,6 +370,9 @@
   (set! (-> obj gfx-msaa) PC_DEFAULT_MSAA) ;; default msaa
   (set! (-> obj fps-counter?) #f) ;; FPS overlay off by default
   (set! (-> obj render-scale) 100.0) ;; internal 3D render scale default = native (100%)
+  (set! (-> obj min-render-scale) 40.0) ;; Gdynamic-renderscale: auto-scaler floor default 40%
+  (set! (-> obj dynamic-render-scale?) #f) ;; Gdynamic-renderscale: off by default (manual behavior unchanged)
+  (set! (-> obj dyn-target-fps) 30.0) ;; Gdynamic-renderscale: default minimum target framerate
   0)
 
 (defmethod reset-audio ((obj pc-settings) (call-handlers symbol))

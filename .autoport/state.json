@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 160,
+  "current_phase_idx": 161,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -441,7 +441,8 @@
     "Gcollision-nanroot",
     "Gcollision-glitchcapture",
     "Gframerate-variable",
-    "Gres-picker"
+    "Gres-picker",
+    "Grender-split"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -580,9 +581,10 @@
     "Gcollision-glitchcapture": 1782660225.3022556,
     "Gframerate-variable": 1782816548.486224,
     "Gres-picker": 1782833410.0728593,
-    "Grender-split": 1782838389.3444257
+    "Grender-split": 1782838389.3444257,
+    "Gdynamic-renderscale": 1782847463.4029243
   },
-  "last_update": "2026-06-30T17:50:37.187096+00:00",
+  "last_update": "2026-06-30T19:24:23.402927+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
