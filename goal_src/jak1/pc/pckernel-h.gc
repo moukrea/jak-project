@@ -326,7 +326,20 @@
   "Set the default graphics settings"
   (set-window-size! obj PC_BASE_WIDTH PC_BASE_HEIGHT)
   (set-aspect! obj 4 3)
-  (set-frame-rate! obj 60 call-handlers)
+  ;; Gframerate-variable (Android): default target-fps to the panel REFRESH, not
+  ;; a hardcoded 60, so the engine's native variable-fps math (seconds-per-frame =
+  ;; time-ratio/target-fps; time-adjust-ratio) advances game-time at a CONSTANT
+  ;; real-time rate at whatever fps the Adreno actually sustains -- exactly like
+  ;; the desktop port at 60/120/144. Guarded: only on Android and only when the
+  ;; refresh is known (>0); otherwise 60 (which also keeps x86/desktop identical
+  ;; and avoids the 585900/target-fps divide-by-zero in the 'custom set-video-mode
+  ;; branch). On the 60 Hz Redmi this resolves to 60 ('ntsc, == previous behavior).
+  (let ((refresh (pc-get-active-display-refresh-rate)))
+    (set-frame-rate! obj
+                     (if (and (= (-> obj os) 'android) (> refresh 0))
+                         refresh
+                         60)
+                     call-handlers))
   (set! (-> obj use-vis?) #f)
   (set! (-> obj aspect-ratio-auto?) #t)
   (set! (-> obj vsync?) #t)

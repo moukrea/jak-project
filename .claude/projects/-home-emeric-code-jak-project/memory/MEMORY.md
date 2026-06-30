@@ -1,0 +1,1 @@
+- [Gframerate-variable state](project_gframerate_variable_state.md) — PASS: free fps + constant real-time speed; Redmi SwapInterval doesn't FIFO-block (renders uncapped ~73fps); cap the EE syncv loop not the GL present; error-feedback game clock off __send-gfx-dma-chain.

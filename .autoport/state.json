@@ -149,7 +149,8 @@
     "Ginput-replay-liverecord": 1,
     "Ginput-replay-realinput": 1,
     "Gcollision-nanroot": 1,
-    "Gcollision-glitchcapture": 2
+    "Gcollision-glitchcapture": 2,
+    "Gframerate-variable": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -572,9 +573,10 @@
     "Ginput-replay-liverecord": 1782595232.2671432,
     "Ginput-replay-realinput": 1782642139.795707,
     "Gcollision-nanroot": 1782647902.4431229,
-    "Gcollision-glitchcapture": 1782660225.3022556
+    "Gcollision-glitchcapture": 1782660225.3022556,
+    "Gframerate-variable": 1782816548.486224
   },
-  "last_update": "2026-06-28T18:08:30.117866+00:00",
+  "last_update": "2026-06-30T13:50:35.590238+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -593,5 +595,8 @@
       "31-playable"
     ],
     "reason": "Phases 26-31 built on relocated kStateSeq cheat (game/kernel/common/android_dispatch_signals.cpp), stubbed weak_jak1_* bridge, and synthetic gradient renderer. See SUPERVISOR_JOURNAL.md."
-  }
+  },
+  "validator_passed": [
+    "Gframerate-variable"
+  ]
 }
