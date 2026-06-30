@@ -1330,22 +1330,36 @@
 
 (defun build-resolution-options ()
   "Build the Game Resolution list for the CURRENT aspect ratio: a NATIVE entry (the
-   device panel resolution) + a standard ladder generated AT the current aspect ratio
-   and clamped to [floor, native]. Floor = 640 wide for width-constrained aspects
-   (the common case), else 480 tall. Works on x86 and Android (one shared path).
-   Re-runs every frame in respond-common, so it re-filters when the aspect changes."
+   largest resolution AT the chosen aspect that fits the physical panel — adapts as the
+   aspect changes; e.g. 4:3 on a 2400x1080 panel = 1440x1080, NOT the raw 2400x1080) +
+   a standard ladder generated AT the current aspect ratio and clamped to [floor, native].
+   Floor = 640 wide for width-constrained aspects (the common case), else 480 tall. Works
+   on x86 and Android (one shared path). Re-runs every frame in respond-common, so both the
+   NATIVE entry and the ladder re-filter/recompute when the aspect changes."
   (set! (-> *temp-options* length) 0)
-  (let ((native-w 0)
-        (native-h 0)
+  (let ((panel-w 0)
+        (panel-h 0)
         (added 0))
-    (pc-get-active-display-size (& native-w) (& native-h))
-    (when (or (<= native-w 0) (<= native-h 0))
-      (set! native-w 640)
-      (set! native-h 480))
+    (pc-get-active-display-size (& panel-w) (& panel-h))
+    (when (or (<= panel-w 0) (<= panel-h 0))
+      (set! panel-w 640)
+      (set! panel-h 480))
     (let* ((aspect (-> *pc-settings* aspect-ratio))
            (aspect (if (< aspect 0.1) 1.0 aspect)) ;; guard against a bogus 0 aspect
+           ;; physical panel aspect of the active display.
+           (panel-aspect (/ (the float panel-w) (the float panel-h)))
+           ;; NATIVE adapts to the CHOSEN aspect (owner 2026-06-30): the LARGEST
+           ;; aspect-correct rectangle that fits inside the physical panel — NOT the
+           ;; raw panel size. Chosen aspect WIDER than the panel -> bound by panel
+           ;; WIDTH (compute height); NARROWER/taller -> bound by panel HEIGHT
+           ;; (compute width); equal -> the real panel size. e.g. 4:3 on a 2400x1080
+           ;; panel -> 1440x1080; 16:9 -> 1920x1080; the panel's own aspect -> 2400x1080.
+           ;; Recomputes here every frame, so NATIVE follows the aspect selection live.
+           (fit-width? (>= aspect panel-aspect))
+           (native-w (if fit-width? panel-w (the int (+ 0.5 (* (the float panel-h) aspect)))))
+           (native-h (if fit-width? (the int (+ 0.5 (/ (the float panel-w) aspect))) panel-h))
            (width-constrained? (>= aspect 1.0)))
-      ;; NATIVE entry first (the actual panel resolution).
+      ;; NATIVE entry first (largest aspect-correct resolution fitting the panel).
       (add-named-resolution-option *resolution-native-label* native-w native-h)
       (1+! added)
       (cond
