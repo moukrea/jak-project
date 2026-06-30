@@ -41,13 +41,15 @@ struct AndroidRenderOptions {
   int draw_region_h = 0;
   float pmode_alp_register = 1.f;
 
-  // Render-scaling knob (debug.opengoal.render.scale = 25..100, default 100).
-  // The whole 3D scene is rendered into an offscreen FBO sized
-  // game_res * (render_scale_pct/100); do_pcrtc_effects then GL_LINEAR
-  // upscale-blits that FBO to the native window. 100 == current behavior
-  // (FBO == game_res, no scaling). A pure GPU fill-rate lever: fewer
-  // fragments shaded, identical draw-call/triangle submission. Host-only;
-  // GOAL render logic and game_res_w/h are untouched.
+  // Render-scaling knob (debug.opengoal.render.scale = 25..400, default set in
+  // android_gfx.cpp). The whole 3D scene is rendered into an offscreen FBO
+  // sized game_res * (render_scale_pct/100), keeping the 4:3 aspect;
+  // do_pcrtc_effects then GL_LINEAR resample-blits that FBO to the native draw
+  // region. 100 == original 640x480 behavior. <100 trades sharpness for fill-
+  // rate; >100 SUPERSAMPLES the 3D (e.g. 200 -> 1280x960) for crispness. Draw-
+  // call/triangle submission is identical at every scale (only the fragment
+  // sample count changes). Host-only; GOAL render logic and game_res_w/h are
+  // untouched.
   int render_scale_pct = 100;
 };
 

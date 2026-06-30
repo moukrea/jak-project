@@ -439,15 +439,18 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   window_fb.multisample_count = 1;
   window_fb.multisampled = false;
 
-  // Render-scaling: the 3D scene FBO is game_res * (render_scale_pct/100).
-  // do_pcrtc_effects upscale-blits it to the native window, so 100 == current
-  // behavior and lower values shrink only the offscreen fragment work. Clamp to
-  // [25,100] and keep dims >= 1. The whole renderer (viewport, projection,
-  // bucket draws, FBO probe) keys off these dims, so nothing downstream needs
-  // to know about the scale — the GOAL game_res_w/h is never touched.
+  // Render-scaling: the 3D scene FBO is game_res * (render_scale_pct/100),
+  // keeping the GOAL 4:3 aspect. do_pcrtc_effects resample-blits it to the
+  // native draw region, so 100 == original 640x480 behavior, <100 trades
+  // sharpness for fill-rate, and >100 SUPERSAMPLES for crispness (e.g. 200 ->
+  // 1280x960). Clamp to [25,400] and keep dims >= 1. The whole renderer
+  // (viewport, projection, bucket draws, FBO probe) keys off these dims, so
+  // nothing downstream needs to know about the scale — GOAL game_res_w/h is
+  // never touched, and the GOAL projection is NDC (resolution-independent), so
+  // a larger FBO just yields more samples of the same scene.
   int scale = settings.render_scale_pct;
   if (scale < 25) scale = 25;
-  if (scale > 100) scale = 100;
+  if (scale > 400) scale = 400;
   const int scaled_w = (settings.game_res_w * scale + 50) / 100;
   const int scaled_h = (settings.game_res_h * scale + 50) / 100;
   const int fbo_w = scaled_w > 0 ? scaled_w : 1;

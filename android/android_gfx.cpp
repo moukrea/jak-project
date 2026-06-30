@@ -39,6 +39,22 @@ extern "C" void gk_a38_tripwire_frame_hook(int chain_phase);
 // bad bone matrices (defined in game/mips2c/jak1_functions/joint.cpp).
 extern "C" void gpose_joint_frame_tick(unsigned long long frame_idx);
 
+// Default internal 3D render scale (% of the 640x480 GOAL game_res, 4:3) when
+// debug.opengoal.render.scale is unset. 120% = 768x576: the on-device sweet
+// spot from the fps-vs-resolution sweep — the HIGHEST 4:3 internal resolution
+// that holds the baseline stable 30fps (time-ratio 2) on BOTH measured scenes
+// (Geyser Rock, the tighter/heavier-fill case, and village1). It is a modest
+// (1.2x linear / 1.44x pixels) but real sharpness gain with no fps regression
+// and no broken effects. Higher is genuinely NOT free here: Geyser Rock is
+// already at the 2-vblank boundary at 640x480 (render ~21ms of a 33ms budget),
+// so fill-rate bites immediately above ~120% — 200% (1280x960) drops to ~20fps
+// (ratio 3). Owners who prefer maximum crispness over framerate can raise the
+// prop (e.g. 200 for 1280x960 @ ~20fps); owners who hit a heavier untested
+// scene that regresses can drop to 100 (the original 640x480). Range 25..400.
+#ifndef RENDER_SCALE_DEFAULT
+#define RENDER_SCALE_DEFAULT 120
+#endif
+
 // Gmatch: known-good snapshot of the GOAL kernel asm-func return-from-thread-dead
 // (the per-process return trampoline at GOAL 0x18aee4). Published here by the
 // render-thread content canary (below) and CONSUMED by gk_android_main.cpp's
@@ -413,31 +429,39 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     }
     options.pmode_alp_register = d->pmode_alp.load();
 
-    // Render-scaling knob (debug.opengoal.render.scale = 25..100, default 100).
-    // Sizes the offscreen 3D FBO; the upscale blit to the native window keeps
-    // the on-screen image full-size. A pure GPU fill-rate lever for measuring
-    // whether Geyser Rock is fill-bound or draw-call-bound. Cached + polled
-    // every 30 frames so a value changed via `setprop` takes effect live
-    // without a per-frame property read. Host/runtime only — GOAL game_res
-    // and the render logic are untouched. Owner default 100 == unchanged.
+    // Render-scaling knob (debug.opengoal.render.scale = 25..400, default
+    // RENDER_SCALE_DEFAULT). Sizes the offscreen 3D FBO as game_res*(scale/100)
+    // keeping the GOAL 4:3 aspect; the blit to the native window then up- or
+    // down-samples it to the on-screen draw region, so the image stays full-
+    // size and correctly placed at any scale. <100 trades sharpness for fill-
+    // rate (a pure GPU lever); >100 SUPERSAMPLES the 3D for crispness, which is
+    // ~free here because Geyser Rock is draw-call-bound, not fill-bound (proven:
+    // fps pinned at 30 from 640x480 down to 160x120). UI/HUD/text are drawn by
+    // the game into this same FBO so they supersample too at >100. Cached +
+    // polled every 30 frames; a setprop takes effect live. Host/runtime only —
+    // GOAL game_res and the render logic are untouched.
     {
-      static int s_render_scale = 100;
+      // Default chosen after the on-device fps-vs-resolution sweep: the highest
+      // 4:3 internal res with no fps regression and no broken effects.
+      static const int kRenderScaleDefault = RENDER_SCALE_DEFAULT;
+      static int s_render_scale = kRenderScaleDefault;
       static unsigned s_scale_poll = 0;
       if ((s_scale_poll++ % 30) == 0) {
         char pv[16] = {0};
         if (__system_property_get("debug.opengoal.render.scale", pv) > 0) {
           int v = atoi(pv);
-          if (v >= 25 && v <= 100 && v != s_render_scale) {
+          if (v >= 25 && v <= 400 && v != s_render_scale) {
             s_render_scale = v;
             __android_log_print(ANDROID_LOG_INFO, kLogTag,
                                 "RENDER-SCALE set to %d%% (offscreen 3D FBO scale; "
-                                "UI upscales to native window)",
+                                "blit resamples to native window)",
                                 s_render_scale);
-          } else if ((v < 25 || v > 100) && s_render_scale != 100) {
-            // out-of-range / cleared prop -> back to native
-            s_render_scale = 100;
+          } else if ((v < 25 || v > 400) && s_render_scale != kRenderScaleDefault) {
+            // out-of-range / cleared prop -> back to the chosen default
+            s_render_scale = kRenderScaleDefault;
             __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                                "RENDER-SCALE reset to 100%% (prop cleared/invalid)");
+                                "RENDER-SCALE reset to default %d%% (prop cleared/invalid)",
+                                kRenderScaleDefault);
           }
         }
       }
