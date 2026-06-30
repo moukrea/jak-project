@@ -947,6 +947,38 @@ phases:
   validator: validators/phase-Gcollision-replay-diff.sh
   max_turns: 1800
   max_retries: 5
+- id: Gframerate-variable
+  name: 'OWNER 2026-06-30: replace the 30/60 vblank LOCK with the engine native variable-fps support — free-fluctuating fps + CONSTANT game speed. Root: Android hardcodes target-fps=60 while the device renders ~45-50, and the lock caps fps + flaps at the boundary. Fix (runtime/pc only): set target-fps to the real device refresh, feed real per-frame dt, REMOVE the lock, unpin the IOP cutscene pacer from 60; KEEP the flicker fix. State-anchored verify + owner play-test.'
+  prompt: prompts/phase-Gframerate-variable.md
+  validator: validators/phase-Gframerate-variable.sh
+  max_turns: 1800
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gres-picker
+  name: 'OWNER 2026-06-30: "Game Resolution" picker — NATIVE entry (real screen res) + standard ladder per aspect ratio (down to 640w/480h floor), both builds. Finish the WIP (commit 9a1e64c84). Coexists with RENDER SCALE % (base game_res x scale). Higher res = sharper, lower fps (expected; user chooses). Owner play-test.'
+  prompt: prompts/phase-Gres-picker.md
+  validator: validators/phase-Gres-picker.sh
+  max_turns: 1800
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Grender-split
+  name: 'OWNER 2026-06-30: UI native + 3D scaled, RENDERER-SIDE (works on x86 AND Android, NOT an Android UI hack). Today all GOAL rendering shares one game_res FBO so RENDER SCALE softens the UI too; split into a scaled-3D pass + native UI/HUD/text pass + composite. Touches the historically-locked engine renderer — honest BLOCKED outcome accepted if a clean split breaks PS2-res-dependent effects. Owner play-test.'
+  prompt: prompts/phase-Grender-split.md
+  validator: validators/phase-Grender-split.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Glauncher-collection
+  name: 'OWNER 2026-06-29/30: multi-game LAUNCHER (Jak 1/2/3/X "Collection") — APK boots to a launcher; available games gated by which asset bundles were built in (jak1 only now); gamepad + touch; ideally GOAL-built with the idle render preview. Honest STEP-1 minimal increment accepted if the full GOAL launcher + multi-game coexistence is too large for one phase. jak1 must stay fully playable. Owner play-test.'
+  prompt: prompts/phase-Glauncher-collection.md
+  validator: validators/phase-Glauncher-collection.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
