@@ -268,8 +268,8 @@ int android_renderer_run() {
       android_gfx::post_swap_tick();
       // Publish the REAL measured render rate for the GOAL on-screen FPS counter
       // (pc-get-fps). Measured here on actual presented frames, so it reflects the
-      // true Adreno cadence (e.g. ~30 at Geyser), NOT the Gspeed vblank-stable
-      // engine clock. Smoothed with the same 0.9/0.1 EMA as the desktop path.
+      // true free-running Adreno cadence (e.g. ~30 at Geyser, ~60 light) -- the
+      // real fluctuating fps. Smoothed with the same 0.9/0.1 EMA as the desktop.
       {
         using namespace std::chrono;
         static steady_clock::time_point s_fps_last{};
@@ -289,113 +289,21 @@ int android_renderer_run() {
       }
     }
 
-    // ===== Gspeed: STABLE frame-rate lock (arm64/Android) ====================
-    // The GOAL engine game-clock (drawable.gc display-frame-start) is paced 1:1
-    // with this swap loop (vsync() blocks on post_swap_tick's frame_idx). It
-    // turns the per-frame wall-clock into an INTEGER time-ratio = floor(elapsed /
-    // (1/60 s)) + 1 (clamp <1.3 -> 1.0) that scales ALL physics/animation/game-
-    // time. That integer is only correct when every frame is the SAME clean
-    // number of vblanks: a steady 60 fps -> ratio 1 (full speed), a steady 30 fps
-    // -> ratio 2 (real-time, half the visual frames). The bug the owner sees is
-    // that the raw Adreno swap cadence is UNSTABLE (~16-33 ms, 1.0-2.2 vblanks),
-    // so the integer ratio quantizes erratically frame-to-frame -> game speed
-    // oscillates "sometimes fast / sometimes slow" (Gspeed-device BEFORE).
-    //
-    // FIX: lock the swap to a STABLE whole-vblank grid anchored at boot, so each
-    // frame is a constant integer number of vblanks and the engine's per-frame
-    // delta is constant -> constant time-ratio -> constant game speed == real
-    // time. We sleep so the NEXT swap lands on the grid edge that is one full
-    // STEP (in vblanks) past the previous one; STEP adapts to what the device can
-    // actually hold (60 fps when frames fit in ~1 vblank, else 30 fps), and only
-    // changes hysteretically so it does not flap. SDL vsync (SwapInterval(1))
-    // still aligns the buffer flip to the panel; this only pads the wait so the
-    // engine clock sees a stable cadence. 1:1 engine:render is preserved, so the
-    // per-rendered-frame crash-repair canaries (A38/Gcine3/Gmatch) keep their
-    // cadence. Cutscenes are paced by the separate Gd1 60 Hz IOP pacer. x86 and
-    // goal_src untouched (android/ TU). Disable with debug.opengoal.gspeed.off=1.
-    {
-      using namespace std::chrono;
-      static steady_clock::time_point s_work_start{};  // when last release returned
-      static bool s_init = false;
-      static int s_step = 1;          // vblanks per frame (1=60fps, 2=30fps)
-      static int s_over = 0, s_under = 0;
-      static unsigned s_offpoll = 0;
-      static bool s_off = false;
-      constexpr auto kP = nanoseconds(16666667);  // 1/60 s
-      if ((s_offpoll++ & 31) == 0) {
-        char pv[8] = {0};
-        s_off = __system_property_get("debug.opengoal.gspeed.off", pv) > 0 && pv[0] == '1';
-      }
-      // Only PACE + advance the game-clock on a REAL drawn+presented frame. A
-      // chainless iteration (no fresh game frame this cycle) must NOT advance the
-      // clock (that would over-advance game-time = the speed bug) and must NOT
-      // pad the grid; instead hold briefly so we don't busy-spin, then retry for
-      // the chain. This pairs with the "don't swap an undrawn buffer" logic above
-      // so a chainless cycle neither flashes nor speeds up game-time.
-      if (!s_off && !drew_game) {
-        std::this_thread::sleep_for(microseconds(1500));
-      }
-      if (!s_off && drew_game) {
-        auto now = steady_clock::now();
-        if (!s_init) { s_init = true; s_work_start = now; }
-        // Measure the ACTUAL render+engine work this frame: real time from the
-        // previous release-point to now (the just-finished swap), in vblanks.
-        double work_vbl = duration_cast<duration<double>>(now - s_work_start).count() /
-                          duration_cast<duration<double>>(kP).count();
-        // The engine advances `step` whole game-timesteps per `step` real
-        // vblanks, so game speed == 60 Hz ONLY if every frame's real duration is
-        // EXACTLY `step` vblanks. The device's natural frame time is generally
-        // fractional (idle ~1.46 vblanks), so we must CEIL: pick the smallest
-        // whole-vblank cadence the work fits inside, then pad up to it. Rounding
-        // DOWN (e.g. 1.46 -> 1) is the bug -- it advances 1 step over 1.46 real
-        // vblanks => ~41 units/s (too slow). Ceil(1.46)=2 pads to 2 vblanks (30
-        // fps) => 2 steps / 2 vblanks => a true 60 Hz. A tiny tolerance keeps a
-        // genuine ~1.0-vblank frame at step 1 (don't punish 60 fps into 30).
-        // Ceil to the smallest whole-vblank cadence the work fits inside, with a
-        // generous tolerance: once we pad to `step` vblanks, the next swap aligns
-        // to the FOLLOWING vsync, so the measured work routinely reads slightly
-        // OVER an integer (e.g. a step-2 pad measures ~2.2 vblanks). Without a
-        // wide tolerance that over-read would promote to step+1 and back, causing
-        // the residual tr=2<->3 flap. A 0.45-vblank tolerance absorbs the swap-
-        // align jitter so the cadence stays on one integer.
-        int need = (int)(work_vbl + (1.0 - 0.45));  // ceil with 0.45-vblank tol
-        if (need < 1) need = 1;
-        // Hysteresis so a single hitch doesn't flap the step. Promote (slower)
-        // only on several consecutive genuinely-over-budget frames; demote
-        // (faster) only after a long stable run that comfortably fits the smaller
-        // step (work fits step-1 with margin) so we never immediately flap back.
-        if (need > s_step) { if (++s_over >= 8) { s_step = need; s_over = 0; s_under = 0; } }
-        else if (s_step > 1 && work_vbl < (double)(s_step - 1) - 0.15) {
-          if (++s_under >= 150) { s_step--; s_under = 0; }
-        } else { s_over = 0; s_under = 0; }
-        if (s_step < 1) s_step = 1;
-        if (s_step > 4) s_step = 4;  // mirror GOAL (fmin 4.0) clamp
-        // Sleep so this frame occupies exactly s_step whole vblanks of real time,
-        // measured from the previous release-point -> a STABLE cadence.
-        auto release_at = s_work_start + s_step * kP;
-        auto spin_floor = release_at - microseconds(500);
-        if (steady_clock::now() < spin_floor) std::this_thread::sleep_until(spin_floor);
-        while (steady_clock::now() < release_at && MasterExit == RuntimeExitStatus::RUNNING) {}
-        // If we fell behind the schedule (work already exceeded s_step vblanks),
-        // re-anchor to now so we don't accumulate a sleep backlog.
-        auto rel_now = steady_clock::now();
-        s_work_start = (rel_now > release_at) ? rel_now : release_at;
-
-        // Drive the engine game-clock off this stable grid: advance the published
-        // EE-tick counter by (step - 0.5) frame-budgets so the GOAL floor()+1
-        // time-ratio resolves to exactly `step` (step=1 -> 0.5 budgets -> clamp
-        // -> ratio 1; step=2 -> 1.5 -> ratio 2). See g_gspeed_clock_ticks note in
-        // android_gfx.cpp. *ticks-per-frame* (custom 60 fps) == 9765. Net effect:
-        // game advances `step` integer timesteps per real `step` vblanks == a
-        // constant real-time 60 Hz, regardless of how many visual frames render.
-        {
-          constexpr double kTicksPerFrame = 9765.0;
-          unsigned long long add =
-              (unsigned long long)((double)s_step * kTicksPerFrame - 0.5 * kTicksPerFrame + 0.5);
-          android_gfx::g_gspeed_clock_ticks.fetch_add(add, std::memory_order_relaxed);
-          android_gfx::g_gspeed_clock_active.store(true, std::memory_order_release);
-        }
-      }
+    // ===== Gframerate-variable: framerate cap lives in vsync() (EE thread) ====
+    // The old vblank cadence-LOCK lived here (phase Gframerate-variable removed
+    // it: no more whole-vblank-step forcing, no fake stable-grid clock). The
+    // present-rate cap can NOT live here: the GOAL game loop (EE thread) is not
+    // 1:1-gated by this GL present (vsync()'s frame_idx barrier returns early when
+    // the EE is faster than the GL picks up a new chain), so a GL-thread cap would
+    // throttle the screen but the EE would still spin ahead and over-advance the
+    // game clock. The framerate cap therefore lives in android_gfx::vsync() (EE
+    // thread) so the game clock itself is bounded to target-fps; see the comment
+    // there. Here we only avoid busy-spinning on a chainless cycle.
+    if (!drew_game) {
+      // Chainless cycle (no fresh game frame): held the last good front buffer
+      // above (no swap), so sleep briefly to avoid busy-spinning while we wait
+      // for the next chain. Advances no game clock.
+      std::this_thread::sleep_for(std::chrono::microseconds(1500));
     }
     // =========================================================================
 

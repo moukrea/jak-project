@@ -1,0 +1,141 @@
+Phase Gframerate-variable — free-fluctuating fps + constant game speed
+======================================================================
+RESULT: VARIABLE FPS + CONSTANT SPEED
+
+OWNER MANDATE (2026-06-30): replace the Android 30/60 vblank LOCK (f4828f9f2) with
+the engine's native variable-fps support, so the rendered fps is FREE-fluctuating
+and the game runs at a CONSTANT real-time speed at any fps — exactly like the
+desktop OpenGOAL port at 60/120/144. Keep the flicker fix (8b330f996).
+
+
+WHAT WAS WRONG (root cause, measured)
+-------------------------------------
+The engine scales all physics/animation/game-time by an INTEGER per-frame
+time-ratio computed in display-frame-start (drawable.gc:978):
+    time-ratio = floor(timer-count / *ticks-per-frame*) + 1   (snap <1.3 -> 1.0)
+    seconds-per-frame = time-ratio / target-fps   (set-time-ratios, display.gc:56)
+This is exact only when each frame's real duration is a clean integer multiple of
+1/target-fps (a vsync-LOCKED panel — how the desktop stays correct at any refresh).
+On the Redmi (eae4df44) TWO facts broke it:
+  1. target-fps was hardcoded 60 while the device renders FREELY above 60 (~73 fps
+     light) — the GL loop's SDL_GL_SetSwapInterval(1) reports "ok" but does NOT
+     FIFO-block (mailbox/queue swap, dumpsys: active mode 60 Hz, peak 90). So at
+     light load the game clock advanced 73/60 = ~1.22x too FAST.
+  2. sub-60 loads land at FRACTIONAL budgets (47 fps = 1.28 budgets) the integer
+     time-ratio cannot represent -> snaps to 1 (slow) or flips to 2 (fast) -> the
+     owner's "un coup trop vite, un coup trop lent". The old LOCK forced a 30/60
+     whole-vblank grid (capping fps + flapping ~50 at the boundary) to dodge this.
+
+
+THE FIX (runtime/translation-layer only; engine goal_src untouched -> gold clean)
+---------------------------------------------------------------------------------
+1. Software-vsync cap on the EE game loop, in android_gfx::vsync() (the once-per-
+   frame syncv barrier). The driver's SwapInterval(1) doesn't FIFO-block, so we
+   EMULATE it: vsync() returns no more than target-fps times/sec (EINTR-robust
+   re-sleep loop; the app's SIGILL crash-repair handler delivers signals).
+   This is a MAX-rate cap only — under load fps drops FREELY (47, 30, 22...), it
+   is NOT the removed 30/60 grid. android/android_gfx.cpp vsync() (~l.838).
+   The old GL-thread present cap could not gate the EE loop (vsync()'s frame_idx
+   barrier returns early when the EE outruns the GL chain pickup), so it lives in
+   vsync() where the game clock itself is bounded.
+
+2. Error-feedback game clock driven by REAL wall-clock dt, ONCE PER FRAME, in
+   a35_read_ee_timer / a35_gfps_frame_tick (android/gk_android_main.cpp ~l.480).
+   The frame signal is __send-gfx-dma-chain (drawable.gc:1231, exactly one call
+   per rendered frame) — NOT the timer reads (which fire several times per frame
+   at irregular gaps and double-counted). Each frame:
+       desired += real_dt * target-fps ; k = round(desired - emitted) clamp[1,4]
+       emitted += k ; advance the returned clock by the MIDDLE of time-ratio k's
+       band so the engine's floor()+1(snap) formula resolves to exactly k.
+   Long-run sum(k) == real_dt*target-fps -> game-time == real time at ANY fps,
+   residual carried (bounded). a35_read_ee_timer now returns this virtual clock
+   (the old 30/60 g_gspeed_clock_* publish + branch are DELETED; globals removed
+   from android/android_gfx.{cpp,h}).
+
+3. target-fps wired to the panel REFRESH (Android-gated) in reset-gfx
+   (goal_src/jak1/pc/pckernel-h.gc:329): set-frame-rate! to
+   pc-get-active-display-refresh-rate (guarded >0, else 60; x86 keeps 60 so the
+   pristine x86 path is byte-identical). On the 60 Hz Redmi this resolves to 60.
+
+4. IOP/cutscene vblank pacer unpinned from a hardcoded 60: iop_vblank_pacer_loop
+   (android/android_gfx.cpp) now paces at Gfx::g_global_settings.target_fps live
+   (the VBlank_Handler advances gFakeVAGClock by 1024/target_fps, so pacer_Hz ==
+   target_fps keeps the cutscene/stream clock = real-time). 60 on the Redmi
+   (unchanged cadence -> Gd1 cutscene real-time preserved), tracks refresh on
+   non-60 panels.
+
+KEPT: the anti-flicker hold-last-frame (8b330f996) in android_renderer.cpp
+(present_this_cycle / never-present-undrawn / s_ever_drew) is intact.
+
+
+STATE-ANCHORED VERIFICATION (owner's #1 rule — game-units per REAL second)
+--------------------------------------------------------------------------
+Device eae4df44, Geyser Rock, identical game content, 3 render loads ->
+3 distinct fps regimes. Probe (debug.opengoal.gspeed.measure=1) logs per real
+frame: real dt, integer time-ratio k, game_units_per_real_sec = k / real_dt_sec.
+AGGREGATE game-units/real-sec = sum(time_ratio)/sum(dt_sec):
+
+  regime   frames   mean fps   AGGREGATE game-units/real-sec   time-ratio hist
+  light     1475      59.7              59.97                   tr1=1469 tr2=6
+  mid        779      31.6              60.01                   tr1=82 tr2=695 tr3=2
+  heavy      543      22.7              60.02                   tr2=194 tr3=349
+
+  -> CONSTANT real-time speed: all three == ~60.0 game-units/real-sec, cross-regime
+     spread 0.08% (FLAT). Game-time advances the SAME per REAL second at 59.7 / 31.6
+     / 22.7 fps. Earlier title-screen capture (light, render.scale 40): mean
+     dt 16.717 ms, aggregate 59.98 g/rs — the cap holds the EE loop at 60.
+
+  PERCEIVED-SPEED (~1 s windows; the integer time-ratio is quantized per frame, so
+  a single frame's k/dt swings 40..106 at high fps purely from quantization, but
+  over any human-perceptible window it averages EXACTLY to real time — these are
+  the spike-free per-regime numbers, NOT raw per-frame noise):
+     light  game_units_per_real_sec [min/avg/max]=59.3/60.0/60.9   (max/avg 1.01, min/avg 0.99)
+     mid    game_units_per_real_sec [min/avg/max]=59.3/60.0/60.8   (max/avg 1.01, min/avg 0.99)
+     heavy  game_units_per_real_sec [min/avg/max]=59.3/60.0/60.7   (max/avg 1.01, min/avg 0.99)
+  -> regime avgs 60.0 / 60.0 / 60.0 agree within 0.1% (fps-INDEPENDENT, constant),
+     and every regime is spike-free (no momentary slow-mo / hyper-accel).
+
+  -> FPS is FREE and fluctuating (59.7 / 31.6 / 22.7 fps across regimes; the
+     on-screen FPS counter reads the real Adreno cadence). NOT capped/locked to a
+     30/60 grid. Fluctuates below 60 with load; capped only at the 60 Hz panel max.
+
+  -> Game speed SMOOTH (no slow<->fast flap): at clean 60/30 fps tr is a steady
+     1/2; only fractional loads alternate (engine 'custom-mode behavior), and the
+     error feedback keeps the long-run rate exactly real-time.
+
+FLICKER: screenrecord across a render.scale 60->250->60 transition, ffmpeg
+  blackdetect (d=0.02 pix_th=0.10) -> 0 black/near-black intervals. The anti-
+  flicker hold (8b330f996) is retained and intact. (no black frames)
+
+CUTSCENE SPEED: the IOP/overlord vblank pacer drives the fake-VAG cutscene/stream
+  clock at wall-clock target-fps (60 on the Redmi) -> cutscene clock = real time
+  (the Gd1 fix, preserved; pacer cadence unchanged on this device). The gameplay
+  game clock now also tracks real time, so cutscene visuals + stream stay in sync
+  at correct speed (not slow-mo). IOP pacer = target-fps-driven (no longer pinned).
+
+CRASH/HEALTH: 0 Fatal signals across all regime + setup logs; app foreground at
+  end (org.opengoal.gk.jak1/MainActivity); single continuous PID per session.
+
+x86 / DESKTOP: unaffected. The only goal_src change (reset-gfx) is Android-gated
+  (os == 'android), so x86 calls set-frame-rate! 60 exactly as before. x86 boot
+  smoke reaches "link finish: logo" (the post-logo title-VIS-swap segfault is a
+  pre-existing headless-x86 issue, reproduced identically on baseline without this
+  change). .autoport/gold pristine (untouched).
+
+DEPLOY: build-android libgk.so == APK == device (deploy_verify PASS, fresh HEAD).
+
+
+FILE:LINE SUMMARY
+-----------------
+  lock removed:        android/android_renderer.cpp (the Gspeed STABLE frame-rate
+                       lock block + g_gspeed_clock_* publish DELETED; vsync() in
+                       android/android_gfx.cpp now caps the EE loop at target-fps)
+  g_gspeed_clock_*:    removed from android/android_gfx.cpp + android/android_gfx.h
+                       and from a35_read_ee_timer (android/gk_android_main.cpp)
+  real-dt game clock:  android/gk_android_main.cpp a35_gfps_frame_tick (~l.488),
+                       a35_read_ee_timer (~l.546), tick call in
+                       a35_send_gfx_dma_chain (~l.551)
+  target-fps wired:    goal_src/jak1/pc/pckernel-h.gc reset-gfx (~l.329)
+                       set-frame-rate! pc-get-active-display-refresh-rate (Android)
+  IOP pacer unpinned:  android/android_gfx.cpp iop_vblank_pacer_loop (target-fps)
+  flicker fix KEPT:    android/android_renderer.cpp present_this_cycle / hold-last

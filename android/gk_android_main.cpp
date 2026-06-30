@@ -428,36 +428,137 @@ extern "C" u64 a17_pc_default() {
 // block) — file-scope there, so declare it here.
 extern Timer ee_clock_timer;
 
-// Gspeed: the renderer publishes a stable-grid-driven EE-tick count for the
-// engine game-clock (see android_gfx.cpp). The frame clock reads this timer via
-// get-bus-clock/256 == (__read-ee-timer >> 9), so to deliver N bus-ticks we
-// return (N << 9).
-// g_gspeed_clock_ticks / g_gspeed_clock_active are declared in android_gfx.h
-// (included above) and defined in android_gfx.cpp.
+// ===== Gframerate-variable: real-time game clock via integer-tr error feedback
+// Phase Gframerate-variable (owner 2026-06-30). REPLACES the old vblank-locked
+// stable-grid clock (the 30/60 cadence cap + g_gspeed_clock_* publish, deleted).
+//
+// The engine reads __read-ee-timer (only via get-bus-clock/256 == >>9, only from
+// the frame clock: timer-count/timer-reset in display-frame-start) and computes
+// an INTEGER time-ratio:
+//     time-ratio = floor(timer-count / *ticks-per-frame*) + 1   (snap <1.3 -> 1,
+//     seconds-per-frame = time-ratio / target-fps                 fmin 4.0)
+// All physics/animation/game-time scale by time-ratio. For game-time to advance
+// at CONSTANT real time, the integer time-ratio emitted per frame must average
+// (real_dt * target-fps). The raw desktop clock makes the engine compute that
+// itself, which is exact only when frame durations are clean integer multiples of
+// the budget (a vsync-LOCKED panel). On THIS device SwapInterval(1) does NOT
+// FIFO-block, so we software-vsync-cap the EE loop at target-fps in vsync(); but
+// any sub-target fractional load (47 fps = 1.28 budgets) the bare integer formula
+// cannot represent -- snaps to 1 (slow) or flips to 2 (fast): the owner's "un
+// coup trop vite, un coup trop lent".
+//
+// Fix: drive the integer time-ratio with EXPLICIT ERROR FEEDBACK against REAL
+// wall-clock dt, ONCE PER FRAME. The natural once-per-frame signal is
+// __send-gfx-dma-chain (drawable.gc display-sync, exactly one call per rendered
+// frame) -- NOT the timer reads, which fire several times per frame at irregular
+// gaps and would double-count. On each frame: desired += real_dt * target-fps;
+// k = round(desired - emitted) clamped [1,4]; emitted += k; advance the returned
+// virtual clock by the MIDDLE of time-ratio k's band so the engine's formula
+// resolves to exactly k. Long-run sum(k) == desired == real_dt*target-fps, so
+// game-time == real time at ANY fps, residual carried (bounded). a35_read just
+// returns this virtual clock (constant between frames, so the two reads + reset
+// inside one display-frame-start all see the same timer-count == k's band).
+// EE-tick units: 1 s == 300,000,000; budget == (585900/target-fps) << 9. The two
+// state fns run on the EE/GOAL thread only (no cross-thread). x86 untouched.
+static bool g_gfps_init = false;
+static u64 g_gfps_virtual = 0;       // the EE-tick clock a35_read_ee_timer returns
+static u64 g_gfps_last_raw = 0;      // raw wall-clock at the previous frame tick
+static double g_gfps_desired = 0.0;  // game-frames real time demands
+static double g_gfps_emitted = 0.0;  // game-frames already handed to the engine
 
+// Called ONCE per rendered frame from a35_send_gfx_dma_chain (EE thread).
+static void a35_gfps_frame_tick() {
+  const u64 raw = (ee_clock_timer.getNs() * 3) / 10;  // real EE ticks (desktop)
+  if (!g_gfps_init) {
+    g_gfps_init = true;
+    g_gfps_last_raw = raw;
+    if (g_gfps_virtual == 0) {
+      g_gfps_virtual = raw;  // seed (a35_read may already have seeded it)
+    }
+    return;  // no band on the very first tick (establishes the dt baseline)
+  }
+  const u64 gap = raw - g_gfps_last_raw;  // real duration of the frame that ended
+  g_gfps_last_raw = raw;
+
+  double tfps = Gfx::g_global_settings.target_fps;  // == engine target-fps
+  if (tfps < 1.0) {
+    tfps = 60.0;
+  }
+  const double budget_bus = 585900.0 / tfps;  // == *ticks-per-frame*
+  const double real_dt_sec = (double)gap / 300000000.0;
+
+  // accumulate the game-frames real time demands (clamp a load/stall spike to the
+  // engine's own fmin-4.0 ceiling so a long hitch can't fast-forward afterwards).
+  double inc = real_dt_sec * tfps;
+  if (inc > 4.0) {
+    inc = 4.0;
+  }
+  g_gfps_desired += inc;
+  double deficit = g_gfps_desired - g_gfps_emitted;
+  long k = (long)(deficit + 0.5);  // round to nearest integer time-ratio
+  if (k < 1) {
+    k = 1;  // engine needs time-ratio >= 1
+  }
+  if (k > 4) {
+    k = 4;  // engine fmin 4.0 clamp
+  }
+  g_gfps_emitted += (double)k;
+  // keep the carried residual bounded so it tracks the FRACTION, never a backlog.
+  if (g_gfps_desired - g_gfps_emitted > 4.0) {
+    g_gfps_desired = g_gfps_emitted + 4.0;
+  } else if (g_gfps_desired - g_gfps_emitted < -2.0) {
+    g_gfps_desired = g_gfps_emitted - 2.0;
+  }
+
+  // advance the clock by the MIDDLE of time-ratio k's band so the engine formula
+  // floor(tc/budget)+1 (snap <1.3 -> 1) resolves to exactly k:
+  //   k==1 -> 1.0 budget  (float_tr 1.0 < 1.3 -> snapped to 1)
+  //   k>=2 -> (k-0.5) budgets  (float_tr k-0.5 >= 1.5 -> floor+1 == k)
+  const double band_bus = (k == 1) ? budget_bus : ((double)k - 0.5) * budget_bus;
+  g_gfps_virtual += (u64)(band_bus * 512.0 + 0.5);  // bus-ticks -> EE ticks (<<9)
+
+  // ----- state-anchored speed probe (debug.opengoal.gspeed.measure=1) --------
+  // Once per real frame: real dt (=> fps), emitted integer time-ratio k, and
+  // game_units_per_real_sec = k / real_dt_sec. With the error feedback this
+  // averages target-fps (== real time) and stays CONSTANT across fps regimes.
+  static unsigned s_poll = 0;
+  static bool s_measure = false;
+  if ((s_poll++ & 31) == 0) {
+    char pv[8] = {0};
+    s_measure =
+        __system_property_get("debug.opengoal.gspeed.measure", pv) > 0 && pv[0] == '1';
+  }
+  if (s_measure) {
+    const double dt_ms = real_dt_sec * 1000.0;
+    const double gupr = real_dt_sec > 0.0 ? (double)k / real_dt_sec : 0.0;
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                        "GSPEED dt_ms=%.2f float_tr=%.3f time_ratio=%ld "
+                        "game_units_per_real_sec=%.1f",
+                        dt_ms, deficit, k, gupr);
+  }
+}
+
+// C-linkage block for the A35 pc-* helper surface (a35_read_ee_timer /
+// a35_send_gfx_dma_chain are registered via make_function_symbol_from_c). The
+// static g_gfps_* state and a35_gfps_frame_tick above keep internal linkage in
+// the enclosing anonymous namespace; only these registered helpers need C ABI.
 extern "C" {
 u64 a35_read_ee_timer() {
-  // ===== Gspeed: render-decoupled, vblank-stable engine game-clock ===========
-  // Once the GL render loop is publishing its stable-grid clock, feed the GOAL
-  // frame clock from it instead of raw wall-time. The published counter is in
-  // bus-ticks (get-bus-clock/256 units, == raw_ee_ticks >> 9), advanced by
-  // (step - 0.5) * *ticks-per-frame* per rendered frame, so the engine's
-  // per-frame time-ratio is a STABLE integer == the renderer's vblanks-per-frame
-  // and game-time advances at a constant real-time 60 Hz regardless of render
-  // jitter (owner: "logic speed varies with render speed"). We shift back up by
-  // 9 because the GOAL macro re-applies >>9. Pre-publish (boot/link) and if the
-  // grid is disabled (debug.opengoal.gspeed.off=1 stops the renderer publishing)
-  // we fall back to the original free-running wall clock. arm64/Android only;
-  // x86/desktop + goal_src untouched.
-  if (android_gfx::g_gspeed_clock_active.load(std::memory_order_acquire)) {
-    return android_gfx::g_gspeed_clock_ticks.load(std::memory_order_relaxed) << 9;
+  if (!g_gfps_init && g_gfps_virtual == 0) {
+    // Pre-first-frame (boot/link, before any chain): seed once from the real
+    // clock. Held constant until the first frame tick, so the engine sees
+    // timer-count == 0 -> time-ratio 1 (the safe boot default).
+    g_gfps_virtual = (ee_clock_timer.getNs() * 3) / 10;
   }
-  // desktop read_ee_timer: EE clock at 294.912 MHz ~= ns * 3 / 10.
-  u64 ns = ee_clock_timer.getNs();
-  return (ns * 3) / 10;
+  return g_gfps_virtual;
 }
 
 void a35_send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
+  // Gframerate-variable: this is the once-per-frame signal (drawable.gc
+  // display-sync calls __send-gfx-dma-chain exactly once per rendered frame).
+  // Run the error-feedback game-clock tick here so the engine's per-frame
+  // time-ratio tracks REAL wall-clock time (see a35_gfps_frame_tick).
+  a35_gfps_frame_tick();
   auto* r = Gfx::GetCurrentRenderer();
   if (r) {
     r->send_chain(g_ee_main_mem, chain);

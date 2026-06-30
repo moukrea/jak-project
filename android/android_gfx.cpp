@@ -169,23 +169,6 @@ std::atomic<int> g_refresh_rate{0};
 
 }  // namespace
 
-// ===== Gspeed: engine game-clock driven by the renderer's stable vblank grid ==
-// Published by the GL render loop (android_renderer.cpp) once per swap and read
-// by the EE frame-clock timer (a35_read_ee_timer in gk_android_main.cpp). It is
-// a monotonically-increasing count of EE timer ticks (the unit GOAL's
-// (timer-count #x10000800) consumes; ~585938 ticks/s, *ticks-per-frame*==9765)
-// that advances by EXACTLY (step - 0.5) frame-budgets per rendered frame, where
-// `step` is the renderer's current stable vblanks-per-frame (1 at 60 fps, 2 at
-// 30 fps). The half-budget bias makes the GOAL formula
-//   time-ratio = floor(timer_count / 9765) + 1   (clamp <1.3 -> 1.0)
-// resolve a `step`-frame to time-ratio == step (step=1 -> 0.5 budgets -> clamp
-// -> 1; step=2 -> 1.5 budgets -> floor 1 +1 -> 2), with NO fractional jitter and
-// NO off-by-one. Game advances `step` integer timesteps per real `step` vblanks
-// == a constant real-time 60 Hz, stable regardless of render load. Zero before
-// the renderer publishes (boot): the timer then falls back to wall-clock.
-std::atomic<unsigned long long> g_gspeed_clock_ticks{0};
-std::atomic<bool> g_gspeed_clock_active{false};
-
 bool get_window_size(int* w, int* h) {
   int ww = g_window_w.load();
   int hh = g_window_h.load();
@@ -683,10 +666,21 @@ bool g_pacer_should_run = false;
 void iop_vblank_pacer_loop() {
   pthread_setname_np(pthread_self(), "iopvbl-pacer");
   using namespace std::chrono;
-  // 60 Hz NTSC vblank period. Coupled to target_fps==60 (the increment in
-  // VBlank_Handler is 1024/target_fps), matching the desktop's 60 Hz display
-  // assumption, so the fake-VAG clock advances 1024 units/sec = real-time.
-  const auto period = microseconds(16667);
+  // Gframerate-variable: pace the IOP/overlord VBlank at the engine's target-fps
+  // (wired to the panel refresh in reset-gfx), NOT a hardcoded 60 Hz. The overlord
+  // VBlank_Handler advances the fake-VAG cutscene/stream clock by
+  // (1024 / Gfx::g_global_settings.target_fps) per fired vblank, so a real-time
+  // cutscene clock requires pacer_Hz == target_fps. Track target_fps LIVE (it can
+  // change via the fps menu) so the cutscene clock stays real-time at any refresh,
+  // not just 60. (On the 60 Hz Redmi this is exactly the previous 16667 us.)
+  auto fps_period = [] {
+    double fps = (double)Gfx::g_global_settings.target_fps;
+    if (fps < 1.0) {
+      fps = 60.0;
+    }
+    return microseconds((long long)(1000000.0 / fps + 0.5));
+  };
+  auto period = fps_period();
   auto next = steady_clock::now() + period;
   bool logged = false;
   // Phase F3: when debug.opengoal.f3.measure=1, log one "display tick" per
@@ -713,8 +707,9 @@ void iop_vblank_pacer_loop() {
       if (!logged) {
         logged = true;
         __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                            "Gd1-VBLANK IOP/overlord vblank now paced at wall-clock 60 Hz "
-                            "(decoupled from render swap; cutscene clock = real-time)");
+                            "Gd1-VBLANK IOP/overlord vblank paced at wall-clock target-fps "
+                            "(%.1f Hz; decoupled from render swap; cutscene clock = real-time)",
+                            (double)Gfx::g_global_settings.target_fps);
       }
       cb();
       if ((f3_poll++ & 7) == 0) {
@@ -729,13 +724,14 @@ void iop_vblank_pacer_loop() {
                             (unsigned long long)(++f3_ticks));
       }
     }
+    period = fps_period();  // re-read live: target-fps can change at runtime
     next += period;
     auto now = steady_clock::now();
     if (next < now) {
       // Fell behind (a long stall): resync to now instead of bursting a backlog
       // of zero-sleep ticks. signal_vblank coalesces a backlog into one handler
       // run anyway, so bursting would not advance the clock faster — resyncing
-      // just keeps the long-run average at 60 Hz.
+      // just keeps the long-run average at target-fps.
       next = now + period;
     }
   }
@@ -807,18 +803,87 @@ u32 vsync() {
 
   // Post-ready: block on the swap chain so each vsync() corresponds to one
   // rendered+swapped frame (game-chain pacing). The vblank that paces spooled
-  // cutscenes is fired separately at wall-clock 60 Hz by the pacer thread. The
-  // GAME-CLOCK SPEED fix lives in the quantized frame-clock timer (see
-  // a35_read_ee_timer / gspeed_quantized_ee_ticks in gk_android_main.cpp), NOT
+  // cutscenes is fired separately at wall-clock target-fps by the pacer thread.
+  // The GAME-CLOCK SPEED is driven by the REAL per-frame dt in a35_read_ee_timer
+  // (gk_android_main.cpp) feeding the engine's native variable-fps math, NOT
   // here -- this barrier stays the 1:1 game-chain<->swap pacer it always was.
   auto* d = g_data;
-  std::unique_lock<std::mutex> lock(d->dma_mutex);
-  auto init_frame = d->frame_idx_of_input_data;
-  d->sync_cv.wait(lock, [=] {
-    return (MasterExit != RuntimeExitStatus::RUNNING) || d->frame_idx > init_frame;
-  });
+  u64 frame_idx_now;
+  {
+    std::unique_lock<std::mutex> lock(d->dma_mutex);
+    auto init_frame = d->frame_idx_of_input_data;
+    d->sync_cv.wait(lock, [=] {
+      return (MasterExit != RuntimeExitStatus::RUNNING) || d->frame_idx > init_frame;
+    });
+    frame_idx_now = d->frame_idx;
+  }
+
+  // ===== Gframerate-variable: cap the EE game-loop rate at target-fps =========
+  // This is THE framerate cap (it replaced the removed 30/60 vblank LOCK and the
+  // ineffective GL-thread present cap). The swap-chain barrier above does NOT
+  // reliably gate the EE game loop to the GL present rate: frame_idx_of_input_data
+  // only advances when the GL thread picks up a NEW chain, so once the GL is one
+  // frame ahead the wait predicate is already satisfied and a fast EE returns
+  // immediately and SPINS -- advancing display-frame-start (and the a35 game
+  // clock) faster than the panel can present, dropping chains. On this device
+  // that free-runs the GOAL loop at ~73 fps on a 60 Hz panel -> the game clock
+  // over-advances -> "runs fast at light load".
+  //
+  // So bound the EE loop here: vsync() returns no more than target-fps times per
+  // wall-clock second. This is a MAX-rate cap ONLY -- under load the EE runs
+  // slower FREELY (no forced 30/60 grid), and the REAL per-frame dt still drives
+  // the game clock (a35_read_ee_timer error feedback) so speed stays constant
+  // real-time at whatever fps results. target-fps == the active panel mode (60)
+  // here, so this is the software vsync the driver's SwapInterval(1) doesn't
+  // actually enforce. x86/desktop untouched (android/ TU).
+  {
+    using namespace std::chrono;
+    static steady_clock::time_point s_next{};
+    double tfps = Gfx::g_global_settings.target_fps;
+    if (tfps < 1.0) {
+      tfps = 60.0;
+    }
+    const auto period = nanoseconds((long long)(1000000000.0 / tfps));
+    auto now = steady_clock::now();
+    if (s_next.time_since_epoch().count() == 0 || now > s_next + period) {
+      // first call, or we fell behind (a heavy frame): re-anchor, no wait.
+      s_next = now + period;
+    } else {
+      // Pace to s_next. sleep_until/sleep_for can return EARLY on EINTR -- this
+      // app delivers signals (the SIGILL kernel-code crash-repair handler), so a
+      // single sleep_until is cut short and the cap leaks (the light-load "still
+      // 72 fps" symptom). LOOP the sleep until the target is actually reached.
+      while (now < s_next && MasterExit == RuntimeExitStatus::RUNNING) {
+        std::this_thread::sleep_for(s_next - now);
+        now = steady_clock::now();
+      }
+      s_next += period;
+    }
+    // gated cadence diagnostic: prove the cap holds (debug.opengoal.gspeed.measure).
+    // Log ONCE every 64 vsync() calls with the correct per-call interval.
+    static unsigned s_vcount = 0;
+    static bool s_vmeas = false;
+    static steady_clock::time_point s_vlast{};
+    if ((s_vcount++ & 63) == 0) {
+      char pv[8] = {0};
+      s_vmeas =
+          __system_property_get("debug.opengoal.gspeed.measure", pv) > 0 && pv[0] == '1';
+      if (s_vmeas) {
+        const auto t = steady_clock::now();
+        if (s_vlast.time_since_epoch().count() != 0) {
+          const double per_call_ms =
+              duration_cast<duration<double, std::milli>>(t - s_vlast).count() / 64.0;
+          __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                              "GFPS-VSYNC per_call_ms=%.2f (=> %.1f vsync/s) target_fps=%.1f",
+                              per_call_ms, 1000.0 / per_call_ms, tfps);
+        }
+        s_vlast = t;
+      }
+    }
+  }
+
   g_a40_vsync_exit.fetch_add(1, std::memory_order_relaxed);
-  return d->frame_idx & 1;
+  return frame_idx_now & 1;
 }
 
 u32 sync_path() {
