@@ -37,3 +37,8 @@ SPLIT BLOCKED + the exact blocker (honest).
 
 ## Locks: ANDROID_SERIAL=eae4df44; no goalc/emitter/IGenX86_64.*; engine goal_src untouched; .autoport/gold READ-ONLY.
 ## Max: max_turns 2000, max_retries 5. device: true, owner_verify: true.
+
+## BACKLOG (owner 2026-06-30, NOT now) — title-screen logo at full res under render-scale
+The title-screen "Jak and Daxter" logo is a 3D object, so it softens with render-scale (expected,
+accepted). FUTURE trick: capture the logo at full resolution offline → bake it as a 2D UI-layer asset
+→ overlay it at the exact title-screen position whenever render-scale < 100%. Nice-to-have, low priority.
