@@ -150,7 +150,8 @@
     "Ginput-replay-realinput": 1,
     "Gcollision-nanroot": 1,
     "Gcollision-glitchcapture": 2,
-    "Gframerate-variable": 1
+    "Gframerate-variable": 1,
+    "Gres-picker": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -576,9 +577,9 @@
     "Gcollision-nanroot": 1782647902.4431229,
     "Gcollision-glitchcapture": 1782660225.3022556,
     "Gframerate-variable": 1782816548.486224,
-    "Gres-picker": 1782828493.313905
+    "Gres-picker": 1782833410.0728593
   },
-  "last_update": "2026-06-30T15:09:31.848132+00:00",
+  "last_update": "2026-06-30T16:13:02.302573+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -599,6 +600,7 @@
     "reason": "Phases 26-31 built on relocated kStateSeq cheat (game/kernel/common/android_dispatch_signals.cpp), stubbed weak_jak1_* bridge, and synthetic gradient renderer. See SUPERVISOR_JOURNAL.md."
   },
   "validator_passed": [
-    "Gframerate-variable"
+    "Gframerate-variable",
+    "Gres-picker"
   ]
 }
