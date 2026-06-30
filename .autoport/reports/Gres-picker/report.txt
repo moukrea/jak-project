@@ -1,0 +1,129 @@
+Phase Gres-picker — "Game Resolution" picker: NATIVE entry + per-aspect-ratio standard ladder
+=============================================================================================
+RESULT: RESOLUTION PICKER NATIVE + LADDER
+
+OWNER MANDATE (2026-06-30): the in-game "Game Resolution" option must offer, for the
+CURRENT aspect ratio, a NATIVE entry (the device's real screen resolution) PLUS the
+standard resolution ladder down to the minimum (640 wide if width-constrained, else
+480 tall). Works on BOTH x86 and Android. A WIP existed (commit 9a1e64c84,
+progress-pc.gc + pckernel-common.gc) — finish + verify it. Higher res = sharper but
+LOWER fps (expected; the user chooses). Coexists with the RENDER SCALE % option.
+
+
+WHAT THE WIP ALREADY DID (reviewed correct; it was never built/deployed/verified)
+---------------------------------------------------------------------------------
+The WIP (9a1e64c84) rewrote build-resolution-options (progress-pc.gc:1331) to build the
+list from a NATIVE entry (pc-get-active-display-size -> the real panel size) + a standard
+ladder GENERATED at the current aspect ratio (per-aspect compute, not a fixed table), each
+entry clamped to [floor, native]; floor = 640 wide (width-constrained, the common case)
+or 480 tall (height-constrained). Entries are labelled via the per-slot name-override
+string ("NATIVE 2400 X 1080", "1280 X 576", ...). Verified correct on five axes before
+building: the static boxed-array syntax, the ~S string format directive, the per-frame
+call site in respond-common (display-state = resolution) so the list re-filters LIVE when
+the aspect changes, the apply path (confirm -> set-window-size! -> commit-to-file), and
+no overflow / no stale-slot bug (aspect-new options are static, name-override = #f). It
+compiles + boots on x86. The "INCOMPLETE" was real but narrow: it had never been built,
+deployed, or verified, and one finishing gap remained — PERSISTENCE.
+
+
+THE FINISHING FIX (pc/ GOAL only; engine goal_src untouched -> gold oracle clean)
+---------------------------------------------------------------------------------
+PERSISTENCE of a picked resolution across a restart (commit 3c7a0b02c,
+goal_src/jak1/pc/pckernel-common.gc).
+
+Root: the settings read-path (handle-input-settings "game-size") gated the saved size on
+`pc-is-supported-resolution?` — an EXACT SDL display-mode membership test
+(display_manager.cpp:203). The new picker offers aspect-correct COMPUTED sizes (e.g.
+1280x576 at the device's ~2.222 panel) that are NOT enumerated display modes, so on x86
+this check returns the real #f for them -> the read-path snapped the pick back to native
+on reload (broken persistence). On Android the helper is the no-op a17_pc_default (returns
+literal 0, which in GOAL is TRUTHY, != #f), so Android already accepted any saved size;
+the relaxation is harmless there and UNIFIES both builds. (Honest correction: the picker
+does NOT persist on x86 without this fix; it already persisted on Android via the truthy
+stub — confirmed on device by reset-gfx logging "Valid default game-size resolution set
+640 x 480".)
+
+Fix: on this single-FBO engine the game-size IS just the offscreen 3D render target (the
+same lever RENDER SCALE % already drives at arbitrary sizes), so accept a saved size if it
+is a real display mode OR within [PC_MIN .. native]; still reject garbage / oversized sizes
+(preserves the #3563 black-screen guard). reset-gfx's conservative default (640x480 when
+the panel isn't measured yet at boot) is deliberately LEFT INTACT so the DEFAULT fps is
+unaffected — only an explicit user pick now survives a restart.
+
+Also corrected the update-to-os render-scale-ORDER comment: both the picker (BASE game_res)
+and RENDER SCALE % are user-adjustable on x86 AND Android and compose exactly once
+(base first, then scale; render-scale clamp [10,100] so it only scales the picker's base
+DOWN), never double-applied. Device confirms render-scale persisted at its 100.0 default.
+
+
+DEVICE VERIFICATION (eae4df44, consistent HEAD build, screencaps in this dir)
+----------------------------------------------------------------------------
+Deploy: full consistent arm64 set (28/28 CGO/DGO == HEAD arm64 build, sha256-verified on
+device) + HEAD libgk.so (b5a7bb0325d0e976), build==APK==device (deploy_verify PASS, commit
+3c7a0b02c). The new APK bundle is version 3; LoaderActivity re-extracted it (stamp 2->3),
+booting clean to the attract.
+
+1. NATIVE + LADDER (auto aspect ~2.222), screencaps nav-05/nav-06-resolution-list*:
+     NATIVE 2400 X 1080   (the real panel resolution, at the TOP)
+     640 X 288   800 X 360   1024 X 461   1280 X 576   1600 X 720   1920 X 864   2048 X 922
+   Aspect-correct (every entry is 2.222), floor 640 wide, ceiling = native; 2560+ correctly
+   excluded (height or width exceeds the panel). Exactly the computed ladder.
+
+2. PER-ASPECT RE-FILTER, screencap aspect-16x9-resolution-list.png: forcing Aspect Ratio =
+   16X9 re-filters the SAME menu LIVE to the 16:9 ladder:
+     NATIVE 2400 X 1080   640 X 360   800 X 450   1024 X 576   1280 X 720   1600 X 900   1920 X 1080
+   A DISTINCT list from the 2.222 one (640x288->640x360, 1024x461->1024x576, ...), proving
+   the ladder is computed per aspect ratio and re-filters when the aspect changes.
+
+3. APPLY: each confirm logs the exact pick — "Setting borderless/fullscreen size to 640 x
+   288" / "... 2400 x 1080" / "... 1280 x 576".
+
+4. PERSISTENCE: selecting 1280 X 576 writes "(game-size 1280 576)" to pc-settings.gc; on
+   RELAUNCH the read-path logs "[PC Settings]: Valid game-size resolution 1280 x 576" (the
+   non-native pick survived, NOT defaulted) and the app boots fine to gameplay with it
+   (relaunch booted to frame 1140, 0 crash). (One relaunch hit a sig=11 at boot, but an
+   immediate relaunch with the IDENTICAL 1280x576 settings booted clean — so that was the
+   pre-existing ~1-in-6 link-time boot flake, NOT resolution-induced.)
+
+5. SHARPNESS vs FPS (the owner's intended tradeoff), screencaps sharp-01-low /
+   sharp-02-native: at 640 X 288 the render is SOFTER and the on-screen FPS counter reads
+   ~39; selecting NATIVE 2400 X 1080 makes the 3D visibly CRISP (distant trees / boat /
+   foliage resolve) and fps drops to ~16. Low res = higher fps + softer; native = sharper +
+   lower fps — exactly as specified. The user chooses.
+
+6. RENDER SCALE interaction / ORDER: documented above and confirmed on device — the picker
+   sets the BASE game_res (width/height), RENDER SCALE % (persisted 100.0 default) then
+   multiplies it once in update-to-os to size the FBO. No double/conflicting application.
+
+
+x86 / DESKTOP
+-------------
+goalc compiles all 546 targets (progress-pc.gc + pckernel-common.gc clean); build-x86 gk
+-boot reaches "link finish: logo". The persistence fix is load-bearing here (the exact
+display-mode check rejects the picker's computed sizes without it). .autoport/gold pristine
+(untouched); the only goal_src changes are in goal_src/jak1/pc/ (no engine goal_src touched).
+
+
+DEPLOY
+------
+build-android libgk.so == APK == device (deploy_verify PASS, fresh HEAD 3c7a0b02c); all 28
+arm64 CGO/DGO on the device byte-match the HEAD arm64 build (sha256-verified, no mixed
+build). Device left at the title, aspect = FIT TO SCREEN (auto), render-scale 100.
+
+AWAITING OWNER PLAY-TEST (not declared done): open Options -> Graphic Options -> Game
+Resolution; confirm NATIVE + the per-aspect ladder, that selecting higher res sharpens
+(fps drops), that switching Aspect Ratio re-filters the list, and that the setting
+persists across an app restart.
+
+
+FILE:LINE SUMMARY
+-----------------
+  picker list builder:   goal_src/jak1/pc/progress-pc.gc build-resolution-options (~1331),
+                         add-named-resolution-option / add-resolution-option (~1305),
+                         *resolution-ladder-widths*/*-heights* (~1323), native label (~377),
+                         resolution display via name-override (~3209)  [from WIP 9a1e64c84]
+  persistence fix:       goal_src/jak1/pc/pckernel-common.gc handle-input-settings
+                         "game-size" (~472-505) — accept real-mode OR in-bounds size
+  render-scale order:    goal_src/jak1/pc/pckernel-common.gc update-to-os (~124-141)
+  native size (C++):     game/kernel/common/kmachine.cpp pc_get_active_display_size (586),
+                         android/gk_android_main.cpp a35_pc_get_size (582, s64 panel size)
