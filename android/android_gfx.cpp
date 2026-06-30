@@ -54,9 +54,14 @@ extern "C" void gpose_joint_frame_tick(unsigned long long frame_idx);
 // DEFAULT = 100 (original 640x480, neutral). The 120%/768x576 "sweet spot" above
 // is device-SPECIFIC (Adreno 618) — per the owner, internal resolution must be a
 // user-facing OPTION (graphics-options backlog: native-detect + a per-aspect-ratio
-// resolution ladder + a render-scale %), NOT a hardcoded per-device default. The
-// runtime knob (debug.opengoal.render.scale, 25..400) stays as the plumbing the
-// future menu drives; until the menu exists we ship the neutral original res.
+// resolution ladder + a render-scale %), NOT a hardcoded per-device default.
+//
+// BATCH 2 (autoport): the user-facing RENDER SCALE menu option is now the real
+// control. It scales the GOAL game_res in update-to-os (pckernel-common.gc), which
+// flows into Gfx::g_global_settings.game_res_w/h (options.game_res_w/h below). With
+// the default (100) prop, render_scale_pct stays 100 here so the menu setting is
+// applied EXACTLY ONCE (no double-scaling). debug.opengoal.render.scale remains a
+// DEV-ONLY override that multiplies ON TOP of the menu setting (25..400).
 #ifndef RENDER_SCALE_DEFAULT
 #define RENDER_SCALE_DEFAULT 100
 #endif

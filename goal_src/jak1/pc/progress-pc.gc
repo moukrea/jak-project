@@ -294,6 +294,22 @@
        ;; on-off; bound to *pc-settings* fps-counter? in init-game-options.
        ;; label is provided at runtime via name-override (no engine text-id added).
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       ;; RENDER SCALE slider (batch 2): internal 3D render-scale %, 10..100 step 10.
+       ;; value-to-modify -> *pc-settings* render-scale; on-change persists. label via
+       ;; name-override. wired in init-game-options.
+       (new 'static
+            'game-option
+            :option-type (game-option-type slider)
+            :name (text-id vsync)
+            :scale #t
+            :param1 10.0
+            :param2 100.0
+            :slider-step-size 10.0
+            :slider-show-decimal? #f
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* render-scale) (the-as float val))
+              (none)))
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; Android-only graphics options. Same as *graphic-options-pc* but with the menu
@@ -329,6 +345,20 @@
             :scale #t
             :param3 (game-option-menu gfx-ps2-options))
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       ;; RENDER SCALE slider (batch 2) — same as desktop, index 6 on Android.
+       (new 'static
+            'game-option
+            :option-type (game-option-type slider)
+            :name (text-id vsync)
+            :scale #t
+            :param1 10.0
+            :param2 100.0
+            :slider-step-size 10.0
+            :slider-show-decimal? #f
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* render-scale) (the-as float val))
+              (none)))
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
@@ -338,6 +368,10 @@
 ;; lowercase glyphs in this font's encoding (they render as garbage). The rest of
 ;; the menu reads as all-caps anyway, so this matches the existing style.
 (define *fps-counter-label* "FPS COUNTER")
+
+;; label for the RENDER SCALE slider (uppercase ASCII for the menu font; see the
+;; FPS-counter label note above). Shown via the game-option name-override path.
+(define *render-scale-label* "RENDER SCALE")
 
 (define *sound-options-pc*
   (new 'static
@@ -2190,11 +2224,16 @@
   ;; FPS-counter toggle (index 8, just before the back button on desktop)
   (set! (-> *graphic-options-pc* 8 value-to-modify) (&-> *pc-settings* fps-counter?))
   (set! (-> *graphic-options-pc* 8 name-override) *fps-counter-label*)
-  ;; Android graphics-options array: vsync(1), msaa(3), fps-counter(5)
+  ;; RENDER SCALE slider (index 9 on desktop)
+  (set! (-> *graphic-options-pc* 9 value-to-modify) (&-> *pc-settings* render-scale))
+  (set! (-> *graphic-options-pc* 9 name-override) *render-scale-label*)
+  ;; Android graphics-options array: vsync(1), msaa(3), fps-counter(5), render-scale(6)
   (set! (-> *graphic-options-pc-android* 1 value-to-modify) (&-> *pc-settings* vsync?))
   (set! (-> *graphic-options-pc-android* 3 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *graphic-options-pc-android* 5 value-to-modify) (&-> *pc-settings* fps-counter?))
   (set! (-> *graphic-options-pc-android* 5 name-override) *fps-counter-label*)
+  (set! (-> *graphic-options-pc-android* 6 value-to-modify) (&-> *pc-settings* render-scale))
+  (set! (-> *graphic-options-pc-android* 6 name-override) *render-scale-label*)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))
   (set! (-> *misc-options* 2 value-to-modify) (&-> *pc-settings* skip-movies?))
@@ -3287,7 +3326,10 @@
                       (game-option-type normal-inverted)
                       (game-option-type confirmation))
                      ;; slider and aspect ratio options just show their text
-                     (set! option-str (lookup-text! *common-text* (-> options index name) #f)))
+                     ;; prefer a runtime name-override label when one was set (e.g. RENDER SCALE)
+                     (if (nonzero? (-> options index name-override))
+                       (set! option-str (-> options index name-override))
+                       (set! option-str (lookup-text! *common-text* (-> options index name) #f))))
                     (((game-option-type on-off) (game-option-type aspect-native))
                      ;; on-off options show their text + on or off
                      ;; prefer a runtime name-override label when one was set (e.g. FPS-counter toggle)
