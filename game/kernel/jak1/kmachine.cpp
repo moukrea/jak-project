@@ -885,6 +885,113 @@ void f1_maybe_warp_to_geyser() {
            warp_fn.offset);
 }
 
+// ─── GENERIC LEVEL WARP (debug-only zone-sweep tool) ───────────────────────────
+// Env OG_LEVEL_WARP=<continue-name> / Android prop debug.opengoal.level.warp=<name>
+// — OFF by default (empty/unset). A generalization of f1_maybe_warp_to_geyser: the
+// F1 warp hardcodes the "game-start" continue; this reads the continue-point NAME
+// from the prop/env so a device build can be warped DIRECTLY into ANY jak1 level by
+// its continue name (e.g. "jungle-start", "beach-start", "village2-start", ...) to
+// confirm that level LOADS + RUNS crash-free on the real arm64 + GL device — a check
+// the qemu link-only sweep structurally cannot make.
+//
+// Mechanism is byte-for-byte the F1 warp's: on the GOAL kernel thread, via the
+// kernel's *listener-function* slot (so it runs with a live process context),
+//   (start 'play (get-continue-by-name *game-info* "<name>"))
+// the exact listener form the desktop oracle uses. DEBUG-ONLY: the prop is never set
+// in the shipped APK, so this body never runs in production. x86 is unaffected unless
+// OG_LEVEL_WARP is explicitly exported. goal_src / x86 emitter / gold are untouched.
+// Sized independently of PROP_VALUE_MAX (Android-only macro) so the x86 desktop build
+// compiles; PROP_VALUE_MAX is 92, 128 covers it and any env value comfortably.
+static char s_level_warp_name[128] = {0};
+
+static bool level_warp_requested() {
+  if (const char* e = std::getenv("OG_LEVEL_WARP")) {
+    if (e[0]) {
+      std::strncpy(s_level_warp_name, e, sizeof(s_level_warp_name) - 1);
+      s_level_warp_name[sizeof(s_level_warp_name) - 1] = 0;
+      return true;
+    }
+  }
+#if defined(__ANDROID__)
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("debug.opengoal.level.warp", buf) > 0 && buf[0]) {
+    std::strncpy(s_level_warp_name, buf, sizeof(s_level_warp_name) - 1);
+    s_level_warp_name[sizeof(s_level_warp_name) - 1] = 0;
+    return true;
+  }
+#endif
+  return false;
+}
+
+// The warp body — invoked BY THE KERNEL as *listener-function* (same in-context
+// trampoline f1_warp_run uses). Re-reads every symbol and passes pp explicitly.
+static u64 level_warp_run() {
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    lg::warn("[LEVEL-WARP] run: *game-info* not ready");
+    return 0;
+  }
+  u64 name = make_string_from_c(s_level_warp_name);
+  Ptr<Type> gi_type(*Ptr<u32>(gi - 4));  // basic: type tag is the word before field-0
+  u64 cont = call_method_of_type_arg2(gi, gi_type, 18 /*get-continue-by-name*/, (u32)name, 0);
+  lg::info("[LEVEL-WARP] get-continue-by-name(\"{}\") -> #x{:x}", s_level_warp_name, (u32)cont);
+  if (cont == 0 || cont == (u32)s7.offset) {
+    lg::warn("[LEVEL-WARP] continue '{}' not found; warp aborted", s_level_warp_name);
+    printf("LEVEL-WARP-FAIL name=%s reason=continue-not-found\n", s_level_warp_name);
+    fflush(stdout);
+    return 0;
+  }
+  u32 start_fn = intern_from_c("start")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  u64 args[8] = {intern_from_c("play").offset, cont, 0, 0, 0, 0, 0, 0};
+  u64 tgt = _call_goal8_asm_systemv((void*)(g_ee_main_mem + start_fn), args, 0, (u64)lp,
+                                    (u64)s7.offset, g_ee_main_mem);
+  lg::info("[LEVEL-WARP] (start 'play {}) -> *target* #x{:x}", s_level_warp_name, (u32)tgt);
+  printf("LEVEL-WARP-SPAWN name=%s target=#x%x\n", s_level_warp_name, (u32)tgt);
+  fflush(stdout);
+  return tgt;
+}
+
+void level_warp_maybe() {
+  static bool s_done = false;
+  if (s_done) {
+    return;
+  }
+  if (!level_warp_requested()) {
+    return;
+  }
+  // Readiness: same gate as f1_maybe_warp_to_geyser — *game-info* boxed-basic,
+  // `start` bound, and *target-dead-pool* (engine-ready-for-spawn) bound.
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  u32 start_fn = intern_from_c("start")->value;
+  if (start_fn == 0 || start_fn == (u32)s7.offset) {
+    return;
+  }
+  u32 dead_pool = intern_from_c("*target-dead-pool*")->value;
+  if (dead_pool == 0 || dead_pool == (u32)s7.offset) {
+    return;
+  }
+  // Settle margin after readiness — let the title attract fully come up before the
+  // warp fires. Tunable via OG_LEVEL_WARP_DELAY (kernel-dispatch ticks); default ~10s.
+  int delay = 600;
+  if (const char* d = std::getenv("OG_LEVEL_WARP_DELAY")) {
+    delay = atoi(d);
+  }
+  static int s_ticks = 0;
+  if (s_ticks++ < delay) {
+    return;
+  }
+  s_done = true;
+
+  Ptr<Function> warp_fn = make_function_from_c((void*)level_warp_run, false);
+  ListenerFunction->value = warp_fn.offset;
+  lg::info("[LEVEL-WARP] armed *listener-function* = #x{:x} for continue '{}'",
+           warp_fn.offset, s_level_warp_name);
+}
+
 // ─── ECHO-INTRO (new-game intro cinematic) deterministic warp ───────────────────
 // Env OG_ECHO_INTRO / Android prop debug.opengoal.echo.intro — OFF by default.
 // TEMPORARY arm64/Android diagnostic. Reaches the NEW-GAME intro cinematic

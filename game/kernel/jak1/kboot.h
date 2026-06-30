@@ -46,6 +46,15 @@ void KernelShutdown();
 void f1_maybe_warp_to_geyser();
 
 /*!
+ * GENERIC LEVEL WARP (debug-only zone-sweep tool) — env OG_LEVEL_WARP=<continue-name>
+ * / Android prop debug.opengoal.level.warp=<name>, OFF by default. Generalizes the F1
+ * warp: warps directly into ANY jak1 level by its continue-point name via the same
+ * in-context *listener-function* trampoline, so a device build can confirm each zone
+ * loads + runs crash-free on real arm64 + GL. Never armed in the shipped APK.
+ */
+void level_warp_maybe();
+
+/*!
  * ECHO-INTRO (new-game intro cinematic) deterministic warp — env OG_ECHO_INTRO /
  * Android prop debug.opengoal.echo.intro, OFF by default. Fires once on the GOAL
  * kernel thread from the dispatch loop, replaying
