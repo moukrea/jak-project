@@ -152,8 +152,7 @@
     "Gcollision-glitchcapture": 2,
     "Gframerate-variable": 1,
     "Gres-picker": 1,
-    "Grender-split": 1,
-    "Gdynamic-renderscale": 1
+    "Grender-split": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -608,7 +607,6 @@
   "validator_passed": [
     "Gframerate-variable",
     "Gres-picker",
-    "Grender-split",
-    "Gdynamic-renderscale"
+    "Grender-split"
   ]
 }

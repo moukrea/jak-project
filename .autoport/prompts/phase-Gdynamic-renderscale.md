@@ -42,3 +42,21 @@ respected; OFF=manual; x86 link finish: logo.
 
 ## Locks: ANDROID_SERIAL=eae4df44; no goalc/emitter/IGenX86_64.*; engine goal_src untouched; pc/ only goal_src; .autoport/gold READ-ONLY.
 ## Max: max_turns 2000, max_retries 5. device: true, owner_verify: true.
+
+## OWNER REJECT (2026-06-30, attempt 1) — the RAISE-BACK logic is broken at a vsync-capped target
+Lowering works well; RAISING the scale back up does NOT. Concretely: with target 60 (= the vsync cap),
+fps sits at 57/58/59/60 and NEVER exceeds 60, so a "raise only when fps > target + margin" condition is
+NEVER satisfiable → the scale stays STUCK at the lowest it ever reached (10% in the owner's test) even
+though there is plenty of GPU headroom. At target 45 it recovers only because the game runs well above
+45 (real headroom above target). This is the bug.
+FIX — raise on FRAME-TIME headroom, not on "fps above target":
+ - At a vsync cap the fps saturates, so you CANNOT detect headroom from fps. Use the actual GPU/render
+   FRAME-TIME vs the vblank budget: if the rendered frame work is comfortably UNDER the budget at the
+   current scale (e.g. ~10ms used of a 16.6ms 60fps budget), there is room to raise even while fps==60.
+ - Make raise OPPORTUNISTIC/PROBING: when scale < 100% AND fps is sustained at/meeting target (>= target
+   within a small tolerance, e.g. 1-2 fps), PROBE one step up, measure; if fps stays >= target (and
+   frame-time still fits), keep climbing gradually toward 100%; if the raise pushes fps below target,
+   step back down one and hold. A small 3-4 fps dip below a 60 target must NOT block raising when the
+   frame-time budget clearly allows it.
+ - Keep it anti-thrash (cooldown, bounded steps, asymmetric), but it MUST converge back toward 100%
+   whenever there is real headroom — including at a vsync-capped target.
