@@ -131,6 +131,8 @@
       (if (= (-> obj gfx-msaa) (ash 1 i)) (true! valid?)))
     (if (not valid?) (set! (-> obj gfx-msaa) PC_DEFAULT_MSAA))
     (pc-set-msaa (-> obj gfx-msaa)))
+  ;; push the FPS-counter overlay toggle down to the C kernel
+  (pc-set-fps-counter (-> obj fps-counter?))
   ;; -- end TODO
   (pc-discord-rpc-set (if (-> obj discord-rpc?) 1 0))
   (when #t ;; (not (-> obj ps2-lod-dist?))
@@ -498,6 +500,7 @@
     (("gfx-renderer") (set! (-> obj gfx-renderer) (the-as pc-gfx-renderer (file-stream-read-int file))))
     (("gfx-resolution") (set! (-> obj gfx-resolution) (file-stream-read-float file)))
     (("gfx-anisotropy") (set! (-> obj gfx-anisotropy) (file-stream-read-float file)))
+    (("fps-counter?") (set! (-> obj fps-counter?) (file-stream-read-symbol file)))
     (("shrub-dist-mod") (set! (-> obj shrub-dist-mod) (file-stream-read-float file)))
     (("lod-dist-mod") (set! (-> obj lod-dist-mod) (file-stream-read-float file)))
     (("lod-force-tfrag") (set! (-> obj lod-force-tfrag) (file-stream-read-int file)))
@@ -559,6 +562,7 @@
   "handle the text writing output for the 'settings' group"
   (format file "  (fps ~D)~%" (-> obj target-fps))
   (format file "  (msaa ~D)~%" (-> obj gfx-msaa))
+  (format file "  (fps-counter? ~A)~%" (-> obj fps-counter?))
   (format file
           "  (aspect-state ~A ~D ~D ~A)~%"
           (get-game-setting obj 'aspect-ratio)

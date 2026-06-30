@@ -700,6 +700,39 @@ void GLDisplay::render() {
     auto p = scoped_prof("debug-gui");
     g_gfx_data->debug_gui.draw(g_gfx_data->dma_copier.get_last_result().stats);
   }
+
+  // always-on FPS counter overlay (toggled from the in-game graphics options).
+  // NOT gated behind is_imgui_visible() — this must work in a normal play session
+  // on both the desktop (GL) and Android (GLES) builds, which share this renderer.
+  {
+    // smoothed frames-per-second, measured on the graphics thread.
+    static Timer s_fps_overlay_timer;
+    static float s_fps_overlay_smoothed_dt = 1.f / 60.f;
+    float dt = s_fps_overlay_timer.getSeconds();
+    s_fps_overlay_timer.start();
+    if (dt > 0.f) {
+      s_fps_overlay_smoothed_dt = (0.9f * s_fps_overlay_smoothed_dt) + (0.1f * dt);
+    }
+    if (Gfx::g_global_settings.display_fps) {
+      auto p = scoped_prof("fps-overlay");
+      float fps = (s_fps_overlay_smoothed_dt > 0.f) ? (1.f / s_fps_overlay_smoothed_dt) : 0.f;
+      const float PAD = 10.0f;
+      const ImGuiViewport* viewport = ImGui::GetMainViewport();
+      ImVec2 work_pos = viewport->WorkPos;
+      ImVec2 overlay_pos(work_pos.x + PAD, work_pos.y + PAD);
+      ImGui::SetNextWindowPos(overlay_pos, ImGuiCond_Always);
+      ImGui::SetNextWindowBgAlpha(0.5f);
+      ImGuiWindowFlags overlay_flags =
+          ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+          ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove;
+      if (ImGui::Begin("##fps_overlay", nullptr, overlay_flags)) {
+        ImGui::Text("FPS: %.0f", fps);
+      }
+      ImGui::End();
+    }
+  }
+
   {
     auto p = scoped_prof("imgui-render");
     ImGui::Render();

@@ -99,6 +99,10 @@
 (deftype pc-bingo-info (structure) ()
   :pack-me)
 
+;; C kernel function to toggle the on-screen FPS counter overlay.
+;; (declared here in pc/ to keep the engine kernel-defs gold oracle untouched)
+(define-extern pc-set-fps-counter (function symbol none))
+
 ;; All of the configuration for the PC port in GOAL. Access things from here!
 ;; Includes some methods to change parameters.
 (deftype pc-settings (basic)
@@ -163,6 +167,7 @@
    (gfx-resolution                   float) ;; for supersampling
    (gfx-anisotropy                   float) ;; for anisotropy
    (gfx-msaa                         int32) ;; for MSAA
+   (fps-counter?                     symbol) ;; show an on-screen FPS counter overlay
    ;; ps2 settings
    (ps2-read-speed?                  symbol) ;; emulate DVD loads
    (ps2-parts?                       symbol) ;; if off, increase particle cap
@@ -340,6 +345,7 @@
                (-> obj height)))))
   (format 0 "[PC Settings]: fullscreen resolution defaulted to ~D x ~D~%" (-> obj width) (-> obj height))
   (set! (-> obj gfx-msaa) PC_DEFAULT_MSAA) ;; default msaa
+  (set! (-> obj fps-counter?) #f) ;; FPS overlay off by default
   0)
 
 (defmethod reset-audio ((obj pc-settings) (call-handlers symbol))

@@ -290,7 +290,50 @@
             :name (text-id ps2-options)
             :scale #t
             :param3 (game-option-menu gfx-ps2-options))
+       ;; FPS-counter overlay toggle (autoport graphics-options overhaul, batch 1).
+       ;; on-off; bound to *pc-settings* fps-counter? in init-game-options.
+       ;; label is provided at runtime via name-override (no engine text-id added).
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+
+;; Android-only graphics options. Same as *graphic-options-pc* but with the menu
+;; items that don't make sense on a single-display phone HIDDEN (truly omitted,
+;; since the progress menu renderer has no per-item hide flag — only disable):
+;;   - "Display mode" (windowed/fullscreen/borderless: Android is always fullscreen)
+;;   - "Display" (monitor select: Android has exactly one display)
+;;   - "Frame rate (experimental)" (permanently greyed on the 60Hz panel)
+;; The FPS-counter toggle is included. Wired in init-game-options.
+(define *graphic-options-pc-android*
+  (new 'static
+       'boxed-array
+       :type
+       game-option
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id game-resolution)
+            :scale #t
+            :param3 (game-option-menu resolution))
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id aspect-ratio)
+            :scale #t
+            :param3 (game-option-menu aspect-ratio))
+       (new 'static 'game-option :option-type (game-option-type msaa) :name (text-id msaa) :scale #t)
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id ps2-options)
+            :scale #t
+            :param3 (game-option-menu gfx-ps2-options))
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+
+;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
+;; via the game-option name-override path which progress-pc.gc honors for on-off rows)
+(define *fps-counter-label* "FPS Counter")
 
 (define *sound-options-pc*
   (new 'static
@@ -2053,7 +2096,9 @@
   (set! (-> *options-remap* (progress-screen settings))
         (if (or *cheat-mode* (nonzero? (-> *pc-settings* cheats-known))) *main-options-secrets* *main-options-pc*))
   (set! (-> *options-remap* (progress-screen game-settings)) *game-options-pc*)
-  (set! (-> *options-remap* (progress-screen graphic-settings)) *graphic-options-pc*)
+  ;; on Android use the trimmed graphics-options array (Display mode / Display / Frame rate hidden)
+  (set! (-> *options-remap* (progress-screen graphic-settings))
+        (if (= (-> *pc-settings* os) 'android) *graphic-options-pc-android* *graphic-options-pc*))
   (let ((max-refresh-rate (pc-get-active-display-refresh-rate)))
     (cond
       ((> max-refresh-rate 100) (set! *carousell-frame-rate* *carousell-frame-rate-150fps*))
@@ -2138,6 +2183,14 @@
   (set! (-> *graphic-options-pc* 3 value-to-modify) (&-> *pc-settings* vsync?))
   (set! (-> *graphic-options-pc* 5 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *graphic-options-pc* 6 value-to-modify) (&-> *progress-carousell* int-backup))
+  ;; FPS-counter toggle (index 8, just before the back button on desktop)
+  (set! (-> *graphic-options-pc* 8 value-to-modify) (&-> *pc-settings* fps-counter?))
+  (set! (-> *graphic-options-pc* 8 name-override) *fps-counter-label*)
+  ;; Android graphics-options array: vsync(1), msaa(3), fps-counter(5)
+  (set! (-> *graphic-options-pc-android* 1 value-to-modify) (&-> *pc-settings* vsync?))
+  (set! (-> *graphic-options-pc-android* 3 value-to-modify) (&-> *progress-carousell* int-backup))
+  (set! (-> *graphic-options-pc-android* 5 value-to-modify) (&-> *pc-settings* fps-counter?))
+  (set! (-> *graphic-options-pc-android* 5 name-override) *fps-counter-label*)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))
   (set! (-> *misc-options* 2 value-to-modify) (&-> *pc-settings* skip-movies?))
@@ -3097,7 +3150,10 @@
                         (set! (-> obj selected-option) #f)
                         (sound-play "cursor-options"))
                       (print-game-text (string-format "~S (~4L~D~0L)" (-> options index name-override) time-left) font #f 128 22))
-                    (print-game-text (lookup-text! *common-text* (-> options index name) #f) font #f 128 22))
+                    ;; prefer a runtime name-override label when one was set (e.g. FPS-counter toggle)
+                    (if (nonzero? (-> options index name-override))
+                      (print-game-text (-> options index name-override) font #f 128 22)
+                      (print-game-text (lookup-text! *common-text* (-> options index name) #f) font #f 128 22)))
                   (set! option-y (+ y-off 7))
                   (case (-> options index option-type)
                     (((game-option-type slider))
@@ -3230,12 +3286,16 @@
                      (set! option-str (lookup-text! *common-text* (-> options index name) #f)))
                     (((game-option-type on-off) (game-option-type aspect-native))
                      ;; on-off options show their text + on or off
-                     (set! option-str
-                           (string-format "~S: ~S"
-                                          (lookup-text! *common-text* (-> options index name) #f)
-                                          (if (-> (the-as (pointer uint32) (-> options index value-to-modify)))
-                                            (lookup-text! *common-text* (text-id on) #f)
-                                            (lookup-text! *common-text* (text-id off) #f)))))
+                     ;; prefer a runtime name-override label when one was set (e.g. FPS-counter toggle)
+                     (let ((label (if (nonzero? (-> options index name-override))
+                                    (-> options index name-override)
+                                    (lookup-text! *common-text* (-> options index name) #f))))
+                       (set! option-str
+                             (string-format "~S: ~S"
+                                            label
+                                            (if (-> (the-as (pointer uint32) (-> options index value-to-modify)))
+                                              (lookup-text! *common-text* (text-id on) #f)
+                                              (lookup-text! *common-text* (text-id off) #f))))))
                     (((game-option-type binding-assignment))
                      ;; binding assignment options show their input + the current binding
                      (let ((bind (pc-get-current-bind (-> options index bind-info) *pc-cpp-temp-string*)))

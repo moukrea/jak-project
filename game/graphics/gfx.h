@@ -95,6 +95,9 @@ struct GfxGlobalSettings {
   // fancy effect things
   bool hack_no_tex = false;
 
+  // show an on-screen FPS counter overlay (set from GOAL pc-settings)
+  bool display_fps = false;
+
   // collision renderer settings
   bool collision_enable = false;
   bool collision_wireframe = true;
