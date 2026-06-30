@@ -1,0 +1,131 @@
+================================================================================
+Phase Grender-split — UI native + 3D scaled (renderer-side, BOTH builds)
+RESULT: RENDER SPLIT UI-NATIVE 3D-SCALED
+================================================================================
+Owner ask (2026-06-30): on this engine ALL GOAL rendering (3D + sprites + HUD +
+menu text) goes into ONE game_res FBO, then blits to the window — so RENDER
+SCALE % / Game Resolution softens the UI along with the 3D. Render the 3D scene
+at a chosen scale while UI/HUD/text stay NATIVE-crisp. HARD CONSTRAINT: do it IN
+THE RENDERER so it works identically on the x86 build AND Android — NOT via an
+Android-native UI layer. Engine goal_src render logic untouched (gold oracle clean).
+
+--------------------------------------------------------------------------------
+1. INVESTIGATION — where 3D ends and 2D UI begins (jak1)
+--------------------------------------------------------------------------------
+The OpenGOAL bucket renderer draws buckets 0..69 in order into one render FBO at
+game_res, then do_pcrtc_effects upscales that FBO to the native draw region (a
+fullscreen GL_LINEAR POST_PROCESSING quad). Because the single FBO is game_res
+(= Game Resolution x RENDER SCALE %), lowering the scale softens EVERYTHING.
+
+jak1 render order (verified in code):
+  buckets 0..65  : SKY, OCEAN, TFRAG/TIE/MERC/SHRUB/ALPHA/SHADOW/PRIS/WATER,
+                   OCEAN_NEAR, DEPTH_CUE, PRE_SPRITE_TEX  ......... 3D world
+  bucket 66 SPRITE (Sprite3::render_jak1): the sub-passes run in a FIXED order —
+     render_direct -> render_distorter -> render_3d -> render_2d_group0(+flush)
+     -> render_fake_shadow -> render_2d_group1 (HUD) (+flush).
+     * distort reads the live SCENE color framebuffer (Sprite3_Distort.cpp:604),
+       group0 (world-2D + true-3D sprites) DEPTH-tests against the scene
+       (GEQUAL) — both are resolution-coupled to the 3D pass and MUST stay scaled.
+     * render_2d_group1 (HUD) is the LAST sprite sub-pass in jak1 (NO glow in
+       jak1 — glow is jak2+), is pure 2D screen-space (matrix/hvdf-driven verts,
+       NOT render_fb-driven), and does NOT read the scene framebuffer.
+  buckets 67 DEBUG / 68 DEBUG_NO_ZBUF / 69 SUBTITLE (DirectRenderer): ALL 2D
+     text — HUD numbers, menu text, the resolution/RENDER-SCALE menu itself,
+     subtitles, minimap. Pure screen-space; no scene read.
+
+=> There is a CLEAN 3D->2D boundary in jak1: everything through render_fake_shadow
+   is the 3D scene; the HUD sprite group + DirectRenderer buckets 67-69 are the
+   2D UI. distort/group0 correctly stay in the scaled pass (they are in-world
+   effects, not UI). This is why a clean split is achievable here.
+
+--------------------------------------------------------------------------------
+2. IMPLEMENTATION — the render split (renderer-side, shared + both forks)
+--------------------------------------------------------------------------------
+Design: render the 3D scene into the scaled scene FBO (= the existing game_res
+render FBO). At the 3D->2D boundary, COMPOSITE (upscale-blit) the scaled scene
+into a NEW native-resolution UI FBO (sized to the on-screen draw region), then
+draw the 2D UI/HUD/text into that native FBO ON TOP, and blit the UI FBO to the
+window. So lowering RENDER SCALE softens ONLY the 3D; the UI stays native-crisp.
+
+Bucket renderers are SHARED source (one change hits both builds); the frame
+orchestration is FORKED, so the composite was added to BOTH:
+  - SHARED  game/graphics/opengl_renderer/BucketRenderer.h : new
+      SharedRenderState::begin_2d_ui_pass (std::function, nullptr = split off).
+  - SHARED  game/graphics/opengl_renderer/sprite/Sprite3.cpp : in render_jak1,
+      call begin_2d_ui_pass right before render_2d_group1 (HUD) -> HUD/menu
+      SPRITES go native. (jak1 only; no-op when split off.)
+  - x86     game/graphics/opengl_renderer/OpenGLRenderer.{h,cpp} : setup_frame
+      creates the native UI FBO + arms begin_2d_ui_pass when scene < draw region;
+      begin_ui_pass() resolves(MSAA)+upscale-blits scene->UI FBO, clears UI depth
+      (so the always-on-top HUD passes GEQUAL), re-targets render_fb to the UI
+      FBO; dispatch_buckets_jak1 calls it before the DEBUG bucket as a fallback
+      (text stays native even if the sprite bucket was empty); do_pcrtc_effects
+      blits the UI FBO to the window when active.
+  - Android android/android_opengl_renderer.{h,cpp} : the same begin_ui_pass /
+      setup_frame / dispatch-loop fallback / do_pcrtc source-switch (mirrored).
+
+Activation: split is ON only when the scaled scene FBO is SMALLER than the native
+draw region (RENDER SCALE < 100 % relative to the display). When game_res ==
+draw region (e.g. RENDER SCALE 100 %), the split is OFF and the path is byte-for-
+byte the old single-FBO path — NO regression and NO extra cost at 100 %.
+NO goal_src changed; .autoport/gold pristine.
+
+--------------------------------------------------------------------------------
+3. VERIFY — BOTH builds
+--------------------------------------------------------------------------------
+x86 (build-x86/game/gk):
+  - Clean compile. Validator smoke -> "link finish: logo".
+  - Smoke re-run with the split ACTIVE (render-scale 50): scene FBO logged at
+    960x540 (1920x1080 x 50%), split runs every frame, reaches "link finish:
+    logo" with NO GL framebuffer errors, NO asserts, NO crash. x86 split path OK.
+
+Android (device eae4df44, the owner's Redmi; ANDROID_SERIAL pinned):
+  - Consistent build: libgk.so rebuilt from HEAD, APK repackaged, installed.
+    deploy_verify.sh PASS — sha256 chain build==APK==device (f4b4448568d2b9a1),
+    device provably runs the fresh HEAD libgk.so.  (no asset/DGO/CGO touched —
+    renderer-only change.)
+  - RENDER SCALE 50 %: renderer log fbo=1200x540 (3D scene rendered at half res),
+    screencap output 2400x1080 (UI composited at full native panel res), sustained
+    swaps, 0 crashes (frames 3000-4300+).
+  - RENDER SCALE 100 %: renderer log fbo=2400x1080 (split inactive, full native —
+    confirms the no-regression path).
+  Evidence (.autoport/reports/Grender-split/evidence/):
+    * zoom_rs50_UItext.png  — WITHIN ONE rs50 FRAME: "PRESS START" text edges are
+      razor-sharp (native 2400 rasterization) while the 3D palm trees/grass behind
+      it are SOFT (1200->2400 upscale). UI crisp + 3D soft, same frame = the split.
+    * title_rs50_a.png / title_rs100.png — title at 50 % vs 100 %: UI (logo, PRESS
+      START, FPS overlay) equally crisp at both; the 3D world is softer at 50 %.
+    * zoom_rs50_3D.png vs zoom_rs100_3D.png — 3D texture detail soft at 50 %, sharp
+      at 100 %.
+    * rs50.mp4 (8 s screenrecord) — 0 flicker, 0 black frames: mean luma transitions
+      smoothly 68->97->89 (gentle attract-camera lighting, no spikes/drops).
+
+No broken resolution-dependent effects: aspect correct (scene 20:9 and panel 20:9
+=> clean uniform upscale, no squish); letterbox/lbox path unchanged (do_pcrtc still
+sizes the final quad to draw_region); depth-dependent in-world sprites (distort,
+world-2D group0, fake-shadow) deliberately stay in the scaled scene pass so scene
+DEPTH and the framebuffer-read distort effect remain correct; only the always-on-
+top HUD group + 2D text move to the native pass. The autosave spinner, logo, and
+text are all correctly placed. UI native + 3D scaled, both builds, no broken
+effects, 0 flicker.
+
+--------------------------------------------------------------------------------
+4. HONEST NOTES (scope)
+--------------------------------------------------------------------------------
+- distort and glow/sun (sprite-distort, in-world) are screen-space effects that
+  READ the scene framebuffer; they correctly remain in the scaled 3D pass (they
+  are world effects, not UI). This matches the owner's "render in the renderer"
+  intent and does not corrupt them.
+- "Native" for the UI = the on-screen draw region (the panel/letterbox size),
+  because on x86 RENDER SCALE is folded into game_res by GOAL and the renderer's
+  only larger native reference is the draw region. Consequence (a bonus, not a
+  bug): a deliberately LOW Game Resolution also keeps the UI native-crisp, not
+  just RENDER SCALE.
+- jak1 only for the HUD-sprite half of the split (the Sprite3 hook is jak1-gated
+  because jak2/3 draw glow AFTER the HUD); Android ships jak1. The DirectRenderer
+  text half is version-agnostic.
+
+OWNER PLAY-TEST is the final gate (device restored to its prior RENDER SCALE 100).
+Lower RENDER SCALE in the in-game menu: the 3D should soften while HUD/menu TEXT
+stays crisp.
+================================================================================

@@ -532,6 +532,17 @@ void Sprite3::render_jak1(DmaFollower& dma,
   // shadow draw
   render_fake_shadow(dma);
 
+  // Grender-split: everything above (pre-direct, distort, 3d, world-2d group0,
+  // fake-shadow) is the 3D scene and is depth-/framebuffer-coupled to the scaled
+  // scene FBO. The HUD group (group1) below is the LAST sprite sub-pass in jak1
+  // and is pure 2D screen-space (matrix/hvdf-driven verts, no scene read), so it
+  // can be drawn at native resolution. If the orchestrator armed the split, this
+  // composites the scaled scene to the native UI FBO and re-targets there, leaving
+  // the HUD/menu sprites crisp. No-op when the split is inactive.
+  if (render_state->begin_2d_ui_pass) {
+    render_state->begin_2d_ui_pass();
+  }
+
   // 2d draw (HUD)
   {
     auto child = prof.make_scoped_child("2d-group1");

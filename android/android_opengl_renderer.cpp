@@ -517,6 +517,62 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   m_render_state.render_fb_w = fbo_w;
   m_render_state.render_fb_h = fbo_h;
   glViewport(0, 0, fbo_w, fbo_h);
+
+  // Grender-split (UI native + 3D scaled): the 3D scene renders into render_buffer
+  // at the scaled size (fbo_w x fbo_h = game_res x render_scale). When that is
+  // smaller than the native on-screen draw region, the 2D UI/HUD/text is drawn into
+  // a separate native-resolution FBO so it stays crisp while only the 3D is
+  // upscaled. Inactive (zero-cost) when the scene already fills the display.
+  m_ui_pass_active = false;
+  const int native_ui_w = m_render_state.draw_region_w;
+  const int native_ui_h = m_render_state.draw_region_h;
+  const bool split_active =
+      (fbo_w < native_ui_w || fbo_h < native_ui_h) && native_ui_w > 0 && native_ui_h > 0;
+  if (split_active) {
+    if (!m_fbo_state.ui_buffer.matches(native_ui_w, native_ui_h, 1)) {
+      m_fbo_state.ui_buffer.clear();
+      m_fbo_state.ui_buffer = a35_make_fbo(native_ui_w, native_ui_h);
+    }
+    m_render_state.begin_2d_ui_pass = [this]() { begin_ui_pass(); };
+    // a35_make_fbo bound the new UI fbo; restore the scaled scene target for the 3D pass.
+    glBindFramebuffer(GL_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
+    glViewport(0, 0, fbo_w, fbo_h);
+  } else {
+    m_render_state.begin_2d_ui_pass = nullptr;
+  }
+}
+
+void AndroidOpenGLRenderer::begin_ui_pass() {
+  if (m_ui_pass_active) {
+    return;  // idempotent: only composite+switch once per frame
+  }
+  m_ui_pass_active = true;
+
+  auto& ui = m_fbo_state.ui_buffer;
+  Fbo& scene = m_fbo_state.render_buffer;  // always single-sample on Android
+
+  // Upscale-blit the scaled 3D scene into the native UI FBO ("upscale 3D").
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, scene.fbo_id);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ui.fbo_id);
+  glBlitFramebuffer(0, 0, scene.width, scene.height, 0, 0, ui.width, ui.height,
+                    GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
+  // Re-target the UI FBO for the native 2D pass. Keep the composited color; clear
+  // depth so the always-on-top HUD/menu (GEQUAL vs cleared 0) is not occluded.
+  glBindFramebuffer(GL_FRAMEBUFFER, ui.fbo_id);
+  glDepthMask(GL_TRUE);
+  glClearDepthf(0.0f);
+  glClearStencil(0);
+  glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  glDisable(GL_BLEND);
+  glViewport(0, 0, ui.width, ui.height);
+
+  m_render_state.render_fb = ui.fbo_id;
+  m_render_state.render_fb_x = 0;
+  m_render_state.render_fb_y = 0;
+  m_render_state.render_fb_w = ui.width;
+  m_render_state.render_fb_h = ui.height;
+  m_render_state.stencil_dirty = false;
 }
 
 void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfilerNode& prof) {
@@ -616,6 +672,13 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
       snprintf(gk_f1a_current_bucket, sizeof(gk_f1a_current_bucket), "%s id=%zu",
                renderer->name().c_str(), bucket_id);
     }
+    // Grender-split: the DirectRenderer UI buckets (DEBUG/DEBUG_NO_ZBUF/SUBTITLE
+    // carry all 2D text/HUD numbers/menu/subtitles) come after the 3D scene. Make
+    // sure the native UI pass has begun before them — a fallback for the case where
+    // the sprite bucket was empty and didn't trigger it.
+    if (bucket_id == (int)jak1::BucketId::DEBUG && m_render_state.begin_2d_ui_pass) {
+      m_render_state.begin_2d_ui_pass();
+    }
     renderer->render(dma, &m_render_state, bucket_prof);
     {
       extern char gk_f1a_current_bucket[64];
@@ -655,7 +718,10 @@ void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
                                              ScopedProfilerNode& prof) {
   // desktop do_pcrtc_effects, msaa-resolve stripped (always 1 sample) and
   // brightness/contrast left at the neutral defaults.
-  Fbo* window_blit_src = &m_fbo_state.render_buffer;
+  // Grender-split: when active, the UI FBO already holds the composited image
+  // (upscaled 3D scene + native-resolution 2D UI); blit it straight to the window.
+  Fbo* window_blit_src =
+      m_ui_pass_active ? &m_fbo_state.ui_buffer : &m_fbo_state.render_buffer;
 
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
