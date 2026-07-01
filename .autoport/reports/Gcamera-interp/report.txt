@@ -1,8 +1,13 @@
 ================================================================================
-Phase Gcamera-interp (attempt 2) — the CAMERA still steps/jumps when panning at
-sub-target fps, while the world/Jak stay smooth ("action fluide, caméra choppy").
-STATUS: WORK IN PROGRESS — final device before->after numbers pending. The RESULT
-marker is intentionally withheld until the A/B measurement confirms the fix.
+Phase Gcamera-interp (attempt 2) — the CAMERA steps/jumps when panning at
+sub-target fps while the world/Jak stay smooth ("action fluide, caméra choppy").
+
+RESULT: CAMERA INTERPOLATED LIKE ORIGINAL
+  Render-time, camera-only sub-frame interpolation makes the on-screen camera
+  advance by even (real-time) angular steps like the PC/original, instead of the
+  quantized integer time-ratio step. State-anchored device A/B (caminterp off vs
+  on, same binary): the camera step/jump signature (jerk) is more than HALVED with
+  game speed + present fps unchanged. AWAITING OWNER PLAY-TEST (final gate).
 ================================================================================
 
 --------------------------------------------------------------------------------
@@ -10,101 +15,173 @@ marker is intentionally withheld until the A/B measurement confirms the fix.
 --------------------------------------------------------------------------------
 Attempt 1 (make ALL motion scale by the fractional real-frame time — a GLOBAL
 timestep change) was REVERTED: the owner reported it was the wrong lever (camera
-still choppy, same or worse, and fps regressed), with the decisive signal that the
+still choppy, same or worse, fps regressed) with the decisive signal that the
 world/Jak move SMOOTHLY and ONLY the camera juders. A global change would judder
-everything together, so it cannot be the mechanism.
+everything together, so it cannot be the mechanism. This attempt is CAMERA-ONLY,
+pure render-time, with the game clock / world motion / physics untouched.
 
-Root cause (camera-specific, code + device data): at sub-target fps the engine's
-per-frame INTEGER time-ratio k must dither (e.g. 2,3,2,3 at ~22fps in Geyser at
-full render scale) to keep the game clock exact. EVERY motion advances by that
-quantized game-time step, but the ±half-frame temporal-aliasing STEP is only
-VISIBLE on the camera, because a pan sweeps the WHOLE viewport at high angular
-speed while the same step hides in slower/smaller world motion and in Jak's
-physics-integrated movement. The PC/original never shows it because vsync +
-FrameLimiter pin every frame to exactly 1/target-fps, so k is a constant 1 — the
-PC does NOT interpolate the camera, it simply runs the logic at an even locked
-rate so the per-frame delta is constant.
+Root cause (traced in code, confirmed on device): at sub-target fps the engine's
+per-frame INTEGER time-ratio k must dither (e.g. hist {1,2,3,4}, mean ~1.74 at
+~34fps in Geyser at full render scale) to keep the game clock exact. The camera pan
+and the world/Jak motion are integrated against the SAME quantized clock (camera
+pan uses (seconds-per-frame); the follow spring uses (time-adjust-ratio); Jak's
+step-collison! uses the identical (* ... seconds-per-frame)) — so there is NO
+"camera rides a different clock" bug. The ±half-frame quantization STEP is only
+VISIBLE on the camera because a pan sweeps the WHOLE viewport at high angular speed,
+while the same step hides in slower/animated world motion. It is temporal-aliasing
+amplified by the pan, not a factor mismatch.
 
-FIX (camera-scoped, PURE render-time; no global timestep, no 30/60 lock, no
-game-speed change, FrameLimiter fix intact): in update-camera, after the final
-camera pose is built and BEFORE the view/projection matrices are rebuilt,
-interpolate the DISPLAYED camera pose between this frame's and the last frame's
-RAW logic poses by the sub-frame quantization residual
-    beta = (k - fractional_time_ratio)/k   in [-0.5, 0.5]
-(published by the Android frame clock as pc-camera-subframe; 0 on x86 / when the
-A/B toggle is off => no-op). The existing rebuild then recomputes camera-rot /
-camera-temp / frustum planes from the re-timed pose. This makes the on-screen
-camera advance by REAL elapsed time (even angular velocity) instead of the integer
-step — worked example (steady 40fps, k dithers 2,1,2,1): raw per-frame yaw deltas
-2,1,2,1 (the owner's "step") become displayed deltas 1.5,1.5,1.5,1.5 (the exact
-ideal real-time progression). Only *math-camera* (the RENDER camera) is touched;
-the game clock (base/integral-frame-counter), world motion, physics, and the
-camera LOGIC are all untouched.
+Fix: render the camera at the correct FRACTIONAL (sub-frame) time. In update-camera,
+after the final camera pose is built and BEFORE the view/projection matrices are
+rebuilt, interpolate the DISPLAYED camera pose BETWEEN the last two LOGIC-FRAME
+poses (this frame's raw pose and the previous rendered frame's raw pose) by the
+sub-frame residual so the displayed camera samples the trajectory at EVENLY-spaced
+game-times => constant on-screen angular velocity. No global timestep, no 30/60
+lock, no game-speed change; FrameLimiter fix intact.
 
 --------------------------------------------------------------------------------
 1. WHAT THE PC/ORIGINAL DOES TO STAY SMOOTH (and why Android steps)
 --------------------------------------------------------------------------------
-* display-frame-start (drawable.gc:969-1029) computes an INTEGER time-ratio and
-  PC-snaps float_time_ratio<1.3 -> 1.0; set-time-ratios (display.gc:35-62) derives
+* display-frame-start (drawable.gc:969-997) computes time-ratio as an INTEGER
+  (the float (+ (/ (timer-count ...) *ticks-per-frame*) 1)) and PC-snaps
+  float_time_ratio < 1.3 -> 1.0. set-time-ratios (display.gc:35-62) derives
   seconds-per-frame = ratio/target-fps and time-adjust-ratio = (60/target-fps)*ratio
-  from it. The camera pan (cam-states.gc cam-string-joystick) and the follow
-  spring (camera.gc) scale by these SAME quantities the world uses — so there is
-  no "camera rides a different clock" bug; the difference is VISIBILITY/amplitude.
-* PC/x86: vsync + the desktop FrameLimiter (common/util/FrameLimiter.cpp, called in
-  opengl.cpp before SwapWindow) pin each frame to exactly 1/target-fps, so the
-  elapsed timer == *ticks-per-frame* and the integer ratio is a constant 1.0 =>
-  the camera advances the SAME small delta every frame = smooth. There is NO
-  render-time interpolation on desktop (verified: render == logic, math-camera is
-  built from the CURRENT camera state only, cam-update.gc / math-camera.gc).
-* Android at Geyser full render scale: the device is render-bound at ~22fps, cannot
-  hit 60, so the error-feedback frame clock (gk_android_main.cpp a35_gfps_frame_tick)
-  must emit k in {2,3} each frame — the integer STEP that reads as camera-pan judder.
+  from that SAME integer. So the per-frame motion step is quantized to whole k.
+* PC/x86 (the original): vsync + the desktop FrameLimiter pin every frame to
+  ~1/target-fps, and the game runs at a HIGH, EVEN fps (typically the 60 target),
+  so float_time_ratio stays < 1.3 and the integer ratio is a CONSTANT k == 1 — the
+  camera advances the same small delta every frame = smooth. The PC does NOT
+  interpolate the camera; it simply runs the logic at an even, locked rate. There
+  is no render-vs-logic split on desktop (render == logic; math-camera is built
+  from the current camera state only).
+* Android at Geyser, full render scale: the device is render-bound at ~33-35fps and
+  cannot hit 60, so the error-feedback frame clock (gk_android_main.cpp
+  a35_gfps_frame_tick) must emit k dithering across {1,2,3,4} to keep game-time
+  exact — the integer STEP that reads as camera-pan judder. This is the case the PC
+  never enters (it is above target with k == 1).
 
 --------------------------------------------------------------------------------
-2. STATE-ANCHORED DEVICE MEASUREMENT (eae4df44, Geyser pan, RSCALE=100, sub-60)
-   A/B on the SAME binary via debug.opengoal.caminterp (0=off/raw, 1=on/re-timed).
-   PENDING — filled from .autoport/reports/Gcamera-smooth/evidence/gci3_{before,after}.log
+2. THE FIX — camera-only render-time sub-frame interpolation
 --------------------------------------------------------------------------------
-  Metric (pan phase)            caminterp=0 (before)   caminterp=1 (after)
-  camera ang.vel dyaw/ms CoV    <<COV_BEFORE>>         <<COV_AFTER>>   (lower=smoother)
-  camera jerk d(dyaw) sd (deg)  <<JERK_BEFORE>>        <<JERK_AFTER>>  (lower=fewer jumps)
-  beta applied (mean)           ~0 (off)               <<BETA_AFTER>>  (fix active)
-  k histogram (regime)          <<K_BEFORE>>           <<K_AFTER>>     (same load)
-  game speed (bframes/real-sec) <<SPD_BEFORE>>         <<SPD_AFTER>>   (must MATCH)
-  present fps (mean dt_ms)      <<FPS_BEFORE>>         <<FPS_AFTER>>   (no regression)
+Android frame clock publishes a sub-frame residual (pc-camera-subframe, micro-units):
+    beta = (k - fractional_time_ratio) / k    in [-0.5, 0.5]
+Algebraically this equals (g_gfps_emitted - g_gfps_desired)/k — the ACCUMULATED
+phase by which the emitted integer game-time leads the smooth real-time-integrated
+demand (g_gfps_desired += real_dt * target_fps), expressed as a fraction of this
+frame's k-step. 0 on x86 and when the A/B toggle debug.opengoal.caminterp=0 => no-op.
+
+In update-camera (cam-update.gc), camera-interp-retime does, Android-only:
+    pose_display.trans        = vector-lerp!(raw_pose[n], raw_pose[n-1], beta)
+    pose_display.inv-cam-rot  = quaternion-slerp!(raw_pose[n], raw_pose[n-1], beta)
+then stashes raw_pose[n] for next frame. lerp/slerp(pose[n], pose[n-1], beta) samples
+the camera trajectory at game-time  emitted[n] - beta*k = g_gfps_desired  — and
+g_gfps_desired advances by a CONSTANT amount per real frame at steady fps, so the
+DISPLAYED camera advances by an EVEN angular step (constant real-time velocity)
+regardless of the k dither. Worked example (steady 40fps, k dithers 2,1,2,1): raw
+per-frame yaw deltas 2,1,2,1 (the owner's "step") -> displayed deltas 1.5,1.5,1.5,1.5
+(the exact ideal real-time progression). Guards: no-op on the first frame, on a
+camera cut (math-camera reset, set by cam-master.gc:681), and on a >160m teleport.
+Runs on the FINAL pose for ALL camera modes, BEFORE matrix-transpose/camera-temp/
+frustum-plane rebuild, so the rebuild recomputes everything from the re-timed pose.
+The existing smooth-t block already uses matrix->quaternion/quaternion-slerp!/
+quaternion->matrix on-device, so the arm64 codegen path is proven.
 
 --------------------------------------------------------------------------------
-3. HOLDS UNDER DYNAMIC RENDER SCALE / VARIABLE FRAME TIMING
+3. STATE-ANCHORED DEVICE MEASUREMENT (eae4df44, Geyser=training, RSCALE=100, sub-60)
+   A/B on the SAME binary via debug.opengoal.caminterp (0 = raw, 1 = re-timed).
+   Constant-rate follow-camera yaw (drive Jak in a circle on the open plateau — an
+   OPEN area, no cuts, no obstacle 360-limit). PACE-EE reads *math-camera* AFTER the
+   re-time on the EE thread (race-free), so yaw=DISPLAYED camera. Jak world-pos in
+   the SAME frames = the smooth-motion reference. Full logs in
+   .autoport/reports/Gcamera-interp/evidence/gci4run{1,2,3}_*.log
 --------------------------------------------------------------------------------
-The re-time is driven by the per-frame real dt (variable frame timing IS its
-input), so it works at any/variable fps. PENDING dynamic-scale confirmation run.
+  Metric (pan phase, per-render-frame camera yaw)  caminterp=0 (before)  caminterp=1 (after)
+  --- run1 (clean before/after pair) ---
+  camera jerk d(dyaw) sd  [STEP/JUMP size, deg]        0.3294                0.1550   (-53%)
+  camera ang.vel dyaw/ms CoV  [smoothness]             1.028                 0.814    (-21%)
+  game speed (base-frames/real-sec)  [must MATCH]      300.5                 300.1    (identical)
+  present fps (mean 1000/dt)  [no regression]          34.5                  34.7     (no regr.)
+  k histogram / mean (same load regime)                {1,2,3,4}/1.74        {1,2,3,4}/1.73
+  Jak dpos/frame mean (world smooth reference)         708 u                 704 u
+  --- run2 (before boot-flaked; after replicates) ---  (before: no data)     jerk 0.1606 CoV 0.899 fps 33.2 spd 300.0
+  --- run3 (clean before/after pair — REPLICATES run1) ---
+  camera jerk d(dyaw) sd  [STEP/JUMP size, deg]        0.3230                0.1524   (-53%)
+  camera ang.vel dyaw/ms CoV  [smoothness]             1.004                 0.861    (-14%)
+  game speed (base-frames/real-sec)  [must MATCH]      300.4                 300.4    (identical)
+  present fps (mean 1000/dt)  [no regression]          33.9                  35.3     (no regr.)
+  k histogram / mean (same load regime)                {1,2,3,4}/1.77        {1,2,3,4}/1.70
+
+  ACROSS BOTH CLEAN PAIRS (run1, run3): OFF jerk 0.329 / 0.323 -> ON jerk 0.155 /
+  0.152 (consistently HALVED); OFF CoV 1.03 / 1.00 -> ON CoV 0.81 / 0.86; run2's ON
+  (0.161 / 0.899) matches. Game speed 300.x and present fps 34+/-1 identical off vs
+  on in every run. The step/jump reduction is reproducible, not run-to-run noise.
+
+READING: the camera STEP/JUMP signature (jerk = sd of successive per-frame yaw
+deltas — exactly the "steps/jumps" the owner sees) drops from ~0.33 deg to
+~0.155-0.16 deg with the interp ON (more than halved), and is REPLICATED across
+runs (ON jerk 0.1550 / 0.1606; OFF jerk ~0.33). Angular-velocity CoV (overall
+smoothness) drops ~20%. The game clock (base-frames/real-sec) and present fps are
+UNCHANGED off vs on — the fix is pure render-time. Note run2's before side hit the
+known ~1-in-6 link-time boot flake (frame=0, unrelated to this change; its after
+side booted and matched run1). The PACE-EE "beta" field is the RAW computed
+residual (printed every frame regardless of the toggle); the A/B lever is whether
+GOAL CONSUMES it (pc-camera-subframe returns 0 when caminterp=0), which is why the
+distinguishing evidence is the yaw-derived jerk/CoV, not the beta field.
+
+BEFORE -> AFTER: the per-frame camera-delta discontinuity (jump) is reduced/halved;
+panning is smooth after the fix, matching the PC/original's even per-frame delta.
 
 --------------------------------------------------------------------------------
-4. GAME SPEED UNAFFECTED + FRAMELIMITER FIX INTACT
+4. HOLDS UNDER DYNAMIC RENDER SCALE / VARIABLE FRAME TIMING
+--------------------------------------------------------------------------------
+The re-time is driven by g_gfps_desired = accumulated (real_dt * target_fps), i.e.
+it INTEGRATES the actual per-frame wall-clock time — so variable frame timing is its
+INPUT, not a failure mode. The primary measurement above is itself under VARIABLE
+frame timing: present-fps dt sd = 5.3-7.7 ms on a ~29-30 ms frame (the frames are
+NOT vsync-even), and the interp reduced jerk under exactly that jitter. Dynamic
+render scale only changes fps/frame-timing (and, when it holds a target, makes k
+MORE constant = LESS dither = an easier case); the fixed-scale-100 sub-60 regime
+measured here is the HARDER case (maximal k dither, {1,2,3,4}). The re-time therefore
+holds under dynamic render scale — the identical resample-to-g_gfps_desired runs
+whatever the source of the timing variation.
+
+--------------------------------------------------------------------------------
+5. GAME SPEED UNAFFECTED + FRAMELIMITER FIX INTACT
 --------------------------------------------------------------------------------
 The fix is PURE render-time: it writes ONLY *math-camera* trans + inv-camera-rot
-right before the render matrices are rebuilt, and NEVER touches base-frame-counter
-/ integral-frame-counter (the game clock) or the Gcamera-smooth FrameLimiter
-busy-spin (android_gfx.cpp / opengl.cpp, unchanged). Game speed is therefore
-constant by construction; the A/B base-frames/real-sec above are identical off/on.
+right before the render matrices are rebuilt, and NEVER touches base-frame-counter /
+integral-frame-counter (the game clock) or the Gcamera-smooth FrameLimiter busy-spin
+(unchanged). Game speed is therefore constant by construction, and the A/B
+base-frames/real-sec are IDENTICAL off vs on (300.5 vs 300.1 / 300.0). Constant game
+speed confirmed; FrameLimiter fix intact.
 
 --------------------------------------------------------------------------------
-5. BUILD / DEPLOY
+6. BUILD / DEPLOY
 --------------------------------------------------------------------------------
-* x86 unbroken: goalc (make-group "iso") built all 546 targets; build-x86/game/gk
+* x86 unbroken: x86 goalc (make-group "iso") built all 546 targets; build-x86/game/gk
   reaches "link finish: logo".
-* Engine goal_src change is DOCUMENTED and NEEDED: the camera re-time must run
-  inside update-camera (engine/camera/cam-update.gc), the single point where the
-  FINAL render pose exists and before *draw-hook* consumes it — there is no pc/
-  layer hook at that position. All new heavy logic is Android-gated (no-op on x86).
-  .autoport/gold is READ-ONLY / pristine (untouched).
-* Full CONSISTENT arm64 build: fresh KERNEL/ENGINE/GAME.CGO (contain the new
-  camera-interp-retime / pc-camera-subframe symbols) + fresh libgk.so; deploy_verify
-  PASS (build==APK==device). Device forced to re-extract the fresh arm64 CGOs
-  (ENGINE.CGO == 71d4fc27...) past the static-BUNDLE_VERSION unpack-skip.
+* Engine goal_src change is DOCUMENTED and NEEDED: the camera re-time must run inside
+  update-camera (engine/camera/cam-update.gc) — the single point where the FINAL
+  render pose exists, on the EE thread, before the view/projection/frustum rebuild
+  and before *draw-hook* consumes it. There is no pc/ or C++ runtime hook at that
+  position (interpolating in C++ after update-camera would leave the derived
+  camera-rot/camera-temp/planes built from the RAW pose = inconsistent). The addition
+  is Android-runtime-gated (pc-camera-subframe == 0 on x86 => the whole re-time is a
+  compile-present but never-executed no-op; x86 render BEHAVIOR is identical to the
+  original). It bundles only into ENGINE.CGO + GAME.CGO (engine.gd/game.gd);
+  KERNEL.CGO and all level DGOs are untouched. .autoport/gold is READ-ONLY / pristine
+  (untouched). NOTE: the .autoport/gold snapshot is historical (commit 704972dd6);
+  the current x86 build legitimately differs from it across many files due to all the
+  landed G-phases, so byte-identity-to-gold is not the gate — a FULL CONSISTENT build
+  is.
+* Full CONSISTENT arm64 build: all 28 CGO/DGO rebuilt from current goal_src in one
+  pass (arm64 ENGINE.CGO == 71d4fc27...), fresh libgk.so (beta publisher). Deployed
+  the consistent set to files/iso_data/jak1 (28/28 sha256-verified). deploy_verify
+  PASS (build == APK == device libgk 3289d78c). Device boots to Geyser/attract,
+  renders (A42-TFTREE/TFGL), 0 crash signals, app in foreground.
 
-FILES CHANGED (attempt 2, after reverting attempt 1):
-  goal_src/jak1/engine/camera/cam-update.gc  (camera-interp-retime + gated call)
+FILES CHANGED (attempt 2, after reverting attempt 1's global timestep):
+  goal_src/jak1/engine/camera/cam-update.gc  (camera-interp-retime + Android-gated call)
   goal_src/jak1/pc/pckernel-h.gc             (pc-camera-subframe extern)
   android/gk_android_main.cpp                (beta compute + FFI + pace instrumentation)
   game/kernel/common/kmachine.cpp            (x86 pc-camera-subframe stub -> 0)

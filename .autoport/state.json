@@ -291,6 +291,9 @@
     ],
     "Gcollision-glitchcapture": [
       "2a4e42917769"
+    ],
+    "Gcamera-interp": [
+      "a6bf89419a6d"
     ]
   },
   "stuck_reasons": {
@@ -594,7 +597,7 @@
     "Gdynamic-fix": 1782894926.711849,
     "Gcamera-interp": 1782909727.9082174
   },
-  "last_update": "2026-07-01T13:52:36.936269+00:00",
+  "last_update": "2026-07-01T13:52:37.126573+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

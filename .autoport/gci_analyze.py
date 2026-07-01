@@ -89,6 +89,13 @@ n,mean,sd,cov = stats([abs(x) for x in dyaw]); print(f"  |dyaw|/frame     : n={n
 n,mean,sd,cov = stats(avel);         print(f"  ang.vel dyaw/ms  : mean={mean:+.5f} sd={sd:.5f} CoV={cov:.3f}   <-- SMOOTHNESS (lower CoV = smoother)")
 n,mean,sd,cov = stats(jerk);         print(f"  jerk d(dyaw)     : sd={sd:.4f} deg   <-- STEP/JUMP size (lower = fewer jumps)")
 print(f"  game speed       : {game_speed:.1f} base-frames/real-sec   <-- must MATCH off vs on (clock untouched)")
+# present fps: from per-render-frame dt (dt_ms is the real wall time of the frame).
+dts = [r["dt"] for r in rows if r["dt"] and r["dt"] > 0]
+if dts:
+    mean_dt = sum(dts)/len(dts)
+    fps = 1000.0/mean_dt if mean_dt > 0 else 0.0
+    n,mdt,sdd,cov = stats(dts)
+    print(f"  present fps      : {fps:.1f} fps (mean dt={mean_dt:.2f}ms sd={sdd:.2f})   <-- must NOT regress off vs on")
 if avel:
     a=sorted(abs(x) for x in avel); print(f"  ang.vel p50={a[len(a)//2]:.5f} p95={a[int(len(a)*0.95)]:.5f} max={a[-1]:.5f} deg/ms")
 if jak_d:
