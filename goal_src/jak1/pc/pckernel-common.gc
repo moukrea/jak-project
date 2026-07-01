@@ -425,6 +425,38 @@
   (update-cheats obj)
   ;; music.
   (update-music-log obj)
+  ;; Gcamera-interp (Android only): render the camera at the FRACTIONAL real-frame
+  ;; time so panning is smooth at ANY fps, like the desktop/original.
+  ;;
+  ;; WHY: display-frame-start feeds set-time-ratios an INTEGER time-ratio k. At a
+  ;; sub-target fps that isn't a clean divisor of the target (e.g. 45 fps on a 60
+  ;; target) k must dither 1<->2 (1,2,1,1,2...) to keep the game clock exact -- and
+  ;; the camera + world scale their motion by the derived *display* time-adjust-
+  ;; ratio / seconds-per-frame, so every k==2 frame the camera advances a DOUBLE
+  ;; step: the owner's "steps/jumps" when panning. The desktop/original never shows
+  ;; this because its FrameLimiter+vsync pin every frame to exactly 1/target-fps so
+  ;; k is a constant 1 (drawable.gc display-frame-start <1.3 snap) -- there is no
+  ;; interpolation on PC, it simply runs the logic at an even locked rate. We match
+  ;; that smoothness WITHOUT a rate lock: overwrite the two motion-scale fields with
+  ;; the REAL per-frame dt (pc-frame-dt-us). Motion then advances by the true
+  ;; elapsed time each frame; present dt == EE dt on this Adreno, so on-screen
+  ;; motion is proportional to display time = smooth at any/variable fps (incl.
+  ;; dynamic render scale). time-adjust-ratio == 60*dt matches set-time-ratios'
+  ;; 'custom formula ((60/target-fps)*ratio with ratio == dt*target-fps).
+  ;;
+  ;; This runs once per frame AFTER display-frame-start (swap-display) and BEFORE
+  ;; the next update-camera / execute-math-engine, so the smooth value is what the
+  ;; camera consumes. The integer frame counters (base/integral-frame-counter = the
+  ;; game clock) were already advanced inside display-frame-start from (the int
+  ;; time-ratio) and are NOT touched here -> game SPEED is unchanged (the proven
+  ;; Gframerate-variable clock). Gameplay slow-mo (target set-time-ratios) re-applies
+  ;; next frame inside execute-math-engine before the camera reads it, so slow-mo is
+  ;; preserved. x86/desktop is untouched (already smooth, vsync-locked).
+  (when (= (-> obj os) 'android)
+    (let ((dt-s (/ (the float (pc-frame-dt-us)) 1000000.0)))
+      (when (> dt-s 0.0)
+        (set! (-> *display* seconds-per-frame) dt-s)
+        (set! (-> *display* time-adjust-ratio) (* 60.0 dt-s)))))
   ;; on-screen FPS counter (graphics option). draws into the just-started frame's
   ;; global-buf; renders on both x86 and Android via the game font.
   (draw-pc-fps-counter)
