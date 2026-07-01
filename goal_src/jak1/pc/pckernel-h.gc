@@ -105,6 +105,12 @@
 ;; C kernel function returning the real measured render fps (int), for the
 ;; GOAL-side on-screen FPS counter. Works on both x86 and Android backends.
 (define-extern pc-get-fps (function int))
+;; Gcamera-interp: C kernel function returning the render-time camera-pose interpolation
+;; alpha in MICRO-units ([0..1e6], where 1e6 == alpha 1.0 == "render the current pose").
+;; On Android this is deficit/k from the frame clock (sub-frame real-time fraction);
+;; on x86/desktop it is a stub that always returns 1e6 (no interp). update-camera reads
+;; it to retime the render-facing *math-camera* pose to real display time (render-only).
+(define-extern pc-camera-interp-alpha (function int))
 ;; Gdynamic-renderscale: C kernel function returning the smoothed per-frame render WORK
 ;; time in MICROSECONDS (the renderer render() CPU wall-clock, excluding the
 ;; framelimiter/vsync wait). The adaptive render-scale controller uses this as a

@@ -215,6 +215,60 @@
 
 (define *start-pos* (new 'global 'vector))
 
+;; Gcamera-interp (autoport, owner 2026-07-01): RENDER-time camera-pose interpolation.
+;; Previous rendered frame's RAW *math-camera* pose (position + view rotation quaternion).
+;; Render-only scratch: never read back into camera integration.
+(define *cam-interp-prev-trans* (new 'global 'vector))
+(define *cam-interp-prev-quat* (new 'global 'quaternion))
+(define *cam-interp-valid* #f)
+
+(defun cam-render-interp! ()
+  "Gcamera-interp: retime *math-camera*'s render pose (trans + inv-camera-rot rotation)
+   to real display time by interpolating between the previous and current logic-frame
+   RAW pose, using the sub-frame alpha from the Android frame clock (pc-camera-interp-
+   alpha, micro-units, [0,1]). RENDER-ONLY: the camera process keeps its authoritative
+   state; only the render-facing *math-camera* view is retimed, so on-screen camera
+   motion tracks real time -> smooth at sub-60fps despite the integer time-ratio k-
+   dither. alpha is strictly clamped [0,1] (no extrapolation). SNAPS (no interp) on:
+   the first frame, a locked/constant cadence (alpha~1, incl. x86), a hard camera cut
+   (*math-camera* reset), a movie, a teleport (pose delta too large), and any non-
+   gameplay camera (look-through-other / external) so the title & scripted cameras stay
+   byte-identical/perfect. Call AFTER the mode cond writes the raw pose and BEFORE
+   matrix-transpose! rebuilds camera-rot/camera-temp."
+  (let* ((alpha (/ (the float (pc-camera-interp-alpha)) 1000000.0))
+         (mc *math-camera*)
+         (inv (-> mc inv-camera-rot)))
+    (let ((curr-quat (new-stack-quaternion0))
+          (raw-trans (new-stack-vector0)))
+      ;; snapshot the RAW current pose BEFORE any overwrite
+      (matrix->quaternion curr-quat inv)
+      (vector-copy! raw-trans (-> mc trans))
+      (let ((dot (quaternion-dot curr-quat *cam-interp-prev-quat*)))
+        (when (and *cam-interp-valid*
+                   (zero? *camera-look-through-other*)      ;; gameplay follow-cam only
+                   (not *external-cam-mode*)
+                   (< alpha 0.999) (> alpha 0.0)            ;; interp actually needed
+                   (zero? (-> mc reset))                    ;; not a hard cut
+                   (not (movie?))                           ;; not a cutscene
+                   (< (vector-vector-distance raw-trans *cam-interp-prev-trans*)
+                      (meters 10.0))                        ;; not a teleport
+                   (< 0.98 (fmax dot (- dot))))             ;; not a big angular cut
+          ;; interpolate rotation (slerp prev->curr) into inv-camera-rot rows 0-2 only
+          (let ((qi (new-stack-quaternion0))
+                (tmp (new-stack-matrix0)))
+            (quaternion-slerp! qi *cam-interp-prev-quat* curr-quat alpha)
+            (quaternion->matrix tmp qi)
+            (set! (-> inv vector 0 quad) (-> tmp vector 0 quad))
+            (set! (-> inv vector 1 quad) (-> tmp vector 1 quad))
+            (set! (-> inv vector 2 quad) (-> tmp vector 2 quad)))
+          ;; interpolate position (lerp prev->curr) in place
+          (vector-lerp! (-> mc trans) *cam-interp-prev-trans* raw-trans alpha)))
+      ;; store the RAW current pose as next frame's prev (every frame, interp or not)
+      (quaternion-copy! *cam-interp-prev-quat* curr-quat)
+      (vector-copy! *cam-interp-prev-trans* raw-trans)
+      (set! *cam-interp-valid* #t)))
+  #f)
+
 (defun update-camera ()
   (when *start-timer*
     (when (= *timer-value* 180)
@@ -312,6 +366,7 @@
        (set! (-> v1-101 vector 2 quad) a2-12)
        (set! (-> v1-101 vector 3 quad) a3-11)))
     (else (move-camera-from-pad *math-camera*)))
+  (cam-render-interp!)  ;; Gcamera-interp: retime render pose to real display time (render-only)
   (matrix-transpose! (-> *math-camera* camera-rot) (-> *math-camera* inv-camera-rot))
   (cond
     (*camera-no-mip-correction* (set! (-> *math-camera* fov-correction-factor) 1.0))
