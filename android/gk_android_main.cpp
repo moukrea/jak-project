@@ -466,23 +466,13 @@ static u64 g_gfps_last_raw = 0;      // raw wall-clock at the previous frame tic
 static double g_gfps_desired = 0.0;  // game-frames real time demands
 static double g_gfps_emitted = 0.0;  // game-frames already handed to the engine
 
-// Gcamera-interp: the render-camera sub-frame re-timing residual for THIS frame.
-// beta = (integer k - fractional time-ratio)/k, in [-0.5,0.5] — how far the
-// integer time-ratio STEP this frame lands from the true elapsed real time, as a
-// fraction of the frame's k-frame span. Published to GOAL as pc-camera-subframe
-// (micro-units); update-camera uses it (Android only) to interpolate the DISPLAYED
-// camera pose to the true sub-frame time so panning is smooth at sub-target fps.
-// 0 => no re-time (x86 vsync-locked / A/B toggle off).
-static double g_cam_subframe_beta = 0.0;
-
 // Gcamera-smooth diagnosis (read-only, EE thread): read the GOAL *math-camera*
 // pose (position + forward-yaw) and the *display* base/actual frame counters from
 // EE main memory. The camera was just written by update-camera earlier in THIS
 // frame on THIS thread, so the read is race-free and current. Returns false until
 // ENGINE.CGO has linked (*math-camera* not yet a valid object).
 static bool pace_read_camera(float* cx, float* cy, float* cz, float* yaw_deg,
-                             int64_t* bfc, int64_t* afc, float* pitch_deg, float* jx,
-                             float* jy, float* jz) {
+                             int64_t* bfc, int64_t* afc) {
   const u32 mc = jak1::intern_from_c("*math-camera*")->value;
   if (mc == 0 || mc == (u32)s7.offset || mc >= (u32)(EE_MAIN_MEM_SIZE - 0x424)) {
     return false;
@@ -493,25 +483,6 @@ static bool pace_read_camera(float* cx, float* cy, float* cz, float* yaw_deg,
   *cy = trans[1];
   *cz = trans[2];
   *yaw_deg = (float)(atan2((double)fwd[0], (double)fwd[2]) * 57.29577951308232);
-  // Gcamera-interp: pitch (elevation of the forward vector) to catch vertical pan
-  // judder too, plus Jak's world position as the SMOOTH-motion reference (owner:
-  // "action fluide, camera choppy" — the world reference must be smooth in the
-  // SAME frames the camera steps).
-  *pitch_deg = (float)(atan2((double)fwd[1],
-                             sqrt((double)fwd[0] * fwd[0] + (double)fwd[2] * fwd[2])) *
-                       57.29577951308232);
-  *jx = *jy = *jz = 0.f;
-  const u32 tgt = jak1::intern_from_c("*target*")->value;
-  if (tgt != 0 && tgt != (u32)s7.offset && tgt < (u32)(EE_MAIN_MEM_SIZE - 0x10)) {
-    u32 root = 0;
-    std::memcpy(&root, g_ee_main_mem + tgt + (112 - 4), 4);  // process-drawable root (off 112)
-    if (root != 0 && root < (u32)(EE_MAIN_MEM_SIZE - 0x10)) {
-      const float* jt = (const float*)(g_ee_main_mem + root + (16 - 4));  // trsqv trans (off 16)
-      *jx = jt[0];
-      *jy = jt[1];
-      *jz = jt[2];
-    }
-  }
   const u32 disp = jak1::intern_from_c("*display*")->value;
   if (disp != 0 && disp != (u32)s7.offset && disp < (u32)(EE_MAIN_MEM_SIZE - 820)) {
     std::memcpy(bfc, g_ee_main_mem + disp + 780, 8);  // base-frame-counter (784 - 4)
@@ -567,25 +538,6 @@ static void a35_gfps_frame_tick() {
     g_gfps_desired = g_gfps_emitted - 2.0;
   }
 
-  // Gcamera-interp: sub-frame re-timing residual for the render camera. Uses the
-  // PRE-emit fractional demand `deficit` (= true fractional time-ratio this frame)
-  // and the emitted integer `k`. beta = (k - deficit)/k is how far AHEAD of the
-  // true elapsed real time this frame's integer step lands, as a fraction of the
-  // k-frame span; the GOAL camera re-time lerps the DISPLAYED pose back by beta so
-  // the on-screen camera advances by real time (smooth) not the integer step.
-  // Bounded to a half-frame either way (interpolate within the last inter-frame
-  // gap, never over-extrapolate). Cheap; runs every frame, read-only for GOAL.
-  {
-    double ahead = (double)k - deficit;
-    double b = (k > 0) ? ahead / (double)k : 0.0;
-    if (b > 0.5) {
-      b = 0.5;
-    } else if (b < -0.5) {
-      b = -0.5;
-    }
-    g_cam_subframe_beta = b;
-  }
-
   // advance the clock by the MIDDLE of time-ratio k's band so the engine formula
   // floor(tc/budget)+1 (snap <1.3 -> 1) resolves to exactly k:
   //   k==1 -> 1.0 budget  (float_tr 1.0 < 1.3 -> snapped to 1)
@@ -627,21 +579,14 @@ static void a35_gfps_frame_tick() {
     s_pace = __system_property_get("debug.opengoal.pace.measure", pv) > 0 && pv[0] == '1';
   }
   if (s_pace) {
-    float cx = 0.f, cy = 0.f, cz = 0.f, yaw = 0.f, pitch = 0.f;
-    float jx = 0.f, jy = 0.f, jz = 0.f;
+    float cx = 0.f, cy = 0.f, cz = 0.f, yaw = 0.f;
     int64_t bfc = 0, afc = 0;
-    const bool ok =
-        pace_read_camera(&cx, &cy, &cz, &yaw, &bfc, &afc, &pitch, &jx, &jy, &jz);
-    // New fields appended AFTER valid= so the existing gcam_pace.sh parser regex
-    // (which ends at valid=([01])) keeps matching. pitch/jak = smooth-reference;
-    // beta = the sub-frame re-time actually applied this frame (0 => A/B off).
+    const bool ok = pace_read_camera(&cx, &cy, &cz, &yaw, &bfc, &afc);
     __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                         "PACE-EE dt_ms=%.3f k=%ld afc=%lld bfc=%lld "
-                        "cam=%.1f,%.1f,%.1f yaw=%.4f valid=%d "
-                        "pitch=%.4f jak=%.1f,%.1f,%.1f beta=%.5f",
+                        "cam=%.1f,%.1f,%.1f yaw=%.4f valid=%d",
                         real_dt_sec * 1000.0, k, (long long)afc, (long long)bfc,
-                        cx, cy, cz, yaw, ok ? 1 : 0, pitch, jx, jy, jz,
-                        g_cam_subframe_beta);
+                        cx, cy, cz, yaw, ok ? 1 : 0);
   }
 }
 
@@ -849,28 +794,6 @@ s64 a35_pc_get_fps() {
 s64 a35_pc_get_frame_busy_us() {
   return (s64)(Gfx::g_global_settings.measured_frame_busy_ms * 1000.f + 0.5f);
 }
-
-// Gcamera-interp: the render-camera sub-frame re-timing residual beta, in
-// MICRO-units (beta*1e6 rounded). update-camera (Android) interpolates the
-// displayed camera pose back by this to remove the integer time-ratio STEP that
-// makes panning choppy at sub-target fps. A/B toggle: debug.opengoal.caminterp=0
-// returns 0 (=> the GOAL re-time is a no-op, i.e. the pre-fix baseline) so the
-// SAME binary gives a clean before/after (controls for thermal). Default ON.
-s64 a35_pc_camera_subframe() {
-  static unsigned s_poll = 0;
-  static bool s_on = true;
-  if ((s_poll++ & 31) == 0) {
-    char pv[8] = {0};
-    if (__system_property_get("debug.opengoal.caminterp", pv) > 0) {
-      s_on = (pv[0] != '0');
-    }
-  }
-  if (!s_on) {
-    return 0;
-  }
-  const double b = g_cam_subframe_beta;
-  return (s64)(b * 1000000.0 + (b >= 0.0 ? 0.5 : -0.5));
-}
 }  // extern "C"
 
 void a17_bind_pc_helpers() {
@@ -953,8 +876,6 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-set-fps-counter", (void*)a35_pc_set_fps_counter);
   jak1::make_function_symbol_from_c("pc-get-fps", (void*)a35_pc_get_fps);
   jak1::make_function_symbol_from_c("pc-get-frame-busy-us", (void*)a35_pc_get_frame_busy_us);
-  // Gcamera-interp: render-camera sub-frame re-timing residual (micro-units).
-  jak1::make_function_symbol_from_c("pc-camera-subframe", (void*)a35_pc_camera_subframe);
   // Other
   jak1::make_function_symbol_from_c("pc-get-os", (void*)a35_pc_get_os);
   jak1::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);

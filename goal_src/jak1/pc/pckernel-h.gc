@@ -111,15 +111,6 @@
 ;; FRAME-TIME headroom signal that, unlike pc-get-fps, does NOT saturate at the vsync
 ;; cap. Works on both x86 and Android backends.
 (define-extern pc-get-frame-busy-us (function int))
-;; Gcamera-interp: C kernel function returning the render-camera sub-frame
-;; re-timing residual beta (in MICRO-units, i.e. beta*1e6 as an int). On Android
-;; beta = (k - fractional-time-ratio)/k in [-0.5,0.5] — how far the integer
-;; time-ratio STEP this frame is from the true elapsed real time. update-camera
-;; uses it (Android only) to interpolate the DISPLAYED camera pose to the true
-;; sub-frame time so panning is smooth at sub-target fps, like the PC/original.
-;; On x86 (vsync-locked, already smooth) this returns 0 => the re-time is a no-op.
-;; Also 0 when the A/B toggle debug.opengoal.caminterp=0 (for state-anchored A/B).
-(define-extern pc-camera-subframe (function int))
 ;; on-screen FPS counter draw (defined in pckernel.gc, called per-frame from the
 ;; pc-settings update method in pckernel-common.gc — forward-declared here).
 (define-extern draw-pc-fps-counter (function none))

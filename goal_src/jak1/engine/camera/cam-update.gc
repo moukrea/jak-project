@@ -215,66 +215,6 @@
 
 (define *start-pos* (new 'global 'vector))
 
-;; ============================================================================
-;; Gcamera-interp (owner 2026-07-01): render-time camera pose re-timing (Android).
-;; ----------------------------------------------------------------------------
-;; On Android the device renders BELOW the 60fps target in heavy zones (~22-45fps),
-;; so the engine's INTEGER per-frame time-ratio k must dither (e.g. 2,3,2,3...) to
-;; keep the game clock exact. Every motion advances by k game-frames per rendered
-;; frame; on the CAMERA that integer STEP is very visible when panning (the whole
-;; viewport sweeps at high angular speed), while the same step hides in the slower
-;; world/Jak motion — the owner's "action fluide à l'écran, caméra choppy". The
-;; PC/original never shows it because vsync pins every frame to exactly
-;; 1/target-fps so k is a constant 1 (there is NO interpolation on PC — it just
-;; runs the logic at an even, locked rate).
-;;
-;; We match that smoothness WITHOUT any global timestep change, 30/60 lock, or
-;; game-speed change by RE-TIMING ONLY THE RENDER CAMERA: interpolate this frame's
-;; final camera pose between the last two logic-frame poses by the sub-frame
-;; quantization residual, so the DISPLAYED camera advances by REAL elapsed time
-;; (even angular velocity) instead of the integer step. This is PURE render-time —
-;; the game clock, world motion, physics, and the camera LOGIC are untouched; only
-;; the pose the renderer consumes THIS frame is nudged (<= half a frame).
-;;
-;;   beta = (k - fractional-time-ratio)/k  in [-0.5,0.5]   (pc-camera-subframe,
-;;   micro-units; 0 on x86 / when the A/B toggle is off => whole thing is a no-op)
-;;   pose_display = lerp/slerp(pose[n], pose[n-1], beta)
-;;
-;; e.g. steady 40fps (k dithers 2,1,2,1): raw per-frame yaw deltas 2,1,2,1 (the
-;; owner's step) become displayed deltas 1.5,1.5,1.5,1.5 — exactly the ideal
-;; real-time progression. Called from update-camera AFTER the pose is copied from
-;; *camera-combiner* and BEFORE the derived matrices are rebuilt, so the existing
-;; rebuild recomputes camera-rot / camera-temp / planes from the interpolated pose.
-(define *cam-interp-prev-trans* (new 'global 'vector))
-(define *cam-interp-prev-invrot* (new 'global 'matrix))
-(define *cam-interp-valid* #f)
-
-(defun camera-interp-retime ()
-  "Gcamera-interp: nudge *math-camera*'s pose (trans + inv-camera-rot) toward the
-   previous rendered frame's RAW pose by the sub-frame residual beta, then stash
-   this frame's RAW pose for next time. No-op when beta is 0 (x86 / A/B off), on
-   the first frame, on a camera cut (*math-camera* reset), or on a teleport."
-  (let ((beta (/ (the float (pc-camera-subframe)) 1000000.0)))
-    ;; snapshot the RAW pose this frame (source of the lerp + next frame's prev)
-    (let ((raw-t (vector-copy! (new-stack-vector0) (-> *math-camera* trans)))
-          (raw-r (matrix-copy! (new-stack-matrix0) (-> *math-camera* inv-camera-rot))))
-      (when (and *cam-interp-valid*
-                 (!= beta 0.0)
-                 (zero? (-> *math-camera* reset))
-                 (< (vector-vector-distance raw-t *cam-interp-prev-trans*) 655360.0))
-        ;; position: lerp(current -> prev) by beta
-        (vector-lerp! (-> *math-camera* trans) raw-t *cam-interp-prev-trans* beta)
-        ;; orientation: slerp(current -> prev) by beta
-        (let ((qc (matrix->quaternion (new-stack-quaternion0) raw-r))
-              (qp (matrix->quaternion (new-stack-quaternion0) *cam-interp-prev-invrot*)))
-          (quaternion-slerp! qc qc qp beta)
-          (quaternion->matrix (-> *math-camera* inv-camera-rot) qc)))
-      ;; remember this frame's RAW pose for the next interpolation
-      (vector-copy! *cam-interp-prev-trans* raw-t)
-      (matrix-copy! *cam-interp-prev-invrot* raw-r)
-      (set! *cam-interp-valid* #t)))
-  (none))
-
 (defun update-camera ()
   (when *start-timer*
     (when (= *timer-value* 180)
@@ -372,12 +312,6 @@
        (set! (-> v1-101 vector 2 quad) a2-12)
        (set! (-> v1-101 vector 3 quad) a3-11)))
     (else (move-camera-from-pad *math-camera*)))
-  ;; Gcamera-interp (Android): re-time the just-finalized camera pose to the true
-  ;; sub-frame time so panning is smooth at sub-target fps, matching the PC/original.
-  ;; Runs on the FINAL pose (all camera modes) BEFORE the matrices are rebuilt below,
-  ;; so the rebuild recomputes camera-rot/camera-temp/planes from the smoothed pose.
-  ;; No-op on x86 / when disabled (pc-camera-subframe returns 0).
-  (camera-interp-retime)
   (matrix-transpose! (-> *math-camera* camera-rot) (-> *math-camera* inv-camera-rot))
   (cond
     (*camera-no-mip-correction* (set! (-> *math-camera* fov-correction-factor) 1.0))

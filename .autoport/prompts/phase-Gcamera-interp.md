@@ -85,3 +85,15 @@ MANDATE:
    and the gameplay camera must match golden per-frame. If you cannot find a per-frame numerical
    divergence, report honestly what you measured (maybe it IS timing after all — but the stable-fps +
    title-regression evidence says otherwise).
+
+## OWNER TEST-METHOD CORRECTION (2026-07-01) — the jitter ONLY shows while ROTATING the camera
+Critical: the camera jitter does NOT appear on a static/held camera — it happens ONLY when you ROTATE
+the camera AROUND Jak (right-stick pan). A static capture illustrates NOTHING and will falsely read as
+"no divergence". The per-render-frame camera-matrix dump MUST be captured WHILE the camera is ACTIVELY
+PANNING around Jak:
+ - Drive a steady right-stick camera rotation via the input harness (cpad_inject / the right-stick pad
+   injection built earlier) — a continuous yaw sweep around Jak in an OPEN area.
+ - Capture the camera matrix PER RENDER FRAME during that active pan on BOTH the device and the golden
+   x86, driven by the SAME injected right-stick input, and diff the values frame-to-frame.
+ - The jitter is IN the rotating case — so the smoking gun (arm64 per-frame camera-matrix oscillation)
+   only appears while panning. Measure there, not at rest.
