@@ -39,3 +39,25 @@ If engine-level, RESULT: CAMERA INTERP ROOT NAMED + the mechanism (honest).
 
 ## Locks: ANDROID_SERIAL=eae4df44; no goalc/emitter/IGenX86_64.*; engine goal_src untouched if avoidable; .autoport/gold READ-ONLY.
 ## Max: max_turns 2200, max_retries 5. device: true, owner_verify: true.
+
+## OWNER REJECT (2026-07-01, attempt 1) — WRONG LEVER: it's CAMERA-SPECIFIC, not the global timestep
+Attempt 1 (making motion proportional to fractional real-frame time / the global time-ratio) FAILED:
+the camera is still choppy — SAME or WORSE — and the FRAMERATE regressed (possibly aggravated by device
+thermal throttling, but treat the change as a likely fps regressor). DECISIVE new signal from the owner:
+"Action fluide à l'écran, caméra choppy as heck." The world/objects/Jak move SMOOTHLY; ONLY the CAMERA
+juders. Therefore the problem is NOT a global timestep / integer-time-ratio issue (that would judder
+EVERYTHING together) — it is CAMERA-SPECIFIC.
+
+REDO:
+1. REVERT attempt-1's global fractional-timestep change. A/B MEASURE fps with vs without it to confirm
+   whether it regressed fps (if yes, it stays reverted); the world already moves smoothly, so a global
+   change is the wrong tool.
+2. ISOLATE THE CAMERA. State-anchored, per-render-frame, compare ONLY the camera transform (position and
+   especially ROTATION / the right-stick pan yaw-pitch) device vs the PC/original during a pan in an OPEN
+   area, WHILE confirming a nearby world object's on-screen motion is smooth in the same frames. Find why
+   the CAMERA specifically steps while object motion does not: is the camera's view matrix / pan angle
+   updated or sampled at a different cadence, quantized, or not interpolated for render the way object
+   motion is? Check the right-stick camera-control input sampling and the camera's own smoothing/update
+   path (not the global clock).
+3. FIX only the camera path so panning is as smooth as the surrounding object motion, WITHOUT a global
+   timestep change and WITHOUT an fps regression. Name the camera-specific mechanism honestly.
