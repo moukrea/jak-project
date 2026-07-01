@@ -987,6 +987,22 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Gdynamic-fix
+  name: 'OWNER 2026-07-01 (TOP PRIORITY, feature unusable): dynamic render scale is broken. (1) raising Min Render Scale at runtime while scaled below it is not applied (no re-clamp); (2) the controller stays STUCK at the floor with obvious headroom — owner repro: a zone that runs ~32fps at a fixed 60% scale, target 30, stays at 30% instead of climbing to ~60%. Must CONVERGE to the HIGHEST scale that holds fps>=target (best quality that meets target), descend only below target, anti-thrash, re-clamp on setting change. Owner play-test.'
+  prompt: prompts/phase-Gdynamic-fix.md
+  validator: validators/phase-Gdynamic-fix.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Goptions-reorder
+  name: 'OWNER 2026-07-01 (TOP PRIORITY): reorder Graphics Options to: 1 Aspect Ratio, 2 Game Resolution, 3 Dynamic Render Scale, 4 Render Scale/Min Render Scale, 5 Min Target FPS (HIDDEN when Dynamic off), 6 FPS Counter, 7 V-Sync, 8 MSAA, 9 Advanced settings (rename PS2 Options). Both desktop + Android arrays; keep Android hides intact. pc/ menu only. Owner play-test.'
+  prompt: prompts/phase-Goptions-reorder.md
+  validator: validators/phase-Goptions-reorder.sh
+  max_turns: 1500
+  max_retries: 5
+  device: true
+  owner_verify: true
 - id: Glauncher-collection
   name: 'OWNER 2026-06-30 (REVISED): per-game APK OR collection by BUILD assets. ONE game provided -> NO launcher, boots straight into it, per-game name+icon (Jak 1->"Jak & Daxter", 2->"Jak II", 3->"Jak 3", X->"Jak X"). >1 game -> COLLECTION mode "Jak and Daxter: The Recharged Jak-pot" + a selection menu (text, touch+gamepad; future: bg/logos/idle preview). jak1-only build = verify direct boot. jak1 stays playable. Owner play-test.'
   prompt: prompts/phase-Glauncher-collection.md
