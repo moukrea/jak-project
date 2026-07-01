@@ -97,3 +97,36 @@ PANNING around Jak:
    x86, driven by the SAME injected right-stick input, and diff the values frame-to-frame.
  - The jitter is IN the rotating case — so the smoking gun (arm64 per-frame camera-matrix oscillation)
    only appears while panning. Measure there, not at rest.
+
+## OWNER DECISION (2026-07-01) — MUST fix camera smoothness AT sub-60fps (not defer to 60fps)
+The owner: "le 60 FPS toutes les devices vont pas pouvoir atteindre, donc c'est tout aussi important."
+Many devices won't hit 60fps, so the camera MUST be smooth at ANY framerate. Root is CONFIRMED (attempt-3
+data): the integer time-ratio k dithers 1<->2 every frame at any sub-60 fps (game clock advances in exact
+60Hz ticks); invisible on slow object motion, very visible on a fast camera pan (whole viewport sweeps a
+varying amount per frame). Matrix math is bit-identical to golden (NOT numerical). The fix is RENDER-time
+camera-pose interpolation — done CORRECTLY this time.
+
+THE CORRECT FIX = classic FIXED-TIMESTEP RENDER INTERPOLATION, camera-pose only:
+ - Game logic updates the camera at discrete logic ticks. Rendering runs at variable/lower fps. At RENDER
+   time, interpolate the camera pose between the TWO most recent logic-tick poses (prev, current) by
+   alpha = (real time since last logic tick) / (logic tick period), CLAMPED to [0,1]. This makes on-screen
+   camera motion proportional to real display time -> smooth at ANY fps, independent of the k-dither.
+ - Store prev+current camera pose each logic tick; interpolate position (lerp) and orientation (slerp/
+   normalized-lerp of the quaternion, or the fw/up vectors) at render time, after the pose is built and
+   before the view/projection matrices.
+
+AVOID the two prior failure modes (this is why it must be done carefully):
+ - ATTEMPT-2 regressed the TITLE LOGO (jittery) -> the interpolation was UNSTABLE. Almost certainly (a)
+   alpha was noisy or >1 (EXTRAPOLATION -> overshoot jitter), or (b) it interpolated a scripted/static
+   title camera between non-consecutive/garbage poses. FIX: alpha strictly CLAMPED [0,1] (NEVER
+   extrapolate); interpolate ONLY between two valid consecutive logic-frame camera poses; the title/
+   cutscene/scripted cameras must interpolate correctly or be excluded so the TITLE LOGO STAYS PERFECT
+   (hard gate: verify the title logo is perfectly smooth).
+ - ATTEMPT-1 changed the GLOBAL game-logic timestep -> cost fps + changed feel. This must be RENDER-ONLY
+   camera-pose interpolation; game logic still runs at integer k. NO fps cost, NO speed change.
+ - Must hold under DYNAMIC RENDER SCALE.
+
+VERIFY (right-stick pan, sub-60fps, state-anchored): inject a steady right-stick camera pan around Jak in
+an open area at the device's sub-60 fps; the per-render-frame camera pose is now CONTINUOUS/smooth (no
+k-dither step); the TITLE LOGO is perfectly smooth (explicit); fps UNCHANGED vs before; game speed
+constant. RESULT: CAMERA INTERPOLATED LIKE ORIGINAL.

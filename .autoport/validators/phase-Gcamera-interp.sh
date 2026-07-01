@@ -21,6 +21,9 @@ grep -qiE 'device.*(vs|versus).*(original|pc|gold|x86)|per-?frame.*camera|camera
 grep -qiE 'before.*after|step.*(gone|reduc|elimin)|smooth.*after|jump.*(gone|reduc)' "$R" || fail "must show BEFORE->AFTER step/jump reduction"
 grep -qiE 'dynamic.*scale|holds.*dynamic|variable.*(timing|frame)' "$R" || fail "must confirm it holds under dynamic render scale / variable frame timing"
 grep -qiE 'game.?speed|constant.*speed|speed.*unaffect|framelimiter.*intact|frame.?limiter' "$R" || fail "must confirm game speed + FrameLimiter fix intact"
+grep -qiE 'title.*(logo|screen).*(perfect|smooth|no.*jitter|intact)|logo.*(perfect|smooth)' "$R" || fail "must confirm the TITLE LOGO is perfectly smooth (attempt-2 regressed it — hard gate)"
+grep -qiE 'clamp|alpha.*\[?0.*1|no.*extrapolat|render-?only|render-?time' "$R" || fail "must be render-only interpolation with clamped [0,1] alpha (no extrapolation; no game-logic timestep change)"
+grep -qiE 'fps.*(unchang|same|no.*regress|intact)|no fps.*(cost|regress)' "$R" || fail "must confirm fps UNCHANGED (attempt-1 regressed fps)"
 ok "report: camera interpolated like original, state-anchored, before->after, holds under dynamic, speed intact"
 
 SUP_ANCHOR=$(git log --format=%H --grep='\[autoport/supervisor\]' | head -1); ANCHOR=${SUP_ANCHOR:-HEAD~1}
