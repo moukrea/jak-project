@@ -4,6 +4,7 @@
  */
 
 #include <cstdio>
+#include <cstdlib>
 
 #include "opengl.h"
 
@@ -749,6 +750,26 @@ void GLDisplay::render() {
   {
     auto p = scoped_prof("swap-buffers");
     SDL_GL_SwapWindow(m_window);
+  }
+
+  // Gcamera-smooth GOLDEN reference: present-interval probe (env OG_PACE_MEASURE=1).
+  // The desktop FrameLimiter above (sleep-to-margin + busy-spin, common/util/
+  // FrameLimiter.cpp) gives an EVEN present cadence -> smooth camera. This logs the
+  // raw per-present dt so it can be compared against the Android device (whose
+  // coarse sleep_for cap was uneven -> pan judder; the fix makes Android mirror this
+  // spin technique). Diagnostic only; no effect unless the env var is set.
+  {
+    static const bool s_pace = (std::getenv("OG_PACE_MEASURE") != nullptr);
+    if (s_pace) {
+      static Timer s_pace_timer;
+      static bool s_have = false;
+      static unsigned s_pn = 0;
+      if (s_have) {
+        lg::print("PACE-SWAP-X86 n={} dt_ms={:.3f}\n", s_pn++, s_pace_timer.getSeconds() * 1000.0);
+      }
+      s_pace_timer.start();
+      s_have = true;
+    }
   }
 
   // actually wait for vsync

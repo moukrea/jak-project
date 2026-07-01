@@ -466,6 +466,34 @@ static u64 g_gfps_last_raw = 0;      // raw wall-clock at the previous frame tic
 static double g_gfps_desired = 0.0;  // game-frames real time demands
 static double g_gfps_emitted = 0.0;  // game-frames already handed to the engine
 
+// Gcamera-smooth diagnosis (read-only, EE thread): read the GOAL *math-camera*
+// pose (position + forward-yaw) and the *display* base/actual frame counters from
+// EE main memory. The camera was just written by update-camera earlier in THIS
+// frame on THIS thread, so the read is race-free and current. Returns false until
+// ENGINE.CGO has linked (*math-camera* not yet a valid object).
+static bool pace_read_camera(float* cx, float* cy, float* cz, float* yaw_deg,
+                             int64_t* bfc, int64_t* afc) {
+  const u32 mc = jak1::intern_from_c("*math-camera*")->value;
+  if (mc == 0 || mc == (u32)s7.offset || mc >= (u32)(EE_MAIN_MEM_SIZE - 0x424)) {
+    return false;
+  }
+  const float* trans = (const float*)(g_ee_main_mem + mc + (848 - 4));  // trans (offset-assert 848)
+  const float* fwd = (const float*)(g_ee_main_mem + mc + (368 - 4) + 32);  // camera-rot row2 = forward
+  *cx = trans[0];
+  *cy = trans[1];
+  *cz = trans[2];
+  *yaw_deg = (float)(atan2((double)fwd[0], (double)fwd[2]) * 57.29577951308232);
+  const u32 disp = jak1::intern_from_c("*display*")->value;
+  if (disp != 0 && disp != (u32)s7.offset && disp < (u32)(EE_MAIN_MEM_SIZE - 820)) {
+    std::memcpy(bfc, g_ee_main_mem + disp + 780, 8);  // base-frame-counter (784 - 4)
+    std::memcpy(afc, g_ee_main_mem + disp + 812, 8);  // actual-frame-counter (816 - 4)
+  } else {
+    *bfc = 0;
+    *afc = 0;
+  }
+  return true;
+}
+
 // Called ONCE per rendered frame from a35_send_gfx_dma_chain (EE thread).
 static void a35_gfps_frame_tick() {
   const u64 raw = (ee_clock_timer.getNs() * 3) / 10;  // real EE ticks (desktop)
@@ -535,6 +563,30 @@ static void a35_gfps_frame_tick() {
                         "GSPEED dt_ms=%.2f float_tr=%.3f time_ratio=%ld "
                         "game_units_per_real_sec=%.1f",
                         dt_ms, deficit, k, gupr);
+  }
+
+  // ----- Gcamera-smooth: per-frame pacing + camera-pose probe ----------------
+  // (debug.opengoal.pace.measure=1) EVERY frame: the EE-loop wall dt (the game
+  // clock cadence), the integer time-ratio k, the *display* counters, and the
+  // *math-camera* pose (position + forward yaw). Correlated with the GL-thread
+  // "PACE-SWAP" present-interval log to separate the camera's game-STATE motion
+  // (should be a constant per-frame delta during a steady pan == golden x86) from
+  // the PRESENT-timing jitter (the suspected pan-judder cause). Diagnostic only.
+  static unsigned s_pace_poll = 0;
+  static bool s_pace = false;
+  if ((s_pace_poll++ & 15) == 0) {
+    char pv[8] = {0};
+    s_pace = __system_property_get("debug.opengoal.pace.measure", pv) > 0 && pv[0] == '1';
+  }
+  if (s_pace) {
+    float cx = 0.f, cy = 0.f, cz = 0.f, yaw = 0.f;
+    int64_t bfc = 0, afc = 0;
+    const bool ok = pace_read_camera(&cx, &cy, &cz, &yaw, &bfc, &afc);
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                        "PACE-EE dt_ms=%.3f k=%ld afc=%lld bfc=%lld "
+                        "cam=%.1f,%.1f,%.1f yaw=%.4f valid=%d",
+                        real_dt_sec * 1000.0, k, (long long)afc, (long long)bfc,
+                        cx, cy, cz, yaw, ok ? 1 : 0);
   }
 }
 

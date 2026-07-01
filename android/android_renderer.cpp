@@ -266,6 +266,31 @@ int android_renderer_run() {
     if (present_this_cycle) {
       SDL_GL_SwapWindow(window);
       android_gfx::post_swap_tick();
+      // Gcamera-smooth: TRUE present-interval probe (debug.opengoal.pace.measure).
+      // Raw wall-clock dt between successive SwapWindow calls = the actual on-screen
+      // cadence. Compared against the EE-loop "PACE-EE" dt: if the game camera
+      // advances a constant delta per frame but this present dt jitters, that is the
+      // pan judder ("the view doesn't follow the framerate"). Diagnostic only.
+      {
+        static unsigned s_pace_poll = 0;
+        static bool s_pace = false;
+        if ((s_pace_poll++ & 15) == 0) {
+          char pv[8] = {0};
+          s_pace = __system_property_get("debug.opengoal.pace.measure", pv) > 0 && pv[0] == '1';
+        }
+        if (s_pace) {
+          using namespace std::chrono;
+          static steady_clock::time_point s_last{};
+          static unsigned s_pn = 0;
+          auto now = steady_clock::now();
+          if (s_last.time_since_epoch().count() != 0) {
+            double dt = duration_cast<duration<double, std::milli>>(now - s_last).count();
+            __android_log_print(ANDROID_LOG_INFO, kLogTag, "PACE-SWAP n=%u dt_ms=%.3f",
+                                s_pn++, dt);
+          }
+          s_last = now;
+        }
+      }
       // Publish the REAL measured render rate for the GOAL on-screen FPS counter
       // (pc-get-fps). Measured here on actual presented frames, so it reflects the
       // true free-running Adreno cadence (e.g. ~30 at Geyser, ~60 light) -- the
