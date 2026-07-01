@@ -1046,15 +1046,6 @@ s32 pc_get_frame_busy_us() {
   return (s32)(Gfx::g_global_settings.measured_frame_busy_ms * 1000.f + 0.5f);
 }
 
-// Gcamera-interp: render-camera sub-frame re-timing residual (micro-units). On
-// x86 the frame is FrameLimiter/vsync-locked to exactly 1/target-fps so the
-// integer time-ratio is a constant 1 and the camera is already smooth — this
-// stub returns 0, making the GOAL camera re-time a no-op on x86. Android
-// publishes the real value (gk_android_main.cpp a35_pc_camera_subframe).
-s32 pc_camera_subframe() {
-  return 0;
-}
-
 u32 pc_get_os() {
 #ifdef __ANDROID__
   // NOTE: must come before the __linux__ branch — Android defines both
@@ -1228,8 +1219,6 @@ void init_common_pc_port_functions(
   make_func_symbol_func("pc-set-fps-counter", (void*)pc_set_fps_counter);
   make_func_symbol_func("pc-get-fps", (void*)pc_get_fps);
   make_func_symbol_func("pc-get-frame-busy-us", (void*)pc_get_frame_busy_us);
-  // Gcamera-interp: render-camera sub-frame re-timing residual (x86 stub -> 0).
-  make_func_symbol_func("pc-camera-subframe", (void*)pc_camera_subframe);
 
   // -- OTHER --
   // Return the current OS as a symbol. Actually returns what it was compiled for!
