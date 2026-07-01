@@ -1046,13 +1046,13 @@ s32 pc_get_frame_busy_us() {
   return (s32)(Gfx::g_global_settings.measured_frame_busy_ms * 1000.f + 0.5f);
 }
 
-// Gcamera-interp: real per-frame dt in microseconds. On desktop the frame is
-// FrameLimiter/vsync-locked to exactly 1/target-fps, so the pc-kernel camera
-// override is Android-gated and never reads this on x86; this body only binds the
-// symbol (returns a nominal 60 fps step). The real per-frame dt is published by
-// the Android frame clock (gk_android_main.cpp a35_pc_frame_dt_us).
-s32 pc_frame_dt_us() {
-  return (s32)(1000000.0 / 60.0 + 0.5);
+// Gcamera-interp: render-camera sub-frame re-timing residual (micro-units). On
+// x86 the frame is FrameLimiter/vsync-locked to exactly 1/target-fps so the
+// integer time-ratio is a constant 1 and the camera is already smooth — this
+// stub returns 0, making the GOAL camera re-time a no-op on x86. Android
+// publishes the real value (gk_android_main.cpp a35_pc_camera_subframe).
+s32 pc_camera_subframe() {
+  return 0;
 }
 
 u32 pc_get_os() {
@@ -1228,9 +1228,8 @@ void init_common_pc_port_functions(
   make_func_symbol_func("pc-set-fps-counter", (void*)pc_set_fps_counter);
   make_func_symbol_func("pc-get-fps", (void*)pc_get_fps);
   make_func_symbol_func("pc-get-frame-busy-us", (void*)pc_get_frame_busy_us);
-  // Gcamera-interp: real per-frame dt (us); Android publishes the real value,
-  // x86 binds a nominal-60fps stub (the camera override is Android-gated).
-  make_func_symbol_func("pc-frame-dt-us", (void*)pc_frame_dt_us);
+  // Gcamera-interp: render-camera sub-frame re-timing residual (x86 stub -> 0).
+  make_func_symbol_func("pc-camera-subframe", (void*)pc_camera_subframe);
 
   // -- OTHER --
   // Return the current OS as a symbol. Actually returns what it was compiled for!
