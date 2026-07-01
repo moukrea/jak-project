@@ -155,8 +155,7 @@
     "Grender-split": 1,
     "Gdynamic-renderscale": 1,
     "Gcamera-smooth": 1,
-    "Gdynamic-fix": 1,
-    "Gcamera-interp": 2
+    "Gdynamic-fix": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -291,9 +290,6 @@
     ],
     "Gcollision-glitchcapture": [
       "2a4e42917769"
-    ],
-    "Gcamera-interp": [
-      "a6bf89419a6d"
     ]
   },
   "stuck_reasons": {
@@ -623,7 +619,6 @@
     "Grender-split",
     "Gdynamic-renderscale",
     "Gcamera-smooth",
-    "Gdynamic-fix",
-    "Gcamera-interp"
+    "Gdynamic-fix"
   ]
 }

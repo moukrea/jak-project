@@ -61,3 +61,27 @@ REDO:
    path (not the global clock).
 3. FIX only the camera path so panning is as smooth as the surrounding object motion, WITHOUT a global
    timestep change and WITHOUT an fps regression. Name the camera-specific mechanism honestly.
+
+## OWNER REJECT #2 (2026-07-01, attempt 2) — REVERT + WRONG CLASS: it's NOT timing/interpolation
+Attempt 2 (camera-only render-time sub-frame interpolation in cam-update.gc) FAILED AND REGRESSED:
+ - The gameplay camera is STILL jittery — owner: "toujours jittery MÊME QUAND C'EST PARFAITEMENT FLUIDE"
+   (i.e. at a STABLE framerate). Jitter at a stable fps means it is NOT a frame-pacing / sub-frame-
+   interpolation / timestep problem — the whole interpolation angle (attempts 1 AND 2) is the WRONG CLASS.
+ - REGRESSION: the TITLE-SCREEN LOGO, which was PERFECT, is now "super jittery" — the sub-frame camera
+   interpolation injects instability into the view matrix. This must NOT ship.
+MANDATE:
+1. REVERT the attempt-2 camera-interp change (cam-update.gc / camera-interp-retime) ENTIRELY. Confirm on
+   device the TITLE-SCREEN LOGO is PERFECTLY SMOOTH again (no jitter) — this is a hard gate.
+2. STOP the interpolation/timing angle. The camera juders at a STABLE fps while world objects are smooth
+   → suspect an arm64-SPECIFIC per-render-frame NUMERICAL noise/oscillation in the CAMERA MATRIX/pose
+   (float precision divergence from x86, a mips2c camera function, matrix build/orthonormalization,
+   quaternion→matrix, or a camera-control smoothing that oscillates on arm64). 
+3. STATE-ANCHORED: dump the camera transform/matrix PER RENDER FRAME on device vs the golden x86 with the
+   camera CONTROLLED (held still, then a slow steady pan) in an OPEN area, and diff the actual matrix
+   VALUES frame-to-frame. Find the arm64-specific per-frame delta/oscillation that x86 does not have
+   (the smoking gun). Object motion is smooth in the same frames — so the divergence is camera-only.
+4. Fix ONLY that numerical/camera-matrix divergence in the arm64 translation layer (mips2c/codegen/
+   runtime), 1-to-1 vs original. No interpolation, no timestep change. The title logo must stay perfect
+   and the gameplay camera must match golden per-frame. If you cannot find a per-frame numerical
+   divergence, report honestly what you measured (maybe it IS timing after all — but the stable-fps +
+   title-regression evidence says otherwise).
