@@ -105,6 +105,12 @@
 ;; C kernel function returning the real measured render fps (int), for the
 ;; GOAL-side on-screen FPS counter. Works on both x86 and Android backends.
 (define-extern pc-get-fps (function int))
+;; Gdynamic-renderscale: C kernel function returning the smoothed per-frame render WORK
+;; time in MICROSECONDS (the renderer render() CPU wall-clock, excluding the
+;; framelimiter/vsync wait). The adaptive render-scale controller uses this as a
+;; FRAME-TIME headroom signal that, unlike pc-get-fps, does NOT saturate at the vsync
+;; cap. Works on both x86 and Android backends.
+(define-extern pc-get-frame-busy-us (function int))
 ;; on-screen FPS counter draw (defined in pckernel.gc, called per-frame from the
 ;; pc-settings update method in pckernel-common.gc — forward-declared here).
 (define-extern draw-pc-fps-counter (function none))

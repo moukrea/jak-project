@@ -113,20 +113,36 @@
 
 ;; ---------------------------------------------------------------------------
 ;; Gdynamic-renderscale: adaptive render-scale controller (pc/ runtime; engine
-;; goal_src untouched). Drives the existing render-scale lever (game_res FBO) from
-;; the measured fps to hold dyn-target-fps within [min-render-scale,100]. Anti-thrash:
-;; a 2nd-stage fps EMA on top of the C++ measured_fps EMA + a dead-band + asymmetric
-;; cooldown/steps (lower fast, raise slow) + a floor clamp + skip during
+;; goal_src untouched). Drives the existing render-scale lever (game_res FBO) to hold
+;; dyn-target-fps within [min-render-scale,100]. Two MEASURED signals, both excluding
+;; the vsync wait so they stay meaningful at a vsync-capped target:
+;;   * pc-get-fps        -> smoothed presented fps (saturates at the vsync cap).
+;;   * pc-get-frame-busy-us -> smoothed render WORK time (does NOT saturate at the cap).
+;; vblank budget for the chosen target = 1000/target ms. The controller LOWERS the scale
+;; only on REAL load (fps below target AND frame-work at/over budget) and RAISES it on
+;; FRAME-TIME HEADROOM (frame-work comfortably under budget) regardless of whether fps
+;; can exceed the target -- this is the fix for the vsync-capped case, where fps sits at
+;; ~the cap and never rises above it, so a "raise only when fps>target" rule was stuck.
+;; The raise is OPPORTUNISTIC/PROBING: it steps up while there is headroom and fps is
+;; still meeting target within a small tolerance, and if a step overshoots (work crosses
+;; budget, fps drops under target) the LOWER path steps back down. Anti-thrash: 2nd-stage
+;; EMAs, a wide busy dead-band [0.80,0.98]*budget, asymmetric bounded steps (lower -7%,
+;; raise +5%), cooldowns, a post-lower raise lockout, a floor clamp, and a skip during
 ;; loads/cutscenes/menus. OFF -> returns the manual render-scale (controller idle).
 ;; ---------------------------------------------------------------------------
 (define *dyn-rs-scale* 100.0)             ;; live dynamic render scale %
 (define *dyn-rs-fps-ema* 60.0)            ;; 2nd-stage smoothed fps
+(define *dyn-rs-busy-ema* 16.6)           ;; 2nd-stage smoothed render-work ms
 (define *dyn-rs-last-adjust-time* (the-as time-frame 0)) ;; real-time of last scale change
+(define *dyn-rs-last-lower-time* (the-as time-frame 0))  ;; real-time of last LOWER (raise lockout)
 (define *dyn-rs-last-log-time* (the-as time-frame 0))    ;; real-time of last heartbeat log
 
 (defun dynamic-render-scale-update ((obj pc-settings))
   "Return the effective render-scale % to use this frame. OFF -> the manual
-   render-scale (controller idle). ON -> auto-adjusted scale clamped to [floor,100]."
+   render-scale (controller idle). ON -> auto-adjusted scale clamped to [floor,100],
+   driven by measured fps AND render FRAME-TIME headroom vs the per-target vblank
+   budget, so it raises back toward 100% even at a vsync-capped target (where fps
+   saturates at the cap and never exceeds the target)."
   (cond
     ((not (-> obj dynamic-render-scale?))
      ;; disabled: keep the live scale primed at native so a later enable starts at 100
@@ -136,47 +152,71 @@
      (let ((floor-scale (-> obj min-render-scale))
            (target (-> obj dyn-target-fps))
            (now (real-current-time)))
-       ;; clamp floor into the lever's hard [10,100] range
+       ;; clamp floor into the lever's hard [10,100] range; keep target sane
        (cond ((< floor-scale 10.0) (set! floor-scale 10.0))
              ((> floor-scale 100.0) (set! floor-scale 100.0)))
-       ;; 2nd-stage EMA over the C++ ~10-frame measured_fps EMA (extra ~0.5-1s smoothing)
-       (set! *dyn-rs-fps-ema* (+ (* 0.75 *dyn-rs-fps-ema*) (* 0.25 (the float (pc-get-fps)))))
-       (cond
-         ;; transition (load / cutscene / not in-game): HOLD scale, re-prime ema, reset
-         ;; cooldown so a post-transition spike/dip doesn't trigger a bogus move.
-         ((or (movie?)
-              (!= (-> *level* loading-level) (-> *level* level-default))
-              (!= *master-mode* 'game))
-          (set! *dyn-rs-fps-ema* target)
-          (set! *dyn-rs-last-adjust-time* now))
-         (else
-          (let ((ema *dyn-rs-fps-ema*)
-                (since (- now *dyn-rs-last-adjust-time*))
-                (cur *dyn-rs-scale*))
-            (cond
-              ;; persistently BELOW target -> lower fast (8%), >=0.5s cooldown, respect floor
-              ((and (< ema (- target 1.0)) (>= since (seconds 0.5)) (> cur floor-scale))
-               (set! cur (- cur 8.0))
-               (if (< cur floor-scale) (set! cur floor-scale))
-               (set! *dyn-rs-scale* cur)
-               (set! *dyn-rs-last-adjust-time* now)
-               (format 0 "[dyn-rs] fps ~,,1f < target ~,,0f -> LOWER scale to ~,,0f%~%" ema target cur))
-              ;; sustained HEADROOM (> target+8) -> raise slow (4%), >=1.5s cooldown, cap 100
-              ((and (> ema (+ target 8.0)) (>= since (seconds 1.5)) (< cur 100.0))
-               (set! cur (+ cur 4.0))
-               (if (> cur 100.0) (set! cur 100.0))
-               (set! *dyn-rs-scale* cur)
-               (set! *dyn-rs-last-adjust-time* now)
-               (format 0 "[dyn-rs] fps ~,,1f > target+hr ~,,0f -> RAISE scale to ~,,0f%~%" ema (+ target 8.0) cur))))))
-       ;; throttled heartbeat (~every 2s) so the heavy/light trace is legible in logcat
-       (when (>= (- now *dyn-rs-last-log-time*) (seconds 2))
-         (set! *dyn-rs-last-log-time* now)
-         (format 0 "[dyn-rs] state fps=~,,1f scale=~,,0f% target=~,,0f floor=~,,0f~%"
-                 *dyn-rs-fps-ema* *dyn-rs-scale* target floor-scale))
-       ;; final clamp to [floor,100] and return
-       (cond ((< *dyn-rs-scale* floor-scale) (set! *dyn-rs-scale* floor-scale))
-             ((> *dyn-rs-scale* 100.0) (set! *dyn-rs-scale* 100.0)))
-       *dyn-rs-scale*))))
+       (if (< target 1.0) (set! target 1.0))
+       (let ((budget-ms (/ 1000.0 target))                                 ;; vblank budget for this target
+             (busy-ms (/ (the float (pc-get-frame-busy-us)) 1000.0)))      ;; render-work time this frame
+         ;; 2nd-stage EMAs over the C++ EMAs (extra ~0.5-1s smoothing; act on smoothed, never single frames)
+         (set! *dyn-rs-fps-ema* (+ (* 0.75 *dyn-rs-fps-ema*) (* 0.25 (the float (pc-get-fps)))))
+         (set! *dyn-rs-busy-ema* (+ (* 0.75 *dyn-rs-busy-ema*) (* 0.25 busy-ms)))
+         (cond
+           ;; transition (load / cutscene / not in-game): HOLD scale, re-prime EMAs to a
+           ;; neutral mid-band, reset cooldowns so a post-transition spike/dip can't move us.
+           ((or (movie?)
+                (!= (-> *level* loading-level) (-> *level* level-default))
+                (!= *master-mode* 'game))
+            (set! *dyn-rs-fps-ema* target)
+            (set! *dyn-rs-busy-ema* (* budget-ms 0.85))
+            (set! *dyn-rs-last-adjust-time* now)
+            (set! *dyn-rs-last-lower-time* now))
+           (else
+            (let ((ema *dyn-rs-fps-ema*)
+                  (busy *dyn-rs-busy-ema*)
+                  (since (- now *dyn-rs-last-adjust-time*))
+                  (cur *dyn-rs-scale*))
+              (cond
+                ;; LOWER: REAL load only -> fps below target AND render-work at/over budget.
+                ;; The busy gate stops vsync jitter (fps reads a touch under a capped target
+                ;; with plenty of frame-time headroom) from spuriously lowering. -7%, >=0.5s
+                ;; cooldown, respect floor. Arms the post-lower raise lockout.
+                ((and (< ema (- target 1.0))
+                      (>= busy (* budget-ms 0.98))
+                      (>= since (seconds 0.5))
+                      (> cur floor-scale))
+                 (set! cur (- cur 7.0))
+                 (if (< cur floor-scale) (set! cur floor-scale))
+                 (set! *dyn-rs-scale* cur)
+                 (set! *dyn-rs-last-adjust-time* now)
+                 (set! *dyn-rs-last-lower-time* now)
+                 (format 0 "[dyn-rs] LOWER to ~,,0f% (fps ~,,1f<tgt ~,,0f, busy ~,,1f>=budget ~,,1fms)~%"
+                         cur ema target busy budget-ms))
+                ;; RAISE (the fix): opportunistic PROBE up on FRAME-TIME HEADROOM, not on
+                ;; fps>target. Fires when scale<100, fps is still meeting target within a small
+                ;; tolerance (so a 3-4 fps dip at a 60 vsync cap does NOT block it), the render
+                ;; work is comfortably under budget (clear headroom), the >=1s raise cooldown
+                ;; elapsed, AND we are >=2s clear of the last lower (asymmetric anti-hunt). +5%.
+                ((and (< cur 100.0)
+                      (>= ema (- target 5.0))
+                      (<= busy (* budget-ms 0.80))
+                      (>= since (seconds 1))
+                      (>= (- now *dyn-rs-last-lower-time*) (seconds 2)))
+                 (set! cur (+ cur 5.0))
+                 (if (> cur 100.0) (set! cur 100.0))
+                 (set! *dyn-rs-scale* cur)
+                 (set! *dyn-rs-last-adjust-time* now)
+                 (format 0 "[dyn-rs] RAISE(probe) to ~,,0f% (busy ~,,1f<=0.8budget ~,,1fms, fps ~,,1f tgt ~,,0f)~%"
+                         cur busy budget-ms ema target)))))) ;; end inner cond / let / else
+         ;; throttled heartbeat (~every 2s) so the heavy/light trace is legible in logcat
+         (when (>= (- now *dyn-rs-last-log-time*) (seconds 2))
+           (set! *dyn-rs-last-log-time* now)
+           (format 0 "[dyn-rs] state fps=~,,1f busy=~,,1fms budget=~,,1fms scale=~,,0f% target=~,,0f floor=~,,0f~%"
+                   *dyn-rs-fps-ema* *dyn-rs-busy-ema* budget-ms *dyn-rs-scale* target floor-scale))
+         ;; final clamp to [floor,100] and return
+         (cond ((< *dyn-rs-scale* floor-scale) (set! *dyn-rs-scale* floor-scale))
+               ((> *dyn-rs-scale* 100.0) (set! *dyn-rs-scale* 100.0)))
+         *dyn-rs-scale*)))))
 
 (defmethod update-to-os ((obj pc-settings))
   "Update settings from GOAL to the C kernel."

@@ -1037,6 +1037,15 @@ s32 pc_get_fps() {
   return (s32)(Gfx::g_global_settings.measured_fps + 0.5f);
 }
 
+// Gdynamic-renderscale: smoothed per-frame render WORK time in MICROSECONDS (the CPU
+// wall-clock of the renderer render(), excluding the framelimiter/vsync wait). The
+// adaptive render-scale controller compares this to the per-target vblank budget
+// (1e6 / dyn-target-fps us) to detect FRAME-TIME headroom even when measured_fps is
+// pinned at the vsync cap, so it can raise the scale back toward 100%.
+s32 pc_get_frame_busy_us() {
+  return (s32)(Gfx::g_global_settings.measured_frame_busy_ms * 1000.f + 0.5f);
+}
+
 u32 pc_get_os() {
 #ifdef __ANDROID__
   // NOTE: must come before the __linux__ branch — Android defines both
@@ -1209,6 +1218,7 @@ void init_common_pc_port_functions(
   make_func_symbol_func("pc-set-gfx-hack", (void*)pc_set_gfx_hack);
   make_func_symbol_func("pc-set-fps-counter", (void*)pc_set_fps_counter);
   make_func_symbol_func("pc-get-fps", (void*)pc_get_fps);
+  make_func_symbol_func("pc-get-frame-busy-us", (void*)pc_get_frame_busy_us);
 
   // -- OTHER --
   // Return the current OS as a symbol. Actually returns what it was compiled for!

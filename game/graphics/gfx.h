@@ -102,6 +102,14 @@ struct GfxGlobalSettings {
   // pc-get-fps for the portable on-screen counter. Reflects the TRUE render rate
   // (e.g. ~30 at Geyser), not the engine target.
   float measured_fps = 0.f;
+  // Gdynamic-renderscale: smoothed per-frame render WORK time in milliseconds — the
+  // CPU wall-clock of the renderer's render() call, EXCLUDING the framelimiter sleep
+  // and the vsync/swap wait. Published by both present paths (desktop opengl.cpp +
+  // Android android_gfx.cpp). Read by GOAL via pc-get-frame-busy-us as the adaptive
+  // render-scale controller's FRAME-TIME headroom signal: unlike measured_fps it does
+  // NOT saturate at the vsync cap, so the controller can detect headroom and raise the
+  // scale back toward 100% even when fps is pinned at a capped target (e.g. 60).
+  float measured_frame_busy_ms = 1000.f / 60.f;
 
   // collision renderer settings
   bool collision_enable = false;

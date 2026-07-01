@@ -683,12 +683,26 @@ void GLDisplay::render() {
       }
     }
 
+    // Gdynamic-renderscale: time the render WORK (CPU wall-clock of render_game_frame,
+    // which excludes the frame_limiter sleep + SDL_GL_SwapWindow vsync wait below). EMA
+    // smoothed and published for the GOAL adaptive render-scale controller's FRAME-TIME
+    // headroom signal (pc-get-frame-busy-us). See gfx.h::measured_frame_busy_ms.
+    static Timer s_busy_timer;
+    static float s_busy_ms_ema = 1000.f / 60.f;
+    s_busy_timer.start();
     render_game_frame(
         game_res_w, game_res_h, fbuf_w, fbuf_h, Gfx::g_global_settings.lbox_w,
         Gfx::g_global_settings.lbox_h, Gfx::g_global_settings.msaa_samples,
         Gfx::g_global_settings.brightness_contrast_color,
         Gfx::g_global_settings.brightness_contrast_alpha,
         m_take_screenshot_next_frame && g_gfx_data->debug_gui.screenshot_hotkey_enabled);
+    {
+      float busy_ms = (float)(s_busy_timer.getSeconds() * 1000.0);
+      if (busy_ms > 0.f) {
+        s_busy_ms_ema = (0.9f * s_busy_ms_ema) + (0.1f * busy_ms);
+        Gfx::g_global_settings.measured_frame_busy_ms = s_busy_ms_ema;
+      }
+    }
     // If we took a screenshot, stop taking them now!
     if (m_take_screenshot_next_frame) {
       m_take_screenshot_next_frame = false;

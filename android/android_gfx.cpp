@@ -467,6 +467,21 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     const auto& st = d->renderer->stats();
     gpose_joint_frame_tick((unsigned long long)st.frame_idx);
 
+    // Gdynamic-renderscale: publish the smoothed render WORK time (CPU wall-clock of the
+    // renderer render() above — st.render_cpu_s — which EXCLUDES the vsync()/framelimiter
+    // sleep on the EE thread and the SwapWindow vsync wait in the outer present loop).
+    // The GOAL adaptive render-scale controller reads this via pc-get-frame-busy-us as a
+    // FRAME-TIME headroom signal that, unlike measured_fps, does NOT saturate at the
+    // vsync cap — so it can raise the scale back toward 100% even at a capped target.
+    {
+      static float s_busy_ms_ema = 1000.f / 60.f;
+      float busy_ms = (float)(st.render_cpu_s * 1000.0);
+      if (busy_ms > 0.f) {
+        s_busy_ms_ema = (0.9f * s_busy_ms_ema) + (0.1f * busy_ms);
+        Gfx::g_global_settings.measured_frame_busy_ms = s_busy_ms_ema;
+      }
+    }
+
     // === Gcine-crash3: process::deactivate code-stomp guard (the fix, arm64) ====
     // In the new-game intro's Gol/Maia portal scene the arm64 envmap merc draw
     // (l0-pris-merc bucket, the villains spawned with 'blend-shape) writes ~0x40

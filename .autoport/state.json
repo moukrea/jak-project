@@ -152,7 +152,8 @@
     "Gcollision-glitchcapture": 2,
     "Gframerate-variable": 1,
     "Gres-picker": 1,
-    "Grender-split": 1
+    "Grender-split": 1,
+    "Gdynamic-renderscale": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -582,9 +583,9 @@
     "Gframerate-variable": 1782816548.486224,
     "Gres-picker": 1782833410.0728593,
     "Grender-split": 1782838389.3444257,
-    "Gdynamic-renderscale": 1782847463.4029243
+    "Gdynamic-renderscale": 1782854481.732169
   },
-  "last_update": "2026-06-30T20:38:25.623856+00:00",
+  "last_update": "2026-06-30T23:02:32.402328+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -607,6 +608,7 @@
   "validator_passed": [
     "Gframerate-variable",
     "Gres-picker",
-    "Grender-split"
+    "Grender-split",
+    "Gdynamic-renderscale"
   ]
 }
