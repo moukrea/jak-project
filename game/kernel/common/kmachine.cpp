@@ -1046,6 +1046,13 @@ s32 pc_get_frame_busy_us() {
   return (s32)(Gfx::g_global_settings.measured_frame_busy_ms * 1000.f + 0.5f);
 }
 
+// Gcamera-interp: desktop/x86 stub. Returns alpha micro-units == 1e6 (alpha 1.0) so
+// GOAL update-camera skips interpolation (render-only feature is Android-frame-clock
+// driven; desktop runs the reference cadence). Keeps x86 render byte-identical.
+s32 pc_camera_interp_alpha() {
+  return 1000000;
+}
+
 u32 pc_get_os() {
 #ifdef __ANDROID__
   // NOTE: must come before the __linux__ branch — Android defines both
@@ -1219,6 +1226,12 @@ void init_common_pc_port_functions(
   make_func_symbol_func("pc-set-fps-counter", (void*)pc_set_fps_counter);
   make_func_symbol_func("pc-get-fps", (void*)pc_get_fps);
   make_func_symbol_func("pc-get-frame-busy-us", (void*)pc_get_frame_busy_us);
+#ifndef __ANDROID__
+  // Gcamera-interp: desktop/x86 binds the alpha=1.0 stub (no render interp). Android
+  // binds the real Android-frame-clock accessor in a17_bind_pc_helpers instead, so the
+  // #ifndef avoids a double-bind / bind-order ambiguity there.
+  make_func_symbol_func("pc-camera-interp-alpha", (void*)pc_camera_interp_alpha);
+#endif
 
   // -- OTHER --
   // Return the current OS as a symbol. Actually returns what it was compiled for!

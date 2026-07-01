@@ -466,6 +466,15 @@ static u64 g_gfps_last_raw = 0;      // raw wall-clock at the previous frame tic
 static double g_gfps_desired = 0.0;  // game-frames real time demands
 static double g_gfps_emitted = 0.0;  // game-frames already handed to the engine
 
+// Gcamera-interp: render-time camera-pose interpolation alpha (micro-units, [0..1e6]).
+// alpha = deficit/k = where in the just-emitted integer time-ratio step real display
+// time sits. GOAL update-camera renders the camera pose at this fraction between the
+// prev & curr logic poses -> on-screen camera motion tracks real time (smooth at sub-
+// 60fps despite the k-dither). 1e6 == alpha 1.0 == "render current pose" (no-op; also
+// the value at a locked 60/30fps and the x86 default). EE-thread only (no atomics).
+static long g_cam_interp_alpha_micro = 1000000;
+static bool g_cam_interp_enabled = true;  // A/B toggle: debug.opengoal.caminterp (0 disables)
+
 // Gcamera-smooth diagnosis (read-only, EE thread): read the GOAL *math-camera*
 // pose (position + forward-yaw) and the *display* base/actual frame counters from
 // EE main memory. The camera was just written by update-camera earlier in THIS
@@ -531,6 +540,37 @@ static void a35_gfps_frame_tick() {
     k = 4;  // engine fmin 4.0 clamp
   }
   g_gfps_emitted += (double)k;
+
+  // ----- Gcamera-interp: publish the render-interp alpha for update-camera ----
+  // deficit (pre-emit fractional demand, line ~525) and k (emitted integer ratio)
+  // locate real display time within this frame's k-tick camera step. GOAL renders the
+  // camera pose at cumulative real-time R = desired - 0.5 tick between the prev & curr
+  // logic poses, so on-screen camera motion advances EVENLY (== real frame time) and
+  // the integer-k dither is smoothed. Render-only; the game clock is untouched.
+  {
+    static unsigned s_caminterp_poll = 0;
+    if ((s_caminterp_poll++ & 63) == 0) {
+      char pv[8] = {0};
+      // default ON; only an explicit "0" disables (A/B for state-anchored before/after)
+      g_cam_interp_enabled =
+          !(__system_property_get("debug.opengoal.caminterp", pv) > 0 && pv[0] == '0');
+    }
+    // Render at cumulative real-time MINUS a half-tick (R = desired - 0.5). Because
+    // k == round(deficit), |deficit - k| <= 0.5, so alpha == (deficit-0.5)/k lands in
+    // [0,1] for EVERY k WITHOUT clamping => R advances perfectly evenly (== inc == real
+    // frame time) and NEVER extrapolates past the current pose. (Plain deficit/k would
+    // exceed 1 whenever the device runs a hair behind schedule; the [0,1] clamp then
+    // pinned those frames to the current pose, reintroducing an uneven step. The
+    // half-tick lag (~8ms) removes that residual dither.) The clamp below is now only a
+    // safety net for load-hitch frames (residual > 0.5).
+    double alpha = (k > 0) ? ((deficit - 0.5) / (double)k) : 1.0;
+    if (alpha < 0.0) alpha = 0.0;
+    if (alpha > 1.0) alpha = 1.0;
+    long micro = (long)(alpha * 1000000.0 + 0.5);
+    if (!g_cam_interp_enabled) micro = 1000000;  // disabled => no interp
+    g_cam_interp_alpha_micro = micro;
+  }
+
   // keep the carried residual bounded so it tracks the FRACTION, never a backlog.
   if (g_gfps_desired - g_gfps_emitted > 4.0) {
     g_gfps_desired = g_gfps_emitted + 4.0;
@@ -603,6 +643,10 @@ u64 a35_read_ee_timer() {
     g_gfps_virtual = (ee_clock_timer.getNs() * 3) / 10;
   }
   return g_gfps_virtual;
+}
+
+u64 a35_pc_camera_interp_alpha() {
+  return (u64)(u32)g_cam_interp_alpha_micro;
 }
 
 void a35_send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
@@ -939,6 +983,7 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("__pc-texture-upload-now",
                                     (void*)a35_pc_texture_upload_now);
   jak1::make_function_symbol_from_c("__read-ee-timer", (void*)a35_read_ee_timer);
+  jak1::make_function_symbol_from_c("pc-camera-interp-alpha", (void*)a35_pc_camera_interp_alpha);
   jak1::make_function_symbol_from_c("__send-gfx-dma-chain", (void*)a35_send_gfx_dma_chain);
   // Misc helpers referenced by pckernel-impl / pc-debug-* GOAL files
   // that the linux-arm64 InitMachineScheme_LinuxArm64Stubs list (locked

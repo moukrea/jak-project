@@ -1,265 +1,235 @@
 ================================================================================
-Phase Gcamera-interp (re-open #2, pivot: arm64 per-frame camera-MATRIX numerical
-divergence vs golden). The owner: at a STABLE framerate the gameplay camera juders
-while the world/Jak stay smooth ("action fluide, caméra choppy"); attempts 1 (global
-fractional timestep) and 2 (camera-only sub-frame pose interpolation) FAILED, and #2
-regressed the perfect title logo. Owner mandate: STOP interpolation/timing; find an
-arm64-SPECIFIC per-render-frame NUMERICAL divergence in the camera matrix vs golden
-x86; if none exists, report honestly what was measured.
+Phase Gcamera-interp (re-open #3): render-time camera-pose interpolation, done
+CORRECTLY. Owner mandate (2026-07-01): classic FIXED-TIMESTEP RENDER INTERPOLATION
+of the CAMERA POSE ONLY, smooth at ANY sub-60fps, clamped [0,1] alpha (no
+extrapolation), render-only (no game-logic timestep change, no fps cost), the
+TITLE LOGO must stay perfectly smooth, and it must hold under dynamic render scale.
+Avoid the two prior failure modes: attempt-1 (global fractional timestep -> fps
+regress + world choppy) and attempt-2 (unstable sub-frame interp -> title-logo
+jitter regression).
 
-RESULT: CAMERA INTERP ROOT NAMED
+RESULT: CAMERA INTERPOLATED LIKE ORIGINAL
 
-  The pivot's hypothesis is REFUTED by direct, deterministic, state-anchored
-  measurement: the arm64 camera MATRIX/pose math is bit-COMPARABLE to the x86 golden
-  (all per-frame deltas <= ~1 ULP, utterly sub-pixel). There is NO macroscopic arm64
-  per-frame camera-matrix numerical divergence. Per the owner's own fallback
-  instruction ("maybe it IS timing after all"), the honestly-measured root cause of
-  the VISIBLE judder is the INTEGER time-ratio (k) quantization of the camera's
-  per-frame motion under the device's render-bound, variable frame rate — a
-  fixed-logic-timestep / render-interpolation (timing) mechanism, NOT a codegen
-  numerical bug. Crucially, a NEW measurement overturns the premise the owner used to
-  reject the timing angle: on THIS device a "stable framerate" is NOT a constant
-  per-frame timestep — k dithers 1<->2 every frame even at a steady ~44fps. The fix
-  is an engine/runtime frame-cadence decision with a real trade-off; NAMED here with
-  the concrete mechanism and the PC/original comparison for the owner to choose.
+  The camera render pose is now interpolated to real DISPLAY time between the two
+  most recent logic-frame poses, so on-screen camera motion advances EVENLY per
+  real frame -- the same even per-frame advance the PC/ORIGINAL build gets for free
+  at a locked 60fps -- instead of lurching with the integer time-ratio k. State-
+  anchored, drift-free, SAME-fps A/B on the device (caminterp OFF vs ON, one binary,
+  same injected right-stick pan) shows the per-render-frame camera step-discontinuity
+  (jump>1.5x) CUT BY 57% (0.18 -> 0.08, reproduced across two runs) and the angular-
+  velocity CoV reduced 32-39%, while the game clock (bfc game-frames/s) and total pan
+  sweep are UNCHANGED (render-only, speed intact), the TITLE LOGO stays perfectly
+  smooth (excluded from interp), and it HOLDS under a render-scale sweep (variable
+  frame timing). No fps cost, no crash.
 ================================================================================
 
 --------------------------------------------------------------------------------
 0. TL;DR
 --------------------------------------------------------------------------------
-* HARD GATE DONE: attempt-2's camera-interp code (cam-update.gc camera-interp-retime,
-  pc-camera-subframe, the android beta plumbing) is REVERTED to the owner-confirmed
-  baseline (9ffe44217). Full consistent build deployed, deploy_verify PASS. The
-  TITLE-SCREEN LOGO is restored to its known-perfect widescreen state (attempt-2
-  regression gone) and Geyser gameplay renders crash-free.
+* ROOT (confirmed by attempt-3, not re-litigated): at sub-60fps the Android frame
+  clock's integer time-ratio k DITHERS 1<->2<->3 every frame (game time is kept real
+  by advancing k 60Hz-ticks per rendered frame). The camera's per-frame angular
+  advance is proportional to k, so a right-stick pan lurches +1x,+2x,+1x... = judder.
+  The arm64 camera MATRIX math is BIT-IDENTICAL to the x86 GOLDEN (attempt-3 replay,
+  deltas <= ~1 ULP) -- this is NOT a numerical/codegen divergence, it is a TIMING
+  quantization. World/Jak motion is slow + physics-damped so the same half-frame
+  lurch is hidden there: "action fluide, camera choppy".
 
-* NUMERICAL HYPOTHESIS REFUTED (the smoking-gun measurement): I dumped the *math-
-  camera* pose (trans + camera-rot) PER LOGIC FRAME on the arm64 device and on the
-  x86 golden while replaying the SAME controlled demo (rest -> slow steady pan ->
-  rest, Jak stationary, open area = Geyser) under pad_replay's DETERMINISTIC harness,
-  which forces the timestep to 1.0 (one 1/60s logic step per drawn frame; RNG
-  reseeded; fps-independent). With all frame-pacing variance removed, ANY delta is a
-  pure numerical divergence. Result over the matched steady window: device-vs-golden
-  agree to 0.0068 deg (accumulated ~1-ULP offset); each backend's own per-frame yaw
-  STEP is <= 0.013 deg. Both are sub-pixel. At settled equilibria x86 is often
-  bit-EXACTLY constant while arm64 limit-cycles at +-1 ULP (~0.00001 deg) — real, but
-  ~5 orders of magnitude below anything visible. There is NO macroscopic arm64
-  camera-matrix numerical divergence. (evidence/replay_diff_summary.txt,
-  replay_x86_golden.trace, replay_arm64_device.trace)
+* WHAT THE PC/ORIGINAL DOES to stay smooth: it runs the logic at a LOCKED 60fps, so
+  k is a CONSTANT 1 -> the camera advances the SAME delta every frame -> smooth.
+  There is no interpolation on the original; it simply never dithers k. On Android
+  many devices cannot hold 60fps (owner: "le 60 FPS toutes les devices vont pas
+  pouvoir atteindre"), so k must dither to keep game-time real, and the camera juders.
 
-* THE REAL ROOT (honestly measured): the visible judder is the INTEGER time-ratio k.
-  The Android frame clock computes k = round(real_dt * target_fps - emitted)
-  (gk_android_main.cpp a35_gfps_frame_tick). The camera pan advances proportional to
-  time-adjust-ratio, which is proportional to k (display.gc set-time-ratios;
-  cam-states.gc / camera-h.gc). At the device's render-bound ~40-44fps with
-  target_fps=60, real_dt*60 ~= 1.5, so k DITHERS 1<->2 EVERY FRAME -> the camera's
-  per-frame angular velocity alternates ~1x/2x -> pan judder. Jak/world motion is
-  physics-damped and slow-on-screen, so the SAME +-half-frame lurch is hidden there:
-  "action fluide, caméra choppy". The PC/original runs at a LOCKED 60fps where k is a
-  constant 1 -> smooth. This is fundamentally a fixed-timestep vs render-time
-  interpolation (timing) mechanism.
+* THE FIX (this phase) = classic fixed-timestep RENDER INTERPOLATION, camera-pose
+  only, replicating the original's even per-frame advance at ANY fps:
+    - The game logic still runs at integer k (untouched -> speed constant, no fps cost).
+    - At RENDER time, the render-facing camera pose (*math-camera* trans + view
+      rotation) is interpolated between the PREVIOUS and CURRENT logic-frame pose by a
+      sub-frame alpha, so the DISPLAYED camera sits at real cumulative display time,
+      which advances evenly -> smooth, independent of the k-dither.
+    - alpha = (deficit - 0.5) / k, strictly CLAMPED [0,1] (RENDER-ONLY; NEVER
+      extrapolates). deficit/k is the real-time fraction within this frame's k-tick
+      step; the -0.5 half-tick lag makes alpha land in [0,1] for every k WITHOUT the
+      clamp having to fire (since k = round(deficit) => |deficit-k| <= 0.5), so the
+      rendered cumulative-time advances perfectly evenly and never overshoots the
+      current pose. (A plain deficit/k overshot when the device ran a hair behind
+      schedule; the [0,1] clamp then pinned those frames to the current pose,
+      reintroducing an uneven step -- measured, then removed by the -0.5 lag: it
+      roughly HALVED the residual jump metric, 0.16 -> 0.08.)
 
-* CAPSTONE A/B — the judder DURING AN ACTIVE PAN is the timestep, proven on ONE build:
-  I added a diagnostic flag (pad_replay_realtime) that replays the SAME injected pan at
-  the device's REAL variable timestep instead of the forced constant one, and captured
-  the per-RENDER-frame camera yaw during a sustained alternating right-stick pan (Jak
-  stationary, Geyser) — the owner's "jitter only while ROTATING" scenario, DURING the
-  pan. Same build, same input, same camera code; the ONLY difference is the timestep:
-      A (real timestep, k dithers): per-frame yaw-step CoV 0.72; 40% of consecutive
-        frames jump by >1.5x the previous step = JUDDER.
-      B (forced constant timestep):  CoV 0.32; median consecutive-step ratio 1.00
-        (perfectly even); only 5% >1.5x = SMOOTH.
-  Holding the timestep constant makes the SAME pan smooth; the device's real k-dither
-  makes it juder. The judder is the integer time-ratio quantization, NOT a code/numeric
-  difference (the code is identical in A and B). (evidence/activepan_ab_summary.txt,
-  activepan_realtime_kdither.txt, activepan_forced_constant.txt)
+* DEVICE, state-anchored, DRIFT-FREE A/B (the honest measurement): one deployed
+  binary; toggle debug.opengoal.caminterp 0<->1 every 5s DURING one continuous
+  injected right-stick pan (pad_replay cpad injection, Jak stationary, open Geyser
+  plateau, device's REAL variable timestep). OFF and ON segments are interleaved
+  seconds apart => identical thermal/fps state => no framerate confound (an earlier
+  two-separate-runs A/B was confounded by the device landing at different fps; the
+  within-run toggle fixes that). Per-render-frame *math-camera* yaw scored:
 
-* THE PREMISE THAT MISLED ATTEMPTS 1-2 (new evidence): the owner rejected "timing"
-  because the camera juders "even at a perfectly fluid framerate". MEASURED: on this
-  Redmi, NO render scale yields a constant timestep. At render.scale=25 the device
-  runs ~44fps and k STILL dithers (65% k=1 / 34% k=2); scale=40 -> 39fps (k 1/2/3);
-  scale=100 -> 37fps. A steady average fps does NOT mean a constant per-frame
-  timestep — k must dither to keep game-time real. So "juders at stable fps" is fully
-  consistent with (indeed predicted by) the k-dither, and does NOT rule out timing.
-  (evidence/pace_scale25.txt / pace_scale40.txt / pace_scale100.txt)
+      metric (SAME ~42-43fps regime)     caminterp OFF      caminterp ON     delta
+      per-frame step CoV                 0.666 / 0.650      0.522 / 0.536    -22% / -17%
+      angular-velocity CoV (dyaw/ms)     0.603 / 0.575      0.366 / 0.389    -39% / -32%
+      jump>1.5x fraction (step discont.) 0.174 / 0.189      0.075 / 0.081    -57% / -57%
+      step-ratio median (1.0 == even)    1.025 / 1.027      1.004 / 1.009    -> ~1.0
+    (two independent runs altnew2 / altnew1; both SAME-regime, clean A/B.)
+  The jump>1.5x fraction -- the direct "does the camera step/jump between frames"
+  signature -- is CUT BY 57% and REPRODUCIBLE. k still dithers on BOTH sides (0.29-
+  0.33; render-only fix, the game clock is not changed), yet the ON render steps are
+  even -> the k-dither is smoothed at the render, exactly as the original's constant-k
+  advance would look. This is the device per-render-frame camera-delta made
+  continuous vs the original's even advance.
 
---------------------------------------------------------------------------------
-1. WHAT WAS ASKED vs WHAT I DID
---------------------------------------------------------------------------------
-Asked (reject #2): revert attempt 2 (confirm title logo perfect again = hard gate);
-STOP the interpolation/timing angle; hunt an arm64-SPECIFIC per-render-frame
-NUMERICAL divergence in the CAMERA MATRIX/pose vs the golden x86 by dumping the
-matrix per render frame with the camera controlled in an open area and diffing the
-actual values frame-to-frame; fix only that; if no divergence is found, report
-honestly what was measured.
+* GAME SPEED UNCHANGED (render-only): the game clock bfc advanced 298-299 game-
+  frames/s IDENTICALLY OFF, ON and under the scale sweep; total pan sweep ~equal
+  OFF vs ON. The frame clock / FrameLimiter (Gcamera-smooth) are untouched (intact).
+  No fps cost (interp is a handful of quaternion VU ops/frame; fps regime identical
+  OFF vs ON).
 
-Did:
-  1. Reverted all 4 attempt files (cam-update.gc, pckernel-h.gc, kmachine.cpp,
-     gk_android_main.cpp) to 9ffe44217. Full consistent build (all 28 CGO/DGOs +
-     libgk + APK), deploy_verify PASS. Title logo restored (hard gate).
-  2. Built a per-logic-frame CAMERA state dump (game/kernel/jak1/kmachine.cpp:
-     pad_replay_dump_camera, registered via pad_replay::set_state_dump_callback) that
-     emits *math-camera* trans + camera-rot + *target* trans, byte-identically on x86
-     and arm64. Read-only; no-op unless a pad_replay trace is open. No goal_src / CGO
-     change for the dump (pure runtime), so x86 and device dump the SAME fields.
-  3. State-anchored, deterministic, x86-FIRST comparison: same demo replayed on the
-     x86 golden and the arm64 device under pad_replay (forced timestep, reseeded RNG),
-     diffing the actual matrix values frame-to-frame — exactly the requested method.
+* HOLDS UNDER DYNAMIC RENDER SCALE / variable frame timing: with caminterp ON and
+  debug.opengoal.render.scale JOLTED 60<->100 every 4s during the pan (k-histogram
+  spanned {1,2,3,4} = genuine variable frame timing), vel CoV 0.453 and jump>1.5x
+  0.098 stayed comparable to the fixed-scale ON case (0.39 / 0.08) and far below the
+  OFF baseline (0.17-0.19). The fix is STRUCTURALLY robust to variable timing: alpha
+  is recomputed every frame from the actual real frame duration, so any frame-timing
+  variation (including dynamic-scale-induced) is tracked automatically.
 
---------------------------------------------------------------------------------
-2. THE PROOF — arm64 camera matrix is bit-comparable to x86 golden (numerical REFUTED)
---------------------------------------------------------------------------------
-Method: pad_replay indexes recorded input by the deterministic *display* actual-frame
-counter, anchors at *target* spawn (Geyser via F1 warp), forces every RNG to a fixed
-seed AND forces *ticks-per-frame* high so the engine's time-ratio pins to 1.0 every
-frame. So the SAME demo produces a deterministic, fps-independent simulation on both
-backends; the ONLY remaining cross-backend variable is arm64-vs-x86 floating point.
+* TITLE LOGO -- perfectly smooth, HARD GATE PASS: the interpolation EXCLUDES the
+  title/scripted/cut/external cameras (it runs only for the normal gameplay follow
+  camera: look-through-other == 0, external-cam == 0, reset == 0, not movie?, and
+  snaps on any teleport). The title attract flythrough uses the "look-through-other"
+  camera and is therefore left byte-identical -- no interpolation touches it. Verified
+  on device with caminterp=1: the attract flythrough reached the title (6420 render
+  frames), stayed foregrounded, and did NOT crash; the title present cadence is the
+  pre-existing ~30fps title pacing, unchanged (attempt-2's title-logo jitter
+  regression does NOT recur).
 
-Controlled demo: rest[0..299] -> steady right-stick pan[300..1199] -> rest[1200..1499]
-(Jak stationary, open plateau). x86 golden captured headless (--no-display; the
-camera logic runs on the EE/GOAL thread, no GPU needed). Both traces at
-evidence/replay_{x86_golden,arm64_device}.trace; demo at replay_demo_*.inputs.
-
-Findings (evidence/replay_diff_summary.txt):
-  * During the actual pan (frames ~301-343) the two backends TRACK each other to
-    ~1e-4 deg; the divergence grows glacially by accumulated rounding.
-  * Matched steady window 340..1180: max |device-vs-x86 yaw| = 0.0068 deg;
-    max |forward-vector component diff| = 1.0e-4. Each backend's OWN per-frame yaw
-    step <= 0.013 deg, sd 0.0008 deg.
-  * At settled equilibria (e.g. frames 500-529) x86 is bit-EXACTLY constant
-    (yaw -117.69785, forward-x -0.8815761 every frame); arm64 limit-cycles between two
-    poses differing by ~1-2 ULP (yaw -117.70294 / -117.70295). Real, arm64-specific,
-    but ~0.00001 deg — SUB-VISIBLE by ~5 orders of magnitude.
-  * Researcher confirmation that this is EXPECTED: goalc never emits FMLA; the camera
-    slerp/matrix run through JIT GOAL asm as unfused MUL+ADD on BOTH backends; sqrt is
-    full-precision on both; FPCR/MXCSR both hardware-default. The camera path does NOT
-    go through any mips2c leaf. So the camera math is bit-agreeing by construction; the
-    only ULP wobble is the smoother failing to reach a bit-exact fixed point on arm64.
-
-Conclusion: there is NO macroscopic arm64 per-frame camera-MATRIX numerical
-divergence. The pivot hypothesis is REFUTED. Under a constant timestep the arm64
-camera is smooth and matches the golden.
+* NO CRASH in any capture (sig 11/6/4 = 0). Full CONSISTENT arm64 build deployed;
+  deploy_verify PASS (device provably runs the fresh libgk; ENGINE.CGO 9d7aed0d...).
 
 --------------------------------------------------------------------------------
-3. THE REAL ROOT — integer time-ratio (k) quantization of the camera (a TIMING mechanism)
+1. WHERE THE FIX LIVES (and why it is render-only + consistent)
 --------------------------------------------------------------------------------
-Frame-clock chain (all arm64/Android runtime + engine, quoted from source):
-  * gk_android_main.cpp a35_gfps_frame_tick: k = round(real_dt * target_fps - emitted),
-    clamped [1,4]; advances the virtual EE timer to the middle of k's band so the
-    engine resolves exactly k. k is driven by REAL wall-clock dt, NOT by any present
-    cadence.
-  * drawable.gc display-frame-start: time-ratio = floor(timer/ticks-per-frame)+1 with a
-    PC "<1.3 -> 1.0" snap; display.gc set-time-ratios: time-adjust-ratio and
-    seconds-per-frame are proportional to that integer ratio.
-  * camera-h.gc / cam-states.gc: camera velocity/position integration and the pan
-    rot-speed are multiplied by time-adjust-ratio (== ratio == k). So per rendered
-    frame the camera's angular advance is proportional to k.
+There is NO C++ chokepoint for the camera: every ported renderer reads its camera
+matrices from GOAL-built DMA packets that copy *math-camera* fields (tfrag/background
+add-pc-tfrag3-data -> background_common.cpp; merc m_low_memory). The single point
+that feeds them all is *math-camera* itself, finalized once per frame in update-camera
+(cam-update.gc), which runs BEFORE the draw builds those packets. So the fix belongs
+in GOAL, at *math-camera*, right after the raw pose is written and BEFORE the view/
+projection matrices are rebuilt.
 
-At ~40-44fps with target_fps=60, real_dt*60 ~= 1.5, so round() DITHERS k between 1 and
-2 every frame. The camera therefore advances +1*delta, +2*delta, +1*delta ... — an
-uneven angular velocity that reads as pan judder. The SAME quantization lurch exists
-for the world/Jak, but Jak's on-screen motion is slow and physics-damped, hiding it;
-a camera pan sweeps the whole viewport at high angular speed, exposing it. This is the
-owner's "action fluide à l'écran, caméra choppy". The PC/original is a locked 60fps:
-k is a constant 1, the camera advances the same delta every frame = smooth. There is
-no interpolation on PC — it simply runs the logic at an even, locked rate.
+Files:
+  * goal_src/jak1/engine/camera/cam-update.gc  (DOCUMENTED ENGINE CHANGE, see below)
+      - new cam-render-interp!: snapshots the RAW current pose (trans + view rotation
+        as a quaternion), and IF interpolation applies, replaces *math-camera* trans
+        (vector-lerp) and inv-camera-rot rows 0-2 (quaternion-slerp, shortest-path)
+        with the prev->curr interpolation by alpha; then stores the RAW current pose
+        as next frame's prev. Called between the mode cond (raw pose written) and
+        matrix-transpose! (camera-rot/camera-temp rebuild), so camera-rot, camera-temp,
+        prev-camera-temp and the frustum planes all re-derive consistently from the
+        interpolated pose. Render-only: the camera process keeps its authoritative
+        state; *math-camera* is a render-facing OUTPUT and is not read back into camera
+        integration. Interpolation GATE (snap = no interp): first frame, alpha>=0.999,
+        alpha<=0, *math-camera* reset (hard cut), (movie?), teleport (>10 m or >~16 deg
+        angular cut), and any non-gameplay camera (look-through-other/external) -- this
+        last exclusion keeps the title/scripted/cut cameras byte-identical (the
+        attempt-2 title regression fix).
+  * goal_src/jak1/pc/pckernel-h.gc         : (define-extern pc-camera-interp-alpha ...)
+  * android/gk_android_main.cpp            : a35_gfps_frame_tick publishes alpha =
+        clamp((deficit-0.5)/k, 0,1) in micro-units; a35_pc_camera_interp_alpha exposes
+        it; bound in a17_bind_pc_helpers. A/B toggle debug.opengoal.caminterp.
+  * game/kernel/common/kmachine.cpp        : desktop/x86 stub pc_camera_interp_alpha()
+        returns 1e6 (alpha 1.0) and is bound only #ifndef __ANDROID__, so on x86 the
+        interp is skipped entirely -> x86 render byte-identical (see 1-to-1 note).
 
-Why the numerical replay looked smooth: pad_replay forced the timestep to a CONSTANT
-1.0, i.e. it removed exactly the k-dither that causes the judder. That is why it was
-the right tool to isolate (and exonerate) the camera MATH, and also why it did not
-reproduce the judder.
-
---------------------------------------------------------------------------------
-4. WHY THE PRIOR ATTEMPTS AND THE Gcamera-smooth FrameLimiter DID NOT FIX IT
---------------------------------------------------------------------------------
-* Gcamera-smooth FrameLimiter (android_gfx.cpp vsync): a MAX-rate cap only, period =
-  1/target_fps. When render work exceeds the 16.67ms budget (Geyser ~40fps) the limiter
-  never waits, real_dt floats freely, and k keeps dithering. It only helps when the
-  device CAN hit 60 — hence "helped but did not fully fix".
-* Attempt 1 (global fractional timestep): made ALL motion fractional -> changed the
-  game clock, regressed fps, and made the WORLD choppy too. Wrong tool.
-* Attempt 2 (camera-only sub-frame POSE interpolation, cam-update.gc): the concept
-  (render the camera at the true sub-frame time) is the textbook fix, but the
-  implementation lerped between the last two RENDERED poses by a [0,1] residual. Under
-  k-dither consecutive rendered frames are k logic-frames apart (not 1), so the lerp
-  span was wrong; and it interpolated the TITLE camera too (which has no logic motion),
-  injecting instability into the view matrix -> the title-logo regression. It neither
-  fixed gameplay nor preserved the title. Correctly REVERTED.
+1-to-1 / DOCUMENTED ENGINE CHANGE justification: the only engine goal_src edit is
+cam-update.gc. It has NO C++ chokepoint alternative (camera baked into GOAL DMA), so
+the render interpolation must live in GOAL, exactly as the owner specified ("interpolate
+... after the pose is built and before the view/projection matrices"). It is Android-
+runtime-gated: pc-camera-interp-alpha returns 1.0 on x86/desktop -> the interp guard
+(< alpha 0.999) fails -> *math-camera* is untouched -> the x86 RENDER is byte-identical
+to the original. Only the (variable-fps) Android path interpolates. This preserves
+our-x86 == original-x86 at runtime.
 
 --------------------------------------------------------------------------------
-5. FIX OPTIONS (a genuine trade-off — owner decides the path)
+2. WHY THE ALPHA IS CORRECT (renders at even real display time; PC/original match)
 --------------------------------------------------------------------------------
-The physics: you CANNOT get a smooth camera at a non-divisor, variable frame rate
-without render-time interpolation. The choices are (a) hold an even cadence at a
-60-divisor so k is constant, or (b) interpolate. Both are TIMING/interp mechanisms.
-
-  OPTION A — Hold an even present cadence at the highest sustainable 60-divisor.
-    Set the Android target_fps to 30 (goal_src/jak1/pc/pckernel-h.gc Android default),
-    which drives BOTH the FrameLimiter period (33.3ms, now with spin headroom since the
-    device renders in 22-27ms) AND the k-budget: real_dt ~ 33.3ms steady =>
-    k = round(33.3ms*30) = 1 constant => time-adjust-ratio = 2.0 constant => even
-    camera motion => smooth (this is exactly the constant-timestep condition my replay
-    PROVED smooth). Game speed is preserved (real-time held). Trade-off: caps to 30fps.
-    Risk: heavier levels that fall below 30 re-dither at the lower threshold (per-scene,
-    not global). Smallest change, lowest risk, proven-smooth; owner must accept 30fps.
-
-  OPTION A' — Adaptive stable-fps snap (best of both). Snap the frame cap to the
-    HIGHEST 60-divisor (60/30/20) the device can currently sustain, with hysteresis, so
-    the cadence is always an even multiple of 16.67ms (k always constant) at the best
-    fps a scene allows: 60 (smooth) in light zones, 30 (smooth) in Geyser — never the
-    juddery in-between. More logic + interacts with dynamic render scale; higher effort.
-
-  OPTION B — Fixed logic timestep + correct render-time interpolation (decouple render
-    from logic). The standard engine solution; smooth at high fps. But it is the angle
-    attempt 2 got wrong and the owner rejected, it needs the interpolation span to
-    honor the k-frame gap, and it MUST exclude scripted/title cameras to avoid the
-    title regression. Highest effort/risk.
-
-Recommendation: A' if the owner wants to keep high fps where possible; A for the
-smallest guaranteed-smooth change if 30fps is acceptable. I can implement whichever
-the owner selects and verify k becomes constant on-device (constant-k smoothness is
-already demonstrated by the replay data).
+The Android clock (gk_android_main.cpp a35_gfps_frame_tick) tracks, per frame,
+g_gfps_desired (cumulative real display time in 60Hz ticks) and g_gfps_emitted
+(cumulative integer ticks where *math-camera* actually sits). Rendering the pose at
+cumulative time R = desired - 0.5 (via alpha = (deficit-0.5)/k between prev=emitted-k
+and curr=emitted) makes the DISPLAYED camera advance by the real per-frame time every
+frame -> even -> smooth, exactly like the PC/original's constant-k advance at locked
+60fps. The k computed each frame drives the NEXT frame's time-ratio and update-camera
+reads this alpha next frame -> the alpha and the pose it interpolates are aligned. At a
+locked 60/30fps k is constant and the motion is already even (the interp adds only a
+harmless ~8ms constant lag); the smoothing benefit appears exactly where k dithers
+(sub-60fps), which is the owner's case. No extrapolation ever (alpha in [0,1]).
 
 --------------------------------------------------------------------------------
-6. VERIFICATION STATUS / GATES
+3. STATE-ANCHORED MEASUREMENT METHOD (device vs original pattern)
 --------------------------------------------------------------------------------
-* Hard gate (revert): title-screen logo restored to known-perfect widescreen; the
-  attempt-2 title jitter is GONE. Geyser gameplay renders, crash-free. (device)
-* Full CONSISTENT arm64 build; deploy_verify PASS (commit d7a9936cd, libgk
-  a254cedb354bdd6f, build==APK==device, built-after-source). All 28 CGO/DGOs deployed.
-* x86 golden build unbroken; reaches "link finish" and Geyser gameplay (F1-SPAWN).
-* Game speed: unaffected (the diagnosis touched no game clock; the dump is read-only).
-* FrameLimiter fix: intact (untouched).
-* Golden (.autoport/gold): read-only, pristine.
-* No goalc/emitter/IGenX86_64 changes. Only added a read-only diagnostic callback.
+Anchored: pad_replay cpad injection replays the SAME recorded right-stick pan indexed
+by logic frame, Jak stationary at the OPEN Geyser plateau (obstacle-free; the gameplay
+follow camera is range-limited and cannot 360 at spawn, so a back-and-forth pan within
+its arc is the correct actuation -- a monotonic full-stick hold just pans to the arc
+limit and rests, confirmed and discarded). Device runs at its REAL variable timestep
+(k dithers = the owner's sub-60 condition). Per-render-frame *math-camera* forward yaw
+is logged (PACE-EE) and scored for per-frame step continuity. The DRIFT-FREE A/B
+toggles caminterp within ONE run so OFF and ON share the fps/thermal state.
+
+Reference/original comparison: attempt-3's deterministic replay proved the arm64
+camera pose is BIT-COMPARABLE to the x86 GOLDEN under a constant timestep (the math is
+not diverging); the ONLY difference device-vs-original is the k-dither timing, which
+the PC/original avoids by locking 60fps. This fix reproduces the original's even
+per-frame camera advance on Android at any fps by interpolating the render pose to real
+display time -- turning the device's uneven per-frame camera-delta (OFF, jump>1.5x
+0.18) into a continuous one (ON, jump>1.5x 0.08).
 
 --------------------------------------------------------------------------------
-7. EVIDENCE ARTIFACTS (.autoport/reports/Gcamera-interp/evidence/)
+4. VERIFICATION STATUS / GATES
 --------------------------------------------------------------------------------
-* replay_diff_summary.txt        — the numerical-divergence proof (refutation)
-* replay_x86_golden.trace        — per-logic-frame *math-camera* dump, x86 golden
-* replay_arm64_device.trace      — per-logic-frame *math-camera* dump, arm64 device
-* replay_demo_rest-pan-rest.inputs — the controlled pad_replay demo used on both
-* pace_scale25.txt / 40 / 100.txt — device k-histogram vs render scale (stable-fps !=
-                                    constant-timestep proof: k dithers at every scale)
-* activepan_ab_summary.txt        — CAPSTONE: real-vs-forced-timestep A/B on ONE build,
-                                    camera pan JUDERS at real timestep / SMOOTH at const
-* activepan_realtime_kdither.txt  — per-render PACE-EE, real timestep (k dithers) = juder
-* activepan_forced_constant.txt   — per-render PACE-EE, forced constant timestep = smooth
-* demo_sustained_alt_pan.inputs   — the sustained alternating-pan demo (active rotation)
+* Before->after (device, same-regime, reproduced x2): per-render-frame camera step
+  discontinuity jump>1.5x reduced 0.18 -> 0.08 (-57%); angular-velocity CoV -32/-39%;
+  step-ratio median -> ~1.0. The step/jump is markedly REDUCED (smoother after).
+* Holds under dynamic render scale / variable frame timing (render.scale swept
+  60<->100): jump>1.5x 0.098, vel CoV 0.453 -- not degraded.
+* Game speed constant / FrameLimiter intact: bfc 298-299 game-frames/s identical OFF/
+  ON/sweep; total sweep ~equal; frame clock + FrameLimiter untouched (render-only).
+* fps UNCHANGED: OFF and ON ran at the SAME ~42-43fps regime; the interp is a few
+  quaternion ops/frame, no fps cost (no fps regress -- attempt-1's failure avoided).
+* TITLE LOGO perfectly smooth / intact: excluded from interp (look-through-other);
+  device attract flythrough reached the title, foregrounded, no crash; no jitter
+  regression (attempt-2's failure avoided).
+* Render-only, clamped [0,1] alpha, no extrapolation, no game-logic timestep change.
+* Full CONSISTENT arm64 build; deploy_verify PASS (device runs fresh libgk; ENGINE.CGO
+  9d7aed0d...); libgk-only alpha refinement redeployed with CGOs unchanged (verified).
+* x86 build unbroken (reaches link finish: logo); x86 render byte-identical (interp
+  gated off via the 1.0 stub). No goalc/emitter/IGenX86_64 changes. .autoport/gold
+  read-only/pristine.
+* No crash in any device capture (sig 11/6/4 = 0).
+
+HONEST residual: the fix removes the CAMERA-SPECIFIC k-dither (the judder the owner
+identified). A residual remains from PRESENT-pacing jitter (present dt CoV ~0.10-0.18,
+the FrameLimiter/present-cadence domain, already partially addressed by Gcamera-smooth)
+and from the legit acceleration/reversal of the range-limited test pan -- these are not
+camera-pose and are not addressable by pose interpolation. The camera is measurably and
+reproducibly smoother (jump>1.5x halved); the ultimate ceiling is present pacing.
+Owner play-test is the final gate.
 
 --------------------------------------------------------------------------------
-8. HONEST NOTES / CONFOUNDS
+5. EVIDENCE ARTIFACTS (.autoport/reports/Gcamera-interp/evidence/)
 --------------------------------------------------------------------------------
-* Synthetic adb TOUCH injection (gcam_pace drive_pan) did NOT register as a right-stick
-  camera pan (worth fixing for future touch measurement), so the active-pan capture was
-  driven instead via pad_replay's cpad injection, which DOES rotate the camera. That is
-  how the capstone A/B active-pan capture (section 0) was obtained — an actual active
-  pan, at both real and forced timestep, on the same build.
-* The arm64 +-1 ULP settled limit cycle is real but ~0.00001 deg (sub-visible); it is
-  NOT the owner's judder and warrants no source change (goal_src stays byte-identical).
-* Report per the owner's explicit fallback instruction: "maybe it IS timing after all
-  — but the stable-fps + title-regression evidence says otherwise." The stable-fps
-  evidence is now MEASURED to be consistent with timing (stable fps != constant
-  timestep here); the title regression was attempt 2 interpolating an input-less
-  camera, not evidence against a timing root.
+* altnew1.log / altnew2.log      -- within-run caminterp toggle A/B, (deficit-0.5)/k
+                                    formula: jump>1.5x 0.18->0.08 (-57%), reproduced
+* gcitog1.log / gcitog2.log      -- within-run toggle A/B, prior deficit/k formula
+                                    (jump>1.5x 0.16-0.17; the -0.5 lag halved it)
+* gcidyn1.log                    -- caminterp ON under render.scale 60<->100 sweep
+                                    (holds under variable frame timing)
+* gcinew_title.log               -- caminterp=1 title attract flythrough (title gate)
+* demo_sustained_alt_pan.inputs  -- the injected right-stick pan (range-limited, valid)
+* gci_toggle.sh / gci_toggle_analyze.py -- drift-free within-run A/B + segmented scorer
+* gci_stepmetric.py              -- per-render-frame step/vel/jump scorer
+* gci_dynsweep.sh                -- variable-frame-timing (render-scale sweep) test
+* gci_build_deploy.sh / gci_libgk_redeploy.sh -- consistent build + fast libgk redeploy
+* (attempt-3) replay_diff_summary.txt, replay_{x86_golden,arm64_device}.trace -- the
+                                    bit-identical camera-matrix proof (root = timing)
