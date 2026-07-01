@@ -1,2 +1,3 @@
+- [Gdynamic-fix state](project_gdynamic_fix_state.md) — PASS: dynamic render scale SEEKS the max scale holding target (regime-split fps-vs-busy) + runtime re-clamp; KEY: busy=render_cpu_s is SCALE-INDEPENDENT so busy-only raise gate stuck at floor.
 - [Gframerate-variable state](project_gframerate_variable_state.md) — PASS: free fps + constant real-time speed; Redmi SwapInterval doesn't FIFO-block (renders uncapped ~73fps); cap the EE syncv loop not the GL present; error-feedback game clock off __send-gfx-dma-chain.
 - [Slim-APK loader wipe](feedback_slim_apk_loader_wipe.md) — installing the slim jak1 APK can make LoaderActivity WIPE iso_data+fr3 and fail on the missing zip; deploy a FULL bundle APK for boot-band changes; recover via `.autoport/gdynrs_run.sh recover`.
