@@ -24,6 +24,11 @@ grep -qiE 'hidden|hide.*min target|dynamic.*off.*hidden|off.*hide' "$R" || fail 
 grep -qiE 'ps2 options.*(gone|removed|renamed|no longer)|no.*ps2 options' "$R" || fail "must confirm 'PS2 Options' no longer appears (renamed)"
 grep -qiE 'android.*(hide|intact|display-mode)|display-mode.*(hidden|intact)' "$R" || fail "must confirm the Android hides (Display-mode/Display/Frame-rate) stay intact"
 ok "report: exact order + Advanced rename + Min-Target-FPS hidden-when-off + Android hides intact"
+# owner defaults + persistence of all graphics settings
+grep -qiE 'default.*(dynamic|on)|dynamic.*on.*default|on by default' "$R" || fail "must set Dynamic Render Scale = ON by default"
+grep -qiE 'default.*40|40.*default|minimum.*40' "$R" || fail "must set Minimum Render Scale = 40% default"
+grep -qiE 'default.*60|60.*default|target.*60' "$R" || fail "must set Minimum Target FPS = 60 default"
+grep -qiE 'persist.*(restart|relaunch|reboot|across)|restart.*persist|retain.*restart|commit-to-file' "$R" || fail "must VERIFY all graphics settings persist across an app restart (owner explicitly unsure re: the dynamic-scale trio)"
 
 SUP_ANCHOR=$(git log --format=%H --grep='\[autoport/supervisor\]' | head -1); ANCHOR=${SUP_ANCHOR:-HEAD~1}
 CHG=$(git diff --name-only "$ANCHOR" -- goal_src/jak1/pc/ 2>/dev/null; git status --porcelain -- goal_src/jak1/pc/ 2>/dev/null | awk '{print $2}')
