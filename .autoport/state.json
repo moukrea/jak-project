@@ -154,7 +154,8 @@
     "Gres-picker": 1,
     "Grender-split": 1,
     "Gdynamic-renderscale": 1,
-    "Gcamera-smooth": 1
+    "Gcamera-smooth": 1,
+    "Gdynamic-fix": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -588,9 +589,9 @@
     "Grender-split": 1782838389.3444257,
     "Gdynamic-renderscale": 1782854481.732169,
     "Gcamera-smooth": 1782881296.21235,
-    "Gdynamic-fix": 1782889276.508368
+    "Gdynamic-fix": 1782894926.711849
   },
-  "last_update": "2026-07-01T08:03:20.641128+00:00",
+  "last_update": "2026-07-01T10:04:18.529480+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -615,6 +616,7 @@
     "Gres-picker",
     "Grender-split",
     "Gdynamic-renderscale",
-    "Gcamera-smooth"
+    "Gcamera-smooth",
+    "Gdynamic-fix"
   ]
 }
