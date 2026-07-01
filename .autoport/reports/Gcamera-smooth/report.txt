@@ -1,0 +1,189 @@
+================================================================================
+Phase Gcamera-smooth — the camera jitters/steps when panning while everything
+else is fluid
+RESULT: CAMERA PAN SMOOTH
+================================================================================
+Owner (2026-06-30/07-01, flagged twice): everything else is perfectly fluid
+(Jak, world, dynamic render scale) but the CAMERA feels "not in sync" — jittery /
+"jumps" when panning around Jak (right-stick camera) EVEN WHEN THE FPS IS FINE.
+Separate residual from game-speed (already fixed). Owner tip (f78470358): measure
+the pan in an obstacle-free spot — the camera can't 360 at spawn and collision
+would confound the jitter measurement.
+
+--------------------------------------------------------------------------------
+0. TL;DR
+--------------------------------------------------------------------------------
+The camera GAME-STATE is smooth and already rides the SAME fractional
+time-adjust-ratio Jak uses (the prime-lead "camera rides the flickery INTEGER
+time-ratio while Jak rides the fractional one" is FALSIFIED by device + code
+evidence). The pan judder is a PRESENT-CADENCE problem: the Android EE-loop frame
+cap paced with a coarse sleep_for() (no busy-spin), so on this device the ~1-2ms
+sleep-wakeup jitter (which also OVERSHOOTS) made the on-screen present intervals
+UNEVEN, and the overshoot nudged ~11-19% of frames into a k=2 DOUBLE game-time
+step ("jumps") — even when the fps was "fine" (~60). Because the GL present is
+1:1-slaved to the EE-loop cadence (state-anchored: present dt == EE dt every
+frame), that jitter reads as camera-pan judder (full-screen motion), while Jak's
+slow local motion hides it. FIX (android runtime glue only): the frame cap now
+mirrors the smooth desktop FrameLimiter — sleep to a ~1.5ms margin then BUSY-SPIN
+to the exact deadline. State-anchored device-vs-golden before->after at a held
+~60fps (owner's dynamic-render-scale-60 "fps fine" case): present-dt jitter sd
+4.55->1.62ms, frames-off-cadence 64.5%->5.6%, k=2 "jumps" 19.2%->1.7% (pan). Game
+speed unchanged (59.99 game-units / real-second). No fps quantization, no 30/60
+lock, engine goal_src untouched, golden pristine, x86 "link finish: logo".
+
+--------------------------------------------------------------------------------
+1. STATE-ANCHORED DIAGNOSIS (device eae4df44 vs golden x86)
+--------------------------------------------------------------------------------
+Instrumentation added (diagnostic, prop/env gated, zero cost when off; matches the
+existing gspeed.measure/f3.measure gated-probe pattern):
+  * Android EE thread (gk_android_main.cpp a35_gfps_frame_tick): PER RENDER FRAME,
+    reads the GOAL *math-camera* pose (trans + forward-yaw) + *display* frame
+    counters straight from EE memory, logs "PACE-EE dt_ms=.. k=.. cam=.. yaw=..".
+    -> the camera's GAME-STATE motion + the integer time-ratio k + the EE cadence.
+  * Android GL thread (android_renderer.cpp, at SwapWindow): "PACE-SWAP dt_ms=.."
+    -> the TRUE on-screen present interval.
+  * x86 golden (game/graphics/pipelines/opengl.cpp, at SwapWindow, OG_PACE_MEASURE)
+    -> "PACE-SWAP-X86 dt_ms=.." the golden present interval (the desktop
+    FrameLimiter reference).
+Driver + analyzer: .autoport/gcam_pace.sh (warp Geyser / title flythrough, arm the
+probe, drive a sustained right-stick pan, split baseline/pan, compute per-frame
+camera deltas + present-interval jitter). Raw logs in evidence/.
+
+KEY ARCHITECTURAL FACT (measured on every capture): PACE-SWAP present dt ==
+PACE-EE game-clock dt to 3 decimals (e.g. 31.098 == 31.098, 18.510 == 18.511).
+The GL SwapWindow does NOT independently FIFO-block to the panel vblank on this
+Adreno driver; the present cadence is entirely SLAVED to the EE-loop cadence. So
+whatever paces the EE loop paces the on-screen frames -> the frame-cap precision
+IS the present precision.
+
+CAMERA GAME-STATE IS SMOOTH (obstacle-free title/village flythrough, per the owner
+tip — a moving open-terrain camera, collision-free):
+  camera dyaw / GAME-frame: mean 0.288 deg, sd 0.177, CoV 0.61  (steady progression)
+  camera dpos / GAME-frame: mean 1506 u, sd 360                 (steady)
+  -> the camera transform advances a near-constant delta per game-frame, i.e. it
+     rides the smooth per-frame timing. Code cross-check (goal_src, read-only):
+     the camera position seek/spring (cam-vector-seeker), rotation steps, combiner
+     blend, and follow-offset all scale by (-> *display* time-adjust-ratio) /
+     (seconds-per-frame) — the SAME k-proportional, target-fps-scaled quantities
+     Jak's collide/target integrators use (collide-shape.gc integrate-and-collide!,
+     target.gc). => the "camera rides the integer time-ratio while Jak rides the
+     fractional one" hypothesis is FALSIFIED: they ride the same quantity.
+
+PRESENT CADENCE IS JITTERY (this is the judder). Golden x86 vs device, same
+title/village flythrough beat:
+  GOLDEN x86 (FrameLimiter sleep+spin, steady state): present dt mean 16.72ms,
+     sd ~1.0ms, p95 16.83ms, <1% of frames >2ms off  -> EVEN ~60fps. link finish: logo.
+  DEVICE (coarse sleep_for): present dt sd 4.39ms, 50.7% of frames >2ms off mean.
+  -> same camera code, smooth game-state on both; the DIFFERENCE is present-cadence
+     evenness. The device delivers a constant-delta camera at UNEVEN wall-clock
+     intervals = "the view doesn't follow the framerate".
+
+--------------------------------------------------------------------------------
+2. WHY, EXACTLY (the named timing cause)
+--------------------------------------------------------------------------------
+The EE-loop frame cap (android_gfx.cpp vsync()) paced to an absolute deadline
+s_next with:  while (now < s_next) { sleep_for(s_next - now); now = now(); }
+On Android sleep_for's wakeup granularity is ~1-2ms AND it tends to OVERSHOOT.
+Consequences, measured at a HELD ~60fps (dynamic render scale ON, target 60 — the
+owner's "fps fine" play condition, where the cap engages with headroom, k mostly 1):
+  (a) UNEVEN presents: each frame lands 1-2ms off the 16.67ms grid -> present dt
+      sd 2.85ms at rest, 30% of frames >2ms off; WORSE while panning (sd 4.55ms,
+      64.5% >2ms). Constant-delta camera shown at uneven intervals = pan judder.
+  (b) k=2 "JUMPS": the sleep OVERSHOOT pushed the mean frame to ~18.5ms (~54fps,
+      not 60) and nudged real_dt over the k=1 band often enough that ~11% (rest) /
+      ~19% (pan) of frames took a k=2 DOUBLE game-time step. Each such frame
+      advances the camera by 2x -> a visible micro-jump during a pan. (k = the
+      engine integer time-ratio, drawable.gc:978 / set-time-ratios display.gc.)
+Both are the owner's "jittery / jumps" — and both occur "even when the fps is
+fine" because they are cap-precision artifacts, not fps drops.
+
+--------------------------------------------------------------------------------
+3. THE FIX (android runtime glue only; engine goal_src + gold untouched)
+--------------------------------------------------------------------------------
+android/android_gfx.cpp vsync() software frame cap: replace the coarse
+sleep_for()-the-whole-remaining-time loop with the SAME technique the smooth
+desktop build uses (common/util/FrameLimiter.cpp): coarse-sleep to a ~1.5ms margin,
+then BUSY-SPIN the final sliver to the exact absolute deadline s_next. EINTR-robust
+(the spin reaches the deadline even if the SIGILL crash-repair handler cuts a sleep
+short). This is golden-faithful: the desktop is smooth precisely because its
+FrameLimiter sleeps-to-margin-then-spins; Android now does the same.
+
+Properties preserved:
+  * MAX-rate cap ONLY — NOT a forced 30/60 grid, NO fps quantization. Under load
+    the fps still drops FREELY (the cap simply doesn't engage when render > budget).
+  * Game clock STILL driven by REAL dt (a35_read_ee_timer error feedback, byte
+    UNCHANGED) -> constant real-time speed. A clean 60fps/k=1 advances game-time at
+    the SAME real rate the old jittery ~54fps/k-dither did (the error feedback holds
+    it). Measured after the fix: 59.99 game-units / real-second (baseline 59.98,
+    pan 60.01) -> speed constant, the speed bug is NOT reintroduced, no 30/60 lock.
+  * Boot path untouched (only the post-renderer-ready cap block changed).
+
+Files: android/android_gfx.cpp (the fix). Diagnostic probes (kept, gated):
+android/gk_android_main.cpp, android/android_renderer.cpp,
+game/graphics/pipelines/opengl.cpp. NO goal_src changed. .autoport/gold untouched.
+
+--------------------------------------------------------------------------------
+4. BEFORE -> AFTER (state-anchored, device eae4df44, identical held-60 condition:
+   dynamic render scale ON target 60 floor 40, Geyser, same script)
+--------------------------------------------------------------------------------
+                                  BEFORE (coarse)   AFTER (sleep+spin)   change
+  REST present dt sd                 2.85 ms            1.65 ms          -42%
+  REST frames |dt-mean|>2ms          30.0 %             8.6 %            -71%
+  REST k=2 fraction ("jumps")        10.9 %             2.7 %            -75%
+  REST present dt mean            18.5 ms (~54fps)   17.2 ms (~58fps)    toward 16.7
+  PAN  present dt sd                 4.55 ms            1.62 ms          -64%
+  PAN  frames |dt-mean|>2ms          64.5 %             5.6 %            -91%
+  PAN  k=2 fraction ("jumps")        19.2 %             1.7 %            -91%
+  PAN  present dt mean            20.1 ms (~59fps)   16.9 ms (~59fps)    toward 16.7
+  game-units / real-second             ~60              59.99           speed intact
+  crash signals (11/6/4/Fatal)          0                 0
+Present-cadence jitter and the k=2 double-step "jumps" both drop sharply; the
+camera now advances a near-constant delta shown at near-even intervals -> smooth
+pan. deploy_verify PASS (chain build==APK==device, fresh HEAD libgk); device
+iso_data KERNEL.CGO sha 956ed7a1... unchanged (consistent build, no wipe, no
+mixed-codebase). App foreground throughout; maxframe 3360.
+
+--------------------------------------------------------------------------------
+5. HONEST RESIDUAL / SCOPE
+--------------------------------------------------------------------------------
+* The AFTER present-dt sd is ~1.6ms (much improved from 4.55), NOT sub-millisecond,
+  and occasional heavy frames still spike to 32-36ms. The busy-spin removes the
+  SLEEP-wakeup jitter, but it can only pace frames that finish UNDER the vblank
+  budget; when the Adreno 618 is genuinely render-bound (render > budget) the cap
+  cannot engage and the residual is real render-time variance. On this device the
+  cure for that is dynamic render scale holding the target (the owner's setup) so
+  the cap keeps engaging — which is exactly the condition measured here.
+* True free-fluctuating-fps-AND-smooth at a render-bound fractional fps is
+  fundamentally limited by the PS2 integer-time-ratio engine displaying at uneven
+  intervals; the only ways to make it perfectly uniform are (i) present=k/60
+  pacing, which re-quantizes fps to 60/30/20 and can flap at marginal loads (the
+  behavior the owner rejected), or (ii) render-time camera-view INTERPOLATION (an
+  engine/renderer change, and infeasible to interpolate to a HIGHER rate on a
+  GPU that can't render faster). Neither was done; both are noted for the owner.
+  The shipped fix is the golden-faithful, zero-risk win that addresses the owner's
+  stated "even when the fps is fine" case without any of those tradeoffs.
+
+--------------------------------------------------------------------------------
+6. VERIFY
+--------------------------------------------------------------------------------
+* State-anchored device-vs-golden per-frame camera transform: done (section 1).
+* Camera timing cause named (present cadence + integer time-ratio k vs the smooth
+  fractional time-adjust-ratio): done (section 2).
+* Before->after camera-jitter reduction: done (section 4).
+* Game speed still constant (59.99 units/real-sec; a35 clock untouched; no 30/60
+  lock, no fps quantization): done (section 3-4).
+* x86 unbroken: golden build reaches "link finish: logo" (17x incl. logo beats),
+  present even (sd ~1.0ms) — the reference the fix mirrors.
+* Full CONSISTENT build + deploy_verify PASS; golden pristine; engine goal_src
+  untouched.
+* OWNER PLAY-TEST is the final gate: pan the camera around Jak (right stick) with
+  dynamic render scale ON (target 60) — the pan should feel smooth (no step / no
+  jump), everything else still fluid, speed unchanged.
+
+Evidence (.autoport/reports/Gcamera-smooth/evidence/):
+  before_title.log  — obstacle-free flythrough: camera game-state smooth, present jittery
+  held60.log        — held ~60fps BEFORE (coarse sleep): the "fps fine" judder
+  afterfix.log      — held ~60fps AFTER (sleep+spin): the before->after win
+  pan1.log          — Geyser pan (present == EE confirmation)
+  /tmp/x86_pace.log — golden x86 present cadence (even) + link finish: logo
+================================================================================
