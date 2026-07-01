@@ -40,3 +40,15 @@ Dynamic OFF, Android hides intact, x86 link finish: logo.
 
 ## Locks: ANDROID_SERIAL=eae4df44; no goalc/emitter/IGenX86_64.*; engine goal_src untouched; pc/ only goal_src; .autoport/gold READ-ONLY.
 ## Max: max_turns 1500, max_retries 5. device: true, owner_verify: true.
+
+## OWNER ADD (2026-07-01) — default values + persistence of ALL graphics settings
+Set these DEFAULTS (first run / fresh pc-settings), and VERIFY persistence:
+ - Dynamic Render Scale = ON (default)
+ - Minimum Render Scale = 40% (default)
+ - Minimum Target FPS = 60 (default)
+ - (leave the other graphics settings' existing defaults)
+PERSISTENCE: every graphics setting the menu exposes — Aspect Ratio, Game Resolution, Dynamic Render
+Scale, Render Scale/Min Render Scale, Min Target FPS, FPS Counter, V-Sync, MSAA — MUST persist across an
+app restart (commit-to-file, re-read at boot). The owner is unsure the new dynamic-scale trio persists —
+VERIFY it explicitly: change each, force-stop + relaunch, confirm the value is retained. Report which
+persisted and fix any that don't.
