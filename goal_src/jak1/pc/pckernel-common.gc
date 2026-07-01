@@ -112,23 +112,33 @@
   (none))
 
 ;; ---------------------------------------------------------------------------
-;; Gdynamic-renderscale: adaptive render-scale controller (pc/ runtime; engine
-;; goal_src untouched). Drives the existing render-scale lever (game_res FBO) to hold
-;; dyn-target-fps within [min-render-scale,100]. Two MEASURED signals, both excluding
-;; the vsync wait so they stay meaningful at a vsync-capped target:
-;;   * pc-get-fps        -> smoothed presented fps (saturates at the vsync cap).
-;;   * pc-get-frame-busy-us -> smoothed render WORK time (does NOT saturate at the cap).
-;; vblank budget for the chosen target = 1000/target ms. The controller LOWERS the scale
-;; only on REAL load (fps below target AND frame-work at/over budget) and RAISES it on
-;; FRAME-TIME HEADROOM (frame-work comfortably under budget) regardless of whether fps
-;; can exceed the target -- this is the fix for the vsync-capped case, where fps sits at
-;; ~the cap and never rises above it, so a "raise only when fps>target" rule was stuck.
-;; The raise is OPPORTUNISTIC/PROBING: it steps up while there is headroom and fps is
-;; still meeting target within a small tolerance, and if a step overshoots (work crosses
-;; budget, fps drops under target) the LOWER path steps back down. Anti-thrash: 2nd-stage
-;; EMAs, a wide busy dead-band [0.80,0.98]*budget, asymmetric bounded steps (lower -7%,
-;; raise +5%), cooldowns, a post-lower raise lockout, a floor clamp, and a skip during
-;; loads/cutscenes/menus. OFF -> returns the manual render-scale (controller idle).
+;; Gdynamic-renderscale + Gdynamic-fix: adaptive render-scale controller (pc/ runtime;
+;; engine goal_src untouched). Drives the existing render-scale lever (game_res FBO) to
+;; SEEK THE HIGHEST scale in [min-render-scale,100] that still holds dyn-target-fps --
+;; i.e. the best quality that meets the target, NOT the worst. It CLIMBS on headroom and
+;; DESCENDS only when fps falls under target; equilibrium = max scale meeting target.
+;;
+;; The upper-headroom signal depends on the regime, decided by the presentation cap
+;; (display refresh / vsync), because a scale-independent CPU signal can't tell "GPU has
+;; headroom" from "GPU is saturated":
+;;   * REGIME 1 -- target BELOW the cap: fps can rise above target, so fps IS the clean
+;;       headroom signal. RAISE while fps >= target+margin (aggressively when far above,
+;;       gently near target). This is the Gdynamic-fix core: it was previously stuck at the
+;;       floor because the raise gated ONLY on frame-work-under-budget, and frame-work
+;;       (pc-get-frame-busy-us = render-CPU time) is ~scale-independent -- in a big scene it
+;;       stays near budget even at the floor, so the gate never opened though fps >> target.
+;;   * REGIME 2 -- target AT/ABOVE the cap (vsync-capped): fps saturates at the cap and can
+;;       never exceed target, so fps headroom is invisible. RAISE on FRAME-TIME headroom
+;;       (render-work comfortably under the vblank budget) as a gentle probe; if a step
+;;       overshoots (fps drops under target) the DESCEND path steps back down.
+;; DESCEND (both regimes): fps under target by a regime-sized margin. No busy gate -- busy is
+;; blind to a GPU-bound drop; the smoothed fps + margin rejects vsync jitter near the cap.
+;; A RUNTIME change to the Minimum Render Scale or the target immediately RE-CLAMPS the
+;; running scale into the new [floor,100] window and resets cooldowns to re-converge
+;; (owner bug #1). Anti-thrash: 2nd-stage fps/busy EMAs, a target-boundary dead-band,
+;; bounded proportional steps, >=0.5s lower / >=1s raise cooldowns, a >=2s post-lower raise
+;; lockout, a floor clamp, and a hold during loads/cutscenes/menus. OFF -> returns the
+;; manual render-scale (controller idle). vblank budget for the target = 1000/target ms.
 ;; ---------------------------------------------------------------------------
 (define *dyn-rs-scale* 100.0)             ;; live dynamic render scale %
 (define *dyn-rs-fps-ema* 60.0)            ;; 2nd-stage smoothed fps
@@ -136,17 +146,28 @@
 (define *dyn-rs-last-adjust-time* (the-as time-frame 0)) ;; real-time of last scale change
 (define *dyn-rs-last-lower-time* (the-as time-frame 0))  ;; real-time of last LOWER (raise lockout)
 (define *dyn-rs-last-log-time* (the-as time-frame 0))    ;; real-time of last heartbeat log
+;; Gdynamic-fix: last-seen settings, so a RUNTIME change to the Minimum Render Scale (floor)
+;; or the target framerate is detected and the running scale is IMMEDIATELY re-clamped into
+;; the new [floor,100] window (owner bug #1). -1 => uninitialized (primes on the first frame).
+(define *dyn-rs-last-min* -1.0)           ;; last-seen min-render-scale
+(define *dyn-rs-last-target* -1.0)        ;; last-seen dyn-target-fps
 
 (defun dynamic-render-scale-update ((obj pc-settings))
   "Return the effective render-scale % to use this frame. OFF -> the manual
-   render-scale (controller idle). ON -> auto-adjusted scale clamped to [floor,100],
-   driven by measured fps AND render FRAME-TIME headroom vs the per-target vblank
-   budget, so it raises back toward 100% even at a vsync-capped target (where fps
-   saturates at the cap and never exceeds the target)."
+   render-scale (controller idle). ON -> the auto-adjusted scale, clamped to
+   [floor,100], that SEEKS THE HIGHEST scale still holding dyn-target-fps: it CLIMBS on
+   headroom (fps comfortably above target when target is below the presentation cap; or
+   render-work comfortably under the vblank budget at a vsync-capped target where fps
+   can't exceed the cap) and DESCENDS only when fps falls under target. A runtime change
+   to the Minimum Render Scale or the target immediately RE-CLAMPS the running scale into
+   the new range (owner bug #1)."
   (cond
     ((not (-> obj dynamic-render-scale?))
-     ;; disabled: keep the live scale primed at native so a later enable starts at 100
+     ;; disabled: keep the live scale primed at native so a later enable starts at 100,
+     ;; and keep the change-trackers fresh so enabling doesn't fire a phantom re-clamp.
      (set! *dyn-rs-scale* 100.0)
+     (set! *dyn-rs-last-min* (-> obj min-render-scale))
+     (set! *dyn-rs-last-target* (-> obj dyn-target-fps))
      (-> obj render-scale))
     (else
      (let ((floor-scale (-> obj min-render-scale))
@@ -156,8 +177,26 @@
        (cond ((< floor-scale 10.0) (set! floor-scale 10.0))
              ((> floor-scale 100.0) (set! floor-scale 100.0)))
        (if (< target 1.0) (set! target 1.0))
-       (let ((budget-ms (/ 1000.0 target))                                 ;; vblank budget for this target
-             (busy-ms (/ (the float (pc-get-frame-busy-us)) 1000.0)))      ;; render-work time this frame
+       ;; ---- RE-CLAMP on a runtime settings change (owner bug #1) ----
+       ;; When the Minimum Render Scale (floor) or the target framerate changes while
+       ;; running, snap the effective scale into the NEW [floor,100] window at once -- so
+       ;; raising the floor above the current dropped scale takes effect immediately -- and
+       ;; reset the cooldowns so the controller re-converges from there.
+       (when (or (!= (-> obj min-render-scale) *dyn-rs-last-min*)
+                 (!= (-> obj dyn-target-fps) *dyn-rs-last-target*))
+         (cond ((< *dyn-rs-scale* floor-scale) (set! *dyn-rs-scale* floor-scale))
+               ((> *dyn-rs-scale* 100.0) (set! *dyn-rs-scale* 100.0)))
+         (set! *dyn-rs-last-adjust-time* now)
+         (set! *dyn-rs-last-lower-time* now)
+         (set! *dyn-rs-last-min* (-> obj min-render-scale))
+         (set! *dyn-rs-last-target* (-> obj dyn-target-fps))
+         (format 0 "[dyn-rs] RE-CLAMP: setting changed -> floor=~,,0f% target=~,,0f, scale re-clamped to ~,,0f%~%"
+                 floor-scale target *dyn-rs-scale*))
+       (let* ((cap-fps (the float (pc-get-active-display-refresh-rate)))     ;; presentation cap (vsync/refresh)
+              (budget-ms (/ 1000.0 target))                                  ;; vblank budget for this target
+              (busy-ms (/ (the float (pc-get-frame-busy-us)) 1000.0)))       ;; render-work time this frame
+         ;; sane default if the platform reports no / absurd refresh rate
+         (if (< cap-fps 20.0) (set! cap-fps 60.0))
          ;; 2nd-stage EMAs over the C++ EMAs (extra ~0.5-1s smoothing; act on smoothed, never single frames)
          (set! *dyn-rs-fps-ema* (+ (* 0.75 *dyn-rs-fps-ema*) (* 0.25 (the float (pc-get-fps)))))
          (set! *dyn-rs-busy-ema* (+ (* 0.75 *dyn-rs-busy-ema*) (* 0.25 busy-ms)))
@@ -172,42 +211,63 @@
             (set! *dyn-rs-last-adjust-time* now)
             (set! *dyn-rs-last-lower-time* now))
            (else
-            (let ((ema *dyn-rs-fps-ema*)
+            ;; capped? = target is at/above the presentation cap, so fps cannot rise above it
+            ;; -> raise on FRAME-TIME headroom. Otherwise fps itself is the clean headroom signal.
+            (let ((capped? (>= target (- cap-fps 3.0)))
+                  (ema *dyn-rs-fps-ema*)
                   (busy *dyn-rs-busy-ema*)
                   (since (- now *dyn-rs-last-adjust-time*))
                   (cur *dyn-rs-scale*))
               (cond
-                ;; LOWER: REAL load only -> fps below target AND render-work at/over budget.
-                ;; The busy gate stops vsync jitter (fps reads a touch under a capped target
-                ;; with plenty of frame-time headroom) from spuriously lowering. -7%, >=0.5s
-                ;; cooldown, respect floor. Arms the post-lower raise lockout.
-                ((and (< ema (- target 1.0))
-                      (>= busy (* budget-ms 0.98))
+                ;; DESCEND: fps under target (by a regime-sized margin). Proportional step,
+                ;; respect floor, >=0.5s cooldown, arm the post-lower raise lockout. No busy
+                ;; gate -- busy (render-CPU) is blind to a GPU-bound drop; the smoothed fps +
+                ;; a wider margin near the cap rejects vsync jitter.
+                ((and (> cur floor-scale)
                       (>= since (seconds 0.5))
-                      (> cur floor-scale))
-                 (set! cur (- cur 7.0))
+                      (< ema (- target (if capped? 2.5 1.0))))
+                 (let ((step (cond ((<= ema (- target 8.0)) 12.0)
+                                   ((<= ema (- target 4.0)) 8.0)
+                                   (else 4.0))))
+                   (set! cur (- cur step)))
                  (if (< cur floor-scale) (set! cur floor-scale))
                  (set! *dyn-rs-scale* cur)
                  (set! *dyn-rs-last-adjust-time* now)
                  (set! *dyn-rs-last-lower-time* now)
-                 (format 0 "[dyn-rs] LOWER to ~,,0f% (fps ~,,1f<tgt ~,,0f, busy ~,,1f>=budget ~,,1fms)~%"
-                         cur ema target busy budget-ms))
-                ;; RAISE (the fix): opportunistic PROBE up on FRAME-TIME HEADROOM, not on
-                ;; fps>target. Fires when scale<100, fps is still meeting target within a small
-                ;; tolerance (so a 3-4 fps dip at a 60 vsync cap does NOT block it), the render
-                ;; work is comfortably under budget (clear headroom), the >=1s raise cooldown
-                ;; elapsed, AND we are >=2s clear of the last lower (asymmetric anti-hunt). +5%.
-                ((and (< cur 100.0)
+                 (format 0 "[dyn-rs] LOWER to ~,,0f% (fps ~,,1f < tgt ~,,0f)~%" cur ema target))
+                ;; CLIMB (regime 1, target below the cap): real fps headroom above target.
+                ;; The owner's core fix -- DO NOT sit at the floor when fps > target. Step
+                ;; aggressively when far above target, gently near it, toward the highest
+                ;; scale whose fps still meets target. >=1s cooldown, >=2s clear of last lower.
+                ((and (not capped?)
+                      (< cur 100.0)
+                      (>= ema (+ target 3.0))
+                      (>= since (seconds 1))
+                      (>= (- now *dyn-rs-last-lower-time*) (seconds 2)))
+                 (let ((step (cond ((>= ema (+ target 15.0)) 10.0)
+                                   ((>= ema (+ target 8.0)) 6.0)
+                                   (else 3.0))))
+                   (set! cur (+ cur step)))
+                 (if (> cur 100.0) (set! cur 100.0))
+                 (set! *dyn-rs-scale* cur)
+                 (set! *dyn-rs-last-adjust-time* now)
+                 (format 0 "[dyn-rs] RAISE to ~,,0f% (fps ~,,1f >= tgt+3 ~,,0f, headroom)~%" cur ema target))
+                ;; CLIMB (regime 2, vsync-capped target): fps saturates at the cap and can't
+                ;; exceed target, so raise on FRAME-TIME headroom -- render-work comfortably
+                ;; under the vblank budget -- while fps still meets the (capped) target. Gentle
+                ;; probe; an overshoot (fps drops under target) is corrected by DESCEND.
+                ((and capped?
+                      (< cur 100.0)
                       (>= ema (- target 5.0))
                       (<= busy (* budget-ms 0.80))
                       (>= since (seconds 1))
                       (>= (- now *dyn-rs-last-lower-time*) (seconds 2)))
-                 (set! cur (+ cur 5.0))
+                 (set! cur (+ cur 4.0))
                  (if (> cur 100.0) (set! cur 100.0))
                  (set! *dyn-rs-scale* cur)
                  (set! *dyn-rs-last-adjust-time* now)
-                 (format 0 "[dyn-rs] RAISE(probe) to ~,,0f% (busy ~,,1f<=0.8budget ~,,1fms, fps ~,,1f tgt ~,,0f)~%"
-                         cur busy budget-ms ema target)))))) ;; end inner cond / let / else
+                 (format 0 "[dyn-rs] RAISE(probe) to ~,,0f% (busy ~,,1f <= 0.8budget ~,,1fms, fps ~,,1f cap ~,,0f)~%"
+                         cur busy budget-ms ema cap-fps)))))) ;; end inner cond / capped-let / else
          ;; throttled heartbeat (~every 2s) so the heavy/light trace is legible in logcat
          (when (>= (- now *dyn-rs-last-log-time*) (seconds 2))
            (set! *dyn-rs-last-log-time* now)
