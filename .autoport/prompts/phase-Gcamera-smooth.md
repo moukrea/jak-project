@@ -44,3 +44,10 @@ If it needs an engine change, RESULT: CAMERA JITTER ROOT NAMED + the mechanism (
 
 ## Locks: ANDROID_SERIAL=eae4df44; no goalc/emitter/IGenX86_64.*; engine goal_src untouched if avoidable; .autoport/gold READ-ONLY.
 ## Max: max_turns 2000, max_retries 5. device: true, owner_verify: true.
+
+## OWNER TEST TIP (2026-07-01) — pan in an OBSTACLE-FREE spot, not at spawn
+The camera cannot do a full 360 around Jak AT the spawn point (Geyser) — obstacles block/collide the
+camera and would CONFOUND the jitter measurement (camera collision != timing jitter). Before measuring
+the pan-jitter, MOVE Jak to an open, obstacle-free area (walk/drive him out, or pick an open beat) so
+the camera can orbit freely; measure the pan-smoothness there. A camera that stutters because it's
+hitting geometry is NOT the timing bug — isolate the free-orbit case.
