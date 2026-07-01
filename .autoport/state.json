@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 163,
+  "current_phase_idx": 164,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -155,7 +155,8 @@
     "Grender-split": 1,
     "Gdynamic-renderscale": 1,
     "Gcamera-smooth": 1,
-    "Gdynamic-fix": 1
+    "Gdynamic-fix": 1,
+    "Gcamera-interp": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -447,7 +448,8 @@
     "Gres-picker",
     "Grender-split",
     "Gdynamic-renderscale",
-    "Gcamera-smooth"
+    "Gcamera-smooth",
+    "Gdynamic-fix"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -589,9 +591,10 @@
     "Grender-split": 1782838389.3444257,
     "Gdynamic-renderscale": 1782854481.732169,
     "Gcamera-smooth": 1782881296.21235,
-    "Gdynamic-fix": 1782894926.711849
+    "Gdynamic-fix": 1782894926.711849,
+    "Gcamera-interp": 1782903089.1745765
   },
-  "last_update": "2026-07-01T10:04:18.529480+00:00",
+  "last_update": "2026-07-01T12:13:32.641698+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -617,6 +620,7 @@
     "Grender-split",
     "Gdynamic-renderscale",
     "Gcamera-smooth",
-    "Gdynamic-fix"
+    "Gdynamic-fix",
+    "Gcamera-interp"
   ]
 }

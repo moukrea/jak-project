@@ -111,6 +111,12 @@
 ;; FRAME-TIME headroom signal that, unlike pc-get-fps, does NOT saturate at the vsync
 ;; cap. Works on both x86 and Android backends.
 (define-extern pc-get-frame-busy-us (function int))
+;; Gcamera-interp: C kernel function returning the REAL per-frame dt in
+;; MICROSECONDS. On Android this is the true elapsed wall-clock of the frame that
+;; just displayed (gk_android_main.cpp a35_pc_frame_dt_us); on x86 it is a nominal
+;; 60fps stub (the camera override that reads it is Android-gated). Used to render
+;; the camera at the FRACTIONAL real-frame time so panning is smooth at any fps.
+(define-extern pc-frame-dt-us (function int))
 ;; on-screen FPS counter draw (defined in pckernel.gc, called per-frame from the
 ;; pc-settings update method in pckernel-common.gc — forward-declared here).
 (define-extern draw-pc-fps-counter (function none))
