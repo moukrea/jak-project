@@ -154,8 +154,7 @@
     "Gres-picker": 1,
     "Grender-split": 1,
     "Gdynamic-renderscale": 1,
-    "Gcamera-smooth": 1,
-    "Gdynamic-fix": 1
+    "Gcamera-smooth": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -616,7 +615,6 @@
     "Gres-picker",
     "Grender-split",
     "Gdynamic-renderscale",
-    "Gcamera-smooth",
-    "Gdynamic-fix"
+    "Gcamera-smooth"
   ]
 }
