@@ -890,6 +890,45 @@ def _supervisor_anchor() -> str:
     return lines[0] if lines else "HEAD~1"
 
 
+def _device_boot_check(serial: str, pkg: str = "org.opengoal.gk.jak1") -> tuple[bool, str]:
+    """After deploy_verify (libgk sha chain) passes, prove the app actually BOOTS to
+    in-game/render — deploy_verify does NOT catch a non-booting build (e.g. the
+    'Setup failed: bundle/jak1_assets.zip' asset-unpack failure the owner hit
+    2026-06-30, where the .so was fresh but the app never started). Tolerates the
+    flaky first-launch (monkey/am start sometimes doesn't take) via 3 attempts.
+    Fail-OPEN on adb infra errors (don't wedge the loop; GATE 3 owner is the backstop)."""
+    adb = os.environ.get("ADB") or "/home/emeric/Android/platform-tools/adb"
+    def sh(*args, t=40):
+        return subprocess.run([adb, "-s", serial, *args], cwd=REPO_ROOT,
+                              capture_output=True, text=True, timeout=t)
+    try:
+        sh("shell", "svc", "power", "stayon", "true")
+        for p in ("debug.opengoal.f1.warp", "debug.opengoal.level.warp",
+                  "debug.opengoal.render.scale", "debug.opengoal.gspeed.off",
+                  "debug.opengoal.gspeed.measure"):
+            sh("shell", "setprop", p, '""')
+        for _ in range(3):
+            sh("shell", "am", "force-stop", pkg)
+            sh("shell", "logcat", "-c")
+            sh("shell", "am", "start", "-n", f"{pkg}/org.opengoal.gk.MainActivity")
+            for _ in range(12):  # up to ~48s per attempt
+                time.sleep(4)
+                lc = sh("shell", "logcat", "-d", "-t", "500").stdout
+                if "Setup failed" in lc or "jak1_assets" in lc:
+                    return (False, "CLOSE-GATE/boot: app shows 'Setup failed' (asset "
+                            "bundle/unpack) — the deployed build does NOT boot. Re-stage "
+                            "the game assets / fix the bundle before this phase can close.")
+                pid = sh("shell", "pidof", pkg).stdout.strip()
+                if pid and ("master-mode=game" in lc or "A35-RENDER frame=" in lc):
+                    return (True, "")
+        return (False, "CLOSE-GATE/boot: app did NOT reach in-game/render after 3 launch "
+                "attempts (pid dead or no render frames) — the deployed build does not boot "
+                "on device (deploy_verify passed the .so but the app is broken).")
+    except Exception as e:  # noqa: BLE001 — never wedge the loop on a boot-check infra error
+        console.print(f"[yellow]close-gate boot-check infra error (fail-open): {e}[/yellow]")
+        return (True, "")
+
+
 def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
     """Run after a phase's validator exits 0. Returns (status, reason):
       ("pass", "")            -> all gates clear; the phase may complete
@@ -944,6 +983,12 @@ def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
                         "provably running the fresh HEAD build (stale or mixed "
                         "CGO/libgk). Rebuild a CONSISTENT set (CGOs + libgk together) "
                         "and redeploy before this phase can close.\n" + tail)
+        # deploy_verify only proves the libgk sha chain — also prove the app BOOTS
+        # (catches 'Setup failed'/non-booting builds deploy_verify can't see).
+        pkg = phase.get("device_pkg") or "org.opengoal.gk.jak1"
+        booted, why = _device_boot_check(serial, pkg)
+        if not booted:
+            return ("fail", why)
 
     # GATE 3 — owner play-test is the FINAL gate (the owner's eye overrides any
     # synthetic pass; the collision fix false-greened a validator twice before
