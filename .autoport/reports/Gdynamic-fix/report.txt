@@ -1,150 +1,144 @@
 ================================================================================
-Gdynamic-fix — dynamic render scale must SEEK THE MAX quality holding the target
-(+ runtime Min-Render-Scale re-clamp)                              2026-07-01
+Gdynamic-fix — dynamic render scale must SEEK THE MAX quality holding the target,
+as a STRICT single-increment HILL-CLIMB WITH A LOCK (+ runtime Min-Render-Scale
+re-clamp)                                                            2026-07-01
 ================================================================================
 
 RESULT: DYNAMIC SCALE SEEKS MAX QUALITY AT TARGET
 
-One-line: the adaptive render-scale controller now CONVERGES to the HIGHEST scale
-in [min,100] that still holds fps >= target (best quality that meets the target),
-climbing whenever fps has headroom above target and descending only below it; and
-a runtime change to the Minimum Render Scale (or target) immediately RE-CLAMPS the
-running scale into the new range. Proven deterministically on x86 (goalc REPL) and
-on the real device (eae4df44, Adreno) including the owner's exact repro.
+One-line: the adaptive render-scale controller was rewritten to the owner's EXACT
+refined algorithm -- a strict single-increment (10%) HILL-CLIMB WITH A LOCK on a
+SMOOTHED AVERAGE fps. It steps UP one increment while the average fps is above the
+target; the moment a probe step drops the average below target it steps back DOWN
+one and LOCKS at that scale -- the HIGHEST scale still holding the target (the best
+quality that meets it, NOT the worst). It then STAYS locked (no per-cycle hunting)
+until the average rises a sustained ~5 fps above the locked level (scene clearly
+lighter), whereupon it unlocks and re-climbs. It steps DOWN one increment per cycle
+while the average is below target (worst-case fluidity first). A runtime change to
+the Minimum Render Scale (or the target) immediately RE-CLAMPS the running scale
+into the new [floor,100] window. Proven deterministically on x86 with a closed-loop
+GPU-curve seam; owner's exact repro (target 30 in a ~32fps@60% zone) converges to
+60% and locks -- it is NOT stuck at the floor.
 
-Scope: ONE file, pc/ runtime only — goal_src/jak1/pc/pckernel-common.gc
-(dynamic-render-scale-update). No engine goal_src, no C++/libgk, no goalc/emitter,
-no golden touched. libgk UNCHANGED (deploy_verify already PASS). Fresh CONSISTENT
-arm64 28-CGO/DGO set (with the new controller in ENGINE.CGO+GAME.CGO) deployed.
-
---------------------------------------------------------------------------------
-THE TWO OWNER BUGS (deeper testing after Gdynamic-renderscale was owner-confirmed)
---------------------------------------------------------------------------------
-BUG 2 (headline): the controller got STUCK AT THE FLOOR with obvious headroom.
-  Owner repro: a "grosse scene" that at a FIXED 60% scale runs ~32 fps; with dynamic
-  ON and target = 30, the scaler STAYED at the minimum (e.g. 30%) instead of climbing
-  to ~60% — the WORST quality instead of the best quality that meets the target.
-
-  ROOT CAUSE: the previous attempt RAISED the scale ONLY on frame-time headroom
-  (`busy <= 0.80*budget`), never on fps-above-target. But `busy` (pc-get-frame-busy-us
-  = the renderer's render_cpu_s / desktop render_game_frame CPU time) is ~SCALE-
-  INDEPENDENT: render scale changes the FBO's GPU fill, not the CPU-side draw/DMA
-  work. In a big (draw/CPU-heavy) scene `busy` stays near the vblank budget even at
-  the floor, so the busy gate NEVER OPENS — the scale is stuck at the floor although
-  fps sits well ABOVE the (low) target. (Attempt-2 had over-corrected to a busy-only
-  raise to fix a vsync-capped case, and that broke the ordinary sub-cap case.)
-
-BUG 1: raising the Minimum Render Scale at runtime was not applied — with the scale
-  already dropped hard (e.g. to the 10% floor), raising the "Minimum Render Scale"
-  to 30% did not re-clamp the running/effective scale to the new floor.
+Scope: ONE file, pc/ runtime only -- goal_src/jak1/pc/pckernel-common.gc
+(dynamic-render-scale-update + its state globals). No engine goal_src, no C++/libgk,
+no goalc/emitter, no golden touched. libgk UNCHANGED (deploy_verify already PASS on
+the C++ side). The fix is pure GOAL bytecode, identical on the x86 and arm64 backends.
 
 --------------------------------------------------------------------------------
-THE FIX (dynamic-render-scale-update, regime-split, pure GOAL)
+WHY THE PREVIOUS ATTEMPT WAS STILL "BIZARRE" (owner, 2026-07-01)
 --------------------------------------------------------------------------------
-Seeks the HIGHEST scale holding target. The upper-headroom signal is chosen by
-regime (decided by the presentation cap = display refresh / vsync), because a
-scale-independent CPU signal cannot tell "GPU has headroom" from "GPU is saturated":
-
-  * REGIME 1 — target BELOW the cap: fps CAN rise above target, so fps IS the clean
-    headroom signal. CLIMB while fps >= target+3 (the owner's core fix — do NOT sit
-    at the floor when fps > target): aggressively when far above target (+10/+6),
-    gently near it (+3), toward the highest scale whose fps still meets target.
-  * REGIME 2 — target AT/ABOVE the cap (vsync-capped): fps saturates at the cap and
-    can't exceed target, so raise on FRAME-TIME headroom (render-work comfortably
-    under the vblank budget) as a gentle +4 probe; an overshoot is corrected by
-    DESCEND. (Preserves the attempt-2 vsync-cap behaviour the owner had accepted.)
-  * DESCEND (both regimes): fps under target by a regime-sized margin (1.0 below the
-    cap, 2.5 near it). Proportional step (-12/-8/-4). NO busy gate — busy is blind to
-    a GPU-bound drop; smoothed fps + margin rejects vsync jitter. So it correctly
-    lowers under GPU-bound load, which the old busy-gated LOWER could have missed.
-
-  * RE-CLAMP (BUG 1): when the Minimum Render Scale or the target changes at runtime,
-    the running scale is snapped into the new [floor,100] window at once (so raising
-    the floor above the current dropped scale takes effect immediately) and cooldowns
-    reset so it re-converges. Equilibrium = the MAX scale meeting target.
-
-  * ANTI-THRASH: 2nd-stage fps/busy EMAs (act on smoothed signals, never single
-    frames); a target-boundary dead-band [target-1, target+3]; bounded proportional
-    steps; >=0.5s lower / >=1s raise cooldowns; a >=2s post-lower raise lockout; a
-    floor clamp; and a hold during loads/cutscenes/menus.
-  * OFF -> returns the manual render-scale unchanged (controller idle).
+Attempt 1 used a regime-split heuristic that RAISED on a frame-time / "busy" signal
+in the vsync-capped regime and took PROPORTIONAL multi-step jumps. That hunted and
+oscillated ("bizarre"). The owner asked for a specific, boring, correct algorithm:
+a strict incremental hill-climb with a LOCK that finds the boundary once and then
+sits there. This attempt implements exactly that and DELETES the busy signal and the
+proportional steps entirely -- decisions are fps-vs-target only, one 10% step at a
+time, on a smoothed average.
 
 --------------------------------------------------------------------------------
-PROOF 1 — DETERMINISTIC x86 goalc-REPL (identical GOAL bytecode to the arm64 device)
-  .autoport/gdfix_x86_repl.sh -> evidence/x86_repl.log
-  Warps to Geyser Rock (in-game so the controller runs), drives *pc-settings* live.
+THE TWO OWNER BUGS
 --------------------------------------------------------------------------------
-PHASE 1  enable, floor 10, target 90 (unreachable) -> DESCEND to floor, FLOOR respected:
-  [dyn-rs] LOWER to 88% (fps 59.7 < tgt 90)
-  [dyn-rs] LOWER to 76% ... 64% ... 52% ... 40% ... 28% ... 16% ...
-  [dyn-rs] LOWER to 10% (fps 59.8 < tgt 90)     <- parks AT floor 10, never below
-PHASE 2  raise Minimum Render Scale 10 -> 40 at runtime -> RE-CLAMP (BUG 1 FIXED):
-  [dyn-rs] RE-CLAMP: setting changed -> floor=40% target=90, scale re-clamped to 40%
-  (GDFIX-PROBE: scale 10 -> 40 on the very next frame; the runtime min change IS applied)
-PHASE 3  drop target to 25 (below fps) -> CLIMB from floor toward 100 (BUG 2 FIXED):
-  [dyn-rs] RAISE to 50% (fps 59.9 >= tgt+3 25, headroom)   <- NOT stuck at floor
-  [dyn-rs] RAISE to 60% ... 70% ... 80% ... 90% ...
-  [dyn-rs] RAISE to 100% (fps 59.9 >= tgt+3 25, headroom)  <- converges to the MAX holding target
-PHASE 4  disable -> OFF = MANUAL:
-  GDFIX-PROBE dyn=#f scale=100 ... rs=55  (eff scale == manual render-scale 55, controller idle,
-  zero LOWER/RAISE/RE-CLAMP after disable)
-  counts: LOWER=8  RAISE=6  RE-CLAMP=2  PROBES=44
+BUG 2 (headline): the controller got STUCK AT THE FLOOR (e.g. the old 10% / a 30%
+  minimum) with obvious headroom. Owner repro: a "grosse scene" that at a FIXED 60%
+  scale runs ~32 fps; with dynamic ON and target = 30, the scaler STAYED at the
+  minimum instead of climbing to ~60% -- the WORST quality instead of the best that
+  meets the target. Two root causes, both fixed:
+   (a) the raise never fired with real fps headroom above target (it gated on a
+       scale-independent busy signal); now it CLIMBS whenever the average fps is
+       above target.
+   (b) a load-driven descent to the floor used to LOCK there, so when the scene
+       later lightened the lock pinned the scale at the floor WITH headroom. Now a
+       LOWER only locks when it is a genuine probe overshoot (a LOWER immediately
+       after a RAISE); a load-following descent stays UNLOCKED, so quality
+       re-climbs by itself the moment headroom returns.
+
+BUG 1: raising the Minimum Render Scale at runtime was not applied -- with the scale
+  already dropped hard (e.g. to a 10% floor), raising the "Minimum Render Scale" to
+  a higher value did not re-clamp the running/effective scale to the new floor. Now a
+  runtime change to the floor (or target) snaps the running scale into the new
+  [floor,100] window immediately and drops the lock so it re-converges.
 
 --------------------------------------------------------------------------------
-PROOF 2 — REAL DEVICE eae4df44 (Adreno, HEAD libgk verified, fresh consistent CGOs)
-  .autoport/gdfix_run.sh -> evidence/*.log   (0 crash signals; app foreground)
+THE ALGORITHM (dynamic-render-scale-update, pure GOAL)
 --------------------------------------------------------------------------------
-RUN descend_climb.log — THE OWNER'S HEADLINE BUG, REPRODUCED AND FIXED ON HARDWARE
-  target=40 floor=10 budget=25.0ms. A mid-run GPU load (supersample) drops fps under
-  target, then is cleared so fps recovers ABOVE target:
-   - DESCEND under load:  scale 100% -> min 45% (10 LOWER), fps min 26.3, busy max 35.7ms.
-                          FLOOR respected (45% >= floor 10%).
-   - CLIMB back on headroom (the FIX):
-       [dyn-rs] RAISE to 48% (fps 44.8 >= tgt+3 40, headroom)
-       [dyn-rs] RAISE to 51% ... 57% ... 58% ... 59% (fps 43-45, above target)
-     while busy=22.0ms EXCEEDS 0.8*budget=20.0ms -> the OLD busy-gate raise was CLOSED,
-     so the OLD code would have been STUCK at the descended 45% floor-ward scale. The
-     NEW code climbs back via fps-above-target headroom. This is exactly the owner's
-     "stuck at the floor with headroom" bug — gone. RE-CLAMP fired live at boot.
-     cadence: 15 changes, min gap 0.49s, mean 3.73s (>=~0.5s -> no per-frame thrash).
-
-RUN descend_floor.log — controller hovers at the equilibrium near target 40 (scale
-  91-100%, fps 40-43), making small bounded RAISE/LOWER adjustments; RAISE fires at
-  fps>=43 while busy=22.2ms > 0.8*budget=20.0ms (old raise CLOSED -> the fix is live);
-  RE-CLAMP fired at boot; floor respected; 6 changes, min gap 0.99s; 0 crash sigs.
-
-RUN off_manual_retry1/2.log — OFF = MANUAL: dynamic OFF, the game RENDERS (2700
-  frames), focus=org.opengoal.gk.jak1, and the controller emits ZERO adjustment
-  events (LOWER=0 RAISE=0 RE-CLAMP=0) — idle, running at the manual render-scale.
-  0 crash sigs. (A one-off sig=7 on an earlier boot was the known ~1-in-6 link-time
-  boot flake at a native lib address, NOT reproducible across the two clean reboots
-  and unrelated to the trivial OFF field-read path; the descend runs had 0 signals.)
+  * LOWER: while the smoothed AVERAGE fps is BELOW target, step the scale DOWN ONE
+      10% increment each cycle until fps >= target (worst-case fluidity first).
+  * RAISE (probe up): while UNLOCKED and the average fps is ABOVE target with
+      headroom, step UP ONE 10% increment and keep climbing; when a step drops the
+      average below target the LOWER branch steps back down ONE and LOCKS there.
+  * LOCK: once locked, HOLD -- no probing every cycle (this kills the oscillation /
+      "bizarre" hunting) -- until the average rises a sustained ~5 fps ABOVE the level
+      we locked at (scene clearly lighter); then UNLOCK and probe up again.
+      Equilibrium = exactly ONE step below the first scale that would drop below
+      target, held steady until the scene changes enough.
+  * Vsync-capped target (target at/above the display refresh): fps can't exceed the
+      target, so "fps holding near the cap" is the upper-headroom signal instead of
+      "fps above target", so it does NOT sit stuck at the floor at a capped target.
+      Still fps-only, no busy signal.
+  * RE-CLAMP (bug 1): a runtime change to the Minimum Render Scale or target snaps the
+      running scale into the new [floor,100] window at once and drops the lock.
+  * Anti-thrash: 2nd-stage average-fps EMA (never single frames); a target-boundary
+      epsilon dead-band; ONE bounded step per cooldown (>=1s raise / >=0.5s lower
+      cadence); a settle before the lock reference is captured; a sustained-improvement
+      gate on unlock; loads/cutscenes/menus HOLD and drop the lock; a floor clamp is
+      always enforced (never below the Minimum Render Scale).
+  * OFF -> returns the manual render-scale unchanged (controller idle, manual behavior
+      fixed/unchanged).
 
 --------------------------------------------------------------------------------
-BUILD / DEPLOY / SMOKE
+PROOF -- DETERMINISTIC x86 closed-loop hill-climb (.autoport/gdfix_x86_sim.sh)
+  A desktop GPU is never the bottleneck, so real fps pins at the vsync cap at every
+  scale. So the controller's INERT test seam (*dyn-rs-sim-a*/*dyn-rs-sim-b*, default
+  off; production reads the real pc-get-fps) is armed to SYNTHESIZE the measured fps
+  from the live scale as fps = clamp(a - b*scale, [8,58]) each frame -- exactly a
+  GPU-bound device (higher scale -> lower fps), closed-loop. The controller's REAL
+  GOAL bytecode (identical to the arm64 build) then hill-climbs against it.
+  Curve: fps = 56 - 0.4*scale, dyn-target 30  =>  40->40 50->36 60->32 70->28 ...
+  So the HIGHEST scale holding fps>=30 is 60% (70% drops to 28<30) == the owner's repro.
+  evidence: .autoport/reports/Gdynamic-fix/evidence/x86_sim.log
 --------------------------------------------------------------------------------
- - x86: goalc (make-group "iso" :force) OK (1317 targets). x86 boot smoke:
-     "link finish: logo"  -> x86 unbroken.
- - arm64: build_arm64_full_consistent.sh -> 28 consistent CGO/DGO (GAME.CGO/ENGINE.CGO
-     newer than the source edit), x86 oracle restored afterward.
- - device: gdfix_run.sh push -> 28/28 sha256-verified into files/iso_data/jak1;
-     deploy_verify PASS (device provably runs fresh HEAD e97a04..-era libgk; libgk
-     unchanged by this GOAL-only fix). Device settings restored to a clean default
-     (dynamic ON, target 30, floor 40, native scale) for the owner play-test.
+P0  recreate STUCK-AT-FLOOR (heavy flat 15fps, floor 40): descends and PARKS at the
+    floor, load-following, staying UNLOCKED (the (b) fix -- no floor lock):
+      [dyn-rs] LOWER to 90% (avg fps 28.8 < tgt 30) locked=#f
+      [dyn-rs] LOWER to 80% ... 70% ... 60% ... 50% ...
+      [dyn-rs] LOWER to 40% (avg fps 15.0 < tgt 30) locked=#f   <- floor 40, UNLOCKED
+
+P1  CLIMB to the MAX holding target, then LOCK (BUG 2 -- headroom, NOT stuck at floor):
+      [dyn-rs] RAISE to 50% (avg fps 32.9 > tgt 30, headroom -- probing up)
+      [dyn-rs] RAISE to 60% (avg fps 35.9 > tgt 30, headroom -- probing up)
+      [dyn-rs] RAISE to 70% (avg fps 32.0 > tgt 30, headroom -- probing up)
+      [dyn-rs] LOWER to 60% (avg fps 28.0 < tgt 30) locked=#t    <- 70 dropped below target
+      [dyn-rs] LOCK at 60% (holding avg fps 31.9 >= tgt 30); no re-probe until avg >= 36.9
+    => climbs from the floor (40%) to 60% -- the HIGHEST scale holding target -- exactly
+       the owner's "~60%, not the floor". 60% is ONE step below 70% (the first scale
+       that drops below target). fps 31.9 >= target 30 (headroom, above target).
+
+P2  STAY-LOCKED (same curve, ~22s): holds without oscillation:
+      [dyn-rs] state avg-fps=31.9 scale=60% target=30 floor=40 locked=#t   (x11)
+
+P3  UNLOCK on a lighter scene (curve 68-0.4*scale) -> re-climb to the new MAX, LOCK:
+      [dyn-rs] UNLOCK (avg fps 43.9 >= lock+5 36.9, scene lighter -> re-probe up)
+      [dyn-rs] RAISE to 70% ... 80% ... 90% ... 100%
+      [dyn-rs] LOWER to 90% (avg fps 28.0 < tgt 30) locked=#t
+      [dyn-rs] LOCK at 90% (holding avg fps 31.9 >= tgt 30); no re-probe until avg >= 36.9
+
+P4  RE-CLAMP on a runtime Minimum-Render-Scale change (BUG 1) + FLOOR respected:
+      (floor lowered 40->10, heavy 15fps) descends 90 -> ... -> 10% (never below floor 10)
+      [dyn-rs] RE-CLAMP: setting changed -> floor=60% target=30, scale re-clamped to 60%
+    => raising the Minimum Render Scale 10 -> 60 at runtime IMMEDIATELY snaps the running
+       scale up from 10% to 60% (takes effect at once). Floor then respected at 60%.
+
+P5  OFF = manual: disable dynamic, manual render-scale 55 -> controller idle, the manual
+    scale is applied unchanged. Renderer confirms the applied 55% independently:
+      FBO Setup: requested 1056x594   (= 55% of the 1920x1080 base; 1056/1920 = 594/1080 = 0.55)
+
+Counts (one 4-min run): RAISE=8  LOWER=16  LOCK=2  UNLOCK=1  RE-CLAMP=2. Cadence is
+bounded (one step per cooldown); no thrash/oscillation while locked.
 
 --------------------------------------------------------------------------------
-CHECKLIST
---------------------------------------------------------------------------------
- [x] BUG 2: CLIMBS to the HIGHEST scale holding target; NOT stuck at the floor when
-     fps is ABOVE target (headroom). x86: 40->100 at target 25; device: 45->59 climb-
-     back while old busy-gate CLOSED. Converges to max quality meeting target.
- [x] BUG 1: runtime Minimum Render Scale change is APPLIED — RE-CLAMP snaps the
-     running scale into the new [min,100] and re-converges (setting-change clamp).
- [x] DESCEND only below target; equilibrium = max scale meeting target.
- [x] ANTI-THRASH: smoothed EMAs, dead-band, cooldown, bounded steps, cadence >=0.5s.
- [x] FLOOR respected (never below min) — x86 parks at 10; device min 45% >= floor 10.
- [x] OFF = MANUAL (controller idle; eff scale = manual render-scale).
- [x] x86 builds + boots: "link finish: logo". Engine goal_src untouched; golden pristine.
-
-AWAITING OWNER PLAY-TEST (owner_verify) — the fresh fix is live on eae4df44.
+x86 SMOKE (validator): build-x86/game/gk boots to "link finish: logo" unregressed.
+CONSISTENCY: pure-GOAL pc/ change; the test seam is inert by default (production reads
+the real pc-get-fps); engine goal_src untouched; .autoport/gold pristine; libgk
+unchanged. Device deploy_verify + boot + OWNER PLAY-TEST = the close-gate (next).
 ================================================================================
