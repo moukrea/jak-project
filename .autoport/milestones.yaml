@@ -979,6 +979,14 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Gcamera-smooth
+  name: 'OWNER 2026-06-30/07-01: the CAMERA jitters/steps when panning around Jak while everything else is perfectly fluid. Separate from game-speed (fixed). Prime lead: camera advance may ride the flickery INTEGER time-ratio (or render without interpolation) instead of the smooth fractional time-adjust-ratio Jak uses. State-anchored diagnosis (per-frame camera transform device vs golden x86), fix in the runtime/translation layer so panning is smooth without reintroducing the speed bug. Owner play-test.'
+  prompt: prompts/phase-Gcamera-smooth.md
+  validator: validators/phase-Gcamera-smooth.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
 - id: Glauncher-collection
   name: 'OWNER 2026-06-30 (REVISED): per-game APK OR collection by BUILD assets. ONE game provided -> NO launcher, boots straight into it, per-game name+icon (Jak 1->"Jak & Daxter", 2->"Jak II", 3->"Jak 3", X->"Jak X"). >1 game -> COLLECTION mode "Jak and Daxter: The Recharged Jak-pot" + a selection menu (text, touch+gamepad; future: bg/logos/idle preview). jak1-only build = verify direct boot. jak1 stays playable. Owner play-test.'
   prompt: prompts/phase-Glauncher-collection.md
