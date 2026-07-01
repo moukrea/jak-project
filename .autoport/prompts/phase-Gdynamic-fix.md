@@ -44,3 +44,18 @@ OFF=manual; x86 link finish: logo.
 
 ## Locks: ANDROID_SERIAL=eae4df44; no goalc/emitter/IGenX86_64.*; engine goal_src untouched; pc/ only goal_src; .autoport/gold READ-ONLY.
 ## Max: max_turns 2000, max_retries 5. device: true, owner_verify: true.
+
+## OWNER REFINEMENT (2026-07-01, attempt 1 still "bizarre") — EXACT hill-climb algorithm
+The convergence must be a strict incremental hill-climb with a LOCK, not whatever heuristic it does now:
+ - RAISE: if current AVERAGE fps > target AND scale < 100%: step scale UP by ONE increment, re-measure.
+     * if still > target → step up ONE more (repeat, same logic);
+     * if it drops BELOW target → step back DOWN one, and LOCK at that scale — do NOT keep probing every
+       cycle. Only UNLOCK/retry raising when the average fps rises SIGNIFICANTLY (≈5 fps sustained above
+       the level at which it locked, i.e. the scene got clearly lighter). This lock is what stops the
+       oscillation/"bizarre" behaviour.
+ - LOWER: while the current AVERAGE fps is BELOW target → step scale DOWN by one increment (repeat until
+   fps ≥ target).
+ - One step at a time, on a SMOOTHED/AVERAGE fps (not single frames), with the lock above governing when
+   to re-attempt a raise. Re-clamp on setting change (bug 1) stays.
+The result the owner wants: it settles at exactly one step below the first scale that would drop below
+target, and STAYS there (locked) until the scene changes enough — no constant hunting.
