@@ -155,8 +155,7 @@
     "Grender-split": 1,
     "Gdynamic-renderscale": 1,
     "Gcamera-smooth": 1,
-    "Gdynamic-fix": 1,
-    "Gcamera-interp": 1
+    "Gdynamic-fix": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -620,7 +619,6 @@
     "Grender-split",
     "Gdynamic-renderscale",
     "Gcamera-smooth",
-    "Gdynamic-fix",
-    "Gcamera-interp"
+    "Gdynamic-fix"
   ]
 }
