@@ -1,0 +1,20 @@
+CAPSTONE A/B — camera judder DURING AN ACTIVE PAN is caused by the timestep, not code.
+Same libgk build, same 1620-frame sustained alternating right-stick pan demo (Jak
+stationary, Geyser), same camera code. Replayed via pad_replay (cpad-injected pan that
+DOES rotate the camera). The ONLY difference is the per-frame timestep:
+  A = debug.opengoal.pad_replay_realtime=1  -> device REAL variable timestep (k dithers 1..4)
+  B = debug.opengoal.pad_replay_realtime=0  -> forced CONSTANT timestep (k pinned to 1)
+Metric = per-RENDER-frame camera yaw STEP during the active pan (what the owner sees).
+
+                                    A: REAL timestep     B: FORCED constant
+  per-frame yaw-step CoV               0.723 (uneven)      0.318 (even)
+  consecutive-step ratio  mean         2.25                1.11
+                          median       1.12                1.00  (perfectly even)
+  fraction of frames with >1.5x jump   0.40  = JUDDER       0.05  = SMOOTH
+
+=> With the timestep held constant the SAME camera pan is SMOOTH; under the device's
+   real (k-dithering) timestep it JUDERS. The judder is the integer time-ratio (k)
+   quantization, NOT an arm64 numerical/code divergence (code identical in A and B).
+   This matches: (1) the deterministic x86-vs-arm64 replay proving the camera MATRIX is
+   bit-comparable (numerical refuted), and (2) the frame-clock code k=round(real_dt*60)
+   dithering 1<->2 at the device's render-bound ~38-48fps.

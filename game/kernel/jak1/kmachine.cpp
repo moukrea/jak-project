@@ -650,8 +650,68 @@ static void pad_replay_force_goal_rng(u32 seed) {
 // so the simulation no longer depends on the (variable) real frame duration. Set
 // every frame so a mid-run video-mode reset (video.gc) cannot undo it. Default OFF
 // — only ever called while the input-replay harness is recording/replaying.
+// Gcamera-interp diagnostic: allow replaying recorded INPUT at the REAL device
+// timestep (skip the forced constant timestep) so an injected pan plays out under
+// the device's actual variable frame pacing (k dithers). This lets us capture the
+// per-RENDER-frame camera yaw DURING an active injected pan and show it juders in
+// lockstep with the integer time-ratio k (the owner's "jitter only while rotating").
+// Enabled by env OG_PAD_REPLAY_REALTIME (x86) or android prop
+// debug.opengoal.pad_replay_realtime=1. Default OFF => normal deterministic replay.
+static bool pad_replay_realtime_requested() {
+  static int cached = -1;
+  if (cached < 0) {
+    cached = 0;
+    const char* e = getenv("OG_PAD_REPLAY_REALTIME");
+    if (e && e[0] && e[0] != '0') {
+      cached = 1;
+    }
+#ifdef __ANDROID__
+    char pv[8] = {0};
+    if (__system_property_get("debug.opengoal.pad_replay_realtime", pv) > 0 && pv[0] != '0') {
+      cached = 1;
+    }
+#endif
+  }
+  return cached != 0;
+}
+
 static void pad_replay_force_timestep() {
+  if (pad_replay_realtime_requested()) {
+    return;  // real-timestep diagnostic: let the device's variable pacing drive the clock
+  }
   intern_from_c("*ticks-per-frame*")->value = 0x40000000;
+}
+
+// Gcamera-interp (autoport, owner 2026-07-01): per-logic-frame CAMERA-MATRIX dump
+// for the x86-vs-arm64 numerical-divergence localizer. Owner evidence: at a STABLE
+// framerate the gameplay camera juders while the world/Jak stay smooth — a suspected
+// arm64-specific per-frame numerical divergence in the camera pose. Under the replay
+// harness the timestep is forced to 1.0 (one 1/60s logic step per drawn frame), so
+// ALL frame-pacing variance is removed and any x86-vs-device delta in this dump is a
+// PURE numerical divergence. Dumps *math-camera*'s render pose (trans + camera-rot,
+// the exact view matrix the renderer consumes) AND *target*'s control trans as the
+// SMOOTH-object reference, so a camera-only divergence is visible in one trace.
+// Layout (little-endian floats, backend-agnostic, byte-comparable across x86/arm64):
+//   [ 0..15] *math-camera* trans      (4 floats @ mc+844,  deftype offset 848)
+//   [16..79] *math-camera* camera-rot (4x4 matrix @ mc+364, deftype offset 368)
+//   [80..91] *target* control trans   (3 floats @ ctrl+12), zero if no live target
+static void pad_replay_dump_camera() {
+  u8 buf[92];
+  std::memset(buf, 0, sizeof(buf));
+  u32 mc = intern_from_c("*math-camera*")->value;
+  if (mc != 0 && mc != (u32)s7.offset && mc < (u32)(EE_MAIN_MEM_SIZE - 0x424)) {
+    std::memcpy(buf + 0, g_ee_main_mem + mc + 844, 16);   // trans (position)
+    std::memcpy(buf + 16, g_ee_main_mem + mc + 364, 64);  // camera-rot (view rotation)
+  }
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt != 0 && tgt != (u32)s7.offset && tgt < (u32)(EE_MAIN_MEM_SIZE - 4)) {
+    u32 ctrl = 0;
+    std::memcpy(&ctrl, g_ee_main_mem + tgt + 108, 4);  // control (offset 108)
+    if (ctrl != 0 && ctrl != (u32)s7.offset && ctrl < (u32)(EE_MAIN_MEM_SIZE - 24)) {
+      std::memcpy(buf + 80, g_ee_main_mem + ctrl + 12, 12);  // Jak trans (control offset 12)
+    }
+  }
+  pad_replay::dump_state("CAM", buf, sizeof(buf));
 }
 
 
@@ -684,6 +744,10 @@ void InitMachineScheme() {
   pad_replay::set_anchor_provider(&pad_replay_anchor_reached);
   pad_replay::add_rng_reseed_callback(&pad_replay_force_goal_rng);
   pad_replay::set_timestep_force_callback(&pad_replay_force_timestep);
+  // Gcamera-interp (autoport): dump *math-camera* pose per logic frame so a state
+  // trace localizes any x86-vs-arm64 camera numerical divergence (no-op unless a
+  // trace file is open via OG_PAD_REPLAY_TRACE / debug.opengoal.pad_trace).
+  pad_replay::set_state_dump_callback(&pad_replay_dump_camera);
   make_function_symbol_from_c("install-handler", (void*)InstallHandler);      // used
   make_function_symbol_from_c("install-debug-handler", (void*)InstallDebugHandler);       // used
   make_function_symbol_from_c("file-stream-open", (void*)kopen);                          // used

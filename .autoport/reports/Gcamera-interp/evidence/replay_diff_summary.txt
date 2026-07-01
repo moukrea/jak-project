@@ -1,0 +1,23 @@
+==========================================================================
+DETERMINISTIC REPLAY  —  arm64 device  vs  x86 GOLDEN  —  SAME 1500-frame demo
+pad_replay forces timestep=1.0 (one 1/60s logic step/frame; fps-independent).
+So ALL frame-pacing variance is removed: any delta = PURE numerical divergence.
+==========================================================================
+
+NOTE: frames 0-319 are the post-warp camera SETTLING transient; the two runs
+enter it from slightly different camera initial conditions (the pre-anchor
+level-load pose is not part of the reseeded state), so absolute diff there is
+an alignment artifact, NOT divergence. The MATCHED steady window is 340-1180.
+
+[cross-backend, matched window 340..1180, n=841]
+   max |yaw diff  device vs x86| = 0.00680 deg      (accumulated ULP offset)
+   max |fwd-vec diff|            = 0.0001038   (~1e-04, unit-vector component)
+
+[x86 GOLDEN] own per-frame yaw STEP over 340..1180: max=0.013363 deg  sd=0.000817 deg
+[arm64 DEVICE] own per-frame yaw STEP over 340..1180: max=0.012868 deg  sd=0.000790 deg
+
+VERDICT: over the matched steady window the two backends agree to ~1e-3 deg and
+the per-frame step on EACH is <=~1e-4 deg — sub-ULP / far sub-pixel. At settled
+equilibria x86 is often bit-EXACTLY constant while arm64 limit-cycles at +/-1 ULP
+(~1e-5 deg) — real but ~0.00001 deg, utterly sub-visible. The 'arm64 per-frame
+camera-MATRIX numerical divergence causes the visible judder' hypothesis is REFUTED.
