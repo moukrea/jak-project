@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 167,
+  "current_phase_idx": 168,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -159,7 +159,8 @@
     "Gcamera-interp": 1,
     "Goptions-reorder": 1,
     "Glauncher-collection": 1,
-    "Gtouch-menus": 1
+    "Gtouch-menus": 1,
+    "Gwarp-dpad": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -455,7 +456,8 @@
     "Gdynamic-fix",
     "Gcamera-interp",
     "Goptions-reorder",
-    "Glauncher-collection"
+    "Glauncher-collection",
+    "Gtouch-menus"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -601,9 +603,10 @@
     "Gcamera-interp": 1782929848.9397287,
     "Goptions-reorder": 1782965004.6068058,
     "Glauncher-collection": 1782976563.7668622,
-    "Gtouch-menus": 1782980426.1945038
+    "Gtouch-menus": 1782980426.1945038,
+    "Gwarp-dpad": 1782988659.7159135
   },
-  "last_update": "2026-07-02T10:24:01.163662+00:00",
+  "last_update": "2026-07-02T12:21:09.346887+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -633,6 +636,7 @@
     "Gcamera-interp",
     "Goptions-reorder",
     "Glauncher-collection",
-    "Gtouch-menus"
+    "Gtouch-menus",
+    "Gwarp-dpad"
   ]
 }

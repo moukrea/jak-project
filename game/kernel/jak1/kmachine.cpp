@@ -853,12 +853,30 @@ static u64 f1_warp_run() {
     lg::warn("[F1-WARP] run: *game-info* not ready");
     return 0;
   }
-  u64 name = make_string_from_c("game-start");
+  // Gwarp-dpad (autoport): the continue-point name is overridable (env
+  // OG_F1_WARP_CONT / prop debug.opengoal.f1.warp.cont) so device validators
+  // can spawn at other continue points — e.g. "training-warp" puts Jak right
+  // at the Geyser Rock warp gate to exercise the warp selection UI. Default
+  // stays "game-start" (the F1 oracle-match spawn).
+  const char* cont_name = "game-start";
+  char cont_buf[128] = {0};
+#if defined(__ANDROID__)
+  // A blank/whitespace prop value (props can't be set truly empty) means
+  // "unset" — keep the default.
+  if (__system_property_get("debug.opengoal.f1.warp.cont", cont_buf) > 0 &&
+      cont_buf[strspn(cont_buf, " \t")] != '\0') {
+    cont_name = cont_buf + strspn(cont_buf, " \t");
+  }
+#endif
+  if (const char* e = std::getenv("OG_F1_WARP_CONT")) {
+    cont_name = e;
+  }
+  u64 name = make_string_from_c(cont_name);
   Ptr<Type> gi_type(*Ptr<u32>(gi - 4));  // basic: type tag is the word before field-0
   u64 cont = call_method_of_type_arg2(gi, gi_type, 18 /*get-continue-by-name*/, (u32)name, 0);
-  lg::info("[F1-WARP] get-continue-by-name(\"game-start\") -> #x{:x}", (u32)cont);
+  lg::info("[F1-WARP] get-continue-by-name(\"{}\") -> #x{:x}", cont_name, (u32)cont);
   if (cont == 0 || cont == (u32)s7.offset) {
-    lg::warn("[F1-WARP] continue 'game-start' not found; warp aborted");
+    lg::warn("[F1-WARP] continue '{}' not found; warp aborted", cont_name);
     return 0;
   }
   u32 start_fn = intern_from_c("start")->value;
