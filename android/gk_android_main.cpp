@@ -116,6 +116,17 @@ std::atomic<uint32_t> g_touch_events_seen{0};
 // d-pad). Default false so the overlay defaults to analog before boot.
 std::atomic<bool> g_overlay_in_menu{false};
 
+// Phase Gtouch-menus (autoport): the last on-screen menu tap, published by the
+// UI thread (NativeGk.onMenuTap) and consumed once per tap by the GOAL thread
+// via pc-get-touch-tap. Coordinates are normalized to [0,10000] (fraction of the
+// view * 10000) so they ride the (pointer int64) pc-bridge exactly like
+// pc-get-window-size. g_menu_tap_seq is a monotonic tap counter; the GOAL side
+// treats a tap as "new" whenever the sequence changed since its last read, so a
+// single adb/finger DOWN produces exactly one row hit-test.
+std::atomic<int32_t> g_menu_tap_x{0};
+std::atomic<int32_t> g_menu_tap_y{0};
+std::atomic<uint32_t> g_menu_tap_seq{0};
+
 // Repeat startGame calls (e.g. after a configuration change) must be idempotent.
 std::atomic<bool> g_runtime_booted{false};
 
@@ -767,6 +778,30 @@ s64 a35_pc_get_active_display_refresh_rate() {
   return android_gfx::get_refresh_rate();
 }
 
+// Phase Gtouch-menus (autoport): hand the last on-screen menu tap to the GOAL
+// progress-menu code so it can hit-test the tapped row. Writes three int64s:
+//   x_ptr, y_ptr  -> normalized [0,10000] tap coordinates (fraction of the view)
+//   flag_ptr      -> 1 exactly ONCE per new tap, 0 otherwise
+// The "fresh" edge is derived from the monotonic g_menu_tap_seq counter vs. a
+// per-reader latch, so calling this every frame from respond-common yields one
+// hit-test per finger DOWN. Only the GOAL thread calls this (single reader), so
+// the static latch needs no more than relaxed ordering.
+void a35_pc_get_touch_tap(u32 x_ptr, u32 y_ptr, u32 flag_ptr) {
+  static std::atomic<uint32_t> s_last_seq{0};
+  const uint32_t seq = g_menu_tap_seq.load(std::memory_order_acquire);
+  const uint32_t prev = s_last_seq.exchange(seq, std::memory_order_relaxed);
+  const s64 fresh = (seq != prev) ? 1 : 0;
+  if (x_ptr) {
+    *Ptr<s64>(x_ptr).c() = g_menu_tap_x.load(std::memory_order_relaxed);
+  }
+  if (y_ptr) {
+    *Ptr<s64>(y_ptr).c() = g_menu_tap_y.load(std::memory_order_relaxed);
+  }
+  if (flag_ptr) {
+    *Ptr<s64>(flag_ptr).c() = fresh;
+  }
+}
+
 u64 a35_pc_get_display_mode() {
   return jak1::intern_from_c("fullscreen").offset;
 }
@@ -867,6 +902,8 @@ void a17_bind_pc_helpers() {
   // frozen f1c GOAL machinery renders the authored 4:3 framing (pillarboxed).
   jak1::make_function_symbol_from_c("pc-get-window-size", (void*)a35_pc_get_window_size);
   jak1::make_function_symbol_from_c("pc-get-window-scale", d);
+  // Phase Gtouch-menus (autoport): live touch-tap channel for touch-browsable menus.
+  jak1::make_function_symbol_from_c("pc-get-touch-tap", (void*)a35_pc_get_touch_tap);
   jak1::make_function_symbol_from_c("pc-set-window-size!", d);
   jak1::make_function_symbol_from_c("pc-get-num-resolutions", d);
   jak1::make_function_symbol_from_c("pc-get-resolution", d);
@@ -6673,6 +6710,25 @@ Java_org_opengoal_gk_NativeGk_onTouchEvent(JNIEnv* /*env*/, jclass /*clazz*/,
   }
   __android_log_print(ANDROID_LOG_DEBUG, kGkLogTag,
                       "touch[%u]: action=%s x=%d y=%d", n, action_str, x, y);
+}
+
+// Phase Gtouch-menus (autoport): the overlay forwards a menu-row tap here (a
+// finger DOWN that missed every on-screen control, while a menu is up). nx/ny
+// are normalized [0,1] fractions of the view; we clamp, scale to [0,10000] and
+// bump the sequence so the GOAL side hit-tests exactly one row per tap. Touch is
+// additive — the D-pad/gamepad path is untouched.
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_onMenuTap(JNIEnv* /*env*/, jclass /*clazz*/,
+                                        jfloat nx, jfloat ny) {
+  auto clamp01 = [](float v) { return v < 0.f ? 0.f : (v > 1.f ? 1.f : v); };
+  g_menu_tap_x.store((int32_t)(clamp01((float)nx) * 10000.f),
+                     std::memory_order_relaxed);
+  g_menu_tap_y.store((int32_t)(clamp01((float)ny) * 10000.f),
+                     std::memory_order_relaxed);
+  g_menu_tap_seq.fetch_add(1, std::memory_order_release);
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "Gtouch-menus onMenuTap: nx=%.4f ny=%.4f -> hit-test",
+                      (double)nx, (double)ny);
 }
 
 // Phase D3 (autoport): expose the renderer's sustained-swap counter to

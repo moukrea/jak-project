@@ -517,6 +517,23 @@ public class TouchOverlayView extends View {
             t.ctl = hit;
             t.kind = hit.kind;
             actuateDown(t, hit, x, y);
+        } else if (NativeGk.isInMenu()) {
+            // Phase Gtouch-menus (autoport): a tap that missed every on-screen
+            // control while a menu is up drives menu-row navigation by touch.
+            // Forward the NORMALIZED tap; the GOAL progress-menu code hit-tests
+            // the row under it and reproduces the d-pad+confirm action. This is
+            // additive: taps on the d-pad/buttons above still hit `hit != null`.
+            // No camera pan in menus, so this takes priority over camRegionLeft.
+            t.kind = -1; // wake-only: no per-move handling, released on UP
+            final int vw = getWidth();
+            final int vh = getHeight();
+            if (vw > 0 && vh > 0) {
+                NativeGk.onMenuTap(x / (float) vw, y / (float) vh);
+                logActuate(t, "menu-tap", "normalized ("
+                        + String.format("%.3f", x / (float) vw) + ","
+                        + String.format("%.3f", y / (float) vh)
+                        + ") -> NativeGk.onMenuTap (GOAL hit-tests the row)", true);
+            }
         } else if (x >= camRegionLeft) {
             t.ctl = null;
             t.kind = KIND_CAMERA;
