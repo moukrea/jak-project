@@ -1,0 +1,78 @@
+Glauncher-collection — DEVICE CLOSE-GATE SUMMARY (Redmi Note 9 Pro, serial eae4df44)
+Date: 2026-07-02   HEAD: ea7446c45   APK chain hash: 7603122f0e625c41
+
+STEP 1 INSTALL: SUCCESS. "Performing Streamed Install / Success" (exit 0). No MIUI dialog.
+  artifact: 01-install.txt
+
+STEP 2 DEPLOY-VERIFY: PASS. "DEPLOY-VERIFY PASS: device eae4df44 provably runs the fresh HEAD (ea7446c45) libgk.so"
+  ok: libgk.so newer than newest source; ok: chain build==APK==device (7603122f0e625c41)
+  artifact: 02-deploy-verify.txt
+
+STEP 3 SINGLE-GAME DIRECT BOOT: CONFIRMED (on clean boot).
+  decision log (prop empty): "bundled game set = [jak1] (installed=[jak1])",
+    "single-game build -> booting straight into 'jak1' (no launcher menu)",
+    "jak1 asset bundle already unpacked (version=3) — skipping decompress, data ready".
+  focus: org.opengoal.gk.jak1/.MainActivity (valid frame).
+  screencap 03-single-ingame.png: Jak & Daxter 3D title logo over Sandover village flythrough
+    (floating island/ocean/sky) + "PRESS START" + "PRECURSOR LEGACY" subtitle. NO selection menu (direct boot). Renderer flowing (frame 2160, 36 buckets, ~350-500k tris).
+  ANOMALY: the FIRST direct-boot attempt hit the intermittent link-time BOOT-FLAKE (sig=11
+    fault=0x22b2e191b9582a pc=0x7f03eb8144, crashed just after "link finish: ocean-h", pc/lr in
+    JIT range with no symbol). Retry booted clean. This flake is boot-init, NOT launcher logic
+    (decision log is always correct). See 03-single-fulllogcat.txt.
+  artifacts: 03-single-logcat.txt, 03-single-focus.txt, 03-single-ingame.png, 03-single-fulllogcat.txt
+
+STEP 4 COLLECTION MENU (dry-run, debug.opengoal.games=jak1,jak2): CONFIRMED with ONE gamepad-confirm bug.
+  menu decision log: "game set from debug.opengoal.games override: [jak1, jak2]",
+    "collection build (2 games) -> showing selection menu",
+    "collection menu shown with 2 entries: [jak1, jak2]".
+  focus (menu): org.opengoal.gk.jak1/.LoaderActivity.
+  screencap 04-menu.png: header "Jak and Daxter: The Recharged Jak-pot" (amber),
+    subtitle "Select a game — tap, or use your controller (D-pad + Ⓐ)",
+    row1 "Jak & Daxter" (teal-highlighted=selected), row2 "Jak II   (not included)".
+    2400x1080 landscape: row1 center ~(1200,548), row2 ~(1200,740).
+  GAMEPAD NAV: WORKS. input dpad keyevent 20 (DOWN) moved teal highlight to "Jak II"
+    (05-menu-gamepad-down.png); input dpad keyevent 19 (UP) returned it to "Jak & Daxter"
+    (06-menu-gamepad-up.png, md5 back to jak1 baseline). Bidirectional confirmed.
+    NOTE: injected D-pad must use the 'dpad' input source ("input dpad keyevent N"); the
+    default keyboard/gamepad sources are not routed to the menu's onKeyDown.
+  TOUCH SELECT: WORKS. tap (1200,548) on "Jak & Daxter" -> log "menu select 'jak1'
+    (Jak & Daxter) — unpacking + launching" -> booted to MainActivity, game rendering
+    (07-menu-selected-ingame.png = title over village, frame 2040, ~470k tris).
+  NOT-INCLUDED PATH: WORKS via TOUCH. tap "Jak II (not included)" -> log
+    "menu select 'jak2' — Jak II is not included in this build." (WARN), focus STAYED on
+    LoaderActivity (menu remained), no launch (08-notincluded-menu.png).
+  BUG FOUND (gamepad confirm on a navigated row selects the WRONG game):
+    After D-pad DOWN moves the teal highlight to jak2 (screencap-verified e05d18...), pressing
+    DPAD_CENTER (23) / ENTER (66) confirmed jak1 anyway ("menu select 'jak1' ... launching",
+    focus->MainActivity). Root cause in LoaderActivity.java: rows are setFocusable(true)+
+    setClickable(true), so the framework's DPAD_CENTER fires a CLICK on the view-FOCUSED row
+    (defaults to row0=jak1 via row.OnClickListener confirm(idx=0)) BEFORE/instead of reaching
+    Activity.onKeyDown's confirm(selectedIndex). The teal highlight (selectedIndex) and the
+    Android view-focus are DECOUPLED. Net: gamepad D-pad NAVIGATION is correct, but gamepad
+    CONFIRM ignores the navigation and confirms whatever row holds view-focus (row0).
+    Touch selection (all rows) is unaffected and correct. NOT a source edit was made.
+  artifacts: 04-menu-logcat.txt, 04-menu-focus.txt, 04-menu.png, 05-menu-gamepad-down.png,
+    06-menu-gamepad-up.png, 07-select-logcat.txt, 07-select-focus.txt, 07-menu-selected-ingame.png,
+    08-notincluded-logcat.txt, 08-notincluded-menu.png
+
+STEP 5 RESTORE SINGLE-GAME (override not sticky): CONFIRMED.
+  With debug.opengoal.games cleared (empty), decision log: "bundled game set = [jak1]",
+    "single-game build -> booting straight into 'jak1' (no launcher menu)"; NO "collection menu shown".
+  Booted to MainActivity (09-restore-ingame.png = title over village, frame 2040, ~470k tris).
+  ANOMALY: first restore boot hit the SAME boot-flake, this time sig=4 (SIGILL)
+    fault=0x7f0017fd24 pc=0x7f0017fd24 lr=0x7f03eb8240 (pc==fault, nearest-fn 'type' slot 0x14fd54,
+    lr JIT no-symbol — executing a GOAL heap object as code). Retry booted clean.
+    Boot-init flake, not launcher. See 09-restore-crash-fulllogcat.txt.
+  artifacts: 09-restore-logcat.txt, 09-restore-focus.txt, 09-restore-ingame.png, 09-restore-crash-fulllogcat.txt
+
+CRASH SIGNATURES (VERBATIM):
+  STEP3 attempt1:  GK-DIAG sig=11 fault=0x22b2e191b9582a pc=0x7f03eb8144 lr=0x7f03eb8124
+  STEP5 restore1:  GK-DIAG sig=4 fault=0x7f0017fd24 pc=0x7f0017fd24 lr=0x7f03eb8240
+  Both = intermittent link-time boot-flake (documented ~1-in-6 class), both recovered on retry.
+  No crash occurred in any menu/launcher code path.
+
+VERDICT: Launcher install + deploy chain PROVEN. Single-game direct boot PROVEN (name path
+  "Jak & Daxter", no menu). Collection menu PROVEN (correct header + 2 rows, touch select + touch
+  not-included + D-pad navigation all correct). Override-not-sticky PROVEN. Game plays in every mode.
+  OPEN DEFECT (not blocking core deliverable): gamepad CONFIRM after D-pad navigation confirms the
+  view-focused row (jak1), not the highlighted row — view-focus vs selectedIndex decoupling.

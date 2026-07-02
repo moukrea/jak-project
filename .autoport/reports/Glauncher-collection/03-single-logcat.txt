@@ -1,0 +1,3 @@
+07-02 09:41:32.645  9740  9740 I opengoal-gk: LoaderActivity: bundled game set = [jak1] (installed=[jak1])
+07-02 09:41:32.645  9740  9740 I opengoal-gk: single-game build -> booting straight into 'jak1' (no launcher menu)
+07-02 09:41:32.835  9740  9777 I opengoal-gk: jak1 asset bundle already unpacked (version=3) — skipping decompress, data ready

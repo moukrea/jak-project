@@ -11,6 +11,53 @@ plugins {
     id("com.android.application")
 }
 
+// Phase Glauncher-collection (autoport 2026-07-02): ASSET-DRIVEN game detection.
+//
+// The set of games an APK contains == which per-game asset bundles
+// (`<game>_assets.zip`) are present under that flavor's assets bundle dir at
+// BUILD time. Exactly ONE game => single-game APK: boots STRAIGHT into that game
+// with its own launcher name + icon (no menu). MORE THAN ONE => COLLECTION APK:
+// label "Jak and Daxter: The Recharged Jak-pot" + a boot selection menu. The
+// same detection runs at runtime in LoaderActivity (it enumerates the bundle
+// dir), so dropping a 2nd game's bundle into a flavor flips it to collection
+// with no other code change.
+//
+// These are `val` lambdas (not top-level `fun`s) so they capture the Project
+// receiver and can call file(); they must be declared before the android {}
+// block that consumes appLabelFor().
+val gameTitles = mapOf(
+    "jak1" to "Jak & Daxter",
+    "jak2" to "Jak II",
+    "jak3" to "Jak 3",
+    "jakx" to "Jak X",
+)
+val collectionTitle = "Jak and Daxter: The Recharged Jak-pot"
+val titleFor: (String) -> String = { id -> gameTitles[id] ?: id }
+val detectBundledGames: (String) -> List<String> = { flavor ->
+    val dir = file("src/$flavor/assets-bundled/bundle")
+    if (!dir.isDirectory) emptyList()
+    else (dir.listFiles() ?: emptyArray())
+        .filter { it.isFile && it.name.endsWith("_assets.zip") }
+        .map { it.name.removeSuffix("_assets.zip") }
+        .sorted()
+}
+// Resolve the launcher label from the detected bundle set. A flavor with no
+// bundle staged yet falls back to its own game id (a single-game flavor is a
+// single game by definition); the `collection` flavor is the collection
+// container by definition, so it stays the collection title even while empty.
+val appLabelFor: (String, String) -> String = { flavor, fallbackGame ->
+    val games = detectBundledGames(flavor)
+    when {
+        games.size > 1 -> collectionTitle
+        games.size == 1 -> titleFor(games[0])
+        flavor == "collection" -> collectionTitle
+        else -> titleFor(fallbackGame)
+    }
+}
+// resValue string values are inserted as XML text: escape the ampersand in
+// "Jak & Daxter" (and any apostrophe) so aapt gets valid XML.
+val resEscape: (String) -> String = { s -> s.replace("&", "&amp;").replace("'", "\\'") }
+
 android {
     namespace = "org.opengoal.gk"
     compileSdk = 34
@@ -33,31 +80,50 @@ android {
 
     flavorDimensions += "game"
     productFlavors {
-        // Phase Gpkg-branding (autoport 2026-06-27): app_name moved to
-        // res/values/strings.xml ("Jak & Daxter") so the launcher label
-        // lives in the manifest resource graph and isn't duplicated across
-        // flavors (a per-flavor resValue + a strings.xml entry of the same
-        // name collide as a duplicate resource). game_name stays per-flavor:
-        // the Java loader reads R.string.game_name to select which game's
-        // data to extract/boot. applicationId/suffix are UNCHANGED so the
-        // package id stays org.opengoal.gk.jak1 (installs/saves intact).
+        // Phase Glauncher-collection (autoport 2026-07-02): the launcher label
+        // (app_name) is now ASSET-DRIVEN and set per flavor via resValue() from
+        // appLabelFor() — a single-game flavor gets that game's title, the
+        // collection flavor gets "Jak and Daxter: The Recharged Jak-pot".
+        // app_name was REMOVED from res/values/strings.xml so the per-flavor
+        // resValue is the single source (they collide if both are present —
+        // that is why Gpkg-branding had kept it only in strings.xml). game_name
+        // stays per-flavor: the Java loader/MainActivity read R.string.game_name
+        // as the single-game fallback. applicationId suffixes are UNCHANGED so
+        // org.opengoal.gk.jak1 (installs/saves) stays intact.
         create("jak1") {
             dimension = "game"
             applicationIdSuffix = ".jak1"
             versionNameSuffix = "-jak1"
             resValue("string", "game_name", "jak1")
+            resValue("string", "app_name", resEscape(appLabelFor("jak1", "jak1")))
         }
         create("jak2") {
             dimension = "game"
             applicationIdSuffix = ".jak2"
             versionNameSuffix = "-jak2"
             resValue("string", "game_name", "jak2")
+            resValue("string", "app_name", resEscape(appLabelFor("jak2", "jak2")))
         }
         create("jak3") {
             dimension = "game"
             applicationIdSuffix = ".jak3"
             versionNameSuffix = "-jak3"
             resValue("string", "game_name", "jak3")
+            resValue("string", "app_name", resEscape(appLabelFor("jak3", "jak3")))
+        }
+        // The multi-game COLLECTION container. Distinct package
+        // (org.opengoal.gk.collection) so it coexists with the single-game
+        // installs. It has no single game_name (the loader picks from the
+        // bundled set) — game_name is kept as "" so R.string.game_name still
+        // resolves for the shared MainActivity/LoaderActivity code. Populate
+        // src/collection/assets-bundled/bundle/ with 2+ <game>_assets.zip
+        // (+ <game>.manifest.properties) to build a real collection (STEP-1).
+        create("collection") {
+            dimension = "game"
+            applicationIdSuffix = ".collection"
+            versionNameSuffix = "-collection"
+            resValue("string", "game_name", "")
+            resValue("string", "app_name", resEscape(appLabelFor("collection", "")))
         }
     }
 
@@ -83,6 +149,12 @@ android {
                 if (project.findProperty("slimIso") == "true") "src/jak1/assets-slim"
                 else "src/jak1/assets-bundled"
             ))
+        }
+        // Phase Glauncher-collection: the collection flavor ships MULTIPLE
+        // per-game bundles from its own assets-bundled dir. Empty today (only
+        // jak1 assets exist); STEP-1 stages jak2/jak3 zips here.
+        getByName("collection") {
+            assets.setSrcDirs(listOf("src/collection/assets-bundled"))
         }
     }
 
@@ -213,4 +285,46 @@ tasks.matching {
     it.name.startsWith("merge") && it.name.contains("Jak1") && it.name.endsWith("Assets")
 }.configureEach {
     dependsOn(bundleJak1Assets)
+}
+
+// Phase Glauncher-collection (autoport 2026-07-02): ASSET-DRIVEN detection
+// demonstrator. Prints, per flavor, the bundled games + the resulting mode
+// (SINGLE vs COLLECTION) + the launcher label appLabelFor() computes — the exact
+// values the built APK carries. This is the build-time half of the 1-vs-collection
+// detection (the runtime half is LoaderActivity enumerating the same bundle dir).
+//
+//   ./gradlew printGameDetection                      # scan every flavor's bundle dir
+//   ./gradlew printGameDetection -PdetectDir=/tmp/x   # DRY-RUN an arbitrary dir
+//
+// The -PdetectDir dry-run lets a test stage a synthetic 2-game bundle dir
+// (touch jak1_assets.zip jak2_assets.zip) and prove detection flips to COLLECTION
+// + "The Recharged Jak-pot" WITHOUT shipping a real 2nd game.
+tasks.register("printGameDetection") {
+    description = "Asset-driven game detection: per flavor (or -PdetectDir), print bundled games + mode + app label."
+    group = "verification"
+    doLast {
+        val dryDir = project.findProperty("detectDir") as String?
+        if (dryDir != null) {
+            val d = file(dryDir)
+            val games = if (d.isDirectory)
+                (d.listFiles() ?: emptyArray())
+                    .filter { it.isFile && it.name.endsWith("_assets.zip") }
+                    .map { it.name.removeSuffix("_assets.zip") }.sorted()
+            else emptyList()
+            val mode = if (games.size > 1) "COLLECTION" else "SINGLE"
+            val label = if (games.size > 1) collectionTitle else titleFor(games.firstOrNull() ?: "jak1")
+            println("DETECT dir=$dryDir games=$games count=${games.size} mode=$mode label=\"$label\"")
+            return@doLast
+        }
+        listOf("jak1", "jak2", "jak3", "collection").forEach { fl ->
+            val games = detectBundledGames(fl)
+            val mode = when {
+                games.size > 1 -> "COLLECTION"
+                games.isEmpty() && fl == "collection" -> "COLLECTION(empty)"
+                else -> "SINGLE"
+            }
+            val label = appLabelFor(fl, if (fl == "collection") "" else fl)
+            println("DETECT flavor=$fl bundledGames=$games count=${games.size} mode=$mode label=\"$label\"")
+        }
+    }
 }

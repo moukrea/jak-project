@@ -1,0 +1,3 @@
+07-02 09:43:07.393  9939  9939 I opengoal-gk: game set from debug.opengoal.games override: [jak1, jak2]
+07-02 09:43:07.396  9939  9939 I opengoal-gk: collection build (2 games) -> showing selection menu
+07-02 09:43:07.544  9939  9939 I opengoal-gk: collection menu shown with 2 entries: [jak1, jak2]

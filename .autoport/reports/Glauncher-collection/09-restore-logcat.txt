@@ -1,0 +1,2 @@
+07-02 09:50:49.868 11289 11289 I opengoal-gk: LoaderActivity: bundled game set = [jak1] (installed=[jak1])
+07-02 09:50:49.868 11289 11289 I opengoal-gk: single-game build -> booting straight into 'jak1' (no launcher menu)

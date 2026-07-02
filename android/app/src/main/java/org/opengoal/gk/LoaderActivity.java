@@ -1,74 +1,108 @@
-// Phase Gpkg-distributable (autoport 2026-06-27): one-shot loader that
-// DECOMPRESSES the APK-bundled, COMPRESSED runtime-asset archive into the
-// app's private filesDir on first launch, then hands off to MainActivity.
+// Phase Glauncher-collection (autoport 2026-07-02): the launcher entry point.
+// It decides — from which per-game asset bundles are present — whether this APK
+// is a SINGLE-game build or a COLLECTION, then either boots straight into the one
+// game or shows a selection menu, and finally DECOMPRESSES the chosen game's
+// bundled asset archive into the app's private filesDir before handing off to
+// MainActivity.
 //
-// What changed vs the old phase-17 loader: the APK used to bundle the
-// ~1.34 GiB runtime data as RAW, uncompressed files (assets/iso_data/<game>
-// + assets/fr3) and this activity just COPIED them out. The owner's revised
-// distributable design ships those assets as ONE DEFLATE zip
-// (assets/bundle/<game>_assets.zip, built on PC by build_asset_bundle.sh)
-// so the APK is smaller and the raw files aren't laid down until first run.
-// This activity now streams that zip through java.util.zip.ZipInputStream
-// and writes each entry to its on-device home.
+// ASSET-DRIVEN mode (mirrors build.gradle.kts detectBundledGames):
+//   - The set of games == the `<game>_assets.zip` archives under assets/bundle/.
+//   - EXACTLY ONE game  -> NO menu; unpack it and boot straight into the game.
+//   - MORE THAN ONE     -> a selection menu (text rows, usable by TOUCH and by
+//                          GAMEPAD/D-pad); pick one -> unpack -> boot it.
+//   - A debug override (getprop debug.opengoal.games=jak1,jak2) lets a build
+//     that physically bundles one game still exercise the collection menu on a
+//     real device (dry-run) without shipping a 2nd game. Games listed in the
+//     override but with no bundled archive are shown but reported "not included".
 //
-// Requirements this satisfies (the loop never blocks the UI thread, never
-// trusts a half-finished unpack):
-//   1. a background worker thread (the UI thread would ANR after 5s),
-//   2. a visible determinate progress BAR + status text,
-//   3. a one-time, idempotent VERSION STAMP so later launches skip straight
-//      to MainActivity in O(1); a new APK (bumped bundle version) forces a
-//      clean re-decompress,
-//   4. a low-storage pre-check (clear error instead of a half-unpack), and
-//   5. integrity verification: ZipInputStream validates each entry's CRC32
-//      as it streams, and we cross-check the final file count + byte total
-//      against the manifest before writing the stamp.
+// The DECOMPRESS half is unchanged from Gpkg-distributable except that it is now
+// per-game: manifest/zip/version-stamp are all keyed by game, so multiple games'
+// data can coexist in filesDir. jak1 keeps its legacy stamp name so an existing
+// jak1 install is NOT forced to re-decompress on upgrade.
 //
-// The stamp is written LAST, after every output file is fully closed. A
-// SIGKILL / low-battery kill mid-unpack leaves the stamp absent; the next
-// launch wipes the partial data and restarts — never boot off a half-unpack
-// (a truncated DGO would crash the runtime far more confusingly).
+// Correctness guarantees preserved: background worker thread (no ANR), a visible
+// determinate progress bar, an idempotent version stamp, a low-storage precheck,
+// per-entry CRC32 + file-count/byte-total integrity, and the stamp written LAST
+// so a SIGKILL mid-unpack never boots off a half-written data set.
 
 package org.opengoal.gk;
 
 import android.content.Intent;
 import android.content.res.AssetManager;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.StatFs;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.TreeSet;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class LoaderActivity extends AppCompatActivity {
     private static final String TAG = "opengoal-gk";
 
-    // Single compressed archive + its manifest, both bundled under assets/bundle/.
+    // Compressed archives + manifests live under assets/bundle/.
     private static final String BUNDLE_DIR = "bundle";
-    private static final String MANIFEST_ASSET = BUNDLE_DIR + "/manifest.properties";
-
-    // The on-device version stamp. Its content is the bundle version; a
-    // mismatch (new APK shipped a new payload) forces a clean re-decompress.
-    private static final String STAMP_NAME = ".asset_bundle_stamp";
+    private static final String ZIP_SUFFIX = "_assets.zip";
 
     private static final int COPY_BUFFER_BYTES = 256 * 1024;
     // Free-space safety margin over the raw uncompressed size.
     private static final double STORAGE_MARGIN = 1.05;
 
+    // Human-facing titles for the collection menu + single-game label. Keep in
+    // sync with build.gradle.kts gameTitles / appLabelFor.
+    private static final Map<String, String> GAME_TITLES = new LinkedHashMap<>();
+    static {
+        GAME_TITLES.put("jak1", "Jak & Daxter");
+        GAME_TITLES.put("jak2", "Jak II");
+        GAME_TITLES.put("jak3", "Jak 3");
+        GAME_TITLES.put("jakx", "Jak X");
+    }
+    private static final String COLLECTION_TITLE =
+            "Jak and Daxter: The Recharged Jak-pot";
+
+    // Palette (matches the placeholder launcher icon).
+    private static final int COL_BG        = 0xFF101820;
+    private static final int COL_TEXT      = 0xFFE6ECF2;
+    private static final int COL_DIM       = 0xFF9FB0C0;
+    private static final int COL_GOLD      = 0xFFF4C542;
+    private static final int COL_ROW_SEL   = 0xFF1E7A5A; // eco teal
+    private static final int COL_ROW_IDLE  = 0x00000000;
+
     private TextView status;
     private ProgressBar progress;
     private Thread worker;
+
+    // Menu state (only used in collection mode).
+    private boolean inMenu = false;
+    private List<String> menuGames;
+    private List<TextView> menuRows;
+    private int selectedIndex = 0;
+    private int lastAxisDir = 0; // d-pad/stick debounce
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,13 +112,239 @@ public class LoaderActivity extends AppCompatActivity {
         // the user another full decompress on next launch.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        List<String> games = resolveGameList();
+        Log.i(TAG, "LoaderActivity: bundled game set = " + games
+                + " (installed=" + installedGames() + ")");
+
+        if (games.size() <= 1) {
+            // SINGLE-GAME: no launcher menu — boot straight into the one game.
+            String game = games.isEmpty() ? "" : games.get(0);
+            if (game.isEmpty()) {
+                // Ultra-safe fallback to the flavor default.
+                try { game = getString(R.string.game_name); } catch (Throwable ignore) {}
+            }
+            Log.i(TAG, "single-game build -> booting straight into '" + game
+                    + "' (no launcher menu)");
+            showProgressUi();
+            beginUnpackAndLaunch(game);
+        } else {
+            // COLLECTION: show the selection menu.
+            Log.i(TAG, "collection build (" + games.size()
+                    + " games) -> showing selection menu");
+            showMenuUi(games);
+        }
+    }
+
+    // --- game-set detection (asset-driven, mirrors build.gradle.kts) ---------
+
+    /**
+     * The ordered set of games this launcher offers: a debug override if set,
+     * else the games with a bundled archive in assets/bundle/, else the
+     * single-game flavor default.
+     */
+    private List<String> resolveGameList() {
+        // 1. Debug override — lets a single-game APK exercise the collection
+        //    menu on a real device (dry-run). `adb shell setprop
+        //    debug.opengoal.games jak1,jak2` then relaunch.
+        String override = getProp("debug.opengoal.games");
+        if (override != null && !override.trim().isEmpty()) {
+            List<String> out = new ArrayList<>();
+            for (String s : override.split(",")) {
+                String g = s.trim();
+                if (!g.isEmpty() && !out.contains(g)) out.add(g);
+            }
+            if (!out.isEmpty()) {
+                Log.i(TAG, "game set from debug.opengoal.games override: " + out);
+                return out;
+            }
+        }
+        // 2. Asset-driven: enumerate the bundled archives.
+        List<String> bundled = installedGames();
+        if (!bundled.isEmpty()) return bundled;
+
+        // 3. Fallback: the single-game flavor default (e.g. jak1).
+        try {
+            String g = getString(R.string.game_name);
+            if (g != null && !g.isEmpty()) return new ArrayList<>(Arrays.asList(g));
+        } catch (Throwable ignore) {}
+        return new ArrayList<>();
+    }
+
+    /** Games with a real `<game>_assets.zip` bundled in this APK, sorted. */
+    private List<String> installedGames() {
+        TreeSet<String> games = new TreeSet<>();
+        try {
+            String[] entries = getAssets().list(BUNDLE_DIR);
+            if (entries != null) {
+                for (String e : entries) {
+                    if (e.endsWith(ZIP_SUFFIX)) {
+                        games.add(e.substring(0, e.length() - ZIP_SUFFIX.length()));
+                    }
+                }
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "installedGames: could not list assets/" + BUNDLE_DIR, e);
+        }
+        return new ArrayList<>(games);
+    }
+
+    private boolean isInstalled(String game) {
+        return assetExists(BUNDLE_DIR + "/" + game + ZIP_SUFFIX);
+    }
+
+    private String titleFor(String game) {
+        String t = GAME_TITLES.get(game);
+        return t != null ? t : game;
+    }
+
+    // --- collection selection menu (touch + gamepad) -------------------------
+
+    private void showMenuUi(List<String> games) {
+        inMenu = true;
+        menuGames = games;
+        menuRows = new ArrayList<>();
+        selectedIndex = 0;
+
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(0xFF101010);
+        root.setBackgroundColor(COL_BG);
+
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(dp(48), dp(32), dp(48), dp(32));
+        FrameLayout.LayoutParams colLp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT);
+        colLp.gravity = Gravity.CENTER;
+        root.addView(col, colLp);
+
+        TextView header = new TextView(this);
+        header.setText(COLLECTION_TITLE);
+        header.setTextColor(COL_GOLD);
+        header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
+        header.setGravity(Gravity.CENTER);
+        col.addView(header, wrap());
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText("Select a game — tap, or use your controller (D-pad + Ⓐ)");
+        subtitle.setTextColor(COL_DIM);
+        subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        subtitle.setGravity(Gravity.CENTER);
+        subtitle.setPadding(0, dp(8), 0, dp(24));
+        col.addView(subtitle, wrap());
+
+        for (int i = 0; i < games.size(); i++) {
+            final String game = games.get(i);
+            final int idx = i;
+            TextView row = new TextView(this);
+            String label = titleFor(game);
+            if (!isInstalled(game)) label += "   (not included)";
+            row.setText(label);
+            row.setTextColor(COL_TEXT);
+            row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+            row.setPadding(dp(24), dp(18), dp(24), dp(18));
+            // Touch: clickable so a tap selects+confirms that row. NOT focusable:
+            // if a row held Android view-focus, the framework would consume
+            // DPAD_CENTER/ENTER as a click on the FOCUSED row (always row 0) before
+            // Activity.onKeyDown runs — decoupling gamepad-confirm from the teal
+            // `selectedIndex` highlight. Non-focusable rows let all D-pad keys
+            // (incl. CENTER) reach onKeyDown, which confirms `selectedIndex`.
+            row.setClickable(true);
+            row.setFocusable(false);
+            row.setOnClickListener(v -> { selectedIndex = idx; highlight(); confirm(idx); });
+            LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            rlp.topMargin = dp(6);
+            col.addView(row, rlp);
+            menuRows.add(row);
+        }
+
+        setContentView(root);
+        highlight();
+        Log.i(TAG, "collection menu shown with " + games.size() + " entries: " + games);
+    }
+
+    private void highlight() {
+        if (menuRows == null) return;
+        for (int i = 0; i < menuRows.size(); i++) {
+            TextView r = menuRows.get(i);
+            boolean sel = (i == selectedIndex);
+            r.setBackgroundColor(sel ? COL_ROW_SEL : COL_ROW_IDLE);
+            r.setTextColor(sel ? Color.WHITE : COL_TEXT);
+        }
+    }
+
+    private void moveSelection(int delta) {
+        if (menuGames == null || menuGames.isEmpty()) return;
+        int n = menuGames.size();
+        selectedIndex = ((selectedIndex + delta) % n + n) % n;
+        highlight();
+    }
+
+    private void confirm(int idx) {
+        if (menuGames == null || idx < 0 || idx >= menuGames.size()) return;
+        String game = menuGames.get(idx);
+        if (!isInstalled(game)) {
+            String msg = titleFor(game) + " is not included in this build.";
+            Log.w(TAG, "menu select '" + game + "' — " + msg);
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Log.i(TAG, "menu select '" + game + "' (" + titleFor(game) + ") — unpacking + launching");
+        inMenu = false;
+        showProgressUi();
+        beginUnpackAndLaunch(game);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (inMenu) {
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    moveSelection(-1); return true;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    moveSelection(1); return true;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                case KeyEvent.KEYCODE_BUTTON_A:
+                case KeyEvent.KEYCODE_BUTTON_START:
+                    confirm(selectedIndex); return true;
+                default:
+                    break;
+            }
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onGenericMotionEvent(MotionEvent event) {
+        if (inMenu && (event.getSource() & android.view.InputDevice.SOURCE_JOYSTICK)
+                == android.view.InputDevice.SOURCE_JOYSTICK
+                && event.getAction() == MotionEvent.ACTION_MOVE) {
+            float hat = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+            float ly = event.getAxisValue(MotionEvent.AXIS_Y);
+            float v = Math.abs(hat) > 0.5f ? hat : ly;
+            int dir = v > 0.5f ? 1 : (v < -0.5f ? -1 : 0);
+            if (dir != 0 && dir != lastAxisDir) {
+                moveSelection(dir);
+            }
+            lastAxisDir = dir;
+            return true;
+        }
+        return super.onGenericMotionEvent(event);
+    }
+
+    // --- progress UI (shared by single-game + post-selection) ----------------
+
+    private void showProgressUi() {
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(COL_BG);
         setContentView(root);
 
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
-        col.setPadding(64, 48, 64, 48);
+        col.setPadding(dp(48), dp(36), dp(48), dp(36));
         FrameLayout.LayoutParams colLp = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT);
@@ -93,8 +353,8 @@ public class LoaderActivity extends AppCompatActivity {
 
         status = new TextView(this);
         status.setText("Setting up game data…");
-        status.setTextColor(0xFFE0E0E0);
-        status.setTextSize(20);
+        status.setTextColor(COL_TEXT);
+        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
         col.addView(status, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -107,26 +367,30 @@ public class LoaderActivity extends AppCompatActivity {
         LinearLayout.LayoutParams pLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        pLp.topMargin = 32;
+        pLp.topMargin = dp(24);
         col.addView(progress, pLp);
+    }
 
-        final String gameName = getString(R.string.game_name);
+    private void beginUnpackAndLaunch(final String gameName) {
         Log.i(TAG, "LoaderActivity: first-run decompress check for " + gameName);
-
         worker = new Thread(() -> {
             try {
                 unpackBundleIfNeeded(gameName);
                 runOnUiThread(() -> {
-                    startActivity(new Intent(LoaderActivity.this, MainActivity.class));
+                    Intent i = new Intent(LoaderActivity.this, MainActivity.class);
+                    i.putExtra(MainActivity.EXTRA_SELECTED_GAME, gameName);
+                    startActivity(i);
                     finish();
                 });
             } catch (Throwable t) {
                 Log.e(TAG, "LoaderActivity: asset setup failed", t);
                 final String msg = "Setup failed:\n" + t.getMessage();
                 runOnUiThread(() -> {
-                    status.setText(msg);
-                    progress.setIndeterminate(false);
-                    progress.setProgress(0);
+                    if (status != null) status.setText(msg);
+                    if (progress != null) {
+                        progress.setIndeterminate(false);
+                        progress.setProgress(0);
+                    }
                 });
             }
         }, "opengoal-loader");
@@ -143,16 +407,31 @@ public class LoaderActivity extends AppCompatActivity {
     }
 
     private Manifest readManifest(String gameName) throws IOException {
+        // Per-game manifest first (collection layout: bundle/<game>.manifest.properties),
+        // else the legacy single-manifest (bundle/manifest.properties).
+        String perGame = BUNDLE_DIR + "/" + gameName + ".manifest.properties";
+        String manifestAsset = assetExists(perGame)
+                ? perGame : (BUNDLE_DIR + "/manifest.properties");
         Manifest m = new Manifest();
         Properties p = new Properties();
-        try (InputStream in = getAssets().open(MANIFEST_ASSET)) {
+        try (InputStream in = getAssets().open(manifestAsset)) {
             p.load(in);
         }
         m.version = p.getProperty("version", "0");
         m.fileCount = Integer.parseInt(p.getProperty("file_count", "-1").trim());
         m.rawBytes = Long.parseLong(p.getProperty("raw_bytes", "-1").trim());
-        m.zipName = BUNDLE_DIR + "/" + gameName + "_assets.zip";
+        m.zipName = BUNDLE_DIR + "/" + gameName + ZIP_SUFFIX;
+        Log.i(TAG, "manifest for " + gameName + " <- " + manifestAsset
+                + " (version=" + m.version + " files=" + m.fileCount + ")");
         return m;
+    }
+
+    // jak1 keeps its historical stamp name so an existing jak1 install is not
+    // forced into a full re-decompress on upgrade; other games are per-game.
+    private static String stampName(String game) {
+        return "jak1".equals(game)
+                ? ".asset_bundle_stamp"
+                : ".asset_bundle_stamp_" + game;
     }
 
     // --- the one-time, idempotent, version-stamped decompress ----------------
@@ -160,18 +439,18 @@ public class LoaderActivity extends AppCompatActivity {
     private void unpackBundleIfNeeded(String gameName) throws IOException {
         Manifest mf = readManifest(gameName);
         File filesDir = getFilesDir();
-        File stamp = new File(filesDir, STAMP_NAME);
+        File stamp = new File(filesDir, stampName(gameName));
 
         // Idempotent fast path: stamp present AND version matches → already
         // unpacked from this APK; boot straight through.
         if (stamp.isFile()) {
             String have = readStamp(stamp);
             if (mf.version.equals(have)) {
-                Log.i(TAG, "asset bundle already unpacked (version=" + have
-                        + ") — skipping decompress, data ready");
+                Log.i(TAG, gameName + " asset bundle already unpacked (version="
+                        + have + ") — skipping decompress, data ready");
                 return;
             }
-            Log.w(TAG, "asset bundle version changed (" + have + " -> "
+            Log.w(TAG, gameName + " asset bundle version changed (" + have + " -> "
                     + mf.version + ") — re-decompressing");
         }
 
@@ -281,9 +560,9 @@ public class LoaderActivity extends AppCompatActivity {
         writeStamp(stamp, mf.version);
 
         long elapsedMs = System.currentTimeMillis() - startMs;
-        Log.i(TAG, "asset bundle decompressed: " + filesWritten + " files, "
-                + bytesWritten + " bytes in " + elapsedMs + "ms (version="
-                + mf.version + ")");
+        Log.i(TAG, gameName + " asset bundle decompressed: " + filesWritten
+                + " files, " + bytesWritten + " bytes in " + elapsedMs
+                + "ms (version=" + mf.version + ")");
         runOnUiThread(() -> {
             progress.setProgress(1000);
             status.setText("Setup complete — starting game…");
@@ -291,6 +570,38 @@ public class LoaderActivity extends AppCompatActivity {
     }
 
     // --- helpers -------------------------------------------------------------
+
+    private boolean assetExists(String path) {
+        try (InputStream in = getAssets().open(path)) {
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /** Read a system property via getprop (LoaderActivity has no JNI up yet). */
+    private static String getProp(String key) {
+        try {
+            Process p = Runtime.getRuntime().exec(new String[] { "getprop", key });
+            BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            String line = r.readLine();
+            r.close();
+            p.waitFor();
+            return line;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private int dp(int v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
+    }
+
+    private LinearLayout.LayoutParams wrap() {
+        return new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+    }
 
     private static String readStamp(File stamp) {
         try (InputStream in = new java.io.FileInputStream(stamp)) {

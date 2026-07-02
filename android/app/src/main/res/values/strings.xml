@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Phase Gpkg-branding (autoport 2026-06-27): the shipped product is
-         the Jak 1 port, so the launcher label is the game's real title.
-         Moved app_name out of the per-flavor resValue() in build.gradle.kts
-         into this file so the canonical launcher name lives in the manifest
-         resource graph (android:label="@string/app_name"). game_name stays a
-         per-flavor resValue() because the Java loader reads it to pick which
-         game's data to extract/boot (R.string.game_name). -->
-    <string name="app_name">Jak &amp; Daxter</string>
+    <!-- Phase Glauncher-collection (autoport 2026-07-02): app_name is now
+         ASSET-DRIVEN and provided PER FLAVOR via resValue("string","app_name",…)
+         in build.gradle.kts (appLabelFor()): jak1 -> "Jak & Daxter",
+         jak2 -> "Jak II", jak3 -> "Jak 3", collection ->
+         "Jak and Daxter: The Recharged Jak-pot". It was removed from here
+         because a per-flavor resValue and a strings.xml entry of the same name
+         collide as a duplicate resource (see Gpkg-branding). game_name is also a
+         per-flavor resValue; the loader/MainActivity read R.string.game_name as
+         the single-game fallback. -->
 </resources>

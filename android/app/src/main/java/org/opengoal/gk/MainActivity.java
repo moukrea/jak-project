@@ -27,6 +27,12 @@ public class MainActivity extends SDLActivity {
     private static final String TAG = "opengoal-gk";
     private static final String ISO_DATA_SUBDIR = "iso_data";
 
+    // Phase Glauncher-collection (autoport 2026-07-02): LoaderActivity passes the
+    // game the user is booting (the single bundled game, or the one picked from
+    // the collection menu) as this intent extra. Falls back to R.string.game_name
+    // (the single-game flavor default) when launched directly without the extra.
+    public static final String EXTRA_SELECTED_GAME = "org.opengoal.gk.SELECTED_GAME";
+
     // Phase E2 (autoport): SharedPreferences key for the touch-overlay
     // settings flag. The desktop build's keyboard fallback is "on
     // whenever no gamepad is present"; we mirror that by setting the
@@ -76,12 +82,24 @@ public class MainActivity extends SDLActivity {
         return "gk_sdl_main";
     }
 
+    // Phase Glauncher-collection: the game to boot is the one LoaderActivity
+    // selected (single bundled game or a collection-menu pick), passed via
+    // EXTRA_SELECTED_GAME; fall back to the single-game flavor default.
+    private String selectedGame() {
+        String g = getIntent() != null
+                ? getIntent().getStringExtra(EXTRA_SELECTED_GAME) : null;
+        if (g == null || g.isEmpty()) {
+            g = getString(R.string.game_name);
+        }
+        return g;
+    }
+
     @Override
     protected String[] getArguments() {
-        // Pass the per-flavor game name and the absolute iso_data dir as
+        // Pass the selected game name and the absolute iso_data dir as
         // argv to gk_sdl_main. Phase 19 will consume these; phase 18 just
         // logs them.
-        final String gameName = getString(R.string.game_name);
+        final String gameName = selectedGame();
         final File isoDir = new File(getFilesDir(), ISO_DATA_SUBDIR + "/" + gameName);
         return new String[] { gameName, isoDir.getAbsolutePath() };
     }
@@ -95,7 +113,7 @@ public class MainActivity extends SDLActivity {
         // libgk.so itself; once that's done, setSelectedGame /
         // setDataRoot populate the process-lifetime globals that
         // gk_sdl_main will read when the SDL thread dlsym's it.
-        final String gameName = getString(R.string.game_name);
+        final String gameName = selectedGame();
         final File isoDir = new File(getFilesDir(), ISO_DATA_SUBDIR + "/" + gameName);
         NativeGk.setSelectedGame(gameName);
         NativeGk.setDataRoot(isoDir.getAbsolutePath());

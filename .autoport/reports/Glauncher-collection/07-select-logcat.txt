@@ -1,0 +1,2 @@
+07-02 09:45:28.029 10104 10104 I opengoal-gk: menu select 'jak1' (Jak & Daxter) — unpacking + launching
+07-02 09:45:28.074 10104 10211 I opengoal-gk: jak1 asset bundle already unpacked (version=3) — skipping decompress, data ready
