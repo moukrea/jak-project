@@ -46,7 +46,10 @@ GAME="${1:-jak1}"
 # device that still holds the pre-fix v2 data. Bumped 3 -> 4 (autoport 2026-07-02,
 # final owner-validation APK) so the camera-interp + touch-menus + warp-dpad arm64
 # CGO/DGO payload re-unpacks over a device that still holds older v3 data.
-VERSION="${BUNDLE_VERSION:-4}"
+# Bumped 4 -> 5 (autoport 2026-07-03, v2 owner-validation APK) so the
+# blue-eco-crash-fix + full-touch-menus arm64 CGO/DGO payload re-unpacks over a
+# device that still holds the v1/bundle-v4 data.
+VERSION="${BUNDLE_VERSION:-5}"
 
 cd "$(git rev-parse --show-toplevel)"
 
