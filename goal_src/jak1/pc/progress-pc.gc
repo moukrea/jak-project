@@ -94,6 +94,8 @@
 (defconstant MT_TOK_BACK       4)  ;; square / triangle
 (defconstant MT_TOK_HOLD_LEFT  5)  ;; d-pad left, "held" (slider step)
 (defconstant MT_TOK_HOLD_RIGHT 6)  ;; d-pad right, "held" (slider step)
+(defconstant MT_TOK_UP         7)  ;; d-pad up (Gtouch-fix: tap-scroll long lists)
+(defconstant MT_TOK_DOWN       8)  ;; d-pad down (Gtouch-fix: tap-scroll long lists)
 
 ;; Virtual->screen calibration (CONFIRMED ON-DEVICE eae4df44, 2026-07-02).
 ;; A menu row's NORMALIZED [0..1] on-screen center maps LINEARLY from the font
@@ -127,12 +129,15 @@
    (seq         uint8 8) ;; synthetic-press token queue
    (seq-len     int32)
    (seq-pos     int32)
+   (seq-screen  progress-screen) ;; screen the queue was built for (Gtouch-fix: stale guard)
    (confirm?    symbol)  ;; per-frame synthetic-press flags (respond-common ORs these in)
    (back?       symbol)
    (left?       symbol)
    (right?      symbol)
    (hold-left?  symbol)
-   (hold-right? symbol)))
+   (hold-right? symbol)
+   (up?         symbol)  ;; Gtouch-fix: tap-scroll of long option lists
+   (down?       symbol)))
 
 (define *menu-touch* (new 'static 'menu-touch-state :screen (progress-screen invalid)))
 
@@ -172,14 +177,19 @@
     ((= tok MT_TOK_RIGHT)      (set! (-> *menu-touch* right?) #t))
     ((= tok MT_TOK_BACK)       (set! (-> *menu-touch* back?) #t))
     ((= tok MT_TOK_HOLD_LEFT)  (set! (-> *menu-touch* hold-left?) #t))
-    ((= tok MT_TOK_HOLD_RIGHT) (set! (-> *menu-touch* hold-right?) #t)))
+    ((= tok MT_TOK_HOLD_RIGHT) (set! (-> *menu-touch* hold-right?) #t))
+    ((= tok MT_TOK_UP)         (set! (-> *menu-touch* up?) #t))
+    ((= tok MT_TOK_DOWN)       (set! (-> *menu-touch* down?) #t)))
   (none))
 
 (defun menu-touch-build-seq! ((obj progress) (idx int) (left? symbol))
-  "Gtouch-menus: fill the queue with the synthetic d-pad presses that reproduce a
-   tap on option `idx`. `left?` = tapped left of the row center (cycle prev /
-   decrement), else right (next / increment). Reuses the row's real behavior by
-   replaying the same enter/change/commit presses a d-pad user would make."
+  "Gtouch-menus/Gtouch-fix: fill the queue with the synthetic d-pad presses that
+   reproduce a tap on option `idx`. `left?` = tapped left of the row center
+   (step down / cycle prev / YES), else right (step up / next / NO). Reuses the
+   row's real behavior by replaying the same enter/change/commit presses a d-pad
+   user would make. Two-state toggles FLIP from their CURRENT value (a d-pad
+   LEFT always means ON and RIGHT always means OFF, so a positional choice made
+   half the taps no-ops — the owner's 'toggles not clickable')."
   (set! (-> *menu-touch* seq-len) 0)
   (set! (-> *menu-touch* seq-pos) 0)
   (let* ((options (-> *options-remap* (-> obj display-state)))
@@ -203,18 +213,50 @@
            (= typ (game-option-type aspect-new))
            (= typ (game-option-type binding-assignment)))
        (menu-touch-push-seq! MT_TOK_CONFIRM))
-      ;; yes-no reacts to left/right WITHOUT edit mode (no confirm needed)
+      ;; yes-no dialog row: pick YES (left half) / NO (right half), then confirm
+      ;; so one tap both chooses AND activates (respond-memcard consumes the
+      ;; confirm; before Gtouch-fix a tap only set the choice).
       ((= typ (game-option-type yes-no))
-       (menu-touch-push-seq! dir))
-      ;; sliders: enter edit, nudge a few steps by side, commit
+       (menu-touch-push-seq! dir)
+       (menu-touch-push-seq! MT_TOK_CONFIRM))
+      ;; on-off style toggles: one tap = FLIP. In respond-common LEFT sets the
+      ;; value to #t/ON and RIGHT to #f/OFF, so derive the direction from the
+      ;; CURRENT value instead of the tapped half.
+      ((or (= typ (game-option-type on-off))
+           (= typ (game-option-type normal-inverted))
+           (= typ (game-option-type aspect-native)))
+       (let ((flip-dir (if (and (nonzero? (-> options idx value-to-modify))
+                                (-> (the-as (pointer symbol) (-> options idx value-to-modify))))
+                         MT_TOK_RIGHT   ;; currently ON  -> set OFF
+                         MT_TOK_LEFT))) ;; currently OFF -> set ON
+         (menu-touch-push-seq! MT_TOK_CONFIRM)
+         (menu-touch-push-seq! flip-dir)
+         (menu-touch-push-seq! MT_TOK_CONFIRM)))
+      ;; two-state aspect-ratio (4x3 <-> 16x9): same flip idea (LEFT=4x3, RIGHT=16x9)
+      ((= typ (game-option-type aspect-ratio))
+       (let ((flip-dir (if (and (nonzero? (-> options idx value-to-modify))
+                                (= (-> (the-as (pointer symbol) (-> options idx value-to-modify))) 'aspect4x3))
+                         MT_TOK_RIGHT   ;; currently 4x3 -> 16x9
+                         MT_TOK_LEFT))) ;; currently 16x9 -> 4x3
+         (menu-touch-push-seq! MT_TOK_CONFIRM)
+         (menu-touch-push-seq! flip-dir)
+         (menu-touch-push-seq! MT_TOK_CONFIRM)))
+      ;; cheat toggles read their live state from the cheats bitfield
+      ((= typ (game-option-type cheat-toggle))
+       (let ((flip-dir (if (logtest? (-> *pc-settings* cheats) (ash 1 (the int (-> options idx param1))))
+                         MT_TOK_RIGHT
+                         MT_TOK_LEFT)))
+         (menu-touch-push-seq! MT_TOK_CONFIRM)
+         (menu-touch-push-seq! flip-dir)
+         (menu-touch-push-seq! MT_TOK_CONFIRM)))
+      ;; sliders: enter edit, ONE step by tapped half, commit. Repeated taps
+      ;; keep stepping (one slider-step-size per tap).
       ((= typ (game-option-type slider))
        (menu-touch-push-seq! MT_TOK_CONFIRM)
        (menu-touch-push-seq! hdir)
-       (menu-touch-push-seq! hdir)
-       (menu-touch-push-seq! hdir)
        (menu-touch-push-seq! MT_TOK_CONFIRM))
-      ;; everything else (on-off, aspect-ratio, carousels, language, ...):
-      ;; enter edit, change by side, commit
+      ;; everything else (carousels, language, confirmation, ...): enter edit,
+      ;; cycle by tapped half, commit
       (else
        (menu-touch-push-seq! MT_TOK_CONFIRM)
        (menu-touch-push-seq! dir)
@@ -234,11 +276,15 @@
           (fy (/ (the float (-> *menu-touch* tap-y)) 10000.0))
           (best -1)
           (best-d 999999.0)
-          (best-band 0.05))
-      ;; nearest row by vertical center
+          (best-band 0.05)
+          (min-cy 999999.0)
+          (max-cy -999999.0))
+      ;; nearest row by vertical center (+ list extent for the scroll zones)
       (dotimes (i (-> *menu-touch* n-rows))
         (let* ((row (-> *menu-touch* rows i))
                (dy (fabs (- fy (-> row cy)))))
+          (when (< (-> row cy) min-cy) (set! min-cy (-> row cy)))
+          (when (> (-> row cy) max-cy) (set! max-cy (-> row cy)))
           (when (< dy best-d)
             (set! best-d dy)
             (set! best i)
@@ -247,6 +293,23 @@
       (format 0 "Gtm-tap fx=~f fy=~f n=~D best=~D d=~f~%"
               fx fy (-> *menu-touch* n-rows) best best-d)
       (cond
+        ;; Gtouch-fix: on a SCROLLABLE list (more rows than the page shows), a tap
+        ;; beyond the first/last visible row (by at least half a row) scrolls
+        ;; instead of going back — rows past the fold (V-Sync/MSAA/Advanced/Back
+        ;; on Graphic Options) were unreachable by touch. These zones must be
+        ;; checked BEFORE the row hit-test: its 3x-band acceptance reaches ~1.8
+        ;; row-pitches past the last row center, which swallowed the whole
+        ;; below-list zone (a tap meant to scroll flipped the LAST row instead).
+        ;; Back stays available via the Back row and on every non-scrollable
+        ;; screen via tap-outside.
+        ((and (> (length (-> *options-remap* (-> obj display-state))) PROGRESS_PC_PAGE_HEIGHT)
+              (> fy (+ max-cy (* MENU_TOUCH_Y_A 12.5))))
+         (format 0 "Gtm-tap scroll-down~%")
+         (menu-touch-set-seq-1! MT_TOK_DOWN))
+        ((and (> (length (-> *options-remap* (-> obj display-state))) PROGRESS_PC_PAGE_HEIGHT)
+              (< fy (- min-cy (* MENU_TOUCH_Y_A 12.5))))
+         (format 0 "Gtm-tap scroll-up~%")
+         (menu-touch-set-seq-1! MT_TOK_UP))
         ((and (>= best 0) (< best-d (* 3.0 best-band)))
          ;; tap landed on (or near) a row -> focus it + reproduce its interaction
          (let* ((row (-> *menu-touch* rows best))
@@ -258,6 +321,10 @@
         (else
          ;; tapped clearly outside the row list -> go back
          (menu-touch-set-seq-1! MT_TOK_BACK)))
+      ;; Gtouch-fix: remember which screen this sequence drives so a mid-sequence
+      ;; screen change (submenu enter/exit) kills the leftover tokens instead of
+      ;; replaying them as phantom presses on the new screen.
+      (set! (-> *menu-touch* seq-screen) (-> obj display-state))
       ;; emit the first token of the freshly-built sequence THIS frame
       (when (> (-> *menu-touch* seq-len) 0)
         (menu-touch-emit! (the int (-> *menu-touch* seq 0)))
@@ -275,6 +342,14 @@
   (set! (-> *menu-touch* right?) #f)
   (set! (-> *menu-touch* hold-left?) #f)
   (set! (-> *menu-touch* hold-right?) #f)
+  (set! (-> *menu-touch* up?) #f)
+  (set! (-> *menu-touch* down?) #f)
+  ;; Gtouch-fix: a screen change invalidates any in-flight sequence (its tokens
+  ;; were built for the previous screen's focused row)
+  (when (and (< (-> *menu-touch* seq-pos) (-> *menu-touch* seq-len))
+             (!= (-> *menu-touch* seq-screen) (-> obj display-state)))
+    (set! (-> *menu-touch* seq-len) 0)
+    (set! (-> *menu-touch* seq-pos) 0))
   (cond
     ((< (-> *menu-touch* seq-pos) (-> *menu-touch* seq-len))
      ;; advance an in-flight synthetic sequence
@@ -2719,8 +2794,8 @@
       ;; to the d-pad). Sets the *menu-touch* *? flags the guards below OR in.
       (menu-touch-drive! obj)
       (cond
-        ((cpad-pressed? 0 up)
-         ;; pressed up
+        ((or (cpad-pressed? 0 up) (-> *menu-touch* up?))
+         ;; pressed up (Gtouch-fix: tap-scroll above the visible list too)
          ;; original code checked hold and then press, because hold can be used during center screen option. which we don't use.
          (when (not (-> obj selected-option))
            (if (!= (length options) 1) (sound-play "cursor-up-down"))
@@ -2733,8 +2808,8 @@
              (else
               (set! (-> obj option-index) (1- (length options)))
               (set! (-> *progress-scroll* start-index) (max 0 (- (length options) PROGRESS_PC_PAGE_HEIGHT -1)))))))
-        ((cpad-pressed? 0 down)
-         ;; pressed down.
+        ((or (cpad-pressed? 0 down) (-> *menu-touch* down?))
+         ;; pressed down. (Gtouch-fix: tap-scroll below the visible list too)
          (when (not (-> obj selected-option))
            (if (!= (length options) 1) (sound-play "cursor-up-down"))
            (set! (-> obj last-option-index-change) (-> *display* real-frame-counter))
@@ -3319,9 +3394,14 @@
   "logic for handling input in memcard screens."
   (let ((s5-0 (-> obj card-info)))
     (when (and s5-0 (not (-> obj in-transition)))
-      (when (or (cpad-pressed? 0 x) (cpad-pressed? 0 circle))
+      ;; Gtouch-fix: memcard screens consume the confirm press HERE (respond-common
+      ;; deliberately leaves x un-cleared for their nameless button rows), so the
+      ;; touch-confirm flag must be OR-ed in too — before this, a tap on a
+      ;; save/load slot or a yes-no dialog could only FOCUS it, never activate.
+      (when (or (cpad-pressed? 0 x) (cpad-pressed? 0 circle) (-> *menu-touch* confirm?))
         (cpad-clear! 0 x)
         (cpad-clear! 0 circle)
+        (set! (-> *menu-touch* confirm?) #f)
         (case (-> obj display-state)
           (((progress-screen load-game))
            (cond
@@ -3743,8 +3823,24 @@
                  (else
                   ;; this option is not selected
                   (case (-> options index option-type)
-                    (((game-option-type slider)
-                      (game-option-type aspect-ratio)
+                    (((game-option-type slider))
+                     ;; Gtouch-fix: sliders show their CURRENT VALUE inline (like on-off
+                     ;; rows show ': ON'). Before, an unselected slider showed only its
+                     ;; name, so a tap that stepped the value gave ZERO visible feedback
+                     ;; ('sliders not clickable at all').
+                     (let ((label (if (nonzero? (-> options index name-override))
+                                    (-> options index name-override)
+                                    (lookup-text! *common-text* (-> options index name) #f))))
+                       (cond
+                         ((zero? (-> options index value-to-modify))
+                          (set! option-str label))
+                         ((= (-> options index slider-show-decimal?) #t)
+                          (set! option-str
+                                (string-format "~S: ~,,1f" label (-> (the-as (pointer float) (-> options index value-to-modify))))))
+                         (else
+                          (set! option-str
+                                (string-format "~S: ~D" label (the int (-> (the-as (pointer float) (-> options index value-to-modify))))))))))
+                    (((game-option-type aspect-ratio)
                       (game-option-type display-mode)
                       (game-option-type msaa)
                       (game-option-type lod-bg)
@@ -3753,8 +3849,8 @@
                       (game-option-type frame-rate)
                       (game-option-type normal-inverted)
                       (game-option-type confirmation))
-                     ;; slider and aspect ratio options just show their text
-                     ;; prefer a runtime name-override label when one was set (e.g. RENDER SCALE)
+                     ;; these options just show their text
+                     ;; prefer a runtime name-override label when one was set
                      (if (nonzero? (-> options index name-override))
                        (set! option-str (-> options index name-override))
                        (set! option-str (lookup-text! *common-text* (-> options index name) #f))))
@@ -3868,7 +3964,18 @@
                                       (the float (the int (* (the float option-y) (if (-> options index scale) f0-23 1.0))))
                                       (* arg2 f0-23 scroll-amt))))
               (+! y-off arg1)
-              (+! option-count 1)))))))
+              (+! option-count 1))))
+        ;; Gtouch-fix: the 4 memcard file-slot rows are drawn by the (locked)
+        ;; engine draw-memcard-file-select with its own fixed layout, NOT by the
+        ;; text loop above (they are nameless button rows, option-str = #f), so
+        ;; they were never published and save/load slots were tap-dead. Publish
+        ;; them here with the measured slot-box geometry (device eae4df44: slot k
+        ;; text center at normalized y = 0.1838 + 0.1831*k -> oy = 38.45 + 38.3*k
+        ;; through the shared cy = MENU_TOUCH_Y_A*oy transform).
+        (case (-> obj display-state)
+          (((progress-screen load-game) (progress-screen save-game) (progress-screen save-game-title))
+           (dotimes (slot 4)
+             (menu-touch-record! slot 17.0 (+ 38.45 (* 38.3 (the float slot))) 1.0)))))))
   0
   (none))
 
