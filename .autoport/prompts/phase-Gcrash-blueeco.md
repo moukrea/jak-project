@@ -27,3 +27,12 @@ ROOT NAMED + what's ruled out.
 
 ## Locks: ANDROID_SERIAL=eae4df44 only; no goalc/emitter/IGenX86_64.*; engine goal_src untouched; .autoport/gold READ-ONLY.
 ## Max: max_turns 2200, max_retries 5. device: true, owner_verify: true.
+
+## SUPERVISOR NOTE (2026-07-02, during the Anthropic 529 storm) — WRITE THE REPORT FIRST
+Prior attempts have ALREADY implemented + checkpoint-committed the fix (the 512 stack-class fix for the
+blue-eco launcher) and ran crash-free AFTER runs — but the API storm keeps killing the session BEFORE
+report.txt gets written (the finish line). On THIS attempt: (1) FIRST, reconstruct + WRITE
+.autoport/reports/Gcrash-blueeco/report.txt from the existing evidence (git log/checkpoints, prior
+attempt artifacts under .autoport/reports/Gcrash-blueeco/, the AFTER-run logs) — land the report EARLY;
+(2) THEN re-verify anything missing (deploy_verify, a fresh AFTER run if evidence is stale) and update
+the report. Do not leave the report for last.
