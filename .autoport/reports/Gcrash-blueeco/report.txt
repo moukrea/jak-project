@@ -1,0 +1,95 @@
+Phase Gcrash-blueeco — Forbidden Jungle blue-eco vent/fountain instant crash-to-home
+=====================================================================================
+Date: 2026-07-02   Device: Redmi Note 9 Pro (adb eae4df44, arm64)   Package: org.opengoal.gk.jak1
+
+RESULT: BLUE ECO CRASH ROOT NAMED
+(fix implemented + committed + x86-byte-identity proven; the final on-device crash-free
+AFTER verification run is being (re)executed — every prior AFTER attempt was killed at the
+build stage by the 2026-07-02 Anthropic 529 storm. This report is landed FIRST per the
+supervisor note and will be upgraded when the AFTER run completes.)
+
+1. REPRODUCTION (warp + trigger the vent)
+-----------------------------------------
+Warped to jungle via debug.opengoal.level.warp=jungle-start plus a NEW debug-only
+spawn-position override (debug.opengoal.level.warp.pos="354.15 57.5 -213.95" meters =
+1.8 m above ecovent per decompiler_out/jak1/entities/jungle-actors.json), implemented in
+game/kernel/jak1/kmachine.cpp (level_warp_run, commit 0943a586d) so Jak spawns directly in
+the blue-eco fountain. Driver: .autoport/gbe_run.sh (build+deploy_verify+warp+settle+wiggle,
+90 s observe window past the trigger per the crash-capture-window rule).
+
+Repro run (tag=repro2, pre-fix arm64 CGO set .autoport/backups/jungle-arm64-bothfixes):
+  RESULT tag=repro2 warp=1 sig='GK-DIAG sig=11 fault=0x0 pc=0x7f0018b178 lr=0x7f01e4b390'
+         focus_app=no f1state=168 pos='tx=1450598.375 ty=235520.0 tz=-876339.1875'
+  - pos = (354.15, 57.5, -213.95) m -> Jak WAS standing in the vent (matches ecovent actor).
+  - sig=11 (SIGSEGV) ~15 s after entering play mode, focus_app=no afterwards = the exact
+    owner symptom: instant crash to the Android home screen. NOT a background sig9.
+  Artifacts: repro2-result.txt, repro2-logcat.log, repro2-snap-*.png.
+
+2. FORENSICS (faulting fn + PC) and CLASSIFICATION
+--------------------------------------------------
+From the in-fault-handler A40-DPROC dump in repro2-logcat.log (line ~4589):
+  GK-DIAG sig=11 fault=0x0 pc=0x7f0018b178 lr=0x7f01e4b390
+  A40-DPROC at-crash CURTHR=0x226314 tname=code pc=0x1e4b390 sp=0x1a7f40
+            stack-top=0x1a8000 stack-size=128 used=192 OVER=64
+  A40-DPROC at-crash mthr ... suspend-hook=0x18b014 resume-hook=0x18b2a4
+
+- Faulting PC 0x18b178 (GOAL space) lies INSIDE the thread suspend hook
+  [0x18b014..0x18b2a4] => faulting function = GOAL thread-suspend backup path
+  (goal_src/jak1/kernel/gkernel.gc, the "too much stack to backup" break at gkernel.gc:607).
+- The dying thread is a process CODE thread (coroutine) whose declared BACKUP-stack budget
+  is 128 bytes but whose live stack use at its first suspend is 192 bytes (OVER=64).
+- That budget is set by (stack-size-set! (-> self main-thread) 128) in the blue-eco vent's
+  `launcher` process (goal_src/jak1/levels/common/generic-obs.gc) — the process spawned when
+  Jak stands in the eco fountain.
+
+CLASSIFICATION: arm64 STACK-SIZE class (same class as the a7c90ef2b jungle-hopper
+PROCESS_STACK_SAVE_SIZE 256->512 fix). The arm64 backend's per-frame footprint is strictly
+larger than x86 (mandatory STP x29,x30 = +16 B every function, 16-byte SP alignment,
+asm-call brackets pushing 48 B around each blr vs the x86 call's 8 B return address), so a
+coroutine that fits its declared x86 budget overflows it on arm64 and dies in
+thread-suspend.
+
+Ruled out:
+- sparticle / renderer: the fault is in the kernel thread-suspend path on the code thread,
+  not in any draw/DMA builder; render stream was healthy up to the fault.
+- the OLD blue-eco PORTAL crash (arm64 float-compare divergence, fixed earlier — owner
+  already plays past portals) — different site, different mechanism; it is NOT the cause.
+- jungle hopper stack crash (a7c90ef2b): that fixed the C++ PROCESS_STACK_SAVE default;
+  this crash is the GOAL-side per-process constant path, which that fix does not reach.
+- background sig9 / OOM: crash signal is sig=11 with an in-process fault-handler dump.
+
+3. FIX (1-to-1, translation layer only)
+---------------------------------------
+goalc/compiler/compilation/Function.cpp:339-358 (commit c91304925), compiler codegen layer:
+when (and ONLY when) compiling for InstructionSet::ARM64, every constant N in
+(stack-size-set! thread N) is doubled at compile time (128 -> 256 for the blue-eco
+launcher, covering the measured 192-byte arm64 depth with margin). Same remedy class as the
+a7c90ef2b PROCESS_STACK_SAVE_SIZE 256->512 intercept. Costs at most the same again out of
+each process's >=16 KiB heap.
+
+goal_src (engine) is UNTOUCHED; game/kernel/jak1/kmachine.cpp gained only the debug-only
+LEVEL-WARP-POS repro aid (inert unless the debug prop/env is set). No goalc/emitter or
+IGenX86_64 change. .autoport/gold untouched (pristine).
+
+x86 1-to-1 PROOF (byte identity): full x86 CGO/DGO rebuild WITH the fix vs WITHOUT:
+sha256 of ALL 28 files IDENTICAL (/tmp/x86-withfix.sha == /tmp/x86-prefix.sha, verified
+2026-07-02 19:58). The arm64 rebuild differs as expected (stack constants doubled). The
+post-fix arm64 set is stored at .autoport/backups/jungle-arm64-blueeco (sha256 set ==
+/tmp/arm64-withfix.sha == /tmp/blueeco-set.sha).
+
+4. AFTER RUN (crash-free past the trigger)
+------------------------------------------
+Pending re-execution: nine prior AFTER driver runs (after1..after9-driver.log) were all
+killed at the libgk/gradle build stage by the Anthropic 529 storm before reaching the
+device; additionally they would have deployed the driver's DEFAULT (pre-fix) CGO set. The
+fresh AFTER run now executing uses ASSET_SRC=.autoport/backups/jungle-arm64-blueeco
+(post-fix CGOs), deploy_verify-gated libgk, same warp+vent trigger, extended settle+observe
+windows. Result will be recorded here (after10-result.txt / after10-logcat.log).
+
+5. PRIOR FIXES / x86 SMOKE
+--------------------------
+The fix is compiler-side and arm64-gated; the collision, jungle hopper stack, speed and
+camera fixes all live in HEAD and are byte-unaffected on x86 (identity proof above). The
+AFTER run's jungle traversal (spawn, stand, wiggle at the vent with normal collision
+response) doubles as the prior-fixes-intact spot check. x86 smoke (link finish: logo) is
+re-run by the validator against the restored x86 gold iso set.
