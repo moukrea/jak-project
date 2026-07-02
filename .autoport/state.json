@@ -161,7 +161,7 @@
     "Glauncher-collection": 1,
     "Gtouch-menus": 1,
     "Gwarp-dpad": 1,
-    "Gcrash-blueeco": 1
+    "Gcrash-blueeco": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -296,6 +296,9 @@
     ],
     "Gcollision-glitchcapture": [
       "2a4e42917769"
+    ],
+    "Gcrash-blueeco": [
+      "b37b9ca2dcce"
     ]
   },
   "stuck_reasons": {
@@ -609,7 +612,7 @@
     "Gwarp-dpad": 1782988659.7159135,
     "Gcrash-blueeco": 1783008624.8975775
   },
-  "last_update": "2026-07-02T16:20:09.975354+00:00",
+  "last_update": "2026-07-02T16:43:51.196613+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
