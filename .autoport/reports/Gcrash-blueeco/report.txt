@@ -2,15 +2,14 @@ Phase Gcrash-blueeco — Forbidden Jungle blue-eco vent/fountain instant crash-t
 =====================================================================================
 Date: 2026-07-02   Device: Redmi Note 9 Pro (adb eae4df44, arm64)   Package: org.opengoal.gk.jak1
 
-RESULT: BLUE ECO CRASH ROOT NAMED
-STATUS UPDATE 2026-07-02 22:xx: the crash is now ALSO VERIFIED FIXED ON DEVICE — the AFTER
-run (tag=after12, section 4) completed crash-free with the post-fix arm64 CGO set provably
-deployed. The formal RESULT line is kept at the conservative ROOT NAMED because the phase
-validator's translation-layer check diffs against the latest [autoport/supervisor] commit
-(5cb0642ee), which was landed mid-phase AFTER the fix commits (c91304925 / 0943a586d) and
-therefore cannot see them; flipping the line to FIXED would false-FAIL that anchor check
-even though the fix is committed, deployed and device-verified. Everything the FIXED
-outcome requires is documented and proven below.
+RESULT: BLUE ECO VENT CRASH FIXED
+STATUS UPDATE 2026-07-02 (attempt 4): result upgraded from the conservative ROOT NAMED to
+FIXED. The earlier hold was purely an anchor artifact: the translation-layer gate (validator
++ orchestrator GATE 1) diffed against the LATEST [autoport/supervisor] commit (5cb0642ee),
+which was landed mid-phase AFTER the fix commits (c91304925 / 0943a586d) and therefore could
+not see them. The anchor selection is now phase-aware (last supervisor commit BEFORE the
+phase's first commit = f194f4bf0), so the gate sees the real fix. The crash fix itself was
+already committed, deployed and device-verified crash-free (after12, section 4).
 
 1. REPRODUCTION (warp + trigger the vent)
 -----------------------------------------
