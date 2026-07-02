@@ -879,14 +879,27 @@ def git_push() -> None:
 #   3. validator passes but the OWNER's play-test (final gate) hasn't happened.
 # Each gate is opt-in/opt-out via milestones.yaml phase fields.
 
-def _supervisor_anchor() -> str:
-    """The most recent [autoport/supervisor] commit — the 'no new game fix' anchor
-    the per-phase validators already use. Falls back to HEAD~1."""
-    r = subprocess.run(
-        ["git", "log", "--format=%H", "--grep", r"\[autoport/supervisor\]"],
-        cwd=REPO_ROOT, capture_output=True, text=True,
-    )
-    lines = [l for l in r.stdout.splitlines() if l.strip()]
+def _supervisor_anchor(pid: str | None = None) -> str:
+    """The 'no new game fix' anchor the per-phase validators already use.
+    Phase-aware: mid-phase [autoport/supervisor] journal commits (storm bookkeeping,
+    profile flips) must NOT advance the anchor past the phase's own fix commits —
+    Gcrash-blueeco 2026-07-02: anchor 5cb0642ee postdated the real fix commits
+    (c91304925/0943a586d) and GATE 1 false-negatived a device-proven fix. With a
+    pid, the anchor is the last supervisor commit BEFORE the phase's first commit;
+    without one (or with no phase commits yet), the most recent supervisor commit.
+    Falls back to HEAD~1."""
+    def _log(*extra: str) -> list[str]:
+        r = subprocess.run(["git", "log", "--format=%H", *extra],
+                           cwd=REPO_ROOT, capture_output=True, text=True)
+        return [l for l in r.stdout.splitlines() if l.strip()]
+
+    if pid:
+        phase_commits = _log("--grep", rf"\[autoport/{re.escape(pid)}\]")
+        if phase_commits:
+            pre = _log("--grep", r"\[autoport/supervisor\]", f"{phase_commits[-1]}^")
+            if pre:
+                return pre[0]
+    lines = _log("--grep", r"\[autoport/supervisor\]")
     return lines[0] if lines else "HEAD~1"
 
 
@@ -942,7 +955,7 @@ def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
     # supervisor anchor in a port/translation dir, unless the phase declares
     # `no_code: true` (pure asset/packaging/investigation phases).
     if not phase.get("no_code", False):
-        anchor = _supervisor_anchor()
+        anchor = _supervisor_anchor(pid)
         paths = ["game/", "android/", "goalc/", "goal_src/"]
         committed = subprocess.run(
             ["git", "diff", "--name-only", anchor, "--", *paths],

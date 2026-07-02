@@ -24,7 +24,17 @@ grep -qiE 'after.*(crash-?free|no crash|0 sig)|crash-?free.*after|sustained' "$R
 grep -qiE 'collision|jungle|speed|camera' "$R" || fail "must confirm prior fixes intact"
 ok "report: repro + forensics + classification + fix + crash-free after + fixes intact"
 
-SUP_ANCHOR=$(git log --format=%H --grep='\[autoport/supervisor\]' | head -1); ANCHOR=${SUP_ANCHOR:-HEAD~1}
+# Phase-aware anchor: mid-phase [autoport/supervisor] journal commits (storm
+# bookkeeping) must not advance the anchor past this phase's own fix commits
+# (5cb0642ee postdated c91304925/0943a586d -> false "no translation-layer fix").
+# Anchor = last supervisor commit BEFORE the phase's first commit.
+SUP_ANCHOR=$(git log --format=%H --grep='\[autoport/supervisor\]' | head -1)
+FIRST_PHASE=$(git log --format=%H --grep='\[autoport/Gcrash-blueeco\]' | tail -1)
+if [ -n "$FIRST_PHASE" ]; then
+  PRE=$(git log --format=%H --grep='\[autoport/supervisor\]' "${FIRST_PHASE}^" 2>/dev/null | head -1)
+  [ -n "$PRE" ] && SUP_ANCHOR=$PRE
+fi
+ANCHOR=${SUP_ANCHOR:-HEAD~1}
 CHG=$(git diff --name-only "$ANCHOR" -- android/ game/ goalc/ goal_src/jak1/pc/ 2>/dev/null; git status --porcelain -- android/ game/ goalc/ goal_src/jak1/pc/ 2>/dev/null | awk '{print $2}')
 echo "$CHG" | grep -v 'IGenX86_64' | grep -qE 'android/|game/|goalc/|pc/' || fail "no translation-layer fix"
 ENG=$(git diff --name-only "$ANCHOR" -- goal_src/ 2>/dev/null | grep -v '/pc/' | head -1)
