@@ -293,6 +293,23 @@
       (format 0 "Gtm-tap fx=~f fy=~f n=~D best=~D d=~f~%"
               fx fy (-> *menu-touch* n-rows) best best-d)
       (cond
+        ;; Gtouch-fix: on a SCROLLABLE list (more rows than the page shows), a tap
+        ;; beyond the first/last visible row (by at least half a row) scrolls
+        ;; instead of going back — rows past the fold (V-Sync/MSAA/Advanced/Back
+        ;; on Graphic Options) were unreachable by touch. These zones must be
+        ;; checked BEFORE the row hit-test: its 3x-band acceptance reaches ~1.8
+        ;; row-pitches past the last row center, which swallowed the whole
+        ;; below-list zone (a tap meant to scroll flipped the LAST row instead).
+        ;; Back stays available via the Back row and on every non-scrollable
+        ;; screen via tap-outside.
+        ((and (> (length (-> *options-remap* (-> obj display-state))) PROGRESS_PC_PAGE_HEIGHT)
+              (> fy (+ max-cy (* MENU_TOUCH_Y_A 12.5))))
+         (format 0 "Gtm-tap scroll-down~%")
+         (menu-touch-set-seq-1! MT_TOK_DOWN))
+        ((and (> (length (-> *options-remap* (-> obj display-state))) PROGRESS_PC_PAGE_HEIGHT)
+              (< fy (- min-cy (* MENU_TOUCH_Y_A 12.5))))
+         (format 0 "Gtm-tap scroll-up~%")
+         (menu-touch-set-seq-1! MT_TOK_UP))
         ((and (>= best 0) (< best-d (* 3.0 best-band)))
          ;; tap landed on (or near) a row -> focus it + reproduce its interaction
          (let* ((row (-> *menu-touch* rows best))
@@ -301,19 +318,6 @@
            (set! (-> obj option-index) idx)
            (set! (-> obj last-option-index-change) (-> *display* real-frame-counter))
            (menu-touch-build-seq! obj idx left?)))
-        ;; Gtouch-fix: on a SCROLLABLE list (more rows than the page shows), a tap
-        ;; beyond the first/last visible row scrolls instead of going back — rows
-        ;; past the fold (V-Sync/MSAA/Advanced/Back on Graphic Options) were
-        ;; unreachable by touch. Back stays available via the Back row and on
-        ;; every non-scrollable screen via tap-outside.
-        ((and (> (length (-> *options-remap* (-> obj display-state))) PROGRESS_PC_PAGE_HEIGHT)
-              (> fy max-cy))
-         (format 0 "Gtm-tap scroll-down~%")
-         (menu-touch-set-seq-1! MT_TOK_DOWN))
-        ((and (> (length (-> *options-remap* (-> obj display-state))) PROGRESS_PC_PAGE_HEIGHT)
-              (< fy min-cy))
-         (format 0 "Gtm-tap scroll-up~%")
-         (menu-touch-set-seq-1! MT_TOK_UP))
         (else
          ;; tapped clearly outside the row list -> go back
          (menu-touch-set-seq-1! MT_TOK_BACK)))
