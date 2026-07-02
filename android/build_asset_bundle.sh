@@ -157,6 +157,13 @@ raw_bytes=${RAW_BYTES}
 zip_bytes=${ZIP_BYTES}
 EOF
 
+# Phase Glauncher-collection (autoport 2026-07-02): also emit a PER-GAME manifest
+# (bundle/<game>.manifest.properties) so multiple games' bundles can coexist in
+# one COLLECTION APK's bundle dir without their manifests colliding. LoaderActivity
+# prefers the per-game manifest and falls back to the legacy manifest.properties
+# (which is kept for the single-game path). Byte-identical content, per-game name.
+cp -f "$MANIFEST" "${OUT_DIR}/${GAME}.manifest.properties"
+
 rm -rf "$STAGE"   # the symlink farm is transient; the zip + manifest are the artifacts
 
 echo "[asset-bundle] done: ${ZIP_REL}"

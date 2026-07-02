@@ -31,6 +31,20 @@ BOTTOM = (0x1E, 0x7A, 0x5A)   # eco teal-green
 GOLD   = (0xF4, 0xC5, 0x42)   # Precursor gold
 DARK   = (0x0B, 0x1A, 0x2A)   # outline / legibility stroke
 
+# Per-flavor placeholder icon sets. Each overrides the three PNG families in its
+# own flavor res dir; the adaptive-icon xml + transparent ic_launcher_background
+# are inherited from main. Colors are not copyrightable; text is a plain
+# typographic monogram so NO scraped character art ships.
+#   (text, TOP, BOTTOM, res_dir)
+FLAVORS = [
+    ("J2",  (0x3A, 0x12, 0x4F), (0x7A, 0x1E, 0x4A),   # violet -> magenta
+     os.path.join(ROOT, "android/app/src/jak2/res")),
+    ("J3",  (0x4F, 0x2A, 0x12), (0x7A, 0x4A, 0x1E),   # bronze -> amber
+     os.path.join(ROOT, "android/app/src/jak3/res")),
+    ("RJP", (0x16, 0x32, 0x4F), (0x1E, 0x7A, 0x5A),   # jak1 blue -> teal, RJP monogram
+     os.path.join(ROOT, "android/app/src/collection/res")),
+]
+
 # density -> (foreground 108dp px, legacy 48dp px)
 DENSITIES = {
     "mdpi":    (108, 48),
@@ -42,21 +56,21 @@ DENSITIES = {
 SS = 4  # supersample factor for crisp text
 
 
-def gradient_bg(size):
+def gradient_bg(size, top, bottom):
     img = Image.new("RGB", (size, size))
     px = img.load()
     for y in range(size):
         t = y / (size - 1)
-        r = round(TOP[0] * (1 - t) + BOTTOM[0] * t)
-        g = round(TOP[1] * (1 - t) + BOTTOM[1] * t)
-        b = round(TOP[2] * (1 - t) + BOTTOM[2] * t)
+        r = round(top[0] * (1 - t) + bottom[0] * t)
+        g = round(top[1] * (1 - t) + bottom[1] * t)
+        b = round(top[2] * (1 - t) + bottom[2] * t)
         for x in range(size):
             px[x, y] = (r, g, b)
     return img.convert("RGBA")
 
 
-def text_layer(size, width_frac, stroke_frac=0.055):
-    """Transparent RGBA layer with TEXT centered, width ~= width_frac*size."""
+def text_layer(size, width_frac, text, stroke_frac=0.055):
+    """Transparent RGBA layer with `text` centered, width ~= width_frac*size."""
     S = size * SS
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -67,7 +81,7 @@ def text_layer(size, width_frac, stroke_frac=0.055):
         mid = (lo + hi) // 2
         f = ImageFont.truetype(FONT, mid)
         sw = max(1, int(mid * stroke_frac))
-        bbox = draw.textbbox((0, 0), TEXT, font=f, stroke_width=sw)
+        bbox = draw.textbbox((0, 0), text, font=f, stroke_width=sw)
         w = bbox[2] - bbox[0]
         if w <= target_w:
             best = (mid, f, bbox, sw)
@@ -79,9 +93,9 @@ def text_layer(size, width_frac, stroke_frac=0.055):
     x = (S - w) // 2 - bbox[0]
     y = (S - h) // 2 - bbox[1]
     # soft drop shadow for depth
-    draw.text((x, y + S // 48), TEXT, font=f, fill=(0, 0, 0, 90),
+    draw.text((x, y + S // 48), text, font=f, fill=(0, 0, 0, 90),
               stroke_width=sw, stroke_fill=(0, 0, 0, 90))
-    draw.text((x, y), TEXT, font=f, fill=GOLD + (255,),
+    draw.text((x, y), text, font=f, fill=GOLD + (255,),
               stroke_width=sw, stroke_fill=DARK + (255,))
     return img.resize((size, size), Image.LANCZOS)
 
@@ -96,28 +110,42 @@ def circular(img):
     return out
 
 
-def write(img, rel):
-    path = os.path.join(RES, rel)
+def write(img, rel, res_dir):
+    path = os.path.join(res_dir, rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     img.save(path)
-    print("wrote", rel, img.size)
+    print("wrote", os.path.relpath(path, ROOT), img.size)
 
 
-for d, (fg_px, leg_px) in DENSITIES.items():
-    # adaptive foreground: smaller (safe zone ~ central 72/108), transparent
-    fg = text_layer(fg_px, width_frac=0.52)
-    write(fg, f"mipmap-{d}/ic_launcher_foreground.png")
-    # legacy full icons: gradient bg + monogram filling more of the tile
-    bg = gradient_bg(leg_px)
-    mono = text_layer(leg_px, width_frac=0.68)
-    full = Image.alpha_composite(bg, mono)
-    write(full, f"mipmap-{d}/ic_launcher.png")
-    write(circular(full), f"mipmap-{d}/ic_launcher_round.png")
+def gen_flavor(text, top, bottom, res_dir):
+    """Generate the three PNG families (foreground/legacy/round) for all
+    densities into `res_dir`, using `text` + the top/bottom gradient palette."""
+    for d, (fg_px, leg_px) in DENSITIES.items():
+        # adaptive foreground: smaller (safe zone ~ central 72/108), transparent
+        fg = text_layer(fg_px, width_frac=0.52, text=text)
+        write(fg, f"mipmap-{d}/ic_launcher_foreground.png", res_dir)
+        # legacy full icons: gradient bg + monogram filling more of the tile
+        bg = gradient_bg(leg_px, top, bottom)
+        mono = text_layer(leg_px, width_frac=0.68, text=text)
+        full = Image.alpha_composite(bg, mono)
+        write(full, f"mipmap-{d}/ic_launcher.png", res_dir)
+        write(circular(full), f"mipmap-{d}/ic_launcher_round.png", res_dir)
 
-# 512x512 owner-reference master
-master_bg = gradient_bg(512)
-master = Image.alpha_composite(master_bg, text_layer(512, width_frac=0.66))
-mpath = os.path.join(ROOT, ".autoport/assets/icon-src-placeholder.png")
-master.save(mpath)
-print("wrote", mpath, master.size)
+
+# main/jak1 icons already exist and must stay byte-identical; do NOT regenerate
+# them here (regenerating risks byte drift from PIL/font/library version skew).
+# To rebuild jak1 from scratch, uncomment the block below.
+#   gen_flavor(TEXT, TOP, BOTTOM, RES)
+#   master_bg = gradient_bg(512, TOP, BOTTOM)
+#   master = Image.alpha_composite(master_bg, text_layer(512, width_frac=0.66, text=TEXT))
+#   mpath = os.path.join(ROOT, ".autoport/assets/icon-src-placeholder.png")
+#   master.save(mpath)
+#   print("wrote", os.path.relpath(mpath, ROOT), master.size)
+
+# Per-flavor placeholder icon sets (jak2 / jak3 / collection).
+for text, top, bottom, res_dir in FLAVORS:
+    print(f"--- flavor: {os.path.basename(os.path.dirname(res_dir))} "
+          f"text={text!r} ---")
+    gen_flavor(text, top, bottom, res_dir)
+
 print("DONE")
