@@ -1035,6 +1035,22 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Gcrash-blueeco
+  name: 'OWNER 2026-07-02 (final-APK playtest, PRIORITY crash): in Forbidden Jungle the BLUE ECO VENT/FOUNTAIN causes an instant crash-to-home on the owner phone. Reproduce on eae4df44 (warp jungle + trigger the vent), full crash forensics (signal, faulting fn+PC, classify: codegen/mips2c/stack/renderer), 1-to-1 arm64 fix, crash-free sustained run past the trigger. Prior fixes intact.'
+  prompt: prompts/phase-Gcrash-blueeco.md
+  validator: validators/phase-Gcrash-blueeco.sh
+  max_turns: 2200
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gtouch-fix
+  name: 'OWNER 2026-07-02 (final-APK playtest): touch menus are incomplete — main rows work but ON/OFF toggles are NOT tappable and SLIDERS not at all; save-file rows only focus. Extend the tap layer to ALL option types (toggle=flip on tap, sliders=left/right-half stepping or bar-position, save rows activate, carousels) and sweep the whole menu tree tap-complete. Verify per-type with real adb input tap, no D-pad.'
+  prompt: prompts/phase-Gtouch-fix.md
+  validator: validators/phase-Gtouch-fix.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
