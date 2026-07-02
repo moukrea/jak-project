@@ -1,0 +1,121 @@
+Gtouch-fix — touch menus: ALL option types tap-drivable (toggles, sliders, save rows, carousels)
+=================================================================================================
+Date: 2026-07-03 (attempt 3; attempts 1-2 did the code work + build, attempt 2 died before
+writing this report — attempt 3 re-verified EVERYTHING on-device step-by-step, screenshot-checked)
+
+RESULT: ALL MENU ELEMENTS TAPPABLE
+
+## Root cause (why sub-elements were tap-dead while main rows worked)
+The Gtouch-menus tap layer replayed a tap as synthetic d-pad presses, but its per-type
+sequences only really worked for menu/button rows:
+1. ON/OFF TOGGLES: in respond-common, d-pad LEFT means absolute ON and RIGHT means absolute
+   OFF. The old positional mapping (tap-half -> LEFT/RIGHT) therefore NO-OP'd whenever the
+   tapped half matched the current value — the owner's "toggles not clickable".
+2. SLIDERS: unselected sliders drew ONLY their name (no value), so even a working step gave
+   zero visible feedback; the old 3-steps-per-tap hold-token sequence was also unreliable.
+   The owner's "sliders not clickable at all".
+3. SAVE-FILE SCREENS (load-game / save-game / save-game-title): respond-memcard consumes
+   confirm from cpad x/circle ONLY — the touch confirm flag was never read there, so a tap
+   could focus but never ACTIVATE ("CONTINUE WITHOUT SAVING" only focused). Additionally the
+   4 memcard slot boxes are drawn by the locked engine draw-memcard-file-select (nameless
+   button rows), so they were never published to the tap hit-test at all.
+4. LONG LISTS: rows past the visible page (V-Sync, MSAA, Advanced Settings, Back on Graphic
+   Options) were unreachable by touch — no way to scroll by tap.
+5. YES-NO dialogs: a tap only set the choice, never confirmed it.
+
+## Fix (goal_src/jak1/pc/progress-pc.gc ONLY — pc layer; engine goal_src untouched)
+- on-off / normal-inverted / aspect-native / two-state aspect-ratio / cheat-toggle rows:
+  one tap = FLIP; direction derived from the CURRENT value (reads value-to-modify / cheats
+  bitfield), seq = CONFIRM + dir + CONFIRM.
+- slider rows: one tap = ONE step (left half steps down / right half steps up, repeated taps
+  keep stepping), seq = CONFIRM + hold-dir + CONFIRM; unselected sliders now display their
+  CURRENT VALUE inline ("MIN RENDER SCALE: 70") so every step is visible.
+- memcard screens: respond-memcard ORs in the touch confirm flag (and consumes it), so a tap
+  on the focused row ACTIVATES it (focus+activate in one tap); the 4 slot boxes are published
+  to the hit-test with measured geometry (slot k center at normalized y = 0.1838 + 0.1831k).
+- yes-no dialog rows: tap = choice (left half YES / right half NO) + CONFIRM in one tap.
+- tap-scroll: on lists longer than the page, a tap below/above the visible rows emits a
+  synthetic d-pad DOWN/UP (new MT_TOK_UP/DOWN tokens ORed into the respond-common up/down
+  guards). These zones are checked BEFORE the row hit-test (the row acceptance band swallowed
+  the below-list zone otherwise — this ordering bug is what sent attempt 2's blind verify
+  off the rails).
+- stale-sequence guard: a screen change kills any in-flight synthetic token queue
+  (seq-screen field) so leftover tokens can't replay as phantom presses on the new screen.
+
+## On-device verification (eae4df44, real `adb shell input tap` ONLY — NO D-pad)
+Fresh boot, all interactions below by real adb input tap; cpad injection was used ONLY to
+OPEN the title menu (START) and for the final D-pad-still-works check. Full logcat:
+verify3-logcat.log; per-step screenshots: shots2/ (each step screenshot-verified before the
+next — no blind choreography; full log gzipped, key lines in verify3-logcat-key.log). Every
+value change is visible in the shots AND was persisted
+to pc-settings.gc (checked at the end).
+
+1. TOGGLE (FPS Counter, center taps at 1200,721): OFF -> ON -> OFF -> ON round trip by tap
+   alone — toggled by tap 3x; the live FPS overlay appears/disappears in sync
+   (vt1-fps-on / vt2-fps-off / vt3-fps-on). More toggles: DYNAMIC RENDER SCALE OFF->ON
+   (vd1), V-SYNC OFF->ON->OFF on a below-fold row (vv1/vv2), PARTICLE CULLING OFF->ON inside
+   the Advanced Settings submenu (va2). Round trip ON->OFF->ON semantics hold for every
+   two-state row (flip always derives from the live value).
+2. SLIDER (left/right half taps): MIN RENDER SCALE 60 -> 50 (left tap, stepped down) ->
+   60 -> 70 (two right taps, stepped up) — value visibly changed each tap and logged
+   (vs1/vs2/vs3, Gtm-tap fx=0.354/0.650 lines). MIN TARGET FPS 50 -> 55 -> 60 (vs4/vs5).
+   Repeated taps keep stepping; down AND up directions proven.
+3. TAP-SCROLL (new): taps below/above the list emit "Gtm-tap scroll-down"/"Gtm-tap scroll-up"
+   (verify3-logcat) and walk the cursor through the fold — V-SYNC / MSAA / ADVANCED
+   SETTINGS / BACK, previously tap-unreachable, all reached and driven by tap (vsc1-4,
+   vsu1-9, va1, vb3).
+4. CAROUSELS: ASPECT RATIO submenu opened by tap; 4X3 applied by tap (vasp1 — render visibly
+   squished to 4:3); FIT TO SCREEN restored by tap (vasp3 — full-width again). GAME
+   RESOLUTION submenu opened by tap (vres0); NATIVE 2400x1080 selected by tap with objective
+   renderer proof: A35-RENDER fbo=640x288 -> fbo=2400x1080 (vres1).
+5. YES-NO DIALOG: QUIT GAME -> "ARE YOU SURE YOU WANT TO QUIT?" — single tap on the right
+   half chose NO and ACTIVATED it (dialog publishes n=1 yes-no row; returned to title, app
+   still running) (vq0/vq1).
+6. SAVE-FILE ROWS: LOAD GAME screen: slot taps focus (vl1 slot2, vl2 slot3, published slot
+   geometry hit d<=0.001), BACK row tap ACTIVATES (returns to title — respond-memcard
+   confirm OR-in working) (vl3). NEW GAME -> save-file screen ("SELECT FILE TO SAVE TO"):
+   single tap on CONTINUE WITHOUT SAVING focused AND ACTIVATED it — the game left the menu
+   and started the new-game intro (vn1-continue shows the intro subtitle screen; logcat:
+   link finish: sage-intro-sequence-a). This is exactly the owner-reported dead flow.
+   (Deliberately did NOT tap a save slot on the SAVE screen: with activation now working it
+   would create a save file on the owner's device.)
+7. NO D-PAD: the entire tap sequence above used real input tap events only — zero d-pad
+   presses (touch only; the cpad_inject property stayed neutral except menu-OPEN START).
+8. D-PAD STILL WORKS: cpad d-pad down moved the cursor QUIT GAME -> BACK (vg0/vg1) — d-pad
+   navigation intact alongside the tap layer; gamepad path unchanged (flags are ORed in).
+
+## Owner-state hygiene (attempt-2 stray-tap dirt REPAIRED, via taps = more verification)
+Attempt 2's blind verify had dirtied the owner's persisted settings. All restored by tap and
+verified in device pc-settings.gc afterwards: fps-counter? #t, dynamic-render-scale? #t,
+min-render-scale 70, dyn-target-fps 60, game-size 2400x1080 (a stray tap had knocked the
+owner's resolution to 640x288!), aspect-state aspect4x3 4 3 #t (FIT TO SCREEN; stray taps
+had left 16x10-custom), ps2-parts? #t, render-scale 100, vsync #f, msaa 1. App left running
+at the title attract (vz-end-attract, FPS overlay on per baseline).
+
+## Attempt-2 forensics (why this phase needed attempt 3)
+Attempt 2's verify.log sections C-H are UNRELIABLE: they ran against the 23:03 build (scroll
+zones ordered AFTER the row hit-test -> never fired; 0 "scroll-down" lines in its logcat),
+the blind choreography diverged (its "vsync-flip" actually stepped MIN TARGET FPS, its
+"load/save/title" shots show graphic-options screens), and the fixed 23:31 ENGINE/GAME.CGO
+rebuild was committed but never deployed/verified before the attempt died without report.txt.
+Attempt 3 deployed exactly that fixed build and re-proved every type with screen-state checks
+between steps. Only attempt-2 sections A (toggle) and B (slider) were valid; both re-proven.
+
+## Build / deploy consistency
+- Deployed set: .autoport/gtf-arm64-set (28 CGO/DGO, one consistent arm64 build from HEAD);
+  device GAME.CGO sha256 8edf3e8a... and ENGINE.CGO fefe9989... MATCH the local set.
+- deploy_verify PASS: build == APK == device libgk chain (e489b15c286d85b1), libgk newer
+  than newest source, HEAD 712935456.
+- x86 oracle rebuilt clean from HEAD (obj cache wiped, make-group iso :force): GAME.CGO
+  byte-identical to the staged x86 tree (deterministic, consistent).
+- x86 smoke: gk -boot -fakeiso reached `link finish: logo` (x86 unbroken).
+- Locks respected: ANDROID_SERIAL=eae4df44 only; no goalc/emitter/IGenX86_64 changes; engine
+  goal_src untouched (all changes in goal_src/jak1/pc/progress-pc.gc); .autoport/gold pristine.
+
+## Evidence index
+- shots2/v0..vz-*.png        — attempt-3 step-by-step screenshots (this report's proof)
+- verify3-logcat-key.log     — attempt-3 tap-run key logcat lines (Gtm-tap / scroll / fbo / link)
+- verify3-logcat.log.gz      — full attempt-3 logcat (gzipped; 72MB raw)
+- shots/, verify.log         — attempt-2 artifacts (sections C-H mislabeled; kept for forensics)
+- x86-mi3.log                — clean x86 rebuild from HEAD ("Successfully built all 1317 targets")
+- repro.log, shots/r*.png    — attempt-1 BEFORE-fix repro (taps dead on toggles/sliders/slots)

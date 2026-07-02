@@ -299,6 +299,7 @@
       "2a4e42917769"
     ],
     "Gtouch-fix": [
+      "a580fc061307",
       "a580fc061307"
     ]
   },
@@ -615,7 +616,7 @@
     "Gcrash-blueeco": 1783023798.7109478,
     "Gtouch-fix": 1783024646.4525933
   },
-  "last_update": "2026-07-02T21:34:54.823336+00:00",
+  "last_update": "2026-07-02T21:34:57.980834+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
