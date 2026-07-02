@@ -160,7 +160,8 @@
     "Goptions-reorder": 1,
     "Glauncher-collection": 1,
     "Gtouch-menus": 1,
-    "Gwarp-dpad": 1
+    "Gwarp-dpad": 1,
+    "Gcrash-blueeco": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -606,9 +607,9 @@
     "Glauncher-collection": 1782976563.7668622,
     "Gtouch-menus": 1782980426.1945038,
     "Gwarp-dpad": 1782988659.7159135,
-    "Gcrash-blueeco": 1783000656.3600228
+    "Gcrash-blueeco": 1783002309.9970875
   },
-  "last_update": "2026-07-02T14:18:09.342704+00:00",
+  "last_update": "2026-07-02T14:41:44.202527+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
