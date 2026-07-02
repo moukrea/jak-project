@@ -1343,11 +1343,11 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
     if rc != 0:
         try:
             _atxt = attempt_log.read_text(errors="replace")
-            _n529 = _atxt.count('"Overloaded"') + _atxt.count("overloaded_error") \
-                    + len(re.findall(r"\b529\b", _atxt))
+            _low = _atxt.lower()
+            _n529 = _low.count("overloaded") + len(re.findall(r"\b529\b", _atxt))
         except Exception:
             _n529 = 0
-        if _n529 >= 5:
+        if _n529 >= 3:
             console.print(
                 f"[yellow]API 529-storm detected ({_n529} overload markers, exit {rc}) — "
                 f"infra outage, attempt {attempt} NOT counted. Sleeping 10 min before retry.[/yellow]"
