@@ -383,8 +383,8 @@
   (set! (-> obj fps-counter?) #f) ;; FPS overlay off by default
   (set! (-> obj render-scale) 100.0) ;; internal 3D render scale default = native (100%)
   (set! (-> obj min-render-scale) 40.0) ;; Gdynamic-renderscale: auto-scaler floor default 40%
-  (set! (-> obj dynamic-render-scale?) #f) ;; Gdynamic-renderscale: off by default (manual behavior unchanged)
-  (set! (-> obj dyn-target-fps) 30.0) ;; Gdynamic-renderscale: default minimum target framerate
+  (set! (-> obj dynamic-render-scale?) #t) ;; Goptions-reorder: ON by default (owner 2026-07-01)
+  (set! (-> obj dyn-target-fps) 60.0) ;; Goptions-reorder: minimum target framerate default 60 (owner 2026-07-01)
   0)
 
 (defmethod reset-audio ((obj pc-settings) (call-handlers symbol))

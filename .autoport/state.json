@@ -156,7 +156,8 @@
     "Gdynamic-renderscale": 1,
     "Gcamera-smooth": 1,
     "Gdynamic-fix": 1,
-    "Gcamera-interp": 1
+    "Gcamera-interp": 1,
+    "Goptions-reorder": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -596,7 +597,7 @@
     "Gcamera-interp": 1782929848.9397287,
     "Goptions-reorder": 1782965004.6068058
   },
-  "last_update": "2026-07-02T04:03:24.606809+00:00",
+  "last_update": "2026-07-02T05:22:27.993910+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -623,6 +624,7 @@
     "Gdynamic-renderscale",
     "Gcamera-smooth",
     "Gdynamic-fix",
-    "Gcamera-interp"
+    "Gcamera-interp",
+    "Goptions-reorder"
   ]
 }
