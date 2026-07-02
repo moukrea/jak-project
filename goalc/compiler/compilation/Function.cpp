@@ -332,8 +332,30 @@ Val* Compiler::compile_function_or_method_call(const goos::Object& form, Env* en
   goos::Object f = form;
   const auto fe = env->function_env();
 
-  const auto args = get_va(form, form);
+  auto args = get_va(form, form);
   const auto& uneval_head = args.unnamed.at(0);
+
+  // ── arm64 (autoport, codegen-layer, x86 byte-untouched) ─────────────────────
+  // (stack-size-set! thread N) shrinks/sets a process main-thread's BACKUP stack
+  // — the heap buffer thread-suspend copies the live coroutine stack into. The
+  // constants (128/192/512/…) are sized for x86 GOAL frames. The arm64 backend's
+  // per-frame footprint is strictly larger (mandatory STP x29,x30 = +16 B every
+  // function, 16-byte SP alignment, asm-call brackets pushing 48 B around each
+  // blr vs x86 call's 8 B return address), so a coroutine that fits its declared
+  // budget on x86 overflows it on arm64 and trips thread-suspend's
+  // "too much stack" (break) at gkernel.gc:607, killing the game (sig=11).
+  // Measured on device: jak1's blue-eco `launcher` (generic-obs.gc, budget 128)
+  // used 192 at its first anim-loop suspend → instant crash-to-home at the
+  // Forbidden Jungle blue-eco vent. Same class and same remedy as the
+  // PROCESS_STACK_SAVE_SIZE 256→512 intercept in Macro.cpp (a7c90ef2b): double
+  // every constant stack-size-set! argument for arm64 ONLY, so x86 CGOs stay
+  // byte-identical to the pristine golden. Costs at most the same again out of
+  // each process's ≥16 KiB heap and covers ~2x the x86 frame depth.
+  if (m_instr_set == emitter::InstructionSet::ARM64 && uneval_head.is_symbol() &&
+      uneval_head.as_symbol() == "stack-size-set!" && args.unnamed.size() == 3 &&
+      args.unnamed.at(2).is_int()) {
+    args.unnamed.at(2) = goos::Object::make_integer(2 * args.unnamed.at(2).as_int());
+  }
   if (m_settings.check_for_requires) {
     const auto& symbol_info = m_symbol_info.lookup_exact_name(uneval_head.print());
     if (!symbol_info.empty()) {
