@@ -1023,6 +1023,44 @@ static u64 level_warp_run() {
     fflush(stdout);
     return 0;
   }
+  // Optional spawn-position override — env OG_LEVEL_WARP_POS / prop
+  // debug.opengoal.level.warp.pos = "x y z" in METERS. Patches the continue point's
+  // trans (and camera-trans by the same delta) in EE memory BEFORE (start 'play ...),
+  // so a debug run can spawn Jak at an exact world point (e.g. next to the jungle
+  // blue-eco vent) instead of a long blind cpad drive from the continue. DEBUG-ONLY:
+  // never set in production; continue-point layout per all-types.gc (trans @16,
+  // camera-trans @48; C++ addr = basic ptr + deftype offset - 4).
+  {
+    char posbuf[128] = {0};
+    if (const char* e = std::getenv("OG_LEVEL_WARP_POS")) {
+      std::strncpy(posbuf, e, sizeof(posbuf) - 1);
+    }
+#if defined(__ANDROID__)
+    if (!posbuf[0]) {
+      char pbuf[PROP_VALUE_MAX] = {0};
+      if (__system_property_get("debug.opengoal.level.warp.pos", pbuf) > 0 && pbuf[0]) {
+        std::strncpy(posbuf, pbuf, sizeof(posbuf) - 1);
+      }
+    }
+#endif
+    float mx, my, mz;
+    if (posbuf[0] && std::sscanf(posbuf, "%f %f %f", &mx, &my, &mz) == 3) {
+      float* trans = (float*)(g_ee_main_mem + (u32)cont + 16 - 4);
+      float* cam = (float*)(g_ee_main_mem + (u32)cont + 48 - 4);
+      float nx = mx * 4096.f, ny = my * 4096.f, nz = mz * 4096.f;
+      float dx = nx - trans[0], dy = ny - trans[1], dz = nz - trans[2];
+      lg::info("[LEVEL-WARP] pos override ({} {} {})m: trans ({} {} {}) -> ({} {} {})", mx, my,
+               mz, trans[0], trans[1], trans[2], nx, ny, nz);
+      trans[0] = nx;
+      trans[1] = ny;
+      trans[2] = nz;
+      cam[0] += dx;
+      cam[1] += dy;
+      cam[2] += dz;
+      printf("LEVEL-WARP-POS name=%s x=%.1f y=%.1f z=%.1f\n", s_level_warp_name, mx, my, mz);
+      fflush(stdout);
+    }
+  }
   u32 start_fn = intern_from_c("start")->value;
   u32 lp = intern_from_c("*listener-process*")->value;
   u64 args[8] = {intern_from_c("play").offset, cont, 0, 0, 0, 0, 0, 0};
