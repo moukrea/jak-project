@@ -251,18 +251,72 @@
             :param3 (game-option-menu misc-options))
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
+;; Goptions-reorder (owner 2026-07-01): fixed desktop order —
+;;   0 Aspect Ratio, 1 Game Resolution, 2 Dynamic Render Scale, 3 Render Scale/Min Render Scale,
+;;   4 Min Target FPS (HIDDEN at runtime when Dynamic OFF), 5 FPS Counter, 6 V-Sync, 7 MSAA,
+;;   8 Display mode, 9 Display, 10 Frame rate (desktop-only rows kept, grouped before Advanced),
+;;   11 Advanced settings (renamed "PS2 Options" via name-override), 12 Back.
+;; Row 4 (Min Target FPS) and row 3 (Render Scale) are position-locked: apply-dynamic-rs-menu-mode!
+;; relabels/re-points row 3 and shows/hides row 4 by mutating the live `length` (see helper below).
 (define *graphic-options-pc*
   (new 'static
        'boxed-array
        :type
        game-option
+       ;; 0 Aspect Ratio
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id aspect-ratio)
+            :scale #t
+            :param3 (game-option-menu aspect-ratio))
+       ;; 1 Game Resolution
        (new 'static
             'game-option
             :option-type (game-option-type menu)
             :name (text-id game-resolution)
             :scale #t
             :param3 (game-option-menu resolution))
+       ;; 2 DYNAMIC RENDER SCALE toggle. on-change writes the flag then re-points/relabels the
+       ;; RENDER-SCALE slider row and shows/hides the Min Target FPS row.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* dynamic-render-scale?) (the-as symbol val))
+              (apply-dynamic-rs-menu-mode!)
+              (none)))
+       ;; 3 RENDER SCALE slider: edits render-scale (manual, OFF) OR min-render-scale (auto-scaler
+       ;; FLOOR, ON). value-to-modify + label set by apply-dynamic-rs-menu-mode!. 10..100 step 10.
+       (new 'static
+            'game-option
+            :option-type (game-option-type slider)
+            :name (text-id vsync)
+            :scale #t
+            :param1 10.0
+            :param2 100.0
+            :slider-step-size 10.0
+            :slider-show-decimal? #f)
+       ;; 4 MINIMUM TARGET FRAMERATE slider: 25..60 step 5 -> *pc-settings* dyn-target-fps. label via
+       ;; name-override. HIDDEN when Dynamic Render Scale is OFF (removed from the live list, not greyed).
+       (new 'static
+            'game-option
+            :option-type (game-option-type slider)
+            :name (text-id vsync)
+            :scale #t
+            :param1 25.0
+            :param2 60.0
+            :slider-step-size 5.0
+            :slider-show-decimal? #f)
+       ;; 5 FPS-counter overlay toggle. on-off; bound to *pc-settings* fps-counter? in init-game-options.
+       ;; label provided at runtime via name-override (no engine text-id added).
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       ;; 6 V-Sync
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       ;; 7 MSAA
+       (new 'static 'game-option :option-type (game-option-type msaa) :name (text-id msaa) :scale #t)
+       ;; 8 Display mode (desktop only)
        (new 'static 'game-option :option-type (game-option-type display-mode) :name (text-id display-mode) :scale #t)
+       ;; 9 Display / monitor (desktop only)
        (new 'static
             'game-option
             :option-type (game-option-type menu)
@@ -272,14 +326,7 @@
             :option-disabled-func
             (lambda ()
               (= (pc-get-display-mode) 'windowed)))
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
-       (new 'static
-            'game-option
-            :option-type (game-option-type menu)
-            :name (text-id aspect-ratio)
-            :scale #t
-            :param3 (game-option-menu aspect-ratio))
-       (new 'static 'game-option :option-type (game-option-type msaa) :name (text-id msaa) :scale #t)
+       ;; 10 Frame rate (desktop only)
        (new 'static
             'game-option
             :option-type (game-option-type frame-rate)
@@ -288,92 +335,54 @@
             :option-disabled-func
             (lambda ()
               (or (-> *pc-settings* speedrunner-mode?) (<= (pc-get-active-display-refresh-rate) 60))))
+       ;; 11 Advanced settings (was "PS2 Options"; relabelled via name-override in init-game-options,
+       ;; submenu unchanged).
        (new 'static
             'game-option
             :option-type (game-option-type menu)
             :name (text-id ps2-options)
             :scale #t
             :param3 (game-option-menu gfx-ps2-options))
-       ;; FPS-counter overlay toggle (autoport graphics-options overhaul, batch 1).
-       ;; on-off; bound to *pc-settings* fps-counter? in init-game-options.
-       ;; label is provided at runtime via name-override (no engine text-id added).
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
-       ;; DYNAMIC RENDER SCALE toggle (Gdynamic-renderscale, index 9 desktop). on-change
-       ;; writes the flag then re-points/relabels the RENDER-SCALE slider row.
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :on-change
-            (lambda ((val object))
-              (set! (-> *pc-settings* dynamic-render-scale?) (the-as symbol val))
-              (apply-dynamic-rs-menu-mode!)
-              (none)))
-       ;; RENDER SCALE slider (index 10 desktop): edits render-scale (manual, OFF) OR
-       ;; min-render-scale (auto-scaler FLOOR, ON). value-to-modify + label are set by
-       ;; apply-dynamic-rs-menu-mode! (from init + the toggle). 10..100 step 10. NO on-change
-       ;; (the slider machinery writes value-to-modify directly; commit happens on confirm).
-       (new 'static
-            'game-option
-            :option-type (game-option-type slider)
-            :name (text-id vsync)
-            :scale #t
-            :param1 10.0
-            :param2 100.0
-            :slider-step-size 10.0
-            :slider-show-decimal? #f)
-       ;; MINIMUM TARGET FRAMERATE slider (index 11 desktop): 25..60 step 5. value-to-modify
-       ;; -> *pc-settings* dyn-target-fps (float). label via name-override.
-       (new 'static
-            'game-option
-            :option-type (game-option-type slider)
-            :name (text-id vsync)
-            :scale #t
-            :param1 25.0
-            :param2 60.0
-            :slider-step-size 5.0
-            :slider-show-decimal? #f)
+       ;; 12 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
-;; Android-only graphics options. Same as *graphic-options-pc* but with the menu
-;; items that don't make sense on a single-display phone HIDDEN (truly omitted,
-;; since the progress menu renderer has no per-item hide flag — only disable):
+;; Android-only graphics options. Same owner order as *graphic-options-pc* but with the menu
+;; items that don't make sense on a single-display phone HIDDEN (truly omitted, since the progress
+;; menu renderer has no per-item hide flag — only disable):
 ;;   - "Display mode" (windowed/fullscreen/borderless: Android is always fullscreen)
 ;;   - "Display" (monitor select: Android has exactly one display)
 ;;   - "Frame rate (experimental)" (permanently greyed on the 60Hz panel)
-;; The FPS-counter toggle is included. Wired in init-game-options.
+;; Goptions-reorder order: 0 Aspect Ratio, 1 Game Resolution, 2 Dynamic Render Scale,
+;;   3 Render Scale/Min Render Scale, 4 Min Target FPS (HIDDEN when Dynamic OFF), 5 FPS Counter,
+;;   6 V-Sync, 7 MSAA, 8 Advanced settings (renamed "PS2 Options"), 9 Back. Wired in init-game-options.
 (define *graphic-options-pc-android*
   (new 'static
        'boxed-array
        :type
        game-option
-       (new 'static
-            'game-option
-            :option-type (game-option-type menu)
-            :name (text-id game-resolution)
-            :scale #t
-            :param3 (game-option-menu resolution))
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       ;; 0 Aspect Ratio
        (new 'static
             'game-option
             :option-type (game-option-type menu)
             :name (text-id aspect-ratio)
             :scale #t
             :param3 (game-option-menu aspect-ratio))
-       (new 'static 'game-option :option-type (game-option-type msaa) :name (text-id msaa) :scale #t)
+       ;; 1 Game Resolution
        (new 'static
             'game-option
             :option-type (game-option-type menu)
-            :name (text-id ps2-options)
+            :name (text-id game-resolution)
             :scale #t
-            :param3 (game-option-menu gfx-ps2-options))
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
-       ;; DYNAMIC RENDER SCALE toggle (index 6 Android).
+            :param3 (game-option-menu resolution))
+       ;; 2 DYNAMIC RENDER SCALE toggle.
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* dynamic-render-scale?) (the-as symbol val))
               (apply-dynamic-rs-menu-mode!)
               (none)))
-       ;; RENDER SCALE slider (index 7 Android): render-scale (OFF) / min-render-scale (ON);
-       ;; wired by apply-dynamic-rs-menu-mode!. 10..100 step 10. NO on-change.
+       ;; 3 RENDER SCALE slider: render-scale (OFF) / min-render-scale (ON); wired by
+       ;; apply-dynamic-rs-menu-mode!. 10..100 step 10. NO on-change.
        (new 'static
             'game-option
             :option-type (game-option-type slider)
@@ -383,7 +392,7 @@
             :param2 100.0
             :slider-step-size 10.0
             :slider-show-decimal? #f)
-       ;; MINIMUM TARGET FRAMERATE slider (index 8 Android): 25..60 step 5 -> dyn-target-fps.
+       ;; 4 MINIMUM TARGET FRAMERATE slider: 25..60 step 5 -> dyn-target-fps. HIDDEN when Dynamic OFF.
        (new 'static
             'game-option
             :option-type (game-option-type slider)
@@ -393,6 +402,20 @@
             :param2 60.0
             :slider-step-size 5.0
             :slider-show-decimal? #f)
+       ;; 5 FPS Counter
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       ;; 6 V-Sync
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
+       ;; 7 MSAA
+       (new 'static 'game-option :option-type (game-option-type msaa) :name (text-id msaa) :scale #t)
+       ;; 8 Advanced settings (was "PS2 Options"; relabelled via name-override, submenu unchanged).
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id ps2-options)
+            :scale #t
+            :param3 (game-option-menu gfx-ps2-options))
+       ;; 9 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
@@ -411,21 +434,55 @@
 (define *dynamic-render-scale-label* "DYNAMIC RENDER SCALE")
 (define *min-render-scale-label* "MIN RENDER SCALE")
 (define *min-target-fps-label* "MIN TARGET FPS")
+;; Goptions-reorder: "PS2 Options" is relabelled "ADVANCED SETTINGS" via name-override (the menu font
+;; only maps uppercase ASCII; see the FPS-counter label note). Submenu (gfx-ps2-options) is unchanged.
+(define *advanced-settings-label* "ADVANCED SETTINGS")
 
-;; Re-point + relabel the RENDER SCALE slider row depending on the Dynamic Render Scale
-;; toggle: OFF -> edits render-scale (manual %), label "RENDER SCALE"; ON -> edits
-;; min-render-scale (auto-scaler floor), label "MIN RENDER SCALE". Slider indices after the
-;; two inserted rows: desktop *graphic-options-pc* = 10, android *graphic-options-pc-android* = 7.
+;; Goptions-reorder: stable pointers to the Min Target FPS row (physical index 4) in each graphics
+;; array, captured at load time while the arrays are in their full static layout. Used to reinsert the
+;; row when Dynamic Render Scale is toggled back ON (the objects are static; the pointers never move).
+(define *graphic-options-mtf-pc* (-> *graphic-options-pc* 4))
+(define *graphic-options-mtf-android* (-> *graphic-options-pc-android* 4))
+
+;; Goptions-reorder: show/hide the Min Target FPS row (physical index 4) by mutating the live `length`
+;; of a graphics-options array — the renderer + navigation key off (length arr), so shrinking the live
+;; length truly REMOVES the row (not just greys it). Idempotent via length checks; `saved` is the stable
+;; Min-Target-FPS object used to reinsert the row. `full-len` is the array's full (row-shown) length.
+(defun graphic-options-set-mtf-visible! ((arr (array game-option)) (saved game-option) (full-len int) (show? symbol))
+  (cond
+    (show?
+     ;; reinsert MTF at index 4 if currently hidden: shift the tail right one slot, restore full length
+     (when (< (-> arr length) full-len)
+       (dotimes (j (- full-len 5))
+         (let ((i (- (+ full-len -1) j)))
+           (set! (-> arr i) (-> arr (+ i -1)))))
+       (set! (-> arr 4) saved)
+       (set! (-> arr length) full-len)))
+    (else
+     ;; remove MTF at index 4 if currently shown: shift the tail left one slot, drop live length by 1
+     (when (= (-> arr length) full-len)
+       (dotimes (j (- full-len 5))
+         (let ((i (+ 4 j)))
+           (set! (-> arr i) (-> arr (+ i 1)))))
+       (set! (-> arr length) (+ full-len -1)))))
+  (none))
+
+;; Re-point + relabel the RENDER SCALE slider row (physical index 3 in both arrays, above the Min Target
+;; FPS row so it never shifts) per the Dynamic Render Scale toggle: OFF -> edits render-scale (manual %),
+;; label "RENDER SCALE"; ON -> edits min-render-scale (auto-scaler floor), label "MIN RENDER SCALE".
+;; Also shows/hides the Min Target FPS row (index 4): visible only when Dynamic Render Scale is ON.
 (defun apply-dynamic-rs-menu-mode! ()
   (let ((dyn? (-> *pc-settings* dynamic-render-scale?)))
-    (set! (-> *graphic-options-pc* 10 value-to-modify)
+    (set! (-> *graphic-options-pc* 3 value-to-modify)
           (if dyn? (&-> *pc-settings* min-render-scale) (&-> *pc-settings* render-scale)))
-    (set! (-> *graphic-options-pc* 10 name-override)
+    (set! (-> *graphic-options-pc* 3 name-override)
           (if dyn? *min-render-scale-label* *render-scale-label*))
-    (set! (-> *graphic-options-pc-android* 7 value-to-modify)
+    (set! (-> *graphic-options-pc-android* 3 value-to-modify)
           (if dyn? (&-> *pc-settings* min-render-scale) (&-> *pc-settings* render-scale)))
-    (set! (-> *graphic-options-pc-android* 7 name-override)
-          (if dyn? *min-render-scale-label* *render-scale-label*)))
+    (set! (-> *graphic-options-pc-android* 3 name-override)
+          (if dyn? *min-render-scale-label* *render-scale-label*))
+    (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* 13 dyn?)
+    (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* 10 dyn?))
   (none))
 
 ;; label for the NATIVE (panel resolution) entry at the top of the Game Resolution
@@ -2338,32 +2395,38 @@
   (set! (-> *game-options-pc* 5 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *game-options-pc* 6 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *game-options-pc* 7 value-to-modify) (&-> *progress-carousell* int-backup))
-  (set! (-> *graphic-options-pc* 1 value-to-modify) (&-> *progress-carousell* int-backup))
-  (set! (-> *graphic-options-pc* 3 value-to-modify) (&-> *pc-settings* vsync?))
-  (set! (-> *graphic-options-pc* 5 value-to-modify) (&-> *progress-carousell* int-backup))
-  (set! (-> *graphic-options-pc* 6 value-to-modify) (&-> *progress-carousell* int-backup))
-  ;; FPS-counter toggle (index 8, just before the back button on desktop)
-  (set! (-> *graphic-options-pc* 8 value-to-modify) (&-> *pc-settings* fps-counter?))
-  (set! (-> *graphic-options-pc* 8 name-override) *fps-counter-label*)
-  ;; DYNAMIC RENDER SCALE toggle (index 9 on desktop)
-  (set! (-> *graphic-options-pc* 9 value-to-modify) (&-> *pc-settings* dynamic-render-scale?))
-  (set! (-> *graphic-options-pc* 9 name-override) *dynamic-render-scale-label*)
-  ;; RENDER SCALE / MIN RENDER SCALE slider (index 10) wired by apply-dynamic-rs-menu-mode!
-  ;; MIN TARGET FPS slider (index 11 on desktop)
-  (set! (-> *graphic-options-pc* 11 value-to-modify) (&-> *pc-settings* dyn-target-fps))
-  (set! (-> *graphic-options-pc* 11 name-override) *min-target-fps-label*)
-  ;; Android graphics-options array: vsync(1), msaa(3), fps-counter(5), render-scale(6)
-  (set! (-> *graphic-options-pc-android* 1 value-to-modify) (&-> *pc-settings* vsync?))
-  (set! (-> *graphic-options-pc-android* 3 value-to-modify) (&-> *progress-carousell* int-backup))
+  ;; Goptions-reorder: canonicalize both graphics arrays to their full (Min Target FPS shown) layout
+  ;; before index-wiring — a prior menu session with Dynamic OFF may have left them compacted (row 4
+  ;; removed), which would shift the indices below. apply-dynamic-rs-menu-mode! re-hides row 4 at the end.
+  (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* 13 #t)
+  (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* 10 #t)
+  ;; desktop graphics-options (Goptions-reorder order): 0 Aspect, 1 GameRes, 2 Dynamic, 3 RenderScale,
+  ;; 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 DisplayMode, 9 Display, 10 FrameRate,
+  ;; 11 Advanced(=PS2 Options renamed), 12 Back.
+  (set! (-> *graphic-options-pc* 2 value-to-modify) (&-> *pc-settings* dynamic-render-scale?))
+  (set! (-> *graphic-options-pc* 2 name-override) *dynamic-render-scale-label*)
+  ;; index 3 (RENDER SCALE / MIN RENDER SCALE slider) wired by apply-dynamic-rs-menu-mode!
+  (set! (-> *graphic-options-pc* 4 value-to-modify) (&-> *pc-settings* dyn-target-fps))
+  (set! (-> *graphic-options-pc* 4 name-override) *min-target-fps-label*)
+  (set! (-> *graphic-options-pc* 5 value-to-modify) (&-> *pc-settings* fps-counter?))
+  (set! (-> *graphic-options-pc* 5 name-override) *fps-counter-label*)
+  (set! (-> *graphic-options-pc* 6 value-to-modify) (&-> *pc-settings* vsync?))
+  (set! (-> *graphic-options-pc* 7 value-to-modify) (&-> *progress-carousell* int-backup))
+  (set! (-> *graphic-options-pc* 8 value-to-modify) (&-> *progress-carousell* int-backup))
+  (set! (-> *graphic-options-pc* 10 value-to-modify) (&-> *progress-carousell* int-backup))
+  (set! (-> *graphic-options-pc* 11 name-override) *advanced-settings-label*)
+  ;; android graphics-options (Goptions-reorder order): 0 Aspect, 1 GameRes, 2 Dynamic, 3 RenderScale,
+  ;; 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 Advanced, 9 Back.
+  (set! (-> *graphic-options-pc-android* 2 value-to-modify) (&-> *pc-settings* dynamic-render-scale?))
+  (set! (-> *graphic-options-pc-android* 2 name-override) *dynamic-render-scale-label*)
+  ;; index 3 (RENDER SCALE / MIN RENDER SCALE slider) wired by apply-dynamic-rs-menu-mode!
+  (set! (-> *graphic-options-pc-android* 4 value-to-modify) (&-> *pc-settings* dyn-target-fps))
+  (set! (-> *graphic-options-pc-android* 4 name-override) *min-target-fps-label*)
   (set! (-> *graphic-options-pc-android* 5 value-to-modify) (&-> *pc-settings* fps-counter?))
   (set! (-> *graphic-options-pc-android* 5 name-override) *fps-counter-label*)
-  ;; DYNAMIC RENDER SCALE toggle (index 6 Android)
-  (set! (-> *graphic-options-pc-android* 6 value-to-modify) (&-> *pc-settings* dynamic-render-scale?))
-  (set! (-> *graphic-options-pc-android* 6 name-override) *dynamic-render-scale-label*)
-  ;; RENDER SCALE / MIN RENDER SCALE slider (index 7) wired by apply-dynamic-rs-menu-mode!
-  ;; MIN TARGET FPS slider (index 8 Android)
-  (set! (-> *graphic-options-pc-android* 8 value-to-modify) (&-> *pc-settings* dyn-target-fps))
-  (set! (-> *graphic-options-pc-android* 8 name-override) *min-target-fps-label*)
+  (set! (-> *graphic-options-pc-android* 6 value-to-modify) (&-> *pc-settings* vsync?))
+  (set! (-> *graphic-options-pc-android* 7 value-to-modify) (&-> *progress-carousell* int-backup))
+  (set! (-> *graphic-options-pc-android* 8 name-override) *advanced-settings-label*)
   (apply-dynamic-rs-menu-mode!)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))
@@ -3262,9 +3325,14 @@
                                       (lookup-text! *common-text* (text-id no) #f)))))
               ;; menu option or simple button. just draw its text!
               (((game-option-type menu) (game-option-type button))
-               (if (nonzero? (-> options index name))
-                 (set! option-str (lookup-text! *common-text* (-> options index name) #f))
-                 (set! option-str #f))
+               ;; Goptions-reorder: prefer a runtime name-override when set (e.g. "ADVANCED SETTINGS"
+               ;; for the renamed PS2 Options menu row); otherwise fall back to the localized name.
+               (cond
+                 ((nonzero? (-> options index name-override))
+                  (set! option-str (-> options index name-override)))
+                 ((nonzero? (-> options index name))
+                  (set! option-str (lookup-text! *common-text* (-> options index name) #f)))
+                 (else (set! option-str #f)))
                ;; if autosave disabled, update text and lock it
                (when (and (not (-> *setting-control* default auto-save)) (= (text-id disable-auto-save) (-> options index name)))
                  (set! option-str (lookup-text! *common-text* (text-id auto-save-disabled) #f))

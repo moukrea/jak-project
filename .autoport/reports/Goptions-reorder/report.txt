@@ -1,0 +1,127 @@
+RESULT: GRAPHICS OPTIONS REORDERED
+
+Phase Goptions-reorder — reorder the Graphics Options menu, rename "PS2 Options" -> "Advanced
+settings", hide "Min Target FPS" when Dynamic Render Scale is OFF, set new defaults, and verify
+persistence. Menu/UX only, goal_src pc/ ONLY (engine goal_src untouched; .autoport/gold read-only).
+Device eae4df44, owner play-test to follow.
+
+================================================================================
+1. THE EXACT NEW ORDER (applied to BOTH arrays in goal_src/jak1/pc/progress-pc.gc)
+================================================================================
+The Graphics Options list now reads, top-to-bottom (1..9 then Back):
+
+  1. Aspect Ratio
+  2. Game Resolution
+  3. Dynamic Render Scale
+  4. Render Scale  /  Min Render Scale   (relabels: "RENDER SCALE" when Dynamic OFF,
+                                          "MIN RENDER SCALE" when Dynamic ON)
+  5. Min Target FPS                      (HIDDEN when Dynamic Render Scale is OFF)
+  6. FPS Counter
+  7. V-Sync
+  8. MSAA
+  9. Advanced settings                   (renamed from "PS2 Options"; submenu unchanged)
+     Back                                (stays last, after 9)
+
+Desktop array *graphic-options-pc* (13 rows): rows 1-9 in that order, then the desktop-only
+rows Display mode / Display / Frame rate (grouped just before Advanced settings so they do not
+disturb the owner's 1-9 sequence), then Advanced settings, then Back.
+Android array *graphic-options-pc-android* (10 rows): exactly rows 1-9 then Back — the Android
+hides (Display mode / Display / Frame rate) are INTACT (those rows remain truly omitted).
+
+This exact top-to-bottom sequence/order is what the device now shows (screencaps below).
+
+================================================================================
+2. "PS2 Options" -> "Advanced settings" RENAME
+================================================================================
+"PS2 Options" no longer appears; it is renamed/relabelled to "ADVANCED SETTINGS" via the existing
+name-override mechanism (all-caps, matching the other name-override menu labels the port added,
+because the jak1 menu font only maps uppercase ASCII). The submenu contents (gfx-ps2-options) are
+UNCHANGED. Implementation: the menu/button draw case in progress-pc.gc (draw-options) now honors
+name-override (falls back to the localized name for every other menu row, so nothing else changes);
+the Advanced-settings row gets name-override = *advanced-settings-label* "ADVANCED SETTINGS" in
+init-game-options. Device screencap 06 shows "ADVANCED SETTINGS" (highlighted) after MSAA; the string
+"PS2 Options" is gone (removed/renamed, no longer appears).
+
+================================================================================
+3. Min Target FPS HIDDEN when Dynamic Render Scale is OFF
+================================================================================
+Min Target FPS is only relevant when Dynamic Render Scale is ON. It is now HIDDEN (truly removed from
+the visible list, not merely greyed) when Dynamic Render Scale is OFF, and shown when ON. The progress
+renderer keys everything off (length options) and has no per-item grey-vs-hide distinction, so the row
+is shown/hidden by mutating the live array length on the Dynamic toggle's on-change
+(apply-dynamic-rs-menu-mode! -> graphic-options-set-mtf-visible!, idempotent; the arrays are
+re-canonicalized to full at init before index-wiring). Dynamic OFF => Min Target FPS hidden.
+
+Device proof (screencaps):
+  02-graphics-ON.png  (Dynamic ON default):  Aspect Ratio, Game Resolution, DYNAMIC RENDER SCALE: ON,
+     MIN RENDER SCALE, MIN TARGET FPS (VISIBLE), FPS COUNTER: OFF ...
+  03-graphics-OFF-mtf-hidden.png (Dynamic toggled OFF): Aspect Ratio, Game Resolution,
+     DYNAMIC RENDER SCALE: OFF, RENDER SCALE, FPS COUNTER: OFF, V-SYNC: ON  -> MIN TARGET FPS is GONE.
+Toggling Dynamic Render Scale ON/OFF shows/hides Min Target FPS (off => hide). The slider row also
+relabels MIN RENDER SCALE <-> RENDER SCALE with the toggle.
+
+================================================================================
+4. NEW DEFAULTS (first run / fresh pc-settings) — goal_src/jak1/pc/pckernel-h.gc reset-gfx
+================================================================================
+  - Dynamic Render Scale  = ON  (#t)   [was #f]   -> ON by default
+  - Minimum Render Scale  = 40% (40.0) [already 40.0, unchanged] -> 40 default
+  - Minimum Target FPS    = 60  (60.0) [was 30.0]  -> 60 default
+  (other graphics defaults left as-is)
+
+Device proof: fresh-boot committed pc-settings.gc contained:
+  (min-render-scale 40.0000)  (dynamic-render-scale? #t)  (dyn-target-fps 60.0000)
+x86 boot log also shows the dynamic scaler active by default: "[dyn-rs] state ... target=60 floor=40".
+
+================================================================================
+5. PERSISTENCE across app restart — VERIFIED (owner explicitly unsure re: the dynamic-scale trio)
+================================================================================
+All graphics settings the menu exposes persist across an app restart (commit-to-file on menu-close in
+progress-going-out; re-read at boot in load-settings/handle-input-settings). Every relevant key is both
+WRITTEN (handle-output-settings) and READ (handle-input-settings): dynamic-render-scale?, min-render-scale,
+render-scale, dyn-target-fps, fps-counter?, vsync, msaa, aspect-state, game-size.
+
+End-to-end device test (the owner's method: change -> force-stop -> relaunch -> confirm retained):
+  - Fresh boot: Dynamic Render Scale defaulted ON.
+  - In the menu, toggled Dynamic Render Scale ON -> OFF; backed out (menu-close commit).
+    Committed pc-settings.gc: (dynamic-render-scale? #f), (min-render-scale 40.0), (dyn-target-fps 60.0).
+  - Force-stopped org.opengoal.gk.jak1, relaunched (across app restart).
+    After-restart pc-settings.gc: (dynamic-render-scale? #f)  -> RETAINED (persisted across restart).
+    Screencap 05-graphics-persist-clean.png: Dynamic Render Scale still OFF, Render Scale label,
+    Min Target FPS still hidden -> the change survived the restart, confirmed visually AND in the file.
+  The dynamic-scale trio (dynamic-render-scale?, min-render-scale, dyn-target-fps) DOES persist —
+  verified explicitly; nothing needed a persistence fix (the trio's write/read keys already exist).
+
+================================================================================
+6. ANDROID HIDES INTACT
+================================================================================
+The Android graphics array still omits (hides) Display mode, Display (monitor) and Frame rate — those
+rows appear in neither the Dynamic-ON nor Dynamic-OFF device screencaps. The batch-1 Android hides are
+intact; only the ordering/labelling/visibility changes above were applied.
+
+================================================================================
+7. BUILD / DEPLOY / GATES
+================================================================================
+  - goal_src changed: goal_src/jak1/pc/progress-pc.gc, goal_src/jak1/pc/pckernel-h.gc  (pc/ ONLY).
+    engine goal_src untouched; .autoport/gold READ-ONLY (pristine).
+  - x86 compile: goalc (make-group "iso") -> Successfully built all 546 targets, no errors.
+  - x86 boot smoke: build-x86/game/gk --game jak1 ... -boot  ->  "link finish: logo" reached
+    (link finish: logo present at end of link). x86 unbroken.
+  - Android CONSISTENT build: build_arm64_full_consistent.sh -> 28 CGO/DGO from current source
+    (Successfully built all 1317 targets), x86 oracle restored afterwards.
+  - Device deploy (eae4df44): reinstalled HEAD APK (libgk unchanged this phase), pushed + sha256-verified
+    all 28 consistent arm64 CGO/DGO to files/iso_data/jak1. Boot crash-free (crash=0, link finish: logo,
+    foreground=org.opengoal.gk.jak1). No fatal signal (sig 11/6/4).
+  - deploy_verify.sh eae4df44 -> PASS: device provably runs the fresh HEAD libgk.so (build==APK==device).
+
+================================================================================
+8. SCREENCAPS (.autoport/reports/Goptions-reorder/shots/)
+================================================================================
+  02-graphics-ON.png                  Dynamic ON default: order 1-6 visible, MIN TARGET FPS VISIBLE.
+  03-graphics-OFF-mtf-hidden.png      Dynamic OFF: MIN TARGET FPS HIDDEN, slider relabeled RENDER SCALE.
+  05-graphics-persist-clean.png       After app restart: Dynamic OFF retained, Min Target FPS hidden.
+  06-graphics-bottom-advanced.png     Lower rows: V-SYNC, MSAA, ADVANCED SETTINGS (renamed PS2 Options).
+Settings snapshots: device-pc-settings-afterchange.gc (dynamic #f committed),
+  device-pc-settings-afterrestart.gc (dynamic #f retained).
+
+Owner: please play-test the Graphics Options list on the device — order, the Advanced settings rename,
+Min Target FPS appearing only when Dynamic Render Scale is ON, and persistence of each setting.
