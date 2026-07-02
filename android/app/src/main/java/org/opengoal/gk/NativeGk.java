@@ -108,6 +108,16 @@ public final class NativeGk {
     public static native boolean isInMenu();
 
     /**
+     * Phase Gwarp-dpad (autoport): true while the warp/teleporter
+     * destination-selection UI is open (a warp-gate process in its 'active
+     * state). That screen is D-pad-driven, so {@link TouchOverlayView} ORs
+     * this with {@link #isInMenu()} when latching whether the left control
+     * acts as an analog stick or a d-pad. Reads a native atomic published on
+     * the GOAL thread — cheap and race-free, like isInMenu().
+     */
+    public static native boolean isInWarp();
+
+    /**
      * Phase Gtouch-menus (autoport): forward a single menu-row tap to the
      * runtime. Called from the overlay on a finger DOWN that missed every
      * on-screen control while {@link #isInMenu()} is true. The coordinates are

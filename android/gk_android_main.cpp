@@ -116,6 +116,14 @@ std::atomic<uint32_t> g_touch_events_seen{0};
 // d-pad). Default false so the overlay defaults to analog before boot.
 std::atomic<bool> g_overlay_in_menu{false};
 
+// Phase Gwarp-dpad (autoport): true while a warp-gate (teleporter) process is
+// in its destination-selection state ('active, villagep-obs.gc). That UI is
+// navigated with the D-pad (cpad-pressed? left/right), so the overlay's left
+// control must switch stick->d-pad exactly like the options menus. Written on
+// the GOAL thread by the same publisher as g_overlay_in_menu; read on the UI
+// thread via NativeGk.isInWarp(). Default false = normal analog stick.
+std::atomic<bool> g_overlay_in_warp{false};
+
 // Phase Gtouch-menus (autoport): the last on-screen menu tap, published by the
 // UI thread (NativeGk.onMenuTap) and consumed once per tap by the GOAL thread
 // via pc-get-touch-tap. Coordinates are normalized to [0,10000] (fraction of the
@@ -2925,6 +2933,128 @@ extern "C" void a36_tree_scan_per_frame() {
         }
       }
       g_overlay_in_menu.store(in_menu, std::memory_order_release);
+    }
+    // Phase Gwarp-dpad (autoport): publish "warp/teleporter selection UI is
+    // up". The warp-gate destination picker (villagep-obs.gc state 'active)
+    // is D-pad-driven, so the overlay left control needs the SAME stick->
+    // d-pad switch the options menus get via g_overlay_in_menu. The engine
+    // exposes no global for it, so walk the GOAL process tree (we ARE the
+    // GOAL thread; every 15 frames) for a live process whose type is
+    // warp-gate and whose current state name is 'active. Tree links
+    // (brother @16 / child @20) are (pointer process-tree) ppointer cells,
+    // so each hop is a double rd32; process.state @ deftype 56, state name
+    // (stack-frame.name) @ deftype 4, all read at deftype-4.
+    {
+      bool in_warp = false;
+      auto ap = jak1::intern_from_c("*active-pool*");
+      const uint32_t s_warp_type = jak1::intern_from_c("warp-gate").offset;
+      const uint32_t s_active = jak1::intern_from_c("active").offset;
+      uint32_t root = ap.offset ? ap->value : 0;
+      // Diag (Gwarp-dpad): `setprop debug.opengoal.gwarp.dump 1` logs, once
+      // per 60 frames, every warp-ish node the walk visits + a scan summary,
+      // so a wrong offset/type/state assumption is nameable from one device
+      // run instead of guessed at.
+      char dump_pb[PROP_VALUE_MAX] = {0};
+      const bool dump = __system_property_get("debug.opengoal.gwarp.dump", dump_pb) > 0 &&
+                        dump_pb[0] == '1' && (f % 60) == 0;
+      int visited = 0, overflow = 0;
+      if (root && root != (uint32_t)s7.offset && s_warp_type && s_active) {
+        // Explicit child stack + iterate brother chains in-place so the
+        // stack depth is bounded by tree depth, not sibling count.
+        uint32_t stk[128];
+        int sp = 0;
+        stk[sp++] = root;
+        // Empty tree links are #f (s7), NOT 0 — GOAL nullity is #f-based
+        // (gkernel.gc change-parent/deactivate: (set! (-> this child) #f)).
+        // Deref'ing #f as a ppointer walks into the symbol table and
+        // self-loops (the first diag run's exact failure), so both the cell
+        // and the ref must be s7-guarded.
+        auto deref_link = [](uint32_t node, uint32_t deftype_off) -> uint32_t {
+          uint32_t cell = 0, ref = 0;
+          if (!rd32(node + deftype_off - 4, &cell)) return 0;
+          if (!cell || cell == (uint32_t)s7.offset) return 0;
+          if (!rd32(cell, &ref) || ref == (uint32_t)s7.offset) return 0;
+          return ref;
+        };
+        while (sp > 0 && !in_warp) {
+          uint32_t node = stk[--sp];
+          while (node && node != (uint32_t)s7.offset && visited < 2048 &&
+                 !in_warp) {
+            visited++;
+            const uint32_t child = deref_link(node, 20);
+            if (child) {
+              if (sp < (int)(sizeof(stk) / sizeof(stk[0]))) {
+                stk[sp++] = child;
+              } else {
+                overflow++;
+              }
+            }
+            // type tag @ node-4 -> type basic; the type's name-symbol slot
+            // is the first u32 of the type object (A18-DIAG idiom).
+            // process.state @ deftype 56; state name (stack-frame.name,
+            // a symbol) @ deftype 4.
+            uint32_t type_ref = 0, type_sym = 0, st = 0, st_name = 0;
+            rd32(node - 4, &type_ref);
+            if (type_ref && type_ref != (uint32_t)s7.offset) {
+              rd32(type_ref, &type_sym);
+            }
+            rd32(node + 56 - 4, &st);
+            if (st && st != (uint32_t)s7.offset) {
+              rd32(st + 4 - 4, &st_name);
+            }
+            if (dump) {
+              char tname[32] = {0}, sname[32] = {0}, pname[24] = {0};
+              if (type_sym) {
+                gk_a40_sym_name_fwd((uintptr_t)g_ee_main_mem, type_sym, tname,
+                                    sizeof(tname));
+              }
+              if (st_name) {
+                gk_a40_sym_name_fwd((uintptr_t)g_ee_main_mem, st_name, sname,
+                                    sizeof(sname));
+              }
+              // process-tree.name @ deftype 4: usually a GOAL string (chars
+              // at ref+4); sanitize to printable ASCII.
+              uint32_t nm = 0;
+              rd32(node + 4 - 4, &nm);
+              if (nm && nm != (uint32_t)s7.offset &&
+                  nm < EE_MAIN_MEM_SIZE - (uint32_t)sizeof(pname) - 8) {
+                std::memcpy(pname, g_ee_main_mem + nm + 4, sizeof(pname) - 1);
+                for (char& c : pname) {
+                  if (c && (c < 0x20 || c > 0x7e)) c = '?';
+                }
+              }
+              const bool warpish = strstr(pname, "warp") || strstr(tname, "warp");
+              if (warpish || visited <= 6) {
+                __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                                    "Gwarp-scan node=0x%x name='%s' type='%s'(sym 0x%x) "
+                                    "state=0x%x sname='%s'(sym 0x%x)",
+                                    node, pname, tname, type_sym, st, sname, st_name);
+              }
+            }
+            if (type_sym == s_warp_type && st_name == s_active) {
+              in_warp = true;
+            }
+            node = deref_link(node, 16);  // brother
+          }
+        }
+      }
+      if (dump) {
+        __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                            "Gwarp-scan summary: root=0x%x visited=%d overflow=%d "
+                            "want-type-sym=0x%x want-state-sym=0x%x in_warp=%d",
+                            root, visited, overflow, s_warp_type, s_active,
+                            (int)in_warp);
+      }
+      const bool was =
+          g_overlay_in_warp.exchange(in_warp, std::memory_order_release);
+      if (was != in_warp) {
+        __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                            "Gwarp-dpad: warp selection UI %s -> overlay left "
+                            "control %s",
+                            in_warp ? "OPEN" : "closed",
+                            in_warp ? "acts as D-PAD (options-menu mapping)"
+                                    : "restored to analog stick");
+      }
     }
     if (in_play) {
       static std::atomic<bool> s_play_logged{false};
@@ -6692,6 +6822,18 @@ Java_org_opengoal_gk_NativeGk_onPadAxis(JNIEnv* /*env*/, jclass /*clazz*/,
 JNIEXPORT jboolean JNICALL
 Java_org_opengoal_gk_NativeGk_isInMenu(JNIEnv* /*env*/, jclass /*clazz*/) {
   return g_overlay_in_menu.load(std::memory_order_acquire) ? JNI_TRUE
+                                                           : JNI_FALSE;
+}
+
+// Phase Gwarp-dpad (autoport): same contract as isInMenu, for the warp/
+// teleporter destination-selection UI (a warp-gate process in state 'active).
+// The overlay ORs this with isInMenu when latching the left control's mode,
+// so the analog stick acts as the D-pad while a warp destination is being
+// picked and reverts when the warp UI closes. Atomic read only — no symbol
+// table access on the UI thread.
+JNIEXPORT jboolean JNICALL
+Java_org_opengoal_gk_NativeGk_isInWarp(JNIEnv* /*env*/, jclass /*clazz*/) {
+  return g_overlay_in_warp.load(std::memory_order_acquire) ? JNI_TRUE
                                                            : JNI_FALSE;
 }
 

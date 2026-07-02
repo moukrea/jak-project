@@ -656,14 +656,20 @@ public class TouchOverlayView extends View {
                 logActuate(t, "l2r2", "tap -> onPadAxis(LEFT_TRIGGER) value=" + AXIS_MAX
                         + ", onPadAxis(RIGHT_TRIGGER) value=" + AXIS_MAX + " [combined]", true);
                 break;
-            case KIND_STICK:
+            case KIND_STICK: {
                 // Latch the mode for the whole gesture from the live GOAL state.
-                t.stickMenuMode = queryMenu();
+                // Gwarp-dpad: the warp/teleporter destination picker is D-pad
+                // driven like the menus, so it gets the same stick->d-pad
+                // mapping; it reverts to analog once the warp UI closes.
+                boolean inMenu = queryMenu();
+                boolean inWarp = queryWarp();
+                t.stickMenuMode = inMenu || inWarp;
                 logActuate(t, t.stickMenuMode ? "menu-dpad" : "left-stick",
                         "down mode=" + (t.stickMenuMode ? "MENU(d-pad)" : "GAMEPLAY(analog)")
-                                + " (native isInMenu=" + t.stickMenuMode + ")", true);
+                                + " (native isInMenu=" + inMenu + " isInWarp=" + inWarp + ")", true);
                 updateStick(t, x, y);
                 break;
+            }
             default:
                 break;
         }
@@ -754,6 +760,17 @@ public class TouchOverlayView extends View {
         }
     }
 
+    // Gwarp-dpad: is the warp/teleporter destination-selection UI open? Gets
+    // the same stick->d-pad treatment as the menus; only the stick-mode latch
+    // and the glyph consult this — menu tap routing stays on queryMenu() alone.
+    private boolean queryWarp() {
+        try {
+            return NativeGk.isInWarp();
+        } catch (UnsatisfiedLinkError e) {
+            return false;
+        }
+    }
+
     // ---------------------------------------------------------------------
     // Visibility / fade
     // ---------------------------------------------------------------------
@@ -828,8 +845,9 @@ public class TouchOverlayView extends View {
                 return;
             }
             // Poll menu mode so the left control's glyph (stick vs d-pad)
-            // tracks the game state even without a touch.
-            boolean m = queryMenu();
+            // tracks the game state even without a touch. The warp selection
+            // UI (Gwarp-dpad) shows the d-pad glyph too.
+            boolean m = queryMenu() || queryWarp();
             if (m != lastMenuMode) {
                 lastMenuMode = m;
                 Log.i(TAG, "overlay-mode: left-control now "

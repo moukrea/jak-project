@@ -1,0 +1,70 @@
+Phase Gwarp-dpad — teleporter (warp) selection: analog stick acts as D-pad, like in the options menus
+=====================================================================================================
+RESULT: WARP STICK ACTS AS DPAD
+
+Owner ask (2026-07-02): the in-game teleporter/warp destination picker is D-pad-driven; on Android the
+analog stick must drive it — the SAME stick->D-pad context switch the options menus already use — and
+normal stick control must be restored after the warp UI closes.
+
+1. Where the options-menu stick->D-pad mapping lives (REUSED, not duplicated)
+-----------------------------------------------------------------------------
+- Java: android/app/src/main/java/org/opengoal/gk/TouchOverlayView.java updateStick() — menu branch
+  converts the left-control drag into edge-triggered DPAD_UP/DOWN/LEFT/RIGHT onPadButton() presses
+  (threshold dead = radius*0.62*0.22); gameplay branch sends analog LEFTX/LEFTY. The mode is latched
+  per gesture at finger-down: previously `stickMenuMode = queryMenu()` (NativeGk.isInMenu()).
+- Native: android/gk_android_main.cpp publishes g_overlay_in_menu on the GOAL thread every 15 frames
+  from *progress-process* / *master-mode* (Gtouch-controls). The warp feature adds a parallel flag,
+  same publisher, same consumer — the identical mapping is applied, nothing about the menu path moved.
+
+2. Warp-UI-active detection (new)
+---------------------------------
+- The warp destination picker is a `warp-gate` process in state 'active (goal_src/jak1/levels/
+  village_common/villagep-obs.gc:133 — reads cpad-pressed? left/right to cycle, circle to warp,
+  triangle to exit). The engine exposes no global for "warp UI open", so gk_android_main.cpp
+  (same 15-frame GOAL-thread publisher) walks the GOAL process tree from *active-pool*
+  (brother @16 / child @20 are ppointer cells; process.state @deftype 56; state name @deftype 4;
+  reads at deftype-4) looking for a live process whose type symbol is `warp-gate` and state name
+  symbol is `active`. Result -> std::atomic g_overlay_in_warp -> JNI NativeGk.isInWarp().
+- Fix found via prop-gated scan dump (debug.opengoal.gwarp.dump): empty GOAL tree links are #f (s7),
+  NOT 0 — the first walk deref'd #f as a ppointer and self-looped in the symbol table (visited=2048,
+  overflow=1920). s7-guarding cell+ref fixed it: visited ~127, overflow=0, warp-gate node resolves.
+- Java: TouchOverlayView latches `stickMenuMode = queryMenu() || queryWarp()`; the glyph heartbeat
+  ORs it too (left control draws the d-pad cross while the warp UI is up). Menu TAP routing stays
+  gated on queryMenu() alone — warp only flips the stick mapping. Touch + D-pad/gamepad unchanged
+  (additive; the dpad path is the same onPadButton one the menus use).
+
+3. Device verification (eae4df44, deploy_verify PASS: chain build==APK==device 48bae6b2e07e7fc2)
+------------------------------------------------------------------------------------------------
+Reach: F1 warp hook continue-point made overridable (game/kernel/jak1/kmachine.cpp, env
+OG_F1_WARP_CONT / prop debug.opengoal.f1.warp.cont, default "game-start" unchanged) -> spawn at
+village2-warp, on the warp gate pad. Picker opened with an injected circle edge.
+
+Stick DRIVES the warp selection (feature, verified twice):
+  14:02:25.103 / 14:03:46.313  Gwarp-dpad: warp selection UI OPEN -> overlay left control acts as
+                               D-PAD (options-menu mapping)
+  overlay-actuate: menu-dpad down mode=MENU(d-pad) (native isInMenu=false isInWarp=true)
+  menu-dpad drag -> onPadButton(DPAD_LEFT) pressed=1  (sdl_button=13) ... kernel: pad: dpad_left
+  Carousel MOVED on stick swipes: GEYSER ROCK -> GREEN SAGE'S HUT (rt-2/cl-4-reopen-left.png) and
+  back -> GEYSER ROCK (rt-3-after-right.png). Screencaps focus-verified org.opengoal.gk.jak1.
+
+Restore after the warp UI closes (both close paths):
+  - triangle exit (villagep-obs.gc:143): 14:02:50.877 / 14:04:30.435  Gwarp-dpad: warp selection UI
+    closed -> overlay left control restored to analog stick (~0.4 s after the triangle edge,
+    F1D-INJECT button0=0x1000). cl-2-closed.png = idle "PRESS O TO USE", picker gone.
+  - warping out (circle -> use): in_warp dropped to 0 on the level change, analog restored.
+  Post-close swipe: overlay-actuate: left-stick down mode=GAMEPLAY(analog) (native isInMenu=false
+  isInWarp=false) + continuous onPadAxis(LEFTY) ramp (cl-3-analog.png). Repeatable both ways
+  (open->dpad->close->analog->reopen->dpad->close).
+
+Options-menu regression: START pause menu + stick swipe -> menu-dpad, isInMenu=true, kernel dpad_up
+(rt-5-menu.png). The options stick->D-pad mapping is untouched and still works.
+
+4. Constraints
+--------------
+- Engine goal_src UNTOUCHED (glue reads GOAL state; changes are android/ Java+JNI + game/kernel
+  runtime glue only). .autoport/gold pristine.
+- x86 unbroken: build-x86 rebuilt (kmachine.cpp shared); smoke run reached `link finish: logo`
+  (34 logo link lines; .autoport/reports/Gwarp-dpad/x86-smoke.log).
+
+Artifacts: .autoport/reports/Gwarp-dpad/{close-logcat.txt,retest-logcat.txt,diag-logcat.txt,
+cl-*.png,rt-*.png,wd*.png,phaseA-gameplay.png,x86-smoke.log}
