@@ -626,6 +626,33 @@ void pc_get_window_size(u32 w_ptr, u32 h_ptr) {
   }
 }
 
+// Phase Gtouch-menus (autoport): hand the last on-screen menu tap to GOAL. On
+// desktop/emulator there is no touch screen, so this always reports "no tap"
+// (flag = 0). The Android build binds a live implementation
+// (gk_android_main.cpp::a35_pc_get_touch_tap) that publishes real finger taps.
+// Declaring + binding it on every backend keeps the GOAL extern resolvable so
+// the touch-menu code path is additive and never crashes the x86 smoke.
+void pc_get_touch_tap(u32 x_ptr, u32 y_ptr, u32 flag_ptr) {
+  if (x_ptr) {
+    auto p = Ptr<s64>(x_ptr).c();
+    if (p) {
+      *p = 0;
+    }
+  }
+  if (y_ptr) {
+    auto p = Ptr<s64>(y_ptr).c();
+    if (p) {
+      *p = 0;
+    }
+  }
+  if (flag_ptr) {
+    auto p = Ptr<s64>(flag_ptr).c();
+    if (p) {
+      *p = 0;
+    }
+  }
+}
+
 void pc_get_window_scale(u32 x_ptr, u32 y_ptr) {
   if (!Display::GetMainDisplay()) {
     return;
@@ -1164,6 +1191,9 @@ void init_common_pc_port_functions(
   make_func_symbol_func("pc-get-window-size", (void*)pc_get_window_size);
   // Returns scale of window. This is for DPI stuff.
   make_func_symbol_func("pc-get-window-scale", (void*)pc_get_window_scale);
+  // Phase Gtouch-menus (autoport): last on-screen menu tap (Android touch input).
+  // Desktop stub reports flag=0 (no touch); Android binds a live impl.
+  make_func_symbol_func("pc-get-touch-tap", (void*)pc_get_touch_tap);
   make_func_symbol_func("pc-set-window-size!", (void*)pc_set_window_size);
   make_func_symbol_func("pc-get-num-resolutions", (void*)pc_get_num_resolutions);
   make_func_symbol_func("pc-get-resolution", (void*)pc_get_resolution);

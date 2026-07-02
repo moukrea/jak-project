@@ -108,6 +108,21 @@ public final class NativeGk {
     public static native boolean isInMenu();
 
     /**
+     * Phase Gtouch-menus (autoport): forward a single menu-row tap to the
+     * runtime. Called from the overlay on a finger DOWN that missed every
+     * on-screen control while {@link #isInMenu()} is true. The coordinates are
+     * NORMALIZED to [0,1] (touch pixel / view size) so the native side is
+     * resolution-independent; the GOAL progress-menu code hit-tests them against
+     * the rows currently on screen and drives the same action the D-pad + confirm
+     * would (enter submenu, toggle, cycle a carousel, or go back). Purely
+     * additive — the D-pad/gamepad overlay path is unchanged.
+     *
+     * @param nx Normalized x in [0,1] (left..right).
+     * @param ny Normalized y in [0,1] (top..bottom).
+     */
+    public static native void onMenuTap(float nx, float ny);
+
+    /**
      * Phase D3 (autoport): return the cumulative SDL_GL_SwapWindow count
      * since the most recent android_renderer_run entry. Used by the
      * supervisor's reality-check toolkit (D4) to assert that the

@@ -67,6 +67,225 @@
 (define *quit-to-title* #f)
 
 ;; ############################
+;; Gtouch-menus: TOUCH-BROWSABLE MENUS  (owner 2026-07-02)
+;; ############################
+;; On Android the menus must be fully navigable by TAP (no d-pad needed): a tap
+;; on a menu row focuses + activates it (enter a submenu / toggle / cycle a
+;; carousel); a tap outside the list goes back. Purely ADDITIVE — the d-pad +
+;; gamepad path is untouched, and the ENGINE menu source is untouched (all logic
+;; lives here in pc/).
+;;
+;; Data flow: the android overlay (TouchOverlayView) forwards a NORMALIZED [0..1]
+;; tap to C (NativeGk.onMenuTap); pc-get-touch-tap hands GOAL the tap + a "fresh"
+;; flag. draw-options republishes each visible row's normalized on-screen rect
+;; every frame (it already computes each row's font origin), and respond-common
+;; hit-tests the tap to a row, then reproduces the EXACT d-pad interaction for
+;; that row's type via a short synthetic-press sequence — so all existing
+;; enter/toggle/cycle/commit logic is reused verbatim.
+(define-extern pc-get-touch-tap (function (pointer int64) (pointer int64) (pointer int64) none))
+
+(defconstant MENU_TOUCH_MAX_ROWS 12)   ;; >= PROGRESS_PC_PAGE_HEIGHT (+ scroll extra)
+
+;; synthetic-press sequence tokens
+(defconstant MT_TOK_NONE       0)
+(defconstant MT_TOK_CONFIRM    1)  ;; x / circle
+(defconstant MT_TOK_LEFT       2)  ;; d-pad left, "pressed" edge (cycle prev)
+(defconstant MT_TOK_RIGHT      3)  ;; d-pad right, "pressed" edge (cycle next)
+(defconstant MT_TOK_BACK       4)  ;; square / triangle
+(defconstant MT_TOK_HOLD_LEFT  5)  ;; d-pad left, "held" (slider step)
+(defconstant MT_TOK_HOLD_RIGHT 6)  ;; d-pad right, "held" (slider step)
+
+;; Virtual->screen calibration (CONFIRMED ON-DEVICE eae4df44, 2026-07-02).
+;; A menu row's NORMALIZED [0..1] on-screen center maps LINEARLY from the font
+;; origin the row is drawn at:
+;;   cy = MENU_TOUCH_Y_A * oy + MENU_TOUCH_Y_B
+;;   cx = MENU_TOUCH_X_A * (ox + 185)             ;; +185 = half of the 370-wide row box (centered text)
+;; Measured: title-menu rows at oy=40..165 (step 25) land at screen fractions
+;; 0.19..0.79 (step ~0.12) -> slope 0.00478, offset ~0. The font SCALE does NOT
+;; affect row position (only glyph size), so there is no fscale term. Since every
+;; draw-options row uses option-x=17 + a `middle` (horizontal-center) flag, cx is
+;; ~0.50 for all rows: the name is left of center, the value/arrows are right of
+;; center, so a tap's left/right half selects decrement/increment.
+(defconstant MENU_TOUCH_Y_A 0.00478)
+(defconstant MENU_TOUCH_Y_B 0.0)
+(defconstant MENU_TOUCH_X_A 0.002475)
+
+(deftype menu-touch-row (structure)
+  ((abs-index int16)
+   (oy        float)    ;; raw font origin y (for calibration logging)
+   (cx        float)    ;; normalized screen x of row center
+   (cy        float)    ;; normalized screen y of row center
+   (half-h    float)))  ;; normalized half-height (row selection band)
+
+(deftype menu-touch-state (basic)
+  ((n-rows      int32)
+   (screen      progress-screen)
+   (rows        menu-touch-row MENU_TOUCH_MAX_ROWS :inline)
+   (tap-x       int64)   ;; scratch out-params for pc-get-touch-tap
+   (tap-y       int64)
+   (tap-f       int64)
+   (seq         uint8 8) ;; synthetic-press token queue
+   (seq-len     int32)
+   (seq-pos     int32)
+   (confirm?    symbol)  ;; per-frame synthetic-press flags (respond-common ORs these in)
+   (back?       symbol)
+   (left?       symbol)
+   (right?      symbol)
+   (hold-left?  symbol)
+   (hold-right? symbol)))
+
+(define *menu-touch* (new 'static 'menu-touch-state :screen (progress-screen invalid)))
+
+(defun menu-touch-record! ((abs-index int) (ox float) (oy float) (fscale float))
+  "Gtouch-menus: publish one visible menu row's NORMALIZED on-screen rect so a
+   tap can be hit-tested to it. Called once per DRAWN row from draw-options."
+  (let ((n (-> *menu-touch* n-rows)))
+    (when (< n MENU_TOUCH_MAX_ROWS)
+      (let ((row (-> *menu-touch* rows n)))
+        (set! (-> row abs-index) abs-index)
+        (set! (-> row oy) oy)
+        (set! (-> row cx) (* MENU_TOUCH_X_A (+ ox 185.0)))
+        (set! (-> row cy) (+ (* MENU_TOUCH_Y_A oy) MENU_TOUCH_Y_B))
+        (set! (-> row half-h) (* MENU_TOUCH_Y_A 12.5))
+        (set! (-> *menu-touch* n-rows) (+ n 1)))))
+  (none))
+
+(defun menu-touch-push-seq! ((tok int))
+  "Gtouch-menus: append one token to the synthetic-press queue."
+  (when (< (-> *menu-touch* seq-len) 8)
+    (set! (-> *menu-touch* seq (-> *menu-touch* seq-len)) tok)
+    (1+! (-> *menu-touch* seq-len)))
+  (none))
+
+(defun menu-touch-set-seq-1! ((tok int))
+  "Gtouch-menus: reset the queue to a single token."
+  (set! (-> *menu-touch* seq-len) 0)
+  (set! (-> *menu-touch* seq-pos) 0)
+  (menu-touch-push-seq! tok)
+  (none))
+
+(defun menu-touch-emit! ((tok int))
+  "Gtouch-menus: raise THIS frame's synthetic-press flag for one queue token."
+  (cond
+    ((= tok MT_TOK_CONFIRM)    (set! (-> *menu-touch* confirm?) #t))
+    ((= tok MT_TOK_LEFT)       (set! (-> *menu-touch* left?) #t))
+    ((= tok MT_TOK_RIGHT)      (set! (-> *menu-touch* right?) #t))
+    ((= tok MT_TOK_BACK)       (set! (-> *menu-touch* back?) #t))
+    ((= tok MT_TOK_HOLD_LEFT)  (set! (-> *menu-touch* hold-left?) #t))
+    ((= tok MT_TOK_HOLD_RIGHT) (set! (-> *menu-touch* hold-right?) #t)))
+  (none))
+
+(defun menu-touch-build-seq! ((obj progress) (idx int) (left? symbol))
+  "Gtouch-menus: fill the queue with the synthetic d-pad presses that reproduce a
+   tap on option `idx`. `left?` = tapped left of the row center (cycle prev /
+   decrement), else right (next / increment). Reuses the row's real behavior by
+   replaying the same enter/change/commit presses a d-pad user would make."
+  (set! (-> *menu-touch* seq-len) 0)
+  (set! (-> *menu-touch* seq-pos) 0)
+  (let* ((options (-> *options-remap* (-> obj display-state)))
+         (typ (-> options idx option-type))
+         (dir (if left? MT_TOK_LEFT MT_TOK_RIGHT))
+         (hdir (if left? MT_TOK_HOLD_LEFT MT_TOK_HOLD_RIGHT)))
+    (cond
+      ;; disabled row: a tap does nothing (mirrors the confirm early-out)
+      ((and (nonzero? (-> options idx option-disabled-func))
+            (!= (-> options idx option-disabled-func) #f)
+            ((-> options idx option-disabled-func)))
+       (set! (-> *menu-touch* seq-len) 0))
+      ;; menus / buttons / action rows: a single confirm enters/activates
+      ((or (= typ (game-option-type menu))
+           (= typ (game-option-type button))
+           (= typ (game-option-type button-music))
+           (= typ (game-option-type button-flava))
+           (= typ (game-option-type resolution))
+           (= typ (game-option-type controller))
+           (= typ (game-option-type monitor))
+           (= typ (game-option-type aspect-new))
+           (= typ (game-option-type binding-assignment)))
+       (menu-touch-push-seq! MT_TOK_CONFIRM))
+      ;; yes-no reacts to left/right WITHOUT edit mode (no confirm needed)
+      ((= typ (game-option-type yes-no))
+       (menu-touch-push-seq! dir))
+      ;; sliders: enter edit, nudge a few steps by side, commit
+      ((= typ (game-option-type slider))
+       (menu-touch-push-seq! MT_TOK_CONFIRM)
+       (menu-touch-push-seq! hdir)
+       (menu-touch-push-seq! hdir)
+       (menu-touch-push-seq! hdir)
+       (menu-touch-push-seq! MT_TOK_CONFIRM))
+      ;; everything else (on-off, aspect-ratio, carousels, language, ...):
+      ;; enter edit, change by side, commit
+      (else
+       (menu-touch-push-seq! MT_TOK_CONFIRM)
+       (menu-touch-push-seq! dir)
+       (menu-touch-push-seq! MT_TOK_CONFIRM))))
+  (none))
+
+(defun menu-touch-poll! ((obj progress))
+  "Gtouch-menus: read the newest tap; if new, hit-test it (nearest row by vertical
+   center within the row band) and build the synthetic-press sequence for it, or
+   go back if the tap was clearly outside the row list. No-op on desktop (the
+   pc-get-touch-tap stub always reports flag=0)."
+  (pc-get-touch-tap (&-> *menu-touch* tap-x) (&-> *menu-touch* tap-y) (&-> *menu-touch* tap-f))
+  (when (and (nonzero? (-> *menu-touch* tap-f))
+             (> (-> *menu-touch* n-rows) 0)
+             (= (-> *menu-touch* screen) (-> obj display-state)))
+    (let ((fx (/ (the float (-> *menu-touch* tap-x)) 10000.0))
+          (fy (/ (the float (-> *menu-touch* tap-y)) 10000.0))
+          (best -1)
+          (best-d 999999.0)
+          (best-band 0.05))
+      ;; nearest row by vertical center
+      (dotimes (i (-> *menu-touch* n-rows))
+        (let* ((row (-> *menu-touch* rows i))
+               (dy (fabs (- fy (-> row cy)))))
+          (when (< dy best-d)
+            (set! best-d dy)
+            (set! best i)
+            (set! best-band (-> row half-h)))))
+      ;; concise per-tap diagnostic (one line, only when a tap lands on a menu)
+      (format 0 "Gtm-tap fx=~f fy=~f n=~D best=~D d=~f~%"
+              fx fy (-> *menu-touch* n-rows) best best-d)
+      (cond
+        ((and (>= best 0) (< best-d (* 3.0 best-band)))
+         ;; tap landed on (or near) a row -> focus it + reproduce its interaction
+         (let* ((row (-> *menu-touch* rows best))
+                (idx (the int (-> row abs-index)))
+                (left? (< fx (-> row cx))))
+           (set! (-> obj option-index) idx)
+           (set! (-> obj last-option-index-change) (-> *display* real-frame-counter))
+           (menu-touch-build-seq! obj idx left?)))
+        (else
+         ;; tapped clearly outside the row list -> go back
+         (menu-touch-set-seq-1! MT_TOK_BACK)))
+      ;; emit the first token of the freshly-built sequence THIS frame
+      (when (> (-> *menu-touch* seq-len) 0)
+        (menu-touch-emit! (the int (-> *menu-touch* seq 0)))
+        (set! (-> *menu-touch* seq-pos) 1))))
+  (none))
+
+(defun menu-touch-drive! ((obj progress))
+  "Gtouch-menus: per-frame touch driver. Clears this frame's synthetic-press
+   flags, then either advances an in-flight press sequence or polls for a new
+   tap. Called at the top of respond-common; its flags are ORed into the d-pad
+   input guards so touch is additive."
+  (set! (-> *menu-touch* confirm?) #f)
+  (set! (-> *menu-touch* back?) #f)
+  (set! (-> *menu-touch* left?) #f)
+  (set! (-> *menu-touch* right?) #f)
+  (set! (-> *menu-touch* hold-left?) #f)
+  (set! (-> *menu-touch* hold-right?) #f)
+  (cond
+    ((< (-> *menu-touch* seq-pos) (-> *menu-touch* seq-len))
+     ;; advance an in-flight synthetic sequence
+     (menu-touch-emit! (the int (-> *menu-touch* seq (-> *menu-touch* seq-pos))))
+     (1+! (-> *menu-touch* seq-pos)))
+    (else
+     ;; no sequence running -> poll for a fresh tap
+     (menu-touch-poll! obj)))
+  (none))
+
+;; ############################
 ;; CAROUSELL STUFF
 ;; ############################
 
@@ -2496,6 +2715,9 @@
             (max (-> *progress-scroll* start-index) (- (-> obj option-index) (+ PROGRESS_PC_PAGE_HEIGHT -2)))))
     (when (and options (not (or (progress-scrolling?) (-> obj in-transition))))
       ;; only respond to inputs when transition is done (and also there's options at all)
+      ;; Gtouch-menus: fold any pending touch tap into this frame's input (additive
+      ;; to the d-pad). Sets the *menu-touch* *? flags the guards below OR in.
+      (menu-touch-drive! obj)
       (cond
         ((cpad-pressed? 0 up)
          ;; pressed up
@@ -2522,10 +2744,10 @@
               (when (and (> (length options) PROGRESS_PC_PAGE_HEIGHT) (>= (-> obj option-index) *progress-scroll-end*))
                 (progress-scroll-down!)))
              (else (set! (-> obj option-index) 0) (set! (-> *progress-scroll* start-index) 0)))))
-        ((cpad-hold? 0 left)
-         ;; holding left. sliders use hold.
+        ((or (cpad-hold? 0 left) (-> *menu-touch* left?) (-> *menu-touch* hold-left?))
+         ;; holding left. sliders use hold. (Gtouch-menus: touch left/hold-left too.)
          (cond
-           ((cpad-pressed? 0 left)
+           ((or (cpad-pressed? 0 left) (-> *menu-touch* left?))
             ;; navigate left.
             (when (or (-> obj selected-option) (= (-> options (-> obj option-index) option-type) (game-option-type yes-no)))
               (let ((sound? #f))
@@ -2614,10 +2836,10 @@
                     (when (< (seconds 0.3) (- (-> *display* real-frame-counter) (-> *progress-state* last-slider-sound)))
                       (set! (-> *progress-state* last-slider-sound) (-> *display* real-frame-counter))
                       (sound-play "slider2001" :vol vol)))))))))
-        ((cpad-hold? 0 right)
-         ;; holding right
+        ((or (cpad-hold? 0 right) (-> *menu-touch* right?) (-> *menu-touch* hold-right?))
+         ;; holding right (Gtouch-menus: touch right/hold-right too.)
          (cond
-           ((cpad-pressed? 0 right)
+           ((or (cpad-pressed? 0 right) (-> *menu-touch* right?))
             ;; pressed right
             (when (or (-> obj selected-option) (= (-> options (-> obj option-index) option-type) (game-option-type yes-no)))
               (let ((sound? #f))
@@ -2696,8 +2918,8 @@
                     (when (< (seconds 0.3) (- (-> *display* real-frame-counter) (-> *progress-state* last-slider-sound)))
                       (set! (-> *progress-state* last-slider-sound) (-> *display* real-frame-counter))
                       (sound-play "slider2001" :vol vol)))))))))
-        ((or (cpad-pressed? 0 square) (cpad-pressed? 0 triangle))
-         ;; pressed square or triangle, cancel out!
+        ((or (cpad-pressed? 0 square) (cpad-pressed? 0 triangle) (-> *menu-touch* back?))
+         ;; pressed square or triangle, cancel out! (Gtouch-menus: tap-outside/back too.)
          (cond
            ((-> obj selected-option)
             ;; an option is selected. AHHH!!! just restore to whatever was on the backup
@@ -2727,8 +2949,8 @@
               (progress-reset-music-parms))
             (load-level-text-files (-> *level-task-data* (-> obj display-level-index) text-group-index))
             (set! (-> obj next-display-state) (progress-screen invalid)))))
-        ((or (cpad-pressed? 0 x) (cpad-pressed? 0 circle))
-         ;; pressed x or circle. advance!
+        ((or (cpad-pressed? 0 x) (cpad-pressed? 0 circle) (-> *menu-touch* confirm?))
+         ;; pressed x or circle. advance! (Gtouch-menus: touch confirm too.)
          ;; first check if the option is disabled, if so leave early and do nothing
          (when (and (nonzero? (-> options (-> obj option-index) option-disabled-func))
                     (!= (-> options (-> obj option-index) option-disabled-func) #f)
@@ -3253,6 +3475,9 @@
   (let ((options (-> *options-remap* (-> obj display-state))))
     (when options
       ;; this menu has options to draw omg
+      ;; Gtouch-menus: start a fresh per-frame layout capture for touch hit-testing.
+      (set! (-> *menu-touch* n-rows) 0)
+      (set! (-> *menu-touch* screen) (-> obj display-state))
       (let* ((line-amt (if (> (length options) PROGRESS_PC_PAGE_HEIGHT) (1- PROGRESS_PC_PAGE_HEIGHT) (length options)))
              (y-off (- arg0 (/ (* arg1 line-amt) 2)))
              (option-count 0)
@@ -3636,7 +3861,12 @@
                   (set! (-> font origin x) (the float (- option-x (-> obj left-x-offset))))
                   (set! (-> font origin y) (the float (the int (* (the float option-y) (if (-> options index scale) f0-23 1.0)))))
                   (set-scale! font (* arg2 f0-23 scroll-amt))
-                  (print-game-text option-str font #f (the int (* 128.0 f0-23 scroll-amt)) 22)))
+                  (print-game-text option-str font #f (the int (* 128.0 f0-23 scroll-amt)) 22)
+                  ;; Gtouch-menus: record this drawn row's on-screen rect for tap hit-testing.
+                  (menu-touch-record! index
+                                      (the float (- option-x (-> obj left-x-offset)))
+                                      (the float (the int (* (the float option-y) (if (-> options index scale) f0-23 1.0))))
+                                      (* arg2 f0-23 scroll-amt))))
               (+! y-off arg1)
               (+! option-count 1)))))))
   0

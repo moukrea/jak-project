@@ -1,0 +1,98 @@
+Phase Gtouch-menus — make the in-game menus fully TOUCH-browsable (no D-pad)
+=============================================================================
+RESULT: MENUS TOUCH-BROWSABLE
+Owner mandate (2026-07-02): on Android the option/progress menus must be fully
+navigable by TAP — tap a menu entry to enter its submenu / reveal sub-options,
+tap a sub-option to select it, tap Back / outside to go back — all by touch,
+WITHOUT needing the D-pad. D-pad + gamepad keep working (touch is additive).
+Device eae4df44 only. Verified with REAL `adb -s eae4df44 shell input tap X Y`.
+
+--------------------------------------------------------------------------------
+TAP -> ACTION MAPPING (how a tap reproduces the D-pad/confirm interaction)
+--------------------------------------------------------------------------------
+A tap on a menu ROW focuses it (sets option-index) and then reproduces EXACTLY
+the D-pad+confirm interaction a controller user would perform for that row's
+type, by replaying a short synthetic press sequence over consecutive frames
+(so all the existing enter / toggle / cycle / commit logic is reused verbatim):
+
+  * menu / button / action row  -> CONFIRM               (enter the submenu / activate)
+  * on-off / carousel / slider / aspect / language  ->  CONFIRM, then a LEFT or
+        RIGHT (chosen by which HALF of the row was tapped), then CONFIRM to commit
+        -> a single tap CHANGES the value / cycles the carousel option. Tapping the
+        LEFT area selects one way, the RIGHT area the other (carousel left/right).
+  * yes-no row -> a direct LEFT/RIGHT (this type reacts without edit-mode)
+  * a tap OUTSIDE the row list (below/above the rows) -> BACK
+  * the visible "Back" row -> CONFIRM on it -> BACK
+
+Touch is purely additive: the flags a tap raises are OR-ed into the SAME input
+guards the D-pad uses in respond-common (cpad-pressed? up/down/left/right/x/
+circle/square/triangle), so the D-pad and a Bluetooth gamepad keep working
+unchanged. Engine goal_src is UNTOUCHED — all logic lives in
+goal_src/jak1/pc/progress-pc.gc (pc/ only) plus the Android touch glue.
+
+--------------------------------------------------------------------------------
+HIT-TESTING (map touch x,y -> the on-screen menu row rectangle)
+--------------------------------------------------------------------------------
+The menu already computes each row's on-screen font ORIGIN while drawing it, so
+we reuse that layout. Data flow:
+
+  Android overlay (TouchOverlayView.onPointerDown) — when a finger DOWN misses
+    every on-screen control AND NativeGk.isInMenu() is true — forwards the
+    NORMALIZED tap (x/viewWidth, y/viewHeight) via NativeGk.onMenuTap(nx,ny).
+  JNI (gk_android_main.cpp) stores nx,ny (scaled to [0,10000]) + a monotonic
+    tap-sequence counter in atomics.
+  pc-get-touch-tap (new pc-* bridge; live impl a35_pc_get_touch_tap on Android,
+    no-op flag=0 stub pc_get_touch_tap on desktop so x86 stays safe) hands GOAL
+    the tap x,y + a "fresh" flag (1 exactly once per new tap).
+  draw-options (progress-pc.gc) republishes every visible row's NORMALIZED
+    on-screen rect each frame via menu-touch-record! (menu-touch-row: cx, cy,
+    half-h + abs-index) — using the row's actual font origin position.
+  respond-common calls menu-touch-drive!: on a fresh tap it hit-tests the tap
+    (fx,fy) to the NEAREST row by vertical center within the row band, sets
+    option-index to that row, and builds the synthetic press sequence.
+
+Virtual->screen transform (CONFIRMED ON-DEVICE eae4df44): a row's normalized
+screen center maps LINEARLY from its font origin:  cy = 0.00478*oy ;  cx ~ 0.50
+(rows drawn with a horizontal-center flag). Calibrated from the title menu rows
+(oy = 40..165 step 25 -> screen fractions 0.19..0.79 step ~0.12). This is
+framebuffer-independent (Java sends normalized coords), so no window size is
+needed GOAL-side. Nearest-row matching tolerates small transform error.
+
+--------------------------------------------------------------------------------
+VERIFICATION — REAL `adb -s eae4df44 shell input tap X Y` (NO D-pad used)
+--------------------------------------------------------------------------------
+Display 2400x1080 landscape. onMenuTap normalized coords confirmed to match the
+tap pixel (tap 1200,464 -> nx=0.50 ny=0.43). Screencaps in shots/.
+
+  1. Title menu open (via overlay/START).  TAP OPTIONS (1200,464):
+        Gtm-tap fx=0.50 fy=0.4296 best=2 (OPTIONS) d=0.0006  -> ENTERED *options*
+        submenu (Game/Graphic/Sound Options + Back).            [shot s03]
+  2. TAP "Graphic Options" (1200,464): ENTERED Graphic Options (Aspect Ratio,
+        Game Resolution, Dynamic Render Scale, ..., FPS Counter: OFF). [shot s04]
+  3. TAP "FPS Counter" LEFT half (850,850): Gtm-tap best=5 (FPS Counter) d=0.0016
+        -> row toggled OFF -> ON; the on-screen FPS counter appeared.  [shot s05]
+  4. TAP "FPS Counter" RIGHT half (1560,850): best=5 -> toggled ON -> OFF again
+        (carousel left/right select proven both directions; setting restored). [s06]
+  5. TAP outside the list (1200,1065): best=5 d=0.1974 (> band) -> BACK -> returned
+        to *options*.                                                  [shot s07]
+  6. TAP the "Back" row on *options* (1200,723): n=4 best=3 (Back) d=0.0001 -> EXIT
+        to the title menu.                                             [shot s08]
+  Every one of the above navigated the menu WITHOUT any D-pad input — touch only,
+  via real adb input tap events.
+
+  D-pad still works (touch is additive): injecting a D-pad DOWN moved the cursor
+  OPTIONS -> SECRETS on the title menu.                                [shot s09]
+  Gamepad path is the identical cpad input path, so it is intact too.
+
+--------------------------------------------------------------------------------
+BUILD / DEPLOY
+--------------------------------------------------------------------------------
+Scope: android/ (gk_android_main.cpp bridge+JNI, NativeGk.java, TouchOverlayView.java),
+game/kernel/common/kmachine.cpp (desktop no-op stub + registration),
+goal_src/jak1/pc/progress-pc.gc (touch nav). Engine goal_src UNTOUCHED; .autoport/gold pristine.
+x86: recompiled jak1 GOAL cleanly, boot smoke reached "link finish: logo".
+Android: full consistent 28-file arm64 build, libgk rebuilt, APK assembled,
+installed to eae4df44. deploy_verify PASS: device eae4df44 provably runs the fresh
+HEAD libgk.so (chain build==APK==device). App boots + renders, no crash signatures.
+
+Final owner gate = play-test on the APK on the owner's phone (next).
