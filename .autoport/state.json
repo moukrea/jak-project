@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 165,
+  "current_phase_idx": 166,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -451,7 +451,8 @@
     "Gdynamic-renderscale",
     "Gcamera-smooth",
     "Gdynamic-fix",
-    "Gcamera-interp"
+    "Gcamera-interp",
+    "Goptions-reorder"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -595,9 +596,10 @@
     "Gcamera-smooth": 1782881296.21235,
     "Gdynamic-fix": 1782894926.711849,
     "Gcamera-interp": 1782929848.9397287,
-    "Goptions-reorder": 1782965004.6068058
+    "Goptions-reorder": 1782965004.6068058,
+    "Glauncher-collection": 1782976563.7668622
   },
-  "last_update": "2026-07-02T05:22:27.993910+00:00",
+  "last_update": "2026-07-02T07:16:03.766864+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
