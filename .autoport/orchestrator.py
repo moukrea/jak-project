@@ -1333,6 +1333,33 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
         # because we never ran the validator.
         return "rate-interrupted", f"session {pct_str}", []
 
+    # API-529-STORM GUARD (2026-07-02): an Anthropic "Overloaded" storm kills the
+    # session mid-work (repeated 529s -> long silent retry gaps -> the stall
+    # watchdog SIGTERMs -> exit 143 with no report). That is an INFRA outage, not
+    # a worker failure — it must not consume a retry or feed the stuck detector
+    # (it burned 2x3 attempts on Gcrash-blueeco). Detect: nonzero exit + >=5
+    # occurrences of 529/Overloaded in the attempt stream -> sleep out the storm
+    # and retry the same attempt number.
+    if rc != 0:
+        try:
+            _atxt = attempt_log.read_text(errors="replace")
+            _low = _atxt.lower()
+            _n529 = _low.count("overloaded") + len(re.findall(r"\b529\b", _atxt))
+        except Exception:
+            _n529 = 0
+        if _n529 >= 3:
+            console.print(
+                f"[yellow]API 529-storm detected ({_n529} overload markers, exit {rc}) — "
+                f"infra outage, attempt {attempt} NOT counted. Sleeping 10 min before retry.[/yellow]"
+            )
+            notify(
+                f"⏸ phase {pid}: Anthropic API 529-storm killed the session "
+                f"({_n529} markers). Waiting it out; attempt not counted.",
+                level="warn",
+            )
+            time.sleep(600)
+            return "rate-interrupted", f"api-529-storm x{_n529}", []
+
     console.print(f"[dim]Claude Code exited {rc}. Running validator...[/dim]")
 
     # Ground-truth validator pass: this is what decides pass/fail, not Claude's word.
