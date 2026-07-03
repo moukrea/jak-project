@@ -5393,6 +5393,43 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                             w[2], w[3]);
       }
     }
+    // GRV-PP — identify the CURRENT PROCESS and its thread stacks immediately
+    // (repro12's SP was NOT in the dram arena; must know whose stack the RET
+    // consumed). kernel-context.current-process @ +20 (deftype 24 - 4).
+    {
+      auto kc = jak1::intern_from_c("*kernel-context*");
+      uint32_t pp = 0;
+      if (kc.offset && kc->value) {
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + kc->value + 20, &pp);
+      }
+      if (pp >= 0x1000 && pp < (uint32_t)EE_MAIN_MEM_SIZE) {
+        uint32_t pname = 0, mt = 0, tt = 0, mt_top = 0, tt_top = 0, mt_sp = 0, tt_sp = 0;
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + pp + 0, &pname);
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + pp + 40, &mt);   // main-thread
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + pp + 44, &tt);   // top-thread
+        if (mt >= 0x1000 && mt < (uint32_t)EE_MAIN_MEM_SIZE) {
+          gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + mt + 28, &mt_top);
+          gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + mt + 24, &mt_sp);
+        }
+        if (tt >= 0x1000 && tt < (uint32_t)EE_MAIN_MEM_SIZE) {
+          gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + tt + 28, &tt_top);
+          gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + tt + 24, &tt_sp);
+        }
+        char nm[36] = {0};
+        for (int i = 0; i < 32; i += 4) {
+          uint32_t w = 0;
+          if (!gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + pname + 4 + i, &w)) {
+            break;
+          }
+          memcpy(nm + i, &w, 4);
+        }
+        nm[32] = 0;
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG GRV-PP pp=0x%x name='%s' mt=0x%x(top=0x%x sp=0x%x) "
+                            "tt=0x%x(top=0x%x sp=0x%x)",
+                            pp, nm, mt, mt_top, mt_sp, tt, tt_top, tt_sp);
+      }
+    }
     // GRV-NAME — when pc/lr/x17 are BARE GOAL offsets (a rebase-less branch/RET,
     // e.g. repro12's pc==lr==0x1d7b30), name the containing GOAL function via the
     // symbol-table walk. Also name x17 (the arm64 branch-target scratch).

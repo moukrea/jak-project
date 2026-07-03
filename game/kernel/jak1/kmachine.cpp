@@ -1473,7 +1473,10 @@ void grv_canary_maybe() {
     if (cur[i] != s_prev[i]) {
       bool bare = (cur[i] >> 32) == 0 && cur[i] != 0;
       bool hot = (i >= 4 && i <= 6);
-      if (bare || (hot && cur[i] == 0)) {
+      // Only the host-RA -> bare transition is suspicious: the dram arena is
+      // SHARED by post threads, so bare float/GOAL spill churn is legitimate.
+      bool was_host = (s_prev[i] >> 32) == 0x7f;
+      if ((bare && was_host) || (hot && cur[i] == 0 && was_host)) {
         printf("GRV-CANARY %s off=%d(0x%x) old=%016llx new=%016llx tick=%llu\n",
                hot ? "HOT-ANOMALY" : "BARE-WRITE", i * 8, band + i * 8,
                (unsigned long long)s_prev[i], (unsigned long long)cur[i],
