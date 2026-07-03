@@ -1,0 +1,177 @@
+=== BASELINE PERF EXTRACT: village2 fire pose (120s hold) ===
+Window ~00:48:03-00:50:12. scale=40%% throughout. 65 fps samples.
+
+--- FPS ---
+avg-fps median=32.0 min=30.0 max=34.7 mean=32.10 (n=65)
+distinct scale values: [40]
+
+--- A35-SPART medians (n=69, per 60-frame window) ---
+3d_ms            median=        3.73  min=      3.34  max=      4.91
+3d_c             median=         180  min=       180  max=       180
+3d_it            median=        7680  min=      7680  max=      7680
+2d_ms            median=      119.06  min=     115.8  max=    124.19
+2d_c             median=        5919  min=      5818  max=      5996
+2d_it            median=      352128  min=    348032  max=    356864
+launch_ms        median=      139.96  min=    134.66  max=     146.2
+launch_c         median=       14093  min=     13949  max=     14244
+adgif_ms         median=       12.55  min=     11.71  max=     14.11
+adgif_c          median=       13257  min=     12857  max=     13899
+sprite_buckets   median=         540  min=       480  max=       548
+quads            median=      164505  min=    160697  max=    168631
+directflush      median=        1020  min=      1020  max=      1080
+
+
+===== REPRESENTATIVE A35-PERF DUMP #1 =====
+A35-PERF frame=3540
+25.74ms 333dr 390480tri root
+ 24.81ms 333dr 390480tri buckets
+  4.69ms 68dr 118222tri [ 9] l0-tie
+A35-RENDER frame=3540 chain_bytes=947888 buckets_drawn=30 skipped=1 draws=333 tris=390480 fbo=256x192 render_ms=25.74 buckets_ms=24.81 pcrtc_ms=0.17
+   4.68ms 0dr 0tri unknown
+  4.55ms 10dr 6196tri [66] sprite
+   3.76ms 4dr 256tri 2d-group0
+   0.37ms 0dr 0tri unknown
+   0.22ms 1dr 800tri distorter
+    0.18ms 1dr 800tri drawing
+   0.19ms 0dr 0tri 2d-group1
+  2.25ms 12dr 4974tri [ 4] ocean-mid-far
+   1.27ms 0dr 0tri unknown
+   0.98ms 9dr 2064tri texture
+  2.07ms 26dr 214229tri [20] l0-shrub
+  1.96ms 46dr 8147tri [49] l0-pris-merc
+   0.95ms 0dr 0tri bones-ub
+   0.66ms 38dr 6901tri draws
+   0.21ms 0dr 0tri unknown
+   0.13ms 8dr 1246tri env-draws
+  1.70ms 36dr 5721tri [55] common-pris-merc
+   0.72ms 0dr 0tri bones-ub
+   0.54ms 27dr 4889tri draws
+   0.27ms 0dr 0tri unknown
+   0.15ms 9dr 832tri env-draws
+  1.28ms 72dr 14322tri [10] l0-tfrag-merc
+   0.53ms 42dr 9529tri draws
+   0.33ms 0dr 0tri unknown
+   0.15ms 11dr 1398tri draws
+   0.09ms 11dr 1398tri env-draws
+   0.07ms 8dr 1997tri env-draws
+  1.17ms 46dr 15003tri [ 6] l0-tfrag
+   1.14ms 46dr 15003tri t3
+  0.90ms 4dr 3464tri [63] ocean-near
+   0.62ms 0dr 0tri unknown
+   0.27ms 1dr 2048tri texture
+  0.82ms 3dr 40tri [ 3] sky
+  0.78ms 10dr 162tri [32] l0-sky-blend
+   0.48ms 10dr 162tri tfrag-trans
+    0.45ms 10dr 162tri t3
+   0.30ms 0dr 0tri unknown
+  0.66ms 0dr 0tri [48] tex-48
+  0.52ms 0dr 0tri [54] common-pris-eyes
+  0.39ms 0dr 0tri unknown
+  0.21ms 0dr 0tri [ 5] tex-5
+ 0.60ms 0dr 0tri frame-setup
+ 0.18ms 0dr 0tri pcrtc
+ 0.15ms 0dr 0tri unknown
+
+===== REPRESENTATIVE A35-PERF DUMP #2 =====
+A35-PERF frame=5280
+27.06ms 332dr 390482tri root
+ 26.05ms 332dr 390482tri buckets
+  4.96ms 68dr 118222tri [ 9] l0-tie
+   4.95ms 0dr 0tri unknown
+  4.87ms 10dr 6474tri [66] sprite
+   4.05ms 4dr 256tri 2d-group0
+   0.39ms 0dr 0tri unknown
+   0.22ms 1dr 840tri distorter
+    0.18ms 1dr 840tri drawing
+   0.19ms 0dr 0tri 2d-group1
+  2.43ms 46dr 8147tri [49] l0-pris-merc
+   1.23ms 0dr 0tri bones-ub
+   0.84ms 38dr 6901tri draws
+   0.20ms 0dr 0tri unknown
+   0.12ms 8dr 1246tri env-draws
+  2.18ms 12dr 4974tri [ 4] ocean-mid-far
+   1.36ms 0dr 0tri unknown
+   0.82ms 9dr 2064tri texture
+  1.88ms 36dr 5721tri [55] common-pris-merc
+   0.72ms 0dr 0tri bones-ub
+   0.71ms 27dr 4889tri draws
+   0.29ms 0dr 0tri unknown
+   0.15ms 9dr 832tri env-draws
+  1.82ms 26dr 214229tri [20] l0-shrub
+  1.27ms 46dr 15003tri [ 6] l0-tfrag
+   1.22ms 46dr 15003tri t3
+  1.22ms 71dr 14046tri [10] l0-tfrag-merc
+   0.50ms 41dr 9253tri draws
+   0.31ms 0dr 0tri unknown
+   0.15ms 11dr 1398tri draws
+   0.09ms 11dr 1398tri env-draws
+A35-RENDER frame=5280 chain_bytes=964032 buckets_drawn=30 skipped=1 draws=332 tris=390482 fbo=256x192 render_ms=27.06 buckets_ms=26.05 pcrtc_ms=0.22
+   0.07ms 8dr 1997tri env-draws
+  1.08ms 3dr 40tri [ 3] sky
+  0.88ms 4dr 3464tri [63] ocean-near
+   0.62ms 0dr 0tri unknown
+   0.26ms 1dr 2048tri texture
+  0.74ms 10dr 162tri [32] l0-sky-blend
+   0.47ms 10dr 162tri tfrag-trans
+    0.44ms 10dr 162tri t3
+   0.27ms 0dr 0tri unknown
+  0.63ms 0dr 0tri [48] tex-48
+  0.56ms 0dr 0tri [54] common-pris-eyes
+  0.39ms 0dr 0tri unknown
+  0.23ms 0dr 0tri [ 5] tex-5
+ 0.63ms 0dr 0tri frame-setup
+ 0.22ms 0dr 0tri pcrtc
+ 0.15ms 0dr 0tri unknown
+
+===== REPRESENTATIVE A35-PERF DUMP #3 =====
+A35-PERF frame=7080
+27.33ms 332dr 390348tri root
+ 26.35ms 332dr 390348tri buckets
+  4.82ms 68dr 118222tri [ 9] l0-tie
+   4.81ms 0dr 0tri unknown
+  4.62ms 10dr 6340tri [66] sprite
+   3.83ms 4dr 256tri 2d-group0
+   0.38ms 0dr 0tri unknown
+   0.22ms 1dr 800tri distorter
+    0.19ms 1dr 800tri drawing
+   0.17ms 0dr 0tri 2d-group1
+A35-RENDER frame=7080 chain_bytes=955632 buckets_drawn=30 skipped=1 draws=332 tris=390348 fbo=256x192 render_ms=27.33 buckets_ms=26.35 pcrtc_ms=0.18
+  2.15ms 26dr 214229tri [20] l0-shrub
+  2.14ms 12dr 4974tri [ 4] ocean-mid-far
+   1.26ms 0dr 0tri unknown
+   0.87ms 9dr 2064tri texture
+  1.92ms 46dr 8147tri [49] l0-pris-merc
+   0.93ms 0dr 0tri bones-ub
+   0.64ms 38dr 6901tri draws
+   0.22ms 0dr 0tri unknown
+   0.12ms 8dr 1246tri env-draws
+  1.86ms 36dr 5721tri [55] common-pris-merc
+   0.62ms 0dr 0tri bones-ub
+   0.59ms 27dr 4889tri draws
+   0.38ms 9dr 832tri env-draws
+   0.27ms 0dr 0tri unknown
+  1.66ms 71dr 14046tri [10] l0-tfrag-merc
+   0.91ms 41dr 9253tri draws
+   0.32ms 0dr 0tri unknown
+   0.15ms 11dr 1398tri draws
+   0.09ms 11dr 1398tri env-draws
+   0.08ms 8dr 1997tri env-draws
+  1.20ms 46dr 15003tri [ 6] l0-tfrag
+   1.16ms 46dr 15003tri t3
+  1.14ms 3dr 40tri [ 3] sky
+  1.01ms 0dr 0tri [48] tex-48
+  0.91ms 4dr 3464tri [63] ocean-near
+   0.63ms 0dr 0tri unknown
+   0.28ms 1dr 2048tri texture
+  0.78ms 10dr 162tri [32] l0-sky-blend
+   0.49ms 10dr 162tri tfrag-trans
+    0.47ms 10dr 162tri t3
+   0.29ms 0dr 0tri unknown
+  0.47ms 0dr 0tri [54] common-pris-eyes
+  0.41ms 0dr 0tri unknown
+  0.25ms 0dr 0tri [34] l0-tfrag-dirt
+   0.23ms 0dr 0tri t3
+  0.23ms 0dr 0tri [ 5] tex-5
+ 0.65ms 0dr 0tri frame-setup
+ 0.18ms 0dr 0tri pcrtc
+ 0.14ms 0dr 0tri unknown

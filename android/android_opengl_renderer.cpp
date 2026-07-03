@@ -182,6 +182,12 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // ~20ms buckets_ms on Geyser Rock). Live A/B kill switch:
   // adb shell setprop debug.opengoal.perf.nobatch 1
   m_render_state.batch_singledraw = true;
+  // Gperf-particles: lean the fire-heavy sprite path + cache per-draw GL state
+  // in the tfrag-family loops (device is CPU/submission bound). Live A/B kill
+  // switches: adb shell setprop debug.opengoal.perf.nospritelean 1 /
+  // debug.opengoal.perf.nostatecache 1.
+  m_render_state.perf_sprite_lean = true;
+  m_render_state.perf_state_cache = true;
   std::shared_ptr<SkyBlendGPU> sky_gpu_blender;
   std::shared_ptr<SkyBlendCPU> sky_cpu_blender;
   {
@@ -382,6 +388,14 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     char nb[PROP_VALUE_MAX] = {0};
     __system_property_get("debug.opengoal.perf.nobatch", nb);
     m_render_state.batch_singledraw = (nb[0] != '1');
+    // Gperf-particles kill switches: nospritelean/nostatecache=1 restore the
+    // exact pre-phase path live (for on-device parity/perf compare).
+    char nsl[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.nospritelean", nsl);
+    m_render_state.perf_sprite_lean = (nsl[0] != '1');
+    char nsc[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.nostatecache", nsc);
+    m_render_state.perf_state_cache = (nsc[0] != '1');
   }
 
   m_stats.chain_bytes = count_chain_bytes(dma);
@@ -461,11 +475,11 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
       fprintf(stderr,
               "A35-SPART win=60f 3d=%.2fms/%lluc/%lluit 2d=%.2fms/%lluc/%lluit "
               "launch=%.2fms/%lluc adgif=%.2fms/%lluc | sprite buckets=%llu quads=%llu "
-              "directflush=%llu\n",
+              "directflush=%llu | glbuild=%.2fms glflush=%.2fms\n",
               ms(sp.ns_3d), n(sp.calls_3d), n(sp.iters_3d), ms(sp.ns_2d), n(sp.calls_2d),
               n(sp.iters_2d), ms(sp.ns_launch), n(sp.calls_launch), ms(sp.ns_adgif),
               n(sp.calls_adgif), n(sp.sprite_buckets), n(sp.sprite_quads),
-              n(sp.direct_flushes));
+              n(sp.direct_flushes), ms(sp.gl_spr_build), ms(sp.gl_spr_flush));
     }
   }
 

@@ -1,0 +1,37 @@
+BASELINE PERF SUMMARY — village2 (Rock Village) fire pose
+HEAD bde88e0d4 (instrumented), scale=40% dynamic-res, device eae4df44 (Redmi Note 9 Pro arm64)
+Attempt: warp village2-start pos "295 15 -1630" (attempt 2; attempt 1 boot-flaked SIGILL@frame0).
+
+POSE (fire-pose.png / fire-pose-end.png, focus=org.opengoal.gk.jak1 verified both ends):
+  Jak stands on the central decorative platform in Rock Village. Strong fire coverage:
+  2 large flame bowls foreground L+R, 2 lit braziers mid-ground flanking central pillar,
+  additional torch fire atop pillar + smaller flames. Camera unchanged over 120s hold
+  (input released via empty cpad_inject write, never touched again). End frame == start frame
+  (only an ambient Keira subtitle appeared/cleared; no camera or character motion).
+
+DYNAMIC RES / FPS (120s window, 65 samples):
+  avg-fps  median=32.0  min=30.0  max=34.7  mean=32.10
+  scale    = 40 for ALL samples (deterministic; res-scale pinned at floor=40, target=60, locked=#f)
+  => sub-target: dyn-rs cannot recover above floor; ~32fps < 60 target even at 40% scale.
+
+A35-SPART medians (per 60-frame window, n=69) — CPU sparticle path:
+  3d      = 3.73 ms / 180 calls / 7680 iters
+  2d      = 119.06 ms / 5919 calls / 352128 iters   <== DOMINANT
+  launch  = 139.96 ms / 14093 calls                 <== DOMINANT
+  adgif   = 12.55 ms / 13257 calls
+  sprite buckets = 540   quads = 164505   directflush = 1020
+
+INTERPRETATION: The GL render-thread bucket table (A35-PERF) reports render_ms~27ms /
+buckets_ms~26ms (GPU side ~370fps-equiv) — NOT the bottleneck. The frame is CPU/submission
+bound: per 60 frames the sparticle 2d builder costs ~119ms and the launch kernel ~140ms
+(~2.6ms + ~2.3ms per frame just for sparticle 2D + launch), matching the owner's
+"CPU/submission bound in particle-heavy fire zones" hypothesis. 164k quads / 5919 2d calls /
+14093 launch calls per second-ish window is the batch/instance + NEON-kernel target.
+
+TOP-5 A35-PERF BUCKETS by ms (GL render thread, consistent across 3 dumps):
+  [ 9] l0-tie          ~4.8-5.0 ms   68 dr   118222 tri
+  [66] sprite          ~4.5-4.9 ms   10 dr   ~6300 tri
+  [ 4] ocean-mid-far   ~2.1-2.3 ms   12 dr    4974 tri
+  [20] l0-shrub        ~2.0-2.2 ms   26 dr   214229 tri
+  [49] l0-pris-merc    ~1.9-2.4 ms   46 dr    8147 tri
+  (GL-side buckets are cheap; the real cost is CPU sparticle 2d+launch above.)

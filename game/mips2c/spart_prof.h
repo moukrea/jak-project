@@ -19,6 +19,8 @@ struct SpartProf {
   std::atomic<uint64_t> iters_3d{0}, iters_2d{0};
   // render-thread sprite submission shape (per A35 window)
   std::atomic<uint64_t> sprite_buckets{0}, sprite_quads{0}, direct_flushes{0};
+  // render-thread Sprite3 wall time (ns): per-quad build vs per-bucket flush
+  std::atomic<uint64_t> gl_spr_build{0}, gl_spr_flush{0};
 };
 
 extern SpartProf g_spart_prof;

@@ -295,57 +295,67 @@ void Shrub::render_tree(int idx,
     m_color_result.resize(tree.colors->color_count);
   }
 
-  Timer interp_timer;
-  interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
-  tree.perf.tod_time.add(interp_timer.getSeconds());
-
-  Timer setup_timer;
-  glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
-                  m_color_result.data());
-
-  first_tfrag_draw_setup(settings.camera, render_state, ShaderId::SHRUB);
-
-  glBindVertexArray(tree.vao);
-  glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
-               render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
-  glActiveTexture(GL_TEXTURE0);
-#ifdef __ANDROID__
-  // GLES has no settable restart index (glPrimitiveRestartIndex is NULL in the
-  // loader — calling it BLR-to-0 / sig=11 fault=0x0 on the first shrub render,
-  // same as the A36 tfrag crash). The fixed-index mode restarts on all-1s,
-  // which IS UINT32_MAX for our u32 index buffers — identical semantics.
-  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
-#else
-  glEnable(GL_PRIMITIVE_RESTART);
-  glPrimitiveRestartIndex(UINT32_MAX);
-#endif
-  if (m_proto_vis_data) {
-    update_vis_mask(tree.proto_vis_mask, m_proto_vis_data, m_proto_vis_data_size,
-                    tree.proto_name_to_idx);
-  }
-  tree.perf.tod_time.add(setup_timer.getSeconds());
-
+  // Gperf-particles: per-draw GL state cache (flag-off = identical old path).
+  BgDrawStateCache draw_state_cache;
+  GLuint bound_tex = 0;
   int last_texture = -1;
 
-  tree.perf.cull_time.add(0);
-  Timer index_timer;
-  if (render_state->no_multidraw) {
-    u32 idx_buffer_size = make_all_visible_index_list(
-        m_cache.draw_idx_temp.data(), m_cache.index_temp.data(), *tree.draws, tree.index_data);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size * sizeof(u32), m_cache.index_temp.data(),
-                 GL_STREAM_DRAW);
-  } else {
-    make_all_visible_multidraws(m_cache.multidraw_offset_per_stripdraw.data(),
-                                m_cache.multidraw_count_buffer.data(),
-                                m_cache.multidraw_index_offset_buffer.data(), *tree.draws);
+  // Gperf-particles: attribute the per-tree TOD/upload/cull/index-build setup
+  // separately from the draw submission so A35-PERF can steer the batching work.
+  {
+    auto setup_prof = prof.make_scoped_child("setup");
+    (void)setup_prof;
+    Timer interp_timer;
+    interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
+    tree.perf.tod_time.add(interp_timer.getSeconds());
+
+    Timer setup_timer;
+    glActiveTexture(GL_TEXTURE10);
+    glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
+                    m_color_result.data());
+
+    first_tfrag_draw_setup(settings.camera, render_state, ShaderId::SHRUB);
+
+    glBindVertexArray(tree.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+                 render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
+    glActiveTexture(GL_TEXTURE0);
+#ifdef __ANDROID__
+    // GLES has no settable restart index (glPrimitiveRestartIndex is NULL in the
+    // loader — calling it BLR-to-0 / sig=11 fault=0x0 on the first shrub render,
+    // same as the A36 tfrag crash). The fixed-index mode restarts on all-1s,
+    // which IS UINT32_MAX for our u32 index buffers — identical semantics.
+    glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
+    glEnable(GL_PRIMITIVE_RESTART);
+    glPrimitiveRestartIndex(UINT32_MAX);
+#endif
+    if (m_proto_vis_data) {
+      update_vis_mask(tree.proto_vis_mask, m_proto_vis_data, m_proto_vis_data_size,
+                      tree.proto_name_to_idx);
+    }
+    tree.perf.tod_time.add(setup_timer.getSeconds());
+
+    tree.perf.cull_time.add(0);
+    Timer index_timer;
+    if (render_state->no_multidraw) {
+      u32 idx_buffer_size = make_all_visible_index_list(
+          m_cache.draw_idx_temp.data(), m_cache.index_temp.data(), *tree.draws, tree.index_data);
+      glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size * sizeof(u32),
+                   m_cache.index_temp.data(), GL_STREAM_DRAW);
+    } else {
+      make_all_visible_multidraws(m_cache.multidraw_offset_per_stripdraw.data(),
+                                  m_cache.multidraw_count_buffer.data(),
+                                  m_cache.multidraw_index_offset_buffer.data(), *tree.draws);
+    }
+
+    tree.perf.index_time.add(index_timer.getSeconds());
   }
 
-  tree.perf.index_time.add(index_timer.getSeconds());
-
   Timer draw_timer;
+  auto draws_prof = prof.make_scoped_child("draws");
 
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merge consecutive draws sharing texture+mode into one
@@ -364,11 +374,13 @@ void Shrub::render_tree(int idx,
       }
 
       if ((int)draw.tree_tex_id != last_texture) {
-        glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+        bound_tex = m_textures->at(draw.tree_tex_id);
+        glBindTexture(GL_TEXTURE_2D, bound_tex);
         last_texture = draw.tree_tex_id;
       }
       glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
-      auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::SHRUB);
+      auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::SHRUB,
+                                                   bound_tex, draw_state_cache);
 
       int first = singledraw_indices.first;
       int count = singledraw_indices.second;
@@ -397,16 +409,18 @@ void Shrub::render_tree(int idx,
         }
       }
 
-      prof.add_draw_call();
-      prof.add_tri(run_tris);
+      draws_prof.add_draw_call();
+      draws_prof.add_tri(run_tris);
       glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
 
       if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
         tree.perf.draws++;
-        prof.add_draw_call();
+        draws_prof.add_draw_call();
         glUniform1f(alpha_u.alpha_min, -10.f);
         glUniform1f(alpha_u.alpha_max, double_draw.aref_second);
         glDepthMask(GL_FALSE);
+        // depth-mask toggled: cached mode's depth state is now stale.
+        draw_state_cache.valid = false;
         glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       }
       draw_idx = next;
@@ -436,16 +450,18 @@ void Shrub::render_tree(int idx,
     }
 
     if ((int)draw.tree_tex_id != last_texture) {
-      glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+      bound_tex = m_textures->at(draw.tree_tex_id);
+      glBindTexture(GL_TEXTURE_2D, bound_tex);
       last_texture = draw.tree_tex_id;
     }
 
     glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
 
-    auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::SHRUB);
+    auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::SHRUB, bound_tex,
+                                                 draw_state_cache);
 
-    prof.add_draw_call();
-    prof.add_tri(draw.num_triangles);
+    draws_prof.add_draw_call();
+    draws_prof.add_tri(draw.num_triangles);
 
     tree.perf.draws++;
 
@@ -462,14 +478,19 @@ void Shrub::render_tree(int idx,
     switch (double_draw.kind) {
       case DoubleDrawKind::NONE:
         break;
-      case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE:
+      case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE: {
         tree.perf.draws++;
-        prof.add_draw_call();
-        glUniform1f(glGetUniformLocation(render_state->shaders[ShaderId::SHRUB].id(), "alpha_min"),
-                    -10.f);
-        glUniform1f(glGetUniformLocation(render_state->shaders[ShaderId::SHRUB].id(), "alpha_max"),
-                    double_draw.aref_second);
+        draws_prof.add_draw_call();
+        const auto& afail_u = tfrag_alpha_uniforms(render_state->shaders[ShaderId::SHRUB].id());
+        if (afail_u.alpha_min != -1) {
+          glUniform1f(afail_u.alpha_min, -10.f);
+        }
+        if (afail_u.alpha_max != -1) {
+          glUniform1f(afail_u.alpha_max, double_draw.aref_second);
+        }
         glDepthMask(GL_FALSE);
+        // depth-mask toggled: cached mode's depth state is now stale.
+        draw_state_cache.valid = false;
         if (render_state->no_multidraw) {
           glDrawElements(GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
@@ -480,6 +501,7 @@ void Shrub::render_tree(int idx,
               multidraw_indices.second);
         }
         break;
+      } // AFAIL_NO_DEPTH_WRITE
       default:
         ASSERT(false);
     }

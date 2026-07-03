@@ -11,6 +11,80 @@
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/pipelines/opengl.h"
 
+// Pure (zero GL calls) computation of the DoubleDraw settings and the
+// alpha_hack_to_disable_z_write flag from a DrawMode. This is exactly the
+// blend/alpha-test logic embedded in setup_opengl_from_draw_mode below, factored
+// out so the state cache (setup_tfrag_shader_cached) can decide the aref_first
+// uniform without re-issuing any GL state. Keep in lockstep with the GL path.
+DoubleDraw compute_double_draw(DrawMode mode) {
+  DoubleDraw double_draw;
+
+  if (mode.get_ab_enable() && mode.get_alpha_blend() != DrawMode::AlphaBlend::DISABLED) {
+    switch (mode.get_alpha_blend()) {
+      case DrawMode::AlphaBlend::SRC_SRC_SRC_SRC:
+        break;
+      case DrawMode::AlphaBlend::SRC_DST_SRC_DST:
+        break;
+      case DrawMode::AlphaBlend::SRC_0_SRC_DST:
+        break;
+      case DrawMode::AlphaBlend::SRC_0_FIX_DST:
+        break;
+      case DrawMode::AlphaBlend::SRC_DST_FIX_DST:
+        break;
+      case DrawMode::AlphaBlend::ZERO_SRC_SRC_DST:
+        break;
+      case DrawMode::AlphaBlend::SRC_0_DST_DST:
+        double_draw.color_mult = 0.5f;
+        break;
+      default:
+        ASSERT(false);
+    }
+  }
+
+  // for some reason, they set atest NEVER + FB_ONLY to disable depth writes
+  bool alpha_hack_to_disable_z_write = false;
+  (void)alpha_hack_to_disable_z_write;
+
+  float alpha_min = 0.;
+  if (mode.get_at_enable()) {
+    switch (mode.get_alpha_test()) {
+      case DrawMode::AlphaTest::ALWAYS:
+        break;
+      case DrawMode::AlphaTest::GEQUAL:
+        alpha_min = mode.get_aref() / 127.f;
+        switch (mode.get_alpha_fail()) {
+          case GsTest::AlphaFail::KEEP:
+            // ok, no need for double draw
+            break;
+          case GsTest::AlphaFail::FB_ONLY:
+            if (mode.get_depth_write_enable()) {
+              // darn, we need to draw twice
+              double_draw.kind = DoubleDrawKind::AFAIL_NO_DEPTH_WRITE;
+              double_draw.aref_second = alpha_min;
+            } else {
+              alpha_min = 0.f;
+            }
+            break;
+          default:
+            ASSERT(false);
+        }
+        break;
+      case DrawMode::AlphaTest::NEVER:
+        if (mode.get_alpha_fail() == GsTest::AlphaFail::FB_ONLY) {
+          alpha_hack_to_disable_z_write = true;
+        } else {
+          ASSERT(false);
+        }
+        break;
+      default:
+        ASSERT(false);
+    }
+  }
+
+  double_draw.aref_first = alpha_min;
+  return double_draw;
+}
+
 DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap) {
   glActiveTexture(tex_unit);
 
@@ -175,6 +249,71 @@ const TfragAlphaUniforms& tfrag_alpha_uniforms(u64 program) {
 
 DoubleDraw setup_tfrag_shader(SharedRenderState* render_state, DrawMode mode, ShaderId shader) {
   auto draw_settings = setup_opengl_from_draw_mode(mode, GL_TEXTURE0, true);
+  const auto& u = tfrag_alpha_uniforms(render_state->shaders[shader].id());
+  if (u.alpha_min != -1) {
+    glUniform1f(u.alpha_min, draw_settings.aref_first);
+  }
+  if (u.alpha_max != -1) {
+    glUniform1f(u.alpha_max, 10.f);
+  }
+  return draw_settings;
+}
+
+// The 4 texture-object glTexParameteri calls from setup_opengl_from_draw_mode
+// (wrap_s/wrap_t + min/mag filter, mipmap=true). These write onto whatever
+// texture is currently bound to GL_TEXTURE_2D, so a freshly-bound texture always
+// needs them even when the global blend/depth state is unchanged. Kept
+// byte-identical to the corresponding block in setup_opengl_from_draw_mode.
+static void apply_tex_params_from_draw_mode(DrawMode mode) {
+  if (mode.get_clamp_s_enable()) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  } else {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  }
+
+  if (mode.get_clamp_t_enable()) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  } else {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  }
+
+  if (mode.get_filt_enable()) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  } else {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  }
+}
+
+DoubleDraw setup_tfrag_shader_cached(SharedRenderState* render_state,
+                                     DrawMode mode,
+                                     ShaderId shader,
+                                     GLuint bound_tex,
+                                     BgDrawStateCache& cache) {
+  // Flag off: bit-identical to the un-cached path.
+  if (!render_state->perf_state_cache) {
+    return setup_tfrag_shader(render_state, mode, shader);
+  }
+
+  DoubleDraw draw_settings = compute_double_draw(mode);
+
+  if (!cache.valid || mode.as_int() != cache.last_mode) {
+    // full miss: re-issue the exact GL sequence setup_opengl_from_draw_mode
+    // would (mipmap=true) — the compute result is discarded, GL path is source
+    // of truth so the kill-switch comparison stays meaningful.
+    setup_opengl_from_draw_mode(mode, GL_TEXTURE0, true);
+    cache.last_mode = mode.as_int();
+    cache.last_tex = bound_tex;
+    cache.valid = true;
+  } else if (bound_tex != cache.last_tex) {
+    // same mode, new texture object: only the texture-object params need
+    // re-applying (glTexParameteri targets the bound texture).
+    apply_tex_params_from_draw_mode(mode);
+    cache.last_tex = bound_tex;
+  }
+  // else: identical mode + texture, no GL state calls needed.
+
   const auto& u = tfrag_alpha_uniforms(render_state->shaders[shader].id());
   if (u.alpha_min != -1) {
     glUniform1f(u.alpha_min, draw_settings.aref_first);

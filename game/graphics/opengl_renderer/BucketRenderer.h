@@ -49,6 +49,11 @@ struct SharedRenderState {
   // draws that share texture+mode and are contiguous in the single-draw
   // index buffer into one glDrawElements. Desktop leaves this off.
   bool batch_singledraw = false;
+  // Gperf-particles (Android): lean Sprite3 particle path (persist bucket
+  // storage, cached uniform locations, unchecked vertex writes) and a per-draw
+  // GL state cache in the tfrag-family draw loops. Desktop leaves both off.
+  bool perf_sprite_lean = false;
+  bool perf_state_cache = false;
 
   void reset();
   bool has_pc_data = false;

@@ -210,4 +210,41 @@ class Sprite3 : public BucketRenderer {
   u64 m_sprite_idx = 0;
 
   std::vector<u32> m_index_buffer_data;
+
+  // Gperf-particles: cached per-program uniform locations for the SPRITE3 shader
+  // (locations are stable for the life of a linked program). Refreshed only when
+  // the program id changes. Same precedent as tfrag_alpha_uniforms.
+  struct SpriteUniformCache {
+    GLuint prog = 0;
+    GLint alpha_min = -1;
+    GLint alpha_max = -1;
+    GLint tex_T0 = -1;
+  } m_sprite_uniform_cache;
+
+  // cached group0 (3d) per-frame uniform locations
+  struct Sprite3dUniformCache {
+    GLuint prog = 0;
+    GLint hvdf_offset = -1;
+    GLint pfog0 = -1;
+    GLint min_scale = -1;
+    GLint max_scale = -1;
+    GLint fog_min = -1;
+    GLint fog_max = -1;
+    GLint deg_to_rad = -1;
+    GLint inv_area = -1;
+    GLint camera = -1;
+    GLint xy_array = -1;
+    GLint xyz_array = -1;
+    GLint st_array = -1;
+    GLint basis_x = -1;
+    GLint basis_y = -1;
+  } m_sprite_3d_uniform_cache;
+
+  // cached group1 (HUD) per-frame uniform locations
+  struct SpriteHudUniformCache {
+    GLuint prog = 0;
+    GLint hud_hvdf_offset = -1;
+    GLint hud_hvdf_user = -1;
+    GLint hud_matrix = -1;
+  } m_sprite_hud_uniform_cache;
 };

@@ -555,6 +555,10 @@ void TFragment::render_tree(int geom,
   }
 #endif
 
+  // Gperf-particles: per-draw GL state cache (flag-off = identical old path).
+  BgDrawStateCache draw_state_cache;
+  GLuint bound_tex = 0;
+
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merge consecutive draws that share texture+mode into one
     // glDrawElements. The single-draw index list packs draw ranges adjacently
@@ -575,11 +579,13 @@ void TFragment::render_tree(int geom,
 
       s32 tex_idx = draw.tree_tex_id;
       if (tex_idx >= 0) {
-        glBindTexture(GL_TEXTURE_2D, m_textures->at(tex_idx));
+        bound_tex = m_textures->at(tex_idx);
       } else {
-        glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(tex_idx + 1)));
+        bound_tex = m_anim_slot_array->at(-(tex_idx + 1));
       }
-      auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::TFRAG3);
+      glBindTexture(GL_TEXTURE_2D, bound_tex);
+      auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3,
+                                                   bound_tex, draw_state_cache);
       glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
 
       int first = singledraw_indices.first;
@@ -614,6 +620,8 @@ void TFragment::render_tree(int geom,
         glUniform1f(alpha_u.alpha_min, -10.f);
         glUniform1f(alpha_u.alpha_max, double_draw.aref_second);
         glDepthMask(GL_FALSE);
+        // depth-mask toggled: cached mode's depth state is now stale.
+        draw_state_cache.valid = false;
         glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       }
       draw_idx = next;
@@ -637,11 +645,13 @@ void TFragment::render_tree(int geom,
     ASSERT(m_textures);
     s32 tex_idx = draw.tree_tex_id;
     if (tex_idx >= 0) {
-      glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+      bound_tex = m_textures->at(draw.tree_tex_id);
     } else {
-      glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(tex_idx + 1)));
+      bound_tex = m_anim_slot_array->at(-(tex_idx + 1));
     }
-    auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::TFRAG3);
+    glBindTexture(GL_TEXTURE_2D, bound_tex);
+    auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3,
+                                                 bound_tex, draw_state_cache);
     glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
     tree.tris_this_frame += draw.num_triangles;
     tree.draws_this_frame++;
@@ -660,13 +670,18 @@ void TFragment::render_tree(int geom,
     switch (double_draw.kind) {
       case DoubleDrawKind::NONE:
         break;
-      case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE:
+      case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE: {
         prof.add_draw_call();
-        glUniform1f(glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "alpha_min"),
-                    -10.f);
-        glUniform1f(glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "alpha_max"),
-                    double_draw.aref_second);
+        const auto& afail_u = tfrag_alpha_uniforms(render_state->shaders[ShaderId::TFRAG3].id());
+        if (afail_u.alpha_min != -1) {
+          glUniform1f(afail_u.alpha_min, -10.f);
+        }
+        if (afail_u.alpha_max != -1) {
+          glUniform1f(afail_u.alpha_max, double_draw.aref_second);
+        }
         glDepthMask(GL_FALSE);
+        // depth-mask toggled: cached mode's depth state is now stale.
+        draw_state_cache.valid = false;
         if (render_state->no_multidraw) {
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
@@ -677,6 +692,7 @@ void TFragment::render_tree(int geom,
               multidraw_indices.second);
         }
         break;
+      } // AFAIL_NO_DEPTH_WRITE
       default:
         ASSERT(false);
     }

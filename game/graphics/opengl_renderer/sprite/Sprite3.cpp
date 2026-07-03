@@ -261,23 +261,42 @@ void Sprite3::render_2d_group0(DmaFollower& dma,
                                ScopedProfilerNode& prof) {
   // opengl sprite frame setup
   auto shid = render_state->shaders[ShaderId::SPRITE3].id();
-  glUniform4fv(glGetUniformLocation(shid, "hvdf_offset"), 1, m_3d_matrix_data.hvdf_offset.data());
-  glUniform1f(glGetUniformLocation(shid, "pfog0"), m_frame_data.pfog0);
-  glUniform1f(glGetUniformLocation(shid, "min_scale"), m_frame_data.min_scale);
-  glUniform1f(glGetUniformLocation(shid, "max_scale"), m_frame_data.max_scale);
-  glUniform1f(glGetUniformLocation(shid, "fog_min"), m_frame_data.fog_min);
-  glUniform1f(glGetUniformLocation(shid, "fog_max"), m_frame_data.fog_max);
+  // Gperf-particles: cache these per-frame uniform locations (stable per linked
+  // program), refreshed only on program change.
+  auto& u3 = m_sprite_3d_uniform_cache;
+  if (shid != u3.prog) {
+    u3.prog = shid;
+    u3.hvdf_offset = glGetUniformLocation(shid, "hvdf_offset");
+    u3.pfog0 = glGetUniformLocation(shid, "pfog0");
+    u3.min_scale = glGetUniformLocation(shid, "min_scale");
+    u3.max_scale = glGetUniformLocation(shid, "max_scale");
+    u3.fog_min = glGetUniformLocation(shid, "fog_min");
+    u3.fog_max = glGetUniformLocation(shid, "fog_max");
+    u3.deg_to_rad = glGetUniformLocation(shid, "deg_to_rad");
+    u3.inv_area = glGetUniformLocation(shid, "inv_area");
+    u3.camera = glGetUniformLocation(shid, "camera");
+    u3.xy_array = glGetUniformLocation(shid, "xy_array");
+    u3.xyz_array = glGetUniformLocation(shid, "xyz_array");
+    u3.st_array = glGetUniformLocation(shid, "st_array");
+    u3.basis_x = glGetUniformLocation(shid, "basis_x");
+    u3.basis_y = glGetUniformLocation(shid, "basis_y");
+  }
+  glUniform4fv(u3.hvdf_offset, 1, m_3d_matrix_data.hvdf_offset.data());
+  glUniform1f(u3.pfog0, m_frame_data.pfog0);
+  glUniform1f(u3.min_scale, m_frame_data.min_scale);
+  glUniform1f(u3.max_scale, m_frame_data.max_scale);
+  glUniform1f(u3.fog_min, m_frame_data.fog_min);
+  glUniform1f(u3.fog_max, m_frame_data.fog_max);
   // glUniform1f(glGetUniformLocation(shid, "bonus"), m_frame_data.bonus);
   // glUniform4fv(glGetUniformLocation(shid, "hmge_scale"), 1, m_frame_data.hmge_scale.data());
-  glUniform1f(glGetUniformLocation(shid, "deg_to_rad"), m_frame_data.deg_to_rad);
-  glUniform1f(glGetUniformLocation(shid, "inv_area"), m_frame_data.inv_area);
-  glUniformMatrix4fv(glGetUniformLocation(shid, "camera"), 1, GL_FALSE,
-                     m_3d_matrix_data.camera.data());
-  glUniform4fv(glGetUniformLocation(shid, "xy_array"), 8, m_frame_data.xy_array[0].data());
-  glUniform4fv(glGetUniformLocation(shid, "xyz_array"), 4, m_frame_data.xyz_array[0].data());
-  glUniform4fv(glGetUniformLocation(shid, "st_array"), 4, m_frame_data.st_array[0].data());
-  glUniform4fv(glGetUniformLocation(shid, "basis_x"), 1, m_frame_data.basis_x.data());
-  glUniform4fv(glGetUniformLocation(shid, "basis_y"), 1, m_frame_data.basis_y.data());
+  glUniform1f(u3.deg_to_rad, m_frame_data.deg_to_rad);
+  glUniform1f(u3.inv_area, m_frame_data.inv_area);
+  glUniformMatrix4fv(u3.camera, 1, GL_FALSE, m_3d_matrix_data.camera.data());
+  glUniform4fv(u3.xy_array, 8, m_frame_data.xy_array[0].data());
+  glUniform4fv(u3.xyz_array, 4, m_frame_data.xyz_array[0].data());
+  glUniform4fv(u3.st_array, 4, m_frame_data.st_array[0].data());
+  glUniform4fv(u3.basis_x, 1, m_frame_data.basis_x.data());
+  glUniform4fv(u3.basis_y, 1, m_frame_data.basis_y.data());
 
   u16 last_prog = -1;
 
@@ -372,14 +391,21 @@ void Sprite3::render_2d_group1(DmaFollower& dma,
   memcpy(&m_hud_matrix_data, mat_upload.data, sizeof(m_hud_matrix_data));
 
   // opengl sprite frame setup
-  glUniform4fv(
-      glGetUniformLocation(render_state->shaders[ShaderId::SPRITE3].id(), "hud_hvdf_offset"), 1,
-      m_hud_matrix_data.hvdf_offset.data());
-  glUniform4fv(glGetUniformLocation(render_state->shaders[ShaderId::SPRITE3].id(), "hud_hvdf_user"),
-               75, m_hud_matrix_data.user_hvdf[0].data());
-  glUniformMatrix4fv(
-      glGetUniformLocation(render_state->shaders[ShaderId::SPRITE3].id(), "hud_matrix"), 1,
-      GL_FALSE, m_hud_matrix_data.matrix.data());
+  // Gperf-particles: cache these per-frame uniform locations (stable per linked
+  // program), refreshed only on program change.
+  auto& uh = m_sprite_hud_uniform_cache;
+  {
+    GLuint shid = render_state->shaders[ShaderId::SPRITE3].id();
+    if (shid != uh.prog) {
+      uh.prog = shid;
+      uh.hud_hvdf_offset = glGetUniformLocation(shid, "hud_hvdf_offset");
+      uh.hud_hvdf_user = glGetUniformLocation(shid, "hud_hvdf_user");
+      uh.hud_matrix = glGetUniformLocation(shid, "hud_matrix");
+    }
+  }
+  glUniform4fv(uh.hud_hvdf_offset, 1, m_hud_matrix_data.hvdf_offset.data());
+  glUniform4fv(uh.hud_hvdf_user, 75, m_hud_matrix_data.user_hvdf[0].data());
+  glUniformMatrix4fv(uh.hud_matrix, 1, GL_FALSE, m_hud_matrix_data.matrix.data());
 
   // loop through chunks.
   while (looks_like_2d_chunk_start(dma)) {
@@ -630,9 +656,23 @@ void Sprite3::draw_debug_window() {
 void Sprite3::flush_sprites(SharedRenderState* render_state,
                             ScopedProfilerNode& prof,
                             bool double_draw) {
+  SpartScopedNs _flush_ns(g_spart_prof.gl_spr_flush);
   // Gperf-particles: submission-shape counters for the A35-SPART dump
   g_spart_prof.sprite_buckets.fetch_add(m_bucket_list.size(), std::memory_order_relaxed);
   g_spart_prof.sprite_quads.fetch_add(m_sprite_idx, std::memory_order_relaxed);
+
+  // Gperf-particles: refresh cached SPRITE3 uniform locations on program change.
+  {
+    GLuint sprite_prog = render_state->shaders[ShaderId::SPRITE3].id();
+    if (sprite_prog != m_sprite_uniform_cache.prog) {
+      m_sprite_uniform_cache.prog = sprite_prog;
+      m_sprite_uniform_cache.alpha_min = glGetUniformLocation(sprite_prog, "alpha_min");
+      m_sprite_uniform_cache.alpha_max = glGetUniformLocation(sprite_prog, "alpha_max");
+      m_sprite_uniform_cache.tex_T0 = glGetUniformLocation(sprite_prog, "tex_T0");
+    }
+  }
+  const auto& su = m_sprite_uniform_cache;
+
   glBindVertexArray(m_ogl.vao);
 
 #ifdef __ANDROID__
@@ -682,11 +722,9 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
 
     auto settings = setup_opengl_from_draw_mode(mode, GL_TEXTURE0, false);
 
-    glUniform1f(glGetUniformLocation(render_state->shaders[ShaderId::SPRITE3].id(), "alpha_min"),
-                double_draw ? settings.aref_first : 0.016);
-    glUniform1f(glGetUniformLocation(render_state->shaders[ShaderId::SPRITE3].id(), "alpha_max"),
-                10.f);
-    glUniform1i(glGetUniformLocation(render_state->shaders[ShaderId::SPRITE3].id(), "tex_T0"), 0);
+    glUniform1f(su.alpha_min, double_draw ? settings.aref_first : 0.016);
+    glUniform1f(su.alpha_max, 10.f);
+    glUniform1i(su.tex_T0, 0);
 
     prof.add_draw_call();
     prof.add_tri(2 * (bucket->ids.size() / 5));
@@ -701,12 +739,8 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
         case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE:
           prof.add_draw_call();
           prof.add_tri(2 * (bucket->ids.size() / 5));
-          glUniform1f(
-              glGetUniformLocation(render_state->shaders[ShaderId::SPRITE3].id(), "alpha_min"),
-              -10.f);
-          glUniform1f(
-              glGetUniformLocation(render_state->shaders[ShaderId::SPRITE3].id(), "alpha_max"),
-              settings.aref_second);
+          glUniform1f(su.alpha_min, -10.f);
+          glUniform1f(su.alpha_max, settings.aref_second);
           glDepthMask(GL_FALSE);
           glDrawElements(GL_TRIANGLE_STRIP, bucket->ids.size(), GL_UNSIGNED_INT,
                          (void*)(bucket->offset_in_idx_buffer * sizeof(u32)));
@@ -717,7 +751,17 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
     }
   }
 
-  m_sprite_buckets.clear();
+  if (render_state->perf_sprite_lean) {
+    // Gperf-particles: keep the map nodes + each bucket's ids capacity across
+    // flushes/frames — only clear the id lists. do_block_common re-lists a
+    // bucket the first time it's touched this flush (ids.empty() rule), so the
+    // persisted (but emptied) map entries don't leak into m_bucket_list.
+    for (auto bucket : m_bucket_list) {
+      bucket->ids.clear();
+    }
+  } else {
+    m_sprite_buckets.clear();
+  }
   m_bucket_list.clear();
   m_last_bucket_key = UINT64_MAX;
   m_last_bucket = nullptr;
@@ -836,6 +880,7 @@ void Sprite3::do_block_common(SpriteMode mode,
                               u32 count,
                               SharedRenderState* render_state,
                               ScopedProfilerNode& prof) {
+  SpartScopedNs _build_ns(g_spart_prof.gl_spr_build);
   m_current_mode = m_default_mode;
   for (u32 sprite_idx = 0; sprite_idx < count; sprite_idx++) {
     if (m_sprite_idx == SPRITE_RENDERER_MAX_SPRITES) {
@@ -926,10 +971,17 @@ void Sprite3::do_block_common(SpriteMode mode,
       if (it == m_sprite_buckets.end()) {
         bucket = &m_sprite_buckets[key];
         bucket->key = key;
-        m_bucket_list.push_back(bucket);
       } else {
         bucket = &it->second;
       }
+    }
+    // Gperf-particles: list a bucket the first time it's touched this flush.
+    // Flag-off: m_sprite_buckets is cleared each flush, so a fresh map node has
+    // empty ids (== push, as before) and any re-hit has >=5 ids (== not pushed,
+    // as before). Flag-on: persisted-but-emptied nodes are re-listed here on
+    // first touch. First-touch order == m_bucket_list order in both states.
+    if (bucket->ids.empty()) {
+      m_bucket_list.push_back(bucket);
     }
     u32 start_vtx_id = m_sprite_idx * 4;
     bucket->ids.push_back(start_vtx_id);
@@ -938,7 +990,11 @@ void Sprite3::do_block_common(SpriteMode mode,
     bucket->ids.push_back(start_vtx_id + 3);
     bucket->ids.push_back(UINT32_MAX);
 
-    auto& vert1 = m_vertices_3d.at(start_vtx_id + 0);
+    // Gperf-particles: the SPRITE_RENDERER_MAX_SPRITES flush check at the top of
+    // this loop guarantees m_sprite_idx (== start_vtx_id/4) is in range, so the
+    // 4 corner writes are safe without per-access bounds checks.
+    SpriteVertex3D* vtx = &m_vertices_3d[m_sprite_idx * 4];
+    auto& vert1 = vtx[0];
 
     if (render_state->version == GameVersion::Jak3 || render_state->version == GameVersion::JakX) {
       auto flag = m_vec_data_2d[sprite_idx].flag();
@@ -966,13 +1022,13 @@ void Sprite3::do_block_common(SpriteMode mode,
     vert1.info[2] = 0;
     vert1.info[3] = mode;
 
-    m_vertices_3d.at(start_vtx_id + 1) = vert1;
-    m_vertices_3d.at(start_vtx_id + 2) = vert1;
-    m_vertices_3d.at(start_vtx_id + 3) = vert1;
+    vtx[1] = vert1;
+    vtx[2] = vert1;
+    vtx[3] = vert1;
 
-    m_vertices_3d.at(start_vtx_id + 1).info[2] = 1;
-    m_vertices_3d.at(start_vtx_id + 2).info[2] = 3;
-    m_vertices_3d.at(start_vtx_id + 3).info[2] = 2;
+    vtx[1].info[2] = 1;
+    vtx[2].info[2] = 3;
+    vtx[3].info[2] = 2;
 
     // note that PC swaps the last two vertices
     if (render_state->version == GameVersion::Jak3) {
@@ -980,24 +1036,24 @@ void Sprite3::do_block_common(SpriteMode mode,
       switch (flag & 0x30) {
         case 0x10:
           // FLAG 16: 1, 0, 3, 2
-          m_vertices_3d.at(start_vtx_id + 0).info[2] = 0;
-          m_vertices_3d.at(start_vtx_id + 1).info[2] = 1;
-          m_vertices_3d.at(start_vtx_id + 2).info[2] = 3;
-          m_vertices_3d.at(start_vtx_id + 3).info[2] = 2;
+          vtx[0].info[2] = 0;
+          vtx[1].info[2] = 1;
+          vtx[2].info[2] = 3;
+          vtx[3].info[2] = 2;
           break;
         case 0x20:
           // FLAG 32: 3, 2, 1, 0
-          m_vertices_3d.at(start_vtx_id + 0).info[2] = 3;
-          m_vertices_3d.at(start_vtx_id + 1).info[2] = 2;
-          m_vertices_3d.at(start_vtx_id + 2).info[2] = 0;
-          m_vertices_3d.at(start_vtx_id + 3).info[2] = 1;
+          vtx[0].info[2] = 3;
+          vtx[1].info[2] = 2;
+          vtx[2].info[2] = 0;
+          vtx[3].info[2] = 1;
           break;
         case 0x30:
           // 2, 3, 0, 1
-          m_vertices_3d.at(start_vtx_id + 0).info[2] = 2;
-          m_vertices_3d.at(start_vtx_id + 1).info[2] = 3;
-          m_vertices_3d.at(start_vtx_id + 2).info[2] = 1;
-          m_vertices_3d.at(start_vtx_id + 3).info[2] = 0;
+          vtx[0].info[2] = 2;
+          vtx[1].info[2] = 3;
+          vtx[2].info[2] = 1;
+          vtx[3].info[2] = 0;
           break;
       }
     }
