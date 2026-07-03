@@ -152,6 +152,25 @@ std::string Profiler::to_string() {
   return str;
 }
 
+std::string Profiler::dump_stats(float min_ms) {
+  m_root.sort(ProfilerSort::TIME);
+  std::string str;
+  m_root.dump_stats_helper(str, 0, min_ms);
+  return str;
+}
+
+void ProfilerNode::dump_stats_helper(std::string& str, int depth, float min_ms) const {
+  float ms = m_stats.duration * 1000.f;
+  if (depth > 0 && ms < min_ms && m_stats.draw_calls == 0) {
+    return;
+  }
+  str += fmt::format("{}{:.2f}ms {}dr {}tri {}\n", std::string(depth, ' '), ms,
+                     m_stats.draw_calls, m_stats.triangles, m_name);
+  for (const auto& child : m_children) {
+    child.dump_stats_helper(str, depth + 1, min_ms);
+  }
+}
+
 void ProfilerNode::to_string_helper(std::string& str, int depth) const {
   str +=
       fmt::format("{}{:.2f} ms {:30s}\n", std::string(depth, ' '), m_stats.duration * 1000, m_name);

@@ -7,6 +7,7 @@
 #include "android_opengl_renderer.h"
 
 #include <android/log.h>
+#include <sys/system_properties.h>
 
 #include "common/goal_constants.h"
 #include "common/log/log.h"
@@ -420,6 +421,23 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
   m_profiler.finish();
   m_stats.draw_calls = m_profiler.root()->stats().draw_calls;
   m_stats.triangles = m_profiler.root()->stats().triangles;
+
+  // Gperf-batching: prop-gated per-bucket profile dump (ms/draws/tris per
+  // profiler node) — the per-family table the batching work is steered by.
+  // Enable: adb shell setprop debug.opengoal.perf.buckets 1
+  {
+    static bool s_perf_dump = false;
+    if ((m_stats.frame_idx % 120) == 1) {
+      char buf[PROP_VALUE_MAX] = {0};
+      __system_property_get("debug.opengoal.perf.buckets", buf);
+      s_perf_dump = buf[0] == '1';
+    }
+    if (s_perf_dump && (m_stats.frame_idx % 60) == 0) {
+      std::string dump = m_profiler.dump_stats(0.10f);
+      fprintf(stderr, "A35-PERF frame=%llu\n%s", (unsigned long long)m_stats.frame_idx,
+              dump.c_str());
+    }
+  }
 
   // Surface the already-measured GL-thread CPU time so a profiling run can
   // attribute the frame budget. render_cpu_s is the whole render() call;
