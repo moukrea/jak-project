@@ -181,6 +181,13 @@ void KernelCheckAndDispatch() {
     // gated routes. Same in-context dispatch point as the warps.
     task_close_maybe();
 
+    // WANT-LEVELS / WANT-DISPLAY (Gcrash-rockvillage debug-only repro) — gated
+    // (env OG_WANT_LEVELS / OG_WANT_DISPLAY, props debug.opengoal.want.*), OFF by
+    // default. Deterministically replay the village2->swamp load-boundary commands.
+    want_levels_maybe();
+    want_display_maybe();
+    want_vis_maybe();
+
     // ECO SPHERE SPAWN (Geco-spheres oracle-diff) — gated (env OG_ECO_SPAWN / prop
     // debug.opengoal.eco.spawn), OFF by default. Births an eco pickup next to
     // *target* via *listener-function*, replaying the x86 oracle's

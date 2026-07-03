@@ -1212,6 +1212,196 @@ void task_close_maybe() {
            s_task_close_spec);
 }
 
+// ─── WANT-LEVELS / WANT-DISPLAY (Gcrash-rockvillage debug-only repro tool) ──────
+// Replays the exact GOAL forms a load-boundary crossing executes, without needing
+// Jak to physically cross the polyline: `(load village2 swamp)` boundaries call
+// load-state-want-levels, `(display swamp display)` boundaries call
+// load-state-want-display-level (load-boundary.gc:1095-1102, check-boundary
+// :1364-1378). This reproduces the owner's village2->swamp streaming transition
+// (rolling evicted, SWA.DGO streamed mid-play, then displayed) deterministically.
+//   env OG_WANT_LEVELS / prop debug.opengoal.want.levels = "lev1,lev2"
+//     (fires once at OG_WANT_LEVELS_DELAY ticks, default 900)
+//   env OG_WANT_DISPLAY / prop debug.opengoal.want.display = "lev[,sym]"
+//     (sym default 'display'; fires once at OG_WANT_DISPLAY_DELAY, default 1800 —
+//      after the streaming load has had time to finish, like the owner's walk)
+// DEBUG-ONLY: never armed in production; goal_src / x86 emitter / gold untouched.
+static char s_want_levels_spec[96];
+static char s_want_display_spec[96];
+
+static bool want_prop_requested(const char* env, const char* prop, char* out, size_t out_sz) {
+  out[0] = 0;
+  if (const char* e = std::getenv(env)) {
+    std::strncpy(out, e, out_sz - 1);
+    out[out_sz - 1] = 0;
+  }
+#if defined(__ANDROID__)
+  if (!out[0]) {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get(prop, pbuf) > 0 && pbuf[0]) {
+      std::strncpy(out, pbuf, out_sz - 1);
+      out[out_sz - 1] = 0;
+    }
+  }
+#endif
+  for (const char* p = out; *p; ++p) {
+    if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z')) {
+      return true;  // needs at least one letter ("", "0", "''" disable)
+    }
+  }
+  return false;
+}
+
+static u64 want_levels_run() {
+  u32 fn = intern_from_c("load-state-want-levels")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    printf("WANT-LEVELS-FAIL reason=load-state-want-levels-unbound\n");
+    fflush(stdout);
+    return 0;
+  }
+  char buf[96];
+  std::strncpy(buf, s_want_levels_spec, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = 0;
+  char* comma = std::strchr(buf, ',');
+  if (!comma) {
+    printf("WANT-LEVELS-FAIL reason=need-two-levels spec=%s\n", buf);
+    fflush(stdout);
+    return 0;
+  }
+  *comma = 0;
+  u32 lev1 = intern_from_c(buf).offset;
+  u32 lev2 = intern_from_c(comma + 1).offset;
+  u64 args[8] = {lev1, lev2, 0, 0, 0, 0, 0, 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp,
+                                  (u64)s7.offset, g_ee_main_mem);
+  printf("WANT-LEVELS lev1=%s lev2=%s -> #x%x\n", buf, comma + 1, (u32)r);
+  fflush(stdout);
+  return 0;
+}
+
+static u64 want_display_run() {
+  u32 fn = intern_from_c("load-state-want-display-level")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    printf("WANT-DISPLAY-FAIL reason=load-state-want-display-level-unbound\n");
+    fflush(stdout);
+    return 0;
+  }
+  char buf[96];
+  std::strncpy(buf, s_want_display_spec, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = 0;
+  const char* sym = "display";
+  char* comma = std::strchr(buf, ',');
+  if (comma) {
+    *comma = 0;
+    sym = comma + 1;
+  }
+  u32 lev = intern_from_c(buf).offset;
+  u32 disp = (std::strcmp(sym, "#f") == 0) ? (u32)s7.offset : intern_from_c(sym).offset;
+  u64 args[8] = {lev, disp, 0, 0, 0, 0, 0, 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp,
+                                  (u64)s7.offset, g_ee_main_mem);
+  printf("WANT-DISPLAY lev=%s sym=%s -> #x%x\n", buf, sym, (u32)r);
+  fflush(stdout);
+  return 0;
+}
+
+static void want_hook_maybe(const char* env,
+                            const char* prop,
+                            char* spec,
+                            size_t spec_sz,
+                            const char* delay_env,
+                            int default_delay,
+                            u64 (*runner)(),
+                            bool* done,
+                            int* ticks,
+                            const char* tag) {
+  if (*done) {
+    return;
+  }
+  if (!want_prop_requested(env, prop, spec, spec_sz)) {
+    return;
+  }
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  u32 ls = intern_from_c("*load-state*")->value;
+  if (ls == 0 || ls == (u32)s7.offset) {
+    return;
+  }
+  int delay = default_delay;
+  if (const char* d = std::getenv(delay_env)) {
+    delay = atoi(d);
+  }
+#if defined(__ANDROID__)
+  {
+    // prop-settable delay: "<prop>.delay" (e.g. debug.opengoal.want.levels.delay)
+    char dprop[96];
+    snprintf(dprop, sizeof(dprop), "%s.delay", prop);
+    char dbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get(dprop, dbuf) > 0 && dbuf[0] && atoi(dbuf) > 0) {
+      delay = atoi(dbuf);
+    }
+  }
+#endif
+  if ((*ticks)++ < delay) {
+    return;
+  }
+  if (ListenerFunction->value != (u32)s7.offset && ListenerFunction->value != 0) {
+    return;
+  }
+  *done = true;
+  Ptr<Function> f = make_function_from_c((void*)runner, false);
+  ListenerFunction->value = f.offset;
+  lg::info("[{}] armed *listener-function* for spec '{}'", tag, spec);
+}
+
+void want_levels_maybe() {
+  static bool s_done = false;
+  static int s_ticks = 0;
+  want_hook_maybe("OG_WANT_LEVELS", "debug.opengoal.want.levels", s_want_levels_spec,
+                  sizeof(s_want_levels_spec), "OG_WANT_LEVELS_DELAY", 900, want_levels_run,
+                  &s_done, &s_ticks, "WANT-LEVELS");
+}
+
+void want_display_maybe() {
+  static bool s_done = false;
+  static int s_ticks = 0;
+  want_hook_maybe("OG_WANT_DISPLAY", "debug.opengoal.want.display", s_want_display_spec,
+                  sizeof(s_want_display_spec), "OG_WANT_DISPLAY_DELAY", 1800, want_display_run,
+                  &s_done, &s_ticks, "WANT-DISPLAY");
+}
+
+// (vis <nick>) boundaries — e.g. (vis vi2 #f) then (vis swa #f) on the crate->swamp
+// walk — call load-state-want-vis(nick), switching the active visibility octree.
+static char s_want_vis_spec[96];
+
+static u64 want_vis_run() {
+  u32 fn = intern_from_c("load-state-want-vis")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    printf("WANT-VIS-FAIL reason=load-state-want-vis-unbound\n");
+    fflush(stdout);
+    return 0;
+  }
+  u32 nick = intern_from_c(s_want_vis_spec).offset;
+  u64 args[8] = {nick, 0, 0, 0, 0, 0, 0, 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp,
+                                  (u64)s7.offset, g_ee_main_mem);
+  printf("WANT-VIS nick=%s -> #x%x\n", s_want_vis_spec, (u32)r);
+  fflush(stdout);
+  return 0;
+}
+
+void want_vis_maybe() {
+  static bool s_done = false;
+  static int s_ticks = 0;
+  want_hook_maybe("OG_WANT_VIS", "debug.opengoal.want.vis", s_want_vis_spec,
+                  sizeof(s_want_vis_spec), "OG_WANT_VIS_DELAY", 2400, want_vis_run, &s_done,
+                  &s_ticks, "WANT-VIS");
+}
+
 // ─── ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) ────────────────
 // Env OG_ECO_SPAWN / Android prop debug.opengoal.eco.spawn =
 //   "<pickup-type-int> [period-ticks [dx dy dz]]"  — OFF by default.

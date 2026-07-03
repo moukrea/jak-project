@@ -64,6 +64,19 @@ void level_warp_maybe();
 void task_close_maybe();
 
 /*!
+ * WANT-LEVELS / WANT-DISPLAY (Gcrash-rockvillage debug-only repro tools) — env
+ * OG_WANT_LEVELS / prop debug.opengoal.want.levels = "lev1,lev2" and env
+ * OG_WANT_DISPLAY / prop debug.opengoal.want.display = "lev[,sym]", OFF by default.
+ * Replay the exact load-boundary commands (load-state-want-levels /
+ * load-state-want-display-level) on the GOAL kernel thread, so the village2->swamp
+ * streaming transition can be triggered deterministically without a physical
+ * polyline crossing. Never armed in the shipped APK.
+ */
+void want_levels_maybe();
+void want_display_maybe();
+void want_vis_maybe();
+
+/*!
  * ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) — env OG_ECO_SPAWN /
  * Android prop debug.opengoal.eco.spawn = "<pickup-type-int> [period [dx dy dz]]",
  * OFF by default. Repeatedly births an eco pickup next to *target* via the same

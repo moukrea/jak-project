@@ -34,6 +34,40 @@ inj(){ printf '%s' "$1" | A shell "run-as $PACKAGE sh -c 'cat > /data/data/$PACK
 pos(){ grep -a 'F1D target-pos' "$LOG" 2>/dev/null | tail -1 | sed -nE 's/.*=\(([-0-9.]+) ([-0-9.]+) ([-0-9.]+)\).*/\1 \3/p'; }
 crash_seen(){ grep -qaE 'Fatal signal|signal (11|6|4) \(SIG|GK-DIAG sig=(4|6|11)|enough stack|too much stack' "$LOG"; }
 focus_is_app(){ A shell dumpsys window 2>/dev/null | grep -iE 'mCurrentFocus' | grep -q "$PACKAGE"; }
+stable_wait(){ # wait until two consecutive pos reads are within ~0.7m (no slide/respawn)
+  local A B AX AZ BX BZ i
+  for i in $(seq 1 15); do
+    A=$(pos); sleep 1.5; B=$(pos)
+    { [ -n "$A" ] && [ -n "$B" ]; } || continue
+    read -r AX AZ <<<"$A"; read -r BX BZ <<<"$B"
+    awk "BEGIN{dx=($AX) - ($BX); dz=($AZ) - ($BZ); exit !(dx*dx+dz*dz < 9000000)}" && { echo "$B"; return 0; }
+  done
+  pos
+}
+calibrate(){ # sets P0/P1/P2 from two probe holds; validates magnitudes + independence
+  local c CV
+  for c in 1 2 3; do
+    P0=$(stable_wait)
+    inj "ly=0"; sleep 2.5; P1=$(pos)
+    inj "lx=255"; sleep 2.5; P2=$(pos); inj ""
+    CV=$(python3 - "$P0" "$P1" "$P2" <<'PYEOF'
+import sys,math
+def v(s): p=s.split(); return (float(p[0]),float(p[1]))
+p0,p1,p2=(v(x) for x in sys.argv[1:4])
+m1=(p1[0]-p0[0],p1[1]-p0[1]); m2=(p2[0]-p1[0],p2[1]-p1[1])
+n1,n2=math.hypot(*m1),math.hypot(*m2)
+ok = 1500<n1<45000 and 1500<n2<45000
+if ok:
+    ok = abs(m1[0]*m2[1]-m1[1]*m2[0])/(n1*n2) > 0.35
+print("ok" if ok else "bad")
+PYEOF
+)
+    echo "  calib#$c p0=($P0) p1=($P1) p2=($P2) -> $CV"
+    [ "$CV" = ok ] && return 0
+    sleep 2
+  done
+  return 1
+}
 
 A shell svc power stayon true >/dev/null 2>&1 || true
 A shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
@@ -52,6 +86,16 @@ for p in f1.warp echo.intro mouche.fx mouche.buzz die eco.trace; do
   A shell setprop debug.opengoal.$p 0 >/dev/null 2>&1 || true; done
 # TASK_CLOSE env: "<task>[:<status>][,...]" e.g. 33 = village2-warrior-money (pontoons)
 A shell "setprop debug.opengoal.task.close '${TASK_CLOSE:-}'" >/dev/null 2>&1 || true
+# WANT_LEVELS env: "lev1,lev2" -> load-state-want-levels (the load-boundary command)
+A shell "setprop debug.opengoal.want.levels '${WANT_LEVELS:-}'" >/dev/null 2>&1 || true
+# WANT_DISPLAY env: "lev[,sym]" -> load-state-want-display-level
+A shell "setprop debug.opengoal.want.display '${WANT_DISPLAY:-}'" >/dev/null 2>&1 || true
+# WANT_VIS env: "<nick>" -> load-state-want-vis
+A shell "setprop debug.opengoal.want.vis '${WANT_VIS:-}'" >/dev/null 2>&1 || true
+# optional per-hook delay overrides (kernel-dispatch ticks, ~60/s)
+[ -n "${WANT_LEVELS_DELAY:-}" ]  && A shell setprop debug.opengoal.want.levels.delay  "$WANT_LEVELS_DELAY"  >/dev/null 2>&1
+[ -n "${WANT_DISPLAY_DELAY:-}" ] && A shell setprop debug.opengoal.want.display.delay "$WANT_DISPLAY_DELAY" >/dev/null 2>&1
+[ -n "${WANT_VIS_DELAY:-}" ]     && A shell setprop debug.opengoal.want.vis.delay     "$WANT_VIS_DELAY"     >/dev/null 2>&1
 
 A shell am force-stop "$PACKAGE" >/dev/null 2>&1
 A logcat -G 64M >/dev/null 2>&1 || true
@@ -62,7 +106,13 @@ LOGPID=$!
 cleanup(){ kill "$LOGPID" 2>/dev/null || true
   A shell setprop debug.opengoal.level.warp '""' >/dev/null 2>&1 || true
   A shell setprop debug.opengoal.level.warp.pos '""' >/dev/null 2>&1 || true
-  A shell setprop debug.opengoal.task.close '""' >/dev/null 2>&1 || true; }
+  A shell setprop debug.opengoal.task.close '""' >/dev/null 2>&1 || true
+  A shell setprop debug.opengoal.want.levels '""' >/dev/null 2>&1 || true
+  A shell setprop debug.opengoal.want.display '""' >/dev/null 2>&1 || true
+  A shell setprop debug.opengoal.want.vis '""' >/dev/null 2>&1 || true
+  A shell setprop debug.opengoal.want.levels.delay '""' >/dev/null 2>&1 || true
+  A shell setprop debug.opengoal.want.display.delay '""' >/dev/null 2>&1 || true
+  A shell setprop debug.opengoal.want.vis.delay '""' >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 A shell am start -W -n "$PACKAGE/$ACTIVITY" >/dev/null 2>&1
 
@@ -85,12 +135,11 @@ sleep 8
 
 DROVE=0; REACHED=0
 if [ "$WARP_OK" = 1 ] && ! crash_seen; then
-  # --- calibrate: hold forward 2.5s, then right 2.5s, measure world deltas ---
-  P0=$(pos); inj "ly=0"; sleep 2.5; P1=$(pos)
-  inj "lx=255"; sleep 2.5; P2=$(pos); inj ""
-  echo "  calib p0=($P0) p1=($P1) p2=($P2)"
-  # --- waypoint drive ---
-  WPIDX=0
+  # --- calibrate (validated, with retries) ---
+  calibrate || echo "  calib never validated — driving with last probe anyway"
+  SPAWNP="$P0"
+  # --- waypoint drive (persistent index; directional passed test handles out-and-back) ---
+  PLY=0; PLX=127; WPIDX=0
   for step in $(seq 1 "$MAX_STEPS"); do
     crash_seen && break
     if [ -n "$STOP_MARKER" ] && grep -qaE "$STOP_MARKER" "$LOG"; then
@@ -99,37 +148,48 @@ if [ "$WARP_OK" = 1 ] && ! crash_seen; then
     CUR=$(pos); [ -n "$CUR" ] || { sleep 2; continue; }
     CZ=$(echo "$CUR" | awk '{print $2}')
     if awk "BEGIN{exit !($CZ < $REACH_Z)}"; then REACHED=1; echo "  REACHED z=$CZ (< $REACH_Z)"; break; fi
-    OUTP=$(python3 - "$P0" "$P1" "$P2" "$CUR" "$WAYPOINTS" "$WPIDX" <<'EOF'
+    OUTP=$(python3 - "$P0" "$P1" "$P2" "$CUR" "$WAYPOINTS" "$PLY" "$PLX" "$WPIDX" "$SPAWNP" <<'EOF'
 import sys, math
 def v(s): p=s.split(); return (float(p[0]), float(p[1]))
 p0,p1,p2,cur=(v(x) for x in sys.argv[1:5])
 wps=[tuple(map(float,w.split(','))) for w in sys.argv[5].split(';') if w]
-idx=int(sys.argv[6])
-while idx < len(wps)-1 and math.hypot(wps[idx][0]-cur[0], wps[idx][1]-cur[1]) < 25000:
-    idx += 1
+ply,plx=int(sys.argv[6]),int(sys.argv[7])
+idx=int(sys.argv[8]); spawn=v(sys.argv[9])
+# advance: within 30k of wp, or passed the perpendicular at wp along (wp - prev-anchor)
+while idx < len(wps):
+    wp=wps[idx]; anchor = wps[idx-1] if idx>0 else spawn
+    ax,az=cur[0]-wp[0], cur[1]-wp[1]
+    bx,bz=wp[0]-anchor[0], wp[1]-anchor[1]
+    if math.hypot(ax,az) < 30000 or ax*bx+az*bz > 0:
+        idx += 1
+    else:
+        break
 tgt=wps[min(idx,len(wps)-1)]
 m1=(p1[0]-p0[0], p1[1]-p0[1])       # response to stick (0,-1) fwd
 m2=(p2[0]-p1[0], p2[1]-p1[1])       # response to stick (1,0) right
+n1,n2=math.hypot(*m1),math.hypot(*m2)
+det=m1[0]*m2[1]-m1[1]*m2[0]
+if n1<1500 or n1>45000 or n2<1500 or n2>45000 or abs(det)/(max(n1,1)*max(n2,1))<0.35:
+    print(f"{ply} {plx} {idx} D"); sys.exit()   # matrix implausible: flag recalib
 d=(tgt[0]-cur[0], tgt[1]-cur[1])
 n=math.hypot(*d) or 1.0; d=(d[0]/n, d[1]/n)
-det=m1[0]*m2[1]-m1[1]*m2[0]
-if abs(det)<1e-3:
-    print(f"0 127 {idx}"); sys.exit()   # calib degenerate: hold fwd
 a=(d[0]*m2[1]-d[1]*m2[0])/det          # fwd amount
 b=(m1[0]*d[1]-m1[1]*d[0])/det          # right amount
 n=math.hypot(a,b) or 1.0; a,b=a/n,b/n
 ly=max(0,min(255,int(round(127-a*127)))); lx=max(0,min(255,int(round(127+b*127))))
-print(f"{ly} {lx} {idx}")
+print(f"{ly} {lx} {idx} K")
 EOF
 )
-    LY=$(echo "$OUTP" | awk '{print $1}'); LX=$(echo "$OUTP" | awk '{print $2}'); WPIDX=$(echo "$OUTP" | awk '{print $3}')
-    echo "  step$step pos=($CUR) wp=$WPIDX stick ly=$LY lx=$LX"
+    LY=$(echo "$OUTP" | awk '{print $1}'); LX=$(echo "$OUTP" | awk '{print $2}'); WPIDX=$(echo "$OUTP" | awk '{print $3}'); FLAG=$(echo "$OUTP" | awk '{print $4}')
+    echo "  step$step pos=($CUR) wp=$WPIDX stick ly=$LY lx=$LX $FLAG"
+    if [ "$FLAG" = "D" ]; then
+      inj ""; calibrate || true; DROVE=1; continue
+    fi
     inj "lx=$LX ly=$LY"
-    sleep 3
-    DROVE=1
-    if [ $((step % 5)) -eq 0 ]; then   # recalibrate: camera frame drifts as Jak turns
-      P0=$(pos); inj "ly=0"; sleep 2; P1=$(pos); inj "lx=255"; sleep 2; P2=$(pos)
-      echo "  recalib p0=($P0) p1=($P1) p2=($P2)"
+    sleep 2.5
+    DROVE=1; PLY=$LY; PLX=$LX
+    if [ $((step % 8)) -eq 0 ]; then   # periodic refresh: camera frame drifts as Jak turns
+      inj ""; calibrate || true
     fi
   done
   inj ""
