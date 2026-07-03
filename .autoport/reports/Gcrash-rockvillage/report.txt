@@ -53,10 +53,15 @@ App crash-to-home confirmed (focus lost); full logcat captured well past the cra
   signature, camera-h.gc:181-192; village2 water + warp-gate triggers) — landed through
   the SHARED *kernel-dram-stack* arena (gkernel.gc:108-116; target + post threads +
   process-tree main all run there, gkernel.gc:1389,1972, logic-target.gc:1279).
+- Discriminator (canary v5): across 23 corruption episodes, the intruding float value
+  has ZERO twins inside the camera process objects — the arena slot is the value's ONLY
+  home. So the writes are another thread's legitimate frame/spill traffic on the SHARED
+  arena (serialized by suspend-backup/restore; normally healed), NOT a duplicated heap
+  write. On x86's 8-byte push contract the same traffic lands on a slot that is dead by
+  the time it is consumed — benign; on arm64 (16-byte push + STP frame) it collides
+  with the LIVE saved-X30 of the outermost state frame, fatal when consumed unhealed.
 - x86 layout mapping (uniform delta +0x74e0) confirms the crash SP (0x1a7ed0) sits in
-  static engine data past the arena — SP/slot state consistent with consuming
-  arena-scribbled values. On x86 the 8-byte push contract puts these writes on a DEAD
-  slot — benign; on arm64 (16-byte push + STP frame) they land on the LIVE saved-X30.
+  static engine data past the arena — consistent with consuming arena-scribbled state.
   This is the arm64-only divergence; the game source is byte-identical to original.
 
 ## Classification
