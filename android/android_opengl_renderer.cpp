@@ -176,6 +176,11 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // (plain glDrawElements per draw), same switch the desktop exposes for
   // drivers without multidraw.
   m_render_state.no_multidraw = true;
+  // Gperf-batching: merge state-identical contiguous draws into one
+  // glDrawElements (the device is draw-call-submission bound — 571 draws
+  // ~20ms buckets_ms on Geyser Rock). Live A/B kill switch:
+  // adb shell setprop debug.opengoal.perf.nobatch 1
+  m_render_state.batch_singledraw = true;
   std::shared_ptr<SkyBlendGPU> sky_gpu_blender;
   std::shared_ptr<SkyBlendCPU> sky_cpu_blender;
   {
@@ -368,6 +373,15 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
   m_render_state.offset_of_s7 = offset_of_s7();
 
   m_stats.frame_idx++;
+
+  // Gperf-batching A/B kill switch: debug.opengoal.perf.nobatch=1 restores
+  // the exact pre-batching per-draw path (for on-device parity/perf compare).
+  if ((m_stats.frame_idx % 120) == 1) {
+    char nb[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.nobatch", nb);
+    m_render_state.batch_singledraw = (nb[0] != '1');
+  }
+
   m_stats.chain_bytes = count_chain_bytes(dma);
   m_stats.buckets_with_data = 0;
   m_stats.buckets_drawn = 0;

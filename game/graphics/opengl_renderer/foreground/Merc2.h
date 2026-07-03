@@ -1,4 +1,7 @@
 #pragma once
+#include <array>
+#include <utility>
+
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 
 struct MercDebugStats {
@@ -157,6 +160,21 @@ class Merc2 {
 
   void setup_merc_vao();
 
+  // Gperf-batching (render_state->batch_singledraw): the Merc2 core is shared
+  // by all merc bucket renderers, so these dedupe the per-flush Adreno
+  // BO-defuse maps (driver syncs — needed once per level per FRAME, not per
+  // flush) and the m_vao attrib respecification (needed only when the level's
+  // vertex buffer changes; load_id guards GL-name reuse after level reload).
+  u64 m_defuse_frame = UINT64_MAX;
+  std::array<std::pair<const void*, u64>, 8> m_defused_levs;
+  int m_num_defused_levs = 0;
+  GLuint m_vao_vertex_buffer = 0;
+  u64 m_vao_load_id = UINT64_MAX;
+  // bone-UBO ring cursor (in bone vectors, always alignment-rounded): each
+  // flush uploads at the cursor instead of offset 0 so the write never lands
+  // on a window in-flight draws are still reading (implicit-sync elimination)
+  u32 m_bones_ring_base = 0;
+
   std::vector<ModBuffers> m_mod_vtx_buffers;
   u32 m_next_mod_vtx_buffer = 0;
 
@@ -235,7 +253,8 @@ class Merc2 {
                 const Uniforms& uniforms,
                 ScopedProfilerNode& prof,
                 bool set_fade,
-                SharedRenderState* render_state);
+                SharedRenderState* render_state,
+                u32 bones_base = 0);
 
   static constexpr int MAX_LIGHTS = 1024;
   VuLights m_lights_buffer[MAX_LIGHTS];
