@@ -21,6 +21,17 @@ class Generic2 {
   void draw_debug_window();
   bool empty() { return m_empty; }
 
+  // Grender-split: HUD-flagged generic draws (draw-bones-hud merc models, e.g. the
+  // Precursor-orb HUD/menu icon) are screen-space UI. When the UI/3D split is active
+  // they are stashed by do_draws() instead of drawn into the scaled scene FBO (the
+  // composite copies color only, so their depth would be lost and later HUD sprites
+  // like the orb's hud-egg glow would overdraw them). The frame orchestrator replays
+  // them with draw_deferred_hud_draws() in the native UI pass, right after the
+  // composite and before the sprite HUD group.
+  bool has_deferred_hud_draws() const { return !m_deferred_hud.empty(); }
+  void clear_deferred_hud_draws() { m_deferred_hud.clear(); }
+  void draw_deferred_hud_draws(SharedRenderState* render_state);
+
   // Gecho-pool probe (TEMPORARY): per-bucket-call totals, valid right after render_in_mode().
   u32 dbg_vert_count() const { return m_next_free_vert; }
   u32 dbg_frag_count() const { return m_next_free_frag; }
@@ -78,6 +89,7 @@ class Generic2 {
                           DrawMode::AlphaBlend alpha,
                           bool hud);
   void do_hud_draws(SharedRenderState* render_state, ScopedProfilerNode& prof);
+  void stash_hud_draws();
   bool check_for_end_of_generic_data(DmaFollower& dma, u32 next_bucket);
   void final_vertex_update();
   bool handle_bucket_setup_dma(DmaFollower& dma, u32 next_bucket);
@@ -116,6 +128,22 @@ class Generic2 {
     bool uses_full_matrix = false;
     math::Vector4f full_matrix[4];
   } m_drawing_config;
+
+  struct DeferredHudBatch {
+    DrawingConfig config;
+    std::vector<Vertex> verts;
+    std::vector<u32> indices;
+    struct Draw {
+      DrawMode mode;
+      u32 tbp;
+      u32 fix;
+      u32 idx_idx;
+      u32 idx_count;
+      u32 tri_count;
+    };
+    std::vector<Draw> draws;
+  };
+  std::vector<DeferredHudBatch> m_deferred_hud;
 
   struct GsState {
     DrawMode as_mode;
