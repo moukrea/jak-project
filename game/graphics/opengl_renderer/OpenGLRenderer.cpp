@@ -1295,6 +1295,9 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
   // into a separate native-resolution FBO so it stays crisp while only the 3D is
   // upscaled. Inactive (and zero-cost) when the scene already fills the display.
   m_ui_pass_active = false;
+  // Grender-split: drop any deferred HUD draws left from a frame where the UI
+  // pass never ran (defensive; the DEBUG-bucket fallback normally drains them).
+  m_generic2->clear_deferred_hud_draws();
   const int native_ui_w = m_render_state.draw_region_w;
   const int native_ui_h = m_render_state.draw_region_h;
   const bool split_active = (settings.game_res_w < native_ui_w ||
@@ -1357,6 +1360,13 @@ void OpenGLRenderer::begin_ui_pass() {
   m_render_state.render_fb_w = ui.width;
   m_render_state.render_fb_h = ui.height;
   m_render_state.stencil_dirty = false;
+
+  // Replay the HUD-flagged Generic2 draws (e.g. the Precursor-orb HUD/menu icon)
+  // that were deferred out of the scaled 3D pass: they draw here at native res,
+  // BEFORE the HUD sprite group, writing depth into the UI FBO so the orb's
+  // hud-egg glow sprite (ztest GEQUAL) is depth-rejected exactly as in the
+  // single-FBO pipeline (this was the Gorb-hud-regression white-egg).
+  m_generic2->draw_deferred_hud_draws(&m_render_state);
 }
 
 void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,

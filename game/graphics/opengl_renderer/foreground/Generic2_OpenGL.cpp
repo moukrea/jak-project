@@ -335,13 +335,109 @@ void Generic2::do_draws(SharedRenderState* render_state, ScopedProfilerNode& pro
   }
 
   if (m_drawing_config.uses_hud) {
+    if (render_state->version == GameVersion::Jak1 && render_state->begin_2d_ui_pass) {
+      // Grender-split active: these are native-res UI draws; stash them for the UI
+      // pass (see draw_deferred_hud_draws) instead of drawing into the scaled scene.
+      stash_hud_draws();
+    } else {
+      glUniform4f(m_ogl.scale, m_drawing_config.hud_scale[0], m_drawing_config.hud_scale[1],
+                  m_drawing_config.hud_scale[2], 0);
+      glUniform1f(m_ogl.mat_23, m_drawing_config.hud_mat_23);
+      glUniform1f(m_ogl.mat_32, m_drawing_config.hud_mat_32);
+      glUniform1f(m_ogl.mat_33, m_drawing_config.hud_mat_33);
+      glUniform1i(m_ogl.gfx_hack_no_tex, false);
+
+      do_hud_draws(render_state, prof);
+    }
+  }
+}
+
+void Generic2::stash_hud_draws() {
+  DeferredHudBatch batch;
+  batch.config = m_drawing_config;
+  for (u32 i = 0; i < m_next_free_bucket; i++) {
+    auto& bucket = m_buckets[i];
+    auto& first = m_adgifs[bucket.start];
+    if (!first.uses_hud) {
+      continue;
+    }
+    DeferredHudBatch::Draw d;
+    d.mode = first.mode;
+    d.tbp = first.tbp;
+    d.fix = first.fix;
+    d.idx_idx = (u32)batch.indices.size();
+    d.tri_count = bucket.tri_count;
+    // compact-copy the referenced vertices: the shared vert/index buffers are
+    // rebuilt by every later generic bucket this frame, so the deferred draws
+    // must own their data. UINT32_MAX = primitive-restart, passes through.
+    for (u32 j = 0; j < bucket.idx_count; j++) {
+      u32 idx = m_indices[bucket.idx_idx + j];
+      if (idx == UINT32_MAX) {
+        batch.indices.push_back(UINT32_MAX);
+      } else {
+        batch.indices.push_back((u32)batch.verts.size());
+        batch.verts.push_back(m_verts[idx]);
+      }
+    }
+    d.idx_count = (u32)batch.indices.size() - d.idx_idx;
+    batch.draws.push_back(d);
+  }
+  if (!batch.draws.empty()) {
+    m_deferred_hud.push_back(std::move(batch));
+  }
+}
+
+void Generic2::draw_deferred_hud_draws(SharedRenderState* render_state) {
+  if (m_deferred_hud.empty()) {
+    return;
+  }
+  // The replay is invoked from inside Sprite3::render (via begin_2d_ui_pass),
+  // which keeps issuing location-based glUniform calls for ITS program after we
+  // return: save the caller's program/VAO and restore them below, or those calls
+  // hit the GENERIC program (GL_INVALID_OPERATION flood + corrupted HUD sprites).
+  GLint prev_program = 0;
+  GLint prev_vao = 0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao);
+  glBindVertexArray(m_ogl.vao);
+  glBindBuffer(GL_ARRAY_BUFFER, m_ogl.vertex_buffer);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ogl.index_buffer);
+#ifdef __ANDROID__
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
+  glEnable(GL_PRIMITIVE_RESTART);
+  glPrimitiveRestartIndex(UINT32_MAX);
+#endif
+  for (auto& batch : m_deferred_hud) {
+    // restore the config captured when this bucket was stashed: proj/fog/hvdf
+    // uniforms are read from m_drawing_config by opengl_bind_and_setup_proj.
+    m_drawing_config = batch.config;
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, batch.indices.size() * sizeof(u32),
+                 batch.indices.data(), GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, batch.verts.size() * sizeof(Vertex), batch.verts.data(),
+                 GL_STREAM_DRAW);
+    opengl_bind_and_setup_proj(render_state);
+    if (m_drawing_config.uses_full_matrix) {
+      glUniform1i(m_ogl.use_full_matrix, 1);
+      glUniformMatrix4fv(m_ogl.full_matrix, 1, GL_FALSE, m_drawing_config.full_matrix[0].data());
+    } else {
+      glUniform1i(m_ogl.use_full_matrix, 0);
+    }
     glUniform4f(m_ogl.scale, m_drawing_config.hud_scale[0], m_drawing_config.hud_scale[1],
                 m_drawing_config.hud_scale[2], 0);
     glUniform1f(m_ogl.mat_23, m_drawing_config.hud_mat_23);
     glUniform1f(m_ogl.mat_32, m_drawing_config.hud_mat_32);
     glUniform1f(m_ogl.mat_33, m_drawing_config.hud_mat_33);
     glUniform1i(m_ogl.gfx_hack_no_tex, false);
-
-    do_hud_draws(render_state, prof);
+    for (auto& d : batch.draws) {
+      setup_opengl_for_draw_mode(d.mode, d.fix, render_state);
+      setup_opengl_tex(0, d.tbp, d.mode.get_filt_enable(), d.mode.get_clamp_s_enable(),
+                       d.mode.get_clamp_t_enable(), render_state);
+      glDrawElements(GL_TRIANGLE_STRIP, d.idx_count, GL_UNSIGNED_INT,
+                     (void*)(sizeof(u32) * d.idx_idx));
+    }
   }
+  m_deferred_hud.clear();
+  glBindVertexArray(prev_vao);
+  glUseProgram(prev_program);
 }

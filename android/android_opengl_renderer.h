@@ -28,6 +28,7 @@
 
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/Fbo.h"
+#include "game/graphics/opengl_renderer/foreground/Generic2.h"
 #include "game/graphics/opengl_renderer/Profiler.h"
 #include "game/graphics/opengl_renderer/opengl_utils.h"
 
@@ -112,6 +113,8 @@ class AndroidOpenGLRenderer {
 
   // Grender-split: true once begin_ui_pass() has composited+switched this frame.
   bool m_ui_pass_active = false;
+
+  std::shared_ptr<Generic2> m_generic2;
 
   GLuint m_screen_vao = 0;
   GLuint m_screen_vbo = 0;
