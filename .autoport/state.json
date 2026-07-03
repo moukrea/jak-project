@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 172,
+  "current_phase_idx": 173,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -164,7 +164,8 @@
     "Gcrash-blueeco": 1,
     "Gtouch-fix": 3,
     "Gperf-batching": 1,
-    "Gorb-hud-regression": 1
+    "Gorb-hud-regression": 1,
+    "Geco-spheres": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -469,7 +470,8 @@
     "Gwarp-dpad",
     "Gcrash-blueeco",
     "Gtouch-fix",
-    "Gperf-batching"
+    "Gperf-batching",
+    "Gorb-hud-regression"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -620,9 +622,10 @@
     "Gcrash-blueeco": 1783023798.7109478,
     "Gtouch-fix": 1783024646.4525933,
     "Gperf-batching": 1783041627.9484973,
-    "Gorb-hud-regression": 1783055133.8735762
+    "Gorb-hud-regression": 1783055133.8735762,
+    "Geco-spheres": 1783074141.5559115
   },
-  "last_update": "2026-07-03T07:05:21.853980+00:00",
+  "last_update": "2026-07-03T11:10:31.815720+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

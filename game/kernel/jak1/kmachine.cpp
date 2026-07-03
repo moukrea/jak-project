@@ -1112,6 +1112,264 @@ void level_warp_maybe() {
            warp_fn.offset, s_level_warp_name);
 }
 
+// ─── ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) ────────────────
+// Env OG_ECO_SPAWN / Android prop debug.opengoal.eco.spawn =
+//   "<pickup-type-int> [period-ticks [dx dy dz]]"  — OFF by default.
+// Repeatedly births an eco pickup next to *target* on the GOAL kernel thread,
+// replaying the x86 oracle capture's listener form byte-for-byte:
+//   (birth-pickup-at-point <vec near target> (pickup-type N) 5.0 #t *entity-pool*
+//                          (the-as fact-info #f))
+// pickup-type (fact-h.gc): 1=eco-yellow 2=eco-red 3=eco-blue 4=eco-green.
+// The device build has no goalc listener, no continue point spawns near a live
+// eco, and green eco is tutorial-gated — so this is the only lever that puts an
+// eco sphere in-frame on BOTH platforms via the identical mechanism, which the
+// per-color device-vs-golden screencap gate requires. Re-fires every period
+// ticks (default 300) because an eco birthed outside its level context fades
+// after a few seconds. DEBUG-ONLY: the prop is never set in the shipped APK;
+// x86 is unaffected unless OG_ECO_SPAWN is explicitly exported.
+static int s_eco_spawn_type = 0;
+static int s_eco_spawn_period = 300;
+static float s_eco_dx = 2.0f, s_eco_dy = 1.0f, s_eco_dz = 2.0f;
+// Geco-spheres TEMPORARY diagnostic: last hook-spawned eco pickup's ppointer
+// (raw pointer, NOT a basic — a u32 into EE memory), captured in eco_spawn_run
+// and consumed by eco_trace_maybe() below. 0 = none yet.
+static u32 s_eco_trace_pp = 0;
+
+static bool eco_spawn_requested() {
+  char buf[128] = {0};
+  if (const char* e = std::getenv("OG_ECO_SPAWN")) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+  }
+#if defined(__ANDROID__)
+  if (!buf[0]) {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.eco.spawn", pbuf) > 0) {
+      std::strncpy(buf, pbuf, sizeof(buf) - 1);
+    }
+  }
+#endif
+  if (!buf[0]) {
+    return false;
+  }
+  int type = 0, period = 0;
+  float dx = 0.f, dy = 0.f, dz = 0.f;
+  int n = std::sscanf(buf, "%d %d %f %f %f", &type, &period, &dx, &dy, &dz);
+  if (n < 1 || type < 1 || type > 9) {
+    return false;
+  }
+  s_eco_spawn_type = type;
+  if (n >= 2 && period > 30) {
+    s_eco_spawn_period = period;
+  }
+  if (n >= 5) {
+    s_eco_dx = dx;
+    s_eco_dy = dy;
+    s_eco_dz = dz;
+  }
+  return true;
+}
+
+// The spawn body — invoked BY THE KERNEL as *listener-function* (same in-context
+// trampoline the warp hooks use): birth-pickup-at-point is a defbehavior, so it
+// needs a live process context (pp), which the dispatcher provides.
+static u64 eco_spawn_run() {
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt == 0 || tgt == (u32)s7.offset || (tgt & OFFSET_MASK) != 4 /*BASIC_OFFSET*/ ||
+      tgt >= (u32)(EE_MAIN_MEM_SIZE - 112)) {
+    return 0;
+  }
+  u32 ctrl = 0;
+  std::memcpy(&ctrl, g_ee_main_mem + tgt + 108, 4);  // target control (F1-SPAWN layout)
+  if (ctrl == 0 || ctrl == (u32)s7.offset || ctrl >= (u32)(EE_MAIN_MEM_SIZE - 24)) {
+    return 0;
+  }
+  float t[3];
+  std::memcpy(t, g_ee_main_mem + ctrl + 12, 12);  // control trans
+  u32 fn = intern_from_c("birth-pickup-at-point")->value;
+  u32 pool = intern_from_c("*entity-pool*")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset || pool == 0 || pool == (u32)s7.offset) {
+    return 0;
+  }
+  static Ptr<u8> s_vec;  // one 16B GOAL vector, allocated once on the global heap
+  if (s_vec.offset == 0) {
+    s_vec = kmalloc(kglobalheap, 16, KMALLOC_ALIGN_16, "eco-spawn-vec");
+    if (s_vec.offset == 0) {
+      return 0;
+    }
+  }
+  float* v = (float*)(g_ee_main_mem + s_vec.offset);
+  v[0] = t[0] + s_eco_dx * 4096.f;
+  v[1] = t[1] + s_eco_dy * 4096.f;
+  v[2] = t[2] + s_eco_dz * 4096.f;
+  v[3] = 1.0f;
+  // GOAL passes float args as raw 32-bit bits in GPRs.
+  float amount = 5.0f;
+  u32 amount_bits = 0;
+  std::memcpy(&amount_bits, &amount, 4);
+  u64 args[8] = {s_vec.offset,
+                 (u64)s_eco_spawn_type,
+                 amount_bits,
+                 (u64)(s7.offset + jak1_symbols::FIX_SYM_TRUE),
+                 pool,
+                 (u64)s7.offset,  // (the-as fact-info #f)
+                 0,
+                 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp, (u64)s7.offset,
+                                  g_ee_main_mem);
+  // Geco-spheres TEMPORARY diagnostic: remember the ppointer of the just-birthed
+  // pickup so eco_trace_maybe() can dump its physics each dispatch. r is the
+  // (pointer process) return of birth-pickup-at-point (a raw pointer, not a basic).
+  if ((u32)r != 0 && (u32)r != (u32)s7.offset) {
+    s_eco_trace_pp = (u32)r;
+  }
+  printf("ECO-SPAWN type=%d at=%.1f,%.1f,%.1f -> #x%x\n", s_eco_spawn_type, v[0], v[1], v[2],
+         (u32)r);
+  fflush(stdout);
+  return r;
+}
+
+void eco_spawn_maybe() {
+  if (!eco_spawn_requested()) {
+    return;
+  }
+  // Readiness: *target* alive (a real boxed basic) and birth-pickup-at-point bound.
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt == 0 || tgt == (u32)s7.offset || (tgt & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  u32 fn = intern_from_c("birth-pickup-at-point")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    return;
+  }
+  // Settle ~2s after target exists (camera lands), then re-fire every period.
+  static int s_ticks = 0;
+  s_ticks++;
+  if (s_ticks < 120 || (s_ticks - 120) % s_eco_spawn_period != 0) {
+    return;
+  }
+  // Never stomp a pending listener form (the kernel resets the slot to #f after
+  // running it — kboot.cpp dispatch loop).
+  if (ListenerFunction->value != (u32)s7.offset && ListenerFunction->value != 0) {
+    return;
+  }
+  static Ptr<Function> s_fn;  // trampoline allocated once
+  if (s_fn.offset == 0) {
+    s_fn = make_function_from_c((void*)eco_spawn_run, false);
+  }
+  ListenerFunction->value = s_fn.offset;
+  lg::info("[ECO-SPAWN] armed type={} period={} ticks={}", s_eco_spawn_type, s_eco_spawn_period,
+           s_ticks);
+}
+
+// ─── ECO PHYSICS TRACER (Geco-spheres TEMPORARY arm64-NaN diagnostic) ────────────
+// Env OG_ECO_TRACE / Android prop debug.opengoal.eco.trace = "1" — OFF by default.
+// Per-dispatch dump of the LAST eco pickup spawned by the eco-spawn hook (its
+// ppointer stashed in s_eco_trace_pp). Prints one line of physics state so we can
+// see which field first becomes NaN on arm64. Plain printf, like the SPART probes.
+// Field offsets are quoted from decompiler/config/jak1/all-types.gc :offset-assert:
+//   process-drawable.root         :offset-assert 112   (collide-shape-moving)
+//   collectable.base              :offset-assert 208   (vector :inline)
+//   collectable.flags             :offset-assert 256   (collectable-flags = uint32)
+//   trs.trans (via trsqv<-trsq<-trs) :offset-assert 16  (vector :inline)
+//   trsqv.transv                  :offset-assert 64    (vector :inline)
+//   collide-shape.root-prim       :offset-assert 160   (collide-shape-prim)
+//   collide-shape-moving.local-normal :offset-assert 320 (vector :inline)
+//   collide-shape-moving.dynam    :offset-assert 436   (dynamics)
+//   collide-shape-prim.prim-core  :offset-assert 16 + collide-prim-core.world-sphere :offset-assert 0
+//   dynamics.gravity              :offset-assert 16    (vector :inline)
+// Reading a GOAL field from a boxed basic = g_ee_main_mem + basic + (offset - 4).
+static bool eco_trace_requested() {
+  char buf[16] = {0};
+  if (const char* e = std::getenv("OG_ECO_TRACE")) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+  }
+#if defined(__ANDROID__)
+  if (!buf[0]) {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.eco.trace", pbuf) > 0) {
+      std::strncpy(buf, pbuf, sizeof(buf) - 1);
+    }
+  }
+#endif
+  return buf[0] == '1';
+}
+
+void eco_trace_maybe() {
+  // Gate read once and cache (same pattern as eco_spawn_requested).
+  static int s_on = -1;
+  if (s_on < 0) {
+    s_on = eco_trace_requested() ? 1 : 0;
+  }
+  if (s_on == 0) {
+    return;
+  }
+  if (s_eco_trace_pp == 0) {
+    return;
+  }
+  static int s_count = 0;
+  if (s_count >= 20000) {
+    return;
+  }
+
+  // s_eco_trace_pp is a RAW (pointer process): load the process basic at it (no -4).
+  u32 pp = s_eco_trace_pp;
+  if (pp >= (u32)(EE_MAIN_MEM_SIZE - 4)) {
+    return;
+  }
+  u32 proc = 0;
+  std::memcpy(&proc, g_ee_main_mem + pp, 4);
+  if (proc == 0 || proc == (u32)s7.offset || proc >= (u32)(EE_MAIN_MEM_SIZE - 320)) {
+    return;
+  }
+
+  // root = collide-shape-moving basic (process-drawable.root @ 112).
+  u32 root = 0;
+  std::memcpy(&root, g_ee_main_mem + proc + (112 - 4), 4);
+  if (root == 0 || root == (u32)s7.offset || root >= (u32)(EE_MAIN_MEM_SIZE - 440)) {
+    return;
+  }
+
+  // trans @ 16, transv @ 64, local-normal @ 320 (all vector :inline in root).
+  float trans[4], transv[4], lnorm[4];
+  std::memcpy(trans, g_ee_main_mem + root + (16 - 4), 16);
+  std::memcpy(transv, g_ee_main_mem + root + (64 - 4), 16);
+  std::memcpy(lnorm, g_ee_main_mem + root + (320 - 4), 16);
+
+  // root-prim @ 160 (collide-shape-prim basic) -> prim-core @ 16 -> world-sphere @ 0.
+  u32 rprim = 0;
+  std::memcpy(&rprim, g_ee_main_mem + root + (160 - 4), 4);
+  if (rprim == 0 || rprim == (u32)s7.offset || rprim >= (u32)(EE_MAIN_MEM_SIZE - 32)) {
+    return;
+  }
+  float ws[4];
+  // world-sphere = prim + (16 - 4) + 16 = prim + (16 + 16 - 4).
+  std::memcpy(ws, g_ee_main_mem + rprim + (16 + 16 - 4), 16);
+
+  // dynam @ 436 (dynamics basic) -> gravity @ 16 (vector :inline).
+  u32 dynam = 0;
+  std::memcpy(&dynam, g_ee_main_mem + root + (436 - 4), 4);
+  if (dynam == 0 || dynam == (u32)s7.offset || dynam >= (u32)(EE_MAIN_MEM_SIZE - 32)) {
+    return;
+  }
+  float grav[4];
+  std::memcpy(grav, g_ee_main_mem + dynam + (16 - 4), 16);
+
+  // collectable.flags @ 256 (uint32), collectable.base @ 208 (vector :inline), y = +4.
+  u32 flags = 0;
+  std::memcpy(&flags, g_ee_main_mem + proc + (256 - 4), 4);
+  float base_y = 0.f;
+  std::memcpy(&base_y, g_ee_main_mem + proc + (208 - 4) + 4, 4);
+
+  s_count++;
+  printf(
+      "ECO-TRACE pp=%x proc=%x trans=%g,%g,%g transv=%g,%g,%g ws=%g,%g,%g,%g lnorm=%g,%g,%g "
+      "grav=%g,%g,%g base_y=%g flags=%x\n",
+      pp, proc, trans[0], trans[1], trans[2], transv[0], transv[1], transv[2], ws[0], ws[1], ws[2],
+      ws[3], lnorm[0], lnorm[1], lnorm[2], grav[0], grav[1], grav[2], base_y, flags);
+  fflush(stdout);
+}
+
 // ─── ECHO-INTRO (new-game intro cinematic) deterministic warp ───────────────────
 // Env OG_ECHO_INTRO / Android prop debug.opengoal.echo.intro — OFF by default.
 // TEMPORARY arm64/Android diagnostic. Reaches the NEW-GAME intro cinematic
