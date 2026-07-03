@@ -24,12 +24,17 @@ for a in $(seq 1 "$MAXA"); do
     bash .autoport/lib/grv_run.sh "$TAG" "$WATCH" "434.1 3 -1754.8"
   L="$OUT/$TAG-logcat.log"
   if ! grep -qaE 'Fatal signal|GK-DIAG sig=' "$L"; then
-    echo "=== attempt $a: NO CRASH (full scenario survived) ==="
+    if grep -qa 'GRV-CANARY ANOMALY' "$L"; then
+      echo "=== attempt $a: NO CRASH but CANARY ANOMALY (stomp bracketed!) ==="
+      grep -a 'GRV-CANARY' "$L" | head -20
+    else
+      echo "=== attempt $a: NO CRASH (full scenario survived) ==="
+    fi
     continue
   fi
   if grep -qa 'LEVEL-WARP-SPAWN' "$L"; then
     echo "=== attempt $a: POST-SPAWN CRASH captured (tag=$TAG) ==="
-    grep -aE 'GK-DIAG sig=|GRV-SP|GRV-NAME|grv-.*-bare|A38.*nearest' "$L" | head -40
+    grep -aE 'GK-DIAG sig=|GRV-SP|GRV-NAME|grv-.*-bare|GRV-CANARY|A38.*nearest' "$L" | head -40
     echo "REPEAT-RESULT: POST-SPAWN-CRASH tag=$TAG flakes=$FLAKES attempt=$a"
     exit 0
   fi

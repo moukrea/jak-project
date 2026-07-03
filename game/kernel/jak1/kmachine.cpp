@@ -1465,17 +1465,21 @@ void grv_canary_maybe() {
     fflush(stdout);
     return;
   }
-  u32 rftd = intern_from_c("return-from-thread-dead")->value;
-  u32 rft = intern_from_c("return-from-thread")->value;
-  u64 exp_rftd = (u64)(uintptr_t)g_ee_main_mem + rftd;
-  u64 exp_rft = (u64)(uintptr_t)g_ee_main_mem + rft;
+  // Hot slots (band = stack_top - 64): the state fn's STP frame {X29@top-32=idx4,
+  // X30@top-24=idx5} and the enter-state trampoline cell @top-16=idx6. Everything
+  // else only matters when a BARE GOAL value (upper32==0) lands in it — host-based
+  // fp/ra saves churn constantly and are legit.
   for (int i = 0; i < 8; i++) {
     if (cur[i] != s_prev[i]) {
-      bool expected = (cur[i] == exp_rftd) || (cur[i] == exp_rft) || (cur[i] == 0);
-      printf("GRV-CANARY %s off=%d(0x%x) old=%016llx new=%016llx tick=%llu\n",
-             expected ? "push" : "ANOMALY", i * 8, band + i * 8, (unsigned long long)s_prev[i],
-             (unsigned long long)cur[i], (unsigned long long)s_tick);
-      fflush(stdout);
+      bool bare = (cur[i] >> 32) == 0 && cur[i] != 0;
+      bool hot = (i >= 4 && i <= 6);
+      if (bare || (hot && cur[i] == 0)) {
+        printf("GRV-CANARY %s off=%d(0x%x) old=%016llx new=%016llx tick=%llu\n",
+               hot ? "HOT-ANOMALY" : "BARE-WRITE", i * 8, band + i * 8,
+               (unsigned long long)s_prev[i], (unsigned long long)cur[i],
+               (unsigned long long)s_tick);
+        fflush(stdout);
+      }
       s_prev[i] = cur[i];
     }
   }
