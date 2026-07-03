@@ -1451,6 +1451,33 @@ void grv_canary_maybe() {
     s_armed = false;
     return;
   }
+  // Thread-field watch: (-> thread sp) is a 32-bit HEAP field restored into SP by
+  // thread-resume; a heap stomp of it resumes target on top of global DATA (the
+  // suspected repro12 mechanism: SP=0x1a7ed0 outside the dram arena). Flag any
+  // sp/stack-top outside the dram arena band.
+  {
+    u32 mt_sp = *(u32*)(g_ee_main_mem + mt + 24);
+    u32 tt = *(u32*)(g_ee_main_mem + tgt_sym + 44);
+    static u32 s_last_bad = 0;
+    if (mt_sp && (mt_sp < stack_top - 0x8000 || mt_sp > stack_top) && mt_sp != s_last_bad) {
+      s_last_bad = mt_sp;
+      printf("GRV-CANARY MT-SP-ANOMALY mt-sp=0x%x stack-top=0x%x tick=%llu\n", mt_sp, stack_top,
+             (unsigned long long)s_tick);
+      fflush(stdout);
+    }
+    if (tt >= 0x1000 && tt < EE_MAIN_MEM_SIZE && tt != mt) {
+      u32 tt_sp = *(u32*)(g_ee_main_mem + tt + 24);
+      u32 tt_top = *(u32*)(g_ee_main_mem + tt + 28);
+      static u32 s_last_bad_tt = 0;
+      if (tt_sp && tt_top && (tt_sp < tt_top - 0x8000 || tt_sp > tt_top) &&
+          tt_sp != s_last_bad_tt) {
+        s_last_bad_tt = tt_sp;
+        printf("GRV-CANARY TT-SP-ANOMALY tt-sp=0x%x tt-top=0x%x tick=%llu\n", tt_sp, tt_top,
+               (unsigned long long)s_tick);
+        fflush(stdout);
+      }
+    }
+  }
   u32 band = stack_top - 64;
   u64 cur[8];
   memcpy(cur, g_ee_main_mem + band, 64);
