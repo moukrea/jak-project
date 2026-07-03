@@ -4852,6 +4852,59 @@ bool handle_rftd_null_return(int sig, siginfo_t* /*info*/, void* ucontext) {
   return true;
 }
 
+// Gcrash-rockvillage: a GOAL state :code RET consumed a CORRUPTED saved-X30 slot
+// and jumped to a BARE GOAL offset (pc == lr == 0xNNNNNN < EE_SIZE, instruction
+// fetch fault at that unmapped low address). Root evidence (GRV-CANARY, village2
+// past-pontoons route): the outermost state frame band at [*kernel-dram-stack*
+// top-24] — which legitimately holds the host return-from-thread-dead trampoline
+// pushed by enter-state (gstate.gc:373-381) — gets overwritten by per-frame float
+// writes (camera-blend/direction values in [-1,1]) landed through the SHARED dram
+// arena; on x86 the same writes fall on a slot the 8-byte push contract leaves
+// dead, so the original is unaffected (x86 route verified crash-free). When the
+// state falls off the end, the arm64 LDP/RET consumes the stomped pair -> crash
+// straight to home (the owner's Rock Village past-the-crate defect; also seen
+// with SP restored off-arena, repro12). The INTENDED continuation of a returning
+// state :code is unambiguous: the return-from-thread-dead deactivate trampoline
+// (exactly what x86 reaches). Repair: redirect pc there and resume. Gated
+// razor-tight: SIGSEGV + pc==lr (a RET/BR through the corrupt value) + pc a bare
+// in-EE-range offset >=0x1000 (never a mapped host address; genuine wild faults
+// don't fetch from [0x1000, 32MB)) + fault addr == pc (instruction fetch). The
+// trampoline is resolved from the live symbol table (not hardcoded — CGO layouts
+// move it, e.g. 0x18aee4 f1c vs 0x18aef4 current). arm64/Android only.
+std::atomic<uint64_t> g_grv_bareret_redirects{0};
+bool handle_bare_ret_offset(int sig, siginfo_t* info, void* ucontext) {
+  if (sig != SIGSEGV || !g_ee_main_mem) {
+    return false;
+  }
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  const uintptr_t pc = uc->uc_mcontext.pc;
+  const uintptr_t lr = uc->uc_mcontext.regs[30];
+  if (pc < 0x1000 || pc >= (uintptr_t)EE_MAIN_MEM_SIZE) {
+    return false;  // not a bare GOAL offset (pc<0x1000 is the NULLRET handler's case)
+  }
+  if (lr != pc) {
+    return false;  // not a RET/BR through the corrupted value
+  }
+  const uintptr_t fault = info ? reinterpret_cast<uintptr_t>(info->si_addr) : 0;
+  if (fault != pc) {
+    return false;  // must be the instruction fetch itself
+  }
+  const u32 rftd = jak1::intern_from_c("return-from-thread-dead")->value;
+  if (rftd < 0x1000 || rftd >= (u32)EE_MAIN_MEM_SIZE) {
+    return false;
+  }
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  uc->uc_mcontext.pc = ee + rftd;
+  const uint64_t n = g_grv_bareret_redirects.fetch_add(1, std::memory_order_relaxed) + 1;
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG GRV-BARE-RET-REPAIR #%llu pc=lr=0x%lx sp=0x%lx -> "
+                      "return-from-thread-dead 0x%x (stomped state-return slot; process "
+                      "deactivates as designed)",
+                      (unsigned long long)n, (unsigned long)pc,
+                      (unsigned long)uc->uc_mcontext.sp, rftd);
+  return true;
+}
+
 // Gcrash-mouche: arm64 scout-fly (buzzer) collect SIGILL. enter-state
 // (gstate.gc:355-386) enters a process state by computing
 //   func = (-> new-state code) + r15  ;  (.jr func)
@@ -5248,6 +5301,12 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // dump below.
   if ((sig == SIGILL || sig == SIGSEGV) &&
       a38_trip::handle_rftd_null_return(sig, info, ucontext)) {
+    return;
+  }
+  // Gcrash-rockvillage: a state :code RET consumed a stomped saved-X30 slot and
+  // jumped to a BARE GOAL offset (village2 past-pontoons crash-to-home). Redirect
+  // to return-from-thread-dead — the continuation x86 reaches — and resume.
+  if (sig == SIGSEGV && a38_trip::handle_bare_ret_offset(sig, info, ucontext)) {
     return;
   }
   // Gcrash-mouche: arm64 buzzer scout-fly collect SIGILL — enter-state's spilled
