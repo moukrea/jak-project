@@ -442,6 +442,7 @@ u64 execute(void* ctxt) {
   bool bc = false;
   u32 call_addr = 0;
   bool geco_log_this_relaunch = false;  // Geco-spheres TEMPORARY diagnostic
+  bool geco_log_this_orb = false;       // Geco-spheres TEMPORARY diagnostic
   c->daddiu(sp, sp, -128);                          // daddiu sp, sp, -128
   c->sd(ra, 0, sp);                                 // sd ra, 0(sp)
   c->sq(s0, 16, sp);                                // sq s0, 16(sp)
@@ -720,6 +721,45 @@ u64 execute(void* ctxt) {
   c->load_symbol(t9, cache.sp_orbiter);             // lw t9, sp-orbiter(s7)
   if (bc) {goto block_22;}                          // branch non-likely
 
+  // Geco-spheres TEMPORARY diagnostic (attempt 2, DECISIVE): sp-orbiter is the
+  // bit7 orbit-update (GOAL-compiled, arm64-suspect) that positions every eco
+  // cloud/starflash particle around its bound center each frame. Dump its full
+  // input state here and the resulting sprite position after the call; the
+  // x86-vs-device first-divergent-field names the broken computation.
+  geco_log_this_orb = false;
+  if (geco_spart_dump_armed()) {
+    static int s_count = 0;
+    if (s_count < 20000) {
+      s_count++;
+      geco_log_this_orb = true;
+      float rad = 0.f, om = 0.f, vsx[4], rq[4], pre[4], col[4];
+      u32 usr = 0;
+      memcpy(&rad, g_ee_main_mem + c->gpr_addr(s5) + 8, 4);   // radius
+      memcpy(&om, g_ee_main_mem + c->gpr_addr(s5) + 12, 4);   // omega
+      memcpy(vsx, g_ee_main_mem + c->gpr_addr(s5) + 16, 16);  // vel-sxvel
+      memcpy(rq, g_ee_main_mem + c->gpr_addr(s5) + 80, 16);   // rotvel3d quat
+      memcpy(&usr, g_ee_main_mem + c->gpr_addr(s5) + 108, 4); // user-pntr = orbit center
+      memcpy(pre, g_ee_main_mem + c->gpr_addr(s4) + 0, 16);   // sprite pos pre
+      memcpy(col, g_ee_main_mem + c->gpr_addr(s4) + 32, 16);  // sprite rgba
+      float ctr[3] = {0.f, 0.f, 0.f};
+      if (usr > 16 && usr < (u32)(EE_MAIN_MEM_SIZE - 12)) {
+        memcpy(ctr, g_ee_main_mem + usr, 12);
+      }
+      float sfty = 0.f;
+      {
+        u32 v = 0;
+        memcpy(&v, cache.sp_frame_time, 4);
+        if (v > 16 && v < (u32)(EE_MAIN_MEM_SIZE - 8)) {
+          memcpy(&sfty, g_ee_main_mem + v + 4, 4);
+        }
+      }
+      printf("SPART-ORBPRE cpu=%x om=%g rad=%g vsx=%g,%g,%g sfty=%g rq=%g,%g,%g,%g usr=%x "
+             "ctr=%g,%g,%g pre=%g,%g,%g col=%.0f,%.0f,%.0f,%.0f\n",
+             c->gpr_addr(s5), om, rad, vsx[0], vsx[1], vsx[2], sfty, rq[0], rq[1], rq[2], rq[3],
+             usr, ctr[0], ctr[1], ctr[2], pre[0], pre[1], pre[2], col[0], col[1], col[2], col[3]);
+      fflush(stdout);
+    }
+  }
   c->daddiu(sp, sp, -96);                           // daddiu sp, sp, -96
   c->sq(gp, 0, sp);                                 // sq gp, 0(sp)
   c->sq(s5, 16, sp);                                // sq s5, 16(sp)
@@ -739,6 +779,18 @@ u64 execute(void* ctxt) {
   c->lq(s3, 64, sp);                                // lq s3, 64(sp)
   c->lq(s2, 80, sp);                                // lq s2, 80(sp)
   c->daddiu(sp, sp, 96);                            // daddiu sp, sp, 96
+  // Geco-spheres TEMPORARY diagnostic: what sp-orbiter left behind. Pairs with
+  // the SPART-ORBPRE line above (same cpu=).
+  if (geco_log_this_orb) {
+    float rad = 0.f, om = 0.f, rq[4], post[4];
+    memcpy(&rad, g_ee_main_mem + c->gpr_addr(s5) + 8, 4);
+    memcpy(&om, g_ee_main_mem + c->gpr_addr(s5) + 12, 4);
+    memcpy(rq, g_ee_main_mem + c->gpr_addr(s5) + 80, 16);
+    memcpy(post, g_ee_main_mem + c->gpr_addr(s4) + 0, 16);
+    printf("SPART-ORBPOST cpu=%x om=%g rad=%g rq=%g,%g,%g,%g post=%g,%g,%g\n", c->gpr_addr(s5),
+           om, rad, rq[0], rq[1], rq[2], rq[3], post[0], post[1], post[2]);
+    fflush(stdout);
+  }
 
   block_22:
   c->lq(v1, 32, s4);                                // lq v1, 32(s4)
