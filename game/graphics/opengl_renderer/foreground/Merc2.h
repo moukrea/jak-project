@@ -170,6 +170,10 @@ class Merc2 {
   int m_num_defused_levs = 0;
   GLuint m_vao_vertex_buffer = 0;
   u64 m_vao_load_id = UINT64_MAX;
+  // bone-UBO ring cursor (in bone vectors, always alignment-rounded): each
+  // flush uploads at the cursor instead of offset 0 so the write never lands
+  // on a window in-flight draws are still reading (implicit-sync elimination)
+  u32 m_bones_ring_base = 0;
 
   std::vector<ModBuffers> m_mod_vtx_buffers;
   u32 m_next_mod_vtx_buffer = 0;
@@ -249,7 +253,8 @@ class Merc2 {
                 const Uniforms& uniforms,
                 ScopedProfilerNode& prof,
                 bool set_fade,
-                SharedRenderState* render_state);
+                SharedRenderState* render_state,
+                u32 bones_base = 0);
 
   static constexpr int MAX_LIGHTS = 1024;
   VuLights m_lights_buffer[MAX_LIGHTS];

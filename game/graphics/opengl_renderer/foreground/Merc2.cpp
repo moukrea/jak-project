@@ -1540,6 +1540,41 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
                                ScopedProfilerNode& prof,
                                MercDebugStats* stats) {
   stats->num_draw_flush++;
+
+  // Gperf-batching: upload this flush's bone window ONCE (it is identical for
+  // every level bucket — the old per-bucket re-upload was redundant), and at a
+  // RING cursor instead of offset 0. Writing offset 0 every flush hits a UBO
+  // still being read by in-flight draws => implicit driver sync per flush
+  // (~0.6-1.0ms each, the bones-ub cost in the round-3 breakdown). The ring
+  // advances by aligned windows and orphans the storage on wrap, so no upload
+  // ever overlaps a live read. first_bone offsets stay window-relative; draws
+  // bind at (bones_base + first_bone).
+  u32 bones_base = 0;
+  {
+    auto bones_prof = prof.make_scoped_child("bones-ub");
+    glBindBuffer(GL_UNIFORM_BUFFER, m_bones_buffer);
+    if (render_state->batch_singledraw) {
+      u32 base = m_bones_ring_base;  // aligned: advanced by aligned amounts only
+      if (base + m_next_free_bone_vector > MAX_SHADER_BONE_VECTORS) {
+        // wrap: orphan so draws still reading the old storage keep it alive
+        glBufferData(GL_UNIFORM_BUFFER, MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f), nullptr,
+                     GL_DYNAMIC_DRAW);
+        base = 0;
+      }
+      glBufferSubData(GL_UNIFORM_BUFFER, base * sizeof(math::Vector4f),
+                      m_next_free_bone_vector * sizeof(math::Vector4f),
+                      m_shader_bone_vector_buffer);
+      bones_base = base;
+      u32 next = base + m_next_free_bone_vector + m_opengl_buffer_alignment - 1;
+      next = next / m_opengl_buffer_alignment * m_opengl_buffer_alignment;
+      m_bones_ring_base = next;
+    } else {
+      glBufferSubData(GL_UNIFORM_BUFFER, 0, m_next_free_bone_vector * sizeof(math::Vector4f),
+                      m_shader_bone_vector_buffer);
+    }
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+  }
+
   for (u32 li = 0; li < m_next_free_level_bucket; li++) {
     const auto& lev_bucket = m_level_draw_buckets[li];
     const auto* lev = lev_bucket.level;
@@ -1620,25 +1655,17 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
     }
     stats->num_bones_uploaded += m_next_free_bone_vector;
 
-    {
-      auto bones_prof = prof.make_scoped_child("bones-ub");
-      glBindBuffer(GL_UNIFORM_BUFFER, m_bones_buffer);
-      glBufferSubData(GL_UNIFORM_BUFFER, 0, m_next_free_bone_vector * sizeof(math::Vector4f),
-                      m_shader_bone_vector_buffer);
-      glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    }
-
     switch_to_merc2(render_state);
     {
       auto draws_prof = prof.make_scoped_child("draws");
       do_draws(lev_bucket.draws.data(), lev, lev_bucket.next_free_draw, m_merc_uniforms,
-               draws_prof, false, render_state);
+               draws_prof, false, render_state, bones_base);
     }
     if (lev_bucket.next_free_envmap_draw) {
       switch_to_emerc(render_state);
       auto edraws_prof = prof.make_scoped_child("env-draws");
       do_draws(lev_bucket.envmap_draws.data(), lev, lev_bucket.next_free_envmap_draw,
-               m_emerc_uniforms, edraws_prof, true, render_state);
+               m_emerc_uniforms, edraws_prof, true, render_state, bones_base);
     }
   }
 
@@ -1670,7 +1697,8 @@ void Merc2::do_draws(const Draw* draw_array,
                      const Uniforms& uniforms,
                      ScopedProfilerNode& prof,
                      bool set_fade,
-                     SharedRenderState* render_state) {
+                     SharedRenderState* render_state,
+                     u32 bones_base) {
   glBindVertexArray(m_vao);
 #ifdef __ANDROID__
   // F1f — fix the Adreno first-merc-draw-after-load SIGSEGV (fault=0x28,
@@ -1995,11 +2023,12 @@ void Merc2::do_draws(const Draw* draw_array,
       // the driver (F1a runs 4/5, fault 0x28). The shader never reads past
       // its declared block contents for the actual bone count.
       if (!f1a_noubo && (!cache_state || (s64)draw.first_bone != last_first_bone)) {
-        glBindBufferRange(GL_UNIFORM_BUFFER, 1, m_bones_buffer,
-                          sizeof(math::Vector4f) * draw.first_bone,
-                          std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
-                                   (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
-                                                sizeof(math::Vector4f) * draw.first_bone)));
+        glBindBufferRange(
+            GL_UNIFORM_BUFFER, 1, m_bones_buffer,
+            sizeof(math::Vector4f) * (bones_base + draw.first_bone),
+            std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
+                     (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
+                                  sizeof(math::Vector4f) * (bones_base + draw.first_bone))));
         last_first_bone = draw.first_bone;
       }
       // draw rgb
@@ -2035,11 +2064,12 @@ void Merc2::do_draws(const Draw* draw_array,
       prof.add_tri(draw.num_triangles);
       // Same end-of-buffer clamp as the two-pass path above.
       if (!f1a_noubo && (!cache_state || (s64)draw.first_bone != last_first_bone)) {
-        glBindBufferRange(GL_UNIFORM_BUFFER, 1, m_bones_buffer,
-                          sizeof(math::Vector4f) * draw.first_bone,
-                          std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
-                                   (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
-                                                sizeof(math::Vector4f) * draw.first_bone)));
+        glBindBufferRange(
+            GL_UNIFORM_BUFFER, 1, m_bones_buffer,
+            sizeof(math::Vector4f) * (bones_base + draw.first_bone),
+            std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
+                     (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
+                                  sizeof(math::Vector4f) * (bones_base + draw.first_bone))));
         last_first_bone = draw.first_bone;
       }
       if (!f1a_nodraw) {
