@@ -1546,6 +1546,41 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, lev->merc_vertices);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lev->merc_indices);
+    // Gperf-batching: name the flush-phase costs in the A35-PERF dump —
+    // the per-bucket table showed merc ms far above its draw-call count
+    // (e.g. 6.4ms/64dr) and the suspects are the per-flush BO defuse maps
+    // (driver syncs), the VAO respecification, and the bone UBO upload.
+    // Dedupe both when batch_singledraw: the defuse contract is "this
+    // level's BOs read-mapped once per FRAME before its first merc draws"
+    // (F1a run-16/17: per-frame coverage is what defuses; per-flush
+    // repetition within the frame is redundant sync cost), and the m_vao
+    // attribs only need respecifying when the level vertex buffer changes.
+    bool skip_defuse = false;
+    bool skip_vao = false;
+    if (render_state->batch_singledraw) {
+      if (m_defuse_frame != render_state->frame_idx) {
+        m_defuse_frame = render_state->frame_idx;
+        m_num_defused_levs = 0;
+      }
+      for (int i = 0; i < m_num_defused_levs; i++) {
+        if (m_defused_levs[i].first == (const void*)lev &&
+            m_defused_levs[i].second == lev->load_id) {
+          skip_defuse = true;
+          break;
+        }
+      }
+      if (!skip_defuse && m_num_defused_levs < (int)m_defused_levs.size()) {
+        m_defused_levs[m_num_defused_levs++] = {(const void*)lev, lev->load_id};
+      }
+      skip_vao = m_vao_vertex_buffer == lev->merc_vertices && m_vao_load_id == lev->load_id;
+    } else {
+      // kill switch active: unconditional setups leave the VAO in arbitrary
+      // per-flush state — invalidate so re-enabling starts fresh
+      m_vao_vertex_buffer = 0;
+      m_vao_load_id = UINT64_MAX;
+    }
+    if (!skip_defuse) {
+      auto defuse_prof = prof.make_scoped_child("defuse");
 #ifdef __ANDROID__
     // F1a Adreno workaround: specific merc glDrawElements SIGSEGV inside
     // the driver (null+0x28) with state-legal, GPU==CPU-verified data.
@@ -1576,21 +1611,34 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
       }
     }
 #endif
-    setup_merc_vao();
+    }
+    if (!skip_vao) {
+      auto vao_prof = prof.make_scoped_child("vao");
+      setup_merc_vao();
+      m_vao_vertex_buffer = lev->merc_vertices;
+      m_vao_load_id = lev->load_id;
+    }
     stats->num_bones_uploaded += m_next_free_bone_vector;
 
-    glBindBuffer(GL_UNIFORM_BUFFER, m_bones_buffer);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, m_next_free_bone_vector * sizeof(math::Vector4f),
-                    m_shader_bone_vector_buffer);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    {
+      auto bones_prof = prof.make_scoped_child("bones-ub");
+      glBindBuffer(GL_UNIFORM_BUFFER, m_bones_buffer);
+      glBufferSubData(GL_UNIFORM_BUFFER, 0, m_next_free_bone_vector * sizeof(math::Vector4f),
+                      m_shader_bone_vector_buffer);
+      glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
 
     switch_to_merc2(render_state);
-    do_draws(lev_bucket.draws.data(), lev, lev_bucket.next_free_draw, m_merc_uniforms, prof, false,
-             render_state);
+    {
+      auto draws_prof = prof.make_scoped_child("draws");
+      do_draws(lev_bucket.draws.data(), lev, lev_bucket.next_free_draw, m_merc_uniforms,
+               draws_prof, false, render_state);
+    }
     if (lev_bucket.next_free_envmap_draw) {
       switch_to_emerc(render_state);
+      auto edraws_prof = prof.make_scoped_child("env-draws");
       do_draws(lev_bucket.envmap_draws.data(), lev, lev_bucket.next_free_envmap_draw,
-               m_emerc_uniforms, prof, true, render_state);
+               m_emerc_uniforms, edraws_prof, true, render_state);
     }
   }
 

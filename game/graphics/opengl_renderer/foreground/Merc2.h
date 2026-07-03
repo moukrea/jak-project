@@ -1,4 +1,7 @@
 #pragma once
+#include <array>
+#include <utility>
+
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 
 struct MercDebugStats {
@@ -156,6 +159,17 @@ class Merc2 {
   GLuint m_vao;
 
   void setup_merc_vao();
+
+  // Gperf-batching (render_state->batch_singledraw): the Merc2 core is shared
+  // by all merc bucket renderers, so these dedupe the per-flush Adreno
+  // BO-defuse maps (driver syncs — needed once per level per FRAME, not per
+  // flush) and the m_vao attrib respecification (needed only when the level's
+  // vertex buffer changes; load_id guards GL-name reuse after level reload).
+  u64 m_defuse_frame = UINT64_MAX;
+  std::array<std::pair<const void*, u64>, 8> m_defused_levs;
+  int m_num_defused_levs = 0;
+  GLuint m_vao_vertex_buffer = 0;
+  u64 m_vao_load_id = UINT64_MAX;
 
   std::vector<ModBuffers> m_mod_vtx_buffers;
   u32 m_next_mod_vtx_buffer = 0;
