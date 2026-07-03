@@ -555,6 +555,70 @@ void TFragment::render_tree(int geom,
   }
 #endif
 
+  if (render_state->no_multidraw && render_state->batch_singledraw) {
+    // Gperf-batching: merge consecutive draws that share texture+mode into one
+    // glDrawElements. The single-draw index list packs draw ranges adjacently
+    // (contiguity re-checked per merge), and every strip already ends with a
+    // primitive-restart index (TFrag3Data.cpp unpack), so concatenated ranges
+    // keep their strips separate. Draws needing a double-draw pass are issued
+    // alone to preserve the exact original draw order.
+    ASSERT(m_textures);
+    const auto& alpha_u = tfrag_alpha_uniforms(render_state->shaders[ShaderId::TFRAG3].id());
+    size_t draw_idx = 0;
+    while (draw_idx < tree.draws->size()) {
+      const auto& draw = tree.draws->operator[](draw_idx);
+      const auto& singledraw_indices = m_cache.draw_idx_temp[draw_idx];
+      if (singledraw_indices.second == 0) {
+        draw_idx++;
+        continue;
+      }
+
+      s32 tex_idx = draw.tree_tex_id;
+      if (tex_idx >= 0) {
+        glBindTexture(GL_TEXTURE_2D, m_textures->at(tex_idx));
+      } else {
+        glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(tex_idx + 1)));
+      }
+      auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::TFRAG3);
+      glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
+
+      int first = singledraw_indices.first;
+      int count = singledraw_indices.second;
+      tree.tris_this_frame += draw.num_triangles;
+      tree.draws_this_frame++;
+      size_t next = draw_idx + 1;
+      if (double_draw.kind == DoubleDrawKind::NONE) {
+        while (next < tree.draws->size()) {
+          const auto& d2 = tree.draws->operator[](next);
+          const auto& sd2 = m_cache.draw_idx_temp[next];
+          if (sd2.second == 0) {
+            next++;
+            continue;
+          }
+          if (d2.tree_tex_id != draw.tree_tex_id || d2.mode.as_int() != draw.mode.as_int() ||
+              sd2.first != first + count) {
+            break;
+          }
+          count += sd2.second;
+          tree.tris_this_frame += d2.num_triangles;
+          tree.draws_this_frame++;
+          next++;
+        }
+      }
+
+      prof.add_draw_call();
+      glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+
+      if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
+        prof.add_draw_call();
+        glUniform1f(alpha_u.alpha_min, -10.f);
+        glUniform1f(alpha_u.alpha_max, double_draw.aref_second);
+        glDepthMask(GL_FALSE);
+        glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      }
+      draw_idx = next;
+    }
+  } else {
   for (size_t draw_idx = 0; draw_idx < tree.draws->size(); draw_idx++) {
     const auto& draw = tree.draws->operator[](draw_idx);
     const auto& multidraw_indices = m_cache.multidraw_offset_per_stripdraw[draw_idx];
@@ -616,6 +680,7 @@ void TFragment::render_tree(int geom,
       default:
         ASSERT(false);
     }
+  }
   }
 #ifdef __ANDROID__
   // A42 probe tail: GL error state + an FBO readback where the village

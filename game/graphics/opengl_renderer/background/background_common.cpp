@@ -2,6 +2,8 @@
 
 #include "background_common.h"
 
+#include <unordered_map>
+
 #include "common/log/log.h"
 #include "common/util/os.h"
 #include "common/util/simd_util.h"
@@ -155,14 +157,30 @@ DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap)
   return double_draw;
 }
 
+// alpha_min/alpha_max uniform locations per program — this runs once per
+// draw on the hot background path, and glGetUniformLocation is a string
+// lookup in the driver. Locations are stable for the life of a linked
+// program (programs are built once at startup and never relinked).
+const TfragAlphaUniforms& tfrag_alpha_uniforms(u64 program) {
+  static std::unordered_map<u64, TfragAlphaUniforms> cache;
+  auto it = cache.find(program);
+  if (it == cache.end()) {
+    TfragAlphaUniforms u;
+    u.alpha_min = glGetUniformLocation(program, "alpha_min");
+    u.alpha_max = glGetUniformLocation(program, "alpha_max");
+    it = cache.emplace(program, u).first;
+  }
+  return it->second;
+}
+
 DoubleDraw setup_tfrag_shader(SharedRenderState* render_state, DrawMode mode, ShaderId shader) {
   auto draw_settings = setup_opengl_from_draw_mode(mode, GL_TEXTURE0, true);
-  auto sh_id = render_state->shaders[shader].id();
-  if (auto u_id = glGetUniformLocation(sh_id, "alpha_min"); u_id != -1) {
-    glUniform1f(u_id, draw_settings.aref_first);
+  const auto& u = tfrag_alpha_uniforms(render_state->shaders[shader].id());
+  if (u.alpha_min != -1) {
+    glUniform1f(u.alpha_min, draw_settings.aref_first);
   }
-  if (auto u_id = glGetUniformLocation(sh_id, "alpha_max"); u_id != -1) {
-    glUniform1f(u_id, 10.f);
+  if (u.alpha_max != -1) {
+    glUniform1f(u.alpha_max, 10.f);
   }
   return draw_settings;
 }

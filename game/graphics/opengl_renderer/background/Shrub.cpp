@@ -347,6 +347,76 @@ void Shrub::render_tree(int idx,
 
   Timer draw_timer;
 
+  if (render_state->no_multidraw && render_state->batch_singledraw) {
+    // Gperf-batching: merge consecutive draws sharing texture+mode into one
+    // glDrawElements (see TFragment.cpp — same contiguity + trailing-restart
+    // guarantees; every shrub draw's index stream ends with UINT32_MAX,
+    // extract_shrub.cpp). Runs break on proto-vis-masked draws (their index
+    // range sits between and must not be drawn) and on double-draw modes.
+    const auto& alpha_u = tfrag_alpha_uniforms(render_state->shaders[ShaderId::SHRUB].id());
+    size_t draw_idx = 0;
+    while (draw_idx < tree.draws->size()) {
+      const auto& draw = tree.draws->operator[](draw_idx);
+      const auto& singledraw_indices = m_cache.draw_idx_temp[draw_idx];
+      if (!tree.proto_vis_mask.at(draw.proto_idx) || singledraw_indices.second == 0) {
+        draw_idx++;
+        continue;
+      }
+
+      if ((int)draw.tree_tex_id != last_texture) {
+        glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+        last_texture = draw.tree_tex_id;
+      }
+      glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
+      auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::SHRUB);
+
+      int first = singledraw_indices.first;
+      int count = singledraw_indices.second;
+      u32 run_tris = draw.num_triangles;
+      tree.perf.draws++;
+      size_t next = draw_idx + 1;
+      if (double_draw.kind == DoubleDrawKind::NONE) {
+        while (next < tree.draws->size()) {
+          const auto& d2 = tree.draws->operator[](next);
+          const auto& sd2 = m_cache.draw_idx_temp[next];
+          if (!tree.proto_vis_mask.at(d2.proto_idx)) {
+            break;
+          }
+          if (sd2.second == 0) {
+            next++;
+            continue;
+          }
+          if ((int)d2.tree_tex_id != last_texture || d2.mode.as_int() != draw.mode.as_int() ||
+              sd2.first != first + count) {
+            break;
+          }
+          count += sd2.second;
+          run_tris += d2.num_triangles;
+          tree.perf.draws++;
+          next++;
+        }
+      }
+
+      prof.add_draw_call();
+      prof.add_tri(run_tris);
+      glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+
+      if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
+        tree.perf.draws++;
+        prof.add_draw_call();
+        glUniform1f(alpha_u.alpha_min, -10.f);
+        glUniform1f(alpha_u.alpha_max, double_draw.aref_second);
+        glDepthMask(GL_FALSE);
+        glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      }
+      draw_idx = next;
+    }
+    glBindVertexArray(0);
+    tree.perf.draw_time.add(draw_timer.getSeconds());
+    tree.perf.tree_time.add(tree_timer.getSeconds());
+    return;
+  }
+
   for (size_t draw_idx = 0; draw_idx < tree.draws->size(); draw_idx++) {
     const auto& draw = tree.draws->operator[](draw_idx);
     if (!tree.proto_vis_mask.at(draw.proto_idx)) {

@@ -584,6 +584,62 @@ void Tie3::draw_matching_draws_for_tree(int idx,
 #endif
 
   int last_texture = -1;
+  if (render_state->no_multidraw && render_state->batch_singledraw) {
+    // Gperf-batching: merge consecutive draws sharing texture+mode into one
+    // glDrawElements (see TFragment.cpp — same contiguity + trailing-restart
+    // guarantees; TieTree::unpack ends every run with UINT32_MAX). Tie base
+    // draws never double-draw (the AFAIL arm below is ASSERT(false)).
+    const auto shader_id2 = use_envmap ? ShaderId::ETIE_BASE : ShaderId::TFRAG3;
+    size_t draw_idx = tree.category_draw_indices[(int)category];
+    const size_t end_idx = tree.category_draw_indices[(int)category + 1];
+    while (draw_idx < end_idx) {
+      const auto& draw = tree.draws->operator[](draw_idx);
+      const auto& singledraw_indices = tree.draw_idx_temp[draw_idx];
+      if (singledraw_indices.second == 0) {
+        draw_idx++;
+        continue;
+      }
+
+      if (draw.tree_tex_id != last_texture) {
+        if (draw.tree_tex_id >= 0) {
+          glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+        } else {
+          glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(draw.tree_tex_id + 1)));
+        }
+        last_texture = draw.tree_tex_id;
+      }
+
+      auto double_draw = setup_tfrag_shader(render_state, draw.mode, shader_id2);
+      glUniform1i(use_envmap ? m_etie_base_uniforms.decal : m_uniforms.decal,
+                  draw.mode.get_decal() ? 1 : 0);
+
+      int first = singledraw_indices.first;
+      int count = singledraw_indices.second;
+      size_t next = draw_idx + 1;
+      if (double_draw.kind == DoubleDrawKind::NONE) {
+        while (next < end_idx) {
+          const auto& d2 = tree.draws->operator[](next);
+          const auto& sd2 = tree.draw_idx_temp[next];
+          if (sd2.second == 0) {
+            next++;
+            continue;
+          }
+          if (d2.tree_tex_id != draw.tree_tex_id || d2.mode.as_int() != draw.mode.as_int() ||
+              sd2.first != first + count) {
+            break;
+          }
+          count += sd2.second;
+          next++;
+        }
+      } else {
+        ASSERT(false);
+      }
+
+      prof.add_draw_call();
+      glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      draw_idx = next;
+    }
+  } else {
   for (size_t draw_idx = tree.category_draw_indices[(int)category];
        draw_idx < tree.category_draw_indices[(int)category + 1]; draw_idx++) {
     const auto& draw = tree.draws->operator[](draw_idx);
@@ -651,6 +707,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         ASSERT(false);
     }
   }
+  }
 
   if (!m_hide_wind && category == tfrag3::TieCategory::NORMAL) {
     auto wind_prof = prof.make_scoped_child("wind");
@@ -680,6 +737,56 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
   set_uniform(m_etie_uniforms.envmap_tod_tint, m_common_data.envmap_color);
 
   int last_texture = -1;
+  if (render_state->no_multidraw && render_state->batch_singledraw) {
+    // Gperf-batching: merged-draw variant (see render_tree above). Envmap
+    // second-pass draws never double-draw (non-NONE asserts below).
+    size_t draw_idx = tree.category_draw_indices[(int)category];
+    const size_t end_idx = tree.category_draw_indices[(int)category + 1];
+    while (draw_idx < end_idx) {
+      const auto& draw = tree.draws->operator[](draw_idx);
+      const auto& singledraw_indices = tree.draw_idx_temp[draw_idx];
+      if (singledraw_indices.second == 0) {
+        draw_idx++;
+        continue;
+      }
+
+      if (draw.tree_tex_id != last_texture) {
+        if (draw.tree_tex_id >= 0) {
+          glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+        } else {
+          glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(draw.tree_tex_id + 1)));
+        }
+        last_texture = draw.tree_tex_id;
+      }
+
+      auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::ETIE);
+      ASSERT(double_draw.kind == DoubleDrawKind::NONE);
+
+      int first = singledraw_indices.first;
+      int count = singledraw_indices.second;
+      size_t next = draw_idx + 1;
+      while (next < end_idx) {
+        const auto& d2 = tree.draws->operator[](next);
+        const auto& sd2 = tree.draw_idx_temp[next];
+        if (sd2.second == 0) {
+          next++;
+          continue;
+        }
+        if (d2.tree_tex_id != draw.tree_tex_id || d2.mode.as_int() != draw.mode.as_int() ||
+            sd2.first != first + count) {
+          break;
+        }
+        count += sd2.second;
+        next++;
+      }
+
+      prof.add_draw_call();
+      glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      draw_idx = next;
+    }
+    return;
+  }
+
   for (size_t draw_idx = tree.category_draw_indices[(int)category];
        draw_idx < tree.category_draw_indices[(int)category + 1]; draw_idx++) {
     const auto& draw = tree.draws->operator[](draw_idx);

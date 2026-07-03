@@ -45,6 +45,10 @@ struct SharedRenderState {
   math::Vector<u8, 4> fog_color = math::Vector<u8, 4>{0, 0, 0, 0};
   float fog_intensity = 1.f;
   bool no_multidraw = false;
+  // Gperf-batching (Android): in the no_multidraw path, merge consecutive
+  // draws that share texture+mode and are contiguous in the single-draw
+  // index buffer into one glDrawElements. Desktop leaves this off.
+  bool batch_singledraw = false;
 
   void reset();
   bool has_pc_data = false;

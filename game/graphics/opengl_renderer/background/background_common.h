@@ -40,6 +40,14 @@ struct DoubleDraw {
   float color_mult = 1.;
 };
 
+// cached alpha_min/alpha_max uniform locations for a linked program (hot path:
+// looked up once per program instead of per draw)
+struct TfragAlphaUniforms {
+  s32 alpha_min = -1;
+  s32 alpha_max = -1;
+};
+const TfragAlphaUniforms& tfrag_alpha_uniforms(u64 program);
+
 DoubleDraw setup_tfrag_shader(SharedRenderState* render_state, DrawMode mode, ShaderId shader);
 DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap);
 
