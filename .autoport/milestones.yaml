@@ -1051,6 +1051,14 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Gperf-batching
+  name: 'OWNER-AGREED next big effort (2026-07-03, after v2 validation): 60fps push via GL draw-call BATCHING. Device is draw-call-submission bound (571 draws ~20ms; fill-rate has huge headroom). Profile per renderer family first, then batch (multidraw-style index merge, state sorting/caching, UBO/instancing) family by family; measure fps+buckets_ms after each; NUMERIC gain required (>=+5fps), visual parity screencap-proven, 0 flicker, all prior fixes intact. Incremental delivery OK (30->45 is a win). Owner play-test.'
+  prompt: prompts/phase-Gperf-batching.md
+  validator: validators/phase-Gperf-batching.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
