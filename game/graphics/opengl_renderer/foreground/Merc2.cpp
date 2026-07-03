@@ -1648,6 +1648,24 @@ void Merc2::do_draws(const Draw* draw_array,
 
   bool fog_on = true;
 
+  // Gperf-batching (Android, render_state->batch_singledraw): skip redundant
+  // per-draw GL state. Merc dominates the draw count (~420 of 571 draws on
+  // Geyser Rock) and every draw re-issued 3 uniforms + a full
+  // setup_opengl_from_draw_mode (~12 GL calls) + glBindBufferRange even when
+  // nothing changed. Caches are per-do_draws-call (program switches between
+  // calls). The draw-mode setup key includes the texture: setup writes
+  // wrap/filter params onto the BOUND texture object, so a texture change
+  // always forces a fresh setup pass.
+  const bool cache_state = render_state->batch_singledraw;
+  s32 last_ignore_alpha = INT32_MIN;
+  s32 last_decal = -1;
+  s32 last_no_tex = -1;
+  s64 last_first_bone = -1;
+  u32 last_setup_mode = 0;
+  s32 last_setup_tex = INT32_MIN;
+  bool last_setup_mips = false;
+  bool have_setup = false;
+
   for (u32 di = 0; di < num_draws; di++) {
     auto& draw = draw_array[di];
     if (draw.flags & MOD_VTX) {
@@ -1663,7 +1681,13 @@ void Merc2::do_draws(const Draw* draw_array,
         normal_vtx_buffer_bound = true;
       }
     }
-    glUniform1i(uniforms.ignore_alpha, draw.flags & DrawFlags::IGNORE_ALPHA);
+    {
+      s32 ignore_alpha = draw.flags & DrawFlags::IGNORE_ALPHA;
+      if (!cache_state || ignore_alpha != last_ignore_alpha) {
+        glUniform1i(uniforms.ignore_alpha, ignore_alpha);
+        last_ignore_alpha = ignore_alpha;
+      }
+    }
 
     if (fog_on && !draw.mode.get_fog_enable()) {
       // on -> off
@@ -1747,8 +1771,18 @@ void Merc2::do_draws(const Draw* draw_array,
       last_light = draw.light_idx;
     }
 
-    glUniform1i(uniforms.decal, draw.mode.get_decal());
-    glUniform1i(uniforms.gfx_hack_no_tex, (draw.flags & NO_TEXTURE) != 0);
+    {
+      s32 decal = draw.mode.get_decal() ? 1 : 0;
+      if (!cache_state || decal != last_decal) {
+        glUniform1i(uniforms.decal, decal);
+        last_decal = decal;
+      }
+      s32 no_tex = (draw.flags & NO_TEXTURE) != 0 ? 1 : 0;
+      if (!cache_state || no_tex != last_no_tex) {
+        glUniform1i(uniforms.gfx_hack_no_tex, no_tex);
+        last_no_tex = no_tex;
+      }
+    }
 
 #ifndef __ANDROID__
     // F1a oracle twin of the Android crash forensics: same fields, env-gated,
@@ -1897,6 +1931,11 @@ void Merc2::do_draws(const Draw* draw_array,
       mode.set_alpha_blend(DrawMode::AlphaBlend::SRC_DST_SRC_DST);
       mode.set_ab(true);
       setup_opengl_from_draw_mode(mode, GL_TEXTURE0, use_mipmaps_for_filtering);
+      // this branch ends on a setup_opengl_from_draw_mode(draw.mode) — record it
+      last_setup_mode = draw.mode.as_int();
+      last_setup_tex = last_tex;
+      last_setup_mips = use_mipmaps_for_filtering;
+      have_setup = true;
 
       prof.add_draw_call(2);
       prof.add_tri(draw.num_triangles * 2);
@@ -1907,12 +1946,14 @@ void Merc2::do_draws(const Draw* draw_array,
       // previous binding; Adreno dereferences the missing BO and crashes in
       // the driver (F1a runs 4/5, fault 0x28). The shader never reads past
       // its declared block contents for the actual bone count.
-      if (!f1a_noubo)
-      glBindBufferRange(GL_UNIFORM_BUFFER, 1, m_bones_buffer,
-                        sizeof(math::Vector4f) * draw.first_bone,
-                        std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
-                                 (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
-                                              sizeof(math::Vector4f) * draw.first_bone)));
+      if (!f1a_noubo && (!cache_state || (s64)draw.first_bone != last_first_bone)) {
+        glBindBufferRange(GL_UNIFORM_BUFFER, 1, m_bones_buffer,
+                          sizeof(math::Vector4f) * draw.first_bone,
+                          std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
+                                   (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
+                                                sizeof(math::Vector4f) * draw.first_bone)));
+        last_first_bone = draw.first_bone;
+      }
       // draw rgb
       const auto& l1_dir = m_lights_buffer[draw.light_idx].direction1;
       math::Vector4f l1_dir_f(l1_dir.x(), l1_dir.y(), l1_dir.z(), 1);
@@ -1934,16 +1975,25 @@ void Merc2::do_draws(const Draw* draw_array,
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     } else {
-      setup_opengl_from_draw_mode(draw.mode, GL_TEXTURE0, use_mipmaps_for_filtering);
+      if (!cache_state || !have_setup || draw.mode.as_int() != last_setup_mode ||
+          last_tex != last_setup_tex || use_mipmaps_for_filtering != last_setup_mips) {
+        setup_opengl_from_draw_mode(draw.mode, GL_TEXTURE0, use_mipmaps_for_filtering);
+        last_setup_mode = draw.mode.as_int();
+        last_setup_tex = last_tex;
+        last_setup_mips = use_mipmaps_for_filtering;
+        have_setup = true;
+      }
       prof.add_draw_call();
       prof.add_tri(draw.num_triangles);
       // Same end-of-buffer clamp as the two-pass path above.
-      if (!f1a_noubo)
-      glBindBufferRange(GL_UNIFORM_BUFFER, 1, m_bones_buffer,
-                        sizeof(math::Vector4f) * draw.first_bone,
-                        std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
-                                 (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
-                                              sizeof(math::Vector4f) * draw.first_bone)));
+      if (!f1a_noubo && (!cache_state || (s64)draw.first_bone != last_first_bone)) {
+        glBindBufferRange(GL_UNIFORM_BUFFER, 1, m_bones_buffer,
+                          sizeof(math::Vector4f) * draw.first_bone,
+                          std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
+                                   (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
+                                                sizeof(math::Vector4f) * draw.first_bone)));
+        last_first_bone = draw.first_bone;
+      }
       if (!f1a_nodraw) {
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
