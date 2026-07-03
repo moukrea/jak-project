@@ -5430,6 +5430,62 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                             pp, nm, mt, mt_top, mt_sp, tt, tt_top, tt_sp);
       }
     }
+    // GRV-POOL — walk the active process tree and print each process' object span
+    // (name@addr..end); flag spans containing the crash SP (whose stack did the RET
+    // consume?) and the crash pc when it is a bare GOAL offset. Bounded, safe reads.
+    {
+      uint32_t sp_goal = 0;
+      if (sp >= (uintptr_t)g_ee_main_mem && sp < (uintptr_t)g_ee_main_mem + EE_MAIN_MEM_SIZE) {
+        sp_goal = (uint32_t)(sp - (uintptr_t)g_ee_main_mem);
+      }
+      uint32_t pc_goal = 0;
+      {
+        uintptr_t pcv0 = (uintptr_t)uc->uc_mcontext.pc;
+        if (pcv0 >= 0x1000 && pcv0 < (uintptr_t)EE_MAIN_MEM_SIZE) {
+          pc_goal = (uint32_t)pcv0;  // already bare
+        }
+      }
+      auto ap = jak1::intern_from_c("*active-pool*");
+      uint32_t stack_nodes[48];
+      int sp_i = 0, printed = 0;
+      if (ap.offset && ap->value >= 0x1000 && ap->value < (uint32_t)EE_MAIN_MEM_SIZE) {
+        stack_nodes[sp_i++] = ap->value;
+      }
+      while (sp_i > 0 && printed < 40) {
+        uint32_t p = stack_nodes[--sp_i];
+        uint32_t child = 0, brother = 0, pname = 0, alloc_len = 0;
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + p + 16, &child);    // child @C16
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + p + 12, &brother);  // brother @C12
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + p + 0, &pname);
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + p + 68, &alloc_len);  // @C68
+        uint32_t span_beg = p - 4;
+        uint32_t span_end = p + 116 + (alloc_len < 0x100000 ? alloc_len : 0);
+        char nm[20] = {0};
+        for (int i = 0; i < 16; i += 4) {
+          uint32_t w = 0;
+          if (pname < 0x1000 ||
+              !gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + pname + 4 + i, &w)) {
+            break;
+          }
+          memcpy(nm + i, &w, 4);
+        }
+        nm[16] = 0;
+        bool has_sp = sp_goal && sp_goal >= span_beg && sp_goal < span_end;
+        bool has_pc = pc_goal && pc_goal >= span_beg && pc_goal < span_end;
+        if (has_sp || has_pc || printed < 40) {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG GRV-POOL p=0x%x len=0x%x name='%s'%s%s", p, alloc_len,
+                              nm, has_sp ? " <==SP" : "", has_pc ? " <==PC" : "");
+          printed++;
+        }
+        if (brother >= 0x1000 && brother < (uint32_t)EE_MAIN_MEM_SIZE && sp_i < 46) {
+          stack_nodes[sp_i++] = brother;
+        }
+        if (child >= 0x1000 && child < (uint32_t)EE_MAIN_MEM_SIZE && sp_i < 46) {
+          stack_nodes[sp_i++] = child;
+        }
+      }
+    }
     // GRV-NAME — when pc/lr/x17 are BARE GOAL offsets (a rebase-less branch/RET,
     // e.g. repro12's pc==lr==0x1d7b30), name the containing GOAL function via the
     // symbol-table walk. Also name x17 (the arm64 branch-target scratch).
