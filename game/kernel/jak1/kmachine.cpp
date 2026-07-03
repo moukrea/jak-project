@@ -1112,6 +1112,146 @@ void level_warp_maybe() {
            warp_fn.offset, s_level_warp_name);
 }
 
+// ─── ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) ────────────────
+// Env OG_ECO_SPAWN / Android prop debug.opengoal.eco.spawn =
+//   "<pickup-type-int> [period-ticks [dx dy dz]]"  — OFF by default.
+// Repeatedly births an eco pickup next to *target* on the GOAL kernel thread,
+// replaying the x86 oracle capture's listener form byte-for-byte:
+//   (birth-pickup-at-point <vec near target> (pickup-type N) 5.0 #t *entity-pool*
+//                          (the-as fact-info #f))
+// pickup-type (fact-h.gc): 1=eco-yellow 2=eco-red 3=eco-blue 4=eco-green.
+// The device build has no goalc listener, no continue point spawns near a live
+// eco, and green eco is tutorial-gated — so this is the only lever that puts an
+// eco sphere in-frame on BOTH platforms via the identical mechanism, which the
+// per-color device-vs-golden screencap gate requires. Re-fires every period
+// ticks (default 300) because an eco birthed outside its level context fades
+// after a few seconds. DEBUG-ONLY: the prop is never set in the shipped APK;
+// x86 is unaffected unless OG_ECO_SPAWN is explicitly exported.
+static int s_eco_spawn_type = 0;
+static int s_eco_spawn_period = 300;
+static float s_eco_dx = 2.0f, s_eco_dy = 1.0f, s_eco_dz = 2.0f;
+
+static bool eco_spawn_requested() {
+  char buf[128] = {0};
+  if (const char* e = std::getenv("OG_ECO_SPAWN")) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+  }
+#if defined(__ANDROID__)
+  if (!buf[0]) {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.eco.spawn", pbuf) > 0) {
+      std::strncpy(buf, pbuf, sizeof(buf) - 1);
+    }
+  }
+#endif
+  if (!buf[0]) {
+    return false;
+  }
+  int type = 0, period = 0;
+  float dx = 0.f, dy = 0.f, dz = 0.f;
+  int n = std::sscanf(buf, "%d %d %f %f %f", &type, &period, &dx, &dy, &dz);
+  if (n < 1 || type < 1 || type > 9) {
+    return false;
+  }
+  s_eco_spawn_type = type;
+  if (n >= 2 && period > 30) {
+    s_eco_spawn_period = period;
+  }
+  if (n >= 5) {
+    s_eco_dx = dx;
+    s_eco_dy = dy;
+    s_eco_dz = dz;
+  }
+  return true;
+}
+
+// The spawn body — invoked BY THE KERNEL as *listener-function* (same in-context
+// trampoline the warp hooks use): birth-pickup-at-point is a defbehavior, so it
+// needs a live process context (pp), which the dispatcher provides.
+static u64 eco_spawn_run() {
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt == 0 || tgt == (u32)s7.offset || (tgt & OFFSET_MASK) != 4 /*BASIC_OFFSET*/ ||
+      tgt >= (u32)(EE_MAIN_MEM_SIZE - 112)) {
+    return 0;
+  }
+  u32 ctrl = 0;
+  std::memcpy(&ctrl, g_ee_main_mem + tgt + 108, 4);  // target control (F1-SPAWN layout)
+  if (ctrl == 0 || ctrl == (u32)s7.offset || ctrl >= (u32)(EE_MAIN_MEM_SIZE - 24)) {
+    return 0;
+  }
+  float t[3];
+  std::memcpy(t, g_ee_main_mem + ctrl + 12, 12);  // control trans
+  u32 fn = intern_from_c("birth-pickup-at-point")->value;
+  u32 pool = intern_from_c("*entity-pool*")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset || pool == 0 || pool == (u32)s7.offset) {
+    return 0;
+  }
+  static Ptr<u8> s_vec;  // one 16B GOAL vector, allocated once on the global heap
+  if (s_vec.offset == 0) {
+    s_vec = kmalloc(kglobalheap, 16, KMALLOC_ALIGN_16, "eco-spawn-vec");
+    if (s_vec.offset == 0) {
+      return 0;
+    }
+  }
+  float* v = (float*)(g_ee_main_mem + s_vec.offset);
+  v[0] = t[0] + s_eco_dx * 4096.f;
+  v[1] = t[1] + s_eco_dy * 4096.f;
+  v[2] = t[2] + s_eco_dz * 4096.f;
+  v[3] = 1.0f;
+  // GOAL passes float args as raw 32-bit bits in GPRs.
+  float amount = 5.0f;
+  u32 amount_bits = 0;
+  std::memcpy(&amount_bits, &amount, 4);
+  u64 args[8] = {s_vec.offset,
+                 (u64)s_eco_spawn_type,
+                 amount_bits,
+                 (u64)(s7.offset + jak1_symbols::FIX_SYM_TRUE),
+                 pool,
+                 (u64)s7.offset,  // (the-as fact-info #f)
+                 0,
+                 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp, (u64)s7.offset,
+                                  g_ee_main_mem);
+  printf("ECO-SPAWN type=%d at=%.1f,%.1f,%.1f -> #x%x\n", s_eco_spawn_type, v[0], v[1], v[2],
+         (u32)r);
+  fflush(stdout);
+  return r;
+}
+
+void eco_spawn_maybe() {
+  if (!eco_spawn_requested()) {
+    return;
+  }
+  // Readiness: *target* alive (a real boxed basic) and birth-pickup-at-point bound.
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt == 0 || tgt == (u32)s7.offset || (tgt & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  u32 fn = intern_from_c("birth-pickup-at-point")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    return;
+  }
+  // Settle ~2s after target exists (camera lands), then re-fire every period.
+  static int s_ticks = 0;
+  s_ticks++;
+  if (s_ticks < 120 || (s_ticks - 120) % s_eco_spawn_period != 0) {
+    return;
+  }
+  // Never stomp a pending listener form (the kernel resets the slot to #f after
+  // running it — kboot.cpp dispatch loop).
+  if (ListenerFunction->value != (u32)s7.offset && ListenerFunction->value != 0) {
+    return;
+  }
+  static Ptr<Function> s_fn;  // trampoline allocated once
+  if (s_fn.offset == 0) {
+    s_fn = make_function_from_c((void*)eco_spawn_run, false);
+  }
+  ListenerFunction->value = s_fn.offset;
+  lg::info("[ECO-SPAWN] armed type={} period={} ticks={}", s_eco_spawn_type, s_eco_spawn_period,
+           s_ticks);
+}
+
 // ─── ECHO-INTRO (new-game intro cinematic) deterministic warp ───────────────────
 // Env OG_ECHO_INTRO / Android prop debug.opengoal.echo.intro — OFF by default.
 // TEMPORARY arm64/Android diagnostic. Reaches the NEW-GAME intro cinematic

@@ -55,6 +55,16 @@ void f1_maybe_warp_to_geyser();
 void level_warp_maybe();
 
 /*!
+ * ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) — env OG_ECO_SPAWN /
+ * Android prop debug.opengoal.eco.spawn = "<pickup-type-int> [period [dx dy dz]]",
+ * OFF by default. Repeatedly births an eco pickup next to *target* via the same
+ * in-context *listener-function* trampoline, replaying the x86 oracle's
+ * birth-pickup-at-point listener form so eco spheres can be framed on-device for
+ * the per-color device-vs-golden screencap gate. Never armed in the shipped APK.
+ */
+void eco_spawn_maybe();
+
+/*!
  * ECHO-INTRO (new-game intro cinematic) deterministic warp — env OG_ECHO_INTRO /
  * Android prop debug.opengoal.echo.intro, OFF by default. Fires once on the GOAL
  * kernel thread from the dispatch loop, replaying

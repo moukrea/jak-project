@@ -175,6 +175,12 @@ void KernelCheckAndDispatch() {
     // runs crash-free on the real device. Same in-context dispatch point as F1.
     level_warp_maybe();
 
+    // ECO SPHERE SPAWN (Geco-spheres oracle-diff) — gated (env OG_ECO_SPAWN / prop
+    // debug.opengoal.eco.spawn), OFF by default. Births an eco pickup next to
+    // *target* via *listener-function*, replaying the x86 oracle's
+    // birth-pickup-at-point form so eco spheres can be framed on-device per color.
+    eco_spawn_maybe();
+
     // ECHO-INTRO (new-game intro cinematic) deterministic warp — gated (env
     // OG_ECHO_INTRO / prop debug.opengoal.echo.intro), OFF by default, fires once.
     // Reaches the new-game intro cinematic directly, bypassing the title menu.
