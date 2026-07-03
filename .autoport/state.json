@@ -165,7 +165,7 @@
     "Gtouch-fix": 3,
     "Gperf-batching": 1,
     "Gorb-hud-regression": 1,
-    "Geco-spheres": 1
+    "Geco-spheres": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -304,6 +304,9 @@
     "Gtouch-fix": [
       "a580fc061307",
       "a580fc061307"
+    ],
+    "Geco-spheres": [
+      "38678418ea27"
     ]
   },
   "stuck_reasons": {
@@ -625,7 +628,7 @@
     "Gorb-hud-regression": 1783055133.8735762,
     "Geco-spheres": 1783074141.5559115
   },
-  "last_update": "2026-07-03T11:10:31.815720+00:00",
+  "last_update": "2026-07-03T13:02:41.914996+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -660,6 +663,7 @@
     "Gcrash-blueeco",
     "Gtouch-fix",
     "Gperf-batching",
-    "Gorb-hud-regression"
+    "Gorb-hud-regression",
+    "Geco-spheres"
   ]
 }
