@@ -1,0 +1,10 @@
+=== zone_warp_device SWAMPSTART (continue=swamp-start) 2026-07-03T15:53:20+02:00 ===
+RESULT zone=SWAMPSTART continue=swamp-start status=LOADS+RENDERS(frame+3180,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=3780 advanced=3180 focus_app=yes screencap_bytes=1587025
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level swamp;Adding level village2;
+  last link-finish: link finish: water-anim-village2 link finish: village2-vis link finish: gambler-introduction-1 link finish: eichar-ambient-3 link finish: eichar-ambient-1 link finish: eichar-ambient-3 
+  a34-fp-walk: none

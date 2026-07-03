@@ -1,0 +1,5 @@
+=== grv_x86_route x86route1 2026-07-03T16:35:58+02:00 ===
+RESULT tag=x86route1 status=X86-ROUTE-CRASH-FREE boot=1 warp=1 want_levels=1 want_display=1 alive_end=1
+  adding-level: Adding level village1;Adding level village2;Adding level rolling;Adding level swamp;
+  links: link finish: eichar-ambient-1 link finish: gambler-introduction-1 link finish: eichar-ambient-3 link finish: gambler-introduction-1 link finish: eichar-ambient-4 link finish: gambler-introduction-1 link finish: eichar-ambient-4 link finish: gambler-introduction-1 
+  err-lines: [33:28:180] [debug] link finish: assert-h;[33:28:244] [debug] [link and exec] assert             0   1519 heap-use 29846526  3150020: 0x1db691e;[33:28:244] [debug] link finish: assert;

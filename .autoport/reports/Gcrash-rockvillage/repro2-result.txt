@@ -1,0 +1,8 @@
+=== grv_run repro2 (cont=village2-dock posm=434.1 3.5 -1750) 2026-07-03T16:01:45+02:00 ===
+RESULT tag=repro2 status=DROVE-INCOMPLETE reached_past=0 crashed=0 focus_app=yes
+  last-pos(x z)=1839333.8 -7202459.5
+  sig=none
+  gk-diag: none
+  fp-walk: none
+  adding-level: Adding level village1;Adding level village2;Adding level rolling;
+  links: link finish: racer link finish: robber link finish: rolling-start link finish: rollingcam link finish: water-anim-rolling link finish: rolling-vis link finish: gambler-introduction-1 link finish: warrior-introduction 

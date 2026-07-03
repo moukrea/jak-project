@@ -1,0 +1,8 @@
+=== grv_run crateD1 (cont=village2-dock posm=434.1 3 -1754.8) 2026-07-03T17:36:11+02:00 ===
+RESULT tag=crateD1 status=NO-DRIVE reached_past=0 crashed=0 focus_app=no
+  last-pos(x z)=
+  sig=none
+  gk-diag: none
+  fp-walk: none
+  adding-level: none
+  links: none

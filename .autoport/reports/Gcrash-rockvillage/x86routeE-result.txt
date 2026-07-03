@@ -1,0 +1,5 @@
+=== grv_x86_route x86routeE 2026-07-03T17:52:42+02:00 ===
+RESULT tag=x86routeE status=X86-ROUTE-CRASH-FREE boot=1 warp=1 want_levels=1 want_display=1 alive_end=1
+  adding-level: Adding level village1;Adding level village2;Adding level rolling;Adding level swamp;
+  links: link finish: swamp-bat link finish: swamp-rat link finish: swamp-rat-nest link finish: swamp-rock link finish: swamp-spike link finish: swampcam link finish: tar-plat link finish: swamp-vis 
+  err-lines: [49:11:210] [debug] link finish: assert-h;[49:11:270] [debug] [link and exec] assert             0   1519 heap-use 29846526  3150020: 0x1db691e;[49:11:270] [debug] link finish: assert;
