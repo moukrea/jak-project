@@ -438,6 +438,28 @@ u64 execute(void* ctxt) {
       fflush(stdout);
     }
   }
+  // Geco-spheres attempt 2, probe P1: state right after the per-particle field
+  // init, keyed on the eco-orbit-sparkle vel signature (spec vel-x 200-300, or
+  // already-poisoned huge/NaN). Garbage HERE = sp-init-fields!/sp-get-particle
+  // leftovers; clean here but garbage at P2/BORN = later launch stage.
+  if (geco_spart_gate()) {
+    float velq[4];
+    memcpy(velq, g_ee_main_mem + c->gpr_addr(s2) + 16, 16);
+    float ax = velq[0] < 0 ? -velq[0] : velq[0];
+    if ((ax >= 200.f && ax <= 300.f) || ax > 1e8f || velq[0] != velq[0]) {
+      static int s_c = 0;
+      if (s_c < 4000) {
+        s_c++;
+        float stg[4], om = 0.f, rad = 0.f;
+        memcpy(stg, g_ee_main_mem + c->gpr_addr(sp) + 128, 16);
+        memcpy(&rad, g_ee_main_mem + c->gpr_addr(s2) + 8, 4);
+        memcpy(&om, g_ee_main_mem + c->gpr_addr(s2) + 12, 4);
+        printf("SPART-204I stg=%g,%g,%g,%g vel=%g,%g,%g,%g om=%g rad=%g\n", stg[0], stg[1],
+               stg[2], stg[3], velq[0], velq[1], velq[2], velq[3], om, rad);
+        fflush(stdout);
+      }
+    }
+  }
   // nop                                            // sll r0, r0, 0
   c->lw(s5, 104, s2);                               // lw s5, 104(s2)
   // nop                                            // sll r0, r0, 0
@@ -564,6 +586,31 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   c->sw(v1, 108, s2);                               // sw v1, 108(s2)
   // nop                                            // sll r0, r0, 0
+  // Geco-spheres attempt 2, probe P2: state right after the bit7 orbit-init
+  // (cos/sin + quaternion-axis-angle! + user-pntr store). Same key as P1.
+  // Garbage first appearing here = the orbit-init GOAL calls did it.
+  if (geco_spart_gate()) {
+    float velq[4];
+    memcpy(velq, g_ee_main_mem + c->gpr_addr(s2) + 16, 16);
+    float ax = velq[0] < 0 ? -velq[0] : velq[0];
+    if ((ax >= 200.f && ax <= 300.f) || ax > 1e8f || velq[0] != velq[0]) {
+      static int s_c = 0;
+      if (s_c < 4000) {
+        s_c++;
+        float stg[4], rq[4], om = 0.f, rad = 0.f;
+        u32 usr = 0;
+        memcpy(stg, g_ee_main_mem + c->gpr_addr(sp) + 128, 16);
+        memcpy(rq, g_ee_main_mem + c->gpr_addr(s2) + 80, 16);
+        memcpy(&rad, g_ee_main_mem + c->gpr_addr(s2) + 8, 4);
+        memcpy(&om, g_ee_main_mem + c->gpr_addr(s2) + 12, 4);
+        memcpy(&usr, g_ee_main_mem + c->gpr_addr(s2) + 108, 4);
+        printf("SPART-204Q stg=%g,%g,%g,%g vel=%g,%g,%g,%g rq=%g,%g,%g,%g om=%g rad=%g usr=%x\n",
+               stg[0], stg[1], stg[2], stg[3], velq[0], velq[1], velq[2], velq[3], rq[0], rq[1],
+               rq[2], rq[3], om, rad, usr);
+        fflush(stdout);
+      }
+    }
+  }
 
   block_28:
   c->sw(s7, 136, s2);                               // sw s7, 136(s2)
@@ -626,10 +673,32 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   c->sw(v1, 8, a3);                                 // sw v1, 8(a3)
   c->mov64(a0, s7);                                 // or a0, s7, r0
+#if defined(__aarch64__)
+  // Geco-spheres (arm64) ROOT CAUSE: `bnel s6, s7` tests "(-> system is-3d) != #f?" to decide
+  // whether the registering parent stores its 3D sprite into launch-state.sprite3d (3D systems)
+  // or #f (2D systems). Same misfire as the Gmenu euler-convert guard 65 lines below (s6 = bare
+  // low-32 #f from `lw s6,24,s3`, s7 = full host base): the full-64 compare wrongly says "not #f"
+  // for the 2D system, so every BOUND 2D particle's state gets sprite3d = the parent's 2D SPRITE.
+  // At the child's launch, block_41's sprite3d test then legitimately routes into
+  // sp-rotate-system(staging, cpuinfo, sprite3d) which treats the 2D sprite as a transformq:
+  // quat.x/y/z = the sprite's flag/rot-z/sy quad (rot 0-65536, sy ~thousands for a spinning
+  // bigpuff cloud) -> w = sqrt(1-huge) = NaN -> quaternion->matrix garbage -> the child's staging
+  // pos x/y and vel-sxvel get rotated to ±1e9..1e13 pairs (z preserved by vector3s-rotate*!).
+  // Result: every eco-sphere orbit sparkle / starflash / trail born of a SPINNING cloud parent is
+  // born at garbage pos with garbage vel and NaN rotvel3d downstream in sp-orbiter -> the bright
+  // eco swirl never renders on Android (green/blue/red/yellow, since first light). Children of
+  // near-static tiny parents (the 0.01m center dots) got a near-identity garbage quat and
+  // survived, which is why the dim cloud base still showed. Compare the 32-bit GOAL ptr.
+  if (c->gpr_addr(s6) != c->gpr_addr(s7)) {         // bnel s6, s7 (32-bit GOAL ptr)
+    c->lw(a0, 0, s2);                               // lw a0, 0(s2)
+    goto block_35;
+  }
+#else
   if (((s64)c->sgpr64(s6)) != ((s64)c->sgpr64(s7))) {// bnel s6, s7, L118
     c->lw(a0, 0, s2);                               // lw a0, 0(s2)
     goto block_35;
   }
+#endif
 
   block_35:
   c->sw(a0, 12, a3);                                // sw a0, 12(a3)
@@ -703,11 +772,24 @@ u64 execute(void* ctxt) {
   c->jalr(call_addr);                               // jalr ra, t9
 
   block_41:
+#if defined(__aarch64__)
+  // Geco-spheres (arm64): the two #f-guards routing into sp-rotate-system, same class as the
+  // root-cause fix at block_31 above. `s0` (launch-state arg) and `a2` (state.sprite3d, stored
+  // as a bare low-32 #f by both the GOAL initialize method and the registration `sw`) can each
+  // be #f; the full-64 compares miss it and sp-rotate-system then dereferences #f+16 as a
+  // transformq. Compare the 32-bit GOAL ptr so 2D launches skip the rotate exactly like x86.
+  bc = c->gpr_addr(s0) == c->gpr_addr(s7);          // beq s0, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(s0) == c->sgpr64(s7);              // beq s0, s7, L123
+#endif
   c->lw(a2, 12, s0);                                // lw a2, 12(s0)
   if (bc) {goto block_45;}                          // branch non-likely
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(a2) == c->gpr_addr(s7);          // beq a2, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(a2) == c->sgpr64(s7);              // beq a2, s7, L123
+#endif
   c->daddiu(a0, sp, 128);                           // daddiu a0, sp, 128
   if (bc) {goto block_45;}                          // branch non-likely
 
