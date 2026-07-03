@@ -1,0 +1,139 @@
+Phase Gtitle-tap — title screen: "PRESS START OR TAP SCREEN", and a tap opens the start menu
+=============================================================================================
+Date: 2026-07-03  Device: Redmi Note 9 Pro (eae4df44), org.opengoal.gk.jak1
+RESULT: TITLE TAP OPENS START MENU
+
+## 1. Tap -> START wiring (translation layer only; engine goal_src untouched)
+
+A screen tap on the title "press start" screen synthesizes a real START press into
+the SAME PS2 cpad mirror the gamepad uses, so title-obs.gc's (cpad-pressed? 0 start)
+(goal_src/jak1/levels/title/title-obs.gc:781 — UNCHANGED) sees a genuine edge:
+same state transition, same sound, same menu.
+
+- android/gk_android_main.cpp:2940-2966 — per-frame GOAL-thread publisher computes
+  g_on_title_start: true only when *target*'s current state NAME is
+  `target-title-wait` (process.state @ deftype 56, state.name @ deftype 4, read at
+  deftype-4 — same idiom as the Gwarp-dpad walker) AND no menu is up (in_menu
+  false). This is the exact state whose :trans checks START, so the scope is
+  precisely the press-start screen.
+- android/gk_android_main.cpp:7048-7067 — JNI Java_..._isOnTitleStart (atomic read)
+  and Java_..._onTitleTap (re-checks the flag, so a stale tap can never inject).
+- android/android_input_audio.cpp:584-588,603-609 + android_input_audio.h:65-70 —
+  trigger_title_start_pulse() holds button0 bit 3 (kPs2StartBit) for 4
+  get_cpad_state polls: clean rising edge then release, OR-merged with the
+  overlay/gamepad/inject producers. Logs marker "GTT-TAP".
+- android/app/.../NativeGk.java:135-149 — the two new natives.
+- android/app/.../TouchOverlayView.java:504-513 — top of onPointerDown: ANY tap
+  (any screen position, even over overlay controls) while isOnTitleStart() fires
+  onTitleTap(); falls through so overlay controls still actuate normally.
+
+Proof on device (EN run): `adb shell input tap 1200 400` on the title ->
+logcat "GTT-TAP: title-screen tap -> synthetic START pulse" then
+"F1D-CPAD-START: ... (cpad-pressed? 0 start) fired" -> en_after_tap_v10.png shows
+the start menu open (NEW GAME / LOAD GAME / OPTIONS / SECRETS / QUIT GAME / BACK).
+FR run identical: fr_after_tap.png (NOUVELLE PARTIE / CHARGER UNE PARTIE / ...).
+So a real adb input tap on the title opens the start menu. (en_tap_logcat.txt,
+fr_tap_logcat.txt)
+
+## 2. Localized prompt (Android build ONLY; desktop keeps "PRESS START")
+
+Text-id `press-start` = #x16e (text-h.gc:112). Override lives in game DATA shipped
+only in the Android asset bundle — no goal_src change, no C++ string hack:
+
+- game/assets/jak1/text/game_custom_text_android_en-US.json — "16e": "PRESS START
+  OR TAP SCREEN" (JSON ids parse as HEX, text_ser.cpp:250 stoi base 16; the first
+  attempt used decimal "366" which landed on id 0x366 and left the prompt stock —
+  caught on device, fixed, bundle bumped v9->v10).
+- game/assets/jak1/text/game_custom_text_android_fr-FR.json — "16e": "APPUYEZ SUR
+  START OU TOUCHEZ L'ÉCRAN" (français; É is font-safe — FR bank already ships
+  "CENTRER L'ÉCRAN").
+- .autoport/gtt_build_android_text.sh — appends the two android file-json lines to
+  game_text.gp, rebuilds the banks via goalc `(make "out/jak1/iso/0COMMON.TXT"
+  :force #t)`, copies all 7 *COMMON.TXT to out/jak1-android-text/, then RESTORES
+  game_text.gp (git checkout) and rebuilds so out/jak1/iso is byte-pristine.
+  Id-specific verification: the stock FR press-start string must be GONE from the
+  android 1COMMON.TXT (proves the override landed on #x16e itself).
+- android/build_asset_bundle.sh — mandatory jak1 overlay step re-links the 7
+  android banks over the staged desktop *COMMON.TXT (hard-fail if missing, same
+  style as the arm64-CGO overlay); staleness check extended to the overlay dir;
+  bundle VERSION 8 -> 10 so v8/v9 devices re-unpack.
+
+Device screencaps (foreground-verified mCurrentFocus=org.opengoal.gk.jak1):
+- EN: en_prompt_v10.png / en_prompt_v10_crop.png — reads "PRESS START OR TAP
+  SCREEN", wrapped to two centered lines ("PRESS START OR TAP" / "SCREEN"),
+  fully on-screen, no clipping. (text-language planted 0 via pc-settings.)
+- FR: fr_prompt.png / fr_prompt_crop.png — reads "APPUYEZ SUR START OU TOUCHEZ
+  L'ÉCRAN", two centered lines, É rendered correctly, no overflow.
+  (text-language 1.)
+
+## 3. Scoping — in-game taps unchanged (still virtual-pad, no phantom START)
+
+- In-game (warped to village1-hut, master-mode=game): 5 taps across the screen
+  (1200x400, 600x300, 1800x300, 1170x540, 2000x800) -> ZERO new GTT-TAP logcat
+  lines, NO pause/start menu, gameplay continues (ingame_taps.png,
+  scoping_proof.txt). Virtual pad unchanged: on-screen X still jumps
+  (ingame_jump1/2.png).
+- ND logo (ndi state): 2 taps during the intro -> GTT-TAP count 0, logo does NOT
+  skip (tap is not START there; only a real START skips per Gndskip)
+  (nd_logo_tap_logcat.txt, ndlogo_after_tap.png).
+- In-menu taps (Gtouch-menus/Gtouch-fix) unchanged: once the menu is up,
+  g_on_title_start is false (in_menu gate) and taps drive menu rows exactly as
+  before — tapping the OPTIONS row navigated into the OPTIONS submenu
+  (en_menu_tap.png, onMenuTap logcat marker in en_menu_tap_logcat.txt).
+
+## 4. Gamepad START still works (manette)
+
+Pure pad path re-proven after the change: `setprop debug.opengoal.cpad_inject
+start` at the title (no touch at all) -> F1D-CPAD-START marker -> start menu open
+(en_start_inject.png, en_start_inject_logcat.txt). The tap pulse is OR-merged with
+the overlay/gamepad producers, so gamepad START still works unchanged.
+
+## 5. Title layout — fits/centers at both aspects, placement unregressed
+
+- 16:9-wide (device, Gtitle-pixelmatch layout): both prompts render as two
+  centered lines under the J&D logo, logo at its established widescreen
+  placement, level flythrough behind — title_idle.png (120s+ idle, attract cycle
+  running, 0 crash markers sig=11/6/4, steady ~57fps). Layout/placement
+  unregressed vs the established title look; the only intended change is the
+  prompt wording. The prompt box is the unchanged stock font-context
+  (title-obs.gc:788-792, x=80 y=170 w=352 middle-centered) — only the string
+  data changed, so centering is the engine's own.
+- 4:3 (desktop x86 binary rendering the SAME android banks as data): see §6 —
+  x86_43_prompt_en.png shows EN as ONE centered line "PRESS START OR TAP SCREEN";
+  x86_43_prompt_fr.png shows FR as two centered lines "APPUYEZ SUR START OU
+  TOUCHEZ" / "L'ÉCRAN" — both fit the 4:3 title layout under the logo, no
+  clipping. (4x3 check done on x86 because the Android title always renders the
+  widescreen layout.)
+
+## 6. x86 untouched (its prompt untouched)
+
+- fake_iso_FS_Init (game/overlord/common/fake_iso.cpp:58) hardcodes
+  out/jak1/iso/, and .autoport/gtt_build_android_text.sh provably restores those
+  banks: `grep -ac "TAP SCREEN" out/jak1/iso/0COMMON.TXT` = 0, "PRESS START"
+  present. The desktop x86 build keeps its stock "PRESS START" prompt
+  (x86_43_prompt.png from the first pass shows exactly that).
+- x86 smoke: build-x86 gk boots to `link finish: logo` on pristine out/jak1/iso
+  (run in verification; the validator re-runs it).
+- The 4:3 fit captures in §5 used a backup/swap/restore of the two banks inside
+  out/jak1/iso (untracked build artifacts), sha256-verified restored + grep 0 +
+  smoke re-run afterwards — a data-only capture rig, zero code or shipped-file
+  change.
+- No goalc/emitter change; engine goal_src untouched (git diff clean outside
+  android/, game/assets text JSONs, .autoport/). .autoport/gold untouched.
+
+## 7. Build/deploy integrity
+
+Full consistent build: cmake build-android gk (fresh TUs) + gradle
+assembleJak1Debug (bundle v10, 347 files) + MIUI-recipe install.
+deploy_verify.sh PASS twice (deploy_verify.txt): build==APK==device
+sha 5eb7da9b49cd698e, libgk newer than sources and HEAD.
+
+## Anomalies (honest)
+
+- One first-launch boot flake on the EN run: sig=4 at return-from-thread-dead
+  right after `link finish: settings` — the KNOWN pre-existing ~1-in-6 link-time
+  boot flake documented since F1e (has its own queued phase); relaunch reached
+  the title cleanly with no code change (en_launch_logcat.log / _logcat2.log).
+  Not caused by this phase (no CGO/DGO changed; libgk change is input-path only).
+- v9 (decimal-id) bundle briefly deployed to the device before v10 fixed it;
+  v10 re-unpack verified on device.

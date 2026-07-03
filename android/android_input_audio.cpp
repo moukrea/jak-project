@@ -158,6 +158,11 @@ std::atomic<uint8_t> g_stick_ry{kAnalogNeutral};
 
 // Headless injector producer.
 std::atomic<uint16_t> g_inject_button0{0};
+
+// Phase Gtitle-tap (autoport): a screen tap on the title "PRESS START"
+// screen synthesizes a short START press. Counted in get_cpad_state
+// polls so GOAL sees a clean rising edge then release.
+std::atomic<int> g_title_start_pulse{0};
 std::atomic<uint8_t> g_inject_lx{kAnalogNeutral};
 std::atomic<uint8_t> g_inject_ly{kAnalogNeutral};
 std::atomic<uint8_t> g_inject_rx{kAnalogNeutral};
@@ -576,6 +581,11 @@ void get_cpad_state(uint16_t* button0, uint8_t* lx, uint8_t* ly,
   if (button0) {
     *button0 = (uint16_t)(g_overlay_button0.load(std::memory_order_acquire) |
                           g_inject_button0.load(std::memory_order_acquire));
+    int p = g_title_start_pulse.load(std::memory_order_acquire);
+    if (p > 0) {
+      *button0 |= kPs2StartBit;
+      g_title_start_pulse.fetch_sub(1, std::memory_order_acq_rel);
+    }
   }
   // Sticks: a deflected injected axis wins; otherwise the real-gamepad
   // axis; otherwise neutral. (The overlay has no analog stick.)
@@ -588,6 +598,13 @@ void get_cpad_state(uint16_t* button0, uint8_t* lx, uint8_t* ly,
   if (ly) *ly = pick(g_inject_ly, g_stick_ly);
   if (rx) *rx = pick(g_inject_rx, g_stick_rx);
   if (ry) *ry = pick(g_inject_ry, g_stick_ry);
+}
+
+void trigger_title_start_pulse() {
+  g_title_start_pulse.store(4, std::memory_order_release);
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "GTT-TAP: title-screen tap -> synthetic START pulse "
+                      "(button0 bit 3 for 4 cpad polls)");
 }
 
 namespace {

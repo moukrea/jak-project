@@ -1,0 +1,1 @@
+07-03 23:19:24.107 19790 19790 I opengoal-gk: GTT-TAP: title-screen tap -> synthetic START pulse (button0 bit 3 for 4 cpad polls)

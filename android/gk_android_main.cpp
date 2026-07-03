@@ -124,6 +124,10 @@ std::atomic<bool> g_overlay_in_menu{false};
 // thread via NativeGk.isInWarp(). Default false = normal analog stick.
 std::atomic<bool> g_overlay_in_warp{false};
 
+// Phase Gtitle-tap (autoport): true while *target* is in target-title-wait with
+// no menu up — the overlay turns any screen tap into a synthetic START press.
+std::atomic<bool> g_on_title_start{false};
+
 // Phase Gtouch-menus (autoport): the last on-screen menu tap, published by the
 // UI thread (NativeGk.onMenuTap) and consumed once per tap by the GOAL thread
 // via pc-get-touch-tap. Coordinates are normalized to [0,10000] (fraction of the
@@ -2923,8 +2927,8 @@ extern "C" void a36_tree_scan_per_frame() {
     // -> activate-progress). *master-mode* in {menu, progress} catches the
     // debug menu too. Read on this (GOAL) thread; the UI thread only reads
     // the resulting atomic via NativeGk.isInMenu(), so no symbol table race.
+    bool in_menu = (!strcmp(mmn, "menu") || !strcmp(mmn, "progress"));
     {
-      bool in_menu = (!strcmp(mmn, "menu") || !strcmp(mmn, "progress"));
       auto pp = jak1::intern_from_c("*progress-process*");
       if (pp.offset) {
         const uint32_t v = pp->value;
@@ -2933,6 +2937,32 @@ extern "C" void a36_tree_scan_per_frame() {
         }
       }
       g_overlay_in_menu.store(in_menu, std::memory_order_release);
+    }
+    // Phase Gtitle-tap (autoport): publish "the title PRESS START screen is
+    // up". True only when *target*'s current state is target-title-wait —
+    // the exact state whose :trans checks (cpad-pressed? 0 start)
+    // (title-obs.gc:781) — and no progress menu is alive. The overlay uses
+    // it to turn ANY screen tap into a synthetic START press; the state
+    // scoping guarantees in-game and in-menu taps are unaffected.
+    {
+      bool on_title = false;
+      if (!in_menu) {
+        auto tg = jak1::intern_from_c("*target*");
+        uint32_t tgt = tg.offset ? tg->value : 0;
+        if (tgt && tgt != (uint32_t)s7.offset) {
+          // process.state @ deftype 56; state.name (a symbol) @ deftype 4;
+          // both read at deftype-offset-minus-4 (Gwarp-dpad idiom below).
+          uint32_t st = 0, st_name = 0;
+          rd32(tgt + 56 - 4, &st);
+          if (st && st != (uint32_t)s7.offset) {
+            rd32(st + 4 - 4, &st_name);
+            const uint32_t s_wait =
+                jak1::intern_from_c("target-title-wait").offset;
+            if (st_name && s_wait && st_name == s_wait) on_title = true;
+          }
+        }
+      }
+      g_on_title_start.store(on_title, std::memory_order_release);
     }
     // Phase Gwarp-dpad (autoport): publish "warp/teleporter selection UI is
     // up". The warp-gate destination picker (villagep-obs.gc state 'active)
@@ -7013,6 +7043,26 @@ JNIEXPORT jboolean JNICALL
 Java_org_opengoal_gk_NativeGk_isInMenu(JNIEnv* /*env*/, jclass /*clazz*/) {
   return g_overlay_in_menu.load(std::memory_order_acquire) ? JNI_TRUE
                                                            : JNI_FALSE;
+}
+
+// Phase Gtitle-tap (autoport): expose "the title PRESS START screen is up" to
+// the overlay. When true, ANY screen tap should act as START. Atomic read only
+// — no symbol table access on this (UI) thread.
+JNIEXPORT jboolean JNICALL
+Java_org_opengoal_gk_NativeGk_isOnTitleStart(JNIEnv* /*env*/, jclass /*clazz*/) {
+  return g_on_title_start.load(std::memory_order_acquire) ? JNI_TRUE
+                                                          : JNI_FALSE;
+}
+
+// Phase Gtitle-tap (autoport): a screen tap while the title PRESS START screen
+// is up. Synthesizes a short START press into the SAME cpad mirror the gamepad
+// uses, so title-obs.gc's (cpad-pressed? 0 start) sees a genuine edge. Re-checks
+// the flag so a stale tap (state already left) can never inject a spurious START.
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_onTitleTap(JNIEnv* /*env*/, jclass /*clazz*/) {
+  if (g_on_title_start.load(std::memory_order_acquire)) {
+    android_input_audio::trigger_title_start_pulse();
+  }
 }
 
 // Phase Gwarp-dpad (autoport): same contract as isInMenu, for the warp/

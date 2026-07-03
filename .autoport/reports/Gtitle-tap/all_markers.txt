@@ -1,0 +1,4 @@
+07-03 23:04:42.611 17491 17572 I opengoal-gk: F1D-CPAD-START: START reached the cpad mirror (button0 bit 3 set) -> GOAL (cpad-pressed? 0 start) will observe the press
+07-03 23:04:42.619 17491 17583 I opengoal-gk: F1D-CPAD-START: GOAL CPadGetData stamped START into cpad-info button0=0x0008 at poll 6408 -> (cpad-pressed? 0 start) fired
+07-03 23:05:05.909 17491 17491 I opengoal-gk: Gtouch-menus onMenuTap: nx=0.5000 ny=0.4074 -> hit-test
+07-03 23:05:05.912 17491 17491 I opengoal-gk: overlay-actuate: menu-tap normalized (0,500,0,407) -> NativeGk.onMenuTap (GOAL hit-tests the row)

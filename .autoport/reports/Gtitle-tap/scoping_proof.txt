@@ -1,0 +1,7 @@
+=== Gtitle-tap Leg D scoping proof (in-game taps must NOT act as START) 2026-07-03T23:22:52+02:00 ===
+boot: village1-hut warp, master-mode=game, foreground=org.opengoal.gk.jak1/MainActivity
+GTT-TAP count BEFORE 5 in-game taps: 0
+5 taps issued at: 1200x400, 600x300, 1800x300, 1170x540, 2000x800
+GTT-TAP count AFTER 5 in-game taps: 0  (ZERO new -> flag scoped to target-title-wait, NOT gameplay)
+post-tap screencap ingame_taps.png: gameplay continues, NO pause/start menu (only HUD virtual-pad overlay)
+master-mode still =game after taps
