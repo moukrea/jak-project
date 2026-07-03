@@ -134,6 +134,15 @@ fi
 sleep 8
 
 DROVE=0; REACHED=0
+# optionally hold the drive until a log marker appears (e.g. hooks fired)
+if [ -n "${DRIVE_AFTER_MARKER:-}" ] && [ "$WARP_OK" = 1 ]; then
+  echo "  waiting for drive-gate marker '$DRIVE_AFTER_MARKER' (up to 120s)..."
+  for i in $(seq 1 120); do
+    grep -qaE "$DRIVE_AFTER_MARKER" "$LOG" && { echo "  drive-gate open ~${i}s"; break; }
+    crash_seen && break
+    sleep 1
+  done
+fi
 if [ "$WARP_OK" = 1 ] && ! crash_seen; then
   # --- calibrate (validated, with retries) ---
   calibrate || echo "  calib never validated — driving with last probe anyway"

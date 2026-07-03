@@ -5372,6 +5372,44 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                         (unsigned long)uc->uc_mcontext.regs[i]);
   }
 
+  // GRV-SP — Gcrash-rockvillage: dump the stack window at SP IMMEDIATELY after the
+  // registers, before any handler stage that can re-fault (repro12's corrupt-RET
+  // crash killed the handler mid-walk and lost the stack evidence). 48 words via
+  // safe_read_u32 only; names the stomped frame's contents (saved LR slots, GOAL
+  // ptrs) even when pc/lr are garbage and the fp-chain is unwalkable.
+  {
+    uintptr_t sp = (uintptr_t)uc->uc_mcontext.sp;
+    for (int base_off = -32; base_off < 160; base_off += 16) {
+      uint32_t w[4] = {0, 0, 0, 0};
+      bool any = false;
+      for (int k = 0; k < 4; k++) {
+        if (gk_diag::safe_read_u32(sp + base_off + 4 * k, &w[k])) {
+          any = true;
+        }
+      }
+      if (any) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG GRV-SP sp%+d: %08x %08x %08x %08x", base_off, w[0], w[1],
+                            w[2], w[3]);
+      }
+    }
+    // GRV-NAME — when pc/lr/x17 are BARE GOAL offsets (a rebase-less branch/RET,
+    // e.g. repro12's pc==lr==0x1d7b30), name the containing GOAL function via the
+    // symbol-table walk. Also name x17 (the arm64 branch-target scratch).
+    uintptr_t pcv = (uintptr_t)uc->uc_mcontext.pc;
+    uintptr_t lrv = (uintptr_t)uc->uc_mcontext.regs[30];
+    uintptr_t x17v = (uintptr_t)uc->uc_mcontext.regs[17];
+    if (pcv >= 0x1000 && pcv < (uintptr_t)EE_MAIN_MEM_SIZE) {
+      a38_trip::log_nearest_goal_fn("grv-pc-bare", (uint32_t)pcv);
+    }
+    if (lrv >= 0x1000 && lrv < (uintptr_t)EE_MAIN_MEM_SIZE && lrv != pcv) {
+      a38_trip::log_nearest_goal_fn("grv-lr-bare", (uint32_t)lrv);
+    }
+    if (x17v >= 0x1000 && x17v < (uintptr_t)EE_MAIN_MEM_SIZE) {
+      a38_trip::log_nearest_goal_fn("grv-x17-bare", (uint32_t)x17v);
+    }
+  }
+
   // GSPARK-PP — on a null-fn-ptr BLR (SIGILL, pc==EE_base) name the CRASHING
   // process and the state it is entering. enter-state (gstate.gc:284) BLRs a
   // handler from new-state == (-> pp state) (set = (-> pp next-state) at the
