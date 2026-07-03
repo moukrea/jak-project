@@ -438,6 +438,28 @@ u64 execute(void* ctxt) {
       fflush(stdout);
     }
   }
+  // Geco-spheres attempt 2, probe P1: state right after the per-particle field
+  // init, keyed on the eco-orbit-sparkle vel signature (spec vel-x 200-300, or
+  // already-poisoned huge/NaN). Garbage HERE = sp-init-fields!/sp-get-particle
+  // leftovers; clean here but garbage at P2/BORN = later launch stage.
+  if (geco_spart_gate()) {
+    float velq[4];
+    memcpy(velq, g_ee_main_mem + c->gpr_addr(s2) + 16, 16);
+    float ax = velq[0] < 0 ? -velq[0] : velq[0];
+    if ((ax >= 200.f && ax <= 300.f) || ax > 1e8f || velq[0] != velq[0]) {
+      static int s_c = 0;
+      if (s_c < 4000) {
+        s_c++;
+        float stg[4], om = 0.f, rad = 0.f;
+        memcpy(stg, g_ee_main_mem + c->gpr_addr(sp) + 128, 16);
+        memcpy(&rad, g_ee_main_mem + c->gpr_addr(s2) + 8, 4);
+        memcpy(&om, g_ee_main_mem + c->gpr_addr(s2) + 12, 4);
+        printf("SPART-204I stg=%g,%g,%g,%g vel=%g,%g,%g,%g om=%g rad=%g\n", stg[0], stg[1],
+               stg[2], stg[3], velq[0], velq[1], velq[2], velq[3], om, rad);
+        fflush(stdout);
+      }
+    }
+  }
   // nop                                            // sll r0, r0, 0
   c->lw(s5, 104, s2);                               // lw s5, 104(s2)
   // nop                                            // sll r0, r0, 0
@@ -564,6 +586,31 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   c->sw(v1, 108, s2);                               // sw v1, 108(s2)
   // nop                                            // sll r0, r0, 0
+  // Geco-spheres attempt 2, probe P2: state right after the bit7 orbit-init
+  // (cos/sin + quaternion-axis-angle! + user-pntr store). Same key as P1.
+  // Garbage first appearing here = the orbit-init GOAL calls did it.
+  if (geco_spart_gate()) {
+    float velq[4];
+    memcpy(velq, g_ee_main_mem + c->gpr_addr(s2) + 16, 16);
+    float ax = velq[0] < 0 ? -velq[0] : velq[0];
+    if ((ax >= 200.f && ax <= 300.f) || ax > 1e8f || velq[0] != velq[0]) {
+      static int s_c = 0;
+      if (s_c < 4000) {
+        s_c++;
+        float stg[4], rq[4], om = 0.f, rad = 0.f;
+        u32 usr = 0;
+        memcpy(stg, g_ee_main_mem + c->gpr_addr(sp) + 128, 16);
+        memcpy(rq, g_ee_main_mem + c->gpr_addr(s2) + 80, 16);
+        memcpy(&rad, g_ee_main_mem + c->gpr_addr(s2) + 8, 4);
+        memcpy(&om, g_ee_main_mem + c->gpr_addr(s2) + 12, 4);
+        memcpy(&usr, g_ee_main_mem + c->gpr_addr(s2) + 108, 4);
+        printf("SPART-204Q stg=%g,%g,%g,%g vel=%g,%g,%g,%g rq=%g,%g,%g,%g om=%g rad=%g usr=%x\n",
+               stg[0], stg[1], stg[2], stg[3], velq[0], velq[1], velq[2], velq[3], rq[0], rq[1],
+               rq[2], rq[3], om, rad, usr);
+        fflush(stdout);
+      }
+    }
+  }
 
   block_28:
   c->sw(s7, 136, s2);                               // sw s7, 136(s2)
