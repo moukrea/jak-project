@@ -32,6 +32,7 @@ class ProfilerNode {
   ScopedProfilerNode make_scoped_child(const std::string& name);
   void sort(ProfilerSort mode);
   void finish();
+  void dump_stats_helper(std::string& str, int depth, float min_ms) const;
 
   bool finished() const { return m_finished; }
   const std::string& name() const { return m_name; }
@@ -83,6 +84,8 @@ class Profiler {
   float root_time() const { return m_root.m_stats.duration; }
 
   std::string to_string();
+  // per-node "ms draws tris name" dump, skipping nodes under min_ms with no draws
+  std::string dump_stats(float min_ms);
   ProfilerNode* root() { return &m_root; }
 
  private:
