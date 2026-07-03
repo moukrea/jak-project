@@ -1,0 +1,71 @@
+===== Failed to find texture (count + unique) =====
+total_count=1
+--- unique lines ---
+      1 opengoal-gk: Failed to find texture at 0, using random (direct: [ 3] sky-direct)
+
+--- lines mentioning (generic2) ---
+
+===== A35-RENDER max frame =====
+count=94
+maxframe=5220
+
+===== crash sigs =====
+crash_count=0
+
+===== 'generic' (case-insensitive) unique =====
+   3194 GK_STDOUT: GECHO-GEN bucket=common-alpha-generic id=46 verts=1168 frags=24 adgifs=24 idx=1660 tris=856
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=9 tbp=0x270a tex=environment-generic/pal-environment-front mode=0xff9a00fd idx=90 tris=54
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=8 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=90 tris=54
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=7 tbp=0x270a tex=environment-generic/pal-environment-front mode=0xff9a00fd idx=97 tris=52
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=6 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=97 tris=52
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=5 tbp=0x270a tex=environment-generic/pal-environment-front mode=0xff9a00fd idx=101 tris=50
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=4 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=101 tris=50
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=3 tbp=0x21fb tex=common/fuel-cell-inside mode=0xfe1e26dd idx=9 tris=0
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=2 tbp=0x21fb tex=common/fuel-cell-inside mode=0xfe1e26dd idx=9 tris=0
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=23 tbp=0x270a tex=environment-generic/pal-environment-front mode=0xff9a00fd idx=20 tris=5
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=22 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=20 tris=5
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=21 tbp=0x270a tex=environment-generic/pal-environment-front mode=0xff9a00fd idx=98 tris=53
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=20 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=98 tris=53
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=1 tbp=0x21fb tex=common/fuel-cell-inside mode=0xfe1e26dd idx=9 tris=0
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=19 tbp=0x270a tex=environment-generic/pal-environment-front mode=0xff9a00fd idx=90 tris=54
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=18 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=90 tris=54
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=17 tbp=0x270a tex=environment-generic/pal-environment-front mode=0xff9a00fd idx=97 tris=52
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=16 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=97 tris=52
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=15 tbp=0x270a tex=environment-generic/pal-environment-front mode=0xff9a00fd idx=101 tris=50
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=14 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=101 tris=50
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=13 tbp=0x270a tex=environment-generic/pal-environment-front mode=0xff9a00fd idx=20 tris=5
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=12 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=20 tris=5
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=11 tbp=0x270a tex=environment-generic/pal-environment-front mode=0xff9a00fd idx=98 tris=53
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=10 tbp=0x2412 tex=common/egg-ndimadman mode=0xfe1a00dd idx=98 tris=53
+   3194 GK_STDOUT: GECHO-DRAW bucket=common-alpha-generic id=46 draw=0 tbp=0x21fb tex=common/fuel-cell-inside mode=0xfe1e26dd idx=9 tris=0
+      1 opengoal-gk: link finish: generic-work-h
+      1 opengoal-gk: link finish: generic-vu1-h
+      1 opengoal-gk: link finish: generic-vu1
+      1 opengoal-gk: link finish: generic-vu0
+      1 opengoal-gk: link finish: generic-tie-h
+      1 opengoal-gk: link finish: generic-tie
+      1 opengoal-gk: link finish: generic-obs-h
+      1 opengoal-gk: link finish: generic-obs
+      1 opengoal-gk: link finish: generic-merc-h
+      1 opengoal-gk: link finish: generic-merc
+      1 opengoal-gk: link finish: generic-h
+      1 opengoal-gk: link finish: generic-effect
+      1 opengoal-gk: link finish: generic
+      1 opengoal-gk: [link and exec] generic-work-h     0  10500 heap-use 20690720  3145728: 0x14fb440
+      1 opengoal-gk: [link and exec] generic-vu1-h      0   4917 heap-use 20685472  3145728: 0x14f9fc0
+
+===== 'placeholder' (case-insensitive) =====
+placeholder_count=0
+
+===== egg-ndimadman references (orb base texture) =====
+egg-ndimadman total lines=31940
+--- GORB LOAD / upload state for egg-ndimadman (if instrumented) ---
+(GORB-family lines total: 0)
+
+--- unique GECHO-DRAW textures in common-alpha-generic bucket ---
+  31940 tex=environment-generic/pal-environment-front
+  31940 tex=common/egg-ndimadman
+  12776 tex=common/fuel-cell-inside
+
+--- any texture named 'gorb' or 'orb' or 'money' or 'egg' ---
+tex=common/egg-ndimadman

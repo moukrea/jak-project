@@ -1,0 +1,88 @@
+RESULT: PRECURSOR ORBS CORRECT IN SPLIT
+
+Phase Gorb-hud-regression — owner defect 2026-07-03: the Precursor orb rendered WHITE again on the
+HUD and every interface (pause/progress menu, save screens) since the render-split (Grender-split).
+Fixed WITHIN the split architecture (split kept, per owner mandate); fix commit 837ef6339.
+
+== 1. The original Gorb-icon fix, recovered ==
+Gorb-icon (commit 40184a01c, close ee1b48111, 2026-06-24): the orb HUD/menu icon is the 3D money
+merc model (skelgroup *money-sg*, base texture egg-ndimadman) drawn via
+dma-add-process-drawable-hud -> draw-bones-hud -> draw-bones-generic-merc -> the C++ Generic2
+renderer (jak1 bucket 46 common-alpha-generic, hud-matrix draws). The original fix un-noop'd the
+11 generic-merc mips2c functions on arm64 (kSet allowlist) + added a bone-ref stomp guard in
+Sprite3. BOTH are verified INTACT at HEAD (mips2c_table_jak1_arm64.cpp:624-627,
+Sprite3.cpp:825-844): the orb draw still reaches Generic2 and its texture still resolves
+(GECHO probe: tbp=0x2412 -> common/egg-ndimadman, zero texture-pool misses, zero placeholder
+binds). The regression was NOT a return of the old texture bug.
+
+== 2. Why the render-split broke it ==
+The white egg is not the orb itself: the icon is TWO layers — the opaque, depth-writing 3D orb
+model (Generic2, bucket 46, alpha SRC_SRC_SRC_SRC = GL_ONE/GL_ZERO, ztest GEQUAL + zwrite ON,
+mode 0xfe1a00dd) and a white 'hud-egg' GLOW SPRITE behind it (progress-part.gc parts 1983/1986,
+sprite bucket 66, ztest GEQUAL). In the single-FBO pipeline the orb's depth write rejects the glow
+sprite on the orb's pixels, so the glow only peeks around the edge. The Grender-split composite
+(begin_2d_ui_pass/begin_ui_pass) upscale-blits the scaled scene COLOR-only into the native UI FBO
+and CLEARS ITS DEPTH TO 0 before the 2D pass — the orb's depth footprint is lost, the glow sprite's
+GEQUAL ztest passes everywhere, and it overdraws the composited orb -> the WHITE egg. Identical
+visual to the pre-Gorb-icon bug (there the missing orb draw exposed the same glow sprite), entirely
+different mechanism. It hit EVERY interface because every orb icon site (HUD counter, progress
+menu, save screens) uses the same generic-hud draw + glow-sprite pair, and the device keeps the
+split active even at RENDER SCALE 100 because game-size 640x480 < native draw region.
+CAUSAL PROOF (x86-first, shared renderer code — not an arm64 bug): same binary, x86 desktop,
+Geyser pause menu: render-scale 50 (split ACTIVE) = white egg (x86-orb-closeup.png); default 100
+(split INACTIVE) = textured amber orb (x86-orb-closeup-rs100.png).
+
+== 3. The in-split fix (split kept) ==
+Generic2's HUD-flagged draws are screen-space UI by construction (hud matrix). When the split is
+armed (jak1 + begin_2d_ui_pass set), Generic2::do_draws now STASHES them (compact-copied
+verts/indices + per-batch DrawingConfig — the shared buffers are rebuilt by later generic buckets)
+instead of drawing them into the scaled scene FBO. Both frame orchestrators (OpenGLRenderer and
+AndroidOpenGLRenderer) REPLAY them at the end of begin_ui_pass — after the composite, BEFORE the
+sprite HUD group — into the native UI pass. This (a) restores the depth relationship: the orb
+writes its depth into the UI FBO, so the hud-egg glow sprite is depth-rejected exactly as in the
+single-FBO pipeline, and (b) renders the orb icons native-crisp like the rest of the UI. The replay
+saves/restores the caller's GL program + VAO (it runs inside Sprite3::render via the hook; the
+first attempt without the restore corrupted Sprite3's uniforms — 495,539 GL_INVALID_OPERATION on
+x86 + a missing amber menu ring — both zero after the restore). Split-inactive and jak2+ paths are
+byte-identical to before. Files: Generic2.h, Generic2_OpenGL.cpp, OpenGLRenderer.cpp,
+android_opengl_renderer.{h,cpp}. No goal_src change (engine source untouched, 1-to-1 preserved);
+.autoport/gold untouched (pristine).
+
+== 4. Verification (device eae4df44, deploy_verify PASS, full consistent build) ==
+Device provably runs fresh HEAD libgk (deploy-verify-fix.txt + deploy-verify-fix2.txt: chain
+build==APK==device 639b5a3133561473, HEAD 837ef6339). Both scales tested with the split active
+(static render-scale, dynamic off; game-size 640x480 keeps the UI pass live at both):
+
+Per-site screencap proof (orb = textured amber/brown Precursor orb with face texture + glow, NOT
+a white egg; verified by eye on every capture, mCurrentFocus=org.opengoal.gk.jak1 checked):
+  - HUD orb counter (in-game, collected orbs):
+      100%: hud100-counter-A.png + hud100-counter-A-hudzoom.png (textured orb + count digit)
+       50%: hud50b-counter-3.png + hud50b-counter-icon.png (textured orb + yellow "2")
+  - Pause/progress menu (defect site of the owner report):
+      100%: sweep100-menu-1.png + sweep100-menu-orbcrop.png
+       50%: sweep50-menu-1.png + sweep50-menu-orbcrop.png
+      BEFORE (regression, same build family): repro1-menu.png (solid white egg next to X)
+  - Save/load screens: sweep100-saveslots.png, sweep100-savecard.png, sweep100-loadcard.png,
+      sweep50-savecard.png, sweep50-loadcard.png (save created in empty slot 1; occupied card and
+      the save-screen ring orb render correctly at both scales; no white artifacts).
+Split intact: UI native-crisp — menu text/ring razor-sharp while the 3D world is visibly soft at
+50% (sweep50-ingame0.png vs sweep100-ingame0.png); the amber menu ring/vignette present in all
+menu shots; the deferred orb icons are themselves native-crisp now.
+0 flicker: 8s screenrecords at the menu, 32 extracted frames per scale (sweep100/sweep50-recframe*):
+orb region amber-stable in every frame, max white fraction 0.6%.
+Renderer health: GL errors 0 at both scales (was 495k with the first fix attempt), crash sigs 0 in
+all verification runs (only the known transient link-time boot flake before two launches, log
+cleared and relaunched), texture misses only the benign boot-time sky-direct.
+x86 unaffected: smoke reaches `link finish: logo`; x86 fix runs clean at rs50 AND rs100
+(x86-fix2-*: orb textured, ring present, 0 GL errors both).
+
+== 5. Regressions guarded ==
+- Prior fixes intact: generic-merc kSet + Sprite3 stomp guard verified at HEAD; menu icons
+  (orb-cluster, scout fly), menu text, save flow all correct in the sweeps.
+- Deploy tooling landmine fixed: assets-slim/bundle/manifest.properties was stale at version=2 vs
+  bundled version=5 — a slim install over a v5 device wiped game data then failed to re-decompress
+  (no zip in slim APKs). Locked to version=5; device stamp re-aligned to 5; reinstall verified
+  (postfix-title.png, "already unpacked (version=5) — skipping decompress").
+Owner eye = final gate (play-test): pause menu, collect orbs for the HUD counter, save/load
+screens, at Dynamic Render Scale ON (device restored to render-scale 100 + dynamic #t, the
+owner's original settings, diff-verified).
