@@ -11,6 +11,7 @@
 
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/dma_helpers.h"
+#include "game/mips2c/spart_prof.h"
 
 #include "fmt/format.h"
 #include "third-party/imgui/imgui.h"
@@ -629,6 +630,9 @@ void Sprite3::draw_debug_window() {
 void Sprite3::flush_sprites(SharedRenderState* render_state,
                             ScopedProfilerNode& prof,
                             bool double_draw) {
+  // Gperf-particles: submission-shape counters for the A35-SPART dump
+  g_spart_prof.sprite_buckets.fetch_add(m_bucket_list.size(), std::memory_order_relaxed);
+  g_spart_prof.sprite_quads.fetch_add(m_sprite_idx, std::memory_order_relaxed);
   glBindVertexArray(m_ogl.vao);
 
 #ifdef __ANDROID__

@@ -27,6 +27,7 @@
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
 #include "game/graphics/pipelines/opengl.h"
 #include "game/kernel/common/kmachine.h"
+#include "game/mips2c/spart_prof.h"
 #include "game/runtime.h"
 
 #include "fmt/format.h"
@@ -451,6 +452,20 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
       std::string dump = m_profiler.dump_stats(0.10f);
       fprintf(stderr, "A35-PERF frame=%llu\n%s", (unsigned long long)m_stats.frame_idx,
               dump.c_str());
+      // Gperf-particles: particle-pipeline counters over the same 60-frame
+      // window — GOAL-kernel-thread mips2c sparticle kernel time (invisible to
+      // the GL-thread profiler above) + render-thread sprite submission shape.
+      auto ms = [](std::atomic<uint64_t>& a) { return a.exchange(0) / 1e6; };
+      auto n = [](std::atomic<uint64_t>& a) { return (unsigned long long)a.exchange(0); };
+      auto& sp = g_spart_prof;
+      fprintf(stderr,
+              "A35-SPART win=60f 3d=%.2fms/%lluc/%lluit 2d=%.2fms/%lluc/%lluit "
+              "launch=%.2fms/%lluc adgif=%.2fms/%lluc | sprite buckets=%llu quads=%llu "
+              "directflush=%llu\n",
+              ms(sp.ns_3d), n(sp.calls_3d), n(sp.iters_3d), ms(sp.ns_2d), n(sp.calls_2d),
+              n(sp.iters_2d), ms(sp.ns_launch), n(sp.calls_launch), ms(sp.ns_adgif),
+              n(sp.calls_adgif), n(sp.sprite_buckets), n(sp.sprite_quads),
+              n(sp.direct_flushes));
     }
   }
 

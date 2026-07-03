@@ -6,6 +6,7 @@
 #include <ctime>
 
 #include "game/mips2c/mips2c_private.h"
+#include "game/mips2c/spart_prof.h"
 #include "game/kernel/jak1/kscheme.h"
 #if defined(__ANDROID__)
 #include <sys/system_properties.h>
@@ -50,6 +51,10 @@ struct Cache {
 } cache;
 
 u64 execute(void* ctxt) {
+#if defined(__aarch64__)
+  SpartScopedNs spart_t_(g_spart_prof.ns_adgif);  // Gperf-particles CPU attribution
+  g_spart_prof.calls_adgif.fetch_add(1, std::memory_order_relaxed);
+#endif
   auto* c = (ExecutionContext*)ctxt;
   bool bc = false;
   u32 call_addr = 0;
@@ -201,6 +206,10 @@ struct Cache {
 } cache;
 
 u64 execute(void* ctxt) {
+#if defined(__aarch64__)
+  SpartScopedNs spart_t_(g_spart_prof.ns_launch);  // Gperf-particles CPU attribution
+  g_spart_prof.calls_launch.fetch_add(1, std::memory_order_relaxed);
+#endif
   auto* c = (ExecutionContext*)ctxt;
   bool bc = false;
   u32 call_addr = 0;

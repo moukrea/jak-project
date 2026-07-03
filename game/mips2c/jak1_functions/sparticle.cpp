@@ -6,10 +6,16 @@
 #include <ctime>
 
 #include "game/mips2c/mips2c_private.h"
+#include "game/mips2c/spart_prof.h"
 #include "game/kernel/jak1/kscheme.h"
 #if defined(__ANDROID__)
 #include <sys/system_properties.h>
 #endif
+
+// Gperf-particles: the one definition of the particle-pipeline counters
+// (declared in spart_prof.h; this TU is in both the desktop and Android builds).
+SpartProf g_spart_prof;
+
 using namespace jak1;
 namespace Mips2C::jak1 {
 
@@ -52,6 +58,10 @@ struct Cache {
 } cache;
 
 u64 execute(void* ctxt) {
+#if defined(__aarch64__)
+  SpartScopedNs spart_t_(g_spart_prof.ns_3d);  // Gperf-particles CPU attribution
+  g_spart_prof.calls_3d.fetch_add(1, std::memory_order_relaxed);
+#endif
   auto* c = (ExecutionContext*)ctxt;
   bool bc = false;
   u32 call_addr = 0;
@@ -83,6 +93,9 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
 
   block_1:
+#if defined(__aarch64__)
+  g_spart_prof.iters_3d.fetch_add(1, std::memory_order_relaxed);  // Gperf-particles
+#endif
   c->lw(v1, 128, s5);                               // lw v1, 128(s5)
 #if defined(__aarch64__)
   // Gd2 (arm64): `beq v1, s7` tests "is (-> cpuinfo valid) == #f?" — skip an
@@ -438,6 +451,10 @@ struct Cache {
 } cache;
 
 u64 execute(void* ctxt) {
+#if defined(__aarch64__)
+  SpartScopedNs spart_t_(g_spart_prof.ns_2d);  // Gperf-particles CPU attribution
+  g_spart_prof.calls_2d.fetch_add(1, std::memory_order_relaxed);
+#endif
   auto* c = (ExecutionContext*)ctxt;
   bool bc = false;
   u32 call_addr = 0;
@@ -464,6 +481,9 @@ u64 execute(void* ctxt) {
   c->andi(s0, v1, 255);                             // andi s0, v1, 255
 
   block_1:
+#if defined(__aarch64__)
+  g_spart_prof.iters_2d.fetch_add(1, std::memory_order_relaxed);  // Gperf-particles
+#endif
   c->lw(v1, 128, s5);                               // lw v1, 128(s5)
 #if defined(__aarch64__)
   // Gbirds-anim (arm64): mirror the sp_process_block_3d block_1 fix onto the 2D block,
