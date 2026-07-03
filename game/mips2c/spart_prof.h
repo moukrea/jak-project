@@ -21,6 +21,13 @@ struct SpartProf {
   std::atomic<uint64_t> sprite_buckets{0}, sprite_quads{0}, direct_flushes{0};
   // render-thread Sprite3 wall time (ns): per-quad build vs per-bucket flush
   std::atomic<uint64_t> gl_spr_build{0}, gl_spr_flush{0};
+  // Gperf-particles (round 2): GOAL-kernel-thread vsync() breakdown — time
+  // parked on the swap/consume barrier (goal_idle) vs the target-fps pacing
+  // spin (goal_pace), in ns, and vsync() call count (goal_frames).
+  std::atomic<uint64_t> goal_idle{0}, goal_pace{0}, goal_frames{0};
+  // render-thread Tie3 wall time (ns): time-of-day interp, texture sub-image
+  // upload, slow cull check, and per-tree index-list build + index upload.
+  std::atomic<uint64_t> tie_interp{0}, tie_texsub{0}, tie_cull{0}, tie_index{0};
 };
 
 extern SpartProf g_spart_prof;

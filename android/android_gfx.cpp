@@ -22,6 +22,8 @@
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
 
+#include "game/mips2c/spart_prof.h"
+
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/loader/Loader.h"
 #include "game/graphics/texture/TexturePool.h"
@@ -112,6 +114,22 @@ namespace android_gfx {
 namespace {
 constexpr const char* kLogTag = "opengoal-gk";
 
+// Gperf-particles (round 2): GOAL/GL overlap mode. When ON (default), the GOAL
+// kernel thread is released to build frame N+1 as soon as the GL thread PICKS UP
+// chain N (chains_picked_up >= chains_sent), instead of waiting for the
+// post-swap frame_idx bump — restoring the EE/GS overlap the original hardware
+// had. sync_path also returns immediately: its "renderer consumed the chain"
+// meaning only mattered for buffer reuse, and send_chain deep-copies the chain
+// (dma_copier), so the engine's builder buffers are free the moment send_chain
+// returns. The GOAL thread then builds frame N+1 during the GL render of N and
+// blocks in send_chain's gate (wait !has_data_to_render, i.e. render N done)
+// before overwriting chain_data — that gate is UNCONDITIONAL so a live kill-
+// switch flip mid-render can never overwrite a chain the consumer still reads.
+// Polled from a system property on the GL thread (same cadence as render.scale).
+// Kill switch: `setprop debug.opengoal.perf.nooverlap 1` -> ON=false -> original
+// serialized post-swap predicate + blocking sync_path.
+std::atomic<bool> g_perf_overlap{true};
+
 struct AndroidGfxData {
   // ONE mutex for the whole game-thread<->GL-thread handshake. A37: the
   // previous split (sync_mutex for vsync/post_swap_tick, dma_mutex for
@@ -125,6 +143,12 @@ struct AndroidGfxData {
   std::condition_variable sync_cv;
   u64 frame_idx = 0;
   u64 frame_idx_of_input_data = 0;
+  // Gperf-particles overlap accounting (same mutex): chains handed to
+  // send_chain vs chains the GL thread has picked up for rendering. vsync()
+  // in overlap mode waits picked_up >= sent — i.e. "my last chain has started
+  // rendering" — which is the moment GOAL may safely build the next frame.
+  u64 chains_sent = 0;
+  u64 chains_picked_up = 0;
 
   // dma chain hand-off (same mutex)
   std::condition_variable dma_cv;
@@ -338,6 +362,13 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     std::unique_lock<std::mutex> lock(d->dma_mutex);
     got_chain = d->dma_cv.wait_for(lock, std::chrono::milliseconds(40),
                                    [=] { return d->has_data_to_render; });
+    if (got_chain) {
+      // Gperf-particles overlap: signal pickup — the GOAL thread may build the
+      // next frame from here on (chain_data itself stays protected until the
+      // post-render has_data_to_render clear releases send_chain's gate).
+      d->chains_picked_up++;
+      d->sync_cv.notify_all();
+    }
   }
 
   // A37 chain validator: a malformed (cyclic / never-ending) chain makes
@@ -456,6 +487,20 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
             __android_log_print(ANDROID_LOG_INFO, kLogTag,
                                 "RENDER-SCALE reset to default %d%% (prop cleared/invalid)",
                                 kRenderScaleDefault);
+          }
+        }
+        // Gperf-particles: GOAL/GL overlap kill switch, polled on the same
+        // cadence. value '1' -> overlap OFF (original post-swap vsync predicate).
+        {
+          char ov[16] = {0};
+          bool nooverlap =
+              __system_property_get("debug.opengoal.perf.nooverlap", ov) > 0 && ov[0] == '1';
+          bool want = !nooverlap;
+          if (g_perf_overlap.load(std::memory_order_relaxed) != want) {
+            g_perf_overlap.store(want, std::memory_order_relaxed);
+            __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                                "GPERF-OVERLAP GOAL/GL overlap mode %s",
+                                want ? "ON (build N+1 during GL render N)" : "OFF (serialized)");
           }
         }
       }
@@ -781,6 +826,7 @@ void set_vsync_callback(std::function<void()> f) {
 
 u32 vsync() {
   g_a40_vsync_entry.fetch_add(1, std::memory_order_relaxed);
+  g_spart_prof.goal_frames.fetch_add(1, std::memory_order_relaxed);
 
   // Gd1-cutscene-clock: the IOP/overlord VBlank is NO LONGER fired from here.
   // It used to be fired once per vsync() call (= once per rendered frame), which
@@ -827,8 +873,29 @@ u32 vsync() {
   {
     std::unique_lock<std::mutex> lock(d->dma_mutex);
     auto init_frame = d->frame_idx_of_input_data;
+    // overlap-mode captures: the send counter (wait until OUR last chain has
+    // been picked up) and the absolute frame counter (fallback so a chain-less
+    // frame still unblocks within one GL cycle, which swaps regardless).
+    auto sent_now = d->chains_sent;
+    auto init_frame_abs = d->frame_idx;
+    const bool overlap = g_perf_overlap.load(std::memory_order_relaxed);
+    SpartScopedNs _idle(g_spart_prof.goal_idle);
     d->sync_cv.wait(lock, [=] {
-      return (MasterExit != RuntimeExitStatus::RUNNING) || d->frame_idx > init_frame;
+      if (MasterExit != RuntimeExitStatus::RUNNING) {
+        return true;
+      }
+      if (overlap) {
+        // Gperf-particles overlap: release the GOAL thread as soon as the GL
+        // thread has PICKED UP the last sent chain (render START, ~= the swap
+        // boundary of the previous frame) — if it was already picked up before
+        // we got here, return immediately. The GOAL thread then builds frame
+        // N+1 during the whole GL render of N; send_chain's unconditional
+        // !has_data_to_render gate protects chain_data.
+        return d->chains_picked_up >= sent_now || d->frame_idx > init_frame_abs;
+      }
+      // Original serialized predicate (kill switch): block until the GL thread
+      // has fully swapped the frame (post_swap_tick bumped frame_idx).
+      return d->frame_idx > init_frame;
     });
     frame_idx_now = d->frame_idx;
   }
@@ -852,6 +919,7 @@ u32 vsync() {
   // here, so this is the software vsync the driver's SwapInterval(1) doesn't
   // actually enforce. x86/desktop untouched (android/ TU).
   {
+    SpartScopedNs _pace(g_spart_prof.goal_pace);
     using namespace std::chrono;
     static steady_clock::time_point s_next{};
     double tfps = Gfx::g_global_settings.target_fps;
@@ -934,6 +1002,17 @@ u32 sync_path() {
     return 0;
   }
   auto* d = g_data;
+  // Gperf-particles overlap: return immediately. sync-path's PS2 meaning is
+  // "the DMA path is idle, my buffers are reusable" — send_chain deep-copies
+  // the chain (dma_copier), so the engine's builder buffers are free the moment
+  // send_chain returned; waiting here for the renderer to finish would
+  // re-serialize the whole frame (the engine calls sync-path right before
+  // syncv at frame end, drawable.gc:1193). chain_data overwrite safety is
+  // send_chain's unconditional gate, not this wait.
+  if (g_perf_overlap.load(std::memory_order_relaxed)) {
+    g_a40_syncpath_exit.fetch_add(1, std::memory_order_relaxed);
+    return 0;
+  }
   std::unique_lock<std::mutex> lock(d->dma_mutex);
   if (!d->has_data_to_render) {
     g_a40_syncpath_exit.fetch_add(1, std::memory_order_relaxed);
@@ -963,6 +1042,23 @@ void send_chain(const void* data, u32 offset) {
 #endif
   auto* d = g_data;
   std::unique_lock<std::mutex> lock(d->dma_mutex);
+  // Gperf-particles overlap: the GOAL thread is released at chain PICKUP, so it
+  // can re-enter send_chain while the GL thread is still consuming the previous
+  // chain. chain_data must never be overwritten while the GL thread reads it —
+  // block here until the GL thread has finished (has_data_to_render cleared
+  // after render()). UNCONDITIONAL (not overlap-gated): in serialized mode the
+  // vsync predicate already guarantees the flag is clear so this is a no-op,
+  // and keeping it always-on means a live kill-switch flip mid-render can never
+  // race the copier against the reader. Keeps the MasterExit escape so
+  // shutdown/boot mode-flips can't deadlock. sync_cv is the cv notified when
+  // has_data_to_render is cleared after render() (and by the chain-loop skip
+  // path); wait on it, not dma_cv.
+  d->sync_cv.wait(lock, [=] {
+    return (MasterExit != RuntimeExitStatus::RUNNING) || !d->has_data_to_render;
+  });
+  if (MasterExit != RuntimeExitStatus::RUNNING) {
+    return;
+  }
   if (d->has_data_to_render) {
     lg::error("A35-RENDER send_chain called with pending data (frame pacing bug?)");
     return;
@@ -1069,6 +1165,7 @@ void send_chain(const void* data, u32 offset) {
       // (deeper, goalc-arm64) defect tracked for its own phase.
       if (d->ever_copied && !d->has_data_to_render) {
         d->has_data_to_render = true;
+        d->chains_sent++;  // Gperf-particles overlap: re-present counts as sent
         d->dma_cv.notify_all();
       }
       return;
@@ -1078,6 +1175,7 @@ void send_chain(const void* data, u32 offset) {
   d->chain_data = chain_copy.data.data();
   d->chain_offset = chain_copy.start_offset;
   d->has_data_to_render = true;
+  d->chains_sent++;  // Gperf-particles overlap: vsync waits picked_up >= sent
   d->ever_copied = true;
   d->dma_cv.notify_all();
 }

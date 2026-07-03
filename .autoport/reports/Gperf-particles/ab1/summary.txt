@@ -1,0 +1,109 @@
+================================================================
+Gperf-particles ab1 — pose-held IN-SESSION A/B, Rock Village fire scene
+Device eae4df44 (Redmi Note 9 Pro), org.opengoal.gk.jak1, PID 1505
+Deployed HEAD 942b435ac. Single boot, camera untouched after settle.
+Warp: village2-start @ "295 15 -1630". nobatch=0 (batching fix ON both windows).
+================================================================
+
+WINDOWS (time markers, all focus=org.opengoal.gk.jak1 verified):
+  A  (both props=1, OLD path)  : 01:23:07 - 01:24:47  (100s)
+  B  (both props=0, fixes ON)  : 01:25:13 - 01:27:02  (100s, +12s poll wait)
+  A2 (both props=1, revert)    : 01:27:25 - 01:28:25  (60s, +12s poll wait)
+Fixes left ON (both props=0), app RUNNING at end.
+
+POSE: matched reference fire-pose.png closely on natural warp-spawn camera
+(Jak center platform, 2 brazier flames mid L+R, 2 large flame bowls foreground
+L+R, central pillar). NO input ever injected after release; pose identical A/B/A2.
+
+----------------------------------------------------------------
+DYN-RS FPS (avg-fps, dynamic-res governor)
+  A  : median=32.0  min=30.7  max=36.6  (n=49)
+  B  : median=32.0  min=30.9  max=34.9  (n=55)
+  A2 : median=32.0  min=31.0  max=38.8  (n=30)
+  => FLAT. Fixes do not move fps here: the run is HARD-PINNED at the
+     dynamic-res floor scale=40% in EVERY sample of EVERY window.
+
+SCALE DETERMINISM
+  distinct scale= values: {40} in A, {40} in B, {40} in A2.
+  Governor sits on the floor (40%) the entire session, both paths.
+  (Expected 40 throughout — confirmed. Perf headroom is being spent, not
+   converted to fps; at the 40% floor fps is the only degree of freedom and
+   it barely budges => this scene is submission/CPU bound, not fill bound,
+   consistent with the phase's premise. Neither fix broke the floor out.)
+
+----------------------------------------------------------------
+A35-SPART medians (per-window, incl NEW glbuild/glflush)
+                    A          B          A2
+  3d ms          3.89       3.73       3.92
+  2d ms        119.70     119.36     119.49
+  launch ms    139.91     139.42     140.34
+  adgif ms      12.50      12.41      12.61
+  sprite quads 164353     163856     164818
+  directflush   1020       1020       1020
+  glbuild ms    85.33      81.99      85.63     <- B slightly LOWER
+  glflush ms   114.75     113.09     111.86
+  sprite buckets  540        507        540      <- B slightly LOWER
+  2d chunks     5925       5910       5930
+  2d items     352352     351456     352704
+  launch chunks 14069      14057      14095
+
+  Sprite-path fix (nospritelean 1->0) effect: glbuild 85.33 -> 81.99ms
+  (~3.9% faster CPU sprite build) and sprite buckets 540 -> 507 (fewer
+  bucket splits => the batching/lean path packs more quads/bucket).
+  glflush ~flat (GPU-side). REVERSIBLE: A2 returns to glbuild 85.63,
+  buckets 540 — matches A. Effect is real, consistent, and repeatable,
+  but SMALL and does not move the 40%-floor fps.
+
+----------------------------------------------------------------
+TIE / SHRUB setup-vs-draws ms (statecache fix target = per-draw GL state)
+                  A          B          A2
+  tie setup     3.540      3.530      3.460
+  tie draws     0.940      0.940      0.920
+  shrub setup   1.260      1.265      1.230
+  shrub draws   0.595      0.570      0.580
+  => FLAT across all three windows. In THIS pose tie/shrub 'draws' are
+     already tiny (<1ms) and 'setup' dominates; the per-draw state-cache
+     fix (nostatecache 1->0) shows no measurable movement here. This scene
+     is sprite/particle-heavy, not tie-draw-heavy, so statecache has little
+     to bite on. No regression either.
+
+----------------------------------------------------------------
+CRASH / GL / TEXTURE SCAN (whole run)
+  crashes (F a t a l / SIGSEGV / sig 4|6|11 in PID 1505): NONE
+  GL error lines: NONE (0)
+  'Failed to find texture': A=0  B=0  A2=0  (1 during boot only)
+  => Sprite change did NOT alter texture-find behavior. Clean.
+
+----------------------------------------------------------------
+VISUAL PARITY: A-end.png vs B-start.png (same pose, ~12s apart, path flip)
+  mean abs diff = 2.48 (0-255)
+  %% pixels max-channel-diff > 32 = 3.10%
+  %% pixels max-channel-diff > 64 = 1.60%
+  Diff localized to flame columns (far-left foreground bowl, left brazier,
+  right-edge bowl) and mid-screen flame heights — i.e. FLAME FLICKER /
+  animation drift only. NO contiguous black areas, NO missing geometry,
+  NO missing fires. Structure identical.
+  VERDICT: PASS (parity holds; fixes ON render is visually equivalent).
+
+----------------------------------------------------------------
+OVERALL VERDICT
+  Both perf fixes are SAFE and REVERSIBLE in-session (A2 returns to A
+  values). No crashes, no GL errors, no texture regressions, no visual
+  regression. The sprite-lean fix gives a small consistent CPU sprite-build
+  win (glbuild ~3.9% lower, fewer sprite buckets). The state-cache fix shows
+  no movement in this sprite/particle-bound pose. NEITHER converts to fps:
+  the dynamic-res governor is pinned at the 40% floor throughout, so this
+  fire scene remains CPU/submission bound — the fixes trim CPU but not
+  enough to clear the floor at this pose.
+
+ARTIFACTS (all absolute):
+  /home/emeric/code/jak-project/.autoport/reports/Gperf-particles/ab1/A-pose.png
+  /home/emeric/code/jak-project/.autoport/reports/Gperf-particles/ab1/A-end.png
+  /home/emeric/code/jak-project/.autoport/reports/Gperf-particles/ab1/B-start.png
+  /home/emeric/code/jak-project/.autoport/reports/Gperf-particles/ab1/B-end.png
+  /home/emeric/code/jak-project/.autoport/reports/Gperf-particles/ab1/A2-end.png
+  /home/emeric/code/jak-project/.autoport/reports/Gperf-particles/ab1/probe1.png
+  /home/emeric/code/jak-project/.autoport/reports/Gperf-particles/ab1/ab-logcat.txt
+  /home/emeric/code/jak-project/.autoport/reports/Gperf-particles/ab1/extract.txt
+  /home/emeric/code/jak-project/.autoport/reports/Gperf-particles/ab1/timemarkers.txt
+  /home/emeric/code/jak-project/.autoport/reports/Gperf-particles/ab1/summary.txt

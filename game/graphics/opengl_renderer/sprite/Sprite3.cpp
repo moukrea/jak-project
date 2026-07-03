@@ -83,6 +83,9 @@ void Sprite3::opengl_setup() {
   // Set up OpenGL for 'normal' sprites
   opengl_setup_normal();
 
+  // Gperf-particles round 2: set up the per-instance VAO/buffer (jak1 Android).
+  opengl_setup_instanced();
+
   // Set up OpenGL for distort sprites
   opengl_setup_distort();
 }
@@ -165,6 +168,52 @@ void Sprite3::opengl_setup_normal() {
   m_default_mode.set_ab(true);
 
   m_current_mode = m_default_mode;
+}
+
+void Sprite3::opengl_setup_instanced() {
+  // Gperf-particles round 2: per-instance sprite path. A second VAO over a NEW
+  // instance buffer, with the SAME 5 attributes/offsets/stride 64 as
+  // opengl_setup_normal, but each attribute advanced ONCE PER INSTANCE
+  // (glVertexAttribDivisor == 1). One 64B SpriteVertex3D record per sprite; the
+  // 4 corners come from gl_VertexID in the sprite3_3d_inst shader. No index
+  // buffer (glDrawArraysInstanced with a 4-vertex triangle strip). Reserve the
+  // same worst-case sprite count as the vertex path so the buffer never grows.
+  glGenBuffers(1, &m_ogl.instance_buffer);
+  glGenVertexArrays(1, &m_ogl.instance_vao);
+  glBindVertexArray(m_ogl.instance_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, m_ogl.instance_buffer);
+  glBufferData(GL_ARRAY_BUFFER, SPRITE_RENDERER_MAX_SPRITES * sizeof(SpriteVertex3D), nullptr,
+               GL_STREAM_DRAW);
+
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
+                        (void*)offsetof(SpriteVertex3D, xyz_sx));
+  glVertexAttribDivisor(0, 1);
+
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
+                        (void*)offsetof(SpriteVertex3D, quat_sy));
+  glVertexAttribDivisor(1, 1);
+
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
+                        (void*)offsetof(SpriteVertex3D, rgba));
+  glVertexAttribDivisor(2, 1);
+
+  glEnableVertexAttribArray(3);
+  glVertexAttribIPointer(3, 2, GL_UNSIGNED_SHORT, sizeof(SpriteVertex3D),
+                         (void*)offsetof(SpriteVertex3D, flags_matrix));
+  glVertexAttribDivisor(3, 1);
+
+  glEnableVertexAttribArray(4);
+  glVertexAttribIPointer(4, 4, GL_UNSIGNED_SHORT, sizeof(SpriteVertex3D),
+                         (void*)offsetof(SpriteVertex3D, info));
+  glVertexAttribDivisor(4, 1);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
+  m_instance_scratch.reserve(SPRITE_RENDERER_MAX_SPRITES);
 }
 
 /*!
@@ -256,14 +305,10 @@ void Sprite3::render_3d(DmaFollower& dma) {
   // TODO
 }
 
-void Sprite3::render_2d_group0(DmaFollower& dma,
-                               SharedRenderState* render_state,
-                               ScopedProfilerNode& prof) {
-  // opengl sprite frame setup
-  auto shid = render_state->shaders[ShaderId::SPRITE3].id();
+void Sprite3::set_group0_uniforms(GLuint shid, Sprite3dUniformCache& u3) {
   // Gperf-particles: cache these per-frame uniform locations (stable per linked
-  // program), refreshed only on program change.
-  auto& u3 = m_sprite_3d_uniform_cache;
+  // program), refreshed only on program change. The caller must have made `shid`
+  // the active program.
   if (shid != u3.prog) {
     u3.prog = shid;
     u3.hvdf_offset = glGetUniformLocation(shid, "hvdf_offset");
@@ -297,6 +342,25 @@ void Sprite3::render_2d_group0(DmaFollower& dma,
   glUniform4fv(u3.st_array, 4, m_frame_data.st_array[0].data());
   glUniform4fv(u3.basis_x, 1, m_frame_data.basis_x.data());
   glUniform4fv(u3.basis_y, 1, m_frame_data.basis_y.data());
+}
+
+void Sprite3::render_2d_group0(DmaFollower& dma,
+                               SharedRenderState* render_state,
+                               ScopedProfilerNode& prof) {
+  // opengl sprite frame setup. SPRITE3 is already the active program (activated
+  // in handle_sprite_frame_setup); set its per-frame group0 uniforms.
+  auto shid = render_state->shaders[ShaderId::SPRITE3].id();
+  set_group0_uniforms(shid, m_sprite_3d_uniform_cache);
+
+  // Gperf-particles round 2: the instanced path draws with a DIFFERENT program
+  // object (SPRITE3_INSTANCED); it needs the same per-frame uniforms. Set them
+  // now (switching program, then back) so flush_sprites can just bind + draw.
+  if (render_state->perf_sprite_instance && render_state->version == GameVersion::Jak1) {
+    auto inst = render_state->shaders[ShaderId::SPRITE3_INSTANCED].id();
+    glUseProgram(inst);
+    set_group0_uniforms(inst, m_sprite_3d_uniform_cache_inst);
+    glUseProgram(shid);
+  }
 
   u16 last_prog = -1;
 
@@ -376,6 +440,20 @@ void Sprite3::render_fake_shadow(DmaFollower& dma) {
   ASSERT(nop_flushe.vifcode1().kind == VifCode::Kind::FLUSHE);
 }
 
+void Sprite3::set_group1_uniforms(GLuint shid, SpriteHudUniformCache& uh) {
+  // Gperf-particles: cache group1 (HUD) per-frame uniform locations (stable per
+  // linked program). The caller must have made `shid` the active program.
+  if (shid != uh.prog) {
+    uh.prog = shid;
+    uh.hud_hvdf_offset = glGetUniformLocation(shid, "hud_hvdf_offset");
+    uh.hud_hvdf_user = glGetUniformLocation(shid, "hud_hvdf_user");
+    uh.hud_matrix = glGetUniformLocation(shid, "hud_matrix");
+  }
+  glUniform4fv(uh.hud_hvdf_offset, 1, m_hud_matrix_data.hvdf_offset.data());
+  glUniform4fv(uh.hud_hvdf_user, 75, m_hud_matrix_data.user_hvdf[0].data());
+  glUniformMatrix4fv(uh.hud_matrix, 1, GL_FALSE, m_hud_matrix_data.matrix.data());
+}
+
 /*!
  * Handle DMA data for group1 2d's (HUD)
  */
@@ -390,22 +468,18 @@ void Sprite3::render_2d_group1(DmaFollower& dma,
   ASSERT(mat_upload.size_bytes == sizeof(m_hud_matrix_data));
   memcpy(&m_hud_matrix_data, mat_upload.data, sizeof(m_hud_matrix_data));
 
-  // opengl sprite frame setup
-  // Gperf-particles: cache these per-frame uniform locations (stable per linked
-  // program), refreshed only on program change.
-  auto& uh = m_sprite_hud_uniform_cache;
-  {
-    GLuint shid = render_state->shaders[ShaderId::SPRITE3].id();
-    if (shid != uh.prog) {
-      uh.prog = shid;
-      uh.hud_hvdf_offset = glGetUniformLocation(shid, "hud_hvdf_offset");
-      uh.hud_hvdf_user = glGetUniformLocation(shid, "hud_hvdf_user");
-      uh.hud_matrix = glGetUniformLocation(shid, "hud_matrix");
-    }
+  // opengl sprite frame setup. SPRITE3 is the active program here; set its
+  // per-frame group1 (HUD) uniforms.
+  GLuint shid = render_state->shaders[ShaderId::SPRITE3].id();
+  set_group1_uniforms(shid, m_sprite_hud_uniform_cache);
+
+  // Gperf-particles round 2: mirror the HUD uniforms onto the instanced program.
+  if (render_state->perf_sprite_instance && render_state->version == GameVersion::Jak1) {
+    auto inst = render_state->shaders[ShaderId::SPRITE3_INSTANCED].id();
+    glUseProgram(inst);
+    set_group1_uniforms(inst, m_sprite_hud_uniform_cache_inst);
+    glUseProgram(shid);
   }
-  glUniform4fv(uh.hud_hvdf_offset, 1, m_hud_matrix_data.hvdf_offset.data());
-  glUniform4fv(uh.hud_hvdf_user, 75, m_hud_matrix_data.user_hvdf[0].data());
-  glUniformMatrix4fv(uh.hud_matrix, 1, GL_FALSE, m_hud_matrix_data.matrix.data());
 
   // loop through chunks.
   while (looks_like_2d_chunk_start(dma)) {
@@ -661,6 +735,16 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
   g_spart_prof.sprite_buckets.fetch_add(m_bucket_list.size(), std::memory_order_relaxed);
   g_spart_prof.sprite_quads.fetch_add(m_sprite_idx, std::memory_order_relaxed);
 
+  // Gperf-particles round 2: per-instance draw path (jak1 Android). One 64B
+  // record per sprite gathered per-bucket, one glBufferData, then one
+  // glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count) per bucket. The old
+  // per-vertex + index-restart path (below) is used for every other version and
+  // when the flag is off.
+  if (render_state->perf_sprite_instance && render_state->version == GameVersion::Jak1) {
+    flush_sprites_instanced(render_state, prof, double_draw);
+    return;
+  }
+
   // Gperf-particles: refresh cached SPRITE3 uniform locations on program change.
   {
     GLuint sprite_prog = render_state->shaders[ShaderId::SPRITE3].id();
@@ -756,6 +840,122 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
     // flushes/frames — only clear the id lists. do_block_common re-lists a
     // bucket the first time it's touched this flush (ids.empty() rule), so the
     // persisted (but emptied) map entries don't leak into m_bucket_list.
+    for (auto bucket : m_bucket_list) {
+      bucket->ids.clear();
+    }
+  } else {
+    m_sprite_buckets.clear();
+  }
+  m_bucket_list.clear();
+  m_last_bucket_key = UINT64_MAX;
+  m_last_bucket = nullptr;
+  m_sprite_idx = 0;
+  glBindVertexArray(0);
+}
+
+void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
+                                      ScopedProfilerNode& prof,
+                                      bool double_draw) {
+  // Gperf-particles round 2: refresh cached alpha/tex uniform locations for the
+  // SPRITE3_INSTANCED program (its own program object, own locations).
+  GLuint inst_prog = render_state->shaders[ShaderId::SPRITE3_INSTANCED].id();
+  if (inst_prog != m_sprite_uniform_cache_inst.prog) {
+    m_sprite_uniform_cache_inst.prog = inst_prog;
+    m_sprite_uniform_cache_inst.alpha_min = glGetUniformLocation(inst_prog, "alpha_min");
+    m_sprite_uniform_cache_inst.alpha_max = glGetUniformLocation(inst_prog, "alpha_max");
+    m_sprite_uniform_cache_inst.tex_T0 = glGetUniformLocation(inst_prog, "tex_T0");
+  }
+  const auto& su = m_sprite_uniform_cache_inst;
+
+  glBindVertexArray(m_ogl.instance_vao);
+
+  // gather pass: copy each bucket's sprite records (by id) into contiguous draw
+  // order, recording each bucket's [instance_offset, instance_count).
+  m_instance_scratch.clear();
+  u32 total = 0;
+  for (const auto bucket : m_bucket_list) {
+    bucket->instance_offset = total;
+    bucket->instance_count = (u32)bucket->ids.size();
+    for (u32 id : bucket->ids) {
+      m_instance_scratch.push_back(m_vertices_3d[id]);
+    }
+    total += bucket->instance_count;
+  }
+
+  // one upload of all instance records for this flush.
+  glBindBuffer(GL_ARRAY_BUFFER, m_ogl.instance_buffer);
+  glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)total * sizeof(SpriteVertex3D),
+               m_instance_scratch.data(), GL_STREAM_DRAW);
+
+  // the SPRITE3_INSTANCED program's per-frame uniforms were already set (with
+  // its own cache) by render_2d_group0 / render_2d_group1; make it active.
+  glUseProgram(inst_prog);
+
+  for (const auto bucket : m_bucket_list) {
+    u32 tbp = bucket->key >> 32;
+    DrawMode mode;
+    mode.as_int() = bucket->key & 0xffffffff;
+
+    std::optional<u64> tex;
+    tex = render_state->texture_pool->lookup(tbp);
+
+    if (!tex) {
+      lg::warn("Failed to find texture at {}, using random (sprite)", tbp);
+      tex = render_state->texture_pool->get_placeholder_texture();
+    }
+    ASSERT(tex);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, *tex);
+
+    auto settings = setup_opengl_from_draw_mode(mode, GL_TEXTURE0, false);
+
+    glUniform1f(su.alpha_min, double_draw ? settings.aref_first : 0.016);
+    glUniform1f(su.alpha_max, 10.f);
+    glUniform1i(su.tex_T0, 0);
+
+    // rebase all 5 instance attributes to this bucket's first record. Portable
+    // to GL 4.1 (desktop) and GLES 3.2 — plain glVertexAttribPointer, 5 calls.
+    const u8* base = (const u8*)(uintptr_t)(bucket->instance_offset * sizeof(SpriteVertex3D));
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
+                          base + offsetof(SpriteVertex3D, xyz_sx));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
+                          base + offsetof(SpriteVertex3D, quat_sy));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
+                          base + offsetof(SpriteVertex3D, rgba));
+    glVertexAttribIPointer(3, 2, GL_UNSIGNED_SHORT, sizeof(SpriteVertex3D),
+                           base + offsetof(SpriteVertex3D, flags_matrix));
+    glVertexAttribIPointer(4, 4, GL_UNSIGNED_SHORT, sizeof(SpriteVertex3D),
+                           base + offsetof(SpriteVertex3D, info));
+
+    prof.add_draw_call();
+    prof.add_tri(2 * bucket->instance_count);
+
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, bucket->instance_count);
+
+    if (double_draw) {
+      switch (settings.kind) {
+        case DoubleDrawKind::NONE:
+          break;
+        case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE:
+          prof.add_draw_call();
+          prof.add_tri(2 * bucket->instance_count);
+          glUniform1f(su.alpha_min, -10.f);
+          glUniform1f(su.alpha_max, settings.aref_second);
+          glDepthMask(GL_FALSE);
+          glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, bucket->instance_count);
+          break;
+        default:
+          ASSERT(false);
+      }
+    }
+  }
+
+  // restore the SPRITE3 program so later passes (that assume it active) are
+  // unaffected; the caller re-activates as needed anyway.
+  glUseProgram(render_state->shaders[ShaderId::SPRITE3].id());
+
+  if (render_state->perf_sprite_lean) {
     for (auto bucket : m_bucket_list) {
       bucket->ids.clear();
     }
@@ -983,17 +1183,32 @@ void Sprite3::do_block_common(SpriteMode mode,
     if (bucket->ids.empty()) {
       m_bucket_list.push_back(bucket);
     }
-    u32 start_vtx_id = m_sprite_idx * 4;
-    bucket->ids.push_back(start_vtx_id);
-    bucket->ids.push_back(start_vtx_id + 1);
-    bucket->ids.push_back(start_vtx_id + 2);
-    bucket->ids.push_back(start_vtx_id + 3);
-    bucket->ids.push_back(UINT32_MAX);
 
-    // Gperf-particles: the SPRITE_RENDERER_MAX_SPRITES flush check at the top of
-    // this loop guarantees m_sprite_idx (== start_vtx_id/4) is in range, so the
-    // 4 corner writes are safe without per-access bounds checks.
-    SpriteVertex3D* vtx = &m_vertices_3d[m_sprite_idx * 4];
+    // Gperf-particles round 2: per-instance path (jak1 only) writes ONE 64B
+    // record per sprite and pushes ONE id (no 4 corners, no UINT32_MAX restart)
+    // — the shader derives the corners from gl_VertexID. jak1 has no jak3
+    // corner-swap flags, so the corner-swap block below is skipped in this mode.
+    const bool instanced =
+        render_state->perf_sprite_instance && render_state->version == GameVersion::Jak1;
+
+    SpriteVertex3D* vtx;
+    if (instanced) {
+      // one record per sprite, id == the sprite index
+      bucket->ids.push_back(m_sprite_idx);
+      vtx = &m_vertices_3d[m_sprite_idx];
+    } else {
+      u32 start_vtx_id = m_sprite_idx * 4;
+      bucket->ids.push_back(start_vtx_id);
+      bucket->ids.push_back(start_vtx_id + 1);
+      bucket->ids.push_back(start_vtx_id + 2);
+      bucket->ids.push_back(start_vtx_id + 3);
+      bucket->ids.push_back(UINT32_MAX);
+
+      // Gperf-particles: the SPRITE_RENDERER_MAX_SPRITES flush check at the top
+      // of this loop guarantees m_sprite_idx (== start_vtx_id/4) is in range, so
+      // the 4 corner writes are safe without per-access bounds checks.
+      vtx = &m_vertices_3d[m_sprite_idx * 4];
+    }
     auto& vert1 = vtx[0];
 
     if (render_state->version == GameVersion::Jak3 || render_state->version == GameVersion::JakX) {
@@ -1021,6 +1236,12 @@ void Sprite3::do_block_common(SpriteMode mode,
     vert1.info[1] = m_current_mode.get_tcc_enable();
     vert1.info[2] = 0;
     vert1.info[3] = mode;
+
+    if (instanced) {
+      // one record only; corners (info.z) come from gl_VertexID in the shader.
+      ++m_sprite_idx;
+      continue;
+    }
 
     vtx[1] = vert1;
     vtx[2] = vert1;

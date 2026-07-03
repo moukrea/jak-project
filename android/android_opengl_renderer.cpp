@@ -188,6 +188,9 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // debug.opengoal.perf.nostatecache 1.
   m_render_state.perf_sprite_lean = true;
   m_render_state.perf_state_cache = true;
+  // Gperf-particles (round 2): per-instance sprite path (jak1 only). Live A/B
+  // kill switch: adb shell setprop debug.opengoal.perf.noinstance 1.
+  m_render_state.perf_sprite_instance = true;
   std::shared_ptr<SkyBlendGPU> sky_gpu_blender;
   std::shared_ptr<SkyBlendCPU> sky_cpu_blender;
   {
@@ -396,6 +399,9 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     char nsc[PROP_VALUE_MAX] = {0};
     __system_property_get("debug.opengoal.perf.nostatecache", nsc);
     m_render_state.perf_state_cache = (nsc[0] != '1');
+    char nsi[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.noinstance", nsi);
+    m_render_state.perf_sprite_instance = (nsi[0] != '1');
   }
 
   m_stats.chain_bytes = count_chain_bytes(dma);
@@ -475,11 +481,14 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
       fprintf(stderr,
               "A35-SPART win=60f 3d=%.2fms/%lluc/%lluit 2d=%.2fms/%lluc/%lluit "
               "launch=%.2fms/%lluc adgif=%.2fms/%lluc | sprite buckets=%llu quads=%llu "
-              "directflush=%llu | glbuild=%.2fms glflush=%.2fms\n",
+              "directflush=%llu | glbuild=%.2fms glflush=%.2fms"
+              " | goal idle=%.2f pace=%.2f n=%llu | tie i=%.2f ts=%.2f cu=%.2f ix=%.2f\n",
               ms(sp.ns_3d), n(sp.calls_3d), n(sp.iters_3d), ms(sp.ns_2d), n(sp.calls_2d),
               n(sp.iters_2d), ms(sp.ns_launch), n(sp.calls_launch), ms(sp.ns_adgif),
               n(sp.calls_adgif), n(sp.sprite_buckets), n(sp.sprite_quads),
-              n(sp.direct_flushes), ms(sp.gl_spr_build), ms(sp.gl_spr_flush));
+              n(sp.direct_flushes), ms(sp.gl_spr_build), ms(sp.gl_spr_flush),
+              ms(sp.goal_idle), ms(sp.goal_pace), n(sp.goal_frames), ms(sp.tie_interp),
+              ms(sp.tie_texsub), ms(sp.tie_cull), ms(sp.tie_index));
     }
   }
 

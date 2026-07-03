@@ -54,6 +54,11 @@ struct SharedRenderState {
   // GL state cache in the tfrag-family draw loops. Desktop leaves both off.
   bool perf_sprite_lean = false;
   bool perf_state_cache = false;
+  // Gperf-particles round 2 (Android, jak1 only): per-instance Sprite3 path —
+  // one 64B SpriteVertex3D record per sprite drawn via glDrawArraysInstanced,
+  // instead of 4 near-identical verts + a triangle-strip index list. Desktop
+  // leaves this off (the old per-vertex path is used).
+  bool perf_sprite_instance = false;
 
   void reset();
   bool has_pc_data = false;

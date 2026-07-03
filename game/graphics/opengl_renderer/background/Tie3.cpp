@@ -6,6 +6,8 @@
 #include "common/log/log.h"
 #include "common/util/Assert.h"
 
+#include "game/mips2c/spart_prof.h"
+
 #include "third-party/imgui/imgui.h"
 
 Tie3::Tie3(const std::string& name,
@@ -454,12 +456,20 @@ void Tie3::setup_tree(int idx,
     m_color_result.resize(tree.colors->color_count);
   }
 
-  interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
+  {
+    // Gperf-particles: time-of-day color interpolation (per-tree, accumulate).
+    SpartScopedNs _interp(g_spart_prof.tie_interp);
+    interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
+  }
 
-  glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
-                  m_color_result.data());
+  {
+    // Gperf-particles: time-of-day texture upload (bind pair + sub-image).
+    SpartScopedNs _texsub(g_spart_prof.tie_texsub);
+    glActiveTexture(GL_TEXTURE10);
+    glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
+                    m_color_result.data());
+  }
 
   // update proto vis mask
   if (proto_vis_data) {
@@ -467,11 +477,15 @@ void Tie3::setup_tree(int idx,
   }
 
   if (!m_debug_all_visible) {
+    // Gperf-particles: slow (per-node) frustum/occlusion cull check.
+    SpartScopedNs _cull(g_spart_prof.tie_cull);
     // need culling data
     cull_check_all_slow(settings.camera.planes, tree.vis->vis_nodes, settings.occlusion_culling,
                         tree.vis_temp.data());
   }
 
+  // Gperf-particles: index-list build + index-buffer upload (per-tree).
+  SpartScopedNs _index(g_spart_prof.tie_index);
   u32 num_tris = 0;
   if (use_multidraw) {
     if (m_debug_all_visible) {

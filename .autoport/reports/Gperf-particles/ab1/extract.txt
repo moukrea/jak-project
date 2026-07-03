@@ -1,0 +1,225 @@
+
+===== WINDOW A (01:23:07-01:24:47) =====
+[dyn-rs] avg-fps: median=32.0 min=30.7 max=36.6 n=49
+[dyn-rs] distinct scale= values: [40]
+A35-SPART count=54
+  SPART 3dms: median=3.89 min=3.39 max=5.28
+  SPART 2dms: median=119.70 min=115.69 max=124.88
+  SPART lms: median=139.91 min=126.15 max=150.00
+  SPART adms: median=12.50 min=10.85 max=13.88
+  SPART squads: median=164353.50 min=161133.00 max=167972.00
+  SPART dflush: median=1020.00 min=1020.00 max=1080.00
+  SPART glbuild: median=85.33 min=81.22 max=87.53
+  SPART glflush: median=114.75 min=104.11 max=126.32
+  SPART sbuckets: median=540.00 min=480.00 max=552.00
+  SPART 2dc: median=5925.50 min=5852.00 max=6000.00
+  SPART 2dit: median=352352.00 min=349056.00 max=357120.00
+  SPART lc: median=14069.00 min=13959.00 max=14241.00
+A35-PERF blocks captured: 54
+
+===== WINDOW B (01:25:13-01:27:02) =====
+[dyn-rs] avg-fps: median=32.0 min=30.9 max=34.9 n=55
+[dyn-rs] distinct scale= values: [40]
+A35-SPART count=58
+  SPART 3dms: median=3.73 min=3.45 max=4.79
+  SPART 2dms: median=119.36 min=116.36 max=124.54
+  SPART lms: median=139.42 min=133.47 max=150.62
+  SPART adms: median=12.41 min=11.51 max=17.56
+  SPART squads: median=163856.50 min=161087.00 max=171976.00
+  SPART dflush: median=1020.00 min=1020.00 max=1080.00
+  SPART glbuild: median=81.99 min=79.22 max=85.34
+  SPART glflush: median=113.09 min=107.13 max=123.39
+  SPART sbuckets: median=507.00 min=480.00 max=547.00
+  SPART 2dc: median=5910.00 min=5787.00 max=6049.00
+  SPART 2dit: median=351456.00 min=346496.00 max=360256.00
+  SPART lc: median=14057.00 min=13929.00 max=14250.00
+A35-PERF blocks captured: 58
+
+===== WINDOW A2 (01:27:25-01:28:25) =====
+[dyn-rs] avg-fps: median=32.0 min=31.0 max=38.8 n=30
+[dyn-rs] distinct scale= values: [40]
+A35-SPART count=32
+  SPART 3dms: median=3.92 min=3.46 max=5.14
+  SPART 2dms: median=119.49 min=113.82 max=129.02
+  SPART lms: median=140.34 min=122.91 max=145.80
+  SPART adms: median=12.61 min=10.72 max=15.29
+  SPART squads: median=164818.00 min=162785.00 max=169111.00
+  SPART dflush: median=1020.00 min=1020.00 max=1020.00
+  SPART glbuild: median=85.63 min=78.59 max=89.54
+  SPART glflush: median=111.86 min=95.23 max=118.42
+  SPART sbuckets: median=540.00 min=480.00 max=552.00
+  SPART 2dc: median=5930.00 min=5856.00 max=5979.00
+  SPART 2dit: median=352704.00 min=349248.00 max=355840.00
+  SPART lc: median=14095.00 min=13923.00 max=14255.00
+A35-PERF blocks captured: 32
+
+
+########## FULL A35-PERF DUMPS (2 per window) ##########
+
+=========== WINDOW A PERF DUMPS ===========
+
+--- A PERF dump #1 ---
+07-04 01:23:41.063 I/GK_STDERR( 1505): A35-PERF frame=3900
+07-04 01:23:41.063 I/GK_STDERR( 1505): 25.64ms 332dr 390094tri root
+07-04 01:23:41.063 I/GK_STDERR( 1505):  24.49ms 332dr 390094tri buckets
+07-04 01:23:41.063 I/GK_STDERR( 1505):   4.66ms 68dr 118222tri [ 9] l0-tie
+07-04 01:23:41.063 I/GK_STDERR( 1505):    3.43ms 0dr 118222tri setup
+
+--- A PERF dump #2 ---
+07-04 01:24:14.469 I/GK_STDERR( 1505): A35-PERF frame=4980
+07-04 01:24:14.469 I/GK_STDERR( 1505): 26.26ms 333dr 390526tri root
+07-04 01:24:14.469 I/GK_STDERR( 1505):  25.02ms 333dr 390526tri buckets
+07-04 01:24:14.469 I/GK_STDERR( 1505):   4.73ms 68dr 118222tri [ 9] l0-tie
+07-04 01:24:14.469 I/GK_STDERR( 1505):    3.44ms 0dr 118222tri setup
+07-04 01:24:14.469 I/GK_STDERR( 1505):    0.97ms 63dr 0tri draws
+07-04 01:24:14.469 I/GK_STDERR( 1505):     0.96ms 0dr 0tri unknown
+07-04 01:24:14.469 I/GK_STDERR( 1505):    0.31ms 0dr 0tri unknown
+07-04 01:24:14.469 I/GK_STDERR( 1505):   4.29ms 10dr 6242tri [66] sprite
+07-04 01:24:14.469 I/GK_STDERR( 1505):    3.46ms 4dr 256tri 2d-group0
+07-04 01:24:14.469 I/GK_STDERR( 1505):    0.42ms 0dr 0tri unknown
+07-04 01:24:14.469 I/GK_STDERR( 1505):    0.21ms 1dr 810tri distorter
+07-04 01:24:14.469 I/GK_STDERR( 1505):     0.18ms 1dr 810tri drawing
+07-04 01:24:14.470 I/GK_STDERR( 1505):    0.17ms 0dr 0tri 2d-group1
+07-04 01:24:14.470 I/GK_STDERR( 1505):   2.29ms 12dr 4974tri [ 4] ocean-mid-far
+07-04 01:24:14.470 I/GK_STDERR( 1505):    1.28ms 0dr 0tri unknown
+07-04 01:24:14.470 I/GK_STDERR( 1505):    1.02ms 9dr 2064tri texture
+07-04 01:24:14.470 I/GK_STDERR( 1505):   2.12ms 46dr 8147tri [49] l0-pris-merc
+07-04 01:24:14.470 I/GK_STDERR( 1505):    0.93ms 0dr 0tri bones-ub
+07-04 01:24:14.470 I/GK_STDERR( 1505):    0.81ms 38dr 6901tri draws
+07-04 01:24:14.470 I/GK_STDERR( 1505):    0.22ms 0dr 0tri unknown
+
+=========== WINDOW B PERF DUMPS ===========
+
+--- B PERF dump #1 ---
+07-04 01:25:49.506 I/GK_STDERR( 1505): A35-PERF frame=8040
+07-04 01:25:49.506 I/GK_STDERR( 1505): 25.86ms 331dr 390320tri root
+07-04 01:25:49.506 I/GK_STDERR( 1505):  24.45ms 331dr 390320tri buckets
+07-04 01:25:49.506 I/GK_STDERR( 1505):   4.81ms 68dr 118222tri [ 9] l0-tie
+07-04 01:25:49.506 I/GK_STDERR( 1505):    3.39ms 0dr 118222tri setup
+07-04 01:25:49.506 I/GK_STDERR( 1505):    1.10ms 63dr 0tri draws
+07-04 01:25:49.506 I/GK_STDERR( 1505):     1.09ms 0dr 0tri unknown
+07-04 01:25:49.506 I/GK_STDERR( 1505):    0.32ms 0dr 0tri unknown
+07-04 01:25:49.506 I/GK_STDERR( 1505):   4.22ms 9dr 6312tri [66] sprite
+07-04 01:25:49.506 I/GK_STDERR( 1505):    3.43ms 3dr 256tri 2d-group0
+
+--- B PERF dump #2 ---
+07-04 01:26:24.989 I/GK_STDERR( 1505): A35-PERF frame=9180
+07-04 01:26:24.989 I/GK_STDERR( 1505): 26.07ms 333dr 390566tri root
+07-04 01:26:24.989 I/GK_STDERR( 1505):  24.94ms 333dr 390566tri buckets
+07-04 01:26:24.989 I/GK_STDERR( 1505):   4.80ms 68dr 118222tri [ 9] l0-tie
+07-04 01:26:24.989 I/GK_STDERR( 1505):    3.60ms 0dr 118222tri setup
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.92ms 63dr 0tri draws
+07-04 01:26:24.989 I/GK_STDERR( 1505):     0.91ms 0dr 0tri unknown
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.28ms 0dr 0tri unknown
+07-04 01:26:24.989 I/GK_STDERR( 1505):   4.75ms 10dr 6282tri [66] sprite
+07-04 01:26:24.989 I/GK_STDERR( 1505):    3.48ms 4dr 256tri 2d-group0
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.64ms 0dr 0tri 2d-group1
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.39ms 0dr 0tri unknown
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.22ms 1dr 790tri distorter
+07-04 01:26:24.989 I/GK_STDERR( 1505):     0.19ms 1dr 790tri drawing
+07-04 01:26:24.989 I/GK_STDERR( 1505):   1.98ms 36dr 5721tri [55] common-pris-merc
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.94ms 0dr 0tri bones-ub
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.58ms 27dr 4889tri draws
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.29ms 0dr 0tri unknown
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.16ms 9dr 832tri env-draws
+07-04 01:26:24.989 I/GK_STDERR( 1505):   1.88ms 12dr 4974tri [ 4] ocean-mid-far
+07-04 01:26:24.989 I/GK_STDERR( 1505):    1.12ms 0dr 0tri unknown
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.76ms 9dr 2064tri texture
+07-04 01:26:24.989 I/GK_STDERR( 1505):   1.86ms 26dr 214229tri [20] l0-shrub
+07-04 01:26:24.989 I/GK_STDERR( 1505):    1.24ms 0dr 0tri setup
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.58ms 26dr 214229tri draws
+07-04 01:26:24.989 I/GK_STDERR( 1505):   1.86ms 46dr 8147tri [49] l0-pris-merc
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.83ms 0dr 0tri bones-ub
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.68ms 38dr 6901tri draws
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.20ms 0dr 0tri unknown
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.13ms 8dr 1246tri env-draws
+07-04 01:26:24.989 I/GK_STDERR( 1505):   1.26ms 72dr 14322tri [10] l0-tfrag-merc
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.53ms 42dr 9529tri draws
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.29ms 0dr 0tri unknown
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.15ms 11dr 1398tri draws
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.09ms 11dr 1398tri env-draws
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.08ms 8dr 1997tri env-draws
+07-04 01:26:24.989 I/GK_STDERR( 1505):   1.09ms 46dr 15003tri [ 6] l0-tfrag
+07-04 01:26:24.989 I/GK_STDERR( 1505):    1.06ms 46dr 15003tri t3
+07-04 01:26:24.989 I/GK_STDERR( 1505):   0.91ms 4dr 3464tri [63] ocean-near
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.63ms 0dr 0tri unknown
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.27ms 1dr 2048tri texture
+07-04 01:26:24.989 I/GK_STDERR( 1505):   0.79ms 3dr 40tri [ 3] sky
+07-04 01:26:24.989 I/GK_STDERR( 1505):   0.76ms 10dr 162tri [32] l0-sky-blend
+07-04 01:26:24.989 I/GK_STDERR( 1505):    0.47ms 10dr 162tri tfrag-trans
+07-04 01:26:24.989 I/GK_STDERR( 1505):     0.44ms 10dr 162tri t3
+
+=========== WINDOW A2 PERF DUMPS ===========
+
+--- A2 PERF dump #1 ---
+07-04 01:27:45.143 I/GK_STDERR( 1505): A35-PERF frame=11760
+07-04 01:27:45.143 I/GK_STDERR( 1505): 25.75ms 331dr 390114tri root
+07-04 01:27:45.143 I/GK_STDERR( 1505):  24.66ms 331dr 390114tri buckets
+07-04 01:27:45.143 I/GK_STDERR( 1505):   4.60ms 68dr 118222tri [ 9] l0-tie
+07-04 01:27:45.143 I/GK_STDERR( 1505):    3.41ms 0dr 118222tri setup
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.91ms 63dr 0tri draws
+07-04 01:27:45.143 I/GK_STDERR( 1505):     0.90ms 0dr 0tri unknown
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.28ms 0dr 0tri unknown
+07-04 01:27:45.143 I/GK_STDERR( 1505):   4.36ms 9dr 6106tri [66] sprite
+07-04 01:27:45.143 I/GK_STDERR( 1505):    3.56ms 3dr 256tri 2d-group0
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.38ms 0dr 0tri unknown
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.22ms 1dr 770tri distorter
+07-04 01:27:45.143 I/GK_STDERR( 1505):     0.19ms 1dr 770tri drawing
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.18ms 0dr 0tri 2d-group1
+07-04 01:27:45.143 I/GK_STDERR( 1505):   2.25ms 46dr 8147tri [49] l0-pris-merc
+07-04 01:27:45.143 I/GK_STDERR( 1505):    1.16ms 0dr 0tri bones-ub
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.72ms 38dr 6901tri draws
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.21ms 0dr 0tri unknown
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.13ms 8dr 1246tri env-draws
+07-04 01:27:45.143 I/GK_STDERR( 1505):   2.18ms 12dr 4974tri [ 4] ocean-mid-far
+07-04 01:27:45.143 I/GK_STDERR( 1505):    1.35ms 0dr 0tri unknown
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.83ms 9dr 2064tri texture
+07-04 01:27:45.143 I/GK_STDERR( 1505):   1.81ms 26dr 214229tri [20] l0-shrub
+07-04 01:27:45.143 I/GK_STDERR( 1505):    1.23ms 0dr 0tri setup
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.55ms 26dr 214229tri draws
+07-04 01:27:45.143 I/GK_STDERR( 1505):   1.74ms 36dr 5721tri [55] common-pris-merc
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.78ms 0dr 0tri bones-ub
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.52ms 27dr 4889tri draws
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.28ms 0dr 0tri unknown
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.14ms 9dr 832tri env-draws
+07-04 01:27:45.143 I/GK_STDERR( 1505):   1.23ms 71dr 14046tri [10] l0-tfrag-merc
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.54ms 41dr 9253tri draws
+07-04 01:27:45.143 I/GK_STDERR( 1505):    0.30ms 0dr 0tri unknown
+
+--- A2 PERF dump #2 ---
+07-04 01:28:05.358 I/GK_STDERR( 1505): A35-PERF frame=12420
+07-04 01:28:05.358 I/GK_STDERR( 1505): 25.08ms 333dr 390574tri root
+07-04 01:28:05.358 I/GK_STDERR( 1505):  24.04ms 333dr 390574tri buckets
+07-04 01:28:05.358 I/GK_STDERR( 1505):   4.95ms 68dr 118222tri [ 9] l0-tie
+
+
+########## TIE / SHRUB setup-vs-draws (ms) ##########
+
+--- WINDOW A ---
+  tie_setup: median=3.540 min=3.340 max=4.500 n=39
+  tie_draws: median=0.940 min=0.850 max=1.280 n=34
+  shrub_setup: median=1.260 min=1.220 max=1.500 n=17
+  shrub_draws: median=0.595 min=0.470 max=0.650 n=14
+
+--- WINDOW B ---
+  tie_setup: median=3.530 min=2.420 max=4.310 n=40
+  tie_draws: median=0.940 min=0.850 max=1.320 n=37
+  shrub_setup: median=1.265 min=1.000 max=1.680 n=12
+  shrub_draws: median=0.570 min=0.500 max=0.600 n=12
+
+--- WINDOW A2 ---
+  tie_setup: median=3.460 min=1.890 max=4.060 n=19
+  tie_draws: median=0.920 min=0.750 max=0.960 n=18
+  shrub_setup: median=1.230 min=0.990 max=1.380 n=7
+  shrub_draws: median=0.580 min=0.550 max=0.790 n=7
+
+
+########## CRASH/GL/TEXTURE SCAN ##########
+crashes: 0 (see above)
+GL errors: 0
+Failed-to-find-texture per window: A=0 B=0 A2=0 other=1
+
+
+########## VISUAL PARITY A-end vs B-start ##########
+mean abs diff: 2.482
+%%>32: 3.10%%  %%>64: 1.60%%
