@@ -1059,6 +1059,22 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Gorb-hud-regression
+  name: 'OWNER 2026-07-03 (REGRESSION): Precursor orbs render WHITE again on the HUD and ALL interfaces since the render-split decoupled UI/HUD from the main render. The original Gorb-icon fix must be restored WITHIN the split architecture (owner: garder la correlation, do NOT revert the split). Sweep every orb site (HUD, menus, save screens), verify at 100% and 50% render scale. Owner play-test.'
+  prompt: prompts/phase-Gorb-hud-regression.md
+  validator: validators/phase-Gorb-hud-regression.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Geco-spheres
+  name: 'OWNER 2026-07-03: eco spheres render badly on Android and always have (green confirmed; blue/red likely same; check yellow). Oracle-diff vs pristine x86, name the missing/degraded renderer family (glow/generic/sparticle), fix with the 3-part Android renderer-family pattern (kSet un-noop + CMake TUs + bucket/GLES registration). Per-color screencap match vs golden; note fps cost. Owner play-test.'
+  prompt: prompts/phase-Geco-spheres.md
+  validator: validators/phase-Geco-spheres.sh
+  max_turns: 2200
+  max_retries: 5
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
