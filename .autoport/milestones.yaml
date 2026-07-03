@@ -1077,5 +1077,5 @@ phases:
   owner_verify: true
 global:
   git:
-    push_after_each_phase: false
+    push_after_each_phase: true
     branch_prefix: autoport/
