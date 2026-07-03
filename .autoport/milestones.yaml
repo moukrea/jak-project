@@ -1107,6 +1107,14 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Gperf-particles
+  name: 'OWNER 2026-07-03 (v3 playtest, SD 8 Elite Gen 5): particle-heavy zones (moving fire effects) drop below 25fps even at 30% render scale — low scale not helping proves CPU/submission bound, particle path is the prime suspect. Profile the fire regime (A35-PERF + CPU sparticle kernel + draw counts), fix the top costs (sprite/generic batching-instancing, state cache, sync dedupe, NEON the sparticle inner loop if CPU-bound), NUMERIC pose-held A/B >= max(+20%, +5fps), eco-burst + orb regression re-verified, kill switches. Owner play-test.'
+  prompt: prompts/phase-Gperf-particles.md
+  validator: validators/phase-Gperf-particles.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
