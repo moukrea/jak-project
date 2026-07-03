@@ -1,0 +1,96 @@
+RESULT: ECO SPHERES RENDER LIKE ORIGINAL
+Phase Geco-spheres — attempt 2 — 2026-07-03
+Fix commit: 137403d3a (+ probes a1bef0268/01e284b2e/5924992a1; hook 681b76ea2 from attempt 1)
+Device: Redmi Note 9 Pro eae4df44, org.opengoal.gk.jak1, deploy_verify PASS (chain
+build==APK==device ffc7ea8ba696a0a2, HEAD libgk provably running — deploy_verify_fix.log).
+
+== The characterized delta (device vs pristine x86 golden, side-by-side) ==
+Oracle (x86 golden captures x86-oracle-{green,blue,red,yellow}-1..8.png) shows each eco
+pickup as a BRIGHT additive burst: a luminous core (starflash), an orbiting swirl of puff
+clouds and sparkles, lightning streaks, and a sparkle trail. The pre-fix device
+(device-eco-*-*.png) showed only a dim residue: blue eco was a DARK PURPLE SMUDGE (only the
+dark cloud base survived; the bright starflash core, orbit sparkles and trails were
+invisible), green showed a reduced glow without its swirl. Same defect all colors, on every
+Android build ever.
+
+== Wiring audit — the 3-part renderer-family pattern was RULED OUT ==
+The mandate's initial hypothesis (curated-subset gap: kSet noop / missing TU / unregistered
+bucket) was checked first and falsified:
+- mips2c kSet allowlist: sp-launch-particles-var, sp-process-block-2d, sp-process-block-3d,
+  particle-adgif all LIVE on arm64 (game/mips2c/mips2c_table_jak1_arm64.cpp:533) — no noop.
+- CMake TUs: Sprite3.cpp, Sprite3_Glow.cpp, GlowRenderer.cpp, Sprite3_Distort.cpp all in the
+  shared RUNTIME_SOURCE list (game/CMakeLists.txt:80-83), compiled on Android.
+- Bucket registration: Sprite3 registered for jak1 bucket SPRITE=66 unconditionally
+  (OpenGLRenderer.cpp:865). Eco does NOT use the SpriteGlow aux path (no aux-list flag in
+  the eco defparts) — it is ordinary 2D world sparticles in the sprite family.
+- Blend translation (background_common.cpp:53) is shared, GLES3-valid; no "unsupported
+  blend" in any device log; the GORB stomp-guard (SPR3-GORBSKIP) fired 0x.
+The sprite/sparticle renderer family was fully wired; the gap was upstream, in the arm64
+translation of the sparticle LAUNCH path.
+
+== Root cause (proven by x86-vs-device probe bracket) ==
+CPU-side particle data was byte-equivalent to x86 at init (SPART-INIT), at post-field-init
+(P1/SPART-204I) and post-orbit-init (P2/SPART-204Q) — then poisoned at birth-complete
+(SPART-BORN): staging pos x/y and vel-sxvel rotated to ±1e9..1e13 same-magnitude pairs,
+z preserved; NaN rotvel3d downstream in sp-orbiter. 102/102 eco orbit-sparkle births
+poisoned on device, 0/270 on x86.
+
+The one call between P2 and BORN is sp-rotate-system. In sp-launch-particles-var
+(game/mips2c/jak1_functions/sparticle.cpp's launcher sibling,
+game/mips2c/jak1_functions/sparticle_launcher.cpp), the binding REGISTRATION path decides
+via `bnel s6, s7` ("system is-3d != #f?") whether to store the parent's 3D sprite or #f
+into launch-state.sprite3d. On arm64 this full-64 compare MISSES #f (gpr s7 = full host
+base, the is-3d #f = bare low-32 offset) — the identical bug class and the identical s6
+register as the Gmenu-textures euler-convert fix 65 lines below it, which this site missed.
+Result: every BOUND 2D particle's launch-state got sprite3d = the parent's 2D SPRITE; at
+each bound child's launch, sp-rotate-system(staging, cpuinfo, 2d-sprite-as-transformq) read
+the sprite's flag/rot-z/sy quad as a quaternion (rot 0-65536, sy ~thousands for a spinning
+bigpuff cloud) -> w = sqrt(1-huge) = NaN -> garbage rotation matrix -> the child's staging
+pos and velocity destroyed at birth. Children of SPINNING cloud parents (the bright
+starflash cores, orbit sparkles, trails — the visible eco identity) died invisible;
+children of the tiny static center dot got a near-identity garbage quat and survived —
+exactly the dim smudge the owner saw. 38-41% of ALL orbiter particles (ambient included)
+were NaN.
+
+== The fix (translation layer only, 1-to-1 preserved) ==
+game/mips2c/jak1_functions/sparticle_launcher.cpp, three #f-guards arm64-gated to the
+established 32-bit gpr_addr compare (same pattern as the five existing fixes in the file);
+x86 code is untouched (#else branches), goal_src untouched, golden untouched:
+1. registration is-3d guard (root cause) — 2D systems store #f into sprite3d again;
+2. block_41 launch-state #f guard;
+3. block_41 sprite3d #f guard — 2D launches skip sp-rotate-system exactly like x86.
+
+== Verification ==
+- Numeric (FIXGREEN run, deploy_verify PASS): eco orbit-sparkle births 155/155 CLEAN
+  (was 102/102 poisoned); ALL 151,460 births garbage-free; SPART-ORBPRE NaN 0/66,799
+  (was 27,594/71,989 = 38%). No crash, sig=none, LOADS+RENDERS foreground.
+- Visual side-by-side screencaps vs the x86 golden captures, all four colors on device
+  (fix-eco-{green,blue,red,yellow}-1..8.png vs x86-oracle-*-N.png), foreground-verified:
+  GREEN (vert): bright yellow-green glow burst + swirl matches oracle green.
+  BLUE (bleu): bright blue-white core with lightning streaks — the dark purple smudge is
+  gone; matches oracle blue's luminous burst.
+  RED (rouge): bright orange-red flare with streaks, matches oracle red.
+  YELLOW: bright yellow flare + streaks, matches oracle yellow.
+- 0 flicker / 0 black frames: the effect is present and stable across all 8 consecutive
+  2s-spaced frames per color (32/32 valid ~2.2-2.4MB frames); 0 NaN particles means no
+  vanishing sprites.
+- fps cost (honest): none measurable. The fix adds NO code to the render hot path (it is a
+  launch-time guard correction); the newly-visible particles were ALREADY being launched
+  and processed pre-fix (at garbage positions). Frame advance over the 150s observe window:
+  4080 post-fix vs 4200/4200/4740 in the immediately preceding pre-fix runs — within the
+  2460..4980 variance of all runs this phase. No new draws beyond restoring the original
+  game's own sprite counts; the sprite pool is healthier (no more immortal NaN zombies).
+- Prior fixes intact: boot -> title -> attract -> level-warp -> in-game render clean on all
+  post-fix runs; the Gmenu/GNG/Gbirds/Gsprite arm64 guards in the same file untouched and
+  the fix extends their exact pattern. Full consistent build (single HEAD: CGOs + libgk).
+- x86 unchanged: fix is 100% #ifdef __aarch64__-gated; x86 gk rebuilt and used for the
+  oracle captures; validator x86 smoke (link finish: logo) passes.
+
+== Residuals / notes ==
+- The diagnostic probes (SPART-*, ECO-SPAWN/ECO-TRACE hooks) remain in-tree, env/prop-gated
+  OFF by default (established precedent: OG_ECO_SPAWN, A35-PERF). Never armed in shipping.
+- Pre-existing ~1-in-6 link-time boot-flake hit once during verification (documented since
+  F1e, own phase); re-run was clean. Not a regression of this fix.
+- The same #f-guard fix likely improves OTHER long-standing bound-particle effects
+  (ambient orbiter NaN went 38% -> 0 globally), e.g. title fireflies density.
+- Owner play-test remains the final gate per phase mandate.
