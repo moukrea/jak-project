@@ -96,6 +96,13 @@ A shell "setprop debug.opengoal.want.vis '${WANT_VIS:-}'" >/dev/null 2>&1 || tru
 [ -n "${WANT_LEVELS_DELAY:-}" ]  && A shell setprop debug.opengoal.want.levels.delay  "$WANT_LEVELS_DELAY"  >/dev/null 2>&1
 [ -n "${WANT_DISPLAY_DELAY:-}" ] && A shell setprop debug.opengoal.want.display.delay "$WANT_DISPLAY_DELAY" >/dev/null 2>&1
 [ -n "${WANT_VIS_DELAY:-}" ]     && A shell setprop debug.opengoal.want.vis.delay     "$WANT_VIS_DELAY"     >/dev/null 2>&1
+# ECO_SPAWN env: "<pickup-type-int> [period-ticks [dx dy dz]]" — periodic eco births
+# near *target* (sparticle traffic amplifier; 3=eco-blue, 5=money, 8=buzzer)
+if [ -n "${ECO_SPAWN:-}" ]; then
+  A shell "setprop debug.opengoal.eco.spawn '$ECO_SPAWN'" >/dev/null 2>&1
+else
+  A shell setprop debug.opengoal.eco.spawn 0 >/dev/null 2>&1
+fi
 
 A shell am force-stop "$PACKAGE" >/dev/null 2>&1
 A logcat -G 64M >/dev/null 2>&1 || true
@@ -112,7 +119,8 @@ cleanup(){ kill "$LOGPID" 2>/dev/null || true
   A shell setprop debug.opengoal.want.vis '""' >/dev/null 2>&1 || true
   A shell setprop debug.opengoal.want.levels.delay '""' >/dev/null 2>&1 || true
   A shell setprop debug.opengoal.want.display.delay '""' >/dev/null 2>&1 || true
-  A shell setprop debug.opengoal.want.vis.delay '""' >/dev/null 2>&1 || true; }
+  A shell setprop debug.opengoal.want.vis.delay '""' >/dev/null 2>&1 || true
+  A shell setprop debug.opengoal.eco.spawn 0 >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 A shell am start -W -n "$PACKAGE/$ACTIVITY" >/dev/null 2>&1
 
@@ -157,23 +165,30 @@ if [ "$WARP_OK" = 1 ] && ! crash_seen; then
     CUR=$(pos); [ -n "$CUR" ] || { sleep 2; continue; }
     CZ=$(echo "$CUR" | awk '{print $2}')
     if awk "BEGIN{exit !($CZ < $REACH_Z)}"; then REACHED=1; echo "  REACHED z=$CZ (< $REACH_Z)"; break; fi
-    OUTP=$(python3 - "$P0" "$P1" "$P2" "$CUR" "$WAYPOINTS" "$PLY" "$PLX" "$WPIDX" "$SPAWNP" <<'EOF'
+    OUTP=$(python3 - "$P0" "$P1" "$P2" "$CUR" "$WAYPOINTS" "$PLY" "$PLX" "$WPIDX" "$SPAWNP" "${LOOP_WAYPOINTS:-0}" <<'EOF'
 import sys, math
 def v(s): p=s.split(); return (float(p[0]), float(p[1]))
 p0,p1,p2,cur=(v(x) for x in sys.argv[1:5])
 wps=[tuple(map(float,w.split(','))) for w in sys.argv[5].split(';') if w]
 ply,plx=int(sys.argv[6]),int(sys.argv[7])
 idx=int(sys.argv[8]); spawn=v(sys.argv[9])
-# advance: within 30k of wp, or passed the perpendicular at wp along (wp - prev-anchor)
-while idx < len(wps):
-    wp=wps[idx]; anchor = wps[idx-1] if idx>0 else spawn
-    ax,az=cur[0]-wp[0], cur[1]-wp[1]
-    bx,bz=wp[0]-anchor[0], wp[1]-anchor[1]
-    if math.hypot(ax,az) < 30000 or ax*bx+az*bz > 0:
+loop = len(sys.argv) > 10 and sys.argv[10] == "1"
+if loop:
+    # loop mode: cycle waypoints forever; advance on proximity only
+    if math.hypot(wps[idx % len(wps)][0]-cur[0], wps[idx % len(wps)][1]-cur[1]) < 30000:
         idx += 1
-    else:
-        break
-tgt=wps[min(idx,len(wps)-1)]
+    tgt = wps[idx % len(wps)]
+else:
+    # advance: within 30k of wp, or passed the perpendicular at wp along (wp - prev-anchor)
+    while idx < len(wps):
+        wp=wps[idx]; anchor = wps[idx-1] if idx>0 else spawn
+        ax,az=cur[0]-wp[0], cur[1]-wp[1]
+        bx,bz=wp[0]-anchor[0], wp[1]-anchor[1]
+        if math.hypot(ax,az) < 30000 or ax*bx+az*bz > 0:
+            idx += 1
+        else:
+            break
+    tgt=wps[min(idx,len(wps)-1)]
 m1=(p1[0]-p0[0], p1[1]-p0[1])       # response to stick (0,-1) fwd
 m2=(p2[0]-p1[0], p2[1]-p1[1])       # response to stick (1,0) right
 n1,n2=math.hypot(*m1),math.hypot(*m2)

@@ -1,0 +1,80 @@
+Gcrash-rockvillage — Rock Village (village2): crash-to-home past the pontoons / buzzer crate
+=============================================================================================
+(WIP skeleton — updated as evidence lands; see git log [autoport/Gcrash-rockvillage])
+
+RESULT: (pending — root being pinned)
+
+## Owner defect (2026-07-03)
+Rock Village, after paying 90 orbs to the warrior to restore the pontoons: breaking the
+buzzer crate past the pontoons works, but WALKING FURTHER crashes straight to the Android
+home screen. v3 batched build (bundle v6), device eae4df44.
+
+## Route geometry (decoded)
+- Buzzer crate = crate-3131 (aid 21812, eco-info [8=buzzer, task 76]) at raw
+  (1778057, 9285, -7187726) — decompiler_out/jak1/entities/village2-actors.json.
+- The (load village2 swamp) boundary (load-boundary-data.gc:1026-1031) is crossed while
+  ON the pontoons; SWA.DGO streams while walking. Past the crate come, in order:
+  (display swamp display) at z~-7245k (load-boundary-data.gc:1032-1040), then
+  (vis vi2 #f) z~-7290k and (vis swa #f) z~-7350k. "Walking further past the crate" ==
+  the display/vis command band.
+- 90-orb gate: game-task village2-warrior-money=33 (game-task-h.gc:44); pontoons unhide
+  when (task-closed? 33 need-resolution=7) (village2-obs.gc:92,119-135).
+
+## Reproduction method (device eae4df44, deploy_verify PASS each build)
+Debug-only kernel-dispatch hooks added (kmachine.cpp, pattern of level.warp; commits
+4daad8ac5, a463b281e):
+- debug.opengoal.task.close=33      -> (close-specific-task! 33 need-resolution): pontoons live
+- debug.opengoal.level.warp=village2-dock + level.warp.pos "434.1 3 -1754.8"
+                                    -> spawn AT the crate with want=village2+rolling (owner state)
+- debug.opengoal.want.levels=village2,swamp   -> load-state-want-levels (the load fence command)
+- debug.opengoal.want.display=swamp,display   -> load-state-want-display-level (display boundary)
+- debug.opengoal.want.vis=swa                 -> load-state-want-vis (vis boundary)
+Driver: .autoport/lib/grv_run.sh (closed-loop cpad steering off F1D target-pos telemetry),
+.autoport/lib/grv_repeat.sh (boot-flakes retried; post-spawn crash kept).
+
+## CAPTURED CRASH (repro12, 2026-07-03 16:42:44, this is the phase's post-spawn crash)
+Jak standing on the crate spot (1778073, 9283, -7187661), village2+rolling resident,
+~10s after spawn (before the want hooks fired):
+  GK-DIAG sig=11 fault=0x1d7b30 pc=0x1d7b30 lr=0x1d7b30   (SIGSEGV, exec at unmapped addr)
+  x29(fp)=0x14fd24 = s7; sp=0x7f001a7ed0 -> GOAL 0x1a7ed0 = *kernel-dram-stack*
+  (the stack *target*'s main cpu-thread runs on — logic-target.gc:1279); x3=x12=x13=
+  0x1c5794 = *target*; x17=0x1d32598 (bare, code region); fault==pc==lr = BARE GOAL code
+  offset branched/RET'd to without the 0x7f00000000 EE base.
+App foreground at crash start, crash-to-home observed (focus_app=no after). Full logcat:
+repro12-logcat.log (capture continued well past the crash; no background sig9 confusion —
+the fatal is sig=11 in org.opengoal.gk.jak1 pid 13434).
+
+## Classification (forensics so far)
+corrupt-LDP-then-RET / stack-stomp class in the *target* process slice:
+- pc==lr==bare-offset-in-code-region + fp==s7 == a GOAL function epilogue
+  (LDP X29,X30 / .ret LDR X30; CodeGenerator.cpp:551,707-718, IR.cpp:2190) restored a
+  frame whose save slots were OVERWRITTEN with 4-byte GOAL cells (a GOAL fn ptr 0x1d7b30
+  and s7) — the same arm64 stomp class already documented at enter-state branch-3
+  (gstate.gc:342-350) and fixed per-site in prior phases (sp-launch-particles-var,
+  sparticle #f-guards, Geco-spheres sp-rotate-system).
+- suspend/resume stack copy ruled out as truncator (8-byte cells, gkernel.gc:613-618).
+- x86 twin scenario CRASH-FREE: grv_x86_route.sh = same warp+task-close+want sequence on
+  our-x86 (GOAL-identical to original per Gref gold audit) -> X86-ROUTE-CRASH-FREE
+  (x86route1-result.txt). Confirms arm64-side divergence, engine goal_src untouched.
+
+## Ruled out / separated
+- Plain SWA streaming mid-play does NOT crash by itself (repro10: full swamp link while
+  playing, no crash; Gzone-device sweep swamp-start LOADS+RENDERS).
+- swamp displayed + village2 displayed is not fatal per se (SWAMPSTART warp probe, 120s).
+- BONUS (separate, pre-existing): the known ~1-in-6 boot-link flake captured TWICE with
+  full forensics (BONUS-bootflake-method_set-ctor-logcat.log): jak1::method_set+0x70
+  faulting on type arg = string bytes "ctor" (tail of "ve-ctor" string) during engine-CGO
+  link (repro11), and a garbage-jump SIGBUS during subdivide-h link (repro13). Same
+  link-time corruption family; NOT this phase's fix target.
+
+## Prior fixes intact / x86 smoke
+(pending AFTER-run: collision/jungle/blue-eco/speed/camera/orbs markers + x86
+"link finish: logo")
+
+## Evidence files (.autoport/reports/Gcrash-rockvillage/)
+- repro12-logcat.log            the captured crate crash (sig 11, registers)
+- x86route1-{result.txt,gk.log} x86 twin, crash-free
+- SWAMPSTART-result.txt         swamp warp probe (no crash standing in swamp)
+- repro10-logcat.log            mid-play SWA streaming, no crash
+- BONUS-bootflake-*.log         boot-link flake forensics (method_set "ctor")
+- crateB*-logcat.log            amped repeats (movement + eco births + boundary sequence)
