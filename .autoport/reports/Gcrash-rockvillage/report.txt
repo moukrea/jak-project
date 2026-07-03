@@ -90,6 +90,16 @@ corrupt-LDP-then-RET / stack-stomp class in the *target* process slice:
   process' embedded stack. Forensics v4 (GRV-POOL) now walks the active tree at crash
   time and flags the span containing SP.
 
+## SP-corruption reading (x86 layout mapping, delta +0x74e0 uniform)
+Device crash SP 0x1a7ed0 ↔ x86 0x1a09f0: NOT in any stack; it lies in a static
+80-byte-stride record table on the global heap (~0xD350 past the dram arena, no type
+headers, contents repeat) — i.e., at crash time SP ITSELF was off-stack, and the
+"frame" the epilogue consumed ({#f, *camera-combiner*+0x6c}) is plausibly legitimate
+CONTENT of that table (camera/engine records). Mechanism refined: the 32-bit
+(-> thread sp) heap field (restored into SP by thread-resume, gkernel.gc:731-735) got
+stomped → target resumed onto global data → next epilogue RET'd into table content.
+Canary v4 watches (-> main-thread sp)/(-> top-thread sp) leaving the dram arena.
+
 ## Fix-stage verification design (for the AFTER run)
 Trigger rate observed ~1-in-10 scenario runs — a crash-free AFTER run alone would be
 absence-of-evidence. The fix must expose a DETECTION/REPAIR COUNTER (logged) so the
