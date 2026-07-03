@@ -1083,6 +1083,30 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Glang-mixed
+  name: 'OWNER 2026-07-03 (v3 playtest): with audio=EN and text=FR, some interaction prompts (objects/NPCs) stay ENGLISH — they must follow the TEXT language. Repro + sweep every affected string, x86 oracle verdict (divergence vs upstream), find where the text-language id is lost, fix in pc/translation layer, both-ways language check. Owner play-test.'
+  prompt: prompts/phase-Glang-mixed.md
+  validator: validators/phase-Glang-mixed.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gndskip
+  name: 'OWNER 2026-07-03 (v3 playtest): pressing START at the Naughty Dog logo does NOT skip — screen goes black (audio keeps playing) until the J&D logo appears at its normal time. Make skip land directly on the Jak and Daxter logo appearance (~1s), audio consistent, no-skip path intact, title/attract unregressed (Gndlogo/Ghalo lessons). Owner play-test.'
+  prompt: prompts/phase-Gndskip.md
+  validator: validators/phase-Gndskip.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gtitle-tap
+  name: 'OWNER 2026-07-03 (v3 playtest): title screen must read "PRESS START OR TAP SCREEN" (localized, Android only) and a screen tap must open the start menu like START. Reuse the touch plumbing, scope to the press-start screen only (in-game taps unaffected), title layout unregressed at both aspects. Owner play-test.'
+  prompt: prompts/phase-Gtitle-tap.md
+  validator: validators/phase-Gtitle-tap.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
