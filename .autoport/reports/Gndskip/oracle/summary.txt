@@ -1,0 +1,212 @@
+================================================================================
+Gndskip ORACLE VERDICT — ND-logo skip on x86 (pristine vs our HEAD)
+Captured: 2026-07-03  |  worker: autoport tester
+================================================================================
+
+QUESTION
+  On x86, does triggering the ND-logo skip during the ndi spool:
+   (a) immediately abort the spool and land on the J&D logo (pristine expected)?
+   (b) does OUR x86 HEAD instead hang until the spool's natural end (the Android
+       bug reproduced on x86)?
+
+VERDICT (one line)
+  PRISTINE x86 skips PROMPTLY: injection -> ndi death ~1.4s -> J&D logo.
+  OUR HEAD x86 does NOT skip: injection is IGNORED, ndi runs to natural ~15.4s
+  end (audio keeps streaming = orphan-audio symptom). The Android bug REPRODUCES
+  on our x86 HEAD. Divergence CONFIRMED and attributed to the done?-gates in
+  goal_src/jak1/levels/title/title-obs.gc (ndi :trans, lines 405 / 409 / 412).
+
+--------------------------------------------------------------------------------
+INJECTION ROUTE (proven)
+  The ndi :event 'blackout handler does exactly what the START/circle/X press does:
+  (set-setting! 'bg-a 'abs 1.0 0). So sending the ndi logo process a 'blackout
+  event == the press's effect. The frame-453 spool command sends the same event.
+  Injected via the listener with:
+    (let ((p (process-by-name "logo" *active-pool*)))
+      (if (and p (name= (-> (the-as process-drawable p) state name) 'ndi))
+          (send-event p 'blackout) ...))
+  The ND-logo process is named "logo" (NOT "logo-1"), type logo, state 'ndi.
+
+--------------------------------------------------------------------------------
+CRITICAL LAUNCH NOTE (cost several attempts — record for reuse)
+  -boot -debug  boots STRAIGHT TO village1 GAMEPLAY, SKIPPING the title/ND-logo
+  entirely: level.gc:985-987  (('play) (if *debug-segment* 'village1 'title)).
+  With -debug, *debug-segment*=#t -> startup-level='village1 (continue-point
+  village1-hut, target in target-stance). The ND logo NEVER runs.
+  MUST use -boot -debug-mem (title flow, startup-level='title). The DECI2 listener
+  still binds under -debug-mem, so (lt) works. This is why every -debug attempt
+  saw "no ndi process" while ndi-intro streamed under a different (skipped) config.
+
+--------------------------------------------------------------------------------
+RUN A — PRISTINE x86 GOLDEN
+  Binary : /home/emeric/code/jak-original-v033/build/Release/bin/game/gk
+           (= .autoport/gold/gk, Compiled Version 704972dd6, v0.3.3)
+  Listener: /home/emeric/code/jak-original-v033/build/Release/bin/goalc/goalc
+           (lt); (build-game) to intern game symbols (519 targets, ~20-28s).
+  Launch : gk -v --game jak1 --portable --disable-ansi -- -fakeiso -boot -debug-mem
+  Detection: process-by-name "logo" + state name 'ndi, polled ~30x/s from a
+           listener connected right after link finish: gcommon/gstate/gkernel.
+  Format route that worked: (format 0 "..." ...) -> gk stdout (v0.3.3).
+
+  TIMELINE (epochs, seconds):
+    NATURAL (no input):
+      NDI_BIRTH 1783107559.869 -> NDI_END 1783107575.321
+      ndi lifetime = 15.45 s ; then logo -> state 'startup (J&D), logo-intro active.
+    INJECT rep1:
+      NDI_BIRTH 1783107602.534
+      INJECT ('blackout) 1783107608.536  (+6.00 s into ndi)
+      NDI_END 1783107609.900             (ndi -> 'startup)
+      => injection -> ndi-death latency = 1.36 s
+      => J&D beat: after NDI_END, logo state='startup, file-status "logo-intro"='active
+    INJECT rep2:
+      INJECT 1783107892.507 (+6.03 s) -> NDI_END 1783107893.945
+      => injection -> ndi-death latency = 1.44 s
+  PRISTINE latency (inject -> ndi death) = ~1.4 s (STABLE).  PROMPT SKIP -> J&D logo.
+
+--------------------------------------------------------------------------------
+RUN B — OUR x86 HEAD
+  Binary : /home/emeric/code/jak-project/build-x86/game/gk (built 2026-07-03 17:18)
+  Data   : out/jak1/iso (TIT.DGO built 2026-07-03 19:50, 28 CGO/DGO) — HEAD source
+           with the done?-gates (title-obs.gc:405,409,412) compiled in.
+  Listener: build-x86/goalc/goalc ; (lt) ; (build-game) (519 targets, ~21s).
+  Launch : gk --game jak1 --portable -fakeiso --verbose --disable-ansi
+              -iso-data out/jak1/iso -- -boot -debug-mem
+  Same detection/injection protocol.
+
+  TIMELINE (epochs, seconds):
+    NATURAL (no input):
+      NDI_BIRTH 1783107727.474 -> NDI_END 1783107742.812
+      ndi lifetime = 15.34 s ; then 'startup.  (== pristine natural, sequences match)
+    INJECT rep1:
+      NDI_BIRTH 1783107765.193
+      INJECT ('blackout) 1783107771.202  (+6.01 s into ndi)  [send-event fired on
+                                          the ndi-state process; NOT the else branch]
+      NDI_END 1783107780.710             (ndi -> 'startup)
+      => injection -> ndi-death latency = 9.51 s  (ndi ran to natural end)
+    INJECT rep2:
+      INJECT 1783107822.627 (+6.01 s) -> NDI_END 1783107831.988
+      => injection -> ndi-death latency = 9.36 s
+  HEAD latency (inject -> ndi death) = ~9.4 s (STABLE) = ndi runs to natural ~15.4s
+  end regardless of the skip.  ORPHAN AUDIO: PlayVag / LOI2 STR streams keep
+  playing through and past the injection (gk stdout, HEAD inject run).
+
+--------------------------------------------------------------------------------
+COMPARISON
+  metric                         PRISTINE x86     OUR HEAD x86
+  natural ndi lifetime           15.45 s          15.34 s      (match, no-input)
+  inject -> ndi death            1.36 / 1.44 s    9.51 / 9.36 s
+  skip lands on J&D logo         YES, ~1.4 s      NO (only at natural ~15.4 s end)
+  audio after skip               stops with ndi   keeps streaming (orphan)
+
+  PRISTINE SKIP LATENCY ~1.4 s  vs  OUR-HEAD LATENCY ~9.4 s  (~7x slower / no skip).
+
+ROOT CAUSE (source, verified against behavior)
+  goal_src/jak1/levels/title/title-obs.gc  ndi :trans:
+    - PRISTINE (jak-original-v033): the deactivate branch fires the moment
+      bg-a==1.0 AND village1 loaded AND all-visible?!='loading; it calls
+      (ja-abort-spooled-anim ...) + (deactivate self) immediately.
+    - HEAD: adds done?-gates at lines 405 (display-self gated on done?) and 409
+      ((and (-> self done?) (!= all-visible? 'loading))). While the spool plays,
+      done? is #f (set #t only at end of :code, line 467), so the whole `when`
+      condition never becomes true -> the abort/deactivate at 412-414 is
+      UNREACHABLE until the spool's natural end. The 'blackout sets bg-a=1.0 but
+      the gate swallows it. (These gates are the Gndlogo slow-load village/sun
+      suppression; they must not regress, but they also block the skip.)
+
+REUSE — listener incantations that worked (for after-fix verification)
+  # connect (v0.3.3 AND HEAD): (lt) after link finish: gcommon ; symbols via (build-game)
+  # detect ndi:
+  (let ((p (process-by-name "logo" *active-pool*)))
+    (format 0 "st=~A~%" (if p (-> (the-as process-drawable p) state name) 'none)))
+  # inject skip:
+  (let ((p (process-by-name "logo" *active-pool*)))
+    (if (and p (name= (-> (the-as process-drawable p) state name) 'ndi))
+        (send-event p 'blackout) (format 0 "not-ndi~%")))
+  # J&D confirm: (file-status *art-control* "logo-intro" 0) -> 'active ; logo state -> 'startup
+  # LAUNCH MUST BE -boot -debug-mem (NOT -debug, which skips the title to village1).
+
+ANOMALIES / HONESTY
+  - bg-a printed by the listener shows as a large int (e.g. 133169152) — a
+    float-as-int display artifact of reading current bg-a over the listener; the
+    behavior (deactivate gating) is what was measured, not the printed value.
+  - frame-453 blackout at 60fps = 7.55 s, but the debug-mem build runs slower than
+    realtime, so the NATURAL wall-clock ndi is ~15.4 s. Latency deltas are what
+    matter and they are internally consistent across pristine/HEAD and repeats.
+  - the ndi process is named "logo" (type logo), NOT "logo-1"; the "logo-1" in the
+    boot-sequence doc is the ENTITY name fed to process-spawn, not the process name.
+================================================================================
+
+================================================================================
+AFTER-FIX VERIFICATION — OUR x86 HEAD (fresh out/jak1/iso, TIT.DGO 2026-07-03 21:49)
+Captured: 2026-07-03  |  gk binary UNCHANGED (build-x86/game/gk 17:18); DATA changed.
+Fix: goal_src/jak1/levels/title/title-obs.gc ndi :trans — press latches
+     *gnd-ndi-skip* (line 387); new trans step (line 399) aborts the spool +
+     flips done? when the latch is set, so the existing done?-gated natural-end
+     machinery deactivates ndi. Gndlogo done?-gates untouched.
+================================================================================
+
+IMPORTANT INJECTION NOTE (mechanism-faithful)
+  The fix keys on *gnd-ndi-skip*, which is set ONLY by the real cpad press path
+  (ndi :trans line 387: cpad-pressed? start/circle/x). The 'blackout EVENT handler
+  (line 355) does ONLY (set-setting! 'bg-a 'abs 1.0 0) and does NOT set the latch.
+  Therefore a bare (send-event p 'blackout) — the RUN B injection — would NOT
+  exercise the new skip path. To faithfully replicate the PRESS, RUN C injected
+  BOTH, exactly what the press does:
+      (send-event p 'blackout)        ; bg-a := 1.0  (needed for the deactivate when)
+      (set! *gnd-ndi-skip* #t)        ; the latch the press sets
+  Injection command (worked; prints INJ_OK when it fires on the ndi-state proc):
+    (let ((p (process-by-name "logo" *active-pool*)))
+      (if (and p (name= (-> (the-as process-drawable p) state name) 'ndi))
+          (begin (send-event p 'blackout) (set! *gnd-ndi-skip* #t) (format 0 "INJ_OK~%"))
+          (format 0 "INJ_NOT_NDI st=~A~%" ...)))
+
+RUN C — SKIP (fixed HEAD)
+  Launch: gk --game jak1 --portable -fakeiso --verbose --disable-ansi
+             -iso-data out/jak1/iso -- -boot -debug-mem  ; (lt)+(build-game) 519 tgts.
+  TIMELINE (epochs, s):
+    NDI_BIRTH 1783108293.006
+    INJECT    1783108299.028  (+6.02 s into ndi)  -> INJ_OK
+    NDI_END   1783108300.312  (ndi -> 'startup)
+    LOGOINTRO_ACTIVE 1783108301.652
+  LATENCIES:
+    injection -> ndi death        = 1.28 s   (was 9.4 s pre-fix; pristine 1.4 s)
+    injection -> logo-intro active = 2.62 s
+  AUDIO: the ndi ND-logo stream (ASIBESWISTR) stops right after the abort
+    (last FS Open ASIBESWISTR ~gk 51:47, then only LOI2 = the J&D logo-intro
+    audio continues). NO orphan ndi audio dragging to the natural end.
+  RESULT: PROMPT SKIP to the J&D logo, comparable to pristine (~1.3 s vs ~1.4 s).
+    ~7x faster than the pre-fix ~9.4 s; the Android/x86 bug is FIXED on x86.
+
+RUN D — NO-SKIP natural path (fixed HEAD)
+  Same launch, NO injection.
+  TIMELINE:
+    NDI_BIRTH 1783108360.881 -> NDI_END 1783108376.304 (ndi -> 'startup)
+    natural ndi lifetime = 15.42 s
+  457 samples observed in state 'ndi (full spool), then 'startup (J&D logo).
+  The frame-453 'blackout spool command (EVENT only, no latch) does NOT trigger
+  the new abort path -> the last seconds of the spool play; no premature cut.
+  RESULT: natural path INTACT — not truncated.
+
+NATURAL LENGTH before vs after (regression check)
+  pristine natural : 15.45 s
+  HEAD pre-fix     : 15.34 s
+  HEAD after-fix   : 15.42 s   (within noise; no truncation)
+
+SANITY: link finish: logo reached in BOTH RUN C and RUN D boot logs.
+
+DEVIATIONS / HONESTY
+  - RUN C injection is press-faithful (blackout event + *gnd-ndi-skip* latch), NOT a
+    bare 'blackout event; a bare 'blackout would NOT exercise the fix (latch keys the
+    new path). This is the correct test of the shipped mechanism (the real device
+    press sets both). Flagged explicitly per the coordinator's RUN C wording.
+  - logoi=active AFT-poll count in RUN D shows 0 only because the AFT loop samples
+    after NDI_END at 10 Hz and the logo-intro active window fell between polls; the
+    logo reaching state 'startup (J&D) + link finish: logo confirm the J&D beat.
+  - bg-a printed over the listener is a float-as-int artifact (unchanged from before).
+
+AFTER-FIX VERDICT
+  OUR x86 HEAD now SKIPS the ND logo promptly (~1.3 s inject->death, J&D logo
+  active ~2.6 s) — matching pristine (~1.4 s) — with NO orphan ndi audio, while the
+  no-input natural sequence still plays its full ~15.4 s and transitions to the J&D
+  logo normally. Fix VERIFIED on x86; natural path NOT regressed.
+================================================================================

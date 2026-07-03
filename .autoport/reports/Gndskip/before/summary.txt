@@ -1,0 +1,93 @@
+Gndskip BEFORE-FIX reproduction + measurement (Redmi Note 9 Pro, eae4df44, org.opengoal.gk.jak1)
+Date: 2026-07-03. Build: deployed v3 playtest (NOT reinstalled). No source edited.
+
+PRE-FLIGHT (all pass):
+  - get-state = device
+  - keyguard: showing=false, mIsShowing=false (unlocked)
+  - svc power stayon true set
+  - leftover-runner pgrep: only matches were the orchestrator's own `claude` process
+    (its prompt text contains 'screenrecord') and my own shell; device-side
+    `pkill -f screenrecord` used to clear device recorders. No real leftover runner.
+  - focus verified org.opengoal.gk.jak1 at every evidence point + at end.
+
+INJECT MECHANISM NOTE (important):
+  The documented `run-as ... sh -c 'cat > files/cpad_inject'` redirect FAILS on this
+  device: the redirect target is opened by the ADB-side sh at cwd '/' (Permission
+  denied / wrong path). Working method = `printf 'start' | run-as org.opengoal.gk.jak1
+  tee /data/user/0/org.opengoal.gk.jak1/files/cpad_inject`. The watcher does NOT
+  truncate the file (it treats contents as HELD button state), so a momentary press =
+  write 'start', hold ~0.6s, then write empty to release. Logcat 'F1D-INJECT applied:
+  button0=0x0008 (raw=start)' confirms the START bit (bit 3) reached GOAL.
+
+=== STEP 1: NATURAL (no-press) sequence — baseline timing ===
+  Screenrecord gndskip-natural.mp4 (60.06s), rec started ~1s before launch.
+  Video-time structure (2fps brightness/color/frame-diff analysis):
+    t~3.5s   game GL surface takes over -> black loading begins
+    t~3.5-13s pure black loading (bright <1)
+    t~13-23s  NAUGHTY DOG logo beat (dim: Jak+Daxter on the ND paw logo over black,
+              bright ~2, frame motion present) -- keyframes natural_nd_logo_t18.png,
+              natural_nd_logo_t22.png
+    t~23.5-24s black transition
+    t~24.5-25s JAK & DAXTER logo (blue-streak flythrough) -- keyframe natural_jd_logo_t25.png
+  => Natural ND->J&D-logo handoff lands at video t ~= 25s (launch+ ~24s).
+
+=== STEP 2: SKIP run (START pressed during ND logo) — the bug ===
+  Screenrecord gndskip-before.mp4 (100.05s). Host logcat before-logcat.txt.
+  Epoch correlation (all epochs in files rec_start/launch/inject_before/after/release):
+    rec start  = 1783105508.685  (video t=0)
+    launch     = 1783105509.688  (video t=1.00s)
+    START press= 1783105526.915  (video t=18.23s = launch+17.23s) -> mid ND logo beat
+    release    = launch+18.17s
+  Logcat: 'F1D-INJECT applied: button0=0x0008 (raw=start)' at 21:05:26.993 == press epoch.
+
+  Video brightness timeline (5fps around the event):
+    ...17.80s  ND logo still visible (bright 2.1)
+    18.00s     SCREEN GOES BLACK (bright 0.4 -> 0.0)          <- coincident with press
+    18.20-24.80s  SUSTAINED PURE BLACK (bright 0.0, dframe 0.0)  <- keyframe before_black_gap_t21.png (17KB, black)
+    25.00s     JAK & DAXTER logo appears (bright rising, color 17->22) <- keyframe before_jd_logo_t25.png
+
+  MEASURED BLACK GAP = T_jd_logo(25.00s) - T_screen_black(18.00s) = 7.0 seconds of pure black.
+
+  CROSS-CHECK vs natural: J&D logo appears at video t~25s in BOTH runs. Pressing START
+  did NOT shorten the sequence — it only blanked the display for the remainder of the
+  ND spool. Bug confirmed exactly as owner reported.
+
+=== AUDIO / STREAMING evidence (logcat, grep -a) ===
+  The ND intro keeps streaming/playing across and after the press until its natural end:
+    - ndi-intro cutscene process advances past the press:
+        21:05:22.567  GK-DIAG F1B-FG name='ndi-ndi-intro' fnum=21.46   (at press time)
+        21:05:27.601  GK-DIAG F1B-FG name='ndi-ndi-intro' fnum=57.88   (0.6s AFTER press, clock still running)
+    - NDINTRO STR audio stream keeps loading chunk-by-chunk THROUGH the black gap:
+        21:05:25.681  [OVERLORD] LoadISOFileChunkToEE NDINTRO STR (chunk 3)
+        21:05:29.515  [OVERLORD] LoadISOFileChunkToEE NDINTRO STR (chunk 0)
+    - A42-STRCLK id=65545 (ND intro stream) advances strpos 7667 -> 12767 across the gap.
+    - Only at 21:05:33.36 does 'logo-intro' (J&D logo) begin streaming (PlayVag id=65609),
+      i.e. J&D arrives at its NATURAL time.
+  => START did NOT kill the ndi-intro process nor stop the NDINTRO STR spool; the whole
+     ND sequence played to its natural end behind a black screen. Matches owner report
+     ("screen goes black, audio keeps playing until J&D logo appears at its normal time").
+  Note: hardware audio path on this build is a fake/stub SPU clock ('fake clock (Android
+  stub SPU)'), so 'audible' audio can't be captured by adb; the STR/STRCLK/PlayVag stream
+  activity IS the audio-continues evidence.
+
+=== FOCUS CHECKS ===
+  org.opengoal.gk.jak1 foreground at: press time, run end, and final check. All frames valid.
+
+=== ARTIFACTS (.autoport/reports/Gndskip/before/) ===
+  gndskip-natural.mp4         natural no-press boot sequence (baseline)
+  gndskip-before.mp4          skip run (START during ND -> 7s black gap -> J&D)
+  before-logcat.txt           full logcat of skip run (grep -a)
+  natural_nd_logo_t18/t22.png ND logo keyframes (natural)
+  natural_jd_logo_t25.png     J&D logo keyframe (natural)
+  before_nd_before_press_t17.png  ND logo just before press
+  before_black_gap_t21.png    the black hole (17KB pure black)
+  before_jd_logo_t25.png      J&D logo arrival after the 7s black gap
+  *_epoch.txt                 raw epochs for correlation
+
+ANOMALIES / HONEST NOTES:
+  - Scout attempt #1 (2s spot-screencaps) started sampling too late (first cap at
+    launch+29.6s, already at title) and a 2nd rapid scout relaunch bounced to the MIUI
+    launcher (game not foregrounded that attempt). Neither is evidence of a bug; I
+    switched to full screenrecord-from-launch, which cleanly captured black->ND->J&D.
+  - The cpad_inject file redirect method in the task prompt does not work here; tee via
+    run-as does (documented above). START delivery to GOAL is proven by logcat.

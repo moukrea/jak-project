@@ -1,0 +1,146 @@
+Gndskip — START at the Naughty Dog logo skips TO the Jak and Daxter logo
+=========================================================================
+RESULT: ND SKIP LANDS ON JAK LOGO
+
+## Symptom (owner, v3 playtest)
+Pressing START during the Naughty Dog logo does not skip: the screen goes BLACK
+while the ND sequence's audio keeps playing, until the J&D logo appears at its
+normal time.
+
+## BEFORE — measured on device (eae4df44, deployed v3 build)
+Skip run (.autoport/reports/Gndskip/before/gndskip-before.mp4, epoch-correlated):
+- START injected (cpad_inject 'start', logcat F1D-INJECT button0=0x0008) at
+  video t=18.23s, mid ND-logo beat.
+- Screen goes black at t=18.0-18.2s; sustained PURE BLACK t=18.2s -> 24.8s.
+- J&D logo appears at t=25.0s.
+- MEASURED BLACK GAP = 7.0 seconds.
+- Natural no-press run (gndskip-natural.mp4): J&D logo also at t~25s — the press
+  did NOT shorten the sequence at all, it only blanked the display.
+- Audio/stream kept playing through the black gap (logcat, grep -a):
+  ndi-intro cutscene clock fnum 21.46 -> 57.88 past the press; NDINTRO STR
+  chunks keep loading across the gap; A42-STRCLK strpos 7667 -> 12767; the
+  J&D logo-intro stream (PlayVag id=65609) only starts at the natural end.
+  => orphan ND audio confirmed.
+
+## ORACLE — x86 verdict (.autoport/reports/Gndskip/oracle/summary.txt)
+Same skip trigger (the ndi 'blackout event == the exact set-setting the START
+press performs; gated PC_PORT upstream) on both x86 builds, -boot -debug-mem,
+listener-driven, two repeats each:
+- PRISTINE x86 golden: inject -> ndi death 1.36/1.44s -> lands on the J&D logo
+  (logo-intro 'active); ND str stream stops with the abort. x86 SKIPS INSTANTLY
+  (~1.4s), audio stops.
+- OUR x86 HEAD (before fix): inject -> ndi death 9.51/9.36s = the spool's
+  NATURAL end (natural ndi lifetime 15.34s vs pristine 15.45s — match); str
+  keeps streaming after the inject (orphan audio). The Android black hole
+  REPRODUCES on our x86 => the divergence is in shared GOAL data, not arm64
+  codegen.
+VERDICT: divergence vs upstream, introduced by our Gndlogo change (dba79ce2da).
+
+## Root cause (skip path)
+goal_src/jak1/levels/title/title-obs.gc, ndi :trans.
+Upstream (82538625e4): press START/circle/X (gate `(or *debug-segment* PC_PORT)`,
+village1 loaded) -> `(set-setting! 'bg-a 'abs 1.0 0)`; the deactivate body
+(bg-a==1.0 + village1 loaded + all-visible? != 'loading) then runs
+`ja-abort-spooled-anim` (str-play-stop = ND audio killed) + `deactivate self`;
+the parent (target-title :code, title-obs.gc:698-703) sees the ndi logo process
+die and immediately process-spawns the J&D 'logo beat.
+Our Gndlogo fix (dba79ce2da) gated BOTH the village1 display-self AND the
+deactivate body's exit condition on `(-> self done?)` (spool finished) to keep
+village1 hidden behind the ND logo on the slow Android loader. Side effect:
+during the spool done? = #f, so the press only set bg-a=1.0 (black) and the
+abort/deactivate body was unreachable until the spool's natural end -> 7.0s
+black hole + orphan ndi audio.
+
+## Fix (pc/translation layer scope: TIT.DGO source, same file as Gndlogo)
+goal_src/jak1/levels/title/title-obs.gc (ships in TIT.DGO — rebuildable level
+DGO; engine goal_src untouched; documented og:autoport markers):
+1. New latched flag `*gnd-ndi-skip*` (defined next to the Gndlogo sun-fade
+   saves; reset in ndi :enter). The press handler latches it because
+   `(-> self anim)` is only assigned once :code sees the spool 'active (zero
+   before — process fields are zero-initialized by activate's mem-set32!), so
+   an early press must apply on a later frame.
+2. New ndi :trans step: `(when (and *gnd-ndi-skip* (not (-> self done?))
+   (nonzero? (-> self anim))) (ja-abort-spooled-anim (-> self anim) ...)
+   (set! (-> self done?) #t))` — a latched skip is treated as "the spool just
+   finished": the abort (str-play-stop) kills the ND audio exactly like the
+   pristine body did, and flipping done? lets the already-validated natural-end
+   machinery run NOW (done?-gated display-self under the bg-a=1.0 black cover
+   -> vis resolves -> deactivate -> parent spawns the J&D logo).
+The Gndlogo/Ghalo invariants are preserved: display-self still only ever fires
+with done? = #t (village never renders behind the ND logo), and the sun-fade
+suppression/restore in :enter/:trans/:exit is untouched.
+
+## AFTER — x86 (our HEAD + fix)
+Same listener protocol, faithful press injection (both effects of the press:
+'blackout event AND the *gnd-ndi-skip* latch — the bare 'blackout event alone
+correctly does NOT skip, by design; the frame-453 spool command must not
+truncate the natural end):
+- RUN C (skip): inject -> ndi death 1.28s -> logo-intro 'active +2.62s.
+  Was ~9.4s pre-fix; pristine 1.4s => our x86 now matches pristine. The ndi
+  str stream stops right after the abort; only the J&D logo-intro audio
+  continues — no orphan ndi audio.
+- RUN D (no-skip): full natural spool 15.42s then normal transition to the
+  J&D 'startup beat (pristine 15.45s / pre-fix 15.34s => no truncation; the
+  near-end frame-453 'blackout event does NOT trigger the new abort path).
+- `link finish: logo` reached in both runs.
+
+## AFTER — device (eae4df44, deployed bundle v8)
+RUN 1 skip (.autoport/reports/Gndskip/after/gndskip-after-run1.mp4, START
+injected mid-ND at launch+17.6s, F1D-INJECT confirmed in logcat):
+- press -> J&D logo visible: ~0.6 seconds — well within ~1s (was 7.0s black).
+- black duration between ND disappearing and J&D appearing: ~0.8s.
+- keyframe after_jd_logo_t19_6.png (press+1s): full J&D logo + blue ray burst
+  (manager-verified visually).
+- AUDIO CONSISTENT — no orphan ND audio: the ndi-intro STR stream STOPS at the
+  press (str-play-stop via the abort) and the J&D logo-intro PlayVag id=65609
+  starts ~0.4s after the press (before-fix it only started at the natural ~25s
+  mark while ndi STR chunks kept streaming through the black gap).
+- app foreground at all evidence points, no crash.
+
+## No-skip path intact (not pressing START still plays the full sequence)
+- x86 RUN D: full natural spool 15.42s, no truncation (see AFTER x86 above).
+- Device RUN 2 natural run (gndskip-after-run2.mp4, NO input): full ND beat
+  plays t~13.5-23.5s (matches the before-fix natural run 13-23s), J&D logo at
+  its natural ~25s.
+
+## Title/attract unregressed (Gndlogo/Ghalo lessons)
+- During the natural ND beat the background stays PURE BLACK: no village
+  geometry, no sun-particle halo (keyframe after_natural_nd_logo_t22.png,
+  manager-verified visually: ND logo + Jak&Daxter on black void). The Gndlogo
+  done?-gated display-self is structurally untouched — village display still
+  only ever fires with done? = #t; sun-fade suppression/restore untouched.
+- frame_compare vs the before-fix natural keyframes: ND beat MATCH 0.95%
+  diff; J&D title beat 9.1% (moving flythrough, matched time-from-launch,
+  regression-tripwire threshold) => logo placement/halo unregressed.
+- RUN 3 stability: 120s past the title into the attract loop, crash scan clean
+  (no SIGSEGV/SIGABRT; background-PID signal-9s excluded), app PID alive and
+  foreground at end.
+
+## Deployment (proven landing)
+- .autoport/build_arm64_full_consistent.sh: full consistent arm64 set, 28
+  files staged (out/jak1-arm64-full/iso), x86 oracle restored after.
+- BUNDLE_VERSION bumped 7 -> 8 (android/build_asset_bundle.sh) so the
+  version-gated LoaderActivity re-unpack delivers the new TIT.DGO; logcat
+  shows "asset bundle version changed (7 -> 8)", 347 files / 1.64GB unpacked.
+- gradle assembleJak1Debug repacked the APK (libgk.so unchanged — GOAL-only
+  fix); MIUI-unblocked install Success.
+- deploy_verify.sh eae4df44: PASS (build==APK==device,
+  commit=80d556761 libgk_sha=1a0932828c55e7cc, deploy-fingerprint.txt).
+- TIT.DGO md5 cross-check: staged 29edeb9957cfe3ef7df8f1c9e4bca1f9 == device
+  files/iso_data/jak1/TIT.DGO => the fixed DGO provably landed.
+
+## Honest anomalies
+- One boot (the first after the 1.64GB re-unpack) hit the KNOWN pre-existing
+  intermittent link-time boot flake (Assertion 'offset' in jak1::method_set
+  right after `link finish: display-h`, ~5s into boot, long before ndi) —
+  unrelated to this GOAL-only TIT.DGO fix; clean on relaunch and on both
+  measured runs; evidence kept (after-retry-logcat.txt). Matches the F1e-era
+  known flake class; needs its own phase.
+- The x86 skip trigger for oracle/verification is injected at the press's
+  effect point ('blackout event + *gnd-ndi-skip* latch = exactly what the
+  press handler does), since the host has no synthetic-keyboard tooling; the
+  device runs used the REAL cpad START press end-to-end.
+
+## x86 smoke
+`link finish: logo` reached on both after-fix x86 runs (RUN C and RUN D) and
+by the phase validator's own smoke.

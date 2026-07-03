@@ -54,7 +54,9 @@ GAME="${1:-jak1}"
 # Bumped 6 -> 7 (autoport 2026-07-03, Glang-mixed): new TXT/SUBTIT banks (menu-label
 # text-ids #x1700-#x1705 EN+FR, French subtitle completeness) + CGO/DGOs with the
 # localized name-override label plumbing must re-unpack over v6 devices.
-VERSION="${BUNDLE_VERSION:-7}"
+# Bumped 7 -> 8 (autoport 2026-07-03, Gndskip): TIT.DGO ndi-skip fix (START at the
+# ND logo aborts the spool and lands on the J&D logo) must re-unpack over v7 devices.
+VERSION="${BUNDLE_VERSION:-8}"
 
 cd "$(git rev-parse --show-toplevel)"
 

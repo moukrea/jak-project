@@ -1,0 +1,80 @@
+Gndskip AFTER-FIX deploy + verification (Redmi Note 9 Pro, eae4df44, org.opengoal.gk.jak1)
+Date: 2026-07-03. Fix = GOAL-only (title-obs.gc -> TIT.DGO); libgk unchanged.
+
+=== DEPLOY CHAIN PROOF ===
+1. android/build_asset_bundle.sh jak1 -> "done: files=347 (iso=321 fr3=26) ... version=8".
+   Bundle TIT.DGO md5 (inside zip) = 29edeb9957cfe3ef7df8f1c9e4bca1f9 == staged.
+2. gradlew assembleJak1Debug -> reused existing libgk.so (no C++ change), APK repacked:
+   app-jak1-debug.apk mtime 22:01 (fresh), 1.23GB.
+3. MIUI unblock + `adb install -r -i com.android.vending` -> "Success". Keyguard not showing.
+4. Launch -> LoaderActivity re-unpack: "jak1 asset bundle version changed (7 -> 8) — re-decompressing",
+   completed: "decompressed: 347 files, 1639550287 bytes in 134850ms (version=8)". Game booted.
+5. deploy_verify.sh eae4df44 -> "DEPLOY-VERIFY PASS: device eae4df44 provably runs the fresh
+   HEAD (80d556761) libgk.so" (chain build==APK==device 1a0932828c55e7cc). Appended to
+   .autoport/reports/deploy-fingerprint.txt.
+6. TIT.DGO md5 proof:  staged 29edeb9957cfe3ef7df8f1c9e4bca1f9
+                       device 29edeb9957cfe3ef7df8f1c9e4bca1f9   -> MATCH.
+
+BOOT-FLAKE NOTE (honest): the FIRST launch after the v8 re-unpack hit the known ~1-in-N
+link-time boot flake: `Abort message: 'Assertion failed: 'offset'` in
+jak1::method_set(...) right after `link finish: display-h` (SIGABRT, tid SDLThread).
+This is the pre-existing intermittent boot-link flake (F1e memory note), NOT caused by
+this GOAL-only fix and NOT the skip input (crash was ~5s into boot, long before ND).
+A plain relaunch booted cleanly past display-h -> logo -> ndi-intro. Both measured AFTER
+runs (RUN1, RUN2) then booted clean past display-h. Reproducibility: 1 flake / 3 boots.
+
+=== RUN 1 — SKIP (START pressed mid-ND) ===
+Recording gndskip-after-run1.mp4 (100s). rec_start video t=0, launch video t=1.00s.
+START press: video t=18.61s (launch+17.61s) — mid ND logo beat (ND visible until t~18.2s).
+Logcat 'F1D-INJECT applied: button0=0x0008 (raw=start)' at 22:08:21.035 == press epoch.
+Video brightness (5fps):
+  ..18.20s  ND logo still visible (bright ~2)
+  18.40s    brief black (bright 0.0)
+  19.20s    JAK & DAXTER logo appears (bright 14, color 20.6)  <- keyframe after_jd_logo_t19_6.png
+MEASURED:
+  press -> J&D-logo-visible latency = 19.20 - 18.61 = ~0.6s
+  black duration (ND gone -> J&D up)  = 19.20 - 18.40 = ~0.8s
+  (BEFORE was 7.0s black, J&D only at natural ~25s. AFTER lands on J&D in <1s.)
+AUDIO / STREAM verdict (grep -a, press wall 22:08:20.98):
+  - ndi-intro STR stops right after press: last id=65545 STRCLK at 22:08:19.20 (pre-press);
+    no further NDINTRO STR streaming to natural end.
+  - logo-intro (J&D) starts IMMEDIATELY: A36-STR-DIAG name="logo-intro" chunk=0 at 22:08:21.095
+    (~0.1s post-press); PlayVag id=65609 logo-intro at 22:08:21.416 (~0.4s post-press).
+    (BEFORE: logo-intro PlayVag not until ~6s after press, at the natural mark.)
+  => No orphan ND audio; the J&D beat is entered early. Matches x86 skip behaviour (~1.3s).
+Keyframes: after_last_nd_t18.png, after_press_black_t18_7.png (14KB black),
+           after_jd_logo_t19_6.png (J&D logo), after_press_plus2_t20_6.png.
+App foreground org.opengoal.gk.jak1 at press and run end; no crash.
+
+=== RUN 2 — NO-SKIP NATURAL (no input) ===
+Recording gndskip-after-run2.mp4 (120s). Full sequence plays with no input:
+  black loading t~3.5-13s
+  ND logo beat t~13.5-23.5s  (bright ~2, color ~0.5 — matches BEFORE natural ~13-23s)
+  black transition t~24s
+  JAK & DAXTER logo t~25s     (natural time, matches BEFORE)
+Gndlogo invariant (background BLACK during ND, no village geometry / no sun halo):
+  - During ND beat mean bright ~2, color ~0.5; the only bright pixels (maxpx ~190-237) are
+    the white ND-logo text/paw itself. No bright colourful non-logo content. HOLDS.
+  - Keyframe after_natural_nd_logo_t18.png: NAUGHTY DOG paw + Jak/Daxter on PURE BLACK.
+  - frame_compare vs BEFORE natural_nd_logo_t18.png: MATCH, diff_frac=0.95% (thr40 tol10%).
+Title regression tripwire (moving flythrough, generous):
+  - frame_compare J&D t25 after-natural vs BEFORE natural_jd_logo_t25.png: MATCH,
+    diff_frac=9.1% (thr40 tol20%). Title intact, no regression.
+Keyframes: after_natural_nd_logo_t18.png, after_natural_nd_logo_t22.png, after_natural_jd_logo_t25.png.
+
+=== RUN 3 — CRASH MARGIN (RUN2 kept running >60s past title) ===
+RUN2 recording ran 120s; app played well past ND+JD into the title/attract loop
+(stream clock advanced to vblank=13201; attract vags cycling, e.g. PlayVag id=69058).
+Crash-signal scan of after-run2-logcat.txt: NO Fatal signal / SIGSEGV / SIGABRT /
+Assertion (excluding sig 9). App PID 14869 (== launch PID) still ALIVE and foreground
+(mCurrentFocus=org.opengoal.gk.jak1/MainActivity) at end. STABLE.
+
+=== VERDICT ===
+RESULT: ND SKIP LANDS ON JAK LOGO.
+  Before: 7.0s black hole, ND audio to natural end, J&D at ~25s.
+  After : ~0.6-1s to J&D logo, ~0.8s black, ND STR stops + logo-intro starts within ~0.5s.
+  No-skip natural path intact (full ND, J&D at natural time, black bg, halo unregressed).
+  Title unregressed (frame_compare MATCH). >60s post-title stable, no crash.
+  Deploy proven (bundle v8, deploy_verify PASS, TIT.DGO md5 match).
+ANOMALY: one first-boot-after-unpack link flake (method_set 'offset' assert), pre-existing
+  intermittent, not from this fix; clean on relaunch and on both measured runs.
