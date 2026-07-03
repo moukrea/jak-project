@@ -133,6 +133,21 @@ public final class NativeGk {
     public static native void onMenuTap(float nx, float ny);
 
     /**
+     * Phase Gtitle-tap (autoport): true while the title "PRESS START" screen is
+     * up (*target* in target-title-wait, no menu). When true, the overlay turns
+     * ANY screen tap into a synthetic START press via {@link #onTitleTap()}.
+     */
+    public static native boolean isOnTitleStart();
+
+    /**
+     * Phase Gtitle-tap (autoport): report a screen tap on the title PRESS START
+     * screen. Native synthesizes a short START press into the same PS2 cpad
+     * mirror the gamepad uses, so the game sees a genuine edge and opens the
+     * start menu exactly as a gamepad START would.
+     */
+    public static native void onTitleTap();
+
+    /**
      * Phase D3 (autoport): return the cumulative SDL_GL_SwapWindow count
      * since the most recent android_renderer_run entry. Used by the
      * supervisor's reality-check toolkit (D4) to assert that the

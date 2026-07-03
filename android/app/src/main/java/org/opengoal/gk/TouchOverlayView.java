@@ -501,6 +501,16 @@ public class TouchOverlayView extends View {
     }
 
     private void onPointerDown(int pid, float x, float y) {
+        // Phase Gtitle-tap (autoport): on the title "PRESS START" screen, ANY
+        // tap acts as START. The native pulse feeds the same PS2 cpad mirror
+        // the gamepad uses, so title-obs.gc's (cpad-pressed? 0 start) sees a
+        // genuine edge -> same menu transition, same sound. Native scopes the
+        // flag to target-title-wait with no menu up, so in-game taps and the
+        // Gtouch-menus in-menu tap path are untouched. Falls through so the
+        // overlay controls still actuate normally (harmless on the title).
+        if (NativeGk.isOnTitleStart()) {
+            NativeGk.onTitleTap();
+        }
         Touch t = new Touch();
         t.lastX = x;
         t.lastY = y;

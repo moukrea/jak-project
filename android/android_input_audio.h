@@ -62,6 +62,12 @@ void get_cpad_state(uint16_t* button0, uint8_t* lx, uint8_t* ly,
 // or the file never appears.
 void start_inject_watcher(const char* inject_file_path);
 
+// Phase Gtitle-tap (autoport): synthesize a short START press (button0 bit 3)
+// held across a few get_cpad_state polls, so a screen tap on the title
+// "PRESS START" screen produces a clean rising edge then release for
+// title-obs.gc's (cpad-pressed? 0 start).
+void trigger_title_start_pulse();
+
 // Phase E1: route a single SDL event through the gamepad / open-device
 // logic. Returns true if the event was consumed (i.e. it was a
 // SDL_EVENT_GAMEPAD_* event), false otherwise. Called from the
