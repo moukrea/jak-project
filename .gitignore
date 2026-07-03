@@ -124,3 +124,12 @@ build-android-extract/
 
 # /goal prompt files for the ARM64 differential tooling effort (local-only)
 goal-prompt/
+
+# autoport evidence artifacts — keep locally for validators, never commit (owner 2026-07-03:
+# mp4/screencaps have no value on the repo and their packs break GitHub pushes)
+.autoport/reports/**/*.mp4
+.autoport/reports/**/*.png
+.autoport/reports/**/*.jpg
+.autoport/reports/**/*.gif
+.autoport/reports/**/*.log.gz
+.autoport/reports/**/*.zip
