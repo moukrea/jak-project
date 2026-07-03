@@ -342,6 +342,12 @@
 (define *gnd-ndi-sf0* 0.0)
 (define *gnd-ndi-sf1* 0.0)
 
+;; og:autoport Gndskip: latched skip request for the ndi state. The press handler
+;; in the ndi :trans latches it because (-> self anim) is only assigned once :code
+;; sees the spool file 'active (it is 0 before that) — a press in that early
+;; window must still take effect on a later frame. Reset on ndi :enter.
+(define *gnd-ndi-skip* #f)
+
 (defstate ndi (logo)
   :virtual #t
   :event
@@ -358,7 +364,9 @@
       ;; it after the ndi sun-suppression below (the flythrough needs the real sun).
       (set! *gnd-ndi-sf0* (-> *level* level0 info sun-fade))
       (set! *gnd-ndi-sf1* (-> *level* level1 info sun-fade))
-      (set! (-> self done?) #f))
+      (set! (-> self done?) #f)
+      ;; og:autoport Gndskip: clear any stale skip latch from a previous cycle.
+      (set! *gnd-ndi-skip* #f))
   :exit
     (behavior ()
       ((-> (method-of-type logo startup) exit))
@@ -371,10 +379,26 @@
     (behavior ()
       ((-> (method-of-type logo startup) trans))
       ;; og:preserve-this
-      (if (and (or *debug-segment* PC_PORT)
-               (cpad-pressed? 0 start circle x)
-               (member (level-status *level* 'village1) '(loaded active)))
-        (set-setting! 'bg-a 'abs 1.0 0))
+      (when (and (or *debug-segment* PC_PORT)
+                 (cpad-pressed? 0 start circle x)
+                 (member (level-status *level* 'village1) '(loaded active)))
+        (set-setting! 'bg-a 'abs 1.0 0)
+        ;; og:autoport Gndskip: latch the skip (applied below once anim is live).
+        (set! *gnd-ndi-skip* #t))
+      ;; og:autoport Gndskip: upstream's skip aborted the spool from the deactivate
+      ;; body below, but the Gndlogo done?-gates (the display-self gate and the
+      ;; exit-condition gate) make that body unreachable until the spool's natural
+      ;; end — so a press only blanked bg-a: black screen + orphan ndi audio until
+      ;; the J&D beat's normal time (device: 7.0s black gap; pristine x86 skips in
+      ;; ~1.4s). Treat a latched skip as "the spool just finished": abort it
+      ;; (str-play-stop kills the ND audio — the exact call pristine's body made)
+      ;; and flip done?, so the validated natural-end machinery (done?-gated
+      ;; display-self under the bg-a=1.0 black cover -> vis resolves -> deactivate
+      ;; -> parent spawns the J&D logo) runs now. Gndlogo's no-village-behind-logo
+      ;; invariant is untouched: display-self still only ever fires with done?.
+      (when (and *gnd-ndi-skip* (not (-> self done?)) (nonzero? (-> self anim)))
+        (ja-abort-spooled-anim (-> self anim) (the-as art-joint-anim #f) -1)
+        (set! (-> self done?) #t))
       (when (and (= (-> *setting-control* current bg-a) 1.0)
                  (and (member (level-status *level* 'village1) '(active loaded))
                       ;; og:preserve-this i think we can forgo the time check here...
