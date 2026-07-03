@@ -188,6 +188,11 @@ void KernelCheckAndDispatch() {
     want_display_maybe();
     want_vis_maybe();
 
+    // GRV-CANARY (Gcrash-rockvillage debug-only forensic) — gated
+    // (env OG_GRV_CANARY / prop debug.opengoal.grv.canary), OFF by default.
+    // Watches the target-stack return-trampoline band for the stomp writer.
+    grv_canary_maybe();
+
     // ECO SPHERE SPAWN (Geco-spheres oracle-diff) — gated (env OG_ECO_SPAWN / prop
     // debug.opengoal.eco.spawn), OFF by default. Births an eco pickup next to
     // *target* via *listener-function*, replaying the x86 oracle's

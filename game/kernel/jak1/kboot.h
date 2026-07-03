@@ -77,6 +77,14 @@ void want_display_maybe();
 void want_vis_maybe();
 
 /*!
+ * GRV-CANARY (Gcrash-rockvillage debug-only forensic) — env OG_GRV_CANARY / prop
+ * debug.opengoal.grv.canary=1, OFF by default. Per-dispatch watch of the top 64
+ * bytes of *target*'s main-thread stack (the enter-state return-trampoline band);
+ * logs every change, tagging non-trampoline values as ANOMALY (the stomp writer).
+ */
+void grv_canary_maybe();
+
+/*!
  * ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) — env OG_ECO_SPAWN /
  * Android prop debug.opengoal.eco.spawn = "<pickup-type-int> [period [dx dy dz]]",
  * OFF by default. Repeatedly births an eco pickup next to *target* via the same

@@ -1402,6 +1402,85 @@ void want_vis_maybe() {
                   &s_ticks, "WANT-VIS");
 }
 
+// ─── GRV-CANARY (Gcrash-rockvillage debug-only forensic) ────────────────────────
+// Watches the TOP 64 bytes of *target*'s main-thread stack (*kernel-dram-stack*
+// band) once per kernel dispatch. enter-state branch-3 (gstate.gc:373-380) resets
+// SP to stack-top and pushes the return-from-thread-dead HOST address there; the
+// repro12 crash RET'd into a bare GOAL offset restored from exactly this band, so
+// any write that is NOT the expected trampoline push is the stomp — logged with
+// the dispatch tick for frame-resolution bracketing of the writer. Enabled by
+// env OG_GRV_CANARY / prop debug.opengoal.grv.canary=1. Read-only observer.
+void grv_canary_maybe() {
+  static int s_enabled = -1;
+  if (s_enabled < 0) {
+    s_enabled = 0;
+    if (const char* e = std::getenv("OG_GRV_CANARY")) {
+      if (e[0] && e[0] != '0') {
+        s_enabled = 1;
+      }
+    }
+#if defined(__ANDROID__)
+    if (!s_enabled) {
+      char pbuf[PROP_VALUE_MAX] = {0};
+      if (__system_property_get("debug.opengoal.grv.canary", pbuf) > 0 && pbuf[0] == '1') {
+        s_enabled = 1;
+      }
+    }
+#endif
+  }
+  if (!s_enabled) {
+    return;
+  }
+  static bool s_armed = false;
+  static u64 s_prev[8];
+  static u32 s_band = 0;
+  static u64 s_tick = 0;
+  s_tick++;
+  u32 tgt_sym = intern_from_c("*target*")->value;
+  if (tgt_sym == 0 || tgt_sym == (u32)s7.offset || (tgt_sym & OFFSET_MASK) != 4) {
+    s_armed = false;
+    return;
+  }
+  u32 mt = *(u32*)(g_ee_main_mem + tgt_sym + 40);       // (-> process main-thread), C off
+  if (mt < 0x1000 || mt >= EE_MAIN_MEM_SIZE) {
+    s_armed = false;
+    return;
+  }
+  u32 stack_top = *(u32*)(g_ee_main_mem + mt + 28);     // (-> thread stack-top), C off
+  if (stack_top < 0x1040 || stack_top >= EE_MAIN_MEM_SIZE) {
+    s_armed = false;
+    return;
+  }
+  u32 band = stack_top - 64;
+  u64 cur[8];
+  memcpy(cur, g_ee_main_mem + band, 64);
+  if (!s_armed || band != s_band) {
+    memcpy(s_prev, cur, 64);
+    s_armed = true;
+    s_band = band;
+    u32 rftd = intern_from_c("return-from-thread-dead")->value;
+    u32 rft = intern_from_c("return-from-thread")->value;
+    printf("GRV-CANARY armed band=0x%x stack-top=0x%x rftd=0x%x rft=0x%x base=%p\n", band,
+           stack_top, rftd, rft, (void*)g_ee_main_mem);
+    fflush(stdout);
+    return;
+  }
+  u32 rftd = intern_from_c("return-from-thread-dead")->value;
+  u32 rft = intern_from_c("return-from-thread")->value;
+  u64 exp_rftd = (u64)(uintptr_t)g_ee_main_mem + rftd;
+  u64 exp_rft = (u64)(uintptr_t)g_ee_main_mem + rft;
+  for (int i = 0; i < 8; i++) {
+    if (cur[i] != s_prev[i]) {
+      bool expected = (cur[i] == exp_rftd) || (cur[i] == exp_rft) || (cur[i] == 0);
+      printf("GRV-CANARY %s off=%d(0x%x) old=%016llx new=%016llx tick=%llu\n",
+             expected ? "push" : "ANOMALY", i * 8, band + i * 8, (unsigned long long)s_prev[i],
+             (unsigned long long)cur[i], (unsigned long long)s_tick);
+      fflush(stdout);
+      s_prev[i] = cur[i];
+    }
+  }
+}
+
 // ─── ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) ────────────────
 // Env OG_ECO_SPAWN / Android prop debug.opengoal.eco.spawn =
 //   "<pickup-type-int> [period-ticks [dx dy dz]]"  — OFF by default.
