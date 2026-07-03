@@ -175,6 +175,12 @@ void KernelCheckAndDispatch() {
     // runs crash-free on the real device. Same in-context dispatch point as F1.
     level_warp_maybe();
 
+    // TASK CLOSE (Gcrash-rockvillage debug-only repro) — gated (env OG_TASK_CLOSE /
+    // prop debug.opengoal.task.close), OFF by default. Closes task-gated progress
+    // (e.g. the village2-warrior-money pontoon payment) so a device repro can walk
+    // gated routes. Same in-context dispatch point as the warps.
+    task_close_maybe();
+
     // ECO SPHERE SPAWN (Geco-spheres oracle-diff) — gated (env OG_ECO_SPAWN / prop
     // debug.opengoal.eco.spawn), OFF by default. Births an eco pickup next to
     // *target* via *listener-function*, replaying the x86 oracle's

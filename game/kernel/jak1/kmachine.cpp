@@ -1112,6 +1112,106 @@ void level_warp_maybe() {
            warp_fn.offset, s_level_warp_name);
 }
 
+// ─── TASK CLOSE (Gcrash-rockvillage debug-only repro tool) ──────────────────────
+// Closes specific game-task cstages at runtime so a device repro can cross
+// task-gated content (e.g. village2-warrior-money=33 restores the swamp pontoons)
+// without a listener connection. Gated by env OG_TASK_CLOSE / Android prop
+// debug.opengoal.task.close = "<task>[:<status>][,<task>[:<status>]...]"; status
+// defaults to 7 = (task-status need-resolution). Fires ONCE on the GOAL kernel
+// thread via *listener-function* — same dispatch context as the level warp — with
+// a shorter default delay (300 ticks, OG_TASK_CLOSE_DELAY) so a same-boot
+// level.warp (default 600) spawns with the task already closed. DEBUG-ONLY:
+// never armed in production; goal_src / x86 emitter / gold untouched.
+static char s_task_close_spec[128];
+
+static bool task_close_requested() {
+  s_task_close_spec[0] = 0;
+  if (const char* e = std::getenv("OG_TASK_CLOSE")) {
+    std::strncpy(s_task_close_spec, e, sizeof(s_task_close_spec) - 1);
+  }
+#if defined(__ANDROID__)
+  if (!s_task_close_spec[0]) {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.task.close", pbuf) > 0 && pbuf[0]) {
+      std::strncpy(s_task_close_spec, pbuf, sizeof(s_task_close_spec) - 1);
+    }
+  }
+#endif
+  for (const char* p = s_task_close_spec; *p; ++p) {
+    if (*p >= '1' && *p <= '9') {
+      return true;  // needs at least one nonzero digit ("", "0", "''" disable)
+    }
+  }
+  return false;
+}
+
+static u64 task_close_run() {
+  u32 fn = intern_from_c("close-specific-task!")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    printf("TASK-CLOSE-FAIL reason=close-specific-task!-unbound\n");
+    fflush(stdout);
+    return 0;
+  }
+  char buf[128];
+  std::strncpy(buf, s_task_close_spec, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = 0;
+  char* save = nullptr;
+  for (char* tok = strtok_r(buf, ",", &save); tok; tok = strtok_r(nullptr, ",", &save)) {
+    int task = 0;
+    int status = 7;  // (task-status need-resolution)
+    if (std::sscanf(tok, "%d:%d", &task, &status) < 1 || task <= 0) {
+      continue;
+    }
+    u64 args[8] = {(u64)task, (u64)status, 0, 0, 0, 0, 0, 0};
+    u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp,
+                                    (u64)s7.offset, g_ee_main_mem);
+    printf("TASK-CLOSE task=%d status=%d -> #x%x\n", task, status, (u32)r);
+    fflush(stdout);
+  }
+  return 0;
+}
+
+void task_close_maybe() {
+  static bool s_done = false;
+  if (s_done) {
+    return;
+  }
+  if (!task_close_requested()) {
+    return;
+  }
+  // Readiness: same gate as level_warp_maybe, plus close-specific-task! bound.
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  u32 fn = intern_from_c("close-specific-task!")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    return;
+  }
+  u32 dead_pool = intern_from_c("*target-dead-pool*")->value;
+  if (dead_pool == 0 || dead_pool == (u32)s7.offset) {
+    return;
+  }
+  int delay = 300;
+  if (const char* d = std::getenv("OG_TASK_CLOSE_DELAY")) {
+    delay = atoi(d);
+  }
+  static int s_ticks = 0;
+  if (s_ticks++ < delay) {
+    return;
+  }
+  // don't clobber a pending listener function armed by another hook this tick
+  if (ListenerFunction->value != (u32)s7.offset && ListenerFunction->value != 0) {
+    return;
+  }
+  s_done = true;
+  Ptr<Function> f = make_function_from_c((void*)task_close_run, false);
+  ListenerFunction->value = f.offset;
+  lg::info("[TASK-CLOSE] armed *listener-function* = #x{:x} for spec '{}'", f.offset,
+           s_task_close_spec);
+}
+
 // ─── ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) ────────────────
 // Env OG_ECO_SPAWN / Android prop debug.opengoal.eco.spawn =
 //   "<pickup-type-int> [period-ticks [dx dy dz]]"  — OFF by default.
