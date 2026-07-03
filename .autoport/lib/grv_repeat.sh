@@ -13,14 +13,15 @@ FLAKES=0
 for a in $(seq 1 "$MAXA"); do
   TAG="$BASE$a"
   echo "=== attempt $a/$MAXA tag=$TAG (flakes so far: $FLAKES) ==="
-  # owner-like load: walk a ~10m diamond around the crate the whole time (state
-  # churn) + periodic eco-blue births (sparticle traffic), while the hooks replay
-  # the boundary sequence (load swamp -> display -> vis).
+  # owner-like load: buzzer collect (~+5s), wander at the crate (state churn) +
+  # eco births (sparticle traffic) while the hooks replay the boundary sequence
+  # (load swamp -> display -> vis), then walk the SOUTH leg past the display/vis
+  # band to swamp-start — the exact "walking further" the owner did.
   TASK_CLOSE=33 WANT_LEVELS='village2,swamp' WANT_LEVELS_DELAY=1800 \
   WANT_DISPLAY='swamp,display' WANT_DISPLAY_DELAY=2700 \
   WANT_VIS='swa' WANT_VIS_DELAY=3300 \
-  ECO_SPAWN='3 300' LOOP_WAYPOINTS=1 MAX_STEPS=70 REACH_Z=-7400000 \
-  WAYPOINTS='1778073,-7147000;1819000,-7187660;1778073,-7227000;1740000,-7187660' \
+  MOUCHE_BUZZ=1 ECO_SPAWN='3 300' MAX_STEPS=70 REACH_Z=-7310000 \
+  WAYPOINTS='1778073,-7147000;1819000,-7187660;1778073,-7227000;1740000,-7187660;1778073,-7187660;1822720,-7258112;1842537,-7333297' \
     bash .autoport/lib/grv_run.sh "$TAG" "$WATCH" "434.1 3 -1754.8"
   L="$OUT/$TAG-logcat.log"
   if ! grep -qaE 'Fatal signal|GK-DIAG sig=' "$L"; then

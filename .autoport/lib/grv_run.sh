@@ -82,8 +82,11 @@ if [ -n "$POSM" ]; then
 else
   A shell "setprop debug.opengoal.level.warp.pos ''" >/dev/null 2>&1
 fi
-for p in f1.warp echo.intro mouche.fx mouche.buzz die eco.trace; do
+for p in f1.warp echo.intro mouche.fx die eco.trace; do
   A shell setprop debug.opengoal.$p 0 >/dev/null 2>&1 || true; done
+# MOUCHE_BUZZ env: 1 = replay a buzzer scout-fly collect (~5s after spawn; owner broke
+# the buzzer crate on this route) — heavy HUD/particle traffic like the real route.
+A shell setprop debug.opengoal.mouche.buzz "${MOUCHE_BUZZ:-0}" >/dev/null 2>&1 || true
 # TASK_CLOSE env: "<task>[:<status>][,...]" e.g. 33 = village2-warrior-money (pontoons)
 A shell "setprop debug.opengoal.task.close '${TASK_CLOSE:-}'" >/dev/null 2>&1 || true
 # WANT_LEVELS env: "lev1,lev2" -> load-state-want-levels (the load-boundary command)
