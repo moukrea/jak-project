@@ -48,8 +48,10 @@ GAME="${1:-jak1}"
 # CGO/DGO payload re-unpacks over a device that still holds older v3 data.
 # Bumped 4 -> 5 (autoport 2026-07-03, v2 owner-validation APK) so the
 # blue-eco-crash-fix + full-touch-menus arm64 CGO/DGO payload re-unpacks over a
-# device that still holds the v1/bundle-v4 data.
-VERSION="${BUNDLE_VERSION:-5}"
+# device that still holds the v1/bundle-v4 data. Bumped 5 -> 6 (autoport
+# 2026-07-03, v3 owner-validation APK: draw-batching + orb-in-split + eco-sphere
+# fixes) so devices holding v5 data re-unpack a guaranteed-consistent payload.
+VERSION="${BUNDLE_VERSION:-6}"
 
 cd "$(git rev-parse --show-toplevel)"
 
