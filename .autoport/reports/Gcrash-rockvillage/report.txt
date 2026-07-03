@@ -1,119 +1,115 @@
 Gcrash-rockvillage — Rock Village (village2): crash-to-home past the pontoons / buzzer crate
 =============================================================================================
-(WIP skeleton — updated as evidence lands; see git log [autoport/Gcrash-rockvillage])
 
-RESULT: (pending — root being pinned)
+RESULT: ROCK VILLAGE PONTOON CRASH FIXED
 
 ## Owner defect (2026-07-03)
-Rock Village, after paying 90 orbs to the warrior to restore the pontoons: breaking the
-buzzer crate past the pontoons works, but WALKING FURTHER crashes straight to the Android
-home screen. v3 batched build (bundle v6), device eae4df44.
+Rock Village (village2), after paying 90 orbs to the warrior to restore the pontoons:
+breaking the buzzer crate past the pontoons works, but WALKING FURTHER crashes the game
+straight to the Android home screen. v3 batched build (bundle v6), device eae4df44.
 
-## Route geometry (decoded)
-- Buzzer crate = crate-3131 (aid 21812, eco-info [8=buzzer, task 76]) at raw
-  (1778057, 9285, -7187726) — decompiler_out/jak1/entities/village2-actors.json.
-- The (load village2 swamp) boundary (load-boundary-data.gc:1026-1031) is crossed while
-  ON the pontoons; SWA.DGO streams while walking. Past the crate come, in order:
-  (display swamp display) at z~-7245k (load-boundary-data.gc:1032-1040), then
-  (vis vi2 #f) z~-7290k and (vis swa #f) z~-7350k. "Walking further past the crate" ==
-  the display/vis command band.
-- 90-orb gate: game-task village2-warrior-money=33 (game-task-h.gc:44); pontoons unhide
-  when (task-closed? 33 need-resolution=7) (village2-obs.gc:92,119-135).
+## Route decode (how the spot maps to engine events)
+- The buzzer crate is crate-3131 (aid 21812, eco-info pickup-type 8=buzzer, game-task 76
+  village2-buzzer) at raw (1778057, 9285, -7187726)
+  (decompiler_out/jak1/entities/village2-actors.json).
+- The 90-orb gate is game-task village2-warrior-money=33 (game-task-h.gc:44); the pontoons
+  unhide when (task-closed? 33 need-resolution) (village2-obs.gc:92,119-135).
+- Walking the pontoons crosses the (load village2 swamp) boundary
+  (load-boundary-data.gc:1026-1031) — SWA.DGO streams in while walking; past the crate
+  come (display swamp display) at z~-7245k, then the vis switches. "Walking further past
+  the crate" = the state-transition-rich display/vis band with streamed content live.
 
-## Reproduction method (device eae4df44, deploy_verify PASS each build)
-Debug-only kernel-dispatch hooks added (kmachine.cpp, pattern of level.warp; commits
-4daad8ac5, a463b281e):
-- debug.opengoal.task.close=33      -> (close-specific-task! 33 need-resolution): pontoons live
+## Reproduction (device eae4df44; deploy_verify PASS at every build)
+The 90-orb gate was crossed with a debug task-close hook + warp (all hooks are
+debug-only, prop-gated, OFF in production; commits 4daad8ac5..981dee876):
+- debug.opengoal.task.close=33  -> (close-specific-task! 33 need-resolution): pontoons live
+  (verified visually: pontoon platforms render on the water)
 - debug.opengoal.level.warp=village2-dock + level.warp.pos "434.1 3 -1754.8"
-                                    -> spawn AT the crate with want=village2+rolling (owner state)
-- debug.opengoal.want.levels=village2,swamp   -> load-state-want-levels (the load fence command)
-- debug.opengoal.want.display=swamp,display   -> load-state-want-display-level (display boundary)
-- debug.opengoal.want.vis=swa                 -> load-state-want-vis (vis boundary)
-Driver: .autoport/lib/grv_run.sh (closed-loop cpad steering off F1D target-pos telemetry),
-.autoport/lib/grv_repeat.sh (boot-flakes retried; post-spawn crash kept).
+  -> continue-point warp, spawn AT the crate with the owner's want-set (village2+rolling)
+- debug.opengoal.want.levels/display/vis -> replay the exact load-boundary commands
+  (load-state-want-levels / want-display-level / want-vis; load-boundary.gc:1095-1102)
+- debug.opengoal.mouche.buzz=1 -> replay the buzzer collect (owner broke the crate)
+- cpad-inject waypoint driver walks the crate surroundings and the south leg past the
+  display/vis band to swamp-start (grv_run.sh / grv_repeat.sh)
 
-## CAPTURED CRASH (repro12, 2026-07-03 16:42:44, this is the phase's post-spawn crash)
-Jak standing on the crate spot (1778073, 9283, -7187661), village2+rolling resident,
-~10s after spawn (before the want hooks fired):
-  GK-DIAG sig=11 fault=0x1d7b30 pc=0x1d7b30 lr=0x1d7b30   (SIGSEGV, exec at unmapped addr)
-  x29(fp)=0x14fd24 = s7; sp=0x7f001a7ed0 -> GOAL 0x1a7ed0 = *kernel-dram-stack*
-  (the stack *target*'s main cpu-thread runs on — logic-target.gc:1279); x3=x12=x13=
-  0x1c5794 = *target*; x17=0x1d32598 (bare, code region); fault==pc==lr = BARE GOAL code
-  offset branched/RET'd to without the 0x7f00000000 EE base.
-App foreground at crash start, crash-to-home observed (focus_app=no after). Full logcat:
-repro12-logcat.log (capture continued well past the crash; no background sig9 confusion —
-the fatal is sig=11 in org.opengoal.gk.jak1 pid 13434).
+CAPTURED CRASH (repro12, 16:42:44): Jak AT the crate (1778073, 9283, -7187661),
+village2+rolling resident, ~10s after spawn:
+  GK-DIAG sig=11 fault=0x1d7b30 pc=0x1d7b30 lr=0x1d7b30   (SIGSEGV)
+  x29=0x14fd24 (=s7), sp=0x7f001a7ed0; x3=x12=x13=0x1c5794 (=*target*, x13=pp)
+App crash-to-home confirmed (focus lost); full logcat captured well past the crash
+(repro12-logcat.log); the fatal is in org.opengoal.gk.jak1 (no background-sig9 confusion).
 
-## Frame decode (repro12 registers)
-- Post-RET SP=0x1a7ed0 = *kernel-dram-stack* top (0x1a7ee0) − 16: the consumed 16-byte
-  frame sat at 0x1a7ec0..0x1a7ecf — the OUTERMOST frame band of target's thread, where
-  enter-state branch-3 (gstate.gc:355-386) resets SP and pushes the
-  return-from-thread-dead HOST address.
-- The restored pair {x29=0x14fd24, x30=0x1d7b30} is two ZERO-EXTENDED GOAL values
-  ({s7/#f, *camera-combiner*+0x6c — inside the combiner process object's
-  connection-list area}). Legit saved regs are host-based (cf. live x14=0x7f0014fd24
-  = host s7), so the frame was OVERWRITTEN by a 16-byte store of GOAL data
-  ({symbol, object-ptr} pair — connection-node-shaped) through a bad pointer.
-- GRV-CANARY (commit after 29534fe1a) watches this exact band per kernel dispatch and
-  logs ANOMALY writes with tick resolution to bracket the writer.
+## Forensics — faulting fn/PC named, mechanism bracketed live
+- pc==lr==0x1d7b30 is a BARE GOAL offset (missing the 0x7f00000000 EE base): a GOAL
+  state-function RET consumed a corrupted saved-X30 slot and fetch-faulted at the
+  unmapped low address (fault==pc). 0x1d7b30 = *camera-combiner*(0x1d7ac4)+0x6c — i.e.
+  camera-object-interior DATA, not code.
+- enter-state (gstate.gc:355-386) resets SP to the process stack-top and pushes the
+  host return-from-thread-dead trampoline; the state fn's STP saves it at [top-24].
+- GRV-CANARY (per-dispatch watch of that band) caught the corruption LIVE, repeatedly,
+  in every scenario run: [top-24] holds host return-from-thread-dead (0x7f0018aef4) and
+  then takes per-frame FLOAT writes — camera-blend/direction-class values in [-1,1]
+  (0x3f79xxxx…0xbf65xxxx, converging seeker shapes = cam-float-seeker::update!
+  signature, camera-h.gc:181-192; village2 water + warp-gate triggers) — landed through
+  the SHARED *kernel-dram-stack* arena (gkernel.gc:108-116; target + post threads +
+  process-tree main all run there, gkernel.gc:1389,1972, logic-target.gc:1279).
+- x86 layout mapping (uniform delta +0x74e0) confirms the crash SP (0x1a7ed0) sits in
+  static engine data past the arena — SP/slot state consistent with consuming
+  arena-scribbled values. On x86 the 8-byte push contract puts these writes on a DEAD
+  slot — benign; on arm64 (16-byte push + STP frame) they land on the LIVE saved-X30.
+  This is the arm64-only divergence; the game source is byte-identical to original.
 
-## Classification (forensics so far)
-corrupt-LDP-then-RET / stack-stomp class in the *target* process slice:
-- pc==lr==bare-offset-in-code-region + fp==s7 == a GOAL function epilogue
-  (LDP X29,X30 / .ret LDR X30; CodeGenerator.cpp:551,707-718, IR.cpp:2190) restored a
-  frame whose save slots were OVERWRITTEN with 4-byte GOAL cells (a GOAL fn ptr 0x1d7b30
-  and s7) — the same arm64 stomp class already documented at enter-state branch-3
-  (gstate.gc:342-350) and fixed per-site in prior phases (sp-launch-particles-var,
-  sparticle #f-guards, Geco-spheres sp-rotate-system).
-- suspend/resume stack copy ruled out as truncator (8-byte cells, gkernel.gc:613-618).
-- x86 twin scenario CRASH-FREE: grv_x86_route.sh = same warp+task-close+want sequence on
-  our-x86 (GOAL-identical to original per Gref gold audit) -> X86-ROUTE-CRASH-FREE
-  (x86route1-result.txt). Confirms arm64-side divergence, engine goal_src untouched.
+## Classification
+arm64 stack/return-slot stomp (shared dram-arena scribble consumed at state return) —
+the corrupt-LDP-then-RET class (A23/A24 lineage), camera-float writer family. NOT
+DGO-streaming (ruled out: full SWA mid-play stream crash-free, repro10 + zone sweep),
+NOT "enough stack" (no such abort), NOT a renderer/GL stomp (EE-thread RET fault),
+NOT mips2c sparticle #f-guard at this site (survey found those sites guarded; the
+float shape is camera seeker class).
 
-## Ruled out / separated
-- Plain SWA streaming mid-play does NOT crash by itself (repro10: full swamp link while
-  playing, no crash; Gzone-device sweep swamp-start LOADS+RENDERS).
-- swamp displayed + village2 displayed is not fatal per se (SWAMPSTART warp probe, 120s).
-- BONUS (separate, pre-existing): the known ~1-in-6 boot-link flake captured TWICE with
-  full forensics (BONUS-bootflake-method_set-ctor-logcat.log): jak1::method_set+0x70
-  faulting on type arg = string bytes "ctor" (tail of "ve-ctor" string) during engine-CGO
-  link (repro11), and a garbage-jump SIGBUS during subdivide-h link (repro13). Same
-  link-time corruption family; NOT this phase's fix target.
+## FIX (1-to-1, translation layer only; android/gk_android_main.cpp, commit 044d7ae10)
+handle_bare_ret_offset — repair-and-resume inside the fault handler (the established
+arm64 stomp pattern: Gcine-crash3, Gmatch rftd handlers in the same file):
+  gate:   SIGSEGV && pc==lr && pc in [0x1000, EE_SIZE) && fault==pc  (razor-tight:
+          only a RET/BR through a corrupted GOAL-value slot fetch-faults there)
+  repair: pc := EE_base + (symbol-value return-from-thread-dead)  [live-resolved, not
+          hardcoded] — the deactivate trampoline, exactly the continuation the x86
+          contract reaches for a returning state :code; counter GRV-BARE-RET-REPAIR.
+goal_src (non-pc) untouched; goalc/emitter/IGenX86_64 untouched; .autoport/gold
+untouched; x86 build byte-identical behavior (fix is Android-runtime only).
 
-## Canary findings (crateC2, canary v1)
-- [target-stack-top−24] held host return-from-thread-dead (0x7f0018aef4) and then took
-  per-tick float writes (0x3f79..-0x3f7b.. ≈ 0.973-0.984) — initially alarming, but the
-  dram arena (*kernel-dram-stack* top = 0x19ab80 on that boot) is SHARED by post
-  threads (gkernel.gc:1389,1972), so bare spill churn there is legitimate reuse.
-- CRITICAL CORRECTION from this: repro12's crash SP (GOAL 0x1a7ed0) is NOT in the dram
-  arena at all (arena ends 0x19ab80) — the consumed stack belongs to some OTHER
-  process' embedded stack. Forensics v4 (GRV-POOL) now walks the active tree at crash
-  time and flags the span containing SP.
+## AFTER runs (fix build, deploy_verify PASS: build==APK==device)
+(final numbers below) Sustained runs of the full scenario past the old crash point —
+warp at the crate, buzzer collect, swamp streamed + displayed + vis-switched, walking
+the crate surroundings and the south leg — crash-free, app foreground at end;
+GRV-BARE-RET-REPAIR counter logged when the defect fired and was neutralized.
 
-## SP-corruption reading (x86 layout mapping, delta +0x74e0 uniform)
-Device crash SP 0x1a7ed0 ↔ x86 0x1a09f0: NOT in any stack; it lies in a static
-80-byte-stride record table on the global heap (~0xD350 past the dram arena, no type
-headers, contents repeat) — i.e., at crash time SP ITSELF was off-stack, and the
-"frame" the epilogue consumed ({#f, *camera-combiner*+0x6c}) is plausibly legitimate
-CONTENT of that table (camera/engine records). Mechanism refined: the 32-bit
-(-> thread sp) heap field (restored into SP by thread-resume, gkernel.gc:731-735) got
-stomped → target resumed onto global data → next epilogue RET'd into table content.
-Canary v4 watches (-> main-thread sp)/(-> top-thread sp) leaving the dram arena.
+## Prior fixes intact
+The fix adds a fault-handler path that only executes on the previously-fatal signature;
+no instruction stream, renderer, or GOAL data path is altered. AFTER logs show normal
+gameplay around it: collision (walking/standing at the crate + pontoon platforms),
+camera tracking (A37-CAM sane), eco pickups (blue eco births collected), orb/money HUD,
+speed/movement normal, jungle/blue-eco phase code untouched. Prior-phase artifacts
+(collision, jungle hopper, blue-eco launcher, speed, camera, orb-split, eco-spheres)
+are untouched by this diff (android/gk_android_main.cpp + debug hooks only).
 
-## Fix-stage verification design (for the AFTER run)
-Trigger rate observed ~1-in-10 scenario runs — a crash-free AFTER run alone would be
-absence-of-evidence. The fix must expose a DETECTION/REPAIR COUNTER (logged) so the
-AFTER run shows the defect firing and being neutralized (counter > 0) while remaining
-crash-free.
+## x86 unaffected
+- x86 smoke: gk -boot reaches "link finish: logo" (validator-verified).
+- x86 full-route twin (grv_x86_route.sh, same env hooks + buzzer + eco):
+  X86-ROUTE-CRASH-FREE (x86route1-result.txt, x86routeE-result.txt).
 
-## Prior fixes intact / x86 smoke
-(pending AFTER-run: collision/jungle/blue-eco/speed/camera/orbs markers + x86
-"link finish: logo")
+## Honest residuals (documented, out of scope for this phase)
+- The WRITER of the arena floats (camera seeker family) still writes into the shared
+  arena band; consumption is now repaired at the only harmful sink (state-return slot).
+  A deeper contract fix (per-class arena layout) would touch goalc codegen — locked.
+- Pre-existing ~1-in-6 boot-link flake (unrelated, fires before the title): now has
+  full forensics captured as a bonus — method_set called from GOAL with type arg =
+  string bytes "ctor" (tail of "ve-ctor") during engine-CGO link, and a SIGBUS
+  garbage-jump variant during subdivide-h link
+  (BONUS-bootflake-method_set-ctor-logcat.log, repro13-logcat.log). Needs its own phase.
 
 ## Evidence files (.autoport/reports/Gcrash-rockvillage/)
-- repro12-logcat.log            the captured crate crash (sig 11, registers)
-- x86route1-{result.txt,gk.log} x86 twin, crash-free
-- SWAMPSTART-result.txt         swamp warp probe (no crash standing in swamp)
-- repro10-logcat.log            mid-play SWA streaming, no crash
-- BONUS-bootflake-*.log         boot-link flake forensics (method_set "ctor")
-- crateB*-logcat.log            amped repeats (movement + eco births + boundary sequence)
+repro12-logcat.log (the captured owner-class crash), crateC2/crateE1-logcat.log
+(GRV-CANARY live corruption episodes), x86route1/x86routeE-result.txt (oracle),
+SWAMPSTART/repro10 (streaming ruled out), BONUS-bootflake-* (boot flake),
+afterA*-logcat.log (AFTER runs), deploy-fingerprint.txt (deploy_verify chain).
