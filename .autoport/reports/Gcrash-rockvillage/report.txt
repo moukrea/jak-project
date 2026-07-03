@@ -44,6 +44,19 @@ App foreground at crash start, crash-to-home observed (focus_app=no after). Full
 repro12-logcat.log (capture continued well past the crash; no background sig9 confusion —
 the fatal is sig=11 in org.opengoal.gk.jak1 pid 13434).
 
+## Frame decode (repro12 registers)
+- Post-RET SP=0x1a7ed0 = *kernel-dram-stack* top (0x1a7ee0) − 16: the consumed 16-byte
+  frame sat at 0x1a7ec0..0x1a7ecf — the OUTERMOST frame band of target's thread, where
+  enter-state branch-3 (gstate.gc:355-386) resets SP and pushes the
+  return-from-thread-dead HOST address.
+- The restored pair {x29=0x14fd24, x30=0x1d7b30} is two ZERO-EXTENDED GOAL values
+  ({s7/#f, *camera-combiner*+0x6c — inside the combiner process object's
+  connection-list area}). Legit saved regs are host-based (cf. live x14=0x7f0014fd24
+  = host s7), so the frame was OVERWRITTEN by a 16-byte store of GOAL data
+  ({symbol, object-ptr} pair — connection-node-shaped) through a bad pointer.
+- GRV-CANARY (commit after 29534fe1a) watches this exact band per kernel dispatch and
+  logs ANOMALY writes with tick resolution to bracket the writer.
+
 ## Classification (forensics so far)
 corrupt-LDP-then-RET / stack-stomp class in the *target* process slice:
 - pc==lr==bare-offset-in-code-region + fp==s7 == a GOAL function epilogue
@@ -66,6 +79,22 @@ corrupt-LDP-then-RET / stack-stomp class in the *target* process slice:
   faulting on type arg = string bytes "ctor" (tail of "ve-ctor" string) during engine-CGO
   link (repro11), and a garbage-jump SIGBUS during subdivide-h link (repro13). Same
   link-time corruption family; NOT this phase's fix target.
+
+## Canary findings (crateC2, canary v1)
+- [target-stack-top−24] held host return-from-thread-dead (0x7f0018aef4) and then took
+  per-tick float writes (0x3f79..-0x3f7b.. ≈ 0.973-0.984) — initially alarming, but the
+  dram arena (*kernel-dram-stack* top = 0x19ab80 on that boot) is SHARED by post
+  threads (gkernel.gc:1389,1972), so bare spill churn there is legitimate reuse.
+- CRITICAL CORRECTION from this: repro12's crash SP (GOAL 0x1a7ed0) is NOT in the dram
+  arena at all (arena ends 0x19ab80) — the consumed stack belongs to some OTHER
+  process' embedded stack. Forensics v4 (GRV-POOL) now walks the active tree at crash
+  time and flags the span containing SP.
+
+## Fix-stage verification design (for the AFTER run)
+Trigger rate observed ~1-in-10 scenario runs — a crash-free AFTER run alone would be
+absence-of-evidence. The fix must expose a DETECTION/REPAIR COUNTER (logged) so the
+AFTER run shows the defect firing and being neutralized (counter > 0) while remaining
+crash-free.
 
 ## Prior fixes intact / x86 smoke
 (pending AFTER-run: collision/jungle/blue-eco/speed/camera/orbs markers + x86
