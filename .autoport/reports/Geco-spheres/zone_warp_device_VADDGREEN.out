@@ -1,0 +1,47 @@
+== VADDGREEN: arm LEVEL-WARP continue='game-start' ==
+  warming to title (link finish: logo, up to 150s)...
+  title ~4s
+  waiting for LEVEL-WARP to fire (up to 90s)...
+  warp fired ~14s
+  observing VADDGREEN for 150s past warp (frame@warp=600)...
+   [watch 5/150s] frame=720
+   [watch 10/150s] frame=900
+   [watch 15/150s] frame=1080
+   [watch 20/150s] frame=1200
+   [watch 25/150s] frame=1380
+   [watch 30/150s] frame=1500
+   [watch 35/150s] frame=1680
+   [watch 40/150s] frame=1860
+   [watch 45/150s] frame=1980
+   [watch 50/150s] frame=2160
+   [watch 55/150s] frame=2220
+   [watch 60/150s] frame=2340
+   [watch 65/150s] frame=2520
+   [watch 70/150s] frame=2640
+   [watch 75/150s] frame=2820
+   [watch 80/150s] frame=3000
+   [watch 85/150s] frame=3120
+   [watch 90/150s] frame=3300
+   [watch 95/150s] frame=3480
+   [watch 100/150s] frame=3660
+   [watch 105/150s] frame=3840
+   [watch 110/150s] frame=4020
+   [watch 115/150s] frame=4140
+   [watch 120/150s] frame=4320
+   [watch 125/150s] frame=4500
+   [watch 130/150s] frame=4680
+   [watch 135/150s] frame=4800
+   [watch 140/150s] frame=4980
+   [watch 145/150s] frame=5160
+   [watch 150/150s] frame=5280
+=== zone_warp_device VADDGREEN (continue=game-start) 2026-07-03T12:50:45+02:00 ===
+RESULT zone=VADDGREEN continue=game-start status=LOADS+RENDERS(frame+4920,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=5520 advanced=4920 focus_app=yes screencap_bytes=2272949
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level training;
+  last link-finish: link finish: warp-gate-switch link finish: warpgate link finish: water-anim-training link finish: training-vis link finish: fuel-cell-victory-3 link finish: fuel-cell-victory-7 
+  a34-fp-walk: none
+== VADDGREEN done: LOADS+RENDERS(frame+4920,foreground) ==

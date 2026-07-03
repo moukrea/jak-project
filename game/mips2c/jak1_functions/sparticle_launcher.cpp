@@ -1,10 +1,48 @@
 //--------------------------MIPS2C---------------------
 // clang-format off
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+
 #include "game/mips2c/mips2c_private.h"
 #include "game/kernel/jak1/kscheme.h"
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
 using namespace jak1;
 
 namespace Mips2C::jak1 {
+
+// Geco-spheres TEMPORARY diagnostic gate — env OG_SPART_DUMP / Android prop
+// debug.opengoal.spart.dump (shared with the SPART-INIT/BORN dumps below).
+// Value "1" arms immediately; N>1 arms N seconds after first check.
+static bool geco_spart_gate() {
+  static long s_delay = -2;
+  if (s_delay == -2) {
+    s_delay = -1;
+    const char* v = std::getenv("OG_SPART_DUMP");
+#if defined(__ANDROID__)
+    char pbuf[92] = {0};
+    if (!v && __system_property_get("debug.opengoal.spart.dump", pbuf) > 0 && pbuf[0]) {
+      v = pbuf;
+    }
+#endif
+    if (v && v[0]) {
+      long n = std::atol(v);
+      if (n == 1) {
+        s_delay = 0;
+      } else if (n > 1) {
+        s_delay = (long)time(nullptr) + n;
+      }
+    }
+  }
+  if (s_delay > 0 && (long)time(nullptr) >= s_delay) {
+    s_delay = 0;
+  }
+  return s_delay == 0;
+}
+
 namespace particle_adgif {
 struct Cache {
   void* particle_adgif_cache; // *particle-adgif-cache*
@@ -347,6 +385,59 @@ u64 execute(void* ctxt) {
   c->daddiu(t0, s7, 8);                             // daddiu t0, s7, 8
   c->jalr(call_addr);                               // jalr ra, t9
   c->sw(v0, 80, sp);                                // sw v0, 80(sp)
+  // Geco-spheres TEMPORARY diagnostic: dump what sp-init-fields! (GOAL-compiled,
+  // arm64-suspect) just wrote for this launch — the sprite-field block (fields
+  // 10..21 incl. rgba=18..21, on the mips2c stack at sp+128) and the cpuinfo
+  // field block (fields 24..51 incl. fade-rgba=33..36, at particle+12). Gated by
+  // env OG_SPART_DUMP / prop debug.opengoal.spart.dump; x86-vs-device diff names
+  // the exact fields that diverge (missing-spec defaults / random / fades).
+  {
+    // Value "1" arms immediately; N>1 arms N seconds after first launch (skips
+    // the boot/title particle flood so the cap captures post-warp eco launches).
+    static long s_delay = -2;
+    if (s_delay == -2) {
+      s_delay = -1;
+      const char* v = std::getenv("OG_SPART_DUMP");
+#if defined(__ANDROID__)
+      char pbuf[92] = {0};
+      if (!v && __system_property_get("debug.opengoal.spart.dump", pbuf) > 0 && pbuf[0]) {
+        v = pbuf;
+      }
+#endif
+      if (v && v[0]) {
+        long n = std::atol(v);
+        if (n == 1) {
+          s_delay = 0;
+        } else if (n > 1) {
+          s_delay = (long)time(nullptr) + n;
+        }
+      }
+    }
+    if (s_delay > 0 && (long)time(nullptr) >= s_delay) {
+      s_delay = 0;
+    }
+    static int s_count = 0;
+    if (s_delay == 0 && s_count < 20000) {
+      s_count++;
+      u32 spec = 0;
+      memcpy(&spec, g_ee_main_mem + c->gpr_addr(sp) + 12, 4);
+      float spr[12];
+      memcpy(spr, g_ee_main_mem + c->gpr_addr(sp) + 128, 48);
+      float cpu[28];
+      memcpy(cpu, g_ee_main_mem + c->gpr_addr(s2) + 12, 112);
+      char line[1200];
+      int n = snprintf(line, sizeof(line), "SPART-INIT spec=%x spr=", spec);
+      for (int i = 0; i < 12; i++) {
+        n += snprintf(line + n, sizeof(line) - n, "%g,", spr[i]);
+      }
+      n += snprintf(line + n, sizeof(line) - n, " cpu=");
+      for (int i = 0; i < 28; i++) {
+        n += snprintf(line + n, sizeof(line) - n, "%g,", cpu[i]);
+      }
+      printf("%s\n", line);
+      fflush(stdout);
+    }
+  }
   // nop                                            // sll r0, r0, 0
   c->lw(s5, 104, s2);                               // lw s5, 104(s2)
   // nop                                            // sll r0, r0, 0
@@ -572,6 +663,18 @@ u64 execute(void* ctxt) {
   call_addr = c->gprs[t9].du32[0];                  // function call:
   // nop                                            // sll r0, r0, 0
   c->jalr(call_addr);                               // jalr ra, t9
+  // Geco-spheres TEMPORARY diagnostic: staging sprite pos right after
+  // sp-adjust-launch (GOAL-compiled) ran. NaN here = adjust corrupted it.
+  if (geco_spart_gate()) {
+    static int s_adj = 0;
+    if (s_adj < 20000) {
+      s_adj++;
+      float p[4];
+      memcpy(p, g_ee_main_mem + c->gpr_addr(sp) + 128, 16);
+      printf("SPART-ADJ pos=%g,%g,%g,%g\n", p[0], p[1], p[2], p[3]);
+      fflush(stdout);
+    }
+  }
 
   block_39:
 #if defined(__aarch64__)
@@ -628,6 +731,25 @@ u64 execute(void* ctxt) {
   c->load_symbol(t9, cache.particle_adgif);         // lw t9, particle-adgif(s7)
   // nop                                            // sll r0, r0, 0
   c->sqc2(vf4, 128, sp);                            // sqc2 vf4, 128(sp)
+  // Geco-spheres TEMPORARY diagnostic (DECISIVE): pos just became
+  // staging + vf30(origin arg, copied to sp+64 at entry). orig NaN => the
+  // CALLER passed a NaN origin (upstream, e.g. root-prim world-sphere);
+  // orig finite + pos NaN => the staging block was corrupted in-launch
+  // (adjust/euler/rotate). spec = launcher (sp+80) to identify the defpart.
+  if (geco_spart_gate()) {
+    static int s_vadd = 0;
+    if (s_vadd < 20000) {
+      s_vadd++;
+      float p[4], o[4];
+      u32 spec = 0;
+      memcpy(p, g_ee_main_mem + c->gpr_addr(sp) + 128, 16);
+      memcpy(o, g_ee_main_mem + c->gpr_addr(sp) + 64, 16);
+      memcpy(&spec, g_ee_main_mem + c->gpr_addr(sp) + 80, 4);
+      printf("SPART-VADD spec=%x pos=%g,%g,%g,%g orig=%g,%g,%g,%g\n", spec, p[0], p[1], p[2],
+             p[3], o[0], o[1], o[2], o[3]);
+      fflush(stdout);
+    }
+  }
   // nop                                            // sll r0, r0, 0
   call_addr = c->gprs[t9].du32[0];                  // function call:
   // nop                                            // sll r0, r0, 0
@@ -667,6 +789,20 @@ u64 execute(void* ctxt) {
   call_addr = c->gprs[t9].du32[0];                  // function call:
   c->mov64(a3, s4);                                 // or a3, s4, r0
   c->jalr(call_addr);                               // jalr ra, t9
+  // Geco-spheres TEMPORARY diagnostic: staging pos after the launcher's GOAL
+  // birth-func ran (fn = sp+108). NaN first appearing here = birth-func did it.
+  if (geco_spart_gate()) {
+    static int s_bf = 0;
+    if (s_bf < 20000) {
+      s_bf++;
+      float p[4];
+      u32 fn = 0;
+      memcpy(p, g_ee_main_mem + c->gpr_addr(sp) + 128, 16);
+      memcpy(&fn, g_ee_main_mem + c->gpr_addr(sp) + 108, 4);
+      printf("SPART-BF fn=%x pos=%g,%g,%g,%g\n", fn, p[0], p[1], p[2], p[3]);
+      fflush(stdout);
+    }
+  }
 
   block_49:
   c->lw(a0, 120, sp);                               // lw a0, 120(sp)
@@ -816,6 +952,46 @@ u64 execute(void* ctxt) {
   c->vsub_bc(DEST::w, BC::w, vf6, vf0, vf0);        // vsubw.w vf6, vf0, vf0
   // nop                                            // sll r0, r0, 0
   c->sqc2(vf6, 32, v1);                             // sqc2 vf6, 32(v1)
+  // Geco-spheres TEMPORARY diagnostic: the WORLD state the launch just wrote to
+  // the live sprite (v1 = cpuinfo.sprite): pos+scale quad, color quad, flags.
+  // Classify by color; NaN here = the launch transform produced it.
+  {
+    // reuse the SPART-INIT gate state via a fresh evaluation (same env/prop)
+    static long s_delay2 = -2;
+    if (s_delay2 == -2) {
+      s_delay2 = -1;
+      const char* v = std::getenv("OG_SPART_DUMP");
+#if defined(__ANDROID__)
+      char pbuf[92] = {0};
+      if (!v && __system_property_get("debug.opengoal.spart.dump", pbuf) > 0 && pbuf[0]) {
+        v = pbuf;
+      }
+#endif
+      if (v && v[0]) {
+        long n = std::atol(v);
+        if (n == 1) {
+          s_delay2 = 0;
+        } else if (n > 1) {
+          s_delay2 = (long)time(nullptr) + n;
+        }
+      }
+    }
+    if (s_delay2 > 0 && (long)time(nullptr) >= s_delay2) {
+      s_delay2 = 0;
+    }
+    static int s_born = 0;
+    if (s_delay2 == 0 && s_born < 20000) {
+      s_born++;
+      float wp[4], wc[4], wo[4];
+      memcpy(wp, g_ee_main_mem + c->gpr_addr(v1) + 0, 16);
+      memcpy(wc, g_ee_main_mem + c->gpr_addr(v1) + 32, 16);
+      memcpy(wo, g_ee_main_mem + c->gpr_addr(sp) + 64, 16);
+      printf("SPART-BORN spr=%x pos=%g,%g,%g,%g col=%.0f,%.0f,%.0f,%.0f flags=%x orig=%g,%g,%g\n",
+             c->gpr_addr(v1), wp[0], wp[1], wp[2], wp[3], wc[0], wc[1], wc[2], wc[3],
+             (u32)c->sgpr64(s5), wo[0], wo[1], wo[2]);
+      fflush(stdout);
+    }
+  }
   // nop                                            // sll r0, r0, 0
   c->ori(s5, s5, 64);                               // ori s5, s5, 64
   c->lw(a0, 172, sp);                               // lw a0, 172(sp)

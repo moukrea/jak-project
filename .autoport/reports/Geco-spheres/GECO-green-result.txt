@@ -1,0 +1,10 @@
+=== zone_warp_device GECO-green (continue=game-start) 2026-07-03T10:32:50+02:00 ===
+RESULT zone=GECO-green continue=game-start status=LOADS+RENDERS(frame+4380,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=4980 advanced=4380 focus_app=yes screencap_bytes=2289917
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level training;Adding level training;
+  last link-finish: link finish: warp-gate-switch link finish: warpgate link finish: water-anim-training link finish: training-vis link finish: fuel-cell-victory-3 link finish: fuel-cell-victory-7 
+  a34-fp-walk: none

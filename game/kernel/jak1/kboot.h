@@ -65,6 +65,16 @@ void level_warp_maybe();
 void eco_spawn_maybe();
 
 /*!
+ * ECO PHYSICS TRACER (Geco-spheres TEMPORARY arm64-NaN diagnostic) — env
+ * OG_ECO_TRACE / Android prop debug.opengoal.eco.trace = "1", OFF by default.
+ * Per-dispatch dumps the physics state (trans / transv / world-sphere /
+ * local-normal / gravity / base.y / flags) of the LAST eco pickup spawned by the
+ * eco-spawn hook, so we can see which field first becomes NaN on arm64. Plain
+ * printf like the SPART probes. Never armed in the shipped APK.
+ */
+void eco_trace_maybe();
+
+/*!
  * ECHO-INTRO (new-game intro cinematic) deterministic warp — env OG_ECHO_INTRO /
  * Android prop debug.opengoal.echo.intro, OFF by default. Fires once on the GOAL
  * kernel thread from the dispatch loop, replaying

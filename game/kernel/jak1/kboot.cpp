@@ -181,6 +181,10 @@ void KernelCheckAndDispatch() {
     // birth-pickup-at-point form so eco spheres can be framed on-device per color.
     eco_spawn_maybe();
 
+    // Geco-spheres TEMPORARY diagnostic — gated (env OG_ECO_TRACE / prop
+    // debug.opengoal.eco.trace), OFF by default. Dumps the last spawned eco's physics.
+    eco_trace_maybe();
+
     // ECHO-INTRO (new-game intro cinematic) deterministic warp — gated (env
     // OG_ECHO_INTRO / prop debug.opengoal.echo.intro), OFF by default, fires once.
     // Reaches the new-game intro cinematic directly, bypassing the title menu.

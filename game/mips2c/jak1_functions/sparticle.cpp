@@ -1,9 +1,48 @@
 // clang-format off
 //--------------------------MIPS2C---------------------
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+
 #include "game/mips2c/mips2c_private.h"
 #include "game/kernel/jak1/kscheme.h"
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
 using namespace jak1;
 namespace Mips2C::jak1 {
+
+// Geco-spheres TEMPORARY diagnostic gate — env OG_SPART_DUMP / Android prop
+// debug.opengoal.spart.dump (same switch as the SPART-INIT dump in
+// sparticle_launcher.cpp). Value "1" arms immediately; a value N>1 arms N
+// seconds after the first particle launch (so the capped dump skips the boot/
+// title particle flood and captures the post-warp eco launches instead).
+static bool geco_spart_dump_armed() {
+  static long s_delay = -2;  // -2 = unread, -1 = off, 0 = armed, >0 = arm-at (epoch s)
+  if (s_delay == -2) {
+    s_delay = -1;
+    const char* v = std::getenv("OG_SPART_DUMP");
+#if defined(__ANDROID__)
+    char pbuf[92] = {0};
+    if (!v && __system_property_get("debug.opengoal.spart.dump", pbuf) > 0 && pbuf[0]) {
+      v = pbuf;
+    }
+#endif
+    if (v && v[0]) {
+      long n = std::atol(v);
+      if (n == 1) {
+        s_delay = 0;
+      } else if (n > 1) {
+        s_delay = (long)time(nullptr) + n;
+      }
+    }
+  }
+  if (s_delay > 0 && (long)time(nullptr) >= s_delay) {
+    s_delay = 0;
+  }
+  return s_delay == 0;
+}
 namespace sp_process_block_3d {
 struct Cache {
   void* sp_frame_time; // *sp-frame-time*
@@ -402,6 +441,7 @@ u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
   bool bc = false;
   u32 call_addr = 0;
+  bool geco_log_this_relaunch = false;  // Geco-spheres TEMPORARY diagnostic
   c->daddiu(sp, sp, -128);                          // daddiu sp, sp, -128
   c->sd(ra, 0, sp);                                 // sd ra, 0(sp)
   c->sq(s0, 16, sp);                                // sq s0, 16(sp)
@@ -525,6 +565,22 @@ u64 execute(void* ctxt) {
   c->lq(s1, 48, sp);                                // lq s1, 48(sp)
   c->lq(s3, 64, sp);                                // lq s3, 64(sp)
   c->daddiu(sp, sp, 80);                            // daddiu sp, sp, 80
+  // Geco-spheres TEMPORARY diagnostic: the per-particle GOAL :func (e.g.
+  // eco-fadeout, arm64-goalc-compiled) just ran; it is supposed to REFILL
+  // next-time (cpuinfo+116) each frame to postpone the relaunch-to-fadeout.
+  // Log what it left there (x86-vs-device diff). Gated like SPART-INIT.
+  if (geco_spart_dump_armed()) {
+    static int s_count = 0;
+    if (s_count < 8000) {
+      s_count++;
+      u32 fn = 0, nt = 0, nl = 0;
+      memcpy(&fn, g_ee_main_mem + c->gpr_addr(s5) + 112, 4);
+      memcpy(&nt, g_ee_main_mem + c->gpr_addr(s5) + 116, 4);
+      memcpy(&nl, g_ee_main_mem + c->gpr_addr(s5) + 120, 4);
+      printf("SPART-FUNC cpu=%x fn=%x nt=%u nl=%x\n", c->gpr_addr(s5), fn, nt, nl);
+      fflush(stdout);
+    }
+  }
 
   block_15:
   c->lw(a1, 120, s5);                               // lw a1, 120(s5)
@@ -548,6 +604,27 @@ u64 execute(void* ctxt) {
   c->mov64(a0, gp);                                 // or a0, gp, r0
   c->mov64(a3, s4);                                 // or a3, s4, r0
   c->mov64(a2, s5);                                 // or a2, s5, r0
+  // Geco-spheres TEMPORARY diagnostic: a 2D particle's next-time countdown just
+  // expired -> it relaunches into its next-launcher (the fadeout stage). On x86
+  // this only happens when intended; if the arm64-compiled :func failed to
+  // postpone, a relaunch STORM shows up here. Log cpuinfo + its func + launcher.
+  geco_log_this_relaunch = false;
+  if (geco_spart_dump_armed()) {
+    static int s_count = 0;
+    if (s_count < 8000) {
+      s_count++;
+      geco_log_this_relaunch = true;
+      u32 fn = 0, nl = 0;
+      float pre[4], col[4];
+      memcpy(&fn, g_ee_main_mem + c->gpr_addr(s5) + 112, 4);
+      memcpy(&nl, g_ee_main_mem + c->gpr_addr(s5) + 120, 4);
+      memcpy(pre, g_ee_main_mem + c->gpr_addr(s4) + 0, 16);
+      memcpy(col, g_ee_main_mem + c->gpr_addr(s4) + 32, 16);
+      printf("SPART-RELAUNCH cpu=%x fn=%x nl=%x pos=%.0f,%.0f,%.0f col=%.0f,%.0f,%.0f,%.0f\n",
+             c->gpr_addr(s5), fn, nl, pre[0], pre[1], pre[2], col[0], col[1], col[2], col[3]);
+      fflush(stdout);
+    }
+  }
   c->load_symbol(t9, cache.sp_relaunch_particle_2d);// lw t9, sp-relaunch-particle-2d(s7)
   call_addr = c->gprs[t9].du32[0];                  // function call:
   c->sll(v0, ra, 0);                                // sll v0, ra, 0
@@ -559,6 +636,19 @@ u64 execute(void* ctxt) {
   c->lq(s3, 64, sp);                                // lq s3, 64(sp)
   c->lq(s2, 80, sp);                                // lq s2, 80(sp)
   c->daddiu(sp, sp, 96);                            // daddiu sp, sp, 96
+  // Geco-spheres TEMPORARY diagnostic: what did sp-relaunch-particle-2d
+  // (GOAL-compiled, arm64-suspect) do to this particle? Pairs with the
+  // SPART-RELAUNCH line above.
+  if (geco_log_this_relaunch) {
+    float post[4], col[4], vel[4];
+    memcpy(post, g_ee_main_mem + c->gpr_addr(s4) + 0, 16);
+    memcpy(col, g_ee_main_mem + c->gpr_addr(s4) + 32, 16);
+    memcpy(vel, g_ee_main_mem + c->gpr_addr(s5) + 16, 16);
+    printf("SPART-RELPOST cpu=%x pos=%.0f,%.0f,%.0f col=%.0f,%.0f,%.0f,%.0f vel=%g,%g,%g\n",
+           c->gpr_addr(s5), post[0], post[1], post[2], col[0], col[1], col[2], col[3], vel[0],
+           vel[1], vel[2]);
+    fflush(stdout);
+  }
 
   block_18:
   c->lqc2(vf1, 0, s4);                              // lqc2 vf1, 0(s4)
@@ -593,6 +683,29 @@ u64 execute(void* ctxt) {
   c->sqc2(vf1, 0, s4);                              // sqc2 vf1, 0(s4)
   c->sqc2(vf2, 16, s4);                             // sqc2 vf2, 16(s4)
   c->sqc2(vf3, 32, s4);                             // sqc2 vf3, 32(s4)
+  // Geco-spheres TEMPORARY diagnostic: per-frame evolution of eco-signature 2D
+  // particles AFTER the aging stores — sprite pos/scale (s4+0..31), color quad
+  // (s4+32), cpuinfo fade quad (s5+48). Eco filter: yellow-born sparkle
+  // (r=g=255,b=0) or green cloud/shaft (b==0, g>=128, a<=64 while r<=128).
+  if (geco_spart_dump_armed()) {
+    static int s_count = 0;
+    if (s_count < 8000) {
+      float col[4], fade[4], pos[4], sc[4];
+      memcpy(col, g_ee_main_mem + c->gpr_addr(s4) + 32, 16);
+      memcpy(fade, g_ee_main_mem + c->gpr_addr(s5) + 48, 16);
+      bool sparkle = col[0] > 200.f && col[1] > 200.f && col[2] == 0.f;
+      bool greenish = col[2] == 0.f && col[1] >= 100.f && col[0] <= 130.f;
+      if (sparkle || greenish || fade[0] < -1.f) {
+        s_count++;
+        memcpy(pos, g_ee_main_mem + c->gpr_addr(s4) + 0, 16);
+        memcpy(sc, g_ee_main_mem + c->gpr_addr(s4) + 16, 16);
+        printf("SPART-AGE cpu=%x col=%.1f,%.1f,%.1f,%.1f fade=%.3f,%.3f,%.3f,%.3f pos=%.0f,%.0f,%.0f sxy=%.1f,%.1f\n",
+               c->gpr_addr(s5), col[0], col[1], col[2], col[3], fade[0], fade[1], fade[2], fade[3],
+               pos[0], pos[1], pos[2], sc[0], sc[3]);
+        fflush(stdout);
+      }
+    }
+  }
   c->lwc1(f0, 24, s4);                              // lwc1 f0, 24(s4)
   c->cvtws(f0, f0);                                 // cvt.w.s f0, f0
   c->mfc1(v1, f0);                                  // mfc1 v1, f0

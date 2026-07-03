@@ -1,0 +1,43 @@
+== GECO-blue: arm LEVEL-WARP continue='game-start' ==
+  warming to title (link finish: logo, up to 150s)...
+  title ~4s
+  waiting for LEVEL-WARP to fire (up to 90s)...
+  warp fired ~12s
+  observing GECO-blue for 130s past warp (frame@warp=600)...
+   [watch 5/130s] frame=720
+   [watch 10/130s] frame=900
+   [watch 15/130s] frame=1020
+   [watch 20/130s] frame=1200
+   [watch 25/130s] frame=1320
+   [watch 30/130s] frame=1500
+   [watch 35/130s] frame=1680
+   [watch 40/130s] frame=1800
+   [watch 45/130s] frame=1980
+   [watch 50/130s] frame=2100
+   [watch 55/130s] frame=2220
+   [watch 60/130s] frame=2400
+   [watch 65/130s] frame=2520
+   [watch 70/130s] frame=2700
+   [watch 75/130s] frame=2820
+   [watch 80/130s] frame=3000
+   [watch 85/130s] frame=3120
+   [watch 90/130s] frame=3300
+   [watch 95/130s] frame=3420
+   [watch 100/130s] frame=3600
+   [watch 105/130s] frame=3720
+   [watch 110/130s] frame=3900
+   [watch 115/130s] frame=4020
+   [watch 120/130s] frame=4140
+   [watch 125/130s] frame=4320
+   [watch 130/130s] frame=4440
+=== zone_warp_device GECO-blue (continue=game-start) 2026-07-03T10:38:49+02:00 ===
+RESULT zone=GECO-blue continue=game-start status=LOADS+RENDERS(frame+4020,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=4620 advanced=4020 focus_app=yes screencap_bytes=2362121
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level training;
+  last link-finish: link finish: warp-gate-switch link finish: warpgate link finish: water-anim-training link finish: training-vis link finish: fuel-cell-victory-3 link finish: fuel-cell-victory-7 
+  a34-fp-walk: none
+== GECO-blue done: LOADS+RENDERS(frame+4020,foreground) ==

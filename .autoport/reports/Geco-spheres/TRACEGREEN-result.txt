@@ -1,0 +1,10 @@
+=== zone_warp_device TRACEGREEN (continue=game-start) 2026-07-03T13:09:34+02:00 ===
+RESULT zone=TRACEGREEN continue=game-start status=LOADS+RENDERS(frame+4980,foreground)
+  warp_fired=1 warp_fail=0 crashed=0
+  frame@warp=600 frame@end=5580 advanced=4980 focus_app=yes screencap_bytes=2254203
+  sig=none
+  gk-diag: none
+  pc/lr: none
+  adding-level: Adding level village1;Adding level training;
+  last link-finish: link finish: training-vis link finish: fuel-cell-victory-3 link finish: fuel-cell-victory-7 link finish: eichar-ambient-4 link finish: fuel-cell-victory-3 link finish: fuel-cell-victory-7 
+  a34-fp-walk: none

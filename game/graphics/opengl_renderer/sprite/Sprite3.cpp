@@ -1,5 +1,12 @@
 #include "Sprite3.h"
 
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
+
 #include "common/log/log.h"
 
 #include "game/graphics/opengl_renderer/background/background_common.h"
@@ -7,6 +14,35 @@
 
 #include "fmt/format.h"
 #include "third-party/imgui/imgui.h"
+
+// Geco-spheres TEMPORARY diagnostic gate — env OG_SPART_DUMP / Android prop
+// debug.opengoal.spart.dump; value 1 arms now, N>1 arms N seconds after first
+// check (same convention as the mips2c SPART probes).
+static bool geco_spr3_dump_armed() {
+  static long s_delay = -2;
+  if (s_delay == -2) {
+    s_delay = -1;
+    const char* v = std::getenv("OG_SPART_DUMP");
+#if defined(__ANDROID__)
+    char pbuf[92] = {0};
+    if (!v && __system_property_get("debug.opengoal.spart.dump", pbuf) > 0 && pbuf[0]) {
+      v = pbuf;
+    }
+#endif
+    if (v && v[0]) {
+      long n = std::atol(v);
+      if (n == 1) {
+        s_delay = 0;
+      } else if (n > 1) {
+        s_delay = (long)time(nullptr) + n;
+      }
+    }
+  }
+  if (s_delay > 0 && (long)time(nullptr) >= s_delay) {
+    s_delay = 0;
+  }
+  return s_delay == 0;
+}
 
 namespace {
 
@@ -808,6 +844,18 @@ void Sprite3::do_block_common(SpriteMode mode,
       auto bsphere = m_vec_data_2d[sprite_idx].xyz_sx;
       bsphere.w() = std::max(bsphere.w(), m_vec_data_2d[sprite_idx].sy());
       if (bsphere.w() == 0 || !sphere_in_view_ref(bsphere, render_state->camera_planes)) {
+        // Geco-spheres TEMPORARY diagnostic: log culled eco-signature sprites.
+        if (geco_spr3_dump_armed()) {
+          static int s_cull = 0;
+          auto& col = m_vec_data_2d[sprite_idx].rgba;
+          bool eco = col.z() == 0.f && col.y() >= 100.f;
+          if (eco && s_cull < 2000) {
+            s_cull++;
+            printf("SPR3-CULL col=%.0f,%.0f,%.0f,%.0f w=%.1f xyz=%.0f,%.0f,%.0f\n", col.x(),
+                   col.y(), col.z(), col.w(), bsphere.w(), bsphere.x(), bsphere.y(), bsphere.z());
+            fflush(stdout);
+          }
+        }
         continue;
       }
     }
@@ -840,6 +888,20 @@ void Sprite3::do_block_common(SpriteMode mode,
     // large clut base, so only the clamp field is a safe tell.)
     constexpr u64 kGorbHeapStart = 0x13fd20;  // game/kernel/common/memory_layout.h HEAP_START
     if ((adgif.clamp_data >> 32) >= kGorbHeapStart) {
+      // Geco-spheres TEMPORARY diagnostic: log every sprite the GORB stomp-guard
+      // drops (color + clamp high bits + tex0) — are the missing eco clouds here?
+      if (geco_spr3_dump_armed()) {
+        static int s_skip = 0;
+        if (s_skip < 4000) {
+          s_skip++;
+          auto& col = m_vec_data_2d[sprite_idx].rgba;
+          printf("SPR3-GORBSKIP col=%.0f,%.0f,%.0f,%.0f clamphi=%llx tex0=%llx mode=%d\n",
+                 col.x(), col.y(), col.z(), col.w(),
+                 (unsigned long long)(adgif.clamp_data >> 32),
+                 (unsigned long long)adgif.tex0_data, (int)mode);
+          fflush(stdout);
+        }
+      }
       continue;
     }
     handle_tex0(adgif.tex0_data, render_state, prof);

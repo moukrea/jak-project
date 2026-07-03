@@ -1,0 +1,18 @@
+== SPART2GREEN: arm LEVEL-WARP continue='game-start' ==
+  warming to title (link finish: logo, up to 150s)...
+  title ~4s
+  waiting for LEVEL-WARP to fire (up to 90s)...
+  CRASH before warp ~3s
+  observing SPART2GREEN for 120s past warp (frame@warp=5)...
+   >>> CRASH during SPART2GREEN run ~1s
+=== zone_warp_device SPART2GREEN (continue=game-start) 2026-07-03T11:25:38+02:00 ===
+RESULT zone=SPART2GREEN continue=game-start status=CRASH(GK-DIAG sig=4)
+  warp_fired=0 warp_fail=0 crashed=1
+  frame@warp=5 frame@end=5 advanced=0 focus_app=no screencap_bytes=4579049
+  sig=GK-DIAG sig=4
+  gk-diag: 07-03 11:25:31.482 12085 12184 F opengoal-gk: GK-DIAG sig=4 fault=0x7f01fc0268 pc=0x7f01fc0268 lr=0x7f02343604
+  pc/lr: pc=0x7f01fc0268 lr=0x7f02343604
+  adding-level: Adding level village1;
+  last link-finish: link finish: ndi-cam link finish: ndi-volumes link finish: title-vis link finish: 0subtit link finish: 0common link finish: 0common 
+  a34-fp-walk: 07-03 11:25:31.487 12085 12184 F opengoal-gk: GK-DIAG A34-DIAG fp-walk[0] lr-64: 14000003 aa0e03ea cb0f014a 8b0f0070 b9401209 aa0903e9 aa0e03e8 cb0f0108;07-03 11:25:31.487 12085 12184 F opengoal-gk: GK-DIAG A34-DIAG fp-walk[0] lr-32: 6b08013f 540001a0 aa0903e9 8b0f0129 a9bf17e3 a9bf2fea a9bf5fec d63f0120;07-03 11:25:31.487 12085 12184 F opengoal-gk: GK-DIAG A34-DIAG fp-walk[1] fp=0x7f0019aaa0 saved-lr=0x7f01ef7d04 prev-fp=0x7f07fffe90;07-03 11:25:31.487 12085 12184 F opengoal-gk: GK-DIAG A34-DIAG fp-walk[1] lr-96: a8c117e3 aa0303e3 8b0f0190 b9400a09 d2801008 aa0903e9 8a080129 d2800008;07-03 11:25:31.487 12085 12184 F opengoal-gk: GK-DIAG A34-DIAG fp-walk[1] lr-64: eb08013f 540002a0 b0ff1330 911f5210 b9400209 8b0f01b0 b9004a09 b0ff12f0;07-03 11:25:31.487 12085 12184 F opengoal-gk: GK-DIAG A34-DIAG fp-walk[1] lr-32: 91361210 b9400209 aa0903e9 8b0f0129 a9bf17e3 a9bf2fea a9bf5fec d63f0120;
+== SPART2GREEN done: CRASH(GK-DIAG sig=4) ==
