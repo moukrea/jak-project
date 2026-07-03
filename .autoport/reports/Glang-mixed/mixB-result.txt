@@ -1,0 +1,15 @@
+=== glm_repro mixB (audio=0 text=0 cont=village1-hut posm=-4.16 2.0 -63.4) 2026-07-03T19:00:57+02:00 ===
+RESULT tag=mixB warp_ok=1 crashed=0 focus_app=yes last-pos=(-17039.4 7138.8 -259686.4)
+  text-load lines:
+07-03 19:00:02.981 30075 30154 D opengoal-gk: [link and exec] text               0  19784 heap-use 29954160  3150020: 0x1dd0d90
+07-03 19:00:02.982 30075 30154 D opengoal-gk: link finish: text
+07-03 19:00:03.331 30075 30154 D opengoal-gk: [link and exec] ocean-texture      0   5486 heap-use 32520648  3150020: 0x20436e8
+07-03 19:00:03.333 30075 30154 D opengoal-gk: link finish: ocean-texture
+07-03 19:00:03.386 30075 30154 D opengoal-gk: [link and exec] texture-upload     0   1174 heap-use 32949072  3150020: 0x20ac070
+07-03 19:00:03.388 30075 30154 D opengoal-gk: link finish: texture-upload
+07-03 19:00:04.681 30075 30167 D opengoal-gk: [OVERLORD] LoadISOFileToEE 0SUBTIT TXT, 262144/-1 bytes
+07-03 19:00:04.688 30075 30168 D opengoal-gk: link finish: 0subtit.TXT
+07-03 19:00:04.701 30075 30167 D opengoal-gk: [OVERLORD] LoadISOFileToEE 0COMMON TXT, 65536/-1 bytes
+07-03 19:00:04.704 30075 30168 D opengoal-gk: link finish: 0common.TXT
+07-03 19:00:04.704 30075 30167 D opengoal-gk: [OVERLORD] LoadISOFileToEE 0COMMON TXT, 49152/-1 bytes
+07-03 19:00:04.707 30075 30168 D opengoal-gk: link finish: 0common.TXT

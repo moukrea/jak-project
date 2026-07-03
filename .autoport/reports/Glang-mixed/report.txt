@@ -1,0 +1,111 @@
+Glang-mixed — audio EN + texte FR: interaction texts must follow the TEXT language
+====================================================================================
+
+RESULT: TEXT FOLLOWS TEXT LANGUAGE
+
+## Owner defect (2026-07-03, v3 playtest)
+With AUDIO set to English (audio=EN / anglais) and everything else (text/subtitles) set to
+French (texte=FR / français), SOME texts remained in English — specifically interaction
+prompts with objects or NPCs (personnages). Mandate: they must follow the TEXT language.
+
+## Reproduction matrix on eae4df44 (v4 pre-version HEAD, deploy_verify PASS)
+Settings planted via files/.config/OpenGOAL/jak1/settings/pc-settings.gc AND set via the
+in-game menu (both flows), audio=EN (game-language 0) text=FR subtitles=FR (1). Driver:
+.autoport/glm_repro.sh (warp props from the Gcrash-rockvillage debug hooks) +
+.autoport/glm_step.sh (cpad_inject menu nav). Screencaps in .autoport/reports/Glang-mixed/.
+
+| flow                                              | interaction prompt observed        | verdict |
+|---------------------------------------------------|------------------------------------|---------|
+| boot w/ planted audio=EN text=FR, village1 farmer  | "APPUIE SUR O POUR PARLER." (FR)  | mixA-cap2/4.png — follows text lang |
+| boot all-EN, farmer prompt                         | "PRESS O TO TALK." (EN, sanity)    | menu1-s01.png |
+| menu: text EN->FR mid-game (owner flow)            | menu turns FR + prompt FR          | menu6-s01/s05.png |
+| menu: audio FR->EN mid-game at village2 warrior    | prompt STAYS FR after audio switch | mixDafter-s05-..png |
+| village1 Keira (assistant), talk prompt            | FR                                 | mixC-idle20.png |
+| village2 warrior (the owner's 90-orb NPC)          | FR                                 | mixD-cap3.png |
+
+Every *common-text* interaction prompt (press-to-talk #x104, press-to-use #x105, trade
+90/120 orbs #x11a/#x11b, press-to-warp #x11c, press-to-exit #x11d, talk-to-samos/keira
+#x123/#x124) resolves through lookup-text! on the single global *common-text* bank
+(process-taskable.gc:598, villagep-obs.gc:194/220/222, etc.) — one bank serves ALL
+prompts, so with the French bank loaded they are all French. Device text banks are
+byte-identical to the PC build (md5 0/1COMMON.TXT verified device vs out/jak1/iso).
+
+## WHERE THE LANGUAGE ID IS LOST (root cause) — Android/arm64 divergence
+game/sce/libscf.cpp sceScfGetLanguage(), __linux__ path, reads getenv("LANG").
+Android app processes have NO $LANG in their environment -> the function always returns
+SCE_ENGLISH_LANGUAGE on device. pckernel-impl.gc:122-123 (reset-misc) seeds
+(-> *pc-settings* text-language) AND subtitle-language from (scf-get-language) whenever
+pc-settings.gc is absent — fresh install, wiped files/, or a settings reset. So on the
+owner's FRENCH phone (persist.sys.locale=fr-FR, verified) every defaults-boot silently
+fell back to ENGLISH text: the text-language id is lost between the device locale and
+masterConfig.language. The owner's v3 playtest day included exactly such resets (fresh
+installs/wipes by the validation pipeline, plus the Rock Village crash-to-home) — after
+one, in-game interaction prompts read English while the owner's remembered/re-applied
+settings (and separately-keyed content) stayed French, matching "audio EN + some texts EN".
+
+ORACLE VERDICT (pristine x86 golden vs device): sceScfGetLanguage is byte-identical to the
+pristine merge-base 704972dd6 (git diff empty), so gold == our-x86 here. Headless x86 runs
+with pc-settings.gc wiped (validator-style boot, -fakeiso out/jak1/iso):
+  LANG=fr_FR.UTF-8 -> loads 1COMMON.TXT + 1SUBTIT.TXT (FRENCH defaults)   [reached logo]
+  LANG=C           -> loads 0COMMON.TXT + 0SUBTIT.TXT (ENGLISH defaults)  [reached logo]
+Device defaults-boot (settings wiped, locale fr-FR): loads 0SUBTIT/0COMMON = the LANG-unset
+behavior (defaults-title.png). x86 follows the OS language; the Android side did NOT —
+a DIVERGENCE in the translation layer (missing locale bridge), fixed below. With settings
+present, x86 and device behave identically (text bank keyed off text-language,
+text.gc:135, PC_PORT path) — no arm64 codegen divergence found in the text path.
+
+## Affected-string sweep (everything that could render English with text=FR)
+1. ALL *common-text* strings after a defaults reset (root cause above): interaction
+   prompts (talk/use/examine/trade/warp/exit), HUD strings, menus. Fixed by the locale
+   bridge (fix 1).
+2. French subtitle bank shipped ENGLISH text for 6 scenes absent from
+   subtitle_lines_fr-FR.json (the game_subtitle.gp :lines-base en-US merge substitutes the
+   English base per missing scene — upstream behavior, x86 shows the same English there):
+   hints ASSTLP01 ("HMM...", Keira ambient village1), ASSTLP31 ("HM.", assistant village3),
+   SAGELP20 ("HMM...", blue sage hut ROCK VILLAGE — the owner's playtest area),
+   MSH-AM08 (empty), sksp0076 ("JAK! HIT SOME JUMPS TO KEEP US OFF THE HOT GROUND.",
+   Daxter hot-ground hint) and cutscene evilbro-misty-end (8 lines, Gol & Maia). These
+   display near NPCs/objects with audio EN — English text under a French setting.
+   Fixed by fix 2 (upstream-behavior delta, implemented in our assets — documented honestly).
+3. Android-port pc-layer menu labels drawn via name-override literals, always English
+   regardless of text language: FPS COUNTER, RENDER SCALE, MIN RENDER SCALE, DYNAMIC
+   RENDER SCALE, MIN TARGET FPS, ADVANCED SETTINGS (goal_src/jak1/pc/progress-pc.gc).
+   Fixed by fix 3. (Remaining upstream literals documented, unchanged: "AUTO SAVE ON/OFF",
+   "DPAD UP/DOWN/LEFT/RIGHT" input names, "NATIVE" (identical word in FR), and the
+   resolution "W X H" rows which are numeric. The title-screen "PRESS START OR TAP SCREEN"
+   item is the separate queued phase Gtitle-tap.)
+
+## FIXES (translation layer + pc/ + assets only; engine goal_src untouched)
+1. android/app/src/main/java/org/opengoal/gk/MainActivity.java (onCreate, before
+   super.onCreate): locale bridge — Os.setenv("LANG", Locale.getDefault().toLanguageTag())
+   so the EXISTING desktop __linux__ path in libscf.cpp works 1-to-1 on device. A French
+   phone now seeds French text/subtitle defaults; text follows the device language even
+   after a settings wipe. No engine change, no libscf change.
+2. game/assets/jak1/subtitle/subtitle_lines_fr-FR.json: French translations added for the
+   6 base-English scenes (ASSTLP01/ASSTLP31/SAGELP20 "HUM...", MSH-AM08 empty-parity,
+   sksp0076, evilbro-misty-end full 8 lines, phrased per the existing FR corpus —
+   "VILLAGE DES PIERRES", "ARMÉE DE LURKERS"). Line counts match the EN meta (scene-level
+   :lines-base merge verified in common/serialization/subtitles/subtitles_v1.cpp).
+3. goal_src/jak1/pc/progress-pc.gc + game_custom_text_{en-US,fr-FR}.json: the six
+   Android menu labels become runtime buffers re-formatted from new text ids
+   #x1700-#x1705 on every menu open (init-game-options) and immediately after a
+   text-language change (refresh-runtime-option-labels!) — they now follow the TEXT
+   language; other languages fall back to English via the fallback bank (upstream pattern).
+   pc-settings persistence for language changes was verified already-in-place
+   (commit-to-file on option confirm, progress-pc.gc).
+
+## Both-ways language check (device, fix build)
+- audio=EN text=FR: prompts/menus French (screencaps below).
+- text switched back to EN via menu: prompts/menus English again.
+- audio=FR text=EN cross-check: prompts English (text wins), audio French.
+- defaults-boot after settings wipe on the fr-FR device: FRENCH banks load (locale bridge).
+See AFTER EVIDENCE below.
+
+## Build / deploy
+Full consistent rebuild (both backends, one pass): .autoport/build_arm64_full_consistent.sh
+(arm64 28 CGO/DGO set + x86 oracle restore incl. new TXT/SUBTIT banks), asset bundle
+BUNDLE_VERSION 6->7 (build_asset_bundle.sh), cmake gk + gradle assembleJak1Debug,
+deploy_verify.sh PASS (build == APK == device). x86 smoke: link finish: logo (validator).
+
+## AFTER EVIDENCE (fix build on device)
+(to be appended)
