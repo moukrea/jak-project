@@ -673,10 +673,32 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   c->sw(v1, 8, a3);                                 // sw v1, 8(a3)
   c->mov64(a0, s7);                                 // or a0, s7, r0
+#if defined(__aarch64__)
+  // Geco-spheres (arm64) ROOT CAUSE: `bnel s6, s7` tests "(-> system is-3d) != #f?" to decide
+  // whether the registering parent stores its 3D sprite into launch-state.sprite3d (3D systems)
+  // or #f (2D systems). Same misfire as the Gmenu euler-convert guard 65 lines below (s6 = bare
+  // low-32 #f from `lw s6,24,s3`, s7 = full host base): the full-64 compare wrongly says "not #f"
+  // for the 2D system, so every BOUND 2D particle's state gets sprite3d = the parent's 2D SPRITE.
+  // At the child's launch, block_41's sprite3d test then legitimately routes into
+  // sp-rotate-system(staging, cpuinfo, sprite3d) which treats the 2D sprite as a transformq:
+  // quat.x/y/z = the sprite's flag/rot-z/sy quad (rot 0-65536, sy ~thousands for a spinning
+  // bigpuff cloud) -> w = sqrt(1-huge) = NaN -> quaternion->matrix garbage -> the child's staging
+  // pos x/y and vel-sxvel get rotated to ±1e9..1e13 pairs (z preserved by vector3s-rotate*!).
+  // Result: every eco-sphere orbit sparkle / starflash / trail born of a SPINNING cloud parent is
+  // born at garbage pos with garbage vel and NaN rotvel3d downstream in sp-orbiter -> the bright
+  // eco swirl never renders on Android (green/blue/red/yellow, since first light). Children of
+  // near-static tiny parents (the 0.01m center dots) got a near-identity garbage quat and
+  // survived, which is why the dim cloud base still showed. Compare the 32-bit GOAL ptr.
+  if (c->gpr_addr(s6) != c->gpr_addr(s7)) {         // bnel s6, s7 (32-bit GOAL ptr)
+    c->lw(a0, 0, s2);                               // lw a0, 0(s2)
+    goto block_35;
+  }
+#else
   if (((s64)c->sgpr64(s6)) != ((s64)c->sgpr64(s7))) {// bnel s6, s7, L118
     c->lw(a0, 0, s2);                               // lw a0, 0(s2)
     goto block_35;
   }
+#endif
 
   block_35:
   c->sw(a0, 12, a3);                                // sw a0, 12(a3)
@@ -750,11 +772,24 @@ u64 execute(void* ctxt) {
   c->jalr(call_addr);                               // jalr ra, t9
 
   block_41:
+#if defined(__aarch64__)
+  // Geco-spheres (arm64): the two #f-guards routing into sp-rotate-system, same class as the
+  // root-cause fix at block_31 above. `s0` (launch-state arg) and `a2` (state.sprite3d, stored
+  // as a bare low-32 #f by both the GOAL initialize method and the registration `sw`) can each
+  // be #f; the full-64 compares miss it and sp-rotate-system then dereferences #f+16 as a
+  // transformq. Compare the 32-bit GOAL ptr so 2D launches skip the rotate exactly like x86.
+  bc = c->gpr_addr(s0) == c->gpr_addr(s7);          // beq s0, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(s0) == c->sgpr64(s7);              // beq s0, s7, L123
+#endif
   c->lw(a2, 12, s0);                                // lw a2, 12(s0)
   if (bc) {goto block_45;}                          // branch non-likely
 
+#if defined(__aarch64__)
+  bc = c->gpr_addr(a2) == c->gpr_addr(s7);          // beq a2, s7 (32-bit GOAL ptr)
+#else
   bc = c->sgpr64(a2) == c->sgpr64(s7);              // beq a2, s7, L123
+#endif
   c->daddiu(a0, sp, 128);                           // daddiu a0, sp, 128
   if (bc) {goto block_45;}                          // branch non-likely
 
