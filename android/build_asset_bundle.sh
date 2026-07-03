@@ -51,7 +51,10 @@ GAME="${1:-jak1}"
 # device that still holds the v1/bundle-v4 data. Bumped 5 -> 6 (autoport
 # 2026-07-03, v3 owner-validation APK: draw-batching + orb-in-split + eco-sphere
 # fixes) so devices holding v5 data re-unpack a guaranteed-consistent payload.
-VERSION="${BUNDLE_VERSION:-6}"
+# Bumped 6 -> 7 (autoport 2026-07-03, Glang-mixed): new TXT/SUBTIT banks (menu-label
+# text-ids #x1700-#x1705 EN+FR, French subtitle completeness) + CGO/DGOs with the
+# localized name-override label plumbing must re-unpack over v6 devices.
+VERSION="${BUNDLE_VERSION:-7}"
 
 cd "$(git rev-parse --show-toplevel)"
 

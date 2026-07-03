@@ -718,19 +718,50 @@
 ;; glyphs (matching the other menu rows), but lowercase ASCII bytes do NOT map to
 ;; lowercase glyphs in this font's encoding (they render as garbage). The rest of
 ;; the menu reads as all-caps anyway, so this matches the existing style.
-(define *fps-counter-label* "FPS COUNTER")
+;; Glang-mixed: these labels are runtime BUFFERS (not static literals) so they can be
+;; re-formatted from the text bank and follow the TEXT language (ids #x1700-#x1705 in
+;; game_custom_text_*.json; languages without them fall back to English via the
+;; fallback bank). English defaults formatted here cover boot-before-text-load.
+(define *fps-counter-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *fps-counter-label*) "FPS COUNTER")
 
 ;; label for the RENDER SCALE slider (uppercase ASCII for the menu font; see the
 ;; FPS-counter label note above). Shown via the game-option name-override path.
-(define *render-scale-label* "RENDER SCALE")
+(define *render-scale-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *render-scale-label*) "RENDER SCALE")
 
 ;; Gdynamic-renderscale menu labels (uppercase ASCII for the menu font; shown via name-override).
-(define *dynamic-render-scale-label* "DYNAMIC RENDER SCALE")
-(define *min-render-scale-label* "MIN RENDER SCALE")
-(define *min-target-fps-label* "MIN TARGET FPS")
+(define *dynamic-render-scale-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *dynamic-render-scale-label*) "DYNAMIC RENDER SCALE")
+(define *min-render-scale-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *min-render-scale-label*) "MIN RENDER SCALE")
+(define *min-target-fps-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *min-target-fps-label*) "MIN TARGET FPS")
 ;; Goptions-reorder: "PS2 Options" is relabelled "ADVANCED SETTINGS" via name-override (the menu font
 ;; only maps uppercase ASCII; see the FPS-counter label note). Submenu (gfx-ps2-options) is unchanged.
-(define *advanced-settings-label* "ADVANCED SETTINGS")
+(define *advanced-settings-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *advanced-settings-label*) "ADVANCED SETTINGS")
+
+;; Glang-mixed: re-format the name-override label buffers from the loaded text bank so
+;; they follow (-> *pc-settings* text-language). Runs on every menu open (init-game-options
+;; re-canonicalizes there) and again right after a text-language change reloads the bank
+;; (same-menu-session navigation must not read stale heap pointers — hence buffers + copy,
+;; never bank pointers). A #f lookup (id absent AND fallback disabled) leaves the buffer as-is.
+(defun refresh-runtime-option-labels! ()
+  (when *common-text*
+    (let ((s (lookup-text! *common-text* (the-as text-id #x1700) #t)))
+      (if s (format (clear *fps-counter-label*) "~S" s)))
+    (let ((s (lookup-text! *common-text* (the-as text-id #x1701) #t)))
+      (if s (format (clear *render-scale-label*) "~S" s)))
+    (let ((s (lookup-text! *common-text* (the-as text-id #x1702) #t)))
+      (if s (format (clear *min-render-scale-label*) "~S" s)))
+    (let ((s (lookup-text! *common-text* (the-as text-id #x1703) #t)))
+      (if s (format (clear *dynamic-render-scale-label*) "~S" s)))
+    (let ((s (lookup-text! *common-text* (the-as text-id #x1704) #t)))
+      (if s (format (clear *min-target-fps-label*) "~S" s)))
+    (let ((s (lookup-text! *common-text* (the-as text-id #x1705) #t)))
+      (if s (format (clear *advanced-settings-label*) "~S" s))))
+  (none))
 
 ;; Goptions-reorder: stable pointers to the Min Target FPS row (physical index 4) in each graphics
 ;; array, captured at load time while the arrays are in their full static layout. Used to reinsert the
@@ -2593,6 +2624,8 @@
 
 (defun init-game-options ((obj progress))
   "Set the options for all of the menus."
+  ;; Glang-mixed: menu labels shown via name-override follow the TEXT language.
+  (refresh-runtime-option-labels!)
   ;; start off by making them all invalid
   (dotimes (i (progress-screen max))
     (set! (-> *options-remap* i) #f))
@@ -3371,7 +3404,10 @@
               (((game-option-type language-text))
                (let ((lang (assoc (the binteger (-> *text-languages* (-> *progress-carousell* int-backup))) *language-remap-info-pc*)))
                  (set! (-> *pc-settings* text-language) (the pc-language (/ (the int (cadr lang)) 8))))
-               (if (not (-> *progress-carousell* transition)) (load-level-text-files (-> obj display-level-index))))
+               (if (not (-> *progress-carousell* transition)) (load-level-text-files (-> obj display-level-index)))
+               ;; Glang-mixed: the bank just reloaded — re-copy the name-override label
+               ;; buffers now so same-menu-session navigation shows the new language.
+               (refresh-runtime-option-labels!))
               (((game-option-type speaker))
                ;; same thing.
                (case (-> *progress-carousell* int-backup)

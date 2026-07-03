@@ -294,6 +294,16 @@
     "death-0202": [
       "DIS \"BONNE NUIT\" JAK !"
     ],
+    "evilbro-misty-end": [
+      "CES DEUX-LÀ POURRAIENT NOUS ATTIRER DES ENNUIS.",
+      "NE T'INQUIÈTE PAS, CHER FRÈRE. JE VAIS ENVOYER MON ARMÉE DE LURKERS POUR S'OCCUPER D'EUX.",
+      "ASSURE-TOI SIMPLEMENT QU'ILS NE S'APPROCHENT PAS TROP DE NOS OPÉRATIONS DU NORD.",
+      "JE DOUTE QU'ILS AILLENT AUSSI LOIN...",
+      "MAIS SI C'EST LE CAS, UNE SURPRISE LES ATTENDRA AU VILLAGE DES PIERRES.",
+      "ALORS... TU VAS LAISSER... KLAWW SORTIR DE SA CAGE ?",
+      "JE PENSE QUE ÇA VAUT LE RISQUE.",
+      "EN EFFET..."
+    ],
     "explorer-introduction": [
       "AH, BIEN LE BONJOUR MON GARÇON !",
       "TA VISITE NE TOMBE PAS VRAIMENT AU BON MOMENT.",
@@ -1073,6 +1083,9 @@
     ]
   },
   "hints": {
+    "ASSTLP01": [
+      "HUM..."
+    ],
     "ASSTLP02": [
       "JE DOIS FAIRE MARCHER CE BOUCLIER THERMIQUE !"
     ],
@@ -1094,6 +1107,9 @@
     ],
     "ASSTLP30": [
       "HM, VOYONS VOIR..."
+    ],
+    "ASSTLP31": [
+      "HUM."
     ],
     "ASSTLP32": [
       "OH, NON..."
@@ -1615,6 +1631,7 @@
     "MSH-AM07": [
       "MES GEMMES ! TOUTES MES GEMMES !"
     ],
+    "MSH-AM08": [],
     "MSH-AM09": [
       "VIVEMENT QUE JE FASSE RENTRER DES GROS SOUS !"
     ],
@@ -1689,6 +1706,9 @@
     ],
     "SAGELP11": [
       "ALLÔ ? IL Y A QUELQU'UN ? RÉPONDEZ !"
+    ],
+    "SAGELP20": [
+      "HUM..."
     ],
     "SAGELP21": [
       "LES LURKERS DOIVENT ÊTRE ARRÊTÉS !"
@@ -2234,6 +2254,9 @@
     ],
     "sksp0073": [
       "ON A BESOIN D'ÉCO POUR CHARGER ÇA !"
+    ],
+    "sksp0076": [
+      "JAK ! SAUTE POUR NOUS ÉVITER LE SOL BRÛLANT."
     ],
     "sksp0077": [
       "LES BALLONS C'EST BON ! LE MAGMA C'EST PAS BON !"

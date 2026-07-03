@@ -118,6 +118,24 @@ public class MainActivity extends SDLActivity {
         NativeGk.setSelectedGame(gameName);
         NativeGk.setDataRoot(isoDir.getAbsolutePath());
 
+        // Phase Glang-mixed (autoport): bridge the device locale into the
+        // process environment BEFORE the runtime boots. The engine's
+        // sceScfGetLanguage() (game/sce/libscf.cpp, __linux__ path) reads
+        // $LANG to pick the default text/subtitle/audio language — desktop
+        // Linux/Windows follow the OS language, but Android app processes
+        // have no $LANG, so every defaults-boot (fresh install, wiped
+        // files/) silently fell back to English regardless of the phone's
+        // locale. One env var makes the existing desktop code path work
+        // 1-to-1 on device; no engine change.
+        try {
+            final String locale = java.util.Locale.getDefault().toLanguageTag();
+            android.system.Os.setenv("LANG", locale, true);
+            Log.i(TAG, "locale-bridge: LANG=" + locale
+                    + " (device locale -> scf-get-language)");
+        } catch (android.system.ErrnoException e) {
+            Log.e(TAG, "locale-bridge: setenv LANG failed", e);
+        }
+
         // SDLActivity.onCreate is what loads libgk.so. Anything that
         // touches NativeGk MUST run AFTER super.onCreate. (The two calls
         // above do touch NativeGk, but only the static initializer fires,
