@@ -1,0 +1,3 @@
+  ok: libgk.so newer than newest source
+  ok: chain build==APK==device (5ca92cad45acfd4d)
+DEPLOY-VERIFY PASS: device eae4df44 provably runs the fresh HEAD (1f504fcf8) libgk.so.

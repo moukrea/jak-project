@@ -1,0 +1,60 @@
+
+===== STATIC (camera HELD, 571dr both — CLEAN A/B): nobatch(A) vs batch(B) — median ms =====
+
+  [10] l0-tfrag-merc   TOTAL:   3.23 ->   2.28 ms  (+0.95)   [nA=19 nB=23]
+      defuse    :   0.00 ->   0.00 ms  (+0.00)
+      vao       :   0.00 ->   0.00 ms  (+0.00)
+      bones-ub  :   0.86 ->   0.86 ms  (+0.00)
+      draws     :   1.06 ->   0.75 ms  (+0.31)
+      env-draws :   0.86 ->   0.31 ms  (+0.55)
+
+  [49] l0-pris-merc   TOTAL:   3.71 ->   2.45 ms  (+1.26)   [nA=19 nB=23]
+      defuse    :   0.00 ->   0.00 ms  (+0.00)
+      vao       :   0.00 ->   0.00 ms  (+0.00)
+      bones-ub  :   0.99 ->   0.78 ms  (+0.21)
+      draws     :   1.77 ->   1.09 ms  (+0.68)
+      env-draws :   0.54 ->   0.27 ms  (+0.27)
+
+  [17] l1-tfrag-merc   TOTAL:   6.63 ->   1.62 ms  (+5.01)   [nA=19 nB=23]
+      defuse    :   5.15 ->   0.00 ms  (+5.15)
+      vao       :   0.00 ->   0.00 ms  (+0.00)
+      bones-ub  :   0.00 ->   0.62 ms  (-0.62)
+      draws     :   1.21 ->   0.81 ms  (+0.40)
+      env-draws :   0.00 ->   0.00 ms  (+0.00)
+
+  [55] common-pris-merc   TOTAL:   2.32 ->   1.66 ms  (+0.66)   [nA=19 nB=23]
+      defuse    :   0.00 ->   0.00 ms  (+0.00)
+      vao       :   0.00 ->   0.00 ms  (+0.00)
+      bones-ub  :   0.92 ->   0.71 ms  (+0.21)
+      draws     :   0.73 ->   0.49 ms  (+0.24)
+      env-draws :   0.21 ->   0.15 ms  (+0.06)
+
+===== DRIVE (NOT pose-matched — noisy, low n): nobatch(A) vs batch(B) — median ms =====
+
+  [10] l0-tfrag-merc   TOTAL:   0.35 ->   1.69 ms  (-1.33)   [nA=6 nB=30]
+      defuse    :   0.00 ->   0.00 ms  (+0.00)
+      vao       :   0.00 ->   0.00 ms  (+0.00)
+      bones-ub  :   0.00 ->   0.77 ms  (-0.77)
+      draws     :   0.12 ->   0.58 ms  (-0.46)
+      env-draws :   0.07 ->   0.25 ms  (-0.18)
+
+  [49] l0-pris-merc   TOTAL:    nan ->   2.42 ms  (+nan)   [nA=0 nB=16]
+      defuse    :    nan ->   0.00 ms  (+nan)
+      vao       :    nan ->   0.00 ms  (+nan)
+      bones-ub  :    nan ->   0.80 ms  (+nan)
+      draws     :    nan ->   1.07 ms  (+nan)
+      env-draws :    nan ->   0.26 ms  (+nan)
+
+  [17] l1-tfrag-merc   TOTAL:   1.45 ->   1.76 ms  (-0.31)   [nA=1 nB=16]
+      defuse    :   0.00 ->   0.00 ms  (+0.00)
+      vao       :   0.00 ->   0.00 ms  (+0.00)
+      bones-ub  :   0.00 ->   0.76 ms  (-0.76)
+      draws     :   1.19 ->   0.83 ms  (+0.35)
+      env-draws :   0.00 ->   0.00 ms  (+0.00)
+
+  [55] common-pris-merc   TOTAL:   1.12 ->   1.56 ms  (-0.44)   [nA=73 nB=59]
+      defuse    :   0.00 ->   0.00 ms  (+0.00)
+      vao       :   0.00 ->   0.00 ms  (+0.00)
+      bones-ub  :   0.00 ->   0.64 ms  (-0.64)
+      draws     :   0.56 ->   0.50 ms  (+0.06)
+      env-draws :   0.18 ->   0.15 ms  (+0.03)

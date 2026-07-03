@@ -1,0 +1,122 @@
+RESULT: DRAW BATCHING FPS 28.0->35.0
+
+Phase Gperf-batching — GL draw-call submission cost cut on device eae4df44
+HEAD = 62951ac53 (4 commits), deploy_verify PASS every round (build==APK==device).
+Numbers below are pose-held in-session A/B (camera untouched between modes, same
+boot, identical draws/tris) — the only comparison that survived confound review.
+Kill switch for every change: adb shell setprop debug.opengoal.perf.nobatch 1
+restores the exact pre-phase submission path live (polled every 120 frames).
+
+== HEADLINE (round4, pose-held static, identical geometry) ==
+  scene    | mode     | fps  | buckets_ms | draws | tris
+  GEYSER   | baseline | 28.0 |   30.41    |  571  | 319k
+  GEYSER   | batched  | 35.0 |   23.32    |  571  | 319k   (-23% submission, +7.0 fps)
+  VILLAGE1 | baseline | 20.9 |   41.91    |  706  | 517k
+  VILLAGE1 | batched  | 28.0 |   29.37    |  707  | 517k   (-30% submission, +7.1 fps)
+  RESULT line uses the weaker scene (Geyser 28.0->35.0); village1 is 20.9->28.0.
+  Under motion the dynamic render scaler now reaches and LOCKS ~60fps
+  (12-min run: "[dyn-rs] state avg-fps=59.9 scale=40% target=60 locked=#t").
+
+== PROFILE FIRST — the per-family table that steered the work ==
+Instrumentation: debug.opengoal.perf.buckets=1 -> A35-PERF per-bucket profiler
+dump (ms/draws/tris per bucket + per flush-phase children) every 60 frames.
+Baseline per-family profile, Geyser static (30.4ms buckets_ms, 571 draws):
+  family                       ms     draws   note
+  merc (4 buckets)            ~15.9    ~430   l1-tfrag-merc 6.6/64, l0-pris 3.6/166,
+                                              l0-tfrag-merc 3.2/173, common-pris 2.3/36
+  tie   (l0-tie)                3.5      59   (village1 static: l1-tie 6.8ms/405 draws)
+  sprite                        2.8      10
+  2d-group0 (direct/HUD)        2.4       3
+  ocean mid+near                3.3      16
+  tfrag                         1.0      36
+Merc dominated — NOT the background families the multidraw framing suggested.
+Child-node profiling (defuse/vao/bones-ub/draws/env-draws) then attributed the
+merc ms: a single per-flush BO-defuse read-map cost 5.0-5.2ms/frame (driver
+pipeline sync), bones-ub ~0.9ms/bucket (implicit sync on offset-0 UBO rewrite),
+the rest per-draw state churn.
+
+== WHAT WAS BATCHED / CHANGED (renderer/GLES only; goal_src + gold untouched) ==
+1. ec6e8d2eb  A35-PERF per-bucket profiler dump (the profile above).
+2. 84ecbda22  Draw MERGE in the no_multidraw path (TFragment/Tie3 base+envmap/
+   Shrub): consecutive draws sharing texture+mode merge into ONE glDrawElements.
+   Safe because the single-draw index builders pack ranges adjacently and every
+   strip carries a trailing primitive-restart index (verified in TFrag3Data.cpp
+   unpack + extract_shrub.cpp); each merge re-checks range contiguity, and
+   double-draw (AFAIL) draws are issued alone preserving exact draw order.
+   Effect: village1 l1-tie 109->76 draws while driving; near-zero merges at full
+   static visibility (adjacent draws rarely share state there) — which is why the
+   phase pivoted to state-churn/sync elimination, the true cost.
+   Plus: alpha_min/alpha_max uniform locations CACHED per program
+   (setup_tfrag_shader did 2 glGetUniformLocation string lookups PER DRAW).
+3. 1f504fcf8  Merc2 per-draw redundant-state elimination (state sort/cache
+   class): ignore_alpha/decal/gfx_hack_no_tex uniforms, setup_opengl_from_draw_
+   mode (~12 GL calls incl. 4 glTexParameteri), and glBindBufferRange skipped
+   when unchanged vs the previous draw (setup key includes the bound texture,
+   since setup writes wrap/filter onto the texture object).
+4. f6e32f4bf  Merc per-flush driver-sync DEDUPE: the F1a/F1d Adreno BO-defuse
+   read-maps (glMapBufferRange READ = pipeline sync) ran per level bucket per
+   flush across 8 merc bucket renderers; now once per (level, load_id) per FRAME
+   via the shared Merc2 core — the defuse contract (level BOs mapped once per
+   frame before its first merc draws, per F1a run-16/17 evidence) is preserved,
+   the crash defusal stays armed. VAO respec skipped unless the level vertex
+   buffer changed. This alone was -5.0ms/frame on Geyser static.
+5. 62951ac53  Bone-UBO ring upload (UBO technique): bone window uploaded once
+   per flush at a ring cursor (orphan on wrap) instead of once per level at
+   offset 0 over data in-flight draws still read. Trims bones-ub 15-40%
+   (honest: residual ~0.7-1.0ms/bucket remains — real write cost, not sync).
+Multidraw itself was evaluated and rejected: desktop glMultiDrawElements issues
+one call per StripDraw — same call count as the single-draw path — so enabling
+it on GLES could not reduce submissions; cross-draw merging (which desktop does
+not do) strictly dominates.
+
+== VISUAL PARITY — screencap before/after identical ==
+Pose-held static screencaps, baseline vs batched, same boot (~50s apart):
+  GEYSER   mean-abs-diff 8.35, 2.8% px>32 — localizes to Jak's idle-breath
+           animation; scene geometry/textures identical.
+  VILLAGE1 mean-abs-diff 9.06, 12.4% px>32 — drifting clouds (top row) +
+           rotating collectible orbs; huts/terrain/trees/ocean identical.
+Model integrity explicitly eyeballed for the bone-ring change: Jak, Daxter,
+villagers, bird render with correct skeletons/proportions in both modes, both
+scenes — zero deformation. Verdict: visual parity PASS, no regressions
+(differences are animation drift only). Diff images in round4/.
+
+== FLICKER ==
+screenrecord 30s of batched driving (round4/geyser-flicker.mp4), 300 frames
+analyzed: 0 all-black frames, 0 flash frames (luma range 92.0-188.8).
+ZERO flicker.
+
+== STABILITY + PRIOR FIXES INTACT ==
+12-min continuous batched gameplay (drive SEQ x9): one PID start-to-end, ZERO
+sig11/6/4 in our pid, app foreground at end. All changes are GL-submission-side
+only (android/ + game/graphics/opengl_renderer): no goal_src, no kernel, no
+input/collision/camera code touched — collision fixes (wallslide/systemic/
+nanroot), the blueeco crash fix, the speed/framerate governor (GSPEED: game
+speed stays real-time at any fps), camera smoothing/interp, and touch controls
+are structurally unaffected and the long gameplay run exercised warp + movement
++ camera + collision crash-free. Dynamic render scale still converges and locks
+(dyn-rs quotes above), now reaching its 60fps target in motion.
+The F1a/F1d/F1e Adreno crash defusers remain armed (dedupe preserves their
+per-frame contract; 12-min run + 5 boots with 0 driver faults confirm).
+
+== X86 DESKTOP UNAFFECTED ==
+Desktop keeps its exact multidraw path (batch_singledraw=false there; the only
+shared-behavior change is the per-program uniform-location cache — locations
+are stable per link). x86 gk rebuilt + smoke after every commit:
+"link finish: logo" PASS each time.
+
+== HONEST LIMITS ==
+- Static heavy scenes are now ~35 fps (Geyser) / ~28 fps (village1), not 60:
+  after the submission cuts the frame is dominated by real draw/vertex work
+  (~10M tris/s device ceiling observed across all windows) + remaining per-
+  bucket costs (sprite/direct uploads, ocean, bones-ub residual). 60fps at
+  fixed full geometry needs vertex-load levers (out of scope per the
+  no-visual-change rule); in normal play the dynamic scaler holds ~60.
+- DRIVE-window A/B fps is pose-confounded across modes (different camera
+  segments); all claims above use the pose-held static windows.
+- The two-boot slim-APK data-wipe incident (loader version-mismatch wipe) is
+  documented in baseline/summary.txt; recovered with the FULL APK; memory note
+  written so no future phase repeats it.
+
+Artifacts: .autoport/reports/Gperf-batching/{baseline,final,round3,round4}/
+(summaries, full logs, per-bucket tables, screencaps, diff images, flicker mp4,
+deploy_verify proofs).

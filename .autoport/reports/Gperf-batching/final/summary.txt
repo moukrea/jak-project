@@ -1,0 +1,108 @@
+================================================================================
+Gperf-batching FINAL measurement — pose-matched two-boot protocol
+HEAD = 1f504fcf8 (Merc2 per-draw state caching, the dominant draw family).
+deploy_verify PASS (libgk 5ca92cad45acfd4d, build==APK==device, HEAD). FULL APK.
+Device eae4df44. A/B via debug.opengoal.perf.nobatch (1=baseline, 0=batched);
+debug.opengoal.perf.buckets=1. Each scene: TWO separate boots, IDENTICAL timing
+(link -> settle 25s -> STATIC 40s idle -> DRIVE 75s f3 SEQ). No crash in either.
+================================================================================
+
+WINDOW-BY-WINDOW (medians):
+scene    | window | mode     | dyn-rs fps | buckets_ms | render_ms | draws | tris
+GEYSER   | STATIC | baseline |    27.9    |   30.41    |   31.34   |  571  | 324308
+GEYSER   | STATIC | batched  |    29.9    |   28.65    |   29.69   |  572  | 331129
+GEYSER   | DRIVE  | baseline |    41.5    |   15.41    |   16.76   |  127  | 123954
+GEYSER   | DRIVE  | batched  |    42.3    |   13.06    |   14.07   |  116  | 110064
+VILLAGE1 | STATIC | baseline |    22.0    |   38.81    |   39.83   |  708  | 517091
+VILLAGE1 | STATIC | batched  |    22.0    |   38.80    |   39.84   |  708  | 517041
+VILLAGE1 | DRIVE  | baseline |    32.2    |   20.88    |   22.13   |  290  | 182682
+VILLAGE1 | DRIVE  | batched  |    31.1    |   18.13    |   19.14   |  256  | 164569
+
+MERC-CACHING SIGNAL (per-bucket, SAME draws / LOWER ms = the cache working):
+  GEYSER STATIC [10] l0-tfrag-merc : 173dr both, 3.19 -> 2.32 ms (-0.87)
+  GEYSER STATIC [49] l0-pris-merc  : 166dr both, 3.58 -> 2.94 ms (-0.64)
+  GEYSER DRIVE  [17] l1-tfrag-merc :  64dr both, 6.45 -> 4.14 ms (-2.31)
+  GEYSER DRIVE  [55] common-pris-merc: 36dr both, 3.11 -> 2.05 ms (-1.06)
+  Non-merc buckets (tie/ocean/sky) essentially unchanged — effect is merc-local.
+  buckets_ms net: GEYSER static 30.41->28.65 (-1.76), drive 15.41->13.06 (-2.35);
+                  VILLAGE1 drive 20.88->18.13 (-2.75). STATIC village1 unchanged
+                  (its heavy cost is l1-tie/pris-merc pose churn; static idle
+                  merc redraws already cache-warm frame-to-frame -> no delta).
+
+PARITY (static A vs B, matched time-after-boot):
+  VILLAGE1: mean-abs-diff 1.18; 1.53% px >32-delta -> PASS (near-identical; the
+            village1-hut continue-point has a FIXED camera-rot so both boots frame
+            the same view; tiny diff = drifting clouds/rotating collectible).
+  GEYSER  : mean-abs-diff 24.4; 38.4% px >32-delta -> camera-orientation drift
+            between boots (Geyser warp-in idle camera settles at a slightly
+            different yaw per boot). Eyeball of both frames: IDENTICAL scene
+            content (same terrain/palms/rope/ocean/Jak), only the view angle
+            differs. NOT a rendering regression. (Diff images saved.)
+
+FLICKER: geyser-flicker.mp4 (30s batched drive) -> 300 frames @ fps=10:
+  0 all-black frames (luma<8), 0 flash frames (|delta|>60). Luma 92.5..187.8.
+  -> ZERO flicker.
+
+STABILITY (12-min batched Geyser session, geyser-C-long.log):
+  ~11.4 min continuous drive (9 SEQ rounds + record + settle). PID 9095 start to
+  end (no restart). ZERO sig11/6/4 in our pid. App foreground (MainActivity) at
+  end. 531 A35-PERF / 539 A35-RENDER / 337 dyn-rs blocks.
+  Dynamic render scale converged + LOCKED sanely (last 3 dyn-rs):
+    [dyn-rs] state avg-fps=30.3 scale=40% target=60 floor=40 locked=#t
+    [dyn-rs] state avg-fps=57.7 scale=40% target=60 floor=40 locked=#t
+    [dyn-rs] state avg-fps=58.7 scale=40% target=60 floor=40 locked=#t
+
+--------------------------------------------------------------------------------
+PER-BUCKET TABLES (top-10):
+
+=== GEYSER STATIC: top-10 by baseline ms (A=baseline B=batched) ===
+  bucket                        A_ms  A_dr |    B_ms  B_dr |    dms
+  [17] l1-tfrag-merc            6.62    64 |    6.42    64 |  +0.21
+  [49] l0-pris-merc             3.58   166 |    2.94   166 |  +0.64
+  [ 9] l0-tie                   3.47    59 |    3.49    59 |  -0.02
+  [10] l0-tfrag-merc            3.19   173 |    2.32   173 |  +0.87
+  [66] sprite                   2.82    10 |    3.02    10 |  -0.20
+  2d-group0                     2.42     3 |    2.43     3 |  -0.02
+  [ 4] ocean-mid-far            2.34    12 |    2.37    12 |  -0.02
+  [55] common-pris-merc         2.23    36 |    2.14    36 |  +0.09
+  [ 6] l0-tfrag                 1.00    36 |    1.03    37 |  -0.03
+  [63] ocean-near               0.98     4 |    1.02     4 |  -0.04
+
+=== GEYSER DRIVE: top-10 by baseline ms (A=baseline B=batched) ===
+  bucket                        A_ms  A_dr |    B_ms  B_dr |    dms
+  [17] l1-tfrag-merc            6.45    64 |    4.14    64 |  +2.31
+  [45] common-alpha-merc        6.31     7 |    0.34     7 |  +5.97
+  [49] l0-pris-merc             3.20   144 |    2.10   108 |  +1.10
+  [55] common-pris-merc         3.11    36 |    2.05    36 |  +1.06
+  [ 9] l0-tie                   2.13    26 |    2.10    25 |  +0.03
+  [66] sprite                   1.97     9 |    1.43     7 |  +0.54
+  [ 4] ocean-mid-far            1.95    12 |    1.90    12 |  +0.05
+  [10] l0-tfrag-merc            1.56    53 |    1.35    61 |  +0.21
+  2d-group0                     1.54     4 |    1.03     4 |  +0.51
+  [63] ocean-near               0.88     4 |    0.83     4 |  +0.05
+
+=== VILLAGE1 STATIC: top-10 by baseline ms (A=baseline B=batched) ===
+  bucket                        A_ms  A_dr |    B_ms  B_dr |    dms
+  [52] l1-pris-merc             9.59    23 |    9.48    23 |  +0.11
+  [16] l1-tie                   6.76   405 |    6.91   405 |  -0.15
+  [66] sprite                   4.05    15 |    4.29    15 |  -0.24
+  [17] l1-tfrag-merc            3.43    90 |    3.01    90 |  +0.42
+  2d-group0                     3.27     8 |    3.51     8 |  -0.24
+  [61] l1-water-merc            2.75     2 |    2.64     2 |  +0.11
+  [55] common-pris-merc         2.52    36 |    2.52    36 |  +0.00
+  [13] l1-tfrag                 2.17    92 |    2.25    92 |  -0.08
+  t3                            2.15    92 |    2.21    92 |  -0.07
+  [ 4] ocean-mid-far            1.95    12 |    2.19    12 |  -0.24
+
+=== VILLAGE1 DRIVE: top-10 by baseline ms (A=baseline B=batched) ===
+  bucket                        A_ms  A_dr |    B_ms  B_dr |    dms
+  [52] l1-pris-merc             7.97    23 |    6.96    98 |  +1.01
+  [16] l1-tie                   3.88   116 |    3.59    91 |  +0.29
+  [55] common-pris-merc         2.84    36 |    2.58    36 |  +0.26
+  [17] l1-tfrag-merc            2.82    47 |    0.48    18 |  +2.33
+  [61] l1-water-merc            2.48     2 |    2.88     2 |  -0.40
+  [ 4] ocean-mid-far            2.27    12 |    2.16    12 |  +0.11
+  [13] l1-tfrag                 1.93    59 |    1.48    50 |  +0.45
+  t3                            1.92    66 |    1.45    50 |  +0.47
+  [66] sprite                   1.59    11 |    1.81    12 |  -0.22
+  [63] ocean-near               1.55     4 |    0.53     4 |  +1.02

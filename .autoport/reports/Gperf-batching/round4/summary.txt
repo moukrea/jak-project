@@ -1,0 +1,140 @@
+================================================================================
+Gperf-batching ROUND 4 — FINAL verification. bone-UBO ring upload
+HEAD = 62951ac53 (bones-ub uploaded once per flush at a ring cursor instead of
+per-level at offset 0 — targets the bones-ub implicit driver syncs).
+deploy_verify PASS (libgk d71f01c32ca9f6e6, HEAD). FULL APK. Device eae4df44.
+Two single-boot in-session pose-held A/B runs (Geyser, village1) + one 12-min
+batched Geyser stability boot. 0 sig11/6/4 in our pid across all runs; app
+foreground throughout every run.
+================================================================================
+
+PER-PHASE MEDIANS:
+scene   | phase            | dyn-rs fps | buckets_ms | render_ms | draws | tris
+GEYSER  | A static nobatch |   28.0     |   30.41    |   31.41   |  571  | 319567
+GEYSER  | B static batch   |   35.0     |   23.32    |   24.22   |  571  | 319495
+GEYSER  | C drive batch    |   46.8     |   14.68    |   15.53   |  132  | 150764
+GEYSER  | D drive nobatch  |   57.8     |   12.02    |   12.90   |   86  |  76270
+VILLAGE1| A static nobatch |   20.9     |   41.91    |   43.03   |  706  | 516948
+VILLAGE1| B static batch   |   28.0     |   29.37    |   30.50   |  707  | 517063
+VILLAGE1| C drive batch    |   43.6     |   17.08    |   18.10   |  250  | 161018
+VILLAGE1| D drive nobatch  |   42.6     |   17.51    |   18.57   |  248  | 159030
+
+STATIC A/B is the CLEAN comparison (camera held, ~571/707 draws both modes):
+  GEYSER   buckets_ms 30.41 -> 23.32  (-7.09ms, -23%)  fps 28.0 -> 35.0
+  VILLAGE1 buckets_ms 41.91 -> 29.37  (-12.54ms, -30%) fps 20.9 -> 28.0
+DRIVE phases are NOT pose-matched (different camera/draw counts per 75s window);
+their raw ms/fps are not directly comparable. Trust STATIC for the A/B delta.
+
+MERC CHILD BREAKDOWN (STATIC, camera held, nobatch -> batch, median ms):
+  GEYSER:
+   [17] l1-tfrag-merc TOTAL 7.54->1.94: defuse 5.04->0.00 (round-3 dedupe holds),
+        draws 1.31->0.82, bones-ub 0.88->0.96 (flat)
+   [49] l0-pris-merc  TOTAL 3.68->2.54: draws 1.74->1.11, bones-ub 1.02->0.85,
+        env-draws 0.55->0.27
+   [10] l0-tfrag-merc TOTAL 2.27->1.46: env-draws 0.86->0.30, draws 1.03->0.73
+   [55] common-pris-merc TOTAL 2.33->1.74: bones-ub 0.95->0.76, draws 0.70->0.51
+  VILLAGE1:
+   [55] common-pris-merc TOTAL 2.79->1.64: bones-ub 1.11->0.69, draws 0.91->0.50
+   [17] l1-tfrag-merc TOTAL 1.85->1.53: draws 1.23->1.01
+   ([10]/[49] l0-* buckets are not present in village1 — it uses l1-* buckets.)
+
+HONEST FINDING on bones-ub (the round-4 target):
+  The bone-ring upload did NOT collapse bones-ub to zero. Per merc bucket it
+  still costs ~0.7-1.0ms in BATCH mode (raw: village1 [55] bones-ub 0.85ms,
+  [61] l1-water-merc bones-ub 1.26ms; geyser [49] 0.85ms). vs round-3 it trims
+  bones-ub modestly (geyser [49] 1.02->0.85, [55] 0.95->0.76; village1 [55]
+  1.11->0.69 = ~15-40% off the per-bucket bones-ub) — the ring removes the
+  implicit-sync TAIL but the node still pays the real UBO write cost. So bones-ub
+  is now a minor residual, not eliminated. No visual regression from the ring
+  (model integrity verified, below). The dominant merc win remains the round-3
+  defuse dedupe (5ms on l1-tfrag-merc), preserved here.
+  vao child = 0.00 in every block both scenes (no VAO respec triggered in these
+  static views — the vao-skip has no measurable effect HERE).
+
+PARITY + MODEL INTEGRITY (static nobatch vs batch, same pose ~50s apart):
+  GEYSER : mean-abs-diff 8.35; 2.83% px>32 (localizes to Jak idle-breath anim).
+  VILLAGE1: mean-abs-diff 9.06; 12.4% px>32 (top-row drifting clouds + orbs).
+  MODEL INTEGRITY: EYEBALLED all four static frames. Jak+Daxter render with
+  correct skeletons/proportions in BOTH modes both scenes; village bird + orbs
+  normal. ZERO deformation/exploded-vertex/stretched geometry from the bone-ring
+  offsets. -> PASS. (Diffs are animation drift, not rendering changes.)
+
+FLICKER: geyser-flicker.mp4 (30s batched drive) -> 300 frames @ fps=10:
+  0 all-black (luma<8), 0 flash (|delta|>60). Luma 92.0..188.8. -> ZERO flicker.
+
+STABILITY (12-min batched Geyser boot):
+  ~11.4 min continuous drive (9 SEQ rounds + record + settle). PID 14685 start to
+  end (no restart). ZERO sig11/6/4 in our pid. App foreground (MainActivity) at
+  end. 560 A35-PERF blocks. Dynamic render scale converged + LOCKED:
+    [dyn-rs] state avg-fps=46.0 scale=40% target=60 floor=40 locked=#t
+    [dyn-rs] state avg-fps=59.8 scale=40% target=60 floor=40 locked=#t
+    [dyn-rs] state avg-fps=59.9 scale=40% target=60 floor=40 locked=#t
+
+================================================================================
+CUMULATIVE STORY vs the ORIGINAL pre-phase baseline
+  Diagnostic (commit 57bb5c51d): Geyser ~571 draws ~20ms buckets_ms, fps pinned
+  ~30, draw-submission bound.
+  Round-2 final (baseline=nobatch, exact pre-phase path):
+    GEYSER   static 27.9 fps / 30.4 ms;  VILLAGE1 static 22.0 fps / 38.8 ms
+  Round-4 batched (all batching landed: TIE/tfrag/shrub draw-merge + merc per-draw
+  state cache + merc defuse dedupe + bone-ring), STATIC camera-held:
+    GEYSER   static 35.0 fps / 23.32 ms  (30.4 -> 23.3 ms = -23% GL submission)
+    VILLAGE1 static 28.0 fps / 29.37 ms  (38.8 -> 29.4 ms = -24% GL submission)
+  Net: heavy static scenes shed ~7ms (Geyser) / ~12.5ms (village1) of GL-thread
+  buckets_ms with IDENTICAL geometry + zero visual regression. Under motion the
+  dynamic render scaler now reaches/locks near 60fps (scale=40% locked) on the
+  12-min run. The submission-bound ceiling the diagnostic identified is measurably
+  lowered; merc residual cost is now bones-ub (~0.7-1ms/bucket) + real draw time.
+================================================================================
+
+MERC BREAKDOWN (full tables):
+
+===== GEYSER STATIC (camera held): nobatch(A) -> batch(B) median ms =====
+
+  [10] l0-tfrag-merc  TOTAL   2.27 ->   1.46 (+0.81)  [nA=18 nB=23]
+      defuse       0.00 ->   0.00 (+0.00)
+      vao          0.00 ->   0.00 (+0.00)
+      bones-ub     0.00 ->   0.00 (+0.00)
+      draws        1.03 ->   0.73 (+0.30)
+      env-draws    0.86 ->   0.30 (+0.56)
+
+  [49] l0-pris-merc  TOTAL   3.68 ->   2.54 (+1.14)  [nA=18 nB=23]
+      defuse       0.00 ->   0.00 (+0.00)
+      vao          0.00 ->   0.00 (+0.00)
+      bones-ub     1.02 ->   0.85 (+0.17)
+      draws        1.74 ->   1.11 (+0.63)
+      env-draws    0.55 ->   0.27 (+0.28)
+
+  [17] l1-tfrag-merc  TOTAL   7.54 ->   1.94 (+5.60)  [nA=18 nB=23]
+      defuse       5.04 ->   0.00 (+5.04)
+      vao          0.00 ->   0.00 (+0.00)
+      bones-ub     0.88 ->   0.96 (-0.08)
+      draws        1.31 ->   0.82 (+0.49)
+      env-draws    0.00 ->   0.00 (+0.00)
+
+  [55] common-pris-merc  TOTAL   2.33 ->   1.74 (+0.59)  [nA=18 nB=23]
+      defuse       0.00 ->   0.00 (+0.00)
+      vao          0.00 ->   0.00 (+0.00)
+      bones-ub     0.95 ->   0.76 (+0.19)
+      draws        0.70 ->   0.51 (+0.19)
+      env-draws    0.22 ->   0.15 (+0.07)
+
+===== VILLAGE1 STATIC (camera held): nobatch(A) -> batch(B) median ms =====
+
+  [10] l0-tfrag-merc  -- not present in VILLAGE1 (uses other level buckets) --
+
+  [49] l0-pris-merc  -- not present in VILLAGE1 (uses other level buckets) --
+
+  [17] l1-tfrag-merc  TOTAL   1.85 ->   1.53 (+0.32)  [nA=14 nB=19]
+      defuse       0.00 ->   0.00 (+0.00)
+      vao          0.00 ->   0.00 (+0.00)
+      bones-ub     0.00 ->   0.00 (+0.00)
+      draws        1.23 ->   1.01 (+0.22)
+      env-draws    0.18 ->   0.10 (+0.08)
+
+  [55] common-pris-merc  TOTAL   2.79 ->   1.64 (+1.16)  [nA=14 nB=19]
+      defuse       0.00 ->   0.00 (+0.00)
+      vao          0.00 ->   0.00 (+0.00)
+      bones-ub     1.11 ->   0.69 (+0.42)
+      draws        0.91 ->   0.50 (+0.41)
+      env-draws    0.26 ->   0.14 (+0.11)
