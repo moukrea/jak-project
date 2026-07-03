@@ -55,6 +55,36 @@ void f1_maybe_warp_to_geyser();
 void level_warp_maybe();
 
 /*!
+ * TASK CLOSE (Gcrash-rockvillage debug-only repro tool) — env OG_TASK_CLOSE / Android
+ * prop debug.opengoal.task.close = "<task>[:<status>][,...]" (status default 7 =
+ * need-resolution), OFF by default. Closes game-task cstages on the GOAL kernel thread
+ * via the same *listener-function* trampoline, so a device repro can cross task-gated
+ * content (e.g. village2-warrior-money=33 pontoons). Never armed in the shipped APK.
+ */
+void task_close_maybe();
+
+/*!
+ * WANT-LEVELS / WANT-DISPLAY (Gcrash-rockvillage debug-only repro tools) — env
+ * OG_WANT_LEVELS / prop debug.opengoal.want.levels = "lev1,lev2" and env
+ * OG_WANT_DISPLAY / prop debug.opengoal.want.display = "lev[,sym]", OFF by default.
+ * Replay the exact load-boundary commands (load-state-want-levels /
+ * load-state-want-display-level) on the GOAL kernel thread, so the village2->swamp
+ * streaming transition can be triggered deterministically without a physical
+ * polyline crossing. Never armed in the shipped APK.
+ */
+void want_levels_maybe();
+void want_display_maybe();
+void want_vis_maybe();
+
+/*!
+ * GRV-CANARY (Gcrash-rockvillage debug-only forensic) — env OG_GRV_CANARY / prop
+ * debug.opengoal.grv.canary=1, OFF by default. Per-dispatch watch of the top 64
+ * bytes of *target*'s main-thread stack (the enter-state return-trampoline band);
+ * logs every change, tagging non-trampoline values as ANOMALY (the stomp writer).
+ */
+void grv_canary_maybe();
+
+/*!
  * ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) — env OG_ECO_SPAWN /
  * Android prop debug.opengoal.eco.spawn = "<pickup-type-int> [period [dx dy dz]]",
  * OFF by default. Repeatedly births an eco pickup next to *target* via the same

@@ -4852,6 +4852,59 @@ bool handle_rftd_null_return(int sig, siginfo_t* /*info*/, void* ucontext) {
   return true;
 }
 
+// Gcrash-rockvillage: a GOAL state :code RET consumed a CORRUPTED saved-X30 slot
+// and jumped to a BARE GOAL offset (pc == lr == 0xNNNNNN < EE_SIZE, instruction
+// fetch fault at that unmapped low address). Root evidence (GRV-CANARY, village2
+// past-pontoons route): the outermost state frame band at [*kernel-dram-stack*
+// top-24] — which legitimately holds the host return-from-thread-dead trampoline
+// pushed by enter-state (gstate.gc:373-381) — gets overwritten by per-frame float
+// writes (camera-blend/direction values in [-1,1]) landed through the SHARED dram
+// arena; on x86 the same writes fall on a slot the 8-byte push contract leaves
+// dead, so the original is unaffected (x86 route verified crash-free). When the
+// state falls off the end, the arm64 LDP/RET consumes the stomped pair -> crash
+// straight to home (the owner's Rock Village past-the-crate defect; also seen
+// with SP restored off-arena, repro12). The INTENDED continuation of a returning
+// state :code is unambiguous: the return-from-thread-dead deactivate trampoline
+// (exactly what x86 reaches). Repair: redirect pc there and resume. Gated
+// razor-tight: SIGSEGV + pc==lr (a RET/BR through the corrupt value) + pc a bare
+// in-EE-range offset >=0x1000 (never a mapped host address; genuine wild faults
+// don't fetch from [0x1000, 32MB)) + fault addr == pc (instruction fetch). The
+// trampoline is resolved from the live symbol table (not hardcoded — CGO layouts
+// move it, e.g. 0x18aee4 f1c vs 0x18aef4 current). arm64/Android only.
+std::atomic<uint64_t> g_grv_bareret_redirects{0};
+bool handle_bare_ret_offset(int sig, siginfo_t* info, void* ucontext) {
+  if (sig != SIGSEGV || !g_ee_main_mem) {
+    return false;
+  }
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  const uintptr_t pc = uc->uc_mcontext.pc;
+  const uintptr_t lr = uc->uc_mcontext.regs[30];
+  if (pc < 0x1000 || pc >= (uintptr_t)EE_MAIN_MEM_SIZE) {
+    return false;  // not a bare GOAL offset (pc<0x1000 is the NULLRET handler's case)
+  }
+  if (lr != pc) {
+    return false;  // not a RET/BR through the corrupted value
+  }
+  const uintptr_t fault = info ? reinterpret_cast<uintptr_t>(info->si_addr) : 0;
+  if (fault != pc) {
+    return false;  // must be the instruction fetch itself
+  }
+  const u32 rftd = jak1::intern_from_c("return-from-thread-dead")->value;
+  if (rftd < 0x1000 || rftd >= (u32)EE_MAIN_MEM_SIZE) {
+    return false;
+  }
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  uc->uc_mcontext.pc = ee + rftd;
+  const uint64_t n = g_grv_bareret_redirects.fetch_add(1, std::memory_order_relaxed) + 1;
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG GRV-BARE-RET-REPAIR #%llu pc=lr=0x%lx sp=0x%lx -> "
+                      "return-from-thread-dead 0x%x (stomped state-return slot; process "
+                      "deactivates as designed)",
+                      (unsigned long long)n, (unsigned long)pc,
+                      (unsigned long)uc->uc_mcontext.sp, rftd);
+  return true;
+}
+
 // Gcrash-mouche: arm64 scout-fly (buzzer) collect SIGILL. enter-state
 // (gstate.gc:355-386) enters a process state by computing
 //   func = (-> new-state code) + r15  ;  (.jr func)
@@ -5250,6 +5303,12 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
       a38_trip::handle_rftd_null_return(sig, info, ucontext)) {
     return;
   }
+  // Gcrash-rockvillage: a state :code RET consumed a stomped saved-X30 slot and
+  // jumped to a BARE GOAL offset (village2 past-pontoons crash-to-home). Redirect
+  // to return-from-thread-dead — the continuation x86 reaches — and resume.
+  if (sig == SIGSEGV && a38_trip::handle_bare_ret_offset(sig, info, ucontext)) {
+    return;
+  }
   // Gcrash-mouche: arm64 buzzer scout-fly collect SIGILL — enter-state's spilled
   // `new-state` was stomped to 0 by a concurrent sparticle DMA write, so the state
   // `code` read 0 and the .jr branched to EE+0. Recover the authoritative state code
@@ -5370,6 +5429,137 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                         "GK-DIAG x%d=0x%lx", i,
                         (unsigned long)uc->uc_mcontext.regs[i]);
+  }
+
+  // GRV-SP — Gcrash-rockvillage: dump the stack window at SP IMMEDIATELY after the
+  // registers, before any handler stage that can re-fault (repro12's corrupt-RET
+  // crash killed the handler mid-walk and lost the stack evidence). 48 words via
+  // safe_read_u32 only; names the stomped frame's contents (saved LR slots, GOAL
+  // ptrs) even when pc/lr are garbage and the fp-chain is unwalkable.
+  {
+    uintptr_t sp = (uintptr_t)uc->uc_mcontext.sp;
+    for (int base_off = -32; base_off < 160; base_off += 16) {
+      uint32_t w[4] = {0, 0, 0, 0};
+      bool any = false;
+      for (int k = 0; k < 4; k++) {
+        if (gk_diag::safe_read_u32(sp + base_off + 4 * k, &w[k])) {
+          any = true;
+        }
+      }
+      if (any) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG GRV-SP sp%+d: %08x %08x %08x %08x", base_off, w[0], w[1],
+                            w[2], w[3]);
+      }
+    }
+    // GRV-PP — identify the CURRENT PROCESS and its thread stacks immediately
+    // (repro12's SP was NOT in the dram arena; must know whose stack the RET
+    // consumed). kernel-context.current-process @ +20 (deftype 24 - 4).
+    {
+      auto kc = jak1::intern_from_c("*kernel-context*");
+      uint32_t pp = 0;
+      if (kc.offset && kc->value) {
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + kc->value + 20, &pp);
+      }
+      if (pp >= 0x1000 && pp < (uint32_t)EE_MAIN_MEM_SIZE) {
+        uint32_t pname = 0, mt = 0, tt = 0, mt_top = 0, tt_top = 0, mt_sp = 0, tt_sp = 0;
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + pp + 0, &pname);
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + pp + 40, &mt);   // main-thread
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + pp + 44, &tt);   // top-thread
+        if (mt >= 0x1000 && mt < (uint32_t)EE_MAIN_MEM_SIZE) {
+          gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + mt + 28, &mt_top);
+          gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + mt + 24, &mt_sp);
+        }
+        if (tt >= 0x1000 && tt < (uint32_t)EE_MAIN_MEM_SIZE) {
+          gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + tt + 28, &tt_top);
+          gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + tt + 24, &tt_sp);
+        }
+        char nm[36] = {0};
+        for (int i = 0; i < 32; i += 4) {
+          uint32_t w = 0;
+          if (!gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + pname + 4 + i, &w)) {
+            break;
+          }
+          memcpy(nm + i, &w, 4);
+        }
+        nm[32] = 0;
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG GRV-PP pp=0x%x name='%s' mt=0x%x(top=0x%x sp=0x%x) "
+                            "tt=0x%x(top=0x%x sp=0x%x)",
+                            pp, nm, mt, mt_top, mt_sp, tt, tt_top, tt_sp);
+      }
+    }
+    // GRV-POOL — walk the active process tree and print each process' object span
+    // (name@addr..end); flag spans containing the crash SP (whose stack did the RET
+    // consume?) and the crash pc when it is a bare GOAL offset. Bounded, safe reads.
+    {
+      uint32_t sp_goal = 0;
+      if (sp >= (uintptr_t)g_ee_main_mem && sp < (uintptr_t)g_ee_main_mem + EE_MAIN_MEM_SIZE) {
+        sp_goal = (uint32_t)(sp - (uintptr_t)g_ee_main_mem);
+      }
+      uint32_t pc_goal = 0;
+      {
+        uintptr_t pcv0 = (uintptr_t)uc->uc_mcontext.pc;
+        if (pcv0 >= 0x1000 && pcv0 < (uintptr_t)EE_MAIN_MEM_SIZE) {
+          pc_goal = (uint32_t)pcv0;  // already bare
+        }
+      }
+      auto ap = jak1::intern_from_c("*active-pool*");
+      uint32_t stack_nodes[48];
+      int sp_i = 0, printed = 0;
+      if (ap.offset && ap->value >= 0x1000 && ap->value < (uint32_t)EE_MAIN_MEM_SIZE) {
+        stack_nodes[sp_i++] = ap->value;
+      }
+      while (sp_i > 0 && printed < 40) {
+        uint32_t p = stack_nodes[--sp_i];
+        uint32_t child = 0, brother = 0, pname = 0, alloc_len = 0;
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + p + 16, &child);    // child @C16
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + p + 12, &brother);  // brother @C12
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + p + 0, &pname);
+        gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + p + 68, &alloc_len);  // @C68
+        uint32_t span_beg = p - 4;
+        uint32_t span_end = p + 116 + (alloc_len < 0x100000 ? alloc_len : 0);
+        char nm[20] = {0};
+        for (int i = 0; i < 16; i += 4) {
+          uint32_t w = 0;
+          if (pname < 0x1000 ||
+              !gk_diag::safe_read_u32((uintptr_t)g_ee_main_mem + pname + 4 + i, &w)) {
+            break;
+          }
+          memcpy(nm + i, &w, 4);
+        }
+        nm[16] = 0;
+        bool has_sp = sp_goal && sp_goal >= span_beg && sp_goal < span_end;
+        bool has_pc = pc_goal && pc_goal >= span_beg && pc_goal < span_end;
+        if (has_sp || has_pc || printed < 40) {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG GRV-POOL p=0x%x len=0x%x name='%s'%s%s", p, alloc_len,
+                              nm, has_sp ? " <==SP" : "", has_pc ? " <==PC" : "");
+          printed++;
+        }
+        if (brother >= 0x1000 && brother < (uint32_t)EE_MAIN_MEM_SIZE && sp_i < 46) {
+          stack_nodes[sp_i++] = brother;
+        }
+        if (child >= 0x1000 && child < (uint32_t)EE_MAIN_MEM_SIZE && sp_i < 46) {
+          stack_nodes[sp_i++] = child;
+        }
+      }
+    }
+    // GRV-NAME — when pc/lr/x17 are BARE GOAL offsets (a rebase-less branch/RET,
+    // e.g. repro12's pc==lr==0x1d7b30), name the containing GOAL function via the
+    // symbol-table walk. Also name x17 (the arm64 branch-target scratch).
+    uintptr_t pcv = (uintptr_t)uc->uc_mcontext.pc;
+    uintptr_t lrv = (uintptr_t)uc->uc_mcontext.regs[30];
+    uintptr_t x17v = (uintptr_t)uc->uc_mcontext.regs[17];
+    if (pcv >= 0x1000 && pcv < (uintptr_t)EE_MAIN_MEM_SIZE) {
+      a38_trip::log_nearest_goal_fn("grv-pc-bare", (uint32_t)pcv);
+    }
+    if (lrv >= 0x1000 && lrv < (uintptr_t)EE_MAIN_MEM_SIZE && lrv != pcv) {
+      a38_trip::log_nearest_goal_fn("grv-lr-bare", (uint32_t)lrv);
+    }
+    if (x17v >= 0x1000 && x17v < (uintptr_t)EE_MAIN_MEM_SIZE) {
+      a38_trip::log_nearest_goal_fn("grv-x17-bare", (uint32_t)x17v);
+    }
   }
 
   // GSPARK-PP — on a null-fn-ptr BLR (SIGILL, pc==EE_base) name the CRASHING

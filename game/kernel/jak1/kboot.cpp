@@ -175,6 +175,24 @@ void KernelCheckAndDispatch() {
     // runs crash-free on the real device. Same in-context dispatch point as F1.
     level_warp_maybe();
 
+    // TASK CLOSE (Gcrash-rockvillage debug-only repro) — gated (env OG_TASK_CLOSE /
+    // prop debug.opengoal.task.close), OFF by default. Closes task-gated progress
+    // (e.g. the village2-warrior-money pontoon payment) so a device repro can walk
+    // gated routes. Same in-context dispatch point as the warps.
+    task_close_maybe();
+
+    // WANT-LEVELS / WANT-DISPLAY (Gcrash-rockvillage debug-only repro) — gated
+    // (env OG_WANT_LEVELS / OG_WANT_DISPLAY, props debug.opengoal.want.*), OFF by
+    // default. Deterministically replay the village2->swamp load-boundary commands.
+    want_levels_maybe();
+    want_display_maybe();
+    want_vis_maybe();
+
+    // GRV-CANARY (Gcrash-rockvillage debug-only forensic) — gated
+    // (env OG_GRV_CANARY / prop debug.opengoal.grv.canary), OFF by default.
+    // Watches the target-stack return-trampoline band for the stomp writer.
+    grv_canary_maybe();
+
     // ECO SPHERE SPAWN (Geco-spheres oracle-diff) — gated (env OG_ECO_SPAWN / prop
     // debug.opengoal.eco.spawn), OFF by default. Births an eco pickup next to
     // *target* via *listener-function*, replaying the x86 oracle's

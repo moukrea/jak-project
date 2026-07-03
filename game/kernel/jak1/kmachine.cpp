@@ -1112,6 +1112,462 @@ void level_warp_maybe() {
            warp_fn.offset, s_level_warp_name);
 }
 
+// ─── TASK CLOSE (Gcrash-rockvillage debug-only repro tool) ──────────────────────
+// Closes specific game-task cstages at runtime so a device repro can cross
+// task-gated content (e.g. village2-warrior-money=33 restores the swamp pontoons)
+// without a listener connection. Gated by env OG_TASK_CLOSE / Android prop
+// debug.opengoal.task.close = "<task>[:<status>][,<task>[:<status>]...]"; status
+// defaults to 7 = (task-status need-resolution). Fires ONCE on the GOAL kernel
+// thread via *listener-function* — same dispatch context as the level warp — with
+// a shorter default delay (300 ticks, OG_TASK_CLOSE_DELAY) so a same-boot
+// level.warp (default 600) spawns with the task already closed. DEBUG-ONLY:
+// never armed in production; goal_src / x86 emitter / gold untouched.
+static char s_task_close_spec[128];
+
+static bool task_close_requested() {
+  s_task_close_spec[0] = 0;
+  if (const char* e = std::getenv("OG_TASK_CLOSE")) {
+    std::strncpy(s_task_close_spec, e, sizeof(s_task_close_spec) - 1);
+  }
+#if defined(__ANDROID__)
+  if (!s_task_close_spec[0]) {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.task.close", pbuf) > 0 && pbuf[0]) {
+      std::strncpy(s_task_close_spec, pbuf, sizeof(s_task_close_spec) - 1);
+    }
+  }
+#endif
+  for (const char* p = s_task_close_spec; *p; ++p) {
+    if (*p >= '1' && *p <= '9') {
+      return true;  // needs at least one nonzero digit ("", "0", "''" disable)
+    }
+  }
+  return false;
+}
+
+static u64 task_close_run() {
+  u32 fn = intern_from_c("close-specific-task!")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    printf("TASK-CLOSE-FAIL reason=close-specific-task!-unbound\n");
+    fflush(stdout);
+    return 0;
+  }
+  char buf[128];
+  std::strncpy(buf, s_task_close_spec, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = 0;
+  char* save = nullptr;
+  for (char* tok = strtok_r(buf, ",", &save); tok; tok = strtok_r(nullptr, ",", &save)) {
+    int task = 0;
+    int status = 7;  // (task-status need-resolution)
+    if (std::sscanf(tok, "%d:%d", &task, &status) < 1 || task <= 0) {
+      continue;
+    }
+    u64 args[8] = {(u64)task, (u64)status, 0, 0, 0, 0, 0, 0};
+    u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp,
+                                    (u64)s7.offset, g_ee_main_mem);
+    printf("TASK-CLOSE task=%d status=%d -> #x%x\n", task, status, (u32)r);
+    fflush(stdout);
+  }
+  return 0;
+}
+
+void task_close_maybe() {
+  static bool s_done = false;
+  if (s_done) {
+    return;
+  }
+  if (!task_close_requested()) {
+    return;
+  }
+  // Readiness: same gate as level_warp_maybe, plus close-specific-task! bound.
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  u32 fn = intern_from_c("close-specific-task!")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    return;
+  }
+  u32 dead_pool = intern_from_c("*target-dead-pool*")->value;
+  if (dead_pool == 0 || dead_pool == (u32)s7.offset) {
+    return;
+  }
+  int delay = 300;
+  if (const char* d = std::getenv("OG_TASK_CLOSE_DELAY")) {
+    delay = atoi(d);
+  }
+  static int s_ticks = 0;
+  if (s_ticks++ < delay) {
+    return;
+  }
+  // don't clobber a pending listener function armed by another hook this tick
+  if (ListenerFunction->value != (u32)s7.offset && ListenerFunction->value != 0) {
+    return;
+  }
+  s_done = true;
+  Ptr<Function> f = make_function_from_c((void*)task_close_run, false);
+  ListenerFunction->value = f.offset;
+  lg::info("[TASK-CLOSE] armed *listener-function* = #x{:x} for spec '{}'", f.offset,
+           s_task_close_spec);
+}
+
+// ─── WANT-LEVELS / WANT-DISPLAY (Gcrash-rockvillage debug-only repro tool) ──────
+// Replays the exact GOAL forms a load-boundary crossing executes, without needing
+// Jak to physically cross the polyline: `(load village2 swamp)` boundaries call
+// load-state-want-levels, `(display swamp display)` boundaries call
+// load-state-want-display-level (load-boundary.gc:1095-1102, check-boundary
+// :1364-1378). This reproduces the owner's village2->swamp streaming transition
+// (rolling evicted, SWA.DGO streamed mid-play, then displayed) deterministically.
+//   env OG_WANT_LEVELS / prop debug.opengoal.want.levels = "lev1,lev2"
+//     (fires once at OG_WANT_LEVELS_DELAY ticks, default 900)
+//   env OG_WANT_DISPLAY / prop debug.opengoal.want.display = "lev[,sym]"
+//     (sym default 'display'; fires once at OG_WANT_DISPLAY_DELAY, default 1800 —
+//      after the streaming load has had time to finish, like the owner's walk)
+// DEBUG-ONLY: never armed in production; goal_src / x86 emitter / gold untouched.
+static char s_want_levels_spec[96];
+static char s_want_display_spec[96];
+
+static bool want_prop_requested(const char* env, const char* prop, char* out, size_t out_sz) {
+  out[0] = 0;
+  if (const char* e = std::getenv(env)) {
+    std::strncpy(out, e, out_sz - 1);
+    out[out_sz - 1] = 0;
+  }
+#if defined(__ANDROID__)
+  if (!out[0]) {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get(prop, pbuf) > 0 && pbuf[0]) {
+      std::strncpy(out, pbuf, out_sz - 1);
+      out[out_sz - 1] = 0;
+    }
+  }
+#endif
+  for (const char* p = out; *p; ++p) {
+    if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z')) {
+      return true;  // needs at least one letter ("", "0", "''" disable)
+    }
+  }
+  return false;
+}
+
+static u64 want_levels_run() {
+  u32 fn = intern_from_c("load-state-want-levels")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    printf("WANT-LEVELS-FAIL reason=load-state-want-levels-unbound\n");
+    fflush(stdout);
+    return 0;
+  }
+  char buf[96];
+  std::strncpy(buf, s_want_levels_spec, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = 0;
+  char* comma = std::strchr(buf, ',');
+  if (!comma) {
+    printf("WANT-LEVELS-FAIL reason=need-two-levels spec=%s\n", buf);
+    fflush(stdout);
+    return 0;
+  }
+  *comma = 0;
+  u32 lev1 = intern_from_c(buf).offset;
+  u32 lev2 = intern_from_c(comma + 1).offset;
+  u64 args[8] = {lev1, lev2, 0, 0, 0, 0, 0, 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp,
+                                  (u64)s7.offset, g_ee_main_mem);
+  printf("WANT-LEVELS lev1=%s lev2=%s -> #x%x\n", buf, comma + 1, (u32)r);
+  fflush(stdout);
+  return 0;
+}
+
+static u64 want_display_run() {
+  u32 fn = intern_from_c("load-state-want-display-level")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    printf("WANT-DISPLAY-FAIL reason=load-state-want-display-level-unbound\n");
+    fflush(stdout);
+    return 0;
+  }
+  char buf[96];
+  std::strncpy(buf, s_want_display_spec, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = 0;
+  const char* sym = "display";
+  char* comma = std::strchr(buf, ',');
+  if (comma) {
+    *comma = 0;
+    sym = comma + 1;
+  }
+  u32 lev = intern_from_c(buf).offset;
+  u32 disp = (std::strcmp(sym, "#f") == 0) ? (u32)s7.offset : intern_from_c(sym).offset;
+  u64 args[8] = {lev, disp, 0, 0, 0, 0, 0, 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp,
+                                  (u64)s7.offset, g_ee_main_mem);
+  printf("WANT-DISPLAY lev=%s sym=%s -> #x%x\n", buf, sym, (u32)r);
+  fflush(stdout);
+  return 0;
+}
+
+static void want_hook_maybe(const char* env,
+                            const char* prop,
+                            char* spec,
+                            size_t spec_sz,
+                            const char* delay_env,
+                            int default_delay,
+                            u64 (*runner)(),
+                            bool* done,
+                            int* ticks,
+                            const char* tag) {
+  if (*done) {
+    return;
+  }
+  if (!want_prop_requested(env, prop, spec, spec_sz)) {
+    return;
+  }
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  u32 ls = intern_from_c("*load-state*")->value;
+  if (ls == 0 || ls == (u32)s7.offset) {
+    return;
+  }
+  int delay = default_delay;
+  if (const char* d = std::getenv(delay_env)) {
+    delay = atoi(d);
+  }
+#if defined(__ANDROID__)
+  {
+    // prop-settable delay: "<prop>.delay" (e.g. debug.opengoal.want.levels.delay)
+    char dprop[96];
+    snprintf(dprop, sizeof(dprop), "%s.delay", prop);
+    char dbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get(dprop, dbuf) > 0 && dbuf[0] && atoi(dbuf) > 0) {
+      delay = atoi(dbuf);
+    }
+  }
+#endif
+  if ((*ticks)++ < delay) {
+    return;
+  }
+  if (ListenerFunction->value != (u32)s7.offset && ListenerFunction->value != 0) {
+    return;
+  }
+  *done = true;
+  Ptr<Function> f = make_function_from_c((void*)runner, false);
+  ListenerFunction->value = f.offset;
+  lg::info("[{}] armed *listener-function* for spec '{}'", tag, spec);
+}
+
+void want_levels_maybe() {
+  static bool s_done = false;
+  static int s_ticks = 0;
+  want_hook_maybe("OG_WANT_LEVELS", "debug.opengoal.want.levels", s_want_levels_spec,
+                  sizeof(s_want_levels_spec), "OG_WANT_LEVELS_DELAY", 900, want_levels_run,
+                  &s_done, &s_ticks, "WANT-LEVELS");
+}
+
+void want_display_maybe() {
+  static bool s_done = false;
+  static int s_ticks = 0;
+  want_hook_maybe("OG_WANT_DISPLAY", "debug.opengoal.want.display", s_want_display_spec,
+                  sizeof(s_want_display_spec), "OG_WANT_DISPLAY_DELAY", 1800, want_display_run,
+                  &s_done, &s_ticks, "WANT-DISPLAY");
+}
+
+// (vis <nick>) boundaries — e.g. (vis vi2 #f) then (vis swa #f) on the crate->swamp
+// walk — call load-state-want-vis(nick), switching the active visibility octree.
+static char s_want_vis_spec[96];
+
+static u64 want_vis_run() {
+  u32 fn = intern_from_c("load-state-want-vis")->value;
+  u32 lp = intern_from_c("*listener-process*")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    printf("WANT-VIS-FAIL reason=load-state-want-vis-unbound\n");
+    fflush(stdout);
+    return 0;
+  }
+  u32 nick = intern_from_c(s_want_vis_spec).offset;
+  u64 args[8] = {nick, 0, 0, 0, 0, 0, 0, 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp,
+                                  (u64)s7.offset, g_ee_main_mem);
+  printf("WANT-VIS nick=%s -> #x%x\n", s_want_vis_spec, (u32)r);
+  fflush(stdout);
+  return 0;
+}
+
+void want_vis_maybe() {
+  static bool s_done = false;
+  static int s_ticks = 0;
+  want_hook_maybe("OG_WANT_VIS", "debug.opengoal.want.vis", s_want_vis_spec,
+                  sizeof(s_want_vis_spec), "OG_WANT_VIS_DELAY", 2400, want_vis_run, &s_done,
+                  &s_ticks, "WANT-VIS");
+}
+
+// ─── GRV-CANARY (Gcrash-rockvillage debug-only forensic) ────────────────────────
+// Watches the TOP 64 bytes of *target*'s main-thread stack (*kernel-dram-stack*
+// band) once per kernel dispatch. enter-state branch-3 (gstate.gc:373-380) resets
+// SP to stack-top and pushes the return-from-thread-dead HOST address there; the
+// repro12 crash RET'd into a bare GOAL offset restored from exactly this band, so
+// any write that is NOT the expected trampoline push is the stomp — logged with
+// the dispatch tick for frame-resolution bracketing of the writer. Enabled by
+// env OG_GRV_CANARY / prop debug.opengoal.grv.canary=1. Read-only observer.
+void grv_canary_maybe() {
+  static int s_enabled = -1;
+  if (s_enabled < 0) {
+    s_enabled = 0;
+    if (const char* e = std::getenv("OG_GRV_CANARY")) {
+      if (e[0] && e[0] != '0') {
+        s_enabled = 1;
+      }
+    }
+#if defined(__ANDROID__)
+    if (!s_enabled) {
+      char pbuf[PROP_VALUE_MAX] = {0};
+      if (__system_property_get("debug.opengoal.grv.canary", pbuf) > 0 && pbuf[0] == '1') {
+        s_enabled = 1;
+      }
+    }
+#endif
+  }
+  if (!s_enabled) {
+    return;
+  }
+  static bool s_armed = false;
+  static u64 s_prev[8];
+  static u32 s_band = 0;
+  static u64 s_tick = 0;
+  static int s_scan_episode = 0;
+  s_tick++;
+  u32 tgt_sym = intern_from_c("*target*")->value;
+  if (tgt_sym == 0 || tgt_sym == (u32)s7.offset || (tgt_sym & OFFSET_MASK) != 4) {
+    s_armed = false;
+    return;
+  }
+  u32 mt = *(u32*)(g_ee_main_mem + tgt_sym + 40);       // (-> process main-thread), C off
+  if (mt < 0x1000 || mt >= EE_MAIN_MEM_SIZE) {
+    s_armed = false;
+    return;
+  }
+  u32 stack_top = *(u32*)(g_ee_main_mem + mt + 28);     // (-> thread stack-top), C off
+  if (stack_top < 0x1040 || stack_top >= EE_MAIN_MEM_SIZE) {
+    s_armed = false;
+    return;
+  }
+  // Thread-field watch: (-> thread sp) is a 32-bit HEAP field restored into SP by
+  // thread-resume; a heap stomp of it resumes target on top of global DATA (the
+  // suspected repro12 mechanism: SP=0x1a7ed0 outside the dram arena). Flag any
+  // sp/stack-top outside the dram arena band.
+  {
+    u32 mt_sp = *(u32*)(g_ee_main_mem + mt + 24);
+    u32 tt = *(u32*)(g_ee_main_mem + tgt_sym + 44);
+    static u32 s_last_bad = 0;
+    if (mt_sp && (mt_sp < stack_top - 0x8000 || mt_sp > stack_top) && mt_sp != s_last_bad) {
+      s_last_bad = mt_sp;
+      printf("GRV-CANARY MT-SP-ANOMALY mt-sp=0x%x stack-top=0x%x tick=%llu\n", mt_sp, stack_top,
+             (unsigned long long)s_tick);
+      fflush(stdout);
+    }
+    if (tt >= 0x1000 && tt < EE_MAIN_MEM_SIZE && tt != mt) {
+      u32 tt_sp = *(u32*)(g_ee_main_mem + tt + 24);
+      u32 tt_top = *(u32*)(g_ee_main_mem + tt + 28);
+      static u32 s_last_bad_tt = 0;
+      if (tt_sp && tt_top && (tt_sp < tt_top - 0x8000 || tt_sp > tt_top) &&
+          tt_sp != s_last_bad_tt) {
+        s_last_bad_tt = tt_sp;
+        printf("GRV-CANARY TT-SP-ANOMALY tt-sp=0x%x tt-top=0x%x tick=%llu\n", tt_sp, tt_top,
+               (unsigned long long)s_tick);
+        fflush(stdout);
+      }
+    }
+  }
+  u32 band = stack_top - 64;
+  u64 cur[8];
+  memcpy(cur, g_ee_main_mem + band, 64);
+  if (!s_armed || band != s_band) {
+    memcpy(s_prev, cur, 64);
+    s_armed = true;
+    s_band = band;
+    u32 rftd = intern_from_c("return-from-thread-dead")->value;
+    u32 rft = intern_from_c("return-from-thread")->value;
+    printf("GRV-CANARY armed band=0x%x stack-top=0x%x rftd=0x%x rft=0x%x base=%p\n", band,
+           stack_top, rftd, rft, (void*)g_ee_main_mem);
+    fflush(stdout);
+    return;
+  }
+  // Hot slots (band = stack_top - 64): the state fn's STP frame {X29@top-32=idx4,
+  // X30@top-24=idx5} and the enter-state trampoline cell @top-16=idx6. Everything
+  // else only matters when a BARE GOAL value (upper32==0) lands in it — host-based
+  // fp/ra saves churn constantly and are legit.
+  for (int i = 0; i < 8; i++) {
+    if (cur[i] != s_prev[i]) {
+      bool bare = (cur[i] >> 32) == 0 && cur[i] != 0;
+      bool hot = (i >= 4 && i <= 6);
+      // Only the host-RA -> bare transition is suspicious: the dram arena is
+      // SHARED by post threads, so bare float/GOAL spill churn is legitimate.
+      bool was_host = (s_prev[i] >> 32) == 0x7f;
+      if ((bare && was_host) || (hot && cur[i] == 0 && was_host)) {
+        printf("GRV-CANARY %s off=%d(0x%x) old=%016llx new=%016llx tick=%llu\n",
+               hot ? "HOT-ANOMALY" : "BARE-WRITE", i * 8, band + i * 8,
+               (unsigned long long)s_prev[i], (unsigned long long)cur[i],
+               (unsigned long long)s_tick);
+        fflush(stdout);
+        s_scan_episode = 10;  // correlate for the next 10 ticks too
+        // Seeker correlation: if the intruding value looks like a blend float
+        // (~0.9..1.1), scan the camera processes' object spans for the SAME u32 —
+        // present = duplicated/misdirected heap write (names the seeker field);
+        // absent = the arena slot is the value's only home (pointer fully wrong).
+        u32 f32 = (u32)cur[i];
+        if (f32 >= 0x3f660000u && f32 <= 0x3f8ccccdu) {
+          const char* cams[3] = {"*camera*", "*camera-combiner*", "*camera-base-group*"};
+          for (int c = 0; c < 3; c++) {
+            u32 cp = intern_from_c(cams[c])->value;
+            if (cp < 0x1000 || cp >= EE_MAIN_MEM_SIZE || cp == (u32)s7.offset) {
+              continue;
+            }
+            u32 alloc_len = *(u32*)(g_ee_main_mem + cp + 68);
+            u32 span = 116 + (alloc_len < 0x8000 ? alloc_len : 0x2000);
+            int hits = 0;
+            for (u32 o = 0; o + 4 <= span && hits < 4; o += 4) {
+              if (*(u32*)(g_ee_main_mem + cp + o) == f32) {
+                printf("GRV-CANARY SEEKER-MATCH %s+0x%x (=0x%x) val=%08x tick=%llu\n", cams[c],
+                       o, cp + o, f32, (unsigned long long)s_tick);
+                hits++;
+              }
+            }
+            if (hits) {
+              fflush(stdout);
+            }
+          }
+        }
+      }
+      s_prev[i] = cur[i];
+    }
+  }
+  // Episode mode: after an anomaly, keep correlating the live [top-24] float against
+  // the camera process spans for a few ticks (single-shot scans race the writer).
+  if (s_scan_episode > 0) {
+    s_scan_episode--;
+    u32 f32 = (u32)cur[5];  // [top-24] = band idx 5
+    if (f32 >= 0x3f660000u && f32 <= 0x3f8ccccdu) {
+      const char* cams[3] = {"*camera*", "*camera-combiner*", "*camera-base-group*"};
+      for (int c = 0; c < 3; c++) {
+        u32 cp = intern_from_c(cams[c])->value;
+        if (cp < 0x1000 || cp >= EE_MAIN_MEM_SIZE || cp == (u32)s7.offset) {
+          continue;
+        }
+        u32 alloc_len = *(u32*)(g_ee_main_mem + cp + 68);
+        u32 span = 116 + (alloc_len < 0x8000 ? alloc_len : 0x2000);
+        for (u32 o = 0; o + 4 <= span; o += 4) {
+          if (*(u32*)(g_ee_main_mem + cp + o) == f32) {
+            printf("GRV-CANARY EPISODE-MATCH %s+0x%x val=%08x tick=%llu\n", cams[c], o, f32,
+                   (unsigned long long)s_tick);
+            fflush(stdout);
+          }
+        }
+      }
+    }
+  }
+}
+
 // ─── ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) ────────────────
 // Env OG_ECO_SPAWN / Android prop debug.opengoal.eco.spawn =
 //   "<pickup-type-int> [period-ticks [dx dy dz]]"  — OFF by default.
