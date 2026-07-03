@@ -1435,6 +1435,7 @@ void grv_canary_maybe() {
   static u64 s_prev[8];
   static u32 s_band = 0;
   static u64 s_tick = 0;
+  static int s_scan_episode = 0;
   s_tick++;
   u32 tgt_sym = intern_from_c("*target*")->value;
   if (tgt_sym == 0 || tgt_sym == (u32)s7.offset || (tgt_sym & OFFSET_MASK) != 4) {
@@ -1509,8 +1510,60 @@ void grv_canary_maybe() {
                (unsigned long long)s_prev[i], (unsigned long long)cur[i],
                (unsigned long long)s_tick);
         fflush(stdout);
+        s_scan_episode = 10;  // correlate for the next 10 ticks too
+        // Seeker correlation: if the intruding value looks like a blend float
+        // (~0.9..1.1), scan the camera processes' object spans for the SAME u32 —
+        // present = duplicated/misdirected heap write (names the seeker field);
+        // absent = the arena slot is the value's only home (pointer fully wrong).
+        u32 f32 = (u32)cur[i];
+        if (f32 >= 0x3f660000u && f32 <= 0x3f8ccccdu) {
+          const char* cams[3] = {"*camera*", "*camera-combiner*", "*camera-base-group*"};
+          for (int c = 0; c < 3; c++) {
+            u32 cp = intern_from_c(cams[c])->value;
+            if (cp < 0x1000 || cp >= EE_MAIN_MEM_SIZE || cp == (u32)s7.offset) {
+              continue;
+            }
+            u32 alloc_len = *(u32*)(g_ee_main_mem + cp + 68);
+            u32 span = 116 + (alloc_len < 0x8000 ? alloc_len : 0x2000);
+            int hits = 0;
+            for (u32 o = 0; o + 4 <= span && hits < 4; o += 4) {
+              if (*(u32*)(g_ee_main_mem + cp + o) == f32) {
+                printf("GRV-CANARY SEEKER-MATCH %s+0x%x (=0x%x) val=%08x tick=%llu\n", cams[c],
+                       o, cp + o, f32, (unsigned long long)s_tick);
+                hits++;
+              }
+            }
+            if (hits) {
+              fflush(stdout);
+            }
+          }
+        }
       }
       s_prev[i] = cur[i];
+    }
+  }
+  // Episode mode: after an anomaly, keep correlating the live [top-24] float against
+  // the camera process spans for a few ticks (single-shot scans race the writer).
+  if (s_scan_episode > 0) {
+    s_scan_episode--;
+    u32 f32 = (u32)cur[5];  // [top-24] = band idx 5
+    if (f32 >= 0x3f660000u && f32 <= 0x3f8ccccdu) {
+      const char* cams[3] = {"*camera*", "*camera-combiner*", "*camera-base-group*"};
+      for (int c = 0; c < 3; c++) {
+        u32 cp = intern_from_c(cams[c])->value;
+        if (cp < 0x1000 || cp >= EE_MAIN_MEM_SIZE || cp == (u32)s7.offset) {
+          continue;
+        }
+        u32 alloc_len = *(u32*)(g_ee_main_mem + cp + 68);
+        u32 span = 116 + (alloc_len < 0x8000 ? alloc_len : 0x2000);
+        for (u32 o = 0; o + 4 <= span; o += 4) {
+          if (*(u32*)(g_ee_main_mem + cp + o) == f32) {
+            printf("GRV-CANARY EPISODE-MATCH %s+0x%x val=%08x tick=%llu\n", cams[c], o, f32,
+                   (unsigned long long)s_tick);
+            fflush(stdout);
+          }
+        }
+      }
     }
   }
 }
