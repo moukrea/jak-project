@@ -729,7 +729,7 @@ u64 execute(void* ctxt) {
   geco_log_this_orb = false;
   if (geco_spart_dump_armed()) {
     static int s_count = 0;
-    if (s_count < 20000) {
+    if (s_count < 100000) {
       s_count++;
       geco_log_this_orb = true;
       float rad = 0.f, om = 0.f, vsx[4], rq[4], pre[4], col[4];

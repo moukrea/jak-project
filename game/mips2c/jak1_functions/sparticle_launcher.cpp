@@ -980,15 +980,29 @@ u64 execute(void* ctxt) {
       s_delay2 = 0;
     }
     static int s_born = 0;
-    if (s_delay2 == 0 && s_born < 20000) {
+    if (s_delay2 == 0 && s_born < 200000) {
       s_born++;
       float wp[4], wc[4], wo[4];
       memcpy(wp, g_ee_main_mem + c->gpr_addr(v1) + 0, 16);
       memcpy(wc, g_ee_main_mem + c->gpr_addr(v1) + 32, 16);
       memcpy(wo, g_ee_main_mem + c->gpr_addr(sp) + 64, 16);
-      printf("SPART-BORN spr=%x pos=%g,%g,%g,%g col=%.0f,%.0f,%.0f,%.0f flags=%x orig=%g,%g,%g\n",
+      // Geco-spheres attempt 2: also dump the FINAL cpuinfo birth state (s2 =
+      // cpuinfo): omega(+12), radius(+8), vel-sxvel quad(+16), rotvel3d(+80),
+      // user-pntr(+108). The poisoned eco orbit sparkles (part 204) show
+      // vel=(-K,±K,..)/NaN rotvel3d at first sight — is it already wrong HERE
+      // (launch transform) or does it happen after birth?
+      float om = 0.f, rad = 0.f, vel[4], rq[4];
+      u32 usr = 0;
+      memcpy(&rad, g_ee_main_mem + c->gpr_addr(s2) + 8, 4);
+      memcpy(&om, g_ee_main_mem + c->gpr_addr(s2) + 12, 4);
+      memcpy(vel, g_ee_main_mem + c->gpr_addr(s2) + 16, 16);
+      memcpy(rq, g_ee_main_mem + c->gpr_addr(s2) + 80, 16);
+      memcpy(&usr, g_ee_main_mem + c->gpr_addr(s2) + 108, 4);
+      printf("SPART-BORN spr=%x pos=%g,%g,%g,%g col=%.0f,%.0f,%.0f,%.0f flags=%x orig=%g,%g,%g "
+             "om=%g rad=%g vel=%g,%g,%g,%g rq=%g,%g,%g,%g usr=%x\n",
              c->gpr_addr(v1), wp[0], wp[1], wp[2], wp[3], wc[0], wc[1], wc[2], wc[3],
-             (u32)c->sgpr64(s5), wo[0], wo[1], wo[2]);
+             (u32)c->sgpr64(s5), wo[0], wo[1], wo[2], om, rad, vel[0], vel[1], vel[2], vel[3],
+             rq[0], rq[1], rq[2], rq[3], usr);
       fflush(stdout);
     }
   }
