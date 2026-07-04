@@ -1107,6 +1107,14 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Gcrash-swamp-load
+  name: 'OWNER 2026-07-04 (v4 playtest, FALSE-GREEN REOPEN): the Rock Village->Swamp crash is NOT fixed — crossing the pontoons toward Boggy Swamp still crashes to home as the swamp DGO loads. Gcrash-rockvillage (58ee45b15) was validated on SYNTHETIC want-levels replay, not the real walked route. Reproduce by WALKING the real route until it crashes, forensics at swamp-load, 1-to-1 fix, AFTER = same real route crash-free past the boundary (synthetic replay is NOT accepted as proof). Owner play-test.'
+  prompt: prompts/phase-Gcrash-swamp-load.md
+  validator: validators/phase-Gcrash-swamp-load.sh
+  max_turns: 2400
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Gperf-particles
   name: 'OWNER 2026-07-03 (v3 playtest, SD 8 Elite Gen 5): particle-heavy zones (moving fire effects) drop below 25fps even at 30% render scale — low scale not helping proves CPU/submission bound, particle path is the prime suspect. Profile the fire regime (A35-PERF + CPU sparticle kernel + draw counts), fix the top costs (sprite/generic batching-instancing, state cache, sync dedupe, NEON the sparticle inner loop if CPU-bound), NUMERIC pose-held A/B >= max(+20%, +5fps), eco-burst + orb regression re-verified, kill switches. Owner play-test.'
   prompt: prompts/phase-Gperf-particles.md
