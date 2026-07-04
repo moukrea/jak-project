@@ -1,0 +1,8 @@
+=== grv_run pon1 (cont=village2-dock posm=335.3 2.0 -1687.2) 2026-07-04T20:07:47+02:00 ===
+RESULT tag=pon1 status=DROVE-INCOMPLETE reached_past=0 crashed=0 focus_app=no
+  last-pos(x z)=1773977.6 -7067648.0
+  sig=none
+  gk-diag: none
+  fp-walk: none
+  adding-level: Adding level rolling;Adding level swamp;Adding level rolling;Adding level village1;Adding level village2;Adding level rolling;
+  links: link finish: race-ring link finish: racer link finish: robber link finish: rolling-start link finish: rollingcam link finish: water-anim-rolling link finish: rolling-vis link finish: gambler-introduction-1 

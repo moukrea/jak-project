@@ -1,0 +1,5 @@
+  sample1 2d_it=284160
+  sample2 2d_it=284128
+  sample3 2d_it=284160
+  sample4 2d_it=284160
+STATIONARITY min=284128 max=284160
