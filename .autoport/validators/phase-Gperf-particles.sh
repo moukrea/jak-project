@@ -31,7 +31,8 @@ grep -qiE 'eco.*(burst|pickup|intact|unregress)|regress.*eco' "$R" || fail "must
 grep -qiE 'orb.*(hud|intact|unregress)' "$R" || fail "must re-verify orb HUD"
 grep -qiE 'kill.?switch|nobatch|prop.*restore' "$R" || fail "must ship a kill switch per change"
 grep -qiE 'flicker' "$R" || fail "must confirm 0 flicker"
-ok "report: numeric A/B + profile + family + CPU/submission split + regressions re-verified"
+grep -qiE 'night|nuit|time.?of.?day|tod|day.?vs.?night|night.?vs.?day' "$R" || fail "owner clue: night is worse than day — must profile NIGHT vs DAY and address the night-specific cost, not just a day scene"
+ok "report: numeric A/B + profile + family + CPU/submission split + night regime + regressions re-verified"
 
 SUP_ANCHOR=$(git log --format=%H --grep='\[autoport/supervisor\]' | head -1)
 FIRST_PHASE=$(git log --format=%H --grep='\[autoport/Gperf-particles\]' | tail -1)
