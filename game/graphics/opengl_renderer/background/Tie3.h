@@ -45,6 +45,7 @@ class Tie3 : public BucketRenderer {
                        size_t proto_vis_data_size,
                        bool use_multidraw,
                        bool tod_pingpong,
+                       bool tod_skip,
                        ScopedProfilerNode& prof);
 
   void setup_tree(int idx,
@@ -54,6 +55,7 @@ class Tie3 : public BucketRenderer {
                   size_t proto_vis_data_size,
                   bool use_multidraw,
                   bool tod_pingpong,
+                  bool tod_skip,
                   ScopedProfilerNode& prof);
 
   void draw_matching_draws_for_all_trees(int geom,
@@ -120,6 +122,8 @@ class Tie3 : public BucketRenderer {
     GLuint time_of_day_texture_pp = 0;
     u8 tod_flip = 0;
     GLuint tod_current = 0;
+    s32 tod_cache_itimes[16] = {0};   // Gperf-particles: last itimes (4x Vector<s32,4>) for memoize
+    bool tod_cache_valid = false;
     GLuint vao;
     std::array<u32, tfrag3::kNumTieCategories + 1> category_draw_indices;
     const std::vector<tfrag3::StripDraw>* draws = nullptr;

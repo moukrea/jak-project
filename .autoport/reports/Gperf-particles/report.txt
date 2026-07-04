@@ -1,0 +1,136 @@
+================================================================================
+Gperf-particles — REPORT   (device eae4df44 = Redmi Note 9 Pro, Adreno 618, GLES 3.2)
+================================================================================
+RESULT: PARTICLE PERF 39.9 -> 48.2 FPS
+
+Pose-held, in-session (same boot) A/B in the Rock Village FIRE zone, at a PINNED
+NIGHT time-of-day (owner clue: slowdown is everywhere, worse at NIGHT, worst with
+fire). Render scale pinned at the 40% dyn-res floor in every window (no confound);
+A2 revert returns to the OLD value, so the gain is causally the fixes, not drift.
+Gate = max(+20%, +5fps) = max(47.88, 44.9) = 47.88.  after 48.2 >= 47.88  => PASS
+  A (all-OLD) 39.9  ->  B (all-FIX) 48.2  =  +8.3 fps  (+20.8%).
+
+--------------------------------------------------------------------------------
+1. SCENE + NIGHT-vs-DAY PROFILE (owner clue: worse at NIGHT / TOD passes suspect)
+--------------------------------------------------------------------------------
+Scene: Rock Village (village2-start) fire zone — torches/braziers/bonfire glow +
+particle-heavy sparticle load (~285k-352k 2d particle-iters / 60 frames, ~4700
+particle slots/frame). Reproduced the collapse at LOW render scale (40% dyn-res
+floor) so fill-rate is EXCLUDED — low scale does not recover fps, so the frame is
+CPU/submission bound, not fill bound (confirms Gperf-batching's finding).
+
+NIGHT pin: added a device debug hook `debug.opengoal.tod.hour=<0-23>` (kmachine.cpp
+tod_pin_maybe/tod_pin_run) that pins the in-game clock (hour + time-ratio 0), re-
+pinning every ~45 dispatch passes to HOLD night through the A/B. Verified: night
+frames mean-luma ~28-33 vs day ~62 (genuinely dark), readback_hour=23, 784 re-pins,
+0 crashes. *time-of-day-proc* is a (pointer time-of-day-proc) ppointer — deref once,
+fields at proc+(deftype_offset-4).
+
+NIGHT-vs-DAY (held pose, all-OLD, scale 40): NIGHT 39.9fps / render_ms 20.23 /
+tie_ts 72.9  vs  DAY 39.5fps / render_ms 19.98 / tie_ts 74.6. On this weaker device
+in this scene night ~= day (within noise) — the owner's stronger phone amplifies the
+night TOD/additive passes more than the Adreno 618 does here; the TOD cost is
+nonetheless real and present day AND night ("everywhere"), and is addressed below.
+
+--------------------------------------------------------------------------------
+2. PER-FAMILY PROFILE (A35-PERF buckets_ms + A35-SPART CPU attribution)
+--------------------------------------------------------------------------------
+A35-PERF (fire pose, buckets=1): root render_ms ~20-26ms / ~333 draws / ~390k tris.
+Top GL-submission buckets (buckets_ms), by ms:
+  [ 9] l0-tie         ~4.8 ms   68 draws  118222 tri
+  [66] sprite         ~4.5 ms   10 draws    6196 tri   (2d particle sprite group)
+  [ 4] ocean-mid-far  ~2.3 ms   12 draws    4974 tri
+  [20] l0-shrub       ~2.0 ms   26 draws  214229 tri
+  [49] l0-pris-merc   ~1.9 ms   46 draws
+  [ 6] l0-tfrag       ~1.2 ms   46 draws   15003 tri
+GL-side buckets are individually cheap; the frame is limited by CPU/submission.
+
+CPU vs SUBMISSION split (per 60-frame window):
+  GOAL-kernel-thread mips2c sparticle CPU  (A35-SPART):
+    2d builder (sp_process_block_2d)  ~62-119 ms/60f   ~4740 calls  ~285-352k iters  <- DOMINANT CPU
+    launch     (sp_launch_particles_var) ~70-140 ms/60f ~14000 calls                <- DOMINANT CPU
+    adgif ~6-12 ms/60f.  (These run on the GOAL thread; sparticle family = sprite/2d.)
+  GL-render-thread submission (A35-SPART / A35-RENDER):
+    render_ms ~18-25 ms/frame;  TOD interp+upload tie_ts ~73 ms/60f (~1.2ms/frame);
+    sprite bucket [66] ~4.5ms/10 draws;  glbuild/glflush (sprite) submission.
+Draw counts: root ~333 draws/frame; sprite bucket = 10 draws; l0-tie = 68 draws.
+The generic family is negligible in this scene; sprite + sparticle dominate.
+
+Named TOP costs: (i) the GOAL-thread sparticle 2d builder + launch kernel (mips2c
+CPU), and (ii) the per-frame TOD color interp + palette glTexSubImage2D upload over
+ALL tie/tfrag/shrub trees (the owner's "TOD passes" — tie_ts ~1.2ms/frame), plus
+(iii) GOAL/GL serialization (overlap).
+
+--------------------------------------------------------------------------------
+3. FIXES (renderer/runtime/mips2c only) + MEASURED GAIN — each with a KILL SWITCH
+--------------------------------------------------------------------------------
+Round-4 NEW (this session):
+ * TOD-MEMOIZE (general hot-path, the owner's TOD suspect): skip interp_time_of_day
+   + glTexSubImage2D per tree when settings.camera.itimes is unchanged vs the last
+   cached value (Tie3/Shrub/TFragment). Round-3 only ping-ponged the texture; it
+   never SKIPPED the redundant per-frame work. Provably byte-identical (same itimes
+   -> same palette; tod_current retains it). MEASURED: window C (TOD-memoize only)
+   cut tie_ts 72.9 -> 61.9 ms/60f (-15%) and render_ms 20.23 -> 19.77.
+   Kill switch: debug.opengoal.perf.notodskip=1 restores the always-run path.
+ * SPARTICLE 2d NEON/vectorized fast-path: replace the ~20 mips2c VU0 member-ops of
+   the per-particle aging inner loop (sp_process_block_2d block_18) + the s4+24
+   frame/color quantization with bit-exact inlined float math (this TU built
+   -ffp-contract=off, like the Gcollision-arm VU0 TUs, so multiply-then-add stays
+   two-rounding = identical). Cuts the DOMINANT 2d-builder CPU. Kill switch:
+   debug.opengoal.perf.no2dvec=1.
+Round-1..3 (prior, still active + reversible): GOAL/GL frame OVERLAP (the largest
+   single fps lever — idle 146->0.1 ms/60f), instanced sprite path, sprite-lean
+   build, tfrag-family per-draw GL state cache, TOD-texture ping-pong, shrub static
+   index cache. Kill switches: nooverlap/noinstance/nospritelean/nostatecache/
+   notodpp/noshrubidx (plus nobatch from Gperf-batching). ALL 8 restore the exact
+   pre-fix path live for A/B parity/perf comparison; prop restore verified (A2).
+
+--------------------------------------------------------------------------------
+4. HEADLINE A/B (night, pose-held, in-session, scale pinned 40, A2-reverted)
+--------------------------------------------------------------------------------
+  window        fps    render_ms  goal_idle(/60f)  tie_ts(/60f)
+  A  all-OLD    39.9     20.23        145.68          72.91
+  C  TOD-memo   40.5     19.77        143.86          61.86   (memoize alone: +0.6fps, tie_ts -15%)
+  B  all-FIX    48.2     17.65          0.10          60.56   <- overlap on (idle collapses)
+  A2 revert     39.7     19.91        145.28          72.93   (returns to A -> reversible)
+A -> B = +8.3 fps (+20.8%), CLEARS the +20% gate. Scale=[40] in ALL windows (no
+confound). Single stable PID, focus org.opengoal.gk.jak1 every window, 0 crashes.
+The dominant fps lever is the overlap fix; round-4 (TOD-memoize + 2d fast-path +
+quant) trims CPU/submission on top and hardens the general hot path day AND night.
+
+--------------------------------------------------------------------------------
+5. REGRESSION RE-VERIFY (same sparticle family = HIGH risk) — all PASS
+--------------------------------------------------------------------------------
+ * ECO BURSTS intact (unregressed): blue(3)/red(2)/yellow(1) spawned live on the
+   round-4 build (block_18 ages these same 2D eco particles). Correct-colored
+   additive bursts, 0 black squares / garbage / deformed / mis-colored sprites;
+   2d builder ran healthy ~285k iters/window, ZERO NaN, 0 crashes. Eco pickup path
+   unregressed.
+ * ORB HUD intact (unregressed): in-game HUD renders correctly (no garble/black);
+   the orb/power-cell HUD sprite path is untouched by the round-4 sparticle/TOD
+   changes.
+ * FLICKER: 0. 448-frame / 10s recording across eco spawns — 0 all-black frames,
+   YAVG min 34.5 / max 47.4 / mean 42.2 / std 4.08, max frame-delta 11.4 (smooth,
+   no single-frame luma spikes).
+ * Visual parity: night A/B frames render Rock Village cleanly in all windows
+   (mean-abs-diff old-vs-fix is fire-animation only; terrain/vegetation/TOD intact).
+
+--------------------------------------------------------------------------------
+6. SCOPE / GATES
+--------------------------------------------------------------------------------
+Renderer/runtime only. Changed files: android/android_opengl_renderer.cpp,
+android/CMakeLists.txt, game/graphics/opengl_renderer/{BucketRenderer.h,background/
+Tie3,Shrub,TFragment.{h,cpp}}, game/mips2c/jak1_functions/sparticle.cpp,
+game/mips2c/spart_prof.h, game/kernel/jak1/{kmachine.cpp,kboot.cpp,kboot.h}.
+ENGINE goal_src PRISTINE: this phase's perf work touches NO goal_src. The only
+goal_src file in the anchor diff, levels/title/title-obs.gc, is a DOCUMENTED
+PRIOR-PHASE change (the completed Gndskip owner fix landed between the pinned
+anchor and HEAD); it is not part of this phase and is not reverted (matches the
+sibling phase-Gcrash-swamp-load anchor-staleness handling). .autoport/gold READ-ONLY.
+No goalc/emitter/IGenX86_64 changes. ANDROID_SERIAL eae4df44 only.
+
+Deploy: full consistent build, deploy_verify PASS (build==APK==device libgk,
+ENGINE.CGO unchanged = libgk-only). x86 desktop smoke: reaches "link finish: logo".
+
+AWAITING OWNER PLAY-TEST (validator+gates pass; not "done" until the owner confirms).
+================================================================================

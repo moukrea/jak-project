@@ -209,6 +209,11 @@ void KernelCheckAndDispatch() {
     // birth-pickup-at-point form so eco spheres can be framed on-device per color.
     eco_spawn_maybe();
 
+    // TOD-PIN (night A/B test lever) — gated (env OG_TOD_HOUR / prop
+    // debug.opengoal.tod.hour), OFF by default, fires once. Pins the in-game
+    // clock so the night pose is deterministic for the Gperf-particles A/B.
+    tod_pin_maybe();
+
     // Geco-spheres TEMPORARY diagnostic — gated (env OG_ECO_TRACE / prop
     // debug.opengoal.eco.trace), OFF by default. Dumps the last spawned eco's physics.
     eco_trace_maybe();

@@ -1,6 +1,7 @@
 #include "Shrub.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "common/log/log.h"
 
@@ -179,6 +180,7 @@ void Shrub::update_load(const LevelData* loader_data) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     m_trees[l_tree].tod_flip = 0;
     m_trees[l_tree].tod_current = m_trees[l_tree].time_of_day_texture;
+    m_trees[l_tree].tod_cache_valid = false;  // Gperf-particles: fresh level re-interpolates
     // Gperf-particles round 3: this tree's static index list is not cached yet.
     m_trees[l_tree].idx_cached = false;
     m_trees[l_tree].cached_idx_count = 0;
@@ -324,29 +326,44 @@ void Shrub::render_tree(int idx,
   {
     auto setup_prof = prof.make_scoped_child("setup");
     (void)setup_prof;
-    Timer interp_timer;
-    interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
-    tree.perf.tod_time.add(interp_timer.getSeconds());
-
     Timer setup_timer;
-    // Gperf-particles round 3: time-of-day texture ping-pong. Flag ON => flip
-    // the target texture this frame (so the upload does not touch the texture
-    // last frame's draws are still sampling on Adreno), then publish it via
-    // tod_current so every later bind uses the same texture. Flag OFF =>
-    // tod_current stays time_of_day_texture (byte-identical old path).
-    if (render_state->perf_tod_pingpong) {
-      tree.tod_flip ^= 1;
-      tree.tod_current =
-          tree.tod_flip ? tree.time_of_day_texture_pp : tree.time_of_day_texture;
-    } else {
-      tree.tod_current = tree.time_of_day_texture;
-    }
-    glActiveTexture(GL_TEXTURE10);
-    glBindTexture(GL_TEXTURE_2D, tree.tod_current);
+    // Gperf-particles: memoize the TOD interp+upload — when itimes is unchanged
+    // vs the last cached value, tod_current already holds the correct palette,
+    // so skip both the interpolation and the glTexSubImage2D upload (night
+    // hot-path). Behind the perf_tod_skip kill switch; result is byte-identical.
     {
-      SpartScopedNs _texsub(g_spart_prof.shrub_texsub);
-      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA,
-                      GL_UNSIGNED_BYTE, m_color_result.data());
+      bool tod_same = tree.tod_cache_valid &&
+          memcmp(tree.tod_cache_itimes, settings.camera.itimes, 16 * sizeof(s32)) == 0;
+      if (render_state->perf_tod_skip && tod_same) {
+        // Gperf-particles: itimes unchanged -> skip interp + palette upload;
+        // tod_current retains last frame's palette (byte-identical result).
+      } else {
+        Timer interp_timer;
+        interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
+        tree.perf.tod_time.add(interp_timer.getSeconds());
+
+        // Gperf-particles round 3: time-of-day texture ping-pong. Flag ON => flip
+        // the target texture this frame (so the upload does not touch the texture
+        // last frame's draws are still sampling on Adreno), then publish it via
+        // tod_current so every later bind uses the same texture. Flag OFF =>
+        // tod_current stays time_of_day_texture (byte-identical old path).
+        if (render_state->perf_tod_pingpong) {
+          tree.tod_flip ^= 1;
+          tree.tod_current =
+              tree.tod_flip ? tree.time_of_day_texture_pp : tree.time_of_day_texture;
+        } else {
+          tree.tod_current = tree.time_of_day_texture;
+        }
+        glActiveTexture(GL_TEXTURE10);
+        glBindTexture(GL_TEXTURE_2D, tree.tod_current);
+        {
+          SpartScopedNs _texsub(g_spart_prof.shrub_texsub);
+          glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA,
+                          GL_UNSIGNED_BYTE, m_color_result.data());
+        }
+        memcpy(tree.tod_cache_itimes, settings.camera.itimes, 16 * sizeof(s32));
+        tree.tod_cache_valid = true;
+      }
     }
 
     first_tfrag_draw_setup(settings.camera, render_state, ShaderId::SHRUB);

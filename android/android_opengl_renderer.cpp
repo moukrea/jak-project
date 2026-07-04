@@ -415,6 +415,14 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     char nsx[PROP_VALUE_MAX] = {0};
     __system_property_get("debug.opengoal.perf.noshrubidx", nsx);
     m_render_state.perf_shrub_static_idx = (nsx[0] != '1');
+    char nts[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.notodskip", nts);
+    m_render_state.perf_tod_skip = (nts[0] != '1');
+    // Gperf-particles (round 4): no2dvec=1 restores the original per-op mips2c
+    // VU0 path for the 2D sparticle aging kernel (GOAL thread reads this atomic).
+    char n2v[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.no2dvec", n2v);
+    g_perf_2dvec_off.store(n2v[0] == '1', std::memory_order_relaxed);
   }
 
   m_stats.chain_bytes = count_chain_bytes(dma);

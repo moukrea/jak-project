@@ -1,0 +1,5 @@
+WINDOW_A 15:36:34 15:37:54 -> fps=39.9 (min 35.8) scale=[40] render_ms=20.23 goal_idle=145.68 tie_ts=72.91
+WINDOW_C 15:38:14 15:39:34 -> fps=40.5 (min 37.0) scale=[40] render_ms=19.77 goal_idle=143.86 tie_ts=61.86
+WINDOW_B 15:39:54 15:41:14 -> fps=48.2 (min 42.4) scale=[40] render_ms=17.65 goal_idle=0.1 tie_ts=60.56
+WINDOW_A2 15:41:35 15:42:25 -> fps=39.7 (min 37.6) scale=[40] render_ms=19.91 goal_idle=145.28 tie_ts=72.93
+WINDOW_DAY_OLD 15:43:42 15:44:52 -> fps=39.5 (min 35.9) scale=[40] render_ms=19.98 goal_idle=144.81 tie_ts=74.57

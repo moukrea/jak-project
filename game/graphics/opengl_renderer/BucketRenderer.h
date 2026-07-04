@@ -64,6 +64,7 @@ struct SharedRenderState {
   // not target the texture last frame's draws still sample (Adreno ghost/sync
   // stall). Desktop leaves this off (single-texture behavior).
   bool perf_tod_pingpong = false;
+  bool perf_tod_skip = false;  // Gperf-particles: skip TOD interp+upload when itimes unchanged (night hot-path)
   // Gperf-particles round 3 (Android, jak1 only): cache Shrub's level-static
   // single-draw index list + upload once per level load instead of rebuilding
   // and re-uploading it every frame. Desktop leaves this off.
