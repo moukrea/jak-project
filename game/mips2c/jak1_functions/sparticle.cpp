@@ -1,5 +1,6 @@
 // clang-format off
 //--------------------------MIPS2C---------------------
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -15,6 +16,10 @@
 // Gperf-particles: the one definition of the particle-pipeline counters
 // (declared in spart_prof.h; this TU is in both the desktop and Android builds).
 SpartProf g_spart_prof;
+
+// Gperf-particles (round 4): definition of the 2D vectorized-fast-path kill
+// switch (default OFF => fast path ON). Toggled from the render thread.
+std::atomic<bool> g_perf_2dvec_off{false};
 
 using namespace jak1;
 namespace Mips2C::jak1 {
@@ -454,6 +459,9 @@ u64 execute(void* ctxt) {
 #if defined(__aarch64__)
   SpartScopedNs spart_t_(g_spart_prof.ns_2d);  // Gperf-particles CPU attribution
   g_spart_prof.calls_2d.fetch_add(1, std::memory_order_relaxed);
+  // Gperf-particles (round 4): read the 2D vectorized-fast-path switch ONCE per
+  // kernel call (block_18 runs per-particle in the block_1 loop below).
+  const bool k2dvec = !g_perf_2dvec_off.load(std::memory_order_relaxed);
 #endif
   auto* c = (ExecutionContext*)ctxt;
   bool bc = false;
@@ -672,6 +680,68 @@ u64 execute(void* ctxt) {
   }
 
   block_18:
+#if defined(__aarch64__)
+  if (k2dvec) {
+    // Gperf-particles (round 4): bit-exact vectorized fast-path for the
+    // per-particle 2D aging integration. Replaces the ~20 mips2c VU0 member-ops
+    // of the original block_18..block_20 (below), each of which did two by-value
+    // 16-byte vf_src() copies + a masked 4-lane scalar loop + a non-inlined
+    // call — the dominant GOAL-thread sparticle CPU cost in a fire-heavy scene
+    // (A35-SPART "2d" ~1.9ms/frame). Semantics are IDENTICAL: same op order,
+    // separate multiply-then-add with NO fma (this TU is compiled
+    // -ffp-contract=off, exactly like the Gcollision-arm VU0 translation units),
+    // the vf0=(0,0,0,1) constant, the same DEST lane masks (vf4.xyz, vf2.zw),
+    // and the same vmaxx color clamp (std::max, matching vmax_bc). Reads/writes
+    // g_ee_main_mem exactly like lqc2/sqc2; sparticle stores never target the
+    // gnd_oob_check kernel/engine bands so skipping that tripwire is a no-op.
+    // vf1/vf2 registers are written back because block_27 below reads them via
+    // qmfc2.i without reloading (vf3/vf4 mirrored too for faithfulness). The
+    // color quantization (s4+24) and geco diagnostics further below are left
+    // intact and read the stored memory, exactly like the slow path.
+    const u32 a_s4 = c->gpr_addr(s4);
+    const u32 a_s5 = c->gpr_addr(s5);
+    float v1q[4], v2q[4], v3q[4], v4q[4], v5q[4], v6q[4], v7q[4], f0v;
+    std::memcpy(v1q, g_ee_main_mem + a_s4 + 0, 16);   // lqc2 vf1, 0(s4)
+    std::memcpy(v2q, g_ee_main_mem + a_s4 + 16, 16);  // lqc2 vf2, 16(s4)
+    std::memcpy(v3q, g_ee_main_mem + a_s4 + 32, 16);  // lqc2 vf3, 32(s4)
+    std::memcpy(v4q, g_ee_main_mem + a_s5 + 16, 16);  // lqc2 vf4, 16(s5)
+    std::memcpy(v5q, g_ee_main_mem + a_s5 + 32, 16);  // lqc2 vf5, 32(s5)
+    std::memcpy(v6q, g_ee_main_mem + a_s5 + 48, 16);  // lqc2 vf6, 48(s5)
+    std::memcpy(v7q, g_ee_main_mem + a_s5 + 64, 16);  // lqc2 vf7, 64(s5)
+    std::memcpy(&f0v, g_ee_main_mem + a_s5 + 96, 4);  // lwc1 f0, 96(s5)
+    u32 f0bits;
+    std::memcpy(&f0bits, &f0v, 4);                    // mfc1 v1,f0 ; beq v1,r0
+    const float* vf9f = c->vfs[9].f;                  // frame-time (loaded once/call)
+    const float dy = vf9f[1], dz = vf9f[2], dw = vf9f[3];
+    // vmulz.xyzw vf7 = vf7 * dt.z ; vadd.xyz vf4 += vf7  (vf4.w untouched)
+    v7q[0] *= dz; v7q[1] *= dz; v7q[2] *= dz; v7q[3] *= dz;
+    v4q[0] += v7q[0]; v4q[1] += v7q[1]; v4q[2] += v7q[2];
+    if (f0bits != 0) {
+      // fade: vf4.xyz *= (1 - (1 - f0)*dt.w)   [vsubx.w/vmulw/vsubw.w on vf8.w]
+      float t = 1.0f - f0v;
+      t = t * dw;
+      const float damp = 1.0f - t;
+      v4q[0] *= damp; v4q[1] *= damp; v4q[2] *= damp;
+    }
+    // vmuly vf10/11/12 = {vf4,vf5,vf6} * dt.y ; then the adds
+    v1q[0] += v4q[0] * dy; v1q[1] += v4q[1] * dy;     // vadd.xyzw vf1 += vf4*dt.y
+    v1q[2] += v4q[2] * dy; v1q[3] += v4q[3] * dy;
+    v2q[2] += v5q[2] * dy; v2q[3] += v5q[3] * dy;     // vadd.zw   vf2 += vf5*dt.y
+    v3q[0] += v6q[0] * dy; v3q[1] += v6q[1] * dy;     // vadd.xyzw vf3 += vf6*dt.y
+    v3q[2] += v6q[2] * dy; v3q[3] += v6q[3] * dy;
+    v3q[0] = std::max(v3q[0], 0.0f); v3q[1] = std::max(v3q[1], 0.0f);  // vmaxx vf3
+    v3q[2] = std::max(v3q[2], 0.0f); v3q[3] = std::max(v3q[3], 0.0f);
+    std::memcpy(g_ee_main_mem + a_s5 + 16, v4q, 16);  // sqc2 vf4, 16(s5)
+    std::memcpy(g_ee_main_mem + a_s4 + 0, v1q, 16);   // sqc2 vf1, 0(s4)
+    std::memcpy(g_ee_main_mem + a_s4 + 16, v2q, 16);  // sqc2 vf2, 16(s4)
+    std::memcpy(g_ee_main_mem + a_s4 + 32, v3q, 16);  // sqc2 vf3, 32(s4)
+    std::memcpy(c->vfs[1].f, v1q, 16);                // block_27 qmfc2.i vf1
+    std::memcpy(c->vfs[2].f, v2q, 16);                // block_27 qmfc2.i vf2
+    std::memcpy(c->vfs[3].f, v3q, 16);
+    std::memcpy(c->vfs[4].f, v4q, 16);
+  } else
+#endif
+  {
   c->lqc2(vf1, 0, s4);                              // lqc2 vf1, 0(s4)
   c->lqc2(vf2, 16, s4);                             // lqc2 vf2, 16(s4)
   c->lqc2(vf3, 32, s4);                             // lqc2 vf3, 32(s4)
@@ -704,6 +774,7 @@ u64 execute(void* ctxt) {
   c->sqc2(vf1, 0, s4);                              // sqc2 vf1, 0(s4)
   c->sqc2(vf2, 16, s4);                             // sqc2 vf2, 16(s4)
   c->sqc2(vf3, 32, s4);                             // sqc2 vf3, 32(s4)
+  }
   // Geco-spheres TEMPORARY diagnostic: per-frame evolution of eco-signature 2D
   // particles AFTER the aging stores — sprite pos/scale (s4+0..31), color quad
   // (s4+32), cpuinfo fade quad (s5+48). Eco filter: yellow-born sparkle
@@ -727,6 +798,24 @@ u64 execute(void* ctxt) {
       }
     }
   }
+#if defined(__aarch64__)
+  if (k2dvec) {
+    // Gperf-particles (round 4): bit-exact inline of the s4+24 frame/color
+    // quantization (cvt.w.s -> truncate signed-16 -> cvt.s.w). Replaces 8 per-
+    // particle mips2c fpr/gpr member-ops. mips2c cvtws is a C++ float->s32 cast
+    // (fcvtzs, same as (s32)), dsll32/dsra32 by 16 truncate to signed-16, cvtsw
+    // is (float)s32 -> identical result. Reads/writes mem exactly like lwc1/swc1;
+    // leaves the vf2 register un-quantized (block_27 below reads that register),
+    // matching the slow path which never writes vf2 here.
+    const u32 qa = c->gpr_addr(s4) + 24;
+    float qf;
+    std::memcpy(&qf, g_ee_main_mem + qa, 4);
+    s16 qs = (s16)(s32)qf;
+    float qo = (float)qs;
+    std::memcpy(g_ee_main_mem + qa, &qo, 4);
+  } else
+#endif
+  {
   c->lwc1(f0, 24, s4);                              // lwc1 f0, 24(s4)
   c->cvtws(f0, f0);                                 // cvt.w.s f0, f0
   c->mfc1(v1, f0);                                  // mfc1 v1, f0
@@ -735,6 +824,7 @@ u64 execute(void* ctxt) {
   c->mtc1(f0, v1);                                  // mtc1 f0, v1
   c->cvtsw(f0, f0);                                 // cvt.s.w f0, f0
   c->swc1(f0, 24, s4);                              // swc1 f0, 24(s4)
+  }
   c->lw(v1, 104, s5);                               // lw v1, 104(s5)
   c->andi(v1, v1, 128);                             // andi v1, v1, 128
   bc = c->sgpr64(v1) == 0;                          // beq v1, r0, L93

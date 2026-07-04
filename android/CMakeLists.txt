@@ -393,6 +393,11 @@ set_source_files_properties(
     "${JAK_ROOT}/game/mips2c/jak1_functions/collide_func.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/collide_mesh.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/collide_probe.cpp"
+    # Gperf-particles (round 4): the sparticle 2D aging fast-path does inline
+    # multiply-then-add float math that MUST stay two-rounding (no fmadd) to be
+    # bit-identical to the original per-op mips2c VU0 path. Same IEEE-strict
+    # requirement as the collision TUs above.
+    "${JAK_ROOT}/game/mips2c/jak1_functions/sparticle.cpp"
     PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 
 # Pick the right assembler dialect for the aarch64 trampoline.

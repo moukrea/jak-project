@@ -36,6 +36,13 @@ struct SpartProf {
 
 extern SpartProf g_spart_prof;
 
+// Gperf-particles (round 4): kill switch for the vectorized per-particle 2D
+// aging fast-path in sp_process_block_2d (mips2c, GOAL thread). Set from the
+// render-thread property poll: `setprop debug.opengoal.perf.no2dvec 1` -> true
+// -> restore the original per-op mips2c VU0 path (A/B parity/perf compare).
+// Cross-thread like g_perf_overlap; relaxed atomic, read once per kernel call.
+extern std::atomic<bool> g_perf_2dvec_off;
+
 // RAII wall-clock accumulator (ns) into one SpartProf slot.
 struct SpartScopedNs {
   std::atomic<uint64_t>& tgt;

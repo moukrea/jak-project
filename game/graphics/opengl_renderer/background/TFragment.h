@@ -125,6 +125,8 @@ class TFragment : public BucketRenderer {
     GLuint time_of_day_texture_pp = -1;
     u8 tod_flip = 0;
     GLuint tod_current = -1;
+    s32 tod_cache_itimes[16] = {0};   // Gperf-particles: last itimes (4x Vector<s32,4>) for memoize
+    bool tod_cache_valid = false;
     GLuint vao = -1;
     u32 vert_count = 0;
     const std::vector<tfrag3::StripDraw>* draws = nullptr;

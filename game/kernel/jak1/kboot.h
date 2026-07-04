@@ -129,6 +129,16 @@ void invalidate_part_groups_in_range(u32 dst_goal, u32 size);
 void eco_spawn_maybe();
 
 /*!
+ * TOD-PIN (night A/B test lever) — env OG_TOD_HOUR / Android prop
+ * debug.opengoal.tod.hour = "<0-23>", OFF by default. Pins the in-game clock:
+ * sets *time-of-day-proc*'s hour to the value, minute/second/frame to 0, and
+ * time-ratio to 0.0 (freezing the clock) so the night pose is deterministic.
+ * Fires once via the in-context *listener-function* trampoline. Never armed in
+ * the shipped APK.
+ */
+void tod_pin_maybe();
+
+/*!
  * ECO PHYSICS TRACER (Geco-spheres TEMPORARY arm64-NaN diagnostic) — env
  * OG_ECO_TRACE / Android prop debug.opengoal.eco.trace = "1", OFF by default.
  * Per-dispatch dumps the physics state (trans / transv / world-sphere /

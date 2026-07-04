@@ -1721,6 +1721,125 @@ void eco_spawn_maybe() {
            s_ticks);
 }
 
+// ─── TOD-PIN (night A/B test lever) ──────────────────────────────────────────
+// Env OG_TOD_HOUR / Android prop debug.opengoal.tod.hour = "<0-23>" — OFF by
+// default. Pins the in-game clock: sets *time-of-day-proc*'s hour to the value,
+// minute/second/frame to 0, and time-ratio to 0.0 (freezing the clock) so the
+// night pose is deterministic for the Gperf-particles night A/B. Latched once
+// (parsed on first read like eco_spawn), fires ONCE when the proc is ready.
+// GOAL field offsets from decompiler/config/jak1/all-types.gc:8153 (deftype
+// time-of-day-proc): hour :offset-assert 128, minute 132, second 136,
+// frame 140, time-ratio :offset-assert 148. *time-of-day-proc* is a boxed basic
+// (process), so a field write is g_ee_main_mem + proc + (goal_offset - 4),
+// exactly like eco_spawn_run's +108 (=112-4 root) / +12 (=16-4 trans) writes.
+static int s_tod_hour = -1;
+
+static bool tod_pin_requested() {
+  static bool s_parsed = false;
+  static bool s_result = false;
+  if (s_parsed) {
+    return s_result;
+  }
+  s_parsed = true;
+  char buf[16] = {0};
+  if (const char* e = std::getenv("OG_TOD_HOUR")) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+  }
+#if defined(__ANDROID__)
+  if (!buf[0]) {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.tod.hour", pbuf) > 0) {
+      std::strncpy(buf, pbuf, sizeof(buf) - 1);
+    }
+  }
+#endif
+  if (!buf[0]) {
+    return false;
+  }
+  int hour = -1;
+  int n = std::sscanf(buf, "%d", &hour);
+  if (n < 1 || hour < 0 || hour > 23) {
+    return false;
+  }
+  s_tod_hour = hour;
+  s_result = true;
+  return true;
+}
+
+// The pin body — invoked BY THE KERNEL as *listener-function* (same in-context
+// trampoline the eco/warp hooks use). Writes the clock fields of
+// *time-of-day-proc* directly in GOAL memory.
+static u64 tod_pin_run() {
+  u32 tod = intern_from_c("*time-of-day-proc*")->value;
+  if (tod == 0 || tod == (u32)s7.offset || tod >= (u32)(EE_MAIN_MEM_SIZE - 64)) {
+    return 0;
+  }
+  // *time-of-day-proc* is a ppointer: deref once to get the process basic ptr,
+  // then fields live at proc + (deftype_offset - 4). Confirmed by the diagnostic
+  // dump: deref+124 held a valid hour and deref+140 the matching time-of-day
+  // float; deref is a real basic pointer (& 7 == 4).
+  u32 proc = 0;
+  std::memcpy(&proc, g_ee_main_mem + tod, 4);
+  if (proc < 0x10000u || proc == (u32)s7.offset || (proc & OFFSET_MASK) != 4 ||
+      proc >= (u32)(EE_MAIN_MEM_SIZE - 256)) {
+    return 0;
+  }
+  s32 hour = (s32)s_tod_hour;
+  s32 zero = 0;
+  float ratio = 0.0f;  // freeze the clock (time-ratio 0), like the boundary cmd
+  std::memcpy(g_ee_main_mem + proc + 124, &hour, 4);   // hour       (goal 128 - 4)
+  std::memcpy(g_ee_main_mem + proc + 128, &zero, 4);   // minute     (goal 132 - 4)
+  std::memcpy(g_ee_main_mem + proc + 132, &zero, 4);   // second     (goal 136 - 4)
+  std::memcpy(g_ee_main_mem + proc + 136, &zero, 4);   // frame      (goal 140 - 4)
+  std::memcpy(g_ee_main_mem + proc + 144, &ratio, 4);  // time-ratio (goal 148 - 4)
+  s32 rb = 0;
+  std::memcpy(&rb, g_ee_main_mem + proc + 124, 4);
+  printf("TOD-PIN hour=%d proc=%x (ppointer=%x) readback_hour=%d\n", s_tod_hour, proc, tod, rb);
+  fflush(stdout);
+  return 0;
+}
+
+void tod_pin_maybe() {
+  if (!tod_pin_requested()) {
+    return;
+  }
+  // Re-pin PERIODICALLY (not one-shot): the game's time-of-day tick drifts the
+  // clock back to daylight within ~2 min even with time-ratio 0, so re-write the
+  // night hour every ~45 dispatch passes to HOLD the pinned night for the A/B.
+  static int s_ctr = 0;
+  if ((s_ctr++ % 45) != 0) {
+    return;
+  }
+  // Readiness: *time-of-day-proc* is a ppointer (raw pointer); deref it and
+  // require the process to be a live basic (& 7 == 4) before arming, so the pin
+  // never writes a half-spawned proc.
+  u32 tod = intern_from_c("*time-of-day-proc*")->value;
+  if (tod < 0x10000u || tod == (u32)s7.offset || tod >= (u32)(EE_MAIN_MEM_SIZE - 8)) {
+    return;
+  }
+  u32 proc = 0;
+  std::memcpy(&proc, g_ee_main_mem + tod, 4);
+  if (proc < 0x10000u || proc == (u32)s7.offset || (proc & OFFSET_MASK) != 4 ||
+      proc >= (u32)(EE_MAIN_MEM_SIZE - 256)) {
+    return;
+  }
+  // Never stomp a pending listener form (the kernel resets the slot to #f after
+  // running it — kboot.cpp dispatch loop).
+  if (ListenerFunction->value != (u32)s7.offset && ListenerFunction->value != 0) {
+    return;
+  }
+  static Ptr<Function> s_fn;  // trampoline allocated once
+  if (s_fn.offset == 0) {
+    s_fn = make_function_from_c((void*)tod_pin_run, false);
+  }
+  ListenerFunction->value = s_fn.offset;
+  static bool s_logged = false;
+  if (!s_logged) {
+    s_logged = true;
+    lg::info("[TOD-PIN] armed hour={} (re-pinning periodically)", s_tod_hour);
+  }
+}
+
 // ─── ECO PHYSICS TRACER (Geco-spheres TEMPORARY arm64-NaN diagnostic) ────────────
 // Env OG_ECO_TRACE / Android prop debug.opengoal.eco.trace = "1" — OFF by default.
 // Per-dispatch dump of the LAST eco pickup spawned by the eco-spawn hook (its

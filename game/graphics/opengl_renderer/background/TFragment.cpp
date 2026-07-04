@@ -1,6 +1,7 @@
 #include "TFragment.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 
@@ -414,6 +415,7 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         tree_cache.tod_flip = 0;
         tree_cache.tod_current = tree_cache.time_of_day_texture;
+        tree_cache.tod_cache_valid = false;  // Gperf-particles: fresh level re-interpolates
         glBindVertexArray(0);
       }
     }
@@ -493,23 +495,38 @@ void TFragment::render_tree(int geom,
   if (m_color_result.size() < tree.colors->color_count) {
     m_color_result.resize(tree.colors->color_count);
   }
-  interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
-  // Gperf-particles round 3: ping-pong the target TOD texture (flag ON) so the
-  // upload does not touch the texture last frame's draws are still sampling on
-  // Adreno; publish it via tod_current for the bind below. Flag OFF =>
-  // tod_current == time_of_day_texture (byte-identical old path). TFragment has
-  // exactly this one TOD bind per tree, so no other site can go stale.
-  if (render_state->perf_tod_pingpong) {
-    tree.tod_flip ^= 1;
-    tree.tod_current = tree.tod_flip ? tree.time_of_day_texture_pp : tree.time_of_day_texture;
-  } else {
-    tree.tod_current = tree.time_of_day_texture;
+  // Gperf-particles: memoize the TOD interp+upload — when itimes is unchanged
+  // vs the last cached value, tod_current already holds the correct palette, so
+  // skip both the interpolation and the glTexSubImage2D upload (night hot-path).
+  // Behind the perf_tod_skip kill switch; result is byte-identical.
+  {
+    bool tod_same = tree.tod_cache_valid &&
+        memcmp(tree.tod_cache_itimes, settings.camera.itimes, 16 * sizeof(s32)) == 0;
+    if (render_state->perf_tod_skip && tod_same) {
+      // Gperf-particles: itimes unchanged -> skip interp + palette upload;
+      // tod_current retains last frame's palette (byte-identical result).
+    } else {
+      interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
+      // Gperf-particles round 3: ping-pong the target TOD texture (flag ON) so the
+      // upload does not touch the texture last frame's draws are still sampling on
+      // Adreno; publish it via tod_current for the bind below. Flag OFF =>
+      // tod_current == time_of_day_texture (byte-identical old path). TFragment has
+      // exactly this one TOD bind per tree, so no other site can go stale.
+      if (render_state->perf_tod_pingpong) {
+        tree.tod_flip ^= 1;
+        tree.tod_current = tree.tod_flip ? tree.time_of_day_texture_pp : tree.time_of_day_texture;
+      } else {
+        tree.tod_current = tree.time_of_day_texture;
+      }
+      glActiveTexture(GL_TEXTURE10);
+      // A36: Wx1 2D LUT (see update_load) — REV == BYTE order on little-endian.
+      glBindTexture(GL_TEXTURE_2D, tree.tod_current);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA,
+                      GL_UNSIGNED_BYTE, m_color_result.data());
+      memcpy(tree.tod_cache_itimes, settings.camera.itimes, 16 * sizeof(s32));
+      tree.tod_cache_valid = true;
+    }
   }
-  glActiveTexture(GL_TEXTURE10);
-  // A36: Wx1 2D LUT (see update_load) — REV == BYTE order on little-endian.
-  glBindTexture(GL_TEXTURE_2D, tree.tod_current);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
-                  m_color_result.data());
 
   first_tfrag_draw_setup(settings.camera, render_state, ShaderId::TFRAG3);
 
