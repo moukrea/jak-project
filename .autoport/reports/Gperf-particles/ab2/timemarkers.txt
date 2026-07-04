@@ -1,0 +1,10 @@
+# All times device-local (07-04). Windows are the 90s/45s measurement sleeps.
+# Spawn: 02:02:39.732 (LEVEL-WARP-SPAWN village2-start). 30s settle + A-pose screencap.
+WINDOW_A_START 02:03:52 (all four props=1 OLD: nospritelean=1 nostatecache=1 noinstance=1 nooverlap=1)
+WINDOW_A_END   02:05:22
+WINDOW_C_START 07-04 02:05:53 (nooverlap=0, others=1)
+WINDOW_C_END   07-04 02:07:40 (no freeze, no ANR, focus OK)
+WINDOW_B_START 07-04 02:08:06 (all four props=0, ALL fixes ON)
+WINDOW_B_END   07-04 02:09:42
+WINDOW_A2_START 07-04 02:10:06 (all four props=1 again, reversibility)
+WINDOW_A2_END   07-04 02:10:51

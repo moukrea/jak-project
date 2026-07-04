@@ -4,6 +4,8 @@
 
 #include "common/log/log.h"
 
+#include "game/mips2c/spart_prof.h"
+
 Shrub::Shrub(const std::string& name, int my_id) : BucketRenderer(name, my_id) {
   m_color_result.resize(TIME_OF_DAY_COLOR_COUNT);
 }
@@ -166,6 +168,21 @@ void Shrub::update_load(const LevelData* loader_data) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+    // Gperf-particles round 3: second (ping-pong) TOD texture, created
+    // identically. tod_current starts on the primary texture so the flag-off
+    // path binds exactly time_of_day_texture.
+    glGenTextures(1, &m_trees[l_tree].time_of_day_texture_pp);
+    glBindTexture(GL_TEXTURE_2D, m_trees[l_tree].time_of_day_texture_pp);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    m_trees[l_tree].tod_flip = 0;
+    m_trees[l_tree].tod_current = m_trees[l_tree].time_of_day_texture;
+    // Gperf-particles round 3: this tree's static index list is not cached yet.
+    m_trees[l_tree].idx_cached = false;
+    m_trees[l_tree].cached_idx_count = 0;
+
     glBindVertexArray(0);
   }
 
@@ -224,6 +241,8 @@ void Shrub::discard_tree_cache() {
     fprintf(stderr, "F1E-DELTEX site=shrub-tod tex=%u\n", (unsigned)tree.time_of_day_texture);
 #endif
     glDeleteTextures(1, &tree.time_of_day_texture);
+    // Gperf-particles round 3: delete the ping-pong TOD texture too.
+    glDeleteTextures(1, &tree.time_of_day_texture_pp);
     glDeleteBuffers(1, &tree.index_buffer);
     glDeleteBuffers(1, &tree.single_draw_index_buffer);
     glDeleteVertexArrays(1, &tree.vao);
@@ -310,10 +329,25 @@ void Shrub::render_tree(int idx,
     tree.perf.tod_time.add(interp_timer.getSeconds());
 
     Timer setup_timer;
+    // Gperf-particles round 3: time-of-day texture ping-pong. Flag ON => flip
+    // the target texture this frame (so the upload does not touch the texture
+    // last frame's draws are still sampling on Adreno), then publish it via
+    // tod_current so every later bind uses the same texture. Flag OFF =>
+    // tod_current stays time_of_day_texture (byte-identical old path).
+    if (render_state->perf_tod_pingpong) {
+      tree.tod_flip ^= 1;
+      tree.tod_current =
+          tree.tod_flip ? tree.time_of_day_texture_pp : tree.time_of_day_texture;
+    } else {
+      tree.tod_current = tree.time_of_day_texture;
+    }
     glActiveTexture(GL_TEXTURE10);
-    glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
-                    m_color_result.data());
+    glBindTexture(GL_TEXTURE_2D, tree.tod_current);
+    {
+      SpartScopedNs _texsub(g_spart_prof.shrub_texsub);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA,
+                      GL_UNSIGNED_BYTE, m_color_result.data());
+    }
 
     first_tfrag_draw_setup(settings.camera, render_state, ShaderId::SHRUB);
 
@@ -340,11 +374,34 @@ void Shrub::render_tree(int idx,
 
     tree.perf.cull_time.add(0);
     Timer index_timer;
+    SpartScopedNs _index(g_spart_prof.shrub_index);
     if (render_state->no_multidraw) {
-      u32 idx_buffer_size = make_all_visible_index_list(
-          m_cache.draw_idx_temp.data(), m_cache.index_temp.data(), *tree.draws, tree.index_data);
-      glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size * sizeof(u32),
-                   m_cache.index_temp.data(), GL_STREAM_DRAW);
+      // Gperf-particles round 3: the shrub single-draw index list is fully
+      // level-static (make_all_visible_index_list copies every draw's indices
+      // unconditionally — no vis/proto-vis input; proto-vis is applied later at
+      // draw time and does not change the list contents). When the flag is on,
+      // build + upload once per level load and cache the draw ranges; per frame
+      // afterwards skip the rebuild+re-upload entirely (the GL_ELEMENT_ARRAY
+      // buffer bind already happened above). Flag OFF => exact old per-frame
+      // build+upload into m_cache.draw_idx_temp / m_cache.index_temp.
+      if (render_state->perf_shrub_static_idx) {
+        if (!tree.idx_cached) {
+          if (tree.cached_draw_idx.size() < tree.draws->size()) {
+            tree.cached_draw_idx.resize(tree.draws->size());
+          }
+          u32 idx_buffer_size = make_all_visible_index_list(
+              tree.cached_draw_idx.data(), m_cache.index_temp.data(), *tree.draws, tree.index_data);
+          tree.cached_idx_count = idx_buffer_size;
+          glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size * sizeof(u32),
+                       m_cache.index_temp.data(), GL_STATIC_DRAW);
+          tree.idx_cached = true;
+        }
+      } else {
+        u32 idx_buffer_size = make_all_visible_index_list(
+            m_cache.draw_idx_temp.data(), m_cache.index_temp.data(), *tree.draws, tree.index_data);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size * sizeof(u32),
+                     m_cache.index_temp.data(), GL_STREAM_DRAW);
+      }
     } else {
       make_all_visible_multidraws(m_cache.multidraw_offset_per_stripdraw.data(),
                                   m_cache.multidraw_count_buffer.data(),
@@ -357,6 +414,14 @@ void Shrub::render_tree(int idx,
   Timer draw_timer;
   auto draws_prof = prof.make_scoped_child("draws");
 
+  // Gperf-particles round 3: when the static-index cache is active the per-draw
+  // singledraw ranges live in tree.cached_draw_idx; otherwise they're the
+  // per-frame m_cache.draw_idx_temp. Only used on the no_multidraw path.
+  const std::pair<int, int>* singledraw_table =
+      (render_state->no_multidraw && render_state->perf_shrub_static_idx && tree.idx_cached)
+          ? tree.cached_draw_idx.data()
+          : m_cache.draw_idx_temp.data();
+
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merge consecutive draws sharing texture+mode into one
     // glDrawElements (see TFragment.cpp — same contiguity + trailing-restart
@@ -367,7 +432,7 @@ void Shrub::render_tree(int idx,
     size_t draw_idx = 0;
     while (draw_idx < tree.draws->size()) {
       const auto& draw = tree.draws->operator[](draw_idx);
-      const auto& singledraw_indices = m_cache.draw_idx_temp[draw_idx];
+      const auto& singledraw_indices = singledraw_table[draw_idx];
       if (!tree.proto_vis_mask.at(draw.proto_idx) || singledraw_indices.second == 0) {
         draw_idx++;
         continue;
@@ -390,7 +455,7 @@ void Shrub::render_tree(int idx,
       if (double_draw.kind == DoubleDrawKind::NONE) {
         while (next < tree.draws->size()) {
           const auto& d2 = tree.draws->operator[](next);
-          const auto& sd2 = m_cache.draw_idx_temp[next];
+          const auto& sd2 = singledraw_table[next];
           if (!tree.proto_vis_mask.at(d2.proto_idx)) {
             break;
           }
@@ -437,7 +502,7 @@ void Shrub::render_tree(int idx,
       continue;
     }
     const auto& multidraw_indices = m_cache.multidraw_offset_per_stripdraw[draw_idx];
-    const auto& singledraw_indices = m_cache.draw_idx_temp[draw_idx];
+    const auto& singledraw_indices = singledraw_table[draw_idx];
 
     if (render_state->no_multidraw) {
       if (singledraw_indices.second == 0) {

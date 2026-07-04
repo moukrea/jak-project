@@ -28,6 +28,10 @@ struct SpartProf {
   // render-thread Tie3 wall time (ns): time-of-day interp, texture sub-image
   // upload, slow cull check, and per-tree index-list build + index upload.
   std::atomic<uint64_t> tie_interp{0}, tie_texsub{0}, tie_cull{0}, tie_index{0};
+  // render-thread Shrub wall time (ns): time-of-day texture sub-image upload,
+  // and per-tree index-list build + index upload (the round-3 static-index
+  // cache makes shrub_index read ~0 after the first frame per level).
+  std::atomic<uint64_t> shrub_texsub{0}, shrub_index{0};
 };
 
 extern SpartProf g_spart_prof;

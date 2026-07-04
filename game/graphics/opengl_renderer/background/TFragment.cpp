@@ -404,6 +404,16 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
                      GL_UNSIGNED_BYTE, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        // Gperf-particles round 3: second (ping-pong) TOD texture, identical.
+        glGenTextures(1, &tree_cache.time_of_day_texture_pp);
+        glBindTexture(GL_TEXTURE_2D, tree_cache.time_of_day_texture_pp);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        tree_cache.tod_flip = 0;
+        tree_cache.tod_current = tree_cache.time_of_day_texture;
         glBindVertexArray(0);
       }
     }
@@ -484,9 +494,20 @@ void TFragment::render_tree(int geom,
     m_color_result.resize(tree.colors->color_count);
   }
   interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
+  // Gperf-particles round 3: ping-pong the target TOD texture (flag ON) so the
+  // upload does not touch the texture last frame's draws are still sampling on
+  // Adreno; publish it via tod_current for the bind below. Flag OFF =>
+  // tod_current == time_of_day_texture (byte-identical old path). TFragment has
+  // exactly this one TOD bind per tree, so no other site can go stale.
+  if (render_state->perf_tod_pingpong) {
+    tree.tod_flip ^= 1;
+    tree.tod_current = tree.tod_flip ? tree.time_of_day_texture_pp : tree.time_of_day_texture;
+  } else {
+    tree.tod_current = tree.time_of_day_texture;
+  }
   glActiveTexture(GL_TEXTURE10);
   // A36: Wx1 2D LUT (see update_load) — REV == BYTE order on little-endian.
-  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+  glBindTexture(GL_TEXTURE_2D, tree.tod_current);
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
                   m_color_result.data());
 
@@ -770,6 +791,8 @@ void TFragment::discard_tree_cache() {
         fprintf(stderr, "F1E-DELTEX site=tfrag-tod tex=%u\n", (unsigned)tree.time_of_day_texture);
 #endif
         glDeleteTextures(1, &tree.time_of_day_texture);
+        // Gperf-particles round 3: delete the ping-pong TOD texture too.
+        glDeleteTextures(1, &tree.time_of_day_texture_pp);
         glDeleteBuffers(1, &tree.single_draw_index_buffer);
         glDeleteBuffers(1, &tree.index_buffer);
         glDeleteVertexArrays(1, &tree.vao);

@@ -205,6 +205,16 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+      // Gperf-particles round 3: second (ping-pong) TOD texture, identical.
+      glGenTextures(1, &lod_tree[l_tree].time_of_day_texture_pp);
+      glBindTexture(GL_TEXTURE_2D, lod_tree[l_tree].time_of_day_texture_pp);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
+                   GL_UNSIGNED_BYTE, nullptr);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      lod_tree[l_tree].tod_flip = 0;
+      lod_tree[l_tree].tod_current = lod_tree[l_tree].time_of_day_texture;
+
       glBindVertexArray(0);
 
       lod_tree[l_tree].vis_temp.resize(tree.bvh.vis_nodes.size());
@@ -278,6 +288,8 @@ void Tie3::discard_tree_cache() {
       fprintf(stderr, "F1E-DELTEX site=tie-tod tex=%u\n", (unsigned)tree.time_of_day_texture);
 #endif
       glDeleteTextures(1, &tree.time_of_day_texture);
+      // Gperf-particles round 3: delete the ping-pong TOD texture too.
+      glDeleteTextures(1, &tree.time_of_day_texture_pp);
       // glDeleteBuffers(1, &tree.index_buffer);
       glDeleteBuffers(1, &tree.single_draw_index_buffer);
       glDeleteVertexArrays(1, &tree.vao);
@@ -396,7 +408,8 @@ void Tie3::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfi
     {
       auto setup_prof = prof.make_scoped_child("setup");
       setup_all_trees(lod(), m_common_data.settings, m_common_data.proto_vis_data,
-                      m_common_data.proto_vis_data_size, !render_state->no_multidraw, setup_prof);
+                      m_common_data.proto_vis_data_size, !render_state->no_multidraw,
+                      render_state->perf_tod_pingpong, setup_prof);
     }
 
     {
@@ -431,9 +444,11 @@ void Tie3::setup_all_trees(int geom,
                            const u8* proto_vis_data,
                            size_t proto_vis_data_size,
                            bool use_multidraw,
+                           bool tod_pingpong,
                            ScopedProfilerNode& prof) {
   for (u32 i = 0; i < m_trees[geom].size(); i++) {
-    setup_tree(i, geom, settings, proto_vis_data, proto_vis_data_size, use_multidraw, prof);
+    setup_tree(i, geom, settings, proto_vis_data, proto_vis_data_size, use_multidraw, tod_pingpong,
+               prof);
   }
 }
 
@@ -443,6 +458,7 @@ void Tie3::setup_tree(int idx,
                       const u8* proto_vis_data,
                       size_t proto_vis_data_size,
                       bool use_multidraw,
+                      bool tod_pingpong,
                       ScopedProfilerNode& prof) {
   // reset perf
   auto& tree = m_trees.at(geom).at(idx);
@@ -464,9 +480,19 @@ void Tie3::setup_tree(int idx,
 
   {
     // Gperf-particles: time-of-day texture upload (bind pair + sub-image).
+    // Round 3: ping-pong the target texture (flag ON) so the upload does not
+    // touch the texture last frame's draws are still sampling on Adreno, then
+    // publish it via tod_current so every later bind uses the same texture.
+    // Flag OFF => tod_current == time_of_day_texture (byte-identical old path).
     SpartScopedNs _texsub(g_spart_prof.tie_texsub);
+    if (tod_pingpong) {
+      tree.tod_flip ^= 1;
+      tree.tod_current = tree.tod_flip ? tree.time_of_day_texture_pp : tree.time_of_day_texture;
+    } else {
+      tree.tod_current = tree.time_of_day_texture;
+    }
     glActiveTexture(GL_TEXTURE10);
-    glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+    glBindTexture(GL_TEXTURE_2D, tree.tod_current);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
                     m_color_result.data());
   }
@@ -592,7 +618,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
 
   glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+  // Gperf-particles round 3: bind the TOD texture selected at update time (the
+  // ping-pong current, or the single texture when the flag is off).
+  glBindTexture(GL_TEXTURE_2D, tree.tod_current);
 
   glActiveTexture(GL_TEXTURE0);
 #ifdef __ANDROID__
@@ -1113,7 +1141,9 @@ void Tie3::render_tree_wind(int idx,
                render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
 
   glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+  // Gperf-particles round 3: bind the TOD texture selected at update time (the
+  // ping-pong current, or the single texture when the flag is off).
+  glBindTexture(GL_TEXTURE_2D, tree.tod_current);
 
   glActiveTexture(GL_TEXTURE0);
 #ifdef __ANDROID__

@@ -35,6 +35,14 @@ class Shrub : public BucketRenderer {
     GLuint index_buffer;
     GLuint single_draw_index_buffer;
     GLuint time_of_day_texture;
+    // Gperf-particles round 3: second TOD texture for the ping-pong path, plus
+    // the per-frame flip bit. tod_current is set at TOD-update time to whichever
+    // texture this frame's draws should sample, so every subsequent bind uses
+    // the same texture (no stale bind). perf_tod_pingpong OFF => tod_current is
+    // always time_of_day_texture (identical to the old single-texture path).
+    GLuint time_of_day_texture_pp = 0;
+    u8 tod_flip = 0;
+    GLuint tod_current = 0;
     GLuint vao;
     u32 vert_count;
     const std::vector<tfrag3::ShrubDraw>* draws = nullptr;
@@ -43,6 +51,14 @@ class Shrub : public BucketRenderer {
     const u32* index_data = nullptr;
     std::vector<bool> proto_vis_mask;
     std::unordered_map<std::string, std::vector<u32>> proto_name_to_idx;
+    // Gperf-particles round 3: level-static single-draw index cache. When
+    // perf_shrub_static_idx is on, the index list (built once by
+    // make_all_visible_index_list) and its GPU upload are done a single time at
+    // level load; per-frame the build+upload are skipped and the draw loop reads
+    // cached_draw_idx instead of m_cache.draw_idx_temp.
+    std::vector<std::pair<int, int>> cached_draw_idx;
+    bool idx_cached = false;
+    u32 cached_idx_count = 0;
 
     struct {
       u32 draws = 0;

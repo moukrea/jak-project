@@ -44,6 +44,7 @@ class Tie3 : public BucketRenderer {
                        const u8* proto_vis_data,
                        size_t proto_vis_data_size,
                        bool use_multidraw,
+                       bool tod_pingpong,
                        ScopedProfilerNode& prof);
 
   void setup_tree(int idx,
@@ -52,6 +53,7 @@ class Tie3 : public BucketRenderer {
                   const u8* proto_vis_data,
                   size_t proto_vis_data_size,
                   bool use_multidraw,
+                  bool tod_pingpong,
                   ScopedProfilerNode& prof);
 
   void draw_matching_draws_for_all_trees(int geom,
@@ -111,6 +113,13 @@ class Tie3 : public BucketRenderer {
     GLuint index_buffer;
     GLuint single_draw_index_buffer;
     GLuint time_of_day_texture;
+    // Gperf-particles round 3: second TOD texture + flip bit for the Adreno
+    // ping-pong. tod_current is set at TOD-update time to whichever texture this
+    // frame's draws sample; every later bind uses it (no stale bind). Flag OFF
+    // => tod_current == time_of_day_texture (identical old single-texture path).
+    GLuint time_of_day_texture_pp = 0;
+    u8 tod_flip = 0;
+    GLuint tod_current = 0;
     GLuint vao;
     std::array<u32, tfrag3::kNumTieCategories + 1> category_draw_indices;
     const std::vector<tfrag3::StripDraw>* draws = nullptr;

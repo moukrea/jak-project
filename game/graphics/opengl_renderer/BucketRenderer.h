@@ -59,6 +59,15 @@ struct SharedRenderState {
   // instead of 4 near-identical verts + a triangle-strip index list. Desktop
   // leaves this off (the old per-vertex path is used).
   bool perf_sprite_instance = false;
+  // Gperf-particles round 3 (Android, jak1 only): ping-pong the per-tree
+  // time-of-day texture (Tie3/Shrub/TFragment) so this frame's TOD upload does
+  // not target the texture last frame's draws still sample (Adreno ghost/sync
+  // stall). Desktop leaves this off (single-texture behavior).
+  bool perf_tod_pingpong = false;
+  // Gperf-particles round 3 (Android, jak1 only): cache Shrub's level-static
+  // single-draw index list + upload once per level load instead of rebuilding
+  // and re-uploading it every frame. Desktop leaves this off.
+  bool perf_shrub_static_idx = false;
 
   void reset();
   bool has_pc_data = false;

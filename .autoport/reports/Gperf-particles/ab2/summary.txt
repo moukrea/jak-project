@@ -1,0 +1,70 @@
+Gperf-particles ab2 — pose-held A/B/C in-session A/B in Rock Village fire scene
+HEAD 747fd4ff0 deployed on eae4df44 (Redmi Note 9 Pro). Package org.opengoal.gk.jak1, PID 5443 (single PID whole run — no crash/restart).
+Warp: village2-start pos "295 15 -1630". Pose confirmed (A-pose vs baseline/fire-pose.png = 3.32% >32, flame-anim only). No input touched after spawn.
+scale PINNED AT 40 in ALL 4 measurement windows -> fps comparison NOT confounded. (100%/80% only at boot pre-warp, 02:02:29-44.)
+
+KILL-SWITCH LEGEND: prop=1 OLD path, prop=0 fix ON.
+  WINDOW A  = all four =1  (all OLD / pre-phase)          02:03:52-02:05:22
+  WINDOW C  = nooverlap=0 ONLY (overlap fix isolated)     02:05:53-02:07:40
+  WINDOW B  = all four =0  (ALL fixes ON)                 02:08:06-02:09:42
+  WINDOW A2 = all four =1  (reversibility)                02:10:06-02:10:51
+
+--- dyn-rs avg-fps (median / min / max), scale ---
+  A : 32.2  (28.5 / 35.9)   scale=[40]
+  C : 33.05 (31.2 / 37.3)   scale=[40]
+  B : 35.2  (34.7 / 38.8)   scale=[40]   <-- best
+  A2: 32.0  (31.9 / 33.5)   scale=[40]   (reverts to A level -> reversible)
+  B vs A: +3.0 fps (+9.3%). C vs A: +0.85 fps (overlap alone). Fixes stack.
+
+--- goal idle= / pace= (median ms) ---   [overlap fix signature]
+  A : idle=142.68  pace=0.19
+  C : idle=0.10    pace=0.17   <-- overlap ON: GL thread stops idle-waiting on GOAL
+  B : idle=0.10    pace=0.17
+  A2: idle=144.54  pace=0.19   (reverts)
+  The ~142ms->0.1ms idle collapse is the frame-overlap fix removing the GL-thread stall. pace unchanged.
+
+--- A35-RENDER render_ms (median) ---
+  A : 25.71   buckets_ms 24.67   pcrtc 0.19
+  C : 26.82   buckets_ms 25.74   pcrtc 0.21
+  B : 24.56   buckets_ms 23.67   pcrtc 0.15   <-- lowest
+  A2: 25.91   buckets_ms 24.80   pcrtc 0.20
+
+--- A35-SPART glbuild / glflush (median ms) ---   [sprite-lean+instance+state-cache signature]
+  A : glbuild=91.16  glflush=113.14
+  C : glbuild=91.53  glflush=119.99   (overlap alone doesn't touch these)
+  B : glbuild=48.17  glflush=35.08    <-- glbuild -47%, glflush -69%
+  A2: glbuild=92.03  glflush=114.34   (reverts)
+  A35-SPART tie ix= (index/instance work): A=70.3 C=135.2 B=144.8 A2=68.0 (instanced path active in C/B).
+
+--- sprite bucket [66] A35-PERF (median ms / draws / tris) ---   *** KEY ***
+  A : 4.47 ms  10 dr  6278 tri
+  C : 4.61 ms  10 dr  6292 tri
+  B : 2.45 ms  10 dr  6280 tri   <-- -45% ms, SAME draws & tris (identical geometry, faster)
+  A2: 4.52 ms   9 dr  6232 tri
+  Draw count did NOT collapse (still ~10) but per-draw cost halved -> instanced/state-cache win, not fewer sprites.
+
+--- STABILITY (whole run + per window) ---
+  sig 4/6/11 (PID 5443): 0    SIGSEGV/ILL/ABRT: 0
+  'send_chain called with pending data': 0
+  A37-CHAIN-LOOP: 0    A42-CHAIN-PRECOPY skip: 0    GL error: 0
+  'Failed to find texture': 1 (02:02:29 boot, sky-direct, PRE-warp, benign; 0 in any window)
+  FREEZE WATCH window C (overlap fix): NO freeze. A35-RENDER grew steady 9-10/15s throughout;
+    focus stayed org.opengoal.gk.jak1; lastanr='no ANR since boot'. NO overlap deadlock.
+  App never restarted (PID constant). A2 reverts cleanly -> all switches reversible live.
+
+--- VISUAL PARITY (A-end all-OLD vs B-start all-fixes) ---
+  Overall mean-abs-diff 4.85, pct>32 = 1.27% (flame animation only).
+  Fire-sprite regions diff%>32: left-brazier 0.0, right-brazier 0.0, bottom-left-bowl 0.33, bottom-right-bowl 0.0.
+  Red/brightness levels match within flame-flicker (~5-10 delta). All flames present, same size/placement/color.
+  Visual read B-start & B-end: identical scene to A-pose (2 brazier flames, 2 corner bowls, hanging torch, Jak on platform).
+  VERDICT: PASS. Instanced sprite path does NOT change the scene. No missing/deformed/flipped sprites.
+
+--- CONCLUSION ---
+  All fixes ON (B): +3.0 fps (+9.3%) over all-OLD, -45% sprite-bucket ms, -47% glbuild, -69% glflush,
+  overlap idle-stall eliminated (142->0.1ms), ZERO regressions/crashes/freezes/deadlocks, pixel-parity held.
+  Overlap fix is the thread-sync change of concern: verified stable, no freeze/ANR/deadlock. Reversible.
+  Left device with all four props=0 (fixes ON), app running.
+
+ARTIFACTS (all under .autoport/reports/Gperf-particles/ab2/):
+  A-pose.png A-end.png C-end.png B-start.png B-end.png A2-end.png
+  ab2-logcat.txt timemarkers.txt extract.txt stability.txt summary.txt (+ extract.py sprite_perf.py stability.py)

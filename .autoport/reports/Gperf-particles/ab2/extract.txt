@@ -1,0 +1,138 @@
+======================================================================
+WINDOW A  [02:03:52 - 02:05:22]
+  dyn-rs avg-fps: median=32.2 min=28.5 max=35.9  (n=45)
+  dyn-rs distinct scales: [40]
+  A35-RENDER render_ms: median=25.71 min=21.47 max=29.47  (n=49)
+  A35-RENDER buckets_ms median=24.67  pcrtc_ms median=0.19
+  A35-SPART (full-data frames n=49):
+      2d_ms        median=119.9 min=115.94 max=125.57
+      2d_it        median=352192 min=345920 max=356224
+      launch_ms    median=138.9 min=128.61 max=151.59
+      adgif_ms     median=12.54 min=11.15 max=13.85
+      sbuckets     median=540 min=480 max=547
+      quads        median=163873 min=161525 max=167904
+      directflush  median=1020 min=1020 max=1080
+      glbuild      median=91.16 min=87.83 max=93.54
+      glflush      median=113.14 min=104.4 max=185.0
+      idle         median=142.68 min=127.97 max=152.38
+      pace         median=0.19 min=0.15 max=0.53
+      n            median=60 min=60 max=60
+      tie_i        median=8.42 min=7.92 max=9.12
+      tie_ts       median=540.0 min=480.0 max=547.0
+      tie_cu       median=1.42 min=1.37 max=2.44
+      tie_ix       median=70.26 min=66.59 max=83.9
+======================================================================
+WINDOW C  [02:05:53 - 02:07:40]
+  dyn-rs avg-fps: median=33.05 min=31.2 max=37.3  (n=54)
+  dyn-rs distinct scales: [40]
+  A35-RENDER render_ms: median=26.82 min=21.49 max=48.6  (n=60)
+  A35-RENDER buckets_ms median=25.74  pcrtc_ms median=0.21
+  A35-SPART (full-data frames n=60):
+      2d_ms        median=116.47 min=112.42 max=124.57
+      2d_it        median=351712.0 min=347776 max=357120
+      launch_ms    median=133.25 min=120.92 max=141.27
+      adgif_ms     median=11.95 min=10.66 max=13.31
+      sbuckets     median=540.0 min=480 max=548
+      quads        median=164238.5 min=159725 max=169626
+      directflush  median=1020.0 min=1020 max=1080
+      glbuild      median=91.53 min=85.08 max=94.14
+      glflush      median=119.99 min=108.45 max=125.88
+      idle         median=0.1 min=0.09 max=0.22
+      pace         median=0.17 min=0.14 max=2.53
+      n            median=60.0 min=60 max=60
+      tie_i        median=8.25 min=7.78 max=8.75
+      tie_ts       median=540.0 min=480.0 max=548.0
+      tie_cu       median=1.42 min=1.34 max=1.78
+      tie_ix       median=135.18 min=109.12 max=144.21
+======================================================================
+WINDOW B  [02:08:06 - 02:09:42]
+  dyn-rs avg-fps: median=35.2 min=34.7 max=38.8  (n=49)
+  dyn-rs distinct scales: [40]
+  A35-RENDER render_ms: median=24.56 min=20.82 max=26.05  (n=57)
+  A35-RENDER buckets_ms median=23.67  pcrtc_ms median=0.15
+  A35-SPART (full-data frames n=57):
+      2d_ms        median=113.48 min=110.67 max=117.55
+      2d_it        median=351680 min=346432 max=355840
+      launch_ms    median=126.74 min=120.38 max=155.41
+      adgif_ms     median=11.32 min=10.34 max=14.0
+      sbuckets     median=540 min=480 max=548
+      quads        median=164445 min=161615 max=169306
+      directflush  median=1020 min=1020 max=1020
+      glbuild      median=48.17 min=47.22 max=49.19
+      glflush      median=35.08 min=33.17 max=37.15
+      idle         median=0.1 min=0.1 max=0.33
+      pace         median=0.17 min=0.15 max=0.45
+      n            median=60 min=60 max=60
+      tie_i        median=8.04 min=7.71 max=8.74
+      tie_ts       median=540.0 min=480.0 max=548.0
+      tie_cu       median=1.4 min=1.36 max=1.66
+      tie_ix       median=144.75 min=132.91 max=149.83
+======================================================================
+WINDOW A2  [02:10:06 - 02:10:51]
+  dyn-rs avg-fps: median=32.0 min=31.9 max=33.5  (n=23)
+  dyn-rs distinct scales: [40]
+  A35-RENDER render_ms: median=25.91 min=23.37 max=26.99  (n=25)
+  A35-RENDER buckets_ms median=24.8  pcrtc_ms median=0.2
+  A35-SPART (full-data frames n=25):
+      2d_ms        median=119.92 min=117.67 max=123.54
+      2d_it        median=352064 min=348800 max=360000
+      launch_ms    median=138.16 min=136.08 max=142.22
+      adgif_ms     median=12.64 min=12.18 max=13.05
+      sbuckets     median=486 min=480 max=544
+      quads        median=164301 min=161253 max=169246
+      directflush  median=1020 min=1020 max=1020
+      glbuild      median=92.03 min=90.16 max=93.6
+      glflush      median=114.34 min=110.53 max=117.23
+      idle         median=144.54 min=140.53 max=147.39
+      pace         median=0.19 min=0.16 max=0.35
+      n            median=60 min=60 max=60
+      tie_i        median=8.55 min=8.28 max=8.86
+      tie_ts       median=486.0 min=480.0 max=544.0
+      tie_cu       median=1.43 min=1.38 max=1.54
+      tie_ix       median=68.0 min=66.48 max=71.77
+
+######################################################################
+A35-PERF dumps (2 per window, root + sprite bucket line)
+
+--- WINDOW A A35-PERF ---
+    A35-PERF frame=2940
+    28.39ms 341dr 391635tri root
+     27.54ms 341dr 391635tri buckets
+    A35-PERF frame=3000
+    27.31ms 339dr 391223tri root
+     25.97ms 339dr 391223tri buckets
+      4.80ms 10dr 6364tri [66] sprite
+
+--- WINDOW C A35-PERF ---
+    A35-PERF frame=6840
+    48.60ms 332dr 390360tri root
+     44.46ms 332dr 390360tri buckets
+    A35-PERF frame=6900
+    26.81ms 331dr 390432tri root
+     25.82ms 331dr 390432tri buckets
+      4.84ms 9dr 6424tri [66] sprite
+
+--- WINDOW B A35-PERF ---
+    A35-PERF frame=11340
+    24.07ms 332dr 390576tri root
+    A35-PERF frame=11400
+    24.64ms 331dr 390288tri root
+     23.67ms 331dr 390288tri buckets
+
+--- WINDOW A2 A35-PERF ---
+    A35-PERF frame=15540
+    26.99ms 332dr 390570tri root
+     25.98ms 332dr 390570tri buckets
+      4.61ms 9dr 6286tri [66] sprite
+    A35-PERF frame=15600
+    26.56ms 332dr 390516tri root
+     25.54ms 332dr 390516tri buckets
+      4.65ms 9dr 6232tri [66] sprite
+WINDOW A: sprite[66] bucket  n=49  ms median=4.47  draws median=10  tri median=6278
+          draw-count distribution: {10: 38, 9: 11}
+WINDOW C: sprite[66] bucket  n=60  ms median=4.61  draws median=10.0  tri median=6292.0
+          draw-count distribution: {9: 16, 10: 44}
+WINDOW B: sprite[66] bucket  n=57  ms median=2.45  draws median=10  tri median=6280
+          draw-count distribution: {9: 12, 10: 45}
+WINDOW A2: sprite[66] bucket  n=25  ms median=4.52  draws median=9  tri median=6232
+          draw-count distribution: {9: 15, 10: 10}
