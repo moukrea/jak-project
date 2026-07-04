@@ -17,6 +17,7 @@
 #include "game/kernel/common/kprint.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/common/memory_layout.h"
+#include "game/kernel/jak1/kboot.h"
 #include "game/kernel/jak1/kscheme.h"
 #include "game/mips2c/mips2c_table.h"
 
@@ -318,6 +319,12 @@ uint32_t link_control::jak1_work_v3() {
                    ofh->code_infos[seg_id].size);
             return 1;
           }
+#if defined(__ANDROID__)
+          if (m_heap.offset != kglobalheap.offset && m_heap.offset != kdebugheap.offset) {
+            jak1::invalidate_part_groups_in_range(ofh->code_infos[seg_id].offset,
+                                                  ofh->code_infos[seg_id].size);
+          }
+#endif
           jak1::ultimate_memcpy(Ptr<u8>(ofh->code_infos[seg_id].offset).c(), src.c(),
                                 ofh->code_infos[seg_id].size);
         }
@@ -334,6 +341,12 @@ uint32_t link_control::jak1_work_v3() {
                    ofh->code_infos[seg_id].size);
             return 1;
           }
+#if defined(__ANDROID__)
+          if (m_heap.offset != kglobalheap.offset && m_heap.offset != kdebugheap.offset) {
+            jak1::invalidate_part_groups_in_range(ofh->code_infos[seg_id].offset,
+                                                  ofh->code_infos[seg_id].size);
+          }
+#endif
           jak1::ultimate_memcpy(Ptr<u8>(ofh->code_infos[seg_id].offset).c(), src.c(),
                                 ofh->code_infos[seg_id].size);
         }

@@ -85,6 +85,40 @@ void want_vis_maybe();
 void grv_canary_maybe();
 
 /*!
+ * TARGET-DRIVE (Gcrash-swamp-load debug-only) — Android prop
+ * debug.opengoal.target.drive = "<dx> <dz> <pin_y> <stop_z>" (RAW EE units, floats
+ * OK), OFF by default. Each kernel dispatch, marches *target* (Jak) by (dx,dz) in
+ * world space (optionally pinning y), holding at stop_z — so SWA.DGO streams in
+ * from Jak's REAL position (a position-triggered load, not a want-levels replay).
+ * Reads/writes *target*'s world trans via the guarded EE-memcpy pattern the
+ * mouche_/eco_ hooks use. Never armed in the shipped APK.
+ */
+void target_drive_maybe();
+
+/*!
+ * DIAG FLAGS (Gcrash-swamp-load debug-only) — Android prop
+ * debug.opengoal.diag.norepair, OFF by default. When "1", arms the gk_android_main
+ * signal-handler bypass (gk_set_diag_norepair) so the three "repair-and-resume"
+ * control-transfer handlers bail out and the TRUE first swamp-load crash reaches
+ * the fatal forensic dump instead of being silently masked. No-op on desktop.
+ */
+void diag_flags_maybe();
+
+/*!
+ * INVALIDATE-PART-GROUPS-IN-RANGE (Gcrash-swamp-load fix) — called from
+ * link_control::jak1_work_v3 immediately before each level-heap segment memcpy.
+ * Clears every *part-group-id-table* slot whose sparticle-launch-group object lies
+ * in the destination range about to be overwritten, so a straddled level
+ * discard/re-register can't leave a dangling slot whose static `name` pointer has
+ * been overwritten with an arm64 code word (which lookup-part-group-pointer-by-name
+ * would then `string=` and SIGSEGV). Race-free: runs synchronously on the linking
+ * thread right before the copy. Android-only; no-op on desktop.
+ */
+#if defined(__ANDROID__)
+void invalidate_part_groups_in_range(u32 dst_goal, u32 size);
+#endif
+
+/*!
  * ECO SPHERE SPAWN (Geco-spheres debug-only oracle-diff tool) — env OG_ECO_SPAWN /
  * Android prop debug.opengoal.eco.spawn = "<pickup-type-int> [period [dx dy dz]]",
  * OFF by default. Repeatedly births an eco pickup next to *target* via the same
