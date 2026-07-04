@@ -26,6 +26,7 @@ class Sprite3 : public BucketRenderer {
 
   void opengl_setup();
   void opengl_setup_normal();
+  void opengl_setup_instanced();
   void opengl_setup_distort();
 
   bool render_direct(DmaFollower& dma, SharedRenderState* render_state, ScopedProfilerNode& prof);
@@ -66,6 +67,10 @@ class Sprite3 : public BucketRenderer {
   void handle_alpha(u64 val, SharedRenderState* render_state, ScopedProfilerNode& prof);
 
   void flush_sprites(SharedRenderState* render_state, ScopedProfilerNode& prof, bool double_draw);
+  // Gperf-particles round 2: per-instance flush path (jak1 Android).
+  void flush_sprites_instanced(SharedRenderState* render_state,
+                               ScopedProfilerNode& prof,
+                               bool double_draw);
 
   GlowRenderer m_glow_renderer;
   void glow_dma_and_draw(DmaFollower& dma,
@@ -190,7 +195,17 @@ class Sprite3 : public BucketRenderer {
     GLuint vertex_buffer;
     GLuint vao;
     GLuint index_buffer;
+    // Gperf-particles round 2: per-instance path (jak1 Android). A second VAO
+    // with the SAME 5 attributes/offsets/stride but a divisor of 1 on each,
+    // reading from instance_buffer (one 64B SpriteVertex3D record per sprite).
+    GLuint instance_vao = 0;
+    GLuint instance_buffer = 0;
   } m_ogl;
+
+  // Gperf-particles round 2: gather scratch for the instanced path — the per-
+  // bucket sprite records copied into contiguous draw order, uploaded in one
+  // glBufferData. Persistent capacity across frames.
+  std::vector<SpriteVertex3D> m_instance_scratch;
 
   DrawMode m_current_mode, m_default_mode;
   u32 m_current_tbp = 0;
@@ -199,6 +214,10 @@ class Sprite3 : public BucketRenderer {
     std::vector<u32> ids;
     u32 offset_in_idx_buffer = 0;
     u64 key = -1;
+    // Gperf-particles round 2 (instanced path): this bucket's contiguous range
+    // in the gathered instance buffer (first-instance index + instance count).
+    u32 instance_offset = 0;
+    u32 instance_count = 0;
   };
 
   std::map<u64, Bucket> m_sprite_buckets;
@@ -210,4 +229,57 @@ class Sprite3 : public BucketRenderer {
   u64 m_sprite_idx = 0;
 
   std::vector<u32> m_index_buffer_data;
+
+  // Gperf-particles: cached per-program uniform locations for the SPRITE3 shader
+  // (locations are stable for the life of a linked program). Refreshed only when
+  // the program id changes. Same precedent as tfrag_alpha_uniforms.
+  struct SpriteUniformCache {
+    GLuint prog = 0;
+    GLint alpha_min = -1;
+    GLint alpha_max = -1;
+    GLint tex_T0 = -1;
+  } m_sprite_uniform_cache;
+
+  // Gperf-particles round 2: same cache, keyed to the SPRITE3_INSTANCED program
+  // (a different program object with its own uniform locations).
+  SpriteUniformCache m_sprite_uniform_cache_inst;
+
+  // cached group0 (3d) per-frame uniform locations
+  struct Sprite3dUniformCache {
+    GLuint prog = 0;
+    GLint hvdf_offset = -1;
+    GLint pfog0 = -1;
+    GLint min_scale = -1;
+    GLint max_scale = -1;
+    GLint fog_min = -1;
+    GLint fog_max = -1;
+    GLint deg_to_rad = -1;
+    GLint inv_area = -1;
+    GLint camera = -1;
+    GLint xy_array = -1;
+    GLint xyz_array = -1;
+    GLint st_array = -1;
+    GLint basis_x = -1;
+    GLint basis_y = -1;
+  } m_sprite_3d_uniform_cache;
+  // Gperf-particles round 2: same group0 cache for the SPRITE3_INSTANCED program.
+  Sprite3dUniformCache m_sprite_3d_uniform_cache_inst;
+
+  // cached group1 (HUD) per-frame uniform locations
+  struct SpriteHudUniformCache {
+    GLuint prog = 0;
+    GLint hud_hvdf_offset = -1;
+    GLint hud_hvdf_user = -1;
+    GLint hud_matrix = -1;
+  } m_sprite_hud_uniform_cache;
+  // Gperf-particles round 2: same group1 cache for the SPRITE3_INSTANCED program.
+  SpriteHudUniformCache m_sprite_hud_uniform_cache_inst;
+
+  // Gperf-particles round 2: set the group0 (3d) per-frame uniforms on one
+  // program (refreshing its cached locations on program change). Called for both
+  // SPRITE3 and SPRITE3_INSTANCED when the instanced path is enabled. Assumes
+  // the target program is the active program.
+  void set_group0_uniforms(GLuint prog, Sprite3dUniformCache& cache);
+  // Gperf-particles round 2: same for the group1 (HUD) per-frame uniforms.
+  void set_group1_uniforms(GLuint prog, SpriteHudUniformCache& cache);
 };

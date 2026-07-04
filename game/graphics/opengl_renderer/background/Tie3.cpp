@@ -6,6 +6,8 @@
 #include "common/log/log.h"
 #include "common/util/Assert.h"
 
+#include "game/mips2c/spart_prof.h"
+
 #include "third-party/imgui/imgui.h"
 
 Tie3::Tie3(const std::string& name,
@@ -203,6 +205,16 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+      // Gperf-particles round 3: second (ping-pong) TOD texture, identical.
+      glGenTextures(1, &lod_tree[l_tree].time_of_day_texture_pp);
+      glBindTexture(GL_TEXTURE_2D, lod_tree[l_tree].time_of_day_texture_pp);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
+                   GL_UNSIGNED_BYTE, nullptr);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      lod_tree[l_tree].tod_flip = 0;
+      lod_tree[l_tree].tod_current = lod_tree[l_tree].time_of_day_texture;
+
       glBindVertexArray(0);
 
       lod_tree[l_tree].vis_temp.resize(tree.bvh.vis_nodes.size());
@@ -276,6 +288,8 @@ void Tie3::discard_tree_cache() {
       fprintf(stderr, "F1E-DELTEX site=tie-tod tex=%u\n", (unsigned)tree.time_of_day_texture);
 #endif
       glDeleteTextures(1, &tree.time_of_day_texture);
+      // Gperf-particles round 3: delete the ping-pong TOD texture too.
+      glDeleteTextures(1, &tree.time_of_day_texture_pp);
       // glDeleteBuffers(1, &tree.index_buffer);
       glDeleteBuffers(1, &tree.single_draw_index_buffer);
       glDeleteVertexArrays(1, &tree.vao);
@@ -388,11 +402,21 @@ void Tie3::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfi
   }
 
   if (set_up_common_data_from_dma(dma, render_state)) {
-    setup_all_trees(lod(), m_common_data.settings, m_common_data.proto_vis_data,
-                    m_common_data.proto_vis_data_size, !render_state->no_multidraw, prof);
+    // Gperf-particles: attribute per-tree TOD/cull/index-build setup vs draw
+    // submission separately so A35-PERF can steer the batching work (mirrors
+    // TFragment's "t3" child idiom).
+    {
+      auto setup_prof = prof.make_scoped_child("setup");
+      setup_all_trees(lod(), m_common_data.settings, m_common_data.proto_vis_data,
+                      m_common_data.proto_vis_data_size, !render_state->no_multidraw,
+                      render_state->perf_tod_pingpong, setup_prof);
+    }
 
-    draw_matching_draws_for_all_trees(lod(), m_common_data.settings, render_state, prof,
-                                      m_default_category);
+    {
+      auto draws_prof = prof.make_scoped_child("draws");
+      draw_matching_draws_for_all_trees(lod(), m_common_data.settings, render_state, draws_prof,
+                                        m_default_category);
+    }
   }
 }
 
@@ -420,9 +444,11 @@ void Tie3::setup_all_trees(int geom,
                            const u8* proto_vis_data,
                            size_t proto_vis_data_size,
                            bool use_multidraw,
+                           bool tod_pingpong,
                            ScopedProfilerNode& prof) {
   for (u32 i = 0; i < m_trees[geom].size(); i++) {
-    setup_tree(i, geom, settings, proto_vis_data, proto_vis_data_size, use_multidraw, prof);
+    setup_tree(i, geom, settings, proto_vis_data, proto_vis_data_size, use_multidraw, tod_pingpong,
+               prof);
   }
 }
 
@@ -432,6 +458,7 @@ void Tie3::setup_tree(int idx,
                       const u8* proto_vis_data,
                       size_t proto_vis_data_size,
                       bool use_multidraw,
+                      bool tod_pingpong,
                       ScopedProfilerNode& prof) {
   // reset perf
   auto& tree = m_trees.at(geom).at(idx);
@@ -445,12 +472,30 @@ void Tie3::setup_tree(int idx,
     m_color_result.resize(tree.colors->color_count);
   }
 
-  interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
+  {
+    // Gperf-particles: time-of-day color interpolation (per-tree, accumulate).
+    SpartScopedNs _interp(g_spart_prof.tie_interp);
+    interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
+  }
 
-  glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
-                  m_color_result.data());
+  {
+    // Gperf-particles: time-of-day texture upload (bind pair + sub-image).
+    // Round 3: ping-pong the target texture (flag ON) so the upload does not
+    // touch the texture last frame's draws are still sampling on Adreno, then
+    // publish it via tod_current so every later bind uses the same texture.
+    // Flag OFF => tod_current == time_of_day_texture (byte-identical old path).
+    SpartScopedNs _texsub(g_spart_prof.tie_texsub);
+    if (tod_pingpong) {
+      tree.tod_flip ^= 1;
+      tree.tod_current = tree.tod_flip ? tree.time_of_day_texture_pp : tree.time_of_day_texture;
+    } else {
+      tree.tod_current = tree.time_of_day_texture;
+    }
+    glActiveTexture(GL_TEXTURE10);
+    glBindTexture(GL_TEXTURE_2D, tree.tod_current);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
+                    m_color_result.data());
+  }
 
   // update proto vis mask
   if (proto_vis_data) {
@@ -458,11 +503,15 @@ void Tie3::setup_tree(int idx,
   }
 
   if (!m_debug_all_visible) {
+    // Gperf-particles: slow (per-node) frustum/occlusion cull check.
+    SpartScopedNs _cull(g_spart_prof.tie_cull);
     // need culling data
     cull_check_all_slow(settings.camera.planes, tree.vis->vis_nodes, settings.occlusion_culling,
                         tree.vis_temp.data());
   }
 
+  // Gperf-particles: index-list build + index-buffer upload (per-tree).
+  SpartScopedNs _index(g_spart_prof.tie_index);
   u32 num_tris = 0;
   if (use_multidraw) {
     if (m_debug_all_visible) {
@@ -569,7 +618,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
 
   glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+  // Gperf-particles round 3: bind the TOD texture selected at update time (the
+  // ping-pong current, or the single texture when the flag is off).
+  glBindTexture(GL_TEXTURE_2D, tree.tod_current);
 
   glActiveTexture(GL_TEXTURE0);
 #ifdef __ANDROID__
@@ -582,6 +633,10 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   glEnable(GL_PRIMITIVE_RESTART);
   glPrimitiveRestartIndex(UINT32_MAX);
 #endif
+
+  // Gperf-particles: per-draw GL state cache (flag-off = identical old path).
+  BgDrawStateCache draw_state_cache;
+  GLuint bound_tex = 0;
 
   int last_texture = -1;
   if (render_state->no_multidraw && render_state->batch_singledraw) {
@@ -602,14 +657,16 @@ void Tie3::draw_matching_draws_for_tree(int idx,
 
       if (draw.tree_tex_id != last_texture) {
         if (draw.tree_tex_id >= 0) {
-          glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+          bound_tex = m_textures->at(draw.tree_tex_id);
         } else {
-          glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(draw.tree_tex_id + 1)));
+          bound_tex = m_anim_slot_array->at(-(draw.tree_tex_id + 1));
         }
+        glBindTexture(GL_TEXTURE_2D, bound_tex);
         last_texture = draw.tree_tex_id;
       }
 
-      auto double_draw = setup_tfrag_shader(render_state, draw.mode, shader_id2);
+      auto double_draw =
+          setup_tfrag_shader_cached(render_state, draw.mode, shader_id2, bound_tex, draw_state_cache);
       glUniform1i(use_envmap ? m_etie_base_uniforms.decal : m_uniforms.decal,
                   draw.mode.get_decal() ? 1 : 0);
 
@@ -658,15 +715,17 @@ void Tie3::draw_matching_draws_for_tree(int idx,
 
     if (draw.tree_tex_id != last_texture) {
       if (draw.tree_tex_id >= 0) {
-        glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+        bound_tex = m_textures->at(draw.tree_tex_id);
       } else {
-        glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(draw.tree_tex_id + 1)));
+        bound_tex = m_anim_slot_array->at(-(draw.tree_tex_id + 1));
       }
+      glBindTexture(GL_TEXTURE_2D, bound_tex);
       last_texture = draw.tree_tex_id;
     }
 
-    auto double_draw = setup_tfrag_shader(render_state, draw.mode,
-                                          use_envmap ? ShaderId::ETIE_BASE : ShaderId::TFRAG3);
+    auto double_draw = setup_tfrag_shader_cached(
+        render_state, draw.mode, use_envmap ? ShaderId::ETIE_BASE : ShaderId::TFRAG3, bound_tex,
+        draw_state_cache);
 
     glUniform1i(use_envmap ? m_etie_base_uniforms.decal : m_uniforms.decal,
                 draw.mode.get_decal() ? 1 : 0);
@@ -685,14 +744,19 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     switch (double_draw.kind) {
       case DoubleDrawKind::NONE:
         break;
-      case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE:
+      case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE: {
         ASSERT(false);
         prof.add_draw_call();
-        glUniform1f(glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "alpha_min"),
-                    -10.f);
-        glUniform1f(glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "alpha_max"),
-                    double_draw.aref_second);
+        const auto& afail_u = tfrag_alpha_uniforms(render_state->shaders[ShaderId::TFRAG3].id());
+        if (afail_u.alpha_min != -1) {
+          glUniform1f(afail_u.alpha_min, -10.f);
+        }
+        if (afail_u.alpha_max != -1) {
+          glUniform1f(afail_u.alpha_max, double_draw.aref_second);
+        }
         glDepthMask(GL_FALSE);
+        // depth-mask toggled: cached mode's depth state is now stale.
+        draw_state_cache.valid = false;
         if (render_state->no_multidraw) {
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
@@ -703,6 +767,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                               multidraw_indices.second);
         }
         break;
+      } // AFAIL_NO_DEPTH_WRITE
       default:
         ASSERT(false);
     }
@@ -736,6 +801,10 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
   init_etie_cam_uniforms(m_etie_uniforms, m_common_data.settings.camera);
   set_uniform(m_etie_uniforms.envmap_tod_tint, m_common_data.envmap_color);
 
+  // Gperf-particles: per-draw GL state cache (flag-off = identical old path).
+  BgDrawStateCache draw_state_cache;
+  GLuint bound_tex = 0;
+
   int last_texture = -1;
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merged-draw variant (see render_tree above). Envmap
@@ -752,14 +821,17 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
 
       if (draw.tree_tex_id != last_texture) {
         if (draw.tree_tex_id >= 0) {
-          glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+          bound_tex = m_textures->at(draw.tree_tex_id);
         } else {
-          glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(draw.tree_tex_id + 1)));
+          bound_tex = m_anim_slot_array->at(-(draw.tree_tex_id + 1));
         }
+        glBindTexture(GL_TEXTURE_2D, bound_tex);
         last_texture = draw.tree_tex_id;
       }
 
-      auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::ETIE);
+      auto double_draw =
+          setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::ETIE, bound_tex,
+                                    draw_state_cache);
       ASSERT(double_draw.kind == DoubleDrawKind::NONE);
 
       int first = singledraw_indices.first;
@@ -805,15 +877,18 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
 
     if (draw.tree_tex_id != last_texture) {
       if (draw.tree_tex_id >= 0) {
-        glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+        bound_tex = m_textures->at(draw.tree_tex_id);
       } else {
-        glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(draw.tree_tex_id + 1)));
+        bound_tex = m_anim_slot_array->at(-(draw.tree_tex_id + 1));
       }
+      glBindTexture(GL_TEXTURE_2D, bound_tex);
 
       last_texture = draw.tree_tex_id;
     }
 
-    auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::ETIE);
+    auto double_draw =
+        setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::ETIE, bound_tex,
+                                  draw_state_cache);
 
     prof.add_draw_call();
 
@@ -1066,7 +1141,9 @@ void Tie3::render_tree_wind(int idx,
                render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
 
   glActiveTexture(GL_TEXTURE10);
-  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+  // Gperf-particles round 3: bind the TOD texture selected at update time (the
+  // ping-pong current, or the single texture when the flag is off).
+  glBindTexture(GL_TEXTURE_2D, tree.tod_current);
 
   glActiveTexture(GL_TEXTURE0);
 #ifdef __ANDROID__
@@ -1078,6 +1155,10 @@ void Tie3::render_tree_wind(int idx,
   glPrimitiveRestartIndex(UINT32_MAX);
 #endif
 
+  // Gperf-particles: per-draw GL state cache (flag-off = identical old path).
+  BgDrawStateCache draw_state_cache;
+  GLuint bound_tex = 0;
+
   int last_texture = -1;
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.wind_vertex_index_buffer);
 
@@ -1086,13 +1167,15 @@ void Tie3::render_tree_wind(int idx,
 
     if (draw.tree_tex_id != last_texture) {
       if (draw.tree_tex_id >= 0) {
-        glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+        bound_tex = m_textures->at(draw.tree_tex_id);
       } else {
-        glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(draw.tree_tex_id + 1)));
+        bound_tex = m_anim_slot_array->at(-(draw.tree_tex_id + 1));
       }
+      glBindTexture(GL_TEXTURE_2D, bound_tex);
       last_texture = draw.tree_tex_id;
     }
-    auto double_draw = setup_tfrag_shader(render_state, draw.mode, shader_id);
+    auto double_draw =
+        setup_tfrag_shader_cached(render_state, draw.mode, shader_id, bound_tex, draw_state_cache);
 
     int off = 0;
     for (auto& grp : draw.instance_groups) {
@@ -1114,17 +1197,23 @@ void Tie3::render_tree_wind(int idx,
       switch (double_draw.kind) {
         case DoubleDrawKind::NONE:
           break;
-        case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE:
+        case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE: {
           prof.add_draw_call();
           prof.add_tri(grp.num);
-          glUniform1f(glGetUniformLocation(render_state->shaders[shader_id].id(), "alpha_min"),
-                      -10.f);
-          glUniform1f(glGetUniformLocation(render_state->shaders[shader_id].id(), "alpha_max"),
-                      double_draw.aref_second);
+          const auto& afail_u = tfrag_alpha_uniforms(render_state->shaders[shader_id].id());
+          if (afail_u.alpha_min != -1) {
+            glUniform1f(afail_u.alpha_min, -10.f);
+          }
+          if (afail_u.alpha_max != -1) {
+            glUniform1f(afail_u.alpha_max, double_draw.aref_second);
+          }
           glDepthMask(GL_FALSE);
+          // depth-mask toggled: cached mode's depth state is now stale.
+          draw_state_cache.valid = false;
           glDrawElements(tree.draw_mode, draw.vertex_index_stream.size(), GL_UNSIGNED_INT,
                          (void*)0);
           break;
+        }
         default:
           ASSERT(false);
       }

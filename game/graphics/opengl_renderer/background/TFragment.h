@@ -119,6 +119,12 @@ class TFragment : public BucketRenderer {
     GLuint index_buffer = -1;
     GLuint single_draw_index_buffer = -1;
     GLuint time_of_day_texture = -1;
+    // Gperf-particles round 3: second TOD texture + flip bit for the Adreno
+    // ping-pong; tod_current is set at TOD-update time and used by the draw
+    // bind. Flag OFF => tod_current == time_of_day_texture (old path).
+    GLuint time_of_day_texture_pp = -1;
+    u8 tod_flip = 0;
+    GLuint tod_current = -1;
     GLuint vao = -1;
     u32 vert_count = 0;
     const std::vector<tfrag3::StripDraw>* draws = nullptr;

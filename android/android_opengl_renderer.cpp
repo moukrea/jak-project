@@ -27,6 +27,7 @@
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
 #include "game/graphics/pipelines/opengl.h"
 #include "game/kernel/common/kmachine.h"
+#include "game/mips2c/spart_prof.h"
 #include "game/runtime.h"
 
 #include "fmt/format.h"
@@ -181,6 +182,22 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // ~20ms buckets_ms on Geyser Rock). Live A/B kill switch:
   // adb shell setprop debug.opengoal.perf.nobatch 1
   m_render_state.batch_singledraw = true;
+  // Gperf-particles: lean the fire-heavy sprite path + cache per-draw GL state
+  // in the tfrag-family loops (device is CPU/submission bound). Live A/B kill
+  // switches: adb shell setprop debug.opengoal.perf.nospritelean 1 /
+  // debug.opengoal.perf.nostatecache 1.
+  m_render_state.perf_sprite_lean = true;
+  m_render_state.perf_state_cache = true;
+  // Gperf-particles (round 2): per-instance sprite path (jak1 only). Live A/B
+  // kill switch: adb shell setprop debug.opengoal.perf.noinstance 1.
+  m_render_state.perf_sprite_instance = true;
+  // Gperf-particles (round 3): ping-pong the per-tree time-of-day texture to
+  // avoid the Adreno rewrite-then-sample sync stall, and cache Shrub's static
+  // single-draw index list across frames. Live A/B kill switches:
+  // adb shell setprop debug.opengoal.perf.notodpp 1 /
+  // debug.opengoal.perf.noshrubidx 1.
+  m_render_state.perf_tod_pingpong = true;
+  m_render_state.perf_shrub_static_idx = true;
   std::shared_ptr<SkyBlendGPU> sky_gpu_blender;
   std::shared_ptr<SkyBlendCPU> sky_cpu_blender;
   {
@@ -381,6 +398,23 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     char nb[PROP_VALUE_MAX] = {0};
     __system_property_get("debug.opengoal.perf.nobatch", nb);
     m_render_state.batch_singledraw = (nb[0] != '1');
+    // Gperf-particles kill switches: nospritelean/nostatecache=1 restore the
+    // exact pre-phase path live (for on-device parity/perf compare).
+    char nsl[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.nospritelean", nsl);
+    m_render_state.perf_sprite_lean = (nsl[0] != '1');
+    char nsc[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.nostatecache", nsc);
+    m_render_state.perf_state_cache = (nsc[0] != '1');
+    char nsi[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.noinstance", nsi);
+    m_render_state.perf_sprite_instance = (nsi[0] != '1');
+    char ntp[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.notodpp", ntp);
+    m_render_state.perf_tod_pingpong = (ntp[0] != '1');
+    char nsx[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.perf.noshrubidx", nsx);
+    m_render_state.perf_shrub_static_idx = (nsx[0] != '1');
   }
 
   m_stats.chain_bytes = count_chain_bytes(dma);
@@ -451,6 +485,25 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
       std::string dump = m_profiler.dump_stats(0.10f);
       fprintf(stderr, "A35-PERF frame=%llu\n%s", (unsigned long long)m_stats.frame_idx,
               dump.c_str());
+      // Gperf-particles: particle-pipeline counters over the same 60-frame
+      // window — GOAL-kernel-thread mips2c sparticle kernel time (invisible to
+      // the GL-thread profiler above) + render-thread sprite submission shape.
+      auto ms = [](std::atomic<uint64_t>& a) { return a.exchange(0) / 1e6; };
+      auto n = [](std::atomic<uint64_t>& a) { return (unsigned long long)a.exchange(0); };
+      auto& sp = g_spart_prof;
+      fprintf(stderr,
+              "A35-SPART win=60f 3d=%.2fms/%lluc/%lluit 2d=%.2fms/%lluc/%lluit "
+              "launch=%.2fms/%lluc adgif=%.2fms/%lluc | sprite buckets=%llu quads=%llu "
+              "directflush=%llu | glbuild=%.2fms glflush=%.2fms"
+              " | goal idle=%.2f pace=%.2f n=%llu | tie i=%.2f ts=%.2f cu=%.2f ix=%.2f"
+              " | shrub ts=%.2f ix=%.2f\n",
+              ms(sp.ns_3d), n(sp.calls_3d), n(sp.iters_3d), ms(sp.ns_2d), n(sp.calls_2d),
+              n(sp.iters_2d), ms(sp.ns_launch), n(sp.calls_launch), ms(sp.ns_adgif),
+              n(sp.calls_adgif), n(sp.sprite_buckets), n(sp.sprite_quads),
+              n(sp.direct_flushes), ms(sp.gl_spr_build), ms(sp.gl_spr_flush),
+              ms(sp.goal_idle), ms(sp.goal_pace), n(sp.goal_frames), ms(sp.tie_interp),
+              ms(sp.tie_texsub), ms(sp.tie_cull), ms(sp.tie_index), ms(sp.shrub_texsub),
+              ms(sp.shrub_index));
     }
   }
 

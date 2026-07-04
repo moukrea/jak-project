@@ -49,6 +49,25 @@ struct SharedRenderState {
   // draws that share texture+mode and are contiguous in the single-draw
   // index buffer into one glDrawElements. Desktop leaves this off.
   bool batch_singledraw = false;
+  // Gperf-particles (Android): lean Sprite3 particle path (persist bucket
+  // storage, cached uniform locations, unchecked vertex writes) and a per-draw
+  // GL state cache in the tfrag-family draw loops. Desktop leaves both off.
+  bool perf_sprite_lean = false;
+  bool perf_state_cache = false;
+  // Gperf-particles round 2 (Android, jak1 only): per-instance Sprite3 path —
+  // one 64B SpriteVertex3D record per sprite drawn via glDrawArraysInstanced,
+  // instead of 4 near-identical verts + a triangle-strip index list. Desktop
+  // leaves this off (the old per-vertex path is used).
+  bool perf_sprite_instance = false;
+  // Gperf-particles round 3 (Android, jak1 only): ping-pong the per-tree
+  // time-of-day texture (Tie3/Shrub/TFragment) so this frame's TOD upload does
+  // not target the texture last frame's draws still sample (Adreno ghost/sync
+  // stall). Desktop leaves this off (single-texture behavior).
+  bool perf_tod_pingpong = false;
+  // Gperf-particles round 3 (Android, jak1 only): cache Shrub's level-static
+  // single-draw index list + upload once per level load instead of rebuilding
+  // and re-uploading it every frame. Desktop leaves this off.
+  bool perf_shrub_static_idx = false;
 
   void reset();
   bool has_pc_data = false;

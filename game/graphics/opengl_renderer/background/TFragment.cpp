@@ -404,6 +404,16 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
                      GL_UNSIGNED_BYTE, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        // Gperf-particles round 3: second (ping-pong) TOD texture, identical.
+        glGenTextures(1, &tree_cache.time_of_day_texture_pp);
+        glBindTexture(GL_TEXTURE_2D, tree_cache.time_of_day_texture_pp);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        tree_cache.tod_flip = 0;
+        tree_cache.tod_current = tree_cache.time_of_day_texture;
         glBindVertexArray(0);
       }
     }
@@ -484,9 +494,20 @@ void TFragment::render_tree(int geom,
     m_color_result.resize(tree.colors->color_count);
   }
   interp_time_of_day(settings.camera.itimes, *tree.colors, m_color_result.data());
+  // Gperf-particles round 3: ping-pong the target TOD texture (flag ON) so the
+  // upload does not touch the texture last frame's draws are still sampling on
+  // Adreno; publish it via tod_current for the bind below. Flag OFF =>
+  // tod_current == time_of_day_texture (byte-identical old path). TFragment has
+  // exactly this one TOD bind per tree, so no other site can go stale.
+  if (render_state->perf_tod_pingpong) {
+    tree.tod_flip ^= 1;
+    tree.tod_current = tree.tod_flip ? tree.time_of_day_texture_pp : tree.time_of_day_texture;
+  } else {
+    tree.tod_current = tree.time_of_day_texture;
+  }
   glActiveTexture(GL_TEXTURE10);
   // A36: Wx1 2D LUT (see update_load) — REV == BYTE order on little-endian.
-  glBindTexture(GL_TEXTURE_2D, tree.time_of_day_texture);
+  glBindTexture(GL_TEXTURE_2D, tree.tod_current);
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tree.colors->color_count, 1, GL_RGBA, GL_UNSIGNED_BYTE,
                   m_color_result.data());
 
@@ -555,6 +576,10 @@ void TFragment::render_tree(int geom,
   }
 #endif
 
+  // Gperf-particles: per-draw GL state cache (flag-off = identical old path).
+  BgDrawStateCache draw_state_cache;
+  GLuint bound_tex = 0;
+
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merge consecutive draws that share texture+mode into one
     // glDrawElements. The single-draw index list packs draw ranges adjacently
@@ -575,11 +600,13 @@ void TFragment::render_tree(int geom,
 
       s32 tex_idx = draw.tree_tex_id;
       if (tex_idx >= 0) {
-        glBindTexture(GL_TEXTURE_2D, m_textures->at(tex_idx));
+        bound_tex = m_textures->at(tex_idx);
       } else {
-        glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(tex_idx + 1)));
+        bound_tex = m_anim_slot_array->at(-(tex_idx + 1));
       }
-      auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::TFRAG3);
+      glBindTexture(GL_TEXTURE_2D, bound_tex);
+      auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3,
+                                                   bound_tex, draw_state_cache);
       glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
 
       int first = singledraw_indices.first;
@@ -614,6 +641,8 @@ void TFragment::render_tree(int geom,
         glUniform1f(alpha_u.alpha_min, -10.f);
         glUniform1f(alpha_u.alpha_max, double_draw.aref_second);
         glDepthMask(GL_FALSE);
+        // depth-mask toggled: cached mode's depth state is now stale.
+        draw_state_cache.valid = false;
         glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       }
       draw_idx = next;
@@ -637,11 +666,13 @@ void TFragment::render_tree(int geom,
     ASSERT(m_textures);
     s32 tex_idx = draw.tree_tex_id;
     if (tex_idx >= 0) {
-      glBindTexture(GL_TEXTURE_2D, m_textures->at(draw.tree_tex_id));
+      bound_tex = m_textures->at(draw.tree_tex_id);
     } else {
-      glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(-(tex_idx + 1)));
+      bound_tex = m_anim_slot_array->at(-(tex_idx + 1));
     }
-    auto double_draw = setup_tfrag_shader(render_state, draw.mode, ShaderId::TFRAG3);
+    glBindTexture(GL_TEXTURE_2D, bound_tex);
+    auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3,
+                                                 bound_tex, draw_state_cache);
     glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
     tree.tris_this_frame += draw.num_triangles;
     tree.draws_this_frame++;
@@ -660,13 +691,18 @@ void TFragment::render_tree(int geom,
     switch (double_draw.kind) {
       case DoubleDrawKind::NONE:
         break;
-      case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE:
+      case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE: {
         prof.add_draw_call();
-        glUniform1f(glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "alpha_min"),
-                    -10.f);
-        glUniform1f(glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "alpha_max"),
-                    double_draw.aref_second);
+        const auto& afail_u = tfrag_alpha_uniforms(render_state->shaders[ShaderId::TFRAG3].id());
+        if (afail_u.alpha_min != -1) {
+          glUniform1f(afail_u.alpha_min, -10.f);
+        }
+        if (afail_u.alpha_max != -1) {
+          glUniform1f(afail_u.alpha_max, double_draw.aref_second);
+        }
         glDepthMask(GL_FALSE);
+        // depth-mask toggled: cached mode's depth state is now stale.
+        draw_state_cache.valid = false;
         if (render_state->no_multidraw) {
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
@@ -677,6 +713,7 @@ void TFragment::render_tree(int geom,
               multidraw_indices.second);
         }
         break;
+      } // AFAIL_NO_DEPTH_WRITE
       default:
         ASSERT(false);
     }
@@ -754,6 +791,8 @@ void TFragment::discard_tree_cache() {
         fprintf(stderr, "F1E-DELTEX site=tfrag-tod tex=%u\n", (unsigned)tree.time_of_day_texture);
 #endif
         glDeleteTextures(1, &tree.time_of_day_texture);
+        // Gperf-particles round 3: delete the ping-pong TOD texture too.
+        glDeleteTextures(1, &tree.time_of_day_texture_pp);
         glDeleteBuffers(1, &tree.single_draw_index_buffer);
         glDeleteBuffers(1, &tree.index_buffer);
         glDeleteVertexArrays(1, &tree.vao);

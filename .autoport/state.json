@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 177,
+  "current_phase_idx": 178,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -169,7 +169,8 @@
     "Gcrash-rockvillage": 1,
     "Glang-mixed": 1,
     "Gndskip": 1,
-    "Gtitle-tap": 1
+    "Gtitle-tap": 1,
+    "Gperf-particles": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -482,7 +483,8 @@
     "Geco-spheres",
     "Gcrash-rockvillage",
     "Glang-mixed",
-    "Gndskip"
+    "Gndskip",
+    "Gtitle-tap"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -638,9 +640,10 @@
     "Gcrash-rockvillage": 1783086204.030827,
     "Glang-mixed": 1783096640.731049,
     "Gndskip": 1783103846.1252134,
-    "Gtitle-tap": 1783111038.9092355
+    "Gtitle-tap": 1783111038.9092355,
+    "Gperf-particles": 1783116521.5464356
   },
-  "last_update": "2026-07-03T21:52:42.157904+00:00",
+  "last_update": "2026-07-03T22:33:34.627535+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

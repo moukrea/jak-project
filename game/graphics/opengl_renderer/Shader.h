@@ -67,6 +67,7 @@ enum class ShaderId {
   TIE_WIND = 40,
   SIMPLE_TEXTURE = 41,
   SLOW_TIME = 42,
+  SPRITE3_INSTANCED = 43,
   MAX_SHADERS
 };
 

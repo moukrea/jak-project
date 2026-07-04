@@ -5,6 +5,7 @@
 #include "common/util/Assert.h"
 
 #include "game/graphics/pipelines/opengl.h"
+#include "game/mips2c/spart_prof.h"
 
 #include "fmt/format.h"
 #include "third-party/imgui/imgui.h"
@@ -200,6 +201,8 @@ void DirectRenderer::lookup_textures_again(SharedRenderState* render_state) {
 }
 
 void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfilerNode& prof) {
+  // Gperf-particles: count all DirectRenderer flushes (A35-SPART dump)
+  g_spart_prof.direct_flushes.fetch_add(1, std::memory_order_relaxed);
   // update opengl state
   if (m_blend_state_needs_gl_update) {
     update_gl_blend();

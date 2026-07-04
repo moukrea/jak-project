@@ -51,6 +51,26 @@ const TfragAlphaUniforms& tfrag_alpha_uniforms(u64 program);
 DoubleDraw setup_tfrag_shader(SharedRenderState* render_state, DrawMode mode, ShaderId shader);
 DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap);
 
+// Pure computation of DoubleDraw settings from a DrawMode (no GL calls) — used
+// by the tfrag-family state cache to pick the alpha uniform without re-issuing
+// GL state.
+DoubleDraw compute_double_draw(DrawMode mode);
+
+// Gperf-particles: per-draw GL state cache for the tfrag-family loops. A local
+// cache lives at the top of each tree-render function (per-render reset). When
+// render_state->perf_state_cache is off, setup_tfrag_shader_cached is exactly
+// setup_tfrag_shader.
+struct BgDrawStateCache {
+  u32 last_mode;
+  GLuint last_tex;
+  bool valid = false;
+};
+DoubleDraw setup_tfrag_shader_cached(SharedRenderState* rs,
+                                     DrawMode mode,
+                                     ShaderId shader,
+                                     GLuint bound_tex,
+                                     BgDrawStateCache& cache);
+
 void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                             SharedRenderState* render_state,
                             ShaderId shader);
