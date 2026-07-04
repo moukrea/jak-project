@@ -56,6 +56,9 @@
 #if defined(__ANDROID__)
 #include <android/log.h>  // [CC] trigger line -> GK_STDOUT logcat (live supervisor monitoring)
 #include <sys/system_properties.h>
+// Gcrash-swamp-load (debug-only): arm the signal-handler repair bypass, defined
+// in android/gk_android_main.cpp. Called from diag_flags_maybe(); OFF by default.
+extern "C" void gk_set_diag_norepair(bool on);
 #endif
 
 using namespace ee;
@@ -2397,6 +2400,142 @@ void die_maybe_fire() {
          s_respawn ? "respawn" : s_die_event_mode, settle, gap);
   fflush(stdout);
 }
+
+// ─── TARGET-DRIVE (Gcrash-swamp-load debug-only) ────────────────────────────────
+// Env-free / Android prop debug.opengoal.target.drive = "<dx> <dz> <pin_y> <stop_z>"
+// (RAW EE units, floats OK), OFF by default. Each kernel dispatch, marches *target*
+// (Jak) by (dx,dz) in world space (optionally pinning y), stopping at stop_z — so
+// SWA.DGO streams in from Jak's REAL position (a position-triggered load, not a
+// want-levels replay). Reads/writes *target*'s world trans via the SAME guarded
+// EE-memcpy pattern the mouche_/eco_ hooks use: (-> *target* root) @ tgt+108,
+// trans @ root+12 (x@+0 y@+4 z@+8, 4-byte floats). Runs on the GOAL kernel thread
+// in the dispatch loop (safe to touch EE, like the eco hook). Never armed in the
+// shipped APK.
+void target_drive_maybe() {
+  // Gate: read the prop once per call; disarmed if empty/unset. Sized 128 (not
+  // PROP_VALUE_MAX, an Android-only macro) so the x86 desktop build compiles.
+  char buf[128] = {0};
+#if defined(__ANDROID__)
+  if (!(__system_property_get("debug.opengoal.target.drive", buf) > 0 && buf[0])) {
+    return;
+  }
+#else
+  if (const char* e = std::getenv("OG_TARGET_DRIVE")) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+  }
+  if (!buf[0]) {
+    return;
+  }
+#endif
+
+  const u32 fnull = (u32)s7.offset;
+  u32 tgt = intern_from_c("*target*")->value;
+  if (tgt == 0 || tgt == fnull) {
+    return;
+  }
+  // (-> *target* root) : control/root ptr @ tgt+108 (same read as kmachine.cpp:2002-2004).
+  if (tgt >= (u32)(EE_MAIN_MEM_SIZE - 112)) {
+    return;
+  }
+  u32 root_ptr = 0;
+  std::memcpy(&root_ptr, g_ee_main_mem + tgt + 108, 4);
+  if (root_ptr == 0 || root_ptr == fnull) {
+    return;
+  }
+  // trans vector @ root+12 (world position); guard the whole [x..z+4) span.
+  u32 trans_vec = root_ptr + 12;
+  if (trans_vec < 0x1000 || trans_vec >= (u32)(EE_MAIN_MEM_SIZE - 16)) {
+    return;
+  }
+
+  // Parse "<dx> <dz> <pin_y> <stop_z>" (atof, floats OK).
+  float dx = 0.f, dz = 0.f, pin_y = 0.f, stop_z = 0.f;
+  int n = std::sscanf(buf, "%f %f %f %f", &dx, &dz, &pin_y, &stop_z);
+  if (n < 4) {
+    return;  // need all four
+  }
+
+  // Read current x,y,z floats from trans_vec.
+  float x = 0.f, y = 0.f, z = 0.f;
+  std::memcpy(&x, g_ee_main_mem + trans_vec + 0, 4);
+  std::memcpy(&y, g_ee_main_mem + trans_vec + 4, 4);
+  std::memcpy(&z, g_ee_main_mem + trans_vec + 8, 4);
+
+  // Determine "past the stop" for the drive direction, then step (or hold).
+  bool past = (dz < 0 && z <= stop_z) || (dz > 0 && z >= stop_z);
+  if (past) {
+    // Hold Jak at the stop: x unchanged, z pinned to stop_z, y optionally pinned.
+    z = stop_z;
+  } else {
+    x = x + dx;
+    z = z + dz;
+  }
+  std::memcpy(g_ee_main_mem + trans_vec + 0, &x, 4);
+  std::memcpy(g_ee_main_mem + trans_vec + 8, &z, 4);
+  if (pin_y != 0.f) {
+    y = pin_y;
+    std::memcpy(g_ee_main_mem + trans_vec + 4, &y, 4);
+  }
+
+  // Progress trace every 15th call so the harness can track Jak's position.
+  static int s_drive_n = 0;
+  if ((s_drive_n++ % 15) == 0) {
+    printf("TARGET-DRIVE pos=(%.1f %.1f %.1f)\n", x, y, z);
+    fflush(stdout);
+  }
+}
+
+// ─── DIAG FLAGS (Gcrash-swamp-load debug-only) ──────────────────────────────────
+// Env-free / Android prop debug.opengoal.diag.norepair, OFF by default. When
+// value[0]=='1', arms the gk_android_main signal-handler bypass (via the extern
+// "C" setter gk_set_diag_norepair) so the three "repair-and-resume" control
+// transfer handlers bail out and the TRUE first swamp-load crash reaches the fatal
+// forensic dump instead of being silently masked. On desktop this is a no-op.
+void diag_flags_maybe() {
+#if defined(__ANDROID__)
+  char buf[PROP_VALUE_MAX] = {0};
+  bool on = (__system_property_get("debug.opengoal.diag.norepair", buf) > 0 && buf[0] == '1');
+  gk_set_diag_norepair(on);
+#endif
+}
+
+// Gcrash-swamp-load fix: clear *part-group-id-table* slots whose sparticle-launch-group
+// object lies in [dst_goal, dst_goal+size) — the level-heap region jak1_work_v3 is about
+// to overwrite. Race-free (called synchronously right before the segment memcpy). Prevents
+// the arm64 level-thrash dangling-slot crash where lookup-part-group-pointer-by-name
+// derefs a name pointer that was overwritten with code.
+#if defined(__ANDROID__)
+void invalidate_part_groups_in_range(u32 dst_goal, u32 size) {
+  if (size == 0) return;
+  // A/B toggle: the fix is ON by default; debug.opengoal.partgroup.inval=0 disables it
+  // (to reproduce the pre-fix swamp-load crash on the same build). OFF-switch only.
+  {
+    char ib[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.partgroup.inval", ib) > 0 && ib[0] == '0') {
+      return;
+    }
+  }
+  const u32 fnull = (u32)s7.offset;
+  u32 tbl = intern_from_c("*part-group-id-table*")->value;
+  if (tbl == 0 || tbl == fnull || tbl < 0x1000 || tbl >= (u32)(EE_MAIN_MEM_SIZE - 32)) return;
+  u32 len = 0; std::memcpy(&len, g_ee_main_mem + tbl + 4, 4);
+  if (len > 1024) len = 1024;
+  const u64 lo = dst_goal, hi = (u64)dst_goal + size;
+  static int s_inval_logged = 0;
+  for (u32 i = 0; i < len; i++) {
+    u32 slot_addr = tbl + 16 + i * 4;
+    if (slot_addr >= (u32)(EE_MAIN_MEM_SIZE - 4)) break;
+    u32 group = 0; std::memcpy(&group, g_ee_main_mem + slot_addr, 4);
+    if (group == 0 || group == fnull) continue;
+    if ((u64)group >= lo && (u64)group < hi) {
+      if (s_inval_logged < 16) { s_inval_logged++;
+        printf("PARTGROUP-INVAL slot=%u group=0x%x in [0x%x,0x%llx) -> cleared\n",
+               i, group, dst_goal, (unsigned long long)hi); fflush(stdout); }
+      u32 zero = 0; std::memcpy(g_ee_main_mem + slot_addr, &zero, 4);
+    }
+  }
+}
+#endif
 
 }  // namespace jak1
 

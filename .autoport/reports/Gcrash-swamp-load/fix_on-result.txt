@@ -1,0 +1,14 @@
+=== grv_drive fix_on 2026-07-04T11:32:16+02:00 ===
+RESULT tag=fix_on warp_ok=1 swamp_load=1 crashed=0 focus_app=yes
+--- last TARGET-DRIVE pos ---
+TARGET-DRIVE pos=(1779975.1 9285.0 -7355000.0)
+TARGET-DRIVE pos=(1779979.2 9285.0 -7355000.0)
+TARGET-DRIVE pos=(1780139.4 9285.0 -7355000.0)
+--- adding-level ---
+Adding level village1 Adding level village2 Adding level rolling Adding level swamp Adding level rolling Adding level swamp 
+--- links ---
+link finish: kermit link finish: sharkey link finish: swamp-bat link finish: swamp-rat link finish: swamp-rat-nest link finish: swamp-rock link finish: swamp-spike link finish: swampcam link finish: tar-plat link finish: swamp-vis 
+--- crash sig ---
+--- BARERET-FORENSIC ---
+--- nearest goal fn (pc/lr/fault) ---
+--- GECHO break-probe / suspend-tolerate ---

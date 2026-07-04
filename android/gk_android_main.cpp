@@ -3571,6 +3571,14 @@ std::atomic<uint64_t> g_emulated{0};
 std::atomic<bool> g_any_page_open{false};
 std::atomic<int> g_log_budget{64};
 
+// Gcrash-swamp-load (debug-only): when armed via debug.opengoal.diag.norepair=1
+// (set through kmachine::diag_flags_maybe -> gk_set_diag_norepair), the three
+// "repair-and-resume" control-transfer handlers (handle_bare_ret_offset,
+// handle_enter_state_null_code, handle_rftd_null_return) BAIL OUT immediately so
+// the TRUE first crash falls through to the fatal forensic dump instead of being
+// silently masked into a redirect-to-return-from-thread-dead. OFF by default.
+std::atomic<bool> g_gk_diag_norepair{false};
+
 // Unique-writer table (lock-free, fixed-size).
 constexpr int kMaxWriters = 48;
 struct Writer {
@@ -4832,6 +4840,9 @@ bool handle_rftd_code_stomp(int sig, siginfo_t* /*info*/, void* ucontext) {
 // so we always land in valid trampoline code. arm64/Android only; x86 untouched.
 std::atomic<uint64_t> g_rftd_nullret_redirects{0};
 bool handle_rftd_null_return(int sig, siginfo_t* /*info*/, void* ucontext) {
+  // Gcrash-swamp-load (debug-only): let the TRUE first crash reach the fatal dump
+  // instead of being repaired into a silent redirect. Gated debug.opengoal.diag.norepair.
+  if (a38_trip::g_gk_diag_norepair.load(std::memory_order_relaxed)) return false;
   if ((sig != SIGILL && sig != SIGSEGV) || !g_ee_main_mem) {
     return false;
   }
@@ -4903,6 +4914,9 @@ bool handle_rftd_null_return(int sig, siginfo_t* /*info*/, void* ucontext) {
 // move it, e.g. 0x18aee4 f1c vs 0x18aef4 current). arm64/Android only.
 std::atomic<uint64_t> g_grv_bareret_redirects{0};
 bool handle_bare_ret_offset(int sig, siginfo_t* info, void* ucontext) {
+  // Gcrash-swamp-load (debug-only): let the TRUE first crash reach the fatal dump
+  // instead of being repaired into a silent redirect. Gated debug.opengoal.diag.norepair.
+  if (a38_trip::g_gk_diag_norepair.load(std::memory_order_relaxed)) return false;
   if (sig != SIGSEGV || !g_ee_main_mem) {
     return false;
   }
@@ -4924,6 +4938,55 @@ bool handle_bare_ret_offset(int sig, siginfo_t* info, void* ucontext) {
     return false;
   }
   const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  // Gcrash-swamp-load (debug-only): richer forensics BEFORE the redirect so that
+  // even when this handler DOES fire we know WHO returned. Async-signal-safe:
+  // only the guarded readers + __android_log_print. Name the nearest GOAL fn for
+  // pc (=lr, the bare offset that was RET'd to) and dump 8 words at SP, exactly
+  // like the fatal dump's GRV-SP block. Prefix "GK-DIAG BARERET-FORENSIC".
+  {
+    const uintptr_t sp = uc->uc_mcontext.sp;
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG BARERET-FORENSIC pc=lr=0x%lx sp=0x%lx (who RET'd here)",
+                        (unsigned long)pc, (unsigned long)sp);
+    if (uint32_t g = a38_trip::to_goal(pc)) {
+      a38_trip::log_nearest_goal_fn("bareret-pc", g);
+    }
+    for (int base_off = -32; base_off < 160; base_off += 16) {
+      uint32_t w[4] = {0, 0, 0, 0};
+      bool any = false;
+      for (int k = 0; k < 4; k++) {
+        if (gk_diag::safe_read_u32(sp + base_off + 4 * k, &w[k])) {
+          any = true;
+        }
+      }
+      if (any) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG BARERET-FORENSIC sp%+d: %08x %08x %08x %08x", base_off,
+                            w[0], w[1], w[2], w[3]);
+      }
+    }
+    // Walk up to 4 GOAL frame-pointer frames (prologue STP X29,X30,[SP,#-16]! ; MOV
+    // X29,SP -> [X29]=caller X29, [X29+8]=return addr), naming each saved-LR's fn.
+    uintptr_t fp = (uintptr_t)uc->uc_mcontext.regs[29];
+    for (int i = 0; i < 4 && fp >= 0x10000; i++) {
+      uint32_t pl = 0, ph = 0, rl = 0, rh = 0;
+      if (!gk_diag::safe_read_u32(fp, &pl) || !gk_diag::safe_read_u32(fp + 4, &ph) ||
+          !gk_diag::safe_read_u32(fp + 8, &rl) || !gk_diag::safe_read_u32(fp + 12, &rh)) {
+        break;
+      }
+      uint64_t prev_fp = ((uint64_t)ph << 32) | pl;
+      uint64_t ret = ((uint64_t)rh << 32) | rl;
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG BARERET-FORENSIC fp-walk[%d] fp=0x%lx saved-lr=0x%llx "
+                          "prev-fp=0x%llx",
+                          i, (unsigned long)fp, (unsigned long long)ret,
+                          (unsigned long long)prev_fp);
+      if (uint32_t rg = a38_trip::to_goal((uintptr_t)ret)) {
+        a38_trip::log_nearest_goal_fn("bareret-caller", rg);
+      }
+      fp = (uintptr_t)prev_fp;
+    }
+  }
   uc->uc_mcontext.pc = ee + rftd;
   const uint64_t n = g_grv_bareret_redirects.fetch_add(1, std::memory_order_relaxed) + 1;
   __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
@@ -4957,6 +5020,9 @@ bool handle_bare_ret_offset(int sig, siginfo_t* info, void* ucontext) {
 // (the spilled slot is never stomped there).
 std::atomic<uint64_t> g_enter_state_code_repairs{0};
 bool handle_enter_state_null_code(int sig, siginfo_t* /*info*/, void* ucontext) {
+  // Gcrash-swamp-load (debug-only): let the TRUE first crash reach the fatal dump
+  // instead of being repaired into a silent redirect. Gated debug.opengoal.diag.norepair.
+  if (a38_trip::g_gk_diag_norepair.load(std::memory_order_relaxed)) return false;
   if ((sig != SIGILL && sig != SIGSEGV) || !g_ee_main_mem) {
     return false;
   }
@@ -5298,6 +5364,15 @@ extern "C" void gnd_hwwp_arm_once() {
     gnd_hwwp::arm_one(slot);
   }
 #endif  // __aarch64__ && __ANDROID__
+}
+
+// Gcrash-swamp-load (debug-only): set from kmachine::diag_flags_maybe() (which
+// reads debug.opengoal.diag.norepair). extern "C" keeps a clean, unmangled
+// symbol across the kmachine.cpp <-> gk_android_main.cpp boundary. When true,
+// the three control-transfer repair handlers bail so the TRUE first crash
+// reaches the fatal forensic dump. OFF by default.
+extern "C" void gk_set_diag_norepair(bool on) {
+  a38_trip::g_gk_diag_norepair.store(on, std::memory_order_relaxed);
 }
 
 }  // extern "C++"

@@ -1,0 +1,49 @@
+== watch1: warp village2-dock pos=(434.2 2.27 -1705.9)m, task 33, drive south (0 -4000 9285 -7355000) ==
+  waiting title...
+  waiting LEVEL-WARP-SPAWN...
+  warp fired ~12s
+07-04 11:02:20.498  6926  7023 I GK_STDOUT: LEVEL-WARP-POS name=village2-dock x=434.2 y=2.3 z=-1705.9
+07-04 11:02:15.482  6926  7048 I opengoal-gk: [TASK-CLOSE] armed *listener-function* = #x38bc134 for spec '33'
+07-04 11:02:15.482  6926  7023 I GK_STDOUT: TASK-CLOSE task=33 status=7 -> #x0
+  settle 6s...
+  arming target.drive (marching south across the boundary); norepair=0 heal=0...
+  observing 80s for swamp-load + crash...
+  >>> Adding level swamp ~1s (SWA streaming from real position)
+  >>> CRASH ~6s
+=== grv_drive watch1 2026-07-04T11:02:40+02:00 ===
+RESULT tag=watch1 warp_ok=1 swamp_load=1 crashed=1 focus_app=no
+--- last TARGET-DRIVE pos ---
+TARGET-DRIVE pos=(1802023.1 9285.0 -7355000.0)
+TARGET-DRIVE pos=(1815417.6 9285.0 -7358878.5)
+TARGET-DRIVE pos=(1827036.1 9285.0 -7355000.0)
+--- adding-level ---
+Adding level village1 Adding level village2 Adding level rolling Adding level swamp Adding level rolling Adding level swamp 
+--- links ---
+link finish: kermit link finish: sharkey link finish: swamp-bat link finish: swamp-rat link finish: swamp-rat-nest link finish: swamp-rock link finish: swamp-spike link finish: swampcam link finish: tar-plat link finish: swamp-vis 
+--- crash sig ---
+GK-DIAG sig=11 fault=0x7fa8c12fee pc=0x7f004c4ff0 lr=0x7f019338f8
+--- BARERET-FORENSIC ---
+--- nearest goal fn (pc/lr/fault) ---
+07-04 11:02:23.540  6926  7048 F opengoal-gk: A38-TRIPWIRE pc nearest-fn: none below 0x34b8c2c within 2MB
+07-04 11:02:23.540  6926  7048 F opengoal-gk: A38-TRIPWIRE lr nearest-fn: none below 0x34b8be4 within 2MB
+07-04 11:02:23.541  6926  7048 F opengoal-gk: A38-TRIPWIRE pc nearest-fn: none below 0x34b8c40 within 2MB
+07-04 11:02:23.541  6926  7048 F opengoal-gk: A38-TRIPWIRE lr nearest-fn: none below 0x34b8be4 within 2MB
+07-04 11:02:23.541  6926  7048 F opengoal-gk: A38-TRIPWIRE pc nearest-fn: none below 0x34b8ccc within 2MB
+07-04 11:02:23.542  6926  7048 F opengoal-gk: A38-TRIPWIRE lr nearest-fn: none below 0x34b8cac within 2MB
+07-04 11:02:23.542  6926  7048 F opengoal-gk: A38-TRIPWIRE pc nearest-fn: none below 0x34b8cdc within 2MB
+07-04 11:02:23.542  6926  7048 F opengoal-gk: A38-TRIPWIRE lr nearest-fn: none below 0x34b8cac within 2MB
+07-04 11:02:23.543  6926  7048 F opengoal-gk: A38-TRIPWIRE pc nearest-fn: none below 0x34b8cf0 within 2MB
+07-04 11:02:23.543  6926  7048 F opengoal-gk: A38-TRIPWIRE lr nearest-fn: none below 0x34b8cac within 2MB
+07-04 11:02:23.543  6926  7048 F opengoal-gk: A38-TRIPWIRE pc nearest-fn: none below 0x34b8d04 within 2MB
+07-04 11:02:23.543  6926  7048 F opengoal-gk: A38-TRIPWIRE lr nearest-fn: none below 0x34b8cac within 2MB
+07-04 11:02:23.544  6926  7048 F opengoal-gk: A38-TRIPWIRE pc nearest-fn: none below 0x34b8dec within 2MB
+07-04 11:02:23.544  6926  7048 F opengoal-gk: A38-TRIPWIRE lr nearest-fn: none below 0x34b8dd0 within 2MB
+07-04 11:02:23.544  6926  7048 F opengoal-gk: A38-TRIPWIRE pc nearest-fn: none below 0x34b8e00 within 2MB
+07-04 11:02:23.545  6926  7048 F opengoal-gk: A38-TRIPWIRE lr nearest-fn: none below 0x34b8dd0 within 2MB
+07-04 11:02:23.545  6926  7048 F opengoal-gk: A38-TRIPWIRE pc nearest-fn: none below 0x34b8e14 within 2MB
+07-04 11:02:23.545  6926  7048 F opengoal-gk: A38-TRIPWIRE lr nearest-fn: none below 0x34b8dd0 within 2MB
+07-04 11:02:31.382  6926  7048 F opengoal-gk: A38-TRIPWIRE pc nearest-fn 'string=' start=0x4c4eb4 off=+0x13c slot=0x158f34
+07-04 11:02:31.382  6926  7048 F opengoal-gk: A38-TRIPWIRE lr nearest-fn 'lookup-part-group-pointer-by-name' start=0x1933834 off=+0xc4 slot=0x14c31c
+--- GECHO break-probe / suspend-tolerate ---
+07-04 11:02:31.382  6926  7048 F opengoal-gk: GK-DIAG GECHO break-probe pc-instr=0x39400201 is_break=0
+== watch1 done: swamp_load=1 crashed=1 ==

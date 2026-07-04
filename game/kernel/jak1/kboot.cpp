@@ -188,6 +188,16 @@ void KernelCheckAndDispatch() {
     want_display_maybe();
     want_vis_maybe();
 
+    // TARGET-DRIVE (Gcrash-swamp-load debug-only) — march *target* across the swamp
+    // load boundary from its real position; gated debug.opengoal.target.drive, OFF
+    // by default.
+    target_drive_maybe();
+
+    // DIAG FLAGS (Gcrash-swamp-load debug-only) — arm the signal-handler repair
+    // bypass so the TRUE first swamp-load crash reaches the fatal dump; gated
+    // debug.opengoal.diag.norepair, OFF by default.
+    diag_flags_maybe();
+
     // GRV-CANARY (Gcrash-rockvillage debug-only forensic) — gated
     // (env OG_GRV_CANARY / prop debug.opengoal.grv.canary), OFF by default.
     // Watches the target-stack return-trampoline band for the stomp writer.

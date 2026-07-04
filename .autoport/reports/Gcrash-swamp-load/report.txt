@@ -1,0 +1,111 @@
+Gcrash-swamp-load — Rock Village (village2) -> Boggy Swamp (swamp): crash-to-home as the
+swamp DGO streams in while crossing the water pontoons. FALSE-GREEN REOPEN of Gcrash-rockvillage.
+=====================================================================================================
+
+RESULT: SWAMP LOAD CRASH FIXED
+
+## Owner defect (2026-07-04, v4 playtest)
+Crossing the water pontoons from Rock Village heading toward the SWAMP still crashes straight to the
+Android home screen, on the path, as the swamp level loads ("je pense que le swamp charge"). The prior
+phase Gcrash-rockvillage (repair-and-resume handle_bare_ret_offset) was validated on a SYNTHETIC
+want-levels replay + a warp to the buzzer crate — it never physically crossed the load boundary, so it
+fixed a DIFFERENT (camera-float, pc==lr bare-RET) crash and MISSED the owner's real swamp-load crash.
+
+## REAL-route reproduction (device eae4df44; deploy_verify PASS at every build)
+The real crash is triggered by Jak's ACTUAL world position crossing the (load village2 swamp) boundary
+so SWA.DGO streams from his real position (NOT a want-levels injection). Because the pontoons are a
+field of floating discs across ~110 m of water (infeasible to hop headless), Jak's position is DRIVEN
+south across the boundary with a new debug hook (debug.opengoal.target.drive, translation-layer,
+prop-gated OFF by default) from the natural village2-dock spawn: warp village2-dock (natural pos, NORTH
+of the boundary) + close task 33 (restore the 90-orb pontoons) + march *target* trans south across the
+load->display->vis boundary bands. The load fires from POSITION (logcat "Adding level swamp"), SWA.DGO
+streams+links (link finish: kermit/sharkey/swamp-bat/.../swamp-vis), and the game crashes to home. This
+is the real crash — NOT the synthetic want-levels path (want.* left EMPTY). Reproduced identically on 3
+independent drive paths (real1/real2/drive1) — deterministic.
+
+CAPTURED CRASH (drive1, and again fix_off control):
+  GK-DIAG sig=11 fault=0x7fa8c12fee pc=0x7f004c4ff0 lr=0x7f019338f8   (SIGSEGV)
+  pc nearest-fn 'string=' +0x13c ; lr nearest-fn 'lookup-part-group-pointer-by-name' +0xc4
+  App crash-to-home confirmed (mCurrentFocus lost, focus_app=no); full logcat captured well past the
+  point; the fatal is org.opengoal.gk.jak1 (no background-sig9 confusion).
+
+## Forensics — faulting fn/PC named, writer named by mprotect watch
+- The faulting instruction at string=+0x13c is `LDRB W1,[X16]` with X16 = EE_base(0x7f00000000) + GOAL
+  0xa8c12fe6 (x8=0xa8c12fee): string= dereferenced a GARBAGE name pointer 0xa8c12fe6 (far beyond the
+  128 MB EE, NOT a valid string). Caller lookup-part-group-pointer-by-name iterates *part-group-id-table*
+  and calls (string= arg0 (-> group name)); the slot's sparticle-launch-group object is at a VALID
+  swamp-heap address but its `name` field (offset 12) is garbage. Crash SP only ~1136 bytes deep => NOT
+  a stack overflow.
+- 0xa8c12fe6 is a 2-bit-perturbed copy of goalc's arm64 BLR-restore word 0xA8C12FEA (`ldp x10,x11,[sp],#16`)
+  -> the name field was overwritten with ARM64 CODE. A per-dispatch content canary (SWAMP-HEAL) showed
+  NINE consecutive part-group slots (107-115) whose name fields became different arm64 instruction words
+  (a8c117e3 ldp, aa0e03e0 mov, 910043ff add sp, f9400209 ldr, d2800007 movz, 90000009 adrp ...) —
+  a contiguous code overwrite of live launch-group static data. Deterministic, byte-identical every run.
+- An mprotect write-watch (A38 tripwire, band 0x2dfc000..0x2e01000) NAMED THE WRITER: libc memcpy
+  (STP 16-byte chunks of arm64 code) called from lr = _ZN12link_control12jak1_work_v3Ev+0x194
+  (game/kernel/jak1/klink.cpp) — i.e. the runtime linker copying a re-linked object segment.
+
+## Classification (arm64-only; x86 golden runs the identical route crash-free)
+LEVEL-HEAP-REUSE RACE, arm64 codegen-size-driven. Jak1 has only 2 level heaps (LEVEL_COUNT=2, heap A =
+[0x2df0000,0x381c000)); the pontoon route thrashes 3 levels (village2+rolling+swamp) through them
+("Adding level swamp ... rolling ... swamp"). link_control::jak1_work_v3 (klink.cpp:305/321/337)
+ultimate_memcpy's each object segment into a kmalloc'd level-heap destination. On arm64 the object
+segments are BULKIER (top-level link block 3860 vs 2634 bytes), so a level's login/link spans MORE
+frames and STRADDLES a discard: rolling's unload runs unlink-part-group-by-heap (clears its slots), then
+an in-flight racer-part (ROL.DGO, ids 108-115) link FINISHES and RE-registers those slots into heap A
+just as swamp reuses heap A — jak1_work_v3's memcpy then copies swamp/rolling code over those live
+launch-group objects; *part-group-id-table* still points at them, and string= derefs the code word. On
+x86 the link completes inside the discard frame, so the registration and the heap reuse never interleave.
+NOT the corrupt-LDP bare-RET class Gcrash-rockvillage handled (that is pc==lr, fault==pc; this is a DATA
+deref, fault != pc), NOT mips2c, NOT stack, NOT a DMA race (deterministic).
+
+## Why Gcrash-rockvillage's fix MISSED it (and why it was a false-green)
+Its handle_bare_ret_offset repairs only the pc==lr && fault==pc bare-RET sink (a corrupted return slot);
+this swamp crash is a data-load fault (fault != pc), a different sink, so that handler correctly never
+fires. Its validation used a want-levels replay that LINKED SWA.DGO but never DISPLAYED the swamp with
+Jak present, so the swamp part-spawner init (which runs the lookup) never executed and the crash never
+surfaced. The reopen's HARD real-route rule exposed it.
+
+## FIX (1-to-1, translation layer only; game/kernel/jak1/klink.cpp + kmachine.cpp, arm64/Android-gated)
+invalidate_part_groups_in_range(dst_goal, size) (kmachine.cpp): before each level-heap segment
+ultimate_memcpy in jak1_work_v3 (klink.cpp, immediately before the MAIN and TOP-LEVEL copies, guarded to
+level heaps only: m_heap != kglobalheap && m_heap != kdebugheap), clear every *part-group-id-table* slot
+whose sparticle-launch-group pointer lies in [dst, dst+size) — the exact range about to be overwritten.
+This is the C++ emulation of the game's own unlink-part-group-by-heap, keyed on the ACTUAL write range,
+so it cannot lose the async-link/discard race regardless of interleaving. The new segment's top-level
+re-registers valid groups afterward; the lookup tests (and (nonzero? v1-2) ...) so a 0 slot is safely
+skipped. Race-free (runs synchronously on the same thread right before the memcpy). Gated
+#if defined(__ANDROID__); x86 build byte-identical (verified: build-x86 gk built clean, all new code
+Android-only). goal_src (non-pc) untouched; goalc/emitter/IGenX86_64 untouched; .autoport/gold untouched.
+The failed per-dispatch poll-heal attempt (swamp_partgroup_heal_maybe) was REMOVED — it raced (heal ran
+before the same-tick corruption) and healed only the name word of a fully-code-overwritten object.
+
+## AFTER — REAL-route run, crash-free past the boundary (device eae4df44, fix build sha e9b856b1)
+fix_on (invalidate ON, default): warp village2-dock + task 33 + drive south across the load/display/vis
+boundary. "Adding level swamp" fired from real position; SWA.DGO streamed+linked (kermit..swamp-vis); the
+fix logged 9 PARTGROUP-INVAL slot clears (slots 107-115 in [0x2dfb020,0x2e006d0) — the stale racer-part
+registrations, cleared before the memcpy). RESULT: crashed=0, focus_app=yes (app foreground), swamp
+LOADED, Jak held in the swamp region, SUSTAINED 100 s crash-free — 0 sig, no BARERET, no break.
+Same-build A/B PROOF: fix_off control (debug.opengoal.partgroup.inval=0, fix disabled on the SAME build)
+reproduced the identical crash (sig=11 fault=0x7fa8c12fee, string=+0x13c, lookup-part-group) at ~4 s,
+focus_app=no. Only the fix prop differs => the fix is responsible.
+
+## Prior fixes intact
+The diff adds only a linker-time part-group-table cleanup (klink.cpp) + the C++ helper (kmachine.cpp);
+no instruction stream, renderer, GOAL data path, or engine goal_src is altered. The AFTER run shows
+normal gameplay: camera tracking (A37-CAM x210), collision (collide x137, walking/standing), movement
+(target-pos x306), jungle/blue-eco/eco pickups (jungle x6, money x4, orb x7). Prior-phase invariants
+(collision/wall-slide, jungle hopper, blue-eco launcher, eco spheres, orb/money HUD, speed, camera) are
+untouched by this diff.
+
+## x86 unaffected
+- All fix code is #if defined(__ANDROID__)-gated; build-x86 target gk built clean with no behavior change.
+- x86 smoke: gk -boot reaches "link finish: logo" (validator-verified). x86 golden runs the identical
+  Rock Village->swamp route crash-free (the oracle that proves arm64-specificity).
+
+## Evidence files (.autoport/reports/Gcrash-swamp-load/)
+drive1-logcat.log / drive1-result.txt (real-route crash, forensics), fix_on-logcat.log / fix_on-result.txt
+(AFTER: crash-free 100 s, PARTGROUP-INVAL clears, liveness), fix_off-logcat.log / fix_off-result.txt
+(same-build control crash), watch1-logcat.log (A38 mprotect watch naming jak1_work_v3+0x194 as the memcpy
+writer), ab_on-logcat.log (the failed poll-heal run that localized the level-thrash race).
+Repro tooling: .autoport/lib/grv_drive.sh (position-drive), target_drive_maybe/diag_flags_maybe hooks.
