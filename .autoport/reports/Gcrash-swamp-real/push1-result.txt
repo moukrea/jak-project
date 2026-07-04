@@ -1,0 +1,10 @@
+=== gsr_walk push1 (posm='433.1 4.0 -1725.5') 2026-07-04T20:21:31+02:00 ===
+RESULT tag=push1 status=DROVE-INCOMPLETE reached=0 crashed=0 focus_app=yes last=(1774318.5 -7067350.5)
+--- sig ---
+--- fp-walk / nearest fn ---
+--- adding-level ---
+Adding level rolling Adding level village1 Adding level village2 
+--- swamp links ---
+link finish: sharkey link finish: swamp-blimp link finish: swamp-rope link finish: swamp-tetherrock link finish: swamp-tetherrock-explode link finish: swampcam 
+--- display/vis ---
+

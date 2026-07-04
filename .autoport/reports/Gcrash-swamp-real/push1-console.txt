@@ -1,0 +1,67 @@
+== push1: warp village2-dock posm='433.1 4.0 -1725.5' task33, REAL-input ride SE across swamp boundaries ==
+  waiting title...
+  waiting spawn...
+  spawn ~12s
+07-04 20:18:31.240 23657 23708 I GK_STDOUT: TASK-CLOSE task=33 status=7 -> #x0
+07-04 20:18:36.260 23657 23708 I GK_STDOUT: LEVEL-WARP-POS name=village2-dock x=433.1 y=4.0 z=-1725.5
+  calib#1 p0=(1774646.5 -7067791.5) p1=(1773049.9 -7003315.0) p2=(1743965.1 -6987544.0) -> bad
+  calib#2 p0=(1773969.8 -7067564.0) p1=(1772146.8 -7002591.0) p2=(1740229.2 -6987731.5) -> bad
+  calib#3 p0=(1740229.2 -6987731.5) p1=(1772064.6 -7006067.5) p2=(1734416.9 -6991684.5) -> bad
+  calib not validated — driving with last probe
+  step1 pos=(1734416.9 -6991684.5) y=-8326.6 wp=0 stick ly=0 lx=127 D
+  step2 pos=(1773462.6 -7053274.5) y=8637.2 wp=0 stick ly=0 lx=127 D
+  step3 pos=(1772018.4 -7002964.0) y=-7646.2 wp=0 stick ly=0 lx=127 D
+  step4 pos=(1770878.1 -6950552.0) y=-7322.9 wp=0 stick ly=0 lx=127 D
+  step5 pos=(1770878.1 -6950552.0) y=-7856.3 wp=0 stick ly=0 lx=127 D
+  step6 pos=(1772592.6 -7023906.5) y=-5359.7 wp=0 stick ly=0 lx=127 D
+  step7 pos=(1770960.4 -6953919.0) y=-9857.0 wp=0 stick ly=0 lx=127 D
+  step8 pos=(1770748.5 -6941997.5) y=-6027.3 wp=0 stick ly=0 lx=127 D
+  step9 pos=(1773977.6 -7067648.0) y=16384.0 wp=0 stick ly=0 lx=127 D
+  step10 pos=(1772431.6 -7008887.0) y=-7659.6 wp=0 stick ly=0 lx=127 D
+  step11 pos=(1771224.0 -6947223.0) y=-9091.4 wp=0 stick ly=0 lx=127 D
+  step12 pos=(1771224.0 -6947223.0) y=-8030.3 wp=0 stick ly=0 lx=127 D
+  step13 pos=(1773237.0 -7046509.5) y=4691.2 wp=0 stick ly=0 lx=127 D
+  step14 pos=(1771530.8 -6983706.5) y=-8517.9 wp=0 stick ly=0 lx=127 D
+  step15 pos=(1770817.5 -6948966.5) y=10274.0 wp=0 stick ly=0 lx=127 D
+  step16 pos=(1773977.6 -7067648.0) y=16384.0 wp=0 stick ly=0 lx=127 D
+  step17 pos=(1772080.4 -7006047.5) y=-5426.5 wp=0 stick ly=0 lx=127 D
+  step18 pos=(1770831.8 -6949132.5) y=-7932.9 wp=0 stick ly=0 lx=127 D
+  step19 pos=(1770700.4 -6941764.0) y=-8587.4 wp=0 stick ly=0 lx=127 D
+  step20 pos=(1773977.6 -7067648.0) y=16384.0 wp=0 stick ly=0 lx=127 D
+  step21 pos=(1771982.2 -7002911.5) y=-7907.9 wp=0 stick ly=0 lx=127 D
+  step22 pos=(1770874.2 -6953657.0) y=-7747.6 wp=0 stick ly=0 lx=127 D
+  step23 pos=(1770874.2 -6953657.0) y=-7374.0 wp=0 stick ly=0 lx=127 D
+  step24 pos=(1773087.0 -7036209.5) y=-4024.1 wp=0 stick ly=0 lx=127 D
+  step25 pos=(1771415.8 -6962638.0) y=-10789.5 wp=0 stick ly=0 lx=127 D
+  step26 pos=(1771122.1 -6945080.0) y=-5636.0 wp=0 stick ly=0 lx=127 D
+  step27 pos=(1773956.4 -7067008.5) y=15360.0 wp=0 stick ly=0 lx=127 D
+  step28 pos=(1772224.4 -7005423.0) y=-6142.5 wp=0 stick ly=0 lx=127 D
+  step29 pos=(1771046.2 -6948620.5) y=-9836.9 wp=0 stick ly=0 lx=127 D
+  step30 pos=(1771046.2 -6948620.5) y=-8317.7 wp=0 stick ly=0 lx=127 D
+  step31 pos=(1773148.9 -7038743.5) y=-7346.5 wp=0 stick ly=0 lx=127 D
+  step32 pos=(1771702.2 -6979045.5) y=-7402.4 wp=0 stick ly=0 lx=127 D
+  step33 pos=(1771155.4 -6949124.5) y=8726.5 wp=0 stick ly=0 lx=127 D
+  step34 pos=(1773977.6 -7067648.0) y=16384.0 wp=0 stick ly=0 lx=127 D
+  step35 pos=(1772086.1 -7001871.5) y=-5775.7 wp=0 stick ly=0 lx=127 D
+  step36 pos=(1770962.6 -6947237.5) y=-8981.4 wp=0 stick ly=0 lx=127 D
+  step37 pos=(1770862.1 -6941165.0) y=-7789.0 wp=0 stick ly=0 lx=127 D
+  step38 pos=(1773464.8 -7053171.5) y=7788.0 wp=0 stick ly=0 lx=127 D
+  step39 pos=(1772043.9 -7003638.0) y=-8751.8 wp=0 stick ly=0 lx=127 D
+  step40 pos=(1770945.4 -6954087.5) y=-7596.5 wp=0 stick ly=0 lx=127 D
+  step41 pos=(1770945.4 -6954087.5) y=-7747.1 wp=0 stick ly=0 lx=127 D
+  step42 pos=(1772240.1 -7026540.5) y=-6258.9 wp=0 stick ly=0 lx=127 D
+  step43 pos=(1770216.6 -6956187.5) y=-8608.6 wp=0 stick ly=0 lx=127 D
+  step44 pos=(1769912.5 -6943134.0) y=-9238.2 wp=0 stick ly=0 lx=127 D
+  step45 pos=(1773977.6 -7067648.0) y=16384.0 wp=0 stick ly=0 lx=127 D
+  observing 50s...
+=== gsr_walk push1 (posm='433.1 4.0 -1725.5') 2026-07-04T20:21:31+02:00 ===
+RESULT tag=push1 status=DROVE-INCOMPLETE reached=0 crashed=0 focus_app=yes last=(1774318.5 -7067350.5)
+--- sig ---
+--- fp-walk / nearest fn ---
+--- adding-level ---
+Adding level rolling Adding level village1 Adding level village2 
+--- swamp links ---
+link finish: sharkey link finish: swamp-blimp link finish: swamp-rope link finish: swamp-tetherrock link finish: swamp-tetherrock-explode link finish: swampcam 
+--- display/vis ---
+
+== push1 done: DROVE-INCOMPLETE ==

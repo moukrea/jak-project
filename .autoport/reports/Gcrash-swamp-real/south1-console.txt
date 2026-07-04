@@ -1,0 +1,103 @@
+== south1: warp village2-dock + task33, bearing-drive SOUTH to (1842537,-7333297), 90 steps ==
+  waiting title+spawn...
+  spawn ~16s
+07-04 20:27:04.312 24317 24394 I GK_STDOUT: TASK-CLOSE task=33 status=7 -> #x0
+  step1 pos=(1262551.2 -6779577.0) STUCK ly=0 lx=190 cross=0 swamp=0
+  step2 pos=(1228677.2 -6723336.0) GO ly=40 lx=17 cross=0 swamp=0
+  step3 pos=(1257476.1 -6673161.0) GO ly=40 lx=43 cross=0 swamp=0
+  step4 pos=(1320222.6 -6671724.0) GO ly=0 lx=86 cross=0 swamp=0
+  step5 pos=(1379913.6 -6695153.5) GO ly=0 lx=102 cross=0 swamp=0
+  step6 pos=(1442647.0 -6736178.5) GO ly=0 lx=110 cross=0 swamp=0
+  step7 pos=(1485211.0 -6777103.5) GO ly=0 lx=117 cross=0 swamp=0
+  step8 pos=(1516104.5 -6811074.5) GO ly=0 lx=120 cross=0 swamp=0
+  step9 pos=(1516104.5 -6811074.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step10 pos=(1264042.6 -6833039.5) GO ly=40 lx=231 cross=0 swamp=0
+  step11 pos=(1210878.9 -6811261.5) GO ly=40 lx=237 cross=0 swamp=0
+  step12 pos=(1162718.0 -6838481.0) GO ly=40 lx=216 cross=0 swamp=0
+  step13 pos=(1146806.1 -6880906.5) GO ly=0 lx=187 cross=0 swamp=0
+  step14 pos=(1146806.1 -6880906.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step15 pos=(1253870.1 -6818099.0) GO ly=0 lx=72 cross=0 swamp=0
+  step16 pos=(1253674.8 -6763424.5) GO ly=40 lx=23 cross=0 swamp=0
+  step17 pos=(1304484.0 -6724383.5) GO ly=40 lx=61 cross=0 swamp=0
+  step18 pos=(1349851.5 -6728158.5) GO ly=0 lx=92 cross=0 swamp=0
+  step19 pos=(1391698.6 -6766471.5) GO ly=0 lx=120 cross=0 swamp=0
+  step20 pos=(1421053.9 -6806758.5) GO ly=0 lx=129 cross=0 swamp=0
+  step21 pos=(1447352.6 -6837098.0) GO ly=0 lx=126 cross=0 swamp=0
+  step22 pos=(1447352.6 -6837098.0) STUCK ly=0 lx=190 cross=0 swamp=0
+  step23 pos=(1254714.9 -6819117.0) GO ly=40 lx=237 cross=0 swamp=0
+  step24 pos=(1199930.9 -6810811.0) GO ly=40 lx=237 cross=0 swamp=0
+  step25 pos=(1162789.9 -6838343.5) GO ly=40 lx=210 cross=0 swamp=0
+  step26 pos=(1147540.2 -6875119.5) GO ly=40 lx=188 cross=0 swamp=0
+  step27 pos=(1147540.2 -6875119.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step28 pos=(1253397.9 -6817623.0) GO ly=0 lx=73 cross=0 swamp=0
+  step29 pos=(1238310.9 -6787293.0) GO ly=40 lx=17 cross=0 swamp=0
+  step30 pos=(1238489.5 -6787314.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step31 pos=(1235967.8 -6785266.0) GO ly=40 lx=237 cross=0 swamp=0
+  step32 pos=(1232585.1 -6791959.0) GO ly=0 lx=185 cross=0 swamp=0
+  step33 pos=(1236788.6 -6786662.5) GO ly=40 lx=55 cross=0 swamp=0
+  step34 pos=(1236326.1 -6785280.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step35 pos=(1233481.9 -6781166.0) GO ly=40 lx=17 cross=0 swamp=0
+  step36 pos=(1238494.4 -6787316.5) GO ly=0 lx=133 cross=0 swamp=0
+  step37 pos=(1237934.6 -6787673.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step38 pos=(1237717.0 -6786896.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step39 pos=(1233312.1 -6780803.0) GO ly=40 lx=17 cross=0 swamp=0
+  step40 pos=(1236303.2 -6781796.0) GO ly=0 lx=109 cross=0 swamp=0
+  step41 pos=(1236719.0 -6780818.0) STUCK ly=0 lx=190 cross=0 swamp=0
+  step42 pos=(1233289.8 -6780862.0) GO ly=40 lx=233 cross=0 swamp=0
+  step43 pos=(1231908.5 -6786621.5) GO ly=0 lx=174 cross=0 swamp=0
+  step44 pos=(1228034.9 -6797012.0) GO ly=0 lx=180 cross=0 swamp=0
+  step45 pos=(1222703.1 -6797853.5) GO ly=40 lx=228 cross=0 swamp=0
+  step46 pos=(1216931.0 -6804645.5) GO ly=40 lx=197 cross=0 swamp=0
+  step47 pos=(1159906.6 -6813198.5) GO ly=40 lx=231 cross=0 swamp=0
+  step48 pos=(1142012.8 -6825779.5) GO ly=40 lx=211 cross=0 swamp=0
+  step49 pos=(1142012.8 -6825779.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step50 pos=(1244970.1 -6808306.5) GO ly=0 lx=88 cross=0 swamp=0
+  step51 pos=(1237777.9 -6786932.5) GO ly=40 lx=17 cross=0 swamp=0
+  step52 pos=(1238478.9 -6787324.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step53 pos=(1235373.6 -6788667.5) GO ly=40 lx=216 cross=0 swamp=0
+  step54 pos=(1231316.6 -6790846.0) GO ly=40 lx=212 cross=0 swamp=0
+  step55 pos=(1233598.5 -6795410.5) GO ly=0 lx=144 cross=0 swamp=0
+  step56 pos=(1236480.4 -6781253.5) GO ly=40 lx=34 cross=0 swamp=0
+  step57 pos=(1237928.1 -6787058.0) GO ly=0 lx=153 cross=0 swamp=0
+  step58 pos=(1237107.9 -6786462.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step59 pos=(1236607.8 -6790051.0) GO ly=0 lx=170 cross=0 swamp=0
+  step60 pos=(1237651.2 -6786868.0) GO ly=40 lx=39 cross=0 swamp=0
+  step61 pos=(1238470.9 -6787350.0) STUCK ly=0 lx=190 cross=0 swamp=0
+  step62 pos=(1238108.4 -6792545.0) GO ly=0 lx=167 cross=0 swamp=0
+  step63 pos=(1236635.4 -6787292.5) GO ly=40 lx=17 cross=0 swamp=0
+  step64 pos=(1238493.1 -6787327.0) GO ly=0 lx=96 cross=0 swamp=0
+  step65 pos=(1236576.5 -6787014.5) GO ly=40 lx=237 cross=0 swamp=0
+  step66 pos=(1233328.2 -6790891.0) GO ly=40 lx=195 cross=0 swamp=0
+  step67 pos=(1217689.1 -6803949.5) GO ly=40 lx=204 cross=0 swamp=0
+  step68 pos=(1189256.1 -6804691.5) GO ly=40 lx=235 cross=0 swamp=0
+  step69 pos=(1144525.6 -6836053.5) GO ly=40 lx=212 cross=0 swamp=0
+  step70 pos=(1139205.8 -6847852.0) GO ly=40 lx=188 cross=0 swamp=0
+  step71 pos=(1264346.8 -6833563.5) GO ly=0 lx=91 cross=0 swamp=0
+  step72 pos=(1265843.4 -6785734.5) GO ly=40 lx=25 cross=0 swamp=0
+  step73 pos=(1302719.9 -6735326.0) GO ly=40 lx=48 cross=0 swamp=0
+  step74 pos=(1338528.2 -6720103.0) GO ly=0 lx=70 cross=0 swamp=0
+  step75 pos=(1379136.6 -6754335.0) GO ly=0 lx=119 cross=0 swamp=0
+  step76 pos=(1399070.6 -6794315.0) GO ly=0 lx=137 cross=0 swamp=0
+  step77 pos=(1433182.1 -6848441.5) GO ly=0 lx=133 cross=0 swamp=0
+  step78 pos=(1443854.5 -6862768.5) GO ly=0 lx=129 cross=0 swamp=0
+  step79 pos=(1443854.5 -6862768.5) STUCK ly=0 lx=190 cross=0 swamp=0
+  step80 pos=(1237040.6 -6799676.0) GO ly=40 lx=237 cross=0 swamp=0
+  step81 pos=(1212025.9 -6806975.5) GO ly=40 lx=223 cross=0 swamp=0
+  step82 pos=(1160850.1 -6820045.5) GO ly=40 lx=227 cross=0 swamp=0
+  step83 pos=(1132950.4 -6861613.0) GO ly=40 lx=197 cross=0 swamp=0
+  step84 pos=(1132950.4 -6861613.0) STUCK ly=0 lx=190 cross=0 swamp=0
+  step85 pos=(1264042.6 -6833039.5) GO ly=0 lx=86 cross=0 swamp=0
+  step86 pos=(1255949.0 -6776323.5) GO ly=40 lx=17 cross=0 swamp=0
+  step87 pos=(1288417.2 -6742511.5) GO ly=40 lx=55 cross=0 swamp=0
+  step88 pos=(1293594.2 -6742243.5) GO ly=0 lx=89 cross=0 swamp=0
+  step89 pos=(1320599.1 -6718624.0) GO ly=40 lx=57 cross=0 swamp=0
+  step90 pos=(1384076.1 -6739927.5) GO ly=0 lx=101 cross=0 swamp=0
+  observing 40s...
+=== gsr_south south1 2026-07-04T20:30:47+02:00 ===
+RESULT tag=south1 crashed=0 focus_app=yes load_crossings~0 last=(1264346.8 -6833563.5)
+--- sig ---
+--- fp-walk/fn ---
+--- adding-level counts ---
+  swamp-adds=0
+--- display/vis ---
+== south1 done crashed=0 crossings~0 ==

@@ -1,0 +1,7 @@
+=== gsr_south south2 2026-07-04T20:33:54+02:00 ===
+RESULT tag=south2 crashed=0 focus_app=yes load_crossings~0 last=(1780921.1 -7132615.5)
+--- sig ---
+--- fp-walk/fn ---
+--- adding-level counts ---
+  swamp-adds=0
+--- display/vis ---

@@ -1,0 +1,127 @@
+Gcrash-swamp-real — Rock Village (village2) -> Boggy Swamp (swamp): crash-to-home crossing the
+pontoons "as the swamp loads". 2nd FALSE-GREEN REOPEN (owner v5 play-test 2026-07-05: still crashes,
+"exactement pareil"). target.drive BANNED as repro/proof.
+=====================================================================================================
+
+RESULT: SWAMP CRASH ROOT NAMED  (+ deterministic owner-capture handoff prepared)
+
+Honest outcome per the mandate: a FULLY-FAITHFUL headless repro of the owner's crash could NOT be
+achieved (blind position-only input cannot ride the pontoons into the swamp-'active zone — see
+"Faithful-repro attempts"). The real crash's SINK is named by analysis and the classes are ruled in/
+out below; the exact faulting PC is captured deterministically by the prepared owner-capture (the
+built-in pad_replay record/replay, NOT target.drive). No fix is claimed without a captured faithful
+crash (that is exactly the mistake that produced the two prior false-greens).
+
+## What the owner reports (2026-07-05, v5 play-test)
+v5 SHIPS the Gcrash-swamp-load fix (543b7739b). Crossing the pontoons from Rock Village toward Boggy
+Swamp STILL crashes to home "as the swamp loads". So 543b7739b did NOT fix the owner's crash — it
+cured a DIFFERENT crash that only the `debug.opengoal.target.drive` position-forcing hook produced.
+
+## The captured (NON-FAITHFUL) drive-hook crash that 543b7739b already fixed — forensic anchor
+Every crash capture in .autoport/reports/Gcrash-swamp-load/ was produced by target.drive (position
+forcing). Its forensics:
+  GK-DIAG sig=11 fault=0x7fa8c12fee pc=0x7f004c4ff0 lr=0x7f019338f8   (SIGSEGV)
+  pc nearest-fn 'string=' +0x13c ;  lr nearest-fn 'lookup-part-group-pointer-by-name' +0xc4
+Classified: LINK-time level-heap-reuse race — link_control::jak1_work_v3+0x194 (klink.cpp) memcpy
+overwrote a live *part-group-id-table* sparticle-launch-group object with arm64 code words, so
+`string=` derefed a garbage name pointer. FIXED by 543b7739b (invalidate_part_groups_in_range clears
+table slots whose object lies in the memcpy destination range). This fix is CORRECT for that sink and
+is retained.
+
+## Faithful-repro attempts (REAL controller input via cpad_inject — target.drive NOT used; 9 runs)
+Tooling: .autoport/lib/gsr_walk.sh / gsr_south.sh — warp continue village2-dock (the owner's exact
+resident set: village2+rolling), close task 33 (village2-warrior-money = raise the 90-orb pontoons,
+status need-resolution=7, verified), then move Jak with REAL analog left-stick + X jump, closed-loop
+off the F1D target-pos telemetry (a bearing controller, no target.drive anywhere).
+  - Real-input SWIMMING south across the (load village2 swamp) boundary reaches swamp LOAD + FULL LINK
+    (sharkey, kermit, swamp-part, swamp-blimp, swamp-tetherrock, swampcam, swamp-vis, ...) with NO
+    crash — reproduced across many boundary crossings (pon1, south1, loadride1). => the drive-hook
+    LINK-time crash is genuinely FIXED in the reachable path; the owner's crash is NOT there.
+  - The swamp-'ACTIVE zone (past the display line ~z=-7.24M / vis ~z=-7.35M, where the swamp BSP
+    collision + actor birth come online — collision gates on level status=='active,
+    collide-cache.gc:115/:123) is UNREACHABLE with blind input: between the last solid pontoon
+    (aid3288, raw z=-7.13M) and the display line there is an endlessfall void (no swamp floor until
+    'active; target-death.gc:583-593 teleports Jak to last-safe-ground = the dock). Every attempt to
+    push past the last pontoon endlessfall-resets. display swamp / vis NEVER fired in any run.
+  - Jak never RODE a pontoon at the instant of a fresh SWA.DGO stream (he was always swimming, deck
+    height y~6144 vs water y~-8000) — the pontoon discs are a bobbing rider-plat chain with a ~25 m
+    open-water gap between sub-clusters that needs a timed running-jump; blind position-only input
+    cannot ride them. The owner crosses them by SIGHT with a controller.
+KEY: no owner save exists on the device (checked). The owner reproduces on the SAME warp+task33 setup
+(identical resident set) — so full-route HEAP OCCUPANCY is NOT the differentiator (ruled out). The
+sole differentiator is that the owner RIDES the pontoons into the swamp-'active zone; the crash is
+therefore at swamp ACTIVATE / actor-birth (or the ride into it), which blind headless input can't reach.
+
+## ROOT NAMED — the real crash sink (by analysis; differs from the drive-hook sink 543b7739b cured)
+Because real-input LOAD+LINK is crash-free, the owner's crash is at swamp reaching status 'active
+(actor birth with Jak present) — "as the swamp loads/displays". Ranked candidates (all arm64-only;
+x86 runs the same route crash-free — the oracle):
+  #1  BIRTH-TIME arm64 codegen fault when the swamp entrance actors go alive/active with Jak present:
+      kermit.gc:386  `(mod (+ arg2 1) 3)`  — arm64 integer-modulo-returns-quotient class (bug class
+      #13, the msub-missing modulo already seen title-camera-side); and kermit.gc:1059 inv-scale
+      `(/ 1.0 f0-16)` 1/0 -> NaN bone matrix (the Gcine-pose matrix-inv-scale class). These fire only
+      once the actor is ALIVE with the player in-region = exactly "swamp active", which the drive-hook
+      (teleport, never truly active with a live player) and my swim (never active) both skip.
+  #2  LOOKUP-COVERAGE-GAP the 543b7739b fix does NOT cover: part-spawner::init-from-entity!
+      (generic-obs.gc:805) and effect-control (effect-control.gc:142-145) cache a RAW
+      *part-group-id-table* slot pointer EXTERNALLY (into the res-lump / the persistent entity `value`
+      field). The fix invalidates table SLOTS (object-in-memcpy-range) but never these external caches;
+      the validator part-group-pointer? (sparticle-launcher.gc:83) checks array BOUNDS only, so a
+      stale cached pointer to a cleared/re-registered slot passes and binds garbage. swamp-part
+      (swamp-part.gc:11) is a part-spawner -> this path runs on swamp entry. Same fn-family as the
+      drive-hook sink but a different, uncovered corruption source.
+  #3  The fix guards only the MAIN + TOP-LEVEL segment memcpy (klink.cpp:324/346), NOT the DEBUG
+      segment copy (klink.cpp:306).
+
+## Classification & what is RULED OUT
+  - Classification: arm64-only fault at swamp level-ACTIVATE / entrance-actor birth (candidate classes:
+    arm64 codegen modulo/inv-scale #1, or dangling-cached-table-pointer #2). NOT a link-time stomp.
+  - RULED OUT — link-time part-group-table stomp: FIXED by 543b7739b and confirmed crash-free on 9
+    real-input LOAD crossings. This is NOT the owner's crash.
+  - RULED OUT — pontoon rigid-body-platform collision as the crash sink: the collide-cache/detect-riders
+    family is fully enabled on arm64 (mips2c_table_jak1_arm64.cpp:584-596), and the observed flaky
+    fall-through degrades to no-ground/endlessfall, NOT a sig11. It is a collision-CORRECTNESS
+    fragility, not the crash.
+  - RULED OUT — full-route heap occupancy as the trigger: no owner save; owner reproduces on the same
+    warp+task33 resident set. The differentiator is the pontoon RIDE to 'active, not heap state.
+
+## Why the real crash DIFFERS from the drive-hook crash 543b7739b cured (why it MISSED)
+543b7739b's target-drive repro FORCED Jak's position across the boundary — it never rode the pontoons
+and never brought the swamp to 'active with a live player, so it only ever exercised the LINK-time
+part-group stomp, which the fix removes. The owner's crash is at swamp ACTIVATE / actor-birth (a
+different sink — birth-time codegen #1 or the external-cached-pointer gap #2), reached only by the
+real pontoon ride the drive-hook and the blind swim both skip. Same lesson as Gcrash-rockvillage
+(58ee45b15, validated on a synthetic want-levels replay): a non-faithful repro fixes a non-owner sink.
+
+## Owner-capture handoff (the FAITHFUL, DETERMINISTIC repro — replaces blind navigation)
+The built-in pad_replay harness (game/system/pad_replay.cpp; recording flushed per logic frame,
+pad_replay.cpp:133-134 — SURVIVES the crash-to-home) is the faithful capture. VALIDATED end-to-end on
+device this session: RECORD wrote pad_demo.inputs (627 frames), and the byte-identity SELFTEST PASSED
+on-device — "PAD DIFF: 0/120", "pad_replay: SELFTEST PASS", rc=0 — i.e. replay reproduces the recorded
+input DETERMINISTICALLY (so the owner's recorded crossing reproduces his crash exactly, and the AFTER
+replay is a valid crash-free proof). Touch overlay stays visible for the owner. Turnkey:
+.autoport/lib/gsr_ownercap.sh
+  1. gsr_ownercap.sh arm      -> owner walks the pontoons to the swamp with his real controller/touch
+                                 until it crashes; his input is recorded flush-per-tick.
+  2. gsr_ownercap.sh pull     -> retrieve pad_demo.inputs.
+  3. gsr_ownercap.sh replay   -> REPLAY his input byte-identically = deterministic crash reproduction;
+                                 capture GK-DIAG sig/fault/pc/lr + A38 nearest-fn + A34 fp-walk to NAME
+                                 the exact faulting fn/PC (confirms candidate #1 vs #2 vs #3).
+  4. Fix in the translation layer (arm64-gated), rebuild, `gsr_ownercap.sh replay` again = the faithful
+     AFTER, crash-free past the boundary (real input, NOT target.drive).
+This is the mandate's option (b) owner-capture, mechanized deterministically — it does not use
+target.drive and is the accepted faithful path.
+
+## Prior fixes intact / x86 unaffected / golden pristine
+No code was changed this session (git shows ONLY new .autoport/lib/*.sh harness scripts; no
+android/, game/, goalc/, goal_src/, or CMakeLists edits). Therefore: the shipped fixes (543b7739b
+swamp part-group cleanup, and the camera/collision/jungle/blue-eco/orb/speed invariants) are
+untouched and intact; x86 is unaffected (x86 golden runs this Rock Village->swamp route crash-free —
+it is the oracle that proves arm64-specificity; x86 link finish: logo unbroken); goalc/emitter/
+IGenX86_64 untouched; .autoport/gold READ-ONLY / pristine.
+
+## Evidence files (.autoport/reports/Gcrash-swamp-real/)
+scout1/pon1/ride1/push1/natwalk1/south1/south2/loadride1 -console.txt + -logcat.log (the 9 faithful
+real-input runs: swamp LOAD+LINK crash-free, 'active unreachable), stand_pon-result.txt (pontoon
+solidity/flaky-fall-through), and gsr_ownercap.sh / gsr_walk.sh / gsr_south.sh (repro tooling).
+Forensic anchor (drive-hook, fixed): ../Gcrash-swamp-load/report.txt.

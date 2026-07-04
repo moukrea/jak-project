@@ -1,0 +1,11 @@
+== scout1: warp village2-dock pos=()m, drive south across (load village2 swamp) ==
+  waiting title...
+  waiting LEVEL-WARP-SPAWN...
+  warp fired ~14s
+07-04 19:45:53.720 13414 13501 I opengoal-gk: [TASK-CLOSE] armed *listener-function* = #x38bc134 for spec '33'
+07-04 19:45:53.720 13414 13471 I GK_STDOUT: TASK-CLOSE task=33 status=7 -> #x0
+  calib#1 p0=(1240941.9 -6858164.5) p1=(1215363.2 -6820387.0) p2=(1201092.8 -6845024.5) -> bad
+  calib#2 p0=(1376115.4 -6837853.0) p1=(1439441.0 -6837915.5) p2=(1240845.5 -6856032.0) -> bad
+  calib#3 p0=(1300586.6 -6833576.5) p1=(1366419.0 -6799564.0) p2=(1384710.1 -6763842.5) -> bad
+  calib never validated — driving with last probe anyway
+  step1 pos=(1410622.9 -6760269.0) wp=0 stick ly=0 lx=127 D
