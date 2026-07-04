@@ -151,6 +151,15 @@ std::atomic<bool> g_runtime_booted{false};
 const char* g_selected_game = nullptr;
 const char* g_data_root = nullptr;
 
+#if defined(JAK_SWAMP_CAPTURE)
+// Owner swamp-crash capture build (INSTRUMENTATION ONLY): the app's EXTERNAL
+// files dir (getExternalFilesDir(null)) pushed from Java via setExternalFilesDir.
+// Fixed-size so the fatal signal handler can read it without touching the heap.
+// The forensic is APPENDED to "<g_ext_files_dir>/jak_swamp_crash.txt", which the
+// owner retrieves from the phone's Files app WITHOUT adb.
+char g_ext_files_dir[512] = {0};
+#endif
+
 // Phase A30 (autoport): route native stdout/stderr → logcat.
 //
 // Android resets the per-app stdout/stderr file descriptors to /dev/null
@@ -5454,6 +5463,93 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   if (uint32_t g = a38_trip::to_goal(fault)) {
     a38_trip::log_nearest_goal_fn("fault", g);
   }
+#if defined(JAK_SWAMP_CAPTURE)
+  // Owner swamp-crash capture build (INSTRUMENTATION ONLY): ALSO append the same
+  // forensic (sig/fault/pc/lr + the raw EE offsets to_goal(pc/lr/fault)) to a
+  // file in the app's EXTERNAL files dir so the owner can retrieve it from the
+  // phone's Files app WITHOUT adb. ASYNC-SIGNAL-SAFE ONLY: open/write/close plus
+  // a hand-rolled integer->hex formatter into a fixed stack buffer — no
+  // fprintf/snprintf/malloc. Best-effort: any failure is silently ignored so the
+  // handler never blocks or re-crashes. Runs before the verbose dumps below in
+  // case one of those secondary-faults.
+  if (g_ext_files_dir[0]) {
+    // Build "<g_ext_files_dir>/jak_swamp_crash.txt" without snprintf.
+    char path[512 + 32];
+    size_t pi = 0;
+    for (const char* s = g_ext_files_dir; *s && pi < sizeof(path) - 24; ++s) {
+      path[pi++] = *s;
+    }
+    const char kName[] = "/jak_swamp_crash.txt";
+    for (size_t i = 0; i < sizeof(kName) /*includes NUL*/; ++i) {
+      path[pi++] = kName[i];
+    }
+    int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd >= 0) {
+      char buf[512];
+      size_t bi = 0;
+      auto put = [&](const char* s) {
+        while (*s && bi < sizeof(buf)) {
+          buf[bi++] = *s++;
+        }
+      };
+      // Append a 0x-prefixed hex rendering of a 64-bit value (signal-safe).
+      auto put_hex = [&](unsigned long long v) {
+        static const char kHex[] = "0123456789abcdef";
+        char tmp[16];
+        int n = 0;
+        if (v == 0) {
+          tmp[n++] = '0';
+        } else {
+          while (v && n < 16) {
+            tmp[n++] = kHex[v & 0xf];
+            v >>= 4;
+          }
+        }
+        put("0x");
+        while (n > 0 && bi < sizeof(buf)) {
+          buf[bi++] = tmp[--n];
+        }
+      };
+      // Append a small unsigned decimal (used for sig).
+      auto put_dec = [&](unsigned v) {
+        char tmp[12];
+        int n = 0;
+        if (v == 0) {
+          tmp[n++] = '0';
+        } else {
+          while (v && n < 12) {
+            tmp[n++] = char('0' + (v % 10));
+            v /= 10;
+          }
+        }
+        while (n > 0 && bi < sizeof(buf)) {
+          buf[bi++] = tmp[--n];
+        }
+      };
+      put("=== JAK SWAMP CRASH ===\n");
+      put("sig=");
+      put_dec((unsigned)sig);
+      put(" fault=");
+      put_hex((unsigned long long)fault);
+      put(" pc=");
+      put_hex((unsigned long long)pc);
+      put(" lr=");
+      put_hex((unsigned long long)lr);
+      put("\nee pc=");
+      put_hex((unsigned long long)a38_trip::to_goal(pc));
+      put(" lr=");
+      put_hex((unsigned long long)a38_trip::to_goal(lr));
+      put(" fault=");
+      put_hex((unsigned long long)a38_trip::to_goal(fault));
+      put("\n");
+      // Single write() of the assembled buffer (partial writes tolerated —
+      // best-effort forensic, not a stream contract).
+      ssize_t wr = write(fd, buf, bi);
+      (void)wr;
+      close(fd);
+    }
+  }
+#endif
   // === Gecho-pool TEMPORARY diagnostic: thread-suspend (break) stack-overflow probe ===
   // The (break) macro = (/ 0 0) = arm64 udf #0xBEEF; fires in thread-suspend when a
   // suspending process overflowed its backup-stack budget. Brute-force scan GPRs as
@@ -7067,6 +7163,33 @@ Java_org_opengoal_gk_NativeGk_setDataRoot(JNIEnv* env, jclass /*clazz*/,
                         "NativeGk.setDataRoot: %s",
                         g_data_root ? g_data_root : "(null)");
   }
+}
+
+// Owner swamp-crash capture build (INSTRUMENTATION ONLY): receive the app's
+// EXTERNAL files dir (getExternalFilesDir(null)) from Java so the fatal signal
+// handler can append the forensic to a file the owner can retrieve WITHOUT adb.
+// Compiled in EVERY build so the unconditional Java call resolves (no
+// UnsatisfiedLinkError), but it only stores anything under JAK_SWAMP_CAPTURE —
+// in a normal (OFF) build it is an inert no-op, so HEAD behavior is unchanged.
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_setExternalFilesDir(JNIEnv* env, jclass /*clazz*/,
+                                                  jstring j_dir) {
+#if defined(JAK_SWAMP_CAPTURE)
+  if (!j_dir) {
+    return;
+  }
+  const char* s = env->GetStringUTFChars(j_dir, nullptr);
+  if (s) {
+    std::strncpy(g_ext_files_dir, s, sizeof(g_ext_files_dir) - 1);
+    g_ext_files_dir[sizeof(g_ext_files_dir) - 1] = 0;
+    env->ReleaseStringUTFChars(j_dir, s);
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                        "NativeGk.setExternalFilesDir: %s", g_ext_files_dir);
+  }
+#else
+  (void)env;
+  (void)j_dir;
+#endif
 }
 
 JNIEXPORT void JNICALL

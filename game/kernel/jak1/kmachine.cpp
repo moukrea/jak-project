@@ -1127,6 +1127,35 @@ void level_warp_maybe() {
 // never armed in production; goal_src / x86 emitter / gold untouched.
 static char s_task_close_spec[128];
 
+#if defined(JAK_SWAMP_CAPTURE)
+// Owner swamp-crash capture build (INSTRUMENTATION ONLY). Returns true once
+// village2 is loaded AND active — the same 'active status load-boundary.gc:1275
+// waits on. Calling level-status (method 25 of level-group) on *level* is safe
+// here: task_close_maybe runs on the GOAL kernel thread between dispatch frames
+// (kboot.cpp), the identical GOAL-call context the level-warp / task-close
+// listener-function hooks already use.
+static bool swamp_capture_village2_active() {
+  u32 lg_sym = intern_from_c("*level*")->value;  // the level-group object
+  if (lg_sym == 0 || lg_sym == (u32)s7.offset) {
+    return false;  // *level* not bound yet
+  }
+  // Gate on close-specific-task! being bound: it is a real function symbol (unlike
+  // level-status, which exists only as a level-group METHOD, not a symbol) and it
+  // is defined in the same engine load band as the level system + level.gc's
+  // level-status method — so its binding proves *level*'s vtable is linked and
+  // method 25 is safe to call. It is also exactly the function the task-close hook
+  // will invoke, so this readiness check and the runner stay consistent.
+  u32 close_fn = intern_from_c("close-specific-task!")->value;
+  if (close_fn == 0 || close_fn == (u32)s7.offset) {
+    return false;
+  }
+  Ptr<Type> lg_type(*Ptr<u32>(lg_sym - 4));  // basic type-tag is the word before field-0
+  u32 vi2 = intern_from_c("village2").offset;  // 'village2 symbol object
+  u64 st = call_method_of_type_arg2(lg_sym, lg_type, 25 /*level-status*/, vi2, 0);
+  return st == (u64)intern_from_c("active").offset;
+}
+#endif
+
 static bool task_close_requested() {
   s_task_close_spec[0] = 0;
   if (const char* e = std::getenv("OG_TASK_CLOSE")) {
@@ -1138,6 +1167,16 @@ static bool task_close_requested() {
     if (__system_property_get("debug.opengoal.task.close", pbuf) > 0 && pbuf[0]) {
       std::strncpy(s_task_close_spec, pbuf, sizeof(s_task_close_spec) - 1);
     }
+  }
+#endif
+#if defined(JAK_SWAMP_CAPTURE)
+  // No env/prop set: auto-close task 33 (village2-warrior-money = 90-orb pontoon
+  // restore) so the owner reaches the Rock Village -> Boggy Swamp transition
+  // WITHOUT adb and WITHOUT 90 orbs. Only once village2 is active; task_close_maybe
+  // latches on its static s_done so this fires exactly once (idempotent — no
+  // spam-close every frame).
+  if (!s_task_close_spec[0] && swamp_capture_village2_active()) {
+    std::strncpy(s_task_close_spec, "33", sizeof(s_task_close_spec) - 1);
   }
 #endif
   for (const char* p = s_task_close_spec; *p; ++p) {
