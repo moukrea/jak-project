@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 178,
+  "current_phase_idx": 180,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -171,7 +171,8 @@
     "Gndskip": 1,
     "Gtitle-tap": 1,
     "Gperf-particles": 1,
-    "Gcrash-swamp-load": 1
+    "Gcrash-swamp-load": 1,
+    "Gcrash-swamp-real": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -316,6 +317,9 @@
     ],
     "Gperf-particles": [
       "648435448927"
+    ],
+    "Gcrash-swamp-real": [
+      "92082d066ea1"
     ]
   },
   "stuck_reasons": {
@@ -488,7 +492,9 @@
     "Gcrash-rockvillage",
     "Glang-mixed",
     "Gndskip",
-    "Gtitle-tap"
+    "Gtitle-tap",
+    "Gcrash-swamp-load",
+    "Gperf-particles"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -646,9 +652,10 @@
     "Gndskip": 1783103846.1252134,
     "Gtitle-tap": 1783111038.9092355,
     "Gperf-particles": 1783116521.5464356,
-    "Gcrash-swamp-load": 1783148087.4748182
+    "Gcrash-swamp-load": 1783148087.4748182,
+    "Gcrash-swamp-real": 1783186462.7495737
   },
-  "last_update": "2026-07-04T09:48:23.882107+00:00",
+  "last_update": "2026-07-04T18:57:25.118230+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -690,6 +697,7 @@
     "Glang-mixed",
     "Gndskip",
     "Gtitle-tap",
-    "Gcrash-swamp-load"
+    "Gcrash-swamp-load",
+    "Gperf-particles"
   ]
 }
