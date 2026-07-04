@@ -1,0 +1,316 @@
+======== GPERF-PARTICLES FINAL EXTRACT ========
+
+---- WINDOW A ----
+dyn-rs avg-fps: n=50 median=32.25 min=27.30 max=36.00
+dyn-rs distinct scale values: [40]
+A35-RENDER render_ms: n=55 med=25.63 min=20.28 max=28.18
+A35-SPART medians:
+    2d: median=120.170 (n=55)
+    launch: median=139.100 (n=55)
+    adgif: median=12.820 (n=55)
+    glbuild: median=92.750 (n=55)
+    glflush: median=112.170 (n=55)
+    goal_idle: median=142.910 (n=55)
+    pace: median=0.160 (n=55)
+    tie_i: median=8.250 (n=55)
+    tie_ts: median=128.770 (n=55)
+    tie_cu: median=1.460 (n=55)
+    tie_ix: median=72.880 (n=55)
+    shrub_ts: median=9.460 (n=55)
+    shrub_ix: median=60.800 (n=55)
+
+---- WINDOW B ----
+dyn-rs avg-fps: n=49 median=37.90 min=35.90 max=41.60
+dyn-rs distinct scale values: [40]
+A35-RENDER render_ms: n=64 med=23.05 min=18.14 max=24.89
+A35-SPART medians:
+    2d: median=114.720 (n=64)
+    launch: median=119.680 (n=64)
+    adgif: median=10.780 (n=64)
+    glbuild: median=48.715 (n=64)
+    glflush: median=37.670 (n=64)
+    goal_idle: median=0.110 (n=64)
+    pace: median=0.160 (n=64)
+    tie_i: median=8.225 (n=64)
+    tie_ts: median=91.860 (n=64)
+    tie_cu: median=1.410 (n=64)
+    tie_ix: median=135.155 (n=64)
+    shrub_ts: median=9.775 (n=64)
+    shrub_ix: median=0.100 (n=64)
+
+---- WINDOW A2 ----
+dyn-rs avg-fps: n=22 median=32.15 min=32.00 max=38.20
+dyn-rs distinct scale values: [40]
+A35-RENDER render_ms: n=24 med=25.71 min=23.52 max=28.30
+A35-SPART medians:
+    2d: median=119.750 (n=24)
+    launch: median=139.510 (n=24)
+    adgif: median=12.610 (n=24)
+    glbuild: median=93.640 (n=24)
+    glflush: median=113.730 (n=24)
+    goal_idle: median=143.835 (n=24)
+    pace: median=0.180 (n=24)
+    tie_i: median=8.400 (n=24)
+    tie_ts: median=131.815 (n=24)
+    tie_cu: median=1.455 (n=24)
+    tie_ix: median=71.520 (n=24)
+    shrub_ts: median=9.585 (n=24)
+    shrub_ix: median=62.200 (n=24)
+
+
+======== A35-PERF BUCKET TABLES (2 per window) ========
+
+---- WINDOW A: 25 tables found, showing 2 ----
+A35-PERF frame=2460
+26.59ms 332dr 390452tri root
+ 25.27ms 332dr 390452tri buckets
+  4.78ms 68dr 118222tri [ 9] l0-tie
+   3.50ms 0dr 118222tri setup
+   0.97ms 63dr 0tri draws
+    0.97ms 0dr 0tri unknown
+   0.30ms 0dr 0tri unknown
+  4.57ms 10dr 6444tri [66] sprite
+   3.77ms 4dr 256tri 2d-group0
+   0.37ms 0dr 0tri unknown
+   0.23ms 1dr 840tri distorter
+    0.19ms 1dr 840tri drawing
+   0.18ms 0dr 0tri 2d-group1
+  2.27ms 12dr 4974tri [ 4] ocean-mid-far
+   1.51ms 0dr 0tri unknown
+   0.76ms 9dr 2064tri texture
+  1.90ms 46dr 8147tri [49] l0-pris-merc
+   0.92ms 0dr 0tri bones-ub
+   0.66ms 38dr 6901tri draws
+   0.19ms 0dr 0tri unknown
+   0.12ms 8dr 1246tri env-draws
+  1.89ms 26dr 214229tri [20] l0-shrub
+   1.23ms 0dr 0tri setup
+   0.62ms 26dr 214229tri draws
+  1.55ms 46dr 15003tri [ 6] l0-tfrag
+   1.51ms 46dr 15003tri t3
+  1.51ms 36dr 5721tri [55] common-pris-merc
+   0.63ms 0dr 0tri bones-ub
+   0.45ms 27dr 4889tri draws
+   0.27ms 0dr 0tri unknown
+   0.15ms 9dr 832tri env-draws
+  1.24ms 71dr 14046tri [10] l0-tfrag-merc
+   0.53ms 41dr 9253tri draws
+   0.30ms 0dr 0tri unknown
+   0.15ms 11dr 1398tri draws
+   0.09ms 11dr 1398tri env-draws
+   0.07ms 8dr 1997tri env-draws
+  1.07ms 10dr 162tri [32] l0-sky-blend
+   0.68ms 10dr 162tri tfrag-trans
+    0.59ms 10dr 162tri t3
+   0.39ms 0dr 0tri unknown
+  0.88ms 4dr 3464tri [63] ocean-near
+   0.63ms 0dr 0tri unknown
+   0.25ms 1dr 2048tri texture
+  0.79ms 3dr 40tri [ 3] sky
+  0.65ms 0dr 0tri [48] tex-48
+  0.50ms 0dr 0tri unknown
+  0.46ms 0dr 0tri [54] common-pris-eyes
+  0.21ms 0dr 0tri [ 5] tex-5
+  0.14ms 0dr 0tri [21] bucket-21
+ 0.98ms 0dr 0tri frame-setup
+ 0.19ms 0dr 0tri pcrtc
+ 0.13ms 0dr 0tri unknown
+A35-SPART win=60f 3d=3.63ms/180c/7680it 2d=120.10ms/5970c/355200it launch=141.30ms/14095c adgif=12.98ms/13297c | sprite buckets=540 quads=165544 directflush=1020 | glbuild=94.84ms glflush=114.25ms | goal idle=144.50 pace=0.21 n=60 | tie i=8.38 ts=132.60 cu=1.57 ix=69.83 | shrub ts=9.32 ix=62.53
+  --
+A35-PERF frame=2580
+24.94ms 340dr 391167tri root
+ 24.14ms 340dr 391167tri buckets
+  5.15ms 68dr 118222tri [ 9] l0-tie
+   4.01ms 0dr 118222tri setup
+   0.86ms 63dr 0tri draws
+    0.86ms 0dr 0tri unknown
+   0.27ms 0dr 0tri unknown
+  4.58ms 10dr 6176tri [66] sprite
+   3.66ms 4dr 256tri 2d-group0
+   0.37ms 0dr 0tri unknown
+   0.32ms 0dr 0tri 2d-group1
+   0.21ms 1dr 810tri distorter
+    0.18ms 1dr 810tri drawing
+  1.95ms 36dr 5721tri [55] common-pris-merc
+   0.77ms 0dr 0tri bones-ub
+   0.75ms 27dr 4889tri draws
+   0.24ms 0dr 0tri unknown
+   0.18ms 9dr 832tri env-draws
+  1.59ms 12dr 4974tri [ 4] ocean-mid-far
+   0.99ms 0dr 0tri unknown
+   0.59ms 9dr 2064tri texture
+  1.49ms 26dr 214229tri [20] l0-shrub
+   0.93ms 0dr 0tri setup
+   0.52ms 26dr 214229tri draws
+  1.41ms 46dr 8147tri [49] l0-pris-merc
+   0.59ms 0dr 0tri bones-ub
+   0.54ms 38dr 6901tri draws
+   0.17ms 0dr 0tri unknown
+   0.11ms 8dr 1246tri env-draws
+  1.15ms 71dr 14046tri [10] l0-tfrag-merc
+   0.47ms 41dr 9253tri draws
+   0.28ms 0dr 0tri unknown
+   0.15ms 11dr 1398tri draws
+   0.09ms 11dr 1398tri env-draws
+   0.07ms 8dr 1997tri env-draws
+  1.01ms 46dr 15003tri [ 6] l0-tfrag
+   0.99ms 46dr 15003tri t3
+  0.97ms 7dr 851tri [45] common-alpha-merc
+   0.71ms 0dr 0tri bones-ub
+   0.17ms 7dr 851tri draws
+  0.91ms 4dr 3464tri [63] ocean-near
+   0.64ms 0dr 0tri unknown
+   0.28ms 1dr 2048tri texture
+  0.67ms 0dr 0tri [48] tex-48
+  0.64ms 10dr 162tri [32] l0-sky-blend
+   0.40ms 10dr 162tri tfrag-trans
+    0.38ms 10dr 162tri t3
+   0.23ms 0dr 0tri unknown
+  0.52ms 3dr 40tri [ 3] sky
+  0.45ms 0dr 0tri [54] common-pris-eyes
+  0.33ms 1dr 132tri [69] subtitle
+  0.32ms 0dr 0tri unknown
+  0.21ms 0dr 0tri [ 5] tex-5
+ 0.47ms 0dr 0tri frame-setup
+ 0.21ms 0dr 0tri unknown
+ 0.11ms 0dr 0tri pcrtc
+A35-SPART win=60f 3d=3.52ms/180c/7680it 2d=121.70ms/5922c/352256it launch=140.01ms/14085c adgif=12.97ms/13293c | sprite buckets=540 quads=163263 directflush=1036 | glbuild=92.88ms glflush=117.68ms | goal idle=139.89 pace=0.16 n=60 | tie i=8.04 ts=129.19 cu=1.45 ix=74.17 | shrub ts=9.41 ix=61.39
+  --
+
+---- WINDOW B: 27 tables found, showing 2 ----
+A35-PERF frame=7140
+24.39ms 333dr 390542tri root
+ 23.40ms 333dr 390542tri buckets
+  5.82ms 68dr 118222tri [ 9] l0-tie
+   4.48ms 0dr 118222tri setup
+   1.00ms 63dr 0tri draws
+    0.99ms 0dr 0tri unknown
+   0.34ms 0dr 0tri unknown
+  2.86ms 10dr 6258tri [66] sprite
+   2.20ms 4dr 256tri 2d-group0
+   0.37ms 0dr 0tri unknown
+   0.23ms 1dr 800tri distorter
+    0.20ms 1dr 800tri drawing
+  2.22ms 12dr 4974tri [ 4] ocean-mid-far
+   1.26ms 0dr 0tri unknown
+   0.96ms 9dr 2064tri texture
+  2.08ms 46dr 8147tri [49] l0-pris-merc
+   0.99ms 0dr 0tri bones-ub
+   0.74ms 38dr 6901tri draws
+   0.21ms 0dr 0tri unknown
+   0.13ms 8dr 1246tri env-draws
+  1.76ms 36dr 5721tri [55] common-pris-merc
+   0.81ms 0dr 0tri bones-ub
+   0.48ms 27dr 4889tri draws
+   0.30ms 0dr 0tri unknown
+   0.15ms 9dr 832tri env-draws
+  1.54ms 72dr 14322tri [10] l0-tfrag-merc
+   0.58ms 42dr 9529tri draws
+   0.42ms 0dr 0tri unknown
+   0.19ms 11dr 1398tri draws
+   0.12ms 11dr 1398tri env-draws
+   0.09ms 8dr 1997tri env-draws
+  1.29ms 46dr 15003tri [ 6] l0-tfrag
+  --
+A35-PERF frame=7380
+23.19ms 333dr 390610tri root
+ 22.28ms 333dr 390610tri buckets
+  5.68ms 68dr 118222tri [ 9] l0-tie
+   4.46ms 0dr 118222tri setup
+   0.94ms 63dr 0tri draws
+    0.93ms 0dr 0tri unknown
+   0.29ms 0dr 0tri unknown
+  2.59ms 10dr 6326tri [66] sprite
+   1.91ms 4dr 256tri 2d-group0
+   0.39ms 0dr 0tri unknown
+   0.23ms 1dr 800tri distorter
+    0.20ms 1dr 800tri drawing
+  2.21ms 46dr 8147tri [49] l0-pris-merc
+   1.09ms 0dr 0tri bones-ub
+   0.77ms 38dr 6901tri draws
+   0.20ms 0dr 0tri unknown
+   0.13ms 8dr 1246tri env-draws
+  1.94ms 36dr 5721tri [55] common-pris-merc
+   0.82ms 0dr 0tri bones-ub
+   0.62ms 27dr 4889tri draws
+   0.31ms 0dr 0tri unknown
+   0.17ms 9dr 832tri env-draws
+  1.89ms 12dr 4974tri [ 4] ocean-mid-far
+   1.17ms 0dr 0tri unknown
+   0.72ms 9dr 2064tri texture
+  1.30ms 46dr 15003tri [ 6] l0-tfrag
+   1.26ms 46dr 15003tri t3
+  1.23ms 72dr 14322tri [10] l0-tfrag-merc
+   0.50ms 42dr 9529tri draws
+   0.31ms 0dr 0tri unknown
+   0.15ms 11dr 1398tri draws
+   0.09ms 11dr 1398tri env-draws
+   0.07ms 8dr 1997tri env-draws
+  0.96ms 4dr 3464tri [63] ocean-near
+   0.65ms 0dr 0tri unknown
+   0.31ms 1dr 2048tri texture
+  0.65ms 3dr 40tri [ 3] sky
+  0.61ms 0dr 0tri [54] common-pris-eyes
+  0.61ms 0dr 0tri [48] tex-48
+  0.61ms 26dr 214229tri [20] l0-shrub
+   0.38ms 26dr 214229tri draws
+   0.20ms 0dr 0tri setup
+  0.60ms 10dr 162tri [32] l0-sky-blend
+   0.37ms 10dr 162tri tfrag-trans
+    0.35ms 10dr 162tri t3
+   0.23ms 0dr 0tri unknown
+  0.38ms 0dr 0tri unknown
+  0.24ms 0dr 0tri [ 5] tex-5
+ 0.61ms 0dr 0tri frame-setup
+ 0.16ms 0dr 0tri pcrtc
+ 0.13ms 0dr 0tri unknown
+A35-SPART win=60f 3d=3.37ms/180c/7680it 2d=115.63ms/5937c/353088it launch=120.74ms/14013c adgif=10.70ms/11463c | sprite buckets=493 quads=167132 directflush=1020 | glbuild=50.18ms glflush=37.02ms | goal idle=0.11 pace=0.17 n=60 | tie i=8.28 ts=91.48 cu=1.41 ix=141.86 | shrub ts=9.47 ix=0.10
+  --
+
+---- WINDOW A2: 15 tables found, showing 2 ----
+A35-PERF frame=11820
+26.91ms 332dr 390338tri root
+ 25.91ms 332dr 390338tri buckets
+  4.99ms 68dr 118222tri [ 9] l0-tie
+   3.56ms 0dr 118222tri setup
+   1.12ms 63dr 0tri draws
+    1.11ms 0dr 0tri unknown
+   0.31ms 0dr 0tri unknown
+  4.88ms 10dr 6330tri [66] sprite
+   3.82ms 4dr 256tri 2d-group0
+   0.67ms 0dr 0tri unknown
+   0.22ms 1dr 800tri distorter
+    0.18ms 1dr 800tri drawing
+   0.15ms 0dr 0tri 2d-group1
+  2.60ms 12dr 4974tri [ 4] ocean-mid-far
+   1.33ms 9dr 2064tri texture
+   1.28ms 0dr 0tri unknown
+  1.90ms 26dr 214229tri [20] l0-shrub
+   1.27ms 0dr 0tri setup
+   0.59ms 26dr 214229tri draws
+  --
+A35-PERF frame=11880
+26.72ms 332dr 390260tri root
+ 25.24ms 332dr 390260tri buckets
+  4.85ms 68dr 118222tri [ 9] l0-tie
+   3.47ms 0dr 118222tri setup
+   1.06ms 63dr 0tri draws
+    1.05ms 0dr 0tri unknown
+   0.32ms 0dr 0tri unknown
+  4.30ms 10dr 6252tri [66] sprite
+   3.55ms 4dr 256tri 2d-group0
+   0.34ms 0dr 0tri unknown
+   0.24ms 1dr 800tri distorter
+    0.21ms 1dr 800tri drawing
+   0.15ms 0dr 0tri 2d-group1
+  2.61ms 12dr 4974tri [ 4] ocean-mid-far
+   1.45ms 0dr 0tri unknown
+   1.16ms 9dr 2064tri texture
+  1.95ms 46dr 8147tri [49] l0-pris-merc
+   0.92ms 0dr 0tri bones-ub
+   0.65ms 38dr 6901tri draws
+   0.22ms 0dr 0tri unknown
+   0.12ms 8dr 1246tri env-draws
+  1.78ms 36dr 5721tri [55] common-pris-merc
+   0.74ms 0dr 0tri bones-ub
+  --

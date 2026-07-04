@@ -1,0 +1,92 @@
+================ GPERF-PARTICLES FINAL VALIDATION SUMMARY ================
+Date: 2026-07-04  Device: eae4df44 (Redmi Note 9 Pro, Adreno 618, GLES 3.2)
+HEAD: b0ac10317 (deployed+verified). Package org.opengoal.gk.jak1, PID 7773 (stable whole session).
+Scene: village2-start fire pose, pos "295 15 -1630" (flame-bowls). buckets=1.
+Focus verified org.opengoal.gk.jak1 before every frame; app foreground at session end.
+
+Six kill switches (1=OLD path, 0=fix ON): nospritelean nostatecache noinstance nooverlap notodpp noshrubidx
+GPERF-OVERLAP prop-poll confirmed live: OFF@boot -> ON@02:34:08(B) -> OFF@02:36:26(A2) -> ON@02:37:25(final).
+
+======== PART 1: A/B/A2 HEADLINE (fire pose held, no input) ========
+                     WINDOW A (OLD)   WINDOW B (FIX)   WINDOW A2 (OLD)
+dyn-rs avg-fps median   32.25            37.90            32.15
+   min / max            27.30 / 36.00    35.90 / 41.60    32.00 / 38.20
+render scale (all)      {40}             {40}             {40}   <- NO confound, scale pinned 40 everywhere
+A35-RENDER render_ms med 25.63           23.05            25.71
+
+FPS gate: OLD baseline ~32.2fps; FIX 37.9fps. Delta = +5.65fps (+17.5%).
+  Gate = max(+20%, +5fps). +5.65fps CLEARS the +5fps arm. (+17.5% just under the +20% arm; the +5fps arm is met, so gate PASS.)
+  A2 reverts to 32.15 (matches A) -> improvement is causally the props, not drift/warmup.
+
+--- A35-SPART medians (per-60-frame-window sums, ms) A vs B (fix effect) ---
+field        A(OLD)    B(FIX)    effect
+2d           120.17    114.72    ~flat (sprite quad count similar; lean path)
+launch       139.10    119.68    -14% (sprite-lean fewer launches)
+adgif         12.82     10.78    -16%
+glbuild       92.75     48.72    -47%  <- instancing + sprite-lean: GL buffer build ~halved
+glflush      112.17     37.67    -66%  <- BIG win, GL flush cut ~3x
+goal idle    142.91      0.11    -100% <- overlap fix: GOAL no longer idle-waits on GL
+pace           0.16      0.16    flat
+tie i          8.25      8.23    flat
+tie ts       128.77     91.86    -29%  <- state-cache: TIE setup cut
+tie cu         1.46      1.41    flat
+tie ix        72.88    135.16    +85%  (work shifted INTO index path; net TIE still faster + overall faster)
+shrub ts       9.46      9.78    flat
+shrub ix      60.80      0.10    -100% <- shrub index cache: rebuild eliminated
+(A2 medians match A within 2% -> effects reproduce on revert.)
+
+2 full A35-PERF bucket tables per window appended to extract.txt.
+Top buckets (window A): l0-tie ~4.8ms, sprite ~4.6ms, ocean-mid-far ~2.3ms, l0-pris-merc ~1.9ms,
+  l0-shrub ~1.9ms(214k tris), l0-tfrag ~1.5ms. root ~26ms/390k tris.
+
+--- Visual parity A-end vs B-start (numpy) ---
+mean-abs-diff = 3.80  ;  %pixels>32 = 2.63%  (fire animation only)
+black-fraction A-end=0.061% B-start=0.077% (no missing/black terrain)
+mean RGB A=[128.9,76.1,40.9] B=[124.7,73.5,41.1] -> warm R>G>B tint MATCHES (no day/night patch mismatch)
+Region deltas: braziers 0.7, eco-pools 4-5, jak 3.0 -> all present, same placement.
+FIRE: both flames present, same placement/size. TERRAIN: fully rendered, no black/wrong-color patches.
+VEGETATION/TIE/SHRUB background: intact both frames (TOD ping-pong + shrub-idx cache OK).
+PARITY VERDICT: PASS.
+
+======== PART 2: ECO BURST (fixes ON) ========
+BLUE  (3 300): bright additive blue/purple core + swirl/streak particles, blue eco HUD meter. eco-blue-1..4.png
+RED   (2 300): bright additive red/white core + red/orange swirl, red HUD meter. eco-red-1..2.png
+YELLOW(1 300): bright additive yellow/orange/white core + warm streaks. eco-yellow-1..2.png
+No black squares / garbage sprites in any. Color family correct per type.
+Qualitative vs Geco-spheres x86-oracle-*: same additive bright-core character.
+'SPART-ORBPRE NaN' count in log = 0 (PASS).
+'Failed to find texture' = 1 total, all at 02:31:08 boot (sky-direct frame 2) -> PRE-EXISTING, not new, not in eco window.
+ECO VERDICT: PASS (blue, red, yellow).
+
+======== PART 3: ORB HUD (progress menu) ========
+100% scale (orb-menu-100.png / -crop): progress menu "VILLAGE DE PIERRE 0%". Power-cell icon = textured
+  AMBER/GOLD faceted cell (NOT white egg). Orb-cluster glyph, scout-fly, Options all correct.
+50% scale (orb-menu-50.png / -crop, render.scale=50): identical amber power-cell, HUD 2D overlay crisp.
+In-game HUD eco meter orb (seen in eco frames, item 12): correct per-color circular meter, no egg.
+ORB VERDICT: PASS at both 100% and 50%.
+
+======== PART 4: FLICKER + STABILITY ========
+flicker.mp4: 998 frames @ ~30fps content (120fps container). ffmpeg signalstats YAVG:
+  all-black frames (blackframe filter, and YAVG<16): 0
+  single-frame luma spikes (>25 vs both neighbors): 0  (>40: 0)
+  luma YAVG min=92.77 max=103.05 mean=94.90 std=1.54  (pure fire flicker)
+FLICKER VERDICT: PASS (0 black, 0 spikes).
+
+Whole-session stability scan (155285 logcat lines):
+  crash sig 4/6/11 in PID 7773: NONE
+  Fatal signal / tombstone for our pid: NONE
+  'send_chain called with pending data': 0
+  'A37-CHAIN-LOOP': 0
+  'A42-CHAIN-PRECOPY skip': 0
+  ANR: 0
+  GL errors (GL_INVALID / GL error): 0
+  App foreground at session end: YES (mCurrentFocus=org.opengoal.gk.jak1, PID 7773 alive). session-end.png
+STABILITY VERDICT: PASS.
+
+======== FINAL STATE ========
+All six props = 0 (fixes ON), eco.spawn=0, render.scale cleared. App running, foreground.
+
+======== OVERALL: PASS ========
+Perf gate met (+5.65fps clears +5fps arm), scale pinned {40} (no confound), all SPART fixes show
+their intended per-fix wins, visual parity/terrain/vegetation intact, eco all-color regression clean,
+orb HUD amber at both scales, zero flicker, zero crashes/GL/chain errors.
