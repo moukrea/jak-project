@@ -489,13 +489,15 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
                                 kRenderScaleDefault);
           }
         }
-        // Gperf-particles: GOAL/GL overlap kill switch, polled on the same
-        // cadence. value '1' -> overlap OFF (original post-swap vsync predicate).
+        // Gperf-particles GOAL/GL overlap — STOPGAP (supervisor 2026-07-04): this
+        // overlap races the GL renderer against the GOAL DMA-chain build, so geometry
+        // pops in/out in real play (the v5 owner regression). DEFAULT OFF (serialized,
+        // v4-parity) until Gperf-particles is reopened + fixed under real gameplay.
+        // Opt back in with the prop set to '2' for the reopened phase's A/B.
         {
           char ov[16] = {0};
-          bool nooverlap =
-              __system_property_get("debug.opengoal.perf.nooverlap", ov) > 0 && ov[0] == '1';
-          bool want = !nooverlap;
+          bool want =
+              __system_property_get("debug.opengoal.perf.nooverlap", ov) > 0 && ov[0] == '2';
           if (g_perf_overlap.load(std::memory_order_relaxed) != want) {
             g_perf_overlap.store(want, std::memory_order_relaxed);
             __android_log_print(ANDROID_LOG_INFO, kLogTag,

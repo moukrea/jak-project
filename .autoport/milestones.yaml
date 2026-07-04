@@ -1123,6 +1123,22 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Gcrash-swamp-real
+  name: 'OWNER 2026-07-05 (v5 play-test, 2nd FALSE-GREEN REOPEN): Rock Village->Swamp STILL crashes to home crossing the pontoons — the 543b7739b fix cured a DIFFERENT crash (the target.drive hook reproduced a non-faithful one). Reproduce with REAL controller INPUT walking the pontoons (target.drive BANNED as proof), or the owner capture; forensics, 1-to-1 fix, faithful AFTER. Owner play-test.'
+  prompt: prompts/phase-Gcrash-swamp-real.md
+  validator: validators/phase-Gcrash-swamp-real.sh
+  max_turns: 2600
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gperf-particles2
+  name: 'OWNER 2026-07-05 (v5 play-test): the Gperf-particles perf changes CORRUPT the image in real play (geometry pops in/out from GOAL/GL overlap; textures flicker day/night/sunrise from TOD memoize). Supervisor STOPGAP defaulted them OFF (v4 renderer restored). Re-earn each optimization CORRECTLY under REAL MOVING gameplay with natural TOD, video-inspected for pop+flicker vs a known-bad control; keep only correct+gainful ones. Owner play-test.'
+  prompt: prompts/phase-Gperf-particles2.md
+  validator: validators/phase-Gperf-particles2.sh
+  max_turns: 2600
+  max_retries: 6
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true

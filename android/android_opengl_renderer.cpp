@@ -398,31 +398,26 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     char nb[PROP_VALUE_MAX] = {0};
     __system_property_get("debug.opengoal.perf.nobatch", nb);
     m_render_state.batch_singledraw = (nb[0] != '1');
-    // Gperf-particles kill switches: nospritelean/nostatecache=1 restore the
-    // exact pre-phase path live (for on-device parity/perf compare).
-    char nsl[PROP_VALUE_MAX] = {0};
-    __system_property_get("debug.opengoal.perf.nospritelean", nsl);
-    m_render_state.perf_sprite_lean = (nsl[0] != '1');
-    char nsc[PROP_VALUE_MAX] = {0};
-    __system_property_get("debug.opengoal.perf.nostatecache", nsc);
-    m_render_state.perf_state_cache = (nsc[0] != '1');
-    char nsi[PROP_VALUE_MAX] = {0};
-    __system_property_get("debug.opengoal.perf.noinstance", nsi);
-    m_render_state.perf_sprite_instance = (nsi[0] != '1');
-    char ntp[PROP_VALUE_MAX] = {0};
-    __system_property_get("debug.opengoal.perf.notodpp", ntp);
-    m_render_state.perf_tod_pingpong = (ntp[0] != '1');
-    char nsx[PROP_VALUE_MAX] = {0};
-    __system_property_get("debug.opengoal.perf.noshrubidx", nsx);
-    m_render_state.perf_shrub_static_idx = (nsx[0] != '1');
-    char nts[PROP_VALUE_MAX] = {0};
-    __system_property_get("debug.opengoal.perf.notodskip", nts);
-    m_render_state.perf_tod_skip = (nts[0] != '1');
-    // Gperf-particles (round 4): no2dvec=1 restores the original per-op mips2c
-    // VU0 path for the 2D sparticle aging kernel (GOAL thread reads this atomic).
-    char n2v[PROP_VALUE_MAX] = {0};
-    __system_property_get("debug.opengoal.perf.no2dvec", n2v);
-    g_perf_2dvec_off.store(n2v[0] == '1', std::memory_order_relaxed);
+    // Gperf-particles STOPGAP (supervisor 2026-07-04): the v5 owner play-test found
+    // these Gperf-particles optimizations cause SEVERE visual corruption in real play
+    // (TOD palettes flicker day/night/sunrise; geometry pops in/out) — the pose-held,
+    // TOD-PINNED validation structurally could not see it. Until Gperf-particles is
+    // reopened and fixed under REAL moving gameplay, DEFAULT THEM OFF so the renderer
+    // matches the known-good v4 path. Each can be force-enabled with its "no…=0"-style
+    // prop set to '2' (opt-in) for the reopened phase's A/B; default + '1' = OFF.
+    auto perf_opt_in = [](const char* prop) {
+      char v[PROP_VALUE_MAX] = {0};
+      __system_property_get(prop, v);
+      return v[0] == '2';  // opt-IN only; default OFF (v4 parity), '1' also OFF
+    };
+    m_render_state.perf_sprite_lean      = perf_opt_in("debug.opengoal.perf.nospritelean");
+    m_render_state.perf_state_cache      = perf_opt_in("debug.opengoal.perf.nostatecache");
+    m_render_state.perf_sprite_instance  = perf_opt_in("debug.opengoal.perf.noinstance");
+    m_render_state.perf_tod_pingpong     = perf_opt_in("debug.opengoal.perf.notodpp");
+    m_render_state.perf_shrub_static_idx = perf_opt_in("debug.opengoal.perf.noshrubidx");
+    m_render_state.perf_tod_skip         = perf_opt_in("debug.opengoal.perf.notodskip");
+    // 2dvec fast-path: OFF unless explicitly opted in ('2'); g_perf_2dvec_off=true => OFF.
+    g_perf_2dvec_off.store(!perf_opt_in("debug.opengoal.perf.no2dvec"), std::memory_order_relaxed);
   }
 
   m_stats.chain_bytes = count_chain_bytes(dma);
