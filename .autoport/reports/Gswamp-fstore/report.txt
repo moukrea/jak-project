@@ -2,10 +2,49 @@ RESULT: ARM64 FSTORE FIXED (effect binds #f)
 
 Phase:  Gswamp-fstore — TRUE swamp fix (x14-clobber path behind the shipped band-aid)
 Date:   2026-07-05
-Device: owner Snapdragon 8 Elite NOT connected this session (adb devices empty); shared
-        Redmi eae4df44 offline. Verification here is DEVICE-INDEPENDENT (qemu-aarch64
-        runtime A/B + disassembly + x86 parity). The live owner swamp counter-0 walk is
-        the final confirmation and is deferred to the owner (owner_verify:true).
+Device: shared Redmi eae4df44 CONNECTED (attempt 2). owner Snapdragon 8 Elite NOT
+        connected this session. Source fix is DEVICE-INDEPENDENT-proven (qemu-aarch64
+        runtime A/B + disassembly + x86 parity) AND now LANDED FRESH on eae4df44
+        (deploy_verify build==APK==device PASS, boots to master-mode=game). The live
+        owner swamp counter-0 walk is the final confirmation, deferred to the owner
+        (owner_verify:true).
+
+======================================================================================
+ATTEMPT 2 — DEPLOY LANDED (close-gate deploy fix)
+======================================================================================
+Attempt 1 FAILED the close-gate deploy gate, NOT the fix: `deploy_verify` reported
+"build libgk.so != APK-bundled libgk.so — APK bundled a STALE .so". Root: attempt 1
+rebuilt build-android/lib/arm64-v8a/libgk.so via a DIRECT `cmake --build` (fix bytes
+present), but gradle was never re-run, so copyNativeLibs never re-copied the fresh .so
+into src/main/jniLibs and the 16:46 APK + device kept the PRE-FIX .so (eba2f8d6). The
+fixed .so lived only in build-android. Classic Gradle-leaves-libgk-stale (buildNativeLibs
+has no source inputs; a bare cmake build bypasses the gradle copy+package chain).
+
+FIX (attempt 2, .autoport/gswamp_fstore_redeploy.sh): re-ran the gradle chain so the
+fresh .so is re-copied + repackaged, then reinstalled on eae4df44:
+  1. cmake --build build-android --target gk  -> libgk.so 49c9298d (fix bytes
+     `sub x11,x14,x15` / `str x11,[sp,#368]` RE-VERIFIED present via objdump). The .so
+     hash moved 7c21f1be->49c9298d ONLY because versions.cpp re-stamps build date/git-
+     hash each build; the fix is byte-identical.
+  2. cd android && ./gradlew assembleJak1Debug  -> copyNativeLibs re-copied the fresh
+     .so into jniLibs; APK repackaged.  VERIFIED jniLibs==APK==build == 49c9298d.
+  3. adb install -r -d -t (keep app data) on eae4df44. ENGINE.CGO unchanged
+     (76a1e1ae... before==after) — libgk-only change, CGOs stay consistent (no rebuild
+     needed: arm64 goalc output byte-identical for an asm-only trampoline fix).
+  4. deploy_verify eae4df44  -> PASS: "device eae4df44 provably runs the fresh HEAD
+     libgk.so", chain build==APK==device == 49c9298d.
+  5. boot-check: relaunched via MainActivity, logcat reached `master-mode=game`
+     (orchestrator GATE 2b satisfied) — the deployed build BOOTS to in-game/render.
+
+Independent re-verification of the fix this session (trust-but-verify, read-only): the
+.autoport/gsf qemu A/B harness, rebuilt against the GENUINE pre-fix source
+(`git show 48096f890^:game/kernel/asm_funcs_arm64.s`) vs the working-tree fix, is proven
+SENSITIVE (not a tautology):
+  pre-fix `str x14,[sp,#368]`      -> gpr_s7 = 0x1013b7ec0 (raw host, +1 EE-base) -> FAIL
+  fix     `sub x11,x14,x15; str..` -> gpr_s7 = 0x13b7ec0   (GOAL offset K)        -> PASS
+(Note: run.sh's built-in BUG anchor is now stale — the fix is committed as HEAD — so the
+as-shipped script self-reports INCONCLUSIVE; the manual anchor on 48096f890^ restores the
+real A/B. Cosmetic harness staleness, not a fix defect.)
 
 ======================================================================================
 SUMMARY / ROOT CAUSE (named)
@@ -142,7 +181,8 @@ BUILD / DEPLOY
   new asm. Shipped libgk.so carries the fix bytes (cb0f01cb / f900bbeb) at
   <_mips2c_call_arm64>@0x481500.
 * Full consistent arm64 CGO/DGO set staged to out/jak1-arm64-full/iso (28 files).
-* deploy_verify (build==APK==device) NOT run this session — no device connected.
+* deploy_verify (build==APK==device) PASS on eae4df44 (attempt 2): chain == 49c9298d;
+  app boots to master-mode=game; ENGINE.CGO unchanged across reinstall (consistent).
 
 ======================================================================================
 PRIOR FIXES INTACT
