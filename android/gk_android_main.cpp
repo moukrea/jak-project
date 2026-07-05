@@ -3846,6 +3846,46 @@ void log_nearest_goal_fn(const char* label, uint32_t target_goal) {
                       name[0] ? name : "<unnamed>", best_v, target_goal - best_v, best_slot);
 }
 
+// Return the name of the nearest GOAL function at/below target_goal into `out`
+// (empty string if unresolved). Same bounds-checked symbol-table walk as
+// log_nearest_goal_fn, but returns the name instead of logging it — used by the
+// null-frame-group repair handler to gate on the joint-eval band by fn NAME.
+// Async-signal-safe: only guarded EE reads, no allocation, no logging.
+void nearest_goal_fn_name(uint32_t target_goal, char* out, size_t n) {
+  if (n == 0) {
+    return;
+  }
+  out[0] = '\0';
+  if (!g_ee_main_mem || !SymbolTable2.offset || !LastSymbol.offset || target_goal < 0x1000) {
+    return;
+  }
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  uint32_t best_v = 0, best_slot = 0;
+  for (uint32_t slot = SymbolTable2.offset;
+       slot + 4 < EE_MAIN_MEM_SIZE && slot < LastSymbol.offset; slot += 4) {
+    uint32_t v = *reinterpret_cast<const uint32_t*>(ee + slot);
+    if (v > best_v && v <= target_goal && target_goal - v < 0x200000) {
+      best_v = v;
+      best_slot = slot;
+    }
+  }
+  if (!best_slot) {
+    return;
+  }
+  uint64_t info_goal = static_cast<uint64_t>(best_slot) + jak1::SYM_INFO_OFFSET;
+  if (info_goal + 8 < EE_MAIN_MEM_SIZE) {
+    uint32_t str_off = *reinterpret_cast<const uint32_t*>(ee + info_goal + 4);
+    if (str_off > 0 && static_cast<uint64_t>(str_off) + 4 + n < EE_MAIN_MEM_SIZE) {
+      const char* sp = reinterpret_cast<const char*>(ee + str_off + 4);
+      size_t i = 0;
+      for (; i + 1 < n && sp[i]; i++) {
+        out[i] = (sp[i] >= 0x20 && sp[i] <= 0x7e) ? sp[i] : '?';
+      }
+      out[i] = '\0';
+    }
+  }
+}
+
 void log_dladdr(const char* label, uintptr_t addr) {
   Dl_info di{};
   if (addr && dladdr(reinterpret_cast<void*>(addr), &di) && di.dli_fname) {
@@ -5007,6 +5047,278 @@ bool handle_bare_ret_offset(int sig, siginfo_t* info, void* ucontext) {
   return true;
 }
 
+// Gcrash-swamp-real: repair the owner's Rock Village -> Boggy Swamp crash-to-home.
+//
+// ROOT (GROUND TRUTH — owner device disassembly, .autoport/reports/Gcrash-swamp-real/
+// owner-crash-4-groundtruth.txt): the fault is the TAIL of
+// (method evaluate-joint-control process-drawable), process-drawable.gc:636:
+//     (let ((a0-17 (-> gp-0 effect)))
+//       (if a0-17 (effect-control-method-9 a0-17)))
+// The `(if obj (method obj))` idiom emits at the fault site:
+//   pc-8 : B.EQ <skip>           (0x54000240 ; cmp effect,s7 ; b.eq skip — the #f guard)
+//   pc-4 : ADD Xn2, Xobj, X15    (0x8b0f00f0 ; ADD shifted-reg, Xm==x15==EE_base)
+//   pc   : LDUR Wt, [Xn, #-4]    (0xb85fc209 ; reads (-> obj type) ; FAULTS)
+// The null object is `effect` — an UNINITIALIZED / TORN joint-control field, NOT #f.
+// On x86/slower devices effect is #f so the b.eq skips; the faster Snapdragon 8 Elite
+// observes GARBAGE in the effect slot (async actor-init race) that is 0 OR a wild small
+// value, != s7, so the #f guard passes, the method is dispatched on the invalid object,
+// and `(-> obj type)` (offset -4) reads (garbage + EE_base - 4) -> SIGSEGV. arm64 code
+// here is byte-identical to x86 (NOT a codegen bug) — a pure device-timing race on an
+// uninitialized receiver that a #f guard cannot catch. A fresh owner capture shows two
+// faults at the SAME insn: crash #4 receiver=0x0 (raw null), crash #5 receiver=0xfffffb20
+// (wild garbage). BOTH are invalid objects; the receiver value is NOT reliably 0.
+//
+// THE FAULT ITSELF PROVES THE RECEIVER IS INVALID: a VALID GOAL object always has a
+// readable type at (ptr-4). If the LDUR Wt,[base,#-4] that reads the type SIGSEGVs, then
+// the object (base == receiver + EE_base) is by definition invalid — null OR garbage. So
+// we gate on the INSTRUCTION PATTERN + the fault being exactly this LDUR's -4 read
+// (regs[Xn] - 4 == fault_addr), NOT on the receiver's specific value.
+//
+// ROBUST REPAIR — make raw-0 behave exactly like #f by redirecting to the b.eq target:
+//   * The engine's own #f path (effect == #f) is the b.eq skip target 8 bytes back at
+//     pc-8. Its disassembly is `mov x3,s7 ; add sp,#0x10 ; ldp x29,x30 ; ret` — the
+//     normal "effect is #f, return" epilogue that dereferences NOTHING further. So the
+//     race-free, 1-to-1-faithful repair is to decode pc-8's B.EQ imm19 and set the
+//     resume pc to that same skip target. effect==0 then takes the identical control
+//     path as effect==#f: correct semantics, no re-crash (target is a return path),
+//     no loop.
+//   * We touch NO general register and NOT sp: the b.eq target is reached BEFORE the
+//     method dispatch's stp pushes, so the stack is already balanced (the target itself
+//     does the `add sp,#0x10 ; ldp x29,x30 ; ret`). Pure control-flow redirect.
+//   * Structure-free: no forward loop / back-edge / cfg scan (the prior heuristic that
+//     bailed at THIS site). The only decode is pc-8's own B.cond immediate, plus
+//     sanity gates so we NEVER jump wild — if any gate fails we BAIL (return false) and
+//     the true fault reaches the honest fatal dump.
+//
+// GATING (razor-tight, defense-in-depth so this can NEVER fire on an unrelated
+// null-type-read elsewhere) — FAULT-PROVES-INVALID + instruction pattern, NOT a value
+// check: SIGSEGV + the faulting insn decodes as LDUR Wt,[Xn,#-4] AND regs[Xn]-4 ==
+// fault_addr (this LDUR is what faulted) + pc-4 is an ADD Xn2,Xobj,X15 (Rm==15==EE_base)
+// whose Rd == the LDUR's Xn (pc-4 computed the base the LDUR uses) + (cheap extra guard)
+// the receiver regs[Xobj] is NOT a valid-range EE object + pc-8 is a B.EQ + the nearest
+// GOAL fn is in the joint-eval band (ja-blend-eval / evaluate-joint-control /
+// joint-control-channel-eval — the resolver mis-attributes evaluate-joint-control to
+// the adjacent ja-blend-eval symbol, so all three are accepted). We do NOT check the
+// receiver's specific value (it may be 0 raw-null OR wild garbage) and we do NOT require
+// the load's base to equal EE_base exactly (garbage receiver != 0 makes base != EE_base).
+// arm64/Android only (this TU is Android-only; x86 never compiles it).
+// Optional A/B kill-switch: debug.opengoal.nullfg.norepair=1 disables it.
+std::atomic<uint64_t> g_grv_nullfg_repairs{0};
+bool handle_null_framegroup_type_read(int sig, siginfo_t* info, void* ucontext) {
+  // Gcrash-swamp-load (debug-only): let the TRUE first crash reach the fatal dump
+  // instead of being repaired. Shared diag flag with the other repair handlers.
+  if (a38_trip::g_gk_diag_norepair.load(std::memory_order_relaxed)) return false;
+  // Optional dedicated A/B kill-switch (default OFF = repair ACTIVE — this is the
+  // real fix, not instrumentation). Cached one-shot.
+  {
+    static std::atomic<int> s_norepair{-1};
+    int nr = s_norepair.load(std::memory_order_acquire);
+    if (nr == -1) {
+      char b[PROP_VALUE_MAX] = {0};
+      nr = (__system_property_get("debug.opengoal.nullfg.norepair", b) > 0 && b[0] == '1') ? 1 : 0;
+      s_norepair.store(nr, std::memory_order_release);
+    }
+    if (nr == 1) return false;
+  }
+  if (sig != SIGSEGV || !g_ee_main_mem) {
+    return false;
+  }
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const uintptr_t fault = info ? reinterpret_cast<uintptr_t>(info->si_addr) : 0;
+  // (1) decode the faulting instruction: it must be a 32-bit (W) load with an immediate
+  // offset of exactly -4 (the `(-> obj type)` type-tag read). We then require the fault
+  // address to equal this LDUR's own base minus 4 (regs[Xn]-4 == fault_addr) — that
+  // proves THIS instruction is what faulted, and that its receiver (base) is an invalid
+  // object (null OR garbage). No fixed (fault-EE)==0xfffffffc signature, no EE_base-exact
+  // base check: with a garbage receiver the base is EE_base + garbage, not EE_base.
+  const uintptr_t pc = uc->uc_mcontext.pc;
+  uint32_t pcg = to_goal(pc);
+  if (pcg < 0x1000) {
+    return false;  // pc not inside EE-generated code
+  }
+  uint32_t insn = 0;
+  if (!a36_tree::rd32(pcg, &insn)) {
+    return false;
+  }
+  int base_reg = -1;
+  bool off_is_minus4 = false;
+  bool is_w_load = false;
+  // LDUR Wt,[Xn,#imm9]  (unscaled, immediate): size=10, V=0, opc=01, bit24=0, bits11:10=00
+  //   0x38000000 family, (insn>>30)==2 (32-bit), (insn>>22)&3==1 (LDR), bit21==0,
+  //   idx bits (11:10)==0. imm9 = signed bits20:12.
+  // LDR  Wt,[Xn,#imm12] (scaled,   immediate): 0x39000000 family, (insn>>30)==2,
+  //   (insn>>22)&3==1. Scaled imm12 can't encode -4, so only the LDUR form yields -4.
+  {
+    uint32_t fam = insn & 0x3B000000u;
+    uint32_t size = insn >> 30;
+    uint32_t opc = (insn >> 22) & 3u;
+    bool simd = (insn >> 26) & 1u;
+    if (fam == 0x38000000u && !simd && size == 2u && opc == 1u && !((insn >> 21) & 1u)) {
+      uint32_t idx = (insn >> 10) & 3u;  // 00 LDUR (no writeback), 01 post, 11 pre
+      if (idx == 0u) {
+        int32_t imm9 = static_cast<int32_t>((insn >> 12) & 0x1FFu);
+        if (imm9 & 0x100) imm9 -= 0x200;  // sign-extend 9 bits
+        if (imm9 == -4) {
+          off_is_minus4 = true;
+          is_w_load = true;
+          base_reg = static_cast<int>((insn >> 5) & 0x1Fu);
+        }
+      }
+    }
+  }
+  if (!off_is_minus4 || !is_w_load || base_reg < 0 || base_reg > 30) {
+    return false;
+  }
+  // (2) the fault must be THIS LDUR's -4 read: regs[Xn] - 4 == fault_addr. A valid GOAL
+  // object always has a readable type at (base-4); this faulting means base (= receiver
+  // + EE_base) is an invalid object — null OR garbage. Value-agnostic.
+  if (static_cast<uintptr_t>(uc->uc_mcontext.regs[base_reg]) - 4u != fault) {
+    return false;
+  }
+  // (3) pc-4 must be `ADD Xn2, Xobj, X15` (the `obj + EE_base` type-tag base-form of the
+  // dispatch), and its Rd must be the LDUR's base register (pc-4 computed the base the
+  // LDUR uses). We do NOT check the receiver's value — it may be RAW 0 (null) OR wild
+  // garbage (uninitialized effect field); either way (2) already proved it invalid.
+  //   64-bit ADD (shifted register): base 0x8B000000, Rm at bits[20:16]. Pin
+  //   sf=1 (64-bit), op=0 (ADD not SUB), S=0, the add/sub-shifted-reg class bits,
+  //   shift-type=LSL (bits[23:22]==0), bit21==0, Rm==15 (EE_base), imm6==0 (no shift).
+  //   Leave Rn(Xobj) bits[9:5] and Rd bits[4:0] free.  =>  (insn & 0xFFFFFC00)==0x8B0F0000
+  uint32_t insn_m4 = 0;
+  if (!a36_tree::rd32(pcg - 4, &insn_m4)) {
+    return false;
+  }
+  if ((insn_m4 & 0xFFFFFC00u) != 0x8B0F0000u) {
+    return false;
+  }
+  const int obj_reg = static_cast<int>((insn_m4 >> 5) & 0x1Fu);  // Xobj = Rn of pc-4
+  if (obj_reg < 0 || obj_reg > 30) {
+    return false;
+  }
+  // pc-4's Rd (bits[4:0]) must be the LDUR's base register (this ADD produced the base).
+  if (static_cast<int>(insn_m4 & 0x1Fu) != base_reg) {
+    return false;
+  }
+  // Cheap defense-in-depth: the receiver must NOT be a valid-range EE object. Guaranteed
+  // true given the fault (an in-range object would have a readable type), but this ensures
+  // we never redirect on a fault that somehow had a valid-range receiver.
+  {
+    const uint32_t recv = static_cast<uint32_t>(uc->uc_mcontext.regs[obj_reg]);
+    if (recv >= 0x1000u && recv < static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) {
+      return false;  // receiver looks like a valid EE object -> not our garbage/null case
+    }
+  }
+  // (4) pc-8 must be a B.EQ (the #f guard `cmp obj,s7 ; b.eq skip`):
+  //   B.cond: (insn & 0xFF00001F) == 0x54000000 ; cond==0000==EQ.
+  uint32_t insn_m8 = 0;
+  if (!a36_tree::rd32(pcg - 8, &insn_m8)) {
+    return false;
+  }
+  if ((insn_m8 & 0xFF00001Fu) != 0x54000000u) {
+    return false;
+  }
+  // (5) defense-in-depth: the nearest GOAL fn must be in the joint-eval band. The
+  // symbol resolver mis-attributes evaluate-joint-control to the adjacent
+  // ja-blend-eval slot (owner capture shows pc-fn=ja-blend-eval), so accept any of
+  // the three joint-eval fns.
+  {
+    char fn[48] = {0};
+    nearest_goal_fn_name(pcg, fn, sizeof(fn));
+    bool in_band = (strcmp(fn, "ja-blend-eval") == 0) ||
+                   (strcmp(fn, "evaluate-joint-control") == 0) ||
+                   (strcmp(fn, "joint-control-channel-eval") == 0);
+    if (!in_band) {
+      return false;
+    }
+  }
+  // Resume: redirect to pc-8's B.EQ skip target — the exact path effect==#f takes.
+  // Decode pc-8's B.cond imm19 (SIGNED bits[23:5]); target = (pc-8) + imm19*4.
+  int32_t imm19 = static_cast<int32_t>((insn_m8 >> 5) & 0x7FFFFu);
+  if (imm19 & 0x40000) imm19 -= 0x80000;  // sign-extend 19 bits
+  if (imm19 <= 0) {
+    return false;  // guard target must be a FORWARD skip
+  }
+  const int64_t target_off = static_cast<int64_t>(imm19) * 4 - 8;  // from pc
+  if (target_off <= 0 || target_off > 0x200) {
+    return false;  // target must be a small forward distance within this function
+  }
+  const uint32_t skip_target = pcg + static_cast<uint32_t>(target_off);
+  // Repair: resume at the b.eq target (the normal #f-effect return epilogue
+  // `mov x3,s7 ; add sp,#0x10 ; ldp x29,x30 ; ret`). We touch NO general register and
+  // NOT sp — the target is reached before any dispatch stp pushes, so the stack is
+  // already balanced and the target's own epilogue restores x29/x30 and returns. This
+  // makes an invalid (null OR garbage) effect take the identical control path as
+  // effect==#f: correct semantics, no re-crash (target derefs nothing further), no loop.
+  uc->uc_mcontext.pc = ee + skip_target;
+  const uint64_t cnt = g_grv_nullfg_repairs.fetch_add(1, std::memory_order_relaxed) + 1;
+  if (cnt <= 16 || (cnt % 256) == 0) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG GRV-NULLFG-REPAIR count=%llu pc=goal:0x%x base=X%d "
+                        "obj=X%d(recv=0x%x invalid) fault=0x%lx -> redirect to b.eq #f-skip "
+                        "target goal:0x%x (null-or-garbage effect == #f return path; no crash)",
+                        (unsigned long long)cnt, pcg, base_reg, obj_reg,
+                        static_cast<uint32_t>(uc->uc_mcontext.regs[obj_reg]),
+                        (unsigned long)fault, skip_target);
+  }
+#if defined(JAK_SWAMP_CAPTURE)
+  // Owner HONOR-device verification (INSTRUMENTATION ONLY, capture build): HONOR
+  // suppresses logcat so the GK-DIAG line above is invisible on the owner's phone.
+  // ALSO write the current repair count to a one-line file in the app's EXTERNAL
+  // files dir so the supervisor can confirm from the phone's Files app WITHOUT adb
+  // that the guard caught the exact null-frame-group fault and resumed (count>0)
+  // AND that no jak_swamp_crash.txt was produced (no crash). OVERWRITE each time so
+  // the file always reflects the latest total. ASYNC-SIGNAL-SAFE ONLY: open/write/
+  // close + a hand-rolled decimal formatter into a fixed stack buffer (same pattern
+  // as the swamp-crash writer below) — no snprintf/fprintf/malloc. Best-effort: any
+  // failure is silently ignored so the handler never blocks or re-crashes.
+  if (g_ext_files_dir[0]) {
+    // Build "<g_ext_files_dir>/jak_repair.txt" without snprintf.
+    char path[512 + 32];
+    size_t pi = 0;
+    for (const char* s = g_ext_files_dir; *s && pi < sizeof(path) - 24; ++s) {
+      path[pi++] = *s;
+    }
+    const char kName[] = "/jak_repair.txt";
+    for (size_t i = 0; i < sizeof(kName) /*includes NUL*/; ++i) {
+      path[pi++] = kName[i];
+    }
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd >= 0) {
+      char buf[64];
+      size_t bi = 0;
+      auto put = [&](const char* s) {
+        while (*s && bi < sizeof(buf)) {
+          buf[bi++] = *s++;
+        }
+      };
+      // Append an unsigned 64-bit decimal (signal-safe, no snprintf).
+      auto put_dec = [&](unsigned long long v) {
+        char tmp[24];
+        int n = 0;
+        if (v == 0) {
+          tmp[n++] = '0';
+        } else {
+          while (v && n < 24) {
+            tmp[n++] = char('0' + (v % 10));
+            v /= 10;
+          }
+        }
+        while (n > 0 && bi < sizeof(buf)) {
+          buf[bi++] = tmp[--n];
+        }
+      };
+      put("GRV-NULLFG-REPAIR count=");
+      put_dec((unsigned long long)cnt);
+      put("\n");
+      ssize_t wr = write(fd, buf, bi);
+      (void)wr;
+      close(fd);
+    }
+  }
+#endif
+  return true;
+}
+
 // Gcrash-mouche: arm64 scout-fly (buzzer) collect SIGILL. enter-state
 // (gstate.gc:355-386) enters a process state by computing
 //   func = (-> new-state code) + r15  ;  (.jr func)
@@ -5423,6 +5735,16 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   if (sig == SIGSEGV && a38_trip::handle_bare_ret_offset(sig, info, ucontext)) {
     return;
   }
+  // Gcrash-swamp-real: the owner's Rock Village -> Boggy Swamp crash. A swamp creature
+  // whose art-joint-anim is still mid-bind (async SWA.DGO link) is evaluated a frame
+  // early on the Snapdragon 8 Elite, so joint-eval reads (-> frame-group type) with a
+  // null frame-group (fault EE offset 0xfffffffc, LDUR Wt,[Xn,#-4] with Xn=EE_base).
+  // Skip that channel's anim this frame (engine's own no-anim degradation) and resume.
+  // Razor-tight gating (fault sig + insn + base==EE_base + joint-eval fn band). Must
+  // run before the fatal dump below.
+  if (sig == SIGSEGV && a38_trip::handle_null_framegroup_type_read(sig, info, ucontext)) {
+    return;
+  }
   // Gcrash-mouche: arm64 buzzer scout-fly collect SIGILL — enter-state's spilled
   // `new-state` was stomped to 0 by a concurrent sparticle DMA write, so the state
   // `code` read 0 and the .jr branched to EE+0. Recover the authoritative state code
@@ -5485,7 +5807,9 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     }
     int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
     if (fd >= 0) {
-      char buf[512];
+      // Enlarged to 2048 (fixed stack buffer, still no malloc) so the appended
+      // insn-context + full x0..x30/sp register dump fit alongside the header.
+      char buf[2048];
       size_t bi = 0;
       auto put = [&](const char* s) {
         while (*s && bi < sizeof(buf)) {
@@ -5541,6 +5865,101 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
       put_hex((unsigned long long)a38_trip::to_goal(lr));
       put(" fault=");
       put_hex((unsigned long long)a38_trip::to_goal(fault));
+      put("\n");
+      // Nearest GOAL function name for pc/lr (same symbol-table walk as
+      // log_nearest_goal_fn, inlined here signal-safe so the owner's crash file
+      // NAMES the faulting fn without adb/logcat — HONOR suppresses logcat).
+      auto put_nearest_fn = [&](const char* label, uint32_t target_goal) {
+        put(label);
+        const uintptr_t eemem = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+        if (!eemem || !SymbolTable2.offset || !LastSymbol.offset || target_goal < 0x1000) {
+          put("<n/a>\n");
+          return;
+        }
+        uint32_t best_v = 0, best_slot = 0;
+        for (uint32_t slot = SymbolTable2.offset;
+             slot + 4 < EE_MAIN_MEM_SIZE && slot < LastSymbol.offset; slot += 4) {
+          uint32_t v = *reinterpret_cast<const uint32_t*>(eemem + slot);
+          if (v > best_v && v <= target_goal && target_goal - v < 0x200000) {
+            best_v = v;
+            best_slot = slot;
+          }
+        }
+        if (!best_slot) {
+          put("<none>\n");
+          return;
+        }
+        uint64_t info_goal = static_cast<uint64_t>(best_slot) + jak1::SYM_INFO_OFFSET;
+        if (info_goal + 8 < EE_MAIN_MEM_SIZE) {
+          uint32_t str_off = *reinterpret_cast<const uint32_t*>(eemem + info_goal + 4);
+          if (str_off > 0 && static_cast<uint64_t>(str_off) + 4 + 64 < EE_MAIN_MEM_SIZE) {
+            const char* sp = reinterpret_cast<const char*>(eemem + str_off + 4);
+            for (size_t i = 0; i < 64 && sp[i] && bi < sizeof(buf); i++) {
+              buf[bi++] = (sp[i] >= 0x20 && sp[i] <= 0x7e) ? sp[i] : '?';
+            }
+          }
+        }
+        put("+");
+        put_hex(target_goal - best_v);
+        put("\n");
+      };
+      put_nearest_fn("pc-fn=", a38_trip::to_goal(pc));
+      put_nearest_fn("lr-fn=", a38_trip::to_goal(lr));
+      // GROUND-TRUTH ADDITIONS for writing a correct swamp-crash repair guard:
+      // (1) the faulting emitted-arm64 INSTRUCTION word + 4 words of context,
+      // (2) ALL general registers x0..x30 + sp, (3) the EE host base so reg->EE
+      // offsets can be computed offline. All async-signal-safe: only guarded
+      // 32-bit EE reads + the fixed-buffer put/put_hex helpers above.
+      //
+      // (1) insn @pc-8..pc+8: read the emitted instruction words from EE memory
+      // at the GOAL offset to_goal(pc)+k (NOT the host pc), same guarded read the
+      // handler-decode code uses. '*' marks the pc word.
+      {
+        const uintptr_t eemem_i = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+        put("insn @pc-8..pc+8:");
+        for (int k = -8; k <= 8; k += 4) {
+          put(" ");
+          if (k == 0) {
+            put("*");
+          }
+          // GOAL offset of this word. to_goal(pc) is the offset of the pc word;
+          // add k for the neighbours. Guard: valid EE base, pc itself in-range,
+          // and the target offset word fully inside [0, EE_MAIN_MEM_SIZE).
+          uint32_t pc_goal = a38_trip::to_goal(pc);
+          if (eemem_i && pc_goal >= 0x1000) {
+            // int64 to allow k<0 without underflow before the range check.
+            int64_t woff = static_cast<int64_t>(pc_goal) + k;
+            if (woff >= 0 && woff + 4 <= static_cast<int64_t>(EE_MAIN_MEM_SIZE)) {
+              uint32_t w =
+                  *reinterpret_cast<const uint32_t*>(eemem_i + static_cast<uint32_t>(woff));
+              put_hex((unsigned long long)w);
+            } else {
+              put("<oob>");
+            }
+          } else {
+            put("<n/a>");
+          }
+        }
+        put("\n");
+      }
+      // (2) ALL general registers x0..x30 + sp (from the faulting ucontext). One
+      // per token, wrapped 8 per line to keep lines readable; the offline reader
+      // can spot which reg holds 0 (null GOAL ptr) and which holds ee_base.
+      {
+        for (int r = 0; r <= 30; ++r) {
+          put("x");
+          put_dec((unsigned)r);
+          put("=");
+          put_hex((unsigned long long)uc->uc_mcontext.regs[r]);
+          put(((r % 8) == 7) ? "\n" : " ");
+        }
+        put("sp=");
+        put_hex((unsigned long long)uc->uc_mcontext.sp);
+        put("\n");
+      }
+      // (3) ee_base = the g_ee_main_mem host base, so (reg - ee_base) = EE offset.
+      put("ee_base=");
+      put_hex((unsigned long long)reinterpret_cast<uintptr_t>(g_ee_main_mem));
       put("\n");
       // Single write() of the assembled buffer (partial writes tolerated —
       // best-effort forensic, not a stream contract).
