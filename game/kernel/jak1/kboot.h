@@ -139,6 +139,16 @@ void eco_spawn_maybe();
 void tod_pin_maybe();
 
 /*!
+ * TOD-FAST (Gperf-particles2 capture lever) — env OG_TOD_FAST / Android prop
+ * debug.opengoal.tod.fast, OFF by default. UNLIKE tod.hour, does NOT pin/freeze:
+ * writes *time-of-day-proc*'s time-ratio to a FAST value (18000 = the game's own
+ * *time-of-day-fast* rate) so the clock ADVANCES ~60x, a full day->night in ~24s,
+ * for the real-moving-gameplay natural-TOD correctness capture. Value "1" => 18000
+ * preset; any float >= 2 => that literal ratio. Mutually exclusive with tod.hour.
+ */
+void tod_fast_maybe();
+
+/*!
  * ECO PHYSICS TRACER (Geco-spheres TEMPORARY arm64-NaN diagnostic) — env
  * OG_ECO_TRACE / Android prop debug.opengoal.eco.trace = "1", OFF by default.
  * Per-dispatch dumps the physics state (trans / transv / world-sphere /

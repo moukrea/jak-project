@@ -370,6 +370,14 @@ set_source_files_properties(
         mips2c/jak1_functions/collide_func.cpp
         mips2c/jak1_functions/collide_mesh.cpp
         mips2c/jak1_functions/collide_probe.cpp
+        # Gperf-particles2: the 2d-NEON sparticle fast-path (sparticle.cpp) replaces the
+        # scalar VU0 aging loop with inlined float math that MUST stay two-rounding
+        # (multiply-then-add, no FMA) to be bit-identical to the PS2/x86 scalar path.
+        # Its in-file comment asserted "-ffp-contract=off" but the file was NOT on this
+        # list (it only passed by luck: the current NDK emitted no fmadd). Add it so the
+        # bit-exactness is guaranteed across compiler/NDK changes — same rationale as the
+        # collide TUs above. No-op on today's build (already non-contracted).
+        mips2c/jak1_functions/sparticle.cpp
         PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 
 # we build the runtime as a static library.

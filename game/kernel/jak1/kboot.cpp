@@ -214,6 +214,12 @@ void KernelCheckAndDispatch() {
     // clock so the night pose is deterministic for the Gperf-particles A/B.
     tod_pin_maybe();
 
+    // TOD-FAST (Gperf-particles2 capture lever) — gated (env OG_TOD_FAST / prop
+    // debug.opengoal.tod.fast), OFF by default. ADVANCES the clock ~60x (a full
+    // day->night in ~24s) WITHOUT pinning, for the real-moving-gameplay natural-TOD
+    // correctness capture. Mutually exclusive with tod.hour (pin wins).
+    tod_fast_maybe();
+
     // Geco-spheres TEMPORARY diagnostic — gated (env OG_ECO_TRACE / prop
     // debug.opengoal.eco.trace), OFF by default. Dumps the last spawned eco's physics.
     eco_trace_maybe();
