@@ -1,6 +1,0 @@
-N=200000
-SCALAR seq vs x86 cvttss2si: 0 mismatches (expect 0)
-SCALAR seq vs bare FCVTZS  : 77873 differ (the bug it fixes; >0 expected)
-VECTOR seq vs x86 cvttps2dq: 0 lane-mismatches over 800000 lanes (expect 0)
-inputs: NaN=3698 out-of-range=76465
-RESULT: SEQUENCES == x86, DIFFER FROM BARE (CORRECT)

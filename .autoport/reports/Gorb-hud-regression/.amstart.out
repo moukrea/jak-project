@@ -1,7 +1,0 @@
-Starting: Intent { cmp=org.opengoal.gk.jak1/.LoaderActivity }
-Status: ok
-LaunchState: COLD
-Activity: org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity
-TotalTime: 1457
-WaitTime: 1463
-Complete

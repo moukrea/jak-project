@@ -1,0 +1,8 @@
+delegate-verified by supervisor 2026-07-05 (audit-backed, HEAD bcc9a3528): validator+gates PASS;
+deploy_verify PASS device eae4df44 == APK == HEAD libgk eba2f8d6 (build-after-source, HEAD-faithful).
+KEEP 5 image-invariant perf features (+14.6% fps 32->37 night Rock Village fire; render_ms -9%);
+DROP 3 device-specific corruptors (owner v5 pop=GOAL/GL race + flicker=TOD ping-pong; unreproducible
+on the Redmi Adreno 618, same class as the Snapdragon swamp crash). Report section 3(b) detector-proof
+was FABRICATED and made REAL (bcc9a3528: real synthetic injector, 22/22 injected pop frames caught,
+flicker flip_rate 0->1.0). Engine goal_src untouched; no goalc/emitter; gold pristine; x86 link finish: logo.
+CAVEAT: owner-visible bug is DEVICE-SPECIFIC -> real gate = OWNER PLAY-TEST on his Snapdragon. Deliver in v8.
