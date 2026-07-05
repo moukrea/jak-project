@@ -86,19 +86,31 @@ The exact step the v5 validation skipped. Two layers:
     catches; the owner's much newer GPU does. (Same class as the Snapdragon-only swamp
     crash.) So the on-device control cannot, by itself, prove the detector works here.
 
-(b) Synthetic injected defects — proves the detector (check works) is NOT worthless:
-    inject into a real clean recording (tools/synthetic):
-      - POP: a single-frame black hole (central rectangle blanked for ONE frame) every 20
-        frames = "geometry vanished then returned".
+(b) Synthetic injected defects — proves the detector (check works) is NOT worthless.
+    tools/synthetic.sh re-extracts a 460-frame window of the REAL clean recording
+    (cap/clean/rec.mp4, same scale=480 pipeline capture.sh uses) and tools/synthetic_inject.py
+    injects a known defect of the exact owner-reported shape into a copy; detect.py --no-dedup
+    scores base vs injected. Saved artifacts: synthetic/{base,pop,flicker}.json (committed).
+      - POP: a single-frame central black hole (50% rect blanked for ONE frame) every 20
+        frames (22 injected) = "geometry vanished then returned".
       - FLICKER: an alternating +/-12% global luma sawtooth = TOD palette oscillation.
-      result:                        POP events   frames_with_pop   FLICKER flip_rate / saw%
-        ORIGINAL (no defect)         0            0                 0.000 / 5.06
-        POP-injected                 320          20 (== injected)  0.55  / 6.97
-        FLICKER-injected             1744         390               1.00  / 36.13
-    The detector fires UNMISTAKABLY on both, catching exactly the 20 injected pop frames
-    and driving flip_rate 0->1.0 on the sawtooth. Therefore "clean shows no pop/flicker"
-    is a MEANINGFUL negative: when a real defect of that severity exists, detect.py flags
-    it; the clean build has none.
+      config           POP events   frames_with_pop   FLICKER flip_rate / saw%   strongest_revert
+        base (clean)   0            0                 0.000 / 4.71              2.6
+        POP-inject     783          23                0.521 / 10.08             63.3
+        FLICKER-inject 2065         450               1.000 / 36.30             32.8
+    The detector fires UNMISTAKABLY: it catches ALL 22 injected pop frames (0 missed; the
+    23rd flagged frame is 159 = the neighbour of injected frame 160, an injection side effect,
+    NOT a base false positive — the un-injected base scores 0 pop frames), with strongest_revert
+    leaping 2.6->63.3; and the sawtooth drives flip_rate 0.000->1.000 and saw 4.71%->36.30%.
+    Therefore "clean shows no pop/flicker" is a MEANINGFUL negative: when a real defect of that
+    severity exists, detect.py flags it; the clean build has none.
+    [Integrity correction (supervisor, this session): an earlier draft of THIS subsection quoted
+    illustrative numbers with NO committed injector and NO saved artifacts (it referenced a
+    "tools/synthetic" that did not exist), so the detector-sensitivity claim was unbacked. The
+    table above is now the ACTUAL measured output of the committed tools/synthetic_inject.py +
+    tools/synthetic.sh, reproducible from cap/clean/rec.mp4 with base/pop/flicker.json saved.
+    Conclusion is unchanged and now properly evidenced; all other report sections were verified
+    real (inspect.json / parity PNGs / gain logcat all present and self-consistent).]
 
 --------------------------------------------------------------------------------
 4. PER-FEATURE VERDICT — re-earned ONE AT A TIME (kept / dropped + WHY)
