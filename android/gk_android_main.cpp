@@ -5104,6 +5104,52 @@ bool handle_bare_ret_offset(int sig, siginfo_t* info, void* ucontext) {
 // arm64/Android only (this TU is Android-only; x86 never compiles it).
 // Optional A/B kill-switch: debug.opengoal.nullfg.norepair=1 disables it.
 std::atomic<uint64_t> g_grv_nullfg_repairs{0};
+// Gres-picker SELF-HEAL: count of joint-controls whose `effect` field we wrote
+// back to #f (one per affected object; converges to ~25 while g_grv_nullfg_repairs
+// stops climbing once every corrupt effect field is healed).
+std::atomic<uint64_t> g_grv_nullfg_heals{0};
+
+// Recover the parent joint-control (`skel`, = evaluate-joint-control's gp-0) that
+// owns the corrupt `effect` field which just faulted. Reuses the EXACT recovery the
+// JAK_SWAMP_CAPTURE jc-dump uses (see the dump block below), factored out so it runs
+// in the NORMAL (capture-OFF) build — the heal is the real fix now, not diagnostics.
+//
+// The LDUR's receiver (obj_reg) holds the raw `effect` FIELD VALUE (the garbage that
+// faulted), NOT the address of `skel`. `skel` itself is `(-> self skel)` = EE[self+0x78];
+// `self` (a process-drawable basic) still lives in several GPRs. We scan the GPR file for
+// a value V that (a) validates as a GOAL basic (readable in-range type at V-4), (b) has a
+// plausible skel = EE[V+0x78], and (c) whose EE[skel+0x28] (the effect field) EXACTLY
+// equals the faulting effect value — this uniquely and confirmably pins the corrupt
+// joint-control. Returns the CONFIRMED skel, or 0 if no candidate confirms (never guess:
+// the caller only writes on a confirmed recovery).
+inline uint32_t recover_corrupt_joint_control(const ucontext_t* uc,
+                                              uint32_t effect_val) {
+  auto ee_rd = [](uint32_t goal, uint32_t* out) -> bool {
+    return a36_tree::rd32(goal, out);
+  };
+  // A GOAL basic ptr is "plausible" if in-range and its type tag (at ptr-4) is itself
+  // an in-range EE pointer (types live in EE memory).
+  auto plausible_basic = [&](uint32_t p) -> bool {
+    if (p < 0x1000u || p >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) return false;
+    uint32_t tt = 0;
+    if (!ee_rd(p - 4u, &tt)) return false;
+    return tt >= 0x1000u && tt < static_cast<uint32_t>(EE_MAIN_MEM_SIZE);
+  };
+  for (int r = 0; r <= 30; ++r) {
+    const uint32_t v = static_cast<uint32_t>(uc->uc_mcontext.regs[r]);
+    if (v < 0x1000u || v >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) continue;
+    if (!plausible_basic(v)) continue;  // v looks like a basic (has a type at -4)
+    uint32_t sk = 0;
+    if (!ee_rd(v + 0x78u, &sk)) continue;  // skel = (-> self skel)
+    if (sk < 0x1000u || sk >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) continue;
+    uint32_t eff = 0;
+    if (ee_rd(sk + 0x28u, &eff) && eff == effect_val) {
+      return sk;  // CONFIRMED: this process's skel.effect IS the faulting garbage
+    }
+  }
+  return 0;  // no confirmed candidate — caller falls back to skip-only (safe)
+}
+
 bool handle_null_framegroup_type_read(int sig, siginfo_t* info, void* ucontext) {
   // Gcrash-swamp-load (debug-only): let the TRUE first crash reach the fatal dump
   // instead of being repaired. Shared diag flag with the other repair handlers.
@@ -5243,6 +5289,39 @@ bool handle_null_framegroup_type_read(int sig, siginfo_t* info, void* ucontext) 
     return false;  // target must be a small forward distance within this function
   }
   const uint32_t skip_target = pcg + static_cast<uint32_t>(target_off);
+  // Gres-picker SELF-HEAL (the durable fix — runs in the SHIPPING/capture-OFF build):
+  // before we redirect THIS frame, WRITE #f into the corrupt joint-control's `effect`
+  // field so that object never faults here again. Without this, the same ~25 objects
+  // fault every frame (tens of thousands of redirects); with it, each faults ~once then
+  // is permanently healed. CONFIRMED-ONLY: we recover the parent joint-control `skel`
+  // via the effect-field match above and write ONLY when that recovery is confirmed AND
+  // the field currently holds the faulting garbage (not already #f). Async-signal-safe:
+  // a single guarded 32-bit store to an in-range EE address. If recovery is uncertain we
+  // write nothing and fall back to the safe skip-only behavior.
+  {
+    const uint32_t effect_val = static_cast<uint32_t>(uc->uc_mcontext.regs[obj_reg]);
+    const uint32_t falsev = static_cast<uint32_t>(s7.offset);  // GOAL #f = s7
+    const uint32_t skel = recover_corrupt_joint_control(uc, effect_val);
+    // skel is returned ONLY when EE[skel+0x28] == effect_val was confirmed. Re-verify
+    // range + confirm the field still equals the garbage (never #f) before storing.
+    if (skel >= 0x1000u && skel < static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) {
+      const uint32_t dest = skel + 0x28u;  // joint-control.effect
+      uint32_t cur = 0;
+      if (dest + 4u <= static_cast<uint32_t>(EE_MAIN_MEM_SIZE) &&
+          a36_tree::rd32(dest, &cur) && cur == effect_val && cur != falsev) {
+        // Guarded, in-range single 32-bit store: heal the field to #f permanently.
+        *reinterpret_cast<uint32_t*>(g_ee_main_mem + dest) = falsev;
+        const uint64_t hn = g_grv_nullfg_heals.fetch_add(1, std::memory_order_relaxed) + 1;
+        if (hn <= 32 || (hn % 256) == 0) {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG GRV-NULLFG-HEAL #%llu skel=goal:0x%x "
+                              "effect[+0x28] 0x%x -> #f(0x%x) (permanent; this object "
+                              "won't fault here again)",
+                              (unsigned long long)hn, skel, effect_val, falsev);
+        }
+      }
+    }
+  }
   // Repair: resume at the b.eq target (the normal #f-effect return epilogue
   // `mov x3,s7 ; add sp,#0x10 ; ldp x29,x30 ; ret`). We touch NO general register and
   // NOT sp — the target is reached before any dispatch stp pushes, so the stack is
@@ -5309,10 +5388,250 @@ bool handle_null_framegroup_type_read(int sig, siginfo_t* info, void* ucontext) 
       };
       put("GRV-NULLFG-REPAIR count=");
       put_dec((unsigned long long)cnt);
+      // Gres-picker: also report the running HEAL count so the owner can confirm on
+      // the phone (Files app, no adb) that heals converge (~25 = one per corrupt
+      // object) while the repair count stops climbing.
+      put(" heals=");
+      put_dec((unsigned long long)g_grv_nullfg_heals.load(std::memory_order_relaxed));
       put("\n");
       ssize_t wr = write(fd, buf, bi);
       (void)wr;
       close(fd);
+    }
+  }
+  // Gres-picker JOINT-CONTROL DUMP (INSTRUMENTATION ONLY, READ-ONLY — does NOT
+  // change the repair above): DISAMBIGUATE the swamp effect-field fault. Is the
+  // whole parent joint-control (`skel`, gp-0 in evaluate-joint-control) corrupt
+  // (alloc/stomp) or only its `effect` field (targeted store-drop)? And is it ONE
+  // object stuck or a FLOOD of distinct ones? Appended to a SEPARATE file
+  // "<ext-files>/jak_jc_dump.txt". Async-signal-safe: open/write/close + fixed
+  // stack buffers + guarded 32-bit EE reads (a36_tree::rd32) only — no malloc.
+  //
+  // Fault-site (owner-crash-4/5, evaluate-joint-control @ process-drawable.gc:636
+  //   `(let ((a0-17 (-> gp-0 effect))) (if a0-17 (effect-control-method-9 a0-17)))`):
+  //   pc-4  ADD X16, X7, X15   (X15=EE_base; X7 = the garbage `effect` value)
+  //   pc    LDUR W9,[X16,#-4]  (the `(-> effect type)` -4 read -> faults)
+  // So obj_reg (the LDUR's dispatch receiver = X7) holds the raw `effect` FIELD
+  // VALUE (0x0 or 0xfffffb20), NOT the address of `skel`. `skel` itself is
+  // `(-> self skel)` = EE[self+0x78]; the emitted code loaded it from [self+0x78]
+  // earlier and `self` (a process-drawable basic, 0x14fd24 in the captures) still
+  // lives in MANY GPRs (x0/x1/x3/x9/x20/x21/x22/x24). We RECOVER skel by scanning
+  // the GPR file for a value that validates as a process-drawable and derives a
+  // plausible skel = EE[cand+0x78]; then confirm by checking EE[skel+0x28] ==
+  // effect-field-value-in-obj_reg. `type` for a GOAL basic is at ptr-4
+  // (BASIC_OFFSET=4); effect field at joint-control+0x28 (confirmed by layout).
+  static std::atomic<uint64_t> s_jc_dumps{0};
+  const uint64_t jc_dump_seq = s_jc_dumps.fetch_add(1, std::memory_order_relaxed);
+  // Tiny static ring of the last DISTINCT skel pointers seen + a distinct count,
+  // so the file shows whether it is one object stuck or a flood of distinct ones.
+  static constexpr int kJcRing = 16;
+  static std::atomic<uint32_t> s_jc_ring[kJcRing];  // zero-init (static) = empty
+  static std::atomic<uint32_t> s_jc_distinct{0};
+  if (g_ext_files_dir[0]) {
+    // Guarded EE reader (self-contained; same bounds as a36_tree::rd32).
+    auto ee_rd32 = [&](uint32_t goal, uint32_t* out) -> bool {
+      if (!g_ee_main_mem || goal < 0x1000 ||
+          goal >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE) - 4u)
+        return false;
+      *out = *reinterpret_cast<const uint32_t*>(g_ee_main_mem + goal);
+      return true;
+    };
+    // A GOAL basic ptr is "plausible" if in-range and its type tag (at ptr-4)
+    // is itself an in-range EE pointer (types live in EE memory).
+    auto plausible_basic = [&](uint32_t p) -> bool {
+      if (p < 0x1000u || p >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) return false;
+      uint32_t tt = 0;
+      if (!ee_rd32(p - 4u, &tt)) return false;
+      return tt >= 0x1000u && tt < static_cast<uint32_t>(EE_MAIN_MEM_SIZE);
+    };
+    // obj_reg holds the raw effect FIELD VALUE that just faulted the -4 read.
+    const uint32_t effect_val = static_cast<uint32_t>(uc->uc_mcontext.regs[obj_reg]);
+    // (1) Recover `self` (process-drawable) from the GPR file, then skel=EE[self+0x78].
+    // PRIMARY candidate: a reg value V whose EE[V+0x78] is a plausible basic AND
+    // EE[that+0x28] == effect_val (i.e. its effect field is exactly the garbage that
+    // faulted) — this uniquely pins the process whose skel is the corrupt object.
+    uint32_t self_cand = 0, skel_prim = 0;
+    bool skel_prim_confirmed = false;
+    // FALLBACK candidate: first reg V that is a plausible process-drawable (basic)
+    // with a plausible skel=EE[V+0x78] (used if the exact effect match isn't found).
+    uint32_t self_fb = 0, skel_fb = 0;
+    for (int r = 0; r <= 30; ++r) {
+      const uint32_t v = static_cast<uint32_t>(uc->uc_mcontext.regs[r]);
+      if (v < 0x1000u || v >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) continue;
+      if (!plausible_basic(v)) continue;  // v looks like a basic (has a type at -4)
+      uint32_t sk = 0;
+      if (!ee_rd32(v + 0x78u, &sk)) continue;  // skel = (-> self skel)
+      if (sk < 0x1000u || sk >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) continue;
+      if (self_fb == 0) {  // remember the first plausible self/skel pair
+        self_fb = v;
+        skel_fb = sk;
+      }
+      uint32_t eff = 0;
+      if (ee_rd32(sk + 0x28u, &eff) && eff == effect_val) {
+        self_cand = v;      // this process's skel.effect IS the faulting garbage
+        skel_prim = sk;
+        skel_prim_confirmed = true;
+        break;
+      }
+    }
+    // The skel we treat as authoritative for identity/ring accounting.
+    const uint32_t skel = skel_prim_confirmed ? skel_prim : skel_fb;
+    // (3) IDENTITY: is it the SAME joint-control repeatedly or a flood of distinct
+    // ones? Maintain a small ring of distinct skel ptrs + a distinct count.
+    bool skel_is_new = false;
+    if (skel != 0) {
+      bool seen = false;
+      for (int i = 0; i < kJcRing; ++i) {
+        if (s_jc_ring[i].load(std::memory_order_relaxed) == skel) {
+          seen = true;
+          break;
+        }
+      }
+      if (!seen) {
+        skel_is_new = true;
+        const uint32_t idx =
+            s_jc_distinct.fetch_add(1, std::memory_order_relaxed) % kJcRing;
+        s_jc_ring[idx].store(skel, std::memory_order_relaxed);
+      }
+    }
+    const uint32_t distinct_skels = s_jc_distinct.load(std::memory_order_relaxed);
+    // Cap the file: append at most 64 full dumps (so per-frame faults can't grow it
+    // unbounded), but ALWAYS emit a compact one-line summary so the running distinct
+    // count + latest skel stays visible even after the cap.
+    const bool full_dump = (jc_dump_seq < 64);
+    char path2[512 + 32];
+    size_t p2 = 0;
+    for (const char* s = g_ext_files_dir; *s && p2 < sizeof(path2) - 24; ++s) {
+      path2[p2++] = *s;
+    }
+    const char kName2[] = "/jak_jc_dump.txt";
+    for (size_t i = 0; i < sizeof(kName2) /*includes NUL*/; ++i) {
+      path2[p2++] = kName2[i];
+    }
+    int fd2 = open(path2, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd2 >= 0) {
+      char b2[1536];
+      size_t j = 0;
+      auto put2 = [&](const char* s) {
+        while (*s && j < sizeof(b2)) b2[j++] = *s++;
+      };
+      auto put2_hex = [&](unsigned long long v) {
+        static const char kHex[] = "0123456789abcdef";
+        char tmp[16];
+        int n = 0;
+        if (v == 0) {
+          tmp[n++] = '0';
+        } else {
+          while (v && n < 16) {
+            tmp[n++] = kHex[v & 0xf];
+            v >>= 4;
+          }
+        }
+        put2("0x");
+        while (n > 0 && j < sizeof(b2)) b2[j++] = tmp[--n];
+      };
+      auto put2_dec = [&](unsigned long long v) {
+        char tmp[24];
+        int n = 0;
+        if (v == 0) {
+          tmp[n++] = '0';
+        } else {
+          while (v && n < 24) {
+            tmp[n++] = char('0' + (v % 10));
+            v /= 10;
+          }
+        }
+        while (n > 0 && j < sizeof(b2)) b2[j++] = tmp[--n];
+      };
+      // Guarded EE word read that renders <oob> when out of range (keeps the dump
+      // aligned even when a field can't be read).
+      auto put2_ee = [&](uint32_t goal) {
+        uint32_t w = 0;
+        if (ee_rd32(goal, &w))
+          put2_hex((unsigned long long)w);
+        else
+          put2("<oob>");
+      };
+      if (full_dump) {
+        put2("=== JC-DUMP seq=");
+        put2_dec((unsigned long long)jc_dump_seq);
+        put2(" repair-count=");
+        put2_dec((unsigned long long)cnt);
+        put2(" ===\n");
+        // effect field value that faulted (from obj_reg = the LDUR receiver).
+        put2("effect-val(obj=X");
+        put2_dec((unsigned long long)obj_reg);
+        put2(")=");
+        put2_hex((unsigned long long)effect_val);
+        put2(" fault=");
+        put2_hex((unsigned long long)fault);
+        put2("\n");
+        // Recovery report: primary (effect-confirmed) + fallback candidates.
+        put2("self-cand=");
+        put2_hex((unsigned long long)self_cand);
+        put2(" skel-prim=");
+        put2_hex((unsigned long long)skel_prim);
+        put2(skel_prim_confirmed ? " (effect-CONFIRMED)" : " (unconfirmed)");
+        put2("\nself-fallback=");
+        put2_hex((unsigned long long)self_fb);
+        put2(" skel-fallback=");
+        put2_hex((unsigned long long)skel_fb);
+        put2("\nskel-used=");
+        put2_hex((unsigned long long)skel);
+        put2(skel_is_new ? " (NEW distinct)" : " (seen before)");
+        put2("\n");
+        if (skel != 0) {
+          // (2) Object dump. TYPE at skel-4 (BASIC_OFFSET=4): if it is a valid EE
+          // pointer -> object intact, only `effect` corrupt; if garbage/oob -> the
+          // whole joint-control is corrupt. Then words skel+0x00..+0x40 (covers the
+          // type field, allocated-length, root-channel/blend/active, the fn ptrs, and
+          // `effect` at +0x28 with neighbours +0x24/+0x2c/+0x30).
+          uint32_t type_tag = 0;
+          const bool type_ok = ee_rd32(skel - 4u, &type_tag);
+          const bool type_plausible =
+              type_ok && type_tag >= 0x1000u &&
+              type_tag < static_cast<uint32_t>(EE_MAIN_MEM_SIZE);
+          put2("skel-type[-4]=");
+          if (type_ok)
+            put2_hex((unsigned long long)type_tag);
+          else
+            put2("<oob>");
+          put2(type_plausible ? " VALID-TYPE => OBJECT-INTACT(only-effect-corrupt?)\n"
+                              : " BAD-TYPE => WHOLE-OBJECT-CORRUPT\n");
+          put2("effect[+0x28]=");
+          put2_ee(skel + 0x28u);
+          put2(" (should be #f/0)\n");
+          // Words skel+0x00 .. skel+0x40 (17 words), 4 per line for readability.
+          put2("words skel+0x00..+0x40:\n");
+          for (uint32_t off = 0x00; off <= 0x40; off += 4) {
+            put2("  +");
+            put2_hex((unsigned long long)off);
+            put2("=");
+            put2_ee(skel + off);
+            if (((off / 4u) % 4u) == 3u) put2("\n");
+          }
+          if (((0x40 / 4u) % 4u) != 3u) put2("\n");
+        } else {
+          put2("skel UNRECOVERED (no plausible process-drawable in GPR file)\n");
+        }
+      }
+      // (3) Always-present compact SUMMARY tail: latest skel + running distinct
+      // count, so the disambiguation (one stuck object vs a flood) is readable even
+      // after the 64-dump cap is hit.
+      put2("SUMMARY seq=");
+      put2_dec((unsigned long long)jc_dump_seq);
+      put2(" repair-count=");
+      put2_dec((unsigned long long)cnt);
+      put2(" skel=");
+      put2_hex((unsigned long long)skel);
+      put2(" distinct-skels-so-far=");
+      put2_dec((unsigned long long)distinct_skels);
+      put2(" heals=");
+      put2_dec((unsigned long long)g_grv_nullfg_heals.load(std::memory_order_relaxed));
+      put2("\n");
+      ssize_t wr2 = write(fd2, b2, j);
+      (void)wr2;
+      close(fd2);
     }
   }
 #endif
