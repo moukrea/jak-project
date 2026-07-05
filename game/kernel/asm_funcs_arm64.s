@@ -229,7 +229,21 @@ _mips2c_call_arm64:
   str x10, [sp, #+160] ;; gpr t2 (GOAL arg 6, x86 id R10)
   str x11, [sp, #+176] ;; gpr t3 (GOAL arg 7, x86 id R11)
   str x13, [sp, #+352] ;; gpr s6 = pp  (live GOAL reg x13)
-  str x14, [sp, #+368] ;; gpr s7 = st  (live GOAL reg x14)
+  ;; Gswamp-fstore (autoport) — gpr s7 must hold the GOAL OFFSET of the symbol
+  ;; table, exactly like x86 _mips2c_call_systemv (asm_funcs_x86_64.asm:133,
+  ;; `mov [rsp+368], r14`) where R14 ALREADY IS that GOAL offset. On arm64 the
+  ;; live st register x14 instead holds the HOST address of the symbol table
+  ;; (set up as `add x14, st, off` in the _call_goal*_arm64 trampolines), so
+  ;; storing raw x14 gives gpr s7 a host address — one EE-base too high.
+  ;; ExecutionContext::jalr (mips2c_private.h) forwards gpr s7 as the `st` arg to
+  ;; _call_goal8_asm_arm64, which reconstructs x14 = st + off (`add x14,x4,x5`).
+  ;; With a host-valued gpr s7 that RE-ADDS the EE base -> a torn x14 in the GOAL
+  ;; callee, and every `(set! (-> obj field) #f)` there (emitted as `mov x9,x14;
+  ;; sub x9,x9,x15`) stores garbage instead of #f. That is the swamp
+  ;; joint-control.effect null-dispatch crash. x14 - x15 = host_symtab - EE_base
+  ;; = GOAL offset (x15 is the EE base / GOAL offset here, see line below).
+  sub x11, x14, x15    ;; st as GOAL offset (x86-identical gpr s7 semantics)
+  str x11, [sp, #+368] ;; gpr s7 = st (GOAL offset, NOT raw host x14)
 
   mov x11, sp
   sub x11, x11, x15    ;; GOAL-relative context address (x15 = GOAL offset)

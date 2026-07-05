@@ -1,0 +1,6 @@
+gsf_fix
+gsf_bug
+asm_*_gnu.s
+asm_*_src.s
+build_*.log
+*.o
