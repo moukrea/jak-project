@@ -1879,6 +1879,124 @@ void tod_pin_maybe() {
   }
 }
 
+// ─── TOD FAST-FORWARD (Gperf-particles2 capture lever, NOT a pin) ───────────────
+// Env OG_TOD_FAST / Android prop debug.opengoal.tod.fast — OFF by default. UNLIKE
+// tod.hour (which FREEZES the clock at time-ratio 0 for a static night pose), this
+// makes the clock ADVANCE FAST but continuously: it writes *time-of-day-proc*'s
+// time-ratio to 18000.0 (the game's own *time-of-day-fast* rate, ~60x the normal
+// 300), so a full day->night->day cycle takes ~24s instead of ~24min. The clock is
+// never pinned — every palette state is visited in ORDER, just quickly — which is
+// exactly what the Gperf-particles2 correctness proof needs: a NATURAL day->night
+// traversal short enough to record on video, and a stress test that makes the
+// dropped tod-pingpong's flicker (and any residual TOD bug) unmissable frame-to-
+// frame. Value: "1" => the 18000 preset; any float >= 2 => that literal ratio.
+// The time-of-day-tick loop reads time-ratio each pass and never rewrites it, so a
+// direct write to proc+144 sticks; re-applied periodically because level load /
+// time-of-day-setup resets it. Field offset proc+144 = goal 148-4 (time-ratio),
+// identical to tod_pin_run. Mutually exclusive with tod.hour (pin wins).
+static float s_tod_fast_ratio = 0.0f;
+
+static bool tod_fast_requested() {
+  static bool s_parsed = false;
+  static bool s_result = false;
+  if (s_parsed) {
+    return s_result;
+  }
+  s_parsed = true;
+  if (tod_pin_requested()) {
+    return false;  // a freeze pin and a fast-forward are contradictory — pin wins.
+  }
+  char buf[32] = {0};
+  if (const char* e = std::getenv("OG_TOD_FAST")) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+  }
+#if defined(__ANDROID__)
+  if (!buf[0]) {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.tod.fast", pbuf) > 0) {
+      std::strncpy(buf, pbuf, sizeof(buf) - 1);
+    }
+  }
+#endif
+  if (!buf[0]) {
+    return false;
+  }
+  float r = 0.0f;
+  if (std::sscanf(buf, "%f", &r) < 1) {
+    return false;
+  }
+  if (r == 1.0f) {
+    s_tod_fast_ratio = 18000.0f;  // preset: the game's *time-of-day-fast* rate.
+  } else if (r >= 2.0f) {
+    s_tod_fast_ratio = r;  // explicit ratio (e.g. 36000 = 2x-fast, for tuning).
+  } else {
+    return false;  // < 2 and != 1 would stall/near-freeze the clock — reject.
+  }
+  s_result = true;
+  return true;
+}
+
+static u64 tod_fast_run() {
+  u32 tod = intern_from_c("*time-of-day-proc*")->value;
+  if (tod == 0 || tod == (u32)s7.offset || tod >= (u32)(EE_MAIN_MEM_SIZE - 64)) {
+    return 0;
+  }
+  u32 proc = 0;
+  std::memcpy(&proc, g_ee_main_mem + tod, 4);
+  if (proc < 0x10000u || proc == (u32)s7.offset || (proc & OFFSET_MASK) != 4 ||
+      proc >= (u32)(EE_MAIN_MEM_SIZE - 256)) {
+    return 0;
+  }
+  float ratio = s_tod_fast_ratio;
+  std::memcpy(g_ee_main_mem + proc + 144, &ratio, 4);  // time-ratio (goal 148 - 4)
+  static bool s_first = true;
+  if (s_first) {
+    s_first = false;
+    float rb = 0.0f;
+    std::memcpy(&rb, g_ee_main_mem + proc + 144, 4);
+    printf("TOD-FAST ratio=%.0f proc=%x (ppointer=%x) readback=%.0f\n", ratio, proc, tod, rb);
+    fflush(stdout);
+  }
+  return 0;
+}
+
+void tod_fast_maybe() {
+  if (!tod_fast_requested()) {
+    return;
+  }
+  // Re-apply periodically (not one-shot): level load / time-of-day-setup resets
+  // time-ratio back to the slow 300 rate, so re-write the fast ratio every ~45
+  // dispatch passes to HOLD the fast clock through the capture.
+  static int s_ctr = 0;
+  if ((s_ctr++ % 45) != 0) {
+    return;
+  }
+  u32 tod = intern_from_c("*time-of-day-proc*")->value;
+  if (tod < 0x10000u || tod == (u32)s7.offset || tod >= (u32)(EE_MAIN_MEM_SIZE - 8)) {
+    return;
+  }
+  u32 proc = 0;
+  std::memcpy(&proc, g_ee_main_mem + tod, 4);
+  if (proc < 0x10000u || proc == (u32)s7.offset || (proc & OFFSET_MASK) != 4 ||
+      proc >= (u32)(EE_MAIN_MEM_SIZE - 256)) {
+    return;
+  }
+  if (ListenerFunction->value != (u32)s7.offset && ListenerFunction->value != 0) {
+    return;
+  }
+  static Ptr<Function> s_fn;  // trampoline allocated once
+  if (s_fn.offset == 0) {
+    s_fn = make_function_from_c((void*)tod_fast_run, false);
+  }
+  ListenerFunction->value = s_fn.offset;
+  static bool s_logged = false;
+  if (!s_logged) {
+    s_logged = true;
+    lg::info("[TOD-FAST] armed ratio={} (re-applying periodically; clock ADVANCES, not pinned)",
+             s_tod_fast_ratio);
+  }
+}
+
 // ─── ECO PHYSICS TRACER (Geco-spheres TEMPORARY arm64-NaN diagnostic) ────────────
 // Env OG_ECO_TRACE / Android prop debug.opengoal.eco.trace = "1" — OFF by default.
 // Per-dispatch dump of the LAST eco pickup spawned by the eco-spawn hook (its

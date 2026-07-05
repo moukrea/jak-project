@@ -1,0 +1,112 @@
+==========================================================================================
+WINDOW: WINDOW1_ALLOFF_V4   [20:17:59.553 .. 20:18:14.576]  n_render=9 n_spart=9
+  render_ms  min=26.64 median=28.38 max=28.91 mean=28.19
+  buckets_ms min=26.31 median=28.07 max=28.50 mean=27.86
+  render_ms samples: 27.4 26.6 28.4 28.1 28.5 28.7 28.7 28.9 28.4
+  A35-SPART (GOAL-thread sparticle CPU, ms/60f window) min/median/max:
+     2d_ms     : 37.13 / 41.03 / 45.18
+     launch_ms : 56.53 / 61.60 / 76.38
+     adgif_ms  : 8.64 / 10.42 / 16.16
+     3d_ms     : 1.01 / 1.31 / 2.15
+     glbuild   : 41.45 / 43.03 / 43.69
+     glflush   : 50.44 / 51.86 / 58.47
+     goal_idle : 26.84 / 58.94 / 65.05
+     goal_pace : 0.06 / 0.06 / 0.08
+     quads     : 256454.00 / 258031.00 / 261339.00
+     2d_it     : 323328.00 / 324928.00 / 329472.00
+==========================================================================================
+WINDOW: WINDOW2_ALLON_CLEAN   [20:18:28.375 .. 20:18:43.395]  n_render=8 n_spart=8
+  render_ms  min=25.50 median=25.83 max=26.37 mean=25.89
+  buckets_ms min=24.98 median=25.36 max=25.95 mean=25.42
+  render_ms samples: 25.7 25.6 26.4 25.5 26.3 26.1 26.0 25.6
+  A35-SPART (GOAL-thread sparticle CPU, ms/60f window) min/median/max:
+     2d_ms     : 25.51 / 28.90 / 34.57
+     launch_ms : 68.20 / 71.78 / 74.01
+     adgif_ms  : 12.27 / 13.52 / 17.19
+     3d_ms     : 1.27 / 1.58 / 2.52
+     glbuild   : 22.36 / 22.70 / 23.37
+     glflush   : 41.50 / 42.38 / 43.57
+     goal_idle : 28.95 / 31.80 / 40.90
+     goal_pace : 0.06 / 0.07 / 0.07
+     quads     : 255260.00 / 258175.00 / 260139.00
+     2d_it     : 322240.00 / 325280.00 / 328192.00
+==========================================================================================
+WINDOW: WIN_no2dvecOFF   [20:18:59.163 .. 20:19:14.183]  n_render=9 n_spart=9
+  render_ms  min=21.66 median=25.01 max=26.77 mean=24.95
+  buckets_ms min=21.36 median=24.55 max=26.44 mean=24.50
+  render_ms samples: 25.0 24.7 23.4 26.8 26.4 24.7 26.0 26.0 21.7
+  A35-SPART (GOAL-thread sparticle CPU, ms/60f window) min/median/max:
+     2d_ms     : 36.56 / 40.14 / 47.67
+     launch_ms : 58.86 / 69.02 / 85.04
+     adgif_ms  : 11.14 / 13.98 / 20.00
+     3d_ms     : 1.12 / 1.38 / 2.03
+     glbuild   : 22.38 / 22.79 / 23.29
+     glflush   : 35.95 / 40.44 / 44.24
+     goal_idle : 26.11 / 43.98 / 62.74
+     goal_pace : 0.06 / 0.07 / 0.10
+     quads     : 255346.00 / 258597.00 / 260858.00
+     2d_it     : 322560.00 / 326080.00 / 330048.00
+==========================================================================================
+WINDOW: WIN_nospriteleanOFF   [20:19:26.065 .. 20:19:41.083]  n_render=9 n_spart=9
+  render_ms  min=24.71 median=25.75 max=26.33 mean=25.66
+  buckets_ms min=24.30 median=25.23 max=25.98 mean=25.21
+  render_ms samples: 25.9 26.3 24.7 25.6 26.0 25.8 25.3 26.1 25.3
+  A35-SPART (GOAL-thread sparticle CPU, ms/60f window) min/median/max:
+     2d_ms     : 24.41 / 26.69 / 32.25
+     launch_ms : 62.54 / 70.40 / 74.79
+     adgif_ms  : 10.12 / 13.79 / 16.97
+     3d_ms     : 1.35 / 2.11 / 4.11
+     glbuild   : 22.50 / 23.19 / 23.77
+     glflush   : 41.91 / 43.26 / 44.11
+     goal_idle : 24.52 / 31.65 / 39.04
+     goal_pace : 0.06 / 0.07 / 0.07
+     quads     : 256246.00 / 258579.00 / 261275.00
+     2d_it     : 322880.00 / 325696.00 / 329856.00
+==========================================================================================
+WINDOW: WIN_nostatecacheOFF   [20:19:53.842 .. 20:20:08.862]  n_render=9 n_spart=9
+  render_ms  min=20.38 median=25.69 max=26.59 mean=24.45
+  buckets_ms min=20.11 median=25.03 max=25.95 mean=23.90
+  render_ms samples: 20.4 25.8 21.9 25.7 25.6 26.6 21.6 26.2 26.3
+  A35-SPART (GOAL-thread sparticle CPU, ms/60f window) min/median/max:
+     2d_ms     : 25.94 / 29.14 / 29.89
+     launch_ms : 59.14 / 67.27 / 77.24
+     adgif_ms  : 9.58 / 13.14 / 18.30
+     3d_ms     : 1.24 / 1.37 / 2.03
+     glbuild   : 22.41 / 22.70 / 23.06
+     glflush   : 36.64 / 42.61 / 43.87
+     goal_idle : 32.37 / 38.72 / 59.80
+     goal_pace : 0.06 / 0.07 / 0.08
+     quads     : 256788.00 / 258975.00 / 260111.00
+     2d_it     : 324224.00 / 325824.00 / 327296.00
+==========================================================================================
+WINDOW: WIN_noinstanceOFF   [20:20:20.874 .. 20:20:35.895]  n_render=9 n_spart=9
+  render_ms  min=26.13 median=26.45 max=27.24 mean=26.67
+  buckets_ms min=25.68 median=25.99 max=26.78 mean=26.13
+  render_ms samples: 27.1 27.2 26.4 26.8 26.3 26.4 27.2 26.1 26.3
+  A35-SPART (GOAL-thread sparticle CPU, ms/60f window) min/median/max:
+     2d_ms     : 24.07 / 27.79 / 31.53
+     launch_ms : 63.68 / 72.70 / 77.52
+     adgif_ms  : 12.41 / 14.79 / 16.91
+     3d_ms     : 1.22 / 1.52 / 2.43
+     glbuild   : 43.14 / 43.92 / 45.01
+     glflush   : 57.91 / 59.61 / 62.58
+     goal_idle : 22.68 / 33.93 / 39.15
+     goal_pace : 0.06 / 0.07 / 0.07
+     quads     : 255728.00 / 258994.00 / 260091.00
+     2d_it     : 322560.00 / 326208.00 / 326784.00
+==========================================================================================
+WINDOW: WIN_noshrubidxOFF   [20:20:49.741 .. 20:21:04.761]  n_render=9 n_spart=9
+  render_ms  min=24.99 median=26.32 max=26.68 mean=26.16
+  buckets_ms min=24.62 median=25.74 max=26.25 mean=25.67
+  render_ms samples: 26.7 26.6 26.5 25.0 25.7 26.5 26.2 26.0 26.3
+  A35-SPART (GOAL-thread sparticle CPU, ms/60f window) min/median/max:
+     2d_ms     : 25.72 / 27.36 / 33.61
+     launch_ms : 61.85 / 68.86 / 73.85
+     adgif_ms  : 9.91 / 14.22 / 17.54
+     3d_ms     : 1.26 / 1.42 / 1.90
+     glbuild   : 22.37 / 22.58 / 23.20
+     glflush   : 38.78 / 39.83 / 43.12
+     goal_idle : 25.12 / 30.42 / 42.96
+     goal_pace : 0.06 / 0.07 / 0.15
+     quads     : 257395.00 / 259611.00 / 262367.00
+     2d_it     : 324416.00 / 326400.00 / 329408.00

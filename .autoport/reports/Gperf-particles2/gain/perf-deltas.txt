@@ -1,0 +1,13 @@
+=== V4(all-off) vs CLEAN(all-on) median deltas (positive render delta = clean faster) ===
+  render_ms:  V4 28.38 -> CLEAN 25.83   delta +2.55ms (+9.0%)
+  glbuild:    V4 43.03 -> CLEAN 22.70   delta +20.33ms
+  glflush:    V4 51.86 -> CLEAN 42.38   delta +9.48ms
+  spart2d:    V4 41.03 -> CLEAN 28.90   delta +12.13ms
+
+=== PER-FEATURE: (feature-OFF median) vs CLEAN(all-on). 
+    +render delta = removing this feature made render SLOWER => feature is a GAIN ===
+  no2dvecOFF         render 25.01 (Δ-0.82 vs clean) | spart2d 40.14 (Δ+11.24) | glbuild 22.79 (Δ+0.09) | glflush 40.44 (Δ-1.94)
+  nospriteleanOFF    render 25.75 (Δ-0.08 vs clean) | spart2d 26.69 (Δ-2.21) | glbuild 23.19 (Δ+0.49) | glflush 43.26 (Δ+0.88)
+  nostatecacheOFF    render 25.69 (Δ-0.14 vs clean) | spart2d 29.14 (Δ+0.24) | glbuild 22.70 (Δ+0.00) | glflush 42.61 (Δ+0.23)
+  noinstanceOFF      render 26.45 (Δ+0.62 vs clean) | spart2d 27.79 (Δ-1.11) | glbuild 43.92 (Δ+21.22) | glflush 59.61 (Δ+17.23)
+  noshrubidxOFF      render 26.32 (Δ+0.49 vs clean) | spart2d 27.36 (Δ-1.54) | glbuild 22.58 (Δ-0.12) | glflush 39.83 (Δ-2.55)

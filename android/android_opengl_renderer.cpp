@@ -191,12 +191,12 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // Gperf-particles (round 2): per-instance sprite path (jak1 only). Live A/B
   // kill switch: adb shell setprop debug.opengoal.perf.noinstance 1.
   m_render_state.perf_sprite_instance = true;
-  // Gperf-particles (round 3): ping-pong the per-tree time-of-day texture to
-  // avoid the Adreno rewrite-then-sample sync stall, and cache Shrub's static
-  // single-draw index list across frames. Live A/B kill switches:
-  // adb shell setprop debug.opengoal.perf.notodpp 1 /
-  // debug.opengoal.perf.noshrubidx 1.
-  m_render_state.perf_tod_pingpong = true;
+  // Gperf-particles2: cache Shrub's static single-draw index list across frames
+  // (image-invariant, KEPT). The TOD ping-pong is DROPPED (flicker under a moving
+  // clock) — init it OFF; the per-frame gate (perf_opt_in '2') keeps it off unless
+  // explicitly reproducing the known-bad control. Kill switch for shrub idx:
+  // adb shell setprop debug.opengoal.perf.noshrubidx 1.
+  m_render_state.perf_tod_pingpong = false;
   m_render_state.perf_shrub_static_idx = true;
   std::shared_ptr<SkyBlendGPU> sky_gpu_blender;
   std::shared_ptr<SkyBlendCPU> sky_cpu_blender;
@@ -398,26 +398,39 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     char nb[PROP_VALUE_MAX] = {0};
     __system_property_get("debug.opengoal.perf.nobatch", nb);
     m_render_state.batch_singledraw = (nb[0] != '1');
-    // Gperf-particles STOPGAP (supervisor 2026-07-04): the v5 owner play-test found
-    // these Gperf-particles optimizations cause SEVERE visual corruption in real play
-    // (TOD palettes flicker day/night/sunrise; geometry pops in/out) — the pose-held,
-    // TOD-PINNED validation structurally could not see it. Until Gperf-particles is
-    // reopened and fixed under REAL moving gameplay, DEFAULT THEM OFF so the renderer
-    // matches the known-good v4 path. Each can be force-enabled with its "no…=0"-style
-    // prop set to '2' (opt-in) for the reopened phase's A/B; default + '1' = OFF.
-    auto perf_opt_in = [](const char* prop) {
+    // Gperf-particles2 (2026-07-05): the Gperf-particles opts were re-earned ONE AT A
+    // TIME after the v5 owner regression, validated under REAL moving gameplay with a
+    // NATURALLY-advancing clock (video-inspected for geometry pop + TOD flicker vs a
+    // known-bad control). Outcome:
+    //  KEPT (proven image-invariant / byte-identical to the v4 renderer) — DEFAULT ON,
+    //  live kill switch (=1 restores the exact pre-phase v4 path for A/B parity/perf):
+    //    sprite-lean, state-cache, sprite-instance, shrub-static-idx, 2d-NEON.
+    //  DROPPED (corrupt the image) — DEFAULT OFF; opt-in '2' ONLY reproduces the
+    //  KNOWN-BAD control that proves the video inspection actually detects the bug:
+    //    tod-pingpong -> samples the previous ping-pong buffer while the clock moves
+    //                    => day/night palette FLICKER (owner v5 symptom). See report.
+    //    tod-skip     -> byte-identical, but itimes changes every moving-clock frame
+    //                    so it ~never fires => no real-gameplay gain (dropped).
+    //    GOAL/GL overlap (android_gfx.cpp) -> races merc-mod/texanim LIVE-memory reads
+    //                    against the next frame's GOAL build => geometry POP. Stays OFF.
+    auto perf_on_kill = [](const char* prop) {  // DEFAULT ON; '1' restores the v4 path
       char v[PROP_VALUE_MAX] = {0};
       __system_property_get(prop, v);
-      return v[0] == '2';  // opt-IN only; default OFF (v4 parity), '1' also OFF
+      return v[0] != '1';
     };
-    m_render_state.perf_sprite_lean      = perf_opt_in("debug.opengoal.perf.nospritelean");
-    m_render_state.perf_state_cache      = perf_opt_in("debug.opengoal.perf.nostatecache");
-    m_render_state.perf_sprite_instance  = perf_opt_in("debug.opengoal.perf.noinstance");
+    auto perf_opt_in = [](const char* prop) {  // DEFAULT OFF; '2' = known-bad control
+      char v[PROP_VALUE_MAX] = {0};
+      __system_property_get(prop, v);
+      return v[0] == '2';
+    };
+    m_render_state.perf_sprite_lean      = perf_on_kill("debug.opengoal.perf.nospritelean");
+    m_render_state.perf_state_cache      = perf_on_kill("debug.opengoal.perf.nostatecache");
+    m_render_state.perf_sprite_instance  = perf_on_kill("debug.opengoal.perf.noinstance");
+    m_render_state.perf_shrub_static_idx = perf_on_kill("debug.opengoal.perf.noshrubidx");
     m_render_state.perf_tod_pingpong     = perf_opt_in("debug.opengoal.perf.notodpp");
-    m_render_state.perf_shrub_static_idx = perf_opt_in("debug.opengoal.perf.noshrubidx");
     m_render_state.perf_tod_skip         = perf_opt_in("debug.opengoal.perf.notodskip");
-    // 2dvec fast-path: OFF unless explicitly opted in ('2'); g_perf_2dvec_off=true => OFF.
-    g_perf_2dvec_off.store(!perf_opt_in("debug.opengoal.perf.no2dvec"), std::memory_order_relaxed);
+    // 2d-NEON sparticle fast-path: DEFAULT ON, kill with '1'. g_perf_2dvec_off=true => OFF.
+    g_perf_2dvec_off.store(!perf_on_kill("debug.opengoal.perf.no2dvec"), std::memory_order_relaxed);
   }
 
   m_stats.chain_bytes = count_chain_bytes(dma);

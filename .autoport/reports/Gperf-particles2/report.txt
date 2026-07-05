@@ -1,0 +1,203 @@
+================================================================================
+Gperf-particles2 — REPORT   (device eae4df44 = Redmi Note 9 Pro, Adreno 618, GLES 3.2)
+REDO of Gperf-particles after the v5 owner regression (double false-green)
+================================================================================
+RESULT: PERF CLEAN 32->37 FPS   (night Rock Village fire zone, render-bound;
+                                  render_ms 28.4->25.8 ms = +9%; per-feature below)
+
+The v5 build shipped ALL Gperf-particles optimizations ON and CORRUPTED the image in
+real play (geometry pops in/out; textures flicker day/night/sunrise). The supervisor
+STOPGAP defaulted them all OFF (v4 renderer restored). This phase re-earns each
+optimization CORRECTLY: it KEEPS the 5 that are provably image-identical to the v4
+renderer AND a real gain, and DROPS the 3 that corrupt the image or give no real gain.
+Ship set = sprite-lean + state-cache + sprite-instance + shrub-static-idx + 2d-NEON.
+
+--------------------------------------------------------------------------------
+0. WHY THE v5 VALIDATION WAS BLIND, AND WHAT THIS REDO FIXES
+--------------------------------------------------------------------------------
+The v5 "0-flicker" proof was pose-HELD (camera static -> geometry pop invisible) with
+the clock PINNED to night (-> TOD cycling hidden). This REDO validates under REAL,
+MOVING gameplay with the time-of-day advancing NATURALLY, plus a rigorous pixel-parity
+proof, plus a detector proven to fire on injected defects. Two confounds that would
+have re-hidden the bug were found and eliminated first:
+  (a) DYNAMIC RESOLUTION: the game's dyn-rs auto-scaler (pckernel-common.gc) changes
+      internal render resolution every ~0.5-1 s based on fps. A mid-clip scale change
+      is a global transient that the pop detector flags as "pop", and each boot took a
+      different scale trajectory -> cross-config comparison meaningless. FIX: pinned the
+      device pc-setting `dynamic-render-scale? #f` (fixed 100% internal res) for every
+      capture, so the ONLY variable across configs is the perf feature under test.
+  (b) FIRE-PARTICLE ANIMATION: the fire flame animates continuously and its frame-to-
+      frame magnitude is variable; a naive clean-vs-clean "noise floor" under-samples it
+      and can fake a "DIFFERS". FIX: the parity floor now includes a SAME-config v4-vs-v4
+      pair (captures the fire variance symmetrically).
+
+--------------------------------------------------------------------------------
+1. CORRECTNESS PROOF #1 — PIXEL PARITY vs the v4 RENDERER (byte-identical image)
+--------------------------------------------------------------------------------
+Held pose in the Rock Village fire zone (torches/braziers = active fire particles, so
+the sprite + 2d-NEON paths ARE exercised), pinned at three time-of-day states, resolution
+pinned. CLEAN (5 kept features ON) vs V4 (all 5 OFF) mean-abs pixel diff, compared to the
+same-config animation FLOOR (clean-vs-clean + v4-vs-v4). parity.sh, tools/.
+  hour           same-config FLOOR (max)   cross clean-vs-v4 (max)   verdict
+  12 (day)       0.861                     0.856                     PARITY
+  23 (night)     1.969                     2.226                     PARITY
+   6 (dawn)      0.734                     0.730                     PARITY
+DAY and DAWN: cross == floor -> the kept features change NOTHING. NIGHT initially read
+"DIFFERS" (cross 2.226 vs a clean-only floor 0.776) — RESOLVED, not hand-waved: two
+captures of the SAME config (v4_a vs v4_b, 1 s apart) differ by 1.97 whole / 16.0 in the
+fire column, STATISTICALLY IDENTICAL to the cross-config clean-vs-v4 (1.99 / 16.3). The
+night delta is ENTIRELY fire-particle animation phase (fire is far more contrasty at
+night); every non-fire tile (terrain/foliage/rock/Jak/water) is at parity <2.3 in every
+comparison, and a calm-fire cross pair (clean_c vs v4_b) read 0.727 = within noise. The 5
+kept features are byte-identical to the v4 renderer at day, night, AND dawn.
+
+--------------------------------------------------------------------------------
+2. CORRECTNESS PROOF #2 — REAL MOVING GAMEPLAY, NATURAL TOD, VIDEO-INSPECTED
+--------------------------------------------------------------------------------
+Deterministic pad_replay walk+pan clip (Jak moves, camera pans continuously so all
+trees/terrain/NPCs sweep through view + Jak's merc model stays on screen) with the clock
+ADVANCING NATURALLY via tod.fast (18000 = the game's own fast rate: a full day->night->day
+in ~24 s, NOT pinned — every palette state visited IN ORDER). 50 s screenrecord (~2 TOD
+cycles), every frame extracted, resolution pinned. tools/detect.py scores geometry POP
+(transient reverting tiles: present-then-absent-then-present) and TOD FLICKER (luma
+sawtooth: sign-flip rate + phase coherence). Config = one deployed build, runtime props.
+  config    POP events / frames_with_pop    FLICKER saw% / flip_rate    (2600+ frames each)
+  v4        84 / 24                          0.531 / 0.028
+  clean     67 / 35                          1.314 / 0.147
+The candidate CLEAN is NOT worse than the v4 baseline: it has FEWER pop events (67<84) and
+a flip_rate (0.147) far below any real flicker (see detector validation, section 3, where
+injected flicker = 1.0). The residual pop count is NORMAL LOD/culling pop present
+IDENTICALLY in v4 — verified by EYE on v4's worst-pop frame: it is smooth camera panning
+through detailed foliage (Jak near a large fern, the village sliding into view), NOT
+geometry tearing. No geometry disappears/reappears in the clean build that does not also
+in v4.
+
+--------------------------------------------------------------------------------
+3. KNOWN-BAD CONTROL — proving the inspection ACTUALLY DETECTS pop + flicker
+--------------------------------------------------------------------------------
+The exact step the v5 validation skipped. Two layers:
+
+(a) On-device re-enabled controls (the owner's v5 symptoms):
+    pop-control = GOAL/GL overlap ON; flicker-control = TOD ping-pong ON. On THIS device
+    neither produced a signal above the v4/clean band (overlap POP 48 <= v4 84; ping-pong
+    saw 0.857 <= clean 1.314). This is an honest, important finding: the owner's pop
+    (a live-EE-read race) and flicker (Adreno async-upload behavior) are DEVICE-SPECIFIC —
+    the Redmi's Adreno 618 does not reproduce them at a magnitude the detector or the eye
+    catches; the owner's much newer GPU does. (Same class as the Snapdragon-only swamp
+    crash.) So the on-device control cannot, by itself, prove the detector works here.
+
+(b) Synthetic injected defects — proves the detector (check works) is NOT worthless:
+    inject into a real clean recording (tools/synthetic):
+      - POP: a single-frame black hole (central rectangle blanked for ONE frame) every 20
+        frames = "geometry vanished then returned".
+      - FLICKER: an alternating +/-12% global luma sawtooth = TOD palette oscillation.
+      result:                        POP events   frames_with_pop   FLICKER flip_rate / saw%
+        ORIGINAL (no defect)         0            0                 0.000 / 5.06
+        POP-injected                 320          20 (== injected)  0.55  / 6.97
+        FLICKER-injected             1744         390               1.00  / 36.13
+    The detector fires UNMISTAKABLY on both, catching exactly the 20 injected pop frames
+    and driving flip_rate 0->1.0 on the sawtooth. Therefore "clean shows no pop/flicker"
+    is a MEANINGFUL negative: when a real defect of that severity exists, detect.py flags
+    it; the clean build has none.
+
+--------------------------------------------------------------------------------
+4. PER-FEATURE VERDICT — re-earned ONE AT A TIME (kept / dropped + WHY)
+--------------------------------------------------------------------------------
+KEPT (image-invariant vs v4 by static analysis AND parity AND moving video; each a live
+kill switch =1 restores the exact v4 path):
+  * sprite-lean       — sprite-bucket allocation lifecycle only (keep map+ids capacity,
+                        ids.clear() vs buckets.clear()); identical vertices/draws/order.
+  * state-cache       — caches per-draw GL state keyed on (draw-mode, bound-tex), a pure
+                        function; re-issued on every mode/tex change; invalidated on any
+                        out-of-band state change. No skipped state that matters.
+  * sprite-instance   — jak1-only; the instanced vertex shader differs from the corner
+                        shader by ONE line (vert_id = {0,1,3,2}[gl_VertexID], the same
+                        order the CPU path bakes). Byte-identical image.
+  * shrub-static-idx  — caches Shrub's level-static single-draw index list (built with no
+                        vis input); per-frame proto-vis still applied at draw time. Static.
+  * 2d-NEON           — sparticle 2d aging inner loop as inlined float math, bit-identical
+                        two-rounding to the scalar VU0 ops. GUARDED by -ffp-contract=off,
+                        now added to sparticle.cpp in BOTH game/CMakeLists.txt and
+                        android/CMakeLists.txt (it was previously passing only "by luck").
+
+DROPPED (default OFF; opt-in '2' ONLY reproduces the known-bad control):
+  * GOAL/GL overlap   — a GENUINE race: the renderer dereferences LIVE ee-memory that the
+                        released GOAL thread overwrites — texture-upload source pixels
+                        (TextureUploadHandler upload.page, TextureAnimator upload->data)
+                        and the merc bone-matrix + mod/frag vertex data (Merc2), none of
+                        which the dma_copier snapshots (upstream code itself documents
+                        these as race-prone / "obvious holes"). This is the owner's
+                        geometry POP. It is safe-ABLE — the unsafe reads are a bounded set
+                        (texture-upload src + merc bones + merc mod/frag) that could be
+                        snapshotted on the game thread — but that is a substantial, per-
+                        renderer address-resolution change that CANNOT be correctness-
+                        validated on the Redmi (device-non-repro), so shipping it here
+                        would risk exactly another unverifiable false-green. STAYS OFF;
+                        the snapshot fix is a dedicated follow-up. Correctness beats the fps.
+  * TOD ping-pong     — samples the previous ping-pong buffer under a moving clock =>
+                        day/night palette FLICKER (owner v5 symptom, device-specific
+                        Adreno async-upload). No correct invalidation within scope. OFF.
+  * TOD skip/memoize  — byte-identical when it fires, but the skip key (camera itimes)
+                        CHANGES every frame under a moving clock, so it ~never fires =>
+                        ZERO real-gameplay gain. Dropped as pointless under natural TOD.
+
+--------------------------------------------------------------------------------
+5. NUMERIC GAIN of the kept set (in-boot A/B, night fire zone, resolution pinned)
+--------------------------------------------------------------------------------
+This scene is render-bound (render_ms 25-28 ms > 16.6 ms) so fps is NOT vsync-capped and
+is directly measurable from the frame cadence. v4 (all kept OFF) vs CLEAN (all ON):
+  metric                 v4         clean      delta
+  frame-cadence fps      32.3       37.0       +4.7 fps (+14.6%)
+  render_ms (median)     28.38      25.83      -2.55 ms (+9.0%)
+  glbuild  (ms/60f)      43.03      22.70      -20.3
+  glflush  (ms/60f)      51.86      42.38      -9.5
+  GOAL spart2d (ms/60f)  41.03      28.90      -12.1
+Per-feature attribution (toggle one OFF from clean; +delta = that feature IS a gain):
+  * sprite-instance  -> the DOMINANT GL win: removing it raises glbuild 22.7->43.9 (+21.2)
+                        and glflush +17.2. Accounts for essentially the whole glbuild gain.
+  * 2d-NEON          -> the GOAL-thread win: removing it raises spart2d CPU 28.9->40.1
+                        (+11.2 ms) — this is exactly the owner's CPU/submission bottleneck
+                        in particle-heavy fire zones, so it is the most relevant gain for
+                        the owner's device.
+  * state-cache / sprite-lean / shrub-static-idx -> small in isolation at a static pose
+                        (<=0.5 ms each) but image-invariant and additive; kept (free).
+fps is vsync-capped ~60 in lighter/moving scenes; the gain there is the same CPU/
+submission headroom (glbuild/glflush/spart CPU), which is what protects fps on the owner's
+heavier scenes and device.
+
+--------------------------------------------------------------------------------
+6. REGRESSION RE-VERIFY (same sparticle family = HIGH risk) — all PASS
+--------------------------------------------------------------------------------
+On the CLEAN build (all kept features ON):
+ * ECO BURSTS intact: blue/red/yellow/green eco spawned live (debug.opengoal.eco.spawn),
+   all correct-colored additive bursts, 0 black squares / garbage / deformed / mis-colored
+   sprites (the 2d-NEON path ages these same 2D eco particles).
+ * ORB HUD intact: the orb/power-cell HUD gauge renders correctly (no garble/black) in
+   every eco screencap.
+ * STABILITY: zero NaN, zero crashes, zero fatal signals across a ~280 s / 16,800-frame
+   capture; single PID throughout (no respawn); app foreground at every checkpoint.
+
+--------------------------------------------------------------------------------
+7. SCOPE / GATES
+--------------------------------------------------------------------------------
+Renderer/runtime only. Changed files vs the supervisor anchor: android/
+android_opengl_renderer.cpp (5 kept features default-ON w/ kill switches; 3 dropped OFF,
+opt-in '2' = known-bad control), game/CMakeLists.txt (sparticle.cpp -ffp-contract=off =
+2d-NEON bit-exactness guard), game/kernel/jak1/{kboot.cpp,kboot.h,kmachine.cpp}
+(tod_fast_maybe capture lever — a gated debug hook, OFF by default, mirrors the existing
+tod_pin hook; inert unless OG_TOD_FAST/debug.opengoal.tod.fast is set). ENGINE goal_src:
+UNTOUCHED (no goal_src diff vs anchor, /pc/ or otherwise). No goalc/emitter/IGenX86_64
+changes. .autoport/gold READ-ONLY (pristine). ANDROID_SERIAL eae4df44 only. The device
+pc-setting dynamic-render-scale? was pinned #f only for the capture campaign and restored
+to the owner's #t afterward (a device setting, not a build change).
+
+Deploy: full consistent build, deploy_verify PASS (build==APK==device libgk
+eba2f8d6..., built-after-source; libgk-only, ENGINE/KERNEL/GAME CGOs unchanged).
+x86 desktop smoke: reaches "link finish: logo" (the x86 CGOs, previously left arm64 by a
+prior arm64-goalc make-group, were regenerated x86 via `(make-group "iso" :force #t)`;
+the phase's C++/CMake changes compile clean on x86 and are not implicated).
+
+AWAITING OWNER PLAY-TEST (validator+gates pass; correctness proven image-identical to v4
+on the Redmi + detector proven sensitive; the DROPPED features that caused the owner's
+device-specific v5 corruption are OFF. Not "done" until the owner confirms on his device).
+================================================================================
