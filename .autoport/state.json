@@ -174,7 +174,7 @@
     "Gcrash-swamp-load": 1,
     "Gcrash-swamp-real": 2,
     "Gperf-particles2": 1,
-    "Gswamp-fstore": 1
+    "Gswamp-fstore": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -323,6 +323,9 @@
     "Gcrash-swamp-real": [
       "92082d066ea1",
       "92082d066ea1"
+    ],
+    "Gswamp-fstore": [
+      "f9c774796cac"
     ]
   },
   "stuck_reasons": {
@@ -662,7 +665,7 @@
     "Gperf-particles2": 1783278529.1999803,
     "Gswamp-fstore": 1783280433.7753935
   },
-  "last_update": "2026-07-05T20:27:27.147676+00:00",
+  "last_update": "2026-07-05T20:46:21.613932+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -706,6 +709,7 @@
     "Gtitle-tap",
     "Gcrash-swamp-load",
     "Gperf-particles",
-    "Gcrash-swamp-real"
+    "Gcrash-swamp-real",
+    "Gswamp-fstore"
   ]
 }
