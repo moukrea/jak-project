@@ -71,7 +71,25 @@ _arg_call_arm64:
   stp q27, q26, [sp, #-32]!
   stp q25, q24, [sp, #-32]!
 
+  ;; Gres-picker (autoport) — save the GOAL pp/st/off registers x13/x14/x15
+  ;; across the C++ call. These are AAPCS caller-saved temporaries, so a C++
+  ;; callee may clobber them; goalc treats them as the live GOAL ABI regs
+  ;; (x13=pp, x14=st/#f-mirror base, x15=EE base). If x14 is stomped to the
+  ;; EE base, every subsequent `(set! (-> obj field) #f)` — emitted as
+  ;; `mov x9,x14; sub x9,x9,x15; str w9` — stores 0 instead of #f (x14==x15
+  ;; ⇒ 0), zeroing e.g. joint-control.effect for swamp actors → null-dispatch
+  ;; crash. Mirror the proven idiom in make_function_from_c_arm64 (kscheme.cpp)
+  ;; and _mips2c_call_arm64 below: save right before the blr, restore right
+  ;; after. `str x15,[sp,#-16]!` reserves a full 16 bytes (8 dead) so the
+  ;; 16-byte SP alignment is preserved.
+  stp x13, x14, [sp, #-16]!
+  str x15, [sp, #-16]!
+
   blr x8
+
+  ;; restore the GOAL pp/st/off registers before any GOAL code runs again.
+  ldr x15, [sp], #16
+  ldp x13, x14, [sp], #16
 
   ;; restore in matching register order (NO swap). The old q8-q15 restore used
   ;; ldp q10,q11 against stp q11,q10 — a swap that was harmless only because
@@ -109,6 +127,19 @@ _stack_call_arm64:
   stp q27, q26, [sp, #-32]!
   stp q25, q24, [sp, #-32]!
 
+  ;; Gres-picker (autoport) — save the GOAL pp/st/off registers x13/x14/x15
+  ;; across the C++ call. See _arg_call_arm64 above and the proven idiom in
+  ;; make_function_from_c_arm64 (kscheme.cpp) / _mips2c_call_arm64 below.
+  ;; x13/x14/x15 are AAPCS caller-saved, so the C++ callee may clobber them;
+  ;; a stomped x14 (st/#f-mirror base) makes `(set! (-> obj field) #f)` store
+  ;; 0 instead of #f (mov x9,x14; sub x9,x9,x15; str w9 ⇒ 0 when x14==x15),
+  ;; zeroing joint-control.effect for swamp actors → null-dispatch crash. The
+  ;; arg-array marshalling below uses x0-x7 and x19, never x13/x14/x15, so it
+  ;; is unaffected. `str x15,[sp,#-16]!` reserves a full 16 bytes (8 dead) to
+  ;; keep SP 16-byte aligned.
+  stp x13, x14, [sp, #-16]!
+  str x15, [sp, #-16]!
+
   ; create stack array of arguments
   ; arg 7 (R11 in x86)
   ; arg 6 (R10 in x86)
@@ -132,6 +163,10 @@ _stack_call_arm64:
   ldp x3, x2, [sp], #16
   ldp x5, x4, [sp], #16
   ldp x7, x6, [sp], #16
+
+  ;; restore the GOAL pp/st/off registers before any GOAL code runs again.
+  ldr x15, [sp], #16
+  ldp x13, x14, [sp], #16
 
   ;; restore in matching register order (NO swap) — see _arg_call_arm64.
   ldp q25, q24, [sp], #32

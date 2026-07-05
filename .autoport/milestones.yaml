@@ -1139,6 +1139,22 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Gswamp-fstore
+  name: 'TRUE swamp fix (follow-up to the shipped band-aid): joint-control.effect is left 0 (memset) not #f on arm64 -> null-effect dispatch crash. Codegen is correct; the #f store fails because x14 (st/#f-mirror reg) is clobbered to ee_base by a GOAL->C++ call path (the _arg_call/_stack_call trampoline x14-save did NOT fully fix it -> a mips2c or other path clobbers x14). Instrument the store point (new joint-control) on-device to prove x14==x15, find the clobbering path, fix it, eliminate the fault at source (repair counter 0), remove the band-aid. Owner play-test. Device-specific (owner Snapdragon).'
+  prompt: prompts/phase-Gswamp-fstore.md
+  validator: validators/phase-Gswamp-fstore.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gvulkan-option
+  name: 'OWNER 2026-07-04 (backlog): add a VULKAN renderer backend as a selectable option in BOTH builds (x86 currently OpenGL, Android OpenGL ES), exposed via a dedicated Graphics Options entry. LARGE effort — investigate the existing upstream Vulkan tree first, wire it up (compile into Android build + Android VkSurface), persisted backend selection, GL/GLES stays the default. Incremental/honest partial delivery OK. Owner play-test.'
+  prompt: prompts/phase-Gvulkan-option.md
+  validator: validators/phase-Gvulkan-option.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true

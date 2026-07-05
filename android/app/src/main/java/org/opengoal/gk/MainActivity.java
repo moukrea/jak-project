@@ -118,6 +118,15 @@ public class MainActivity extends SDLActivity {
         NativeGk.setSelectedGame(gameName);
         NativeGk.setDataRoot(isoDir.getAbsolutePath());
 
+        // Owner swamp-crash capture build (INSTRUMENTATION ONLY): push the app's
+        // EXTERNAL files dir so a JAK_SWAMP_CAPTURE libgk can write the crash
+        // forensic to a file the owner retrieves from the Files app without adb.
+        // In a normal libgk this native call is an inert no-op.
+        final File extFilesDir = getExternalFilesDir(null);
+        if (extFilesDir != null) {
+            NativeGk.setExternalFilesDir(extFilesDir.getAbsolutePath());
+        }
+
         // Phase Glang-mixed (autoport): bridge the device locale into the
         // process environment BEFORE the runtime boots. The engine's
         // sceScfGetLanguage() (game/sce/libscf.cpp, __linux__ path) reads

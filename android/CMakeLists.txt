@@ -132,6 +132,19 @@ add_subdirectory("${JAK_ROOT}/third-party/SDL" sdl_build EXCLUDE_FROM_ALL)
 #   game/sce/{stubs,iop,libdma,libcdvd_ee,libpad,libscf,libgraph,deci2,
 #             sif_ee,sif_ee_memcard}.cpp — PS2 SCE library stubs (already
 #     desktop stubs) — pure header impl + assertions; minimal deps.
+
+# ---------------------------------------------------------------------------
+# Owner swamp-crash capture build (INSTRUMENTATION ONLY — never fixes the
+# crash). When ON, libgk auto-opens the village2 pontoons (game-task 33) so the
+# owner can walk to the Rock Village -> Boggy Swamp transition WITHOUT adb and
+# WITHOUT 90 orbs (kmachine.cpp task-close hook), and the Android fatal-signal
+# handler ALSO appends the forensic (sig/pc/lr + EE offsets) to a file in the
+# app's EXTERNAL files dir that the owner retrieves via the phone's Files app
+# (no adb; gk_android_main.cpp). Defined here so it is in scope for BOTH the
+# android_kernel (kmachine.cpp) and gk (gk_android_main.cpp) targets. Default
+# OFF so HEAD behavior is unchanged.
+option(JAK_SWAMP_CAPTURE "owner swamp-crash capture build" OFF)
+
 add_library(android_kernel STATIC
     # Android compat — globals + logging shims that the desktop runtime
     # would provide via game/runtime.cpp.
@@ -448,6 +461,12 @@ set_target_properties(android_kernel PROPERTIES
     VISIBILITY_INLINES_HIDDEN OFF
 )
 
+# Owner swamp-crash capture: kmachine.cpp's task-close auto-open (task 33) lives
+# in this target, so the define must reach android_kernel too — not just gk.
+if(JAK_SWAMP_CAPTURE)
+    target_compile_definitions(android_kernel PRIVATE JAK_SWAMP_CAPTURE=1)
+endif()
+
 # ---------------------------------------------------------------------------
 # Phase 21 (autoport): GLES shader preprocessor.
 #
@@ -623,6 +642,14 @@ set_target_properties(gk PROPERTIES
     CXX_VISIBILITY_PRESET default
     VISIBILITY_INLINES_HIDDEN OFF
 )
+
+# Owner swamp-crash capture: gk_android_main.cpp's task-close auto-open marker,
+# the g_ext_files_dir global, the setExternalFilesDir JNI setter, and the
+# fatal-handler file-write all key off JAK_SWAMP_CAPTURE. The option() itself is
+# declared earlier (before android_kernel) so it is in scope for both targets.
+if(JAK_SWAMP_CAPTURE)
+    target_compile_definitions(gk PRIVATE JAK_SWAMP_CAPTURE=1)
+endif()
 
 target_link_libraries(gk PRIVATE
     # Force-link the whole kernel archive so symbols like init_output stay

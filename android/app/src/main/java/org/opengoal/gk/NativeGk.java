@@ -53,6 +53,18 @@ public final class NativeGk {
     public static native void setDataRoot(String dataRoot);
 
     /**
+     * Owner swamp-crash capture build (INSTRUMENTATION ONLY): push the app's
+     * EXTERNAL files dir (getExternalFilesDir(null).getAbsolutePath(), e.g.
+     * /sdcard/Android/data/org.opengoal.gk.jak1/files) into a native global so
+     * the fatal-signal handler can append the crash forensic to
+     * jak_swamp_crash.txt there — a location the owner can retrieve from the
+     * phone's Files app WITHOUT adb. The native side only stores this in a
+     * JAK_SWAMP_CAPTURE build; in a normal build the native method is an inert
+     * no-op, so calling it unconditionally here is harmless.
+     */
+    public static native void setExternalFilesDir(String dir);
+
+    /**
      * Forward an Android MotionEvent into the runtime. The native side
      * synthesizes the equivalent SDL_MOUSEBUTTON / SDL_MOUSEMOTION event
      * and pushes it onto SDL's event queue, so the existing input layer

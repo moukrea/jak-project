@@ -151,6 +151,15 @@ std::atomic<bool> g_runtime_booted{false};
 const char* g_selected_game = nullptr;
 const char* g_data_root = nullptr;
 
+#if defined(JAK_SWAMP_CAPTURE)
+// Owner swamp-crash capture build (INSTRUMENTATION ONLY): the app's EXTERNAL
+// files dir (getExternalFilesDir(null)) pushed from Java via setExternalFilesDir.
+// Fixed-size so the fatal signal handler can read it without touching the heap.
+// The forensic is APPENDED to "<g_ext_files_dir>/jak_swamp_crash.txt", which the
+// owner retrieves from the phone's Files app WITHOUT adb.
+char g_ext_files_dir[512] = {0};
+#endif
+
 // Phase A30 (autoport): route native stdout/stderr → logcat.
 //
 // Android resets the per-app stdout/stderr file descriptors to /dev/null
@@ -3837,6 +3846,46 @@ void log_nearest_goal_fn(const char* label, uint32_t target_goal) {
                       name[0] ? name : "<unnamed>", best_v, target_goal - best_v, best_slot);
 }
 
+// Return the name of the nearest GOAL function at/below target_goal into `out`
+// (empty string if unresolved). Same bounds-checked symbol-table walk as
+// log_nearest_goal_fn, but returns the name instead of logging it — used by the
+// null-frame-group repair handler to gate on the joint-eval band by fn NAME.
+// Async-signal-safe: only guarded EE reads, no allocation, no logging.
+void nearest_goal_fn_name(uint32_t target_goal, char* out, size_t n) {
+  if (n == 0) {
+    return;
+  }
+  out[0] = '\0';
+  if (!g_ee_main_mem || !SymbolTable2.offset || !LastSymbol.offset || target_goal < 0x1000) {
+    return;
+  }
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  uint32_t best_v = 0, best_slot = 0;
+  for (uint32_t slot = SymbolTable2.offset;
+       slot + 4 < EE_MAIN_MEM_SIZE && slot < LastSymbol.offset; slot += 4) {
+    uint32_t v = *reinterpret_cast<const uint32_t*>(ee + slot);
+    if (v > best_v && v <= target_goal && target_goal - v < 0x200000) {
+      best_v = v;
+      best_slot = slot;
+    }
+  }
+  if (!best_slot) {
+    return;
+  }
+  uint64_t info_goal = static_cast<uint64_t>(best_slot) + jak1::SYM_INFO_OFFSET;
+  if (info_goal + 8 < EE_MAIN_MEM_SIZE) {
+    uint32_t str_off = *reinterpret_cast<const uint32_t*>(ee + info_goal + 4);
+    if (str_off > 0 && static_cast<uint64_t>(str_off) + 4 + n < EE_MAIN_MEM_SIZE) {
+      const char* sp = reinterpret_cast<const char*>(ee + str_off + 4);
+      size_t i = 0;
+      for (; i + 1 < n && sp[i]; i++) {
+        out[i] = (sp[i] >= 0x20 && sp[i] <= 0x7e) ? sp[i] : '?';
+      }
+      out[i] = '\0';
+    }
+  }
+}
+
 void log_dladdr(const char* label, uintptr_t addr) {
   Dl_info di{};
   if (addr && dladdr(reinterpret_cast<void*>(addr), &di) && di.dli_fname) {
@@ -4998,6 +5047,597 @@ bool handle_bare_ret_offset(int sig, siginfo_t* info, void* ucontext) {
   return true;
 }
 
+// Gcrash-swamp-real: repair the owner's Rock Village -> Boggy Swamp crash-to-home.
+//
+// ROOT (GROUND TRUTH — owner device disassembly, .autoport/reports/Gcrash-swamp-real/
+// owner-crash-4-groundtruth.txt): the fault is the TAIL of
+// (method evaluate-joint-control process-drawable), process-drawable.gc:636:
+//     (let ((a0-17 (-> gp-0 effect)))
+//       (if a0-17 (effect-control-method-9 a0-17)))
+// The `(if obj (method obj))` idiom emits at the fault site:
+//   pc-8 : B.EQ <skip>           (0x54000240 ; cmp effect,s7 ; b.eq skip — the #f guard)
+//   pc-4 : ADD Xn2, Xobj, X15    (0x8b0f00f0 ; ADD shifted-reg, Xm==x15==EE_base)
+//   pc   : LDUR Wt, [Xn, #-4]    (0xb85fc209 ; reads (-> obj type) ; FAULTS)
+// The null object is `effect` — an UNINITIALIZED / TORN joint-control field, NOT #f.
+// On x86/slower devices effect is #f so the b.eq skips; the faster Snapdragon 8 Elite
+// observes GARBAGE in the effect slot (async actor-init race) that is 0 OR a wild small
+// value, != s7, so the #f guard passes, the method is dispatched on the invalid object,
+// and `(-> obj type)` (offset -4) reads (garbage + EE_base - 4) -> SIGSEGV. arm64 code
+// here is byte-identical to x86 (NOT a codegen bug) — a pure device-timing race on an
+// uninitialized receiver that a #f guard cannot catch. A fresh owner capture shows two
+// faults at the SAME insn: crash #4 receiver=0x0 (raw null), crash #5 receiver=0xfffffb20
+// (wild garbage). BOTH are invalid objects; the receiver value is NOT reliably 0.
+//
+// THE FAULT ITSELF PROVES THE RECEIVER IS INVALID: a VALID GOAL object always has a
+// readable type at (ptr-4). If the LDUR Wt,[base,#-4] that reads the type SIGSEGVs, then
+// the object (base == receiver + EE_base) is by definition invalid — null OR garbage. So
+// we gate on the INSTRUCTION PATTERN + the fault being exactly this LDUR's -4 read
+// (regs[Xn] - 4 == fault_addr), NOT on the receiver's specific value.
+//
+// ROBUST REPAIR — make raw-0 behave exactly like #f by redirecting to the b.eq target:
+//   * The engine's own #f path (effect == #f) is the b.eq skip target 8 bytes back at
+//     pc-8. Its disassembly is `mov x3,s7 ; add sp,#0x10 ; ldp x29,x30 ; ret` — the
+//     normal "effect is #f, return" epilogue that dereferences NOTHING further. So the
+//     race-free, 1-to-1-faithful repair is to decode pc-8's B.EQ imm19 and set the
+//     resume pc to that same skip target. effect==0 then takes the identical control
+//     path as effect==#f: correct semantics, no re-crash (target is a return path),
+//     no loop.
+//   * We touch NO general register and NOT sp: the b.eq target is reached BEFORE the
+//     method dispatch's stp pushes, so the stack is already balanced (the target itself
+//     does the `add sp,#0x10 ; ldp x29,x30 ; ret`). Pure control-flow redirect.
+//   * Structure-free: no forward loop / back-edge / cfg scan (the prior heuristic that
+//     bailed at THIS site). The only decode is pc-8's own B.cond immediate, plus
+//     sanity gates so we NEVER jump wild — if any gate fails we BAIL (return false) and
+//     the true fault reaches the honest fatal dump.
+//
+// GATING (razor-tight, defense-in-depth so this can NEVER fire on an unrelated
+// null-type-read elsewhere) — FAULT-PROVES-INVALID + instruction pattern, NOT a value
+// check: SIGSEGV + the faulting insn decodes as LDUR Wt,[Xn,#-4] AND regs[Xn]-4 ==
+// fault_addr (this LDUR is what faulted) + pc-4 is an ADD Xn2,Xobj,X15 (Rm==15==EE_base)
+// whose Rd == the LDUR's Xn (pc-4 computed the base the LDUR uses) + (cheap extra guard)
+// the receiver regs[Xobj] is NOT a valid-range EE object + pc-8 is a B.EQ + the nearest
+// GOAL fn is in the joint-eval band (ja-blend-eval / evaluate-joint-control /
+// joint-control-channel-eval — the resolver mis-attributes evaluate-joint-control to
+// the adjacent ja-blend-eval symbol, so all three are accepted). We do NOT check the
+// receiver's specific value (it may be 0 raw-null OR wild garbage) and we do NOT require
+// the load's base to equal EE_base exactly (garbage receiver != 0 makes base != EE_base).
+// arm64/Android only (this TU is Android-only; x86 never compiles it).
+// Optional A/B kill-switch: debug.opengoal.nullfg.norepair=1 disables it.
+std::atomic<uint64_t> g_grv_nullfg_repairs{0};
+// Gres-picker SELF-HEAL: count of joint-controls whose `effect` field we wrote
+// back to #f (one per affected object; converges to ~25 while g_grv_nullfg_repairs
+// stops climbing once every corrupt effect field is healed).
+std::atomic<uint64_t> g_grv_nullfg_heals{0};
+
+// Recover the parent joint-control (`skel`, = evaluate-joint-control's gp-0) that
+// owns the corrupt `effect` field which just faulted. Reuses the EXACT recovery the
+// JAK_SWAMP_CAPTURE jc-dump uses (see the dump block below), factored out so it runs
+// in the NORMAL (capture-OFF) build — the heal is the real fix now, not diagnostics.
+//
+// The LDUR's receiver (obj_reg) holds the raw `effect` FIELD VALUE (the garbage that
+// faulted), NOT the address of `skel`. `skel` itself is `(-> self skel)` = EE[self+0x78];
+// `self` (a process-drawable basic) still lives in several GPRs. We scan the GPR file for
+// a value V that (a) validates as a GOAL basic (readable in-range type at V-4), (b) has a
+// plausible skel = EE[V+0x78], and (c) whose EE[skel+0x28] (the effect field) EXACTLY
+// equals the faulting effect value — this uniquely and confirmably pins the corrupt
+// joint-control. Returns the CONFIRMED skel, or 0 if no candidate confirms (never guess:
+// the caller only writes on a confirmed recovery).
+inline uint32_t recover_corrupt_joint_control(const ucontext_t* uc,
+                                              uint32_t effect_val) {
+  auto ee_rd = [](uint32_t goal, uint32_t* out) -> bool {
+    return a36_tree::rd32(goal, out);
+  };
+  // A GOAL basic ptr is "plausible" if in-range and its type tag (at ptr-4) is itself
+  // an in-range EE pointer (types live in EE memory).
+  auto plausible_basic = [&](uint32_t p) -> bool {
+    if (p < 0x1000u || p >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) return false;
+    uint32_t tt = 0;
+    if (!ee_rd(p - 4u, &tt)) return false;
+    return tt >= 0x1000u && tt < static_cast<uint32_t>(EE_MAIN_MEM_SIZE);
+  };
+  for (int r = 0; r <= 30; ++r) {
+    const uint32_t v = static_cast<uint32_t>(uc->uc_mcontext.regs[r]);
+    if (v < 0x1000u || v >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) continue;
+    if (!plausible_basic(v)) continue;  // v looks like a basic (has a type at -4)
+    uint32_t sk = 0;
+    if (!ee_rd(v + 0x78u, &sk)) continue;  // skel = (-> self skel)
+    if (sk < 0x1000u || sk >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) continue;
+    uint32_t eff = 0;
+    if (ee_rd(sk + 0x28u, &eff) && eff == effect_val) {
+      return sk;  // CONFIRMED: this process's skel.effect IS the faulting garbage
+    }
+  }
+  return 0;  // no confirmed candidate — caller falls back to skip-only (safe)
+}
+
+bool handle_null_framegroup_type_read(int sig, siginfo_t* info, void* ucontext) {
+  // Gcrash-swamp-load (debug-only): let the TRUE first crash reach the fatal dump
+  // instead of being repaired. Shared diag flag with the other repair handlers.
+  if (a38_trip::g_gk_diag_norepair.load(std::memory_order_relaxed)) return false;
+  // Optional dedicated A/B kill-switch (default OFF = repair ACTIVE — this is the
+  // real fix, not instrumentation). Cached one-shot.
+  {
+    static std::atomic<int> s_norepair{-1};
+    int nr = s_norepair.load(std::memory_order_acquire);
+    if (nr == -1) {
+      char b[PROP_VALUE_MAX] = {0};
+      nr = (__system_property_get("debug.opengoal.nullfg.norepair", b) > 0 && b[0] == '1') ? 1 : 0;
+      s_norepair.store(nr, std::memory_order_release);
+    }
+    if (nr == 1) return false;
+  }
+  if (sig != SIGSEGV || !g_ee_main_mem) {
+    return false;
+  }
+  auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
+  const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const uintptr_t fault = info ? reinterpret_cast<uintptr_t>(info->si_addr) : 0;
+  // (1) decode the faulting instruction: it must be a 32-bit (W) load with an immediate
+  // offset of exactly -4 (the `(-> obj type)` type-tag read). We then require the fault
+  // address to equal this LDUR's own base minus 4 (regs[Xn]-4 == fault_addr) — that
+  // proves THIS instruction is what faulted, and that its receiver (base) is an invalid
+  // object (null OR garbage). No fixed (fault-EE)==0xfffffffc signature, no EE_base-exact
+  // base check: with a garbage receiver the base is EE_base + garbage, not EE_base.
+  const uintptr_t pc = uc->uc_mcontext.pc;
+  uint32_t pcg = to_goal(pc);
+  if (pcg < 0x1000) {
+    return false;  // pc not inside EE-generated code
+  }
+  uint32_t insn = 0;
+  if (!a36_tree::rd32(pcg, &insn)) {
+    return false;
+  }
+  int base_reg = -1;
+  bool off_is_minus4 = false;
+  bool is_w_load = false;
+  // LDUR Wt,[Xn,#imm9]  (unscaled, immediate): size=10, V=0, opc=01, bit24=0, bits11:10=00
+  //   0x38000000 family, (insn>>30)==2 (32-bit), (insn>>22)&3==1 (LDR), bit21==0,
+  //   idx bits (11:10)==0. imm9 = signed bits20:12.
+  // LDR  Wt,[Xn,#imm12] (scaled,   immediate): 0x39000000 family, (insn>>30)==2,
+  //   (insn>>22)&3==1. Scaled imm12 can't encode -4, so only the LDUR form yields -4.
+  {
+    uint32_t fam = insn & 0x3B000000u;
+    uint32_t size = insn >> 30;
+    uint32_t opc = (insn >> 22) & 3u;
+    bool simd = (insn >> 26) & 1u;
+    if (fam == 0x38000000u && !simd && size == 2u && opc == 1u && !((insn >> 21) & 1u)) {
+      uint32_t idx = (insn >> 10) & 3u;  // 00 LDUR (no writeback), 01 post, 11 pre
+      if (idx == 0u) {
+        int32_t imm9 = static_cast<int32_t>((insn >> 12) & 0x1FFu);
+        if (imm9 & 0x100) imm9 -= 0x200;  // sign-extend 9 bits
+        if (imm9 == -4) {
+          off_is_minus4 = true;
+          is_w_load = true;
+          base_reg = static_cast<int>((insn >> 5) & 0x1Fu);
+        }
+      }
+    }
+  }
+  if (!off_is_minus4 || !is_w_load || base_reg < 0 || base_reg > 30) {
+    return false;
+  }
+  // (2) the fault must be THIS LDUR's -4 read: regs[Xn] - 4 == fault_addr. A valid GOAL
+  // object always has a readable type at (base-4); this faulting means base (= receiver
+  // + EE_base) is an invalid object — null OR garbage. Value-agnostic.
+  if (static_cast<uintptr_t>(uc->uc_mcontext.regs[base_reg]) - 4u != fault) {
+    return false;
+  }
+  // (3) pc-4 must be `ADD Xn2, Xobj, X15` (the `obj + EE_base` type-tag base-form of the
+  // dispatch), and its Rd must be the LDUR's base register (pc-4 computed the base the
+  // LDUR uses). We do NOT check the receiver's value — it may be RAW 0 (null) OR wild
+  // garbage (uninitialized effect field); either way (2) already proved it invalid.
+  //   64-bit ADD (shifted register): base 0x8B000000, Rm at bits[20:16]. Pin
+  //   sf=1 (64-bit), op=0 (ADD not SUB), S=0, the add/sub-shifted-reg class bits,
+  //   shift-type=LSL (bits[23:22]==0), bit21==0, Rm==15 (EE_base), imm6==0 (no shift).
+  //   Leave Rn(Xobj) bits[9:5] and Rd bits[4:0] free.  =>  (insn & 0xFFFFFC00)==0x8B0F0000
+  uint32_t insn_m4 = 0;
+  if (!a36_tree::rd32(pcg - 4, &insn_m4)) {
+    return false;
+  }
+  if ((insn_m4 & 0xFFFFFC00u) != 0x8B0F0000u) {
+    return false;
+  }
+  const int obj_reg = static_cast<int>((insn_m4 >> 5) & 0x1Fu);  // Xobj = Rn of pc-4
+  if (obj_reg < 0 || obj_reg > 30) {
+    return false;
+  }
+  // pc-4's Rd (bits[4:0]) must be the LDUR's base register (this ADD produced the base).
+  if (static_cast<int>(insn_m4 & 0x1Fu) != base_reg) {
+    return false;
+  }
+  // Cheap defense-in-depth: the receiver must NOT be a valid-range EE object. Guaranteed
+  // true given the fault (an in-range object would have a readable type), but this ensures
+  // we never redirect on a fault that somehow had a valid-range receiver.
+  {
+    const uint32_t recv = static_cast<uint32_t>(uc->uc_mcontext.regs[obj_reg]);
+    if (recv >= 0x1000u && recv < static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) {
+      return false;  // receiver looks like a valid EE object -> not our garbage/null case
+    }
+  }
+  // (4) pc-8 must be a B.EQ (the #f guard `cmp obj,s7 ; b.eq skip`):
+  //   B.cond: (insn & 0xFF00001F) == 0x54000000 ; cond==0000==EQ.
+  uint32_t insn_m8 = 0;
+  if (!a36_tree::rd32(pcg - 8, &insn_m8)) {
+    return false;
+  }
+  if ((insn_m8 & 0xFF00001Fu) != 0x54000000u) {
+    return false;
+  }
+  // (5) defense-in-depth: the nearest GOAL fn must be in the joint-eval band. The
+  // symbol resolver mis-attributes evaluate-joint-control to the adjacent
+  // ja-blend-eval slot (owner capture shows pc-fn=ja-blend-eval), so accept any of
+  // the three joint-eval fns.
+  {
+    char fn[48] = {0};
+    nearest_goal_fn_name(pcg, fn, sizeof(fn));
+    bool in_band = (strcmp(fn, "ja-blend-eval") == 0) ||
+                   (strcmp(fn, "evaluate-joint-control") == 0) ||
+                   (strcmp(fn, "joint-control-channel-eval") == 0);
+    if (!in_band) {
+      return false;
+    }
+  }
+  // Resume: redirect to pc-8's B.EQ skip target — the exact path effect==#f takes.
+  // Decode pc-8's B.cond imm19 (SIGNED bits[23:5]); target = (pc-8) + imm19*4.
+  int32_t imm19 = static_cast<int32_t>((insn_m8 >> 5) & 0x7FFFFu);
+  if (imm19 & 0x40000) imm19 -= 0x80000;  // sign-extend 19 bits
+  if (imm19 <= 0) {
+    return false;  // guard target must be a FORWARD skip
+  }
+  const int64_t target_off = static_cast<int64_t>(imm19) * 4 - 8;  // from pc
+  if (target_off <= 0 || target_off > 0x200) {
+    return false;  // target must be a small forward distance within this function
+  }
+  const uint32_t skip_target = pcg + static_cast<uint32_t>(target_off);
+  // Gres-picker SELF-HEAL (the durable fix — runs in the SHIPPING/capture-OFF build):
+  // before we redirect THIS frame, WRITE #f into the corrupt joint-control's `effect`
+  // field so that object never faults here again. Without this, the same ~25 objects
+  // fault every frame (tens of thousands of redirects); with it, each faults ~once then
+  // is permanently healed. CONFIRMED-ONLY: we recover the parent joint-control `skel`
+  // via the effect-field match above and write ONLY when that recovery is confirmed AND
+  // the field currently holds the faulting garbage (not already #f). Async-signal-safe:
+  // a single guarded 32-bit store to an in-range EE address. If recovery is uncertain we
+  // write nothing and fall back to the safe skip-only behavior.
+  {
+    const uint32_t effect_val = static_cast<uint32_t>(uc->uc_mcontext.regs[obj_reg]);
+    const uint32_t falsev = static_cast<uint32_t>(s7.offset);  // GOAL #f = s7
+    const uint32_t skel = recover_corrupt_joint_control(uc, effect_val);
+    // skel is returned ONLY when EE[skel+0x28] == effect_val was confirmed. Re-verify
+    // range + confirm the field still equals the garbage (never #f) before storing.
+    if (skel >= 0x1000u && skel < static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) {
+      const uint32_t dest = skel + 0x28u;  // joint-control.effect
+      uint32_t cur = 0;
+      if (dest + 4u <= static_cast<uint32_t>(EE_MAIN_MEM_SIZE) &&
+          a36_tree::rd32(dest, &cur) && cur == effect_val && cur != falsev) {
+        // Guarded, in-range single 32-bit store: heal the field to #f permanently.
+        *reinterpret_cast<uint32_t*>(g_ee_main_mem + dest) = falsev;
+        const uint64_t hn = g_grv_nullfg_heals.fetch_add(1, std::memory_order_relaxed) + 1;
+        if (hn <= 32 || (hn % 256) == 0) {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG GRV-NULLFG-HEAL #%llu skel=goal:0x%x "
+                              "effect[+0x28] 0x%x -> #f(0x%x) (permanent; this object "
+                              "won't fault here again)",
+                              (unsigned long long)hn, skel, effect_val, falsev);
+        }
+      }
+    }
+  }
+  // Repair: resume at the b.eq target (the normal #f-effect return epilogue
+  // `mov x3,s7 ; add sp,#0x10 ; ldp x29,x30 ; ret`). We touch NO general register and
+  // NOT sp — the target is reached before any dispatch stp pushes, so the stack is
+  // already balanced and the target's own epilogue restores x29/x30 and returns. This
+  // makes an invalid (null OR garbage) effect take the identical control path as
+  // effect==#f: correct semantics, no re-crash (target derefs nothing further), no loop.
+  uc->uc_mcontext.pc = ee + skip_target;
+  const uint64_t cnt = g_grv_nullfg_repairs.fetch_add(1, std::memory_order_relaxed) + 1;
+  if (cnt <= 16 || (cnt % 256) == 0) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG GRV-NULLFG-REPAIR count=%llu pc=goal:0x%x base=X%d "
+                        "obj=X%d(recv=0x%x invalid) fault=0x%lx -> redirect to b.eq #f-skip "
+                        "target goal:0x%x (null-or-garbage effect == #f return path; no crash)",
+                        (unsigned long long)cnt, pcg, base_reg, obj_reg,
+                        static_cast<uint32_t>(uc->uc_mcontext.regs[obj_reg]),
+                        (unsigned long)fault, skip_target);
+  }
+#if defined(JAK_SWAMP_CAPTURE)
+  // Owner HONOR-device verification (INSTRUMENTATION ONLY, capture build): HONOR
+  // suppresses logcat so the GK-DIAG line above is invisible on the owner's phone.
+  // ALSO write the current repair count to a one-line file in the app's EXTERNAL
+  // files dir so the supervisor can confirm from the phone's Files app WITHOUT adb
+  // that the guard caught the exact null-frame-group fault and resumed (count>0)
+  // AND that no jak_swamp_crash.txt was produced (no crash). OVERWRITE each time so
+  // the file always reflects the latest total. ASYNC-SIGNAL-SAFE ONLY: open/write/
+  // close + a hand-rolled decimal formatter into a fixed stack buffer (same pattern
+  // as the swamp-crash writer below) — no snprintf/fprintf/malloc. Best-effort: any
+  // failure is silently ignored so the handler never blocks or re-crashes.
+  if (g_ext_files_dir[0]) {
+    // Build "<g_ext_files_dir>/jak_repair.txt" without snprintf.
+    char path[512 + 32];
+    size_t pi = 0;
+    for (const char* s = g_ext_files_dir; *s && pi < sizeof(path) - 24; ++s) {
+      path[pi++] = *s;
+    }
+    const char kName[] = "/jak_repair.txt";
+    for (size_t i = 0; i < sizeof(kName) /*includes NUL*/; ++i) {
+      path[pi++] = kName[i];
+    }
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd >= 0) {
+      char buf[64];
+      size_t bi = 0;
+      auto put = [&](const char* s) {
+        while (*s && bi < sizeof(buf)) {
+          buf[bi++] = *s++;
+        }
+      };
+      // Append an unsigned 64-bit decimal (signal-safe, no snprintf).
+      auto put_dec = [&](unsigned long long v) {
+        char tmp[24];
+        int n = 0;
+        if (v == 0) {
+          tmp[n++] = '0';
+        } else {
+          while (v && n < 24) {
+            tmp[n++] = char('0' + (v % 10));
+            v /= 10;
+          }
+        }
+        while (n > 0 && bi < sizeof(buf)) {
+          buf[bi++] = tmp[--n];
+        }
+      };
+      put("GRV-NULLFG-REPAIR count=");
+      put_dec((unsigned long long)cnt);
+      // Gres-picker: also report the running HEAL count so the owner can confirm on
+      // the phone (Files app, no adb) that heals converge (~25 = one per corrupt
+      // object) while the repair count stops climbing.
+      put(" heals=");
+      put_dec((unsigned long long)g_grv_nullfg_heals.load(std::memory_order_relaxed));
+      put("\n");
+      ssize_t wr = write(fd, buf, bi);
+      (void)wr;
+      close(fd);
+    }
+  }
+  // Gres-picker JOINT-CONTROL DUMP (INSTRUMENTATION ONLY, READ-ONLY — does NOT
+  // change the repair above): DISAMBIGUATE the swamp effect-field fault. Is the
+  // whole parent joint-control (`skel`, gp-0 in evaluate-joint-control) corrupt
+  // (alloc/stomp) or only its `effect` field (targeted store-drop)? And is it ONE
+  // object stuck or a FLOOD of distinct ones? Appended to a SEPARATE file
+  // "<ext-files>/jak_jc_dump.txt". Async-signal-safe: open/write/close + fixed
+  // stack buffers + guarded 32-bit EE reads (a36_tree::rd32) only — no malloc.
+  //
+  // Fault-site (owner-crash-4/5, evaluate-joint-control @ process-drawable.gc:636
+  //   `(let ((a0-17 (-> gp-0 effect))) (if a0-17 (effect-control-method-9 a0-17)))`):
+  //   pc-4  ADD X16, X7, X15   (X15=EE_base; X7 = the garbage `effect` value)
+  //   pc    LDUR W9,[X16,#-4]  (the `(-> effect type)` -4 read -> faults)
+  // So obj_reg (the LDUR's dispatch receiver = X7) holds the raw `effect` FIELD
+  // VALUE (0x0 or 0xfffffb20), NOT the address of `skel`. `skel` itself is
+  // `(-> self skel)` = EE[self+0x78]; the emitted code loaded it from [self+0x78]
+  // earlier and `self` (a process-drawable basic, 0x14fd24 in the captures) still
+  // lives in MANY GPRs (x0/x1/x3/x9/x20/x21/x22/x24). We RECOVER skel by scanning
+  // the GPR file for a value that validates as a process-drawable and derives a
+  // plausible skel = EE[cand+0x78]; then confirm by checking EE[skel+0x28] ==
+  // effect-field-value-in-obj_reg. `type` for a GOAL basic is at ptr-4
+  // (BASIC_OFFSET=4); effect field at joint-control+0x28 (confirmed by layout).
+  static std::atomic<uint64_t> s_jc_dumps{0};
+  const uint64_t jc_dump_seq = s_jc_dumps.fetch_add(1, std::memory_order_relaxed);
+  // Tiny static ring of the last DISTINCT skel pointers seen + a distinct count,
+  // so the file shows whether it is one object stuck or a flood of distinct ones.
+  static constexpr int kJcRing = 16;
+  static std::atomic<uint32_t> s_jc_ring[kJcRing];  // zero-init (static) = empty
+  static std::atomic<uint32_t> s_jc_distinct{0};
+  if (g_ext_files_dir[0]) {
+    // Guarded EE reader (self-contained; same bounds as a36_tree::rd32).
+    auto ee_rd32 = [&](uint32_t goal, uint32_t* out) -> bool {
+      if (!g_ee_main_mem || goal < 0x1000 ||
+          goal >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE) - 4u)
+        return false;
+      *out = *reinterpret_cast<const uint32_t*>(g_ee_main_mem + goal);
+      return true;
+    };
+    // A GOAL basic ptr is "plausible" if in-range and its type tag (at ptr-4)
+    // is itself an in-range EE pointer (types live in EE memory).
+    auto plausible_basic = [&](uint32_t p) -> bool {
+      if (p < 0x1000u || p >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) return false;
+      uint32_t tt = 0;
+      if (!ee_rd32(p - 4u, &tt)) return false;
+      return tt >= 0x1000u && tt < static_cast<uint32_t>(EE_MAIN_MEM_SIZE);
+    };
+    // obj_reg holds the raw effect FIELD VALUE that just faulted the -4 read.
+    const uint32_t effect_val = static_cast<uint32_t>(uc->uc_mcontext.regs[obj_reg]);
+    // (1) Recover `self` (process-drawable) from the GPR file, then skel=EE[self+0x78].
+    // PRIMARY candidate: a reg value V whose EE[V+0x78] is a plausible basic AND
+    // EE[that+0x28] == effect_val (i.e. its effect field is exactly the garbage that
+    // faulted) — this uniquely pins the process whose skel is the corrupt object.
+    uint32_t self_cand = 0, skel_prim = 0;
+    bool skel_prim_confirmed = false;
+    // FALLBACK candidate: first reg V that is a plausible process-drawable (basic)
+    // with a plausible skel=EE[V+0x78] (used if the exact effect match isn't found).
+    uint32_t self_fb = 0, skel_fb = 0;
+    for (int r = 0; r <= 30; ++r) {
+      const uint32_t v = static_cast<uint32_t>(uc->uc_mcontext.regs[r]);
+      if (v < 0x1000u || v >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) continue;
+      if (!plausible_basic(v)) continue;  // v looks like a basic (has a type at -4)
+      uint32_t sk = 0;
+      if (!ee_rd32(v + 0x78u, &sk)) continue;  // skel = (-> self skel)
+      if (sk < 0x1000u || sk >= static_cast<uint32_t>(EE_MAIN_MEM_SIZE)) continue;
+      if (self_fb == 0) {  // remember the first plausible self/skel pair
+        self_fb = v;
+        skel_fb = sk;
+      }
+      uint32_t eff = 0;
+      if (ee_rd32(sk + 0x28u, &eff) && eff == effect_val) {
+        self_cand = v;      // this process's skel.effect IS the faulting garbage
+        skel_prim = sk;
+        skel_prim_confirmed = true;
+        break;
+      }
+    }
+    // The skel we treat as authoritative for identity/ring accounting.
+    const uint32_t skel = skel_prim_confirmed ? skel_prim : skel_fb;
+    // (3) IDENTITY: is it the SAME joint-control repeatedly or a flood of distinct
+    // ones? Maintain a small ring of distinct skel ptrs + a distinct count.
+    bool skel_is_new = false;
+    if (skel != 0) {
+      bool seen = false;
+      for (int i = 0; i < kJcRing; ++i) {
+        if (s_jc_ring[i].load(std::memory_order_relaxed) == skel) {
+          seen = true;
+          break;
+        }
+      }
+      if (!seen) {
+        skel_is_new = true;
+        const uint32_t idx =
+            s_jc_distinct.fetch_add(1, std::memory_order_relaxed) % kJcRing;
+        s_jc_ring[idx].store(skel, std::memory_order_relaxed);
+      }
+    }
+    const uint32_t distinct_skels = s_jc_distinct.load(std::memory_order_relaxed);
+    // Cap the file: append at most 64 full dumps (so per-frame faults can't grow it
+    // unbounded), but ALWAYS emit a compact one-line summary so the running distinct
+    // count + latest skel stays visible even after the cap.
+    const bool full_dump = (jc_dump_seq < 64);
+    char path2[512 + 32];
+    size_t p2 = 0;
+    for (const char* s = g_ext_files_dir; *s && p2 < sizeof(path2) - 24; ++s) {
+      path2[p2++] = *s;
+    }
+    const char kName2[] = "/jak_jc_dump.txt";
+    for (size_t i = 0; i < sizeof(kName2) /*includes NUL*/; ++i) {
+      path2[p2++] = kName2[i];
+    }
+    int fd2 = open(path2, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd2 >= 0) {
+      char b2[1536];
+      size_t j = 0;
+      auto put2 = [&](const char* s) {
+        while (*s && j < sizeof(b2)) b2[j++] = *s++;
+      };
+      auto put2_hex = [&](unsigned long long v) {
+        static const char kHex[] = "0123456789abcdef";
+        char tmp[16];
+        int n = 0;
+        if (v == 0) {
+          tmp[n++] = '0';
+        } else {
+          while (v && n < 16) {
+            tmp[n++] = kHex[v & 0xf];
+            v >>= 4;
+          }
+        }
+        put2("0x");
+        while (n > 0 && j < sizeof(b2)) b2[j++] = tmp[--n];
+      };
+      auto put2_dec = [&](unsigned long long v) {
+        char tmp[24];
+        int n = 0;
+        if (v == 0) {
+          tmp[n++] = '0';
+        } else {
+          while (v && n < 24) {
+            tmp[n++] = char('0' + (v % 10));
+            v /= 10;
+          }
+        }
+        while (n > 0 && j < sizeof(b2)) b2[j++] = tmp[--n];
+      };
+      // Guarded EE word read that renders <oob> when out of range (keeps the dump
+      // aligned even when a field can't be read).
+      auto put2_ee = [&](uint32_t goal) {
+        uint32_t w = 0;
+        if (ee_rd32(goal, &w))
+          put2_hex((unsigned long long)w);
+        else
+          put2("<oob>");
+      };
+      if (full_dump) {
+        put2("=== JC-DUMP seq=");
+        put2_dec((unsigned long long)jc_dump_seq);
+        put2(" repair-count=");
+        put2_dec((unsigned long long)cnt);
+        put2(" ===\n");
+        // effect field value that faulted (from obj_reg = the LDUR receiver).
+        put2("effect-val(obj=X");
+        put2_dec((unsigned long long)obj_reg);
+        put2(")=");
+        put2_hex((unsigned long long)effect_val);
+        put2(" fault=");
+        put2_hex((unsigned long long)fault);
+        put2("\n");
+        // Recovery report: primary (effect-confirmed) + fallback candidates.
+        put2("self-cand=");
+        put2_hex((unsigned long long)self_cand);
+        put2(" skel-prim=");
+        put2_hex((unsigned long long)skel_prim);
+        put2(skel_prim_confirmed ? " (effect-CONFIRMED)" : " (unconfirmed)");
+        put2("\nself-fallback=");
+        put2_hex((unsigned long long)self_fb);
+        put2(" skel-fallback=");
+        put2_hex((unsigned long long)skel_fb);
+        put2("\nskel-used=");
+        put2_hex((unsigned long long)skel);
+        put2(skel_is_new ? " (NEW distinct)" : " (seen before)");
+        put2("\n");
+        if (skel != 0) {
+          // (2) Object dump. TYPE at skel-4 (BASIC_OFFSET=4): if it is a valid EE
+          // pointer -> object intact, only `effect` corrupt; if garbage/oob -> the
+          // whole joint-control is corrupt. Then words skel+0x00..+0x40 (covers the
+          // type field, allocated-length, root-channel/blend/active, the fn ptrs, and
+          // `effect` at +0x28 with neighbours +0x24/+0x2c/+0x30).
+          uint32_t type_tag = 0;
+          const bool type_ok = ee_rd32(skel - 4u, &type_tag);
+          const bool type_plausible =
+              type_ok && type_tag >= 0x1000u &&
+              type_tag < static_cast<uint32_t>(EE_MAIN_MEM_SIZE);
+          put2("skel-type[-4]=");
+          if (type_ok)
+            put2_hex((unsigned long long)type_tag);
+          else
+            put2("<oob>");
+          put2(type_plausible ? " VALID-TYPE => OBJECT-INTACT(only-effect-corrupt?)\n"
+                              : " BAD-TYPE => WHOLE-OBJECT-CORRUPT\n");
+          put2("effect[+0x28]=");
+          put2_ee(skel + 0x28u);
+          put2(" (should be #f/0)\n");
+          // Words skel+0x00 .. skel+0x40 (17 words), 4 per line for readability.
+          put2("words skel+0x00..+0x40:\n");
+          for (uint32_t off = 0x00; off <= 0x40; off += 4) {
+            put2("  +");
+            put2_hex((unsigned long long)off);
+            put2("=");
+            put2_ee(skel + off);
+            if (((off / 4u) % 4u) == 3u) put2("\n");
+          }
+          if (((0x40 / 4u) % 4u) != 3u) put2("\n");
+        } else {
+          put2("skel UNRECOVERED (no plausible process-drawable in GPR file)\n");
+        }
+      }
+      // (3) Always-present compact SUMMARY tail: latest skel + running distinct
+      // count, so the disambiguation (one stuck object vs a flood) is readable even
+      // after the 64-dump cap is hit.
+      put2("SUMMARY seq=");
+      put2_dec((unsigned long long)jc_dump_seq);
+      put2(" repair-count=");
+      put2_dec((unsigned long long)cnt);
+      put2(" skel=");
+      put2_hex((unsigned long long)skel);
+      put2(" distinct-skels-so-far=");
+      put2_dec((unsigned long long)distinct_skels);
+      put2(" heals=");
+      put2_dec((unsigned long long)g_grv_nullfg_heals.load(std::memory_order_relaxed));
+      put2("\n");
+      ssize_t wr2 = write(fd2, b2, j);
+      (void)wr2;
+      close(fd2);
+    }
+  }
+#endif
+  return true;
+}
+
 // Gcrash-mouche: arm64 scout-fly (buzzer) collect SIGILL. enter-state
 // (gstate.gc:355-386) enters a process state by computing
 //   func = (-> new-state code) + r15  ;  (.jr func)
@@ -5414,6 +6054,16 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   if (sig == SIGSEGV && a38_trip::handle_bare_ret_offset(sig, info, ucontext)) {
     return;
   }
+  // Gcrash-swamp-real: the owner's Rock Village -> Boggy Swamp crash. A swamp creature
+  // whose art-joint-anim is still mid-bind (async SWA.DGO link) is evaluated a frame
+  // early on the Snapdragon 8 Elite, so joint-eval reads (-> frame-group type) with a
+  // null frame-group (fault EE offset 0xfffffffc, LDUR Wt,[Xn,#-4] with Xn=EE_base).
+  // Skip that channel's anim this frame (engine's own no-anim degradation) and resume.
+  // Razor-tight gating (fault sig + insn + base==EE_base + joint-eval fn band). Must
+  // run before the fatal dump below.
+  if (sig == SIGSEGV && a38_trip::handle_null_framegroup_type_read(sig, info, ucontext)) {
+    return;
+  }
   // Gcrash-mouche: arm64 buzzer scout-fly collect SIGILL — enter-state's spilled
   // `new-state` was stomped to 0 by a concurrent sparticle DMA write, so the state
   // `code` read 0 and the .jr branched to EE+0. Recover the authoritative state code
@@ -5454,6 +6104,190 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   if (uint32_t g = a38_trip::to_goal(fault)) {
     a38_trip::log_nearest_goal_fn("fault", g);
   }
+#if defined(JAK_SWAMP_CAPTURE)
+  // Owner swamp-crash capture build (INSTRUMENTATION ONLY): ALSO append the same
+  // forensic (sig/fault/pc/lr + the raw EE offsets to_goal(pc/lr/fault)) to a
+  // file in the app's EXTERNAL files dir so the owner can retrieve it from the
+  // phone's Files app WITHOUT adb. ASYNC-SIGNAL-SAFE ONLY: open/write/close plus
+  // a hand-rolled integer->hex formatter into a fixed stack buffer — no
+  // fprintf/snprintf/malloc. Best-effort: any failure is silently ignored so the
+  // handler never blocks or re-crashes. Runs before the verbose dumps below in
+  // case one of those secondary-faults.
+  if (g_ext_files_dir[0]) {
+    // Build "<g_ext_files_dir>/jak_swamp_crash.txt" without snprintf.
+    char path[512 + 32];
+    size_t pi = 0;
+    for (const char* s = g_ext_files_dir; *s && pi < sizeof(path) - 24; ++s) {
+      path[pi++] = *s;
+    }
+    const char kName[] = "/jak_swamp_crash.txt";
+    for (size_t i = 0; i < sizeof(kName) /*includes NUL*/; ++i) {
+      path[pi++] = kName[i];
+    }
+    int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd >= 0) {
+      // Enlarged to 2048 (fixed stack buffer, still no malloc) so the appended
+      // insn-context + full x0..x30/sp register dump fit alongside the header.
+      char buf[2048];
+      size_t bi = 0;
+      auto put = [&](const char* s) {
+        while (*s && bi < sizeof(buf)) {
+          buf[bi++] = *s++;
+        }
+      };
+      // Append a 0x-prefixed hex rendering of a 64-bit value (signal-safe).
+      auto put_hex = [&](unsigned long long v) {
+        static const char kHex[] = "0123456789abcdef";
+        char tmp[16];
+        int n = 0;
+        if (v == 0) {
+          tmp[n++] = '0';
+        } else {
+          while (v && n < 16) {
+            tmp[n++] = kHex[v & 0xf];
+            v >>= 4;
+          }
+        }
+        put("0x");
+        while (n > 0 && bi < sizeof(buf)) {
+          buf[bi++] = tmp[--n];
+        }
+      };
+      // Append a small unsigned decimal (used for sig).
+      auto put_dec = [&](unsigned v) {
+        char tmp[12];
+        int n = 0;
+        if (v == 0) {
+          tmp[n++] = '0';
+        } else {
+          while (v && n < 12) {
+            tmp[n++] = char('0' + (v % 10));
+            v /= 10;
+          }
+        }
+        while (n > 0 && bi < sizeof(buf)) {
+          buf[bi++] = tmp[--n];
+        }
+      };
+      put("=== JAK SWAMP CRASH ===\n");
+      put("sig=");
+      put_dec((unsigned)sig);
+      put(" fault=");
+      put_hex((unsigned long long)fault);
+      put(" pc=");
+      put_hex((unsigned long long)pc);
+      put(" lr=");
+      put_hex((unsigned long long)lr);
+      put("\nee pc=");
+      put_hex((unsigned long long)a38_trip::to_goal(pc));
+      put(" lr=");
+      put_hex((unsigned long long)a38_trip::to_goal(lr));
+      put(" fault=");
+      put_hex((unsigned long long)a38_trip::to_goal(fault));
+      put("\n");
+      // Nearest GOAL function name for pc/lr (same symbol-table walk as
+      // log_nearest_goal_fn, inlined here signal-safe so the owner's crash file
+      // NAMES the faulting fn without adb/logcat — HONOR suppresses logcat).
+      auto put_nearest_fn = [&](const char* label, uint32_t target_goal) {
+        put(label);
+        const uintptr_t eemem = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+        if (!eemem || !SymbolTable2.offset || !LastSymbol.offset || target_goal < 0x1000) {
+          put("<n/a>\n");
+          return;
+        }
+        uint32_t best_v = 0, best_slot = 0;
+        for (uint32_t slot = SymbolTable2.offset;
+             slot + 4 < EE_MAIN_MEM_SIZE && slot < LastSymbol.offset; slot += 4) {
+          uint32_t v = *reinterpret_cast<const uint32_t*>(eemem + slot);
+          if (v > best_v && v <= target_goal && target_goal - v < 0x200000) {
+            best_v = v;
+            best_slot = slot;
+          }
+        }
+        if (!best_slot) {
+          put("<none>\n");
+          return;
+        }
+        uint64_t info_goal = static_cast<uint64_t>(best_slot) + jak1::SYM_INFO_OFFSET;
+        if (info_goal + 8 < EE_MAIN_MEM_SIZE) {
+          uint32_t str_off = *reinterpret_cast<const uint32_t*>(eemem + info_goal + 4);
+          if (str_off > 0 && static_cast<uint64_t>(str_off) + 4 + 64 < EE_MAIN_MEM_SIZE) {
+            const char* sp = reinterpret_cast<const char*>(eemem + str_off + 4);
+            for (size_t i = 0; i < 64 && sp[i] && bi < sizeof(buf); i++) {
+              buf[bi++] = (sp[i] >= 0x20 && sp[i] <= 0x7e) ? sp[i] : '?';
+            }
+          }
+        }
+        put("+");
+        put_hex(target_goal - best_v);
+        put("\n");
+      };
+      put_nearest_fn("pc-fn=", a38_trip::to_goal(pc));
+      put_nearest_fn("lr-fn=", a38_trip::to_goal(lr));
+      // GROUND-TRUTH ADDITIONS for writing a correct swamp-crash repair guard:
+      // (1) the faulting emitted-arm64 INSTRUCTION word + 4 words of context,
+      // (2) ALL general registers x0..x30 + sp, (3) the EE host base so reg->EE
+      // offsets can be computed offline. All async-signal-safe: only guarded
+      // 32-bit EE reads + the fixed-buffer put/put_hex helpers above.
+      //
+      // (1) insn @pc-8..pc+8: read the emitted instruction words from EE memory
+      // at the GOAL offset to_goal(pc)+k (NOT the host pc), same guarded read the
+      // handler-decode code uses. '*' marks the pc word.
+      {
+        const uintptr_t eemem_i = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+        put("insn @pc-8..pc+8:");
+        for (int k = -8; k <= 8; k += 4) {
+          put(" ");
+          if (k == 0) {
+            put("*");
+          }
+          // GOAL offset of this word. to_goal(pc) is the offset of the pc word;
+          // add k for the neighbours. Guard: valid EE base, pc itself in-range,
+          // and the target offset word fully inside [0, EE_MAIN_MEM_SIZE).
+          uint32_t pc_goal = a38_trip::to_goal(pc);
+          if (eemem_i && pc_goal >= 0x1000) {
+            // int64 to allow k<0 without underflow before the range check.
+            int64_t woff = static_cast<int64_t>(pc_goal) + k;
+            if (woff >= 0 && woff + 4 <= static_cast<int64_t>(EE_MAIN_MEM_SIZE)) {
+              uint32_t w =
+                  *reinterpret_cast<const uint32_t*>(eemem_i + static_cast<uint32_t>(woff));
+              put_hex((unsigned long long)w);
+            } else {
+              put("<oob>");
+            }
+          } else {
+            put("<n/a>");
+          }
+        }
+        put("\n");
+      }
+      // (2) ALL general registers x0..x30 + sp (from the faulting ucontext). One
+      // per token, wrapped 8 per line to keep lines readable; the offline reader
+      // can spot which reg holds 0 (null GOAL ptr) and which holds ee_base.
+      {
+        for (int r = 0; r <= 30; ++r) {
+          put("x");
+          put_dec((unsigned)r);
+          put("=");
+          put_hex((unsigned long long)uc->uc_mcontext.regs[r]);
+          put(((r % 8) == 7) ? "\n" : " ");
+        }
+        put("sp=");
+        put_hex((unsigned long long)uc->uc_mcontext.sp);
+        put("\n");
+      }
+      // (3) ee_base = the g_ee_main_mem host base, so (reg - ee_base) = EE offset.
+      put("ee_base=");
+      put_hex((unsigned long long)reinterpret_cast<uintptr_t>(g_ee_main_mem));
+      put("\n");
+      // Single write() of the assembled buffer (partial writes tolerated —
+      // best-effort forensic, not a stream contract).
+      ssize_t wr = write(fd, buf, bi);
+      (void)wr;
+      close(fd);
+    }
+  }
+#endif
   // === Gecho-pool TEMPORARY diagnostic: thread-suspend (break) stack-overflow probe ===
   // The (break) macro = (/ 0 0) = arm64 udf #0xBEEF; fires in thread-suspend when a
   // suspending process overflowed its backup-stack budget. Brute-force scan GPRs as
@@ -7067,6 +7901,33 @@ Java_org_opengoal_gk_NativeGk_setDataRoot(JNIEnv* env, jclass /*clazz*/,
                         "NativeGk.setDataRoot: %s",
                         g_data_root ? g_data_root : "(null)");
   }
+}
+
+// Owner swamp-crash capture build (INSTRUMENTATION ONLY): receive the app's
+// EXTERNAL files dir (getExternalFilesDir(null)) from Java so the fatal signal
+// handler can append the forensic to a file the owner can retrieve WITHOUT adb.
+// Compiled in EVERY build so the unconditional Java call resolves (no
+// UnsatisfiedLinkError), but it only stores anything under JAK_SWAMP_CAPTURE —
+// in a normal (OFF) build it is an inert no-op, so HEAD behavior is unchanged.
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_setExternalFilesDir(JNIEnv* env, jclass /*clazz*/,
+                                                  jstring j_dir) {
+#if defined(JAK_SWAMP_CAPTURE)
+  if (!j_dir) {
+    return;
+  }
+  const char* s = env->GetStringUTFChars(j_dir, nullptr);
+  if (s) {
+    std::strncpy(g_ext_files_dir, s, sizeof(g_ext_files_dir) - 1);
+    g_ext_files_dir[sizeof(g_ext_files_dir) - 1] = 0;
+    env->ReleaseStringUTFChars(j_dir, s);
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                        "NativeGk.setExternalFilesDir: %s", g_ext_files_dir);
+  }
+#else
+  (void)env;
+  (void)j_dir;
+#endif
 }
 
 JNIEXPORT void JNICALL
