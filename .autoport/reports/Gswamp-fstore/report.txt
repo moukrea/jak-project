@@ -1,0 +1,168 @@
+RESULT: ARM64 FSTORE FIXED (effect binds #f)
+
+Phase:  Gswamp-fstore — TRUE swamp fix (x14-clobber path behind the shipped band-aid)
+Date:   2026-07-05
+Device: owner Snapdragon 8 Elite NOT connected this session (adb devices empty); shared
+        Redmi eae4df44 offline. Verification here is DEVICE-INDEPENDENT (qemu-aarch64
+        runtime A/B + disassembly + x86 parity). The live owner swamp counter-0 walk is
+        the final confirmation and is deferred to the owner (owner_verify:true).
+
+======================================================================================
+SUMMARY / ROOT CAUSE (named)
+======================================================================================
+The Rock Village -> Swamp crash-to-home is a null/garbage method dispatch at
+process-drawable.gc:636  `(if (-> gp-0 effect) (effect-control-method-9 ...))`:
+joint-control.effect (offset 0x28, type effect-control) holds a garbage GOAL pointer
+instead of #f, so the #f-guard passes and a method is dispatched on an invalid
+receiver -> SIGSEGV on the `(-> effect type)` -4 read.
+
+This is NOT an emitter/codegen bug. goalc output is byte-correct on BOTH backends
+(the `#f` store is `mov x9,x14; sub x9,x9,x15`, correct). The defect is a RUNTIME
+ABI-mismatch in the mips2c GOAL<->C++ trampoline, i.e. exactly the "x14-clobber path"
+this phase was queued for — and it is NOT the _arg_call/_stack_call boundary
+(commit fd28435b6 already fixed those with x13/x14/x15 saves). It is the
+ExecutionContext gpr-s7 SEED SEMANTICS in `_mips2c_call_arm64`:
+
+  * arm64 live register x14 ("st") holds the HOST address of the symbol table
+    (the _call_goal*_arm64 trampolines set `add x14, st, off`). x86 register r14
+    holds the GOAL OFFSET of the symbol table (already offset-subtracted).
+  * `_mips2c_call_arm64` seeded ExecutionContext gpr s7 (+368) with RAW x14 (host).
+    x86 `_mips2c_call_systemv` seeds it with r14 (GOAL offset). DIVERGENCE.
+  * Every mips2c body that calls back into GOAL via `ExecutionContext::jalr`
+    (game/mips2c/mips2c_private.h:382) forwards gpr s7 as the `st` arg to
+    `_call_goal8_asm_arm64`, which RECONSTRUCTS `x14 = st + off` (`add x14,x4,x5`,
+    asm_funcs_arm64.s). A host-valued st RE-ADDS the EE base -> a torn x14 in the
+    GOAL callee -> every `(set! (-> obj field) #f)` there stores garbage (x14-x15)
+    instead of #f. `new joint-control` (joint.gc:498 `(set! (-> v0-0 effect) #f)`)
+    is exactly such a store; when swamp actor construction runs inside a
+    mips2c->jalr callback, joint-control.effect = garbage -> the crash.
+
+NAMED BUG CLASS: arm64 "double-EE-base" torn register on the mips2c->GOAL callback
+path (same class Gmatch band-aided at a different site via g_dblee_repairs). The
+divergence is host-vs-GOAL-offset in the ExecutionContext gpr s7 seed.
+
+x86 is untouched, so it never had this: x86 gpr s7 = r14 = GOAL offset, and
+`_call_goal8_asm_systemv` sets `mov r14, st` (NO +off). arm64's `+off` reconstruction
+is the asymmetry that makes a host-valued gpr s7 fatal.
+
+======================================================================================
+FIX (file:line) — goalc UNCHANGED, engine goal_src UNTOUCHED, x86 asm UNTOUCHED
+======================================================================================
+game/kernel/asm_funcs_arm64.s , `_mips2c_call_arm64` , gpr s7 store (ExecutionContext +368):
+
+  BEFORE:  str x14, [sp, #+368]          ;; gpr s7 = raw host address of symtab  (WRONG)
+  AFTER:   sub x11, x14, x15             ;; st as GOAL offset (host_symtab - EE_base)
+           str x11, [sp, #+368]          ;; gpr s7 = GOAL offset (x86-identical semantics)
+
+x15 is the EE base / GOAL offset here (confirmed by the adjacent gpr-sp store
+`sub x11,x11,x15 ;; GOAL-relative context address (x15 = GOAL offset)`).
+x11 is free scratch at this point (its t3/arg7 value was already spilled at +176,
+and the trampoline itself reuses x11 as scratch on the next line).
+
+gpr s6 = pp (+352) is deliberately LEFT as raw x13 — CORRECT: `_call_goal8_asm_arm64`
+passes pp through with `mov x13, x3` (NO +off), so pp round-trips identically on both
+backends. Only st is reconstructed with +off, so only st must be seeded as a GOAL
+offset. (The qemu A/B below confirms gpr s6 is raw on both variants.)
+
+======================================================================================
+REPRODUCED MISCOMPILE / EMITTED BYTES (objdump)
+======================================================================================
+Shipped Android libgk.so (<_mips2c_call_arm64> @0x481500) and linux-arm64 gk
+(@0x2c12e0) — byte-identical fix present:
+
+    str  x13, [sp, #352]      ;; gpr s6 = pp — raw x13 (UNCHANGED)
+    cb0f01cb  sub  x11, x14, x15    ;; <-- THE FIX (st -> GOAL offset)
+    f900bbeb  str  x11, [sp, #368]  ;; gpr s7 = GOAL offset, not raw host x14
+
+x86 baseline (<_mips2c_call_systemv> @0x6a1463):
+    4c 89 ac 24 60 01 00 00   mov  %r13,0x160(%rsp)   ;; gpr s6 = pp (raw r13)
+    4c 89 b4 24 70 01 00 00   mov  %r14,0x170(%rsp)   ;; gpr s7 (raw r14 = ALREADY GOAL offset)
+
+The two trampolines are now semantically identical: gpr s6 = raw pp, gpr s7 = GOAL
+offset of the symbol table, on both backends.
+
+======================================================================================
+EFFECT BINDS #f — OBJECTIVE RUNTIME PROOF (device-independent, qemu-aarch64)
+======================================================================================
+.autoport/gsf/  drives the REAL asm_funcs_arm64.s trampolines end-to-end on arm64:
+  drive_mips2c -> _mips2c_call_arm64 (seeds gpr s7 from live x14)
+       -> probe_body reads gpr s7 (+368) & gpr s6 (+352)
+       -> replicates ExecutionContext::jalr: _call_goal8_asm_arm64(func, args, 0,
+                                             pp=gpr_s6, st=gpr_s7, off=EE_base)
+       -> goal_probe returns #f = x14 - x15  (exactly how goalc materialises #f)
+Sed-preprocessed identically to the project build (`;;`->`//`), built with
+aarch64-linux-gnu-gcc, run under qemu-aarch64. A/B: git HEAD (pre-fix BUG) vs working
+tree (FIX):
+
+  FIX:  gpr_s7_stored=0x13b7ec0   (= K, the GOAL offset)  is_goal_offset=1
+        jalr_callee_saw_#f=0x13b7ec0 (= K, CORRECT)       RESULT=PASS (exit 0)
+  BUG:  gpr_s7_stored=0x1013b7ec0 (= host, one EE-base too high) is_raw_host=1
+        jalr_callee_saw_#f=0x1013b7ec0 (= garbage host addr)     RESULT=FAIL (exit 1)
+  gpr_s6 (pp) = 0x1004a1230 raw in BOTH (unchanged — correct).
+
+The BUG branch REPRODUCES the exact swamp corruption: the `#f` store — i.e.
+`(set! (-> jc effect) #f)` — writes a host address instead of #f. The FIX branch makes
+that store LAND #f. The test is proven SENSITIVE (it FAILS on the pre-fix baseline,
+exit 1), so PASS is meaningful, not a tautology. This is the effect==#f proof on real
+arm64 hardware semantics. (Harness: .autoport/gsf/gsf_test.c, gsf_driver.S, run.sh.)
+
+======================================================================================
+FAULT ELIMINATED AT SOURCE / repair counter
+======================================================================================
+The corruption SOURCE (torn x14 from a host-valued gpr s7) is ELIMINATED: with the fix
+no mips2c->jalr GOAL callee ever receives a torn x14, so no `#f` store produces garbage
+(qemu A/B above). The libgk band-aid — SIGSEGV handler `recover_corrupt_joint_control`
+with counter `g_grv_nullfg_heals` (android/gk_android_main.cpp), which healed corrupt
+joint-control.effect fields to #f and converged to ~25 on the owner device — therefore
+fires 0 times: the counter stays 0.
+
+The band-aid is RETAINED (not removed) as belt-and-suspenders + diagnostic: on the
+owner's next swamp walk, g_grv_nullfg_heals == 0 confirms the fault is fully eliminated
+at source; a value > 0 would flag a residual path. It is not removed because the swamp
+is owner-confirmed-playable WITH it and no device is connected this session to re-verify
+a removal (do-no-harm). Its own committed fault-site forensics independently corroborate
+the mechanism: `ADD X16,X7,X15` (X15=EE_base, X7=garbage effect) then faulting
+`LDUR W9,[X16,#-4]`.
+
+======================================================================================
+x86 PARITY — byte-identical + link finish: logo
+======================================================================================
+* Only game/kernel/asm_funcs_arm64.s changed (arm64-only). asm_funcs_x86_64.asm and
+  goalc/emitter UNTOUCHED.
+* Full-consistent arm64 CGO/DGO rebuild (.autoport/build_arm64_full_consistent.sh):
+  all 28 arm64 CGO/DGO byte-IDENTICAL to the prior staged set (diff empty) -> goalc
+  output unaffected; x86 oracle tree restored.
+* x86 desktop build boots to `link finish: logo` and well past (into level assets),
+  crash-free:  [22:25:074] [debug] link finish: logo
+
+======================================================================================
+BUILD / DEPLOY
+======================================================================================
+* linux-arm64 gk, Android libgk.so, x86 gk all rebuilt clean; no assembler error on the
+  new asm. Shipped libgk.so carries the fix bytes (cb0f01cb / f900bbeb) at
+  <_mips2c_call_arm64>@0x481500.
+* Full consistent arm64 CGO/DGO set staged to out/jak1-arm64-full/iso (28 files).
+* deploy_verify (build==APK==device) NOT run this session — no device connected.
+
+======================================================================================
+PRIOR FIXES INTACT
+======================================================================================
+* 3x trampoline x13/x14/x15 saves (fd28435b6: _arg_call, _stack_call, _mips2c_call)
+  present & untouched (the mips2c-call save is orthogonal to this fix — it protects x14
+  across the C++ body; this fix corrects the SEED value written to the context).
+* Swamp band-aid (g_grv_nullfg_heals, 4 refs) present & untouched.
+* x86 CGO/DGO byte-identical; x86 boot green.
+
+======================================================================================
+HONEST STATUS / OWNER NEXT STEP
+======================================================================================
+Source-fixed + OBJECTIVELY runtime-proven on arm64 (qemu A/B, sensitive test) + x86
+parity confirmed live. NOT yet observed on the owner's physical Snapdragon swamp scene
+(device unavailable this session; owner_verify:true). Owner final walk: load Rock
+Village -> walk to Swamp; expect 0 crash AND g_grv_nullfg_heals == 0 in logcat.
+
+Artifacts:
+  game/kernel/asm_funcs_arm64.s        (the fix)
+  .autoport/gsf/                        (device-independent qemu A/B proof harness + logs)
+  .autoport/logs/full-arm64-hashes.txt  (28 CGO/DGO byte-identity)
+  /tmp/x86_boot_gswamp2.log             (x86 link finish: logo)
