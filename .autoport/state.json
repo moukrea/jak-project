@@ -175,7 +175,7 @@
     "Gcrash-swamp-real": 2,
     "Gperf-particles2": 1,
     "Gswamp-fstore": 2,
-    "Gvulkan-option": 1
+    "Gvulkan-option": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -326,6 +326,9 @@
       "92082d066ea1"
     ],
     "Gswamp-fstore": [
+      "f9c774796cac"
+    ],
+    "Gvulkan-option": [
       "f9c774796cac"
     ]
   },
@@ -668,7 +671,7 @@
     "Gswamp-fstore": 1783280433.7753935,
     "Gvulkan-option": 1783315315.5720198
   },
-  "last_update": "2026-07-06T06:50:00.068832+00:00",
+  "last_update": "2026-07-06T07:27:23.169057+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -713,6 +716,7 @@
     "Gcrash-swamp-load",
     "Gperf-particles",
     "Gcrash-swamp-real",
-    "Gswamp-fstore"
+    "Gswamp-fstore",
+    "Gvulkan-option"
   ]
 }
