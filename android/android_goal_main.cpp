@@ -24,6 +24,7 @@
 
 #include "common/common_types.h"
 #include "common/util/FileUtil.h"
+#include "common/versions/versions.h"  // Gjak2-boot: GameVersion + game_name_to_version
 
 #include "game/common/game_common_types.h"  // Language enum (A34 prelude parity)
 #include "game/kernel/common/Ptr.h"
@@ -55,6 +56,21 @@
 // Forward declaration matches the one at the top of game/main.cpp so the
 // desktop and Android boot entries share a single signature.
 int goal_main(int argc, char** argv);
+
+// Gjak2-boot: the game selected at boot (--game jak2). g_game_version is owned
+// by android_runtime_compat.cpp; goal_main sets it from argv so every per-game
+// kernel path (init_output/kscheme/klink branches, InitMachine, the overlord)
+// keys off the right version. jak2 kernel init entry points are forward-declared
+// here (rather than including game/kernel/jak2/kmachine.h, which pulls graphics/
+// discord headers) — they resolve at link time from the compiled jak2 TUs.
+extern GameVersion g_game_version;
+namespace jak2 {
+void kboot_init_globals();
+void kdgo_init_globals();
+void kscheme_init_globals();
+void klisten_init_globals();
+void InitParms(int argc, const char* const* argv);
+}  // namespace jak2
 
 // Real dispatcher entry point. Definition lives in android_runtime_full.cpp;
 // declared here without going through a header so we can call it directly
@@ -247,6 +263,23 @@ int goal_main(int argc, char** argv) {
     std::abort();
   }
 
+  // Gjak2-boot: pluck the game name out of argv ("--game <name>") and set
+  // g_game_version BEFORE any per-game kernel init runs — init_output/kscheme/
+  // klink all branch on it. gk_android_main builds argv as
+  // "gk --game <name> --portable -fakeiso -iso-data <root> ...". Default to the
+  // shipped jak1 title if absent.
+  std::string game_name = "jak1";
+  for (int i = 0; i + 1 < argc; ++i) {
+    if (argv[i] && std::strcmp(argv[i], "--game") == 0) {
+      game_name = argv[i + 1];
+      break;
+    }
+  }
+  g_game_version = game_name_to_version(game_name);
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "goal_main: selected game=%s (version=%d)",
+                      game_name.c_str(), (int)g_game_version);
+
   // ---------------------------------------------------------------------
   // Phase D4 (autoport): set up the desktop-style project root so
   // upstream code that calls file_util::get_jak_project_dir() resolves
@@ -264,7 +297,9 @@ int goal_main(int argc, char** argv) {
   // ---------------------------------------------------------------------
   fs::path data_root_path(data_root);
   fs::path project_root = data_root_path.parent_path().parent_path();
-  fs::path iso_link_parent = project_root / "out" / "jak1";
+  // Gjak2-boot: per-game symlink dir (out/jak1, out/jak2, ...) so the overlord's
+  // fake_iso scan of <project>/out/<game>/iso resolves to the extracted assets.
+  fs::path iso_link_parent = project_root / "out" / game_name;
   fs::path iso_link        = iso_link_parent / "iso";
   std::error_code ec;
   fs::create_directories(iso_link_parent, ec);
@@ -305,11 +340,17 @@ int goal_main(int argc, char** argv) {
   // emitted "" for every digit and the text loader asked the fakeiso
   // for "common.TXT" instead of "0common.TXT". Same order as desktop;
   // jak2/jak3 variants are compiled into android_kernel and cheap.
+  // Gjak2-boot: call BOTH jak1 and jak2 per-game init_globals, exactly as the
+  // desktop exec_runtime does (runtime.cpp:194-218 lists jak1::/jak2::/jak3::
+  // unconditionally) — they just zero per-game kernel state and are cheap/safe
+  // for the other game. jak3 kboot is not compiled on Android, so it's omitted.
   fileio_init_globals();
   jak1::kboot_init_globals();
+  jak2::kboot_init_globals();
   kboot_init_globals_common();
   kdgo_init_globals();
   jak1::kdgo_init_globals();
+  jak2::kdgo_init_globals();
   kdsnetm_init_globals_common();
   klink_init_globals();
   // Android shim (android_runtime_compat.cpp) — common/kmachine.h isn't
@@ -317,10 +358,12 @@ int goal_main(int argc, char** argv) {
   extern void kmachine_init_globals_common();
   kmachine_init_globals_common();
   jak1::kscheme_init_globals();
+  jak2::kscheme_init_globals();
   kscheme_init_globals_common();
   kmalloc_init_globals_common();
   klisten_init_globals();
   jak1::klisten_init_globals();
+  jak2::klisten_init_globals();
   kmemcard_init_globals();
   kprint_init_globals_common();
 
@@ -335,7 +378,13 @@ int goal_main(int argc, char** argv) {
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "goal_main: InitParms(argc=%d) — wiring boot flags",
                       argc);
-  jak1::InitParms(argc, argv);
+  // Gjak2-boot: per-game InitParms (parses -boot/-fakeiso/-debug-mem into
+  // DiskBoot/MasterDebug/isodrv/modsrc).
+  if (g_game_version == GameVersion::Jak2) {
+    jak2::InitParms(argc, argv);
+  } else {
+    jak1::InitParms(argc, argv);
+  }
 
   // A34 (autoport): desktop goal_main prelude parity. jak1::goal_main
   // (game/kernel/jak1/kboot.cpp) runs InitParms → init_crc() →
