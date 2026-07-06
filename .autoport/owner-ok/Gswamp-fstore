@@ -1,0 +1,7 @@
+OWNER-CONFIRMED 2026-07-06: true swamp fix validated on his HONOR Snapdragon 8 Elite in his
+REAL save — walked Rock Village -> Swamp, collected the last power cell, 0 crash. The earlier
+"crashes after first enemy" was the debug-empty-save confound (debug.opengoal.level.warp prop
+left set on his device warped him to a fresh empty save at the pontoons — NOT a fix regression);
+resolved by relaunch. arm64 _mips2c_call_arm64 gpr-s7 host-vs-GOAL-offset fix (sub x11,x14,x15
+@0x481548) HOLDS. Perf (Gperf-particles2) also owner-confirmed ("il y a une vraie amélioration").
+Band-aid retained as belt-and-suspenders. This is a REAL owner confirmation, not delegate-verified.

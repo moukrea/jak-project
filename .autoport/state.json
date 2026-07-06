@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 182,
+  "current_phase_idx": 183,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -502,7 +502,8 @@
     "Gcrash-swamp-load",
     "Gperf-particles",
     "Gcrash-swamp-real",
-    "Gperf-particles2"
+    "Gperf-particles2",
+    "Gswamp-fstore"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -663,9 +664,10 @@
     "Gcrash-swamp-load": 1783148087.4748182,
     "Gcrash-swamp-real": 1783186462.7495737,
     "Gperf-particles2": 1783278529.1999803,
-    "Gswamp-fstore": 1783280433.7753935
+    "Gswamp-fstore": 1783280433.7753935,
+    "Gvulkan-option": 1783315315.5720198
   },
-  "last_update": "2026-07-05T20:46:21.613932+00:00",
+  "last_update": "2026-07-06T05:21:55.572023+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

@@ -133,3 +133,7 @@ goal-prompt/
 .autoport/reports/**/*.gif
 .autoport/reports/**/*.log.gz
 .autoport/reports/**/*.zip
+
+# autoport: never track huge device logcat dumps
+.autoport/reports/**/*logcat*.txt
+.autoport/reports/**/*-logcat-*.log
