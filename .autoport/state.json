@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 184,
+  "current_phase_idx": 185,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -176,7 +176,8 @@
     "Gperf-particles2": 1,
     "Gswamp-fstore": 2,
     "Gvulkan-option": 2,
-    "Gjak2-boot": 2
+    "Gjak2-boot": 2,
+    "Gjak2-render": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -334,6 +335,9 @@
     ],
     "Gjak2-boot": [
       "f9c774796cac"
+    ],
+    "Gjak2-render": [
+      "66f56969ab2c"
     ]
   },
   "stuck_reasons": {
@@ -512,7 +516,8 @@
     "Gcrash-swamp-real",
     "Gperf-particles2",
     "Gswamp-fstore",
-    "Gvulkan-option"
+    "Gvulkan-option",
+    "Gjak2-boot"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -675,16 +680,18 @@
     "Gperf-particles2": 1783278529.1999803,
     "Gswamp-fstore": 1783280433.7753935,
     "Gvulkan-option": 1783315315.5720198,
-    "Gjak2-boot": 1783325216.9940019
+    "Gjak2-boot": 1783325216.9940019,
+    "Gjak2-render": 1783335707.6110623
   },
-  "last_update": "2026-07-06T10:53:56.720305+00:00",
+  "last_update": "2026-07-06T16:08:44.346849+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
     "Gnd-arm64-blendshape-dma-stomp": 1,
     "Gcine-camfov": 1,
     "F1-gameplay-geyser-rock": 3,
-    "Gperf-particles": 68
+    "Gperf-particles": 68,
+    "Gjak2-render": 18
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",

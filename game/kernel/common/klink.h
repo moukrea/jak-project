@@ -68,6 +68,8 @@ void klink_a12_ensure_sound_rpc_bound();
 // Caller must invoke after `jak1::InitHeapAndSymbol`.
 void klink_a14_ensure_pc_memmove_bound();
 
+Ptr<Function> klink_mfsfc_for_game(const char* name, void* f);
+
 // A18 sym-bind-trace — see klink.cpp for rationale. Idempotent: binds
 // the `__a18-method-zero-trap` sym to an `a18_method_zero_trap` C
 // function whose body prints an A18-DIAG marker (self_goal, self_host,
@@ -238,8 +240,15 @@ enum class KlinkArm64PatchResult {
   kAborted,   // arm64-shaped but unhandled / out of range; no patch applied
 };
 
+// sym_value_bias: byte offset added to target_host_addr for the SYMBOL-VALUE
+// (sym-MEM) instruction forms only — the X16 ADRP+ADD pair and the x14 (s7-
+// relative) LDR/STR. jak2/jak3 store a symbol's value one byte BELOW the
+// symbol pointer (common/Symbol4.h: value() = &foo - 1), whereas jak1 stores
+// it AT the pointer. Pass -1 for jak2 sym links, 0 (default) everywhere else
+// and for the sym-PTR forms (which materialise the pointer, not the value).
 KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
-                                               uintptr_t target_host_addr);
+                                               uintptr_t target_host_addr,
+                                               int sym_value_bias = 0);
 
 extern link_control saved_link_control;
 extern Ptr<Function> gfunc_774;  // actually 807 in jak2.

@@ -210,8 +210,17 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
     // (-1 -> full sym_addr; LINK_SYM_NO_OFFSET_FLAG -> sym_offset-1; else ->
     // sym_offset). Mirrors jak1's arm64 retrofit.
     uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<u8>(sym_addr).c());
+    // Gjak2-render bug class (arm64 sym-VALUE off-by-one): jak2 stores a
+    // symbol's value one byte BELOW the symbol pointer (Symbol4::value() =
+    // &foo - 1; the x86 path applies this via LINK_SYM_NO_OFFSET_FLAG ->
+    // sym_offset-1). The arm64 sym-MEM (X16 ADRP+ADD / x14 LDR/STR) forms read
+    // the VALUE, so bias them by -1; sym-PTR forms (which materialise the
+    // pointer) are left unbiased inside the dispatcher. Without this, the
+    // gcommon top-level `(deftype vec4s ...)` symbol-VALUE load of `type` read
+    // sym_addr instead of sym_addr-1, yielding a byte-shifted garbage type ptr
+    // (0x??001afe) and SIGSEGV'ing on `(-> type new-method)`.
     auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(data_ptr.c()),
-                                       target_host);
+                                       target_host, /*sym_value_bias=*/-1);
     if (rc == KlinkArm64PatchResult::kNotInstr) {
       if (pre == -1) {
         // a "-1" indicates that we should store the address.
