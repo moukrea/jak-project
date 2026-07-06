@@ -243,7 +243,8 @@ static inline bool slot_followed_by_sub_x15(const uint32_t* slot,
 }
 
 KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
-                                               uintptr_t target_host_addr) {
+                                               uintptr_t target_host_addr,
+                                               int sym_value_bias) {
   const uint32_t enc = *slot;
 
   // ADRP: imm21 = page delta of target page from this instruction's page.
@@ -268,8 +269,16 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
         }
       }
     }
+    // X16 (adrp_rd == 16) is the sym-MEM value-access pair; bias its target so
+    // the LDR/STR [x16] lands on the symbol's value slot (jak2: sym_addr - 1).
+    // The ADD imm12 continuation below is biased identically, so the ADRP+ADD
+    // pair jointly form (target + bias). Non-X16 (StaticVarAddr) is unbiased.
+    const uintptr_t adrp_eff_target =
+        (adrp_rd == 16u) ? static_cast<uintptr_t>(static_cast<intptr_t>(target_host_addr) +
+                                                  sym_value_bias)
+                         : target_host_addr;
     const uintptr_t this_pc = reinterpret_cast<uintptr_t>(slot);
-    const int64_t target_page = static_cast<int64_t>(target_host_addr >> 12);
+    const int64_t target_page = static_cast<int64_t>(adrp_eff_target >> 12);
     const int64_t this_page = static_cast<int64_t>(this_pc >> 12);
     const int64_t page_delta = target_page - this_page;
     if (page_delta < -(int64_t(1) << 20) || page_delta >= (int64_t(1) << 20)) {
@@ -307,7 +316,13 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
         }
       }
     }
-    const uint32_t imm12 = static_cast<uint32_t>(target_host_addr & 0xFFFu);
+    // Same sym-MEM bias as the ADRP page above: the X16 ADD completes the
+    // sym-value address, so bias it identically (jak2: sym_addr - 1).
+    const uintptr_t add_eff_target =
+        (add_rd == 16u) ? static_cast<uintptr_t>(static_cast<intptr_t>(target_host_addr) +
+                                                 sym_value_bias)
+                        : target_host_addr;
+    const uint32_t imm12 = static_cast<uint32_t>(add_eff_target & 0xFFFu);
     *slot = arm_patch_add_sub_imm12(enc, imm12);
     g_klink_arm64_patch_hist.add_imm12++;
     return KlinkArm64PatchResult::kPatched;
@@ -328,7 +343,11 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
     const uintptr_t s7_host = reinterpret_cast<uintptr_t>(s7.c());
     uint32_t imm_bytes;
     if (rn == 14u && s7_host != 0) {
-      const int64_t s7_rel = static_cast<int64_t>(target_host_addr) -
+      // x14 (s7-relative) LDR/STR is a direct symbol-VALUE access; bias the
+      // target to the value slot (jak2: sym_addr - 1) so imm == sym_offset - 1,
+      // matching the x86 LINK_SYM_NO_OFFSET_FLAG path.
+      const int64_t s7_rel = (static_cast<int64_t>(target_host_addr) +
+                              static_cast<int64_t>(sym_value_bias)) -
                              static_cast<int64_t>(s7_host);
       if (s7_rel < 0 || s7_rel > 4095LL * scale) {
         // FAR symbol (codegen-locked goalc-arm64 emits the imm12-form

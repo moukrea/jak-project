@@ -238,8 +238,15 @@ enum class KlinkArm64PatchResult {
   kAborted,   // arm64-shaped but unhandled / out of range; no patch applied
 };
 
+// sym_value_bias: byte offset added to target_host_addr for the SYMBOL-VALUE
+// (sym-MEM) instruction forms only — the X16 ADRP+ADD pair and the x14 (s7-
+// relative) LDR/STR. jak2/jak3 store a symbol's value one byte BELOW the
+// symbol pointer (common/Symbol4.h: value() = &foo - 1), whereas jak1 stores
+// it AT the pointer. Pass -1 for jak2 sym links, 0 (default) everywhere else
+// and for the sym-PTR forms (which materialise the pointer, not the value).
 KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
-                                               uintptr_t target_host_addr);
+                                               uintptr_t target_host_addr,
+                                               int sym_value_bias = 0);
 
 extern link_control saved_link_control;
 extern Ptr<Function> gfunc_774;  // actually 807 in jak2.

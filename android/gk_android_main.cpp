@@ -6112,6 +6112,79 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   if (uint32_t g = a38_trip::to_goal(fault)) {
     a38_trip::log_nearest_goal_fn("fault", g);
   }
+  // Gjak2-render forensic (PCWIN): dump the emitted-arm64 instruction WINDOW around
+  // pc so the codegen construct that mis-formed the faulting address register can be
+  // decoded OFFLINE (16 words before + 8 after; '*' marks the pc word). Reads host
+  // memory (pc is in executable-mapped GOAL code) via the siglongjmp-guarded
+  // safe_read_u32 — async-signal-safe (no malloc, only guarded reads + log). The
+  // EE offset to_goal(pc)+k is also printed so the word can be matched to a goalc
+  // per-function arm64 listing. Remove once the gcommon fault is fixed.
+  {
+    uint32_t pc_goal = a38_trip::to_goal(pc);
+    for (int k = -64; k <= 32; k += 4) {
+      uint32_t w = 0;
+      bool okr = gk_diag::safe_read_u32(pc + k, &w);
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG PCWIN pc%+d ee=0x%x:%s 0x%08x", k,
+                          pc_goal ? (unsigned)((int)pc_goal + k) : 0u,
+                          (k == 0) ? "*" : " ", okr ? w : 0xffffffffu);
+    }
+  }
+  // Gjak2-render forensic (LRWIN): when the fault PC is in DATA (e.g. a bad
+  // blr into a GOAL object), the CALLER's code — including the crashing
+  // `blr Xn` at lr-4 and the instructions that formed Xn — lives around LR,
+  // not around PC. Dump the emitted-arm64 window around lr so the call
+  // sequence can be decoded offline. lr-4 (marked '<') is the blr; lr (marked
+  // '*') is the return site. Async-signal-safe (guarded reads + log).
+  {
+    uint32_t lr_goal = a38_trip::to_goal(lr);
+    for (int k = -64; k <= 16; k += 4) {
+      uint32_t w = 0;
+      bool okr = gk_diag::safe_read_u32(lr + k, &w);
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG LRWIN lr%+d ee=0x%x:%s 0x%08x", k,
+                          lr_goal ? (unsigned)((int)lr_goal + k) : 0u,
+                          (k == -4) ? "<" : (k == 0) ? "*" : " ",
+                          okr ? w : 0xffffffffu);
+    }
+  }
+  // Gjak2-render forensic (SYMVAL): the gcommon fault dereferences the VALUE of the
+  // `type` symbol (X9 = value-of(type)) as a GOAL pointer and it is garbage. Walk the
+  // symbol table and print the VALUE + slot of the primordial kernel symbols so we can
+  // tell whether `type` itself is mis-bound (kernel/kscheme bug) or klink addressed the
+  // wrong slot. Async-signal-safe: only bounded EE reads + __android_log_print. The
+  // symbol VALUE is *(eemem+slot); the NAME is slot+SYM_INFO_OFFSET -> +4 -> str_off ->
+  // +4 -> chars (same layout put_nearest_fn uses). Remove once fixed.
+  {
+    const uintptr_t eemem = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    if (eemem && SymbolTable2.offset && LastSymbol.offset) {
+      // Targets we care about (small set; matched by exact NUL-terminated compare).
+      static const char* kWanted[] = {"type",   "symbol", "object",    "function",
+                                      "vec4s",  "uint128","structure", "basic",
+                                      "none",   "nothing"};
+      for (uint32_t slot = SymbolTable2.offset;
+           slot + 4 < EE_MAIN_MEM_SIZE && slot < LastSymbol.offset; slot += 4) {
+        uint64_t info_goal = static_cast<uint64_t>(slot) + jak1::SYM_INFO_OFFSET;
+        if (info_goal + 8 >= EE_MAIN_MEM_SIZE) continue;
+        uint32_t str_off = *reinterpret_cast<const uint32_t*>(eemem + info_goal + 4);
+        if (str_off == 0 || static_cast<uint64_t>(str_off) + 4 + 32 >= EE_MAIN_MEM_SIZE) continue;
+        const char* nm = reinterpret_cast<const char*>(eemem + str_off + 4);
+        for (const char* want : kWanted) {
+          // manual strcmp (async-signal-safe, bounded to 16 chars)
+          int i = 0;
+          for (; i < 16 && want[i] && nm[i] == want[i]; ++i) {
+          }
+          if (want[i] == '\0' && nm[i] == '\0') {
+            uint32_t val = *reinterpret_cast<const uint32_t*>(eemem + slot);
+            __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                "GK-DIAG SYMVAL %-10s slot=0x%x value=0x%08x", want,
+                                (unsigned)slot, val);
+            break;
+          }
+        }
+      }
+    }
+  }
 #if defined(JAK_SWAMP_CAPTURE)
   // Owner swamp-crash capture build (INSTRUMENTATION ONLY): ALSO append the same
   // forensic (sig/fault/pc/lr + the raw EE offsets to_goal(pc/lr/fault)) to a
