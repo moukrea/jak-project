@@ -64,7 +64,12 @@ GAME="${1:-jak1}"
 # override as DECIMAL "366", but game_custom_text JSON ids parse as HEX
 # (text_ser.cpp:250 stoi base 16) -> it landed on id 0x366, leaving the title
 # prompt (id #x16e) stock. Re-keyed "16e"; v9 devices must re-unpack.
-VERSION="${BUNDLE_VERSION:-10}"
+# Bumped 10 -> 11 (autoport 2026-07-06, Gvulkan-option): the arm64 CGO/DGO set now
+# carries the renderer-backend SELECTION plumbing + Graphics Options 'VULKAN
+# RENDERER' toggle (goal_src/jak1/pc/progress-pc.gc + pckernel-*.gc). Devices
+# holding v10 must re-decompress the fresh menu+settings CGOs so the toggle
+# appears and persists; paired with the matching HEAD libgk.so (consistent set).
+VERSION="${BUNDLE_VERSION:-11}"
 
 cd "$(git rev-parse --show-toplevel)"
 

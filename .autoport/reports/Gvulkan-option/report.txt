@@ -2,7 +2,9 @@ RESULT: VULKAN RENDERER OPTION  (honest partial delivery — x86 Vulkan LIVE, An
 
 Phase: Gvulkan-option — add a VULKAN renderer backend as a selectable option in both builds
 (x86 = OpenGL, Android = OpenGL ES), exposed via a dedicated Graphics Options entry. Backlog / LARGE.
-Owner play-test pending (no Android device was connected during this headless run).
+Owner play-test pending for the VISUAL menu-row + toggle confirmation. The CONSISTENT build IS now
+deployed and proven on the Redmi (eae4df44): deploy_verify PASS (build==APK==device libgk 179f4d2a),
+app boots to render (master-mode=game). See section 8 (attempt-2 consistent-build deploy).
 
 ====================================================================================================
 0. TL;DR
@@ -61,11 +63,15 @@ PERSISTENCE (two synced stores, written together on toggle):
 NOTE: switching the backend requires a RESTART (the render surface/device must be recreated at startup).
 
 Screencaps: the desktop Vulkan window present was verified via logs (see section 3). A pixel SCREENSHOT
-of the running window could NOT be captured in this environment — it is a native Wayland/GNOME session
-with the headless screenshot path locked (XWayland root empty; grim/scrot absent; GNOME D-Bus screenshot
-returns AccessDenied). The on-device menu screencaps + the Vulkan-window screencap are part of the OWNER
-PLAY-TEST (owner_verify:true); the present-loop liveness is objectively evidenced by the sustained
-~60fps + link-finish-logo + zero swapchain errors below.
+of the desktop Vulkan window could NOT be captured in this environment — it is a native Wayland/GNOME
+session with the headless screenshot path locked (XWayland root empty; grim/scrot absent; GNOME D-Bus
+screenshot returns AccessDenied). ON DEVICE, the fresh menu build was deployed and a boot screencap was
+captured (.autoport/reports/Gvulkan-option/v11-deploy-boot-frame.png — the widescreen J&D title
+flythrough rendering on the v11 build, focus verified = jak1/MainActivity). The Graphics Options row
+carrying the VULKAN RENDERER toggle is compiled into the on-device GAME.CGO (sha 2025abf5, verified live
+on the phone — section 8); the VISUAL menu-row navigation screencap + the Vulkan-window screencap remain
+part of the OWNER PLAY-TEST (owner_verify:true). The present-loop liveness is objectively evidenced by
+the sustained ~60fps + link-finish-logo + zero swapchain errors below.
 
 ====================================================================================================
 3. CORRECTNESS — which build got Vulkan, and how it was verified (oracle vs GL)
@@ -138,9 +144,43 @@ Commits (branch autoport/android-port):
       This is the large bulk; it is a multi-phase effort on its own.
   (b) Android Vulkan RUNTIME: give Android a Vulkan surface + renderer path (SDL_gpu is available on
       Android too), branching inside android_gfx. Deferred to protect the working GLES build.
-  (c) On-device verification (no Android device was connected this run): deploy_verify + confirm the
-      menu option appears, toggling it does not crash, and GLES still renders — OWNER PLAY-TEST.
+  (c) On-device VISUAL confirmation (owner play-test): navigate to Graphics Options and see the VULKAN
+      RENDERER row, toggle it (must not crash — the Android bind is a safe no-op), and confirm GLES still
+      renders. The consistent build itself is already deployed + deploy_verify-PASS + boots to render on
+      the device (section 8); what remains is the owner's eyes-on menu-row + toggle confirmation.
 
 VERDICT: renderer-selection infrastructure + menu + persistence DELIVERED and verified; x86 Vulkan
 present path DELIVERED and verified (cleared surface, ~60fps, boots to logo); GL/GLES default unchanged
 on both builds; full Vulkan scene rendering + Android Vulkan runtime honestly DEFERRED and labeled.
+
+====================================================================================================
+8. ATTEMPT-2 CONSISTENT-BUILD DEPLOY  (fix for the attempt-1 close-gate failure)
+====================================================================================================
+ROOT CAUSE of attempt-1's close-gate FAIL ("build libgk.so != APK-bundled libgk.so"): the fresh Vulkan
+libgk.so (179f4d2a, built 08:39) was never re-bundled — the APK on disk (22:36 the prior night) still
+held the old Gswamp-fstore libgk (49c9298d) AND the pre-phase arm64 CGOs (22:05), which PRE-DATE the
+menu pc/*.gc commit (08:18). So neither the fresh libgk NOR the menu CGOs had ever reached an APK/the
+device. It was a MIXED/stale build, exactly what the close-gate exists to catch.
+
+FIX = rebuild a fully CONSISTENT set and redeploy:
+  - .autoport/build_arm64_full_consistent.sh -> rebuilt all 28 arm64 CGO/DGO from CURRENT goal_src in one
+    pass, then restored the x86 oracle (out/jak1/iso back to x86 for the validator smoke). The menu now
+    lands: arm64 GAME.CGO 568f5fca -> 2025abf5 (changed); KERNEL.CGO unchanged (956ed7a1 -> 956ed7a1,
+    confirming NO arm64 codegen drift — lock-compliant, boot kernel identical).
+  - android/build_asset_bundle.sh BUNDLE_VERSION 10 -> 11 so v10 devices re-decompress the fresh menu
+    CGOs (LoaderActivity is the only unpack path; a same-version zip would be skipped on device).
+  - cmake --build build-android --target gk (libgk already fresh: 179f4d2a) + ./gradlew assembleJak1Debug
+    -> reassembled app-jak1-debug.apk: copyNativeLibs pulled in 179f4d2a, bundleJak1Assets repacked the
+    347-file zip at version=11. Verified: build libgk == APK libgk == 179f4d2a; APK's nested GAME.CGO ==
+    2025abf5.
+  - Installed on Redmi eae4df44, launched .LoaderActivity -> "asset bundle version changed (10 -> 11) —
+    re-decompressing" -> full re-unpack (device iso_data/jak1 = 321 files, 28 CGO/DGO, 26 fr3; stamp 11).
+
+VERIFIED (attempt-2):
+  - deploy_verify.sh eae4df44 -> DEPLOY-VERIFY PASS: device provably runs the fresh HEAD (ce97b6259)
+    libgk.so; chain build==APK==device == 179f4d2a.
+  - Device GAME.CGO on the unpacked runtime == 2025abf5 (the fresh menu build IS live on the phone).
+  - Boot-check (am start MainActivity directly, the orchestrator's close-gate path) -> master-mode=game +
+    A35-RENDER frame=60..1620, in-game village1 gameplay, no native crash (sig 11/6/4/7) on the app pid.
+  - GL/GLES default unchanged: this v11 boot ran the default GLES path (Vulkan toggle OFF by default) and
+    renders the title + gameplay correctly — no regression.
