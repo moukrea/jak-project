@@ -61,6 +61,11 @@ struct DisplaySettings {
   int window_ypos = 50;
   int display_id = 0;
   DisplayMode display_mode = DisplayMode::Borderless;
+  // Gvulkan-option: renderer backend selected in the in-game Graphics Options menu.
+  // 0 = OpenGL/GLES (DEFAULT — unchanged for everyone who doesn't opt in), 1 = Vulkan.
+  // Read by Gfx::Init (desktop) at startup to pick the GfxPipeline. Written by the GOAL menu via the
+  // pc-set-gfx-renderer! pc-port function. A backend switch requires a restart (surface recreation).
+  int renderer = 0;
 
   void load_settings();
   void save_settings();

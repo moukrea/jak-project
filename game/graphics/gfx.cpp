@@ -37,6 +37,16 @@ const GfxRendererModule* GetRenderer(GfxPipeline pipeline) {
       return NULL;
     case GfxPipeline::OpenGL:
       return &gRendererOpenGL;
+    case GfxPipeline::Vulkan:
+      // Gvulkan-option: the Vulkan backend is delivered incrementally. When a Vulkan renderer module is
+      // built in (pipelines/vulkan.cpp -> gRendererVulkan), return it here. Until then, fall back to
+      // OpenGL so selecting "Vulkan" in the menu can never leave the user on a dead window.
+#ifdef GFX_VULKAN_AVAILABLE
+      return &gRendererVulkan;
+#else
+      lg::warn("Vulkan renderer selected but no Vulkan backend is built in; using OpenGL.");
+      return &gRendererOpenGL;
+#endif
     default:
       lg::error("Requested unknown renderer {}", fmt::underlying(pipeline));
       return NULL;
@@ -59,7 +69,13 @@ u32 Init(GameVersion version) {
   g_debug_settings.load_settings();
   {
     auto p = scoped_prof("startup::gfx::get_renderer");
-    g_global_settings.renderer = GetRenderer(GfxPipeline::OpenGL);
+    // Gvulkan-option: pick the backend from the persisted renderer choice (Graphics Options menu).
+    // Default is OpenGL (renderer == 0), so nothing changes for users who don't opt in.
+    game_settings::DisplaySettings display_settings;
+    display_settings.load_settings();
+    GfxPipeline pipeline =
+        display_settings.renderer == 1 ? GfxPipeline::Vulkan : GfxPipeline::OpenGL;
+    g_global_settings.renderer = GetRenderer(pipeline);
   }
 
   {

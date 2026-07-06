@@ -831,7 +831,10 @@
   ;(format file "  (audio-pan-override ~f)~%" (-> obj audio-pan-override))
   ;(format file "  (audio-volume-override ~f)~%" (-> obj audio-volume-override))
   ;(format file "  (audio-channel-nb ~D)~%" (-> obj audio-channel-nb))
-  ;(format file "  (gfx-renderer ~D)~%" (-> obj gfx-renderer))
+  ;; Gvulkan-option: persist the renderer backend choice (deserializer already exists above). Written
+  ;; so the "VULKAN RENDERER" menu toggle survives across launches. The desktop backend selection ALSO
+  ;; comes from display-settings.json (written by pc-set-gfx-renderer!) — this keeps the two in sync.
+  (format file "  (gfx-renderer ~D)~%" (-> obj gfx-renderer))
   ;(format file "  (gfx-resolution ~f)~%" (-> obj gfx-resolution))
   ;(format file "  (gfx-anisotropy ~f)~%" (-> obj gfx-anisotropy))
   ;(format file "  (shrub-dist-mod ~f)~%" (-> obj shrub-dist-mod))
