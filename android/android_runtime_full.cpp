@@ -47,6 +47,7 @@
 #include <thread>
 
 #include "common/common_types.h"
+#include "common/versions/versions.h"  // Gjak2-boot: GameVersion for g_game_version dispatch
 
 #include "game/kernel/common/Ptr.h"
 #include "game/kernel/common/kboot.h"
@@ -97,6 +98,25 @@ namespace jak1 {
 int InitMachine();
 void KernelCheckAndDispatch();
 }  // namespace jak1
+
+// Gjak2-boot: jak2 namespaced entry points + the jak2 overlord init-globals /
+// start_overlord_wrapper. g_game_version (defined in android_runtime_compat.cpp,
+// externed via game/runtime.h) selects jak1 vs jak2 at runtime; both TUs are
+// compiled into android_kernel so either resolves at link time.
+extern GameVersion g_game_version;
+namespace jak2 {
+int InitMachine();
+void KernelCheckAndDispatch();
+void dma_init_globals();
+void iso_init_globals();
+void iso_cd_init_globals();
+void iso_queue_init_globals();
+void spusstreams_init_globals();
+void srpc_init_globals();
+void ssound_init_globals();
+void stream_init_globals();
+int start_overlord_wrapper(int argc, const char* const* argv, bool* signal);
+}  // namespace jak2
 
 extern "C" {
 
@@ -232,11 +252,21 @@ int InitMachine() {
   // which is the honest engineering signal that the runtime port is
   // incomplete. The supervisor (.autoport/SUPERVISOR_PROMPT.md) explicitly
   // wants this — see the 2026-05-20 rollback entry in SUPERVISOR_JOURNAL.md.
-  __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "InitMachine: delegating to jak1::InitMachine");
-  int rc = jak1::InitMachine();
-  __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "InitMachine: jak1::InitMachine returned %d", rc);
+  // Gjak2-boot: dispatch to the per-game InitMachine by g_game_version.
+  int rc;
+  if (g_game_version == GameVersion::Jak2) {
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "InitMachine: delegating to jak2::InitMachine");
+    rc = jak2::InitMachine();
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "InitMachine: jak2::InitMachine returned %d", rc);
+  } else {
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "InitMachine: delegating to jak1::InitMachine");
+    rc = jak1::InitMachine();
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "InitMachine: jak1::InitMachine returned %d", rc);
+  }
   return rc;
 }
 
@@ -247,11 +277,20 @@ int InitMachine() {
 // branch is gone.
 // ---------------------------------------------------------------------------
 void KernelCheckAndDispatch() {
-  __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "KernelCheckAndDispatch: delegating to jak1");
-  jak1::KernelCheckAndDispatch();
-  __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "KernelCheckAndDispatch: jak1 dispatcher returned");
+  // Gjak2-boot: dispatch to the per-game kernel loop by g_game_version.
+  if (g_game_version == GameVersion::Jak2) {
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "KernelCheckAndDispatch: delegating to jak2");
+    jak2::KernelCheckAndDispatch();
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "KernelCheckAndDispatch: jak2 dispatcher returned");
+  } else {
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "KernelCheckAndDispatch: delegating to jak1");
+    jak1::KernelCheckAndDispatch();
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "KernelCheckAndDispatch: jak1 dispatcher returned");
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -331,21 +370,32 @@ void make_iop_thread() {
 
   // Per-module init globals also stay synchronous so srpc/ssound's
   // static maps are initialized before the EE side's first call into
-  // them. Order mirrors runtime.cpp's iop_runner exactly for the jak1
-  // subset (jak2/jak3 globals not init'd because we don't ship their
-  // overlord deps on Android).
+  // them. Order mirrors runtime.cpp's iop_runner exactly (runtime.cpp:282-308).
+  // Gjak2-boot: the jak2 overlord globals are now init'd alongside jak1's — the
+  // desktop iop_runner calls BOTH games' init_globals unconditionally (they just
+  // zero per-game overlord state and are harmless for the other game); only
+  // start_overlord_wrapper below is version-branched. jak2 uses the real iso_cd
+  // streaming stack (iso_cd/spustreams/stream) instead of fake_iso/ramdisk.
   jak1::dma_init_globals();
+  jak2::dma_init_globals();
   iso_init_globals();
   jak1::iso_init_globals();
+  jak2::iso_init_globals();
   fake_iso_init_globals();
   jak1::fake_iso_init_globals();
+  jak2::iso_cd_init_globals();
   jak1::iso_queue_init_globals();
+  jak2::iso_queue_init_globals();
+  jak2::spusstreams_init_globals();
   jak1::ramdisk_init_globals();
   sbank_init_globals();
   jak1::srpc_init_globals();
+  jak2::srpc_init_globals();
   srpc_init_globals();
   ssound_init_globals();
+  jak2::ssound_init_globals();
   jak1::stream_init_globals();
+  jak2::stream_init_globals();
 
   std::thread([iop]{
     // 15-char cap on Bionic; 16 incl. NUL.
@@ -367,8 +417,14 @@ void make_iop_thread() {
     iop->reset_allocator();
 
     bool overlord_complete = false;
-    jak1::start_overlord_wrapper(iop->overlord_argc, iop->overlord_argv,
-                                 &overlord_complete);
+    // Gjak2-boot: dispatch to the per-game overlord by g_game_version.
+    if (g_game_version == GameVersion::Jak2) {
+      jak2::start_overlord_wrapper(iop->overlord_argc, iop->overlord_argv,
+                                   &overlord_complete);
+    } else {
+      jak1::start_overlord_wrapper(iop->overlord_argc, iop->overlord_argv,
+                                   &overlord_complete);
+    }
     __android_log_print(ANDROID_LOG_INFO, kLogTag,
                         "iop-runner: start_overlord_wrapper queued; dispatching IOP "
                         "kernel until overlord init completes");

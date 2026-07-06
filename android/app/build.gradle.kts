@@ -150,6 +150,15 @@ android {
                 else "src/jak1/assets-bundled"
             ))
         }
+        // Gjak2-boot: jak2 mirrors jak1 — its DEFLATE bundle
+        // (src/jak2/assets-bundled/bundle/jak2_assets.zip) is produced by
+        // bundleJak2Assets and unpacked into filesDir/iso_data/jak2 on first run.
+        getByName("jak2") {
+            assets.setSrcDirs(listOf(
+                if (project.findProperty("slimIso") == "true") "src/jak2/assets-slim"
+                else "src/jak2/assets-bundled"
+            ))
+        }
         // Phase Glauncher-collection: the collection flavor ships MULTIPLE
         // per-game bundles from its own assets-bundled dir. Empty today (only
         // jak1 assets exist); STEP-1 stages jak2/jak3 zips here.
@@ -285,6 +294,22 @@ tasks.matching {
     it.name.startsWith("merge") && it.name.contains("Jak1") && it.name.endsWith("Assets")
 }.configureEach {
     dependsOn(bundleJak1Assets)
+}
+
+// Gjak2-boot: jak2 asset bundle — same shape as jak1's. Repacks
+// src/jak2/assets-bundled/bundle/jak2_assets.zip from the build outputs
+// (out/jak2/iso non-code + out/jak2-arm64-full/iso code + out/jak2/fr3) just
+// before AGP merges the jak2 flavor's assets.
+val bundleJak2Assets by tasks.registering(Exec::class) {
+    workingDir = rootProject.file("..")
+    commandLine("bash", "android/build_asset_bundle.sh", "jak2")
+    onlyIf { project.findProperty("slimIso") != "true" }
+}
+
+tasks.matching {
+    it.name.startsWith("merge") && it.name.contains("Jak2") && it.name.endsWith("Assets")
+}.configureEach {
+    dependsOn(bundleJak2Assets)
 }
 
 // Phase Glauncher-collection (autoport 2026-07-02): ASSET-DRIVEN detection

@@ -99,6 +99,20 @@ if [ "$GAME" = "jak1" ]; then
   [ -d "$ANDROID_TEXT" ] || fail "no $ANDROID_TEXT — run .autoport/gtt_build_android_text.sh first (need the localized title-prompt overlay banks)"
 fi
 
+# Gjak2-boot: jak2's seven VAGWAD.* voice banks are 493 MB each (~3.45 GB). The
+# resulting single <game>_assets.zip then exceeds AGP's compressAssets array cap
+# (Integer.MAX_VALUE ~2.15 GB, "Required array size too large"). Voice audio is
+# not needed to boot/render, so for jak2 we drop the non-English VAGWAD (keep
+# VAGWAD.ENG) — the zip lands well under 2 GB, like jak1's. This ONLY filters
+# what is bundled into the APK; the out/jak2/iso oracle tree is untouched, and
+# the game boots with English voice. (Multi-language via split asset packs is a
+# follow-up.)
+SKIP_ISO_RE=""
+if [ "$GAME" = "jak2" ]; then
+  SKIP_ISO_RE='^VAGWAD\.(FRE|GER|ITA|JAP|KOR|SPA)$'
+fi
+skip_iso(){ [ -n "$SKIP_ISO_RE" ] && [[ "$(basename "$1")" =~ $SKIP_ISO_RE ]]; }
+
 # The code files = every *.CGO/*.DGO present in the iso build; each MUST also
 # exist in the arm64 set (so we can overlay an arm64 copy of every code file).
 mapfile -t CODE_FILES < <(find "$ISO_BUILD" -maxdepth 1 -type f \( -name '*.CGO' -o -name '*.DGO' \) -printf '%f\n' | sort)
@@ -108,7 +122,11 @@ for f in "${CODE_FILES[@]}"; do
   [ -f "$ARM64_CODE/$f" ] || fail "arm64 set missing $f — rerun .autoport/build_arm64_full_consistent.sh"
 done
 
-N_ISO=$(find "$ISO_BUILD" -maxdepth 1 -type f | wc -l | tr -d ' ')
+if [ -n "$SKIP_ISO_RE" ]; then
+  N_ISO=$(find "$ISO_BUILD" -maxdepth 1 -type f -printf '%f\n' | grep -vcE "$SKIP_ISO_RE")
+else
+  N_ISO=$(find "$ISO_BUILD" -maxdepth 1 -type f | wc -l | tr -d ' ')
+fi
 N_FR3=$(find "$FR3_BUILD" -maxdepth 1 -type f -name '*.fr3' | wc -l | tr -d ' ')
 WANT_FC=$((N_ISO + N_FR3))
 
@@ -142,6 +160,7 @@ mkdir -p "$STAGE/iso_data/$GAME" "$STAGE/fr3"
 while IFS= read -r f; do
   base="$(basename "$f")"
   case "$base" in *.CGO|*.DGO) continue;; esac
+  skip_iso "$base" && continue   # Gjak2-boot: drop non-English VAGWAD for jak2
   ln -s "$ROOT/$f" "$STAGE/iso_data/$GAME/$base"
 done < <(find "$ISO_BUILD" -maxdepth 1 -type f)
 

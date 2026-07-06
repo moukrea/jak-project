@@ -108,7 +108,13 @@ void init_output() {
  * Empty output buffer (only if MasterDebug)
  */
 void clear_output() {
-  if (MasterDebug) {
+  // autoport(Gjak2-boot): guard on the output buffer actually existing, not bare
+  // MasterDebug. jak2's init_output() sets OutputBufArea=0 when (MasterDebug &&
+  // !DebugSegment) (i.e. -boot -debug-mem without -debug), so a bare-MasterDebug
+  // guard here dereferences null. Behavior is byte-identical whenever the buffer
+  // is allocated (jak1 debug / jak2 full-debug / non-debug); only the previously
+  // crashing MasterDebug-without-buffer case now correctly no-ops.
+  if (MasterDebug && OutputBufArea.offset) {
     kstrcpy((char*)Ptr<u8>(OutputBufArea + sizeof(ListenerMessageHeader)).c(), "");
     OutputPending = Ptr<u8>(0);
   }
@@ -127,7 +133,9 @@ void clear_print() {
  * Write to the beginning of the output buffer.
  */
 void reset_output() {
-  if (MasterDebug) {
+  // autoport(Gjak2-boot): see clear_output() — guard on OutputBufArea existing so
+  // jak2's (MasterDebug && !DebugSegment) null buffer no longer SIGSEGVs here.
+  if (MasterDebug && OutputBufArea.offset) {
 // original GOAL:
 // sprintf(OutputBufArea.cast<char>().c() + sizeof(ListenerMessageHeader), "reset #x%x\n",
 // s7.offset);
@@ -150,7 +158,8 @@ void reset_output() {
  * DONE, EXACT
  */
 void output_unload(const char* name) {
-  if (MasterDebug) {
+  // autoport(Gjak2-boot): guard on OutputBufArea existing (jak2 null-buffer safety).
+  if (MasterDebug && OutputBufArea.offset) {
     sprintf(strend(OutputBufArea.cast<char>().c() + sizeof(ListenerMessageHeader)),
             "unload \"%s\"\n", name);
     OutputPending = OutputBufArea + sizeof(ListenerMessageHeader);
@@ -161,7 +170,8 @@ void output_unload(const char* name) {
  * Buffer message to compiler indicating some object file has been loaded.
  */
 void output_segment_load(const char* name, Ptr<u8> link_block, u32 flags) {
-  if (MasterDebug) {
+  // autoport(Gjak2-boot): guard on OutputBufArea existing (jak2 null-buffer safety).
+  if (MasterDebug && OutputBufArea.offset) {
     char* buffer = strend(OutputBufArea.cast<char>().c() + sizeof(ListenerMessageHeader));
     char true_str[] = "t";
     char false_str[] = "nil";

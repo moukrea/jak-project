@@ -44,7 +44,16 @@ int sceSifSyncIop() {
 void sceFsReset() {}
 
 int sceSifLoadModule(const char* name, int arg_size, const char* args) {
+  // autoport(Gjak2-boot): also recognize jak2's real (single-backslash) PS2 overlord
+  // path. jak2/kmachine.cpp:318 loads "cdrom0:\DRIVERS\OVERLORD.IRX;1" (the faithful PS2
+  // filename) when it takes the ISO_CD module-source branch — which is what happens on
+  // desktop/Android when -fakeiso is a gk launcher flag rather than a post-`--` GOAL arg
+  // (modsrc stays 1). jak1 only ever emits the double-backslash sentinel, so this path was
+  // never matched for jak2 and the overlord never started (IOP parked -> DGO RPC 0xfab3
+  // never registered -> sif_busy ASSERT). This OR clause is purely additive: it only makes
+  // a previously-unrecognized (broken) name work; every already-matching name is unchanged.
   if (!strcmp(name, "cdrom0:\\\\DRIVERS\\\\OVERLORD.IRX;1") ||
+      !strcmp(name, "cdrom0:\\DRIVERS\\OVERLORD.IRX;1") ||
       !strcmp(name, "host0:binee/overlord.irx") || !strcmp(name, "host0:bin/overlord.irx")) {
     const char* src = args;
     char* dst = iop->overlord_arg_data;

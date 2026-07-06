@@ -229,6 +229,14 @@ int g_server_port = 8112;  // DECI2_PORT — duplicated to avoid pulling listene
 // kernel sources that reference g_background_worker from runtime.h link.
 BackgroundWorker g_background_worker;
 
+// Gjak2-boot: BackgroundWorker::enqueue_webrequest lives in background_worker.cpp,
+// which is NOT compiled on Android (it needs libcurl). jak2's kmachine_extras.cpp
+// calls it to fetch external speedrun/race/highscore leaderboards — a PC-only
+// online feature that is not needed to boot/render. Stub it as a no-op so the
+// queue stays empty; every other BackgroundWorker method used on Android is
+// header-inline/defaulted (the jak1 build already links g_background_worker).
+void BackgroundWorker::enqueue_webrequest(WebRequestJobPayload) {}
+
 // ---------------------------------------------------------------------------
 // Logging surface — routes lg::log/info/warn/print into __android_log_print.
 //
@@ -412,9 +420,10 @@ void CacheFlush(void* mem, int size) {
 // an empty sqlite::GenericResponse — error_msg empty, success=false.
 #include "common/sqlite/sqlite.h"
 
-namespace jak2 { void InitMachineScheme() {} void initialize_sql_db() {}
-                  sqlite::GenericResponse run_sql_query(const std::string&) {
-                    return {}; } }
+// Gjak2-boot: the jak2 stubs are GONE — game/kernel/jak2/kmachine.cpp is now
+// compiled into android_kernel and owns the real jak2::InitMachineScheme /
+// initialize_sql_db / run_sql_query (SQLite-backed). jak3 stays stubbed (its
+// kmachine.cpp is not in the Android build yet).
 namespace jak3 { void InitMachineScheme() {} void initialize_sql_db() {}
                   sqlite::GenericResponse run_sql_query(const std::string&) {
                     return {}; } }

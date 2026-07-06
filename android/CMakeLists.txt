@@ -64,6 +64,12 @@ set_property(TARGET libco PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_subdirectory("${JAK_ROOT}/third-party/zstd" zstd_build EXCLUDE_FROM_ALL)
 set_property(TARGET libzstd_static PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+# Gjak2-boot: sqlite3 — jak2/kmachine.cpp instantiates a global
+# sqlite::SQLiteDatabase sql_db (the jak2 listener SQL helpers), so the real
+# vendored sqlite amalgamation must link. Portable C, builds on Bionic/arm64.
+add_subdirectory("${JAK_ROOT}/third-party/sqlite3" sqlite3_build EXCLUDE_FROM_ALL)
+set_property(TARGET sqlite3 PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 # ---------------------------------------------------------------------------
 # Phase 18 (autoport): SDL3 vendored under third-party/SDL is cross-built
 # as a static library and linked into libgk.so with --whole-archive so the
@@ -230,6 +236,18 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/common/dma/gs.cpp"
     "${JAK_ROOT}/common/audio/audio_formats.cpp"
     "${JAK_ROOT}/common/versions/versions.cpp"
+    # Gjak2-boot: sqlite wrapper (sqlite::SQLiteDatabase) used by jak2 kmachine.
+    "${JAK_ROOT}/common/sqlite/sqlite.cpp"
+    # Gjak2-boot: jak2 kmachine_extras deps — game-text font bank (get_font_bank
+    # / GameTextFontBank::convert_* used by discord rich-presence + speedrun-time
+    # formatting) and safe_parse_json (external leaderboard callbacks). Portable
+    # (fmt + third-party/json.hpp; no curl/SDL).
+    "${JAK_ROOT}/common/util/font/font_utils.cpp"
+    "${JAK_ROOT}/common/util/font/font_utils_korean.cpp"
+    "${JAK_ROOT}/common/util/font/dbs/font_db_jak1.cpp"
+    "${JAK_ROOT}/common/util/font/dbs/font_db_jak2.cpp"
+    "${JAK_ROOT}/common/util/font/dbs/font_db_jak3.cpp"
+    "${JAK_ROOT}/common/util/json_util.cpp"
 
     # Kernel core — full common/ subset.
     "${JAK_ROOT}/game/kernel/common/fileio.cpp"
@@ -263,17 +281,21 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/kernel/jak1/kscheme.cpp"
     "${JAK_ROOT}/game/kernel/jak1/ksound.cpp"
 
-    # Kernel jak2 + jak3 subsets — same structural shape as jak1, sans
-    # kmachine.cpp (which pulls discord_jak{2,3}.h + graphics deps). Their
-    # bulk is what pushes libgk.so past the validator's 15 MB strip floor.
-    # jak2/jak3 kboot.cpp excluded — they call jak{2,3}::InitMachine /
-    # ShutdownMachine / InitParms, which live in jak{2,3}/kmachine.cpp
-    # (graphics/sce-heavy and not compiled). The rest of the per-game
-    # kernel TUs link cleanly.
+    # Kernel jak2 subset — FULL now that jak2 is being brought up on Android
+    # (Gjak2-boot): kboot.cpp + kmachine.cpp + kmachine_extras.cpp join the
+    # build. kmachine.cpp pulls discord_jak2.h + jak2_texture_remap +
+    # Display/Gfx + sqlite + overlord/jak2/iso.h; those are provided by the
+    # jak2 TUs added further below (overlord/jak2/*, jak2_texture_remap.cpp,
+    # discord_jak2.cpp, sqlite3) plus the game-agnostic shims in
+    # android_runtime_compat.cpp. jak3 kboot/kmachine stay out of the build
+    # (jak3 is a later chapter); its remaining per-game kernel TUs link cleanly.
     "${JAK_ROOT}/game/kernel/jak2/fileio.cpp"
+    "${JAK_ROOT}/game/kernel/jak2/kboot.cpp"
     "${JAK_ROOT}/game/kernel/jak2/kdgo.cpp"
     "${JAK_ROOT}/game/kernel/jak2/klink.cpp"
     "${JAK_ROOT}/game/kernel/jak2/klisten.cpp"
+    "${JAK_ROOT}/game/kernel/jak2/kmachine.cpp"
+    "${JAK_ROOT}/game/kernel/jak2/kmachine_extras.cpp"
     "${JAK_ROOT}/game/kernel/jak2/kmalloc.cpp"
     "${JAK_ROOT}/game/kernel/jak2/kprint.cpp"
     "${JAK_ROOT}/game/kernel/jak2/kscheme.cpp"
@@ -388,6 +410,33 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/overlord/jak1/srpc.cpp"
     "${JAK_ROOT}/game/overlord/jak1/ssound.cpp"
     "${JAK_ROOT}/game/overlord/jak1/stream.cpp"
+
+    # Overlord (jak2) — Gjak2-boot. jak2 uses the real iso_cd streaming stack
+    # (not fake_iso/ramdisk): iso_cd/spustreams/vag/streamlist/streamlfo/
+    # list/pages are jak2-only. iso_cd.cpp still delegates its FS to the
+    # fake-iso disk path on desktop/Android, so -fakeiso data loading works.
+    "${JAK_ROOT}/game/overlord/jak2/dma.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/iso.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/iso_api.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/iso_cd.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/iso_queue.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/list.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/overlord.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/pages.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/spustreams.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/srpc.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/ssound.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/stream.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/streamlfo.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/streamlist.cpp"
+    "${JAK_ROOT}/game/overlord/jak2/vag.cpp"
+
+    # jak2 kmachine deps: texture-remap lookup + discord rich-presence.
+    # jak2_texture_remap.cpp provides lookup_jak2_texture_dest_offset (called
+    # from jak2/kmachine.cpp); discord_jak2.cpp provides the jak2 presence
+    # updater (Discord_* C-API is shimmed in android_runtime_compat.cpp).
+    "${JAK_ROOT}/game/graphics/jak2_texture_remap.cpp"
+    "${JAK_ROOT}/game/external/discord_jak2.cpp"
 )
 
 # Gcollision-arm (1-to-1 ARM==x86 collision): force IEEE-strict, non-contracted FP
@@ -448,7 +497,7 @@ target_compile_options(android_kernel PRIVATE
     -Wno-unused-variable
     -Wno-unused-but-set-variable
 )
-target_link_libraries(android_kernel PUBLIC fmt::fmt libco)
+target_link_libraries(android_kernel PUBLIC fmt::fmt libco sqlite3)
 
 # Don't strip the kernel object code: the phase-12 validator looks for
 # GOAL marker symbols (init_output, InitListenerConnect, ...) in the
