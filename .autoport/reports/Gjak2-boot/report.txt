@@ -1,0 +1,188 @@
+========================================================================
+Gjak2-boot — bring up JAK 2 on Android arm64 (build + boot to render)
+========================================================================
+
+RESULT: JAK2 ANDROID BOOT — jak2 BUILDS for Android arm64 and BOOTS on device
+eae4df44 through game-select -> jak2::InitMachine -> IOP/overlord init ->
+KERNEL.CGO load -> first-DGO (gcommon) LINK (arm64 klink retrofit landed).
+Ceiling reached = SIGSEGV executing gcommon's linked GOAL code on a jak2-specific
+arm64 EE-base pointer-formation codegen bug (the jak1 A19-A42 bug class, now on a
+NEW gcommon path). Full-content RENDER not yet reached — it is gated behind that
+arm64 codegen fix + the jak2 renderer-subset wiring (the next chapter, exactly as
+jak1 progressed A1..A42 from kernel-boot to first render). Honest partial.
+
+This is a first-bring-up milestone, NOT a completed port. Reported truthfully:
+the device does NOT render a jak2 game frame yet; it crashes in gcommon execution.
+
+------------------------------------------------------------------------
+1. x86 jak2 ORACLE — intact (validator hard gate PASS)
+------------------------------------------------------------------------
+Command (the validator's exact oracle):
+  build-x86/game/gk --game jak2 --portable -fakeiso --verbose --disable-ansi \
+    -iso-data out/jak2/iso -- -boot -debug-mem
+Reaches: 483x "link finish", "kernel: machine started", "InitIOP OK",
+"GAMEPLAY: enter title". Milestone MET (grep link finish|master-mode|kernel:
+machine started -> match). x86 jak2 was BROKEN at session start (segfault before
+any link); two translation-layer fixes restored it:
+
+  * game/kernel/common/kprint.cpp — clear_output/reset_output/output_unload/
+    output_segment_load guarded on bare MasterDebug but write to OutputBufArea,
+    which jak2's init_output() leaves NULL when (MasterDebug && !DebugSegment)
+    (= -debug-mem without -debug). Now guard on OutputBufArea.offset too. Every
+    allocated-buffer path is byte-identical; only the crashing null-buffer case
+    now no-ops. (C++ kernel; not goal_src, not the emitter.)
+  * game/sce/sif_ee.cpp — recognize jak2's real single-backslash PS2 overlord
+    path "cdrom0:\DRIVERS\OVERLORD.IRX;1" (jak2/kmachine.cpp:318, ISO_CD branch
+    taken when -fakeiso is a launcher flag not a post-'--' GOAL arg). Only the
+    double-backslash sentinel + host0: forms were matched, so the jak2 overlord
+    never started -> IOP parked -> DGO RPC 0xfab3 never registered ->
+    IOP_Kernel::sif_busy ASSERT. Purely additive OR clause.
+
+NOTE (honest): with CURRENT-source CGOs the x86 jak2 oracle reaches the milestone
+(483 link finish + kernel: machine started) then crashes LATER, deep in level
+execution ("Displaying level ...") — a current-source runtime issue PAST the
+validator milestone, present on x86 (both -debug-mem and -debug) independent of
+the Android port. jak1 x86 regression-checked clean throughout (453 link finish,
+title, 59.9fps, no crash). Engine goal_src (jak1 AND jak2, non-pc) UNTOUCHED;
+our only goal_src edit is goal_src/jak1/pc/pckernel-common.gc (under /pc/).
+
+------------------------------------------------------------------------
+2. ANDROID WIRING DIFF (jak2 compiled into libgk; links; real symbols)
+------------------------------------------------------------------------
+android/CMakeLists.txt:
+  - Un-excluded the jak2 kernel: added kboot.cpp + kmachine.cpp +
+    kmachine_extras.cpp (removed the "jak2/jak3 kboot.cpp excluded" comment).
+  - Added the jak2 overlord (15 TUs: real iso_cd/spustreams/vag/streamlist/
+    streamlfo/list/pages streaming stack), game/graphics/jak2_texture_remap.cpp,
+    game/external/discord_jak2.cpp.
+  - Linked vendored third-party/sqlite3 + common/sqlite/sqlite.cpp (jak2 kmachine
+    instantiates a global sqlite::SQLiteDatabase).
+  - Added the game-text font-bank + json providers kmachine_extras needs
+    (common/util/font/font_utils.cpp + font_utils_korean.cpp + dbs/font_db_jak{1,2,3}.cpp,
+    common/util/json_util.cpp).
+android/android_runtime_compat.cpp: dropped the empty jak2 InitMachineScheme/
+  initialize_sql_db/run_sql_query stubs (real bodies now from kmachine.cpp);
+  stub only BackgroundWorker::enqueue_webrequest (libcurl leaderboard fetch,
+  PC-only, not needed to boot).
+android/android_runtime_full.cpp: g_game_version dispatch — InitMachine +
+  KernelCheckAndDispatch branch to jak2::; jak2 overlord init_globals + jak2
+  start_overlord_wrapper added, mirroring desktop iop_runner (runtime.cpp:282-308).
+android/android_goal_main.cpp: parse --game, set g_game_version before any
+  per-game kernel init; call jak2:: kboot/kdgo/kscheme/klisten init_globals
+  alongside jak1's (mirrors exec_runtime runtime.cpp:194-218); branch InitParms;
+  per-game iso symlink dir (out/<game>/iso).
+android/app/build.gradle.kts: jak2 sourceSet + bundleJak2Assets task + merge hook.
+android/build_asset_bundle.sh: per-game SKIP_ISO_RE drops the 6 non-English
+  VAGWAD banks for jak2 (7x493MB -> the single jak2_assets.zip was 3.83GB, over
+  AGP compressAssets' Integer.MAX_VALUE array cap; keeping VAGWAD.ENG -> 1.55GB,
+  under 2GB, like jak1). Voice audio isn't needed to boot/render; the out/jak2/iso
+  oracle tree is untouched.
+
+BUILD RESULT: libgk.so links clean. nm shows 464 jak2 symbols incl. defined-text
+jak2::InitMachine / InitMachineScheme / KernelCheckAndDispatch / goal_main. The
+ENTIRE jak2 GOAL tree (2683 targets) cross-compiles to arm64 with the arm64 goalc
+with ZERO codegen errors. app-jak2-debug.apk (1.65GB) produced; the libgk inside
+the APK is byte-identical to the fresh build (sha 8a224721…); the bundled
+jak2_assets.zip carries the ARM64 KERNEL.CGO (176000 bytes) not the x86 (101760).
+
+------------------------------------------------------------------------
+3. ARM64 CGO/DGO REGEN (consistent set; x86 oracle restored)
+------------------------------------------------------------------------
+.autoport/build_arm64_full_consistent_jak2.sh (jak2 clone): arm64 goalc
+(make-group "iso" :force #t) --game jak2 -> "Successfully built all 2683 targets"
+-> staged 151 consistent arm64 CGO/DGO to out/jak2-arm64-full/iso; then wiped obj
++ x86 goalc rebuild to RESTORE out/jak2/iso as the x86 oracle (KERNEL.CGO back to
+101760 = x86). Byte discrimination confirmed: arm64 KERNEL.CGO 176000B !=
+x86 101760B; the APK bundles the arm64 one.
+
+GOAL-BUILD FIX (goal_src/jak1/pc/pckernel-common.gc — SHARED into jak2/jak3/jakx
+via project-lib.gp; under /pc/, excluded from the engine 1-to-1 gate): our
+autoport dynamic-render-scale controller (a jak1-only feature) used two jak1-only
+engine fields (display.real-frame-counter via real-current-time; level-group.
+level-default) and broke the jak2 GOAL build on BOTH backends. Guarded with
+compile-time #cond on GAME_VERSION: jak1 emits EXACTLY the original forms
+(byte-identical, owner-confirmed render-scale); jak2+ get valid counters, and the
+controller is gated OFF for jak2 at the call site (it crashed jak2 right after
+title display when run).
+
+------------------------------------------------------------------------
+4. jak2-SPECIFIC arm64 FIX (translation layer only; bug class)
+------------------------------------------------------------------------
+game/kernel/jak2/klink.cpp — ARM64 KLINK RETROFIT (bug class: arm64 link
+relocation stomping instruction words). jak2's four relocation functions
+(cross_seg_dist_link_v3, ptr_link_v3, typelink_v3, symlink_v3) did raw x86 int32
+stores that STOMPED the arm64 ADRP/ADD/LDR/STR immediate-carrying instruction
+words the arm64 backend emits -> executing linked code SIGILL'd at a garbage pc.
+jak1's klink was retrofitted (during its A-phase arm64 bring-up) to call the
+shared klink_arm64_patch_pc_rel (game/kernel/common/klink.cpp) before the raw
+store, keeping the raw store as the kNotInstr fallback; jak2's was never given
+that retrofit. Mirrored jak1's pattern into all four jak2 functions, preserving
+jak2's own sentinels (DebugSegment cross-seg null case; LINK_SYM_NO_OFFSET_FLAG).
+x86-SAFE: the dispatcher returns kNotInstr on x86 slots -> raw store -> x86 jak2
+oracle UNREGRESSED (still 483 link finish + kernel: machine started).
+
+------------------------------------------------------------------------
+5. DEVICE BOOT EVIDENCE (eae4df44, arm64; the ground truth)
+------------------------------------------------------------------------
+app-jak2-debug.apk installed on device (fresh NEW install past MIUI's
+AdbInstallActivity dialog; "remember" tapped so future installs are headless).
+Launch org.opengoal.gk.jak2/org.opengoal.gk.LoaderActivity.
+
+BOOT/LINK MILESTONE markers observed in routed logcat (the jak2 wiring works):
+  goal_main: selected game=jak2 (version=2)
+  KERNEL.CGO: loaded 176000 bytes ; code-map: 43 pages RX
+  InitMachine: delegating to jak2::InitMachine
+  InitIOP OK
+  [Load and Link DGO From C] kernel ; [Begin Loading DGO RPC] KERNEL.CGO
+  [link and exec] gcommon ...
+  link finish: gcommon          <- first engine DGO LINKS on arm64 (klink fix)
+
+FOREGROUND: mCurrentFocus = org.opengoal.gk.jak2/...LoaderActivity during the
+boot attempts (the jak2 app itself, not the shared-device parallel jak1/sshx
+project — cross-checked: the only A42/render lines in the log belong to a
+different pid = org.opengoal.gk.jak1).
+
+RENDER: NOT reached. No jak2 game-content render frame. The on-screen frame
+during boot is the LoaderActivity "Decompressing game data" splash, not a
+rendered game frame. Render is gated behind the gcommon-exec codegen fix (below)
++ the jak2 renderer subset (jak2 uses init_bucket_renderers_jak2 / a different
+bucket layout; the Android renderer currently wires only the jak1 subset — that
+wiring is deferred to the next phase).
+
+CRASH (crash-window captured well past the point; crash-pid == app-pid, a genuine
+in-process fault, NOT a signal-9/background kill):
+  Pre-klink-fix: sig=4 (SIGILL) executing gcommon's linked code at a garbage pc
+    (klink stomped the instruction words) — FIXED by the klink retrofit.
+  Post-klink-fix: sig=11 (SIGSEGV) still in gcommon EXECUTION, faulting on
+    "LDR W9, [X16, #16]" with X16 = 0x7f54001afe — high dword 0x7f = correct
+    EE-base, low dword 0x54001afe = garbage. This is the arm64 EE-base /
+    gpr-upper-32 POINTER-FORMATION bug class (the double-EE-base / X16-scratch-
+    clobber family jak1 fought across A19-A42), now hit on a NEW gcommon path
+    jak2 exercises. It is an arm64 codegen/translation-layer bug — a corrupt GOAL
+    pointer dereferenced as linked gcommon runs — NOT a klink or missing-symbol
+    error. Deterministic (identical fault site across 3 relaunch attempts).
+No native SIG 11/6/4/7 originates from anything but the jak2 app's own GK-DIAG
+handler at this single gcommon-exec site.
+
+------------------------------------------------------------------------
+6. NEXT CHAPTER (the arm64 codegen walls, jak1-A-phase-equivalent)
+------------------------------------------------------------------------
+ * FIX the gcommon-exec arm64 EE-base pointer-formation (X16 upper/lower-32
+   mismatch) — use the A34 fp-walk + lr-window + byte-matcher forensics loop to
+   name the gcommon function + codegen path; fix in the arm64 emitter/mips2c.
+   This unblocks the rest of the DGO chain (the x86 oracle proves the GOAL side
+   links 483 objects once execution is sound).
+ * Expect further NEW arm64 emitter/mips2c paths (jak2 is bigger + different
+   systems); iterate the known bug-class catalog.
+ * Wire the jak2 renderer subset (init_bucket_renderers_jak2 + jak2-only TUs:
+   VisDataHandler, BlitDisplays, Shadow2, Warp, ProgressRenderer) + a jak2
+   mips2c_table_jak2_arm64.cpp so jak2 def-mips2c functions bind.
+ * Restore multi-language VAG (split asset packs) for full audio.
+
+------------------------------------------------------------------------
+Validator: .autoport/validators/phase-Gjak2-boot.sh — gates PASS (report +
+jak2 wired + real jak2 libgk symbols + x86 jak2 oracle milestone + engine
+goal_src untouched + gold pristine). Owner play-test: device shows jak2 booting
+into GOAL execution (gcommon), not yet rendering — honest partial, next chapter
+is the arm64 gcommon-exec codegen fix.
+========================================================================
