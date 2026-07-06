@@ -1,0 +1,7 @@
+OWNER-DECISION 2026-07-06: accept the honest PARTIAL (renderer-selection infra + Graphics Options
+"VULKAN RENDERER" toggle + persistence in both builds + a proven x86 SDL_gpu Vulkan present path =
+cleared surface, ~60fps, boots to logo; Android runtime + full 47k-line OpenGL->Vulkan scene port
+DEFERRED). Owner chose to SHELVE the full Vulkan port (multi-month, uncertain perf benefit given the
+GLES perf gains already landed) and move to the rest of the backlog (touch polish, then jak2/jak3).
+Scaffolding preserved for a future resume. GL/GLES default unchanged, no regression, engine goal_src
+untouched (all GOAL edits in pc/ only). NOT a full Vulkan renderer — accepted as a labeled increment.
