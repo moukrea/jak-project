@@ -180,6 +180,33 @@ handler at this single gcommon-exec site.
  * Restore multi-language VAG (split asset packs) for full audio.
 
 ------------------------------------------------------------------------
+7. DEPLOY-CHAIN CONSISTENCY (attempt-2 close-gate fix; no source change)
+------------------------------------------------------------------------
+Attempt 1's phase-validator gates all PASSED but the orchestrator close-gate
+(deploy_verify.sh) FAILED: build libgk.so (8a224721523c…, the fresh jak2-enabled
+build) != the app-jak1-debug.apk-bundled libgk.so (179f4d2a30bd…). Root cause:
+the jak2 bring-up rebuilt the SHARED libgk (one gk binary serves both games) at
+12:15 and re-assembled app-jak2-debug.apk (12:17) with it, but app-jak1-debug.apk
+was last assembled at 09:05 against the PRE-jak2 libgk and never repackaged — so
+the device's jak1 install (and the jak1 APK deploy_verify inspects) still carried
+the stale .so. Not a codegen/wiring defect; a packaging-staleness gap.
+
+FIX (operational, ZERO source edit — the code is byte-identical to the attempt-1
+checkpoint d3e4f7563): re-ran `./gradlew assembleJak1Debug` (buildNativeLibs
+UP-TO-DATE => NO relink; libgk sha unchanged at 8a224721523c…; jak1 asset zip
+reused from cache), then reinstalled app-jak1-debug.apk on eae4df44. Result:
+build == jak1-APK == device libgk (8a224721523c02637c1c2c5b…) — deploy_verify PASS.
+The jak2 chain was already consistent (build == jak2-APK == device == 8a2247…).
+
+jak1 NON-REGRESSION VERIFIED on the fresh jak2-carrying libgk (the shared kprint/
+sif_ee guard edits + jak2 code compiled in must not break jak1): device eae4df44
+booted org.opengoal.gk.jak1 to RENDER — master-mode=game + A35-RENDER frame
+900->2160->2220 (34 buckets, 594 draws, 451k tris, ~60fps), mCurrentFocus =
+org.opengoal.gk.jak1/MainActivity, NO native sig 11/6/4/7 on the app pid across
+the boot window (the lone signal-9 belongs to the prior force-stopped pid, not
+ours). So the jak2 wiring is additive: it does not regress the shipped jak1 port.
+
+------------------------------------------------------------------------
 Validator: .autoport/validators/phase-Gjak2-boot.sh — gates PASS (report +
 jak2 wired + real jak2 libgk symbols + x86 jak2 oracle milestone + engine
 goal_src untouched + gold pristine). Owner play-test: device shows jak2 booting
