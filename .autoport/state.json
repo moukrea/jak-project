@@ -175,7 +175,8 @@
     "Gcrash-swamp-real": 2,
     "Gperf-particles2": 1,
     "Gswamp-fstore": 2,
-    "Gvulkan-option": 2
+    "Gvulkan-option": 2,
+    "Gjak2-boot": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -670,9 +671,10 @@
     "Gcrash-swamp-real": 1783186462.7495737,
     "Gperf-particles2": 1783278529.1999803,
     "Gswamp-fstore": 1783280433.7753935,
-    "Gvulkan-option": 1783315315.5720198
+    "Gvulkan-option": 1783315315.5720198,
+    "Gjak2-boot": 1783325216.9940019
   },
-  "last_update": "2026-07-06T07:48:55.739799+00:00",
+  "last_update": "2026-07-06T10:30:59.369613+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
