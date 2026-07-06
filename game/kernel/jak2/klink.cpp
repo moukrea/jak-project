@@ -88,6 +88,8 @@ uint32_t cross_seg_dist_link_v3(Ptr<uint8_t> link,
     // link retrofit jak2's linker never received (without it, raw x86 stores stomp
     // the arm64 instruction words -> SIGILL executing linked code, e.g. gcommon).
     uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<int32_t>(tgt).c());
+    g_jak2_reloc_ctx = "cross_seg";
+    g_jak2_reloc_seg = current_seg;
     auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(slot_addr),
                                        target_host);
     if (rc == KlinkArm64PatchResult::kNotInstr) {
@@ -110,6 +112,8 @@ uint32_t ptr_link_v3(Ptr<u8> link, ObjectFileHeader* ofh, int current_seg) {
   // target address into a GPR; the dispatcher patches the imm field. x86 (or an
   // arm64 data-segment ptr slot) returns kNotInstr -> raw u32 store. Mirrors jak1.
   uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<u8>(patch_value).c());
+  g_jak2_reloc_ctx = "ptr";
+  g_jak2_reloc_seg = current_seg;
   auto rc = klink_arm64_patch_pc_rel(
       reinterpret_cast<uint32_t*>(Ptr<u32>(patch_loc).c()), target_host);
   if (rc == KlinkArm64PatchResult::kNotInstr) {
@@ -160,6 +164,8 @@ uint32_t typelink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
     // type-offset store. Mirrors jak1.
     uintptr_t target_host =
         reinterpret_cast<uintptr_t>(Ptr<u8>(type_ptr.offset).c());
+    g_jak2_reloc_ctx = "typelink";
+    // g_jak2_reloc_seg set by caller (jak2_work_v3) from m_segment_process.
     auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(data_ptr.c()),
                                        target_host);
     if (rc == KlinkArm64PatchResult::kNotInstr) {
@@ -210,6 +216,8 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
     // (-1 -> full sym_addr; LINK_SYM_NO_OFFSET_FLAG -> sym_offset-1; else ->
     // sym_offset). Mirrors jak1's arm64 retrofit.
     uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<u8>(sym_addr).c());
+    g_jak2_reloc_ctx = "symlink";
+    // g_jak2_reloc_seg set by caller (jak2_work_v3) from m_segment_process.
     // Gjak2-render bug class (arm64 sym-VALUE off-by-one): jak2 stores a
     // symbol's value one byte BELOW the symbol pointer (Symbol4::value() =
     // &foo - 1; the x86 path applies this via LINK_SYM_NO_OFFSET_FLAG ->
@@ -321,6 +329,11 @@ uint32_t link_control::jak2_work_v3() {
     // modern computer.  But the game broke this into multiple steps.
     if (m_segment_process < ofh->segment_count) {
       if (ofh->code_infos[m_segment_process].offset) {
+        // Gjak2-render DIAGNOSTIC (JAK2_RELOC_TRACE): make the segment being
+        // linked visible to the LDR-literal trace for symlink/typelink (which
+        // don't receive current_seg). cross_seg/ptr overwrite this with their
+        // own current_seg param inside the relocator (same value here).
+        g_jak2_reloc_seg = m_segment_process;
         Ptr<u8> lp(ofh->link_infos[m_segment_process].offset);
 
         while (*lp) {

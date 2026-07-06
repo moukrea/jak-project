@@ -40,6 +40,13 @@ Ptr<Function> gfunc_774;
 // instruction-kind breakdown documented in C4-execute.md.
 KlinkArm64PatchHist g_klink_arm64_patch_hist = {};
 
+// Gjak2-render DIAGNOSTIC (JAK2_RELOC_TRACE): the jak2 v3 relocators set these
+// immediately before each klink_arm64_patch_pc_rel call so the LDR-literal
+// branch can attribute a NOP'd/oor slot to a reloc type + segment. Env-gated
+// output only; no behavioural effect. Declared extern in klink.h.
+const char* g_jak2_reloc_ctx = "";
+int g_jak2_reloc_seg = -1;
+
 namespace {
 
 // arm64 opcode masks + bases — kept in sync by hand with goalc's
@@ -387,20 +394,50 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
     const uintptr_t this_pc = reinterpret_cast<uintptr_t>(slot);
     const int64_t pc_rel = static_cast<int64_t>(target_host_addr) -
                            static_cast<int64_t>(this_pc);
+    const bool jak2_reloc_trace = (std::getenv("JAK2_RELOC_TRACE") != nullptr);
+    const bool ldrlit_out = ((pc_rel & 3) != 0) ||
+                            ((pc_rel / 4) < -(int64_t(1) << 18)) ||
+                            ((pc_rel / 4) >= (int64_t(1) << 18));
+    if (jak2_reloc_trace && ldrlit_out) {
+      const uintptr_t ee_base = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+      const uintptr_t slot_goal_off =
+          (ee_base && this_pc >= ee_base) ? (this_pc - ee_base) : 0;
+      const uintptr_t target_goal_off =
+          (ee_base && target_host_addr >= ee_base) ? (target_host_addr - ee_base) : 0;
+      fprintf(stderr,
+              "JAK2-RELOC-LDRLIT ctx=%s seg=%d slot=%p slot_goal_off=0x%x "
+              "orig_enc=0x%08x target_host=0x%lx target_goal_off=0x%x pc_rel=%lld\n",
+              g_jak2_reloc_ctx, g_jak2_reloc_seg, (void*)slot,
+              (unsigned)slot_goal_off, enc, (unsigned long)target_host_addr,
+              (unsigned)target_goal_off, (long long)pc_rel);
+      fprintf(stderr,
+              "  neighbors: [-4]=0x%08x [-3]=0x%08x [-2]=0x%08x [-1]=0x%08x "
+              "[0]=0x%08x(THIS) [+1]=0x%08x [+2]=0x%08x [+3]=0x%08x [+4]=0x%08x\n",
+              slot[-4], slot[-3], slot[-2], slot[-1], slot[0], slot[1], slot[2],
+              slot[3], slot[4]);
+    }
     if ((pc_rel & 3) != 0) {
-      g_klink_arm64_patch_hist.out_of_range++;
+      // Gjak2-render FIX: goalc-arm64 emits NO far LDR-literal instructions (all
+      // inter-seg/static loads are ADRP+X16 pairs now). So a "LDR-literal" whose
+      // pc-rel can't be encoded (not 4-aligned here) is DEFINITIVELY a misclassified
+      // GOAL data word — a symlink DATA word holding a jak2 symbol pointer whose top
+      // byte (0x18/0x1C/0x58/0x5C/0x98/0x9C) happens to match the LDR-literal opcode
+      // mask with an imm19≈0 placeholder. NOPping it (the prior experiment) corrupts
+      // the data word AND, because the caller ignores non-kNotInstr results, skips the
+      // caller's normal raw-u32 store -> art-h top-level reads garbage -> SIGILL.
+      // Return kNotInstr so the caller performs its raw-u32 store (exactly like x86).
+      g_klink_arm64_patch_hist.raw_u32++;
       klink_imm19_trace(slot, enc, target_host_addr, pc_rel, 0, "misalign");
-      printf("klink-arm64: LDR-literal pc-rel %lld not 4-aligned at %p\n",
-             (long long)pc_rel, (void*)slot);
-      return KlinkArm64PatchResult::kAborted;
+      return KlinkArm64PatchResult::kNotInstr;
     }
     const int64_t imm19 = pc_rel / 4;
     if (imm19 < -(int64_t(1) << 18) || imm19 >= (int64_t(1) << 18)) {
-      g_klink_arm64_patch_hist.out_of_range++;
+      // Gjak2-render FIX: see above. An out-of-range imm19 for a "LDR-literal" is a
+      // misclassified GOAL data word (goalc-arm64 emits no far LDR-literals), so
+      // return kNotInstr and let the caller do its raw-u32 store (x86-identical).
+      g_klink_arm64_patch_hist.raw_u32++;
       klink_imm19_trace(slot, enc, target_host_addr, pc_rel, imm19, "oor");
-      printf("klink-arm64: LDR-literal imm19 %lld out of range at %p\n",
-             (long long)imm19, (void*)slot);
-      return KlinkArm64PatchResult::kAborted;
+      return KlinkArm64PatchResult::kNotInstr;
     }
     klink_imm19_trace(slot, enc, target_host_addr, pc_rel, imm19, "ok");
     *slot = arm_patch_ldr_literal_imm19(enc, static_cast<int32_t>(pc_rel));

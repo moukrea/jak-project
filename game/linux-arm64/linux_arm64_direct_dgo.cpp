@@ -45,13 +45,20 @@
 #include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/jak1/klink.h"
+#include "game/kernel/jak2/klink.h"
 
 namespace linux_arm64 {
 
 int direct_load_dgo(const char* dgo_path,
                     Ptr<kheapinfo> heap,
                     u32 link_flags,
-                    s32 buffer_size) {
+                    s32 buffer_size,
+                    DirectDgoLinkFn link_fn) {
+  // Default to the jak1 link engine so existing 4-arg callers are
+  // byte-for-byte unchanged; a jak2 boot passes &jak2::link_and_exec.
+  if (!link_fn) {
+    link_fn = &jak1::link_and_exec;
+  }
   FILE* fp = std::fopen(dgo_path, "rb");
   if (!fp) {
     lg::error("[Direct DGO] cannot open {}: {}", dgo_path, std::strerror(errno));
@@ -186,9 +193,11 @@ int direct_load_dgo(const char* dgo_path,
     // anything live has been copied to heap-current allocations.
     //
     // `jump_from_c_to_goal=true` matches the upstream caller's flag.
-    jak1::link_and_exec(buffer + sizeof(ObjectHeader), obj_hdr.name,
-                        (s32)obj_hdr.size, heap, link_flags,
-                        /*jump_from_c_to_goal=*/true);
+    // `link_fn` is jak1::link_and_exec by default, or jak2::link_and_exec
+    // when a jak2 boot passes it in.
+    link_fn(buffer + sizeof(ObjectHeader), obj_hdr.name,
+            (s32)obj_hdr.size, heap, link_flags,
+            /*jump_from_c_to_goal=*/true);
   }
 
   (*EnableMethodSet)--;

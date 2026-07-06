@@ -2,6 +2,7 @@
 #include "kscheme.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "fileio.h"
@@ -96,6 +97,20 @@ u64 alloc_from_heap(u32 heap_symbol, u32 type, s32 size, u32 pp) {
     Ptr<Type> typ(type);
     if (!typ->symbol.offset) {  // type doesn't have a symbol, just call it a global-object
       return kmalloc(heap_ptr, size, KMALLOC_MEMSET, "global-object").offset;
+    }
+
+    // DIAG (A): env-gated bounded trace of the symbol->string read that has been crashing.
+    // Does NOT dereference the possibly-garbage string pointer.
+    static int s_jak2_alloc_trace_count = 0;
+    if (std::getenv("JAK2_ALLOC_TRACE") && s_jak2_alloc_trace_count < 60) {
+      s_jak2_alloc_trace_count++;
+      u32 sslot = typ->symbol.offset + SYM_TO_STRING_OFFSET;
+      u32 sval = *Ptr<u32>(sslot);
+      fprintf(stderr,
+              "JAK2-ALLOC #%d heap_sym=0x%x type=0x%x typ->symbol=0x%x SYM_TO_STRING_OFFSET=0x%x "
+              "sslot=0x%x sval=0x%x%s\n",
+              s_jak2_alloc_trace_count, heap_symbol, type, typ->symbol.offset, SYM_TO_STRING_OFFSET,
+              sslot, sval, (sval >= 0x8000000) ? " GARBAGE" : "");
     }
 
     Ptr<String> gstr = sym_to_string(typ->symbol);
@@ -1894,6 +1909,43 @@ u64 pack_type_flag(u64 methods, u64 heap_base, u64 size) {
 }
 }  // namespace
 
+// DIAG (B): env-gated audit of fundamental symbols' string pointers right after
+// InitHeapAndSymbol has finished. Prints the symbol offset, the sym->string slot,
+// the raw string pointer, and (if in-range) the String's len + first chars.
+void jak2_sym_str_audit() {
+  static const char* kNames[] = {"function", "type",   "string", "symbol", "basic",
+                                  "kheap",    "global", "nothing", "none"};
+  for (const char* name : kNames) {
+    auto s = intern_from_c(name);
+    u32 soff = s.offset;
+    u32 sslot = soff + SYM_TO_STRING_OFFSET;
+    u32 sval = *Ptr<u32>(sslot);
+    if (sval > 0 && sval < 0x8000000) {
+      Ptr<String> str(sval);
+      u32 len = str->len;
+      char buf[17];
+      const char* data = str->data();
+      int n = 0;
+      for (; n < 16; n++) {
+        char c = data[n];
+        if (c == '\0') {
+          break;
+        }
+        buf[n] = c;
+      }
+      buf[n] = '\0';
+      fprintf(stderr,
+              "JAK2-SYMAUDIT name='%s' sym=0x%x sslot=0x%x sval=0x%x len=%u first16='%s'\n",
+              name, soff, sslot, sval, len, buf);
+    } else {
+      fprintf(stderr,
+              "JAK2-SYMAUDIT name='%s' sym=0x%x sslot=0x%x sval=0x%x (str ptr out of range / "
+              "garbage)\n",
+              name, soff, sslot, sval);
+    }
+  }
+}
+
 int InitHeapAndSymbol() {
   // allocate memory for all 3 tables
   Ptr<u32> symbol_table =
@@ -2206,6 +2258,12 @@ int InitHeapAndSymbol() {
     InitMachineScheme();
   }
   kmemclose();
+
+  // DIAG (B): audit fundamental-type symbol string pointers right before success return.
+  if (std::getenv("JAK2_SYM_AUDIT")) {
+    jak2_sym_str_audit();
+  }
+
   return 0;
 }
 
