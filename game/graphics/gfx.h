@@ -25,7 +25,10 @@ struct GfxGlobalSettings;
 class GfxDisplay;
 
 // enum for rendering pipeline
-enum class GfxPipeline { Invalid = 0, OpenGL };
+// Gvulkan-option: Vulkan is a selectable backend. OpenGL stays the default; Vulkan is chosen only when
+// the persisted renderer setting (DisplaySettings::renderer, from the in-game Graphics Options menu)
+// selects it. See GetRenderer() in gfx.cpp.
+enum class GfxPipeline { Invalid = 0, OpenGL, Vulkan };
 
 // module for the different rendering pipelines
 struct GfxRendererModule {

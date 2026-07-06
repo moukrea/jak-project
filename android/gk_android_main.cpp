@@ -975,6 +975,14 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-set-collision-wireframe", d);
   jak1::make_function_symbol_from_c("pc-set-collision", d);
   jak1::make_function_symbol_from_c("pc-set-gfx-hack", d);
+  // Gvulkan-option: bind the renderer-backend setter so the "VULKAN RENDERER" Graphics Options toggle
+  // is SAFE on Android. An unbound pc-* symbol has a 0 value slot -> BLR EE_BASE -> SIGILL when the
+  // menu fires it (same crash class as the A32 tpage-463 case above). The Android Vulkan RUNTIME is
+  // DEFERRED (this build keeps rendering with GLES; the desktop x86 build is where Vulkan is live), so
+  // a17_pc_default (no-op) is the correct body: the toggle still persists its state GOAL-side via
+  // pc-settings.gc, but the backend does not change on Android. Swap to a real body if/when the
+  // Android renderer gains a Vulkan path.
+  jak1::make_function_symbol_from_c("pc-set-gfx-renderer!", d);
   jak1::make_function_symbol_from_c("pc-set-fps-counter", (void*)a35_pc_set_fps_counter);
   jak1::make_function_symbol_from_c("pc-get-fps", (void*)a35_pc_get_fps);
   jak1::make_function_symbol_from_c("pc-get-frame-busy-us", (void*)a35_pc_get_frame_busy_us);

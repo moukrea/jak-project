@@ -560,6 +560,18 @@ u32 pc_get_display_mode() {
   }
 }
 
+// Gvulkan-option: persist the renderer backend choice from the in-game Graphics Options menu into
+// display-settings.json. The desktop Gfx::Init reads DisplaySettings::renderer at the next startup to
+// pick the GfxPipeline. GOAL passes the pc-gfx-renderer enum (software=0, opengl=1, vulkan=2,
+// direct3d=3); we store 1 for Vulkan and 0 (OpenGL/GLES default) otherwise. Switching the backend
+// takes effect after a restart (the render surface must be recreated).
+void pc_set_gfx_renderer(u64 renderer) {
+  game_settings::DisplaySettings ds;
+  ds.load_settings();
+  ds.renderer = (renderer == 2) ? 1 : 0;
+  ds.save_settings();
+}
+
 void pc_set_display_mode(u32 symptr, u64 window_width, u64 window_height) {
   if (!Display::GetMainDisplay()) {
     return;
@@ -1181,6 +1193,8 @@ void init_common_pc_port_functions(
   make_func_symbol_func("pc-get-display-name", (void*)pc_get_display_name);
   make_func_symbol_func("pc-get-display-mode", (void*)pc_get_display_mode);
   make_func_symbol_func("pc-set-display-mode!", (void*)pc_set_display_mode);
+  // Gvulkan-option: persist the renderer backend choice (OpenGL/Vulkan) from the Graphics Options menu.
+  make_func_symbol_func("pc-set-gfx-renderer!", (void*)pc_set_gfx_renderer);
   make_func_symbol_func("pc-get-display-count", (void*)pc_get_display_count);
   // Returns resolution of the monitor's current display mode
   make_func_symbol_func("pc-get-active-display-size", (void*)pc_get_active_display_size);

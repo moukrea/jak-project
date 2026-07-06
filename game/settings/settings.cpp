@@ -70,6 +70,7 @@ void to_json(json& j, const DisplaySettings& obj) {
   json_serialize(window_xpos);
   json_serialize(window_ypos);
   json_serialize(display_mode);
+  json_serialize(renderer);
 }
 void from_json(const json& j, DisplaySettings& obj) {
   json_deserialize_if_exists(version);
@@ -80,6 +81,7 @@ void from_json(const json& j, DisplaySettings& obj) {
     int mode = j.at("display_mode");
     obj.display_mode = static_cast<DisplaySettings::DisplayMode>(mode);
   }
+  json_deserialize_if_exists(renderer);
 }
 
 DisplaySettings::DisplaySettings() {}
