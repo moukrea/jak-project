@@ -351,7 +351,13 @@
   ;; scale ONLY the game-resolution passed here (the FBO) — aspect-ratio, letterbox
   ;; and framebuffer-scissor are untouched, so the on-screen draw region / HUD
   ;; x-offsets do not shift. 100 = native (default). Clamp to [10,100].
-  (let* ((eff-scale (dynamic-render-scale-update obj))
+  ;; Gjak2-boot: the dynamic (auto) render-scale controller is a jak1-only pc
+  ;; feature. It must not RUN on jak2+ (it drives the render-scale off jak1-only
+  ;; timing and crashed jak2 right after "Displaying level title"). #cond: jak1
+  ;; runs the controller (byte-identical); jak2+ use the static render-scale % so
+  ;; the manual lever still composes with game-resolution, no auto controller.
+  (let* ((eff-scale (#cond ((eq? GAME_VERSION 'jak1) (dynamic-render-scale-update obj))
+                           (#t (-> obj render-scale))))
          (rs (cond ((< eff-scale 10.0) 10.0)
                    ((> eff-scale 100.0) 100.0)
                    (else eff-scale)))
