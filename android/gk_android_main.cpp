@@ -67,6 +67,7 @@
 // site and the host(0)=ee_base path SIGILLs (texture-sym-zero, per the
 // A10 next-blocker report).
 extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void);
+extern "C" void (*g_jak2_pre_kernel_version_check_hook)(void);
 
 #include "common/util/Timer.h"
 
@@ -910,71 +911,71 @@ void a17_bind_pc_helpers() {
   // Display::GetMainDisplay() is null (the early-return path).
   void* d = (void*)a17_pc_default;
   // Display
-  jak1::make_function_symbol_from_c("pc-get-display-id", d);
-  jak1::make_function_symbol_from_c("pc-set-display-id!", d);
-  jak1::make_function_symbol_from_c("pc-get-display-name", d);
-  jak1::make_function_symbol_from_c("pc-get-display-mode", (void*)a35_pc_get_display_mode);
-  jak1::make_function_symbol_from_c("pc-set-display-mode!", d);
-  jak1::make_function_symbol_from_c("pc-get-display-count", d);
-  jak1::make_function_symbol_from_c("pc-get-active-display-size", (void*)a35_pc_get_size);
-  jak1::make_function_symbol_from_c("pc-get-active-display-refresh-rate",
+  klink_mfsfc_for_game("pc-get-display-id", d);
+  klink_mfsfc_for_game("pc-set-display-id!", d);
+  klink_mfsfc_for_game("pc-get-display-name", d);
+  klink_mfsfc_for_game("pc-get-display-mode", (void*)a35_pc_get_display_mode);
+  klink_mfsfc_for_game("pc-set-display-mode!", d);
+  klink_mfsfc_for_game("pc-get-display-count", d);
+  klink_mfsfc_for_game("pc-get-active-display-size", (void*)a35_pc_get_size);
+  klink_mfsfc_for_game("pc-get-active-display-refresh-rate",
                                     (void*)a35_pc_get_active_display_refresh_rate);
   // Gcine-camfov: window-size path reports a 4:3 width during cutscenes so the
   // frozen f1c GOAL machinery renders the authored 4:3 framing (pillarboxed).
-  jak1::make_function_symbol_from_c("pc-get-window-size", (void*)a35_pc_get_window_size);
-  jak1::make_function_symbol_from_c("pc-get-window-scale", d);
+  klink_mfsfc_for_game("pc-get-window-size", (void*)a35_pc_get_window_size);
+  klink_mfsfc_for_game("pc-get-window-scale", d);
   // Phase Gtouch-menus (autoport): live touch-tap channel for touch-browsable menus.
-  jak1::make_function_symbol_from_c("pc-get-touch-tap", (void*)a35_pc_get_touch_tap);
-  jak1::make_function_symbol_from_c("pc-set-window-size!", d);
-  jak1::make_function_symbol_from_c("pc-get-num-resolutions", d);
-  jak1::make_function_symbol_from_c("pc-get-resolution", d);
-  jak1::make_function_symbol_from_c("pc-is-supported-resolution?", d);
+  klink_mfsfc_for_game("pc-get-touch-tap", (void*)a35_pc_get_touch_tap);
+  klink_mfsfc_for_game("pc-set-window-size!", d);
+  klink_mfsfc_for_game("pc-get-num-resolutions", d);
+  klink_mfsfc_for_game("pc-get-resolution", d);
+  klink_mfsfc_for_game("pc-is-supported-resolution?", d);
   // Input
-  jak1::make_function_symbol_from_c("pc-get-controller-name", d);
-  jak1::make_function_symbol_from_c("pc-get-current-bind", d);
-  jak1::make_function_symbol_from_c("pc-get-controller-count", d);
-  jak1::make_function_symbol_from_c("pc-get-controller-index", d);
-  jak1::make_function_symbol_from_c("pc-set-controller!", d);
-  jak1::make_function_symbol_from_c("pc-get-keyboard-enabled?", d);
-  jak1::make_function_symbol_from_c("pc-set-keyboard-enabled!", d);
-  jak1::make_function_symbol_from_c("pc-set-mouse-options!", d);
-  jak1::make_function_symbol_from_c("pc-set-mouse-camera-sens!", d);
-  jak1::make_function_symbol_from_c("pc-ignore-background-controller-events!", d);
-  jak1::make_function_symbol_from_c("pc-current-controller-has-led?", d);
-  jak1::make_function_symbol_from_c("pc-current-controller-has-rumble?", d);
-  jak1::make_function_symbol_from_c("pc-set-controller-led!", d);
-  jak1::make_function_symbol_from_c("pc-waiting-for-bind?", d);
-  jak1::make_function_symbol_from_c("pc-set-waiting-for-bind!", d);
-  jak1::make_function_symbol_from_c("pc-stop-waiting-for-bind!", d);
-  jak1::make_function_symbol_from_c("pc-reset-bindings-to-defaults!", d);
-  jak1::make_function_symbol_from_c("pc-set-auto-hide-cursor!", d);
-  jak1::make_function_symbol_from_c("pc-get-pressure-sensitivity-enabled?", d);
-  jak1::make_function_symbol_from_c("pc-set-pressure-sensitivity-enabled!", d);
-  jak1::make_function_symbol_from_c("pc-set-axis-scale!", d);
-  jak1::make_function_symbol_from_c("pc-get-axis-scale", d);
-  jak1::make_function_symbol_from_c("pc-current-controller-has-pressure-sensitivity?", d);
-  jak1::make_function_symbol_from_c("pc-current-controller-has-trigger-effect-support?", d);
-  jak1::make_function_symbol_from_c("pc-get-trigger-effects-enabled?", d);
-  jak1::make_function_symbol_from_c("pc-set-trigger-effects-enabled!", d);
-  jak1::make_function_symbol_from_c("pc-clear-trigger-effect!", d);
-  jak1::make_function_symbol_from_c("pc-send-trigger-effect-feedback!", d);
-  jak1::make_function_symbol_from_c("pc-send-trigger-effect-vibrate!", d);
-  jak1::make_function_symbol_from_c("pc-send-trigger-effect-weapon!", d);
-  jak1::make_function_symbol_from_c("pc-send-trigger-rumble!", d);
+  klink_mfsfc_for_game("pc-get-controller-name", d);
+  klink_mfsfc_for_game("pc-get-current-bind", d);
+  klink_mfsfc_for_game("pc-get-controller-count", d);
+  klink_mfsfc_for_game("pc-get-controller-index", d);
+  klink_mfsfc_for_game("pc-set-controller!", d);
+  klink_mfsfc_for_game("pc-get-keyboard-enabled?", d);
+  klink_mfsfc_for_game("pc-set-keyboard-enabled!", d);
+  klink_mfsfc_for_game("pc-set-mouse-options!", d);
+  klink_mfsfc_for_game("pc-set-mouse-camera-sens!", d);
+  klink_mfsfc_for_game("pc-ignore-background-controller-events!", d);
+  klink_mfsfc_for_game("pc-current-controller-has-led?", d);
+  klink_mfsfc_for_game("pc-current-controller-has-rumble?", d);
+  klink_mfsfc_for_game("pc-set-controller-led!", d);
+  klink_mfsfc_for_game("pc-waiting-for-bind?", d);
+  klink_mfsfc_for_game("pc-set-waiting-for-bind!", d);
+  klink_mfsfc_for_game("pc-stop-waiting-for-bind!", d);
+  klink_mfsfc_for_game("pc-reset-bindings-to-defaults!", d);
+  klink_mfsfc_for_game("pc-set-auto-hide-cursor!", d);
+  klink_mfsfc_for_game("pc-get-pressure-sensitivity-enabled?", d);
+  klink_mfsfc_for_game("pc-set-pressure-sensitivity-enabled!", d);
+  klink_mfsfc_for_game("pc-set-axis-scale!", d);
+  klink_mfsfc_for_game("pc-get-axis-scale", d);
+  klink_mfsfc_for_game("pc-current-controller-has-pressure-sensitivity?", d);
+  klink_mfsfc_for_game("pc-current-controller-has-trigger-effect-support?", d);
+  klink_mfsfc_for_game("pc-get-trigger-effects-enabled?", d);
+  klink_mfsfc_for_game("pc-set-trigger-effects-enabled!", d);
+  klink_mfsfc_for_game("pc-clear-trigger-effect!", d);
+  klink_mfsfc_for_game("pc-send-trigger-effect-feedback!", d);
+  klink_mfsfc_for_game("pc-send-trigger-effect-vibrate!", d);
+  klink_mfsfc_for_game("pc-send-trigger-effect-weapon!", d);
+  klink_mfsfc_for_game("pc-send-trigger-rumble!", d);
   // Graphics — A35: real bodies where the Android renderer now answers.
-  jak1::make_function_symbol_from_c("pc-set-vsync", (void*)a35_pc_set_vsync);
-  jak1::make_function_symbol_from_c("pc-set-msaa", d);
-  jak1::make_function_symbol_from_c("pc-set-frame-rate", (void*)a35_pc_set_frame_rate);
-  jak1::make_function_symbol_from_c("pc-set-game-resolution", (void*)a35_pc_set_game_resolution);
-  jak1::make_function_symbol_from_c("pc-set-brightness-contrast", d);
-  jak1::make_function_symbol_from_c("pc-set-letterbox", (void*)a35_pc_set_letterbox);
-  jak1::make_function_symbol_from_c("pc-renderer-tree-set-lod", d);
-  jak1::make_function_symbol_from_c("pc-set-collision-mode", d);
-  jak1::make_function_symbol_from_c("pc-set-collision-mask", d);
-  jak1::make_function_symbol_from_c("pc-get-collision-mask", d);
-  jak1::make_function_symbol_from_c("pc-set-collision-wireframe", d);
-  jak1::make_function_symbol_from_c("pc-set-collision", d);
-  jak1::make_function_symbol_from_c("pc-set-gfx-hack", d);
+  klink_mfsfc_for_game("pc-set-vsync", (void*)a35_pc_set_vsync);
+  klink_mfsfc_for_game("pc-set-msaa", d);
+  klink_mfsfc_for_game("pc-set-frame-rate", (void*)a35_pc_set_frame_rate);
+  klink_mfsfc_for_game("pc-set-game-resolution", (void*)a35_pc_set_game_resolution);
+  klink_mfsfc_for_game("pc-set-brightness-contrast", d);
+  klink_mfsfc_for_game("pc-set-letterbox", (void*)a35_pc_set_letterbox);
+  klink_mfsfc_for_game("pc-renderer-tree-set-lod", d);
+  klink_mfsfc_for_game("pc-set-collision-mode", d);
+  klink_mfsfc_for_game("pc-set-collision-mask", d);
+  klink_mfsfc_for_game("pc-get-collision-mask", d);
+  klink_mfsfc_for_game("pc-set-collision-wireframe", d);
+  klink_mfsfc_for_game("pc-set-collision", d);
+  klink_mfsfc_for_game("pc-set-gfx-hack", d);
   // Gvulkan-option: bind the renderer-backend setter so the "VULKAN RENDERER" Graphics Options toggle
   // is SAFE on Android. An unbound pc-* symbol has a 0 value slot -> BLR EE_BASE -> SIGILL when the
   // menu fires it (same crash class as the A32 tpage-463 case above). The Android Vulkan RUNTIME is
@@ -982,34 +983,34 @@ void a17_bind_pc_helpers() {
   // a17_pc_default (no-op) is the correct body: the toggle still persists its state GOAL-side via
   // pc-settings.gc, but the backend does not change on Android. Swap to a real body if/when the
   // Android renderer gains a Vulkan path.
-  jak1::make_function_symbol_from_c("pc-set-gfx-renderer!", d);
-  jak1::make_function_symbol_from_c("pc-set-fps-counter", (void*)a35_pc_set_fps_counter);
-  jak1::make_function_symbol_from_c("pc-get-fps", (void*)a35_pc_get_fps);
-  jak1::make_function_symbol_from_c("pc-get-frame-busy-us", (void*)a35_pc_get_frame_busy_us);
+  klink_mfsfc_for_game("pc-set-gfx-renderer!", d);
+  klink_mfsfc_for_game("pc-set-fps-counter", (void*)a35_pc_set_fps_counter);
+  klink_mfsfc_for_game("pc-get-fps", (void*)a35_pc_get_fps);
+  klink_mfsfc_for_game("pc-get-frame-busy-us", (void*)a35_pc_get_frame_busy_us);
   // Other
-  jak1::make_function_symbol_from_c("pc-get-os", (void*)a35_pc_get_os);
-  jak1::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
-  jak1::make_function_symbol_from_c("pc-treat-pad0-as-pad1", d);
-  jak1::make_function_symbol_from_c("pc-is-imgui-visible?", d);
+  klink_mfsfc_for_game("pc-get-os", (void*)a35_pc_get_os);
+  klink_mfsfc_for_game("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
+  klink_mfsfc_for_game("pc-treat-pad0-as-pad1", d);
+  klink_mfsfc_for_game("pc-is-imgui-visible?", d);
   // File
-  jak1::make_function_symbol_from_c("pc-filepath-exists?", d);
-  jak1::make_function_symbol_from_c("pc-mkdir-file-path", d);
+  klink_mfsfc_for_game("pc-filepath-exists?", d);
+  klink_mfsfc_for_game("pc-mkdir-file-path", d);
   // Discord
-  jak1::make_function_symbol_from_c("pc-discord-rpc-set", d);
-  jak1::make_function_symbol_from_c("pc-discord-rpc-update", d);
+  klink_mfsfc_for_game("pc-discord-rpc-set", d);
+  klink_mfsfc_for_game("pc-discord-rpc-update", d);
   // Profiler
-  jak1::make_function_symbol_from_c("pc-prof", d);
+  klink_mfsfc_for_game("pc-prof", d);
   // RNG
-  jak1::make_function_symbol_from_c("pc-rand", (void*)a35_pc_rand);
+  klink_mfsfc_for_game("pc-rand", (void*)a35_pc_rand);
   // Ginput-replay-determinism (autoport): wire THIS backend's pc-rand generator
   // into the harness reseed chain so a replayed clip restores it at the anchor.
   pad_replay::add_rng_reseed_callback(&a35_pc_set_rand_seed);
   // Text
-  jak1::make_function_symbol_from_c("pc-encode-utf8-string", d);
+  klink_mfsfc_for_game("pc-encode-utf8-string", d);
   // Debug
-  jak1::make_function_symbol_from_c("pc-filter-debug-string?", d);
-  jak1::make_function_symbol_from_c("pc-screen-shot", d);
-  jak1::make_function_symbol_from_c("pc-register-screen-shot-settings", d);
+  klink_mfsfc_for_game("pc-filter-debug-string?", d);
+  klink_mfsfc_for_game("pc-screen-shot", d);
+  klink_mfsfc_for_game("pc-register-screen-shot-settings", d);
   // jak1::InitMachine_PCPort game-specific
   // A41: the old comment here claimed InitMachine_PCPort rebinds
   // __pc-set-levels "later in boot" — FICTION on Android: InitMachineScheme
@@ -1021,9 +1022,9 @@ void a17_bind_pc_helpers() {
   // "TFRAG setup" lines in every boot log through A41 run-4, the village
   // absent from the title scene. Bind the real desktop body (compiled into
   // android_kernel); it no-ops safely until the renderer module is live.
-  jak1::make_function_symbol_from_c("__pc-set-levels", (void*)jak1::pc_set_levels);
-  jak1::make_function_symbol_from_c("__pc-set-active-levels", d);
-  jak1::make_function_symbol_from_c("__pc-texture-relocate", (void*)a35_pc_texture_relocate);
+  klink_mfsfc_for_game("__pc-set-levels", (void*)jak1::pc_set_levels);
+  klink_mfsfc_for_game("__pc-set-active-levels", d);
+  klink_mfsfc_for_game("__pc-texture-relocate", (void*)a35_pc_texture_relocate);
   // A32 — root-cause for the on-device tpage-463 fn-ptr=0 SIGILL at
   // link-finish #316. These three `__pc-*` / `__send-gfx-*` /
   // `__read-ee-*` symbols are bound on the linux-arm64 qemu side via
@@ -1046,36 +1047,36 @@ void a17_bind_pc_helpers() {
   // A35: the drain stubs are GONE — these now feed the real renderer
   // (mirrors game/kernel/common/kmachine.cpp's send_gfx_dma_chain /
   // pc_texture_upload_now and read_ee_timer).
-  jak1::make_function_symbol_from_c("__pc-texture-upload-now",
+  klink_mfsfc_for_game("__pc-texture-upload-now",
                                     (void*)a35_pc_texture_upload_now);
-  jak1::make_function_symbol_from_c("__read-ee-timer", (void*)a35_read_ee_timer);
-  jak1::make_function_symbol_from_c("pc-camera-interp-alpha", (void*)a35_pc_camera_interp_alpha);
-  jak1::make_function_symbol_from_c("__send-gfx-dma-chain", (void*)a35_send_gfx_dma_chain);
+  klink_mfsfc_for_game("__read-ee-timer", (void*)a35_read_ee_timer);
+  klink_mfsfc_for_game("pc-camera-interp-alpha", (void*)a35_pc_camera_interp_alpha);
+  klink_mfsfc_for_game("__send-gfx-dma-chain", (void*)a35_send_gfx_dma_chain);
   // Misc helpers referenced by pckernel-impl / pc-debug-* GOAL files
   // that the linux-arm64 InitMachineScheme_LinuxArm64Stubs list (locked
   // file) covers — mirroring them here keeps Android symmetric with
   // the linux-arm64 qemu surface.
-  jak1::make_function_symbol_from_c("pc-set-subtitle-speaker-mode", d);
-  jak1::make_function_symbol_from_c("pc-check-pad-active", d);
-  jak1::make_function_symbol_from_c("pc-pad-input-pressure", d);
-  jak1::make_function_symbol_from_c("pc-pad-get-mapped-button", d);
-  jak1::make_function_symbol_from_c("pc-treat-pad-as-pressed", d);
-  jak1::make_function_symbol_from_c("pc-get-keyboard-input", d);
-  jak1::make_function_symbol_from_c("pc-get-mouse-input", d);
-  jak1::make_function_symbol_from_c("pc-save-load", d);
-  jak1::make_function_symbol_from_c("pc-aspect-ratio-auto", d);
-  jak1::make_function_symbol_from_c("pc-init-autosplit-struct", d);
-  jak1::make_function_symbol_from_c("pc-update-discord-rpc", d);
-  jak1::make_function_symbol_from_c("pc-get-fullscreen", d);
-  jak1::make_function_symbol_from_c("pc-set-fullscreen", d);
-  jak1::make_function_symbol_from_c("pc-get-action-for-input", d);
-  jak1::make_function_symbol_from_c("pc-render-text", d);
-  jak1::make_function_symbol_from_c("pc-play-movie", d);
-  jak1::make_function_symbol_from_c("pc-running-movie?", d);
-  jak1::make_function_symbol_from_c("pc-movie-done?", d);
-  jak1::make_function_symbol_from_c("pc-cancel-movie", d);
-  jak1::make_function_symbol_from_c("pc-set-movie-volume", d);
-  jak1::make_function_symbol_from_c("pc-get-movie-volume", d);
+  klink_mfsfc_for_game("pc-set-subtitle-speaker-mode", d);
+  klink_mfsfc_for_game("pc-check-pad-active", d);
+  klink_mfsfc_for_game("pc-pad-input-pressure", d);
+  klink_mfsfc_for_game("pc-pad-get-mapped-button", d);
+  klink_mfsfc_for_game("pc-treat-pad-as-pressed", d);
+  klink_mfsfc_for_game("pc-get-keyboard-input", d);
+  klink_mfsfc_for_game("pc-get-mouse-input", d);
+  klink_mfsfc_for_game("pc-save-load", d);
+  klink_mfsfc_for_game("pc-aspect-ratio-auto", d);
+  klink_mfsfc_for_game("pc-init-autosplit-struct", d);
+  klink_mfsfc_for_game("pc-update-discord-rpc", d);
+  klink_mfsfc_for_game("pc-get-fullscreen", d);
+  klink_mfsfc_for_game("pc-set-fullscreen", d);
+  klink_mfsfc_for_game("pc-get-action-for-input", d);
+  klink_mfsfc_for_game("pc-render-text", d);
+  klink_mfsfc_for_game("pc-play-movie", d);
+  klink_mfsfc_for_game("pc-running-movie?", d);
+  klink_mfsfc_for_game("pc-movie-done?", d);
+  klink_mfsfc_for_game("pc-cancel-movie", d);
+  klink_mfsfc_for_game("pc-set-movie-volume", d);
+  klink_mfsfc_for_game("pc-get-movie-volume", d);
 
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "A17-DIAG sym-bind-trace: bound the pc-* helper "
@@ -1184,6 +1185,28 @@ void a11_install_pc_mips2c_hook_once() {
                       "IOP-init NOT chained here — Android uses real "
                       "iop_runner)",
                       (void*)prev);
+}
+
+// Gjak2-render: jak2's boot path (jak2::InitMachine -> jak2/kscheme.cpp) never
+// fires the jak1 hook, so the pc-* helper surface stays unbound and jak2's
+// texture.gc top-level BLRs to the null __pc-get-mips2c symbol (sig=4 SIGILL).
+// Chain the jak2 hook to bind the same safe subset jak1 binds — via the
+// game-aware binder so values use jak2's Symbol4 offset. We deliberately skip
+// the jak1-specific A12 sound-rpc and A18 method-wrapper binds.
+void a_install_jak2_pc_hook_once() {
+  static bool installed = false;
+  if (installed) return;
+  installed = true;
+  static const auto prev2 = g_jak2_pre_kernel_version_check_hook;
+  g_jak2_pre_kernel_version_check_hook = []() {
+    if (prev2) prev2();
+    klink_a11_ensure_pc_mips2c_bound();
+    klink_a14_ensure_pc_memmove_bound();
+    a17_bind_pc_helpers();
+  };
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "Gjak2-render: installed jak2 pc-* bind hook "
+                      "(a11 mips2c + a14 mem-move + a17 pc-helpers)");
 }
 }  // namespace
 
@@ -7818,6 +7841,7 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
   // capturing whatever android_runtime_compat installed and chaining
   // our binder is race-free.
   a11_install_pc_mips2c_hook_once();
+  a_install_jak2_pc_hook_once();
 
   // Phase 23 (autoport): bring up the SDL virtual gamepad + audio
   // device on the SDL main thread, before goal_main hands us off to

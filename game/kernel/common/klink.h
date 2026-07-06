@@ -68,6 +68,8 @@ void klink_a12_ensure_sound_rpc_bound();
 // Caller must invoke after `jak1::InitHeapAndSymbol`.
 void klink_a14_ensure_pc_memmove_bound();
 
+Ptr<Function> klink_mfsfc_for_game(const char* name, void* f);
+
 // A18 sym-bind-trace — see klink.cpp for rationale. Idempotent: binds
 // the `__a18-method-zero-trap` sym to an `a18_method_zero_trap` C
 // function whose body prints an A18-DIAG marker (self_goal, self_host,

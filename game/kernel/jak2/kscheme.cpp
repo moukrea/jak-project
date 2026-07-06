@@ -24,6 +24,8 @@
 #include "game/kernel/jak2/kmalloc.h"
 #include "game/kernel/jak2/kprint.h"
 
+extern "C" void (*g_jak2_pre_kernel_version_check_hook)(void) = nullptr;
+
 namespace jak2 {
 using namespace jak2_symbols;
 // where to put a new symbol for the most recently searched for symbol that wasn't found
@@ -2174,6 +2176,9 @@ int InitHeapAndSymbol() {
                              0x400000, true);
     *EnableMethodSet = *EnableMethodSet + -1;
 
+    if (g_jak2_pre_kernel_version_check_hook) {
+      g_jak2_pre_kernel_version_check_hook();
+    }
     auto kernel_version = intern_from_c("*kernel-version*")->value();
     if (!kernel_version || ((kernel_version >> 0x13) != KERNEL_VERSION_MAJOR)) {
       lg::error(

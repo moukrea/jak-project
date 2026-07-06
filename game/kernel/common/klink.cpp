@@ -12,6 +12,7 @@
 #include "game/kernel/common/kdgo.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/jak1/kscheme.h"
+#include "game/kernel/jak2/kscheme.h"
 #include "game/mips2c/mips2c_table.h"
 #include "game/runtime.h"
 
@@ -457,13 +458,25 @@ u64 a11_pc_get_mips2c_impl(u32 name) {
 extern "C" void a37_mips2c_prealloc_arena();
 #endif
 
+// Gjak2-render: symbol VALUES are written at different offsets per game
+// (jak2 stores the value one byte below the symbol ptr via Symbol4::value();
+// jak1 stores it at the ptr). Bind pc-* helper symbols through the game-correct
+// make_function_symbol_from_c so the value lands where the arm64 sym-MEM load
+// (klink_arm64_patch_pc_rel, biased -1 for jak2) reads it.
+Ptr<Function> klink_mfsfc_for_game(const char* name, void* f) {
+  if (g_game_version == GameVersion::Jak2) {
+    return jak2::make_function_symbol_from_c(name, f);
+  }
+  return jak1::make_function_symbol_from_c(name, f);
+}
+
 void klink_a11_ensure_pc_mips2c_bound() {
   static bool s_bound = false;
   if (s_bound) return;
   if (SymbolTable2.offset == 0) return;  // symbol table not yet ready
 
-  auto fn = jak1::make_function_symbol_from_c("__pc-get-mips2c",
-                                              (void*)a11_pc_get_mips2c_impl);
+  auto fn = klink_mfsfc_for_game("__pc-get-mips2c",
+                                 (void*)a11_pc_get_mips2c_impl);
 #ifdef __aarch64__
   a37_mips2c_prealloc_arena();
 #endif
@@ -581,8 +594,8 @@ void klink_a14_ensure_pc_memmove_bound() {
   if (s_bound) return;
   if (SymbolTable2.offset == 0) return;
 
-  auto fn = jak1::make_function_symbol_from_c("__mem-move",
-                                              (void*)a14_pc_memmove_impl);
+  auto fn = klink_mfsfc_for_game("__mem-move",
+                                 (void*)a14_pc_memmove_impl);
   s_bound = true;
 
   std::fprintf(stderr,
