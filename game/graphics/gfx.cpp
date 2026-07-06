@@ -22,6 +22,7 @@
 #include "game/kernel/common/kscheme.h"
 #include "game/runtime.h"
 #include "pipelines/opengl.h"
+#include "pipelines/vulkan.h"
 
 namespace Gfx {
 
@@ -38,15 +39,11 @@ const GfxRendererModule* GetRenderer(GfxPipeline pipeline) {
     case GfxPipeline::OpenGL:
       return &gRendererOpenGL;
     case GfxPipeline::Vulkan:
-      // Gvulkan-option: the Vulkan backend is delivered incrementally. When a Vulkan renderer module is
-      // built in (pipelines/vulkan.cpp -> gRendererVulkan), return it here. Until then, fall back to
-      // OpenGL so selecting "Vulkan" in the menu can never leave the user on a dead window.
-#ifdef GFX_VULKAN_AVAILABLE
+      // Gvulkan-option: minimal SDL_gpu-based Vulkan backend (pipelines/vulkan.cpp). Desktop only —
+      // this TU (gfx.cpp) does not compile on Android, which keeps its GLES module. Selecting Vulkan
+      // presents a live Vulkan-cleared surface; the game geometry pipeline is not yet ported (see
+      // pipelines/vulkan.cpp header).
       return &gRendererVulkan;
-#else
-      lg::warn("Vulkan renderer selected but no Vulkan backend is built in; using OpenGL.");
-      return &gRendererOpenGL;
-#endif
     default:
       lg::error("Requested unknown renderer {}", fmt::underlying(pipeline));
       return NULL;
