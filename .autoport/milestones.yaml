@@ -1188,6 +1188,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Gjak2-render
+  name: 'jak2 chapter 2 — first RENDER frame on Android arm64: fix the gcommon SIGSEGV (new jak2 codegen path) + wire jak2 renderer subset/mips2c allowlist'
+  prompt: prompts/phase-Gjak2-render.md
+  validator: validators/phase-Gjak2-render.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
