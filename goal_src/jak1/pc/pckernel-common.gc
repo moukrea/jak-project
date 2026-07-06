@@ -199,7 +199,16 @@
     (else
      (let ((floor-scale (-> obj min-render-scale))
            (target (-> obj dyn-target-fps))
-           (now (real-current-time)))
+           ;; Gjak2-boot: pckernel-common.gc is SHARED into jak2/jak3/jakx builds
+           ;; (project-lib.gp redirect). real-current-time -> (-> *display*
+           ;; real-frame-counter) is a jak1-only display field; jak2+ 'display'
+           ;; has no such field (clock-array timing), so expanding that macro
+           ;; fails to compile the jak2 build. #cond is compile-time: jak1 emits
+           ;; EXACTLY (real-current-time) as before (byte-identical, owner-
+           ;; confirmed render-scale), jak2+ use (current-time) (= PP clock
+           ;; frame-counter, valid on every game) — a monotonic per-frame counter,
+           ;; which is all dynamic-render-scale's elapsed-delta cooldown needs.
+           (now (#cond ((eq? GAME_VERSION 'jak1) (real-current-time)) (#t (current-time)))))
        ;; clamp floor into the lever's hard [10,100] range; keep target sane
        (cond ((< floor-scale 10.0) (set! floor-scale 10.0))
              ((> floor-scale 100.0) (set! floor-scale 100.0)))
@@ -235,7 +244,13 @@
            ;; transition (load / cutscene / not in-game): HOLD scale, drop the lock, re-prime
            ;; the average to target, freeze the cooldown so a post-transition spike/dip can't move us.
            ((or (movie?)
-                (!= (-> *level* loading-level) (-> *level* level-default))
+                ;; Gjak2-boot: jak1 level-group has a 'level-default' sentinel;
+                ;; jak2+ level-group does not (its loading-level defaults to #f).
+                ;; #cond keeps jak1 byte-identical; jak2+ detect "a level is
+                ;; loading" via loading-level != #f (same intent).
+                (#cond ((eq? GAME_VERSION 'jak1)
+                        (!= (-> *level* loading-level) (-> *level* level-default)))
+                       (#t (!= (-> *level* loading-level) #f)))
                 (!= *master-mode* 'game))
             (set! *dyn-rs-fps-ema* target)
             (set! *dyn-rs-locked* #f)
