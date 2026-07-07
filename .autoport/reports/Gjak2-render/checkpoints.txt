@@ -1,0 +1,6 @@
+[run1] t=60 focus=  mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher}
+[run1] tEND pid= focus=  mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher}
+[run2] t=60 focus=  mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher}
+[run2] tEND pid= focus=  mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher}
+[run3] t=60 focus=  mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher}
+[run3] tEND pid= focus=  mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher}
