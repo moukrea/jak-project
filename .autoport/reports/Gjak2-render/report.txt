@@ -148,3 +148,19 @@ SESSION 2 (2026-07-07) — LIVE PROGRESS LOG (report will be rewritten at end)
   s7/#f (0x187e01) BYTE-SHIFTED +1 => a jak2 Symbol4 -1-bias store applied to a NON-value-slot
   (state name field written at field-1), enter-state/next-state dispatch during vehicle init.
   NEXT: map gcommon+~0x1bc7c4 to its function/(break!) site; find the -1-biased writer; fix.
+
+--- SESSION 2 progress (cont. 2) ---
+- suspend-budget pad (goalc macro shadow, 2n+128) VERIFIED: 0 suspend errors.
+- VAG ENG-fallback + null guards: VAG crash GONE (French device asked VAGWAD FRE; bundle ships ENG only).
+- Renderer game-aware (TexturePool/fr3 dir/Loader count): GAME.fr3 + 148 jak2 fr3s load on device.
+- jak2 chain dispatch + 327-bucket table in android renderer (tex=47 real, direct=5 real, skip=275).
+- TextureUploadHandler null-guards (animator/eye) — desktop-neutral.
+- Per-frame jak1 repair canaries (GCINE3-DEACT/GMATCH-RFTD) gated to jak1 — on jak2 they were
+  REVERTING LIVE SYMBOL-TABLE SLOTS EVERY FRAME (the frame-3-5 crash class).
+- RESULT NOW: device runs jak2 SUSTAINED CRASH-FREE 600s, pid stable, focus=jak2, ~64fps,
+  38400 frames, game_frames flowing, title+ctywide+lwidea+ctysluma in display list; screen shows a
+  GAME-DRAWN sky gradient quad (draws=2 tris=2-4 via SKY_DRAW DirectRenderer — a GL clear cannot
+  produce a gradient). First jak2-drawn pixels; scene geometry still skipped (275 unported buckets).
+- NEXT: register compiled 3D families (TFragment/Tie3/Shrub/Merc2/Sprite/Ocean) on jak2 bucket IDs
+  (fr3-driven, all assets present) + extend jak2 mips2c real allowlist (sky/sprite/foreground/bones/
+  draw-string families) + bump jak2 tramp arena slots (exhaustion warning seen).
