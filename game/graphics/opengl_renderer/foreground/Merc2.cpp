@@ -1809,10 +1809,21 @@ void Merc2::do_draws(const Draw* draw_array,
 #endif
       } else if (draw.texture < 0) {
         int slot = -(draw.texture + 1);
-        glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(slot));
+        // Gjak2-render (Android): the curated renderer has no TextureAnimator, so
+        // the anim-slot array is empty; jak2 merc draws DO reference anim slots
+        // (jak1's never did). Bind nothing (placeholder texture state) instead of
+        // std::out_of_range-aborting. Desktop always populates the array; neutral.
+        if (slot >= 0 && (size_t)slot < m_anim_slot_array->size()) {
+          glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(slot));
 #ifdef __ANDROID__
-        f1e_branch = 3;
-        gk_f1a_last_merc_draw.tex_name = m_anim_slot_array->at(slot);
+          f1e_branch = 3;
+          gk_f1a_last_merc_draw.tex_name = m_anim_slot_array->at(slot);
+#endif
+        }
+#ifdef __ANDROID__
+        else {
+          f1e_branch = 3;
+        }
 #endif
       } else {
         fmt::print("Invalid draw.texture is {}, would have crashed.\n", draw.texture);
