@@ -57,6 +57,7 @@
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/common/ksocket.h"
 #include "game/kernel/jak1/kscheme.h"
+#include "game/kernel/jak2/kscheme.h"  // Gjak2-render: jak2::make_function_symbol_from_c for a17_bind_pc_helpers_jak2
 #include "game/runtime.h"
 #include "game/system/pad_replay.h"
 
@@ -1089,6 +1090,186 @@ void a17_bind_pc_helpers() {
                       "remaining helpers stay a17_pc_default no-ops");
 }
 
+// Gjak2-render — Android mirror of the linux-arm64 qemu harness
+// a17_bind_pc_helpers_jak2 (game/linux-arm64/linux_arm64_main.cpp). Keep this
+// list in LOCKSTEP with the harness version: same static s_bound guard, same
+// SymbolTable2.offset==0 early-return, same complete pc-* name enumeration
+// bound to the a17_pc_default no-op via jak2::make_function_symbol_from_c so
+// values land in jak2's Symbol4 slots. pckernel's top-level (linked right
+// before the SIGILL) calls these pc-* symbols; on Android jak2 the a11/a14
+// hooks bound only __pc-get-mips2c / __mem-move, leaving the ~110 other pc-*
+// slots at 0 -> first BLR through one lands at ee_base (fn-ptr=0) -> SIGILL.
+//
+// Name set = the string-literal symbol names bound in BOTH:
+//   (1) init_common_pc_port_functions (game/kernel/common/kmachine.cpp) —
+//       game-agnostic ~85 pc-* / __ names.
+//   (2) jak2::InitMachine_PCPort (game/kernel/jak2/kmachine.cpp) —
+//       jak2-specific names.
+// The *-string-constant interns in InitMachine_PCPort (*pc-user-dir-base-path*
+// etc.) are value assignments, not function symbols, so they are excluded.
+void a17_bind_pc_helpers_jak2() {
+  static bool s_bound = false;
+  if (s_bound) return;
+  if (SymbolTable2.offset == 0) return;
+  s_bound = true;
+
+  void* d = (void*)a17_pc_default;
+
+  // ---- init_common_pc_port_functions (common, game-agnostic) ----
+  // Core / internal
+  jak2::make_function_symbol_from_c("__read-ee-timer", d);
+  // __mem-move: NOT dummy-bound — bound by klink_a14_ensure_pc_memmove_bound
+  // (game-aware via klink_mfsfc_for_game) to the real a14_pc_memmove_impl (Gjak2-render).
+  jak2::make_function_symbol_from_c("__send-gfx-dma-chain", d);
+  jak2::make_function_symbol_from_c("__pc-texture-upload-now", d);
+  jak2::make_function_symbol_from_c("__pc-texture-relocate", d);
+  // __pc-get-mips2c: NOT dummy-bound — stays on a11_pc_get_mips2c_impl (real jak2 mips2c table, Gjak2-render).
+  // Display
+  jak2::make_function_symbol_from_c("pc-get-display-id", d);
+  jak2::make_function_symbol_from_c("pc-set-display-id!", d);
+  jak2::make_function_symbol_from_c("pc-get-display-name", d);
+  jak2::make_function_symbol_from_c("pc-get-display-mode", d);
+  jak2::make_function_symbol_from_c("pc-set-display-mode!", d);
+  jak2::make_function_symbol_from_c("pc-set-gfx-renderer!", d);
+  jak2::make_function_symbol_from_c("pc-get-display-count", d);
+  jak2::make_function_symbol_from_c("pc-get-active-display-size", d);
+  jak2::make_function_symbol_from_c("pc-get-active-display-refresh-rate", d);
+  jak2::make_function_symbol_from_c("pc-get-window-size", d);
+  jak2::make_function_symbol_from_c("pc-get-window-scale", d);
+  jak2::make_function_symbol_from_c("pc-get-touch-tap", d);
+  jak2::make_function_symbol_from_c("pc-set-window-size!", d);
+  jak2::make_function_symbol_from_c("pc-get-num-resolutions", d);
+  jak2::make_function_symbol_from_c("pc-get-resolution", d);
+  jak2::make_function_symbol_from_c("pc-is-supported-resolution?", d);
+  // Input
+  jak2::make_function_symbol_from_c("pc-get-controller-name", d);
+  jak2::make_function_symbol_from_c("pc-get-current-bind", d);
+  jak2::make_function_symbol_from_c("pc-get-controller-count", d);
+  jak2::make_function_symbol_from_c("pc-get-controller-index", d);
+  jak2::make_function_symbol_from_c("pc-set-controller!", d);
+  jak2::make_function_symbol_from_c("pc-get-keyboard-enabled?", d);
+  jak2::make_function_symbol_from_c("pc-set-keyboard-enabled!", d);
+  jak2::make_function_symbol_from_c("pc-set-mouse-options!", d);
+  jak2::make_function_symbol_from_c("pc-set-mouse-camera-sens!", d);
+  jak2::make_function_symbol_from_c("pc-ignore-background-controller-events!", d);
+  jak2::make_function_symbol_from_c("pc-current-controller-has-led?", d);
+  jak2::make_function_symbol_from_c("pc-current-controller-has-rumble?", d);
+  jak2::make_function_symbol_from_c("pc-set-controller-led!", d);
+  jak2::make_function_symbol_from_c("pc-waiting-for-bind?", d);
+  jak2::make_function_symbol_from_c("pc-set-waiting-for-bind!", d);
+  jak2::make_function_symbol_from_c("pc-stop-waiting-for-bind!", d);
+  jak2::make_function_symbol_from_c("pc-reset-bindings-to-defaults!", d);
+  jak2::make_function_symbol_from_c("pc-set-auto-hide-cursor!", d);
+  jak2::make_function_symbol_from_c("pc-get-pressure-sensitivity-enabled?", d);
+  jak2::make_function_symbol_from_c("pc-set-pressure-sensitivity-enabled!", d);
+  jak2::make_function_symbol_from_c("pc-set-axis-scale!", d);
+  jak2::make_function_symbol_from_c("pc-get-axis-scale", d);
+  jak2::make_function_symbol_from_c("pc-current-controller-has-pressure-sensitivity?", d);
+  jak2::make_function_symbol_from_c("pc-current-controller-has-trigger-effect-support?", d);
+  jak2::make_function_symbol_from_c("pc-get-trigger-effects-enabled?", d);
+  jak2::make_function_symbol_from_c("pc-set-trigger-effects-enabled!", d);
+  jak2::make_function_symbol_from_c("pc-clear-trigger-effect!", d);
+  jak2::make_function_symbol_from_c("pc-send-trigger-effect-feedback!", d);
+  jak2::make_function_symbol_from_c("pc-send-trigger-effect-vibrate!", d);
+  jak2::make_function_symbol_from_c("pc-send-trigger-effect-weapon!", d);
+  jak2::make_function_symbol_from_c("pc-send-trigger-rumble!", d);
+  // Graphics
+  jak2::make_function_symbol_from_c("pc-set-vsync", d);
+  jak2::make_function_symbol_from_c("pc-set-msaa", d);
+  jak2::make_function_symbol_from_c("pc-set-frame-rate", d);
+  jak2::make_function_symbol_from_c("pc-set-game-resolution", d);
+  jak2::make_function_symbol_from_c("pc-set-brightness-contrast", d);
+  jak2::make_function_symbol_from_c("pc-set-letterbox", d);
+  jak2::make_function_symbol_from_c("pc-renderer-tree-set-lod", d);
+  jak2::make_function_symbol_from_c("pc-set-collision-mode", d);
+  jak2::make_function_symbol_from_c("pc-set-collision-mask", d);
+  jak2::make_function_symbol_from_c("pc-get-collision-mask", d);
+  jak2::make_function_symbol_from_c("pc-set-collision-wireframe", d);
+  jak2::make_function_symbol_from_c("pc-set-collision", d);
+  jak2::make_function_symbol_from_c("pc-set-gfx-hack", d);
+  jak2::make_function_symbol_from_c("pc-set-fps-counter", d);
+  jak2::make_function_symbol_from_c("pc-get-fps", d);
+  jak2::make_function_symbol_from_c("pc-get-frame-busy-us", d);
+  // Common binds pc-camera-interp-alpha only #ifndef __ANDROID__; the
+  // linux-arm64 qemu build is not Android, so include it here to match.
+  jak2::make_function_symbol_from_c("pc-camera-interp-alpha", d);
+  // Other
+  jak2::make_function_symbol_from_c("pc-get-os", d);
+  jak2::make_function_symbol_from_c("pc-get-unix-timestamp", d);
+  jak2::make_function_symbol_from_c("pc-treat-pad0-as-pad1", d);
+  jak2::make_function_symbol_from_c("pc-is-imgui-visible?", d);
+  // File
+  jak2::make_function_symbol_from_c("pc-filepath-exists?", d);
+  jak2::make_function_symbol_from_c("pc-mkdir-file-path", d);
+  // Discord
+  jak2::make_function_symbol_from_c("pc-discord-rpc-set", d);
+  // Profiler
+  jak2::make_function_symbol_from_c("pc-prof", d);
+  // RNG
+  jak2::make_function_symbol_from_c("pc-rand", d);
+  // Text
+  jak2::make_function_symbol_from_c("pc-encode-utf8-string", d);
+  // Debug
+  jak2::make_function_symbol_from_c("pc-filter-debug-string?", d);
+  jak2::make_function_symbol_from_c("pc-screen-shot", d);
+  jak2::make_function_symbol_from_c("pc-register-screen-shot-settings", d);
+
+  // ---- jak2::InitMachine_PCPort (jak2-specific) ----
+  jak2::make_function_symbol_from_c("__pc-set-levels", d);
+  jak2::make_function_symbol_from_c("__pc-set-active-levels", d);
+  jak2::make_function_symbol_from_c("__pc-get-tex-remap", d);
+  jak2::make_function_symbol_from_c("pc-init-autosplitter-struct", d);
+  jak2::make_function_symbol_from_c("pc-discord-rpc-update", d);
+  jak2::make_function_symbol_from_c("alloc-vagdir-names", d);
+  // external RPCs
+  jak2::make_function_symbol_from_c("pc-fetch-external-speedrun-times", d);
+  jak2::make_function_symbol_from_c("pc-fetch-external-race-times", d);
+  jak2::make_function_symbol_from_c("pc-fetch-external-highscores", d);
+  jak2::make_function_symbol_from_c("pc-get-external-speedrun-time", d);
+  jak2::make_function_symbol_from_c("pc-get-external-race-time", d);
+  jak2::make_function_symbol_from_c("pc-get-external-highscore", d);
+  jak2::make_function_symbol_from_c("pc-get-num-external-speedrun-times", d);
+  jak2::make_function_symbol_from_c("pc-get-num-external-race-times", d);
+  jak2::make_function_symbol_from_c("pc-get-num-external-highscores", d);
+  // speedrunning / sr-mode
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entries-amount", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-name", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-continue-point", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-history-success", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-history-attempts", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-session-success", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-session-attempts", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-avg-time", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-fastest-time", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-record-practice-entry-attempt!", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-init-practice-info!", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-custom-category-amount", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-custom-category-name", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-custom-category-continue-point", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-init-custom-category-info!", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-dump-new-custom-category", d);
+
+  // Gjak2-render: autoport jak1 pc-layer features leak into jak2 via the borrowed
+  // pckernel-common/pc-debug-common (project-lib.gp borrows goal_src/jak1/pc/*):
+  // their call sites are unconditional but the defuns live in jak1-only pckernel.gc.
+  // Bind to the no-op so the per-frame (update pc-settings) path doesn't BLR
+  // through a 0 slot (first-render-dispatch SIGILL at lr=pckernel-common+0x3447).
+  // Only draw-pc-fps-counter leaks: pckernel-common.gc:451 calls it unconditionally
+  // in (defmethod update ((obj pc-settings))), but its GOAL defun is at jak1-only
+  // pckernel.gc:542 (NOT among the 3 borrowed jak1 pc files) -> jak2 symbol value 0.
+  // (The other pc-* it references are already C-bound above; the enum/macro/desfun
+  // names in the borrowed code resolve at compile time, not as runtime symbols.)
+  // Keep in lockstep with linux_arm64_main.cpp a17_bind_pc_helpers_jak2().
+  // TODO(proper fix): stub defun in goal_src/jak2/pc/pckernel.gc + consistent CGO regen.
+  jak2::make_function_symbol_from_c("draw-pc-fps-counter", d);
+
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "Gjak2-render sym-bind-trace: bound the full jak2 pc-* "
+                      "helper surface (common + jak2-specific) to a17_pc_default "
+                      "no-op so pckernel/GAME.CGO top-levels don't SIGILL on "
+                      "unbound pc-* symbols");
+}
+
 // A11 sym-bind-trace: chain a __pc-get-mips2c binder onto the
 // pre_kernel_version_check hook android_runtime_compat installed at
 // .so load time. After both constructors have finished (any caller of
@@ -1203,21 +1384,22 @@ void a_install_jak2_pc_hook_once() {
     if (prev2) prev2();
     klink_a11_ensure_pc_mips2c_bound();
     klink_a14_ensure_pc_memmove_bound();
-    // Gjak2-render: a17_bind_pc_helpers() DROPPED for jak2. This hook fires
-    // from jak2::InitHeapAndSymbol (kscheme.cpp:2242), mid-init BEFORE the
-    // kernel version check. a17 binds ~80 pc-* helper symbols by allocating
-    // strings + function objects from the heap that early — which corrupted
-    // type-symbol values intermittently (garbage type=0x... → alloc_from_heap
-    // SIGSEGV at random boot-link objects). It is also REDUNDANT for jak2:
-    // the real jak2::InitMachineScheme -> InitMachine_PCPort (kmachine.cpp:688)
-    // binds the SAME ~80 helpers correctly LATER via
-    // init_common_pc_port_functions. a11/a14 stay because jak2's texture.gc /
-    // dma-buffer top-levels BLR to those symbols before InitMachine_PCPort runs.
+    // Gjak2-render: a17_bind_pc_helpers_jak2() RESTORED for jak2 (Android mirror
+    // of the linux-arm64 qemu harness binder). The earlier DROP (commit a3f46d05f)
+    // was for forensic isolation — it unmasked a stale-icache boot ceiling (arm64
+    // bug class #14), which is now fixed. pckernel's top-level (linked right before
+    // the SIGILL) calls the pc-* symbols; on Android jak2 the a11/a14 hooks bind
+    // only __pc-get-mips2c / __mem-move, so the ~110 other pc-* slots stay 0 and the
+    // first BLR through one lands at ee_base (fn-ptr=0) -> SIGILL. The real
+    // jak2::InitMachineScheme -> InitMachine_PCPort rebinds these correctly LATER,
+    // but pckernel needs them bound NOW, same as the harness.
+    a17_bind_pc_helpers_jak2();
   };
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "Gjak2-render: installed jak2 pc-* bind hook "
-                      "(a11 mips2c + a14 mem-move; a17 pc-helpers DROPPED — "
-                      "real jak2 InitMachine_PCPort binds the pc-* surface)");
+                      "(a11 mips2c + a14 mem-move + a17_bind_pc_helpers_jak2 — "
+                      "pc-* surface RESTORED so pckernel top-level doesn't SIGILL; "
+                      "real jak2 InitMachine_PCPort rebinds later)");
 }
 }  // namespace
 
@@ -6931,8 +7113,13 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // kernel-context.current-process (falls back to x13); all reads go through
   // safe_read_u32; runs BEFORE the A37-PCWIN read below (which itself SEGVs when
   // pc==EE_base), so it always completes.
+  // Gjak2-render: GSPARK-PP reads jak1 process-layout offsets (name@4, status@36,
+  // next-state@76, stack-frame-top@92, ...). On jak2 the deftype offsets differ,
+  // so these raw reads yield artifact garbage (the status=0xc4001b10 pattern that
+  // polluted jak2 forensics for multiple rounds). Gate the whole block to jak1.
   if (sig == SIGILL && g_ee_main_mem &&
-      pc == reinterpret_cast<uintptr_t>(g_ee_main_mem)) {
+      pc == reinterpret_cast<uintptr_t>(g_ee_main_mem) &&
+      g_game_version == GameVersion::Jak1) {
     const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
     auto rd = [ee](uint32_t goff, uint32_t* out) -> bool {
       if (goff < 0x1000 || goff >= (uint32_t)EE_MAIN_MEM_SIZE - 4) return false;

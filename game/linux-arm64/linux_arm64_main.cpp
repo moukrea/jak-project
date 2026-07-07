@@ -506,6 +506,19 @@ void a17_bind_pc_helpers_jak2() {
   jak2::make_function_symbol_from_c("pc-sr-mode-init-custom-category-info!", d);
   jak2::make_function_symbol_from_c("pc-sr-mode-dump-new-custom-category", d);
 
+  // Gjak2-render: autoport jak1 pc-layer features leak into jak2 via the borrowed
+  // pckernel-common/pc-debug-common (project-lib.gp borrows goal_src/jak1/pc/*):
+  // their call sites are unconditional but the defuns live in jak1-only pckernel.gc.
+  // Bind to the no-op so the per-frame (update pc-settings) path doesn't BLR
+  // through a 0 slot (first-render-dispatch SIGILL at lr=pckernel-common+0x3447).
+  // Only draw-pc-fps-counter leaks: pckernel-common.gc:451 calls it unconditionally
+  // in (defmethod update ((obj pc-settings))), but its GOAL defun is at jak1-only
+  // pckernel.gc:542 (NOT among the 3 borrowed jak1 pc files) -> jak2 symbol value 0.
+  // (The other pc-* it references are already C-bound above; the enum/macro/desfun
+  // names in the borrowed code resolve at compile time, not as runtime symbols.)
+  // TODO(proper fix): stub defun in goal_src/jak2/pc/pckernel.gc + consistent CGO regen.
+  jak2::make_function_symbol_from_c("draw-pc-fps-counter", d);
+
   std::fprintf(stderr,
                "Gjak2-render sym-bind-trace: bound the full jak2 pc-* helper "
                "surface (common + jak2-specific) to a17_pc_default no-op so "
