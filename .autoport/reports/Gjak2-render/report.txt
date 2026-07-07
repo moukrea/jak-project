@@ -2,165 +2,129 @@
 Gjak2-render — jak2 FIRST RENDER frame on Android arm64
 ========================================================================
 
-RESULT: JAK2 BOOT PROGRESS — NOT a render frame yet (HONEST PARTIAL; validator
-FAILS). Five committed translation-layer fixes + a major forensic cleanup took
-jak2 on the device from 8 -> up to 258 linked objects and cleanly identified the
-TRUE remaining blocker (previously masked). No jak2 game frame is on screen; the
-device crashes during boot-linking before any render. This is real, verifiable
-progress + a precise, corrected diagnosis — NOT a pass. Do not accept as done.
+RESULT: JAK2 RENDER title-attract-flythrough (Haven City, 3D geometry + camera motion)
+
+The device (eae4df44) boots jak2 to the title attract flythrough and RENDERS it:
+3D Haven City geometry (industrial buildings, towers, platforms, creature/statue
+silhouettes) over the purple night-sky gradient, with confirmed smooth camera
+motion across timed captures. ~279,500 tris/frame, 194 buckets drawn, 254-272
+draws/frame, ~64 fps, fbo 640x480. Crash-free single-pid window: 600 s (run 3)
+and 300 s (run 2) — hundreds of thousands of frames past the old gcommon
+ceiling. mCurrentFocus = org.opengoal.gk.jak2/org.opengoal.gk.MainActivity was
+verified AT EVERY capture moment (t60/t120/end/+10s/+20s/+30s) — shared-device
+hygiene respected; these are jak2 frames, not jak1, not the launcher.
+
+Render evidence (screencaps, all with focus=jak2 recorded at capture):
+  .autoport/reports/Gjak2-render/jak2-3dg-run3-jak2focus.png        (t=600s end)
+  .autoport/reports/Gjak2-render/jak2-3dg-run3-t60-jak2focus.png    (t=60s)
+  .autoport/reports/Gjak2-render/jak2-3dg-run3-d-jak2focus.png      (motion set)
+  .autoport/reports/Gjak2-render/jak2-3dg-run2-jak2focus.png        (300s single-pid end)
+  .autoport/reports/Gjak2-render/jak2-3dg-run1-t62manual-jak2focus.png (first valid frame)
+Logs: .autoport/reports/Gjak2-render/jak2-3dg-run{1,2,3}.log
+Deploy chain PROVEN each cycle: build libgk.so == APK == device base.apk (sha256
+41cba8d89d8d27a8...); full consistent arm64 CGO set (out/jak2-arm64-full/iso ==
+APK bundle, 151 files).
 
 ------------------------------------------------------------------------
-0. HEADLINE
+1. THE gcommon SIGSEGV CEILING — FIXED (fault site no longer reached)
 ------------------------------------------------------------------------
-- jak2 qemu link-harness built (game/linux-arm64, --game jak2): links 420/437
-  GAME.CGO objects -> jak2 arm64 codegen is sound for the bulk of the link.
-- 5 REAL translation-layer fixes committed (all arm64/jak2-gated, x86 byte-identical,
-  jak1 untouched): klink LDR-literal misclassification; ultimate_memcpy arm64 memmove;
-  a37 arena jak1-gate; a11 mips2c-table jak1-gate; crash-handler jak1-diagnostics gate.
-- Device (eae4df44, deploy_verify PASS every build): 8 -> 48 -> 75 -> best 258 objects.
-- MAJOR forensic correction: the "0x??001afe / 0xc4001b10 garbage type pointer" chased
-  for many rounds was a CRASH-HANDLER ARTIFACT (gk_sigsegv_diag + helpers interning on
-  the jak2 Symbol4 table with jak1 geometry, nested-crashing). Gating the handler
-  removed it and UNMASKED the true bug.
-- TRUE remaining blocker (clean): arm64 DOUBLE-EE-BASE pointer-formation. A `BLR Xn`
-  whose target was formed by `ADD Xn, Xn, X15` (X15 = g_ee_main_mem = 0x7f00000000)
-  comes out as 0xfe... (base DOUBLED, 0x7f->0xfe) or bare base (offset dropped), during
-  boot-link top-level exec. This is the jak1 A19-A42 codegen class (goalc arm64 emitter/
-  regalloc), data/heap-dependent (hence intermittent crash object 55-258 across runs).
+The "gcommon SIGSEGV on a new jak2 codegen path" was a COMPLEX of causes, each
+root-caused with device+qemu forensics and fixed in the TRANSLATION LAYER only:
+
+* arm64 bug class #14 — STALE INSTRUCTION CACHE ON LINKED GOAL CODE (the core
+  new class; commit a157ae909, game/kernel/jak2/klink.cpp): jak2_finish's
+  CacheFlush(m_code_start, m_code_size) was CacheFlush(base, 0) — the fields are
+  never assigned — so NOTHING invalidated the icache for freshly linked code.
+  The v3 TOP_LEVEL segment is rewritten at the SAME reused KMALLOC_TOP address
+  for consecutive objects and executed immediately: the CPU executed stale MIXED
+  instruction streams (masks: method_set type=0 SIGABRT / BLR to bare unrebased
+  offsets incl. into the 'type' metaobject / SIGBUS; memory always read back
+  CORRECT — attempt-1's art-h probes had proven that without recognizing it).
+  Fix: real-range CacheFlush of MAIN+TOP_LEVEL+DEBUG (v3) / object (v2); x86
+  CacheFlush is a no-op so x86 behavior is byte-identical. Device result: the
+  intermittent 18-32-object boot-link crash class GONE 5/5 runs.
+  NOTE: jak1 has the same vestigial no-op flush (jak1/klink.cpp:623) — the
+  probable root of the F1e "~1-in-6 link-time boot-flake"; left untouched
+  (jak1 locks), needs its own phase.
+* jak2 arm64 mips2c wiring (ee473f3c2): game-aware arm64 table (jak2 link-
+  callback map, per-game trampoline arena/noop/allowlist with jak2 Symbol4
+  idiom), a11 impl serves jak2, 27 jak2 mips2c TUs compiled into both arm64
+  builds. Killed the deterministic qemu 421-object SIGILL
+  (adgif-shader<-texture-with-update! fn-ptr=0): qemu now links ALL 473.
+* Android jak2 pc-* surface bind (a9ae376e6): 112-name binder (harness
+  lockstep) restored in the jak2 pre-kernel hook (349 -> 483 links) +
+  draw-pc-fps-counter bound (autoport jak1 pc-layer feature leaking into jak2
+  via borrowed pckernel-common.gc — the first-render-dispatch fn-ptr=0).
+* Level-heap exhaustion (4b56d7de6, goalc arm64-only defconstant override
+  LEVEL_PAGE_SIZE_KB 126->168): arm64 level code (~1.67x x86) silently
+  overflowed ctywide's ~4.3MB slot via klink's direct cursor advance ->
+  entity-links-array kmalloc FAILED ("!alloc mem" is the failure print) ->
+  level.entity=0 -> "ctywide has no entities!!" (break!). x86 output stays
+  byte-identical (override gated on InstructionSet::ARM64).
+* Suspend-budget pad (b1179db30 + 2n+128): jak2 engine tunes per-process
+  suspend backups for x86/MIPS frame density (vehicle.gc sets 16 bytes!);
+  arm64 frames overflow them -> thread-suspend (break). goalc arm64-only macro
+  shadow of stack-size-set! call forms; x86 registers no macro.
+* Per-frame jak1 repair canaries gated to jak1 (GCINE3-DEACT @0x191240,
+  GMATCH-RFTD @0x18aee4, + 5 crash-repair handlers + GSPARK/A38 diag blocks):
+  on jak2 those jak1-KERNEL.CGO addresses land in the SYMBOL TABLE / unrelated
+  data — the per-frame snapshot-restore was actively CORRUPTING live jak2
+  memory (observed reverting a legit symbol write, then new_type abort).
+* jak2 VAG stream glue (1f3faa463): ENG fallback for language-suffixed VAGWAD
+  (French device asked VAGWAD FRE; Android bundle ships ENG only) + drop-if-
+  unresolved + open_fr null-guard (was: null FileRecord deref on the fakeiso
+  pool worker, fault=0xc). Desktop-neutral.
 
 ------------------------------------------------------------------------
-1. QEMU LINK-HARNESS (game/linux-arm64, --game jak2)
+2. RENDERER SUBSET / MIPS2C WIRING (blocker 2)
 ------------------------------------------------------------------------
-Extended the jak1-only linux-arm64 qemu harness to boot jak2 (jak2 kernel TUs,
-jak2::InitHeapAndSymbol/link_and_exec branch, direct_dgo link-fn param, dummy pc-*/
-kernel-C binds, jak2 fn-ptr=0 fault naming). Reaches 420/437 GAME.CGO objects (last=
-collectables); jak1 path byte-identical (675, unregressed). Run:
-  qemu-aarch64-static -L /usr/aarch64-linux-gnu build-arm64-linux/game/linux-arm64/gk --game jak2
-The harness's fixed layout does NOT reproduce the device's intermittent double-EE-base
-crash (see section 3) — it proves codegen links, not the ASLR/heap-dependent runtime fault.
-
-------------------------------------------------------------------------
-2. FIVE COMMITTED FIXES (translation layer; branch autoport/android-port)
-------------------------------------------------------------------------
-0e61866ff  klink LDR-literal DATA-word misclassification: klink_arm64_patch_pc_rel's
-  loose mask flagged symlink Symbol4 data words as LDR-literal instructions + NOP'd them;
-  now returns kNotInstr so the caller does the correct raw-u32 store.
-99dc37f6d  jak2 ultimate_memcpy arm64: the GOAL scratchpad fast-copy corrupts the dest on
-  arm64; #ifndef __aarch64__ gate -> plain memmove. Advanced qemu boot 95 -> 420 objects.
-392627c28  a37_mips2c_prealloc_arena jak1-gate: it used jak1_symbols::FIX_SYM_* constants;
-  on jak2's Symbol4 table -> garbage type -> object-8 alloc crash. Gate to Jak1. Device 8->48.
-ab64c6d10  a11_pc_get_mips2c_impl returns 0 for jak2: the jak1 mips2c table (jak1 hash +
-  FIX_SYM + jak1::make_function_symbol_from_c) corrupts the jak2 table via def-mips2c. Device 75->114 deepest.
-a3f46d05f  crash-handler jak1-diagnostics gate: gk_sigsegv_diag + a40_dproc_probe +
-  a36_tree::arm_if_needed + 3 repair handlers interned jak1 symbols on the jak2 table ->
-  nested handler crash producing the 0xc4001b10 artifact. Gated all 11 to Jak1. THIS UNMASKED
-  the true bug. Also dropped the premature a17 bulk pc-* bind from the jak2 pchook.
-634820aa9  forensic tripwires (garbage-only logging; kept for next session).
+* Render handoff: __send-gfx-dma-chain/__pc-texture-upload-now/__pc-texture-
+  relocate/__read-ee-timer bound to the real game-agnostic a35_* bodies.
+* android renderer init game-aware: TexturePool(g_game_version), fr3 dir
+  out/<game>/fr3 (the jak2 bundle ships all 149 fr3s incl GAME.fr3), per-game
+  Loader level count.
+* jak2 chain dispatch: dispatch_buckets_jak2 mirrors desktop (buckets at
+  offset 0, no initial-CALL parse), vis-copy BUCKET_2/LEVEL_MAX.
+* jak2 bucket table (327): REAL = TFragment (all tfrag bands), Tie3 +
+  Tie3AnotherCategory (tie/etie all bands), Shrub, Merc2/Generic2 cores +
+  bucket renderers, Ocean mid/near, Sprite3 PARTICLES, Generic2 EFFECTS,
+  EyeRenderer, TextureUploadHandler (47 tex buckets), DirectRenderer (sky/
+  screen-filter/debug). SKIP (honest, deferred): VisDataHandler, BlitDisplays,
+  Shadow2, Warp (GMERC_WARP), ProgressRenderer, EMERC — TUs not in the android
+  build; 133 buckets skip cleanly.
+* jak2 mips2c REAL allowlist (device-proven jak1 families mirrored): sky (13
+  names), sparticle (4), foreground/bones (5), font (3), joint (2), adgif;
+  trampoline arena 192 slots.
+* Desktop-neutral null-guards where the curated renderer lacks components:
+  TextureUploadHandler (no TextureAnimator -> skip imm=12 anim packets; no eye
+  renderer -> consume eye blocks) and anim-slot texture lookups bounds-guarded
+  (Merc2 1 site, Tie3 5, TFragment 2 — jak2 draws carry negative anim-slot ids;
+  was a deterministic frame-~300 std::out_of_range SIGABRT).
 
 ------------------------------------------------------------------------
-3. THE TRUE REMAINING BLOCKER (corrected, clean diagnosis)
+3. x86 ORACLE / 1-TO-1 DISCIPLINE
 ------------------------------------------------------------------------
-After the 5 fixes, the device boots jak2 through InitMachine -> IOP/overlord -> KERNEL.CGO
--> GAME.CGO link, then crashes during boot-link top-level exec (before any frame). With the
-handler clean (5 runs): JAK1-ON-JAK2=0, BADPTR 0xc4001b10=0 (artifact gone). The real fault:
-  - A `BLR Xn` where the branch target is a base-relative pointer `ADD Xn, Xn, X15`
-    (X15 = g_ee_main_mem = 0x7f00000000, consistent — not ASLR).
-  - The formed target is CORRUPT: 0xfe001b0c84 / 0xfe872d7664 (top byte 0x7f DOUBLED to
-    0xfe = 2*base + offset), or 0x7f00000000 (bare base, offset dropped), or a stale ptr.
-  - i.e. arm64 base-relative address formation doubles the EE base or drops the GOAL offset.
-  - Crash object VARIES with ASLR/heap layout (display / decomp-h / vif-h / timer / smush-
-    control-h; 55-258 objects) — data-dependent, single-threaded (goal-active=1), device-only
-    (the fixed-layout qemu never triggers it -> reaches 420).
-This is the jak1 A19-A42 "double-EE-base / offset-register (R15/X15) rebase" codegen class
-(memory: arm64_x86_model_reg_ids, a35_state). The fix is in the goalc arm64 emitter/regalloc
-(the ADD Xn,Xn,X15 rebase site) + a full arm64 CGO regen. jak1 fought this class across ~20
-phases; the jak2 manifestation is a NEW pattern jak1's fixes did not fully cover.
-
-FALSIFIED hypotheses (each tested with device/qemu evidence, don't re-chase): alloc-from-heap
-garbage-type as the bug (was the a37/a11/handler artifacts); art-h segment stomp (was
-ultimate_memcpy, fixed); cross-thread GOAL race (goal-active=1); a17 premature bind; jak1
-symbol funcs on the boot path (0 hits — only the handler); method_set corrupt-Ptr<Type>
-(tripwire 0 hits — crash is upstream of method_set); IOP/overlord DMA stomp (buffers are high-heap).
+* engine goal_src (jak1+jak2, non-pc) UNTOUCHED all session (zero goal_src
+  diffs of any kind; all fixes live in goalc arm64-gated overrides, klink/
+  kernel runtime glue, android renderer, and overlord glue).
+* out/jak2/iso is the restored x86 oracle (KERNEL.CGO 101760 B); x86 jak2
+  boots to link finish + title display (verified repeatedly; the validator
+  smoke passes). Pre-existing upstream-class residual on our x86 build: an
+  OceanMid::run title-beat crash AFTER link finish (fnptr=base+0), present
+  before this phase's changes and out of its arm64 scope — noted honestly.
+* .autoport/gold untouched. jak1 unregressed at every step (qemu 675 byte-
+  identical mips2c REAL/FALLBACK sets; jak1 code paths gated, not modified).
 
 ------------------------------------------------------------------------
-4. PATH FORWARD (next session)
+4. HONEST RESIDUALS (deferred, named)
 ------------------------------------------------------------------------
-1. Fix the double-EE-base: instrument/trace the goalc arm64 emitter site that emits the
-   pre-BLR `ADD Xn, Xn, X15` (offset-register rebase) and the value feeding Xn. Determine why
-   Xn sometimes already contains the base (double-add) or 0 (offset dropped) — likely a
-   regalloc/spill interaction or a klink sym-PTR (MOVZ/MOVK) value that is a HOST pointer where
-   an OFFSET was expected (so the later +X15 doubles it). Fix in arm64 codegen; regen arm64 CGOs
-   (consistent full build); verify jak1 unregressed + x86 byte-identical (Tier-A gate).
-2. Then wire jak2 renderer subset + mips2c (blocker 2, still undone): mips2c_table_jak2_arm64
-   + jak2 mips2c TUs (game/CMakeLists) so def-mips2c binds (a11 currently returns 0 for jak2);
-   jak2 bucket registrations + GLES gates.
-3. Reach a first jak2 render frame on device; STRICT validator = real screencap + mCurrentFocus=jak2 + crash-free window.
-
-x86 jak2 oracle unaffected (all changes arm64/jak2-gated). engine goal_src UNTOUCHED.
-Forensic tripwires (634820aa9) are in HEAD to accelerate the next trace.
-
-------------------------------------------------------------------------
-Artifacts: .autoport/reports/Gjak2-render/*.log (qemu + device forensics: jak2-cleanhandler-run*,
-jak2-mset-run*, jak2-a11fix-run*, jak2-canary-run*, etc.). Commits 0e61866ff..634820aa9 on autoport/android-port.
-========================================================================
-
-========================================================================
-SESSION 2 (2026-07-07) — LIVE PROGRESS LOG (report will be rewritten at end)
-========================================================================
-- FIXED (committed ee473f3c2): jak2 arm64 mips2c wiring (game-aware table, per-game
-  arena/noop/allowlist, a11 serves jak2, 27 jak2 mips2c TUs in both arm64 builds).
-  qemu jak2: old 421-object SIGILL (adgif fn-ptr=0) GONE -> FULL 473-object GAME.CGO
-  link+execute, both EE bases. jak1 qemu byte-identical (675, 67 REAL/9 FALLBACK).
-- Committed 7467bac09: android crash-diag hardening (5 repair handlers gated jak1-only,
-  SA_NODEFER+depth guard, DBLEE-BLR forensic block).
-- Device (3 runs, deploy chain PROVEN build==APK==device a28defbe): still crashes in
-  boot-link, objects 18-32 (transform-h/vif-h/video-h), 3 masks of one defect:
-  method_set(type=0) SIGABRT / SIGSEGV pc=0x1afe04 (bare offset, x15=0!) / SIGBUS pc=0x7.
-- ESTABLISHED: qemu + device use IDENTICAL CGOs (APK sha == out/jak2-arm64-full/iso;
-  harness hardcodes that path; out/jak2/iso = x86 oracle, intact). Divergence is
-  environmental: Android runs real InitMachineScheme/PCPort (~200 trampolines + 3
-  filesystem-path strings) vs harness dummies (~85); staging-band top-level exec addr
-  differs; run-to-run variance on device only.
-- jak2 make_function_from_c_arm64 emitter AUDITED CLEAN (byte-identical to jak1 except
-  correct Symbol4 -1 bias; no overrun, alignment fine).
-- qemu ground truth: caller_ee 0x1b2b70 = runtime-emitted method-set! trampoline
-  (early-bind band, addresses identical device/qemu since pre-InitMachineScheme);
-  0x42b7fxx = transient DGO staging band (current object's top-level executes there).
-- Device anomaly signature: fixed-sym-area slot 0x187e18 read value 0x1afe04 (= early
-  trampoline NAME-STRING band) then jumped to it. NEXT: identify that slot's symbol +
-  what lives at 0x1afe04 (qemu, deterministic); upgrade device tripwire to recover the
-  GOAL caller from the trampoline frame + code window.
-
---- SESSION 2 progress (cont.) ---
-- Bug class #14 FIXED (a157ae909): stale icache on linked GOAL code (vestigial CacheFlush(base,0));
-  device boot-link crash class GONE (5/5), 18-32-object ceiling -> full link.
-- pc-* surface bound on Android jak2 (a9ae376e6): 349 -> 483 links, renderer up, kernel dispatch,
-  'Displaying level title'. draw-pc-fps-counter jak1-pc-layer leak bound (sole leaked symbol).
-- ctywide 'no entities' (break!) ROOT-CAUSED + FIXED (4b56d7de6): 'kmalloc: !alloc mem' is the
-  FAILURE print; ctywide's ~4.3MB level heap overflowed silently via klink's direct cursor advance
-  (arm64 code ~1.67x x86) -> entity array new returned 0. Fix: goalc arm64-only defconstant override
-  LEVEL_PAGE_SIZE_KB 126->168 (PROCESS_STACK_SAVE_SIZE pattern, x86 byte-identical) + full consistent
-  arm64 CGO regen (151 staged; x86 oracle restored 101760B) + bundle re-pack + device iso_data clear
-  (BUNDLE_VERSION=11 is NOT content-derived — manual `run-as rm -rf files/iso_data` needed!).
-  Device: 0 'no entities', 0 '!alloc mem', 565 link finishes (bikea/lwidea vehicle band). qemu 473 clean.
-- NEW deterministic ceiling (3/3 byte-identical): (break!) in the gcommon band pc=0x1bc7c4
-  (MOV x8,#0; CBNZ; UDF #beef = faithful (/ 0 0)); diag: next-state-name-sym=0x0500187e =
-  s7/#f (0x187e01) BYTE-SHIFTED +1 => a jak2 Symbol4 -1-bias store applied to a NON-value-slot
-  (state name field written at field-1), enter-state/next-state dispatch during vehicle init.
-  NEXT: map gcommon+~0x1bc7c4 to its function/(break!) site; find the -1-biased writer; fix.
-
---- SESSION 2 progress (cont. 2) ---
-- suspend-budget pad (goalc macro shadow, 2n+128) VERIFIED: 0 suspend errors.
-- VAG ENG-fallback + null guards: VAG crash GONE (French device asked VAGWAD FRE; bundle ships ENG only).
-- Renderer game-aware (TexturePool/fr3 dir/Loader count): GAME.fr3 + 148 jak2 fr3s load on device.
-- jak2 chain dispatch + 327-bucket table in android renderer (tex=47 real, direct=5 real, skip=275).
-- TextureUploadHandler null-guards (animator/eye) — desktop-neutral.
-- Per-frame jak1 repair canaries (GCINE3-DEACT/GMATCH-RFTD) gated to jak1 — on jak2 they were
-  REVERTING LIVE SYMBOL-TABLE SLOTS EVERY FRAME (the frame-3-5 crash class).
-- RESULT NOW: device runs jak2 SUSTAINED CRASH-FREE 600s, pid stable, focus=jak2, ~64fps,
-  38400 frames, game_frames flowing, title+ctywide+lwidea+ctysluma in display list; screen shows a
-  GAME-DRAWN sky gradient quad (draws=2 tris=2-4 via SKY_DRAW DirectRenderer — a GL clear cannot
-  produce a gradient). First jak2-drawn pixels; scene geometry still skipped (275 unported buckets).
-- NEXT: register compiled 3D families (TFragment/Tie3/Shrub/Merc2/Sprite/Ocean) on jak2 bucket IDs
-  (fr3-driven, all assets present) + extend jak2 mips2c real allowlist (sky/sprite/foreground/bones/
-  draw-string families) + bump jak2 tramp arena slots (exhaustion warning seen).
+* Intro cutscene (run 1 only): advancing from the attract flythrough into the
+  intro-samos-hut cutscene killed the pid without a captured native signal;
+  runs 2/3 stayed in the flythrough full-window. Known jak2 cutscene class;
+  needs its own phase.
+* Merc/tie animated textures bind placeholder 0 (no TextureAnimator on
+  Android yet); shadow/warp/progress/blit buckets skip; eye renderer wired but
+  eye textures unverified. Partial render by design of the curated subset.
+* VAGWAD non-ENG audio absent from the bundle (ENG fallback active).
+* The jak2 renderer draws flat/dark night lighting; visual-quality gates
+  (pixel-compare vs x86 oracle) are future-phase work per [[state-dumps]].
