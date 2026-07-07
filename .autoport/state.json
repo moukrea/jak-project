@@ -335,6 +335,9 @@
     ],
     "Gjak2-boot": [
       "f9c774796cac"
+    ],
+    "Gjak2-render": [
+      "f02d01141345"
     ]
   },
   "stuck_reasons": {
@@ -680,7 +683,7 @@
     "Gjak2-boot": 1783325216.9940019,
     "Gjak2-render": 1783372984.0241954
   },
-  "last_update": "2026-07-07T05:28:42.997427+00:00",
+  "last_update": "2026-07-07T05:28:43.734733+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
