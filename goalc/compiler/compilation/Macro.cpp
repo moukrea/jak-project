@@ -233,6 +233,25 @@ Val* Compiler::compile_define_constant(const goos::Object& form,
     value = goos::Object::make_integer(512);
   }
 
+  // ── arm64 (autoport Gjak2-render, same x86-byte-untouched pattern) ──────────
+  // LEVEL_PAGE_SIZE_KB sizes the jak2/jak3 level heaps (level.gc: heap-size =
+  // pages*LEVEL_PAGE_SIZE, region = NUM_LEVEL_PAGES pages). The original 126 KB
+  // page is budgeted for x86 GOAL code density. arm64-compiled level objects are
+  // substantially larger (measured 1.67x on gcommon main), and jak2's ctywide
+  // overflowed its ~4.3 MB slot silently via klink's direct heap-cursor advance
+  // (cur 0x2fdd880 > top 0x2fc1aa0), so the level's entity-links-array kmalloc
+  // FAILED -> (-> level entity) = 0 -> "ctywide-activate: level ctywide has no
+  // entities!!" -> (break!) SIGILL on device. Enlarge pages for arm64 ONLY
+  // (126 -> 168, +33%, covers the measured worst-case code inflation share);
+  // x86 keeps 126 so x86 CGOs stay byte-identical to the pristine golden. The
+  // level region is allocated from the 128 MB PC map via the derived
+  // DEBUG_LEVEL_HEAP_SIZE (level.gc:1867), so the growth is self-consistent.
+  if (goal && m_instr_set == emitter::InstructionSet::ARM64 &&
+      std::string(sym.name_ptr) == "LEVEL_PAGE_SIZE_KB" && value.is_int() &&
+      value.as_int() == 126) {
+    value = goos::Object::make_integer(168);
+  }
+
   // GOAL constant
   if (goal) {
     if (m_symbol_types.lookup(sym)) {

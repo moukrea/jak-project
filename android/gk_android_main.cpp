@@ -104,6 +104,11 @@ constexpr const char* kGkVersion =
     "OpenGOAL gk (Android arm64-v8a, autoport phase 13 runtime)";
 constexpr const char* kGkLogTag = "opengoal-gk";
 
+// [autoport temporary forensic probe] jak2 ctywide "no entities" break.
+// GOAL array-basic pointer of the "entity-links-array" allocation, captured
+// in game/kernel/common/kmalloc.cpp; dumped in gk_sigsegv_diag below.
+extern "C" u32 g_gjak2_entlinks_addr;
+
 // Phase 13: the touch event ring is a placeholder until SDL is wired up
 // natively. We just log incoming events so they're observable in logcat
 // and keep an atomic counter so smoke tests can assert input plumbing.
@@ -6627,6 +6632,134 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                             "GK-DIAG %s %s%+d ee=0x%x: 0x%08x", regs_[i].label,
                             short_lbl, k, (unsigned)((int)goal_off + k),
                             okr ? w : 0xffffffffu);
+      }
+    }
+  }
+  // [autoport temporary forensic probe] jak2 ctywide "no entities" break:
+  // dump the raw words of the "entity-links-array" whose GOAL array-basic
+  // pointer was captured in kmalloc (game/kernel/common/kmalloc.cpp). Dumps
+  // the type tag (-4), the array header words (+0..+8: type/length/allocated-
+  // length) and the first entity-links entries as raw u32s up to +0x88.
+  // Async-signal-safe (guarded reads + log). jak2-gated. Remove once fixed.
+  {
+    if (g_game_version == GameVersion::Jak2 && g_gjak2_entlinks_addr) {
+      const uintptr_t a =
+          reinterpret_cast<uintptr_t>(g_ee_main_mem) + g_gjak2_entlinks_addr;
+      for (int off = -4; off < 0x8c; off += 4) {
+        uint32_t w = 0;
+        if (gk_diag::safe_read_u32(a + off, &w)) {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG ENTARR +%d = 0x%08x", off, w);
+        }
+      }
+    }
+  }
+  // [autoport temporary forensic probe] jak2 ctywide "no entities": dump the
+  // level object graph to test whether the ctywide entity-links-array captured
+  // in g_gjak2_entlinks_addr (GOAL ptr, 8720-byte alloc) OVERLAPS live level /
+  // bsp data. Offsets are from decompiler/config/jak2/all-types.gc :offset-assert:
+  //   level-group: length@4, log-in-level-bsp@8, inline level[] base@256,
+  //                sizeof(level)=5232 (level1@5488 - level0@256).
+  //   level:       name@4, status@20, kheap(inline)@48 {base@48 top@52 cur@56
+  //                top-base@60}, bsp@96, entity@248.
+  //   bsp-header:  name@72, actors@112, nodes@120, level-backref@124, size=0x190.
+  //   kheapinfo (game/kernel/common/kmalloc.h): base/top/current/top_base @0/4/8/12.
+  // *level* symbol value = level-group GOAL ptr; jak2::intern_from_c is a hash
+  // lookup that only allocates when the symbol is MISSING (*level* is interned by
+  // GAME.CGO), guarded by SymbolTable2.offset != 0 (table live). Async-signal-safe:
+  // guarded reads + log only, NO allocation. jak2-gated. Remove once fixed.
+  {
+    if (g_game_version == GameVersion::Jak2 && g_gjak2_entlinks_addr &&
+        SymbolTable2.offset != 0) {
+      const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+      const u32 A = g_gjak2_entlinks_addr;  // captured entity-links-array GOAL ptr
+      const u32 lg = jak2::intern_from_c("*level*")->value();  // level-group GOAL ptr
+      __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG LVLGRAPH level-group=0x%x entlinks=0x%x range[0x%x,0x%x)",
+                          lg, A, A - 4, A - 4 + 8720);
+      auto in_ent = [&](u32 p) -> bool {
+        return p != 0 && p >= (A - 4) && p < (A - 4 + 8720);
+      };
+      // GOAL-field off-by-4: all-types :offset-assert counts from the OBJECT
+      // start (type tag at 0, fields from 4); GOAL pointers are BASIC pointers
+      // (tag at -4), so C-side reads use assert-offset MINUS 4. Ground truth:
+      // emitted arm64 reads level.entity at basic+244 (assert 248), bsp.actors
+      // at basic+108 (assert 112), backref at basic+120 (assert 124).
+      u32 lg_len = 0;
+      if (lg) gk_diag::safe_read_u32(ee + lg + 0, &lg_len);  // length (assert 4)
+      const int kLevelSize = 5232;
+      // Inline BASIC array elements: the assert offset (256) points at the
+      // element's BASIC pointer directly (its own tag sits at 252) — verified:
+      // kmalloc's "heap 887f90" == lg+256+5232 (L1 basic) + 44 (heap assert 48-4).
+      const u32 kLevelBase = 256;
+      int nlev = (int)lg_len;
+      if (nlev < 0 || nlev > 10) nlev = 10;  // iterate up to LEVEL_TOTAL-ish, cap 10
+      for (int i = 0; lg && i < nlev; i++) {
+        const u32 L = lg + kLevelBase + (u32)i * kLevelSize;  // GOAL basic ptr of level i
+        u32 name_ptr = 0, bsp = 0, entity = 0;
+        u32 hbase = 0, hcur = 0, htop = 0;
+        gk_diag::safe_read_u32(ee + L + 0, &name_ptr);   // level.name (assert 4)
+        gk_diag::safe_read_u32(ee + L + 92, &bsp);       // level.bsp (assert 96)
+        gk_diag::safe_read_u32(ee + L + 244, &entity);   // level.entity (assert 248)
+        gk_diag::safe_read_u32(ee + L + 44, &hbase);     // level.heap.base (assert 48)
+        gk_diag::safe_read_u32(ee + L + 52, &hcur);      // level.heap.current (assert 56)
+        gk_diag::safe_read_u32(ee + L + 48, &htop);      // level.heap.top (assert 52)
+        // level.name is a SYMBOL: resolve via the jak2 name table — the name
+        // Ptr<String> word is the 8-aligned u32 at value_slot(sym-1)+0xff38;
+        // string chars start at base+V+4 (technique proven in the slot-ident
+        // forensics). name_ptr here is the symbol GOAL ptr (odd, &3==1).
+        char nm[17];
+        nm[0] = '\0';
+        if (name_ptr > 4) {
+          u32 vslot = name_ptr - 1;
+          u32 nameword = 0;
+          if (gk_diag::safe_read_u32(ee + ((vslot + 0xff38) & ~3u), &nameword) &&
+              nameword > 4 && nameword < EE_MAIN_MEM_SIZE) {
+            for (int b = 0; b < 16; b++) {
+              u32 w = 0;
+              nm[b] = gk_diag::safe_read_u32(ee + nameword + 4 + b, &w) ? (char)(w & 0xff) : '\0';
+              if (!nm[b] || (unsigned char)nm[b] < 0x20 || (unsigned char)nm[b] > 0x7e) {
+                nm[b] = '\0';
+                break;
+              }
+            }
+            nm[16] = '\0';
+          }
+        }
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG LVLGRAPH L%d @0x%x name=<%s> bsp=0x%x "
+                            "entity=0x%x heap-base=0x%x cur=0x%x top=0x%x",
+                            i, L, nm, bsp, entity, hbase, hcur, htop);
+        if (bsp) {
+          u32 actors = 0, backref = 0;
+          gk_diag::safe_read_u32(ee + bsp + 108, &actors);   // bsp-header.actors (assert 112)
+          gk_diag::safe_read_u32(ee + bsp + 120, &backref);  // bsp-header.level backref (assert 124)
+          u32 aw0 = 0, aw1 = 0, aw2 = 0;
+          if (actors) {
+            gk_diag::safe_read_u32(ee + actors + 0, &aw0);  // type tag
+            gk_diag::safe_read_u32(ee + actors + 4, &aw1);  // (s16 length @+2..+3)
+            gk_diag::safe_read_u32(ee + actors + 8, &aw2);
+          }
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG LVLGRAPH L%d bsp-actors=0x%x actors-w0=0x%08x "
+                              "w1=0x%08x w2=0x%08x backref=0x%x",
+                              i, actors, aw0, aw1, aw2, backref);
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG LVLGRAPH L%d OVERLAP level=%s bsp=%s actors=%s "
+                              "entity=%s heap-base=%s",
+                              i, in_ent(L) ? "yes" : "no",
+                              in_ent(bsp) ? "yes" : "no",
+                              in_ent(actors) ? "yes" : "no",
+                              in_ent(entity) ? "yes" : "no",
+                              in_ent(hbase) ? "yes" : "no");
+        } else {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG LVLGRAPH L%d OVERLAP level=%s bsp=(null) "
+                              "entity=%s heap-base=%s",
+                              i, in_ent(L) ? "yes" : "no",
+                              in_ent(entity) ? "yes" : "no",
+                              in_ent(hbase) ? "yes" : "no");
+        }
       }
     }
   }

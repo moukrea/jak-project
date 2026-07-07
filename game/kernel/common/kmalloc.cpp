@@ -15,6 +15,13 @@ Ptr<kheapinfo> kglobalheap;
 Ptr<kheapinfo> kdebugheap;
 // if we should count the number of strings and types allocated on the global heap.
 bool kheaplogging = false;
+
+// [autoport temporary forensic probe] jak2 ctywide "no entities" break.
+// Records the GOAL array-basic pointer of the "entity-links-array" allocation
+// so the crash handler (gk_sigsegv_diag) can dump its raw words. Defined here
+// (compiled into android + linux-arm64 + x86), extern'd from the handler side.
+// The global is kept unconditional (tiny); the capture is arm64-gated below.
+extern "C" u32 g_gjak2_entlinks_addr = 0;
 enum MemItemsCategory {
   STRING = 0,
   TYPE = 1,
@@ -171,6 +178,14 @@ Ptr<u8> kmalloc(Ptr<kheapinfo> heap, s32 size, u32 flags, char const* name) {
       std::memset(Ptr<u8>(memstart).c(), 0, (size_t)size);
     // Phase 26: bottom-allocator high-water mark moved.
     __goal_runtime_trace_kheap(reinterpret_cast<uint64_t>(heap->current.c()));
+#ifdef __aarch64__
+    // [autoport temporary forensic probe] Record the GOAL array-basic pointer.
+    // kmalloc returns the raw aligned offset (memstart); the GOAL `new` caller
+    // adds BASIC_OFFSET (+4) to form the pointer GOAL code holds. Store that.
+    if (name && strcmp(name, "entity-links-array") == 0) {
+      g_gjak2_entlinks_addr = memstart + BASIC_OFFSET;
+    }
+#endif
     return Ptr<u8>(memstart);
   } else {
     // allocate from top

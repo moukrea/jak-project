@@ -48,6 +48,33 @@ Compiler::Compiler(GameVersion version,
   Object library_code = m_goos.reader.read_from_file({"goal_src", "goal-lib.gc"});
   compile_object_file("goal-lib", library_code, false);
 
+  // ── arm64 (autoport Gjak2-render, x86 byte-untouched) ──
+  // jak2 engine code tunes per-process suspend-backup budgets (stack-size-set!)
+  // for x86/MIPS frame density (vehicle.gc:1819 sets 16!). arm64 frames are
+  // fatter (mandatory STP x29,x30 + 16B SP alignment), so thread-suspend's
+  // stack-used check overflows tight budgets (device: bikea 48/32 -> the
+  // gkernel.gc:657 (break) SIGILL during ctywide traffic init). Shadow the
+  // call form with a 2n+128 pad (a flat +64 still overflowed: a vehicle wait-loop
+  // suspend measured >80 against 16+64 — arm64 usage scales with frame depth, so
+  // the pad must too; 16->160, 512->1152). Method identity is unchanged
+  // (method-of-type thread stack-size-set!), x86 registers no macro. Heap cost:
+  // ~n+128 B/process from the dead-pool chunk (asize follows stack-size).
+  // Same class as the PROCESS_STACK_SAVE_SIZE 256->512 override (jak1 hopper).
+  //
+  // NOTE: this is a *call-form* shadow. defmethod reads its method-name argument
+  // as a raw symbol (never compiled as a form), so (defmethod stack-size-set! ...)
+  // in gkernel.gc is NOT macro-expanded; and the macro body references the method
+  // only via (method-of-type thread stack-size-set!), where the name is again an
+  // argument, so there is no self-recursive expansion. Verified by compiling
+  // kernel/gkernel + a callsite (vehicle) with the arm64 goalc.
+  if (m_instr_set == emitter::InstructionSet::ARM64) {
+    Object arm64_stack_pad_macro = m_goos.reader.read_from_string(
+        "(defmacro stack-size-set! (thrd size)\n"
+        "  `((method-of-type thread stack-size-set!) ,thrd (+ (* 2 ,size) 128)))\n",
+        true);
+    compile_object_file("goal-lib-arm64", arm64_stack_pad_macro, false);
+  }
+
   // user profile stuff
   if (user_profile != "#f" && fs::exists(file_util::get_jak_project_dir() / "goal_src" / "user" /
                                          user_profile / "user.gc")) {
