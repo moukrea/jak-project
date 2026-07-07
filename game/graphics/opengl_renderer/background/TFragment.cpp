@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "game/graphics/opengl_renderer/dma_helpers.h"
+#include "game/kernel/jak2/kscheme.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -579,6 +580,18 @@ void TFragment::render_tree(int geom,
         const auto& it = settings.camera.itimes;
         const u8* c0 = (const u8*)m_color_result.data();
         const u8* fc = render_state->fog_color.data();
+        // Near-white histogram of the interpolated TOD palette — a blown
+        // sse2neon interp would show here as a large near-white fraction.
+        int white_cnt = 0;
+        const int tod_total = (int)tree.colors->color_count;
+        for (int ci = 0; ci < tod_total; ci++) {
+          const u8* c = c0 + ci * 4;
+          if (c[0] >= 0xF0 && c[1] >= 0xF0 && c[2] >= 0xF0) {
+            white_cnt++;
+          }
+        }
+        fprintf(stderr, "GJ2VIS-TODWHITE lvl=%s tree=%d white=%d/%d\n", m_level_name.c_str(),
+                settings.tree_idx, white_cnt, tod_total);
         fprintf(stderr,
                 "GJ2VIS-TOD lvl=%s tree=%d fog=(%.4f %.3f %.3f) hvdfw=%.3f "
                 "itimes=%08x,%08x,%08x,%08x|%08x,%08x,%08x,%08x|"
@@ -594,6 +607,94 @@ void TFragment::render_tree(int geom,
       }
     }
   }
+  // Gjak2-visuals clock probe: the searchlight flood + texture-anim freeze
+  // both hang off GOAL clocks that stop ticking on the device (~18 s in)
+  // while camera/TOD clocks keep running. tick! (jak2 timer.gc:250) freezes a
+  // clock when (logand clock.mask *kernel-context*.prevent-from-run) != 0, so
+  // dump master-mode, prevent-from-run, and the frame-counters of the two
+  // clock families side by side. Offsets from decompiler all-types (display
+  // clocks: game=44 base=48 real=52 entity=68 part=72 camera=80; clock
+  // frame-counter=24 ratio=12 spf=80; kernel-context prevent-from-run=4;
+  // cpad-list cpads0=8, hw-cpad valid=4 button0=6; basic fields read at
+  // offset-4). Diffable our-x86 (env GJ2VIS_TFTREE) vs device (always).
+  if (render_state->version == GameVersion::Jak2) {
+#ifdef __ANDROID__
+    static const bool s_clk_dump = true;
+#else
+    static const bool s_clk_dump = getenv("GJ2VIS_TFTREE") != nullptr;
+#endif
+    if (s_clk_dump) {
+      static int s_clk_ctr = 0;
+      if ((s_clk_ctr++ % 300) == 0) {
+        const u8* ee = (const u8*)render_state->ee_main_memory;
+        auto rd_u32 = [&](u32 addr) {
+          u32 v = 0;
+          memcpy(&v, ee + addr, 4);
+          return v;
+        };
+        auto rd_s64 = [&](u32 addr) {
+          s64 v = 0;
+          memcpy(&v, ee + addr, 8);
+          return v;
+        };
+        auto rd_f32 = [&](u32 addr) {
+          float v = 0;
+          memcpy(&v, ee + addr, 4);
+          return v;
+        };
+        auto ok = [](u32 a) { return a > 0x1000 && a < 0x8000000; };
+        u32 disp = ::jak2::intern_from_c("*display*")->value();
+        u32 kctx = ::jak2::intern_from_c("*kernel-context*")->value();
+        u32 mm = ::jak2::intern_from_c("*master-mode*")->value();
+        u32 cpl = ::jak2::intern_from_c("*cpad-list*")->value();
+        const char* mmn = "?";
+        if (mm == ::jak2::intern_from_c("game").offset) {
+          mmn = "game";
+        } else if (mm == ::jak2::intern_from_c("pause").offset) {
+          mmn = "pause";
+        } else if (mm == ::jak2::intern_from_c("menu").offset) {
+          mmn = "menu";
+        } else if (mm == ::jak2::intern_from_c("progress").offset) {
+          mmn = "progress";
+        } else if (mm == ::jak2::intern_from_c("freeze").offset) {
+          mmn = "freeze";
+        }
+        u32 prevent = ok(kctx) ? rd_u32(kctx + 4 - 4) : 0xdead;
+        auto clk = [&](int disp_off, s64* fc, float* ratio, u32* mask, float* spf) {
+          u32 p = ok(disp) ? rd_u32(disp + disp_off - 4) : 0;
+          if (ok(p)) {
+            *fc = rd_s64(p + 24 - 4);
+            *ratio = rd_f32(p + 12 - 4);
+            *mask = rd_u32(p + 8 - 4);
+            *spf = rd_f32(p + 80 - 4);
+          }
+        };
+        s64 fc_ent = -1, fc_base = -1, fc_game = -1, fc_part = -1, fc_real = -1, fc_cam = -1;
+        float r_ent = -1, r_base = -1, r_game = -1, r_part = -1, r_real = -1, r_cam = -1;
+        u32 m_ent = 0, m_base = 0, m_game = 0, m_part = 0, m_real = 0, m_cam = 0;
+        float s_ent = -1, s_base = -1, s_game = -1, s_part = -1, s_real = -1, s_cam = -1;
+        clk(68, &fc_ent, &r_ent, &m_ent, &s_ent);
+        clk(48, &fc_base, &r_base, &m_base, &s_base);
+        clk(44, &fc_game, &r_game, &m_game, &s_game);
+        clk(72, &fc_part, &r_part, &m_part, &s_part);
+        clk(52, &fc_real, &r_real, &m_real, &s_real);
+        clk(80, &fc_cam, &r_cam, &m_cam, &s_cam);
+        u32 pad0 = ok(cpl) ? rd_u32(cpl + 8 - 4) : 0;
+        u32 pad_valid = ok(pad0) ? ee[pad0 + 4 - 4] : 0xff;
+        u32 pad_btn = 0;
+        if (ok(pad0)) {
+          memcpy(&pad_btn, ee + pad0 + 6 - 4, 2);
+        }
+        fprintf(stderr,
+                "GJ2VIS-CLOCK mm=%s(0x%x) prevent=0x%x ent=%lld(r=%.2f m=0x%x spf=%.4f) "
+                "game=%lld part=%lld base=%lld real=%lld cam=%lld pad0(v=%02x b=%04x)\n",
+                mmn, mm, prevent, (long long)fc_ent, r_ent, m_ent, s_ent, (long long)fc_game,
+                (long long)fc_part, (long long)fc_base, (long long)fc_real, (long long)fc_cam,
+                pad_valid, pad_btn);
+      }
+    }
+  }
+
 #ifdef __ANDROID__
   // A42 probe: where do the village tris die — culling (vis_temp all
   // zero), index-building, TOD colors (alpha-test kill), GL error, or
