@@ -515,7 +515,17 @@ void klink_a11_ensure_pc_mips2c_bound() {
   auto fn = klink_mfsfc_for_game("__pc-get-mips2c",
                                  (void*)a11_pc_get_mips2c_impl);
 #ifdef __aarch64__
-  a37_mips2c_prealloc_arena();
+  // Gjak2-render: a37_mips2c_prealloc_arena() lives in mips2c_table_jak1_arm64.cpp
+  // and allocates its trampoline arena with jak1-ONLY symbol constants
+  // (jak1_symbols::FIX_SYM_GLOBAL_HEAP=0x140, FIX_SYM_FUNCTION_TYPE=0x10). On the
+  // jak2 Symbol4 table those offsets (0xa0 / 0x8) read the WRONG slot -> a garbage
+  // type ptr (0x??001afe) -> jak1::alloc_from_heap SIGSEGV right after KERNEL.CGO
+  // links (device object-8 crash). The whole jak1 arm64 mips2c table is jak1-only
+  // (its LinkedFunctionTable::reg asserts g_game_version==Jak1); jak2 binds its
+  // mips2c/pc-helpers via the real jak2::InitMachine_PCPort. Gate to jak1.
+  if (g_game_version == GameVersion::Jak1) {
+    a37_mips2c_prealloc_arena();
+  }
 #endif
   s_bound = true;
   std::fprintf(stderr,
