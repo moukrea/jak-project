@@ -4720,6 +4720,11 @@ bool handle_band_fault(siginfo_t* info, void* ucontext) {
 std::atomic<uint64_t> g_dblee_repairs{0};
 std::atomic<uint64_t> g_dblee_kerncode_drops{0};
 bool handle_double_ee_base_fault(int sig, siginfo_t* info, void* ucontext) {
+  // Gjak2-render: jak1-ONLY workaround (jak1 sage-intro blerc double-EE store).
+  // On jak2 it mis-fires on transient boot faults -> writes a wrong dest reg + pc+=4,
+  // corrupting register/PC state and resuming into a stale-X9 method-dispatch BLR
+  // (the non-deterministic header-deftype crash). jak2 has its own codegen; never repair.
+  if (g_game_version != GameVersion::Jak1) return false;
   if (sig != SIGSEGV || !g_ee_main_mem) {
     return false;
   }
@@ -4903,6 +4908,7 @@ extern unsigned int g_gmatch_rftd_len;
 // never masked (band intact -> returns false -> normal fatal path).
 std::atomic<uint64_t> g_rftd_sigill_repairs{0};
 bool handle_rftd_code_stomp(int sig, siginfo_t* /*info*/, void* ucontext) {
+  if (g_game_version != GameVersion::Jak1) return false;  // Gjak2-render: jak1-only repair
   if ((sig != SIGILL && sig != SIGSEGV) || !g_ee_main_mem || !g_gmatch_rftd_good) {
     return false;
   }
@@ -4953,6 +4959,7 @@ bool handle_rftd_code_stomp(int sig, siginfo_t* /*info*/, void* ucontext) {
 // so we always land in valid trampoline code. arm64/Android only; x86 untouched.
 std::atomic<uint64_t> g_rftd_nullret_redirects{0};
 bool handle_rftd_null_return(int sig, siginfo_t* /*info*/, void* ucontext) {
+  if (g_game_version != GameVersion::Jak1) return false;  // Gjak2-render: jak1-only repair
   // Gcrash-swamp-load (debug-only): let the TRUE first crash reach the fatal dump
   // instead of being repaired into a silent redirect. Gated debug.opengoal.diag.norepair.
   if (a38_trip::g_gk_diag_norepair.load(std::memory_order_relaxed)) return false;
@@ -5219,6 +5226,7 @@ inline uint32_t recover_corrupt_joint_control(const ucontext_t* uc,
 }
 
 bool handle_null_framegroup_type_read(int sig, siginfo_t* info, void* ucontext) {
+  if (g_game_version != GameVersion::Jak1) return false;  // Gjak2-render: jak1-only repair
   // Gcrash-swamp-load (debug-only): let the TRUE first crash reach the fatal dump
   // instead of being repaired. Shared diag flag with the other repair handlers.
   if (a38_trip::g_gk_diag_norepair.load(std::memory_order_relaxed)) return false;
@@ -5728,6 +5736,7 @@ bool handle_null_framegroup_type_read(int sig, siginfo_t* info, void* ucontext) 
 // (the spilled slot is never stomped there).
 std::atomic<uint64_t> g_enter_state_code_repairs{0};
 bool handle_enter_state_null_code(int sig, siginfo_t* /*info*/, void* ucontext) {
+  if (g_game_version != GameVersion::Jak1) return false;  // Gjak2-render: jak1-only repair
   // Gcrash-swamp-load (debug-only): let the TRUE first crash reach the fatal dump
   // instead of being repaired into a silent redirect. Gated debug.opengoal.diag.norepair.
   if (a38_trip::g_gk_diag_norepair.load(std::memory_order_relaxed)) return false;
@@ -6090,6 +6099,16 @@ extern "C" void gk_set_diag_norepair(bool on) {
 }  // extern "C++"
 
 void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
+  // Gjak2-render re-entrancy guard: with SA_NODEFER a nested fault (e.g. a
+  // dladdr STACKWALK crash) re-enters this handler instead of silently killing.
+  // Bail to SIG_DFL after a few levels so we can't spin forever. Belt-and-
+  // suspenders: the DBLEE-BLR block below prints before STACKWALK anyway.
+  static volatile sig_atomic_t g_diag_depth = 0;
+  if (g_diag_depth++ > 3) {
+    signal(sig, SIG_DFL);
+    raise(sig);
+    return;
+  }
   // A38: band write-fault tripwire — expected, RESUMING faults. Must run
   // before everything else: the rest of this function is the fatal-crash
   // dump path and ends in re-raise.
@@ -6162,6 +6181,65 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                       "GK-DIAG sig=%d fault=0x%lx pc=0x%lx lr=0x%lx",
                       sig, (unsigned long)fault, (unsigned long)pc,
                       (unsigned long)lr);
+
+  // === Gjak2-render DBLEE-BLR forensic block: front-loaded so a truncating
+  // STACKWALK nested-crash (dladdr) can NEVER hide it. Fires only when pc lands
+  // in the doubled-EE-base window [2*ee, 2*ee+EE_SIZE): the BLR jumped to a
+  // target whose source value was already a host pointer, so the codegen +X15
+  // rebase doubled it. Everything here goes through the siglongjmp-guarded safe
+  // reader / the bounds-checked symbol walkers — no dladdr, no raw deref. ===
+  {
+    uintptr_t ee = static_cast<uintptr_t>(uc->uc_mcontext.regs[15]);
+    if (ee == 0) ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    const uintptr_t EE_SIZE = static_cast<uintptr_t>(EE_MAIN_MEM_SIZE);  // 0x8000000
+    uintptr_t pcv = static_cast<uintptr_t>(uc->uc_mcontext.pc);
+    bool pc_dbl = (ee != 0) && (pcv >= 2 * ee) && (pcv < 2 * ee + EE_SIZE);
+    if (pc_dbl) {
+      uintptr_t corrected = pcv - 2 * ee;  // GOAL offset of the intended callee
+      uintptr_t x16 = static_cast<uintptr_t>(uc->uc_mcontext.regs[16]);
+      uintptr_t x9 = static_cast<uintptr_t>(uc->uc_mcontext.regs[9]);
+      uintptr_t lrv = static_cast<uintptr_t>(uc->uc_mcontext.regs[30]);
+      __android_log_print(
+          ANDROID_LOG_FATAL, kGkLogTag,
+          "GK-DIAG DBLEE-BLR pc=0x%lx corrected-callee=goal:0x%lx x16=0x%lx "
+          "x9=0x%lx lr=0x%lx ee=0x%lx",
+          (unsigned long)pcv, (unsigned long)corrected, (unsigned long)x16,
+          (unsigned long)x9, (unsigned long)lrv, (unsigned long)ee);
+      // Name the intended callee (single-based) + the caller (both mapped).
+      a38_trip::log_nearest_goal_fn("dblee-callee", static_cast<uint32_t>(corrected));
+      if (uint32_t glr = a38_trip::to_goal(lrv)) {
+        a38_trip::log_nearest_goal_fn("dblee-caller", glr);
+      }
+      // symbol/type name at X16 (single-based host addr, in EE range).
+      gk_diag::dump_sym_name_at_slot(x16);
+      // raw 64-bit contents of the slot X16 points at.
+      uint32_t lo = 0, hi = 0;
+      if (gk_diag::safe_read_u32(x16, &lo) && gk_diag::safe_read_u32(x16 + 4, &hi)) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG DBLEE-BLR slot[X16] = 0x%08x%08x (host if hi!=0)",
+                            hi, lo);
+      }
+      // the value BEFORE the final +X15 (= x9 - ee), and its single-based goal.
+      uintptr_t predouble = x9 - ee;
+      __android_log_print(
+          ANDROID_LOG_FATAL, kGkLogTag,
+          "GK-DIAG DBLEE-BLR predouble=0x%lx single-based-goal=0x%lx",
+          (unsigned long)predouble,
+          (unsigned long)(predouble >= ee ? predouble - ee : predouble));
+      // LR window: dump 24 words lr-64..lr+32 as hex (safe) for offline BLR/ADD-X15 decode.
+      for (int off = -64; off <= 32; off += 4) {
+        uint32_t w = 0;
+        if (gk_diag::safe_read_u32(lrv + off, &w)) {
+          __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                              "GK-DIAG DBLEE-LRWIN lr%+d = 0x%08x", off, w);
+        }
+      }
+      // back-walk the BLR-target register provenance (reuse existing walkers).
+      gk_diag::dump_type_method_zero_chain(lrv, uc);
+      gk_diag::dump_stack_fnptr_zero_chain(lrv,
+                                           static_cast<uintptr_t>(uc->uc_mcontext.sp));
+    }
+  }
 
   // Gjak2-render concurrent-GOAL race detector: if two threads are inside GOAL
   // on the single shared GOAL stack at the moment of the crash, goal-active > 1
@@ -7595,6 +7673,10 @@ void gk_install_sigsegv_diag() {
   struct sigaction sa{};
   sa.sa_sigaction = &gk_sigsegv_diag;
   sa.sa_flags = SA_SIGINFO;
+  // Gjak2-render: SA_NODEFER so a nested fault inside the handler (e.g. the
+  // unguarded dladdr STACKWALK) re-enters the handler instead of silently
+  // killing the process; the re-entrancy depth guard at the top bounds it.
+  sa.sa_flags |= SA_NODEFER;
   sigaction(SIGSEGV, &sa, nullptr);
   sigaction(SIGBUS, &sa, nullptr);
   sigaction(SIGILL, &sa, nullptr);
