@@ -137,6 +137,10 @@ AndroidOpenGLRenderer::AndroidOpenGLRenderer(std::shared_ptr<TexturePool> textur
   }
 }
 
+// Defaulted here (not in the header) so the unique_ptr<EyeRenderer> member is
+// destroyed where EyeRenderer is complete (EyeRenderer.h is included above).
+AndroidOpenGLRenderer::~AndroidOpenGLRenderer() = default;
+
 void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   using namespace jak1;
   m_bucket_renderers.resize((int)BucketId::MAX_BUCKETS);
@@ -411,52 +415,262 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   // mirrors the "no animator" state — the tex-upload path itself is unchanged.
   std::shared_ptr<TextureAnimator> no_animator;
 
-  // --- TextureUploadHandler: every jak2 tex bucket upstream registers it for,
-  // mirroring init_bucket_renderers_jak2 names/ids exactly. ---
+  // Gjak2-render (3D): the anim-slot array. Upstream jak2 passes
+  // anim_slot_array() (== m_texture_animator->slots(), i.e. nullptr when there
+  // is no animator). The Android build has no animator, so mirror the jak1
+  // android table's "no animator" state with a pointer to a static empty
+  // vector — the same null-animator shape the jak1 TFragment/Tie3/Merc2 wiring
+  // proves safe on this device.
+  static const std::vector<GLuint> s_no_anim_slots;
+  const std::vector<GLuint>* anim_slots = &s_no_anim_slots;
+
+  // Gjak2-render (3D): shared foreground cores, mirroring upstream jak2's
+  // m_merc2 / m_generic2. Merc2 takes the anim-slot array (nullptr-equivalent
+  // here). Generic2 owns the translucent-merc path. Both are proven on the jak1
+  // android table.
+  auto merc2 = std::make_shared<Merc2>(m_render_state.shaders, anim_slots);
+  auto generic2 = std::make_shared<Generic2>(m_render_state.shaders);
+  m_generic2 = generic2;
+
+  // Helper: register a renderer AND return its raw pointer (upstream's
+  // init_bucket_renderer returns the owned pointer so the Tie3AnotherCategory
+  // variants can share the base Tie3's loaded per-level data).
+  auto set_renderer_ret = [&](auto r, BucketId id, bool ported) {
+    auto* raw = r.get();
+    set_renderer(std::move(r), id, ported);
+    return raw;
+  };
+
+  // --- TextureUploadHandler + the 3D background/foreground families: every
+  // jak2 bucket upstream registers, mirroring init_bucket_renderers_jak2
+  // names/ids/ctor-args for the classes compiled into the Android build
+  // (TextureUploadHandler, DirectRenderer, TFragment, Tie3/Tie3AnotherCategory,
+  // Shrub, Merc2, Generic2, OceanMidAndFar/OceanNear, Sprite3, EyeRenderer). ---
   set_renderer(std::make_unique<TextureUploadHandler>("tex-lcom-sky-pre",
                                                       (int)BucketId::TEX_LCOM_SKY_PRE, no_animator),
                BucketId::TEX_LCOM_SKY_PRE, true);
 
 #define GET_BUCKET_ID_FOR_LIST(bkt1, bkt2, idx) \
   ((int)(bkt1) + ((int)(bkt2) - (int)(bkt1)) * (idx))
+  int tfrag_count = 0, tie_count = 0, shrub_count = 0, merc_count = 0, generic_count = 0;
   for (int i = 0; i < LEVEL_MAX; ++i) {
-    auto tex_id = [&](BucketId b0, BucketId b1) {
+    auto bkt = [&](BucketId b0, BucketId b1) {
       return (BucketId)GET_BUCKET_ID_FOR_LIST(b0, b1, i);
     };
-    struct TexReg {
-      BucketId b0, b1;
-      const char* name;
-    };
-    const TexReg tex_regs[] = {
-        {BucketId::TEX_L0_TFRAG, BucketId::TEX_L1_TFRAG, "tex-l{}-tfrag"},
-        {BucketId::TEX_L0_SHRUB, BucketId::TEX_L1_SHRUB, "tex-l{}-shrub"},
-        {BucketId::TEX_L0_ALPHA, BucketId::TEX_L1_ALPHA, "tex-l{}-alpha"},
-        {BucketId::TEX_L0_PRIS, BucketId::TEX_L1_PRIS, "tex-l{}-pris"},
-        {BucketId::TEX_L0_PRIS2, BucketId::TEX_L1_PRIS2, "tex-l{}-pris2"},
-        {BucketId::TEX_L0_WATER, BucketId::TEX_L1_WATER, "tex-l{}-water"},
-    };
-    for (auto& tr : tex_regs) {
-      BucketId id = tex_id(tr.b0, tr.b1);
-      set_renderer(std::make_unique<TextureUploadHandler>(fmt::format(fmt::runtime(tr.name), i),
-                                                          (int)id, no_animator),
-                   id, true);
-    }
+
+    // --- tfrag band ---
+    set_renderer(std::make_unique<TextureUploadHandler>(
+                     fmt::format("tex-l{}-tfrag", i),
+                     (int)bkt(BucketId::TEX_L0_TFRAG, BucketId::TEX_L1_TFRAG), no_animator),
+                 bkt(BucketId::TEX_L0_TFRAG, BucketId::TEX_L1_TFRAG), true);
+    set_renderer(std::make_unique<TFragment>(
+                     fmt::format("tfrag-l{}-tfrag", i),
+                     (int)bkt(BucketId::TFRAG_L0_TFRAG, BucketId::TFRAG_L1_TFRAG),
+                     std::vector{tfrag3::TFragmentTreeKind::NORMAL}, false, i, anim_slots),
+                 bkt(BucketId::TFRAG_L0_TFRAG, BucketId::TFRAG_L1_TFRAG), true);
+    tfrag_count++;
+    // Base Tie3 owns this level's TIE tree; the Tie3AnotherCategory variants
+    // (envmap/trans/water) reference it via the raw pointer, exactly as upstream.
+    Tie3* tie = set_renderer_ret(
+        std::make_unique<Tie3>(fmt::format("tie-l{}-tfrag", i),
+                               (int)bkt(BucketId::TIE_L0_TFRAG, BucketId::TIE_L1_TFRAG), i,
+                               anim_slots),
+        bkt(BucketId::TIE_L0_TFRAG, BucketId::TIE_L1_TFRAG), true);
+    tie_count++;
+    set_renderer(std::make_unique<Tie3AnotherCategory>(
+                     fmt::format("etie-l{}-tfrag", i),
+                     (int)bkt(BucketId::ETIE_L0_TFRAG, BucketId::ETIE_L1_TFRAG), tie,
+                     tfrag3::TieCategory::NORMAL_ENVMAP),
+                 bkt(BucketId::ETIE_L0_TFRAG, BucketId::ETIE_L1_TFRAG), true);
+    set_renderer(std::make_unique<Merc2BucketRenderer>(
+                     fmt::format("merc-l{}-tfrag", i),
+                     (int)bkt(BucketId::MERC_L0_TFRAG, BucketId::MERC_L1_TFRAG), merc2),
+                 bkt(BucketId::MERC_L0_TFRAG, BucketId::MERC_L1_TFRAG), true);
+    merc_count++;
+    set_renderer(std::make_unique<Generic2BucketRenderer>(
+                     fmt::format("gmerc-l{}-tfrag", i),
+                     (int)bkt(BucketId::GMERC_L0_TFRAG, BucketId::GMERC_L1_TFRAG), generic2,
+                     Generic2::Mode::NORMAL),
+                 bkt(BucketId::GMERC_L0_TFRAG, BucketId::GMERC_L1_TFRAG), true);
+    generic_count++;
+
+    // --- shrub band ---
+    set_renderer(std::make_unique<TextureUploadHandler>(
+                     fmt::format("tex-l{}-shrub", i),
+                     (int)bkt(BucketId::TEX_L0_SHRUB, BucketId::TEX_L1_SHRUB), no_animator),
+                 bkt(BucketId::TEX_L0_SHRUB, BucketId::TEX_L1_SHRUB), true);
+    set_renderer(std::make_unique<Shrub>(
+                     fmt::format("shrub-l{}-shrub", i),
+                     (int)bkt(BucketId::SHRUB_L0_SHRUB, BucketId::SHRUB_L1_SHRUB)),
+                 bkt(BucketId::SHRUB_L0_SHRUB, BucketId::SHRUB_L1_SHRUB), true);
+    shrub_count++;
+    set_renderer(std::make_unique<Merc2BucketRenderer>(
+                     fmt::format("merc-l{}-shrub", i),
+                     (int)bkt(BucketId::MERC_L0_SHRUB, BucketId::MERC_L1_SHRUB), merc2),
+                 bkt(BucketId::MERC_L0_SHRUB, BucketId::MERC_L1_SHRUB), true);
+    set_renderer(std::make_unique<Generic2BucketRenderer>(
+                     fmt::format("gmerc-l{}-shrub", i),
+                     (int)bkt(BucketId::GMERC_L0_SHRUB, BucketId::GMERC_L1_SHRUB), generic2,
+                     Generic2::Mode::NORMAL),
+                 bkt(BucketId::GMERC_L0_SHRUB, BucketId::GMERC_L1_SHRUB), true);
+
+    // --- alpha band ---
+    set_renderer(std::make_unique<TextureUploadHandler>(
+                     fmt::format("tex-l{}-alpha", i),
+                     (int)bkt(BucketId::TEX_L0_ALPHA, BucketId::TEX_L1_ALPHA), no_animator),
+                 bkt(BucketId::TEX_L0_ALPHA, BucketId::TEX_L1_ALPHA), true);
+    set_renderer(std::make_unique<TFragment>(
+                     fmt::format("tfrag-t-l{}-alpha", i),
+                     (int)bkt(BucketId::TFRAG_T_L0_ALPHA, BucketId::TFRAG_T_L1_ALPHA),
+                     std::vector{tfrag3::TFragmentTreeKind::TRANS}, false, i, anim_slots),
+                 bkt(BucketId::TFRAG_T_L0_ALPHA, BucketId::TFRAG_T_L1_ALPHA), true);
+    set_renderer(std::make_unique<Tie3AnotherCategory>(
+                     fmt::format("tie-t-l{}-alpha", i),
+                     (int)bkt(BucketId::TIE_T_L0_ALPHA, BucketId::TIE_T_L1_ALPHA), tie,
+                     tfrag3::TieCategory::TRANS),
+                 bkt(BucketId::TIE_T_L0_ALPHA, BucketId::TIE_T_L1_ALPHA), true);
+    set_renderer(std::make_unique<Tie3AnotherCategory>(
+                     fmt::format("etie-t-l{}-alpha", i),
+                     (int)bkt(BucketId::ETIE_T_L0_ALPHA, BucketId::ETIE_T_L1_ALPHA), tie,
+                     tfrag3::TieCategory::TRANS_ENVMAP),
+                 bkt(BucketId::ETIE_T_L0_ALPHA, BucketId::ETIE_T_L1_ALPHA), true);
+    set_renderer(std::make_unique<Merc2BucketRenderer>(
+                     fmt::format("merc-l{}-alpha", i),
+                     (int)bkt(BucketId::MERC_L0_ALPHA, BucketId::MERC_L1_ALPHA), merc2),
+                 bkt(BucketId::MERC_L0_ALPHA, BucketId::MERC_L1_ALPHA), true);
+    set_renderer(std::make_unique<Generic2BucketRenderer>(
+                     fmt::format("gmerc-l{}-alpha", i),
+                     (int)bkt(BucketId::GMERC_L0_ALPHA, BucketId::GMERC_L1_ALPHA), generic2,
+                     Generic2::Mode::NORMAL),
+                 bkt(BucketId::GMERC_L0_ALPHA, BucketId::GMERC_L1_ALPHA), true);
+
+    // --- pris band ---
+    set_renderer(std::make_unique<TextureUploadHandler>(
+                     fmt::format("tex-l{}-pris", i),
+                     (int)bkt(BucketId::TEX_L0_PRIS, BucketId::TEX_L1_PRIS), no_animator),
+                 bkt(BucketId::TEX_L0_PRIS, BucketId::TEX_L1_PRIS), true);
+    set_renderer(std::make_unique<Merc2BucketRenderer>(
+                     fmt::format("merc-l{}-pris", i),
+                     (int)bkt(BucketId::MERC_L0_PRIS, BucketId::MERC_L1_PRIS), merc2),
+                 bkt(BucketId::MERC_L0_PRIS, BucketId::MERC_L1_PRIS), true);
+    set_renderer(std::make_unique<Generic2BucketRenderer>(
+                     fmt::format("gmerc-l{}-pris", i),
+                     (int)bkt(BucketId::GMERC_L0_PRIS, BucketId::GMERC_L1_PRIS), generic2,
+                     Generic2::Mode::NORMAL),
+                 bkt(BucketId::GMERC_L0_PRIS, BucketId::GMERC_L1_PRIS), true);
+
+    // --- pris2 band ---
+    set_renderer(std::make_unique<TextureUploadHandler>(
+                     fmt::format("tex-l{}-pris2", i),
+                     (int)bkt(BucketId::TEX_L0_PRIS2, BucketId::TEX_L1_PRIS2), no_animator),
+                 bkt(BucketId::TEX_L0_PRIS2, BucketId::TEX_L1_PRIS2), true);
+    set_renderer(std::make_unique<Merc2BucketRenderer>(
+                     fmt::format("merc-l{}-pris2", i),
+                     (int)bkt(BucketId::MERC_L0_PRIS2, BucketId::MERC_L1_PRIS2), merc2),
+                 bkt(BucketId::MERC_L0_PRIS2, BucketId::MERC_L1_PRIS2), true);
+    set_renderer(std::make_unique<Generic2BucketRenderer>(
+                     fmt::format("gmerc-l{}-pris2", i),
+                     (int)bkt(BucketId::GMERC_L0_PRIS2, BucketId::GMERC_L1_PRIS2), generic2,
+                     Generic2::Mode::NORMAL),
+                 bkt(BucketId::GMERC_L0_PRIS2, BucketId::GMERC_L1_PRIS2), true);
+
+    // --- water band ---
+    set_renderer(std::make_unique<TextureUploadHandler>(
+                     fmt::format("tex-l{}-water", i),
+                     (int)bkt(BucketId::TEX_L0_WATER, BucketId::TEX_L1_WATER), no_animator),
+                 bkt(BucketId::TEX_L0_WATER, BucketId::TEX_L1_WATER), true);
+    set_renderer(std::make_unique<Merc2BucketRenderer>(
+                     fmt::format("merc-l{}-water", i),
+                     (int)bkt(BucketId::MERC_L0_WATER, BucketId::MERC_L1_WATER), merc2),
+                 bkt(BucketId::MERC_L0_WATER, BucketId::MERC_L1_WATER), true);
+    set_renderer(std::make_unique<Generic2BucketRenderer>(
+                     fmt::format("gmerc-l{}-water", i),
+                     (int)bkt(BucketId::GMERC_L0_WATER, BucketId::GMERC_L1_WATER), generic2,
+                     Generic2::Mode::NORMAL),
+                 bkt(BucketId::GMERC_L0_WATER, BucketId::GMERC_L1_WATER), true);
+    set_renderer(std::make_unique<TFragment>(
+                     fmt::format("tfrag-w-l{}-alpha", i),
+                     (int)bkt(BucketId::TFRAG_W_L0_WATER, BucketId::TFRAG_W_L1_WATER),
+                     std::vector{tfrag3::TFragmentTreeKind::WATER}, false, i, anim_slots),
+                 bkt(BucketId::TFRAG_W_L0_WATER, BucketId::TFRAG_W_L1_WATER), true);
+    set_renderer(std::make_unique<Tie3AnotherCategory>(
+                     fmt::format("tie-w-l{}-water", i),
+                     (int)bkt(BucketId::TIE_W_L0_WATER, BucketId::TIE_W_L1_WATER), tie,
+                     tfrag3::TieCategory::WATER),
+                 bkt(BucketId::TIE_W_L0_WATER, BucketId::TIE_W_L1_WATER), true);
+    set_renderer(std::make_unique<Tie3AnotherCategory>(
+                     fmt::format("etie-w-l{}-water", i),
+                     (int)bkt(BucketId::ETIE_W_L0_WATER, BucketId::ETIE_W_L1_WATER), tie,
+                     tfrag3::TieCategory::WATER_ENVMAP),
+                 bkt(BucketId::ETIE_W_L0_WATER, BucketId::ETIE_W_L1_WATER), true);
   }
 #undef GET_BUCKET_ID_FOR_LIST
 
-  // lcom / all tex buckets (upstream jak2 exact names/ids).
-  const std::pair<BucketId, const char*> lcom_tex[] = {
-      {BucketId::TEX_LCOM_TFRAG, "tex-lcom-tfrag"},
-      {BucketId::TEX_LCOM_SHRUB, "tex-lcom-shrub"},
-      {BucketId::TEX_LCOM_PRIS, "tex-lcom-pris"},
-      {BucketId::TEX_LCOM_WATER, "tex-lcom-water"},
-      {BucketId::TEX_LCOM_SKY_POST, "tex-lcom-sky-post"},
-      {BucketId::TEX_ALL_SPRITE, "tex-all-sprite"},
-      {BucketId::TEX_ALL_WARP, "tex-all-warp"},
-  };
-  for (auto& [id, name] : lcom_tex) {
-    set_renderer(std::make_unique<TextureUploadHandler>(name, (int)id, no_animator), id, true);
-  }
+  // lcom (level-common) band: upstream jak2 registers tex + merc + gmerc per
+  // family, plus the ocean/sky-post/sprite tex. Mirror the classes compiled in.
+  set_renderer(std::make_unique<TextureUploadHandler>("tex-lcom-tfrag",
+                                                      (int)BucketId::TEX_LCOM_TFRAG, no_animator),
+               BucketId::TEX_LCOM_TFRAG, true);
+  set_renderer(std::make_unique<Merc2BucketRenderer>("merc-lcom-tfrag",
+                                                     (int)BucketId::MERC_LCOM_TFRAG, merc2),
+               BucketId::MERC_LCOM_TFRAG, true);
+  set_renderer(std::make_unique<TextureUploadHandler>("tex-lcom-shrub",
+                                                      (int)BucketId::TEX_LCOM_SHRUB, no_animator),
+               BucketId::TEX_LCOM_SHRUB, true);
+  set_renderer(std::make_unique<Merc2BucketRenderer>("merc-lcom-shrub",
+                                                     (int)BucketId::MERC_LCOM_SHRUB, merc2),
+               BucketId::MERC_LCOM_SHRUB, true);
+  set_renderer(std::make_unique<Generic2BucketRenderer>("gmerc-lcom-tfrag",
+                                                        (int)BucketId::GMERC_LCOM_TFRAG, generic2,
+                                                        Generic2::Mode::NORMAL),
+               BucketId::GMERC_LCOM_TFRAG, true);
+  // SHADOW (Shadow2) is NOT compiled into the Android build — leave SkipRenderer.
+  set_renderer(std::make_unique<TextureUploadHandler>("tex-lcom-pris",
+                                                      (int)BucketId::TEX_LCOM_PRIS, no_animator),
+               BucketId::TEX_LCOM_PRIS, true);
+  set_renderer(std::make_unique<Merc2BucketRenderer>("merc-lcom-pris",
+                                                     (int)BucketId::MERC_LCOM_PRIS, merc2),
+               BucketId::MERC_LCOM_PRIS, true);
+  set_renderer(std::make_unique<Generic2BucketRenderer>("gmerc-lcom-pris",
+                                                        (int)BucketId::GMERC_LCOM_PRIS, generic2,
+                                                        Generic2::Mode::NORMAL),
+               BucketId::GMERC_LCOM_PRIS, true);
+  set_renderer(std::make_unique<TextureUploadHandler>("tex-lcom-water",
+                                                      (int)BucketId::TEX_LCOM_WATER, no_animator),
+               BucketId::TEX_LCOM_WATER, true);
+  set_renderer(std::make_unique<Merc2BucketRenderer>("merc-lcom-water",
+                                                     (int)BucketId::MERC_LCOM_WATER, merc2),
+               BucketId::MERC_LCOM_WATER, true);
+  set_renderer(std::make_unique<TextureUploadHandler>("tex-lcom-sky-post",
+                                                      (int)BucketId::TEX_LCOM_SKY_POST, no_animator),
+               BucketId::TEX_LCOM_SKY_POST, true);
+
+  // --- ocean: OceanMidAndFar (bucket right after SKY_DRAW) + OceanNear (310).
+  // Both classes + CommonOceanRenderer are compiled into the Android build and
+  // are proven on the jak1 android title flythrough. ---
+  set_renderer(std::make_unique<OceanMidAndFar>("ocean-mid-far", (int)BucketId::OCEAN_MID_FAR),
+               BucketId::OCEAN_MID_FAR, true);
+  set_renderer(std::make_unique<OceanNear>("ocean-near", (int)BucketId::OCEAN_NEAR),
+               BucketId::OCEAN_NEAR, true);
+
+  // --- sprite / particles: Sprite3 (jak2 uses the (name,id) ctor, same as the
+  // jak1 android SPRITE bucket). tex-all-sprite feeds it. ---
+  set_renderer(std::make_unique<TextureUploadHandler>("tex-all-sprite",
+                                                      (int)BucketId::TEX_ALL_SPRITE, no_animator),
+               BucketId::TEX_ALL_SPRITE, true);
+  set_renderer(std::make_unique<Sprite3>("particles", (int)BucketId::PARTICLES),
+               BucketId::PARTICLES, true);
+  // SHADOW2 (Shadow2) NOT compiled — SkipRenderer.
+  // EFFECTS: upstream backs it with Generic2 in LIGHTNING mode (shared generic2).
+  set_renderer(std::make_unique<Generic2BucketRenderer>("effects", (int)BucketId::EFFECTS, generic2,
+                                                        Generic2::Mode::LIGHTNING),
+               BucketId::EFFECTS, true);
+  set_renderer(std::make_unique<TextureUploadHandler>("tex-all-warp",
+                                                      (int)BucketId::TEX_ALL_WARP, no_animator),
+               BucketId::TEX_ALL_WARP, true);
+  // GMERC_WARP: upstream uses the Warp renderer (NOT compiled into the Android
+  // build) — leave SkipRenderer.
+
   // These three upstream pass add_direct=true (DEBUG_NO_ZBUF1, TEX_ALL_MAP,
   // SUBTITLE are texture-upload buckets that also carry direct GIF data).
   const std::pair<BucketId, const char*> lcom_tex_direct[] = {
@@ -467,8 +681,7 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   for (auto& [id, name] : lcom_tex_direct) {
     set_renderer(std::make_unique<TextureUploadHandler>(name, (int)id, no_animator, true), id, true);
   }
-  int tex_count = 1 + LEVEL_MAX * 6 + (int)(sizeof(lcom_tex) / sizeof(lcom_tex[0])) +
-                  (int)(sizeof(lcom_tex_direct) / sizeof(lcom_tex_direct[0]));
+  // PROGRESS: upstream uses ProgressRenderer (NOT compiled) — leave SkipRenderer.
 
   // --- DirectRenderer: the jak2 buckets upstream backs with DirectRenderer,
   // same names/ids/batch sizes. SKY_DRAW is DirectRenderer on jak2 (not
@@ -489,14 +702,32 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   }
   int direct_count = (int)(sizeof(direct_regs) / sizeof(direct_regs[0]));
 
+  // --- EyeRenderer: android has it for jak1; register it at upstream's jak2
+  // bucket 0 slot (upstream constructs "eyes" with id 0 and stores it as
+  // m_jak2_eye_renderer, wiring render_state.eye_renderer). Mirror that so the
+  // merc eye-dma path resolves. ---
+  {
+    auto eye = std::make_unique<EyeRenderer>("eyes", 0);
+    m_render_state.eye_renderer = eye.get();
+    // Bucket 0 upstream is VisDataHandler (not compiled); we keep bucket 0 as a
+    // SkipRenderer for the vis chain and hold the eye renderer as the eye
+    // handler only (its render() is invoked via render_state->eye_renderer, not
+    // as bucket 0). Store it so it isn't destroyed.
+    m_jak2_eye_renderer = std::move(eye);
+    m_jak2_eye_renderer->init_shaders(m_render_state.shaders);
+    m_jak2_eye_renderer->init_textures(*m_render_state.texture_pool, GameVersion::Jak2);
+  }
+
   // Everything else: SkipRenderer. Its render() walks read_and_advance until
   // render_state->next_bucket, consuming the segment and keeping the dispatch
   // in sync regardless of the bucket's content — the same consume-the-segment
   // mechanism the jak1 android skip path uses. Buckets upstream jak2 renders
-  // with classes not compiled into the Android build (VisDataHandler @ bucket
-  // 0, BlitDisplays, TFragment/Tie3/Merc2/Generic2/Shrub/Sprite3/Ocean/Shadow2/
-  // Warp/Progress) fall here this round; the dispatch logs each ONE the first
-  // time it carries data.
+  // with classes NOT compiled into the Android build fall here this round:
+  //   BUCKET_2 (VisDataHandler), BUCKET_3 (BlitDisplays), SHADOW/SHADOW2
+  //   (Shadow2), GMERC_WARP (Warp), PROGRESS (ProgressRenderer), and the
+  //   EMERC_* buckets (upstream jak2 has no EMERC registration — they are
+  //   EmptyBucketRenderer'd there too). The dispatch logs each ONE the first
+  //   time it carries data.
   int skip_count = 0;
   for (size_t i = 0; i < m_bucket_renderers.size(); i++) {
     if (!m_bucket_renderers[i]) {
@@ -510,9 +741,10 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   }
 
   lg::info(
-      "A35-RENDER jak2 bucket table ready: {} buckets, tex={} direct={} skip={} (unported classes "
-      "SkipRenderer'd)",
-      m_bucket_renderers.size(), tex_count, direct_count, skip_count);
+      "A35-RENDER jak2 bucket table ready: {} buckets, tfrag={} tie={} shrub={} merc-cores={} "
+      "generic-cores={} direct={} eye=1 skip={} (unported classes SkipRenderer'd)",
+      m_bucket_renderers.size(), tfrag_count, tie_count, shrub_count, merc_count, generic_count,
+      direct_count, skip_count);
 }
 
 u32 AndroidOpenGLRenderer::count_chain_bytes(DmaFollower dma) {

@@ -32,6 +32,8 @@
 #include "game/graphics/opengl_renderer/Profiler.h"
 #include "game/graphics/opengl_renderer/opengl_utils.h"
 
+class EyeRenderer;  // Gjak2-render: owned by m_jak2_eye_renderer (fwd-decl).
+
 // Mirrors the desktop RenderOptions subset the Android skeleton honors.
 struct AndroidRenderOptions {
   int game_res_w = 640;
@@ -78,6 +80,9 @@ struct AndroidFrameStats {
 class AndroidOpenGLRenderer {
  public:
   AndroidOpenGLRenderer(std::shared_ptr<TexturePool> texture_pool, std::shared_ptr<Loader> loader);
+  // Out-of-line (defaulted in the .cpp) so the unique_ptr<EyeRenderer> member's
+  // dtor is emitted where EyeRenderer is a complete type (Gjak2-render).
+  ~AndroidOpenGLRenderer();
 
   // Render one frame from the game's DMA chain. Must run on the GL thread.
   void render(DmaFollower dma, const AndroidRenderOptions& settings);
@@ -117,6 +122,12 @@ class AndroidOpenGLRenderer {
   bool m_ui_pass_active = false;
 
   std::shared_ptr<Generic2> m_generic2;
+
+  // Gjak2-render: the jak2 eye renderer. Upstream jak2 stores it outside the
+  // bucket table (bucket 0 is VisData, not compiled here) and wires it as
+  // render_state.eye_renderer for the merc eye-dma path. Owned here so it
+  // outlives the frame. unique_ptr<incomplete> — dtor emitted in the .cpp.
+  std::unique_ptr<EyeRenderer> m_jak2_eye_renderer;
 
   GLuint m_screen_vao = 0;
   GLuint m_screen_vbo = 0;
