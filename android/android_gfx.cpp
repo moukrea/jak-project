@@ -556,7 +556,12 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     // runs the next frame's deactivations. The I-cache is flushed so the corrected
     // instructions are re-fetched. x86 is unaffected (#ifdef __aarch64__).
 #ifdef __aarch64__
-    {
+    // Gjak2-render: BOTH per-frame code-repair canaries below snapshot jak1
+    // KERNEL.CGO addresses. On jak2, 0x18aee4 lands in the SYMBOL TABLE and
+    // 0x191240 in unrelated data, so "repair" = reverting live jak2 memory to a
+    // frame-old snapshot every frame (run2: RFTD "repaired" a legit symbol write
+    // 0x187e05 -> 0x187e01, then new_type aborted). jak1-only.
+    if (g_game_version == GameVersion::Jak1) {
       constexpr u32 kDeactLo = 0x191240, kDeactLen = 0x74;  // [0x191240, 0x1912b4)
       static u8* s_deact_good = nullptr;
       static bool s_deact_reported = false;
@@ -611,7 +616,9 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     // cutscene at ~frame 7080) and restore it after every rendered frame, before
     // the GOAL thread runs the next process return. x86 unaffected.
 #ifdef __aarch64__
-    {
+    // Gjak2-render: jak1-only (see the deactivate-canary gate note above; on jak2
+    // this address range is the live symbol table).
+    if (g_game_version == GameVersion::Jak1) {
       const u32 kRftdLo = g_gmatch_rftd_goal, kRftdLen = g_gmatch_rftd_len;  // 0x18aee4 / 0x80
       static bool s_rftd_reported = false;
       u8* rlive = g_ee_main_mem + kRftdLo;
