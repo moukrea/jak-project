@@ -8508,6 +8508,20 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "gk_sdl_main: entered");
   gk_install_sigsegv_diag();
 
+  // Gjak2-visuals low-memory tripwire (see gk_init_runtime for rationale) —
+  // armed HERE because gk_init_runtime is never invoked in the Android flow;
+  // gk_sdl_main is reached on every boot, before goal_main boots the kernel.
+  {
+    char lp[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.lowprot", lp);
+    if (lp[0] == '1' && g_ee_main_mem) {
+      int rc = mprotect((void*)g_ee_main_mem, EE_MAIN_MEM_LOW_PROTECT, PROT_NONE);
+      __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
+                          "GJ2VIS lowprot tripwire ARMED: mprotect(%p, 0x%x, PROT_NONE) rc=%d",
+                          g_ee_main_mem, EE_MAIN_MEM_LOW_PROTECT, rc);
+    }
+  }
+
   // A11: install the chained pre-kernel-version hook before goal_main
   // is called. By gk_sdl_main entry every global ctor has finished, so
   // capturing whatever android_runtime_compat installed and chaining
