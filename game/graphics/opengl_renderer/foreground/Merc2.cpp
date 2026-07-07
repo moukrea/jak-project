@@ -1815,6 +1815,24 @@ void Merc2::do_draws(const Draw* draw_array,
         // std::out_of_range-aborting. Desktop always populates the array; neutral.
         if (slot >= 0 && (size_t)slot < m_anim_slot_array->size()) {
           glBindTexture(GL_TEXTURE_2D, m_anim_slot_array->at(slot));
+          // Gjak2-visuals probe: one-shot per anim slot actually bound by a
+          // merc draw — diffable our-x86 (env GJ2VIS_SKY) vs device (always)
+          // to see which title surfaces depend on animator output.
+          {
+#ifdef __ANDROID__
+            static const bool s_slot_dump = true;
+#else
+            static const bool s_slot_dump = getenv("GJ2VIS_SKY") != nullptr;
+#endif
+            if (s_slot_dump) {
+              static bool s_slot_seen[128] = {};
+              if (slot < 128 && !s_slot_seen[slot]) {
+                s_slot_seen[slot] = true;
+                fprintf(stderr, "GJ2VIS-MERCSLOT slot=%d tex=%u\n", slot,
+                        (unsigned)m_anim_slot_array->at(slot));
+              }
+            }
+          }
 #ifdef __ANDROID__
           f1e_branch = 3;
           gk_f1a_last_merc_draw.tex_name = m_anim_slot_array->at(slot);

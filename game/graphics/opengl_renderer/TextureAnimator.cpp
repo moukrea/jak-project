@@ -1,6 +1,7 @@
 #include "TextureAnimator.h"
 
 #include <cstdio>
+#include <set>
 
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
@@ -1278,6 +1279,25 @@ void TextureAnimator::handle_texture_anim_data(DmaFollower& dma,
     auto tf = dma.read_and_advance();
     auto vif0 = tf.vifcode0();
     if (vif0.kind == VifCode::Kind::PC_PORT) {
+      // Gjak2-visuals probe: one-shot log of each distinct anim code seen, so
+      // the device's arriving anim set can be diffed against the x86 oracle's
+      // (device: always; desktop: env GJ2VIS_SKY, same gate as the clouds
+      // probe).
+      {
+#ifdef __ANDROID__
+        static const bool s_code_dump = true;
+#else
+        static const bool s_code_dump = getenv("GJ2VIS_SKY") != nullptr;
+#endif
+        if (s_code_dump) {
+          static bool s_seen[512] = {};
+          u16 imm = vif0.immediate;
+          if (imm < 512 && !s_seen[imm]) {
+            s_seen[imm] = true;
+            fprintf(stderr, "GJ2VIS-ANIMCODE imm=%d\n", (int)imm);
+          }
+        }
+      }
       switch (this->m_version) {
         case GameVersion::Jak2:
           switch (static_cast<PcTextureAnimCodesJak2>(vif0.immediate)) {
@@ -2571,6 +2591,35 @@ void TextureAnimator::run_fixed_animation_array(int idx,
     // run layers
     run_fixed_animation(anim, time);
 
+    // Gjak2-visuals probe: one-shot per fixed anim — readback of the rendered
+    // dest texture center (our-x86: env GJ2VIS_SKY; device: always). Diffable
+    // to catch GLES-only garbage in fixed-anim outputs (e.g. the security-wall
+    // membranes suspected of white-washing the title scene).
+    {
+#ifdef __ANDROID__
+      static const bool s_fa_dump = true;
+#else
+      static const bool s_fa_dump = getenv("GJ2VIS_SKY") != nullptr;
+#endif
+      if (s_fa_dump && anim.fbt) {
+        static std::set<std::string> s_fa_seen;
+        if (s_fa_seen.insert(anim.def.tex_name).second) {
+          u8 px[16] = {0};
+          {
+            FramebufferTexturePairContext probe_ctxt(*anim.fbt);
+            glReadPixels(anim.fbt->width() / 2, anim.fbt->height() / 2, 2, 2, GL_RGBA,
+                         GL_UNSIGNED_BYTE, px);
+          }
+          fprintf(stderr,
+                  "GJ2VIS-FIXEDANIM name=%s slot=%d time=%.2f w=%d "
+                  "px=%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x\n",
+                  anim.def.tex_name.c_str(), (int)anim.dest_slot, time, anim.fbt->width(), px[0],
+                  px[1], px[2], px[3], px[4], px[5], px[6], px[7], px[8], px[9], px[10], px[11],
+                  px[12], px[13], px[14], px[15]);
+        }
+      }
+    }
+
     // give to the pool for renderers that don't know how to access this directly
     if (anim.def.move_to_pool) {
       ASSERT(tbp < 0x40000);
@@ -2980,6 +3029,36 @@ GLint TextureAnimator::run_clouds(const SkyInput& input, bool hires) {
   glUniform1f(m_uniforms.maximum, input.cloud_max);
   glDisable(GL_BLEND);
   glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+  // Gjak2-visuals clouds probe — diffable our-x86-vs-device state dump (the
+  // x86-first discipline): the GOAL SkyInput packet + a readback of the final
+  // cloud texture while its FBO is still bound. Device: ~2.5 s cadence;
+  // desktop: env GJ2VIS_SKY only, so the oracle is untouched by default.
+  {
+#ifdef __ANDROID__
+    static const bool s_sky_dump = true;
+#else
+    static const bool s_sky_dump = getenv("GJ2VIS_SKY") != nullptr;
+#endif
+    if (s_sky_dump) {
+      static int s_sky_ctr = 0;
+      if ((s_sky_ctr++ % 300) == 0) {
+        u8 px[16] = {0};
+        glReadPixels(final_tex.width() / 2, final_tex.width() / 2, 2, 2, GL_RGBA,
+                     GL_UNSIGNED_BYTE, px);
+        GLenum err = glGetError();
+        fprintf(stderr,
+                "GJ2VIS-SKY hires=%d cmin=%.4f cmax=%.4f t=[%.3f %.3f %.3f %.3f %.3f] "
+                "mt=[%.3f %.3f %.3f %.3f] sc=[%.4f %.4f %.4f %.4f] dest=%d err=0x%x "
+                "px=%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x\n",
+                hires ? 1 : 0, input.cloud_min, input.cloud_max, input.times[0], input.times[1],
+                input.times[2], input.times[3], input.times[4], input.max_times[0],
+                input.max_times[1], input.max_times[2], input.max_times[3], input.scales[0],
+                input.scales[1], input.scales[2], input.scales[3], input.cloud_dest, err, px[0],
+                px[1], px[2], px[3], px[4], px[5], px[6], px[7], px[8], px[9], px[10], px[11],
+                px[12], px[13], px[14], px[15]);
+      }
+    }
+  }
   glBindTexture(GL_TEXTURE_2D, final_tex.texture());
   glGenerateMipmap(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, 0);

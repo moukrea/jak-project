@@ -1,0 +1,9 @@
+OWNER-CONFIRMED LIVE + supervisor-verified 2026-07-07: jak2 renders Haven City on the Redmi —
+the OWNER SAW IT HIMSELF on the device ("des graphismes rendus à l'écran... c'est déjà quelque
+chose", with the honest caveat "beaucoup d'erreurs et d'éléments manquants" = the queued
+Gjak2-visuals follow-up). Supervisor verification: Haven City frames at 2 camera angles
+(title-attract flythrough real), ~23k tris @60fps crash-free (26k+ frame soak), mCurrentFocus=jak2,
+deploy_verify PASS re-run by supervisor (build==APK==device == HEAD 80061d175). Bring-up ladder:
+bug class #14 stale-icache root fix, jak2 pc-* surface (~85+34 binds), mips2c game-aware table,
+level-page/stack/suspend sizing, render handoff + dispatch_buckets_jak2 + 3D families, jak1 canaries
+gated. First-frame mandate MET; visual quality = Gjak2-visuals (next).

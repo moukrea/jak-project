@@ -15,6 +15,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
+#include "game/graphics/opengl_renderer/ProgressRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/TextureAnimator.h"
 #include "game/graphics/opengl_renderer/VisDataHandler.h"
@@ -702,7 +703,14 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   for (auto& [id, name] : lcom_tex_direct) {
     set_renderer(std::make_unique<TextureUploadHandler>(name, (int)id, no_animator, true), id, true);
   }
-  // PROGRESS: upstream uses ProgressRenderer (NOT compiled) — leave SkipRenderer.
+  // PROGRESS: upstream's ProgressRenderer (DirectRenderer subclass, minimap
+  // offscreen fb). Gjak2-visuals: the jak2 title "Press the Start Button" /
+  // title menu text prints into this bucket (title-obs.gc print-game-text →
+  // (bucket-id progress)); without it the title text never draws. The font
+  // mips2c builders (draw-string-asm) are already live. GLES: no direct GL
+  // calls; the 8_8_8_8_REV fb format is shimmed in opengl_utils.cpp.
+  set_renderer(std::make_unique<ProgressRenderer>("progress", (int)BucketId::PROGRESS, 0x1000),
+               BucketId::PROGRESS, true);
 
   // --- DirectRenderer: the jak2 buckets upstream backs with DirectRenderer,
   // same names/ids/batch sizes. SKY_DRAW is DirectRenderer on jak2 (not

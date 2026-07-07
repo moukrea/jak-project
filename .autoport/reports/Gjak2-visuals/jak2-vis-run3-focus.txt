@@ -1,0 +1,8 @@
+[jak2-vis-run3] PIDSTART=20883 at 5s
+[jak2-vis-run3] suf=t60 pid=[20883]   mCurrentFocus=Window{909df44 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> /home/emeric/code/jak-project/.autoport/reports/Gjak2-visuals/jak2-vis-run3-t60-jak2focus.png
+[jak2-vis-run3] suf=t120 pid=[20883]   mCurrentFocus=Window{909df44 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> /home/emeric/code/jak-project/.autoport/reports/Gjak2-visuals/jak2-vis-run3-t120-jak2focus.png
+[jak2-vis-run3] suf=END pid=[20883]   mCurrentFocus=Window{909df44 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> /home/emeric/code/jak-project/.autoport/reports/Gjak2-visuals/jak2-vis-run3-end-jak2focus.png
+[jak2-vis-run3] END pid=[20883] PIDSTART=[20883]   mCurrentFocus=Window{909df44 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-run3] suf=b pid=[20883]   mCurrentFocus=Window{909df44 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> /home/emeric/code/jak-project/.autoport/reports/Gjak2-visuals/jak2-vis-run3-b-jak2focus.png
+[jak2-vis-run3] suf=c pid=[20883]   mCurrentFocus=Window{909df44 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> /home/emeric/code/jak-project/.autoport/reports/Gjak2-visuals/jak2-vis-run3-c-jak2focus.png
+[jak2-vis-run3] suf=d pid=[20883]   mCurrentFocus=Window{909df44 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> /home/emeric/code/jak-project/.autoport/reports/Gjak2-visuals/jak2-vis-run3-d-jak2focus.png

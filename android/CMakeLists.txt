@@ -606,6 +606,10 @@ add_library(gk SHARED
     "${JAK_ROOT}/third-party/glad/src/glad.c"
     "${JAK_ROOT}/game/graphics/opengl_renderer/BucketRenderer.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/DirectRenderer.cpp"
+    # Gjak2-visuals: jak2 PROGRESS bucket (title/menu text via print-game-text).
+    # DirectRenderer subclass, no direct GL calls; REV fb format shimmed in
+    # opengl_utils.cpp.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ProgressRenderer.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/TextureUploadHandler.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/EyeRenderer.cpp"
     # Gjak2-visuals: vis/fog bucket — copies the per-level vis strings AND the

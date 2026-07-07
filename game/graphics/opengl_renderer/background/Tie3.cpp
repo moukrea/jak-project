@@ -679,6 +679,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
           bound_tex = m_textures->at(draw.tree_tex_id);
         } else {
           bound_tex = ((size_t)(-(draw.tree_tex_id + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(draw.tree_tex_id + 1)) : 0);
+          gj2vis_probe_bg_slot(-(draw.tree_tex_id + 1), bound_tex);
         }
         glBindTexture(GL_TEXTURE_2D, bound_tex);
         last_texture = draw.tree_tex_id;
@@ -737,6 +738,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         bound_tex = m_textures->at(draw.tree_tex_id);
       } else {
         bound_tex = ((size_t)(-(draw.tree_tex_id + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(draw.tree_tex_id + 1)) : 0);
+        gj2vis_probe_bg_slot(-(draw.tree_tex_id + 1), bound_tex);
       }
       glBindTexture(GL_TEXTURE_2D, bound_tex);
       last_texture = draw.tree_tex_id;
@@ -820,6 +822,26 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
   init_etie_cam_uniforms(m_etie_uniforms, m_common_data.settings.camera);
   set_uniform(m_etie_uniforms.envmap_tod_tint, m_common_data.envmap_color);
 
+  // Gjak2-visuals probe: the etie additive-coat tint, the one unmeasured input
+  // of the white-wash hypothesis — diffable our-x86 (env GJ2VIS_TFTREE) vs
+  // device (always, ~5 s cadence).
+  {
+#ifdef __ANDROID__
+    static const bool s_tint_dump = true;
+#else
+    static const bool s_tint_dump = getenv("GJ2VIS_TFTREE") != nullptr;
+#endif
+    if (s_tint_dump) {
+      static int s_tint_ctr = 0;
+      if ((s_tint_ctr++ % 300) == 0) {
+        const auto& ec = m_common_data.envmap_color;
+        fprintf(stderr, "GJ2VIS-ETIETINT lvl=%s cat=%d tint=(%.4f %.4f %.4f %.4f) strength=%.3f\n",
+                m_level_name.c_str(), (int)category, ec.x(), ec.y(), ec.z(), ec.w(),
+                m_envmap_strength);
+      }
+    }
+  }
+
   // Gperf-particles: per-draw GL state cache (flag-off = identical old path).
   BgDrawStateCache draw_state_cache;
   GLuint bound_tex = 0;
@@ -843,6 +865,7 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
           bound_tex = m_textures->at(draw.tree_tex_id);
         } else {
           bound_tex = ((size_t)(-(draw.tree_tex_id + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(draw.tree_tex_id + 1)) : 0);
+          gj2vis_probe_bg_slot(-(draw.tree_tex_id + 1), bound_tex);
         }
         glBindTexture(GL_TEXTURE_2D, bound_tex);
         last_texture = draw.tree_tex_id;
@@ -899,6 +922,7 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
         bound_tex = m_textures->at(draw.tree_tex_id);
       } else {
         bound_tex = ((size_t)(-(draw.tree_tex_id + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(draw.tree_tex_id + 1)) : 0);
+        gj2vis_probe_bg_slot(-(draw.tree_tex_id + 1), bound_tex);
       }
       glBindTexture(GL_TEXTURE_2D, bound_tex);
 
@@ -1189,6 +1213,7 @@ void Tie3::render_tree_wind(int idx,
         bound_tex = m_textures->at(draw.tree_tex_id);
       } else {
         bound_tex = ((size_t)(-(draw.tree_tex_id + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(draw.tree_tex_id + 1)) : 0);
+        gj2vis_probe_bg_slot(-(draw.tree_tex_id + 1), bound_tex);
       }
       glBindTexture(GL_TEXTURE_2D, bound_tex);
       last_texture = draw.tree_tex_id;
