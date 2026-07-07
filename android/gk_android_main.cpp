@@ -1203,11 +1203,21 @@ void a_install_jak2_pc_hook_once() {
     if (prev2) prev2();
     klink_a11_ensure_pc_mips2c_bound();
     klink_a14_ensure_pc_memmove_bound();
-    a17_bind_pc_helpers();
+    // Gjak2-render: a17_bind_pc_helpers() DROPPED for jak2. This hook fires
+    // from jak2::InitHeapAndSymbol (kscheme.cpp:2242), mid-init BEFORE the
+    // kernel version check. a17 binds ~80 pc-* helper symbols by allocating
+    // strings + function objects from the heap that early — which corrupted
+    // type-symbol values intermittently (garbage type=0x... → alloc_from_heap
+    // SIGSEGV at random boot-link objects). It is also REDUNDANT for jak2:
+    // the real jak2::InitMachineScheme -> InitMachine_PCPort (kmachine.cpp:688)
+    // binds the SAME ~80 helpers correctly LATER via
+    // init_common_pc_port_functions. a11/a14 stay because jak2's texture.gc /
+    // dma-buffer top-levels BLR to those symbols before InitMachine_PCPort runs.
   };
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "Gjak2-render: installed jak2 pc-* bind hook "
-                      "(a11 mips2c + a14 mem-move + a17 pc-helpers)");
+                      "(a11 mips2c + a14 mem-move; a17 pc-helpers DROPPED — "
+                      "real jak2 InitMachine_PCPort binds the pc-* surface)");
 }
 }  // namespace
 
@@ -2770,6 +2780,12 @@ void install_op_hooks() {
 
 void arm_if_needed() {
   if (g_syms.armed) return;
+  // Gjak2-render: JAK1-ONLY. arm_if_needed is called from the crash handler
+  // (A36-TREE at-crash) and the frame hooks; its jak1::intern_from_c calls
+  // walk the Symbol4 table with jak1 hash geometry, fail on jak2, and
+  // INTERN-CREATE -> make_string_from_c -> alloc_from_heap(type=0xc4001b10) ->
+  // nested SIGSEGV. Leaving g_syms.armed=false makes scan_once() a no-op too.
+  if (g_game_version != GameVersion::Jak1) return;
   if (!g_ee_main_mem || SymbolTable2.offset == 0) return;
   auto s_pool = jak1::intern_from_c("*nk-dead-pool*");
   auto s_root = jak1::intern_from_c("*active-pool*");
@@ -4038,7 +4054,17 @@ void a40_dproc_probe(const char* tag) {
     *out = *reinterpret_cast<const uint32_t*>(ee + goal);
     return true;
   };
+  // Gjak2-render: JAK1-ONLY symbol lookup. a40_dproc_probe is called from the
+  // crash handler ("at-crash") AND the GL frame hook. On jak2, jak1::intern_from_c
+  // walks the Symbol4 table with jak1 hash geometry, fails, INTERN-CREATEs a new
+  // symbol -> jak1::make_string_from_c -> alloc_from_heap with a jak1-mis-read
+  // 'string type (0xc4001b10) -> a NESTED SIGSEGV inside alloc_from_heap. THIS
+  // was the true source of the JAK1-ON-JAK2 / JAK2-BADPTR-ALLOC pollution and the
+  // 0xc4001b10 artifact (a40_dproc_probe::$_1 -> intern_from_c). Skip on jak2.
   auto symval = [](const char* nm) -> uint32_t {
+    if (g_game_version != GameVersion::Jak1) {
+      return 0;
+    }
     auto s = jak1::intern_from_c(nm);
     return s.offset ? s->value : 0;
   };
@@ -4272,6 +4298,12 @@ void a40_dproc_probe(const char* tag) {
 // The resuming write-fault intercept. Returns true when the fault was a
 // band trip (handled — caller must plain-return so the store retries).
 bool handle_band_fault(siginfo_t* info, void* ucontext) {
+  // Gjak2-render: JAK1-ONLY jak1 crash repair — it interns jak1 symbols
+  // ("print-game-text") which on jak2 INTERN-CREATE -> nested crash. Disable
+  // on jak2 so the real fault reaches the clean dump.
+  if (g_game_version != GameVersion::Jak1) {
+    return false;
+  }
   if (g_mode.load(std::memory_order_acquire) != 1) {
     return false;
   }
@@ -4995,6 +5027,10 @@ bool handle_rftd_null_return(int sig, siginfo_t* /*info*/, void* ucontext) {
 // move it, e.g. 0x18aee4 f1c vs 0x18aef4 current). arm64/Android only.
 std::atomic<uint64_t> g_grv_bareret_redirects{0};
 bool handle_bare_ret_offset(int sig, siginfo_t* info, void* ucontext) {
+  // Gjak2-render: JAK1-ONLY jak1 crash repair — it interns "return-from-thread-dead"
+  // which on jak2 INTERN-CREATEs a garbage symbol -> nested crash. Disable on jak2
+  // so the real fault reaches the clean dump.
+  if (g_game_version != GameVersion::Jak1) return false;
   // Gcrash-swamp-load (debug-only): let the TRUE first crash reach the fatal dump
   // instead of being repaired into a silent redirect. Gated debug.opengoal.diag.norepair.
   if (a38_trip::g_gk_diag_norepair.load(std::memory_order_relaxed)) return false;
@@ -5800,6 +5836,10 @@ bool handle_enter_state_null_code(int sig, siginfo_t* /*info*/, void* ucontext) 
 // Returns true (resume) only for this bounded case; over>48 still crashes (would hit s0-s4).
 std::atomic<uint64_t> g_suspend_overflow_tolerated{0};
 bool handle_suspend_overflow_break(int sig, siginfo_t* /*info*/, void* ucontext) {
+  // Gjak2-render: JAK1-ONLY jak1 crash repair — it interns "*kernel-context*"
+  // which on jak2 INTERN-CREATEs a garbage symbol -> nested crash. Disable on
+  // jak2 so the real fault reaches the clean dump.
+  if (g_game_version != GameVersion::Jak1) return false;
   if (sig != SIGILL && sig != SIGSEGV) return false;
   if (!g_ee_main_mem) return false;
   auto* uc = reinterpret_cast<ucontext_t*>(ucontext);
@@ -6619,7 +6659,12 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     // GRV-PP — identify the CURRENT PROCESS and its thread stacks immediately
     // (repro12's SP was NOT in the dram arena; must know whose stack the RET
     // consumed). kernel-context.current-process @ +20 (deftype 24 - 4).
-    {
+    // Gjak2-render: JAK1-ONLY. jak1::intern_from_c walks the Symbol4 table with
+    // jak1 hash geometry; on jak2 the symbol is not found and INTERN-CREATEs a
+    // new one -> jak1::make_string_from_c allocs with a jak1-mis-read 'string
+    // type -> nested crash (the 0xc4001b10 handler artifact). Gate to jak1 so
+    // the jak2 handler never touches the jak1 symbol table.
+    if (g_game_version == GameVersion::Jak1) {
       auto kc = jak1::intern_from_c("*kernel-context*");
       uint32_t pp = 0;
       if (kc.offset && kc->value) {
@@ -6656,7 +6701,8 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     // GRV-POOL — walk the active process tree and print each process' object span
     // (name@addr..end); flag spans containing the crash SP (whose stack did the RET
     // consume?) and the crash pc when it is a bare GOAL offset. Bounded, safe reads.
-    {
+    // Gjak2-render: JAK1-ONLY (jak1::intern_from_c "*active-pool*" — see GRV-PP note).
+    if (g_game_version == GameVersion::Jak1) {
       uint32_t sp_goal = 0;
       if (sp >= (uintptr_t)g_ee_main_mem && sp < (uintptr_t)g_ee_main_mem + EE_MAIN_MEM_SIZE) {
         sp_goal = (uint32_t)(sp - (uintptr_t)g_ee_main_mem);
@@ -6745,7 +6791,10 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     };
     uint32_t pp_x13 = (uint32_t)(uc->uc_mcontext.regs[13] & 0xFFFFFFFFu);
     uint32_t pp = pp_x13;
-    {
+    // Gjak2-render: JAK1-ONLY refine of pp via kernel-context (see GRV-PP note).
+    // On jak2 we keep pp = x13 (the reserved current-process reg) and do NOT
+    // intern the jak1 symbol table; the rest of GSPARK-PP is safe raw reads.
+    if (g_game_version == GameVersion::Jak1) {
       auto kc = jak1::intern_from_c("*kernel-context*");
       uint32_t cur = 0;
       if (kc.offset && kc->value && rd(kc->value + 20, &cur) && cur >= 0x1000) {
@@ -6944,7 +6993,8 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                           (unsigned long)base, w[0], w[1], w[2], w[3]);
     }
   }
-  {
+  // Gjak2-render: JAK1-ONLY draw-string symbol probe (see GRV-PP note).
+  if (g_game_version == GameVersion::Jak1) {
     auto s_ds = jak1::intern_from_c("draw-string");
     if (s_ds.offset) {
       __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
@@ -7170,7 +7220,8 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     // (deftype 2352) — cam-master-init:992 stores 0.0 there, so either
     // the master init didn't run or the field was clobbered. Memory
     // offset = deftype offset - 4 (boxed basic).
-    if ((ee & 0xFFFu) == 0 && ee >= 0x100000000ull) {
+    // Gjak2-render: JAK1-ONLY (jak1::intern_from_c "*camera*" — see GRV-PP note).
+    if ((ee & 0xFFFu) == 0 && ee >= 0x100000000ull && g_game_version == GameVersion::Jak1) {
       auto cam_sym = jak1::intern_from_c("*camera*");
       uint32_t cam_goal = cam_sym.offset ? cam_sym->value : 0;
       __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
@@ -7214,7 +7265,10 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
   // (b) bucket every fp-walk saved-lr into the fn whose [value, value+len)
   // contains it. intern_from_c is lookup-only for existing symbols — same
   // in-handler use as the *camera* dump above.
-  {
+  // Gjak2-render: JAK1-ONLY. These are jak1 game-symbol names; intern_from_c
+  // is jak1 hash geometry and on jak2 INTERN-CREATEs them -> nested-crash
+  // handler artifact (see GRV-PP note). Gate to jak1.
+  if (g_game_version == GameVersion::Jak1) {
     static const char* kA35Syms[] = {
         "update-actor-vis-box", "update-vis-volumes",
         "update-vis-volumes-from-nav-mesh", "print-volume-sizes",
