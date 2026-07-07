@@ -1212,6 +1212,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Gjak1-icache-flush
+  name: 'port arm64 bug class #14 (stale-icache CacheFlush no-op) to jak1 klink.cpp:623 — likely kills the F1e ~1-in-6 link-time boot-flake; >=20/20 clean cold boots on device'
+  prompt: prompts/phase-Gjak1-icache-flush.md
+  validator: validators/phase-Gjak1-icache-flush.sh
+  max_turns: 1200
+  max_retries: 4
+  device: true
+  owner_verify: false
 global:
   git:
     push_after_each_phase: true
