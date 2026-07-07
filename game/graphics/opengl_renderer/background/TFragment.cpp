@@ -725,6 +725,24 @@ void TFragment::render_tree(int geom,
                 (long long)fc_frm, r_frm, m_frm, s_frm, (long long)fc_rfrm, s_rfrm,
                 (long long)fc_tgt, s_tgt, (long long)fc_ses, (long long)fc_u0, (long long)fc_tgc,
                 tf, dr, a1_time, a1_delta, a1_mod);
+        // Round 3: the BUCKET_2 vis/fog cursor corruption — is the
+        // display-frame's global-buf FIELD itself corrupt in GOAL memory, or
+        // only the value the caller passes? Dump on-screen + both frames'
+        // global-buf object pointers and their base cursors (dma-buffer:
+        // allocated-length@4 base@8 end@12, basic → offset-4).
+        u32 onscr = ok(disp) ? rd_u32(disp + 4 - 4) : 0xdead;
+        u32 f0 = ok(disp) ? rd_u32(disp + 12 - 4) : 0;
+        u32 f1 = ok(disp) ? rd_u32(disp + 16 - 4) : 0;
+        u32 gb0 = ok(f0) ? rd_u32(f0 + 40 - 4) : 0;
+        u32 gb1 = ok(f1) ? rd_u32(f1 + 40 - 4) : 0;
+        u32 gb0_base = ok(gb0) ? rd_u32(gb0 + 8 - 4) : 0;
+        u32 gb1_base = ok(gb1) ? rd_u32(gb1 + 8 - 4) : 0;
+        u32 gb0_len = ok(gb0) ? rd_u32(gb0 + 4 - 4) : 0;
+        u32 gb1_len = ok(gb1) ? rd_u32(gb1 + 4 - 4) : 0;
+        fprintf(stderr,
+                "GJ2VIS-GBUF onscr=%u f0=0x%x f1=0x%x gb0=0x%x(base=0x%x len=%u) "
+                "gb1=0x%x(base=0x%x len=%u)\n",
+                onscr, f0, f1, gb0, gb0_base, gb0_len, gb1, gb1_base, gb1_len);
       }
     }
   }

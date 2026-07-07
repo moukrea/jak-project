@@ -411,6 +411,23 @@ int gk_print_version(void) {
 int gk_init_runtime(void) {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "gk_init_runtime: initializing kernel core");
+  // Gjak2-visuals: optional low-memory tripwire. Desktop always mprotects the
+  // first 512 kB of EE memory PROT_NONE (game/runtime.cpp:193, "PS2 kernel
+  // area") so any corrupt low-address access crashes AT THE WRITER; the
+  // Android allocator never did, which let the jak2 BUCKET_2 vis/fog cursor
+  // corruption (packets appended at ee 0x12c0+) run silently. Arm with:
+  //   adb shell setprop debug.opengoal.lowprot 1   (before app launch)
+  // then the tombstone/fp-walk names the corrupt writer.
+  {
+    char lp[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.lowprot", lp);
+    if (lp[0] == '1' && g_ee_main_mem) {
+      int rc = mprotect((void*)g_ee_main_mem, EE_MAIN_MEM_LOW_PROTECT, PROT_NONE);
+      __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
+                          "GJ2VIS lowprot tripwire ARMED: mprotect(%p, 0x%x, PROT_NONE) rc=%d",
+                          g_ee_main_mem, EE_MAIN_MEM_LOW_PROTECT, rc);
+    }
+  }
   kboot_init_globals_common();
   kmalloc_init_globals_common();
   kprint_init_globals_common();
