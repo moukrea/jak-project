@@ -1,10 +1,15 @@
 #include "klink.h"
 
+#include <cstdio>   // Gjak2-render JAK2-BADPTR-WRITE tripwire (fprintf/stderr)
+#include <cstdlib>  // Gjak2-render JAK2_SEG_TRACE diagnostic (getenv)
+#include <set>      // Gjak2-render JAK2-BADPTR-WRITE per-site de-dup
+
 #include "common/goal_constants.h"
 #include "common/log/log.h"
 #include "common/symbols.h"
 
 #include "game/kernel/common/fileio.h"
+#include "game/kernel/common/kdgo.h"  // Gjak2-render: g_gk_current_link_object breadcrumb
 #include "game/kernel/common/klink.h"
 #include "game/kernel/common/kmachine.h"
 #include "game/kernel/common/kprint.h"
@@ -16,6 +21,59 @@
 #include "fmt/format.h"
 
 static constexpr bool link_debug_printfs = false;
+
+// Gjak2-render JAK2_TOPLVL_TRACE diagnostic state (diagnostics only, env-gated).
+// Carries per-object top-level segment facts from jak2_work_v3 state 0 (the
+// KMALLOC_TOP allocation + segment copy) through state 1 (relocations) and into
+// jak2_finish (right before call_goal_on_stack), without touching the shared
+// klink.h header. Populated in jak2_work_v3 only when JAK2_TOPLVL_TRACE is set.
+namespace {
+bool g_tl_trace_enabled = false;
+bool g_tl_trace_probed = false;
+u32 g_tl_toplvl_alloc = 0;    //! code_infos[TOP_LEVEL].offset for the object in flight
+u32 g_tl_toplvl_size = 0;     //! code_infos[TOP_LEVEL].size for the object in flight
+u32 g_tl_w4_after_copy = 0;   //! *Ptr<u32>(toplvl+4) immediately after segment copy
+u32 g_tl_prev_toplvl_alloc = 0;  //! previous object's toplvl base (overlap check)
+u32 g_tl_prev_toplvl_size = 0;   //! previous object's toplvl size (overlap check)
+u32 g_tl_arth_w4_after_reloc = 0;  //! art-h *Ptr<u32>(m_entry) right after relocations
+
+bool tl_trace_on() {
+  if (!g_tl_trace_probed) {
+    g_tl_trace_enabled = (std::getenv("JAK2_TOPLVL_TRACE") != nullptr);
+    g_tl_trace_probed = true;
+  }
+  return g_tl_trace_enabled;
+}
+
+// Gjak2-render JAK2-BADPTR-WRITE tripwire (ALWAYS ON, only fires on genuine
+// garbage). A real GOAL heap value/offset is always < EE_MAIN_MEM_SIZE
+// (0x8000000); anything >= that has garbage in bits[16:31] (e.g. 0x44001afe).
+// If klink is about to WRITE such a value into a relocation slot, this fires
+// ONCE per (reloc, slot) site so we can catch a relocation-side write of the
+// garbage pointer. `value` is the GOAL offset being stored (raw-u32 path) or
+// the target GOAL offset (target_host - ee_base for the arm64 patch path).
+// Cheap: a single unsigned compare on the happy path.
+void badptr_write_check(const char* reloc,
+                        const char* obj,
+                        u32 slot_goaloff,
+                        const char* sym,
+                        u32 value) {
+  if (value < (u32)EE_MAIN_MEM_SIZE) {
+    return;  // happy path: real GOAL offset.
+  }
+  // De-duplicate: fire once per (reloc,slot_goaloff) site to keep it cheap and
+  // the log readable across a full boot.
+  static std::set<u64> s_seen;
+  const u64 key = ((u64)(uintptr_t)reloc << 32) ^ ((u64)slot_goaloff << 8) ^ (value & 0xff);
+  if (s_seen.count(key)) {
+    return;
+  }
+  s_seen.insert(key);
+  std::fprintf(stderr,
+               "JAK2-BADPTR-WRITE reloc=%s obj=%s slot_goaloff=0x%x sym=%s value=0x%x\n",
+               reloc, obj ? obj : "-", slot_goaloff, sym ? sym : "-", value);
+}
+}  // namespace
 
 /*!
  * Make progress on linking.
@@ -88,6 +146,12 @@ uint32_t cross_seg_dist_link_v3(Ptr<uint8_t> link,
     // link retrofit jak2's linker never received (without it, raw x86 stores stomp
     // the arm64 instruction words -> SIGILL executing linked code, e.g. gcommon).
     uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<int32_t>(tgt).c());
+    // Gjak2-render JAK2-BADPTR-WRITE: the arm64 patch target GOAL offset is
+    // `tgt`; catch a garbage cross-seg target (would produce a bad ADRP/imm).
+    badptr_write_check("crossseg", g_gk_current_link_object,
+                       (u32)offset_of_patch, "-", (u32)tgt);
+    g_jak2_reloc_ctx = "cross_seg";
+    g_jak2_reloc_seg = current_seg;
     auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(slot_addr),
                                        target_host);
     if (rc == KlinkArm64PatchResult::kNotInstr) {
@@ -110,6 +174,12 @@ uint32_t ptr_link_v3(Ptr<u8> link, ObjectFileHeader* ofh, int current_seg) {
   // target address into a GPR; the dispatcher patches the imm field. x86 (or an
   // arm64 data-segment ptr slot) returns kNotInstr -> raw u32 store. Mirrors jak1.
   uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<u8>(patch_value).c());
+  // Gjak2-render JAK2-BADPTR-WRITE: `patch_value` is the GOAL offset stored
+  // (raw path) / the arm64 patch target. Catch a garbage ptr-link value.
+  badptr_write_check("ptr", g_gk_current_link_object, (u32)patch_loc, "-",
+                     (u32)patch_value);
+  g_jak2_reloc_ctx = "ptr";
+  g_jak2_reloc_seg = current_seg;
   auto rc = klink_arm64_patch_pc_rel(
       reinterpret_cast<uint32_t*>(Ptr<u32>(patch_loc).c()), target_host);
   if (rc == KlinkArm64PatchResult::kNotInstr) {
@@ -151,6 +221,16 @@ uint32_t typelink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
   offsets = offsets + 4;
   seek += 4;
 
+  // Gjak2-render JAK2-BADPTR-WRITE: `type_ptr.offset` is the GOAL offset of the
+  // interned type's vtable — the value written into every type-pointer slot.
+  // A garbage type_ptr.offset here means intern_type_from_c returned a bad ptr.
+  // slot_goaloff is the first slot for context (all slots take the same value).
+  if (offset_count) {
+    badptr_write_check("typelink", g_gk_current_link_object,
+                       (u32)(data + offsets.c()[0]).offset, sym_name,
+                       (u32)type_ptr.offset);
+  }
+
   // write the type pointers into memory
   for (uint32_t i = 0; i < offset_count; i++) {
     auto data_ptr = (data + offsets.c()[i]).cast<int32_t>();
@@ -160,6 +240,8 @@ uint32_t typelink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
     // type-offset store. Mirrors jak1.
     uintptr_t target_host =
         reinterpret_cast<uintptr_t>(Ptr<u8>(type_ptr.offset).c());
+    g_jak2_reloc_ctx = "typelink";
+    // g_jak2_reloc_seg set by caller (jak2_work_v3) from m_segment_process.
     auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(data_ptr.c()),
                                        target_host);
     if (rc == KlinkArm64PatchResult::kNotInstr) {
@@ -210,6 +292,8 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
     // (-1 -> full sym_addr; LINK_SYM_NO_OFFSET_FLAG -> sym_offset-1; else ->
     // sym_offset). Mirrors jak1's arm64 retrofit.
     uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<u8>(sym_addr).c());
+    g_jak2_reloc_ctx = "symlink";
+    // g_jak2_reloc_seg set by caller (jak2_work_v3) from m_segment_process.
     // Gjak2-render bug class (arm64 sym-VALUE off-by-one): jak2 stores a
     // symbol's value one byte BELOW the symbol pointer (Symbol4::value() =
     // &foo - 1; the x86 path applies this via LINK_SYM_NO_OFFSET_FLAG ->
@@ -219,18 +303,32 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
     // gcommon top-level `(deftype vec4s ...)` symbol-VALUE load of `type` read
     // sym_addr instead of sym_addr-1, yielding a byte-shifted garbage type ptr
     // (0x??001afe) and SIGSEGV'ing on `(-> type new-method)`.
+    // Gjak2-render JAK2-BADPTR-WRITE: the arm64 patch target (and the raw
+    // `pre == -1` store) is the symbol POINTER `sym_addr`. This is the value
+    // that carries the ~0x??001afe garbage class when a symbol pointer is bad.
+    // Check both the arm64 target (sym_addr) and, on the raw path, the exact
+    // value about to be stored for this slot.
+    badptr_write_check("symlink", g_gk_current_link_object, (u32)(data + offset).offset,
+                       sym_name, (u32)sym_addr);
     auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(data_ptr.c()),
                                        target_host, /*sym_value_bias=*/-1);
     if (rc == KlinkArm64PatchResult::kNotInstr) {
+      u32 stored;
       if (pre == -1) {
         // a "-1" indicates that we should store the address.
+        stored = sym_addr;
         *(data + offset).cast<int32_t>() = sym_addr;
       } else if ((u32)pre == LINK_SYM_NO_OFFSET_FLAG) {
+        stored = (u32)(sym_offset - 1);
         *(data + offset).cast<int32_t>() = sym_offset - 1;
       } else {
         // otherwise store the offset to st.
+        stored = (u32)sym_offset;
         *(data + offset).cast<int32_t>() = sym_offset;
       }
+      // Also catch a garbage value on the raw-u32 store path (x86-equivalent).
+      badptr_write_check("symlink", g_gk_current_link_object,
+                         (u32)(data + offset).offset, sym_name, stored);
     }
   }
 
@@ -248,6 +346,17 @@ uint32_t link_control::jak2_work_v3() {
     // state 0 <- copying data.
     // the actual game does all copying in one shot. I assume this is ok because v3 files are just
     // code and always small.  Large data which takes too long to copy should use v2.
+
+    // Gjak2-render JAK2_TOPLVL_TRACE: snapshot the global heap `top` offset
+    // BEFORE this object's KMALLOC_TOP top-level allocation, so we can see
+    // whether KMALLOC_TOP resets between objects (via jak2_finish's
+    // `m_heap->top = m_heap_top`) or accumulates (keeps decreasing).
+    const u32 tl_heap_top_before = m_heap.offset ? m_heap->top.offset : 0;
+    if (tl_trace_on()) {
+      g_tl_toplvl_alloc = 0;
+      g_tl_toplvl_size = 0;
+      g_tl_w4_after_copy = 0;
+    }
 
     // loop over segments
     for (s32 seg_id = ofh->segment_count - 1; seg_id >= 0; seg_id--) {
@@ -297,6 +406,30 @@ uint32_t link_control::jak2_work_v3() {
           ofh->code_infos[seg_id].offset = 0;
         } else {
           Ptr<u8> src(ofh->code_infos[seg_id].offset);
+          // Gjak2-render JAK2_TOPLVL_TRACE: for art-h, inspect the COPY SOURCE
+          // before it happens. code_infos[TOP_LEVEL].offset was set to
+          // `raw_offset + m_object_data.offset` at line 266; `src` is that final
+          // in-buffer source address. If src+4 already holds 0x7261656e ("near")
+          // then the copy is faithfully copying wrong SOURCE bytes -> either the
+          // object-header top-level code_info offset is wrong, or the object data
+          // in the buffer is misaligned. Print the source word + surrounding
+          // bytes so we can see the string it landed inside.
+          if (tl_trace_on() && strcmp(m_object_name, "art-h") == 0) {
+            u32 src_off = ofh->code_infos[seg_id].offset;
+            u32 src_w0 = *Ptr<u32>(src_off + 0).c();
+            u32 src_w4 = *Ptr<u32>(src_off + 4).c();
+            char around[33];
+            for (int i = 0; i < 32; i++) {
+              u8 b = *Ptr<u8>(src_off + i).c();
+              around[i] = (b >= 0x20 && b < 0x7f) ? (char)b : '.';
+            }
+            around[32] = 0;
+            printf(
+                "JAK2-TL art-h COPY-SRC src_off=0x%x (=raw+m_object_data.offset=0x%x) "
+                "src+0=0x%08x src+4=0x%08x  ascii[src..+32]=\"%s\"\n",
+                src_off, m_object_data.offset, src_w0, src_w4, around);
+            fflush(stdout);
+          }
           ofh->code_infos[seg_id].offset =
               kmalloc(m_heap, ofh->code_infos[seg_id].size, KMALLOC_TOP, "top-level-segment")
                   .offset;
@@ -305,12 +438,82 @@ uint32_t link_control::jak2_work_v3() {
                    ofh->code_infos[seg_id].size);
             return 1;
           }
+          // Gjak2-render: art-h's TOPLVL is the first top-level segment that is
+          // both 16-byte aligned and > 0xfff bytes, so it is the first to take
+          // ultimate_memcpy's GOAL call_goal(ultimate-memcpy) scratchpad path on
+          // x86 (every prior toplvl fell back to plain memmove). On arm64 that
+          // GOAL path is unreliable, so jak2::ultimate_memcpy now uses plain
+          // memmove there (see the __aarch64__ gate in ultimate_memcpy). The
+          // JAK2_TOPLVL_FORCE_MEMMOVE experiment is superseded by that gate.
+          bool tl_arth = (strcmp(m_object_name, "art-h") == 0);
           jak2::ultimate_memcpy(Ptr<u8>(ofh->code_infos[seg_id].offset).c(), src.c(),
                                 ofh->code_infos[seg_id].size);
+          if (tl_trace_on() && tl_arth) {
+            u32 dst_off = ofh->code_infos[seg_id].offset;
+            u32 dst_w0 = *Ptr<u32>(dst_off + 0).c();
+            u32 dst_w4 = *Ptr<u32>(dst_off + 4).c();
+            u32 src_w0b = *Ptr<u32>(src.offset + 0).c();
+            u32 src_w4b = *Ptr<u32>(src.offset + 4).c();
+            printf(
+                "JAK2-TL art-h POST-COPY dst+0=0x%08x dst+4=0x%08x  "
+                "src+0=0x%08x src+4=0x%08x\n",
+                dst_w0, dst_w4, src_w0b, src_w4b);
+            fflush(stdout);
+          }
+          // Gjak2-render JAK2_TOPLVL_TRACE: capture the TOP_LEVEL segment base,
+          // size and the word at +4 IMMEDIATELY after the copy completes (before
+          // any relocation runs). word@+4 == TOPLVL+4 == m_entry-target; the STP
+          // prologue we expect there is 0xa9bf7bfd.
+          if (tl_trace_on()) {
+            g_tl_toplvl_alloc = ofh->code_infos[seg_id].offset;
+            g_tl_toplvl_size = ofh->code_infos[seg_id].size;
+            g_tl_w4_after_copy = *Ptr<u32>(ofh->code_infos[seg_id].offset + 4).c();
+          }
         }
       } else {
         printf("UNHANDLED SEG ID IN WORK V3 STATE 1\n");
       }
+    }
+
+    // Gjak2-render JAK2_TOPLVL_TRACE: emit the per-object top-level line now that
+    // the copy is done. heap_top_after reflects the position of the global heap
+    // `top` AFTER this object's KMALLOC_TOP allocation.
+    if (tl_trace_on()) {
+      const u32 tl_heap_top_after = m_heap.offset ? m_heap->top.offset : 0;
+      printf(
+          "JAK2-TL name=%s heap_top_before=0x%x toplvl_alloc=0x%x toplvl_size=%u "
+          "heap_top_after=0x%x  word@+4_after_copy=0x%08x\n",
+          m_object_name, tl_heap_top_before, g_tl_toplvl_alloc, g_tl_toplvl_size,
+          tl_heap_top_after, g_tl_w4_after_copy);
+
+      // For art-h specifically: check for overlap of its top-level range against
+      // the direct-DGO read buffer [0x4000000, 0x4000000+0x200000) and against
+      // the previous object's top-level range.
+      if (strcmp(m_object_name, "art-h") == 0 && g_tl_toplvl_alloc && g_tl_toplvl_size) {
+        auto ranges_overlap = [](u32 a_off, u32 a_sz, u32 b_off, u32 b_sz) -> bool {
+          if (!a_off || !a_sz || !b_off || !b_sz)
+            return false;
+          return a_off < (b_off + b_sz) && b_off < (a_off + a_sz);
+        };
+        const u32 buf_off = 0x4000000;
+        const u32 buf_sz = 0x200000;
+        if (ranges_overlap(g_tl_toplvl_alloc, g_tl_toplvl_size, buf_off, buf_sz)) {
+          printf("JAK2-TL art-h OVERLAP buffer! toplvl=[0x%x,0x%x) buffer=[0x%x,0x%x)\n",
+                 g_tl_toplvl_alloc, g_tl_toplvl_alloc + g_tl_toplvl_size, buf_off,
+                 buf_off + buf_sz);
+        }
+        if (ranges_overlap(g_tl_toplvl_alloc, g_tl_toplvl_size, g_tl_prev_toplvl_alloc,
+                           g_tl_prev_toplvl_size)) {
+          printf(
+              "JAK2-TL art-h OVERLAP prev-toplvl! toplvl=[0x%x,0x%x) prev=[0x%x,0x%x)\n",
+              g_tl_toplvl_alloc, g_tl_toplvl_alloc + g_tl_toplvl_size,
+              g_tl_prev_toplvl_alloc, g_tl_prev_toplvl_alloc + g_tl_prev_toplvl_size);
+        }
+      }
+      // Remember this object's top-level range for the next object's prev-overlap
+      // check.
+      g_tl_prev_toplvl_alloc = g_tl_toplvl_alloc;
+      g_tl_prev_toplvl_size = g_tl_toplvl_size;
     }
 
     m_state = 1;
@@ -321,6 +524,11 @@ uint32_t link_control::jak2_work_v3() {
     // modern computer.  But the game broke this into multiple steps.
     if (m_segment_process < ofh->segment_count) {
       if (ofh->code_infos[m_segment_process].offset) {
+        // Gjak2-render DIAGNOSTIC (JAK2_RELOC_TRACE): make the segment being
+        // linked visible to the LDR-literal trace for symlink/typelink (which
+        // don't receive current_seg). cross_seg/ptr overwrite this with their
+        // own current_seg param inside the relocator (same value here).
+        g_jak2_reloc_seg = m_segment_process;
         Ptr<u8> lp(ofh->link_infos[m_segment_process].offset);
 
         while (*lp) {
@@ -358,6 +566,96 @@ uint32_t link_control::jak2_work_v3() {
     } else {
       // all done, can set the entry point to the top-level.
       m_entry = Ptr<u8>(ofh->code_infos[TOP_LEVEL_SEGMENT].offset) + 4;
+
+      // Gjak2-render JAK2_TOPLVL_TRACE: for art-h, record word@+4 (=m_entry
+      // target) AFTER all relocations are done. Compared against the after_copy
+      // value and the before_exec value printed in jak2_finish, this pinpoints
+      // which stage (copy vs reloc vs post-reloc/pre-exec) corrupts the STP
+      // prologue word.
+      if (tl_trace_on() && strcmp(m_object_name, "art-h") == 0) {
+        g_tl_arth_w4_after_reloc = m_entry.offset ? *Ptr<u32>(m_entry.offset).c() : 0;
+      }
+
+      // Gjak2-render DIAGNOSTIC (JAK2_SEG_TRACE): dump the runtime segment
+      // layout after linking so we can confirm the art-h m_entry stomp is a
+      // segment overlap / wrong base / static-data-before-code case. All
+      // offsets below are GOAL offsets straight out of code_infos[i].offset
+      // (already relocated to runtime addresses in state 0). Diagnostics only.
+      if (std::getenv("JAK2_SEG_TRACE")) {
+        const u32 main_off = ofh->code_infos[MAIN_SEGMENT].offset;
+        const u32 main_sz = ofh->code_infos[MAIN_SEGMENT].size;
+        const u32 dbg_off = ofh->code_infos[DEBUG_SEGMENT].offset;
+        const u32 dbg_sz = ofh->code_infos[DEBUG_SEGMENT].size;
+        const u32 top_off = ofh->code_infos[TOP_LEVEL_SEGMENT].offset;
+        const u32 top_sz = ofh->code_infos[TOP_LEVEL_SEGMENT].size;
+        printf(
+            "JAK2-SEG name=%s  MAIN off=0x%x size=%u  DEBUG off=0x%x size=%u  "
+            "TOPLVL off=0x%x size=%u  m_entry=0x%x\n",
+            m_object_name, main_off, main_sz, dbg_off, dbg_sz, top_off, top_sz,
+            m_entry.offset);
+
+        if (strcmp(m_object_name, "art-h") == 0) {
+          // 1) first 12 u32 words at TOP_LEVEL base
+          if (top_off) {
+            printf("JAK2-SEG art-h TOPLVL[0..11] =");
+            for (int i = 0; i < 12; i++) {
+              printf(" 0x%08x", *Ptr<u32>(top_off + 4 * i).c());
+            }
+            printf("\n");
+          }
+          // 1b) type tag at m_entry-4, and words at m_entry+0..+8
+          {
+            u32 tag = *Ptr<u32>(m_entry.offset - 4).c();
+            u32 e0 = *Ptr<u32>(m_entry.offset + 0).c();
+            u32 e4 = *Ptr<u32>(m_entry.offset + 4).c();
+            u32 e8 = *Ptr<u32>(m_entry.offset + 8).c();
+            printf(
+                "JAK2-SEG art-h m_entry-4(tag)=0x%08x  m_entry+0=0x%08x  "
+                "m_entry+4=0x%08x  m_entry+8=0x%08x\n",
+                tag, e0, e4, e8);
+          }
+          // 2) segment overlap check for the copied segments (main/toplvl/debug)
+          auto overlap = [](u32 a_off, u32 a_sz, u32 b_off, u32 b_sz) -> bool {
+            if (!a_off || !a_sz || !b_off || !b_sz)
+              return false;
+            u32 a_end = a_off + a_sz;
+            u32 b_end = b_off + b_sz;
+            return a_off < b_end && b_off < a_end;
+          };
+          if (overlap(main_off, main_sz, top_off, top_sz))
+            printf("JAK2-SEG art-h OVERLAP main/toplvl!\n");
+          if (overlap(main_off, main_sz, dbg_off, dbg_sz))
+            printf("JAK2-SEG art-h OVERLAP main/debug!\n");
+          if (overlap(top_off, top_sz, dbg_off, dbg_sz))
+            printf("JAK2-SEG art-h OVERLAP toplvl/debug!\n");
+          if (!overlap(main_off, main_sz, top_off, top_sz) &&
+              !overlap(main_off, main_sz, dbg_off, dbg_sz) &&
+              !overlap(top_off, top_sz, dbg_off, dbg_sz))
+            printf("JAK2-SEG art-h no segment overlap\n");
+          // 3) search MAIN and TOP_LEVEL ranges for the ASCII "near-index"
+          {
+            const char* needle = "near-index";
+            const u32 nlen = (u32)strlen(needle);
+            auto search_seg = [&](const char* seg_name, u32 seg_off, u32 seg_sz) {
+              if (!seg_off || seg_sz < nlen)
+                return;
+              const u8* base = Ptr<u8>(seg_off).c();
+              for (u32 i = 0; i + nlen <= seg_sz; i++) {
+                if (memcmp(base + i, needle, nlen) == 0) {
+                  u32 goff = seg_off + i;
+                  printf(
+                      "JAK2-SEG art-h FOUND \"near-index\" in %s at GOAL "
+                      "off=0x%x (m_entry=0x%x, m_entry-4=0x%x)\n",
+                      seg_name, goff, m_entry.offset, m_entry.offset - 4);
+                }
+              }
+            };
+            search_seg("MAIN", main_off, main_sz);
+            search_seg("TOPLVL", top_off, top_sz);
+          }
+        }
+      }
+
       return 1;
     }
 
@@ -598,6 +896,11 @@ void link_control::jak2_finish(bool jump_from_c_to_goal) {
 
   ObjectFileHeader* ofh = m_link_block_ptr.cast<ObjectFileHeader>().c();
   lg::debug("link finish: {}", m_object_name);
+  // Gjak2-render fundamental type-symbol content canary + repair at the
+  // per-object link boundary. This localizes which object's link/finish the
+  // 'string (etc.) stomp happens after, and repairs the slot so the next
+  // top-level exec (which may allocate strings/objects) does not read garbage.
+  jak2::jak2_check_repair_fund_types(m_object_name);
   if (ofh->object_file_version == 3) {
     // todo check function type of entry
 
@@ -609,8 +912,23 @@ void link_control::jak2_finish(bool jump_from_c_to_goal) {
       }
     }
 
+    // Gjak2-render JAK2_TOPLVL_TRACE: for art-h, read word@+4 (=m_entry target)
+    // one last time RIGHT BEFORE we jump into it. This captures any stomp by the
+    // mips2c link callbacks above, and lets us print all three probe stages
+    // (after_copy / after_reloc / before_exec) on a single line so the corrupting
+    // stage is unambiguous.
+    if (tl_trace_on() && strcmp(m_object_name, "art-h") == 0) {
+      u32 before_exec = m_entry.offset ? *Ptr<u32>(m_entry.offset).c() : 0;
+      printf("JAK2-TL art-h w+4: after_copy=0x%08x after_reloc=0x%08x before_exec=0x%08x\n",
+             g_tl_w4_after_copy, g_tl_arth_w4_after_reloc, before_exec);
+      fflush(stdout);  // crash executes m_entry immediately after; flush the probe.
+    }
+
     // execute top level!
     if (m_entry.offset && (m_flags & LINK_FLAG_EXECUTE)) {
+      // Gjak2-render concurrent-GOAL race detector: bracket the top-level exec
+      // (this is a C++ -> GOAL entry on the single shared GOAL stack).
+      GoalActiveGuard goal_active_guard;
       if (jump_from_c_to_goal) {
         u64 goal_stack = u64(g_ee_main_mem) + EE_MAIN_MEM_SIZE - 8;
         call_goal_on_stack(m_entry.cast<Function>(), goal_stack, s7.offset, g_ee_main_mem);
@@ -632,6 +950,15 @@ void link_control::jak2_finish(bool jump_from_c_to_goal) {
                                      GOAL_RELOC_METHOD, m_heap.offset,
                                      Ptr<char>(LINK_CONTROL_NAME_ADDR).offset);
     }
+  }
+
+  // Gjak2-render: second canary check AFTER this object's top-level exec, so a
+  // stomp introduced by executing THIS object's top-level (vs. a prior one) is
+  // attributed here with a distinct "<obj>:post-exec" where= tag.
+  {
+    static thread_local char s_post_exec_where[256];
+    std::snprintf(s_post_exec_where, sizeof(s_post_exec_where), "%s:post-exec", m_object_name);
+    jak2::jak2_check_repair_fund_types(s_post_exec_where);
   }
 
   *EnableMethodSet = *EnableMethodSet - m_keep_debug;
@@ -661,6 +988,10 @@ Ptr<uint8_t> link_and_exec(Ptr<uint8_t> data,
     printf("-------------> saved link is busy\n");
     // probably won't end well...
   }
+  // Gjak2-render forensic breadcrumb: record the object currently being
+  // linked/exec'd so the arm64 crash handler can attribute a pc=0 crash to this
+  // object (or to the gap after it). Point at the caller's stable name buffer.
+  g_gk_current_link_object = name ? name : "<null-name>";
   link_control lc;
   lc.jak1_jak2_begin(data, name, size, heap, flags);
   uint32_t done;
@@ -668,6 +999,9 @@ Ptr<uint8_t> link_and_exec(Ptr<uint8_t> data,
     done = lc.jak2_work();
   } while (!done);
   lc.jak2_finish(jump_from_c_to_goal);
+  // Link + top-level exec finished for this object; we are now between objects
+  // until the next link_and_exec sets the breadcrumb again.
+  g_gk_current_link_object = "<between objects>";
   return lc.m_entry;
 }
 
@@ -721,6 +1055,7 @@ uint64_t link_resume() {
 void ultimate_memcpy(void* dst, void* src, uint32_t size) {
   // only possible if alignment is good.
   if (!(u64(dst) & 0xf) && !(u64(src) & 0xf) && !(u64(size) & 0xf) && size > 0xfff) {
+#ifndef __aarch64__
     if (!gfunc_774.offset) {
       // GOAL function is unknown, lets see if its loaded:
       auto sym = jak2::find_symbol_from_c("ultimate-memcpy");
@@ -734,6 +1069,15 @@ void ultimate_memcpy(void* dst, void* src, uint32_t size) {
     Ptr<u8>(call_goal(gfunc_774, make_u8_ptr(dst).offset, make_u8_ptr(src).offset, size, s7.offset,
                       g_ee_main_mem))
         .c();
+#else
+    // Gjak2-render: on arm64 there is no PS2 scratchpad fast-copy, and the GOAL
+    // ultimate-memcpy scratchpad path is unreliable (writes garbage to the
+    // destination even though the source is verified correct — corrupts the
+    // first large 16-aligned segment, e.g. art-h's top-level code -> SIGILL).
+    // The correct behavior is a plain memmove (identical bytes; only loses the
+    // PS2-VU speed optimization). The x86 path above is left byte-identical.
+    memmove(dst, src, size);
+#endif
   } else {
     memmove(dst, src, size);
   }

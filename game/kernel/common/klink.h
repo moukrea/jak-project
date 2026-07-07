@@ -250,5 +250,12 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
                                                uintptr_t target_host_addr,
                                                int sym_value_bias = 0);
 
+// Gjak2-render DIAGNOSTIC (JAK2_RELOC_TRACE): reloc-type + segment attribution
+// for the LDR-literal (not-4-aligned / imm19-out-of-range) branch. The jak2 v3
+// relocators set these immediately before each klink_arm64_patch_pc_rel call.
+// Env-gated output only; no behavioural effect.
+extern const char* g_jak2_reloc_ctx;
+extern int g_jak2_reloc_seg;
+
 extern link_control saved_link_control;
 extern Ptr<Function> gfunc_774;  // actually 807 in jak2.

@@ -40,6 +40,13 @@ Ptr<Function> gfunc_774;
 // instruction-kind breakdown documented in C4-execute.md.
 KlinkArm64PatchHist g_klink_arm64_patch_hist = {};
 
+// Gjak2-render DIAGNOSTIC (JAK2_RELOC_TRACE): the jak2 v3 relocators set these
+// immediately before each klink_arm64_patch_pc_rel call so the LDR-literal
+// branch can attribute a NOP'd/oor slot to a reloc type + segment. Env-gated
+// output only; no behavioural effect. Declared extern in klink.h.
+const char* g_jak2_reloc_ctx = "";
+int g_jak2_reloc_seg = -1;
+
 namespace {
 
 // arm64 opcode masks + bases — kept in sync by hand with goalc's
@@ -387,20 +394,50 @@ KlinkArm64PatchResult klink_arm64_patch_pc_rel(uint32_t* slot,
     const uintptr_t this_pc = reinterpret_cast<uintptr_t>(slot);
     const int64_t pc_rel = static_cast<int64_t>(target_host_addr) -
                            static_cast<int64_t>(this_pc);
+    const bool jak2_reloc_trace = (std::getenv("JAK2_RELOC_TRACE") != nullptr);
+    const bool ldrlit_out = ((pc_rel & 3) != 0) ||
+                            ((pc_rel / 4) < -(int64_t(1) << 18)) ||
+                            ((pc_rel / 4) >= (int64_t(1) << 18));
+    if (jak2_reloc_trace && ldrlit_out) {
+      const uintptr_t ee_base = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+      const uintptr_t slot_goal_off =
+          (ee_base && this_pc >= ee_base) ? (this_pc - ee_base) : 0;
+      const uintptr_t target_goal_off =
+          (ee_base && target_host_addr >= ee_base) ? (target_host_addr - ee_base) : 0;
+      fprintf(stderr,
+              "JAK2-RELOC-LDRLIT ctx=%s seg=%d slot=%p slot_goal_off=0x%x "
+              "orig_enc=0x%08x target_host=0x%lx target_goal_off=0x%x pc_rel=%lld\n",
+              g_jak2_reloc_ctx, g_jak2_reloc_seg, (void*)slot,
+              (unsigned)slot_goal_off, enc, (unsigned long)target_host_addr,
+              (unsigned)target_goal_off, (long long)pc_rel);
+      fprintf(stderr,
+              "  neighbors: [-4]=0x%08x [-3]=0x%08x [-2]=0x%08x [-1]=0x%08x "
+              "[0]=0x%08x(THIS) [+1]=0x%08x [+2]=0x%08x [+3]=0x%08x [+4]=0x%08x\n",
+              slot[-4], slot[-3], slot[-2], slot[-1], slot[0], slot[1], slot[2],
+              slot[3], slot[4]);
+    }
     if ((pc_rel & 3) != 0) {
-      g_klink_arm64_patch_hist.out_of_range++;
+      // Gjak2-render FIX: goalc-arm64 emits NO far LDR-literal instructions (all
+      // inter-seg/static loads are ADRP+X16 pairs now). So a "LDR-literal" whose
+      // pc-rel can't be encoded (not 4-aligned here) is DEFINITIVELY a misclassified
+      // GOAL data word — a symlink DATA word holding a jak2 symbol pointer whose top
+      // byte (0x18/0x1C/0x58/0x5C/0x98/0x9C) happens to match the LDR-literal opcode
+      // mask with an imm19≈0 placeholder. NOPping it (the prior experiment) corrupts
+      // the data word AND, because the caller ignores non-kNotInstr results, skips the
+      // caller's normal raw-u32 store -> art-h top-level reads garbage -> SIGILL.
+      // Return kNotInstr so the caller performs its raw-u32 store (exactly like x86).
+      g_klink_arm64_patch_hist.raw_u32++;
       klink_imm19_trace(slot, enc, target_host_addr, pc_rel, 0, "misalign");
-      printf("klink-arm64: LDR-literal pc-rel %lld not 4-aligned at %p\n",
-             (long long)pc_rel, (void*)slot);
-      return KlinkArm64PatchResult::kAborted;
+      return KlinkArm64PatchResult::kNotInstr;
     }
     const int64_t imm19 = pc_rel / 4;
     if (imm19 < -(int64_t(1) << 18) || imm19 >= (int64_t(1) << 18)) {
-      g_klink_arm64_patch_hist.out_of_range++;
+      // Gjak2-render FIX: see above. An out-of-range imm19 for a "LDR-literal" is a
+      // misclassified GOAL data word (goalc-arm64 emits no far LDR-literals), so
+      // return kNotInstr and let the caller do its raw-u32 store (x86-identical).
+      g_klink_arm64_patch_hist.raw_u32++;
       klink_imm19_trace(slot, enc, target_host_addr, pc_rel, imm19, "oor");
-      printf("klink-arm64: LDR-literal imm19 %lld out of range at %p\n",
-             (long long)imm19, (void*)slot);
-      return KlinkArm64PatchResult::kAborted;
+      return KlinkArm64PatchResult::kNotInstr;
     }
     klink_imm19_trace(slot, enc, target_host_addr, pc_rel, imm19, "ok");
     *slot = arm_patch_ldr_literal_imm19(enc, static_cast<int32_t>(pc_rel));
@@ -443,6 +480,24 @@ namespace {
 // so the table is populated. The static guard means re-calling the
 // binding helper across a re-boot is a no-op after the first bind.
 u64 a11_pc_get_mips2c_impl(u32 name) {
+#ifdef __aarch64__
+  // Gjak2-render: Mips2C::gLinkedFunctionTable is the JAK1 arm64 mips2c table
+  // (mips2c_table_jak1_arm64.cpp — its reg() asserts g_game_version==Jak1, its
+  // a37 arena/noop bind uses jak1_symbols::FIX_SYM_* constants + jak1::
+  // make_function_symbol_from_c). On jak2 that table's get()/a37_shared_noop
+  // path walks the jak2 Symbol4 table with JAK1 hash geometry + FIX_SYM offsets
+  // -> a symbol/type pointer with a valid low-heap offset but garbage upper-16
+  // (0x??001afe / 0xc4001b10) -> the intermittent jak2 boot-link SIGSEGV
+  // (crash stack: LinkedFunctionTable::get -> jak1::make_function_symbol_from_c
+  // -> jak1::intern_from_c -> jak1::make_string_from_c; ASLR decides which
+  // mis-hashed value is fatal, hence the "random" crash object). jak2 mips2c is
+  // a separate wiring task; until then return 0 so def-mips2c stores an unbound
+  // slot (linking completes) instead of corrupting the jak2 heap. jak1/x86 use
+  // the real table unchanged.
+  if (g_game_version == GameVersion::Jak2) {
+    return 0;
+  }
+#endif
   const char* n = Ptr<String>(name).c()->data();
   return Mips2C::gLinkedFunctionTable.get(n);
 }
@@ -478,7 +533,17 @@ void klink_a11_ensure_pc_mips2c_bound() {
   auto fn = klink_mfsfc_for_game("__pc-get-mips2c",
                                  (void*)a11_pc_get_mips2c_impl);
 #ifdef __aarch64__
-  a37_mips2c_prealloc_arena();
+  // Gjak2-render: a37_mips2c_prealloc_arena() lives in mips2c_table_jak1_arm64.cpp
+  // and allocates its trampoline arena with jak1-ONLY symbol constants
+  // (jak1_symbols::FIX_SYM_GLOBAL_HEAP=0x140, FIX_SYM_FUNCTION_TYPE=0x10). On the
+  // jak2 Symbol4 table those offsets (0xa0 / 0x8) read the WRONG slot -> a garbage
+  // type ptr (0x??001afe) -> jak1::alloc_from_heap SIGSEGV right after KERNEL.CGO
+  // links (device object-8 crash). The whole jak1 arm64 mips2c table is jak1-only
+  // (its LinkedFunctionTable::reg asserts g_game_version==Jak1); jak2 binds its
+  // mips2c/pc-helpers via the real jak2::InitMachine_PCPort. Gate to jak1.
+  if (g_game_version == GameVersion::Jak1) {
+    a37_mips2c_prealloc_arena();
+  }
 #endif
   s_bound = true;
   std::fprintf(stderr,

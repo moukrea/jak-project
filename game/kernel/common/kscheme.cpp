@@ -5,6 +5,12 @@
 #include "game/kernel/common/kprint.h"
 #include "game/kernel/common/runtime_trace.h"
 
+// Gjak2-render concurrent-GOAL race experiment (see kscheme.h). Definitions of
+// the shared cross-thread flags used by the klink top-level exec, the GL-thread
+// vif_interrupt_callback, and the crash handler.
+std::atomic<int> g_goal_active{0};
+std::atomic<bool> g_goal_boot_linking{false};
+
 // total number of symbols in the table
 s32 NumSymbols;
 

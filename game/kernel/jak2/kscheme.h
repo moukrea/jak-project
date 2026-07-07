@@ -64,6 +64,16 @@ u64 alloc_heap_memory(u32 heap, u32 size);
 u64 alloc_heap_object(u32 heap, u32 type, u32 size, u32 pp);
 u32 u32_in_fixed_sym(u32 offset);
 
+// Gjak2-render fundamental-type-symbol content canary + repair.
+// The jak2 boot-link crash is a memory stomp: fundamental type-symbol VALUE
+// slots (esp. 'string) in the Symbol4 table get corrupted to garbage
+// (valid low-16 + garbage upper-16) at a random point during boot-linking.
+// These functions snapshot the KNOWN-GOOD small pointer values and repair them
+// at every object-link boundary so the boot survives, while logging WHICH
+// object-link boundary the stomp happens at (localization).
+void jak2_snapshot_fund_types();
+int jak2_check_repair_fund_types(const char* where);
+
 template <typename T>
 const char* symbol_name_cstr(const Symbol4<T>& sym) {
   return (const char*)(g_ee_main_mem + 4 +

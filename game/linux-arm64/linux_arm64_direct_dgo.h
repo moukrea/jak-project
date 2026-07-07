@@ -22,8 +22,20 @@
 
 namespace linux_arm64 {
 
+// Signature of the per-game link engine (jak1::link_and_exec /
+// jak2::link_and_exec — identical signatures). The direct loader calls
+// through this pointer so a jak2 boot can drive the jak2 relocator while
+// the default preserves the existing jak1 behavior for 4-arg callers.
+typedef Ptr<uint8_t> (*DirectDgoLinkFn)(Ptr<uint8_t>,
+                                        const char*,
+                                        int32_t,
+                                        Ptr<kheapinfo>,
+                                        uint32_t,
+                                        bool);
+
 // Load and link a DGO file by reading its bytes directly from `dgo_path`
-// and feeding each contained object into `jak1::link_and_exec`.
+// and feeding each contained object into `link_fn` (defaults to
+// `jak1::link_and_exec` when null).
 //
 // Returns 0 on success, negative on error:
 //   -1  fopen failed
@@ -41,6 +53,7 @@ namespace linux_arm64 {
 int direct_load_dgo(const char* dgo_path,
                     Ptr<kheapinfo> heap,
                     u32 link_flags,
-                    s32 buffer_size);
+                    s32 buffer_size,
+                    DirectDgoLinkFn link_fn = nullptr);
 
 }  // namespace linux_arm64

@@ -22,3 +22,11 @@ u32 InitRPC();
 void StopIOP();
 
 extern u32 sShowStallMsg;
+
+// Gjak2-render forensic breadcrumb: the name of the DGO object currently being
+// linked/exec'd (set by link_and_exec right before each object; reset to
+// "<between objects>" after link finish). Read by the arm64 crash handler so a
+// pc=0 crash can be attributed to a specific object's link/exec or to the gap
+// between two objects. Cheap, always-on, no env gate. extern "C" so the
+// unmangled symbol is reachable from the android crash-diag TU.
+extern "C" const char* g_gk_current_link_object;

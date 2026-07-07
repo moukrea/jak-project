@@ -844,6 +844,24 @@ u32 offset_of_s7() {
 // graphics-side buckets still trigger their GOAL handler.
 void vif_interrupt_callback(int bucket_id) {
   if (vif1_interrupt_handler && MasterExit == RuntimeExitStatus::RUNNING) {
+    // Gjak2-render concurrent-GOAL race gate + detector (translation-layer
+    // only). During jak2 boot CGO-linking the boot thread holds the single
+    // shared GOAL stack (call_goal_on_stack in klink). If the GL/render thread
+    // re-enters GOAL here on that SAME stack we get mutual frame corruption ->
+    // RET-to-0 / BLR-to-ee_base+0. Skip the GL-thread GOAL call while
+    // boot-linking (jak2 only, to stay conservative for jak1).
+    if (g_game_version == GameVersion::Jak2 &&
+        g_goal_boot_linking.load(std::memory_order_seq_cst)) {
+      static std::atomic<bool> s_skip_logged{false};
+      if (!s_skip_logged.exchange(true)) {
+        __android_log_print(ANDROID_LOG_WARN, kD4ShimTag,
+                            "GK-DIAG GL-goal-skipped (boot-linking)");
+      }
+      return;
+    }
+    // Bracket this C++ -> GOAL entry so a concurrent boot-thread top-level exec
+    // shows up as g_goal_active > 1 in the crash handler.
+    GoalActiveGuard goal_active_guard;
     call_goal(Ptr<Function>(vif1_interrupt_handler), bucket_id, 0, 0,
               s7.offset, g_ee_main_mem);
   }

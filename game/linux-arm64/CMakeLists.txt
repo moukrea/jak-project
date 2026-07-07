@@ -143,6 +143,21 @@ add_library(linux_arm64_kernel STATIC
     "${JAK_ROOT}/game/kernel/jak1/kscheme.cpp"
     "${JAK_ROOT}/game/kernel/jak1/ksound.cpp"
 
+    # Kernel jak2 — additive for the --game jak2 qemu repro. Same
+    # curation rationale as jak1: NO kmachine/kmachine_extras/kboot
+    # (graphics + sqlite + discord + sce-libgraph), NO jak2 mips2c/font/
+    # overlord/texture_remap. Missing jak2:: externs pulled by these 8
+    # TUs are satisfied by honest abort/no-op stubs in
+    # linux_arm64_runtime_compat.cpp.
+    "${JAK_ROOT}/game/kernel/jak2/fileio.cpp"
+    "${JAK_ROOT}/game/kernel/jak2/kdgo.cpp"
+    "${JAK_ROOT}/game/kernel/jak2/klink.cpp"
+    "${JAK_ROOT}/game/kernel/jak2/klisten.cpp"
+    "${JAK_ROOT}/game/kernel/jak2/kprint.cpp"
+    "${JAK_ROOT}/game/kernel/jak2/kscheme.cpp"
+    "${JAK_ROOT}/game/kernel/jak2/ksound.cpp"
+    "${JAK_ROOT}/game/kernel/jak2/kmalloc.cpp"
+
     # AArch64 trampoline — preprocessed to GNU as.
     "${ASM_FUNCS_OUT}"
 

@@ -109,6 +109,12 @@
 #include "game/kernel/jak1/klink.h"
 #include "game/kernel/jak1/klisten.h"
 #include "game/kernel/jak1/kscheme.h"
+// jak2 kernel headers — additive for the `--game jak2` qemu repro. Only
+// the init_globals + InitHeapAndSymbol + link_and_exec surfaces are used.
+#include "game/kernel/jak2/kdgo.h"
+#include "game/kernel/jak2/klink.h"
+#include "game/kernel/jak2/klisten.h"
+#include "game/kernel/jak2/kscheme.h"
 #include "game/runtime.h"
 
 #include "linux_arm64_direct_dgo.h"
@@ -117,6 +123,13 @@
 // File-scope declaration so the call inside the anonymous namespace below
 // resolves to the global symbol (not an anonymous-namespace internal).
 void a13_arm64_init_iop();
+
+// Gjak2 — set true when argv carries the `jak2` token (typically after
+// `--game`). Drives the additive jak2 branches: jak2 init_globals,
+// jak2::InitHeapAndSymbol, skipping the jak1-layout pc-* bind block, and
+// loading the jak2 KERNEL.CGO + GAME.CGO through jak2::link_and_exec.
+// Default false keeps the `--game jak1` (and no-arg) path byte-identical.
+static bool g_use_jak2 = false;
 
 namespace {
 constexpr const char* kPhaseTag = "A8";
@@ -145,6 +158,19 @@ void a17_bind_pc_helpers() {
   if (s_bound) return;
   if (SymbolTable2.offset == 0) return;
   s_bound = true;
+
+  // Gjak2 — SKIP the entire jak1:: pc-* bind block when booting jak2.
+  // Every call below is jak1::make_function_symbol_from_c, which writes
+  // a jak1 Symbol{u32}-layout symbol value; jak2 uses a Symbol4<u32>
+  // table with a different layout, so binding through the jak1 path
+  // would corrupt jak2's symbol table. These no-op pc-* helpers are not
+  // needed to reproduce the jak2 KERNEL.CGO link crash anyway. The
+  // game-aware binds that route through klink_mfsfc_for_game
+  // (__pc-get-mips2c / __mem-move, called from boot_kernel_init) still
+  // run for both games.
+  if (g_use_jak2) {
+    return;
+  }
 
   // Full pc-* surface from
   // game/kernel/common/kmachine.cpp::init_common_pc_port_functions
@@ -319,6 +345,253 @@ void a17_bind_pc_helpers() {
                "a11_pc_get_mips2c_impl (real jak1 mips2c table)\n");
 }
 
+// Gjak2 pc-* bind — mirrors a17_bind_pc_helpers but for the jak2 runtime.
+// The prior harness build early-returned a17_bind_pc_helpers for jak2 (it
+// wrongly believed jak2::make_function_symbol_from_c crashes; FALSIFIED —
+// it works fine). GAME.CGO top-levels take the ADDRESS of every pc-* helper
+// symbol during link+exec; if the slot value is 0 the first BLR through it
+// lands at ee_base (fn-ptr=0) → SIGILL. Binding the full authoritative jak2
+// pc-* name set to the SAME dummy (a17_pc_default, returns 0) the jak1 block
+// uses makes those slots non-zero. Dummy is correct here: the headless qemu
+// build never meaningfully calls these (no GL/DMA/input target), it only
+// needs the symbol addresses resolved so the top-level link chain runs.
+//
+// Name set = the string-literal symbol names bound in BOTH:
+//   (1) init_common_pc_port_functions (game/kernel/common/kmachine.cpp) —
+//       game-agnostic ~85 pc-* / __ names.
+//   (2) jak2::InitMachine_PCPort (game/kernel/jak2/kmachine.cpp) —
+//       jak2-specific names.
+// The *-string-constant interns in InitMachine_PCPort (*pc-user-dir-base-path*
+// etc.) are value assignments, not function symbols, so they are excluded.
+void a17_bind_pc_helpers_jak2() {
+  static bool s_bound = false;
+  if (s_bound) return;
+  if (SymbolTable2.offset == 0) return;
+  s_bound = true;
+
+  void* d = (void*)a17_pc_default;
+
+  // ---- init_common_pc_port_functions (common, game-agnostic) ----
+  // Core / internal
+  jak2::make_function_symbol_from_c("__read-ee-timer", d);
+  jak2::make_function_symbol_from_c("__mem-move", d);
+  jak2::make_function_symbol_from_c("__send-gfx-dma-chain", d);
+  jak2::make_function_symbol_from_c("__pc-texture-upload-now", d);
+  jak2::make_function_symbol_from_c("__pc-texture-relocate", d);
+  jak2::make_function_symbol_from_c("__pc-get-mips2c", d);
+  // Display
+  jak2::make_function_symbol_from_c("pc-get-display-id", d);
+  jak2::make_function_symbol_from_c("pc-set-display-id!", d);
+  jak2::make_function_symbol_from_c("pc-get-display-name", d);
+  jak2::make_function_symbol_from_c("pc-get-display-mode", d);
+  jak2::make_function_symbol_from_c("pc-set-display-mode!", d);
+  jak2::make_function_symbol_from_c("pc-set-gfx-renderer!", d);
+  jak2::make_function_symbol_from_c("pc-get-display-count", d);
+  jak2::make_function_symbol_from_c("pc-get-active-display-size", d);
+  jak2::make_function_symbol_from_c("pc-get-active-display-refresh-rate", d);
+  jak2::make_function_symbol_from_c("pc-get-window-size", d);
+  jak2::make_function_symbol_from_c("pc-get-window-scale", d);
+  jak2::make_function_symbol_from_c("pc-get-touch-tap", d);
+  jak2::make_function_symbol_from_c("pc-set-window-size!", d);
+  jak2::make_function_symbol_from_c("pc-get-num-resolutions", d);
+  jak2::make_function_symbol_from_c("pc-get-resolution", d);
+  jak2::make_function_symbol_from_c("pc-is-supported-resolution?", d);
+  // Input
+  jak2::make_function_symbol_from_c("pc-get-controller-name", d);
+  jak2::make_function_symbol_from_c("pc-get-current-bind", d);
+  jak2::make_function_symbol_from_c("pc-get-controller-count", d);
+  jak2::make_function_symbol_from_c("pc-get-controller-index", d);
+  jak2::make_function_symbol_from_c("pc-set-controller!", d);
+  jak2::make_function_symbol_from_c("pc-get-keyboard-enabled?", d);
+  jak2::make_function_symbol_from_c("pc-set-keyboard-enabled!", d);
+  jak2::make_function_symbol_from_c("pc-set-mouse-options!", d);
+  jak2::make_function_symbol_from_c("pc-set-mouse-camera-sens!", d);
+  jak2::make_function_symbol_from_c("pc-ignore-background-controller-events!", d);
+  jak2::make_function_symbol_from_c("pc-current-controller-has-led?", d);
+  jak2::make_function_symbol_from_c("pc-current-controller-has-rumble?", d);
+  jak2::make_function_symbol_from_c("pc-set-controller-led!", d);
+  jak2::make_function_symbol_from_c("pc-waiting-for-bind?", d);
+  jak2::make_function_symbol_from_c("pc-set-waiting-for-bind!", d);
+  jak2::make_function_symbol_from_c("pc-stop-waiting-for-bind!", d);
+  jak2::make_function_symbol_from_c("pc-reset-bindings-to-defaults!", d);
+  jak2::make_function_symbol_from_c("pc-set-auto-hide-cursor!", d);
+  jak2::make_function_symbol_from_c("pc-get-pressure-sensitivity-enabled?", d);
+  jak2::make_function_symbol_from_c("pc-set-pressure-sensitivity-enabled!", d);
+  jak2::make_function_symbol_from_c("pc-set-axis-scale!", d);
+  jak2::make_function_symbol_from_c("pc-get-axis-scale", d);
+  jak2::make_function_symbol_from_c("pc-current-controller-has-pressure-sensitivity?", d);
+  jak2::make_function_symbol_from_c("pc-current-controller-has-trigger-effect-support?", d);
+  jak2::make_function_symbol_from_c("pc-get-trigger-effects-enabled?", d);
+  jak2::make_function_symbol_from_c("pc-set-trigger-effects-enabled!", d);
+  jak2::make_function_symbol_from_c("pc-clear-trigger-effect!", d);
+  jak2::make_function_symbol_from_c("pc-send-trigger-effect-feedback!", d);
+  jak2::make_function_symbol_from_c("pc-send-trigger-effect-vibrate!", d);
+  jak2::make_function_symbol_from_c("pc-send-trigger-effect-weapon!", d);
+  jak2::make_function_symbol_from_c("pc-send-trigger-rumble!", d);
+  // Graphics
+  jak2::make_function_symbol_from_c("pc-set-vsync", d);
+  jak2::make_function_symbol_from_c("pc-set-msaa", d);
+  jak2::make_function_symbol_from_c("pc-set-frame-rate", d);
+  jak2::make_function_symbol_from_c("pc-set-game-resolution", d);
+  jak2::make_function_symbol_from_c("pc-set-brightness-contrast", d);
+  jak2::make_function_symbol_from_c("pc-set-letterbox", d);
+  jak2::make_function_symbol_from_c("pc-renderer-tree-set-lod", d);
+  jak2::make_function_symbol_from_c("pc-set-collision-mode", d);
+  jak2::make_function_symbol_from_c("pc-set-collision-mask", d);
+  jak2::make_function_symbol_from_c("pc-get-collision-mask", d);
+  jak2::make_function_symbol_from_c("pc-set-collision-wireframe", d);
+  jak2::make_function_symbol_from_c("pc-set-collision", d);
+  jak2::make_function_symbol_from_c("pc-set-gfx-hack", d);
+  jak2::make_function_symbol_from_c("pc-set-fps-counter", d);
+  jak2::make_function_symbol_from_c("pc-get-fps", d);
+  jak2::make_function_symbol_from_c("pc-get-frame-busy-us", d);
+  // Common binds pc-camera-interp-alpha only #ifndef __ANDROID__; the
+  // linux-arm64 qemu build is not Android, so include it here to match.
+  jak2::make_function_symbol_from_c("pc-camera-interp-alpha", d);
+  // Other
+  jak2::make_function_symbol_from_c("pc-get-os", d);
+  jak2::make_function_symbol_from_c("pc-get-unix-timestamp", d);
+  jak2::make_function_symbol_from_c("pc-treat-pad0-as-pad1", d);
+  jak2::make_function_symbol_from_c("pc-is-imgui-visible?", d);
+  // File
+  jak2::make_function_symbol_from_c("pc-filepath-exists?", d);
+  jak2::make_function_symbol_from_c("pc-mkdir-file-path", d);
+  // Discord
+  jak2::make_function_symbol_from_c("pc-discord-rpc-set", d);
+  // Profiler
+  jak2::make_function_symbol_from_c("pc-prof", d);
+  // RNG
+  jak2::make_function_symbol_from_c("pc-rand", d);
+  // Text
+  jak2::make_function_symbol_from_c("pc-encode-utf8-string", d);
+  // Debug
+  jak2::make_function_symbol_from_c("pc-filter-debug-string?", d);
+  jak2::make_function_symbol_from_c("pc-screen-shot", d);
+  jak2::make_function_symbol_from_c("pc-register-screen-shot-settings", d);
+
+  // ---- jak2::InitMachine_PCPort (jak2-specific) ----
+  jak2::make_function_symbol_from_c("__pc-set-levels", d);
+  jak2::make_function_symbol_from_c("__pc-set-active-levels", d);
+  jak2::make_function_symbol_from_c("__pc-get-tex-remap", d);
+  jak2::make_function_symbol_from_c("pc-init-autosplitter-struct", d);
+  jak2::make_function_symbol_from_c("pc-discord-rpc-update", d);
+  jak2::make_function_symbol_from_c("alloc-vagdir-names", d);
+  // external RPCs
+  jak2::make_function_symbol_from_c("pc-fetch-external-speedrun-times", d);
+  jak2::make_function_symbol_from_c("pc-fetch-external-race-times", d);
+  jak2::make_function_symbol_from_c("pc-fetch-external-highscores", d);
+  jak2::make_function_symbol_from_c("pc-get-external-speedrun-time", d);
+  jak2::make_function_symbol_from_c("pc-get-external-race-time", d);
+  jak2::make_function_symbol_from_c("pc-get-external-highscore", d);
+  jak2::make_function_symbol_from_c("pc-get-num-external-speedrun-times", d);
+  jak2::make_function_symbol_from_c("pc-get-num-external-race-times", d);
+  jak2::make_function_symbol_from_c("pc-get-num-external-highscores", d);
+  // speedrunning / sr-mode
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entries-amount", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-name", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-continue-point", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-history-success", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-history-attempts", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-session-success", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-session-attempts", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-avg-time", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-practice-entry-fastest-time", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-record-practice-entry-attempt!", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-init-practice-info!", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-custom-category-amount", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-custom-category-name", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-get-custom-category-continue-point", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-init-custom-category-info!", d);
+  jak2::make_function_symbol_from_c("pc-sr-mode-dump-new-custom-category", d);
+
+  std::fprintf(stderr,
+               "Gjak2-render sym-bind-trace: bound the full jak2 pc-* helper "
+               "surface (common + jak2-specific) to a17_pc_default no-op so "
+               "GAME.CGO top-levels don't SIGILL on unbound pc-* symbols\n");
+}
+
+// Gjak2-render — bind the jak2 kernel-C symbol set that the REAL runtime
+// binds in jak2::InitMachineScheme (game/kernel/jak2/kmachine.cpp L655-686)
+// and jak2::InitSoundScheme (game/kernel/jak2/ksound.cpp L11-19), which this
+// headless harness stubs. `pad.gc`'s top-level takes the ADDRESS of these
+// symbols (scf-get-time, scf-get-territory, cpad-open, install-handler, ...)
+// during link+exec; if the slot value is 0 the first BLR through it lands at
+// ee_base (fn-ptr=0) -> SIGILL. Binding every such name to the SAME dummy
+// (a17_pc_default, returns 0) the pc-* block uses makes those slots non-zero.
+// Dummy is correct for the qemu build: it has no GS/DMA/controller/file-io
+// target and never meaningfully calls these; it only needs the addresses
+// resolved so the top-level link chain runs.
+//
+// EXCLUDED (already bound elsewhere, do NOT re-bind):
+//   * every name in init_common_pc_port_functions + jak2::InitMachine_PCPort
+//     (pc-* / __*) -> bound by a17_bind_pc_helpers_jak2 above.
+//   * every name in jak2::InitHeapAndSymbol (kscheme.cpp L2161+: string->symbol,
+//     print, malloc, method-set!, dgo-load, link, _format, ...) -> bound by
+//     jak2::InitHeapAndSymbol, already called before this in run_and_report.
+void bind_kernel_c_stubs_jak2() {
+  static bool s_bound = false;
+  if (s_bound) return;
+  if (SymbolTable2.offset == 0) return;
+  s_bound = true;
+
+  void* d = (void*)a17_pc_default;
+
+  // ---- jak2::InitMachineScheme (kmachine.cpp L656-686) ----
+  // GS / display / graphics kernel-C
+  jak2::make_function_symbol_from_c("put-display-env", d);
+  jak2::make_function_symbol_from_c("syncv", d);
+  jak2::make_function_symbol_from_c("sync-path", d);
+  jak2::make_function_symbol_from_c("reset-path", d);
+  jak2::make_function_symbol_from_c("reset-graph", d);
+  jak2::make_function_symbol_from_c("dma-sync", d);
+  jak2::make_function_symbol_from_c("gs-put-imr", d);
+  jak2::make_function_symbol_from_c("gs-get-imr", d);
+  jak2::make_function_symbol_from_c("gs-store-image", d);
+  jak2::make_function_symbol_from_c("flush-cache", d);
+  // controller / mouse / interrupt handlers
+  jak2::make_function_symbol_from_c("cpad-open", d);
+  jak2::make_function_symbol_from_c("cpad-get-data", d);
+  jak2::make_function_symbol_from_c("mouse-get-data", d);
+  jak2::make_function_symbol_from_c("install-handler", d);
+  jak2::make_function_symbol_from_c("install-debug-handler", d);
+  // file-stream kernel-C
+  jak2::make_function_symbol_from_c("file-stream-open", d);
+  jak2::make_function_symbol_from_c("file-stream-close", d);
+  jak2::make_function_symbol_from_c("file-stream-length", d);
+  jak2::make_function_symbol_from_c("file-stream-seek", d);
+  jak2::make_function_symbol_from_c("file-stream-read", d);
+  jak2::make_function_symbol_from_c("file-stream-write", d);
+  // scf (system config) kernel-C -- referenced by pad.gc's top-level
+  jak2::make_function_symbol_from_c("scf-get-language", d);
+  jak2::make_function_symbol_from_c("scf-get-time", d);
+  jak2::make_function_symbol_from_c("scf-get-aspect", d);
+  jak2::make_function_symbol_from_c("scf-get-volume", d);
+  jak2::make_function_symbol_from_c("scf-get-territory", d);
+  jak2::make_function_symbol_from_c("scf-get-timeout", d);
+  jak2::make_function_symbol_from_c("scf-get-inactive-timeout", d);
+  // misc kernel-C
+  jak2::make_function_symbol_from_c("dma-to-iop", d);
+  jak2::make_function_symbol_from_c("kernel-shutdown", d);
+  jak2::make_function_symbol_from_c("aybabtu", d);
+
+  // ---- jak2::InitSoundScheme (ksound.cpp L12-18) ----
+  // (pc-* names here are jak2-specific and NOT in a17_bind_pc_helpers_jak2's
+  //  list, so they belong to this stub set.)
+  jak2::make_function_symbol_from_c("rpc-busy?", d);
+  jak2::make_function_symbol_from_c("test-load-dgo-c", d);
+  // rpc-call binds through the stack-arg variant in the real runtime; use the
+  // matching binder here so the slot's shape matches (still the no-op dummy).
+  jak2::make_stack_arg_function_symbol_from_c("rpc-call", d);
+  jak2::make_function_symbol_from_c("pc-sound-set-flava-hack", d);
+  jak2::make_function_symbol_from_c("pc-sound-set-fade-hack", d);
+
+  std::fprintf(stderr,
+               "Gjak2-render sym-bind-trace: bound the jak2 InitMachineScheme "
+               "kernel-C symbol set (scf-*/cpad-*/install-handler/file-stream-*/"
+               "gs-*/rpc-* etc.) to a17_pc_default no-op so pad.gc's top-level "
+               "doesn't SIGILL on unbound kernel-C symbols\n");
+}
+
 // ---------------------------------------------------------------------------
 // A8 (qemu repro) — SIGSEGV/SIGILL/SIGBUS handler. Mirrors the Android
 // `gk_sigsegv_diag` shape so the diag dump format is identical between
@@ -411,6 +684,65 @@ bool dump_sym_name_at_slot(uintptr_t slot_host_addr) {
                (unsigned long)slot_host_addr, (unsigned)slot_value,
                (unsigned long)info_addr, (unsigned)hash, (unsigned)str_offset,
                name_buf[0] ? name_buf : "<empty>", in_sym_range ? 1 : 0);
+  return true;
+}
+
+// Gjak2-render — jak2 variant of dump_sym_name_at_slot. jak2's symbol table
+// does NOT use the trailing {hash, str_offset} SymInfo table (jak1's
+// SYM_INFO_OFFSET); instead sym->string is a single Ptr<Ptr<String>> at
+// sym.offset + jak2::SYM_TO_STRING_OFFSET (game/kernel/jak2/kscheme.cpp
+// sym_to_string_ptr, L65-71; constant 0xff37 from common/goal_constants.h,
+// namespace jak2). Using jak1::SYM_INFO_OFFSET here on jak2 reads garbage
+// (the observed "str=0x7e7dddd9"). Given a slot host address (X16 + ee_base
+// at the fn-ptr=0 fault), derive the GOAL offset, read the String GOAL ptr,
+// then read the String {u32 len; char data[]} and print the name.
+// All reads go through safe_read_u32 so a malformed slot can't secondary-
+// fault out of the diag handler.
+bool dump_sym_name_at_slot_jak2(uintptr_t slot_host_addr) {
+  if (!g_ee_main_mem) return false;
+  const uintptr_t ee_lo = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+  const uintptr_t ee_hi = ee_lo + EE_MAIN_MEM_SIZE;
+  if (slot_host_addr < ee_lo || slot_host_addr >= ee_hi) return false;
+
+  const uintptr_t sym_lo = ee_lo + SymbolTable2.offset;
+  const uintptr_t sym_hi = ee_lo + LastSymbol.offset;
+  const bool in_sym_range = (slot_host_addr >= sym_lo && slot_host_addr < sym_hi);
+
+  uint32_t slot_value = 0;
+  if (!safe_read_u32(slot_host_addr, &slot_value)) return false;
+
+  const uint32_t sym_goal_off = (uint32_t)(slot_host_addr - ee_lo);
+  // *(u32*)(ee_base + sym_goal_off + SYM_TO_STRING_OFFSET) = String GOAL ptr
+  const uintptr_t str_ptr_addr = ee_lo + sym_goal_off + jak2::SYM_TO_STRING_OFFSET;
+  if (str_ptr_addr + 4 > ee_hi) return false;
+  uint32_t str_goal = 0;
+  if (!safe_read_u32(str_ptr_addr, &str_goal)) return false;
+
+  char name_buf[129];
+  name_buf[0] = 0;
+  if (str_goal != 0 && str_goal < EE_MAIN_MEM_SIZE) {
+    // String is {u32 len; char data[]} — data starts +4 past the GOAL ptr.
+    const uintptr_t name_host = ee_lo + str_goal + 4;
+    for (size_t i = 0; i + 4 < sizeof(name_buf); i += 4) {
+      uint32_t word = 0;
+      if (!safe_read_u32(name_host + i, &word)) break;
+      bool stop = false;
+      for (int j = 0; j < 4; ++j) {
+        char c = static_cast<char>((word >> (j * 8)) & 0xff);
+        if (c == 0) { stop = true; break; }
+        name_buf[i + j] = c;
+      }
+      if (stop) break;
+      name_buf[i + 4] = 0;
+    }
+  }
+  std::fprintf(stderr,
+               "GK-DIAG Gjak2-render fn-ptr-zero-sym: slot=0x%lx goal_off=0x%x "
+               "value=0x%x str_ptr@0x%lx str=0x%x name=\"%s\" in_sym_range=%d\n",
+               (unsigned long)slot_host_addr, (unsigned)sym_goal_off,
+               (unsigned)slot_value, (unsigned long)str_ptr_addr,
+               (unsigned)str_goal, name_buf[0] ? name_buf : "<empty>",
+               in_sym_range ? 1 : 0);
   return true;
 }
 
@@ -1537,6 +1869,43 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
     }
   }
 
+  // Gjak2-render — name the UNBOUND kernel-C symbol on a jak2 fn-ptr=0 SIGILL.
+  // The failing shape: a GAME.CGO top-level takes the address of an unbound
+  // symbol (slot value 0 -> GOAL ptr 0 -> host ee_base) and BLRs through it;
+  // PC at SIGILL == ee_base. Per the OpenGOAL sym-MEM convention the LDR base
+  // register at the failing site is X16, holding the symbol slot's GOAL offset
+  // (X16 == GOAL offset here, so slot host addr == ee_lo + X16). The jak1
+  // reverse lookup (dump_sym_name_at_slot / a34_sym_name) uses jak1's trailing
+  // SymInfo table (SYM_INFO_OFFSET) which prints garbage on jak2 (the observed
+  // "str=0x7e7dddd9"); dump_sym_name_at_slot_jak2 uses jak2's single
+  // sym->string Ptr at SYM_TO_STRING_OFFSET instead. This directly NAMES the
+  // missing bind so a harness gap (fn-ptr=0) can be distinguished from a real
+  // codegen bug (a corrupt non-zero pointer would NOT fault at ee_base).
+  if (g_use_jak2 && sig == SIGILL && g_ee_main_mem) {
+    const uintptr_t ee_lo = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    const uintptr_t ee_hi = ee_lo + EE_MAIN_MEM_SIZE;
+    if (pc == ee_lo || fault == ee_lo) {
+      const uintptr_t x16 = (uintptr_t)uc->uc_mcontext.regs[16];
+      // X16 carries the GOAL offset of the sym slot (host = ee_lo + X16).
+      const uintptr_t slot_host = ee_lo + x16;
+      bool named = false;
+      if (x16 != 0 && slot_host >= ee_lo && slot_host < ee_hi) {
+        named = gk_diag::dump_sym_name_at_slot_jak2(slot_host);
+      }
+      // Fall back: X16 may already be a host pointer (ee_lo <= X16 < ee_hi)
+      // on some emit shapes; try that interpretation too.
+      if (!named && x16 >= ee_lo && x16 < ee_hi) {
+        gk_diag::dump_sym_name_at_slot_jak2(x16);
+      }
+      if (!named && !(x16 >= ee_lo && x16 < ee_hi)) {
+        std::fprintf(stderr,
+                     "GK-DIAG Gjak2-render fn-ptr-zero-sym: could not resolve "
+                     "name (x16=0x%lx not a plausible sym slot)\n",
+                     (unsigned long)x16);
+      }
+    }
+  }
+
   // A23 — OG_BLR_TARGET_TRACE decoder. The goalc-arm64 emit-time stack-
   // range check in call_r64 (env-gated by OG_BLR_TARGET_TRACE_EMIT at
   // GOALC COMPILE TIME) emits UDF #0x1EE0..#0x1EFF immediately before each
@@ -2462,6 +2831,12 @@ constexpr const char* kArm64GameCgoPath = "out/jak1-arm64/iso/GAME.CGO";
 // kDirectDgoBufferSize.
 constexpr const char* kArm64TitDgoPath = "out/jak1-arm64/iso/TIT.DGO";
 
+// Gjak2 — jak2 arm64 boot CGOs (already built, consistent). There is NO
+// jak2 ENGINE.CGO and NO jak2 TIT.DGO to load; the boot sequence is just
+// KERNEL.CGO then GAME.CGO, both driven through jak2::link_and_exec.
+constexpr const char* kArm64Jak2KernelCgoPath = "out/jak2-arm64-full/iso/KERNEL.CGO";
+constexpr const char* kArm64Jak2GameCgoPath = "out/jak2-arm64-full/iso/GAME.CGO";
+
 // Buffer size for the direct DGO loader's read scratch.
 // A29 — sized to fit any single object across KERNEL/ENGINE/GAME CGOs.
 // The largest observed object is GAME.CGO/eichar at 1349024 bytes
@@ -2534,6 +2909,16 @@ void init_all_globals() {
   kprint_init_globals_common();
   xdbg::allow_debugging();
 
+  // Gjak2 — additive jak2 init_globals for the `--game jak2` repro. These
+  // reset the jak2 kernel TUs' file-scope state (dgo buffers, symbol
+  // table pointers, listener globals) before jak2::InitHeapAndSymbol.
+  // Only reached when the jak2 branch is active; jak1 boots identically.
+  if (g_use_jak2) {
+    jak2::kdgo_init_globals();
+    jak2::kscheme_init_globals();
+    jak2::klisten_init_globals();
+  }
+
   // A34 — desktop goal_main prelude parity: jak1::goal_main calls
   // init_crc() right after InitParms (kboot.cpp:56); this harness (and
   // Android's goal_main, fixed in the same phase) never did. With
@@ -2583,11 +2968,20 @@ int boot_kernel_init() {
 
   init_output();
 
-  s32 hs_status = jak1::InitHeapAndSymbol();
+  s32 hs_status = g_use_jak2 ? jak2::InitHeapAndSymbol() : jak1::InitHeapAndSymbol();
   if (hs_status < 0) {
     std::fprintf(stderr, "linux-arm64: InitHeapAndSymbol failed: %d\n",
                  hs_status);
     return 20;
+  }
+
+  // DIAG (C): env-gated repro of the make_function_symbol_from_c crash that
+  // happens AFTER jak2::InitHeapAndSymbol returns success. If this SIGSEGVs
+  // we know it faulted during the bind; if "bound OK" prints it survived.
+  if (g_use_jak2 && std::getenv("JAK2_REPRO_PCBIND")) {
+    std::fprintf(stderr, "JAK2-REPRO: about to bind __jak2-repro\n");
+    jak2::make_function_symbol_from_c("__jak2-repro", (void*)0x1000);
+    std::fprintf(stderr, "JAK2-REPRO: bound __jak2-repro OK\n");
   }
 
   // A11 sym-bind: register `__pc-get-mips2c` so the texture CGO's
@@ -2598,25 +2992,23 @@ int boot_kernel_init() {
   // (game/kernel/common/kmachine.cpp:1103) does this on desktop x86 but
   // is overridden on linux-arm64 by InitMachineScheme_LinuxArm64Stubs
   // (which omits __pc-get-mips2c from its list).
-  klink_a11_ensure_pc_mips2c_bound();
-  // A12 sym-bind: register `rpc-call`, `rpc-busy?`, `test-load-dgo-c`
-  // (what `jak1::InitSoundScheme` upstream registers). The linux-arm64
-  // override of `jak1::InitMachineScheme` omits InitSoundScheme, so
-  // gsound's top-level BLRs to ee_base when invoking `rpc-call` against
-  // the unbound (0-valued) sym slot.
-  klink_a12_ensure_sound_rpc_bound();
-  // A14 sym-bind: register `__mem-move` to pc_memmove. The
-  // upstream `init_common_pc_port_functions` (kmachine.cpp:1095)
-  // binds this on desktop x86 but the Android override at
-  // android/android_runtime_compat.cpp deliberately skips the pc-*
-  // helper registration; linux-arm64 inherits the same gap via its
-  // own runtime-compat stub list. Without this, dma-buffer's
-  // top-level `(__mem-move ...)` (the 159th CGO past A13's IOP
-  // unblock) loads 0 from the unbound sym slot, +X15's it to
-  // ee_base, and SIGILLs at the UDF #0 there. See
-  // .autoport/reports/A13-attempt-3-next-blocker.md for the full
-  // register dump.
-  klink_a14_ensure_pc_memmove_bound();
+  // Gjak2 — the A11-A18 + A13 helper block below binds jak1-runtime
+  // helpers (mips2c trampoline, sound RPC, __mem-move, method-zero trap,
+  // IOP pre-init) through jak1-layout symbol writes and jak1 type/heap
+  // assumptions. On jak2 these are (a) not needed to reproduce the
+  // KERNEL.CGO/GAME.CGO link crash and (b) actively harmful: A11's
+  // klink_mfsfc_for_game path routes to jak2::make_function_symbol_from_c,
+  // whose alloc_from_heap calls sym_to_string(typ->symbol) for the
+  // kmalloc debug label, and on jak2 that yields a garbage string ptr
+  // (~0x44001afe) -> SIGSEGV BEFORE any CGO loads. Skipping the whole
+  // block for jak2 lets the real jak2 link chain run (KERNEL.CGO fully
+  // links; GAME.CGO reaches the genuine jak2 crash). The same rationale
+  // the spec gives for skipping a17's jak1-layout pc-* binds.
+  if (!g_use_jak2) {
+    klink_a11_ensure_pc_mips2c_bound();
+    klink_a12_ensure_sound_rpc_bound();
+    klink_a14_ensure_pc_memmove_bound();
+  }
 
   // A17 sym-bind: register the full pc-* helper surface (mirrors
   // game/kernel/common/kmachine.cpp::init_common_pc_port_functions,
@@ -2634,7 +3026,25 @@ int boot_kernel_init() {
   // and keeping the full enumeration here lets Android's
   // gk_android_main.cpp::a17_bind_pc_helpers stay in lockstep with
   // this list — same set, same default impl, same name spellings.
-  a17_bind_pc_helpers();
+  a17_bind_pc_helpers();  // internally no-ops for jak2 (early return)
+  // Gjak2-render — bind the FULL jak2 pc-* helper surface (common +
+  // jak2-specific) to the same a17_pc_default no-op. The prior build
+  // skipped this (a17_bind_pc_helpers early-returns for jak2) on the
+  // FALSIFIED belief that jak2::make_function_symbol_from_c crashes; it
+  // works fine. Runs here, after jak2::InitHeapAndSymbol succeeded and
+  // BEFORE boot_link_jak2_cgos loads KERNEL.CGO/GAME.CGO, so every pc-*
+  // symbol slot GAME.CGO top-levels take the address of is non-zero
+  // (fixes the fn-ptr=0 BLR at ee_base right after `link finish: pad`).
+  if (g_use_jak2) {
+    a17_bind_pc_helpers_jak2();
+    // Gjak2-render — bind the jak2 InitMachineScheme kernel-C symbol set
+    // (scf-*/cpad-*/install-handler/file-stream-*/gs-*/rpc-* etc.). Runs
+    // right after the pc-* bind and BEFORE boot_link_jak2_cgos loads
+    // KERNEL.CGO/GAME.CGO, so every kernel-C symbol slot that pad.gc's
+    // top-level takes the address of is non-zero (fixes the fn-ptr=0 BLR
+    // at ee_base after `link finish: pad`).
+    bind_kernel_c_stubs_jak2();
+  }
   // A18 method-zero-trap install: walk every kernel-loaded Type and
   // patch empty method slots to point at a18_method_zero_trap. Past
   // A17's pckernel ceiling, the next-blocker is a virtual-dispatch
@@ -2647,7 +3057,12 @@ int boot_kernel_init() {
   // caller_lr (the dispatch site) before _Exit(13). The supervisor
   // (A19) reads the trap's diag to write the correct binding. See
   // klink_a18_install_method_zero_trap for the full design.
-  klink_a18_install_method_zero_trap();
+  //
+  // Gjak2 — skipped for jak2 (jak1 type-walk assumptions; not needed for
+  // the link-crash repro; see the block guard above).
+  if (!g_use_jak2) {
+    klink_a18_install_method_zero_trap();
+  }
 
   // A13 IOP-kernel pre-init: construct an IOP, pthread_mutex_init its
   // sif_mtx + wakeup_mtx, create an RPC-drain cothread + SifRecord, and
@@ -2659,7 +3074,12 @@ int boot_kernel_init() {
   // setup is linux-arm64-only — Android's runtime spawns the real
   // iop_runner OS thread elsewhere. Declared at file scope above so
   // this call resolves to the global symbol.
-  ::a13_arm64_init_iop();
+  //
+  // Gjak2 — skipped for jak2 (jak1 rpc-busy? rebind; not needed for the
+  // link-crash repro; see the block guard above).
+  if (!g_use_jak2) {
+    ::a13_arm64_init_iop();
+  }
 
   // C2 milestone banner — kept for the C2 validator's checks 19+25
   // which grep for these exact lines. The C3 stage runs after.
@@ -2905,6 +3325,62 @@ int boot_link_title_dgo() {
                (unsigned)NumSymbols);
   std::fflush(stdout);
   std::fprintf(stdout, "linux-arm64: A33 title execute complete\n");
+  return 0;
+}
+
+// Gjak2 — drive the jak2 arm64 boot CGOs (KERNEL.CGO then GAME.CGO)
+// through the REAL upstream jak2::link_and_exec engine, using the same
+// direct_load_dgo helper the jak1 path uses. There is no jak2 ENGINE.CGO
+// and no jak2 TIT.DGO. This is the whole point of `--game jak2`: a fast
+// qemu repro of the jak2 link-time crash without the Android device. No
+// jak1-layout pc-* binds, no method-zero traps, no pad-intern padding —
+// just the raw link chain, so the crash is reproduced cleanly.
+int boot_link_jak2_cgos() {
+  for (const char* path : {kArm64Jak2KernelCgoPath, kArm64Jak2GameCgoPath}) {
+    if (FILE* fp = std::fopen(path, "rb")) {
+      std::fclose(fp);
+    } else {
+      std::fprintf(stderr,
+                   "linux-arm64: jak2 %s missing — build the jak2 arm64 CGOs first\n",
+                   path);
+      return 60;
+    }
+  }
+
+  constexpr u32 kJak2LinkFlags =
+      LINK_FLAG_OUTPUT_LOAD | LINK_FLAG_PRINT_LOGIN | LINK_FLAG_EXECUTE;
+
+  (*EnableMethodSet)++;
+  std::fprintf(stdout, "linux-arm64: jak2 loading KERNEL.CGO\n");
+  std::fflush(stdout);
+  int rc = linux_arm64::direct_load_dgo(kArm64Jak2KernelCgoPath, kglobalheap,
+                                        kJak2LinkFlags, kDirectDgoBufferSize,
+                                        &jak2::link_and_exec);
+  if (rc != 0) {
+    std::fprintf(stderr, "linux-arm64: direct_load_dgo(%s) returned %d\n",
+                 kArm64Jak2KernelCgoPath, rc);
+    (*EnableMethodSet)--;
+    return 61;
+  }
+  std::fprintf(stdout, "linux-arm64: jak2 KERNEL.CGO link complete (NumSymbols=%u)\n",
+               (unsigned)NumSymbols);
+  std::fflush(stdout);
+
+  std::fprintf(stdout, "linux-arm64: jak2 loading GAME.CGO\n");
+  std::fflush(stdout);
+  rc = linux_arm64::direct_load_dgo(kArm64Jak2GameCgoPath, kglobalheap,
+                                    kJak2LinkFlags, kDirectDgoBufferSize,
+                                    &jak2::link_and_exec);
+  (*EnableMethodSet)--;
+  if (rc != 0) {
+    std::fprintf(stderr, "linux-arm64: direct_load_dgo(%s) returned %d\n",
+                 kArm64Jak2GameCgoPath, rc);
+    return 62;
+  }
+  std::fprintf(stdout, "linux-arm64: jak2 GAME.CGO link complete (NumSymbols=%u)\n",
+               (unsigned)NumSymbols);
+  std::fflush(stdout);
+  std::fprintf(stdout, "linux-arm64: jak2 kernel+game execute complete\n");
   return 0;
 }
 
@@ -3213,7 +3689,20 @@ int goal_main(int argc, char** argv) {
       show_banner_only = true;
     } else if (std::strcmp(argv[i], "--kernel-only") == 0) {
       skip_engine_game = true;
+    } else if (std::strcmp(argv[i], "jak2") == 0) {
+      // Gjak2 — any argv token `jak2` (typically after `--game`) selects
+      // the jak2 boot branch. `--game jak1` / no arg keeps the existing
+      // jak1 path byte-for-byte.
+      g_use_jak2 = true;
     }
+  }
+
+  // Gjak2 — g_game_version drives klink_mfsfc_for_game (game-aware
+  // __pc-get-mips2c / __mem-move binds). Compat's default is Jak1; flip
+  // to Jak2 for the jak2 branch so those binds route to
+  // jak2::make_function_symbol_from_c.
+  if (g_use_jak2) {
+    g_game_version = GameVersion::Jak2;
   }
 
   print_banner(stdout);
@@ -3227,6 +3716,12 @@ int goal_main(int argc, char** argv) {
   int rc = boot_kernel_init();
   if (rc != 0) {
     return rc;
+  }
+
+  // Gjak2 — the jak2 branch drives jak2 KERNEL.CGO + GAME.CGO through
+  // jak2::link_and_exec and returns; the jak1 stages below do not apply.
+  if (g_use_jak2) {
+    return boot_link_jak2_cgos();
   }
 
   rc = boot_link_kernel_cgo();
