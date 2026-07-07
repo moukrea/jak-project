@@ -548,6 +548,14 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-init-autosplitter-struct",
                               (void*)kmachine_extras::init_autosplit_struct);
 
+  // Gjak2-visuals: jak2 borrows jak1's pckernel-common.gc (project-lib.gp:69),
+  // whose autoport FPS-counter hook calls draw-pc-fps-counter every frame
+  // (pckernel-common.gc:451) — but the defun lives only in jak1's pckernel.gc,
+  // so the jak2 symbol stays unbound (value 0) and the title-display frame
+  // calls through GOAL 0. Bind a no-op, exactly like the Android/linux-arm64
+  // pre-kernel binder (a17_bind_pc_helpers_jak2) already does; purely additive.
+  make_function_symbol_from_c("draw-pc-fps-counter", (void*)+[]() -> u64 { return 0; });
+
   // discord rich presence
   make_function_symbol_from_c("pc-discord-rpc-update", (void*)kmachine_extras::update_discord_rpc);
 

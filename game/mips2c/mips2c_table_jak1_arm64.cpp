@@ -980,11 +980,19 @@ bool a37_name_is_real_jak2(const std::string& name) {
       "generic-prepare-dma-single", "generic-no-light-proc",
       "generic-warp-source-proc", "generic-warp-dest-proc", "generic-warp-dest",
       "generic-warp-envmap-dest",
-      // NOTE: the ocean family ((method 14/15/16 ocean), init-ocean-far-regs,
-      // draw-large-polygon-ocean, render-ocean-quad) is audited enable-safe as
-      // a unit BUT held back: the x86 oracle currently dies at title in a
-      // GOAL call-through-0 (unloaded-segment link) that enabling ocean could
-      // reproduce on device. Enable after that is root-caused (Gjak2-visuals).
+      // --- Gjak2-visuals: ocean (enable TOGETHER as a unit; jak1 Gwater
+      //     precedent). init-ocean-far-regs writes the shared ocean_regs_vfs
+      //     that render-ocean-quad reads via copy_vfs_from_other; methods
+      //     14/15/16 build the verts/waves the quads consume. Audited: no
+      //     integer div/mod; the one mem-loaded #f-guard (ocean.cpp:34,
+      //     tod-context sky field) is fixed per-site with the 32-bit gpr_addr
+      //     compare; external callees (upload-vu0-program,
+      //     vu-lights<-light-group!, (method 52 level), clip-polygon-*) are
+      //     plain GOAL via the proven FFI. The former x86-oracle title crash
+      //     that held this family back was root-caused to an unrelated
+      //     unbound draw-pc-fps-counter call (fixed in jak2 kmachine.cpp). ---
+      "init-ocean-far-regs", "draw-large-polygon-ocean", "render-ocean-quad",
+      "(method 14 ocean)", "(method 15 ocean)", "(method 16 ocean)",
       // NOTE: jak2 registers no time-of-day mips2c builder (no jak2_functions/
       // time_of_day.cpp) — nothing to add for that family.
   };

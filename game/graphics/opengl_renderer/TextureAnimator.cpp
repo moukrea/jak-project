@@ -2809,7 +2809,15 @@ int update_opengl_noise_texture(GLuint texture,
                                 int random_index_in) {
   int ret = make_noise_texture(temp, random_table, dim, random_index_in);
   glBindTexture(GL_TEXTURE_2D, texture);
+#ifdef __ANDROID__
+  // GLES requires a SIZED internalformat with GL_RED (unsized GL_RED raises
+  // GL_INVALID_OPERATION -> the sky/clouds noise layers never get storage and
+  // sample undefined garbage: the Gjak2-visuals blown-white/black split sky).
+  // GL_R8 is the sized equivalent; desktop keeps upstream's literal call.
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, dim, dim, 0, GL_RED, GL_UNSIGNED_BYTE, temp);
+#else
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, dim, dim, 0, GL_RED, GL_UNSIGNED_BYTE, temp);
+#endif
   glGenerateMipmap(GL_TEXTURE_2D);
   return ret;
 }

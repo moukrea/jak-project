@@ -17,6 +17,7 @@
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/TextureAnimator.h"
+#include "game/graphics/opengl_renderer/VisDataHandler.h"
 #include "game/graphics/opengl_renderer/background/Shrub.h"
 #include "game/graphics/opengl_renderer/background/TFragment.h"
 #include "game/graphics/opengl_renderer/background/Tie3.h"
@@ -729,21 +730,30 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   {
     auto eye = std::make_unique<EyeRenderer>("eyes", 0);
     m_render_state.eye_renderer = eye.get();
-    // Bucket 0 upstream is VisDataHandler (not compiled); we keep bucket 0 as a
-    // SkipRenderer for the vis chain and hold the eye renderer as the eye
-    // handler only (its render() is invoked via render_state->eye_renderer, not
-    // as bucket 0). Store it so it isn't destroyed.
+    // The eye renderer is held as the eye handler only (its render() is invoked
+    // via render_state->eye_renderer, not as a bucket). Store it so it isn't
+    // destroyed.
     m_jak2_eye_renderer = std::move(eye);
     m_jak2_eye_renderer->init_shaders(m_render_state.shaders);
     m_jak2_eye_renderer->init_textures(*m_render_state.texture_pool, GameVersion::Jak2);
   }
+
+  // Gjak2-visuals: the REAL VisDataHandler at BUCKET_2 (upstream jak2 slot).
+  // Beyond the per-level vis strings (occlusion culling), its vif0 memcpy is
+  // the ONLY writer of render_state->fog_color on the jak2 path — the earlier
+  // SkipRenderer left fog_color {0,0,0,0}, zeroing every fog uniform (tfrag/
+  // tie/shrub/merc/generic/ocean/sky) and white-washing the scene (proven by
+  // the GJ2VIS-TOD x86-vs-device state dump: itimes/tod identical, fogcol
+  // 00133300 vs 00000000). Data-only renderer, no GL calls.
+  set_renderer(std::make_unique<VisDataHandler>("vis", (int)BucketId::BUCKET_2),
+               BucketId::BUCKET_2, true);
 
   // Everything else: SkipRenderer. Its render() walks read_and_advance until
   // render_state->next_bucket, consuming the segment and keeping the dispatch
   // in sync regardless of the bucket's content — the same consume-the-segment
   // mechanism the jak1 android skip path uses. Buckets upstream jak2 renders
   // with classes NOT compiled into the Android build fall here this round:
-  //   BUCKET_2 (VisDataHandler), BUCKET_3 (BlitDisplays), SHADOW/SHADOW2
+  //   BUCKET_3 (BlitDisplays), SHADOW/SHADOW2
   //   (Shadow2), GMERC_WARP (Warp), PROGRESS (ProgressRenderer), and the
   //   EMERC_* buckets (upstream jak2 has no EMERC registration — they are
   //   EmptyBucketRenderer'd there too). The dispatch logs each ONE the first

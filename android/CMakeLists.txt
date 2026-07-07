@@ -608,6 +608,11 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/DirectRenderer.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/TextureUploadHandler.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/EyeRenderer.cpp"
+    # Gjak2-visuals: vis/fog bucket — copies the per-level vis strings AND the
+    # frame fog color (vif0) into render_state; without it fog_color stays
+    # {0,0,0,0} and every fog uniform washes the scene (proven by the
+    # GJ2VIS-TOD x86-vs-device state dump).
+    "${JAK_ROOT}/game/graphics/opengl_renderer/VisDataHandler.cpp"
     # A36 — first-content buckets: sky + terrain (tfrag3) for the logo/title
     # village1 flythrough. SkyBlendHandler lives in SkyRenderer.cpp.
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyRenderer.cpp"
