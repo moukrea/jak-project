@@ -551,7 +551,12 @@ u32 s_a37_arena_used = 0;
 u32 s_a37_arena_jak2 = 0;
 u32 s_a37_arena_jak2_used = 0;
 constexpr u32 kA37TrampSlot = 0x40;
-constexpr u32 kA37TrampSlots = 128;
+// Gjak2-render: 128 -> 192. jak2 now registers more real builders (sky/
+// sparticle/foreground/font/joint families) than the 128-slot arena held
+// ('arena exhausted' warnings). This is the same constant for jak1 and jak2,
+// so the jak1 arena allocation also grows 128*0x40+16 -> 192*0x40+16 (8KB ->
+// 12KB) — harmless headroom, no behavior change for jak1.
+constexpr u32 kA37TrampSlots = 192;
 u32 a37_shared_noop_offset();
 u32 a37_shared_noop_offset_jak2();
 }  // namespace
@@ -926,6 +931,35 @@ bool a37_name_is_real_jak2(const std::string& name) {
   // packer: pure GOAL-memory math, callers discard the return value.
   static const char* const kSetJak2[] = {
       "adgif-shader<-texture-with-update!",
+      // Gjak2-render: the render-critical jak2 builders, mirroring the jak1
+      // kSet families PROVEN on this device (same arm64-only noop divergence
+      // class). Exact registered-name strings from game/mips2c/jak2_functions/
+      // *.cpp (.reg("...") calls).
+      // --- sky (jak2_functions/sky.cpp) — jak1 precedent: render-sky-quad/tri,
+      //     set-sky-vf23-value/vf27, set-tex-offset, draw-large-polygon. Plus
+      //     the jak2 sky-work methods that build the sky DMA. ---
+      "set-tex-offset", "draw-large-polygon", "render-sky-quad", "render-sky-tri",
+      "set-sky-vf23-value", "set-sky-vf27",
+      "(method 16 sky-work)", "(method 17 sky-work)", "(method 28 sky-work)",
+      "(method 29 sky-work)", "(method 30 sky-work)", "(method 32 sky-work)",
+      "(method 33 sky-work)",
+      // --- sparticle (jak2_functions/sparticle*.cpp) — jak1 precedent:
+      //     Gsprite/Gd2 (2D screen + 3D world particles + sun corona). ---
+      "sp-launch-particles-var", "sp-process-block-2d", "sp-process-block-3d",
+      "particle-adgif",
+      // --- foreground / bones (merc path) (jak2_functions/foreground.cpp,
+      //     bones.cpp) — jak1 precedent: draw-bones-* + bones-mtx-calc. HUD
+      //     draw (foreground-draw-hud) added too, as jak1's HUD needed it. ---
+      "foreground-check-longest-edge-asm", "foreground-merc", "foreground-generic-merc",
+      "foreground-draw-hud", "bones-mtx-calc",
+      // --- font (jak2_functions/font.cpp) — text (jak1 precedent:
+      //     draw-string-asm / get-string-length). ---
+      "get-string-length", "get-string-length-asm", "draw-string-asm",
+      // --- joint (jak2_functions/joint.cpp) — camera/bones (jak1-proven
+      //     family: calc-animation-from-spr + cspace<-parented-transformq-joint!). ---
+      "calc-animation-from-spr", "cspace<-parented-transformq-joint!",
+      // NOTE: jak2 registers no time-of-day mips2c builder (no jak2_functions/
+      // time_of_day.cpp) — nothing to add for that family.
   };
   for (auto* n : kSetJak2) { if (name == n) return true; }
   return false;

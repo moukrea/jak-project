@@ -619,7 +619,7 @@ void TFragment::render_tree(int geom,
       if (tex_idx >= 0) {
         bound_tex = m_textures->at(tex_idx);
       } else {
-        bound_tex = m_anim_slot_array->at(-(tex_idx + 1));
+        bound_tex = ((size_t)(-(tex_idx + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(tex_idx + 1)) : 0);
       }
       glBindTexture(GL_TEXTURE_2D, bound_tex);
       auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3,
@@ -685,7 +685,7 @@ void TFragment::render_tree(int geom,
     if (tex_idx >= 0) {
       bound_tex = m_textures->at(draw.tree_tex_id);
     } else {
-      bound_tex = m_anim_slot_array->at(-(tex_idx + 1));
+      bound_tex = ((size_t)(-(tex_idx + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(tex_idx + 1)) : 0);
     }
     glBindTexture(GL_TEXTURE_2D, bound_tex);
     auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3,

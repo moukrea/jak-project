@@ -678,7 +678,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         if (draw.tree_tex_id >= 0) {
           bound_tex = m_textures->at(draw.tree_tex_id);
         } else {
-          bound_tex = m_anim_slot_array->at(-(draw.tree_tex_id + 1));
+          bound_tex = ((size_t)(-(draw.tree_tex_id + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(draw.tree_tex_id + 1)) : 0);
         }
         glBindTexture(GL_TEXTURE_2D, bound_tex);
         last_texture = draw.tree_tex_id;
@@ -736,7 +736,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       if (draw.tree_tex_id >= 0) {
         bound_tex = m_textures->at(draw.tree_tex_id);
       } else {
-        bound_tex = m_anim_slot_array->at(-(draw.tree_tex_id + 1));
+        bound_tex = ((size_t)(-(draw.tree_tex_id + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(draw.tree_tex_id + 1)) : 0);
       }
       glBindTexture(GL_TEXTURE_2D, bound_tex);
       last_texture = draw.tree_tex_id;
@@ -842,7 +842,7 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
         if (draw.tree_tex_id >= 0) {
           bound_tex = m_textures->at(draw.tree_tex_id);
         } else {
-          bound_tex = m_anim_slot_array->at(-(draw.tree_tex_id + 1));
+          bound_tex = ((size_t)(-(draw.tree_tex_id + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(draw.tree_tex_id + 1)) : 0);
         }
         glBindTexture(GL_TEXTURE_2D, bound_tex);
         last_texture = draw.tree_tex_id;
@@ -898,7 +898,7 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
       if (draw.tree_tex_id >= 0) {
         bound_tex = m_textures->at(draw.tree_tex_id);
       } else {
-        bound_tex = m_anim_slot_array->at(-(draw.tree_tex_id + 1));
+        bound_tex = ((size_t)(-(draw.tree_tex_id + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(draw.tree_tex_id + 1)) : 0);
       }
       glBindTexture(GL_TEXTURE_2D, bound_tex);
 
@@ -1188,7 +1188,7 @@ void Tie3::render_tree_wind(int idx,
       if (draw.tree_tex_id >= 0) {
         bound_tex = m_textures->at(draw.tree_tex_id);
       } else {
-        bound_tex = m_anim_slot_array->at(-(draw.tree_tex_id + 1));
+        bound_tex = ((size_t)(-(draw.tree_tex_id + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(draw.tree_tex_id + 1)) : 0);
       }
       glBindTexture(GL_TEXTURE_2D, bound_tex);
       last_texture = draw.tree_tex_id;
