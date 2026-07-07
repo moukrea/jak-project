@@ -72,6 +72,7 @@
 
 #include <csetjmp>
 #include <csignal>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -374,11 +375,12 @@ void a17_bind_pc_helpers_jak2() {
   // ---- init_common_pc_port_functions (common, game-agnostic) ----
   // Core / internal
   jak2::make_function_symbol_from_c("__read-ee-timer", d);
-  jak2::make_function_symbol_from_c("__mem-move", d);
+  // __mem-move: NOT dummy-bound — bound by klink_a14_ensure_pc_memmove_bound
+  // (game-aware via klink_mfsfc_for_game) to the real a14_pc_memmove_impl (Gjak2-render).
   jak2::make_function_symbol_from_c("__send-gfx-dma-chain", d);
   jak2::make_function_symbol_from_c("__pc-texture-upload-now", d);
   jak2::make_function_symbol_from_c("__pc-texture-relocate", d);
-  jak2::make_function_symbol_from_c("__pc-get-mips2c", d);
+  // __pc-get-mips2c: NOT dummy-bound — stays on a11_pc_get_mips2c_impl (real jak2 mips2c table, Gjak2-render).
   // Display
   jak2::make_function_symbol_from_c("pc-get-display-id", d);
   jak2::make_function_symbol_from_c("pc-set-display-id!", d);
@@ -2867,13 +2869,29 @@ void print_banner(std::FILE* out) {
 // layer no longer pre-mmaps in a static initializer (it would leak
 // 128 MB if both ran); main is the single owner.
 bool remap_ee_main_mem() {
-  void* p = mmap((void*)EE_MAIN_MEM_MAP, EE_MAIN_MEM_SIZE,
+  // Repro aid (arm64-harness-only; zero x86 impact): OG_EE_BASE pins the EE base
+  // at the DEVICE address (0x7f00000000) so device-only high-base pointer
+  // truncation crashes reproduce under qemu without the phone.
+  void* hint = (void*)EE_MAIN_MEM_MAP;
+  const char* og_ee_base = getenv("OG_EE_BASE");
+  bool forced = (og_ee_base && *og_ee_base);
+  if (forced) {
+    hint = (void*)(uintptr_t)strtoull(og_ee_base, nullptr, 0);
+    std::fprintf(stderr, "linux-arm64: OG_EE_BASE override -> %p\n", hint);
+  }
+  void* p = mmap(hint, EE_MAIN_MEM_SIZE,
                  PROT_EXEC | PROT_READ | PROT_WRITE,
                  MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-  if (p == MAP_FAILED) {
+  if (p == MAP_FAILED || (forced && p != hint)) {
+    if (forced) {
+      std::fprintf(stderr,
+                   "linux-arm64: OG_EE_BASE mmap(%p) failed/moved (got %p): %s\n",
+                   hint, p, std::strerror(errno));
+      if (p != MAP_FAILED) munmap(p, EE_MAIN_MEM_SIZE);
+      return false;
+    }
     // qemu-user or sysctl may refuse the high hint; fall back to a
-    // kernel-picked address. The kheap math is offset-based so any
-    // base works.
+    // kernel-picked address. The kheap math is offset-based so any base works.
     p = mmap(nullptr, EE_MAIN_MEM_SIZE, PROT_EXEC | PROT_READ | PROT_WRITE,
              MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
   }
@@ -2884,6 +2902,7 @@ bool remap_ee_main_mem() {
   }
   std::memset(p, 0, EE_MAIN_MEM_SIZE);
   g_ee_main_mem = (u8*)p;
+  std::fprintf(stderr, "linux-arm64: g_ee_main_mem mapped at %p\n", (void*)p);
   return true;
 }
 
@@ -2992,23 +3011,18 @@ int boot_kernel_init() {
   // (game/kernel/common/kmachine.cpp:1103) does this on desktop x86 but
   // is overridden on linux-arm64 by InitMachineScheme_LinuxArm64Stubs
   // (which omits __pc-get-mips2c from its list).
-  // Gjak2 — the A11-A18 + A13 helper block below binds jak1-runtime
-  // helpers (mips2c trampoline, sound RPC, __mem-move, method-zero trap,
-  // IOP pre-init) through jak1-layout symbol writes and jak1 type/heap
-  // assumptions. On jak2 these are (a) not needed to reproduce the
-  // KERNEL.CGO/GAME.CGO link crash and (b) actively harmful: A11's
-  // klink_mfsfc_for_game path routes to jak2::make_function_symbol_from_c,
-  // whose alloc_from_heap calls sym_to_string(typ->symbol) for the
-  // kmalloc debug label, and on jak2 that yields a garbage string ptr
-  // (~0x44001afe) -> SIGSEGV BEFORE any CGO loads. Skipping the whole
-  // block for jak2 lets the real jak2 link chain run (KERNEL.CGO fully
-  // links; GAME.CGO reaches the genuine jak2 crash). The same rationale
-  // the spec gives for skipping a17's jak1-layout pc-* binds.
+  // Gjak2-render: a11 (mips2c trampoline) and a14 (__mem-move) are now
+  // game-aware — they route through klink_mfsfc_for_game /
+  // a37_mips2c_prealloc_arena_jak2, which use jak2's own symbol-read idiom
+  // (u32_in_fixed_sym / Symbol4::value()). The earlier "actively harmful ->
+  // SIGSEGV before any CGO loads" claim was FALSIFIED (a17_bind_pc_helpers_jak2
+  // calls jak2::make_function_symbol_from_c ~80x without crashing). So run a11/a14
+  // for BOTH games; a12 (sound RPC) stays jak1-only (jak1-layout bindings).
+  klink_a11_ensure_pc_mips2c_bound();
   if (!g_use_jak2) {
-    klink_a11_ensure_pc_mips2c_bound();
     klink_a12_ensure_sound_rpc_bound();
-    klink_a14_ensure_pc_memmove_bound();
   }
+  klink_a14_ensure_pc_memmove_bound();
 
   // A17 sym-bind: register the full pc-* helper surface (mirrors
   // game/kernel/common/kmachine.cpp::init_common_pc_port_functions,

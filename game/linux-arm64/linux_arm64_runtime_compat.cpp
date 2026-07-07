@@ -51,6 +51,18 @@ int g_server_port = 8112;  // DECI2_PORT — duplicated to avoid pulling listene
 
 BackgroundWorker g_background_worker;
 
+// Gjak2-render: g_merc_data_mutex is normally owned by
+// game/graphics/opengl_renderer/foreground/Merc2.cpp (Merc2.cpp:172), which
+// serializes the GL-thread merc renderer against the kernel-thread blerc
+// mips2c bodies. The linux-arm64/qemu build excludes the graphics stack, so
+// Merc2.cpp is not compiled — but jak2's merc_blend_shape.cpp (blerc-execute)
+// references the mutex. Provide the definition here (same home as the other
+// graphics/runtime-owned globals). There is no GL thread on this build, so it
+// only serializes the blerc bodies among themselves — semantically harmless.
+// (Android compiles Merc2.cpp, so it owns the symbol there; this def is
+// linux-arm64-only and cannot collide.)
+std::mutex g_merc_data_mutex;
+
 // ---------------------------------------------------------------------------
 // CacheFlush — declared in game/kernel/common/kmachine.h; upstream body
 // is in kmachine.cpp which we don't compile (graphics deps). Use the

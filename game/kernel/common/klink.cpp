@@ -480,24 +480,9 @@ namespace {
 // so the table is populated. The static guard means re-calling the
 // binding helper across a re-boot is a no-op after the first bind.
 u64 a11_pc_get_mips2c_impl(u32 name) {
-#ifdef __aarch64__
-  // Gjak2-render: Mips2C::gLinkedFunctionTable is the JAK1 arm64 mips2c table
-  // (mips2c_table_jak1_arm64.cpp — its reg() asserts g_game_version==Jak1, its
-  // a37 arena/noop bind uses jak1_symbols::FIX_SYM_* constants + jak1::
-  // make_function_symbol_from_c). On jak2 that table's get()/a37_shared_noop
-  // path walks the jak2 Symbol4 table with JAK1 hash geometry + FIX_SYM offsets
-  // -> a symbol/type pointer with a valid low-heap offset but garbage upper-16
-  // (0x??001afe / 0xc4001b10) -> the intermittent jak2 boot-link SIGSEGV
-  // (crash stack: LinkedFunctionTable::get -> jak1::make_function_symbol_from_c
-  // -> jak1::intern_from_c -> jak1::make_string_from_c; ASLR decides which
-  // mis-hashed value is fatal, hence the "random" crash object). jak2 mips2c is
-  // a separate wiring task; until then return 0 so def-mips2c stores an unbound
-  // slot (linking completes) instead of corrupting the jak2 heap. jak1/x86 use
-  // the real table unchanged.
-  if (g_game_version == GameVersion::Jak2) {
-    return 0;
-  }
-#endif
+  // Gjak2-render: jak2 is now served by the game-aware arm64 mips2c table
+  // (mips2c_table_jak1_arm64.cpp — per-game arena/noop/allowlist). jak1/x86
+  // unchanged.
   const char* n = Ptr<String>(name).c()->data();
   return Mips2C::gLinkedFunctionTable.get(n);
 }
@@ -511,6 +496,7 @@ u64 a11_pc_get_mips2c_impl(u32 name) {
 // path (run-9 forensics: DMA bucket tags overwrote a trampoline emitted
 // at font-link time; BLR into it SIGILLed with fault==pc).
 extern "C" void a37_mips2c_prealloc_arena();
+extern "C" void a37_mips2c_prealloc_arena_jak2();
 #endif
 
 // Gjak2-render: symbol VALUES are written at different offsets per game
@@ -533,16 +519,15 @@ void klink_a11_ensure_pc_mips2c_bound() {
   auto fn = klink_mfsfc_for_game("__pc-get-mips2c",
                                  (void*)a11_pc_get_mips2c_impl);
 #ifdef __aarch64__
-  // Gjak2-render: a37_mips2c_prealloc_arena() lives in mips2c_table_jak1_arm64.cpp
-  // and allocates its trampoline arena with jak1-ONLY symbol constants
-  // (jak1_symbols::FIX_SYM_GLOBAL_HEAP=0x140, FIX_SYM_FUNCTION_TYPE=0x10). On the
-  // jak2 Symbol4 table those offsets (0xa0 / 0x8) read the WRONG slot -> a garbage
-  // type ptr (0x??001afe) -> jak1::alloc_from_heap SIGSEGV right after KERNEL.CGO
-  // links (device object-8 crash). The whole jak1 arm64 mips2c table is jak1-only
-  // (its LinkedFunctionTable::reg asserts g_game_version==Jak1); jak2 binds its
-  // mips2c/pc-helpers via the real jak2::InitMachine_PCPort. Gate to jak1.
+  // Gjak2-render: each game pre-allocates its OWN trampoline arena with its own
+  // symbol-read idiom. The jak1 arena uses jak1_symbols::FIX_SYM_* (GLOBAL_HEAP
+  // 0x140, FUNCTION_TYPE 0x10) + a raw *(s7+off) deref; the jak2 arena uses
+  // jak2_symbols::FIX_SYM_* + u32_in_fixed_sym() (Symbol4::value(), -1 bias).
+  // Both live in mips2c_table_jak1_arm64.cpp.
   if (g_game_version == GameVersion::Jak1) {
     a37_mips2c_prealloc_arena();
+  } else if (g_game_version == GameVersion::Jak2) {
+    a37_mips2c_prealloc_arena_jak2();
   }
 #endif
   s_bound = true;
