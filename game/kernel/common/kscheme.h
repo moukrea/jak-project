@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "common/common_types.h"
 
 #include "game/kernel/common/Ptr.h"
@@ -10,6 +12,26 @@ extern Ptr<u32> SymbolTable2;
 extern Ptr<u32> LastSymbol;
 extern u32 FastLink;
 extern Ptr<u32> EnableMethodSet;
+
+// Gjak2-render concurrent-GOAL race experiment (translation-layer only):
+//  - g_goal_active: incremented on entry / decremented on exit around every
+//    known C++ -> GOAL entry site (klink jak2_finish top-level exec + the
+//    GL/render-thread vif_interrupt_callback). If it is > 1 at a crash, two
+//    threads were inside GOAL on the single shared GOAL stack concurrently.
+//  - g_goal_boot_linking: TRUE while the jak2 boot CGO-link sequence runs
+//    (goal_main around InitMachine). The GL-thread GOAL call is skipped while
+//    this is set (jak2 only) so the render thread never touches the shared
+//    GOAL stack during boot-linking.
+extern std::atomic<int> g_goal_active;
+extern std::atomic<bool> g_goal_boot_linking;
+
+// RAII guard: bump g_goal_active for the lifetime of a C++ -> GOAL call.
+struct GoalActiveGuard {
+  GoalActiveGuard() { g_goal_active.fetch_add(1, std::memory_order_seq_cst); }
+  ~GoalActiveGuard() { g_goal_active.fetch_sub(1, std::memory_order_seq_cst); }
+  GoalActiveGuard(const GoalActiveGuard&) = delete;
+  GoalActiveGuard& operator=(const GoalActiveGuard&) = delete;
+};
 
 void kscheme_init_globals_common();
 

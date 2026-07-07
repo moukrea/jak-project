@@ -858,6 +858,9 @@ void link_control::jak2_finish(bool jump_from_c_to_goal) {
 
     // execute top level!
     if (m_entry.offset && (m_flags & LINK_FLAG_EXECUTE)) {
+      // Gjak2-render concurrent-GOAL race detector: bracket the top-level exec
+      // (this is a C++ -> GOAL entry on the single shared GOAL stack).
+      GoalActiveGuard goal_active_guard;
       if (jump_from_c_to_goal) {
         u64 goal_stack = u64(g_ee_main_mem) + EE_MAIN_MEM_SIZE - 8;
         call_goal_on_stack(m_entry.cast<Function>(), goal_stack, s7.offset, g_ee_main_mem);

@@ -6123,6 +6123,15 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                       sig, (unsigned long)fault, (unsigned long)pc,
                       (unsigned long)lr);
 
+  // Gjak2-render concurrent-GOAL race detector: if two threads are inside GOAL
+  // on the single shared GOAL stack at the moment of the crash, goal-active > 1
+  // confirms the concurrency (boot-thread top-level exec + GL-thread
+  // vif_interrupt_callback). tid identifies the faulting thread.
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG goal-active=%d tid=%d boot-linking=%d",
+                      g_goal_active.load(std::memory_order_seq_cst), gettid(),
+                      (int)g_goal_boot_linking.load(std::memory_order_seq_cst));
+
   // === Gjak2-render forensic HARDENING: everything a pc=0/fault=0 crash needs
   // MUST print BEFORE any code-window dump that dereferences pc (which re-faults
   // and previously aborted the handler, leaving only the bare sig/pc/lr line). ===

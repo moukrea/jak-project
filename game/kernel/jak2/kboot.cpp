@@ -76,12 +76,21 @@ s32 goal_main(int argc, const char* const* argv) {
   //  MasterDebug = 0;
   //  DebugSegment = 0;
 
+  // Gjak2-render concurrent-GOAL race gate: mark that boot CGO-linking is in
+  // progress so the GL/render thread's vif_interrupt_callback skips re-entering
+  // GOAL on the single shared GOAL stack while the boot thread links (and runs
+  // top-levels via call_goal_on_stack). Cleared once InitMachine completes and
+  // the kernel is about to be dispatched. Translation-layer only.
+  g_goal_boot_linking.store(true, std::memory_order_seq_cst);
+
   // Launch GOAL!
   if (InitMachine() >= 0) {    // init kernel
+    g_goal_boot_linking.store(false, std::memory_order_seq_cst);
     KernelCheckAndDispatch();  // run kernel
     ShutdownMachine();         // kernel died, we should too.
     // movie playback stuff removed.
   } else {
+    g_goal_boot_linking.store(false, std::memory_order_seq_cst);
     fprintf(stderr, "InitMachine failed\n");
     exit(1);
   }
