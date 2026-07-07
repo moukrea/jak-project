@@ -54,9 +54,11 @@ Compiler::Compiler(GameVersion version,
   // fatter (mandatory STP x29,x30 + 16B SP alignment), so thread-suspend's
   // stack-used check overflows tight budgets (device: bikea 48/32 -> the
   // gkernel.gc:657 (break) SIGILL during ctywide traffic init). Shadow the
-  // call form with a +64 pad; the method identity is unchanged
+  // call form with a 2n+128 pad (a flat +64 still overflowed: a vehicle wait-loop
+  // suspend measured >80 against 16+64 — arm64 usage scales with frame depth, so
+  // the pad must too; 16->160, 512->1152). Method identity is unchanged
   // (method-of-type thread stack-size-set!), x86 registers no macro. Heap cost:
-  // +64B/process from the dead-pool chunk (asize follows stack-size), negligible.
+  // ~n+128 B/process from the dead-pool chunk (asize follows stack-size).
   // Same class as the PROCESS_STACK_SAVE_SIZE 256->512 override (jak1 hopper).
   //
   // NOTE: this is a *call-form* shadow. defmethod reads its method-name argument
@@ -68,7 +70,7 @@ Compiler::Compiler(GameVersion version,
   if (m_instr_set == emitter::InstructionSet::ARM64) {
     Object arm64_stack_pad_macro = m_goos.reader.read_from_string(
         "(defmacro stack-size-set! (thrd size)\n"
-        "  `((method-of-type thread stack-size-set!) ,thrd (+ ,size 64)))\n",
+        "  `((method-of-type thread stack-size-set!) ,thrd (+ (* 2 ,size) 128)))\n",
         true);
     compile_object_file("goal-lib-arm64", arm64_stack_pad_macro, false);
   }
