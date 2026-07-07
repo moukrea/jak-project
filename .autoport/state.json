@@ -177,7 +177,7 @@
     "Gswamp-fstore": 2,
     "Gvulkan-option": 2,
     "Gjak2-boot": 2,
-    "Gjak2-render": 2
+    "Gjak2-render": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -337,7 +337,8 @@
       "f9c774796cac"
     ],
     "Gjak2-render": [
-      "f02d01141345"
+      "f02d01141345",
+      "f9c774796cac"
     ]
   },
   "stuck_reasons": {
@@ -683,7 +684,7 @@
     "Gjak2-boot": 1783325216.9940019,
     "Gjak2-render": 1783372984.0241954
   },
-  "last_update": "2026-07-07T18:31:18.859833+00:00",
+  "last_update": "2026-07-07T18:45:23.449261+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -731,6 +732,7 @@
     "Gcrash-swamp-real",
     "Gswamp-fstore",
     "Gvulkan-option",
-    "Gjak2-boot"
+    "Gjak2-boot",
+    "Gjak2-render"
   ]
 }

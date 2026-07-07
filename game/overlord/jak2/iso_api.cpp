@@ -2,7 +2,6 @@
 
 #include <cstring>
 
-#include "common/log/log.h"
 #include "common/util/FileUtil.h"
 
 #include "game/overlord/common/srpc.h"
@@ -52,17 +51,6 @@ LAB_0000cc60:
   memcpy(name_buff, "VAGWAD  ", 8);
   strncpy(name_buff + 8, gLanguage, 4);
   cmd->file_record = (isofs->find_in)(name_buff);
-  // Gjak2-render (Android glue, desktop-neutral): the Android asset bundle ships
-  // only VAGWAD.ENG (build_asset_bundle.sh SKIP_ISO_RE drops FRE/GER/ITA/JAP/KOR/
-  // SPA to save ~1GB). With the device language set to another locale the lookup
-  // returns null and the null FileRecord later crashes the fakeiso read worker
-  // (open_fr -> fr->location, fault=0xc). Fall back to the English archive —
-  // never triggers on a full desktop iso (first lookup succeeds).
-  if (!cmd->file_record) {
-    memcpy(name_buff, "VAGWAD  ", 8);
-    strncpy(name_buff + 8, "ENG ", 4);
-    cmd->file_record = (isofs->find_in)(name_buff);
-  }
 }
 
 void QueueVAGStream(VagStrListNode* param_1) {
@@ -104,12 +92,6 @@ void QueueVAGStream(VagStrListNode* param_1) {
     strcpy(local_20, "VAGWAD     ");
     strncpy(local_20 + 8, gLanguage, 3);
     cmd.file_record = (isofs->find_in)(local_20);
-    // Gjak2-render: ENG fallback for language-suffixed VAGWAD (see EEVagAndVagwad).
-    if (!cmd.file_record) {
-      strcpy(local_20, "VAGWAD     ");
-      strncpy(local_20 + 8, "ENG", 3);
-      cmd.file_record = (isofs->find_in)(local_20);
-    }
     cmd.vol_multiplier = param_1->vol_multiplier;
     cmd.unk_176 = param_1->unk_100;
   }
@@ -127,16 +109,6 @@ void QueueVAGStream(VagStrListNode* param_1) {
     cmd.unk_232 = '\x01';
   }
   cmd.unk_296 = 0;
-  // Gjak2-render: if the VAGWAD archive is genuinely absent (even after the ENG
-  // fallback), drop the stream request instead of queueing a null FileRecord that
-  // the fakeiso read worker would dereference (device crash: open_fr fault=0xc).
-  // Matches real-hardware behavior for a missing disc file: the stream just
-  // doesn't play.
-  if (!cmd.file_record) {
-    lg::error("[OVERLORD] QueueVAGStream: no VAGWAD archive for '{}', dropping stream",
-              param_1->name);
-    return;
-  }
   IsoQueueVagStream(&cmd, 1);
 }
 
