@@ -1,6 +1,8 @@
 #include "klink.h"
 
+#include <cstdio>   // Gjak2-render JAK2-BADPTR-WRITE tripwire (fprintf/stderr)
 #include <cstdlib>  // Gjak2-render JAK2_SEG_TRACE diagnostic (getenv)
+#include <set>      // Gjak2-render JAK2-BADPTR-WRITE per-site de-dup
 
 #include "common/goal_constants.h"
 #include "common/log/log.h"
@@ -41,6 +43,35 @@ bool tl_trace_on() {
     g_tl_trace_probed = true;
   }
   return g_tl_trace_enabled;
+}
+
+// Gjak2-render JAK2-BADPTR-WRITE tripwire (ALWAYS ON, only fires on genuine
+// garbage). A real GOAL heap value/offset is always < EE_MAIN_MEM_SIZE
+// (0x8000000); anything >= that has garbage in bits[16:31] (e.g. 0x44001afe).
+// If klink is about to WRITE such a value into a relocation slot, this fires
+// ONCE per (reloc, slot) site so we can catch a relocation-side write of the
+// garbage pointer. `value` is the GOAL offset being stored (raw-u32 path) or
+// the target GOAL offset (target_host - ee_base for the arm64 patch path).
+// Cheap: a single unsigned compare on the happy path.
+void badptr_write_check(const char* reloc,
+                        const char* obj,
+                        u32 slot_goaloff,
+                        const char* sym,
+                        u32 value) {
+  if (value < (u32)EE_MAIN_MEM_SIZE) {
+    return;  // happy path: real GOAL offset.
+  }
+  // De-duplicate: fire once per (reloc,slot_goaloff) site to keep it cheap and
+  // the log readable across a full boot.
+  static std::set<u64> s_seen;
+  const u64 key = ((u64)(uintptr_t)reloc << 32) ^ ((u64)slot_goaloff << 8) ^ (value & 0xff);
+  if (s_seen.count(key)) {
+    return;
+  }
+  s_seen.insert(key);
+  std::fprintf(stderr,
+               "JAK2-BADPTR-WRITE reloc=%s obj=%s slot_goaloff=0x%x sym=%s value=0x%x\n",
+               reloc, obj ? obj : "-", slot_goaloff, sym ? sym : "-", value);
 }
 }  // namespace
 
@@ -115,6 +146,10 @@ uint32_t cross_seg_dist_link_v3(Ptr<uint8_t> link,
     // link retrofit jak2's linker never received (without it, raw x86 stores stomp
     // the arm64 instruction words -> SIGILL executing linked code, e.g. gcommon).
     uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<int32_t>(tgt).c());
+    // Gjak2-render JAK2-BADPTR-WRITE: the arm64 patch target GOAL offset is
+    // `tgt`; catch a garbage cross-seg target (would produce a bad ADRP/imm).
+    badptr_write_check("crossseg", g_gk_current_link_object,
+                       (u32)offset_of_patch, "-", (u32)tgt);
     g_jak2_reloc_ctx = "cross_seg";
     g_jak2_reloc_seg = current_seg;
     auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(slot_addr),
@@ -139,6 +174,10 @@ uint32_t ptr_link_v3(Ptr<u8> link, ObjectFileHeader* ofh, int current_seg) {
   // target address into a GPR; the dispatcher patches the imm field. x86 (or an
   // arm64 data-segment ptr slot) returns kNotInstr -> raw u32 store. Mirrors jak1.
   uintptr_t target_host = reinterpret_cast<uintptr_t>(Ptr<u8>(patch_value).c());
+  // Gjak2-render JAK2-BADPTR-WRITE: `patch_value` is the GOAL offset stored
+  // (raw path) / the arm64 patch target. Catch a garbage ptr-link value.
+  badptr_write_check("ptr", g_gk_current_link_object, (u32)patch_loc, "-",
+                     (u32)patch_value);
   g_jak2_reloc_ctx = "ptr";
   g_jak2_reloc_seg = current_seg;
   auto rc = klink_arm64_patch_pc_rel(
@@ -181,6 +220,16 @@ uint32_t typelink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
   uint32_t offset_count = *offsets;
   offsets = offsets + 4;
   seek += 4;
+
+  // Gjak2-render JAK2-BADPTR-WRITE: `type_ptr.offset` is the GOAL offset of the
+  // interned type's vtable — the value written into every type-pointer slot.
+  // A garbage type_ptr.offset here means intern_type_from_c returned a bad ptr.
+  // slot_goaloff is the first slot for context (all slots take the same value).
+  if (offset_count) {
+    badptr_write_check("typelink", g_gk_current_link_object,
+                       (u32)(data + offsets.c()[0]).offset, sym_name,
+                       (u32)type_ptr.offset);
+  }
 
   // write the type pointers into memory
   for (uint32_t i = 0; i < offset_count; i++) {
@@ -254,18 +303,32 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
     // gcommon top-level `(deftype vec4s ...)` symbol-VALUE load of `type` read
     // sym_addr instead of sym_addr-1, yielding a byte-shifted garbage type ptr
     // (0x??001afe) and SIGSEGV'ing on `(-> type new-method)`.
+    // Gjak2-render JAK2-BADPTR-WRITE: the arm64 patch target (and the raw
+    // `pre == -1` store) is the symbol POINTER `sym_addr`. This is the value
+    // that carries the ~0x??001afe garbage class when a symbol pointer is bad.
+    // Check both the arm64 target (sym_addr) and, on the raw path, the exact
+    // value about to be stored for this slot.
+    badptr_write_check("symlink", g_gk_current_link_object, (u32)(data + offset).offset,
+                       sym_name, (u32)sym_addr);
     auto rc = klink_arm64_patch_pc_rel(reinterpret_cast<uint32_t*>(data_ptr.c()),
                                        target_host, /*sym_value_bias=*/-1);
     if (rc == KlinkArm64PatchResult::kNotInstr) {
+      u32 stored;
       if (pre == -1) {
         // a "-1" indicates that we should store the address.
+        stored = sym_addr;
         *(data + offset).cast<int32_t>() = sym_addr;
       } else if ((u32)pre == LINK_SYM_NO_OFFSET_FLAG) {
+        stored = (u32)(sym_offset - 1);
         *(data + offset).cast<int32_t>() = sym_offset - 1;
       } else {
         // otherwise store the offset to st.
+        stored = (u32)sym_offset;
         *(data + offset).cast<int32_t>() = sym_offset;
       }
+      // Also catch a garbage value on the raw-u32 store path (x86-equivalent).
+      badptr_write_check("symlink", g_gk_current_link_object,
+                         (u32)(data + offset).offset, sym_name, stored);
     }
   }
 
@@ -833,6 +896,11 @@ void link_control::jak2_finish(bool jump_from_c_to_goal) {
 
   ObjectFileHeader* ofh = m_link_block_ptr.cast<ObjectFileHeader>().c();
   lg::debug("link finish: {}", m_object_name);
+  // Gjak2-render fundamental type-symbol content canary + repair at the
+  // per-object link boundary. This localizes which object's link/finish the
+  // 'string (etc.) stomp happens after, and repairs the slot so the next
+  // top-level exec (which may allocate strings/objects) does not read garbage.
+  jak2::jak2_check_repair_fund_types(m_object_name);
   if (ofh->object_file_version == 3) {
     // todo check function type of entry
 
@@ -882,6 +950,15 @@ void link_control::jak2_finish(bool jump_from_c_to_goal) {
                                      GOAL_RELOC_METHOD, m_heap.offset,
                                      Ptr<char>(LINK_CONTROL_NAME_ADDR).offset);
     }
+  }
+
+  // Gjak2-render: second canary check AFTER this object's top-level exec, so a
+  // stomp introduced by executing THIS object's top-level (vs. a prior one) is
+  // attributed here with a distinct "<obj>:post-exec" where= tag.
+  {
+    static thread_local char s_post_exec_where[256];
+    std::snprintf(s_post_exec_where, sizeof(s_post_exec_where), "%s:post-exec", m_object_name);
+    jak2::jak2_check_repair_fund_types(s_post_exec_where);
   }
 
   *EnableMethodSet = *EnableMethodSet - m_keep_debug;

@@ -7,6 +7,17 @@
 #include "common/symbols.h"
 #include "common/util/Timer.h"
 
+#include <cstdio>  // Gjak2-render JAK2-BADPTR-ALLOC tripwire (fprintf/stderr)
+
+// Gjak2-render JAK1-ON-JAK2 call-site enumerator: log when jak1 symbol-table
+// functions fire during a jak2 boot (should be ZERO). Instrumentation only.
+#include <atomic>
+#include <dlfcn.h>
+
+#include "common/versions/versions.h"  // GameVersion
+
+#include "game/runtime.h"  // g_game_version
+
 #include "game/kernel/common/fileio.h"
 #include "game/kernel/common/kdgo.h"
 #include "game/kernel/common/kdsnetm.h"
@@ -42,6 +53,26 @@ void kscheme_init_globals() {
   symbol_slot = 0;
 }
 
+// Gjak2-render JAK1-ON-JAK2 enumerator. Fires ONLY when the running game is
+// Jak2 (a correct jak2 boot must never call these jak1 symbol-table
+// functions). Bounded to ~40 total log lines across all sites via a shared
+// atomic counter so it can't spam-loop. Symbolizes the caller via dladdr.
+// Instrumentation only; no behavior change; never fires for a jak1 run.
+static std::atomic<int> g_jak1_on_jak2_log_count{0};
+static inline void jak1_on_jak2_guard_log(const char* fn, void* ra) {
+  if (g_game_version != GameVersion::Jak2) {
+    return;
+  }
+  if (g_jak1_on_jak2_log_count.fetch_add(1) >= 40) {
+    return;
+  }
+  Dl_info _di;
+  const char* _nm = (dladdr(ra, &_di) && _di.dli_sname) ? _di.dli_sname : "?";
+  fprintf(stderr, "JAK1-ON-JAK2 fn=%s caller=%s ra=%p\n", fn, _nm, ra);
+}
+#define JAK1_ON_JAK2_GUARD_LOG() \
+  jak1_on_jak2_guard_log(__func__, __builtin_return_address(0))
+
 /*!
  * New method for types which cannot have "new" used on them.
  * Prints an error to stdout and returns false.
@@ -66,6 +97,15 @@ u64 new_illegal(u32 allocation, u32 type) {
  */
 u64 alloc_from_heap(u32 heapSymbol, u32 type, s32 size, u32 pp) {
   using namespace jak1_symbols;
+  // Gjak2-render JAK2-BADPTR-ALLOC tripwire (ALWAYS ON, log-only, harmless to
+  // jak1). Shared read/use-side tripwire: a real GOAL type pointer is always
+  // < EE_MAIN_MEM_SIZE (0x8000000); a `type` >= that carries garbage in
+  // bits[16:31] and would SIGSEGV on the Ptr<Type> deref below. jak1 behavior
+  // is otherwise unchanged. Cheap: single unsigned compare on the happy path.
+  if (type != 0 && (u32)type >= (u32)EE_MAIN_MEM_SIZE) {
+    std::fprintf(stderr, "JAK2-BADPTR-ALLOC type=0x%x size=%d obj=%s caller=%p\n",
+                 type, size, g_gk_current_link_object, __builtin_return_address(0));
+  }
   ASSERT(size > 0);
 
   // align to 16 bytes (part one)
@@ -254,6 +294,7 @@ u64 make_string(u32 size) {
  * Allocates from the global heap and copies the string data.
  */
 u64 make_string_from_c(const char* c_str) {
+  JAK1_ON_JAK2_GUARD_LOG();
   auto str_size = strlen(c_str);
   auto mem_size = str_size + 1;
   if (mem_size < 8) {
@@ -977,6 +1018,7 @@ Ptr<Function> make_zero_func() {
  * windows.
  */
 Ptr<Function> make_function_symbol_from_c(const char* name, void* f) {
+  JAK1_ON_JAK2_GUARD_LOG();
   auto sym = intern_from_c(name);
   auto func = make_function_from_c(f);
   sym->value = func.offset;
@@ -1085,6 +1127,7 @@ Ptr<Symbol> find_symbol_in_area(u32 hash, const char* name, u32 start, u32 end) 
  * Also allows you to find the empty pair by searching for _empty_
  */
 Ptr<Symbol> find_symbol_from_c(const char* name) {
+  JAK1_ON_JAK2_GUARD_LOG();
   symbol_slot = 0;  // nowhere to put the symbol yet, clear any old symbol_slot result.
   u32 hash = crc32((const u8*)name, (int)strlen(name));
 
@@ -1142,6 +1185,7 @@ Ptr<Symbol> find_symbol_from_c(const char* name) {
  * returns the old one. Basically a LISP symbol intern
  */
 Ptr<Symbol> intern_from_c(const char* name) {
+  JAK1_ON_JAK2_GUARD_LOG();
   auto symbol = find_symbol_from_c(name);
   if (symbol.offset) {
     // already exists, return it!
@@ -1195,6 +1239,7 @@ Ptr<Type> alloc_and_init_type(Ptr<Symbol> sym, u32 method_count) {
  * allocated.
  */
 Ptr<Type> intern_type_from_c(const char* name, u64 methods) {
+  JAK1_ON_JAK2_GUARD_LOG();
   // there's a weird flag system used here.
   // if methods is a number that's not 0 or 1, its used as the desired number of methods.
   // If method is 0, and a new type needs to be created, it uses 12 methods

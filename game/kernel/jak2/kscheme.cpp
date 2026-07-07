@@ -14,6 +14,7 @@
 #include "common/symbols.h"
 
 #include "game/kernel/common/fileio.h"
+#include "game/kernel/common/kdgo.h"  // Gjak2-render: g_gk_current_link_object breadcrumb
 #include "game/kernel/common/kdsnetm.h"
 #include "game/kernel/common/klink.h"
 #include "game/kernel/common/kmemcard.h"
@@ -81,8 +82,147 @@ void fixed_sym_set(u32 offset, u32 value) {
 }
 }  // namespace
 
+// ===========================================================================
+// Gjak2-render: fundamental type-symbol content canary + repair.
+//
+// The jak2 boot-link crash is a memory stomp: the VALUE slot of fundamental
+// type symbols (especially 'string) in the Symbol4 table is corrupted to
+// garbage (e.g. 0xc4001b10 = valid low-16 + garbage upper-16) at a random
+// point during single-threaded boot-linking. jak2::make_string_from_c then
+// reads the garbage 'string type -> alloc_from_heap dereferences a bogus
+// Ptr<Type> -> SIGSEGV.
+//
+// Fundamental type-symbol VALUEs are always small valid pointers (a type lives
+// low in the symbol/type heap, well under EE_MAIN_MEM_SIZE=0x8000000), so a
+// snapshot taken while the value is valid can be safely written back to repair
+// a stomp. We (a) LOCALIZE the stomp by logging which object-link boundary it
+// is first observed at, and (b) REPAIR the slot so boot survives.
+// ===========================================================================
+namespace {
+
+struct FundTypeSlot {
+  int off;            // s7-relative fixed-symbol offset (jak2_symbols::FIX_SYM_*_TYPE)
+  const char* name;   // human name for the log
+};
+
+// Enumerate the FUNDAMENTAL type symbols that exist in the jak2_symbols
+// section of common/symbols.h. These are the "*_TYPE" fixed symbols that name
+// the core object model (their VALUE is a small Ptr<Type>). Restoring any of
+// these from a valid snapshot is safe because real type pointers are tiny.
+constexpr FundTypeSlot s_fund_slots[] = {
+    {jak2_symbols::FIX_SYM_FUNCTION_TYPE, "function"},
+    {jak2_symbols::FIX_SYM_STRING_TYPE, "string"},
+    {jak2_symbols::FIX_SYM_SYMBOL_TYPE, "symbol"},
+    {jak2_symbols::FIX_SYM_TYPE_TYPE, "type"},
+    {jak2_symbols::FIX_SYM_OBJECT_TYPE, "object"},
+    {jak2_symbols::FIX_SYM_INTEGER, "integer"},
+    {jak2_symbols::FIX_SYM_SINTEGER, "sinteger"},
+    {jak2_symbols::FIX_SYM_UINTEGER, "uinteger"},
+    {jak2_symbols::FIX_SYM_BINTEGER, "binteger"},
+    {jak2_symbols::FIX_SYM_INT8, "int8"},
+    {jak2_symbols::FIX_SYM_INT16, "int16"},
+    {jak2_symbols::FIX_SYM_INT32, "int32"},
+    {jak2_symbols::FIX_SYM_INT64, "int64"},
+    {jak2_symbols::FIX_SYM_INT128, "int128"},
+    {jak2_symbols::FIX_SYM_UINT8, "uint8"},
+    {jak2_symbols::FIX_SYM_UINT16, "uint16"},
+    {jak2_symbols::FIX_SYM_UINT32, "uint32"},
+    {jak2_symbols::FIX_SYM_UINT64, "uint64"},
+    {jak2_symbols::FIX_SYM_UINT128, "uint128"},
+    {jak2_symbols::FIX_SYM_FLOAT, "float"},
+    {jak2_symbols::FIX_SYM_PROCESS_TREE, "process-tree"},
+    {jak2_symbols::FIX_SYM_PROCESS_TYPE, "process"},
+    {jak2_symbols::FIX_SYM_THREAD, "thread"},
+    {jak2_symbols::FIX_SYM_STRUCTURE, "structure"},
+    {jak2_symbols::FIX_SYM_PAIR_TYPE, "pair"},
+    {jak2_symbols::FIX_SYM_POINTER, "pointer"},
+    {jak2_symbols::FIX_SYM_NUMBER, "number"},
+    {jak2_symbols::FIX_SYM_ARRAY, "array"},
+    {jak2_symbols::FIX_SYM_VU_FUNCTION, "vu-function"},
+    {jak2_symbols::FIX_SYM_CONNECTABLE, "connectable"},
+    {jak2_symbols::FIX_SYM_STACK_FRAME, "stack-frame"},
+    {jak2_symbols::FIX_SYM_FILE_STREAM, "file-stream"},
+};
+
+constexpr int kNumFundSlots = sizeof(s_fund_slots) / sizeof(s_fund_slots[0]);
+
+// A value is "valid" if it is a plausible in-heap pointer: nonzero and below
+// EE_MAIN_MEM_SIZE. A garbage stomp sets upper-16 bits, pushing it >= 0x8000000.
+inline bool fund_value_valid(u32 v) {
+  return v != 0 && v < (u32)EE_MAIN_MEM_SIZE;
+}
+
+u32 s_fund_snap[kNumFundSlots] = {0};  // last-known-good VALUE for each slot
+bool s_fund_snapped[kNumFundSlots] = {false};
+
+int s_fund_stomp_log_count = 0;  // bounded logging
+
+}  // namespace
+
+/*!
+ * Snapshot any fundamental type symbol whose VALUE is currently valid and has
+ * not yet been snapshotted. Safe to call repeatedly (lazy first-valid capture).
+ */
+void jak2_snapshot_fund_types() {
+  for (int i = 0; i < kNumFundSlots; i++) {
+    u32 v = Ptr<Symbol4<u32>>(s7.offset + s_fund_slots[i].off)->value();
+    if (!s_fund_snapped[i] && fund_value_valid(v)) {
+      s_fund_snap[i] = v;
+      s_fund_snapped[i] = true;
+    }
+  }
+}
+
+/*!
+ * For each fundamental type symbol:
+ *   - If its VALUE is garbage (>= EE_MAIN_MEM_SIZE) and we hold a valid
+ *     snapshot: RESTORE the slot and log a bounded JAK2-FUNDTYPE-STOMP line.
+ *   - Else if its VALUE is valid (nonzero, in-heap): (re)snapshot it, tracking
+ *     legitimate changes.
+ * Returns the number of slots repaired on this call.
+ */
+int jak2_check_repair_fund_types(const char* where) {
+  // Lazily capture first-valid snapshots for any slot not yet snapped (this is
+  // the "call once when values are first valid" step, done idempotently here).
+  jak2_snapshot_fund_types();
+  int repaired = 0;
+  for (int i = 0; i < kNumFundSlots; i++) {
+    auto sym = Ptr<Symbol4<u32>>(s7.offset + s_fund_slots[i].off);
+    u32 v = sym->value();
+    if (!fund_value_valid(v) && v != 0 && s_fund_snapped[i]) {
+      // Garbage stomp (valid low-16 + garbage upper-16, i.e. >= EE_MAIN_MEM_SIZE).
+      // Restore the known-good small pointer.
+      u32 restored = s_fund_snap[i];
+      sym->value() = restored;
+      repaired++;
+      if (s_fund_stomp_log_count < 30) {
+        s_fund_stomp_log_count++;
+        std::fprintf(stderr,
+                     "JAK2-FUNDTYPE-STOMP name=%s where=%s garbage=0x%x restored=0x%x\n",
+                     s_fund_slots[i].name, where ? where : "<null>", v, restored);
+      }
+    } else if (fund_value_valid(v)) {
+      // Legit value; keep the snapshot current (also captures first-valid).
+      s_fund_snap[i] = v;
+      s_fund_snapped[i] = true;
+    }
+    // v == 0 (not yet interned) -> leave alone, nothing to repair or snapshot.
+  }
+  return repaired;
+}
+
 u64 alloc_from_heap(u32 heap_symbol, u32 type, s32 size, u32 pp) {
   using namespace jak2_symbols;
+  // Gjak2-render JAK2-BADPTR-ALLOC tripwire (ALWAYS ON, only fires on genuine
+  // garbage). A real GOAL type pointer is always < EE_MAIN_MEM_SIZE
+  // (0x8000000); a `type` >= that (e.g. 0x??001afe) carries garbage in
+  // bits[16:31] and would be dereferenced below (Ptr<Type>) -> SIGSEGV. This is
+  // the READ/use side of the bug: caller shows WHO passed the garbage type.
+  // Cheap: single unsigned compare on the happy path.
+  if (type != 0 && (u32)type >= (u32)EE_MAIN_MEM_SIZE) {
+    std::fprintf(stderr, "JAK2-BADPTR-ALLOC type=0x%x size=%d obj=%s caller=%p\n",
+                 type, size, g_gk_current_link_object, __builtin_return_address(0));
+  }
   auto heap_ptr = Ptr<Symbol4<Ptr<kheapinfo>>>(heap_symbol)->value();
 
   s32 aligned_size = ((size + 0xf) / 0x10) * 0x10;
@@ -256,6 +396,10 @@ u64 make_string(u32 size) {
  * Allocates from the global heap and copies the string data.
  */
 u64 make_string_from_c(const char* c_str) {
+  // Gjak2-render belt: repair any stomped fundamental type slot RIGHT before
+  // the vulnerable read of 'string below (u32_in_fixed_sym(FIX_SYM_STRING_TYPE)).
+  jak2_check_repair_fund_types("make_string_from_c");
+
   auto str_size = strlen(c_str);
   auto mem_size = str_size + 1;
   if (mem_size < 8) {
@@ -1223,6 +1367,11 @@ Ptr<Type> alloc_and_init_type(Ptr<Symbol4<Ptr<Type>>> sym,
   sym->value() = the_type;
   the_type->allocated_size = type_size;
   the_type->padded_size = ((type_size + 0xf) & 0xfff0);
+  // Gjak2-render JAK2-NEWTYPE-BADRET: did the C++ allocator hand back garbage?
+  if (the_type.offset == 0 || (u32)the_type.offset >= (u32)EE_MAIN_MEM_SIZE) {
+    std::fprintf(stderr, "JAK2-NEWTYPE-BADRET fn=%s name=%s ret=0x%x\n",
+                 "alloc_and_init_type", sym_to_string(sym)->data(), the_type.offset);
+  }
   return the_type;
 }
 
@@ -1261,6 +1410,11 @@ Ptr<Type> intern_type_from_c(const char* name, u64 methods) {
     auto type = alloc_and_init_type(casted_sym, n_methods, 0);  // allow level types
     type->symbol = casted_sym;
     type->num_methods = n_methods;
+    // Gjak2-render JAK2-NEWTYPE-BADRET: newly created type born garbage?
+    if (type.offset == 0 || (u32)type.offset >= (u32)EE_MAIN_MEM_SIZE) {
+      std::fprintf(stderr, "JAK2-NEWTYPE-BADRET fn=%s name=%s ret=0x%x\n",
+                   "intern_type_from_c(new)", name, type.offset);
+    }
     return type;
   } else {
     // the type exists.
@@ -1272,6 +1426,12 @@ Ptr<Type> intern_type_from_c(const char* name, u64 methods) {
           "restarting\n",
           name, (u32)methods, type->num_methods);
       ASSERT(false);
+    }
+    // Gjak2-render JAK2-NEWTYPE-BADRET: existing-type lookup returned garbage
+    // (symbol VALUE already stomped)?
+    if (type.offset == 0 || (u32)type.offset >= (u32)EE_MAIN_MEM_SIZE) {
+      std::fprintf(stderr, "JAK2-NEWTYPE-BADRET fn=%s name=%s ret=0x%x\n",
+                   "intern_type_from_c(existing)", name, type.offset);
     }
     return type;
   }
@@ -1424,7 +1584,13 @@ u64 new_type(u32 symbol, u32 parent, u64 flags) {
     }
   }
 
-  return set_type_values(new_type_obj, Ptr<Type>(parent), flags).offset;
+  u32 nt_ret = set_type_values(new_type_obj, Ptr<Type>(parent), flags).offset;
+  // Gjak2-render JAK2-NEWTYPE-BADRET: GOAL-facing new-type returned garbage?
+  if (nt_ret == 0 || nt_ret >= (u32)EE_MAIN_MEM_SIZE) {
+    std::fprintf(stderr, "JAK2-NEWTYPE-BADRET fn=%s name=%s ret=0x%x\n", "new_type",
+                 sym_to_string(new_type_obj->symbol)->data(), nt_ret);
+  }
+  return nt_ret;
 }
 
 /*!
@@ -1445,6 +1611,31 @@ u64 type_typep(Ptr<Type> t1, Ptr<Type> t2) {
 }
 
 u64 method_set(u32 type_, u32 method_id, u32 method) {
+  // ===========================================================================
+  // Gjak2-render JAK2-METHODSET-BADTYPE tripwire (ALWAYS ON, only logs on
+  // garbage). During deftype/method-install top-levels the type_ arg has been
+  // arriving as either 0 (null Type) or a garbage stomp (valid low-16 + garbage
+  // upper bits, i.e. >= EE_MAIN_MEM_SIZE=0x8000000). Ptr<Type>(type_)->... then
+  // dereferences a bogus pointer -> assert/SIGSEGV. Log WHO passed it (caller
+  // GOAL top-level offset + which object is linking) so we can decide whether
+  // the type is born corrupt (see JAK2-NEWTYPE-BADRET) or corrupted after
+  // creation by GOAL codegen. Cheap: single unsigned compare on the happy path.
+  if (type_ == 0 || (u32)type_ >= (u32)EE_MAIN_MEM_SIZE) {
+    void* ra = __builtin_return_address(0);
+    uintptr_t base = (uintptr_t)g_ee_main_mem;
+    uintptr_t ra_u = (uintptr_t)ra;
+    u32 caller_ee;
+    if (base && ra_u >= base && ra_u < base + (uintptr_t)EE_MAIN_MEM_SIZE) {
+      caller_ee = (u32)(ra_u - base);  // in-EE GOAL top-level code offset
+    } else {
+      caller_ee = (u32)ra_u;  // raw host return address (not EE code)
+    }
+    std::fprintf(stderr,
+                 "JAK2-METHODSET-BADTYPE type=0x%x method_id=%u method=0x%x "
+                 "caller_ee=0x%x obj=%s\n",
+                 type_, method_id, method, caller_ee, g_gk_current_link_object);
+  }
+
   Ptr<Type> type(type_);
   if (method_id > 255)
     printf("[METHOD SET ERROR] tried to set method %d\n", method_id);
