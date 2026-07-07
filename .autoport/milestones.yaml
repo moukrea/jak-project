@@ -1220,6 +1220,14 @@ phases:
   max_retries: 4
   device: true
   owner_verify: false
+- id: Gjak1-snowfort-events
+  name: 'OWNER 2026-07-07 (jak1 play-test): Snowy Mountain fort — gate opens but ground enemies FROZEN (waiting on an event/cutscene that never fired) + impression some cutscenes do not trigger; x86-first oracle, suspect enter-state/SUSPEND + spool/event dispatch classes; 1-to-1 fix'
+  prompt: prompts/phase-Gjak1-snowfort-events.md
+  validator: validators/phase-Gjak1-snowfort-events.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
 - id: Grecharged-external-assets
   name: 'RECHARGED infra (owner 2026-07-07): split BINARY from ASSETS on every build (x86 Win/Linux + Android) — slim binary + separate original-assets archive; first-boot prompt for asset location (Android storage permissions!); layout <chosen>/jak_N/{assets,saves,custom_assets}; LOAD CUSTOM ASSETS toggle in Recharged Settings; same shape for jak2/jak3/Collection; migrate existing installs safely'
   prompt: prompts/phase-Grecharged-external-assets.md
