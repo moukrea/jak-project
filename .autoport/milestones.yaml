@@ -1204,6 +1204,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-grass-poc
+  name: 'RECHARGED (owner 2026-07-07): 3D GRASS proof-of-concept on the TRAINING level — real blades near (flat-color, random distribution, variable size/orientation/curvature/tint, individual breeze motion, flatten under Jak), crossed grass cards mid (slight sway), plain ground texture far; placement driven by grass ground-texture detection (tra-grass); gated in Recharged Settings, default OFF; transpose-everywhere later if cool'
+  prompt: prompts/phase-Grecharged-grass-poc.md
+  validator: validators/phase-Grecharged-grass-poc.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
