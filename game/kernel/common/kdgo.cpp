@@ -19,6 +19,11 @@ u32 sShowStallMsg;           //! setting to show a "stalled on iop" message
 u16 x[8];                    //! stupid temporary for storing a message
 u32 sMsgNum;                 //! Toggle for double buffered message sending.
 
+// Gjak2-render forensic breadcrumb (see kdgo.h). Initialized to a known idle
+// state so the crash handler always prints something meaningful even before the
+// first object links.
+extern "C" const char* g_gk_current_link_object = "<none>";
+
 void kdgo_init_globals() {
   memset(x, 0, sizeof(x));
   memset(cd, 0, sizeof(cd));

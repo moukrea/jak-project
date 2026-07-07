@@ -49,6 +49,7 @@
 #include "common/goal_constants.h"
 
 #include "game/kernel/common/kboot.h"
+#include "game/kernel/common/kdgo.h"  // Gjak2-render: g_gk_current_link_object breadcrumb
 #include "game/kernel/common/klink.h"
 #include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/kmemcard.h"
@@ -6121,6 +6122,102 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                       "GK-DIAG sig=%d fault=0x%lx pc=0x%lx lr=0x%lx",
                       sig, (unsigned long)fault, (unsigned long)pc,
                       (unsigned long)lr);
+
+  // === Gjak2-render forensic HARDENING: everything a pc=0/fault=0 crash needs
+  // MUST print BEFORE any code-window dump that dereferences pc (which re-faults
+  // and previously aborted the handler, leaving only the bare sig/pc/lr line). ===
+
+  // (H1) last-link-object breadcrumb: which DGO object was mid link/exec (or the
+  // "<between objects>" gap). Read the pointer's bytes through the siglongjmp-
+  // guarded safe path so a stale/reused name buffer can never re-fault the
+  // handler; copy up to 63 chars into a fixed stack buffer.
+  {
+    const char* p = g_gk_current_link_object;
+    char nm[64];
+    size_t n = 0;
+    bool truncated = false;
+    if (p) {
+      for (; n < sizeof(nm) - 1; ++n) {
+        uint32_t w = 0;
+        // Read one byte at a time through the guarded reader (it reads 4 bytes;
+        // we only trust the low byte for the char at this address).
+        if (!gk_diag::safe_read_u32(reinterpret_cast<uintptr_t>(p) + n, &w)) {
+          truncated = true;
+          break;
+        }
+        char c = static_cast<char>(w & 0xff);
+        if (c == '\0') {
+          break;
+        }
+        nm[n] = (c >= 0x20 && c <= 0x7e) ? c : '?';
+      }
+    }
+    nm[n] = '\0';
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                        "GK-DIAG last-link-object=%s%s", p ? nm : "<null-ptr>",
+                        truncated ? " (unreadable)" : "");
+  }
+
+  // (H2) FULL register dump — x0..x30 + sp + pc + lr — read straight from the
+  // signal ucontext (no dereference of any of them). This runs FIRST so a pc=0
+  // can never abort it. (A second, historical per-reg dump remains later; this
+  // early one is the guaranteed one.)
+  for (int r = 0; r <= 30; ++r) {
+    __android_log_print(ANDROID_LOG_FATAL, kGkLogTag, "GK-DIAG REG x%d=0x%lx", r,
+                        (unsigned long)uc->uc_mcontext.regs[r]);
+  }
+  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                      "GK-DIAG REG sp=0x%lx pc=0x%lx lr=0x%lx",
+                      (unsigned long)uc->uc_mcontext.sp, (unsigned long)pc,
+                      (unsigned long)lr);
+
+  // (H3) STACK WALK — recover the return chain when lr=0. Dump sp..sp+512 as u64
+  // words; for each word, if it lands inside the mapped libgk .text (dladdr
+  // resolves it to a file+symbol) OR inside the EE/GOAL code region, symbolize
+  // and print it. All reads go through the siglongjmp-guarded safe_read_u32, so
+  // an unmapped sp can never re-fault the handler fatally.
+  {
+    uintptr_t sp = static_cast<uintptr_t>(uc->uc_mcontext.sp);
+    const uintptr_t eebase = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    for (uintptr_t off = 0; off + 8 <= 512; off += 8) {
+      uint32_t lo = 0, hi = 0;
+      if (!gk_diag::safe_read_u32(sp + off, &lo) ||
+          !gk_diag::safe_read_u32(sp + off + 4, &hi)) {
+        continue;
+      }
+      uint64_t word = (static_cast<uint64_t>(hi) << 32) | lo;
+      uintptr_t cand = static_cast<uintptr_t>(word);
+      // (a) host-code return address? dladdr resolves it to a mapped file
+      // (libgk.so / libc / driver) — this is the C++/return-chain recovery.
+      Dl_info di{};
+      if (cand && dladdr(reinterpret_cast<void*>(cand), &di) && di.dli_fname) {
+        const char* base = strrchr(di.dli_fname, '/');
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG STACKWALK sp+0x%lx = 0x%llx -> %s+0x%lx (%s)",
+                            (unsigned long)off, (unsigned long long)word,
+                            di.dli_sname ? di.dli_sname : "?",
+                            di.dli_saddr ? (unsigned long)(cand - (uintptr_t)di.dli_saddr)
+                                         : 0ul,
+                            base ? base + 1 : di.dli_fname);
+        continue;
+      }
+      // (b) EE/GOAL code return address? Either a rebased host pointer into the
+      // EE arena or a bare GOAL offset. Name the nearest GOAL function.
+      uint32_t goal = 0;
+      if (eebase && cand >= eebase && cand < eebase + EE_MAIN_MEM_SIZE) {
+        goal = static_cast<uint32_t>(cand - eebase);
+      } else if (cand >= 0x1000 && cand < (uintptr_t)EE_MAIN_MEM_SIZE) {
+        goal = static_cast<uint32_t>(cand);  // bare GOAL offset
+      }
+      if (goal >= 0x1000) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG STACKWALK sp+0x%lx = 0x%llx -> EE 0x%x",
+                            (unsigned long)off, (unsigned long long)word, goal);
+        a38_trip::log_nearest_goal_fn("stackwalk-ee", goal);
+      }
+    }
+  }
+
   // Gcrash-geyser: name the faulting GOAL function for an INTERIOR crashing PC
   // (not just a BLR-through-symbol, which A37-WHOSYM already covers). The fatal
   // headline otherwise prints only the raw EE offset; this resolves pc/lr/fault
@@ -6189,16 +6286,31 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
            slot + 4 < EE_MAIN_MEM_SIZE && slot < LastSymbol.offset; slot += 4) {
         uint64_t info_goal = static_cast<uint64_t>(slot) + jak1::SYM_INFO_OFFSET;
         if (info_goal + 8 >= EE_MAIN_MEM_SIZE) continue;
-        uint32_t str_off = *reinterpret_cast<const uint32_t*>(eemem + info_goal + 4);
+        // Guarded reads: a corrupt symbol table (plausible on the very crash
+        // we're diagnosing) must not re-fault and abort the whole dump.
+        uint32_t str_off = 0;
+        if (!gk_diag::safe_read_u32(eemem + info_goal + 4, &str_off)) continue;
         if (str_off == 0 || static_cast<uint64_t>(str_off) + 4 + 32 >= EE_MAIN_MEM_SIZE) continue;
-        const char* nm = reinterpret_cast<const char*>(eemem + str_off + 4);
+        // Read the (bounded) name bytes into a fixed buffer via guarded reads.
+        char nm[20] = {0};
+        bool nm_ok = true;
+        for (int b = 0; b < 16 && nm_ok; b += 4) {
+          uint32_t w = 0;
+          if (!gk_diag::safe_read_u32(eemem + str_off + 4 + b, &w)) {
+            nm_ok = false;
+            break;
+          }
+          memcpy(nm + b, &w, 4);
+        }
+        if (!nm_ok) continue;
         for (const char* want : kWanted) {
           // manual strcmp (async-signal-safe, bounded to 16 chars)
           int i = 0;
           for (; i < 16 && want[i] && nm[i] == want[i]; ++i) {
           }
           if (want[i] == '\0' && nm[i] == '\0') {
-            uint32_t val = *reinterpret_cast<const uint32_t*>(eemem + slot);
+            uint32_t val = 0;
+            if (!gk_diag::safe_read_u32(eemem + slot, &val)) break;
             __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
                                 "GK-DIAG SYMVAL %-10s slot=0x%x value=0x%08x", want,
                                 (unsigned)slot, val);

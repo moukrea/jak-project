@@ -7,6 +7,7 @@
 #include "common/symbols.h"
 
 #include "game/kernel/common/fileio.h"
+#include "game/kernel/common/kdgo.h"  // Gjak2-render: g_gk_current_link_object breadcrumb
 #include "game/kernel/common/klink.h"
 #include "game/kernel/common/kmachine.h"
 #include "game/kernel/common/kprint.h"
@@ -907,6 +908,10 @@ Ptr<uint8_t> link_and_exec(Ptr<uint8_t> data,
     printf("-------------> saved link is busy\n");
     // probably won't end well...
   }
+  // Gjak2-render forensic breadcrumb: record the object currently being
+  // linked/exec'd so the arm64 crash handler can attribute a pc=0 crash to this
+  // object (or to the gap after it). Point at the caller's stable name buffer.
+  g_gk_current_link_object = name ? name : "<null-name>";
   link_control lc;
   lc.jak1_jak2_begin(data, name, size, heap, flags);
   uint32_t done;
@@ -914,6 +919,9 @@ Ptr<uint8_t> link_and_exec(Ptr<uint8_t> data,
     done = lc.jak2_work();
   } while (!done);
   lc.jak2_finish(jump_from_c_to_goal);
+  // Link + top-level exec finished for this object; we are now between objects
+  // until the next link_and_exec sets the breadcrumb again.
+  g_gk_current_link_object = "<between objects>";
   return lc.m_entry;
 }
 
