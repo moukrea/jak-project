@@ -1,0 +1,130 @@
+========================================================================
+Gjak2-render — jak2 FIRST RENDER frame on Android arm64
+========================================================================
+
+RESULT: JAK2 BOOT PROGRESS — NOT a render frame yet (HONEST PARTIAL, validator
+will FAIL). Three real translation-layer fixes advanced jak2 on the device from
+8 -> up to 75 linked objects (6-9x), and to 420/437 GAME.CGO objects in a new
+qemu link-harness. The device still crashes BEFORE any render on an intermittent
+arm64 pointer-formation bug (the jak1 A19-A42 "X16-scratch-clobber / garbage-
+upper-16" class), and the jak2 renderer-subset / mips2c wiring (mandate blocker
+2) is still ahead. Reported truthfully: NO jak2 game frame is on screen; the
+device returns to the MIUI launcher after the boot-link crash. This is honest
+progress + a precise diagnosis, NOT a pass. Do not accept as done.
+
+------------------------------------------------------------------------
+0. HEADLINE
+------------------------------------------------------------------------
+- jak2 qemu link-harness built (game/linux-arm64, --game jak2): fast (~30-60s),
+  device-free, deterministic. Proved jak2 arm64 codegen links 420/437 GAME.CGO
+  objects cleanly.
+- 3 REAL translation-layer bugs found + fixed (all arm64-gated, x86 byte-identical,
+  jak1 untouched):
+    1. klink LDR-literal DATA-word misclassification (kNotInstr fix).
+    2. jak2 ultimate_memcpy broken GOAL-scratchpad copy on arm64 -> memmove.
+    3. a37_mips2c_prealloc_arena jak1-only symbol constants firing on jak2 -> gated to jak1.
+- Device (eae4df44, deploy_verify PASS every build): 8 -> 48 -> (best) 75 linked objects.
+- Remaining blocker: an INTERMITTENT arm64 pointer-formation corruption (garbage
+  bits[16:31] on a GOAL pointer, ASLR-sensitive, device-only), crashing boot-link
+  at a random object (27/29/48/75 across runs) BEFORE render. + jak2 mips2c/renderer wiring.
+
+------------------------------------------------------------------------
+1. QEMU LINK-HARNESS (game/linux-arm64, --game jak2) — new infra
+------------------------------------------------------------------------
+Extended the linux-arm64 qemu harness (jak1-only before) to boot jak2:
+  - CMakeLists.txt: + jak2 kernel TUs (fileio/kdgo/klink/klisten/kprint/kscheme/
+    ksound/kmalloc) — no kmachine/graphics/sqlite.
+  - linux_arm64_direct_dgo.{h,cpp}: link-fn param (jak2::link_and_exec).
+  - linux_arm64_main.cpp: --game jak2 branch (jak2::InitHeapAndSymbol, jak2
+    init_globals, jak2 CGO paths out/jak2-arm64-full/iso), a17_bind_pc_helpers_jak2
+    (~85 pc-* names) + bind_kernel_c_stubs_jak2 (~34 InitMachineScheme kernel-C
+    names) bound to dummies, jak2 fn-ptr=0 fault symbol-naming.
+  - jak1 path byte-identical (675 link-finishes, exit 0 — unregressed).
+Run: qemu-aarch64-static -L /usr/aarch64-linux-gnu build-arm64-linux/game/linux-arm64/gk --game jak2
+Ceiling in qemu: 420/437 GAME.CGO objects (last=collectables #357); the tail is a
+harness-runtime gap (no real texture/font pool), NOT codegen. This PROVES jak2 arm64
+codegen is sound through the vast majority of the link.
+
+------------------------------------------------------------------------
+2. THREE REAL FIXES (translation layer; commits on autoport/android-port)
+------------------------------------------------------------------------
+FIX 1 — klink LDR-literal data-word misclassification (game/kernel/common/klink.cpp)
+  klink_arm64_patch_pc_rel's loose LDR-literal mask (enc & 0x3B000000 == 0x18000000,
+  top-6-bits) misclassified symlink DATA words holding jak2 Symbol4 pointers (odd,
+  top byte 0x18/1C/58/5C/98/9C) as LDR-literal INSTRUCTIONS and NOP'd them, corrupting
+  the symbol-ref table (art-h). Fix: out-of-range/misaligned LDR-literal cases return
+  kNotInstr so the caller does the correct raw-u32 symbol store. goalc emits no far
+  arm64 LDR-literals, so this only affects misclassified data. Verified via qemu trace
+  (ctx=symlink, 6 slots). Commit 0e61866ff.
+
+FIX 2 — jak2 ultimate_memcpy arm64 (game/kernel/jak2/klink.cpp:973)
+  jak2::ultimate_memcpy routes large 16-aligned copies (>0xfff) through the GOAL
+  ultimate-memcpy function via call_goal(gfunc_774). That scratchpad copy path CORRUPTS
+  the destination on arm64 (source verified intact). art-h's 4528B top-level segment was
+  the first link-time copy to hit the fast-path -> its code stomped -> SIGILL. Fix:
+  #ifndef __aarch64__ gate -> arm64 always uses plain memmove (byte-correct, only loses
+  the PS2-VU speed optimization). Proven via copy-src-vs-dest trace + control test:
+  advanced jak2 qemu boot 95 -> 420 objects. x86 byte-identical; jak1 untouched. Commit 99dc37f6d.
+
+FIX 3 — a37_mips2c_prealloc_arena jak1-gate (game/kernel/common/klink.cpp:517)
+  klink_a11_ensure_pc_mips2c_bound() called a37_mips2c_prealloc_arena() unconditionally
+  on arm64. That fn (mips2c_table_jak1_arm64.cpp:346) allocates with jak1-ONLY symbol
+  constants (FIX_SYM_GLOBAL_HEAP=0x140, FIX_SYM_FUNCTION_TYPE=0x10). On the jak2 Symbol4
+  table those offsets are 0xa0/0x8, so *(s7+0x10) reads the WRONG slot -> garbage type
+  0x??001afe -> jak1::alloc_from_heap SIGSEGV right after KERNEL.CGO links (device object-8
+  crash, the "attempt-2 regression"). The jak1 arm64 mips2c table is jak1-only by design
+  (its reg() asserts g_game_version==Jak1); jak2 binds pc-helpers/mips2c via the real
+  jak2::InitMachine_PCPort. Fix: gate the arena prealloc to g_game_version==Jak1.
+  Disassembly-verified root cause. DEVICE RESULT: jak2 boots 8 -> 48 link-finishes (past
+  the whole kernel/math/dma/gs/display header block). Commit 392627c28.
+
+Plus: hardened arm64 crash handler (dumps regs + stack-walk on pc=0), added
+g_gk_current_link_object breadcrumb, GOAL-concurrency detector (g_goal_active),
+boot-linking flag. Commits ba89a7608, f002c04cd. All arm64/jak2-gated; x86 & jak1 safe.
+
+------------------------------------------------------------------------
+3. THE REMAINING DEVICE BLOCKER (precise diagnosis)
+------------------------------------------------------------------------
+After the 3 fixes, the device (eae4df44) boots jak2 through InitMachine -> IOP/overlord
+-> KERNEL.CGO (8 objects) -> GAME.CGO link, then crashes BEFORE render on an INTERMITTENT
+arm64 pointer-formation corruption:
+  - 5 fresh runs crashed at DIFFERENT objects (trigonometry #27, timer-h #29 x2, timer #48,
+    texture #75) — proven a non-deterministic corruption, NOT a fixed wall (rerun passed
+    euler-h to reach timer).
+  - Signature: a GOAL pointer with low16 CORRECT (recurring ~0x1afe/0x1b10 slot) but
+    bits[16:31] GARBAGE (0x4400/0x1400/0xc400), deref'd in a C++ kernel fn (alloc_from_heap)
+    or executed/returned-to in GOAL code (BLR to ee_base+~0, or RET-to-0). i.e. klink
+    receives a relocation TARGET beyond EE range (ee_base+0x44001afe).
+  - FALSIFIED: cross-thread race (goal-active=1 at every crash; GL-thread GOAL never fires
+    during boot). It is SINGLE-THREADED + intermittent + ASLR-sensitive (the fixed-layout
+    qemu harness reaches 420 and never hits it; only the ASLR'd device does).
+  - This is the jak1 A19-A42 "X16-scratch-clobber / garbage-upper-bits GOAL pointer" class
+    (memory arm64_x86_model_reg_ids, arm64_mips2c_fnull_guard). jak1 fought it across many
+    phases; jak2 exercises it worse. The recurring 0x1afe slot is a specific early type/
+    symbol whose resolved address intermittently carries garbage in bits[16:31].
+Best device boot = 75 objects (texture) = the pre-attempt-2 ceiling.
+
+------------------------------------------------------------------------
+4. PATH FORWARD (for the next phase)
+------------------------------------------------------------------------
+1. Fix the intermittent pointer-formation bug: add a tripwire that flags any GOAL pointer
+   whose masked value >= EE_MAIN_MEM_SIZE (0x8000000) at formation/deref, log the site +
+   the reloc/codegen path; correlate the recurring ~0x1afe target across the varying crash
+   objects. Likely a klink symlink/typelink target computation or an arm64 emit path that
+   leaves bits[16:31] of a symbol/type pointer inconsistent (per-site 32-bit gpr_addr, cf.
+   arm64_mips2c_fnull_guard). Fix in arm64 codegen / klink only. Consider a fixed-address
+   (no-ASLR) test build to make it deterministic + easier to trace.
+2. Wire jak2 renderer subset + jak2 mips2c (mandate blocker 2, deferred from Gjak2-boot):
+   mips2c_table_jak2_arm64.cpp + jak2 mips2c TUs (game/CMakeLists) so def-mips2c binds;
+   jak2 bucket registrations + GLES gates. Needed to pass texture (~75) toward render.
+3. Reach a first jak2 render frame (boot/title/first level) on device; STRICT validator
+   requires a real screencap + mCurrentFocus=jak2 + crash-free window.
+
+x86 jak2 oracle: unaffected by these changes (all arm64/jak2-gated; ultimate_memcpy x86
+path byte-identical; klink_arm64_patch_pc_rel is arm64-only). engine goal_src UNTOUCHED.
+
+------------------------------------------------------------------------
+Artifacts: .autoport/reports/Gjak2-render/*.log (qemu traces, device logcats,
+forensics), jak2-race-run{1..5}.log, jak2-device-a37fix-frame.png (launcher — jak2
+crashed, NOT render evidence). Commits 0e61866ff..f002c04cd on autoport/android-port.
+========================================================================
