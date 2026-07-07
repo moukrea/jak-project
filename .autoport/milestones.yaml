@@ -1196,6 +1196,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Gjak2-visuals
+  name: 'jak2 chapter 3 — visual quality on the title flythrough (owner: "pas bon, beaucoup d erreurs et d éléments manquants"): TOD/lighting palettes, remaining bucket families (sky/ocean/sprite/shadow/eye/direct), visual-error fixes vs x86 oracle; keep 60fps crash-free'
+  prompt: prompts/phase-Gjak2-visuals.md
+  validator: validators/phase-Gjak2-visuals.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-hud-jak1
   name: 'RECHARGED (owner 2026-07-06, fork "Jak and Daxter: The Recharged Jak-pot"): optional gated NEW HUD for jak1 — Graphics Options > "Recharged Settings" (before Advanced) > "Recharged HUD" ON/OFF (default OFF=stock); ON = 4-state heart sprite (100/66/33-blink/0), eco gauge with mask+rotated tip per eco type, real 3D model for power-cell + scout-fly; assets in recharged_assets/; font deferred'
   prompt: prompts/phase-Grecharged-hud-jak1.md
