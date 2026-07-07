@@ -177,7 +177,7 @@
     "Gswamp-fstore": 2,
     "Gvulkan-option": 2,
     "Gjak2-boot": 2,
-    "Gjak2-render": 1
+    "Gjak2-render": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -335,6 +335,10 @@
     ],
     "Gjak2-boot": [
       "f9c774796cac"
+    ],
+    "Gjak2-render": [
+      "66f56969ab2c",
+      "66f56969ab2c"
     ]
   },
   "stuck_reasons": {
@@ -534,7 +538,8 @@
     "Grefen-english-pristine-frames-audit",
     "Gmenu-pixelmatch",
     "Gecho-pool",
-    "Gcollision-replay-diff"
+    "Gcollision-replay-diff",
+    "Gjak2-render"
   ],
   "started_at": "2026-05-18T21:55:21.544892+00:00",
   "phase_started_at": {
@@ -678,9 +683,9 @@
     "Gswamp-fstore": 1783280433.7753935,
     "Gvulkan-option": 1783315315.5720198,
     "Gjak2-boot": 1783325216.9940019,
-    "Gjak2-render": 1783372984.0241954
+    "Gjak2-render": 1783335707.6110623
   },
-  "last_update": "2026-07-07T05:28:42.997427+00:00",
+  "last_update": "2026-07-06T18:52:06.922019+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

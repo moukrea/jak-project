@@ -1,0 +1,9 @@
+########## RUN 1 start 03:51:55 ##########
+RUN 1 end 03:54:01: pid=[] focus=[  mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher}] loglines=384
+########## RUN 2 start 03:54:01 ##########
+RUN 2 end 03:56:06: pid=[] focus=[  mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher}] loglines=211
+########## RUN 3 start 03:56:06 ##########
+RUN 3 end 03:58:11: pid=[] focus=[  mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher}] loglines=436
+########## RUN 4 start 03:58:11 ##########
+RUN 4 end 04:00:16: pid=[] focus=[  mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher}] loglines=385
+ALL DONE 04:00:16
