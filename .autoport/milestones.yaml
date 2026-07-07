@@ -1204,6 +1204,30 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-grass-poc
+  name: 'RECHARGED (owner 2026-07-07): 3D GRASS proof-of-concept on the TRAINING level — real blades near (flat-color, random distribution, variable size/orientation/curvature/tint, individual breeze motion, flatten under Jak), crossed grass cards mid (slight sway), plain ground texture far; placement driven by grass ground-texture detection (tra-grass); gated in Recharged Settings, default OFF; transpose-everywhere later if cool'
+  prompt: prompts/phase-Grecharged-grass-poc.md
+  validator: validators/phase-Grecharged-grass-poc.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gjak1-icache-flush
+  name: 'port arm64 bug class #14 (stale-icache CacheFlush no-op) to jak1 klink.cpp:623 — likely kills the F1e ~1-in-6 link-time boot-flake; >=20/20 clean cold boots on device'
+  prompt: prompts/phase-Gjak1-icache-flush.md
+  validator: validators/phase-Gjak1-icache-flush.sh
+  max_turns: 1200
+  max_retries: 4
+  device: true
+  owner_verify: false
+- id: Grecharged-external-assets
+  name: 'RECHARGED infra (owner 2026-07-07): split BINARY from ASSETS on every build (x86 Win/Linux + Android) — slim binary + separate original-assets archive; first-boot prompt for asset location (Android storage permissions!); layout <chosen>/jak_N/{assets,saves,custom_assets}; LOAD CUSTOM ASSETS toggle in Recharged Settings; same shape for jak2/jak3/Collection; migrate existing installs safely'
+  prompt: prompts/phase-Grecharged-external-assets.md
+  validator: validators/phase-Grecharged-external-assets.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
