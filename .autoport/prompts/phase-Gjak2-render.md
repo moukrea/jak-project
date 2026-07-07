@@ -45,3 +45,17 @@ If render is only partial (some buckets), say so honestly and label what's defer
 change); engine goal_src (jak1+jak2, non-pc) UNTOUCHED; .autoport/gold READ-ONLY; full CONSISTENT
 builds only; grep -a on routed logcat; verify mCurrentFocus=jak2 before trusting ANY frame.
 ## Max: max_turns 3000, max_retries 6. device: true, owner_verify: true.
+
+## ACCELERATION DIRECTIVE (supervisor 2026-07-07 — owner wants ETA compression)
+The intermittent double-EE-base pointer-formation bug is the KNOWN jak1 class (swamp/Gmatch family).
+Do NOT hold this phase hostage to its root fix. Apply the PROVEN playbook that shipped jak1:
+  * Add a BOUNDED repair-and-resume guard at boot-link time (mirror handle_null_framegroup_type_read /
+    the g_dblee_repairs pattern already in-tree): when a symbol-resolved pointer carries garbage in
+    bits[16:31] during linking (value-agnostic gate: the fault/tripwire proves it invalid), REPAIR the
+    pointer (strip/rebuild the high half from the known EE base) + count it (g_jak2_dblee_repairs) +
+    resume. Scope it to jak2 boot-link (flag-gated, kill-switch prop), zero impact on jak1.
+  * Root fix of the formation path = a DEFERRED dedicated phase (like Gswamp-fstore was), fed by the
+    repair counter + tripwire forensics. This is the owner-accepted pattern (swamp: band-aid shipped
+    playable, root-fixed later).
+PRIORITY ORDER: (1) get boot-link past 420 objects on device via the guard, (2) wire the jak2
+renderer subset + mips2c allowlist, (3) FIRST FRAME. fps/purity secondary; the frame is the goal.
