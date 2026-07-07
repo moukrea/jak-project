@@ -314,15 +314,22 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
   }
 
   auto* data = new AndroidGfxData();
-  data->texture_pool = std::make_shared<TexturePool>(GameVersion::Jak1);
+  // Gjak2-render: game-aware (was hardcoded Jak1 — on jak2 the pool/loader
+  // looked in out/jak1/fr3, found nothing, and the first real
+  // handle_upload_precomputed crashed on unbacked texture-pool state).
+  // Mirrors the desktop GraphicsData ctor (pipelines/opengl.cpp:88-94).
+  data->texture_pool = std::make_shared<TexturePool>(g_game_version);
 
-  // fr3 dir: <project>/out/jak1/fr3 — LoaderActivity extracts the APK's
-  // fr3/ assets (GAME.fr3 + intro/title) there. Loader handles a missing
+  // fr3 dir: <project>/out/<game>/fr3 — LoaderActivity extracts the APK's
+  // fr3/ assets (GAME.fr3 + level packs) there. Loader handles a missing
   // level file by logging; a missing GAME.fr3 would fail load_common, so
   // probe first and run textureless (placeholders) instead of aborting.
-  auto fr3_dir = file_util::get_jak_project_dir() / "out" / "jak1" / "fr3";
+  auto fr3_dir =
+      file_util::get_jak_project_dir() / "out" / game_version_names[g_game_version] / "fr3";
+  const int fr3_levels =
+      g_game_version == GameVersion::Jak2 ? jak2::LEVEL_TOTAL : jak1::LEVEL_TOTAL;
   if (fs::exists(fr3_dir / "GAME.fr3")) {
-    data->loader = std::make_shared<Loader>(fr3_dir, jak1::LEVEL_TOTAL);
+    data->loader = std::make_shared<Loader>(fr3_dir, fr3_levels);
   } else {
     __android_log_print(ANDROID_LOG_WARN, kLogTag,
                         "A35-RENDER %s/GAME.fr3 missing — common textures will be "
