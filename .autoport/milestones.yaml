@@ -1196,14 +1196,6 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
-- id: Grecharged-external-assets
-  name: 'RECHARGED infra PROMOTED (owner 2026-07-07: ''assets externes, pas un contournement débile'' — jak2 already exceeds the AGP 2GB cap and lost non-EN VAGWADs to it): split BINARY from ASSETS on every build (slim APK + external assets archive, ALL languages restored incl. VAGWADs — kills the size-cap workarounds), first-boot asset-location prompt (Android storage permissions), <chosen>/jak_N/{assets,saves,custom_assets}, LOAD CUSTOM ASSETS toggle, jak1+jak2+jak3/Collection, safe migration'
-  prompt: prompts/phase-Grecharged-external-assets.md
-  validator: validators/phase-Grecharged-external-assets.sh
-  max_turns: 3000
-  max_retries: 6
-  device: true
-  owner_verify: true
 - id: Grecharged-hud-jak1
   name: 'RECHARGED (owner 2026-07-06, fork "Jak and Daxter: The Recharged Jak-pot"): optional gated NEW HUD for jak1 — Graphics Options > "Recharged Settings" (before Advanced) > "Recharged HUD" ON/OFF (default OFF=stock); ON = 4-state heart sprite (100/66/33-blink/0), eco gauge with mask+rotated tip per eco type, real 3D model for power-cell + scout-fly; assets in recharged_assets/; font deferred'
   prompt: prompts/phase-Grecharged-hud-jak1.md
@@ -1234,6 +1226,14 @@ phases:
   validator: validators/phase-Gjak1-snowfort-events.sh
   max_turns: 2400
   max_retries: 5
+  device: true
+  owner_verify: true
+- id: Grecharged-external-assets
+  name: 'RECHARGED infra PROMOTED (owner 2026-07-07: ''assets externes, pas un contournement débile'' — jak2 already exceeds the AGP 2GB cap and lost non-EN VAGWADs to it): split BINARY from ASSETS on every build (slim APK + external assets archive, ALL languages restored incl. VAGWADs — kills the size-cap workarounds), first-boot asset-location prompt (Android storage permissions), <chosen>/jak_N/{assets,saves,custom_assets}, LOAD CUSTOM ASSETS toggle, jak1+jak2+jak3/Collection, safe migration'
+  prompt: prompts/phase-Grecharged-external-assets.md
+  validator: validators/phase-Grecharged-external-assets.sh
+  max_turns: 3000
+  max_retries: 6
   device: true
   owner_verify: true
 - id: Grecharged-hd-models
