@@ -33,6 +33,10 @@
 #include "game/graphics/opengl_renderer/opengl_utils.h"
 
 class EyeRenderer;  // Gjak2-render: owned by m_jak2_eye_renderer (fwd-decl).
+class TextureAnimator;  // Gjak2-vis: owned by m_texture_animator (fwd-decl).
+namespace tfrag3 {
+struct Level;  // Gjak2-vis: m_common_level points into the loader's GAME.fr3.
+}
 
 // Mirrors the desktop RenderOptions subset the Android skeleton honors.
 struct AndroidRenderOptions {
@@ -128,6 +132,13 @@ class AndroidOpenGLRenderer {
   // render_state.eye_renderer for the merc eye-dma path. Owned here so it
   // outlives the frame. unique_ptr<incomplete> — dtor emitted in the .cpp.
   std::unique_ptr<EyeRenderer> m_jak2_eye_renderer;
+
+  // Gjak2-vis: the common (GAME.fr3) level, captured in the ctor. The jak2
+  // TextureAnimator reads its textures by name. Points into the loader's cache.
+  const tfrag3::Level* m_common_level = nullptr;
+  // Gjak2-vis: the jak2 texture animator (mirrors desktop OpenGLRenderer). Null
+  // if disabled by the debug.opengoal.texanim kill-switch or if no common level.
+  std::shared_ptr<TextureAnimator> m_texture_animator;
 
   GLuint m_screen_vao = 0;
   GLuint m_screen_vbo = 0;

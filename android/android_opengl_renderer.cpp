@@ -16,6 +16,7 @@
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
+#include "game/graphics/opengl_renderer/TextureAnimator.h"
 #include "game/graphics/opengl_renderer/background/Shrub.h"
 #include "game/graphics/opengl_renderer/background/TFragment.h"
 #include "game/graphics/opengl_renderer/background/Tie3.h"
@@ -123,7 +124,7 @@ AndroidOpenGLRenderer::AndroidOpenGLRenderer(std::shared_ptr<TexturePool> textur
   // Common (GAME.fr3) textures: font, hud, common sprites. Without this
   // every slot the game links resolves to the checkerboard placeholder.
   if (m_render_state.loader) {
-    m_render_state.loader->load_common(*m_render_state.texture_pool, "GAME");
+    m_common_level = &m_render_state.loader->load_common(*m_render_state.texture_pool, "GAME");
     lg::info("A35-RENDER common level (GAME.fr3) loaded");
   } else {
     __android_log_print(ANDROID_LOG_WARN, kLogTag,
@@ -410,19 +411,38 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
     m_bucket_renderers.at((int)id) = std::move(r);
   };
 
-  // No TextureAnimator on the Android build (the jak1 table passes the null
-  // shared_ptr too). Upstream jak2 passes m_texture_animator; the null animator
-  // mirrors the "no animator" state — the tex-upload path itself is unchanged.
-  std::shared_ptr<TextureAnimator> no_animator;
+  // Gjak2-vis: construct the jak2 TextureAnimator (mirrors desktop
+  // OpenGLRenderer.cpp). It reads the common (GAME.fr3) level textures by name.
+  // Kill-switch: debug.opengoal.texanim=0 leaves it null (the previously
+  // proven-safe "no animator" state) so the null path can be restored on device
+  // without a rebuild. Every JAK2 TextureUploadHandler below gets this animator.
+  {
+    char ta[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.texanim", ta);
+    if (ta[0] == '0') {
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "GJ2VIS texanim DISABLED by prop");
+    } else if (m_common_level) {
+      m_texture_animator = std::make_shared<TextureAnimator>(
+          m_render_state.shaders, m_common_level, GameVersion::Jak2);
+      __android_log_print(ANDROID_LOG_INFO, kLogTag, "GJ2VIS texanim LIVE (jak2)");
+    } else {
+      __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                          "GJ2VIS texanim NULL — no common level");
+    }
+  }
+  // The animator (or a null shared_ptr) is passed to every jak2
+  // TextureUploadHandler, mirroring upstream jak2's m_texture_animator.
+  std::shared_ptr<TextureAnimator>& no_animator = m_texture_animator;
 
-  // Gjak2-render (3D): the anim-slot array. Upstream jak2 passes
-  // anim_slot_array() (== m_texture_animator->slots(), i.e. nullptr when there
-  // is no animator). The Android build has no animator, so mirror the jak1
-  // android table's "no animator" state with a pointer to a static empty
-  // vector — the same null-animator shape the jak1 TFragment/Tie3/Merc2 wiring
-  // proves safe on this device.
+  // Gjak2-vis: the anim-slot array. Upstream jak2 passes
+  // m_texture_animator->slots() (== nullptr when there is no animator). When the
+  // animator is live we forward its real slots; otherwise fall back to a static
+  // empty vector — the same null-animator shape the jak1 android table proves
+  // safe on this device.
   static const std::vector<GLuint> s_no_anim_slots;
-  const std::vector<GLuint>* anim_slots = &s_no_anim_slots;
+  const std::vector<GLuint>* anim_slots =
+      m_texture_animator ? m_texture_animator->slots() : &s_no_anim_slots;
 
   // Gjak2-render (3D): shared foreground cores, mirroring upstream jak2's
   // m_merc2 / m_generic2. Merc2 takes the anim-slot array (nullptr-equivalent
@@ -834,6 +854,12 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
       dispatch_buckets_jak2(dma, prof);
     } else {
       dispatch_buckets_jak1(dma, prof);
+    }
+    // Gjak2-vis: per-frame stale-texture sweep (mirrors desktop OpenGLRenderer).
+    // If no animation requests were made this frame, assume the level unloaded
+    // and reset the animated textures.
+    if (m_texture_animator) {
+      m_texture_animator->clear_stale_textures(m_render_state.frame_idx);
     }
     m_stats.buckets_cpu_s = prof.get_elapsed_time();
   }

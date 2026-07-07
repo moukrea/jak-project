@@ -130,6 +130,16 @@ uint32_t cross_seg_dist_link_v3(Ptr<uint8_t> link,
     // us a nullptr. If you do a method-set! with a null pointer it does nothing, so it's safe to
     // method-set! to things that are in unloaded segments and it'll just keep the old method.
     diff = -mine;
+    // Gjak2-visuals forensics (env-gated, default off): the x86 oracle dies at
+    // title jumping to GOAL 0 through one of these intentionally-zeroed links.
+    // Tracing every zeroed patch slot lets the crash return address name the
+    // guilty object/patch (offset_of_patch == callsite imm32).
+    static const bool s_trace_zero_link = getenv("GJ2VIS_TRACE_ZERO_LINK") != nullptr;
+    if (s_trace_zero_link) {
+      fprintf(stderr, "GJ2VIS-ZEROLINK obj=%s seg=%d->%d patch=0x%x mine=0x%x tgtoff=0x%x\n",
+              g_gk_current_link_object ? g_gk_current_link_object : "?", current_seg, target_seg,
+              offset_of_patch, mine, link_data[1]);
+    }
   }
   // printf("link object in seg %d diff %d at %d (%d + %d)\n", target_seg, diff, offset_of_patch,
   // link_data[2], ofh->code_infos[current_seg].offset);

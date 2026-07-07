@@ -21,6 +21,18 @@
 #define dprintf(...)
 #define dfmt(...)
 
+// GLES glTexImage2D/glTexImage1D reject GL_UNSIGNED_INT_8_8_8_8_REV with
+// GL_INVALID_ENUM; UNSIGNED_BYTE RGBA is byte-identical on little-endian — same
+// substitution as FramebufferTexturePair (opengl_utils.cpp).
+static inline GLenum anim_tex_type(GLenum type) {
+#ifdef __ANDROID__
+  if (type == GL_UNSIGNED_INT_8_8_8_8_REV) {
+    return GL_UNSIGNED_BYTE;
+  }
+#endif
+  return type;
+}
+
 // -- Texture Animations
 // The game has a number of "texture animation arrays".
 // On the original PS2, there wasn't enough VRAM to hold all textures for a frame, so they would
@@ -142,8 +154,8 @@ OpenGLTexturePool::OpenGLTexturePool(GameVersion version) {
     glGenTextures(a.n, l.data());
     for (auto t : l) {
       glBindTexture(GL_TEXTURE_2D, t);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, a.w, a.h, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-                   nullptr);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, a.w, a.h, 0, GL_RGBA,
+                   anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), nullptr);
     }
   }
 }
@@ -176,7 +188,8 @@ GLuint OpenGLTexturePool::allocate(u64 w, u64 h) {
     glGenTextures(1, &slot);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, slot);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
+                 anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), nullptr);
     return slot;
   }
 
@@ -294,7 +307,8 @@ int output_slot_by_idx(GameVersion version, const std::string& name) {
  */
 void opengl_upload_texture(GLint dest, const void* data, int w, int h) {
   glBindTexture(GL_TEXTURE_2D, dest);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, data);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
+               anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), data);
   glGenerateMipmap(GL_TEXTURE_2D);
   float aniso = 0.0f;
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &aniso);
@@ -318,7 +332,7 @@ void opengl_upload_resize_texture(FramebufferTexturePair& fbt,
     glGenTextures(1, &temp_texture);
     glBindTexture(GL_TEXTURE_2D, temp_texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, data_size.x(), data_size.y(), 0, GL_RGBA,
-                 GL_UNSIGNED_INT_8_8_8_8_REV, data);
+                 anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), data);
 
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vertex_buffer);
@@ -576,23 +590,36 @@ TextureAnimator::TextureAnimator(ShaderLibrary& shaders,
       data[i * 16 + j] = (((i / 4) & 1) ^ ((j / 4) & 1)) ? c1 : c0;
     }
   }
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, 16, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-               data.data());
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, 16, 0, GL_RGBA,
+               anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), data.data());
   glGenerateMipmap(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, 0);
 
   // create the slime LUT texture
   glGenTextures(1, &m_slime_lut_texture);
-  glBindTexture(GL_TEXTURE_1D, m_slime_lut_texture);
   std::vector<u8> slime_data;
   for (auto x : kSlimeLutData) {
     slime_data.push_back(x * 255);
   }
+#ifdef __ANDROID__
+  // GLES has no GL_TEXTURE_1D / glTexImage1D. The shader preprocessor already
+  // rewrites sampler1D->sampler2D for the GLES blob (preprocess.py), so a 256x1
+  // GL_TEXTURE_2D is the established pattern (same as the time-of-day LUT — see
+  // android/CMakeLists.txt).
+  glBindTexture(GL_TEXTURE_2D, m_slime_lut_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_RGBA,
+               anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), slime_data.data());
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glBindTexture(GL_TEXTURE_2D, 0);
+#else
+  glBindTexture(GL_TEXTURE_1D, m_slime_lut_texture);
   glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, 256, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
                slime_data.data());
   glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glBindTexture(GL_TEXTURE_2D, 0);
+#endif
 
   shader.activate();
 
@@ -1542,8 +1569,8 @@ void TextureAnimator::force_to_gpu(int tbp) {
       int th = entry.tex_height;
       setup_vram_entry_for_gpu_texture(tw, th, tbp);
       glBindTexture(GL_TEXTURE_2D, entry.tex.value().texture());
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-                   entry.data.data());
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA,
+                   anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), entry.data.data());
       glBindTexture(GL_TEXTURE_2D, 0);
       entry.kind = VramEntry::Kind::GPU;
     } break;
@@ -1570,8 +1597,8 @@ void TextureAnimator::force_to_gpu(int tbp) {
       setup_vram_entry_for_gpu_texture(tw, th, tbp);
       // load the texture.
       glBindTexture(GL_TEXTURE_2D, entry.tex.value().texture());
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-                   rgba_data.data());
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA,
+                   anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), rgba_data.data());
       glBindTexture(GL_TEXTURE_2D, 0);
       entry.kind = VramEntry::Kind::GPU;
     } break;
@@ -1596,8 +1623,8 @@ void TextureAnimator::force_to_gpu(int tbp) {
       }
       setup_vram_entry_for_gpu_texture(tw, th, tbp);
       glBindTexture(GL_TEXTURE_2D, entry.tex.value().texture());
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-                   rgba_data.data());
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA,
+                   anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), rgba_data.data());
       glBindTexture(GL_TEXTURE_2D, 0);
       entry.kind = VramEntry::Kind::GPU;
     } break;
@@ -2054,8 +2081,8 @@ GLuint TextureAnimator::make_temp_gpu_texture(const u32* data, u32 width, u32 he
   GLuint gl_tex = m_opengl_texture_pool.allocate(width, height);
   m_in_use_temp_textures.push_back(TempTexture{gl_tex, width, height});
   glBindTexture(GL_TEXTURE_2D, gl_tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-               data);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+               anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), data);
   glBindTexture(GL_TEXTURE_2D, 0);
   return gl_tex;
 }
@@ -2979,7 +3006,12 @@ void TextureAnimator::run_slime(const SlimeInput& input) {
     glUniform2fv(m_uniforms.uvs, 4, uv);
 
     glActiveTexture(GL_TEXTURE10);
+#ifdef __ANDROID__
+    // slime LUT is a 256x1 GL_TEXTURE_2D on GLES (no GL_TEXTURE_1D).
+    glBindTexture(GL_TEXTURE_2D, m_slime_lut_texture);
+#else
     glBindTexture(GL_TEXTURE_1D, m_slime_lut_texture);
+#endif
     glActiveTexture(GL_TEXTURE0);
 
     // Anim 1:
