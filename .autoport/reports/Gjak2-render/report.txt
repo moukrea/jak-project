@@ -130,3 +130,21 @@ SESSION 2 (2026-07-07) — LIVE PROGRESS LOG (report will be rewritten at end)
   trampoline NAME-STRING band) then jumped to it. NEXT: identify that slot's symbol +
   what lives at 0x1afe04 (qemu, deterministic); upgrade device tripwire to recover the
   GOAL caller from the trampoline frame + code window.
+
+--- SESSION 2 progress (cont.) ---
+- Bug class #14 FIXED (a157ae909): stale icache on linked GOAL code (vestigial CacheFlush(base,0));
+  device boot-link crash class GONE (5/5), 18-32-object ceiling -> full link.
+- pc-* surface bound on Android jak2 (a9ae376e6): 349 -> 483 links, renderer up, kernel dispatch,
+  'Displaying level title'. draw-pc-fps-counter jak1-pc-layer leak bound (sole leaked symbol).
+- ctywide 'no entities' (break!) ROOT-CAUSED + FIXED (4b56d7de6): 'kmalloc: !alloc mem' is the
+  FAILURE print; ctywide's ~4.3MB level heap overflowed silently via klink's direct cursor advance
+  (arm64 code ~1.67x x86) -> entity array new returned 0. Fix: goalc arm64-only defconstant override
+  LEVEL_PAGE_SIZE_KB 126->168 (PROCESS_STACK_SAVE_SIZE pattern, x86 byte-identical) + full consistent
+  arm64 CGO regen (151 staged; x86 oracle restored 101760B) + bundle re-pack + device iso_data clear
+  (BUNDLE_VERSION=11 is NOT content-derived — manual `run-as rm -rf files/iso_data` needed!).
+  Device: 0 'no entities', 0 '!alloc mem', 565 link finishes (bikea/lwidea vehicle band). qemu 473 clean.
+- NEW deterministic ceiling (3/3 byte-identical): (break!) in the gcommon band pc=0x1bc7c4
+  (MOV x8,#0; CBNZ; UDF #beef = faithful (/ 0 0)); diag: next-state-name-sym=0x0500187e =
+  s7/#f (0x187e01) BYTE-SHIFTED +1 => a jak2 Symbol4 -1-bias store applied to a NON-value-slot
+  (state name field written at field-1), enter-state/next-state dispatch during vehicle init.
+  NEXT: map gcommon+~0x1bc7c4 to its function/(break!) site; find the -1-biased writer; fix.
