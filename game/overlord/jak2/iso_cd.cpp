@@ -121,13 +121,6 @@ void iso_cd_init_globals() {
 }
 
 static FILE* open_fr(FileRecord* fr, s32 thread_to_wake) {
-  // Gjak2-render: a null FileRecord (missing fakeiso file, e.g. a language
-  // VAGWAD not shipped in the Android bundle) must not crash the pool worker
-  // (fr->location deref = fault 0xc). The submit site logs on fp==nullptr.
-  if (!fr) {
-    iop::iWakeupThread(thread_to_wake);
-    return nullptr;
-  }
   const char* path = get_file_path(fr);
   FILE* fp = file_util::open_file(path, "rb");
   iop::iWakeupThread(thread_to_wake);
