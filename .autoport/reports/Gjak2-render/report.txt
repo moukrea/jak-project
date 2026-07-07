@@ -103,3 +103,30 @@ Forensic tripwires (634820aa9) are in HEAD to accelerate the next trace.
 Artifacts: .autoport/reports/Gjak2-render/*.log (qemu + device forensics: jak2-cleanhandler-run*,
 jak2-mset-run*, jak2-a11fix-run*, jak2-canary-run*, etc.). Commits 0e61866ff..634820aa9 on autoport/android-port.
 ========================================================================
+
+========================================================================
+SESSION 2 (2026-07-07) — LIVE PROGRESS LOG (report will be rewritten at end)
+========================================================================
+- FIXED (committed ee473f3c2): jak2 arm64 mips2c wiring (game-aware table, per-game
+  arena/noop/allowlist, a11 serves jak2, 27 jak2 mips2c TUs in both arm64 builds).
+  qemu jak2: old 421-object SIGILL (adgif fn-ptr=0) GONE -> FULL 473-object GAME.CGO
+  link+execute, both EE bases. jak1 qemu byte-identical (675, 67 REAL/9 FALLBACK).
+- Committed 7467bac09: android crash-diag hardening (5 repair handlers gated jak1-only,
+  SA_NODEFER+depth guard, DBLEE-BLR forensic block).
+- Device (3 runs, deploy chain PROVEN build==APK==device a28defbe): still crashes in
+  boot-link, objects 18-32 (transform-h/vif-h/video-h), 3 masks of one defect:
+  method_set(type=0) SIGABRT / SIGSEGV pc=0x1afe04 (bare offset, x15=0!) / SIGBUS pc=0x7.
+- ESTABLISHED: qemu + device use IDENTICAL CGOs (APK sha == out/jak2-arm64-full/iso;
+  harness hardcodes that path; out/jak2/iso = x86 oracle, intact). Divergence is
+  environmental: Android runs real InitMachineScheme/PCPort (~200 trampolines + 3
+  filesystem-path strings) vs harness dummies (~85); staging-band top-level exec addr
+  differs; run-to-run variance on device only.
+- jak2 make_function_from_c_arm64 emitter AUDITED CLEAN (byte-identical to jak1 except
+  correct Symbol4 -1 bias; no overrun, alignment fine).
+- qemu ground truth: caller_ee 0x1b2b70 = runtime-emitted method-set! trampoline
+  (early-bind band, addresses identical device/qemu since pre-InitMachineScheme);
+  0x42b7fxx = transient DGO staging band (current object's top-level executes there).
+- Device anomaly signature: fixed-sym-area slot 0x187e18 read value 0x1afe04 (= early
+  trampoline NAME-STRING band) then jumped to it. NEXT: identify that slot's symbol +
+  what lives at 0x1afe04 (qemu, deterministic); upgrade device tripwire to recover the
+  GOAL caller from the trampoline frame + code window.
