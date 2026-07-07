@@ -37,3 +37,20 @@ screencaps vs oracle, fps, honest residuals list.
 ## Locks: ANDROID_SERIAL=eae4df44 only; engine goal_src untouched; gold READ-ONLY; full consistent
 builds; grep -a routed logcat; state-dumps over screenshot-diffs for divergence work.
 ## Max: max_turns 3000, max_retries 6. device: true, owner_verify: true.
+
+## OWNER LIVE OBSERVATION (2026-07-08) — the "milky veil" is VERTEX EXPLOSION, not lighting!
+The owner watched the device live: "C'est pas un éclairage laiteux — il y a de la VERTEX EXPLOSION,
+des shaders/effets visuels qui pètent dans tous les sens, des FREEZES, des glitches !"
+REDIRECT the investigation:
+ * The white wash in screenshots = GIANT EXPLODED POLYGONS covering the screen (corrupt/NaN vertex
+   positions stretching to infinity), NOT overexposure/TOD. Stop treating it as palette/exposure.
+ * Suspects = the KNOWN jak1 arm64 vertex/matrix corruption classes, in priority order:
+   1. NaN bone matrices (jak1 Gcine-pose class: matrix-inv-scale 1/0 on degenerate data; cspace);
+   2. merc/emerc vertex SWIZZLE (bug class #12) — jak2's emerc/merc2 formats differ from jak1's;
+   3. bone-matrix upload path (Merc2 anim-slot / bounds — the guards added may hide OOB garbage);
+   4. LDP Xt,Xt / 128-bit cc / IDIV-R8 codegen classes in jak2-only mips2c builders (bones.cpp!);
+   5. DMA chain misparse feeding wrong vertex strides to Tie3/TFragment.
+ * FREEZES + exploding effects = likely the same garbage data (effects = sprite/particle builders).
+ * Method: per-family isolation (kill-switch each family to find which one(s) explode), then
+   state-dump the vertex/matrix inputs our-x86 vs original-x86 vs device (NaN scan, stride check).
+   A static screenshot CANNOT diagnose this — use short screenrecords (motion shows the explosion).
