@@ -1122,12 +1122,19 @@ void a17_bind_pc_helpers_jak2() {
 
   // ---- init_common_pc_port_functions (common, game-agnostic) ----
   // Core / internal
-  jak2::make_function_symbol_from_c("__read-ee-timer", d);
+  // Gjak2-render RENDER HANDOFF: these four were dummy-bound while the boot
+  // ceiling was being broken, which left the renderer swapping empty buffers
+  // forever (game_frames=none on ~9840 swaps while GOAL ran city gameplay —
+  // drawable.gc display-sync calls __send-gfx-dma-chain once per frame and the
+  // dummy dropped the chain). The a35_* bodies are game-agnostic (send_chain
+  // takes g_ee_main_mem + a GOAL chain offset; texture funcs go through
+  // Gfx::GetCurrentRenderer(); the timer is ISA glue) — same bodies jak1 binds.
+  jak2::make_function_symbol_from_c("__read-ee-timer", (void*)a35_read_ee_timer);
   // __mem-move: NOT dummy-bound — bound by klink_a14_ensure_pc_memmove_bound
   // (game-aware via klink_mfsfc_for_game) to the real a14_pc_memmove_impl (Gjak2-render).
-  jak2::make_function_symbol_from_c("__send-gfx-dma-chain", d);
-  jak2::make_function_symbol_from_c("__pc-texture-upload-now", d);
-  jak2::make_function_symbol_from_c("__pc-texture-relocate", d);
+  jak2::make_function_symbol_from_c("__send-gfx-dma-chain", (void*)a35_send_gfx_dma_chain);
+  jak2::make_function_symbol_from_c("__pc-texture-upload-now", (void*)a35_pc_texture_upload_now);
+  jak2::make_function_symbol_from_c("__pc-texture-relocate", (void*)a35_pc_texture_relocate);
   // __pc-get-mips2c: NOT dummy-bound — stays on a11_pc_get_mips2c_impl (real jak2 mips2c table, Gjak2-render).
   // Display
   jak2::make_function_symbol_from_c("pc-get-display-id", d);
