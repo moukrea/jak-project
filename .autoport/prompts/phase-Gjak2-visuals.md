@@ -54,3 +54,23 @@ REDIRECT the investigation:
  * Method: per-family isolation (kill-switch each family to find which one(s) explode), then
    state-dump the vertex/matrix inputs our-x86 vs original-x86 vs device (NaN scan, stride check).
    A static screenshot CANNOT diagnose this — use short screenrecords (motion shows the explosion).
+
+## OWNER IN-GAME PLAYTEST (2026-07-08, live device — repro recipe: SKIP the intro cutscene to reach gameplay)
+Four precise symptoms, mapped to targets (fix in this order):
+ 1. **ANIMATED-JOINT/BONE MATRIX CORRUPTION (root of the explosions)** — title glitches START exactly
+    when the camera reaches the Jak II LOGO: the joint holding the logo spins/wanders, THEN vertex
+    explosion + weird effects. In-game: 3D models fly around / wander on their own. Common factor =
+    ANIMATED models (merc + joint anim). Suspects: jak2 mips2c bones.cpp (arm64), joint/anim
+    decompression, bone-matrix upload (Merc2). State-dump bone matrices our-x86 vs device (NaN/garbage
+    scan) at the logo beat. This is the #1 fix.
+ 2. **COLLISION BROKEN** — the character falls THROUGH THE FLOOR -> scene reloads over and over
+    (death loop). Suspect: jak2 mips2c collide_cache.cpp (arm64) returning garbage (same
+    freshly-wired mips2c family as bones). Verify collide queries vs x86.
+ 3. **JAK1 ORANGE TINT LEAKING into the jak2 main menu** — the menu background tint is jak1's orange
+    ("un truc repris de jak1 qui n'a rien à faire là"): find the jak1-default in OUR Android/pc glue
+    (menu tint backdrop from the jak1 Gmenu fixes, clear color, or a jak1-keyed constant applied
+    game-agnostically) and gate it to jak1 / use jak2's real value.
+ 4. (minor) ~2s freeze + weird effect just before the Sony panel at boot — likely fr3/texture upload
+    stall; investigate after 1-3.
+The owner CAN reach gameplay via intro-skip — use that recipe for in-game verification (models
+behave, character stands on the floor, no reload loop).
