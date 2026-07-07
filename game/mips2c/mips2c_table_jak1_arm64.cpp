@@ -958,6 +958,41 @@ bool a37_name_is_real_jak2(const std::string& name) {
       // --- joint (jak2_functions/joint.cpp) — camera/bones (jak1-proven
       //     family: calc-animation-from-spr + cspace<-parented-transformq-joint!). ---
       "calc-animation-from-spr", "cspace<-parented-transformq-joint!",
+      // --- Gjak2-visuals: generic-merc / generic-effect (enable TOGETHER as a
+      //     unit; jak1 Gorb-icon precedent). Audited (see phase report): zero
+      //     integer div/mod (no X8/R8 hazard); every s7 compare is the
+      //     self-relative daddiu reg,s7,4 boolean idiom (no upper-32 #f-guard
+      //     misfire); external callees (upload-vu0-program, vector-matrix*!,
+      //     merc-death-spawn, dma-bucket-insert-tag, generic-work-init,
+      //     generic-warp-source) are plain GOAL defuns via the proven
+      //     _call_goal8_asm_arm64 FFI. generic-merc-do-chain ->
+      //     generic-merc-execute-asm reaches the rest via direct ::execute().
+      //     jak2's SPAD round-trip stores only profiling counters (generic-
+      //     merc.gc:87-113), unlike jak1's basep cursor — the old noop only
+      //     emptied geometry. Warp names stay in: do-chain jalr's them every
+      //     frame (generic-merc.gc:105); the android Warp BUCKET is skipped,
+      //     which drops the draws cleanly, but the builders must be real so
+      //     the chain's cursor math stays consistent. ---
+      "generic-merc-init-asm", "mercneric-convert", "high-speed-reject",
+      "generic-translucent", "generic-merc-query", "generic-merc-death",
+      "generic-merc-execute-asm", "generic-merc-do-chain",
+      "generic-light-proc", "generic-envmap-proc", "generic-prepare-dma-double",
+      "generic-prepare-dma-single", "generic-no-light-proc",
+      "generic-warp-source-proc", "generic-warp-dest-proc", "generic-warp-dest",
+      "generic-warp-envmap-dest",
+      // --- Gjak2-visuals: ocean (enable TOGETHER as a unit; jak1 Gwater
+      //     precedent). init-ocean-far-regs writes the shared ocean_regs_vfs
+      //     that render-ocean-quad reads via copy_vfs_from_other; methods
+      //     14/15/16 build the verts/waves the quads consume. Audited: no
+      //     integer div/mod; the one mem-loaded #f-guard (ocean.cpp:34,
+      //     tod-context sky field) is fixed per-site with the 32-bit gpr_addr
+      //     compare; external callees (upload-vu0-program,
+      //     vu-lights<-light-group!, (method 52 level), clip-polygon-*) are
+      //     plain GOAL via the proven FFI. The former x86-oracle title crash
+      //     that held this family back was root-caused to an unrelated
+      //     unbound draw-pc-fps-counter call (fixed in jak2 kmachine.cpp). ---
+      "init-ocean-far-regs", "draw-large-polygon-ocean", "render-ocean-quad",
+      "(method 14 ocean)", "(method 15 ocean)", "(method 16 ocean)",
       // NOTE: jak2 registers no time-of-day mips2c builder (no jak2_functions/
       // time_of_day.cpp) — nothing to add for that family.
   };

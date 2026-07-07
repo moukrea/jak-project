@@ -24,11 +24,10 @@ that the source can't express portably:
        statement; the desktop GLSL spec is permissive).
     2. Replace the `#version 410 core` line with `#version 320 es`
        plus the default precision qualifier block GLES requires.
-    3. Substitute the jak1 template tokens (HEIGHT_SCALE,
-       SCISSOR_HEIGHT, SCISSOR_ADJUST) the same way Shader.cpp's
-       regex_replace does at runtime on desktop, so the Android-side
-       runtime can compile the output directly without re-doing the
-       substitution.
+    3. Leave the per-game template tokens (HEIGHT_SCALE,
+       SCISSOR_HEIGHT, SCISSOR_ADJUST) verbatim; Shader.cpp
+       substitutes them at runtime per GameVersion on Android exactly
+       like it does on desktop.
     4. `sampler1D` does not exist in GLES (1D textures are not in the
        ES feature set). Rewrite each `uniform sampler1D <name>;` to
        `uniform sampler2D <name>;` and adjust every
@@ -66,12 +65,6 @@ import os
 import re
 import sys
 from pathlib import Path
-
-# Match the values Shader.cpp picks for Jak1. Phase D2 boots jak1 only;
-# a per-game variant lands when D4+ wires jak2/jak3.
-JAK1_HEIGHT_SCALE = "1.0"
-JAK1_SCISSOR_HEIGHT = "448.0"
-JAK1_SCISSOR_ADJUST = "(512.0 / 448.0)"
 
 # GLES 3.20 wants precision qualifiers up front. `highp` for everything
 # we care about — Adreno 6xx / Mali G7x handle it without falling back
@@ -220,11 +213,11 @@ def to_gles(src: str) -> str:
     # 2. Replace the version directive with the GLES header.
     src = _VERSION_LINE.sub(GLES_HEADER, src, count=1)
 
-    # 3. Substitute the template tokens that desktop's Shader.cpp would
-    #    fill in at runtime via std::regex_replace.
-    src = src.replace("SCISSOR_ADJUST", JAK1_SCISSOR_ADJUST)
-    src = src.replace("SCISSOR_HEIGHT", JAK1_SCISSOR_HEIGHT)
-    src = src.replace("HEIGHT_SCALE", JAK1_HEIGHT_SCALE)
+    # 3. The HEIGHT_SCALE / SCISSOR_HEIGHT / SCISSOR_ADJUST template
+    #    tokens are left verbatim: they are per-game (jak1 448-line vs
+    #    jak2 416-line), so Shader.cpp substitutes them at runtime on
+    #    Android exactly like desktop (baking jak1 values stretched all
+    #    jak2 geometry ~1.85x vertically).
 
     # 4. sampler1D → sampler2D, fixup matching texelFetch call sites.
     src = _rewrite_sampler1d(src)

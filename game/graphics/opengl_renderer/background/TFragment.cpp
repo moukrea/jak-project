@@ -563,6 +563,37 @@ void TFragment::render_tree(int geom,
   }
 
   prof.add_tri(total_tris);
+  // Gjak2-visuals TOD state dump — the diffable our-x86-vs-device probe (the
+  // x86-first discipline): full itimes weights, frame fog color, first TOD
+  // colors. Device: always, ~5 s cadence; desktop: env GJ2VIS_TFTREE only, so
+  // the oracle binary behaves identically unless explicitly probed.
+  {
+#ifdef __ANDROID__
+    static const bool s_tod_dump = true;
+#else
+    static const bool s_tod_dump = getenv("GJ2VIS_TFTREE") != nullptr;
+#endif
+    if (s_tod_dump) {
+      static int s_tod_ctr = 0;
+      if ((s_tod_ctr++ % 300) == 0) {
+        const auto& it = settings.camera.itimes;
+        const u8* c0 = (const u8*)m_color_result.data();
+        const u8* fc = render_state->fog_color.data();
+        fprintf(stderr,
+                "GJ2VIS-TOD lvl=%s tree=%d fog=(%.4f %.3f %.3f) hvdfw=%.3f "
+                "itimes=%08x,%08x,%08x,%08x|%08x,%08x,%08x,%08x|"
+                "%08x,%08x,%08x,%08x|%08x,%08x,%08x,%08x fogcol=%02x%02x%02x%02x "
+                "tod0=%02x%02x%02x%02x tod1=%02x%02x%02x%02x\n",
+                m_level_name.c_str(), settings.tree_idx, settings.camera.fog.x(),
+                settings.camera.fog.y(), settings.camera.fog.z(), settings.camera.hvdf_off.w(),
+                (u32)it[0].x(), (u32)it[0].y(),
+                (u32)it[0].z(), (u32)it[0].w(), (u32)it[1].x(), (u32)it[1].y(), (u32)it[1].z(),
+                (u32)it[1].w(), (u32)it[2].x(), (u32)it[2].y(), (u32)it[2].z(), (u32)it[2].w(),
+                (u32)it[3].x(), (u32)it[3].y(), (u32)it[3].z(), (u32)it[3].w(), fc[0], fc[1],
+                fc[2], fc[3], c0[0], c0[1], c0[2], c0[3], c0[4], c0[5], c0[6], c0[7]);
+      }
+    }
+  }
 #ifdef __ANDROID__
   // A42 probe: where do the village tris die — culling (vis_temp all
   // zero), index-building, TOD colors (alpha-test kill), GL error, or
@@ -620,6 +651,7 @@ void TFragment::render_tree(int geom,
         bound_tex = m_textures->at(tex_idx);
       } else {
         bound_tex = ((size_t)(-(tex_idx + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(tex_idx + 1)) : 0);
+        gj2vis_probe_bg_slot(-(tex_idx + 1), bound_tex);
       }
       glBindTexture(GL_TEXTURE_2D, bound_tex);
       auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3,
@@ -686,6 +718,7 @@ void TFragment::render_tree(int geom,
       bound_tex = m_textures->at(draw.tree_tex_id);
     } else {
       bound_tex = ((size_t)(-(tex_idx + 1)) < m_anim_slot_array->size() ? m_anim_slot_array->at(-(tex_idx + 1)) : 0);
+      gj2vis_probe_bg_slot(-(tex_idx + 1), bound_tex);
     }
     glBindTexture(GL_TEXTURE_2D, bound_tex);
     auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3,

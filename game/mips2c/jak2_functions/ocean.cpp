@@ -31,7 +31,12 @@ u64 execute(void* ctxt) {
   c->swc1(f0, 12, a0);                              // swc1 f0, 12(a0)
   c->load_symbol2(a0, cache.time_of_day_context);   // lw a0, *time-of-day-context*(s7)
   c->lwu(a0, 2060, a0);                             // lwu a0, 2060(a0)
-  bc = c->sgpr64(s7) == c->sgpr64(a0);              // beq s7, a0, L126
+  // Gjak2-visuals: #f-guard on a mem-loaded GOAL value (the tod-context `sky`
+  // field). On arm64 s7 carries the host upper-32 while lwu-loaded fields are
+  // bare offsets, so a full-64 compare misfires (the recurring mips2c #f-guard
+  // class; jak1 sparticle precedent). Compare the representation-agnostic
+  // 32-bit GOAL ptr; x86 is unaffected (operands share upper-32 there).
+  bc = c->gpr_addr(s7) == c->gpr_addr(a0);          // beq s7, a0, L126 (32-bit GOAL ptr)
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_2;}                           // branch non-likely
 

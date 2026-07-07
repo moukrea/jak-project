@@ -15,7 +15,10 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
+#include "game/graphics/opengl_renderer/ProgressRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
+#include "game/graphics/opengl_renderer/TextureAnimator.h"
+#include "game/graphics/opengl_renderer/VisDataHandler.h"
 #include "game/graphics/opengl_renderer/background/Shrub.h"
 #include "game/graphics/opengl_renderer/background/TFragment.h"
 #include "game/graphics/opengl_renderer/background/Tie3.h"
@@ -123,7 +126,7 @@ AndroidOpenGLRenderer::AndroidOpenGLRenderer(std::shared_ptr<TexturePool> textur
   // Common (GAME.fr3) textures: font, hud, common sprites. Without this
   // every slot the game links resolves to the checkerboard placeholder.
   if (m_render_state.loader) {
-    m_render_state.loader->load_common(*m_render_state.texture_pool, "GAME");
+    m_common_level = &m_render_state.loader->load_common(*m_render_state.texture_pool, "GAME");
     lg::info("A35-RENDER common level (GAME.fr3) loaded");
   } else {
     __android_log_print(ANDROID_LOG_WARN, kLogTag,
@@ -410,19 +413,38 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
     m_bucket_renderers.at((int)id) = std::move(r);
   };
 
-  // No TextureAnimator on the Android build (the jak1 table passes the null
-  // shared_ptr too). Upstream jak2 passes m_texture_animator; the null animator
-  // mirrors the "no animator" state — the tex-upload path itself is unchanged.
-  std::shared_ptr<TextureAnimator> no_animator;
+  // Gjak2-vis: construct the jak2 TextureAnimator (mirrors desktop
+  // OpenGLRenderer.cpp). It reads the common (GAME.fr3) level textures by name.
+  // Kill-switch: debug.opengoal.texanim=0 leaves it null (the previously
+  // proven-safe "no animator" state) so the null path can be restored on device
+  // without a rebuild. Every JAK2 TextureUploadHandler below gets this animator.
+  {
+    char ta[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.texanim", ta);
+    if (ta[0] == '0') {
+      __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                          "GJ2VIS texanim DISABLED by prop");
+    } else if (m_common_level) {
+      m_texture_animator = std::make_shared<TextureAnimator>(
+          m_render_state.shaders, m_common_level, GameVersion::Jak2);
+      __android_log_print(ANDROID_LOG_INFO, kLogTag, "GJ2VIS texanim LIVE (jak2)");
+    } else {
+      __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                          "GJ2VIS texanim NULL — no common level");
+    }
+  }
+  // The animator (or a null shared_ptr) is passed to every jak2
+  // TextureUploadHandler, mirroring upstream jak2's m_texture_animator.
+  std::shared_ptr<TextureAnimator>& no_animator = m_texture_animator;
 
-  // Gjak2-render (3D): the anim-slot array. Upstream jak2 passes
-  // anim_slot_array() (== m_texture_animator->slots(), i.e. nullptr when there
-  // is no animator). The Android build has no animator, so mirror the jak1
-  // android table's "no animator" state with a pointer to a static empty
-  // vector — the same null-animator shape the jak1 TFragment/Tie3/Merc2 wiring
-  // proves safe on this device.
+  // Gjak2-vis: the anim-slot array. Upstream jak2 passes
+  // m_texture_animator->slots() (== nullptr when there is no animator). When the
+  // animator is live we forward its real slots; otherwise fall back to a static
+  // empty vector — the same null-animator shape the jak1 android table proves
+  // safe on this device.
   static const std::vector<GLuint> s_no_anim_slots;
-  const std::vector<GLuint>* anim_slots = &s_no_anim_slots;
+  const std::vector<GLuint>* anim_slots =
+      m_texture_animator ? m_texture_animator->slots() : &s_no_anim_slots;
 
   // Gjak2-render (3D): shared foreground cores, mirroring upstream jak2's
   // m_merc2 / m_generic2. Merc2 takes the anim-slot array (nullptr-equivalent
@@ -681,7 +703,14 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   for (auto& [id, name] : lcom_tex_direct) {
     set_renderer(std::make_unique<TextureUploadHandler>(name, (int)id, no_animator, true), id, true);
   }
-  // PROGRESS: upstream uses ProgressRenderer (NOT compiled) — leave SkipRenderer.
+  // PROGRESS: upstream's ProgressRenderer (DirectRenderer subclass, minimap
+  // offscreen fb). Gjak2-visuals: the jak2 title "Press the Start Button" /
+  // title menu text prints into this bucket (title-obs.gc print-game-text →
+  // (bucket-id progress)); without it the title text never draws. The font
+  // mips2c builders (draw-string-asm) are already live. GLES: no direct GL
+  // calls; the 8_8_8_8_REV fb format is shimmed in opengl_utils.cpp.
+  set_renderer(std::make_unique<ProgressRenderer>("progress", (int)BucketId::PROGRESS, 0x1000),
+               BucketId::PROGRESS, true);
 
   // --- DirectRenderer: the jak2 buckets upstream backs with DirectRenderer,
   // same names/ids/batch sizes. SKY_DRAW is DirectRenderer on jak2 (not
@@ -709,21 +738,30 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   {
     auto eye = std::make_unique<EyeRenderer>("eyes", 0);
     m_render_state.eye_renderer = eye.get();
-    // Bucket 0 upstream is VisDataHandler (not compiled); we keep bucket 0 as a
-    // SkipRenderer for the vis chain and hold the eye renderer as the eye
-    // handler only (its render() is invoked via render_state->eye_renderer, not
-    // as bucket 0). Store it so it isn't destroyed.
+    // The eye renderer is held as the eye handler only (its render() is invoked
+    // via render_state->eye_renderer, not as a bucket). Store it so it isn't
+    // destroyed.
     m_jak2_eye_renderer = std::move(eye);
     m_jak2_eye_renderer->init_shaders(m_render_state.shaders);
     m_jak2_eye_renderer->init_textures(*m_render_state.texture_pool, GameVersion::Jak2);
   }
+
+  // Gjak2-visuals: the REAL VisDataHandler at BUCKET_2 (upstream jak2 slot).
+  // Beyond the per-level vis strings (occlusion culling), its vif0 memcpy is
+  // the ONLY writer of render_state->fog_color on the jak2 path — the earlier
+  // SkipRenderer left fog_color {0,0,0,0}, zeroing every fog uniform (tfrag/
+  // tie/shrub/merc/generic/ocean/sky) and white-washing the scene (proven by
+  // the GJ2VIS-TOD x86-vs-device state dump: itimes/tod identical, fogcol
+  // 00133300 vs 00000000). Data-only renderer, no GL calls.
+  set_renderer(std::make_unique<VisDataHandler>("vis", (int)BucketId::BUCKET_2),
+               BucketId::BUCKET_2, true);
 
   // Everything else: SkipRenderer. Its render() walks read_and_advance until
   // render_state->next_bucket, consuming the segment and keeping the dispatch
   // in sync regardless of the bucket's content — the same consume-the-segment
   // mechanism the jak1 android skip path uses. Buckets upstream jak2 renders
   // with classes NOT compiled into the Android build fall here this round:
-  //   BUCKET_2 (VisDataHandler), BUCKET_3 (BlitDisplays), SHADOW/SHADOW2
+  //   BUCKET_3 (BlitDisplays), SHADOW/SHADOW2
   //   (Shadow2), GMERC_WARP (Warp), PROGRESS (ProgressRenderer), and the
   //   EMERC_* buckets (upstream jak2 has no EMERC registration — they are
   //   EmptyBucketRenderer'd there too). The dispatch logs each ONE the first
@@ -834,6 +872,12 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
       dispatch_buckets_jak2(dma, prof);
     } else {
       dispatch_buckets_jak1(dma, prof);
+    }
+    // Gjak2-vis: per-frame stale-texture sweep (mirrors desktop OpenGLRenderer).
+    // If no animation requests were made this frame, assume the level unloaded
+    // and reset the animated textures.
+    if (m_texture_animator) {
+      m_texture_animator->clear_stale_textures(m_render_state.frame_idx);
     }
     m_stats.buckets_cpu_s = prof.get_elapsed_time();
   }

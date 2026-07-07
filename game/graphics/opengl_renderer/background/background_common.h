@@ -1,8 +1,29 @@
 #pragma once
 
+#include <cstdio>
+#include <cstdlib>
+
 #include "common/math/Vector.h"
 
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
+
+// Gjak2-visuals probe: one-shot per background (tie/tfrag) anim-slot bind —
+// diffable our-x86 (env GJ2VIS_SKY) vs device (always) to see which title
+// surfaces depend on TextureAnimator output slots.
+inline void gj2vis_probe_bg_slot(int slot, unsigned tex) {
+#ifdef __ANDROID__
+  static const bool s_on = true;
+#else
+  static const bool s_on = getenv("GJ2VIS_SKY") != nullptr;
+#endif
+  if (s_on) {
+    static bool s_seen[128] = {};
+    if (slot >= 0 && slot < 128 && !s_seen[slot]) {
+      s_seen[slot] = true;
+      fprintf(stderr, "GJ2VIS-BGSLOT slot=%d tex=%u\n", slot, tex);
+    }
+  }
+}
 
 struct GoalBackgroundCameraData {
   math::Vector4f planes[4];

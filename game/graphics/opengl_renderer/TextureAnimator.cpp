@@ -1,6 +1,7 @@
 #include "TextureAnimator.h"
 
 #include <cstdio>
+#include <set>
 
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
@@ -20,6 +21,18 @@
 // #define dfmt(...) fmt::print(__VA_ARGS__)
 #define dprintf(...)
 #define dfmt(...)
+
+// GLES glTexImage2D/glTexImage1D reject GL_UNSIGNED_INT_8_8_8_8_REV with
+// GL_INVALID_ENUM; UNSIGNED_BYTE RGBA is byte-identical on little-endian — same
+// substitution as FramebufferTexturePair (opengl_utils.cpp).
+static inline GLenum anim_tex_type(GLenum type) {
+#ifdef __ANDROID__
+  if (type == GL_UNSIGNED_INT_8_8_8_8_REV) {
+    return GL_UNSIGNED_BYTE;
+  }
+#endif
+  return type;
+}
 
 // -- Texture Animations
 // The game has a number of "texture animation arrays".
@@ -142,8 +155,8 @@ OpenGLTexturePool::OpenGLTexturePool(GameVersion version) {
     glGenTextures(a.n, l.data());
     for (auto t : l) {
       glBindTexture(GL_TEXTURE_2D, t);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, a.w, a.h, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-                   nullptr);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, a.w, a.h, 0, GL_RGBA,
+                   anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), nullptr);
     }
   }
 }
@@ -176,7 +189,8 @@ GLuint OpenGLTexturePool::allocate(u64 w, u64 h) {
     glGenTextures(1, &slot);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, slot);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
+                 anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), nullptr);
     return slot;
   }
 
@@ -294,7 +308,8 @@ int output_slot_by_idx(GameVersion version, const std::string& name) {
  */
 void opengl_upload_texture(GLint dest, const void* data, int w, int h) {
   glBindTexture(GL_TEXTURE_2D, dest);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, data);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
+               anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), data);
   glGenerateMipmap(GL_TEXTURE_2D);
   float aniso = 0.0f;
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &aniso);
@@ -318,7 +333,7 @@ void opengl_upload_resize_texture(FramebufferTexturePair& fbt,
     glGenTextures(1, &temp_texture);
     glBindTexture(GL_TEXTURE_2D, temp_texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, data_size.x(), data_size.y(), 0, GL_RGBA,
-                 GL_UNSIGNED_INT_8_8_8_8_REV, data);
+                 anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), data);
 
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vertex_buffer);
@@ -576,23 +591,36 @@ TextureAnimator::TextureAnimator(ShaderLibrary& shaders,
       data[i * 16 + j] = (((i / 4) & 1) ^ ((j / 4) & 1)) ? c1 : c0;
     }
   }
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, 16, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-               data.data());
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, 16, 0, GL_RGBA,
+               anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), data.data());
   glGenerateMipmap(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, 0);
 
   // create the slime LUT texture
   glGenTextures(1, &m_slime_lut_texture);
-  glBindTexture(GL_TEXTURE_1D, m_slime_lut_texture);
   std::vector<u8> slime_data;
   for (auto x : kSlimeLutData) {
     slime_data.push_back(x * 255);
   }
+#ifdef __ANDROID__
+  // GLES has no GL_TEXTURE_1D / glTexImage1D. The shader preprocessor already
+  // rewrites sampler1D->sampler2D for the GLES blob (preprocess.py), so a 256x1
+  // GL_TEXTURE_2D is the established pattern (same as the time-of-day LUT — see
+  // android/CMakeLists.txt).
+  glBindTexture(GL_TEXTURE_2D, m_slime_lut_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_RGBA,
+               anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), slime_data.data());
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glBindTexture(GL_TEXTURE_2D, 0);
+#else
+  glBindTexture(GL_TEXTURE_1D, m_slime_lut_texture);
   glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, 256, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
                slime_data.data());
   glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glBindTexture(GL_TEXTURE_2D, 0);
+#endif
 
   shader.activate();
 
@@ -1251,6 +1279,25 @@ void TextureAnimator::handle_texture_anim_data(DmaFollower& dma,
     auto tf = dma.read_and_advance();
     auto vif0 = tf.vifcode0();
     if (vif0.kind == VifCode::Kind::PC_PORT) {
+      // Gjak2-visuals probe: one-shot log of each distinct anim code seen, so
+      // the device's arriving anim set can be diffed against the x86 oracle's
+      // (device: always; desktop: env GJ2VIS_SKY, same gate as the clouds
+      // probe).
+      {
+#ifdef __ANDROID__
+        static const bool s_code_dump = true;
+#else
+        static const bool s_code_dump = getenv("GJ2VIS_SKY") != nullptr;
+#endif
+        if (s_code_dump) {
+          static bool s_seen[512] = {};
+          u16 imm = vif0.immediate;
+          if (imm < 512 && !s_seen[imm]) {
+            s_seen[imm] = true;
+            fprintf(stderr, "GJ2VIS-ANIMCODE imm=%d\n", (int)imm);
+          }
+        }
+      }
       switch (this->m_version) {
         case GameVersion::Jak2:
           switch (static_cast<PcTextureAnimCodesJak2>(vif0.immediate)) {
@@ -1542,8 +1589,8 @@ void TextureAnimator::force_to_gpu(int tbp) {
       int th = entry.tex_height;
       setup_vram_entry_for_gpu_texture(tw, th, tbp);
       glBindTexture(GL_TEXTURE_2D, entry.tex.value().texture());
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-                   entry.data.data());
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA,
+                   anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), entry.data.data());
       glBindTexture(GL_TEXTURE_2D, 0);
       entry.kind = VramEntry::Kind::GPU;
     } break;
@@ -1570,8 +1617,8 @@ void TextureAnimator::force_to_gpu(int tbp) {
       setup_vram_entry_for_gpu_texture(tw, th, tbp);
       // load the texture.
       glBindTexture(GL_TEXTURE_2D, entry.tex.value().texture());
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-                   rgba_data.data());
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA,
+                   anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), rgba_data.data());
       glBindTexture(GL_TEXTURE_2D, 0);
       entry.kind = VramEntry::Kind::GPU;
     } break;
@@ -1596,8 +1643,8 @@ void TextureAnimator::force_to_gpu(int tbp) {
       }
       setup_vram_entry_for_gpu_texture(tw, th, tbp);
       glBindTexture(GL_TEXTURE_2D, entry.tex.value().texture());
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-                   rgba_data.data());
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA,
+                   anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), rgba_data.data());
       glBindTexture(GL_TEXTURE_2D, 0);
       entry.kind = VramEntry::Kind::GPU;
     } break;
@@ -2054,8 +2101,8 @@ GLuint TextureAnimator::make_temp_gpu_texture(const u32* data, u32 width, u32 he
   GLuint gl_tex = m_opengl_texture_pool.allocate(width, height);
   m_in_use_temp_textures.push_back(TempTexture{gl_tex, width, height});
   glBindTexture(GL_TEXTURE_2D, gl_tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV,
-               data);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+               anim_tex_type(GL_UNSIGNED_INT_8_8_8_8_REV), data);
   glBindTexture(GL_TEXTURE_2D, 0);
   return gl_tex;
 }
@@ -2544,6 +2591,35 @@ void TextureAnimator::run_fixed_animation_array(int idx,
     // run layers
     run_fixed_animation(anim, time);
 
+    // Gjak2-visuals probe: one-shot per fixed anim — readback of the rendered
+    // dest texture center (our-x86: env GJ2VIS_SKY; device: always). Diffable
+    // to catch GLES-only garbage in fixed-anim outputs (e.g. the security-wall
+    // membranes suspected of white-washing the title scene).
+    {
+#ifdef __ANDROID__
+      static const bool s_fa_dump = true;
+#else
+      static const bool s_fa_dump = getenv("GJ2VIS_SKY") != nullptr;
+#endif
+      if (s_fa_dump && anim.fbt) {
+        static std::set<std::string> s_fa_seen;
+        if (s_fa_seen.insert(anim.def.tex_name).second) {
+          u8 px[16] = {0};
+          {
+            FramebufferTexturePairContext probe_ctxt(*anim.fbt);
+            glReadPixels(anim.fbt->width() / 2, anim.fbt->height() / 2, 2, 2, GL_RGBA,
+                         GL_UNSIGNED_BYTE, px);
+          }
+          fprintf(stderr,
+                  "GJ2VIS-FIXEDANIM name=%s slot=%d time=%.2f w=%d "
+                  "px=%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x\n",
+                  anim.def.tex_name.c_str(), (int)anim.dest_slot, time, anim.fbt->width(), px[0],
+                  px[1], px[2], px[3], px[4], px[5], px[6], px[7], px[8], px[9], px[10], px[11],
+                  px[12], px[13], px[14], px[15]);
+        }
+      }
+    }
+
     // give to the pool for renderers that don't know how to access this directly
     if (anim.def.move_to_pool) {
       ASSERT(tbp < 0x40000);
@@ -2782,7 +2858,15 @@ int update_opengl_noise_texture(GLuint texture,
                                 int random_index_in) {
   int ret = make_noise_texture(temp, random_table, dim, random_index_in);
   glBindTexture(GL_TEXTURE_2D, texture);
+#ifdef __ANDROID__
+  // GLES requires a SIZED internalformat with GL_RED (unsized GL_RED raises
+  // GL_INVALID_OPERATION -> the sky/clouds noise layers never get storage and
+  // sample undefined garbage: the Gjak2-visuals blown-white/black split sky).
+  // GL_R8 is the sized equivalent; desktop keeps upstream's literal call.
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, dim, dim, 0, GL_RED, GL_UNSIGNED_BYTE, temp);
+#else
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, dim, dim, 0, GL_RED, GL_UNSIGNED_BYTE, temp);
+#endif
   glGenerateMipmap(GL_TEXTURE_2D);
   return ret;
 }
@@ -2945,6 +3029,36 @@ GLint TextureAnimator::run_clouds(const SkyInput& input, bool hires) {
   glUniform1f(m_uniforms.maximum, input.cloud_max);
   glDisable(GL_BLEND);
   glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+  // Gjak2-visuals clouds probe — diffable our-x86-vs-device state dump (the
+  // x86-first discipline): the GOAL SkyInput packet + a readback of the final
+  // cloud texture while its FBO is still bound. Device: ~2.5 s cadence;
+  // desktop: env GJ2VIS_SKY only, so the oracle is untouched by default.
+  {
+#ifdef __ANDROID__
+    static const bool s_sky_dump = true;
+#else
+    static const bool s_sky_dump = getenv("GJ2VIS_SKY") != nullptr;
+#endif
+    if (s_sky_dump) {
+      static int s_sky_ctr = 0;
+      if ((s_sky_ctr++ % 300) == 0) {
+        u8 px[16] = {0};
+        glReadPixels(final_tex.width() / 2, final_tex.width() / 2, 2, 2, GL_RGBA,
+                     GL_UNSIGNED_BYTE, px);
+        GLenum err = glGetError();
+        fprintf(stderr,
+                "GJ2VIS-SKY hires=%d cmin=%.4f cmax=%.4f t=[%.3f %.3f %.3f %.3f %.3f] "
+                "mt=[%.3f %.3f %.3f %.3f] sc=[%.4f %.4f %.4f %.4f] dest=%d err=0x%x "
+                "px=%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x\n",
+                hires ? 1 : 0, input.cloud_min, input.cloud_max, input.times[0], input.times[1],
+                input.times[2], input.times[3], input.times[4], input.max_times[0],
+                input.max_times[1], input.max_times[2], input.max_times[3], input.scales[0],
+                input.scales[1], input.scales[2], input.scales[3], input.cloud_dest, err, px[0],
+                px[1], px[2], px[3], px[4], px[5], px[6], px[7], px[8], px[9], px[10], px[11],
+                px[12], px[13], px[14], px[15]);
+      }
+    }
+  }
   glBindTexture(GL_TEXTURE_2D, final_tex.texture());
   glGenerateMipmap(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -2979,7 +3093,12 @@ void TextureAnimator::run_slime(const SlimeInput& input) {
     glUniform2fv(m_uniforms.uvs, 4, uv);
 
     glActiveTexture(GL_TEXTURE10);
+#ifdef __ANDROID__
+    // slime LUT is a 256x1 GL_TEXTURE_2D on GLES (no GL_TEXTURE_1D).
+    glBindTexture(GL_TEXTURE_2D, m_slime_lut_texture);
+#else
     glBindTexture(GL_TEXTURE_1D, m_slime_lut_texture);
+#endif
     glActiveTexture(GL_TEXTURE0);
 
     // Anim 1:

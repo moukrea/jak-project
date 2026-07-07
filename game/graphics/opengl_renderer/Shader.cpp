@@ -1,5 +1,7 @@
 #include "Shader.h"
 
+#include <regex>
+
 #include "common/log/log.h"
 #include "common/util/Assert.h"
 #include "common/util/FileUtil.h"
@@ -36,21 +38,24 @@ Shader::Shader(const std::string& shader_name, GameVersion version) : m_name(sha
     }
   }
 #else
-  const std::string height_scale = version == GameVersion::Jak1 ? "1.0" : "0.5";
-  const std::string scissor_height = version == GameVersion::Jak1 ? "448.0" : "416.0";
-  const std::string scissor_adjust = "512.0 / " + scissor_height;
-
   // read the shader source
   auto vert_src =
       file_util::read_text_file(file_util::get_file_path({shader_folder, shader_name + ".vert"}));
   auto frag_src =
       file_util::read_text_file(file_util::get_file_path({shader_folder, shader_name + ".frag"}));
+#endif
+
+  // Per-game template tokens, substituted at runtime on both desktop and
+  // Android (the Android GLES blob keeps them verbatim — jak2 is a 416-line
+  // frame, jak1 448; baking jak1 values stretched jak2 geometry vertically).
+  const std::string height_scale = version == GameVersion::Jak1 ? "1.0" : "0.5";
+  const std::string scissor_height = version == GameVersion::Jak1 ? "448.0" : "416.0";
+  const std::string scissor_adjust = "512.0 / " + scissor_height;
 
   vert_src = std::regex_replace(vert_src, std::regex("HEIGHT_SCALE"), height_scale);
   vert_src = std::regex_replace(vert_src, std::regex("SCISSOR_HEIGHT"), scissor_height);
   frag_src = std::regex_replace(frag_src, std::regex("SCISSOR_HEIGHT"), scissor_height);
   vert_src = std::regex_replace(vert_src, std::regex("SCISSOR_ADJUST"), "(" + scissor_adjust + ")");
-#endif
 
   m_vert_shader = glCreateShader(GL_VERTEX_SHADER);
   const char* src = vert_src.c_str();
