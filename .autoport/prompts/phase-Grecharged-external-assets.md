@@ -51,3 +51,10 @@ next attempt) — label it.
 paths keep current behavior working; .autoport/gold READ-ONLY; full consistent builds; don't lose the
 device's existing saves.
 ## Max: max_turns 3000, max_retries 6. device: true, owner_verify: true.
+
+## jak2 requirement (owner 2026-07-07 — dev flow meanwhile = adb-pushed full set)
+jak2's assets ALREADY exceed the AGP 2GB cap — the build currently DROPS non-English VAGWADs and
+Gjak2-render added a temporary ENG-fallback. This phase REPLACES those workarounds: the external
+asset archive carries the COMPLETE asset set (ALL language VAGWADs; FR audio restored on jak2), and
+the APK/binary carries none. Apply to jak1 AND jak2 (jak3/Collection-ready). Remove the ENG-fallback
+stopgap (or keep it only as a graceful-degradation path when a language file is genuinely absent).

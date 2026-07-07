@@ -1229,7 +1229,7 @@ phases:
   device: true
   owner_verify: true
 - id: Grecharged-external-assets
-  name: 'RECHARGED infra (owner 2026-07-07): split BINARY from ASSETS on every build (x86 Win/Linux + Android) — slim binary + separate original-assets archive; first-boot prompt for asset location (Android storage permissions!); layout <chosen>/jak_N/{assets,saves,custom_assets}; LOAD CUSTOM ASSETS toggle in Recharged Settings; same shape for jak2/jak3/Collection; migrate existing installs safely'
+  name: 'RECHARGED infra PROMOTED (owner 2026-07-07: ''assets externes, pas un contournement débile'' — jak2 already exceeds the AGP 2GB cap and lost non-EN VAGWADs to it): split BINARY from ASSETS on every build (slim APK + external assets archive, ALL languages restored incl. VAGWADs — kills the size-cap workarounds), first-boot asset-location prompt (Android storage permissions), <chosen>/jak_N/{assets,saves,custom_assets}, LOAD CUSTOM ASSETS toggle, jak1+jak2+jak3/Collection, safe migration'
   prompt: prompts/phase-Grecharged-external-assets.md
   validator: validators/phase-Grecharged-external-assets.sh
   max_turns: 3000

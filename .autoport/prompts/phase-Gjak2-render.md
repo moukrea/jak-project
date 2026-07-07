@@ -59,3 +59,14 @@ Do NOT hold this phase hostage to its root fix. Apply the PROVEN playbook that s
     playable, root-fixed later).
 PRIORITY ORDER: (1) get boot-link past 420 objects on device via the guard, (2) wire the jak2
 renderer subset + mips2c allowlist, (3) FIRST FRAME. fps/purity secondary; the frame is the goal.
+
+## OWNER CORRECTION v2 (2026-07-07) — TEMP external asset path, no size-cap hacks, no ENG fallback
+Do NOT drop non-English VAGWADs and do NOT rely on an ENG-fallback lookup. For THIS phase, use the
+TEMPORARY external-asset dev flow: adb push the COMPLETE jak2 asset set (all CGO/DGO/fr3 + ALL
+language VAGWADs) directly into the on-device path the runtime already reads (the app's
+files/iso_data/jak2 — the same location LoaderActivity would populate), and build the dev APK
+WITHOUT bundling the oversized assets (skip/trim the bundle step; the runtime loads from the pushed
+path as-is). This bypasses the AGP 2GB cap entirely with zero asset loss. Remove/disable the
+ENG-fallback glue once the pushed full set is in place. The PROPER user-facing asset management
+(first-boot prompt, jak_N layout, storage permissions) stays in the backlog phase
+Grecharged-external-assets at its original priority — do NOT pull it forward.
