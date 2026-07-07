@@ -318,9 +318,10 @@ add_library(android_kernel STATIC
     #
     # mips2c_table.cpp itself is excluded — its static init registers
     # every jak{1,2,3} mips2c link callback, which we'd need to also
-    # compile (~100k LOC × 3 games) for the static init to resolve. The
-    # individual function TUs still link via --whole-archive and add
-    # the size we need; klink's mips2c lookup just returns empty.
+    # compile (~100k LOC × 3 games) for the static init to resolve.
+    # Gjak2-render: jak1 AND jak2 function TUs are compiled + their
+    # callbacks wired via mips2c_table_jak1_arm64.cpp (game-aware). jak3
+    # remains excluded.
     "${JAK_ROOT}/game/mips2c/jak1_functions/bones.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/collide_cache.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/collide_edge_grab.cpp"
@@ -346,6 +347,34 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/mips2c/jak1_functions/tfrag.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/tie_methods.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/time_of_day.cpp"
+    # Gjak2-render: jak2 mips2c bodies
+    "${JAK_ROOT}/game/mips2c/jak2_functions/bones.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_cache.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_edge_grab.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_func.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_hash.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_mesh.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/debug.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/font.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/foreground.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/generic_effect.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/generic_merc.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/joint.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/lights.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/merc_blend_shape.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/nav_control.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/nav_mesh.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/ocean_vu0.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/ocean.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/ripple.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/shadow.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/sky.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/sparticle_launcher.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/sparticle.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/spatial_hash.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/squid.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/texture.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/vortex.cpp"
     # A37: real jak1 mips2c table (callback map + reg()/get() with the
     # AArch64 GOAL-heap trampoline). Replaces the get()->0 stub that bound
     # every def-mips2c fn to 0 (the camera/joint black-frame blocker).

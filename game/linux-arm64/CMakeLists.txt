@@ -145,10 +145,11 @@ add_library(linux_arm64_kernel STATIC
 
     # Kernel jak2 — additive for the --game jak2 qemu repro. Same
     # curation rationale as jak1: NO kmachine/kmachine_extras/kboot
-    # (graphics + sqlite + discord + sce-libgraph), NO jak2 mips2c/font/
-    # overlord/texture_remap. Missing jak2:: externs pulled by these 8
-    # TUs are satisfied by honest abort/no-op stubs in
-    # linux_arm64_runtime_compat.cpp.
+    # (graphics + sqlite + discord + sce-libgraph), NO jak2 font/
+    # overlord/texture_remap. Gjak2-render: jak2 mips2c bodies ARE now
+    # compiled (wired via mips2c_table_jak1_arm64.cpp, game-aware). Missing
+    # jak2:: externs pulled by these 8 TUs are satisfied by honest
+    # abort/no-op stubs in linux_arm64_runtime_compat.cpp.
     "${JAK_ROOT}/game/kernel/jak2/fileio.cpp"
     "${JAK_ROOT}/game/kernel/jak2/kdgo.cpp"
     "${JAK_ROOT}/game/kernel/jak2/klink.cpp"
@@ -227,6 +228,34 @@ add_library(linux_arm64_kernel STATIC
     "${JAK_ROOT}/game/mips2c/jak1_functions/tfrag.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/tie_methods.cpp"
     "${JAK_ROOT}/game/mips2c/jak1_functions/time_of_day.cpp"
+    # Gjak2-render: jak2 mips2c bodies
+    "${JAK_ROOT}/game/mips2c/jak2_functions/bones.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_cache.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_edge_grab.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_func.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_hash.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_mesh.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/debug.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/font.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/foreground.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/generic_effect.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/generic_merc.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/joint.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/lights.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/merc_blend_shape.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/nav_control.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/nav_mesh.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/ocean_vu0.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/ocean.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/ripple.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/shadow.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/sky.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/sparticle_launcher.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/sparticle.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/spatial_hash.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/squid.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/texture.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/vortex.cpp"
     # A37: real jak1 mips2c table (callback map + reg()/get() with the
     # AArch64 GOAL-heap trampoline). Replaces the get()->0 stub.
     "${JAK_ROOT}/game/mips2c/mips2c_table_jak1_arm64.cpp"
