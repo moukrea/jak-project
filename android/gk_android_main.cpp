@@ -6377,6 +6377,77 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                           (k == 0) ? "*" : " ", okr ? w : 0xffffffffu);
     }
   }
+  // Gjak2-render forensic (SPWIN + generic reg code-windows): the jak2 boot crash
+  // lands with pc in unmapped garbage, so PCWIN reads nothing useful — but lr and
+  // x3 (and sometimes x8) hold EE-range code pointers whose surrounding emitted
+  // arm64 is what we need to decode offline. jak2-gated so jak1's proven dump
+  // format above is untouched. Async-signal-safe: reuses gk_diag::safe_read_u32
+  // (siglongjmp-guarded, no malloc) identically to PCWIN; no dladdr, no alloc.
+  if (g_game_version == GameVersion::Jak2) {
+    const uintptr_t ee_base = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    const uintptr_t ee_hi = ee_base + (uintptr_t)EE_MAIN_MEM_SIZE;
+    // SPWIN: 16 stack words (64-bit) from sp+0..sp+120 step 8, each read via two
+    // safe u32 reads (no safe_read_u64 exists in this TU).
+    {
+      const uintptr_t spv = static_cast<uintptr_t>(uc->uc_mcontext.sp);
+      for (int off = 0; off <= 120; off += 8) {
+        uint32_t lo = 0, hi = 0;
+        bool okl = gk_diag::safe_read_u32(spv + off, &lo);
+        bool okh = gk_diag::safe_read_u32(spv + off + 4, &hi);
+        uint64_t word = (okl && okh)
+                            ? (((uint64_t)hi << 32) | (uint64_t)lo)
+                            : 0xffffffffffffffffull;
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG SPWIN sp+%d = 0x%llx", off,
+                            (unsigned long long)word);
+      }
+    }
+    // Generic code-window dumper for lr / x3 / x8. Each: 40 words V-96..V+60 step 4,
+    // gated to EE range. Skip a register whose window duplicates a previously-dumped
+    // one (|Va - Vb| < 64) with a one-line note instead.
+    struct RegWin {
+      const char* label;
+      uintptr_t val;
+    } regs_[3] = {
+        {"LRWIN", static_cast<uintptr_t>(uc->uc_mcontext.regs[30])},
+        {"X3WIN", static_cast<uintptr_t>(uc->uc_mcontext.regs[3])},
+        {"X8WIN", static_cast<uintptr_t>(uc->uc_mcontext.regs[8])},
+    };
+    for (int i = 0; i < 3; ++i) {
+      const uintptr_t V = regs_[i].val;
+      if (!(V >= ee_base && V < ee_hi)) {
+        continue;  // not an EE-range code pointer
+      }
+      // Duplicate-window suppression against earlier dumped registers.
+      int dup = -1;
+      for (int j = 0; j < i; ++j) {
+        const uintptr_t Vj = regs_[j].val;
+        if (Vj >= ee_base && Vj < ee_hi) {
+          uintptr_t d = (V > Vj) ? (V - Vj) : (Vj - V);
+          if (d < 64) {
+            dup = j;
+            break;
+          }
+        }
+      }
+      if (dup >= 0) {
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG %s same-window-as %s", regs_[i].label,
+                            regs_[dup].label);
+        continue;
+      }
+      const uintptr_t goal_off = V - ee_base;
+      const char* short_lbl = (i == 0) ? "lr" : (i == 1) ? "x3" : "x8";
+      for (int k = -96; k <= 60; k += 4) {
+        uint32_t w = 0;
+        bool okr = gk_diag::safe_read_u32(V + k, &w);
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG %s %s%+d ee=0x%x: 0x%08x", regs_[i].label,
+                            short_lbl, k, (unsigned)((int)goal_off + k),
+                            okr ? w : 0xffffffffu);
+      }
+    }
+  }
   // Gjak2-render forensic (LRWIN): when the fault PC is in DATA (e.g. a bad
   // blr into a GOAL object), the CALLER's code — including the crashing
   // `blr Xn` at lr-4 and the instructions that formed Xn — lives around LR,

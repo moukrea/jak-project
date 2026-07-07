@@ -883,7 +883,35 @@ uint32_t link_control::jak2_work_v2() {
  * Complete linking. This will execute the top-level code for v3 object files, if requested.
  */
 void link_control::jak2_finish(bool jump_from_c_to_goal) {
-  CacheFlush(m_code_start.c(), m_code_size);
+  // Gjak2-render arm64 bug class #14 (stale icache on linked code): m_code_start/
+  // m_code_size were never assigned on the jak2 path, so this flush was
+  // CacheFlush(base, 0) — a no-op. The v3 TOP_LEVEL segment is re-allocated at the
+  // SAME reused KMALLOC_TOP address for consecutive objects and executed
+  // immediately after being rewritten; without an icache invalidate the CPU can
+  // execute a stale mix of the PREVIOUS object's instructions (memory reads back
+  // correct — attempt-1's art-h before_exec probes proved that — but I-fetch is
+  // stale). x86 CacheFlush is a no-op, so behavior there is byte-identical.
+  {
+    ObjectFileHeader* fofh = m_link_block_ptr.cast<ObjectFileHeader>().c();
+    if (fofh->object_file_version == 3) {
+      // v3 objects wrote executable code into freshly kmalloc'd segments (MAIN in
+      // m_heap, TOP_LEVEL at the reused KMALLOC_TOP address, DEBUG in kdebugheap
+      // when DebugSegment is set). code_infos[seg].offset holds the final runtime
+      // address and is 0 for any segment that was not copied, so the offset&&size
+      // guard naturally skips absent/dropped (e.g. non-debug) segments.
+      for (int seg : {MAIN_SEGMENT, TOP_LEVEL_SEGMENT, DEBUG_SEGMENT}) {
+        if (fofh->code_infos[seg].offset && fofh->code_infos[seg].size) {
+          CacheFlush(Ptr<u8>(fofh->code_infos[seg].offset).c(), fofh->code_infos[seg].size);
+        }
+      }
+    } else {
+      // v2 objects link code in place at m_object_data; the non-opengoal v2 begin
+      // path sets m_code_size = m_object_size - header->length (klink.cpp:1303).
+      if (m_object_data.offset && m_code_size) {
+        CacheFlush(m_object_data.c(), m_code_size);
+      }
+    }
+  }
   auto old_debug_segment = DebugSegment;
   if (m_keep_debug) {
     // note - this probably doesn't work because DebugSegment isn't *debug-segment*.
