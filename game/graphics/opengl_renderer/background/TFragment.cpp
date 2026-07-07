@@ -691,6 +691,40 @@ void TFragment::render_tree(int geom,
                 mmn, mm, prevent, (long long)fc_ent, r_ent, m_ent, s_ent, (long long)fc_game,
                 (long long)fc_part, (long long)fc_base, (long long)fc_real, (long long)fc_cam,
                 pad_valid, pad_btn);
+        // Round 2: the six clocks not covered above (the texture-anim freeze
+        // increments by the DISPLAY process's clock spf — likely frame-clock),
+        // plus the sky anim's own frame-time/delta/mod read from GOAL memory
+        // (*sky-texture-anim-array* array-data[1]; texture-anim is a structure
+        // → no -4; the array itself is a basic → -4).
+        s64 fc_frm = -1, fc_rfrm = -1, fc_tgt = -1, fc_ses = -1, fc_u0 = -1, fc_tgc = -1;
+        float s_frm = -1, s_rfrm = -1, s_tgt = -1, s_ses = -1, s_u0 = -1, s_tgc = -1;
+        float r_frm = -1, r_rfrm = -1, r_tgt = -1, r_ses = -1, r_u0 = -1, r_tgc = -1;
+        u32 m_frm = 0, m_rfrm = 0, m_tgt = 0, m_ses = 0, m_u0 = 0, m_tgc = 0;
+        clk(56, &fc_frm, &r_frm, &m_frm, &s_frm);
+        clk(60, &fc_rfrm, &r_rfrm, &m_rfrm, &s_rfrm);
+        clk(64, &fc_tgt, &r_tgt, &m_tgt, &s_tgt);
+        clk(40, &fc_ses, &r_ses, &m_ses, &s_ses);
+        clk(84, &fc_u0, &r_u0, &m_u0, &s_u0);
+        clk(88, &fc_tgc, &r_tgc, &m_tgc, &s_tgc);
+        float tf = ok(disp) ? rd_f32(disp + 92 - 4) : -1.f;
+        float dr = ok(disp) ? rd_f32(disp + 96 - 4) : -1.f;
+        u32 sky_arr = ::jak2::intern_from_c("*sky-texture-anim-array*")->value();
+        float a1_time = -1.f, a1_delta = -1.f, a1_mod = -1.f;
+        if (ok(sky_arr)) {
+          u32 a1 = rd_u32(sky_arr + 16 - 4 + 1 * 4);
+          if (ok(a1)) {
+            a1_time = rd_f32(a1 + 52);
+            a1_delta = rd_f32(a1 + 56);
+            a1_mod = rd_f32(a1 + 60);
+          }
+        }
+        fprintf(stderr,
+                "GJ2VIS-CLOCK2 frame=%lld(r=%.2f m=0x%x spf=%.4f) rframe=%lld(spf=%.4f) "
+                "tgt=%lld(spf=%.4f) ses=%lld u0=%lld tgc=%lld tf=%.2f dog=%.2f "
+                "skyanim1(t=%.1f d=%.3f mod=%.1f)\n",
+                (long long)fc_frm, r_frm, m_frm, s_frm, (long long)fc_rfrm, s_rfrm,
+                (long long)fc_tgt, s_tgt, (long long)fc_ses, (long long)fc_u0, (long long)fc_tgc,
+                tf, dr, a1_time, a1_delta, a1_mod);
       }
     }
   }
