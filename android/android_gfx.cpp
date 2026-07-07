@@ -314,15 +314,22 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
   }
 
   auto* data = new AndroidGfxData();
-  data->texture_pool = std::make_shared<TexturePool>(GameVersion::Jak1);
+  // Gjak2-render: game-aware (was hardcoded Jak1 — on jak2 the pool/loader
+  // looked in out/jak1/fr3, found nothing, and the first real
+  // handle_upload_precomputed crashed on unbacked texture-pool state).
+  // Mirrors the desktop GraphicsData ctor (pipelines/opengl.cpp:88-94).
+  data->texture_pool = std::make_shared<TexturePool>(g_game_version);
 
-  // fr3 dir: <project>/out/jak1/fr3 — LoaderActivity extracts the APK's
-  // fr3/ assets (GAME.fr3 + intro/title) there. Loader handles a missing
+  // fr3 dir: <project>/out/<game>/fr3 — LoaderActivity extracts the APK's
+  // fr3/ assets (GAME.fr3 + level packs) there. Loader handles a missing
   // level file by logging; a missing GAME.fr3 would fail load_common, so
   // probe first and run textureless (placeholders) instead of aborting.
-  auto fr3_dir = file_util::get_jak_project_dir() / "out" / "jak1" / "fr3";
+  auto fr3_dir =
+      file_util::get_jak_project_dir() / "out" / game_version_names[g_game_version] / "fr3";
+  const int fr3_levels =
+      g_game_version == GameVersion::Jak2 ? jak2::LEVEL_TOTAL : jak1::LEVEL_TOTAL;
   if (fs::exists(fr3_dir / "GAME.fr3")) {
-    data->loader = std::make_shared<Loader>(fr3_dir, jak1::LEVEL_TOTAL);
+    data->loader = std::make_shared<Loader>(fr3_dir, fr3_levels);
   } else {
     __android_log_print(ANDROID_LOG_WARN, kLogTag,
                         "A35-RENDER %s/GAME.fr3 missing — common textures will be "
@@ -549,7 +556,12 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     // runs the next frame's deactivations. The I-cache is flushed so the corrected
     // instructions are re-fetched. x86 is unaffected (#ifdef __aarch64__).
 #ifdef __aarch64__
-    {
+    // Gjak2-render: BOTH per-frame code-repair canaries below snapshot jak1
+    // KERNEL.CGO addresses. On jak2, 0x18aee4 lands in the SYMBOL TABLE and
+    // 0x191240 in unrelated data, so "repair" = reverting live jak2 memory to a
+    // frame-old snapshot every frame (run2: RFTD "repaired" a legit symbol write
+    // 0x187e05 -> 0x187e01, then new_type aborted). jak1-only.
+    if (g_game_version == GameVersion::Jak1) {
       constexpr u32 kDeactLo = 0x191240, kDeactLen = 0x74;  // [0x191240, 0x1912b4)
       static u8* s_deact_good = nullptr;
       static bool s_deact_reported = false;
@@ -604,7 +616,9 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     // cutscene at ~frame 7080) and restore it after every rendered frame, before
     // the GOAL thread runs the next process return. x86 unaffected.
 #ifdef __aarch64__
-    {
+    // Gjak2-render: jak1-only (see the deactivate-canary gate note above; on jak2
+    // this address range is the live symbol table).
+    if (g_game_version == GameVersion::Jak1) {
       const u32 kRftdLo = g_gmatch_rftd_goal, kRftdLen = g_gmatch_rftd_len;  // 0x18aee4 / 0x80
       static bool s_rftd_reported = false;
       u8* rlive = g_ee_main_mem + kRftdLo;

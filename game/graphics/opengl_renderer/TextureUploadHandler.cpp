@@ -36,6 +36,20 @@ void TextureUploadHandler::render(DmaFollower& dma,
     auto vif0 = dma.current_tag_vifcode0();
     if (vif0.kind == VifCode::Kind::PC_PORT) {
       if (vif0.immediate == 12) {
+        // Gjak2-render (Android): the curated Android renderer builds this
+        // handler without a TextureAnimator (like desktop jak1). jak2 chains DO
+        // carry imm=12 texture-anim packets, so a null animator must skip the
+        // rest of this bucket (SkipRenderer semantics) instead of dereferencing
+        // null. Behavior-neutral on desktop (animator is always non-null when
+        // imm=12 packets exist).
+        if (!m_texture_animator) {
+          flush_uploads(uploads, render_state);
+          uploads.clear();
+          while (dma.current_tag_offset() != render_state->next_bucket) {
+            dma.read_and_advance();
+          }
+          break;
+        }
         dma.read_and_advance();
         auto p = scoped_prof("texture-animator");
         // note: if both uploads and animator write to the pool, do uploads before the animator.
@@ -57,6 +71,16 @@ void TextureUploadHandler::render(DmaFollower& dma,
     if (dma_tag.qwc == (128 / 16)) {
       // note: these uploads may have texture that we need for eye rendering.
       flush_uploads(uploads, render_state);
+      // Gjak2-render (Android): no eye renderer wired for jak2 yet — consume the
+      // eye packet's bucket remainder instead of dereferencing null. Desktop
+      // always has an eye renderer; neutral there.
+      if (!render_state->eye_renderer) {
+        uploads.clear();
+        while (dma.current_tag_offset() != render_state->next_bucket) {
+          dma.read_and_advance();
+        }
+        break;
+      }
       render_state->eye_renderer->handle_eye_dma2(dma, render_state, prof);
       uploads.clear();
     }
