@@ -95,9 +95,10 @@ bool bucket_has_data(DmaFollower dma, u32 next_bucket) {
 
 AndroidOpenGLRenderer::AndroidOpenGLRenderer(std::shared_ptr<TexturePool> texture_pool,
                                              std::shared_ptr<Loader> loader)
-    : m_render_state(texture_pool, loader, GameVersion::Jak1) {
-  lg::info("A35-RENDER AndroidOpenGLRenderer init: GL_VERSION={} GL_RENDERER={}",
-           (const char*)glGetString(GL_VERSION), (const char*)glGetString(GL_RENDERER));
+    : m_render_state(texture_pool, loader, g_game_version) {
+  lg::info("A35-RENDER AndroidOpenGLRenderer init: game={} GL_VERSION={} GL_RENDERER={}",
+           (int)g_game_version, (const char*)glGetString(GL_VERSION),
+           (const char*)glGetString(GL_RENDERER));
 
   // screen-space quad for the pcrtc window blit (desktop ctor parity).
   glGenVertexArrays(1, &m_screen_vao);
@@ -129,7 +130,11 @@ AndroidOpenGLRenderer::AndroidOpenGLRenderer(std::shared_ptr<TexturePool> textur
                         "A35-RENDER no loader — textures will be placeholders");
   }
 
-  init_bucket_renderers_jak1();
+  if (g_game_version == GameVersion::Jak2) {
+    init_bucket_renderers_jak2();
+  } else {
+    init_bucket_renderers_jak1();
+  }
 }
 
 void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
@@ -369,8 +374,145 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   // move_existing_to_vram (A36 run-23 crash).
   sky_cpu_blender->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   sky_gpu_blender->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
-  lg::info("A35-RENDER bucket table ready: {} buckets, direct=3 tex=11 eye=1 skip={}",
+  lg::info("A35-RENDER jak1 bucket table ready: {} buckets, direct=3 tex=11 eye=1 skip={}",
            m_bucket_renderers.size(), sizeof(unported) / sizeof(unported[0]));
+}
+
+// Gjak2-render: jak2 bucket table. The jak2 DMA chain starts at bucket 0
+// directly (no initial default-regs CALL like jak1), so the renderers ONLY
+// need to consume their bucket segment. Mirrors the desktop
+// OpenGLRenderer::init_bucket_renderers_jak2 for the classes actually compiled
+// into the Android build (TextureUploadHandler + DirectRenderer are the
+// game-agnostic first-content workhorses). Every other bucket defaults to a
+// SkipRenderer, which consumes its segment exactly like the jak1 android skip
+// path (walk read_and_advance until next_bucket), keeping next_bucket in sync.
+// Classes upstream jak2 uses that are NOT in the Android CMake TU list
+// (VisDataHandler, BlitDisplays, Shadow2, Warp, ProgressRenderer) stay as skip
+// this round — no new TUs are pulled into CMake here.
+void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
+  using namespace jak2;
+  m_bucket_renderers.resize((int)BucketId::MAX_BUCKETS);
+  m_bucket_ported.assign((int)BucketId::MAX_BUCKETS, false);
+  m_skip_logged.assign((int)BucketId::MAX_BUCKETS, false);
+
+  // GLES single-draw + the perf paths the jak1 table also opts into. These are
+  // renderer-behavior switches, not game-specific, so keep parity.
+  m_render_state.no_multidraw = true;
+  m_render_state.batch_singledraw = true;
+  m_render_state.perf_state_cache = true;
+
+  auto set_renderer = [&](std::unique_ptr<BucketRenderer> r, BucketId id, bool ported) {
+    m_bucket_ported.at((int)id) = ported;
+    m_bucket_renderers.at((int)id) = std::move(r);
+  };
+
+  // No TextureAnimator on the Android build (the jak1 table passes the null
+  // shared_ptr too). Upstream jak2 passes m_texture_animator; the null animator
+  // mirrors the "no animator" state — the tex-upload path itself is unchanged.
+  std::shared_ptr<TextureAnimator> no_animator;
+
+  // --- TextureUploadHandler: every jak2 tex bucket upstream registers it for,
+  // mirroring init_bucket_renderers_jak2 names/ids exactly. ---
+  set_renderer(std::make_unique<TextureUploadHandler>("tex-lcom-sky-pre",
+                                                      (int)BucketId::TEX_LCOM_SKY_PRE, no_animator),
+               BucketId::TEX_LCOM_SKY_PRE, true);
+
+#define GET_BUCKET_ID_FOR_LIST(bkt1, bkt2, idx) \
+  ((int)(bkt1) + ((int)(bkt2) - (int)(bkt1)) * (idx))
+  for (int i = 0; i < LEVEL_MAX; ++i) {
+    auto tex_id = [&](BucketId b0, BucketId b1) {
+      return (BucketId)GET_BUCKET_ID_FOR_LIST(b0, b1, i);
+    };
+    struct TexReg {
+      BucketId b0, b1;
+      const char* name;
+    };
+    const TexReg tex_regs[] = {
+        {BucketId::TEX_L0_TFRAG, BucketId::TEX_L1_TFRAG, "tex-l{}-tfrag"},
+        {BucketId::TEX_L0_SHRUB, BucketId::TEX_L1_SHRUB, "tex-l{}-shrub"},
+        {BucketId::TEX_L0_ALPHA, BucketId::TEX_L1_ALPHA, "tex-l{}-alpha"},
+        {BucketId::TEX_L0_PRIS, BucketId::TEX_L1_PRIS, "tex-l{}-pris"},
+        {BucketId::TEX_L0_PRIS2, BucketId::TEX_L1_PRIS2, "tex-l{}-pris2"},
+        {BucketId::TEX_L0_WATER, BucketId::TEX_L1_WATER, "tex-l{}-water"},
+    };
+    for (auto& tr : tex_regs) {
+      BucketId id = tex_id(tr.b0, tr.b1);
+      set_renderer(std::make_unique<TextureUploadHandler>(fmt::format(fmt::runtime(tr.name), i),
+                                                          (int)id, no_animator),
+                   id, true);
+    }
+  }
+#undef GET_BUCKET_ID_FOR_LIST
+
+  // lcom / all tex buckets (upstream jak2 exact names/ids).
+  const std::pair<BucketId, const char*> lcom_tex[] = {
+      {BucketId::TEX_LCOM_TFRAG, "tex-lcom-tfrag"},
+      {BucketId::TEX_LCOM_SHRUB, "tex-lcom-shrub"},
+      {BucketId::TEX_LCOM_PRIS, "tex-lcom-pris"},
+      {BucketId::TEX_LCOM_WATER, "tex-lcom-water"},
+      {BucketId::TEX_LCOM_SKY_POST, "tex-lcom-sky-post"},
+      {BucketId::TEX_ALL_SPRITE, "tex-all-sprite"},
+      {BucketId::TEX_ALL_WARP, "tex-all-warp"},
+  };
+  for (auto& [id, name] : lcom_tex) {
+    set_renderer(std::make_unique<TextureUploadHandler>(name, (int)id, no_animator), id, true);
+  }
+  // These three upstream pass add_direct=true (DEBUG_NO_ZBUF1, TEX_ALL_MAP,
+  // SUBTITLE are texture-upload buckets that also carry direct GIF data).
+  const std::pair<BucketId, const char*> lcom_tex_direct[] = {
+      {BucketId::DEBUG_NO_ZBUF1, "debug-no-zbuf1"},
+      {BucketId::TEX_ALL_MAP, "tex-all-map"},
+      {BucketId::SUBTITLE, "subtitle"},
+  };
+  for (auto& [id, name] : lcom_tex_direct) {
+    set_renderer(std::make_unique<TextureUploadHandler>(name, (int)id, no_animator, true), id, true);
+  }
+  int tex_count = 1 + LEVEL_MAX * 6 + (int)(sizeof(lcom_tex) / sizeof(lcom_tex[0])) +
+                  (int)(sizeof(lcom_tex_direct) / sizeof(lcom_tex_direct[0]));
+
+  // --- DirectRenderer: the jak2 buckets upstream backs with DirectRenderer,
+  // same names/ids/batch sizes. SKY_DRAW is DirectRenderer on jak2 (not
+  // SkyRenderer), so mirror that. ---
+  const struct {
+    BucketId id;
+    const char* name;
+    int batch;
+  } direct_regs[] = {
+      {BucketId::SKY_DRAW, "sky-draw", 1024},
+      {BucketId::SCREEN_FILTER, "screen-filter", 256},
+      {BucketId::DEBUG2, "debug2", 0x8000},
+      {BucketId::DEBUG_NO_ZBUF2, "debug-no-zbuf2", 0x8000},
+      {BucketId::DEBUG3, "debug3", 0x2000},
+  };
+  for (auto& d : direct_regs) {
+    set_renderer(std::make_unique<DirectRenderer>(d.name, (int)d.id, d.batch), d.id, true);
+  }
+  int direct_count = (int)(sizeof(direct_regs) / sizeof(direct_regs[0]));
+
+  // Everything else: SkipRenderer. Its render() walks read_and_advance until
+  // render_state->next_bucket, consuming the segment and keeping the dispatch
+  // in sync regardless of the bucket's content — the same consume-the-segment
+  // mechanism the jak1 android skip path uses. Buckets upstream jak2 renders
+  // with classes not compiled into the Android build (VisDataHandler @ bucket
+  // 0, BlitDisplays, TFragment/Tie3/Merc2/Generic2/Shrub/Sprite3/Ocean/Shadow2/
+  // Warp/Progress) fall here this round; the dispatch logs each ONE the first
+  // time it carries data.
+  int skip_count = 0;
+  for (size_t i = 0; i < m_bucket_renderers.size(); i++) {
+    if (!m_bucket_renderers[i]) {
+      m_bucket_renderers[i] =
+          std::make_unique<SkipRenderer>(fmt::format("skip-bucket-{}", i), (int)i);
+      m_bucket_ported[i] = false;  // counts as a skip in the stats/logs
+      skip_count++;
+    }
+    m_bucket_renderers[i]->init_shaders(m_render_state.shaders);
+    m_bucket_renderers[i]->init_textures(*m_render_state.texture_pool, GameVersion::Jak2);
+  }
+
+  lg::info(
+      "A35-RENDER jak2 bucket table ready: {} buckets, tex={} direct={} skip={} (unported classes "
+      "SkipRenderer'd)",
+      m_bucket_renderers.size(), tex_count, direct_count, skip_count);
 }
 
 u32 AndroidOpenGLRenderer::count_chain_bytes(DmaFollower dma) {
@@ -454,9 +596,13 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
 
   {
     auto prof = m_profiler.root()->make_scoped_child("buckets");
-    m_render_state.version = GameVersion::Jak1;
+    m_render_state.version = g_game_version;
     m_render_state.frame_idx++;
-    dispatch_buckets_jak1(dma, prof);
+    if (g_game_version == GameVersion::Jak2) {
+      dispatch_buckets_jak2(dma, prof);
+    } else {
+      dispatch_buckets_jak1(dma, prof);
+    }
     m_stats.buckets_cpu_s = prof.get_elapsed_time();
   }
 
@@ -827,6 +973,103 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     m_render_state.next_bucket += 16;
     vif_interrupt_callback(bucket_id);
   }
+}
+
+void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfilerNode& prof) {
+  // Desktop dispatch_buckets_jak2 parity: UNLIKE jak1, the jak2 chain has NO
+  // initial default-regs CALL. Bucket 0 starts at the chain's current offset
+  // (0), so buckets_base = current offset, next_bucket = base + 16, and the
+  // dispatch drops straight into the per-bucket loop. bucket_for_vis_copy =
+  // BUCKET_2, num_vis_to_copy = jak2::LEVEL_MAX (matches OpenGLRenderer.cpp).
+  m_render_state.buckets_base = dma.current_tag_offset();
+  m_render_state.next_bucket = m_render_state.buckets_base + 16;
+  m_render_state.bucket_for_vis_copy = (int)jak2::BucketId::BUCKET_2;
+  m_render_state.num_vis_to_copy = jak2::LEVEL_MAX;
+
+  for (size_t bucket_id = 0; bucket_id < m_bucket_renderers.size(); bucket_id++) {
+    auto& renderer = m_bucket_renderers[bucket_id];
+    auto bucket_prof = prof.make_scoped_child(renderer->name_and_id());
+
+    const bool had_data = bucket_has_data(dma, m_render_state.next_bucket);
+    if (had_data) {
+      m_stats.buckets_with_data++;
+      if (m_bucket_ported[bucket_id]) {
+        m_stats.buckets_drawn++;
+      } else {
+        m_stats.buckets_skipped++;
+        if (!m_skip_logged[bucket_id]) {
+          m_skip_logged[bucket_id] = true;
+          __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                              "A35-RENDER jak2 skip bucket=%s id=%zu (not ported)",
+                              renderer->name().c_str(), bucket_id);
+        }
+      }
+    }
+
+    // Same structural pre-validation as the jak1 android dispatcher: a bucket
+    // whose tag stream doesn't land exactly on next_bucket would trap the GL
+    // thread in a renderer's tag loop. Named, counted, skipped, and the
+    // follower re-seated on the bucket boundary.
+    bool bucket_stream_ok = true;
+    {
+      DmaFollower probe = dma;
+      constexpr int kCap = 200000;
+      int steps = 0;
+      while (probe.current_tag_offset() != m_render_state.next_bucket && !probe.ended() &&
+             steps < kCap) {
+        probe.read_and_advance();
+        steps++;
+      }
+      if (probe.current_tag_offset() != m_render_state.next_bucket) {
+        bucket_stream_ok = false;
+        static int s_malformed_logged = 0;
+        if (s_malformed_logged < 40) {
+          s_malformed_logged++;
+          __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                              "A37-BUCKET-MALFORMED jak2 bucket=%s id=%zu steps=%d stuck@0x%x "
+                              "(ended=%d) next=0x%x — skipping bucket",
+                              renderer->name().c_str(), bucket_id, steps,
+                              probe.current_tag_offset(), (int)probe.ended(),
+                              m_render_state.next_bucket);
+        }
+      }
+    }
+    if (!bucket_stream_ok) {
+      m_stats.buckets_skipped++;
+      dma = DmaFollower(dma.base(), m_render_state.next_bucket);
+      m_render_state.next_bucket += 16;
+      vif_interrupt_callback(bucket_id + 1);
+      continue;
+    }
+
+    static void* s_glad_canary = (void*)glad_glClearDepthf;
+    {
+      extern char gk_f1a_current_bucket[64];
+      snprintf(gk_f1a_current_bucket, sizeof(gk_f1a_current_bucket), "%s id=%zu",
+               renderer->name().c_str(), bucket_id);
+    }
+    renderer->render(dma, &m_render_state, bucket_prof);
+    {
+      extern char gk_f1a_current_bucket[64];
+      gk_f1a_current_bucket[0] = 0;
+    }
+    if ((void*)glad_glClearDepthf != s_glad_canary) {
+      __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                          "A36-CANARY glad_glClearDepthf changed %p -> %p after jak2 bucket=%s "
+                          "id=%zu (host memory smashed by this bucket's render)",
+                          s_glad_canary, (void*)glad_glClearDepthf, renderer->name().c_str(),
+                          bucket_id);
+      s_glad_canary = (void*)glad_glClearDepthf;
+    }
+
+    // Desktop jak2 asserts the follower ended exactly at next_bucket, then
+    // advances. vif_interrupt_callback is called with bucket_id + 1 on jak2
+    // (jak1 android uses bucket_id — match each game's own convention).
+    ASSERT(dma.current_tag_offset() == m_render_state.next_bucket);
+    m_render_state.next_bucket += 16;
+    vif_interrupt_callback(bucket_id + 1);
+  }
+  vif_interrupt_callback(m_bucket_renderers.size());
 }
 
 void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,

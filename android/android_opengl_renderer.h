@@ -86,8 +86,10 @@ class AndroidOpenGLRenderer {
 
  private:
   void init_bucket_renderers_jak1();
+  void init_bucket_renderers_jak2();
   void setup_frame(const AndroidRenderOptions& settings);
   void dispatch_buckets_jak1(DmaFollower dma, ScopedProfilerNode& prof);
+  void dispatch_buckets_jak2(DmaFollower dma, ScopedProfilerNode& prof);
   void do_pcrtc_effects(float alp, SharedRenderState* render_state, ScopedProfilerNode& prof);
   u32 count_chain_bytes(DmaFollower dma);
   // Grender-split: composite the scaled 3D scene FBO into the native-resolution UI
