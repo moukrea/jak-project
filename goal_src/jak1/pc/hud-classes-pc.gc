@@ -15,17 +15,17 @@
 
 ;; VRAM slots where the PC runtime loads the recharged hud sprites (recharged_assets/*.png).
 ;; Must match kBaseSlot/kNames in game/graphics/opengl_renderer/RechargedHudTextures.cpp.
-(defconstant RHUD_TBP_HEART_100 7900)
-(defconstant RHUD_TBP_HEART_66 7901)
-(defconstant RHUD_TBP_HEART_33 7902)
-(defconstant RHUD_TBP_HEART_0 7903)
-(defconstant RHUD_TBP_GAUGE_EMPTY 7904)
-(defconstant RHUD_TBP_GAUGE_BLUE_FULL 7905)
-(defconstant RHUD_TBP_GAUGE_RED_FULL 7906)
-(defconstant RHUD_TBP_GAUGE_YELLOW_FULL 7907)
-(defconstant RHUD_TBP_GAUGE_BLUE_END 7908)
-(defconstant RHUD_TBP_GAUGE_RED_END 7909)
-(defconstant RHUD_TBP_GAUGE_YELLOW_END 7910)
+(defconstant RHUD_TBP_HEART_100 8300)
+(defconstant RHUD_TBP_HEART_66 8301)
+(defconstant RHUD_TBP_HEART_33 8302)
+(defconstant RHUD_TBP_HEART_0 8303)
+(defconstant RHUD_TBP_GAUGE_EMPTY 8304)
+(defconstant RHUD_TBP_GAUGE_BLUE_FULL 8305)
+(defconstant RHUD_TBP_GAUGE_RED_FULL 8306)
+(defconstant RHUD_TBP_GAUGE_YELLOW_FULL 8307)
+(defconstant RHUD_TBP_GAUGE_BLUE_END 8308)
+(defconstant RHUD_TBP_GAUGE_RED_END 8309)
+(defconstant RHUD_TBP_GAUGE_YELLOW_END 8310)
 
 ;; tex0 bits shared by all recharged hud textures: tbw=20, psm=ct32, tw=th=10, tcc=rgba, tfx=modulate.
 ;; (the pc direct renderer only reads tbp0/tcc/tfx and looks the texture up in the pool by tbp)
@@ -539,10 +539,14 @@
     (set! (-> data 2) 128)
     (set! (-> data 3) aa))
   (let ((data (the-as (pointer uint32) (&+ (-> buf base) 32))))
-    ;; xyzf2 (12.4 fixed point, z in bits 4-27 of the upper qword half)
+    ;; xyzf2 (12.4 fixed point, z in bits 4-27 of the upper qword half).
+    ;; direct-path 2d window per the direct vertex shader (jak1 HEIGHT_SCALE=1,
+    ;; SCISSOR_ADJUST=512/448): full screen = x_gs 1792..2304 (512-unit canvas,
+    ;; fills the window width), y_gs 1936..2160 (224 units, so 448-canvas y halves).
     (set! (-> data 0) (the-as uint (the int (* 16.0 (+ 1792.0 px)))))
-    (set! (-> data 1) (the-as uint (the int (* 16.0 (+ 1824.0 py)))))
-    (set! (-> data 2) (the-as uint (ash #x3fffff 4)))
+    (set! (-> data 1) (the-as uint (the int (* 16.0 (+ 1936.0 (* 0.5 py))))))
+    ;; near-plane z for the 24-bit zbuffer, same as the font renderer (draws over the scene)
+    (set! (-> data 2) (the-as uint (ash #xfffffe 4)))
     (set! (-> data 3) (the-as uint 0)))
   (&+! (-> buf base) 48)
   (none))
@@ -603,8 +607,14 @@
   (none))
 
 (defun rhud-aspect-fx ()
-  "x-aspect factor that makes a square texture canvas render square on screen."
-  (if (= (get-aspect-ratio) 'aspect16x9) 0.643 0.857))
+  "x-aspect factor that keeps a square texture canvas square on screen, computed
+   from the real window size (the 512x448 2d canvas stretches to fill the window,
+   so squares need width = height * (512/448) * (window-h/window-w))."
+  (let ((w (the float (-> *pc-settings* framebuffer-width)))
+        (h (the float (-> *pc-settings* framebuffer-height))))
+    (if (> w 0.0)
+      (/ (* 1.142857 h) w)
+      0.857)))
 
 ;;;----------------------------------------------
 ;;  stock hud suppression / icon upgrades
@@ -630,6 +640,11 @@
           (set! (-> obj icons 0 icon) new-manipy)
           (set! (-> obj icons 0 scale-x) icon-scale)
           (set! (-> obj icons 0 scale-y) icon-scale)
+          ;; the element's hide/show child events already fired, so mirror the
+          ;; current visibility onto the fresh manipy and place it at its slot
+          ;; (otherwise it draws parked at the origin until the next transition)
+          (send-event (ppointer->process new-manipy) 'draw (not (hidden? obj)))
+          (draw-icons obj)
           #t)))))
 
 (defun rhud-add-buzzer-icon ((this hud-recharged-health))
@@ -646,7 +661,16 @@
                             :y 380
                             :z 1024.0
                             :scale-x 0.008
-                            :scale-y -0.008))
+                            :scale-y -0.008)
+          (let ((icon (-> obj icons 0 icon)))
+            (when (and (nonzero? icon) icon)
+              ;; face the camera (the model's rest pose looks away) and follow
+              ;; the element's current visibility instead of parking at origin
+              (send-event (ppointer->process icon)
+                          'rot-quat
+                          (quaternion-axis-angle! (new-stack-quaternion0) 0.0 1.0 0.0 (degrees 180)))
+              (send-event (ppointer->process icon) 'draw (not (hidden? obj)))
+              (draw-icons obj))))
         ;; skip-particle 0 stops draw-hud from spawning the flat buzzer sprite
         (set! (-> obj skip-particle) 0))
       (set! (-> this buzz-proc) (the-as process (ppointer->process bz)))))

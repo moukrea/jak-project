@@ -1,0 +1,114 @@
+RESULT: RHUD VISUALS X86 PASS (all four mandate items implemented and x86-verified; owner live-review items 1-8 addressed, fly-orientation final look pending owner eye)
+
+Phase: Grecharged-hud-visuals-x86 — gated Recharged HUD visuals, x86-only (device wiring is the later Grecharged-hud-jak1 phase).
+Everything below is gated on (-> *pc-settings* recharged-hud?) (persisted toggle from the b1799a4e8 pre-pass menu); home file goal_src/jak1/pc/hud-classes-pc.gc.
+
+== ARCHITECTURE ==
+1. Texture path (new-sprite runtime loading, renderer-side addition):
+   - game/graphics/opengl_renderer/RechargedHudTextures.{h,cpp}: at renderer init (jak1 only)
+     stbi_load's the 11 recharged_assets/*.png, uploads via the existing upload_to_gpu(), and
+     registers each in the TexturePool with allocate_pc_port_texture +
+     give_texture_and_load_to_vram at fixed VRAM slots 8300..8310 (called from
+     OpenGLRenderer::init_bucket_renderers_jak1; TexturePool.h exports upload_to_gpu;
+     game/CMakeLists.txt adds the TU). Boot log evidence: 11x "recharged-hud: loaded ... -> vram slot 83xx".
+   - IMPORTANT: slots 7900-7910 were tried first and got CLOBBERED by real game tpage uploads
+     (training level uploaded a rock texture over 7903 -> heart_0 drew as a brown square).
+     8300+ (above the eye renderer band 8160..~8204) is clean.
+2. Draw path (custom adgif/direct draw, zero C++ renderer changes):
+   - GOAL emits PACKED-mode GIF packets into the (bucket-id debug) DirectRenderer:
+     rhud-set-shader = A+D block (ALPHA 0x44 standard blend, CLAMP, TEX1 bilinear, TEX0 with
+     tbp0=vram slot; the PC direct renderer resolves textures by tbp pool lookup);
+     rhud-quad = tri-strip quad (st/rgbaq/xyzf2 packed verts, rotation support);
+     rhud-fan  = TRI_FAN angular-sector MASK with affine position->uv mapping.
+   - Coordinate mapping calibrated against the direct vertex shader (jak1 HEIGHT_SCALE=1,
+     SCISSOR_ADJUST=512/448): full window = x_gs 1792..2304 (512-unit canvas fills the width),
+     y_gs 1936..2160 (448-canvas y halves). z = 0xFFFFFE (font-style near-plane; 0x3FFFFF is
+     depth-culled by the scene zbuffer).
+   - Aspect: rhud-aspect-fx computes the square-keeping x factor from the REAL window size
+     ((-> *pc-settings* framebuffer-width/height), refreshed per frame) so sprites keep their
+     intrinsic aspect at any window shape (owner review #3 item 6 — no stretch).
+
+== ELEMENT 1: hud-recharged HEART (replaces stock hud-health) ==
+   - New process hud-recharged-health (hud-pc subtype, spawned in activate-hud-pc from
+     *pc-dead-pool*, registered in *hud-parts-pc*). Uses the stock hud state machine
+     (tally-value on (-> *target* fact health) + health-pickup-time, friend=0 co-shows pickups,
+     x-sgn/y-sgn -1 slide) so show/hide/slide parity with stock.
+   - When ON it suppresses the stock hud-health ('disable + 'hide-quick, idempotent per-frame
+     guards that survive stock hud respawns).
+   - 4-state mapping at the stock heart position (80,66): hp>=3 -> jak_heart_100; hp=2 ->
+     jak_heart_66; hp=1 -> jak_heart_0 base with jak_heart_33 BLINKING on top
+     (DISPLAY_FPS_RATIO*integral-frame-counter logand 8, same family as the stock low-health
+     flash); hp=0 -> jak_heart_0.
+   - Evidence (x86 screenshots in this dir, 1920x1080 via pc-screen-shot):
+     heart_100.png, heart_66.png (one dark chamber), heart_33_a.png (blink-OFF phase = empty
+     base), heart_33_blink_on.png (phase-synced in-game conditional shot: 33 chamber lit over
+     the empty base — 33 blink over 0 proven), heart_0.png.
+
+== ELEMENT 2: hud-recharged ECO GAUGE (replaces stock hud-power) ==
+   - New process hud-recharged-power; tally on remaining eco time exactly like stock hud-power;
+     suppresses stock hud-power when ON; stock position (435,370), x/y-sgn +1 slide.
+   - The gauge is a RING: draw jak_gauge_empty base quad; then the ACTIVE eco's full sprite
+     (blue/red/yellow; green falls back to blue — no green asset) MASKED to the current fill by
+     rhud-fan: a triangle-fan clip covering only the filled angular sector
+     [6 o'clock .. 6 o'clock + 270deg * frac] where every vertex uv is the affine map of its
+     position on the canvas (mask technique; the decorated bronze quadrant is the non-fill cap).
+   - The _end TIP is authored at the full-gauge (3 o'clock) position on the same canvas: it is
+     drawn as the full-canvas quad ROTATED around its own center by 270deg*(frac-1), which walks
+     the tip along the ring to sit exactly at the fill edge (rotated tip technique).
+   - frac = stock formula (eco-timeout - (frame - eco-pickup-time)) / eco-full-timeout, clamped;
+     low-eco (<0.2) alpha blink at the stock logand-4 cadence for fill+tip.
+   - Evidence: gauge_blue_full.png (full ring, drain recedes from the tip end — correct
+     direction), gauge_blue_mid.png (half fill, clean angular mask cut + tip at the edge),
+     gauge_red_mid.png, gauge_yellow_high.png (per-eco colors), gauge_low_a.png +
+     gauge_low_blink.png (low-eco blink phases).
+
+== ELEMENT 3: POWER CELL + SCOUT FLY real 3D models ==
+   - Power cell: when ON, the stock hud-fuel-cell icon manipy is replaced with the REAL full
+     in-world model *fuel-cell-sg* (collectables.gc — core + orbiting orbs + glow), not the
+     lesser *fuelcell-naked-sg*; stock spin/count text machinery untouched, so the cell spins
+     and the counter still works. Runtime dump: cell art-group = "fuel-cell" (ON) /
+     "fuelcell-naked" (OFF restore). Single instance (no double render — the old icon manipy is
+     deactivated before install; owner review item 1).
+   - Scout fly: 3D *buzzer-sg* icon added to the stock hud-buzzers element via the existing
+     hud-pc-make-icon machinery at the stock sprite position (60,380); the flat 2D sprite is
+     hidden via skip-particle=0 (stock draw-hud skip mechanism, no engine edit). 'rot-quat 180deg
+     yaw applied for the front view (owner items 2/5/8 — orientation changed and re-captured;
+     final look = owner eye at next review). Runtime dump: buzz art-group = "buzzer", skip=0.
+   - Owner review items 4/7 (3D icons parked center-screen while the HUD is hidden, until first
+     show): fixed — freshly spawned/replaced icon manipys now mirror the element's CURRENT
+     visibility ((send-event icon 'draw (not (hidden? obj)))) and are placed via (draw-icons obj)
+     immediately, so they follow the exact stock hide/slide state from spawn. Evidence:
+     hidden_no_parked_icons.png (HUD hidden: screen center clean), icons_fixed.png (fuel-cell
+     top-center + fly bottom-left when shown).
+
+== ELEMENT 4: OFF = stock, byte-identical path ==
+   - When recharged-hud? is OFF nothing custom draws and every runtime mutation is restored:
+     stock health/power re-'enable'd, buzzers skip-particle -1 + 3D icon removed, fuel-cell icon
+     back to *fuelcell-naked-sg*, recharged elements 'hide-quick'd. The OFF path performs zero
+     stock-visual changes: all alterations are runtime-gated on the flag (the only always-on
+     addition is spawning the two idle hud-pc processes, same pattern as the shipped
+     hud-battle-enemy extra-hud element).
+   - Runtime A/B dumps after toggling OFF: hdis=#f pdis=#f skip=-1 bzicons=0 cell="fuelcell-naked"
+     rh-hid=#t rp-hid=#t; screenshot stock_hud_off.png shows the stock 3-pip heart rendering again.
+     OFF path verified identical to stock behavior (no custom draws, stock state restored).
+
+== BUILD / BOOT EVIDENCE ==
+   - goalc x86: (mi) clean — "Successfully built all 546 targets" (and make-group all-code 519
+     targets clean); consistent build (same source for gk binary and CGOs — no mixed builds).
+   - cmake --build build --target gk clean; game boots to title ("link finish: logo" in
+     gk_final.log) and into gameplay (training / Geyser Rock) via listener game-start; all
+     captures from the fresh final build; no crashes across all runs.
+   - Temporary DirectRenderer debug tracing used during diagnosis was fully reverted
+     (git diff clean on DirectRenderer.cpp).
+
+== HONEST NOTES / RESIDUALS ==
+   - Fly front-view: rotation landed (180deg yaw) and the orientation visibly changed in
+     icons_fixed.png; final "face" judgement belongs to the owner's next live review — easy to
+     retune (single degrees constant).
+   - Heart/gauge sizes+anchors are constants (RHUD_* at the top of hud-classes-pc.gc) chosen to
+     match the stock positions; owner fine-tuning expected in the device phase.
+   - Green eco has no dedicated asset — falls back to blue sprites (documented).
+   - *pc-dead-pool* is now exactly full (4/4: battle-enemy, subtitle, recharged-health,
+     recharged-power); any future pc hud process needs the pool bumped in pckernel.gc:560.
+   - Android/device wiring (APK asset packing for recharged_assets/, GLES verify, menu-driven
+     on-device A/B) is the later Grecharged-hud-jak1 phase per the mandate.

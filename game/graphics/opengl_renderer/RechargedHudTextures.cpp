@@ -5,7 +5,7 @@
 
 #include "third-party/stb_image/stb_image.h"
 
-// Names in slot order, base slot 7900, +1 each.
+// Names in slot order, base slot 8300, +1 each.
 static const char* kRechargedHudNames[] = {
     "jak_heart_100",         "jak_heart_66",        "jak_heart_33",
     "jak_heart_0",           "jak_gauge_empty",     "jak_gauge_blue_full",
@@ -21,7 +21,7 @@ void load_recharged_hud_textures(TexturePool& pool, GameVersion version) {
   auto dir = file_util::get_jak_project_dir() / "recharged_assets";
 
   for (int i = 0; i < (int)(sizeof(kRechargedHudNames) / sizeof(kRechargedHudNames[0])); i++) {
-    const int slot = 7900 + i;
+    const int slot = 8300 + i;
     std::string name = kRechargedHudNames[i];
     auto path = dir / (name + ".png");
 
