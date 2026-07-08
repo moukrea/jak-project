@@ -705,7 +705,18 @@
   (let ((fc (-> *hud-parts* fuel-cell)))
     (when (and fc (!= (ppointer->process fc) (-> this cell-proc)))
       (if (rhud-set-cell-icon *fuel-cell-sg* RHUD_CELL_SCALE)
-        (set! (-> this cell-proc) (the-as process (ppointer->process fc))))))
+        (set! (-> this cell-proc) (the-as process (ppointer->process fc)))))
+    ;; the stock element also draws a FLAT power-cell sprite group (part 318 +
+    ;; flares/orbit dots) under the 3d icon; the real model brings its own
+    ;; detail, so skip the whole group while the recharged hud is ON
+    ;; (skip-particle 0 = don't spawn particle 0, the group's only slot)
+    (if fc (set! (-> fc 0 skip-particle) 0)))
+  ;; the precursor-orb hud draws a flat hud-egg sprite (the glow) behind the
+  ;; spinning 3d orb; owner wants it gone while the recharged hud is ON
+  (let ((m (-> *hud-parts* money)))
+    (if m (set! (-> m 0 skip-particle) 0)))
+  (let ((ma (-> *hud-parts* money-all)))
+    (if ma (set! (-> ma 0 skip-particle) 0)))
   (let ((bz (-> *hud-parts* buzzers)))
     (when (and bz
                (or (!= (ppointer->process bz) (-> this buzz-proc)) (zero? (-> (the-as hud (-> bz 0)) nb-of-icons))))
@@ -723,6 +734,14 @@
       (if (and fc (= (ppointer->process fc) (-> this cell-proc)))
         (rhud-set-cell-icon *fuelcell-naked-sg* 0.009)))
     (set! (-> this cell-proc) #f))
+  ;; restore the stock flat-sprite layers (fuel-cell's stock value is -2, the
+  ;; "hud-update drives particle pos" mode; money's is the default -1)
+  (let ((fc (-> *hud-parts* fuel-cell)))
+    (if fc (set! (-> fc 0 skip-particle) -2)))
+  (let ((m (-> *hud-parts* money)))
+    (if m (set! (-> m 0 skip-particle) -1)))
+  (let ((ma (-> *hud-parts* money-all)))
+    (if ma (set! (-> ma 0 skip-particle) -1)))
   (if (-> this buzz-proc) (rhud-remove-buzzer-icon this))
   (none))
 
@@ -743,6 +762,7 @@
 (defmethod hud-update ((this hud-recharged-health))
   (cond
     ((not (-> *pc-settings* recharged-hud?))
+     (set! (-> this force-on-screen) #f)
      (when (-> this active-flag)
        (set! (-> this active-flag) #f)
        (rhud-restore-stock this)
@@ -750,6 +770,16 @@
     (else
      (set! (-> this active-flag) #t)
      (rhud-suppress-stock this)
+     ;; owner visibility rule: the heart is PINNED on screen only while health
+     ;; sits at the last notch (force-on-screen re-stamps trigger-time every
+     ;; frame, the same pin the racer hud uses); everywhere else it follows the
+     ;; stock show-on-change / 2s-timeout machinery in tally-value.
+     (let ((pin (and *target* (= (the int (-> *target* fact health)) 1))))
+       (set! (-> this force-on-screen) pin)
+       ;; while pinned, tally-value fires every frame: mute the friend co-show
+       ;; (it would park the pickups counter on screen); stock co-show behavior
+       ;; is kept for the ordinary change-triggered shows.
+       (set! (-> this friend) (if pin -1 0)))
      (if *target*
        (tally-value this (the int (-> *target* fact health)) (the-as int (-> *target* fact health-pickup-time))))))
   0

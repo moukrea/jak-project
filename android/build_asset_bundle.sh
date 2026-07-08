@@ -69,7 +69,10 @@ GAME="${1:-jak1}"
 # RENDERER' toggle (goal_src/jak1/pc/progress-pc.gc + pckernel-*.gc). Devices
 # holding v10 must re-decompress the fresh menu+settings CGOs so the toggle
 # appears and persists; paired with the matching HEAD libgk.so (consistent set).
-VERSION="${BUNDLE_VERSION:-11}"
+# Bumped 11 -> 12 (autoport 2026-07-08, Grecharged-hud): the bundle now ships the
+# recharged HUD sprite PNGs under recharged_assets/*; devices holding v11 must
+# re-unpack so the loader lands the sprites for the on-device HUD texture pool.
+VERSION="${BUNDLE_VERSION:-12}"
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -128,7 +131,13 @@ else
   N_ISO=$(find "$ISO_BUILD" -maxdepth 1 -type f | wc -l | tr -d ' ')
 fi
 N_FR3=$(find "$FR3_BUILD" -maxdepth 1 -type f -name '*.fr3' | wc -l | tr -d ' ')
-WANT_FC=$((N_ISO + N_FR3))
+# Grecharged-hud: the recharged HUD sprite PNGs are bundled for jak1 only. Count
+# them from disk (like N_ISO/N_FR3) so the HARD completeness gate below stays exact.
+N_RHUD_EXPECTED=0
+if [ "$GAME" = "jak1" ]; then
+  N_RHUD_EXPECTED=$(find "$ROOT/recharged_assets" -maxdepth 1 -type f -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
+fi
+WANT_FC=$((N_ISO + N_FR3 + N_RHUD_EXPECTED))
 
 mkdir -p "$OUT_DIR"
 
@@ -192,12 +201,30 @@ while IFS= read -r f; do
   ln -s "$ROOT/$f" "$STAGE/fr3/$(basename "$f")"
 done < <(find "$FR3_BUILD" -maxdepth 1 -type f -name '*.fr3')
 
+# 3b. Recharged HUD sprites (jak1): land verbatim under filesDir/recharged_assets/
+#     (Grecharged-hud). LoaderActivity maps recharged_assets/* alongside iso_data/fr3.
+N_RHUD=0
+if [ "$GAME" = "jak1" ]; then
+  mkdir -p "$STAGE/recharged_assets"
+  for png in "$ROOT"/recharged_assets/*.png; do
+    [ -e "$png" ] || continue
+    ln -s "$png" "$STAGE/recharged_assets/$(basename "$png")"
+    N_RHUD=$((N_RHUD + 1))
+  done
+fi
+
 # --- HARD completeness + consistency gates (the false-green guard) ---
 got_iso=$(find -L "$STAGE/iso_data/$GAME" -type f | wc -l | tr -d ' ')
 got_fr3=$(find -L "$STAGE/fr3" -type f | wc -l | tr -d ' ')
 [ "$got_iso" -eq "$N_ISO" ] || fail "iso incomplete: staged $got_iso != full $N_ISO"
 [ "$got_fr3" -eq "$N_FR3" ] || fail "fr3 incomplete: staged $got_fr3 != full $N_FR3 (slim regression?)"
 [ "$got_fr3" -ge 26 ]       || fail "fr3 looks slim ($got_fr3 < 26) — the bundle MUST ship the full fr3 set"
+# Grecharged-hud: staged recharged sprite count must match the on-disk expectation
+# (jak1 only; N_RHUD_EXPECTED is 0 for other games so this is a no-op there).
+if [ "$GAME" = "jak1" ]; then
+  got_rhud=$(find -L "$STAGE/recharged_assets" -type f 2>/dev/null | wc -l | tr -d ' ')
+  [ "$got_rhud" -eq "$N_RHUD_EXPECTED" ] || fail "recharged_assets incomplete: staged $got_rhud != expected $N_RHUD_EXPECTED"
+fi
 # arm64 consistency: KERNEL.CGO must == the arm64 build and must NOT == x86 oracle.
 k_arm=$(md5sum "$ARM64_CODE/KERNEL.CGO" | cut -d' ' -f1)
 k_x86=$(md5sum "$ISO_BUILD/KERNEL.CGO"  | cut -d' ' -f1)
@@ -219,7 +246,10 @@ rm -f "$ZIP_ABS"
 # content under the iso_data/<game>/* and fr3/* entry paths.
 (
   cd "$STAGE"
-  zip -r -6 -X -q "$ZIP_ABS" "iso_data/${GAME}" "fr3"
+  # Grecharged-hud: include recharged_assets/ in the zip when it was staged (jak1).
+  RHUD_ARG=()
+  [ -d "recharged_assets" ] && RHUD_ARG=("recharged_assets")
+  zip -r -6 -X -q "$ZIP_ABS" "iso_data/${GAME}" "fr3" "${RHUD_ARG[@]}"
 )
 
 ZIP_BYTES=$(stat -c %s "$ZIP_ABS")
