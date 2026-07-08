@@ -43,3 +43,19 @@ extraction+import pipeline, the conditional-build mechanism, toggle proof, ON/OF
 ## Locks: ANDROID_SERIAL=eae4df44 only; OFF==stock; .autoport/gold READ-ONLY; full consistent builds;
 verify mCurrentFocus=jak1 before trusting frames.
 ## Max: max_turns 3000, max_retries 6. device: true, owner_verify: true.
+
+## PRESTUDY RESULTS (2026-07-08, .autoport/reports/hd-models-prestudy.md — read it FIRST)
+Rig verdicts: ZERO direct fits (owner's skeleton doubt confirmed). jak1<-jak2 joint counts:
+Daxter 49<-62, Samos 78<-80 (or youngsamos 58), Keira 96<-95, Jak = jak1 count UNKNOWN (hero DGO
+not in the static dumps — GAP 1: resolve via decompiler `dump_joint_geo_info: true` on all objects
+or the hero art file). CRITICAL: the merc-replacement importer (merc_replacement.cpp +
+gltf_util.cpp:164) uses GLB joint indices RAW (no name remap) -> joint ORDER must match exactly;
+it never will cross-game.
+**RECOMMENDED PATH (use this): the weight-borrow fallback** — export each jak2 highres mesh WITHOUT
+a skin, drop as `<jak1-name>-lod0-mg.glb` (e.g. sidekick-lod0-mg.glb) into
+custom_assets/jak1/merc_replacements/; the importer re-skins to the JAK1 rig via find_closest()
+spatial proximity (merc_replacement.cpp:283) -> animates on jak1's skeleton, sidesteps joint-order
+entirely. Known artifact risk: far-from-surface parts (fingers/hair/mole) — inspect per character,
+honest per-character verdict stands. Jak + Daxter need `copy_eye_draws`/`copy_mod_draws` GLB extras
+or eyes/breakable meshes break. GAP 2: on-device validation — highres verts/bones may stress arm64
+merc/bone paths the port never hit; soak + the A34 forensics loop if it faults.
