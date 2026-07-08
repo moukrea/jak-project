@@ -252,5 +252,10 @@
   "1349": "<FLAG_GALICIA> Galego",
   "134a": "Pressure Sensitivity",
   "134b": "Swap R1 and R2",
-  "134c": "Trigger Effects"
+  "134c": "Trigger Effects",
+  "1360": "Dynamic Render Scale",
+  "1361": "Min Target FPS",
+  "1362": "Render Scale",
+  "1363": "Min Render Scale",
+  "1364": "Fit to Screen"
 }

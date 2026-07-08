@@ -718,6 +718,156 @@ This gives us more freedom to write code how we want.
       (static-progress-generic-pc-settings-on-off-boolean (text-id progress-hires-sky) (-> *pc-settings* hires-clouds?)))
     ))
 
+;; ---------------------------------------------------------------------------
+;; Gjak2-pcmenus: Android graphics page (jak1 PC options backport).
+;; A single fullscreen panel has no Display / Display Mode / Frame Rate choice,
+;; so those rows are omitted; the jak1 render-scale system (dynamic toggle +
+;; scale slider + min-target-fps) is added. Row order matters:
+;; graphic-options-pc-android-apply-mode! trims the trailing Min-Target-FPS row
+;; via the live menu-options length (nav + draw read it every frame).
+;; Text ids #x1360-#x1364 are pc-port additions compiled from
+;; game/assets/jak2/text/game_custom_text_*.json (ids above the engine enum max
+;; #x134c; the text tool takes raw hex ids, same as jak1's #x103a fit-to-screen).
+
+(define *min-target-fps-options-pc* (new 'static 'boxed-array :type int16 25 30 35 40 45 50 55 60))
+
+(define-extern *graphic-options-pc-android* menu-option-list)
+
+(defun graphic-options-pc-android-apply-mode! ()
+  "Reflect the dynamic-render-scale mode in the Android graphics page: the
+   slider row edits render-scale (dynamic OFF) or the min-render-scale floor
+   (dynamic ON, relabeled), and the Min Target FPS row only exists while the
+   controller is ON (live-length trim, jak1 Goptions-reorder style)."
+  (let ((page (the-as menu-generic-scrolling-page (-> *graphic-options-pc-android* options 0))))
+    (set! (-> (the-as menu-generic-option (-> page menu-options 3)) name)
+          (if (-> *pc-settings* dynamic-render-scale?)
+              (the-as text-id #x1363) ;; Min Render Scale
+              (the-as text-id #x1362) ;; Render Scale
+              ))
+    (set! (-> page menu-options length)
+          (if (-> *pc-settings* dynamic-render-scale?) 7 6))
+    )
+  (none))
+
+(define *graphic-options-pc-android*
+  (progress-new-generic-scrolling-page (text-id progress-root-graphic-options)
+    ;; 0: Window Size -> base game resolution picker ('resolutions submenu,
+    ;;    enumerated from the panel ladder via pc-get-num-resolutions/pc-get-resolution)
+    (new 'static 'menu-generic-to-resolutions-option
+      :name (text-id progress-window-size)
+      :on-confirm (lambda ((the-progress progress))
+        (push-and-set-state the-progress 'resolutions)))
+    ;; 1: Aspect Ratio — Fit to Screen first (window aspect drives everything,
+    ;;    scissor = full framebuffer: the update-from-os auto branch; no pillarbox)
+    (new 'static 'menu-generic-carousel-option
+      :name (text-id progress-aspect-ratio)
+      :items (new 'static 'boxed-array :type text-id
+        #x1364 ;; Fit to Screen
+        (text-id progress-aspect-ratio-4x3)
+        (text-id progress-aspect-ratio-16x9)
+        (text-id progress-aspect-ratio-custom))
+      :get-item-index-fn (lambda ()
+        (cond
+          ((not (-> *pc-settings* use-vis?))
+            (if (-> *pc-settings* aspect-ratio-auto?) 0 3))
+          (else
+            (case (get-aspect-ratio)
+              (('aspect16x9) 2)
+              (else 1)))))
+      :on-confirm (lambda ((index int) (the-progress progress))
+        (case index
+          ((0)
+            (set! (-> *setting-control* user-default aspect-ratio) 'aspect4x3)
+            (true! (-> *pc-settings* aspect-ratio-auto?))
+            (false! (-> *pc-settings* use-vis?)))
+          ((1)
+            (if (not (-> *pc-settings* use-vis?))
+                (false! (-> *setting-control* user-current aspect-ratio)))
+            (set! (-> *setting-control* user-default aspect-ratio) 'aspect4x3)
+            (true! (-> *pc-settings* use-vis?)))
+          ((2)
+            (if (not (-> *pc-settings* use-vis?))
+              (false! (-> *setting-control* user-current aspect-ratio)))
+            (set! (-> *setting-control* user-default aspect-ratio) 'aspect16x9)
+            (true! (-> *pc-settings* use-vis?)))
+          ((3)
+            (push-and-set-state the-progress 'aspect-ratio-custom)))
+        (pc-settings-save)))
+    ;; 2: Dynamic Render Scale toggle (jak1 Gdynamic-renderscale backport)
+    (new 'static 'menu-generic-boolean-option
+      :name #x1360 ;; Dynamic Render Scale
+      :truthy-text (text-id progress-on)
+      :falsey-text (text-id progress-off)
+      :get-value-fn (lambda () (-> *pc-settings* dynamic-render-scale?))
+      :on-confirm (lambda ((val symbol))
+        (set! (-> *pc-settings* dynamic-render-scale?) val)
+        (graphic-options-pc-android-apply-mode!)
+        (pc-settings-save)))
+    ;; 3: Render Scale % (dynamic OFF) / Min Render Scale floor % (dynamic ON);
+    ;;    the name is swapped live by apply-mode!
+    (new 'static 'menu-generic-slider-option
+      :name #x1363 ;; Min Render Scale (dynamic defaults ON)
+      :min-value 10.0
+      :max-value 100.0
+      :step 10.0
+      :show-decimal? #f
+      :get-value-fn (lambda ()
+        (if (-> *pc-settings* dynamic-render-scale?)
+            (-> *pc-settings* min-render-scale)
+            (-> *pc-settings* render-scale)))
+      :on-confirm (lambda ((val float))
+        (cond
+          ((-> *pc-settings* dynamic-render-scale?)
+            (set! (-> *pc-settings* min-render-scale) val))
+          (else
+            (set! (-> *pc-settings* render-scale) val)))
+        (pc-settings-save)))
+    ;; 4: V-Sync (same as the desktop row)
+    (new 'static 'menu-generic-boolean-option
+      :name (text-id progress-vsync)
+      :truthy-text (text-id progress-on)
+      :falsey-text (text-id progress-off)
+      :get-value-fn (lambda () (-> *pc-settings* vsync?))
+      :on-confirm (lambda ((val symbol))
+        (set! (-> *pc-settings* vsync?) val)
+        (pc-settings-save)))
+    ;; 5: PS2 sub-page — copied verbatim from *graphic-options-pc* above.
+    (progress-new-generic-link-to-scrolling-page (text-id progress-graphics-ps2)
+      (new 'static 'menu-generic-boolean-option
+        :name (text-id progress-lod-bg)
+        :truthy-text (text-id progress-lod-low)
+        :falsey-text (text-id progress-lod-high)
+        :get-value-fn (lambda () (> (-> *pc-settings* lod-force-tfrag) 0))
+        :on-confirm (lambda ((val symbol))
+          (cond
+            (val
+              (set! (-> *pc-settings* lod-force-tfrag) 2)
+              (set! (-> *pc-settings* lod-force-tie) 2))
+            (else
+              (set! (-> *pc-settings* lod-force-tfrag) 0)
+              (set! (-> *pc-settings* lod-force-tie) 0)))
+          (pc-settings-save)))
+      (static-progress-generic-pc-settings-lod-default-high-boolean (text-id progress-lod-fg) (-> *pc-settings* ps2-lod-dist?))
+      (static-progress-generic-pc-settings-on-off-boolean (text-id progress-ps2-parts) (-> *pc-settings* ps2-parts?))
+      (static-progress-generic-pc-settings-shadows-normal-extended-boolean (text-id progress-shadows) (-> *pc-settings* ps2-shadow?))
+      (static-progress-generic-pc-settings-on-off-boolean (text-id progress-hires-sky) (-> *pc-settings* hires-clouds?)))
+    ;; 6 (LAST — trimmed by apply-mode! while dynamic is OFF): Min Target FPS
+    (new 'static 'menu-generic-carousel-option
+      :name #x1361 ;; Min Target FPS
+      :get-item-index-fn (lambda ()
+        (let ((v (the int (-> *pc-settings* dyn-target-fps)))
+              (idx 0))
+          (dotimes (i (-> *min-target-fps-options-pc* length))
+            (if (= (-> *min-target-fps-options-pc* i) v) (set! idx i)))
+          idx))
+      :get-max-size-fn (lambda () (-> *min-target-fps-options-pc* length))
+      :get-item-label-fn (lambda ((index int))
+        (string-format "~D" (-> *min-target-fps-options-pc* index)))
+      :on-confirm (lambda ((index int) (the-progress progress))
+        (set! (-> *pc-settings* dyn-target-fps) (the float (-> *min-target-fps-options-pc* index)))
+        (pc-settings-save)))
+    ))
+
 (define *frame-rate-disclaimer-options*
   (new 'static 'menu-option-list
     :y-center 198

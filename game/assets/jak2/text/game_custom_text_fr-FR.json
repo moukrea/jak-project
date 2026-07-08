@@ -252,5 +252,10 @@
   "1349": "<FLAG_GALICIA> Galego",
   "134a": "Sensibilité à la pression.",
   "134b": "Inversez R1 et R2.",
-  "134c": "Déclencher des effets."
+  "134c": "Déclencher des effets.",
+  "1360": "Échelle de rendu dynamique",
+  "1361": "FPS cible min",
+  "1362": "Échelle de rendu",
+  "1363": "Échelle de rendu min",
+  "1364": "Adapter à l'écran"
 }

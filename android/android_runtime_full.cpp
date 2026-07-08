@@ -260,6 +260,11 @@ int InitMachine() {
     rc = jak2::InitMachine();
     __android_log_print(ANDROID_LOG_INFO, kLogTag,
                         "InitMachine: jak2::InitMachine returned %d", rc);
+    // Gjak2-pcmenus: the pc-* desktop-body clobber happens LATER than this
+    // point (InitHeapAndSymbol -> InitMachineScheme -> InitMachine_PCPort on
+    // the kernel-init pass — no symbol table even exists yet here). The a35
+    // Android-truth re-upgrade fires from g_jak2_post_machine_scheme_hook
+    // (game/kernel/jak2/kscheme.cpp), installed by a_install_jak2_pc_hook_once.
   } else {
     __android_log_print(ANDROID_LOG_INFO, kLogTag,
                         "InitMachine: delegating to jak1::InitMachine");

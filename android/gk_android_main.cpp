@@ -73,6 +73,7 @@
 // A10 next-blocker report).
 extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void);
 extern "C" void (*g_jak2_pre_kernel_version_check_hook)(void);
+extern "C" void (*g_jak2_post_machine_scheme_hook)(void);
 
 #include "common/util/Timer.h"
 
@@ -847,6 +848,32 @@ void a35_send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
   // Run the error-feedback game-clock tick here so the engine's per-frame
   // time-ratio tracks REAL wall-clock time (see a35_gfps_frame_tick).
   a35_gfps_frame_tick();
+  // Gjak2-pcmenus: jak2 counterpart of the jak1 g_overlay_in_menu publisher in
+  // a36_tree_scan_per_frame() (that one is g_syms.armed-gated => jak1-only, and
+  // jak2's `syncv` binds jak2::sceGsSyncV (kmachine.cpp:646) which never calls
+  // a36 — so on jak2 the atomic would stay false forever and menu taps would
+  // never be forwarded). __send-gfx-dma-chain is the jak2 once-per-frame
+  // GOAL-thread quiescent point (bound for jak2 at a17_bind_pc_helpers_jak2),
+  // so publish here instead. A navigable menu is up iff *progress-process* is
+  // non-#f — covers both the title options menu and the in-game pause menu
+  // (jak2 engine/ui/progress/progress.gc). jak2::intern_from_c is a hash lookup
+  // that only allocates when the symbol is MISSING (*progress-process* is
+  // interned by the game CGOs), guarded by SymbolTable2.offset != 0 (jak2 table
+  // live) — same idiom as the GK-DIAG LVLGRAPH probe (~line 6926). jak2 #f is
+  // the shared s7 (game/kernel/common/kscheme.h; jak2/kscheme.cpp uses the same
+  // s7). Read on this (GOAL) thread; the UI thread only reads the resulting
+  // atomic via NativeGk.isInMenu(), so no symbol-table race.
+  if (g_game_version == GameVersion::Jak2) {
+    if (g_ee_main_mem && SymbolTable2.offset != 0) {
+      auto pp = jak2::intern_from_c("*progress-process*");
+      bool in_menu = false;
+      if (pp.offset) {
+        const u32 v = pp->value();
+        in_menu = (v != 0 && v != (u32)s7.offset);
+      }
+      g_overlay_in_menu.store(in_menu, std::memory_order_release);
+    }
+  }
   auto* r = Gfx::GetCurrentRenderer();
   if (r) {
     r->send_chain(g_ee_main_mem, chain);
@@ -1356,21 +1383,28 @@ void a17_bind_pc_helpers_jak2() {
   jak2::make_function_symbol_from_c("__pc-texture-relocate", (void*)a35_pc_texture_relocate);
   // __pc-get-mips2c: NOT dummy-bound — stays on a11_pc_get_mips2c_impl (real jak2 mips2c table, Gjak2-render).
   // Display
+  // Gjak2-pcmenus: the Display-backed surface + touch + os/timestamp/rand below
+  // mirror the exact a35 Android-truth bodies the jak1 list binds (see
+  // a17_bind_pc_helpers, lines ~1166-1331). The desktop Display-backed bodies
+  // are wrong on Android (no desktop Display module; the A35 android_gfx renderer
+  // owns the window) — they yield 0 resolutions, wrong display-mode, os='linux,
+  // dead touch-tap stub. Every OTHER entry stays a17_pc_default (no-op) as before.
   jak2::make_function_symbol_from_c("pc-get-display-id", d);
   jak2::make_function_symbol_from_c("pc-set-display-id!", d);
   jak2::make_function_symbol_from_c("pc-get-display-name", d);
-  jak2::make_function_symbol_from_c("pc-get-display-mode", d);
+  jak2::make_function_symbol_from_c("pc-get-display-mode", (void*)a35_pc_get_display_mode);
   jak2::make_function_symbol_from_c("pc-set-display-mode!", d);
   jak2::make_function_symbol_from_c("pc-set-gfx-renderer!", d);
   jak2::make_function_symbol_from_c("pc-get-display-count", d);
-  jak2::make_function_symbol_from_c("pc-get-active-display-size", d);
-  jak2::make_function_symbol_from_c("pc-get-active-display-refresh-rate", d);
-  jak2::make_function_symbol_from_c("pc-get-window-size", d);
+  jak2::make_function_symbol_from_c("pc-get-active-display-size", (void*)a35_pc_get_size);
+  jak2::make_function_symbol_from_c("pc-get-active-display-refresh-rate",
+                                    (void*)a35_pc_get_active_display_refresh_rate);
+  jak2::make_function_symbol_from_c("pc-get-window-size", (void*)a35_pc_get_window_size);
   jak2::make_function_symbol_from_c("pc-get-window-scale", d);
-  jak2::make_function_symbol_from_c("pc-get-touch-tap", d);
+  jak2::make_function_symbol_from_c("pc-get-touch-tap", (void*)a35_pc_get_touch_tap);
   jak2::make_function_symbol_from_c("pc-set-window-size!", d);
-  jak2::make_function_symbol_from_c("pc-get-num-resolutions", d);
-  jak2::make_function_symbol_from_c("pc-get-resolution", d);
+  jak2::make_function_symbol_from_c("pc-get-num-resolutions", (void*)a35_pc_get_num_resolutions);
+  jak2::make_function_symbol_from_c("pc-get-resolution", (void*)a35_pc_get_resolution);
   jak2::make_function_symbol_from_c("pc-is-supported-resolution?", d);
   // Input
   jak2::make_function_symbol_from_c("pc-get-controller-name", d);
@@ -1404,13 +1438,13 @@ void a17_bind_pc_helpers_jak2() {
   jak2::make_function_symbol_from_c("pc-send-trigger-effect-vibrate!", d);
   jak2::make_function_symbol_from_c("pc-send-trigger-effect-weapon!", d);
   jak2::make_function_symbol_from_c("pc-send-trigger-rumble!", d);
-  // Graphics
-  jak2::make_function_symbol_from_c("pc-set-vsync", d);
+  // Graphics — Gjak2-pcmenus: a35 Android-truth bodies (mirror the jak1 list).
+  jak2::make_function_symbol_from_c("pc-set-vsync", (void*)a35_pc_set_vsync);
   jak2::make_function_symbol_from_c("pc-set-msaa", d);
-  jak2::make_function_symbol_from_c("pc-set-frame-rate", d);
-  jak2::make_function_symbol_from_c("pc-set-game-resolution", d);
+  jak2::make_function_symbol_from_c("pc-set-frame-rate", (void*)a35_pc_set_frame_rate);
+  jak2::make_function_symbol_from_c("pc-set-game-resolution", (void*)a35_pc_set_game_resolution);
   jak2::make_function_symbol_from_c("pc-set-brightness-contrast", d);
-  jak2::make_function_symbol_from_c("pc-set-letterbox", d);
+  jak2::make_function_symbol_from_c("pc-set-letterbox", (void*)a35_pc_set_letterbox);
   jak2::make_function_symbol_from_c("pc-renderer-tree-set-lod", d);
   jak2::make_function_symbol_from_c("pc-set-collision-mode", d);
   jak2::make_function_symbol_from_c("pc-set-collision-mask", d);
@@ -1418,15 +1452,15 @@ void a17_bind_pc_helpers_jak2() {
   jak2::make_function_symbol_from_c("pc-set-collision-wireframe", d);
   jak2::make_function_symbol_from_c("pc-set-collision", d);
   jak2::make_function_symbol_from_c("pc-set-gfx-hack", d);
-  jak2::make_function_symbol_from_c("pc-set-fps-counter", d);
-  jak2::make_function_symbol_from_c("pc-get-fps", d);
-  jak2::make_function_symbol_from_c("pc-get-frame-busy-us", d);
+  jak2::make_function_symbol_from_c("pc-set-fps-counter", (void*)a35_pc_set_fps_counter);
+  jak2::make_function_symbol_from_c("pc-get-fps", (void*)a35_pc_get_fps);
+  jak2::make_function_symbol_from_c("pc-get-frame-busy-us", (void*)a35_pc_get_frame_busy_us);
   // Common binds pc-camera-interp-alpha only #ifndef __ANDROID__; the
   // linux-arm64 qemu build is not Android, so include it here to match.
   jak2::make_function_symbol_from_c("pc-camera-interp-alpha", d);
-  // Other
-  jak2::make_function_symbol_from_c("pc-get-os", d);
-  jak2::make_function_symbol_from_c("pc-get-unix-timestamp", d);
+  // Other — Gjak2-pcmenus: a35 Android-truth bodies (mirror the jak1 list).
+  jak2::make_function_symbol_from_c("pc-get-os", (void*)a35_pc_get_os);
+  jak2::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
   jak2::make_function_symbol_from_c("pc-treat-pad0-as-pad1", d);
   jak2::make_function_symbol_from_c("pc-is-imgui-visible?", d);
   // File
@@ -1436,8 +1470,8 @@ void a17_bind_pc_helpers_jak2() {
   jak2::make_function_symbol_from_c("pc-discord-rpc-set", d);
   // Profiler
   jak2::make_function_symbol_from_c("pc-prof", d);
-  // RNG
-  jak2::make_function_symbol_from_c("pc-rand", d);
+  // RNG — Gjak2-pcmenus: a35 Android-truth body (mirror the jak1 list).
+  jak2::make_function_symbol_from_c("pc-rand", (void*)a35_pc_rand);
   // Text
   jak2::make_function_symbol_from_c("pc-encode-utf8-string", d);
   // Debug
@@ -1499,6 +1533,47 @@ void a17_bind_pc_helpers_jak2() {
                       "helper surface (common + jak2-specific) to a17_pc_default "
                       "no-op so pckernel/GAME.CGO top-levels don't SIGILL on "
                       "unbound pc-* symbols");
+}
+
+// Gjak2-pcmenus: jak2's real InitMachine_PCPort (game/kernel/jak2/kmachine.cpp
+// via init_common_pc_port_functions) runs on Android AFTER the a17 pass and
+// rebinds the whole pc-* surface to the DESKTOP bodies. The desktop filesystem /
+// string bodies are correct on Android and stay as-is, but the Display-backed
+// surface + touch + os are wrong on Android (no desktop Display module; the A35
+// android_gfx renderer owns the window) — desktop bodies there yield 0
+// resolutions, wrong display-mode, os='linux, dead touch-tap. Re-upgrade EXACTLY
+// the 17 names below to the a35 Android-truth bodies so the a35 set is the FINAL
+// binding state regardless of pass order. Same names/bodies as the jak1 list and
+// the a17 jak2 pass above. Called from android_runtime_full.cpp right after
+// jak2::InitMachine().
+void a35_upgrade_pc_helpers_jak2() {
+  if (SymbolTable2.offset == 0) return;
+  // Display
+  jak2::make_function_symbol_from_c("pc-get-display-mode", (void*)a35_pc_get_display_mode);
+  jak2::make_function_symbol_from_c("pc-get-active-display-size", (void*)a35_pc_get_size);
+  jak2::make_function_symbol_from_c("pc-get-active-display-refresh-rate",
+                                    (void*)a35_pc_get_active_display_refresh_rate);
+  jak2::make_function_symbol_from_c("pc-get-window-size", (void*)a35_pc_get_window_size);
+  jak2::make_function_symbol_from_c("pc-get-touch-tap", (void*)a35_pc_get_touch_tap);
+  jak2::make_function_symbol_from_c("pc-get-num-resolutions", (void*)a35_pc_get_num_resolutions);
+  jak2::make_function_symbol_from_c("pc-get-resolution", (void*)a35_pc_get_resolution);
+  // Graphics
+  jak2::make_function_symbol_from_c("pc-set-vsync", (void*)a35_pc_set_vsync);
+  jak2::make_function_symbol_from_c("pc-set-frame-rate", (void*)a35_pc_set_frame_rate);
+  jak2::make_function_symbol_from_c("pc-set-game-resolution", (void*)a35_pc_set_game_resolution);
+  jak2::make_function_symbol_from_c("pc-set-letterbox", (void*)a35_pc_set_letterbox);
+  jak2::make_function_symbol_from_c("pc-set-fps-counter", (void*)a35_pc_set_fps_counter);
+  jak2::make_function_symbol_from_c("pc-get-fps", (void*)a35_pc_get_fps);
+  jak2::make_function_symbol_from_c("pc-get-frame-busy-us", (void*)a35_pc_get_frame_busy_us);
+  // Other + RNG
+  jak2::make_function_symbol_from_c("pc-get-os", (void*)a35_pc_get_os);
+  jak2::make_function_symbol_from_c("pc-get-unix-timestamp", (void*)a35_pc_get_unix_timestamp);
+  jak2::make_function_symbol_from_c("pc-rand", (void*)a35_pc_rand);
+
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "Gjak2-pcmenus sym-bind-trace: re-upgraded 17 pc-* Display/"
+                      "touch/os helpers to the a35 Android-truth bodies after "
+                      "jak2 InitMachine_PCPort rebound them to desktop bodies");
 }
 
 // A11 sym-bind-trace: chain a __pc-get-mips2c binder onto the
@@ -1626,11 +1701,19 @@ void a_install_jak2_pc_hook_once() {
     // but pckernel needs them bound NOW, same as the harness.
     a17_bind_pc_helpers_jak2();
   };
+  // Gjak2-pcmenus: InitMachineScheme -> InitMachine_PCPort runs AFTER the
+  // pre-version-check hook above (same InitHeapAndSymbol pass) and rebinds the
+  // whole pc-* surface to the DESKTOP bodies. Its Display-backed subset is
+  // wrong on Android (no desktop Display module -> 0 resolutions, dead
+  // window-size, os='linux, dead touch-tap). Fire the a35 upgrade right after
+  // it so the android_gfx-truth bodies are the FINAL binding state; re-fires
+  // on every kernel re-init, which re-clobbers the same way.
+  g_jak2_post_machine_scheme_hook = []() { a35_upgrade_pc_helpers_jak2(); };
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "Gjak2-render: installed jak2 pc-* bind hook "
                       "(a11 mips2c + a14 mem-move + a17_bind_pc_helpers_jak2 — "
                       "pc-* surface RESTORED so pckernel top-level doesn't SIGILL; "
-                      "real jak2 InitMachine_PCPort rebinds later)");
+                      "Gjak2-pcmenus: + post-InitMachineScheme a35 re-upgrade hook)");
 }
 }  // namespace
 

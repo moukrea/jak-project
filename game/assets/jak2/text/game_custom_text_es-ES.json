@@ -252,5 +252,10 @@
   "1349": "<FLAG_GALICIA> Galego",
   "134a": "Sensibilidad a la presión",
   "134b": "Intercambiar R1 y R2",
-  "134c": "Efectos de Gatillos"
+  "134c": "Efectos de Gatillos",
+  "1360": "Dynamic Render Scale",
+  "1361": "Min Target FPS",
+  "1362": "Render Scale",
+  "1363": "Min Render Scale",
+  "1364": "Fit to Screen"
 }

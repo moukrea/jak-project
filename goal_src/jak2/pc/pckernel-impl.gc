@@ -99,6 +99,12 @@
    ;; gfx
    (smooth-minimap?   symbol)
    (hires-clouds?     symbol)
+   ;; Gjak2-pcmenus: #t once a settings file has been written by a build whose
+   ;; menu exposes the Dynamic Render Scale toggle. Files from older builds
+   ;; carry (dynamic-render-scale? #t) that the user never chose (the shared
+   ;; serializer always wrote it while the controller was gated off on jak2) —
+   ;; load-settings forces the toggle OFF once when this marker is absent.
+   (dyn-rs-menu-seen? symbol)
 
    ;; other
    (controller-led-status?    symbol)
@@ -140,6 +146,25 @@
 ;;;; resets
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+(defmethod reset-gfx ((obj pc-settings-jak2) (call-handlers symbol))
+  "jak2 gfx defaults: chain up, then keep the dynamic render-scale controller
+   OPT-IN (the shared default is #t for jak1 parity, but the controller is
+   device-unproven on jak2 — the Android menu toggle enables it)."
+  ((method-of-type pc-settings reset-gfx) obj call-handlers)
+  (false! (-> obj dynamic-render-scale?))
+  (false! (-> obj dyn-rs-menu-seen?))
+  0)
+
+(defmethod load-settings ((obj pc-settings-jak2))
+  "chain up, then migrate pre-Gjak2-pcmenus settings files: without the
+   dyn-rs-menu-seen? marker, (dynamic-render-scale? #t) in the file is a stale
+   default the user never chose (no toggle existed) — force it OFF once. Any
+   save from this build writes the marker, so a real menu choice persists."
+  ((method-of-type pc-settings load-settings) obj)
+  (unless (-> obj dyn-rs-menu-seen?)
+    (false! (-> obj dynamic-render-scale?)))
+  0)
 
 (defmethod reset-misc ((obj pc-settings-jak2) (call-handlers symbol))
   "Set the default misc settings"

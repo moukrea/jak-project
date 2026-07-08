@@ -174,5 +174,10 @@
   "1346": "<FLAG_LITHUANIA> Lietuvių Kalba",
   "1347": "<FLAG_CZECH> Čeština",
   "1348": "<FLAG_CROATIA> Hrvatski",
-  "1349": "<FLAG_GALICIA> Galego"
+  "1349": "<FLAG_GALICIA> Galego",
+  "1360": "Dynamic Render Scale",
+  "1361": "Min Target FPS",
+  "1362": "Render Scale",
+  "1363": "Min Render Scale",
+  "1364": "Fit to Screen"
 }
