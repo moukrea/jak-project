@@ -54,3 +54,13 @@ Owner: intro cinematic = "nickel" (visuals mandate met) BUT these remain and bel
    graphics) — the latest iteration REGRESSED boot. Whatever changed since the collision-confirmed
    build broke early boot; bisect it (the rebuild-free noop prop helps). The phase CANNOT close on
    a boot-regressed build (validator crash-free gate) — recover boot first, keep collision.
+
+## OWNER LIVE (2026-07-08 ~08:05) — current WIP iteration state
+Now: Jak is GLUED to the ground, SLIDING slowly and constantly in one direction; NO jump, NO walk
+(all input dead except nothing responds). Two candidate reads:
+ (a) INPUT path broken in this iteration (cpad state stuck/frozen — a residual analog value keeps
+     sliding him; buttons not reaching the game), or
+ (b) a movement STATE stuck (slide/duck state never exits — same family as the stuck-crouch bug;
+     the crouch-fix attempt may have worsened state transitions).
+Diagnose which (input state-dump vs target state-dump vs x86). Reminder: collision standing/walking
+WAS owner-confirmed on the earlier iteration — do not lose that baseline; bisect against it.
