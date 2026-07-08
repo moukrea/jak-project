@@ -43,7 +43,10 @@ echo "  ok: libgk.so newer than newest source"
 # real guarantees that the device runs a .so reflecting the current source.
 
 # 3. Chain: build == APK == device.
-TMP=$(mktemp -d); trap "rm -rf $TMP" EXIT
+# Repo-local temp: /tmp can be size-limited or sandbox-isolated (a 220MB APK
+# pull died at ~79% under a sandboxed tmpfs), which false-FAILs the chain.
+mkdir -p .autoport/tmp
+TMP=$(mktemp -d .autoport/tmp/dv.XXXXXX); trap "rm -rf $TMP" EXIT
 B=$(sha256sum "$BUILT" | cut -d' ' -f1)
 APK=$(find android -name 'app-jak1-debug.apk' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
 [ -n "$APK" ] || die "no app-jak1-debug.apk"
