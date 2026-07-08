@@ -42,3 +42,15 @@ Owner: intro cinematic = "nickel" (visuals mandate met) BUT these remain and bel
  * **Electric particles when Daxter plugs in the JAK II logo** are broken (small, note it).
  * Intro-skip spawn = the Fortress — likely story-CORRECT (post-intro = Baron's prison); the bug is
    the missing collision, not the spawn point. Verify against x86 rather than "fixing" the spawn.
+
+## OWNER QUICK PLAYTEST (2026-07-08 ~07:50) — COLLISION CONFIRMED ✓ + two new items
+ * ✅ **COLLISION WORKS**: "Jak tient bien sur le sol, on peut se déplacer" — the 41-name collide/
+   spatial-hash enable is owner-confirmed. Keep it.
+ * 🐛 **STUCK-CROUCH state bug**: a jump ended with Jak landing crouched, and he STAYED stuck in the
+   crouch pose permanently afterwards, wherever he went (jumping still possible). A state-machine/
+   anim-exit bug (crouch/duck state never exits — check the state transition path & input flags vs
+   x86; could be a jak2 mips2c or joint/anim residual). Add to this phase's fix list.
+ * ⚠️ **The CURRENT deployed WIP build crashes right after the Dolby Surround logo** (before any
+   graphics) — the latest iteration REGRESSED boot. Whatever changed since the collision-confirmed
+   build broke early boot; bisect it (the rebuild-free noop prop helps). The phase CANNOT close on
+   a boot-regressed build (validator crash-free gate) — recover boot first, keep collision.
