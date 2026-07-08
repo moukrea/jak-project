@@ -1,0 +1,3 @@
+07-08 08:46:39.094 E/ANDR-PERF-LM( 1051): AdaptiveLaunch: writeToDataBase() 64: Meter aborted or could not get meter data for this run
+07-08 08:46:39.507 I/opengoal-gk(16467): Gjak2-render: installed jak2 pc-* bind hook (a11 mips2c + a14 mem-move + a17_bind_pc_helpers_jak2 — pc-* surface RESTORED so pckernel top-level doesn't SIGILL; real jak2 InitMachine_PCPort rebinds later)
+07-08 08:46:39.938 I/opengoal-gk(16467): Gjak2-render sym-bind-trace: bound the full jak2 pc-* helper surface (common + jak2-specific) to a17_pc_default no-op so pckernel/GAME.CGO top-levels don't SIGILL on unbound pc-* symbols

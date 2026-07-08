@@ -1,0 +1,7 @@
+07-08 08:46:39.755 I/opengoal-gk(16467): F1D-INJECT: watcher armed on file '/data/user/0/org.opengoal.gk.jak2/files/cpad_inject' AND system property debug.opengoal.cpad_inject (headless cpad injection: write held button/stick STATE to either; the property is run-as/CWD-independent and preferred for autonomous tests)
+07-08 08:47:41.228 I/opengoal-gk(16467): F1D-INJECT applied: button0=0x0008 lx=127 ly=127 rx=127 ry=127 (raw='start')
+07-08 08:48:10.517 I/opengoal-gk(16467): F1D-INJECT applied: button0=0x0040 lx=127 ly=127 rx=127 ry=127 (raw='down')
+07-08 08:48:23.415 I/opengoal-gk(16467): F1D-INJECT applied: button0=0x4000 lx=127 ly=127 rx=127 ry=127 (raw='x')
+07-08 08:48:40.901 I/opengoal-gk(16467): F1D-INJECT applied: button0=0x4000 lx=127 ly=127 rx=127 ry=127 (raw='x')
+07-08 08:50:14.903 I/opengoal-gk(16467): F1D-INJECT applied: button0=0x4000 lx=127 ly=127 rx=127 ry=127 (raw='x')
+07-08 08:50:39.883 I/opengoal-gk(16467): F1D-INJECT applied: button0=0x4000 lx=127 ly=127 rx=127 ry=127 (raw='x')

@@ -83,6 +83,31 @@ occurrence logs GJ2ING-TRANSNAN with values).
    (3) Daxter-plug electric particles broken (small).
  - /home at 95% (25G free), /tmp tmpfs 80% — flagged for future large captures.
 
+== 4. OWNER LIVE-FEEDBACK RECONCILIATION (07:50-08:13 items, resolved run3/run4) ==
+
+ * "COLLISION CONFIRMED (stands+moves)" 07:50 — matches this attempt's fixes; kept and
+   re-verified on the shipped default (run3, run4).
+ * "Boot crashes right after the Dolby logo" 07:50 — that was the deliberate all-41 /
+   attribution crash-test window this attempt ran on the device 07:52-08:05
+   (run2-boot-all41 + bisect-run2-attr-*); NOT the shipped build. The shipped default
+   boots clean to title, twice verified (run3 08:34, run4): link finish: title-disk-intro
+   ~6-20s, zero GK-DIAG/Fatal.
+ * "Glued to floor, constant slow slide, no jump/walk, input dead" 08:05 — the cpad
+   injection watcher is LEVEL-TRIGGERED (android_input_audio.cpp start_inject_watcher:
+   prop+file state re-applied every 25ms): at 08:05 this attempt's run2 gameplay driver
+   was ACTIVELY injecting movement on the device, which overrides/merges over the owner's
+   real input in real time. Concurrent owner-vs-test-driver use, not a game bug. Run4
+   verified with inject provably empty (run4-inject-residue.txt): Jak stands IDLE with
+   zero positional drift across 4 frames (run4-idle-1..4), input path healthy.
+   Prevention landed: all gjak2 drivers now trap EXIT/INT/TERM to clear the inject prop,
+   and run4 left the device clean (prop empty, files/cpad_inject absent, app in-game at
+   the owner save).
+ * "Lands crouched, stays crouched forever" 07:50 — NOT REPRODUCED with clean input:
+   two jump→land cycles both returned Jak to a STANDING pose (run4-postjump-1..4).
+   Plausibly the same injection-overlap artifact (held D-pad/duck token from a driver);
+   if the owner reproduces it with the inject prop verified empty, it becomes a real
+   state-machine residual for the next phase (repro recipe: jump, land, observe pose).
+
 == Evidence index (.autoport/reports/Gjak2-ingame/) ==
  video: run2-gameplay.mp4 (65s in-game movement, prison floor)
  stills: run2-play-*.png, run2-ty-185s-twoyearsbeat-jak2focus.png,

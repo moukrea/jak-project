@@ -1,0 +1,9 @@
+=== FINAL STATE mer. 08 juil. 2026 06:51:26 UTC ===
+pidof org.opengoal.gk.jak2: 16467
+  mCurrentFocus=Window{9ed704d u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+--- clean state left for owner ---
+cpad_inject prop: []
+cpad_inject file: ABSENT
+noop_names: []
+enable_names: []
+stayon: enabled

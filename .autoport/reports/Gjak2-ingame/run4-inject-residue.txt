@@ -1,0 +1,49 @@
+=== RESIDUE EVIDENCE (before cleaning) mer. 08 juil. 2026 06:45:04 UTC ===
+--- getprop debug.opengoal.cpad_inject ---
+
+--- run-as files/cpad_inject ls+cat ---
+cache
+code_cache
+files
+shared_prefs
+---CATBELOW---
+---CATEND---
+--- getprop debug.opengoal.jak2.noop_names ---
+
+--- getprop debug.opengoal.jak2.enable_names ---
+
+
+=== PRECISE files/ dir inspection mer. 08 juil. 2026 06:45:11 UTC ===
+/data/user/0/org.opengoal.gk.jak2
+--- ls files/ ---
+ls: files/: No such file or directory
+--- test cpad_inject ---
+cpad_inject ABSENT
+
+=== home dir + files stat mer. 08 juil. 2026 06:45:18 UTC ===
+cache
+code_cache
+files
+shared_prefs
+--- stat files ---
+ls: files: No such file or directory
+--- find cpad_inject anywhere ---
+none found
+
+=== ABSOLUTE path inspection mer. 08 juil. 2026 06:46:04 UTC ===
+total 23
+drwxrwx--x 5 u0_a16 u0_a16 3488 2026-07-08 08:34 .
+drwx------ 6 u0_a16 u0_a16 3488 2026-07-06 14:44 ..
+-rw------- 1 u0_a16 u0_a16    2 2026-07-07 16:21 .asset_bundle_stamp_jak2
+drwx------ 3 u0_a16 u0_a16 3488 2026-07-07 16:54 .config
+drwx------ 3 u0_a16 u0_a16 3488 2026-07-07 16:19 iso_data
+drwx------ 3 u0_a16 u0_a16 3488 2026-07-06 12:20 out
+-rw------- 1 u0_a16 u0_a16   24 2026-07-08 08:34 profileInstalled
+--- absolute cpad_inject cat ---
+cat: /data/user/0/org.opengoal.gk.jak2/files/cpad_inject: No such file or directory
+(exit=1)
+
+=== STEP 2 CLEAN mer. 08 juil. 2026 06:46:16 UTC ===
+after setprop, getprop shows: []
+rm exit=0
+verify absent: ABSENT
