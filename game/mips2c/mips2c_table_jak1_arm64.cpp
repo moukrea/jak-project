@@ -48,7 +48,9 @@ void _mips2c_call_arm64();
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
+#include <string>
 #include <unwind.h>
+#include <vector>
 #ifdef __ANDROID__
 #include <android/log.h>
 #include <sys/system_properties.h>
@@ -1074,6 +1076,37 @@ bool a37_name_is_real_jak2(const std::string& name) {
   }();
   if (s_no_shadowcpu && name.rfind("shadow-", 0) == 0) {
     return false;
+  }
+  // Gjak2-ingame: rebuild-free A/B bisect — setprop debug.opengoal.jak2.noop_names
+  // "<tok1>,<tok2>" re-noops every registered name CONTAINING a token (substring
+  // match, so "spatial-hash" covers all its methods within PROP_VALUE_MAX's 92
+  // bytes; comma-separated).
+  static const std::vector<std::string> s_noop_names = []() {
+    std::vector<std::string> names;
+#ifdef __ANDROID__
+    // PROP_VALUE_MAX (92 bytes) caps the comma-separated list — fine for a handful of names.
+    char b[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.jak2.noop_names", b) > 0 && b[0] != '\0') {
+      fprintf(stderr, "GJ2ING mips2c noop-exclude: %s\n", b);
+      std::string raw(b);
+      size_t start = 0;
+      while (start <= raw.size()) {
+        size_t comma = raw.find(',', start);
+        if (comma == std::string::npos) {
+          names.push_back(raw.substr(start));
+          break;
+        }
+        names.push_back(raw.substr(start, comma - start));
+        start = comma + 1;
+      }
+    }
+#endif
+    return names;
+  }();
+  for (const auto& nn : s_noop_names) {
+    if (!nn.empty() && name.find(nn) != std::string::npos) {
+      return false;
+    }
   }
   for (auto* n : kSetJak2) { if (name == n) return true; }
   return false;
