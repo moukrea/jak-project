@@ -1244,6 +1244,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Gjak2-polish
+  name: 'OWNER 2026-07-08 round-2 (movement confirmed): L1/R1 overlay=jak2 crouch-lock (own mapping), cutscenes must follow aspect setting (forced 16:9 now), menu order/label parity vs jak1 + FPS counter option, rift-gate glow too bright pre-metalheads'
+  prompt: prompts/phase-Gjak2-polish.md
+  validator: validators/phase-Gjak2-polish.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
 - id: Grecharged-grass-poc
   name: 'RECHARGED (owner 2026-07-07): 3D GRASS proof-of-concept on the TRAINING level — real blades near (flat-color, random distribution, variable size/orientation/curvature/tint, individual breeze motion, flatten under Jak), crossed grass cards mid (slight sway), plain ground texture far; placement driven by grass ground-texture detection (tra-grass); gated in Recharged Settings, default OFF; transpose-everywhere later if cool'
   prompt: prompts/phase-Grecharged-grass-poc.md
