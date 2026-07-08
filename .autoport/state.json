@@ -344,6 +344,9 @@
     ],
     "Gjak2-visuals": [
       "f9c774796cac"
+    ],
+    "Gjak2-ingame": [
+      "8c2360f04cd5"
     ]
   },
   "stuck_reasons": {
@@ -693,7 +696,7 @@
     "Gjak2-visuals": 1783460200.2105126,
     "Gjak2-ingame": 1783480638.6489265
   },
-  "last_update": "2026-07-08T05:07:26.424361+00:00",
+  "last_update": "2026-07-08T05:07:47.473055+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

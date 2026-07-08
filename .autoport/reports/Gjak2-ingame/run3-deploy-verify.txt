@@ -1,0 +1,13 @@
+=== run3 jak2 deploy-verify 2026-07-08T08:33:28+02:00 ===
+GOAL: prove SHIPPED DEFAULT (no props) boots+plays. 3 crashing mips2c families default-excluded.
+HEAD=29298c426c925f43f15ac6cfec012cf0cfbbbf00
+uncommitted_source_change=game/mips2c/mips2c_table_jak1_arm64.cpp (default-excludes collide-cache,sphere-hash,spatial-hash from kSetJak2)
+libgk.so_mtime_before=2026-07-08T08:24:13
+libgk.so_mtime_after =2026-07-08 08:31:07  (RELINKED)
+mips2c_table.o_mtime =2026-07-08 08:24:12  (newer than source 08:24:04 -> default-exclude compiled in)
+GJ2ING_strings_in_so=present (noop-exclude + force-enable)
+BUILD_SHA=8dc50e292213f937397bbf0a4b3ca799dc687d924635d85b805437cea251ea70
+APK_SHA  =8dc50e292213f937397bbf0a4b3ca799dc687d924635d85b805437cea251ea70
+DEVICE_SHA=8dc50e292213f937397bbf0a4b3ca799dc687d924635d85b805437cea251ea70
+install=Success (-r -i com.android.vending, app data KEPT)
+RESULT=PASS (build==APK==device, libgk.so newer than source, default-exclude baked in)

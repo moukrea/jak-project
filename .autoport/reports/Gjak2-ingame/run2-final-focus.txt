@@ -1,0 +1,1 @@
+pid=[10363]   mCurrentFocus=Window{a04049b u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}

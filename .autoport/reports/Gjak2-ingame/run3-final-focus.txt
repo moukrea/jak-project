@@ -1,0 +1,19 @@
+=== confirm still at title ===
+  [00-title] pid=[13923]   mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run3-00-title-jak2focus.png (1339241B)
+=== START -> menu ===
+  [01-startmenu] pid=[13923]   mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run3-01-startmenu-jak2focus.png (610955B)
+=== down (to Load Game) ===
+  [02-loadgame-sel] pid=[13923]   mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run3-02-loadgame-sel-jak2focus.png (759177B)
+=== X (open load screen) ===
+  [03-loadgame-screen] pid=[13923]   mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run3-03-loadgame-screen-jak2focus.png (916197B)
+=== X (load Game 1, already top-highlighted) ===
+  [04-load-confirm] pid=[13923]   mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run3-04-load-confirm-jak2focus.png (1356162B)
+=== wait for level load ===
+  [05-loading] pid=[13923]   mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run3-05-loading-jak2focus.png (1322089B)
+  [06-postload] pid=[13923]   mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run3-06-postload-jak2focus.png (1267802B)
+=== 30s movement injection, cap at ~10s intervals ===
+  [play-1] pid=[13923]   mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run3-play-1-jak2focus.png (1158566B)
+  [play-2] pid=[13923]   mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run3-play-2-jak2focus.png (1121801B)
+  [play-3] pid=[13923]   mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run3-play-3-jak2focus.png (1093456B)
+=== final state ===
+final pid=[13923] focus=  mCurrentFocus=Window{ea11942 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}

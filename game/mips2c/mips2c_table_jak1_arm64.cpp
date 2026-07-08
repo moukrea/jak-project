@@ -1049,13 +1049,23 @@ bool a37_name_is_real_jak2(const std::string& name) {
       "(method 10 collide-shape-prim-mesh)", "(method 10 collide-shape-prim-sphere)",
       "(method 10 collide-shape-prim-group)", "(method 11 collide-shape-prim-mesh)",
       "(method 11 collide-shape-prim-sphere)", "(method 11 collide-shape-prim-group)",
-      "(method 9 collide-cache-prim)", "(method 10 collide-cache-prim)",
-      "(method 17 collide-cache)", "(method 9 collide-puss-work)", "(method 10 collide-puss-work)",
+      "(method 9 collide-puss-work)", "(method 10 collide-puss-work)",
       "(method 18 grid-hash)", "(method 19 grid-hash)", "(method 20 grid-hash)",
-      "(method 22 grid-hash)", "(method 28 sphere-hash)", "(method 29 sphere-hash)",
-      "(method 30 sphere-hash)", "(method 31 sphere-hash)", "(method 32 sphere-hash)",
-      "(method 33 sphere-hash)", "(method 33 spatial-hash)", "(method 35 spatial-hash)",
-      "(method 36 spatial-hash)", "(method 37 spatial-hash)", "(method 39 spatial-hash)",
+      "(method 22 grid-hash)",
+      // --- Gjak2-ingame attempt 2: these 3 sub-families remain DEFAULT-OFF. With them
+      // enabled the device SIGSEGVs at boot right after title-disk-intro links
+      // (GK-DIAG sig=11 EE pc 0x1fc2864 / pre-title 0x1c77f40): a GOAL-side consumer
+      // reads a garbage offset, and A11-DIAG shows a zeroed symbol slot (0x18d7dc) —
+      // an arm64-only OOB WRITE by these bodies (not the #f-guard compare class; those
+      // sites are fixed). Ground collision is fully functional without them (prison
+      // gameplay verified: find-ground solid, no fall-through). Re-enable for A/B via
+      // setprop debug.opengoal.jak2.enable_names (below) once the stomp is fixed. ---
+      // "(method 17 collide-cache)",
+      // "(method 9 collide-cache-prim)", "(method 10 collide-cache-prim)",
+      // "(method 28 sphere-hash)", "(method 29 sphere-hash)", "(method 30 sphere-hash)",
+      // "(method 31 sphere-hash)", "(method 32 sphere-hash)", "(method 33 sphere-hash)",
+      // "(method 33 spatial-hash)", "(method 35 spatial-hash)", "(method 36 spatial-hash)",
+      // "(method 37 spatial-hash)", "(method 39 spatial-hash)",
   };
   // Kill-switch (relaunch-toggleable, no rebuild): setprop
   // debug.opengoal.jak2.noshadowcpu 1 re-noops the shadow-cpu family only.
@@ -1108,7 +1118,40 @@ bool a37_name_is_real_jak2(const std::string& name) {
       return false;
     }
   }
+  // Gjak2-ingame attempt 2: inverse of noop_names — setprop
+  // debug.opengoal.jak2.enable_names "<tok1>,<tok2>" FORCE-ENABLES every name
+  // CONTAINING a token (substring match, comma-separated, PROP_VALUE_MAX capped),
+  // even if it is NOT in kSetJak2. Used to re-enable the 3 DEFAULT-OFF sub-families
+  // above for on-device A/B isolation once the OOB stomp is fixed. noop_names still
+  // takes precedence (it returned false earlier).
+  static const std::vector<std::string> s_enable_names = []() {
+    std::vector<std::string> names;
+#ifdef __ANDROID__
+    // PROP_VALUE_MAX (92 bytes) caps the comma-separated list — fine for a handful of names.
+    char b[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.jak2.enable_names", b) > 0 && b[0] != '\0') {
+      fprintf(stderr, "GJ2ING mips2c force-enable: %s\n", b);
+      std::string raw(b);
+      size_t start = 0;
+      while (start <= raw.size()) {
+        size_t comma = raw.find(',', start);
+        if (comma == std::string::npos) {
+          names.push_back(raw.substr(start));
+          break;
+        }
+        names.push_back(raw.substr(start, comma - start));
+        start = comma + 1;
+      }
+    }
+#endif
+    return names;
+  }();
   for (auto* n : kSetJak2) { if (name == n) return true; }
+  for (const auto& en : s_enable_names) {
+    if (!en.empty() && name.find(en) != std::string::npos) {
+      return true;
+    }
+  }
   return false;
 }
 

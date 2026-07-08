@@ -1,0 +1,37 @@
+  [01-title] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-01-title-jak2focus.png (1379187B)
+    inject: 'start'
+  [02-menu] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-02-menu-jak2focus.png (755821B)
+    inject: 'x'
+  [03-after-newgame-x] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-03-after-newgame-x-jak2focus.png (936386B)
+    inject: 'down'
+    inject: 'down'
+    inject: 'down'
+    inject: 'down'
+  [04-continue-sel] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-04-continue-sel-jak2focus.png (785710B)
+    inject: 'x'
+  [05-newgame-start] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-05-newgame-start-jak2focus.png (159357B)
+  [06-cine-t31s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t31s-jak2focus.png (1298644B)
+  [06-cine-t62s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t62s-jak2focus.png (1315539B)
+  [06-cine-t93s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t93s-jak2focus.png (891836B)
+  [06-cine-t124s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t124s-jak2focus.png (14800B)
+  [06-cine-t154s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t154s-jak2focus.png (1255816B)
+  [06-cine-t185s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t185s-jak2focus.png (1129079B)
+  [06-cine-t216s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t216s-jak2focus.png (966855B)
+  [06-cine-t247s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t247s-jak2focus.png (905576B)
+  [06-cine-t278s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t278s-jak2focus.png (1106089B)
+  [06-cine-t309s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t309s-jak2focus.png (1338860B)
+  [06-cine-t341s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t341s-jak2focus.png (1220078B)
+  [06-cine-t372s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t372s-jak2focus.png (982631B)
+  [06-cine-t403s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t403s-jak2focus.png (619958B)
+  [06-cine-t434s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t434s-jak2focus.png (1252870B)
+  [06-cine-t465s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t465s-jak2focus.png (1104533B)
+  [06-cine-t496s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t496s-jak2focus.png (886106B)
+  [06-cine-t527s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t527s-jak2focus.png (16504B)
+  [06-cine-t557s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t557s-jak2focus.png (1252048B)
+  [06-cine-t590s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t590s-jak2focus.png (1134183B)
+  [06-cine-t622s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t622s-jak2focus.png (1005082B)
+  [06-cine-t655s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t655s-jak2focus.png (798124B)
+  [06-cine-t687s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t687s-jak2focus.png (85691B)
+  [06-cine-t718s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t718s-jak2focus.png (1275028B)
+  [06-cine-t750s] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-06-cine-t750s-jak2focus.png (1175470B)
+  [08-final] pid=[11287]   mCurrentFocus=Window{10ae1c1 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-runrun2-08-final-jak2focus.png (1153355B)

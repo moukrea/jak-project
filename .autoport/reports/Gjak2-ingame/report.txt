@@ -1,0 +1,95 @@
+RESULT: JAK2 INGAME PASS (collision playable + Two-years transition crash-free; owner verify pending)
+
+Phase Gjak2-ingame, attempt 2 — 2026-07-08. HEAD at commit c9721d7dc (+ the default-off
+allowlist commit that follows this report). All fixes are libgk-only (mips2c C++ + kernel
+runtime glue); goalc/goal_src untouched, so the device CGO/DGOs (byte-verified fresh,
+taskA-staleness-verdict.txt) remained valid throughout. deploy_verify chain PASS both
+deploys (run2-deploy-verify.txt, run3-deploy-verify.txt: BUILD_SHA == APK_SHA == DEVICE_SHA).
+
+== 1. COLLISION — root cause named, fixed, device-proven ==
+
+Root cause chain (data-load vs mips2c vs noop — answered):
+ (a) DATA-LOAD: ruled out (attempt 1): collide-hash is DGO/bsp-resident, identical bytes
+     both arches; device payload byte-identical to the fresh build (151/151 CGO/DGO sha
+     match, taskA artifacts).
+ (b) NOOP: THE root cause. The entire jak2 collide + hash mips2c family was noop'd in the
+     arm64 allowlist -> collide-cache filled with ZERO ground triangles -> *target* got no
+     pat-surface -> fell through every floor (jak1 F1 precedent). Fixed by enabling the
+     families (commit a18299efa: 41 names) minus the 3 sub-families below.
+ (c) MIPS2C on arm64: enabling the families surfaced crashes; an 18-run on-device bisect
+     (rebuild-free noop_names prop, commit 332137b6c) + GK-DIAG forensics isolated 3
+     culprit groups and this attempt fixed the proven compare-class instances per-site
+     (commit c9721d7dc): collide_cache.cpp:1376 (inside method_17_collide_cache — #f-guard
+     on an lwu-loaded value vs host-upper-32-dirty s7), collide_edge_grab.cpp:670 (same
+     class) and :464 (64-bit handle #f-check via a0-s7 subtraction), spatial_hash.cpp:
+     1202/1445/2227 (-1 sentinel compared full-64 against arg-passed indices).
+
+Device proof (run2, then run3 on the shipped default with ALL props cleared):
+ - Jak STANDS on the prison floor and WALKS/moves without falling through: 65s moving
+   gameplay video run2-gameplay.mp4 + stills run2-play-rec-1..5, run3-play-1..3 (movement
+   across the level, camera stable, no fall/reload loop, single pid boot->play).
+ - find-ground returns solid ground: "parking-spot::find-ground: ground y 7.9639" (device),
+   byte-pattern-identical behavior to the x86 oracle (x86-oracle-parkingspot-run1.log:
+   "ground y 7.3432" + 3x could-not-find at title; device shows the same 4-line pattern at
+   title and solid ground in-game).
+ - Crash-free: GK-DIAG=0, Fatal=0 across boot (180s) and play; mCurrentFocus=
+   org.opengoal.gk.jak2/org.opengoal.gk.MainActivity in every capture (run2-final-focus.txt,
+   run3-final-focus.txt).
+
+== 2. "TWO YEARS LATER" TRANSITION — forensics + crash-free through to prison ==
+
+Forensics (root cause named): GK-DIAG sig=11 EE pc 0x214de84, byte-matched to the bigmap
+(map-texture) object in GAME.CGO. The layer-mask read faulted because (-> bigmap pos) held
+x=y=INT_MIN (0x80000000): the arm64 .ftoi.vf override (verified WIRING-CORRECT by full
+static disassembly of the emitted set-pos! pipeline at GAME.CGO 0xb51cda) correctly
+saturated a non-finite/>=2^31 input from (target-pos 0)/(camera-pos) — i.e. the live
+position sources go bad on arm64 at the intro->prison handoff (loader-stall/align class,
+jak1 Gcine-pose precedent: "could not find a master slot to link" churn precedes the beat).
+Fix: arm64-only frame-boundary tripwire+repair in jak2 KernelDispatch (kboot.cpp) restoring
+non-finite/huge components of *target*.control.trans, *camera-combiner*.trans,
+*math-camera*.trans from last-finite snapshots (capped GJ2ING-TRANSNAN logging).
+
+Device proof (run2 Step 3): NEW GAME, full intro played 12.5 minutes through the
+"Two years later" card into the prison scene: link finish: intro-prison x80, Displaying
+level prison, Jak standing in the prison cell (run2-ty-496s-inprison-jak2focus.png),
+t=185s (the old crash beat) passed clean, ran to t=750s, crashed=0. GJ2ING-TRANSNAN
+count=0 this run — honest attribution: the tripwire never fired, so the crash's absence
+in this run is not proven to be the hook's doing; the attempt-1 repro ran on the
+all-41-enabled build where the collide-family symbol stomp (below) was live, and that
+stomp is default-off now. The hook remains as armor + attribution instrument (any future
+occurrence logs GJ2ING-TRANSNAN with values).
+
+== 3. Honest residuals ==
+
+ - 3 mips2c sub-families remain DEFAULT-OFF (14 names: method 17 collide-cache, methods
+   9/10 collide-cache-prim, sphere-hash 28-33, spatial-hash 33/35/36/37/39): enabling them
+   still SIGSEGVs at boot. Named for the next phase: the consumer is the nav-mesh object's
+   mips2c code (GAME.CGO match @0x95ad8a, pc EE 0x1fc2864 LDRSW with corrupt index
+   x9=0x80b0f0c; pre-title variant EE 0x1c77f40), the victim is a stomped symbol slot
+   (0x18d7dc — value zeroed AND its string stomped, name unrecoverable post-mortem), the
+   most plausible writer is the spatial-hash/actor-hash store path (arm64 upper-32 pointer
+   class). Next phase: mprotect tripwire + content canary on the 0x18d7dc page, enable
+   families separately via the new debug.opengoal.jak2.enable_names prop (noop_names still
+   works and takes precedence). NOT compare-class (those sites are fixed).
+   Ground collision does not need these families (proven in-game); they serve actor-hash/
+   nav queries.
+ - Intro-skip spawn at the Fortress/prison is story-CORRECT (post-intro = Baron's prison);
+   verified the bug was the missing collision, not the spawn point — with collision fixed,
+   the owner's save ("Game 1") loads into the prison standing on solid floor.
+ - Transferred visual residuals NOT addressed this attempt (out of the two blocking
+   mandates, documented for a visuals follow-up): (1) the jak1-keyed orange/brown
+   translucent overlay still renders behind the jak2 menus (visible in run2-play-01);
+   (2) the rift-gate still renders as a huge luminous ball (glow/bloom bucket family);
+   (3) Daxter-plug electric particles broken (small).
+ - /home at 95% (25G free), /tmp tmpfs 80% — flagged for future large captures.
+
+== Evidence index (.autoport/reports/Gjak2-ingame/) ==
+ video: run2-gameplay.mp4 (65s in-game movement, prison floor)
+ stills: run2-play-*.png, run2-ty-185s-twoyearsbeat-jak2focus.png,
+         run2-ty-496s-inprison-jak2focus.png, run3-title-jak2focus.png, run3-play-*.png
+ logs: run2-boot-all41-routed-logcat.log, bisect-run2-attr-*.log,
+       run2-gameplay-routed-logcat.log, run2-twoyears-routed-logcat.log,
+       run3-boot-default-routed-logcat.log, run3-play-routed-logcat.log
+ gates: run2-deploy-verify.txt, run3-deploy-verify.txt, run2/run3-final-focus.txt
+ attempt-1 forensics: bisect-run0..18 logs, taskA-staleness-verdict.txt,
+       twoyears-repro-run1-routed-logcat.log

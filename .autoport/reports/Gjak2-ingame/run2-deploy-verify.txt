@@ -1,0 +1,8 @@
+=== run2 jak2 deploy-verify 2026-07-08T07:55:01+02:00 ===
+HEAD=c9721d7dcdb6e1b68b9ba99c36e884949e5bac69
+so_mtime=2026-07-08T07:49:28+02:00
+newest kboot.cpp=2026-07-08T07:49:22+02:00
+BUILD_SHA=3888c9ecc5b9853bfbdcd2591dc77fd97da08ddb4cda95d0b1fee7cc4130e64d
+APK_SHA=3888c9ecc5b9853bfbdcd2591dc77fd97da08ddb4cda95d0b1fee7cc4130e64d
+DEVICE_SHA=3888c9ecc5b9853bfbdcd2591dc77fd97da08ddb4cda95d0b1fee7cc4130e64d
+RESULT=PASS (build==APK==device, so newer than source)
