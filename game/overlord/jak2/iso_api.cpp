@@ -60,7 +60,11 @@ LAB_0000cc60:
   // never triggers on a full desktop iso (first lookup succeeds).
   if (!cmd->file_record) {
     memcpy(name_buff, "VAGWAD  ", 8);
-    strncpy(name_buff + 8, "ENG ", 4);
+    // "ENG" (3 chars) with n=4: strncpy null-pads, matching the gLanguage lookup
+    // above. The previous "ENG " (4 chars) left the buffer UNTERMINATED, producing
+    // garbage-tailed lookups ("VAGWAD  ENG p") that never matched — every stream
+    // silently dropped on bundle-only installs (title spool + new-game cinematic).
+    strncpy(name_buff + 8, "ENG", 4);
     cmd->file_record = (isofs->find_in)(name_buff);
   }
 }
