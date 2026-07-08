@@ -1,0 +1,10 @@
+CLOSED 2026-07-08 12:40 (owner standing instruction: "tu peux continuer d'avancer et me lister les
+trucs à valider au fil de l'eau"): supervisor-verified (deploy_verify re-run PASS 8dc50e29; report
+read: collision playable + Two-years transition crash-free; fortress in-game frame eyeballed —
+Jak standing, textured prison, 55-58k tris@60fps; input path proven healthy via cpad dumps) +
+OWNER CONFIRMED COLLISION LIVE this morning ("Jak tient bien sur le sol, on peut se déplacer").
+Owner remote -> decisive playtest happens via the jak2-alpha1 release (asset FIXED 12:31: VAG
+ENG-fallback restored as graceful degradation — APK-only installs ship VAGWAD.ENG only; the
+original asset would deterministically crash French devices). Residuals tracked: stuck-crouch
+(repro recipe), orange overlay, rift-gate ball, Daxter electrics. His alpha1 feedback loops back
+as playtest items.
