@@ -92,3 +92,17 @@ renderer produces exactly a massive blob. Check: the jak2 glow bucket / sprite-d
 (is it ported or falling back to something wrong?), the glow size/interp inputs vs x86 state-dump
 at the same cinematic beat, and the sparticle launch flags for the portal effect. Fix or cleanly
 skip-with-kill-switch the glow family (honest deferral OK) rather than shipping the blob.
+
+## OWNER PLAYTEST UPDATE (2026-07-08 ~03:15) — two hard repros
+ 1. **Intro cinematic CRASHES at the exact beat where the METALHEADS start crossing the portal** —
+    that beat combines a merc spawn burst (metalhead models) + the portal particle storm; forensics
+    the crash there (fp-walk/lr-window) and map to bones/merc-spawn vs particle suspects.
+ 2. **COLLISION IS TOTALLY ABSENT, not localized**: owner jumped in every reachable direction incl.
+    straight at the respawn point — falls through the floor EVERYWHERE, endless respawn loop. This is
+    a SYSTEMIC collide failure on arm64: the collide system returns no hits at all. Check in order:
+    (a) jak2 mips2c collide_cache.cpp / collide functions on arm64 — do queries return real results?
+        A/B one collide query state-dump our-x86 vs device at the same position;
+    (b) does the level COLLISION DATA even load on Android (collide mesh/fr3 extraction path — we
+        build the jak2 fr3 without collision? jak1 needed extract_collision for its path);
+    (c) the collide trampoline/allowlist entries (a noop'd collide builder = zero hits = fall-through).
+    Fixing collision unblocks ALL in-game verification — HIGH priority (equal to bones).
