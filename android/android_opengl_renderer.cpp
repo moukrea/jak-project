@@ -1251,12 +1251,40 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
   }
 }
 
+// Gjak2-visuals: live bucket-family mute for wash bisection. Token matches a
+// renderer name if equal or a "<token>-" prefix ("tie" mutes tie-l0-tfrag but
+// not etie-l0-tfrag; "merc" not emerc/gmerc). Diagnostic-only.
+static bool gj2vis_bucket_muted(const char* list, const std::string& name) {
+  const char* p = list;
+  while (*p) {
+    const char* e = p;
+    while (*e && *e != ',') {
+      e++;
+    }
+    size_t tok_len = (size_t)(e - p);
+    if (tok_len > 0 &&
+        ((name.size() == tok_len && name.compare(0, tok_len, p, tok_len) == 0) ||
+         (name.size() > tok_len && name.compare(0, tok_len, p, tok_len) == 0 &&
+          name[tok_len] == '-'))) {
+      return true;
+    }
+    p = *e ? e + 1 : e;
+  }
+  return false;
+}
+
 void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfilerNode& prof) {
   // Desktop dispatch_buckets_jak2 parity: UNLIKE jak1, the jak2 chain has NO
   // initial default-regs CALL. Bucket 0 starts at the chain's current offset
   // (0), so buckets_base = current offset, next_bucket = base + 16, and the
   // dispatch drops straight into the per-bucket loop. bucket_for_vis_copy =
   // BUCKET_2, num_vis_to_copy = jak2::LEVEL_MAX (matches OpenGLRenderer.cpp).
+
+  // Gjak2-visuals wash-bisect mute: adb shell setprop debug.opengoal.vis.skip
+  // "etie,gmerc,effects,..." (comma list of renderer-name prefixes; live, read
+  // once per frame; empty/unset = off).
+  char gj2vis_skip[PROP_VALUE_MAX] = {0};
+  __system_property_get("debug.opengoal.vis.skip", gj2vis_skip);
   m_render_state.buckets_base = dma.current_tag_offset();
   m_render_state.next_bucket = m_render_state.buckets_base + 16;
   m_render_state.bucket_for_vis_copy = (int)jak2::BucketId::BUCKET_2;
@@ -1280,6 +1308,16 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfile
                               renderer->name().c_str(), bucket_id);
         }
       }
+    }
+
+    // Gjak2-visuals wash-bisect: muted family → consume the bucket without
+    // rendering (same re-seat as the malformed-stream skip below).
+    if (gj2vis_skip[0] && gj2vis_bucket_muted(gj2vis_skip, renderer->name())) {
+      m_stats.buckets_skipped++;
+      dma = DmaFollower(dma.base(), m_render_state.next_bucket);
+      m_render_state.next_bucket += 16;
+      vif_interrupt_callback(bucket_id + 1);
+      continue;
     }
 
     // Same structural pre-validation as the jak1 android dispatcher: a bucket

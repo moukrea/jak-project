@@ -411,6 +411,23 @@ int gk_print_version(void) {
 int gk_init_runtime(void) {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "gk_init_runtime: initializing kernel core");
+  // Gjak2-visuals: optional low-memory tripwire. Desktop always mprotects the
+  // first 512 kB of EE memory PROT_NONE (game/runtime.cpp:193, "PS2 kernel
+  // area") so any corrupt low-address access crashes AT THE WRITER; the
+  // Android allocator never did, which let the jak2 BUCKET_2 vis/fog cursor
+  // corruption (packets appended at ee 0x12c0+) run silently. Arm with:
+  //   adb shell setprop debug.opengoal.lowprot 1   (before app launch)
+  // then the tombstone/fp-walk names the corrupt writer.
+  {
+    char lp[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.lowprot", lp);
+    if (lp[0] == '1' && g_ee_main_mem) {
+      int rc = mprotect((void*)g_ee_main_mem, EE_MAIN_MEM_LOW_PROTECT, PROT_NONE);
+      __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
+                          "GJ2VIS lowprot tripwire ARMED: mprotect(%p, 0x%x, PROT_NONE) rc=%d",
+                          g_ee_main_mem, EE_MAIN_MEM_LOW_PROTECT, rc);
+    }
+  }
   kboot_init_globals_common();
   kmalloc_init_globals_common();
   kprint_init_globals_common();
@@ -6492,6 +6509,30 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                       (unsigned long)uc->uc_mcontext.sp, (unsigned long)pc,
                       (unsigned long)lr);
 
+  // Gjak2-visuals (H2b): raw CODE WINDOW around pc — 40 words before, 8 after,
+  // 8 hex words per line. GOAL level-heap code has no symbol coverage; these
+  // bytes byte-match against the built arm64 objects to NAME the function
+  // (the A34 loop). Reads are bounds-checked against the EE map only.
+  {
+    const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    // stay clear of the (possibly PROT_NONE) low band — reading it here would
+    // re-fault inside the handler.
+    if (pc >= ee + EE_MAIN_MEM_LOW_PROTECT && pc < ee + EE_MAIN_MEM_SIZE) {
+      uintptr_t w0 = pc - 40 * 4;
+      if (w0 < ee + EE_MAIN_MEM_LOW_PROTECT) {
+        w0 = ee + EE_MAIN_MEM_LOW_PROTECT;
+      }
+      for (uintptr_t line = w0; line < pc + 8 * 4 && line + 32 <= ee + EE_MAIN_MEM_SIZE;
+           line += 32) {
+        const uint32_t* w = reinterpret_cast<const uint32_t*>(line);
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG CODE ee+0x%lx: %08x %08x %08x %08x %08x %08x %08x %08x%s",
+                            (unsigned long)(line - ee), w[0], w[1], w[2], w[3], w[4], w[5], w[6],
+                            w[7], (pc >= line && pc < line + 32) ? "  <-- pc line" : "");
+      }
+    }
+  }
+
   // (H3) STACK WALK — recover the return chain when lr=0. Dump sp..sp+512 as u64
   // words; for each word, if it lands inside the mapped libgk .text (dladdr
   // resolves it to a file+symbol) OR inside the EE/GOAL code region, symbolize
@@ -8490,6 +8531,20 @@ extern "C" void gk_a38_tripwire_frame_hook(int chain_phase) {
 int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "gk_sdl_main: entered");
   gk_install_sigsegv_diag();
+
+  // Gjak2-visuals low-memory tripwire (see gk_init_runtime for rationale) —
+  // armed HERE because gk_init_runtime is never invoked in the Android flow;
+  // gk_sdl_main is reached on every boot, before goal_main boots the kernel.
+  {
+    char lp[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.opengoal.lowprot", lp);
+    if (lp[0] == '1' && g_ee_main_mem) {
+      int rc = mprotect((void*)g_ee_main_mem, EE_MAIN_MEM_LOW_PROTECT, PROT_NONE);
+      __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
+                          "GJ2VIS lowprot tripwire ARMED: mprotect(%p, 0x%x, PROT_NONE) rc=%d",
+                          g_ee_main_mem, EE_MAIN_MEM_LOW_PROTECT, rc);
+    }
+  }
 
   // A11: install the chained pre-kernel-version hook before goal_main
   // is called. By gk_sdl_main entry every global ctor has finished, so

@@ -995,7 +995,53 @@ bool a37_name_is_real_jak2(const std::string& name) {
       "(method 14 ocean)", "(method 15 ocean)", "(method 16 ocean)",
       // NOTE: jak2 registers no time-of-day mips2c builder (no jak2_functions/
       // time_of_day.cpp) — nothing to add for that family.
+      // --- Gjak2-visuals: shadow-cpu (enable ALL 16 TOGETHER — shadow-execute
+      //     jalr's every sibling via gLinkedFunctionTable name lookups,
+      //     shadow.cpp:2604-2737, so a partial set re-noops the geometry).
+      //     ROOT-CAUSE fix, not just a family port: shadow-cpu.gc:704 does
+      //     (set! (-> global-buf base) (shadow-execute ...)) — the shared noop
+      //     returns 0, so every later packet that frame (vis/fog, camera, sky
+      //     input) was appended at ee 0x12c0-band low memory and the chain's
+      //     bucket-NEXT went low, which the A42 low-addr quarantine skips =>
+      //     ~83% of title frames re-presented STALE chains (frozen clouds
+      //     t=990, stale searchlight emissive = the white wash). Proven by the
+      //     lowprot tripwire: STR of the shadow-dma-end qwc=6 cnt tag to ee+0,
+      //     byte-matched to GAME.CGO object #205 'shadow-cpu'. Audited: zero
+      //     integer div/mod; all three s7 compares are symbol/boolean idioms
+      //     (no upper-32 gpr_addr misfire); scratchpad via the proven
+      //     fake_scratchpad_data idiom; blerc DMA already bounds-guarded
+      //     (emulate_dma_bounded); external callees are plain GOAL defuns via
+      //     the proven FFI. jak1 precedent covers shadow-execute's cursor
+      //     contract; the 15 siblings are first-enabled here (static-audit
+      //     clean). SHADOW/SHADOW2 buckets stay SkipRenderer'd on Android for
+      //     now — the DMA is built and consumed, nothing draws yet. ---
+      "shadow-execute", "shadow-xform-verts", "shadow-calc-dual-verts",
+      "shadow-scissor-edges", "shadow-scissor-top", "shadow-init-vars",
+      "shadow-find-facing-single-tris", "shadow-find-single-edges",
+      "shadow-find-facing-double-tris", "shadow-find-double-edges",
+      "shadow-add-verts", "shadow-add-facing-single-tris", "shadow-add-single-edges",
+      "shadow-add-single-tris", "shadow-add-double-tris", "shadow-add-double-edges",
   };
+  // Kill-switch (relaunch-toggleable, no rebuild): setprop
+  // debug.opengoal.jak2.noshadowcpu 1 re-noops the shadow-cpu family only.
+  // NOTE: with the family noop'd the global-buf base=0 corruption RETURNS —
+  // this exists purely for A/B fault isolation.
+  static const bool s_no_shadowcpu = []() {
+    bool off = false;
+#ifdef __ANDROID__
+    char b[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.jak2.noshadowcpu", b) > 0 && b[0] == '1') {
+      off = true;
+    }
+#endif
+    if (off) {
+      fprintf(stderr, "GJ2VIS shadow-cpu mips2c family DISABLED via prop\n");
+    }
+    return off;
+  }();
+  if (s_no_shadowcpu && name.rfind("shadow-", 0) == 0) {
+    return false;
+  }
   for (auto* n : kSetJak2) { if (name == n) return true; }
   return false;
 }

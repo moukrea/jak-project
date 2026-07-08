@@ -987,6 +987,42 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   m_render_state.ee_main_memory = g_ee_main_mem;
   m_render_state.offset_of_s7 = offset_of_s7();
 
+  // Gjak2-visuals probe (desktop oracle): does the LEGIT jak2 chain contain
+  // low-address tags? Device chains show NEXT->0x12c0/0x1440 pointing at the
+  // vis/fog packets, which the Android A42 low-addr quarantine skips as
+  // "corrupt". lows>0 here => jak2 legitimately uses low EE memory and the
+  // quarantine is a false positive; lows==0 => the device chain is corrupt
+  // for real.
+  if (m_version == GameVersion::Jak2 && getenv("GJ2VIS_TFTREE")) {
+    static int s_chain_ctr = 0;
+    if ((s_chain_ctr++ % 300) == 0) {
+      DmaFollower probe = dma;
+      int steps = 0, lows = 0, first_kind = -1, first_step = -1;
+      u32 first_low = 0;
+      u64 d0 = 0, d1 = 0;
+      while (!probe.ended() && steps < 400000) {
+        auto tag = probe.current_tag();
+        if (tag.addr != 0 && tag.addr <= EE_MAIN_MEM_LOW_PROTECT) {
+          lows++;
+          if (lows == 1) {
+            first_low = tag.addr;
+            first_kind = (int)tag.kind;
+            first_step = steps;
+            memcpy(&d0, (const u8*)g_ee_main_mem + tag.addr, 8);
+            memcpy(&d1, (const u8*)g_ee_main_mem + tag.addr + 8, 8);
+          }
+        }
+        probe.read_and_advance();
+        steps++;
+      }
+      fprintf(stderr,
+              "GJ2VIS-CHAINLOW steps=%d lows=%d first=0x%x kind=%d at_step=%d "
+              "data=%016llx %016llx\n",
+              steps, lows, first_low, first_kind, first_step, (unsigned long long)d0,
+              (unsigned long long)d1);
+    }
+  }
+
   {
     g_current_renderer = "frame-setup";
     auto prof = m_profiler.root()->make_scoped_child("frame-setup");

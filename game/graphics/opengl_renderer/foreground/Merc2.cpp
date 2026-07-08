@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <set>
 #include <unordered_map>
 #include <vector>
 #ifdef __ANDROID__
@@ -787,6 +788,50 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     }
   }
 #endif
+  // Gjak2-visuals probe: per-model one-shot of bone-translation magnitude and
+  // light colors — the white wash bisects to the plain-merc bucket family, and
+  // huge-but-finite garbage matrices (wrong-address reads) or blown lights
+  // pass the NaN repair above untouched. Diffable our-x86 (env GJ2VIS_TFTREE)
+  // vs device (always). Logs each model once, and once more if it turns huge.
+  {
+#ifdef __ANDROID__
+    static const bool s_merc_dump = true;
+#else
+    static const bool s_merc_dump = getenv("GJ2VIS_TFTREE") != nullptr;
+#endif
+    if (s_merc_dump) {
+      float max_t = 0.f;
+      for (int j = 0; j < i; j++) {
+        int slot = input_data[j];
+        if (slot >= MAX_SKEL_BONES) {
+          continue;
+        }
+        const float* f = reinterpret_cast<const float*>(&skel_matrix_buffer[slot]);
+        for (int k = 12; k < 15; k++) {  // tmat translation row
+          float a = std::fabs(f[k]);
+          if (a > max_t) {
+            max_t = a;
+          }
+        }
+      }
+      const bool huge = max_t > 1e8f;
+      static std::set<std::string> s_seen_models;
+      static std::set<std::string> s_seen_huge;
+      bool log_it = huge ? s_seen_huge.insert(name).second : s_seen_models.insert(name).second;
+      if (log_it) {
+        fprintf(stderr,
+                "GJ2VIS-MERCMODEL name=%s bones=%d maxT=%.3e huge=%d "
+                "l0=(%.2f %.2f %.2f) l1=(%.2f %.2f %.2f) l2=(%.2f %.2f %.2f) amb=(%.2f %.2f "
+                "%.2f)\n",
+                name, i, max_t, huge ? 1 : 0, current_lights.color0.x(), current_lights.color0.y(),
+                current_lights.color0.z(), current_lights.color1.x(), current_lights.color1.y(),
+                current_lights.color1.z(), current_lights.color2.x(), current_lights.color2.y(),
+                current_lights.color2.z(), current_lights.ambient.x(), current_lights.ambient.y(),
+                current_lights.ambient.z());
+      }
+    }
+  }
+
   input_data += 128 + 16 * i;
 
   // Next part is some flags
