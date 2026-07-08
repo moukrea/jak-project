@@ -6509,6 +6509,30 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
                       (unsigned long)uc->uc_mcontext.sp, (unsigned long)pc,
                       (unsigned long)lr);
 
+  // Gjak2-visuals (H2b): raw CODE WINDOW around pc — 40 words before, 8 after,
+  // 8 hex words per line. GOAL level-heap code has no symbol coverage; these
+  // bytes byte-match against the built arm64 objects to NAME the function
+  // (the A34 loop). Reads are bounds-checked against the EE map only.
+  {
+    const uintptr_t ee = reinterpret_cast<uintptr_t>(g_ee_main_mem);
+    // stay clear of the (possibly PROT_NONE) low band — reading it here would
+    // re-fault inside the handler.
+    if (pc >= ee + EE_MAIN_MEM_LOW_PROTECT && pc < ee + EE_MAIN_MEM_SIZE) {
+      uintptr_t w0 = pc - 40 * 4;
+      if (w0 < ee + EE_MAIN_MEM_LOW_PROTECT) {
+        w0 = ee + EE_MAIN_MEM_LOW_PROTECT;
+      }
+      for (uintptr_t line = w0; line < pc + 8 * 4 && line + 32 <= ee + EE_MAIN_MEM_SIZE;
+           line += 32) {
+        const uint32_t* w = reinterpret_cast<const uint32_t*>(line);
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG CODE ee+0x%lx: %08x %08x %08x %08x %08x %08x %08x %08x%s",
+                            (unsigned long)(line - ee), w[0], w[1], w[2], w[3], w[4], w[5], w[6],
+                            w[7], (pc >= line && pc < line + 32) ? "  <-- pc line" : "");
+      }
+    }
+  }
+
   // (H3) STACK WALK — recover the return chain when lr=0. Dump sp..sp+512 as u64
   // words; for each word, if it lands inside the mapped libgk .text (dladdr
   // resolves it to a file+symbol) OR inside the EE/GOAL code region, symbolize
