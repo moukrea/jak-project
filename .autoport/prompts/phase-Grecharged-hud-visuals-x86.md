@@ -24,3 +24,13 @@ each branch + flag reads. `(mi)` clean; boots to play; OFF A/B identical.
 per-element implementation + technique + evidence; honest partial OK with named blockers.
 ## Locks: no device commands; .autoport/gold READ-ONLY; engine goal_src edits minimal+documented.
 ## Max: max_turns 2400, max_retries 4. device: false, owner_verify: false.
+
+## OWNER LIVE REVIEW (2026-07-08 ~18:45 — he is watching the x86 window)
+ 1. **Fuel cell: DOUBLE rendering** — the real 3D model is drawn ON TOP of the old sprite version
+    ("double impression"). When recharged-hud? is ON you must HIDE the stock element (suppress the
+    stock hud-fuel-cell particles/draw) before drawing the replacement — same rule for every element.
+ 2. **Scout fly faces the WRONG WAY** — we see its BACKSIDE instead of its face. Rotate the icon's
+    orientation (yaw ~180°, check the manipy/joint orientation used by hud-pc-make-icon) so the
+    front view faces the camera, per the spec ("mecamouche (de face)").
+ 3. **Heart + gauge custom assets are NOT VISIBLE yet** — if still WIP, fine (say so in the report);
+    if you consider them landed, they are NOT rendering — debug the new-sprite texture path.
