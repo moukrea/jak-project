@@ -1199,7 +1199,8 @@ u64 execute(void* ctxt) {
   c->jalr(call_addr);                               // jalr ra, t9
   c->mov64(v1, v0);                                 // or v1, v0, r0
   c->addiu(v1, r0, -1);                             // addiu v1, r0, -1
-  bc = c->sgpr64(s3) == c->sgpr64(v1);              // beq s3, v1, L72
+  // Gjak2-ingame: -1 sentinel compare on an arg-passed index — arm64 upper-32 can be dirty; compare low-32 (same class as the #f-guards). x86 unaffected.
+  bc = ((s32)c->sgpr64(s3)) == ((s32)c->sgpr64(v1));              // beq s3, v1, L72
   c->mov64(v1, s7);                                 // or v1, s7, r0
   if (bc) {goto block_7;}                           // branch non-likely
 
@@ -1442,7 +1443,8 @@ u64 execute(void* ctxt) {
   c->jalr(call_addr);                               // jalr ra, t9
   c->mov64(v1, v0);                                 // or v1, v0, r0
   c->addiu(v1, r0, -1);                             // addiu v1, r0, -1
-  bc = c->sgpr64(s5) == c->sgpr64(v1);              // beq s5, v1, L61
+  // Gjak2-ingame: -1 sentinel compare on an arg-passed index — arm64 upper-32 can be dirty; compare low-32 (same class as the #f-guards). x86 unaffected.
+  bc = ((s32)c->sgpr64(s5)) == ((s32)c->sgpr64(v1));              // beq s5, v1, L61
   c->mov64(v1, s7);                                 // or v1, s7, r0
   if (bc) {goto block_7;}                           // branch non-likely
 
@@ -2224,7 +2226,8 @@ u64 execute(void* ctxt) {
   c->jalr(call_addr);                               // jalr ra, t9
   c->mov64(v1, v0);                                 // or v1, v0, r0
   c->addiu(v1, r0, -1);                             // addiu v1, r0, -1
-  bc = c->sgpr64(s5) == c->sgpr64(v1);              // beq s5, v1, L19
+  // Gjak2-ingame: -1 sentinel compare on an arg-passed index — arm64 upper-32 can be dirty; compare low-32 (same class as the #f-guards). x86 unaffected.
+  bc = ((s32)c->sgpr64(s5)) == ((s32)c->sgpr64(v1));              // beq s5, v1, L19
   c->mov64(v1, s7);                                 // or v1, s7, r0
   if (bc) {goto block_5;}                           // branch non-likely
 

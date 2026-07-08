@@ -864,7 +864,8 @@ u64 execute(void* ctxt) {
   c->lwu(gp, 512, a2);                              // lwu gp, 512(a2)
   c->vadd(DEST::xyzw, vf9, vf9, vf1);               // vadd.xyzw vf9, vf9, vf1
   // nop                                            // sll r0, r0, 0
-  bc = c->sgpr64(gp) == c->sgpr64(s7);              // beq gp, s7, L72
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  bc = c->gpr_addr(gp) == c->gpr_addr(s7);          // beq gp, s7, L72 (32-bit GOAL ptr)
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_10;}                          // branch non-likely
 
@@ -1417,7 +1418,8 @@ u64 execute(void* ctxt) {
 
   c->daddiu(s3, s3, 1);                             // daddiu s3, s3, 1
   c->daddu(s4, s4, s2);                             // daddu s4, s4, s2
-  bc = c->sgpr64(gp) == c->sgpr64(s7);              // beq gp, s7, L60
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  bc = c->gpr_addr(gp) == c->gpr_addr(s7);          // beq gp, s7, L60 (32-bit GOAL ptr)
   c->sw(s3, 0, a0);                                 // sw s3, 0(a0)
   if (bc) {goto block_16;}                          // branch non-likely
 
