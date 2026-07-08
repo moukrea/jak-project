@@ -92,3 +92,29 @@ renderer produces exactly a massive blob. Check: the jak2 glow bucket / sprite-d
 (is it ported or falling back to something wrong?), the glow size/interp inputs vs x86 state-dump
 at the same cinematic beat, and the sparticle launch flags for the portal effect. Fix or cleanly
 skip-with-kill-switch the glow family (honest deferral OK) rather than shipping the blob.
+
+## OWNER PLAYTEST UPDATE (2026-07-08 ~03:15) — two hard repros
+ 1. **Intro cinematic CRASHES at the exact beat where the METALHEADS start crossing the portal** —
+    that beat combines a merc spawn burst (metalhead models) + the portal particle storm; forensics
+    the crash there (fp-walk/lr-window) and map to bones/merc-spawn vs particle suspects.
+ 2. **COLLISION IS TOTALLY ABSENT, not localized**: owner jumped in every reachable direction incl.
+    straight at the respawn point — falls through the floor EVERYWHERE, endless respawn loop. This is
+    a SYSTEMIC collide failure on arm64: the collide system returns no hits at all. Check in order:
+    (a) jak2 mips2c collide_cache.cpp / collide functions on arm64 — do queries return real results?
+        A/B one collide query state-dump our-x86 vs device at the same position;
+    (b) does the level COLLISION DATA even load on Android (collide mesh/fr3 extraction path — we
+        build the jak2 fr3 without collision? jak1 needed extract_collision for its path);
+    (c) the collide trampoline/allowlist entries (a noop'd collide builder = zero hits = fall-through).
+    Fixing collision unblocks ALL in-game verification — HIGH priority (equal to bones).
+
+## OWNER CORRECTION (2026-07-08 ~03:55) — cinematic crash beat FALSIFIED and re-pinned
+The intro cinematic goes MUCH further than previously noted: the ENTIRE portal sequence plays
+(metalheads crossing included), Jak gets captured (rifle-butt hit -> black screen), then the
+"TWO YEARS LATER" text card appears — and THAT is where it crashes. So the crash is NOT the
+metalhead/particle beat: it is the SCENE TRANSITION beat. Suspects, in order:
+ 1. the intro->prison SCENE/LEVEL TRANSITION (next level/segment load kicked off behind the card —
+    level DGO/spool handoff on arm64);
+ 2. the spool chain segment handoff (end of intro spool -> next);
+ 3. the text-card rendering path itself (subtitle/card draw — less likely).
+Forensics the crash AT the "Two years later" card (fp-walk/lr-window + which subsystem). The
+metalhead/portal beat earlier framing is WITHDRAWN (it plays fine apart from the glow blob).
