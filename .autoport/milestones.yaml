@@ -1204,6 +1204,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Gjak2-pcmenus
+  name: 'OWNER 2026-07-08 (jak2 menu test): backport the whole jak1 PC options system to jak2 — Fit-to-screen aspect (4:3 stuck now), Window Size/resolution picker (empty), Display Mode (UNKNOWN ID 999187), dynamic render scale, conditional menus, touch nav; goal_src/jak2/pc only'
+  prompt: prompts/phase-Gjak2-pcmenus.md
+  validator: validators/phase-Gjak2-pcmenus.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
 - id: Grecharged-hud-jak1
   name: 'RECHARGED (owner 2026-07-06, fork "Jak and Daxter: The Recharged Jak-pot"): optional gated NEW HUD for jak1 — Graphics Options > "Recharged Settings" (before Advanced) > "Recharged HUD" ON/OFF (default OFF=stock); ON = 4-state heart sprite (100/66/33-blink/0), eco gauge with mask+rotated tip per eco type, real 3D model for power-cell + scout-fly; assets in recharged_assets/; font deferred'
   prompt: prompts/phase-Grecharged-hud-jak1.md

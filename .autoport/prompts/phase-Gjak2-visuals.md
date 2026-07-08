@@ -74,3 +74,11 @@ Four precise symptoms, mapped to targets (fix in this order):
     stall; investigate after 1-3.
 The owner CAN reach gameplay via intro-skip — use that recipe for in-game verification (models
 behave, character stands on the floor, no reload loop).
+
+## OWNER MENU TEST (2026-07-08 ~02:40) — explosion GONE in menus ✓, but:
+ * The JAK1 ORANGE OVERLAY is STILL THERE behind the jak2 options menu (symptom 3 NOT fixed — the
+   supervisor's "menu clean" screenshot reading was wrong; the owner sees it live). Find the
+   jak1-keyed tint/overlay in our glue and gate it to jak1.
+ * "Display Mode" shows garbage default "UNKNOWN ID 999187" — the display-mode enumeration is
+   unwired on Android/jak2; at minimum make it not display a garbage ID (proper backport = the
+   queued Gjak2-pcmenus backlog phase; don't scope-creep the full system here).
