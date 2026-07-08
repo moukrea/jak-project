@@ -82,3 +82,13 @@ behave, character stands on the floor, no reload loop).
  * "Display Mode" shows garbage default "UNKNOWN ID 999187" — the display-mode enumeration is
    unwired on Android/jak2; at minimum make it not display a garbage ID (proper backport = the
    queued Gjak2-pcmenus backlog phase; don't scope-creep the full system here).
+
+## OWNER OBSERVATION (2026-07-08 ~03:00) — intro cinematic: portal emits a MASSIVE luminous blob
+Particles in the intro cinematic are broken: the rift PORTAL emits a huge glowing blob. The owner
+notes it resembles jak1's early SUN rendering problem — that analogy is a strong lead: jak1's sun/
+halo class (Ghalo/Ghalo-sun forensics) was the GLOW/sprite family where glow SIZE = camera-driven
+interp (sun-fade/current-interp); a corrupted interp/size input or an unported glow/sprite-distort
+renderer produces exactly a massive blob. Check: the jak2 glow bucket / sprite-distort renderer
+(is it ported or falling back to something wrong?), the glow size/interp inputs vs x86 state-dump
+at the same cinematic beat, and the sparticle launch flags for the portal effect. Fix or cleanly
+skip-with-kill-switch the glow family (honest deferral OK) rather than shipping the blob.
