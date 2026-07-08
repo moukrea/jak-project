@@ -20,7 +20,8 @@ u64 execute(void* ctxt) {
   c->daddu(a2, a2, a3);                             // daddu a2, a2, a3
   c->sw(t0, 4, a0);                                 // sw t0, 4(a0)
   c->sqc2(vf1, 0, a2);                              // sqc2 vf1, 0(a2)
-  if (((s64)c->sgpr64(v1)) == ((s64)c->sgpr64(s7))) {// beql v1, s7, L96
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  if (c->gpr_addr(v1) == c->gpr_addr(s7)) {// beql v1, s7, L96 (32-bit GOAL ptr)
     c->sw(a1, 8, a0);                               // sw a1, 8(a0)
     goto block_10;
   }
@@ -36,7 +37,8 @@ u64 execute(void* ctxt) {
 
   block_5:
   c->lwu(v1, 0, v1);                                // lwu v1, 0(v1)
-  if (((s64)c->sgpr64(v1)) == ((s64)c->sgpr64(s7))) {// beql v1, s7, L98
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  if (c->gpr_addr(v1) == c->gpr_addr(s7)) {// beql v1, s7, L98 (32-bit GOAL ptr)
     c->sw(a1, 0, a0);                               // sw a1, 0(a0)
     goto block_12;
   }
@@ -126,7 +128,8 @@ u64 execute(void* ctxt) {
   if (bc) {goto block_25;}                          // branch non-likely
 
   c->lwu(s1, 8, s5);                                // lwu s1, 8(s5)
-  bc = c->sgpr64(s1) == c->sgpr64(s7);              // beq s1, s7, L92
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  bc = c->gpr_addr(s1) == c->gpr_addr(s7);          // beq s1, s7, L92 (32-bit GOAL ptr)
   // nop                                            // sll r0, r0, 0
   if (bc) {goto block_25;}                          // branch non-likely
 
@@ -261,7 +264,8 @@ u64 execute(void* ctxt) {
   c->jalr(call_addr);                               // jalr ra, t9
   c->mov64(v1, v0);                                 // or v1, v0, r0
   c->lwu(v1, 4, s3);                                // lwu v1, 4(s3)
-  bc = c->sgpr64(v1) == c->sgpr64(s7);              // beq v1, s7, L89
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  bc = c->gpr_addr(v1) == c->gpr_addr(s7);          // beq v1, s7, L89 (32-bit GOAL ptr)
   c->lwu(v1, 0, s5);                                // lwu v1, 0(s5)
   if (bc) {goto block_16;}                          // branch non-likely
 
@@ -1111,7 +1115,8 @@ u64 execute(void* ctxt) {
   // if (bc) {goto block_27;}                          // branch non-likely
   sub_l25_b27(c);
 
-  bc = c->sgpr64(t0) == c->sgpr64(s7);              // beq t0, s7, L29
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  bc = c->gpr_addr(t0) == c->gpr_addr(s7);          // beq t0, s7, L29 (32-bit GOAL ptr)
   c->mov64(a2, t0);                                 // or a2, t0, r0
   if (bc) {goto block_41;}                          // branch non-likely
 
@@ -1120,7 +1125,8 @@ u64 execute(void* ctxt) {
   // if (bc) {goto block_27;}                          // branch non-likely
   sub_l25_b27(c);
 
-  bc = c->sgpr64(t0) == c->sgpr64(s7);              // beq t0, s7, L29
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  bc = c->gpr_addr(t0) == c->gpr_addr(s7);          // beq t0, s7, L29 (32-bit GOAL ptr)
   c->mov64(a3, t0);                                 // or a3, t0, r0
   if (bc) {goto block_41;}                          // branch non-likely
 
@@ -1129,7 +1135,8 @@ u64 execute(void* ctxt) {
   // if (bc) {goto block_27;}                          // branch non-likely
   sub_l25_b27(c);
 
-  bc = c->sgpr64(t0) == c->sgpr64(s7);              // beq t0, s7, L29
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  bc = c->gpr_addr(t0) == c->gpr_addr(s7);          // beq t0, s7, L29 (32-bit GOAL ptr)
   c->mov64(t0, t0);                                 // or t0, t0, r0
   if (bc) {goto block_41;}                          // branch non-likely
 

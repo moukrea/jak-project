@@ -1021,6 +1021,39 @@ bool a37_name_is_real_jak2(const std::string& name) {
       "shadow-find-facing-double-tris", "shadow-find-double-edges",
       "shadow-add-verts", "shadow-add-facing-single-tris", "shadow-add-single-edges",
       "shadow-add-single-tris", "shadow-add-double-tris", "shadow-add-double-edges",
+      // --- Gjak2-ingame: the collide + spatial-hash query families (enable
+      //     TOGETHER as a unit; jak1 F1-collision precedent — same arm64-only
+      //     noop divergence class). With these noop'd the collide-cache fills
+      //     with ZERO ground triangles -> *target* gets no pat-surface ground
+      //     and free-falls through every floor (owner: falls through
+      //     everywhere incl. the Fortress spawn). Data-load ruled out:
+      //     collide-hash is DGO/bsp-resident (bsp-h.gc:81, linked by
+      //     level.gc:207), identical source both arches; fr3 collision is
+      //     debug-viz only. Audited (see phase report): zero integer div/mod
+      //     (only float div.s in spatial_hash.cpp); scratchpad via the proven
+      //     fake_scratchpad_data idiom; the 11 mem-loaded s7 #f-guard compares
+      //     in collide_cache/collide_hash/collide_edge_grab fixed per-site
+      //     with the 32-bit gpr_addr compare (ocean.cpp:39 idiom); the only
+      //     mips2c->mips2c edges (collide-cache -> moving-sphere-triangle-
+      //     intersect, collide-func -> collide-do-primitives) stay in-set;
+      //     all other callees are plain GOAL defuns via the proven FFI. ---
+      "(method 11 collide-hash)", "(method 12 collide-hash)",
+      "fill-bg-using-box-new", "fill-bg-using-line-sphere-new",
+      "(method 12 collide-mesh)", "(method 14 collide-mesh)", "(method 15 collide-mesh)",
+      "moving-sphere-triangle-intersect", "collide-do-primitives",
+      "(method 10 collide-edge-hold-list)", "(method 19 collide-edge-work)",
+      "(method 9 edge-grab-info)", "(method 16 collide-edge-work)",
+      "(method 17 collide-edge-work)", "(method 18 collide-edge-work)",
+      "(method 10 collide-shape-prim-mesh)", "(method 10 collide-shape-prim-sphere)",
+      "(method 10 collide-shape-prim-group)", "(method 11 collide-shape-prim-mesh)",
+      "(method 11 collide-shape-prim-sphere)", "(method 11 collide-shape-prim-group)",
+      "(method 9 collide-cache-prim)", "(method 10 collide-cache-prim)",
+      "(method 17 collide-cache)", "(method 9 collide-puss-work)", "(method 10 collide-puss-work)",
+      "(method 18 grid-hash)", "(method 19 grid-hash)", "(method 20 grid-hash)",
+      "(method 22 grid-hash)", "(method 28 sphere-hash)", "(method 29 sphere-hash)",
+      "(method 30 sphere-hash)", "(method 31 sphere-hash)", "(method 32 sphere-hash)",
+      "(method 33 sphere-hash)", "(method 33 spatial-hash)", "(method 35 spatial-hash)",
+      "(method 36 spatial-hash)", "(method 37 spatial-hash)", "(method 39 spatial-hash)",
   };
   // Kill-switch (relaunch-toggleable, no rebuild): setprop
   // debug.opengoal.jak2.noshadowcpu 1 re-noops the shadow-cpu family only.
