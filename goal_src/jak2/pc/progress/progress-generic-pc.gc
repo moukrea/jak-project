@@ -410,6 +410,10 @@
 ;; Progress Code Overrides
 
 (defmethod respond-to-cpad ((this progress))
+  ;; touch-menus: flags are re-emitted each frame by the active page's drive;
+  ;; clear here so frames with no touch-driven page (ring menu, transitions)
+  ;; can never see a stale flag from the previously active page.
+  (menu-touch-clear-flags!)
   (mc-get-slot-info 0 *progress-save-info*)
   ;; ND originally did this...called this every frame in the game options, looked like a hack
   ;; there's probably a way to consistently do it synchronously
@@ -440,10 +444,13 @@
         (cond
           ((-> this selected-option)
            (cond
-             ((cpad-pressed? 0 confirm)
+             ;; touch-menus: the synthetic confirm/back must mirror the raw pad
+             ;; here — the per-option selected? flows from (-> this selected-option),
+             ;; so a touch edit-sequence that skips these never commits a value
+             ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
               (set! (-> this selected-option) #f)
               )
-             ((cpad-pressed? 0 triangle)
+             ((or (cpad-pressed? 0 triangle) (-> *menu-touch* back?))
               (when (not in-generic-page?)
                 (if (= (-> this current-options) *main-options*)
                   (sound-play "window-contract")
@@ -479,7 +486,7 @@
                   (set! (-> this want-option-index) 1))
                  ((< (-> this want-option-index) 2)
                   (+! (-> this want-option-index) 1))))
-              ((cpad-pressed? 0 confirm)
+              ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
                (cpad-clear! 0 confirm)
                (when (and (not in-generic-page?)
                           (not (-> *progress-state* clear-screen)))

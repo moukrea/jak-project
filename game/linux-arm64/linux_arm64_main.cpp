@@ -372,6 +372,16 @@ void a17_bind_pc_helpers_jak2() {
 
   void* d = (void*)a17_pc_default;
 
+  // Gjak2-pcmenus: the ANDROID build now upgrades 17 of the pc-* names below
+  // (pc-get-display-mode / -active-display-size / -active-display-refresh-rate /
+  // -window-size / -touch-tap / -num-resolutions / -resolution, pc-set-vsync /
+  // -frame-rate / -game-resolution / -letterbox / -fps-counter, pc-get-fps /
+  // -frame-busy-us / -os / -unix-timestamp, pc-rand) to real a35_* Android-truth
+  // bodies (both in its a17 jak2 pass and again after jak2 InitMachine_PCPort).
+  // Those a35_* bodies are Android renderer / window glue that do NOT exist in
+  // this headless qemu harness (no window, no android_gfx), so the harness keeps
+  // the a17_pc_default no-ops here. Lockstep = same NAME set; body divergence is
+  // intentional and platform-correct.
   // ---- init_common_pc_port_functions (common, game-agnostic) ----
   // Core / internal
   jak2::make_function_symbol_from_c("__read-ee-timer", d);

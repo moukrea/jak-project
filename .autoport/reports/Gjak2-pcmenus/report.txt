@@ -1,0 +1,163 @@
+PHASE Gjak2-pcmenus — backport jak1's PC/Android options system to jak2
+========================================================================
+RESULT: JAK2 PC MENUS x86-verified, device pending (Redmi unplugged until
+tonight — supervisor device-less mode; APK built ready-to-deploy)
+
+WHAT LANDS (all owner complaints addressed)
+-------------------------------------------
+1. FIT TO SCREEN (aspect stuck 4:3): the new Android graphics page
+   (*graphic-options-pc-android*, goal_src/jak2/pc/progress/progress-static-pc.gc)
+   puts "Fit to Screen" first in the Aspect Ratio carousel (custom text id
+   #x1364, all 25 languages). Selecting it sets aspect-ratio-auto? #t +
+   use-vis? #f -> the SHARED pckernel-common update-from-os auto branch drives
+   the live aspect from the real window size every frame (aspect applies live,
+   no restart). x86-verified: flags flip #t/#f (x86-listener.txt, x86-fit.png).
+   Root cause of "stuck 4:3" on device was C++: pc-get-window-size (and the
+   whole Display-backed pc-* surface) was a no-op/desktop-null body on Android
+   jak2 — fixed, see (6).
+
+2. WINDOW SIZE EMPTY: the row links to jak2's live 'resolutions picker
+   (pc-get-num-resolutions/pc-get-resolution). Empty on device because both
+   helpers were dead on Android jak2 — now bound to the a35 panel-ladder
+   bodies jak1 uses (Gres-picker machinery). x86 shows the real mode list
+   (x86-resolutions.png: 1920x1080 ... 1024x576) and a touch tap moves the
+   highlight (x86-resolutions-tap.png); two-tap = select then apply.
+
+3. DISPLAY MODE "UNKNOWN ID 999187": two stacked causes, both fixed:
+   (a) on Android jak2 pc-get-display-mode returned 0/garbage (no-op or
+   desktop body with no Display module) -> the desktop page's carousel
+   get-item-index-fn case fell through -> out-of-range text-id -> the
+   text.gc:236 "UNKNOWN ID ~D" fallback. Now bound to a35_pc_get_display_mode
+   ('fullscreen via the game-correct symbol table — the earlier
+   a35_intern_offset fix in 5c3efd27e was the prerequisite).
+   (b) the Android page simply has no Display / Display Mode rows (single
+   fullscreen panel — same trim jak1 ships), so the garbage rows are GONE on
+   device; the desktop page keeps them, verified intact on x86
+   (x86-desktop-page.png, "Display Mode: Borderless", no garbage).
+
+4. DYNAMIC RENDER SCALE (jak1 Gdynamic-renderscale backport): the controller
+   was already SHARED into jak2 (project-lib.gp compiles jak1's
+   pckernel-h/common) but call-site-gated to jak1 (Gjak2-boot 0baaaf358; that
+   crash attribution predates the jak2 klink/renderer fixes and is
+   confounded). Gate lifted for jak2 (goal_src/jak1/pc/pckernel-common.gc
+   #cond adds a jak2 clause; jak1 clause BYTE-IDENTICAL, jak3+ stay static).
+   Menu rows: Dynamic Render Scale toggle, Render Scale % / Min Render Scale %
+   slider (relabels live), Min Target FPS carousel (25..60) — the row is
+   live-length-trimmed when dynamic is OFF (jak1 Goptions-reorder style).
+   x86-verified END TO END: toggle flips -> 7th row appears + relabel
+   (x86-dynamic-on.png, x86-touch-toggle.png), controller runs live
+   ([dyn-rs] state avg-fps=50.0 ... target=50 floor=70 — 199 lines in
+   x86-run.log, driven by the menu-set values).
+   DEVICE SAFETY: jak2 defaults the toggle OFF (pc-settings-jak2 reset-gfx
+   override) + one-time migration (load-settings override + dyn-rs-menu-seen?
+   marker key): existing device settings files carry an un-chosen
+   (dynamic-render-scale? #t) written while the toggle was unreachable — it is
+   forced OFF once, so tonight's first boot is behaviorally unchanged until
+   the owner opts in from the menu. A menu choice then persists normally.
+
+5. TOUCH NAV (jak1 Gtouch-menus port, adapted to jak2's menu-generic
+   framework): tap -> hit-test against per-frame registered row bands ->
+   synthetic press sequence (one token/frame) ORed into the EXISTING cpad
+   guards, so touch replays the exact pad interaction; pad path untouched;
+   desktop inert (tap source only live on Android). Covers: generic scrolling
+   pages (all option types: boolean/carousel/slider/link/button/confirm),
+   scroll zones (above/below list), off-list = back, the legacy resolution
+   picker (two-tap apply) and the aspect-ratio-custom page (column/± zones).
+   pc-get-touch-tap rebound from the no-op to the real a35 body for jak2
+   (Android + noted in the qemu harness), and the C++ isInMenu tap gate now
+   publishes for jak2 (g_overlay_in_menu was jak1-only — new per-frame
+   publisher reads jak2's *progress-process* at the __send-gfx-dma-chain
+   quiescent point).
+   x86-verified end-to-end via menu-touch-simulate! (listener-injected taps
+   through the SAME pipeline minus JNI): Dynamic toggle ON/OFF, V-Sync
+   ON/OFF, resolution highlight move — x86-touch-toggle.png, x86-listener.txt.
+   A REAL defect was found and fixed during this verification: the touch
+   confirm never reached respond-to-cpad's post-dispatch selected-option
+   block (raw cpad-pressed? only) -> value edits never committed. Fixed by
+   ORing the flags there + stale-flag clearing at method top; re-verified.
+
+6. ROOT-CAUSE C++ LAYER (the single biggest jak2-menu fix): on Android jak2
+   the FINAL pc-* binding state was the DESKTOP kmachine bodies —
+   InitHeapAndSymbol -> InitMachineScheme -> InitMachine_PCPort rebinds the
+   whole surface AFTER the a17 no-op pass (order proven in
+   game/kernel/jak2/kscheme.cpp:2415-2452). Desktop Display-backed bodies are
+   null-guarded no-ops on Android (no desktop Display module) -> 0
+   resolutions, dead window-size, os='linux (which is also why the device
+   showed the DESKTOP page instead of an Android page). Fix: the 17
+   Display/touch/os/fps helpers are re-bound to the a35 android_gfx-truth
+   bodies (the exact set jak1 runs) at BOTH points — upgraded in the a17
+   early list AND from a new g_jak2_post_machine_scheme_hook fired right
+   after InitMachineScheme (mirrors the existing pre-version-check hook;
+   null/no-op on desktop + qemu). Desktop filesystem/settings bodies
+   (pc-filepath-exists? etc.) are correct on Android and stay.
+
+PERSISTENCE (x86-verified round trip)
+-------------------------------------
+pc-settings.gc write/read verified across relaunch: dynamic-render-scale?,
+min-render-scale 70, dyn-target-fps 50, use-vis? #f and the new
+dyn-rs-menu-seen? #t marker all persisted and re-loaded
+(x86-pc-settings-after.gc, x86-listener.txt). Saved state left at the
+device-safe default (dynamic OFF). Device persistence path is the same
+desktop filesystem bodies jak1 uses (files/.config/OpenGOAL/jak2/settings/).
+
+VISUAL EVIDENCE (x86 window IS the testable surface today)
+----------------------------------------------------------
+x86-android-page.png   Android graphics page, 6 rows, dynamic OFF (trimmed)
+x86-dynamic-on.png     dynamic ON: 7 rows, "Min Render Scale" relabel
+x86-touch-toggle.png   the same state reached PURELY by touch simulation
+x86-mtf.png            Min Target FPS carousel + slider steps
+x86-fit.png            Fit to Screen selected (flags verified in listener)
+x86-resolutions.png    real resolution ladder; -tap.png: touch moved highlight
+x86-desktop-page.png   os='linux desktop page unchanged (no garbage IDs)
+x86-run.log            [mtouch] tap traces + 199 [dyn-rs] controller lines
+x86-listener.txt       all state prints (flags, persistence round trip)
+
+X86 ORACLE / JAK1 UNREGRESSED
+-----------------------------
+x86 jak2: full GOAL build clean (2274 then 933+2683 targets across
+iterations); game boots, menus navigable, no crash signatures in run logs;
+out/jak2/iso restored x86 (KERNEL.CGO 101760).
+jak1: the ONLY shared-file edit is the pckernel-common #cond gate — the jak1
+clause is token-identical (compile-time #cond; jak1 emission unchanged).
+A full jak1 x86 rebuild is NOT runnable on this checkout (pre-existing gap:
+decompiler_out/jak1/textures/ absent — predates this phase; jak1 gold
+artifacts of Jul 6 intact, .autoport/gold untouched).
+
+BUILDS READY-TO-DEPLOY
+----------------------
+arm64 CGO/DGO: out/jak2-arm64-full/iso — 151 files, single 15:26 generation,
+built from HEAD source (incl. the touch fix) by
+.autoport/build_arm64_full_consistent_jak2.sh; KERNEL.CGO 176000 (arm64) vs
+x86 101760 — byte-discriminated, no mixed generations.
+libgk.so: build-android/lib/arm64-v8a/libgk.so (15:28, includes the 17-helper
+upgrade + post-InitMachineScheme hook + jak2 in-menu publisher + touch tap
+binding). x86 gk rebuilt for HEAD consistency (hook inert on desktop).
+APK: see APK block below.
+
+PENDING (device steps for tonight's pass — supervisor gates after these)
+------------------------------------------------------------------------
+- install APK on eae4df44 (MIUI recipe), launch jak2
+- mCurrentFocus=org.opengoal.gk.jak2 foreground evidence + screencaps of the
+  Android graphics page (expect: no Display/Display Mode rows, Fit to Screen
+  present)
+- fit-to-screen FILLS the 20:9 panel (no pillarbox unless 4:3 chosen)
+- resolution picker lists the panel ladder; apply works
+- Dynamic Render Scale: enable from menu -> controller runs (grep -a
+  [dyn-rs] in routed logcat); WATCH for the old Gjak2-boot "crash after
+  Displaying level title" claim — if it reproduces, the menu default is OFF
+  so a plain reboot recovers; toggle stays opt-in until proven
+- touch nav on the real panel: [mtouch] tap lines give fx/fy vs row bands for
+  calibration if the 416-unit y mapping needs a device offset
+- persistence across relaunch on device
+- deploy_verify.sh chain (build==APK==device sha) — MUST pass before any
+  owner verdict
+NO adb attempts were made this session (device-less mode honored).
+
+APK (built 15:33, ready for tonight's device pass)
+--------------------------------------------------
+android/app/build/outputs/apk/jak2/debug/app-jak2-debug.apk (1.76GB)
+  apk sha256[0:16]=6228b75cab8bf64b
+  libgk.so inside APK == build-android/lib/arm64-v8a/libgk.so (sha 3b5adc82e8ff531a)
+  bundle jak2_assets.zip: 747 files (iso=599 fr3=148), KERNEL.CGO 176000
+  (arm64, 15:26 single generation) — no mixed builds; deploy_verify's
+  build==APK half already holds, device half pending install.

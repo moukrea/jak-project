@@ -27,6 +27,11 @@
 #include "game/kernel/jak2/kprint.h"
 
 extern "C" void (*g_jak2_pre_kernel_version_check_hook)(void) = nullptr;
+// Gjak2-pcmenus (autoport): fired right after InitMachineScheme ->
+// InitMachine_PCPort rebinds the pc-* surface to the desktop bodies; the
+// Android runtime re-upgrades the Display/touch/os subset to its
+// android_gfx-truth bodies here (null and a no-op everywhere else).
+extern "C" void (*g_jak2_post_machine_scheme_hook)(void) = nullptr;
 
 namespace jak2 {
 using namespace jak2_symbols;
@@ -2447,6 +2452,9 @@ int InitHeapAndSymbol() {
   {
     auto p = scoped_prof("init-machine-scheme");
     InitMachineScheme();
+  }
+  if (g_jak2_post_machine_scheme_hook) {
+    g_jak2_post_machine_scheme_hook();
   }
   kmemclose();
 

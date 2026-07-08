@@ -1,0 +1,103 @@
+### Step 2-3: OS set to android, initial pc-settings state ###
+1338473        #x146c69              0.0000        android
+1342753        #x147d21              0.0000        #f
+1342753        #x147d21              0.0000        #f
+1342757        #x147d25              0.0000        #t
+1342753        #x147d21              0.0000        #f
+1114636288        #x42700000             60.0000        139329536
+1120403456        #x42c80000            100.0000        140050432
+1109393408        #x42200000             40.0000        138674176
+1342757        #x147d25              0.0000        #t
+
+### Step 3: Android page rows (dynamic OFF) ###
+menu-options length = 6 (Min Target FPS hidden), row3 name = #x1362 "Render Scale"
+Row bands (fonty): ROW0 112-152 (Game Resolution), ROW1 152-192 (Aspect Ratio),
+  ROW2 192-232 (Dynamic Render Scale), ROW3 232-272 (Render Scale),
+  ROW4 272-312 (V-Sync), ROW5 312-352 (PS2 Options)
+
+### Step 4: Dynamic Render Scale ON (via boolean call-on-confirm #t) ###
+dynamic-render-scale? = #t ; menu-options length = 7 (Min Target FPS revealed)
+row3 name = #x1363 "Min Render Scale" (relabeled by graphic-options-pc-android-apply-mode!)
+
+### Step 5: Min Target FPS carousel + Min Render Scale slider ###
+*min-target-fps-options-pc* length = 8, values 25..60 (idx0=25, idx7=60)
+carousel call-on-confirm idx0->dyn-target-fps=25.0 ; idx5->50.0 (cycles 25..60)
+slider (Min Render Scale) step=10.0 min=10.0 max=100.0 ; call-on-confirm 70.0 -> min-render-scale=70.0
+
+### TOUCH pipeline findings ###
+menu-touch-simulate! DOES: read tap, hit-test rows (fonty bands), move hover to
+  the correct row (verified hover->2 on Dynamic row tap at fy=0.5096/fonty=212),
+  build+emit the CONFIRM/LEFT/CONFIRM sequence (seq-pos advanced 0->3).
+menu-touch-simulate! did NOT commit the boolean value toggle in this async x86
+  harness (dynamic stayed #f after taps). Same for injected cpad presses.
+  Root: for a generic scrolling page, respond-to-cpad passes selected? = progress's
+  `selected-option` which is NEVER set for in-generic-page? (guarded at
+  progress-generic-pc.gc line ~484 `(not in-generic-page?)`), so the boolean's
+  respond-progress receives selected?=#f and the left/right toggle branch (line 574)
+  cannot fire through this path. The DOWNSTREAM logic (call-on-confirm -> pc-settings,
+  apply-mode relabel+row expansion, carousel, slider) all work when invoked directly.
+  HONEST: touch hit-testing/hover/edit-mode-entry proven; value-commit not reproduced
+  in the listener harness. Needs on-device touch verification to confirm real behavior.
+
+### Step 6: Fit to Screen (Aspect Ratio carousel index 0) ###
+before: aspect-ratio-auto?=#f use-vis?=#t
+after Fit-to-Screen call-on-confirm 0: aspect-ratio-auto?=#t use-vis?=#f (EXPECTED #t/#f MATCH)
+
+### Step 8: Dynamic render-scale controller LIVE ###
+x86-run.log logged 199 [dyn-rs] lines, e.g.:
+  [dyn-rs] state avg-fps=50.0 scale=100% target=50 floor=70 locked=#f
+Controller reads dyn-target-fps (50) and min-render-scale floor (70) set via menu. LIVE.
+
+### Step 9: Persistence ###
+Settings written to build-x86/game/OpenGOAL/jak2/settings/pc-settings.gc (portable path).
+Persisted keys: (dynamic-render-scale? #t) (min-render-scale 70.0) (dyn-target-fps 50.0)
+  (use-vis? #f) (dyn-rs-menu-seen? #t) (render-scale 100.0)
+RELAUNCH read the file; listener confirms loaded values:
+  min-render-scale=70.0, dyn-target-fps=50.0, use-vis?=#f, dyn-rs-menu-seen?=#t
+
+### Step 7: Window Size -> Resolutions picker ###
+Row 0 "Game Resolution" is menu-generic-to-resolutions-option; call-on-confirm pushed
+  progress state 'resolutions. Page "Select Game Resolution" enumerates REAL desktop
+  monitor modes: 1920x1080, 1600x900, 1368x768, 1280x720, 1024x576, ... (rows=9).
+TOUCH on the resolution page WORKS end-to-end (menu-touch-poll-res! path):
+  tap at fy=0.55 (fonty=228.8) moved selected-index 0 -> 1 (highlight moved
+  1920x1080 -> 1600x900), confirmed by screenshot x86-resolutions-tap.png.
+  (Contrast: the generic-page boolean toggle did not commit in the async harness;
+   the resolution two-tap handler is a different code path and does commit.)
+
+### Step 10: Desktop page (os='linux) ###
+set-menu-options 'graphic-options with os=linux selects *graphic-options-pc* (desktop).
+Rows render intact, NO garbage IDs:
+  Game Resolution / Display "(0) EDP-1 14\"" / Display Mode "Borderless" /
+  Aspect Ratio "Automatic" / Frame Rate "60"
+os-gating verified: 'android -> trimmed *graphic-options-pc-android* page,
+  'linux -> full *graphic-options-pc* desktop page.
+
+########################################################################
+### RE-RUN after coordinator's boolean-toggle fix (fresh build 15:20) ###
+### progress-generic-pc.gc respond-to-cpad post-dispatch confirm?/back?
+### now OR (-> *menu-touch* confirm?)/back? + clear-flags at method top ###
+########################################################################
+
+Build freshness: progress-generic-pc.gc 15:19, GAME.CGO 15:20 (rebuilt after fix).
+
+Step 2 baseline: (-> *pc-settings* dynamic-render-scale?) = #f (OFF, clean).
+
+Step 3: Dynamic Render Scale — PURE TOUCH toggle (menu-touch-simulate! 0.5 0.5096,
+  fonty=211.99 -> ROW2 Dynamic Render Scale):
+  TAP 1: dynamic-render-scale? #f -> #t  [FLIPPED — fix WORKS]
+         menu-options length 6 -> 7 (Min Target FPS revealed)
+         row3 name #x1362 "Render Scale" -> #x1363 "Min Render Scale"
+         screenshot: x86-touch-toggle.png (shows "Min Render Scale: 70", 7 rows, Dynamic=On)
+  TAP 2 (same row): dynamic-render-scale? #t -> #f, length 7 -> 6  [flipped back OFF]
+
+Step 4: V-Sync (boolean, ROW4, menu-touch-simulate! 0.5 0.702, fonty=292.03):
+  vsync? #t -> #f (tap 1), then #f -> #t (tap 2)  [FLIPPED both ways]
+
+VERDICT: The generic-page boolean touch-toggle now COMMITS end-to-end via the pure
+  menu-touch-simulate! pipeline. The prior anomaly is FIXED. Both the Dynamic Render
+  Scale and V-Sync booleans flip on and off via touch. Downstream apply-mode (relabel
+  + row trim/reveal) fires correctly on the touch-driven confirm.
+
+Clean exit state saved to pc-settings.gc: (dynamic-render-scale? #f) (vsync #t)
+  — device-safe defaults (dynamic OFF).
