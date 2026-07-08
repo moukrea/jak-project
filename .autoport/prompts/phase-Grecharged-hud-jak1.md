@@ -70,3 +70,34 @@ element (e.g. 3D model in HUD) needs a follow-up — but the heart + gauge shoul
 ## Locks: ANDROID_SERIAL=eae4df44 only; OFF path == stock (no HUD regression); .autoport/gold READ-ONLY;
 full CONSISTENT builds; grep -a on routed logcat; verify mCurrentFocus=jak1 before trusting frames.
 ## Max: max_turns 3000, max_retries 6. device: true, owner_verify: true.
+
+## X86 PRE-PASS DONE (2026-07-08, commit b1799a4e8 — build on it, don't redo)
+ALREADY LANDED + x86-verified: "RECHARGED SETTINGS" submenu (before Advanced, both desktop+android
+arrays, MTF live-length bumped 14->15/11->12), persisted `recharged-hud?` bool (default OFF,
+serialized like extra-hud?), EN/FR labels (text ids 1706/1707) following TEXT language, OFF path
+byte-identical (nothing consumes the flag yet). Enum value `recharged-settings` appended in
+progress-h.gc (engine file, append-only before max — documented intentional Recharged divergence).
+
+## ENGINE-REALITY CORRECTION for section 2 (from the pre-pass findings)
+The heart/eco-gauge are drawn by the ENGINE SPARTICLE system (hud-classes.gc: hud-health = 3
+particles on textures hud-health01/02/03 in the `effects` tpage; hud-power = per-slice eco meter),
+NOT flat sprite blits. custom_assets texture_replacements is BUILD-TIME 1:1 by name — it cannot ADD
+the 11 new sprites nor be runtime-gated; do NOT use it (would break OFF byte-identity).
+IMPLEMENT THE VISUALS in goal_src/jak1/pc/hud-classes-pc.gc as a new `hud-recharged-*` element that
+reads `(-> *pc-settings* recharged-hud?)` (the file already reads extra-hud? at ~line 262): hide the
+stock element when ON, draw the custom one. For the NEW sprite textures (11 PNGs in
+recharged_assets/), pick a runtime-loadable path (new texture slots via the pc texture pipeline or a
+small custom adgif/sprite draw in the pc HUD layer) — a renderer-side addition, budget for it.
+GOOD NEWS: the POWER CELL already uses the REAL 3D MODEL in the HUD (hud-classes.gc:850,
+*fuelcell-naked-sg*), and hud-classes-pc.gc already has the 3D-in-HUD machinery (hud-pc-make-icon /
+manipy-spawn / dma-add-process-drawable-hud-with-hud-lights) — spec 2c (cell + scout-fly 3D) is a
+small extension of that, and the heart/gauge belong in the same home.
+REMAINING for this phase: the gated visuals (heart 4-state + 33% blink, gauge mask + rotated tip),
+scout-fly 3D via the existing icon machinery, Android asset wiring, on-device verify (menu/toggle/
+persistence + each health/eco state), per the original spec.
+
+## OWNER CORRECTION (2026-07-08 ~17:30) — power cell: the REAL FULL model, not the "naked" one
+The current HUD fuel-cell (*fuelcell-naked-sg*) looks like a LESSER sprite-ish version to the owner
+("version amoindrie"). Spec 2c means the REAL full in-world fuel-cell model (with its proper
+geometry/shine — the version you collect in-game), rendered in the HUD slot. Same for the scout fly:
+the real front-view model. Upgrade the icon machinery's skeleton-group accordingly.

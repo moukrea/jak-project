@@ -349,6 +349,9 @@
     "Gjak2-ingame": [
       "8c2360f04cd5",
       "f9c774796cac"
+    ],
+    "Gjak2-pcmenus": [
+      "f9c774796cac"
     ]
   },
   "stuck_reasons": {
@@ -698,9 +701,10 @@
     "Gjak2-render": 1783372984.0241954,
     "Gjak2-visuals": 1783460200.2105126,
     "Gjak2-ingame": 1783480638.6489265,
-    "Gjak2-pcmenus": 1783511750.803353
+    "Gjak2-pcmenus": 1783511750.803353,
+    "Grecharged-hud-visuals-x86": 1783524528.391978
   },
-  "last_update": "2026-07-08T13:36:20.337911+00:00",
+  "last_update": "2026-07-08T15:28:48.391985+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

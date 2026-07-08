@@ -11,7 +11,41 @@
 
 (defconstant HUD_ICON_COUNT 6)
 
-(defconstant HUD_PART_PC_AMOUNT 1)
+(defconstant HUD_PART_PC_AMOUNT 3)
+
+;; VRAM slots where the PC runtime loads the recharged hud sprites (recharged_assets/*.png).
+;; Must match kBaseSlot/kNames in game/graphics/opengl_renderer/RechargedHudTextures.cpp.
+(defconstant RHUD_TBP_HEART_100 7900)
+(defconstant RHUD_TBP_HEART_66 7901)
+(defconstant RHUD_TBP_HEART_33 7902)
+(defconstant RHUD_TBP_HEART_0 7903)
+(defconstant RHUD_TBP_GAUGE_EMPTY 7904)
+(defconstant RHUD_TBP_GAUGE_BLUE_FULL 7905)
+(defconstant RHUD_TBP_GAUGE_RED_FULL 7906)
+(defconstant RHUD_TBP_GAUGE_YELLOW_FULL 7907)
+(defconstant RHUD_TBP_GAUGE_BLUE_END 7908)
+(defconstant RHUD_TBP_GAUGE_RED_END 7909)
+(defconstant RHUD_TBP_GAUGE_YELLOW_END 7910)
+
+;; tex0 bits shared by all recharged hud textures: tbw=20, psm=ct32, tw=th=10, tcc=rgba, tfx=modulate.
+;; (the pc direct renderer only reads tbp0/tcc/tfx and looks the texture up in the pool by tbp)
+(defconstant RHUD_TEX0_BITS #x6a8050000)
+
+;; screen placement (512x448 coordinate space of the 2d drawing helpers)
+(defconstant RHUD_HEART_X 80.0)
+(defconstant RHUD_HEART_Y 66.0)
+(defconstant RHUD_HEART_HALF 30.0)
+(defconstant RHUD_GAUGE_X 435.0)
+(defconstant RHUD_GAUGE_Y 370.0)
+(defconstant RHUD_GAUGE_HALF 27.0)
+
+;; the fillable arc of the gauge ring: starts at 6 o'clock (16384 rotation units)
+;; and spans 270 degrees (49152 units); the remaining quadrant is the decorated cap.
+(defconstant RHUD_GAUGE_ARC_START 16384.0)
+(defconstant RHUD_GAUGE_ARC_SPAN 49152.0)
+
+;; scale for the real in-world fuel-cell model when shown as the hud icon
+(defconstant RHUD_CELL_SCALE 0.009)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; hud processes and parts
@@ -47,15 +81,17 @@
 
 ;; all pc hud elements
 (deftype hud-parts-pc (structure)
-  ((battle-enemy (pointer hud-battle-enemy))
-   (parts        (pointer hud-pc) HUD_PART_PC_AMOUNT :offset 0)))
+  ((battle-enemy     (pointer hud-battle-enemy))
+   (recharged-health (pointer hud-pc))
+   (recharged-power  (pointer hud-pc))
+   (parts            (pointer hud-pc) HUD_PART_PC_AMOUNT :offset 0)))
 
 ;;;----------------------------------------------
 ;;  globals
 ;;;----------------------------------------------
 
 ;; all of the pc hud elements
-(define *hud-parts-pc* (new 'static 'hud-parts-pc :battle-enemy #f))
+(define *hud-parts-pc* (new 'static 'hud-parts-pc :battle-enemy #f :recharged-health #f :recharged-power #f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;  hud macros
@@ -445,6 +481,353 @@
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;  recharged hud (gated on (-> *pc-settings* recharged-hud?))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; The "Recharged" hud replaces the stock sparticle heart/eco-gauge with new
+;; high-res sprites drawn as textured quads through the direct renderer
+;; (debug bucket), and upgrades the fuel-cell/scout-fly hud icons to the real
+;; in-world 3d models. Everything is driven at runtime by the persisted
+;; recharged-hud? toggle; when it is OFF nothing below runs and the stock hud
+;; is untouched.
+
+;; replacement for the stock hud-health (the 3-pip heart)
+(deftype hud-recharged-health (hud-pc)
+  ((active-flag symbol) ;; last-seen state of the toggle, for transition handling
+   (cell-proc   process) ;; hud-fuel-cell process whose icon we upgraded
+   (buzz-proc   process) ;; hud-buzzers process we added the 3d icon to
+   ))
+
+;; replacement for the stock hud-power (the eco gauge)
+(deftype hud-recharged-power (hud-pc) ())
+
+;;;----------------------------------------------
+;;  direct-renderer draw helpers
+;;;----------------------------------------------
+
+(defun rhud-set-shader ((buf dma-buffer) (tbp int))
+  "set up the GS registers (blend/clamp/filter/texture) for drawing one of the
+   recharged hud textures as textured prims through the direct renderer."
+  (with-cnt-vif-block (buf)
+    (dma-buffer-add-gif-tag buf
+                            (new 'static 'gif-tag64 :nloop 4 :eop 1 :nreg 1)
+                            (new 'static 'gif-tag-regs :regs0 (gif-reg-id a+d)))
+    (dma-buffer-add-uint64 buf
+                           #x44 ;; (Cs-Cd)*As+Cd standard alpha blend
+                           (gs-reg64 alpha-1)
+                           #x5 ;; clamp s+t
+                           (gs-reg64 clamp-1)
+                           #x60 ;; bilinear filtering
+                           (gs-reg64 tex1-1)
+                           (logior (the-as uint tbp) RHUD_TEX0_BITS)
+                           (gs-reg64 tex0-1)))
+  (none))
+
+(defun rhud-add-vert ((buf dma-buffer) (ss float) (tv float) (aa int) (px float) (py float))
+  "add one st/rgbaq/xyzf2 packed vertex. px/py are in the 512x448 2d space of
+   draw-sprite2d-xy (x maps to gs 1792..2304, y to gs 1824..2272)."
+  (let ((data (the-as (pointer float) (-> buf base))))
+    ;; st (q rides in the third dword of the packed st register)
+    (set! (-> data 0) ss)
+    (set! (-> data 1) tv)
+    (set! (-> data 2) 1.0)
+    (set! (-> data 3) 0.0))
+  (let ((data (the-as (pointer int32) (&+ (-> buf base) 16))))
+    ;; rgbaq (packed byte fields)
+    (set! (-> data 0) 128)
+    (set! (-> data 1) 128)
+    (set! (-> data 2) 128)
+    (set! (-> data 3) aa))
+  (let ((data (the-as (pointer uint32) (&+ (-> buf base) 32))))
+    ;; xyzf2 (12.4 fixed point, z in bits 4-27 of the upper qword half)
+    (set! (-> data 0) (the-as uint (the int (* 16.0 (+ 1792.0 px)))))
+    (set! (-> data 1) (the-as uint (the int (* 16.0 (+ 1824.0 py)))))
+    (set! (-> data 2) (the-as uint (ash #x3fffff 4)))
+    (set! (-> data 3) (the-as uint 0)))
+  (&+! (-> buf base) 48)
+  (none))
+
+(defun rhud-quad ((buf dma-buffer) (cx float) (cy float) (hs float) (fx float) (rot float) (aa int))
+  "draw the full texture canvas as a quad centered at cx/cy, half-size hs (in
+   448-space y units), rotated by rot (rotation units) around its center.
+   fx is the x-aspect factor that keeps the canvas square on screen."
+  (let ((cs (cos rot))
+        (sn (sin rot)))
+    (with-cnt-vif-block (buf)
+      ;; giftag: packed, 4 verts, prim tri-strip/iip/tme/abe
+      (dma-buffer-add-uint64 buf
+                             (logior 4 #x8000 (ash 1 46) (ash #x5c 47) (ash 3 60))
+                             #x412 ;; regs st rgbaq xyzf2
+                             )
+      ;; corners in strip order; uv follows the corner, rotation only moves the position
+      (dotimes (i 4)
+        (let* ((dx (if (zero? (logand i 1)) -1.0 1.0))
+               (dy (if (< i 2) -1.0 1.0))
+               (ox (* (- (* dx cs) (* dy sn)) hs))
+               (oy (* (+ (* dx sn) (* dy cs)) hs)))
+          (rhud-add-vert buf
+                         (* 0.5 (+ dx 1.0))
+                         (* 0.5 (+ dy 1.0))
+                         aa
+                         (+ cx (* ox fx))
+                         (+ cy oy))))))
+  (none))
+
+(defun rhud-fan ((buf dma-buffer) (cx float) (cy float) (hs float) (fx float) (a0 float) (a1 float) (aa int))
+  "draw the angular sector [a0,a1] (rotation units, 0 = 3 o'clock, increasing
+   clockwise on screen) of the texture canvas centered at cx/cy as a triangle
+   fan; each vertex uv is the affine map of its position within the canvas so
+   the sector acts as a mask over the full sprite."
+  (let* ((segs (max 1 (the int (* 24.0 (/ (- a1 a0) RHUD_GAUGE_ARC_SPAN)))))
+         (nverts (+ segs 2)))
+    (with-cnt-vif-block (buf)
+      ;; giftag: packed, prim tri-fan/iip/tme/abe
+      (dma-buffer-add-uint64 buf
+                             (logior (the-as uint nverts) #x8000 (ash 1 46) (ash #x5d 47) (ash 3 60))
+                             #x412 ;; regs st rgbaq xyzf2
+                             )
+      ;; center vertex
+      (rhud-add-vert buf 0.5 0.5 aa cx cy)
+      ;; rim vertices, overshot past the canvas edge so the fan chords fully
+      ;; cover the ring; uv clamps to the (transparent) canvas border
+      (dotimes (i (+ segs 1))
+        (let* ((ang (+ a0 (/ (* (- a1 a0) (the float i)) (the float segs))))
+               (dx (* 1.5 (cos ang)))
+               (dy (* 1.5 (sin ang))))
+          (rhud-add-vert buf
+                         (* 0.5 (+ dx 1.0))
+                         (* 0.5 (+ dy 1.0))
+                         aa
+                         (+ cx (* dx hs fx))
+                         (+ cy (* dy hs)))))))
+  (none))
+
+(defun rhud-aspect-fx ()
+  "x-aspect factor that makes a square texture canvas render square on screen."
+  (if (= (get-aspect-ratio) 'aspect16x9) 0.643 0.857))
+
+;;;----------------------------------------------
+;;  stock hud suppression / icon upgrades
+;;;----------------------------------------------
+
+(defun rhud-set-cell-icon ((sg skeleton-group) (icon-scale float))
+  "replace the stock hud-fuel-cell 3d icon with a fresh manipy using the given
+   skeleton group. returns #t on success."
+  (let ((fc (-> *hud-parts* fuel-cell)))
+    (when fc
+      (let* ((obj (-> fc 0))
+             (new-manipy (manipy-spawn (new 'static 'vector :w 1.0) #f sg #f :to obj)))
+        (when new-manipy
+          (set! (-> (-> new-manipy) draw dma-add-func) dma-add-process-drawable-hud)
+          (set-vector! (-> (-> new-manipy) root trans) 0.0 0.0 0.0 1.0)
+          (set-vector! (-> (-> new-manipy) root scale) icon-scale icon-scale icon-scale 1.0)
+          (logior! (-> new-manipy 0 mask) (process-mask pause))
+          (logclear! (-> new-manipy 0 mask) (process-mask menu progress))
+          (set! (-> (-> new-manipy) root trans z) 2048.0)
+          ;; retire the old icon
+          (when (and (nonzero? (-> obj icons 0 icon)) (-> obj icons 0 icon))
+            (deactivate (ppointer->process (-> obj icons 0 icon))))
+          (set! (-> obj icons 0 icon) new-manipy)
+          (set! (-> obj icons 0 scale-x) icon-scale)
+          (set! (-> obj icons 0 scale-y) icon-scale)
+          #t)))))
+
+(defun rhud-add-buzzer-icon ((this hud-recharged-health))
+  "add the real scout-fly 3d model as an icon on the stock hud-buzzers element
+   and hide its flat sprite particle."
+  (let ((bz (-> *hud-parts* buzzers)))
+    (when bz
+      (let ((obj (the-as hud (-> bz 0))))
+        (when (zero? (-> obj nb-of-icons))
+          (hud-pc-make-icon obj
+                            HUD_ICON_COUNT
+                            :skel *buzzer-sg*
+                            :x 60
+                            :y 380
+                            :z 1024.0
+                            :scale-x 0.008
+                            :scale-y -0.008))
+        ;; skip-particle 0 stops draw-hud from spawning the flat buzzer sprite
+        (set! (-> obj skip-particle) 0))
+      (set! (-> this buzz-proc) (the-as process (ppointer->process bz)))))
+  (none))
+
+(defun rhud-remove-buzzer-icon ((this hud-recharged-health))
+  "undo rhud-add-buzzer-icon (restore the stock flat sprite)."
+  (let ((bz (-> *hud-parts* buzzers)))
+    (when (and bz (= (ppointer->process bz) (-> this buzz-proc)))
+      (let ((obj (the-as hud (-> bz 0))))
+        (when (> (-> obj nb-of-icons) 0)
+          (when (and (nonzero? (-> obj icons 0 icon)) (-> obj icons 0 icon))
+            (deactivate (ppointer->process (-> obj icons 0 icon))))
+          (set! (-> obj icons 0 icon) (the-as (pointer manipy) #f))
+          (set! (-> obj nb-of-icons) 0))
+        (set! (-> obj skip-particle) -1))))
+  (set! (-> this buzz-proc) #f)
+  (none))
+
+(defun rhud-suppress-stock ((this hud-recharged-health))
+  "per-frame idempotent guards: keep the stock heart/eco-gauge disabled+hidden
+   and the fuel-cell/buzzer icons upgraded while the recharged hud is ON.
+   re-applies automatically if the stock hud processes respawn."
+  (let ((h (-> *hud-parts* health)))
+    (when h
+      (if (not (-> h 0 disable)) (send-event (ppointer->process h) 'disable))
+      (if (not (hidden? (-> h 0))) (send-event (ppointer->process h) 'hide-quick))))
+  (let ((p (-> *hud-parts* power)))
+    (when p
+      (if (not (-> p 0 disable)) (send-event (ppointer->process p) 'disable))
+      (if (not (hidden? (-> p 0))) (send-event (ppointer->process p) 'hide-quick))))
+  (let ((fc (-> *hud-parts* fuel-cell)))
+    (when (and fc (!= (ppointer->process fc) (-> this cell-proc)))
+      (if (rhud-set-cell-icon *fuel-cell-sg* RHUD_CELL_SCALE)
+        (set! (-> this cell-proc) (the-as process (ppointer->process fc))))))
+  (let ((bz (-> *hud-parts* buzzers)))
+    (when (and bz
+               (or (!= (ppointer->process bz) (-> this buzz-proc)) (zero? (-> (the-as hud (-> bz 0)) nb-of-icons))))
+      (rhud-add-buzzer-icon this)))
+  (none))
+
+(defun rhud-restore-stock ((this hud-recharged-health))
+  "give the stock hud back when the recharged hud is toggled OFF."
+  (let ((h (-> *hud-parts* health)))
+    (if (and h (-> h 0 disable)) (send-event (ppointer->process h) 'enable)))
+  (let ((p (-> *hud-parts* power)))
+    (if (and p (-> p 0 disable)) (send-event (ppointer->process p) 'enable)))
+  (when (-> this cell-proc)
+    (let ((fc (-> *hud-parts* fuel-cell)))
+      (if (and fc (= (ppointer->process fc) (-> this cell-proc)))
+        (rhud-set-cell-icon *fuelcell-naked-sg* 0.009)))
+    (set! (-> this cell-proc) #f))
+  (if (-> this buzz-proc) (rhud-remove-buzzer-icon this))
+  (none))
+
+;;;----------------------------------------------
+;;  hud-recharged-health
+;;;----------------------------------------------
+
+(defmethod init-particles! ((this hud-recharged-health) (arg0 int))
+  (set! (-> this x-sgn) -1)
+  (set! (-> this y-sgn) -1)
+  (set! (-> this friend) 0) ;; co-show the pickups counter, like the stock heart
+  (set! (-> this active-flag) #f)
+  (set! (-> this cell-proc) #f)
+  (set! (-> this buzz-proc) #f)
+  0
+  (none))
+
+(defmethod hud-update ((this hud-recharged-health))
+  (cond
+    ((not (-> *pc-settings* recharged-hud?))
+     (when (-> this active-flag)
+       (set! (-> this active-flag) #f)
+       (rhud-restore-stock this)
+       (if (not (hidden? this)) (send-event this 'hide-quick))))
+    (else
+     (set! (-> this active-flag) #t)
+     (rhud-suppress-stock this)
+     (if *target*
+       (tally-value this (the int (-> *target* fact health)) (the-as int (-> *target* fact health-pickup-time))))))
+  0
+  (none))
+
+(defmethod draw-hud ((this hud-recharged-health))
+  (when (and (-> *pc-settings* recharged-hud?) *target* (not (hidden? this)) (not (paused?)))
+    (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug))
+      (let ((cx (+ RHUD_HEART_X (the float (* (-> this x-sgn) (-> this offset)))))
+            (cy (+ RHUD_HEART_Y (the float (* (-> this y-sgn) (-> this offset)))))
+            (fx (rhud-aspect-fx))
+            (hp (the int (-> *target* fact health))))
+        (cond
+          ((>= hp 3)
+           (rhud-set-shader buf RHUD_TBP_HEART_100)
+           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 128))
+          ((= hp 2)
+           (rhud-set-shader buf RHUD_TBP_HEART_66)
+           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 128))
+          ((= hp 1)
+           ;; 33% blinks on top of the empty heart
+           (rhud-set-shader buf RHUD_TBP_HEART_0)
+           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 128)
+           (when (logtest? (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))) 8)
+             (rhud-set-shader buf RHUD_TBP_HEART_33)
+             (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 128)))
+          (else
+           (rhud-set-shader buf RHUD_TBP_HEART_0)
+           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 128))))))
+  0
+  (none))
+
+;;;----------------------------------------------
+;;  hud-recharged-power
+;;;----------------------------------------------
+
+(defmethod init-particles! ((this hud-recharged-power) (arg0 int))
+  (set! (-> this x-sgn) 1)
+  (set! (-> this y-sgn) 1)
+  0
+  (none))
+
+(defmethod hud-update ((this hud-recharged-power))
+  (cond
+    ((not (-> *pc-settings* recharged-hud?)) (if (not (hidden? this)) (send-event this 'hide-quick)))
+    (else
+     ;; same value tracking as the stock hud-power: remaining eco time
+     (if *target*
+       (tally-value this
+                    (max 0
+                         (min (the-as int
+                                      (- (-> *target* fact eco-timeout)
+                                         (the-as uint (- (-> *display* game-frame-counter) (-> *target* fact eco-pickup-time)))))
+                              (the-as int (-> *target* fact eco-timeout))))
+                    (the-as int (-> *target* fact eco-timeout))))))
+  0
+  (none))
+
+(defmethod draw-hud ((this hud-recharged-power))
+  (when (and (-> *pc-settings* recharged-hud?) (not (hidden? this)) (not (paused?)))
+    (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug))
+      (let ((cx (+ RHUD_GAUGE_X (the float (* (-> this x-sgn) (-> this offset)))))
+            (cy (+ RHUD_GAUGE_Y (the float (* (-> this y-sgn) (-> this offset)))))
+            (fx (rhud-aspect-fx)))
+        ;; empty ring base
+        (rhud-set-shader buf RHUD_TBP_GAUGE_EMPTY)
+        (rhud-quad buf cx cy RHUD_GAUGE_HALF fx 0.0 128)
+        (when *target*
+          (let* ((remaining (max 0
+                                 (min (the-as int
+                                              (- (-> *target* fact eco-timeout)
+                                                 (the-as uint
+                                                         (- (-> *display* game-frame-counter) (-> *target* fact eco-pickup-time)))))
+                                      (the-as int (-> *target* fact eco-timeout)))))
+                 (frac (fmin 1.0
+                             (/ (the float remaining) (the float (the-as uint (-> *FACT-bank* eco-full-timeout))))))
+                 (tbp-full RHUD_TBP_GAUGE_BLUE_FULL)
+                 (tbp-end RHUD_TBP_GAUGE_BLUE_END))
+            (when (> frac 0.0)
+              ;; pick the sprite set for the active eco (green falls back to blue)
+              (case (-> *target* fact eco-type)
+                (((pickup-type eco-yellow))
+                 (set! tbp-full RHUD_TBP_GAUGE_YELLOW_FULL)
+                 (set! tbp-end RHUD_TBP_GAUGE_YELLOW_END))
+                (((pickup-type eco-red))
+                 (set! tbp-full RHUD_TBP_GAUGE_RED_FULL)
+                 (set! tbp-end RHUD_TBP_GAUGE_RED_END)))
+              ;; low-eco blink, same cadence as the stock gauge
+              (let ((aa (if (and (< frac 0.2)
+                                 (zero? (logand (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))) 4)))
+                          64
+                          128)))
+                ;; fill: angular mask over the full-gauge sprite
+                (rhud-set-shader buf tbp-full)
+                (rhud-fan buf cx cy RHUD_GAUGE_HALF fx RHUD_GAUGE_ARC_START (+ RHUD_GAUGE_ARC_START (* RHUD_GAUGE_ARC_SPAN frac)) aa)
+                ;; tip: authored at the full position, rotated back to the fill edge
+                (rhud-set-shader buf tbp-end)
+                (rhud-quad buf cx cy RHUD_GAUGE_HALF fx (* RHUD_GAUGE_ARC_SPAN (- frac 1.0)) aa))))))))
+  0
+  (none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;  hud helper funcs
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -459,6 +842,10 @@
   (deactivate-hud-pc)
   (set! (-> *hud-parts-pc* battle-enemy)
         (process-spawn hud-battle-enemy :init hud-init-by-other 0 :from *pc-dead-pool* :to tree))
+  (set! (-> *hud-parts-pc* recharged-health)
+        (the-as (pointer hud-pc) (process-spawn hud-recharged-health :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
+  (set! (-> *hud-parts-pc* recharged-power)
+        (the-as (pointer hud-pc) (process-spawn hud-recharged-power :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
   0)
 
 (activate-hud-pc *display-pool*)
