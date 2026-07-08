@@ -101,3 +101,20 @@ The current HUD fuel-cell (*fuelcell-naked-sg*) looks like a LESSER sprite-ish v
 ("version amoindrie"). Spec 2c means the REAL full in-world fuel-cell model (with its proper
 geometry/shine — the version you collect in-game), rendered in the HUD slot. Same for the scout fly:
 the real front-view model. Upgrade the icon machinery's skeleton-group accordingly.
+
+## OWNER QUALITY REVIEW of the x86 pass (2026-07-08 ~21:00) — MUST-FIX list for this phase
+ 1. **Asset cropping is WRONG**: do NOT auto-crop each PNG by its own alpha bounding box. The hearts
+    all share ONE canvas; the gauge empty/red/blue/yellow FULL all share ONE canvas; and the `_end`
+    TIPS are mostly-transparent BY DESIGN to overlay EXACTLY on the gauges — they must be cropped
+    with the SAME pixel counts per side as the gauges (crop like the gauge, not by transparency),
+    or the overlay alignment breaks.
+ 2. **Filtering**: the sprites render too CRISP/aliased ("comme s'il n'y avait pas de filtering") —
+    apply proper sampling (bilinear/downsampling consistent with the rest of the HUD).
+ 3. **Heart visibility**: the heart shows CONSTANTLY — WRONG. It must follow the stock element's
+    visibility rules; per the owner it should only be visible when health is at the LAST notch
+    (match the stock heart's show conditions exactly).
+ 4. **Fuel-cell double-draw STILL present**: the real 3D cell renders OVER the sprite version — the
+    stock element must actually be suppressed when recharged-hud? is ON (previous fix ineffective).
+ 5. **Position/scale parity**: heart + gauge must sit EXACTLY at the stock elements' position and
+    scale (for now — no creative placement).
+ 6. **Precursor orb: REMOVE the ugly glow behind it** ("le glow dégueulasse") — doesn't fit.

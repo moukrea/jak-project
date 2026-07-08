@@ -1,0 +1,6 @@
+CLOSED 2026-07-08 20:45 (owner live + supervisor verification): owner CONFIRMED fit-to-screen works
+on the Redmi live ("l'aspect ratio c'est réglé, ça prend la full width"); supervisor verified deploy
+chain PASS (build==APK==device fb0f7a0b, HEAD 7ae75547d) + eyeballed device-jak2-graphics-page.png:
+full options system live (Game Resolution / Aspect Ratio Fit-to-Screen / Dynamic Render Scale /
+Render Scale 100 / V-Sync), dark backdrop = ORANGE OVERLAY FIXED (root-caused per report), UNKNOWN
+ID gone. Owner reviews the rest during normal play (standing keep-advancing instruction).
