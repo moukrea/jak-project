@@ -145,6 +145,10 @@ mkdir -p "$OUT_DIR"
 # sources too — a fresher override MUST invalidate the cached zip.
 SRC_DIRS=("$ISO_BUILD" "$ARM64_CODE" "$FR3_BUILD")
 [ -d "$ANDROID_TEXT" ] && SRC_DIRS+=("$ANDROID_TEXT")
+# Grecharged-hud: the sprite PNGs are zip content too — a fresher PNG must
+# invalidate the cached zip (version/file_count alone wouldn't catch an
+# in-place PNG edit).
+[ "$GAME" = "jak1" ] && [ -d "$ROOT/recharged_assets" ] && SRC_DIRS+=("$ROOT/recharged_assets")
 
 # --- Staleness skip: zip current vs all sources AND version+count match. ---
 if [ -f "$ZIP_REL" ] && [ -f "$MANIFEST" ]; then

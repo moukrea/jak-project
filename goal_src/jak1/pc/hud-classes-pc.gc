@@ -774,7 +774,7 @@
      ;; sits at the last notch (force-on-screen re-stamps trigger-time every
      ;; frame, the same pin the racer hud uses); everywhere else it follows the
      ;; stock show-on-change / 2s-timeout machinery in tally-value.
-     (let ((pin (and *target* (= (the int (-> *target* fact health)) 1))))
+     (let ((pin (if (and *target* (= (the int (-> *target* fact health)) 1)) #t #f)))
        (set! (-> this force-on-screen) pin)
        ;; while pinned, tally-value fires every frame: mute the friend co-show
        ;; (it would park the pickups counter on screen); stock co-show behavior
