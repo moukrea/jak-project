@@ -214,8 +214,15 @@ FramebufferCopier::FramebufferCopier() {
   glGenTextures(1, &m_fbo_texture);
   glBindTexture(GL_TEXTURE_2D, m_fbo_texture);
 
+#ifdef __ANDROID__
+  // Gjak2-pcmenus: Adreno/GLES blit safety — match the RGBA8 render FBO
+  // (desktop keeps GL_RGB; blit format classes are stricter on GLES).
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_fbo_width, m_fbo_height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               NULL);
+#else
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_fbo_width, m_fbo_height, 0, GL_RGB, GL_UNSIGNED_BYTE,
                NULL);
+#endif
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -244,8 +251,15 @@ void FramebufferCopier::copy_now(int render_fb_w, int render_fb_h, GLuint render
 
     glBindTexture(GL_TEXTURE_2D, m_fbo_texture);
 
+#ifdef __ANDROID__
+    // Gjak2-pcmenus: Adreno/GLES blit safety — match the RGBA8 render FBO
+    // (desktop keeps GL_RGB; blit format classes are stricter on GLES).
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_fbo_width, m_fbo_height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 NULL);
+#else
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_fbo_width, m_fbo_height, 0, GL_RGB, GL_UNSIGNED_BYTE,
                  NULL);
+#endif
 
     glBindTexture(GL_TEXTURE_2D, 0);
   }

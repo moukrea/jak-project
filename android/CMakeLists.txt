@@ -617,6 +617,13 @@ add_library(gk SHARED
     # {0,0,0,0} and every fog uniform washes the scene (proven by the
     # GJ2VIS-TOD x86-vs-device state dump).
     "${JAK_ROOT}/game/graphics/opengl_renderer/VisDataHandler.cpp"
+    # Gjak2-pcmenus: BlitDisplays (jak2 BUCKET_3 "blit") — its 0x10 op copies the
+    # framebuffer to the pool texture at tbp #x3300 at menu-open; sky-tng/sprite-
+    # distort sample #x3300 for the progress-menu freeze-frame background. It also
+    # owns the jak2 frame clear + end-of-frame copy-back/zoom-blur/slow-time.
+    # SlowTimeEffect.cpp is a link-time dependency of BlitDisplays::do_slow_time.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/BlitDisplays.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/SlowTimeEffect.cpp"
     # A36 — first-content buckets: sky + terrain (tfrag3) for the logo/title
     # village1 flythrough. SkyBlendHandler lives in SkyRenderer.cpp.
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyRenderer.cpp"

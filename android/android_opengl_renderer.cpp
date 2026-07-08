@@ -13,6 +13,7 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
@@ -146,6 +147,9 @@ AndroidOpenGLRenderer::~AndroidOpenGLRenderer() = default;
 
 void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   using namespace jak1;
+  // Gjak2-pcmenus: jak1 has no blit renderer; clear the pointer so a rebuild
+  // of the tables can never leave a stale jak2 BlitDisplays* dangling.
+  m_blit_displays = nullptr;
   m_bucket_renderers.resize((int)BucketId::MAX_BUCKETS);
   m_bucket_ported.resize((int)BucketId::MAX_BUCKETS, false);
   m_skip_logged.resize((int)BucketId::MAX_BUCKETS, false);
@@ -394,10 +398,13 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
 // SkipRenderer, which consumes its segment exactly like the jak1 android skip
 // path (walk read_and_advance until next_bucket), keeping next_bucket in sync.
 // Classes upstream jak2 uses that are NOT in the Android CMake TU list
-// (VisDataHandler, BlitDisplays, Shadow2, Warp, ProgressRenderer) stay as skip
-// this round — no new TUs are pulled into CMake here.
+// (Shadow2, Warp, ProgressRenderer) stay as skip this round. VisDataHandler and
+// BlitDisplays ARE now compiled and registered (see below).
 void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   using namespace jak2;
+  // Gjak2-pcmenus: rebuild safety — start with no blit renderer; it is set to
+  // the real BlitDisplays below and otherwise stays null (jak1-style pre-clear).
+  m_blit_displays = nullptr;
   m_bucket_renderers.resize((int)BucketId::MAX_BUCKETS);
   m_bucket_ported.assign((int)BucketId::MAX_BUCKETS, false);
   m_skip_logged.assign((int)BucketId::MAX_BUCKETS, false);
@@ -756,12 +763,26 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
   set_renderer(std::make_unique<VisDataHandler>("vis", (int)BucketId::BUCKET_2),
                BucketId::BUCKET_2, true);
 
+  // Gjak2-pcmenus: the REAL BlitDisplays at BUCKET_3 (upstream jak2 slot).
+  // Its 0x10 op copies the framebuffer to the pool texture at tbp #x3300 at
+  // menu-open — sky-tng/sprite-distort sample #x3300 for the progress-menu
+  // freeze-frame background; SkipRenderer'd it left garbage there (the
+  // device's orange overlay behind menus). It also owns the jak2 frame
+  // clear (see the jak1-only pre-clear gate below) and the end-of-frame
+  // copy-back, zoom-blur, slow-time effects. init_textures (Jak2) runs in the
+  // fill loop below and allocates the #x3300 pool texture.
+  {
+    auto blit = std::make_unique<BlitDisplays>("blit", (int)BucketId::BUCKET_3);
+    m_blit_displays = blit.get();
+    set_renderer(std::move(blit), BucketId::BUCKET_3, true);
+  }
+
   // Everything else: SkipRenderer. Its render() walks read_and_advance until
   // render_state->next_bucket, consuming the segment and keeping the dispatch
   // in sync regardless of the bucket's content — the same consume-the-segment
   // mechanism the jak1 android skip path uses. Buckets upstream jak2 renders
   // with classes NOT compiled into the Android build fall here this round:
-  //   BUCKET_3 (BlitDisplays), SHADOW/SHADOW2
+  //   SHADOW/SHADOW2
   //   (Shadow2), GMERC_WARP (Warp), PROGRESS (ProgressRenderer), and the
   //   EMERC_* buckets (upstream jak2 has no EMERC registration — they are
   //   EmptyBucketRenderer'd there too). The dispatch logs each ONE the first
@@ -898,6 +919,13 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
                         (unsigned long long)m_stats.frame_idx, c[0], c[1], c[2], c[3], c[4], c[5],
                         c[6], c[7], t[0], t[1], t[2], t[3], settings.pmode_alp_register);
   }
+  // Gjak2-pcmenus: desktop parity (OpenGLRenderer::render line ~1065) — after
+  // all buckets, BlitDisplays finishes the frame: copy-back of the saved
+  // display (menu freeze-frame), zoom-blur, slow-time.
+  if (m_blit_displays) {
+    auto prof = m_profiler.root()->make_scoped_child("blit-display");
+    m_blit_displays->do_copy_back(&m_render_state, prof);
+  }
   {
     auto prof = m_profiler.root()->make_scoped_child("pcrtc");
     do_pcrtc_effects(settings.pmode_alp_register, &m_render_state, prof);
@@ -996,12 +1024,21 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
              fmt::format("Bad viewport size from game_res: {}x{}\n", fbo_w, fbo_h));
 
   // jak1 frame clear — desktop setup_frame parity.
+  // Gjak2-pcmenus: jak2 does the frame clear in BlitDisplays.cpp (desktop
+  // parity, OpenGLRenderer.cpp "jak 2 does the clear in BlitDisplays.cpp").
+  // Pre-clearing here would destroy the previous frame BEFORE the blit bucket's
+  // 0x10 op captures it for the menu freeze-frame background, so the two
+  // buffer-clears are skipped when the real BlitDisplays is registered. The
+  // FBO binds / viewport / depth-mask / blend-disable state setup the buckets
+  // rely on stays unconditional (BlitDisplays only owns the buffer clear).
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glViewport(0, 0, window_fb.width, window_fb.height);
   glClearColor(0.0, 0.0, 0.0, 0.0);
   glClearDepthf(0.0f);
   glDepthMask(GL_TRUE);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  if (!m_blit_displays) {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  }
   glDisable(GL_BLEND);
 
   glBindFramebuffer(GL_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
@@ -1009,7 +1046,9 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   glClearDepthf(0.0f);
   glClearStencil(0);
   glDepthMask(GL_TRUE);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  if (!m_blit_displays) {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  }
   glDisable(GL_BLEND);
   m_render_state.stencil_dirty = false;
   // A36: desktop setup_frame ends by sizing the viewport to the GAME FBO
