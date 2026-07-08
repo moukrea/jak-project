@@ -27,16 +27,11 @@
 
 package org.opengoal.gk;
 
-import android.content.ContentValues;
 import android.content.Intent;
 import android.content.res.AssetManager;
 import android.graphics.Color;
-import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.StatFs;
-import android.provider.MediaStore;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -53,20 +48,15 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeSet;
@@ -123,12 +113,15 @@ public class LoaderActivity extends AppCompatActivity {
         // the user another full decompress on next launch.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        // supervisor-diag: export any jak2 remote-diagnostic breadcrumb/crash file
-        // that a PREVIOUS run left in filesDir into the public Downloads collection,
-        // so the owner (no adb, logcat suppressed on his HONOR) can read it from a
-        // stock file manager. Runs BEFORE any unpack/boot; wrapped so it can never
-        // break launch.
-        exportJak2DiagToDownloads();
+        // supervisor-diag DIAG2: export any jak2 remote-diagnostic breadcrumb/crash
+        // file that a PREVIOUS run left in the external files dir into the public
+        // Downloads collection, so the owner (no adb, logcat suppressed on his HONOR)
+        // can read it from a stock file manager. Now delegated to the static
+        // DiagExporter, which is ALSO invoked from MainActivity (onCreate/onPause) +
+        // a 60s periodic timer, so an export happens no matter how the app is entered
+        // or left (the old LoaderActivity-only path missed recents-resume). Never
+        // throws; jak1 is unaffected (no source files exist for it).
+        DiagExporter.exportNow(this, "loader-oncreate");
 
         List<String> games = resolveGameList();
         Log.i(TAG, "LoaderActivity: bundled game set = " + games
@@ -484,90 +477,10 @@ public class LoaderActivity extends AppCompatActivity {
         }
     }
 
-    // Copy a previous run's jak2 diag/crash files (if present) into public Downloads,
-    // then rename the source to *.sent so we don't re-export it every launch. All in
-    // a try/catch — a failure here must never block boot.
-    private void exportJak2DiagToDownloads() {
-        try {
-            File dir = externalDiagDir();
-            if (dir == null) return;
-            String ts = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
-            boolean anyExported = false;
-            String[] names = { "jak2_diag.txt", "jak2_crash.txt" };
-            for (String name : names) {
-                File src = new File(dir, name);
-                if (!src.isFile() || src.length() == 0) continue;
-                // Downloads file name: jak2-diag-<ts>.txt / jak2-crash-<ts>.txt
-                String base = name.equals("jak2_crash.txt") ? "jak2-crash-" : "jak2-diag-";
-                String outName = base + ts + ".txt";
-                if (exportOneToDownloads(src, outName)) {
-                    anyExported = true;
-                    // Mark as sent so the next launch doesn't re-copy the same content.
-                    File sent = new File(dir, name + ".sent");
-                    if (sent.exists()) sent.delete();
-                    if (!src.renameTo(sent)) {
-                        // Rename failed (rare) — truncate so we don't loop re-exporting.
-                        try (FileWriter w = new FileWriter(src, false)) { w.write(""); }
-                        catch (Throwable ignore) {}
-                    }
-                }
-            }
-            if (anyExported) {
-                Toast.makeText(this, "diag exporté dans Downloads", Toast.LENGTH_LONG).show();
-            }
-        } catch (Throwable t) {
-            Log.w(TAG, "jak2 diag export skipped: " + t);
-        }
-    }
-
-    // Insert one file into MediaStore.Downloads (API 29+) and stream the bytes in.
-    // Returns true on success. Older APIs fall back to a direct copy into the public
-    // Downloads dir. Never throws.
-    private boolean exportOneToDownloads(File src, String outName) {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ContentValues cv = new ContentValues();
-                cv.put(MediaStore.Downloads.DISPLAY_NAME, outName);
-                cv.put(MediaStore.Downloads.MIME_TYPE, "text/plain");
-                cv.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
-                cv.put(MediaStore.Downloads.IS_PENDING, 1);
-                Uri collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
-                Uri item = getContentResolver().insert(collection, cv);
-                if (item == null) return false;
-                try (InputStream in = new FileInputStream(src);
-                     OutputStream out = getContentResolver().openOutputStream(item)) {
-                    if (out == null) { getContentResolver().delete(item, null, null); return false; }
-                    byte[] buf = new byte[64 * 1024];
-                    int r;
-                    while ((r = in.read(buf)) > 0) out.write(buf, 0, r);
-                }
-                cv.clear();
-                cv.put(MediaStore.Downloads.IS_PENDING, 0);
-                getContentResolver().update(item, cv, null, null);
-                Log.i(TAG, "exported " + src.getName() + " -> Downloads/" + outName);
-                return true;
-            } else {
-                // Pre-Q: write straight into the public Downloads directory.
-                File dl = Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS);
-                if (dl != null && (dl.isDirectory() || dl.mkdirs())) {
-                    File out = new File(dl, outName);
-                    try (InputStream in = new FileInputStream(src);
-                         OutputStream os = new FileOutputStream(out)) {
-                        byte[] buf = new byte[64 * 1024];
-                        int r;
-                        while ((r = in.read(buf)) > 0) os.write(buf, 0, r);
-                    }
-                    Log.i(TAG, "exported " + src.getName() + " -> " + out.getAbsolutePath());
-                    return true;
-                }
-                return false;
-            }
-        } catch (Throwable t) {
-            Log.w(TAG, "export of " + src.getName() + " failed: " + t);
-            return false;
-        }
-    }
+    // DIAG2: the export-out of jak2 diag/crash files to public Downloads now lives
+    // in the static DiagExporter (called from both activities + a 60s timer). This
+    // class only WRITES breadcrumbs (appendJak2Diag above) into the external files
+    // dir that DiagExporter later copies out.
 
     private void unpackBundleIfNeeded(String gameName) throws IOException {
         Manifest mf = readManifest(gameName);
