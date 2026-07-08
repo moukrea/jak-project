@@ -1,0 +1,39 @@
+=== Gjak2-ingame twoyears RUN 1 start mer. 08 juil. 2026 05:31:37 CEST ===
+== stage 1: boot/title warmup (jak2 unpack already done; title flythrough) ==
+  [01-title] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-01-title-jak2focus.png (1376355B)
+== stage 2: START -> progress menu ==
+    inject: 'start'
+  [02-menu] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-02-menu-jak2focus.png (753898B)
+== stage 3: X -> NEW GAME (top entry) ==
+    inject: 'x'
+  [03-after-newgame-x] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-03-after-newgame-x-jak2focus.png (935411B)
+== stage 4: navigate save/continue screen (down x4 -> continue w/o saving) then X ==
+    inject: 'down'
+    inject: 'down'
+    inject: 'down'
+    inject: 'down'
+  [04-continue-sel] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-04-continue-sel-jak2focus.png (784762B)
+    inject: 'x'
+  [05-newgame-start] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-05-newgame-start-jak2focus.png (160068B)
+   post-newgame log offset: 5684
+== stage 5: intro cinematic window (~6-8 min); watch for crash ==
+  [06-cine-t30s] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-06-cine-t30s-jak2focus.png (1296347B)
+  t=30s pid=[22201] crashed=0
+  [06-cine-t61s] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-06-cine-t61s-jak2focus.png (1270951B)
+  t=61s pid=[22201] crashed=0
+  [06-cine-t92s] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-06-cine-t92s-jak2focus.png (923638B)
+  t=92s pid=[22201] crashed=0
+  [06-cine-t123s] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-06-cine-t123s-jak2focus.png (206285B)
+  t=123s pid=[22201] crashed=0
+  [06-cine-t154s] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-06-cine-t154s-jak2focus.png (1091423B)
+  t=154s pid=[22201] crashed=0
+  [06-cine-t185s] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> twoyears-run1-06-cine-t185s-NOTJAK2.png (4389434B)
+  >>> [t=185s] CRASH SIGNATURE detected in log
+  >>> [t=185s] app PID gone (process died)
+  t=185s pid=[DEAD] crashed=1
+  >>> holding logcat 90s past death for full crash dump
+  [07-postcrash] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> twoyears-run1-07-postcrash-NOTJAK2.png (4389096B)
+== teardown ==
+  [08-final] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> twoyears-run1-08-final-NOTJAK2.png (4389096B)
+=== RUN 1 done mer. 08 juil. 2026 05:37:47 CEST; log lines: 24956 crashed=1 ===
+LOG: /home/emeric/code/jak-project/.autoport/reports/Gjak2-ingame/twoyears-repro-run1-routed-logcat.log

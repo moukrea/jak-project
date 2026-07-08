@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 186,
+  "current_phase_idx": 187,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -178,7 +178,8 @@
     "Gvulkan-option": 2,
     "Gjak2-boot": 2,
     "Gjak2-render": 3,
-    "Gjak2-visuals": 2
+    "Gjak2-visuals": 2,
+    "Gjak2-ingame": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -523,7 +524,8 @@
     "Gswamp-fstore",
     "Gvulkan-option",
     "Gjak2-boot",
-    "Gjak2-render"
+    "Gjak2-render",
+    "Gjak2-visuals"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -688,9 +690,10 @@
     "Gvulkan-option": 1783315315.5720198,
     "Gjak2-boot": 1783325216.9940019,
     "Gjak2-render": 1783372984.0241954,
-    "Gjak2-visuals": 1783460200.2105126
+    "Gjak2-visuals": 1783460200.2105126,
+    "Gjak2-ingame": 1783480638.6489265
   },
-  "last_update": "2026-07-08T01:06:21.696242+00:00",
+  "last_update": "2026-07-08T05:07:26.424361+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

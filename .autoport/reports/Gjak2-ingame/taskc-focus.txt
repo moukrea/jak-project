@@ -1,0 +1,50 @@
+prop=[17 collide-cache,sphere-hash,spatial-hash]
+== warmup to title ==
+  [01-title] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-01-title-jak2focus.png (1363161B)
+== NEW GAME: START -> X -> down x4 -> X ==
+  inject 'start'
+  [02-menu] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-02-menu-jak2focus.png (753944B)
+  inject 'x'
+  inject 'down'
+  inject 'down'
+  inject 'down'
+  inject 'down'
+  [03-menu-nav] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-03-menu-nav-jak2focus.png (784013B)
+  inject 'x'
+  [04-after-x] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-04-after-x-jak2focus.png (160068B)
+== let intro begin, then SKIP: START during cinematic ==
+  [05-intro] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-05-intro-jak2focus.png (1496180B)
+  inject 'start'
+  [06-skip1] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-06-skip1-jak2focus.png (1575494B)
+  inject 'x'
+  inject 'start'
+  [07-skip2] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-07-skip2-jak2focus.png (1435433B)
+  inject 'x'
+  [08-skip3] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-08-skip3-jak2focus.png (1410066B)
+== wait for level load ==
+  [09-postload] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-09-postload-jak2focus.png (1021737B)
+== start 40s gameplay recording (move+jump) ==
+  inject 'up'
+  inject 'x'
+  inject 'left'
+  inject 'right'
+  [rec-1] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-rec-1-jak2focus.png (1208778B)
+  inject 'up'
+  inject 'x'
+  inject 'left'
+  inject 'right'
+  [rec-2] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-rec-2-jak2focus.png (1182302B)
+  inject 'up'
+  inject 'x'
+  inject 'left'
+  inject 'right'
+  [rec-3] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-rec-3-jak2focus.png (1111552B)
+  inject 'up'
+  inject 'x'
+  inject 'left'
+  inject 'right'
+  [rec-4] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-rec-4-jak2focus.png (1305558B)
+  [10-after-rec] pid=[2291]   mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> taskc-10-after-rec-jak2focus.png (459896B)
+  video: /home/emeric/code/jak-project/.autoport/reports/Gjak2-ingame/taskc_gameplay.mp4 (37896868B)
+== final state ==
+final pid=[2291] focus=  mCurrentFocus=Window{ed4896a u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}

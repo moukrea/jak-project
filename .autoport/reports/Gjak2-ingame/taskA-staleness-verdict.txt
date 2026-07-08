@@ -1,0 +1,20 @@
+=== Task A: prove staleness — VERDICT: THEORY FALSIFIED (device payload is FRESH) ===
+date: 2026-07-08T06:57:17+02:00   repo HEAD: 332137b6c
+
+Device payload path: files/iso_data/jak2/ (flat)  app=org.opengoal.gk.jak2
+Unpack marker: files/.asset_bundle_stamp_jak2 = '11' (mtime 2026-07-07 16:21)
+iso_data/jak2 file mtimes: 2026-07-07 16:19..16:20 (same day as fresh build 16:07)
+
+--- KEY FILES (device on-device sha256 vs out/jak2-arm64-full/iso vs full-arm64-jak2-hashes.txt) ---
+GAME.CGO  device=0be0de40..3ddb  fresh=0be0de40..3ddb  recorded=0be0de40..3ddb  => MATCH
+PRI.DGO   device=24ba8409..3920  fresh=24ba8409..3920  recorded=24ba8409..3920  => MATCH
+KERNEL.CGO device=8962a20e..fea  fresh=8962a20e..fea                            => MATCH
+
+--- FULL PAYLOAD: all 151 CGO/DGO ---
+device count=151  local count=151
+diff local.sha vs device.sha: IDENTICAL (0 differences)
+
+CONCLUSION: The on-device GOAL game code is NOT stale. Every CGO/DGO byte-matches
+the 2026-07-07 16:07 fresh build (out/jak2-arm64-full/iso), which post-dates the
+2026-06-27..29 goalc arm64 codegen fixes. Stale-asset theory for the open crashes
+and absent collision is REJECTED. Task B (redeploy) skipped per gate. Task C not run.

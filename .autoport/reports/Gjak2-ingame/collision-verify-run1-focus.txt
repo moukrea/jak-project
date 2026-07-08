@@ -1,0 +1,18 @@
+  [01-title] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> cv-run1-01-title-NOTJAK2.png (4389118B)
+    inject: 'start'
+  [02-menu] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> cv-run1-02-menu-NOTJAK2.png (4389118B)
+    inject: 'x'
+  [03-newgame-x] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> cv-run1-03-newgame-x-NOTJAK2.png (4389118B)
+    inject: 'down'
+    inject: 'down'
+    inject: 'down'
+    inject: 'down'
+  [04-continue-sel] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> cv-run1-04-continue-sel-NOTJAK2.png (4389118B)
+    inject: 'x'
+  [05-newgame-start] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> cv-run1-05-newgame-start-NOTJAK2.png (4389118B)
+  >>> app died during skip attempt 1
+  [07-postskip] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> cv-run1-07-postskip-NOTJAK2.png (4389418B)
+  post-skip pid=[DEAD]
+  [08-move-start] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> cv-run1-08-move-start-NOTJAK2.png (4389418B)
+    inject: 'ly=0'
+  [09-walk-t2s] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> cv-run1-09-walk-t2s-NOTJAK2.png (4389146B)

@@ -1,0 +1,23 @@
+  [01-title] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-01-title-jak2focus.png (1376355B)
+    inject: 'start'
+  [02-menu] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-02-menu-jak2focus.png (753898B)
+    inject: 'x'
+  [03-after-newgame-x] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-03-after-newgame-x-jak2focus.png (935411B)
+    inject: 'down'
+    inject: 'down'
+    inject: 'down'
+    inject: 'down'
+  [04-continue-sel] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-04-continue-sel-jak2focus.png (784762B)
+    inject: 'x'
+  [05-newgame-start] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-05-newgame-start-jak2focus.png (160068B)
+  [06-cine-t30s] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-06-cine-t30s-jak2focus.png (1296347B)
+  [06-cine-t61s] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-06-cine-t61s-jak2focus.png (1270951B)
+  [06-cine-t92s] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-06-cine-t92s-jak2focus.png (923638B)
+  [06-cine-t123s] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-06-cine-t123s-jak2focus.png (206285B)
+  [06-cine-t154s] pid=[22201]   mCurrentFocus=Window{dad5be2 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> twoyears-run1-06-cine-t154s-jak2focus.png (1091423B)
+  [06-cine-t185s] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> twoyears-run1-06-cine-t185s-NOTJAK2.png (4389434B)
+  >>> [t=185s] CRASH SIGNATURE detected in log
+  >>> [t=185s] app PID gone (process died)
+  >>> holding logcat 90s past death for full crash dump
+  [07-postcrash] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> twoyears-run1-07-postcrash-NOTJAK2.png (4389096B)
+  [08-final] pid=[]   mCurrentFocus=Window{b8f63c u0 com.miui.home/com.miui.home.launcher.Launcher} -> twoyears-run1-08-final-NOTJAK2.png (4389096B)
