@@ -629,7 +629,16 @@
             :option-disabled-func
             (lambda ()
               (or (-> *pc-settings* speedrunner-mode?) (<= (pc-get-active-display-refresh-rate) 60))))
-       ;; 11 Advanced settings (was "PS2 Options"; relabelled via name-override in init-game-options,
+       ;; 11 RECHARGED SETTINGS submenu (Grecharged-hud-jak1). Inserted BEFORE Advanced per the phase
+       ;; spec; shifts Advanced->12, Vulkan->13, Back->14 (see the reindexed init-game-options wiring +
+       ;; the bumped MTF full-len 15 / graphic-options-set-mtf-visible! calls). label via name-override.
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id ps2-options)
+            :scale #t
+            :param3 (game-option-menu recharged-settings))
+       ;; 12 Advanced settings (was "PS2 Options"; relabelled via name-override in init-game-options,
        ;; submenu unchanged).
        (new 'static
             'game-option
@@ -637,7 +646,7 @@
             :name (text-id ps2-options)
             :scale #t
             :param3 (game-option-menu gfx-ps2-options))
-       ;; 12 VULKAN RENDERER toggle (Gvulkan-option). OFF = OpenGL (default), ON = Vulkan. label via
+       ;; 13 VULKAN RENDERER toggle (Gvulkan-option). OFF = OpenGL (default), ON = Vulkan. label via
        ;; name-override; value-to-modify = gfx-renderer-vulkan? (bound in init-game-options). on-change
        ;; maps the toggle to *pc-settings* gfx-renderer, persists it, and tells the C++ runtime, which
        ;; selects the backend at the next launch (surface recreation ⇒ restart to switch).
@@ -650,7 +659,7 @@
               (pc-set-gfx-renderer! (-> *pc-settings* gfx-renderer))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 13 Back
+       ;; 14 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; Android-only graphics options. Same owner order as *graphic-options-pc* but with the menu
@@ -715,14 +724,23 @@
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
        ;; 7 MSAA
        (new 'static 'game-option :option-type (game-option-type msaa) :name (text-id msaa) :scale #t)
-       ;; 8 Advanced settings (was "PS2 Options"; relabelled via name-override, submenu unchanged).
+       ;; 8 RECHARGED SETTINGS submenu (Grecharged-hud-jak1). Inserted BEFORE Advanced per the phase
+       ;; spec; shifts Advanced->9, Vulkan->10, Back->11 (see the reindexed init-game-options wiring +
+       ;; the bumped MTF full-len 12 / graphic-options-set-mtf-visible! calls). label via name-override.
+       (new 'static
+            'game-option
+            :option-type (game-option-type menu)
+            :name (text-id ps2-options)
+            :scale #t
+            :param3 (game-option-menu recharged-settings))
+       ;; 9 Advanced settings (was "PS2 Options"; relabelled via name-override, submenu unchanged).
        (new 'static
             'game-option
             :option-type (game-option-type menu)
             :name (text-id ps2-options)
             :scale #t
             :param3 (game-option-menu gfx-ps2-options))
-       ;; 9 VULKAN RENDERER toggle (Gvulkan-option). OFF = OpenGL/GLES (default), ON = Vulkan. label via
+       ;; 10 VULKAN RENDERER toggle (Gvulkan-option). OFF = OpenGL/GLES (default), ON = Vulkan. label via
        ;; name-override; value-to-modify = gfx-renderer-vulkan? (bound in init-game-options). on-change
        ;; maps the toggle to *pc-settings* gfx-renderer, persists it, and tells the C++ runtime (which
        ;; applies the new backend on the next launch). NOTE: on Android the Vulkan runtime is deferred —
@@ -736,7 +754,27 @@
               (pc-set-gfx-renderer! (-> *pc-settings* gfx-renderer))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 10 Back
+       ;; 11 Back
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+
+;; Grecharged-hud-jak1: the "Recharged Settings" submenu (reached from Graphics Options, row before
+;; Advanced). One row for now: a "RECHARGED HUD" on-off toggle (label via name-override, value bound
+;; to *pc-settings* recharged-hud? in init-game-options), then Back. The on-change persists the flag
+;; immediately so the choice survives a relaunch even without a full menu commit.
+(define *recharged-options-pc*
+  (new 'static
+       'boxed-array
+       :type
+       game-option
+       ;; 0 RECHARGED HUD toggle. :name is a placeholder (text-id vsync) like the other name-override
+       ;; on-off rows; the real label comes from *recharged-hud-label*.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* recharged-hud?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 1 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
@@ -775,6 +813,15 @@
 (define *vulkan-renderer-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *vulkan-renderer-label*) "VULKAN RENDERER")
 
+;; Grecharged-hud-jak1: labels for the new "Recharged Settings" submenu row (in Graphics Options,
+;; before Advanced) and the "Recharged HUD" on-off toggle inside it (uppercase ASCII for the menu
+;; font; shown via the name-override path, re-formatted from the text bank in
+;; refresh-runtime-option-labels! so they follow the TEXT language — ids #x1706 / #x1707).
+(define *recharged-settings-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *recharged-settings-label*) "RECHARGED SETTINGS")
+(define *recharged-hud-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *recharged-hud-label*) "RECHARGED HUD")
+
 ;; Glang-mixed: re-format the name-override label buffers from the loaded text bank so
 ;; they follow (-> *pc-settings* text-language). Runs on every menu open (init-game-options
 ;; re-canonicalizes there) and again right after a text-language change reloads the bank
@@ -793,7 +840,12 @@
     (let ((s (lookup-text! *common-text* (the-as text-id #x1704) #t)))
       (if s (format (clear *min-target-fps-label*) "~S" s)))
     (let ((s (lookup-text! *common-text* (the-as text-id #x1705) #t)))
-      (if s (format (clear *advanced-settings-label*) "~S" s))))
+      (if s (format (clear *advanced-settings-label*) "~S" s)))
+    ;; Grecharged-hud-jak1
+    (let ((s (lookup-text! *common-text* (the-as text-id #x1706) #t)))
+      (if s (format (clear *recharged-settings-label*) "~S" s)))
+    (let ((s (lookup-text! *common-text* (the-as text-id #x1707) #t)))
+      (if s (format (clear *recharged-hud-label*) "~S" s))))
   (none))
 
 ;; Goptions-reorder: stable pointers to the Min Target FPS row (physical index 4) in each graphics
@@ -839,10 +891,10 @@
           (if dyn? (&-> *pc-settings* min-render-scale) (&-> *pc-settings* render-scale)))
     (set! (-> *graphic-options-pc-android* 3 name-override)
           (if dyn? *min-render-scale-label* *render-scale-label*))
-    ;; Gvulkan-option: full lengths bumped by 1 (14 desktop / 11 android) for the appended VULKAN
-    ;; RENDERER row (inserted before Back, after index 4, so the MTF stable pointers are unaffected).
-    (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* 14 dyn?)
-    (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* 11 dyn?))
+    ;; Gvulkan-option + Grecharged-hud-jak1: full lengths now 15 desktop / 12 android (VULKAN RENDERER
+    ;; and RECHARGED SETTINGS rows both inserted after index 4, so the MTF stable pointers are unaffected).
+    (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* 15 dyn?)
+    (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* 12 dyn?))
   (none))
 
 ;; label for the NATIVE (panel resolution) entry at the top of the Game Resolution
@@ -2719,6 +2771,8 @@
   (set! (-> *options-remap* (progress-screen mouse-binds)) *temp-options*)
   (set! (-> *options-remap* (progress-screen misc-options)) *misc-options*)
   (set! (-> *options-remap* (progress-screen gfx-ps2-options)) *gfx-ps2-options*)
+  ;; Grecharged-hud-jak1: the new "Recharged Settings" submenu
+  (set! (-> *options-remap* (progress-screen recharged-settings)) *recharged-options-pc*)
   (set! (-> *options-remap* (progress-screen resolution)) *temp-options*)
   (set! (-> *options-remap* (progress-screen aspect-ratio)) *aspect-ratio-options*)
   (set! (-> *options-remap* (progress-screen quit-title)) *yes-no-options*)
@@ -2760,11 +2814,13 @@
   ;; Goptions-reorder: canonicalize both graphics arrays to their full (Min Target FPS shown) layout
   ;; before index-wiring — a prior menu session with Dynamic OFF may have left them compacted (row 4
   ;; removed), which would shift the indices below. apply-dynamic-rs-menu-mode! re-hides row 4 at the end.
-  (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* 14 #t)
-  (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* 11 #t)
-  ;; desktop graphics-options (Goptions-reorder order): 0 Aspect, 1 GameRes, 2 Dynamic, 3 RenderScale,
-  ;; 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 DisplayMode, 9 Display, 10 FrameRate,
-  ;; 11 Advanced(=PS2 Options renamed), 12 Back.
+  ;; Grecharged-hud-jak1: full lengths bumped to 15 desktop / 12 android for the inserted RECHARGED
+  ;; SETTINGS row (see the reindexed Advanced / Vulkan / new-submenu wiring below).
+  (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* 15 #t)
+  (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* 12 #t)
+  ;; desktop graphics-options (Goptions-reorder + Grecharged-hud-jak1 order): 0 Aspect, 1 GameRes,
+  ;; 2 Dynamic, 3 RenderScale, 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 DisplayMode, 9 Display,
+  ;; 10 FrameRate, 11 RechargedSettings, 12 Advanced(=PS2 Options renamed), 13 Vulkan, 14 Back.
   (set! (-> *graphic-options-pc* 2 value-to-modify) (&-> *pc-settings* dynamic-render-scale?))
   (set! (-> *graphic-options-pc* 2 name-override) *dynamic-render-scale-label*)
   ;; index 3 (RENDER SCALE / MIN RENDER SCALE slider) wired by apply-dynamic-rs-menu-mode!
@@ -2776,16 +2832,20 @@
   (set! (-> *graphic-options-pc* 7 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *graphic-options-pc* 8 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *graphic-options-pc* 10 value-to-modify) (&-> *progress-carousell* int-backup))
-  (set! (-> *graphic-options-pc* 11 name-override) *advanced-settings-label*)
+  ;; Grecharged-hud-jak1: index 11 = RECHARGED SETTINGS submenu row (name-override; :param3 already
+  ;; points its confirm at the recharged-settings screen).
+  (set! (-> *graphic-options-pc* 11 name-override) *recharged-settings-label*)
+  (set! (-> *graphic-options-pc* 12 name-override) *advanced-settings-label*)
   ;; Gvulkan-option: derive the VULKAN RENDERER toggle from the persisted backend choice, then wire the
-  ;; desktop row (index 12, appended before Back). Bound here at FULL menu length (MTF forced visible
-  ;; just above), so index 12 is the Renderer object regardless of later MTF hiding.
+  ;; desktop row (now index 13, after RECHARGED SETTINGS + Advanced, before Back). Bound here at FULL
+  ;; menu length (MTF forced visible just above), so index 13 is the Renderer object regardless of MTF hiding.
   (set! (-> *pc-settings* gfx-renderer-vulkan?)
         (= (-> *pc-settings* gfx-renderer) (pc-gfx-renderer vulkan)))
-  (set! (-> *graphic-options-pc* 12 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
-  (set! (-> *graphic-options-pc* 12 name-override) *vulkan-renderer-label*)
-  ;; android graphics-options (Goptions-reorder order): 0 Aspect, 1 GameRes, 2 Dynamic, 3 RenderScale,
-  ;; 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 Advanced, 9 Back.
+  (set! (-> *graphic-options-pc* 13 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
+  (set! (-> *graphic-options-pc* 13 name-override) *vulkan-renderer-label*)
+  ;; android graphics-options (Goptions-reorder + Grecharged-hud-jak1 order): 0 Aspect, 1 GameRes,
+  ;; 2 Dynamic, 3 RenderScale, 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 RechargedSettings,
+  ;; 9 Advanced, 10 Vulkan, 11 Back.
   (set! (-> *graphic-options-pc-android* 2 value-to-modify) (&-> *pc-settings* dynamic-render-scale?))
   (set! (-> *graphic-options-pc-android* 2 name-override) *dynamic-render-scale-label*)
   ;; index 3 (RENDER SCALE / MIN RENDER SCALE slider) wired by apply-dynamic-rs-menu-mode!
@@ -2795,12 +2855,17 @@
   (set! (-> *graphic-options-pc-android* 5 name-override) *fps-counter-label*)
   (set! (-> *graphic-options-pc-android* 6 value-to-modify) (&-> *pc-settings* vsync?))
   (set! (-> *graphic-options-pc-android* 7 value-to-modify) (&-> *progress-carousell* int-backup))
-  (set! (-> *graphic-options-pc-android* 8 name-override) *advanced-settings-label*)
-  ;; Gvulkan-option: wire the VULKAN RENDERER row on Android (index 9, appended before Back). Same
-  ;; gfx-renderer-vulkan? mirror field (derived just above for desktop). On Android the Vulkan runtime
-  ;; is deferred, so the toggle persists the preference but the build keeps rendering with GLES for now.
-  (set! (-> *graphic-options-pc-android* 9 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
-  (set! (-> *graphic-options-pc-android* 9 name-override) *vulkan-renderer-label*)
+  ;; Grecharged-hud-jak1: index 8 = RECHARGED SETTINGS submenu row on Android.
+  (set! (-> *graphic-options-pc-android* 8 name-override) *recharged-settings-label*)
+  (set! (-> *graphic-options-pc-android* 9 name-override) *advanced-settings-label*)
+  ;; Gvulkan-option: wire the VULKAN RENDERER row on Android (now index 10, after RECHARGED SETTINGS +
+  ;; Advanced, before Back). Same gfx-renderer-vulkan? mirror field (derived just above for desktop). On
+  ;; Android the Vulkan runtime is deferred, so the toggle persists the preference but keeps GLES for now.
+  (set! (-> *graphic-options-pc-android* 10 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
+  (set! (-> *graphic-options-pc-android* 10 name-override) *vulkan-renderer-label*)
+  ;; Grecharged-hud-jak1: wire the "RECHARGED HUD" toggle inside the new submenu.
+  (set! (-> *recharged-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-hud?))
+  (set! (-> *recharged-options-pc* 0 name-override) *recharged-hud-label*)
   (apply-dynamic-rs-menu-mode!)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))
@@ -4221,6 +4286,8 @@
              (hide-progress-icons)
              (draw-options self 115 25 0.65))
             (((progress-screen gfx-ps2-options)) (hide-progress-icons) (draw-options self 115 25 0.67))
+            ;; Grecharged-hud-jak1: the new Recharged Settings submenu (few rows; same layout as game-settings)
+            (((progress-screen recharged-settings)) (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen game-settings)) (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen memcard-removed) (progress-screen memcard-auto-save-error))
              (draw-notice-screen self)
