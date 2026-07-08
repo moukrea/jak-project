@@ -34,3 +34,12 @@ per-element implementation + technique + evidence; honest partial OK with named 
     front view faces the camera, per the spec ("mecamouche (de face)").
  3. **Heart + gauge custom assets are NOT VISIBLE yet** — if still WIP, fine (say so in the report);
     if you consider them landed, they are NOT rendering — debug the new-sprite texture path.
+
+## OWNER LIVE REVIEW #2 (2026-07-08 ~19:10)
+ 4. **3D icons parked at SCREEN CENTER when the HUD is HIDDEN** — the stock HUD elements slide/hide
+    off-screen when the HUD retracts (idle/moving); the new 3D fly + power-cell icons DON'T follow —
+    they sit visibly mid-screen until the HUD shows. The 3D icons MUST track the exact same
+    show/hide/slide state+offsets as the stock element they replace (hook the same hud element
+    positions/visibility, not a fixed screen pos). Once the HUD is displayed it's acceptable
+    ("un peu bizarre quand même" — check position/scale parity vs stock too).
+ 5. Scout-fly still faces backwards in what the owner sees — the rotation fix must land.
