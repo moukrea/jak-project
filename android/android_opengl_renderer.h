@@ -34,6 +34,7 @@
 
 class EyeRenderer;  // Gjak2-render: owned by m_jak2_eye_renderer (fwd-decl).
 class TextureAnimator;  // Gjak2-vis: owned by m_texture_animator (fwd-decl).
+class BlitDisplays;  // Gjak2-pcmenus: non-owning ptr into m_bucket_renderers (fwd-decl).
 namespace tfrag3 {
 struct Level;  // Gjak2-vis: m_common_level points into the loader's GAME.fr3.
 }
@@ -139,6 +140,12 @@ class AndroidOpenGLRenderer {
   // Gjak2-vis: the jak2 texture animator (mirrors desktop OpenGLRenderer). Null
   // if disabled by the debug.opengoal.texanim kill-switch or if no common level.
   std::shared_ptr<TextureAnimator> m_texture_animator;
+
+  // Gjak2-pcmenus: the REAL BlitDisplays (jak2 BUCKET_3). Non-owning — the
+  // owning unique_ptr lives in m_bucket_renderers. Null on jak1 (no blit
+  // renderer) and used as the "jak2-with-blit" flag that gates the jak2-only
+  // end-of-frame copy-back and suppresses the jak1 frame-start pre-clear.
+  BlitDisplays* m_blit_displays = nullptr;
 
   GLuint m_screen_vao = 0;
   GLuint m_screen_vbo = 0;

@@ -1,0 +1,10 @@
+=== t=4s pid=24320 ===
+07-08 20:26:06.532 24320 24383 F opengoal-gk: GK-DIAG F1D target-pos f=615 *target* 0x1c5794 =(-635598.9 222551.7 710496.2) master-mode=game
+07-08 20:26:06.780 24320 24383 F opengoal-gk: GK-DIAG F1D target-pos f=630 *target* 0x1c5794 =(-635598.9 222551.7 710496.2) master-mode=game
+07-08 20:26:07.034 24320 24383 F opengoal-gk: GK-DIAG F1D target-pos f=645 *target* 0x1c5794 =(-635598.9 222551.7 710496.2) master-mode=game
+--- final pid: 24320 ---
+--- A35-RENDER sample ---
+07-08 20:26:11.325 24320 24365 I opengoal-gk: A35-RENDER frame=900 chain_bytes=33776 buckets_drawn=24 skipped=1 draws=47 tris=8185 fbo=640x480 render_ms=13.60 buckets_ms=4.56 pcrtc_ms=0.05
+07-08 20:26:12.359 24320 24365 I opengoal-gk: A35-RENDER frame=960 chain_bytes=34704 buckets_drawn=23 skipped=0 draws=16 tris=15727 fbo=640x480 render_ms=12.08 buckets_ms=2.88 pcrtc_ms=0.05
+07-08 20:26:13.363 24320 24365 I opengoal-gk: A35-RENDER frame=1020 chain_bytes=34704 buckets_drawn=23 skipped=0 draws=16 tris=15727 fbo=640x480 render_ms=14.78 buckets_ms=4.34 pcrtc_ms=0.05
+jak1 force-stopped

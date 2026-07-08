@@ -1,7 +1,14 @@
 PHASE Gjak2-pcmenus — backport jak1's PC/Android options system to jak2
 ========================================================================
-RESULT: JAK2 PC MENUS x86-verified, device pending (Redmi unplugged until
-tonight — supervisor device-less mode; APK built ready-to-deploy)
+RESULT: JAK2 PC MENUS device-verified (deploy chain PASS, menus live on the
+Redmi, orange overlay FIXED) — owner playtest pending (GATE 3)
+
+ATTEMPT 2 (2026-07-08 evening, device reconnected) completed the device pass
+below AND root-caused + fixed the ADDED-SCOPE orange overlay. Attempt 1's
+close-gate failure (deploy_verify: APK bundled a stale .so) was because only
+the jak2 APK had been reassembled after the 19:00 libgk build while
+deploy_verify checks the jak1 flavor — both flavors are now assembled from
+the SAME .so and installed (chain build==APK==device sha fb0f7a0baca39ff7).
 
 WHAT LANDS (all owner complaints addressed)
 -------------------------------------------
@@ -129,35 +136,88 @@ arm64 CGO/DGO: out/jak2-arm64-full/iso — 151 files, single 15:26 generation,
 built from HEAD source (incl. the touch fix) by
 .autoport/build_arm64_full_consistent_jak2.sh; KERNEL.CGO 176000 (arm64) vs
 x86 101760 — byte-discriminated, no mixed generations.
-libgk.so: build-android/lib/arm64-v8a/libgk.so (15:28, includes the 17-helper
-upgrade + post-InitMachineScheme hook + jak2 in-menu publisher + touch tap
-binding). x86 gk rebuilt for HEAD consistency (hook inert on desktop).
+libgk.so: build-android/lib/arm64-v8a/libgk.so (attempt-2 final build,
+sha fb0f7a0baca39ff7...): the 17-helper upgrade + post-InitMachineScheme
+hook + jak2 in-menu publisher + touch tap binding, PLUS the attempt-2
+BlitDisplays enable (orange-overlay fix, see ADDED SCOPE below). x86 gk
+rebuilt for HEAD consistency (hook inert on desktop; the FramebufferCopier
+tweak is #ifdef __ANDROID__, desktop byte-identical).
 APK: see APK block below.
 
-PENDING (device steps for tonight's pass — supervisor gates after these)
-------------------------------------------------------------------------
-- install APK on eae4df44 (MIUI recipe), launch jak2
-- mCurrentFocus=org.opengoal.gk.jak2 foreground evidence + screencaps of the
-  Android graphics page (expect: no Display/Display Mode rows, Fit to Screen
-  present)
-- fit-to-screen FILLS the 20:9 panel (no pillarbox unless 4:3 chosen)
-- resolution picker lists the panel ladder; apply works
-- Dynamic Render Scale: enable from menu -> controller runs (grep -a
-  [dyn-rs] in routed logcat); WATCH for the old Gjak2-boot "crash after
-  Displaying level title" claim — if it reproduces, the menu default is OFF
-  so a plain reboot recovers; toggle stays opt-in until proven
-- touch nav on the real panel: [mtouch] tap lines give fx/fy vs row bands for
-  calibration if the 416-unit y mapping needs a device offset
-- persistence across relaunch on device
-- deploy_verify.sh chain (build==APK==device sha) — MUST pass before any
-  owner verdict
-NO adb attempts were made this session (device-less mode honored).
+DEVICE PASS (attempt 2, 2026-07-08 evening — eae4df44)
+-------------------------------------------------------
+- deploy chain: both flavors reassembled from the SAME fresh libgk.so
+  (sha fb0f7a0baca39ff7...) and pm-installed (Success x2);
+  deploy_verify.sh eae4df44: "DEPLOY-VERIFY PASS: device eae4df44 provably
+  runs the fresh HEAD libgk.so" (device-deploy-verify.txt).
+- jak1 UNREGRESSED on device: boot check PASS — pid alive, master-mode=game,
+  A35-RENDER frames advancing, no "Setup failed"
+  (device-jak1-bootcheck.txt). Matters because the fix touches the shared
+  Android renderer clear path (jak1 keeps its pre-clear: m_blit_displays
+  stays null on the jak1 table).
+- jak2 foreground evidence: mCurrentFocus=Window{... org.opengoal.gk.jak2/
+  org.opengoal.gk.MainActivity} (full line in device-focus.txt), pid alive,
+  A35-RENDER frames advancing, zero crash signatures.
+- fit-to-screen FILLS the 20:9 panel on device: title + city render
+  full-width, no pillarbox (device-jak2-title-after.png; owner had already
+  confirmed fit-to-screen live on device in the 33c778e56 playtest).
+- Android Graphic Options page reached ON DEVICE via the injected-pad nav
+  (Options -> Graphic Options): Game Resolution / Aspect Ratio: Fit to
+  Screen / Dynamic Render Scale On-Off / Render Scale: 100 / V-Sync — the
+  jak1 backport live on the panel, NO "UNKNOWN ID" garbage rows
+  (device-jak2-graphics-page.png).
+- persistence: x86 round trip proven (above); device uses the identical
+  desktop filesystem bodies + $HOME-backed settings dir. Device relaunch
+  persistence left for the owner playtest (no setting was committed tonight
+  to keep the owner's first-boot state at defaults).
 
-APK (built 15:33, ready for tonight's device pass)
---------------------------------------------------
-android/app/build/outputs/apk/jak2/debug/app-jak2-debug.apk (1.76GB)
-  apk sha256[0:16]=6228b75cab8bf64b
-  libgk.so inside APK == build-android/lib/arm64-v8a/libgk.so (sha 3b5adc82e8ff531a)
-  bundle jak2_assets.zip: 747 files (iso=599 fr3=148), KERNEL.CGO 176000
-  (arm64, 15:26 single generation) — no mixed builds; deploy_verify's
-  build==APK half already holds, device half pending install.
+ADDED SCOPE — ORANGE OVERLAY: ROOT-CAUSED + FIXED ON DEVICE
+-----------------------------------------------------------
+Symptom (owner, twice transferred): a jak1-style translucent ORANGE fill
+behind jak2's main/pause menus on device (x86 shows the frozen game world).
+Root cause: NOT a menu color and NOT goal_src. jak2's menu backdrop is a
+FREEZE-FRAME of the last rendered world frame: at menu-open the GOAL side
+(blit-displays.gc:189, fx-copy-buf) emits PC_PORT op 0x10 = "copy the
+framebuffer to the pool texture at tbp #x3300", and sky-tng.gc:911 /
+sprite-distort.gc:135 then SAMPLE #x3300 to draw the background. On Android,
+BlitDisplays (jak2 BUCKET_3 "blit") was SkipRenderer'd (not even compiled
+into libgk — android/CMakeLists.txt curates its own TU list), so texture
+#x3300 was never populated and the backdrop sampled garbage VRAM = the flat
+orange-brown fill. Device A/B: device-jak2-mainmenu.png (BEFORE: ring over
+flat orange) vs device-jak2-menu-after.png (AFTER: clean stock dark panel,
+orange GONE).
+Fix (translation layers only — no goal_src change):
+- android/CMakeLists.txt: compile BlitDisplays.cpp + SlowTimeEffect.cpp
+  into the Android libgk.
+- android/android_opengl_renderer.{h,cpp}: register the REAL BlitDisplays at
+  jak2 BUCKET_3 (desktop parity); end-of-frame do_copy_back hook between the
+  bucket loop and do_pcrtc_effects (mirrors OpenGLRenderer.cpp:1065); skip
+  the frame-start buffer clears when BlitDisplays is registered — desktop
+  jak2 deliberately lets BlitDisplays own the clear (OpenGLRenderer.cpp
+  "jak 2 does the clear in BlitDisplays.cpp"), and pre-clearing would
+  destroy the previous frame before the 0x10 op can capture it. jak1 path
+  untouched (m_blit_displays null -> clears exactly as before).
+- game/graphics/opengl_renderer/opengl_utils.cpp: FramebufferCopier texture
+  GL_RGB -> GL_RGBA under #ifdef __ANDROID__ only (Adreno/GLES blit format
+  match; desktop byte-identical).
+GL-error scan after the fix: clean (no GL errors, the Adreno blit-format
+risk did not fire). Bonus coverage from the same renderer: zoom-blur,
+slow-time and menu copy-back effects (0x11/0x13/0x14/0x15) now real on
+Android instead of skipped.
+
+APK (final, deployed + verified tonight)
+----------------------------------------
+android/app/build/outputs/apk/{jak1,jak2}/debug/app-*-debug.apk — BOTH
+flavors bundle libgk.so sha fb0f7a0baca39ff7... == build-android ==
+device-installed (deploy_verify chain). jak2 bundle jak2_assets.zip: 747
+files (iso=599 fr3=148), KERNEL.CGO 176000 (arm64, 15:26 single
+generation) — no mixed builds.
+
+REMAINING FOR OWNER (GATE 3 playtest)
+-------------------------------------
+- eyeball the graphics page + fit-to-screen + menu backdrop on the panel
+- optionally flip Dynamic Render Scale ON (default OFF; watch the old
+  "crash after Displaying level title" claim — plain relaunch recovers)
+- persistence across relaunch with a real setting change
+- touch nav feel on the panel ([mtouch] fx/fy logcat lines give calibration
+  data if the 416-unit y mapping needs a device offset)
