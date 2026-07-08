@@ -74,6 +74,9 @@ constexpr int SKY_TEXTURE_VRAM_ADDRS[2] = {8064, 8096};
  * The game will inform us when it uploads to VRAM
  */
 
+// Uploads RGBA8 texture data to a new GL texture and returns its handle (defined in TexturePool.cpp).
+u64 upload_to_gpu(const u8* data, u16 w, u16 h);
+
 template <typename T>
 class TextureMap {
  public:
