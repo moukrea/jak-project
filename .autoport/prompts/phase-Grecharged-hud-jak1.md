@@ -95,3 +95,9 @@ small extension of that, and the heart/gauge belong in the same home.
 REMAINING for this phase: the gated visuals (heart 4-state + 33% blink, gauge mask + rotated tip),
 scout-fly 3D via the existing icon machinery, Android asset wiring, on-device verify (menu/toggle/
 persistence + each health/eco state), per the original spec.
+
+## OWNER CORRECTION (2026-07-08 ~17:30) — power cell: the REAL FULL model, not the "naked" one
+The current HUD fuel-cell (*fuelcell-naked-sg*) looks like a LESSER sprite-ish version to the owner
+("version amoindrie"). Spec 2c means the REAL full in-world fuel-cell model (with its proper
+geometry/shine — the version you collect in-game), rendered in the HUD slot. Same for the scout fly:
+the real front-view model. Upgrade the icon machinery's skeleton-group accordingly.

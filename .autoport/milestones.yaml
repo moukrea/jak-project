@@ -1212,6 +1212,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-hud-visuals-x86
+  name: 'RECHARGED HUD visuals x86 pass (device:false — owner-approved in-framework deviceless rule): gated heart 4-state+blink, eco gauge mask+rotated tip, REAL full power-cell/scout-fly models in HUD (owner: naked-sg is a lesser version); OFF byte-identical; x86-verified'
+  prompt: prompts/phase-Grecharged-hud-visuals-x86.md
+  validator: validators/phase-Grecharged-hud-visuals-x86.sh
+  max_turns: 2400
+  max_retries: 4
+  device: false
+  owner_verify: false
 - id: Gjak2-pcmenus
   name: 'OWNER 2026-07-08 (jak2 menu test): backport the whole jak1 PC options system to jak2 — Fit-to-screen aspect (4:3 stuck now), Window Size/resolution picker (empty), Display Mode (UNKNOWN ID 999187), dynamic render scale, conditional menus, touch nav; goal_src/jak2/pc only'
   prompt: prompts/phase-Gjak2-pcmenus.md
