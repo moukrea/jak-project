@@ -21,6 +21,7 @@
 #include <setjmp.h>
 #include <signal.h>
 #include <sys/mman.h>
+#include <sys/stat.h>  // supervisor-diag: jak2 breadcrumb truncate-rotate size check
 #include <sys/system_properties.h>
 #include <ucontext.h>
 #include <unistd.h>
@@ -35,6 +36,7 @@
 #include <sys/syscall.h>
 #endif
 
+#include <algorithm>  // supervisor-diag: std::min in jak2 breadcrumb append
 #include <atomic>
 #include <cerrno>
 #include <dlfcn.h>
@@ -42,6 +44,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>  // supervisor-diag: jak2 breadcrumb serialization
 #include <string>
 
 #include "common/versions/versions.h"
@@ -159,14 +162,105 @@ std::atomic<bool> g_runtime_booted{false};
 const char* g_selected_game = nullptr;
 const char* g_data_root = nullptr;
 
-#if defined(JAK_SWAMP_CAPTURE)
-// Owner swamp-crash capture build (INSTRUMENTATION ONLY): the app's EXTERNAL
-// files dir (getExternalFilesDir(null)) pushed from Java via setExternalFilesDir.
-// Fixed-size so the fatal signal handler can read it without touching the heap.
-// The forensic is APPENDED to "<g_ext_files_dir>/jak_swamp_crash.txt", which the
-// owner retrieves from the phone's Files app WITHOUT adb.
+// The app's EXTERNAL files dir (getExternalFilesDir(null)) pushed from Java via
+// setExternalFilesDir. Fixed-size so the fatal signal handler can read it without
+// touching the heap. Two consumers:
+//   (1) JAK_SWAMP_CAPTURE build: the fatal handler APPENDS "<dir>/jak_swamp_crash.txt".
+//   (2) jak2 remote-diagnostic build (runtime jak2-gated, NO compile flag): the
+//       breadcrumb + crash forensic land in "<dir>/jak2_diag.txt" (and jak2_crash.txt)
+//       for the owner's no-adb HONOR alpha1 diagnosis.
+// Populated unconditionally now (the Java setExternalFilesDir call is unconditional);
+// in a non-capture jak1 build nothing reads it, so HEAD jak1 behavior is unchanged.
 char g_ext_files_dir[512] = {0};
-#endif
+
+// ===========================================================================
+// jak2 remote-diagnostic breadcrumb (autoport, supervisor-diag)
+// ---------------------------------------------------------------------------
+// The owner runs the jak2 alpha1 on a HONOR phone with logcat suppressed and no
+// adb; he can only read files via a stock file manager. So key boot/render/asset
+// progress is APPENDED to "<g_ext_files_dir>/jak2_diag.txt" (Java later copies it
+// into public Downloads). Active at RUNTIME only when the running game is jak2 —
+// jak1 never touches this file, so jak1 behavior is byte-identical.
+//
+// Contract:
+//   * Throttled + size-capped: soft cap kJak2DiagSoftCap; when the file exceeds
+//     kJak2DiagHardCap we truncate-rotate (start fresh) so it can never bloat.
+//   * Called from BOTH the GK stdout-pipe reader thread (tee of kernel printf
+//     lines) and the GL render thread (A35-RENDER stats). Guarded by a mutex; the
+//     append itself is a bounded open/write/close with a monotonic-clock prefix.
+//   * The fatal signal handler does NOT use this path (it uses the async-signal-
+//     safe writer in gk_sigsegv_diag); this helper is for the non-signal callers.
+// ===========================================================================
+namespace gk_jak2_diag {
+constexpr const char* kFileName = "/jak2_diag.txt";
+constexpr size_t kJak2DiagHardCap = 256u * 1024u;  // truncate-rotate past this
+static std::mutex g_mutex;
+static std::atomic<bool> g_enabled{false};  // set true once we know game==jak2 + dir known
+
+// Resolve "<g_ext_files_dir>/jak2_diag.txt" into out (bounded, no snprintf-free
+// requirement here — this path never runs in a signal handler).
+static bool build_path(char* out, size_t out_sz) {
+  if (!g_ext_files_dir[0]) return false;
+  const size_t dl = std::strlen(g_ext_files_dir);
+  const size_t nl = std::strlen(kFileName);
+  if (dl + nl + 1 > out_sz) return false;
+  std::memcpy(out, g_ext_files_dir, dl);
+  std::memcpy(out + dl, kFileName, nl + 1);  // includes NUL
+  return true;
+}
+
+// Append one breadcrumb line (a leading monotonic-ms timestamp + the text + '\n').
+// Best-effort: any failure is silently ignored so a diag write can never break boot
+// or a render frame. Safe to call before enable() (it early-returns).
+void append(const char* text) {
+  if (!g_enabled.load(std::memory_order_acquire) || !text) return;
+  char path[512 + 32];
+  if (!build_path(path, sizeof(path))) return;
+  std::lock_guard<std::mutex> lk(g_mutex);
+  // Truncate-rotate when the file has grown past the hard cap.
+  struct stat stbuf{};
+  int oflags = O_WRONLY | O_CREAT | O_APPEND;
+  if (::stat(path, &stbuf) == 0 && stbuf.st_size > (off_t)kJak2DiagHardCap) {
+    oflags = O_WRONLY | O_CREAT | O_TRUNC;
+  }
+  int fd = ::open(path, oflags, 0644);
+  if (fd < 0) return;
+  // Monotonic-ms prefix so the owner (and we) can order events without a wall clock.
+  char line[1024];
+  struct timespec ts{};
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  unsigned long long ms =
+      (unsigned long long)ts.tv_sec * 1000ull + (unsigned long long)(ts.tv_nsec / 1000000ull);
+  int n = std::snprintf(line, sizeof(line), "[%llu] %s\n", ms, text);
+  if (n > 0) {
+    ssize_t wr = ::write(fd, line, (size_t)std::min<int>(n, (int)sizeof(line) - 1));
+    (void)wr;
+  }
+  ::close(fd);
+}
+
+// Turn the breadcrumb on (call once game==jak2 and the ext files dir is known).
+// Writes a session header so each launch is delimited in the file.
+void enable() {
+  if (g_enabled.exchange(true, std::memory_order_acq_rel)) return;  // once
+  append("=== jak2 remote-diagnostic session start ===");
+}
+}  // namespace gk_jak2_diag
+
+// C-linkage shims so other TUs (android_gfx.cpp render thread) can emit breadcrumbs
+// without pulling in this namespace. No-op until gk_jak2_diag::enable() has run.
+extern "C" void gk_jak2_diag_line(const char* text) { gk_jak2_diag::append(text); }
+
+// Enable the jak2 breadcrumb iff the selected game is jak2 AND the ext files dir
+// is known. Idempotent (enable() self-guards). Both g_selected_game and
+// g_ext_files_dir are pushed from Java (MainActivity.onCreate) before boot, so a
+// call from setExternalFilesDir sees a stable g_selected_game.
+extern "C" void gk_jak2_diag_enable_if_jak2(void) {
+  if (!g_ext_files_dir[0]) return;
+  if (!g_selected_game) return;
+  if (std::strcmp(g_selected_game, "jak2") != 0) return;
+  gk_jak2_diag::enable();
+}
 
 // Phase A30 (autoport): route native stdout/stderr → logcat.
 //
@@ -218,6 +312,45 @@ struct Pipe {
   const char* tag;
 };
 
+// supervisor-diag: tee a kernel printf line into the jak2 breadcrumb file if it
+// carries boot/asset progress the owner needs on his no-adb HONOR. No-op unless
+// the jak2 breadcrumb is armed (gk_jak2_diag::append self-guards on g_enabled).
+// Substring-matched + throttled so a healthy boot writes a small, ordered trail:
+//   * boot stages: InitMachine / overlord / iop
+//   * link progress: "link finish:" — every 25th + the last (see the counter)
+//   * master-mode transitions (title->play etc.)
+//   * asset/IO trouble: any line mentioning a load/open/stream failure keyword.
+static void tee_line_to_jak2_diag(const char* line) {
+  if (!line || !line[0]) return;
+  auto has = [&](const char* needle) -> bool { return std::strstr(line, needle) != nullptr; };
+
+  // link-finish: high-volume (hundreds per boot). Keep every 25th + always let the
+  // caller's "last one" logic through by also emitting when the tail names 'logo'/
+  // 'title' (the boot-complete markers). Uses a private counter.
+  if (has("link finish:")) {
+    static std::atomic<uint32_t> s_lf{0};
+    const uint32_t n = s_lf.fetch_add(1, std::memory_order_relaxed);
+    const bool tail = has("logo") || has("title") || has("default-menu") ||
+                      has("game") || has("common");
+    if ((n % 25u) == 0u || tail) {
+      gk_jak2_diag::append(line);
+    }
+    return;
+  }
+  // Low-volume, high-signal boot + asset lines: emit each (they fire a handful of
+  // times per boot). Keep the keyword set tight so we don't tee every kernel print.
+  if (has("InitMachine") || has("InitHeap") || has("overlord") || has("OVERLORD") ||
+      has("iop ") || has("IOP ") || has("master-mode") || has("set-master-mode") ||
+      has("kernel: booting") || has("goal_main") || has("play-boot") ||
+      // asset / streaming / file trouble (the fallback + drop paths the owner hit):
+      has("not found") || has("cannot find") || has("FAILED") || has("failed to") ||
+      has("could not") || has("missing") || has("fallback") || has("ENG ") ||
+      has(".VAG") || has("stream") || has("errno") || has("No such file") ||
+      has("load error") || has("DGO") || has("fr3")) {
+    gk_jak2_diag::append(line);
+  }
+}
+
 void* reader_thread(void* arg) {
   auto* p = static_cast<Pipe*>(arg);
   // bionic caps pthread name at 15 chars; "gk-log-stdXXX" fits both.
@@ -264,6 +397,7 @@ void* reader_thread(void* arg) {
         buf[scan] = '\0';
         if (scan > line_start) {
           __android_log_write(ANDROID_LOG_INFO, p->tag, &buf[line_start]);
+          tee_line_to_jak2_diag(&buf[line_start]);  // supervisor-diag jak2 breadcrumb
         } else {
           // Blank line — still emit so the log timing reflects it.
           __android_log_write(ANDROID_LOG_INFO, p->tag, "");
@@ -282,6 +416,7 @@ void* reader_thread(void* arg) {
       // emitting a giant hex dump without \n separators).
       buf[used] = '\0';
       __android_log_write(ANDROID_LOG_INFO, p->tag, buf);
+      tee_line_to_jak2_diag(buf);  // supervisor-diag jak2 breadcrumb
       used = 0;
     }
   }
@@ -768,7 +903,26 @@ void a35_pc_get_size(u32 w_ptr, u32 h_ptr) {
 // at the sides). It self-restores: update-from-os re-reads the real panel size
 // every frame, so gameplay returns to full-width widescreen the instant the
 // movie ends. pc-get-active-display-size stays truthful (a35_pc_get_size).
+// Gjak2-pcmenus: symbol offsets must come from the RUNNING game's symbol table.
+// jak1::intern_from_c under jak2 walks jak1's (uninitialized) table and returns
+// a garbage offset — the root of the jak2 "UNKNOWN ID 999187" display-mode
+// carousel and the dead (-> *pc-settings* os) 'android gate.
+static u32 a35_intern_offset(const char* name) {
+  if (g_game_version == GameVersion::Jak2) {
+    return jak2::intern_from_c(name).offset;
+  }
+  return jak1::intern_from_c(name).offset;
+}
+
 static bool gcine_in_movie() {
+  // Gjak2-pcmenus: the movie-4:3 window clamp is a jak1-only bridge for the
+  // frozen f1c CGOs (see block comment above). jak2 runs current CGOs whose
+  // GOAL aspect machinery handles movies itself — and the jak1 intern +
+  // process-mask bit (jak1 movie=bit 11; jak2 movie=bit 13) are wrong under
+  // jak2 anyway. Never clamp for jak2.
+  if (g_game_version != GameVersion::Jak1) {
+    return false;
+  }
   // movie? == (logtest? (-> *kernel-context* prevent-from-run) (process-mask movie))
   // (engine/game/main.gc). process-mask `movie` is bit 11 (0x800). prevent-from-run
   // is the FIRST field of the kernel-context `basic`. NB: in this codebase a GOAL
@@ -824,6 +978,54 @@ s64 a35_pc_get_active_display_refresh_rate() {
   return android_gfx::get_refresh_rate();
 }
 
+// Gjak2-pcmenus: real resolution enumeration for the Android fullscreen panel.
+// Desktop enumerates SDL display modes; Android has ONE panel, so expose a
+// quality ladder at the panel's aspect (largest first = native). The jak2
+// Window Size menu ('resolutions state, jak2 progress-pc.gc) enumerates these
+// every frame; selecting one sets the BASE game res (pc-settings width/height)
+// which update-to-os composes with render-scale into pc-set-game-resolution
+// (the offscreen 3D FBO) — meaningful on a fixed panel. jak1 keeps its own
+// GOAL-side ladder; these impls are game-agnostic.
+static const float kA35ResLadderFracs[] = {1.0f,       0.9f, 0.8f,      0.75f,
+                                           2.0f / 3.0f, 0.5f, 4.0f / 9.0f, 1.0f / 3.0f};
+static bool a35_res_ladder_entry(int idx, int* out_w, int* out_h) {
+  int pw = 0, ph = 0;
+  if (!android_gfx::get_window_size(&pw, &ph) || pw <= 0 || ph <= 0) {
+    return false;
+  }
+  const int n = (int)(sizeof(kA35ResLadderFracs) / sizeof(kA35ResLadderFracs[0]));
+  if (idx < 0 || idx >= n) {
+    return false;
+  }
+  const int h = ((int)(ph * kA35ResLadderFracs[idx] + 0.5f)) & ~1;
+  const int w = (int)((int64_t)h * pw / ph) & ~1;  // panel aspect
+  if (w <= 0 || h <= 0) {
+    return false;
+  }
+  *out_w = w;
+  *out_h = h;
+  return true;
+}
+s64 a35_pc_get_num_resolutions(u32 /*for_windowed*/) {
+  int w = 0, h = 0;
+  if (!a35_res_ladder_entry(0, &w, &h)) {
+    return 0;  // display not measured yet
+  }
+  return (s64)(sizeof(kA35ResLadderFracs) / sizeof(kA35ResLadderFracs[0]));
+}
+void a35_pc_get_resolution(u32 id, u32 /*for_windowed*/, u32 w_ptr, u32 h_ptr) {
+  int w = 0, h = 0;
+  if (!a35_res_ladder_entry((int)id, &w, &h)) {
+    return;  // out of range / no display — desktop leaves outputs untouched
+  }
+  if (w_ptr) {
+    *Ptr<s64>(w_ptr).c() = w;
+  }
+  if (h_ptr) {
+    *Ptr<s64>(h_ptr).c() = h;
+  }
+}
+
 // Phase Gtouch-menus (autoport): hand the last on-screen menu tap to the GOAL
 // progress-menu code so it can hit-test the tapped row. Writes three int64s:
 //   x_ptr, y_ptr  -> normalized [0,10000] tap coordinates (fraction of the view)
@@ -849,7 +1051,7 @@ void a35_pc_get_touch_tap(u32 x_ptr, u32 y_ptr, u32 flag_ptr) {
 }
 
 u64 a35_pc_get_display_mode() {
-  return jak1::intern_from_c("fullscreen").offset;
+  return a35_intern_offset("fullscreen");
 }
 
 u64 a35_pc_get_os() {
@@ -857,7 +1059,7 @@ u64 a35_pc_get_os() {
   // progress menu hides the items that don't apply to a single-display phone
   // (Display mode / Display / Frame rate). Android defines both __ANDROID__ and
   // __linux__, which is why the desktop pc_get_os mis-reported 'linux here too.
-  return jak1::intern_from_c("android").offset;
+  return a35_intern_offset("android");
 }
 
 u64 a35_pc_get_unix_timestamp() {
@@ -951,8 +1153,8 @@ void a17_bind_pc_helpers() {
   // Phase Gtouch-menus (autoport): live touch-tap channel for touch-browsable menus.
   klink_mfsfc_for_game("pc-get-touch-tap", (void*)a35_pc_get_touch_tap);
   klink_mfsfc_for_game("pc-set-window-size!", d);
-  klink_mfsfc_for_game("pc-get-num-resolutions", d);
-  klink_mfsfc_for_game("pc-get-resolution", d);
+  klink_mfsfc_for_game("pc-get-num-resolutions", (void*)a35_pc_get_num_resolutions);
+  klink_mfsfc_for_game("pc-get-resolution", (void*)a35_pc_get_resolution);
   klink_mfsfc_for_game("pc-is-supported-resolution?", d);
   // Input
   klink_mfsfc_for_game("pc-get-controller-name", d);
@@ -6881,25 +7083,39 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
       }
     }
   }
-#if defined(JAK_SWAMP_CAPTURE)
-  // Owner swamp-crash capture build (INSTRUMENTATION ONLY): ALSO append the same
-  // forensic (sig/fault/pc/lr + the raw EE offsets to_goal(pc/lr/fault)) to a
+  // Owner no-adb crash forensic (INSTRUMENTATION): ALSO append the same forensic
+  // (sig/fault/pc/lr + the raw EE offsets to_goal(pc/lr/fault) + insn/regs) to a
   // file in the app's EXTERNAL files dir so the owner can retrieve it from the
   // phone's Files app WITHOUT adb. ASYNC-SIGNAL-SAFE ONLY: open/write/close plus
   // a hand-rolled integer->hex formatter into a fixed stack buffer — no
   // fprintf/snprintf/malloc. Best-effort: any failure is silently ignored so the
   // handler never blocks or re-crashes. Runs before the verbose dumps below in
   // case one of those secondary-faults.
-  if (g_ext_files_dir[0]) {
-    // Build "<g_ext_files_dir>/jak_swamp_crash.txt" without snprintf.
+  //
+  // Two runtime triggers (no compile flag needed for jak2):
+  //   * JAK_SWAMP_CAPTURE build  -> "<dir>/jak_swamp_crash.txt" (legacy owner build)
+  //   * jak2 remote-diagnostic   -> "<dir>/jak2_crash.txt" (the alpha1 HONOR diagnosis)
+  // For jak1 in a normal (non-capture) build this block does nothing, so HEAD jak1
+  // behavior is unchanged.
+  {
+#if defined(JAK_SWAMP_CAPTURE)
+    const bool kCaptureBuild = true;
+#else
+    const bool kCaptureBuild = false;
+#endif
+    const bool jak2_diag = (g_game_version == GameVersion::Jak2);
+    if ((kCaptureBuild || jak2_diag) && g_ext_files_dir[0]) {
+    // Build "<g_ext_files_dir>/<name>" without snprintf. jak2 uses jak2_crash.txt;
+    // the legacy capture build keeps jak_swamp_crash.txt.
     char path[512 + 32];
     size_t pi = 0;
     for (const char* s = g_ext_files_dir; *s && pi < sizeof(path) - 24; ++s) {
       path[pi++] = *s;
     }
-    const char kName[] = "/jak_swamp_crash.txt";
-    for (size_t i = 0; i < sizeof(kName) /*includes NUL*/; ++i) {
+    const char* kName = jak2_diag ? "/jak2_crash.txt" : "/jak_swamp_crash.txt";
+    for (size_t i = 0; ; ++i) {
       path[pi++] = kName[i];
+      if (kName[i] == '\0') break;  // include NUL
     }
     int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
     if (fd >= 0) {
@@ -6946,7 +7162,7 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
           buf[bi++] = tmp[--n];
         }
       };
-      put("=== JAK SWAMP CRASH ===\n");
+      put(jak2_diag ? "=== JAK2 CRASH ===\n" : "=== JAK SWAMP CRASH ===\n");
       put("sig=");
       put_dec((unsigned)sig);
       put(" fault=");
@@ -7063,8 +7279,8 @@ void gk_sigsegv_diag(int sig, siginfo_t* info, void* ucontext) {
       (void)wr;
       close(fd);
     }
-  }
-#endif
+    }  // if (kCaptureBuild || jak2_diag)
+  }  // supervisor-diag crash-forensic scope
   // === Gecho-pool TEMPORARY diagnostic: thread-suspend (break) stack-overflow probe ===
   // The (break) macro = (/ 0 0) = arm64 udf #0xBEEF; fires in thread-suspend when a
   // suspending process overflowed its backup-stack budget. Brute-force scan GPRs as
@@ -8727,7 +8943,6 @@ Java_org_opengoal_gk_NativeGk_setDataRoot(JNIEnv* env, jclass /*clazz*/,
 JNIEXPORT void JNICALL
 Java_org_opengoal_gk_NativeGk_setExternalFilesDir(JNIEnv* env, jclass /*clazz*/,
                                                   jstring j_dir) {
-#if defined(JAK_SWAMP_CAPTURE)
   if (!j_dir) {
     return;
   }
@@ -8739,10 +8954,9 @@ Java_org_opengoal_gk_NativeGk_setExternalFilesDir(JNIEnv* env, jclass /*clazz*/,
     __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                         "NativeGk.setExternalFilesDir: %s", g_ext_files_dir);
   }
-#else
-  (void)env;
-  (void)j_dir;
-#endif
+  // supervisor-diag: arm the jak2 remote-diagnostic breadcrumb now that the ext
+  // files dir is known. No-op unless the selected game is jak2 (jak1 unchanged).
+  gk_jak2_diag_enable_if_jak2();
 }
 
 JNIEXPORT void JNICALL

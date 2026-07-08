@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <cstdio>  // supervisor-diag: snprintf for jak2 breadcrumb line
 #include <cstdlib>
 #include <functional>
 #include <memory>
@@ -40,6 +41,11 @@ extern "C" void gk_a38_tripwire_frame_hook(int chain_phase);
 // Gcine-pose joint-sanity tripwire: per-frame bucket of cspace joint skips /
 // bad bone matrices (defined in game/mips2c/jak1_functions/joint.cpp).
 extern "C" void gpose_joint_frame_tick(unsigned long long frame_idx);
+
+// supervisor-diag: jak2 remote-diagnostic breadcrumb (defined in gk_android_main.cpp).
+// No-op unless the running game is jak2 and the ext files dir is known; used here to
+// record A35-RENDER frame stats into the owner's no-adb jak2_diag.txt.
+extern "C" void gk_jak2_diag_line(const char* text);
 
 // Default internal 3D render scale (% of the 640x480 GOAL game_res, 4:3) when
 // debug.opengoal.render.scale is unset. 120% = 768x576: the on-device sweet
@@ -671,6 +677,17 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
                             st.render_cpu_s * 1000.0, st.buckets_cpu_s * 1000.0,
                             st.pcrtc_cpu_s * 1000.0);
       }
+    }
+    // supervisor-diag: mirror the render stats into the jak2 breadcrumb every ~300
+    // frames (and the first) so a HONOR owner with logcat suppressed can see whether
+    // the renderer is drawing anything (draws/tris/buckets) or stuck at 0.
+    if (n == 1 || (n % 300) == 0) {
+      char diag[192];
+      std::snprintf(diag, sizeof(diag),
+                    "A35-RENDER frame=%llu draws=%u tris=%u buckets_drawn=%u skipped=%u",
+                    (unsigned long long)st.frame_idx, st.draw_calls, st.triangles,
+                    st.buckets_drawn, st.buckets_skipped);
+      gk_jak2_diag_line(diag);
     }
   }
 

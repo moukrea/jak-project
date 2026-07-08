@@ -27,11 +27,16 @@
 
 package org.opengoal.gk;
 
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.res.AssetManager;
 import android.graphics.Color;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.StatFs;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -48,14 +53,20 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeSet;
@@ -111,6 +122,13 @@ public class LoaderActivity extends AppCompatActivity {
         // An asleep phone aborts the unpack partway through, which then costs
         // the user another full decompress on next launch.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        // supervisor-diag: export any jak2 remote-diagnostic breadcrumb/crash file
+        // that a PREVIOUS run left in filesDir into the public Downloads collection,
+        // so the owner (no adb, logcat suppressed on his HONOR) can read it from a
+        // stock file manager. Runs BEFORE any unpack/boot; wrapped so it can never
+        // break launch.
+        exportJak2DiagToDownloads();
 
         List<String> games = resolveGameList();
         Log.i(TAG, "LoaderActivity: bundled game set = " + games
@@ -436,6 +454,121 @@ public class LoaderActivity extends AppCompatActivity {
 
     // --- the one-time, idempotent, version-stamped decompress ----------------
 
+    // ---- supervisor-diag: jak2 remote-diagnostic file plumbing (Java side) ------
+    //
+    // The native side (gk_android_main.cpp, jak2-gated at runtime) writes progress
+    // breadcrumbs to files/jak2_diag.txt and a crash forensic to files/jak2_crash.txt
+    // via getExternalFilesDir(null). getExternalFilesDir(null) is the app's EXTERNAL
+    // files dir, NOT getFilesDir(); mirror that here so we copy the same files out.
+
+    private File externalDiagDir() {
+        // Match the native path (getExternalFilesDir(null)); may be null if external
+        // storage is unavailable — caller handles null.
+        return getExternalFilesDir(null);
+    }
+
+    // Append one line to files/jak2_diag.txt (external files dir) via plain Java.
+    // Best-effort — never throws to the caller (unpack must not fail on a diag write).
+    private void appendJak2Diag(String line) {
+        try {
+            File dir = externalDiagDir();
+            if (dir == null) return;
+            File f = new File(dir, "jak2_diag.txt");
+            // Truncate-rotate if it somehow grew huge (mirrors the native 256 KB cap).
+            boolean append = !(f.isFile() && f.length() > 256L * 1024L);
+            try (FileWriter w = new FileWriter(f, append)) {
+                w.write("[loader] " + line + "\n");
+            }
+        } catch (Throwable ignore) {
+            // diagnostics are best-effort; swallow everything
+        }
+    }
+
+    // Copy a previous run's jak2 diag/crash files (if present) into public Downloads,
+    // then rename the source to *.sent so we don't re-export it every launch. All in
+    // a try/catch — a failure here must never block boot.
+    private void exportJak2DiagToDownloads() {
+        try {
+            File dir = externalDiagDir();
+            if (dir == null) return;
+            String ts = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+            boolean anyExported = false;
+            String[] names = { "jak2_diag.txt", "jak2_crash.txt" };
+            for (String name : names) {
+                File src = new File(dir, name);
+                if (!src.isFile() || src.length() == 0) continue;
+                // Downloads file name: jak2-diag-<ts>.txt / jak2-crash-<ts>.txt
+                String base = name.equals("jak2_crash.txt") ? "jak2-crash-" : "jak2-diag-";
+                String outName = base + ts + ".txt";
+                if (exportOneToDownloads(src, outName)) {
+                    anyExported = true;
+                    // Mark as sent so the next launch doesn't re-copy the same content.
+                    File sent = new File(dir, name + ".sent");
+                    if (sent.exists()) sent.delete();
+                    if (!src.renameTo(sent)) {
+                        // Rename failed (rare) — truncate so we don't loop re-exporting.
+                        try (FileWriter w = new FileWriter(src, false)) { w.write(""); }
+                        catch (Throwable ignore) {}
+                    }
+                }
+            }
+            if (anyExported) {
+                Toast.makeText(this, "diag exporté dans Downloads", Toast.LENGTH_LONG).show();
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "jak2 diag export skipped: " + t);
+        }
+    }
+
+    // Insert one file into MediaStore.Downloads (API 29+) and stream the bytes in.
+    // Returns true on success. Older APIs fall back to a direct copy into the public
+    // Downloads dir. Never throws.
+    private boolean exportOneToDownloads(File src, String outName) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentValues cv = new ContentValues();
+                cv.put(MediaStore.Downloads.DISPLAY_NAME, outName);
+                cv.put(MediaStore.Downloads.MIME_TYPE, "text/plain");
+                cv.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                cv.put(MediaStore.Downloads.IS_PENDING, 1);
+                Uri collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+                Uri item = getContentResolver().insert(collection, cv);
+                if (item == null) return false;
+                try (InputStream in = new FileInputStream(src);
+                     OutputStream out = getContentResolver().openOutputStream(item)) {
+                    if (out == null) { getContentResolver().delete(item, null, null); return false; }
+                    byte[] buf = new byte[64 * 1024];
+                    int r;
+                    while ((r = in.read(buf)) > 0) out.write(buf, 0, r);
+                }
+                cv.clear();
+                cv.put(MediaStore.Downloads.IS_PENDING, 0);
+                getContentResolver().update(item, cv, null, null);
+                Log.i(TAG, "exported " + src.getName() + " -> Downloads/" + outName);
+                return true;
+            } else {
+                // Pre-Q: write straight into the public Downloads directory.
+                File dl = Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOWNLOADS);
+                if (dl != null && (dl.isDirectory() || dl.mkdirs())) {
+                    File out = new File(dl, outName);
+                    try (InputStream in = new FileInputStream(src);
+                         OutputStream os = new FileOutputStream(out)) {
+                        byte[] buf = new byte[64 * 1024];
+                        int r;
+                        while ((r = in.read(buf)) > 0) os.write(buf, 0, r);
+                    }
+                    Log.i(TAG, "exported " + src.getName() + " -> " + out.getAbsolutePath());
+                    return true;
+                }
+                return false;
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "export of " + src.getName() + " failed: " + t);
+            return false;
+        }
+    }
+
     private void unpackBundleIfNeeded(String gameName) throws IOException {
         Manifest mf = readManifest(gameName);
         File filesDir = getFilesDir();
@@ -479,6 +612,15 @@ public class LoaderActivity extends AppCompatActivity {
 
         runOnUiThread(() -> status.setText("Decompressing game data…\n0%"));
 
+        // supervisor-diag: record unpack progress for jak2 so a failed/partial unpack
+        // on the owner's HONOR (no adb) is visible in the exported diag file. jak2-only
+        // so jak1 file-side behavior is unchanged.
+        final boolean diagUnpack = "jak2".equals(gameName);
+        if (diagUnpack) {
+            appendJak2Diag("unpack START game=" + gameName + " zip=" + mf.zipName
+                    + " expect_files=" + mf.fileCount + " expect_bytes=" + mf.rawBytes);
+        }
+
         final long startMs = System.currentTimeMillis();
         long bytesWritten = 0;
         int filesWritten = 0;
@@ -488,6 +630,7 @@ public class LoaderActivity extends AppCompatActivity {
         AssetManager am = getAssets();
         // STREAMING access → the ~1 GiB archive is never materialised in RAM;
         // ZipInputStream inflates it entry-by-entry as we read.
+        try {
         try (InputStream rawIn = am.open(mf.zipName, AssetManager.ACCESS_STREAMING);
              ZipInputStream zin = new ZipInputStream(rawIn)) {
             ZipEntry e;
@@ -526,6 +669,11 @@ public class LoaderActivity extends AppCompatActivity {
                 zin.closeEntry();
                 filesWritten++;
 
+                if (diagUnpack && (filesWritten % 100) == 0) {
+                    appendJak2Diag("unpack progress files=" + filesWritten
+                            + " bytes=" + bytesWritten);
+                }
+
                 // Throttle UI updates to ~each permille so we don't flood the
                 // main-thread looper on 300+ small files.
                 long permille = mf.rawBytes > 0
@@ -555,6 +703,15 @@ public class LoaderActivity extends AppCompatActivity {
             throw new IOException("integrity check failed: unpacked "
                     + bytesWritten + " bytes, manifest expects " + mf.rawBytes);
         }
+        } catch (IOException ioe) {
+            // supervisor-diag: record the failed/partial unpack for the owner before
+            // propagating (the caller surfaces the failure to the UI).
+            if (diagUnpack) {
+                appendJak2Diag("unpack FAILED files=" + filesWritten
+                        + " bytes=" + bytesWritten + " err=" + ioe.getMessage());
+            }
+            throw ioe;
+        }
 
         // Stamp LAST: only a fully-verified unpack is trusted on next launch.
         writeStamp(stamp, mf.version);
@@ -563,6 +720,10 @@ public class LoaderActivity extends AppCompatActivity {
         Log.i(TAG, gameName + " asset bundle decompressed: " + filesWritten
                 + " files, " + bytesWritten + " bytes in " + elapsedMs
                 + "ms (version=" + mf.version + ")");
+        if (diagUnpack) {
+            appendJak2Diag("unpack DONE files=" + filesWritten + " bytes=" + bytesWritten
+                    + " ms=" + elapsedMs);
+        }
         runOnUiThread(() -> {
             progress.setProgress(1000);
             status.setText("Setup complete — starting game…");
