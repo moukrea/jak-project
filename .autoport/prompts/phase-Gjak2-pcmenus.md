@@ -21,3 +21,13 @@ persists across relaunch; screencaps; mCurrentFocus=jak2; x86 jak2 unbroken; dep
 ## Report (.autoport/reports/Gjak2-pcmenus/report.txt) `RESULT: JAK2 PC MENUS <what-lands>`
 ## Locks: ANDROID_SERIAL=eae4df44; engine goal_src untouched (pc/ only); gold READ-ONLY.
 ## Max: max_turns 2400, max_retries 5. device: true, owner_verify: true.
+
+## DEVICE-LESS MODE (supervisor 2026-07-08 ~14:30 — owner: Redmi unplugged until tonight)
+NO device is connected. Do ALL the work that doesn't need it: implement the full menu backport in
+goal_src/jak2/pc/, compile (goalc x86 + arm64 CGO regen), verify on x86 DESKTOP (screenshot the x86
+menus: fit-to-screen behavior, resolution list, display-mode wiring — the x86 window IS testable),
+build the Android APK ready-to-deploy. THEN write the report as HONEST PARTIAL
+(`RESULT: JAK2 PC MENUS x86-verified, device pending`) listing exactly which device steps remain
+(install, screencaps, mCurrentFocus, persistence-on-device) and EXIT CLEANLY — do NOT retry-loop on
+adb failures, do NOT burn attempts waiting for the device. The supervisor closes the gate after the
+tonight device pass.
