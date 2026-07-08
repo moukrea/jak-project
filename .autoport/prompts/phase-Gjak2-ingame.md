@@ -31,3 +31,14 @@ evidence, honest residuals.
 ## Locks: ANDROID_SERIAL=eae4df44 only; engine goal_src untouched; gold READ-ONLY; full consistent
 builds; grep -a routed logcat; state-dumps over screenshots.
 ## Max: max_turns 3000, max_retries 6. device: true, owner_verify: true.
+
+## TRANSFERRED VISUAL RESIDUALS (owner verdict on Gjak2-visuals, 2026-07-08 ~04:30)
+Owner: intro cinematic = "nickel" (visuals mandate met) BUT these remain and belong here:
+ * **jak1 ORANGE translucent overlay STILL behind jak2 menus** — never actually fixed (no commit
+   touched it; the title progress menu is dark, the owner's orange context is elsewhere — find WHERE
+   it draws (pause/in-game menu state?) and gate the jak1-keyed overlay for real this time.
+ * **Rift gate still renders as a HUGE luminous ball** + other particle issues — the glow/bloom
+   family for the portal is still wrong (lamps were fixed; the rift-gate GLOW bucket isn't).
+ * **Electric particles when Daxter plugs in the JAK II logo** are broken (small, note it).
+ * Intro-skip spawn = the Fortress — likely story-CORRECT (post-intro = Baron's prison); the bug is
+   the missing collision, not the spawn point. Verify against x86 rather than "fixing" the spawn.
