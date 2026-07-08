@@ -1052,16 +1052,30 @@ bool a37_name_is_real_jak2(const std::string& name) {
       "(method 9 collide-puss-work)", "(method 10 collide-puss-work)",
       "(method 18 grid-hash)", "(method 19 grid-hash)", "(method 20 grid-hash)",
       "(method 22 grid-hash)",
-      // --- Gjak2-ingame attempt 2: these 3 sub-families remain DEFAULT-OFF. With them
-      // enabled the device SIGSEGVs at boot right after title-disk-intro links
-      // (GK-DIAG sig=11 EE pc 0x1fc2864 / pre-title 0x1c77f40): a GOAL-side consumer
-      // reads a garbage offset, and A11-DIAG shows a zeroed symbol slot (0x18d7dc) —
-      // an arm64-only OOB WRITE by these bodies (not the #f-guard compare class; those
-      // sites are fixed). Ground collision is fully functional without them (prison
-      // gameplay verified: find-ground solid, no fall-through). Re-enable for A/B via
-      // setprop debug.opengoal.jak2.enable_names (below) once the stomp is fixed. ---
+      // --- Gjak2-movement: (method 9/10 collide-cache-prim) = resolve-moving-sphere-
+      // tri/sphere are the ONLY resolve stage of the target mover: step-collison!
+      // (collide-shape.gc:1093) and find-ground (:1682) consume their float return
+      // via (>= f0 0.0). The shared noop's 0 therefore read as "hit at travel
+      // fraction 0.0" with a never-written stack collide-tri-result -> every frame's
+      // displacement cancelled (Jak glued, owner-blocking) + garbage gspot-normal
+      // (constant one-direction drift). Bisect runs 16b/final-culprit + the
+      // Gjak2-movement legB A/B proved this pair boots clean AND restores full
+      // translation (Jak walks the prison, camera follows, idle settles). Bodies
+      // audited structurally identical to the device-proven jak1 twins. ---
+      "(method 9 collide-cache-prim)", "(method 10 collide-cache-prim)",
+      // --- These sub-families remain DEFAULT-OFF, each with its OWN boot SIGSEGV
+      // (Gjak2-ingame bisect, re-confirmed by pc split):
+      //  * (method 17 collide-cache) fill-from-fg-line-sphere: enabling it alone
+      //    crashes at GK-DIAG pc 0x1fc2864 (nav-mesh consumer reads zeroed symbol
+      //    slot 0x18d7dc). Lead: its fill loop bases on get_fake_spad_addr2 — a
+      //    zero/unbound *fake-scratchpad-data* would relocate the sqc2 fill loop
+      //    (collide_cache.cpp:1310/:1330) onto the low symbol table. Verify s5 at
+      //    entry before enabling. Consequence while off: line-sphere probes miss
+      //    FOREGROUND prims only (bg/world collision unaffected).
+      //  * spatial-hash 33/35/36/37/39: separate crash pc 0x1c77f40 (each method
+      //    individually). sphere-hash 28-33 never isolated (co-enabled only).
+      // Re-enable for A/B via setprop debug.opengoal.jak2.enable_names (below). ---
       // "(method 17 collide-cache)",
-      // "(method 9 collide-cache-prim)", "(method 10 collide-cache-prim)",
       // "(method 28 sphere-hash)", "(method 29 sphere-hash)", "(method 30 sphere-hash)",
       // "(method 31 sphere-hash)", "(method 32 sphere-hash)", "(method 33 sphere-hash)",
       // "(method 33 spatial-hash)", "(method 35 spatial-hash)", "(method 36 spatial-hash)",

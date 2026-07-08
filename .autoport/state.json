@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 189,
+  "current_phase_idx": 190,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -181,7 +181,8 @@
     "Gjak2-visuals": 2,
     "Gjak2-ingame": 3,
     "Gjak2-pcmenus": 2,
-    "Grecharged-hud-visuals-x86": 1
+    "Grecharged-hud-visuals-x86": 1,
+    "Gjak2-movement": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -536,7 +537,8 @@
     "Gjak2-render",
     "Gjak2-visuals",
     "Gjak2-ingame",
-    "Grecharged-hud-visuals-x86"
+    "Grecharged-hud-visuals-x86",
+    "Gjak2-pcmenus"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -704,9 +706,10 @@
     "Gjak2-visuals": 1783460200.2105126,
     "Gjak2-ingame": 1783480638.6489265,
     "Gjak2-pcmenus": 1783511750.803353,
-    "Grecharged-hud-visuals-x86": 1783524528.391978
+    "Grecharged-hud-visuals-x86": 1783524528.391978,
+    "Gjak2-movement": 1783535947.7066994
   },
-  "last_update": "2026-07-08T18:36:11.027524+00:00",
+  "last_update": "2026-07-08T19:52:05.331075+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -758,6 +761,7 @@
     "Gjak2-render",
     "Gjak2-visuals",
     "Gjak2-ingame",
-    "Gjak2-pcmenus"
+    "Gjak2-pcmenus",
+    "Gjak2-movement"
   ]
 }
