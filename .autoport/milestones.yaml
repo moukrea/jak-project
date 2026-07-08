@@ -1204,6 +1204,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Gjak2-ingame
+  name: 'jak2 chapter 4 — PLAYABLE: systemic collision absence (falls through floor everywhere; data-load vs collide-mips2c vs noop audit) + intro cinematic crash at the Two-years-later scene transition; owner in-game verify'
+  prompt: prompts/phase-Gjak2-ingame.md
+  validator: validators/phase-Gjak2-ingame.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Gjak2-pcmenus
   name: 'OWNER 2026-07-08 (jak2 menu test): backport the whole jak1 PC options system to jak2 — Fit-to-screen aspect (4:3 stuck now), Window Size/resolution picker (empty), Display Mode (UNKNOWN ID 999187), dynamic render scale, conditional menus, touch nav; goal_src/jak2/pc only'
   prompt: prompts/phase-Gjak2-pcmenus.md
