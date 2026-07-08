@@ -1,0 +1,7 @@
+OWNER-CONFIRMED 2026-07-08 ~23:00 (Redmi live): movement WORKS ("ingame, oui on peut se déplacer") —
+the glued+drift bug is dead (root cause: noop'd collide never wrote the stack collide-tri-result the
+mover consumed). Full intro cinematic plays "nickel, très bon rendu". New findings routed to
+Gjak2-polish: cinematic ignores aspect setting (16:9 forced), rift-gate glow too bright pre-metalheads,
+menu order/labels parity vs jak1 + missing FPS counter option, and the L1/R1 overlay button = jak2
+crouch lock (jak1 maps both to one action; jak2 needs its own layout — explains the earlier
+"stuck crouch" report).
