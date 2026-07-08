@@ -177,7 +177,8 @@
     "Gswamp-fstore": 2,
     "Gvulkan-option": 2,
     "Gjak2-boot": 2,
-    "Gjak2-render": 3
+    "Gjak2-render": 3,
+    "Gjak2-visuals": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -686,7 +687,7 @@
     "Gjak2-render": 1783372984.0241954,
     "Gjak2-visuals": 1783460200.2105126
   },
-  "last_update": "2026-07-07T21:36:40.210591+00:00",
+  "last_update": "2026-07-08T00:47:27.258274+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
