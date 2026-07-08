@@ -1,0 +1,128 @@
+RESULT: JAK2 VISUALS FIXED — title/attract now renders the correct dark night Haven City
+with the textured JAK II logo, "Press the Start Button" text, advancing cloud animation, and
+the attract intro cinematic with subtitles; crash-free 60fps across every soak. Root cause of
+the owner's "pas bon, beaucoup d'erreurs et d'éléments manquants" was a single arm64 defect
+(shadow-cpu mips2c noop zeroing the frame DMA cursor) plus two porting gaps (jak1 shader
+constants baked into the Android blob; ProgressRenderer never compiled). AWAITING OWNER EYE.
+
+========================================================================
+1. THE ROOT CAUSE (the white wash / frozen sky / stale frames)
+========================================================================
+goal_src/jak2/engine/gfx/foreground/shadow-cpu.gc:704:
+    (set! (-> s3-1 base) (shadow-execute ... (-> s3-1 base)))
+`shadow-execute` is mips2c. On Android it resolved to the shared arm64 noop (returns 0), so
+whenever a shadow bucket had casters, the frame's global-buf base was set to 0. Every packet
+built afterwards that frame — the BUCKET_2 vis/fog packet, camera data, the sky/clouds
+texture-anim input — was appended into the low-EE dead zone (ee+0x12c0 band), and the bucket
+chain got a low NEXT tag. The A42 chain-precopy guard (correctly) quarantined those chains and
+re-presented the last good one: ~83% of title frames (6000 skips / 7260 frames) were STALE.
+Consequences, all from this one defect:
+  * clouds frozen (SkyInput.times pinned at 990/1005/1100 while the GOAL accumulator advanced
+    — the consumed packet was a stale re-present),
+  * searchlight cones flooding the camera white (stale emissive/pose data as the flythrough
+    camera flew through a dwelling beam — bisect-proven: skip=merc => perfect night scene),
+  * missing per-frame content (device drew 11 merc models vs x86's 28).
+Forensics chain: prop-driven bucket-family mute bisect (debug.opengoal.vis.skip) -> plain-merc
+family -> GJ2VIS-CLOCK/CLOCK2 state dumps x86-vs-device (all GOAL clocks tick; falsified the
+frozen-clock hypothesis) -> GJ2VIS-GBUF (global-buf cursor intermittently in low memory) ->
+Android low-memory PROT_NONE tripwire (desktop parity; debug.opengoal.lowprot=1) -> SIGSEGV at
+the writer: STR of a qwc=6 cnt dma-tag to ee+0 -> GK-DIAG CODE window byte-matched to GAME.CGO
+object #205 `shadow-cpu` -> shadow-dma-end -> the :704 base store.
+FIX (game/mips2c/mips2c_table_jak1_arm64.cpp): un-noop the jak2 shadow-cpu mips2c family (all
+16 functions — shadow-execute jalrs every sibling by name, so partial sets re-noop geometry).
+Audited per the established checklist: zero integer div/mod (no IDIV/R8 hazard), all three s7
+compares are symbol/boolean idioms (no upper-32 gpr_addr misfire), scratchpad via the proven
+fake_scratchpad_data idiom, blerc DMA already bounds-guarded, external callees plain GOAL FFI.
+Kill switch: setprop debug.opengoal.jak2.noshadowcpu 1 (relaunch-toggleable).
+VERIFIED after fix: A42-CHAIN-PRECOPY count 0 (was ~6000), sky t advancing every sample,
+GBUF cursors always in-buffer, 17 merc models drawn (jakb, daxter-highres, hud-ring now
+present), crash-free 330s + ~7min soaks, PID stable.
+
+========================================================================
+2. TOD / LIGHTING (the "dark world" -> correct night)
+========================================================================
+* Fog data path: previous commit 758ca3db4 registered the REAL VisDataHandler at jak2 BUCKET_2
+  (fog_color vif0 memcpy) — fogcol now non-zero and matching x86 per level (ctysluma 001333xx,
+  ctywide 9f96c8 — the pale ctywide fog is ORIGINAL, x86-verified).
+* TOD palette interpolation verified clean by state dump: GJ2VIS-TODWHITE near-white histogram
+  device 0/972 (ctywide) and 6/1024 (ctysluma) == x86 0/972. itimes/tod0/tod1 match x86 at
+  matched levels. The etie additive-coat tint matches x86 to 3 decimals (GJ2VIS-ETIETINT
+  0.9432/0.7994/0.1207 vs 0.9432/0.7995/0.1209).
+* The night scene now looks like the oracle: dark sky, lit windows, warm lamps, neon signs.
+
+========================================================================
+3. VISUAL ERRORS FIXED (bug classes)
+========================================================================
+* jak2 vertical stretch (~1.85x on ALL 3D geometry): the Android shader blob baked jak1's
+  HEIGHT_SCALE=1.0 / SCISSOR_HEIGHT=448 tokens at preprocess time; jak2 needs 0.5/416. Fixed
+  at the root: preprocess.py keeps the tokens verbatim; Shader.cpp now does the same runtime
+  per-GameVersion substitution on Android as on desktop. (Class: per-game constant baked for
+  one game in the porting layer.)
+* White wash / flood: root cause #1 above (class: mips2c noop whose RETURN VALUE feeds engine
+  state — same family as the jak1 blerc cursor bug, now proven on jak2).
+* GLES sky noise textures: GL_R8 sized internalformat (758ca3db4; unsized GL_RED is
+  INVALID_OPERATION on GLES => garbage clouds). Clouds pixel-readback now valid, err=0x0.
+* printf format/arg mismatch in the TOD probe (UB) fixed while extending it.
+
+========================================================================
+4. PER-FAMILY TABLE (jak2 Android renderer)
+========================================================================
+  family              status    notes
+  tfrag/tie/etie      PORTED    (Gjak2-render) + envmap 2nd pass verified (tint == x86)
+  merc/emerc          PORTED    (Gjak2-render) 17 models drawn at title incl. jak-logo
+  generic-merc/effect PORTED    (e64ae02b3) smoke plumes, lightning FX builders real
+  ocean               PORTED    (758ca3db4) mid-far + near registered, mips2c un-noop'd
+  sky (SKY_DRAW)      PORTED    DirectRenderer + sky-tng mips2c + TextureAnimator clouds;
+                                cloud times now ADVANCE (root fix); residual: one texture id
+                                (13056) not found in pool at some beats -> random substitute
+  sprite/particles    PORTED    Sprite3 + jak2 sparticle mips2c (portal glow, lamps visible)
+  texture-animator    PORTED    fixed-anim outputs pixel-match x86 (skull-gem, bomb-gradient,
+                                security-env/dot); GLES REV/1D shims; kill prop texanim
+  direct/HUD/progress PORTED    ProgressRenderer TU + PROGRESS bucket registered THIS PHASE:
+                                "Press the Start Button", pause/graphics menus render crisp
+  subtitle            PORTED    (TextureUploadHandler+direct) intro cinematic subtitles render
+  eye                 PORTED    EyeRenderer registered as jak2 eye handler
+  shadow (mips2c)     PORTED    all 16 builders real (THE root-cause fix)
+  shadow (buckets)    DEFERRED  SHADOW/SHADOW2 stay SkipRenderer'd — DMA built+consumed, no
+                                visible shadows yet; needs Shadow2.cpp GLES audit + TU
+  warp (GMERC_WARP)   DEFERRED  Warp.cpp not in the Android build; builders real, draws skip
+  blit (BUCKET_3)     DEFERRED  BlitDisplays not ported (post-fx feedback)
+
+========================================================================
+5. ORACLE COMPARISON (x86, matched beats) + EVIDENCE
+========================================================================
+Method per the phase lock: deterministic state dumps x86-vs-device FIRST (GJ2VIS-TOD /
+TODWHITE / ETIETINT / SKY / CLOCK / CLOCK2 / GBUF / CHAINLOW / MERCMODEL probes, all shared
+code paths: device always-on, desktop env-gated GJ2VIS_TFTREE/GJ2VIS_SKY) — screenshots only
+for the final human-comparable beats. x86 oracle intact (x86-*.log runs at HEAD).
+* Title beat: device jak2-vis-fixed1-t60-jak2focus.png vs oracle-frames/oracle-t110.png —
+  same content: orange JAK II logo w/ faces, "Press the Start Button", dark night city.
+* Attract intro: jak2-vis-flyrec-t380.png — island cinematic w/ subtitles, warm TOD, logo
+  overlay (matches original sequence).
+* 60s screenrecord: jak2-title-rec.mp4 (57.5 MB, title/attract flythrough).
+* All captures bracketed with mCurrentFocus=org.opengoal.gk.jak2/MainActivity (focus files
+  jak2-vis-*-focus.txt); PIDSTART==PIDEND on every run.
+* Soak: crash-free >= 5 min repeatedly (330 s run + ~7 min run, zero signal 11/6/4, 60 Hz
+  pacing, up to 465k tris, render_ms 12-28).
+* Deploy chain PROVEN each cycle: sha256 build libgk.so == APK == device base.apk
+  (final: 53b188d0026dcb33..., install -i com.android.vending).
+
+========================================================================
+6. HONEST RESIDUALS (next phases)
+========================================================================
+* sky-draw texture 13056 missing from the texture pool at some attract beats ("Failed to find
+  texture at 13056, using random") — a real sky texture gap, visible as occasional wrong sky
+  texel source; needs the texture-animator move_to_pool/tbp mapping for that slot.
+* Sun bloom heavily blown at the island intro beat (white disc) — jak1 had a sun-halo class;
+  jak2 needs its own pass (state-dump first).
+* Visible shadows: shadow BUCKETS still skipped (family DMA is real now) — port Shadow2.cpp
+  (GLES audit + primitive-restart gate) to draw them.
+* Phantom input: two runs entered the graphics-options menu with no human input (touch
+  overlay/MIUI edge events suspected) — needs an input-source trace; menus themselves render
+  correctly.
+* Missing population vs x86 at matched beats not fully re-censused post-fix (17 vs x86's 28
+  one-shot names; some are demo-beat-dependent — bikes/citizens appear in beats the capture
+  windows may not have hit). Re-census during the gameplay phase.
+* Warp/blit families deferred (table above).
+* Diagnostic probes left in (device-always, rate-limited): GJ2VIS-* family. Cheap, and jak2
+  visual work continues; remove when jak2 reaches acceptance.

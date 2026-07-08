@@ -1,0 +1,12 @@
+[jak2-vis-bisect1] cap=baseline   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] cap=etie   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] cap=emerc   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] cap=gmerc   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] cap=merc   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] cap=effects   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] cap=screen-filter   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] cap=sky-draw   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] cap=particles   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] cap=allmute   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] cap=restored   mCurrentFocus=Window{e936672 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+[jak2-vis-bisect1] END pid=[27059]
