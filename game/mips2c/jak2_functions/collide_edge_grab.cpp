@@ -461,7 +461,8 @@ u64 execute(void* ctxt) {
 
   c->ld(a0, 272, gp);                               // ld a0, 272(gp)
   c->subu(a1, a0, s7);                              // subu a1, a0, s7
-  if (((s64)c->sgpr64(a1)) == ((s64)0)) {           // beql a1, r0, L40
+  // Gjak2-ingame: 64-bit handle #f-check via (a0 - s7) — the stored handle's upper-32 need not match s7's host upper-32 on arm64; compare the 32-bit GOAL ptrs instead (same #f-guard class). x86 unaffected.
+  if (c->gpr_addr(a0) == c->gpr_addr(s7)) {           // beql a1, r0, L40
     c->mov64(a0, s7);                               // or a0, s7, r0
     goto block_6;
   }
@@ -667,7 +668,8 @@ u64 execute(void* ctxt) {
   block_20:
   c->load_symbol2(a0, cache.target);                // lw a0, *target*(s7)
   c->lwu(a0, 64, a0);                               // lwu a0, 64(a0)
-  if (((s64)c->sgpr64(s7)) == ((s64)c->sgpr64(a0))) {// beql s7, a0, L48
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  if (c->gpr_addr(s7) == c->gpr_addr(a0)) {// beql s7, a0, L48
     c->mov64(a0, a0);                               // or a0, a0, r0
     goto block_23;
   }

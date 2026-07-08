@@ -1373,7 +1373,8 @@ u64 execute(void* ctxt) {
   if (bc) {goto block_17;}                          // branch non-likely
 
   c->lwu(v1, 120, gp);                              // lwu v1, 120(gp)
-  if (((s64)c->sgpr64(s7)) == ((s64)c->sgpr64(v1))) {// beql s7, v1, L21
+  // Gjak2-ingame: #f-guard on a mem-loaded GOAL value — 32-bit GOAL-ptr compare (arm64 s7 upper-32 mismatch class; ocean.cpp:39 idiom). x86 unaffected.
+  if (c->gpr_addr(s7) == c->gpr_addr(v1)) {// beql s7, v1, L21
     c->daddiu(v1, s7, 4);                           // daddiu v1, s7, 4
     goto block_10;
   }
