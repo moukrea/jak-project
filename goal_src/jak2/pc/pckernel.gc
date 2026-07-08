@@ -762,6 +762,7 @@
     (("smooth-minimap?") (set! (-> obj smooth-minimap?) (file-stream-read-symbol file)))
     (("minimap-force-north") (set! (-> obj minimap-force-north) (file-stream-read-symbol file)))
     (("hires-clouds?") (set! (-> obj hires-clouds?) (file-stream-read-symbol file)))
+    (("dyn-rs-menu-seen?") (set! (-> obj dyn-rs-menu-seen?) (file-stream-read-symbol file)))
     (("text-language") (set! (-> obj text-language) (the-as pc-language (file-stream-read-int file))))
     (("subtitle-language") (set! (-> obj subtitle-language) (the-as pc-language (file-stream-read-int file))))
     (("controller-led-status?") (set! (-> obj controller-led-status?) (file-stream-read-symbol file)))
@@ -819,6 +820,9 @@
   (format file "  (smooth-minimap? ~A)~%" (-> obj smooth-minimap?))
   (format file "  (minimap-force-north ~A)~%" (-> obj minimap-force-north))
   (format file "  (hires-clouds? ~A)~%" (-> obj hires-clouds?))
+  ;; always literal #t: any file written by this build was written with the
+  ;; Dynamic Render Scale toggle reachable in the menu (see load-settings)
+  (format file "  (dyn-rs-menu-seen? #t)~%")
   (format file "  (text-language ~D)~%" (-> obj text-language))
   (format file "  (subtitle-language ~D)~%" (-> obj subtitle-language))
   (format file "  (controller-led-status? ~A)~%" (-> obj controller-led-status?))

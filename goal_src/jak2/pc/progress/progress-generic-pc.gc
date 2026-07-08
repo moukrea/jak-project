@@ -171,6 +171,242 @@
        (set! (-> this bind-info analog-min-range?) #t)))))
   (none))
 
+;; ############################
+;; TOUCH-BROWSABLE MENUS (port of jak1 Gtouch-menus)
+;; ############################
+
+(defun menu-touch-clear-flags! ()
+  "Touch-menus: reset this frame's synthetic-press flags."
+  (let ((mt *menu-touch*))
+    (set! (-> mt confirm?) #f)
+    (set! (-> mt back?) #f)
+    (set! (-> mt left?) #f)
+    (set! (-> mt right?) #f)
+    (set! (-> mt hold-left?) #f)
+    (set! (-> mt hold-right?) #f)
+    (set! (-> mt up?) #f)
+    (set! (-> mt down?) #f))
+  (none))
+
+(defun menu-touch-emit! ((tok int))
+  "Touch-menus: raise this frame's synthetic-press flag for one queue token."
+  (let ((mt *menu-touch*))
+    (cond
+      ((= tok MT_TOK_CONFIRM)    (set! (-> mt confirm?) #t))
+      ((= tok MT_TOK_LEFT)       (set! (-> mt left?) #t))
+      ((= tok MT_TOK_RIGHT)      (set! (-> mt right?) #t))
+      ((= tok MT_TOK_BACK)       (set! (-> mt back?) #t))
+      ((= tok MT_TOK_HOLD_LEFT)  (set! (-> mt hold-left?) #t))
+      ((= tok MT_TOK_HOLD_RIGHT) (set! (-> mt hold-right?) #t))
+      ((= tok MT_TOK_UP)         (set! (-> mt up?) #t))
+      ((= tok MT_TOK_DOWN)       (set! (-> mt down?) #t))))
+  (none))
+
+(defun menu-touch-rows-reset! ()
+  "Touch-menus: clear the per-frame published row list."
+  (set! (-> *menu-touch* n-rows) 0)
+  (none))
+
+(defun menu-touch-row-add! ((idx int) (top float) (bot float))
+  "Touch-menus: publish one visible menu row's font-space y band for hit-testing."
+  (let ((mt *menu-touch*))
+    (when (< (-> mt n-rows) MENU_TOUCH_MAX_ROWS)
+      (let ((row (-> mt rows (-> mt n-rows))))
+        (set! (-> row abs-index) (the int16 idx))
+        (set! (-> row top) top)
+        (set! (-> row bot) bot))
+      (1+! (-> mt n-rows))))
+  (none))
+
+(defun menu-touch-push-seq! ((tok int))
+  "Touch-menus: append one token to the synthetic-press queue."
+  (let ((mt *menu-touch*))
+    (when (< (-> mt seq-len) 8)
+      (set! (-> mt seq (-> mt seq-len)) tok)
+      (1+! (-> mt seq-len))))
+  (none))
+
+(defun menu-touch-queue1! ((a int))
+  "Touch-menus: reset the queue to a single token."
+  (set! (-> *menu-touch* seq-len) 0)
+  (set! (-> *menu-touch* seq-pos) 0)
+  (menu-touch-push-seq! a)
+  (none))
+
+(defun menu-touch-queue3! ((a int) (b int) (c int))
+  "Touch-menus: reset the queue to three tokens."
+  (set! (-> *menu-touch* seq-len) 0)
+  (set! (-> *menu-touch* seq-pos) 0)
+  (menu-touch-push-seq! a)
+  (menu-touch-push-seq! b)
+  (menu-touch-push-seq! c)
+  (none))
+
+(defun menu-touch-build-seq! ((opt menu-option) (fx float))
+  "Touch-menus: fill the queue with the synthetic presses that reproduce a tap on
+   `opt`, using the tapped half `fx` (<0.5 = left) for directional rows."
+  (cond
+    ;; menus / buttons / to-resolutions / scrolling pages: single confirm enters
+    ((or (type? opt menu-generic-link-option)
+         (type? opt menu-generic-button-option)
+         (type? opt menu-generic-scrolling-page))
+     (menu-touch-queue1! MT_TOK_CONFIRM))
+    ;; two-state toggles: enter+snapshot, LEFT toggles, confirm commits+exits
+    ((or (type? opt menu-generic-boolean-option)
+         (type? opt menu-generic-confirm-option))
+     (menu-touch-queue3! MT_TOK_CONFIRM MT_TOK_LEFT MT_TOK_CONFIRM))
+    ;; slider: enter, ONE held step by tapped half, commit
+    ((type? opt menu-generic-slider-option)
+     (menu-touch-queue3! MT_TOK_CONFIRM (if (< fx 0.5) MT_TOK_HOLD_LEFT MT_TOK_HOLD_RIGHT) MT_TOK_CONFIRM))
+    ;; carousel: enter, cycle by tapped half, commit
+    ((type? opt menu-generic-carousel-option)
+     (menu-touch-queue3! MT_TOK_CONFIRM (if (< fx 0.5) MT_TOK_LEFT MT_TOK_RIGHT) MT_TOK_CONFIRM))
+    (else
+     (menu-touch-queue1! MT_TOK_CONFIRM)))
+  (none))
+
+(defun menu-touch-read-tap! ()
+  "Touch-menus: read the newest tap into tap-x/y, preferring a listener injection.
+   Returns #t when there is a fresh tap this frame."
+  (let ((mt *menu-touch*))
+    (cond
+      ((nonzero? (-> mt sim-f))
+       (set! (-> mt tap-x) (-> mt sim-x))
+       (set! (-> mt tap-y) (-> mt sim-y))
+       (set! (-> mt sim-f) 0)
+       #t)
+      (else
+       (set! (-> mt tap-f) 0)
+       (pc-get-touch-tap (&-> mt tap-x) (&-> mt tap-y) (&-> mt tap-f))
+       (nonzero? (-> mt tap-f))))))
+
+(defun menu-touch-simulate! ((fx float) (fy float))
+  "Touch-menus: lets x86 (no touch source) drive the whole pipeline from the goalc
+   listener by injecting a normalized [0,1] tap."
+  (let ((mt *menu-touch*))
+    (set! (-> mt sim-x) (the int (* fx 10000.0)))
+    (set! (-> mt sim-y) (the int (* fy 10000.0)))
+    (set! (-> mt sim-f) 1))
+  (none))
+
+(defun menu-touch-poll-generic! ((page menu-generic-scrolling-page))
+  "Touch-menus: read a fresh tap, hit-test it against the scrolling page's rows and
+   build the synthetic-press sequence, or scroll/go-back when it lands off-list."
+  (when (menu-touch-read-tap!)
+    (let* ((mt *menu-touch*)
+           (fx (/ (the float (-> mt tap-x)) 10000.0))
+           (fy (/ (the float (-> mt tap-y)) 10000.0))
+           (fy-font (* fy 416.0)))
+      (format 0 "[mtouch] tap fx=~f fy=~f fonty=~f rows=~D~%" fx fy fy-font (-> mt n-rows))
+      (cond
+        ;; already in edit mode: any tap commits + exits
+        ((!= (-> page selected-option-index) -1)
+         (menu-touch-queue1! MT_TOK_CONFIRM))
+        (else
+         (let ((hit -1))
+           (dotimes (i (-> mt n-rows))
+             (let ((row (-> mt rows i)))
+               (when (and (>= fy-font (-> row top)) (< fy-font (-> row bot)))
+                 (set! hit (the int (-> row abs-index))))))
+           (let ((hover (-> *progress-pc-generic-store* current-menu-hover-index))
+                 (len (-> page menu-options length)))
+             (cond
+               ((>= hit 0)
+                (set! (-> *progress-pc-generic-store* current-menu-hover-index) hit)
+                (menu-touch-build-seq! (-> page menu-options hit) fx))
+               ((< fy-font (-> mt list-top))
+                (menu-touch-queue1! (if (> hover 0) MT_TOK_UP MT_TOK_BACK)))
+               ((>= fy-font (-> mt list-bot))
+                (menu-touch-queue1! (if (< hover (1- len)) MT_TOK_DOWN MT_TOK_BACK)))
+               (else
+                (menu-touch-queue1! MT_TOK_BACK)))))))
+      (set! (-> *menu-touch* seq-page) (the-as basic page))))
+  (none))
+
+(defun menu-touch-drive-generic! ((page menu-generic-scrolling-page))
+  "Touch-menus: per-frame driver for a scrolling page. Advances an in-flight
+   sequence (discarding it on a page change) or polls for a fresh tap."
+  (menu-touch-clear-flags!)
+  (let ((mt *menu-touch*))
+    (cond
+      ((< (-> mt seq-pos) (-> mt seq-len))
+       (cond
+         ((!= (-> mt seq-page) (the-as basic page))
+          (set! (-> mt seq-pos) (-> mt seq-len)))
+         (else
+          (menu-touch-emit! (the int (-> mt seq (-> mt seq-pos))))
+          (1+! (-> mt seq-pos)))))
+      (else
+       (menu-touch-poll-generic! page))))
+  (none))
+
+(defun menu-touch-poll-res! ((this menu-resolution-option))
+  "Touch-menus: fresh-tap hit-test for the legacy resolution page (two-tap: first
+   tap selects the row, second tap on the same row confirms/applies)."
+  (when (menu-touch-read-tap!)
+    (let* ((mt *menu-touch*)
+           (fx (/ (the float (-> mt tap-x)) 10000.0))
+           (fy (/ (the float (-> mt tap-y)) 10000.0))
+           (fy-font (* fy 416.0)))
+      (format 0 "[mtouch] res tap fx=~f fy=~f fonty=~f rows=~D~%" fx fy fy-font (-> mt n-rows))
+      (let ((hit -1))
+        (dotimes (i (-> mt n-rows))
+          (let ((row (-> mt rows i)))
+            (when (and (>= fy-font (-> row top)) (< fy-font (-> row bot)))
+              (set! hit (the int (-> row abs-index))))))
+        (cond
+          ((>= hit 0)
+           (cond
+             ((= hit (the int (-> this selected-index)))
+              (menu-touch-queue1! MT_TOK_CONFIRM))
+             (else
+              (set! (-> this selected-index) (the int16 hit)))))
+          ((< fy-font (-> mt list-top))
+           (menu-touch-queue1! MT_TOK_UP))
+          ((>= fy-font (-> mt list-bot))
+           (menu-touch-queue1! MT_TOK_DOWN))
+          (else
+           ;; far outside the list -> back
+           (when (or (= (-> mt n-rows) 0)
+                     (< fy-font (- (-> mt list-top) 40.0))
+                     (>= fy-font (+ (-> mt list-bot) 40.0)))
+             (menu-touch-queue1! MT_TOK_BACK)))))
+      (set! (-> *menu-touch* seq-page) (the-as basic this))))
+  (none))
+
+(defun menu-touch-drive-res! ((this menu-resolution-option))
+  "Touch-menus: per-frame driver for the legacy resolution page."
+  (menu-touch-clear-flags!)
+  (let ((mt *menu-touch*))
+    (cond
+      ((< (-> mt seq-pos) (-> mt seq-len))
+       (cond
+         ((!= (-> mt seq-page) (the-as basic this))
+          (set! (-> mt seq-pos) (-> mt seq-len)))
+         (else
+          (menu-touch-emit! (the int (-> mt seq (-> mt seq-pos))))
+          (1+! (-> mt seq-pos)))))
+      (else
+       (menu-touch-poll-res! this))))
+  (none))
+
+(defun menu-touch-drive-aspect! ()
+  "Touch-menus: per-frame driver for the legacy aspect-ratio-custom page. Direct
+   single-token emit each frame, no queue."
+  (menu-touch-clear-flags!)
+  (when (menu-touch-read-tap!)
+    (let* ((mt *menu-touch*)
+           (fx (/ (the float (-> mt tap-x)) 10000.0))
+           (fy (/ (the float (-> mt tap-y)) 10000.0)))
+      (format 0 "[mtouch] aspect tap fx=~f fy=~f~%" fx fy)
+      (cond
+        ((> fy 0.88) (menu-touch-emit! MT_TOK_BACK))
+        ((< fx 0.30) (menu-touch-emit! MT_TOK_LEFT))
+        ((> fx 0.70) (menu-touch-emit! MT_TOK_RIGHT))
+        ((< fy 0.5)  (menu-touch-emit! MT_TOK_UP))
+        (else        (menu-touch-emit! MT_TOK_DOWN)))))
+  (none))
+
 ;; Progress Code Overrides
 
 (defmethod respond-to-cpad ((this progress))
@@ -270,12 +506,14 @@
 
 (defmethod respond-progress ((this menu-generic-scrolling-page) (progress progress) (selected? symbol))
   "Handle progress menu navigation logic."
+  (menu-touch-drive-generic! this)
   (let ((selected-item? #f))
     (if (= (-> this selected-option-index) -1)
       (cond
         ((or (cpad-pressed? 0 down l-analog-down)
              (and (cpad-hold? 0 down l-analog-down)
-                  (>= (- (current-time) (the-as int (-> this last-move))) (seconds 0.2))))
+                  (>= (- (current-time) (the-as int (-> this last-move))) (seconds 0.2)))
+             (-> *menu-touch* down?))
           (set! (-> this last-move) (current-time))
           (cond
             ((< (-> *progress-pc-generic-store* current-menu-hover-index) (dec (-> this menu-options length)))
@@ -286,13 +524,14 @@
               (sound-play "roll-over"))))
         ((or (cpad-pressed? 0 up l-analog-up)
              (and (cpad-hold? 0 up l-analog-up)
-                  (>= (- (current-time) (the-as int (-> this last-move))) (seconds 0.2))))
+                  (>= (- (current-time) (the-as int (-> this last-move))) (seconds 0.2)))
+             (-> *menu-touch* up?))
           (set! (-> this last-move) (current-time))
           (+! (-> *progress-pc-generic-store* current-menu-hover-index) -1)
           (sound-play "roll-over")
           (when (< (-> *progress-pc-generic-store* current-menu-hover-index) 0)
           (set! (-> *progress-pc-generic-store* current-menu-hover-index) (dec (-> this menu-options length)))))
-        ((cpad-pressed? 0 confirm)
+        ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
          (when (< (-> *progress-pc-generic-store* current-menu-hover-index) (-> this menu-options length))
            (let ((menu-option (-> this menu-options (-> *progress-pc-generic-store* current-menu-hover-index))))
              ;; if the option is disabled, return early
@@ -313,16 +552,16 @@
                (else
                 (set! (-> this selected-option-index) (-> *progress-pc-generic-store* current-menu-hover-index))
                 (sound-play "generic-beep"))))))
-        ((cpad-pressed? 0 triangle)
+        ((or (cpad-pressed? 0 triangle) (-> *menu-touch* back?))
         ;; we are in a sub-page, time to go back
         (when (has-history? *progress-pc-generic-store*)
           (back! *progress-pc-generic-store* progress)
           (sound-play "generic-beep"))))
       ;; menu option already selected
       (cond
-        ((cpad-pressed? 0 confirm)
+        ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
          (set! (-> this selected-option-index) -1))
-        ((cpad-pressed? 0 triangle)
+        ((or (cpad-pressed? 0 triangle) (-> *menu-touch* back?))
          (set! (-> this selected-option-index) -1))))
     ;; propagate event to menu-option
     (when (< (-> *progress-pc-generic-store* current-menu-hover-index) (-> this menu-options length))
@@ -332,16 +571,17 @@
 (defmethod respond-progress ((this menu-generic-boolean-option) (progress progress) (selected? symbol))
   (if selected?
     (cond
-      ((cpad-pressed? 0 left l-analog-left right l-analog-right)
+      ((or (cpad-pressed? 0 left l-analog-left right l-analog-right)
+           (or (-> *menu-touch* left?) (-> *menu-touch* right?)))
        (if (-> this value)
          (set! (-> this value) #f)
          (set! (-> this value) #t))
        (sound-play "generic-beep"))
-      ((cpad-pressed? 0 confirm)
+      ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
        (call-on-confirm this (-> this value))
        (sound-play "generic-beep")))
     (cond
-      ((cpad-pressed? 0 confirm)
+      ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
        ;; set the value, this is so we edit the component's state and not the actual underlying value
        ;; in other words, don't change the setting until the user has actually confirmed the change!
        (set! (-> this value) (call-get-value-fn this)))))
@@ -350,28 +590,28 @@
 (defmethod respond-progress ((this menu-generic-carousel-option) (progress progress) (selected? symbol))
   (if selected?
     (cond
-      ((cpad-pressed? 0 left l-analog-left)
+      ((or (cpad-pressed? 0 left l-analog-left) (-> *menu-touch* left?))
        (dec! (-> this item-index))
        (when (< (-> this item-index) 0)
         (set! (-> this item-index) (dec (num-items this))))
        (sound-play "generic-beep"))
-      ((cpad-pressed? 0 right l-analog-right)
+      ((or (cpad-pressed? 0 right l-analog-right) (-> *menu-touch* right?))
        (inc! (-> this item-index))
        (when (>= (-> this item-index) (num-items this))
         (set! (-> this item-index) 0))
        (sound-play "generic-beep"))
-      ((cpad-pressed? 0 confirm)
+      ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
        (call-on-confirm this (-> this item-index) progress)
        (sound-play "generic-beep")))
     (cond
-      ((cpad-pressed? 0 confirm)
+      ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
        ;; set the value, this is so we edit the component's state and not the actual underlying value
        ;; in other words, don't change the setting until the user has actually confirmed the change!
        (set! (-> this item-index) (call-get-item-index-fn this)))))
   0)
 
 (defmethod respond-progress ((this menu-generic-link-option) (progress progress) (selected? symbol))
-  (when (and selected? (cpad-pressed? 0 confirm))
+  (when (and selected? (or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?)))
     (navigate! *progress-pc-generic-store* progress (-> this target) (-> this on-load))
     (set! (-> progress selected-option) #f)
     (sound-play "generic-beep"))
@@ -379,7 +619,7 @@
 
 (defmethod respond-progress ((this menu-generic-button-option) (progress progress) (selected? symbol))
   (cond
-    ((cpad-pressed? 0 confirm)
+    ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
       (cpad-clear! 0 confirm)
       (call-on-confirm this progress)
       (sound-play "generic-beep")))
@@ -388,16 +628,17 @@
 (defmethod respond-progress ((this menu-generic-confirm-option) (progress progress) (selected? symbol))
   (if selected?
     (cond
-      ((cpad-pressed? 0 left l-analog-left right l-analog-right)
+      ((or (cpad-pressed? 0 left l-analog-left right l-analog-right)
+           (or (-> *menu-touch* left?) (-> *menu-touch* right?)))
        (if (-> this confirmed?)
          (set! (-> this confirmed?) #f)
          (set! (-> this confirmed?) #t))
        (sound-play "generic-beep"))
-      ((cpad-pressed? 0 confirm)
+      ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
        (call-on-confirm this)
        (sound-play "generic-beep")))
     (cond
-      ((cpad-pressed? 0 confirm)
+      ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
        (set! (-> this confirmed?) #f))))
   0)
 
@@ -405,24 +646,24 @@
   (if selected?
     (cond
       ((and (> (-> this value) (-> this min-value))
-            (cpad-hold? 0 left l-analog-left))
+            (or (cpad-hold? 0 left l-analog-left) (-> *menu-touch* hold-left?)))
        ;; TODO - might not work well on higher frame-rates
        (set! (-> this value) (fmax (- (-> this value) (-> this step)) (-> this min-value)))
        (when (< (seconds 0.03) (- (current-time) (-> this last-sound-played)))
         (set! (-> this last-sound-played) (current-time))
         (sound-play-by-name (static-sound-name "menu-slide") (new-sound-id) 512 0 0 (sound-group sfx) #t)))
       ((and (< (-> this value) (-> this max-value))
-            (cpad-hold? 0 right l-analog-right))
+            (or (cpad-hold? 0 right l-analog-right) (-> *menu-touch* hold-right?)))
        ;; TODO - might not work well on higher frame-rates
        (set! (-> this value) (fmin (+ (-> this value) (-> this step)) (-> this max-value)))
        (when (< (seconds 0.03) (- (current-time) (-> this last-sound-played)))
         (set! (-> this last-sound-played) (current-time))
         (sound-play-by-name (static-sound-name "menu-slide") (new-sound-id) 512 0 0 (sound-group sfx) #t)))
-      ((cpad-pressed? 0 confirm)
+      ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
        (call-on-confirm this (-> this value))
        (sound-play "generic-beep")))
     (cond
-      ((cpad-pressed? 0 confirm)
+      ((or (cpad-pressed? 0 confirm) (-> *menu-touch* confirm?))
        ;; set the value, this is so we edit the component's state and not the actual underlying value
        ;; in other words, don't change the setting until the user has actually confirmed the change!
        (set! (-> this value) (call-get-value-fn this)))))

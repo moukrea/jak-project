@@ -252,5 +252,10 @@
   "1349": "<FLAG_GALICIA> Galego",
   "134a": "Sensibilitat a la pressió",
   "134b": "Intercanviar R1 i R2",
-  "134c": "Efectes pels Gatells"
+  "134c": "Efectes pels Gatells",
+  "1360": "Dynamic Render Scale",
+  "1361": "Min Target FPS",
+  "1362": "Render Scale",
+  "1363": "Min Render Scale",
+  "1364": "Fit to Screen"
 }

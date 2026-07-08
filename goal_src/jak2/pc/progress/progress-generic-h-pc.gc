@@ -277,3 +277,69 @@
 
 (define *progress-generic-temp-string* (new 'global 'string 512 (the string #f)))
 
+;; ############################
+;; TOUCH-BROWSABLE MENUS (port of jak1 Gtouch-menus)
+;; ############################
+;; Android taps arrive via pc-get-touch-tap (C++ writes tap x/y normalized to
+;; [0,10000] of the view + a one-shot fresh flag; the desktop stub always writes
+;; flag=0 so x86 stays inert). Each frame the active page's respond method drives
+;; the singleton *menu-touch*: a fresh tap is hit-tested against the rows the LAST
+;; draw registered (in font-space y bands), producing a short queue of synthetic
+;; tokens (max 8), drained ONE per frame. Each token raises one *? flag for that
+;; frame only; those flags are ORed into the EXISTING cpad guards so touch replays
+;; the exact pad interaction (the pad path itself is untouched). Font-space map:
+;; tap fy in [0,1] -> font y = fy*416.0 (jak2 progress 2D canvas is 512x416, full
+;; view); fx in [0,1], left/right split at 0.5.
+
+(define-extern pc-get-touch-tap (function (pointer int64) (pointer int64) (pointer int64) none))
+
+(defconstant MENU_TOUCH_MAX_ROWS 16)
+
+;; synthetic-press sequence tokens
+(defconstant MT_TOK_CONFIRM    1)  ;; x / confirm
+(defconstant MT_TOK_LEFT       2)  ;; d-pad left, "pressed" edge
+(defconstant MT_TOK_RIGHT      3)  ;; d-pad right, "pressed" edge
+(defconstant MT_TOK_BACK       4)  ;; triangle / back
+(defconstant MT_TOK_HOLD_LEFT  5)  ;; d-pad left, "held" (slider step)
+(defconstant MT_TOK_HOLD_RIGHT 6)  ;; d-pad right, "held" (slider step)
+(defconstant MT_TOK_UP         7)  ;; d-pad up (tap-scroll long lists)
+(defconstant MT_TOK_DOWN       8)  ;; d-pad down (tap-scroll long lists)
+
+(deftype menu-touch-row (structure)
+  ((abs-index int16)
+   (top       float)
+   (bot       float)))
+
+(deftype menu-touch-state (basic)
+  ((n-rows      int32)
+   (rows        menu-touch-row MENU_TOUCH_MAX_ROWS :inline)
+   (list-top    float)
+   (list-bot    float)
+   (seq-page    basic)   ;; page the queue was built for (stale guard)
+   (tap-x       int64)   ;; scratch out-params for pc-get-touch-tap
+   (tap-y       int64)
+   (tap-f       int64)
+   (sim-x       int64)   ;; listener/debug injection
+   (sim-y       int64)
+   (sim-f       int64)
+   (seq         uint8 8) ;; synthetic-press token queue
+   (seq-len     int32)
+   (seq-pos     int32)
+   (confirm?    symbol)  ;; per-frame synthetic-press flags (respond ORs these in)
+   (back?       symbol)
+   (left?       symbol)
+   (right?      symbol)
+   (hold-left?  symbol)
+   (hold-right? symbol)
+   (up?         symbol)
+   (down?       symbol)))
+
+(define *menu-touch* (new 'static 'menu-touch-state))
+
+;; forward declarations: the legacy resolution/aspect pages live in progress-pc.o,
+;; which links BEFORE progress-generic-pc.o where these drivers are defined.
+(define-extern menu-touch-rows-reset! (function none))
+(define-extern menu-touch-row-add! (function int float float none))
+(define-extern menu-touch-drive-res! (function menu-resolution-option none))
+(define-extern menu-touch-drive-aspect! (function none))
+

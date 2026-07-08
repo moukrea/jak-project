@@ -3192,6 +3192,11 @@
             (seek-ease! (-> this scroll-index) (the float (-> this selected-index)) (* 0.15 (-> PP clock time-adjust-ratio)) 0.3 (* 0.0015 (-> PP clock time-adjust-ratio))))
         (set! (-> font origin y) (- 194.0 (* (-> this scroll-index) text-height) (- text-pad)))
 
+        ;; touch-menus: publish the visible resolution row bands (font-space y)
+        (menu-touch-rows-reset!)
+        (set! (-> *menu-touch* list-top) 194.0)
+        (set! (-> *menu-touch* list-bot) (+ 194.0 (* 5.0 (the float text-height))))
+
         ;; now draw the list!
         (let ((valid-index 0))
         (dotimes (i (-> this num-resolutions))
@@ -3208,6 +3213,8 @@
                   (set-color! font (font-color progress)))
               (print-game-text (string-format "~D x ~D" this-w this-h) font #f 44 (bucket-id progress))
 
+              ;; touch-menus: this row occupies [origin.y, origin.y + text-height)
+              (menu-touch-row-add! valid-index (-> font origin y) (+ (-> font origin y) (the float text-height)))
               (+! (-> font origin y) text-height)
               (1+! valid-index)
               ))
@@ -3219,6 +3226,7 @@
               (set-color! font (progress-selected 0))
               (set-color! font (font-color progress)))
           (print-game-text (string-format "~D x ~D" 512 416) font #f 44 (bucket-id progress))
+          (menu-touch-row-add! valid-index (-> font origin y) (+ (-> font origin y) (the float text-height)))
           (+! (-> font origin y) text-height)
           (1+! valid-index)
 
@@ -3226,6 +3234,7 @@
               (set-color! font (progress-selected 0))
               (set-color! font (font-color progress)))
           (print-game-text (string-format "~D x ~D" 512 208) font #f 44 (bucket-id progress))
+          (menu-touch-row-add! valid-index (-> font origin y) (+ (-> font origin y) (the float text-height)))
           (+! (-> font origin y) text-height)
           (1+! valid-index)
           ))

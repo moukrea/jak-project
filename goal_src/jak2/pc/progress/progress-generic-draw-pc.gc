@@ -175,6 +175,11 @@
         (set! (-> font-ctx origin y) (+ 86.0 margin-top-bottom))
         (set! (-> font-ctx origin y) (+ 112.0 margin-top-bottom)))
 
+    ;; touch-menus: publish the row list + list extent for this frame's hit-testing
+    (menu-touch-rows-reset!)
+    (set! (-> *menu-touch* list-top) (-> font-ctx origin y))
+    (set! (-> *menu-touch* list-bot) (+ (-> font-ctx origin y) (if (= (get-aspect-ratio) 'aspect16x9) 253.0 200.0)))
+
     ;; do scrolling. if we notice we need to scroll too much, we just snap immediately instead of smoothly stepping.
     (cond
       ((> (-> *progress-pc-generic-store* current-menu-scroll-index) (-> *progress-pc-generic-store* current-menu-hover-index))
@@ -201,6 +206,8 @@
                   (old-x-pos (-> font-ctx origin x)))
               (draw-option menu-option progress font-ctx start-index
                            (= (-> obj selected-option-index) start-index))
+              ;; touch-menus: register this row's font-space y band
+              (menu-touch-row-add! start-index old-y-pos (+ old-y-pos line-height))
               ;; move to the next line
               (set! (-> font-ctx origin y) (+ old-y-pos line-height))
               ;; - debugging, draw the dividing lines to make centering new items easier

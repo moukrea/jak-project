@@ -847,6 +847,32 @@ void a35_send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
   // Run the error-feedback game-clock tick here so the engine's per-frame
   // time-ratio tracks REAL wall-clock time (see a35_gfps_frame_tick).
   a35_gfps_frame_tick();
+  // Gjak2-pcmenus: jak2 counterpart of the jak1 g_overlay_in_menu publisher in
+  // a36_tree_scan_per_frame() (that one is g_syms.armed-gated => jak1-only, and
+  // jak2's `syncv` binds jak2::sceGsSyncV (kmachine.cpp:646) which never calls
+  // a36 — so on jak2 the atomic would stay false forever and menu taps would
+  // never be forwarded). __send-gfx-dma-chain is the jak2 once-per-frame
+  // GOAL-thread quiescent point (bound for jak2 at a17_bind_pc_helpers_jak2),
+  // so publish here instead. A navigable menu is up iff *progress-process* is
+  // non-#f — covers both the title options menu and the in-game pause menu
+  // (jak2 engine/ui/progress/progress.gc). jak2::intern_from_c is a hash lookup
+  // that only allocates when the symbol is MISSING (*progress-process* is
+  // interned by the game CGOs), guarded by SymbolTable2.offset != 0 (jak2 table
+  // live) — same idiom as the GK-DIAG LVLGRAPH probe (~line 6926). jak2 #f is
+  // the shared s7 (game/kernel/common/kscheme.h; jak2/kscheme.cpp uses the same
+  // s7). Read on this (GOAL) thread; the UI thread only reads the resulting
+  // atomic via NativeGk.isInMenu(), so no symbol-table race.
+  if (g_game_version == GameVersion::Jak2) {
+    if (g_ee_main_mem && SymbolTable2.offset != 0) {
+      auto pp = jak2::intern_from_c("*progress-process*");
+      bool in_menu = false;
+      if (pp.offset) {
+        const u32 v = pp->value();
+        in_menu = (v != 0 && v != (u32)s7.offset);
+      }
+      g_overlay_in_menu.store(in_menu, std::memory_order_release);
+    }
+  }
   auto* r = Gfx::GetCurrentRenderer();
   if (r) {
     r->send_chain(g_ee_main_mem, chain);
