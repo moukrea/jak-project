@@ -179,7 +179,7 @@
     "Gjak2-boot": 2,
     "Gjak2-render": 3,
     "Gjak2-visuals": 2,
-    "Gjak2-ingame": 1
+    "Gjak2-ingame": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -343,6 +343,10 @@
       "f9c774796cac"
     ],
     "Gjak2-visuals": [
+      "f9c774796cac"
+    ],
+    "Gjak2-ingame": [
+      "8c2360f04cd5",
       "f9c774796cac"
     ]
   },
@@ -693,7 +697,7 @@
     "Gjak2-visuals": 1783460200.2105126,
     "Gjak2-ingame": 1783480638.6489265
   },
-  "last_update": "2026-07-08T05:07:26.424361+00:00",
+  "last_update": "2026-07-08T07:05:23.261362+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -743,6 +747,7 @@
     "Gvulkan-option",
     "Gjak2-boot",
     "Gjak2-render",
-    "Gjak2-visuals"
+    "Gjak2-visuals",
+    "Gjak2-ingame"
   ]
 }

@@ -16,6 +16,7 @@ mkdir -p "$DIR"
 
 inj() { $ADB -s $S shell setprop debug.opengoal.cpad_inject "$1" >/dev/null 2>&1; echo "    inject: '$1'" | tee -a "$FOCUSLOG"; }
 clr() { $ADB -s $S shell setprop debug.opengoal.cpad_inject '""' >/dev/null 2>&1; }
+trap 'clr' EXIT INT TERM  # Gjak2-ingame: level-triggered inject MUST be cleared on ANY exit — leftover state = permanently held input for the owner
 tap() { local t="$1" d="${2:-0.5}"; inj "$t"; sleep "$d"; clr; }
 
 cap() {  # cap <name>
