@@ -31,3 +31,10 @@ build the Android APK ready-to-deploy. THEN write the report as HONEST PARTIAL
 (install, screencaps, mCurrentFocus, persistence-on-device) and EXIT CLEANLY — do NOT retry-loop on
 adb failures, do NOT burn attempts waiting for the device. The supervisor closes the gate after the
 tonight device pass.
+
+## ADDED SCOPE (owner 2026-07-08): the jak1 ORANGE translucent overlay
+Still behind jak2's main/pause menus (transferred twice, never fixed). This menus phase OWNS it now:
+find where the jak1-keyed translucent orange backdrop draws in our glue (progress/pause render path)
+and gate it to jak1 / use jak2's stock backdrop. Device A/B evidence required.
+NOTE (owner): jak2 fit-to-screen CONFIRMED WORKING on device (full width) — evidence for this
+phase's aspect work already exists; capture it during the device pass.

@@ -43,3 +43,14 @@ per-element implementation + technique + evidence; honest partial OK with named 
     positions/visibility, not a fixed screen pos). Once the HUD is displayed it's acceptable
     ("un peu bizarre quand même" — check position/scale parity vs stock too).
  5. Scout-fly still faces backwards in what the owner sees — the rotation fix must land.
+
+## OWNER LIVE REVIEW #3 (2026-07-08 ~19:40)
+ ✓ heart container + gauge NOW RENDER (progress!) and real 3D cell+fly confirmed. BUT:
+ 6. **ALL new HUD elements are DEFORMED by the aspect ratio** — in widescreen they must ADJUST
+    PLACEMENT (anchored positions) and keep their intrinsic aspect, NOT stretch. Mirror how stock
+    HUD elements compensate aspect (or the jak1 fit-to-screen HUD correction path).
+ 7. Init-state precision on #4: the center-screen parked 3D icons happen UNTIL the HUD is shown
+    ONCE (via the show-HUD input); after one show it behaves. So the icons' position/visibility
+    state is uninitialized before the first HUD show — initialize them hidden/parked-off-screen
+    exactly like the stock elements' initial state.
+ 8. Fly STILL faces backwards (rotation fix not landed yet in what the owner sees).
