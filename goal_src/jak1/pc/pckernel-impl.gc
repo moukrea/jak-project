@@ -79,6 +79,7 @@
    (subtitle-language   pc-language) ;; language for subtitles
    (money-starburst?    symbol) ;; add a starburst to the money
    (extra-hud?          symbol) ;; extra hud elements.
+   (recharged-hud?      symbol) ;; Grecharged-hud-jak1: optional "Recharged" HUD (heart/gauge/model). OFF = stock HUD.
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
    (scenes-seen         uint8 PC_SPOOL_LOG_LENGTH) ;; cutscenes that have been seen, by spool-anim (maybe use 8-char name or bits instead?)
    (memcard-play-hints? symbol)
@@ -139,6 +140,7 @@
     (else))
   (set! (-> obj money-starburst?) #f)
   (set! (-> obj extra-hud?) #f)
+  (set! (-> obj recharged-hud?) #f) ;; Grecharged-hud-jak1: default OFF so a fresh install matches stock exactly
   ;; original settings, minus 25 to be a bit more conservative
   (set! (-> obj memcard-volume-sfx) 50.0)
   (set! (-> obj memcard-volume-music) 40.0)

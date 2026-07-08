@@ -446,6 +446,7 @@
   (case-str *pc-temp-string*
     (("money-starburst?") (set! (-> obj money-starburst?) (file-stream-read-symbol file)))
     (("extra-hud?") (set! (-> obj extra-hud?) (file-stream-read-symbol file)))
+    (("recharged-hud?") (set! (-> obj recharged-hud?) (file-stream-read-symbol file)))
     (("skip-movies?") (set! (-> obj skip-movies?) (file-stream-read-symbol file)))
     (("subtitles?") (set! (-> obj subtitles?) (file-stream-read-symbol file)))
     (("subtitle-language") (set! (-> obj subtitle-language) (the-as pc-language (file-stream-read-int file))))
@@ -481,6 +482,7 @@
   ((method-of-type pc-settings handle-output-settings) obj file)
   (format file "  (money-starburst? ~A)~%" (-> obj money-starburst?))
   (format file "  (extra-hud? ~A)~%" (-> obj extra-hud?))
+  (format file "  (recharged-hud? ~A)~%" (-> obj recharged-hud?))
   (format file "  (skip-movies? ~A)~%" (-> obj skip-movies?))
   (format file "  (subtitles? ~A)~%" (-> obj subtitles?))
   (format file "  (subtitle-language ~D)~%" (-> obj subtitle-language))
