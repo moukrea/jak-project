@@ -108,6 +108,22 @@ occurrence logs GJ2ING-TRANSNAN with values).
    if the owner reproduces it with the inject prop verified empty, it becomes a real
    state-machine residual for the next phase (repro recipe: jump, land, observe pose).
 
+== 5. ATTEMPT 3 — deploy-gate recovery (close-gate FAIL root cause named + fixed) ==
+
+Attempt 2's close-gate failed ONLY on deploy_verify: "build libgk.so != APK-bundled
+libgk.so". Root cause: the final libgk.so rebuild (08:31, shipped-default allowlist,
+commit 5a3093724 content) was never followed by a gradle reassemble — the APK still
+dated 02:58 with the older .so. No source drift (working tree clean at HEAD, cmake
+rebuild was "ninja: no work to do").
+Recovery: gradlew assembleJak1Debug repacked the fresh .so; adb install -r (update,
+save preserved) on eae4df44; deploy_verify PASS: chain build==APK==device
+sha 8dc50e292213f937, HEAD d592f9ce7 (deploy-fingerprint.txt 08:59:33).
+Fresh-build boot sanity (attempt3): launched clean, 90s+ run, mCurrentFocus=
+org.opengoal.gk.jak2/org.opengoal.gk.MainActivity, 0 Fatal-signal lines for the live
+pid 16467 (attempt3-bootcheck-logcat.log), ~55-58k tris at 60fps pacing, Jak standing
+on the solid prison floor in-game (attempt3-bootcheck.png). Device left running
+in-game at the owner save.
+
 == Evidence index (.autoport/reports/Gjak2-ingame/) ==
  video: run2-gameplay.mp4 (65s in-game movement, prison floor)
  stills: run2-play-*.png, run2-ty-185s-twoyearsbeat-jak2focus.png,
@@ -115,6 +131,7 @@ occurrence logs GJ2ING-TRANSNAN with values).
  logs: run2-boot-all41-routed-logcat.log, bisect-run2-attr-*.log,
        run2-gameplay-routed-logcat.log, run2-twoyears-routed-logcat.log,
        run3-boot-default-routed-logcat.log, run3-play-routed-logcat.log
- gates: run2-deploy-verify.txt, run3-deploy-verify.txt, run2/run3-final-focus.txt
+ gates: run2-deploy-verify.txt, run3-deploy-verify.txt, run2/run3-final-focus.txt,
+       attempt3-bootcheck.png, attempt3-bootcheck-logcat.log (deploy-recovery boot)
  attempt-1 forensics: bisect-run0..18 logs, taskA-staleness-verdict.txt,
        twoyears-repro-run1-routed-logcat.log
