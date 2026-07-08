@@ -106,3 +106,15 @@ skip-with-kill-switch the glow family (honest deferral OK) rather than shipping 
         build the jak2 fr3 without collision? jak1 needed extract_collision for its path);
     (c) the collide trampoline/allowlist entries (a noop'd collide builder = zero hits = fall-through).
     Fixing collision unblocks ALL in-game verification — HIGH priority (equal to bones).
+
+## OWNER CORRECTION (2026-07-08 ~03:55) — cinematic crash beat FALSIFIED and re-pinned
+The intro cinematic goes MUCH further than previously noted: the ENTIRE portal sequence plays
+(metalheads crossing included), Jak gets captured (rifle-butt hit -> black screen), then the
+"TWO YEARS LATER" text card appears — and THAT is where it crashes. So the crash is NOT the
+metalhead/particle beat: it is the SCENE TRANSITION beat. Suspects, in order:
+ 1. the intro->prison SCENE/LEVEL TRANSITION (next level/segment load kicked off behind the card —
+    level DGO/spool handoff on arm64);
+ 2. the spool chain segment handoff (end of intro spool -> next);
+ 3. the text-card rendering path itself (subtitle/card draw — less likely).
+Forensics the crash AT the "Two years later" card (fp-walk/lr-window + which subsystem). The
+metalhead/portal beat earlier framing is WITHDRAWN (it plays fine apart from the glow blob).
