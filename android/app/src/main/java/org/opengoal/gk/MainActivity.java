@@ -171,9 +171,61 @@ public class MainActivity extends SDLActivity {
         // connected at first launch, off when one is.
         setupTouchOverlay();
 
+        // supervisor-diag DIAG2: export any jak2 diag/crash breadcrumb the previous
+        // run left, right here on the MAIN entry point too. The old build exported
+        // only from LoaderActivity.onCreate, which never re-runs when the app is
+        // resumed from recents (MainActivity is re-entered directly) — so the owner
+        // saw nothing. exportNow no-ops when there is no jak2 source file (jak1
+        // unaffected) and never throws.
+        DiagExporter.exportNow(this, "main-oncreate");
+
+        // Periodic snapshot: while the game runs, copy the live jak2 diag file into
+        // Downloads every 60s (keeping only the 3 most recent this session) so data
+        // lands even if the app is later killed and never cleanly relaunches. Only
+        // armed for jak2; jak1 spins no timer.
+        startDiagPeriodicExport();
+
         Log.i(TAG, "MainActivity onCreate done; mLayout="
                 + (mLayout != null)
                 + " mLayout.children=" + (mLayout != null ? mLayout.getChildCount() : -1));
+    }
+
+    // --- supervisor-diag DIAG2: periodic + lifecycle diag export -----------------
+
+    private Handler mDiagExportHandler;
+
+    private void startDiagPeriodicExport() {
+        try {
+            if (!"jak2".equals(selectedGame())) {
+                return; // jak1 has no diag source file; don't spin a timer.
+            }
+            if (mDiagExportHandler != null) return;
+            mDiagExportHandler = new Handler(Looper.getMainLooper());
+            mDiagExportHandler.postDelayed(new Runnable() {
+                @Override public void run() {
+                    DiagExporter.exportPeriodic(MainActivity.this);
+                    if (mDiagExportHandler != null) {
+                        mDiagExportHandler.postDelayed(this, DiagExporter.PERIODIC_INTERVAL_MS);
+                    }
+                }
+            }, DiagExporter.PERIODIC_INTERVAL_MS);
+            Log.i(TAG, "DiagExporter: periodic jak2 diag export armed (every "
+                    + (DiagExporter.PERIODIC_INTERVAL_MS / 1000) + "s)");
+        } catch (Throwable t) {
+            Log.w(TAG, "DiagExporter: could not arm periodic export", t);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        // Export on backgrounding — the most reliable moment to catch data before the
+        // OS may kill the process. Never throws; no-ops for jak1.
+        try {
+            DiagExporter.exportNow(this, "main-onpause");
+        } catch (Throwable t) {
+            Log.w(TAG, "DiagExporter: onPause export failed", t);
+        }
+        super.onPause();
     }
 
     private void setupTouchOverlay() {
@@ -343,6 +395,10 @@ public class MainActivity extends SDLActivity {
         if (mGamepadPollHandler != null) {
             mGamepadPollHandler.removeCallbacksAndMessages(null);
             mGamepadPollHandler = null;
+        }
+        if (mDiagExportHandler != null) {
+            mDiagExportHandler.removeCallbacksAndMessages(null);
+            mDiagExportHandler = null;
         }
         super.onDestroy();
     }
