@@ -1,0 +1,114 @@
+RESULT: JAK2 MOVEMENT PASS — Jak WALKS/translates on analog input, jumps, and the idle drift is eliminated
+
+Phase Gjak2-movement, attempt 1 — 2026-07-08. Fix commit 1de41b6ab (arm64-only). Device eae4df44,
+shipped default config (all debug props verified EMPTY), deploy chain PASS.
+
+== ROOT CAUSE NAMED: which stage of the move pipeline died, and why arm64 ==
+
+The stage that died is the collision RESPONSE/RESOLVE stage of the mover — exactly diagnosis
+lead 1 — but by NOOP, not by garbage codegen:
+
+ (method 9 collide-cache-prim) = resolve-moving-sphere-tri and
+ (method 10 collide-cache-prim) = resolve-moving-sphere-sphere
+ (defmethod-mips2c, collide-cache.gc:817/819) are the ONLY resolve stage of the jak2 target
+ mover. They were among the 14 names left DEFAULT-OFF (shared noop) by Gjak2-ingame's
+ boot-crash quarantine. The noop returns 0 and writes nothing, and every consumer reads the
+ float return with (>= f0 0.0):
+   - step-collison! (collide-shape.gc:1093, per-prim loop :1111-1123): 0.0 = "hit at travel
+     fraction 0.0" -> best-dist=0 -> reaction branch, moved fraction 0, retry loop; the
+     no-hit translation branch move-by-vector! (:1182) is NEVER reached => every frame's
+     displacement cancelled => Jak GLUED. Chain: target-post (logic-target.gc:2603) ->
+     fill-cache-integrate-and-collide (:2524 / collide-shape.gc:1939) -> integrate-and-collide!
+     (:1224) -> step-collison!.
+   - find-ground (collide-shape.gc:1682) -> probe-using-line-sphere (collide-cache.gc:738):
+     0.0 passes (>= f0-0 0.0) => phantom "ground found", then snaps gspot-pos/gspot-normal
+     from the stack collide-tri-result (:1704-1705) that the noop NEVER WROTE => garbage
+     constant normal fed to the slope/align code every frame => the constant one-direction
+     DRIFT the owner saw.
+ Movement ANIMATIONS are computed in the joint/anim pipeline independent of the collide
+ result — which is why inputs visibly "arrived" while the character never translated.
+
+Why the prior phase missed it: its "Jak WALKS" evidence was audited this phase and falsified —
+run2/run3 injection held the analog sticks dead-neutral (every F1D-INJECT line: lx=ly=127,
+D-pad bits only) and the video shows only camera creep; jak2 locomotion is analog-driven, so
+translation was never actually tested. The owner's report was the first real analog test.
+
+== FIX (file + class) ==
+
+game/mips2c/mips2c_table_jak1_arm64.cpp — moved "(method 9 collide-cache-prim)" and
+"(method 10 collide-cache-prim)" from the DEFAULT-OFF quarantine into kSetJak2 (default-ON).
+Class: arm64 mips2c allowlist noop-divergence (jak1 F1-collision precedent) — the noop's
+0-return inverts miss->hit under the (>= f0 0.0) convention. Safety was proven before
+shipping:
+ - Boot-clean: Gjak2-ingame bisect run16b + final-culprit (m9/m10 REAL alone -> 10x
+   title-disk-intro, 0 sigs) — the boot SIGSEGV quarantine belongs to (method 17
+   collide-cache) (pc 0x1fc2864) and spatial-hash (pc 0x1c77f40) individually, NOT to
+   m9/m10. Bisect logs re-analyzed per-run this phase.
+ - Body audit: both bodies structurally identical to the jak1 twins
+   (jak1_functions/collide_cache.cpp method_9 @2535/method_10 @2723, device-proven for
+   months): no #f-guard compares, no -1 sentinels, no div/mod, no scratchpad, all stores
+   in-object to the caller's collide-tri-result. Only delta = the standard jak2
+   load_symbol2 idiom.
+
+== DEVICE PROOF (eae4df44, mCurrentFocus=org.opengoal.gk.jak2/org.opengoal.gk.MainActivity) ==
+
+A/B (prop-only, no rebuild, same libgk/CGOs/save/nav):
+ - legA (shipped default): REAL analog injection (ly=0/lx=0/lx=255/ly=255) -> walk anims,
+   ZERO translation (identical static framing all segments) => owner symptom REPRODUCED with
+   provably-clean input. gj2move_legA.mp4.
+ - legB (enable_names=collide-cache-prim): Jak TRANSLATES through distinct prison rooms in
+   every stick direction, camera follows, real find-ground probes appear in the log
+   ("find-ground: ground y 7.3432" + honest could-not-find lines), idle window settles.
+   gj2move_legB.mp4. 0 GK-DIAG sigs both legs.
+
+Final run on the SHIPPED build (fix compiled in, all props empty — getprop recorded):
+ - Markers: "A37-MIPS2C-REAL [jak2] (method 9 collide-cache-prim)" + method 10 REAL with
+   ZERO force-enable lines; (method 17 collide-cache) still FALLBACK (final-routed-logcat.log).
+ - Jak walks/moves across rooms: video gj2move_final.mp4 (100s: forward/left/right/back
+   walks + 2 jumps + 15s cleared-input idle), stills final-move-00..06 (baseline chamber ->
+   blue-ring corridor -> door-lined hall -> pillar room; manager-verified frames).
+ - Jumps: move-05-jumps segment (leaves ground, lands standing).
+ - NO idle drift: idle window per-frame mean-abs diff 0.95 (max 1.19) vs walk-segment mean
+   ~14-20 — ~13x quieter; final-idle-00 vs final-idle-15 pixel-stable (only ambient eco
+   glow flicker). The constant slide is gone.
+ - Crash-free: 0 "GK-DIAG sig=" lines, single pid 6422 boot->play, app left running in-game
+   at the owner save. final-focus-check.txt: mCurrentFocus=Window{5062046 u0
+   org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}.
+ - Deploy-landing: deploy_verify PASS at HEAD 1de41b6ab, chain build==APK==device
+   sha e92740883a3aa023 for BOTH flavors (deploy-verify.txt); jak1 boot UNREGRESSED
+   (title flythrough, 0 sigs, jak1-sanity-routed-logcat.log).
+
+== X86 PARITY ==
+
+x86 movement unaffected: our-x86 == original-x86 by construction — the entire fix lives in
+game/mips2c/mips2c_table_jak1_arm64.cpp, a TU compiled ONLY in android/CMakeLists.txt:381 and
+game/linux-arm64/CMakeLists.txt:261, never in the x86 build (which uses mips2c_table.cpp).
+goal_src/engine untouched; no CGO/DGO regen needed or performed (device payload unchanged,
+identical to the Gjak2-pcmenus-verified set). gold untouched/pristine.
+
+== HONEST RESIDUALS (named for follow-up) ==
+
+ - (method 17 collide-cache) fill-from-fg-line-sphere stays OFF: line-sphere probes miss
+   FOREGROUND prims (bg/world collision unaffected). Its boot SIGSEGV (pc 0x1fc2864, zeroed
+   symbol slot 0x18d7dc) now has a concrete lead documented in-table: its sqc2 fill loop
+   (collide_cache.cpp:1310/:1330) bases on get_fake_spad_addr2 — a zero/unbound
+   *fake-scratchpad-data* at first call would relocate the loop onto the low symbol table.
+   Verify s5 at entry on device before enabling. Also one latent full-64 s7 compare at
+   collide_cache.cpp:1427 to convert to gpr_addr when that phase opens the file.
+ - sphere-hash 28-33 / spatial-hash 33/35/36/37/39 stay OFF (spatial-hash crashes boot at
+   pc 0x1c77f40 individually; sphere-hash never isolated). Serve actor-hash/nav queries.
+ - legA idle-drift could not be pixel-refuted in isolation (ambient particle cloud dominated
+   that leg's frames); the drift verdict rests on the fixed build's 0.95-idle evidence.
+
+== Evidence index (.autoport/reports/Gjak2-movement/) ==
+ video: gj2move_final.mp4 (shipped build), gj2move_legA.mp4 / gj2move_legB.mp4 (A/B),
+        gj2move_run1.mp4 (run1, cinematic-only, superseded)
+ stills: final-title.png, final-menu*.png, final-loaded.png, final-move-00..06-*.png,
+        final-idle-00/05/10/15-jak2focus.png, legA-*/legB-*.png
+ logs:  final-routed-logcat.log, legA-/legB-routed-logcat.log, run1-routed-logcat.log,
+        jak1-sanity-routed-logcat.log
+ gates: deploy-verify.txt, final-focus-check.txt, final-seg-focus.txt
+ drivers: .autoport/gjak2_move_ab.sh, .autoport/gjak2_move_seg.sh
+
+OWNER PLAY-TEST = final gate: walk/jump anywhere with the overlay stick; expect no glue, no
+constant slide. If any residual drift appears it is a NEW symptom (capture with props empty).

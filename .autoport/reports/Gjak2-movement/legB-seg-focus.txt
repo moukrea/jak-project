@@ -1,0 +1,22 @@
+  [move-00-baseline] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-move-00-baseline-jak2focus.png (1917710B)
+  inject 'ly=0' t=21:22:29
+  [move-01-fwd] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-move-01-fwd-jak2focus.png (15167B)
+  inject 'lx=0' t=21:22:37
+  [move-02-left] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-move-02-left-jak2focus.png (1679192B)
+  inject 'lx=255' t=21:22:44
+  [move-03-right] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-move-03-right-jak2focus.png (1409826B)
+  inject 'ly=255' t=21:22:52
+  [move-04-back] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-move-04-back-jak2focus.png (1701460B)
+  inject 'x' t=21:23:00
+  inject 'x' t=21:23:02
+  [move-05-jumps] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-move-05-jumps-jak2focus.png (1705353B)
+  inject 'ly=0' t=21:23:06
+  [move-06-fwd2] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-move-06-fwd2-jak2focus.png (1288786B)
+== idle drift window: 15s, input PROVABLY cleared ==
+cpad_inject=[]
+  [idle-00] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-idle-00-jak2focus.png (1293726B)
+  [idle-05] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-idle-05-jak2focus.png (1290394B)
+  [idle-10] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-idle-10-jak2focus.png (1290229B)
+  [idle-15] pid=[28288]   mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> legB-idle-15-jak2focus.png (1292806B)
+  video: /home/emeric/code/jak-project/.autoport/reports/Gjak2-movement/gj2move_legB.mp4 (106394532B)
+final pid=[28288] focus=  mCurrentFocus=Window{2500d67 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}

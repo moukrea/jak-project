@@ -1,0 +1,10 @@
+=== JAK1 deploy_verify.sh ===
+  ok: libgk.so newer than newest source
+  ok: chain build==APK==device (e92740883a3aa023)
+DEPLOY-VERIFY PASS: device eae4df44 provably runs the fresh HEAD (1de41b6ab) libgk.so.
+
+=== JAK2 manual chain ===
+jak2 apk path on device: /data/app/~~qP7tJtxzLPoi2EOlwjVvRg==/org.opengoal.gk.jak2-plckHvMPNZ-A8EfvJneykg==/base.apk
+device jak2 libgk.so sha256: e92740883a3aa023a2a9e30b45649527ab9a11d62c45833364d699ba97b9136d
+built sha256:                e92740883a3aa023a2a9e30b45649527ab9a11d62c45833364d699ba97b9136d
+JAK2 CHAIN PASS

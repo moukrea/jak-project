@@ -1,0 +1,54 @@
+enable_names=[collide-cache-prim] noop_names=[]
+== warmup to title ==
+  [01-title] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-01-title-jak2focus.png (2136839B)
+== NEW GAME: START -> X -> down x4 -> X (taskc-proven nav) ==
+  inject 'start' t=20:58:07
+  [02-menu] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-02-menu-jak2focus.png (1074613B)
+  inject 'x' t=20:58:13
+  inject 'down' t=20:58:16
+  inject 'down' t=20:58:16
+  inject 'down' t=20:58:17
+  inject 'down' t=20:58:17
+  [03-menu-nav] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-03-menu-nav-jak2focus.png (1107468B)
+  inject 'x' t=20:58:20
+  [04-after-x] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-04-after-x-jak2focus.png (130850B)
+== intro begins, SKIP ==
+  [05-intro] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-05-intro-jak2focus.png (2173281B)
+  inject 'start' t=20:58:35
+  [06-skip1] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-06-skip1-jak2focus.png (2307259B)
+  inject 'x' t=20:58:40
+  inject 'start' t=20:58:43
+  [07-skip2] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-07-skip2-jak2focus.png (1966226B)
+  inject 'x' t=20:58:48
+  [08-skip3] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-08-skip3-jak2focus.png (1408337B)
+== wait for level load ==
+  [09-postload] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-09-postload-jak2focus.png (1406263B)
+== 100s movement recording: analog walk 4 dirs + jumps + 15s idle ==
+  [move-00-baseline] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-move-00-baseline-jak2focus.png (1788473B)
+  inject 'ly=0' t=20:59:18
+  [move-01-fwd] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-move-01-fwd-jak2focus.png (1558137B)
+  inject 'lx=0' t=20:59:27
+  [move-02-left] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-move-02-left-jak2focus.png (1613561B)
+  inject 'lx=255' t=20:59:35
+  [move-03-right] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-move-03-right-jak2focus.png (2292914B)
+  inject 'ly=255' t=20:59:43
+  [move-04-back] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-move-04-back-jak2focus.png (1477687B)
+  inject 'x' t=20:59:52
+  inject 'x' t=20:59:54
+  [move-05-jumps] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-move-05-jumps-jak2focus.png (1425139B)
+  inject 'ly=0' t=20:59:57
+  [move-06-fwd2] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-move-06-fwd2-jak2focus.png (1606146B)
+== idle drift window: 15s, input PROVABLY cleared ==
+cpad_inject=[]
+  [idle-00] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-idle-00-jak2focus.png (1223141B)
+  [idle-05] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-idle-05-jak2focus.png (1689160B)
+  [idle-10] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-idle-10-jak2focus.png (1392626B)
+  [idle-15] pid=[26419]   mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> run1-idle-15-jak2focus.png (1650402B)
+  video: /home/emeric/code/jak-project/.autoport/reports/Gjak2-movement/gj2move_run1.mp4 (155283136B)
+== final state ==
+final pid=[26419] focus=  mCurrentFocus=Window{e06e8a8 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+GK-DIAG sig count: 0
+07-08 20:57:06.589 26419 26470 I GK_STDERR: GJ2ING mips2c force-enable: collide-cache-prim
+07-08 20:57:07.050 26419 26470 I GK_STDERR: A37-MIPS2C-REAL [jak2] (method 9 collide-cache-prim) -> arm64 trampoline 0x83f370
+07-08 20:57:07.050 26419 26470 I GK_STDERR: A37-MIPS2C-REAL [jak2] (method 10 collide-cache-prim) -> arm64 trampoline 0x83f3b0
+07-08 20:57:07.051 26419 26470 I GK_STDERR: A37-MIPS2C-FALLBACK [jak2] (method 17 collide-cache) -> shared noop (not on allowlist yet)

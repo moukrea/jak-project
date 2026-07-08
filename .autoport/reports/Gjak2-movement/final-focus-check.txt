@@ -1,0 +1,1 @@
+  mCurrentFocus=Window{5062046 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
