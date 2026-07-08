@@ -179,7 +179,8 @@
     "Gjak2-boot": 2,
     "Gjak2-render": 3,
     "Gjak2-visuals": 2,
-    "Gjak2-ingame": 3
+    "Gjak2-ingame": 3,
+    "Gjak2-pcmenus": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -699,7 +700,7 @@
     "Gjak2-ingame": 1783480638.6489265,
     "Gjak2-pcmenus": 1783511750.803353
   },
-  "last_update": "2026-07-08T11:55:50.803358+00:00",
+  "last_update": "2026-07-08T13:36:20.337911+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
