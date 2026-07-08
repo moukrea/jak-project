@@ -1228,10 +1228,10 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
-- id: Gjak2-input
-  name: 'OWNER 2026-07-08 (Redmi shipped build): jak2 gameplay input DEAD — animations play but Jak never moves + constant slight slide (uncentered analog neutral); ingame "input healthy" claim measured drift not delivery; port the jak1 pad/overlay plumbing jak2 misses'
-  prompt: prompts/phase-Gjak2-input.md
-  validator: validators/phase-Gjak2-input.sh
+- id: Gjak2-movement
+  name: 'OWNER 2026-07-08 VERBATIM: jak2 inputs ARRIVE (movement anims play) but the character never TRANSLATES (glued) + constant one-direction drift — movement/physics integration broken (collision-response resolution / velocity->transform), NOT input; state-dump move-resolution vs x86'
+  prompt: prompts/phase-Gjak2-movement.md
+  validator: validators/phase-Gjak2-movement.sh
   max_turns: 2400
   max_retries: 5
   device: true
