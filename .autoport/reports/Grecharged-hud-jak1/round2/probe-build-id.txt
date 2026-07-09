@@ -1,0 +1,31 @@
+=== build id probe jeu. 09 juil. 2026 07:39:23 CEST ===
+--- run-as lib libgk.so md5 ---
+--- /data/app lib arm64 md5 ---
+--- run-as find libgk ---
+cache
+code_cache
+files
+shared_prefs
+--- package info ---
+    codePath=/data/app/~~JEniqPTzRAI_0AydspAw1g==/org.opengoal.gk.jak1-U4oHCoQnIy_bfcIuUu_8wQ==
+    versionName=0.1-autoport-phase13-jak1
+    lastUpdateTime=2026-07-09 01:50:14
+--- codePath libgk ---
+total 6
+drwxr-xr-x 2 system system 3488 2026-07-09 01:50 .
+drwxr-xr-x 3 system system 3488 2026-07-09 01:50 ..
+--- libgk inside base.apk? ---
+101068352  1981-01-01 01:01   lib/arm64-v8a/libgk.so
+--- local build libgk (for reference, not deploying) ---
+/home/emeric/code/jak-project/build-android/lib/arm64-v8a/libgk.so
+/home/emeric/code/jak-project/android/app/src/main/jniLibs/arm64-v8a/libgk.so
+/home/emeric/code/jak-project/android/app/build/intermediates/merged_jni_libs/jak1Debug/mergeJak1DebugJniLibFolders/out/arm64-v8a/libgk.so
+/home/emeric/code/jak-project/android/app/build/intermediates/merged_jni_libs/jak2Debug/mergeJak2DebugJniLibFolders/out/arm64-v8a/libgk.so
+/home/emeric/code/jak-project/android/app/build/intermediates/stripped_native_libs/jak1Debug/stripJak1DebugDebugSymbols/out/lib/arm64-v8a/libgk.so
+/home/emeric/code/jak-project/android/app/build/intermediates/stripped_native_libs/jak2Debug/stripJak2DebugDebugSymbols/out/lib/arm64-v8a/libgk.so
+/home/emeric/code/jak-project/android/app/build/intermediates/merged_native_libs/jak2Debug/mergeJak2DebugNativeLibs/out/lib/arm64-v8a/libgk.so
+/home/emeric/code/jak-project/android/app/build/intermediates/merged_native_libs/jak1Debug/mergeJak1DebugNativeLibs/out/lib/arm64-v8a/libgk.so
+--- base.apk md5 (installed) ---
+7cb3487d4ae1ca2b102570b475ca29a8  /data/app/~~JEniqPTzRAI_0AydspAw1g==/org.opengoal.gk.jak1-U4oHCoQnIy_bfcIuUu_8wQ==/base.apk
+--- installed libgk crc (from unzip -v) ---
+101068352  Stored 101068352   0% 1981-01-01 01:01 051d81b6  lib/arm64-v8a/libgk.so

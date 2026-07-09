@@ -613,6 +613,10 @@
                         (= v1-2 (progress-screen misc-options))
                         (= v1-2 (progress-screen game-ps2-options))
                         (= v1-2 (progress-screen gfx-ps2-options))
+                        ;; Recharged (intentional divergence): the new Recharged Settings
+                        ;; submenu must accept the circle/triangle back shortcut like its
+                        ;; sibling option screens (device finding: circle was swallowed)
+                        (= v1-2 (progress-screen recharged-settings))
                         (= v1-2 (progress-screen resolution))
                         (= v1-2 (progress-screen aspect-ratio))
                         (= v1-2 (progress-screen secrets))

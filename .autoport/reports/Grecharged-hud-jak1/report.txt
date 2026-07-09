@@ -1,4 +1,33 @@
-STATUS: FINAL (attempt 7 completed the device round; the RESULT line is at the end of this file)
+STATUS: IN-PROGRESS (round 2 owner fixes underway: gauge scale-up, fuel-cell device regression,
+gauge-center eco particle, green eco orb by the heart; the RESULT line at the end of this file is
+the ROUND-1 result and will be rewritten when round-2 device evidence is captured)
+
+== OWNER PLAYTEST ROUND 2 (2026-07-09) — work log ==
+- [x] 2 ROOT CAUSE (device-repro'd): boot-ON leaves the fuel-cell icon a skeleton-less ZOMBIE.
+      Device evidence (round2/): probe2-OFF-l2hold-2 (stock naked cell renders OFF), probe2-ON-l2hold-2
+      (ON: cell COUNT only, icon missing = owner's report), runtimeON beats (toggling ON via the pause
+      menu mid-session -> icon renders) => manipy-spawn during the level-load window succeeds but
+      manipy-init falls back to anim-mode 'still with skel=0 when initialize-skeleton finds no art
+      (generic-obs.gc:335), and the old cell-proc guard latched forever. In-world + cutscene cell
+      models render fine on device (probe2-ON-cellspawn-3, collect cutscene). FIX: rhud-icon-alive?
+      (skel-linked liveness) + retry-not-latch in rhud-set-cell-icon/rhud-suppress-stock, same guard
+      added to the buzzer icon path.
+- [x] 1 gauge scale: RHUD_GAUGE_HALF 27->40 (x86-measured: stock wooden ring ~225px @1080p vs
+      recharged ring 155px at HALF=27 -> 27*(225/155) ≈ 40).
+- [x] 3+4 implemented: no 3D model exists for eco pickups (pure sparticle swirls, collectables-part.gc)
+      so the 'real particule' is composed from the pickup's OWN effects-tpage sprites
+      (bigpuff/hotdot/starflash) as additive tinted counter-rotating pulsing quads (rhud-draw-eco-orb):
+      per-type tint in the gauge center hole (draw-hud, while eco active), green variant at the stock
+      pickups sprite slot 110/55 (hud-update, follows the pickups element's visibility+slide; stock
+      flat sprite suppressed via skip-particle like the other elements, restored on OFF).
+- [x] TOOLING TRAP found+fixed: the first "x86 verify round" ran STALE code — (build-game) in the
+      goalc listener writes out/jak1/obj/*.o but does NOT relink CGOs; gk (-iso-data out/jak1/iso)
+      served the 01:45 pre-round-2 GAME.CGO. Every anomaly of that round (no gauge-center orb,
+      pickups-skip -1 with fc/m 0, "HALF=40" ring that measured as 27) was the round-1 code, NOT a
+      round-2 bug. Verify script now uses (mi) + a hard GAME.CGO-newer-than-source freshness gate.
+- [ ] pending: fresh x86 re-verify (all beats incl. gauge orb + green orb + skips), Android
+      consistent build + deploy_verify, device evidence per item, final RESULT rewrite.
+(details filled per milestone below)
 
 Phase: Grecharged-hud-jak1 — device round of the optional gated Recharged HUD for jak1.
 Builds on the x86 pre-pass (b1799a4e8 menu+toggle) and visuals pass (fd55f0181/735459e05),

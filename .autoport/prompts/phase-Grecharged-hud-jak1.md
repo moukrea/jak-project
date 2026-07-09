@@ -142,3 +142,49 @@ in order, nothing else:
     + fill the evidence paths + honest residuals (anything from the owner's 6-point list not met).
 NO refactors, NO new features, NO investigation beyond what step 2 reveals as broken (if something
 IS broken on device, fix minimally or report it as residual — do not expand scope).
+
+## OWNER PLAYTEST ROUND 2 (2026-07-09) — verbatim, fix ALL before re-gate
+Owner quote (verbatim, French):
+"Alors retour rapide sur le HUD, la jauge d'énergie bleue/rouge/jaune est trop petite par
+rapport à la jauge qu'elle remplace, mais elle fonctionne exactement comme je voulais par
+contre bien joué ! La pile d'énergie n'apparaît plus du tout par contre... Et pour la jauge
+j'ai pas précisé mais quand active, en son centre (c'est troué exprès), j'aurais voulu qu'on
+ait la 'particule' d'éco affichée comme indicateur de la sorte d'énergie en cours
+d'utilisation, comme l'item en 3D qu'on peut collecter en jeu pour justement remplir cette
+jauge, ça serait trop stylé ! D'ailleurs pour l'énergie 'vie' la verte à côté du cœur,
+pareil, la vraie particule telle que les petites sphères d'eco verte qu'on peut ramasser au
+lieu du sprite animé qui y ressemble (à côté du cœur, entre le cœur et le compteur texte
+correspondant)."
+
+Breakdown (do not reinterpret):
+1. GAUGE TOO SMALL: the blue/red/yellow eco gauge is too small vs the stock gauge it
+   replaces. Behavior is EXACTLY right (owner: "bien joué") — only SCALE it up to match the
+   stock gauge's footprint. Do not touch fill/mask/tip logic.
+2. POWER CELL REGRESSION: the fuel cell no longer appears AT ALL in the HUD (it used to,
+   as the real full *fuel-cell-sg* 3D model). Restore it — real full model, single draw,
+   stock position/scale (prior rounds' rules still apply).
+3. NEW — GAUGE CENTER PARTICLE: the gauge center hole is intentional; when the gauge is
+   ACTIVE, render there the 3D eco "particule" item — the same collectible eco item seen
+   in-game that fills this gauge — as the indicator of which eco type is in use
+   (blue/red/yellow accordingly). Use the existing 3D-in-HUD machinery
+   (hud-pc-make-icon in goal_src/jak1/pc/hud-classes-pc.gc).
+4. NEW — GREEN ECO PARTICLE BY THE HEART: same idea for health: replace the animated
+   green sprite next to the heart with the REAL green eco small-sphere collectible
+   (the pickup model), positioned between the heart and its text counter.
+All still gated behind recharged-hud? — OFF stays 100% stock. Device evidence per item.
+
+## OWNER LIVE REVIEW — round 2 addendum (2026-07-09, current Redmi build)
+Owner quote (verbatim, French):
+"Alors sur ce qu'il y a actuellement sur le Redmi, la pile d'énergie est bien dans le HUD,
+mais bizarrement elle rend pas pareil que les piles d'énergie in game, son animation va
+beaucoup trop vite, elle n'emet pas la lueur qu'elle emet ingame et elle a pas la même
+teinte non plus !"
+
+Breakdown (do not reinterpret): the HUD fuel cell must render IDENTICALLY to the in-game
+collectible fuel cells:
+a. ANIMATION SPEED: currently much too fast — match the in-game cell's spin/anim rate.
+b. GLOW: the in-game cell emits a glow/lueur — the HUD one must emit it too.
+c. TINT: the HUD cell's color tint differs — match the in-game tint exactly.
+Likely cause family: the 3D-in-HUD icon path (hud-pc-make-icon) not carrying the same
+anim clock / draw flags / lighting-tint env as the world entity — compare against the
+in-game fuel-cell draw setup rather than tuning constants by eye.
