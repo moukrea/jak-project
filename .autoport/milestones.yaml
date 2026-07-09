@@ -1241,7 +1241,7 @@ phases:
   prompt: prompts/phase-Grecharged-hud-jak1.md
   validator: validators/phase-Grecharged-hud-jak1.sh
   max_turns: 4200
-  max_retries: 6
+  max_retries: 10
   device: true
   owner_verify: true
 - id: Gjak2-polish
