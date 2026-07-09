@@ -1,0 +1,1 @@
+OWNER 2026-07-09 FIRM: device render scale is degraded (weak phone) -> biases HUD visual judgment. Judge FIDELITY on x86 @100%; use device ONLY for arm64 behavior (particle-in-HUD-space, cell body, pickup); force RS=100% for any device visual capture.

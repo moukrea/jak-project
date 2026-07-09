@@ -270,3 +270,22 @@ EFFICIENCY MANDATE (owner, direct): deliver ONE build where the HUD renders genu
 — batch ALL outstanding items (rounds 2/3/4 + both live addenda) into this round, verify on
 the ARM64 DEVICE, THEN we move on. Do not dribble one fix per round. The owner does not want
 this dragging multiple days; the queue behind it matters more. Be thorough in ONE pass.
+
+## ROUND 4 — METHODOLOGY CORRECTION (owner, 2026-07-09, FIRM)
+Owner: the device debugging is biased because the Redmi auto-drops to an UGLY low dynamic
+render scale (weak phone) — judging HUD visual fidelity off degraded frames is worthless.
+FIX THE METHOD:
+1. Judge HUD VISUAL FIDELITY on x86 at 100% render scale (crisp, unbiased): does green eco
+   waver like in-game, is the cell tinted/lit right, is the center item scaled to fit the
+   HOLE (not full-gauge-behind), is the per-eco-type particle correct, fade-blink, etc.
+   Compare our-x86 vs the ORIGINAL in-game element side by side. This is the primary visual
+   gate — NOT device screencaps.
+2. Use the ARM64 DEVICE ONLY to confirm the render-scale-INDEPENDENT arm64 behavioral bugs:
+   does the particle fire in HUD-space (NOT leaking into the WORLD near Jak), is the cell
+   BODY present at all, does the pickup-heart fire, does the per-type selection work. These
+   are logic/structural and visible at ANY render scale.
+3. When a DEVICE visual capture is genuinely needed, FORCE render scale = 100% first
+   (pc-settings: dynamic-render-scale? OFF + min-render-scale 100, or via the graphics menu)
+   so the frame is not degraded. Never judge fidelity off a dynamically-downscaled frame.
+STOP over-instrumenting the device for things x86 shows cleanly. Be efficient (owner mandate):
+x86 for looks, device for arm64 behavior, one good consistent build, done.
