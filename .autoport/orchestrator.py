@@ -985,9 +985,15 @@ def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
     # validator, but this gate at minimum stops the stale-.so false-green.
     if phase.get("device", False):
         serial = phase.get("device_serial") or os.environ.get("ANDROID_SERIAL", "eae4df44")
+        # Game-aware deploy gate: a jak2/jak3 phase must verify against ITS package +
+        # APK, not the jak1 default. Otherwise the fresh SHARED libgk never matches the
+        # un-rebuilt jak1 APK -> deploy_verify reports STALE and the gate can NEVER
+        # close for a jak2 phase (2026-07-09 Gjak2-polish: attempts 1+2 stuck here).
+        game = phase.get("game") or ("jak2" if "jak2" in pid.lower()
+                                     else "jak3" if "jak3" in pid.lower() else "jak1")
         dv = AUTOPORT_DIR / "lib" / "deploy_verify.sh"
         if dv.exists():
-            r = subprocess.run(["bash", str(dv), serial],
+            r = subprocess.run(["bash", str(dv), serial, game],
                                cwd=REPO_ROOT, capture_output=True, text=True)
             if r.returncode != 0:
                 tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-4:])
@@ -998,7 +1004,7 @@ def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
                         "and redeploy before this phase can close.\n" + tail)
         # deploy_verify only proves the libgk sha chain — also prove the app BOOTS
         # (catches 'Setup failed'/non-booting builds deploy_verify can't see).
-        pkg = phase.get("device_pkg") or "org.opengoal.gk.jak1"
+        pkg = phase.get("device_pkg") or f"org.opengoal.gk.{game}"
         booted, why = _device_boot_check(serial, pkg)
         if not booted:
             return ("fail", why)
