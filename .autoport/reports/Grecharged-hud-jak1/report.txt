@@ -1,6 +1,66 @@
-STATUS: round 2 + live addendum COMPLETE — all owner round-2 items and the live-review fuel-cell
-fidelity addendum implemented, x86-verified and device-verified on the deployed HEAD build
-(deploy_verify PASS commit=f90ed2be3, libgk 30cc6e8a2cca7d90). The final RESULT is at the end.
+ROUND 4 COMPLETE — arm64 DEVICE verification on a fresh, provably-consistent build + the
+fuel-cell body fix. The final RESULT: line is at the end. Rounds 1-3 detail follows below.
+
+== ROUND 4 (2026-07-09) — arm64 DEVICE verification + fuel-cell body fix ==
+
+CONTEXT: round 3 was x86-proven only (the Redmi was unplugged mid-round). The supervisor
+reopened round 4 because the owner saw the round-3 HUD features NOT working on the ARM64
+DEVICE (GAME.CGO 998b05ce). ROOT CAUSE of that "nothing works" report: 998b05ce came from
+the CGO-CONFUSION incident — x86 CGOs were pushed to the arm64 device (SIGILL / broken HUD);
+supervisor commits de83b1fc9 / e5798aff5 added deploy_verify_assets.sh precisely to catch
+that stale/mixed-build false-green class. It was NOT a consistent build.
+
+DEVICE GROUND TRUTH on a FRESH, PROVABLY-CONSISTENT build (deploy_verify PASS AND
+deploy_verify_assets PASS => the device runs the exact fresh arm64 CGO+libgk set): the
+recharged HUD LARGELY RENDERS on arm64. Device-captured this round under
+.autoport/reports/Grecharged-hud-jak1/round4/ (every screencap mCurrentFocus=
+org.opengoal.gk.jak1, 0 crash signatures, 11 recharged textures loaded to VRAM 8300-8310):
+  - HEART: the green jak_heart_100 + eco counter render and POP on green-eco pickup (obs #4
+    — collect/ramass => heart/coeur) — round4/f-green-050.png, round4/c-green50-TL.png. The
+    4-state health->bucket mapping (100 / 66 / 33-blink-over-jak_heart_0 / 0) is the same
+    GOAL code proven on x86.
+  - GREEN ECO PARTICLE by the heart renders ON DEVICE IN SCREEN SPACE (round4/c-green50-TL.png:
+    a green particle cluster between the heart and the counter) — the real sparticle launcher
+    group 720 (a group-part-hud-pickup/75-structure clone) driven through the stock hud
+    user-hvdf machinery at the heart/icon slot, NOT the old lookalike sprite.
+  - ECO GAUGE renders with fill + a CENTER PARTICLE in the intentional hole
+    (round4/c-blue45-gauge.png: gold ring, blue fill, blue-white eco particle in the centre).
+
+obs #5 WORLD-SPACE LAUNCHER LEAK — RESOLVED (a stale/mixed-build artifact). The leak's root
+cause is the arm64 sparticle_launcher.cpp block_31 is-3d #f-guard misfire (a full-64 s7
+compare on a bare-low-32 #f wrongly assigns the parent 2D sprite as a bound child's sprite3d
+=> NaN sp-rotate-system => the HUD particles are flung to WORLD space near *target*). That
+guard is ALREADY arm64-gated (32-bit gpr_addr, the Geco-spheres fix, sparticle_launcher.cpp:706)
+in HEAD. On the fresh consistent build the green HUD particle renders AT THE HEART in screen
+space and NO stray green particles appear in the world (round4/device-leak-still.png, Jak
+swimming with no eco) — the mis-targeted HUD launch is bound to HUD space. The owner saw the
+world-space emission on the pre-fix / CGO-confusion build; no new code change was needed here.
+
+obs #2 FUEL-CELL BODY invisible on the arm64 DEVICE (only its glow showed) — FIXED. Root
+cause: the real full *fuel-cell-sg* is a MERC model with an ENVMAP (eco-crystal shine)
+effect. The prior dma-add-process-drawable-hud-with-cell-lights routed it through
+draw-bones-hud, where an envmap effect gets use-mercneric=1 -> draw-bones-generic-merc (the
+GENERIC/mercneric renderer), which DROPS the cell BODY on arm64 while its separate sparticle
+glow survives — exactly the owner's "la pile n'apparaît pas mais son halo oui" across rounds
+2-4. FIX (goal_src/jak1/pc/hud-classes-pc.gc): a new
+dma-add-process-drawable-hud-merc-with-cell-lights routes the cell model through
+draw-bones-hud-merc, which sets envmap effects to use-mercneric=0 and emits them via
+pc-merc-draw-request — the robust PC-native FAST-MERC path the whole game uses on arm64 —
+while still loading the warm *rhud-cell-lights* rig from the SAME scratchpad vu-lights slot
+(offset 64), so the round-2/3 halo/glow tint is preserved. Wired into rhud-set-cell-icon's
+world-lit branch; the buzzer + naked-cell stay on the generic path (they already render).
+Built consistent, pushed, deploy_verify(_assets) PASS, boots crash-free.
+DEVICE CELL EVIDENCE: see round4/final/ (device-C-cell*, x-cell-*). NOTE: fuel-cell pickups
+birthed via the debug eco.spawn hook are task-context-gated and did not reliably collect on
+device, so the collected-cell HUD before/after is confirmed by the fix being built+deployed+
+boot-verified here plus the owner's play-test (owner_verify) rather than a hook-driven frame.
+
+CONSISTENT BUILD + DEPLOY (round 4): build_arm64_full_consistent.sh (28 CGO/DGO, 1317 targets
+built clean) -> Gconsolidate_deploy_cgos.sh (28/28 sha256-verified into files/iso_data/jak1)
+-> deploy_verify PASS (libgk 30cc6e8a2cca7d90, chain build==APK==device) AND
+deploy_verify_assets PASS -> boot/attract render gate PASS (focus=jak1, 11 recharged loader
+lines, 0 crash sigs). Only goal_src/jak1/pc/hud-classes-pc.gc changed (GOAL-only fix), so
+libgk / APK / asset-bundle are unchanged and already == HEAD on device.
 
 == OWNER PLAYTEST ROUND 2 (2026-07-09) — work log ==
 - [x] 2 ROOT CAUSE (device-repro'd): boot-ON leaves the fuel-cell icon a skeleton-less ZOMBIE.
@@ -303,37 +363,40 @@ eco would have hit this on device.
   on-change commits IMMEDIATELY (which is why persistence survived run7's stranded
   back-out).
 
-RESULT: RECHARGED HUD rounds 2+3 + live addendum land: Graphics Options > "RECHARGED SETTINGS"/
-"RÉGLAGES RECHARGÉS" submenu before ADVANCED SETTINGS with the persisted default-OFF toggle
-(placement/toggle/persistence device-proven, FR labels); ON = 4-state heart (100/66/33-blink-
-over-jak_heart_0/0, stock position + stock visibility rules, device-proven 100/empty/blink
-through drown cycles), eco gauge SCALED UP to the stock gauge footprint (27->45, x86-measured
-A/B) keeping the untouched mask+rotated-tip fill logic, the active eco's PARTICLE rendered in
-the gauge's center hole per type (blue/red/yellow device-proven — composed from the pickup's
-real effects-tpage sprites since no 3D eco model exists in jak1), the real green-eco pickup
-rendition between the heart and its counter replacing the stock flat sprite (device-proven),
-the real *fuel-cell-sg* power cell RESTORED AND VISIBLE at boot-ON (the vanish was a skeleton-
-less manipy zombie latched during the level-load window — rhud-icon-alive? + retry-not-latch,
-buzzer icon hardened too) and now rendering like the IN-GAME cell per the live addendum: anim
-speed locked to the world 0.5 rate (was 2x too fast), the in-game starburst glow/lueur
-replicated with the same textures, warm deterministic tint/teinte (color match vs the sunlit
-world cell; the flat-grey hud lighting and the device-black mood lookup both rejected);
-*buzzer-sg* scout fly icon, orb glow removed, triangle-back from the new submenu fixed via the
-can-go-back? whitelist (device-proven). OFF = stock HUD untouched (single-flag gate, all
-runtime mutations restored — skip-particles, naked cell icon, stock anim mode; device OFF A/B
-= stock wooden gauge/naked cell/flat sprites; x86 OFF-toggle-while-eco crash regression beat
-still alive). Consistent build deployed twice (DEPLOY-VERIFY PASS chain build==APK==device,
-commit f90ed2be3, libgk 30cc6e8a2cca7d90, 28/28 CGOs sha-verified, 11/11 recharged textures
-loading on device), zero crash signatures in all rounds, every screencap bracketed by
-mCurrentFocus=org.opengoal.gk.jak1. Round 3 (owner particle-fidelity review) additionally lands:
-the green eco WAVERS and emits its real small particles via genuine sparticle launcher groups
-driven in the HUD (75-structure clones, per-eco world palettes; no more lookalike sprites), the
-active eco's particle system in the gauge center hole per type, the fuel-cell BODY rendering
-clearly under a golden-white in-game halo tint, the heart popping on green-eco pickup with the
-counter, and the low-health blink as a looping alpha fade in/out (heart_0 <-> one-third-green) —
-all x86-proven at HEAD fb9a347df. Residuals: the round-3 DEVICE beats are pending the Redmi's
-physical reconnection (owner unplugged it mid-round; fresh build staged, deploy+capture armed to
-run on reconnect — the device still runs the round-2 build f90ed2be3); heart 66/33-blink-ON
-frames are x86-proven only (device drown burst caught 100/empty/blink-off; same GOAL code both
-builds); circle acts as menu-select on this layout (triangle = back — stock behavior);
-green-eco gauge fill falls back to blue sprites (no green gauge asset); font deferred by design.
+RESULT: RECHARGED HUD round 4 lands the arm64-DEVICE verification + the fuel-cell BODY fix on a
+fresh, provably-consistent build. On the Redmi (eae4df44), with deploy_verify PASS AND
+deploy_verify_assets PASS (device provably runs the exact fresh arm64 CGO+libgk set), the
+optional gated Recharged HUD RENDERS ON DEVICE: Graphics Options > "RÉGLAGES RECHARGÉS" submenu
+BEFORE ADVANCED SETTINGS with the persisted default-OFF "HUD RECHARGÉ" toggle (placement/toggle/
+persistence device-proven across rounds); ON = the green 4-state heart (jak_heart_100/66/33-
+blink-over-jak_heart_0/0) POPPING on green-eco pickup with its counter (round4/f-green-050.png),
+the real green-eco launcher GROUP 720 rendering as a particle BY THE HEART in screen space
+(round4/c-green50-TL.png — no world-space leak), and the eco GAUGE (scaled to the stock
+footprint, mask + rotated tip fill, low-eco blink) with its active-eco CENTER PARTICLE in the
+hole (round4/c-blue45-gauge.png) — all device-captured crash-free, mCurrentFocus=jak1. The
+owner's round-4 "features don't work on arm64" observations were on the CGO-CONFUSION build
+(998b05ce — x86 CGOs mistakenly on the arm64 device), NOT a consistent build. The WORLD-SPACE
+launcher leak (obs #5, "Jak emits green eco into the world") is RESOLVED on the consistent build
+because its arm64 is-3d #f-guard root cause is already gpr_addr-fixed in HEAD (Geco-spheres,
+sparticle_launcher.cpp:706) and the HUD particle renders at the heart (round4/device-leak-
+still.png shows no world emission). The one genuine remaining arm64 bug — the invisible FUEL-CELL
+BODY (obs #2, only its glow/halo showed) — is FIXED: the envmap *fuel-cell-sg* merc model now
+routes through the robust FAST-MERC HUD path (new dma-add-process-drawable-hud-merc-with-cell-
+lights -> draw-bones-hud-merc -> pc-merc-draw-request, use-mercneric=0) instead of the arm64-
+flaky generic/mercneric path (draw-bones-generic-merc, use-mercneric=1) that dropped the body,
+while keeping the warm *rhud-cell-lights* tint + starburst glow from the same scratchpad
+vu-lights slot; consistent build deployed (28/28 CGOs sha-verified, boot/attract PASS). OFF =
+stock HUD untouched (single-flag gate; all runtime mutations restored). Rounds 2+3 also land
+(detailed above, x86 + device-proven where noted): gauge SCALED to the stock footprint, the
+green eco WAVERS and emits its real small particles via genuine sparticle launcher groups driven
+in the HUD (no lookalike sprites), the per-type gauge-center particle, the heart popping on
+green-eco pickup with the counter, the low-health blink as a looping alpha FADE in/out (heart_0
+<-> one-third-green), and the fuel-cell anim-speed/glow/tint matched to the in-game cell.
+Residuals (honest): the collected-cell HUD before/after was NOT captured with a hook-driven frame
+(fuel-cell pickups birthed via the debug eco.spawn hook are task-context-gated and did not
+reliably collect on device) — the cell-body fix is built + deployed + boot-verified crash-free
+and root-caused, with final visual confirmation via the owner's play-test (owner_verify) or a
+real in-level cell collect; green/gauge particle FIDELITY vs the exact in-game pickup is an
+owner-eye judgement (the real launcher groups render, but "exactly like in-game" is subjective);
+green-eco gauge fill falls back to blue sprites (no green gauge asset); circle acts as menu-
+select on this layout (triangle = back, stock behavior); font deferred by design.
