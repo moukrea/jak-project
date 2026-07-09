@@ -227,7 +227,7 @@
   "1330": "Temná bomba",
   "1331": "Temný výboj",
   "1332": "Temný obr",
-  "1333": "Nastavení PS2",
+  "1333": "ADVANCED SETTINGS",
   "1334": "Ořezávání objektů",
   "1335": "Vynutit mapování prostředí",
   "1336": "Rychlá nabídka postupu",
@@ -257,5 +257,6 @@
   "1361": "Min Target FPS",
   "1362": "Render Scale",
   "1363": "Min Render Scale",
-  "1364": "Fit to Screen"
+  "1364": "Fit to Screen",
+  "1365": "FPS COUNTER"
 }

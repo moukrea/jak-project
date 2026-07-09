@@ -1063,19 +1063,38 @@ bool a37_name_is_real_jak2(const std::string& name) {
       // translation (Jak walks the prison, camera follows, idle settles). Bodies
       // audited structurally identical to the device-proven jak1 twins. ---
       "(method 9 collide-cache-prim)", "(method 10 collide-cache-prim)",
+      // --- Gjak2-polish (item 1, crouch-lock): (method 17 collide-cache) =
+      // probe-using-spheres (all-types jak2 :21205; the prior comment MISLABELED it as
+      // "fill-from-fg-line-sphere", which is method 20). It backs can-exit-duck?'s upward
+      // stand-up (ceiling) probe:
+      //   can-exit-duck? (target-util.gc:1288) = (if (fill-and-probe-using-spheres
+      //     *collide-cache* q) #f #t) -> fill-and-probe-using-spheres (collide-cache.gc:823)
+      //     = (probe-using-spheres this q) = method 17's symbol (#f/s7 == "no ceiling").
+      // While noop'd the shared stub returned 0 = TRUTHY in GOAL (only s7 is false) =
+      // "ceiling hit" every frame -> can-exit-duck? = #f forever -> Jak stuck ducked,
+      // re-ducked on every landing (target.gc:3697) = the owner's crouch-lock; every OTHER
+      // sphere-probe consumer (edge-grab collide-edge-grab.gc:232, carry, gun, mech, board,
+      // dark-jak) was likewise "always obstructed".
+      //   Enabling ONLY method 17 crashed (sig=11 ee-pc 0x1fc3134 right after
+      // parking-spot::find-ground): a REAL probe result makes find-ground proceed into the
+      // nav-mesh path, which then walked the still-noop'd (method 17/18/20/21 nav-engine)
+      // garbage mesh pointers. Device A/B proved the cascade clears when ALL FOUR nav-engine
+      // methods are enabled TOGETHER (LEG-2: clean boot -> live gameplay, 40fps, 0 sigs;
+      // LEG-1 with only nav-engine-17 hit sig=4 @0x1fc3dc8 "bad mesh pointer" because
+      // 18/20/21 were still noop). So collide-cache 17 is real AND nav-engine 17/18/20/21 are
+      // real together -> correct ceiling/ground + crash-free. Runtime A/B: setprop
+      // debug.opengoal.jak2.noop_names "(method 17 collide-cache)" reverts to the 0-noop. ---
+      "(method 17 collide-cache)",
+      // Gjak2-polish: the four nav-engine (nav-mesh) mips2c methods the collide/find-ground
+      // path feeds into. Enable them TOGETHER with method 17 collide-cache (above): with any
+      // one noop'd the mesh pointer is garbage and the path SIGILLs/SIGSEGVs. Registered in
+      // nav_mesh.cpp (:771/:835/:278/:935); device A/B (LEG-2) boots clean into gameplay.
+      "(method 17 nav-engine)", "(method 18 nav-engine)",
+      "(method 20 nav-engine)", "(method 21 nav-engine)",
       // --- These sub-families remain DEFAULT-OFF, each with its OWN boot SIGSEGV
-      // (Gjak2-ingame bisect, re-confirmed by pc split):
-      //  * (method 17 collide-cache) fill-from-fg-line-sphere: enabling it alone
-      //    crashes at GK-DIAG pc 0x1fc2864 (nav-mesh consumer reads zeroed symbol
-      //    slot 0x18d7dc). Lead: its fill loop bases on get_fake_spad_addr2 — a
-      //    zero/unbound *fake-scratchpad-data* would relocate the sqc2 fill loop
-      //    (collide_cache.cpp:1310/:1330) onto the low symbol table. Verify s5 at
-      //    entry before enabling. Consequence while off: line-sphere probes miss
-      //    FOREGROUND prims only (bg/world collision unaffected).
-      //  * spatial-hash 33/35/36/37/39: separate crash pc 0x1c77f40 (each method
-      //    individually). sphere-hash 28-33 never isolated (co-enabled only).
+      // (Gjak2-ingame bisect): spatial-hash 33/35/36/37/39 crash at pc 0x1c77f40 (each
+      // method individually); sphere-hash 28-33 never isolated (co-enabled only).
       // Re-enable for A/B via setprop debug.opengoal.jak2.enable_names (below). ---
-      // "(method 17 collide-cache)",
       // "(method 28 sphere-hash)", "(method 29 sphere-hash)", "(method 30 sphere-hash)",
       // "(method 31 sphere-hash)", "(method 32 sphere-hash)", "(method 33 sphere-hash)",
       // "(method 33 spatial-hash)", "(method 35 spatial-hash)", "(method 36 spatial-hash)",

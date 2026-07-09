@@ -380,9 +380,20 @@
   (none))
 
 
-(defun real-movie? ()
-  "are we in an actual cutscene and should letterbox the view?"
+(defun actually-in-movie? ()
+  "are we currently in a real cutscene/movie? Base predicate: used by discord and as the
+   in-cutscene test for letterboxing."
   (and (!= #f *scene-player*) (nonzero? movie?) (movie?)))
+
+(defun real-movie? ()
+  "should the view be letterboxed to the original 16x9 during a cutscene? Only when the
+   player is NOT using a fit-to-screen (auto) aspect. Fit-to-screen users want cutscenes
+   to FOLLOW their configured aspect the same way gameplay does (owner request,
+   Gjak2-polish): with aspect-ratio-auto? on this returns #f, so update-math-camera
+   (math-camera.gc:88) takes the same extended-aspect branch gameplay already uses.
+   Fixed-aspect / vis users keep the classic 16x9 cutscene letterbox."
+  (and (actually-in-movie?)
+       (not (-> *pc-settings* aspect-ratio-auto?))))
 
 (defmethod update-discord-rpc ((obj pc-settings-jak2))
   "update discord rpc module"
@@ -892,6 +903,22 @@
     (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 2 406 0.0 (font-color default) (font-flags shadow kerning large))))
         (set! (-> font-ctx scale) 0.25)
         (draw-string-adv *pc-encoded-temp-string* buf font-ctx))))
+
+(defun draw-pc-fps-counter ()
+  "on-screen FPS counter overlay (graphics option), drawn GOAL-side via the game font so
+   it renders on BOTH x86 (GL) and Android (GLES). Gated on fps-counter?. Called every
+   frame from (update *pc-settings*) via the shared pckernel-common hook."
+  ;; NOTE: jak2's video-params has no relative-y-scale field (only relative-x-scale), so
+  ;; the y coordinate uses the plain 16 fallback per the porting spec.
+  (when (-> *pc-settings* fps-counter?)
+    (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf2))
+      (draw-string-xy (string-format "FPS ~D" (pc-get-fps))
+                      buf
+                      16
+                      16
+                      (font-color flat-yellow)
+                      (font-flags shadow kerning large))))
+  (none))
 
 
 

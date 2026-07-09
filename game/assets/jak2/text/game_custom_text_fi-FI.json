@@ -227,7 +227,7 @@
   "1330": "Raivopommi",
   "1331": "Raivopurkaus",
   "1332": "Raivojätti",
-  "1333": "PS2-asetukset",
+  "1333": "ADVANCED SETTINGS",
   "1334": "Objektien karsinta",
   "1335": "Pakota heijastusteksturointi",
   "1336": "Nopeampi valikko",
@@ -252,5 +252,6 @@
   "1349": "<FLAG_GALICIA> Galego",
   "134a": "Näppäinten paineherkkyys",
   "134b": "Vaihda R1- ja R2-toiminnot",
-  "134c": "Ohjaimen liipaisintehosteet"
+  "134c": "Ohjaimen liipaisintehosteet",
+  "1365": "FPS COUNTER"
 }

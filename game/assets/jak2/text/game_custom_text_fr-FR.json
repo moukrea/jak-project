@@ -227,7 +227,7 @@
   "1330": "Dark Bomb",
   "1331": "Dark Blast",
   "1332": "Dark Giant",
-  "1333": "Options PS2",
+  "1333": "ADVANCED SETTINGS",
   "1334": "Élimination des acteurs.",
   "1335": "Cartographie forcée de l'environnement.",
   "1336": "Menu de pause rapide",
@@ -257,5 +257,6 @@
   "1361": "FPS cible min",
   "1362": "Échelle de rendu",
   "1363": "Échelle de rendu min",
-  "1364": "Adapter à l'écran"
+  "1364": "Adapter à l'écran",
+  "1365": "FPS COUNTER"
 }

@@ -1,0 +1,24 @@
+leg=legA noop_names=[]
+== warmup to title (60s) ==
+  [01-title] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-01-title-jak2focus.png (2132196B)
+== NEW GAME: start -> x -> down x4 -> x ==
+  [02-menu] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-02-menu-jak2focus.png (1079094B)
+  [03-afterx] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-03-afterx-jak2focus.png (131112B)
+== skip intro ==
+  [04-skip] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-04-skip-jak2focus.png (1747732B)
+== wait level load (20s) ==
+  [05-postload] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-05-postload-jak2focus.png (1372038B)
+== CROUCH REPRO: record 70s: baseline -> 2 jumps -> stance -> move -> more jumps -> stance ==
+  [06-baseline-stance] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-06-baseline-stance-jak2focus.png (1426673B)
+  -- owner repro: two jumps --
+  [07-after-2jumps] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-07-after-2jumps-jak2focus.png (1658973B)
+  -- try to move forward 5s --
+  [08-after-move] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-08-after-move-jak2focus.png (1666410B)
+  -- two more jumps + turn --
+  [09-after-2more-jumps] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-09-after-2more-jumps-jak2focus.png (1589122B)
+  [10-after-turn] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-10-after-turn-jak2focus.png (1836001B)
+  [11-final-stance] pid=[12870]   mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> crouch-legA-11-final-stance-jak2focus.png (1199006B)
+  video: crouch_legA.mp4 (117765364B)
+final pid=[12870] focus=  mCurrentFocus=Window{e91b353 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
+GK-DIAG sig count: 0
+07-09 19:02:42.196 12870 12938 I GK_STDERR: A37-MIPS2C-REAL [jak2] (method 17 collide-cache) -> arm64 trampoline 0x83f3f0

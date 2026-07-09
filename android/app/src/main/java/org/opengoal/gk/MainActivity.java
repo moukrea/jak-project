@@ -344,10 +344,9 @@ public class MainActivity extends SDLActivity {
             mGamepadPollHandler.removeCallbacksAndMessages(null);
             mGamepadPollHandler = null;
         }
-        if (mDiagExportHandler != null) {
-            mDiagExportHandler.removeCallbacksAndMessages(null);
-            mDiagExportHandler = null;
-        }
+        // Gjak2-polish: drop the orphaned mDiagExportHandler cleanup — commit c662bd806
+        // ("remove leftover DIAG2 exporter") deleted the field + its init but left this
+        // reference, breaking the APK Java compile. The DIAG2 exporter is gone; so is its teardown.
         super.onDestroy();
     }
 }

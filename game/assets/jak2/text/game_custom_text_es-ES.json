@@ -227,7 +227,7 @@
   "1330": "Bomba Oscura",
   "1331": "Explosión Oscura",
   "1332": "Gigante Oscuro",
-  "1333": "Opciones de PS2",
+  "1333": "ADVANCED SETTINGS",
   "1334": "Culling de Actores",
   "1335": "Forzar Mapeado de Entorno",
   "1336": "Menú Rápido",
@@ -257,5 +257,6 @@
   "1361": "Min Target FPS",
   "1362": "Render Scale",
   "1363": "Min Render Scale",
-  "1364": "Fit to Screen"
+  "1364": "Fit to Screen",
+  "1365": "FPS COUNTER"
 }

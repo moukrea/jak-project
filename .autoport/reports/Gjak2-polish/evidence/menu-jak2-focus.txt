@@ -1,0 +1,18 @@
+== warmup to title (65s) ==
+  [01-title]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-01-title.png (2154365B)
+  [02-after-start]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-02-after-start.png (839324B)
+  [03-down1]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-03-down1.png (1078389B)
+  [04-down2]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-04-down2.png (1081108B)
+  [05-after-x-options]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-05-after-x-options.png (1234502B)
+  [06-down-in-options]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-06-down-in-options.png (1091124B)
+  [07-graphic-options]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-07-graphic-options.png (1091137B)
+  [08-gfx-row1]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-08-gfx-row1.png (1089371B)
+  [09-gfx-row2]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-09-gfx-row2.png (1087929B)
+  [10-gfx-row3]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-10-gfx-row3.png (1234211B)
+  [11-gfx-row4]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-11-gfx-row4.png (1090937B)
+  [12-gfx-row5]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-12-gfx-row5.png (1089819B)
+  [13-gfx-row6]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-13-gfx-row6.png (1087935B)
+  [14-gfx-row7]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-14-gfx-row7.png (1234004B)
+  [15-gfx-row8]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-15-gfx-row8.png (1090983B)
+  [16-gfx-top]   mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity} -> menu-jak2-16-gfx-top.png (1091114B)
+final focus=  mCurrentFocus=Window{30c3eb6 u0 org.opengoal.gk.jak2/org.opengoal.gk.MainActivity}
