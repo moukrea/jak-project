@@ -1292,6 +1292,22 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-foliage-wind
+  name: 'RECHARGED (owner 2026-07-09, backlog): jak1 palm leaves + shrubs are completely static — add light wind wobble/sway so foliage reacts to a light breeze; "FOLIAGE WIND"-style toggle in Recharged Settings, default OFF=stock (byte-identical render when OFF)'
+  prompt: prompts/phase-Grecharged-foliage-wind.md
+  validator: validators/phase-Grecharged-foliage-wind.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-title-logo-fullres
+  name: 'RECHARGED (owner 2026-07-09, backlog): title-screen Jak and Daxter logo renders mega-pixelated at low render scale on phones — draw it full-resolution like the HUD 3D models (which stay crisp while the world renders at a lower scale); toggle in Recharged Settings, default OFF=stock'
+  prompt: prompts/phase-Grecharged-title-logo-fullres.md
+  validator: validators/phase-Grecharged-title-logo-fullres.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true

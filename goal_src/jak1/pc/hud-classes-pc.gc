@@ -37,7 +37,10 @@
 (defconstant RHUD_HEART_HALF 30.0)
 (defconstant RHUD_GAUGE_X 435.0)
 (defconstant RHUD_GAUGE_Y 370.0)
-(defconstant RHUD_GAUGE_HALF 27.0)
+(defconstant RHUD_GAUGE_HALF 45.0)
+;; owner round-2: scaled up from 27.0 to match the stock gauge footprint
+;; (x86-measured twice: 27 -> ring 155px vs stock 225px tall; at 40 the ring
+;; width was still 361px vs stock 424px -> 45 lands on the stock footprint)
 
 ;; the fillable arc of the gauge ring: starts at 6 o'clock (16384 rotation units)
 ;; and spans 270 degrees (49152 units); the remaining quadrant is the decorated cap.
@@ -45,7 +48,481 @@
 (defconstant RHUD_GAUGE_ARC_SPAN 49152.0)
 
 ;; scale for the real in-world fuel-cell model when shown as the hud icon
-(defconstant RHUD_CELL_SCALE 0.009)
+;; round-3: the full model reads smaller than the naked one; bump so the BODY is unmistakable on device
+(defconstant RHUD_CELL_SCALE 0.013)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; screen-space eco partgroup clones (owner round-3 items 3+4)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; EXACT STRUCTURAL COPIES of the stock group-part-hud-pickup (id 75) and its
+;; defparts 303-308. Group 75 renders perfectly through the screen-space hud
+;; machinery; our earlier world-derived clones spawned but rendered NOTHING.
+;; So each of the four eco groups below is byte-identical to 75 in structure
+;; (same sp-item count/flags/binding/fade-after, same init-spec fields/flags/
+;; timers/num/next wiring), with ONLY per-type color/rot data substitutions.
+;; Part-id map per type: [303 304 305 306 307 308]-equivalents ->
+;;   green  720: 2980 2981 2982 2983 2984 2985
+;;   blue   721: 2986 2987 2988 2989 2990 2991
+;;   red    722: 2992 2993 2994 2995 2996 2997
+;;   yellow 723: 2998 2999 3000 3001 3002 3003
+
+;;;; GREEN (id 720) — 75's palette IS green eco; verbatim copy of 303-308.
+(defpartgroup group-hud-eco-green
+  :id 720
+  :flags (screen-space)
+  :bounds (static-bspherem 0 0 0 2)
+  :parts
+  ((sp-item 2980 :flags (launch-asap) :binding 2981)
+   (sp-item 2981 :flags (start-dead launch-asap) :binding 2982)
+   (sp-item 2982 :flags (start-dead launch-asap) :binding 2983)
+   (sp-item 2983 :flags (start-dead launch-asap) :binding 2984)
+   (sp-item 2983 :flags (start-dead launch-asap) :binding 2984)
+   (sp-item 2983 :flags (start-dead launch-asap) :binding 2984)
+   (sp-item 2983 :flags (start-dead launch-asap) :binding 2984)
+   (sp-item 2984 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 2984 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 2984 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 2984 :fade-after (meters 40) :flags (start-dead))))
+
+(defpart 2980
+  :init-specs
+  ((:texture (starflash effects))
+   (:num 1.0)
+   (:scale-x (meters 0.5))
+   (:scale-y :copy scale-x)
+   (:r 32.0 92.0)
+   (:g 128.0 128.0)
+   (:a 0.0)
+   (:timer (seconds -0.005))
+   (:flags (bit3 bit9))))
+
+(defpart 2981
+  :init-specs
+  ((:texture (bigpuff effects))
+   (:num 1.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.03))
+   (:scale-x (meters 2.5))
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y :copy scale-x)
+   (:r 32.0 92.0)
+   (:g 128.0 128.0)
+   (:a 24.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.026666667) (meters 0.026666667))
+   (:vel-y (meters 0.0014814815))
+   (:vel-z (meters 0))
+   (:rotvel-z (degrees 0.2))
+   (:timer (seconds -0.005))
+   (:flags (bit7 bit9))))
+
+(defpart 2982
+  :init-specs
+  ((:texture (bigpuff effects))
+   (:num 3.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.065))
+   (:scale-x (meters 1.5) (meters 0.4))
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y :copy scale-x)
+   (:r 32.0 92.0)
+   (:g 128.0 128.0)
+   (:a 24.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.017777778) (meters 0.017777778))
+   (:vel-y (meters 0))
+   (:vel-z (meters 0))
+   (:rotvel-z (degrees -0.4) 1 (degrees 0.8))
+   (:timer (seconds -0.005))
+   (:flags (bit3 bit7 bit9))))
+
+(defpart 2983
+  :init-specs
+  ((:texture (hotdot effects))
+   (:num 1.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.12))
+   (:scale-x (meters 0.4))
+   (:scale-y :copy scale-x)
+   (:r 128.0)
+   (:g 255.0)
+   (:a 24.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.053333335) (meters 0.053333335))
+   (:vel-y (meters 0))
+   (:vel-z (meters 0))
+   (:timer (seconds -0.005))
+   (:flags (bit2 bit3 bit7 bit9))))
+
+(defpart 2984
+  :init-specs
+  ((:texture (hotdot effects))
+   (:num 0.25)
+   (:scale-x (meters 0.35))
+   (:scale-y :copy scale-x)
+   (:r 255.0)
+   (:g 255.0)
+   (:b 0.0)
+   (:a 96.0)
+   (:scalevel-x (meters -0.0012500001))
+   (:scalevel-y :copy scalevel-x)
+   (:fade-r -2.125)
+   (:accel-y (meters -0.00002))
+   (:timer (seconds 0.1) (seconds 0.797))
+   (:flags (bit2 bit9))
+   (:next-time (seconds 0.4))
+   (:next-launcher 2985)))
+
+(defpart 2985
+  :init-specs ((:fade-r 0.0)))
+
+;;;; BLUE (id 721) — 75 structure, blue color subs.
+(defpartgroup group-hud-eco-blue
+  :id 721
+  :flags (screen-space)
+  :bounds (static-bspherem 0 0 0 2)
+  :parts
+  ((sp-item 2986 :flags (launch-asap) :binding 2987)
+   (sp-item 2987 :flags (start-dead launch-asap) :binding 2988)
+   (sp-item 2988 :flags (start-dead launch-asap) :binding 2989)
+   (sp-item 2989 :flags (start-dead launch-asap) :binding 2990)
+   (sp-item 2989 :flags (start-dead launch-asap) :binding 2990)
+   (sp-item 2989 :flags (start-dead launch-asap) :binding 2990)
+   (sp-item 2989 :flags (start-dead launch-asap) :binding 2990)
+   (sp-item 2990 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 2990 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 2990 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 2990 :fade-after (meters 40) :flags (start-dead))))
+
+(defpart 2986
+  :init-specs
+  ((:texture (starflash effects))
+   (:num 1.0)
+   (:scale-x (meters 0.5))
+   (:scale-y :copy scale-x)
+   (:r 32.0 92.0)
+   (:g 128.0 128.0)
+   (:a 0.0)
+   (:timer (seconds -0.005))
+   (:flags (bit3 bit9))))
+
+(defpart 2987
+  :init-specs
+  ((:texture (bigpuff effects))
+   (:num 1.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.03))
+   (:scale-x (meters 2.5))
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y :copy scale-x)
+   (:r 0.0 32.0)
+   (:g 32.0 96.0)
+   (:b 128.0 128.0)
+   (:a 32.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.026666667) (meters 0.026666667))
+   (:vel-y (meters 0.0014814815))
+   (:vel-z (meters 0))
+   (:rotvel-z (degrees 0.2))
+   (:timer (seconds -0.005))
+   (:flags (bit7 bit9))))
+
+(defpart 2988
+  :init-specs
+  ((:texture (bigpuff effects))
+   (:num 3.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.065))
+   (:scale-x (meters 1.5) (meters 0.4))
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y :copy scale-x)
+   (:r 96.0)
+   (:g 96.0)
+   (:b 192.0)
+   (:a 32.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.017777778) (meters 0.017777778))
+   (:vel-y (meters 0))
+   (:vel-z (meters 0))
+   (:rotvel-z (degrees 269.52002) (degrees 208.99998))
+   (:timer (seconds -0.005))
+   (:flags (bit3 bit7 bit9))))
+
+(defpart 2989
+  :init-specs
+  ((:texture (hotdot effects))
+   (:num 1.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.12))
+   (:scale-x (meters 0.4))
+   (:scale-y :copy scale-x)
+   (:r 32.0)
+   (:g 32.0)
+   (:b 192.0)
+   (:a 24.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.053333335) (meters 0.053333335))
+   (:vel-y (meters 0))
+   (:vel-z (meters 0))
+   (:timer (seconds -0.005))
+   (:flags (bit2 bit3 bit7 bit9))))
+
+(defpart 2990
+  :init-specs
+  ((:texture (hotdot effects))
+   (:num 0.25)
+   (:scale-x (meters 0.35))
+   (:scale-y :copy scale-x)
+   (:r 32.0)
+   (:g 32.0)
+   (:b 192.0)
+   (:a 96.0)
+   (:scalevel-x (meters -0.0012500001))
+   (:scalevel-y :copy scalevel-x)
+   (:fade-r -2.125)
+   (:accel-y (meters -0.00002))
+   (:timer (seconds 0.1) (seconds 0.797))
+   (:flags (bit2 bit9))
+   (:next-time (seconds 0.4))
+   (:next-launcher 2991)))
+
+(defpart 2991
+  :init-specs ((:fade-r 0.0)))
+
+;;;; RED (id 722) — 75 structure, red color subs.
+(defpartgroup group-hud-eco-red
+  :id 722
+  :flags (screen-space)
+  :bounds (static-bspherem 0 0 0 2)
+  :parts
+  ((sp-item 2992 :flags (launch-asap) :binding 2993)
+   (sp-item 2993 :flags (start-dead launch-asap) :binding 2994)
+   (sp-item 2994 :flags (start-dead launch-asap) :binding 2995)
+   (sp-item 2995 :flags (start-dead launch-asap) :binding 2996)
+   (sp-item 2995 :flags (start-dead launch-asap) :binding 2996)
+   (sp-item 2995 :flags (start-dead launch-asap) :binding 2996)
+   (sp-item 2995 :flags (start-dead launch-asap) :binding 2996)
+   (sp-item 2996 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 2996 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 2996 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 2996 :fade-after (meters 40) :flags (start-dead))))
+
+(defpart 2992
+  :init-specs
+  ((:texture (starflash effects))
+   (:num 1.0)
+   (:scale-x (meters 0.5))
+   (:scale-y :copy scale-x)
+   (:r 32.0 92.0)
+   (:g 128.0 128.0)
+   (:a 0.0)
+   (:timer (seconds -0.005))
+   (:flags (bit3 bit9))))
+
+(defpart 2993
+  :init-specs
+  ((:texture (bigpuff effects))
+   (:num 1.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.03))
+   (:scale-x (meters 2.5))
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y :copy scale-x)
+   (:r 128.0)
+   (:g 0.0 64.0)
+   (:b 0.0)
+   (:a 24.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.026666667) (meters 0.026666667))
+   (:vel-y (meters 0.0014814815))
+   (:vel-z (meters 0))
+   (:rotvel-z (degrees 0.2))
+   (:timer (seconds -0.005))
+   (:flags (bit7 bit9))))
+
+(defpart 2994
+  :init-specs
+  ((:texture (bigpuff effects))
+   (:num 3.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.065))
+   (:scale-x (meters 1.5) (meters 0.4))
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y :copy scale-x)
+   (:r 128.0)
+   (:g 64.0)
+   (:b 0.0)
+   (:a 32.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.017777778) (meters 0.017777778))
+   (:vel-y (meters 0))
+   (:vel-z (meters 0))
+   (:rotvel-z (degrees -1.2) (degrees 2.4))
+   (:timer (seconds -0.005))
+   (:flags (bit3 bit7 bit9))))
+
+(defpart 2995
+  :init-specs
+  ((:texture (hotdot effects))
+   (:num 1.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.12))
+   (:scale-x (meters 0.4))
+   (:scale-y :copy scale-x)
+   (:r 128.0)
+   (:g 64.0)
+   (:b 0.0)
+   (:a 24.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.053333335) (meters 0.053333335))
+   (:vel-y (meters 0))
+   (:vel-z (meters 0))
+   (:timer (seconds -0.005))
+   (:flags (bit2 bit3 bit7 bit9))))
+
+(defpart 2996
+  :init-specs
+  ((:texture (hotdot effects))
+   (:num 0.25)
+   (:scale-x (meters 0.35))
+   (:scale-y :copy scale-x)
+   (:r 128.0)
+   (:g 64.0)
+   (:b 0.0)
+   (:a 32.0)
+   (:scalevel-x (meters -0.0012500001))
+   (:scalevel-y :copy scalevel-x)
+   (:fade-g -0.4)
+   (:accel-y (meters -0.00002))
+   (:timer (seconds 0.1) (seconds 0.797))
+   (:flags (bit2 bit9))
+   (:next-time (seconds 0.4))
+   (:next-launcher 2997)))
+
+(defpart 2997
+  :init-specs ((:fade-r 0.0)))
+
+;;;; YELLOW (id 723) — 75 structure, yellow color subs.
+(defpartgroup group-hud-eco-yellow
+  :id 723
+  :flags (screen-space)
+  :bounds (static-bspherem 0 0 0 2)
+  :parts
+  ((sp-item 2998 :flags (launch-asap) :binding 2999)
+   (sp-item 2999 :flags (start-dead launch-asap) :binding 3000)
+   (sp-item 3000 :flags (start-dead launch-asap) :binding 3001)
+   (sp-item 3001 :flags (start-dead launch-asap) :binding 3002)
+   (sp-item 3001 :flags (start-dead launch-asap) :binding 3002)
+   (sp-item 3001 :flags (start-dead launch-asap) :binding 3002)
+   (sp-item 3001 :flags (start-dead launch-asap) :binding 3002)
+   (sp-item 3002 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 3002 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 3002 :fade-after (meters 40) :flags (start-dead))
+   (sp-item 3002 :fade-after (meters 40) :flags (start-dead))))
+
+(defpart 2998
+  :init-specs
+  ((:texture (starflash effects))
+   (:num 1.0)
+   (:scale-x (meters 0.5))
+   (:scale-y :copy scale-x)
+   (:r 32.0 92.0)
+   (:g 128.0 128.0)
+   (:a 0.0)
+   (:timer (seconds -0.005))
+   (:flags (bit3 bit9))))
+
+(defpart 2999
+  :init-specs
+  ((:texture (bigpuff effects))
+   (:num 1.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.03))
+   (:scale-x (meters 2.5))
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y :copy scale-x)
+   (:r 128.0)
+   (:g 64.0 192.0)
+   (:b 0.0)
+   (:a 16.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.026666667) (meters 0.026666667))
+   (:vel-y (meters 0.0014814815))
+   (:vel-z (meters 0))
+   (:rotvel-z (degrees 0.2))
+   (:timer (seconds -0.005))
+   (:flags (bit7 bit9))))
+
+(defpart 3000
+  :init-specs
+  ((:texture (bigpuff effects))
+   (:num 3.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.065))
+   (:scale-x (meters 1.5) (meters 0.4))
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y :copy scale-x)
+   (:r 192.0)
+   (:g 160.0)
+   (:b 0.0)
+   (:a 32.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.017777778) (meters 0.017777778))
+   (:vel-y (meters 0))
+   (:vel-z (meters 0))
+   (:rotvel-z (degrees -0.4) 1 (degrees 0.8))
+   (:timer (seconds -0.005))
+   (:flags (bit3 bit7 bit9))))
+
+(defpart 3001
+  :init-specs
+  ((:texture (hotdot effects))
+   (:num 1.0)
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.12))
+   (:scale-x (meters 0.4))
+   (:scale-y :copy scale-x)
+   (:r 128.0)
+   (:g 64.0)
+   (:b 0.0)
+   (:a 24.0)
+   (:omega 0.0 65536.0)
+   (:vel-x (meters 0.053333335) (meters 0.053333335))
+   (:vel-y (meters 0))
+   (:vel-z (meters 0))
+   (:timer (seconds -0.005))
+   (:flags (bit2 bit3 bit7 bit9))))
+
+(defpart 3002
+  :init-specs
+  ((:texture (hotdot effects))
+   (:num 0.25)
+   (:scale-x (meters 0.35))
+   (:scale-y :copy scale-x)
+   (:r 128.0)
+   (:g 64.0)
+   (:b 0.0)
+   (:a 32.0)
+   (:scalevel-x (meters -0.0012500001))
+   (:scalevel-y :copy scalevel-x)
+   (:fade-g -0.4)
+   (:accel-y (meters -0.00002))
+   (:timer (seconds 0.1) (seconds 0.797))
+   (:flags (bit2 bit9))
+   (:next-time (seconds 0.4))
+   (:next-launcher 3003)))
+
+(defpart 3003
+  :init-specs ((:fade-r 0.0)))
+
+;; the defpartgroup macro does NOT define a name->group constant (that lives in
+;; the generated engine/data/part-groups.gc for stock groups); define ours here
+;; so create-launch-control can reference them by name like the stock hud does.
+(defconstant group-hud-eco-green (-> *part-group-id-table* 720))
+(defconstant group-hud-eco-blue (-> *part-group-id-table* 721))
+(defconstant group-hud-eco-red (-> *part-group-id-table* 722))
+(defconstant group-hud-eco-yellow (-> *part-group-id-table* 723))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; hud processes and parts
@@ -166,6 +643,45 @@
                  (-> *time-of-day-context* light-group (-> draw light-index))
                  (-> *time-of-day-context* moods (-> draw level-index) light-group (-> draw light-index)))))
       (vu-lights<-light-group! vu-lgt lgt))
+    (lod-set! draw 0)
+    (logior! (-> draw status) (draw-status was-drawn))
+    (draw-bones-hud draw buf))
+  0
+  (none))
+
+;; owner addendum: fixed WARM lights for the hud fuel-cell icon — the daylight
+;; in-world cell look, platform-deterministic. (the first device round used the
+;; time-of-day mood lookup like the world path; it looked right on x86 but the
+;; device rendered the hud manipy nearly black — a fixed warm rig matches the
+;; owner's reference, a sunlit world cell, on every platform.)
+(define *rhud-cell-lights* (new 'global 'vu-lights))
+
+(set-vector! (-> *rhud-cell-lights* direction 0) 1.0 0.0 0.0 1.0)
+
+(set-vector! (-> *rhud-cell-lights* direction 1) 0.0 1.0 0.0 1.0)
+
+(set-vector! (-> *rhud-cell-lights* direction 2) 0.0 0.0 1.0 1.0)
+
+(set-vector! (-> *rhud-cell-lights* color 0) 0.55 0.45 0.3 1.0)
+
+(set-vector! (-> *rhud-cell-lights* color 1) 1.0 0.9 0.7 1.0)
+
+(set-vector! (-> *rhud-cell-lights* color 2) 0.6 0.5 0.35 1.0)
+
+(set-vector! (-> *rhud-cell-lights* ambient) 0.45 0.38 0.28 1.0)
+
+(defun dma-add-process-drawable-hud-with-cell-lights ((proc process-drawable) (draw draw-control) (arg2 symbol) (buf dma-buffer))
+  (logclear! (-> draw status) (draw-status was-drawn))
+  (when (zero? (logand (-> draw status) (draw-status hidden no-anim no-skeleton-update)))
+    (let ((vu-lgt (the-as vu-lights (+ 64 (scratchpad-object int))))
+          (lgt *rhud-cell-lights*))
+      (set! (-> vu-lgt direction 0 quad) (-> lgt direction 0 quad))
+      (set! (-> vu-lgt direction 1 quad) (-> lgt direction 1 quad))
+      (set! (-> vu-lgt direction 2 quad) (-> lgt direction 2 quad))
+      (set! (-> vu-lgt color 0 quad) (-> lgt color 0 quad))
+      (set! (-> vu-lgt color 1 quad) (-> lgt color 1 quad))
+      (set! (-> vu-lgt color 2 quad) (-> lgt color 2 quad))
+      (set! (-> vu-lgt ambient quad) (-> lgt ambient quad)))
     (lod-set! draw 0)
     (logior! (-> draw status) (draw-status was-drawn))
     (draw-bones-hud draw buf))
@@ -523,9 +1039,14 @@
                            (gs-reg64 tex0-1)))
   (none))
 
-(defun rhud-add-vert ((buf dma-buffer) (ss float) (tv float) (aa int) (px float) (py float))
+(defmacro rhud-rgba (rr gg bb aa)
+  "pack vertex color+alpha into one int (GOAL functions cap at 8 params)"
+  `(logior ,rr (ash ,gg 8) (ash ,bb 16) (ash ,aa 24)))
+
+(defun rhud-add-vert ((buf dma-buffer) (ss float) (tv float) (rgba int) (px float) (py float))
   "add one st/rgbaq/xyzf2 packed vertex. px/py are in the 512x448 2d space of
-   draw-sprite2d-xy (x maps to gs 1792..2304, y to gs 1824..2272)."
+   draw-sprite2d-xy (x maps to gs 1792..2304, y to gs 1824..2272).
+   rgba is an rhud-rgba-packed color (128 = 1.0 modulate)."
   (let ((data (the-as (pointer float) (-> buf base))))
     ;; st (q rides in the third dword of the packed st register)
     (set! (-> data 0) ss)
@@ -534,10 +1055,10 @@
     (set! (-> data 3) 0.0))
   (let ((data (the-as (pointer int32) (&+ (-> buf base) 16))))
     ;; rgbaq (packed byte fields)
-    (set! (-> data 0) 128)
-    (set! (-> data 1) 128)
-    (set! (-> data 2) 128)
-    (set! (-> data 3) aa))
+    (set! (-> data 0) (logand rgba #xff))
+    (set! (-> data 1) (logand (ash rgba -8) #xff))
+    (set! (-> data 2) (logand (ash rgba -16) #xff))
+    (set! (-> data 3) (logand (ash rgba -24) #xff)))
   (let ((data (the-as (pointer uint32) (&+ (-> buf base) 32))))
     ;; xyzf2 (12.4 fixed point, z in bits 4-27 of the upper qword half).
     ;; direct-path 2d window per the direct vertex shader (jak1 HEIGHT_SCALE=1,
@@ -551,10 +1072,11 @@
   (&+! (-> buf base) 48)
   (none))
 
-(defun rhud-quad ((buf dma-buffer) (cx float) (cy float) (hs float) (fx float) (rot float) (aa int))
+(defun rhud-quad ((buf dma-buffer) (cx float) (cy float) (hs float) (fx float) (rot float) (rgba int))
   "draw the full texture canvas as a quad centered at cx/cy, half-size hs (in
    448-space y units), rotated by rot (rotation units) around its center.
-   fx is the x-aspect factor that keeps the canvas square on screen."
+   fx is the x-aspect factor that keeps the canvas square on screen.
+   rgba is an rhud-rgba-packed vertex color."
   (let ((cs (cos rot))
         (sn (sin rot)))
     (with-cnt-vif-block (buf)
@@ -572,7 +1094,7 @@
           (rhud-add-vert buf
                          (* 0.5 (+ dx 1.0))
                          (* 0.5 (+ dy 1.0))
-                         aa
+                         rgba
                          (+ cx (* ox fx))
                          (+ cy oy))))))
   (none))
@@ -591,7 +1113,7 @@
                              #x412 ;; regs st rgbaq xyzf2
                              )
       ;; center vertex
-      (rhud-add-vert buf 0.5 0.5 aa cx cy)
+      (rhud-add-vert buf 0.5 0.5 (rhud-rgba 128 128 128 aa) cx cy)
       ;; rim vertices, overshot past the canvas edge so the fan chords fully
       ;; cover the ring; uv clamps to the (transparent) canvas border
       (dotimes (i (+ segs 1))
@@ -601,7 +1123,7 @@
           (rhud-add-vert buf
                          (* 0.5 (+ dx 1.0))
                          (* 0.5 (+ dy 1.0))
-                         aa
+                         (rhud-rgba 128 128 128 aa)
                          (+ cx (* dx hs fx))
                          (+ cy (* dy hs)))))))
   (none))
@@ -616,19 +1138,67 @@
       (/ (* 1.142857 h) w)
       0.857)))
 
+(defun rhud-set-shader-tex ((buf dma-buffer) (tex texture))
+  "rhud-set-shader for a stock vram texture (pool lookup by its tbp), with
+   ADDITIVE blend for the glow-style eco sprites. (the pc direct renderer only
+   reads tbp0/tcc/tfx out of tex0, so RHUD_TEX0_BITS' size fields are inert)"
+  (with-cnt-vif-block (buf)
+    (dma-buffer-add-gif-tag buf
+                            (new 'static 'gif-tag64 :nloop 4 :eop 1 :nreg 1)
+                            (new 'static 'gif-tag-regs :regs0 (gif-reg-id a+d)))
+    (dma-buffer-add-uint64 buf
+                           #x48 ;; Cs*As + Cd (additive)
+                           (gs-reg64 alpha-1)
+                           #x5 ;; clamp s+t
+                           (gs-reg64 clamp-1)
+                           #x60 ;; bilinear filtering
+                           (gs-reg64 tex1-1)
+                           (logior (the-as uint (-> tex dest 0)) RHUD_TEX0_BITS)
+                           (gs-reg64 tex0-1)))
+  (none))
+
 ;;;----------------------------------------------
 ;;  stock hud suppression / icon upgrades
 ;;;----------------------------------------------
 
-(defun rhud-set-cell-icon ((sg skeleton-group) (icon-scale float))
+(defun rhud-icon-alive? ((obj hud))
+  "#t when hud icon slot 0 holds a LIVE manipy with a LINKED skeleton. a manipy
+   spawned during the level-load window comes up skeleton-less (manipy-init
+   falls back to anim-mode 'still when initialize-skeleton finds no art) and
+   draws NOTHING forever — the owner's 'power cell never appears' boot-ON
+   regression (device-repro'd: boot-ON icon missing, runtime-ON icon fine).
+   such zombies (and dead icons) must be respawned."
+  (let ((ic (-> obj icons 0 icon)))
+    (and (nonzero? ic) ic (-> ic 0) (nonzero? (-> ic 0 skel)) #t)))
+
+(defun rhud-set-cell-icon ((sg skeleton-group) (icon-scale float) (world-lit symbol))
   "replace the stock hud-fuel-cell 3d icon with a fresh manipy using the given
-   skeleton group. returns #t on success."
+   skeleton group. returns #t on success (spawned AND skeleton linked).
+   world-lit #t = render like the IN-WORLD cell (owner addendum): time-of-day
+   mood lighting + the world's 0.5 color-mult/emissive floor + anim clock
+   handed over to rhud-drive-cell-anim (world rate, not the manipy 2x loop)."
   (let ((fc (-> *hud-parts* fuel-cell)))
     (when fc
       (let* ((obj (-> fc 0))
              (new-manipy (manipy-spawn (new 'static 'vector :w 1.0) #f sg #f :to obj)))
+        ;; level art not loaded yet -> skeleton-less zombie that can never draw;
+        ;; kill it and fail so the caller retries next frame (old icon stays)
+        (when (and new-manipy (zero? (-> (-> new-manipy) skel)))
+          (deactivate (ppointer->process new-manipy))
+          (set! new-manipy (the-as (pointer manipy) #f)))
         (when new-manipy
-          (set! (-> (-> new-manipy) draw dma-add-func) dma-add-process-drawable-hud)
+          (cond
+            (world-lit
+             ;; warm fixed lights = the daylight world-cell look (the stock hud
+             ;; fn's flat grey *hud-lights* was the owner's "wrong tint"; the
+             ;; mood-light variant went black on device)
+             (set! (-> (-> new-manipy) draw dma-add-func) dma-add-process-drawable-hud-with-cell-lights)
+             (set-vector! (-> (-> new-manipy) draw color-mult) 0.5 0.5 0.5 1.0)
+             (set-vector! (-> (-> new-manipy) draw color-emissive) 0.5 0.5 0.5 1.0)
+             ;; stop the manipy's own 1.0-rate loop (2x the world cell's ~0.5);
+             ;; rhud-drive-cell-anim advances the frame at the world rate
+             (send-event (ppointer->process new-manipy) 'anim-mode 'still))
+            (else (set! (-> (-> new-manipy) draw dma-add-func) dma-add-process-drawable-hud)))
           (set-vector! (-> (-> new-manipy) root trans) 0.0 0.0 0.0 1.0)
           (set-vector! (-> (-> new-manipy) root scale) icon-scale icon-scale icon-scale 1.0)
           (logior! (-> new-manipy 0 mask) (process-mask pause))
@@ -647,12 +1217,40 @@
           (draw-icons obj)
           #t)))))
 
+(defun rhud-drive-cell-anim ((obj hud))
+  "owner addendum: drive the hud cell icon exactly like the IN-WORLD cell.
+   the world idle plays fuel-cell-idle-ja at (loop! 0.5..0.6) — HALF the manipy
+   'loop rate (the owner's 'animation beaucoup trop vite') — and world cells do
+   NOT yaw-spin (their motion is baked in the anim; the spin was the stock hud
+   element's own set-yaw-angle). the icon is in anim-mode 'still; step its
+   frame at 0.5/frame here and pin the yaw."
+  (let ((ic (-> obj icons 0 icon)))
+    (when (and (nonzero? ic) ic (-> ic 0) (nonzero? (-> ic 0 skel)))
+      (let ((jg (-> ic 0 skel root-channel 0 frame-group)))
+        (when (and (nonzero? jg) jg)
+          (let ((leni (+ (-> jg data 0 length) -1)))
+            (when (> leni 0)
+              ;; half-frame stepping: mod in int half-frames to keep float
+              ;; precision over long sessions, then scale back to 0.5 units
+              (let ((hf (mod (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))) (* 2 leni))))
+                (send-event (ppointer->process ic) 'set-frame-num (* 0.5 (the float hf))))))))
+      ;; undo the stock hud-update's per-frame yaw-add (world cells don't spin)
+      (set-yaw-angle-clear-roll-pitch! (-> ic 0 root) 0.0)))
+  (none))
+
 (defun rhud-add-buzzer-icon ((this hud-recharged-health))
   "add the real scout-fly 3d model as an icon on the stock hud-buzzers element
    and hide its flat sprite particle."
   (let ((bz (-> *hud-parts* buzzers)))
     (when bz
       (let ((obj (the-as hud (-> bz 0))))
+        ;; owner round-2 item 2 (same zombie class as the cell): if a prior add
+        ;; produced a dead/skeleton-less icon, clear the slot and re-make it
+        (when (and (> (-> obj nb-of-icons) 0) (not (rhud-icon-alive? obj)))
+          (when (and (nonzero? (-> obj icons 0 icon)) (-> obj icons 0 icon) (-> obj icons 0 icon 0))
+            (deactivate (ppointer->process (-> obj icons 0 icon))))
+          (set! (-> obj icons 0 icon) (the-as (pointer manipy) #f))
+          (set! (-> obj nb-of-icons) 0))
         (when (zero? (-> obj nb-of-icons))
           (hud-pc-make-icon obj
                             HUD_ICON_COUNT
@@ -662,6 +1260,15 @@
                             :z 1024.0
                             :scale-x 0.008
                             :scale-y -0.008)
+          ;; art not loaded yet -> skeleton-less zombie; kill + reset so the
+          ;; per-frame guard retries until the level art is in
+          (when (and (nonzero? (-> obj icons 0 icon))
+                     (-> obj icons 0 icon)
+                     (-> obj icons 0 icon 0)
+                     (zero? (-> obj icons 0 icon 0 skel)))
+            (deactivate (ppointer->process (-> obj icons 0 icon)))
+            (set! (-> obj icons 0 icon) (the-as (pointer manipy) #f))
+            (set! (-> obj nb-of-icons) 0))
           (let ((icon (-> obj icons 0 icon)))
             (when (and (nonzero? icon) icon)
               ;; face the camera (the model's rest pose looks away) and follow
@@ -703,9 +1310,17 @@
       (if (not (-> p 0 disable)) (send-event (ppointer->process p) 'disable))
       (if (not (hidden? (-> p 0))) (send-event (ppointer->process p) 'hide-quick))))
   (let ((fc (-> *hud-parts* fuel-cell)))
-    (when (and fc (!= (ppointer->process fc) (-> this cell-proc)))
-      (if (rhud-set-cell-icon *fuel-cell-sg* RHUD_CELL_SCALE)
-        (set! (-> this cell-proc) (the-as process (ppointer->process fc)))))
+    ;; owner round-2 item 2: also re-run when the icon is a dead/skeleton-less
+    ;; zombie (boot-ON spawns during the level-load window) — the old guard
+    ;; latched cell-proc on the first spawn and never retried, so the cell
+    ;; icon stayed invisible for the whole session
+    (when (and fc
+               (or (!= (ppointer->process fc) (-> this cell-proc)) (not (rhud-icon-alive? (-> fc 0)))))
+      (if (rhud-set-cell-icon *fuel-cell-sg* RHUD_CELL_SCALE #t)
+        (set! (-> this cell-proc) (the-as process (ppointer->process fc)))
+        (set! (-> this cell-proc) #f)))
+    ;; owner addendum: world-rate anim + no yaw spin, every frame
+    (if (and fc (= (ppointer->process fc) (-> this cell-proc))) (rhud-drive-cell-anim (-> fc 0)))
     ;; the stock element also draws a FLAT power-cell sprite group (part 318 +
     ;; flares/orbit dots) under the 3d icon; the real model brings its own
     ;; detail, so skip the whole group while the recharged hud is ON
@@ -717,9 +1332,15 @@
     (if m (set! (-> m 0 skip-particle) 0)))
   (let ((ma (-> *hud-parts* money-all)))
     (if ma (set! (-> ma 0 skip-particle) 0)))
+  ;; the stock pickups hud's flat animated green-eco sprite is replaced by the
+  ;; real pickup rendition (hud-recharged-health hud-update draws it)
+  (let ((pk (-> *hud-parts* pickups)))
+    (if pk (set! (-> pk 0 skip-particle) 0)))
   (let ((bz (-> *hud-parts* buzzers)))
     (when (and bz
-               (or (!= (ppointer->process bz) (-> this buzz-proc)) (zero? (-> (the-as hud (-> bz 0)) nb-of-icons))))
+               (or (!= (ppointer->process bz) (-> this buzz-proc))
+                   (zero? (-> (the-as hud (-> bz 0)) nb-of-icons))
+                   (not (rhud-icon-alive? (the-as hud (-> bz 0))))))
       (rhud-add-buzzer-icon this)))
   (none))
 
@@ -732,7 +1353,7 @@
   (when (-> this cell-proc)
     (let ((fc (-> *hud-parts* fuel-cell)))
       (if (and fc (= (ppointer->process fc) (-> this cell-proc)))
-        (rhud-set-cell-icon *fuelcell-naked-sg* 0.009)))
+        (rhud-set-cell-icon *fuelcell-naked-sg* 0.009 #f)))
     (set! (-> this cell-proc) #f))
   ;; restore the stock flat-sprite layers (fuel-cell's stock value is -2, the
   ;; "hud-update drives particle pos" mode; money's is the default -1)
@@ -742,6 +1363,8 @@
     (if m (set! (-> m 0 skip-particle) -1)))
   (let ((ma (-> *hud-parts* money-all)))
     (if ma (set! (-> ma 0 skip-particle) -1)))
+  (let ((pk (-> *hud-parts* pickups)))
+    (if pk (set! (-> pk 0 skip-particle) -1)))
   (if (-> this buzz-proc) (rhud-remove-buzzer-icon this))
   (none))
 
@@ -750,6 +1373,19 @@
 ;;;----------------------------------------------
 
 (defmethod init-particles! ((this hud-recharged-health) (arg0 int))
+  ;; owner round-3 item 4: the REAL green-eco pickup particle system, at the stock
+  ;; hud-pickups sprite slot (mirrors hud-pickups::init-particles! exactly)
+  (when (< (-> this nb-of-particles) (-> this max-nb-of-particles))
+    (let ((s5-0 (-> this nb-of-particles)))
+      (set! (-> this particles s5-0) (new 'static 'hud-particle))
+      (set! (-> this particles s5-0 part) (create-launch-control group-hud-eco-green this))
+      (set! (-> this particles s5-0 init-pos x) 110.0)
+      (set! (-> this particles s5-0 init-pos y) 55.0)
+      (set! (-> this particles s5-0 init-pos z) 1.0)
+      (set! (-> this particles s5-0 part matrix) -1))
+    (+! (-> this nb-of-particles) 1))
+  (dotimes (s5-1 (-> this nb-of-particles))
+    (if (= (-> this particles s5-1 part matrix) -1) (set! (-> this particles s5-1 part matrix) (sprite-allocate-user-hvdf))))
   (set! (-> this x-sgn) -1)
   (set! (-> this y-sgn) -1)
   (set! (-> this friend) 0) ;; co-show the pickups counter, like the stock heart
@@ -781,11 +1417,49 @@
        ;; is kept for the ordinary change-triggered shows.
        (set! (-> this friend) (if pin -1 0)))
      (if *target*
-       (tally-value this (the int (-> *target* fact health)) (the-as int (-> *target* fact health-pickup-time))))))
+       (tally-value this (the int (-> *target* fact health)) (the-as int (-> *target* fact health-pickup-time))))
+     ;; owner round-3 item 4: collecting green eco must POP THE HEART alongside the
+     ;; counter, like the original hud (stock pickups co-shows stock health via
+     ;; friend; ours is disabled, so mirror it here)
+     (let ((pk (-> *hud-parts* pickups)))
+       (when (and pk (not (hidden? (-> pk 0))))
+         (set-time! (-> this trigger-time))
+         (if (hidden? this) (send-event this 'show))))
+     ;; owner addendum: the world cell EMITS A GLOW (group-fuel-cell-starburst:
+     ;; two counter-rotating starflash blooms 192/192/0 + 128/128/128 at
+     ;; rotvel -0.4/+0.3 deg per frame, plus flickering yellow flares —
+     ;; collectables-part.gc:1751). replicate it with the same effects-tpage
+     ;; textures at the hud cell's slot, under the icon's visibility/slide.
+     (let ((fc (-> *hud-parts* fuel-cell)))
+       (when (and fc (not (hidden? (-> fc 0))) (not (paused?)) (not (movie?)) (rhud-icon-alive? (-> fc 0)))
+         (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug))
+           (let* ((obj (the-as hud (-> fc 0)))
+                  (cx (+ 256.0 (the float (* (-> obj x-sgn) (-> obj offset)))))
+                  (cy (+ (the float (-> obj icons 0 icon-y)) (the float (* (-> obj y-sgn) (-> obj offset)))))
+                  (fx (rhud-aspect-fx))
+                  (ctr (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))))
+                  ;; rotation-unit angles, computed in INT space (72.8 = 364/5,
+                  ;; 54.6 = 273/5) so long sessions don't hit f32 precision
+                  (rot-a (the float (- (/ (mod (* 364 ctr) 327680) 5)))) ;; -0.4 deg/frame (world part 230)
+                  (rot-b (the float (/ (mod (* 273 ctr) 327680) 5))) ;; +0.3 deg/frame (world part 231)
+                  (pulse (+ 1.0 (* 0.15 (sin (the float (mod (* 218 ctr) 65536)))))))
+             ;; round-3: golden-white halo tint like in-game; low alpha so the cell body reads
+             (aif (get-texture starflash effects)
+                  (begin
+                    (rhud-set-shader-tex buf it)
+                    (rhud-quad buf cx cy 26.0 fx rot-a (rhud-rgba 255 230 140 48))
+                    (rhud-quad buf cx cy 30.0 fx rot-b (rhud-rgba 200 200 200 48))))
+             (aif (get-texture flare effects)
+                  (begin
+                    (rhud-set-shader-tex buf it)
+                    (rhud-quad buf cx cy (* 14.0 pulse) fx 0.0 (rhud-rgba 255 240 180 28))))))))))
   0
   (none))
 
 (defmethod draw-hud ((this hud-recharged-health))
+  ;; owner round-3 item 2: the base hud draw-hud spawns the real green-eco
+  ;; particle whenever this element is shown
+  (let ((t9-0 (method-of-type hud draw-hud))) (t9-0 this))
   (when (and (-> *pc-settings* recharged-hud?) *target* (not (hidden? this)) (not (paused?)))
     (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug))
       (let ((cx (+ RHUD_HEART_X (the float (* (-> this x-sgn) (-> this offset)))))
@@ -795,20 +1469,22 @@
         (cond
           ((>= hp 3)
            (rhud-set-shader buf RHUD_TBP_HEART_100)
-           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 128))
+           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 (rhud-rgba 128 128 128 128)))
           ((= hp 2)
            (rhud-set-shader buf RHUD_TBP_HEART_66)
-           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 128))
+           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 (rhud-rgba 128 128 128 128)))
           ((= hp 1)
-           ;; 33% blinks on top of the empty heart
+           ;; owner round-3 item 5: low-health blink is a looping alpha FADE in/out
+           ;; between the empty heart and the one-third-green overlay (not hard on/off)
            (rhud-set-shader buf RHUD_TBP_HEART_0)
-           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 128)
-           (when (logtest? (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))) 8)
+           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 (rhud-rgba 128 128 128 128))
+           (let* ((tri (mod (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))) 90))
+                  (aa (the int (* 128.0 (/ (the float (if (< tri 45) tri (- 90 tri))) 45.0)))))
              (rhud-set-shader buf RHUD_TBP_HEART_33)
-             (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 128)))
+             (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 (rhud-rgba 128 128 128 aa))))
           (else
            (rhud-set-shader buf RHUD_TBP_HEART_0)
-           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 128))))))
+           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 (rhud-rgba 128 128 128 128)))))))
   0
   (none))
 
@@ -817,6 +1493,37 @@
 ;;;----------------------------------------------
 
 (defmethod init-particles! ((this hud-recharged-power) (arg0 int))
+  ;; owner round-3 item 3: the three per-type eco particle systems at the gauge
+  ;; center hole (0=blue 1=red 2=yellow); only the active one is spawned in draw-hud.
+  (when (< (-> this nb-of-particles) (-> this max-nb-of-particles))
+    (let ((s5-0 (-> this nb-of-particles)))
+      (set! (-> this particles s5-0) (new 'static 'hud-particle))
+      (set! (-> this particles s5-0 part) (create-launch-control group-hud-eco-blue this))
+      (set! (-> this particles s5-0 init-pos x) 435.0)
+      (set! (-> this particles s5-0 init-pos y) 370.0)
+      (set! (-> this particles s5-0 init-pos z) 1.0)
+      (set! (-> this particles s5-0 part matrix) -1))
+    (+! (-> this nb-of-particles) 1))
+  (when (< (-> this nb-of-particles) (-> this max-nb-of-particles))
+    (let ((s5-0 (-> this nb-of-particles)))
+      (set! (-> this particles s5-0) (new 'static 'hud-particle))
+      (set! (-> this particles s5-0 part) (create-launch-control group-hud-eco-red this))
+      (set! (-> this particles s5-0 init-pos x) 435.0)
+      (set! (-> this particles s5-0 init-pos y) 370.0)
+      (set! (-> this particles s5-0 init-pos z) 1.0)
+      (set! (-> this particles s5-0 part matrix) -1))
+    (+! (-> this nb-of-particles) 1))
+  (when (< (-> this nb-of-particles) (-> this max-nb-of-particles))
+    (let ((s5-0 (-> this nb-of-particles)))
+      (set! (-> this particles s5-0) (new 'static 'hud-particle))
+      (set! (-> this particles s5-0 part) (create-launch-control group-hud-eco-yellow this))
+      (set! (-> this particles s5-0 init-pos x) 435.0)
+      (set! (-> this particles s5-0 init-pos y) 370.0)
+      (set! (-> this particles s5-0 init-pos z) 1.0)
+      (set! (-> this particles s5-0 part matrix) -1))
+    (+! (-> this nb-of-particles) 1))
+  (dotimes (s5-1 (-> this nb-of-particles))
+    (if (= (-> this particles s5-1 part matrix) -1) (set! (-> this particles s5-1 part matrix) (sprite-allocate-user-hvdf))))
   (set! (-> this x-sgn) 1)
   (set! (-> this y-sgn) 1)
   0
@@ -852,7 +1559,7 @@
             (fx (rhud-aspect-fx)))
         ;; empty ring base
         (rhud-set-shader buf RHUD_TBP_GAUGE_EMPTY)
-        (rhud-quad buf cx cy RHUD_GAUGE_HALF fx 0.0 128)
+        (rhud-quad buf cx cy RHUD_GAUGE_HALF fx 0.0 (rhud-rgba 128 128 128 128))
         (when *target*
           (let* ((remaining (max 0
                                  (min (the-as int
@@ -883,7 +1590,14 @@
                 (rhud-fan buf cx cy RHUD_GAUGE_HALF fx RHUD_GAUGE_ARC_START (+ RHUD_GAUGE_ARC_START (* RHUD_GAUGE_ARC_SPAN frac)) aa)
                 ;; tip: authored at the full position, rotated back to the fill edge
                 (rhud-set-shader buf tbp-end)
-                (rhud-quad buf cx cy RHUD_GAUGE_HALF fx (* RHUD_GAUGE_ARC_SPAN (- frac 1.0)) aa))))))))
+                (rhud-quad buf cx cy RHUD_GAUGE_HALF fx (* RHUD_GAUGE_ARC_SPAN (- frac 1.0)) (rhud-rgba 128 128 128 aa))
+                ;; owner round-3 item 3: the ACTIVE eco's real particle system in the center
+                ;; hole (the same launcher clone per type; spawn only the active one)
+                (let ((idx (case (-> *target* fact eco-type)
+                             (((pickup-type eco-yellow)) 2)
+                             (((pickup-type eco-red)) 1)
+                             (else 0))))
+                  (if (< idx (-> this nb-of-particles)) (spawn (-> this particles idx part) *null-vector*))))))))))
   0
   (none))
 

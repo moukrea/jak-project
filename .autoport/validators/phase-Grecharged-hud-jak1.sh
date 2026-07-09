@@ -20,6 +20,13 @@ grep -qiE 'jak_heart_100|heart.*100|health.*bucket|33.*blink|blink.*33' "$R" || 
 grep -qiE 'gauge|mask|tip|end.*piece|rotate' "$R" || fail "must implement the eco gauge (mask + rotated tip technique)"
 ok "report: menu placement + gate + OFF==stock + heart + gauge described"
 
+# OWNER ROUND 2 (2026-07-09): gauge scale, fuel-cell regression, center eco particle, green sphere by heart
+grep -qiE 'gauge.*(scale|resiz|larger|size|taille)|(scale|resiz).*gauge' "$R" || fail "round2: gauge must be scaled up to the stock gauge footprint"
+grep -qiE '(fuel.?cell|power.?cell|pile).*(restor|visible|appears|fixed|back|réappar)' "$R" || fail "round2: fuel cell must appear again in the HUD (regression)"
+grep -qiE '(cent(er|re)|hole|trou).*(eco|particle|particule)|(eco|particle).*(cent(er|re)|hole)' "$R" || fail "round2: 3D eco particle in the gauge center hole when active"
+grep -qiE 'green.*(sphere|orb|particle|particule)|(sphere|orb|particule).*vert' "$R" || fail "round2: real green eco sphere pickup model between heart and counter"
+ok "round2 items addressed in report"
+
 # PHYSICAL: recharged assets baked into the build (not just referenced in source)
 BAKED=0
 # NOTE: `| grep -q` under pipefail SIGPIPE-fails (141) on big streams even when the
@@ -41,4 +48,17 @@ ok "device screencap present ($FRAME, $SZ B)"
 # gold pristine
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
+# OWNER ROUND 3 (2026-07-09): particle-system fidelity + pickup behavior + fade blink
+grep -qiE '(vacil|waver|flicker|shimmer).*(green|eco)|(green|eco).*(vacil|waver|flicker|shimmer)' "$R" || fail "round3: green eco must waver like in-game"
+grep -qiE '(launch|group|sparticle|launcher).*(hud|icon|gauge|heart)|(hud|gauge).*(sparticle|particle group)' "$R" || fail "round3: must drive real in-game particle groups in HUD, not lookalike sprites"
+grep -qiE '(cell|pile).*(render|visible|appears|draw)' "$R" || fail "round3: fuel cell body must render (not just halo)"
+grep -qiE '(halo|glow|lueur).*(tint|teinte|color|colour)' "$R" || fail "round3: halo tint must match in-game"
+grep -qiE '(pickup|collect|ramass).*(heart|coeur)|(heart|coeur).*(pickup|collect|pop)' "$R" || fail "round3: heart must pop on green-eco pickup like original HUD"
+grep -qiE 'fade.*(in|out|blink)|crossfade|alpha.*(fade|lerp)' "$R" || fail "round3: low-health blink must be fade in/out, not hard on/off"
+ok "round3 items addressed in report"
+# OWNER LIVE REVIEW round2 addendum: HUD fuel cell must match in-game rendering
+grep -qiE '(anim|spin).*(speed|rate|slow|clock)|vitesse.*anim' "$R" || fail "addendum: fuel-cell animation speed must match in-game"
+grep -qiE 'glow|lueur|bloom' "$R" || fail "addendum: fuel-cell glow must match in-game"
+grep -qiE 'tint|teinte|hue|color match' "$R" || fail "addendum: fuel-cell tint must match in-game"
+ok "addendum: fuel-cell in-game-match (anim speed + glow + tint) addressed"
 echo "[Grecharged-hud PASS] Recharged HUD gated + menu + heart/gauge + assets baked + device frame. (owner play-test next)"
