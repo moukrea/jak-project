@@ -217,3 +217,30 @@ Breakdown (do not reinterpret):
    FADE in/out (alpha crossfade) between the one-third-green heart and the empty heart.
 The common thread of 1-3: replicate the in-game particle SYSTEMS (launch the same
 sparticle groups with the same params in HUD space), not lookalike static sprites.
+
+## ROUND 4 (2026-07-09) — round-3 features DON'T WORK ON THE ARM64 DEVICE (x86-verify was insufficient)
+CRITICAL METHODOLOGY: round 3 passed x86 verification but the FINAL arm64 build
+(out/jak1-arm64-full/iso, GAME.CGO 998b05ce) shows the round-3 HUD features NOT working on
+the actual device. x86 REPL proof is NOT enough for these — the arm64 device diverges
+(classic mips2c-noop / arm64-codegen / sparticle-in-HUD-space class). You MUST verify each
+fix ON THE DEVICE eae4df44 (deploy the ARM64 build to files/iso_data/jak1/ via adb push,
+NOT the x86 out/jak1/iso, then screencap/observe). Use .autoport/lib/deploy_verify_assets.sh
+eae4df44 jak1 to prove the device runs the fresh ARM64 set before trusting any device frame.
+
+Owner observations on the FINAL round-3 arm64 build (verbatim — these are REAL bugs):
+1. Green eco near the heart: STILL the DEFAULT hud sprite (the real in-game-identical
+   waver + emitted particles are NOT showing; maybe drawn but wrong/behind). On arm64 the
+   real particle group isn't rendering in the HUD.
+2. Fuel cell: the BODY is still invisible in the HUD (only its light/glow renders — glow
+   looks correct now). The cell model draw is missing on arm64.
+3. Gauge-center + green-heart particles: not the exact in-game particle systems on device.
+4. Heart + green-eco counter do NOT pop when collecting green eco (pickup behavior dead on
+   arm64).
+5. DISTINCTIVE BUG: Jak emits ~5 green eco particles into the WORLD (near the character)
+   every ~4 seconds — a HUD particle launcher is firing in WORLD space instead of HUD
+   space. Find the mis-targeted sp-launch / launch-control and bind it to the HUD draw
+   frame/space (this likely also explains #1/#3: the real group launches in the world, so
+   the HUD shows nothing new).
+Root-cause the arm64-vs-x86 divergence for the sparticle-in-HUD path (mips2c allowlist for
+the launch builders? HUD vs world matrix/space? per-type part-id table on arm64?). Fix on
+arm64, PROVE on device, then re-gate. deploy_verify_assets.sh is now wired into the validator.
