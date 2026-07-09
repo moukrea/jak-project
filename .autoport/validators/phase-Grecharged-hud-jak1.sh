@@ -10,6 +10,7 @@ ok(){ echo "[Grecharged-hud ok] $*"; }
 R=.autoport/reports/Grecharged-hud-jak1/report.txt
 [ -f "$R" ] || fail "no report.txt"
 grep -qiE 'RESULT:[[:space:]]*RECHARGED[[:space:]]+HUD' "$R" || fail "report lacks RESULT: RECHARGED HUD <what-lands>"
+grep -qiE 'RESULT:.*(IN-PROGRESS|in progress|underway|not final)' "$R" && fail "report RESULT is a living skeleton (IN-PROGRESS) — not a final result"
 grep -qiE 'recharged settings|réglages rechargés' "$R" || fail "must add a 'Recharged Settings' submenu"
 grep -qiE 'before.*advanced|advanced.*after|precede.*advanced|avant.*advanced' "$R" || fail "Recharged Settings must sit BEFORE Advanced settings"
 grep -qiE 'recharged hud.*(on|off|toggle)|toggle.*recharged|hud rechargé' "$R" || fail "must have a Recharged HUD ON/OFF toggle"
@@ -31,7 +32,7 @@ n=$(find android build-android out -type f 2>/dev/null | grep -icE 'recharged|ja
 ok "recharged assets baked into the build"
 
 # STRICT: a real device screencap artifact
-FRAME=$(find .autoport/reports/Grecharged-hud-jak1 -type f \( -name '*.png' -o -name '*.jpg' \) -newermt '-1 day' 2>/dev/null | head -1)
+FRAME=$(find .autoport/reports/Grecharged-hud-jak1 -type f \( -name '*.png' -o -name '*.jpg' \) -newermt '-1 day' 2>/dev/null | grep -v '/x86/' | grep -iE 'device|jak1focus' | head -1)
 [ -n "$FRAME" ] || fail "no device screencap artifact"
 SZ=$(stat -c %s "$FRAME" 2>/dev/null || echo 0); [ "$SZ" -ge 20000 ] 2>/dev/null || fail "screencap $FRAME too small ($SZ B)"
 grep -qiE 'mCurrentFocus.*jak1|focus.*jak1|screencap|screenshot' "$R" || fail "report must tie screencaps to jak1 foreground"
