@@ -1261,17 +1261,17 @@ phases:
   device: true
   owner_verify: true
 - id: Gjak1-icache-flush
-  name: 'port arm64 bug class #14 (stale-icache CacheFlush no-op) to jak1 klink.cpp:623 — likely kills the F1e ~1-in-6 link-time boot-flake; >=20/20 clean cold boots on device'
+  name: 'port arm64 bug class #14 (stale-icache CacheFlush no-op) to jak1 klink.cpp:623 — LATENT-correctness fix; owner 2026-07-09: NO boot-flake exists, do NOT gate on 20 boots; land the real-range flush + prove no regression + x86 byte-identical'
   prompt: prompts/phase-Gjak1-icache-flush.md
   validator: validators/phase-Gjak1-icache-flush.sh
   max_turns: 1200
   max_retries: 4
   device: true
   owner_verify: false
-- id: Gjak1-snowfort-events
-  name: 'OWNER 2026-07-07 (jak1 play-test): Snowy Mountain fort — gate opens but ground enemies FROZEN (waiting on an event/cutscene that never fired) + impression some cutscenes do not trigger; x86-first oracle, suspect enter-state/SUSPEND + spool/event dispatch classes; 1-to-1 fix'
-  prompt: prompts/phase-Gjak1-snowfort-events.md
-  validator: validators/phase-Gjak1-snowfort-events.sh
+- id: Gjak1-intermittent-events
+  name: 'OWNER 2026-07-07/09 (jak1 play-test): INTERMITTENT event-trigger failures GAME-WIDE — sometimes contextual mini-cutscenes do not fire, platforms that should move do not move, enemies stay immobile (Snowy Mountain fort was ONE instance but worked on retry — NOT a constant example). Find the common intermittent mechanism (strongly suspect bug class #14 stale-icache + enter-state/SUSPEND + event dispatch); x86-first oracle; 1-to-1 fix'
+  prompt: prompts/phase-Gjak1-intermittent-events.md
+  validator: validators/phase-Gjak1-intermittent-events.sh
   max_turns: 2400
   max_retries: 5
   device: true
