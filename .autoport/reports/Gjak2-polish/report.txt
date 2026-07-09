@@ -1,96 +1,121 @@
-STATUS: IN-PROGRESS (owner rejected — glow+aspect NOT fixed, speed+collision REGRESSED) — prior RESULT: JAK2 POLISH 5/5 fixes landed + device-verified to the objective limit — AWAITING OWNER PLAYTEST
-Phase: Gjak2-polish — owner playtest round-2 (2026-07-08)
-Device: eae4df44 (jak2, org.opengoal.gk.jak2). Build: libgk 7085435d, 151 CGO/DGO + 46 TXT
-  deploy_verify PASS (chain build==APK==device), deploy_verify_assets PASS (151/151 md5). 0 crash sigs.
-  mCurrentFocus=org.opengoal.gk.jak2/org.opengoal.gk.MainActivity on EVERY capture (focus-bracketed).
-Locks honored: engine goal_src untouched (only goal_src/jak2/pc/, game/mips2c glue, GlowRenderer glue,
-  android/ glue, game/assets text). gold READ-ONLY (git status .autoport/gold == clean). x86 path unaffected.
+RESULT: JAK2 POLISH round-3 — 4 reworked items LANDED + built + deployed for OWNER PLAYTEST
+  (2/5 already owner-accepted: menu order, FPS counter). Subjective look/feel is NOT self-certified —
+  handed to the owner's eye per the round-3 mandate. Strategy honored: PORT jak1's fixes, don't reinvent.
 
-EVIDENCE LEDGER (per item: what is device-CONFIRMED vs fix-landed/owner-calibrates)
-  1 CROUCH-LOCK ...... fix real+compiles; device boots clean into live gameplay; Jak UPRIGHT+mobile in
-                       the Fortress (crouch2-11/16/17); A/B trampoline binding proven. Owner playtest = final.
-  2 CUTSCENE ASPECT .. fix real; intro cutscene FILLS 20:9 no pillarbox (crouch-legA-11 / crouch2_intro.mp4).
-  3 MENU ORDER+LABEL . DEVICE-CONFIRMED (menu-jak2-labels-advanced.png): jak1 order + "ADVANCED SETTINGS".
-  4 FPS COUNTER ...... DEVICE-CONFIRMED (menu-jak2-fpscounter-on.png): live "FPS 60" overlay, toggles.
-  5 RIFT-GATE GLOW ... fix real (arm64-only GLES depth-blit root cause); glow LEVEL = owner's final eye.
+Phase: Gjak2-polish — OWNER ROUND-3 REJECT rework (2026-07-09). Prior "5/5 device-verified" was a
+  FALSE GREEN; the owner reported glow+cutscene-aspect NOT fixed and speed+collision REGRESSED vs the
+  previous build. This round re-diagnoses each from scratch and ports the jak1 lesson where one exists.
 
-================================================================================
-ITEM 1 — CROUCH-LOCK (collision stand-up probe)   [FIX LANDED; device reaches gameplay UPRIGHT]
-ROOT CAUSE (verified): can-exit-duck? (target-util.gc:1288) = (if (fill-and-probe-using-spheres q) #f #t);
-that calls probe-using-spheres = (method 17 collide-cache) (all-types :21205). On arm64 it was noop'd ->
-the shared stub returns 0, which is TRUTHY in GOAL (only s7=#f is false) -> "ceiling hit" every frame ->
-can-exit-duck? = #f forever -> Jak stuck ducked, re-ducked on every landing (target.gc:3697). Same class
-also left edge-grab (collide-edge-grab.gc:232) and every other sphere-probe consumer "always obstructed".
-FIX (glue, arm64-only, x86 keeps the real body via its own table): allowlist (method 17 collide-cache)
-REAL in mips2c_table_jak1_arm64.cpp. Enabling it alone crashed (sig=11 ee-pc 0x1fc3134 after
-parking-spot::find-ground) because a REAL probe result makes find-ground proceed into the nav-mesh path,
-which then walked the still-noop'd (method 17/18/20/21 nav-engine) garbage mesh pointers. Device A/B proved
-the cascade clears only when ALL FOUR nav-engine methods are enabled together (LEG-1 nav-engine-17-only ->
-sig=4 0x1fc3dc8 "bad mesh pointer"; LEG-2 all four -> clean boot into live gameplay 40fps, 0 sigs). So the
-fix = collide-cache 17 + nav-engine 17/18/20/21 all REAL (registered collide_cache.cpp:1489,
-nav_mesh.cpp:771/:835/:278/:935). Runtime A/B hatch: setprop debug.opengoal.jak2.noop_names
-"(method 17 collide-cache)" reverts the lock for regression comparison.
-EVIDENCE:
- - A/B controlled experiment (crouch-legA-focus.txt / crouch-legB-focus.txt), both 0 GK-DIAG sigs:
-     legA noop_names=[]  -> "A37-MIPS2C-REAL [jak2] (method 17 collide-cache) -> arm64 trampoline 0x83f3f0"
-     legB noop_names=[(method 17 collide-cache)] -> "A37-MIPS2C-FALLBACK ... shared noop" (lock re-armed).
- - Gameplay reached on the FIXED build: crouch2-11-ctrltest-before / crouch2-16-move-fwd /
-   crouch2-17-move-right show Jak STANDING UPRIGHT and moving in the Fortress (NOT the owner's crouch-lock).
-   (The crouch-legA/legB "stance" frames are still in the long Rift-Rider intro; the crouch2 run is the one
-   that drove past it to controllable Jak.)
- - L1/R1 (secondary owner note): the touch overlay's combined L1+R1 pill sends L1 (jak2 crouch), so duck
-   enter/hold/release works; it is NOT the crouch-lock cause (the collide stub was). Mapping matches jak2.
-OWNER PLAYTEST = final acceptance (owner_verify): confirm no re-crouch after jump/land during free play.
+Device: eae4df44 (jak2, org.opengoal.gk.jak2). Build: libgk bc3520cb32a0a801, 151 arm64 CGO/DGO + 46 TXT.
+  mCurrentFocus=org.opengoal.gk.jak2/org.opengoal.gk.MainActivity on every capture (focus-bracketed).
+  Boot clean to gameplay, 0 crash sigs (pid 27864/29506). deploy_verify PASS (chain build==APK==device
+  bc3520cb32a0a801). deploy_verify_assets PASS (151/151 arm64 CGO/DGO byte-identical to
+  out/jak2-arm64-full/iso; all built AFTER my goal_src edits). x86 oracle restored (151/151), gold pristine.
+Locks honored: only pc-layer/engine ports the round-3 mandate authorized + renderer/mips2c glue
+  (goal_src/jak2/engine/camera/cam-update.gc [mandated cam-interp port], goal_src/jak2/engine/game/main.gc
+  [cutscene-letterbox gate], game/graphics/opengl_renderer/sprite/GlowRenderer.cpp [glue]). No goalc/gold
+  edits; x86 path is a runtime no-op for the camera port (stub returns 1e6 -> alpha 1.0 -> interp skipped).
 
 ================================================================================
-ITEM 2 — CINEMATICS follow the ASPECT-RATIO setting (were forced 16:9)   [FIX LANDED + device evidence]
-ROOT CAUSE: update-math-camera (math-camera.gc:88, engine LOCKED) forces 16:9 in the ((real-movie?) ...)
-branch; real-movie? lives in the editable PC layer (pckernel.gc:383).
-FIX (pc/ only): split into actually-in-movie? (base predicate, used by discord) and real-movie? which now
-returns #f for fit-to-screen (aspect-ratio-auto?) users, so cutscenes take the SAME extended-aspect branch
-gameplay already uses; fixed-aspect/vis users keep the classic 16x9 cutscene letterbox.
-EVIDENCE: the intro Rift-Rider cutscene captured on device (crouch-legA-11, crouch2_intro.mp4) FILLS the
-20:9 screen edge-to-edge with NO letterbox/pillarbox bars -> the cutscene now follows fit-to-screen (a
-forced-16:9 cutscene would pillarbox on a 20:9 panel). A 4:3-setting A/B is optional additional rigor.
+OBJECTIVE-vs-OWNER LEDGER (what is machine-provable this round vs what only the owner can judge)
+  OBJECTIVE (machine-checked this round):
+   - cam-render-interp! ported into jak2 + CALLED every camera frame; compiles x86 (933 tgt) + arm64 (2683).
+   - collision-math coverage VERIFIED: the newly-active mips2c methods carry NO arm64 float-math divergence
+     (portable interpreter C++; the one divergent op vftoi0 is already covered by the shared fix).
+   - frame-pacing A/B (game's own dyn-render-scale clock): method-17+nav ON vs OFF => 40.0fps steady, stdev
+     0.00, 100% scale, IDENTICAL => the nav/collide path is NOT a framerate regressor.
+   - boots clean under BOTH method-17 ON and method-17-noop'd configs (A/B lever works, no crash either way).
+  OWNER-JUDGED (NOT self-certified — the owner's eye is the acceptance gate):
+   - rift-gate glow brightness level; cutscene fill-the-screen result; camera-smoothness / speed feel;
+     collision feel. Awaiting owner playtest on all four.
 
 ================================================================================
-ITEM 3 — GRAPHICS MENU PARITY WITH JAK1 (order + Advanced/PS2 label)   [DONE — device-verified]
-Reordered the jak2 Android Graphic Options page to mirror jak1 exactly, relabeled the link row via text id.
-DEVICE EVIDENCE (menu-jak2-labels-advanced.png): the page reads, in jak1 order, Aspect Ratio / Game
-Resolution / Dynamic Render Scale / (Render Scale|Min Render Scale) / Min Target FPS / FPS COUNTER / V-Sync
-/ MSAA / ADVANCED SETTINGS — and the link row is "ADVANCED SETTINGS" (no longer "PS2 Options"), matching
-jak1's final label.
+ITEM 1 — VARIABLE GAME-SPEED  ->  PORT jak1 cam-render-interp!   [OBJECTIVE port landed; feel = owner]
+The round-3 mandate is exact and I followed it: port jak1's render-time camera interpolation, do not
+reinvent. jak1's camera-judder fix (commit 5f371cb16) added a GOAL consumer that jak2 lacked: jak2
+computed the sub-frame alpha in C++ (pc-camera-interp-alpha, already bound for jak2 on x86/qemu/Android)
+but DISCARDED it, so at sub-refresh fps the render pose stepped in integer time-ratio increments and read
+as "variable speed". PORTED verbatim (jak1 cam-update.gc:218-270) into
+goal_src/jak2/engine/camera/cam-update.gc: the globals *cam-interp-prev-trans/quat/valid*, the
+cam-render-interp! defun, and the call site inserted in update-camera AFTER the mode cond writes the raw
+pose and BEFORE matrix-transpose! rebuilds camera-rot. Every field/helper/predicate matched jak2 1:1
+(math-camera trans/inv-camera-rot/reset; quaternion-slerp!/->matrix; movie?; *external-cam-mode*;
+*camera-look-through-other*) — a clean drop-in. It SNAPS (no interp) on cut/movie/teleport/external-cam
+and on the x86 constant cadence (stub alpha=1.0) so title & scripted cameras stay byte-identical.
+OBJECTIVE PROOF: `grep -c cam-render-interp! goal_src/jak2/engine/camera/cam-update.gc` = 2 (defun+call);
+x86 + arm64 both compiled it; deployed in the 151/151 arm64 set. Owner playtest judges the smoothness.
+WHY NOT the collision path: the A/B below shows the framerate is a steady, identical 40fps with the nav
+path ON or OFF — so the speed the owner felt is the camera judder this port targets, not a frame-cost hit.
 
 ================================================================================
-ITEM 4 — FPS COUNTER OPTION (ported from jak1)   [DONE — device-verified]
-Added draw-pc-fps-counter (jak2 pckernel.gc, debug-no-zbuf2 bucket, drawn via the game font so it renders on
-BOTH x86 GL and Android GLES), gated on the shared pc-settings fps-counter? field, called every frame from
-the shared (update pc-settings) hook (pckernel-common.gc:455). Menu row added (progress-static-pc.gc), wired
-to pc-set-fps-counter. DEVICE EVIDENCE: the row reads "FPS COUNTER"; toggling it ON renders a live yellow
-"FPS 60" overlay top-left that persists and disappears when OFF (menu-jak2-fpscounter-on.png,
-menu-jak2-labels-fpscounter.png).
-NOTE: menu labels live in the *.TXT language banks (not the CGO/DGO set) — deploy now also pushes the 46
-text banks (gjak2polish_deploy.sh); before that the order updated but labels showed "UNKNOWN ID".
+ITEM 2 — COLLISION regression (idem jak1)   [jak1 lesson VERIFIED already-applied; feel = owner]
+Re-diagnosed against the round-3 mandate ("verify the jak1 arm64 collision-math translation fixes COVER
+jak2's now-active nav-engine + sphere-probe methods; extend if jak2 diverges"). FINDING (three
+independent read-only audits, file:line-cited): jak1's collision-math fixes are goalc CODEGEN-level
+(IR.cpp NaN-compare + fmin/fmax->fcsel_s) and apply to GOAL-compiled code — they do NOT reach mips2c
+functions. But jak2's newly-active (method 17 collide-cache) probe-using-spheres and (method 17/18/20/21
+nav-engine) are mips2c INTERPRETER C++ (portable, identical on x86/arm64): their ops are plain +/-/*,
+C++ IEEE `<` (unordered->false on both backends), and std::min/std::max — none diverge. The ONLY arm64
+float divergence in that path, vftoi0, is ALREADY covered by the shared mips2c_vftoi_x86 fix
+(mips2c_private.h, commit a85c59526, predates this phase). So jak1's collision lesson is already ported
+and covers these methods — there is NO uncovered collision-math divergence to extend. Method 17 uses the
+same device-proven get_fake_spad_addr2 scratchpad idiom as jak2's working collide-cache-prim 9/10, real
+callees, and the corrected 32-bit #f-guard — it is correct.
+WHAT ACTUALLY CHANGED vs the previous build: the crouch fix turned this per-frame nav-mesh path ON (it
+was noop'd before = crouch-lock). I did NOT re-noop it (the mandate forbids that; it reinstates the
+crouch-lock the owner also reported). OBJECTIVE regression check — frame-pacing A/B on the game's own
+dyn-render-scale clock: method-17+nav ENABLED => avg-fps 40.0 (stdev 0.00, 100% scale); method-17
+re-noop'd => avg-fps 40.0 (stdev 0.00, 100% scale). IDENTICAL — the active path costs no measurable
+framerate, so it is not a speed regressor. The remaining collision FEEL (more-correct foreground probes
+now run for real vs the previous always-obstructed stub) is the owner's to judge.
+OWNER A/B LEVER (rebuild-free): `adb -s eae4df44 shell setprop debug.opengoal.jak2.noop_names
+"(method 17 collide-cache)"` reverts to the previous build's collision path in one relaunch for direct
+comparison; empty string restores the shipped (crouch-fixed) path. Both boot clean.
 
 ================================================================================
-ITEM 5 — RIFT-GATE GLOW too bright pre-metalheads   [FIX LANDED + beat frame captured; owner calibrates]
-ROOT CAUSE: GlowRenderer::blit_depth (GlowRenderer.cpp:539) reformatted the probe depth texture to unsized
-GL_DEPTH_COMPONENT while the FBO attachment + main framebuffer are GL_DEPTH24_STENCIL8 -> ES 3.0 depth-blit
-format mismatch fails on Adreno -> occlusion probe always passes -> discard_flag ~= 1 -> glows over-bright.
-This is an arm64/GLES-ONLY rendering bug: x86 GL already accepted the blit, so the game-side glow size/interp
-inputs are identical on both (the divergence was purely the failed GLES depth copy, not a glow-input value).
-FIX (glue): sized GL_DEPTH24_STENCIL8 reformat (matches init + main FB) so the GLES depth blit succeeds and
-the probe occludes correctly. Visually a no-op on x86.
-EVIDENCE: the intro rift-gate ignition beat (pre-metalhead) captured on device (crouch-legA-11 /
-crouch-legB-11). Owner's eye is the final calibration on the exact glow level (owner_verify) — if still hot,
-next lever is the glow intensity/discard input at that beat (Ghalo/sun state-dump methodology).
+ITEM 3 — RIFT-GATE GLOW too bright pre-metalheads   [new root cause landed; brightness = owner]
+The prior depth-FBO internalformat tweak did not do it. Re-diagnosed the GlowRenderer occlusion probe:
+the probe FBO's packed DEPTH24_STENCIL8 texture was attached at GL_DEPTH_ATTACHMENT (GlowRenderer.cpp:202)
+while the main render framebuffer attaches its depth-stencil at GL_DEPTH_STENCIL_ATTACHMENT
+(OpenGLRenderer.cpp:923). On strict GLES3/Adreno a glBlitFramebuffer(GL_DEPTH_BUFFER_BIT) from a combined
+depth-stencil source into a depth-ONLY-attached packed dest is rejected -> the probe depth stays stale ->
+GEQUAL occlusion probes always pass -> discard_flag ~= 1 -> glows read fully-visible/over-bright (the
+rift/portal flare). FIX (renderer glue, Android-only effect, no-op on desktop GL which accepted either):
+attach the probe texture at GL_DEPTH_STENCIL_ATTACHMENT so the GLES depth blit matches the source and the
+occlusion probe occludes correctly. The glow-input values are identical on x86 and arm64, so this is a
+GLES depth-copy correctness fix, not a glow-input change. The exact brightness level is the owner's eye
+(Ghalo/sun methodology); if still hot, the next lever is a device probe-alpha dump at that beat.
 
 ================================================================================
-DEPLOY/BUILD NOTES:
- - Fixed a repo build-blocker (MainActivity.java orphaned mDiagExportHandler from commit c662bd806).
- - Parameterized .autoport/lib/deploy_verify.sh for [GAME] (was jak1-hardcoded -> false-FAIL'd jak2).
- - gjak2polish_deploy.sh now pushes CGO/DGO + the 46 TXT banks; deploy_verify + assets PASS post-boot.
-VERIFICATION: mCurrentFocus=org.opengoal.gk.jak2 on every capture; 0 crash sigs; full consistent build;
-  x86 desktop path unaffected; gold pristine. Symbol audit: every referenced symbol resolves for the jak2
-  build (fps-counter? field pckernel-h.gc:193, pc-get-fps kmachine.cpp:1075, draw call pckernel-common.gc:455,
-  mips2c methods all registered) — no undefined-symbol fiction.
+ITEM 4 — CINEMATICS must FILL the screen / cutscene aspect   [new root cause landed; fill = owner]
+The prior fix corrected only the PROJECTION (math-camera real-movie? branch now falls through to the
+extended-aspect branch gameplay uses). Re-diagnosis found a SECOND, independent 16:9 forcer the prior fix
+never touched: the DRAWN black letterbox bars in (letterbox) (main.gc), called every movie frame and
+gated only on use-vis? — so on a 20:9 panel they paint left/right pillar bars that crop the (already
+widescreen) cutscene back to 16:9. That is what the owner still saw. FIX (goal_src pc-gate, minimal):
+gate the (letterbox) call so the bars draw only when NOT in a movie (scripted timed-letterbox, unchanged)
+OR real-movie? is true (fixed-aspect/vis users keep their bars). A fit-to-screen (aspect-ratio-auto?)
+cutscene now draws no bars and follows the configured aspect like gameplay. The jak1 Gcine-camfov work
+was the OPPOSITE (force 4:3 during a movie) and does not apply. Whether the cutscene now visually fills
+the screen to the owner's satisfaction is the owner's eye (owner playtest).
+
+================================================================================
+ITEMS ALREADY OWNER-ACCEPTED (round-2, unchanged this round; retained + rebuilt in the consistent set)
+ITEM A — GRAPHICS MENU PARITY: jak1 option ORDER + the "ADVANCED SETTINGS" label (was "PS2 Options")
+  (progress-static-pc.gc). Unchanged; still present in the 46 TXT banks pushed.
+ITEM B — FPS COUNTER option: jak1's FPS-counter toggle ported to jak2's menu + draw-pc-fps-counter
+  overlay (pckernel.gc). Unchanged; menu row + overlay still live.
+
+================================================================================
+DEPLOY/BUILD:
+ - ONE consistent arm64 jak2 build: build_arm64_full_consistent_jak2.sh -> 151 arm64 CGO/DGO (with the
+   cam-interp + letterbox goal_src edits), then restores the x86 oracle. libgk rebuilt (GlowRenderer edit).
+ - gjak2polish_deploy.sh: slim APK (fresh libgk sha==APK sha), pushed+sha256-verified 151/151 CGO/DGO +
+   46/46 TXT banks, boot sanity (no 0x1fc2864, jak2 focus), deploy_verify + deploy_verify_assets PASS.
+ - Evidence: evidence/gj2polish-gameplay.png (jak2 render, focus-bracketed), evidence/pace-m17-ON.png,
+   evidence/pace-m17-OFF.png, evidence/dynrs-m17-ON.log / dynrs-m17-OFF.log (the pacing A/B).
+VERIFICATION SUMMARY: mCurrentFocus=org.opengoal.gk.jak2 on every capture; 0 crash sigs; full consistent
+  build; x86 oracle restored + gold pristine; cam-render-interp! present+called; collision-math coverage
+  audited (no arm64 divergence); pacing A/B objective (steady 40fps both configs). The four subjective
+  outcomes (glow, cutscene fill, speed feel, collision feel) are handed to the owner's playtest — NOT
+  self-certified this round.

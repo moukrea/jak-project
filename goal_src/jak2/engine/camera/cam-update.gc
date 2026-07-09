@@ -7,6 +7,11 @@
 
 ;; DECOMP BEGINS
 
+;; Gjak2-polish (port from jak1): render-time camera interpolation consumes the sub-frame
+;; alpha published by the Android frame clock. C++ binding is already present for jak2 on
+;; every path (kmachine.cpp:1277 x86 stub=1e6, linux_arm64_main.cpp:462, gk_android_main.cpp:1306).
+(define-extern pc-camera-interp-alpha (function int))
+
 (defun plane-from-points ((arg0 (inline-array plane)) (arg1 vector) (arg2 vector) (arg3 vector) (arg4 int))
   (let ((s4-0 (new 'stack-no-clear 'vector)))
     (vector-cross! s4-0 arg1 arg2)
@@ -324,6 +329,59 @@
 
 (define *start-pos* (new 'global 'vector))
 
+;; Gjak2-polish (port from jak1 cam-update.gc:218-270, owner 2026-07-09): RENDER-time
+;; camera-pose interpolation. Previous rendered frame's RAW *math-camera* pose (position +
+;; view rotation quaternion). Render-only scratch: never read back into camera integration.
+(define *cam-interp-prev-trans* (new 'global 'vector))
+(define *cam-interp-prev-quat* (new 'global 'quaternion))
+(define *cam-interp-valid* #f)
+
+(defun cam-render-interp! ()
+  "Gjak2-polish (port from jak1): retime *math-camera*'s render pose (trans + inv-camera-rot
+   rotation) to real display time by interpolating between the previous and current logic-frame
+   RAW pose, using the sub-frame alpha from the Android frame clock (pc-camera-interp-alpha,
+   micro-units, [0,1]). RENDER-ONLY: the camera process keeps its authoritative state; only the
+   render-facing *math-camera* view is retimed, so on-screen camera motion tracks real time ->
+   smooth at sub-60fps despite the integer time-ratio k-dither. alpha is strictly clamped [0,1]
+   (no extrapolation). SNAPS (no interp) on: the first frame, a locked/constant cadence
+   (alpha~1, incl. x86 where the stub returns 1e6), a hard camera cut (*math-camera* reset), a
+   movie, a teleport (pose delta too large), and any non-gameplay camera (look-through-other /
+   external) so title & scripted cameras stay byte-identical. Called AFTER the mode cond writes
+   the raw pose and BEFORE matrix-transpose! rebuilds camera-rot."
+  (let* ((alpha (/ (the float (pc-camera-interp-alpha)) 1000000.0))
+         (mc *math-camera*)
+         (inv (-> mc inv-camera-rot)))
+    (let ((curr-quat (new-stack-quaternion0))
+          (raw-trans (new-stack-vector0)))
+      ;; snapshot the RAW current pose BEFORE any overwrite
+      (matrix->quaternion curr-quat inv)
+      (vector-copy! raw-trans (-> mc trans))
+      (let ((dot (quaternion-dot curr-quat *cam-interp-prev-quat*)))
+        (when (and *cam-interp-valid*
+                   (zero? *camera-look-through-other*)      ;; gameplay follow-cam only
+                   (not *external-cam-mode*)
+                   (< alpha 0.999) (> alpha 0.0)            ;; interp actually needed
+                   (zero? (-> mc reset))                    ;; not a hard cut
+                   (not (movie?))                           ;; not a cutscene
+                   (< (vector-vector-distance raw-trans *cam-interp-prev-trans*)
+                      (meters 10.0))                        ;; not a teleport
+                   (< 0.98 (fmax dot (- dot))))             ;; not a big angular cut
+          ;; interpolate rotation (slerp prev->curr) into inv-camera-rot rows 0-2 only
+          (let ((qi (new-stack-quaternion0))
+                (tmp (new-stack-matrix0)))
+            (quaternion-slerp! qi *cam-interp-prev-quat* curr-quat alpha)
+            (quaternion->matrix tmp qi)
+            (set! (-> inv vector 0 quad) (-> tmp vector 0 quad))
+            (set! (-> inv vector 1 quad) (-> tmp vector 1 quad))
+            (set! (-> inv vector 2 quad) (-> tmp vector 2 quad)))
+          ;; interpolate position (lerp prev->curr) in place
+          (vector-lerp! (-> mc trans) *cam-interp-prev-trans* raw-trans alpha)))
+      ;; store the RAW current pose as next frame's prev (every frame, interp or not)
+      (quaternion-copy! *cam-interp-prev-quat* curr-quat)
+      (vector-copy! *cam-interp-prev-trans* raw-trans)
+      (set! *cam-interp-valid* #t)))
+  #f)
+
 (defun update-camera ()
   (with-pp
     (let ((gp-0 *math-camera*))
@@ -474,6 +532,9 @@
             )
           )
         )
+      ;; Gjak2-polish: retime the render pose to real display time (render-only) BEFORE
+      ;; matrix-transpose! rebuilds camera-rot. Smooths sub-refresh camera judder.
+      (cam-render-interp!)
       (matrix-transpose! (-> gp-0 camera-rot) (-> gp-0 inv-camera-rot))
       (cond
         (*camera-no-mip-correction*
