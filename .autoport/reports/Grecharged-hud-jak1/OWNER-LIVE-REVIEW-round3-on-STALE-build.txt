@@ -1,0 +1,24 @@
+OWNER LIVE REVIEW (2026-07-09 ~14:00) — CAUTION: observed on a STALE device build.
+Root cause found by supervisor: device ran an INTERMEDIATE round-3 CGO (GAME.CGO md5
+998b05ce, cell-light fix present but NOT the final particle/pickup commit fb9a347df).
+The final HEAD build (md5 5958c908, 12:28, full consistent 28-file set) was never pushed
+because the Redmi was unplugged 12:24->13:00 for the HONOR save rescue. Supervisor pushed
+the full 28 CGO/DGO set + hash-verified 28/28 == HEAD at ~13:55. Owner must RETEST on the
+correct build before these are treated as real round-3 bugs.
+
+Owner quote (verbatim, French) — observed on the STALE build:
+"Heuuuu t'es sûr que c'est le dernier build sur le téléphone ? Déjà je comprend pas, Jak
+emet 5 eco vert (les petits) toutes les 4 secondes environ... Sur le HUD on voit toujours
+pas la pile d'énergie mais l'effet de lumière qui est sensé être sur la pile d'énergie à
+l'air bon. Sur le HUD pour l'éco vert on a toujours le sprite du HUD par défaut, il y a
+peut-être le même à l'identique de l'in-game par dessus, mais du coup ça va pas. Le coeur
+et le compteur d'éco vert ne s'affiche pas quand on collecte de l'eco vert..."
+
+If STILL broken on the correct HEAD build, these are genuine round-4 bugs:
+1. Jak emits ~5 green eco particles into the WORLD every ~4s (particle group firing in
+   world space near Jak instead of HUD space? — likely mis-targeted sparticle launcher).
+2. Fuel cell BODY still invisible in HUD (only its light/glow renders — glow looks correct).
+3. Green eco HUD: still the DEFAULT hud sprite (maybe the in-game-identical one drawn on
+   top, but net result wrong).
+4. Heart + green-eco counter do NOT appear when collecting green eco (pickup behavior
+   from round-3 item 4 not firing).

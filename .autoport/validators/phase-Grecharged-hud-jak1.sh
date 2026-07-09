@@ -45,6 +45,12 @@ SZ=$(stat -c %s "$FRAME" 2>/dev/null || echo 0); [ "$SZ" -ge 20000 ] 2>/dev/null
 grep -qiE 'mCurrentFocus.*jak1|focus.*jak1|screencap|screenshot' "$R" || fail "report must tie screencaps to jak1 foreground"
 ok "device screencap present ($FRAME, $SZ B)"
 
+# DEVICE ASSET FRESHNESS: the HUD lives in GOAL code (hud-classes-pc.gc -> GAME.CGO).
+# deploy_verify.sh only covers libgk.so; this proves the device runs the fresh CGO set
+# (2026-07-09: a gate false-passed while the Redmi ran an INTERMEDIATE round-3 GAME.CGO).
+bash .autoport/lib/deploy_verify_assets.sh eae4df44 jak1 >/dev/null 2>&1 || fail "device runs STALE GOAL CGOs — re-push out/jak1/iso/ (deploy_verify_assets.sh)"
+ok "device runs the fresh GOAL CGO/DGO set (deploy_verify_assets)"
+
 # gold pristine
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
