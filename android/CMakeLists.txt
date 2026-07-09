@@ -610,6 +610,10 @@ add_library(gk SHARED
     # DirectRenderer subclass, no direct GL calls; REV fb format shimmed in
     # opengl_utils.cpp.
     "${JAK_ROOT}/game/graphics/opengl_renderer/ProgressRenderer.cpp"
+    # Grecharged-hud: PC recharged HUD sprite loader (slots 8300+). Compiled into
+    # the desktop gk via game/CMakeLists.txt; the Android build has its own source
+    # list, so it must be listed here too or load_recharged_hud_textures is undefined.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/RechargedHudTextures.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/TextureUploadHandler.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/EyeRenderer.cpp"
     # Gjak2-visuals: vis/fog bucket — copies the per-level vis strings AND the
@@ -709,6 +713,12 @@ add_library(gk SHARED
     "${JAK_ROOT}/third-party/imgui/imgui_draw.cpp"
     "${JAK_ROOT}/third-party/imgui/imgui_tables.cpp"
     "${JAK_ROOT}/third-party/imgui/imgui_widgets.cpp"
+    # Grecharged-hud: stb_image implementation TU (STB_IMAGE_IMPLEMENTATION).
+    # RechargedHudTextures.cpp calls stbi_load/stbi_image_free; on desktop these
+    # come from the stb_image library, but the Android build has its own source
+    # list, so the implementation must be compiled in here or the symbols are
+    # undefined at link time.
+    "${JAK_ROOT}/third-party/stb_image/stb_image.cpp"
 )
 
 add_dependencies(gk gen_android_shaders)
