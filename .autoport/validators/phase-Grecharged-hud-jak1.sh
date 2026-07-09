@@ -48,6 +48,14 @@ ok "device screencap present ($FRAME, $SZ B)"
 # gold pristine
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
+# OWNER ROUND 3 (2026-07-09): particle-system fidelity + pickup behavior + fade blink
+grep -qiE '(vacil|waver|flicker|shimmer).*(green|eco)|(green|eco).*(vacil|waver|flicker|shimmer)' "$R" || fail "round3: green eco must waver like in-game"
+grep -qiE '(launch|group|sparticle|launcher).*(hud|icon|gauge|heart)|(hud|gauge).*(sparticle|particle group)' "$R" || fail "round3: must drive real in-game particle groups in HUD, not lookalike sprites"
+grep -qiE '(cell|pile).*(render|visible|appears|draw)' "$R" || fail "round3: fuel cell body must render (not just halo)"
+grep -qiE '(halo|glow|lueur).*(tint|teinte|color|colour)' "$R" || fail "round3: halo tint must match in-game"
+grep -qiE '(pickup|collect|ramass).*(heart|coeur)|(heart|coeur).*(pickup|collect|pop)' "$R" || fail "round3: heart must pop on green-eco pickup like original HUD"
+grep -qiE 'fade.*(in|out|blink)|crossfade|alpha.*(fade|lerp)' "$R" || fail "round3: low-health blink must be fade in/out, not hard on/off"
+ok "round3 items addressed in report"
 # OWNER LIVE REVIEW round2 addendum: HUD fuel cell must match in-game rendering
 grep -qiE '(anim|spin).*(speed|rate|slow|clock)|vitesse.*anim' "$R" || fail "addendum: fuel-cell animation speed must match in-game"
 grep -qiE 'glow|lueur|bloom' "$R" || fail "addendum: fuel-cell glow must match in-game"

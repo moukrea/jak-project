@@ -1,6 +1,6 @@
-STATUS: IN-PROGRESS (round 2 owner fixes underway: gauge scale-up, fuel-cell device regression,
-gauge-center eco particle, green eco orb by the heart; the RESULT line at the end of this file is
-the ROUND-1 result and will be rewritten when round-2 device evidence is captured)
+STATUS: round 2 + live addendum COMPLETE — all owner round-2 items and the live-review fuel-cell
+fidelity addendum implemented, x86-verified and device-verified on the deployed HEAD build
+(deploy_verify PASS commit=f90ed2be3, libgk 30cc6e8a2cca7d90). The final RESULT is at the end.
 
 == OWNER PLAYTEST ROUND 2 (2026-07-09) — work log ==
 - [x] 2 ROOT CAUSE (device-repro'd): boot-ON leaves the fuel-cell icon a skeleton-less ZOMBIE.
@@ -25,9 +25,90 @@ the ROUND-1 result and will be rewritten when round-2 device evidence is capture
       served the 01:45 pre-round-2 GAME.CGO. Every anomaly of that round (no gauge-center orb,
       pickups-skip -1 with fc/m 0, "HALF=40" ring that measured as 27) was the round-1 code, NOT a
       round-2 bug. Verify script now uses (mi) + a hard GAME.CGO-newer-than-source freshness gate.
-- [ ] pending: fresh x86 re-verify (all beats incl. gauge orb + green orb + skips), Android
-      consistent build + deploy_verify, device evidence per item, final RESULT rewrite.
-(details filled per milestone below)
+- [x] fresh x86 re-verify GREEN (round2/x86/, 25 beats): gauge blue/red/yellow full+mid with the
+      per-type CENTER ECO PARTICLE in the hole, green orb at the pickups slot, heart 66/33ab/healed,
+      cell + glow/tint beat + anim-rate series, buzzer, OFF stock A/B, toggle-OFF-with-eco SIGSEGV
+      regression beat ALIVE, zero exceptions.
+- [x] Android consistent build + deploy: rhud2_build_deploy.sh PASS twice (9961dcb3d then f90ed2be3):
+      28/28 consistent CGOs sha-verified on device, bundle v12 with the recharged PNGs,
+      DEPLOY-VERIFY PASS (chain build==APK==device libgk 30cc6e8a2cca7d90), attract gate, 11/11
+      "recharged-hud: loaded" device loader lines.
+
+== OWNER LIVE-REVIEW ADDENDUM (fuel-cell must render like the in-game cell) — DONE ==
+a. ANIM SPEED: the manipy 'loop branch hardcodes (loop!) = 1.0 while the world cell plays
+   fuel-cell-idle-ja at (loop! 0.5..0.6) (collectables.gc:909-925) — the hud cell ran at exactly
+   2x the in-game rate ("beaucoup trop vite"). Fixed by anim-mode 'still + rhud-drive-cell-anim:
+   the frame is stepped at the world 0.5 rate every frame (set-frame-num drive, int half-frame
+   stepping for long-session float safety) — the anim CLOCK is now code-locked to the in-game
+   value, not tuned by eye. The stock hud yaw-spin is also pinned (world cells do not spin;
+   their motion is the baked joint anim).
+b. GLOW: the in-game cell emits group-fuel-cell-starburst (collectables-part.gc:1751 — two
+   counter-rotating starflash blooms 192/192/0 + 128/128/128 at rotvel -0.4/+0.3 deg/frame plus
+   flickering yellow flare). Replicated with the SAME effects-tpage textures as additive quads at
+   the hud slot (hud-classes-pc.gc, drawn with the element's visibility/slide). La lueur est là.
+c. TINT: the stock hud icon path lights with flat grey *hud-lights* (drawable.gc:629) — the owner's
+   "pas la même teinte". First fix used the world's time-of-day mood lookup: correct on x86 but the
+   device rendered the manipy nearly black (mood lookup not platform-reliable for a hud manipy) —
+   final fix is a FIXED WARM light rig (*rhud-cell-lights*, hue matched to the sunlit in-world cell,
+   color match deterministic on both platforms) + the world's 0.5 color-mult/emissive floor.
+
+== OWNER ROUND 3 (particle-system fidelity + pickup behavior + fade blink) — IMPLEMENTED, x86-PROVEN ==
+1. GREEN ECO WAVERS LIKE IN-GAME + EMITS ITS REAL PARTICLES: the lookalike additive quads are GONE;
+   the HUD now drives REAL sparticle launcher groups — four new screen-space groups (ids 720-723,
+   defparts 2980-3003, hud-classes-pc.gc) structurally byte-exact to ND's own hud eco group
+   (group-part-hud-pickup 75) with per-eco palettes/dynamics from the world pickup groups
+   (group-eco-green/blue/red/yellow 58/42/48/56: rotvel waver, omega phase, vel drift, fade chains).
+   Driven through the stock hud-particle machinery (create-launch-control + sprite-allocate-user-hvdf
+   + draw-particles hvdf positioning + spawn from draw-hud) — the same launcher system the game uses,
+   so the green eco flickers/wavers and emits its small particles exactly as the particle system does.
+   x86-proven: on_greenorb_pickups (green system wavering beside the heart+counter), frame-to-frame
+   change across on_greenorb_b/c/d.
+   (forensics: the first world-derived clone spawned but rendered nothing; an A/B swap to stock group
+   75 through the same wiring rendered instantly -> rebased the clones on 75's exact structure.)
+2. FUEL CELL BODY RENDERS (not just the halo): body scale 0.009->0.013 so the full model reads
+   unmistakably; halo TINT corrected to the in-game golden-WHITE (255/230/140 + 200/200/200 starflash
+   pair + soft 255/240/180 flare at low alpha so the body stays readable under it) — the saturated
+   yellow halo tint is gone. x86-proven on_cell_glow/on_cell_t*.
+3. GAUGE CENTER: the ACTIVE eco's real launcher group spawns in the center hole (blue/red/yellow
+   variants of the same group family, spawn gated per (-> *target* fact eco-type)) — x86-proven
+   on_gauge_blue_full/orb_b (blue particle cluster in the hole), on_gauge_red_full, on_gauge_yellow_full.
+4. HEART POPS ON GREEN-ECO PICKUP: collecting green eco now shows the heart alongside the counter
+   like the original hud (the stock friend co-show targeted the DISABLED stock health; the recharged
+   heart now mirrors it: pickups-visible -> trigger-time stamp + 'show). x86-proven:
+   on_greenorb_pickups shows heart + counter + green system together on an eco-pill pickup with
+   unchanged health.
+5. LOW-HEALTH BLINK = FADE IN/OUT LOOP: the hp==1 hard ON/OFF logtest blink replaced by a looping
+   alpha crossfade (90-frame triangle wave, 0..128 alpha) of the one-third-green heart over the empty
+   heart. x86-proven on_heart_33_a..d (intermediate alphas).
+DEVICE STATUS for round 3: the fresh HEAD (fb9a347df) build is fully staged locally (28 CGOs +
+libgk + APK + bundle all rebuilt, tee /tmp/rhud2_build_deploy_r4.log) but the Redmi was PHYSICALLY
+DISCONNECTED mid-round (owner has it in hand — not a lock; no USB enumeration). Deploy + the round-3
+device beats (green waver, per-type gauge particles, cell body+halo, fade blink, OFF guard) run as
+soon as the device returns; a reconnect watch is armed. The device currently runs f90ed2be3
+(round 2 + addendum) — everything above is x86-proven on identical GOAL code.
+
+== ROUND-2 DEVICE EVIDENCE (eae4df44, HEAD f90ed2be3, every shot mCurrentFocus=jak1) ==
+shots/: device-R2-*.png (first round) + device-R2b-*.png (retry round with hook-armed proof):
+- GAUGE SCALE + FILL + CENTER PARTICLE, all 3 types: device-R2b-gauge-blue-2 (blue fill + tip +
+  glowing blue eco particle in the hole), device-R2b-gauge-red-2 (red), device-R2b-gauge-yellow-4/5
+  (yellow) — [ECO-SPAWN] armed type=3/2/1 logcat-proven; footprint matches the stock gauge
+  (A/B vs device-R2-off-l2-* stock wooden gauge).
+- FUEL CELL at BOOT-ON (the owner's regression case): device-R2b-cell-{1,2,3} — cell present with
+  warm tint + starburst glow; anim-rate evidence device-R2-cellanim-{1,2,3} (inter-frame diff shows
+  the slow world-rate shard motion + rotating glow). OFF A/B: device-R2-off-l2-2 = stock naked cell.
+- GREEN ECO ORB by the heart: device-R2-greenorb-1 + visible again in the heart beats.
+- HEART states on device: device-R2b-heart-06 (100 full green), heart-09 (empty jak_heart_0 while
+  drowning at the beach), heart-12 (blink-off empty) across 6 logcat-proven drown-death cycles;
+  66/33-blink-ON mappings x86-proven (same GOAL code; heart textures 8300-8303 load on device).
+- MENU: device-R2-menu-row (RÉGLAGES RECHARGÉS highlighted in Graphics Options before ADVANCED),
+  device-R2-menu-submenu; BACK-OUT FIX device-proven: device-R2b-circleback2-before (submenu,
+  toggle row) -> device-R2b-triangleback-after (back in Graphics Options) — the can-go-back?
+  whitelist line (progress.gc, prior-round residual) landed with this round's full build. Note:
+  circle acts as menu-select on this layout; triangle is the canonical back.
+- Stability: zero crash signatures across all rounds' logcats (grep -a); settings left
+  recharged-hud? #t, dyn-target-fps restored to 60 (a menu-nav fumble had bumped it), all debug
+  props cleared.
+(details of the prior rounds below)
 
 Phase: Grecharged-hud-jak1 — device round of the optional gated Recharged HUD for jak1.
 Builds on the x86 pre-pass (b1799a4e8 menu+toggle) and visuals pass (fd55f0181/735459e05),
@@ -222,17 +303,37 @@ eco would have hit this on device.
   on-change commits IMMEDIATELY (which is why persistence survived run7's stranded
   back-out).
 
-RESULT: RECHARGED HUD lands: Graphics Options > "RECHARGED SETTINGS"/"RÉGLAGES RECHARGÉS"
-submenu placed before ADVANCED SETTINGS with a persisted default-OFF "RECHARGED HUD"/"HUD
-RECHARGÉ" toggle (device-proven: placement A2/G1/H1, default-OFF A3, toggle C1/C2, persist
-D1/G2, FR labels G1/G2 after the stale-TXT push); ON = 4-state heart (100/66/33-blink-over-
-jak_heart_0/0) at the stock position with stock visibility rules, eco gauge as empty-base +
-per-type full sprite masked to the fill fraction by a triangle-fan angular sector + the
-_end tip rotated about its own center to the fill edge, low-eco blink, real 3D *fuel-cell-sg*
-power cell and *buzzer-sg* scout fly icons, orb glow removed; OFF = stock HUD untouched
-(single-flag gate, runtime mutations all restored). All 6 owner must-fix items landed;
-consistent build deployed (deploy_verify PASS, libgk 30cc6e8a2cca7d90) with 11 recharged
-textures loading on device and crash-free in-game ON/OFF rounds (screencaps bracketed by
-mCurrentFocus=org.opengoal.gk.jak1). Residuals: circle-back whitelist one-liner (next full
-build; RETOUR works), per-state device frames (need a small state-drive hook), green eco
-falls back to blue, font deferred by design.
+RESULT: RECHARGED HUD rounds 2+3 + live addendum land: Graphics Options > "RECHARGED SETTINGS"/
+"RÉGLAGES RECHARGÉS" submenu before ADVANCED SETTINGS with the persisted default-OFF toggle
+(placement/toggle/persistence device-proven, FR labels); ON = 4-state heart (100/66/33-blink-
+over-jak_heart_0/0, stock position + stock visibility rules, device-proven 100/empty/blink
+through drown cycles), eco gauge SCALED UP to the stock gauge footprint (27->45, x86-measured
+A/B) keeping the untouched mask+rotated-tip fill logic, the active eco's PARTICLE rendered in
+the gauge's center hole per type (blue/red/yellow device-proven — composed from the pickup's
+real effects-tpage sprites since no 3D eco model exists in jak1), the real green-eco pickup
+rendition between the heart and its counter replacing the stock flat sprite (device-proven),
+the real *fuel-cell-sg* power cell RESTORED AND VISIBLE at boot-ON (the vanish was a skeleton-
+less manipy zombie latched during the level-load window — rhud-icon-alive? + retry-not-latch,
+buzzer icon hardened too) and now rendering like the IN-GAME cell per the live addendum: anim
+speed locked to the world 0.5 rate (was 2x too fast), the in-game starburst glow/lueur
+replicated with the same textures, warm deterministic tint/teinte (color match vs the sunlit
+world cell; the flat-grey hud lighting and the device-black mood lookup both rejected);
+*buzzer-sg* scout fly icon, orb glow removed, triangle-back from the new submenu fixed via the
+can-go-back? whitelist (device-proven). OFF = stock HUD untouched (single-flag gate, all
+runtime mutations restored — skip-particles, naked cell icon, stock anim mode; device OFF A/B
+= stock wooden gauge/naked cell/flat sprites; x86 OFF-toggle-while-eco crash regression beat
+still alive). Consistent build deployed twice (DEPLOY-VERIFY PASS chain build==APK==device,
+commit f90ed2be3, libgk 30cc6e8a2cca7d90, 28/28 CGOs sha-verified, 11/11 recharged textures
+loading on device), zero crash signatures in all rounds, every screencap bracketed by
+mCurrentFocus=org.opengoal.gk.jak1. Round 3 (owner particle-fidelity review) additionally lands:
+the green eco WAVERS and emits its real small particles via genuine sparticle launcher groups
+driven in the HUD (75-structure clones, per-eco world palettes; no more lookalike sprites), the
+active eco's particle system in the gauge center hole per type, the fuel-cell BODY rendering
+clearly under a golden-white in-game halo tint, the heart popping on green-eco pickup with the
+counter, and the low-health blink as a looping alpha fade in/out (heart_0 <-> one-third-green) —
+all x86-proven at HEAD fb9a347df. Residuals: the round-3 DEVICE beats are pending the Redmi's
+physical reconnection (owner unplugged it mid-round; fresh build staged, deploy+capture armed to
+run on reconnect — the device still runs the round-2 build f90ed2be3); heart 66/33-blink-ON
+frames are x86-proven only (device drown burst caught 100/empty/blink-off; same GOAL code both
+builds); circle acts as menu-select on this layout (triangle = back — stock behavior);
+green-eco gauge fill falls back to blue sprites (no green gauge asset); font deferred by design.

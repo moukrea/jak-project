@@ -188,3 +188,32 @@ c. TINT: the HUD cell's color tint differs — match the in-game tint exactly.
 Likely cause family: the 3D-in-HUD icon path (hud-pc-make-icon) not carrying the same
 anim clock / draw flags / lighting-tint env as the world entity — compare against the
 in-game fuel-cell draw setup rather than tuning constants by eye.
+
+## OWNER PLAYTEST ROUND 3 (2026-07-09) — verbatim, fix ALL before re-gate
+Owner quote (verbatim, French):
+"Pour le recharged HUD, le sprite de Green Eco n'est pas comme celui qui apparaît ingame
+(il vacille pas de la même façon, il n'emet pas le petites particules qu'il est sensé
+emettre, la pile d'énergie n'apparaît pas mais son halo lumineux oui (mais pas avec la
+teinte qu'il devrait avoir). Pour les particules pas exactes, c'est pareil sur la jauge
+d'éco, on a bien un truc qui s'affiche au centre de la jauge, mais ça n'emet pas exactement
+les mêmes particules que son pendant in-game. Quand on ramasse de l'eco verte avec le Hud
+original, on a aussi le coeur qui s'affiche en plus du compteur... on devrait avoir le même
+comportement avec le HUD rechargé ! Et quand la santée est faible, yes ça doit clignotter,
+mais pas en mode ON/OFF, plutôt en mode fade in/out en boucle pour le coeur avec un tier
+de vert et le coeur vide"
+
+Breakdown (do not reinterpret):
+1. GREEN ECO SPRITE fidelity: must waver/flicker ("vaciller") EXACTLY like the in-game
+   green eco pickup AND emit the same small particles it emits in-game. Don't fake with a
+   lone sprite — drive the REAL in-game pickup particle group/launcher in the HUD.
+2. FUEL CELL: the cell itself does NOT appear (only its glow/halo does), and that halo's
+   tint is wrong. Make the actual cell render again + correct halo tint (in-game match).
+3. GAUGE CENTER particle: something shows, but its emitted particles are not exactly the
+   in-game eco pickup's — same fix approach as item 1, per eco type.
+4. HEART-ON-PICKUP BEHAVIOR: with the ORIGINAL HUD, collecting green eco pops the heart
+   (with the counter). The Recharged HUD must do the same: green-eco pickup => heart
+   appears alongside the counter.
+5. LOW-HEALTH BLINK STYLE: keep blinking at low health, but NOT hard ON/OFF — a looping
+   FADE in/out (alpha crossfade) between the one-third-green heart and the empty heart.
+The common thread of 1-3: replicate the in-game particle SYSTEMS (launch the same
+sparticle groups with the same params in HUD space), not lookalike static sprites.

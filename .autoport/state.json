@@ -183,7 +183,7 @@
     "Gjak2-pcmenus": 2,
     "Grecharged-hud-visuals-x86": 1,
     "Gjak2-movement": 1,
-    "Grecharged-hud-jak1": 4
+    "Grecharged-hud-jak1": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -766,7 +766,6 @@
     "Gjak2-visuals",
     "Gjak2-ingame",
     "Gjak2-pcmenus",
-    "Gjak2-movement",
-    "Grecharged-hud-jak1"
+    "Gjak2-movement"
   ]
 }
