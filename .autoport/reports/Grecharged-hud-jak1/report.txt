@@ -1,4 +1,4 @@
-RESULT: RECHARGED HUD IN-PROGRESS (attempt 4 — living report; device round underway, not final until this line says what LANDS)
+STATUS: FINAL (attempt 7 completed the device round; the RESULT line is at the end of this file)
 
 Phase: Grecharged-hud-jak1 — device round of the optional gated Recharged HUD for jak1.
 Builds on the x86 pre-pass (b1799a4e8 menu+toggle) and visuals pass (fd55f0181/735459e05),
@@ -81,12 +81,83 @@ Extraction verifiably done (stamp=12, 321/321 files = 293 data + 28 arm64 CGO/DG
 out/jak1-arm64-full/iso i.e. the consistent HEAD set, 11 recharged PNGs at
 files/recharged_assets/); marker recreated, deploy_finish re-run: stamp/PNG checks +
 sha256-verified push of all 28 HEAD CGO/DGOs + attract boot gate.
-<IN PROGRESS: deploy_finish re-run, then rhud2_device_verify.sh (menu placement, toggle,
- persistence, in-game ON/OFF A/B shots, mCurrentFocus=jak1 brackets)>
+deploy_finish re-run PASSED 02:17 (rhud2-finish-run4b.log): stamp=12, 11 recharged PNGs at
+files/recharged_assets/, 28/28 consistent HEAD CGO/DGOs sha256-verified, attract renders,
+focus=jak1, all 11 "recharged-hud: loaded -> vram slot 83xx" loader lines on device.
 
-== DEFERRED ==
+rhud2_device_verify.sh run7 (03:12-03:19, shots/ device-*.png, every shot logged with
+mCurrentFocus=org.opengoal.gk.jak1):
+- MENU PLACEMENT: device-A2 shows the RECHARGED SETTINGS row highlighted in Graphics
+  Options directly under MSAA (= the slot before ADVANCED SETTINGS, android idx 8);
+  device-A3 the submenu with RECHARGED HUD: NON (default OFF after settings wipe) + RETOUR.
+- TOGGLE + COMMIT: device-C1 edit mode, device-C2 "RECHARGED HUD: OUI" committed; pulled
+  device-pc-settings-after-ON.gc line 63: (recharged-hud? #t).
+- PERSISTENCE: full force-stop + relaunch -> device-D1 still "RECHARGED HUD: OUI";
+  device-pc-settings-final.gc still (recharged-hud? #t).
+- In-game sections of run7 (B1-B3/D2-D4) were STRANDED IN THE MENU — see finding 1 below;
+  in-game evidence captured by the follow-up rhud2_ingame_capture.sh instead (E/F/G shots).
+
+rhud2_ingame_capture.sh run1 (03:22-03:34, rhud2-ingame-run1.log):
+- Step 0: 46 fresh *COMMON.TXT/*SUBTIT.TXT sha256-pushed (fixes device finding 2);
+  device 1COMMON.TXT now carries the FR 1706/1707 strings.
+- FR MENU: device-G1 "RÉGLAGES RECHARGÉS" highlighted in the FR Graphics Options;
+  device-G2 submenu "HUD RECHARGÉ: OUI" (FR label + persistence re-proven);
+  device-G3 RETOUR pops back to Graphics Options (finding-1 workaround proven on device).
+- ON IN-GAME (debug.opengoal.f1.warp=1 -> Geyser Rock game-start; recharged-hud? #t):
+  device-E1/E2/E3-walk1..6 — gameplay renders crash-free with the Recharged build ON;
+  HUD empty at full health/no eco = the owner's visibility rules (heart only at last
+  notch / on damage) honored on device. The two debug.opengoal.mouche.buzz scout-fly
+  collects fired ~90s post-launch (MOUCHE-BUZZ #1/#2 in device-ingame-ON-logcat.txt)
+  INSIDE the settle sleep, so run1 missed the fly-icon window — redone in run2 below.
+- OFF IN-GAME (settings recharged-hud? -> #f pushed, same warp): device-F1..F3-walk6 —
+  stock HUD baseline; F1 == E1 scene A/B (both HUD-empty at spawn, as stock rules say).
+- Settings restored (recharged-hud? #t) + props cleared for the owner.
+
+rhud2_ingame_capture2/3 (03:32-03:43, ON-state reruns for the missed fly-icon window):
+- Warp-to-control latency varies 10s..90s across boots (cold asset check vs warm start),
+  so run2's sleep-timed burst missed again; run3 went EVENT-DRIVEN (rapid screencaps
+  triggered by the F1-WARP logcat line) and captured the scout-fly collect LIVE with the
+  HUD ON: device-ON3-w02 (3D mecamouche beside Jak + Keira "vous avez trouvé une de mes
+  mécamouches!"), w03/w04 (the fly's fly-to-HUD flight) — the *buzzer-sg* 3D model
+  renders on device in the recharged build, collect sequence crash-free (MOUCHE-BUZZ
+  #1/#2 in device-ingame-ON3-logcat.txt, zero crash signatures all rounds).
+- The blue-eco vent platform is visible in device-ON3-vent-a2; blind camera-relative
+  stick nav missed standing on it (3 tries), so no device frame shows the gauge FILLED —
+  honest gap, see residuals (the gauge itself is x86-proven per type/fill, and the
+  device round proves the texture load + draw path + gameplay stability with it armed).
+- device-ON2-t01/stand4 additional ON-state gameplay frames (fresh boot, flag #t).
+
+== DEVICE FINDINGS (this round) ==
+1. CIRCLE-BACK SWALLOWED in the new submenu (root-caused, workaround exists): the engine
+   can-go-back? (goal_src/jak1/engine/ui/progress/progress.gc:584-634) is a hardcoded
+   whitelist of progress-screen ids and the new recharged-settings id (progress-h.gc:134)
+   is not in it, so the circle/triangle back path (progress-pc.gc:3159) no-ops on the
+   toggle row. Selecting RETOUR (or circle ON the RETOUR row) pops correctly via the
+   ungated Back-row path (progress-pc.gc:3199-3213) — the menu is never a trap, the
+   circle shortcut just doesn't work on the toggle row. Fix is one whitelist line in
+   progress.gc, but that file compiles into the boot CGOs (GAME.CGO rebuild is unsafe
+   standalone) => needs the NEXT full consistent build; left as a residual, spec'd above.
+2. STALE TEXT DATA on device (fixed in-round): the v12 asset bundle's *COMMON.TXT/*SUBTIT.TXT
+   predated the 1706/1707 text ids, so the FR menu showed the EN fallback labels
+   ("RECHARGED SETTINGS" instead of "RÉGLAGES RECHARGÉS"). Pushed all 50 fresh TXT files
+   from the same 01:45 consistent build (sha256-verified, rhud2_ingame_capture.sh step 0);
+   FR labels re-shot (device-G1/G2). Root cause for the supervisor: build_asset_bundle.sh
+   must restage TXT files whenever game_custom_text_*.json changes.
+
+== DEFERRED / RESIDUALS ==
 - FONT: untouched by design (later phase per the mandate).
 - Green eco falls back to blue sprites (no green asset provided).
+- Circle-back inside the Recharged submenu (device finding 1): one-line can-go-back?
+  whitelist add in goal_src/jak1/engine/ui/progress/progress.gc (PC_PORT or-block, add
+  (= v1-2 (progress-screen recharged-settings)) beside gfx-ps2-options) — REQUIRES the
+  next full consistent build (boot-CGO file); RETOUR works today, so shipped as residual.
+- Per-state heart/eco DEVICE screencaps (health 66/33-blink/0, red/yellow fills): no
+  device-side state-drive hook exists (no goalc listener on Android; the x86 rounds drove
+  states via the REPL). The state->sprite mapping is GOAL code shared verbatim by both
+  builds and x86-proven per state (x86/ shots + state dumps); the device round proves the
+  RENDER path (textures load, gauge/heart/icons draw in-game) + the visibility rules.
+  If the owner wants per-state device frames, a tiny kmachine listener-hook (mouche
+  pattern) can drive target health/eco in a follow-up.
 
 == BUG FOUND & FIXED THIS PHASE (x86-first verification catch) ==
 Toggling recharged-hud? OFF while the eco gauge was VISIBLE (carrying eco) SIGSEGV'd
@@ -103,4 +174,36 @@ zero new cores (previously 2/2 SIGSEGV). A player toggling the menu OFF while ca
 eco would have hit this on device.
 
 == HONEST NOTES ==
-<PENDING>
+- Per-state heart/gauge DEVICE frames (66/33-blink/0 hearts, red/yellow/partial fills,
+  gauge-filled-in-vent) were NOT captured: no damage source at Geyser Rock, no device-side
+  health/eco state-drive hook (Android has no goalc listener), and blind stick nav missed
+  the eco vent 3 times. The mappings are x86-proven per state (x86/ shots + state dumps,
+  same GOAL code in both builds); the device rounds prove textures load (11/11 loader
+  lines), the draw path runs, gameplay is crash-free ON and OFF, and the visibility rules
+  hold (HUD empty at full health/no eco). A ~30-line kmachine listener-hook (mouche
+  pattern: set target health / eco-type+level from a prop) would make per-state device
+  frames turnkey for the owner-play-test follow-up.
+- The buzzer counter frame (icon + count) fell between screencap frames (~3.7s effective
+  cadence vs a short display window); the collect itself and the 3D fly model ARE on
+  device frames (ON3-w02..w04).
+- OFF == stock on device is proven at spawn (F1 == E1 scene, both HUD-empty per stock
+  rules) + by construction (single gate flag; x86 A/B + state dumps did the deep proof:
+  RHSKIP-OFF fc -2 money -1 == stock defaults, byte-identical draw when OFF).
+- The fixed x86 pre-pass claim "commit-to-file on menu close" is imprecise: the toggle's
+  on-change commits IMMEDIATELY (which is why persistence survived run7's stranded
+  back-out).
+
+RESULT: RECHARGED HUD lands: Graphics Options > "RECHARGED SETTINGS"/"RÉGLAGES RECHARGÉS"
+submenu placed before ADVANCED SETTINGS with a persisted default-OFF "RECHARGED HUD"/"HUD
+RECHARGÉ" toggle (device-proven: placement A2/G1/H1, default-OFF A3, toggle C1/C2, persist
+D1/G2, FR labels G1/G2 after the stale-TXT push); ON = 4-state heart (100/66/33-blink-over-
+jak_heart_0/0) at the stock position with stock visibility rules, eco gauge as empty-base +
+per-type full sprite masked to the fill fraction by a triangle-fan angular sector + the
+_end tip rotated about its own center to the fill edge, low-eco blink, real 3D *fuel-cell-sg*
+power cell and *buzzer-sg* scout fly icons, orb glow removed; OFF = stock HUD untouched
+(single-flag gate, runtime mutations all restored). All 6 owner must-fix items landed;
+consistent build deployed (deploy_verify PASS, libgk 30cc6e8a2cca7d90) with 11 recharged
+textures loading on device and crash-free in-game ON/OFF rounds (screencaps bracketed by
+mCurrentFocus=org.opengoal.gk.jak1). Residuals: circle-back whitelist one-liner (next full
+build; RETOUR works), per-state device frames (need a small state-drive hook), green eco
+falls back to blue, font deferred by design.
