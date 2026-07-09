@@ -1,4 +1,4 @@
-RESULT: JAK2 POLISH 5/5 fixes landed + device-verified to the objective limit — AWAITING OWNER PLAYTEST
+STATUS: IN-PROGRESS (owner rejected — glow+aspect NOT fixed, speed+collision REGRESSED) — prior RESULT: JAK2 POLISH 5/5 fixes landed + device-verified to the objective limit — AWAITING OWNER PLAYTEST
 Phase: Gjak2-polish — owner playtest round-2 (2026-07-08)
 Device: eae4df44 (jak2, org.opengoal.gk.jak2). Build: libgk 7085435d, 151 CGO/DGO + 46 TXT
   deploy_verify PASS (chain build==APK==device), deploy_verify_assets PASS (151/151 md5). 0 crash sigs.
