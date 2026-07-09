@@ -105,6 +105,8 @@ snd '(set! (-> *pc-settings* recharged-hud?) #t)' 3
 # a. gauge blue full + natural drain to mid
 eco_on blue
 shot on_gauge_blue_full
+sleep 0.8
+shot on_gauge_blue_orb_b
 sleep 8
 shot on_gauge_blue_mid
 # b. red / yellow full
@@ -119,6 +121,15 @@ shot on_gauge_hidden
 # c. green orb by heart (pickups counter + NEW green eco particle composite)
 snd '(+! (-> *target* fact eco-pill) 1.0)' 1.5
 shot on_greenorb_pickups
+# c2. greenorb fade waver (green eco particle system should change between frames)
+sleep 0.8
+shot on_greenorb_b
+sleep 0.8
+shot on_greenorb_c
+sleep 0.8
+shot on_greenorb_d
+# c3. heart-pop check (heart popped by green-eco pickup, visible alongside pickups counter)
+shot on_heartpop
 # d. heart states
 snd '(set! (-> *target* fact health) 2.0)' 1.5
 shot on_heart_66
@@ -126,6 +137,10 @@ snd '(set! (-> *target* fact health) 1.0)' 1
 shot on_heart_33_a
 sleep 0.7
 shot on_heart_33_b
+sleep 0.4
+shot on_heart_33_c
+sleep 0.4
+shot on_heart_33_d
 snd '(set! (-> *target* fact health) 3.0)' 1.5
 shot on_heart_healed
 # e. cell icon spin
