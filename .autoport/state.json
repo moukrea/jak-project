@@ -183,7 +183,7 @@
     "Gjak2-pcmenus": 2,
     "Grecharged-hud-visuals-x86": 1,
     "Gjak2-movement": 1,
-    "Grecharged-hud-jak1": 4
+    "Grecharged-hud-jak1": 5
   },
   "fingerprints": {
     "00-harness": [
@@ -713,7 +713,7 @@
     "Gjak2-movement": 1783535947.7066994,
     "Grecharged-hud-jak1": 1783544207.4640982
   },
-  "last_update": "2026-07-09T00:19:13.036433+00:00",
+  "last_update": "2026-07-09T01:03:48.658059+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -766,7 +766,6 @@
     "Gjak2-visuals",
     "Gjak2-ingame",
     "Gjak2-pcmenus",
-    "Gjak2-movement",
-    "Grecharged-hud-jak1"
+    "Gjak2-movement"
   ]
 }
