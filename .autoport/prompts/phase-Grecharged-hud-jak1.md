@@ -129,3 +129,16 @@ Three attempts died with work committed but NO report.txt (turns exhausted in bu
     not batched at the end).
  3. You inherit 3 attempts of committed WIP (645cedca6, 78e442b1d, ad05e89d3) — audit what already
     works before redoing anything; the remaining gap may be small.
+
+## ENDGAME DIRECTIVE (supervisor 2026-07-09 03:15 — attempts 5/6 stalled; scope is now MINIMAL)
+Everything is implemented and committed across attempts 1-4 (+ the x86 visuals phase). DO ONLY THIS,
+in order, nothing else:
+ 1. Build the CONSISTENT jak1 android chain if not fresh (cmake gk -> gradle assembleJak1Debug),
+    install on eae4df44, deploy_verify PASS.
+ 2. Capture the device evidence: menu (Recharged Settings + toggle), HUD OFF (stock A/B), HUD ON at
+    health 100/66/33-blink/0 and eco gauge fills (drive via the debug hooks), the 3D cell+fly icons
+    visible + hidden states. Name files device-*.png. Verify mCurrentFocus=jak1 for each.
+ 3. Finalize the report: replace the STATUS line with the final `RESULT: RECHARGED HUD <what-lands>`
+    + fill the evidence paths + honest residuals (anything from the owner's 6-point list not met).
+NO refactors, NO new features, NO investigation beyond what step 2 reveals as broken (if something
+IS broken on device, fix minimally or report it as residual — do not expand scope).
