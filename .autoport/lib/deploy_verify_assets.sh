@@ -25,11 +25,19 @@ SERIAL="${1:-eae4df44}"
 GAME="${2:-jak1}"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 PKG="org.opengoal.gk.${GAME}"
-ISO_DIR="out/${GAME}/iso"
+# CRITICAL: the device is arm64 — it MUST match the ARM64 CGO build tree, NOT the
+# x86 tree (out/<game>/iso). Pushing x86 CGOs to the arm64 device SIGILLs at frame 0
+# (2026-07-09 incident: pushed out/jak1/iso x86 5958c908 over the device's arm64
+# 998b05ce -> illegal instruction). ISO_DIR override wins; else prefer -arm64-full.
+if [ -n "${3:-}" ]; then ISO_DIR="$3"
+elif [ -d "out/${GAME}-arm64-full/iso" ]; then ISO_DIR="out/${GAME}-arm64-full/iso"
+elif [ -d "out/${GAME}-arm64/iso" ]; then ISO_DIR="out/${GAME}-arm64/iso"
+else ISO_DIR="out/${GAME}/iso"; fi
 DEV_DIR="files/iso_data/${GAME}"
 die() { echo "DEPLOY-ASSETS FAIL: $*" >&2; exit 1; }
 
 [ -d "$ISO_DIR" ] || die "no build dir $ISO_DIR"
+echo "  ref arm64 build tree: $ISO_DIR"
 LOCAL_FILES=$(cd "$ISO_DIR" && ls *.CGO *.DGO 2>/dev/null)
 [ -n "$LOCAL_FILES" ] || die "no CGO/DGO in $ISO_DIR"
 N_LOCAL=$(echo "$LOCAL_FILES" | wc -l)

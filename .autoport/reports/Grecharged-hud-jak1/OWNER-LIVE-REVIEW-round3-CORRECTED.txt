@@ -1,0 +1,12 @@
+CORRECTION (2026-07-09 ~15:30): my "device ran a stale intermediate CGO" diagnosis was
+WRONG. The device ran the FINAL round-3 arm64 build (out/jak1-arm64-full/iso, GAME.CGO
+md5 998b05ce, built 12:28 from HEAD fb9a347df). I mistakenly compared the arm64 device
+CGO hash against the x86 build hash (out/jak1/iso, 5958c908) — different ARCHITECTURES,
+they never match — and cried "stale", then pushed the x86 set onto the arm64 device ->
+SIGILL (signal 4) at frame 0. RESTORED the arm64 set (998b05ce); game boots + renders again.
+
+=> The owner's round-3 observations ARE genuine arm64-device bugs on the final build.
+x86 verification passed but the arm64 DEVICE behavior diverges. Round 4 must fix + VERIFY
+ON THE ARM64 DEVICE (not just x86). Owner observations (verbatim) preserved in
+OWNER-LIVE-REVIEW-round3-on-STALE-build.txt — the "STALE" in that filename is a misnomer;
+they were observed on the correct final build.
