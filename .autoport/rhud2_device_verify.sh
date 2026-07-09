@@ -18,7 +18,7 @@ clr(){ inject ""; }
 tapb(){ inject "$1"; sleep 0.4; clr; sleep "${2:-0.7}"; }
 rd(){ adb shell run-as $PKG cat "$SETF" 2>/dev/null | tr -d '\r'; }
 fg(){ adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | tr -d '\r'; }
-shot(){ adb exec-out screencap -p > "$SHOTS/$1.png" 2>/dev/null; echo "    shot $1.png ($(stat -c%s "$SHOTS/$1.png" 2>/dev/null||echo 0) B) fg=$(fg)"; }
+shot(){ adb exec-out screencap -p > "$SHOTS/device-$1.png" 2>/dev/null; echo "    shot device-$1.png ($(stat -c%s "$SHOTS/device-$1.png" 2>/dev/null||echo 0) B) fg=$(fg)"; }
 boot(){ adb shell am start -W -n "$PKG/.LoaderActivity" >/dev/null 2>&1 || true; echo "  launched, settling ${1:-50}s..."; sleep "${1:-50}"; }
 nav_to_graphics(){
   tapb start 2.2; tapb down; tapb down; tapb x 2.0; tapb down; tapb x 2.0
