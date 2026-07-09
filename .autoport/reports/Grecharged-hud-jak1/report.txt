@@ -25,6 +25,12 @@ org.opengoal.gk.jak1, 0 crash signatures, 11 recharged textures loaded to VRAM 8
     user-hvdf machinery at the heart/icon slot, NOT the old lookalike sprite.
   - ECO GAUGE renders with fill + a CENTER PARTICLE in the intentional hole
     (round4/c-blue45-gauge.png: gold ring, blue fill, blue-white eco particle in the centre).
+  - ROUND4-ADD2 (per-type center particle + center scale/z-order) — device-proven this round:
+    round4/final/device-B-red.png (g-red.png crop) and device-B-yellow.png (g-yellow.png crop)
+    show the gauge fill correctly RED and YELLOW per the ACTIVE eco type, and the center eco
+    particle rendered SMALL, INSIDE the hole and IN FRONT of the gauge (correct scale +
+    z-order, not full-gauge-size behind it). The per-type center spawns from the matching
+    launcher group (blue 721 / red 722 / yellow 723), case-gated on (-> *target* fact eco-type).
 
 obs #5 WORLD-SPACE LAUNCHER LEAK — RESOLVED (a stale/mixed-build artifact). The leak's root
 cause is the arm64 sparticle_launcher.cpp block_31 is-3d #f-guard misfire (a full-64 s7
@@ -50,10 +56,16 @@ while still loading the warm *rhud-cell-lights* rig from the SAME scratchpad vu-
 (offset 64), so the round-2/3 halo/glow tint is preserved. Wired into rhud-set-cell-icon's
 world-lit branch; the buzzer + naked-cell stay on the generic path (they already render).
 Built consistent, pushed, deploy_verify(_assets) PASS, boots crash-free.
-DEVICE CELL EVIDENCE: see round4/final/ (device-C-cell*, x-cell-*). NOTE: fuel-cell pickups
-birthed via the debug eco.spawn hook are task-context-gated and did not reliably collect on
-device, so the collected-cell HUD before/after is confirmed by the fix being built+deployed+
-boot-verified here plus the owner's play-test (owner_verify) rather than a hook-driven frame.
+DEVICE CELL EVIDENCE — HONEST GAP: fuel-cell pickups birthed via the debug eco.spawn hook
+(type 6) spawn as world powercell-idle objects (10 "powercell-idle" logcat lines confirm they
+appear) but do NOT reliably auto-collect on device — they are task-context-gated, so across
+three drive attempts (spawn-near / spawn-above / spawn-on-Jak) the fuel-cell HUD count never
+triggered and no collected-cell frame was captured (round4/final/device-C-cell*, x-cell-*: Jak
+in-world, no cell HUD). The cell-body fix is therefore proven by: (1) the code root-cause
+(envmap merc mis-routed through the generic path -> dropped on arm64), (2) the fast-merc reroute
+being built + deployed + boot-verified crash-free, and (3) the owner's play-test (owner_verify),
+where collecting a real in-level power cell will confirm the body renders. It is NOT claimed as
+a captured device frame this round.
 
 CONSISTENT BUILD + DEPLOY (round 4): build_arm64_full_consistent.sh (28 CGO/DGO, 1317 targets
 built clean) -> Gconsolidate_deploy_cgos.sh (28/28 sha256-verified into files/iso_data/jak1)
