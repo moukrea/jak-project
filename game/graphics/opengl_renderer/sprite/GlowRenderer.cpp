@@ -199,7 +199,15 @@ GlowRenderer::GlowRenderer() {
                0,                    // border
                GL_DEPTH_STENCIL,     // format
                GL_UNSIGNED_INT_24_8, NULL);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+  // Gjak2-polish (owner 2026-07-09): attach the packed DEPTH24_STENCIL8 probe texture at
+  // GL_DEPTH_STENCIL_ATTACHMENT (NOT depth-only) so it matches the main render framebuffer,
+  // which attaches its depth-stencil at GL_DEPTH_STENCIL_ATTACHMENT (OpenGLRenderer.cpp:923).
+  // On strict GLES3/Adreno a glBlitFramebuffer(GL_DEPTH_BUFFER_BIT) from a combined
+  // depth-stencil source into a depth-ONLY-attached packed dest is rejected -> the probe depth
+  // stays stale -> GEQUAL occlusion probes always pass -> discard_flag ~= 1 -> glows over-bright
+  // (rift-gate). The prior fix matched only the internalformat, leaving this attachment-point
+  // mismatch. Desktop GL accepted either, so this is a no-op there.
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D,
                          m_ogl.probe_fbo_depth_tex, 0);
 
   GLenum render_targets[1] = {GL_COLOR_ATTACHMENT0};

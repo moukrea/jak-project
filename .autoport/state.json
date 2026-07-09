@@ -184,7 +184,7 @@
     "Grecharged-hud-visuals-x86": 1,
     "Gjak2-movement": 1,
     "Grecharged-hud-jak1": 0,
-    "Gjak2-polish": 3
+    "Gjak2-polish": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -714,7 +714,7 @@
     "Grecharged-hud-jak1": 1783544207.4640982,
     "Gjak2-polish": 1783609200.6848521
   },
-  "last_update": "2026-07-09T18:22:39.355936+00:00",
+  "last_update": "2026-07-09T19:48:40.806840+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
