@@ -375,7 +375,7 @@ eco would have hit this on device.
   on-change commits IMMEDIATELY (which is why persistence survived run7's stranded
   back-out).
 
-RESULT: RECHARGED HUD round 4 lands the arm64-DEVICE verification + the fuel-cell BODY fix on a
+STATUS: IN-PROGRESS (round-4 reset by supervisor) — prior line was PRIOR-ATTEMPT (reset): recharged hud round 4 lands the arm64-DEVICE verification + the fuel-cell BODY fix on a
 fresh, provably-consistent build. On the Redmi (eae4df44), with deploy_verify PASS AND
 deploy_verify_assets PASS (device provably runs the exact fresh arm64 CGO+libgk set), the
 optional gated Recharged HUD RENDERS ON DEVICE: Graphics Options > "RÉGLAGES RECHARGÉS" submenu
