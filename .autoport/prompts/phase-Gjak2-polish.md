@@ -27,3 +27,52 @@ beat A/B vs x86). mCurrentFocus=jak2; x86 unaffected; full consistent build; dep
 ## Report .autoport/reports/Gjak2-polish/report.txt `RESULT: JAK2 POLISH <n>/5`
 ## Locks: ANDROID_SERIAL=eae4df44; engine goal_src untouched (pc/ + glue only); gold READ-ONLY.
 ## Max: max_turns 2400, max_retries 5. device: true, owner_verify: true.
+
+## OWNER ROUND-3 REJECT (2026-07-09) — false-green + REGRESSIONS + "stop reinventing the wheel"
+Owner quote (verbatim, French):
+"Le glow est toujours là (sur Rift Gate) et les cinematiques n'occupent toujours pas tout
+l'aspect ratio. J'ai l'impression que t'es retombé dans le soucis de vitesse du jeux variable
+qu'on avait mis longtemps à régler sur Jak 1 (bizarre, le build précédent n'avait pas ce
+problème) et il y a des soucis de collisions (idem qu'on avait mis longtemps à régler sur
+Jak 1) j'ai l'impression qu'au lieu d'avoir tiré des leçons de Jak 1 on réinvente la roue
+pour le 2, c'est bizarre et surtout wasteful."
+
+STRATEGIC MANDATE (owner): do NOT re-solve jak1's already-solved problems for jak2 — PORT
+the jak1 fixes. See the full analysis in .autoport/reports/Gjak2-polish/jak1-to-jak2-gap-analysis.md.
+
+Truth of this round (the prior "5/5 device-verified" was a FALSE GREEN — 2 items don't hold,
+2 regressions introduced). Do these, honestly, and DO NOT claim a subjective/visual item is
+"device-verified" — the OWNER's eye is the gate; report what you CHANGED and let him judge:
+
+1. VARIABLE GAME-SPEED (owner: regressed, prev build was fine). Analysis: the frame-pacing
+   ENGINE is SHARED C++ + jak2 already compiles the jak1 pckernel copies (jak1-proven clock),
+   so global speed should be stable. The real gap is the Gcamera-interp fix that exists ONLY
+   in jak1: `cam-render-interp!` (goal_src/jak1/engine/camera/cam-update.gc:226, globals
+   :220-224, call :369) — jak2 computes the interp alpha and DISCARDS it (no jak2 caller of
+   pc-camera-interp-alpha; the C++ binding IS already there for jak2). Result = camera
+   judder at sub-refresh fps that reads as "variable speed". PORT cam-render-interp! into
+   goal_src/jak2/engine/camera/cam-update.gc. Also A/B-confirm the collision change below
+   isn't what he's feeling as "variable speed".
+
+2. COLLISION (owner: regressed). Root cause: THIS phase's crouch fix ADDED method-17
+   collide-cache + nav-engine (17/18/20/21) to the arm64 allowlist (mips2c_table_jak1_arm64
+   .cpp:1087-1093), turning ON a previously-OFF arm64 nav-mesh + sphere-probe path that runs
+   every frame and hits the arm64 collision-MATH divergence class jak2 was never validated
+   against. DO NOT just re-noop it (that reinstates crouch-lock). Instead: verify the jak1
+   arm64 collision-math translation fixes (Gcollision-systemic/nanroot: NaN-compare, fmin/
+   fmax, vftoi) actually COVER jak2's now-active nav-engine + sphere-probe methods; extend
+   them if jak2 diverges. This is the "port jak1's lesson" path.
+
+3. RIFT-GATE GLOW still too bright (owner: NOT fixed). The GlowRenderer depth-FBO tweak did
+   not do it. Re-diagnose the actual glow-size/intensity driver for the rift-gate beat; jak1
+   had glow/halo work (Gsun-halo, Ghalo) — check whether a jak1 glow lesson applies.
+
+4. CINEMATICS still don't fill the aspect ratio (owner: NOT fixed). The real-movie? letterbox
+   split at math-camera.gc:78 did not achieve full-screen cutscenes. Re-diagnose: what
+   actually forces the cutscene to 16:9 vs following aspect-ratio-auto? — port the jak1
+   cutscene-aspect handling if jak1 solved this (Gcine-camfov did cutscene 4:3/aspect work).
+
+Efficiency: batch all four into ONE consistent arm64 jak2 build, prove the OBJECTIVE ones
+(camera-interp present + called, collision-math covers the active methods, build boots +
+deploy_verify jak2 + deploy_verify_assets jak2), and hand the SUBJECTIVE ones (glow look,
+cutscene fill, speed feel, collision feel) to the owner — do NOT self-certify them.
