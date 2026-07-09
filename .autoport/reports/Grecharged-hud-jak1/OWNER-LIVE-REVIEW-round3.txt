@@ -1,0 +1,1 @@
+OWNER PLAYTEST ROUND 3 (2026-07-09) — voir addendum ROUND 3 dans le prompt de phase: green-eco vacillement+particules exactes, pile invisible (seul halo, teinte fausse), particules jauge exactes, coeur affiché au pickup d'éco verte comme HUD original, blink basse-vie en fade in/out (1/3 vert <-> vide), PAS on/off.
