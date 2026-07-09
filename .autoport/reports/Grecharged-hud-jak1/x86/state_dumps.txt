@@ -1,0 +1,9 @@
+RHMARK-ALIVE
+RHSTATE hud-hidden off 128 val 3 pin #f hp       3.0000
+RHSTATE hud-in off 0 val 2 pin #f hp       2.0000
+RHSTATE hud-hidden off 128 val 2 pin #f hp       2.0000
+RHSTATE hud-arriving off 0 val 1 pin #t hp       1.0000
+RHSTATE hud-arriving off 0 val 1 pin #t hp       1.0000
+RHSTATE hud-hidden off 128 val 3 pin #f hp       3.0000
+RHSKIP fc 0 money 0
+RHSKIP-OFF fc -2 money -1

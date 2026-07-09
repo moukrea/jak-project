@@ -1,0 +1,94 @@
+RESULT: RECHARGED HUD (draft — device evidence pending, do not treat as final)
+
+Phase: Grecharged-hud-jak1 — device round of the optional gated Recharged HUD for jak1.
+Builds on the x86 pre-pass (b1799a4e8 menu+toggle) and visuals pass (fd55f0181/735459e05),
+plus attempts 1-2 (645cedca6/78e442b1d: Android wiring + owner must-fix round).
+
+== MENU WIRING (x86 pre-pass, re-verified this phase) ==
+- Graphics Options gains a "RECHARGED SETTINGS" submenu row inserted immediately BEFORE
+  "ADVANCED SETTINGS" (FR "REGLAGES RECHARGES"; EN/FR via text ids 1706/1707):
+  goal_src/jak1/pc/progress-pc.gc:632 (desktop array, idx 11) and :727 (android array, idx 8,
+  Advanced shifts to 9); live-length machinery bumped 14->15 / 11->12.
+- Submenu: single "RECHARGED HUD" ON/OFF row + Back (*recharged-options-pc*, progress-pc.gc:764);
+  on-change writes (-> *pc-settings* recharged-hud?) and persists (commit-to-file on menu close);
+  default OFF (pckernel; serialized like extra-hud?). Toggle persists across relaunch.
+
+== GATE / OFF == STOCK ==
+- Every visual is gated at draw/update time on (-> *pc-settings* recharged-hud?)
+  in goal_src/jak1/pc/hud-classes-pc.gc (hud-recharged-health / hud-recharged-power hud-pc
+  processes + rhud-suppress-stock/rhud-restore-stock). OFF restores every runtime mutation:
+  stock health/power re-enabled, fuel-cell skip-particle back to stock -2, money/money-all back
+  to -1, cell icon back to *fuelcell-naked-sg*, buzzer flat sprite back. OFF path = stock HUD,
+  no regression (x86 state dumps: RHSKIP-OFF fc -2 money -1 == stock defaults).
+
+== OWNER MUST-FIX ROUND (all 6 landed) ==
+1. CROP: no alpha-bbox cropping anywhere — each PNG's FULL canvas is drawn (rhud-quad uv 0/1,
+   rhud-fan affine). Hearts share one 1024x1024 canvas; gauge empty/full/END TIPS all share one
+   1280x1280 canvas, so tip-over-gauge alignment is exact by construction.
+2. FILTERING: RechargedHudTextures.cpp box-downscales every sprite 4:1 with alpha-weighted
+   averaging (1024->256, 1280->320), uploads with mipmaps + GL_LINEAR_MIPMAP_LINEAR/GL_LINEAR;
+   GOAL sets GS tex1 bilinear (0x60). No more crisp/aliased look.
+3. HEART VISIBILITY: stock show-machinery (tally-value on health + 2s timeout) everywhere;
+   force-on-screen pin ONLY at the last notch (hp==1). x86 state dumps prove it:
+   rest/full hp=3 -> hud-hidden; damage hp=2 -> hud-in then hud-hidden after ~2s (auto-hide);
+   hp=1 -> hud-arriving pin #t and STILL pinned 4s later; heal hp=3 -> hud-hidden pin #f.
+4. FUEL-CELL DOUBLE-DRAW: stock flat cell sprite group (hud-fuel-cell particle 0, stock
+   skip-particle -2) suppressed via skip-particle=0 while ON (draw-hud skips index==skip);
+   the real *fuel-cell-sg* full in-world model (not fuelcell-naked) renders in the HUD slot.
+   x86 dump: RHSKIP fc 0 (ON) / -2 (OFF).
+5. POSITION/SCALE: RHUD_GAUGE 435/370 == stock hud-power particle init-pos EXACTLY
+   (hud-classes.gc:1367); RHUD_HEART 80/66 centered on the stock heart pip cluster (x 61-98,
+   y 55-80); same x-sgn/y-sgn slide feeds. Visual A/B on same-session x86 frames
+   (x86_on_gauge_blue_full vs x86_off_stock_gauge_blue; x86_on_heart_33_pinned_a vs
+   x86_off_stock_heart_shown): same corner anchor, same footprint. Pixel-diff parity
+   measurement was attempted but is scene-noise-limited in the animated training area
+   (honest note); the anchors are code-identical to stock, final feel = owner eye.
+6. ORB GLOW: hud-money/money-all particle 0 (group-part-hud-orb flat glow) skipped while ON
+   (skip-particle 0; stock -1 restored on OFF); the 3D orb icon manipy is untouched.
+   x86 dump: RHSKIP money 0 (ON) / -1 (OFF).
+
+== ELEMENTS (x86-verified this phase, run 4 screenshots) ==
+- HEART 4 states at stock position: hp>=3 jak_heart_100; hp=2 jak_heart_66; hp=1 jak_heart_0
+  base + jak_heart_33 BLINKING on top (logand-8 cadence); hp=0 jak_heart_0.
+- ECO GAUGE: jak_gauge_empty base quad; active eco's full sprite (blue/red/yellow) MASKED to
+  the fill fraction by a triangle-fan angular sector (affine position->uv map); the _end TIP
+  quad is ROTATED about its own center by ARC_SPAN*(frac-1) so it sits at the fill edge
+  (rotated-tip technique); low-eco blink at stock cadence.
+- POWER CELL: real full *fuel-cell-sg* model (owner correction: not the naked lesser version).
+- SCOUT FLY: 3D *buzzer-sg* front view via the hud-pc-make-icon machinery; flat sprite skipped.
+
+== TEXTURE / ASSET PIPELINE ==
+- Desktop + Android: game/graphics/opengl_renderer/RechargedHudTextures.cpp loads the 11
+  recharged_assets/*.png at renderer init into TexturePool VRAM slots 8300-8310
+  (allocate_pc_port_texture + give_texture_and_load_to_vram); GOAL draws them via PACKED GIF
+  packets through the (bucket-id debug) DirectRenderer (rhud-set-shader tbp lookup).
+  Boot evidence (x86 + device): 11x "recharged-hud: loaded ... -> vram slot 83xx".
+- Android: android/CMakeLists.txt compiles the TU + stb_image; android_opengl_renderer.cpp
+  calls the loader in init_bucket_renderers_jak1; android/build_asset_bundle.sh stages the 11
+  PNGs into the asset-bundle zip (version 11->12 forces LoaderActivity re-unpack), generic
+  unpack lands them at filesDir/recharged_assets/ == get_jak_project_dir()/recharged_assets.
+
+== DEVICE VERIFY (eae4df44) ==
+<PENDING: menu placement screencap, toggle ON/OFF, persistence across relaunch,
+ in-game ON vs OFF A/B, deploy_verify chain, mCurrentFocus=jak1 brackets>
+
+== DEFERRED ==
+- FONT: untouched by design (later phase per the mandate).
+- Green eco falls back to blue sprites (no green asset provided).
+
+== BUG FOUND & FIXED THIS PHASE (x86-first verification catch) ==
+Toggling recharged-hud? OFF while the eco gauge was VISIBLE (carrying eco) SIGSEGV'd
+deterministically (2/2 repros, core rip in GOAL heap, stack full of enter-state/handler
+frames). Mechanism: the engine hud 'hide-quick handler (hud.gc hud-arriving, shared by
+hud-in) re-enters (hud-update self) BEFORE its (go hud-hidden) lands; the recharged-power
+hud-update OFF branch re-sent 'hide-quick since hidden? was still false -> infinite
+synchronous self-recursion -> stack overflow. Fix: gate the re-send on the handler's
+last-hide-time stamp ((!= last-hide-time (current-time))), hud-classes-pc.gc
+hud-recharged-power hud-update. The heart element was already recursion-safe (its
+active-flag clears before the send). VERIFIED: the exact crashing sequence (ON + eco +
+toggle OFF with the gauge visible) re-run after the fix — GK ALIVE at the crash beat,
+zero new cores (previously 2/2 SIGSEGV). A player toggling the menu OFF while carrying
+eco would have hit this on device.
+
+== HONEST NOTES ==
+<PENDING>

@@ -824,7 +824,13 @@
 
 (defmethod hud-update ((this hud-recharged-power))
   (cond
-    ((not (-> *pc-settings* recharged-hud?)) (if (not (hidden? this)) (send-event this 'hide-quick)))
+    ((not (-> *pc-settings* recharged-hud?))
+     ;; hide-quick is handled SYNCHRONOUSLY and the handler re-enters (hud-update self)
+     ;; BEFORE its (go hud-hidden) lands — an unguarded re-send here is infinite
+     ;; recursion -> stack-overflow SIGSEGV (toggle OFF while the gauge is visible,
+     ;; i.e. carrying eco). The handler stamps last-hide-time first; gate on it.
+     (if (and (not (hidden? this)) (!= (-> this last-hide-time) (current-time)))
+       (send-event this 'hide-quick)))
     (else
      ;; same value tracking as the stock hud-power: remaining eco time
      (if *target*

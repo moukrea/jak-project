@@ -1,0 +1,11 @@
+[13:53:176] [info] recharged-hud: loaded jak_heart_100 (1024x1024 -> 256x256) -> vram slot 8300
+[13:53:202] [info] recharged-hud: loaded jak_heart_66 (1024x1024 -> 256x256) -> vram slot 8301
+[13:53:228] [info] recharged-hud: loaded jak_heart_33 (1024x1024 -> 256x256) -> vram slot 8302
+[13:53:256] [info] recharged-hud: loaded jak_heart_0 (1024x1024 -> 256x256) -> vram slot 8303
+[13:53:300] [info] recharged-hud: loaded jak_gauge_empty (1280x1280 -> 320x320) -> vram slot 8304
+[13:53:345] [info] recharged-hud: loaded jak_gauge_blue_full (1280x1280 -> 320x320) -> vram slot 8305
+[13:53:396] [info] recharged-hud: loaded jak_gauge_red_full (1280x1280 -> 320x320) -> vram slot 8306
+[13:53:449] [info] recharged-hud: loaded jak_gauge_yellow_full (1280x1280 -> 320x320) -> vram slot 8307
+[13:53:464] [info] recharged-hud: loaded jak_gauge_blue_end (1280x1280 -> 320x320) -> vram slot 8308
+[13:53:478] [info] recharged-hud: loaded jak_gauge_red_end (1280x1280 -> 320x320) -> vram slot 8309
+[13:53:492] [info] recharged-hud: loaded jak_gauge_yellow_end (1280x1280 -> 320x320) -> vram slot 8310
