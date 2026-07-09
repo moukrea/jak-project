@@ -45,6 +45,13 @@ SZ=$(stat -c %s "$FRAME" 2>/dev/null || echo 0); [ "$SZ" -ge 20000 ] 2>/dev/null
 grep -qiE 'mCurrentFocus.*jak1|focus.*jak1|screencap|screenshot' "$R" || fail "report must tie screencaps to jak1 foreground"
 ok "device screencap present ($FRAME, $SZ B)"
 
+# OWNER ROUND 4 (2026-07-09): round-3 features proven broken on the ARM64 device
+grep -qiE 'arm64.*(device|divergen)|device.*(arm64|verif)|on.?device' "$R" || fail "round4: must prove fixes on the ARM64 DEVICE (x86-verify insufficient)"
+grep -qiE '(world|monde).*(space|particle|launch|émet)|launch.*(hud|world).?space|mis.?target' "$R" || fail "round4: must fix the HUD particle launcher firing in WORLD space (Jak emits green eco every ~4s)"
+grep -qiE '(fuel.?cell|pile).*(body|model|corps|render|draw).*(device|arm64|fix)|cell body' "$R" || fail "round4: fuel-cell BODY must render on device (only glow shows)"
+grep -qiE '(green|eco).*(particle|sprite|group).*(device|arm64|render|fix)' "$R" || fail "round4: green eco real particle group must render on device"
+ok "round4 arm64-device items addressed in report"
+
 # DEVICE ASSET FRESHNESS: the HUD lives in GOAL code (hud-classes-pc.gc -> GAME.CGO).
 # deploy_verify.sh only covers libgk.so; this proves the device runs the fresh CGO set
 # (2026-07-09: a gate false-passed while the Redmi ran an INTERMEDIATE round-3 GAME.CGO).
