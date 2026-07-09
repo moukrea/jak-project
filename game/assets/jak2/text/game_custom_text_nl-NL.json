@@ -227,7 +227,7 @@
   "1330": "Donkere bom",
   "1331": "Donkere explosie",
   "1332": "Donkere reus",
-  "1333": "PS2-opties",
+  "1333": "ADVANCED SETTINGS",
   "1334": "Acteur Culling",
   "1335": "Forceer omgevingskaarten",
   "1336": "Snel voortgangsmenu",
@@ -257,5 +257,6 @@
   "1361": "Min Target FPS",
   "1362": "Render Scale",
   "1363": "Min Render Scale",
-  "1364": "Fit to Screen"
+  "1364": "Fit to Screen",
+  "1365": "FPS COUNTER"
 }

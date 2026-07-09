@@ -227,7 +227,7 @@
   "1330": "Bomba oscura",
   "1331": "Esplosione oscura",
   "1332": "Dark Jak gigante",
-  "1333": "Opzioni PS2",
+  "1333": "ADVANCED SETTINGS",
   "1334": "Riduzione attori",
   "1335": "Forza mappatura ambiente",
   "1336": "Menu veloce",
@@ -257,5 +257,6 @@
   "1361": "Min Target FPS",
   "1362": "Render Scale",
   "1363": "Min Render Scale",
-  "1364": "Fit to Screen"
+  "1364": "Fit to Screen",
+  "1365": "FPS COUNTER"
 }

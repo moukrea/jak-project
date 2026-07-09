@@ -536,8 +536,18 @@ void GlowRenderer::blit_depth(SharedRenderState* render_state) {
     glBindTexture(GL_TEXTURE_2D, 0);
 
     glBindTexture(GL_TEXTURE_2D, m_ogl.probe_fbo_depth_tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 0,
-                 GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
+    // Gjak2-polish: keep this reformat in the SAME sized packed depth-stencil format the
+    // texture was created with (init above: GL_DEPTH24_STENCIL8 bound to GL_DEPTH_ATTACHMENT)
+    // AND that the main render framebuffer uses. The previous unsized
+    // GL_DEPTH_COMPONENT/GL_UNSIGNED_INT downgrade left the probe-FBO depth format mismatching
+    // the DEPTH24_STENCIL8 source, so glBlitFramebuffer(GL_DEPTH_BUFFER_BIT) FAILS on strict
+    // GLES3/Adreno (ES 3.0 requires matching depth formats) -> the occlusion-probe depth buffer
+    // stayed stale/cleared -> GEQUAL probes always passed -> discard_flag ~= 1 -> glows read as
+    // fully-visible / over-bright on device (the rift-gate glow before the metalheads emerge).
+    // Desktop GL already accepted the blit, so this is visually a no-op there (same texture, a
+    // valid sized internalformat everywhere); Android now gets a matching-format, succeeding blit.
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 0,
+                 GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
   }
 

@@ -227,7 +227,7 @@
   "1330": "Dark Bomb",
   "1331": "Dark Blast",
   "1332": "Dark Giant",
-  "1333": "PS2 Options",
+  "1333": "ADVANCED SETTINGS",
   "1334": "Actor Culling",
   "1335": "Force Environment Mapping",
   "1336": "Fast Progress Menu",
@@ -257,5 +257,6 @@
   "1361": "Min Target FPS",
   "1362": "Render Scale",
   "1363": "Min Render Scale",
-  "1364": "Fit to Screen"
+  "1364": "Fit to Screen",
+  "1365": "FPS COUNTER"
 }

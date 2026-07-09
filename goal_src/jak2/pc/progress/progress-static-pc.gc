@@ -671,6 +671,16 @@ This gives us more freedom to write code how we want.
             (defun-extern set-progress-frame-rate-index int int)
             (set-progress-frame-rate-index index)
             (push-and-set-state the-progress 'fps-disclaimer)))))
+    ;; FPS Counter on-screen overlay toggle (Gjak2-polish item 4)
+    (new 'static 'menu-generic-boolean-option
+      :name #x1365 ;; FPS COUNTER
+      :truthy-text (text-id progress-on)
+      :falsey-text (text-id progress-off)
+      :get-value-fn (lambda () (-> *pc-settings* fps-counter?))
+      :on-confirm (lambda ((val symbol))
+        (set! (-> *pc-settings* fps-counter?) val)
+        (pc-set-fps-counter val)
+        (pc-settings-save)))
     (new 'static 'menu-generic-boolean-option
       :name (text-id progress-vsync)
       :truthy-text (text-id progress-on)
@@ -720,44 +730,33 @@ This gives us more freedom to write code how we want.
 
 ;; ---------------------------------------------------------------------------
 ;; Gjak2-pcmenus: Android graphics page (jak1 PC options backport).
-;; A single fullscreen panel has no Display / Display Mode / Frame Rate choice,
-;; so those rows are omitted; the jak1 render-scale system (dynamic toggle +
-;; scale slider + min-target-fps) is added. Row order matters:
-;; graphic-options-pc-android-apply-mode! trims the trailing Min-Target-FPS row
-;; via the live menu-options length (nav + draw read it every frame).
-;; Text ids #x1360-#x1364 are pc-port additions compiled from
+;; A single fullscreen panel has no Display / Display Mode choice, so those rows are
+;; omitted; the jak1 render-scale system (dynamic toggle + scale slider + min-target-fps)
+;; is added. Gjak2-polish reordered the rows to mirror jak1's Android page exactly and
+;; added FPS Counter + MSAA rows. Row order matters: Min-Target-FPS is now mid-list
+;; (index 4), so graphic-options-pc-android-apply-mode! shows/hides it via
+;; graphic-options-android-set-mtf-visible! (a shift-hide that rewrites the live
+;; menu-options entries + length, jak1 graphic-options-set-mtf-visible! style; nav + draw
+;; read them every frame).
+;; Text ids #x1360-#x1365 are pc-port additions compiled from
 ;; game/assets/jak2/text/game_custom_text_*.json (ids above the engine enum max
 ;; #x134c; the text tool takes raw hex ids, same as jak1's #x103a fit-to-screen).
 
 (define *min-target-fps-options-pc* (new 'static 'boxed-array :type int16 25 30 35 40 45 50 55 60))
 
 (define-extern *graphic-options-pc-android* menu-option-list)
+;; forward decl: the array's index-2 on-confirm lambda calls apply-mode!, but apply-mode!
+;; is now defined AFTER the array (it needs the finished array to shift the mid-list rows).
+(define-extern graphic-options-pc-android-apply-mode! (function none))
 
-(defun graphic-options-pc-android-apply-mode! ()
-  "Reflect the dynamic-render-scale mode in the Android graphics page: the
-   slider row edits render-scale (dynamic OFF) or the min-render-scale floor
-   (dynamic ON, relabeled), and the Min Target FPS row only exists while the
-   controller is ON (live-length trim, jak1 Goptions-reorder style)."
-  (let ((page (the-as menu-generic-scrolling-page (-> *graphic-options-pc-android* options 0))))
-    (set! (-> (the-as menu-generic-option (-> page menu-options 3)) name)
-          (if (-> *pc-settings* dynamic-render-scale?)
-              (the-as text-id #x1363) ;; Min Render Scale
-              (the-as text-id #x1362) ;; Render Scale
-              ))
-    (set! (-> page menu-options length)
-          (if (-> *pc-settings* dynamic-render-scale?) 7 6))
-    )
-  (none))
-
+;; Row order mirrors jak1's Android graphics page exactly (Gjak2-polish items 3+4):
+;;   0 Aspect Ratio  1 Window Size  2 Dynamic Render Scale  3 Render Scale slider
+;;   4 Min Target FPS  5 FPS Counter  6 V-Sync  7 MSAA  8 ADVANCED SETTINGS link
+;; Min Target FPS is now mid-list (index 4); it is shown/hidden by a shift-hide
+;; (graphic-options-android-set-mtf-visible!) instead of the old tail-length trim.
 (define *graphic-options-pc-android*
   (progress-new-generic-scrolling-page (text-id progress-root-graphic-options)
-    ;; 0: Window Size -> base game resolution picker ('resolutions submenu,
-    ;;    enumerated from the panel ladder via pc-get-num-resolutions/pc-get-resolution)
-    (new 'static 'menu-generic-to-resolutions-option
-      :name (text-id progress-window-size)
-      :on-confirm (lambda ((the-progress progress))
-        (push-and-set-state the-progress 'resolutions)))
-    ;; 1: Aspect Ratio — Fit to Screen first (window aspect drives everything,
+    ;; 0: Aspect Ratio — Fit to Screen first (window aspect drives everything,
     ;;    scissor = full framebuffer: the update-from-os auto branch; no pillarbox)
     (new 'static 'menu-generic-carousel-option
       :name (text-id progress-aspect-ratio)
@@ -793,6 +792,12 @@ This gives us more freedom to write code how we want.
           ((3)
             (push-and-set-state the-progress 'aspect-ratio-custom)))
         (pc-settings-save)))
+    ;; 1: Window Size -> base game resolution picker ('resolutions submenu,
+    ;;    enumerated from the panel ladder via pc-get-num-resolutions/pc-get-resolution)
+    (new 'static 'menu-generic-to-resolutions-option
+      :name (text-id progress-window-size)
+      :on-confirm (lambda ((the-progress progress))
+        (push-and-set-state the-progress 'resolutions)))
     ;; 2: Dynamic Render Scale toggle (jak1 Gdynamic-renderscale backport)
     (new 'static 'menu-generic-boolean-option
       :name #x1360 ;; Dynamic Render Scale
@@ -822,7 +827,33 @@ This gives us more freedom to write code how we want.
           (else
             (set! (-> *pc-settings* render-scale) val)))
         (pc-settings-save)))
-    ;; 4: V-Sync (same as the desktop row)
+    ;; 4: Min Target FPS (mid-list; shown only while dynamic RS is ON via
+    ;;    graphic-options-android-set-mtf-visible! shift-hide)
+    (new 'static 'menu-generic-carousel-option
+      :name #x1361 ;; Min Target FPS
+      :get-item-index-fn (lambda ()
+        (let ((v (the int (-> *pc-settings* dyn-target-fps)))
+              (idx 0))
+          (dotimes (i (-> *min-target-fps-options-pc* length))
+            (if (= (-> *min-target-fps-options-pc* i) v) (set! idx i)))
+          idx))
+      :get-max-size-fn (lambda () (-> *min-target-fps-options-pc* length))
+      :get-item-label-fn (lambda ((index int))
+        (string-format "~D" (-> *min-target-fps-options-pc* index)))
+      :on-confirm (lambda ((index int) (the-progress progress))
+        (set! (-> *pc-settings* dyn-target-fps) (the float (-> *min-target-fps-options-pc* index)))
+        (pc-settings-save)))
+    ;; 5: FPS Counter on-screen overlay toggle (Gjak2-polish item 4)
+    (new 'static 'menu-generic-boolean-option
+      :name #x1365 ;; FPS COUNTER
+      :truthy-text (text-id progress-on)
+      :falsey-text (text-id progress-off)
+      :get-value-fn (lambda () (-> *pc-settings* fps-counter?))
+      :on-confirm (lambda ((val symbol))
+        (set! (-> *pc-settings* fps-counter?) val)
+        (pc-set-fps-counter val)
+        (pc-settings-save)))
+    ;; 6: V-Sync (same as the desktop row)
     (new 'static 'menu-generic-boolean-option
       :name (text-id progress-vsync)
       :truthy-text (text-id progress-on)
@@ -831,7 +862,26 @@ This gives us more freedom to write code how we want.
       :on-confirm (lambda ((val symbol))
         (set! (-> *pc-settings* vsync?) val)
         (pc-settings-save)))
-    ;; 5: PS2 sub-page — copied verbatim from *graphic-options-pc* above.
+    ;; 7: MSAA (copied verbatim from the desktop *graphic-options-pc* array)
+    (new 'static 'menu-generic-carousel-option
+      :name (text-id progress-msaa)
+      :get-item-index-fn (lambda ()
+        ;; TODO - use an array
+        (case (-> *pc-settings* gfx-msaa)
+          ((1) 0)
+          ((2) 1)
+          ((4) 2)
+          ((8) 3)
+          ((16) 4)))
+      :get-max-size-fn (lambda () (-> *msaa-options* length))
+      :get-item-label-fn (lambda ((index int))
+        (if (zero? index)
+            (lookup-text! *common-text* (text-id progress-graphics-msaa-off) #f)
+            (string-format (lookup-text! *common-text* (text-id progress-msaa-x) #f) (-> *msaa-options* index))))
+      :on-confirm (lambda ((index int) (the-progress progress))
+        (set! (-> *pc-settings* gfx-msaa) (ash 1 index))
+        (pc-settings-save)))
+    ;; 8: ADVANCED SETTINGS sub-page (#x1333 relabel) — copied verbatim from *graphic-options-pc*.
     (progress-new-generic-link-to-scrolling-page (text-id progress-graphics-ps2)
       (new 'static 'menu-generic-boolean-option
         :name (text-id progress-lod-bg)
@@ -851,22 +901,46 @@ This gives us more freedom to write code how we want.
       (static-progress-generic-pc-settings-on-off-boolean (text-id progress-ps2-parts) (-> *pc-settings* ps2-parts?))
       (static-progress-generic-pc-settings-shadows-normal-extended-boolean (text-id progress-shadows) (-> *pc-settings* ps2-shadow?))
       (static-progress-generic-pc-settings-on-off-boolean (text-id progress-hires-sky) (-> *pc-settings* hires-clouds?)))
-    ;; 6 (LAST — trimmed by apply-mode! while dynamic is OFF): Min Target FPS
-    (new 'static 'menu-generic-carousel-option
-      :name #x1361 ;; Min Target FPS
-      :get-item-index-fn (lambda ()
-        (let ((v (the int (-> *pc-settings* dyn-target-fps)))
-              (idx 0))
-          (dotimes (i (-> *min-target-fps-options-pc* length))
-            (if (= (-> *min-target-fps-options-pc* i) v) (set! idx i)))
-          idx))
-      :get-max-size-fn (lambda () (-> *min-target-fps-options-pc* length))
-      :get-item-label-fn (lambda ((index int))
-        (string-format "~D" (-> *min-target-fps-options-pc* index)))
-      :on-confirm (lambda ((index int) (the-progress progress))
-        (set! (-> *pc-settings* dyn-target-fps) (the float (-> *min-target-fps-options-pc* index)))
-        (pc-settings-save)))
     ))
+
+;; stable handle to the Min Target FPS row (index 4) for the mid-list show/hide shift.
+(define *graphic-options-mtf-android-jak2*
+  (-> (the-as menu-generic-scrolling-page (-> *graphic-options-pc-android* options 0)) menu-options 4))
+
+(defun graphic-options-android-set-mtf-visible! ((show? symbol))
+  "Show/hide the Min Target FPS row at index 4 of the jak2 Android graphics page by
+   shifting the tail (jak1 graphic-options-set-mtf-visible! style). full-len = 9."
+  (let* ((page (the-as menu-generic-scrolling-page (-> *graphic-options-pc-android* options 0)))
+         (opts (-> page menu-options))
+         (full-len 9))
+    (cond
+      (show?
+        (when (< (-> opts length) full-len)
+          (dotimes (j (- full-len 5))
+            (let ((i (- (+ full-len -1) j)))
+              (set! (-> opts i) (-> opts (+ i -1)))))
+          (set! (-> opts 4) (the-as menu-generic-option *graphic-options-mtf-android-jak2*))
+          (set! (-> opts length) full-len)))
+      (else
+        (when (= (-> opts length) full-len)
+          (dotimes (j (- full-len 5))
+            (let ((i (+ 4 j)))
+              (set! (-> opts i) (-> opts (+ i 1)))))
+          (set! (-> opts length) (+ full-len -1)))))
+    )
+  (none))
+
+(defun graphic-options-pc-android-apply-mode! ()
+  "Reflect the dynamic-render-scale mode: swap the Render Scale / Min Render Scale row
+   label (index 3), and show the Min Target FPS row (index 4) only while dynamic RS is ON."
+  (let ((page (the-as menu-generic-scrolling-page (-> *graphic-options-pc-android* options 0))))
+    (set! (-> (the-as menu-generic-option (-> page menu-options 3)) name)
+          (if (-> *pc-settings* dynamic-render-scale?)
+              (the-as text-id #x1363)   ;; Min Render Scale
+              (the-as text-id #x1362))) ;; Render Scale
+    )
+  (graphic-options-android-set-mtf-visible! (-> *pc-settings* dynamic-render-scale?))
+  (none))
 
 (define *frame-rate-disclaimer-options*
   (new 'static 'menu-option-list

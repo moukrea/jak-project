@@ -183,7 +183,8 @@
     "Gjak2-pcmenus": 2,
     "Grecharged-hud-visuals-x86": 1,
     "Gjak2-movement": 1,
-    "Grecharged-hud-jak1": 0
+    "Grecharged-hud-jak1": 0,
+    "Gjak2-polish": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -355,6 +356,9 @@
     ],
     "Gjak2-pcmenus": [
       "f9c774796cac"
+    ],
+    "Gjak2-polish": [
+      "e79ecc1da608"
     ]
   },
   "stuck_reasons": {
@@ -710,9 +714,10 @@
     "Gjak2-pcmenus": 1783511750.803353,
     "Grecharged-hud-visuals-x86": 1783524528.391978,
     "Gjak2-movement": 1783535947.7066994,
-    "Grecharged-hud-jak1": 1783544207.4640982
+    "Grecharged-hud-jak1": 1783544207.4640982,
+    "Gjak2-polish": 1783609200.6848521
   },
-  "last_update": "2026-07-09T14:53:36.977361+00:00",
+  "last_update": "2026-07-09T18:05:49.729072+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

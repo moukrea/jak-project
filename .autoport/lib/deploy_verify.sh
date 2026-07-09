@@ -11,7 +11,7 @@
 #   3. CHAIN: sha256(build libgk.so) == sha256(APK-bundled libgk.so) ==
 #      sha256(device-installed libgk.so). So the device provably runs that .so.
 #
-# Usage: deploy_verify.sh [SERIAL]   (default serial eae4df44)
+# Usage: deploy_verify.sh [SERIAL] [GAME]   (defaults: eae4df44 jak1)
 # Exit 0 = device provably runs the fresh HEAD-reflecting libgk.so; nonzero = NOT.
 # Records a fingerprint to .autoport/reports/deploy-fingerprint.txt for audit.
 #
@@ -23,8 +23,9 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 SERIAL="${1:-eae4df44}"
+GAME="${2:-jak1}"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
-PKG="org.opengoal.gk.jak1"
+PKG="org.opengoal.gk.${GAME}"
 SO_REL="lib/arm64-v8a/libgk.so"
 BUILT="build-android/$SO_REL"
 die() { echo "DEPLOY-VERIFY FAIL: $*" >&2; exit 1; }
@@ -48,8 +49,8 @@ echo "  ok: libgk.so newer than newest source"
 mkdir -p .autoport/tmp
 TMP=$(mktemp -d .autoport/tmp/dv.XXXXXX); trap "rm -rf $TMP" EXIT
 B=$(sha256sum "$BUILT" | cut -d' ' -f1)
-APK=$(find android -name 'app-jak1-debug.apk' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
-[ -n "$APK" ] || die "no app-jak1-debug.apk"
+APK=$(find android -name "app-${GAME}-debug.apk" -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+[ -n "$APK" ] || die "no app-${GAME}-debug.apk"
 unzip -p "$APK" "$SO_REL" > "$TMP/apk.so" 2>/dev/null || die "APK has no $SO_REL"
 A=$(sha256sum "$TMP/apk.so" | cut -d' ' -f1)
 [ "$B" = "$A" ] || die "build libgk.so != APK-bundled libgk.so — APK bundled a STALE .so (reassemble the APK after building)"

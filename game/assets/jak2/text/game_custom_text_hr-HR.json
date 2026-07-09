@@ -227,7 +227,7 @@
   "1330": "Tamna bomba",
   "1331": "Tamna eksplozija",
   "1332": "Tamni div",
-  "1333": "PS2 postavke",
+  "1333": "ADVANCED SETTINGS",
   "1334": "Izdvajanje glumca",
   "1335": "Forsiraj mapiranje okoliša",
   "1336": "Izbornik za brzi napredak",
@@ -257,5 +257,6 @@
   "1361": "Min Target FPS",
   "1362": "Render Scale",
   "1363": "Min Render Scale",
-  "1364": "Fit to Screen"
+  "1364": "Fit to Screen",
+  "1365": "FPS COUNTER"
 }

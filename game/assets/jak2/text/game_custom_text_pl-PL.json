@@ -227,7 +227,7 @@
   "1330": "Mroczna Bomba",
   "1331": "Mroczny Ładunek",
   "1332": "Mroczny Gigant",
-  "1333": "Opcje PS2",
+  "1333": "ADVANCED SETTINGS",
   "1334": "Optymalizacja aktorów",
   "1335": "Wymuś mapowanie środowiska",
   "1336": "Szybkie Menu Postępu",
@@ -257,5 +257,6 @@
   "1361": "Min Target FPS",
   "1362": "Render Scale",
   "1363": "Min Render Scale",
-  "1364": "Fit to Screen"
+  "1364": "Fit to Screen",
+  "1365": "FPS COUNTER"
 }

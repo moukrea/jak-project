@@ -227,7 +227,7 @@
   "1330": "Dunkelbombe",
   "1331": "Dunkle Explosion",
   "1332": "Dunkler Riese",
-  "1333": "PS2-Optionen",
+  "1333": "ADVANCED SETTINGS",
   "1334": "Schauspieler-Auswahl",
   "1335": "Erzwingen der Umgebungsabbildung",
   "1336": "Schnelles Fortschrittsmenü",
@@ -257,5 +257,6 @@
   "1361": "Min Target FPS",
   "1362": "Render Scale",
   "1363": "Min Render Scale",
-  "1364": "Fit to Screen"
+  "1364": "Fit to Screen",
+  "1365": "FPS COUNTER"
 }
