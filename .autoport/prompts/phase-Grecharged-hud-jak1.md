@@ -118,3 +118,13 @@ the real front-view model. Upgrade the icon machinery's skeleton-group according
  5. **Position/scale parity**: heart + gauge must sit EXACTLY at the stock elements' position and
     scale (for now — no creative placement).
  6. **Precursor orb: REMOVE the ugly glow behind it** ("le glow dégueulasse") — doesn't fit.
+
+## SUPERVISOR DIRECTIVE after 3 no-report attempts (2026-07-09 02:10) — REPORT-FIRST protocol
+Three attempts died with work committed but NO report.txt (turns exhausted in builds). MANDATORY:
+ 1. FIRST ACTION of this attempt: create .autoport/reports/Grecharged-hud-jak1/report.txt as a
+    living skeleton (RESULT: RECHARGED HUD IN-PROGRESS + section stubs) and UPDATE it after EVERY
+    milestone. The final RESULT line is set at the end — but the file must exist from minute one.
+ 2. Capture device evidence EARLY (menu + each HUD state screencap as soon as each element works,
+    not batched at the end).
+ 3. You inherit 3 attempts of committed WIP (645cedca6, 78e442b1d, ad05e89d3) — audit what already
+    works before redoing anything; the remaining gap may be small.
