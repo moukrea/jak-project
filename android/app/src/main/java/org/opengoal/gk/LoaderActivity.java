@@ -113,16 +113,6 @@ public class LoaderActivity extends AppCompatActivity {
         // the user another full decompress on next launch.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        // supervisor-diag DIAG2: export any jak2 remote-diagnostic breadcrumb/crash
-        // file that a PREVIOUS run left in the external files dir into the public
-        // Downloads collection, so the owner (no adb, logcat suppressed on his HONOR)
-        // can read it from a stock file manager. Now delegated to the static
-        // DiagExporter, which is ALSO invoked from MainActivity (onCreate/onPause) +
-        // a 60s periodic timer, so an export happens no matter how the app is entered
-        // or left (the old LoaderActivity-only path missed recents-resume). Never
-        // throws; jak1 is unaffected (no source files exist for it).
-        DiagExporter.exportNow(this, "loader-oncreate");
-
         List<String> games = resolveGameList();
         Log.i(TAG, "LoaderActivity: bundled game set = " + games
                 + " (installed=" + installedGames() + ")");
@@ -477,10 +467,10 @@ public class LoaderActivity extends AppCompatActivity {
         }
     }
 
-    // DIAG2: the export-out of jak2 diag/crash files to public Downloads now lives
-    // in the static DiagExporter (called from both activities + a 60s timer). This
-    // class only WRITES breadcrumbs (appendJak2Diag above) into the external files
-    // dir that DiagExporter later copies out.
+    // appendJak2Diag (above) writes best-effort loader breadcrumbs into the app's
+    // private files dir only. The DIAG2 public-Downloads exporter + boot toast were
+    // a temporary HONOR-debug aid and have been removed (owner 2026-07-09: leftover
+    // toast at boot). Nothing surfaces these files to the user anymore.
 
     private void unpackBundleIfNeeded(String gameName) throws IOException {
         Manifest mf = readManifest(gameName);
