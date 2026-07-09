@@ -244,3 +244,29 @@ Owner observations on the FINAL round-3 arm64 build (verbatim — these are REAL
 Root-cause the arm64-vs-x86 divergence for the sparticle-in-HUD path (mips2c allowlist for
 the launch builders? HUD vs world matrix/space? per-type part-id table on arm64?). Fix on
 arm64, PROVE on device, then re-gate. deploy_verify_assets.sh is now wired into the validator.
+
+## ROUND 4 — owner live addendum #2 (2026-07-09) + EFFICIENCY MANDATE
+Owner quote (verbatim, French):
+"Pour l'eco bleu au centre de la jauge, bizarre on dirait les particules de l'éco verte
+rendue par dessus l'éco bleu... Et j'ai comme l'impression que l'item est pas scalé comme
+il faut pour rentrer en entier dans le trou au centre de la jauge, mais fais plutôt la
+taille entière de la jauge avec la jauge par dessus, c'est râté ! Bon j'aimerais bien un
+build où le HUD rend vraiment bien quand même, j'ai pas non plus envie de passer 2 jours
+là dessus, on a des trucs bien plus intéressants derrière même si le HUD on le voit tout
+au long du jeux. Donc il serait temps de se bouger le cul un peu."
+
+Breakdown (do not reinterpret):
+6. WRONG PARTICLE TYPE at gauge center: for BLUE eco, it looks like the GREEN eco particles
+   are rendered over the blue — the center particle isn't following the active eco TYPE
+   (always green?), or the green-heart particle + gauge-center particle overlap. Bind the
+   gauge-center emitter to the ACTIVE eco type (blue/red/yellow), and keep the green-heart
+   emitter distinct + positioned by the heart only.
+7. CENTER ITEM SCALE + Z-ORDER: the item is NOT scaled down to fit inside the gauge's
+   center hole — instead it draws at the FULL gauge size with the gauge on top of it. Scale
+   the center item to the hole and fix draw order so it sits INSIDE the hole, not behind
+   the whole gauge.
+
+EFFICIENCY MANDATE (owner, direct): deliver ONE build where the HUD renders genuinely well
+— batch ALL outstanding items (rounds 2/3/4 + both live addenda) into this round, verify on
+the ARM64 DEVICE, THEN we move on. Do not dribble one fix per round. The owner does not want
+this dragging multiple days; the queue behind it matters more. Be thorough in ONE pass.

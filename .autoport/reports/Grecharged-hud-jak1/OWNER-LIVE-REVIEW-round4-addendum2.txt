@@ -1,0 +1,1 @@
+OWNER LIVE #2 (2026-07-09): blue-eco gauge center shows GREEN particles over blue (wrong type); center item NOT scaled to the hole — draws full-gauge-size with gauge on top. + MANDATE: one build, HUD renders well, all items batched, verify on arm64 device, then move on.
