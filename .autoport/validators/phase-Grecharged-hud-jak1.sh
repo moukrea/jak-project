@@ -21,8 +21,12 @@ ok "report: menu placement + gate + OFF==stock + heart + gauge described"
 
 # PHYSICAL: recharged assets baked into the build (not just referenced in source)
 BAKED=0
-for so in build-android/lib/arm64-v8a/libgk.so; do [ -f "$so" ] && { strings -a "$so" 2>/dev/null | grep -qiE 'recharged|jak_heart|jak_gauge' && BAKED=1; }; done
-find android build-android out -type f 2>/dev/null | grep -qiE 'recharged|jak_heart|jak_gauge' && BAKED=1
+# NOTE: `| grep -q` under pipefail SIGPIPE-fails (141) on big streams even when the
+# pattern matches (documented validator bug class) — count with grep -c instead.
+for so in build-android/lib/arm64-v8a/libgk.so; do
+  [ -f "$so" ] && { n=$(strings -a "$so" 2>/dev/null | grep -icE 'recharged|jak_heart|jak_gauge' || true); [ "${n:-0}" -gt 0 ] && BAKED=1; }
+done
+n=$(find android build-android out -type f 2>/dev/null | grep -icE 'recharged|jak_heart|jak_gauge' || true); [ "${n:-0}" -gt 0 ] && BAKED=1
 [ "$BAKED" -eq 1 ] || fail "recharged_assets not baked into the build (heart/gauge not found in build outputs)"
 ok "recharged assets baked into the build"
 

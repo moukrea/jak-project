@@ -1,0 +1,11 @@
+jak_gauge_blue_end.png
+jak_gauge_blue_full.png
+jak_gauge_empty.png
+jak_gauge_red_end.png
+jak_gauge_red_full.png
+jak_gauge_yellow_end.png
+jak_gauge_yellow_full.png
+jak_heart_0.png
+jak_heart_100.png
+jak_heart_33.png
+jak_heart_66.png
