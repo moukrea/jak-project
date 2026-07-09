@@ -183,7 +183,7 @@
     "Gjak2-pcmenus": 2,
     "Grecharged-hud-visuals-x86": 1,
     "Gjak2-movement": 1,
-    "Grecharged-hud-jak1": 5
+    "Grecharged-hud-jak1": 6
   },
   "fingerprints": {
     "00-harness": [
@@ -355,6 +355,9 @@
     ],
     "Gjak2-pcmenus": [
       "f9c774796cac"
+    ],
+    "Grecharged-hud-jak1": [
+      "64591082c959"
     ]
   },
   "stuck_reasons": {
@@ -713,7 +716,7 @@
     "Gjak2-movement": 1783535947.7066994,
     "Grecharged-hud-jak1": 1783544207.4640982
   },
-  "last_update": "2026-07-09T01:03:48.658059+00:00",
+  "last_update": "2026-07-09T01:06:45.682200+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
