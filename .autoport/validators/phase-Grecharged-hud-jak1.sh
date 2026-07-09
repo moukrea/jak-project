@@ -74,4 +74,8 @@ grep -qiE '(anim|spin).*(speed|rate|slow|clock)|vitesse.*anim' "$R" || fail "add
 grep -qiE 'glow|lueur|bloom' "$R" || fail "addendum: fuel-cell glow must match in-game"
 grep -qiE 'tint|teinte|hue|color match' "$R" || fail "addendum: fuel-cell tint must match in-game"
 ok "addendum: fuel-cell in-game-match (anim speed + glow + tint) addressed"
+# OWNER ROUND 4 addendum #2: eco-type-correct center particle + item scaled into the hole
+grep -qiE '(blue|red|yellow|per.?type|active eco).*(particle|emitter|center)|(center|gauge).*(active eco|per.?type)' "$R" || fail "round4-add2: gauge-center particle must follow the ACTIVE eco type (not always green)"
+grep -qiE '(scal|size|fit).*(hole|center|trou)|(hole|center).*(scal|fit)|z.?order|draw order' "$R" || fail "round4-add2: center item must be scaled to fit INSIDE the hole (not full-gauge-size behind the gauge)"
+ok "round4-add2 (eco-type particle + center scale/z-order) addressed"
 echo "[Grecharged-hud PASS] Recharged HUD gated + menu + heart/gauge + assets baked + device frame. (owner play-test next)"
