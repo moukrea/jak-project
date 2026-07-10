@@ -76,3 +76,28 @@ Efficiency: batch all four into ONE consistent arm64 jak2 build, prove the OBJEC
 (camera-interp present + called, collision-math covers the active methods, build boots +
 deploy_verify jak2 + deploy_verify_assets jak2), and hand the SUBJECTIVE ones (glow look,
 cutscene fill, speed feel, collision feel) to the owner — do NOT self-certify them.
+
+## OWNER CONCRETE COLLISION REPRO + PARK DECISION (2026-07-10)
+Owner quote (verbatim, French):
+"Je peux pas casser les caisses, la première plateforme qui bouge du jeu je peux pas y sauter
+dessus, la collision fait comme si j'étais en chute dessus, et je fini par tomber à côté. ça
+arrive très vite dans le progrès du premier niveau. J'avoue j'ai pas testé plus du coup. Pour
+moi tu peux parker Jak 2 pour l'instant et continuer avec Jak 1."
+
+VERDICT: the collision regression is REAL and game-breaking (confirmed repro):
+  - Cannot break CRATES (caisses).
+  - Cannot land on the FIRST MOVING PLATFORM — collision treats Jak as falling THROUGH/onto it,
+    he slides off to the side and falls. Happens very early in level 1.
+This CONFIRMS the crouch-fix root cause: enabling the nav-engine + collide-cache method-17 mips2c
+path (mips2c_table_jak1_arm64.cpp:1087-1093) turned on an arm64 collision path whose MATH is wrong
+on arm64 — my earlier "audit says jak1 math already covers it" was FALSE (owner repro disproves it).
+
+REVISIT PLAN (when jak2 resumes): do NOT ship the method-17/nav-engine enablement as-is. Either
+(a) actually fix the arm64 collision-math for those specific methods (fmin/fmax/NaN-compare/vftoi
+divergence — verify on the crate-break + moving-platform-land beats, NOT by audit), or (b) find a
+crouch fix that doesn't require enabling the broken collide path. The crouch-lock and the collision
+are COUPLED — solve them together, verify BOTH on device (jump-onto-moving-platform + break-crate +
+crouch-release-stands-up). The camera-interp port + glow depth-stencil fix + cutscene-aspect refine
+from round-3 are independent and can be kept.
+
+STATUS: PARKED by owner 2026-07-10 — Jak 2 paused, focus returns to Jak 1.
