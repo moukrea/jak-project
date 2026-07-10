@@ -1,0 +1,1 @@
+OWNER FEEDBACK #2 (2026-07-10): (1) herbe plus LONGUE; (2) CULLING/POP-IN TOUJOURS CASSÉ en bougeant (zones disparaissent/chargent pas/pop-in) = #1 blocker, le fix précédent a échoué, re-root-cause + instrumenter chunks in-range vs drawn en marchant; (3) grass cards À DISTANCE absentes (tier LOD mid ne rend pas). Preuve = capture EN MOUVEMENT sur device.

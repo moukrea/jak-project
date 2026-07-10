@@ -130,3 +130,26 @@ chunk-instancing system (frustum or distance culling too aggressive? per-chunk i
 overflow/eviction? a chunk visibility/bucket bug?). The fix must keep ALL nearby grass chunks
 (blades AND cards) populated + stable — no chunk disappearing while in range, no state that only
 "fixes" by moving. This is the #1 correctness bug of the polish round.
+
+## OWNER POLISH FEEDBACK #2 (2026-07-10, on the interim build) — CULLING STILL BROKEN
+Owner quote (verbatim, French):
+"Alors l'herbe mériterai d'être un peu plus longue. D'entrée c'est pas mal mais en bougeant on
+a des zones entières qui disparaissent, sinon des zones qui chargent pas, sinon ça fait du
+pop-in en bougeant... Et on a pas les grass cards à distance il semblerait"
+
+Breakdown (do NOT reinterpret):
+1. LENGTH: grass should be a bit LONGER / taller (bump blade + card height).
+2. CULLING / POP-IN STILL BROKEN (this is the #1 blocker, the previous fix DID NOT resolve it):
+   while MOVING, "entire zones DISAPPEAR", other "zones DON'T LOAD", and there's "pop-in when
+   moving". Re-root-cause from scratch — the prior fix was wrong. Suspects: chunk visibility keyed
+   to a stale camera/eye position; per-chunk instance buffers rebuilt only on a trigger that
+   misses while moving; frustum/distance cull using the wrong transform; a fixed chunk pool that
+   evicts in-view chunks; async chunk build that never completes for some chunks. INSTRUMENT it:
+   log per-frame how many chunks are in-range vs actually drawn vs culled, while walking, and find
+   why in-range chunks are not drawn. Do NOT claim fixed until a MOVING device capture shows zero
+   disappearing/unloaded zones.
+3. GRASS CARDS AT DISTANCE MISSING: the owner does not see the mid-range grass cards at distance
+   at all — the card LOD tier isn't rendering (wrong distance band? culled by the same bug? cards
+   never instanced?). Make the cards actually appear in their distance band.
+Owner is REMOTE + reviewing via jak-builds pushes — keep pushing interim builds when there is a
+visible change, but the CULLING must be genuinely fixed (moving capture proof) before calling it good.
