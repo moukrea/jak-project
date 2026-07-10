@@ -63,3 +63,9 @@ Honest partial OK (e.g. trample simplified) — say exactly what's in and what's
 ## Locks: ANDROID_SERIAL=eae4df44 only; OFF path == stock; engine goal_src untouched; .autoport/gold
 READ-ONLY; full CONSISTENT builds; verify mCurrentFocus=jak1 before trusting frames.
 ## Max: max_turns 3000, max_retries 6. device: true, owner_verify: true.
+
+## DEVICE HYGIENE (owner 2026-07-10, MANDATORY)
+ALWAYS force-stop the game (`adb -s eae4df44 shell am force-stop org.opengoal.gk.jak1`) the
+moment a device test window ends. A left-running app overheats the Redmi for hours -> can
+reboot it -> PIN lockout -> pipeline stranded until the owner is physically there. Never leave
+the app foregrounded after a capture/verify.
