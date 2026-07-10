@@ -21,7 +21,9 @@ grep -qiE 'lod|distance|band|tier|far' "$R" || fail "must describe the 3-tier LO
 grep -qiE 'training|geyser' "$R" || fail "PoC must be scoped to the training level"
 grep -qiE 'fps|cost|perf' "$R" || fail "must report the fps cost on device"
 grep -qiE 'off.*(stock|identical|unchanged)|stock.*off|no regression' "$R" || fail "must prove OFF == stock"
-ok "report: placement + blades(size/orient/curve, flat-color) + breeze + trample + cards + LOD + training-only + fps + OFF==stock"
+# OWNER OVERRIDE 2026-07-10: grass ships DEFAULT ON (toggle still exists; OFF == stock).
+grep -qiE 'default[ -]?on|on by default|default.*#t|défaut.*(on|activ)|ships? (on|enabled)' "$R" || fail "owner override: grass must default ON (not OFF) — toggle still exists, OFF still == stock"
+ok "report: placement + blades(size/orient/curve, flat-color) + breeze + trample + cards + LOD + training-only + fps + OFF==stock + DEFAULT ON"
 
 # PHYSICAL: grass renderer/shader actually in the build
 SO=build-android/lib/arm64-v8a/libgk.so
