@@ -62,7 +62,7 @@ grep -qiE 'densit|dense' "$R" || fail "polish: must increase 3D-blade DENSITY (o
 grep -qiE '(blade|near).*(band|distance|reach|further|farther|extend|lod)|jak.*(in|dans).*grass|transition.*(distance|out)' "$R" || fail "polish: near-blade LOD band must reach far enough that Jak stands in real 3D grass"
 grep -qiE '(card).*(tuft|blade|alpha|shape|texture)|tuft' "$R" || fail "polish: grass cards must read as tufts/blades, not blurry rectangles"
 grep -qiE '(card).*(wind|sway|breeze)|wind.*card' "$R" || fail "polish: cards must sway in the wind like the near blades"
-grep -qiE 'pop.?in|empty (square|card)|missing.*(card|texture)|card.*stab' "$R" || fail "polish: must fix the card pop-in / empty-square bug"
+grep -qiE '(chunk|cull|lod).*(pop|drop|evict|disappear|stab|budget)|pop.?in|de.?instanc|empty (square|chunk|card)' "$R" || fail "polish: must fix the SYSTEMIC chunk de-instancing / culling pop-in (affects BOTH 3D blades AND cards)"
 ok "polish items (density, blade reach, card tufts, card wind, pop-in) addressed"
 
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"

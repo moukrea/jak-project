@@ -118,3 +118,15 @@ Breakdown (do NOT reinterpret) — the PoC is GOOD; polish these:
 Owner is REMOTE — when this iteration is verified (objective A/B on Redmi + I confirm), PUSH a
 fresh jak1 build to moukrea/jak-builds (update the jak1-grass-poc release) for his HONOR playtest.
 Keep default ON. Objective A/B still required; do NOT self-certify the look.
+
+## OWNER CORRECTION to the pop-in item (2026-07-10)
+Owner quote (verbatim, French):
+"Correction sur les carrés vides, ça concerne aussi l'herbe en vraie 3D, comme si des chunks
+entiers se desinstanciais en dépit du fait qu'on soit a proximité... Toujours même idée, une
+sorte de culling/pop-in/lod system non maîtrisé"
+=> The empty-square / de-instancing bug is SYSTEMIC, affecting BOTH the near 3D BLADES and the
+cards: whole CHUNKS drop out even when we are close to them. Root-cause the culling / LOD /
+chunk-instancing system (frustum or distance culling too aggressive? per-chunk instance budget
+overflow/eviction? a chunk visibility/bucket bug?). The fix must keep ALL nearby grass chunks
+(blades AND cards) populated + stable — no chunk disappearing while in range, no state that only
+"fixes" by moving. This is the #1 correctness bug of the polish round.
