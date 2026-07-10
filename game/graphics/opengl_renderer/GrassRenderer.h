@@ -42,4 +42,8 @@ class GrassRenderer {
 
   const void* m_cached_level = nullptr;
   u64 m_cached_load_id = UINT64_MAX;
+  // camera position at the last rebuild — the instance budget is focused near the
+  // camera, so we rebuild when the player has moved far enough that the field
+  // should follow (keeps dense grass around the player within the instance cap).
+  float m_build_cam[3] = {1e30f, 1e30f, 1e30f};
 };

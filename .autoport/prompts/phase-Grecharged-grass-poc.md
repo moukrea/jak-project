@@ -90,3 +90,66 @@ MANDATORY to close this phase now (validator enforces all of these):
    over the ground, not the stock texture). If it does NOT visibly differ on device, the grass
    does not work — say so honestly, do not claim it does.
 4. Force-stop the app when the device test ends (device-hygiene rule).
+
+## OWNER POLISH ROUND (2026-07-10) — "impressionnant" but iterate (keep the good parts)
+Owner quote (verbatim, French):
+"Alors impressionnant ! Par contre j'ai l'impression que l'herbe full 3D est rendu plus près
+de la caméra (c'est attendu) mais pas suffisamment loin pour que Jak soit dedans, Jak est dans
+les Grass Cards qui d'ailleurs ont pas l'air (même en illusion) de faire des brins mais plutôt
+des rectangles flous, qui n'ont pas l'air de varier au grès du vent (simulé comme la vraie herbe
+3D) la vraie herbe 3D n'a pas assez de variation de teinte, taille et surtout n'est pas assez
+dense ! Mais c'est déjà pas mal du tout. Aussi les grass cards... Ça fait des carrés chelou sans
+rien au milieu des fois, et ça se corrige pas en allant venant (sorte de pop-in non maîtrisé)."
+
+Breakdown (do NOT reinterpret) — the PoC is GOOD; polish these:
+1. NEAR-BLADE LOD BAND TOO SHORT: the full 3D blades render close to camera but NOT far enough —
+   JAK IS NOT STANDING IN THE 3D GRASS, he's already in the CARDS band. Push the near-blade→card
+   transition distance OUT so Jak (and the ground right around him) is in real 3D blades.
+2. 3D BLADES need MORE: (a) more TINT variation, (b) more SIZE variation, (c) MUCH MORE DENSITY
+   (owner: "surtout pas assez dense"). Density is the #1 ask.
+3. GRASS CARDS look WRONG: they read as "blurry rectangles", not grass tufts — even the illusion
+   fails. Make the card texture/shape read as grass blades/tufts (alpha-cut tuft, not a flat
+   rectangle), matching the near-blades' greens/height so the transition is seamless.
+4. CARDS don't sway in the WIND: the near 3D grass is wind-simulated but the cards are static —
+   give the cards the same (gentler) wind sway.
+5. CARD POP-IN BUG: cards sometimes render as "weird empty squares with nothing in the middle",
+   and it does NOT resolve by moving around = uncontrolled pop-in / broken card instancing or a
+   missing-texture/alpha issue. Fix the pop-in so cards are always populated + stable.
+Owner is REMOTE — when this iteration is verified (objective A/B on Redmi + I confirm), PUSH a
+fresh jak1 build to moukrea/jak-builds (update the jak1-grass-poc release) for his HONOR playtest.
+Keep default ON. Objective A/B still required; do NOT self-certify the look.
+
+## OWNER CORRECTION to the pop-in item (2026-07-10)
+Owner quote (verbatim, French):
+"Correction sur les carrés vides, ça concerne aussi l'herbe en vraie 3D, comme si des chunks
+entiers se desinstanciais en dépit du fait qu'on soit a proximité... Toujours même idée, une
+sorte de culling/pop-in/lod system non maîtrisé"
+=> The empty-square / de-instancing bug is SYSTEMIC, affecting BOTH the near 3D BLADES and the
+cards: whole CHUNKS drop out even when we are close to them. Root-cause the culling / LOD /
+chunk-instancing system (frustum or distance culling too aggressive? per-chunk instance budget
+overflow/eviction? a chunk visibility/bucket bug?). The fix must keep ALL nearby grass chunks
+(blades AND cards) populated + stable — no chunk disappearing while in range, no state that only
+"fixes" by moving. This is the #1 correctness bug of the polish round.
+
+## OWNER POLISH FEEDBACK #2 (2026-07-10, on the interim build) — CULLING STILL BROKEN
+Owner quote (verbatim, French):
+"Alors l'herbe mériterai d'être un peu plus longue. D'entrée c'est pas mal mais en bougeant on
+a des zones entières qui disparaissent, sinon des zones qui chargent pas, sinon ça fait du
+pop-in en bougeant... Et on a pas les grass cards à distance il semblerait"
+
+Breakdown (do NOT reinterpret):
+1. LENGTH: grass should be a bit LONGER / taller (bump blade + card height).
+2. CULLING / POP-IN STILL BROKEN (this is the #1 blocker, the previous fix DID NOT resolve it):
+   while MOVING, "entire zones DISAPPEAR", other "zones DON'T LOAD", and there's "pop-in when
+   moving". Re-root-cause from scratch — the prior fix was wrong. Suspects: chunk visibility keyed
+   to a stale camera/eye position; per-chunk instance buffers rebuilt only on a trigger that
+   misses while moving; frustum/distance cull using the wrong transform; a fixed chunk pool that
+   evicts in-view chunks; async chunk build that never completes for some chunks. INSTRUMENT it:
+   log per-frame how many chunks are in-range vs actually drawn vs culled, while walking, and find
+   why in-range chunks are not drawn. Do NOT claim fixed until a MOVING device capture shows zero
+   disappearing/unloaded zones.
+3. GRASS CARDS AT DISTANCE MISSING: the owner does not see the mid-range grass cards at distance
+   at all — the card LOD tier isn't rendering (wrong distance band? culled by the same bug? cards
+   never instanced?). Make the cards actually appear in their distance band.
+Owner is REMOTE + reviewing via jak-builds pushes — keep pushing interim builds when there is a
+visible change, but the CULLING must be genuinely fixed (moving capture proof) before calling it good.
