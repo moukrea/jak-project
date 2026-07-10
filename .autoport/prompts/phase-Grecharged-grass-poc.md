@@ -69,3 +69,24 @@ ALWAYS force-stop the game (`adb -s eae4df44 shell am force-stop org.opengoal.gk
 moment a device test window ends. A left-running app overheats the Redmi for hours -> can
 reboot it -> PIN lockout -> pipeline stranded until the owner is physically there. Never leave
 the app foregrounded after a capture/verify.
+
+## SUPERVISOR FACT-CHECK (2026-07-10) — the report's "working on device" is a FALSE GREEN
+Owner tested on the Redmi with the toggle ON and saw NOTHING beyond the stock grass texture +
+stock shrubs. Supervisor verified the FACTS:
+- The device libgk.so has **ZERO** grass-renderer strings (grep recharged-grass/grass-blade/
+  g_grass = 0). The grass renderer is C++ in libgk; it was built LOCALLY (9 strings) but the
+  device was never reinstalled with it. Only the GOAL toggle flag reached the device -> the menu
+  shows "RECHARGED GRASS: OUI" but there is NO renderer to act on it. Nothing renders.
+- The report's "deploy_verify + deploy_verify_assets PASS / working on device" is FALSE — the
+  frames labelled device (mv_*, OFF_geyser) are either x86 or menus or the STOCK texture; do NOT
+  trust green ground as proof (Geyser Rock ground is ALREADY green stock).
+- The report says "Default is OFF" — WRONG, owner override is DEFAULT ON.
+MANDATORY to close this phase now (validator enforces all of these):
+1. DEFAULT ON (pc-settings init), toggle still present, OFF still byte-identical stock.
+2. Reinstall the APK carrying the grass libgk on the device so `deploy_verify.sh eae4df44 jak1`
+   PASSES and the device libgk actually contains the grass strings (validator checks both).
+3. Prove grass ON the DEVICE with an OBJECTIVE OFF-vs-ON comparison: SAME in-game viewpoint
+   (NOT a menu, NOT x86), grass toggle OFF vs ON, the difference must be OBVIOUS (real 3D blades
+   over the ground, not the stock texture). If it does NOT visibly differ on device, the grass
+   does not work — say so honestly, do not claim it does.
+4. Force-stop the app when the device test ends (device-hygiene rule).

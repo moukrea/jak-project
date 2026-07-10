@@ -1290,6 +1290,14 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     ASSERT(dma.current_tag_offset() == m_render_state.next_bucket);
     m_render_state.next_bucket += 16;
     vif_interrupt_callback(bucket_id);
+
+    // Grecharged-grass-poc: draw procedural grass over the training ground at the
+    // same post-opaque-background insertion point as desktop (bucket 30). Gated OFF
+    // by default -> zero grass code runs and the device render is byte-identical.
+    if (bucket_id == 31 - 1 && Gfx::g_global_settings.recharged_grass) {
+      auto p = prof.make_scoped_child("grass-draw");
+      m_grass_renderer.render(&m_render_state, p);
+    }
   }
 }
 

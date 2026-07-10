@@ -28,6 +28,7 @@
 
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/Fbo.h"
+#include "game/graphics/opengl_renderer/GrassRenderer.h"
 #include "game/graphics/opengl_renderer/foreground/Generic2.h"
 #include "game/graphics/opengl_renderer/Profiler.h"
 #include "game/graphics/opengl_renderer/opengl_utils.h"
@@ -114,6 +115,7 @@ class AndroidOpenGLRenderer {
   std::vector<bool> m_skip_logged;
 
   FullScreenDraw m_blackout_renderer;
+  GrassRenderer m_grass_renderer;  // Grecharged-grass-poc (jak1 training)
   float m_last_pmode_alp = 1.f;
 
   struct {

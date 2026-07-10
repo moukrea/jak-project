@@ -126,6 +126,14 @@ struct GfxGlobalSettings {
   u32 collision_skip_mask = 0;
   u32 collision_skip_hide_mask = 0;
   bool collision_skip_nomask_allowed = true;
+
+  // Grecharged-grass-poc: optional procedural 3D grass on the jak1 training level.
+  // Set from GOAL (-> *pc-settings* recharged-grass?) via pc-set-recharged-grass!.
+  // OFF (default) == byte-identical stock rendering (the renderer hook is skipped).
+  bool recharged_grass = false;
+  // Jak's world position (GOAL units) pushed every frame via pc-set-jak-pos! for
+  // the grass trample effect. w = 1.0 when valid, 0.0 before the player spawns.
+  float recharged_jak_pos[4] = {0.f, 0.f, 0.f, 0.f};
 };
 
 namespace Gfx {

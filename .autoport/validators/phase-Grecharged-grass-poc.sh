@@ -39,6 +39,15 @@ SZ=$(stat -c %s "$FRAME" 2>/dev/null || echo 0); [ "$SZ" -ge 20000 ] || fail "ar
 grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "report must assert jak1 foreground at capture"
 ok "device visual artifact present ($FRAME)"
 
+# GRASS RENDERER IS C++ (libgk) — the DEVICE must actually run the libgk that contains it.
+# 2026-07-10: report claimed "working on device" but the device libgk had ZERO grass strings
+# (renderer built locally, never reinstalled on device -> toggle=OUI but nothing renders).
+# deploy_verify proves build==APK==device libgk; without it a grass PASS is a lie.
+bash .autoport/lib/deploy_verify.sh eae4df44 jak1 >/dev/null 2>&1 || fail "device libgk is NOT the fresh grass build (deploy_verify) — the grass renderer never reached the device; reinstall the APK"
+DEVGRASS=$(/home/emeric/Android/platform-tools/adb -s eae4df44 shell "run-as org.opengoal.gk.jak1 sh -c 'strings /data/app/*/org.opengoal.gk.jak1*/lib/arm64/libgk.so 2>/dev/null' " 2>/dev/null | grep -ciE 'recharged.?grass|grass.?blade|g_grass')
+[ "${DEVGRASS:-0}" -gt 0 ] || fail "device libgk has NO grass renderer strings ($DEVGRASS) — the toggle has nothing to act on; deploy the grass libgk to the device"
+ok "device libgk carries the grass renderer ($DEVGRASS refs) + deploy_verify PASS"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"
