@@ -185,7 +185,7 @@
     "Gjak2-movement": 1,
     "Grecharged-hud-jak1": 0,
     "Gjak2-polish": 1,
-    "Grecharged-grass-poc": 2
+    "Grecharged-grass-poc": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -719,7 +719,7 @@
     "Gjak2-polish": 1783609200.6848521,
     "Grecharged-grass-poc": 1783657868.6481647
   },
-  "last_update": "2026-07-10T08:12:54.049562+00:00",
+  "last_update": "2026-07-10T10:20:38.752326+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

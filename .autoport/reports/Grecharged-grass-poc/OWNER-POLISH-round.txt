@@ -1,0 +1,7 @@
+OWNER POLISH ROUND (2026-07-10) — PoC "impressionnant" mais itérer:
+1. DENSITÉ herbe 3D = demande #1 (pas assez dense) + plus de variation teinte + taille.
+2. Étendre la bande LOD near-blades pour que JAK soit DANS l'herbe 3D (là il est dans les cards).
+3. Grass cards = vrais brins/touffes (alpha tuft), PAS des rectangles flous ; + sway au vent.
+4. BUG #1 correctness: carrés vides / chunks qui se DÉSINSTANCIENT malgré la proximité —
+   SYSTÉMIQUE (herbe 3D ET cards). Culling/LOD/chunk-instancing non maîtrisé à corriger.
+Owner REMOTE: repush jak1-grass-poc sur jak-builds quand vérifié (A/B objectif Redmi).
