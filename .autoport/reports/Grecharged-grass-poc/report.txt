@@ -58,14 +58,30 @@ engine goal_src UNTOUCHED):
      sway on it (as before) AND the cards now sway on the SAME gust, gentler and lower frequency, growing
      toward the top. Previously the cards were effectively static.
 
-5. CARD POP-IN / "EMPTY SQUARE" BUG FIXED (grass.frag + GrassRenderer.cpp).
-   - Root cause was two-fold: (a) the old card was a translucent rectangle that, because a blended quad
-     still wrote depth, could show as a hollow "empty square" from the crossed quad occluding itself; and
-     (b) the 120k instance cap was CONSUMED in draw order, so which distant ground got cards shifted as
-     the player moved (uncontrolled pop). Fix (a): the alpha-cut tuft DISCARDs the gaps, so those
-     fragments write neither color nor depth — the crossed quad shows through instead of a hole, and
-     there is no rectangle to look hollow. Fix (b): cap raised above the real total + nearest-first
-     placement, so the near field is deterministic and stable frame-to-frame.
+5. SYSTEMIC "EMPTY SQUARE" / CHUNK DE-INSTANCING POP-IN FIXED — affects BOTH near 3D BLADES and cards.
+   OWNER CORRECTION 2026-07-10 (verbatim): "ça concerne aussi l'herbe en vraie 3D, comme si des chunks
+   entiers se désinstancient en dépit du fait qu'on soit à proximité... une sorte de culling/pop-in/lod
+   system non maîtrisé". i.e. the de-instancing is SYSTEMIC (not card-only): whole CHUNKS of grass drop
+   out even when the player is close. This was the #1 correctness bug.
+   ROOT CAUSE: the old build's 120k instance cap was HIT and CONSUMED in tfrag DRAW ORDER — so whole
+   ground triangles/chunks processed AFTER the budget ran out got ZERO grass even when NEARBY, and which
+   chunks won the budget SHIFTED every time the field rebuilt (on player move). That is exactly
+   "chunks de-instancing despite proximity" and "only fixes by moving", for BOTH blades and cards. A
+   second, card-only contributor: the translucent card rectangle wrote depth, so a crossed quad could
+   occlude itself into a hollow "empty square".
+   FIX: (a) placement now COLLECTS all qualifying ground triangles, SORTS them NEAREST-FIRST, and fills
+   in that order with the cap raised to 220000 — which sits ABOVE the real instance total (~179k), so
+   the cap is never hit in practice and, even if it were, the budget is spent on the CLOSEST chunks
+   first. No nearby chunk (blade OR card) is ever starved; placement is deterministic and stable
+   frame-to-frame (seeded by triangle identity, not draw order or camera). No frustum/chunk visibility
+   culling is done in the grass path (the GPU clips off-screen instances), so no chunk-visibility bug
+   can drop a nearby chunk. (b) the card tuft cutout DISCARDs the gaps so no translucent rectangle
+   writes depth — no hollow square.
+   OBJECTIVE EVIDENCE: across the 18 s MOVING walkthrough (36 sampled frames, which INCLUDES field
+   rebuilds as Jak walks), the near-ground grass coverage in front of Jak holds a rock-steady
+   0.766..0.769 (0.3% variation) — no coverage dips, no bald patches, no chunk disappearing while in
+   range. A de-instancing chunk would show as a sharp coverage dip; there is none. (walk_trample_*.png +
+   grass_walk_polish.mp4.)
 
 ====================================================================================
 DEVICE VERIFICATION — objective same-viewpoint A/B (the supervisor's gate)
@@ -169,8 +185,10 @@ VERDICT: The polished 3D grass PoC renders a DENSE real-3D-blade lawn on the gro
 at the training level (Jak is 10.8 m from camera, inside the 18 m full-blade band, 13048 blades within
 8 m of him). Near flat-color curved/tinted blades with wider size/tint/hue variation + per-blade breeze;
 mid X-cross cards now alpha-cut into grass TUFTS that sway in the same wind; far = stock texture; smooth
-distance-band LOD. The card "empty-square" pop-in is fixed (alpha-cut discard + nearest-first stable
-placement). Grass flattens under Jak. Fully gated: default ON (owner override); toggle OFF == byte-
+distance-band LOD. The SYSTEMIC chunk de-instancing / "empty-square" pop-in (owner's #1 bug, affecting
+BOTH blades and cards) is fixed at the root — nearest-first placement + cap above the real total so no
+nearby chunk is ever starved (proven by rock-steady 0.768 near-ground coverage across the moving
+walkthrough). Grass flattens under Jak. Fully gated: default ON (owner override); toggle OFF == byte-
 identical stock, proven by an OBJECTIVE same-viewpoint on-device A/B. Honest caveats: blades are
 flat-color by design (texturing is a later step); trample recovery is instant-radial (no path history);
 dense grass costs fps (~31 fps at the 40% render-scale floor — tunable via D_NEAR); transposition to other
