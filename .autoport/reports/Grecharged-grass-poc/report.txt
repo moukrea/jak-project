@@ -1,4 +1,4 @@
-RESULT: RECHARGED GRASS POC — WORKING on device (Geyser Rock / training), gated OFF==stock.
+STATUS: IN-PROGRESS (owner polish round — density++, blade-band reach, card tufts+wind+pop-in) — prior RESULT: RECHARGED GRASS POC — WORKING on device (Geyser Rock / training), gated OFF==stock.
         Real 3D grass blades render over the ground the player stands on; 3-tier LOD, breeze +
         trample, default ON. OFF==stock (0 instances). (AWAITING OWNER PLAY-TEST — not self-certified.)
 

@@ -57,6 +57,14 @@ rm -f "$DTMP"
 [ "${DEVGRASS:-0}" -gt 0 ] || fail "the installed device APK's libgk has NO grass renderer strings ($DEVGRASS) — the toggle has nothing to act on"
 ok "device runs the grass libgk (APK-bundled: $DEVGRASS grass refs) + deploy_verify PASS"
 
+# OWNER POLISH ROUND 2026-07-10: density++, blade-band reach, card tufts+wind+pop-in fix
+grep -qiE 'densit|dense' "$R" || fail "polish: must increase 3D-blade DENSITY (owner #1 ask)"
+grep -qiE '(blade|near).*(band|distance|reach|further|farther|extend|lod)|jak.*(in|dans).*grass|transition.*(distance|out)' "$R" || fail "polish: near-blade LOD band must reach far enough that Jak stands in real 3D grass"
+grep -qiE '(card).*(tuft|blade|alpha|shape|texture)|tuft' "$R" || fail "polish: grass cards must read as tufts/blades, not blurry rectangles"
+grep -qiE '(card).*(wind|sway|breeze)|wind.*card' "$R" || fail "polish: cards must sway in the wind like the near blades"
+grep -qiE 'pop.?in|empty (square|card)|missing.*(card|texture)|card.*stab' "$R" || fail "polish: must fix the card pop-in / empty-square bug"
+ok "polish items (density, blade reach, card tufts, card wind, pop-in) addressed"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"
