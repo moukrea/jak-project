@@ -57,8 +57,13 @@ constexpr float BASE_H = 1550.0f;         // ~0.38 m nominal blade height (owner
 // on the real tri plane, gi.py below), so this is NOT a flat/min-Y reference; the
 // old 0.7 gate simply REJECTED the non-flat tris of bumpy platforms, leaving grass
 // only on their flattest (often lowest) tris -> looked like grass sunk under the
-// surface / whole platforms skipped. 0.40 keeps near-vertical walls (>66°) out.
-constexpr float GROUND_UPNESS = 0.40f;    // face-normal.y threshold for "walkable ground"
+// surface / whole platforms skipped.
+// OWNER POLISH#5: 0.40 admitted faces up to ~66° -> steep rock lips still got blades
+// ("brins dans les parties verticales"). Tightened to 0.50 (rejects faces steeper than
+// 60° from horizontal) as the SECONDARY safety net behind the texture filter — bumpy
+// grass platforms (<~45°) still qualify, but steep/vertical rock faces do not. Kept as
+// abs(ny) (winding-agnostic): a vertical wall has abs(ny)/nlen ~= 0, so it is rejected.
+constexpr float GROUND_UPNESS = 0.50f;    // face-normal.y threshold for "walkable ground"
 constexpr float MAX_TRI_AREA = 300.0f;    // m^2; reject implausibly huge (spurious) triangles
 constexpr float D_TARGET = 150.0f;        // tufts/m^2 uniform (dense lawn); auto-reduced to fit budget
 // OWNER POLISH#3: density++ (owner's #1 ask, 3rd time). The uniform field is budget-
@@ -90,18 +95,17 @@ constexpr float OCC_HI_M = 8.0f;          // ...and no more than this (ignore fa
 inline bool name_has(const std::string& n, const char* sub) {
   return n.find(sub) != std::string::npos;
 }
-// Curated exact set (a substring net over-matched a distant village backdrop, 'vil1-medres-grass',
-// 46k m2 of huge tris, collapsing density — the training tfrag tpage has no other grassy-ground
-// texture, so exact names are correct here).
+// OWNER POLISH#5 (2026-07-10): "on a encore des brins dans les parties verticales / sans herbe" —
+// rock/vertical faces STILL got grass. Owner clarification: filter by TEXTURE FIRST — "si sur une
+// normale c'est de la roche, pas d'herbe". 'tra-beachrock' is a ROCK-named texture (NOT in the owner's
+// grass reference set: tra-grass + bch-grassfringe + bch-leafyground-hang-2x1). It textured sloped
+// rock that passed the walkable-ground gate -> "des brins sortir de la roche". REMOVED from the grass
+// set entirely (tfrag AND tie): only genuinely grass-named textures get grass now. tfrag and tie share
+// the same strict set. (A substring net previously over-matched a village backdrop 'vil1-medres-grass',
+// 46k m2 of huge tris, collapsing density — so exact names, not substrings.)
 inline bool is_grass_ground(const std::string& n) {
-  return n == "tra-grass" || n == "tra-beachrock" || n == "bch-grassfringe" ||
-         n == "bch-leafyground-hang-2x1";
+  return n == "tra-grass" || n == "bch-grassfringe" || n == "bch-leafyground-hang-2x1";
 }
-// POLISH#4: the TIE-instanced models need a NARROWER set. tra-beachrock on TIE textures the ROCK
-// FORMATIONS / spires (~91k m2 of sloped rock that passes the walkable-ground gate), NOT walkable
-// ground — placing grass there is wrong and ate the whole instance budget. On TIE keep only the
-// genuinely GRASSY textures (this is where the owner's missing grass PLATFORMS live: tra-grass TIE).
-// tra-beachrock stays matched for TFRAG (there it IS the mossy walkable ground at the spawn).
 inline bool is_grass_ground_tie(const std::string& n) {
   return n == "tra-grass" || n == "bch-grassfringe" || n == "bch-leafyground-hang-2x1";
 }
@@ -356,21 +360,31 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   // is NEVER hit mid-list, so no triangle/chunk is ever starved (a mid-list cap
   // hit is what de-instances distant chunks). Placement is a pure function of
   // triangle identity, so it is identical every level load and stable forever.
+  // OWNER POLISH#5: the instance budget is now SLIDER-DRIVEN (Recharged Settings "GRASS DENSITY",
+  // a percent where 100 = the baseline MAX_INSTANCES). The effective density has always been
+  // budget-clamped (D_TARGET=150/m2 is never reached), so scaling the budget directly scales the
+  // visible density of near blades AND cards. Clamped to [0.5x, 2.5x] renderer-side for memory
+  // safety (2.5x ~= 1.6M instances). A density change re-scatters (see m_cached_density in render()).
+  float dens_scale = std::min(2.5f, std::max(0.5f,
+                                             Gfx::g_global_settings.recharged_grass_density / 100.0f));
+  int budget = (int)((float)MAX_INSTANCES * dens_scale);
+  m_cached_density = Gfx::g_global_settings.recharged_grass_density;
+
   float density = D_TARGET;
-  if (total_area_m2 > 1.0f && total_area_m2 * D_TARGET > BUDGET_SAFETY * (float)MAX_INSTANCES) {
-    density = BUDGET_SAFETY * (float)MAX_INSTANCES / total_area_m2;
+  if (total_area_m2 > 1.0f && total_area_m2 * D_TARGET > BUDGET_SAFETY * (float)budget) {
+    density = BUDGET_SAFETY * (float)budget / total_area_m2;
   }
 
-  m_instances.reserve(std::min<size_t>(MAX_INSTANCES, (size_t)(total_area_m2 * density) + 64));
+  m_instances.reserve(std::min<size_t>(budget, (size_t)(total_area_m2 * density) + 64));
   for (const auto& r : tris) {
-    if ((int)m_instances.size() >= MAX_INSTANCES) break;
+    if ((int)m_instances.size() >= budget) break;
     float fn = r.area_m2 * density;
     int n = (int)fn;
     if (hash_f(r.seed + 99u) < (fn - (float)n)) {
       n += 1;
     }
     for (int i = 0; i < n; ++i) {
-      if ((int)m_instances.size() >= MAX_INSTANCES) break;
+      if ((int)m_instances.size() >= budget) break;
       u32 sd = r.seed + (u32)i * 3266489917u;
       float r1 = hash_f(sd + 1u);
       float r2 = hash_f(sd + 2u);
@@ -486,10 +500,11 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   lg::info(
       "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
       "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
-      "{} instances in {} chunks; POLISH#4 occlusion culled {} under-object instances. No camera "
-      "window, no move-rebuild -> nothing de-instances while moving.",
+      "{} instances in {} chunks (POLISH#5 density {:.0f}% -> budget {}); occlusion culled {} "
+      "under-object instances. No camera window, no move-rebuild -> nothing de-instances while moving.",
       considered_draws, tie_draws, tris_kept, giant_tris, max_area, total_area_m2, density,
-      m_instance_count, (int)m_chunks.size(), occ_culled);
+      m_instance_count, (int)m_chunks.size(), Gfx::g_global_settings.recharged_grass_density, budget,
+      occ_culled);
   // POLISH#4 "still-missing platforms" diagnostic: any ground-ish texture we did NOT place on.
   for (const auto& kv : unmatched_ground) {
     lg::info("[recharged-grass] UNMATCHED ground-ish texture '{}' ({} draws) — not placed",
@@ -506,10 +521,12 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if (!ld || !ld->level) {
     return;
   }
-  // Rebuild ONLY on level change / reload. Placement is camera-independent
-  // (whole-level, uniform), so walking NEVER triggers a rebuild — that is the
-  // culling fix: no pop-in, no de-instancing, no hitch while moving.
-  if (m_cached_level != (const void*)ld->level.get() || m_cached_load_id != ld->load_id) {
+  // Rebuild ONLY on level change / reload, OR when the DENSITY slider changed (POLISH#5 —
+  // a new density means a new instance budget, so the static field must be re-scattered).
+  // Placement is otherwise camera-independent (whole-level, uniform), so walking NEVER
+  // triggers a rebuild — that is the culling fix: no pop-in, no de-instancing while moving.
+  if (m_cached_level != (const void*)ld->level.get() || m_cached_load_id != ld->load_id ||
+      m_cached_density != Gfx::g_global_settings.recharged_grass_density) {
     rebuild(rs);
   }
   if (m_instance_count <= 0) {

@@ -64,6 +64,9 @@ class GrassRenderer {
 
   const void* m_cached_level = nullptr;
   u64 m_cached_load_id = UINT64_MAX;
+  // POLISH#5: the density-percent used at the last scatter. A density-slider change
+  // (recharged_grass_density) differs from this -> re-scatter the whole static field.
+  float m_cached_density = -1.f;
 
   // instrumentation state (throttled per-frame culling log)
   u64 m_frame = 0;

@@ -575,8 +575,8 @@ void pc_set_jak_pos(u32 vec) {
   Gfx::g_global_settings.recharged_jak_pos[3] = 1.0f;
 }
 
-// Grecharged-grass-poc POLISH#4: push the two adjustable grass view distances (a GOAL vector,
-// x = near-blade fade-out distance in meters, y = grass-card fade-out distance in meters).
+// Grecharged-grass-poc POLISH#4/#5: push the adjustable grass view distances + density (a GOAL
+// vector, x = near-blade fade-out (m), y = grass-card fade-out (m), z = density percent (100 = base)).
 void pc_set_grass_dists(u32 vec) {
   if (!vec) {
     return;
@@ -584,6 +584,7 @@ void pc_set_grass_dists(u32 vec) {
   float* p = Ptr<float>(vec).c();
   Gfx::g_global_settings.recharged_grass_near_dist = p[0];
   Gfx::g_global_settings.recharged_grass_card_dist = p[1];
+  Gfx::g_global_settings.recharged_grass_density = p[2];  // POLISH#5 density slider
 }
 
 // Grecharged-grass-poc POLISH#4: push Jak's ledge-grab point (a GOAL vector, xyz) while he hangs on

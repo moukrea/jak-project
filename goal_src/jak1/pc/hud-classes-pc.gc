@@ -1663,9 +1663,10 @@
   (pc-set-recharged-grass! (if (-> obj recharged-grass?) 1 0))
   (when *target*
     (pc-set-jak-pos! (-> *target* control trans)))
-  ;; Grecharged-grass-poc POLISH#4: push the two adjustable grass view-distances every frame.
+  ;; Grecharged-grass-poc POLISH#4/#5: push the two adjustable grass view-distances + density every frame.
   (set! (-> *grass-dist-scratch* x) (-> obj recharged-grass-near-dist))
   (set! (-> *grass-dist-scratch* y) (-> obj recharged-grass-card-dist))
+  (set! (-> *grass-dist-scratch* z) (-> obj recharged-grass-density)) ;; POLISH#5 density percent
   (pc-set-grass-dists! *grass-dist-scratch*)
   ;; POLISH#4: while Jak hangs on a ledge, push the ledge grab point so the ledge-top grass parts
   ;; around his hands (else clear it by passing a null vector -> the renderer drops the effect).

@@ -798,7 +798,16 @@
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 4 Back
+       ;; 4 GRASS DENSITY slider (POLISH#5): density percent (100 = base instance budget; higher = denser
+       ;; near blades AND cards). value bound to *pc-settings* recharged-grass-density in init-game-options;
+       ;; on-change persists. The renderer re-scatters the whole static field when this changes.
+       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
+            :param1 100.0 :param2 250.0 :slider-step-size 25.0 :slider-show-decimal? #f
+            :on-change
+            (lambda ((val object))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 5 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
@@ -856,6 +865,9 @@
 (format (clear *recharged-near-dist-label*) "NEAR GRASS DISTANCE")
 (define *recharged-card-dist-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-card-dist-label*) "GRASS CARD DISTANCE")
+;; Grecharged-grass-poc POLISH#5: label for the grass DENSITY slider (English-only, uppercase ASCII).
+(define *recharged-density-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *recharged-density-label*) "GRASS DENSITY")
 
 ;; Glang-mixed: re-format the name-override label buffers from the loaded text bank so
 ;; they follow (-> *pc-settings* text-language). Runs on every menu open (init-game-options
@@ -2909,6 +2921,9 @@
   (set! (-> *recharged-options-pc* 2 name-override) *recharged-near-dist-label*)
   (set! (-> *recharged-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-grass-card-dist))
   (set! (-> *recharged-options-pc* 3 name-override) *recharged-card-dist-label*)
+  ;; Grecharged-grass-poc POLISH#5: wire the DENSITY slider (row 4) in the recharged submenu.
+  (set! (-> *recharged-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-grass-density))
+  (set! (-> *recharged-options-pc* 4 name-override) *recharged-density-label*)
   (apply-dynamic-rs-menu-mode!)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))
