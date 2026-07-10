@@ -40,13 +40,22 @@ grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "report must assert jak
 ok "device visual artifact present ($FRAME)"
 
 # GRASS RENDERER IS C++ (libgk) — the DEVICE must actually run the libgk that contains it.
-# 2026-07-10: report claimed "working on device" but the device libgk had ZERO grass strings
-# (renderer built locally, never reinstalled on device -> toggle=OUI but nothing renders).
-# deploy_verify proves build==APK==device libgk; without it a grass PASS is a lie.
-bash .autoport/lib/deploy_verify.sh eae4df44 jak1 >/dev/null 2>&1 || fail "device libgk is NOT the fresh grass build (deploy_verify) — the grass renderer never reached the device; reinstall the APK"
-DEVGRASS=$(/home/emeric/Android/platform-tools/adb -s eae4df44 shell "run-as org.opengoal.gk.jak1 sh -c 'strings /data/app/*/org.opengoal.gk.jak1*/lib/arm64/libgk.so 2>/dev/null' " 2>/dev/null | grep -ciE 'recharged.?grass|grass.?blade|g_grass')
-[ "${DEVGRASS:-0}" -gt 0 ] || fail "device libgk has NO grass renderer strings ($DEVGRASS) — the toggle has nothing to act on; deploy the grass libgk to the device"
-ok "device libgk carries the grass renderer ($DEVGRASS refs) + deploy_verify PASS"
+# 2026-07-10: a report claimed "working on device". The RELIABLE proof is deploy_verify
+# (build==APK-bundled==device-installed-APK libgk) PLUS the APK-bundled libgk actually
+# containing grass strings. NOTE: this device extracts the native lib from INSIDE the APK
+# at load time (extractNativeLibs=false) — it is NOT a readable file on disk, so any
+# `run-as strings /data/app/.../lib/arm64/libgk.so` check FALSE-FAILS (No such file).
+# Read the libgk out of the installed APK instead (host adb has pm-path + pull rights).
+bash .autoport/lib/deploy_verify.sh eae4df44 jak1 >/dev/null 2>&1 || fail "deploy_verify FAIL — device APK libgk != fresh build; the grass renderer never reached the device (reinstall the APK)"
+ADB=/home/emeric/Android/platform-tools/adb
+DP=$("$ADB" -s eae4df44 shell pm path org.opengoal.gk.jak1 2>/dev/null | sed 's/package://' | tr -d '\r' | head -1)
+[ -n "$DP" ] || fail "jak1 not installed on device"
+mkdir -p .autoport/tmp; DTMP=$(mktemp .autoport/tmp/gdv.XXXXXX.apk)
+"$ADB" -s eae4df44 pull "$DP" "$DTMP" >/dev/null 2>&1 || fail "could not pull device APK"
+DEVGRASS=$(unzip -p "$DTMP" lib/arm64-v8a/libgk.so 2>/dev/null | strings | grep -ciE 'recharged.?grass|grass.?blade|g_grass')
+rm -f "$DTMP"
+[ "${DEVGRASS:-0}" -gt 0 ] || fail "the installed device APK's libgk has NO grass renderer strings ($DEVGRASS) — the toggle has nothing to act on"
+ok "device runs the grass libgk (APK-bundled: $DEVGRASS grass refs) + deploy_verify PASS"
 
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
