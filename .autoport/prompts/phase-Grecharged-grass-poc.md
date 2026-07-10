@@ -221,3 +221,21 @@ Breakdown (do NOT reinterpret) — keep everything that works; add these 5:
    trample, gate on the ledge-hang state).
 Keep: culling DROPPED=0, density, card tint/sway, sloped placement, airborne-trample gate.
 Owner is REMOTE — re-push jak1-grass-poc when verified. Default ON.
+
+## OWNER POLISH#4 addendum — grass on ROCK/VERTICAL walls (2026-07-10)
+Owner quote (verbatim, French):
+"Par contre j'ai aussi l'impression que des parois de roches (texturés par de la roche sur les
+parties verticales, par de l'herbe sur le dessus) ont aussi de l'herbe sur les parties rocheuses,
+ça fait des effets bizarres où on va l'herbe a loin sur les parois et des fois des brins sortir de
+la roche (et c'est pas le sol d'en dessous qui pose problème dans ce cas, l'herbe passant au travers
+étant bien plus haut que le sol du dessous)"
+
+Breakdown (do NOT reinterpret) — DISTINCT from the under-floor issue:
+6. GRASS ON ROCK / VERTICAL WALLS: rock walls (vertical faces textured ROCK, top textured GRASS) are
+   getting grass ON the ROCKY parts too — grass shows on the walls at distance, and blades poke OUT of
+   the rock. This is NOT the under-floor case (the grass poking through the rock is far ABOVE the
+   floor below). Root cause is likely: placement puts grass on triangles that are NOT the up-facing
+   grass top (wrong texture-id match onto rock, OR no surface-NORMAL filter so vertical/steep faces
+   get grass). FIX: only place grass on NEAR-HORIZONTAL, UP-FACING, GRASS-textured surfaces — filter
+   by the triangle normal (reject steep/vertical faces) AND strictly by the grass texture-id (reject
+   rock-textured faces). No blades on rock walls.

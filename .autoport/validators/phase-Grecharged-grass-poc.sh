@@ -89,7 +89,8 @@ grep -qiE '(adjustable|slider|setting).*(distance|view.?dist)|distance.*(adjusta
 grep -qiE '(card).*(further|farther|distance.*(increase|extend|push))|extend.*card.*distance' "$R" || fail "polish#4: card render distance must be pushed further out"
 grep -qiE '(hide|cull|mask).*(grass).*(under|overlap|object|model|prop)|overlap.*(object|model).*(hide|cull|grass)' "$R" || fail "polish#4: must hide grass where a non-grass object overlaps the ground"
 grep -qiE '(ledge|rebord|hang|grab).*(trample|part|spread|écart)|trample.*(ledge|hang|grab)' "$R" || fail "polish#4: ledge-grab must part the grass like walk-trample"
-ok "polish#4 (missing platforms, colour-match, card-dist+adjustable, hide-under-objects, ledge-trample) addressed"
+grep -qiE '(normal|up.?facing|horizontal|vertical|steep|slope angle|wall).*(filter|reject|exclude|only)|(reject|exclude|skip).*(vertical|steep|wall|rock)' "$R" || fail "polish#4b: must filter placement by surface NORMAL (no grass on vertical/rock walls, only up-facing grass tops)"
+ok "polish#4 (missing platforms, colour-match, card-dist+adjustable, hide-under-objects, ledge-trample, no-rock-walls) addressed"
 
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
