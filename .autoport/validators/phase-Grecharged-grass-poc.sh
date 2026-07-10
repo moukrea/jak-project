@@ -82,6 +82,15 @@ grep -qiE '(airborne|jump|in the air|altitude|jak.?y|above.*(ground|grass)).*(tr
 grep -qiE 'dropped ?= ?0|no.*(drop|regress).*cull|cull.*no regress' "$R" || fail "polish#3: the culling fix (DROPPED=0) must NOT regress"
 ok "polish#3 (density, card tint, card sway, sloped placement, airborne trample, culling kept) addressed"
 
+# OWNER POLISH#4 2026-07-10: missing platforms, colour-match-texture, card-dist+adjustable, hide-under-objects, ledge-trample
+grep -qiE '(missing|remaining|skipped|other).*(platform|surface)|all.*grass.?textured|why.*(skip|no grass)' "$R" || fail "polish#4: must place grass on the STILL-missing grass-textured platforms"
+grep -qiE '(sample|match|derive).*(ground|underlying|floor).*(texture|colou?r)|texture.*colou?r.*(sample|match)|per.?location (tint|colou?r)' "$R" || fail "polish#4: grass colour must sample/match the underlying ground texture (no clash)"
+grep -qiE '(adjustable|slider|setting).*(distance|view.?dist)|distance.*(adjustable|slider|setting|recharged setting)' "$R" || fail "polish#4: near-blade + card view-distances must be ADJUSTABLE settings"
+grep -qiE '(card).*(further|farther|distance.*(increase|extend|push))|extend.*card.*distance' "$R" || fail "polish#4: card render distance must be pushed further out"
+grep -qiE '(hide|cull|mask).*(grass).*(under|overlap|object|model|prop)|overlap.*(object|model).*(hide|cull|grass)' "$R" || fail "polish#4: must hide grass where a non-grass object overlaps the ground"
+grep -qiE '(ledge|rebord|hang|grab).*(trample|part|spread|écart)|trample.*(ledge|hang|grab)' "$R" || fail "polish#4: ledge-grab must part the grass like walk-trample"
+ok "polish#4 (missing platforms, colour-match, card-dist+adjustable, hide-under-objects, ledge-trample) addressed"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"

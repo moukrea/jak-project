@@ -1,4 +1,4 @@
-RESULT: RECHARGED GRASS POC — POLISH#3 DONE (density++, card tint match, card sway gentler, sloped-platform
+STATUS: IN-PROGRESS (polish#4 - missing platforms, colour-match-texture, card-distance+adjustable, hide-under-objects, ledge-trample) - prior RESULT: RECHARGED GRASS POC — POLISH#3 DONE (density++, card tint match, card sway gentler, sloped-platform
         placement, airborne-trample gate) ON TOP OF the culling/de-instancing root fix (owner feedback #2).
         3D grass PoC on the TRAINING level (Geyser Rock), gated in Recharged Settings, DEFAULT ON,
         OFF == byte-identical stock. The owner's #1 correctness blocker — whole zones disappearing / not

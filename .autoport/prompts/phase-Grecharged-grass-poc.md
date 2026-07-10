@@ -185,3 +185,39 @@ Breakdown (do NOT reinterpret) — the CULLING IS FIXED, keep it; polish these 5
    not when airborne above it (check Jak's Y vs the grass ground Y, skip trample when he's above).
 Owner is REMOTE — when verified (objective where possible + moving capture), re-push jak1-grass-poc.
 Keep default ON. The systemic culling fix (DROPPED=0) must NOT regress.
+
+## OWNER POLISH ROUND #4 (2026-07-10) — "impressionnant, gros coup de jeune, très très bien bravo"
+Owner quote (verbatim, French):
+"Alors c'est beaucoup mieux ! Il reste des plateformes avec des textures d'herbe qui n'ont pas
+d'herbe par contre, et a niveau de la couleur, tu t'es assuré que ça prenait des couleurs qui
+correspondait à la texture ? Histoire que la texture au travers fasse pas tâche (ou l'inverse),
+idem pour les grass cards a loin, qui mériteraient d'ailleurs d'être plus loin (et ptêtre que ça
+devrait être ajustable, la distance des vrais brins, la distance des grass cards... Distance
+étant l'endroit le plus loin jusqu'où on le voit). Aussi quand un modèle 3D est sur (overlap) un
+sol où il y a de l'herbe... L'herbe passe au travers ça fait tâche, tu devrais cacher l'herbe aux
+endroits où il y a un overlap avec un truc qui n'est pas de l'herbe ! Mais c'est impressionnant,
+ça donne un gros coup de jeune au jeu ! Aussi, quand on s'accroche à un rebord avec les mains de
+Jak, l'herbe de se rebord devrait aussi s'écarter comme on fait au sol quand il marche ! C'est
+vraiment très très bien bravo"
+
+Breakdown (do NOT reinterpret) — keep everything that works; add these 5:
+1. STILL-MISSING PLATFORMS: some platforms WITH grass textures STILL have NO grass. The sloped-height
+   fix helped but did not cover all grass-textured surfaces — find why the remaining grass-textured
+   platforms are skipped (different tpage/texture-id variant? surface flagged non-walkable? a
+   different mesh/renderer bucket?) and place grass on them too.
+2. COLOUR MATCHES THE GROUND TEXTURE: make the grass blade/card colour SAMPLE / match the underlying
+   ground texture at each location, so the texture showing through does NOT clash with the blades
+   (and vice-versa). Per-location tint from the ground texture (not one global green). Same for the
+   distant CARDS — their colour must match the local ground too.
+3. CARD DISTANCE FURTHER + ADJUSTABLE DISTANCES: push the grass cards' render distance FURTHER out.
+   AND make the distances ADJUSTABLE (owner wants sliders/settings): "distance des vrais brins" and
+   "distance des grass cards" — distance = the farthest point up to which each tier is visible. Add
+   two Recharged Settings for near-blade view-distance and card view-distance.
+4. HIDE GRASS UNDER OVERLAPPING NON-GRASS OBJECTS: when a 3D model/object sits ON (overlaps) a
+   grass-textured ground, the grass currently pokes THROUGH it. Cull/hide grass instances where a
+   non-grass object overlaps the ground (so grass doesn't clip through crates/models/props).
+5. LEDGE-GRAB TRAMPLE: when Jak hangs on a ledge with his hands, the grass on that ledge should
+   part/spread like the walk-trample does on the ground (feed Jak's hand/ledge-grab position to the
+   trample, gate on the ledge-hang state).
+Keep: culling DROPPED=0, density, card tint/sway, sloped placement, airborne-trample gate.
+Owner is REMOTE — re-push jak1-grass-poc when verified. Default ON.
