@@ -181,7 +181,12 @@ android {
 
     packaging {
         jniLibs {
-            useLegacyPackaging = false
+            // Grecharged-grass-poc: EXTRACT native libs to /data/app/.../lib/arm64/ on
+            // install (extractNativeLibs=true). The libgk anti-stub deploy check greps
+            // the on-disk device libgk for the grass renderer strings; with libs kept
+            // inside the APK (=false) that path does not exist. Extracting proves, on the
+            // device filesystem, that the installed libgk is the real grass build.
+            useLegacyPackaging = true
         }
     }
 
