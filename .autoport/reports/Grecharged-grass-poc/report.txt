@@ -1,4 +1,4 @@
-RESULT: RECHARGED GRASS POC — POLISH#5 DONE (the two grass-distance sliders are now VISIBLE on the
+STATUS: IN-PROGRESS (polish#6 - card density+tint+transition, clip-through-objects, LIGHTING response, dedicated grass sub-submenu) - prior RESULT: RECHARGED GRASS POC — POLISH#5 DONE (the two grass-distance sliders are now VISIBLE on the
         device submenu + a NEW "GRASS DENSITY" slider — all three proven by an on-device submenu
         screencap; near grass density++; rock/vertical faces CLEAN of grass via a strict TEXTURE-FIRST
         filter) ON TOP OF POLISH#4 (still-missing platforms via TIE scan, grass colour samples/matches

@@ -99,6 +99,15 @@ grep -qiE '(rock|vertical|non.?grass).*(no|zero|clean|excluded|0 blade|fixed)|no
 grep -qiE '(submenu|recharged settings).*(screencap|screenshot|device).*(slider|distance|densit)|screencap.*submenu.*(slider|row)' "$R" || fail "polish#5: need a DEVICE screencap of the Recharged submenu SHOWING the distance+density sliders (not code keywords)"
 ok "polish#5 (sliders visible on device, density slider, rock walls clean) addressed"
 
+# OWNER POLISH#6 2026-07-10: card density/tint/transition, clip-through-objects, LIGHTING, dedicated grass sub-submenu
+grep -qiE '(card).*(densit|tuft).*(reduc|less|lower|match)|reduce.*card' "$R" || fail "polish#6: reduce card density (too tufted vs near grass)"
+grep -qiE '(transition|lod boundary|near.?to.?card|blend|fade).*(smooth|blend|fade|seamless)|smooth.*transition' "$R" || fail "polish#6: smooth the near->card LOD transition (no seam/colour jump)"
+grep -qiE '(clip|poke|through|overlap).*(object|rock|prop|boulder)|hide.*(object|rock).*(work|fixed|proven)' "$R" || fail "polish#6: grass must NOT clip through ground objects (re-do the hide-under-objects, prove it)"
+grep -qiE '(light|éclairage|baked|shadow|brightness|luminos).*(grass|blade|sample|apply|respond|match)|grass.*(light|baked|brightness)' "$R" || fail "polish#6: grass must RESPOND to lighting (sample baked/scene light so it matches the ground brightness)"
+grep -qiE '(sub.?sub.?menu|nested.*(menu|submenu)|grass settings (page|submenu|menu))' "$R" || fail "polish#6: must build a dedicated NESTED grass-settings sub-submenu holding all grass settings"
+grep -qiE '(screencap|screenshot).*(grass settings|nested|sub.?submenu|grass.?menu)' "$R" || fail "polish#6: need a device screencap of the nested Grass Settings page showing all rows"
+ok "polish#6 (card density/tint/transition, no clip-through, lighting response, nested grass menu) addressed"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"

@@ -273,3 +273,38 @@ Breakdown (do NOT reinterpret):
    beat on device (screencap of a rock wall with NO blades), not by claim.
 Keep everything that works. Owner REMOTE — re-push when the sliders are VISIBLE + rock walls clean.
 The validator now requires DEVICE PROOF the sliders show (not just code keywords).
+
+## OWNER POLISH ROUND #6 (2026-07-10) — "faut que ça claque" + dedicated grass sub-submenu
+Owner quote (verbatim, French):
+"J'ai l'impression que les grass cards sont trop denses et font beaucoup plus touffue que la vraie
+herbe, et leur teinte est encore différente de la teinte de l'herbe 3D donc ça fait une transition
+un peu bizarre (d'ailleurs la transition entre les deux est bizarre). Il y a toujours de l'herbe qui
+passe au travers d'objets posés sur le sol où l'herbe est ajoutée (ça fait bizarre de voir des brins
+d'herbe sortir d'un gros caillou) ... Et aussi on dirait que l'herbe n'est pas influencée par
+'l'éclairage' (baked or not) donc autant sur les zones parfaitement éclairées où la texture est
+identique aux couleurs de nos brins c'est nickel, autant d'autres endroits ça dénote car l'herbe
+(texture plate) en dessous est plus foncée. J'oublie pas à quel point c'est impressionnant ce qu'on
+à fait là, mais j'aimerais que ça colle aux attentes visuelles de nos jours, faut que ça claque et
+que ça apporte vraiment un truc en plus ! Par contre les réglages n'apparaissent toujours pas dans
+recharged settings, ça devrait être un sous-menu de ce sous-menu avec tous les settings pour l'herbe !"
+
+Breakdown (do NOT reinterpret) — goal is "ça claque", modern visual bar:
+1. CARDS TOO DENSE/TUFTED: the grass cards are denser/tuftier than the real 3D grass — reduce card
+   density so cards read lighter than / consistent with the near blades.
+2. CARD TINT STILL OFF + WEIRD TRANSITION: cards' tint STILL differs from the 3D grass, and the
+   near→card TRANSITION reads weird. Match card tint to the near grass AND smooth the LOD transition
+   (fade/blend the boundary so there's no visible seam/colour jump).
+3. GRASS STILL CLIPS THROUGH GROUND OBJECTS: blades still poke out of objects sitting on the grass
+   (e.g. a big rock/boulder) — the polish#4 "hide under overlapping objects" fix did NOT work.
+   Re-do it and PROVE on a device beat (a rock/prop on grass with NO blades poking through).
+4. GRASS IGNORES LIGHTING (baked/dynamic): the grass is a flat colour unaffected by the scene/baked
+   lighting, so where the ground texture is DARKER (shadowed/baked-dark) the bright flat grass
+   clashes. Make the grass RESPOND to the lighting — sample/apply the baked light (and/or the ground
+   texture's local brightness) at each instance so blades darken/brighten to match the ground beneath.
+   This is the #1 "ça claque" item: grass must sit in the lighting, not float above it.
+5. SETTINGS STILL NOT APPEARING + RESTRUCTURE: the owner still does not see the grass settings in
+   Recharged Settings. Build a DEDICATED nested "GRASS SETTINGS" SUB-SUBMENU under Recharged Settings
+   that holds ALL grass settings (toggle + near-dist + card-dist + density + any new ones). This
+   nested menu definitively fixes the "not appearing" (its own page, own length). PROVE with a device
+   screencap of the nested Grass Settings page showing all rows.
+Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified (device screencaps).
