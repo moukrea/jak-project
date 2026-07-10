@@ -239,3 +239,13 @@ Breakdown (do NOT reinterpret) — DISTINCT from the under-floor issue:
    get grass). FIX: only place grass on NEAR-HORIZONTAL, UP-FACING, GRASS-textured surfaces — filter
    by the triangle normal (reject steep/vertical faces) AND strictly by the grass texture-id (reject
    rock-textured faces). No blades on rock walls.
+
+## OWNER CLARIFICATION on #6 (2026-07-10) — filter by TEXTURE FIRST
+Owner (verbatim, deduplicated): "le placement devrait filtrer en fonction de la texture surtout,
+si sur une normale c'est de la roche, pas d'herbe."
+=> The PRIMARY filter is the TEXTURE, not the normal angle. If a triangle's texture is ROCK
+(or anything that is NOT the grass ground texture), it gets NO grass — full stop, whatever its
+orientation. The current bug is a TEXTURE mis-match (grass instances landing on rock-textured
+faces). Make grass-texture-id detection STRICT and per-triangle: only triangles whose actual
+sampled/assigned texture is the grass ground get grass; rock (and every non-grass texture) is
+excluded. The surface-normal check is a secondary safety net, but the texture filter is the fix.
