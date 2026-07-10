@@ -73,6 +73,15 @@ MOV=$(find .autoport/reports/Grecharged-grass-poc -type f -name '*.mp4' -newermt
 ok "polish#2 (length, cards-at-distance, chunk instrumentation, moving-capture proof) addressed"
 ok "polish items (density, blade reach, card tufts, card wind, pop-in) addressed"
 
+# OWNER POLISH#3 2026-07-10: density++, card tint match, card sway gentler, sloped-surface placement, airborne trample gate
+grep -qiE 'densit|dense' "$R" || fail "polish#3: increase near-grass density again"
+grep -qiE '(card).*(tint|colou?r|teinte|match).*(near|blade|match)|near.*card.*(colou?r|tint)|seamless colou?r' "$R" || fail "polish#3: distant cards must match the near-grass tint (no colour change with distance)"
+grep -qiE '(card).*(sway|swing).*(reduc|gentl|less|lower|match)|sway.*amplitude' "$R" || fail "polish#3: card sway must be reduced to <= near-blade sway"
+grep -qiE '(slope|sloped|non.?flat|per.?triangle|surface (height|y)|actual.*(height|ground y)|min.?y)' "$R" || fail "polish#3: grass must follow actual per-triangle surface height on sloped platforms (not a flat/min-Y reference)"
+grep -qiE '(airborne|jump|in the air|altitude|jak.?y|above.*(ground|grass)).*(trample|gate|skip|bend)|trample.*(altitude|airborne|jump|jak.?y)' "$R" || fail "polish#3: trample must be gated by Jak altitude (no trample while airborne)"
+grep -qiE 'dropped ?= ?0|no.*(drop|regress).*cull|cull.*no regress' "$R" || fail "polish#3: the culling fix (DROPPED=0) must NOT regress"
+ok "polish#3 (density, card tint, card sway, sloped placement, airborne trample, culling kept) addressed"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"

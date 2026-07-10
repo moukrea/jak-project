@@ -153,3 +153,35 @@ Breakdown (do NOT reinterpret):
    never instanced?). Make the cards actually appear in their distance band.
 Owner is REMOTE + reviewing via jak-builds pushes — keep pushing interim builds when there is a
 visible change, but the CULLING must be genuinely fixed (moving capture proof) before calling it good.
+
+## OWNER POLISH ROUND #3 (2026-07-10) — culling FIXED (owner: "beaucoup beaucoup mieux, impressionnant"), finitions
+Owner quote (verbatim, French):
+"Ça marche beaucoup, beaucoup mieux ! Impressionnant ! Cependant je trouve que la vraie herbe
+3D n'est pas assez dense et les grass cards au loin ont une teinte différente, du coup c'est
+comme si l'herbe changeait de couleur quand on avance. Aussi le swing des grass cards est
+beaucoup plus visible que sur l'herbe en premier plan (en gros ça bouge beaucoup plus a fond
+que devant). Et bizarrement certaines plateformes ne reçoivent pas d'herbe, j'ai l'impression
+que ces les plateformes dont le relief est le moins plat, bien qu'elles aient la même texture
+au sol, on dirait qu'elles sont ignorés, ou leur point de référence est plat sur le point le
+plus bas, les rendant invisible (sous le sol)... Aussi, quand on est en l'air (en train de
+sauter), l'herbe en dessous se plie comme si on marchait dessus. En tout cas c'est vraiment
+pas mal !"
+
+Breakdown (do NOT reinterpret) — the CULLING IS FIXED, keep it; polish these 5:
+1. DENSITY: the near 3D grass is STILL not dense enough — increase density again.
+2. CARD TINT MISMATCH: the distant grass CARDS have a DIFFERENT TINT than the near 3D grass, so
+   "the grass changes color as you advance". Match the cards' colour/greens to the near blades so
+   near→far is a seamless single colour.
+3. CARD SWAY TOO STRONG: the card sway is MUCH more visible than the foreground grass — cards move
+   way too much vs the near blades. Reduce card sway amplitude to be equal-or-gentler than the
+   near blades (owner: "ça bouge beaucoup plus à fond que devant").
+4. SLOPED PLATFORMS GET NO GRASS: platforms with the LEAST-FLAT relief (bumpy/sloped) — SAME ground
+   texture — are skipped, OR their grass reference height is FLAT at the LOWEST point so the blades
+   render UNDER the ground (invisible below the surface). Fix placement to follow the ACTUAL
+   per-triangle surface height (sample the real ground Y at each instance), not a flat/min-Y
+   reference, so sloped grass-textured surfaces get correctly-placed visible grass.
+5. AIRBORNE TRAMPLE: when Jak is in the AIR (jumping), the grass below bends as if walked on. The
+   trample must be gated by Jak's ALTITUDE — only trample when Jak is on/near the ground surface,
+   not when airborne above it (check Jak's Y vs the grass ground Y, skip trample when he's above).
+Owner is REMOTE — when verified (objective where possible + moving capture), re-push jak1-grass-poc.
+Keep default ON. The systemic culling fix (DROPPED=0) must NOT regress.
