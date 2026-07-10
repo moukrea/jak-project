@@ -83,8 +83,14 @@ constexpr float OLD_WINDOW_M = 64.0f;     // the REMOVED camera window (for the 
 // through an object sitting on the grass. TIE-only (real placed models) — NOT tfrag terrain,
 // so cliffs/slopes next to grass do not falsely cull it.
 constexpr float OCC_CELL_M = 0.6f;        // occupancy cell size (m)
-constexpr float OCC_LO_M = 0.20f;         // object must be at least this far above the grass to occlude
+constexpr float OCC_LO_M = 0.10f;         // object must be at least this far above the grass to occlude
 constexpr float OCC_HI_M = 8.0f;          // ...and no more than this (ignore far ceilings / high bridges)
+// OWNER POLISH#6 (2026-07-10): "il y a toujours de l'herbe qui passe au travers d'objets posés sur le
+// sol ... des brins sortir d'un gros caillou". The POLISH#4 cull point-sampled TIE vertices into 0.6 m
+// cells: a big rock's large faces have SPARSE vertices, so interior cells above the object had no vertex
+// and kept their grass -> blades still poked out of the MIDDLE of the rock. Fix: after collecting the
+// occluded cells, DILATE them into their 3x3 neighbourhood so the whole footprint (interior included) is
+// culled, and scan EVERY TIE geo (not just geo 0) for occluders.
 
 // Training-level grassy-ground textures. Texture-driven, no hand authoring. Curated
 // exact names PLUS a substring net (grass / leafy / moss) so any grassy-ground texture
@@ -209,6 +215,11 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   int giant_tris = 0;        // rejected as implausibly large (spurious reconstruction)
   float total_area_m2 = 0.0f;
   float max_area = 0.0f;
+  // POLISH#6: area-weighted sum of per-triangle BAKED LUMA (0..255). Divided by total area after
+  // PHASE 1 to get the level's mean baked brightness; each instance's baked light is then stored
+  // RELATIVE to that mean, so grass darkens only where the ground is baked-darker than average
+  // (no global brightness shift — see the gspare write in PHASE 2).
+  double baked_area_sum = 0.0;
 
   // POLISH#4: per-texture average colour cache (the ground colour each blade is tinted to).
   std::unordered_map<s32, std::array<float, 3>> texcol;
@@ -224,6 +235,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     float e2x, e2y, e2z;   // edge to v2
     float area_m2;
     float gr, gg, gb;      // POLISH#4: average colour of this triangle's ground texture
+    float raw_baked;       // POLISH#6: average baked-light luma (0..255) of this triangle's vertices
     u32 seed;              // deterministic per-triangle seed (triangle identity, camera-independent)
   };
   std::vector<TriRec> tris;
@@ -236,10 +248,28 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   // 4096 = 1 m. StripDraw + unpacked{vertices,indices} are the same layout for both.
   auto scan_draws = [&](const std::vector<tfrag3::StripDraw>& draws,
                         const std::vector<tfrag3::PreloadedVertex>& verts,
-                        const std::vector<u32>& idx, bool use_strips, bool is_tie) {
+                        const std::vector<u32>& idx, bool use_strips, bool is_tie,
+                        const tfrag3::PackedTimeOfDay& colors) {
     if (verts.empty() || idx.empty()) {
       return;
     }
+    // POLISH#6: average baked-light luma (0..255) of one vertex, reading the SAME time-of-day
+    // palette (tree.colors, indexed by PreloadedVertex.color_index) the tfrag/TIE renderer uses.
+    // Averaged over the 8 palettes -> a camera/time-independent RELATIVE brightness (the training
+    // level's time of day is fixed). This is how the grass learns "this patch of ground is baked
+    // darker than that one" so it can darken to match instead of floating as a flat bright green.
+    auto vlum = [&](u32 vi) -> float {
+      u16 cidx = verts[vi].color_index;
+      if (colors.color_count == 0 || cidx >= colors.color_count) {
+        return 128.0f;  // neutral (no baked data) -> ends up ~= level mean -> no change
+      }
+      float s = 0.f;
+      for (int p = 0; p < 8; ++p) {
+        s += 0.299f * colors.read((int)cidx, p, 0) + 0.587f * colors.read((int)cidx, p, 1) +
+             0.114f * colors.read((int)cidx, p, 2);
+      }
+      return s * (1.0f / 8.0f);
+    };
     for (const auto& draw : draws) {
       if (draw.tree_tex_id < 0 || (size_t)draw.tree_tex_id >= lev->textures.size()) {
         continue;
@@ -312,10 +342,13 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         r.e2x = e2x; r.e2y = e2y; r.e2z = e2z;
         r.area_m2 = area_m2;
         r.gr = gcr; r.gg = gcg; r.gb = gcb;
+        float bl = (vlum(a) + vlum(b) + vlum(ci)) * (1.0f / 3.0f);  // POLISH#6 triangle baked luma
+        r.raw_baked = bl;
         r.seed = (begin ^ (a * 2654435761u) ^ (ci * 40503u) ^ (is_tie ? 0x9e3779b9u : 0u));
         tris.push_back(r);
         tris_kept++;
         total_area_m2 += area_m2;
+        baked_area_sum += (double)bl * (double)area_m2;
       };
 
       if (use_strips) {
@@ -344,13 +377,14 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
 
   // tfrag ground (geo 0)
   for (const auto& tree : lev->tfrag_trees[0]) {
-    scan_draws(tree.draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, false);
+    scan_draws(tree.draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, false,
+               tree.colors);
   }
   // TIE instanced models / platforms (geo 0 only, to avoid duplicate LOD placement)
   if (!lev->tie_trees.empty()) {
     for (const auto& tree : lev->tie_trees[0]) {
       scan_draws(tree.static_draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips,
-                 true);
+                 true, tree.colors);
     }
   }
 
@@ -369,6 +403,17 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
                                              Gfx::g_global_settings.recharged_grass_density / 100.0f));
   int budget = (int)((float)MAX_INSTANCES * dens_scale);
   m_cached_density = Gfx::g_global_settings.recharged_grass_density;
+
+  // POLISH#6: the level's area-weighted mean baked luma. Each instance stores its baked light
+  // RELATIVE to this (raw/ref), so an average-lit patch gets 1.0 (grass unchanged) and only
+  // baked-darker patches darken — the grass responds to lighting without a global brightness shift.
+  float baked_ref = 128.0f;
+  if (total_area_m2 > 1e-3f && baked_area_sum > 0.0) {
+    baked_ref = (float)(baked_area_sum / (double)total_area_m2);
+    if (baked_ref < 1.0f) {
+      baked_ref = 1.0f;
+    }
+  }
 
   float density = D_TARGET;
   if (total_area_m2 > 1.0f && total_area_m2 * D_TARGET > BUDGET_SAFETY * (float)budget) {
@@ -401,7 +446,11 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       gi.tint = hash_f(sd + 5u);
       gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);          // wider CURVATURE variation
       gi.phase = hash_f(sd + 7u);
-      gi.gr = r.gr; gi.gg = r.gg; gi.gb = r.gb; gi.gspare = 1.0f;  // POLISH#4 ground colour
+      gi.gr = r.gr; gi.gg = r.gg; gi.gb = r.gb;  // POLISH#4 ground colour
+      // POLISH#6: per-instance BAKED-LIGHT multiplier (relative to the level mean). Applied in the
+      // shader so blades over baked-dark ground darken to match it (owner: "l'herbe n'est pas
+      // influencée par l'éclairage ... l'herbe (texture plate) en dessous est plus foncée").
+      gi.gspare = std::min(1.35f, std::max(0.45f, r.raw_baked / baked_ref));
       m_instances.push_back(gi);
     }
   }
@@ -431,16 +480,38 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     }
     std::unordered_set<s64> occluded;
     const float lo = OCC_LO_M * U, hi = OCC_HI_M * U;
-    for (const auto& tree : lev->tie_trees[0]) {
-      for (const auto& v : tree.unpacked.vertices) {
-        s64 k = cellkey(v.x, v.z);
-        auto it = cell_ground_y.find(k);
-        if (it == cell_ground_y.end()) continue;
-        float dy = v.y - it->second;
-        if (dy > lo && dy < hi) {
-          occluded.insert(k);
+    // POLISH#6: scan EVERY TIE geo (not just geo 0) so a placed object in any LOD bucket occludes.
+    for (const auto& geo : lev->tie_trees) {
+      for (const auto& tree : geo) {
+        for (const auto& v : tree.unpacked.vertices) {
+          s64 k = cellkey(v.x, v.z);
+          auto it = cell_ground_y.find(k);
+          if (it == cell_ground_y.end()) continue;
+          float dy = v.y - it->second;
+          if (dy > lo && dy < hi) {
+            occluded.insert(k);
+          }
         }
       }
+    }
+    // POLISH#6: DILATE the occluded cells into their 3x3 neighbourhood. A big rock's large faces
+    // have SPARSE vertices, so the point-sampled pass left interior cells above the object un-culled
+    // and blades poked out of its MIDDLE. Growing every occluded cell by one cell closes those gaps
+    // so the whole object footprint is covered. (cellkey packs gx in the high 32 bits, gz in the low
+    // 32 as a signed value — unpack the same way to regrow.)
+    if (!occluded.empty()) {
+      std::unordered_set<s64> grown;
+      grown.reserve(occluded.size() * 9);
+      for (s64 k : occluded) {
+        s64 gx = k >> 32;
+        s64 gz = (s64)(s32)(k & 0xffffffffLL);
+        for (s64 dz = -1; dz <= 1; ++dz) {
+          for (s64 dx = -1; dx <= 1; ++dx) {
+            grown.insert(((gx + dx) << 32) ^ ((gz + dz) & 0xffffffffLL));
+          }
+        }
+      }
+      occluded.swap(grown);
     }
     if (!occluded.empty()) {
       std::vector<GrassInstance> keep;
@@ -501,10 +572,11 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
       "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
       "{} instances in {} chunks (POLISH#5 density {:.0f}% -> budget {}); occlusion culled {} "
-      "under-object instances. No camera window, no move-rebuild -> nothing de-instances while moving.",
+      "under-object instances (POLISH#6 dilated); bakedRef {:.0f} (POLISH#6 light-response). No camera "
+      "window, no move-rebuild -> nothing de-instances while moving.",
       considered_draws, tie_draws, tris_kept, giant_tris, max_area, total_area_m2, density,
       m_instance_count, (int)m_chunks.size(), Gfx::g_global_settings.recharged_grass_density, budget,
-      occ_culled);
+      occ_culled, baked_ref);
   // POLISH#4 "still-missing platforms" diagnostic: any ground-ish texture we did NOT place on.
   for (const auto& kv : unmatched_ground) {
     lg::info("[recharged-grass] UNMATCHED ground-ish texture '{}' ({} draws) — not placed",

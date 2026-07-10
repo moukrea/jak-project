@@ -85,13 +85,17 @@ void main() {
   vec3 rightv = vec3(c, 0.0, -s);   // width axis
   vec3 fwdv   = vec3(s, 0.0,  c);   // bend/curve axis
 
-  // POLISH#4: adjustable LOD bands, derived from the two slider distances (world units).
+  // POLISH#4/#6: adjustable LOD bands, derived from the two slider distances (world units).
+  // OWNER POLISH#6: a WIDE crossfade OVERLAP so near blades fade out and cards fade in over the
+  // SAME band. Combined with the card colour now unified to the blade gradient (t_col below), the
+  // two tiers are the same colour through the overlap -> the near->card transition reads seamless
+  // (owner: "la transition entre les deux est bizarre").
+  float B_FULL = u_near_dist * 0.55;  // blades fully opaque within this radius
   float B_END  = u_near_dist;         // blades fully faded out beyond this
-  float B_FULL = u_near_dist * 0.62;  // blades fully opaque within this radius
-  float C_IN0  = u_near_dist * 0.78;  // cards start fading in (overlaps the blades)
-  float C_IN1  = u_near_dist * 1.10;  // cards fully in
+  float C_IN0  = u_near_dist * 0.45;  // cards start fading in WELL before the blades are gone
+  float C_IN1  = u_near_dist * 0.85;  // cards fully in (inside the blade fade-out band -> crossfade)
   float C_OUT1 = u_card_dist;         // cards gone (pushed further out)
-  float C_OUT0 = u_card_dist * 0.72;  // cards start fading out
+  float C_OUT0 = u_card_dist * 0.78;  // cards start fading out
 
   // --- LOD fade (per-instance, from camera distance to the blade base) ---
   float cam_dist = distance(base, camera_position.xyz);
@@ -179,12 +183,25 @@ void main() {
     v_is_card = 0;
   } else {
     // ---------- MID: X-cross grass card ----------
+    // OWNER POLISH#6: the cards read "trop denses ... beaucoup plus touffue que la vraie herbe".
+    // Thin the card field — skip ~30% of card instances by a deterministic per-instance hash (STABLE,
+    // so no pop-in) and make each card narrower with fewer sub-blades (frag NB 5->3). The near blades
+    // keep the full density, so the cards are now clearly LIGHTER than the foreground grass.
+    if (fract(phase * 13.17 + tint * 7.51) > 0.70) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      v_color = vec3(0.0);
+      v_alpha = 0.0;
+      v_uv = vec2(0.0);
+      v_is_card = 1;
+      v_seed = 0.0;
+      return;
+    }
     int quad = gl_VertexID / 6;                    // 0 or 1
     int li = gl_VertexID - quad * 6;
     vec2 uv = CARD[li];
     vec3 axis = (quad == 0) ? rightv : fwdv;       // two crossed quads
     float cardH = H * 1.25;                          // match near heights, a touch taller
-    float cardHW = H * 0.46;                          // clump width
+    float cardHW = H * 0.38;                          // POLISH#6: narrower clump (was 0.46) -> lighter
 
     // card wind sway: SAME gust as the blades but MUCH GENTLER than the near blades
     // (owner polish#3: cards swayed "beaucoup plus à fond que devant"). Near-blade
@@ -197,11 +214,11 @@ void main() {
         + fwdv * (csway * H * 0.12)
         + rightv * (csway * H * 0.04)
         + trample * uv.y;
-    // OWNER POLISH#3: match the NEAR-blade tint at distance so the grass does not
-    // "change colour as you advance". A distant near-blade reads tip-bright, so bias
-    // the card up the SAME green gradient (0.45..1.0) instead of the full 0..1 (which
-    // made the card base dark -> a visible colour shift near->far).
-    t_col = 0.45 + 0.55 * uv.y;
+    // OWNER POLISH#6: use the EXACT same vertical gradient as the near blade (t_col = local
+    // height). With the identical tint / ground-harmonisation / baked-light pipeline below applied
+    // to both tiers, a card and a blade at the same height are the SAME colour by construction — so
+    // the grass no longer "change de couleur quand on avance" and the crossfade band blends cleanly.
+    t_col = uv.y;
     v_uv = uv;
     v_is_card = 1;
   }
@@ -231,6 +248,14 @@ void main() {
   vec3 harmon = col * clamp(gcol / max(groundRef, vec3(0.04)), vec3(0.55), vec3(1.9));
   col = mix(col, harmon, 0.55);              // shift the green toward the ground's tone
   col = mix(col, gcol, 0.16);                // a touch of the literal ground colour blends in
+
+  // OWNER POLISH#6 (#1 "ça claque"): respond to the scene's BAKED LIGHTING. inst_gcol.w is this
+  // instance's baked light RELATIVE to the level mean (computed at placement from the SAME tfrag/TIE
+  // time-of-day palette the ground itself is lit by). Multiply the grass by it so blades over
+  // baked-dark ground darken to match (owner: the flat-bright grass "dénote" where the ground below
+  // is darker). Blended at 0.85 strength: fully-lit patches (w~1) are untouched, shadows never go
+  // black. This is what makes the grass sit IN the lighting instead of floating above it.
+  col *= mix(1.0, inst_gcol.w, 0.85);
   col = clamp(col, vec3(0.0), vec3(1.2));
 
   v_color = col;

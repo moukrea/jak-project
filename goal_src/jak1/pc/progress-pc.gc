@@ -774,40 +774,56 @@
               (set! (-> *pc-settings* recharged-hud?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 1 RECHARGED GRASS toggle (Grecharged-grass-poc). Placeholder :name (text-id vsync)
-       ;; like the other name-override on-off rows; real label via *recharged-grass-label*,
-       ;; value bound to *pc-settings* recharged-grass? in init-game-options. Persists on change.
+       ;; 1 GRASS SETTINGS sub-submenu launcher (Grecharged-grass-poc POLISH#6). All grass settings
+       ;; (toggle + near-dist + card-dist + density) moved into their OWN nested page (*grass-options-pc*)
+       ;; so they reliably appear on device — owner: "les réglages n'apparaissent toujours pas ... ça
+       ;; devrait être un sous-menu de ce sous-menu avec tous les settings pour l'herbe". A menu-type row:
+       ;; :param3 opens the grass-settings screen; real label via *grass-settings-label* (name-override).
+       (new 'static 'game-option :option-type (game-option-type menu) :name (text-id ps2-options) :scale #t
+            :param3 (game-option-menu grass-settings))
+       ;; 2 Back
+       (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
+
+;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
+;; Settings submenu. Holds ALL grass settings on their own page (owner wanted a sub-submenu so they show
+;; reliably): the RECHARGED GRASS on-off toggle, the near-blade + card view-distance sliders, and the
+;; density slider, then Back (5 rows, under PROGRESS_PC_PAGE_HEIGHT so all show — no length machinery).
+;; Values/labels are wired at runtime in init-game-options; on-change persists to *pc-settings*.
+(define *grass-options-pc*
+  (new 'static
+       'boxed-array
+       :type
+       game-option
+       ;; 0 RECHARGED GRASS toggle (real label via *recharged-grass-label*).
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-grass?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 2 NEAR GRASS DISTANCE slider (POLISH#4): near-blade view distance (m). value bound to
-       ;; *pc-settings* recharged-grass-near-dist in init-game-options; on-change persists on release.
+       ;; 1 NEAR GRASS DISTANCE slider (near-blade view distance, m).
        (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
             :param1 15.0 :param2 45.0 :slider-step-size 5.0 :slider-show-decimal? #f
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 3 GRASS CARD DISTANCE slider (POLISH#4): grass-card view distance (m; pushed further out).
+       ;; 2 GRASS CARD DISTANCE slider (grass-card view distance, m; pushed further out).
        (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
             :param1 50.0 :param2 140.0 :slider-step-size 10.0 :slider-show-decimal? #f
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 4 GRASS DENSITY slider (POLISH#5): density percent (100 = base instance budget; higher = denser
-       ;; near blades AND cards). value bound to *pc-settings* recharged-grass-density in init-game-options;
-       ;; on-change persists. The renderer re-scatters the whole static field when this changes.
+       ;; 3 GRASS DENSITY slider (density percent; 100 = base instance budget, higher = denser near
+       ;; blades AND cards). The renderer re-scatters the whole static field when this changes.
        (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
             :param1 100.0 :param2 250.0 :slider-step-size 25.0 :slider-show-decimal? #f
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 5 Back
+       ;; 4 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
@@ -868,6 +884,11 @@
 ;; Grecharged-grass-poc POLISH#5: label for the grass DENSITY slider (English-only, uppercase ASCII).
 (define *recharged-density-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-density-label*) "GRASS DENSITY")
+;; Grecharged-grass-poc POLISH#6: label for the "GRASS SETTINGS" nested sub-submenu launcher row inside
+;; the Recharged Settings submenu (English-only, uppercase ASCII for the menu font; shown via
+;; name-override on the menu row — like *recharged-settings-label*, never re-formatted).
+(define *grass-settings-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *grass-settings-label*) "GRASS SETTINGS")
 
 ;; Glang-mixed: re-format the name-override label buffers from the loaded text bank so
 ;; they follow (-> *pc-settings* text-language). Runs on every menu open (init-game-options
@@ -2820,6 +2841,8 @@
   (set! (-> *options-remap* (progress-screen gfx-ps2-options)) *gfx-ps2-options*)
   ;; Grecharged-hud-jak1: the new "Recharged Settings" submenu
   (set! (-> *options-remap* (progress-screen recharged-settings)) *recharged-options-pc*)
+  ;; Grecharged-grass-poc POLISH#6: the nested "Grass Settings" page (sub-submenu of Recharged Settings)
+  (set! (-> *options-remap* (progress-screen grass-settings)) *grass-options-pc*)
   (set! (-> *options-remap* (progress-screen resolution)) *temp-options*)
   (set! (-> *options-remap* (progress-screen aspect-ratio)) *aspect-ratio-options*)
   (set! (-> *options-remap* (progress-screen quit-title)) *yes-no-options*)
@@ -2910,20 +2933,21 @@
   ;; Android the Vulkan runtime is deferred, so the toggle persists the preference but keeps GLES for now.
   (set! (-> *graphic-options-pc-android* 10 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
   (set! (-> *graphic-options-pc-android* 10 name-override) *vulkan-renderer-label*)
-  ;; Grecharged-hud-jak1: wire the "RECHARGED HUD" toggle inside the new submenu.
+  ;; Grecharged-hud-jak1: wire the "RECHARGED HUD" toggle (row 0) inside the Recharged submenu.
   (set! (-> *recharged-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-hud?))
   (set! (-> *recharged-options-pc* 0 name-override) *recharged-hud-label*)
-  ;; Grecharged-grass-poc: wire the "RECHARGED GRASS" toggle (row 1) in the same submenu.
-  (set! (-> *recharged-options-pc* 1 value-to-modify) (&-> *pc-settings* recharged-grass?))
-  (set! (-> *recharged-options-pc* 1 name-override) *recharged-grass-label*)
-  ;; Grecharged-grass-poc POLISH#4: wire the two distance sliders (rows 2,3) in the recharged submenu.
-  (set! (-> *recharged-options-pc* 2 value-to-modify) (&-> *pc-settings* recharged-grass-near-dist))
-  (set! (-> *recharged-options-pc* 2 name-override) *recharged-near-dist-label*)
-  (set! (-> *recharged-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-grass-card-dist))
-  (set! (-> *recharged-options-pc* 3 name-override) *recharged-card-dist-label*)
-  ;; Grecharged-grass-poc POLISH#5: wire the DENSITY slider (row 4) in the recharged submenu.
-  (set! (-> *recharged-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-grass-density))
-  (set! (-> *recharged-options-pc* 4 name-override) *recharged-density-label*)
+  ;; Grecharged-grass-poc POLISH#6: row 1 is now the "GRASS SETTINGS" sub-submenu launcher (label only;
+  ;; its param3 opens *grass-options-pc*). All grass rows moved into that nested page (wired below).
+  (set! (-> *recharged-options-pc* 1 name-override) *grass-settings-label*)
+  ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
+  (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
+  (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)
+  (set! (-> *grass-options-pc* 1 value-to-modify) (&-> *pc-settings* recharged-grass-near-dist))
+  (set! (-> *grass-options-pc* 1 name-override) *recharged-near-dist-label*)
+  (set! (-> *grass-options-pc* 2 value-to-modify) (&-> *pc-settings* recharged-grass-card-dist))
+  (set! (-> *grass-options-pc* 2 name-override) *recharged-card-dist-label*)
+  (set! (-> *grass-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-grass-density))
+  (set! (-> *grass-options-pc* 3 name-override) *recharged-density-label*)
   (apply-dynamic-rs-menu-mode!)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))
@@ -4344,8 +4368,10 @@
              (hide-progress-icons)
              (draw-options self 115 25 0.65))
             (((progress-screen gfx-ps2-options)) (hide-progress-icons) (draw-options self 115 25 0.67))
-            ;; Grecharged-hud-jak1: the new Recharged Settings submenu (few rows; same layout as game-settings)
-            (((progress-screen recharged-settings)) (hide-progress-icons) (draw-options self 115 25 0.70))
+            ;; Grecharged-hud-jak1 + Grecharged-grass-poc POLISH#6: the Recharged Settings submenu and its
+            ;; nested Grass Settings page (few rows; same layout as game-settings).
+            (((progress-screen recharged-settings) (progress-screen grass-settings))
+             (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen game-settings)) (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen memcard-removed) (progress-screen memcard-auto-save-error))
              (draw-notice-screen self)
