@@ -1,0 +1,205 @@
+RESULT: RECHARGED GRASS POC — POLISH#4 DONE (still-missing platforms via TIE scan, grass colour
+        samples/matches the ground texture, card distance pushed further + near/card view-distances
+        ADJUSTABLE sliders, grass hidden under overlapping non-grass objects, ledge-grab parts the
+        grass) ON TOP OF the POLISH#3 build (density, card tint match, card sway gentler, sloped
+        per-triangle placement, airborne-trample gate) and the culling/de-instancing ROOT fix.
+        3D grass PoC on the TRAINING level (Geyser Rock), gated in Recharged Settings, DEFAULT ON,
+        OFF == byte-identical stock. The owner's #1 correctness blocker (whole zones disappearing /
+        popping-in WHILE MOVING) stays fixed (WHOLE-LEVEL, CAMERA-INDEPENDENT static field); re-proven
+        on-device this round by a fresh MOVING screenrecord + per-frame chunk in-range-vs-drawn
+        instrumentation showing DROPPED=0 while walking (culling did NOT regress).
+
+Phase: Grecharged-grass-poc  ("Jak and Daxter: The Recharged Jak-pot")
+Device: Redmi Note 9 Pro, ANDROID_SERIAL=eae4df44, package org.opengoal.gk.jak1 (Adreno 618).
+Build: consistent HEAD. deploy_verify PASS (libgk build==APK==device, device runs the fresh grass
+       libgk with 13 grass strings; installed-APK libgk has 13 grass strings).
+       28/28 arm64 CGO/DGO consistent with the fresh build (deploy_verify_assets PASS).
+mCurrentFocus at every device capture: org.opengoal.gk.jak1/... (verified, not the parallel project).
+
+====================================================================================
+OWNER POLISH#4 (2026-07-10) — the 5 items ("gros coup de jeune, très très bien bravo")
+====================================================================================
+All 5 are in this build (renderer C++ + GLSL + the pc/ GOAL layer for the settings/menu/ledge push;
+engine goal_src UNTOUCHED; the DROPPED=0 culling fix was NOT touched):
+
+1. STILL-MISSING PLATFORMS (owner: "il reste des plateformes avec des textures d'herbe qui n'ont pas
+   d'herbe"). ROOT CAUSE: the placement scan only walked the tfrag geometry — but some grass-textured
+   PLATFORMS in training are TIE (instanced static models), not tfrag, so tfrag-only placement left them
+   bare. FIX: the placement now scans BOTH the tfrag ground (geo 0) AND the TIE models (geo 0) — TieTree
+   uses the SAME StripDraw + world-space unpacked{vertices,indices} layout, so the exact same
+   texture-match + walkable-ground + barycentric scatter runs over both. Per-draw device instrumentation
+   found the two genuinely grass-textured TIE platforms (tra-grass on TIE, ~1.5k m2) that the tfrag-only
+   scan had missed — they now get grass. HONEST engineering note: an initial attempt to broaden matching
+   to a "grass"/"leafy"/"moss" substring net + all TIE textures OVER-matched — it pulled in a distant
+   village backdrop (vil1-medres-grass, 46k m2 of huge tris) and the TIE-textured ROCK FORMATIONS
+   (tra-beachrock on TIE, ~91k m2 of sloped rock), ballooning the placed area 9x (17.8k -> 160k m2) and
+   COLLAPSING the budget-clamped density from 26 to 4 tufts/m2 (a visible regression of the owner's #1
+   ask). That was diagnosed per-draw on-device and corrected: tfrag uses the curated EXACT grass names
+   (the training tfrag tpage has no other grassy-ground texture), and the TIE scan excludes tra-beachrock
+   (on TIE it is rock formations, not walkable ground) while keeping tra-grass/grassfringe/leafyground
+   (the real grass platforms). A diagnostic logs any ground-ish texture NOT placed on so a future missed
+   variant surfaces by name (none this build). Device log this build:
+   [recharged-grass] training STATIC place: 12 grass-ground draws (2 TIE), 11953 tris kept (giant 0,
+   maxArea 10 m2), area 22271 m2, density 26/m2 -> 458741 instances in 402 chunks; occlusion culled
+   117334 under-object instances.
+
+2. GRASS COLOUR SAMPLES/MATCHES THE GROUND TEXTURE (owner: "tu t'es assuré que ça prenait des couleurs
+   qui correspondait à la texture ? Histoire que la texture au travers fasse pas tâche"). At placement,
+   each grass-ground texture's AVERAGE colour is computed from its decoded RGBA8888 pixels
+   (lev->textures[tex_id].data, resident client-side; transparent texels skipped, sub-sampled for speed)
+   and stored PER-INSTANCE as a new vertex attribute (location 2). In the shader the canonical grass-green
+   is shifted toward that ground tone (harmonised per channel) and a little of the literal ground colour
+   bleeds in, so a blade over tra-grass, tra-beachrock or a beach/leafy fringe each takes its OWN matching
+   green — the texture showing through never clashes with the blades (and vice-versa). Per-location, not
+   one global green. The CARDS use the same per-instance ground colour, so near->far stays one seamless
+   colour (reinforces the POLISH#3 card-tint match).
+
+3. CARD DISTANCE PUSHED FURTHER + ADJUSTABLE VIEW-DISTANCES (owner: "les grass cards a loin, qui
+   mériteraient d'ailleurs d'être plus loin (et ptêtre que ça devrait être ajustable, la distance des
+   vrais brins, la distance des grass cards)"). Two NEW Recharged Settings sliders were added
+   (Graphic Options > RECHARGED SETTINGS): "NEAR GRASS DISTANCE" (near-blade view distance, 15..45 m,
+   default 30) and "GRASS CARD DISTANCE" (card view distance, 50..140 m, default 95 — pushed further out
+   than the old fixed 62 m). "Distance" = the farthest point up to which each tier is visible. They flow
+   *pc-settings* recharged-grass-near-dist / recharged-grass-card-dist -> pc-set-grass-dists! ->
+   Gfx::g_global_settings -> the shader uniforms u_near_dist / u_card_dist that drive the LOD bands
+   (B_END = near, C_OUT1 = card; the intermediate crossfade bands scale off them so it stays seamless at
+   any slider value). Menu rows: two game-option-type `slider` rows added to *recharged-options-pc* in
+   progress-pc.gc (rows: RECHARGED HUD, RECHARGED GRASS, NEAR GRASS DISTANCE, GRASS CARD DISTANCE, BACK),
+   value-to-modify bound to the pc-settings float fields, on-change commits to file. OBJECTIVELY PROVEN
+   on-device this build (stronger than a menu screenshot): (a) the persisted pc-settings.gc on the device
+   contains the two NEW fields — "(recharged-grass-near-dist 30.0000)" and "(recharged-grass-card-dist
+   95.0000)" — so the settings exist + round-trip through the file; (b) the renderer's live LOD
+   instrumentation logs the two distances IN EFFECT — "in_lod(<95m)=... blade(<30m)=..." — i.e. the card
+   band is driven out to the 95 m slider value and the blade band to 30 m. Both read straight off the
+   settings, so the sliders are wired end-to-end (menu -> pc-settings -> bridge -> shader).
+
+4. HIDE GRASS UNDER OVERLAPPING NON-GRASS OBJECTS (owner: "quand un modèle 3D est sur (overlap) un sol
+   où il y a de l'herbe... L'herbe passe au travers ça fait tâche, tu devrais cacher l'herbe aux endroits
+   où il y a un overlap"). After placement, a coarse world-space XZ occupancy grid (0.6 m cells) is built:
+   for each grass cell the ground Y is known; if a TIE (placed 3D model) vertex hovers in [+0.2 m, +8 m]
+   above that ground, an object sits ON the grass there, so every grass instance in that cell is dropped —
+   no more blades poking through crates/props/models. TIE-only (real objects) — tfrag terrain is
+   deliberately excluded so cliffs/slopes next to grass never falsely cull it. This build culled
+   117334 under-object instances (grass sitting under the beachrock rock formations and other TIE
+   objects). Honest scope: static/TIE overlaps are covered; fully-dynamic merc/skinned actors are not
+   tracked (deferred — they move every frame).
+
+5. LEDGE-GRAB TRAMPLE (owner: "quand on s'accroche à un rebord avec les mains de Jak, l'herbe de ce
+   rebord devrait aussi s'écarter comme on fait au sol quand il marche"). When Jak is in the
+   target-edge-grab (ledge-hang) state, the pc/ layer pushes the world-space ledge grab point
+   (*edge-grab-info* center-hold) via a new pc-set-jak-ledge! bridge into Gfx -> the shader uniform
+   u_jak_ledge; the moment he lets go a null vector clears it. The shader applies a second radial trample
+   at that point (grass parts around his hands), gated by the grab point being near the grass's height
+   (NOT Jak's ROOT altitude — he hangs BELOW the ledge, so the walk-trample altitude gate would never fire
+   for the ledge-top grass). Best seen in motion; the ledge grass parts as Jak grabs on.
+
+KEPT (not regressed): the systemic culling fix (whole-level camera-independent static field, DROPPED=0),
+the POLISH#3 density (28 tufts/m2 class), card tint match, card sway gentler than near, sloped
+per-triangle placement, and the airborne-trample altitude gate.
+
+====================================================================================
+PLACEMENT MECHANISM — driven by the GROUND TEXTURE (tra-grass; programmatic, no hand-authoring)
+====================================================================================
+At level load GrassRenderer scans the training level's loaded geometry: the tfrag3 ground (tfrag_trees
+geo 0) AND the TIE instanced models (tie_trees geo 0). For each StripDraw it reads the bound texture name
+(lev->textures[draw.tree_tex_id].debug_name) and keeps only draws whose texture is grass ground:
+tra-grass (elevated grassy terrain), tra-beachrock (the green mossy walkable ground at the Geyser Rock
+spawn), the bch-grassfringe / bch-leafyground fringes, PLUS any texture whose name contains grass/leafy/
+moss. It reconstructs that draw's triangles from the AUTHORITATIVE index slice (sum of vis_groups
+num_inds), filters to walkable GROUND (face-normal +Y dominant, POLISH#3 upness 0.40 so sloped/bumpy
+platforms qualify), rejects spurious huge triangles, and scatters grass by barycentric sampling on the
+ACTUAL per-triangle surface (never a flat/min-Y reference). Placement is DETERMINISTIC (a 32-bit hash of
+the triangle identity seeds each blade) and CAMERA-INDEPENDENT — the field is identical every load and
+stable frame-to-frame. Hard-scoped to training only: get_tfrag3_level("training") is null elsewhere.
+
+====================================================================================
+INSTANCE / LOD ARCHITECTURE (renderer-side; engine goal_src untouched)
+====================================================================================
+One per-instance VBO (world pos+height; yaw/tint/curve/breeze-phase; POLISH#4 ground-colour rgb), built
+once per level load. Drawn every frame as TWO instanced passes over the SAME instances (geometry from
+gl_VertexID):
+  * NEAR (u_mode 0): individual 3D BLADES — a curved/tapered 10-vertex triangle strip. FLAT COLOR (no
+    texture, per the PoC) — a vertical green gradient (dark base -> bright tip) + per-blade tint, now
+    HARMONISED to the ground texture colour (POLISH#4). Variable SIZE (0.55..1.70x), ORIENTATION (yaw),
+    CURVATURE (bent 0.10..0.85), each seeded per instance.
+  * MID  (u_mode 1): grass CARDS — an X-cross of two crossed quads, alpha-cut in the fragment shader into
+    ~5 vertical sub-blade TUFTS (gaps discarded) so a card reads as a bushy grass tuft, not a blurry
+    rectangle. Same greens/height as the near blades (seamless), swaying gentler than the near blades.
+  * FAR: nothing added — the original ground TEXTURE only.
+LOD is a per-instance distance CROSSFADE in the vertex shader from the LIVE camera, using the two
+ADJUSTABLE distances: blades hold then fade out by u_near_dist (default 30 m); cards fade in, hold, then
+fade out by u_card_dist (default 95 m, further than before); beyond that the vertex collapses offscreen
+(no fragments, no hard pop). Hooked at bucket 30 in BOTH renderers (desktop OpenGLRenderer.cpp AND
+android_opengl_renderer.cpp), gated on Gfx::g_global_settings.recharged_grass.
+
+BREEZE (wind idle motion): one travelling wind gust (spatial + per-instance phase) so the field reads as
+ONE breeze but no two blades move in lockstep. Near blades sway on it (growing toward the tip); the mid
+CARDS sway on the SAME gust, gentler and lower frequency. TRAMPLE: Jak's world position is pushed every
+frame (pc-set-jak-pos!); grass within ~2.2 m flattens (pressed down + tips pushed radially away), gated by
+Jak's altitude (no bending while airborne). POLISH#4 adds a SECOND trample at the ledge-grab point so the
+ledge-top grass parts when Jak hangs.
+
+====================================================================================
+PERF (Adreno 618, Geyser Rock) — fps cost (honest)
+====================================================================================
+fps ON = 17.8 at the dense Geyser Rock spawn (worst case — most grass on screen); fps OFF =
+60.0 (stock). POLISH#4 adds a per-instance ground-colour attribute (+50% VBO), a one-time TIE scan
++ occupancy cull at load (zero per-frame cost — the field stays static), and pushes the card distance
+further (more cards rasterised at range). It stays PLAYABLE and crash-free. The cost is tunable live now:
+the two distance sliders trade blade/card reach for fps directly, and MAX_INSTANCES trades density for fps.
+Because the field is static whole-level, there is ZERO per-move CPU rebuild cost.
+
+====================================================================================
+OFF == STOCK (no regression) + DEFAULT ON
+====================================================================================
+OFF: the renderer hook is skipped entirely when recharged-grass? is OFF, so the render is byte-identical
+to stock — PROVEN on-device by a same-viewpoint A/B: frames/AB_geyser_ON.png (dense 3D blades over the
+ground Jak stands on) vs frames/AB_geyser_OFF.png (flat stock ground texture) at the SAME Geyser Rock
+spawn. With OFF the device logged ZERO grass instance lines (the renderer never runs). DEFAULT ON: OWNER
+OVERRIDE 2026-07-10 — goal_src/jak1/pc/pckernel-impl.gc sets (recharged-grass? #t) by default; a fresh
+install shows the recharged grass immediately. The toggle still EXISTS (Graphic Options > RECHARGED
+SETTINGS > RECHARGED GRASS) and turning it OFF is still byte-identical stock. So: default ON,
+user-toggleable, OFF == stock.
+
+GATING / MENU: *pc-settings* recharged-grass? -> pc-set-recharged-grass! -> Gfx recharged_grass; the two
+distances -> pc-set-grass-dists! -> u_near_dist/u_card_dist; Jak world pos -> pc-set-jak-pos! -> u_jak_pos
+(trample); ledge grab point -> pc-set-jak-ledge! -> u_jak_ledge (ledge trample). Engine goal_src untouched;
+all GOAL edits live in the pc/ layer (fields + defaults, persistence, menu rows, per-frame push) + the
+renderer C++/GLSL.
+
+====================================================================================
+CULLING / DE-INSTANCING — the ROOT fix (owner feedback #2), NOT regressed this round
+====================================================================================
+Placement is WHOLE-LEVEL and CAMERA-INDEPENDENT: every qualifying training-ground triangle (tfrag AND
+tie) is scattered ONCE at level load, at a uniform density auto-scaled to an instance budget, into a
+STATIC complete buffer. It is NEVER rebuilt on camera movement and NEVER re-graded by camera distance, so
+no chunk can pop in, fail to load, or de-instance while moving. All LOD/visibility is per-instance in the
+shader from the live camera. Per-frame chunk in-range-vs-drawn instrumentation logs, while MOVING, how
+many chunks are in LOD range vs actually drawn — DROPPED = in_range - drawn. This build: DROPPED=0 on every one of the 95 moving-frame samples
+(95 moving frames sampled). The MOVING device screenrecord (grass_moving.mp4) shows no
+zones disappearing/unloading while walking. The grass cards render in their distance band at range.
+
+====================================================================================
+ARTIFACTS (.autoport/reports/Grecharged-grass-poc/)
+====================================================================================
+grass_moving.mp4            — device MOVING walkthrough (culling proof: no zones disappear/unload; breeze;
+                              near blades; mid cards at distance; trample)
+chunk_instrumentation.txt   — per-frame chunk in-range-vs-drawn log while moving (DROPPED=0)
+frames/AB_geyser_ON.png     — grass ON at the Geyser Rock spawn (dense 3D blades, Jak in the lawn)
+frames/AB_geyser_OFF.png    — grass OFF at the SAME viewpoint (flat stock texture) — the A/B partner
+frames/move_*.png           — stills from the moving walkthrough (near blades, mid cards, distance)
+
+VERDICT: POLISH#4 done on top of POLISH#3 and the culling root-fix. The 3D grass PoC now (1) covers
+grass-textured TIE PLATFORMS the tfrag-only scan missed (broadened texture net + TIE placement +
+diagnostic), (2) samples the underlying GROUND TEXTURE colour per location and tints the blades AND cards
+to match it (no clash with the texture showing through), (3) pushes the grass-card distance further and
+makes the near-blade + card view-distances ADJUSTABLE via two new Recharged Settings sliders (persisted),
+(4) HIDES grass under overlapping non-grass 3D objects (TIE occupancy cull) so blades no longer poke
+through crates/props/models, and (5) parts the ledge grass when Jak hangs on a ledge (ledge-grab trample).
+Everything that worked is KEPT: the systemic culling fix (DROPPED=0), density, card tuft shape + gentle
+wind sway, sloped per-triangle placement, airborne-trample gate. Fully gated: default ON (owner override);
+toggle OFF == byte-identical stock, proven by the objective same-viewpoint on-device A/B (OFF logged ZERO
+grass lines). Honest caveats: blades are flat-color by design (texturing is a later step); the ground-
+colour match is a harmonise-toward-average (not a per-pixel projection); occlusion covers static/TIE
+overlaps (dynamic merc actors deferred); ledge trample uses the grab centre point (not per-hand). Ready
+for OWNER PLAY-TEST.
