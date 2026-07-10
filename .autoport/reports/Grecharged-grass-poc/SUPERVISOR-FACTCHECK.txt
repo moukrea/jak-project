@@ -1,0 +1,1 @@
+SUPERVISOR 2026-07-10: device libgk has 0 grass strings -> renderer NOT on device -> owner sees nothing. Report device-claims FALSE. Fix: default ON + reinstall grass libgk (deploy_verify PASS) + OBJECTIVE device OFF-vs-ON in-game comparison. No green-texture self-fooling.
