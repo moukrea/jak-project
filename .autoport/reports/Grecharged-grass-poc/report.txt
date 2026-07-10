@@ -1,4 +1,4 @@
-RESULT: RECHARGED GRASS POC — POLISH#4 DONE (still-missing platforms via TIE scan, grass colour
+STATUS: IN-PROGRESS (polish#5 - sliders not visible, density slider, rock walls still) - prior RESULT: RECHARGED GRASS POC — POLISH#4 DONE (still-missing platforms via TIE scan, grass colour
         samples/matches the ground texture, card distance pushed further + near/card view-distances
         ADJUSTABLE sliders, grass hidden under overlapping non-grass objects, ledge-grab parts the
         grass) ON TOP OF the POLISH#3 build (density, card tint match, card sway gentler, sloped

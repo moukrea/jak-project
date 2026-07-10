@@ -92,6 +92,13 @@ grep -qiE '(ledge|rebord|hang|grab).*(trample|part|spread|écart)|trample.*(ledg
 grep -qiE '(strict|per.?triangle|texture.?id).*(grass|texture).*(filter|match|only|exclude rock)|(rock|non.?grass).*(texture).*(exclude|reject|no grass|skip)' "$R" || fail "polish#4b: PRIMARY filter must be TEXTURE (per-triangle) — rock-textured faces get NO grass regardless of normal (owner clarification)"
 ok "polish#4 (missing platforms, colour-match, card-dist+adjustable, hide-under-objects, ledge-trample, no-rock-walls) addressed"
 
+# OWNER POLISH#5 2026-07-10: sliders must SHOW on device, density slider, rock walls clean
+grep -qiE '(slider|distance|densit).*(show|visible|appear|device|menu length|live.?length|submenu (row|length))|menu.*(length|row).*(bump|extend|grass)' "$R" || fail "polish#5: distance/density sliders must actually SHOW in the on-device Recharged submenu (bump the live-length) — device screencap proof"
+grep -qiE '(densit).*(slider|adjustable|setting|row)' "$R" || fail "polish#5: add an adjustable DENSITY slider in the Recharged submenu"
+grep -qiE '(rock|vertical|non.?grass).*(no|zero|clean|excluded|0 blade|fixed)|no blades? on (rock|vertical|wall)' "$R" || fail "polish#5: rock/vertical faces must be CLEAN of grass (still leaking) — prove on the rock-wall beat"
+grep -qiE '(submenu|recharged settings).*(screencap|screenshot|device).*(slider|distance|densit)|screencap.*submenu.*(slider|row)' "$R" || fail "polish#5: need a DEVICE screencap of the Recharged submenu SHOWING the distance+density sliders (not code keywords)"
+ok "polish#5 (sliders visible on device, density slider, rock walls clean) addressed"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"

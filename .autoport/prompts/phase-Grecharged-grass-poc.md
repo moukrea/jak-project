@@ -249,3 +249,27 @@ orientation. The current bug is a TEXTURE mis-match (grass instances landing on 
 faces). Make grass-texture-id detection STRICT and per-triangle: only triangles whose actual
 sampled/assigned texture is the grass ground get grass; rock (and every non-grass texture) is
 excluded. The surface-normal check is a secondary safety net, but the texture filter is the fix.
+
+## OWNER POLISH ROUND #5 (2026-07-10) — sliders not showing + density slider + rock walls still
+Owner quote (verbatim, French):
+"On devrait pouvoir changer la distance max de la vraie herbe 3D et les grass cards, t'as pas
+ajouté ça ! Et aussi on devrait pouvoir régler la densité et on a encore des brins dans les
+parties verticales/ sans herbes étrangement"
+
+Breakdown (do NOT reinterpret):
+1. DISTANCE SLIDERS NOT VISIBLE: the near-blade + card view-distance sliders were ADDED IN CODE
+   (pc-settings recharged-grass-near-dist=30 / recharged-grass-card-dist=95, menu rows 2-3 in
+   progress-pc.gc) but they DO NOT SHOW in the Recharged Settings submenu on device — the owner
+   cannot see/use them. ROOT CAUSE is almost certainly the submenu LIVE-LENGTH / row count not
+   extended to include the 2 new rows (Goptions-reorder length machinery). FIX: make the two
+   distance sliders actually APPEAR and be adjustable in the on-device menu (bump the submenu
+   length; verify by a DEVICE screencap of the submenu SHOWING the two distance rows + prove
+   changing them changes the render distance).
+2. DENSITY SLIDER: add a THIRD adjustable setting — grass DENSITY — in the same Recharged submenu.
+3. ROCK WALLS STILL HAVE GRASS: "on a encore des brins dans les parties verticales / sans herbe" —
+   the texture-first filter is NOT fully effective; blades still appear on vertical/non-grass
+   parts. Strengthen it: verify per-triangle grass-texture-id detection ACTUALLY excludes the rock
+   faces (the mis-match persists), + the normal filter as backup. Prove on the ACTUAL rock-wall
+   beat on device (screencap of a rock wall with NO blades), not by claim.
+Keep everything that works. Owner REMOTE — re-push when the sliders are VISIBLE + rock walls clean.
+The validator now requires DEVICE PROOF the sliders show (not just code keywords).
