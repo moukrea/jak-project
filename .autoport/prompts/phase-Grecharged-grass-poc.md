@@ -37,7 +37,10 @@ The illusion to sell: a real lawn up close, believable filler at mid range, orig
 ## Gating + scope (Recharged architecture rule)
 - Toggle in Graphics Options > "Recharged Settings" (the submenu Grecharged-hud-jak1 creates — if
   that phase hasn't run yet, create the submenu here with the same spec: before "Advanced settings"):
-  row "RECHARGED GRASS" ON/OFF, persisted, default OFF. **OFF = byte-identical stock rendering.**
+  row "RECHARGED GRASS" ON/OFF, persisted, **default ON** (OWNER OVERRIDE 2026-07-10: "Ça sera
+  default ON l'herbe hein!" — grass ON out of the box; deliberate exception to the usual Recharged
+  default-OFF rule). The toggle STILL EXISTS and **OFF must be byte-identical stock rendering** (a
+  purist can turn it off and get the original). Only the DEFAULT flips to ON.
 - Training level only for the PoC (hard-scope the placement to the training level's data).
 - Renderer-side implementation (C++/GLES + GLSL instancing; both x86-GL and Android-GLES if
   reasonable — Android/device is the one the owner judges). Engine goal_src UNTOUCHED (all hooks in
