@@ -1,0 +1,12 @@
+[Ggrass ok] report: placement + blades(size/orient/curve, flat-color) + breeze + trample + cards + LOD + training-only + fps + OFF==stock + DEFAULT ON
+[Ggrass ok] grass renderer present (14 refs)
+[Ggrass ok] device visual artifact present (.autoport/reports/Grecharged-grass-poc/frames/now.png)
+[Ggrass ok] device runs the grass libgk (APK-bundled: 14 grass refs) + deploy_verify PASS
+[Ggrass ok] polish#2 (length, cards-at-distance, chunk instrumentation, moving-capture proof) addressed
+[Ggrass ok] polish items (density, blade reach, card tufts, card wind, pop-in) addressed
+[Ggrass ok] polish#3 (density, card tint, card sway, sloped placement, airborne trample, culling kept) addressed
+[Ggrass ok] polish#4 (missing platforms, colour-match, card-dist+adjustable, hide-under-objects, ledge-trample, no-rock-walls) addressed
+[Ggrass ok] polish#5 (sliders visible on device, density slider, rock walls clean) addressed
+[Ggrass ok] polish#6 (card density/tint/transition, no clip-through, lighting response, nested grass menu) addressed
+[Ggrass ok] golden pristine
+[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)
