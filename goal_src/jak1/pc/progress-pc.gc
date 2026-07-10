@@ -783,7 +783,22 @@
               (set! (-> *pc-settings* recharged-grass?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 2 Back
+       ;; 2 NEAR GRASS DISTANCE slider (POLISH#4): near-blade view distance (m). value bound to
+       ;; *pc-settings* recharged-grass-near-dist in init-game-options; on-change persists on release.
+       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
+            :param1 15.0 :param2 45.0 :slider-step-size 5.0 :slider-show-decimal? #f
+            :on-change
+            (lambda ((val object))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 3 GRASS CARD DISTANCE slider (POLISH#4): grass-card view distance (m; pushed further out).
+       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
+            :param1 50.0 :param2 140.0 :slider-step-size 10.0 :slider-show-decimal? #f
+            :on-change
+            (lambda ((val object))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 4 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
@@ -835,6 +850,12 @@
 ;; only for the PoC (no text-bank id), so this buffer is never re-formatted.
 (define *recharged-grass-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-grass-label*) "RECHARGED GRASS")
+;; Grecharged-grass-poc POLISH#4: labels for the two grass distance sliders (English-only, uppercase
+;; ASCII for the menu font; shown via name-override, like *recharged-grass-label* — not re-formatted).
+(define *recharged-near-dist-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *recharged-near-dist-label*) "NEAR GRASS DISTANCE")
+(define *recharged-card-dist-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *recharged-card-dist-label*) "GRASS CARD DISTANCE")
 
 ;; Glang-mixed: re-format the name-override label buffers from the loaded text bank so
 ;; they follow (-> *pc-settings* text-language). Runs on every menu open (init-game-options
@@ -2883,6 +2904,11 @@
   ;; Grecharged-grass-poc: wire the "RECHARGED GRASS" toggle (row 1) in the same submenu.
   (set! (-> *recharged-options-pc* 1 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *recharged-options-pc* 1 name-override) *recharged-grass-label*)
+  ;; Grecharged-grass-poc POLISH#4: wire the two distance sliders (rows 2,3) in the recharged submenu.
+  (set! (-> *recharged-options-pc* 2 value-to-modify) (&-> *pc-settings* recharged-grass-near-dist))
+  (set! (-> *recharged-options-pc* 2 name-override) *recharged-near-dist-label*)
+  (set! (-> *recharged-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-grass-card-dist))
+  (set! (-> *recharged-options-pc* 3 name-override) *recharged-card-dist-label*)
   (apply-dynamic-rs-menu-mode!)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))

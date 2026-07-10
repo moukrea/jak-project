@@ -36,6 +36,10 @@ class GrassRenderer {
   struct GrassInstance {
     float px, py, pz, h;        // world base position (GOAL units) + blade height
     float yaw, tint, curve, phase;
+    // POLISH#4: average RGB of the ground TEXTURE under this blade (0..1), so the blade
+    // colour is sampled/harmonised with the ground it grows from (no clash with the
+    // texture showing through). w spare (kept for 16-byte attribute alignment).
+    float gr, gg, gb, gspare;
   };
 
   void ensure_gl();

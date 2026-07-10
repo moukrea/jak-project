@@ -1,11 +1,14 @@
 #include "GrassRenderer.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
+#include "common/custom_data/Tfrag3Data.h"
 #include "common/log/log.h"
 
 #include "game/graphics/opengl_renderer/loader/Loader.h"
@@ -64,22 +67,83 @@ constexpr int MAX_INSTANCES = 640000;     // total instance ceiling for the whol
 constexpr float BUDGET_SAFETY = 0.9f;     // keep expected count under the ceiling so NO triangle is
                                           // ever starved (a mid-list cap hit would re-create the bug)
 
-// culling-instrumentation constants (must mirror the shader LOD bands in grass.vert)
+// culling-instrumentation constants (chunk size only; the LOD reach is now the two
+// ADJUSTABLE distances, read live from the settings in render()).
 constexpr float CHUNK_M = 8.0f;           // instrumentation chunk size (m)
-constexpr float LOD_BLADE_END_M = 28.0f;  // grass.vert B_END  — blades fully gone beyond this
-constexpr float LOD_CARD_OUT_M = 62.0f;   // grass.vert C_OUT1 — cards fully gone beyond this
 constexpr float OLD_WINDOW_M = 64.0f;     // the REMOVED camera window (for the fix diagnostic)
 
-// Training-level grassy-ground textures (curated, texture-driven — no hand
-// authoring). tra-grass is the elevated grassy terrain; tra-beachrock is the
-// green, mossy walkable ground the player actually stands on at the Geyser Rock
-// spawn (confirmed on-device as the nearest walkable draw under the camera —
-// tra-grass alone sits ~100m away up the slopes and never reaches the player);
-// the *-grassfringe / leafyground fringes blend the two. All read as the green
-// grass ground the owner wants covered.
+// OWNER POLISH#4: hide grass under overlapping non-grass 3D objects (crates/props/models).
+// A coarse world-space XZ occupancy grid: a cell that has grass AND a TIE (instanced model)
+// vertex hovering in [grassY+OCC_LO, grassY+OCC_HI] above it is culled, so grass never pokes
+// through an object sitting on the grass. TIE-only (real placed models) — NOT tfrag terrain,
+// so cliffs/slopes next to grass do not falsely cull it.
+constexpr float OCC_CELL_M = 0.6f;        // occupancy cell size (m)
+constexpr float OCC_LO_M = 0.20f;         // object must be at least this far above the grass to occlude
+constexpr float OCC_HI_M = 8.0f;          // ...and no more than this (ignore far ceilings / high bridges)
+
+// Training-level grassy-ground textures. Texture-driven, no hand authoring. Curated
+// exact names PLUS a substring net (grass / leafy / moss) so any grassy-ground texture
+// VARIANT is covered — OWNER POLISH#4: "il reste des plateformes avec des textures d'herbe
+// qui n'ont pas d'herbe" (grass-textured platforms still missing grass). tra-grass is the
+// elevated grassy terrain; tra-beachrock the green mossy ground the player stands on at the
+// Geyser Rock spawn; the *-grassfringe / leafyground fringes blend them.
+inline bool name_has(const std::string& n, const char* sub) {
+  return n.find(sub) != std::string::npos;
+}
+// Curated exact set (a substring net over-matched a distant village backdrop, 'vil1-medres-grass',
+// 46k m2 of huge tris, collapsing density — the training tfrag tpage has no other grassy-ground
+// texture, so exact names are correct here).
 inline bool is_grass_ground(const std::string& n) {
   return n == "tra-grass" || n == "tra-beachrock" || n == "bch-grassfringe" ||
          n == "bch-leafyground-hang-2x1";
+}
+// POLISH#4: the TIE-instanced models need a NARROWER set. tra-beachrock on TIE textures the ROCK
+// FORMATIONS / spires (~91k m2 of sloped rock that passes the walkable-ground gate), NOT walkable
+// ground — placing grass there is wrong and ate the whole instance budget. On TIE keep only the
+// genuinely GRASSY textures (this is where the owner's missing grass PLATFORMS live: tra-grass TIE).
+// tra-beachrock stays matched for TFRAG (there it IS the mossy walkable ground at the spawn).
+inline bool is_grass_ground_tie(const std::string& n) {
+  return n == "tra-grass" || n == "bch-grassfringe" || n == "bch-leafyground-hang-2x1";
+}
+// A ground-ish texture we did NOT match — logged as a candidate so a missed grass variant
+// surfaces on-device (POLISH#4 "still-missing platforms" diagnostic).
+inline bool looks_groundish(const std::string& n) {
+  return name_has(n, "ground") || name_has(n, "grass") || name_has(n, "leafy") ||
+         name_has(n, "moss") || name_has(n, "beach") || name_has(n, "dirt") ||
+         name_has(n, "sand") || name_has(n, "rock") || name_has(n, "mud");
+}
+
+// POLISH#4: average RGB (0..1) of a decoded RGBA8888 texture (0xAABBGGRR little-endian),
+// skipping near-transparent texels. Subsampled for speed on big textures. This is the
+// ground colour the grass is tinted toward so it never clashes with the texture showing
+// through. Falls back to a neutral grass-green if the texture has no pixel data client-side.
+inline void avg_tex_color(const tfrag3::Texture& t, float& r, float& g, float& b) {
+  const size_t px = (size_t)t.w * (size_t)t.h;
+  if (px == 0 || t.data.size() < px) {
+    r = 0.24f; g = 0.34f; b = 0.14f;
+    return;
+  }
+  const u32* d = t.data.data();
+  size_t step = std::max<size_t>(1, px / 4096);  // cap ~4096 samples
+  double sr = 0, sg = 0, sb = 0;
+  u64 n = 0;
+  for (size_t i = 0; i < px; i += step) {
+    u32 c = d[i];
+    if (((c >> 24) & 0xffu) < 16u) {  // skip transparent
+      continue;
+    }
+    sr += (c & 0xffu);
+    sg += (c >> 8) & 0xffu;
+    sb += (c >> 16) & 0xffu;
+    n++;
+  }
+  if (n == 0) {
+    r = 0.24f; g = 0.34f; b = 0.14f;
+    return;
+  }
+  r = (float)(sr / (double)n) / 255.0f;
+  g = (float)(sg / (double)n) / 255.0f;
+  b = (float)(sb / (double)n) / 255.0f;
 }
 
 }  // namespace
@@ -101,7 +165,7 @@ void GrassRenderer::ensure_gl() {
   glGenBuffers(1, &m_instance_vbo);
   glBindVertexArray(m_vao);
   glBindBuffer(GL_ARRAY_BUFFER, m_instance_vbo);
-  // per-instance: vec4 pos+height, vec4 yaw/tint/curve/phase (both advance once per instance)
+  // per-instance: vec4 pos+height, vec4 yaw/tint/curve/phase, vec4 ground-colour rgb+spare
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance), (void*)0);
   glVertexAttribDivisor(0, 1);
@@ -109,6 +173,11 @@ void GrassRenderer::ensure_gl() {
   glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance),
                         (void*)(4 * sizeof(float)));
   glVertexAttribDivisor(1, 1);
+  // POLISH#4: ground-texture average colour (location 2), so each blade matches the ground.
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance),
+                        (void*)(8 * sizeof(float)));
+  glVertexAttribDivisor(2, 1);
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   m_gl_ready = true;
@@ -130,11 +199,18 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   }
   const tfrag3::Level* lev = ld->level.get();
 
-  int considered_draws = 0;  // grass-ground draws matched
+  int considered_draws = 0;  // grass-ground draws matched (tfrag + tie)
+  int tie_draws = 0;         // of those, how many came from TIE (placed models / platforms)
   int tris_kept = 0;         // qualifying walkable-ground triangles
   int giant_tris = 0;        // rejected as implausibly large (spurious reconstruction)
   float total_area_m2 = 0.0f;
   float max_area = 0.0f;
+
+  // POLISH#4: per-texture average colour cache (the ground colour each blade is tinted to).
+  std::unordered_map<s32, std::array<float, 3>> texcol;
+  // POLISH#4 diagnostic: ground-ish textures we did NOT match — a missed grass VARIANT shows
+  // up here on-device, explaining any "platform with a grass texture but no grass".
+  std::unordered_map<std::string, int> unmatched_ground;
 
   // A qualifying walkable-ground triangle anywhere in the level. Collected in
   // PHASE 1 (no camera filter), then scattered at a uniform density in PHASE 2.
@@ -143,29 +219,49 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     float e1x, e1y, e1z;   // edge to v1
     float e2x, e2y, e2z;   // edge to v2
     float area_m2;
+    float gr, gg, gb;      // POLISH#4: average colour of this triangle's ground texture
     u32 seed;              // deterministic per-triangle seed (triangle identity, camera-independent)
   };
   std::vector<TriRec> tris;
 
   // ---- PHASE 1: collect ALL qualifying ground triangles (WHOLE LEVEL). ----
   // No camera window — the field must be complete so nothing can fail to load or
-  // de-instance while moving. Highest-detail tfrag geometry only (geo 0).
-  // Vertices are world-space, 4096 = 1 m.
-  for (const auto& tree : lev->tfrag_trees[0]) {
-    const auto& verts = tree.unpacked.vertices;
-    const auto& idx = tree.unpacked.indices;
+  // de-instance while moving. Scans BOTH the highest-detail tfrag geometry (geo 0)
+  // AND the TIE instanced models (geo 0): POLISH#4 — some grass-textured PLATFORMS are
+  // TIE, not tfrag, so the old tfrag-only scan left them bare. Vertices are world-space,
+  // 4096 = 1 m. StripDraw + unpacked{vertices,indices} are the same layout for both.
+  auto scan_draws = [&](const std::vector<tfrag3::StripDraw>& draws,
+                        const std::vector<tfrag3::PreloadedVertex>& verts,
+                        const std::vector<u32>& idx, bool use_strips, bool is_tie) {
     if (verts.empty() || idx.empty()) {
-      continue;
+      return;
     }
-
-    for (const auto& draw : tree.draws) {
+    for (const auto& draw : draws) {
       if (draw.tree_tex_id < 0 || (size_t)draw.tree_tex_id >= lev->textures.size()) {
         continue;
       }
-      if (!is_grass_ground(lev->textures[draw.tree_tex_id].debug_name)) {
+      const std::string& tname = lev->textures[draw.tree_tex_id].debug_name;
+      bool matched = is_tie ? is_grass_ground_tie(tname) : is_grass_ground(tname);
+      if (!matched) {
+        if (looks_groundish(tname)) {
+          unmatched_ground[tname]++;
+        }
         continue;
       }
       considered_draws++;
+      if (is_tie) {
+        tie_draws++;
+      }
+
+      // ground colour for this draw's texture (cached; POLISH#4 colour-match).
+      float gcr, gcg, gcb;
+      auto it = texcol.find(draw.tree_tex_id);
+      if (it == texcol.end()) {
+        avg_tex_color(lev->textures[draw.tree_tex_id], gcr, gcg, gcb);
+        texcol[draw.tree_tex_id] = {gcr, gcg, gcb};
+      } else {
+        gcr = it->second[0]; gcg = it->second[1]; gcb = it->second[2];
+      }
 
       // This draw's slice of the shared index buffer. The AUTHORITATIVE length is
       // the sum of the draw's vis_groups' num_inds — the EXACT slice the scene
@@ -187,6 +283,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       auto consider_tri = [&](u32 a, u32 b, u32 ci) {
         if (a == UINT32_MAX || b == UINT32_MAX || ci == UINT32_MAX) return;
         if (a == b || b == ci || a == ci) return;
+        if (a >= verts.size() || b >= verts.size() || ci >= verts.size()) return;
         const auto& p0 = verts[a];
         const auto& p1 = verts[b];
         const auto& p2 = verts[ci];
@@ -210,13 +307,14 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         r.e1x = e1x; r.e1y = e1y; r.e1z = e1z;
         r.e2x = e2x; r.e2y = e2y; r.e2z = e2z;
         r.area_m2 = area_m2;
-        r.seed = (begin ^ (a * 2654435761u) ^ (ci * 40503u));
+        r.gr = gcr; r.gg = gcg; r.gb = gcb;
+        r.seed = (begin ^ (a * 2654435761u) ^ (ci * 40503u) ^ (is_tie ? 0x9e3779b9u : 0u));
         tris.push_back(r);
         tris_kept++;
         total_area_m2 += area_m2;
       };
 
-      if (tree.use_strips) {
+      if (use_strips) {
         // one restart-delimited triangle strip: each new vertex closes a triangle
         // with the previous two.
         u32 a = UINT32_MAX, b = UINT32_MAX;
@@ -237,6 +335,18 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
           consider_tri(idx[k], idx[k + 1], idx[k + 2]);
         }
       }
+    }
+  };
+
+  // tfrag ground (geo 0)
+  for (const auto& tree : lev->tfrag_trees[0]) {
+    scan_draws(tree.draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, false);
+  }
+  // TIE instanced models / platforms (geo 0 only, to avoid duplicate LOD placement)
+  if (!lev->tie_trees.empty()) {
+    for (const auto& tree : lev->tie_trees[0]) {
+      scan_draws(tree.static_draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips,
+                 true);
     }
   }
 
@@ -277,7 +387,58 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       gi.tint = hash_f(sd + 5u);
       gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);          // wider CURVATURE variation
       gi.phase = hash_f(sd + 7u);
+      gi.gr = r.gr; gi.gg = r.gg; gi.gb = r.gb; gi.gspare = 1.0f;  // POLISH#4 ground colour
       m_instances.push_back(gi);
+    }
+  }
+
+  // ---- POLISH#4: hide grass under overlapping non-grass 3D objects (TIE models). ----
+  // A coarse XZ occupancy grid: for each grass cell we know the ground Y; if a TIE (placed
+  // model) vertex hovers in [+OCC_LO, +OCC_HI] above that ground, the object sits ON the
+  // grass, so drop the grass in that cell (no more blades poking through crates/props/models).
+  // TIE-only (real objects) — tfrag terrain is intentionally excluded so cliffs/slopes next to
+  // grass never falsely cull it.
+  int occ_culled = 0;
+  if (!m_instances.empty() && !lev->tie_trees.empty()) {
+    const float inv = 1.0f / (OCC_CELL_M * U);
+    auto cellkey = [inv](float x, float z) -> s64 {
+      s64 gx = (s64)std::floor(x * inv);
+      s64 gz = (s64)std::floor(z * inv);
+      return (gx << 32) ^ (gz & 0xffffffffLL);
+    };
+    std::unordered_map<s64, float> cell_ground_y;
+    cell_ground_y.reserve(m_instances.size());
+    for (const auto& gi : m_instances) {
+      s64 k = cellkey(gi.px, gi.pz);
+      auto it = cell_ground_y.find(k);
+      if (it == cell_ground_y.end() || gi.py < it->second) {
+        cell_ground_y[k] = gi.py;  // lowest grass py in the cell = the ground surface
+      }
+    }
+    std::unordered_set<s64> occluded;
+    const float lo = OCC_LO_M * U, hi = OCC_HI_M * U;
+    for (const auto& tree : lev->tie_trees[0]) {
+      for (const auto& v : tree.unpacked.vertices) {
+        s64 k = cellkey(v.x, v.z);
+        auto it = cell_ground_y.find(k);
+        if (it == cell_ground_y.end()) continue;
+        float dy = v.y - it->second;
+        if (dy > lo && dy < hi) {
+          occluded.insert(k);
+        }
+      }
+    }
+    if (!occluded.empty()) {
+      std::vector<GrassInstance> keep;
+      keep.reserve(m_instances.size());
+      for (const auto& gi : m_instances) {
+        if (occluded.count(cellkey(gi.px, gi.pz))) {
+          occ_culled++;
+          continue;
+        }
+        keep.push_back(gi);
+      }
+      m_instances.swap(keep);
     }
   }
 
@@ -324,10 +485,16 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
 
   lg::info(
       "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
-      "draws, {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> {} "
-      "instances in {} chunks. No camera window, no move-rebuild -> nothing de-instances while moving.",
-      considered_draws, tris_kept, giant_tris, max_area, total_area_m2, density, m_instance_count,
-      (int)m_chunks.size());
+      "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
+      "{} instances in {} chunks; POLISH#4 occlusion culled {} under-object instances. No camera "
+      "window, no move-rebuild -> nothing de-instances while moving.",
+      considered_draws, tie_draws, tris_kept, giant_tris, max_area, total_area_m2, density,
+      m_instance_count, (int)m_chunks.size(), occ_culled);
+  // POLISH#4 "still-missing platforms" diagnostic: any ground-ish texture we did NOT place on.
+  for (const auto& kv : unmatched_ground) {
+    lg::info("[recharged-grass] UNMATCHED ground-ish texture '{}' ({} draws) — not placed",
+             kv.first, kv.second);
+  }
 }
 
 void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
@@ -368,6 +535,16 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   glUniform1f(glGetUniformLocation(id, "u_time"), u_time);
   const auto& jp = Gfx::g_global_settings.recharged_jak_pos;
   glUniform4f(glGetUniformLocation(id, "u_jak_pos"), jp[0], jp[1], jp[2], jp[3]);
+  // POLISH#4: adjustable LOD reach (Recharged Settings sliders), passed in WORLD units to
+  // match cam_dist. Clamped to a sane range so a bad settings value can't break the LOD.
+  float near_m = std::min(80.0f, std::max(8.0f, Gfx::g_global_settings.recharged_grass_near_dist));
+  float card_m = std::min(200.0f, std::max(near_m + 5.0f,
+                                           Gfx::g_global_settings.recharged_grass_card_dist));
+  glUniform1f(glGetUniformLocation(id, "u_near_dist"), near_m * U);
+  glUniform1f(glGetUniformLocation(id, "u_card_dist"), card_m * U);
+  // POLISH#4: Jak's ledge-grab point (parts the ledge-top grass while he hangs).
+  const auto& jl = Gfx::g_global_settings.recharged_jak_ledge;
+  glUniform4f(glGetUniformLocation(id, "u_jak_ledge"), jl[0], jl[1], jl[2], jl[3]);
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_GEQUAL);
@@ -400,6 +577,11 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // dropped (past its 64 m camera window) that are STILL placed now.
   m_frame++;
   if ((m_frame % 30) == 0 && !m_chunks.empty()) {
+    // LOD reach is now the two ADJUSTABLE distances (mirrors the shader B_END / C_OUT1).
+    float blade_end_m = std::min(80.0f, std::max(8.0f,
+                                                 Gfx::g_global_settings.recharged_grass_near_dist));
+    float card_out_m = std::min(200.0f, std::max(blade_end_m + 5.0f,
+                                                 Gfx::g_global_settings.recharged_grass_card_dist));
     float cx = rs->camera_pos.x(), cy = rs->camera_pos.y(), cz = rs->camera_pos.z();
     float mvx = cx - m_last_log_cam[0], mvz = cz - m_last_log_cam[2];
     bool moving = (mvx * mvx + mvz * mvz) > (0.5f * U) * (0.5f * U);
@@ -407,11 +589,11 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     for (const auto& ch : m_chunks) {
       float dx = ch.cx - cx, dz = ch.cz - cz;
       float dm = std::sqrt(dx * dx + dz * dz) / U;
-      if (dm < LOD_CARD_OUT_M) {
+      if (dm < card_out_m) {
         in_lod++;
         drawn++;  // static complete field: an in-range chunk is ALWAYS drawn
       }
-      if (dm < LOD_BLADE_END_M) {
+      if (dm < blade_end_m) {
         in_blade++;
       }
       if (dm > OLD_WINDOW_M) {
@@ -419,11 +601,11 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
       }
     }
     lg::info(
-        "[recharged-grass] frame {} cam=({:.0f},{:.0f}) moving={} chunks={} in_lod(<62m)={} "
-        "drawn={} DROPPED={} blade(<28m)={} | {} chunks beyond the OLD 64m window are STILL "
+        "[recharged-grass] frame {} cam=({:.0f},{:.0f}) moving={} chunks={} in_lod(<{:.0f}m)={} "
+        "drawn={} DROPPED={} blade(<{:.0f}m)={} | {} chunks beyond the OLD 64m window are STILL "
         "placed (they de-instanced in the old build)",
-        m_frame, cx / U, cz / U, moving ? 1 : 0, (int)m_chunks.size(), in_lod, drawn,
-        in_lod - drawn, in_blade, beyond_old_window);
+        m_frame, cx / U, cz / U, moving ? 1 : 0, (int)m_chunks.size(), card_out_m, in_lod, drawn,
+        in_lod - drawn, blade_end_m, in_blade, beyond_old_window);
     m_last_log_cam[0] = cx;
     m_last_log_cam[1] = cy;
     m_last_log_cam[2] = cz;
