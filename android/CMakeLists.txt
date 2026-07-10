@@ -614,6 +614,10 @@ add_library(gk SHARED
     # the desktop gk via game/CMakeLists.txt; the Android build has its own source
     # list, so it must be listed here too or load_recharged_hud_textures is undefined.
     "${JAK_ROOT}/game/graphics/opengl_renderer/RechargedHudTextures.cpp"
+    # Grecharged-grass-poc: procedural 3D grass renderer (jak1 training). Desktop
+    # lists it in game/CMakeLists.txt; the Android build has its own source list,
+    # so it must be listed here too or GrassRenderer's symbols are undefined.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/GrassRenderer.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/TextureUploadHandler.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/EyeRenderer.cpp"
     # Gjak2-visuals: vis/fog bucket — copies the per-level vis strings AND the

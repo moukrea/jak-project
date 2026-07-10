@@ -555,6 +555,26 @@ void pc_set_levels(u32 l0, u32 l1) {
   Gfx::GetCurrentRenderer()->set_levels(levels);
 }
 
+// Grecharged-grass-poc: push the "recharged grass" on/off toggle from GOAL
+// (-> *pc-settings* recharged-grass?) down to the renderer. 0 = off (stock).
+void pc_set_recharged_grass(u32 on) {
+  Gfx::g_global_settings.recharged_grass = (on != 0);
+}
+
+// Grecharged-grass-poc: push Jak's world position (a GOAL vector, xyzw) each frame
+// so the grass renderer can flatten blades where the player walks. w := 1.0 marks
+// the value valid (GOAL only calls this while *target* exists).
+void pc_set_jak_pos(u32 vec) {
+  if (!vec) {
+    return;
+  }
+  float* p = Ptr<float>(vec).c();
+  Gfx::g_global_settings.recharged_jak_pos[0] = p[0];
+  Gfx::g_global_settings.recharged_jak_pos[1] = p[1];
+  Gfx::g_global_settings.recharged_jak_pos[2] = p[2];
+  Gfx::g_global_settings.recharged_jak_pos[3] = 1.0f;
+}
+
 void InitMachine_PCPort() {
   // PC Port added functions
   init_common_pc_port_functions(
@@ -571,6 +591,10 @@ void InitMachine_PCPort() {
   // Called from the game thread at each frame to tell the PC rendering code which levels to start
   // loading. The loader internally handles locking.
   make_function_symbol_from_c("__pc-set-levels", (void*)pc_set_levels);
+
+  // Grecharged-grass-poc bridges (jak1 only)
+  make_function_symbol_from_c("pc-set-recharged-grass!", (void*)pc_set_recharged_grass);
+  make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
 
   make_function_symbol_from_c("pc-discord-rpc-update", (void*)update_discord_rpc);
 

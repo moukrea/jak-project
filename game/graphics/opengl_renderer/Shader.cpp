@@ -170,6 +170,7 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   at(ShaderId::SIMPLE_TEXTURE) = {"simple_texture", version};
   at(ShaderId::SLOW_TIME) = {"slow_time", version};
   at(ShaderId::SPRITE3_INSTANCED) = {"sprite3_3d_inst", version};
+  at(ShaderId::GRASS) = {"grass", version};  // Grecharged-grass-poc
 
 #ifdef __ANDROID__
   // A35: name every failing shader instead of dying on the first one — a

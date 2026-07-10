@@ -66,6 +66,7 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/ocean/OceanNear.cpp
         graphics/opengl_renderer/ocean/OceanTexture_PC.cpp
         graphics/opengl_renderer/ocean/OceanTexture.cpp
+        graphics/opengl_renderer/GrassRenderer.cpp
         graphics/opengl_renderer/opengl_utils.cpp
         graphics/opengl_renderer/OpenGLRenderer.cpp
         graphics/opengl_renderer/Profiler.cpp

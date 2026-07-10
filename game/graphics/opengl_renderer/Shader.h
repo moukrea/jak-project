@@ -68,6 +68,7 @@ enum class ShaderId {
   SIMPLE_TEXTURE = 41,
   SLOW_TIME = 42,
   SPRITE3_INSTANCED = 43,
+  GRASS = 44,  // Grecharged-grass-poc: procedural 3D grass (jak1 training)
   MAX_SHADERS
 };
 

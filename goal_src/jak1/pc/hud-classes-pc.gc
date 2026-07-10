@@ -1653,3 +1653,14 @@
   0)
 
 (activate-hud-pc *display-pool*)
+
+;; Grecharged-grass-poc: per-frame push of the grass toggle + Jak's world position to
+;; the renderer. Defined HERE (not pckernel-impl.gc) because this file compiles after
+;; target-h, so *target* and (-> *target* control trans) resolve. Overrides the base
+;; pc-settings update-to-os, which the display loop calls once per frame.
+(defmethod update-to-os ((obj pc-settings-jak1))
+  ((method-of-type pc-settings update-to-os) obj)
+  (pc-set-recharged-grass! (if (-> obj recharged-grass?) 1 0))
+  (when *target*
+    (pc-set-jak-pos! (-> *target* control trans)))
+  (none))
