@@ -29,3 +29,9 @@ NO 20-boot requirement.
 ## Report (.autoport/reports/Gjak1-icache-flush/report.txt) `RESULT: JAK1 ICACHE FLUSH <landed+no-regression>`
 ## Locks: ANDROID_SERIAL=eae4df44 only; engine goal_src untouched; gold READ-ONLY.
 ## Max: max_turns 1200, max_retries 4. device: true, owner_verify: false.
+
+## DEVICE HYGIENE (owner 2026-07-10, MANDATORY)
+ALWAYS force-stop the game (`adb -s eae4df44 shell am force-stop org.opengoal.gk.jak1`) the
+moment a device test window ends. A left-running app overheats the Redmi for hours -> can
+reboot it -> PIN lockout -> pipeline stranded until the owner is physically there. Never leave
+the app foregrounded after a capture/verify.
