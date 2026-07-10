@@ -1,4 +1,4 @@
-RESULT: RECHARGED GRASS POC — POLISHED & WORKING on device (Geyser Rock / training), gated OFF==stock.
+STATUS: IN-PROGRESS (owner feedback2 culling-broken) prior: recharged grass poc — POLISHED & WORKING on device (Geyser Rock / training), gated OFF==stock.
         Owner played the first PoC ("Alors impressionnant !") and asked to iterate. This round
         IMPLEMENTS the 5 polish items IN THE RENDERER (the prior "polish" commit had only edited the
         prompt/report/validator — zero code). Verified on the Redmi with an OBJECTIVE same-viewpoint
