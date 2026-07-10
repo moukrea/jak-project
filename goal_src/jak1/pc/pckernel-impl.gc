@@ -150,7 +150,7 @@
   (set! (-> obj money-starburst?) #f)
   (set! (-> obj extra-hud?) #f)
   (set! (-> obj recharged-hud?) #f) ;; Grecharged-hud-jak1: default OFF so a fresh install matches stock exactly
-  (set! (-> obj recharged-grass?) #f) ;; Grecharged-grass-poc: default OFF so a fresh install matches stock exactly
+  (set! (-> obj recharged-grass?) #t) ;; Grecharged-grass-poc: OWNER OVERRIDE 2026-07-10 — ships DEFAULT ON (toggle still exists; OFF == stock)
   ;; original settings, minus 25 to be a bit more conservative
   (set! (-> obj memcard-volume-sfx) 50.0)
   (set! (-> obj memcard-volume-music) 40.0)
