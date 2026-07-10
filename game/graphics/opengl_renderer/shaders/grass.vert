@@ -25,17 +25,23 @@ uniform int   u_mode;      // 0 = blade pass, 1 = card pass
 
 out vec3 v_color;
 out float v_alpha;
+out vec2 v_uv;            // card-local coords: x in [-1,1] across width, y in [0,1] up
+flat out int v_is_card;   // 0 = near blade, 1 = mid card (frag cuts the card into a tuft)
+out float v_seed;         // per-instance random, seeds the card tuft sub-blades
 
 const int   SEGMENTS = 4;            // blade strip segments -> 2*(SEGMENTS+1) = 10 verts
 const float TWO_PI   = 6.28318530718;
 
 // LOD distance bands, world units (4096 = 1 m).
-const float B_FULL  = 10.0 * 4096.0; // blades fully opaque within this radius
-const float B_END   = 18.0 * 4096.0; // blades fully faded out beyond this
-const float C_IN0   =  9.0 * 4096.0; // cards start fading in
-const float C_IN1   = 18.0 * 4096.0; // cards fully in
-const float C_OUT0  = 35.0 * 4096.0; // cards start fading out
-const float C_OUT1  = 55.0 * 4096.0; // cards gone
+// OWNER POLISH 2026-07-10: pushed OUT so the player stands INSIDE the real 3D
+// blades (was 10->18 m; Jak ended up in the cards). Blades now hold to 18 m and
+// fade to 28 m; cards only take over from 22 m out.
+const float B_FULL  = 18.0 * 4096.0; // blades fully opaque within this radius
+const float B_END   = 28.0 * 4096.0; // blades fully faded out beyond this
+const float C_IN0   = 22.0 * 4096.0; // cards start fading in
+const float C_IN1   = 32.0 * 4096.0; // cards fully in
+const float C_OUT0  = 46.0 * 4096.0; // cards start fading out
+const float C_OUT1  = 62.0 * 4096.0; // cards gone
 
 const float TRAMPLE_R = 2.2 * 4096.0; // grass flattens within this radius of Jak
 
@@ -89,8 +95,16 @@ void main() {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_color = vec3(0.0);
     v_alpha = 0.0;
+    v_uv = vec2(0.0);
+    v_is_card = u_mode;
+    v_seed = 0.0;
     return;
   }
+
+  // shared breeze: a gust travelling across the field (spatial phase) plus a
+  // per-instance offset, so the whole lawn reads as ONE wind but no two blades
+  // move in lockstep.
+  float gust = u_time * 1.7 + phase * TWO_PI + (base.x + base.z) * 0.00035;
 
   // --- trample: flatten + push away from Jak within TRAMPLE_R ---
   float heightMul = 1.0;
@@ -107,51 +121,66 @@ void main() {
   }
 
   vec3 pos;
+  float t_col;
   if (u_mode == 0) {
     // ---------- NEAR: curved, tapered blade ----------
     int seg = gl_VertexID / 2;
     int side = gl_VertexID - seg * 2;              // 0 or 1
     float t = float(seg) / float(SEGMENTS);        // 0 base -> 1 tip
-    float hw = H * 0.055 * (1.0 - 0.85 * t);       // half width, tapering to the tip
+    float hw = H * 0.062 * (1.0 - 0.82 * t);       // half width, tapering to the tip
 
-    // breeze: per-instance phase, grows toward the tip
-    float sway = sin(u_time * 1.6 + phase * TWO_PI) * t * t;
+    // breeze: shared gust, grows toward the tip
+    float sway = sin(gust) * t * t;
     float bend = curve * t * t;                    // static curvature
-    float fwd_amt = (bend + sway * 0.35) * H;
+    float fwd_amt = (bend + sway * 0.38) * H;
 
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)
         + vec3(0.0, t * H * heightMul, 0.0)
         + fwdv * fwd_amt
         + trample * t;
+    t_col = t;
+    v_uv = vec2(0.0);
+    v_is_card = 0;
   } else {
     // ---------- MID: X-cross grass card ----------
     int quad = gl_VertexID / 6;                    // 0 or 1
     int li = gl_VertexID - quad * 6;
     vec2 uv = CARD[li];
     vec3 axis = (quad == 0) ? rightv : fwdv;       // two crossed quads
-    float cardH = H * 1.15;                         // match near heights, a touch taller
-    float cardHW = H * 0.42;                         // wider than a single blade
+    float cardH = H * 1.25;                          // match near heights, a touch taller
+    float cardHW = H * 0.46;                          // clump width
 
-    // gentler card sway
-    float sway = sin(u_time * 1.0 + phase * TWO_PI) * uv.y * 0.5;
+    // card wind sway: SAME gust as the blades but gentler and lower frequency,
+    // growing toward the top (owner polish: cards were static rectangles).
+    float csway = sin(gust * 0.7) * uv.y * uv.y;
 
     pos = base
         + axis * (uv.x * cardHW)
         + vec3(0.0, uv.y * cardH * heightMul, 0.0)
-        + fwdv * (sway * H * 0.25)
+        + fwdv * (csway * H * 0.30)
+        + rightv * (csway * H * 0.10)
         + trample * uv.y;
+    t_col = uv.y;
+    v_uv = uv;
+    v_is_card = 1;
   }
 
   // --- flat color: vertical gradient (dark base -> bright tip) + per-blade tint ---
-  float t_col = (u_mode == 0) ? (float(gl_VertexID / 2) / float(SEGMENTS)) : CARD[gl_VertexID - (gl_VertexID / 6) * 6].y;
-  vec3 base_dark  = vec3(0.09, 0.20, 0.045);
-  vec3 base_light = vec3(0.36, 0.60, 0.19);
+  // OWNER POLISH: more tint variation (wider brightness + a hue jitter so some
+  // blades are warmer / cooler green).
+  float tint2 = fract(tint * 7.919 + 0.371);       // decorrelated secondary random
+  vec3 base_dark  = vec3(0.075, 0.185, 0.040);
+  vec3 base_light = vec3(0.40, 0.66, 0.20);
   vec3 col = mix(base_dark, base_light, t_col);
-  col *= (0.80 + 0.42 * tint);      // brightness variation per blade
-  col.g *= (0.92 + 0.16 * tint);    // slight hue variation
+  col *= (0.62 + 0.72 * tint);      // wider brightness variation per blade
+  float hue = tint2 - 0.5;          // -0.5 .. 0.5
+  col.r *= (1.0 + 0.50 * hue);      // warmer <-> cooler green
+  col.b *= (1.0 - 0.35 * hue);
+  col.g *= (0.88 + 0.22 * tint);
   v_color = col;
   v_alpha = alpha;
+  v_seed = tint * 331.0 + phase * 71.0;   // per-instance tuft seed
 
   gl_Position = world_to_clip(pos);
 }
