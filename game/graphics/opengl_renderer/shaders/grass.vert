@@ -127,7 +127,9 @@ void main() {
     int seg = gl_VertexID / 2;
     int side = gl_VertexID - seg * 2;              // 0 or 1
     float t = float(seg) / float(SEGMENTS);        // 0 base -> 1 tip
-    float hw = H * 0.062 * (1.0 - 0.82 * t);       // half width, tapering to the tip
+    // OWNER POLISH: wider, fuller blades (was 0.062/0.82) so the SAME instance
+    // count reads as a denser, lusher lawn — more ground coverage per blade.
+    float hw = H * 0.078 * (1.0 - 0.70 * t);       // half width, tapering to the tip
 
     // breeze: shared gust, grows toward the tip
     float sway = sin(gust) * t * t;

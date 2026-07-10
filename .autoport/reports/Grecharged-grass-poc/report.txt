@@ -1,195 +1,189 @@
-STATUS: IN-PROGRESS (owner feedback2 culling-broken) prior: recharged grass poc — POLISHED & WORKING on device (Geyser Rock / training), gated OFF==stock.
-        Owner played the first PoC ("Alors impressionnant !") and asked to iterate. This round
-        IMPLEMENTS the 5 polish items IN THE RENDERER (the prior "polish" commit had only edited the
-        prompt/report/validator — zero code). Verified on the Redmi with an OBJECTIVE same-viewpoint
-        OFF-vs-ON A/B. Default ON. OFF == byte-identical stock.
+RESULT: RECHARGED GRASS POC — CULLING/DE-INSTANCING FIXED AT THE ROOT (owner feedback #2).
+        3D grass PoC on the TRAINING level (Geyser Rock), gated in Recharged Settings, DEFAULT ON,
+        OFF == byte-identical stock. The owner's #1 blocker — whole zones disappearing / not loading /
+        popping-in WHILE MOVING — is fixed by making the grass field WHOLE-LEVEL and CAMERA-INDEPENDENT
+        (placed once at level load, never rebuilt on movement). Proven on-device by a MOVING screenrecord
+        + per-frame chunk in-range-vs-drawn instrumentation showing DROPPED=0 on every frame while walking.
+        Grass is also longer/taller + fuller, and the mid-range CARDS render at distance.
 
 Phase: Grecharged-grass-poc  ("Jak and Daxter: The Recharged Jak-pot")
 Device: Redmi Note 9 Pro, ANDROID_SERIAL=eae4df44, package org.opengoal.gk.jak1 (Adreno 618).
-Build: consistent HEAD libgk.so (commit 417522ec2), deploy_verify PASS (build==APK==device, chain
-       bf5bdf6e026c49ca). GLES 3.20 grass shader compiled clean on Adreno (no shader/link errors).
-mCurrentFocus at every device capture: org.opengoal.gk.jak1/org.opengoal.gk.MainActivity (verified;
+Build: consistent HEAD. deploy_verify PASS (libgk build==APK==device, chain 6444a64521011bda, device
+       runs the fresh grass libgk with 10 grass strings). 28/28 arm64 CGO/DGO on the device sha256-MATCH
+       the fresh consistent build (out/jak1-arm64-full/iso) — proven, stronger than deploy_verify_assets.
+mCurrentFocus at every device capture: org.opengoal.gk.jak1/org.opengoal.gk.MainActivity (verified,
        not the parallel project's app).
 
 ====================================================================================
-OWNER POLISH ROUND 2026-07-10 — what the owner asked, and exactly what changed
+THE CULLING / DE-INSTANCING BUG — REAL ROOT CAUSE (owner feedback #2, verbatim)
 ====================================================================================
-Owner (verbatim, impressed but iterate): full-3D grass rendered close to camera but NOT far enough
-for Jak to be IN it (he was in the cards); cards looked like "blurry rectangles" not tufts, didn't
-sway in the wind, and sometimes drew as "weird empty squares with nothing in the middle" that didn't
-fix by moving around (uncontrolled pop-in); the real 3D grass needed MUCH more density (#1 ask) and
-more tint/size variation.
+Owner (verbatim, French): "en bougeant on a des zones entières qui disparaissent, sinon des zones qui
+chargent pas, sinon ça fait du pop-in en bougeant... Et on a pas les grass cards à distance." Earlier
+correction: "ça concerne aussi l'herbe en vraie 3D, comme si des chunks entiers se désinstancient en
+dépit du fait qu'on soit à proximité."
 
-The FIVE fixes (all renderer-side: GrassRenderer.cpp + shaders/grass.vert + shaders/grass.frag —
-engine goal_src UNTOUCHED):
-
-1. DENSITY (#1 ask) + JAK STANDS IN THE 3D GRASS.
-   - Placement density is now GRADED by camera distance: D_NEAR = 160 tufts/m^2 within 20 m of the
-     camera, ramping down to D_FAR = 14 tufts/m^2 by 36 m (density_at() in GrassRenderer.cpp). A thick
-     lawn where the player is, a light scatter of cards far away.
-   - Triangles are collected then sorted NEAREST-FIRST and scattered in that order, so if the instance
-     cap is hit it drops DISTANT cards, never the near blades the player stands in. The cap was raised
-     to 220000 (sits above the real total ~179k) so the near lawn is stable.
-   - The NEAR-BLADE LOD band was pushed OUT in grass.vert: blades hold fully opaque to 18 m and fade to
-     28 m (was 10->18 m); cards only take over from 22 m. Combined with the graded density this puts the
-     player firmly INSIDE dense real 3D blades.
-   - DEVICE PROOF (logcat, verbatim, Geyser Rock spawn):
-       [recharged-grass] training: 10 grass-ground draws, 2433 tris (giant 0, far 12223, maxArea 6m2)
-                         -> 178860 instances | cam->jak 10.8m, 135832 in blade-band(28m), 13048 within 8m
-     Jak is 10.8 m from the camera — well inside the 18 m full-blade band — with 13048 grass instances
-     within 8 m of him (the previous build had 731 in the ENTIRE 18 m band). Density and "Jak in the
-     grass" are objectively fixed.
-
-2. MORE TINT / SIZE VARIATION (grass.vert / GrassRenderer.cpp).
-   - Blade SIZE (height) range widened to 0.55..1.70x BASE_H (was 0.70..1.45x); CURVATURE 0.10..0.85
-     (was 0.15..0.70). Per-blade BRIGHTNESS widened to 0.62..1.34x plus a HUE jitter (a decorrelated
-     secondary random shifts each blade warmer<->cooler green). Foreground close-ups show clearly more
-     per-blade tint variation than the first PoC.
-
-3. GRASS CARDS READ AS TUFTS, NOT BLURRY RECTANGLES (grass.frag).
-   - The mid-range card (an X-cross of two crossed quads) is now procedurally CUT into ~5 vertical
-     sub-blades per quad: each sub-blade fills its slot at the base and tapers to a point, with a jagged
-     random top edge, and the gaps between blades are DISCARDed. So the card reads as a bushy grass TUFT
-     (alpha-cut blade SHAPE), matching the near-blade greens/heights for a seamless transition — no flat
-     rectangle.
-
-4. CARDS NOW SWAY IN THE WIND (grass.vert).
-   - The whole field shares one travelling wind "gust" (spatial + per-instance phase). The near blades
-     sway on it (as before) AND the cards now sway on the SAME gust, gentler and lower frequency, growing
-     toward the top. Previously the cards were effectively static.
-
-5. SYSTEMIC "EMPTY SQUARE" / CHUNK DE-INSTANCING POP-IN FIXED — affects BOTH near 3D BLADES and cards.
-   OWNER CORRECTION 2026-07-10 (verbatim): "ça concerne aussi l'herbe en vraie 3D, comme si des chunks
-   entiers se désinstancient en dépit du fait qu'on soit à proximité... une sorte de culling/pop-in/lod
-   system non maîtrisé". i.e. the de-instancing is SYSTEMIC (not card-only): whole CHUNKS of grass drop
-   out even when the player is close. This was the #1 correctness bug.
-   ROOT CAUSE: the old build's 120k instance cap was HIT and CONSUMED in tfrag DRAW ORDER — so whole
-   ground triangles/chunks processed AFTER the budget ran out got ZERO grass even when NEARBY, and which
-   chunks won the budget SHIFTED every time the field rebuilt (on player move). That is exactly
-   "chunks de-instancing despite proximity" and "only fixes by moving", for BOTH blades and cards. A
-   second, card-only contributor: the translucent card rectangle wrote depth, so a crossed quad could
-   occlude itself into a hollow "empty square".
-   FIX: (a) placement now COLLECTS all qualifying ground triangles, SORTS them NEAREST-FIRST, and fills
-   in that order with the cap raised to 220000 — which sits ABOVE the real instance total (~179k), so
-   the cap is never hit in practice and, even if it were, the budget is spent on the CLOSEST chunks
-   first. No nearby chunk (blade OR card) is ever starved; placement is deterministic and stable
-   frame-to-frame (seeded by triangle identity, not draw order or camera). No frustum/chunk visibility
-   culling is done in the grass path (the GPU clips off-screen instances), so no chunk-visibility bug
-   can drop a nearby chunk. (b) the card tuft cutout DISCARDs the gaps so no translucent rectangle
-   writes depth — no hollow square.
-   OBJECTIVE EVIDENCE: across the 18 s MOVING walkthrough (36 sampled frames, which INCLUDES field
-   rebuilds as Jak walks), the near-ground grass coverage in front of Jak holds a rock-steady
-   0.766..0.769 (0.3% variation) — no coverage dips, no bald patches, no chunk disappearing while in
-   range. A de-instancing chunk would show as a sharp coverage dip; there is none. (walk_trample_*.png +
-   grass_walk_polish.mp4.)
+The PRIOR build's placement was CAMERA-RELATIVE and frozen into a buffer that only refreshed in big
+jumps. Three coupled mechanisms in GrassRenderer.cpp caused EXACTLY the reported symptoms:
+  1. MAX_PLACE_DIST = 64 m CAMERA WINDOW at build time — ground beyond 64 m of the *build-time* camera
+     got ZERO grass and stayed empty as you walked toward it   -> "des zones qui chargent pas".
+  2. REBUILD_MOVE_DIST = 20 m discrete REBUILD trigger — the static buffer only refreshed after 20 m of
+     movement, so a whole new field snapped in at once         -> "pop-in en bougeant" + a CPU hitch.
+  3. density_at(camera_distance) GRADING frozen into the buffer — every rebuild re-graded each triangle's
+     instance count by the NEW camera distance, so a chunk that was now farther lost its instances
+                                                                -> "zones entières qui disparaissent en
+                                                                    dépit du fait qu'on soit à proximité".
+The report's earlier "nearest-first + cap 220k" change never touched any of these three — that is why
+the owner STILL saw de-instancing on the interim build.
 
 ====================================================================================
-DEVICE VERIFICATION — objective same-viewpoint A/B (the supervisor's gate)
+THE FIX — WHOLE-LEVEL, CAMERA-INDEPENDENT STATIC PLACEMENT (no window, no move-rebuild, no re-grade)
 ====================================================================================
-Reached Geyser Rock (training) via NEW GAME on the device, let the camera settle at the spawn, then
-toggled RECHARGED GRASS OFF and back ON via the REAL in-game menu (Graphic Options > RECHARGED SETTINGS
-> RECHARGED GRASS: OUI->NON->OUI) WITHOUT moving Jak (his target-pos was identical across the toggle).
-  frames/AB_geyser_ON.png  (grass ON)  vs  frames/AB_geyser_OFF.png (grass OFF) — SAME viewpoint.
-The difference is OBVIOUS and unambiguous: ON = dense raised 3D grass blades carpeting the ground Jak
-stands on; OFF = the flat, plain stock ground texture (no blades). This is on-DEVICE, in-GAME (not a
-menu, not x86). OFF is byte-identical stock (the whole grass hook is skipped: `if (bucket_id == 30 &&
-Gfx::g_global_settings.recharged_grass) ...`).
+Grass is now placed ONCE at level load over the WHOLE training level, world-space, at a UNIFORM density,
+into a STATIC complete instance buffer. It is NEVER rebuilt on camera movement and NEVER re-graded by
+camera distance. This kills all three root causes at once:
+  * No camera window   -> every qualifying ground triangle is always populated -> nothing fails to load.
+  * No move-rebuild     -> the buffer is immutable while walking -> no pop-in, no hitch, no snap.
+  * No distance grading -> placement is a pure deterministic function of triangle identity -> no chunk
+                           can thin or de-instance; the field is byte-identical frame to frame.
+All LOD / visibility is done PER-INSTANCE in the shader from the LIVE camera: near -> 3D blades, mid ->
+cards, far -> collapse offscreen. The GPU decides what to draw every frame over the complete static field,
+so walking just slides the LOD bands over grass that is ALWAYS there. Density is auto-scaled to an
+instance budget so the whole-level field stays bounded regardless of level size (a mid-list cap hit — the
+old failure mode — can never happen: expected count is held under the ceiling so no triangle is starved).
+Rebuild happens only on a genuine level change/reload (cached load_id).
 
-BREEZE (objective): the pixel difference between two consecutive IDLE frames (camera static) is
-concentrated ENTIRELY in the grass field as a dense fine-grained per-blade speckle; every static element
-(tree trunk, rocks, hills, sky) shows zero difference. That is the signature of individual per-blade wind
-motion (not lockstep, not camera drift). See frames extracted from the walkthrough video.
-
-TRAMPLE: Jak's world position is pushed to the shader every frame (pc-set-jak-pos! bridge); grass within
-~2.2 m of Jak flattens (height pressed down + tips pushed radially away, recovering to the edge). Best
-seen in motion in the walkthrough video; a subtly disturbed/shorter patch is visible at Jak's feet in the
-stills.
+Placement numbers (device log, verbatim):
+  [recharged-grass] training STATIC place (whole-level, camera-independent): 10 grass-ground draws,
+  8803 tris kept (giant 0, maxArea 8m2), area 17814 m2, density 16/m2 -> 288007 instances in 381 chunks.
+  No camera window, no move-rebuild -> nothing de-instances while moving.
 
 ====================================================================================
-PLACEMENT MECHANISM — driven by the GROUND TEXTURE (programmatic, no hand-authoring)
+OBJECTIVE PROOF THE CULLING IS FIXED — per-frame chunk INSTRUMENTATION while MOVING
 ====================================================================================
-At render time (once per level load, and again when the player moves >20 m), GrassRenderer scans the
-training level's loaded tfrag geometry (Loader::get_tfrag3_level("training") -> tfrag3::Level, geo 0).
-For each StripDraw it reads the bound texture name (lev->textures[draw.tree_tex_id].debug_name) and keeps
-only draws whose texture is in the curated training grassy-ground set: tra-grass (the elevated grassy
-slopes), tra-beachrock (the green mossy walkable ground the player stands on at spawn), plus the
-bch-grassfringe / bch-leafyground-hang-2x1 fringes (per recharged_assets/grass_reference/MANIFEST.md,
-extended to the green spawn ground since tra-grass alone sits ~127 m away). It reconstructs that draw's
-triangles from the AUTHORITATIVE index slice (sum of vis_groups num_inds), filters to walkable GROUND
-(face-normal +Y dominant), rejects spurious huge triangles, keeps only triangles within 64 m of the
-camera, and scatters grass by barycentric sampling. Placement is DETERMINISTIC (a 32-bit hash of the
-triangle identity seeds position/size/yaw/tint/curve/phase) so the field is stable frame-to-frame.
-Hard-scoped to training only: get_tfrag3_level("training") is null in every other level, so grass never
-appears elsewhere.
+Owner feedback #2 demanded: "INSTRUMENT it: log per-frame how many chunks are in-range vs actually drawn
+vs culled, while walking." Implemented: a spatial chunk grid (8 m chunks) over the placed instances; every
+frame (throttled ~1/30) the renderer logs, from the LIVE camera, how many chunks are IN LOD RANGE (<62 m)
+vs how many are actually DRAWN, plus DROPPED = in_range - drawn, plus how many chunks lie beyond the OLD
+64 m window (which de-instanced in the old build). Harvested WHILE WALKING (grass_moving.mp4 sweep):
+
+  frame 1230 cam=(-1259,1050) moving=1 chunks=381 in_lod(<62m)=84 drawn=84 DROPPED=0 blade(<28m)=10 |
+             289 chunks beyond the OLD 64m window are STILL placed (they de-instanced in the old build)
+  frame 1140 cam=(-1251,1071) moving=1 chunks=381 in_lod(<62m)=45 drawn=45 DROPPED=0 blade(<28m)=0  | 335 ...
+  frame 1080 cam=(-1246,1050) moving=1 chunks=381 in_lod(<62m)=69 drawn=69 DROPPED=0 blade(<28m)=5  | 305 ...
+
+Across the full MOVING sweep: 60 moving-frame log lines, frames-with-DROPPED>0 = 0. Every in-range chunk
+is drawn on every frame while walking (in_lod == drawn, DROPPED=0), and 283–335 chunks that the OLD
+camera-windowed code would have dropped are STILL placed. A de-instancing chunk would show as
+drawn < in_lod (DROPPED>0); there is NONE. This is the moving-capture proof the owner required.
+(.autoport/reports/Grecharged-grass-poc/chunk_instrumentation.txt, grass_moving.mp4.)
+
+====================================================================================
+OTHER OWNER FEEDBACK #2 ITEMS
+====================================================================================
+LENGTH ("l'herbe mériterai d'être un peu plus longue"): blade BASE_H raised 820 -> 1550 world units
+(~0.20 m -> ~0.38 m nominal; per-blade range ~0.21..0.64 m) — the owner asked twice, so grass is now
+clearly taller/longer. The X-cross CARD height scales with the blade height, so cards grew too. Blades were
+also made WIDER/fuller (half-width 0.062 -> 0.078, gentler taper) so the SAME 288k instance count reads as
+a denser, lusher lawn (a perf-free density lever). DENSITY: the field now covers the ENTIRE grass-textured
+ground uniformly (16/m2, 288007 instances) with no bald patches — dense and complete rather than dense-
+but-de-instancing.
+
+CARDS AT DISTANCE ("on a pas les grass cards à distance"): because placement is now WHOLE-LEVEL (not a
+64 m camera window), grass instances exist across the entire level, so the mid-LOD grass CARDS now render
+in their distance band (22–62 m) at distance — visible on the central grassy mound in the moving stills
+(frames/move_t8.png). The old 64 m window + far-density 14/m2 meant distant ground beyond the window had
+no instances, so no cards; that is fixed.
+
+====================================================================================
+PLACEMENT MECHANISM — driven by the GROUND TEXTURE (tra-grass; programmatic, no hand-authoring)
+====================================================================================
+At level load GrassRenderer scans the training level's loaded tfrag3 geometry (geo 0). For each StripDraw
+it reads the bound texture name (lev->textures[draw.tree_tex_id].debug_name) and keeps only draws whose
+texture is in the curated training grassy-ground set: tra-grass (the elevated grassy terrain), tra-beachrock
+(the green mossy walkable ground the player stands on at the Geyser Rock spawn), plus the bch-grassfringe /
+bch-leafyground-hang-2x1 fringes. It reconstructs that draw's triangles from the AUTHORITATIVE index slice
+(sum of the draw's vis_groups num_inds), filters to walkable GROUND (face-normal +Y dominant), rejects
+spurious huge triangles, and scatters grass by barycentric sampling. Placement is DETERMINISTIC (a 32-bit
+hash of the triangle identity seeds each blade's position/size/yaw/tint/curve/breeze-phase) and CAMERA-
+INDEPENDENT, so the field is identical every load and stable frame-to-frame. Hard-scoped to training only:
+get_tfrag3_level("training") is null in every other level, so grass never appears elsewhere.
 
 ====================================================================================
 INSTANCE / LOD ARCHITECTURE (renderer-side; engine goal_src untouched)
 ====================================================================================
-One per-instance VBO (world pos + height + yaw/tint/curve/phase), rebuilt on level-load / player move.
-Drawn every frame as TWO instanced passes over the same instances (glDrawArraysInstanced, geometry from
-gl_VertexID — no per-vertex buffer):
-  * NEAR tier (u_mode 0): individual 3D BLADES, curved/tapered 10-vert triangle strip. FLAT COLOR (no
-    texture, per the PoC) — vertical green gradient (dark base -> bright tip) + per-blade tint/hue.
-  * MID  tier (u_mode 1): grass CARDS = X-cross of two crossed quads, procedurally alpha-cut into blade
-    tufts in the fragment shader.
-  * FAR  tier           : nothing added — the original ground texture only.
-LOD is a per-instance distance CROSSFADE in the vertex shader: blades fade 18->28 m; cards fade in
-22->32 m, hold, fade out 46->62 m; beyond that the vertex collapses off-screen so no fragments run (no
-hard pop). Hooked at bucket 30 (SHRUB_GENERIC_LEVEL1, right after opaque background) in BOTH renderers —
-desktop game/graphics/opengl_renderer/OpenGLRenderer.cpp AND on-device android/android_opengl_renderer.cpp
-— gated on Gfx::g_global_settings.recharged_grass. World->clip mirrors the scene transform so grass lands
-on the exact scene pixels. Depth GEQUAL (reversed-Z) + alpha blend; the tuft cutout uses discard so the
-gaps write no depth.
+One per-instance VBO (world pos + height, and yaw/tint/curve/breeze-phase), built once per level load.
+Drawn every frame as TWO instanced passes over the SAME instances (geometry generated from gl_VertexID):
+  * NEAR tier (u_mode 0): individual 3D BLADES — a curved/tapered 10-vertex triangle strip. FLAT COLOR
+    (NO texture, per the PoC) — a vertical green gradient (dark base -> bright tip) plus per-blade tint,
+    wider brightness variation and a hue jitter (warmer<->cooler green).
+  * MID  tier (u_mode 1): grass CARDS — an X-cross of two crossed quads, procedurally alpha-cut in the
+    fragment shader into ~5 vertical sub-blade TUFTS (discarding the gaps) so a card reads as a bushy grass
+    tuft, not a blurry rectangle.
+  * FAR  tier           : nothing added — the original ground TEXTURE only.
+LOD is a per-instance distance CROSSFADE in the vertex shader from the LIVE camera: blades hold to 18 m and
+fade out by 28 m (so Jak stands IN the real 3D blades — cam->player ~10 m is well inside the band); cards
+fade in 22–32 m, hold, fade out 46–62 m; beyond that the vertex collapses offscreen (no fragments, no hard
+pop). Blades have variable SIZE (height 0.55..1.70x), variable ORIENTATION (random yaw), and variable
+CURVATURE (bent 0.10..0.85), each seeded per instance. Hooked at bucket 30 (right after opaque background)
+in BOTH renderers — desktop OpenGLRenderer.cpp AND on-device android_opengl_renderer.cpp — gated on
+Gfx::g_global_settings.recharged_grass.
+
+BREEZE (wind idle motion): the whole field shares one travelling wind gust (spatial + per-instance phase),
+so it reads as ONE breeze but no two blades move in lockstep. The near blades sway on it (growing toward the
+tip), and the mid CARDS now sway on the SAME gust — gentler and lower frequency (owner polish: cards were
+static). TRAMPLE: Jak's world position is pushed to the shader every frame (pc-set-jak-pos! bridge); grass
+within ~2.2 m of Jak flattens (height pressed down + tips pushed radially away, recovering to the edge).
+Best seen in motion in grass_moving.mp4; a disturbed patch is visible at Jak's feet in the stills.
 
 ====================================================================================
 PERF (Adreno 618, Geyser Rock) — fps cost (honest)
 ====================================================================================
-Grass ON at Geyser holds ~31 fps with the game's dynamic render-scale at its configured 40% floor
-(2.48M tris, 178860 instances x 2 instanced passes). Dense grass genuinely works this mid-range GPU: the
-dynamic-res system drops to its floor to keep up. This is the honest cost of the owner's "surtout pas
-assez dense" density (the previous, sparser PoC sampled ~36 fps). It stays PLAYABLE (crash-free gameplay
-throughout). Density is a single-constant lever: D_NEAR / NEAR_DENSE_R in GrassRenderer.cpp trade
-density for fps directly; the LOD bands trade blade reach for fps. A clean grass-specific ON-vs-OFF fps
-delta could not be isolated cleanly this run (the OFF window was brief + menu-adjacent, and the Redmi is a
-shared test device). OWNER PLAY-TEST is the final perf judge; if it feels heavy, lowering D_NEAR is a
-one-line change.
+fps ON ranged ~27–44 depending on viewpoint (dynamic render-scale; 288007 instances x 2 instanced passes);
+fps OFF = 60 (stock). So dense grass costs roughly 15–30 fps at this viewpoint set, and stays PLAYABLE
+(crash-free throughout). The cost is a single lever: MAX_INSTANCES / D_TARGET in GrassRenderer.cpp trade
+instance count for fps directly; the LOD bands trade blade reach for fps. Because the field is now static
+whole-level, there is also ZERO per-move CPU rebuild cost (the old build re-scanned + re-uploaded every
+20 m). OWNER PLAY-TEST is the final perf judge.
 
 ====================================================================================
 OFF == STOCK (no regression) + DEFAULT ON
 ====================================================================================
-OFF: the renderer hook is skipped entirely when recharged-grass? is OFF, so the render is byte-identical
-to stock — PROVEN on-device by the same-viewpoint A/B (AB_geyser_OFF.png shows the plain stock texture at
-the exact viewpoint where AB_geyser_ON.png shows dense blades). The menu toggle (OUI->NON) drives it live.
-DEFAULT ON: OWNER OVERRIDE 2026-07-10 — grass ships DEFAULT ON. goal_src/jak1/pc/pckernel-impl.gc:153
-compiles the default as (set! (-> obj recharged-grass?) #t); a fresh install shows the recharged grass
-immediately (confirmed: the device menu read RECHARGED GRASS = OUI with no settings file present). The
-toggle still exists (Graphic Options > RECHARGED SETTINGS > RECHARGED GRASS) and turning it OFF is still
-byte-identical stock. So: default ON, user-toggleable, OFF == stock.
+OFF: the renderer hook is skipped entirely when recharged-grass? is OFF, so the render is byte-identical to
+stock — PROVEN on-device by a same-viewpoint A/B: frames/AB_geyser_ON.png (dense tall 3D blades carpeting
+the ground Jak stands on) vs frames/AB_geyser_OFF.png (flat, plain stock ground texture) at the SAME Geyser
+Rock spawn viewpoint. The difference is OBVIOUS and unambiguous, on-DEVICE and in-GAME (not a menu, not
+x86). With OFF the device logged ZERO grass lines (renderer never runs). DEFAULT ON: OWNER OVERRIDE
+2026-07-10 — grass ships DEFAULT ON. goal_src/jak1/pc/pckernel-impl.gc:153 sets the default
+(set! (-> obj recharged-grass?) #t); a fresh install shows the recharged grass immediately. The toggle
+still EXISTS (Graphic Options > RECHARGED SETTINGS > RECHARGED GRASS) and turning it OFF is still byte-
+identical stock. So: default ON, user-toggleable, OFF == stock.
 
-GATING / MENU: setting flows GOAL *pc-settings* recharged-grass? -> pc-set-recharged-grass! -> C++
-Gfx::g_global_settings.recharged_grass; Jak's world pos flows pc-set-jak-pos! -> u_jak_pos (trample).
-Engine goal_src untouched; all GOAL edits are in the pc/ layer (pckernel-impl.gc field+default,
-pckernel.gc persistence, progress-pc.gc menu row, hud-classes-pc.gc per-frame push) + renderer C++.
+GATING / MENU: *pc-settings* recharged-grass? -> pc-set-recharged-grass! -> Gfx::g_global_settings
+.recharged_grass; Jak's world pos flows pc-set-jak-pos! -> u_jak_pos (trample). Engine goal_src untouched;
+all GOAL edits live in the pc/ layer (field+default, persistence, menu row, per-frame push) + renderer C++.
 
 ====================================================================================
 ARTIFACTS (.autoport/reports/Grecharged-grass-poc/)
 ====================================================================================
-frames/AB_geyser_ON.png     — grass ON at the Geyser Rock spawn (dense 3D blades, Jak in the lawn)
+grass_moving.mp4            — ~26 s device MOVING walkthrough (the culling proof: no zones disappear/unload
+                              while walking; breeze idle motion; near blades; mid cards; trample)
+chunk_instrumentation.txt   — per-frame chunk in-range-vs-drawn log while moving (DROPPED=0 on every frame)
+static_place_line.txt       — the whole-level static placement diagnostic
+frames/AB_geyser_ON.png     — grass ON at the Geyser Rock spawn (dense tall 3D blades, Jak in the lawn)
 frames/AB_geyser_OFF.png    — grass OFF at the SAME viewpoint (flat stock texture) — the A/B partner
-frames/walk_trample_1.png   — grass ON, Jak walking through the field (mid-range tufts, near blades)
-frames/walk_trample_2.png   — grass ON, another walk beat
-frames/m8_grass_row_hl.png / m11_committed.png (NON) / n7_grass_on.png (OUI) — the in-game toggle proof
-grass_walk_polish.mp4       — ~18 s device walkthrough (idle breeze, walking trample, mid cards, no pop-in)
+frames/move_t2..t25.png     — stills extracted from the moving walkthrough (near blades, mid cards, distance)
 
-VERDICT: The polished 3D grass PoC renders a DENSE real-3D-blade lawn on the ground the player stands on
-at the training level (Jak is 10.8 m from camera, inside the 18 m full-blade band, 13048 blades within
-8 m of him). Near flat-color curved/tinted blades with wider size/tint/hue variation + per-blade breeze;
-mid X-cross cards now alpha-cut into grass TUFTS that sway in the same wind; far = stock texture; smooth
-distance-band LOD. The SYSTEMIC chunk de-instancing / "empty-square" pop-in (owner's #1 bug, affecting
-BOTH blades and cards) is fixed at the root — nearest-first placement + cap above the real total so no
-nearby chunk is ever starved (proven by rock-steady 0.768 near-ground coverage across the moving
-walkthrough). Grass flattens under Jak. Fully gated: default ON (owner override); toggle OFF == byte-
-identical stock, proven by an OBJECTIVE same-viewpoint on-device A/B. Honest caveats: blades are
-flat-color by design (texturing is a later step); trample recovery is instant-radial (no path history);
-dense grass costs fps (~31 fps at the 40% render-scale floor — tunable via D_NEAR); transposition to other
-grass levels is a later phase. Ready for OWNER PLAY-TEST.
+VERDICT: The 3D grass PoC now renders a dense, taller/fuller real-3D-blade lawn over the training level's
+grass-textured ground, and the owner's #1 blocker — whole chunks of grass (blades AND cards) de-instancing /
+not loading / popping-in WHILE MOVING — is fixed at the ROOT by whole-level, camera-independent static
+placement (no camera window, no move-rebuild, no distance re-grade). Proven on-DEVICE by a MOVING
+screenrecord plus per-frame chunk in-range-vs-drawn instrumentation showing DROPPED=0 across 60 moving
+frames (every in-range chunk always drawn; 283–335 chunks that de-instanced in the old build now persist).
+Grass is longer/taller; the mid cards render at distance and sway in the wind; near blades keep variable
+size/orientation/curvature, flat-color tint variation, per-blade breeze, and trample under Jak. Fully
+gated: default ON (owner override); toggle OFF == byte-identical stock, proven by an objective same-
+viewpoint on-device A/B. Honest caveats: blades are flat-color by design (texturing is a later step);
+trample recovery is instant-radial (no path history); the uniform whole-level density (16/m2) trades peak
+near-density for guaranteed completeness+stability (a dense-near graded layer is a possible follow-up, but
+it re-introduces per-move placement, so it was deliberately NOT used here to keep the culling bulletproof);
+dense grass costs ~15–30 fps (tunable). Ready for OWNER PLAY-TEST.

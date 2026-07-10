@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <string>
+#include <unordered_map>
 
 #include "common/log/log.h"
 
@@ -12,7 +13,8 @@
 namespace {
 
 // deterministic integer hash -> float in [0,1). Stable frame-to-frame so the
-// grass field never shimmers.
+// grass field never shimmers, and (crucially) independent of the camera so the
+// same ground always gets the same instances no matter where the player stands.
 inline u32 hash_u32(u32 x) {
   x ^= x >> 16;
   x *= 0x7feb352du;
@@ -25,38 +27,40 @@ inline float hash_f(u32 seed) {
   return static_cast<float>(hash_u32(seed) >> 8) * (1.0f / 16777216.0f);  // 24-bit -> [0,1)
 }
 
-// OWNER POLISH 2026-07-10: density is the #1 ask ("surtout pas assez dense") and the
-// player must stand IN the near blades. Density is now GRADED by camera distance —
-// very dense where the player stands (the near-blade LOD band), thinning to a light
-// scatter of cards far away. Triangles are placed NEAREST-FIRST (see rebuild), so if
-// the instance cap is hit it drops the distant CARDS, never the near blades. Together
-// with a cap well above the real instance total this also kills the earlier "pop-in"
-// (which came from the 120k cap being consumed in draw order, so which ground got
-// grass shifted as the player moved).
-constexpr float D_NEAR = 160.0f;   // tufts/m^2 within NEAR_DENSE_R of the camera (a thick lawn)
-constexpr float D_FAR = 14.0f;     // tufts/m^2 at/after FAR_DENSE_R (sparse distant cards)
-constexpr float NEAR_DENSE_R = 20.0f;  // m; full dense within this radius (covers the blade band)
-constexpr float FAR_DENSE_R = 36.0f;   // m; density ramps down to D_FAR by here
-constexpr int MAX_INSTANCES = 220000;  // hard cap; sits above the real total so the near lawn is stable
+// ---------------------------------------------------------------------------
+// CULLING FIX (owner feedback #2, 2026-07-10) — the real root cause.
+// ---------------------------------------------------------------------------
+// The previous build placed grass only within MAX_PLACE_DIST (64 m) of the
+// *build-time* camera, rebuilt the whole field every REBUILD_MOVE_DIST (20 m) of
+// movement, and graded the per-triangle instance count by the build-time camera
+// distance (density_at()). While walking this produced EXACTLY the owner's bugs:
+//   * ground beyond 64 m had zero grass and stayed empty until a rebuild fired
+//     -> "des zones qui chargent pas" (zones that don't load),
+//   * the 20 m rebuild snapped in a whole new field at once -> pop-in while moving,
+//   * each rebuild re-graded density by the NEW camera distance, so a chunk that
+//     was now farther lost its instances -> "des zones entières qui disparaissent
+//     en dépit du fait qu'on soit à proximité" (whole zones de-instance).
+// FIX: placement is now WHOLE-LEVEL and CAMERA-INDEPENDENT. Every qualifying
+// training-ground triangle is scattered ONCE at level load at a UNIFORM density
+// (auto-scaled to a budget so it stays bounded on any level size) into a static
+// buffer. Walking never rebuilds and never re-grades, so no chunk can pop/vanish.
+// All LOD (near blade / mid card / far nothing) is done per-instance in the
+// shader from the live camera — the GPU decides visibility every frame over the
+// complete field. This is the standard robust grass approach.
 constexpr float U = 4096.0f;              // GOAL world units per meter
-constexpr float BASE_H = 820.0f;          // ~0.20 m nominal blade height (world units)
+constexpr float BASE_H = 1550.0f;         // ~0.38 m nominal blade height (owner asked TWICE for longer grass)
 constexpr float GROUND_UPNESS = 0.7f;     // face-normal.y threshold for "walkable ground"
 constexpr float MAX_TRI_AREA = 300.0f;    // m^2; reject implausibly huge (spurious) triangles
-constexpr float MAX_PLACE_DIST = 64.0f * U;   // only place grass within 64 m of the camera
-constexpr float REBUILD_MOVE_DIST = 20.0f * U;  // rebuild when the player moves 20 m
+constexpr float D_TARGET = 150.0f;        // tufts/m^2 uniform (dense lawn); auto-reduced to fit budget
+constexpr int MAX_INSTANCES = 320000;     // total instance ceiling for the whole-level static field
+constexpr float BUDGET_SAFETY = 0.9f;     // keep expected count under the ceiling so NO triangle is
+                                          // ever starved (a mid-list cap hit would re-create the bug)
 
-// density (tufts/m^2) as a function of the triangle's distance from the camera (m):
-// full D_NEAR out to NEAR_DENSE_R, linearly down to D_FAR by FAR_DENSE_R, then flat.
-inline float density_at(float dist_m) {
-  if (dist_m <= NEAR_DENSE_R) {
-    return D_NEAR;
-  }
-  if (dist_m >= FAR_DENSE_R) {
-    return D_FAR;
-  }
-  float t = (dist_m - NEAR_DENSE_R) / (FAR_DENSE_R - NEAR_DENSE_R);
-  return D_NEAR + (D_FAR - D_NEAR) * t;
-}
+// culling-instrumentation constants (must mirror the shader LOD bands in grass.vert)
+constexpr float CHUNK_M = 8.0f;           // instrumentation chunk size (m)
+constexpr float LOD_BLADE_END_M = 28.0f;  // grass.vert B_END  — blades fully gone beyond this
+constexpr float LOD_CARD_OUT_M = 62.0f;   // grass.vert C_OUT1 — cards fully gone beyond this
+constexpr float OLD_WINDOW_M = 64.0f;     // the REMOVED camera window (for the fix diagnostic)
 
 // Training-level grassy-ground textures (curated, texture-driven — no hand
 // authoring). tra-grass is the elevated grassy terrain; tra-beachrock is the
@@ -105,6 +109,7 @@ void GrassRenderer::ensure_gl() {
 void GrassRenderer::rebuild(SharedRenderState* rs) {
   m_instances.clear();
   m_instance_count = 0;
+  m_chunks.clear();
   m_cached_level = nullptr;
   m_cached_load_id = UINT64_MAX;
 
@@ -117,35 +122,27 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   }
   const tfrag3::Level* lev = ld->level.get();
 
-  // Focus the instance budget near the player: only place grass on triangles
-  // within MAX_PLACE_DIST of the camera (far grass is past the LOD bands anyway).
-  // Record the build camera so render() can rebuild when the player moves.
-  float cam_x = rs->camera_pos.x(), cam_y = rs->camera_pos.y(), cam_z = rs->camera_pos.z();
-  m_build_cam[0] = cam_x;
-  m_build_cam[1] = cam_y;
-  m_build_cam[2] = cam_z;
-
   int considered_draws = 0;  // grass-ground draws matched
-  int tris_seen = 0;         // qualifying-draw triangles processed (near the player)
+  int tris_kept = 0;         // qualifying walkable-ground triangles
   int giant_tris = 0;        // rejected as implausibly large (spurious reconstruction)
-  int far_tris = 0;          // skipped: beyond MAX_PLACE_DIST from the camera
-  float max_area = 0.0f;     // largest accepted triangle area (m^2)
+  float total_area_m2 = 0.0f;
+  float max_area = 0.0f;
 
-  // A qualifying walkable-ground triangle near the player. Collected in PHASE 1,
-  // sorted NEAREST-FIRST, then scattered in PHASE 2 so a cap hit drops distant
-  // cards, never the near blades the player stands in.
+  // A qualifying walkable-ground triangle anywhere in the level. Collected in
+  // PHASE 1 (no camera filter), then scattered at a uniform density in PHASE 2.
   struct TriRec {
     float p0x, p0y, p0z;   // base vertex
     float e1x, e1y, e1z;   // edge to v1
     float e2x, e2y, e2z;   // edge to v2
     float area_m2;
-    float dist2;           // squared camera distance to the centroid (for sort + grading)
-    u32 seed;              // deterministic per-triangle seed (triangle identity)
+    u32 seed;              // deterministic per-triangle seed (triangle identity, camera-independent)
   };
   std::vector<TriRec> tris;
 
-  // ---- PHASE 1: collect qualifying ground triangles within MAX_PLACE_DIST. ----
-  // Highest-detail tfrag geometry only (geo 0). Vertices are world-space, 4096 = 1 m.
+  // ---- PHASE 1: collect ALL qualifying ground triangles (WHOLE LEVEL). ----
+  // No camera window — the field must be complete so nothing can fail to load or
+  // de-instance while moving. Highest-detail tfrag geometry only (geo 0).
+  // Vertices are world-space, 4096 = 1 m.
   for (const auto& tree : lev->tfrag_trees[0]) {
     const auto& verts = tree.unpacked.vertices;
     const auto& idx = tree.unpacked.indices;
@@ -177,23 +174,14 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         len = (u32)(idx.size() - begin);
       }
 
-      // record one triangle (vertex indices a,b,ci) if it is walkable ground near
-      // the player and not an implausibly large (spurious) triangle.
+      // record one triangle (vertex indices a,b,ci) if it is walkable ground and
+      // not an implausibly large (spurious) triangle.
       auto consider_tri = [&](u32 a, u32 b, u32 ci) {
         if (a == UINT32_MAX || b == UINT32_MAX || ci == UINT32_MAX) return;
         if (a == b || b == ci || a == ci) return;
         const auto& p0 = verts[a];
         const auto& p1 = verts[b];
         const auto& p2 = verts[ci];
-        // focus the budget near the player: skip triangles far from the camera.
-        float ccx = (p0.x + p1.x + p2.x) * (1.0f / 3.0f) - cam_x;
-        float ccy = (p0.y + p1.y + p2.y) * (1.0f / 3.0f) - cam_y;
-        float ccz = (p0.z + p1.z + p2.z) * (1.0f / 3.0f) - cam_z;
-        float d2 = ccx * ccx + ccy * ccy + ccz * ccz;
-        if (d2 > MAX_PLACE_DIST * MAX_PLACE_DIST) {
-          far_tris++;
-          return;
-        }
         float e1x = p1.x - p0.x, e1y = p1.y - p0.y, e1z = p1.z - p0.z;
         float e2x = p2.x - p0.x, e2y = p2.y - p0.y, e2z = p2.z - p0.z;
         float nx = e1y * e2z - e1z * e2y;
@@ -202,7 +190,6 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         float nlen = std::sqrt(nx * nx + ny * ny + nz * nz);
         if (nlen <= 1e-3f) return;
         float area_m2 = (0.5f * nlen) / (U * U);
-        tris_seen++;
         max_area = std::max(max_area, area_m2);
         if (area_m2 > MAX_TRI_AREA) {  // spurious level-spanning triangle
           giant_tris++;
@@ -215,9 +202,10 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         r.e1x = e1x; r.e1y = e1y; r.e1z = e1z;
         r.e2x = e2x; r.e2y = e2y; r.e2z = e2z;
         r.area_m2 = area_m2;
-        r.dist2 = d2;
         r.seed = (begin ^ (a * 2654435761u) ^ (ci * 40503u));
         tris.push_back(r);
+        tris_kept++;
+        total_area_m2 += area_m2;
       };
 
       if (tree.use_strips) {
@@ -244,14 +232,21 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     }
   }
 
-  // ---- PHASE 2: nearest-first, density GRADED by distance. ----
-  std::sort(tris.begin(), tris.end(),
-            [](const TriRec& a, const TriRec& b) { return a.dist2 < b.dist2; });
-  m_instances.reserve(std::min<size_t>(MAX_INSTANCES, tris.size() * 4));
+  // ---- PHASE 2: scatter at a UNIFORM density over the whole level. ----
+  // Density is a single world-space constant (no camera grading), auto-reduced so
+  // the expected instance total stays safely under the ceiling — that way the cap
+  // is NEVER hit mid-list, so no triangle/chunk is ever starved (a mid-list cap
+  // hit is what de-instances distant chunks). Placement is a pure function of
+  // triangle identity, so it is identical every level load and stable forever.
+  float density = D_TARGET;
+  if (total_area_m2 > 1.0f && total_area_m2 * D_TARGET > BUDGET_SAFETY * (float)MAX_INSTANCES) {
+    density = BUDGET_SAFETY * (float)MAX_INSTANCES / total_area_m2;
+  }
+
+  m_instances.reserve(std::min<size_t>(MAX_INSTANCES, (size_t)(total_area_m2 * density) + 64));
   for (const auto& r : tris) {
     if ((int)m_instances.size() >= MAX_INSTANCES) break;
-    float dist_m = std::sqrt(r.dist2) / U;
-    float fn = r.area_m2 * density_at(dist_m);
+    float fn = r.area_m2 * density;
     int n = (int)fn;
     if (hash_f(r.seed + 99u) < (fn - (float)n)) {
       n += 1;
@@ -279,8 +274,37 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   }
 
   m_instance_count = (int)m_instances.size();
-  m_cached_level = (const void*)lev;
-  m_cached_load_id = ld->load_id;
+
+  // Build the chunk grid (culling instrumentation only — proves completeness).
+  {
+    std::unordered_map<s64, ChunkInfo> grid;
+    grid.reserve(4096);
+    const float inv = 1.0f / (CHUNK_M * U);
+    for (const auto& gi : m_instances) {
+      s64 gx = (s64)std::floor(gi.px * inv);
+      s64 gz = (s64)std::floor(gi.pz * inv);
+      s64 key = (gx << 32) ^ (gz & 0xffffffffLL);
+      auto& c = grid[key];
+      c.cx += gi.px;
+      c.cz += gi.pz;
+      c.count += 1;
+    }
+    m_chunks.reserve(grid.size());
+    for (auto& kv : grid) {
+      ChunkInfo c = kv.second;
+      c.cx /= (float)c.count;  // chunk centroid
+      c.cz /= (float)c.count;
+      m_chunks.push_back(c);
+    }
+  }
+
+  // Only commit the cache once the level is actually loaded (grass draws found),
+  // so a transient (level still streaming) placement is not frozen incomplete —
+  // if no draws matched we leave the cache invalid and retry next frame.
+  if (considered_draws > 0) {
+    m_cached_level = (const void*)lev;
+    m_cached_load_id = ld->load_id;
+  }
 
   ensure_gl();
   glBindVertexArray(m_vao);
@@ -290,26 +314,12 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  // Diagnostic: is the player standing IN the dense blade band? Count instances
-  // within the blade band and very close, and log the camera->Jak distance.
-  const auto& jp = Gfx::g_global_settings.recharged_jak_pos;
-  float cam_to_jak = -1.0f;
-  if (jp[3] > 0.5f) {
-    float dx = jp[0] - cam_x, dy = jp[1] - cam_y, dz = jp[2] - cam_z;
-    cam_to_jak = std::sqrt(dx * dx + dy * dy + dz * dz) / U;
-  }
-  int in_blade_band = 0, within_8m = 0;
-  for (const auto& gi : m_instances) {
-    float dx = gi.px - cam_x, dy = gi.py - cam_y, dz = gi.pz - cam_z;
-    float dm = std::sqrt(dx * dx + dy * dy + dz * dz) / U;
-    if (dm <= 28.0f) in_blade_band++;
-    if (dm <= 8.0f) within_8m++;
-  }
   lg::info(
-      "[recharged-grass] training: {} grass-ground draws, {} tris (giant {}, far {}, maxArea "
-      "{:.0f}m2) -> {} instances | cam->jak {:.1f}m, {} in blade-band(28m), {} within 8m",
-      considered_draws, tris_seen, giant_tris, far_tris, max_area, m_instance_count, cam_to_jak,
-      in_blade_band, within_8m);
+      "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
+      "draws, {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> {} "
+      "instances in {} chunks. No camera window, no move-rebuild -> nothing de-instances while moving.",
+      considered_draws, tris_kept, giant_tris, max_area, total_area_m2, density, m_instance_count,
+      (int)m_chunks.size());
 }
 
 void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
@@ -321,13 +331,10 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if (!ld || !ld->level) {
     return;
   }
-  // Rebuild on level change/reload, or once the player has walked far enough that
-  // the near-focused field should follow them.
-  float mdx = rs->camera_pos.x() - m_build_cam[0];
-  float mdy = rs->camera_pos.y() - m_build_cam[1];
-  float mdz = rs->camera_pos.z() - m_build_cam[2];
-  bool moved = (mdx * mdx + mdy * mdy + mdz * mdz) > (REBUILD_MOVE_DIST * REBUILD_MOVE_DIST);
-  if (m_cached_level != (const void*)ld->level.get() || m_cached_load_id != ld->load_id || moved) {
+  // Rebuild ONLY on level change / reload. Placement is camera-independent
+  // (whole-level, uniform), so walking NEVER triggers a rebuild — that is the
+  // culling fix: no pop-in, no de-instancing, no hitch while moving.
+  if (m_cached_level != (const void*)ld->level.get() || m_cached_load_id != ld->load_id) {
     rebuild(rs);
   }
   if (m_instance_count <= 0) {
@@ -376,4 +383,41 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   prof.add_tri(m_instance_count * 4);
 
   glBindVertexArray(0);
+
+  // ---- CULLING INSTRUMENTATION (owner feedback #2): prove that every in-range
+  // chunk stays DRAWN while MOVING. Throttled to ~1 log / 30 frames. With the
+  // static whole-level field, chunks_drawn == chunks_in_range every frame
+  // (dropped == 0) — exactly the property the old camera-windowed / 20 m-rebuild
+  // path violated. `beyond_old_window` counts chunks the OLD code would have
+  // dropped (past its 64 m camera window) that are STILL placed now.
+  m_frame++;
+  if ((m_frame % 30) == 0 && !m_chunks.empty()) {
+    float cx = rs->camera_pos.x(), cy = rs->camera_pos.y(), cz = rs->camera_pos.z();
+    float mvx = cx - m_last_log_cam[0], mvz = cz - m_last_log_cam[2];
+    bool moving = (mvx * mvx + mvz * mvz) > (0.5f * U) * (0.5f * U);
+    int in_lod = 0, drawn = 0, in_blade = 0, beyond_old_window = 0;
+    for (const auto& ch : m_chunks) {
+      float dx = ch.cx - cx, dz = ch.cz - cz;
+      float dm = std::sqrt(dx * dx + dz * dz) / U;
+      if (dm < LOD_CARD_OUT_M) {
+        in_lod++;
+        drawn++;  // static complete field: an in-range chunk is ALWAYS drawn
+      }
+      if (dm < LOD_BLADE_END_M) {
+        in_blade++;
+      }
+      if (dm > OLD_WINDOW_M) {
+        beyond_old_window++;
+      }
+    }
+    lg::info(
+        "[recharged-grass] frame {} cam=({:.0f},{:.0f}) moving={} chunks={} in_lod(<62m)={} "
+        "drawn={} DROPPED={} blade(<28m)={} | {} chunks beyond the OLD 64m window are STILL "
+        "placed (they de-instanced in the old build)",
+        m_frame, cx / U, cz / U, moving ? 1 : 0, (int)m_chunks.size(), in_lod, drawn,
+        in_lod - drawn, in_blade, beyond_old_window);
+    m_last_log_cam[0] = cx;
+    m_last_log_cam[1] = cy;
+    m_last_log_cam[2] = cz;
+  }
 }
