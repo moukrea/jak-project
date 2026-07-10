@@ -1,10 +1,14 @@
-STATUS: IN-PROGRESS (polish#3 - density, card tint+sway, sloped-platform placement, airborne-trample) - prior RESULT: RECHARGED GRASS POC — CULLING/DE-INSTANCING FIXED AT THE ROOT (owner feedback #2).
+RESULT: RECHARGED GRASS POC — POLISH#3 DONE (density++, card tint match, card sway gentler, sloped-platform
+        placement, airborne-trample gate) ON TOP OF the culling/de-instancing root fix (owner feedback #2).
         3D grass PoC on the TRAINING level (Geyser Rock), gated in Recharged Settings, DEFAULT ON,
-        OFF == byte-identical stock. The owner's #1 blocker — whole zones disappearing / not loading /
-        popping-in WHILE MOVING — is fixed by making the grass field WHOLE-LEVEL and CAMERA-INDEPENDENT
-        (placed once at level load, never rebuilt on movement). Proven on-device by a MOVING screenrecord
-        + per-frame chunk in-range-vs-drawn instrumentation showing DROPPED=0 on every frame while walking.
-        Grass is also longer/taller + fuller, and the mid-range CARDS render at distance.
+        OFF == byte-identical stock. The owner's #1 correctness blocker — whole zones disappearing / not
+        loading / popping-in WHILE MOVING — stays fixed (WHOLE-LEVEL, CAMERA-INDEPENDENT static field);
+        re-proven on-device this round by a fresh MOVING screenrecord + per-frame chunk in-range-vs-drawn
+        instrumentation showing DROPPED=0 on all 48 moving frames (culling did NOT regress). This round the
+        near 3D grass is MUCH DENSER (16 -> 28 tufts/m2, 288k -> 576k instances), the distant CARDS now
+        MATCH the near-blade tint (no colour change as you advance), the card sway is reduced to gentler
+        than the near blades, SLOPED / bumpy grass-textured platforms now get grass on their actual
+        per-triangle surface, and the trample is gated by Jak's altitude (no bending while airborne).
 
 Phase: Grecharged-grass-poc  ("Jak and Daxter: The Recharged Jak-pot")
 Device: Redmi Note 9 Pro, ANDROID_SERIAL=eae4df44, package org.opengoal.gk.jak1 (Adreno 618).
@@ -52,10 +56,13 @@ instance budget so the whole-level field stays bounded regardless of level size 
 old failure mode — can never happen: expected count is held under the ceiling so no triangle is starved).
 Rebuild happens only on a genuine level change/reload (cached load_id).
 
-Placement numbers (device log, verbatim):
+Placement numbers (device log, verbatim — POLISH#3 build):
   [recharged-grass] training STATIC place (whole-level, camera-independent): 10 grass-ground draws,
-  8803 tris kept (giant 0, maxArea 8m2), area 17814 m2, density 16/m2 -> 288007 instances in 381 chunks.
+  11349 tris kept (giant 0, maxArea 8m2), area 20586 m2, density 28/m2 -> 575989 instances in 389 chunks.
   No camera window, no move-rebuild -> nothing de-instances while moving.
+(Was 8803 tris / 17814 m2 / 16 per m2 / 288007 inst / 381 chunks. POLISH#3 raised MAX_INSTANCES
+ 320k -> 640k so the budget-clamped uniform density ~doubled 16 -> 28/m2; the relaxed walkable-ground
+ upness gate (0.7 -> 0.40) added the sloped/bumpy platforms' triangles, so tris/area/chunks rose too.)
 
 ====================================================================================
 OBJECTIVE PROOF THE CULLING IS FIXED — per-frame chunk INSTRUMENTATION while MOVING
@@ -136,14 +143,58 @@ within ~2.2 m of Jak flattens (height pressed down + tips pushed radially away, 
 Best seen in motion in grass_moving.mp4; a disturbed patch is visible at Jak's feet in the stills.
 
 ====================================================================================
-PERF (Adreno 618, Geyser Rock) — fps cost (honest)
+OWNER POLISH#3 (2026-07-10) — the 5 finitions (culling FIXED, owner "beaucoup beaucoup mieux")
 ====================================================================================
-fps ON ranged ~27–44 depending on viewpoint (dynamic render-scale; 288007 instances x 2 instanced passes);
-fps OFF = 60 (stock). So dense grass costs roughly 15–30 fps at this viewpoint set, and stays PLAYABLE
-(crash-free throughout). The cost is a single lever: MAX_INSTANCES / D_TARGET in GrassRenderer.cpp trade
-instance count for fps directly; the LOD bands trade blade reach for fps. Because the field is now static
-whole-level, there is also ZERO per-move CPU rebuild cost (the old build re-scanned + re-uploaded every
-20 m). OWNER PLAY-TEST is the final perf judge.
+The owner confirmed the culling fix is great and asked for 5 polish items. All 5 are in this build
+(renderer C++ + GLSL only; engine goal_src untouched; the DROPPED=0 culling fix was NOT touched):
+
+1. DENSITY++ (owner: "la vraie herbe 3D n'est pas assez dense" — his #1 ask, 3rd time). The uniform
+   whole-level field is instance-budget-clamped, so density was only 16/m2 before (150/m2 target clamped
+   by the old 320k ceiling over 17.8k m2). Raised MAX_INSTANCES 320000 -> 640000, which roughly DOUBLES
+   the budget-clamped density to 28/m2 (575989 instances) — near blades AND mid cards are denser. Blades
+   were also made wider/fuller (half-width 0.078 -> 0.092) and size variation widened for a lusher lawn.
+
+2. CARD TINT MATCH (owner: "les grass cards au loin ont une teinte différente ... comme si l'herbe
+   changeait de couleur quand on avance"). Root cause: the card's colour gradient spanned the full
+   dark->light range (t_col = uv.y) while the tuft frag discards the upper gap, so the visible card was
+   weighted DARK vs the near blade. Fix: the distant CARDS now MATCH the near-blade tint by biasing the
+   card up the SAME green gradient (t_col = 0.45 + 0.55*uv.y), so a distant near-blade (tip-bright) and a
+   card read the same green — a seamless colour near->far, no colour shift as you advance.
+
+3. CARD SWAY GENTLER (owner: "le swing des grass cards est beaucoup plus visible que sur l'herbe en
+   premier plan"). The card wind sway amplitude was reduced (fwd 0.30*H -> 0.12*H, side 0.10*H -> 0.04*H)
+   so the card sway is now clearly LOWER than the near-blade sway (which peaks ~0.38*H) — cards no longer
+   "bougent beaucoup plus à fond que devant".
+
+4. SLOPED-PLATFORM PLACEMENT (owner: "certaines plateformes ne reçoivent pas d'herbe ... le relief est le
+   moins plat ... leur point de référence est plat sur le point le plus bas, les rendant invisible sous le
+   sol"). Placement already samples the ACTUAL per-triangle surface (barycentric on the real tri plane —
+   never a flat/min-Y reference), so the real cause was the walkable-ground gate: GROUND_UPNESS = 0.7
+   REJECTED the non-flat triangles of bumpy/sloped platforms, leaving grass only on their flattest (often
+   lowest) tris — exactly "flat at the lowest point / under the surface". Relaxed the gate 0.7 -> 0.40 so
+   sloped/bumpy grass-textured surfaces qualify and get grass placed on their real per-triangle height
+   (near-vertical walls >66° still excluded). Result: +2546 tris kept, +2772 m2, +8 chunks (381 -> 389).
+
+5. AIRBORNE TRAMPLE GATE (owner: "quand on est en l'air (en train de sauter), l'herbe en dessous se plie
+   comme si on marchait dessus"). The trample now checks Jak's ALTITUDE: vgap = Jak-root-Y - blade-base-Y;
+   trample only applies when vgap is in [-1.5 m, +2.0 m] of the grass ground. When Jak jumps and rises
+   >2 m above the grass he is airborne, so the grass no longer bends under him. Walking on the ground
+   (vgap ~0) still tramples normally.
+
+CULLING NOT REGRESSED: DROPPED=0 on all 48 moving-frame log lines this build (chunk_instrumentation.txt);
+the whole-level camera-independent static field is unchanged, so no chunk de-instances while moving.
+
+====================================================================================
+PERF (Adreno 618, Geyser Rock) — fps cost (honest, POLISH#3 build)
+====================================================================================
+fps ON = 22.5 measured at the DENSE Geyser Rock SPAWN viewpoint (worst case — the most grass on screen;
+575989 instances x 2 instanced passes, ~2x the previous 288k); fps OFF = 60 (stock). The ~2x density
+(owner's #1 ask) costs fps at the grass-heavy spawn (previous build was ~27–44 across viewpoints, worst
+case ~27); away from the dense spawn fps is higher. It stays PLAYABLE and crash-free. The cost is a SINGLE
+tunable lever: MAX_INSTANCES in GrassRenderer.cpp trades instance count (density) for fps directly — if the
+owner finds 22 fps too choppy, lowering MAX_INSTANCES (e.g. 640k -> 480k) recovers fps at some density; the
+LOD bands trade blade reach for fps. Because the field is static whole-level, there is ZERO per-move CPU
+rebuild cost. OWNER PLAY-TEST is the final perf judge (density vs smoothness is his call).
 
 ====================================================================================
 OFF == STOCK (no regression) + DEFAULT ON
@@ -173,17 +224,22 @@ frames/AB_geyser_ON.png     — grass ON at the Geyser Rock spawn (dense tall 3D
 frames/AB_geyser_OFF.png    — grass OFF at the SAME viewpoint (flat stock texture) — the A/B partner
 frames/move_t2..t25.png     — stills extracted from the moving walkthrough (near blades, mid cards, distance)
 
-VERDICT: The 3D grass PoC now renders a dense, taller/fuller real-3D-blade lawn over the training level's
-grass-textured ground, and the owner's #1 blocker — whole chunks of grass (blades AND cards) de-instancing /
-not loading / popping-in WHILE MOVING — is fixed at the ROOT by whole-level, camera-independent static
-placement (no camera window, no move-rebuild, no distance re-grade). Proven on-DEVICE by a MOVING
-screenrecord plus per-frame chunk in-range-vs-drawn instrumentation showing DROPPED=0 across 60 moving
-frames (every in-range chunk always drawn; 283–335 chunks that de-instanced in the old build now persist).
-Grass is longer/taller; the mid cards render at distance and sway in the wind; near blades keep variable
-size/orientation/curvature, flat-color tint variation, per-blade breeze, and trample under Jak. Fully
-gated: default ON (owner override); toggle OFF == byte-identical stock, proven by an objective same-
-viewpoint on-device A/B. Honest caveats: blades are flat-color by design (texturing is a later step);
-trample recovery is instant-radial (no path history); the uniform whole-level density (16/m2) trades peak
-near-density for guaranteed completeness+stability (a dense-near graded layer is a possible follow-up, but
-it re-introduces per-move placement, so it was deliberately NOT used here to keep the culling bulletproof);
-dense grass costs ~15–30 fps (tunable). Ready for OWNER PLAY-TEST.
+VERDICT: POLISH#3 done on top of the culling root-fix. The 3D grass PoC renders a MUCH DENSER (16 -> 28
+tufts/m2, 576k instances) real-3D-blade lawn over the training level's grass-textured ground — Jak stands
+in tall dense blades at the spawn (frames/AB_geyser_ON.png) vs flat stock texture with the toggle OFF
+(frames/AB_geyser_OFF.png), an OBVIOUS on-device same-viewpoint A/B. The distant CARDS now match the
+near-blade tint (no colour change advancing) and sway gentler than the near blades; SLOPED/bumpy grass-
+textured platforms now get grass on their real per-triangle surface (381 -> 389 chunks); and the trample is
+gated by Jak's altitude so airborne (jumping) no longer bends the grass. The owner's #1 correctness blocker
+— whole chunks of grass (blades AND cards) de-instancing / not loading / popping-in WHILE MOVING — remains
+fixed at the ROOT by whole-level, camera-independent static placement; re-proven on-DEVICE this build by a
+fresh MOVING screenrecord plus per-frame chunk in-range-vs-drawn instrumentation showing DROPPED=0 across
+all 48 moving frames (every in-range chunk always drawn; ~273–328 chunks that de-instanced in the old build
+now persist). Near blades keep variable size/orientation/curvature, flat-color tint variation, per-blade
+breeze, and trample under Jak. Fully gated: default ON (owner override); toggle OFF == byte-identical stock,
+proven by the objective same-viewpoint on-device A/B (OFF logged ZERO grass lines). Honest caveats: blades
+are flat-color by design (texturing is a later step); trample recovery is instant-radial (no path history);
+the density is uniform whole-level (28/m2) — deliberately NOT camera-graded, to keep the culling
+bulletproof (grading re-introduces per-move placement = the old de-instancing bug); the ~2x density costs
+fps at the dense spawn (fps ON 22.5 worst-case vs 60 OFF) — tunable via MAX_INSTANCES. Ready for OWNER
+PLAY-TEST (density-vs-smoothness is the owner's call).

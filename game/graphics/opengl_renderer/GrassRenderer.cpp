@@ -49,10 +49,18 @@ inline float hash_f(u32 seed) {
 // complete field. This is the standard robust grass approach.
 constexpr float U = 4096.0f;              // GOAL world units per meter
 constexpr float BASE_H = 1550.0f;         // ~0.38 m nominal blade height (owner asked TWICE for longer grass)
-constexpr float GROUND_UPNESS = 0.7f;     // face-normal.y threshold for "walkable ground"
+// OWNER POLISH#3: relaxed 0.7 -> 0.40 so SLOPED / bumpy grass-textured platforms
+// qualify. Placement already samples the ACTUAL per-triangle surface (barycentric
+// on the real tri plane, gi.py below), so this is NOT a flat/min-Y reference; the
+// old 0.7 gate simply REJECTED the non-flat tris of bumpy platforms, leaving grass
+// only on their flattest (often lowest) tris -> looked like grass sunk under the
+// surface / whole platforms skipped. 0.40 keeps near-vertical walls (>66°) out.
+constexpr float GROUND_UPNESS = 0.40f;    // face-normal.y threshold for "walkable ground"
 constexpr float MAX_TRI_AREA = 300.0f;    // m^2; reject implausibly huge (spurious) triangles
 constexpr float D_TARGET = 150.0f;        // tufts/m^2 uniform (dense lawn); auto-reduced to fit budget
-constexpr int MAX_INSTANCES = 320000;     // total instance ceiling for the whole-level static field
+// OWNER POLISH#3: density++ (owner's #1 ask, 3rd time). The uniform field is budget-
+// clamped, so raising the ceiling directly raises density (near blades AND mid cards).
+constexpr int MAX_INSTANCES = 640000;     // total instance ceiling for the whole-level static field
 constexpr float BUDGET_SAFETY = 0.9f;     // keep expected count under the ceiling so NO triangle is
                                           // ever starved (a mid-list cap hit would re-create the bug)
 
@@ -264,7 +272,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       gi.px = r.p0x + r1 * r.e1x + r2 * r.e2x;
       gi.py = r.p0y + r1 * r.e1y + r2 * r.e2y;
       gi.pz = r.p0z + r1 * r.e1z + r2 * r.e2z;
-      gi.h = BASE_H * (0.55f + 1.15f * hash_f(sd + 3u));   // wider SIZE variation
+      gi.h = BASE_H * (0.50f + 1.55f * hash_f(sd + 3u));   // OWNER POLISH#3: wider SIZE variation
       gi.yaw = hash_f(sd + 4u) * 6.2831853f;
       gi.tint = hash_f(sd + 5u);
       gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);          // wider CURVATURE variation

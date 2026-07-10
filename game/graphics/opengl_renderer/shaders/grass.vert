@@ -44,6 +44,10 @@ const float C_OUT0  = 46.0 * 4096.0; // cards start fading out
 const float C_OUT1  = 62.0 * 4096.0; // cards gone
 
 const float TRAMPLE_R = 2.2 * 4096.0; // grass flattens within this radius of Jak
+// OWNER POLISH#3: only trample when Jak is near THIS grass's ground height — not
+// airborne. vgap = Jak-root-Y minus blade-base-Y; outside this band => no trample.
+const float TRAMPLE_Y_LO = -1.5 * 4096.0; // up to 1.5 m below the grass -> still trample
+const float TRAMPLE_Y_HI =  2.0 * 4096.0; // more than 2 m above the grass = airborne -> none
 
 // X-cross card corners (two triangles per quad), (u = width -1..1, v = height 0..1)
 const vec2 CARD[6] = vec2[6](
@@ -107,9 +111,12 @@ void main() {
   float gust = u_time * 1.7 + phase * TWO_PI + (base.x + base.z) * 0.00035;
 
   // --- trample: flatten + push away from Jak within TRAMPLE_R ---
+  // OWNER POLISH#3: gate by Jak's ALTITUDE so the grass only bends when he is on/
+  // near the ground, not while airborne (jumping) above it.
   float heightMul = 1.0;
   vec3 trample = vec3(0.0);
-  if (u_jak_pos.w > 0.5) {
+  float vgap = u_jak_pos.y - base.y;
+  if (u_jak_pos.w > 0.5 && vgap > TRAMPLE_Y_LO && vgap < TRAMPLE_Y_HI) {
     vec2 d = base.xz - u_jak_pos.xz;
     float dist = length(d);
     if (dist < TRAMPLE_R) {
@@ -127,9 +134,9 @@ void main() {
     int seg = gl_VertexID / 2;
     int side = gl_VertexID - seg * 2;              // 0 or 1
     float t = float(seg) / float(SEGMENTS);        // 0 base -> 1 tip
-    // OWNER POLISH: wider, fuller blades (was 0.062/0.82) so the SAME instance
-    // count reads as a denser, lusher lawn — more ground coverage per blade.
-    float hw = H * 0.078 * (1.0 - 0.70 * t);       // half width, tapering to the tip
+    // OWNER POLISH#3: wider, fuller blades so the lawn reads DENSER (more ground
+    // coverage per blade) on top of the higher instance budget (density++ #1 ask).
+    float hw = H * 0.092 * (1.0 - 0.66 * t);       // half width, tapering to the tip
 
     // breeze: shared gust, grows toward the tip
     float sway = sin(gust) * t * t;
@@ -153,17 +160,22 @@ void main() {
     float cardH = H * 1.25;                          // match near heights, a touch taller
     float cardHW = H * 0.46;                          // clump width
 
-    // card wind sway: SAME gust as the blades but gentler and lower frequency,
-    // growing toward the top (owner polish: cards were static rectangles).
+    // card wind sway: SAME gust as the blades but MUCH GENTLER than the near blades
+    // (owner polish#3: cards swayed "beaucoup plus à fond que devant"). Near-blade
+    // fwd sway peaks ~0.38*H; cards now peak ~0.12*H — clearly under the foreground.
     float csway = sin(gust * 0.7) * uv.y * uv.y;
 
     pos = base
         + axis * (uv.x * cardHW)
         + vec3(0.0, uv.y * cardH * heightMul, 0.0)
-        + fwdv * (csway * H * 0.30)
-        + rightv * (csway * H * 0.10)
+        + fwdv * (csway * H * 0.12)
+        + rightv * (csway * H * 0.04)
         + trample * uv.y;
-    t_col = uv.y;
+    // OWNER POLISH#3: match the NEAR-blade tint at distance so the grass does not
+    // "change colour as you advance". A distant near-blade reads tip-bright, so bias
+    // the card up the SAME green gradient (0.45..1.0) instead of the full 0..1 (which
+    // made the card base dark -> a visible colour shift near->far).
+    t_col = 0.45 + 0.55 * uv.y;
     v_uv = uv;
     v_is_card = 1;
   }
