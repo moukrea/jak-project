@@ -153,6 +153,35 @@ WIDE=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p13_wide*.png
 [ -n "$WIDE" ] || fail "round13: need a p13_wide_*.png device spawn shot (near+distant platforms) — supervisor eyeballs it before push"
 ok "round13 (per-instance occupancy, distant-TIE clamp, wide shot) — supervisor must eyeball p13_wide"
 
+# OWNER ROUND#14 2026-07-11: FLOATING OVERFLOW ONLY (holes fixed, KEEP). Must DISCRIMINATE the mechanism
+# (H-A geometry / H-B base-past-silhouette / H-C cards), fix the CONFIRMED one, keep DROPPED=0, and land
+# a REAL platform-edge-over-void close-up (the recurring rounds #11-#13 failure was never reaching a rim).
+grep -qiE 'discriminat|h-b|base.*(past|silhouette)|silhouette' "$R" || fail "round14: must DISCRIMINATE the floating mechanism (H-A geometry / H-B base-past-silhouette / H-C cards), not ship a 6th blind guess"
+grep -qiE '(taper|shrink|collapse).*(height|blade|stub|rim)|height.*(taper|rim_dist|ramp|~0)|rim_h|stub' "$R" || fail "round14: must fix the confirmed mechanism (height taper -> over-silhouette base collapses to a ~0-height stub, no tall blade floating past the edge)"
+grep -qiE 'dropped ?= ?0|holes.*(kept|not regress|keep)|no.*regress.*(hole|dropped)' "$R" || fail "round14: must KEEP the round#13 holes fix (DROPPED=0) — no regression"
+grep -qiE 'p14_rim_closeup|platform.?edge.*(void|water|drop|rim)|stops at the platform rim|grass stop.*rim' "$R" || fail "round14: report must cite the platform-edge-over-void close-up (grass stops at the rim, no floating)"
+CU14=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p14_rim_closeup*.png' -newermt '-2 days' -size +20k 2>/dev/null | grep -v '/x86/' | head -1)
+[ -n "$CU14" ] || fail "round14: MISSING the device platform-EDGE close-up (p14_rim_closeup*.png, >20KB, <2 days) proving grass stops at the rim over the void — supervisor eyeballs this before release"
+ok "round14 (discriminated H-B, height-taper fix, DROPPED=0 kept, edge close-up $CU14) — supervisor eyeballs p14_rim_closeup"
+
+# OWNER ROUND#15 2026-07-11: floating STILL on SOME platforms -> the FRAGILE mesh-edge rim_dist (bAB/bBC/
+# bCA edge-count boundaries) is replaced by a TOPOLOGY-INDEPENDENT ground-COVERAGE distance field (fine
+# ~0.1m mask + flood-fill exterior + distance transform), feeding the EXISTING height-taper. Continuous
+# field (NOT the old 0.5m block grid) -> correct rim on EVERY platform; DROPPED=0 not regressed.
+grep -qiE 'coverage[ -]?(distance|field)|distance[ -]?field|distance[ -]?transform' "$R" || fail "round15: report must describe the topology-independent coverage distance-field rim_dist"
+grep -qiE '(fragile|frail).*(mesh|edge|topolog)|mesh.?edge.*(fragile|culprit|replace|topolog)' "$R" || fail "round15: report must identify the fragile mesh-edge/topology rim_dist as the culprit that is replaced"
+grep -qiE 'topo_missed|mesh.?edge[ -]*-?>?[ -]*coverage|mesh.?edge vs coverage|instrument.*coverage' "$R" || fail "round15: report must cite the mesh-edge-vs-coverage instrumentation (topo_missed) proving the mesh-edge value was the culprit before swapping"
+grep -qiE '(continuous|fine).*(field)|not.*(0\.5|block|occupancy).*grid|dropped ?= ?0' "$R" || fail "round15: report must state a fine CONTINUOUS field (not the old 0.5m block grid), DROPPED=0 not regressed"
+# PHYSICAL: the coverage distance-field code is actually compiled into the built libgk (not a report claim).
+# NOTE: grep -c into a var (NOT `| grep -q`) — grep -q closes the pipe early and SIGPIPE-fails `strings`
+# under `set -o pipefail` even on a match (the known pipefail+grep-q bug).
+COVHITS=$(strings -a "$SO" 2>/dev/null | grep -ciE 'COVFIELD|RIMDIST|topology-independent')
+[ "${COVHITS:-0}" -gt 0 ] || fail "round15: the built libgk has NO coverage-field strings (COVFIELD/RIMDIST) — the topology-independent rim_dist is not compiled in"
+# DEVICE proof: multi-edge close-up(s) at previously-overflowing rims (grass ON), fresh, >20KB.
+CU15=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p15_edge_*.png' -newermt '-2 days' -size +20k 2>/dev/null | grep -v '/x86/' | head -1)
+[ -n "$CU15" ] || fail "round15: MISSING the device platform-EDGE close-up(s) (p15_edge_*.png, >20KB, <2 days) proving grass stops at the rim on the previously-overflowing platforms — supervisor eyeballs these before release"
+ok "round15 (coverage distance-field rim_dist, mesh-edge->coverage instrumentation, multi-edge close-up $CU15) — supervisor eyeballs p15_edge_*"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"

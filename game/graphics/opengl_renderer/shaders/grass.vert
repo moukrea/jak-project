@@ -28,6 +28,7 @@ uniform int   u_mode;      // 0 = blade pass, 1 = card pass
 uniform float u_near_dist; // near-blade fade-out radius (world units)
 uniform float u_card_dist; // grass-card fade-out radius (world units)
 uniform vec4  u_jak_ledge; // xyz = ledge-grab point, w = 1 while Jak hangs (ledge-parting trample)
+uniform int   u_debug;     // ROUND#14 discriminator: 0 normal / 1 base-stubs (magenta) / 2 blades (cyan) / 3 cards (yellow)
 
 out vec3 v_color;
 out float v_alpha;
@@ -84,10 +85,34 @@ void main() {
   // units). ~1e9 for interior blades -> the edge clamp at the end of main() never triggers for them.
   float rim_dist = inst_gcol.w;
 
+  // ROUND#14 DISCRIMINATOR: cull passes per debug mode so each tier can be viewed alone at a rim.
+  //   u_debug 0 = normal; 1 = bases-only magenta stubs (blades only); 2 = blades only (cyan);
+  //   3 = cards only (yellow). Modes 1 & 2 cull the card pass; mode 3 culls the blade pass.
+  if (((u_debug == 1 || u_debug == 2) && u_mode == 1) || (u_debug == 3 && u_mode == 0)) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_color = vec3(0.0); v_alpha = 0.0; v_uv = vec2(0.0); v_is_card = u_mode; v_seed = 0.0;
+    return;
+  }
+
   float c = cos(yaw);
   float s = sin(yaw);
   vec3 rightv = vec3(c, 0.0, -s);   // width axis
   vec3 fwdv   = vec3(s, 0.0,  c);   // bend/curve axis
+
+  // ROUND#14 FLOATING-OVERFLOW FIX (supervisor-endorsed): taper the blade/card HEIGHT (+ lean/width) to
+  // ~0 as the base approaches its nearest TRUE rim, so no tall geometry can stand past a platform edge.
+  // rim_dist is the perpendicular distance to that rim (POLISH#11); interior blades (rim_dist ~1e9) are
+  // untouched (rim_h = 1). The POLISH#11 horizontal clamp already stops a blade's SPREAD from crossing
+  // the rim, but it CANNOT help a base that itself sits just past the silhouette (an overhang lip the
+  // topological exclusion missed) — that base grows a full-height blade STRAIGHT UP over the void = the
+  // floating the owner still saw after 5 fixes. Tapering height by rim_dist collapses such a base to a
+  // ~0-height stub (invisible) instead of a tall floating blade, AND makes ordinary near-rim grass a
+  // short stub that cannot lean out. A SMOOTH ramp -> grass naturally shortens to the exact edge, so the
+  // round#13 edge coverage / DROPPED=0 is preserved (no new bald hole — the blades are present, just
+  // short right at the rim). Cards get the same taper so the mid tier can't float past edges either.
+  const float RIM_TAPER = 0.45 * 4096.0;             // height fully restored 0.45 m in from the rim
+  float rim_h = smoothstep(0.0, RIM_TAPER, rim_dist);
+  float rim_w = mix(0.35, 1.0, rim_h);               // keep a little width so the stub stays visible
 
   // POLISH#4/#6: adjustable LOD bands, derived from the two slider distances (world units).
   // OWNER POLISH#6: a WIDE crossfade OVERLAP so near blades fade out and cards fade in over the
@@ -170,18 +195,18 @@ void main() {
     float t = float(seg) / float(SEGMENTS);        // 0 base -> 1 tip
     // OWNER POLISH#3: wider, fuller blades so the lawn reads DENSER (more ground
     // coverage per blade) on top of the higher instance budget (density++ #1 ask).
-    float hw = H * 0.092 * (1.0 - 0.66 * t);       // half width, tapering to the tip
+    float hw = H * 0.092 * (1.0 - 0.66 * t) * rim_w; // half width, tapering to the tip (+ rim taper)
 
     // breeze: shared gust, grows toward the tip
     float sway = sin(gust) * t * t;
     float bend = curve * t * t;                    // static curvature
-    float fwd_amt = (bend + sway * 0.38) * H;
+    float fwd_amt = (bend + sway * 0.38) * H * rim_h;  // ROUND#14: no lean past a rim
 
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)
-        + vec3(0.0, t * H * heightMul, 0.0)
+        + vec3(0.0, t * H * heightMul * rim_h, 0.0)    // ROUND#14: rim taper -> no tall blade past the edge
         + fwdv * fwd_amt
-        + trample * t;
+        + trample * t * rim_h;
     t_col = t;
     v_uv = vec2(0.0);
     v_is_card = 0;
@@ -204,20 +229,20 @@ void main() {
     int li = gl_VertexID - quad * 6;
     vec2 uv = CARD[li];
     vec3 axis = (quad == 0) ? rightv : fwdv;       // two crossed quads
-    float cardH = H * 1.25;                          // match near heights, a touch taller
-    float cardHW = H * 0.38;                          // POLISH#6: narrower clump (was 0.46) -> lighter
+    float cardH = H * 1.25 * rim_h;                  // match near heights (+ ROUND#14 rim taper)
+    float cardHW = H * 0.38 * rim_w;                 // POLISH#6: narrower clump (+ rim taper)
 
     // card wind sway: SAME gust as the blades but MUCH GENTLER than the near blades
     // (owner polish#3: cards swayed "beaucoup plus à fond que devant"). Near-blade
     // fwd sway peaks ~0.38*H; cards now peak ~0.12*H — clearly under the foreground.
-    float csway = sin(gust * 0.7) * uv.y * uv.y;
+    float csway = sin(gust * 0.7) * uv.y * uv.y * rim_h;  // ROUND#14: no card sway past a rim
 
     pos = base
         + axis * (uv.x * cardHW)
         + vec3(0.0, uv.y * cardH * heightMul, 0.0)
         + fwdv * (csway * H * 0.12)
         + rightv * (csway * H * 0.04)
-        + trample * uv.y;
+        + trample * uv.y * rim_h;
     // OWNER POLISH#6: use the EXACT same vertical gradient as the near blade (t_col = local
     // height). With the identical tint / ground-harmonisation / baked-light pipeline below applied
     // to both tiers, a card and a blade at the same height are the SAME colour by construction — so
@@ -225,6 +250,18 @@ void main() {
     t_col = uv.y;
     v_uv = uv;
     v_is_card = 1;
+  }
+
+  // ROUND#14 DISCRIMINATOR mode 1: replace the blade with a ~7 cm vertical sliver at the EXACT base
+  // (no lean/width/sway/trample), so the capture shows precisely where blade BASES sit. If these
+  // magenta base markers float over the void at a rim, the floating is H-B (bases past the visible
+  // silhouette) — no geometry clamp can help; the fix must be in BASE PLACEMENT.
+  if (u_debug == 1) {
+    int dseg = gl_VertexID / 2;
+    int dside = gl_VertexID - dseg * 2;
+    float dt = float(dseg) / float(SEGMENTS);
+    pos = base + rightv * ((float(dside) * 2.0 - 1.0) * 0.02 * 4096.0)
+              + vec3(0.0, dt * 0.07 * 4096.0, 0.0);
   }
 
   // --- flat color: vertical gradient (dark base -> bright tip) + per-blade tint ---
@@ -274,6 +311,12 @@ void main() {
   // FROZEN, level-MEAN-centred luma (inst_gcol.w) sampled once at load -> it never tracked the ground.
   col *= inst_light.rgb * 2.0;
   col = clamp(col, vec3(0.0), vec3(1.5));
+
+  // ROUND#14 DISCRIMINATOR colour override (flat, bypasses the grass/light pipeline so the tier
+  // is unmistakable in the capture): 1 = magenta base stubs, 2 = cyan blades, 3 = yellow cards.
+  if (u_debug == 1) col = vec3(1.0, 0.0, 1.0);
+  else if (u_debug == 2) col = vec3(0.05, 1.0, 1.0);
+  else if (u_debug == 3) col = vec3(1.0, 1.0, 0.05);
 
   v_color = col;
   v_alpha = alpha;

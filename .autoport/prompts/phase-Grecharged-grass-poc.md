@@ -622,3 +622,46 @@ void below), pitch the camera DOWN at the rim, and screencap a CLOSE-UP where th
 void below are both in frame, ON vs OFF. Name it p14_rim_closeup_*.png. If nav can't reach an edge, use
 any debug/free camera. NO open-field wide counts as edge proof. The supervisor eyeballs p14_rim_closeup
 for floating BEFORE any jak-builds push; the owner's playtest is the final gate.
+
+## OWNER ROUND#14 VERDICT (2026-07-11, verbatim) -> ROUND#15 (floating on SOME platforms)
+"Alors j'ai testé le dernier build, c'est mieux, mais ça dépasse toujours sur certaines plateformes !
+Ça devrait pas être si compliqué de faire arrêter toute herbe au bord bordel ! C'est mieux mais c'est
+toujours pas ça !"
+=> Round#14 height-taper IMPROVED it (works where rim_dist is correct) but grass STILL overflows on
+SOME platforms. He is right that stopping grass at an edge should not need 7 rounds. The height-taper
+mechanism is FINE; the problem is its INPUT.
+
+## ROOT CAUSE (why #14 is partial): rim_dist comes from FRAGILE mesh-edge topology
+`rim_dist` (fed to the height-taper) is derived from the grass-triangle BOUNDARY edges / true-rim
+detection. On some platforms the topology defeats this: TIE multi-fragment meshes, edges SHARED with
+adjacent grass (so a real drop-off is not flagged as a boundary), overhang lips the topological
+exclusion misses, non-manifold seams. There rim_dist is too large -> full-height grass -> overflow.
+This is exactly the "some platforms" symptom. Six rounds of patching the mesh-edge detection kept
+leaking because the FOUNDATION (topology-based edge distance) is fragile.
+
+## ROUND#15 FIX — topology-INDEPENDENT distance-to-edge field (robust by construction)
+Replace the mesh-edge rim_dist with a distance field computed from actual GROUND COVERAGE, not triangle
+edges:
+1. Rasterize the walkable/solid ground into a FINE top-down 2D coverage mask (~0.1 m cells, NOT 0.5 m;
+   NO dilation). Use the SOLID platform extent — if grass triangles overhang the visible platform, clamp
+   coverage to the true solid silhouette (prefer the collision/floor extent or the non-lip solid tris),
+   so an overhang lip is NOT counted as ground.
+2. Distance transform -> rim_dist(x,z) = distance from any point to the nearest NON-ground cell. This is
+   correct on EVERY platform regardless of mesh topology.
+3. Feed this rim_dist to the EXISTING smooth height-taper (height/lean/width -> 0 as rim_dist -> 0).
+   Because the field is continuous and fine, grass shortens smoothly to the exact edge everywhere: no
+   floating (edge is real) AND no bald block-margin (continuous, not a coarse grid). The round#13 holes
+   fix and DROPPED=0 are NOT regressed.
+This is NOT the old 0.5 m OCCUPANCY grid (that did coarse block CULLING + 3x3 dilation = block holes).
+This is a fine CONTINUOUS distance field driving a smooth taper — holes cannot recur.
+
+## DISCIPLINE (same as round#14 — instrument, don't guess a 7th time)
+On the SPECIFIC platforms that still overflow (ask the supervisor for the owner's named spots; else find
+platforms where mesh-edge rim_dist is large right next to a real drop): INSTRUMENT rim_dist (mesh-edge
+value vs the new coverage-distance value) and CONFIRM the mesh-edge value is the culprit BEFORE swapping.
+Then prove the coverage-distance field gives correct rim_dist there.
+
+## CAPTURE MANDATE (supervisor eyeballs before push)
+Capture close-ups at MULTIPLE previously-overflowing platform edges (not one), ON vs OFF, named
+p15_edge_<spot>_*.png, each showing grass stopping exactly at the rim over the void. Use level.warp.pos
+to reach real rims (blind cpad nav never lands them). Supervisor eyeballs; owner playtest = final gate.
