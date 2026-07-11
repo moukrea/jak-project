@@ -522,3 +522,20 @@ TARGETED FIX (round #12 — one clean idea, not more heuristic layering):
 MANDATORY: a device platform-EDGE CLOSE-UP (p11/p12_edge_closeup_*.png) at a real raised platform rim
 (with the drop visible) showing grass ending EXACTLY at the top edge — no floating blade, no bald margin.
 The SUPERVISOR eyeballs this exact close-up before any release. Keep DROPPED=0 + lighting + all else.
+
+## SUPERVISOR DIAGNOSIS #2 (2026-07-11) — the owner's "block" IS the 0.5m OCCUPANCY GRID
+Owner (verbatim): "j'ai toujours l'impression que tu poses des blocks complets d'herbe au lieu de clip
+sur les tris... enfin un truc du style" + on the current build: grass MISSING on Jak's OWN platform
+(flat texture, holes) AND grass FLOATING on DISTANT platforms (in the void) — NOT overhang texture.
+Code finding (GrassRenderer.cpp ~751-780): base placement is per-triangle, BUT the object-hide uses a
+0.5m XZ OCCUPANCY GRID (OCC_CELL_M=0.5) with a 3x3 DILATION (+1 cell). It CULLS grass in 0.5m CELL-
+BLOCKS and expands by one cell everywhere -> block-shaped BALD HOLES on the platform (the owner's
+"missing grass" / "block" perception), likely mis-firing on a nearby/above TIE vertex even with no real
+object on that spot. The distant-platform FLOATING = the lip-fix not applied to distant/TIE platform tris.
+NEXT TARGETED FIX when resumed:
+1. OCCUPANCY GRID: remove/greatly shrink the 3x3 dilation; make the object-cull per-INSTANCE (test each
+   blade vs the actual object footprint) instead of nuking whole 0.5m cells; tighten OCC_LO/HI so only a
+   real object ON the grass culls it. This kills the block-shaped holes on the platform.
+2. DISTANT PLATFORM FLOATING: apply the rim/lip exclusion + clamp to TIE-model platform tris too (not
+   just the spawn tfrag), so distant raised platforms don't have grass hanging in the void.
+Verified via an owner-annotated screenshot showing both defects (base capture: p11_edge_closeup_crawl_*).
