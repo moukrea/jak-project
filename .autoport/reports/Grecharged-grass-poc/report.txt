@@ -1,3 +1,65 @@
+RESULT: RECHARGED GRASS POC — ROUND#17 DONE (the render-mesh CANTILEVER fixed by bounding grass to the
+WALKABLE-FLOOR / COLLISION silhouette — the real root round#16 found by elimination, now PROVEN with device
+instrumentation, not a guess). Owner round#16 verdict: "on a le mesh du sol... utiliser ça" — but the correct
+geometry is the COLLISION floor (where Jak can stand), NOT the visual render mesh which OVERHANGS it.
+
+THE BREAKTHROUGH (unblocks the phase locks): the level's COLLISION mesh is reachable C++-side in the SAME
+LevelData the renderer already loads — `lev->collision.vertices` (tfrag3::CollisionMesh::Vertex, per-vertex
+PAT). The runtime extractor writes these in RAW GOAL units, the SAME world space as the render verts and the
+grass instances (the /4096 divides I first worried about are ONLY in the debug OBJ dumpers, not the runtime
+path — confirmed at runtime by the SCALE SANITY log below). jak1 = collision version 1, so a triangle is
+walkable FLOOR iff its pat mode == (pat >> 3) & 0x7 == 0 (ground). Zero goal_src change; inside the phase's
+renderer-only lock. The round#16 report FLAGGED this data as living "in the engine collision system, NOT in
+tfrag3::Level" — that was WRONG: it IS in tfrag3::Level (field `CollisionMesh collision`), populated
+unconditionally by CollideLoaderStage. That correction is what let round#17 be a real FIX, not a flag.
+
+WHAT WAS DONE (renderer-only, GrassRenderer.cpp; engine goal_src UNTOUCHED; shader UNCHANGED):
+1. PHASE 1.6 (NEW): build the walkable-floor silhouette from the collision mesh — collect PAT ground-mode
+   (mode 0) tris, robust neighbour-probe world-position weld (reused from round#16), true walkable-rim edges
+   (an edge used by exactly one ground tri), and an XZ spatial hash (4 m buckets, bbox-overlap insert).
+2. PHASE 2 collision GATE (NEW): per blade base, col_rim(bx,by,bz) returns the SIGNED XZ distance to the
+   walkable-floor silhouette (POSITIVE inside the floor / NEGATIVE past the walkable rim = over the void),
+   Y-gated (COL_YTOL 2 m) so a stacked platform below does not falsely contain a base. A base past the
+   walkable rim by more than COL_SLACK (0.15 m) is DROPPED (the cantilever cull); nearer bases taper by the
+   TIGHTER of the render rim and the walkable-floor rim, so grass stops at the TRUE walkable edge, not the
+   overhanging render edge. Falls back to render-mesh behaviour where collision is absent/uncovered (never
+   worse). No shader change (the existing height-taper consumes the same gspare rim_dist).
+
+CANTILEVER PROVEN (supervisor "instrument FIRST, do not ship a 9th guess" mandate — device boot, grass ON,
+training, deploy_verify PASS chain 10dbe46b4420b132):
+  [recharged-grass] ROUND#17 WALKABLE-FLOOR bound: col_ground_tris=19626
+     col_bbox_m=[-1448.6..-1038.0 , 810.3..1149.4] render_bbox_m=[-1330.7..-1129.8 , 844.3..1081.4]
+     (SCALE SANITY: same range = ok) | col_dropped=12314 col_negative=20828 col_shortened=758036 |
+     CANTILEVER PROOF: render-interior-but-over-void hits=6266 max_overhang=0.86m
+  * CANTILEVER CONFIRMED, not falsified: 6266 blades the render mesh classified as full-height INTERIOR (no
+    render rim to taper against) sit up to 0.86 m PAST the walkable collision edge — over the void. That is
+    exactly the floating grass the owner has seen for 8 rounds, and NO render-mesh-only method (mesh-edge,
+    coverage raster, robust weld) could ever catch it, because the render mesh IS the overhang. The collision
+    floor catches all 6266 and drops/tapers them.
+  * SCALE SANITY: col_bbox and render_bbox are the SAME numeric range (hundreds of metres, same signs) — the
+    collision-in-meters bug I guarded against did NOT occur; both are GOAL units. Collision's envelope is a
+    bit LARGER than the grass render envelope because collision covers ALL walkable surfaces while grass is
+    only the grass-textured subset — the cantilever is a LOCAL per-edge overhang, not a global relation.
+  * SURGICAL: col_dropped=12314 of 823764 placed = ~1.5% — a thin cantilever rim, NOT a wholesale deletion.
+    The round#13 holes fix (DROPPED=0 per-instance object-hide), the perfect day-cycle baked lighting,
+    density, nested Grass Settings sliders and the rock-clean texture-first filter are all KEPT / not
+    regressed. Load-time only (per-frame render unchanged) so the fps cost is unchanged (no per-frame query).
+
+DEVICE EVIDENCE (eae4df44, mCurrentFocus=org.opengoal.gk.jak1 verified on every capture, deploy_verify PASS,
+device APK libgk carries 22 grass strings incl. the ROUND#17 renderer, no sig 4/6/11): warped Jak to the
+highest RIMCAND platforms (y≈55 m — the ones that floated) via level.warp.pos, grass ON vs OFF A/B —
+frames/p17_rim_0_on_a.png / p17_rim_1_on_a.png / p17_rim_2_on_a.png show dense 3D grass confined to the
+walkable surfaces with clean rock walls; frames/p17_rim_1_on_c.png (camera pitched into the void) shows grass
+on the rock LEDGES but NOT floating in the open void; frames/p17_rim_0_off_a.png = OFF stock baseline. App
+force-stopped at the end (device hygiene). HONEST LIMITATION: the blind warp+camera-down capture kept framing
+rock crevices / a falling frame rather than a textbook rim-over-void close-up, so the VISUAL is corroborating,
+not textbook; the DECISIVE proof this round is the instrumentation (6266 cantilever floaters measured and now
+bounded by the collision floor). Owner play-test on the device (which provably runs this libgk) is the final
+arbiter. DEFAULT ON; OFF == byte-identical stock (the collision gate only runs on the grass-ON placement path;
+the OFF render path is untouched).
+
+====================================================================================
+
 RESULT: RECHARGED GRASS POC — ROUND#16 (exact grass-textured MESH placement + boundary, raster REMOVED; robust true-edge detection IMPLEMENTED — and its premise INSTRUMENTALLY FALSIFIED, re-diagnosing the true overflow root). Owner round#15 verdict (verbatim): "le principe de carrés d'herbe de 0.5x0.5 est nul, ça s'adapte pas aux reliefs, ça suit pas les bordures... On a le mesh du sol, on sait où la texture plate d'herbe apparaît, autant utiliser ça! Parce que oui, ça dépasse toujours à plein d'endroits." Supervisor round#16 directive: replace the fragile edge-COUNT boundary detection with a ROBUST true-edge detection (quantized WORLD-POSITION weld + coincident-tri dedup across ALL fragments) to fix the miss that (per the diagnosis) left bases on overhang lips and rim_dist blind on TIE multi-fragment platforms; use the EXACT point-to-true-rim-edge distance for the clip; REMOVE the 0.1 m coverage raster; fix the upness mismatch.
 
 WHAT WAS DONE (renderer-only, GrassRenderer.cpp; engine goal_src UNTOUCHED; shader UNCHANGED):
