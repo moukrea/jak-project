@@ -1245,7 +1245,7 @@ phases:
   device: true
   owner_verify: true
 - id: Grecharged-grass-precompute-mode
-  name: 'RECHARGED (owner 2026-07-11, backlog after grass-poc): optional PRECOMPUTED grass mode — bake placement + per-instance tint/size/orientation (and optionally a fixed-time-of-day lighting) OFFLINE into asset data to save in-game processing + load-time scan, exposed as an extra toggle in GRASS SETTINGS: "precomputed (cheap)" vs "live (dynamic, costlier)". Live stays default; precomputed for weak hardware. Honest scoping: placement/tint precompute = clear load-time + memory win; lighting precompute = FROZEN day-cycle (visual tradeoff), so keep it a separate sub-option'
+  name: 'RECHARGED (owner 2026-07-11, backlog after grass-poc): PRECOMPUTED grass mode for PERF at EQUAL fidelity — bake placement + per-instance tint + DAY-CYCLE lighting keyframes OFFLINE (same way the game bakes tfrag ground lighting for the day cycle), runtime = lookup+interpolate instead of live sampling. KEEPS full day-cycle fidelity (NOT frozen at one time), just cheaper. Toggle PRECOMPUTED/LIVE in GRASS SETTINGS'
   prompt: prompts/phase-Grecharged-grass-precompute-mode.md
   validator: validators/phase-Grecharged-grass-precompute-mode.sh
   max_turns: 3000
