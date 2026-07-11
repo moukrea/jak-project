@@ -254,9 +254,14 @@
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #f)))
 
 ;; maps options to a progress screen
-;; the length matches with `(progress-screen max)`
+;; the length matches with `(progress-screen max)` — init-game-options does
+;; `(dotimes (i (progress-screen max)) (set! (-> *options-remap* i) #f))`, so allocated-length MUST
+;; be >= (progress-screen max) or that clear-loop writes one past the array and stomps the adjacent
+;; heap object (a corrupted type-tag -> SIGILL on the next method dispatch, far from the write).
+;; Grecharged-grass-poc POLISH#6: the PC enum grew (recharged-settings=67, grass-settings=68, max=69),
+;; so the PC allocation is bumped 68 -> 72 (a little headroom for future PC screens).
 (define *options-remap*
-  (new 'static 'boxed-array :type (array game-option) :length 0 :allocated-length (#if (not PC_PORT) 35 68)))
+  (new 'static 'boxed-array :type (array game-option) :length 0 :allocated-length (#if (not PC_PORT) 35 72)))
 
 ;; added in PC port
 (defenum level-task-data-index

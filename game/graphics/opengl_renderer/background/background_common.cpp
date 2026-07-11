@@ -978,6 +978,7 @@ void update_render_state_from_pc_settings(SharedRenderState* state, const TfragP
     for (int i = 0; i < 4; i++) {
       state->camera_planes[i] = data.camera.planes[i];
       state->camera_matrix[i] = data.camera.camera[i];
+      state->itimes[i] = data.camera.itimes[i];  // POLISH#8 grass: live TOD weights for location-aware light
     }
     state->camera_pos = data.camera.trans;
     state->camera_hvdf_off = data.camera.hvdf_off;

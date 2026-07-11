@@ -81,6 +81,9 @@
    (extra-hud?          symbol) ;; extra hud elements.
    (recharged-hud?      symbol) ;; Grecharged-hud-jak1: optional "Recharged" HUD (heart/gauge/model). OFF = stock HUD.
    (recharged-grass?    symbol) ;; Grecharged-grass-poc: optional 3D grass on the training level. OFF = stock render.
+   (recharged-grass-near-dist float) ;; Grecharged-grass-poc POLISH#4: near-blade view distance (m), slider-adjustable
+   (recharged-grass-card-dist float) ;; Grecharged-grass-poc POLISH#4: grass-card view distance (m), slider-adjustable
+   (recharged-grass-density   float) ;; Grecharged-grass-poc POLISH#5: grass density percent (100 = base), slider-adjustable
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
    (scenes-seen         uint8 PC_SPOOL_LOG_LENGTH) ;; cutscenes that have been seen, by spool-anim (maybe use 8-char name or bits instead?)
    (memcard-play-hints? symbol)
@@ -98,6 +101,12 @@
 ;; compiles BEFORE target-h, so *target* is not yet visible here.
 (define-extern pc-set-recharged-grass! (function int none))
 (define-extern pc-set-jak-pos! (function vector none))
+;; Grecharged-grass-poc POLISH#4: push the two adjustable grass view-distances (a vector: x=near m, y=card m)
+;; and Jak's ledge-grab point for the ledge-parting trample.
+(define-extern pc-set-grass-dists! (function vector none))
+(define-extern pc-set-jak-ledge! (function vector none))
+;; scratch vector reused each frame to hand the two distances to the bridge (avoids per-frame alloc).
+(define *grass-dist-scratch* (new 'static 'vector :x 30.0 :y 95.0 :z 150.0 :w 1.0))
 
 ;; jak 1 discord rpc structure
 (deftype discord-info (structure)
@@ -151,6 +160,9 @@
   (set! (-> obj extra-hud?) #f)
   (set! (-> obj recharged-hud?) #f) ;; Grecharged-hud-jak1: default OFF so a fresh install matches stock exactly
   (set! (-> obj recharged-grass?) #t) ;; Grecharged-grass-poc: OWNER OVERRIDE 2026-07-10 — ships DEFAULT ON (toggle still exists; OFF == stock)
+  (set! (-> obj recharged-grass-near-dist) 30.0) ;; POLISH#4 default near-blade view distance (m)
+  (set! (-> obj recharged-grass-card-dist) 95.0) ;; POLISH#4 default grass-card view distance (m; pushed further)
+  (set! (-> obj recharged-grass-density) 150.0) ;; POLISH#5 default grass density percent (100 = base budget; owner wants denser)
   ;; original settings, minus 25 to be a bit more conservative
   (set! (-> obj memcard-volume-sfx) 50.0)
   (set! (-> obj memcard-volume-music) 40.0)

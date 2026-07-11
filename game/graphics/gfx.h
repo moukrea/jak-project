@@ -134,6 +134,20 @@ struct GfxGlobalSettings {
   // Jak's world position (GOAL units) pushed every frame via pc-set-jak-pos! for
   // the grass trample effect. w = 1.0 when valid, 0.0 before the player spawns.
   float recharged_jak_pos[4] = {0.f, 0.f, 0.f, 0.f};
+  // POLISH#4 (owner 2026-07-10): adjustable LOD view distances (meters), fed from the
+  // two "Recharged Settings" sliders via pc-set-grass-dists!. near = near-blade fade-out,
+  // card = grass-card fade-out (pushed further out than the old fixed 62 m).
+  float recharged_grass_near_dist = 30.f;
+  float recharged_grass_card_dist = 95.f;
+  // POLISH#5 (owner 2026-07-10): adjustable grass DENSITY, a percent scale (100 = the
+  // baseline instance budget) fed from the third "Recharged Settings" slider via
+  // pc-set-grass-dists! (z component). Scales the whole-level instance budget in the
+  // renderer; a change re-scatters the static field. Clamped renderer-side for memory safety.
+  float recharged_grass_density = 150.f;
+  // POLISH#4: Jak's ledge-grab point (GOAL units) pushed via pc-set-jak-ledge! while he
+  // hangs on a ledge, so the ledge-top grass parts around his hands. w = 1.0 while hanging,
+  // 0.0 otherwise (GOAL pushes a null vector to clear it when he lets go).
+  float recharged_jak_ledge[4] = {0.f, 0.f, 0.f, 0.f};
 };
 
 namespace Gfx {

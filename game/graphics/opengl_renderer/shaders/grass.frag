@@ -20,11 +20,13 @@ void main() {
   float a = v_alpha;
 
   if (v_is_card == 1) {
-    // Cut the card quad into ~5 vertical sub-blades so it reads as a tuft.
+    // Cut the card quad into a few vertical sub-blades so it reads as a tuft.
     // Each sub-blade fills its slot at the base and tapers to a point; the top
     // edge is jagged (random per-blade height) so the clump never looks like a
     // rectangle. Fragments outside a blade are discarded (no color, no depth).
-    const float NB = 5.0;
+    // OWNER POLISH#6: 5 -> 3 sub-blades so the cards are LESS tufted than the near
+    // grass (owner: cards "font beaucoup plus touffue que la vraie herbe").
+    const float NB = 3.0;
     float fu = (v_uv.x * 0.5 + 0.5) * NB;        // 0..NB across the card width
     float bi = floor(fu);
     float fp = fu - bi;                           // 0..1 within this sub-blade slot

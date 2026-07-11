@@ -575,6 +575,33 @@ void pc_set_jak_pos(u32 vec) {
   Gfx::g_global_settings.recharged_jak_pos[3] = 1.0f;
 }
 
+// Grecharged-grass-poc POLISH#4/#5: push the adjustable grass view distances + density (a GOAL
+// vector, x = near-blade fade-out (m), y = grass-card fade-out (m), z = density percent (100 = base)).
+void pc_set_grass_dists(u32 vec) {
+  if (!vec) {
+    return;
+  }
+  float* p = Ptr<float>(vec).c();
+  Gfx::g_global_settings.recharged_grass_near_dist = p[0];
+  Gfx::g_global_settings.recharged_grass_card_dist = p[1];
+  Gfx::g_global_settings.recharged_grass_density = p[2];  // POLISH#5 density slider
+}
+
+// Grecharged-grass-poc POLISH#4: push Jak's ledge-grab point (a GOAL vector, xyz) while he hangs on
+// a ledge, so the grass on that ledge parts around his hands. GOAL passes a null vector (0) to clear
+// it the moment he lets go, so a stale grab point never keeps parting the grass.
+void pc_set_jak_ledge(u32 vec) {
+  if (!vec) {
+    Gfx::g_global_settings.recharged_jak_ledge[3] = 0.0f;
+    return;
+  }
+  float* p = Ptr<float>(vec).c();
+  Gfx::g_global_settings.recharged_jak_ledge[0] = p[0];
+  Gfx::g_global_settings.recharged_jak_ledge[1] = p[1];
+  Gfx::g_global_settings.recharged_jak_ledge[2] = p[2];
+  Gfx::g_global_settings.recharged_jak_ledge[3] = 1.0f;
+}
+
 void InitMachine_PCPort() {
   // PC Port added functions
   init_common_pc_port_functions(
@@ -595,6 +622,9 @@ void InitMachine_PCPort() {
   // Grecharged-grass-poc bridges (jak1 only)
   make_function_symbol_from_c("pc-set-recharged-grass!", (void*)pc_set_recharged_grass);
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
+  // POLISH#4: adjustable grass view-distances + ledge-grab trample point
+  make_function_symbol_from_c("pc-set-grass-dists!", (void*)pc_set_grass_dists);
+  make_function_symbol_from_c("pc-set-jak-ledge!", (void*)pc_set_jak_ledge);
 
   make_function_symbol_from_c("pc-discord-rpc-update", (void*)update_discord_rpc);
 

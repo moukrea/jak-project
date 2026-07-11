@@ -153,3 +153,272 @@ Breakdown (do NOT reinterpret):
    never instanced?). Make the cards actually appear in their distance band.
 Owner is REMOTE + reviewing via jak-builds pushes — keep pushing interim builds when there is a
 visible change, but the CULLING must be genuinely fixed (moving capture proof) before calling it good.
+
+## OWNER POLISH ROUND #3 (2026-07-10) — culling FIXED (owner: "beaucoup beaucoup mieux, impressionnant"), finitions
+Owner quote (verbatim, French):
+"Ça marche beaucoup, beaucoup mieux ! Impressionnant ! Cependant je trouve que la vraie herbe
+3D n'est pas assez dense et les grass cards au loin ont une teinte différente, du coup c'est
+comme si l'herbe changeait de couleur quand on avance. Aussi le swing des grass cards est
+beaucoup plus visible que sur l'herbe en premier plan (en gros ça bouge beaucoup plus a fond
+que devant). Et bizarrement certaines plateformes ne reçoivent pas d'herbe, j'ai l'impression
+que ces les plateformes dont le relief est le moins plat, bien qu'elles aient la même texture
+au sol, on dirait qu'elles sont ignorés, ou leur point de référence est plat sur le point le
+plus bas, les rendant invisible (sous le sol)... Aussi, quand on est en l'air (en train de
+sauter), l'herbe en dessous se plie comme si on marchait dessus. En tout cas c'est vraiment
+pas mal !"
+
+Breakdown (do NOT reinterpret) — the CULLING IS FIXED, keep it; polish these 5:
+1. DENSITY: the near 3D grass is STILL not dense enough — increase density again.
+2. CARD TINT MISMATCH: the distant grass CARDS have a DIFFERENT TINT than the near 3D grass, so
+   "the grass changes color as you advance". Match the cards' colour/greens to the near blades so
+   near→far is a seamless single colour.
+3. CARD SWAY TOO STRONG: the card sway is MUCH more visible than the foreground grass — cards move
+   way too much vs the near blades. Reduce card sway amplitude to be equal-or-gentler than the
+   near blades (owner: "ça bouge beaucoup plus à fond que devant").
+4. SLOPED PLATFORMS GET NO GRASS: platforms with the LEAST-FLAT relief (bumpy/sloped) — SAME ground
+   texture — are skipped, OR their grass reference height is FLAT at the LOWEST point so the blades
+   render UNDER the ground (invisible below the surface). Fix placement to follow the ACTUAL
+   per-triangle surface height (sample the real ground Y at each instance), not a flat/min-Y
+   reference, so sloped grass-textured surfaces get correctly-placed visible grass.
+5. AIRBORNE TRAMPLE: when Jak is in the AIR (jumping), the grass below bends as if walked on. The
+   trample must be gated by Jak's ALTITUDE — only trample when Jak is on/near the ground surface,
+   not when airborne above it (check Jak's Y vs the grass ground Y, skip trample when he's above).
+Owner is REMOTE — when verified (objective where possible + moving capture), re-push jak1-grass-poc.
+Keep default ON. The systemic culling fix (DROPPED=0) must NOT regress.
+
+## OWNER POLISH ROUND #4 (2026-07-10) — "impressionnant, gros coup de jeune, très très bien bravo"
+Owner quote (verbatim, French):
+"Alors c'est beaucoup mieux ! Il reste des plateformes avec des textures d'herbe qui n'ont pas
+d'herbe par contre, et a niveau de la couleur, tu t'es assuré que ça prenait des couleurs qui
+correspondait à la texture ? Histoire que la texture au travers fasse pas tâche (ou l'inverse),
+idem pour les grass cards a loin, qui mériteraient d'ailleurs d'être plus loin (et ptêtre que ça
+devrait être ajustable, la distance des vrais brins, la distance des grass cards... Distance
+étant l'endroit le plus loin jusqu'où on le voit). Aussi quand un modèle 3D est sur (overlap) un
+sol où il y a de l'herbe... L'herbe passe au travers ça fait tâche, tu devrais cacher l'herbe aux
+endroits où il y a un overlap avec un truc qui n'est pas de l'herbe ! Mais c'est impressionnant,
+ça donne un gros coup de jeune au jeu ! Aussi, quand on s'accroche à un rebord avec les mains de
+Jak, l'herbe de se rebord devrait aussi s'écarter comme on fait au sol quand il marche ! C'est
+vraiment très très bien bravo"
+
+Breakdown (do NOT reinterpret) — keep everything that works; add these 5:
+1. STILL-MISSING PLATFORMS: some platforms WITH grass textures STILL have NO grass. The sloped-height
+   fix helped but did not cover all grass-textured surfaces — find why the remaining grass-textured
+   platforms are skipped (different tpage/texture-id variant? surface flagged non-walkable? a
+   different mesh/renderer bucket?) and place grass on them too.
+2. COLOUR MATCHES THE GROUND TEXTURE: make the grass blade/card colour SAMPLE / match the underlying
+   ground texture at each location, so the texture showing through does NOT clash with the blades
+   (and vice-versa). Per-location tint from the ground texture (not one global green). Same for the
+   distant CARDS — their colour must match the local ground too.
+3. CARD DISTANCE FURTHER + ADJUSTABLE DISTANCES: push the grass cards' render distance FURTHER out.
+   AND make the distances ADJUSTABLE (owner wants sliders/settings): "distance des vrais brins" and
+   "distance des grass cards" — distance = the farthest point up to which each tier is visible. Add
+   two Recharged Settings for near-blade view-distance and card view-distance.
+4. HIDE GRASS UNDER OVERLAPPING NON-GRASS OBJECTS: when a 3D model/object sits ON (overlaps) a
+   grass-textured ground, the grass currently pokes THROUGH it. Cull/hide grass instances where a
+   non-grass object overlaps the ground (so grass doesn't clip through crates/models/props).
+5. LEDGE-GRAB TRAMPLE: when Jak hangs on a ledge with his hands, the grass on that ledge should
+   part/spread like the walk-trample does on the ground (feed Jak's hand/ledge-grab position to the
+   trample, gate on the ledge-hang state).
+Keep: culling DROPPED=0, density, card tint/sway, sloped placement, airborne-trample gate.
+Owner is REMOTE — re-push jak1-grass-poc when verified. Default ON.
+
+## OWNER POLISH#4 addendum — grass on ROCK/VERTICAL walls (2026-07-10)
+Owner quote (verbatim, French):
+"Par contre j'ai aussi l'impression que des parois de roches (texturés par de la roche sur les
+parties verticales, par de l'herbe sur le dessus) ont aussi de l'herbe sur les parties rocheuses,
+ça fait des effets bizarres où on va l'herbe a loin sur les parois et des fois des brins sortir de
+la roche (et c'est pas le sol d'en dessous qui pose problème dans ce cas, l'herbe passant au travers
+étant bien plus haut que le sol du dessous)"
+
+Breakdown (do NOT reinterpret) — DISTINCT from the under-floor issue:
+6. GRASS ON ROCK / VERTICAL WALLS: rock walls (vertical faces textured ROCK, top textured GRASS) are
+   getting grass ON the ROCKY parts too — grass shows on the walls at distance, and blades poke OUT of
+   the rock. This is NOT the under-floor case (the grass poking through the rock is far ABOVE the
+   floor below). Root cause is likely: placement puts grass on triangles that are NOT the up-facing
+   grass top (wrong texture-id match onto rock, OR no surface-NORMAL filter so vertical/steep faces
+   get grass). FIX: only place grass on NEAR-HORIZONTAL, UP-FACING, GRASS-textured surfaces — filter
+   by the triangle normal (reject steep/vertical faces) AND strictly by the grass texture-id (reject
+   rock-textured faces). No blades on rock walls.
+
+## OWNER CLARIFICATION on #6 (2026-07-10) — filter by TEXTURE FIRST
+Owner (verbatim, deduplicated): "le placement devrait filtrer en fonction de la texture surtout,
+si sur une normale c'est de la roche, pas d'herbe."
+=> The PRIMARY filter is the TEXTURE, not the normal angle. If a triangle's texture is ROCK
+(or anything that is NOT the grass ground texture), it gets NO grass — full stop, whatever its
+orientation. The current bug is a TEXTURE mis-match (grass instances landing on rock-textured
+faces). Make grass-texture-id detection STRICT and per-triangle: only triangles whose actual
+sampled/assigned texture is the grass ground get grass; rock (and every non-grass texture) is
+excluded. The surface-normal check is a secondary safety net, but the texture filter is the fix.
+
+## OWNER POLISH ROUND #5 (2026-07-10) — sliders not showing + density slider + rock walls still
+Owner quote (verbatim, French):
+"On devrait pouvoir changer la distance max de la vraie herbe 3D et les grass cards, t'as pas
+ajouté ça ! Et aussi on devrait pouvoir régler la densité et on a encore des brins dans les
+parties verticales/ sans herbes étrangement"
+
+Breakdown (do NOT reinterpret):
+1. DISTANCE SLIDERS NOT VISIBLE: the near-blade + card view-distance sliders were ADDED IN CODE
+   (pc-settings recharged-grass-near-dist=30 / recharged-grass-card-dist=95, menu rows 2-3 in
+   progress-pc.gc) but they DO NOT SHOW in the Recharged Settings submenu on device — the owner
+   cannot see/use them. ROOT CAUSE is almost certainly the submenu LIVE-LENGTH / row count not
+   extended to include the 2 new rows (Goptions-reorder length machinery). FIX: make the two
+   distance sliders actually APPEAR and be adjustable in the on-device menu (bump the submenu
+   length; verify by a DEVICE screencap of the submenu SHOWING the two distance rows + prove
+   changing them changes the render distance).
+2. DENSITY SLIDER: add a THIRD adjustable setting — grass DENSITY — in the same Recharged submenu.
+3. ROCK WALLS STILL HAVE GRASS: "on a encore des brins dans les parties verticales / sans herbe" —
+   the texture-first filter is NOT fully effective; blades still appear on vertical/non-grass
+   parts. Strengthen it: verify per-triangle grass-texture-id detection ACTUALLY excludes the rock
+   faces (the mis-match persists), + the normal filter as backup. Prove on the ACTUAL rock-wall
+   beat on device (screencap of a rock wall with NO blades), not by claim.
+Keep everything that works. Owner REMOTE — re-push when the sliders are VISIBLE + rock walls clean.
+The validator now requires DEVICE PROOF the sliders show (not just code keywords).
+
+## OWNER POLISH ROUND #6 (2026-07-10) — "faut que ça claque" + dedicated grass sub-submenu
+Owner quote (verbatim, French):
+"J'ai l'impression que les grass cards sont trop denses et font beaucoup plus touffue que la vraie
+herbe, et leur teinte est encore différente de la teinte de l'herbe 3D donc ça fait une transition
+un peu bizarre (d'ailleurs la transition entre les deux est bizarre). Il y a toujours de l'herbe qui
+passe au travers d'objets posés sur le sol où l'herbe est ajoutée (ça fait bizarre de voir des brins
+d'herbe sortir d'un gros caillou) ... Et aussi on dirait que l'herbe n'est pas influencée par
+'l'éclairage' (baked or not) donc autant sur les zones parfaitement éclairées où la texture est
+identique aux couleurs de nos brins c'est nickel, autant d'autres endroits ça dénote car l'herbe
+(texture plate) en dessous est plus foncée. J'oublie pas à quel point c'est impressionnant ce qu'on
+à fait là, mais j'aimerais que ça colle aux attentes visuelles de nos jours, faut que ça claque et
+que ça apporte vraiment un truc en plus ! Par contre les réglages n'apparaissent toujours pas dans
+recharged settings, ça devrait être un sous-menu de ce sous-menu avec tous les settings pour l'herbe !"
+
+Breakdown (do NOT reinterpret) — goal is "ça claque", modern visual bar:
+1. CARDS TOO DENSE/TUFTED: the grass cards are denser/tuftier than the real 3D grass — reduce card
+   density so cards read lighter than / consistent with the near blades.
+2. CARD TINT STILL OFF + WEIRD TRANSITION: cards' tint STILL differs from the 3D grass, and the
+   near→card TRANSITION reads weird. Match card tint to the near grass AND smooth the LOD transition
+   (fade/blend the boundary so there's no visible seam/colour jump).
+3. GRASS STILL CLIPS THROUGH GROUND OBJECTS: blades still poke out of objects sitting on the grass
+   (e.g. a big rock/boulder) — the polish#4 "hide under overlapping objects" fix did NOT work.
+   Re-do it and PROVE on a device beat (a rock/prop on grass with NO blades poking through).
+4. GRASS IGNORES LIGHTING (baked/dynamic): the grass is a flat colour unaffected by the scene/baked
+   lighting, so where the ground texture is DARKER (shadowed/baked-dark) the bright flat grass
+   clashes. Make the grass RESPOND to the lighting — sample/apply the baked light (and/or the ground
+   texture's local brightness) at each instance so blades darken/brighten to match the ground beneath.
+   This is the #1 "ça claque" item: grass must sit in the lighting, not float above it.
+5. SETTINGS STILL NOT APPEARING + RESTRUCTURE: the owner still does not see the grass settings in
+   Recharged Settings. Build a DEDICATED nested "GRASS SETTINGS" SUB-SUBMENU under Recharged Settings
+   that holds ALL grass settings (toggle + near-dist + card-dist + density + any new ones). This
+   nested menu definitively fixes the "not appearing" (its own page, own length). PROVE with a device
+   screencap of the nested Grass Settings page showing all rows.
+Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified (device screencaps).
+
+## OWNER POLISH ROUND #7 (2026-07-11) — rock walls OK + transition OK, but clip-halo/coverage/LIGHTING broken
+Owner quote (verbatim, French):
+"Alors une bonne nouvelle, plus d'herbe sur les parties rocheuses. Par contre... OK ça clip plus a
+travers des rochers posés sur le sol (des modèles 3D qui doivent passer a travers du sol) mais en
+fait ça fait comme des zones vides autours des éléments plutôt que s'arrêter pile a l'intermédiaire
+où le rocher posé fais l'intermédiaire avec le sol) en gros j'ai l'impression que le modèle 3D dudit
+rocher est plus gros sous le sol, et que le calcul du clipping prend en compte la partie non visible.
+Et ça fonctionne que pour les rochers, le bouton pour la warp gate a de l'herbe qui clip au travers
+de fou, d'autres objets aussi... Et c'est bizarre mais sur les plateformes on a des zones vides qui
+n'ont aucun objet qui gênent donc qui devrait avoir de l'herbe, gênant par ce qu'on se retrouve avec
+une texture d'herbe plate visible sans herbe 3D dessus. La transition herbe 3D -> grass card est bien
+mieux, ça c'est cool. Par contre l'adaptation au lighting est complètement pété, l'herbe est ultra
+éclairée tout du long, partout exactement pareil, bien plus 'lumineuse' que la texture du sol de
+partout, même aux endroits les plus éclairés... Aucune variation, pas du tout adapté à l'endroit où
+elle est, et ce partout, peut importe le moment de la journée, peut importe si la zone est ombrée ou
+pas, c'est juste 'flashy' de partout"
+
+GOOD (keep, do not regress): rock/vertical faces CLEAN; the 3D-grass -> card transition is much better.
+Breakdown (do NOT reinterpret) — fix these 4:
+1. OBJECT-CLIP HALO TOO BIG: the hide-under-objects now leaves an oversized EMPTY HALO around objects
+   instead of stopping exactly at the ground/object intersection. Owner's insight: the object's 3D
+   model extends BIGGER UNDER the ground, and the clip test uses that non-visible underground volume.
+   Clip only to the VISIBLE above-ground footprint (intersection at ground level), not the full/buried
+   model — no empty ring around objects.
+2. CLIP ONLY WORKS FOR ROCKS: other objects still clip through grass badly — the WARP-GATE BUTTON has
+   grass poking through "de fou", plus other props. Extend the overlap-hide to ALL objects on grass
+   (warp-gate button, props, etc.), not just rocks.
+3. COVERAGE GAPS: on platforms there are EMPTY ZONES with NO blocking object that SHOULD have grass —
+   you see flat grass texture with no 3D grass on top. Fill those (why are open grass-textured areas
+   skipped? density/placement holes). Grass-textured ground with nothing on it must get grass.
+4. LIGHTING COMPLETELY BROKEN (#1 priority): the grass is ULTRA-LIT everywhere, EXACTLY the same
+   everywhere, much BRIGHTER than the ground texture everywhere (even in the brightest spots), NO
+   variation, not adapted to location, regardless of time-of-day or shade — just "flashy" everywhere.
+   The polish#6 lighting attempt FAILED. Re-do it properly: the grass must sample the actual scene /
+   baked lighting (and/or the ground texture's local luminance) PER-LOCATION so blades DARKEN in shade
+   and MATCH the ground brightness — real variation across the level and across time-of-day, never a
+   uniform flashy over-bright. Prove with device captures at a LIT spot AND a SHADED spot showing the
+   grass brightness matching the ground beneath at each.
+Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified (device captures at lit+shaded).
+
+## OWNER POLISH ROUND #8 (2026-07-11) — clipping OK, but shrub/edge coverage + lighting still GLOBAL not per-location
+Owner quote (verbatim, French):
+"Alors le clipping est meilleur en effet. Par contre les shrubs d'herbe d'origine ont beaucoup
+d'espace où on voit la texture plate d'origine autour sans herbe, probablement parce que leur mesh
+occupe l'espace bien que non visible en alpha, ça fait un peu tâche. Notre herbe 3D et les grass
+cards n'arrivent pas au bords des plateformes qui ont de la texture d'herbe au sol, laissant des
+zones avec la texture plate uniquement, à corriger. Pour le lighting, certes c'est plus flashy, mais
+j'ai l'impression que l'herbe est teinté de la même exacte façon de partout, donc elle paraît sombre
+sur les zones très éclairées, ok sur les zones moyennement éclairées, un peu trop lumineuse sur les
+zones ombragées, c'est toujours pas adapté ! J'ai l'impression que c'est le même 'lighting pickup'
+appliqué à la totalité de l'herbe plutôt que location aware"
+
+GOOD (keep): clipping is better. Fix these 3:
+1. SHRUB BALD PATCHES: the original grass SHRUBS leave a lot of empty flat-texture space around them
+   with no grass — because the shrub MESH occupies that footprint even though it's alpha-transparent
+   (invisible) there. Grass placement treats the shrub's whole mesh bounds as occupied. Fix: do NOT
+   let the shrub's alpha-transparent mesh area block grass — place grass under/around shrubs (block
+   only where the shrub is actually opaque, or exempt shrubs from the overlap-hide entirely).
+2. GRASS DOESN'T REACH PLATFORM EDGES: our 3D grass + cards stop short of the EDGES of grass-textured
+   platforms, leaving a bald margin of flat texture at the borders. Extend placement to the actual
+   edges of grass-textured surfaces (fill the border triangles).
+3. LIGHTING STILL GLOBAL, NOT LOCATION-AWARE (#1 priority — owner's precise diagnosis): the grass is
+   tinted the EXACT SAME everywhere, so it looks DARK on very-lit zones, OK on medium zones, TOO
+   BRIGHT on shaded zones. It's ONE global "lighting pickup" applied to ALL grass, not per-location.
+   Fix: sample the lighting PER-INSTANCE at each blade/card's WORLD POSITION (the local baked/scene
+   light where that blade actually stands), so lit-zone grass is bright and shaded-zone grass is dark
+   — real spatial variation, not a single global value. Prove with device captures of a bright zone
+   AND a shaded zone in the SAME frame/beat showing the grass brightness differing correctly between
+   them.
+Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified.
+
+## OWNER REMINDER on #8 lighting (2026-07-11) — it's DYNAMIC (time-of-day), not frozen
+Owner (verbatim): "Peut-être un détail, le lighting change sur la journée, c'est pas figé, tu
+devrais le savoir mais je te le rappelle quand même"
+=> The per-instance lighting must be DYNAMIC: the scene light changes over the day/night cycle,
+so do NOT sample once at load/placement and freeze it. Re-sample the CURRENT scene/baked light
+(per-frame or as the time-of-day updates) so the grass tracks sunrise/day/dusk/night correctly —
+grass gets brighter at midday, darker at dusk/night, matching the ground at that moment. Both
+LOCATION-aware (per-instance world pos) AND TIME-aware (follows the day cycle). Prove the time
+dimension too if feasible (grass brightness at two different times-of-day differs).
+
+## OWNER POLISH ROUND #9 (2026-07-11) — best integration so far; edges (block overflow/holes) + GROUND baked-light
+Owner quote (verbatim, French):
+"Alors c'est clairement la meilleure intégration so far... On a des zones ombragées, ça fit beaucoup
+mieux. Les plateformes sont pleines d'herbes pour la plupart, mais il y a quand même problème avec
+les bords des plateformes, ça donne des trous sur le dessus (pas partout, à certaines, où l'herbe
+n'est pas présente et on voit la texture d'herbe plate... Et sur d'autre bordures étrangement on a
+l'herbe qui va un peu trop loin, débordant de la plateforme (comme si l'herbe était positionnée par
+bloc et que ce bloc dépassait un peu). Aussi, la couleur du sol change a plein d'endroits durant la
+journée (baked lighting) et bien que l'herbe est globalement mieux intégrée, ça se reflète pas du
+tout sur l'herbe 3D, donc notre herbe 3D fait tâche quand le baked lighting sur les textures d'herbe
+les rend plus sombres... En gros tu prends toujours pas en compte le baked lighting du sol il
+semblerait (qui dépend de l'emplacement+du moment du jour)."
+
+GOOD (keep): best integration so far; shaded zones fit much better; platforms mostly full.
+Breakdown (do NOT reinterpret) — 2 items:
+1. PLATFORM EDGE PLACEMENT (block-based, imprecise): on SOME borders grass leaves HOLES (flat texture
+   visible at the edge), on OTHERS grass OVERFLOWS past the platform edge ("comme si l'herbe était
+   positionnée par bloc et que ce bloc dépassait un peu"). The placement is BLOCK/GRID-based and does
+   not respect the exact triangle boundary at edges. Fix: clip placement precisely to the grass-
+   textured TRIANGLE boundaries — an instance only spawns if its base is INSIDE a grass triangle;
+   no overflow past the platform edge, no bald holes at the edge. Per-triangle/point-in-triangle
+   test, not a coarse block/grid.
+2. GROUND BAKED-LIGHTING (the real one the owner means): the GROUND's colour changes at many spots
+   during the day because of BAKED LIGHTING (the tfrag ground's baked vertex colours / lightmap,
+   location- AND time-of-day dependent). iteration 8 improved integration but the 3D grass still does
+   NOT reflect the GROUND's baked light — so where the baked light darkens the grass TEXTURE, our 3D
+   grass stays bright and clashes. Fix: sample the ACTUAL GROUND BAKED LIGHT at each blade's position
+   — read the tfrag ground's baked vertex colour / lightmap value under the blade (interpolated on
+   the triangle), and apply it to the blade so the 3D grass darkens/brightens EXACTLY like the ground
+   texture beneath it, at that location and that time-of-day. Not a generic scene light — the ground's
+   own baked value. Prove with device captures where the baked ground is dark: the grass must match.
+Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified.

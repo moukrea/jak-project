@@ -72,7 +72,14 @@ GAME="${1:-jak1}"
 # Bumped 11 -> 12 (autoport 2026-07-08, Grecharged-hud): the bundle now ships the
 # recharged HUD sprite PNGs under recharged_assets/*; devices holding v11 must
 # re-unpack so the loader lands the sprites for the on-device HUD texture pool.
-VERSION="${BUNDLE_VERSION:-12}"
+# Bumped 12 -> 13 (autoport 2026-07-10, Grecharged-grass-poc POLISH#6): the arm64
+# CGO/DGO set now carries the DEDICATED NESTED "GRASS SETTINGS" sub-submenu
+# (progress-screen grass-settings + *grass-options-pc*) AND the *options-remap*
+# allocated-length 68->72 crash fix (adding the enum member overflowed the old
+# 68-sized array -> menu-open SIGILL). Devices holding v12 MUST re-decompress the
+# fresh menu CGOs, or an in-place update would keep the v12 menu CGOs while getting
+# the new libgk -> a mixed build (missing nested menu, or the overflow crash).
+VERSION="${BUNDLE_VERSION:-13}"
 
 cd "$(git rev-parse --show-toplevel)"
 

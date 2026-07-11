@@ -132,6 +132,10 @@
      ;; Grecharged-hud-jak1: submenu holding the "Recharged" fork's optional HUD toggle.
      ;; Appended (auto-numbered) before `max` so no existing progress-screen value shifts.
      (recharged-settings)
+     ;; Grecharged-grass-poc POLISH#6: dedicated NESTED "Grass Settings" page (sub-submenu of
+     ;; Recharged Settings) holding all grass settings. Auto-numbered before `max`; *options-remap*
+     ;; is allocated at 68 so this fits. Copied into game-option-menu via :copy-entries.
+     (grass-settings)
      ;; the last one!
      (max))
    (defenum game-option-type

@@ -11,6 +11,7 @@
 // per-instance data (glVertexAttribDivisor == 1)
 layout (location = 0) in vec4 inst_pos;   // xyz = world base position (GOAL units, 4096 = 1 m), w = blade height
 layout (location = 1) in vec4 inst_par;   // x = yaw(rad), y = tint(0..1), z = curve(0..1), w = breeze phase(0..1)
+layout (location = 2) in vec4 inst_gcol;  // POLISH#4: xyz = avg colour of the ground texture under this blade (0..1)
 
 // scene camera (same uniforms/semantics as collision.vert)
 uniform vec4 hvdf_offset;
@@ -22,6 +23,10 @@ uniform float fog_constant;
 uniform float u_time;      // seconds, drives the breeze
 uniform vec4  u_jak_pos;   // xyz = Jak world pos, w = 1 when valid (trample origin)
 uniform int   u_mode;      // 0 = blade pass, 1 = card pass
+// POLISH#4: adjustable LOD reach (world units) from the two Recharged Settings sliders.
+uniform float u_near_dist; // near-blade fade-out radius (world units)
+uniform float u_card_dist; // grass-card fade-out radius (world units)
+uniform vec4  u_jak_ledge; // xyz = ledge-grab point, w = 1 while Jak hangs (ledge-parting trample)
 
 out vec3 v_color;
 out float v_alpha;
@@ -32,18 +37,16 @@ out float v_seed;         // per-instance random, seeds the card tuft sub-blades
 const int   SEGMENTS = 4;            // blade strip segments -> 2*(SEGMENTS+1) = 10 verts
 const float TWO_PI   = 6.28318530718;
 
-// LOD distance bands, world units (4096 = 1 m).
-// OWNER POLISH 2026-07-10: pushed OUT so the player stands INSIDE the real 3D
-// blades (was 10->18 m; Jak ended up in the cards). Blades now hold to 18 m and
-// fade to 28 m; cards only take over from 22 m out.
-const float B_FULL  = 18.0 * 4096.0; // blades fully opaque within this radius
-const float B_END   = 28.0 * 4096.0; // blades fully faded out beyond this
-const float C_IN0   = 22.0 * 4096.0; // cards start fading in
-const float C_IN1   = 32.0 * 4096.0; // cards fully in
-const float C_OUT0  = 46.0 * 4096.0; // cards start fading out
-const float C_OUT1  = 62.0 * 4096.0; // cards gone
+// LOD distance bands are ADJUSTABLE (POLISH#4): derived from u_near_dist / u_card_dist
+// inside main() (uniforms can't initialise globals in GLSL). B_END = u_near_dist (blade
+// fade-out), C_OUT1 = u_card_dist (card fade-out, pushed further out); the intermediate
+// bands scale off them so the near->card->far crossfade stays seamless at any slider value.
 
 const float TRAMPLE_R = 2.2 * 4096.0; // grass flattens within this radius of Jak
+// OWNER POLISH#3: only trample when Jak is near THIS grass's ground height — not
+// airborne. vgap = Jak-root-Y minus blade-base-Y; outside this band => no trample.
+const float TRAMPLE_Y_LO = -1.5 * 4096.0; // up to 1.5 m below the grass -> still trample
+const float TRAMPLE_Y_HI =  2.0 * 4096.0; // more than 2 m above the grass = airborne -> none
 
 // X-cross card corners (two triangles per quad), (u = width -1..1, v = height 0..1)
 const vec2 CARD[6] = vec2[6](
@@ -82,6 +85,18 @@ void main() {
   vec3 rightv = vec3(c, 0.0, -s);   // width axis
   vec3 fwdv   = vec3(s, 0.0,  c);   // bend/curve axis
 
+  // POLISH#4/#6: adjustable LOD bands, derived from the two slider distances (world units).
+  // OWNER POLISH#6: a WIDE crossfade OVERLAP so near blades fade out and cards fade in over the
+  // SAME band. Combined with the card colour now unified to the blade gradient (t_col below), the
+  // two tiers are the same colour through the overlap -> the near->card transition reads seamless
+  // (owner: "la transition entre les deux est bizarre").
+  float B_FULL = u_near_dist * 0.55;  // blades fully opaque within this radius
+  float B_END  = u_near_dist;         // blades fully faded out beyond this
+  float C_IN0  = u_near_dist * 0.45;  // cards start fading in WELL before the blades are gone
+  float C_IN1  = u_near_dist * 0.85;  // cards fully in (inside the blade fade-out band -> crossfade)
+  float C_OUT1 = u_card_dist;         // cards gone (pushed further out)
+  float C_OUT0 = u_card_dist * 0.78;  // cards start fading out
+
   // --- LOD fade (per-instance, from camera distance to the blade base) ---
   float cam_dist = distance(base, camera_position.xyz);
   float alpha;
@@ -107,9 +122,12 @@ void main() {
   float gust = u_time * 1.7 + phase * TWO_PI + (base.x + base.z) * 0.00035;
 
   // --- trample: flatten + push away from Jak within TRAMPLE_R ---
+  // OWNER POLISH#3: gate by Jak's ALTITUDE so the grass only bends when he is on/
+  // near the ground, not while airborne (jumping) above it.
   float heightMul = 1.0;
   vec3 trample = vec3(0.0);
-  if (u_jak_pos.w > 0.5) {
+  float vgap = u_jak_pos.y - base.y;
+  if (u_jak_pos.w > 0.5 && vgap > TRAMPLE_Y_LO && vgap < TRAMPLE_Y_HI) {
     vec2 d = base.xz - u_jak_pos.xz;
     float dist = length(d);
     if (dist < TRAMPLE_R) {
@@ -120,6 +138,25 @@ void main() {
     }
   }
 
+  // OWNER POLISH#4: LEDGE-GRAB parting — while Jak hangs on a ledge with his hands
+  // (u_jak_ledge = the grab point, world units), the ledge-top grass parts around his
+  // hands just like walk-trample on the ground. Gated by the grab point being near THIS
+  // grass's height (NOT Jak's root altitude — he hangs BELOW the ledge, so the walk gate
+  // above would never fire for the ledge grass).
+  if (u_jak_ledge.w > 0.5) {
+    float lgap = abs(u_jak_ledge.y - base.y);
+    if (lgap < 1.5 * 4096.0) {
+      vec2 dl = base.xz - u_jak_ledge.xz;
+      float distl = length(dl);
+      if (distl < TRAMPLE_R) {
+        float kl = 1.0 - distl / TRAMPLE_R;
+        vec2 awayl = distl > 1.0 ? dl / distl : vec2(1.0, 0.0);
+        trample += vec3(awayl.x, 0.0, awayl.y) * (kl * kl) * H * 1.3;
+        heightMul = min(heightMul, 1.0 - kl * 0.8);
+      }
+    }
+  }
+
   vec3 pos;
   float t_col;
   if (u_mode == 0) {
@@ -127,7 +164,9 @@ void main() {
     int seg = gl_VertexID / 2;
     int side = gl_VertexID - seg * 2;              // 0 or 1
     float t = float(seg) / float(SEGMENTS);        // 0 base -> 1 tip
-    float hw = H * 0.062 * (1.0 - 0.82 * t);       // half width, tapering to the tip
+    // OWNER POLISH#3: wider, fuller blades so the lawn reads DENSER (more ground
+    // coverage per blade) on top of the higher instance budget (density++ #1 ask).
+    float hw = H * 0.092 * (1.0 - 0.66 * t);       // half width, tapering to the tip
 
     // breeze: shared gust, grows toward the tip
     float sway = sin(gust) * t * t;
@@ -144,23 +183,41 @@ void main() {
     v_is_card = 0;
   } else {
     // ---------- MID: X-cross grass card ----------
+    // OWNER POLISH#6: the cards read "trop denses ... beaucoup plus touffue que la vraie herbe".
+    // Thin the card field — skip ~30% of card instances by a deterministic per-instance hash (STABLE,
+    // so no pop-in) and make each card narrower with fewer sub-blades (frag NB 5->3). The near blades
+    // keep the full density, so the cards are now clearly LIGHTER than the foreground grass.
+    if (fract(phase * 13.17 + tint * 7.51) > 0.70) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      v_color = vec3(0.0);
+      v_alpha = 0.0;
+      v_uv = vec2(0.0);
+      v_is_card = 1;
+      v_seed = 0.0;
+      return;
+    }
     int quad = gl_VertexID / 6;                    // 0 or 1
     int li = gl_VertexID - quad * 6;
     vec2 uv = CARD[li];
     vec3 axis = (quad == 0) ? rightv : fwdv;       // two crossed quads
     float cardH = H * 1.25;                          // match near heights, a touch taller
-    float cardHW = H * 0.46;                          // clump width
+    float cardHW = H * 0.38;                          // POLISH#6: narrower clump (was 0.46) -> lighter
 
-    // card wind sway: SAME gust as the blades but gentler and lower frequency,
-    // growing toward the top (owner polish: cards were static rectangles).
+    // card wind sway: SAME gust as the blades but MUCH GENTLER than the near blades
+    // (owner polish#3: cards swayed "beaucoup plus à fond que devant"). Near-blade
+    // fwd sway peaks ~0.38*H; cards now peak ~0.12*H — clearly under the foreground.
     float csway = sin(gust * 0.7) * uv.y * uv.y;
 
     pos = base
         + axis * (uv.x * cardHW)
         + vec3(0.0, uv.y * cardH * heightMul, 0.0)
-        + fwdv * (csway * H * 0.30)
-        + rightv * (csway * H * 0.10)
+        + fwdv * (csway * H * 0.12)
+        + rightv * (csway * H * 0.04)
         + trample * uv.y;
+    // OWNER POLISH#6: use the EXACT same vertical gradient as the near blade (t_col = local
+    // height). With the identical tint / ground-harmonisation / baked-light pipeline below applied
+    // to both tiers, a card and a blade at the same height are the SAME colour by construction — so
+    // the grass no longer "change de couleur quand on avance" and the crossfade band blends cleanly.
     t_col = uv.y;
     v_uv = uv;
     v_is_card = 1;
@@ -178,6 +235,40 @@ void main() {
   col.r *= (1.0 + 0.50 * hue);      // warmer <-> cooler green
   col.b *= (1.0 - 0.35 * hue);
   col.g *= (0.88 + 0.22 * tint);
+
+  // OWNER POLISH#4: sample/match the GROUND TEXTURE colour. inst_gcol.rgb is the average
+  // colour of the tfrag/tie ground texture UNDER this blade (computed at placement). Shift
+  // the canonical grass-green toward that ground tone and let a little of the literal ground
+  // colour bleed in, so the grass never clashes with the texture showing through (a bright
+  // green blade over sandy/mossy ground would "faire tâche"). Per-location — grass over
+  // tra-grass, tra-beachrock and the beach fringes each takes its own matching green. The
+  // CARDS use the same per-instance ground colour, so near->far stays one seamless colour.
+  vec3 gcol = inst_gcol.rgb;
+  vec3 groundRef = vec3(0.24, 0.34, 0.14);   // a canonical grassy-ground average
+  vec3 harmon = col * clamp(gcol / max(groundRef, vec3(0.04)), vec3(0.55), vec3(1.9));
+  col = mix(col, harmon, 0.55);              // shift the green toward the ground's tone
+  col = mix(col, gcol, 0.16);                // a touch of the literal ground colour blends in
+
+  // OWNER POLISH#7: match the grass LUMINANCE to the ground albedo so blades are not brighter than
+  // the ground they grow from (owner: grass "bien plus lumineuse que la texture du sol de partout,
+  // même aux endroits les plus éclairés"). Pull the grass brightness toward the ground-texture
+  // brightness while keeping some per-blade variation (hue is preserved — only magnitude is scaled).
+  float glum  = dot(col,  vec3(0.299, 0.587, 0.114));
+  float grlum = dot(gcol, vec3(0.299, 0.587, 0.114));
+  if (glum > 0.001) {
+    float lm = clamp(grlum / glum, 0.45, 1.15);
+    col *= mix(1.0, lm, 0.6);
+  }
+
+  // OWNER POLISH#7 (#1 owner priority): SIT in the scene lighting. inst_gcol.w is the ground's ABSOLUTE
+  // baked-light multiplier = (todLuma/255)*2.0 — the EXACT factor tfrag/TIE multiply the ground texture
+  // by (neutral 1.0 at todLuma 128). Multiply the grass by it directly, so blades darken in shade and
+  // brighten in light PER-LOCATION, matching the ground beneath at every spot and every time of day.
+  // POLISH#6 normalised against the level MEAN and clamped high, so every lit patch pinned to the ceiling
+  // -> "ultra éclairée, partout exactement pareil, aucune variation". This tracks the real baked light.
+  col *= inst_gcol.w;
+  col = clamp(col, vec3(0.0), vec3(1.5));
+
   v_color = col;
   v_alpha = alpha;
   v_seed = tint * 331.0 + phase * 71.0;   // per-instance tuft seed
