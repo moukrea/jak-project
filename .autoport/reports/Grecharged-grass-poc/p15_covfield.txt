@@ -1,0 +1,2 @@
+07-11 19:20:59.891  1180  1315 I opengoal-gk: [recharged-grass] COVFIELD cells=2011x2381 cell=0.100m solid_tris=9123 (topology-independent rim_dist)
+07-11 19:20:59.954  1180  1315 I opengoal-gk: [recharged-grass] RIMDIST mesh-edge->coverage: placed=844984 edge_clamped=35785 edge_dropped=1987 topo_missed=8199 topo_tighter=735212 (mesh-edge was the culprit where topo_missed>0)
