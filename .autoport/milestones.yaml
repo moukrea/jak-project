@@ -1332,6 +1332,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-grass-overhang
+  name: 'RECHARGED (owner 2026-07-11, backlog, AFTER clean edges): 3D DROOPING grass over platform edges. Reuse round#15 rim/lip data — the excluded overhang-LIP tris become the placement zone for blades oriented DOWN+OUTWARD (gravity droop) covering the game overhang ALPHA texture (grass-fringe). LOD: near=3D droop, FAR=original alpha texture only (NO cards), crossfade to avoid double-up. Toggle, OFF==stock. Exempt from the rim height-taper (intended overhang). Gated on Grecharged-grass-poc edges being owner-clean.'
+  prompt: prompts/phase-Grecharged-grass-overhang.md
+  validator: validators/phase-Grecharged-grass-overhang.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
