@@ -1,28 +1,28 @@
 {
-  "_doc": "Single source of truth for model + effort across the autoport harness. Flip 'active' to switch the WHOLE setup (orchestrator manager, subagent workers, supervisor) in one place, then run .autoport/apply-model-profile.sh and relaunch. orchestrator.py and supervisor.sh read this live; apply-model-profile.sh regenerates the .claude/agents/*.md effort frontmatter (the only spot that can't read JSON at runtime).",
-  "active": "opus-xhigh",
-  "profiles": {
-    "opus-xhigh": {
-      "_note": "2026-06-13: claude-fable-5[1m] returns 404 for this account; opus-4-8 everywhere, effort pushed to xhigh to recover quality. The fable-tiered medium tiers all map up to xhigh per owner.",
-      "manager_model": "claude-opus-4-8[1m]",
-      "manager_effort": "xhigh",
-      "worker_model": "claude-opus-4-8[1m]",
-      "worker_efforts": {
-        "autoport-researcher": "xhigh",
-        "autoport-implementer": "xhigh",
-        "autoport-tester": "xhigh"
-      }
-    },
-    "fable-tiered": {
-      "_note": "Original 2026-06-12 design: fable-5[1m] manager @ high + opus-4-8 workers tiered (researcher high, implementer/tester medium). DEAD until fable-5[1m] access returns (404 as of 06-13); kept for one-flip restore.",
-      "manager_model": "claude-fable-5[1m]",
-      "manager_effort": "high",
-      "worker_model": "claude-opus-4-8[1m]",
-      "worker_efforts": {
-        "autoport-researcher": "high",
-        "autoport-implementer": "medium",
-        "autoport-tester": "medium"
-      }
+    "_doc": "Single source of truth for model + effort across the autoport harness. Flip 'active' to switch the WHOLE setup (orchestrator manager, subagent workers, supervisor) in one place, then run .autoport/apply-model-profile.sh and relaunch. orchestrator.py and supervisor.sh read this live; apply-model-profile.sh regenerates the .claude/agents/*.md effort frontmatter (the only spot that can't read JSON at runtime).",
+    "active": "fable-tiered",
+    "profiles": {
+        "opus-xhigh": {
+            "_note": "2026-06-13: claude-fable-5[1m] returns 404 for this account; opus-4-8 everywhere, effort pushed to xhigh to recover quality. The fable-tiered medium tiers all map up to xhigh per owner.",
+            "manager_model": "claude-opus-4-8[1m]",
+            "manager_effort": "xhigh",
+            "worker_model": "claude-opus-4-8[1m]",
+            "worker_efforts": {
+                "autoport-researcher": "xhigh",
+                "autoport-implementer": "xhigh",
+                "autoport-tester": "xhigh"
+            }
+        },
+        "fable-tiered": {
+            "_note": "Original 2026-06-12 design: fable-5[1m] manager @ high + opus-4-8 workers tiered (researcher high, implementer/tester medium). DEAD until fable-5[1m] access returns (404 as of 06-13); kept for one-flip restore.",
+            "manager_model": "claude-fable-5[1m]",
+            "manager_effort": "high",
+            "worker_model": "claude-opus-4-8[1m]",
+            "worker_efforts": {
+                "autoport-researcher": "high",
+                "autoport-implementer": "medium",
+                "autoport-tester": "medium"
+            }
+        }
     }
-  }
 }
