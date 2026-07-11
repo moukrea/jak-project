@@ -130,6 +130,21 @@ grep -qiE '(ground|tfrag|floor).*(baked|vertex ?colou?r|lightmap).*(sample|read|
 grep -qiE '(baked|ground).*(dark).*(grass|blade|match)|grass.*match.*(baked|ground) (dark|light)' "$R" || fail "polish#9: prove the grass matches the ground where the BAKED light is dark (device capture)"
 ok "polish#9 (per-triangle edges, ground baked-light sampling, match-dark proof) addressed"
 
+# OWNER POLISH#10 2026-07-11: per-BLADE edge clip (not block-granular); lighting is DONE
+grep -qiE '(per.?blade|per.?instance|each (blade|instance)).*(point.?in.?triangle|triangle|inside|test|clip)|point.?in.?triangle.*(per.?blade|per.?instance|each)' "$R" || fail "polish#10: edge test must be PER-BLADE (each instance base point-in-triangle), NOT per-block"
+grep -qiE '(not|no).*(block|chunk).?granular|not (accept|reject).*(block|chunk|whole)|individual.*(blade|instance)' "$R" || fail "polish#10: must NOT accept/reject whole blocks/chunks — evaluate each candidate blade individually"
+grep -qiE '(border|edge|bord).*(exact|clean|stop|hug|no (overflow|hole|blade beyond))|grass stops.*edge' "$R" || fail "polish#10: grass must stop EXACTLY at the border (no overflow, no bald margin) — device border screencap"
+grep -qiE 'lighting.*(perfect|done|keep|unchanged|preserv)|day.?cycle.*(keep|preserv|unchanged)' "$R" || fail "polish#10: must keep the (now perfect) day-cycle lighting"
+ok "polish#10 (per-blade edge clip, clean border, lighting kept) addressed"
+
+# OWNER POLISH#11 2026-07-11: REAL edge fix — floating overflow + holes, PROVEN by a device edge close-up
+grep -qiE '(floating|overflow|dépass|past.*(edge|platform|rim|silhouette)).*(root|cause|fix|clip|rim|overhang|blade (height|width))' "$R" || fail "polish#11: must root-cause + fix the FLOATING overflow past the platform (overhang tris and/or blade height/width at rim)"
+grep -qiE '(hole|bald|margin|gap).*(edge|border|rim).*(fix|not (drop|inset)|true (rim|boundary))|inset.*(too|only true)' "$R" || fail "polish#11: must fix the bald holes near edges (do not inset except at TRUE rims)"
+CLOSEUP=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p11_edge_closeup*.png' -newermt '-1 day' 2>/dev/null | grep -v '/x86/' | head -1)
+[ -n "$CLOSEUP" ] || fail "polish#11: MISSING the device platform-EDGE close-up (p11_edge_closeup_*.png) that proves grass stops exactly at the rim — a wide spawn shot does NOT count"
+SZC=$(stat -c %s "$CLOSEUP" 2>/dev/null||echo 0); [ "$SZC" -ge 20000 ] || fail "polish#11: edge close-up too small ($SZC B)"
+ok "polish#11 edge close-up present ($CLOSEUP) — supervisor must eyeball before release"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"

@@ -284,6 +284,11 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   float rej_upness_area = 0.f;
   int rej_up_moderate = 0;     // of those, moderate slope (0.20..GROUND_UPNESS) = edge lips we still miss
   float min_kept_upness = 1.0f;
+  // POLISH#10: world-space verts (x,y,z x3) of grass-textured tris the upness gate rejected (steep
+  // edge LIPS). Their edges feed the boundary classifier below so a kept FLAT top triangle whose
+  // shoulder edge is shared with a rejected lip is treated as INTERIOR (grass fills to the shoulder),
+  // not a false BOUNDARY that would leave a bald fringe short of the real platform rim.
+  std::vector<std::array<float, 9>> rej_lip_verts;
 
   // POLISH#8: prepare the CURRENT time-of-day interpolation weights (rs->itimes, copied from the
   // pc-data this frame in update_render_state_from_pc_settings) so each ground triangle's baked luma
@@ -435,6 +440,10 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
           rej_upness++;
           rej_upness_area += area_m2;
           if (upness >= 0.20f) rej_up_moderate++;  // moderate-slope edge lips we still miss (vs walls)
+          // POLISH#10: remember this grass-textured lip's edges so the boundary classifier does not
+          // treat the kept top triangle's shared shoulder edge as a rim (avoids a bald fringe there).
+          rej_lip_verts.push_back(
+              {p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z});
           return;
         }
         min_kept_upness = std::min(min_kept_upness, upness);
@@ -525,7 +534,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       return lo * 0x9e3779b97f4a7c15ull + (hi ^ (hi >> 29));
     };
     std::unordered_map<u64, int> edge_count;
-    edge_count.reserve(tris.size() * 3 + 16);
+    edge_count.reserve((tris.size() + rej_lip_verts.size()) * 3 + 16);
     for (const auto& r : tris) {
       u64 va = vkey(r.p0x, r.p0y, r.p0z);
       u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
@@ -534,6 +543,15 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       edge_count[ekey(vb, vc)]++;  // BC
       edge_count[ekey(vc, va)]++;  // CA
     }
+    // POLISH#11: DO NOT fold the rejected steep-lip tris into the edge count. POLISH#10 did — to keep
+    // a flat top's shoulder edge (shared with a rejected steep grass lip) from reading as a rim and
+    // fringing the grass short of it. But that reclassified ~960 real platform-top SHOULDER edges as
+    // INTERIOR (rim edges 2107 -> 1147), so grass got NO edge clip there and spilled past the shoulder
+    // over the void = the owner's FLOATING OVERFLOW. A rim is now strictly an edge used by exactly ONE
+    // KEPT grass triangle — the true outer boundary of the grass patch. The bald-fringe that motivated
+    // the merge is prevented a different way: PHASE 2 no longer DROPS blades near a rim (that was the
+    // fringe); the shader SHRINKS each blade's horizontal reach to the rim, so grass fills right up to
+    // the shoulder AND cannot cross it. (rej_lip_verts is kept only for the diagnostic count below.)
     for (auto& r : tris) {
       u64 va = vkey(r.p0x, r.p0y, r.p0z);
       u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
@@ -604,14 +622,28 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   for (size_t tj = 0; tj < tris.size(); ++tj) {
     std::memcpy(m_tri_light[tj].pal, tris[tj].pal, sizeof(m_tri_light[tj].pal));
   }
-  // POLISH#9: precise point-in-triangle EDGE inset (world units). A candidate closer than this to a
-  // BOUNDARY edge is rejected so the blade geometry (width + forward bend) never spills past the
-  // platform rim; interior seams (shared edges) are never inset, so coverage stays full across tris.
-  const float EDGE_INSET = 0.10f * U;
+  // POLISH#11: PER-BLADE edge clip via a GEOMETRIC HARD CLAMP — the root fix for BOTH the floating
+  // overflow AND the bald holes that POLISH#9/#10 kept trading off. Each blade stores rim_dist: the
+  // perpendicular distance from its base to the NEAREST TRUE RIM edge (an edge used by exactly one
+  // KEPT grass triangle = the grass patch's true outer boundary). The vertex shader clamps every
+  // blade's TOTAL horizontal (XZ) offset — width + static bend + breeze sway + trample — to rim_dist,
+  // so no part of any blade can cross its nearest rim, whatever its yaw or its dynamic motion. Because
+  // rim_dist is the MIN over the triangle's rim edges and the base is inside the (convex) triangle, an
+  // offset magnitude <= rim_dist provably stays on the inner side of EVERY rim.
+  //   * Overflow is impossible: the geometry is CLAMPED, not merely leaned. POLISH#10 leaned the bend
+  //     inward only partially (blend = 1 - dmin/reach), so blades in the 0.5..1.0 reach band still
+  //     tipped out; and its rej_lip merge (removed above) had hidden the real shoulders. Both gone.
+  //   * Holes are impossible: nothing is DROPPED near a rim (POLISH#9 dropped a ~10 cm ring = the bald
+  //     fringe). Blades keep FULL HEIGHT to the rim; only their horizontal spread shrinks, so the lawn
+  //     is full to the exact edge. Interior blades (rim_dist = NO_RIM) are completely untouched.
+  // Every candidate blade is judged by its OWN base — no block/chunk is accepted or rejected as a unit.
+  const float DROP_EPS = 0.005f * U;    // drop only a degenerate sliver whose base is < 5 mm from a rim
+  const float NO_RIM = 1.0e9f;          // rim_dist sentinel for a blade with no rim edge in its triangle
 
   m_instances.reserve(std::min<size_t>(budget, (size_t)(total_area_m2 * density) + 64));
   m_inst_tri.reserve(m_instances.capacity());
-  int edge_clipped = 0;
+  int edge_dropped = 0;   // degenerate rim slivers dropped individually (per-blade, NOT whole blocks)
+  int edge_clamped = 0;   // near-rim blades whose horizontal reach the shader will clamp to the rim
   for (size_t tj = 0; tj < tris.size(); ++tj) {
     const auto& r = tris[tj];
     if ((int)m_instances.size() >= budget) break;
@@ -629,36 +661,33 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         r1 = 1.0f - r1;
         r2 = 1.0f - r2;
       }
-      // POLISH#9 EDGE CLIP: barycentric weights (A,B,C) = (1-r1-r2, r1, r2). The perpendicular
-      // distance to the edge OPPOSITE a vertex is weight * (2*area / edge_len) = weight*nlen/len.
-      // Reject if within EDGE_INSET of a BOUNDARY edge — precise to the real triangle boundary, so
-      // no overflow past the platform edge and no coarse block/grid artifacts at the borders.
+      // POLISH#11 per-blade rim distance. Barycentric weights (A,B,C) = (1-r1-r2, r1, r2). The blade's
+      // perpendicular distance to the edge OPPOSITE a vertex is weight*(2*area/edge_len) =
+      // weight*nlen/len (world units). dmin = distance to the NEAREST TRUE RIM edge of THIS triangle.
       float wA = 1.0f - r1 - r2, wB = r1, wC = r2;
-      if ((r.bBC && wA * r.nlen < EDGE_INSET * r.lenBC) ||   // edge BC is opposite A
-          (r.bCA && wB * r.nlen < EDGE_INSET * r.lenCA) ||   // edge CA is opposite B
-          (r.bAB && wC * r.nlen < EDGE_INSET * r.lenAB)) {   // edge AB is opposite C
-        edge_clipped++;
-        continue;
-      }
+      float dmin = NO_RIM;
+      if (r.bBC) { float d = wA * r.nlen / r.lenBC; if (d < dmin) dmin = d; }  // edge BC opposite A
+      if (r.bCA) { float d = wB * r.nlen / r.lenCA; if (d < dmin) dmin = d; }  // edge CA opposite B
+      if (r.bAB) { float d = wC * r.nlen / r.lenAB; if (d < dmin) dmin = d; }  // edge AB opposite C
+      // The ONLY per-blade rejection is a degenerate sliver whose base sits < 5 mm from the rim.
+      if (dmin < DROP_EPS) { edge_dropped++; continue; }
+
       GrassInstance gi;
       gi.px = r.p0x + r1 * r.e1x + r2 * r.e2x;
       gi.py = r.p0y + r1 * r.e1y + r2 * r.e2y;
       gi.pz = r.p0z + r1 * r.e1z + r2 * r.e2z;
       gi.h = BASE_H * (0.50f + 1.55f * hash_f(sd + 3u));   // OWNER POLISH#3: wider SIZE variation
-      gi.yaw = hash_f(sd + 4u) * 6.2831853f;
       gi.tint = hash_f(sd + 5u);
       gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);          // wider CURVATURE variation
       gi.phase = hash_f(sd + 7u);
-      gi.gr = r.gr; gi.gg = r.gg; gi.gb = r.gb;  // POLISH#4 ground colour
-      // POLISH#8: per-instance LOCATION-AWARE baked light. r.raw_baked is now the CURRENT-TIME
-      // interpolated ground luma (full per-location lit-vs-shadow contrast, sampled the same way the
-      // ground vertex is rendered). Convert to the ground's own multiplier (luma/128, neutral 1.0 at
-      // 128 — the factor tfrag/TIE multiply the ground texture by) and AMPLIFY the deviation around the
-      // level mean (LIGHT_GAIN) so a shaded blade reads clearly darker and a lit blade clearly brighter,
-      // matching the ground beneath at each location. POLISH#7 used the 8-palette AVERAGE luma, which
-      // washed the contrast into one near-constant value -> "le même lighting pickup appliqué à la
-      // totalité de l'herbe" (owner polish#8). Clamp [0.30,1.45] so deep shade isn't black / lit not flashy.
-      gi.gspare = std::min(1.45f, std::max(0.30f, meanf + LIGHT_GAIN * (r.raw_baked / 128.0f - meanf)));
+      gi.yaw = hash_f(sd + 4u) * 6.2831853f;               // POLISH#11: fully random yaw; the shader's
+                                                           // rim clamp (not a CPU lean) keeps geometry in-bounds
+      gi.gr = r.gr; gi.gg = r.gg; gi.gb = r.gb;            // POLISH#4 ground colour
+      // POLISH#11: the (shader-unused) 4th ground-colour slot now carries rim_dist for the shader clamp.
+      // The DYNAMIC per-location baked light travels in its own u8 buffer (loc 3, inst_light), so this
+      // float slot is free — repurposing it needs no vertex-layout change and does NOT touch lighting.
+      gi.gspare = dmin;   // = rim_dist (world units); NO_RIM for interior blades -> shader never clamps
+      if (dmin < (gi.curve + 0.5f) * gi.h) edge_clamped++;  // blades the shader will actually clamp
       m_instances.push_back(gi);
       m_inst_tri.push_back((u32)tj);   // POLISH#9: remember which triangle this blade grows from
     }
@@ -845,12 +874,16 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       "[recharged-grass] POLISH#8 EDGE upness {:.2f}: grass-tex tris dropped by upness {} ({:.0f} m2), "
       "of which {} moderate-slope (0.20..{:.2f}, edge lips); minKeptUpness {:.2f}.",
       GROUND_UPNESS, rej_upness, rej_upness_area, rej_up_moderate, GROUND_UPNESS, min_kept_upness);
-  // POLISH#9 PRECISE EDGE CLIP: how many candidates the per-triangle boundary inset rejected (they
-  // would have spilled past the platform rim). boundaryEdges = rim edges found; edgeInset in metres.
+  // POLISH#11 PER-BLADE EDGE CLAMP: each blade judged by its OWN base (no block accept/reject).
+  // boundaryEdges = TRUE rim edges (rej_lip merge removed -> real platform shoulders are rims again;
+  // POLISH#10 had collapsed this from ~2107 to 1147, which is what let grass overflow shoulders).
+  // edgeDropped = sub-5 mm degenerate rim slivers; edgeClamped = near-rim blades the shader will
+  // horizontally clamp to the rim (full height, no overflow past the edge, no bald fringe).
   lg::info(
-      "[recharged-grass] POLISH#9 EDGE clip: {} boundary (rim) edges; {} candidates clipped within "
-      "{:.2f} m of a boundary edge (point-in-triangle, no overflow past the edge, interior seams full).",
-      boundary_edges, edge_clipped, EDGE_INSET / U);
+      "[recharged-grass] POLISH#11 PER-BLADE edge CLAMP: {} true-rim edges; {} degenerate rim slivers "
+      "dropped (<{:.3f} m); {} near-rim blades horizontally CLAMPED to the rim by the shader (full "
+      "height, no overflow, no bald fringe; interior blades untouched).",
+      boundary_edges, edge_dropped, DROP_EPS / U, edge_clamped);
   // POLISH#4 "still-missing platforms" diagnostic: any ground-ish texture we did NOT place on.
   for (const auto& kv : unmatched_ground) {
     lg::info("[recharged-grass] UNMATCHED ground-ish texture '{}' ({} draws) — not placed",

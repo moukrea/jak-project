@@ -438,3 +438,57 @@ live. Do it PERFORMANTLY:
   frame. Cache it on the instance between updates.
 - Do NOT re-scan geometry or per-blade-per-frame CPU sample — that would tank fps. The gate's fps
   ON-vs-OFF device report must stay acceptable (this is how a naive impl gets caught).
+
+## OWNER POLISH ROUND #10 (2026-07-11) — LIGHTING PERFECT; only edges left (block-granular, must be per-BLADE)
+Owner quote (verbatim, French):
+"Alors pour la dernière itération, le lighting est enfin parfait ! On a bien l'herbe qui suit tout au
+long de la journée, c'est nickel ! Par contre on a toujours des brins qui dépassent des bordures et
+des zones vide près des bordures sans herbe où du coup on a que la texture plate ça fait tâche encore !
+L'idée de faire par triangle, on dirait que tu fais genre si ça fit pas, on met pas le block d'herbe,
+si ça déborde un peu on met le block d'herbe quitte à ce que ça déborde au lieu de cut sur le triangle...
+Enfin un truc comme ça... On y est vraiment presque, ça claque !"
+
+DONE (do NOT regress): the day-cycle lighting is PERFECT — grass follows time-of-day correctly.
+ONLY ITEM #10 — EDGE PLACEMENT is still BLOCK-GRANULAR, not per-blade:
+- Symptom: blades STILL overflow past platform borders, AND empty zones near borders have no grass
+  (flat texture shows, clashes).
+- Owner's precise diagnosis (correct): the per-triangle test is applied at BLOCK granularity — a whole
+  grass BLOCK is placed if it roughly fits and skipped if it doesn't, "if it overflows a bit you place
+  the block anyway instead of cutting at the triangle". So near edges you get either overflow (block
+  kept) or holes (block dropped).
+- FIX: the point-in-triangle test must be PER-BLADE (per individual instance), NOT per-block. Test EACH
+  blade's OWN base position: it spawns iff its base is inside a grass-textured triangle; otherwise it is
+  dropped individually. This gives a clean per-blade boundary that hugs the exact triangle edge — no
+  overflow past the border, no bald holes near the border. (If placement is chunk/grid-based, evaluate
+  each candidate instance individually within the chunk against the triangle set; do not accept/reject
+  whole chunks/blocks.)
+- Prove on device: a platform border screencap where the grass stops EXACTLY at the edge (no blade
+  beyond it, no bald flat-texture margin inside it).
+Keep culling DROPPED=0 + lighting + all prior fixes. Owner REMOTE — re-push when the borders are clean.
+
+## OWNER POLISH ROUND #11 (2026-07-11) — EDGES STILL BROKEN (floating overflow + holes). No more claims without a DEVICE EDGE CLOSE-UP.
+Owner quote (verbatim, French):
+"on a encore de L'herbe qui dépasse des plateformes (flottante) et des zones sans herbes, tu t'es
+foutu de ma gueule là t'a pas fait ce qui était annoncé c'est pas possible !"
+
+REALITY: the round#9/#10 boundary-classification + inset heuristics FAILED — the platform edges STILL
+show (a) FLOATING grass past the platform silhouette AND (b) bald holes near borders. The current model
+(GrassRenderer.cpp: bAB/bBC/bCA boundary flags, lip-sharing, per-edge insets, GROUND_UPNESS 0.35) is
+not converging — it produces BOTH symptoms at once. STOP layering heuristics; find the ROOT of the two
+distinct symptoms and fix each:
+1. FLOATING OVERFLOW (grass beyond the visible platform, over the void): this is NOT solved by a
+   point-in-triangle test alone, because the grass-textured MESH triangles themselves can extend past
+   the visible platform silhouette (overhang), and/or a blade's HEIGHT/WIDTH at the rim pokes out over
+   the edge. Diagnose which: (a) do the grass tris overhang the visible edge? (compare tri extent vs the
+   platform rim) and/or (b) is it blade height/width at rim instances? Fix the actual cause — e.g. clip
+   instances to the true rim (not the raw tri extent), and/or shrink/omit blades within one blade-radius
+   of a true boundary edge so no geometry crosses the rim.
+2. HOLES NEAR EDGES: the boundary inset is too aggressive / mis-classifies interior seams as boundaries,
+   leaving a bald margin short of the rim. An instance's base inside a grass tri must NOT be dropped just
+   for being near an edge unless that edge is a TRUE platform rim.
+MANDATORY VERIFICATION (this is the new gate — the report keyword pass is NOT enough):
+- Produce a DEVICE CLOSE-UP screencap of an actual platform EDGE (walk Jak to a platform rim, camera on
+  the border) named `p11_edge_closeup_*.png`, clearly showing grass stopping EXACTLY at the rim — NO
+  blade floating past it, NO bald flat-texture margin inside it. The supervisor will EYEBALL this exact
+  close-up before any release; a wide spawn shot does NOT count.
+Keep culling DROPPED=0 + the (perfect) lighting + all prior fixes. Owner REMOTE.
