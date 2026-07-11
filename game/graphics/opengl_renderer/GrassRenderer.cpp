@@ -72,6 +72,19 @@ constexpr float BASE_H = 1550.0f;         // ~0.38 m nominal blade height (owner
 // to catch these grass-textured edge lips: 0.50 -> 0.35 (rejects only faces steeper than ~69.5°, so
 // near-vertical walls are still out). Grass now reaches the actual grass-textured platform edges.
 constexpr float GROUND_UPNESS = 0.35f;    // face-normal.y threshold for "walkable ground" (POLISH#8: edges)
+// OWNER POLISH#12 / SUPERVISOR DIAGNOSIS (2026-07-11): the floating overflow the owner STILL saw past
+// platform borders after POLISH#11 is NOT blade geometry crossing the rim (the shader hard-clamps that)
+// — it is blade BASES placed on the steep grass-textured EDGE-LIP triangles POLISH#8 admitted when it
+// relaxed the upness net to 0.35. Those lips face OUTWARD/DOWNWARD over the drop, so a base ON the lip
+// hangs past the visible platform silhouette (= "l'herbe qui dépasse, flottante"), and the shader rim-
+// clamp cannot help because it only limits offset FROM the base. FIX (PHASE 1.5 below): keep the lip
+// tris in the KEPT set for texture/coverage accounting, but do NOT place BASES on a tri that is (a)
+// tilted (upness < UPNESS_LIP_MAX) AND (b) an OVERHANG — its lowest/downhill edge opens into void (used
+// by no OTHER grass triangle). Continuous gentle slopes (downhill edge shared with more grass) still get
+// grass, so the POLISH#3 sloped-platform coverage does NOT regress. Excluding the lip makes the shoulder
+// edge (flat-top<->lip) a TRUE RIM again, so the flat top's near-shoulder blades are spread-clamped to it
+// (POLISH#11) and grass fills to the exact top edge with none hanging past it.
+constexpr float UPNESS_LIP_MAX = 0.55f;   // below this a tilted tri MAY be an overhang rim-lip (PHASE 1.5)
 constexpr float MAX_TRI_AREA = 300.0f;    // m^2; reject implausibly huge (spurious) triangles
 constexpr float D_TARGET = 150.0f;        // tufts/m^2 uniform (dense lawn); auto-reduced to fit budget
 // OWNER POLISH#3: density++ (owner's #1 ask, 3rd time). The uniform field is budget-
@@ -273,6 +286,8 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     float nlen;                    // |cross(e1,e2)| = 2*area (world^2), for perpendicular distances
     float lenAB, lenBC, lenCA;     // edge lengths: AB=|e1|, BC=|C-B|=|e2-e1|, CA=|e2|
     bool bAB, bBC, bCA;            // is this edge a BOUNDARY (platform rim) vs an interior seam
+    float upness;                  // POLISH#12: face-normal.y / |n| (1 = flat top, ~0 = wall)
+    bool is_lip;                   // POLISH#12: overhang rim-lip -> excluded from BASE placement
     // POLISH#9 dynamic ground baked-light: this triangle's centroid palette rows (8 keyframes x rgb),
     // averaged over its 3 vertices, so update_light() can re-interpolate at the current time of day.
     float pal[8][3];
@@ -452,6 +467,8 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         r.e1x = e1x; r.e1y = e1y; r.e1z = e1z;
         r.e2x = e2x; r.e2y = e2y; r.e2z = e2z;
         r.area_m2 = area_m2;
+        r.upness = upness;   // POLISH#12: kept for the PHASE 1.5 overhang-lip classifier
+        r.is_lip = false;
         r.gr = gcr; r.gg = gcg; r.gb = gcb;
         float bl = (vlum(a) + vlum(b) + vlum(ci)) * (1.0f / 3.0f);  // POLISH#6 triangle baked luma
         r.raw_baked = bl;
@@ -513,29 +530,71 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     }
   }
 
-  // ---- POLISH#9: classify triangle edges BOUNDARY vs INTERIOR for precise edge clipping. ----
-  // An edge shared by TWO kept grass triangles is an INTERIOR seam (grass must cross it with full
-  // coverage); an edge used by only ONE triangle is a BOUNDARY = the platform rim. PHASE 2 rejects
-  // scatter candidates within a small inset of a BOUNDARY edge, so blades never spill past the
-  // platform edge (owner: "l'herbe qui va un peu trop loin, débordant de la plateforme") while
-  // interior seams stay full (no bald holes on some borders). Weld vertices at 1 cm so shared
-  // edges match. Camera-independent + stable per load (same field every time).
+  // ---- POLISH#12 (PHASE 1.5): flag OVERHANG rim-lip tris, then classify edges BOUNDARY vs INTERIOR. ----
+  // Vertex weld at 1 cm so shared edges of adjacent tris hash to the same key. Camera-independent +
+  // stable per load (same field every time).
+  const float QUANT = 0.01f * U;  // 1 cm vertex weld
+  auto vkey = [QUANT](float x, float y, float z) -> u64 {
+    s64 qx = (s64)std::llround(x / QUANT);
+    s64 qy = (s64)std::llround(y / QUANT);
+    s64 qz = (s64)std::llround(z / QUANT);
+    return (u64)(qx * 73856093LL) ^ (u64)(qy * 19349663LL) ^ (u64)(qz * 83492791LL);
+  };
+  auto ekey = [](u64 va, u64 vb) -> u64 {
+    u64 lo = va < vb ? va : vb, hi = va < vb ? vb : va;
+    return lo * 0x9e3779b97f4a7c15ull + (hi ^ (hi >> 29));
+  };
   int boundary_edges = 0;
+  int lip_excluded = 0;         // POLISH#12: overhang rim-lip tris whose BASES are excluded (no floating)
+  float lip_excluded_area = 0.f;
+  float min_placed_upness = 1.0f;
   {
-    const float QUANT = 0.01f * U;  // 1 cm vertex weld
-    auto vkey = [QUANT](float x, float y, float z) -> u64 {
-      s64 qx = (s64)std::llround(x / QUANT);
-      s64 qy = (s64)std::llround(y / QUANT);
-      s64 qz = (s64)std::llround(z / QUANT);
-      return (u64)(qx * 73856093LL) ^ (u64)(qy * 19349663LL) ^ (u64)(qz * 83492791LL);
-    };
-    auto ekey = [](u64 va, u64 vb) -> u64 {
-      u64 lo = va < vb ? va : vb, hi = va < vb ? vb : va;
-      return lo * 0x9e3779b97f4a7c15ull + (hi ^ (hi >> 29));
-    };
-    std::unordered_map<u64, int> edge_count;
-    edge_count.reserve((tris.size() + rej_lip_verts.size()) * 3 + 16);
+    // (1) PROVISIONAL edge count over ALL loose-kept grass tris (upness > GROUND_UPNESS). Used only to
+    // decide, for each TILTED tri, whether its lowest/downhill edge opens into VOID (used by no other
+    // grass tri = an overhanging platform lip) or continues onto MORE grass (a genuine slope to keep).
+    std::unordered_map<u64, int> prov;
+    prov.reserve(tris.size() * 3 + 16);
     for (const auto& r : tris) {
+      u64 va = vkey(r.p0x, r.p0y, r.p0z);
+      u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
+      u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
+      prov[ekey(va, vb)]++;
+      prov[ekey(vb, vc)]++;
+      prov[ekey(vc, va)]++;
+    }
+    // (2) OVERHANG-LIP classification. A tri is an overhang rim-lip (base-excluded) iff it is tilted
+    // (upness < UPNESS_LIP_MAX) AND its LOWEST edge (the downhill edge a lip drops off toward) is a
+    // provisional BOUNDARY (count <= 1 = no grass beyond it = the void). Flat/gentle tops (upness >=
+    // UPNESS_LIP_MAX) are NEVER flagged; continuous slopes (downhill edge shared with more grass) keep
+    // their grass -> POLISH#3 sloped-platform coverage is preserved, only the outward-hanging lips go.
+    for (auto& r : tris) {
+      r.is_lip = false;
+      if (r.upness < UPNESS_LIP_MAX) {
+        float Ay = r.p0y, By = r.p0y + r.e1y, Cy = r.p0y + r.e2y;
+        float mAB = Ay + By, mBC = By + Cy, mCA = Cy + Ay;  // 2x edge-midpoint Y (compare only)
+        u64 va = vkey(r.p0x, r.p0y, r.p0z);
+        u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
+        u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
+        u64 low_e = (mAB <= mBC && mAB <= mCA) ? ekey(va, vb)
+                                               : (mBC <= mCA ? ekey(vb, vc) : ekey(vc, va));
+        auto it = prov.find(low_e);
+        if (it != prov.end() && it->second <= 1) {
+          r.is_lip = true;  // downhill edge opens into void => overhang rim lip => no BASES placed here
+          lip_excluded++;
+          lip_excluded_area += r.area_m2;
+        }
+      }
+      if (!r.is_lip) min_placed_upness = std::min(min_placed_upness, r.upness);
+    }
+    // (3) FINAL edge count over ONLY the tris that will actually be placed (lips removed). Now the
+    // shoulder edge a flat top shared with an excluded lip is used ONCE = a TRUE RIM, so PHASE 2 stamps
+    // its near-shoulder blades with a rim_dist and the POLISH#11 shader clamp holds their spread to the
+    // exact top edge (no overflow past it); interior seams between two PLACED tris stay shared = full
+    // coverage (no bald hole). A rim is strictly the true outer boundary of the placed grass patch.
+    std::unordered_map<u64, int> edge_count;
+    edge_count.reserve(tris.size() * 3 + 16);
+    for (const auto& r : tris) {
+      if (r.is_lip) continue;
       u64 va = vkey(r.p0x, r.p0y, r.p0z);
       u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
       u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
@@ -543,16 +602,11 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       edge_count[ekey(vb, vc)]++;  // BC
       edge_count[ekey(vc, va)]++;  // CA
     }
-    // POLISH#11: DO NOT fold the rejected steep-lip tris into the edge count. POLISH#10 did — to keep
-    // a flat top's shoulder edge (shared with a rejected steep grass lip) from reading as a rim and
-    // fringing the grass short of it. But that reclassified ~960 real platform-top SHOULDER edges as
-    // INTERIOR (rim edges 2107 -> 1147), so grass got NO edge clip there and spilled past the shoulder
-    // over the void = the owner's FLOATING OVERFLOW. A rim is now strictly an edge used by exactly ONE
-    // KEPT grass triangle — the true outer boundary of the grass patch. The bald-fringe that motivated
-    // the merge is prevented a different way: PHASE 2 no longer DROPS blades near a rim (that was the
-    // fringe); the shader SHRINKS each blade's horizontal reach to the rim, so grass fills right up to
-    // the shoulder AND cannot cross it. (rej_lip_verts is kept only for the diagnostic count below.)
     for (auto& r : tris) {
+      if (r.is_lip) {
+        r.bAB = r.bBC = r.bCA = false;
+        continue;
+      }
       u64 va = vkey(r.p0x, r.p0y, r.p0z);
       u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
       u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
@@ -646,6 +700,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   int edge_clamped = 0;   // near-rim blades whose horizontal reach the shader will clamp to the rim
   for (size_t tj = 0; tj < tris.size(); ++tj) {
     const auto& r = tris[tj];
+    if (r.is_lip) continue;   // POLISH#12: overhang rim-lip -> place NO bases (no blade floating past the platform)
     if ((int)m_instances.size() >= budget) break;
     float fn = r.area_m2 * density;
     int n = (int)fn;
@@ -884,6 +939,17 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       "dropped (<{:.3f} m); {} near-rim blades horizontally CLAMPED to the rim by the shader (full "
       "height, no overflow, no bald fringe; interior blades untouched).",
       boundary_edges, edge_dropped, DROP_EPS / U, edge_clamped);
+  // POLISH#12 OVERHANG-LIP EXCLUSION: BASES are no longer placed on steep grass-textured tris whose
+  // lowest/downhill edge opens into void (the platform lip that overhangs the drop) — the true cause of
+  // the owner's persistent FLOATING overflow. Removing the lip promotes the flat top's shoulder to a
+  // real rim so near-shoulder blades clamp to the exact top edge (no overflow) while the flat top still
+  // fills right up to it (no bald margin). lipExcluded = tris made base-free; minPlacedUpness = the
+  // shallowest tri that STILL gets grass (>= the lip band, so no bases hang off the overhanging lips).
+  lg::info(
+      "[recharged-grass] POLISH#12 OVERHANG-LIP: {} lip tris base-excluded ({:.0f} m2, upness < {:.2f} "
+      "AND downhill edge = void); minPlacedUpness {:.2f}. Bases stay on the flat top only -> grass ends "
+      "exactly at the top rim, none floating past the platform silhouette.",
+      lip_excluded, lip_excluded_area, UPNESS_LIP_MAX, min_placed_upness);
   // POLISH#4 "still-missing platforms" diagnostic: any ground-ish texture we did NOT place on.
   for (const auto& kv : unmatched_ground) {
     lg::info("[recharged-grass] UNMATCHED ground-ish texture '{}' ({} draws) — not placed",
