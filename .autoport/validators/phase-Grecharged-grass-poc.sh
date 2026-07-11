@@ -121,7 +121,8 @@ grep -qiE '(shrub).*(alpha|mesh|footprint|occup|bald|around|block|exempt)|alpha.
 grep -qiE '(edge|border|margin|bord).*(platform|surface|grass|reach|fill|extend)|reach.*(edge|border)' "$R" || fail "polish#8: grass must reach the EDGES of grass-textured platforms (no bald border margin)"
 grep -qiE '(per.?instance|per.?location|per.?blade|world.?pos|location.?aware).*(light|sample|luminance)|light.*(per.?instance|per.?location|world.?pos|location.?aware)' "$R" || fail "polish#8: lighting must be PER-INSTANCE/location-aware (sample local light at each blade world pos), NOT one global value"
 grep -qiE '(bright|lit).*(and|vs).*(shad|dark).*(same frame|same beat|differ)|same (frame|beat).*(bright|lit).*(shad|dark)|spatial variation' "$R" || fail "polish#8: prove spatial lighting variation — a bright zone AND shaded zone in the same beat with grass brightness differing"
-ok "polish#8 (shrub patches, platform edges, per-instance lighting, spatial-variation proof) addressed"
+grep -qiE '(dynamic|per.?frame|time.?of.?day|day.?night|re.?sampl|not frozen|not (static|baked once)).*(light|grass)|light.*(dynamic|per.?frame|time.?of.?day|day.?night|re.?sampl)' "$R" || fail "polish#8b: lighting must be DYNAMIC (track the time-of-day cycle, re-sampled), not sampled-once-and-frozen"
+ok "polish#8 (shrub patches, platform edges, per-instance + DYNAMIC lighting, spatial-variation proof) addressed"
 
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"

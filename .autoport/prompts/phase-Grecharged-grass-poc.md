@@ -379,3 +379,13 @@ GOOD (keep): clipping is better. Fix these 3:
    AND a shaded zone in the SAME frame/beat showing the grass brightness differing correctly between
    them.
 Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified.
+
+## OWNER REMINDER on #8 lighting (2026-07-11) — it's DYNAMIC (time-of-day), not frozen
+Owner (verbatim): "Peut-être un détail, le lighting change sur la journée, c'est pas figé, tu
+devrais le savoir mais je te le rappelle quand même"
+=> The per-instance lighting must be DYNAMIC: the scene light changes over the day/night cycle,
+so do NOT sample once at load/placement and freeze it. Re-sample the CURRENT scene/baked light
+(per-frame or as the time-of-day updates) so the grass tracks sunrise/day/dusk/night correctly —
+grass gets brighter at midday, darker at dusk/night, matching the ground at that moment. Both
+LOCATION-aware (per-instance world pos) AND TIME-aware (follows the day cycle). Prove the time
+dimension too if feasible (grass brightness at two different times-of-day differs).
