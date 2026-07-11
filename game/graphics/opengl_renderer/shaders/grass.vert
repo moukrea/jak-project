@@ -35,6 +35,11 @@ uniform int   u_debug;     // ROUND#14 discriminator: 0 normal / 1 base-stubs (m
 // pokes through the object. Y-gated so an object on an upper platform doesn't cull the grass below it.
 uniform vec4 u_occ[16];
 uniform int  u_occ_count;
+// OWNER Q&A 2026-07-12: breakable actors (crates, scarecrows) captured per-frame in Merc2. Same
+// (world pos, radius) layout as u_occ, but these FLATTEN the grass (like Jak's trample) instead of
+// hiding it -> when the object is broken the grass springs back to full height.
+uniform vec4 u_trample[16];
+uniform int  u_trample_count;
 
 out vec3 v_color;
 out float v_alpha;
@@ -207,6 +212,23 @@ void main() {
         trample += vec3(awayl.x, 0.0, awayl.y) * (kl * kl) * H * 1.3;
         heightMul = min(heightMul, 1.0 - kl * 0.8);
       }
+    }
+  }
+
+  // OWNER Q&A 2026-07-12: BREAKABLE actors (crates, scarecrows) FLATTEN the grass like Jak's footstep
+  // instead of culling it -> when the object is broken the grass at its spot is still there and springs
+  // back. Press the blade nearly flat within the object's ground footprint and splay it outward; keep
+  // the blade (no collapse). u_trample[i] = (world pos, footprint radius); Y-gated like the object cull.
+  for (int mi = 0; mi < u_trample_count; ++mi) {
+    vec2 md = base.xz - u_trample[mi].xz;
+    float myd = base.y - u_trample[mi].y;
+    float mr = u_trample[mi].w;
+    if (dot(md, md) < mr * mr && myd > -2.5 * 4096.0 && myd < 1.0 * 4096.0) {
+      float mdist = length(md);
+      float mk = 1.0 - mdist / mr;                       // 1 at object centre -> 0 at footprint edge
+      heightMul = min(heightMul, 1.0 - 0.90 * mk);       // press nearly flat under the object
+      vec2 maway = mdist > 1.0 ? md / mdist : vec2(1.0, 0.0);
+      trample += vec3(maway.x, 0.0, maway.y) * (mk * mk) * H * 1.0;  // splay outward like a footstep
     }
   }
 

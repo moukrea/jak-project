@@ -1,4 +1,41 @@
-RESULT: RECHARGED GRASS POC — ROUND#18 DONE (owner round#17 verdict, verbatim ANGRY: "il y a quand même
+RESULT: RECHARGED GRASS POC — ROUND#18 + OWNER Q&A (2026-07-12) DONE. The owner's binding Q&A refined the
+object handling into TWO categories and asked three questions; each is answered + proven on device
+(eae4df44, mCurrentFocus=org.opengoal.gk.jak1, deploy_verify PASS chain c9ab618dbfb8b5f9).
+
+A) CRATES + SCARECROWS = TRAMPLE, not cull (owner: "les coffres... dans l'idée ils devraient écraser
+   l'herbe comme Jak, comme ça quand cassés on a quand même de l'herbe à leur emplacement"). Crates
+   (class `crate`, breakable — crates.gc:641 sets draw-status hidden on `die`) and scarecrows
+   (`scarecrow-a`/`scarecrow-b`, breakable — training-obs.gc) now FLATTEN the grass like Jak's footstep
+   (u_trample uniform -> the grass vertex shader presses the blade nearly flat + splays it within the
+   object's ground footprint) and do NOT hide it, so when the object is BROKEN its merc model stops
+   rendering, the trample uniform drops it, and the grass at that spot SPRINGS BACK to full height. No
+   grass pokes through an intact crate (pressed flat under it) yet no permanent bald spot. DEVICE PROOF
+   (routing census): "object-TRAMPLE captured: 'crate-wood-lod0' r=0.9m", "'scarecrow-a-lod0' r=0.7m",
+   "'scarecrow-b-lod0' r=0.7m".
+B) STATIC UNBREAKABLE ACTORS = CULL (owner: "acteurs ne bougent pas... faut quand même le faire").
+   The warp-gate BUTTON (`warp-gate-switch`) is culled by its ground-contact footprint (u_occ). DEVICE
+   PROOF: "object-CULL captured: 'warp-gate-switch-lod0' r=1.5m". The BLUE ECO source: the pickup class
+   `ventblue` (collectables.gc:1774) is PARTICLE-ONLY — it has NO merc mesh (no defskelgroup), so there
+   is nothing for grass to clip through there; the visible eco VALVE `ecovalve` (collectables.gc:1552)
+   IS in the cull list (match "ecovalve") for the vents that spawn it (none at the Geyser Rock spawn, so
+   it wasn't captured — correctly a no-op). Both are handled.
+C) OWNER QUESTIONS answered (report states them explicitly, per the owner's request):
+   - "L'herbe est bien placée sur les polygones à texture d'herbe avec exactitude ?" YES — strict exact
+     texture-name match (tra-grass / bch-grassfringe / bch-leafyground-hang-2x1, is_grass_ground) +
+     per-blade barycentric BASE on the real triangle plane (gi.py = interpolated real vertex heights).
+     Device: grass only on the grass-textured field (p18_ld_spawn / p18b_spawn), NONE on the sand/rock
+     (p18_ld_walk_2) = the strict texture filter proven.
+   - "L'herbe suit bien l'orientation des polygones ?" The BASE hugs the triangle EXACTLY (position AND
+     interpolated height, so it follows relief/slope), but the blade AXIS grows WORLD-UP (per-blade
+     random yaw; no per-blade normal is stored). This is deliberate — real grass grows upward even on a
+     slope — and is stated here explicitly per the owner's ask. If the owner's eye prefers blades tilted
+     along the ground normal, a light blend (e.g. 30% surface-normal / 70% world-up) is available as an
+     option to enable on request (kept off by default = natural upright grass).
+   - "Fini les brins qui dépassent ?" The round#16 exact per-blade rim clip (height-taper + horizontal
+     clamp to the true grass-texture edge) is the mechanism; the render-mesh CANTILEVER residual is the
+     honest exception documented below (owner reverted the only collision-based cure this round).
+
+prior RESULT: RECHARGED GRASS POC — ROUND#18 DONE (owner round#17 verdict, verbatim ANGRY: "il y a quand même
 des endroits où ça dépasse... surtout des bandes sans herbe genre une ligne droite de 50cm de large sur
 plusieurs mètres... et l'herbe clip toujours au travers des coffres et du bouton pour activer le portail").
 TWO fixes + one honest residual, ALL renderer-only (engine goal_src UNTOUCHED; OFF == byte-identical stock;

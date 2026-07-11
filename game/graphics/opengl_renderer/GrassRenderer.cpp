@@ -237,13 +237,21 @@ GrassRenderer::~GrassRenderer() {
 namespace grass_occ {
 std::vector<std::array<float, 4>> g_building;
 std::vector<std::array<float, 4>> g_published;
+std::vector<std::array<float, 4>> g_tramp_building;   // OWNER Q&A 2026-07-12: breakable-actor TRAMPLE list
+std::vector<std::array<float, 4>> g_tramp_published;
 void add(float x, float y, float z, float r_world) {
   if (g_building.size() >= 64) return;
   g_building.push_back({x, y, z, r_world});
 }
+void add_trample(float x, float y, float z, float r_world) {
+  if (g_tramp_building.size() >= 64) return;
+  g_tramp_building.push_back({x, y, z, r_world});
+}
 void publish() {
   g_published.swap(g_building);
   g_building.clear();
+  g_tramp_published.swap(g_tramp_building);
+  g_tramp_building.clear();
 }
 }  // namespace grass_occ
 
@@ -1395,6 +1403,16 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
       glUniform4fv(glGetUniformLocation(id, "u_occ"), nocc, &grass_occ::g_published[0][0]);
     }
     glUniform1i(glGetUniformLocation(id, "u_occ_count"), nocc);
+  }
+  // OWNER Q&A 2026-07-12: breakable actors (crates, scarecrows) TRAMPLE the grass (flatten like Jak),
+  // they do NOT cull it -> when the object is broken the grass springs back. Upload up to 16 as
+  // u_trample (xyz = world pos, w = ground-contact radius). u_trample_count == 0 -> no flatten.
+  {
+    int ntr = (int)std::min<size_t>(grass_occ::g_tramp_published.size(), 16);
+    if (ntr > 0) {
+      glUniform4fv(glGetUniformLocation(id, "u_trample"), ntr, &grass_occ::g_tramp_published[0][0]);
+    }
+    glUniform1i(glGetUniformLocation(id, "u_trample_count"), ntr);
   }
 
   glEnable(GL_DEPTH_TEST);

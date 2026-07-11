@@ -702,19 +702,34 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // stock (zero extra work). Substring match covers all crate variants ("crate-wood-lod0" etc.) and the
   // warp-gate switch/arch. radius is the visible ground-contact footprint (kept tight to avoid a halo).
   if (Gfx::g_global_settings.recharged_grass && i > 0) {
+    // OWNER Q&A 2026-07-12: STATIC unbreakable actors (warp-gate button, blue eco valve) -> CULL the
+    // grass; BREAKABLE actors (crates, scarecrows) -> TRAMPLE it (flatten like Jak, NOT hidden), so
+    // when they break the grass at their spot returns. Substring match covers every lod/variant name.
     float r_m = 0.f;
-    if (std::strstr(name, "crate")) {
+    bool trample = false;
+    if (std::strstr(name, "crate")) {                 // breakable -> flatten (grass survives a broken crate)
       r_m = 0.9f;
-    } else if (std::strstr(name, "warp")) {
+      trample = true;
+    } else if (std::strstr(name, "scarecrow")) {      // breakable -> flatten
+      r_m = 0.7f;
+      trample = true;
+    } else if (std::strstr(name, "warp")) {           // static warp-gate button -> cull
       r_m = 1.5f;
+    } else if (std::strstr(name, "ecovalve")) {       // static blue eco valve -> cull
+      r_m = 1.0f;
     }
     int root_slot = input_data[0];  // first bone in the slot string = the root/align joint
     if (r_m > 0.f && root_slot < MAX_SKEL_BONES) {
       const float* t = reinterpret_cast<const float*>(&skel_matrix_buffer[root_slot]);
-      grass_occ::add(t[12], t[13], t[14], r_m * 4096.f);
+      if (trample) {
+        grass_occ::add_trample(t[12], t[13], t[14], r_m * 4096.f);
+      } else {
+        grass_occ::add(t[12], t[13], t[14], r_m * 4096.f);
+      }
       static std::set<std::string> s_seen_occ;
       if (s_seen_occ.insert(name).second) {
-        fmt::print("[recharged-grass] ROUND#18 object-occluder captured: '{}' r={}m\n", name, r_m);
+        fmt::print("[recharged-grass] ROUND#18 object-{} captured: '{}' r={}m\n",
+                   trample ? "TRAMPLE" : "CULL", name, r_m);
       }
     }
   }

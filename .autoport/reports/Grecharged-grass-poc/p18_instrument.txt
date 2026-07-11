@@ -5,3 +5,8 @@
 07-11 23:40:00.701 24092 24166 I opengoal-gk: [recharged-grass] RIMDIST exact-mesh (ROUND#16, raster REMOVED): placed=846185 rim_finite=116292 edge_clamped=51945 edge_dropped=786 | robust true-edge: boundary_edges=1989 vs raw-1cm boundary_raw=1991 (delta=-2), coincident_dups=0, weld_verts=5982 — robust weld/dedup flags the true rims the raw 1cm count missed on TIE multi-fragment platforms (the floating overflow root).
 === any residual ROUND#17 collision log (should be NONE) ===
 0
+=== ROUND#18 + OWNER Q&A 2026-07-12 TRAMPLE/CULL routing (device eae4df44) ===
+object-CULL captured: 'warp-gate-switch-lod0' r=1.5m
+object-TRAMPLE captured: 'crate-wood-lod0' r=0.9m
+object-TRAMPLE captured: 'scarecrow-a-lod0' r=0.7m
+object-TRAMPLE captured: 'scarecrow-b-lod0' r=0.7m
