@@ -1,4 +1,4 @@
-RESULT: RECHARGED GRASS POC — POLISH#10 DONE (PER-BLADE point-in-triangle edge placement; the now-PERFECT day-cycle GROUND baked-light KEPT unchanged). prior RESULT: RECHARGED GRASS POC — POLISH#9 (per-triangle edge + GROUND baked-light) / POLISH#8 (shrub patches + platform edges + per-location lighting).
+STATUS: IN-PROGRESS (polish#11 - REAL edge fix, floating overflow + holes, device edge close-up required) - prior RESULT: RECHARGED GRASS POC — POLISH#10 DONE (PER-BLADE point-in-triangle edge placement; the now-PERFECT day-cycle GROUND baked-light KEPT unchanged). prior RESULT: RECHARGED GRASS POC — POLISH#9 (per-triangle edge + GROUND baked-light) / POLISH#8 (shrub patches + platform edges + per-location lighting).
 
 ====================================================================================
 OWNER POLISH#10 (2026-07-11) — PER-BLADE point-in-triangle edge placement (lighting kept)
