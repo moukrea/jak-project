@@ -1,0 +1,27 @@
+07-11 21:05:14.594 10467 10543 I opengoal-gk: [recharged-grass] RIMDIST exact-mesh (ROUND#16, raster REMOVED): placed=846185 rim_finite=116292 edge_clamped=51945 edge_dropped=786 | robust true-edge: boundary_edges=1989 vs raw-1cm boundary_raw=1991 (delta=-2), coincident_dups=0, weld_verts=5982 — robust weld/dedup flags the true rims the raw 1cm count missed on TIE multi-fragment platforms (the floating overflow root).
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 0 pos="-1296.8 55.0 987.2" y=55.0m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 1 pos="-1295.9 54.8 989.3" y=54.8m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 2 pos="-1295.5 54.6 990.3" y=54.6m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 3 pos="-1299.3 53.1 983.9" y=53.1m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 4 pos="-1310.3 52.8 988.8" y=52.8m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 5 pos="-1302.0 52.7 979.6" y=52.7m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 6 pos="-1308.6 52.5 1000.1" y=52.5m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 7 pos="-1309.6 52.3 990.6" y=52.3m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 8 pos="-1318.4 52.3 966.6" y=52.3m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 9 pos="-1321.6 52.2 962.4" y=52.2m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 10 pos="-1324.3 52.2 973.8" y=52.2m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 11 pos="-1328.7 52.2 965.3" y=52.2m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 12 pos="-1309.8 52.2 979.2" y=52.2m tfrag (level.warp.pos)
+07-11 21:05:18.020 10467 10543 I opengoal-gk: [recharged-grass] RIMCAND 13 pos="-1319.4 52.2 964.1" y=52.2m tfrag (level.warp.pos)
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #1 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 44 / mean 157 / max 245 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] training STATIC place (whole-level, camera-independent): 8 grass-ground draws (2 TIE), 9829 tris kept (giant 0, maxArea 10m2), area 19325 m2, density 45/m2 -> 723796 instances in 387 chunks (POLISH#5 density 150% -> budget 960000). ROUND#13 PER-INSTANCE object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled 122389 of 846185 instances (14.464%) — each blade tested vs 82602 NON-grass-TIE object-point buckets (grass-TIE platforms EXCLUDED = no self-cull) within radius 0.45m + contact band [0.05,1.00]m; a blade is culled ONLY if a real object vertex is that close, so OPEN grass (no object) is NEVER culled = occ ~0 there, NO block-shaped bald holes. No camera window, no move-rebuild -> nothing de-instances while moving.
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] POLISH#8 LIGHT location-aware: itimesValid=1 bakedRef(cur) 163 -> meanf 1.28; per-tri bakedLuma min 44 / mean 158 / max 246 / std 60.3; gain 1.30 -> gspare spans ~[0.30..1.45] (shade darkens, lit brightens per-location).
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] POLISH#8 EDGE upness 0.35: grass-tex tris dropped by upness 1283 (794 m2), of which 600 moderate-slope (0.20..0.35, edge lips); minKeptUpness 0.35.
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] POLISH#11 PER-BLADE edge CLAMP: 1989 true-rim edges; 786 degenerate rim slivers dropped (<0.005 m); 51945 near-rim blades horizontally CLAMPED to the rim by the shader (full height, no overflow, no bald fringe; interior blades untouched).
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] ROUND#13 OVERHANG-LIP (transitive): 646 lip tris base-excluded (80 TIE / 566 tfrag, 381 m2, upness < 0.55 AND downhill chain = void); minPlacedUpness 0.35. Bases stay on the flat walkable top only -> grass ends exactly at the top rim on tfrag AND distant TIE platforms, none floating past the platform silhouette into the void.
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] UNMATCHED ground-ish texture 'tra-beachrock' (9 draws) — not placed
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] UNMATCHED ground-ish texture 'bch-beach-01' (1 draws) — not placed
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] UNMATCHED ground-ish texture 'jng-smallrocks01' (2 draws) — not placed
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-grass' (1 draws) — not placed
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] UNMATCHED ground-ish texture 'v2-coral-rockbase' (1 draws) — not placed
+07-11 21:05:18.067 10467 10543 I opengoal-gk: [recharged-grass] UNMATCHED ground-ish texture 'vil1-medres-rock' (5 draws) — not placed
