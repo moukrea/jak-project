@@ -21,10 +21,15 @@ alpha-tested transparent surfaces from the AO-depth (only truly OPAQUE geometry 
 handle alpha-tested with proper coverage. Verify explicitly on a foliage/grass-card beat: no square
 shadow on transparent bits.
 
-## Toggle + scope
-Recharged Settings row "AMBIENT OCCLUSION" ON/OFF, persisted, default OFF (OFF == byte-identical stock).
-Optional quality/strength setting. Engine goal_src untouched (renderer/pc layer only). Report fps ON/OFF
-on device (SSAO is fill-heavy — must stay playable; tune radius/samples/res).
+## Quality selector (owner 2026-07-11) — NOT a simple ON/OFF
+Recharged Settings row: "Ambient Occlusion (SSAO): Off / Low / Medium / High", persisted, default Off
+(Off == byte-identical stock). The tiers are the SAME SSAO shader scaled by RESOLUTION + SAMPLE COUNT:
+- Low    = quarter-res AO buffer, few samples, cheap blur (weak devices).
+- Medium = half-res, more samples, depth-aware blur.
+- High   = FULL resolution, full samples (owner: High = pleine résolution). High MAY use HBAO
+           (horizon-based) for better quality if fps holds on the Adreno 618; otherwise full-res SSAO.
+Engine goal_src untouched (renderer/pc layer only). Report fps at EACH tier on device (SSAO is
+fill-heavy — each tier must stay playable; if High is too heavy on the Redmi, cap it / note it).
 
 ## Verify (device eae4df44)
 AO ON shows real contact/crease darkening (screencaps: a corner/contact vs OFF); NO boxy shadows on
