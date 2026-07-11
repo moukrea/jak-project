@@ -1,1 +1,1 @@
-fps ON = 8.5 (frames=585 / 68.82s)
+fps ON = -39.1 (frames=-2055 / 52.62s)
