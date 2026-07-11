@@ -665,3 +665,82 @@ Then prove the coverage-distance field gives correct rim_dist there.
 Capture close-ups at MULTIPLE previously-overflowing platform edges (not one), ON vs OFF, named
 p15_edge_<spot>_*.png, each showing grass stopping exactly at the rim over the void. Use level.warp.pos
 to reach real rims (blind cpad nav never lands them). Supervisor eyeballs; owner playtest = final gate.
+
+## OWNER ROUND#15 VERDICT (2026-07-11, verbatim) -> ROUND#16 (use the EXACT mesh, kill the raster)
+"Je pense que le principe de carrés d'herbe de 0.5x0.5 est nul, ça s'adapte pas aux reliefs, ça suit pas
+les bordures... Enfin c'est merdique ! On a le mesh du sol, on sait où la texture plate d'herbe apparaît,
+autant utiliser ça ! Parce que oui, ça dépasse toujours à plein d'endroits, c'est encore manqué ! Allé
+tu corriges !"
+=> STILL overflows in MANY places. Owner's directive: STOP approximating with grids/rasters. The ground
+MESH + the grass TEXTURE region already define exactly where grass belongs, following relief + borders.
+Use THAT as the authoritative placement AND boundary.
+
+## SUPERVISOR CODE READ (2026-07-11, GrassRenderer.cpp — do NOT trust prior round reports, verified here)
+The persistent overflow has ONE root that every round left standing: the edge/boundary detection is the
+EDGE-COUNT method — "an edge is a rim/boundary iff used by exactly ONE kept grass triangle" (the
+bAB/bBC/bCA flags, PHASE 1 lip exclusion ~L629-694, POLISH#11 rim_dist). On TIE / MULTI-FRAGMENT grass
+platforms the SAME physical edge appears in separate fragments' triangle lists (and float-position
+mismatches), so a true outer edge is counted as used by >=2 tris -> NOT flagged as a boundary. TWO
+failures result:
+  (1) the OVERHANG-LIP exclusion (PHASE 1.5) misses the drooping grass-textured edge tris (upness
+      0.35..0.5 admitted by GROUND_UPNESS=0.35) -> grass BASES are PLACED on outward/downward lip tris
+      -> blades hang past the platform silhouette = the overflow the owner sees "à plein d'endroits".
+  (2) rim_dist misses the real rim -> no height-taper there.
+Round#15 patched only (2) with a 0.1 m RASTER coverage field (cov_cell 0.1m, FLOOR_UPNESS=0.5) — which
+APPROXIMATES + stair-steps the border ("ça suit pas les bordures") and does NOT stop (1) (bases still on
+lips). There is ALSO a placement/coverage MISMATCH: placement keeps upness>=0.35 but the coverage
+silhouette is upness>=0.5, so grass is placed on tris the boundary field doesn't consider solid.
+
+## ROUND#16 FIX — exact mesh geometry, ROBUST edge detection, NO raster
+1. ROBUST TRUE-EDGE DETECTION: dedup triangle edges by QUANTIZED WORLD POSITION (reuse the QUANT hashing
+   ~L600) across ALL fragments/tris BEFORE counting, so a shared physical edge is counted once and a
+   real outer border edge (used by exactly one triangle in world space) is correctly flagged — on TIE
+   multi-fragment platforms too. This is the single fix that unblocks BOTH the lip exclusion and the rim
+   clamp. VERIFY on device: count true-border edges before/after the dedup on a TIE platform that
+   overflowed (expect many more real borders found).
+2. PLACEMENT = the grass-textured tris only, and EXCLUDE the overhang-lip tris using the robust border
+   (a tilted tri whose downhill edge is now-correctly a true border = a drooping lip -> no bases).
+3. CLIP/TAPER from the EXACT triangle edges (point-to-true-rim-edge distance in world units, the
+   POLISH#9 edge geometry already at L317/L538), NOT the raster. rim_dist = exact min distance to the
+   nearest TRUE border edge. REMOVE the 0.1 m coverage-raster as the boundary source (it approximates).
+4. Resolve the upness mismatch: one consistent grass region (place + boundary use the SAME tris).
+Net: grass base only on real walkable grass-textured tris, clamped to the EXACT mesh edge -> stops on the
+border that follows relief by construction. No grid, no raster, no stair-step. Keep DROPPED=0 density,
+day-cycle light, object-cull, sliders. DEFAULT ON, OFF==stock.
+
+## DISCIPLINE + CAPTURE (7 rounds failed — be exact, supervisor eyeballs)
+Instrument the robust-edge count vs the old count on the overflowing platforms FIRST (prove the miss).
+Capture close-ups at SEVERAL previously-overflowing edges p16_edge_*_on vs _off; supervisor eyeballs
+BEFORE push; owner playtest = final gate.
+
+## ROUND#16 FALSIFIED the edge-detection premise -> ROUND#17 (the REAL root: render-mesh cantilever)
+Round#16 implemented robust world-position true-edge detection AND INSTRUMENTALLY FALSIFIED the
+supervisor's premise: robust boundary_edges=1989 vs old raw-1cm boundary_raw=1991 (delta -2). Edge
+detection was NEVER missing borders. The re-diagnosis (by elimination) found the TRUE root:
+=> The grass-textured RENDER mesh CANTILEVERS PAST the visible/COLLISION platform edge (PS2 visual
+   meshes routinely overhang the walkable collision floor). Grass placed correctly on the render-mesh
+   grass tris still sits BEYOND the visible drop, because those overhanging tri edges are INTERIOR in the
+   RENDER mesh (shared with more overhanging tris) -> no render-mesh edge method can ever flag them.
+This is why 8 rounds failed: all of them (placement, lip-exclusion, mesh-edge rim, coverage raster,
+robust edge dedup) worked on the RENDER-MESH boundary, but the render mesh itself overhangs the true edge.
+
+## ROUND#17 FIX — bound grass by the WALKABLE-FLOOR / COLLISION silhouette, not the render mesh
+1. INSTRUMENT FIRST (discipline that just saved us): on a platform the owner reaches that overflows,
+   MEASURE the offset between the render-mesh grass edge and the COLLISION/walkable-floor edge
+   (collide-mesh / pat / where Jak can stand). PROVE the cantilever (render edge is past the collision
+   edge by X cm) before implementing. If NOT confirmed, keep digging — do NOT ship a 9th guess.
+2. CONFIRM ACCESS: determine how the grass builder (GrassRenderer.cpp, at level-load static place) can
+   read the level COLLISION / walkable-floor silhouette (collide-mesh/pat in the engine collision
+   system). If the renderer cannot directly reach it, define the minimal bridge to get the walkable
+   silhouette (or a distance-to-walkable-edge field) to the grass builder.
+3. BOUND grass PLACEMENT + CLIP by the COLLISION/walkable-floor silhouette: a blade exists only where
+   there is walkable floor at/below it, and its rim_dist = distance to the COLLISION edge (where Jak can
+   stand), so grass shortens/stops at the TRUE walkable edge — not the overhanging render-mesh edge.
+   Keep the existing height-taper + clamp machinery; only the BOUNDARY SOURCE changes (render mesh ->
+   collision floor). Keep DROPPED=0 density, day-cycle light, object-cull, sliders. DEFAULT ON, OFF==stock.
+Note: the owner's "use the mesh" was right in spirit (use real geometry, not a grid) — but the correct
+geometry is the COLLISION floor, not the render mesh which overhangs it.
+
+## DISCIPLINE + CAPTURE (owner frustrated, 8 rounds — instrument, prove, supervisor eyeballs)
+Prove the cantilever with numbers first; capture p17_edge_* close-ups at previously-overflowing platforms
+ON vs OFF; supervisor eyeballs BEFORE any push; owner playtest = final gate.

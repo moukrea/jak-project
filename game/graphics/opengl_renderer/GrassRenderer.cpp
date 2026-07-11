@@ -321,6 +321,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     float upness;                  // POLISH#12: face-normal.y / |n| (1 = flat top, ~0 = wall)
     bool is_lip;                   // POLISH#12: overhang rim-lip -> excluded from BASE placement
     bool is_tie;                   // ROUND#13: from a TIE placed model (platform) vs tfrag terrain
+    bool is_dup;                   // ROUND#16: coincident duplicate tri (fragment overlap) -> no topology/bases
     // POLISH#9 dynamic ground baked-light: this triangle's centroid palette rows (8 keyframes x rgb),
     // averaged over its 3 vertices, so update_light() can re-interpolate at the current time of day.
     float pal[8][3];
@@ -592,36 +593,95 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     }
   }
 
-  // ---- POLISH#12 (PHASE 1.5): flag OVERHANG rim-lip tris, then classify edges BOUNDARY vs INTERIOR. ----
-  // Vertex weld at 1 cm so shared edges of adjacent tris hash to the same key. Camera-independent +
-  // stable per load (same field every time).
-  const float QUANT = 0.01f * U;  // 1 cm vertex weld
-  auto vkey = [QUANT](float x, float y, float z) -> u64 {
-    s64 qx = (s64)std::llround(x / QUANT);
-    s64 qy = (s64)std::llround(y / QUANT);
-    s64 qz = (s64)std::llround(z / QUANT);
+  // ---- ROUND#16 (PHASE 1.5): ROBUST true-edge detection -> overhang-lip base exclusion + exact rim. ----
+  // SUPERVISOR CODE READ (2026-07-11): after SEVEN rounds the persistent floating-overflow root is that
+  // the boundary detection was the EDGE-COUNT method keyed on a RAW 1 cm vertex quantize. On TIE / multi-
+  // fragment grass platforms the SAME physical vertex has slightly different float coords across separate
+  // fragments (it does NOT weld at a 1 cm grid, and grid-straddle splits even coincident verts) AND
+  // duplicate/coincident tris appear, so a real OUTER rim edge is counted as used by >=2 tris and is NOT
+  // flagged a boundary. That single miss disabled BOTH (1) the overhang-lip exclusion (drooping edge lips
+  // kept placing bases -> the floating the owner saw) and (2) the exact mesh-edge rim clamp (no taper at
+  // the real rim). ROUND#16 fixes the FOUNDATION: weld vertices to a CANONICAL id robust to fragment
+  // float mismatch (a NEIGHBOR-PROBE spatial hash, not a raw grid quantize) and DEDUP coincident triangles
+  // BEFORE counting, so a shared physical edge is counted once and a real border edge (one triangle in
+  // world space) is correctly flagged on TIE multi-fragment platforms too. This is the single fix that
+  // unblocks BOTH the lip exclusion and the rim clamp, and it REPLACES the round#15 0.1 m coverage RASTER
+  // entirely (owner verbatim: "les grids/rasters c'est nul, on a le mesh du sol, autant utiliser ça") —
+  // the rim distance is now the EXACT point-to-true-rim-edge distance (dmin, PHASE 2), continuous and
+  // hugging the real mesh edge with no stair-step.
+  const float WELD = 0.03f * U;                       // 3 cm canonical weld; neighbor-probe merges up to
+                                                      // ~2x that of cross-fragment float mismatch. Grass
+                                                      // tri edges are >>6 cm, so distinct verts never merge.
+  std::unordered_map<u64, std::vector<int>> wcells;   // quantized cell -> canonical vertex ids inside it
+  std::vector<std::array<float, 3>> wverts;           // canonical vertex world positions (GOAL units)
+  wcells.reserve(tris.size() * 3 + 16);
+  wverts.reserve(tris.size() * 2 + 16);
+  auto wcell = [WELD](float x, float y, float z) -> u64 {
+    s64 qx = (s64)std::floor(x / WELD), qy = (s64)std::floor(y / WELD), qz = (s64)std::floor(z / WELD);
     return (u64)(qx * 73856093LL) ^ (u64)(qy * 19349663LL) ^ (u64)(qz * 83492791LL);
   };
-  auto ekey = [](u64 va, u64 vb) -> u64 {
-    u64 lo = va < vb ? va : vb, hi = va < vb ? vb : va;
-    return lo * 0x9e3779b97f4a7c15ull + (hi ^ (hi >> 29));
+  // canonical vertex id: return an existing vert within WELD (probing the 27 neighbour cells so a weld
+  // never fails on a grid-straddle), else intern a new one. This is what makes the edge count robust.
+  auto weld_vertex = [&](float x, float y, float z) -> int {
+    s64 cx = (s64)std::floor(x / WELD), cy = (s64)std::floor(y / WELD), cz = (s64)std::floor(z / WELD);
+    const float tol2 = WELD * WELD;
+    for (s64 dz = -1; dz <= 1; ++dz)
+      for (s64 dy = -1; dy <= 1; ++dy)
+        for (s64 dx = -1; dx <= 1; ++dx) {
+          u64 k = (u64)((cx + dx) * 73856093LL) ^ (u64)((cy + dy) * 19349663LL) ^
+                  (u64)((cz + dz) * 83492791LL);
+          auto it = wcells.find(k);
+          if (it == wcells.end()) continue;
+          for (int vid : it->second) {
+            float ddx = wverts[vid][0] - x, ddy = wverts[vid][1] - y, ddz = wverts[vid][2] - z;
+            if (ddx * ddx + ddy * ddy + ddz * ddz <= tol2) return vid;
+          }
+        }
+    int id = (int)wverts.size();
+    wverts.push_back({x, y, z});
+    wcells[wcell(x, y, z)].push_back(id);
+    return id;
   };
+  // edge key from two canonical ids (packed, exact: vert count << 2^21). Triangle key = sorted triple.
+  auto ekey2 = [](int a, int b) -> u64 {
+    u32 lo = (u32)(a < b ? a : b), hi = (u32)(a < b ? b : a);
+    return ((u64)lo << 21) | (u64)hi;
+  };
+  std::vector<std::array<int, 3>> vids(tris.size());  // canonical vertex ids per tri
+  int n_dup = 0;
+  {
+    std::unordered_set<u64> seen_tri;
+    seen_tri.reserve(tris.size() * 2 + 16);
+    for (int i = 0; i < (int)tris.size(); ++i) {
+      auto& r = tris[i];
+      int a = weld_vertex(r.p0x, r.p0y, r.p0z);
+      int b = weld_vertex(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
+      int c = weld_vertex(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
+      vids[i] = {a, b, c};
+      int s0 = a, s1 = b, s2 = c;
+      if (s0 > s1) std::swap(s0, s1);
+      if (s1 > s2) std::swap(s1, s2);
+      if (s0 > s1) std::swap(s0, s1);
+      u64 tkey = ((u64)(u32)s0 << 42) | ((u64)(u32)s1 << 21) | (u64)(u32)s2;
+      r.is_dup = !seen_tri.insert(tkey).second;   // a fragment-overlap duplicate: no topology, no bases
+      if (r.is_dup) n_dup++;
+    }
+  }
   int boundary_edges = 0;
   int lip_excluded = 0;         // POLISH#12: overhang rim-lip tris whose BASES are excluded (no floating)
   int lip_excluded_tie = 0;     // ROUND#13: of those, how many are TIE (distant platform) tris
   float lip_excluded_area = 0.f;
   float min_placed_upness = 1.0f;
+  int n_weld_verts = (int)wverts.size();
+  int boundary_raw = 0;         // ROUND#16 instrumentation: OLD raw-1cm boundary count (proves the miss)
   {
-    // (1)+(2) OVERHANG-LIP classification — ROUND#13 TRANSITIVE closure. The POLISH#12 single-pass
-    // flagged a tilted tri ONLY if its OWN lowest edge opened into void; it missed MULTI-SEGMENT skirts
-    // (a distant TIE platform's rounded/tiered rim), where only the BOTTOM skirt tri's downhill edge is
-    // a boundary — the upper skirt tris looked "shared" and kept placing BASES on the overhanging lip =
-    // the FLOATING grass the owner still saw on distant platforms. Fix: a tilted tri (upness <
-    // UPNESS_LIP_MAX) is an overhang lip iff its LOWEST edge opens into void OR is shared with a tri
-    // that is ITSELF a lip. Seeded at the void, propagated UP the skirt; a FLAT/gentle top (upness >=
-    // UPNESS_LIP_MAX) is NEVER a lip and STOPS the propagation, so continuous walkable slopes leading to
-    // more ground keep their grass (POLISH#3 coverage preserved). Purely geometric -> works identically
-    // for tfrag AND TIE tris, so distant TIE platforms get the exact same lip exclusion (owner #2).
+    // (1)+(2) OVERHANG-LIP classification — ROUND#13 TRANSITIVE closure over ROBUST adjacency. A tilted
+    // tri (upness < UPNESS_LIP_MAX) is an overhang lip iff its LOWEST edge opens into void (used by no
+    // OTHER non-dup grass tri) OR is shared with a tri that is ITSELF a lip. Seeded at the void, propagated
+    // UP the skirt; a FLAT/gentle top (upness >= UPNESS_LIP_MAX) is NEVER a lip and STOPS the propagation,
+    // so continuous walkable slopes keep their grass (POLISH#3 coverage preserved). With the ROBUST weld a
+    // multi-fragment skirt's shared edges now dedup, so the seed/propagation is no longer defeated by float
+    // mismatch — the exact defect that let bases stay on distant-TIE-platform lips.
     std::unordered_map<u64, std::vector<int>> etris;  // edge -> tri indices sharing it (manifold: <= 2)
     etris.reserve(tris.size() * 3 + 16);
     std::vector<u64> low_edge(tris.size(), 0);        // each tri's lowest (downhill) edge key
@@ -629,10 +689,9 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     for (int i = 0; i < (int)tris.size(); ++i) {
       auto& r = tris[i];
       r.is_lip = false;
-      u64 va = vkey(r.p0x, r.p0y, r.p0z);
-      u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
-      u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
-      u64 eAB = ekey(va, vb), eBC = ekey(vb, vc), eCA = ekey(vc, va);
+      if (r.is_dup) continue;                         // duplicates contribute no topology
+      int a = vids[i][0], b = vids[i][1], c = vids[i][2];
+      u64 eAB = ekey2(a, b), eBC = ekey2(b, c), eCA = ekey2(c, a);
       etris[eAB].push_back(i);
       etris[eBC].push_back(i);
       etris[eCA].push_back(i);
@@ -647,7 +706,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     low_users.reserve(tris.size() + 16);
     std::vector<int> work;
     for (int i = 0; i < (int)tris.size(); ++i) {
-      if (!tilted[i]) continue;
+      if (!tilted[i] || tris[i].is_dup) continue;
       low_users[low_edge[i]].push_back(i);
       const auto& sh = etris[low_edge[i]];  // seed: lowest edge opens into the void (no OTHER grass tri)
       bool boundary = true;
@@ -659,18 +718,15 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     while (!work.empty()) {  // propagate up the skirt: a tilted tri drops toward a lip => it is a lip too
       int n = work.back();
       work.pop_back();
-      const auto& r = tris[n];
-      u64 va = vkey(r.p0x, r.p0y, r.p0z);
-      u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
-      u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
-      u64 es[3] = {ekey(va, vb), ekey(vb, vc), ekey(vc, va)};
+      int a = vids[n][0], b = vids[n][1], c = vids[n][2];
+      u64 es[3] = {ekey2(a, b), ekey2(b, c), ekey2(c, a)};
       for (u64 e : es) {
         auto it = low_users.find(e);  // tris whose DOWNHILL edge is e (they drop toward n)
         if (it == low_users.end()) {
           continue;
         }
         for (int t : it->second) {
-          if (t == n || tris[t].is_lip) {
+          if (t == n || tris[t].is_lip || tris[t].is_dup) {
             continue;
           }
           tris[t].is_lip = true;
@@ -679,6 +735,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       }
     }
     for (int i = 0; i < (int)tris.size(); ++i) {
+      if (tris[i].is_dup) continue;
       if (tris[i].is_lip) {
         lip_excluded++;
         lip_excluded_area += tris[i].area_m2;
@@ -689,34 +746,65 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         min_placed_upness = std::min(min_placed_upness, tris[i].upness);
       }
     }
-    // (3) FINAL edge count over ONLY the tris that will actually be placed (lips removed). Now the
-    // shoulder edge a flat top shared with an excluded lip is used ONCE = a TRUE RIM, so PHASE 2 stamps
-    // its near-shoulder blades with a rim_dist and the POLISH#11 shader clamp holds their spread to the
-    // exact top edge (no overflow past it); interior seams between two PLACED tris stay shared = full
-    // coverage (no bald hole). A rim is strictly the true outer boundary of the placed grass patch.
+    // (3) FINAL edge count over ONLY the tris that will actually be PLACED (dup + lip removed). Now a real
+    // outer rim edge (drop-off / rock-wall / shoulder shared with an excluded lip) is used ONCE = a TRUE
+    // RIM, so PHASE 2 stamps its near-rim blades with an exact rim_dist (dmin) and the shader height-taper
+    // + horizontal clamp hold the grass to the exact top edge (no overflow past it, no bald fringe);
+    // interior seams between two PLACED tris stay shared = full coverage. Robust across TIE fragments now.
     std::unordered_map<u64, int> edge_count;
     edge_count.reserve(tris.size() * 3 + 16);
-    for (const auto& r : tris) {
-      if (r.is_lip) continue;
-      u64 va = vkey(r.p0x, r.p0y, r.p0z);
-      u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
-      u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
-      edge_count[ekey(va, vb)]++;  // AB
-      edge_count[ekey(vb, vc)]++;  // BC
-      edge_count[ekey(vc, va)]++;  // CA
+    for (int i = 0; i < (int)tris.size(); ++i) {
+      const auto& r = tris[i];
+      if (r.is_dup || r.is_lip) continue;
+      edge_count[ekey2(vids[i][0], vids[i][1])]++;  // AB
+      edge_count[ekey2(vids[i][1], vids[i][2])]++;  // BC
+      edge_count[ekey2(vids[i][2], vids[i][0])]++;  // CA
     }
-    for (auto& r : tris) {
-      if (r.is_lip) {
+    for (int i = 0; i < (int)tris.size(); ++i) {
+      auto& r = tris[i];
+      if (r.is_dup || r.is_lip) {
         r.bAB = r.bBC = r.bCA = false;
         continue;
       }
-      u64 va = vkey(r.p0x, r.p0y, r.p0z);
-      u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
-      u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
-      r.bAB = edge_count[ekey(va, vb)] <= 1;
-      r.bBC = edge_count[ekey(vb, vc)] <= 1;
-      r.bCA = edge_count[ekey(vc, va)] <= 1;
+      r.bAB = edge_count[ekey2(vids[i][0], vids[i][1])] <= 1;
+      r.bBC = edge_count[ekey2(vids[i][1], vids[i][2])] <= 1;
+      r.bCA = edge_count[ekey2(vids[i][2], vids[i][0])] <= 1;
       boundary_edges += (int)r.bAB + (int)r.bBC + (int)r.bCA;
+    }
+    // INSTRUMENTATION (supervisor mandate: PROVE the miss before trusting the swap). Recompute the OLD
+    // boundary count the round#15 way — a RAW 1 cm quantize, NO neighbour-probe weld, NO coincident-tri
+    // dedup — over the same non-lip placed set. If boundary_edges (robust) differs from boundary_raw, the
+    // old 1 cm count mis-flagged rims on TIE/multi-fragment platforms = the floating culprit; the robust
+    // count is what the exact rim clamp now runs on.
+    {
+      const float Q1 = 0.01f * U;
+      auto rk = [Q1](float x, float y, float z) -> u64 {
+        s64 qx = (s64)std::llround(x / Q1), qy = (s64)std::llround(y / Q1), qz = (s64)std::llround(z / Q1);
+        return (u64)(qx * 73856093LL) ^ (u64)(qy * 19349663LL) ^ (u64)(qz * 83492791LL);
+      };
+      auto rek = [](u64 va, u64 vb) -> u64 {
+        u64 lo = va < vb ? va : vb, hi = va < vb ? vb : va;
+        return lo * 0x9e3779b97f4a7c15ull + (hi ^ (hi >> 29));
+      };
+      std::unordered_map<u64, int> ec;
+      ec.reserve(tris.size() * 3 + 16);
+      for (const auto& r : tris) {
+        if (r.is_lip) continue;
+        u64 va = rk(r.p0x, r.p0y, r.p0z);
+        u64 vb = rk(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
+        u64 vc = rk(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
+        ec[rek(va, vb)]++;
+        ec[rek(vb, vc)]++;
+        ec[rek(vc, va)]++;
+      }
+      for (const auto& r : tris) {
+        if (r.is_lip) continue;
+        u64 va = rk(r.p0x, r.p0y, r.p0z);
+        u64 vb = rk(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
+        u64 vc = rk(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
+        boundary_raw += (int)(ec[rek(va, vb)] <= 1) + (int)(ec[rek(vb, vc)] <= 1) +
+                        (int)(ec[rek(vc, va)] <= 1);
+      }
     }
   }
 
@@ -797,179 +885,25 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   const float DROP_EPS = 0.005f * U;    // drop only a degenerate sliver whose base is < 5 mm from a rim
   const float NO_RIM = 1.0e9f;          // rim_dist sentinel for a blade with no rim edge in its triangle
 
-  // ---- ROUND#15: TOPOLOGY-INDEPENDENT rim distance via a fine ground-COVERAGE distance field. ----
-  // The POLISH#11 mesh-edge rim_dist (dmin from the bAB/bBC/bCA edge-COUNT boundary flags) is FRAGILE:
-  // on TIE multi-fragment meshes, non-manifold seams, and platforms whose real drop-off edge is shared
-  // with a (mis-classified) skirt tri, a true rim is NOT flagged -> dmin stays large -> full-height grass
-  // hangs past the edge (owner round#14: "ça dépasse toujours sur CERTAINES plateformes"). Six rounds of
-  // patching the edge-topology kept leaking because the FOUNDATION was fragile. This replaces it with a
-  // distance field that does NOT depend on edge topology at all:
-  //   (1) Rasterize the SOLID walkable TOP (non-lip grass tris flatter than FLOOR_UPNESS) into a fine
-  //       ~0.1 m top-down coverage mask. Steep overhang skirts (tilted) are excluded by NORMAL, so the
-  //       silhouette is the true solid top rim even where the transitive lip-closure MISSED a lip (the
-  //       exact "some platforms" residual). This is the spec's "clamp coverage to the true solid
-  //       silhouette (the non-lip solid tris)".
-  //   (2) Flood-fill the EXTERIOR (border-connected empty cells = the void past the platform). Interior
-  //       empty cells (a mid-platform slope surrounded by flat top, an object footprint, a mesh pinhole)
-  //       are NOT exterior -> never a rim, so no false interior taper / bald ring (round#13 holes stay
-  //       fixed). A gentle slope BETWEEN two flat tops is an interior hole -> full-height grass; only a
-  //       slope/lip leading to the actual void tapers.
-  //   (3) Distance transform: rim_dist(x,z) = distance from a cell to the nearest EXTERIOR cell. Feeds
-  //       the EXISTING smooth height-taper (shader RIM_TAPER) + POLISH#11 horizontal clamp UNCHANGED ->
-  //       grass shortens smoothly to the exact rim on EVERY platform (continuous field: no floating past
-  //       the edge, no coarse block margin).
-  // This is NOT the removed 0.5 m OCCUPANCY grid (that did block CULLING + 3x3 dilation = block holes).
-  // This is a fine CONTINUOUS field driving a TAPER -> holes cannot recur, and the round#13 per-instance
-  // object-hide is completely untouched. No shader change: only the VALUE stored in gspare changes.
-  constexpr float FLOOR_UPNESS = 0.5f;       // coverage silhouette = walkable TOP flatter than ~60 deg
-  float cov_cell = 0.1f * U;                 // ~0.1 m cells (fine + continuous — NOT the old 0.5 m block grid)
-  float cov_minx = 0.f, cov_minz = 0.f, cov_cellw = cov_cell;
-  int cov_nx = 0, cov_nz = 0;
-  std::vector<float> cov_dist;               // per-cell distance (in cells) to nearest exterior; *cov_cellw = world
-  bool cov_valid = false;
-  {
-    // (0) XZ bbox over the SOLID-top (coverage) tris only.
-    float mnx = 1e30f, mnz = 1e30f, mxx = -1e30f, mxz = -1e30f;
-    int cov_tris = 0;
-    for (const auto& r : tris) {
-      if (r.is_lip || r.upness < FLOOR_UPNESS) continue;
-      float ax = r.p0x, az = r.p0z;
-      float bx = r.p0x + r.e1x, bz = r.p0z + r.e1z;
-      float cx = r.p0x + r.e2x, cz = r.p0z + r.e2z;
-      mnx = std::min(mnx, std::min(ax, std::min(bx, cx)));
-      mxx = std::max(mxx, std::max(ax, std::max(bx, cx)));
-      mnz = std::min(mnz, std::min(az, std::min(bz, cz)));
-      mxz = std::max(mxz, std::max(az, std::max(bz, cz)));
-      cov_tris++;
-    }
-    if (cov_tris > 0 && mxx > mnx && mxz > mnz) {
-      const float PAD = 2.0f * cov_cell;                 // 2-cell empty margin so the border ring is void
-      mnx -= PAD; mnz -= PAD; mxx += PAD; mxz += PAD;
-      // choose the cell size so the grid stays bounded (training stays 0.1 m; coarsen only a huge level).
-      const long MAXCELLS = 8L * 1000L * 1000L;
-      double wcx = (double)mxx - mnx, wcz = (double)mxz - mnz;
-      cov_cellw = cov_cell;
-      long nnx = (long)std::ceil(wcx / cov_cellw) + 1;
-      long nnz = (long)std::ceil(wcz / cov_cellw) + 1;
-      if (nnx * nnz > MAXCELLS) {
-        double sc = std::sqrt((double)(nnx * nnz) / (double)MAXCELLS);
-        cov_cellw *= (float)sc;
-        nnx = (long)std::ceil(wcx / cov_cellw) + 1;
-        nnz = (long)std::ceil(wcz / cov_cellw) + 1;
-      }
-      cov_nx = (int)nnx; cov_nz = (int)nnz;
-      cov_minx = mnx; cov_minz = mnz;
-      size_t ncell = (size_t)cov_nx * (size_t)cov_nz;
-      std::vector<u8> ground(ncell, 0);
-      const float inv = 1.0f / cov_cellw;
-      // (1) rasterize each solid-top tri: mark cells whose CENTER is inside its XZ projection. Adjacent
-      // tris tile, so cell centres are gap-free across shared edges (no interior pinholes from seams).
-      for (const auto& r : tris) {
-        if (r.is_lip || r.upness < FLOOR_UPNESS) continue;
-        float ax = r.p0x, az = r.p0z;
-        float bx = r.p0x + r.e1x, bz = r.p0z + r.e1z;
-        float cx = r.p0x + r.e2x, cz = r.p0z + r.e2z;
-        float d0x = bx - ax, d0z = bz - az;    // edge AB
-        float d1x = cx - bx, d1z = cz - bz;    // edge BC
-        float d2x = ax - cx, d2z = az - cz;    // edge CA
-        float area2 = d0x * (cz - az) - d0z * (cx - ax);   // 2*signed area (XZ)
-        if (std::fabs(area2) < 1e-6f) continue;
-        float sgn = area2 < 0.f ? -1.0f : 1.0f;
-        float tmnx = std::min(ax, std::min(bx, cx)), tmxx = std::max(ax, std::max(bx, cx));
-        float tmnz = std::min(az, std::min(bz, cz)), tmxz = std::max(az, std::max(bz, cz));
-        int ix0 = std::max(0, (int)std::floor((tmnx - cov_minx) * inv));
-        int ix1 = std::min(cov_nx - 1, (int)std::floor((tmxx - cov_minx) * inv));
-        int iz0 = std::max(0, (int)std::floor((tmnz - cov_minz) * inv));
-        int iz1 = std::min(cov_nz - 1, (int)std::floor((tmxz - cov_minz) * inv));
-        const float EPS = 1e-3f;
-        for (int iz = iz0; iz <= iz1; ++iz) {
-          float pz = cov_minz + ((float)iz + 0.5f) * cov_cellw;
-          for (int ix = ix0; ix <= ix1; ++ix) {
-            float px = cov_minx + ((float)ix + 0.5f) * cov_cellw;
-            float w0 = (d0x * (pz - az) - d0z * (px - ax)) * sgn;   // side of AB
-            float w1 = (d1x * (pz - bz) - d1z * (px - bx)) * sgn;   // side of BC
-            float w2 = (d2x * (pz - cz) - d2z * (px - cx)) * sgn;   // side of CA
-            if (w0 >= -EPS && w1 >= -EPS && w2 >= -EPS) {
-              ground[(size_t)iz * cov_nx + ix] = 1;
-            }
-          }
-        }
-      }
-      // (2) flood-fill the EXTERIOR = empty cells reachable from the grid border (the void). 4-connected.
-      std::vector<u8> ext(ncell, 0);
-      std::vector<int> stack;
-      stack.reserve(1 << 15);
-      auto push_ext = [&](int ix, int iz) {
-        if (ix < 0 || iz < 0 || ix >= cov_nx || iz >= cov_nz) return;
-        size_t k = (size_t)iz * cov_nx + ix;
-        if (ground[k] || ext[k]) return;
-        ext[k] = 1; stack.push_back((int)k);
-      };
-      for (int ix = 0; ix < cov_nx; ++ix) { push_ext(ix, 0); push_ext(ix, cov_nz - 1); }
-      for (int iz = 0; iz < cov_nz; ++iz) { push_ext(0, iz); push_ext(cov_nx - 1, iz); }
-      while (!stack.empty()) {
-        int k = stack.back(); stack.pop_back();
-        int ix = k % cov_nx, iz = k / cov_nx;
-        push_ext(ix - 1, iz); push_ext(ix + 1, iz);
-        push_ext(ix, iz - 1); push_ext(ix, iz + 1);
-      }
-      // (3) two-pass chamfer distance from the EXTERIOR cells (ortho=1, diag=sqrt2). ~2% vs exact EDT,
-      // far below the 0.45 m taper width, and O(N) with no queue.
-      const float INF = 1e18f;
-      cov_dist.assign(ncell, INF);
-      for (size_t k = 0; k < ncell; ++k) {
-        if (ext[k]) cov_dist[k] = 0.0f;
-      }
-      const float OD = 1.0f, DD = 1.41421356f;
-      auto at = [&](int ix, int iz) -> float { return cov_dist[(size_t)iz * cov_nx + ix]; };
-      for (int iz = 0; iz < cov_nz; ++iz) {
-        for (int ix = 0; ix < cov_nx; ++ix) {
-          size_t k = (size_t)iz * cov_nx + ix;
-          float d = cov_dist[k];
-          if (ix > 0) d = std::min(d, at(ix - 1, iz) + OD);
-          if (iz > 0) d = std::min(d, at(ix, iz - 1) + OD);
-          if (ix > 0 && iz > 0) d = std::min(d, at(ix - 1, iz - 1) + DD);
-          if (ix < cov_nx - 1 && iz > 0) d = std::min(d, at(ix + 1, iz - 1) + DD);
-          cov_dist[k] = d;
-        }
-      }
-      for (int iz = cov_nz - 1; iz >= 0; --iz) {
-        for (int ix = cov_nx - 1; ix >= 0; --ix) {
-          size_t k = (size_t)iz * cov_nx + ix;
-          float d = cov_dist[k];
-          if (ix < cov_nx - 1) d = std::min(d, at(ix + 1, iz) + OD);
-          if (iz < cov_nz - 1) d = std::min(d, at(ix, iz + 1) + OD);
-          if (ix < cov_nx - 1 && iz < cov_nz - 1) d = std::min(d, at(ix + 1, iz + 1) + DD);
-          if (ix > 0 && iz < cov_nz - 1) d = std::min(d, at(ix - 1, iz + 1) + DD);
-          cov_dist[k] = d;
-        }
-      }
-      cov_valid = true;
-      lg::info(
-          "[recharged-grass] COVFIELD cells={}x{} cell={:.3f}m solid_tris={} (topology-independent rim_dist)",
-          cov_nx, cov_nz, cov_cellw / U, cov_tris);
-    }
-  }
-  // rim_dist (world units) at a base XZ from the coverage field. NO_RIM when the field could not be
-  // built (falls back to the pre-round#15 behaviour = interior everywhere = no taper).
-  auto cov_rim = [&](float px, float pz) -> float {
-    if (!cov_valid) return NO_RIM;
-    int ix = (int)std::floor((px - cov_minx) / cov_cellw);
-    int iz = (int)std::floor((pz - cov_minz) / cov_cellw);
-    if (ix < 0 || iz < 0 || ix >= cov_nx || iz >= cov_nz) return 0.0f;
-    return cov_dist[(size_t)iz * cov_nx + ix] * cov_cellw;
-  };
+  // ---- ROUND#16: the round#15 0.1 m coverage RASTER is REMOVED. ----
+  // Owner verbatim: "les carrés/grids/rasters c'est nul... on a le mesh du sol, autant utiliser ça." The
+  // raster APPROXIMATED the border (stair-stepped at the cell size, "ça suit pas les bordures") and its
+  // solid silhouette was the upness>=0.5 tops — INCLUDING flat tops that overhang, so bases on an overhang
+  // still got a large rim_dist and floated. rim_dist is now the EXACT per-blade point-to-true-rim-edge
+  // distance (dmin) computed inline in PHASE 2 from the ROUND#16 ROBUST boundary flags (bAB/bBC/bCA), which
+  // hug the real mesh edge with no stair-step and — because the weld/dedup now flags the true outer rims on
+  // TIE multi-fragment platforms too — collapse the over-edge blades to invisible stubs. No coverage grid,
+  // no chamfer allocation at load, no shader change.
 
   m_instances.reserve(std::min<size_t>(budget, (size_t)(total_area_m2 * density) + 64));
   m_inst_tri.reserve(m_instances.capacity());
   int edge_dropped = 0;   // degenerate rim slivers dropped individually (per-blade, NOT whole blocks)
   int edge_clamped = 0;   // near-rim blades whose horizontal reach the shader will clamp to the rim
-  int topo_missed = 0;    // ROUND#15: old mesh-edge said interior (NO_RIM) but coverage found a real rim
-  int topo_tighter = 0;   // ROUND#15: coverage rim clearly nearer than the mesh-edge rim (topo under-detected)
+  int rim_finite = 0;     // ROUND#16: blades that got a FINITE rim_dist (a true rim in their tri) vs interior
   const float RIM_TAPER_W = 0.45f * U;  // matches the shader RIM_TAPER (height fully restored 0.45 m in)
   for (size_t tj = 0; tj < tris.size(); ++tj) {
     const auto& r = tris[tj];
-    if (r.is_lip) continue;   // POLISH#12: overhang rim-lip -> place NO bases (no blade floating past the platform)
+    if (r.is_lip || r.is_dup) continue;   // POLISH#12/ROUND#16: overhang lip or fragment duplicate -> no bases
     if ((int)m_instances.size() >= budget) break;
     float fn = r.area_m2 * density;
     int n = (int)fn;
@@ -991,22 +925,18 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       float bx = r.p0x + r1 * r.e1x + r2 * r.e2x;
       float bz = r.p0z + r1 * r.e1z + r2 * r.e2z;
 
-      // ROUND#15: rim_dist from the TOPOLOGY-INDEPENDENT coverage field (robust on EVERY platform,
-      // incl. the TIE multi-fragment / non-manifold / mis-classified-lip meshes the mesh-edge boundary
-      // classifier missed). cov -> 0 at the true solid-top silhouette, large deep in the interior.
-      float cov = cov_rim(bx, bz);
-      // INSTRUMENTATION (owner mandate: prove the mesh-edge value was the culprit BEFORE swapping). The
-      // OLD mesh-edge dmin: NO_RIM means "no boundary edge found -> full-height interior blade". Where the
-      // OLD value says interior (NO_RIM) but the coverage field says this base is within a taper width of
-      // a real rim, the old method would have grown a full-height blade over the edge = the floating.
+      // ROUND#16: rim_dist = the EXACT perpendicular distance from this base to the nearest TRUE RIM edge
+      // of its own triangle (an edge the ROBUST weld/dedup flagged as a real outer boundary). dmin = weight
+      // opposite that edge * nlen(=2*area) / edge length. NO_RIM (interior) when no edge of this tri is a
+      // rim -> the shader leaves the blade full height. This is continuous and hugs the mesh edge with no
+      // stair-step; the robust boundary flags mean it now fires at the real rim on TIE multi-fragment
+      // platforms too (the round#14/#15 miss). No coverage raster.
       float dmin = NO_RIM;
       if (r.bBC) { float d = wA * r.nlen / r.lenBC; if (d < dmin) dmin = d; }  // edge BC opposite A
       if (r.bCA) { float d = wB * r.nlen / r.lenCA; if (d < dmin) dmin = d; }  // edge CA opposite B
       if (r.bAB) { float d = wC * r.nlen / r.lenAB; if (d < dmin) dmin = d; }  // edge AB opposite C
-      if (dmin >= NO_RIM && cov < RIM_TAPER_W) topo_missed++;
-      if (cov < dmin - 0.05f * U) topo_tighter++;   // coverage found a nearer rim than the mesh edge
-      // The ONLY per-blade rejection is a degenerate sliver whose base sits < 5 mm from a rim.
-      if (cov < DROP_EPS) { edge_dropped++; continue; }
+      // The ONLY per-blade rejection is a degenerate sliver whose base sits < 5 mm from a true rim.
+      if (dmin < DROP_EPS) { edge_dropped++; continue; }
 
       GrassInstance gi;
       gi.px = bx;
@@ -1019,24 +949,31 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       gi.yaw = hash_f(sd + 4u) * 6.2831853f;               // fully random yaw; the shader rim taper+clamp
                                                            // (not a CPU lean) keeps geometry in-bounds
       gi.gr = r.gr; gi.gg = r.gg; gi.gb = r.gb;            // POLISH#4 ground colour
-      // ROUND#15: the (shader-unused) 4th ground-colour slot carries the coverage rim_dist (world units)
-      // for the shader height-taper + POLISH#11 horizontal clamp. The DYNAMIC per-location baked light
-      // rides its own u8 buffer (loc 3, inst_light), so this float slot is free — no vertex-layout
-      // change, lighting untouched.
-      gi.gspare = cov;   // = rim_dist (world units); large for interior blades -> shader never tapers them
-      if (cov < (gi.curve + 0.5f) * gi.h) edge_clamped++;  // blades the shader will actually taper/clamp
+      // The (shader-unused) 4th ground-colour slot carries the EXACT mesh rim_dist (world units) for the
+      // shader height-taper + POLISH#11 horizontal clamp. The DYNAMIC per-location baked light rides its
+      // own u8 buffer (loc 3, inst_light), so this float slot is free — no vertex-layout change, lighting
+      // untouched.
+      gi.gspare = dmin;   // = rim_dist (world units); NO_RIM for interior blades -> shader never tapers them
+      if (dmin < NO_RIM) rim_finite++;                     // blades with a real rim in their triangle
+      if (dmin < RIM_TAPER_W) edge_clamped++;              // blades inside the shader height-taper band
       m_instances.push_back(gi);
       m_inst_tri.push_back((u32)tj);   // POLISH#9: remember which triangle this blade grows from
     }
   }
 
-  // ROUND#15 instrumentation: mesh-edge rim_dist vs the new coverage rim_dist. topo_missed > 0 PROVES
-  // the mesh-edge value was the floating culprit — those blades the old classifier called "interior"
-  // (full height) actually sit within a taper width of a real rim, and the coverage field caught them.
+  // ROUND#16 instrumentation (supervisor mandate: PROVE the robust-edge fix). RIMDIST reports the EXACT
+  // mesh rim distance now driving the taper, plus the ROBUST-vs-RAW true-edge counts. boundary_edges
+  // (robust weld + coincident-dedup) vs boundary_raw (the OLD raw-1cm count): a difference proves the old
+  // count mis-flagged rims on TIE/multi-fragment platforms = the persistent floating culprit. n_dup =
+  // coincident fragment tris removed; weld_verts = distinct welded vertices. rim_finite = blades with a
+  // true rim in their tri (tapered/clamped); interior blades keep full height.
   lg::info(
-      "[recharged-grass] RIMDIST mesh-edge->coverage: placed={} edge_clamped={} edge_dropped={} "
-      "topo_missed={} topo_tighter={} (mesh-edge was the culprit where topo_missed>0)",
-      (int)m_instances.size(), edge_clamped, edge_dropped, topo_missed, topo_tighter);
+      "[recharged-grass] RIMDIST exact-mesh (ROUND#16, raster REMOVED): placed={} rim_finite={} "
+      "edge_clamped={} edge_dropped={} | robust true-edge: boundary_edges={} vs raw-1cm boundary_raw={} "
+      "(delta={}), coincident_dups={}, weld_verts={} — robust weld/dedup flags the true rims the raw 1cm "
+      "count missed on TIE multi-fragment platforms (the floating overflow root).",
+      (int)m_instances.size(), rim_finite, edge_clamped, edge_dropped, boundary_edges, boundary_raw,
+      boundary_edges - boundary_raw, n_dup, n_weld_verts);
 
   // ---- POLISH#4 / ROUND#13: hide grass under overlapping non-grass 3D objects (TIE models). ----
   // ROUND#13 (SUPERVISOR DIAGNOSIS #2): the old code marked a whole 0.5m XZ CELL occupied when any TIE
