@@ -744,3 +744,71 @@ geometry is the COLLISION floor, not the render mesh which overhangs it.
 ## DISCIPLINE + CAPTURE (owner frustrated, 8 rounds — instrument, prove, supervisor eyeballs)
 Prove the cantilever with numbers first; capture p17_edge_* close-ups at previously-overflowing platforms
 ON vs OFF; supervisor eyeballs BEFORE any push; owner playtest = final gate.
+
+## OWNER CORRECTION on ROUND#17 (2026-07-11, verbatim) — collision is a CLIP, not the base
+"Ça me paraît bancal, et rien ne me dit que l'herbe n'est pas un block de 0.5x0.5 plat au lieu de suivre
+le relief du mesh... Puis si tu te bases sur la collision, t'as pas l'info de si oui ou non c'est de
+l'herbe car pas de texture sur la collision... Ça peut servir pour vérifier, mais pas comme seule base."
+Owner is RIGHT on both counts:
+1. COLLISION HAS NO TEXTURE INFO -> it cannot tell WHERE grass is. It must NOT be the placement basis.
+   PLACEMENT STAYS the grass-TEXTURED RENDER MESH (barycentric on the real tri plane — relief-following,
+   PROVEN: GrassRenderer.cpp:943 `gi.py = r.p0y + r1*r.e1y + r2*r.e2y` = interpolated REAL vertex heights,
+   NOT a flat 0.5 block). Collision is used ONLY as an ADDITIONAL CLIP.
+2. So the model is an INTERSECTION: grass exists where (a) the render mesh is grass-TEXTURED AND (b) it is
+   over the walkable COLLISION floor. Clip/taper grass at the COLLISION edge -> removes the render-mesh
+   CANTILEVER (the overhang past the visible/walkable edge) that forms the flat protruding "block" the
+   owner sees. Placement/texture/relief all come from the render mesh; collision only trims the overhang.
+
+## Round#17 (corrected) steps
+1. INSTRUMENT: prove the cantilever (render-mesh grass edge is past the collision/walkable edge by X cm)
+   on an overflowing platform. Also PROVE relief-following to the owner: capture a BUMPY grass platform
+   showing grass bases conforming to the bumps (not a flat plane) — kill the "flat 0.5 block" doubt with
+   a real frame + the :943 barycentric reference.
+2. KEEP placement = grass-textured render mesh (barycentric, relief). Do NOT make collision the base.
+3. ADD a collision-floor CLIP: for each grass blade, if its (px,pz) is beyond the walkable collision-floor
+   silhouette (or within a taper of the collision edge), taper/cull it — the existing height-taper +
+   clamp machinery, but the CLIP boundary = the COLLISION edge (where Jak stands), applied ON TOP of the
+   grass-textured placement. Grass = textured-mesh ∩ walkable-floor, stopping at the collision edge.
+4. Confirm collision-mesh access from the grass builder; define the minimal bridge if needed.
+
+## OWNER ROUND#17 VERDICT (2026-07-11, verbatim, ANGRY) -> ROUND#18 (revert collision, PURE mesh)
+"C'est un poil mieux, mais il y a quand même des endroits où ça dépasse des plateformes (comme avant) et
+surtout il y a des bandes sans herbes 3D genre une ligne droite de 50cm de large sur plusieurs mètres, à
+plusieurs endroits... Et l'herbe clip toujours au travers des coffres et du bouton pour activer le
+portail... Enfin bref c'est toujours pas bon... Base toi sur les putains de mesh directement et place
+l'herbe directement sur les mesh et pas avec tes putains de blocks de 50x50cm bordel tu commences à me
+casser les couilles"
+=> THREE problems, and the owner is furious. Honor his directive LITERALLY.
+
+## ROUND#17's COLLISION CLIP IS THE REGRESSION — REVERT IT
+The collision mesh is a DIFFERENT mesh from the render mesh. col_rim (PHASE 1.6) DROPS a blade whose base
+is past the walkable-collision rim. Wherever the collision silhouette DIVERGES from the grass render area
+— along the collision tris' long STRAIGHT edges — grass is dropped in a straight band = the owner's "ligne
+droite de 50cm de large sur plusieurs mètres, à plusieurs endroits". Collision-as-clip was a supervisor
+misstep (owner warned: "la collision peut servir à vérifier, pas comme seule base"). 
+=> REVERT PHASE 1.6 + the col_rim application entirely. No collision clip. Restore pure grass-textured-
+   mesh placement. Verify the 50cm bald strips are GONE.
+
+## OWNER DIRECTIVE — PURE MESH, sub-triangle, NO coarse overlay
+Placement is already per-triangle barycentric (GrassRenderer.cpp:943 confirmed, follows relief). The
+"blocks 50x50cm" perception = the training ground TRIANGLES are ~0.5 m, so any per-tri place/cull/overflow
+decision reads at that granularity. The cure the owner keeps asking for: decisions must be SUB-TRIANGLE.
+1. INSTRUMENT ON DEVICE FIRST (show the owner, do not guess): measure the actual granularity of BOTH the
+   overflow and the bald bands. Dump the grass-tri size distribution + WHERE overflow blades sit (which
+   tri, is that tri's edge a texture boundary or interior). Prove the 50cm source with numbers/overlay.
+2. Clip each blade PURELY to the grass-textured-mesh boundary: per-blade point-in-triangle + the exact
+   distance to the true grass-texture boundary edge (where the grass-textured tri set ENDS = where the
+   artist's grass texture meets rock/other = the real platform edge). NO grid, NO raster, NO collision.
+   The grass-TEXTURE boundary on the mesh IS the authoritative edge (owner: "on sait où la texture d'herbe
+   apparaît, autant utiliser ça"). Clamp blade geometry so nothing crosses that boundary; taper height so
+   nothing floats; but the boundary source = the grass-texture extent on the render mesh, nothing coarser.
+3. Do NOT re-introduce any overlay coarser than the mesh (no 0.5 m grid, no raster, no collision silhouette).
+
+## FOLD IN THE OBJECT-CLIP (owner now lists it as a current defect, not backlog)
+Grass still clips THROUGH the crates and the portal-activation button. Extend the object-cull to non-TIE
+ground-resting objects (crates, the portal button = game-objects/actors, not TIE), cull by the GROUND-
+CONTACT footprint (not the buried full mesh). Fix it in THIS round.
+
+## DISCIPLINE + CAPTURE (owner furious, 9 rounds — instrument, prove, supervisor eyeballs)
+Prove the 50cm source + the fix with device instrumentation + close-ups: overflow gone, bald strips gone,
+grass on crates/button gone, relief followed. p18_* frames; supervisor eyeballs BEFORE any push.
