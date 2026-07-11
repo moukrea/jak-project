@@ -1,0 +1,1 @@
+OWNER CORRECTION (2026-07-11): le débordement est UNIVERSEL (plateformes proches AUSSI, pas que lointaines). Le fix lèvre/clamp round12 ne marche NULLE PART -> root-cause pourquoi il ne se déclenche pas (détection true-rim cassée? shader ne lit pas rim_dist? bases sur lèvres partout?). Compter les brins clampés (si ~0 = rim non détecté). Preuve sur plateforme PROCHE.

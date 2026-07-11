@@ -563,3 +563,23 @@ his platform, distant platforms visible) named p13_wide_*.png, ON and OFF, same 
 state: no bald block-holes on Jak's platform (occ_culled~0 there), no floating grass on distant
 platforms. The SUPERVISOR eyeballs the p13_wide ON shot for (a) bald holes on the near platform and
 (b) floating grass on the far platforms before any push. Keep DROPPED=0 + lighting.
+
+## OWNER CORRECTION on ROUND #13 overflow (2026-07-11)
+Owner (verbatim): "C'est pas que lointain où ça dépasse hein ! Si je me colle à la plateforme, ça
+dépasse toujours..."
+=> The FLOATING OVERFLOW is UNIVERSAL — NEAR platforms too (walk right up to one, grass still hangs
+past the edge), not just distant TIE ones. So the round#12 lip-exclusion + shader rim-clamp is NOT
+working on ANY platform. Do not narrow item #2 to distant TIE platforms. ROOT-CAUSE why the fix does
+not fire at all:
+- Is the TRUE-RIM edge classification (bAB/bBC/bCA = edge used by exactly one kept grass tri) actually
+  detecting the platform rims? If the rim edge is shared with a NON-grass (rock/void) triangle, is that
+  correctly counted as a boundary? Add a device/log count: how many kept tris have >=1 boundary edge,
+  how many blades get a finite rim_dist (clamped) vs NO_RIM. If ~0 blades are clamped, the rim detection
+  is broken -> the clamp never triggers -> universal overflow.
+- Verify the shader ACTUALLY reads gspare(rim_dist) and clamps total XZ offset to it (not silently
+  ignored / wrong units). A blade with height/curve/sway must have its horizontal reach hard-limited so
+  no vertex crosses the rim, on EVERY platform.
+- If blade BASES themselves sit on lip tris that overhang the void, exclude those bases everywhere (near
+  AND far), per the diagnosis.
+Prove on a NEAR platform the owner can walk to: p13_wide + a near-edge shot showing grass stopping at
+the rim. Supervisor eyeballs both. Keep DROPPED=0 + lighting + no block holes.
