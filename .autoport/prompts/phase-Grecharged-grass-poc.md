@@ -348,3 +348,34 @@ Breakdown (do NOT reinterpret) — fix these 4:
    uniform flashy over-bright. Prove with device captures at a LIT spot AND a SHADED spot showing the
    grass brightness matching the ground beneath at each.
 Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified (device captures at lit+shaded).
+
+## OWNER POLISH ROUND #8 (2026-07-11) — clipping OK, but shrub/edge coverage + lighting still GLOBAL not per-location
+Owner quote (verbatim, French):
+"Alors le clipping est meilleur en effet. Par contre les shrubs d'herbe d'origine ont beaucoup
+d'espace où on voit la texture plate d'origine autour sans herbe, probablement parce que leur mesh
+occupe l'espace bien que non visible en alpha, ça fait un peu tâche. Notre herbe 3D et les grass
+cards n'arrivent pas au bords des plateformes qui ont de la texture d'herbe au sol, laissant des
+zones avec la texture plate uniquement, à corriger. Pour le lighting, certes c'est plus flashy, mais
+j'ai l'impression que l'herbe est teinté de la même exacte façon de partout, donc elle paraît sombre
+sur les zones très éclairées, ok sur les zones moyennement éclairées, un peu trop lumineuse sur les
+zones ombragées, c'est toujours pas adapté ! J'ai l'impression que c'est le même 'lighting pickup'
+appliqué à la totalité de l'herbe plutôt que location aware"
+
+GOOD (keep): clipping is better. Fix these 3:
+1. SHRUB BALD PATCHES: the original grass SHRUBS leave a lot of empty flat-texture space around them
+   with no grass — because the shrub MESH occupies that footprint even though it's alpha-transparent
+   (invisible) there. Grass placement treats the shrub's whole mesh bounds as occupied. Fix: do NOT
+   let the shrub's alpha-transparent mesh area block grass — place grass under/around shrubs (block
+   only where the shrub is actually opaque, or exempt shrubs from the overlap-hide entirely).
+2. GRASS DOESN'T REACH PLATFORM EDGES: our 3D grass + cards stop short of the EDGES of grass-textured
+   platforms, leaving a bald margin of flat texture at the borders. Extend placement to the actual
+   edges of grass-textured surfaces (fill the border triangles).
+3. LIGHTING STILL GLOBAL, NOT LOCATION-AWARE (#1 priority — owner's precise diagnosis): the grass is
+   tinted the EXACT SAME everywhere, so it looks DARK on very-lit zones, OK on medium zones, TOO
+   BRIGHT on shaded zones. It's ONE global "lighting pickup" applied to ALL grass, not per-location.
+   Fix: sample the lighting PER-INSTANCE at each blade/card's WORLD POSITION (the local baked/scene
+   light where that blade actually stands), so lit-zone grass is bright and shaded-zone grass is dark
+   — real spatial variation, not a single global value. Prove with device captures of a bright zone
+   AND a shaded zone in the SAME frame/beat showing the grass brightness differing correctly between
+   them.
+Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified.

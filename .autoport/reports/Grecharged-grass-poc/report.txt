@@ -1,4 +1,4 @@
-RESULT: RECHARGED GRASS POC — POLISH#7 DONE. Owner round #7 kept the wins (rock/vertical faces CLEAN,
+STATUS: IN-PROGRESS (polish#8 - shrub bald patches, platform edges, PER-INSTANCE lighting) - prior RESULT: RECHARGED GRASS POC — POLISH#7 DONE. Owner round #7 kept the wins (rock/vertical faces CLEAN,
         the 3D-grass -> card transition much better) and asked to fix 4 things: object-clip HALO too
         big, clip ALL objects (not just rocks), coverage GAPS on open grass, and BROKEN LIGHTING
         (uniform flashy over-bright). All 4 addressed renderer-side (GrassRenderer.cpp + grass.vert;

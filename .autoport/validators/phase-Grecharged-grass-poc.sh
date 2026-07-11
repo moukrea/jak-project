@@ -116,6 +116,13 @@ grep -qiE '(light|lumin|baked|shade|brightness).*(sample|per.?location|match|var
 grep -qiE '(lit|shad).*(spot|beat|capture).*(match|brightness|light)|capture.*(lit|shaded)|lit.*and.*shad' "$R" || fail "polish#7: need device captures at a LIT spot AND a SHADED spot proving grass brightness matches the ground"
 ok "polish#7 (clip footprint, all-objects, coverage, lighting variation, lit+shaded proof) addressed"
 
+# OWNER POLISH#8 2026-07-11: shrub bald patches, platform edges, PER-INSTANCE (location-aware) lighting
+grep -qiE '(shrub).*(alpha|mesh|footprint|occup|bald|around|block|exempt)|alpha.?transparent.*(shrub|block)' "$R" || fail "polish#8: shrubs must not leave bald patches (alpha-transparent shrub mesh must not block grass)"
+grep -qiE '(edge|border|margin|bord).*(platform|surface|grass|reach|fill|extend)|reach.*(edge|border)' "$R" || fail "polish#8: grass must reach the EDGES of grass-textured platforms (no bald border margin)"
+grep -qiE '(per.?instance|per.?location|per.?blade|world.?pos|location.?aware).*(light|sample|luminance)|light.*(per.?instance|per.?location|world.?pos|location.?aware)' "$R" || fail "polish#8: lighting must be PER-INSTANCE/location-aware (sample local light at each blade world pos), NOT one global value"
+grep -qiE '(bright|lit).*(and|vs).*(shad|dark).*(same frame|same beat|differ)|same (frame|beat).*(bright|lit).*(shad|dark)|spatial variation' "$R" || fail "polish#8: prove spatial lighting variation — a bright zone AND shaded zone in the same beat with grass brightness differing"
+ok "polish#8 (shrub patches, platform edges, per-instance lighting, spatial-variation proof) addressed"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"
