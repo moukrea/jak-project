@@ -83,6 +83,12 @@ struct SharedRenderState {
   math::Vector4f camera_hvdf_off;
   math::Vector4f camera_fog;
   math::Vector4f camera_pos;
+  // Grecharged-grass POLISH#8: the current-frame time-of-day interpolation weights, copied from
+  // the pc-data in update_render_state_from_pc_settings. The grass renderer samples the ground's
+  // ACTUAL current-time baked vertex colour per-location from these (interp_time_of_day), so the
+  // grass lighting is location-aware and matches the ground — instead of an 8-palette average that
+  // washed the lit-vs-shadow contrast into one global value (owner polish#7/#8 "même pickup partout").
+  math::Vector<s32, 4> itimes[4] = {};
 
   EyeRenderer* eye_renderer = nullptr;
 

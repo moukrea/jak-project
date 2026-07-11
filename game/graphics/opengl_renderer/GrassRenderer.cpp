@@ -63,7 +63,14 @@ constexpr float BASE_H = 1550.0f;         // ~0.38 m nominal blade height (owner
 // 60° from horizontal) as the SECONDARY safety net behind the texture filter — bumpy
 // grass platforms (<~45°) still qualify, but steep/vertical rock faces do not. Kept as
 // abs(ny) (winding-agnostic): a vertical wall has abs(ny)/nlen ~= 0, so it is rejected.
-constexpr float GROUND_UPNESS = 0.50f;    // face-normal.y threshold for "walkable ground"
+// OWNER POLISH#8: grass/cards "n'arrivent pas au bords des plateformes" — a bald flat-texture
+// margin at platform EDGES. The edge LIP tris of a grass-textured platform are grass-textured
+// (tra-grass, the STRICT primary filter) but slope down steeper than 60°, so upness 0.50 rejected
+// them and left the border bare. Since the texture filter is now strict exact-match (rock is a
+// DIFFERENT texture, tra-beachrock — excluded regardless of slope), the upness net can be relaxed
+// to catch these grass-textured edge lips: 0.50 -> 0.35 (rejects only faces steeper than ~69.5°, so
+// near-vertical walls are still out). Grass now reaches the actual grass-textured platform edges.
+constexpr float GROUND_UPNESS = 0.35f;    // face-normal.y threshold for "walkable ground" (POLISH#8: edges)
 constexpr float MAX_TRI_AREA = 300.0f;    // m^2; reject implausibly huge (spurious) triangles
 constexpr float D_TARGET = 150.0f;        // tufts/m^2 uniform (dense lawn); auto-reduced to fit budget
 // OWNER POLISH#3: density++ (owner's #1 ask, 3rd time). The uniform field is budget-
@@ -71,6 +78,11 @@ constexpr float D_TARGET = 150.0f;        // tufts/m^2 uniform (dense lawn); aut
 constexpr int MAX_INSTANCES = 640000;     // total instance ceiling for the whole-level static field
 constexpr float BUDGET_SAFETY = 0.9f;     // keep expected count under the ceiling so NO triangle is
                                           // ever starved (a mid-list cap hit would re-create the bug)
+// OWNER POLISH#8 (2026-07-11): amplify the PER-LOCATION baked-light deviation around the level mean
+// so a shaded blade reads clearly darker and a lit blade clearly brighter (owner: the light was "le
+// même pickup partout", no spatial variation). 1.0 = exact match to the ground's own multiplier;
+// >1 amplifies the local contrast. Kept moderate so the grass still sits in the scene (not cartoonish).
+constexpr float LIGHT_GAIN = 1.30f;
 
 // culling-instrumentation constants (chunk size only; the LOD reach is now the two
 // ADJUSTABLE distances, read live from the settings in render()).
@@ -245,6 +257,37 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   };
   std::vector<TriRec> tris;
 
+  // POLISH#8 edge instrumentation: grass-textured tris rejected purely by the upness gate.
+  int rej_upness = 0;          // grass-textured tris rejected by the upness net (edge lips / walls)
+  float rej_upness_area = 0.f;
+  int rej_up_moderate = 0;     // of those, moderate slope (0.20..GROUND_UPNESS) = edge lips we still miss
+  float min_kept_upness = 1.0f;
+
+  // POLISH#8: prepare the CURRENT time-of-day interpolation weights (rs->itimes, copied from the
+  // pc-data this frame in update_render_state_from_pc_settings) so each ground triangle's baked luma
+  // is sampled at the ACTUAL current time — the exact colour the ground vertex is rendered with —
+  // preserving the full lit-vs-shadow contrast. The old 8-palette average washed that contrast out,
+  // so the grass light read as one global value everywhere (owner polish#7/#8).
+  int tod_w[8][4];
+  bool itimes_valid = false;
+  for (int comp = 0; comp < 8; ++comp) {
+    int quad_idx = comp / 2;
+    int word_off = (comp % 2) * 2;
+    for (int ch = 0; ch < 4; ++ch) {
+      int word = word_off + (ch / 2);
+      int hw_off = ch % 2;
+      u32 wv = (u32)rs->itimes[quad_idx][word];
+      u32 hw = hw_off ? (wv >> 16) : wv;
+      tod_w[comp][ch] = (int)(hw & 0xffu);
+    }
+  }
+  {
+    int wsum = 0;
+    for (int comp = 0; comp < 8; ++comp)
+      for (int ch = 0; ch < 3; ++ch) wsum += tod_w[comp][ch];
+    itimes_valid = wsum > 0;  // all-zero itimes (not populated / pitch black) -> fall back to 8-avg
+  }
+
   // ---- PHASE 1: collect ALL qualifying ground triangles (WHOLE LEVEL). ----
   // No camera window — the field must be complete so nothing can fail to load or
   // de-instance while moving. Scans BOTH the highest-detail tfrag geometry (geo 0)
@@ -267,6 +310,21 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       u16 cidx = verts[vi].color_index;
       if (colors.color_count == 0 || cidx >= colors.color_count) {
         return 128.0f;  // neutral (no baked data) -> ends up ~= level mean -> no change
+      }
+      // POLISH#8: sample the ground vertex's CURRENT-TIME interpolated colour (the exact luma the
+      // ground is rendered with THIS frame), replicating interp_time_of_day scalar-side: per channel,
+      // sum(colour_p * weight_p) >> 6, saturate to 255. This preserves the real lit-vs-shadow contrast
+      // per-location (the day-average below collapsed it, so the light read as one global value).
+      if (itimes_valid) {
+        int rgb[3] = {0, 0, 0};
+        for (int ch = 0; ch < 3; ++ch) {
+          int acc = 0;
+          for (int p = 0; p < 8; ++p) acc += (int)colors.read((int)cidx, p, ch) * tod_w[p][ch];
+          acc >>= 6;
+          if (acc > 255) acc = 255;
+          rgb[ch] = acc;
+        }
+        return 0.299f * rgb[0] + 0.587f * rgb[1] + 0.114f * rgb[2];
       }
       float s = 0.f;
       for (int p = 0; p < 8; ++p) {
@@ -340,7 +398,14 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
           return;
         }
         float upness = std::fabs(ny) / nlen;  // 1.0 = perfectly flat ground
-        if (upness <= GROUND_UPNESS || area_m2 <= 1e-4f) return;
+        if (area_m2 <= 1e-4f) return;
+        if (upness <= GROUND_UPNESS) {  // POLISH#8: track grass-textured tris the upness net drops
+          rej_upness++;
+          rej_upness_area += area_m2;
+          if (upness >= 0.20f) rej_up_moderate++;  // moderate-slope edge lips we still miss (vs walls)
+          return;
+        }
+        min_kept_upness = std::min(min_kept_upness, upness);
         TriRec r;
         r.p0x = p0.x; r.p0y = p0.y; r.p0z = p0.z;
         r.e1x = e1x; r.e1y = e1y; r.e1z = e1z;
@@ -419,6 +484,26 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       baked_ref = 1.0f;
     }
   }
+  // POLISH#8: the ground's mean own-multiplier (luma/128, neutral 1.0 at 128). Grass light is centred
+  // here and the per-location deviation amplified by LIGHT_GAIN (below), so the OVERALL brightness
+  // matches the ground while shade/light vary per-location.
+  float meanf = baked_ref / 128.0f;
+  // POLISH#8 lighting instrumentation: the spread of the per-triangle baked luma. A WIDE min..max /
+  // large stddev proves the light is now location-aware (real lit-vs-shadow variation), not one
+  // global value — this is what the owner's "même pickup partout" complaint was about.
+  float bl_min = 1e9f, bl_max = -1e9f;
+  double bl_sum = 0.0, bl_sq = 0.0;
+  for (const auto& r : tris) {
+    bl_min = std::min(bl_min, r.raw_baked);
+    bl_max = std::max(bl_max, r.raw_baked);
+    bl_sum += r.raw_baked;
+    bl_sq += (double)r.raw_baked * (double)r.raw_baked;
+  }
+  float bl_mean = tris.empty() ? 0.f : (float)(bl_sum / (double)tris.size());
+  float bl_std =
+      tris.empty()
+          ? 0.f
+          : (float)std::sqrt(std::max(0.0, bl_sq / (double)tris.size() - (double)bl_mean * bl_mean));
 
   float density = D_TARGET;
   if (total_area_m2 > 1.0f && total_area_m2 * D_TARGET > BUDGET_SAFETY * (float)budget) {
@@ -452,15 +537,15 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);          // wider CURVATURE variation
       gi.phase = hash_f(sd + 7u);
       gi.gr = r.gr; gi.gg = r.gg; gi.gb = r.gb;  // POLISH#4 ground colour
-      // POLISH#7: per-instance ABSOLUTE baked-light multiplier — the EXACT factor the ground texture
-      // is multiplied by. tfrag/tie render the ground as texture*(todLuma/255)*2.0 (neutral at
-      // todLuma=128; verified in tfrag3.frag / background_common). So light = (rawLuma/255)*2.0 makes
-      // the grass track the ground's brightness per-location: a shaded patch (rawLuma 70 -> 0.55x)
-      // darkens, a lit patch (140 -> 1.10x) brightens — matching the ground beneath. POLISH#6 divided
-      // by the grass-ground MEAN (baked_ref ~82) instead, so every lit patch hit the +1.35 ceiling ->
-      // uniform flashy over-bright everywhere with NO variation (owner polish#7 #1 complaint). Clamp
-      // [0.35,1.30] so deep shade isn't black and lit grass isn't flashy.
-      gi.gspare = std::min(1.30f, std::max(0.35f, (r.raw_baked / 255.0f) * 2.0f));
+      // POLISH#8: per-instance LOCATION-AWARE baked light. r.raw_baked is now the CURRENT-TIME
+      // interpolated ground luma (full per-location lit-vs-shadow contrast, sampled the same way the
+      // ground vertex is rendered). Convert to the ground's own multiplier (luma/128, neutral 1.0 at
+      // 128 — the factor tfrag/TIE multiply the ground texture by) and AMPLIFY the deviation around the
+      // level mean (LIGHT_GAIN) so a shaded blade reads clearly darker and a lit blade clearly brighter,
+      // matching the ground beneath at each location. POLISH#7 used the 8-palette AVERAGE luma, which
+      // washed the contrast into one near-constant value -> "le même lighting pickup appliqué à la
+      // totalité de l'herbe" (owner polish#8). Clamp [0.30,1.45] so deep shade isn't black / lit not flashy.
+      gi.gspare = std::min(1.45f, std::max(0.30f, meanf + LIGHT_GAIN * (r.raw_baked / 128.0f - meanf)));
       m_instances.push_back(gi);
     }
   }
@@ -509,14 +594,16 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         }
       }
     }
-    // POLISH#7: also scan SHRUB models (static props: bushes, small placed props) so grass hides
-    // under ALL static objects, not only TIE rocks (owner: "d'autres objets aussi" poked through).
-    // ShrubGpuVertex leads with float x,y,z just like PreloadedVertex, so it reads the same way.
-    for (const auto& tree : lev->shrub_trees) {
-      for (const auto& v : tree.unpacked.vertices) {
-        mark_occluder(v.x, v.y, v.z);
-      }
-    }
+    // OWNER POLISH#8: do NOT treat SHRUB meshes as occluders (POLISH#7 did). The original grass
+    // SHRUBS (bushes / tufts) are alpha-tested foliage: their MESH footprint is far larger than the
+    // actually-opaque visible blades, so scanning shrub vertices marked the whole shrub bounding
+    // footprint as occupied and left a BALD ring of flat grass texture around every shrub (owner:
+    // "les shrubs ... ont beaucoup d'espace où on voit la texture plate ... leur mesh occupe l'espace
+    // bien que non visible en alpha"). We cannot cheaply read per-vertex opacity here, and the owner
+    // explicitly permits exempting shrubs from the overlap-hide entirely — our 3D grass growing right
+    // up to / under a shrub tuft looks correct (both are grass). So shrubs are EXCLUDED from the
+    // occluder scan; only solid TIE objects (rocks / props) hide grass. Bonus: removes a large chunk
+    // of over-cull, filling coverage (helps the platform-edge / open-ground bald patches too).
     // POLISH#7: morphological CLOSING (dilate THEN erode). The POLISH#6 plain dilation grew a +1-cell
     // HALO around every object (owner: empty ring). Closing fills interior pinholes left by sparse
     // object vertices but does NOT grow the outer boundary -> footprint stops at the object edge, no
@@ -610,12 +697,30 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
       "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
       "{} instances in {} chunks (POLISH#5 density {:.0f}% -> budget {}); occlusion culled {} "
-      "under-object instances (POLISH#7 contact-band 1.5m + morphological closing, TIE+shrub -> no "
-      "halo, coverage filled); bakedRef {:.0f} (POLISH#7 ABSOLUTE light (todLuma/255)*2 per-location, "
-      "matches ground). No camera window, no move-rebuild -> nothing de-instances while moving.",
+      "under-object instances (POLISH#8 TIE-only occluder, shrubs EXEMPT + contact-band 1.5m + "
+      "morphological closing -> no shrub bald ring, no halo). No camera window, no move-rebuild -> "
+      "nothing de-instances while moving.",
       considered_draws, tie_draws, tris_kept, giant_tris, max_area, total_area_m2, density,
       m_instance_count, (int)m_chunks.size(), Gfx::g_global_settings.recharged_grass_density, budget,
-      occ_culled, baked_ref);
+      occ_culled);
+  // POLISH#8 LOCATION-AWARE LIGHTING proof: the per-location baked luma spread. itimesValid=1 means
+  // the CURRENT-time interp is used (contrast preserved). A wide bakedLuma min..max / big std = real
+  // per-location lit-vs-shadow variation (NOT the old one-global-value); gspare = meanf(=ref/128) +
+  // gain*(luma/128 - meanf).
+  lg::info(
+      "[recharged-grass] POLISH#8 LIGHT location-aware: itimesValid={} bakedRef(cur) {:.0f} -> meanf "
+      "{:.2f}; per-tri bakedLuma min {:.0f} / mean {:.0f} / max {:.0f} / std {:.1f}; gain {:.2f} -> "
+      "gspare spans ~[{:.2f}..{:.2f}] (shade darkens, lit brightens per-location).",
+      itimes_valid ? 1 : 0, baked_ref, meanf, bl_min, bl_mean, bl_max, bl_std, LIGHT_GAIN,
+      std::min(1.45f, std::max(0.30f, meanf + LIGHT_GAIN * (bl_min / 128.0f - meanf))),
+      std::min(1.45f, std::max(0.30f, meanf + LIGHT_GAIN * (bl_max / 128.0f - meanf))));
+  // POLISH#8 EDGE proof: how many grass-textured tris the upness gate still drops. rej_moderate =
+  // grass-textured tris at 0.20..0.35 upness (edge lips we would still miss); if large, edges remain
+  // bare and the gate could relax further. minKeptUpness = the shallowest tri that DID get grass.
+  lg::info(
+      "[recharged-grass] POLISH#8 EDGE upness {:.2f}: grass-tex tris dropped by upness {} ({:.0f} m2), "
+      "of which {} moderate-slope (0.20..{:.2f}, edge lips); minKeptUpness {:.2f}.",
+      GROUND_UPNESS, rej_upness, rej_upness_area, rej_up_moderate, GROUND_UPNESS, min_kept_upness);
   // POLISH#4 "still-missing platforms" diagnostic: any ground-ish texture we did NOT place on.
   for (const auto& kv : unmatched_ground) {
     lg::info("[recharged-grass] UNMATCHED ground-ish texture '{}' ({} draws) — not placed",
