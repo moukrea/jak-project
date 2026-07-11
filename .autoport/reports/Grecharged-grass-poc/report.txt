@@ -1,4 +1,4 @@
-RESULT: RECHARGED GRASS POC — POLISH#8 DONE (shrub bald patches + platform edges + PER-INSTANCE location-aware lighting)
+STATUS: IN-PROGRESS (polish#9 - per-triangle edge placement + GROUND baked-light sampling) - prior RESULT: RECHARGED GRASS POC — POLISH#8 DONE (shrub bald patches + platform edges + PER-INSTANCE location-aware lighting)
 
 ====================================================================================
 OWNER POLISH#8 (2026-07-11) — shrub bald patches, platform edges, per-location lighting

@@ -124,6 +124,12 @@ grep -qiE '(bright|lit).*(and|vs).*(shad|dark).*(same frame|same beat|differ)|sa
 grep -qiE '(dynamic|per.?frame|time.?of.?day|day.?night|re.?sampl|not frozen|not (static|baked once)).*(light|grass)|light.*(dynamic|per.?frame|time.?of.?day|day.?night|re.?sampl)' "$R" || fail "polish#8b: lighting must be DYNAMIC (track the time-of-day cycle, re-sampled), not sampled-once-and-frozen"
 ok "polish#8 (shrub patches, platform edges, per-instance + DYNAMIC lighting, spatial-variation proof) addressed"
 
+# OWNER POLISH#9 2026-07-11: per-triangle edge placement + GROUND baked-light sampling
+grep -qiE '(per.?triangle|point.?in.?triangle|triangle (bound|edge|boundary)|inside.*triangle).*(placement|spawn|clip|test)|(no overflow|no.*(hole|bald)).*edge' "$R" || fail "polish#9: edge placement must be per-triangle (point-in-triangle), no block overflow past the edge, no holes at edges"
+grep -qiE '(ground|tfrag|floor).*(baked|vertex ?colou?r|lightmap).*(sample|read|apply|match)|baked.*(vertex ?colou?r|lightmap).*(ground|grass|blade)' "$R" || fail "polish#9: must sample the GROUND'"'"'s BAKED light (tfrag vertex colour/lightmap under each blade), not a generic scene light"
+grep -qiE '(baked|ground).*(dark).*(grass|blade|match)|grass.*match.*(baked|ground) (dark|light)' "$R" || fail "polish#9: prove the grass matches the ground where the BAKED light is dark (device capture)"
+ok "polish#9 (per-triangle edges, ground baked-light sampling, match-dark proof) addressed"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"

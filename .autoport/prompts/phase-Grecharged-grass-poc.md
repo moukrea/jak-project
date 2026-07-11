@@ -389,3 +389,36 @@ so do NOT sample once at load/placement and freeze it. Re-sample the CURRENT sce
 grass gets brighter at midday, darker at dusk/night, matching the ground at that moment. Both
 LOCATION-aware (per-instance world pos) AND TIME-aware (follows the day cycle). Prove the time
 dimension too if feasible (grass brightness at two different times-of-day differs).
+
+## OWNER POLISH ROUND #9 (2026-07-11) — best integration so far; edges (block overflow/holes) + GROUND baked-light
+Owner quote (verbatim, French):
+"Alors c'est clairement la meilleure intégration so far... On a des zones ombragées, ça fit beaucoup
+mieux. Les plateformes sont pleines d'herbes pour la plupart, mais il y a quand même problème avec
+les bords des plateformes, ça donne des trous sur le dessus (pas partout, à certaines, où l'herbe
+n'est pas présente et on voit la texture d'herbe plate... Et sur d'autre bordures étrangement on a
+l'herbe qui va un peu trop loin, débordant de la plateforme (comme si l'herbe était positionnée par
+bloc et que ce bloc dépassait un peu). Aussi, la couleur du sol change a plein d'endroits durant la
+journée (baked lighting) et bien que l'herbe est globalement mieux intégrée, ça se reflète pas du
+tout sur l'herbe 3D, donc notre herbe 3D fait tâche quand le baked lighting sur les textures d'herbe
+les rend plus sombres... En gros tu prends toujours pas en compte le baked lighting du sol il
+semblerait (qui dépend de l'emplacement+du moment du jour)."
+
+GOOD (keep): best integration so far; shaded zones fit much better; platforms mostly full.
+Breakdown (do NOT reinterpret) — 2 items:
+1. PLATFORM EDGE PLACEMENT (block-based, imprecise): on SOME borders grass leaves HOLES (flat texture
+   visible at the edge), on OTHERS grass OVERFLOWS past the platform edge ("comme si l'herbe était
+   positionnée par bloc et que ce bloc dépassait un peu"). The placement is BLOCK/GRID-based and does
+   not respect the exact triangle boundary at edges. Fix: clip placement precisely to the grass-
+   textured TRIANGLE boundaries — an instance only spawns if its base is INSIDE a grass triangle;
+   no overflow past the platform edge, no bald holes at the edge. Per-triangle/point-in-triangle
+   test, not a coarse block/grid.
+2. GROUND BAKED-LIGHTING (the real one the owner means): the GROUND's colour changes at many spots
+   during the day because of BAKED LIGHTING (the tfrag ground's baked vertex colours / lightmap,
+   location- AND time-of-day dependent). iteration 8 improved integration but the 3D grass still does
+   NOT reflect the GROUND's baked light — so where the baked light darkens the grass TEXTURE, our 3D
+   grass stays bright and clashes. Fix: sample the ACTUAL GROUND BAKED LIGHT at each blade's position
+   — read the tfrag ground's baked vertex colour / lightmap value under the blade (interpolated on
+   the triangle), and apply it to the blade so the 3D grass darkens/brightens EXACTLY like the ground
+   texture beneath it, at that location and that time-of-day. Not a generic scene light — the ground's
+   own baked value. Prove with device captures where the baked ground is dark: the grass must match.
+Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified.
