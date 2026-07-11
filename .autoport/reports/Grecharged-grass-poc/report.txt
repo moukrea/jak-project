@@ -1,4 +1,4 @@
-RESULT: RECHARGED GRASS POC — POLISH#6 DONE. "Ça claque" round on top of POLISH#5/#4/#3 and the
+STATUS: IN-PROGRESS (polish#7 - clip-halo too big, clip all objects, coverage gaps, LIGHTING broken) - prior RESULT: RECHARGED GRASS POC — POLISH#6 DONE. "Ça claque" round on top of POLISH#5/#4/#3 and the
         culling root-fix. This round: (1) grass CARDS made LESS dense/tufted (reduce card density:
         fewer sub-blades 5->3, ~30% of cards culled, narrower) so they read lighter than the near
         grass; (2) card TINT matched to the near blades AND the near->card LOD transition SMOOTHED

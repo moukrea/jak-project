@@ -108,6 +108,14 @@ grep -qiE '(sub.?sub.?menu|nested.*(menu|submenu)|grass settings (page|submenu|m
 grep -qiE '(screencap|screenshot).*(grass settings|nested|sub.?submenu|grass.?menu)' "$R" || fail "polish#6: need a device screencap of the nested Grass Settings page showing all rows"
 ok "polish#6 (card density/tint/transition, no clip-through, lighting response, nested grass menu) addressed"
 
+# OWNER POLISH#7 2026-07-11: clip-halo to visible footprint, clip ALL objects, coverage gaps, LIGHTING re-do
+grep -qiE '(halo|ring|empty (zone|ring)).*(object|clip)|clip.*(visible|above.?ground|footprint|intersection|ground level)|(above.?ground|visible).*footprint' "$R" || fail "polish#7: object-clip must use the VISIBLE above-ground footprint (no oversized empty halo from the buried model)"
+grep -qiE '(all|every|warp.?gate|button|prop).*(object|clip|overlap)|clip.*(all|every).*object|extend.*(clip|overlap).*object' "$R" || fail "polish#7: overlap-hide must cover ALL objects (warp-gate button, props), not just rocks"
+grep -qiE '(coverage|gap|empty (zone|area)|open (area|ground)).*(fill|grass|no object)|fill.*(gap|empty|open)' "$R" || fail "polish#7: must fill coverage gaps (open grass-textured ground with no object still gets grass)"
+grep -qiE '(light|lumin|baked|shade|brightness).*(sample|per.?location|match|vary|variation|darken)|grass.*(darken|match).*(ground|shade|light)' "$R" || fail "polish#7: grass lighting must SAMPLE per-location + vary (darken in shade, match ground) — not uniform flashy"
+grep -qiE '(lit|shad).*(spot|beat|capture).*(match|brightness|light)|capture.*(lit|shaded)|lit.*and.*shad' "$R" || fail "polish#7: need device captures at a LIT spot AND a SHADED spot proving grass brightness matches the ground"
+ok "polish#7 (clip footprint, all-objects, coverage, lighting variation, lit+shaded proof) addressed"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"

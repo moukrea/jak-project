@@ -308,3 +308,43 @@ Breakdown (do NOT reinterpret) — goal is "ça claque", modern visual bar:
    nested menu definitively fixes the "not appearing" (its own page, own length). PROVE with a device
    screencap of the nested Grass Settings page showing all rows.
 Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified (device screencaps).
+
+## OWNER POLISH ROUND #7 (2026-07-11) — rock walls OK + transition OK, but clip-halo/coverage/LIGHTING broken
+Owner quote (verbatim, French):
+"Alors une bonne nouvelle, plus d'herbe sur les parties rocheuses. Par contre... OK ça clip plus a
+travers des rochers posés sur le sol (des modèles 3D qui doivent passer a travers du sol) mais en
+fait ça fait comme des zones vides autours des éléments plutôt que s'arrêter pile a l'intermédiaire
+où le rocher posé fais l'intermédiaire avec le sol) en gros j'ai l'impression que le modèle 3D dudit
+rocher est plus gros sous le sol, et que le calcul du clipping prend en compte la partie non visible.
+Et ça fonctionne que pour les rochers, le bouton pour la warp gate a de l'herbe qui clip au travers
+de fou, d'autres objets aussi... Et c'est bizarre mais sur les plateformes on a des zones vides qui
+n'ont aucun objet qui gênent donc qui devrait avoir de l'herbe, gênant par ce qu'on se retrouve avec
+une texture d'herbe plate visible sans herbe 3D dessus. La transition herbe 3D -> grass card est bien
+mieux, ça c'est cool. Par contre l'adaptation au lighting est complètement pété, l'herbe est ultra
+éclairée tout du long, partout exactement pareil, bien plus 'lumineuse' que la texture du sol de
+partout, même aux endroits les plus éclairés... Aucune variation, pas du tout adapté à l'endroit où
+elle est, et ce partout, peut importe le moment de la journée, peut importe si la zone est ombrée ou
+pas, c'est juste 'flashy' de partout"
+
+GOOD (keep, do not regress): rock/vertical faces CLEAN; the 3D-grass -> card transition is much better.
+Breakdown (do NOT reinterpret) — fix these 4:
+1. OBJECT-CLIP HALO TOO BIG: the hide-under-objects now leaves an oversized EMPTY HALO around objects
+   instead of stopping exactly at the ground/object intersection. Owner's insight: the object's 3D
+   model extends BIGGER UNDER the ground, and the clip test uses that non-visible underground volume.
+   Clip only to the VISIBLE above-ground footprint (intersection at ground level), not the full/buried
+   model — no empty ring around objects.
+2. CLIP ONLY WORKS FOR ROCKS: other objects still clip through grass badly — the WARP-GATE BUTTON has
+   grass poking through "de fou", plus other props. Extend the overlap-hide to ALL objects on grass
+   (warp-gate button, props, etc.), not just rocks.
+3. COVERAGE GAPS: on platforms there are EMPTY ZONES with NO blocking object that SHOULD have grass —
+   you see flat grass texture with no 3D grass on top. Fill those (why are open grass-textured areas
+   skipped? density/placement holes). Grass-textured ground with nothing on it must get grass.
+4. LIGHTING COMPLETELY BROKEN (#1 priority): the grass is ULTRA-LIT everywhere, EXACTLY the same
+   everywhere, much BRIGHTER than the ground texture everywhere (even in the brightest spots), NO
+   variation, not adapted to location, regardless of time-of-day or shade — just "flashy" everywhere.
+   The polish#6 lighting attempt FAILED. Re-do it properly: the grass must sample the actual scene /
+   baked lighting (and/or the ground texture's local luminance) PER-LOCATION so blades DARKEN in shade
+   and MATCH the ground brightness — real variation across the level and across time-of-day, never a
+   uniform flashy over-bright. Prove with device captures at a LIT spot AND a SHADED spot showing the
+   grass brightness matching the ground beneath at each.
+Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified (device captures at lit+shaded).
