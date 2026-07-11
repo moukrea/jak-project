@@ -492,3 +492,33 @@ MANDATORY VERIFICATION (this is the new gate — the report keyword pass is NOT 
   blade floating past it, NO bald flat-texture margin inside it. The supervisor will EYEBALL this exact
   close-up before any release; a wide spawn shot does NOT count.
 Keep culling DROPPED=0 + the (perfect) lighting + all prior fixes. Owner REMOTE.
+
+## SUPERVISOR CODE DIAGNOSIS (2026-07-11) — placement IS per-triangle; the real cause is EDGE-LIP tris
+Read GrassRenderer.cpp PHASE 2 (lines ~647-694): each blade base IS a barycentric point INSIDE a real
+grass triangle (gi.px = p0 + r1*e1 + r2*e2, with the r1+r2>1 reflection) — NOT a flat predefined block.
+So "place blades on triangles" is ALREADY done. The owner's block-perception is a symptom, not the cause.
+
+THE REAL ROOT of overflow+holes (owner rounds #9/#10/#11 kept oscillating here):
+- POLISH#8 lowered GROUND_UPNESS to 0.35 to INCLUDE the steep EDGE-LIP triangles at platform rims (to
+  fill the bald edge margin). But those lip tris face OUTWARD/DOWNWARD over the drop, so blade BASES land
+  on the lip that overhangs the void -> the "floating grass past the platform". The POLISH#11 shader
+  rim-clamp only limits a blade's horizontal SPREAD, NOT its base position, so bases on the overhanging
+  lip still float.
+- Excluding the lips (higher upness) removes the overflow but re-opens the bald margin = the "holes".
+That is the exact overflow<->holes tradeoff the code has been trading. Neither the upness knob nor the
+spread-clamp resolves it because the problem is BASE PLACEMENT on outward/downward rim-lip triangles.
+
+TARGETED FIX (round #12 — one clean idea, not more heuristic layering):
+1. Do NOT place blade BASES on steep outward-facing rim-lip triangles (the ones that overhang the drop).
+   Keep the STRICT grass-texture filter; classify a tri as a "rim lip" if it is steep (upness in the
+   ~0.2..0.6 band) AND its steep-descent direction points AWAY from the adjacent flat grass top (i.e. it
+   drops off the platform). Exclude those from base placement -> no floating overflow.
+2. To avoid the bald margin that exclusion caused before: EXTEND the flat-top grass tris' base placement
+   right up to the shared TOP RIM edge (the edge the flat top shares with the excluded lip). Blades near
+   that top rim grow WORLD-UP (not along a tilted normal) and keep the POLISH#11 rim-clamp so their
+   spread never crosses the rim. Result: grass full to the exact top edge, none hanging past it.
+3. Net: coverage = the FLAT walkable top, clipped exactly at the top rim; no base on the overhanging lip.
+
+MANDATORY: a device platform-EDGE CLOSE-UP (p11/p12_edge_closeup_*.png) at a real raised platform rim
+(with the drop visible) showing grass ending EXACTLY at the top edge — no floating blade, no bald margin.
+The SUPERVISOR eyeballs this exact close-up before any release. Keep DROPPED=0 + lighting + all else.
