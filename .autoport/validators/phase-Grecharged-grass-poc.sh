@@ -126,7 +126,7 @@ ok "polish#8 (shrub patches, platform edges, per-instance + DYNAMIC lighting, sp
 
 # OWNER POLISH#9 2026-07-11: per-triangle edge placement + GROUND baked-light sampling
 grep -qiE '(per.?triangle|point.?in.?triangle|triangle (bound|edge|boundary)|inside.*triangle).*(placement|spawn|clip|test)|(no overflow|no.*(hole|bald)).*edge' "$R" || fail "polish#9: edge placement must be per-triangle (point-in-triangle), no block overflow past the edge, no holes at edges"
-grep -qiE '(ground|tfrag|floor).*(baked|vertex ?colou?r|lightmap).*(sample|read|apply|match)|baked.*(vertex ?colou?r|lightmap).*(ground|grass|blade)' "$R" || fail "polish#9: must sample the GROUND'"'"'s BAKED light (tfrag vertex colour/lightmap under each blade), not a generic scene light"
+grep -qiE '(ground|tfrag|floor).*(baked|vertex ?colou?r|lightmap).*(sample|read|apply|match)|baked.*(vertex ?colou?r|lightmap).*(ground|grass|blade)' "$R" || fail "polish#9: must sample the GROUND BAKED light (tfrag vertex colour/lightmap under each blade), not a generic scene light"
 grep -qiE '(baked|ground).*(dark).*(grass|blade|match)|grass.*match.*(baked|ground) (dark|light)' "$R" || fail "polish#9: prove the grass matches the ground where the BAKED light is dark (device capture)"
 ok "polish#9 (per-triangle edges, ground baked-light sampling, match-dark proof) addressed"
 
