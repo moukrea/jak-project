@@ -1340,6 +1340,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-grass-object-clip
+  name: 'RECHARGED (owner 2026-07-11, backlog, AFTER clean edges; owner: "un détail"): grass pokes THROUGH ground-resting objects (island warp-gate BUTTON + other decor). Root-cause hyp: round#13 object-cull only occludes NON-grass-TIE points; the gate button is a game-object/actor/prototype, not a TIE -> absent from occluders. Fix: add non-TIE ground-resting objects to the occluder set. CRITICAL: cull by the GROUND-CONTACT footprint (near-surface points, keep the [0.05..1.00m] contact band), NOT the full/buried mesh -> no giant bald patch on buried-base objects. Correctness within grass-ON, OFF==stock.'
+  prompt: prompts/phase-Grecharged-grass-object-clip.md
+  validator: validators/phase-Grecharged-grass-object-clip.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
