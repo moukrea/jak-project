@@ -153,6 +153,17 @@ WIDE=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p13_wide*.png
 [ -n "$WIDE" ] || fail "round13: need a p13_wide_*.png device spawn shot (near+distant platforms) — supervisor eyeballs it before push"
 ok "round13 (per-instance occupancy, distant-TIE clamp, wide shot) — supervisor must eyeball p13_wide"
 
+# OWNER ROUND#14 2026-07-11: FLOATING OVERFLOW ONLY (holes fixed, KEEP). Must DISCRIMINATE the mechanism
+# (H-A geometry / H-B base-past-silhouette / H-C cards), fix the CONFIRMED one, keep DROPPED=0, and land
+# a REAL platform-edge-over-void close-up (the recurring rounds #11-#13 failure was never reaching a rim).
+grep -qiE 'discriminat|h-b|base.*(past|silhouette)|silhouette' "$R" || fail "round14: must DISCRIMINATE the floating mechanism (H-A geometry / H-B base-past-silhouette / H-C cards), not ship a 6th blind guess"
+grep -qiE '(taper|shrink|collapse).*(height|blade|stub|rim)|height.*(taper|rim_dist|ramp|~0)|rim_h|stub' "$R" || fail "round14: must fix the confirmed mechanism (height taper -> over-silhouette base collapses to a ~0-height stub, no tall blade floating past the edge)"
+grep -qiE 'dropped ?= ?0|holes.*(kept|not regress|keep)|no.*regress.*(hole|dropped)' "$R" || fail "round14: must KEEP the round#13 holes fix (DROPPED=0) — no regression"
+grep -qiE 'p14_rim_closeup|platform.?edge.*(void|water|drop|rim)|stops at the platform rim|grass stop.*rim' "$R" || fail "round14: report must cite the platform-edge-over-void close-up (grass stops at the rim, no floating)"
+CU14=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p14_rim_closeup*.png' -newermt '-2 days' -size +20k 2>/dev/null | grep -v '/x86/' | head -1)
+[ -n "$CU14" ] || fail "round14: MISSING the device platform-EDGE close-up (p14_rim_closeup*.png, >20KB, <2 days) proving grass stops at the rim over the void — supervisor eyeballs this before release"
+ok "round14 (discriminated H-B, height-taper fix, DROPPED=0 kept, edge close-up $CU14) — supervisor eyeballs p14_rim_closeup"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"

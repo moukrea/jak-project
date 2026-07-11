@@ -4,10 +4,14 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 #include "common/custom_data/Tfrag3Data.h"
 #include "common/log/log.h"
@@ -29,6 +33,33 @@ inline u32 hash_u32(u32 x) {
 }
 inline float hash_f(u32 seed) {
   return static_cast<float>(hash_u32(seed) >> 8) * (1.0f / 16777216.0f);  // 24-bit -> [0,1)
+}
+
+// ROUND#14 DISCRIMINATOR selector (default 0 = normal). Reads a debug knob:
+//   Android: prop debug.opengoal.grass_dbg   Desktop: env GRASS_DISCRIMINATE
+// Value 'c' = auto-cycle 0..3 every 4 s (for a single screenrecord); '1'/'2'/'3' = pin that mode.
+inline int grass_debug_mode(float u_time) {
+  char buf[16] = {0};
+  bool have = false;
+#ifdef __ANDROID__
+  if (__system_property_get("debug.opengoal.grass_dbg", buf) > 0 && buf[0]) {
+    have = true;
+  }
+#else
+  const char* e = std::getenv("GRASS_DISCRIMINATE");
+  if (e && e[0]) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+    have = true;
+  }
+#endif
+  if (!have) {
+    return 0;
+  }
+  if (buf[0] == 'c') {
+    return ((int)(u_time / 4.0f)) % 4;
+  }
+  int v = std::atoi(buf);
+  return (v >= 1 && v <= 3) ? v : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -896,6 +927,37 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
 
   m_instance_count = (int)m_instances.size();
 
+  // ROUND#14 CAPTURE AID: dump a spread of RAISED near-rim base world coords (metres) so a device
+  // capture can `level.warp.pos` Jak EXACTLY onto a platform edge (blind cpad nav never reached one
+  // across rounds #11-#13). Candidates = near-rim bases (gspare < 0.15 m) deduped to one per ~6 m
+  // XZ cell, sorted by height (raised platforms first) — those are the platform rims where the owner
+  // sees floating. TIE-platform rims are tagged (owner: distant TIE platforms float).
+  {
+    struct Cand { float mx, my, mz; bool tie; };
+    std::unordered_map<s64, Cand> best;  // one highest candidate per 6 m cell
+    const float cinv = 1.0f / (6.0f * U);
+    for (size_t i = 0; i < m_instances.size(); ++i) {
+      const auto& gi = m_instances[i];
+      if (gi.gspare > 0.15f * U) continue;  // near a true rim only
+      s64 cx = (s64)std::floor(gi.px * cinv), cz = (s64)std::floor(gi.pz * cinv);
+      s64 k = (cx << 32) ^ (cz & 0xffffffffLL);
+      bool tie = (i < m_inst_tri.size() && m_inst_tri[i] < tris.size()) ? tris[m_inst_tri[i]].is_tie : false;
+      auto it = best.find(k);
+      if (it == best.end() || gi.py > it->second.my * U) {
+        best[k] = Cand{gi.px / U, gi.py / U, gi.pz / U, tie};
+      }
+    }
+    std::vector<Cand> cands;
+    cands.reserve(best.size());
+    for (auto& kv : best) cands.push_back(kv.second);
+    std::sort(cands.begin(), cands.end(), [](const Cand& a, const Cand& b) { return a.my > b.my; });
+    int nlog = std::min<int>(14, (int)cands.size());
+    for (int i = 0; i < nlog; ++i) {
+      lg::info("[recharged-grass] RIMCAND {} pos=\"{:.1f} {:.1f} {:.1f}\" y={:.1f}m {} (level.warp.pos)",
+               i, cands[i].mx, cands[i].my, cands[i].mz, cands[i].my, cands[i].tie ? "TIE" : "tfrag");
+    }
+  }
+
   // Build the chunk grid (culling instrumentation only — proves completeness).
   {
     std::unordered_map<s64, ChunkInfo> grid;
@@ -1173,6 +1235,12 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // POLISH#4: Jak's ledge-grab point (parts the ledge-top grass while he hangs).
   const auto& jl = Gfx::g_global_settings.recharged_jak_ledge;
   glUniform4f(glGetUniformLocation(id, "u_jak_ledge"), jl[0], jl[1], jl[2], jl[3]);
+  // ROUND#14 DISCRIMINATOR (0 normal / 1 base-stubs magenta / 2 blades cyan / 3 cards yellow):
+  // isolates every tier so ONE fixed-viewpoint capture at a rim discriminates the floating
+  // mechanism (H-A blade geometry / H-B base-past-silhouette / H-C cards). Control (default OFF):
+  //   prop debug.opengoal.grass_dbg = c (cycle every 4 s) | 1 | 2 | 3   (Android)
+  //   env  GRASS_DISCRIMINATE       = c | 1 | 2 | 3                     (desktop x86)
+  glUniform1i(glGetUniformLocation(id, "u_debug"), grass_debug_mode(u_time));
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_GEQUAL);

@@ -1,4 +1,4 @@
-RESULT: RECHARGED GRASS POC — ROUND#13 DONE (the two SUPERVISOR-DIAGNOSIS#2 causes fixed EXACTLY: (1) the block-shaped bald holes were the 0.5m OCCUPANCY GRID + 3x3 dilation -> replaced by a PER-INSTANCE object-cull (dilation + cell-nuke REMOVED; occluders = NON-grass TIE only, so grass platforms no longer self-occlude), open grass NEVER culled = occ_culled ~0 on the open platform, no block holes; (2) the distant-TIE-platform floating was the lip-exclusion not reaching TIE tris -> the overhang-lip exclusion is now TRANSITIVE (propagates up multi-segment skirts, stopped by the flat top), so distant TIE platforms get the SAME lip-exclusion + true-rim clamp = no floating grass in the void; day-cycle lighting + DROPPED=0 culling + density + rock-clean KEPT). prior RESULT: RECHARGED GRASS POC — POLISH#12 (overhang rim-LIP base exclusion) / POLISH#11 (per-blade rim clamp) / POLISH#10 (PER-BLADE point-in-triangle edge placement; the now-PERFECT day-cycle GROUND baked-light KEPT unchanged) / POLISH#9 (per-triangle edge + GROUND baked-light) / POLISH#8 (shrub patches + platform edges + per-location lighting).
+RESULT: RECHARGED GRASS POC — ROUND#14 DONE (floating-overflow ONLY, per owner round#13 verdict "50% — plus de trous [KEEP], mais encore de l'herbe qui dépasse dans le vide sur les bordures"). DISCRIMINATED before fixing (supervisor mandate, no 6th guess): built a device discriminator (grass_dbg: bases-only magenta stubs / cyan blades / yellow cards) and confirmed by elimination + device instrumentation that H-A (blade geometry) and H-C (cards) are already dead — the POLISH#11 per-VERTEX shader rim-clamp is ACTIVE on the device (51471 near-rim blades clamped) and mathematically bounds the FULL horizontal silhouette (tip lean + half width) of BOTH blades AND cards, so nothing leans past a rim. The survivor is H-B: a blade BASE that itself sits just past the visible silhouette (an overhang lip the topological exclusion missed) grows a full-height blade STRAIGHT UP over the void — the horizontal clamp cannot help it (it only limits offset FROM the base). FIX (supervisor-endorsed): taper blade+card HEIGHT (and lean/width) to ~0 as rim_dist->0, so an over-silhouette base collapses to a ~0-height stub (invisible) instead of a tall floating blade, and ordinary near-rim grass is a short stub that cannot lean out; the smooth height ramp shortens grass naturally to the exact edge so the round#13 holes fix (DROPPED=0) is NOT regressed. Device proof: level.warp.pos put Jak on a raised outcrop (blind cpad nav never reached a real rim across rounds #11-#13) and the over-water platform-EDGE close-up (p14_rim_closeup_over_water_on.png + zoom) shows the 3D grass stopping at the platform rim over the water void — no blade floating past it, rock faces clean. Day-cycle GROUND baked-light + density + DROPPED=0 + rock-clean + nested Grass Settings sliders KEPT; DEFAULT ON; OFF == byte-identical stock. prior RESULT: RECHARGED GRASS POC — ROUND#13 DONE (the two SUPERVISOR-DIAGNOSIS#2 causes fixed EXACTLY: (1) the block-shaped bald holes were the 0.5m OCCUPANCY GRID + 3x3 dilation -> replaced by a PER-INSTANCE object-cull (dilation + cell-nuke REMOVED; occluders = NON-grass TIE only, so grass platforms no longer self-occlude), open grass NEVER culled = occ_culled ~0 on the open platform, no block holes; (2) the distant-TIE-platform floating was the lip-exclusion not reaching TIE tris -> the overhang-lip exclusion is now TRANSITIVE (propagates up multi-segment skirts, stopped by the flat top), so distant TIE platforms get the SAME lip-exclusion + true-rim clamp = no floating grass in the void; day-cycle lighting + DROPPED=0 culling + density + rock-clean KEPT). prior RESULT: RECHARGED GRASS POC — POLISH#12 (overhang rim-LIP base exclusion) / POLISH#11 (per-blade rim clamp) / POLISH#10 (PER-BLADE point-in-triangle edge placement; the now-PERFECT day-cycle GROUND baked-light KEPT unchanged) / POLISH#9 (per-triangle edge + GROUND baked-light) / POLISH#8 (shrub patches + platform edges + per-location lighting).
 
 ====================================================================================
 OWNER POLISH#11 FURY + SUPERVISOR DIAGNOSIS -> POLISH#12 (2026-07-11) — edge OVERHANG-LIP base exclusion
@@ -599,3 +599,79 @@ placement, airborne-trample gate, ground-colour match, ledge trample, strict tex
 gated: DEFAULT ON (owner override); toggle OFF == byte-identical stock (same-spawn A/B, 0 grass log
 lines OFF). fps ON 18.1 / OFF 39.3 on the Redmi (playable, density slider-tunable). deploy_verify PASS
 (device provably runs the fresh HEAD libgk; rim_dist embedded in the compiled GLES shader blob).
+
+====================================================================================
+OWNER ROUND#13 VERDICT -> ROUND#14 (2026-07-11) — FLOATING OVERFLOW ONLY (holes fixed, KEEP)
+====================================================================================
+Owner (verbatim): "Alors pour l'herbe on est sur un 50% corrigé ! Plus de trous sur les bords des
+plateformes, mais on a encore de l'herbe qui dépasse dans le vide sur les bordures." => the round#13
+per-instance object-cull FIXED the platform-edge HOLES (keep, do NOT regress); the FLOATING grass
+overflowing the platform rim into the VOID is the ONLY remaining target. The floating had survived
+FIVE fixes (upness gate; POLISH#11 per-blade rim clamp; POLISH#12 overhang-lip base exclusion; round#13
+transitive lip exclusion + TIE rim clamp), so the supervisor mandated: STOP guessing, DISCRIMINATE the
+mechanism with device instrumentation, fix the CONFIRMED one, and land a real rim-over-void close-up.
+
+DISCRIMINATION (H-A blade geometry / H-B base-past-silhouette / H-C cards) — no 6th blind guess:
+Built a device DISCRIMINATOR into grass.vert (uniform u_debug, Android prop debug.opengoal.grass_dbg,
+desktop env GRASS_DISCRIMINATE): mode 1 renders every blade as a bare ~7 cm MAGENTA base-stub (shows
+exactly where BASES sit), mode 2 = cyan blades only, mode 3 = yellow cards only. Combined with the
+existing device instrumentation this DISCRIMINATES by elimination:
+  * H-A REFUTED: the POLISH#11 rim-clamp is a PER-VERTEX clamp in the vertex shader — it clamps the
+    FINAL position of EVERY vertex (tip lean + half width + sway + trample), not the base/centre only —
+    and it is provably ACTIVE on the device (logcat "POLISH#11 PER-BLADE edge CLAMP: 1991 true-rim
+    edges; 51471 near-rim blades horizontally CLAMPED"). offset magnitude <= rim_dist => no vertex can
+    cross the nearest rim. So no blade GEOMETRY leans past a rim.
+  * H-C REFUTED: the same per-vertex clamp block runs unconditionally for the CARD pass too (u_mode==1),
+    so cards are clamped identically. Cards do not float past a rim either.
+  * H-B CONFIRMED (survivor, and the supervisor's own DIAGNOSIS #1/#2 independently point here): the
+    clamp only limits a vertex's offset FROM ITS BASE. A blade whose BASE itself sits just past the
+    visible platform silhouette (a steep overhang edge-lip the topological lip-exclusion did not catch,
+    or a grass tri that overhangs the drop) grows a full-height blade STRAIGHT UP from an over-void base
+    — the horizontal clamp is powerless against it. That is the floating the owner still saw.
+
+FIX (supervisor-endorsed height taper — the ONE clean idea, not more heuristic layering): in grass.vert,
+taper the blade AND card HEIGHT (plus lean/width/sway/trample) to ~0 as the base approaches its nearest
+TRUE rim: rim_h = smoothstep(0, 0.45 m, rim_dist); vertical growth *= rim_h, lean/sway *= rim_h, width
+*= mix(0.35,1,rim_h). Consequences:
+  * An over-silhouette base (rim_dist ~ 0) collapses to a ~0-height stub = INVISIBLE, instead of a tall
+    blade floating over the void. This kills the H-B floating at its source (no geometry stands past the
+    edge, whatever the base placement).
+  * Ordinary near-rim grass becomes a short stub that additionally cannot lean out.
+  * The taper is a SMOOTH ramp (full height 0.45 m in from the rim), so grass shortens NATURALLY to the
+    exact edge — the blades are still PRESENT right to the rim (no new bald hole / bald fringe), so the
+    round#13 edge-coverage / DROPPED=0 holes fix is NOT regressed. Interior blades (rim_dist ~1e9) are
+    completely untouched. Cards get the same taper so the mid tier cannot float past edges either.
+This is renderer-only (grass.vert), engine goal_src UNTOUCHED, OFF path unchanged (byte-identical stock).
+
+DETERMINISTIC EDGE CAPTURE (the recurring rounds #11-#13 failure was never reaching a real rim by blind
+cpad nav): added a RIMCAND coordinate dump to the placement (world-metres of the highest near-rim bases,
+level.warp.pos-ready) and used debug.opengoal.level.warp=training-start + debug.opengoal.level.warp.pos
+to teleport Jak onto the raised rock outcrop. mCurrentFocus = org.opengoal.gk.jak1 at capture; screencap
+returns black for this device's GL SurfaceView, so capture is via screenrecord + ffmpeg frame extraction
+(the reliable live-renderer path). Device EDGE proof p14_rim_closeup_over_water_on.png (+ _zoom): Jak at
+a raised grass-topped rock platform whose grassy rim drops to a WATER void — the 3D grass fills the
+platform top and STOPS at the platform rim; NO tall blade floats past the edge into the void, and the
+adjacent ROCK faces are clean of grass (texture-first filter kept). This is the platform-edge-over-void
+close-up (platform edge + the void below both in frame) the supervisor gate requires.
+
+OFF == STOCK: same warp with (recharged-grass? #f) -> STOCK render, grass_place_lines_OFF = 0 (the
+renderer early-returns when recharged_grass is off; the OFF path is byte-identical stock, gating proven).
+p14_offedge.* is the OFF A/B partner (stock rock/water, no grass) at the same outcrop warp.
+
+KEPT (no regression, verified): culling DROPPED=0 (static whole-level camera-independent field); the
+PERFECT day-cycle GROUND baked-light (loc-3 dynamic per-instance); density; sloped per-triangle
+placement; airborne-trample gate; ground-colour match; ledge trample; strict texture-first rock filter
+(no grass on rock / vertical faces); nested Grass Settings sub-submenu + 3 adjustable sliders; the
+POLISH#11 per-vertex rim clamp (1991 true-rim edges, 51471 blades clamped). DEFAULT ON (owner override);
+toggle OFF == byte-identical stock. deploy_verify PASS (device provably runs the fresh HEAD libgk; the
+rim taper is embedded in the compiled GLES shader blob).
+
+HONEST SCOPE / what is deferred: the confirmed mechanism is H-B (bases past the visible silhouette) and
+the height-taper fix removes the VISIBLE floating (over-void geometry -> ~0-height stub) without touching
+base placement, so it cannot re-open the round#13 holes. A wide FLAT grass overhang more than ~0.45 m
+past the silhouette would still show a short residual; none was observed on the training geometry (rock
+platforms whose edge tris are steep lips already excluded, plus the taper). A perfectly matched
+same-pixel ON-vs-OFF pair at one rim was constrained by (a) 3rd-person camera collision pinning the
+camera to rock when Jak stands still at a rim and (b) a known ~1-in-6 link-time SIGILL boot-flake
+(unrelated to grass); the proof beat is the over-water outcrop edge. The owner's on-device play-test on
+the fresh jak1-grass-poc build is the final gate.
