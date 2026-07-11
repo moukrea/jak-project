@@ -1,0 +1,3 @@
+  fps ON = 18.1 (frames=585 / 32.28s)
+  focus:   mCurrentFocus=Window{10ee4ac u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  fps OFF = 39.3 (frames=585 / 14.87s)

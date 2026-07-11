@@ -1,4 +1,4 @@
-STATUS: IN-PROGRESS (polish#11 - REAL edge fix, floating overflow + holes, device edge close-up required) - prior RESULT: RECHARGED GRASS POC — POLISH#10 DONE (PER-BLADE point-in-triangle edge placement; the now-PERFECT day-cycle GROUND baked-light KEPT unchanged). prior RESULT: RECHARGED GRASS POC — POLISH#9 (per-triangle edge + GROUND baked-light) / POLISH#8 (shrub patches + platform edges + per-location lighting).
+RESULT: RECHARGED GRASS POC — POLISH#11 DONE (REAL edge fix: floating overflow + bald holes root-caused and fixed; device edge close-up EYEBALLED — grass stops exactly at the platform rim). prior RESULT: RECHARGED GRASS POC — POLISH#10 (PER-BLADE point-in-triangle edge placement; the now-PERFECT day-cycle GROUND baked-light KEPT unchanged). prior POLISH#9 (per-triangle edge + GROUND baked-light) / POLISH#8 (shrub patches + platform edges + per-location lighting).
 
 ====================================================================================
 OWNER POLISH#10 (2026-07-11) — PER-BLADE point-in-triangle edge placement (lighting kept)
@@ -482,3 +482,41 @@ Grass Settings sub-submenu, 3 adjustable sliders. Fully gated: DEFAULT ON (owner
 — more grass kept this round than polish#6 so a touch heavier). Honest caveats: blades flat-color by
 design; ground-colour + baked-light are per-instance approximations (not per-pixel); dynamic merc-actor
 overlap (warp-gate button) deferred. Ready for OWNER PLAY-TEST (jak-builds push).
+
+====================================================================================
+VERDICT: POLISH#11 (2026-07-11) — REAL edge fix (floating overflow + bald holes), device-EYEBALLED
+====================================================================================
+POLISH#11 root-causes and fixes BOTH edge symptoms the #9/#10 heuristics kept trading off, with ONE
+geometric guarantee instead of another heuristic layer. Renderer-only change (GrassRenderer.cpp +
+grass.vert); engine goal_src untouched. The day-cycle GROUND baked-light stays EXACTLY as-is (owner:
+"le lighting est enfin parfait") — untouched, still delivered by its own loc-3 dynamic per-instance
+buffer; only the shader-unused 4th ground-colour slot was repurposed to carry rim_dist, so lighting
+is not affected.
+
+POLISH#11 FLOATING OVERFLOW root-caused + fixed: grass floating past the platform rim/silhouette over the void had two distinct causes, both fixed. (a) The POLISH#10 rej_lip merge folded the rejected steep grass-LIP tris into the edge-count, which reclassified ~960 real platform-top SHOULDER edges as INTERIOR (true-rim edges collapsed 2107 -> 1147) so grass got NO clip there and spilled past the shoulder — the merge is REMOVED, a rim is now strictly an edge used by exactly ONE kept grass triangle (device logcat confirms true-rim edges back to 2107). (b) POLISH#10 only LEANED near-rim blades inward (partial), so a blade's height/width bend could still tip past the rim; now the vertex shader HARD-CLAMPS each blade's total horizontal offset (width + static bend + breeze sway + trample) to rim_dist (the base's perpendicular distance to the nearest true rim), so no blade height/width/overhang can cross the rim whatever its yaw or dynamic motion (geometrically provable: offset magnitude <= rim_dist stays on the inner side of every rim).
+POLISH#11 BALD HOLES near the border FIXED: no over-aggressive inset — no blade is dropped or inset except at a TRUE RIM boundary (an edge used by exactly one kept grass triangle); the shader keeps every near-rim blade at FULL HEIGHT and only shrinks its horizontal spread, so grass fills right to the exact edge with no bald flat-texture margin/gap inside the border. Only a sub-5 mm degenerate sliver sitting on the rim line is dropped. Interior blades (rim_dist huge) are completely untouched, so no false inset at interior seams.
+
+OBJECTIVE placement proof (device logcat, this build): "POLISH#11 PER-BLADE edge CLAMP: 2107 true-rim
+edges; 832 degenerate rim slivers dropped (<0.005 m); 50397 near-rim blades horizontally CLAMPED to the
+rim by the shader (full height, no overflow, no bald fringe; interior blades untouched)." The true-rim
+count is back to 2107 (POLISH#10 had collapsed it to 1147 — the overflow cause) and the shader now
+clamps 50397 near-rim blades (POLISH#10 only leaned 23161).
+
+DEVICE EDGE CLOSE-UP (supervisor eyeball gate — the p11_edge_closeup_*.png set, mCurrentFocus =
+org.opengoal.gk.jak1 at capture): the supervisor walked Jak into the dense 3D grass on the training
+spawn platform and captured its rims where the grass carpet drops to the beach / meets the ocean.
+Across four distinct platform edges (grass->water at frames p11_edge_closeup_crawl_050 /
+p11_edge_closeup_tgt_rx_95, plus a grassy ledge) the 3D grass fills densely right up to the platform
+edge and STOPS exactly at the rim: NO blade floats past the edge over the void/beach, and NO bald
+flat-texture margin is left inside the border. Zoom crops saved as p11_edge_closeup_RIM_grass-to-water_
+zoom.png and p11_edge_closeup_RIM_grass-to-beach_zoom.png. Honest scope: the training platform edges
+here are grass-on-mound dropping to beach / meeting water (a lip/slope), not sheer cliffs; the clamp is
+geometric so it holds identically at any rim, but the captured beats are these edges.
+
+KEPT (no regression): culling DROPPED=0 (fresh moving-frame samples, chunk instrumentation), the PERFECT
+day-cycle GROUND baked-light (loc-3 dynamic per-instance, untouched), density, sloped per-triangle
+placement, airborne-trample gate, ground-colour match, ledge trample, strict texture-first rock filter
+(no grass on rock/vertical faces), nested Grass Settings sub-submenu + 3 adjustable sliders. Fully
+gated: DEFAULT ON (owner override); toggle OFF == byte-identical stock (same-spawn A/B, 0 grass log
+lines OFF). fps ON 18.1 / OFF 39.3 on the Redmi (playable, density slider-tunable). deploy_verify PASS
+(device provably runs the fresh HEAD libgk; rim_dist embedded in the compiled GLES shader blob).

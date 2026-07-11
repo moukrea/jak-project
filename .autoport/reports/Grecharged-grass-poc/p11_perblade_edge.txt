@@ -1,0 +1,2 @@
+07-11 12:14:00.152 27923 28006 I opengoal-gk: [recharged-grass] POLISH#11 PER-BLADE edge CLAMP: 2107 true-rim edges; 832 degenerate rim slivers dropped (<0.005 m); 50397 near-rim blades horizontally CLAMPED to the rim by the shader (full height, no overflow, no bald fringe; interior blades untouched).
+07-11 12:14:00.152 27923 28006 I opengoal-gk: [recharged-grass] POLISH#8 EDGE upness 0.35: grass-tex tris dropped by upness 1283 (794 m2), of which 600 moderate-slope (0.20..0.35, edge lips); minKeptUpness 0.35.

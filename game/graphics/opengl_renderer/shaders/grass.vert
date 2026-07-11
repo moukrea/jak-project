@@ -80,6 +80,9 @@ void main() {
   float tint = inst_par.y;
   float curve = inst_par.z;
   float phase = inst_par.w;
+  // POLISH#11: perpendicular distance from this blade's base to the nearest TRUE platform rim (world
+  // units). ~1e9 for interior blades -> the edge clamp at the end of main() never triggers for them.
+  float rim_dist = inst_gcol.w;
 
   float c = cos(yaw);
   float s = sin(yaw);
@@ -275,6 +278,19 @@ void main() {
   v_color = col;
   v_alpha = alpha;
   v_seed = tint * 331.0 + phase * 71.0;   // per-instance tuft seed
+
+  // OWNER POLISH#11: HARD geometric edge clip. Clamp the blade's TOTAL horizontal offset from its base
+  // to rim_dist (the distance to the nearest true platform rim), so nothing — width, static bend,
+  // breeze sway or trample — can cross the rim. Full height is kept (no bald fringe); only the
+  // horizontal spread shrinks as a blade nears a rim, so the lawn fills right to the exact edge without
+  // any blade floating past it. Interior blades have rim_dist ~ 1e9, so this never triggers for them.
+  {
+    vec2 off_xz = pos.xz - base.xz;
+    float off_m = length(off_xz);
+    if (off_m > rim_dist) {
+      pos.xz = base.xz + off_xz * (rim_dist / off_m);
+    }
+  }
 
   gl_Position = world_to_clip(pos);
 }
