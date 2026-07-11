@@ -422,3 +422,19 @@ Breakdown (do NOT reinterpret) — 2 items:
    texture beneath it, at that location and that time-of-day. Not a generic scene light — the ground's
    own baked value. Prove with device captures where the baked ground is dark: the grass must match.
 Keep culling DROPPED=0 + all prior fixes. Owner REMOTE — re-push when verified.
+
+## IMPLEMENTATION NOTE for #9 baked-light sampling (supervisor + owner, 2026-07-11) — keep it cheap
+The GROUND baked lighting is NOT separable into (spatial constant) x (global time factor) — the
+SHADOW PATTERN itself moves with time-of-day, so two spots at the same instant differ and a spot
+changes its pattern over the day. So the ground's CURRENT baked vertex colour must be sampled
+live. Do it PERFORMANTLY:
+- PRECOMPUTE ONCE (at placement): for each grass instance, store which GROUND TRIANGLE it sits on
+  + its BARYCENTRIC weights. This never changes.
+- LIVE (cheap): fetch the triangle's 3 CURRENT baked vertex colours (the engine already computes
+  these to draw the tfrag ground this frame) and barycentric-interpolate with the stored weights
+  -> the baked colour under the blade right now. No geometry search per frame — just 3 reads + a lerp.
+- DECOUPLE the update rate from the frame rate: the day cycle is slow, so re-evaluate the per-instance
+  baked colour a few times per second (or only when time-of-day advances meaningfully), NOT every
+  frame. Cache it on the instance between updates.
+- Do NOT re-scan geometry or per-blade-per-frame CPU sample — that would tank fps. The gate's fps
+  ON-vs-OFF device report must stay acceptable (this is how a naive impl gets caught).
