@@ -712,3 +712,35 @@ day-cycle light, object-cull, sliders. DEFAULT ON, OFF==stock.
 Instrument the robust-edge count vs the old count on the overflowing platforms FIRST (prove the miss).
 Capture close-ups at SEVERAL previously-overflowing edges p16_edge_*_on vs _off; supervisor eyeballs
 BEFORE push; owner playtest = final gate.
+
+## ROUND#16 FALSIFIED the edge-detection premise -> ROUND#17 (the REAL root: render-mesh cantilever)
+Round#16 implemented robust world-position true-edge detection AND INSTRUMENTALLY FALSIFIED the
+supervisor's premise: robust boundary_edges=1989 vs old raw-1cm boundary_raw=1991 (delta -2). Edge
+detection was NEVER missing borders. The re-diagnosis (by elimination) found the TRUE root:
+=> The grass-textured RENDER mesh CANTILEVERS PAST the visible/COLLISION platform edge (PS2 visual
+   meshes routinely overhang the walkable collision floor). Grass placed correctly on the render-mesh
+   grass tris still sits BEYOND the visible drop, because those overhanging tri edges are INTERIOR in the
+   RENDER mesh (shared with more overhanging tris) -> no render-mesh edge method can ever flag them.
+This is why 8 rounds failed: all of them (placement, lip-exclusion, mesh-edge rim, coverage raster,
+robust edge dedup) worked on the RENDER-MESH boundary, but the render mesh itself overhangs the true edge.
+
+## ROUND#17 FIX — bound grass by the WALKABLE-FLOOR / COLLISION silhouette, not the render mesh
+1. INSTRUMENT FIRST (discipline that just saved us): on a platform the owner reaches that overflows,
+   MEASURE the offset between the render-mesh grass edge and the COLLISION/walkable-floor edge
+   (collide-mesh / pat / where Jak can stand). PROVE the cantilever (render edge is past the collision
+   edge by X cm) before implementing. If NOT confirmed, keep digging — do NOT ship a 9th guess.
+2. CONFIRM ACCESS: determine how the grass builder (GrassRenderer.cpp, at level-load static place) can
+   read the level COLLISION / walkable-floor silhouette (collide-mesh/pat in the engine collision
+   system). If the renderer cannot directly reach it, define the minimal bridge to get the walkable
+   silhouette (or a distance-to-walkable-edge field) to the grass builder.
+3. BOUND grass PLACEMENT + CLIP by the COLLISION/walkable-floor silhouette: a blade exists only where
+   there is walkable floor at/below it, and its rim_dist = distance to the COLLISION edge (where Jak can
+   stand), so grass shortens/stops at the TRUE walkable edge — not the overhanging render-mesh edge.
+   Keep the existing height-taper + clamp machinery; only the BOUNDARY SOURCE changes (render mesh ->
+   collision floor). Keep DROPPED=0 density, day-cycle light, object-cull, sliders. DEFAULT ON, OFF==stock.
+Note: the owner's "use the mesh" was right in spirit (use real geometry, not a grid) — but the correct
+geometry is the COLLISION floor, not the render mesh which overhangs it.
+
+## DISCIPLINE + CAPTURE (owner frustrated, 8 rounds — instrument, prove, supervisor eyeballs)
+Prove the cantilever with numbers first; capture p17_edge_* close-ups at previously-overflowing platforms
+ON vs OFF; supervisor eyeballs BEFORE any push; owner playtest = final gate.
