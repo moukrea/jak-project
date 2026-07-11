@@ -7,7 +7,7 @@ une texture avec de l'alpha car ça pourrait donner des ombres sur des parties t
 auquel faire giga attention). Pareil avec un toggle dans les Recharged settings."
 
 ## Approach (screen-space AO, post-process)
-Add a GLES post-process SSAO pass using the EXISTING depth FBO (the renderer already renders to a depth
+Add GLES post-process AO passes (SSAO/HBAO/GTAO share the pipeline) using the EXISTING depth FBO (the renderer already renders to a depth
 buffer). Reconstruct view-space position + normal from depth, compute a hemispheric occlusion factor
 (kernel samples + range check), blur it (bilateral, depth-aware), and multiply it into the scene during
 the final composite. HALF-RES AO buffer + blur for Adreno 618 fill-rate. Do NOT restructure the DMA->GLES
@@ -21,15 +21,30 @@ alpha-tested transparent surfaces from the AO-depth (only truly OPAQUE geometry 
 handle alpha-tested with proper coverage. Verify explicitly on a foliage/grass-card beat: no square
 shadow on transparent bits.
 
-## Quality selector (owner 2026-07-11) — NOT a simple ON/OFF
-Recharged Settings row: "Ambient Occlusion (SSAO): Off / Low / Medium / High", persisted, default Off
-(Off == byte-identical stock). The tiers are the SAME SSAO shader scaled by RESOLUTION + SAMPLE COUNT:
-- Low    = quarter-res AO buffer, few samples, cheap blur (weak devices).
-- Medium = half-res, more samples, depth-aware blur.
-- High   = FULL resolution, full samples (owner: High = pleine résolution). High MAY use HBAO
-           (horizon-based) for better quality if fps holds on the Adreno 618; otherwise full-res SSAO.
-Engine goal_src untouched (renderer/pc layer only). Report fps at EACH tier on device (SSAO is
-fill-heavy — each tier must stay playable; if High is too heavy on the Redmi, cap it / note it).
+## Two settings (owner 2026-07-11) — TYPE selector + separate QUALITY, implement ALL variants except baked
+The Adreno 618 is only the WEAK test target for perf work — the shipping game also runs on powerful
+devices (owner's Snapdragon 8 Elite Gen 5) and PCs. So AO is NOT gated by the Redmi; users scale it in
+settings. Two Recharged Settings rows:
+  1. "Ambient Occlusion: Off / SSAO / HBAO / GTAO"  (the ALGORITHM; Off == byte-identical stock)
+  2. "AO Quality: Low / Medium / High"             (shown only when AO != Off; scales resolution +
+     sample count: Low=quarter-res/few samples, Medium=half-res, High=full-res/full samples)
+Implement ALL THREE algorithms (SSAO, HBAO, GTAO). Do NOT implement baked AO (owner: "sauf baked").
+- SSAO  — classic screen-space hemisphere-kernel AO from the depth buffer. The cheapest/baseline.
+- HBAO  — horizon-based: march rays in screen-space along depth to find the horizon angle. Higher
+          quality, heavier than SSAO.
+- GTAO  — ground-truth AO: physically-based horizon integral (cosine-weighted visibility). Highest
+          quality, heaviest — meant for strong devices/PC; may be unplayable at High on the Redmi,
+          that is EXPECTED and fine (the setting exists so the user picks what their device handles).
+All three share the same depth-FBO source, the same alpha-exclusion handling, the same blur+composite;
+they differ only in the occlusion-estimation shader. Engine goal_src untouched (renderer/pc layer only).
+Report device fps for EACH algorithm at EACH quality (SSAO/HBAO/GTAO x Low/Med/High) on the Redmi so the
+owner sees the cost curve; note which combos are Redmi-playable vs strong-device-only.
+
+## PERF PHILOSOPHY (owner 2026-07-11) — Redmi max-settings fps is NOT a gate
+Report the per-combo fps as an INFORMATIONAL cost curve only. Low Redmi fps at High/GTAO is EXPECTED
+and is NOT a failure — the game ships to strong devices (Snapdragon 8 Elite / PC). The only perf
+requirement: a fluid experience is reachable at a LOW setting (Off/SSAO-Low). Do NOT gate on, or spend
+effort optimizing, Redmi max-settings fps. Gate on VISUAL QUALITY + Off==stock + no alpha artifacts.
 
 ## Verify (device eae4df44)
 AO ON shows real contact/crease darkening (screencaps: a corner/contact vs OFF); NO boxy shadows on
