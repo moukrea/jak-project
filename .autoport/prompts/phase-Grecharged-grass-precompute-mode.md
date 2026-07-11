@@ -1,39 +1,47 @@
-# Phase Grecharged-grass-precompute-mode — optional PRECOMPUTED grass mode (perf) with a toggle
+# Phase Grecharged-grass-precompute-mode — PRECOMPUTED (day-cycle-baked) grass for perf, same fidelity
 
-## Owner request (2026-07-11, backlog after grass-poc)
-"Pour une itération future, tu penses que ça peut valoir le coup de tout pre-calculer en aval pour
-économiser du processing en jeu (placement, teinte, shading/lighting) etc avec un toggle
-supplémentaire dans les paramètres de l'herbe pour soit utiliser le pre-calculé, soit faire du live
-plus coûteux ? Pas pour tout de suite, dans le backlog juste après ce sur quoi on travaille."
+## Owner request (2026-07-11, backlog after grass-poc) + CORRECTION
+Original: "tu penses que ça peut valoir le coup de tout pre-calculer en aval pour économiser du
+processing en jeu (placement, teinte, shading/lighting) etc avec un toggle... soit le pre-calculé,
+soit du live plus coûteux ?"
+CORRECTION (2026-07-11, verbatim): "T'as pas compris pour le lighting l'idée c'est que ce soit baked
+sans recalcul tout au long de la journée, pas une seule fois, comme ça l'est nativement pour le jeu !
+L'idée c'est de gagner de la perf tout en gardant la fidélité of course, sinon ça serait débile."
 
-## Scope + honest engineering assessment
-The grass renderer (Grecharged-grass-poc) computes at LEVEL LOAD: placement (scan grass-textured
-tris), per-instance tint/size/orientation/curvature (hash of position). Lighting is sampled LIVE
-(per-instance ground baked colour, dynamic with time-of-day). This phase adds an OPTIONAL
-PRECOMPUTED mode via a new GRASS SETTINGS toggle: "GRASS MODE: LIVE / PRECOMPUTED".
+## KEY IDEA (do NOT re-misread this)
+The GAME's own tfrag ground lighting is NOT computed live — it is BAKED for the DAY CYCLE (multiple
+time-of-day states, interpolated at runtime). The precompute mode must do the SAME for the grass:
+bake the per-instance grass lighting for the WHOLE DAY CYCLE (N time-of-day keyframes, matching how
+the engine stores/interpolates the tfrag baked light), then at runtime just LOOK UP + interpolate the
+two nearest keyframes by current time-of-day. This is NOT freezing at one time — it KEEPS FULL DAY-
+CYCLE FIDELITY (identical look to the live mode) while replacing the per-update live tfrag sampling
+with a cheap precomputed lookup. Goal: gain perf WITHOUT losing fidelity. Freezing at one time would
+be a downgrade and is NOT the ask.
 
-WORTH IT (do these):
-1. PLACEMENT + PER-INSTANCE TINT/SIZE/ORIENT precompute -> bake into asset data (per training level),
-   so the at-load geometry scan + hashing is skipped (faster load, less load-time af-spike, stable
-   memory). Clear win. Store as a compact per-level instance blob loaded directly into the instance
-   buffer.
-NUANCED (make it a clearly-labelled sub-option, NOT the default):
-2. LIGHTING precompute -> baking the baked-ground light FREEZES it at one time-of-day, so the grass
-   would NOT follow the day/night cycle (visual downgrade — the exact thing Grecharged-grass-poc #8/#9
-   fixed). Offer it only as a "low-end / static lighting" choice for weak hardware; the LIVE dynamic
-   lighting stays the DEFAULT.
+## Scope
+Precompute OFFLINE (a build step, per level; start with the training level), bake into asset data:
+1. PLACEMENT (instance positions) — skip the at-load geometry scan.
+2. Per-instance TINT / SIZE / ORIENTATION / CURVATURE — skip the at-load hashing.
+3. LIGHTING as DAY-CYCLE KEYFRAMES per instance — bake the baked-ground colour under each blade at N
+   time-of-day steps (same day states the engine bakes the tfrag for). Runtime = pick current time,
+   interpolate the 2 nearest baked keyframes. Cheaper than live tfrag sampling, SAME result.
+Load the baked blob straight into the instance buffer. Storage cost is bounded (N small keyframes ×
+instances) — report the asset size.
 
-## Toggle
-In GRASS SETTINGS (the nested submenu): "GRASS MODE" = LIVE (default, dynamic) / PRECOMPUTED (cheaper,
-static lighting). Persisted. LIVE must be byte-identical to today's behaviour. PRECOMPUTED must load +
-render correctly and MEASURABLY cheaper (report fps + load-time both modes on device).
+## Toggle (GRASS SETTINGS nested submenu)
+"GRASS MODE" = PRECOMPUTED (baked day-cycle, cheaper, SAME fidelity) / LIVE (computes at load+runtime;
+needed for levels not yet baked, and for dev). PRECOMPUTED should be the preferred mode for baked
+levels. Persisted. OFF (grass off) still == stock.
 
-## Verify (device eae4df44)
-Both modes render on device; PRECOMPUTED shows lower load time and >= same fps (report numbers);
-LIVE unchanged; toggle persists; OFF (grass off) still == stock. deploy_verify + deploy_verify_assets PASS.
+## Verify (device eae4df44) — perf gain WITH fidelity
+- PRECOMPUTED vs LIVE at the SAME spot + SAME time-of-day look IDENTICAL (A/B, no visual difference);
+  cycle the time-of-day in PRECOMPUTED and confirm it STILL varies correctly (not frozen).
+- PRECOMPUTED measurably cheaper: report fps (higher) + load-time (lower) vs LIVE on device.
+- deploy_verify + deploy_verify_assets PASS; force-stop after tests.
 
 ## Report (.autoport/reports/Grecharged-grass-precompute-mode/report.txt) RESULT: GRASS PRECOMPUTE MODE <verdict>
-placement/tint bake format, the toggle, per-mode fps + load-time numbers on device, the frozen-lighting
-tradeoff documented, device captures of both modes.
+bake format (placement/tint + N-keyframe day-cycle lighting), the toggle, per-mode fps + load-time on
+device, PROOF precomputed keeps day-cycle fidelity (time-of-day still varies), asset-size cost,
+device captures both modes at 2 times-of-day.
 ## Locks: ANDROID_SERIAL=eae4df44 only; engine goal_src untouched; gold READ-ONLY; force-stop after tests.
 ## Max: max_turns 3000, max_retries 6. device: true, owner_verify: true.
