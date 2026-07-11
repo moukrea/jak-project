@@ -1,0 +1,2 @@
+07-11 09:59:27.145 18818 18905 I opengoal-gk: [recharged-grass] POLISH#9 EDGE clip: 2107 boundary (rim) edges; 15786 candidates clipped within 0.10 m of a boundary edge (point-in-triangle, no overflow past the edge, interior seams full).
+07-11 09:59:27.145 18818 18905 I opengoal-gk: [recharged-grass] POLISH#8 EDGE upness 0.35: grass-tex tris dropped by upness 1283 (794 m2), of which 600 moderate-slope (0.20..0.35, edge lips); minKeptUpness 0.35.

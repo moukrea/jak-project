@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -181,6 +182,7 @@ GrassRenderer::~GrassRenderer() {
   if (m_gl_ready) {
     glDeleteVertexArrays(1, &m_vao);
     glDeleteBuffers(1, &m_instance_vbo);
+    glDeleteBuffers(1, &m_light_vbo);
   }
 }
 
@@ -190,6 +192,7 @@ void GrassRenderer::ensure_gl() {
   }
   glGenVertexArrays(1, &m_vao);
   glGenBuffers(1, &m_instance_vbo);
+  glGenBuffers(1, &m_light_vbo);
   glBindVertexArray(m_vao);
   glBindBuffer(GL_ARRAY_BUFFER, m_instance_vbo);
   // per-instance: vec4 pos+height, vec4 yaw/tint/curve/phase, vec4 ground-colour rgb+spare
@@ -205,6 +208,14 @@ void GrassRenderer::ensure_gl() {
   glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance),
                         (void*)(8 * sizeof(float)));
   glVertexAttribDivisor(2, 1);
+  // POLISH#9: dynamic GROUND baked-light (location 3) in its OWN buffer, so only this small u8 rgba
+  // column is re-uploaded when the time of day changes (the big static instance buffer never moves).
+  // Normalized u8 -> [0,1]; the shader multiplies by 2.0 to recover the ground's own (palette/255)*2
+  // baked-light factor, so the grass darkens/brightens EXACTLY like the ground beneath it.
+  glBindBuffer(GL_ARRAY_BUFFER, m_light_vbo);
+  glEnableVertexAttribArray(3);
+  glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, 4 * sizeof(u8), (void*)0);
+  glVertexAttribDivisor(3, 1);
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   m_gl_ready = true;
@@ -216,6 +227,10 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   m_chunks.clear();
   m_cached_level = nullptr;
   m_cached_load_id = UINT64_MAX;
+  m_inst_tri.clear();       // POLISH#9: per-instance source-tri map (rebuilt below)
+  m_tri_light.clear();      // POLISH#9: per-tri baked-light source (rebuilt below)
+  m_light.clear();
+  m_light_valid = false;
 
   if (!rs->loader) {
     return;
@@ -247,13 +262,20 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   // A qualifying walkable-ground triangle anywhere in the level. Collected in
   // PHASE 1 (no camera filter), then scattered at a uniform density in PHASE 2.
   struct TriRec {
-    float p0x, p0y, p0z;   // base vertex
-    float e1x, e1y, e1z;   // edge to v1
-    float e2x, e2y, e2z;   // edge to v2
+    float p0x, p0y, p0z;   // base vertex A
+    float e1x, e1y, e1z;   // edge to v1 (B = A + e1)
+    float e2x, e2y, e2z;   // edge to v2 (C = A + e2)
     float area_m2;
     float gr, gg, gb;      // POLISH#4: average colour of this triangle's ground texture
     float raw_baked;       // POLISH#6: average baked-light luma (0..255) of this triangle's vertices
     u32 seed;              // deterministic per-triangle seed (triangle identity, camera-independent)
+    // POLISH#9 edge geometry (world units) for the precise point-in-triangle EDGE clip.
+    float nlen;                    // |cross(e1,e2)| = 2*area (world^2), for perpendicular distances
+    float lenAB, lenBC, lenCA;     // edge lengths: AB=|e1|, BC=|C-B|=|e2-e1|, CA=|e2|
+    bool bAB, bBC, bCA;            // is this edge a BOUNDARY (platform rim) vs an interior seam
+    // POLISH#9 dynamic ground baked-light: this triangle's centroid palette rows (8 keyframes x rgb),
+    // averaged over its 3 vertices, so update_light() can re-interpolate at the current time of day.
+    float pal[8][3];
   };
   std::vector<TriRec> tris;
 
@@ -332,6 +354,16 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
              0.114f * colors.read((int)cidx, p, 2);
       }
       return s * (1.0f / 8.0f);
+    };
+    // POLISH#9: one raw time-of-day palette entry (0..255) for a vertex, keyframe p, channel ch.
+    // update_light() blends these 8 keyframes with the LIVE itimes so the grass baked light tracks
+    // the day cycle (dynamic) instead of the frozen single value the old build sampled once at load.
+    auto pentry = [&](u32 vi, int p, int ch) -> float {
+      u16 cidx = verts[vi].color_index;
+      if (colors.color_count == 0 || cidx >= colors.color_count) {
+        return 128.0f;  // neutral (no baked data) -> factor ~1.0
+      }
+      return (float)colors.read((int)cidx, p, ch);
     };
     for (const auto& draw : draws) {
       if (draw.tree_tex_id < 0 || (size_t)draw.tree_tex_id >= lev->textures.size()) {
@@ -415,6 +447,20 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         float bl = (vlum(a) + vlum(b) + vlum(ci)) * (1.0f / 3.0f);  // POLISH#6 triangle baked luma
         r.raw_baked = bl;
         r.seed = (begin ^ (a * 2654435761u) ^ (ci * 40503u) ^ (is_tie ? 0x9e3779b9u : 0u));
+        // POLISH#9 edge geometry for the precise point-in-triangle edge clip (world units).
+        r.nlen = nlen;                                   // = 2*area (world^2)
+        r.lenAB = std::sqrt(e1x * e1x + e1y * e1y + e1z * e1z);
+        r.lenCA = std::sqrt(e2x * e2x + e2y * e2y + e2z * e2z);
+        float bcx = e2x - e1x, bcy = e2y - e1y, bcz = e2z - e1z;  // C - B
+        r.lenBC = std::sqrt(bcx * bcx + bcy * bcy + bcz * bcz);
+        r.bAB = r.bBC = r.bCA = false;                   // classified in the boundary pass below
+        // POLISH#9 dynamic light: centroid palette rows (avg of the 3 vertices), 8 keyframes x rgb.
+        for (int p = 0; p < 8; ++p) {
+          for (int ch = 0; ch < 3; ++ch) {
+            r.pal[p][ch] =
+                (pentry(a, p, ch) + pentry(b, p, ch) + pentry(ci, p, ch)) * (1.0f / 3.0f);
+          }
+        }
         tris.push_back(r);
         tris_kept++;
         total_area_m2 += area_m2;
@@ -455,6 +501,47 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     for (const auto& tree : lev->tie_trees[0]) {
       scan_draws(tree.static_draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips,
                  true, tree.colors);
+    }
+  }
+
+  // ---- POLISH#9: classify triangle edges BOUNDARY vs INTERIOR for precise edge clipping. ----
+  // An edge shared by TWO kept grass triangles is an INTERIOR seam (grass must cross it with full
+  // coverage); an edge used by only ONE triangle is a BOUNDARY = the platform rim. PHASE 2 rejects
+  // scatter candidates within a small inset of a BOUNDARY edge, so blades never spill past the
+  // platform edge (owner: "l'herbe qui va un peu trop loin, débordant de la plateforme") while
+  // interior seams stay full (no bald holes on some borders). Weld vertices at 1 cm so shared
+  // edges match. Camera-independent + stable per load (same field every time).
+  int boundary_edges = 0;
+  {
+    const float QUANT = 0.01f * U;  // 1 cm vertex weld
+    auto vkey = [QUANT](float x, float y, float z) -> u64 {
+      s64 qx = (s64)std::llround(x / QUANT);
+      s64 qy = (s64)std::llround(y / QUANT);
+      s64 qz = (s64)std::llround(z / QUANT);
+      return (u64)(qx * 73856093LL) ^ (u64)(qy * 19349663LL) ^ (u64)(qz * 83492791LL);
+    };
+    auto ekey = [](u64 va, u64 vb) -> u64 {
+      u64 lo = va < vb ? va : vb, hi = va < vb ? vb : va;
+      return lo * 0x9e3779b97f4a7c15ull + (hi ^ (hi >> 29));
+    };
+    std::unordered_map<u64, int> edge_count;
+    edge_count.reserve(tris.size() * 3 + 16);
+    for (const auto& r : tris) {
+      u64 va = vkey(r.p0x, r.p0y, r.p0z);
+      u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
+      u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
+      edge_count[ekey(va, vb)]++;  // AB
+      edge_count[ekey(vb, vc)]++;  // BC
+      edge_count[ekey(vc, va)]++;  // CA
+    }
+    for (auto& r : tris) {
+      u64 va = vkey(r.p0x, r.p0y, r.p0z);
+      u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
+      u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
+      r.bAB = edge_count[ekey(va, vb)] <= 1;
+      r.bBC = edge_count[ekey(vb, vc)] <= 1;
+      r.bCA = edge_count[ekey(vc, va)] <= 1;
+      boundary_edges += (int)r.bAB + (int)r.bBC + (int)r.bCA;
     }
   }
 
@@ -510,8 +597,23 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     density = BUDGET_SAFETY * (float)budget / total_area_m2;
   }
 
+  // POLISH#9: retain each kept triangle's baked-light source so update_light() can re-interpolate
+  // it every frame at the current time of day (dynamic light). Indexed the same as `tris`, and each
+  // instance stores its source-tri index (m_inst_tri) so it can look up its ground light.
+  m_tri_light.resize(tris.size());
+  for (size_t tj = 0; tj < tris.size(); ++tj) {
+    std::memcpy(m_tri_light[tj].pal, tris[tj].pal, sizeof(m_tri_light[tj].pal));
+  }
+  // POLISH#9: precise point-in-triangle EDGE inset (world units). A candidate closer than this to a
+  // BOUNDARY edge is rejected so the blade geometry (width + forward bend) never spills past the
+  // platform rim; interior seams (shared edges) are never inset, so coverage stays full across tris.
+  const float EDGE_INSET = 0.10f * U;
+
   m_instances.reserve(std::min<size_t>(budget, (size_t)(total_area_m2 * density) + 64));
-  for (const auto& r : tris) {
+  m_inst_tri.reserve(m_instances.capacity());
+  int edge_clipped = 0;
+  for (size_t tj = 0; tj < tris.size(); ++tj) {
+    const auto& r = tris[tj];
     if ((int)m_instances.size() >= budget) break;
     float fn = r.area_m2 * density;
     int n = (int)fn;
@@ -526,6 +628,17 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       if (r1 + r2 > 1.0f) {
         r1 = 1.0f - r1;
         r2 = 1.0f - r2;
+      }
+      // POLISH#9 EDGE CLIP: barycentric weights (A,B,C) = (1-r1-r2, r1, r2). The perpendicular
+      // distance to the edge OPPOSITE a vertex is weight * (2*area / edge_len) = weight*nlen/len.
+      // Reject if within EDGE_INSET of a BOUNDARY edge — precise to the real triangle boundary, so
+      // no overflow past the platform edge and no coarse block/grid artifacts at the borders.
+      float wA = 1.0f - r1 - r2, wB = r1, wC = r2;
+      if ((r.bBC && wA * r.nlen < EDGE_INSET * r.lenBC) ||   // edge BC is opposite A
+          (r.bCA && wB * r.nlen < EDGE_INSET * r.lenCA) ||   // edge CA is opposite B
+          (r.bAB && wC * r.nlen < EDGE_INSET * r.lenAB)) {   // edge AB is opposite C
+        edge_clipped++;
+        continue;
       }
       GrassInstance gi;
       gi.px = r.p0x + r1 * r.e1x + r2 * r.e2x;
@@ -547,6 +660,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       // totalité de l'herbe" (owner polish#8). Clamp [0.30,1.45] so deep shade isn't black / lit not flashy.
       gi.gspare = std::min(1.45f, std::max(0.30f, meanf + LIGHT_GAIN * (r.raw_baked / 128.0f - meanf)));
       m_instances.push_back(gi);
+      m_inst_tri.push_back((u32)tj);   // POLISH#9: remember which triangle this blade grows from
     }
   }
 
@@ -640,15 +754,20 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     }
     if (!occluded.empty()) {
       std::vector<GrassInstance> keep;
+      std::vector<u32> keept;   // POLISH#9: keep m_inst_tri aligned with the surviving instances
       keep.reserve(m_instances.size());
-      for (const auto& gi : m_instances) {
+      keept.reserve(m_instances.size());
+      for (size_t i = 0; i < m_instances.size(); ++i) {
+        const auto& gi = m_instances[i];
         if (occluded.count(cellkey(gi.px, gi.pz))) {
           occ_culled++;
           continue;
         }
         keep.push_back(gi);
+        keept.push_back(m_inst_tri[i]);
       }
       m_instances.swap(keep);
+      m_inst_tri.swap(keept);
     }
   }
 
@@ -693,6 +812,11 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+  // POLISH#9: populate the dynamic ground baked-light buffer for the CURRENT time of day right now,
+  // so the first frame after a (re)build already carries correct per-location light.
+  m_light_valid = false;
+  update_light(rs);
+
   lg::info(
       "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
       "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
@@ -721,11 +845,134 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       "[recharged-grass] POLISH#8 EDGE upness {:.2f}: grass-tex tris dropped by upness {} ({:.0f} m2), "
       "of which {} moderate-slope (0.20..{:.2f}, edge lips); minKeptUpness {:.2f}.",
       GROUND_UPNESS, rej_upness, rej_upness_area, rej_up_moderate, GROUND_UPNESS, min_kept_upness);
+  // POLISH#9 PRECISE EDGE CLIP: how many candidates the per-triangle boundary inset rejected (they
+  // would have spilled past the platform rim). boundaryEdges = rim edges found; edgeInset in metres.
+  lg::info(
+      "[recharged-grass] POLISH#9 EDGE clip: {} boundary (rim) edges; {} candidates clipped within "
+      "{:.2f} m of a boundary edge (point-in-triangle, no overflow past the edge, interior seams full).",
+      boundary_edges, edge_clipped, EDGE_INSET / U);
   // POLISH#4 "still-missing platforms" diagnostic: any ground-ish texture we did NOT place on.
   for (const auto& kv : unmatched_ground) {
     lg::info("[recharged-grass] UNMATCHED ground-ish texture '{}' ({} draws) — not placed",
              kv.first, kv.second);
   }
+}
+
+// POLISH#9 (owner #1 priority): DYNAMIC GROUND baked-light. The old build sampled the baked light
+// ONCE inside rebuild() (frozen at level load) and stored a MEAN-CENTRED luma approximation, so the
+// grass did not track the ground: as the day cycle darkened the tfrag ground the grass stayed bright
+// (owner: "tu prends toujours pas en compte le baked lighting du sol ... qui dépend de l'emplacement
+// + du moment du jour"). This re-interpolates each triangle's centroid palette with the LIVE itimes
+// every frame (throttled to actual TOD changes) and multiplies the grass by the ground's OWN factor
+// ((palette/255)*2), so the grass darkens/brightens EXACTLY like the ground beneath it, per location
+// AND per time of day. Only the small u8 light column is re-uploaded; the big static field never moves.
+void GrassRenderer::update_light(SharedRenderState* rs) {
+  if (m_instance_count <= 0 || m_tri_light.empty() || (int)m_inst_tri.size() < m_instance_count) {
+    return;
+  }
+  // Current time-of-day interpolation weights (per keyframe, per channel) — exactly how
+  // interp_time_of_day derives them from itimes. These advance as the day/night cycle moves.
+  int w[8][3];
+  int wsum = 0;
+  for (int comp = 0; comp < 8; ++comp) {
+    int quad_idx = comp / 2;
+    int word_off = (comp % 2) * 2;
+    for (int ch = 0; ch < 3; ++ch) {
+      int word = word_off + (ch / 2);
+      int hw_off = ch % 2;
+      u32 wv = (u32)rs->itimes[quad_idx][word];
+      u32 hw = hw_off ? (wv >> 16) : wv;
+      w[comp][ch] = (int)(hw & 0xffu);
+      wsum += w[comp][ch];
+    }
+  }
+
+  // Throttle: recompute + re-upload only when the weights actually changed since the last upload
+  // (the day cycle moves slowly; re-uploading every frame would waste bandwidth on the Adreno 618).
+  if (m_light_valid) {
+    bool changed = false;
+    for (int q = 0; q < 4 && !changed; ++q) {
+      for (int c = 0; c < 4; ++c) {
+        int d = (int)rs->itimes[q][c] - m_last_itimes[q][c];
+        if (d < 0) d = -d;
+        if (d >= 2) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (!changed) {
+      return;
+    }
+  }
+
+  // Per-triangle baked colour at the CURRENT time (matches interp_time_of_day: sum(pal*w) >> 6,
+  // saturate 255). If itimes is unpopulated (all-zero) fall back to neutral 128 -> factor ~1.0.
+  const bool valid = wsum > 0;
+  std::vector<std::array<u8, 3>> tri_rgb(m_tri_light.size());
+  for (size_t j = 0; j < m_tri_light.size(); ++j) {
+    for (int ch = 0; ch < 3; ++ch) {
+      if (!valid) {
+        tri_rgb[j][ch] = 128;
+        continue;
+      }
+      float acc = 0.f;
+      for (int p = 0; p < 8; ++p) {
+        acc += m_tri_light[j].pal[p][ch] * (float)w[p][ch];
+      }
+      int v = (int)acc >> 6;
+      if (v > 255) v = 255;
+      if (v < 0) v = 0;
+      tri_rgb[j][ch] = (u8)v;
+    }
+  }
+
+  m_light.resize((size_t)m_instance_count * 4);
+  for (int i = 0; i < m_instance_count; ++i) {
+    u32 t = m_inst_tri[i];
+    u8 cr = 128, cg = 128, cb = 128;
+    if (t < tri_rgb.size()) {
+      cr = tri_rgb[t][0];
+      cg = tri_rgb[t][1];
+      cb = tri_rgb[t][2];
+    }
+    m_light[(size_t)i * 4 + 0] = cr;
+    m_light[(size_t)i * 4 + 1] = cg;
+    m_light[(size_t)i * 4 + 2] = cb;
+    m_light[(size_t)i * 4 + 3] = 255;
+  }
+
+  ensure_gl();
+  glBindBuffer(GL_ARRAY_BUFFER, m_light_vbo);
+  glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)m_light.size(),
+               m_light.empty() ? nullptr : m_light.data(), GL_DYNAMIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  for (int q = 0; q < 4; ++q) {
+    for (int c = 0; c < 4; ++c) {
+      m_last_itimes[q][c] = (int)rs->itimes[q][c];
+    }
+  }
+  m_light_valid = true;
+  m_light_uploads++;
+
+  // POLISH#9 proof: the per-triangle baked luma the grass is CURRENTLY multiplied by. A wide
+  // min..max = real per-LOCATION variation (grass darkens in baked-dark ground). uploads>1 over a
+  // capture = the light is re-sampled as the time-of-day changes (DYNAMIC, not frozen at load).
+  int lmin = 255, lmax = 0;
+  double lsum = 0.0;
+  for (const auto& c : tri_rgb) {
+    int lum = (299 * c[0] + 587 * c[1] + 114 * c[2]) / 1000;
+    lmin = std::min(lmin, lum);
+    lmax = std::max(lmax, lum);
+    lsum += lum;
+  }
+  lg::info(
+      "[recharged-grass] POLISH#9 LIGHT upload #{} (itimes changed): dynamic GROUND baked light, "
+      "per-tri baked luma min {} / mean {} / max {} over {} tris; grass *= (baked/255)*2 per-channel "
+      "-> matches the ground beneath per LOCATION and per TIME OF DAY (wsum={}).",
+      m_light_uploads, lmin, (int)(lsum / (double)std::max<size_t>(1, tri_rgb.size())), lmax,
+      (int)tri_rgb.size(), wsum);
 }
 
 void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
@@ -748,6 +995,10 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if (m_instance_count <= 0) {
     return;
   }
+
+  // POLISH#9: refresh the per-instance GROUND baked-light for the current time of day (only actually
+  // re-uploads when the time-of-day weights changed — so the grass tracks the day cycle dynamically).
+  update_light(rs);
 
   // monotonic seconds for the breeze
   static const auto t0 = std::chrono::steady_clock::now();

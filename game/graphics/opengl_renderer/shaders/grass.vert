@@ -12,6 +12,7 @@
 layout (location = 0) in vec4 inst_pos;   // xyz = world base position (GOAL units, 4096 = 1 m), w = blade height
 layout (location = 1) in vec4 inst_par;   // x = yaw(rad), y = tint(0..1), z = curve(0..1), w = breeze phase(0..1)
 layout (location = 2) in vec4 inst_gcol;  // POLISH#4: xyz = avg colour of the ground texture under this blade (0..1)
+layout (location = 3) in vec4 inst_light; // POLISH#9: rgb = ground's DYNAMIC baked light under this blade (0..1; *2 = ground factor)
 
 // scene camera (same uniforms/semantics as collision.vert)
 uniform vec4 hvdf_offset;
@@ -260,13 +261,15 @@ void main() {
     col *= mix(1.0, lm, 0.6);
   }
 
-  // OWNER POLISH#7 (#1 owner priority): SIT in the scene lighting. inst_gcol.w is the ground's ABSOLUTE
-  // baked-light multiplier = (todLuma/255)*2.0 — the EXACT factor tfrag/TIE multiply the ground texture
-  // by (neutral 1.0 at todLuma 128). Multiply the grass by it directly, so blades darken in shade and
-  // brighten in light PER-LOCATION, matching the ground beneath at every spot and every time of day.
-  // POLISH#6 normalised against the level MEAN and clamped high, so every lit patch pinned to the ceiling
-  // -> "ultra éclairée, partout exactement pareil, aucune variation". This tracks the real baked light.
-  col *= inst_gcol.w;
+  // OWNER POLISH#9 (#1 owner priority): apply the GROUND's ACTUAL baked light — per-channel + DYNAMIC.
+  // inst_light.rgb is the ground vertex's interpolated baked colour UNDER this blade at the CURRENT
+  // time of day (normalized [0,1]; re-uploaded by update_light() as the day/night cycle advances).
+  // *2.0 recovers the EXACT factor tfrag/TIE multiply the ground texture by (fragment_color =
+  // (palette/255)*2), so the grass darkens/brightens EXACTLY like the ground beneath it — per LOCATION
+  // and per TIME OF DAY. Where the baked light darkens the ground the grass darkens with it (owner:
+  // grass "fait tâche quand le baked lighting rend le sol plus sombre"). The old build multiplied by a
+  // FROZEN, level-MEAN-centred luma (inst_gcol.w) sampled once at load -> it never tracked the ground.
+  col *= inst_light.rgb * 2.0;
   col = clamp(col, vec3(0.0), vec3(1.5));
 
   v_color = col;
