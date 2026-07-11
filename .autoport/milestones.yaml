@@ -1244,6 +1244,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-grass-precompute-mode
+  name: 'RECHARGED (owner 2026-07-11, backlog after grass-poc): optional PRECOMPUTED grass mode — bake placement + per-instance tint/size/orientation (and optionally a fixed-time-of-day lighting) OFFLINE into asset data to save in-game processing + load-time scan, exposed as an extra toggle in GRASS SETTINGS: "precomputed (cheap)" vs "live (dynamic, costlier)". Live stays default; precomputed for weak hardware. Honest scoping: placement/tint precompute = clear load-time + memory win; lighting precompute = FROZEN day-cycle (visual tradeoff), so keep it a separate sub-option'
+  prompt: prompts/phase-Grecharged-grass-precompute-mode.md
+  validator: validators/phase-Grecharged-grass-precompute-mode.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Gjak1-icache-flush
   name: 'port arm64 bug class #14 (stale-icache CacheFlush no-op) to jak1 klink.cpp:623 — LATENT-correctness fix; owner 2026-07-09: NO boot-flake exists, do NOT gate on 20 boots; land the real-range flush + prove no regression + x86 byte-identical'
   prompt: prompts/phase-Gjak1-icache-flush.md
