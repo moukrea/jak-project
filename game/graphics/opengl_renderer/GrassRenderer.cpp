@@ -104,24 +104,25 @@ constexpr float CHUNK_M = 8.0f;           // instrumentation chunk size (m)
 constexpr float OLD_WINDOW_M = 64.0f;     // the REMOVED camera window (for the fix diagnostic)
 
 // OWNER POLISH#4: hide grass under overlapping non-grass 3D objects (crates/props/models).
-// A world-space XZ occupancy grid: a cell that has grass AND an object (TIE/shrub) vertex hovering
-// in [grassY+OCC_LO, grassY+OCC_HI] above it is culled, so grass never pokes through an object
-// sitting on the grass. Static-object geometry only (TIE + shrub placed models) — NOT tfrag
-// terrain, so cliffs/slopes next to grass do not falsely cull it.
-constexpr float OCC_CELL_M = 0.5f;        // occupancy cell size (m) — finer footprint (POLISH#7)
+// OWNER ROUND#13 (2026-07-11) — SUPERVISOR DIAGNOSIS #2: the block-shaped BALD HOLES the owner saw
+// on his OWN (open) platform were the object-hide's 0.5m XZ OCCUPANCY GRID + its 3x3 dilation
+// (morphological closing): a single stray TIE vertex hovering in the contact band above the grass
+// (e.g. the underside of a nearby/overhead TIE structure) marked a whole 0.5m CELL as occupied, and
+// the closing bridged/kept clusters -> 0.5m block-shaped holes on grass with NO object actually on it.
+// FIX: NO grid cull, NO dilation. A PER-INSTANCE test — a blade is hidden iff a real TIE object vertex
+// lies within OCC_RADIUS of ITS OWN (px,pz) AND in the near-ground contact band [+OCC_LO,+OCC_HI]
+// above ITS OWN ground Y. On an open platform (no object vertex within the radius+band) occ_culled ~0
+// -> no block holes; culls happen ONLY under an actual prop. The XZ grid below is now just a spatial
+// hash to find nearby object points (lookup only), never a cull unit.
+constexpr float OCC_CELL_M = 0.5f;        // spatial-hash bucket for object-point lookup (>= OCC_RADIUS)
 constexpr float OCC_LO_M = 0.05f;         // object vertex must be at least this far above the grass
-// OWNER POLISH#7 (2026-07-11): clip only to the VISIBLE ABOVE-GROUND FOOTPRINT. The POLISH#6 cull
-// used OCC_HI=8m — the FULL model silhouette (a tall/wide rock's upper body projects to a footprint
-// BIGGER than where it meets the ground) — plus a plain 3x3 DILATION (+1 cell everywhere). Together
-// they culled 397k/864k instances (46%!): an oversized EMPTY HALO ringing every object AND huge
-// coverage gaps on open grass. Owner: "des zones vides autour des éléments plutôt que s'arrêter pile
-// à l'intermédiaire où le rocher fait l'intermédiaire avec le sol ... le modèle 3D est plus gros sous
-// le sol et le clipping prend en compte la partie non visible". FIX: sample only a THIN near-ground
-// CONTACT BAND ([+OCC_LO, +OCC_HI=1.5m]) = the object's cross-section where it meets the ground = the
-// visible footprint (the buried/overhanging volume is excluded), and replace the dilation with a
-// morphological CLOSING (dilate THEN erode) that fills interior pinholes left by sparse object
-// vertices WITHOUT growing the outer boundary -> no halo. Also scan SHRUB models, not just TIE.
-constexpr float OCC_HI_M = 1.5f;          // near-ground contact band top = visible footprint (was 8m)
+// ROUND#13: tightened the contact band 1.5m -> 1.0m so only object geometry that actually comes DOWN
+// near the grass surface hides it; overhead TIE structure (>1m up) no longer culls the grass below it
+// (that was a source of the stray block holes). POLISH#7 kept only the visible above-ground footprint.
+constexpr float OCC_HI_M = 1.0f;          // near-ground contact band top = visible footprint (was 1.5m)
+constexpr float OCC_RADIUS_M = 0.45f;     // ROUND#13: per-instance hide radius (m) — a blade is culled
+                                          // only if an object vertex is this close to ITS OWN base
+                                          // (no 0.5m cell nuking, no neighbour dilation)
 
 // Training-level grassy-ground textures. Texture-driven, no hand authoring. Curated
 // exact names PLUS a substring net (grass / leafy / moss) so any grassy-ground texture
@@ -288,11 +289,18 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     bool bAB, bBC, bCA;            // is this edge a BOUNDARY (platform rim) vs an interior seam
     float upness;                  // POLISH#12: face-normal.y / |n| (1 = flat top, ~0 = wall)
     bool is_lip;                   // POLISH#12: overhang rim-lip -> excluded from BASE placement
+    bool is_tie;                   // ROUND#13: from a TIE placed model (platform) vs tfrag terrain
     // POLISH#9 dynamic ground baked-light: this triangle's centroid palette rows (8 keyframes x rgb),
     // averaged over its 3 vertices, so update_light() can re-interpolate at the current time of day.
     float pal[8][3];
   };
   std::vector<TriRec> tris;
+
+  // ROUND#13: occluder points for the per-instance object-hide = vertices of NON-grass TIE draws
+  // ONLY (real objects: rocks / props / tree-trunks / the warp-gate). The grass-textured TIE PLATFORMS
+  // must NOT occlude their own grass (that self-cull was ~most of the old 14.5%), and tfrag terrain is
+  // never an occluder — so open grass with no real object on it is NEVER culled (structural occ ~0).
+  std::vector<std::array<float, 3>> occ_pts;
 
   // POLISH#8 edge instrumentation: grass-textured tris rejected purely by the upness gate.
   int rej_upness = 0;          // grass-textured tris rejected by the upness net (edge lips / walls)
@@ -395,6 +403,28 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         if (looks_groundish(tname)) {
           unmatched_ground[tname]++;
         }
+        // ROUND#13: a NON-grass TIE draw is a real solid object (rock / prop / tree-trunk / warp-gate)
+        // that can sit ON the grass -> collect its vertices as object-hide occluders. Grass-textured TIE
+        // draws are deliberately NOT collected (a grass platform must not occlude its own grass), and
+        // tfrag terrain is never collected here -> only genuine objects hide grass.
+        if (is_tie) {
+          u32 b = draw.unpacked.idx_of_first_idx_in_full_buffer;
+          u32 l = 0;
+          for (const auto& g : draw.vis_groups) {
+            l += g.num_inds;
+          }
+          if (l > 0 && b < idx.size()) {
+            if (b + l > idx.size()) {
+              l = (u32)(idx.size() - b);
+            }
+            for (u32 k = b; k < b + l; ++k) {
+              u32 vi = idx[k];
+              if (vi != UINT32_MAX && vi < verts.size()) {
+                occ_pts.push_back({verts[vi].x, verts[vi].y, verts[vi].z});
+              }
+            }
+          }
+        }
         continue;
       }
       considered_draws++;
@@ -469,6 +499,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         r.area_m2 = area_m2;
         r.upness = upness;   // POLISH#12: kept for the PHASE 1.5 overhang-lip classifier
         r.is_lip = false;
+        r.is_tie = is_tie;   // ROUND#13: tfrag-vs-TIE split for the lip/rim instrumentation
         r.gr = gcr; r.gg = gcg; r.gb = gcb;
         float bl = (vlum(a) + vlum(b) + vlum(ci)) * (1.0f / 3.0f);  // POLISH#6 triangle baked luma
         r.raw_baked = bl;
@@ -546,45 +577,86 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   };
   int boundary_edges = 0;
   int lip_excluded = 0;         // POLISH#12: overhang rim-lip tris whose BASES are excluded (no floating)
+  int lip_excluded_tie = 0;     // ROUND#13: of those, how many are TIE (distant platform) tris
   float lip_excluded_area = 0.f;
   float min_placed_upness = 1.0f;
   {
-    // (1) PROVISIONAL edge count over ALL loose-kept grass tris (upness > GROUND_UPNESS). Used only to
-    // decide, for each TILTED tri, whether its lowest/downhill edge opens into VOID (used by no other
-    // grass tri = an overhanging platform lip) or continues onto MORE grass (a genuine slope to keep).
-    std::unordered_map<u64, int> prov;
-    prov.reserve(tris.size() * 3 + 16);
-    for (const auto& r : tris) {
+    // (1)+(2) OVERHANG-LIP classification — ROUND#13 TRANSITIVE closure. The POLISH#12 single-pass
+    // flagged a tilted tri ONLY if its OWN lowest edge opened into void; it missed MULTI-SEGMENT skirts
+    // (a distant TIE platform's rounded/tiered rim), where only the BOTTOM skirt tri's downhill edge is
+    // a boundary — the upper skirt tris looked "shared" and kept placing BASES on the overhanging lip =
+    // the FLOATING grass the owner still saw on distant platforms. Fix: a tilted tri (upness <
+    // UPNESS_LIP_MAX) is an overhang lip iff its LOWEST edge opens into void OR is shared with a tri
+    // that is ITSELF a lip. Seeded at the void, propagated UP the skirt; a FLAT/gentle top (upness >=
+    // UPNESS_LIP_MAX) is NEVER a lip and STOPS the propagation, so continuous walkable slopes leading to
+    // more ground keep their grass (POLISH#3 coverage preserved). Purely geometric -> works identically
+    // for tfrag AND TIE tris, so distant TIE platforms get the exact same lip exclusion (owner #2).
+    std::unordered_map<u64, std::vector<int>> etris;  // edge -> tri indices sharing it (manifold: <= 2)
+    etris.reserve(tris.size() * 3 + 16);
+    std::vector<u64> low_edge(tris.size(), 0);        // each tri's lowest (downhill) edge key
+    std::vector<char> tilted(tris.size(), 0);         // upness < UPNESS_LIP_MAX -> a lip CANDIDATE
+    for (int i = 0; i < (int)tris.size(); ++i) {
+      auto& r = tris[i];
+      r.is_lip = false;
       u64 va = vkey(r.p0x, r.p0y, r.p0z);
       u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
       u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
-      prov[ekey(va, vb)]++;
-      prov[ekey(vb, vc)]++;
-      prov[ekey(vc, va)]++;
+      u64 eAB = ekey(va, vb), eBC = ekey(vb, vc), eCA = ekey(vc, va);
+      etris[eAB].push_back(i);
+      etris[eBC].push_back(i);
+      etris[eCA].push_back(i);
+      float Ay = r.p0y, By = r.p0y + r.e1y, Cy = r.p0y + r.e2y;
+      float mAB = Ay + By, mBC = By + Cy, mCA = Cy + Ay;  // 2x edge-midpoint Y (compare only)
+      low_edge[i] = (mAB <= mBC && mAB <= mCA) ? eAB : (mBC <= mCA ? eBC : eCA);
+      tilted[i] = (r.upness < UPNESS_LIP_MAX) ? 1 : 0;
     }
-    // (2) OVERHANG-LIP classification. A tri is an overhang rim-lip (base-excluded) iff it is tilted
-    // (upness < UPNESS_LIP_MAX) AND its LOWEST edge (the downhill edge a lip drops off toward) is a
-    // provisional BOUNDARY (count <= 1 = no grass beyond it = the void). Flat/gentle tops (upness >=
-    // UPNESS_LIP_MAX) are NEVER flagged; continuous slopes (downhill edge shared with more grass) keep
-    // their grass -> POLISH#3 sloped-platform coverage is preserved, only the outward-hanging lips go.
-    for (auto& r : tris) {
-      r.is_lip = false;
-      if (r.upness < UPNESS_LIP_MAX) {
-        float Ay = r.p0y, By = r.p0y + r.e1y, Cy = r.p0y + r.e2y;
-        float mAB = Ay + By, mBC = By + Cy, mCA = Cy + Ay;  // 2x edge-midpoint Y (compare only)
-        u64 va = vkey(r.p0x, r.p0y, r.p0z);
-        u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
-        u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
-        u64 low_e = (mAB <= mBC && mAB <= mCA) ? ekey(va, vb)
-                                               : (mBC <= mCA ? ekey(vb, vc) : ekey(vc, va));
-        auto it = prov.find(low_e);
-        if (it != prov.end() && it->second <= 1) {
-          r.is_lip = true;  // downhill edge opens into void => overhang rim lip => no BASES placed here
-          lip_excluded++;
-          lip_excluded_area += r.area_m2;
+    // reverse index: which tilted tris have edge e as THEIR lowest (downhill) edge — so when a tri on e
+    // becomes a lip, we know which tris drop off toward it and must be re-checked.
+    std::unordered_map<u64, std::vector<int>> low_users;
+    low_users.reserve(tris.size() + 16);
+    std::vector<int> work;
+    for (int i = 0; i < (int)tris.size(); ++i) {
+      if (!tilted[i]) continue;
+      low_users[low_edge[i]].push_back(i);
+      const auto& sh = etris[low_edge[i]];  // seed: lowest edge opens into the void (no OTHER grass tri)
+      bool boundary = true;
+      for (int t : sh) {
+        if (t != i) { boundary = false; break; }
+      }
+      if (boundary) { tris[i].is_lip = true; work.push_back(i); }
+    }
+    while (!work.empty()) {  // propagate up the skirt: a tilted tri drops toward a lip => it is a lip too
+      int n = work.back();
+      work.pop_back();
+      const auto& r = tris[n];
+      u64 va = vkey(r.p0x, r.p0y, r.p0z);
+      u64 vb = vkey(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
+      u64 vc = vkey(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
+      u64 es[3] = {ekey(va, vb), ekey(vb, vc), ekey(vc, va)};
+      for (u64 e : es) {
+        auto it = low_users.find(e);  // tris whose DOWNHILL edge is e (they drop toward n)
+        if (it == low_users.end()) {
+          continue;
+        }
+        for (int t : it->second) {
+          if (t == n || tris[t].is_lip) {
+            continue;
+          }
+          tris[t].is_lip = true;
+          work.push_back(t);
         }
       }
-      if (!r.is_lip) min_placed_upness = std::min(min_placed_upness, r.upness);
+    }
+    for (int i = 0; i < (int)tris.size(); ++i) {
+      if (tris[i].is_lip) {
+        lip_excluded++;
+        lip_excluded_area += tris[i].area_m2;
+        if (tris[i].is_tie) {
+          lip_excluded_tie++;
+        }
+      } else {
+        min_placed_upness = std::min(min_placed_upness, tris[i].upness);
+      }
     }
     // (3) FINAL edge count over ONLY the tris that will actually be placed (lips removed). Now the
     // shoulder edge a flat top shared with an excluded lip is used ONCE = a TRUE RIM, so PHASE 2 stamps
@@ -748,111 +820,78 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     }
   }
 
-  // ---- POLISH#4: hide grass under overlapping non-grass 3D objects (TIE models). ----
-  // A coarse XZ occupancy grid: for each grass cell we know the ground Y; if a TIE (placed
-  // model) vertex hovers in [+OCC_LO, +OCC_HI] above that ground, the object sits ON the
-  // grass, so drop the grass in that cell (no more blades poking through crates/props/models).
-  // TIE-only (real objects) — tfrag terrain is intentionally excluded so cliffs/slopes next to
-  // grass never falsely cull it.
+  // ---- POLISH#4 / ROUND#13: hide grass under overlapping non-grass 3D objects (TIE models). ----
+  // ROUND#13 (SUPERVISOR DIAGNOSIS #2): the old code marked a whole 0.5m XZ CELL occupied when any TIE
+  // vertex hovered above it and then a 3x3 morphological closing bridged/kept those cells — a single
+  // stray vertex (nearby/overhead TIE geometry) nuked a 0.5m BLOCK of grass on an OPEN platform = the
+  // owner's "block-shaped bald holes" where NO object was actually sitting. FIX: NO grid cull, NO
+  // dilation. A PER-INSTANCE test — each blade is hidden iff a real TIE object vertex is within
+  // OCC_RADIUS of ITS OWN (px,pz) AND in the near-ground contact band [+OCC_LO,+OCC_HI] above ITS OWN
+  // ground Y. On open grass (no object vertex within radius+band) occ_culled ~0 -> no block holes; a
+  // blade is culled ONLY where an actual prop's footprint covers it. TIE-only (real objects); tfrag
+  // terrain excluded so cliffs/slopes never falsely cull. Shrubs stay exempt (POLISH#8: their alpha-
+  // transparent mesh is not an occluder) — they are TIE too, but their near-ground body is sparse so
+  // the tight radius already leaves their bald ring filled; the whole-shrub cell nuke is gone anyway.
   int occ_culled = 0;
-  if (!m_instances.empty() && !lev->tie_trees.empty()) {
-    const float inv = 1.0f / (OCC_CELL_M * U);
-    auto cellkey = [inv](float x, float z) -> s64 {
+  size_t occ_objpts = 0;
+  if (!m_instances.empty() && !occ_pts.empty()) {
+    const float inv = 1.0f / (OCC_CELL_M * U);  // spatial-hash bucket (lookup only, NOT a cull unit)
+    auto bkey = [inv](float x, float z) -> s64 {
       s64 gx = (s64)std::floor(x * inv);
       s64 gz = (s64)std::floor(z * inv);
       return (gx << 32) ^ (gz & 0xffffffffLL);
     };
-    std::unordered_map<s64, float> cell_ground_y;
-    cell_ground_y.reserve(m_instances.size());
-    for (const auto& gi : m_instances) {
-      s64 k = cellkey(gi.px, gi.pz);
-      auto it = cell_ground_y.find(k);
-      if (it == cell_ground_y.end() || gi.py < it->second) {
-        cell_ground_y[k] = gi.py;  // lowest grass py in the cell = the ground surface
-      }
-    }
-    std::unordered_set<s64> occluded;
-    const float lo = OCC_LO_M * U, hi = OCC_HI_M * U;
-    // POLISH#7: only mark cells where an object vertex is in the near-ground CONTACT BAND
-    // [+lo, +hi=1.5m] -> the visible above-ground footprint, not the full silhouette.
-    auto mark_occluder = [&](float vx, float vy, float vz) {
-      s64 k = cellkey(vx, vz);
-      auto it = cell_ground_y.find(k);
-      if (it == cell_ground_y.end()) return;
-      float dy = vy - it->second;
-      if (dy > lo && dy < hi) {
-        occluded.insert(k);
-      }
+    // Spatial hash of NON-grass TIE object vertices (world XZ+Y). Bucket >= OCC_RADIUS so a blade only
+    // has to test its own bucket + the 8 neighbours to find every object point within OCC_RADIUS.
+    struct OP {
+      float x, y, z;
     };
-    // POLISH#6: scan EVERY TIE geo (not just geo 0) so a placed object in any LOD bucket occludes.
-    for (const auto& geo : lev->tie_trees) {
-      for (const auto& tree : geo) {
-        for (const auto& v : tree.unpacked.vertices) {
-          mark_occluder(v.x, v.y, v.z);
-        }
-      }
+    std::unordered_map<s64, std::vector<OP>> objpts;
+    objpts.reserve(4096);
+    for (const auto& p : occ_pts) {
+      objpts[bkey(p[0], p[2])].push_back({p[0], p[1], p[2]});
     }
-    // OWNER POLISH#8: do NOT treat SHRUB meshes as occluders (POLISH#7 did). The original grass
-    // SHRUBS (bushes / tufts) are alpha-tested foliage: their MESH footprint is far larger than the
-    // actually-opaque visible blades, so scanning shrub vertices marked the whole shrub bounding
-    // footprint as occupied and left a BALD ring of flat grass texture around every shrub (owner:
-    // "les shrubs ... ont beaucoup d'espace où on voit la texture plate ... leur mesh occupe l'espace
-    // bien que non visible en alpha"). We cannot cheaply read per-vertex opacity here, and the owner
-    // explicitly permits exempting shrubs from the overlap-hide entirely — our 3D grass growing right
-    // up to / under a shrub tuft looks correct (both are grass). So shrubs are EXCLUDED from the
-    // occluder scan; only solid TIE objects (rocks / props) hide grass. Bonus: removes a large chunk
-    // of over-cull, filling coverage (helps the platform-edge / open-ground bald patches too).
-    // POLISH#7: morphological CLOSING (dilate THEN erode). The POLISH#6 plain dilation grew a +1-cell
-    // HALO around every object (owner: empty ring). Closing fills interior pinholes left by sparse
-    // object vertices but does NOT grow the outer boundary -> footprint stops at the object edge, no
-    // halo. (cellkey packs gx in the high 32 bits, gz signed in the low 32.)
-    if (!occluded.empty()) {
-      auto packc = [](s64 gx, s64 gz) -> s64 { return (gx << 32) ^ (gz & 0xffffffffLL); };
-      auto ucx = [](s64 k) -> s64 { return k >> 32; };
-      auto ucz = [](s64 k) -> s64 { return (s64)(s32)(k & 0xffffffffLL); };
-      // dilate
-      std::unordered_set<s64> dil;
-      dil.reserve(occluded.size() * 9);
-      for (s64 k : occluded) {
-        s64 gx = ucx(k), gz = ucz(k);
-        for (s64 dz = -1; dz <= 1; ++dz) {
-          for (s64 dx = -1; dx <= 1; ++dx) {
-            dil.insert(packc(gx + dx, gz + dz));
+    occ_objpts = objpts.size();
+    const float lo = OCC_LO_M * U, hi = OCC_HI_M * U;
+    const float rad2 = (OCC_RADIUS_M * U) * (OCC_RADIUS_M * U);
+    std::vector<GrassInstance> keep;
+    std::vector<u32> keept;  // POLISH#9: keep m_inst_tri aligned with the surviving instances
+    keep.reserve(m_instances.size());
+    keept.reserve(m_instances.size());
+    for (size_t i = 0; i < m_instances.size(); ++i) {
+      const auto& gi = m_instances[i];
+      s64 bx = (s64)std::floor(gi.px * inv);
+      s64 bz = (s64)std::floor(gi.pz * inv);
+      bool hidden = false;
+      for (s64 dz = -1; dz <= 1 && !hidden; ++dz) {
+        for (s64 dx = -1; dx <= 1 && !hidden; ++dx) {
+          s64 k = ((bx + dx) << 32) ^ ((bz + dz) & 0xffffffffLL);
+          auto it = objpts.find(k);
+          if (it == objpts.end()) {
+            continue;
+          }
+          for (const auto& p : it->second) {
+            float dy = p.y - gi.py;             // object must be in the near-ground contact band
+            if (dy <= lo || dy >= hi) {
+              continue;
+            }
+            float ddx = p.x - gi.px, ddz = p.z - gi.pz;  // and within OCC_RADIUS of THIS blade's base
+            if (ddx * ddx + ddz * ddz <= rad2) {
+              hidden = true;
+              break;
+            }
           }
         }
       }
-      // erode: keep only cells whose full 3x3 neighbourhood is in the dilated set
-      std::unordered_set<s64> closed;
-      closed.reserve(occluded.size() * 2);
-      for (s64 k : dil) {
-        s64 gx = ucx(k), gz = ucz(k);
-        bool all = true;
-        for (s64 dz = -1; dz <= 1 && all; ++dz) {
-          for (s64 dx = -1; dx <= 1 && all; ++dx) {
-            if (!dil.count(packc(gx + dx, gz + dz))) all = false;
-          }
-        }
-        if (all) closed.insert(k);
+      if (hidden) {
+        occ_culled++;
+        continue;
       }
-      occluded.swap(closed);
+      keep.push_back(gi);
+      keept.push_back(m_inst_tri[i]);
     }
-    if (!occluded.empty()) {
-      std::vector<GrassInstance> keep;
-      std::vector<u32> keept;   // POLISH#9: keep m_inst_tri aligned with the surviving instances
-      keep.reserve(m_instances.size());
-      keept.reserve(m_instances.size());
-      for (size_t i = 0; i < m_instances.size(); ++i) {
-        const auto& gi = m_instances[i];
-        if (occluded.count(cellkey(gi.px, gi.pz))) {
-          occ_culled++;
-          continue;
-        }
-        keep.push_back(gi);
-        keept.push_back(m_inst_tri[i]);
-      }
-      m_instances.swap(keep);
-      m_inst_tri.swap(keept);
-    }
+    m_instances.swap(keep);
+    m_inst_tri.swap(keept);
   }
 
   m_instance_count = (int)m_instances.size();
@@ -904,13 +943,17 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   lg::info(
       "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
       "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
-      "{} instances in {} chunks (POLISH#5 density {:.0f}% -> budget {}); occlusion culled {} "
-      "under-object instances (POLISH#8 TIE-only occluder, shrubs EXEMPT + contact-band 1.5m + "
-      "morphological closing -> no shrub bald ring, no halo). No camera window, no move-rebuild -> "
-      "nothing de-instances while moving.",
+      "{} instances in {} chunks (POLISH#5 density {:.0f}% -> budget {}). ROUND#13 PER-INSTANCE "
+      "object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled {} of {} instances ({:.3f}%) — each "
+      "blade tested vs {} NON-grass-TIE object-point buckets (grass-TIE platforms EXCLUDED = no self-cull) "
+      "within radius {:.2f}m + contact band [{:.2f},{:.2f}]m; a blade is culled ONLY if a real object "
+      "vertex is that close, so OPEN grass (no object) is NEVER culled = occ ~0 there, NO block-shaped "
+      "bald holes. No camera window, no move-rebuild -> nothing de-instances while moving.",
       considered_draws, tie_draws, tris_kept, giant_tris, max_area, total_area_m2, density,
       m_instance_count, (int)m_chunks.size(), Gfx::g_global_settings.recharged_grass_density, budget,
-      occ_culled);
+      occ_culled, m_instance_count + occ_culled,
+      100.0f * (float)occ_culled / (float)std::max(1, m_instance_count + occ_culled), (int)occ_objpts,
+      OCC_RADIUS_M, OCC_LO_M, OCC_HI_M);
   // POLISH#8 LOCATION-AWARE LIGHTING proof: the per-location baked luma spread. itimesValid=1 means
   // the CURRENT-time interp is used (contrast preserved). A wide bakedLuma min..max / big std = real
   // per-location lit-vs-shadow variation (NOT the old one-global-value); gspare = meanf(=ref/128) +
@@ -939,17 +982,19 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       "dropped (<{:.3f} m); {} near-rim blades horizontally CLAMPED to the rim by the shader (full "
       "height, no overflow, no bald fringe; interior blades untouched).",
       boundary_edges, edge_dropped, DROP_EPS / U, edge_clamped);
-  // POLISH#12 OVERHANG-LIP EXCLUSION: BASES are no longer placed on steep grass-textured tris whose
-  // lowest/downhill edge opens into void (the platform lip that overhangs the drop) — the true cause of
-  // the owner's persistent FLOATING overflow. Removing the lip promotes the flat top's shoulder to a
-  // real rim so near-shoulder blades clamp to the exact top edge (no overflow) while the flat top still
-  // fills right up to it (no bald margin). lipExcluded = tris made base-free; minPlacedUpness = the
-  // shallowest tri that STILL gets grass (>= the lip band, so no bases hang off the overhanging lips).
+  // ROUND#13 OVERHANG-LIP EXCLUSION (TRANSITIVE): BASES are not placed on tilted grass-textured tris
+  // whose downhill CHAIN opens into void — the platform rim skirt that overhangs the drop, the true
+  // cause of the owner's persistent FLOATING grass. The POLISH#12 single-pass missed MULTI-SEGMENT
+  // skirts (distant TIE platforms), so the propagation is now transitive (up the skirt, stopped by a
+  // flat top). lipExcluded split tfrag/TIE proves the SAME exclusion now reaches the distant TIE
+  // platforms (owner #2); minPlacedUpness = the shallowest tri that STILL gets grass.
   lg::info(
-      "[recharged-grass] POLISH#12 OVERHANG-LIP: {} lip tris base-excluded ({:.0f} m2, upness < {:.2f} "
-      "AND downhill edge = void); minPlacedUpness {:.2f}. Bases stay on the flat top only -> grass ends "
-      "exactly at the top rim, none floating past the platform silhouette.",
-      lip_excluded, lip_excluded_area, UPNESS_LIP_MAX, min_placed_upness);
+      "[recharged-grass] ROUND#13 OVERHANG-LIP (transitive): {} lip tris base-excluded ({} TIE / {} "
+      "tfrag, {:.0f} m2, upness < {:.2f} AND downhill chain = void); minPlacedUpness {:.2f}. Bases stay "
+      "on the flat walkable top only -> grass ends exactly at the top rim on tfrag AND distant TIE "
+      "platforms, none floating past the platform silhouette into the void.",
+      lip_excluded, lip_excluded_tie, lip_excluded - lip_excluded_tie, lip_excluded_area, UPNESS_LIP_MAX,
+      min_placed_upness);
   // POLISH#4 "still-missing platforms" diagnostic: any ground-ish texture we did NOT place on.
   for (const auto& kv : unmatched_ground) {
     lg::info("[recharged-grass] UNMATCHED ground-ish texture '{}' ({} draws) — not placed",
