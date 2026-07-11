@@ -44,13 +44,35 @@ class GrassRenderer {
 
   void ensure_gl();
   void rebuild(SharedRenderState* render_state);
+  // POLISH#9: recompute the per-instance GROUND baked-light for the CURRENT time of day and
+  // re-upload it (throttled to only when the time-of-day weights actually change). This is what
+  // makes the grass track the ground's baked lighting BOTH by location (per-triangle) and by
+  // TIME (it re-samples the live itimes every frame instead of freezing the value at level load).
+  void update_light(SharedRenderState* render_state);
 
   bool m_gl_ready = false;
   GLuint m_vao = 0;
   GLuint m_instance_vbo = 0;
+  GLuint m_light_vbo = 0;   // POLISH#9: per-instance dynamic ground baked-light (u8 rgba, loc 3)
 
   std::vector<GrassInstance> m_instances;
   int m_instance_count = 0;
+
+  // POLISH#9 dynamic ground baked-light source. Per KEPT triangle we keep its centroid's 8
+  // time-of-day palette rows (pal[keyframe][channel], 0..255); update_light() blends them with the
+  // live itimes weights to get the EXACT baked colour the ground vertex is drawn with this frame,
+  // then multiplies the grass by it (matching the ground's own (palette/255)*2 factor). m_inst_tri
+  // maps each surviving instance back to its source triangle (kept through the occlusion cull).
+  struct TriLight {
+    float pal[8][3];
+  };
+  std::vector<TriLight> m_tri_light;
+  std::vector<u32> m_inst_tri;
+  std::vector<u8> m_light;                  // 4 bytes/instance (rgba), re-uploaded on TOD change
+  s32 m_last_itimes[4][4] = {};             // weights of the last light upload (change-detect throttle)
+  bool m_light_valid = false;
+  u32 m_light_uploads = 0;                  // POLISH#9: how many times the dynamic light re-uploaded
+                                            // (>1 over time == the day cycle is being tracked)
 
   // Spatial chunk grid over the placed instances — for the culling
   // instrumentation only (owner feedback #2): every frame we log how many chunks
