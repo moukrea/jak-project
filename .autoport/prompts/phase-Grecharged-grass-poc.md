@@ -665,3 +665,50 @@ Then prove the coverage-distance field gives correct rim_dist there.
 Capture close-ups at MULTIPLE previously-overflowing platform edges (not one), ON vs OFF, named
 p15_edge_<spot>_*.png, each showing grass stopping exactly at the rim over the void. Use level.warp.pos
 to reach real rims (blind cpad nav never lands them). Supervisor eyeballs; owner playtest = final gate.
+
+## OWNER ROUND#15 VERDICT (2026-07-11, verbatim) -> ROUND#16 (use the EXACT mesh, kill the raster)
+"Je pense que le principe de carrés d'herbe de 0.5x0.5 est nul, ça s'adapte pas aux reliefs, ça suit pas
+les bordures... Enfin c'est merdique ! On a le mesh du sol, on sait où la texture plate d'herbe apparaît,
+autant utiliser ça ! Parce que oui, ça dépasse toujours à plein d'endroits, c'est encore manqué ! Allé
+tu corriges !"
+=> STILL overflows in MANY places. Owner's directive: STOP approximating with grids/rasters. The ground
+MESH + the grass TEXTURE region already define exactly where grass belongs, following relief + borders.
+Use THAT as the authoritative placement AND boundary.
+
+## SUPERVISOR CODE READ (2026-07-11, GrassRenderer.cpp — do NOT trust prior round reports, verified here)
+The persistent overflow has ONE root that every round left standing: the edge/boundary detection is the
+EDGE-COUNT method — "an edge is a rim/boundary iff used by exactly ONE kept grass triangle" (the
+bAB/bBC/bCA flags, PHASE 1 lip exclusion ~L629-694, POLISH#11 rim_dist). On TIE / MULTI-FRAGMENT grass
+platforms the SAME physical edge appears in separate fragments' triangle lists (and float-position
+mismatches), so a true outer edge is counted as used by >=2 tris -> NOT flagged as a boundary. TWO
+failures result:
+  (1) the OVERHANG-LIP exclusion (PHASE 1.5) misses the drooping grass-textured edge tris (upness
+      0.35..0.5 admitted by GROUND_UPNESS=0.35) -> grass BASES are PLACED on outward/downward lip tris
+      -> blades hang past the platform silhouette = the overflow the owner sees "à plein d'endroits".
+  (2) rim_dist misses the real rim -> no height-taper there.
+Round#15 patched only (2) with a 0.1 m RASTER coverage field (cov_cell 0.1m, FLOOR_UPNESS=0.5) — which
+APPROXIMATES + stair-steps the border ("ça suit pas les bordures") and does NOT stop (1) (bases still on
+lips). There is ALSO a placement/coverage MISMATCH: placement keeps upness>=0.35 but the coverage
+silhouette is upness>=0.5, so grass is placed on tris the boundary field doesn't consider solid.
+
+## ROUND#16 FIX — exact mesh geometry, ROBUST edge detection, NO raster
+1. ROBUST TRUE-EDGE DETECTION: dedup triangle edges by QUANTIZED WORLD POSITION (reuse the QUANT hashing
+   ~L600) across ALL fragments/tris BEFORE counting, so a shared physical edge is counted once and a
+   real outer border edge (used by exactly one triangle in world space) is correctly flagged — on TIE
+   multi-fragment platforms too. This is the single fix that unblocks BOTH the lip exclusion and the rim
+   clamp. VERIFY on device: count true-border edges before/after the dedup on a TIE platform that
+   overflowed (expect many more real borders found).
+2. PLACEMENT = the grass-textured tris only, and EXCLUDE the overhang-lip tris using the robust border
+   (a tilted tri whose downhill edge is now-correctly a true border = a drooping lip -> no bases).
+3. CLIP/TAPER from the EXACT triangle edges (point-to-true-rim-edge distance in world units, the
+   POLISH#9 edge geometry already at L317/L538), NOT the raster. rim_dist = exact min distance to the
+   nearest TRUE border edge. REMOVE the 0.1 m coverage-raster as the boundary source (it approximates).
+4. Resolve the upness mismatch: one consistent grass region (place + boundary use the SAME tris).
+Net: grass base only on real walkable grass-textured tris, clamped to the EXACT mesh edge -> stops on the
+border that follows relief by construction. No grid, no raster, no stair-step. Keep DROPPED=0 density,
+day-cycle light, object-cull, sliders. DEFAULT ON, OFF==stock.
+
+## DISCIPLINE + CAPTURE (7 rounds failed — be exact, supervisor eyeballs)
+Instrument the robust-edge count vs the old count on the overflowing platforms FIRST (prove the miss).
+Capture close-ups at SEVERAL previously-overflowing edges p16_edge_*_on vs _off; supervisor eyeballs
+BEFORE push; owner playtest = final gate.
