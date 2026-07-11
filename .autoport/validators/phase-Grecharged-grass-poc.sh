@@ -145,6 +145,14 @@ CLOSEUP=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p11_edge_c
 SZC=$(stat -c %s "$CLOSEUP" 2>/dev/null||echo 0); [ "$SZC" -ge 20000 ] || fail "polish#11: edge close-up too small ($SZC B)"
 ok "polish#11 edge close-up present ($CLOSEUP) — supervisor must eyeball before release"
 
+# OWNER ROUND#13 2026-07-11: per-instance occupancy (no 0.5m block holes) + distant-TIE lip clamp
+grep -qiE '(remove|no|kill).*(dilat)|per.?instance.*(occup|object.?cull|hide)|occ.*per.?instance' "$R" || fail "round13: occupancy object-hide must be PER-INSTANCE (remove 3x3 dilation, no 0.5m cell nuking)"
+grep -qiE 'occ.?cull(ed)?.*(0|zero|~0|only under|no bald|open platform)|no (bald|block).?hole' "$R" || fail "round13: must prove occ_culled ~0 on open platform (no block-shaped bald holes)"
+grep -qiE '(distant|far|tie).*(platform|model).*(lip|rim|clamp|float|exclu)|tie.*(rim|lip).*(clamp|exclu)' "$R" || fail "round13: distant TIE platforms must get the lip-exclusion + rim-clamp (no floating grass in the void)"
+WIDE=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p13_wide*.png' -newermt "-1 day" 2>/dev/null | grep -v '/x86/' | head -1)
+[ -n "$WIDE" ] || fail "round13: need a p13_wide_*.png device spawn shot (near+distant platforms) — supervisor eyeballs it before push"
+ok "round13 (per-instance occupancy, distant-TIE clamp, wide shot) — supervisor must eyeball p13_wide"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"
