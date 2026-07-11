@@ -744,3 +744,29 @@ geometry is the COLLISION floor, not the render mesh which overhangs it.
 ## DISCIPLINE + CAPTURE (owner frustrated, 8 rounds — instrument, prove, supervisor eyeballs)
 Prove the cantilever with numbers first; capture p17_edge_* close-ups at previously-overflowing platforms
 ON vs OFF; supervisor eyeballs BEFORE any push; owner playtest = final gate.
+
+## OWNER CORRECTION on ROUND#17 (2026-07-11, verbatim) — collision is a CLIP, not the base
+"Ça me paraît bancal, et rien ne me dit que l'herbe n'est pas un block de 0.5x0.5 plat au lieu de suivre
+le relief du mesh... Puis si tu te bases sur la collision, t'as pas l'info de si oui ou non c'est de
+l'herbe car pas de texture sur la collision... Ça peut servir pour vérifier, mais pas comme seule base."
+Owner is RIGHT on both counts:
+1. COLLISION HAS NO TEXTURE INFO -> it cannot tell WHERE grass is. It must NOT be the placement basis.
+   PLACEMENT STAYS the grass-TEXTURED RENDER MESH (barycentric on the real tri plane — relief-following,
+   PROVEN: GrassRenderer.cpp:943 `gi.py = r.p0y + r1*r.e1y + r2*r.e2y` = interpolated REAL vertex heights,
+   NOT a flat 0.5 block). Collision is used ONLY as an ADDITIONAL CLIP.
+2. So the model is an INTERSECTION: grass exists where (a) the render mesh is grass-TEXTURED AND (b) it is
+   over the walkable COLLISION floor. Clip/taper grass at the COLLISION edge -> removes the render-mesh
+   CANTILEVER (the overhang past the visible/walkable edge) that forms the flat protruding "block" the
+   owner sees. Placement/texture/relief all come from the render mesh; collision only trims the overhang.
+
+## Round#17 (corrected) steps
+1. INSTRUMENT: prove the cantilever (render-mesh grass edge is past the collision/walkable edge by X cm)
+   on an overflowing platform. Also PROVE relief-following to the owner: capture a BUMPY grass platform
+   showing grass bases conforming to the bumps (not a flat plane) — kill the "flat 0.5 block" doubt with
+   a real frame + the :943 barycentric reference.
+2. KEEP placement = grass-textured render mesh (barycentric, relief). Do NOT make collision the base.
+3. ADD a collision-floor CLIP: for each grass blade, if its (px,pz) is beyond the walkable collision-floor
+   silhouette (or within a taper of the collision edge), taper/cull it — the existing height-taper +
+   clamp machinery, but the CLIP boundary = the COLLISION edge (where Jak stands), applied ON TOP of the
+   grass-textured placement. Grass = textured-mesh ∩ walkable-floor, stopping at the collision edge.
+4. Confirm collision-mesh access from the grass builder; define the minimal bridge if needed.
