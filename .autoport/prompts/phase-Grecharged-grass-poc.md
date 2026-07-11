@@ -583,3 +583,42 @@ not fire at all:
   AND far), per the diagnosis.
 Prove on a NEAR platform the owner can walk to: p13_wide + a near-edge shot showing grass stopping at
 the rim. Supervisor eyeballs both. Keep DROPPED=0 + lighting + no block holes.
+
+## OWNER ROUND#13 VERDICT (2026-07-11, verbatim) -> ROUND#14 (floating ONLY)
+"Alors pour l'herbe on est sur un 50% corrigé ! Plus de trous sur les bords des plateformes, mais on a
+encore de l'herbe qui dépasse dans le vide sur les bordures."
+=> HOLES ON PLATFORM EDGES = FIXED (round#13 per-instance object-cull). KEEP IT, do NOT regress.
+=> FLOATING OVERFLOW past the platform rim into the VOID = STILL BROKEN. This is now the ONLY target.
+
+## STOP GUESSING — DISCRIMINATE the floating mechanism with instrumentation
+The floating has survived FIVE fixes (upness gate; POLISH#11 per-blade rim clamp; POLISH#12 overhang-lip
+base exclusion; round#13 transitive lip exclusion + TIE rim clamp). So the assumed cause ("bases on
+tilted lip tris + unclamped horizontal offset") is INCOMPLETE or the fix never reaches the real overflow.
+Do NOT ship a 6th guess. First DISCRIMINATE, with device instrumentation at a REAL edge, among:
+
+- **H-A blade GEOMETRY overflow:** the base is at/inside the rim, but the blade's rendered silhouette
+  (HEIGHT x lean/curve/wind at the TIP + half CARD-WIDTH) sticks out past the rim. The rim-clamp clamps
+  the base/center horizontal offset but NOT the full blade extent (tip lean + half width). 
+  DISCRIMINATOR: count per frame the blades whose FINAL rendered horizontal position (post-clamp,
+  INCLUDING tip lean + half width) exceeds their own rim edge. If >0 => H-A (the clamp leaks geometry).
+- **H-B base past the VISIBLE silhouette:** the grass GROUND triangle extends BEYOND the visible platform
+  drop-edge (render/collision mesh overhangs the wall), so bases inside the tri are already over the void
+  and dmin (distance to the TRIANGLE edge) is positive there. Lip-exclusion can't catch it (these are
+  FLAT tops, not tilted lips). DISCRIMINATOR: render near-rim blades as BARE BASE POINTS (height->0). If
+  the points themselves appear over the void => H-B (bases past silhouette; dmin is vs the wrong edge).
+- **H-C it's the CARDS, not the 3D blades:** the mid-distance crossed grass CARDS are wider and may get
+  NO rim clamp. DISCRIMINATOR: toggle cards off; if the overflow vanishes => H-C (clamp/exclude cards too).
+
+## Fix the CONFIRMED mechanism(s), then PROVE with an edge close-up
+Likely H-A (clamp the FULL horizontal silhouette: base_offset + wind/lean-at-tip + half_width <= dmin, or
+better: scale blade HEIGHT->0 as dmin->0 so a rim blade is a stub that cannot lean out) and/or H-B
+(compute dmin against the TRUE drop silhouette / inset from the real edge, not the raw grass-tri edge).
+Whatever the discriminator proves — fix THAT. Keep the holes fix.
+
+## CAPTURE MANDATE (the recurring failure) — supervisor WILL eyeball the edge close-up before any push
+Rounds #11-#13 never landed a real rim-over-void close-up (only open-field wides). Round#14 MUST:
+drive Jak to a KNOWN raised edge (Geyser Rock start platform drop, or a training terrace with a clear
+void below), pitch the camera DOWN at the rim, and screencap a CLOSE-UP where the platform edge + the
+void below are both in frame, ON vs OFF. Name it p14_rim_closeup_*.png. If nav can't reach an edge, use
+any debug/free camera. NO open-field wide counts as edge proof. The supervisor eyeballs p14_rim_closeup
+for floating BEFORE any jak-builds push; the owner's playtest is the final gate.
