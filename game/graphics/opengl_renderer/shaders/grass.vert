@@ -29,6 +29,12 @@ uniform float u_near_dist; // near-blade fade-out radius (world units)
 uniform float u_card_dist; // grass-card fade-out radius (world units)
 uniform vec4  u_jak_ledge; // xyz = ledge-grab point, w = 1 while Jak hangs (ledge-parting trample)
 uniform int   u_debug;     // ROUND#14 discriminator: 0 normal / 1 base-stubs (magenta) / 2 blades (cyan) / 3 cards (yellow)
+// OWNER ROUND#18: object occluders (crates / warp-gate button) captured per-frame in Merc2 (merc
+// actors, not in the static level data). xyz = world pos (GOAL units), w = ground-contact radius. A
+// blade whose base is within an occluder's XZ radius AND near its ground height is hidden, so no grass
+// pokes through the object. Y-gated so an object on an upper platform doesn't cull the grass below it.
+uniform vec4 u_occ[16];
+uniform int  u_occ_count;
 
 out vec3 v_color;
 out float v_alpha;
@@ -143,6 +149,24 @@ void main() {
     v_is_card = u_mode;
     v_seed = 0.0;
     return;
+  }
+
+  // OWNER ROUND#18: hide grass under overlapping ground objects (crates / warp-gate button). base is
+  // the blade's ground position; u_occ[i] = (world xyz, ground-contact radius). yd = grass Y - object
+  // root Y: cull only when the object sits on THIS grass height (band [-2.5 m .. +1 m]) so an object on
+  // a higher/lower platform never culls this grass. Collapses the whole blade/card offscreen.
+  for (int oi = 0; oi < u_occ_count; ++oi) {
+    vec2 od = base.xz - u_occ[oi].xz;
+    float yd = base.y - u_occ[oi].y;
+    if (dot(od, od) < u_occ[oi].w * u_occ[oi].w && yd > -2.5 * 4096.0 && yd < 1.0 * 4096.0) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      v_color = vec3(0.0);
+      v_alpha = 0.0;
+      v_uv = vec2(0.0);
+      v_is_card = u_mode;
+      v_seed = 0.0;
+      return;
+    }
   }
 
   // shared breeze: a gust travelling across the field (spatial phase) plus a

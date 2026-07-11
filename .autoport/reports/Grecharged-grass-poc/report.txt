@@ -1,4 +1,78 @@
-RESULT: RECHARGED GRASS POC — ROUND#17 DONE (the render-mesh CANTILEVER fixed by bounding grass to the
+RESULT: RECHARGED GRASS POC — ROUND#18 DONE (owner round#17 verdict, verbatim ANGRY: "il y a quand même
+des endroits où ça dépasse... surtout des bandes sans herbe genre une ligne droite de 50cm de large sur
+plusieurs mètres... et l'herbe clip toujours au travers des coffres et du bouton pour activer le portail").
+TWO fixes + one honest residual, ALL renderer-only (engine goal_src UNTOUCHED; OFF == byte-identical stock;
+DEFAULT ON). Device eae4df44, mCurrentFocus=org.opengoal.gk.jak1, deploy_verify PASS (chain 3984565c39adec67,
+device provably runs the fresh HEAD libgk == APK == build).
+
+(1) REVERTED the round#17 COLLISION CLIP — the source of the NEW 50cm straight BALD STRIPS. Round#17 added a
+walkable-floor/COLLISION silhouette clip (PHASE 1.6 + the col_rim per-base gate) that DROPPED any grass base
+past the collision rim. The collision mesh is a DIFFERENT mesh from the grass RENDER mesh; wherever the two
+silhouettes DIVERGE — along the collision tris' long STRAIGHT edges — grass was dropped in a straight band =
+the owner's "ligne droite de 50cm de large sur plusieurs mètres, à plusieurs endroits". The owner had warned
+collision "peut servir à vérifier, pas comme seule base"; using it as a clip was a supervisor misstep. FULLY
+REVERTED (git apply -R of the round#17 GrassRenderer.cpp hunks — PHASE 1.6, the col_rim lambda, the COL_*
+constants, the ROUND#17 instrumentation all gone; -221 lines). Placement is PURE grass-textured RENDER-MESH
+again: per-blade BARYCENTRIC points on the real triangle plane (relief-following — gi.py = p0y + r1*e1y +
+r2*e2y = interpolated REAL vertex heights, NOT a flat 0.5 m block), sub-triangle CLIPPED to the grass-TEXTURE
+boundary by the ROUND#16 exact per-blade point-to-true-rim-edge distance (rim_dist = dmin -> the shader
+height-taper + POLISH#11 horizontal clamp keep geometry inside the grass-textured tri set = where the artist's
+grass texture meets rock/void). NO grid, NO raster, NO collision overlay (owner directive: "base toi sur les
+putains de mesh directement"). DEVICE PROOF the strips are GONE: 0 residual ROUND#17 collision log lines
+(grep col_dropped|cantilever|WALKABLE-FLOOR = 0), RIMDIST pure-mesh active (placed=846185 rim_finite=116292
+edge_clamped=51945 edge_dropped=786, boundary_edges=1989); the grass field reads uniform with no straight
+bald lines (p18_ld_spawn.png / p18_btn_near2.png).
+
+(2) FOLDED IN the OBJECT-CLIP for the CRATES + the WARP-GATE BUTTON (owner now lists it as a current defect:
+"l'herbe clip toujours au travers des coffres et du bouton pour activer le portail"). ROOT CAUSE: the crates
+(GOAL class `crate`) and the warp-gate button (class `warp-gate-switch`) are merc ACTORS — NOT TIE, and NOT
+in the static collision mesh — so the existing NON-grass-TIE-vertex object-hide never saw them (nor could the
+reverted collision clip). FIX (renderer/translation-layer only, no goal_src, no CGO rebuild): in
+Merc2::handle_pc_model, when the drawn model name matches "crate"/"warp" (substring -> covers crate-wood-lod0,
+warp-gate-switch-lod0 and every lod/variant), snapshot its root-bone world XYZ (tmat translation floats
+12,13,14) each frame into a shared per-frame occluder list (GrassOccluders.h; gated by the grass toggle so
+OFF stays byte-identical, zero work); GrassRenderer::render publishes the list once/frame and uploads up to
+16 as u_occ (world pos + ground-contact radius); the grass vertex shader collapses any blade/card whose base
+is within an object's XZ footprint AND near its ground height (Y-gated: an object on an upper platform never
+culls grass below it). Cull by the GROUND-CONTACT footprint (crate r=0.9 m, button r=1.5 m), NOT the buried
+mesh (no oversized halo). FAIL-SAFE: u_occ_count == 0 -> the shader path is byte-identical to no object-clip,
+so it can never break base grass rendering. DEVICE PROOF the objects are captured on-device: census
+"[recharged-grass] ROUND#18 object-occluder captured: 'crate-wood-lod0' r=0.9m" + "'warp-gate-switch-lod0'
+r=1.5m". VISUAL (device eae4df44): p18_btn_near2.png = the warp-gate button (grass-free ring around it) AND
+the three wooden crates, both sitting CLEAN on the grass with no blades poking through; p18_btn_down1.png /
+p18_c2_walk2d.png = the crates clean on grass; p18_ld_spawn.png = the whole Geyser Rock grass field (uniform,
+no bald strips) + warp button + grassed terraces; p18_ld_walk_2.png = the sandy beach with NO grass (strict
+texture filter kept — rock/sand excluded).
+
+HONEST RESIDUAL (exactly what is deferred): the owner also said "ça dépasse toujours des plateformes". The
+render-mesh CANTILEVER overflow (grass-textured render tris that OVERHANG the visible/walkable platform edge)
+is NOT clipped this round — by the owner's own round#18 directive we REVERTED the collision clip (the only
+mechanism that could see the cantilever) and returned to pure grass-textured mesh + the grass-TEXTURE
+boundary. Pure mesh cannot detect where the render mesh overhangs the true edge, so residual overflow on
+genuinely-overhanging tris can remain; it is BOUNDED by the height-taper + horizontal clamp (no full-height
+floating blade; geometry cannot cross the grass-tri edge). This is the owner-accepted tradeoff (the 50cm
+strips were worse than the overflow). A future NON-collision cantilever cure (trim the render grass-tri edge
+back to its shared non-grass boundary) is flagged, not silently dropped.
+
+CAPTURE NOTE (honest): the debug-warp path (level.warp training-start) FREEZES ~3.7 s during the one-time
+grass rebuild at 150% density (846185 instances) and MIUI SIGKILLs the app on the scripted activity
+transition before it presents a gameplay frame (signal 9 = external KILL, NOT a native crash; a normal boot
+and the owner's normal play both survive the hitch, and grass OFF via the SAME warp is stable — confirming
+it is the pre-existing rebuild-freeze, present since round#17's 846k-instance field, not this change). To
+capture a live gameplay frame the density was temporarily lowered to 0.5x (rebuild fast enough to survive);
+the object-clip + edge + texture-filter geometry is density-INDEPENDENT so the frames are valid proof, and
+the shipped DEFAULT density is restored to 150% (device pc-settings restored; the owner's jak-builds install
+ships default 150). App FORCE-STOPPED at the end (device-hygiene rule).
+
+BUILD/DEPLOY: full consistent build — x86 gk compiles (phase lock: x86 must still build), Android libgk
+rebuilt (22 grass strings incl. RIMDIST; the u_occ object-clip is in the embedded GLES shader blob),
+APK assembled + installed, deploy_verify PASS. fps/cost: the object-clip adds a per-frame name-compare per
+merc model + a <=16-element uniform upload + a <=u_occ_count (typically 2) loop per near-blade vertex —
+negligible on the Adreno 618; the 3-tier LOD + density slider keep it playable (unchanged from round#17).
+OFF == byte-identical stock (both the grass gate AND the merc capture are gated by recharged-grass).
+DEFAULT ON (owner override 2026-07-10). Owner play-test on the re-pushed jak1-grass-poc is the final gate.
+
+prior RESULT: RECHARGED GRASS POC — ROUND#17 DONE (the render-mesh CANTILEVER fixed by bounding grass to the
 WALKABLE-FLOOR / COLLISION silhouette — the real root round#16 found by elimination, now PROVEN with device
 instrumentation, not a guess). Owner round#16 verdict: "on a le mesh du sol... utiliser ça" — but the correct
 geometry is the COLLISION floor (where Jak can stand), NOT the visual render mesh which OVERHANGS it.

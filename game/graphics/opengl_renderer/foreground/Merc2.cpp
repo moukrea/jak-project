@@ -84,6 +84,8 @@ static bool gecho_merc_on() {
 
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
+#include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/GrassOccluders.h"
 
 // F1 census: kernel symbol lookup + EE memory base for the (-> *target* control
 // trans) probe below. Mirrors game/graphics/sceGraphicsInterface.cpp's use of
@@ -691,6 +693,30 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     ASSERT(input_data[i] < MAX_SKEL_BONES);
     // get the matrix data
     memcpy(&skel_matrix_buffer[input_data[i]], real_addr, sizeof(MercMat));
+  }
+
+  // OWNER ROUND#18 (Grecharged-grass-poc): capture ground-object world positions for the grass
+  // object-clip. Crates + the warp-gate button are merc actors (not TIE / not in static level data), so
+  // the grass renderer can't see them at level load. Snapshot the first bone's world XYZ (tmat is
+  // column-major: translation = floats 12,13,14). Gated by the grass toggle so OFF is byte-identical
+  // stock (zero extra work). Substring match covers all crate variants ("crate-wood-lod0" etc.) and the
+  // warp-gate switch/arch. radius is the visible ground-contact footprint (kept tight to avoid a halo).
+  if (Gfx::g_global_settings.recharged_grass && i > 0) {
+    float r_m = 0.f;
+    if (std::strstr(name, "crate")) {
+      r_m = 0.9f;
+    } else if (std::strstr(name, "warp")) {
+      r_m = 1.5f;
+    }
+    int root_slot = input_data[0];  // first bone in the slot string = the root/align joint
+    if (r_m > 0.f && root_slot < MAX_SKEL_BONES) {
+      const float* t = reinterpret_cast<const float*>(&skel_matrix_buffer[root_slot]);
+      grass_occ::add(t[12], t[13], t[14], r_m * 4096.f);
+      static std::set<std::string> s_seen_occ;
+      if (s_seen_occ.insert(name).second) {
+        fmt::print("[recharged-grass] ROUND#18 object-occluder captured: '{}' r={}m\n", name, r_m);
+      }
+    }
   }
 
   // === Gd3-jak FIX (always-on, arm64): repair non-finite merc bone matrices =====

@@ -812,3 +812,38 @@ CONTACT footprint (not the buried full mesh). Fix it in THIS round.
 ## DISCIPLINE + CAPTURE (owner furious, 9 rounds — instrument, prove, supervisor eyeballs)
 Prove the 50cm source + the fix with device instrumentation + close-ups: overflow gone, bald strips gone,
 grass on crates/button gone, relief followed. p18_* frames; supervisor eyeballs BEFORE any push.
+
+## OWNER QUESTIONS + DESIGN DECISIONS (2026-07-12, verbatim) — binding for round#18+
+Owner: "L'herbe est finalement bel et bien placée sur les polygones ayant pour texture l'herbe plate avec
+exactitude ? Fini les brins qui dépassent ? Et on a bien pas d'herbe au travers des objets jonchant le sol
+selon l'endroit où ils clip avec le sol herbeux ? Et l'herbe suit bien l'orientation des polygones sur
+lesquels elle est posée précisément ? Et pour les acteurs dynamiques tels que les caisses et le bouton du
+warp gate, ou la source d'eco bleue du niveau... OK c'est plus dur, mais faut quand même le faire, ces
+acteurs ne bougent pas, ça devrait pas être si dur de connaître leur emplacement ni leur mesh pour pas que
+l'herbe passe au travers ! Par contre les coffres/caisses... faut pas que l'herbe passe au travers, mais
+dans l'idée ils devraient écraser l'herbe comme Jak, comme ça quand cassés on a quand même de l'herbe à
+leur emplacement !"
+
+### Supervisor code-verified answers (report MUST confirm each on device):
+1. PLACEMENT EXACT SUR TEXTURE HERBE: OUI dans le code — sélection stricte par nom exact de texture
+   (tra-grass / bch-grassfringe / bch-leafyground-hang-2x1, is_grass_ground L176) + base barycentrique sur
+   le VRAI plan du triangle (py interpolé des hauteurs réelles, L960). À CONFIRMER visuellement au device.
+2. ORIENTATION: la BASE épouse exactement le triangle (position+hauteur), mais l'AXE du brin pousse
+   world-up (yaw aléatoire, pas de normal stockée par brin). C'est le comportement naturel de l'herbe
+   réelle (pousse vers le haut même en pente) — MAIS le report doit le dire explicitement au owner, et si
+   son œil préfère un tilt selon la normale, prévoir un blend léger (ex. 30% normale / 70% up) en option.
+3. BRINS QUI DÉPASSENT: le clip round#16 (rim_dist exact par arête vraie + taper hauteur) est la réponse;
+   PROUVER au device (p18) que ça tient partout — pas de claim sans frame.
+
+### STATIC-POSITION ACTORS (button warp-gate, source d'eco bleue, scarecrows...) — MANDATORY, no deferral
+They are MERC/skeletal process-drawable actors but they DO NOT MOVE. Their spawn position + mesh/bounds
+are knowable (actor spawn table / entity list of the level, or runtime query of process-drawables' trans +
+draw bounds at grass-build/first-frame). Cull grass by their GROUND-CONTACT footprint (contact band, not
+buried mesh). "C'est plus dur" is not a reason to defer — the owner explicitly mandates it.
+
+### CRATES/COFFRES — TRAMPLE, not cull (owner design)
+Crates must NOT have grass through them, BUT they should FLATTEN the grass like Jak's trample does (the
+existing trample mechanism), NOT permanently cull it — so when a crate is BROKEN, the grass at its spot
+remains (and can spring back). Implement: crate footprint feeds the TRAMPLE system (press-down while the
+crate exists); no permanent cull for breakable crates. Static unbreakable actors (button, eco vent) =
+cull; breakable crates = trample.
