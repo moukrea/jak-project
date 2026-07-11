@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+fail(){ echo "[Gpbr FAIL] $*" >&2; exit 1; }
+R=.autoport/reports/Grecharged-pbr-materials/report.txt
+[ -f "$R" ] || fail "no report"
+grep -qiE 'RESULT:.*PBR' "$R" || fail "no RESULT"
+grep -qiE 'per.?material|fallback' "$R" || fail "must implement the per-material fallback"
+grep -qiE 'mood|current-sun|light-group|shadow-direction' "$R" || fail "PBR must be lit by the existing mood/TOD light env"
+grep -qiE 'double.?dose|ignore.*baked|baked.*(ignored|removed|skipped)' "$R" || fail "PBR path must drop baked vertex lighting (no double-dose)"
+grep -qiE 'off.*(stock|identical|byte)|stock.*off' "$R" || fail "OFF must == stock"
+grep -qiE 'albedo|normal|roughness|metal|orm' "$R" || fail "must show the PBR material maps"
+grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "device jak1 evidence"
+git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "gold not pristine"
+echo "[Gpbr PASS]"

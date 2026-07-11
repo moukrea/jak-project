@@ -1324,6 +1324,14 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-pbr-materials
+  name: 'RECHARGED (owner 2026-07-11, backlog, architecture SPIKE): REAL PBR with elegant per-material fallback. Extract game textures -> AI/tooling batch material-gen (de-light albedo + normal/roughness/metal, ORM-packed), per-material opt-in flag. PBR material present+toggle ON -> modern path lit by the EXISTING mood/TOD light env (current-sun / mood-shadow-direction / 9 per-level light-groups), baked vertex lighting IGNORED for that surface (no double-dose). No PBR / OFF -> legacy texture x baked-vertex path UNCHANGED (OFF==stock). Deliverable = arch doc + 1-material device PoC A/B + fallback proof. Staging P0 AO..P4 world. NOT faux-PBR.'
+  prompt: prompts/phase-Grecharged-pbr-materials.md
+  validator: validators/phase-Grecharged-pbr-materials.sh
+  max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
