@@ -78,19 +78,24 @@ constexpr float CHUNK_M = 8.0f;           // instrumentation chunk size (m)
 constexpr float OLD_WINDOW_M = 64.0f;     // the REMOVED camera window (for the fix diagnostic)
 
 // OWNER POLISH#4: hide grass under overlapping non-grass 3D objects (crates/props/models).
-// A coarse world-space XZ occupancy grid: a cell that has grass AND a TIE (instanced model)
-// vertex hovering in [grassY+OCC_LO, grassY+OCC_HI] above it is culled, so grass never pokes
-// through an object sitting on the grass. TIE-only (real placed models) — NOT tfrag terrain,
-// so cliffs/slopes next to grass do not falsely cull it.
-constexpr float OCC_CELL_M = 0.6f;        // occupancy cell size (m)
-constexpr float OCC_LO_M = 0.10f;         // object must be at least this far above the grass to occlude
-constexpr float OCC_HI_M = 8.0f;          // ...and no more than this (ignore far ceilings / high bridges)
-// OWNER POLISH#6 (2026-07-10): "il y a toujours de l'herbe qui passe au travers d'objets posés sur le
-// sol ... des brins sortir d'un gros caillou". The POLISH#4 cull point-sampled TIE vertices into 0.6 m
-// cells: a big rock's large faces have SPARSE vertices, so interior cells above the object had no vertex
-// and kept their grass -> blades still poked out of the MIDDLE of the rock. Fix: after collecting the
-// occluded cells, DILATE them into their 3x3 neighbourhood so the whole footprint (interior included) is
-// culled, and scan EVERY TIE geo (not just geo 0) for occluders.
+// A world-space XZ occupancy grid: a cell that has grass AND an object (TIE/shrub) vertex hovering
+// in [grassY+OCC_LO, grassY+OCC_HI] above it is culled, so grass never pokes through an object
+// sitting on the grass. Static-object geometry only (TIE + shrub placed models) — NOT tfrag
+// terrain, so cliffs/slopes next to grass do not falsely cull it.
+constexpr float OCC_CELL_M = 0.5f;        // occupancy cell size (m) — finer footprint (POLISH#7)
+constexpr float OCC_LO_M = 0.05f;         // object vertex must be at least this far above the grass
+// OWNER POLISH#7 (2026-07-11): clip only to the VISIBLE ABOVE-GROUND FOOTPRINT. The POLISH#6 cull
+// used OCC_HI=8m — the FULL model silhouette (a tall/wide rock's upper body projects to a footprint
+// BIGGER than where it meets the ground) — plus a plain 3x3 DILATION (+1 cell everywhere). Together
+// they culled 397k/864k instances (46%!): an oversized EMPTY HALO ringing every object AND huge
+// coverage gaps on open grass. Owner: "des zones vides autour des éléments plutôt que s'arrêter pile
+// à l'intermédiaire où le rocher fait l'intermédiaire avec le sol ... le modèle 3D est plus gros sous
+// le sol et le clipping prend en compte la partie non visible". FIX: sample only a THIN near-ground
+// CONTACT BAND ([+OCC_LO, +OCC_HI=1.5m]) = the object's cross-section where it meets the ground = the
+// visible footprint (the buried/overhanging volume is excluded), and replace the dilation with a
+// morphological CLOSING (dilate THEN erode) that fills interior pinholes left by sparse object
+// vertices WITHOUT growing the outer boundary -> no halo. Also scan SHRUB models, not just TIE.
+constexpr float OCC_HI_M = 1.5f;          // near-ground contact band top = visible footprint (was 8m)
 
 // Training-level grassy-ground textures. Texture-driven, no hand authoring. Curated
 // exact names PLUS a substring net (grass / leafy / moss) so any grassy-ground texture
@@ -447,10 +452,15 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);          // wider CURVATURE variation
       gi.phase = hash_f(sd + 7u);
       gi.gr = r.gr; gi.gg = r.gg; gi.gb = r.gb;  // POLISH#4 ground colour
-      // POLISH#6: per-instance BAKED-LIGHT multiplier (relative to the level mean). Applied in the
-      // shader so blades over baked-dark ground darken to match it (owner: "l'herbe n'est pas
-      // influencée par l'éclairage ... l'herbe (texture plate) en dessous est plus foncée").
-      gi.gspare = std::min(1.35f, std::max(0.45f, r.raw_baked / baked_ref));
+      // POLISH#7: per-instance ABSOLUTE baked-light multiplier — the EXACT factor the ground texture
+      // is multiplied by. tfrag/tie render the ground as texture*(todLuma/255)*2.0 (neutral at
+      // todLuma=128; verified in tfrag3.frag / background_common). So light = (rawLuma/255)*2.0 makes
+      // the grass track the ground's brightness per-location: a shaded patch (rawLuma 70 -> 0.55x)
+      // darkens, a lit patch (140 -> 1.10x) brightens — matching the ground beneath. POLISH#6 divided
+      // by the grass-ground MEAN (baked_ref ~82) instead, so every lit patch hit the +1.35 ceiling ->
+      // uniform flashy over-bright everywhere with NO variation (owner polish#7 #1 complaint). Clamp
+      // [0.35,1.30] so deep shade isn't black and lit grass isn't flashy.
+      gi.gspare = std::min(1.30f, std::max(0.35f, (r.raw_baked / 255.0f) * 2.0f));
       m_instances.push_back(gi);
     }
   }
@@ -480,38 +490,66 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     }
     std::unordered_set<s64> occluded;
     const float lo = OCC_LO_M * U, hi = OCC_HI_M * U;
+    // POLISH#7: only mark cells where an object vertex is in the near-ground CONTACT BAND
+    // [+lo, +hi=1.5m] -> the visible above-ground footprint, not the full silhouette.
+    auto mark_occluder = [&](float vx, float vy, float vz) {
+      s64 k = cellkey(vx, vz);
+      auto it = cell_ground_y.find(k);
+      if (it == cell_ground_y.end()) return;
+      float dy = vy - it->second;
+      if (dy > lo && dy < hi) {
+        occluded.insert(k);
+      }
+    };
     // POLISH#6: scan EVERY TIE geo (not just geo 0) so a placed object in any LOD bucket occludes.
     for (const auto& geo : lev->tie_trees) {
       for (const auto& tree : geo) {
         for (const auto& v : tree.unpacked.vertices) {
-          s64 k = cellkey(v.x, v.z);
-          auto it = cell_ground_y.find(k);
-          if (it == cell_ground_y.end()) continue;
-          float dy = v.y - it->second;
-          if (dy > lo && dy < hi) {
-            occluded.insert(k);
-          }
+          mark_occluder(v.x, v.y, v.z);
         }
       }
     }
-    // POLISH#6: DILATE the occluded cells into their 3x3 neighbourhood. A big rock's large faces
-    // have SPARSE vertices, so the point-sampled pass left interior cells above the object un-culled
-    // and blades poked out of its MIDDLE. Growing every occluded cell by one cell closes those gaps
-    // so the whole object footprint is covered. (cellkey packs gx in the high 32 bits, gz in the low
-    // 32 as a signed value — unpack the same way to regrow.)
+    // POLISH#7: also scan SHRUB models (static props: bushes, small placed props) so grass hides
+    // under ALL static objects, not only TIE rocks (owner: "d'autres objets aussi" poked through).
+    // ShrubGpuVertex leads with float x,y,z just like PreloadedVertex, so it reads the same way.
+    for (const auto& tree : lev->shrub_trees) {
+      for (const auto& v : tree.unpacked.vertices) {
+        mark_occluder(v.x, v.y, v.z);
+      }
+    }
+    // POLISH#7: morphological CLOSING (dilate THEN erode). The POLISH#6 plain dilation grew a +1-cell
+    // HALO around every object (owner: empty ring). Closing fills interior pinholes left by sparse
+    // object vertices but does NOT grow the outer boundary -> footprint stops at the object edge, no
+    // halo. (cellkey packs gx in the high 32 bits, gz signed in the low 32.)
     if (!occluded.empty()) {
-      std::unordered_set<s64> grown;
-      grown.reserve(occluded.size() * 9);
+      auto packc = [](s64 gx, s64 gz) -> s64 { return (gx << 32) ^ (gz & 0xffffffffLL); };
+      auto ucx = [](s64 k) -> s64 { return k >> 32; };
+      auto ucz = [](s64 k) -> s64 { return (s64)(s32)(k & 0xffffffffLL); };
+      // dilate
+      std::unordered_set<s64> dil;
+      dil.reserve(occluded.size() * 9);
       for (s64 k : occluded) {
-        s64 gx = k >> 32;
-        s64 gz = (s64)(s32)(k & 0xffffffffLL);
+        s64 gx = ucx(k), gz = ucz(k);
         for (s64 dz = -1; dz <= 1; ++dz) {
           for (s64 dx = -1; dx <= 1; ++dx) {
-            grown.insert(((gx + dx) << 32) ^ ((gz + dz) & 0xffffffffLL));
+            dil.insert(packc(gx + dx, gz + dz));
           }
         }
       }
-      occluded.swap(grown);
+      // erode: keep only cells whose full 3x3 neighbourhood is in the dilated set
+      std::unordered_set<s64> closed;
+      closed.reserve(occluded.size() * 2);
+      for (s64 k : dil) {
+        s64 gx = ucx(k), gz = ucz(k);
+        bool all = true;
+        for (s64 dz = -1; dz <= 1 && all; ++dz) {
+          for (s64 dx = -1; dx <= 1 && all; ++dx) {
+            if (!dil.count(packc(gx + dx, gz + dz))) all = false;
+          }
+        }
+        if (all) closed.insert(k);
+      }
+      occluded.swap(closed);
     }
     if (!occluded.empty()) {
       std::vector<GrassInstance> keep;
@@ -572,8 +610,9 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
       "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
       "{} instances in {} chunks (POLISH#5 density {:.0f}% -> budget {}); occlusion culled {} "
-      "under-object instances (POLISH#6 dilated); bakedRef {:.0f} (POLISH#6 light-response). No camera "
-      "window, no move-rebuild -> nothing de-instances while moving.",
+      "under-object instances (POLISH#7 contact-band 1.5m + morphological closing, TIE+shrub -> no "
+      "halo, coverage filled); bakedRef {:.0f} (POLISH#7 ABSOLUTE light (todLuma/255)*2 per-location, "
+      "matches ground). No camera window, no move-rebuild -> nothing de-instances while moving.",
       considered_draws, tie_draws, tris_kept, giant_tris, max_area, total_area_m2, density,
       m_instance_count, (int)m_chunks.size(), Gfx::g_global_settings.recharged_grass_density, budget,
       occ_culled, baked_ref);

@@ -1,30 +1,65 @@
-STATUS: IN-PROGRESS (polish#7 - clip-halo too big, clip all objects, coverage gaps, LIGHTING broken) - prior RESULT: RECHARGED GRASS POC — POLISH#6 DONE. "Ça claque" round on top of POLISH#5/#4/#3 and the
-        culling root-fix. This round: (1) grass CARDS made LESS dense/tufted (reduce card density:
-        fewer sub-blades 5->3, ~30% of cards culled, narrower) so they read lighter than the near
-        grass; (2) card TINT matched to the near blades AND the near->card LOD transition SMOOTHED
-        (a wide crossfade band + unified colour = seamless, no colour jump); (3) grass no longer
-        CLIPS THROUGH ground OBJECTS — the hide-under-objects cull re-done (dilated) and proven; (4)
-        grass now RESPONDS to the scene's BAKED LIGHTING (per-instance baked light sampled from the
-        tfrag/TIE time-of-day palette, so blades darken/brighten to MATCH the ground brightness —
-        the #1 "ça claque" item, grass sits IN the lighting instead of floating above it); (5) a
-        DEDICATED NESTED "GRASS SETTINGS" SUB-SUBMENU under Recharged Settings now holds ALL grass
-        settings on its OWN page (toggle + near-dist + card-dist + density) — the settings finally
-        APPEAR on device, proven by a device screencap of the nested Grass Settings page showing all
-        rows. Fixed a menu-open CRASH introduced by adding the nested-menu progress-screen enum
-        member (*options-remap* was sized to the old enum max and overflowed — see below). 3D grass
-        PoC on the TRAINING level (Geyser Rock), gated in Recharged Settings, DEFAULT ON, OFF ==
-        byte-identical stock. The systemic culling fix (whole-level camera-independent static field,
-        DROPPED=0) is KEPT and re-proven on this build.
+RESULT: RECHARGED GRASS POC — POLISH#7 DONE. Owner round #7 kept the wins (rock/vertical faces CLEAN,
+        the 3D-grass -> card transition much better) and asked to fix 4 things: object-clip HALO too
+        big, clip ALL objects (not just rocks), coverage GAPS on open grass, and BROKEN LIGHTING
+        (uniform flashy over-bright). All 4 addressed renderer-side (GrassRenderer.cpp + grass.vert;
+        engine goal_src UNTOUCHED). The systemic culling fix (whole-level camera-independent static
+        field, DROPPED=0) is KEPT and re-proven (128 moving-frame samples, DROPPED=0 every frame).
+        DEFAULT ON, OFF == byte-identical stock (0 grass log lines OFF; fps 40.3 OFF vs 19.2 ON).
+
+====================================================================================
+OWNER POLISH#7 (2026-07-11) — clip-halo to footprint, clip ALL objects, coverage, LIGHTING re-do
+====================================================================================
+Owner (verbatim, deduped): rock walls now clean + the transition is better (GOOD, kept), but the
+object-clip leaves an oversized empty HALO ("des zones vides autour des éléments"), it only works for
+rocks (the warp-gate button + props still clip "de fou"), there are empty coverage zones on open grass
+with no blocking object, and the LIGHTING is "complètement pété — ultra éclairée partout, exactement
+pareil, aucune variation, bien plus lumineuse que le sol de partout". The 4 fixes:
+
+1. OBJECT-CLIP HALO -> clip to the VISIBLE ABOVE-GROUND FOOTPRINT (the ground intersection), not the
+   buried/overhanging model volume. ROOT CAUSE: the POLISH#6 cull marked cells from object vertices up
+   to 8 m high — the FULL model silhouette (a tall/wide rock's upper body projects to a footprint
+   BIGGER than where it meets the ground) — and then DILATED every occluded cell by a full 3x3 (+1
+   cell everywhere). Together that culled 397251 of 864015 instances (46%): an oversized EMPTY HALO
+   ringing every object. FIX: only sample a THIN near-ground CONTACT BAND [+0.05 m, +1.5 m] = the
+   object's cross-section where it meets the ground = the visible above-ground footprint (the buried /
+   overhanging volume is excluded), and replace the dilation with a morphological CLOSING (dilate THEN
+   erode) that fills the interior pinholes left by sparse object vertices WITHOUT growing the outer
+   boundary — so the footprint stops exactly at the object edge with no empty ring/halo.
+2. CLIP ALL OBJECTS, not just rocks — the occluder scan now covers ALL static object geometry: every
+   TIE geo AND the SHRUB models (bushes / small placed props), not just TIE. Honest scope: the
+   warp-gate BUTTON and the scarecrows are dynamic MERC/skeletal ACTORS (process-drawable), so they
+   have NO static vertex source at level-load and the static-tree scan cannot see them — hiding grass
+   under a moving actor needs a runtime occluder feed, which would require engine-side hooks that this
+   phase's lock forbids (engine goal_src untouched). Static props/rocks are now all covered; the merc
+   actor overlap (warp-gate button) is deferred and called out, not silently claimed fixed.
+3. COVERAGE GAPS FILLED — the empty zones on open grass-textured ground (no blocking object) were the
+   SAME occlusion over-cull: the 46% halo cull punched holes across open grass. The footprint+closing
+   fix drops the cull from 397251 to 288909 (-108342), so 575106 instances are kept vs 466764 before
+   (+23% grass coverage) — the open grass fills in. (maxArea 10 m2, giant 0: big-tri rejection is NOT
+   a cause; budget 960000 > 864015 pool so no mid-list cap starves any region either.)
+4. LIGHTING re-done — grass now SAMPLES the baked light PER-LOCATION and VARIES to MATCH the ground,
+   instead of a uniform flashy over-bright. ROOT CAUSE of the POLISH#6 failure: it stored the baked
+   light RELATIVE to the grass-ground MEAN (baked_ref ~82) and clamped to [0.45,1.35] — so every lit
+   patch (todLuma > ~110) slammed into the +1.35 CEILING => the grass got x1.35 EVERYWHERE with no
+   variation, brighter than the ground. FIX: use the ground's OWN ABSOLUTE factor. tfrag/TIE render
+   the ground as texture*(todLuma/255)*2.0 (neutral at todLuma=128 — verified in tfrag3.frag /
+   background_common). So each instance now stores light=(todLuma/255)*2.0 (clamp [0.35,1.30]); a
+   shaded patch (todLuma 70 -> 0.55x) DARKENS and a lit patch (140 -> 1.10x) brightens — matching the
+   ground beneath at every location and every time of day. The shader also LUMINANCE-MATCHES the grass
+   to the ground albedo (so blades are not brighter than the ground they grow from) then multiplies by
+   that per-location baked light. OBJECTIVE device proof (numpy on the frames): grass ON ground-band
+   lum=93 vs stock OFF ground lum=102 -> grass is 0.91x the ground (was ~1.35x over-bright), and a LIT
+   spot grass lum=92 vs a SHADED spot grass lum=80 -> visibly darker in shade = real per-location
+   variation. Device captures at a LIT spot AND a SHADED spot show the grass brightness matching the
+   ground at each (p7_lighting_grass_vs_ground.png / p7_lighting_lit_vs_shaded.png).
 
 Phase: Grecharged-grass-poc  ("Jak and Daxter: The Recharged Jak-pot")
 Device: Redmi Note 9 Pro, ANDROID_SERIAL=eae4df44, package org.opengoal.gk.jak1 (Adreno 618).
-Build: consistent HEAD + POLISH#6. deploy_verify PASS (libgk build==APK==device, chain
-       d0826958313c7554; the device runs the fresh grass libgk with 14 recharged-grass renderer
-       strings; the installed device-APK libgk contains the grass strings — the renderer PROVABLY
-       runs on the device). 28/28 arm64 CGO/DGO consistent with the fresh build (deploy_verify_assets
-       PASS); the device APK assets carry the fresh ENGINE.CGO/GAME.CGO with the NEW nested Grass
-       Settings sub-submenu.
-mCurrentFocus at every device capture: org.opengoal.gk.jak1/...MainActivity (verified before trusting
+Build: consistent HEAD + POLISH#7 (libgk-only redeploy; CGOs/assets unchanged since the v13 nested
+       Grass Settings bundle). deploy_verify PASS (libgk build==APK==device, chain 62afbf97c2b97644;
+       the device runs the fresh POLISH#7 grass libgk with 14 recharged-grass renderer strings; the
+       installed device-APK libgk contains the grass strings — the renderer PROVABLY runs on device).
+mCurrentFocus at every device capture: org.opengoal.gk.jak1/MainActivity (verified before trusting
        any frame — not the launcher, not the parallel project, not x86).
 
 ====================================================================================
@@ -237,15 +272,20 @@ menu-diag/p6-recharged-submenu-HUD-GRASS-BACK.png — the parent Recharged Setti
                               HUD / GRASS SETTINGS / RETOUR) — the GRASS SETTINGS launcher row
 menu-diag/p6-renderscale-slider-inject-noop-tooling.png — the known-good RENDER SCALE slider unmoved by
                               the headless dpad-inject (characterises the tooling limit, not a defect)
-grass_moving.mp4            — fresh POLISH#6 device MOVING walkthrough (culling proof: no zones
+grass_moving.mp4            — fresh POLISH#7 device MOVING walkthrough (culling proof: no zones
                               disappear/unload; breeze; near 3D blades; mid cards at distance; grass
-                              responding to lighting; objects clean)
-frames/AB_geyser_ON.png     — POLISH#6 grass ON at the Geyser Rock spawn (dense 3D blades, Jak IN the
-                              lawn, grass sitting in the scene lighting)
-frames/AB_geyser_OFF.png    — grass OFF at the SAME spawn (flat stock ground texture) — the A/B partner
-frames/move_t*.png          — stills from the moving walkthrough (near blades / mid cards / lighting)
-chunk_instrumentation.txt   — per-frame chunk in-range-vs-drawn log while moving (DROPPED=0, 126 samples)
-static_place_line.txt       — on-device placement line (466764 instances, 45/m2, occ 397251, bakedRef 82)
+                              responding to lighting; objects clean; rock faces clean)
+frames/AB_geyser_ON.png     — POLISH#7 grass ON at the Geyser Rock spawn (dense 3D blades, Jak IN the
+                              lawn, grass sitting in the scene lighting) — ground-band lum 93
+frames/AB_geyser_OFF.png    — grass OFF at the SAME spawn (flat stock ground texture, lum 102) — A/B partner
+frames/p7_lighting_grass_vs_ground.png — LIGHTING A/B: grass ON (lum 93) vs stock ground (lum 102) ->
+                              grass is 0.91x the ground, no longer over-bright (owner polish#7 #1 fix)
+frames/p7_lighting_lit_vs_shaded.png   — LIGHTING variation: a LIT spot (grass lum 92) vs a SHADED spot
+                              between rocks (grass lum 80) -> darker in shade, matches the ground per-location
+frames/move_t*.png          — stills from the moving walkthrough (near blades / mid cards / lighting / clean rocks)
+chunk_instrumentation.txt   — per-frame chunk in-range-vs-drawn log while moving (DROPPED=0, 128 samples)
+static_place_line.txt       — on-device placement line (575106 instances, 45/m2, occ 288909 (was 397251),
+                              bakedRef 82; POLISH#7 contact-band 1.5m + morphological closing + shrub scan)
 
 VERDICT: POLISH#6 done on top of POLISH#5/#4/#3 and the culling root-fix. This round: (1) grass CARDS
 reduced in density/tuftiness (3 sub-blades, ~30% culled, narrower) so they read lighter than the near
@@ -269,4 +309,34 @@ approximations (not per-pixel); occlusion covers static/TIE overlaps (dynamic me
 the occlusion dilation is intentionally conservative (recedes grass a little around objects rather than
 risk poke-through); the 3 sliders are adjustable in-game with the controller (the headless harness
 drives menu nav/confirm but not slider-step, same as the shipped RENDER SCALE slider). The overall look
-and the rock/object beats are the owner's play-test call. Ready for OWNER PLAY-TEST (jak-builds push).
+and the rock/object beats are the owner's play-test call.
+
+====================================================================================
+VERDICT: POLISH#7 (2026-07-11) — the 4 owner items, keeping the wins
+====================================================================================
+POLISH#7 DONE on top of POLISH#6/#5/#4/#3 and the culling root-fix. Owner kept the wins (rock/vertical
+faces CLEAN, 3D-grass -> card transition much better) — both KEPT, not regressed. The 4 fixes:
+(1) OBJECT-CLIP HALO -> clip to the VISIBLE ABOVE-GROUND FOOTPRINT (near-ground contact band [+0.05 m,
++1.5 m], the ground intersection) instead of the buried/overhanging full-model silhouette (was OCC_HI
+8 m), and morphological CLOSING (dilate then erode) instead of a plain 3x3 dilation, so the interior
+pinholes fill but the outer boundary does NOT grow -> no empty ring/halo around objects.
+(2) CLIP ALL OBJECTS -> the occluder scan now covers every TIE geo AND the SHRUB models (static props),
+not just TIE rocks. Honest scope: the warp-gate BUTTON + scarecrows are dynamic MERC actors with no
+static vertex source at level-load, so the static scan can't see them — a runtime occluder feed would
+need engine hooks the phase lock forbids; deferred and called out, not silently claimed.
+(3) COVERAGE GAPS FILLED -> the same occlusion over-cull (46%, an empty halo) punched holes on open
+grass; the footprint+closing fix drops the cull 397251 -> 288909 and KEEPS 575106 instances vs 466764
+(+23% coverage), so open grass-textured ground fills in.
+(4) LIGHTING re-done -> was normalised to the grass-ground MEAN and clamped high, so every lit patch
+pinned to the +1.35 ceiling = uniform flashy over-bright with no variation. Now each instance uses the
+ground's OWN ABSOLUTE factor light=(todLuma/255)*2.0 (the exact tfrag/TIE ground multiply, neutral at
+128), plus a shader luminance-match to the ground albedo -> blades DARKEN in shade and MATCH the ground
+brightness PER-LOCATION and per time-of-day. OBJECTIVE proof: grass ON lum 93 vs stock ground 102
+(0.91x, not brighter) and lit-spot grass lum 92 vs shaded-spot 80 (darker in shade).
+KEPT: culling DROPPED=0 (128 fresh moving-frame samples), density, sloped per-triangle placement,
+airborne-trample gate, ground-colour match, ledge trample, strict texture-first rock filter, nested
+Grass Settings sub-submenu, 3 adjustable sliders. Fully gated: DEFAULT ON (owner override); toggle OFF
+== byte-identical stock (0 grass log lines OFF). fps ON 19.2 / OFF 40.3 (playable, density slider-tunable
+— more grass kept this round than polish#6 so a touch heavier). Honest caveats: blades flat-color by
+design; ground-colour + baked-light are per-instance approximations (not per-pixel); dynamic merc-actor
+overlap (warp-gate button) deferred. Ready for OWNER PLAY-TEST (jak-builds push).

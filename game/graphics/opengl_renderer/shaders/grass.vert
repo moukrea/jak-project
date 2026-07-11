@@ -249,14 +249,25 @@ void main() {
   col = mix(col, harmon, 0.55);              // shift the green toward the ground's tone
   col = mix(col, gcol, 0.16);                // a touch of the literal ground colour blends in
 
-  // OWNER POLISH#6 (#1 "ça claque"): respond to the scene's BAKED LIGHTING. inst_gcol.w is this
-  // instance's baked light RELATIVE to the level mean (computed at placement from the SAME tfrag/TIE
-  // time-of-day palette the ground itself is lit by). Multiply the grass by it so blades over
-  // baked-dark ground darken to match (owner: the flat-bright grass "dénote" where the ground below
-  // is darker). Blended at 0.85 strength: fully-lit patches (w~1) are untouched, shadows never go
-  // black. This is what makes the grass sit IN the lighting instead of floating above it.
-  col *= mix(1.0, inst_gcol.w, 0.85);
-  col = clamp(col, vec3(0.0), vec3(1.2));
+  // OWNER POLISH#7: match the grass LUMINANCE to the ground albedo so blades are not brighter than
+  // the ground they grow from (owner: grass "bien plus lumineuse que la texture du sol de partout,
+  // même aux endroits les plus éclairés"). Pull the grass brightness toward the ground-texture
+  // brightness while keeping some per-blade variation (hue is preserved — only magnitude is scaled).
+  float glum  = dot(col,  vec3(0.299, 0.587, 0.114));
+  float grlum = dot(gcol, vec3(0.299, 0.587, 0.114));
+  if (glum > 0.001) {
+    float lm = clamp(grlum / glum, 0.45, 1.15);
+    col *= mix(1.0, lm, 0.6);
+  }
+
+  // OWNER POLISH#7 (#1 owner priority): SIT in the scene lighting. inst_gcol.w is the ground's ABSOLUTE
+  // baked-light multiplier = (todLuma/255)*2.0 — the EXACT factor tfrag/TIE multiply the ground texture
+  // by (neutral 1.0 at todLuma 128). Multiply the grass by it directly, so blades darken in shade and
+  // brighten in light PER-LOCATION, matching the ground beneath at every spot and every time of day.
+  // POLISH#6 normalised against the level MEAN and clamped high, so every lit patch pinned to the ceiling
+  // -> "ultra éclairée, partout exactement pareil, aucune variation". This tracks the real baked light.
+  col *= inst_gcol.w;
+  col = clamp(col, vec3(0.0), vec3(1.5));
 
   v_color = col;
   v_alpha = alpha;
