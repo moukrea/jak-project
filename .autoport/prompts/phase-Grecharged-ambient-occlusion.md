@@ -40,6 +40,12 @@ they differ only in the occlusion-estimation shader. Engine goal_src untouched (
 Report device fps for EACH algorithm at EACH quality (SSAO/HBAO/GTAO x Low/Med/High) on the Redmi so the
 owner sees the cost curve; note which combos are Redmi-playable vs strong-device-only.
 
+## PERF PHILOSOPHY (owner 2026-07-11) — Redmi max-settings fps is NOT a gate
+Report the per-combo fps as an INFORMATIONAL cost curve only. Low Redmi fps at High/GTAO is EXPECTED
+and is NOT a failure — the game ships to strong devices (Snapdragon 8 Elite / PC). The only perf
+requirement: a fluid experience is reachable at a LOW setting (Off/SSAO-Low). Do NOT gate on, or spend
+effort optimizing, Redmi max-settings fps. Gate on VISUAL QUALITY + Off==stock + no alpha artifacts.
+
 ## Verify (device eae4df44)
 AO ON shows real contact/crease darkening (screencaps: a corner/contact vs OFF); NO boxy shadows on
 alpha-cut foliage/grass cards (the risk beat); OFF == stock; fps ON/OFF reported; deploy_verify +
