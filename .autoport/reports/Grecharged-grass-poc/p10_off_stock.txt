@@ -1,0 +1,1 @@
+  grass log lines with OFF = 0 (0 == renderer skipped / OFF==stock)

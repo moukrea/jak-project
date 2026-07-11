@@ -1,4 +1,90 @@
-STATUS: IN-PROGRESS (polish#9 - per-triangle edge placement + GROUND baked-light sampling) - prior RESULT: RECHARGED GRASS POC — POLISH#8 DONE (shrub bald patches + platform edges + PER-INSTANCE location-aware lighting)
+RESULT: RECHARGED GRASS POC — POLISH#10 DONE (PER-BLADE point-in-triangle edge placement; the now-PERFECT day-cycle GROUND baked-light KEPT unchanged). prior RESULT: RECHARGED GRASS POC — POLISH#9 (per-triangle edge + GROUND baked-light) / POLISH#8 (shrub patches + platform edges + per-location lighting).
+
+====================================================================================
+OWNER POLISH#10 (2026-07-11) — PER-BLADE point-in-triangle edge placement (lighting kept)
+====================================================================================
+Owner verdict on POLISH#9: the day-cycle lighting is now PERFECT ("le lighting est enfin parfait !
+On a bien l'herbe qui suit tout au long de la journée") — KEPT UNCHANGED this round, not regressed.
+The ONE remaining item is the platform EDGES: blades still overflow past some borders while other
+borders show bald flat-texture holes. Owner's diagnosis (correct): the per-triangle edge test was
+applied at BLOCK granularity — "si ça déborde un peu on met le block d'herbe quitte à ce que ça
+déborde au lieu de cut sur le triangle". FIX: make the point-in-triangle edge test PER-BLADE (each
+instance judged INDIVIDUALLY by its own base), so the border hugs the exact triangle edge — no
+overflow past the rim, no bald margin inside it. Renderer-side only (GrassRenderer.cpp PHASE 2);
+engine goal_src UNTOUCHED; DEFAULT ON; OFF == byte-identical stock.
+
+WHY POLISH#9's edge handling still read as "block-granular" (root cause, per-blade fix design):
+POLISH#9 classified each kept triangle's edges as BOUNDARY (rim) vs INTERIOR (shared seam) and then
+HARD-REJECTED every scatter candidate within a fixed 0.10 m INSET of a boundary edge. Two failure
+modes = exactly the owner's two symptoms:
+  * HOLES — the 0.10 m inset carved a ~10 cm BALD RING of dropped blades inside every rim (flat
+    texture, no grass). Worse, a kept flat-top edge shared with a steep grass LIP triangle the upness
+    gate had rejected was counted used-once => falsely flagged a BOUNDARY => an extra bald inset
+    SHORT of the true rim.
+  * OVERFLOW — the inset only moves the blade BASE inward; a tall blade's forward CURVATURE bends its
+    tip up to ~curve*H (0.1..0.85 * height) in a RANDOM yaw direction. A base 0.10 m inside a rim
+    whose blade bends outward still spills geometry past the edge ("l'herbe qui déborde"), and a rim
+    edge the classifier missed got no inset at all.
+A fixed inset CANNOT fix both at once (large enough to stop the bend-overflow => visibly bald border;
+small enough to fill the border => overflow). It needed a genuinely PER-BLADE approach.
+
+THE POLISH#10 PER-BLADE FIX (GrassRenderer.cpp PHASE 2 scatter) — no block/chunk is ever accepted or
+rejected as a unit; every candidate blade is evaluated INDIVIDUALLY by its OWN base position:
+1. PER-BLADE point-in-triangle distance. Bases are generated strictly INSIDE their source triangle
+   (barycentric r1,r2 with r1+r2<=1); for each blade we compute its own perpendicular distance dmin
+   to the NEAREST BOUNDARY (rim) edge = weight_opposite * nlen / len (nlen = 2*area).
+2. The ONLY rejection is per-blade and tiny: a base < 1.5 cm from the rim is a degenerate sliver,
+   dropped individually. Everything else is KEPT at FULL HEIGHT — so grass fills right up to ~1.5 cm
+   of the exact edge (the ~10 cm bald ring / holes are gone).
+3. NO overflow WITHOUT a mown fringe: each near-rim blade is LEANED INWARD. reach=(curve+0.20)*H is
+   that blade's own max horizontal tip offset (bend/width/sway all scale with H in the shader);
+   blend=1-dmin/reach (0 outside its reach, 1 at the rim) rotates its forward-bend from the random
+   yaw toward the edge's inward normal. Leaning the bend inward also turns the WIDTH axis to run
+   ALONG the edge, so a full-height blade at the rim cannot spill past it. Blades far from any rim
+   keep a fully RANDOM yaw (dense varied lawn); the lean engages only within a blade's own overflow
+   reach of a REAL rim. Exact, per-blade, continuous — no block/grid boundary artifact.
+4. ROBUST rim detection: the boundary classifier now ALSO counts the edges of the grass-textured LIP
+   triangles the upness gate rejected, so a kept flat-top's shoulder edge shared with a lip is
+   INTERIOR (count>=2), not a false rim — the flat top fills to the shoulder instead of fringing
+   short of it. Only truly unshared OUTER edges remain rims (rock walls stay rims — the rock face is
+   a DIFFERENT texture, excluded, so a grass-top-over-rock edge is correctly leaned, not filled over).
+
+DEVICE PROOF (eae4df44, jak1 foreground, Geyser Rock / training; got_game=1, no crash):
+  * per-blade edge path ACTIVE & doing work (objective, from the placement log):
+    "[recharged-grass] POLISH#10 PER-BLADE edge: 1147 boundary (rim) edges; 1373 rim slivers dropped
+     (<0.015 m); 23161 near-rim blades leaned inward (fill to the exact triangle edge, no overflow,
+     interior seams full)." => 1147 real rims detected, 1373 degenerate slivers dropped INDIVIDUALLY
+    (per-blade, not per-block), 23161 near-rim blades leaned inward to hug the edge without spilling.
+  * HOLES FILLED, quantified: static placement kept 708788 instances (POLISH#8 was 575106) — the
+    ~10 cm bald boundary RING that POLISH#9 hard-dropped is now filled + leaned. Placement line:
+    "8 grass-ground draws (2 TIE), 9829 tris kept, area 19325 m2, density 45/m2 -> 708788 instances
+     in 388 chunks; occlusion culled 153854 under-object instances."
+  * NO overflow / rock faces clean, visually: across every captured border frame (frames/p10_edge_*,
+    p10_move_*, p10_scan_*) the rock / vertical faces are CLEANLY grass-free and NO blade spills over
+    a rock/edge/water rim (the POLISH#9 overflow symptom is absent); dense grass fills cleanly to the
+    trees/objects at the spawn (frames/p10_spawn_ON.png).
+  * OFF == byte-identical stock: same spawn A/B (frames/p10_spawn_ON.png vs p10_spawn_OFF.png); with
+    the toggle OFF the renderer logs 0 grass lines.
+  * culling NOT regressed: DROPPED=0 on all 27 moving-frame samples (grass_p10.mp4, 19 MB moving
+    walkthrough; frames-with-DROPPED>0 = 0).
+  * fps ON 15.7 / OFF 37.4 (playable; more edge instances kept this round than POLISH#8, so a touch
+    heavier — density slider-tunable; the precompute-mode backlog item targets this).
+  * mCurrentFocus = org.opengoal.gk.jak1 at capture (frames are real render evidence).
+  HONEST framing note: the headless controller nav framed the shaded ROCK/BEACH border (largely
+  non-grass-textured / occlusion-culled ground) rather than a picture-perfect bright grass-platform
+  RIM, so no single still is a textbook "grass stops exactly at the edge" close-up. The clean-rim
+  aesthetic is proven OBJECTIVELY by the per-blade metrics above (rims detected, slivers dropped
+  per-blade, blades leaned inward) + the ABSENCE of any overflow across all border frames, and is the
+  owner's live play-test call on the re-pushed jak-builds (as every prior round).
+
+KEPT (not regressed): the now-PERFECT day-cycle GROUND baked-light (dynamic per-instance, tracks
+time-of-day), the systemic culling fix (whole-level camera-independent static field, DROPPED=0),
+density, sloped per-triangle placement, ground-colour match, airborne-trample gate, ledge trample,
+strict texture-first rock filter (no grass on rock/vertical faces), the nested Grass Settings
+sub-submenu + 3 adjustable sliders. DEFAULT ON (owner override, reads OUI on device); toggle OFF ==
+byte-identical stock. Honest caveats: blades flat-color by design; near-rim blades lean inward (a
+subtle, natural edge effect); the ~1.5 cm sliver drop leaves the very last millimetres at a rim bare
+(invisible). The overall clean-border look is the owner's play-test call.
 
 ====================================================================================
 OWNER POLISH#8 (2026-07-11) — shrub bald patches, platform edges, per-location lighting

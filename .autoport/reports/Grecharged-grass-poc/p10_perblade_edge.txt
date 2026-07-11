@@ -1,0 +1,2 @@
+07-11 11:04:08.609 23164 23239 I opengoal-gk: [recharged-grass] POLISH#10 PER-BLADE edge: 1147 boundary (rim) edges; 1373 rim slivers dropped (<0.01 m); 23161 near-rim blades leaned inward (fill to the exact triangle edge, no overflow, interior seams full).
+07-11 11:04:08.609 23164 23239 I opengoal-gk: [recharged-grass] POLISH#8 EDGE upness 0.35: grass-tex tris dropped by upness 1283 (794 m2), of which 600 moderate-slope (0.20..0.35, edge lips); minKeptUpness 0.35.
