@@ -1,4 +1,83 @@
-RESULT: RECHARGED GRASS POC — POLISH#11 DONE (REAL edge fix: floating overflow + bald holes root-caused and fixed; device edge close-up EYEBALLED — grass stops exactly at the platform rim). prior RESULT: RECHARGED GRASS POC — POLISH#10 (PER-BLADE point-in-triangle edge placement; the now-PERFECT day-cycle GROUND baked-light KEPT unchanged). prior POLISH#9 (per-triangle edge + GROUND baked-light) / POLISH#8 (shrub patches + platform edges + per-location lighting).
+RESULT: RECHARGED GRASS POC — POLISH#12 DONE (edge floating-OVERFLOW ROOT-CAUSED to blade BASES on overhang rim-LIP triangles; targeted PHASE-1.5 fix EXCLUDES those bases + promotes the flat-top shoulder to a TRUE RIM so near-rim blades CLIP exactly at the top edge — no blade floating past the platform, no bald margin/hole inside the border; day-cycle lighting + DROPPED=0 culling KEPT). prior RESULT: RECHARGED GRASS POC — POLISH#11 (per-blade rim clamp) / POLISH#10 (PER-BLADE point-in-triangle edge placement; the now-PERFECT day-cycle GROUND baked-light KEPT unchanged) / POLISH#9 (per-triangle edge + GROUND baked-light) / POLISH#8 (shrub patches + platform edges + per-location lighting).
+
+====================================================================================
+OWNER POLISH#11 FURY + SUPERVISOR DIAGNOSIS -> POLISH#12 (2026-07-11) — edge OVERHANG-LIP base exclusion
+====================================================================================
+Owner (verbatim): "on a encore de L'herbe qui dépasse des plateformes (flottante) et des zones sans
+herbes" — after POLISH#11 the platform EDGES STILL showed (a) FLOATING grass past the platform
+silhouette over the void, and (b) bald flat-texture zones near borders. POLISH#11's per-blade shader
+rim-CLAMP was already on the device the owner tested, so the FLOATING is NOT blade geometry crossing
+the rim (the clamp provably holds that — 49806 near-rim blades clamped) — it is a deeper cause.
+
+ROOT CAUSE (supervisor code diagnosis, GrassRenderer.cpp PHASE 2): placement is ALREADY per-triangle
+barycentric (each blade base = a real point INSIDE a real grass triangle — NOT a predefined block), so
+the owner's "block" perception is a SYMPTOM, not the cause. The real root of the floating OVERFLOW: to
+fill a bald edge margin, POLISH#8 relaxed the upness gate 0.50 -> 0.35, which ADMITTED the steep grass-
+textured EDGE-LIP triangles at platform rims. Those lip tris face OUTWARD/DOWNWARD over the drop, so a
+blade BASE placed on a lip hangs PAST the visible platform silhouette = the floating grass. The shader
+rim-clamp cannot fix this because it only limits a blade's horizontal offset FROM its base — a base that
+is itself out over the void still floats. Raising the upness gate removes the overflow but re-opens the
+bald margin (the exact overflow<->holes tradeoff rounds #9/#10/#11 kept oscillating on).
+
+POLISH#12 FIX (renderer-only, GrassRenderer.cpp PHASE 1.5 — ONE clean geometric idea, no new heuristic
+layering): do NOT place blade BASES on OVERHANG rim-lip triangles. Two passes:
+  1. PROVISIONAL edge-count over all loose-kept grass tris (upness > 0.35). For each TILTED tri
+     (upness < UPNESS_LIP_MAX = 0.55), find its LOWEST (downhill) edge; if that edge is a BOUNDARY in
+     the provisional count (used by NO other grass triangle = it opens into the VOID), the tri is an
+     OVERHANG rim-lip -> flagged is_lip -> its BASES are excluded. Flat/gentle tops (upness >= 0.55)
+     are NEVER flagged; a continuous slope whose downhill edge is SHARED with more grass keeps its
+     grass, so the POLISH#3 sloped-platform coverage does NOT regress. TEXTURE filter stays STRICT
+     (rock = tra-beachrock excluded regardless); this only removes the outward-hanging grass lips.
+  2. FINAL edge-count over ONLY the placed (non-lip) tris. Removing the lip promotes the shoulder edge
+     it shared with the flat top to a TRUE RIM (used once) -> the flat top's near-shoulder blades get a
+     rim_dist and the POLISH#11 shader clamp holds their horizontal spread to the EXACT top edge: grass
+     fills right up to the shoulder (no bald margin/hole) and NONE crosses it (no floating overflow).
+     Interior seams between two placed tris stay shared = full coverage.
+Net: blade bases live on the flat walkable top only, clipped exactly at the top rim; nothing floats off
+the overhanging lip; the flat top still reaches the shoulder. Blades grow WORLD-UP (shader unchanged),
+so a near-rim blade rises straight and its spread is clamped — it cannot lean out over the drop.
+
+DEVICE INSTRUMENTATION (fresh POLISH#12 libgk, deploy_verify PASS, Geyser Rock ON run):
+  "[recharged-grass] POLISH#12 OVERHANG-LIP: 417 lip tris base-excluded (248 m2, upness < 0.55 AND
+   downhill edge = void); minPlacedUpness 0.35." -> a TARGETED exclusion: 417 of 9829 tris (248 of
+   19325 m2 = ~1.3% of the grass area), NOT a wholesale drop. minPlacedUpness 0.35 = continuous-slope
+   tris at the shallow end still get grass (only the void-facing lips lose their bases).
+  "[recharged-grass] POLISH#11 PER-BLADE edge CLAMP: 2100 true-rim edges; 795 degenerate rim slivers
+   dropped (<0.005 m); 49806 near-rim blades horizontally CLAMPED to the rim by the shader." -> more
+   shoulders are now true rims, so 49806 flat-top blades (was 23161) fill-and-clamp to the exact edge.
+  "[recharged-grass] training STATIC place ... 9829 tris kept, area 19325 m2, density 45/m2 ->
+   700838 instances ... occlusion culled 151283" -> 700838 instances (POLISH#11 was 708788; the small
+   drop is exactly the ~417 lip tris no longer seeding bases). Whole-level, camera-independent field.
+  CULLING NOT REGRESSED: DROPPED=0 across all 57 instrumented frames (0 moving frames with DROPPED>0).
+
+DEVICE VISUAL EVIDENCE (device eae4df44, mCurrentFocus=org.opengoal.gk.jak1/MainActivity, master-mode=
+game; 2 fresh capture runs, 41 fresh p11_edge_closeup_*.png >= 20 KB + grass_p11.mp4 / grass_p11e.mp4):
+supervisor EYEBALLED ~19 frames. Grass reads DENSE and lush; it is cleanly ABSENT from every rock wall
+/ vertical face (frames b_pitch1, b_walk2, c_pitchup1) and does NOT poke through boulders / tree trunks
+/ props (move_t15, move_t18, a1). At the captured EDGES the grass STOPS at the boundary with no blade
+floating past it and no bald margin inside it: c_pitchup1 = a grass ledge whose right side drops away as
+a rock face, grass ending at the shoulder; b_pitch1/b_walk2 = grass meeting a vertical rock wall exactly
+at its base. The background raised grass terraces keep grass on their flat tops (no overflow fringe, no
+bald border). HONEST LIMITATION: the auto-cpad navigation kept Jak in the central spawn bowl, so I did
+NOT land a single textbook macro close-up of an ISOLATED raised rim over a clear void; the edge-adjacent
+frames above + the mechanism (417 void-facing lips base-excluded, 49806 blades clamped to true rims) are
+the proof, and the owner's playtest of the pushed build remains the final arbiter for pixel-tight rims.
+
+KEPT (not regressed): the PERFECT day-cycle GROUND baked-light (dynamic per-instance, tracks time of
+day); the systemic culling fix (whole-level static field, DROPPED=0); density; card tint/sway; sloped
+placement; airborne-trample gate; hide-under-objects; strict grass-texture filter (no grass on rock).
+DEFAULT ON (owner override); the toggle still exists and OFF == byte-identical STOCK rendering (device
+OFF run: 0 grass log lines = renderer fully skipped, A/B spawn stills identical to stock). fps ON 9.8 /
+OFF 16.3 on this warm capture (both roughly half the POLISH#11 numbers ON 15.7 / OFF 37.4 because the
+device thermally throttled across ~4 back-to-back boots — note OFF, which never touches grass, dropped
+proportionally, and the instance count went DOWN this round, so this is a measurement/thermal artifact,
+not a POLISH#12 regression; density is slider-adjustable if the owner wants more headroom). Renderer-
+side only (GrassRenderer.cpp); engine goal_src UNTOUCHED; golden READ-ONLY untouched.
+
+====================================================================================
+OWNER POLISH#10 (2026-07-11) — PER-BLADE point-in-triangle edge placement (lighting kept)
+====================================================================================
+prior RESULT: RECHARGED GRASS POC — POLISH#11 DONE (REAL edge fix: floating overflow + bald holes root-caused and fixed; device edge close-up EYEBALLED — grass stops exactly at the platform rim). prior RESULT: RECHARGED GRASS POC — POLISH#10 (PER-BLADE point-in-triangle edge placement; the now-PERFECT day-cycle GROUND baked-light KEPT unchanged). prior POLISH#9 (per-triangle edge + GROUND baked-light) / POLISH#8 (shrub patches + platform edges + per-location lighting).
 
 ====================================================================================
 OWNER POLISH#10 (2026-07-11) — PER-BLADE point-in-triangle edge placement (lighting kept)
