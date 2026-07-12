@@ -1113,3 +1113,14 @@ button/vent statics, edges, jump-ease, R21f literal-macro pattern. Proof: break 
 grass springs back <1 s AND no moving bald circle while collecting the drops (frame seq + the position-
 delta detector log clean); crates A/B unchanged. Supervisor eyeballs; push jak-builds on PASS (standing
 owner order); owner = final gate on HONOR.
+
+## OWNER CORRECTION on ROUND#24 item 1 (2026-07-12, verbatim): "C'est pas le pick-up, c'est pas l'Eco
+## verte, c'est sûr à 100%"
+=> The pickup/green-eco hypothesis is FALSIFIED. Do NOT fix around it. The POSITION-DELTA DETECTOR is
+now the mandatory first step: log the tname + coords of ANY kind-0 entry whose position moves > 0.2 m
+between publishes, reproduce (break a dummy, walk around), and let the LOG name the offender. Remaining
+suspects to keep in mind (do not assume): the sidekick (Daxter), the target/eichar process itself
+slipping into the scan (a bald circle "autour de moi" reads literally as centered on the player), a
+dummy-respawn manager process. The STRICT-ALLOWLIST design fix stays mandatory regardless (it kills the
+whole class no matter which mover it is) — but the census must still IDENTIFY the mover to prove the
+allowlist actually excludes it.
