@@ -1356,6 +1356,14 @@ phases:
   max_retries: 4
   device: false
   owner_verify: true
+- id: Gjak1-shadow-cast
+  name: 'PORT PARITY (owner 2026-07-12, right after the grass backlog items): Jak casts NO shadow on Android while the original PC build does — longstanding unnoticed bug. jak1 HAS the shadow system (engine/gfx/shadow/shadow-cpu.gc + shadow-vu1.gc, set up from bones.gc). Suspects in order: (1) shadow renderer missing from the Android curated subset (Gwater 3-part pattern: mips2c kSet + CMakeLists TU + bucket/GLES registration); (2) arm64 mips2c shadow-cpu noop (jak2 had exactly this); (3) x86-first oracle to prove translation-layer-only. No toggle — stock behavior restoration. Proof: device frames standing+jumping w/ visible shadow, x86 A/B, fps before/after.'
+  prompt: prompts/phase-Gjak1-shadow-cast.md
+  validator: validators/phase-Gjak1-shadow-cast.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
