@@ -1348,6 +1348,14 @@ phases:
   max_retries: 5
   device: true
   owner_verify: true
+- id: Grecharged-grass-wear
+  name: 'RECHARGED (owner 2026-07-12, backlog, AFTER grass-poc/overhang/object-clip): Procedural Grass Wear and Height Distribution — DESIGN SPIKE ONLY (no implementation). Replace uniform blade height with a continuous player-traffic likelihood field built from level data (collectibles/orbs/crates/eco, inferred organic paths between collectible chains, platform approach/jump/landing spots, navigability, walls WITHOUT gameplay = NO short grass) -> shorter grass where players go, longer in unvisited zones, deterministic coherent variation, artist-quality result, code-tunable parameters (NOT Recharged Settings), debug heatmaps. Deliverable: analysis of current systems + available level data, architecture (Android-compatible, no per-blade runtime pathfinding), MVP + ordered sub-task backlog, risks, 14 owner acceptance criteria.'
+  prompt: prompts/phase-Grecharged-grass-wear.md
+  validator: validators/phase-Grecharged-grass-wear.sh
+  max_turns: 2000
+  max_retries: 4
+  device: false
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
