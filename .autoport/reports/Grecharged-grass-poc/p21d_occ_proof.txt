@@ -1,0 +1,65 @@
+07-12 12:49:08.469 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='ndi-lod0' at (9.8 0.0 -4.5)m cal=0 handled=none
+07-12 12:49:08.469 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='ndi-cam-lod0' at (-0.0 101.3 -4.5)m cal=0 handled=none
+07-12 12:49:08.470 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='sidekick-lod0' at (-0.3 1.3 -4.5)m cal=0 handled=none
+07-12 12:49:08.471 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='ndi-volumes-lod0' at (9.8 0.0 -4.5)m cal=0 handled=none
+07-12 12:49:08.569 21434 21514 I opengoal-gk: [recharged-grass] R21OCC goal-publish #1 ncull=0 ntr=0
+07-12 12:49:09.069 21434 21514 I opengoal-gk: [recharged-grass] R21OCC goal-publish #2 ncull=0 ntr=0
+07-12 12:49:09.569 21434 21514 I opengoal-gk: [recharged-grass] R21OCC goal-publish #3 ncull=0 ntr=0
+07-12 12:49:10.069 21434 21514 I opengoal-gk: [recharged-grass] R21OCC goal-publish #4 ncull=0 ntr=0
+07-12 12:49:10.569 21434 21514 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 12:49:15.300 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='eichar-lod0' at (-155.2 54.3 173.5)m cal=1 handled=none
+07-12 12:49:18.727 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='medres-village11-lod0' at (-160.5 52.2 182.9)m cal=0 handled=none
+07-12 12:49:18.727 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='medres-village12-lod0' at (-159.6 53.0 183.2)m cal=0 handled=none
+07-12 12:49:18.727 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='medres-village13-lod0' at (-159.6 53.0 183.2)m cal=0 handled=none
+07-12 12:49:18.742 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='medres-jungle-lod0' at (-3170.1 75.5 2569.9)m cal=0 handled=none
+07-12 12:49:18.742 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='medres-beach-lod0' at (-2809.1 75.5 2308.3)m cal=0 handled=none
+07-12 12:49:18.742 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='medres-beach1-lod0' at (-2809.1 75.5 2308.3)m cal=0 handled=none
+07-12 12:49:18.742 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='medres-beach2-lod0' at (-2809.1 75.5 2308.3)m cal=0 handled=none
+07-12 12:49:18.742 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='medres-jungle1-lod0' at (-3170.1 75.5 2569.9)m cal=0 handled=none
+07-12 12:49:18.742 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='medres-jungle2-lod0' at (-3170.1 75.5 2569.9)m cal=0 handled=none
+07-12 12:49:18.743 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='medres-beach3-lod0' at (-2809.1 75.5 2308.3)m cal=0 handled=none
+07-12 12:49:18.828 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='money-lod0' at (-1525.9 65.4 1301.5)m cal=0 handled=none
+07-12 12:49:18.828 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='crate-wood-lod0' at (-1523.7 68.4 1278.0)m cal=0 handled=TRAMPLE
+07-12 12:49:18.828 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='fuel-cell-lod0' at (-1601.3 57.8 1315.3)m cal=0 handled=none
+07-12 12:49:18.828 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='warp-gate-switch-lod0' at (-1497.0 68.8 1244.4)m cal=0 handled=CULL
+07-12 12:49:23.170 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='scarecrow-a-lod0' at (-1389.3 -1.2 1118.6)m cal=0 handled=TRAMPLE
+07-12 12:49:23.171 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='scarecrow-b-lod0' at (-1419.7 -3.3 1113.9)m cal=0 handled=TRAMPLE
+07-12 12:49:45.667 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='speaker-lod0' at (-1315.1 5.2 1053.4)m cal=1 handled=CULL
+07-12 12:49:47.396 21434 21485 I GK_STDOUT: [recharged-grass] R21CENSUS model='crate-iron-lod0' at (-1435.4 -0.2 1093.3)m cal=1 handled=TRAMPLE
+07-12 12:49:22.998 21434 21497 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=0 ntr=0 jak=(-1316.8,6.9,1057.7)
+07-12 12:49:45.882 21434 21497 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=2 ntr=16 jak=(-1314.4,7.0,1052.2) occ[0]=(-1312.0,6.7,1063.8 r1.50) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1146.8,15.0,977.3 r0.70) tr[1]=(-1213.7,17.0,1001.7 r0.70) tr[2]=(-1164.3,15.0,973.4 r0.70) tr[3]=(-1196.0,19.0,984.0 r0.70)
+07-12 12:50:08.212 21434 21497 I opengoal-gk: [recharged-grass] R19OCC frame=300 nocc=2 ntr=23 jak=(-1290.5,7.8,996.8) occ[0]=(-1312.0,6.7,1063.8 r1.50) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1146.8,15.0,977.3 r0.70) tr[1]=(-1213.7,17.0,1001.7 r0.70) tr[2]=(-1164.3,15.0,973.4 r0.70) tr[3]=(-1196.0,19.0,984.0 r0.70)
+07-12 12:50:18.057 21714 21790 I opengoal-gk: [recharged-grass] R21OCC goal-publish #1 ncull=0 ntr=0
+07-12 12:50:18.557 21714 21790 I opengoal-gk: [recharged-grass] R21OCC goal-publish #2 ncull=0 ntr=0
+07-12 12:50:19.058 21714 21790 I opengoal-gk: [recharged-grass] R21OCC goal-publish #3 ncull=0 ntr=0
+07-12 12:50:19.557 21714 21790 I opengoal-gk: [recharged-grass] R21OCC goal-publish #4 ncull=0 ntr=0
+07-12 12:50:20.057 21714 21790 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 12:50:33.663 21714 21775 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=0 ntr=0 jak=(-1362.5,16.2,1094.2)
+07-12 12:50:49.232 21714 21775 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=0 ntr=0 jak=(-1362.5,16.2,1094.2)
+07-12 12:51:04.855 21714 21775 I opengoal-gk: [recharged-grass] R19OCC frame=300 nocc=0 ntr=0 jak=(-1362.5,16.2,1094.2)
+07-12 12:51:20.124 22007 22082 I opengoal-gk: [recharged-grass] R21OCC goal-publish #1 ncull=0 ntr=0
+07-12 12:51:20.624 22007 22082 I opengoal-gk: [recharged-grass] R21OCC goal-publish #2 ncull=0 ntr=0
+07-12 12:51:21.125 22007 22082 I opengoal-gk: [recharged-grass] R21OCC goal-publish #3 ncull=0 ntr=0
+07-12 12:51:21.624 22007 22082 I opengoal-gk: [recharged-grass] R21OCC goal-publish #4 ncull=0 ntr=0
+07-12 12:51:22.125 22007 22082 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 13:01:37.096 25543 25627 I opengoal-gk: [recharged-grass] R21OCC goal-publish #1 ncull=0 ntr=0
+07-12 13:01:37.596 25543 25627 I opengoal-gk: [recharged-grass] R21OCC goal-publish #2 ncull=0 ntr=0
+07-12 13:01:38.097 25543 25627 I opengoal-gk: [recharged-grass] R21OCC goal-publish #3 ncull=0 ntr=0
+07-12 13:01:38.596 25543 25627 I opengoal-gk: [recharged-grass] R21OCC goal-publish #4 ncull=0 ntr=0
+07-12 13:01:39.096 25543 25627 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 13:01:51.509 25543 25614 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=0 ntr=0 jak=(-1309.0,7.0,1060.5)
+07-12 13:02:13.102 25543 25614 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=2 ntr=11 jak=(-1309.0,6.8,1060.5) occ[0]=(-1312.0,6.7,1063.8 r1.50) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1213.7,17.0,1001.7 r0.70) tr[1]=(-1164.3,15.0,973.4 r0.70) tr[2]=(-1196.0,19.0,984.0 r0.70) tr[3]=(-1216.9,17.0,980.9 r0.70)
+07-12 13:05:33.009 26189 26271 I opengoal-gk: [recharged-grass] R21OCC goal-publish #1 ncull=0 ntr=0
+07-12 13:05:33.509 26189 26271 I opengoal-gk: [recharged-grass] R21OCC goal-publish #2 ncull=0 ntr=0
+07-12 13:05:34.016 26189 26271 I opengoal-gk: [recharged-grass] R21OCC goal-publish #3 ncull=0 ntr=0
+07-12 13:05:34.510 26189 26271 I opengoal-gk: [recharged-grass] R21OCC goal-publish #4 ncull=0 ntr=0
+07-12 13:05:35.009 26189 26271 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 13:05:43.254 26189 26246 I GK_STDOUT: [recharged-grass] R21CENSUS model='crate-wood-lod0' at (-1485.1 70.3 1232.5)m cal=0 handled=TRAMPLE
+07-12 13:05:43.255 26189 26246 I GK_STDOUT: [recharged-grass] R21CENSUS model='crate-iron-lod0' at (-1582.5 62.4 1263.8)m cal=0 handled=TRAMPLE
+07-12 13:05:47.397 26189 26258 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=0 ntr=0 jak=(-1297.5,7.6,1035.0)
+07-12 13:06:10.398 26189 26258 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=2 ntr=16 jak=(-1297.5,7.3,1035.0) occ[0]=(-1312.0,6.7,1063.8 r1.50) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1146.8,15.0,977.3 r0.70) tr[1]=(-1213.7,17.0,1001.7 r0.70) tr[2]=(-1164.3,15.0,973.4 r0.70) tr[3]=(-1196.0,19.0,984.0 r0.70)
+07-12 13:06:31.006 26189 26258 I opengoal-gk: [recharged-grass] R19OCC frame=300 nocc=2 ntr=23 jak=(-1303.5,7.1,1035.6) occ[0]=(-1312.0,6.7,1063.8 r1.50) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1146.8,15.0,977.3 r0.70) tr[1]=(-1213.7,17.0,1001.7 r0.70) tr[2]=(-1164.3,15.0,973.4 r0.70) tr[3]=(-1196.0,19.0,984.0 r0.70)
+07-12 13:06:52.370 26189 26258 I opengoal-gk: [recharged-grass] R19OCC frame=450 nocc=2 ntr=23 jak=(-1305.7,7.1,1035.9) occ[0]=(-1312.0,6.7,1063.8 r1.50) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1146.8,15.0,977.3 r0.70) tr[1]=(-1213.7,17.0,1001.7 r0.70) tr[2]=(-1164.3,15.0,973.4 r0.70) tr[3]=(-1196.0,19.0,984.0 r0.70)
+07-12 13:10:20.243 26627 26703 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=0 ntr=0 jak=(-1308.5,52.6,1000.1)
+07-12 13:10:36.422 26627 26703 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=0 ntr=0 jak=(-1308.5,52.6,1000.1)
+07-12 13:10:55.783 26627 26703 I opengoal-gk: [recharged-grass] R19OCC frame=300 nocc=2 ntr=27 jak=(-1308.7,52.5,1000.2) occ[0]=(-1312.0,6.7,1063.8 r1.50) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1146.8,15.0,977.3 r0.70) tr[1]=(-1213.7,17.0,1001.7 r0.70) tr[2]=(-1196.0,19.0,984.0 r0.70) tr[3]=(-1216.9,17.0,980.9 r0.70)

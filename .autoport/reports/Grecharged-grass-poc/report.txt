@@ -1,3 +1,56 @@
+RESULT: RECHARGED GRASS POC — ROUND#21d (2026-07-12, attempt 11) DONE: object positions now come from the
+GAME side over the jak-pos-pattern GOAL->C++ channel, the full consistent build REACHED the device
+(deploy_verify + deploy_verify_assets PASS), and every validator device beat was RECAPTURED honestly
+(mCurrentFocus=org.opengoal.gk.jak1 verified at every capture; all frames luminance-checked non-black).
+
+ATTEMPT-10 ROOT CAUSE (the validator FAIL this attempt fixes): attempt 10 made its final round#21d edits
+(GrassRenderer.cpp, GrassOccluders.h, kmachine.cpp receivers + GOAL pc glue) at 12:09-12:11 AFTER the last
+libgk build (11:51) and APK install (11:55), rebuilt only x86 gk + x86 CGOs (12:12-12:14), reconfigured
+build-arm64 and died before building the arm64 goalc — so the arm64 CGO set (02:24), the Android libgk,
+the APK and the device install all predated the final source. FIX: built build-arm64/goalc, ran the full
+consistent pipeline (28/28 arm64 CGO/DGO from HEAD + fresh libgk + APK assemble + install -r + CGO push):
+deploy_verify PASS (chain build==APK==device) + deploy_verify_assets PASS; boots to live render.
+
+R21d OCC CHANNEL PROOF (exact world coords, same space as jak=): the GOAL glue (hud-classes-pc.gc:1692,
+gated by the recharged-grass toggle) iterates the active pool every 30 frames and publishes ground actors
+via pc-grass-occ-clear!/add!/publish! (kmachine.cpp receivers -> grass_occ). Device R19OCC uniform dumps:
+frame=150 nocc=2 ntr=16 -> frame=300 ntr=23, jak=(-1290.5,7.8,996.8), occ[0]=(-1312.0,6.7,1063.8 r1.50),
+occ[1]=(-1298.9,52.3,1009.0 r1.20), tr[0..3]=scarecrows r0.70. CROSS-CHECK vs the level's authoritative
+actor table (decompiler_out/jak1/entities/training-actors.json): warp-gate-switch-8 trans=(-1312.0,6.7,
+1063.8) == occ[0] EXACT, plat-eco-62 (-1298.9,52.3,1009.0) == occ[1] EXACT, scarecrow-b-2 (-1213.7,17.0,
+1001.7) == tr[1] EXACT, scarecrow-a-6 (-1196.0,19.0,984.0) == tr[3] EXACT — the channel carries exact
+world positions (0.1m match), unlike the DEAD merc camera-space recovery (disabled, kept off). Kinds:
+crate r0.9 TRAMPLE, scarecrow r0.7 TRAMPLE, basebutton r1.5 CULL, plat-eco r1.2 CULL, voicebox r0.6 CULL.
+
+ATTEMPT-10 CAPTURE BUG (why crate/button/relief frames were black): grass_r21d_capture.sh's warp targets
+were derived from the JUNK merc-census coords (cal=0/1 camera-space garbage, e.g. crate warp -1362.5 16.2
+1094.2 = off-level) -> Jak warped into the void -> black screens + frozen jak + ntr=0. FIX: corrected all
+warp targets from training-actors.json ground-truth coords; every beat re-run and eyeballed.
+
+DEVICE PROOFS (frames/, all today, jak1 foreground, luminance-verified):
+- BUTTON CULL: p19_btn_closeup_16/24.png — Jak 4m from warp-gate-switch-8 (R19OCC jak=(-1309.0,6.8,1060.5)
+  vs occ[0]=(-1312.0,6.7,1063.8)); the button's blue disc sits CLEAN in dense grass, zero blades through
+  its footprint, warp gate behind.
+- CRATE TRAMPLE (not cull): p19_crate_flat_08.png — Jak amid the crate-2950/51/52 chest cluster, chests
+  pressed into the grass, no blades through them; p19_crate_broken_24.png — after spin-kick, one chest
+  DESTROYED and upright grass stands at its former spot = spring-back, no permanent bald hole (owner
+  design: breakables trample, never permanently cull).
+- EDGE/RIM over void: p19_edge_rim10_14.png + p11_edge_closeup_r21e_rim10_*.png (RIMCAND10, -1324.5 52.2
+  973.9) — raised grass-topped platform over the OCEAN, grass fills the top and STOPS at the rim, no
+  floating blade, rock walls clean, plat-eco vent visible on the neighbor platform. p14_rim_closeup_r21d_a
+  /p15_edge_r21d_on_a (RIMCAND3): grass band ends cleanly between bare rock faces.
+- RELIEF: p19_relief_04..20.png (scarecrow-field slope, -1247 15.6 999) — grass conforms to the sloped,
+  bumpy field; p19_relief_tiltB.png = normal-tilt 0.30 A/B partner (A/B for the owner to pick).
+- WIDE + MOVING: p13_wide_on_a/b.png (spawn, 4.5MB) + mv_r21d_walk.mp4 (14s walk, 16.7MB, mv_r21d_05/10
+  stills) — culling stable while moving, no disappearing zones (DROPPED=0 machinery untouched).
+HONEST RESIDUALS: (a) the SPEAKER (voicebox r0.6) never appeared in ncull (nocc stayed 2: button+plat-eco)
+although the census names speaker-lod0 — the spawn-area speaker's process type likely isn't `voicebox` or
+its root is not trans-valid at scan time; needs a type-name check in a follow-up (its merc mesh is tiny and
+sits on a stone disc, so no visible clip today). (b) R21OCC goal-publish log lines only cover the first 5
+publishes (pre-actor-spawn, ncull=0) — the working evidence is the R19OCC uniform dumps (post-spawn) +
+the exact entity-table match above. (c) the ~1-in-6 link-time boot-flake hit 1 of 7 capture boots (MIUI
+launcher foreground); the beat was re-run with boot-retries — flake unrelated to grass (known residual).
+Everything else (edges LOCKED, day-cycle lighting, density/sliders, OFF==stock, DEFAULT ON) unchanged.
 RESULT: RECHARGED GRASS POC — ROUND#20 (SUPERVISOR DIRECT FIX, owner mandate 'T'as Fable, figure it out') DONE: the residual edge overflow had TWO stacked mechanisms, both now fixed and instrumented on device (deploy_verify PASS chain, HEAD 20cadf454): (1) GLOBAL-RIM — rim_dist was own-triangle-only, so a full-height blade on the interior tri right behind a NARROW rim tri never tapered and leaned its tip past the edge; now a segment hash of all 1989 true-rim edges gives every blade the distance to the NEAREST rim of the whole patch (Y-windowed 1.5m so terrace storeys don't cross-talk): rim_global_hits=80587 blades that own-tri-only NEVER tapered are now clamped — the exact scale of the owner's 'ça dépasse à plein d'endroits'. (2) FLOORGAP (recovered from the killed attempt-9 worker, integrated) — stacked-terrace hole in FLOORBELOW: a blade cantilevered past an UPPER edge kept 'floor below' via the LOWER terrace; now the base must sit within 50cm of ITS OWN floor: gap_culled=7422 terrace cantilevers + void_culled=15886 over-void, with interior-gap p50=0/p90=1cm/p99=1cm/max=20cm << 50cm = ZERO false culls proven. Adreno kgsl deadlock (attempts 7-9) GONE (no kgsl errors; the worker's grass.vert no-early-exit fix). Device frames: p20_rim_1_on_a shows stepped terraces with clean tops/rock walls; p20_rim_0_on_c clean ledge over void. HONEST RESIDUALS: (a) Redmi boot roulette — 1-2 ANR crash-restarts during load (kernel dispatch stalls 1-4.2s: first-draw 40MB VBO upload + shader compile + place cost on the dispatch thread), 3rd instance stable+foreground through the whole harvest; likely invisible on the owner's Snapdragon 8 Elite, needs an async-place/warm-compile perf pass on Redmi; (b) some capture frames polluted by the roulette (launcher/black frames discarded by supervisor eyeball); (c) crate-TRAMPLE/button-cull uniforms bound with real coords (ntr=19) but the decisive visual close-up proof remains for the owner's playtest. prior RESULT: RECHARGED GRASS POC — ROUND#18 + OWNER Q&A (2026-07-12) DONE. The owner's binding Q&A refined the
 object handling into TWO categories and asked three questions; each is answered + proven on device
 (eae4df44, mCurrentFocus=org.opengoal.gk.jak1, deploy_verify PASS chain c9ab618dbfb8b5f9).
