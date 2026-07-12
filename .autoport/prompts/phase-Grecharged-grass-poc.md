@@ -890,3 +890,18 @@ implement the normal-tilt blend (~30% face-normal / 70% world-up) so sloped gras
 Keep: 50cm-strip fix (no 2D silhouette clip), pure texture-mesh placement, day-cycle light, DROPPED=0,
 sliders, trample system. DEFAULT ON, OFF==stock. deploy_verify + close-up frames MANDATORY; the
 supervisor eyeballs the three close-up sets (edge, button, crate) BEFORE any push.
+
+## SUPERVISOR HINT (2026-07-12, after attempts 7+8 died on the SAME Adreno deadlock fingerprint)
+Both attempts: `Adreno-GSL IOCTL_KGSL_DEVICE_WAITTIMESTAMP/GPU_COMMAND errno 35 Resource deadlock` +
+kernel-dispatch spikes (1.1s/3.7s) seconds after LEVEL-WARP-SPAWN, grass ON only -> ANR SIGKILL. Do NOT
+iterate blindly a 3rd time on the same fingerprint. PRIME SUSPECTS (project history, F1a bug class =
+"Adreno BO map-sync": mapping/re-uploading a buffer object the GPU is still using deadlocks the 618):
+1. LATE ACTOR CAPTURE -> FULL RE-SCATTER/RE-UPLOAD: the census shows actors captured seconds APART
+   (crate/button at spawn, scarecrows +4s). If each capture triggers a re-place()/glBufferData of the
+   ~831k-instance buffer (~40MB) while the GPU still consumes it -> exactly this deadlock + the kernel
+   thread stall. FIX: capture actors ONLY into the u_occ/u_trample UNIFORM arrays (no rebuild — that was
+   the design), or if a rebuild is truly needed, do it ONCE after a settle delay with buffer ORPHANING
+   (glBufferData(..., NULL) then fill) or a double-buffered VBO — never touch an in-flight BO.
+2. The per-frame uniform dump/logging (R19OCC periodic) on the render thread stalling submission.
+Verify by timeline: correlate the deadlock timestamp with the LAST 'captured' log line / any re-scatter
+log. Fix the confirmed one. The FLOORBELOW load-time pass (once, at place) is NOT the suspect.
