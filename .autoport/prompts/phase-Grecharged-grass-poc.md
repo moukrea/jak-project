@@ -923,3 +923,37 @@ false culls (render-vs-collision Y offsets on bumpy ground: instrument the distr
 gaps for clearly-INTERIOR blades first, pick the gap threshold above its p99, then apply). Verify at the
 terraced platforms the owner walks to from spawn — close-up captures, upper edge clean AND lower terrace
 still fully grassed (no bald ring on the lower level near the wall).
+
+## OWNER VERDICT ROUND#20 (2026-07-12, verbatim) — EDGES SOLVED. BREAKTHROUGH.
+"Enfin l'herbe dépasse plus des plateformes !!! Bien joué, bon maintenant faut que tu t'assures que
+l'herbe passe pas au travers des objets posés sur le sol qu'elle recouvre (le bouton de la warp gate,
+quelques cailloux bien que j'ai l'impression que c'est déjà bien géré, les sources d'Eco, les planches,
+éléments des décors, les shrubs originaux, les coffres et caisses, etc.) pour les coffres et caisses,
+l'herbe doit être écrasée comme aux pieds de Jak, comme ça quand on casse ladite caisse/coffre, l'herbe
+se redresse naturellement au lieu de laisser un trou sans herbe. D'ailleurs j'ai remarqué un truc, quand
+Jak saute, au lieu que l'herbe en dessous se redresse naturellement, elle est instantanément droite, ça
+fait bizarre surtout que c'est pas le cas quand on marche ! Corrige tout ça avant le prochain élément du
+backlog car ça fait partie de l'item courant... Mais enfin un breakthrough !"
+
+## LOCKED — do NOT touch the edge machinery
+The ROUND#20 stack (GLOBAL-RIM segment hash + FLOORGAP 0.5m terrace cull + FLOORBELOW void cull + shader
+height-taper/clamp + the grass.vert no-early-exit deadlock fix) is OWNER-VALIDATED. It is LOCKED: no
+changes except pure perf optimizations that provably keep identical visual output (A/B counts identical).
+
+## ROUND#21 — three remaining items of THIS phase (owner order, before any next backlog item)
+1. OBJECT-CLIP COMPLETENESS: grass must not pierce ANY ground-resting object it covers — warp-gate
+   button, Eco sources/vents, planks, decor elements, ORIGINAL SHRUBS, rocks (owner: mostly fine
+   already), chests and crates, etc. Build a device CENSUS of every object overlapping grass at training
+   (name + pos + covered-by-grass yes/no + handled-by u_occ/u_trample/none), fix the unhandled ones
+   (ground-contact footprint cull for static/unbreakable; see #2 for breakables). PROOF = per-object
+   close-up frames, not log claims.
+2. CRATES/CHESTS = TRAMPLE (owner design): flattened like at Jak's feet while the crate exists; when
+   broken, the grass SPRINGS BACK naturally — no permanent bald hole. Close-up proof: crate present
+   (grass pressed flat), crate broken (grass visibly recovering/upright at the same spot).
+3. JUMP SPRING-BACK EASING (owner NEW bug): when Jak JUMPS, the grass under him snaps upright
+   INSTANTLY — jarring, unlike walking. Fix: the trample RELEASE must recover gradually (eased
+   spring-back over a natural duration, matching the walking feel; e.g. the trample factor decays over
+   ~0.4-0.8s instead of dropping to 0 the frame the foot leaves). Proof: short screenrecord jump-in-grass
+   before/after, or frame sequence showing gradual recovery.
+Keep: edges LOCKED, day-cycle light, density/sliders, DROPPED=0, OFF==stock. deploy_verify + supervisor
+eyeballs the close-ups BEFORE any push; owner playtest = final gate.
