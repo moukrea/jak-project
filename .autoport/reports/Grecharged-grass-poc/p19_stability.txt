@@ -1,20 +1,19 @@
-=== ROUND#19 STABILITY RUN (2026-07-12 03:02:46) — grass ON, 90s hold past LEVEL-WARP-SPAWN ===
-app_pid=15852 dead=1 focus=  mCurrentFocus=Window{1d127ac u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+=== ROUND#19 STABILITY RUN (2026-07-12 07:45:53) — grass ON, 90s hold past LEVEL-WARP-SPAWN ===
+app_pid=17829 dead=1 focus=  mCurrentFocus=Window{e506414 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
 --- FLOORBELOW (this device run) ---
-07-12 03:02:40.795 15852 15939 I opengoal-gk: [recharged-grass] ROUND#19 FLOORBELOW cantilever-cull: floor_tris=19614 tested=846971 culled=15886 kept=831085
+07-12 07:45:48.136 18115 18177 I opengoal-gk: [recharged-grass] ROUND#19 FLOORBELOW cantilever-cull: floor_tris=19614 tested=846971 culled=23308 kept=823663
 --- object CULL/TRAMPLE census (world coords) ---
-07-12 03:02:40.321 15852 15926 I GK_STDOUT: [recharged-grass] ROUND#18 object-TRAMPLE captured: 'crate-wood-lod0' r=0.9m at (-1364.1 15.4 1095.8)m
-07-12 03:02:40.322 15852 15926 I GK_STDOUT: [recharged-grass] ROUND#18 object-CULL captured: 'warp-gate-switch-lod0' r=1.5m at (-1337.4 15.8 1062.2)m
-07-12 03:02:44.264 15852 15926 I GK_STDOUT: [recharged-grass] ROUND#18 object-TRAMPLE captured: 'scarecrow-a-lod0' r=0.7m at (-1405.3 7.6 1129.0)m
-07-12 03:02:44.264 15852 15926 I GK_STDOUT: [recharged-grass] ROUND#18 object-TRAMPLE captured: 'scarecrow-b-lod0' r=0.7m at (-1435.7 5.5 1124.3)m
+07-12 07:45:47.372 18115 18165 I GK_STDOUT: [recharged-grass] ROUND#18 object-TRAMPLE captured: 'crate-iron-lod0' r=0.9m at (-1476.5 98.2 959.2)m
+07-12 07:45:47.372 18115 18165 I GK_STDOUT: [recharged-grass] ROUND#18 object-TRAMPLE captured: 'crate-wood-lod0' r=0.9m at (-1433.9 98.2 965.2)m
+07-12 07:45:51.723 18115 18165 I GK_STDOUT: [recharged-grass] ROUND#18 object-TRAMPLE captured: 'scarecrow-a-lod0' r=0.7m at (-1420.3 98.3 961.2)m
+07-12 07:45:51.724 18115 18165 I GK_STDOUT: [recharged-grass] ROUND#18 object-TRAMPLE captured: 'scarecrow-b-lod0' r=0.7m at (-1450.7 96.2 956.4)m
 --- R19OCC ---
-07-12 03:02:44.263 15852 15939 I opengoal-gk: [recharged-grass] R19OCC uniform-locations: u_occ=12 u_occ_count=28 u_trample=29 u_trample_count=45 u_jak_pos=5 u_tilt=11
-07-12 03:02:44.263 15852 15939 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=1 ntr=9 jak=(-1316.8,6.9,1057.7) occ[0]=(-1337.4,15.8,1062.2 r1.50) tr[0]=(-1364.1,15.4,1095.8 r0.90) tr[1]=(-1354.1,15.2,1093.6 r0.90) tr[2]=(-1354.5,15.2,1102.0 r0.90) tr[3]=(-1418.9,7.5,1133.1 r0.90)
+07-12 07:45:51.554 18115 18177 I opengoal-gk: [recharged-grass] R19OCC uniform-locations: u_occ=12 u_occ_count=28 u_trample=29 u_trample_count=45 u_jak_pos=5 u_tilt=11
+07-12 07:45:51.554 18115 18177 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=0 ntr=19 jak=(-1324.3,52.2,973.8) tr[0]=(-1433.9,98.2,965.2 r0.90) tr[1]=(-1433.9,98.2,963.1 r0.90) tr[2]=(-1476.5,98.2,959.2 r0.90) tr[3]=(-1496.6,94.7,947.6 r0.90)
 --- Adreno/kgsl errors (must be EMPTY) ---
-07-12 03:02:46.286 15852 15939 W Adreno-GSL: <gsl_ldd_control:553>: ioctl fd 96 code 0x400c0907 (IOCTL_KGSL_DEVICE_WAITTIMESTAMP_CTXTID) failed: errno 35 Resource deadlock would occur
-07-12 03:02:46.294 15852 15939 W Adreno-GSL: <gsl_ldd_control:553>: ioctl fd 96 code 0xc040094a (IOCTL_KGSL_GPU_COMMAND) failed: errno 35 Resource deadlock would occur
-07-12 03:02:46.294 15852 15939 W Adreno-GSL: <gsl_ldd_control:553>: ioctl fd 96 code 0xc040094a (IOCTL_KGSL_GPU_COMMAND) failed: errno 35 Resource deadlock would occur
---- fatal signals on pid 15852 (must be EMPTY) ---
+--- fatal signals on pid 17829 (must be EMPTY) ---
 --- kernel dispatch spikes >500ms (old killer showed 1033/3769ms) ---
-07-12 03:02:29.501 15852 15995 I opengoal-gk: Kernel dispatch time: 1803.982 ms
-07-12 03:02:44.269 15852 15995 I opengoal-gk: Kernel dispatch time: 3820.822 ms
+07-12 07:45:08.808 17829 17913 I opengoal-gk: Kernel dispatch time: 1705.550 ms
+07-12 07:45:23.344 17969 18053 I opengoal-gk: Kernel dispatch time: 1051.921 ms
+07-12 07:45:36.595 18115 18191 I opengoal-gk: Kernel dispatch time: 1034.853 ms
+07-12 07:45:51.734 18115 18191 I opengoal-gk: Kernel dispatch time: 4201.859 ms

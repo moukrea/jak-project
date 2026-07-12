@@ -59,6 +59,28 @@ static bool f1_census_on() {
   return s_f1_census;
 }
 
+// OWNER ROUND#21 (Grecharged-grass-poc): object-clip completeness CENSUS — property-armed
+// (env OG_GRASS_CENSUS / prop debug.opengoal.grass.census, OFF by default). When armed, EVERY
+// merc model drawn logs one R21CENSUS line with its recovered WORLD position and whether the
+// grass object-clip handles it (TRAMPLE / CULL / none), so the training-level ground objects
+// (button, eco vents, planks, decor, crates...) can be audited against the grass coverage
+// instead of guessing which names the allowlist misses. Diagnostic only; no behavior change.
+static bool grass_census_on() {
+  static const bool s_grass_census = [] {
+    if (std::getenv("OG_GRASS_CENSUS")) {
+      return true;
+    }
+#ifdef __ANDROID__
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.grass.census", buf) > 0 && buf[0] == '1') {
+      return true;
+    }
+#endif
+    return false;
+  }();
+  return s_grass_census;
+}
+
 // Gecho-pool: Merc2 model-name census (env OG_GECHO_MERC / prop debug.opengoal.gecho.merc,
 // OFF by default). Logs which merc models render through Merc2 each frame, to locate where the
 // dark-eco-pool (model "water-anim-misty") goes on arm64. Diagnostic only; no behavior change.
@@ -719,7 +741,9 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
       r_m = 1.0f;
     }
     int root_slot = input_data[0];  // first bone in the slot string = the root/align joint
-    if (r_m > 0.f && root_slot < MAX_SKEL_BONES) {
+    // ROUND#21 census: run the world-recovery for EVERY drawn model when armed, so unhandled
+    // ground objects (planks, decor, vents...) show up with usable world coords.
+    if ((r_m > 0.f || grass_census_on()) && root_slot < MAX_SKEL_BONES) {
       const float* t = reinterpret_cast<const float*>(&skel_matrix_buffer[root_slot]);
       // ROUND#19: the merc bone translation is in the game's merc CAMERA space (m_low_memory.perspective
       // maps it to clip), NOT world — device forensics showed the round#18 captures landing ~1300m from
@@ -746,15 +770,26 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
                     A02 * (A10 * b2 - b1 * A20)) * inv;
         float wz = (A00 * (A11 * b2 - b1 * A21) - A01 * (A10 * b2 - b1 * A20) +
                     b0 * (A10 * A21 - A11 * A20)) * inv;
-        if (trample) {
-          grass_occ::add_trample(wx, wy, wz, r_m * 4096.f);
-        } else {
-          grass_occ::add(wx, wy, wz, r_m * 4096.f);
+        if (r_m > 0.f) {
+          if (trample) {
+            grass_occ::add_trample(wx, wy, wz, r_m * 4096.f);
+          } else {
+            grass_occ::add(wx, wy, wz, r_m * 4096.f);
+          }
+          static std::set<std::string> s_seen_occ;
+          if (s_seen_occ.insert(name).second) {
+            fmt::print("[recharged-grass] ROUND#18 object-{} captured: '{}' r={}m at ({:.1f} {:.1f} {:.1f})m\n",
+                       trample ? "TRAMPLE" : "CULL", name, r_m, wx / 4096.f, wy / 4096.f, wz / 4096.f);
+          }
         }
-        static std::set<std::string> s_seen_occ;
-        if (s_seen_occ.insert(name).second) {
-          fmt::print("[recharged-grass] ROUND#18 object-{} captured: '{}' r={}m at ({:.1f} {:.1f} {:.1f})m\n",
-                     trample ? "TRAMPLE" : "CULL", name, r_m, wx / 4096.f, wy / 4096.f, wz / 4096.f);
+        // ROUND#21 object-clip completeness census (one line per unique model when armed).
+        if (grass_census_on()) {
+          static std::set<std::string> s_census_seen;
+          if (s_census_seen.insert(name).second) {
+            fmt::print("[recharged-grass] R21CENSUS model='{}' at ({:.1f} {:.1f} {:.1f})m handled={}\n",
+                       name, wx / 4096.f, wy / 4096.f, wz / 4096.f,
+                       r_m > 0.f ? (trample ? "TRAMPLE" : "CULL") : "none");
+          }
         }
       }
     }

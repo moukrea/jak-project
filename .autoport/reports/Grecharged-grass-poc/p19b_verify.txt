@@ -1,0 +1,4 @@
+=== ROUND#19b VERIFY (2026-07-12 07:43:45) gap-fix build ===
+spawn=1 dead=1 errno35=0
+07-12 07:43:05.699 15562 15628 I opengoal-gk: [recharged-grass] ROUND#19 FLOORBELOW cantilever-cull: floor_tris=19614 tested=846971 culled=23308 kept=823663
+07-12 07:43:05.729 15562 15628 I opengoal-gk: [recharged-grass] ROUND#19b FLOORGAP stacked-terrace cull: gap_thresh=50cm interior gap p50=0cm p90=1cm p99=1cm max=20cm (n=200000) | void_culled=15886 gap_culled=7422 — p99 below the threshold = no false culls on bumpy interior ground; gap_culled = blades that hung past an upper edge over a LOWER terrace
