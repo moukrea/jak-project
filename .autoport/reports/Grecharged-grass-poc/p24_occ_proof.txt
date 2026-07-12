@@ -1,0 +1,34 @@
+=== A DUMMY (idle 0-6s, kicks 6-14s, spring-back 14-22s, WALK 22-45s) ===
+--- R24MOVE (moving kind-0 detector; MUST be empty):
+0
+--- R24CENSUS (what the old catch-all would have published):
+07-12 21:01:10.788 12723 12798 I opengoal-gk: [R24CENSUS] excl logo (-132.6594 46.1975 213.4677)
+07-12 21:01:10.788 12723 12798 I opengoal-gk: [R24CENSUS] excl logo-slave (-132.6594 46.1975 213.4677)
+07-12 21:02:57.963 12723 12798 I opengoal-gk: [R24CENSUS] excl sharkey (-1193.5590 -12.5000 1202.6949)
+07-12 21:02:57.964 12723 12798 I opengoal-gk: [R24CENSUS] excl med-res-level (0.0000 0.0000 0.0000)
+07-12 21:02:57.964 12723 12798 I opengoal-gk: [R24CENSUS] excl med-res-level (-158.6250 0.0000 -52.5159)
+07-12 21:02:57.964 12723 12798 I opengoal-gk: [R24CENSUS] excl med-res-level (361.0020 0.0000 -261.6180)
+--- R24DUMMY (broken-state flag census):
+07-12 21:02:57.963 12723 12798 I opengoal-gk: [R24DUMMY] scarecrow-b hid=#f cw-live=#t st=idle
+07-12 21:02:57.963 12723 12798 I opengoal-gk: [R24DUMMY] scarecrow-b hid=#f cw-live=#t st=idle
+07-12 21:02:57.963 12723 12798 I opengoal-gk: [R24DUMMY] scarecrow-a hid=#f cw-live=#t st=idle
+07-12 21:02:57.963 12723 12798 I opengoal-gk: [R24DUMMY] scarecrow-a hid=#f cw-live=#t st=idle
+07-12 21:02:57.964 12723 12798 I opengoal-gk: [R24DUMMY] scarecrow-a hid=#f cw-live=#t st=idle
+07-12 21:02:57.964 12723 12798 I opengoal-gk: [R24DUMMY] scarecrow-a hid=#f cw-live=#t st=idle
+--- R21OCC last publishes:
+07-12 21:01:01.755 12723 12798 I opengoal-gk: [recharged-grass] R21OCC goal-publish #4 ncull=0 ntr=0
+07-12 21:01:02.006 12723 12798 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 21:01:05.780 12723 12798 I opengoal-gk: [recharged-grass] R21OCC goal-publish #20 ncull=0 ntr=0
+07-12 21:01:10.789 12723 12798 I opengoal-gk: [recharged-grass] R21OCC goal-publish #40 ncull=0 ntr=0
+07-12 21:02:07.043 12723 12798 I opengoal-gk: [recharged-grass] R21OCC goal-publish #60 ncull=2 ntr=22 cull[0]=(-1312.0,6.7,1063.8 r1.80) cull[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1146.8,15.0,977.3 r1.20) tr[1]=(-1213.7,17.0,1001.7 r1.20) tr[2]=(-1164.3,15.0,973.4 r1.20)
+07-12 21:02:57.964 12723 12798 I opengoal-gk: [recharged-grass] R21OCC goal-publish #80 ncull=2 ntr=22 cull[0]=(-1312.0,6.7,1063.8 r1.80) cull[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1146.8,15.0,977.3 r1.20) tr[1]=(-1213.7,17.0,1001.7 r1.20) tr[2]=(-1164.3,15.0,973.4 r1.20)
+=== B CRATES (A/B vs p23_crate_flat / p22_crate_flat — look must be identical) ===
+07-12 21:03:14.106 13078 13243 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 21:03:17.854 13078 13243 I opengoal-gk: [recharged-grass] R21OCC goal-publish #20 ncull=0 ntr=0
+07-12 21:03:22.871 13078 13243 I opengoal-gk: [recharged-grass] R21OCC goal-publish #40 ncull=0 ntr=0
+0
+=== C BUTTON (base must stay clean — warp-gate-switch is allowlisted) ===
+07-12 21:04:12.302 13363 13446 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 21:04:16.051 13363 13446 I opengoal-gk: [recharged-grass] R21OCC goal-publish #20 ncull=0 ntr=0
+07-12 21:04:21.065 13363 13446 I opengoal-gk: [recharged-grass] R21OCC goal-publish #40 ncull=0 ntr=0
+0
