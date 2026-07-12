@@ -193,6 +193,13 @@ constexpr float OCC_RADIUS_M = 0.45f;     // ROUND#13: per-instance hide radius 
 // return: the only culled blades are those with genuinely nothing under them.
 static constexpr float FLOOR_DEPTH_M = 2.5f;   // floor may be up to this far BELOW the blade base
 static constexpr float FLOOR_EPS_UP_M = 0.75f; // ... or this far ABOVE it (render/collision mismatch)
+// ROUND#19b (owner LIVE obs 2026-07-12): FLOORBELOW's 2.5m window has a STACKED-TERRACES hole — a blade
+// cantilevered past an UPPER platform edge still has the LOWER terrace 1-2m beneath it, so "some floor
+// within 2.5m" keeps it and it visually overflows the upper edge. A blade must stand essentially ON ITS
+// OWN floor: nearest walkable floor below the base must be within this small gap, else the base hangs
+// over a DIFFERENT (lower) surface -> cull. Tuned against false culls via the interior-blade gap p99
+// (ROUND#19b FLOORGAP log); device-tunable without rebuild via debug.opengoal.grass_floorgap (metres).
+static constexpr float FLOOR_GAP_M = 0.5f;
 static constexpr float FLOOR_BUCKET_M = 1.0f;  // fine XZ lookup bucket so per-base candidate lists stay
                                                // small (ROUND#19 perf: 4m buckets ANR-stalled rebuild)
 static constexpr float FLOOR_MAX_TRI_M = 40.0f;// drop degenerate level-spanning collision tris
@@ -904,6 +911,72 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     }
   }
 
+  // ---- ROUND#20 (supervisor direct fix): GLOBAL rim distance — segment hash of ALL true-rim edges. ----
+  // The own-tri rim_dist (below) only sees a rim edge belonging to the blade's OWN triangle. A full-
+  // height blade on the INTERIOR triangle right behind a NARROW rim triangle has rim_dist=NO_RIM and
+  // leans its tip past the platform edge — the residual "ça dépasse" no own-tri taper can ever see.
+  // Fix: hash every true-rim edge SEGMENT (world space); each blade takes the min of its own-tri exact
+  // distance and the distance to the nearest rim segment within RIM_QUERY (XZ metric, Y-windowed so a
+  // rim of another storey — terrace above/below — never tapers this one). ~2k segments, O(1) per blade.
+  struct RimSeg {
+    float ax, ay, az, bx, by, bz;
+  };
+  std::vector<RimSeg> rim_segs;
+  std::unordered_map<s64, std::vector<int>> rim_grid;
+  const float RIM_QUERY = 1.2f * U;   // blades further than this from every rim stay full height
+  const float RIM_BUCKET = 1.5f * U;  // bucket >= query so a 3x3 lookup suffices
+  const float RIM_YWIN = 1.5f * U;    // ignore rim edges of a different storey
+  const float rim_inv = 1.0f / RIM_BUCKET;
+  {
+    auto add_seg = [&](float ax, float ay, float az, float bx2, float by2, float bz2) {
+      int si = (int)rim_segs.size();
+      rim_segs.push_back({ax, ay, az, bx2, by2, bz2});
+      s64 gx0 = (s64)std::floor(std::min(ax, bx2) * rim_inv);
+      s64 gx1 = (s64)std::floor(std::max(ax, bx2) * rim_inv);
+      s64 gz0 = (s64)std::floor(std::min(az, bz2) * rim_inv);
+      s64 gz1 = (s64)std::floor(std::max(az, bz2) * rim_inv);
+      for (s64 gz = gz0; gz <= gz1; ++gz)
+        for (s64 gx = gx0; gx <= gx1; ++gx)
+          rim_grid[(gx << 32) ^ (gz & 0xffffffffLL)].push_back(si);
+    };
+    for (const auto& r : tris) {
+      if (r.is_dup || r.is_lip) continue;
+      float Ax = r.p0x, Ay = r.p0y, Az = r.p0z;
+      float Bx = r.p0x + r.e1x, By = r.p0y + r.e1y, Bz = r.p0z + r.e1z;
+      float Cx = r.p0x + r.e2x, Cy = r.p0y + r.e2y, Cz = r.p0z + r.e2z;
+      if (r.bAB) add_seg(Ax, Ay, Az, Bx, By, Bz);
+      if (r.bBC) add_seg(Bx, By, Bz, Cx, Cy, Cz);
+      if (r.bCA) add_seg(Cx, Cy, Cz, Ax, Ay, Az);
+    }
+  }
+  // min XZ distance from (px,py,pz) to any rim segment within RIM_QUERY, Y-windowed. NO_RIM if none.
+  auto rim_dist_global = [&](float px, float py, float pz) -> float {
+    if (rim_segs.empty()) return 1.0e9f;
+    float best = 1.0e9f;
+    s64 gx = (s64)std::floor(px * rim_inv), gz = (s64)std::floor(pz * rim_inv);
+    for (s64 dz = -1; dz <= 1; ++dz) {
+      for (s64 dx = -1; dx <= 1; ++dx) {
+        auto it = rim_grid.find(((gx + dx) << 32) ^ ((gz + dz) & 0xffffffffLL));
+        if (it == rim_grid.end()) continue;
+        for (int si : it->second) {
+          const auto& s = rim_segs[si];
+          float abx = s.bx - s.ax, abz = s.bz - s.az;
+          float denom = abx * abx + abz * abz;
+          float t = denom > 1e-6f ? ((px - s.ax) * abx + (pz - s.az) * abz) / denom : 0.f;
+          t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+          float cy = s.ay + t * (s.by - s.ay);
+          if (std::fabs(cy - py) > RIM_YWIN) continue;  // rim of another storey
+          float cx = s.ax + t * abx, cz = s.az + t * abz;
+          float ddx = px - cx, ddz = pz - cz;
+          float d = std::sqrt(ddx * ddx + ddz * ddz);
+          if (d < best) best = d;
+        }
+      }
+    }
+    return best <= RIM_QUERY ? best : 1.0e9f;
+  };
+  int rim_segs_n = (int)rim_segs.size();
+
   // ---- ROUND#19: build the WALKABLE-FLOOR set + XZ hash for the point-wise cantilever cull. ----
   // Owner round#18 verdict: after the round#17 silhouette fix was reverted (its collision-vs-render
   // edge divergence produced 50cm bald strips), blades STILL hang in the void past platform rims. This
@@ -963,15 +1036,19 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   const float FLOOR_DEPTH = FLOOR_DEPTH_M * U;
   const float FLOOR_EPS_UP = FLOOR_EPS_UP_M * U;
   const float floor_inv = 1.0f / (FLOOR_BUCKET_M * U);
-  // ROUND#19: is there walkable collision floor directly below this base? Empty floor set -> return true
-  // (collision absent = no-op, never worse than today). Look up ONLY the base's own bucket (tris were
-  // inserted into every bucket their bbox overlaps, so that is sufficient). Cheap bbox reject first, then
-  // the precomputed-denominator XZ barycentric (only d20/d21 per query).
-  auto floor_below = [&](float bx, float by, float bz) -> bool {
-    if (floor_tris.empty()) return true;
+  // ROUND#19b: GAP to the nearest walkable collision floor below this base (world units). Empty floor
+  // set -> 0 (collision absent = no-op keep, never worse than today). No floor in the search window ->
+  // NO_FLOOR sentinel (base over a true void). A floor slightly ABOVE the base (render/collision
+  // mismatch, within FLOOR_EPS_UP) clamps to gap 0. Look up ONLY the base's own bucket (tris were
+  // inserted into every bucket their bbox overlaps, so that is sufficient). Cheap bbox reject first,
+  // then the precomputed-denominator XZ barycentric (only d20/d21 per query).
+  constexpr float NO_FLOOR = 1e18f;
+  auto floor_gap = [&](float bx, float by, float bz) -> float {
+    if (floor_tris.empty()) return 0.f;
     s64 gx = (s64)std::floor(bx * floor_inv), gz = (s64)std::floor(bz * floor_inv);
     auto it = floor_grid.find(((u64)(u32)(s32)gx << 32) | (u32)(s32)gz);
-    if (it == floor_grid.end()) return false;
+    if (it == floor_grid.end()) return NO_FLOOR;
+    float bestY = -NO_FLOOR;  // highest walkable floor within the window = the blade's OWN floor
     for (int ti : it->second) {
       const auto& r = floor_tris[ti];
       if (bx < r.minx || bx > r.maxx || bz < r.minz || bz > r.maxz) continue;  // cheap bbox reject
@@ -983,12 +1060,28 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       // slack so a base exactly on a shared collision-tri seam can't fall through the crack.
       if (u >= -0.02f && v >= -0.02f && u + v <= 1.02f) {
         float floorY = r.p0y + u * r.e1y + v * r.e2y;
-        if (floorY >= by - FLOOR_DEPTH && floorY <= by + FLOOR_EPS_UP) return true;
+        if (floorY >= by - FLOOR_DEPTH && floorY <= by + FLOOR_EPS_UP && floorY > bestY) {
+          bestY = floorY;
+        }
       }
     }
-    return false;
+    if (bestY <= -NO_FLOOR) return NO_FLOOR;
+    float gap = by - bestY;
+    return gap > 0.f ? gap : 0.f;
   };
   int floor_tris_n = (int)floor_tris.size();
+  // ROUND#19b: gap threshold — default FLOOR_GAP_M, device-tunable via debug.opengoal.grass_floorgap
+  // (metres, read once per rebuild) so the terrace tuning needs no rebuild.
+  float floor_gap_thresh = FLOOR_GAP_M * U;
+#ifdef __ANDROID__
+  {
+    char gbuf[16] = {0};
+    if (__system_property_get("debug.opengoal.grass_floorgap", gbuf) > 0 && gbuf[0]) {
+      float gv = (float)atof(gbuf);
+      if (gv > 0.01f && gv < 2.5f) floor_gap_thresh = gv * U;
+    }
+  }
+#endif
 
   // ---- PHASE 2: scatter at a UNIFORM density over the whole level. ----
   // Density is a single world-space constant (no camera grading), auto-reduced so
@@ -1082,8 +1175,12 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   int edge_dropped = 0;   // degenerate rim slivers dropped individually (per-blade, NOT whole blocks)
   int edge_clamped = 0;   // near-rim blades whose horizontal reach the shader will clamp to the rim
   int rim_finite = 0;     // ROUND#16: blades that got a FINITE rim_dist (a true rim in their tri) vs interior
+  int rim_global_hits = 0;  // ROUND#20: blades ONLY the cross-triangle global rim query protects
   const float RIM_TAPER_W = 0.45f * U;  // matches the shader RIM_TAPER (height fully restored 0.45 m in)
   int floor_tested = 0, floor_culled = 0;  // ROUND#19 point-wise cantilever cull instrumentation
+  int gap_culled = 0;                      // ROUND#19b: floor exists but too far below (stacked terrace)
+  std::vector<float> interior_gaps;        // ROUND#19b: gap samples for clearly-INTERIOR blades (p99 tune)
+  interior_gaps.reserve(4096);
   for (size_t tj = 0; tj < tris.size(); ++tj) {
     const auto& r = tris[tj];
     if (r.is_lip || r.is_dup) continue;   // POLISH#12/ROUND#16: overhang lip or fragment duplicate -> no bases
@@ -1111,8 +1208,19 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
 
       // ROUND#19: cantilever cull v2 — no walkable floor directly below = base over the VOID (the
       // render-mesh cantilever past the platform rim) -> cull this blade individually.
+      // ROUND#19b: floor exists but only FAR below (> gap threshold) = the base is cantilevered past an
+      // UPPER platform edge over a LOWER terrace (the owner's live obs) -> cull it too. A blade only
+      // stands where its OWN floor is essentially right beneath it.
       floor_tested++;
-      if (!floor_below(bx, by, bz)) { floor_culled++; continue; }
+      {
+        float fgap = floor_gap(bx, by, bz);
+        if (fgap >= 1e17f) { floor_culled++; continue; }             // no floor at all: true void
+        if (fgap > floor_gap_thresh) { gap_culled++; continue; }     // stacked-terrace cantilever
+        // clearly-interior sample (no boundary edge on this tri) -> tune/verify the gap threshold
+        if (!r.bAB && !r.bBC && !r.bCA && (int)interior_gaps.size() < 200000) {
+          interior_gaps.push_back(fgap);
+        }
+      }
 
       // ROUND#16: rim_dist = the EXACT perpendicular distance from this base to the nearest TRUE RIM edge
       // of its own triangle (an edge the ROBUST weld/dedup flagged as a real outer boundary). dmin = weight
@@ -1124,6 +1232,16 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       if (r.bBC) { float d = wA * r.nlen / r.lenBC; if (d < dmin) dmin = d; }  // edge BC opposite A
       if (r.bCA) { float d = wB * r.nlen / r.lenCA; if (d < dmin) dmin = d; }  // edge CA opposite B
       if (r.bAB) { float d = wC * r.nlen / r.lenAB; if (d < dmin) dmin = d; }  // edge AB opposite C
+      // ROUND#20 (supervisor): GLOBAL rim distance — a blade on an interior tri right behind a NARROW
+      // rim tri had dmin=NO_RIM and leaned its full-height tip past the edge. Take the min with the
+      // distance to the nearest rim segment of the WHOLE patch (Y-windowed, RIM_QUERY radius).
+      {
+        float dg = rim_dist_global(bx, by, bz);
+        if (dg < dmin) {
+          if (dmin >= NO_RIM) rim_global_hits++;  // blades ONLY the global query protects
+          dmin = dg;
+        }
+      }
       // The ONLY per-blade rejection is a degenerate sliver whose base sits < 5 mm from a true rim.
       if (dmin < DROP_EPS) { edge_dropped++; continue; }
 
@@ -1165,10 +1283,35 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       "count missed on TIE multi-fragment platforms (the floating overflow root).",
       (int)m_instances.size(), rim_finite, edge_clamped, edge_dropped, boundary_edges, boundary_raw,
       boundary_edges - boundary_raw, n_dup, n_weld_verts);
+  // ROUND#20 instrumentation: rim_global_hits = blades whose own tri had NO rim edge but that sit within
+  // RIM_QUERY of a rim segment elsewhere in the patch — exactly the full-height blades that leaned past
+  // platform edges before (the owner's residual "ça dépasse"). Now they taper/clamp like rim blades.
+  lg::info(
+      "[recharged-grass] ROUND#20 GLOBAL-RIM: rim_segs={} rim_global_hits={} (interior-tri blades near a "
+      "rim now tapered; own-tri-only missed them)",
+      rim_segs_n, rim_global_hits);
 
   // ROUND#19 point-wise cantilever-cull instrumentation: floor_tris = walkable collision ground tris,
   // tested = candidate blades checked, culled = blades with NO walkable floor below (over the void).
-  lg::info("[recharged-grass] ROUND#19 FLOORBELOW cantilever-cull: floor_tris={} tested={} culled={} kept={}", floor_tris_n, floor_tested, floor_culled, floor_tested - floor_culled);
+  lg::info("[recharged-grass] ROUND#19 FLOORBELOW cantilever-cull: floor_tris={} tested={} culled={} kept={}", floor_tris_n, floor_tested, floor_culled + gap_culled, floor_tested - floor_culled - gap_culled);
+  // ROUND#19b stacked-terraces instrumentation: interior-blade gap percentiles PROVE the threshold sits
+  // above normal render-vs-collision Y offsets (p99 < thresh = no false culls on bumpy interior ground);
+  // gap_culled = cantilevered-over-lower-terrace blades (the owner's live obs), void_culled = true void.
+  {
+    float p50 = 0.f, p90 = 0.f, p99 = 0.f, pmax = 0.f;
+    if (!interior_gaps.empty()) {
+      std::sort(interior_gaps.begin(), interior_gaps.end());
+      auto at = [&](double q) { return interior_gaps[(size_t)(q * (interior_gaps.size() - 1))]; };
+      p50 = at(0.50); p90 = at(0.90); p99 = at(0.99); pmax = interior_gaps.back();
+    }
+    lg::info(
+        "[recharged-grass] ROUND#19b FLOORGAP stacked-terrace cull: gap_thresh={:.0f}cm interior gap "
+        "p50={:.0f}cm p90={:.0f}cm p99={:.0f}cm max={:.0f}cm (n={}) | void_culled={} gap_culled={} — "
+        "p99 below the threshold = no false culls on bumpy interior ground; gap_culled = blades that "
+        "hung past an upper edge over a LOWER terrace",
+        floor_gap_thresh / U * 100.f, p50 / U * 100.f, p90 / U * 100.f, p99 / U * 100.f,
+        pmax / U * 100.f, (int)interior_gaps.size(), floor_culled, gap_culled);
+  }
 
   // ---- POLISH#4 / ROUND#13: hide grass under overlapping non-grass 3D objects (TIE models). ----
   // ROUND#13 (SUPERVISOR DIAGNOSIS #2): the old code marked a whole 0.5m XZ CELL occupied when any TIE
@@ -1614,17 +1757,81 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   glBindVertexArray(m_vao);
   GLint mode_loc = glGetUniformLocation(id, "u_mode");
 
+  // ROUND#19 GPU-wedge forensics (device props, read once at first frame):
+  //   debug.opengoal.grass_maxinst=N  -> draw only the FIRST N instances of the SAME built buffer.
+  //     Same data + same scatter, smaller drawn count: discriminates COUNT/workload (maxinst at the
+  //     density-50 count survives) from pathological CONTENT (dies at any count containing the bad
+  //     instance; bisect maxinst to pin the offending range).
+  //   debug.opengoal.grass_gpusync=1  -> glFinish + per-draw wall-time log on the first frames, so the
+  //     log names the exact operation that never completes (blade draw vs card draw) and its cost.
+  static int s_maxinst = -1;
+  static bool s_gpusync = false;
+#ifdef __ANDROID__
+  if (s_maxinst < 0) {
+    char mbuf[16] = {0};
+    s_maxinst = (__system_property_get("debug.opengoal.grass_maxinst", mbuf) > 0) ? atoi(mbuf) : 0;
+    char sbuf[8] = {0};
+    s_gpusync =
+        (__system_property_get("debug.opengoal.grass_gpusync", sbuf) > 0 && sbuf[0] == '1');
+  }
+#else
+  if (s_maxinst < 0) {
+    const char* me = std::getenv("GRASS_MAXINST");
+    s_maxinst = me ? atoi(me) : 0;
+  }
+#endif
+  const int draw_n =
+      (s_maxinst > 0 && s_maxinst < m_instance_count) ? s_maxinst : m_instance_count;
+
+  // ROUND#19 GPU-WEDGE FIX (the REAL one, forensically pinned): the per-draw costs are healthy
+  // (blade ~35 ms, card ~55 ms at density 150 — R19SYNC logs), but WITHOUT any drain the CPU queues
+  // several ~130 ms grass frames ahead of the GPU; the Adreno driver's internal wait then exceeds the
+  // kgsl deadlock budget -> IOCTL_KGSL errno-35 "Resource deadlock" -> ANR SIGKILL ~2 s after the
+  // gameplay camera engages. PROOF: with a full glFinish drain each frame the same 150%-density boot
+  // SURVIVES the entire hold (R19SYNC run), while 4 code-level theories (mid-loop return, normalize/
+  // mix, attrib-4 fetch, lens-blade fill) were each falsified on device. FIX: bound the pipeline depth
+  // to ONE in-flight grass frame with a fence — wait (bounded, 1 s) on the PREVIOUS frame's grass
+  // fence before submitting this frame's draws. Costs nothing while the GPU keeps up; becomes the
+  // throttle exactly when the GPU falls behind (which is when the unbounded queue used to wedge).
+  // Grass-ON path only: OFF never reaches this code, stock rendering untouched.
+  static GLsync s_grass_fence = nullptr;
+  if (s_grass_fence) {
+    glClientWaitSync(s_grass_fence, GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000ull /* 1 s cap */);
+    glDeleteSync(s_grass_fence);
+    s_grass_fence = nullptr;
+  }
+  const bool sync_log = s_gpusync;  // every frame while the forensic prop is set (run dies in ~2 s)
+  auto sync_ms = [&](const char* what) {
+    if (!sync_log) {
+      return;
+    }
+    auto t0s = std::chrono::steady_clock::now();
+    glFinish();
+    lg::info("[recharged-grass] R19SYNC frame={} {} finished in {:.1f} ms (draw_n={})", m_frame,
+             what, std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0s)
+                       .count(),
+             draw_n);
+  };
+  sync_ms("pre-draw (uniforms/upload)");
+
   // NEAR: individual blades (10-vert triangle strip)
   glUniform1i(mode_loc, 0);
-  glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 10, m_instance_count);
+  glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 10, draw_n);
   prof.add_draw_call();
-  prof.add_tri(m_instance_count * 8);
+  prof.add_tri(draw_n * 8);
+  sync_ms("blade draw");
 
   // MID: X-cross cards (12-vert, 4 triangles)
   glUniform1i(mode_loc, 1);
-  glDrawArraysInstanced(GL_TRIANGLES, 0, 12, m_instance_count);
+  glDrawArraysInstanced(GL_TRIANGLES, 0, 12, draw_n);
   prof.add_draw_call();
-  prof.add_tri(m_instance_count * 4);
+  prof.add_tri(draw_n * 4);
+  sync_ms("card draw");
+
+  // ROUND#19 wedge fix, part 2: fence THIS frame's grass draws; the wait above (next frame) will not
+  // submit more grass until these have fully retired -> pipeline depth <= 1 grass frame, the unbounded
+  // queue pileup that wedged the kgsl driver can no longer form.
+  s_grass_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
   glBindVertexArray(0);
 
