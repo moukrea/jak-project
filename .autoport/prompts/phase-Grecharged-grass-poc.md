@@ -957,3 +957,55 @@ changes except pure perf optimizations that provably keep identical visual outpu
    before/after, or frame sequence showing gradual recovery.
 Keep: edges LOCKED, day-cycle light, density/sliders, DROPPED=0, OFF==stock. deploy_verify + supervisor
 eyeballs the close-ups BEFORE any push; owner playtest = final gate.
+
+## ROUND#21c (2026-07-12) — merc->world recovery is DEAD (owner: "tu t'es loupé complet")
+The eichar calibration collapsed ALL object captures onto Jak => a flattened circle FOLLOWING him while
+real crates got nothing. Two falsified rounds prove the merc camera-space->world reconstruction can NOT
+be fixed. It is DISABLED (default OFF, prop debug.opengoal.grass.mercocc). Do NOT retry that approach.
+KEPT + owner-validated: edges (LOCKED), jump-ease (u_jak_trail), census logging.
+
+## ROUND#21d — object positions from the GAME side (the jak-pos pattern, EXACT world coords)
+The working channel already exists: goal_src/jak1/pc/hud-classes-pc.gc:1665 calls
+`(pc-set-jak-pos! (-> *target* control trans))` (extern in pc/pckernel-impl.gc:103; C++ receiver
+kmachine.cpp::pc_set_jak_pos ~L565 -> Gfx::g_global_settings.recharged_jak_pos). This is why the Jak
+trample works perfectly. EXTEND the same pattern to ground actors:
+1. GOAL glue (gated by the recharged-grass toggle, same spot/beat as pc-set-jak-pos!): every N frames
+   (30-60 — actors are static) iterate the active process pool; for each process-drawable of the target
+   KINDS — crates (type crate), scarecrows, warp-gate-switch, eco vents (plat-eco/ecovalve), the ground
+   speaker — push `(pc-grass-occ-add! kind (-> proc root trans) radius)` between `(pc-grass-occ-clear!)`
+   and `(pc-grass-occ-publish!)`. Prefer TYPE checks over string compares where types exist. kind =
+   0 CULL (static: button, vents, speaker) / 1 TRAMPLE (breakable: crates, scarecrows). A broken/dead
+   crate stops being pushed -> the EXISTING TrampGhost ease-out plays the spring-back.
+2. C++ receivers in kmachine.cpp (pc_grass_occ_clear/add/publish) -> fill grass_occ::g_building /
+   g_tramp_building directly (world GOAL units, exact). Merc2 capture stays disabled.
+3. goal_src pc glue edits are RECHARGED-GATED divergences (allowed; OFF == stock). Engine files outside
+   pc/ remain untouched. GOAL change => FULL consistent build + regen/sync ALL CGO/DGOs to the APK
+   assets (stale-asset rule; GAME.CGO standalone rebuild is UNSAFE — full build only).
+4. Radii: crate 0.9, scarecrow 0.7, warp-gate-switch 1.5, plat-eco 1.2, speaker 0.6 (m).
+## Proof: R21OCC dump shows actor coords CONSISTENT with jak= (same space, sane deltas); device close-ups
+crate (flattened -> broken -> springs back), button, plat-eco, speaker; supervisor eyeballs; owner final.
+
+## OWNER VERDICT ROUND#21d (2026-07-12, verbatim) -> ROUND#21e (TUNING — the channel itself WORKS)
+"Bof... toujours pas d'herbe écrasée sous les caisses et coffres, le bouton du warp gate m'a donné
+l'impression que c'était ok parce que je voyais pas d'herbe clip au travers du bouton mais autour sur sa
+base on a bien de l'herbe qui clip, et le vent d'eco bleue... Bah pareil, ça clip à mort."
+=> The button TOP being clean proves the GOAL channel + shader cull WORK. Remaining failures are
+SELECTION/TUNING bugs, not architecture. Do NOT redesign the channel.
+
+## SUPERVISOR DIAGNOSIS (from the R21OCC dumps)
+1. **16-SLOT EVICTION (prime suspect for the crates):** frame=150 shows ntr=16 == the u_trample[16]
+   shader cap, and tr[0..3] are all r=0.70 scarecrows 100-170m away — the GOAL pool scan publishes the
+   FIRST 16 encountered, so the crates NEXT TO JAK are silently dropped. FIX: sort candidates by distance
+   to Jak and publish the 16 NEAREST (only near ones matter visually — flatten is invisible past ~40m).
+   Same for the cull list (nocc cap).
+2. **BUTTON BASE:** r=1.5m covers the button head but not its base ring -> grass clips around the base.
+   Raise warp-gate-switch radius to ~2.2m (and/or verify the cull center = the base center, not the head).
+3. **ECO VENT INSTANCE:** occ[1] published at y=52.3 (a TERRACE vent) while the owner stands at y~7 — his
+   vent may not be in the published set at all (instance selection / multiple plat-eco processes). Log
+   EVERY plat-eco/ecovalve instance found in the scan (pos + published-or-dropped) and make sure ALL are
+   published (they are few; they fit).
+4. **Y-BAND validation:** dump (obj_y - ground_y) per published entry once; if crate root trans sits
+   > +1 m above the blade bases (shader band [-2.5..+1]), widen the band or offset the published y down.
+## Proof: R21OCC dump showing the NEAREST crates in the 16 slots when standing at spawn crates + close-up
+frames (crate flattened, button base clean, HIS vent clean); supervisor eyeballs; owner final. Edge stack
+and jump-ease remain LOCKED.

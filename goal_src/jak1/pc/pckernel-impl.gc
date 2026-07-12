@@ -105,6 +105,14 @@
 ;; and Jak's ledge-grab point for the ledge-parting trample.
 (define-extern pc-set-grass-dists! (function vector none))
 (define-extern pc-set-jak-ledge! (function vector none))
+;; Grecharged-grass-poc ROUND#21d: exact ground-actor world positions for the grass object-clip /
+;; crate-trample (the pc-set-jak-pos! pattern; the Merc2 camera-space recovery is dead). The pc glue
+;; (hud-classes-pc.gc update-to-os) calls clear!, add! per actor, publish! every ~30 frames.
+;; add! args: kind (0 = CULL static, 1 = TRAMPLE breakable), the actor's root trans, ground-contact
+;; radius as a GOAL-units integer (meters * 4096 — ints only across the C bridge).
+(define-extern pc-grass-occ-clear! (function none))
+(define-extern pc-grass-occ-add! (function int vector int none))
+(define-extern pc-grass-occ-publish! (function none))
 ;; scratch vector reused each frame to hand the two distances to the bridge (avoids per-frame alloc).
 (define *grass-dist-scratch* (new 'static 'vector :x 30.0 :y 95.0 :z 150.0 :w 1.0))
 

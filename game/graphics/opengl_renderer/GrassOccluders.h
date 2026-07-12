@@ -28,4 +28,14 @@ extern std::vector<float> g_tramp_strength;                  // ROUND#21: eased 
 void add(float x, float y, float z, float r_world);          // Merc2 -> CULL building (capped)
 void add_trample(float x, float y, float z, float r_world);  // Merc2 -> TRAMPLE building (capped)
 void publish(float dt);  // grass -> swap CULL, ease TRAMPLE strengths (dt = seconds since last call)
+
+// ROUND#21d: exact actor world positions from the GAME side (the pc-set-jak-pos! pattern), replacing
+// the dead Merc2 camera-space recovery. The GOAL pc glue stages the ground actors every ~half second
+// (they are static) on the game thread via pc-grass-occ-clear!/add!/publish!; goal_publish() swaps the
+// stage into a snapshot under a mutex, and publish() above folds the snapshot into every frame's lists
+// so the TrampGhost ease keeps seeing a live crate each frame (a broken crate stops being pushed ->
+// the snapshot loses it on the next scan -> the eased spring-back plays). kind: 0 = CULL, 1 = TRAMPLE.
+void goal_clear();                                            // game thread: reset the stage
+void goal_add(int kind, float x, float y, float z, float r_world);  // game thread: stage one actor
+void goal_publish();                                          // game thread: stage -> snapshot (locked)
 }  // namespace grass_occ

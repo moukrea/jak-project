@@ -1654,6 +1654,10 @@
 
 (activate-hud-pc *display-pool*)
 
+;; Grecharged-grass-poc ROUND#21d: frame countdown between ground-actor scans (the actors are
+;; static, so every 30 frames is plenty; the C++ side keeps the last published set between scans).
+(define *grass-occ-scan-timer* 0)
+
 ;; Grecharged-grass-poc: per-frame push of the grass toggle + Jak's world position to
 ;; the renderer. Defined HERE (not pckernel-impl.gc) because this file compiles after
 ;; target-h, so *target* and (-> *target* control trans) resolve. Overrides the base
@@ -1673,4 +1677,35 @@
   (if (and *target* (= (-> *target* next-state name) 'target-edge-grab))
       (pc-set-jak-ledge! (-> *edge-grab-info* center-hold))
       (pc-set-jak-ledge! (the-as vector 0)))
+  ;; ROUND#21d: every 30 frames push the ground actors' EXACT world positions to the grass renderer
+  ;; over the pc-grass-occ channel (the pc-set-jak-pos! pattern — the Merc2 camera-space recovery is
+  ;; dead). kind 0 = CULL (static unbreakable: the warp-gate button via its basebutton parent, the
+  ;; blue-eco vent, the speaker), kind 1 = TRAMPLE (breakable: crates, scarecrows — a broken crate
+  ;; stops being pushed, so the renderer's ease-out springs the grass back at its spot). Engine types
+  ;; (crate/basebutton/plat-eco/voicebox) compile before this file so type-type? is safe; scarecrows
+  ;; are TRAINING-level types, matched by type-name symbol instead (no compile-time level dependency).
+  ;; Radii are GOAL-units ints (meters * 4096): crate 0.9, scarecrow 0.7, button 1.5, vent 1.2,
+  ;; speaker 0.6.
+  (+! *grass-occ-scan-timer* 1)
+  (when (and (-> obj recharged-grass?) (>= *grass-occ-scan-timer* 30))
+    (set! *grass-occ-scan-timer* 0)
+    (pc-grass-occ-clear!)
+    (iterate-process-tree
+      *active-pool*
+      (lambda ((proc process))
+        (when (type-type? (-> proc type) process-drawable)
+          (let* ((pd (the-as process-drawable proc))
+                 (rt (-> pd root)))
+            (when (and (nonzero? (the-as int rt)) (!= (the-as basic rt) #f))
+              (let ((trans (-> rt trans))
+                    (tname (-> pd type symbol)))
+                (cond
+                  ((type-type? (-> pd type) crate) (pc-grass-occ-add! 1 trans 3686))
+                  ((or (= tname 'scarecrow-a) (= tname 'scarecrow-b)) (pc-grass-occ-add! 1 trans 2867))
+                  ((type-type? (-> pd type) basebutton) (pc-grass-occ-add! 0 trans 6144))
+                  ((type-type? (-> pd type) plat-eco) (pc-grass-occ-add! 0 trans 4915))
+                  ((type-type? (-> pd type) voicebox) (pc-grass-occ-add! 0 trans 2458)))))))
+        (none))
+      *null-kernel-context*)
+    (pc-grass-occ-publish!))
   (none))

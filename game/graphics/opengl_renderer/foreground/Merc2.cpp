@@ -809,7 +809,19 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         }
         const bool cal_fresh = s_cal_t > 0.0 && (now_s() - s_cal_t) < 0.5;
         const float cwx = wx - s_cal[0], cwy = wy - s_cal[1], cwz = wz - s_cal[2];
-        if (r_m > 0.f && cal_fresh) {  // no fresh calibration -> skip (never emit junk coords)
+        // ROUND#21c OWNER VETO: the merc->world recovery is DEAD (two failed rounds; the eichar
+        // calibration collapsed ALL captures onto Jak => a flattened circle FOLLOWING him, while real
+        // crates got nothing). Object capture application is DISABLED until positions come from the
+        // GAME side (GOAL->C++ channel like recharged_jak_pos - exact world coords, no camera math).
+        // Census/logging stays for diagnostics. Re-enable via debug.opengoal.grass.mercocc=1 only.
+        static const bool s_mercocc = [] {
+#ifdef __ANDROID__
+          char b[PROP_VALUE_MAX] = {0};
+          if (__system_property_get("debug.opengoal.grass.mercocc", b) > 0 && b[0] == '1') return true;
+#endif
+          return false;
+        }();
+        if (s_mercocc && r_m > 0.f && cal_fresh) {  // DISABLED by default (owner veto)
           if (trample) {
             grass_occ::add_trample(cwx, cwy, cwz, r_m * 4096.f);
           } else {
