@@ -79,7 +79,10 @@ GAME="${1:-jak1}"
 # 68-sized array -> menu-open SIGILL). Devices holding v12 MUST re-decompress the
 # fresh menu CGOs, or an in-place update would keep the v12 menu CGOs while getting
 # the new libgk -> a mixed build (missing nested menu, or the overflow crash).
-VERSION="${BUNDLE_VERSION:-13}"
+# ROUND#22: 13 -> 14 — the bundle carries GOAL-side CGO changes (grass-occ scan: alive+drawn gate,
+# real-bounds radii, drawless vent publish); a same-version install-over would skip re-extraction on
+# remote devices and run OLD CGOs under the NEW libgk (banned mixed build).
+VERSION="${BUNDLE_VERSION:-14}"
 
 cd "$(git rev-parse --show-toplevel)"
 
