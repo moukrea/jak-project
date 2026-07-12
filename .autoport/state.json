@@ -185,7 +185,7 @@
     "Gjak2-movement": 1,
     "Grecharged-hud-jak1": 0,
     "Gjak2-polish": 1,
-    "Grecharged-grass-poc": 10
+    "Grecharged-grass-poc": 11
   },
   "fingerprints": {
     "00-harness": [
@@ -361,7 +361,8 @@
     "Grecharged-grass-poc": [
       "c6a87bea9932",
       "bb77aa2d6ccb",
-      "5b9d3f343df2"
+      "5b9d3f343df2",
+      "bb77aa2d6ccb"
     ]
   },
   "stuck_reasons": {
@@ -721,7 +722,7 @@
     "Gjak2-polish": 1783609200.6848521,
     "Grecharged-grass-poc": 1783657868.6481647
   },
-  "last_update": "2026-07-12T10:30:37.059835+00:00",
+  "last_update": "2026-07-12T11:21:42.222787+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -774,7 +775,8 @@
     "Gjak2-visuals",
     "Gjak2-ingame",
     "Gjak2-pcmenus",
-    "Gjak2-movement"
+    "Gjak2-movement",
+    "Grecharged-grass-poc"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
