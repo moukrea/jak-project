@@ -324,6 +324,13 @@ void goal_clear() {
   s_goal_stage_tramp.clear();
 }
 void goal_add(int kind, float x, float y, float z, float r_world) {
+  // ROUND#22: the radius arriving here is the actor's REAL draw-bounds ground footprint (GOAL glue
+  // publishes bsphere-w * 0.8, clamped 0.5..2.5 m) — the R21g per-type C++ remaps are gone.
+  // Skip actors whose trans never got initialized (exact world origin): pool residents with zeroed
+  // roots, not ground props (seen as cull[]=(0.0,0.0,0.0) log junk).
+  if (x == 0.f && z == 0.f) {
+    return;
+  }
   auto& v = (kind == 1) ? s_goal_stage_tramp : s_goal_stage_cull;
   if (v.size() < 64) {
     v.push_back({x, y, z, r_world});

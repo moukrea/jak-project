@@ -281,7 +281,19 @@ void main() {
   if (u_debug == 6 && u_trample_count > 0) dbg_tr = 1.0;  // R21f bisect: does count even arrive?
   // R21f GPU value-probe: mode 6 = grayscale count/16; mode 7 = R:radius0/2m G:strength0 B:0.
   // Read the pixel -> know EXACTLY what the GPU sees (Adreno uniform corruption forensics).
-#define TR_STEP(i) if (i < u_trample_count) { vec2 md = base.xz - u_trample[i].xz; float myd = base.y - u_trample[i].y; float mr = u_trample[i].w; if (u_debug == 5 && dot(md, md) < mr * mr) dbg_tr = 1.0; if (dot(md, md) < mr * mr && myd > -2.5 * 4096.0 && myd < 1.0 * 4096.0) { if (u_debug == 4) dbg_tr = 1.0; float mdist = length(md); float mk = (1.0 - mdist / mr) * u_trample2[i].x; heightMul = min(heightMul, 1.0 - 0.90 * mk); vec2 maway = mdist > 1.0 ? md / mdist : vec2(1.0, 0.0); trample += vec3(maway.x, 0.0, maway.y) * (mk * mk) * H * 1.0; } }
+// R21g PLATEAU profile (owner: crates STILL looked unflattened): the linear-from-CENTER falloff meant
+// the object's own model hid the strong zone and edge grass was only ~50% pressed. Now: FULL flatten
+// across the whole footprint (w), fading out over +0.45 m beyond it — the grass a player can SEE at a
+// crate's side is pressed flat.
+// ROUND#22 (owner: "on ne voit pas d'herbe couchée sur les bords"): LYING-DOWN ring — in the fade
+// band just OUTSIDE the footprint the blades must visibly LIE flat OUTWARD, not merely shrink. rw
+// ramps 0 (core) -> 1 (ring); the core keeps the owner-validated plateau press (height -> 10%,
+// lateral mk^2), the ring keeps MODERATE height (cut eases to 50%) but gets a STRONG linear lateral
+// push (mk * 1.8 * H, tip-weighted downstream) so the visible edge grass lies radially outward.
+// Literal-index unroll only (R21f LOCKED Adreno pattern), pure mad/clamp/mix math.
+#define TR_FADE (0.45 * 4096.0)
+#define TR_RINGW (0.20 * 4096.0)
+#define TR_STEP(i) if (i < u_trample_count) { vec2 md = base.xz - u_trample[i].xz; float myd = base.y - u_trample[i].y; float mr = u_trample[i].w; float mout = mr + TR_FADE; if (u_debug == 5 && dot(md, md) < mout * mout) dbg_tr = 1.0; if (dot(md, md) < mout * mout && myd > -2.5 * 4096.0 && myd < 1.0 * 4096.0) { if (u_debug == 4) dbg_tr = 1.0; float mdist = length(md); float mk = (1.0 - clamp((mdist - mr) / TR_FADE, 0.0, 1.0)) * u_trample2[i].x; float rw = smoothstep(mr - TR_RINGW, mr + 0.15 * 4096.0, mdist); heightMul = min(heightMul, 1.0 - (0.90 - 0.40 * rw) * mk); vec2 maway = mdist > 1.0 ? md / mdist : vec2(1.0, 0.0); trample += vec3(maway.x, 0.0, maway.y) * mix(mk * mk, mk * 1.8, rw) * H; } }
   TR_STEP(0) TR_STEP(1) TR_STEP(2) TR_STEP(3) TR_STEP(4) TR_STEP(5) TR_STEP(6) TR_STEP(7)
 #undef TR_STEP
 
