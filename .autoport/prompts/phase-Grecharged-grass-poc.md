@@ -905,3 +905,21 @@ iterate blindly a 3rd time on the same fingerprint. PRIME SUSPECTS (project hist
 2. The per-frame uniform dump/logging (R19OCC periodic) on the render thread stalling submission.
 Verify by timeline: correlate the deadlock timestamp with the LAST 'captured' log line / any re-scatter
 log. Fix the confirmed one. The FLOORBELOW load-time pass (once, at place) is NOT the suspect.
+
+## OWNER LIVE OBSERVATION (2026-07-12 ~07:1x, verbatim — playing the attempt-9 WIP build on the Redmi)
+"En prenant le contrôle du perso et en allant vers les plateformes, je peux voir que l'herbe dépasse
+sur certaines plateformes encore..."
+=> With FLOORBELOW active (15,886 culled), overflow STILL shows at some platform edges.
+
+## SUPERVISOR ANALYSIS — the FLOORBELOW logic hole (stacked terraces)
+FLOORBELOW culls a blade only if NO walkable floor exists within FLOOR_DEPTH (~2.5 m) below it. On the
+training level's STACKED TERRACES, a blade cantilevered past an upper platform's edge has the LOWER
+terrace 1-2 m beneath it -> "floor below" = true -> KEPT -> still visually overflows past the upper edge.
+The test kills blades over true voids (water/cliffs) but NOT blades overhanging a lower walkable surface.
+FIX: a blade must be standing essentially ON ITS OWN floor — require walkable floor within a SMALL gap
+below the base (e.g. <=0.4-0.6 m), not merely "some floor within 2.5 m". Nearest-floor-below deeper than
+that gap = the base is cantilevered over a DIFFERENT lower surface -> cull/taper it. TUNE the gap against
+false culls (render-vs-collision Y offsets on bumpy ground: instrument the distribution of base->floor
+gaps for clearly-INTERIOR blades first, pick the gap threshold above its p99, then apply). Verify at the
+terraced platforms the owner walks to from spawn — close-up captures, upper edge clean AND lower terrace
+still fully grassed (no bald ring on the lower level near the wall).
