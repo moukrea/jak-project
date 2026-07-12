@@ -1009,3 +1009,20 @@ SELECTION/TUNING bugs, not architecture. Do NOT redesign the channel.
 ## Proof: R21OCC dump showing the NEAREST crates in the 16 slots when standing at spawn crates + close-up
 frames (crate flattened, button base clean, HIS vent clean); supervisor eyeballs; owner final. Edge stack
 and jump-ease remain LOCKED.
+
+## OWNER DESIGN CORRECTION on ROUND#21e (2026-07-12, verbatim) — statics are BAKED OUT, not runtime
+"Limite à 16 slots ? Pourquoi c'est si cher de plier l'herbe sous une caisse ? Et pour les vents/objets
+non destructibles faut juste pas mettre d'herbe du tout comme pour les rochers par exemple... pareil ça
+devrait pas être coûteux, et t'as littéralement le mesh pour savoir où ne pas mettre d'herbe..."
+=> BINDING DESIGN:
+1. STATIC indestructible actors (warp-gate button+base, eco vents/plat-eco/ecovalve, speaker, any
+   non-breakable ground actor): NO runtime uniform cull. ONE-SHOT placement-style cull, like the TIE
+   rocks: on the FIRST GOAL publish after level load (actors spawned), run a single CPU pass over the
+   built instance buffer removing blades inside each static's ground-contact footprint, re-upload once.
+   After that: zero slots, zero per-frame cost, grass simply DOES NOT EXIST there. (Footprint radius per
+   name for now; the actor's real mesh/bounds footprint is the better long-term source — owner's point.)
+2. BREAKABLE actors ONLY (crates, scarecrows) stay in the runtime TRAMPLE slots (they must disappear ->
+   grass springs back). With statics out of the list, 16 NEAREST-to-Jak is ample; the 16 was never a
+   cost limit (bending is cheap) — the bug was scan-order eviction. Keep distance sort.
+3. The one-shot static cull must NOT regress DROPPED=0 elsewhere (only blades inside footprints removed)
+   and must handle the level-restart path (re-place -> re-cull on next first-publish).
