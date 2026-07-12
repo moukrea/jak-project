@@ -40,6 +40,8 @@ class GrassRenderer {
     // colour is sampled/harmonised with the ground it grows from (no clash with the
     // texture showing through). w spare (kept for 16-byte attribute alignment).
     float gr, gg, gb, gspare;
+    // ROUND#19: unit face normal of the ground triangle (world, ny forced >= 0); nspare reserved
+    float nx, ny, nz, nspare;
   };
 
   void ensure_gl();

@@ -1,4 +1,5 @@
 #include "GrassRenderer.h"
+#include "game/graphics/opengl_renderer/GrassOccluders.h"
 
 #include <algorithm>
 #include <array>
@@ -56,10 +57,40 @@ inline int grass_debug_mode(float u_time) {
     return 0;
   }
   if (buf[0] == 'c') {
-    return ((int)(u_time / 4.0f)) % 4;
+    return ((int)(u_time / 4.0f)) % 4;  // cycle stays 0..3 (mode 4 is a PIN-only forensic visualizer)
   }
   int v = std::atoi(buf);
-  return (v >= 1 && v <= 3) ? v : 0;
+  // ROUND#19: pin values 1..4 (4 = occ/trample forensic visualizer). The 'c' cycle above stays 1..3.
+  return (v >= 1 && v <= 4) ? v : 0;
+}
+
+// ROUND#19 normal-tilt blend amount (default 0 = world-up-only growth, bit-identical to before). Read
+// the SAME dual mechanism as grass_debug_mode: Android prop debug.opengoal.grass_tilt, desktop env
+// GRASS_TILT, parsed as float, clamped to [0,1]. Cached + throttled so it isn't re-read every frame.
+inline float grass_tilt_amount() {
+  static float s_cached = 0.f;
+  static int s_throttle = 0;
+  if ((s_throttle++ & 63) != 0) {
+    return s_cached;
+  }
+  char buf[16] = {0};
+  bool have = false;
+#ifdef __ANDROID__
+  if (__system_property_get("debug.opengoal.grass_tilt", buf) > 0 && buf[0]) {
+    have = true;
+  }
+#else
+  const char* e = std::getenv("GRASS_TILT");
+  if (e && e[0]) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+    have = true;
+  }
+#endif
+  float v = have ? (float)std::atof(buf) : 0.f;
+  if (v < 0.f) v = 0.f;
+  if (v > 1.f) v = 1.f;
+  s_cached = v;
+  return v;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,28 +186,16 @@ constexpr float OCC_RADIUS_M = 0.45f;     // ROUND#13: per-instance hide radius 
                                           // only if an object vertex is this close to ITS OWN base
                                           // (no 0.5m cell nuking, no neighbour dilation)
 
-// ---- OWNER ROUND#17 (2026-07-11): bound grass by the WALKABLE-FLOOR / COLLISION silhouette. ----
-// ROUND#16 instrumentally FALSIFIED the render-mesh edge-detection premise (robust boundary_edges=1989 vs
-// raw=1991, delta -2 — detection was never the miss). Re-diagnosis by elimination: the grass-textured
-// RENDER mesh CANTILEVERS past the visible/COLLISION platform edge (PS2 visual meshes routinely overhang
-// the walkable collision floor). A blade placed correctly on a render grass-top tri whose three edges are
-// all interior (shared) has NO render rim to taper against, yet sits horizontally PAST the walkable drop
-// -> full-height grass floating over the void. NO render-mesh-only method can catch this (8 rounds proved
-// it). FIX: the level's COLLISION mesh (lev->collision.vertices, per-tri PAT walkability) IS reachable
-// C++-side in the SAME LevelData the renderer already loads (no goal_src change, within the phase locks).
-// The PAT ground-mode tris (pat mode == 0) are the true walkable floor = where Jak can actually stand.
-// We bound grass placement + the rim taper to that silhouette: a blade whose base is OUTSIDE the walkable
-// floor (past the collision rim by more than COL_SLACK) is DROPPED (the cantilever cull), and near-rim
-// blades taper to the COLLISION edge, not the overhanging render edge. jak1 = collision version 1 ->
-// mode = (pat >> 3) & 0x7 (see shaders/collision.vert pat_get_mode + pat-h.gc pat-surface).
-inline u32 pat_mode(u32 pat) { return (pat >> 3) & 0x7u; }   // jak1 (version 1) pat-surface mode field
-constexpr float COL_SLACK_M = 0.15f;      // keep bases up to this far PAST the walkable rim (absorbs the
-                                          // collision mesh being slightly coarser/inset than the render
-                                          // grass edge, so no bald margin); only clear cantilevers drop
-constexpr float COL_YTOL_M = 2.0f;        // a collision floor tri/edge counts for a base only if its Y is
-                                          // within this of the base Y (distinguishes stacked platforms)
-constexpr float COL_BUCKET_M = 4.0f;      // XZ spatial-hash bucket for collision ground tris (>= overhang)
-constexpr float COL_MAX_TRI_M = 40.0f;    // skip a degenerate level-spanning collision tri (bbox guard)
+// ROUND#19 cantilever cull v2 (owner round#18 verdict: blades still hang in the VOID past platform
+// rims). Point-wise per-blade test: a blade exists only if there is WALKABLE COLLISION FLOOR directly
+// below its base. No 2D silhouette, no edge detection, no rim distance -> the round#17 "50cm straight
+// bald strips" (collision-vs-render silhouette divergence along straight collision edges) CANNOT
+// return: the only culled blades are those with genuinely nothing under them.
+static constexpr float FLOOR_DEPTH_M = 2.5f;   // floor may be up to this far BELOW the blade base
+static constexpr float FLOOR_EPS_UP_M = 0.75f; // ... or this far ABOVE it (render/collision mismatch)
+static constexpr float FLOOR_BUCKET_M = 1.0f;  // fine XZ lookup bucket so per-base candidate lists stay
+                                               // small (ROUND#19 perf: 4m buckets ANR-stalled rebuild)
+static constexpr float FLOOR_MAX_TRI_M = 40.0f;// drop degenerate level-spanning collision tris
 
 // Training-level grassy-ground textures. Texture-driven, no hand authoring. Curated
 // exact names PLUS a substring net (grass / leafy / moss) so any grassy-ground texture
@@ -254,6 +273,29 @@ GrassRenderer::~GrassRenderer() {
   }
 }
 
+// OWNER ROUND#18 object-clip storage (see GrassOccluders.h). Filled by Merc2 each frame, published
+// (swapped) once per frame by GrassRenderer::render(). Cap building at 64 to bound the per-frame cost.
+namespace grass_occ {
+std::vector<std::array<float, 4>> g_building;
+std::vector<std::array<float, 4>> g_published;
+std::vector<std::array<float, 4>> g_tramp_building;   // OWNER Q&A 2026-07-12: breakable-actor TRAMPLE list
+std::vector<std::array<float, 4>> g_tramp_published;
+void add(float x, float y, float z, float r_world) {
+  if (g_building.size() >= 64) return;
+  g_building.push_back({x, y, z, r_world});
+}
+void add_trample(float x, float y, float z, float r_world) {
+  if (g_tramp_building.size() >= 64) return;
+  g_tramp_building.push_back({x, y, z, r_world});
+}
+void publish() {
+  g_published.swap(g_building);
+  g_building.clear();
+  g_tramp_published.swap(g_tramp_building);
+  g_tramp_building.clear();
+}
+}  // namespace grass_occ
+
 void GrassRenderer::ensure_gl() {
   if (m_gl_ready) {
     return;
@@ -276,6 +318,28 @@ void GrassRenderer::ensure_gl() {
   glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance),
                         (void*)(8 * sizeof(float)));
   glVertexAttribDivisor(2, 1);
+  // ROUND#19: per-instance ground-face NORMAL (location 4) from the SAME main instance VBO (byte
+  // offset 48 = the nx/ny/nz/nspare slot), so the shader can grow blades along a blend of world-up
+  // and the ground normal (u_tilt). Main instance VBO is still bound here (loc 3 below is the
+  // separate light VBO). Divisor 1 = one normal per instance.
+  // GPU-hang bisect escape hatch: debug.opengoal.grass_noattr4=1 (set BEFORE boot; read once here)
+  // leaves attrib 4 disabled — the shader then reads the constant default (0,0,0,1), which the
+  // u_tilt=0 path never consumes — so the new-attrib suspect can be isolated on device w/o a rebuild.
+  bool noattr4 = false;
+#ifdef __ANDROID__
+  {
+    char nbuf[8] = {0};
+    if (__system_property_get("debug.opengoal.grass_noattr4", nbuf) > 0 && nbuf[0] == '1') {
+      noattr4 = true;
+    }
+  }
+#endif
+  if (!noattr4) {
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance),
+                          (void*)(12 * sizeof(float)));
+    glVertexAttribDivisor(4, 1);
+  }
   // POLISH#9: dynamic GROUND baked-light (location 3) in its OWN buffer, so only this small u8 rgba
   // column is re-uploaded when the time of day changes (the big static instance buffer never moves).
   // Normalized u8 -> [0,1]; the shader multiplies by 2.0 to recover the ground's own (palette/255)*2
@@ -342,6 +406,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     float lenAB, lenBC, lenCA;     // edge lengths: AB=|e1|, BC=|C-B|=|e2-e1|, CA=|e2|
     bool bAB, bBC, bCA;            // is this edge a BOUNDARY (platform rim) vs an interior seam
     float upness;                  // POLISH#12: face-normal.y / |n| (1 = flat top, ~0 = wall)
+    float nx, ny, nz;              // ROUND#19: NORMALIZED face normal (world, ny forced >= 0) for u_tilt
     bool is_lip;                   // POLISH#12: overhang rim-lip -> excluded from BASE placement
     bool is_tie;                   // ROUND#13: from a TIE placed model (platform) vs tfrag terrain
     bool is_dup;                   // ROUND#16: coincident duplicate tri (fragment overlap) -> no topology/bases
@@ -553,6 +618,14 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
         r.e2x = e2x; r.e2y = e2y; r.e2z = e2z;
         r.area_m2 = area_m2;
         r.upness = upness;   // POLISH#12: kept for the PHASE 1.5 overhang-lip classifier
+        // ROUND#19: NORMALIZED face normal, flipped so ny >= 0 (world-up hemisphere), for the shader
+        // normal-tilt blend (u_tilt). nlen > 1e-3 guaranteed above; winding-agnostic like `upness`.
+        {
+          float inv_nlen = 1.0f / nlen;
+          float fnx = nx * inv_nlen, fny = ny * inv_nlen, fnz = nz * inv_nlen;
+          if (fny < 0.f) { fnx = -fnx; fny = -fny; fnz = -fnz; }
+          r.nx = fnx; r.ny = fny; r.nz = fnz;
+        }
         r.is_lip = false;
         r.is_tie = is_tie;   // ROUND#13: tfrag-vs-TIE split for the lip/rim instrumentation
         r.gr = gcr; r.gg = gcg; r.gb = gcb;
@@ -831,102 +904,91 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     }
   }
 
-  // ---- OWNER ROUND#17 (PHASE 1.6): build the COLLISION / walkable-floor silhouette (cantilever fix). ----
-  // The render-mesh boundary above is correct WHERE the render edge IS the walkable edge, but it CANNOT
-  // catch a render grass-top tri that overhangs the collision floor (round#16 falsification). Here we build
-  // the TRUE walkable silhouette from the level's collision mesh (PAT ground-mode tris, in the SAME world
-  // space + GOAL units as the render verts — verified: the extractor's /4096 divides are only in the debug
-  // OBJ dumpers, the runtime path writes raw positions) so PHASE 2 can drop bases over the void and taper
-  // near-rim blades to the COLLISION edge. Robust to an empty/absent collision mesh (falls back to the
-  // render-mesh behaviour = never worse). Engine goal_src untouched; all data already in this LevelData.
-  struct ColTri {
+  // ---- ROUND#19: build the WALKABLE-FLOOR set + XZ hash for the point-wise cantilever cull. ----
+  // Owner round#18 verdict: after the round#17 silhouette fix was reverted (its collision-vs-render
+  // edge divergence produced 50cm bald strips), blades STILL hang in the void past platform rims. This
+  // is a purely POINT-WISE test: a blade survives only if there is walkable collision floor directly
+  // below its base. No edge detection, no 2D silhouette, no rim distance -> the strip artifact cannot
+  // return; the only culled blades are those with genuinely nothing under them. Collision data lives in
+  // the SAME LevelData the renderer already loads (lev->collision.vertices, per-vertex .pat, same world
+  // GOAL-unit space as the render verts). jak1 = collision version 1: walkable ground iff pat surface
+  // mode ((pat >> 3) & 0x7) == 0.
+  // ROUND#19 perf: each FloorTri caches its (padded) XZ bbox for a cheap reject AND the barycentric
+  // denominators precomputed once at build time, so a per-base query only computes d20/d21 (the 2 dot
+  // products that depend on the point). A degenerate tri (|denom| < 1e-6) is dropped at build, so the
+  // runtime denom guard is gone. With the 1m bucket the candidate lists are tiny.
+  struct FloorTri {
     float p0x, p0y, p0z, e1x, e1y, e1z, e2x, e2y, e2z;  // world (GOAL units), same space as render tris
-    float minx, minz, maxx, maxz;                       // XZ bbox for the spatial hash
-    bool bAB, bBC, bCA;                                 // is this edge a true walkable-floor boundary (rim)
+    float minx, maxx, minz, maxz;                       // XZ bbox (padded) for the cheap reject
+    float d00, d01, d11, inv_denom;                     // precomputed XZ barycentric denominators
   };
-  std::vector<ColTri> ctris;
-  std::unordered_map<s64, std::vector<int>> cgrid;      // XZ bucket -> collision ground tri indices
-  int col_ground_tris = 0;
-  float col_minx = 1e18f, col_maxx = -1e18f, col_minz = 1e18f, col_maxz = -1e18f;
+  std::vector<FloorTri> floor_tris;
+  std::unordered_map<u64, std::vector<int>> floor_grid;  // XZ bucket -> floor tri indices
   {
     const auto& cv = lev->collision.vertices;
     const size_t ntri = cv.size() / 3;
-    std::vector<std::array<int, 3>> cvids;              // welded canonical ids per collision ground tri
-    cvids.reserve(ntri);
-    // fresh neighbour-probe weld for the collision mesh (its own vertex set), reusing the ROUND#16 WELD tol.
-    std::unordered_map<u64, std::vector<int>> ccells;
-    std::vector<std::array<float, 3>> cverts;
-    auto ckey = [WELD](float x, float y, float z) -> u64 {
-      s64 qx = (s64)std::floor(x / WELD), qy = (s64)std::floor(y / WELD), qz = (s64)std::floor(z / WELD);
-      return (u64)(qx * 73856093LL) ^ (u64)(qy * 19349663LL) ^ (u64)(qz * 83492791LL);
-    };
-    auto cweld = [&](float x, float y, float z) -> int {
-      const float tol2 = WELD * WELD;
-      s64 cx = (s64)std::floor(x / WELD), cy = (s64)std::floor(y / WELD), cz = (s64)std::floor(z / WELD);
-      for (s64 dz = -1; dz <= 1; ++dz)
-        for (s64 dy = -1; dy <= 1; ++dy)
-          for (s64 dx = -1; dx <= 1; ++dx) {
-            u64 k = (u64)((cx + dx) * 73856093LL) ^ (u64)((cy + dy) * 19349663LL) ^
-                    (u64)((cz + dz) * 83492791LL);
-            auto it = ccells.find(k);
-            if (it == ccells.end()) continue;
-            for (int vid : it->second) {
-              float ddx = cverts[vid][0] - x, ddy = cverts[vid][1] - y, ddz = cverts[vid][2] - z;
-              if (ddx * ddx + ddy * ddy + ddz * ddz <= tol2) return vid;
-            }
-          }
-      int id = (int)cverts.size();
-      cverts.push_back({x, y, z});
-      ccells[ckey(x, y, z)].push_back(id);
-      return id;
-    };
+    floor_tris.reserve(ntri);
+    const float finv = 1.0f / (FLOOR_BUCKET_M * U);
+    const float pad = 0.05f * U;  // bbox pad = the barycentric seam slack, so the reject never over-culls
     for (size_t t = 0; t < ntri; ++t) {
       const auto& a = cv[t * 3 + 0];
       const auto& b = cv[t * 3 + 1];
       const auto& c = cv[t * 3 + 2];
-      if (pat_mode(a.pat) != 0) continue;               // PAT ground mode only = the walkable floor
+      if (((a.pat >> 3) & 0x7u) != 0) continue;  // jak1 pat-surface mode 0 = walkable ground only
       float minx = std::min(a.x, std::min(b.x, c.x)), maxx = std::max(a.x, std::max(b.x, c.x));
       float minz = std::min(a.z, std::min(b.z, c.z)), maxz = std::max(a.z, std::max(b.z, c.z));
-      if ((maxx - minx) > COL_MAX_TRI_M * U || (maxz - minz) > COL_MAX_TRI_M * U) continue;  // bbox guard
-      ColTri r;
+      if ((maxx - minx) > FLOOR_MAX_TRI_M * U || (maxz - minz) > FLOOR_MAX_TRI_M * U) continue;  // bbox guard
+      FloorTri r;
       r.p0x = a.x; r.p0y = a.y; r.p0z = a.z;
       r.e1x = b.x - a.x; r.e1y = b.y - a.y; r.e1z = b.z - a.z;
       r.e2x = c.x - a.x; r.e2y = c.y - a.y; r.e2z = c.z - a.z;
-      r.minx = minx; r.maxx = maxx; r.minz = minz; r.maxz = maxz;
-      r.bAB = r.bBC = r.bCA = false;
-      ctris.push_back(r);
-      cvids.push_back({cweld(a.x, a.y, a.z), cweld(b.x, b.y, b.z), cweld(c.x, c.y, c.z)});
-      col_minx = std::min(col_minx, minx); col_maxx = std::max(col_maxx, maxx);
-      col_minz = std::min(col_minz, minz); col_maxz = std::max(col_maxz, maxz);
-    }
-    col_ground_tris = (int)ctris.size();
-    if (!ctris.empty()) {
-      // true walkable-floor boundary edges: an edge used by exactly one ground tri = the walkable rim.
-      auto cek = [](int x, int y) -> u64 {
-        u32 lo = (u32)(x < y ? x : y), hi = (u32)(x < y ? y : x);
-        return ((u64)lo << 21) | (u64)hi;
-      };
-      std::unordered_map<u64, int> cec;
-      cec.reserve(ctris.size() * 3 + 16);
-      for (size_t i = 0; i < ctris.size(); ++i) {
-        cec[cek(cvids[i][0], cvids[i][1])]++;
-        cec[cek(cvids[i][1], cvids[i][2])]++;
-        cec[cek(cvids[i][2], cvids[i][0])]++;
-      }
-      const float cinv = 1.0f / (COL_BUCKET_M * U);
-      for (int i = 0; i < (int)ctris.size(); ++i) {
-        ctris[i].bAB = cec[cek(cvids[i][0], cvids[i][1])] <= 1;
-        ctris[i].bBC = cec[cek(cvids[i][1], cvids[i][2])] <= 1;
-        ctris[i].bCA = cec[cek(cvids[i][2], cvids[i][0])] <= 1;
-        // insert into every XZ bucket the tri's bbox overlaps (so a point lookup finds it).
-        s64 gx0 = (s64)std::floor(ctris[i].minx * cinv), gx1 = (s64)std::floor(ctris[i].maxx * cinv);
-        s64 gz0 = (s64)std::floor(ctris[i].minz * cinv), gz1 = (s64)std::floor(ctris[i].maxz * cinv);
-        for (s64 gz = gz0; gz <= gz1; ++gz)
-          for (s64 gx = gx0; gx <= gx1; ++gx)
-            cgrid[(gx << 32) ^ (gz & 0xffffffffLL)].push_back(i);
-      }
+      r.d00 = r.e1x * r.e1x + r.e1z * r.e1z;
+      r.d01 = r.e1x * r.e2x + r.e1z * r.e2z;
+      r.d11 = r.e2x * r.e2x + r.e2z * r.e2z;
+      float denom = r.d00 * r.d11 - r.d01 * r.d01;
+      if (std::fabs(denom) < 1e-6f) continue;  // degenerate (near-vertical/sliver) -> drop at build
+      r.inv_denom = 1.0f / denom;
+      r.minx = minx - pad; r.maxx = maxx + pad;
+      r.minz = minz - pad; r.maxz = maxz + pad;
+      int fi = (int)floor_tris.size();
+      floor_tris.push_back(r);
+      // insert into every XZ bucket the tri's bbox overlaps, so a point lookup of the own bucket suffices.
+      s64 gx0 = (s64)std::floor(minx * finv), gx1 = (s64)std::floor(maxx * finv);
+      s64 gz0 = (s64)std::floor(minz * finv), gz1 = (s64)std::floor(maxz * finv);
+      for (s64 gz = gz0; gz <= gz1; ++gz)
+        for (s64 gx = gx0; gx <= gx1; ++gx)
+          floor_grid[((u64)(u32)(s32)gx << 32) | (u32)(s32)gz].push_back(fi);
     }
   }
+  const float FLOOR_DEPTH = FLOOR_DEPTH_M * U;
+  const float FLOOR_EPS_UP = FLOOR_EPS_UP_M * U;
+  const float floor_inv = 1.0f / (FLOOR_BUCKET_M * U);
+  // ROUND#19: is there walkable collision floor directly below this base? Empty floor set -> return true
+  // (collision absent = no-op, never worse than today). Look up ONLY the base's own bucket (tris were
+  // inserted into every bucket their bbox overlaps, so that is sufficient). Cheap bbox reject first, then
+  // the precomputed-denominator XZ barycentric (only d20/d21 per query).
+  auto floor_below = [&](float bx, float by, float bz) -> bool {
+    if (floor_tris.empty()) return true;
+    s64 gx = (s64)std::floor(bx * floor_inv), gz = (s64)std::floor(bz * floor_inv);
+    auto it = floor_grid.find(((u64)(u32)(s32)gx << 32) | (u32)(s32)gz);
+    if (it == floor_grid.end()) return false;
+    for (int ti : it->second) {
+      const auto& r = floor_tris[ti];
+      if (bx < r.minx || bx > r.maxx || bz < r.minz || bz > r.maxz) continue;  // cheap bbox reject
+      float px = bx - r.p0x, pz = bz - r.p0z;
+      float d20 = px * r.e1x + pz * r.e1z;
+      float d21 = px * r.e2x + pz * r.e2z;
+      float u = (r.d11 * d20 - r.d01 * d21) * r.inv_denom;
+      float v = (r.d00 * d21 - r.d01 * d20) * r.inv_denom;
+      // slack so a base exactly on a shared collision-tri seam can't fall through the crack.
+      if (u >= -0.02f && v >= -0.02f && u + v <= 1.02f) {
+        float floorY = r.p0y + u * r.e1y + v * r.e2y;
+        if (floorY >= by - FLOOR_DEPTH && floorY <= by + FLOOR_EPS_UP) return true;
+      }
+    }
+    return false;
+  };
+  int floor_tris_n = (int)floor_tris.size();
 
   // ---- PHASE 2: scatter at a UNIFORM density over the whole level. ----
   // Density is a single world-space constant (no camera grading), auto-reduced so
@@ -1021,67 +1083,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   int edge_clamped = 0;   // near-rim blades whose horizontal reach the shader will clamp to the rim
   int rim_finite = 0;     // ROUND#16: blades that got a FINITE rim_dist (a true rim in their tri) vs interior
   const float RIM_TAPER_W = 0.45f * U;  // matches the shader RIM_TAPER (height fully restored 0.45 m in)
-
-  // ROUND#17: signed XZ distance from a base to the WALKABLE-FLOOR (collision) silhouette. Returns NO_RIM
-  // (unconstrained, = render behaviour) when the collision mesh is absent OR does not cover this area.
-  // Otherwise: POSITIVE = base is INSIDE the walkable floor, this far from its nearest walkable rim;
-  // NEGATIVE = base is this far PAST the walkable rim (over the void = the cantilever the owner sees).
-  const float COL_SLACK = COL_SLACK_M * U;
-  const float COL_YTOL = COL_YTOL_M * U;
-  const float col_inv = 1.0f / (COL_BUCKET_M * U);
-  auto col_rim = [&](float bx, float by, float bz) -> float {
-    if (ctris.empty()) return NO_RIM;
-    s64 gx = (s64)std::floor(bx * col_inv), gz = (s64)std::floor(bz * col_inv);
-    bool inside = false, any_tri = false;
-    float best_edge2 = NO_RIM;
-    for (s64 dz = -1; dz <= 1; ++dz) {
-      for (s64 dx = -1; dx <= 1; ++dx) {
-        auto it = cgrid.find(((gx + dx) << 32) ^ ((gz + dz) & 0xffffffffLL));
-        if (it == cgrid.end()) continue;
-        for (int ti : it->second) {
-          const auto& r = ctris[ti];
-          any_tri = true;
-          // point-in-triangle in the XZ projection (barycentric), gated by Y so a stacked platform below
-          // does not falsely "contain" a base standing on the platform above it.
-          float det = r.e1x * r.e2z - r.e2x * r.e1z;
-          if (std::fabs(det) > 1e-6f) {
-            float rx = bx - r.p0x, rz = bz - r.p0z;
-            float uu = (rx * r.e2z - r.e2x * rz) / det;
-            float vv = (r.e1x * rz - rx * r.e1z) / det;
-            if (uu >= 0.f && vv >= 0.f && uu + vv <= 1.f &&
-                std::fabs((r.p0y + uu * r.e1y + vv * r.e2y) - by) <= COL_YTOL) {
-              inside = true;
-            }
-          }
-          // 2D distance to this tri's true walkable-floor boundary edges (Y-gated by edge midpoint), for
-          // the taper magnitude (inside) and the over-void sign (outside).
-          auto edge = [&](bool is_b, float ax, float ay, float az, float exx, float eyy, float ezz) {
-            if (!is_b || std::fabs((ay + eyy * 0.5f) - by) > COL_YTOL) return;
-            float wx = bx - ax, wz = bz - az, len2 = exx * exx + ezz * ezz;
-            float tt = len2 > 1e-6f ? (wx * exx + wz * ezz) / len2 : 0.f;
-            tt = tt < 0.f ? 0.f : (tt > 1.f ? 1.f : tt);
-            float pdx = wx - tt * exx, pdz = wz - tt * ezz, d2 = pdx * pdx + pdz * pdz;
-            if (d2 < best_edge2) best_edge2 = d2;
-            (void)az;
-          };
-          edge(r.bAB, r.p0x, r.p0y, r.p0z, r.e1x, r.e1y, r.e1z);
-          edge(r.bBC, r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z, r.e2x - r.e1x, r.e2y - r.e1y,
-               r.e2z - r.e1z);
-          edge(r.bCA, r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z, -r.e2x, -r.e2y, -r.e2z);
-        }
-      }
-    }
-    if (!any_tri) return NO_RIM;                       // collision does not cover here -> don't constrain
-    float d = (best_edge2 >= NO_RIM) ? NO_RIM : std::sqrt(best_edge2);
-    return inside ? d : -d;                            // +inside(dist to rim) / -outside(dist past rim)
-  };
-  int col_dropped = 0;       // ROUND#17: bases DROPPED as over-the-void (past the walkable rim + slack)
-  int col_negative = 0;      // bases just past the walkable rim (within slack) -> stubbed at the edge
-  int col_shortened = 0;     // bases whose collision rim is TIGHTER than the render-mesh rim
-  int cantilever_hits = 0;   // render called INTERIOR (full height) but collision says OVER-VOID = the
-                             // floating cantilever blades no render method could catch (the PROOF)
-  float cantilever_max = 0;  // max outward distance (world units) among the cantilever hits (magnitude proof)
-
+  int floor_tested = 0, floor_culled = 0;  // ROUND#19 point-wise cantilever cull instrumentation
   for (size_t tj = 0; tj < tris.size(); ++tj) {
     const auto& r = tris[tj];
     if (r.is_lip || r.is_dup) continue;   // POLISH#12/ROUND#16: overhang lip or fragment duplicate -> no bases
@@ -1104,7 +1106,13 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       // grass triangle — per-blade placement, never a predefined block.
       float wA = 1.0f - r1 - r2, wB = r1, wC = r2;
       float bx = r.p0x + r1 * r.e1x + r2 * r.e2x;
+      float by = r.p0y + r1 * r.e1y + r2 * r.e2y;
       float bz = r.p0z + r1 * r.e1z + r2 * r.e2z;
+
+      // ROUND#19: cantilever cull v2 — no walkable floor directly below = base over the VOID (the
+      // render-mesh cantilever past the platform rim) -> cull this blade individually.
+      floor_tested++;
+      if (!floor_below(bx, by, bz)) { floor_culled++; continue; }
 
       // ROUND#16: rim_dist = the EXACT perpendicular distance from this base to the nearest TRUE RIM edge
       // of its own triangle (an edge the ROBUST weld/dedup flagged as a real outer boundary). dmin = weight
@@ -1116,29 +1124,12 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       if (r.bBC) { float d = wA * r.nlen / r.lenBC; if (d < dmin) dmin = d; }  // edge BC opposite A
       if (r.bCA) { float d = wB * r.nlen / r.lenCA; if (d < dmin) dmin = d; }  // edge CA opposite B
       if (r.bAB) { float d = wC * r.nlen / r.lenAB; if (d < dmin) dmin = d; }  // edge AB opposite C
-
-      // ROUND#17: bound by the WALKABLE-FLOOR (collision) silhouette — the render-mesh CANTILEVER fix. The
-      // render rim above is blind to a grass-top tri that overhangs the collision floor; the collision
-      // signed distance is not. Drop a base that sits past the walkable rim (over the void); otherwise
-      // taper by the TIGHTER of the render rim and the walkable-floor rim so grass stops at the TRUE edge.
-      float by = r.p0y + r1 * r.e1y + r2 * r.e2y;
-      float csd = col_rim(bx, by, bz);
-      if (csd < NO_RIM) {                     // collision covers this area -> it constrains the base
-        if (dmin >= NO_RIM && csd < 0.f) {    // render said full-height interior, collision says over-void:
-          cantilever_hits++;                  // this is exactly the floating cantilever blade (the PROOF)
-          if (-csd > cantilever_max) cantilever_max = -csd;
-        }
-        if (csd < 0.f) col_negative++;
-        if (csd < -COL_SLACK) { col_dropped++; continue; }   // clearly past the walkable rim -> drop (fix)
-        float col_rd = csd < 0.f ? 0.f : csd;                // within slack -> stub right at the walkable edge
-        if (col_rd < dmin) { col_shortened++; dmin = col_rd; }
-      }
       // The ONLY per-blade rejection is a degenerate sliver whose base sits < 5 mm from a true rim.
       if (dmin < DROP_EPS) { edge_dropped++; continue; }
 
       GrassInstance gi;
       gi.px = bx;
-      gi.py = r.p0y + r1 * r.e1y + r2 * r.e2y;
+      gi.py = by;
       gi.pz = bz;
       gi.h = BASE_H * (0.50f + 1.55f * hash_f(sd + 3u));   // OWNER POLISH#3: wider SIZE variation
       gi.tint = hash_f(sd + 5u);
@@ -1152,6 +1143,8 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       // own u8 buffer (loc 3, inst_light), so this float slot is free — no vertex-layout change, lighting
       // untouched.
       gi.gspare = dmin;   // = rim_dist (world units); NO_RIM for interior blades -> shader never tapers them
+      // ROUND#19: source triangle's face normal (already normalized + ny>=0) for the shader u_tilt blend.
+      gi.nx = r.nx; gi.ny = r.ny; gi.nz = r.nz; gi.nspare = 0.f;
       if (dmin < NO_RIM) rim_finite++;                     // blades with a real rim in their triangle
       if (dmin < RIM_TAPER_W) edge_clamped++;              // blades inside the shader height-taper band
       m_instances.push_back(gi);
@@ -1173,28 +1166,9 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       (int)m_instances.size(), rim_finite, edge_clamped, edge_dropped, boundary_edges, boundary_raw,
       boundary_edges - boundary_raw, n_dup, n_weld_verts);
 
-  // ROUND#17 WALKABLE-FLOOR instrumentation (supervisor mandate: PROVE the cantilever before trusting the
-  // fix). col_bbox vs render_bbox is the scale sanity-check (both must be in the SAME numeric range = both
-  // GOAL units; a ~4096x mismatch would mean the collision-in-meters bug). cantilever_hits = bases the OLD
-  // render code called full-height INTERIOR that the collision floor says are OVER THE VOID — the smoking
-  // gun: full-height floating blades no render-mesh method could ever catch. >0 with a real max_overhang
-  // PROVES the cantilever; ~0 would FALSIFY it (then do NOT claim a fix — re-diagnose).
-  {
-    float r_minx = 1e18f, r_maxx = -1e18f, r_minz = 1e18f, r_maxz = -1e18f;
-    for (const auto& r : tris) {
-      r_minx = std::min(r_minx, r.p0x); r_maxx = std::max(r_maxx, r.p0x);
-      r_minz = std::min(r_minz, r.p0z); r_maxz = std::max(r_maxz, r.p0z);
-    }
-    lg::info(
-        "[recharged-grass] ROUND#17 WALKABLE-FLOOR bound: col_ground_tris={} col_bbox_m=[{:.1f}..{:.1f} , "
-        "{:.1f}..{:.1f}] render_bbox_m=[{:.1f}..{:.1f} , {:.1f}..{:.1f}] (SCALE SANITY: same range = ok) | "
-        "col_dropped={} col_negative={} col_shortened={} | CANTILEVER PROOF: render-interior-but-over-void "
-        "hits={} max_overhang={:.2f}m — grass is now bounded by the COLLISION floor, not the overhanging "
-        "render mesh.",
-        col_ground_tris, col_minx / U, col_maxx / U, col_minz / U, col_maxz / U, r_minx / U, r_maxx / U,
-        r_minz / U, r_maxz / U, col_dropped, col_negative, col_shortened, cantilever_hits,
-        cantilever_max / U);
-  }
+  // ROUND#19 point-wise cantilever-cull instrumentation: floor_tris = walkable collision ground tris,
+  // tested = candidate blades checked, culled = blades with NO walkable floor below (over the void).
+  lg::info("[recharged-grass] ROUND#19 FLOORBELOW cantilever-cull: floor_tris={} tested={} culled={} kept={}", floor_tris_n, floor_tested, floor_culled, floor_tested - floor_culled);
 
   // ---- POLISH#4 / ROUND#13: hide grass under overlapping non-grass 3D objects (TIE models). ----
   // ROUND#13 (SUPERVISOR DIAGNOSIS #2): the old code marked a whole 0.5m XZ CELL occupied when any TIE
@@ -1527,6 +1501,10 @@ void GrassRenderer::update_light(SharedRenderState* rs) {
 }
 
 void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
+  // OWNER ROUND#18: publish this frame's merc-captured object occluders (crates / warp-gate button)
+  // and clear the building list. Runs every frame the grass toggle is ON (before any early return),
+  // so the building list never accumulates across frames/levels.
+  grass_occ::publish();
   if (!rs->has_pc_data) {
     return;
   }
@@ -1586,6 +1564,46 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   //   prop debug.opengoal.grass_dbg = c (cycle every 4 s) | 1 | 2 | 3   (Android)
   //   env  GRASS_DISCRIMINATE       = c | 1 | 2 | 3                     (desktop x86)
   glUniform1i(glGetUniformLocation(id, "u_debug"), grass_debug_mode(u_time));
+  // ROUND#19: optional normal-tilt blend — blade growth axis = mix(world-up, ground-face normal, u_tilt).
+  // 0.0 (default) is bit-identical to the world-up-only growth; the owner A/Bs ~0.30 via the debug prop.
+  glUniform1f(glGetUniformLocation(id, "u_tilt"), grass_tilt_amount());
+  // OWNER ROUND#18: object-clip — hide grass under crates / the warp-gate button (merc actors captured
+  // by Merc2 this frame). Upload up to 16 as u_occ (xyz = world pos GOAL units, w = ground-contact
+  // radius GOAL units); u_occ_count == 0 (no objects captured) makes the shader path byte-identical to
+  // no object-clip, so this can never break base grass rendering.
+  {
+    int nocc = (int)std::min<size_t>(grass_occ::g_published.size(), 16);
+    if (nocc > 0) {
+      glUniform4fv(glGetUniformLocation(id, "u_occ"), nocc, &grass_occ::g_published[0][0]);
+    }
+    glUniform1i(glGetUniformLocation(id, "u_occ_count"), nocc);
+  }
+  // OWNER Q&A 2026-07-12: breakable actors (crates, scarecrows) TRAMPLE the grass (flatten like Jak),
+  // they do NOT cull it -> when the object is broken the grass springs back. Upload up to 16 as
+  // u_trample (xyz = world pos, w = ground-contact radius). u_trample_count == 0 -> no flatten.
+  {
+    int ntr = (int)std::min<size_t>(grass_occ::g_tramp_published.size(), 16);
+    if (ntr > 0) {
+      glUniform4fv(glGetUniformLocation(id, "u_trample"), ntr, &grass_occ::g_tramp_published[0][0]);
+    }
+    glUniform1i(glGetUniformLocation(id, "u_trample_count"), ntr);
+  }
+
+  // ROUND#19 forensics (owner: registered radii have NO visual): prove what actually reaches the
+  // shader — uniform locations (a -1 = the GLES link dropped it) once, then the published entries +
+  // Jak pos every ~150 frames. Metres for readability. Removed noise cost: two ints per frame.
+  static bool s_occ_loc_logged = false;
+  if (!s_occ_loc_logged) {
+    s_occ_loc_logged = true;
+    lg::info("[recharged-grass] R19OCC uniform-locations: u_occ={} u_occ_count={} u_trample={} u_trample_count={} u_jak_pos={} u_tilt={}", glGetUniformLocation(id, "u_occ"), glGetUniformLocation(id, "u_occ_count"), glGetUniformLocation(id, "u_trample"), glGetUniformLocation(id, "u_trample_count"), glGetUniformLocation(id, "u_jak_pos"), glGetUniformLocation(id, "u_tilt"));
+  }
+  static int s_occ_dump_frame = 0;
+  if ((s_occ_dump_frame++ % 150) == 0) {
+    std::string ent;
+    for (size_t ei = 0; ei < grass_occ::g_published.size() && ei < 4; ei++) { const auto& e = grass_occ::g_published[ei]; ent += fmt::format(" occ[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", ei, e[0] / U, e[1] / U, e[2] / U, e[3] / U); }
+    for (size_t ei = 0; ei < grass_occ::g_tramp_published.size() && ei < 4; ei++) { const auto& e = grass_occ::g_tramp_published[ei]; ent += fmt::format(" tr[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", ei, e[0] / U, e[1] / U, e[2] / U, e[3] / U); }
+    lg::info("[recharged-grass] R19OCC frame={} nocc={} ntr={} jak=({:.1f},{:.1f},{:.1f}){}", s_occ_dump_frame - 1, (int)grass_occ::g_published.size(), (int)grass_occ::g_tramp_published.size(), jp[0] / U, jp[1] / U, jp[2] / U, ent);
+  }
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_GEQUAL);

@@ -812,3 +812,96 @@ CONTACT footprint (not the buried full mesh). Fix it in THIS round.
 ## DISCIPLINE + CAPTURE (owner furious, 9 rounds — instrument, prove, supervisor eyeballs)
 Prove the 50cm source + the fix with device instrumentation + close-ups: overflow gone, bald strips gone,
 grass on crates/button gone, relief followed. p18_* frames; supervisor eyeballs BEFORE any push.
+
+## OWNER QUESTIONS + DESIGN DECISIONS (2026-07-12, verbatim) — binding for round#18+
+Owner: "L'herbe est finalement bel et bien placée sur les polygones ayant pour texture l'herbe plate avec
+exactitude ? Fini les brins qui dépassent ? Et on a bien pas d'herbe au travers des objets jonchant le sol
+selon l'endroit où ils clip avec le sol herbeux ? Et l'herbe suit bien l'orientation des polygones sur
+lesquels elle est posée précisément ? Et pour les acteurs dynamiques tels que les caisses et le bouton du
+warp gate, ou la source d'eco bleue du niveau... OK c'est plus dur, mais faut quand même le faire, ces
+acteurs ne bougent pas, ça devrait pas être si dur de connaître leur emplacement ni leur mesh pour pas que
+l'herbe passe au travers ! Par contre les coffres/caisses... faut pas que l'herbe passe au travers, mais
+dans l'idée ils devraient écraser l'herbe comme Jak, comme ça quand cassés on a quand même de l'herbe à
+leur emplacement !"
+
+### Supervisor code-verified answers (report MUST confirm each on device):
+1. PLACEMENT EXACT SUR TEXTURE HERBE: OUI dans le code — sélection stricte par nom exact de texture
+   (tra-grass / bch-grassfringe / bch-leafyground-hang-2x1, is_grass_ground L176) + base barycentrique sur
+   le VRAI plan du triangle (py interpolé des hauteurs réelles, L960). À CONFIRMER visuellement au device.
+2. ORIENTATION: la BASE épouse exactement le triangle (position+hauteur), mais l'AXE du brin pousse
+   world-up (yaw aléatoire, pas de normal stockée par brin). C'est le comportement naturel de l'herbe
+   réelle (pousse vers le haut même en pente) — MAIS le report doit le dire explicitement au owner, et si
+   son œil préfère un tilt selon la normale, prévoir un blend léger (ex. 30% normale / 70% up) en option.
+3. BRINS QUI DÉPASSENT: le clip round#16 (rim_dist exact par arête vraie + taper hauteur) est la réponse;
+   PROUVER au device (p18) que ça tient partout — pas de claim sans frame.
+
+### STATIC-POSITION ACTORS (button warp-gate, source d'eco bleue, scarecrows...) — MANDATORY, no deferral
+They are MERC/skeletal process-drawable actors but they DO NOT MOVE. Their spawn position + mesh/bounds
+are knowable (actor spawn table / entity list of the level, or runtime query of process-drawables' trans +
+draw bounds at grass-build/first-frame). Cull grass by their GROUND-CONTACT footprint (contact band, not
+buried mesh). "C'est plus dur" is not a reason to defer — the owner explicitly mandates it.
+
+### CRATES/COFFRES — TRAMPLE, not cull (owner design)
+Crates must NOT have grass through them, BUT they should FLATTEN the grass like Jak's trample does (the
+existing trample mechanism), NOT permanently cull it — so when a crate is BROKEN, the grass at its spot
+remains (and can spring back). Implement: crate footprint feeds the TRAMPLE system (press-down while the
+crate exists); no permanent cull for breakable crates. Static unbreakable actors (button, eco vent) =
+cull; breakable crates = trample.
+
+## OWNER ROUND#18 VERDICT (2026-07-12, verbatim) -> ROUND#19
+"1. Non toujours pas, il y a plein d'endroits où ça dépasse et on a des brins dans le vide. 2. Oui,
+disparu. 3. Non toujours pas. 4. Non toujours pas. 5. J'ai vraiment pas l'impression."
+(1=edge overflow STILL there, blades in the void; 2=50cm strips GONE — keep the collision-2D revert;
+3=button STILL has grass through it; 4=crate trample STILL not visible; 5=relief not felt.)
+
+## ANALYSIS — why #1 came back and why #3/#4 "device proofs" were refuted
+* #1: round#18 REVERTED the collision 2D clip -> the PROVEN cantilever (6266 blades over void, 0.86 m max,
+  round#17 instrumentation) is UNFIXED again. The render-mesh-only boundary CANNOT see it (interior edges).
+  The 2D silhouette clip fixed it but caused the straight 50cm strips (collision-vs-render divergence
+  along straight collision edges). We need the cantilever cull WITHOUT a 2D silhouette distance.
+* #3/#4: the report claimed log-line proofs (u_occ radius registered, trample radius captured) but the
+  OWNER SEES grass through the button and no crate flattening. A registered radius is NOT a working
+  visual. Root-cause on device: dump the actual u_occ/trample uniforms REACHING the shader, the actor
+  world positions vs nearby blade positions, and capture CLOSE-UP frames at the button + one crate.
+
+## ROUND#19 FIX #1 — cantilever cull v2: PER-BLADE FLOOR-BELOW test (point-wise, NO 2D silhouette)
+For each blade base (bx,by,bz): search the collision walkable-floor tris (PAT ground mode 0, the round#17
+loader can be resurrected WITHOUT its 2D rim-distance) for a floor hit DIRECTLY BELOW the base in
+[by - FLOOR_EPS, by - FLOOR_DEPTH_M(~2.5m)]. XZ point-in-triangle + Y band. 
+- Floor below -> KEEP (even right at a coarse collision edge -> NO straight strips, point-wise decision).
+- NO floor below -> the base is over the VOID (the render-mesh cantilever) -> CULL/stub it.
+This kills "brins dans le vide" everywhere without any 2D rim geometry, so the 50cm strips CANNOT return
+(the only culled blades are those with genuinely nothing under them). Instrument: count culled blades;
+capture close-ups at 2-3 previously-overflowing edges.
+
+## ROUND#19 FIX #2 — button + crates: make the VISUAL work, prove with close-ups
+Debug on device why the registered radii have no visual effect (uniform not bound on the GLES path? wrong
+world-space vs GOAL-units conversion? actor trans read before spawn? radius too small vs blade spacing?).
+Then capture p19_btn_closeup (button base filling the frame — ZERO blades through/around its footprint)
+and p19_crate_closeup (crate visibly PRESSING a flat disc of grass; then broken -> grass springs back).
+No log-line claims accepted: the FRAME is the proof.
+
+## ROUND#19 FIX #3 — relief: prove or improve
+Close-up on a bumpy/terraced grass slope: if the bases visibly hug the bumps, capture it as proof; ALSO
+implement the normal-tilt blend (~30% face-normal / 70% world-up) so sloped grass leans with its polygon
+— A/B capture both, let the owner pick (ship the blend ON if it clearly reads better).
+
+## Constraints
+Keep: 50cm-strip fix (no 2D silhouette clip), pure texture-mesh placement, day-cycle light, DROPPED=0,
+sliders, trample system. DEFAULT ON, OFF==stock. deploy_verify + close-up frames MANDATORY; the
+supervisor eyeballs the three close-up sets (edge, button, crate) BEFORE any push.
+
+## SUPERVISOR HINT (2026-07-12, after attempts 7+8 died on the SAME Adreno deadlock fingerprint)
+Both attempts: `Adreno-GSL IOCTL_KGSL_DEVICE_WAITTIMESTAMP/GPU_COMMAND errno 35 Resource deadlock` +
+kernel-dispatch spikes (1.1s/3.7s) seconds after LEVEL-WARP-SPAWN, grass ON only -> ANR SIGKILL. Do NOT
+iterate blindly a 3rd time on the same fingerprint. PRIME SUSPECTS (project history, F1a bug class =
+"Adreno BO map-sync": mapping/re-uploading a buffer object the GPU is still using deadlocks the 618):
+1. LATE ACTOR CAPTURE -> FULL RE-SCATTER/RE-UPLOAD: the census shows actors captured seconds APART
+   (crate/button at spawn, scarecrows +4s). If each capture triggers a re-place()/glBufferData of the
+   ~831k-instance buffer (~40MB) while the GPU still consumes it -> exactly this deadlock + the kernel
+   thread stall. FIX: capture actors ONLY into the u_occ/u_trample UNIFORM arrays (no rebuild — that was
+   the design), or if a rebuild is truly needed, do it ONCE after a settle delay with buffer ORPHANING
+   (glBufferData(..., NULL) then fill) or a double-buffered VBO — never touch an in-flight BO.
+2. The per-frame uniform dump/logging (R19OCC periodic) on the render thread stalling submission.
+Verify by timeline: correlate the deadlock timestamp with the LAST 'captured' log line / any re-scatter
+log. Fix the confirmed one. The FLOORBELOW load-time pass (once, at place) is NOT the suspect.

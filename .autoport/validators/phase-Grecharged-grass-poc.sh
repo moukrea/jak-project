@@ -182,6 +182,29 @@ CU15=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p15_edge_*.pn
 [ -n "$CU15" ] || fail "round15: MISSING the device platform-EDGE close-up(s) (p15_edge_*.png, >20KB, <2 days) proving grass stops at the rim on the previously-overflowing platforms — supervisor eyeballs these before release"
 ok "round15 (coverage distance-field rim_dist, mesh-edge->coverage instrumentation, multi-edge close-up $CU15) — supervisor eyeballs p15_edge_*"
 
+# OWNER ROUND#19 2026-07-12 (owner round#18 verdict 2/5): (1) cantilever cull v2 = per-blade FLOOR-BELOW
+# point test on the walkable COLLISION floor (NO 2D silhouette -> the 50cm strips cannot return); (2) the
+# button-CULL / crate-TRAMPLE visuals must actually WORK on device and be proven by CLOSE-UP FRAMES (the
+# round#18 log-line "registered radius" claims were refuted by the owner — frames are the only proof);
+# (3) relief proof + normal-tilt blend A/B. Root cause of (2) had to be found+documented.
+grep -qiE 'FLOORBELOW.*floor_tris=[0-9]+.*tested=[0-9]+.*culled=[0-9]+' "$R" || fail "round19: report must cite the FLOORBELOW instrumentation numbers (floor_tris/tested/culled) from a DEVICE run"
+grep -qiE '(point.?wise|per.?blade).*(floor|below|collision)|floor.?below.*(point|per.?blade)' "$R" || fail "round19: report must describe the per-blade point-wise floor-below cantilever cull (no 2D silhouette)"
+grep -qiE '(no|zero|0).*(strip|bande)|strip.*(cannot|gone|absent|not return)' "$R" || fail "round19: report must state the 50cm-strip class cannot return (point-wise test, no silhouette clip)"
+grep -qiE 'camera.?space|camera-relative|monde|world.?space.*(recover|solve|transform)' "$R" || fail "round19: report must document the u_occ/u_trample root cause (merc bone translations were CAMERA-space, recovered to world)"
+# PHYSICAL: round#19 code compiled into the built libgk (grep -c into a var — pipefail+grep-q bug).
+R19HITS=$(strings -a "$SO" 2>/dev/null | grep -ciE 'FLOORBELOW|R19OCC')
+[ "${R19HITS:-0}" -gt 0 ] || fail "round19: the built libgk has NO round#19 strings (FLOORBELOW/R19OCC) — the cantilever cull v2 is not compiled in"
+# DEVICE proof beats (fresh, >20KB, non-x86): edge close-up(s), button close-up, crate close-up, relief A/B.
+CU19E=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p19_edge*.png' -newermt '-2 days' -size +20k 2>/dev/null | grep -v '/x86/' | head -1)
+[ -n "$CU19E" ] || fail "round19: MISSING device platform-EDGE close-up(s) (p19_edge*.png, >20KB, <2 days) proving no blades in the void after the floor-below cull"
+CU19B=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p19_btn*.png' -newermt '-2 days' -size +20k 2>/dev/null | grep -v '/x86/' | head -1)
+[ -n "$CU19B" ] || fail "round19: MISSING device warp-BUTTON close-up (p19_btn*.png, >20KB, <2 days) — the button footprint must be visibly grass-free"
+CU19C=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p19_crate*.png' -newermt '-2 days' -size +20k 2>/dev/null | grep -v '/x86/' | head -1)
+[ -n "$CU19C" ] || fail "round19: MISSING device CRATE close-up (p19_crate*.png, >20KB, <2 days) — the crate must visibly press a flat disc of grass"
+CU19R=$(find .autoport/reports/Grecharged-grass-poc -type f -iname 'p19_relief*.png' -newermt '-2 days' -size +20k 2>/dev/null | grep -v '/x86/' | head -1)
+[ -n "$CU19R" ] || fail "round19: MISSING device RELIEF close-up(s) (p19_relief*.png, >20KB, <2 days) — bumpy-slope macro + normal-tilt A/B"
+ok "round19 (floor-below cantilever cull, camera-space root cause fixed, edge/button/crate/relief close-ups: $CU19E $CU19B $CU19C $CU19R) — supervisor eyeballs all four sets"
+
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "golden not pristine"
 ok "golden pristine"
 echo "[Ggrass PASS] 3D grass PoC gated + 3-tier LOD + breeze/trample + device evidence. (owner play-test next)"

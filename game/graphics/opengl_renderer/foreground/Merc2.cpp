@@ -84,6 +84,8 @@ static bool gecho_merc_on() {
 
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
+#include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/GrassOccluders.h"
 
 // F1 census: kernel symbol lookup + EE memory base for the (-> *target* control
 // trans) probe below. Mirrors game/graphics/sceGraphicsInterface.cpp's use of
@@ -691,6 +693,71 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     ASSERT(input_data[i] < MAX_SKEL_BONES);
     // get the matrix data
     memcpy(&skel_matrix_buffer[input_data[i]], real_addr, sizeof(MercMat));
+  }
+
+  // OWNER ROUND#18 (Grecharged-grass-poc): capture ground-object world positions for the grass
+  // object-clip. Crates + the warp-gate button are merc actors (not TIE / not in static level data), so
+  // the grass renderer can't see them at level load. Snapshot the first bone's world XYZ (tmat is
+  // column-major: translation = floats 12,13,14). Gated by the grass toggle so OFF is byte-identical
+  // stock (zero extra work). Substring match covers all crate variants ("crate-wood-lod0" etc.) and the
+  // warp-gate switch/arch. radius is the visible ground-contact footprint (kept tight to avoid a halo).
+  if (Gfx::g_global_settings.recharged_grass && i > 0) {
+    // OWNER Q&A 2026-07-12: STATIC unbreakable actors (warp-gate button, blue eco valve) -> CULL the
+    // grass; BREAKABLE actors (crates, scarecrows) -> TRAMPLE it (flatten like Jak, NOT hidden), so
+    // when they break the grass at their spot returns. Substring match covers every lod/variant name.
+    float r_m = 0.f;
+    bool trample = false;
+    if (std::strstr(name, "crate")) {                 // breakable -> flatten (grass survives a broken crate)
+      r_m = 0.9f;
+      trample = true;
+    } else if (std::strstr(name, "scarecrow")) {      // breakable -> flatten
+      r_m = 0.7f;
+      trample = true;
+    } else if (std::strstr(name, "warp")) {           // static warp-gate button -> cull
+      r_m = 1.5f;
+    } else if (std::strstr(name, "ecovalve")) {       // static blue eco valve -> cull
+      r_m = 1.0f;
+    }
+    int root_slot = input_data[0];  // first bone in the slot string = the root/align joint
+    if (r_m > 0.f && root_slot < MAX_SKEL_BONES) {
+      const float* t = reinterpret_cast<const float*>(&skel_matrix_buffer[root_slot]);
+      // ROUND#19: the merc bone translation is in the game's merc CAMERA space (m_low_memory.perspective
+      // maps it to clip), NOT world — device forensics showed the round#18 captures landing ~1300m from
+      // the level. Recover world by equating the two pipelines' clip output for the same point:
+      //   -M3 - M*world == P*bone  (M = tfrag/grass camera matrix, both shaders add the same hvdf after)
+      // and solving the 3x3 linear system. Convention-exact; a degenerate det skips the capture.
+      const auto& P = m_low_memory.perspective;       // merc: clip_linear = P0*bx + P1*by + P2*bz + P3
+      const auto& M = render_state->camera_matrix;    // grass/tfrag: clip_linear = -M3 - M0*x - M1*y - M2*z
+      float Cx = P[0].x() * t[12] + P[1].x() * t[13] + P[2].x() * t[14] + P[3].x();
+      float Cy = P[0].y() * t[12] + P[1].y() * t[13] + P[2].y() * t[14] + P[3].y();
+      float Cz = P[0].z() * t[12] + P[1].z() * t[13] + P[2].z() * t[14] + P[3].z();
+      // A[r][c] = M_c[r] (column c of the grass camera matrix); rhs[r] = -M3[r] - C[r].
+      float A00 = M[0].x(), A01 = M[1].x(), A02 = M[2].x();
+      float A10 = M[0].y(), A11 = M[1].y(), A12 = M[2].y();
+      float A20 = M[0].z(), A21 = M[1].z(), A22 = M[2].z();
+      float b0 = -M[3].x() - Cx, b1 = -M[3].y() - Cy, b2 = -M[3].z() - Cz;
+      float det = A00 * (A11 * A22 - A12 * A21) - A01 * (A10 * A22 - A12 * A20) +
+                  A02 * (A10 * A21 - A11 * A20);
+      if (std::fabs(det) >= 1e-12f) {                 // degenerate -> skip this frame's capture (no garbage)
+        float inv = 1.0f / det;
+        float wx = (b0 * (A11 * A22 - A12 * A21) - A01 * (b1 * A22 - A12 * b2) +
+                    A02 * (b1 * A21 - A11 * b2)) * inv;
+        float wy = (A00 * (b1 * A22 - A12 * b2) - b0 * (A10 * A22 - A12 * A20) +
+                    A02 * (A10 * b2 - b1 * A20)) * inv;
+        float wz = (A00 * (A11 * b2 - b1 * A21) - A01 * (A10 * b2 - b1 * A20) +
+                    b0 * (A10 * A21 - A11 * A20)) * inv;
+        if (trample) {
+          grass_occ::add_trample(wx, wy, wz, r_m * 4096.f);
+        } else {
+          grass_occ::add(wx, wy, wz, r_m * 4096.f);
+        }
+        static std::set<std::string> s_seen_occ;
+        if (s_seen_occ.insert(name).second) {
+          fmt::print("[recharged-grass] ROUND#18 object-{} captured: '{}' r={}m at ({:.1f} {:.1f} {:.1f})m\n",
+                     trample ? "TRAMPLE" : "CULL", name, r_m, wx / 4096.f, wy / 4096.f, wz / 4096.f);
+        }
+      }
+    }
   }
 
   // === Gd3-jak FIX (always-on, arm64): repair non-finite merc bone matrices =====

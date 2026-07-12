@@ -13,6 +13,7 @@ layout (location = 0) in vec4 inst_pos;   // xyz = world base position (GOAL uni
 layout (location = 1) in vec4 inst_par;   // x = yaw(rad), y = tint(0..1), z = curve(0..1), w = breeze phase(0..1)
 layout (location = 2) in vec4 inst_gcol;  // POLISH#4: xyz = avg colour of the ground texture under this blade (0..1)
 layout (location = 3) in vec4 inst_light; // POLISH#9: rgb = ground's DYNAMIC baked light under this blade (0..1; *2 = ground factor)
+layout (location = 4) in vec4 inst_normal; // ROUND#19: xyz = unit ground-face normal (world, ny>=0) for the normal-tilt blend
 
 // scene camera (same uniforms/semantics as collision.vert)
 uniform vec4 hvdf_offset;
@@ -28,7 +29,19 @@ uniform int   u_mode;      // 0 = blade pass, 1 = card pass
 uniform float u_near_dist; // near-blade fade-out radius (world units)
 uniform float u_card_dist; // grass-card fade-out radius (world units)
 uniform vec4  u_jak_ledge; // xyz = ledge-grab point, w = 1 while Jak hangs (ledge-parting trample)
-uniform int   u_debug;     // ROUND#14 discriminator: 0 normal / 1 base-stubs (magenta) / 2 blades (cyan) / 3 cards (yellow)
+uniform int   u_debug;     // ROUND#14 discriminator: 0 normal / 1 base-stubs (magenta) / 2 blades (cyan) / 3 cards (yellow) / 4 occ+trample forensic
+uniform float u_tilt;      // ROUND#19: normal-tilt blend (0 = world-up growth, bit-identical; ~0.30 A/B)
+// OWNER ROUND#18: object occluders (crates / warp-gate button) captured per-frame in Merc2 (merc
+// actors, not in the static level data). xyz = world pos (GOAL units), w = ground-contact radius. A
+// blade whose base is within an occluder's XZ radius AND near its ground height is hidden, so no grass
+// pokes through the object. Y-gated so an object on an upper platform doesn't cull the grass below it.
+uniform vec4 u_occ[16];
+uniform int  u_occ_count;
+// OWNER Q&A 2026-07-12: breakable actors (crates, scarecrows) captured per-frame in Merc2. Same
+// (world pos, radius) layout as u_occ, but these FLATTEN the grass (like Jak's trample) instead of
+// hiding it -> when the object is broken the grass springs back to full height.
+uniform vec4 u_trample[16];
+uniform int  u_trample_count;
 
 out vec3 v_color;
 out float v_alpha;
@@ -145,6 +158,42 @@ void main() {
     return;
   }
 
+  // OWNER ROUND#18: hide grass under overlapping ground objects (crates / warp-gate button). base is
+  // the blade's ground position; u_occ[i] = (world xyz, ground-contact radius). yd = grass Y - object
+  // root Y: cull only when the object sits on THIS grass height (band [-2.5 m .. +1 m]) so an object on
+  // a higher/lower platform never culls this grass. Collapses the whole blade/card offscreen.
+  // ROUND#19 debug mode 4: instead of hiding/flattening, MARK blades inside a registered CULL radius
+  // (dbg_occ) or TRAMPLE radius (dbg_tr) so one device frame shows exactly where the shader thinks the
+  // captured actors are (discriminates "uniforms never land" from "condition wrong").
+  // ROUND#19: flag accumulation in the loop (<=16 iters), single exit AFTER it. (NOTE: the theory
+  // that the round#18 mid-loop `return` caused the Adreno deadlock was FALSIFIED by the grass_dbg
+  // device bisect — cards-only mode runs this same restructured block and is stable, and the real
+  // wedge was the blade-branch normalize(mix(...)) growth axis, fixed below. The restructure is
+  // kept: it is equivalent and simpler for the compiler.)
+  float dbg_occ = 0.0;
+  float dbg_tr = 0.0;
+  bool occ_cull = false;
+  for (int oi = 0; oi < u_occ_count; ++oi) {
+    vec2 od = base.xz - u_occ[oi].xz;
+    float yd = base.y - u_occ[oi].y;
+    if (dot(od, od) < u_occ[oi].w * u_occ[oi].w && yd > -2.5 * 4096.0 && yd < 1.0 * 4096.0) {
+      occ_cull = true;
+    }
+  }
+  if (occ_cull) {
+    if (u_debug == 4) {
+      dbg_occ = 1.0;  // forensic: mark, don't collapse
+    } else {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      v_color = vec3(0.0);
+      v_alpha = 0.0;
+      v_uv = vec2(0.0);
+      v_is_card = u_mode;
+      v_seed = 0.0;
+      return;
+    }
+  }
+
   // shared breeze: a gust travelling across the field (spatial phase) plus a
   // per-instance offset, so the whole lawn reads as ONE wind but no two blades
   // move in lockstep.
@@ -186,6 +235,24 @@ void main() {
     }
   }
 
+  // OWNER Q&A 2026-07-12: BREAKABLE actors (crates, scarecrows) FLATTEN the grass like Jak's footstep
+  // instead of culling it -> when the object is broken the grass at its spot is still there and springs
+  // back. Press the blade nearly flat within the object's ground footprint and splay it outward; keep
+  // the blade (no collapse). u_trample[i] = (world pos, footprint radius); Y-gated like the object cull.
+  for (int mi = 0; mi < u_trample_count; ++mi) {
+    vec2 md = base.xz - u_trample[mi].xz;
+    float myd = base.y - u_trample[mi].y;
+    float mr = u_trample[mi].w;
+    if (dot(md, md) < mr * mr && myd > -2.5 * 4096.0 && myd < 1.0 * 4096.0) {
+      if (u_debug == 4) dbg_tr = 1.0;  // ROUND#19 forensic: mark trample footprint (still flattens)
+      float mdist = length(md);
+      float mk = 1.0 - mdist / mr;                       // 1 at object centre -> 0 at footprint edge
+      heightMul = min(heightMul, 1.0 - 0.90 * mk);       // press nearly flat under the object
+      vec2 maway = mdist > 1.0 ? md / mdist : vec2(1.0, 0.0);
+      trample += vec3(maway.x, 0.0, maway.y) * (mk * mk) * H * 1.0;  // splay outward like a footstep
+    }
+  }
+
   vec3 pos;
   float t_col;
   if (u_mode == 0) {
@@ -202,9 +269,20 @@ void main() {
     float bend = curve * t * t;                    // static curvature
     float fwd_amt = (bend + sway * 0.38) * H * rim_h;  // ROUND#14: no lean past a rim
 
+    // ROUND#19: optional normal-tilt — the blade leans toward its ground polygon's face normal by
+    // u_tilt (0 = EXACTLY the old world-up growth term). ADRENO-SAFE FORM: the first implementation,
+    // `normalize(mix(vec3(0,1,0), inst_normal.xyz, u_tilt))`, wedged the Adreno 618 at the FIRST blade
+    // draw (kgsl WAITTIMESTAMP errno 35 -> app SIGKILL ~2s later) — device-bisected via grass_dbg
+    // (blades-only died, cards-only survived; the only blade-branch delta was this expression), and
+    // disabling the attrib-4 fetch (grass_noattr4=1) did NOT help, so the trigger is the normalize/mix
+    // expression itself in this branch, not the per-instance normal fetch. Small-angle linear tilt
+    // (pure multiply-adds) renders the same 30%-blend look without the wedge.
+    float grow_h = t * H * heightMul * rim_h;      // ROUND#14 rim taper + trample; magnitude unchanged
+
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)
-        + vec3(0.0, t * H * heightMul * rim_h, 0.0)    // ROUND#14: rim taper -> no tall blade past the edge
+        + vec3(0.0, grow_h, 0.0)                   // world-up growth (u_tilt=0 path, bit-identical)
+        + vec3(inst_normal.x, 0.0, inst_normal.z) * (grow_h * u_tilt)  // ROUND#19: lean toward the normal
         + fwdv * fwd_amt
         + trample * t * rim_h;
     t_col = t;
@@ -319,6 +397,13 @@ void main() {
   else if (u_debug == 3) col = vec3(1.0, 1.0, 0.05);
 
   v_color = col;
+  // ROUND#19 debug mode 4: paint blades inside a registered object-CULL radius MAGENTA and inside a
+  // TRAMPLE radius CYAN (instead of hiding them) — one device frame shows exactly where the shader
+  // thinks the captured actors are, discriminating "uniforms never land" from "condition wrong".
+  if (u_debug == 4) {
+    if (dbg_occ > 0.5) v_color = vec3(1.0, 0.0, 1.0);
+    else if (dbg_tr > 0.5) v_color = vec3(0.0, 1.0, 1.0);
+  }
   v_alpha = alpha;
   v_seed = tint * 331.0 + phase * 71.0;   // per-instance tuft seed
 
