@@ -62,7 +62,7 @@ inline int grass_debug_mode(float u_time) {
   }
   int v = std::atoi(buf);
   // ROUND#19: pin values 1..4 (4 = occ/trample forensic visualizer). The 'c' cycle above stays 1..3.
-  return (v >= 1 && v <= 4) ? v : 0;
+  return (v >= 1 && v <= 7) ? v : 0;  // R21f: 5/6/7 = trample-clause bisect
 }
 
 // ROUND#19 normal-tilt blend amount (default 0 = world-up-only growth, bit-identical to before). Read
@@ -228,6 +228,16 @@ inline bool is_grass_ground(const std::string& n) {
 inline bool is_grass_ground_tie(const std::string& n) {
   return n == "tra-grass" || n == "bch-grassfringe" || n == "bch-leafyground-hang-2x1";
 }
+// ROUND#23: foliage TIE draws must NOT become occluders when face-densifying the footprint test
+// (POLISH#8: a shrub's alpha-transparent canopy never blocks grass — today it only stays harmless
+// because its vertices are sparse). These keep the vertex-only status quo.
+inline bool is_foliage(const std::string& n) {
+  return name_has(n, "shrub") || name_has(n, "leaf") || name_has(n, "plant") ||
+         name_has(n, "fern") || name_has(n, "flower") || name_has(n, "weed") ||
+         name_has(n, "vine") || name_has(n, "frond") || name_has(n, "palm") ||
+         name_has(n, "bush");
+}
+
 // A ground-ish texture we did NOT match — logged as a candidate so a missed grass variant
 // surfaces on-device (POLISH#4 "still-missing platforms" diagnostic).
 inline bool looks_groundish(const std::string& n) {
@@ -324,6 +334,23 @@ void goal_clear() {
   s_goal_stage_tramp.clear();
 }
 void goal_add(int kind, float x, float y, float z, float r_world) {
+  // ROUND#22: the radius arriving here is the actor's REAL draw-bounds ground footprint (GOAL glue
+  // publishes bsphere-w * 0.8, clamped 0.5..2.5 m) — the R21g per-type C++ remaps are gone.
+  // Skip actors whose trans never got initialized (exact world origin): pool residents with zeroed
+  // roots, not ground props (seen as cull[]=(0.0,0.0,0.0) log junk).
+  if (x == 0.f && z == 0.f) {
+    return;
+  }
+  // R22b (owner: crates PERFECT, but the warp button's base ring clips again — bsphere*0.8 is too
+  // tight for STATIC culls whose ground base flares wider than the scaled bsphere; same for vents and
+  // any similar machine, treated uniformly): statics get a generous factor. A slightly larger bald
+  // ring around a machine reads natural; grass through its base does not. Trample (kind 1) untouched.
+  if (kind == 0) {
+    constexpr float U = 4096.f;
+    r_world *= 1.5f;
+    if (r_world < 0.9f * U) r_world = 0.9f * U;
+    if (r_world > 3.0f * U) r_world = 3.0f * U;
+  }
   auto& v = (kind == 1) ? s_goal_stage_tramp : s_goal_stage_cull;
   if (v.size() < 64) {
     v.push_back({x, y, z, r_world});
@@ -337,10 +364,42 @@ void goal_publish() {
   }
   static int s_pub_n = 0;
   s_pub_n++;
-  if (s_pub_n <= 5 || s_pub_n % 240 == 0) {
+  // ROUND#24 position-delta offender detector (owner: a bald cull disc GLIDED with the player
+  // after breaking a dummy). A kind-0 CULL entry is by design an IMMOBILE machine — if an entry
+  // sits 0.2..12 m from its nearest neighbour of the PREVIOUS publish, the same disc moved
+  // between publishes and the GOAL allowlist has been violated. Must stay silent forever; the
+  // [R24CENSUS] GOAL log names the excluded type at matching coords.
+  {
+    static std::vector<std::array<float, 4>> s_prev_cull;
+    static int s_move_log_pub = -100;
+    constexpr float UM = 4096.f;
+    if (!s_prev_cull.empty()) {
+      for (const auto& e : s_goal_stage_cull) {
+        float best = 1e30f;
+        for (const auto& p : s_prev_cull) {
+          float dx = (e[0] - p[0]) / UM, dy = (e[1] - p[1]) / UM, dz = (e[2] - p[2]) / UM;
+          best = std::min(best, dx * dx + dy * dy + dz * dz);
+        }
+        if (best > 0.2f * 0.2f && best < 12.f * 12.f && s_pub_n - s_move_log_pub >= 8) {
+          s_move_log_pub = s_pub_n;
+          lg::warn(
+              "[recharged-grass] R24MOVE kind0 CULL entry MOVED {:.2f} m to ({:.1f},{:.1f},{:.1f})"
+              " — static allowlist violated",
+              std::sqrt(best), e[0] / UM, e[1] / UM, e[2] / UM);
+        }
+      }
+    }
+    s_prev_cull = s_goal_stage_cull;
+  }
+  // ROUND#21e: 240-publish cadence never produced a post-actor-spawn line inside a capture window
+  // (publishes are one per 30 game frames); every 20 (~10 s) keeps the log quiet but harvestable.
+  if (s_pub_n <= 5 || s_pub_n % 20 == 0) {
     constexpr float U = 4096.f;
     std::string ent;
-    for (size_t i = 0; i < s_goal_stage_cull.size() && i < 3; i++) {
+    // ROUND#21e: print EVERY cull entry (button + ALL vent instances + speaker — the list is tiny),
+    // so the log itself audits that the owner's ground ecovent is published, not just the terrace
+    // plat-eco (the 21d instance-selection failure).
+    for (size_t i = 0; i < s_goal_stage_cull.size() && i < 12; i++) {
       const auto& e = s_goal_stage_cull[i];
       ent += fmt::format(" cull[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", i, e[0] / U, e[1] / U,
                          e[2] / U, e[3] / U);
@@ -366,9 +425,44 @@ void publish(float dt) {
     for (const auto& e : s_goal_tramp) {
       add_trample(e[0], e[1], e[2], e[3]);
     }
+    // ROUND#21f BISECT (prop debug.opengoal.grass.trtest=1): synthetic trample entry 2 m north of
+    // Jak, injected through the SAME goal fold-in path. Renders a flat disc -> path OK, content bug;
+    // renders nothing -> the trample path itself broke between 21b (circle-follows proved it drew)
+    // and 21d. Temporary forensic, default OFF.
+    {
+      static int s_trtest = -1;
+      if (s_trtest < 0) {
+#ifdef __ANDROID__
+        char b[92] = {0};
+        s_trtest = (__system_property_get("debug.opengoal.grass.trtest", b) > 0 && b[0] == '1') ? 1 : 0;
+#else
+        s_trtest = 0;
+#endif
+      }
+      if (s_trtest == 1) {
+        const auto& jpp = Gfx::g_global_settings.recharged_jak_pos;
+        if (jpp[3] > 0.5f) {
+          add_trample(jpp[0], jpp[1], jpp[2], 1.5f * 4096.f);  // R21f: AT Jak, unmissable
+        }
+      }
+    }
   }
   g_published.swap(g_building);
   g_building.clear();
+  // ROUND#21e (owner verdict 21d): the shader reads only the FIRST 16 slots of each list, and the
+  // lists were in GOAL pool-scan order — so with >16 trample actors the 16 far scarecrows silently
+  // EVICTED the crates right next to Jak (R21OCC frame=150 showed ntr=16 with tr[0..3] = scarecrows
+  // 100-170 m away). Sort every published list by XZ distance to Jak so the 16-slot upload keeps the
+  // 16 NEAREST — flatten/cull is invisible past ~40 m, so the near set is the only one that matters.
+  const auto& jkp = Gfx::g_global_settings.recharged_jak_pos;
+  auto d2jak = [&](const std::array<float, 4>& e) {
+    float dx = e[0] - jkp[0], dz = e[2] - jkp[2];
+    return dx * dx + dz * dz;
+  };
+  std::stable_sort(g_published.begin(), g_published.end(),
+                   [&](const std::array<float, 4>& a, const std::array<float, 4>& b) {
+                     return d2jak(a) < d2jak(b);
+                   });
   constexpr float MATCH_R = 1.5f * 4096.f;  // same actor if within 1.5 m XZ (they are static)
   constexpr float EASE_IN_S = 0.25f;
   constexpr float EASE_OUT_S = 0.6f;        // owner round#21: release over ~0.4-0.8 s
@@ -410,6 +504,25 @@ void publish(float dt) {
       g_tramp_strength.push_back(it->strength);
     }
     ++it;
+  }
+  // ROUND#21e nearest-16 for the trample list too (paired with its strength array, so sort a
+  // permutation and reorder both together — the ghost ease state itself is untouched).
+  if (g_tramp_published.size() > 1) {
+    std::vector<size_t> order(g_tramp_published.size());
+    for (size_t i = 0; i < order.size(); i++) {
+      order[i] = i;
+    }
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+      return d2jak(g_tramp_published[a]) < d2jak(g_tramp_published[b]);
+    });
+    std::vector<std::array<float, 4>> pe(order.size());
+    std::vector<float> ps(order.size());
+    for (size_t i = 0; i < order.size(); i++) {
+      pe[i] = g_tramp_published[order[i]];
+      ps[i] = g_tramp_strength[order[i]];
+    }
+    g_tramp_published.swap(pe);
+    g_tramp_strength.swap(ps);
   }
 }
 }  // namespace grass_occ
@@ -539,6 +652,13 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   // must NOT occlude their own grass (that self-cull was ~most of the old 14.5%), and tfrag terrain is
   // never an occluder — so open grass with no real object on it is NEVER culled (structural occ ~0).
   std::vector<std::array<float, 3>> occ_pts;
+  // ROUND#23 census: face-densified occluder sampling (small low-poly props leaked blades between
+  // their sparse vertices). Counts + per-texture census logged after the occ cull.
+  size_t r23_dens_tris = 0, r23_dens_pts = 0;
+  std::unordered_map<std::string, u32> r23_dens_by_tex;
+  // ROUND#23 capture aid: world positions (one per ~10m XZ cell) of ROCK-textured densified faces
+  // near grass height — exact level.warp.pos targets for the small-rock leak close-ups.
+  std::unordered_map<s64, std::array<float, 3>> r23_rock_spots;
 
   // POLISH#8 edge instrumentation: grass-textured tris rejected purely by the upness gate.
   int rej_upness = 0;          // grass-textured tris rejected by the upness net (edge lips / walls)
@@ -659,6 +779,66 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
               u32 vi = idx[k];
               if (vi != UINT32_MAX && vi < verts.size()) {
                 occ_pts.push_back({verts[vi].x, verts[vi].y, verts[vi].z});
+              }
+            }
+            // ROUND#23 (owner R22b: "certains petits rochers ont de l'herbe qui passe au travers"):
+            // vertex-only sampling LEAKS on small low-poly props — their vertices sit further apart
+            // than OCC_RADIUS (0.45m), so a blade between two rock vertices never finds an occ point.
+            // Close the gap with a FOOTPRINT test: decode the strip triangles and add face/edge
+            // samples at sub-OCC_RADIUS pitch so every blade under an actual face is covered.
+            // Foliage draws (shrubs & co, is_foliage) are skipped — their alpha-transparent canopy
+            // must NOT occlude (POLISH#8). Huge faces (edge > 6m: walls/cliffs) keep vertex-only
+            // sampling: they are not ground props and densifying them would explode memory.
+            if (!is_foliage(tname)) {
+              const float SAMP = 0.35f * 4096.f;      // pitch < OCC_RADIUS so no blade slips through
+              const float EDGE_MAX = 6.0f * 4096.f;   // not a prop face past this
+              for (u32 k = b + 2; k < b + l; ++k) {
+                u32 i0 = idx[k - 2], i1 = idx[k - 1], i2 = idx[k];
+                if (i0 == UINT32_MAX || i1 == UINT32_MAX || i2 == UINT32_MAX) {
+                  continue;
+                }
+                if (i0 >= verts.size() || i1 >= verts.size() || i2 >= verts.size()) {
+                  continue;
+                }
+                if (i0 == i1 || i1 == i2 || i0 == i2) {
+                  continue;  // strip-stitch degenerate
+                }
+                float ax = verts[i0].x, ay = verts[i0].y, az = verts[i0].z;
+                float e1x = verts[i1].x - ax, e1y = verts[i1].y - ay, e1z = verts[i1].z - az;
+                float e2x = verts[i2].x - ax, e2y = verts[i2].y - ay, e2z = verts[i2].z - az;
+                float d1 = std::sqrt(e1x * e1x + e1y * e1y + e1z * e1z);
+                float d2 = std::sqrt(e2x * e2x + e2y * e2y + e2z * e2z);
+                float e3x = e2x - e1x, e3y = e2y - e1y, e3z = e2z - e1z;
+                float d3 = std::sqrt(e3x * e3x + e3y * e3y + e3z * e3z);
+                float m = std::max(d1, std::max(d2, d3));
+                if (m <= SAMP || m > EDGE_MAX) {
+                  continue;  // already dense enough / not a prop face
+                }
+                int n = (int)std::ceil(m / SAMP);
+                if (n > 24) {
+                  n = 24;
+                }
+                for (int a = 0; a <= n; ++a) {
+                  for (int c = 0; c <= n - a; ++c) {
+                    if ((a == 0 && c == 0) || (a == n && c == 0) || (a == 0 && c == n)) {
+                      continue;  // corners = the existing vertices
+                    }
+                    float fa = (float)a / (float)n, fc = (float)c / (float)n;
+                    occ_pts.push_back(
+                        {ax + fa * e1x + fc * e2x, ay + fa * e1y + fc * e2y, az + fa * e1z + fc * e2z});
+                    r23_dens_pts++;
+                  }
+                }
+                r23_dens_tris++;
+                r23_dens_by_tex[tname]++;
+                if (name_has(tname, "rock") || name_has(tname, "stone")) {
+                  const float cinv = 1.0f / (10.0f * 4096.f);
+                  s64 cx = (s64)std::floor(ax * cinv), cz = (s64)std::floor(az * cinv);
+                  s64 ck = (cx << 32) ^ (cz & 0xffffffffLL);
+                  if (r23_rock_spots.find(ck) == r23_rock_spots.end()) {
+                    r23_rock_spots[ck] = {ax, ay, az};
+                  }
+                }
               }
             }
           }
@@ -1498,6 +1678,33 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     m_inst_tri.swap(keept);
   }
 
+  // ROUND#23 census (the "which prop leaked" diagnosis artifact): which non-grass TIE textures got
+  // face-densified footprint samples, and how many. The leaking small rocks show up here by texture.
+  if (r23_dens_tris > 0) {
+    std::vector<std::pair<std::string, u32>> top(r23_dens_by_tex.begin(), r23_dens_by_tex.end());
+    std::stable_sort(top.begin(), top.end(),
+                     [](const auto& a, const auto& b) { return a.second > b.second; });
+    std::string tex;
+    for (size_t i = 0; i < top.size() && i < 8; ++i) {
+      tex += fmt::format(" {}={}", top[i].first, top[i].second);
+    }
+    lg::info("[recharged-grass] R23 footprint densify: tris={} add_pts={} occ_pts_total={} tex:{}",
+             r23_dens_tris, r23_dens_pts, occ_pts.size(), tex);
+    if (!r23_rock_spots.empty()) {
+      constexpr float U = 4096.f;
+      std::string spots;
+      int shown = 0;
+      for (const auto& [k, p] : r23_rock_spots) {
+        if (shown++ >= 10) {
+          break;
+        }
+        spots += fmt::format(" ({:.1f} {:.1f} {:.1f})", p[0] / U, p[1] / U, p[2] / U);
+      }
+      lg::info("[recharged-grass] R23 rock-face warp spots ({} cells):{}", r23_rock_spots.size(),
+               spots);
+    }
+  }
+
   m_instance_count = (int)m_instances.size();
 
   // ROUND#14 CAPTURE AID: dump a spread of RAISED near-rim base world coords (metres) so a device
@@ -1857,7 +2064,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // radius GOAL units); u_occ_count == 0 (no objects captured) makes the shader path byte-identical to
   // no object-clip, so this can never break base grass rendering.
   {
-    int nocc = (int)std::min<size_t>(grass_occ::g_published.size(), 16);
+    int nocc = (int)std::min<size_t>(grass_occ::g_published.size(), 8);  // R21f literal-unroll cap
     if (nocc > 0) {
       glUniform4fv(glGetUniformLocation(id, "u_occ"), nocc, &grass_occ::g_published[0][0]);
     }
@@ -1867,13 +2074,35 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // they do NOT cull it -> when the object is broken the grass springs back. Upload up to 16 as
   // u_trample (xyz = world pos, w = ground-contact radius). u_trample_count == 0 -> no flatten.
   {
-    int ntr = (int)std::min<size_t>(grass_occ::g_tramp_published.size(), 16);
+    int ntr = (int)std::min<size_t>(grass_occ::g_tramp_published.size(), 8);  // R21f literal-unroll cap
     if (ntr > 0) {
       glUniform4fv(glGetUniformLocation(id, "u_trample"), ntr, &grass_occ::g_tramp_published[0][0]);
       // ROUND#21: per-entry eased strength — the shader scales each entry's flatten by this, so a
       // broken crate's grass springs back over ~0.6 s (uniforms default to 0 -> upload is mandatory).
-      glUniform1fv(glGetUniformLocation(id, "u_trample_str"), ntr,
-                   grass_occ::g_tramp_strength.data());
+      // R21f: Adreno driver quirk — glGetUniformLocation on a float ARRAY can return -1 for the
+      // bare name (works for vec4 arrays, fails for float arrays) -> the upload silently no-ops and
+      // u_trample_str stays at its 0.0 default = flatten multiplied by ZERO (the "condition fires,
+      // cyan marks show, nothing flattens" forensic signature). Query "name[0]" as fallback + log.
+      int str_loc = glGetUniformLocation(id, "u_trample_str");
+      if (str_loc < 0) {
+        str_loc = glGetUniformLocation(id, "u_trample_str[0]");
+      }
+      static bool s_str_loc_logged = false;
+      if (!s_str_loc_logged) {
+        s_str_loc_logged = true;
+        lg::info("[recharged-grass] R21F u_trample_str loc={} (bare={}) str[0]={:.2f} ntr={}",
+                 str_loc, glGetUniformLocation(id, "u_trample_str"),
+                 grass_occ::g_tramp_strength.empty() ? -1.f : grass_occ::g_tramp_strength[0], ntr);
+      }
+      glUniform1fv(str_loc, ntr, grass_occ::g_tramp_strength.data());
+      // R21f: repack strengths into a vec4 array (.x) — see grass.vert; float-array dynamic reads
+      // miscompile to 0 on the Adreno 618.
+      float str4[16][4];
+      for (int si = 0; si < ntr && si < 16; si++) {
+        str4[si][0] = grass_occ::g_tramp_strength[si];
+        str4[si][1] = str4[si][2] = str4[si][3] = 0.f;
+      }
+      glUniform4fv(glGetUniformLocation(id, "u_trample2"), ntr, &str4[0][0]);
     }
     glUniform1i(glGetUniformLocation(id, "u_trample_count"), ntr);
   }
@@ -1892,6 +2121,38 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     for (size_t ei = 0; ei < grass_occ::g_published.size() && ei < 4; ei++) { const auto& e = grass_occ::g_published[ei]; ent += fmt::format(" occ[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", ei, e[0] / U, e[1] / U, e[2] / U, e[3] / U); }
     for (size_t ei = 0; ei < grass_occ::g_tramp_published.size() && ei < 4; ei++) { const auto& e = grass_occ::g_tramp_published[ei]; ent += fmt::format(" tr[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", ei, e[0] / U, e[1] / U, e[2] / U, e[3] / U); }
     lg::info("[recharged-grass] R19OCC frame={} nocc={} ntr={} jak=({:.1f},{:.1f},{:.1f}){}", s_occ_dump_frame - 1, (int)grass_occ::g_published.size(), (int)grass_occ::g_tramp_published.size(), jp[0] / U, jp[1] / U, jp[2] / U, ent);
+  }
+  // ROUND#21e Y-BAND VALIDATION (one-shot, diagnosis item 4): for each published actor, find the
+  // nearest blade base in XZ and log dy = actor-root-Y minus blade-base-Y. The shader accepts an
+  // actor whose root sits from 1.0 m below to 2.5 m above the blade base (yd = base.y - obj.y in
+  // (-2.5 .. +1.0) m); an actor OUT-OF-BAND would silently never cull/flatten even when published,
+  // so this dump proves the band fits the real actors (or names the exact dy to widen/offset for).
+  static bool s_yband_logged = false;
+  if (!s_yband_logged && !m_instances.empty() &&
+      (!grass_occ::g_published.empty() || !grass_occ::g_tramp_published.empty())) {
+    s_yband_logged = true;
+    auto yband_dump = [&](const char* tag, const std::vector<std::array<float, 4>>& v) {
+      for (size_t ei = 0; ei < v.size(); ei++) {
+        const auto& e = v[ei];
+        float best = 1e30f;
+        float dy = 0.f;
+        for (const auto& gi : m_instances) {
+          float dx = gi.px - e[0], dz = gi.pz - e[2];
+          float d2 = dx * dx + dz * dz;
+          if (d2 < best) {
+            best = d2;
+            dy = e[1] - gi.py;
+          }
+        }
+        lg::info(
+            "[recharged-grass] R21E-YBAND {}[{}] pos=({:.1f},{:.1f},{:.1f}) r={:.2f} "
+            "nearest-blade-xz={:.2f}m dy(obj-blade)={:.2f}m {}",
+            tag, ei, e[0] / U, e[1] / U, e[2] / U, e[3] / U, std::sqrt(best) / U, dy / U,
+            (dy > -1.0f * U && dy < 2.5f * U) ? "IN-BAND" : "OUT-OF-BAND");
+      }
+    };
+    yband_dump("occ", grass_occ::g_published);
+    yband_dump("tr", grass_occ::g_tramp_published);
   }
 
   glEnable(GL_DEPTH_TEST);

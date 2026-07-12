@@ -1655,8 +1655,14 @@
 (activate-hud-pc *display-pool*)
 
 ;; Grecharged-grass-poc ROUND#21d: frame countdown between ground-actor scans (the actors are
-;; static, so every 30 frames is plenty; the C++ side keeps the last published set between scans).
+;; static; the C++ side keeps the last published set between scans). ROUND#22: 30 -> 15 frames so a
+;; broken crate leaves the published set within ~0.25 s — with the 0.6 s TrampGhost ease-out the
+;; grass is visibly back up inside the owner's 1 s budget (the scan is a cheap pool walk).
 (define *grass-occ-scan-timer* 0)
+;; ROUND#24: publish counter for the low-rate census logs ([R24CENSUS]/[R24DUMMY], one burst
+;; every 40 publishes ~= 10 s in-game) — names any actor the old kind-0 catch-all would have
+;; published (the moving-bald-circle offender class) without log spam.
+(define *grass-occ-pub-count* 0)
 
 ;; Grecharged-grass-poc: per-frame push of the grass toggle + Jak's world position to
 ;; the renderer. Defined HERE (not pckernel-impl.gc) because this file compiles after
@@ -1679,32 +1685,129 @@
       (pc-set-jak-ledge! (the-as vector 0)))
   ;; ROUND#21d: every 30 frames push the ground actors' EXACT world positions to the grass renderer
   ;; over the pc-grass-occ channel (the pc-set-jak-pos! pattern — the Merc2 camera-space recovery is
-  ;; dead). kind 0 = CULL (static unbreakable: the warp-gate button via its basebutton parent, the
-  ;; blue-eco vent, the speaker), kind 1 = TRAMPLE (breakable: crates, scarecrows — a broken crate
-  ;; stops being pushed, so the renderer's ease-out springs the grass back at its spot). Engine types
-  ;; (crate/basebutton/plat-eco/voicebox) compile before this file so type-type? is safe; scarecrows
-  ;; are TRAINING-level types, matched by type-name symbol instead (no compile-time level dependency).
-  ;; Radii are GOAL-units ints (meters * 4096): crate 0.9, scarecrow 0.7, button 1.5, vent 1.2,
-  ;; speaker 0.6.
+  ;; dead). kind 0 = CULL (static unbreakable), kind 1 = TRAMPLE (breakable: crates, scarecrows — a
+  ;; broken actor stops being pushed, so the renderer's ease-out springs the grass back at its spot).
+  ;; ROUND#22 (owner 2026-07-12): (1) BREAKABLES publish ONLY while alive+DRAWN — a broken crate
+  ;; does NOT die (crates.gc `die` sets (draw-status hidden) and the process PERSISTS in-pool), so
+  ;; publishing by type alone kept flattening the grass under the ghost forever; skipping hidden/dead
+  ;; breakables lets the C++ TrampGhost ease-out play the spring-back the moment the crate breaks
+  ;; (statics are NOT hidden-gated — see the else arm). (2) GENERIC grass
+  ;; collider: the radius is no longer a hand-guessed per-type constant but each actor's REAL draw
+  ;; bounds (world bsphere radius, scaled 0.8 down to the ground-contact footprint, clamped
+  ;; 0.5..2.5 m) — ANY drawn ground process-drawable near grass gets a correct footprint (future
+  ;; levels' enemies for free); only the player pair, pickups, projectiles and manipy cutscene props
+  ;; are excluded. Scarecrows are TRAINING-level types, matched by type-name symbol (no compile-time
+  ;; level dependency).
   (+! *grass-occ-scan-timer* 1)
-  (when (and (-> obj recharged-grass?) (>= *grass-occ-scan-timer* 30))
+  (when (and (-> obj recharged-grass?) (>= *grass-occ-scan-timer* 15))
     (set! *grass-occ-scan-timer* 0)
+    (+! *grass-occ-pub-count* 1)
     (pc-grass-occ-clear!)
     (iterate-process-tree
       *active-pool*
       (lambda ((proc process))
-        (when (type-type? (-> proc type) process-drawable)
+        (when (and (type-type? (-> proc type) process-drawable)
+                   (!= (-> proc status) 'dead))
           (let* ((pd (the-as process-drawable proc))
-                 (rt (-> pd root)))
+                 (rt (-> pd root))
+                 (dc (-> pd draw)))
             (when (and (nonzero? (the-as int rt)) (!= (the-as basic rt) #f))
-              (let ((trans (-> rt trans))
-                    (tname (-> pd type symbol)))
-                (cond
-                  ((type-type? (-> pd type) crate) (pc-grass-occ-add! 1 trans 3686))
-                  ((or (= tname 'scarecrow-a) (= tname 'scarecrow-b)) (pc-grass-occ-add! 1 trans 2867))
-                  ((type-type? (-> pd type) basebutton) (pc-grass-occ-add! 0 trans 6144))
-                  ((type-type? (-> pd type) plat-eco) (pc-grass-occ-add! 0 trans 4915))
-                  ((type-type? (-> pd type) voicebox) (pc-grass-occ-add! 0 trans 2458)))))))
+              (if (and (nonzero? (the-as int dc)) (!= (the-as basic dc) #f))
+                ;; DRAWN actor -> generic real-bounds footprint
+                (let* ((hid (logtest? (-> dc status) (draw-status hidden)))
+                      (trans (-> rt trans))
+                      (tname (-> pd type symbol))
+                      (r (the int (fmax (meters 0.5) (fmin (meters 2.5) (* 0.8 (-> dc bounds w))))))
+                      ;; ROUND#23 (owner R22b: dummy trample circle should be his FEET, not the
+                      ;; body): the TRAMPLE radius comes from the actor's collide-shape ROOT-PRIM
+                      ;; radius (the physics ground footprint) instead of the full draw bsphere —
+                      ;; a tall thin scarecrow's bsphere*0.8 pressed a 2.4 m circle; generic for
+                      ;; any future breakable/enemy. Fallback bsphere*0.5, clamp 0.3..1.2 m.
+                      ;; Crates: collide 1.70 m and bsphere*0.8 1.28 m both land at the 1.2 m
+                      ;; clamp -> visually identical (owner: crates PERFECT, regression forbidden).
+                      (r1 (the int
+                               (fmax (meters 0.3)
+                                     (fmin (meters 1.2)
+                                           (if (and (type-type? (-> rt type) collide-shape)
+                                                    (nonzero? (the-as int (-> (the-as collide-shape rt) root-prim))))
+                                             (-> (the-as collide-shape rt) root-prim local-sphere w)
+                                             (* 0.5 (-> dc bounds w)))))))
+                      ;; ROUND#24 (owner R23: dummy grass never springs back): the training dummies
+                      ;; REGENERATE — their break path (training-obs.gc hit-state) clears the
+                      ;; collide-shape (clear-collide-with-as) at the FIRST break frame, seconds
+                      ;; before the process hides/dies, and crates.gc `die` clears it at the same
+                      ;; instant it hides. root-prim collide-with == 0 is therefore the earliest,
+                      ;; census-able BROKEN flag for every breakable: gate the trample publish on
+                      ;; it so the C++ TrampGhost ease-out springs the grass back the moment the
+                      ;; actor breaks (and re-flattens if/when a dummy regenerates and collides
+                      ;; again).
+                      (cw-live (or (not (type-type? (-> rt type) collide-shape))
+                                   (zero? (the-as int (-> (the-as collide-shape rt) root-prim)))
+                                   (nonzero? (the-as int (-> (the-as collide-shape rt) root-prim collide-with)))))
+                      (brk-ok (and (not hid) cw-live)))
+                  (cond
+                    ;; breakable -> TRAMPLE, gated alive+DRAWN+COLLIDABLE (a broken crate/dummy
+                    ;; drops out of the set -> the C++ TrampGhost ease-out plays the spring-back)
+                    ((type-type? (-> pd type) crate) (if brk-ok (pc-grass-occ-add! 1 trans r1)))
+                    ((or (= tname 'scarecrow-a) (= tname 'scarecrow-b))
+                     ;; ROUND#24 census of the dummy's real broken-state flags (owner mandate):
+                     ;; one burst every ~10 s -> logcat evidence of which flag marks 'broken'.
+                     (when (zero? (mod *grass-occ-pub-count* 40))
+                       (format 0 "[R24DUMMY] ~A hid=~A cw-live=~A st=~A~%"
+                               tname hid cw-live
+                               (if (-> pd state) (-> pd state name) 'none)))
+                     (if brk-ok (pc-grass-occ-add! 1 trans r1)))
+                    ;; ROUND#23 (owner R22b: break a dummy -> grass disappears, then lying, then
+                    ;; upright): break/debris spawns are transient process-drawables that fell into
+                    ;; the static CULL arm below -> a bald disc stomped the grass for the debris'
+                    ;; lifetime, then the trample ghost replayed. joint-exploder = scarecrow/crate
+                    ;; shard exploder; touch-tracker = dark-eco crate helper. Never publish them.
+                    ((= tname 'joint-exploder) #f)
+                    ((= tname 'touch-tracker) #f)
+                    ;; not ground props: the player pair, pickups, projectiles, cutscene manipys
+                    ((type-type? (-> pd type) target) #f)
+                    ((type-type? (-> pd type) sidekick) #f)
+                    ((type-type? (-> pd type) collectable) #f)
+                    ((type-type? (-> pd type) projectile) #f)
+                    ((type-type? (-> pd type) manipy) #f)
+                    ;; ROUND#24 (owner R23: a bald circle GLIDES with the player after breaking a
+                    ;; dummy): kind-0 CULL is now a STRICT ALLOWLIST of immobile ground MACHINES —
+                    ;; never a catch-all. The old else-arm caught ANY drawn process-drawable, so
+                    ;; the sage-hint VOICEBOX (a process-drawable using the 4 m `speaker` model
+                    ;; whose voicebox-track behavior lerps its trans onto Jak every frame, spawned
+                    ;; by the training-gimmie hint when a dummy breaks, NO entity to anchor it) was
+                    ;; published as a 3 m cull disc riding the player. Collectibles, the sidekick,
+                    ;; projectiles and anything animate are excluded BY CONSTRUCTION now.
+                    ;; Statics stay NOT hidden-gated (eco vents draw eruption children only while
+                    ;; ERUPTING -> a hidden gate made the vent-base cull flicker) and anchored at
+                    ;; the ENTITY spawn trans when there is one (eruption actors bob ~+2.6 m, which
+                    ;; exits the shader Y-band): the base sits where the designer placed it.
+                    ((or (= tname 'warp-gate-switch) (= tname 'plat-eco) (= tname 'warpgate)
+                         (= tname 'tra-iris-door) (= tname 'speaker) (= tname 'hutlamp))
+                     (let ((ent (-> proc entity)))
+                       (when (and (nonzero? (the-as int ent)) (!= (the-as basic ent) #f))
+                         (let ((etr (-> ent extra trans)))
+                           (if etr (set! trans etr))))
+                       (pc-grass-occ-add! 0 trans r)))
+                    ;; everything else: NEVER published. Low-rate census names what the old
+                    ;; catch-all would have culled (the offender detector's GOAL half).
+                    (else
+                      (when (zero? (mod *grass-occ-pub-count* 40))
+                        (format 0 "[R24CENSUS] excl ~A (~m ~m ~m)~%"
+                                tname (-> trans x) (-> trans y) (-> trans z))))))
+                ;; DRAWLESS actors (no draw-control at all): the vent family + ecovalve are pure
+                ;; particle emitters with a REAL physical base in the level -> the bounds path can
+                ;; never see them (ROUND#22b: the dc guard silently dropped ecovent, re-opening the
+                ;; owner's "vent base clips"). Publish their entity-anchored base with a fixed
+                ;; 1.8 m footprint. Every OTHER drawless process-drawable is an invisible logic
+                ;; actor -> no publish (an invisible cull would punch mystery bald discs).
+                (when (or (type-type? (-> pd type) vent) (type-type? (-> pd type) ecovalve))
+                  (let ((trans (-> rt trans))
+                        (ent (-> proc entity)))
+                    (when (and (nonzero? (the-as int ent)) (!= (the-as basic ent) #f))
+                      (let ((etr (-> ent extra trans)))
+                        (if etr (set! trans etr))))
+                    (pc-grass-occ-add! 0 trans (the int (meters 1.8)))))))))
         (none))
       *null-kernel-context*)
     (pc-grass-occ-publish!))

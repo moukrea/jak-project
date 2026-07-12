@@ -45,7 +45,11 @@ uniform int  u_trample_count;
 // OWNER ROUND#21: eased trample RELEASE. u_trample_str[i] is the per-entry strength (0..1) the CPU
 // eases in (~0.25 s) when an object is captured and out (~0.6 s) after it disappears (crate broken),
 // so the grass under a broken crate springs back gradually instead of snapping upright in one frame.
-uniform float u_trample_str[16];
+uniform float u_trample_str[16];  // LEGACY (Adreno miscompiles dynamic float-array reads -> 0)
+// R21f: strengths repacked as a vec4 array (.x) — the SAME array type as u_trample, whose dynamic
+// indexing is PROVEN to work on the Adreno 618 (mode-4 cyan marks). float[16] dynamic reads returned
+// 0 despite a valid location and upload (4th Adreno vertex-shader miscompile in this project).
+uniform vec4 u_trample2[16];
 // OWNER ROUND#21: Jak's recent positions (xyz) with an age-decayed strength in w (~0.6 s window,
 // sampled every ~0.15 s on the CPU). The flatten under a takeoff spot (jump) or behind a sprint keeps
 // pressing with the decaying strength and eases back up instead of dropping to 0 the frame the hard
@@ -186,13 +190,16 @@ void main() {
   float dbg_occ = 0.0;
   float dbg_tr = 0.0;
   bool occ_cull = false;
-  for (int oi = 0; oi < u_occ_count; ++oi) {
-    vec2 od = base.xz - u_occ[oi].xz;
-    float yd = base.y - u_occ[oi].y;
-    if (dot(od, od) < u_occ[oi].w * u_occ[oi].w && yd > -2.5 * 4096.0 && yd < 1.0 * 4096.0) {
-      occ_cull = true;
-    }
-  }
+  // R21f ADRENO FIX (4th miscompile class): uniform-array reads with a DYNAMIC index return garbage
+  // on the Adreno 618 (mode-7 value-probe: u_trample[0] constant-indexed reads the CORRECT radius, the
+  // dynamically-indexed loop saw a tiny one; the occ loop saw a too-BIG one = the owner's button
+  // margin). Constant loop bounds force full unroll -> every index is constant -> correct reads.
+  // R21f FINAL (Adreno): LITERAL-index unroll via macro — [16] uniform arrays spill and their
+  // dynamic/loop reads return garbage on the Adreno 618 (mode-7 probe: [0] constant reads correct;
+  // small [4] arrays like u_jak_trail work). 8 nearest entries are ample (CPU sorts by distance).
+#define OC_STEP(i) if (i < u_occ_count) { vec2 od = base.xz - u_occ[i].xz; float yd = base.y - u_occ[i].y; if (dot(od, od) < u_occ[i].w * u_occ[i].w && yd > -2.5 * 4096.0 && yd < 1.0 * 4096.0) { occ_cull = true; } }
+  OC_STEP(0) OC_STEP(1) OC_STEP(2) OC_STEP(3) OC_STEP(4) OC_STEP(5) OC_STEP(6) OC_STEP(7)
+#undef OC_STEP
   if (occ_cull) {
     if (u_debug == 4) {
       dbg_occ = 1.0;  // forensic: mark, don't collapse
@@ -271,21 +278,24 @@ void main() {
   // instead of culling it -> when the object is broken the grass at its spot is still there and springs
   // back. Press the blade nearly flat within the object's ground footprint and splay it outward; keep
   // the blade (no collapse). u_trample[i] = (world pos, footprint radius); Y-gated like the object cull.
-  for (int mi = 0; mi < u_trample_count; ++mi) {
-    vec2 md = base.xz - u_trample[mi].xz;
-    float myd = base.y - u_trample[mi].y;
-    float mr = u_trample[mi].w;
-    if (dot(md, md) < mr * mr && myd > -2.5 * 4096.0 && myd < 1.0 * 4096.0) {
-      if (u_debug == 4) dbg_tr = 1.0;  // ROUND#19 forensic: mark trample footprint (still flattens)
-      float mdist = length(md);
-      // ROUND#21: scale by the CPU-eased per-entry strength — a broken crate's entry fades out over
-      // ~0.6 s, so the grass under it springs back gradually instead of snapping upright.
-      float mk = (1.0 - mdist / mr) * u_trample_str[mi]; // 1 at object centre -> 0 at footprint edge
-      heightMul = min(heightMul, 1.0 - 0.90 * mk);       // press nearly flat under the object
-      vec2 maway = mdist > 1.0 ? md / mdist : vec2(1.0, 0.0);
-      trample += vec3(maway.x, 0.0, maway.y) * (mk * mk) * H * 1.0;  // splay outward like a footstep
-    }
-  }
+  if (u_debug == 6 && u_trample_count > 0) dbg_tr = 1.0;  // R21f bisect: does count even arrive?
+  // R21f GPU value-probe: mode 6 = grayscale count/16; mode 7 = R:radius0/2m G:strength0 B:0.
+  // Read the pixel -> know EXACTLY what the GPU sees (Adreno uniform corruption forensics).
+// R21g PLATEAU profile (owner: crates STILL looked unflattened): the linear-from-CENTER falloff meant
+// the object's own model hid the strong zone and edge grass was only ~50% pressed. Now: FULL flatten
+// across the whole footprint (w), fading out over +0.45 m beyond it — the grass a player can SEE at a
+// crate's side is pressed flat.
+// ROUND#22 (owner: "on ne voit pas d'herbe couchée sur les bords"): LYING-DOWN ring — in the fade
+// band just OUTSIDE the footprint the blades must visibly LIE flat OUTWARD, not merely shrink. rw
+// ramps 0 (core) -> 1 (ring); the core keeps the owner-validated plateau press (height -> 10%,
+// lateral mk^2), the ring keeps MODERATE height (cut eases to 50%) but gets a STRONG linear lateral
+// push (mk * 1.8 * H, tip-weighted downstream) so the visible edge grass lies radially outward.
+// Literal-index unroll only (R21f LOCKED Adreno pattern), pure mad/clamp/mix math.
+#define TR_FADE (0.45 * 4096.0)
+#define TR_RINGW (0.20 * 4096.0)
+#define TR_STEP(i) if (i < u_trample_count) { vec2 md = base.xz - u_trample[i].xz; float myd = base.y - u_trample[i].y; float mr = u_trample[i].w; float mout = mr + TR_FADE; if (u_debug == 5 && dot(md, md) < mout * mout) dbg_tr = 1.0; if (dot(md, md) < mout * mout && myd > -2.5 * 4096.0 && myd < 1.0 * 4096.0) { if (u_debug == 4) dbg_tr = 1.0; float mdist = length(md); float mk = (1.0 - clamp((mdist - mr) / TR_FADE, 0.0, 1.0)) * u_trample2[i].x; float rw = smoothstep(mr - TR_RINGW, mr + 0.15 * 4096.0, mdist); heightMul = min(heightMul, 1.0 - (0.90 - 0.40 * rw) * mk); vec2 maway = mdist > 1.0 ? md / mdist : vec2(1.0, 0.0); trample += vec3(maway.x, 0.0, maway.y) * mix(mk * mk, mk * 1.8, rw) * H; } }
+  TR_STEP(0) TR_STEP(1) TR_STEP(2) TR_STEP(3) TR_STEP(4) TR_STEP(5) TR_STEP(6) TR_STEP(7)
+#undef TR_STEP
 
   vec3 pos;
   float t_col;
@@ -442,7 +452,9 @@ void main() {
   // ROUND#19 debug mode 4: paint blades inside a registered object-CULL radius MAGENTA and inside a
   // TRAMPLE radius CYAN (instead of hiding them) — one device frame shows exactly where the shader
   // thinks the captured actors are, discriminating "uniforms never land" from "condition wrong".
-  if (u_debug == 4) {
+  if (u_debug == 6) v_color = vec3(float(u_trample_count) / 16.0);
+  if (u_debug == 7) v_color = vec3(u_trample[0].w / 8192.0, u_trample2[0].x, 0.0);
+  if (u_debug >= 4) {  // R21f: modes 4/5 = clause marks
     if (dbg_occ > 0.5) v_color = vec3(1.0, 0.0, 1.0);
     else if (dbg_tr > 0.5) v_color = vec3(0.0, 1.0, 1.0);
   }

@@ -1009,3 +1009,118 @@ SELECTION/TUNING bugs, not architecture. Do NOT redesign the channel.
 ## Proof: R21OCC dump showing the NEAREST crates in the 16 slots when standing at spawn crates + close-up
 frames (crate flattened, button base clean, HIS vent clean); supervisor eyeballs; owner final. Edge stack
 and jump-ease remain LOCKED.
+
+## OWNER DESIGN CORRECTION on ROUND#21e (2026-07-12, verbatim) — statics are BAKED OUT, not runtime
+"Limite à 16 slots ? Pourquoi c'est si cher de plier l'herbe sous une caisse ? Et pour les vents/objets
+non destructibles faut juste pas mettre d'herbe du tout comme pour les rochers par exemple... pareil ça
+devrait pas être coûteux, et t'as littéralement le mesh pour savoir où ne pas mettre d'herbe..."
+=> BINDING DESIGN:
+1. STATIC indestructible actors (warp-gate button+base, eco vents/plat-eco/ecovalve, speaker, any
+   non-breakable ground actor): NO runtime uniform cull. ONE-SHOT placement-style cull, like the TIE
+   rocks: on the FIRST GOAL publish after level load (actors spawned), run a single CPU pass over the
+   built instance buffer removing blades inside each static's ground-contact footprint, re-upload once.
+   After that: zero slots, zero per-frame cost, grass simply DOES NOT EXIST there. (Footprint radius per
+   name for now; the actor's real mesh/bounds footprint is the better long-term source — owner's point.)
+2. BREAKABLE actors ONLY (crates, scarecrows) stay in the runtime TRAMPLE slots (they must disappear ->
+   grass springs back). With statics out of the list, 16 NEAREST-to-Jak is ample; the 16 was never a
+   cost limit (bending is cheap) — the bug was scan-order eviction. Keep distance sort.
+3. The one-shot static cull must NOT regress DROPPED=0 elsewhere (only blades inside footprints removed)
+   and must handle the level-restart path (re-place -> re-cull on next first-publish).
+
+## OWNER VERDICT plateau build (2026-07-12 ~16:30, verbatim) -> ROUND#22 (GOAL-side, 3 items)
+"L'écrasement de l'herbe a l'air de fonctionner dans la mesure où on ne voit pas d'herbe clip au travers
+du coffre mais on ne voit pas d'herbe couchée sur les bords c'est un peu dommage. Et quand on casse la
+caisse, l'herbe reste écrasée même si la caisse n'est plus là et se redresse uniquement si on marche
+dessus et on s'en va — elle devrait se redresser dès que la caisse est cassée (en fait j'ai l'impression
+que même en marchant par-dessus elle ne se redresse pas). Et pour le eco vent, toujours pareil, de
+l'herbe passe au travers de sa base."
+=> CRATE CLIP-THROUGH: FIXED (owner-confirmed). Remaining 3 items, ALL converging on GOAL-side work:
+
+1. SPRING-BACK ON BREAK (root cause KNOWN): a broken crate does NOT die — crates.gc:641 sets
+   draw-status HIDDEN on `die`, the process PERSISTS. The GOAL scan publishes by TYPE without checking
+   visibility -> keeps pushing the ghost's position -> eternal flatten. FIX in the GOAL glue: publish an
+   actor ONLY if alive AND drawn (check draw-status/hidden + dead states). Then the EXISTING TrampGhost
+   ease-out (0.6 s) plays the spring-back the moment the crate breaks. NO new mechanism.
+2. GENERIC GRASS COLLIDER = REAL MODEL BOUNDS (owner design, MANDATORY): stop hand-guessing radii by
+   name. The GOAL glue publishes each actor's REAL footprint: radius from the process-drawable's draw
+   bounds (bsphere w, scaled ~0.8 for ground footprint, clamped 0.5..2.5 m), position = root trans.
+   This must be GENERIC (any relevant ground process-drawable near grass) so future levels' ENEMIES get
+   grass interaction for free — "ça peut pas être que Jak qui interagit avec l'herbe". Fixes the eco-vent
+   base clipping (real vent footprint instead of the guessed 1.2/1.7 m) and the button margin exactly.
+   Remove the R21g interim C++ radius remaps in goal_add() once bounds arrive.
+3. LYING-DOWN EDGE BLADES (shader-only aesthetic): in the plateau FADE ring, blades should visibly LIE
+   flat OUTWARD ("herbe couchée sur les bords"), not merely shrink: boost the lateral trample push in
+   the fade zone (strong sideways displacement + moderate height cut at the RING; core stays pressed).
+## Constraints: GOAL pc-glue edits gated Recharged (OFF==stock); FULL consistent build + 28/28 arm64 CGO
+regen/sync (attempt-11 pipeline; GAME.CGO standalone = UNSAFE); edge stack + jump-ease + R21f literal-
+macro shader pattern LOCKED (never reintroduce dynamic uniform-array indexing — Adreno class, see
+grass.vert OC_STEP/TR_STEP). Proof: close-ups crate flattened WITH lying edge blades / broken crate ->
+grass back within 1 s / vent base clean / button margin exact; R21OCC dump radii = real bounds values.
+Supervisor eyeballs BEFORE any push; owner = final gate. Device: force-stop after tests, watch temp.
+
+## OWNER VERDICT R22b (2026-07-12 ~18:30, verbatim — HONOR test) -> ROUND#23 (last stretch!)
+"Vraiment pas mal ! Le bouton de la warp gate est nickel, le eco vent nickel, par contre je remarque que
+certains petits rochers ont de l'herbe qui passe au travers, probablement un oubli dans l'algo de
+placement. Et pour les training dummies, c'est bizarre ils ont un gros cercle d'herbe écrasé autour
+plutôt que juste autour de ses pieds, et quand on en pète un, l'herbe disparaît, puis revient en herbe
+couchée, puis finalement revient en place... bizarre ! En tout cas on y est presque !"
+=> BUTTON + ECO VENT: CLOSED (owner-validated). THREE last items, diagnoses already made:
+
+1. SMALL ROCKS leak grass: rocks are STATIC TIE props — the round#13 per-instance cull tests TIE
+   VERTICES in the contact band (r 0.45 m); small low-poly rocks have too few near-ground vertices ->
+   blades poke between samples. DIAGNOSE first (census the leaking rock's TIE prototype name near
+   spawn), then fix the TIE contact test for small props: point-in-projected-TIE-triangle footprint (or
+   densified sampling) for prototypes below a size threshold — do NOT crank the global radius (halo
+   regressions, round#13 lesson).
+2. DUMMY (scarecrow) trample circle too BIG — should be his FEET: the radius uses the full-model
+   BSPHERE (tall thin actor -> bsphere*0.8 ~1.5 m). Generic fix (all actors incl. future enemies):
+   trample radius from the actor's COLLIDE-SHAPE root-prim radius (the physics cylinder = true ground
+   footprint), fallback bsphere*0.5, clamp 0.3..1.2 m for kind-1. Crates (squat: bsphere ~= collide
+   radius) must remain visually IDENTICAL (owner: crates PERFECT — regression forbidden; A/B check).
+   Statics (kind 0) keep the current generous factor (button/vent owner-validated — LOCKED).
+3. BREAK SEQUENCE weirdness (disappear -> lying -> upright): breaking spawns a DEBRIS process
+   ('scarecrow-a-break' matches the "scarecrow" capture) -> a NEW big trample entry stomps the grass,
+   then dies -> a second ease-out. FIX: exclude break/debris models from capture (skip names containing
+   '-break'/'-debris', or capture only the intact actor types) -> one clean spring-back on break.
+## LOCKED: edges, jump-ease, crates trample look, button/vent statics factor, R21f literal-macro shader
+pattern. Proof: close-ups at a previously-leaking small rock; dummy with a FEET-sized pressed patch;
+dummy break -> ONE smooth spring-back (frame sequence); crates A/B unchanged. Supervisor eyeballs; owner
+= final gate. Device hygiene + temp watch.
+
+## OWNER VERDICT R23 (2026-07-12 ~20:15, verbatim, HONOR) -> ROUND#24
+"C'est bien mieux ! Mais il y a un bug bizarre où parfois j'ai un rond qui bouge autour de moi sans
+herbe, j'ai remarqué après avoir détruit un des training dummies... Et aussi, quand on casse un training
+dummy, l'herbe sous lui ne se redresse pas contrairement au reste. Par contre nickel, plus d'herbe au
+travers des petits rochers, t'as géré ça !"
+=> SMALL ROCKS: CLOSED (owner-validated, LOCKED). Two items:
+
+1. MOVING BALD CIRCLE (appears after breaking a dummy, follows the player): a kind-0 CULL entry is
+   tracking a MOVING actor. Prime suspect: the dummy's dropped PICKUPS (eco/orbs) fly toward Jak when
+   near -> they fall into the scan's kind-0 ELSE-ARM -> a cull disc glides with them. DESIGN FIX
+   (mandatory, ends this bug class): kind-0 must be a STRICT ALLOWLIST of immobile machine types
+   (warp-gate-switch, vent family/ecovalve, speaker, hutlamp-type ground machines) — NEVER an
+   else-arm/catch-all. Collectibles (money/eco/fuel-cell/pickups), the sidekick, projectiles, and
+   anything animate are excluded BY CONSTRUCTION. Census any moving capture to confirm the suspect
+   before/after (log tname when a kind-0 entry's position moves > 0.2 m between publishes = instant
+   detector of the offender).
+2. DUMMY GRASS DOES NOT SPRING BACK after break (crates do): training dummies REGENERATE — their broken
+   process likely persists alive+drawn (different lifecycle than crates.gc's draw-status-hidden `die`).
+   CENSUS the scarecrow's post-break process state (alive? drawn? which state/flag actually marks
+   'broken'?) and gate the publish on it -> grass springs back like the crates, and re-flattens if/when
+   the dummy regenerates.
+## LOCKED (owner-validated): rocks footprint sampling, dummy FEET radius, crates trample+spring-back,
+button/vent statics, edges, jump-ease, R21f literal-macro pattern. Proof: break a dummy on camera ->
+grass springs back <1 s AND no moving bald circle while collecting the drops (frame seq + the position-
+delta detector log clean); crates A/B unchanged. Supervisor eyeballs; push jak-builds on PASS (standing
+owner order); owner = final gate on HONOR.
+
+## OWNER CORRECTION on ROUND#24 item 1 (2026-07-12, verbatim): "C'est pas le pick-up, c'est pas l'Eco
+## verte, c'est sûr à 100%"
+=> The pickup/green-eco hypothesis is FALSIFIED. Do NOT fix around it. The POSITION-DELTA DETECTOR is
+now the mandatory first step: log the tname + coords of ANY kind-0 entry whose position moves > 0.2 m
+between publishes, reproduce (break a dummy, walk around), and let the LOG name the offender. Remaining
+suspects to keep in mind (do not assume): the sidekick (Daxter), the target/eichar process itself
+slipping into the scan (a bald circle "autour de moi" reads literally as centered on the player), a
+dummy-respawn manager process. The STRICT-ALLOWLIST design fix stays mandatory regardless (it kills the
+whole class no matter which mover it is) — but the census must still IDENTIFY the mover to prove the
+allowlist actually excludes it.
