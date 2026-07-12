@@ -1057,3 +1057,32 @@ macro shader pattern LOCKED (never reintroduce dynamic uniform-array indexing �
 grass.vert OC_STEP/TR_STEP). Proof: close-ups crate flattened WITH lying edge blades / broken crate ->
 grass back within 1 s / vent base clean / button margin exact; R21OCC dump radii = real bounds values.
 Supervisor eyeballs BEFORE any push; owner = final gate. Device: force-stop after tests, watch temp.
+
+## OWNER VERDICT R22b (2026-07-12 ~18:30, verbatim — HONOR test) -> ROUND#23 (last stretch!)
+"Vraiment pas mal ! Le bouton de la warp gate est nickel, le eco vent nickel, par contre je remarque que
+certains petits rochers ont de l'herbe qui passe au travers, probablement un oubli dans l'algo de
+placement. Et pour les training dummies, c'est bizarre ils ont un gros cercle d'herbe écrasé autour
+plutôt que juste autour de ses pieds, et quand on en pète un, l'herbe disparaît, puis revient en herbe
+couchée, puis finalement revient en place... bizarre ! En tout cas on y est presque !"
+=> BUTTON + ECO VENT: CLOSED (owner-validated). THREE last items, diagnoses already made:
+
+1. SMALL ROCKS leak grass: rocks are STATIC TIE props — the round#13 per-instance cull tests TIE
+   VERTICES in the contact band (r 0.45 m); small low-poly rocks have too few near-ground vertices ->
+   blades poke between samples. DIAGNOSE first (census the leaking rock's TIE prototype name near
+   spawn), then fix the TIE contact test for small props: point-in-projected-TIE-triangle footprint (or
+   densified sampling) for prototypes below a size threshold — do NOT crank the global radius (halo
+   regressions, round#13 lesson).
+2. DUMMY (scarecrow) trample circle too BIG — should be his FEET: the radius uses the full-model
+   BSPHERE (tall thin actor -> bsphere*0.8 ~1.5 m). Generic fix (all actors incl. future enemies):
+   trample radius from the actor's COLLIDE-SHAPE root-prim radius (the physics cylinder = true ground
+   footprint), fallback bsphere*0.5, clamp 0.3..1.2 m for kind-1. Crates (squat: bsphere ~= collide
+   radius) must remain visually IDENTICAL (owner: crates PERFECT — regression forbidden; A/B check).
+   Statics (kind 0) keep the current generous factor (button/vent owner-validated — LOCKED).
+3. BREAK SEQUENCE weirdness (disappear -> lying -> upright): breaking spawns a DEBRIS process
+   ('scarecrow-a-break' matches the "scarecrow" capture) -> a NEW big trample entry stomps the grass,
+   then dies -> a second ease-out. FIX: exclude break/debris models from capture (skip names containing
+   '-break'/'-debris', or capture only the intact actor types) -> one clean spring-back on break.
+## LOCKED: edges, jump-ease, crates trample look, button/vent statics factor, R21f literal-macro shader
+pattern. Proof: close-ups at a previously-leaking small rock; dummy with a FEET-sized pressed patch;
+dummy break -> ONE smooth spring-back (frame sequence); crates A/B unchanged. Supervisor eyeballs; owner
+= final gate. Device hygiene + temp watch.
