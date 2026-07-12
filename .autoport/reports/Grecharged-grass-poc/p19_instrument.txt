@@ -1,0 +1,45 @@
+=== ROUND#19 boot instrumentation (dim. 12 juil. 2026 01:42:16 CEST) ===
+--- FLOORBELOW cantilever-cull ---
+07-12 01:41:43.394  6227  6321 I opengoal-gk: [recharged-grass] ROUND#19 FLOORBELOW cantilever-cull: floor_tris=19626 tested=846971 culled=15854 kept=831117
+--- object-CULL / object-TRAMPLE census ---
+07-12 01:41:42.862  6227  6308 I GK_STDOUT: [recharged-grass] ROUND#18 object-TRAMPLE captured: 'crate-wood-lod0' r=0.9m at (3.7 4.5 51.6)m
+07-12 01:41:42.863  6227  6308 I GK_STDOUT: [recharged-grass] ROUND#18 object-CULL captured: 'warp-gate-switch-lod0' r=1.5m at (-8.1 -2.8 11.0)m
+07-12 01:41:46.803  6227  6308 I GK_STDOUT: [recharged-grass] ROUND#18 object-TRAMPLE captured: 'scarecrow-a-lod0' r=0.7m at (6.7 19.0 102.8)m
+07-12 01:41:46.803  6227  6308 I GK_STDOUT: [recharged-grass] ROUND#18 object-TRAMPLE captured: 'scarecrow-b-lod0' r=0.7m at (-14.8 24.2 124.2)m
+--- R19OCC uniform-locations + periodic dumps ---
+07-12 01:41:46.802  6227  6321 I opengoal-gk: [recharged-grass] R19OCC uniform-locations: u_occ=12 u_occ_count=28 u_trample=29 u_trample_count=45 u_jak_pos=5 u_tilt=11
+07-12 01:41:46.802  6227  6321 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=1 ntr=9 jak=(-1316.8,6.9,1057.7) occ[0]=(-8.1,-3.1,10.9 r1.50) tr[0]=(3.7,3.4,51.6 r0.90) tr[1]=(7.7,2.3,42.3 r0.90) tr[2]=(14.4,3.0,47.5 r0.90) tr[3]=(2.1,21.0,116.0 r0.90)
+
+=== BLOCKER: grass ON = ANR SIGKILL ~5-6s after LEVEL-WARP-SPAWN ===
+--- kernel dispatch spike right after FLOORBELOW pass (grass ON boot) ---
+07-12 01:48:17.254  7590  7674 I opengoal-gk: Kernel dispatch time: 1033.627 ms
+07-12 01:48:17.717  7590  7674 I opengoal-gk: Kernel dispatch time: 55.924 ms
+07-12 01:48:31.906  7590  7674 I opengoal-gk: Kernel dispatch time: 3769.559 ms
+--- death (grass ON): SIGKILL, no SIGSEGV/SIGABRT/SIGILL ---
+07-12 01:48:17.254  7590  7674 I opengoal-gk: Kernel dispatch time: 1033.627 ms
+07-12 01:48:31.906  7590  7674 I opengoal-gk: Kernel dispatch time: 3769.559 ms
+07-12 01:48:34.516   889   889 I Zygote  : Process 7590 exited due to signal 9 (Killed)
+07-12 01:48:34.530  1660  3678 I am_proc_died: [0,7590,org.opengoal.gk.jak1,0,2]
+
+=== A/B CONTROL: grass OFF boots STABLE (proves FLOORBELOW pass is the killer) ===
+grass OFF: app survived 30s+ post-spawn, focus=org.opengoal.gk.jak1, max kernel dispatch ~55ms
+07-12 01:50:40.341  7823  7905 I opengoal-gk: Kernel dispatch time: 77.898 ms
+07-12 01:50:40.406  7823  7905 I opengoal-gk: Kernel dispatch time: 65.006 ms
+== SESSION B ==
+
+-- FLOORBELOW --
+07-12 02:12:13.887 11451 11518 I opengoal-gk: [recharged-grass] ROUND#19 FLOORBELOW cantilever-cull: floor_tris=19614 tested=846971 culled=15886 kept=831085
+-- census CULL/TRAMPLE (REAL world coords, camera->world fix WORKING) --
+[recharged-grass] ROUND#18 object-CULL captured: 'warp-gate-switch-lod0' r=1.5m at (-1337.4 15.8 1062.2)m
+[recharged-grass] ROUND#18 object-TRAMPLE captured: 'crate-wood-lod0' r=0.9m at (-1364.1 15.4 1095.8)m
+[recharged-grass] ROUND#18 object-TRAMPLE captured: 'scarecrow-a-lod0' r=0.7m at (-1405.3 7.6 1129.0)m
+[recharged-grass] ROUND#18 object-TRAMPLE captured: 'scarecrow-b-lod0' r=0.7m at (-1435.7 5.5 1124.3)m
+-- R19OCC uniform-locations --
+[recharged-grass] R19OCC uniform-locations: u_occ=12 u_occ_count=28 u_trample=29 u_trample_count=45 u_jak_pos=5 u_tilt=11
+-- R19OCC frame dump --
+[recharged-grass] R19OCC frame=0 nocc=1 ntr=9 jak=(-1316.8,6.9,1057.7) occ[0]=(-1337.4,15.8,1062.2 r1.50) tr[0]=(-1364.1,15.4,1095.8 r0.90) tr[1]=(-1354.1,15.2,1093.6 r0.90) tr[2]=(-1354.5,15.2,1102.0 r0.90) tr[3]=(-1418.9,7.5,1133.1 r0.90)
+[recharged-grass] R19OCC frame=0 nocc=1 ntr=9 jak=(-1316.8,6.9,1057.7) occ[0]=(-1337.4,15.8,1062.2 r1.50) tr[0]=(-1364.1,15.4,1095.8 r0.90) tr[1]=(-1354.1,15.2,1093.6 r0.90) tr[2]=(-1354.5,15.2,1102.0 r0.90) tr[3]=(-1418.9,7.5,1133.1 r0.90)
+-- DEATH SIGNATURE (Adreno GPU deadlock -> SIGKILL, both boots) --
+boot1: spawned 02:10:02, Adreno errno35 Resource deadlock 02:10:08, SIGKILL(9) 02:10:09 (~7s alive)
+boot2: spawned ~02:12:xx, Adreno errno35 Resource deadlock 02:12:19, SIGKILL(9) 02:12:20
+MemAvailable 3.0GB at kill = NOT OOM; GPU command-queue deadlock (831085 kept grass instances).

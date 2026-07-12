@@ -721,15 +721,41 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     int root_slot = input_data[0];  // first bone in the slot string = the root/align joint
     if (r_m > 0.f && root_slot < MAX_SKEL_BONES) {
       const float* t = reinterpret_cast<const float*>(&skel_matrix_buffer[root_slot]);
-      if (trample) {
-        grass_occ::add_trample(t[12], t[13], t[14], r_m * 4096.f);
-      } else {
-        grass_occ::add(t[12], t[13], t[14], r_m * 4096.f);
-      }
-      static std::set<std::string> s_seen_occ;
-      if (s_seen_occ.insert(name).second) {
-        fmt::print("[recharged-grass] ROUND#18 object-{} captured: '{}' r={}m\n",
-                   trample ? "TRAMPLE" : "CULL", name, r_m);
+      // ROUND#19: the merc bone translation is in the game's merc CAMERA space (m_low_memory.perspective
+      // maps it to clip), NOT world — device forensics showed the round#18 captures landing ~1300m from
+      // the level. Recover world by equating the two pipelines' clip output for the same point:
+      //   -M3 - M*world == P*bone  (M = tfrag/grass camera matrix, both shaders add the same hvdf after)
+      // and solving the 3x3 linear system. Convention-exact; a degenerate det skips the capture.
+      const auto& P = m_low_memory.perspective;       // merc: clip_linear = P0*bx + P1*by + P2*bz + P3
+      const auto& M = render_state->camera_matrix;    // grass/tfrag: clip_linear = -M3 - M0*x - M1*y - M2*z
+      float Cx = P[0].x() * t[12] + P[1].x() * t[13] + P[2].x() * t[14] + P[3].x();
+      float Cy = P[0].y() * t[12] + P[1].y() * t[13] + P[2].y() * t[14] + P[3].y();
+      float Cz = P[0].z() * t[12] + P[1].z() * t[13] + P[2].z() * t[14] + P[3].z();
+      // A[r][c] = M_c[r] (column c of the grass camera matrix); rhs[r] = -M3[r] - C[r].
+      float A00 = M[0].x(), A01 = M[1].x(), A02 = M[2].x();
+      float A10 = M[0].y(), A11 = M[1].y(), A12 = M[2].y();
+      float A20 = M[0].z(), A21 = M[1].z(), A22 = M[2].z();
+      float b0 = -M[3].x() - Cx, b1 = -M[3].y() - Cy, b2 = -M[3].z() - Cz;
+      float det = A00 * (A11 * A22 - A12 * A21) - A01 * (A10 * A22 - A12 * A20) +
+                  A02 * (A10 * A21 - A11 * A20);
+      if (std::fabs(det) >= 1e-12f) {                 // degenerate -> skip this frame's capture (no garbage)
+        float inv = 1.0f / det;
+        float wx = (b0 * (A11 * A22 - A12 * A21) - A01 * (b1 * A22 - A12 * b2) +
+                    A02 * (b1 * A21 - A11 * b2)) * inv;
+        float wy = (A00 * (b1 * A22 - A12 * b2) - b0 * (A10 * A22 - A12 * A20) +
+                    A02 * (A10 * b2 - b1 * A20)) * inv;
+        float wz = (A00 * (A11 * b2 - b1 * A21) - A01 * (A10 * b2 - b1 * A20) +
+                    b0 * (A10 * A21 - A11 * A20)) * inv;
+        if (trample) {
+          grass_occ::add_trample(wx, wy, wz, r_m * 4096.f);
+        } else {
+          grass_occ::add(wx, wy, wz, r_m * 4096.f);
+        }
+        static std::set<std::string> s_seen_occ;
+        if (s_seen_occ.insert(name).second) {
+          fmt::print("[recharged-grass] ROUND#18 object-{} captured: '{}' r={}m at ({:.1f} {:.1f} {:.1f})m\n",
+                     trample ? "TRAMPLE" : "CULL", name, r_m, wx / 4096.f, wy / 4096.f, wz / 4096.f);
+        }
       }
     }
   }

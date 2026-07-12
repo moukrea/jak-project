@@ -13,6 +13,7 @@ layout (location = 0) in vec4 inst_pos;   // xyz = world base position (GOAL uni
 layout (location = 1) in vec4 inst_par;   // x = yaw(rad), y = tint(0..1), z = curve(0..1), w = breeze phase(0..1)
 layout (location = 2) in vec4 inst_gcol;  // POLISH#4: xyz = avg colour of the ground texture under this blade (0..1)
 layout (location = 3) in vec4 inst_light; // POLISH#9: rgb = ground's DYNAMIC baked light under this blade (0..1; *2 = ground factor)
+layout (location = 4) in vec4 inst_normal; // ROUND#19: xyz = unit ground-face normal (world, ny>=0) for the normal-tilt blend
 
 // scene camera (same uniforms/semantics as collision.vert)
 uniform vec4 hvdf_offset;
@@ -28,7 +29,8 @@ uniform int   u_mode;      // 0 = blade pass, 1 = card pass
 uniform float u_near_dist; // near-blade fade-out radius (world units)
 uniform float u_card_dist; // grass-card fade-out radius (world units)
 uniform vec4  u_jak_ledge; // xyz = ledge-grab point, w = 1 while Jak hangs (ledge-parting trample)
-uniform int   u_debug;     // ROUND#14 discriminator: 0 normal / 1 base-stubs (magenta) / 2 blades (cyan) / 3 cards (yellow)
+uniform int   u_debug;     // ROUND#14 discriminator: 0 normal / 1 base-stubs (magenta) / 2 blades (cyan) / 3 cards (yellow) / 4 occ+trample forensic
+uniform float u_tilt;      // ROUND#19: normal-tilt blend (0 = world-up growth, bit-identical; ~0.30 A/B)
 // OWNER ROUND#18: object occluders (crates / warp-gate button) captured per-frame in Merc2 (merc
 // actors, not in the static level data). xyz = world pos (GOAL units), w = ground-contact radius. A
 // blade whose base is within an occluder's XZ radius AND near its ground height is hidden, so no grass
@@ -160,10 +162,28 @@ void main() {
   // the blade's ground position; u_occ[i] = (world xyz, ground-contact radius). yd = grass Y - object
   // root Y: cull only when the object sits on THIS grass height (band [-2.5 m .. +1 m]) so an object on
   // a higher/lower platform never culls this grass. Collapses the whole blade/card offscreen.
+  // ROUND#19 debug mode 4: instead of hiding/flattening, MARK blades inside a registered CULL radius
+  // (dbg_occ) or TRAMPLE radius (dbg_tr) so one device frame shows exactly where the shader thinks the
+  // captured actors are (discriminates "uniforms never land" from "condition wrong").
+  // ROUND#19 GPU-hang fix: NO `return`/`continue`/`break` INSIDE this loop. The round#18 mid-loop
+  // return was dynamically dead on device until the camera->world capture fix made the condition
+  // actually fire — the first live run deadlocked the Adreno 618 (kgsl WAITTIMESTAMP errno 35 ->
+  // app SIGKILL): early-exit control flow inside a uniform-bounded loop is Adreno miscompile bait.
+  // Pure flag accumulation in the loop (<=16 iters), single exit AFTER it.
+  float dbg_occ = 0.0;
+  float dbg_tr = 0.0;
+  bool occ_cull = false;
   for (int oi = 0; oi < u_occ_count; ++oi) {
     vec2 od = base.xz - u_occ[oi].xz;
     float yd = base.y - u_occ[oi].y;
     if (dot(od, od) < u_occ[oi].w * u_occ[oi].w && yd > -2.5 * 4096.0 && yd < 1.0 * 4096.0) {
+      occ_cull = true;
+    }
+  }
+  if (occ_cull) {
+    if (u_debug == 4) {
+      dbg_occ = 1.0;  // forensic: mark, don't collapse
+    } else {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       v_color = vec3(0.0);
       v_alpha = 0.0;
@@ -224,6 +244,7 @@ void main() {
     float myd = base.y - u_trample[mi].y;
     float mr = u_trample[mi].w;
     if (dot(md, md) < mr * mr && myd > -2.5 * 4096.0 && myd < 1.0 * 4096.0) {
+      if (u_debug == 4) dbg_tr = 1.0;  // ROUND#19 forensic: mark trample footprint (still flattens)
       float mdist = length(md);
       float mk = 1.0 - mdist / mr;                       // 1 at object centre -> 0 at footprint edge
       heightMul = min(heightMul, 1.0 - 0.90 * mk);       // press nearly flat under the object
@@ -248,9 +269,14 @@ void main() {
     float bend = curve * t * t;                    // static curvature
     float fwd_amt = (bend + sway * 0.38) * H * rim_h;  // ROUND#14: no lean past a rim
 
+    // ROUND#19: optional normal-tilt — the blade grows along a blend of world-up and its ground
+    // polygon's face normal (u_tilt = 0 -> exactly world-up, bit-identical to before).
+    vec3 grow_axis = normalize(mix(vec3(0.0, 1.0, 0.0), inst_normal.xyz, u_tilt));
+    float grow_h = t * H * heightMul * rim_h;      // ROUND#14 rim taper + trample; magnitude unchanged
+
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)
-        + vec3(0.0, t * H * heightMul * rim_h, 0.0)    // ROUND#14: rim taper -> no tall blade past the edge
+        + grow_axis * grow_h                       // ROUND#19: grow along world-up<->normal blend axis
         + fwdv * fwd_amt
         + trample * t * rim_h;
     t_col = t;
@@ -365,6 +391,13 @@ void main() {
   else if (u_debug == 3) col = vec3(1.0, 1.0, 0.05);
 
   v_color = col;
+  // ROUND#19 debug mode 4: paint blades inside a registered object-CULL radius MAGENTA and inside a
+  // TRAMPLE radius CYAN (instead of hiding them) — one device frame shows exactly where the shader
+  // thinks the captured actors are, discriminating "uniforms never land" from "condition wrong".
+  if (u_debug == 4) {
+    if (dbg_occ > 0.5) v_color = vec3(1.0, 0.0, 1.0);
+    else if (dbg_tr > 0.5) v_color = vec3(0.0, 1.0, 1.0);
+  }
   v_alpha = alpha;
   v_seed = tint * 331.0 + phase * 71.0;   // per-instance tuft seed
 
