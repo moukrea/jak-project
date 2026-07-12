@@ -331,6 +331,16 @@ void goal_add(int kind, float x, float y, float z, float r_world) {
   if (x == 0.f && z == 0.f) {
     return;
   }
+  // R22b (owner: crates PERFECT, but the warp button's base ring clips again — bsphere*0.8 is too
+  // tight for STATIC culls whose ground base flares wider than the scaled bsphere; same for vents and
+  // any similar machine, treated uniformly): statics get a generous factor. A slightly larger bald
+  // ring around a machine reads natural; grass through its base does not. Trample (kind 1) untouched.
+  if (kind == 0) {
+    constexpr float U = 4096.f;
+    r_world *= 1.5f;
+    if (r_world < 0.9f * U) r_world = 0.9f * U;
+    if (r_world > 3.0f * U) r_world = 3.0f * U;
+  }
   auto& v = (kind == 1) ? s_goal_stage_tramp : s_goal_stage_cull;
   if (v.size() < 64) {
     v.push_back({x, y, z, r_world});
