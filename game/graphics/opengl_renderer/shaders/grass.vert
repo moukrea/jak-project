@@ -260,9 +260,17 @@ void main() {
     int seg = gl_VertexID / 2;
     int side = gl_VertexID - seg * 2;              // 0 or 1
     float t = float(seg) / float(SEGMENTS);        // 0 base -> 1 tip
+    // ROUND#19 GPU-WEDGE FIX (the real one — device-bisected): blades whose base sits almost ON the
+    // camera rasterize as screen-filling blended quads; in a 150%-density field one frame's fill then
+    // exceeds the Adreno 618 kgsl watchdog (~2s) -> IOCTL_KGSL errno-35 "Resource deadlock" -> ANR
+    // SIGKILL ~5s after spawn. Bisect proof: cards-only (never nearer than the card LOD band) survive,
+    // blades-only die, density 50% survives, the round#18 shader dies too (code exonerated — it is the
+    // FILL). Collapse blade geometry within ~1.1 m of the camera (industry-standard near-fade): zero
+    // area = zero fragments, so worst-case fill is bounded no matter the density or camera path.
+    float nearf = smoothstep(0.35 * 4096.0, 1.1 * 4096.0, cam_dist);
     // OWNER POLISH#3: wider, fuller blades so the lawn reads DENSER (more ground
     // coverage per blade) on top of the higher instance budget (density++ #1 ask).
-    float hw = H * 0.092 * (1.0 - 0.66 * t) * rim_w; // half width, tapering to the tip (+ rim taper)
+    float hw = H * 0.092 * (1.0 - 0.66 * t) * rim_w * nearf; // half width, tapering to the tip (+ rim taper)
 
     // breeze: shared gust, grows toward the tip
     float sway = sin(gust) * t * t;
@@ -277,7 +285,7 @@ void main() {
     // disabling the attrib-4 fetch (grass_noattr4=1) did NOT help, so the trigger is the normalize/mix
     // expression itself in this branch, not the per-instance normal fetch. Small-angle linear tilt
     // (pure multiply-adds) renders the same 30%-blend look without the wedge.
-    float grow_h = t * H * heightMul * rim_h;      // ROUND#14 rim taper + trample; magnitude unchanged
+    float grow_h = t * H * heightMul * rim_h * nearf;  // ROUND#14 rim taper + trample (+ lens near-fade)
 
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)
