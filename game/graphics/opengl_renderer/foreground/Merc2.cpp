@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <chrono>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -739,11 +740,23 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
       r_m = 1.5f;
     } else if (std::strstr(name, "ecovalve")) {       // static blue eco valve -> cull
       r_m = 1.0f;
+    } else if (std::strstr(name, "plat-eco")) {       // ROUND#21 census: training blue-eco vent -> cull
+      r_m = 1.2f;
+    } else if (std::strstr(name, "speaker")) {        // ROUND#21 census: ground speaker at spawn -> cull
+      r_m = 0.6f;
     }
     int root_slot = input_data[0];  // first bone in the slot string = the root/align joint
     // ROUND#21 census: run the world-recovery for EVERY drawn model when armed, so unhandled
     // ground objects (planks, decor, vents...) show up with usable world coords.
-    if ((r_m > 0.f || grass_census_on()) && root_slot < MAX_SKEL_BONES) {
+    // ROUND#21b SELF-CALIBRATION (owner playtest forensics): the recovered world Y ran ~+8-10 m HIGH
+    // (crates at y=17-18 where Jak walks at y=7-9), so the shader's [-2.5..+1] m object Y-band rejected
+    // EVERY cull/flatten -> "l'herbe passe toujours au travers" while the jak-pos path (true GOAL coords)
+    // worked (jump-ease OK). Jak's own merc model ('eichar') runs through this SAME recovery, and his
+    // TRUE world pos is known (recharged_jak_pos) -> per-frame error E = recovered(eichar) - true(jak),
+    // subtracted from every other capture. Whatever the convention error is, it cancels. Captures are
+    // gated on a FRESH calibration (<0.5 s) so title/attract/garbage-camera frames can't emit junk.
+    if ((r_m > 0.f || grass_census_on() || std::strstr(name, "eichar")) &&
+        root_slot < MAX_SKEL_BONES) {
       const float* t = reinterpret_cast<const float*>(&skel_matrix_buffer[root_slot]);
       // ROUND#19: the merc bone translation is in the game's merc CAMERA space (m_low_memory.perspective
       // maps it to clip), NOT world — device forensics showed the round#18 captures landing ~1300m from
@@ -770,24 +783,50 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
                     A02 * (A10 * b2 - b1 * A20)) * inv;
         float wz = (A00 * (A11 * b2 - b1 * A21) - A01 * (A10 * b2 - b1 * A20) +
                     b0 * (A10 * A21 - A11 * A20)) * inv;
-        if (r_m > 0.f) {
+        // ROUND#21b self-calibration state: E = recovered(eichar) - true(jak), stamped with a
+        // monotonic time so stale calibrations (title/attract, load blackouts) gate captures OFF.
+        static float s_cal[3] = {0.f, 0.f, 0.f};
+        static double s_cal_t = -1.0;
+        auto now_s = [] {
+          return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
+              .count();
+        };
+        if (std::strstr(name, "eichar")) {
+          const auto& jt = Gfx::g_global_settings.recharged_jak_pos;
+          if (jt[3] > 0.5f) {
+            s_cal[0] = wx - jt[0];
+            s_cal[1] = wy - jt[1];
+            s_cal[2] = wz - jt[2];
+            s_cal_t = now_s();
+            static double s_cal_log_t = -100.0;
+            if (s_cal_t - s_cal_log_t > 30.0) {
+              s_cal_log_t = s_cal_t;
+              fmt::print("[recharged-grass] R21CAL eichar-vs-jak err=({:.2f} {:.2f} {:.2f})m — "
+                         "subtracted from every object capture\n",
+                         s_cal[0] / 4096.f, s_cal[1] / 4096.f, s_cal[2] / 4096.f);
+            }
+          }
+        }
+        const bool cal_fresh = s_cal_t > 0.0 && (now_s() - s_cal_t) < 0.5;
+        const float cwx = wx - s_cal[0], cwy = wy - s_cal[1], cwz = wz - s_cal[2];
+        if (r_m > 0.f && cal_fresh) {  // no fresh calibration -> skip (never emit junk coords)
           if (trample) {
-            grass_occ::add_trample(wx, wy, wz, r_m * 4096.f);
+            grass_occ::add_trample(cwx, cwy, cwz, r_m * 4096.f);
           } else {
-            grass_occ::add(wx, wy, wz, r_m * 4096.f);
+            grass_occ::add(cwx, cwy, cwz, r_m * 4096.f);
           }
           static std::set<std::string> s_seen_occ;
           if (s_seen_occ.insert(name).second) {
-            fmt::print("[recharged-grass] ROUND#18 object-{} captured: '{}' r={}m at ({:.1f} {:.1f} {:.1f})m\n",
-                       trample ? "TRAMPLE" : "CULL", name, r_m, wx / 4096.f, wy / 4096.f, wz / 4096.f);
+            fmt::print("[recharged-grass] ROUND#18 object-{} captured: '{}' r={}m at ({:.1f} {:.1f} {:.1f})m (calibrated)\n",
+                       trample ? "TRAMPLE" : "CULL", name, r_m, cwx / 4096.f, cwy / 4096.f, cwz / 4096.f);
           }
         }
         // ROUND#21 object-clip completeness census (one line per unique model when armed).
         if (grass_census_on()) {
           static std::set<std::string> s_census_seen;
           if (s_census_seen.insert(name).second) {
-            fmt::print("[recharged-grass] R21CENSUS model='{}' at ({:.1f} {:.1f} {:.1f})m handled={}\n",
-                       name, wx / 4096.f, wy / 4096.f, wz / 4096.f,
+            fmt::print("[recharged-grass] R21CENSUS model='{}' at ({:.1f} {:.1f} {:.1f})m cal={} handled={}\n",
+                       name, cwx / 4096.f, cwy / 4096.f, cwz / 4096.f, cal_fresh ? 1 : 0,
                        r_m > 0.f ? (trample ? "TRAMPLE" : "CULL") : "none");
           }
         }
