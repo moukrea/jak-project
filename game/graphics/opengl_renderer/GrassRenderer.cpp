@@ -364,6 +364,33 @@ void goal_publish() {
   }
   static int s_pub_n = 0;
   s_pub_n++;
+  // ROUND#24 position-delta offender detector (owner: a bald cull disc GLIDED with the player
+  // after breaking a dummy). A kind-0 CULL entry is by design an IMMOBILE machine — if an entry
+  // sits 0.2..12 m from its nearest neighbour of the PREVIOUS publish, the same disc moved
+  // between publishes and the GOAL allowlist has been violated. Must stay silent forever; the
+  // [R24CENSUS] GOAL log names the excluded type at matching coords.
+  {
+    static std::vector<std::array<float, 4>> s_prev_cull;
+    static int s_move_log_pub = -100;
+    constexpr float UM = 4096.f;
+    if (!s_prev_cull.empty()) {
+      for (const auto& e : s_goal_stage_cull) {
+        float best = 1e30f;
+        for (const auto& p : s_prev_cull) {
+          float dx = (e[0] - p[0]) / UM, dy = (e[1] - p[1]) / UM, dz = (e[2] - p[2]) / UM;
+          best = std::min(best, dx * dx + dy * dy + dz * dz);
+        }
+        if (best > 0.2f * 0.2f && best < 12.f * 12.f && s_pub_n - s_move_log_pub >= 8) {
+          s_move_log_pub = s_pub_n;
+          lg::warn(
+              "[recharged-grass] R24MOVE kind0 CULL entry MOVED {:.2f} m to ({:.1f},{:.1f},{:.1f})"
+              " — static allowlist violated",
+              std::sqrt(best), e[0] / UM, e[1] / UM, e[2] / UM);
+        }
+      }
+    }
+    s_prev_cull = s_goal_stage_cull;
+  }
   // ROUND#21e: 240-publish cadence never produced a post-actor-spawn line inside a capture window
   // (publishes are one per 30 game frames); every 20 (~10 s) keeps the log quiet but harvestable.
   if (s_pub_n <= 5 || s_pub_n % 20 == 0) {
