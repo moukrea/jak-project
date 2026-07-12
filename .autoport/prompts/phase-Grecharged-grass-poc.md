@@ -984,3 +984,28 @@ trample works perfectly. EXTEND the same pattern to ground actors:
 4. Radii: crate 0.9, scarecrow 0.7, warp-gate-switch 1.5, plat-eco 1.2, speaker 0.6 (m).
 ## Proof: R21OCC dump shows actor coords CONSISTENT with jak= (same space, sane deltas); device close-ups
 crate (flattened -> broken -> springs back), button, plat-eco, speaker; supervisor eyeballs; owner final.
+
+## OWNER VERDICT ROUND#21d (2026-07-12, verbatim) -> ROUND#21e (TUNING — the channel itself WORKS)
+"Bof... toujours pas d'herbe écrasée sous les caisses et coffres, le bouton du warp gate m'a donné
+l'impression que c'était ok parce que je voyais pas d'herbe clip au travers du bouton mais autour sur sa
+base on a bien de l'herbe qui clip, et le vent d'eco bleue... Bah pareil, ça clip à mort."
+=> The button TOP being clean proves the GOAL channel + shader cull WORK. Remaining failures are
+SELECTION/TUNING bugs, not architecture. Do NOT redesign the channel.
+
+## SUPERVISOR DIAGNOSIS (from the R21OCC dumps)
+1. **16-SLOT EVICTION (prime suspect for the crates):** frame=150 shows ntr=16 == the u_trample[16]
+   shader cap, and tr[0..3] are all r=0.70 scarecrows 100-170m away — the GOAL pool scan publishes the
+   FIRST 16 encountered, so the crates NEXT TO JAK are silently dropped. FIX: sort candidates by distance
+   to Jak and publish the 16 NEAREST (only near ones matter visually — flatten is invisible past ~40m).
+   Same for the cull list (nocc cap).
+2. **BUTTON BASE:** r=1.5m covers the button head but not its base ring -> grass clips around the base.
+   Raise warp-gate-switch radius to ~2.2m (and/or verify the cull center = the base center, not the head).
+3. **ECO VENT INSTANCE:** occ[1] published at y=52.3 (a TERRACE vent) while the owner stands at y~7 — his
+   vent may not be in the published set at all (instance selection / multiple plat-eco processes). Log
+   EVERY plat-eco/ecovalve instance found in the scan (pos + published-or-dropped) and make sure ALL are
+   published (they are few; they fit).
+4. **Y-BAND validation:** dump (obj_y - ground_y) per published entry once; if crate root trans sits
+   > +1 m above the blade bases (shader band [-2.5..+1]), widen the band or offset the published y down.
+## Proof: R21OCC dump showing the NEAREST crates in the 16 slots when standing at spawn crates + close-up
+frames (crate flattened, button base clean, HIS vent clean); supervisor eyeballs; owner final. Edge stack
+and jump-ease remain LOCKED.
