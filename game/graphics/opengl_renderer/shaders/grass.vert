@@ -165,11 +165,11 @@ void main() {
   // ROUND#19 debug mode 4: instead of hiding/flattening, MARK blades inside a registered CULL radius
   // (dbg_occ) or TRAMPLE radius (dbg_tr) so one device frame shows exactly where the shader thinks the
   // captured actors are (discriminates "uniforms never land" from "condition wrong").
-  // ROUND#19 GPU-hang fix: NO `return`/`continue`/`break` INSIDE this loop. The round#18 mid-loop
-  // return was dynamically dead on device until the camera->world capture fix made the condition
-  // actually fire — the first live run deadlocked the Adreno 618 (kgsl WAITTIMESTAMP errno 35 ->
-  // app SIGKILL): early-exit control flow inside a uniform-bounded loop is Adreno miscompile bait.
-  // Pure flag accumulation in the loop (<=16 iters), single exit AFTER it.
+  // ROUND#19: flag accumulation in the loop (<=16 iters), single exit AFTER it. (NOTE: the theory
+  // that the round#18 mid-loop `return` caused the Adreno deadlock was FALSIFIED by the grass_dbg
+  // device bisect — cards-only mode runs this same restructured block and is stable, and the real
+  // wedge was the blade-branch normalize(mix(...)) growth axis, fixed below. The restructure is
+  // kept: it is equivalent and simpler for the compiler.)
   float dbg_occ = 0.0;
   float dbg_tr = 0.0;
   bool occ_cull = false;
@@ -269,14 +269,20 @@ void main() {
     float bend = curve * t * t;                    // static curvature
     float fwd_amt = (bend + sway * 0.38) * H * rim_h;  // ROUND#14: no lean past a rim
 
-    // ROUND#19: optional normal-tilt — the blade grows along a blend of world-up and its ground
-    // polygon's face normal (u_tilt = 0 -> exactly world-up, bit-identical to before).
-    vec3 grow_axis = normalize(mix(vec3(0.0, 1.0, 0.0), inst_normal.xyz, u_tilt));
+    // ROUND#19: optional normal-tilt — the blade leans toward its ground polygon's face normal by
+    // u_tilt (0 = EXACTLY the old world-up growth term). ADRENO-SAFE FORM: the first implementation,
+    // `normalize(mix(vec3(0,1,0), inst_normal.xyz, u_tilt))`, wedged the Adreno 618 at the FIRST blade
+    // draw (kgsl WAITTIMESTAMP errno 35 -> app SIGKILL ~2s later) — device-bisected via grass_dbg
+    // (blades-only died, cards-only survived; the only blade-branch delta was this expression), and
+    // disabling the attrib-4 fetch (grass_noattr4=1) did NOT help, so the trigger is the normalize/mix
+    // expression itself in this branch, not the per-instance normal fetch. Small-angle linear tilt
+    // (pure multiply-adds) renders the same 30%-blend look without the wedge.
     float grow_h = t * H * heightMul * rim_h;      // ROUND#14 rim taper + trample; magnitude unchanged
 
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)
-        + grow_axis * grow_h                       // ROUND#19: grow along world-up<->normal blend axis
+        + vec3(0.0, grow_h, 0.0)                   // world-up growth (u_tilt=0 path, bit-identical)
+        + vec3(inst_normal.x, 0.0, inst_normal.z) * (grow_h * u_tilt)  // ROUND#19: lean toward the normal
         + fwdv * fwd_amt
         + trample * t * rim_h;
     t_col = t;
