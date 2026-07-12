@@ -1,0 +1,80 @@
+=== A-CRATES (expect tr[0..3]=r0.90 crates ~(-1285..-1296,7,1024..1035)) ===
+07-12 14:42:37.530  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND occ[0] pos=(-1297.4,11.8,1029.5) r=0.60 nearest-blade-xz=0.06m dy(obj-blade)=4.67m OUT-OF-BAND
+07-12 14:42:37.540  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND occ[1] pos=(-1298.9,52.3,1009.0) r=1.20 nearest-blade-xz=0.05m dy(obj-blade)=45.16m OUT-OF-BAND
+07-12 14:42:37.546  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND occ[2] pos=(-1312.0,6.7,1063.8) r=2.20 nearest-blade-xz=0.09m dy(obj-blade)=-0.10m IN-BAND
+07-12 14:42:37.549  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[0] pos=(-1295.3,7.4,1032.5) r=0.90 nearest-blade-xz=0.06m dy(obj-blade)=-0.05m IN-BAND
+07-12 14:42:37.553  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[1] pos=(-1294.9,7.3,1024.0) r=0.90 nearest-blade-xz=0.03m dy(obj-blade)=-0.03m IN-BAND
+07-12 14:42:37.557  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[2] pos=(-1285.3,7.1,1030.3) r=0.90 nearest-blade-xz=0.13m dy(obj-blade)=-0.03m IN-BAND
+07-12 14:42:37.561  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[3] pos=(-1244.6,15.0,997.0) r=0.70 nearest-blade-xz=0.07m dy(obj-blade)=-0.06m IN-BAND
+07-12 14:42:37.565  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[4] pos=(-1230.4,15.0,1005.1) r=0.70 nearest-blade-xz=0.37m dy(obj-blade)=-0.51m IN-BAND
+07-12 14:42:37.569  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[5] pos=(-1230.5,15.0,995.1) r=0.90 nearest-blade-xz=0.13m dy(obj-blade)=0.32m IN-BAND
+07-12 14:42:37.573  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[6] pos=(-1230.5,15.0,993.0) r=0.90 nearest-blade-xz=0.02m dy(obj-blade)=0.31m IN-BAND
+07-12 14:42:37.577  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[7] pos=(-1213.7,17.0,1001.7) r=0.70 nearest-blade-xz=0.06m dy(obj-blade)=-0.33m IN-BAND
+07-12 14:42:37.581  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[8] pos=(-1216.9,17.0,980.9) r=0.70 nearest-blade-xz=0.08m dy(obj-blade)=-0.33m IN-BAND
+07-12 14:42:37.585  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[9] pos=(-1196.0,19.0,984.0) r=0.70 nearest-blade-xz=0.13m dy(obj-blade)=-0.76m IN-BAND
+07-12 14:42:37.589  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[10] pos=(-1187.9,15.0,999.0) r=0.90 nearest-blade-xz=0.03m dy(obj-blade)=-0.02m IN-BAND
+07-12 14:42:37.593  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[11] pos=(-1166.8,15.0,985.0) r=0.90 nearest-blade-xz=0.09m dy(obj-blade)=-0.09m IN-BAND
+07-12 14:42:37.598  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[12] pos=(-1166.8,15.0,982.8) r=0.90 nearest-blade-xz=0.15m dy(obj-blade)=-0.08m IN-BAND
+07-12 14:42:37.602  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[13] pos=(-1164.7,15.0,985.0) r=0.90 nearest-blade-xz=0.13m dy(obj-blade)=-0.07m IN-BAND
+07-12 14:42:37.607  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[14] pos=(-1164.7,15.0,982.9) r=0.90 nearest-blade-xz=0.03m dy(obj-blade)=-0.05m IN-BAND
+07-12 14:42:37.611  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[15] pos=(-1158.2,15.2,994.6) r=0.90 nearest-blade-xz=0.03m dy(obj-blade)=-0.02m IN-BAND
+07-12 14:42:37.615  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[16] pos=(-1164.3,15.0,973.4) r=0.70 nearest-blade-xz=0.08m dy(obj-blade)=-0.07m IN-BAND
+07-12 14:42:37.619  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[17] pos=(-1146.8,15.0,977.3) r=0.70 nearest-blade-xz=0.06m dy(obj-blade)=-0.23m IN-BAND
+07-12 14:42:37.622  1136  1289 I opengoal-gk: [recharged-grass] R21E-YBAND tr[18] pos=(-1140.7,20.2,986.9) r=0.90 nearest-blade-xz=0.11m dy(obj-blade)=-0.01m IN-BAND
+07-12 14:42:22.439  1136  1303 I opengoal-gk: [recharged-grass] R21OCC goal-publish #2 ncull=0 ntr=0
+07-12 14:42:22.940  1136  1303 I opengoal-gk: [recharged-grass] R21OCC goal-publish #3 ncull=0 ntr=0
+07-12 14:42:23.440  1136  1303 I opengoal-gk: [recharged-grass] R21OCC goal-publish #4 ncull=0 ntr=0
+07-12 14:42:23.939  1136  1303 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 14:42:31.454  1136  1303 I opengoal-gk: [recharged-grass] R21OCC goal-publish #20 ncull=0 ntr=0
+07-12 14:43:52.340  1136  1303 I opengoal-gk: [recharged-grass] R21OCC goal-publish #40 ncull=2 ntr=19 cull[0]=(-1312.0,6.7,1063.8 r2.20) cull[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1140.7,20.2,986.9 r0.90) tr[1]=(-1158.2,15.2,994.6 r0.90) tr[2]=(-1187.9,15.0,999.0 r0.90)
+07-12 14:42:36.325  1136  1289 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=0 ntr=0 jak=(-1297.5,7.6,1035.0)
+07-12 14:42:58.484  1136  1289 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=2 ntr=19 jak=(-1297.5,7.3,1035.0) occ[0]=(-1298.9,52.3,1009.0 r1.20) occ[1]=(-1312.0,6.7,1063.8 r2.20) tr[0]=(-1295.3,7.4,1032.5 r0.90) tr[1]=(-1294.9,7.3,1024.0 r0.90) tr[2]=(-1285.3,7.1,1030.3 r0.90) tr[3]=(-1244.6,15.0,997.0 r0.70)
+07-12 14:43:19.316  1136  1289 I opengoal-gk: [recharged-grass] R19OCC frame=300 nocc=2 ntr=23 jak=(-1297.5,7.3,1035.0) occ[0]=(-1298.9,52.3,1009.0 r1.20) occ[1]=(-1312.0,6.7,1063.8 r2.20) tr[0]=(-1295.3,7.4,1032.5 r0.90) tr[1]=(-1294.9,7.3,1024.0 r0.90) tr[2]=(-1285.3,7.1,1030.3 r0.90) tr[3]=(-1244.6,15.0,997.0 r0.70)
+07-12 14:43:39.019  1136  1289 I opengoal-gk: [recharged-grass] R19OCC frame=450 nocc=2 ntr=23 jak=(-1304.9,7.3,1038.5) occ[0]=(-1312.0,6.7,1063.8 r2.20) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1295.3,7.4,1032.5 r0.90) tr[1]=(-1294.9,7.3,1024.0 r0.90) tr[2]=(-1285.3,7.1,1030.3 r0.90) tr[3]=(-1244.6,15.0,997.0 r0.70)
+07-12 14:43:59.753  1136  1289 I opengoal-gk: [recharged-grass] R19OCC frame=600 nocc=2 ntr=19 jak=(-1304.9,7.3,1038.5) occ[0]=(-1312.0,6.7,1063.8 r2.20) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1295.3,7.4,1032.5 r0.90) tr[1]=(-1294.9,7.3,1024.0 r0.90) tr[2]=(-1285.3,7.1,1030.3 r0.90) tr[3]=(-1244.6,15.0,997.0 r0.70)
+=== B-BUTTON (expect occ[] entry (-1312.0,6.7,1063.8 r2.20)) ===
+07-12 14:44:28.908  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND occ[0] pos=(-1312.0,6.7,1063.8) r=2.20 nearest-blade-xz=0.09m dy(obj-blade)=-0.10m IN-BAND
+07-12 14:44:28.918  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND occ[1] pos=(-1298.9,52.3,1009.0) r=1.20 nearest-blade-xz=0.05m dy(obj-blade)=45.16m OUT-OF-BAND
+07-12 14:44:28.925  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[0] pos=(-1295.3,7.4,1032.5) r=0.90 nearest-blade-xz=0.06m dy(obj-blade)=-0.05m IN-BAND
+07-12 14:44:28.929  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[1] pos=(-1285.3,7.1,1030.3) r=0.90 nearest-blade-xz=0.13m dy(obj-blade)=-0.03m IN-BAND
+07-12 14:44:28.933  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[2] pos=(-1294.9,7.3,1024.0) r=0.90 nearest-blade-xz=0.03m dy(obj-blade)=-0.03m IN-BAND
+07-12 14:44:28.937  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[3] pos=(-1244.6,15.0,997.0) r=0.70 nearest-blade-xz=0.07m dy(obj-blade)=-0.06m IN-BAND
+07-12 14:44:28.941  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[4] pos=(-1230.4,15.0,1005.1) r=0.70 nearest-blade-xz=0.37m dy(obj-blade)=-0.51m IN-BAND
+07-12 14:44:28.946  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[5] pos=(-1230.5,15.0,995.1) r=0.90 nearest-blade-xz=0.13m dy(obj-blade)=0.32m IN-BAND
+07-12 14:44:28.950  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[6] pos=(-1230.5,15.0,993.0) r=0.90 nearest-blade-xz=0.02m dy(obj-blade)=0.31m IN-BAND
+07-12 14:44:28.954  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[7] pos=(-1213.7,17.0,1001.7) r=0.70 nearest-blade-xz=0.06m dy(obj-blade)=-0.33m IN-BAND
+07-12 14:44:28.958  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[8] pos=(-1216.9,17.0,980.9) r=0.70 nearest-blade-xz=0.08m dy(obj-blade)=-0.33m IN-BAND
+07-12 14:44:28.962  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[9] pos=(-1196.0,19.0,984.0) r=0.70 nearest-blade-xz=0.13m dy(obj-blade)=-0.76m IN-BAND
+07-12 14:44:28.966  2080  2263 I opengoal-gk: [recharged-grass] R21E-YBAND tr[10] pos=(-1164.3,15.0,973.4) r=0.70 nearest-blade-xz=0.08m dy(obj-blade)=-0.07m IN-BAND
+07-12 14:44:13.238  2080  2287 I opengoal-gk: [recharged-grass] R21OCC goal-publish #1 ncull=0 ntr=0
+07-12 14:44:13.738  2080  2287 I opengoal-gk: [recharged-grass] R21OCC goal-publish #2 ncull=0 ntr=0
+07-12 14:44:14.239  2080  2287 I opengoal-gk: [recharged-grass] R21OCC goal-publish #3 ncull=0 ntr=0
+07-12 14:44:14.739  2080  2287 I opengoal-gk: [recharged-grass] R21OCC goal-publish #4 ncull=0 ntr=0
+07-12 14:44:15.238  2080  2287 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 14:44:22.766  2080  2287 I opengoal-gk: [recharged-grass] R21OCC goal-publish #20 ncull=0 ntr=0
+07-12 14:44:27.589  2080  2263 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=0 ntr=0 jak=(-1309.0,7.1,1060.5)
+07-12 14:44:47.692  2080  2263 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=2 ntr=11 jak=(-1309.0,6.8,1060.5) occ[0]=(-1312.0,6.7,1063.8 r2.20) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1295.3,7.4,1032.5 r0.90) tr[1]=(-1285.3,7.1,1030.3 r0.90) tr[2]=(-1294.9,7.3,1024.0 r0.90) tr[3]=(-1244.6,15.0,997.0 r0.70)
+07-12 14:45:07.359  2080  2263 I opengoal-gk: [recharged-grass] R19OCC frame=300 nocc=2 ntr=11 jak=(-1309.0,6.8,1060.5) occ[0]=(-1312.0,6.7,1063.8 r2.20) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1295.3,7.4,1032.5 r0.90) tr[1]=(-1285.3,7.1,1030.3 r0.90) tr[2]=(-1294.9,7.3,1024.0 r0.90) tr[3]=(-1244.6,15.0,997.0 r0.70)
+=== C-ECOVENT (expect occ[] entry (-1308.0,29.5,854.2 r1.20)) ===
+07-12 14:45:45.640  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND occ[0] pos=(-1308.0,29.5,854.2) r=1.20 nearest-blade-xz=0.46m dy(obj-blade)=-0.09m IN-BAND
+07-12 14:45:45.651  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND occ[1] pos=(-1298.9,52.3,1009.0) r=1.20 nearest-blade-xz=0.05m dy(obj-blade)=45.16m OUT-OF-BAND
+07-12 14:45:45.662  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND tr[0] pos=(-1231.0,27.0,856.1) r=0.70 nearest-blade-xz=0.06m dy(obj-blade)=-0.19m IN-BAND
+07-12 14:45:45.667  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND tr[1] pos=(-1220.4,27.0,874.0) r=0.70 nearest-blade-xz=0.01m dy(obj-blade)=-0.11m IN-BAND
+07-12 14:45:45.671  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND tr[2] pos=(-1208.4,25.5,852.3) r=0.90 nearest-blade-xz=0.04m dy(obj-blade)=0.26m IN-BAND
+07-12 14:45:45.675  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND tr[3] pos=(-1206.3,25.5,852.3) r=0.90 nearest-blade-xz=0.05m dy(obj-blade)=0.21m IN-BAND
+07-12 14:45:45.680  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND tr[4] pos=(-1204.2,25.5,852.3) r=0.90 nearest-blade-xz=0.05m dy(obj-blade)=0.13m IN-BAND
+07-12 14:45:45.685  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND tr[5] pos=(-1202.7,21.3,872.0) r=0.90 nearest-blade-xz=0.04m dy(obj-blade)=-0.09m IN-BAND
+07-12 14:45:45.688  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND tr[6] pos=(-1191.7,22.5,855.3) r=0.90 nearest-blade-xz=0.12m dy(obj-blade)=0.04m IN-BAND
+07-12 14:45:45.692  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND tr[7] pos=(-1189.2,22.5,858.4) r=0.90 nearest-blade-xz=0.14m dy(obj-blade)=0.17m IN-BAND
+07-12 14:45:45.696  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND tr[8] pos=(-1184.5,17.0,876.9) r=0.90 nearest-blade-xz=0.10m dy(obj-blade)=0.20m IN-BAND
+07-12 14:45:45.701  2651  2722 I opengoal-gk: [recharged-grass] R21E-YBAND tr[9] pos=(-1181.7,17.0,876.9) r=0.90 nearest-blade-xz=0.08m dy(obj-blade)=0.08m IN-BAND
+07-12 14:45:30.127  2651  2737 I opengoal-gk: [recharged-grass] R21OCC goal-publish #1 ncull=0 ntr=0
+07-12 14:45:30.627  2651  2737 I opengoal-gk: [recharged-grass] R21OCC goal-publish #2 ncull=0 ntr=0
+07-12 14:45:31.128  2651  2737 I opengoal-gk: [recharged-grass] R21OCC goal-publish #3 ncull=0 ntr=0
+07-12 14:45:31.627  2651  2737 I opengoal-gk: [recharged-grass] R21OCC goal-publish #4 ncull=0 ntr=0
+07-12 14:45:32.127  2651  2737 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-12 14:45:39.656  2651  2737 I opengoal-gk: [recharged-grass] R21OCC goal-publish #20 ncull=0 ntr=0
+07-12 14:45:44.459  2651  2722 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=0 ntr=0 jak=(-1304.5,29.7,851.5)
+07-12 14:46:01.209  2651  2722 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=1 ntr=10 jak=(-1304.5,29.6,851.5) occ[0]=(-1308.0,29.5,854.2 r1.20) tr[0]=(-1231.0,27.0,856.1 r0.70) tr[1]=(-1220.4,27.0,874.0 r0.70) tr[2]=(-1208.4,25.5,852.3 r0.90) tr[3]=(-1206.3,25.5,852.3 r0.90)
+07-12 14:46:19.005  2651  2722 I opengoal-gk: [recharged-grass] R19OCC frame=300 nocc=2 ntr=10 jak=(-1304.5,29.6,851.5) occ[0]=(-1308.0,29.5,854.2 r1.20) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1231.0,27.0,856.1 r0.70) tr[1]=(-1220.4,27.0,874.0 r0.70) tr[2]=(-1208.4,25.5,852.3 r0.90) tr[3]=(-1206.3,25.5,852.3 r0.90)
+07-12 14:46:36.320  2651  2722 I opengoal-gk: [recharged-grass] R19OCC frame=450 nocc=2 ntr=10 jak=(-1304.5,29.6,851.5) occ[0]=(-1308.0,29.5,854.2 r1.20) occ[1]=(-1298.9,52.3,1009.0 r1.20) tr[0]=(-1231.0,27.0,856.1 r0.70) tr[1]=(-1220.4,27.0,874.0 r0.70) tr[2]=(-1208.4,25.5,852.3 r0.90) tr[3]=(-1206.3,25.5,852.3 r0.90)

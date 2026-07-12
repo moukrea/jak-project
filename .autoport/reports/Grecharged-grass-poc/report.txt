@@ -1,3 +1,37 @@
+RESULT: RECHARGED GRASS POC — ROUND#21e (2026-07-12, attempt 12) DONE: all four owner-verdict-21d tuning items fixed + proven on device (deploy_verify + deploy_verify_assets PASS, full consistent build, chain 1b56897f29f9831c; app force-stopped after every beat).
+THE FOUR 21e FIXES (owner: button TOP was clean = channel works; crates/vent still clipped + button BASE clipped):
+1. 16-SLOT EVICTION (why crates never flattened): the shader reads only 16 u_occ/u_trample slots and both
+   lists were uploaded in GOAL pool-scan order — the ~16 scarecrows (100-170 m away) silently evicted the
+   crates NEXT TO JAK. FIX (GrassRenderer.cpp grass_occ::publish): both published lists are sorted by XZ
+   distance to Jak (trample as a paired permutation with its strength array — TrampGhost ease state
+   untouched) so the 16-slot upload always carries the 16 NEAREST. DEVICE PROOF (p21e_occ_proof.txt,
+   beat A, Jak AT the crate cluster jak=(-1297.5,7.3,1035.0), ntr=23 > 16 so 21d order WOULD evict):
+   tr[0]=(-1295.3,7.4,1032.5 r0.90)=crate-2951, tr[1]=(-1294.9,7.3,1024.0 r0.90)=crate-2952,
+   tr[2]=(-1285.3,7.1,1030.3 r0.90)=crate-2950 (exact training-actors.json coords), scarecrow demoted to
+   tr[3]; frame=450 shows occ[0]/occ[1] re-sorting live as Jak walks (nearest-first tracks him).
+2. BUTTON BASE RING: basebutton radius 6144->9011 GOAL units (1.5->2.2 m) in hud-classes-pc.gc — 1.5 m
+   covered the head but grass clipped around the base. PROOF: occ entry (-1312.0,6.7,1063.8 r2.20) +
+   p21e_btn_base_04..24.png close-ups: pedestal + blue top sit in a clean ring, zero blades through it.
+3. ALL ECO-VENT INSTANCES: the 21d scan matched only plat-eco -> it published the TERRACE platform
+   (plat-eco-62, y=52.3) and NEVER the owner's ground vent: training's blue-eco source is ecovent-245
+   (-1308.0,29.5,854.2), type `ecovent` = a `vent` subtype. FIX: the GOAL scan now matches the whole
+   `vent` family + `ecovalve` (r 1.2 m); `eco` collectables verified NOT vent subtypes (no false cull from
+   floating eco clouds). PROOF: beat C occ[0]=(-1308.0,29.5,854.2 r1.20) EXACT + p21e_vent_04..24.png:
+   the vent mound erupting blue eco is CLEAN, grass stops at its base (was "ça clip à mort").
+4. Y-BAND VALIDATED (no widening needed): new one-shot R21E-YBAND dump logs, per published actor, the
+   nearest blade base XZ-distance + dy(obj-blade) vs the shader accept band (-1.0..+2.5 m). Every real
+   ground actor measured IN-BAND: crates dy -0.05..+0.26 m, scarecrows -0.76..-0.06 m, button -0.09 m,
+   ecovent -0.09 m; the terrace plat-eco reads dy=45.16 m OUT-OF-BAND vs the ground-floor blades below it,
+   which is exactly the band doing its job (a y=52 platform must not cull y=7 grass). Band unchanged.
+CRATE TRAMPLE + SPRING-BACK VISUAL (owner design): p21e_crate_flat_04..24.png — chests press a flattened
+disc into the grass; spin-kick break -> p21e_crate_broken_04..24.png — upright grass at the broken spot,
+no bald hole, remaining chests still pressing. R21OCC publish-log cadence fixed (240->20 publishes) + it
+now prints EVERY cull entry, so the log itself audits vent-instance publication in future captures.
+DEPLOY: build_deploy_att12.log — arm64 28/28 consistent CGO/DGO from HEAD + fresh libgk (33 grass strings)
++ APK assemble + install -r + CGO push; deploy_verify PASS + deploy_verify_assets PASS; boots to live
+render, jak1 foreground at every capture; device force-stopped at session end (hygiene rule).
+LOCKED STACKS UNTOUCHED: edge machinery (GLOBAL-RIM + FLOORGAP + FLOORBELOW + taper), day-cycle lighting,
+density/sliders, DROPPED=0, jump-ease trail, OFF==stock, DEFAULT ON.
 RESULT: RECHARGED GRASS POC — ROUND#21d (2026-07-12, attempt 11) DONE: object positions now come from the
 GAME side over the jak-pos-pattern GOAL->C++ channel, the full consistent build REACHED the device
 (deploy_verify + deploy_verify_assets PASS), and every validator device beat was RECAPTURED honestly

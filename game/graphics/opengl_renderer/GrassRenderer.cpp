@@ -337,10 +337,15 @@ void goal_publish() {
   }
   static int s_pub_n = 0;
   s_pub_n++;
-  if (s_pub_n <= 5 || s_pub_n % 240 == 0) {
+  // ROUND#21e: 240-publish cadence never produced a post-actor-spawn line inside a capture window
+  // (publishes are one per 30 game frames); every 20 (~10 s) keeps the log quiet but harvestable.
+  if (s_pub_n <= 5 || s_pub_n % 20 == 0) {
     constexpr float U = 4096.f;
     std::string ent;
-    for (size_t i = 0; i < s_goal_stage_cull.size() && i < 3; i++) {
+    // ROUND#21e: print EVERY cull entry (button + ALL vent instances + speaker — the list is tiny),
+    // so the log itself audits that the owner's ground ecovent is published, not just the terrace
+    // plat-eco (the 21d instance-selection failure).
+    for (size_t i = 0; i < s_goal_stage_cull.size() && i < 12; i++) {
       const auto& e = s_goal_stage_cull[i];
       ent += fmt::format(" cull[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", i, e[0] / U, e[1] / U,
                          e[2] / U, e[3] / U);
@@ -369,6 +374,20 @@ void publish(float dt) {
   }
   g_published.swap(g_building);
   g_building.clear();
+  // ROUND#21e (owner verdict 21d): the shader reads only the FIRST 16 slots of each list, and the
+  // lists were in GOAL pool-scan order — so with >16 trample actors the 16 far scarecrows silently
+  // EVICTED the crates right next to Jak (R21OCC frame=150 showed ntr=16 with tr[0..3] = scarecrows
+  // 100-170 m away). Sort every published list by XZ distance to Jak so the 16-slot upload keeps the
+  // 16 NEAREST — flatten/cull is invisible past ~40 m, so the near set is the only one that matters.
+  const auto& jkp = Gfx::g_global_settings.recharged_jak_pos;
+  auto d2jak = [&](const std::array<float, 4>& e) {
+    float dx = e[0] - jkp[0], dz = e[2] - jkp[2];
+    return dx * dx + dz * dz;
+  };
+  std::stable_sort(g_published.begin(), g_published.end(),
+                   [&](const std::array<float, 4>& a, const std::array<float, 4>& b) {
+                     return d2jak(a) < d2jak(b);
+                   });
   constexpr float MATCH_R = 1.5f * 4096.f;  // same actor if within 1.5 m XZ (they are static)
   constexpr float EASE_IN_S = 0.25f;
   constexpr float EASE_OUT_S = 0.6f;        // owner round#21: release over ~0.4-0.8 s
@@ -410,6 +429,25 @@ void publish(float dt) {
       g_tramp_strength.push_back(it->strength);
     }
     ++it;
+  }
+  // ROUND#21e nearest-16 for the trample list too (paired with its strength array, so sort a
+  // permutation and reorder both together — the ghost ease state itself is untouched).
+  if (g_tramp_published.size() > 1) {
+    std::vector<size_t> order(g_tramp_published.size());
+    for (size_t i = 0; i < order.size(); i++) {
+      order[i] = i;
+    }
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+      return d2jak(g_tramp_published[a]) < d2jak(g_tramp_published[b]);
+    });
+    std::vector<std::array<float, 4>> pe(order.size());
+    std::vector<float> ps(order.size());
+    for (size_t i = 0; i < order.size(); i++) {
+      pe[i] = g_tramp_published[order[i]];
+      ps[i] = g_tramp_strength[order[i]];
+    }
+    g_tramp_published.swap(pe);
+    g_tramp_strength.swap(ps);
   }
 }
 }  // namespace grass_occ
@@ -1892,6 +1930,38 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     for (size_t ei = 0; ei < grass_occ::g_published.size() && ei < 4; ei++) { const auto& e = grass_occ::g_published[ei]; ent += fmt::format(" occ[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", ei, e[0] / U, e[1] / U, e[2] / U, e[3] / U); }
     for (size_t ei = 0; ei < grass_occ::g_tramp_published.size() && ei < 4; ei++) { const auto& e = grass_occ::g_tramp_published[ei]; ent += fmt::format(" tr[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", ei, e[0] / U, e[1] / U, e[2] / U, e[3] / U); }
     lg::info("[recharged-grass] R19OCC frame={} nocc={} ntr={} jak=({:.1f},{:.1f},{:.1f}){}", s_occ_dump_frame - 1, (int)grass_occ::g_published.size(), (int)grass_occ::g_tramp_published.size(), jp[0] / U, jp[1] / U, jp[2] / U, ent);
+  }
+  // ROUND#21e Y-BAND VALIDATION (one-shot, diagnosis item 4): for each published actor, find the
+  // nearest blade base in XZ and log dy = actor-root-Y minus blade-base-Y. The shader accepts an
+  // actor whose root sits from 1.0 m below to 2.5 m above the blade base (yd = base.y - obj.y in
+  // (-2.5 .. +1.0) m); an actor OUT-OF-BAND would silently never cull/flatten even when published,
+  // so this dump proves the band fits the real actors (or names the exact dy to widen/offset for).
+  static bool s_yband_logged = false;
+  if (!s_yband_logged && !m_instances.empty() &&
+      (!grass_occ::g_published.empty() || !grass_occ::g_tramp_published.empty())) {
+    s_yband_logged = true;
+    auto yband_dump = [&](const char* tag, const std::vector<std::array<float, 4>>& v) {
+      for (size_t ei = 0; ei < v.size(); ei++) {
+        const auto& e = v[ei];
+        float best = 1e30f;
+        float dy = 0.f;
+        for (const auto& gi : m_instances) {
+          float dx = gi.px - e[0], dz = gi.pz - e[2];
+          float d2 = dx * dx + dz * dz;
+          if (d2 < best) {
+            best = d2;
+            dy = e[1] - gi.py;
+          }
+        }
+        lg::info(
+            "[recharged-grass] R21E-YBAND {}[{}] pos=({:.1f},{:.1f},{:.1f}) r={:.2f} "
+            "nearest-blade-xz={:.2f}m dy(obj-blade)={:.2f}m {}",
+            tag, ei, e[0] / U, e[1] / U, e[2] / U, e[3] / U, std::sqrt(best) / U, dy / U,
+            (dy > -1.0f * U && dy < 2.5f * U) ? "IN-BAND" : "OUT-OF-BAND");
+      }
+    };
+    yband_dump("occ", grass_occ::g_published);
+    yband_dump("tr", grass_occ::g_tramp_published);
   }
 
   glEnable(GL_DEPTH_TEST);

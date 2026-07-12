@@ -1682,10 +1682,14 @@
   ;; dead). kind 0 = CULL (static unbreakable: the warp-gate button via its basebutton parent, the
   ;; blue-eco vent, the speaker), kind 1 = TRAMPLE (breakable: crates, scarecrows — a broken crate
   ;; stops being pushed, so the renderer's ease-out springs the grass back at its spot). Engine types
-  ;; (crate/basebutton/plat-eco/voicebox) compile before this file so type-type? is safe; scarecrows
-  ;; are TRAINING-level types, matched by type-name symbol instead (no compile-time level dependency).
-  ;; Radii are GOAL-units ints (meters * 4096): crate 0.9, scarecrow 0.7, button 1.5, vent 1.2,
-  ;; speaker 0.6.
+  ;; (crate/basebutton/plat-eco/vent/ecovalve/voicebox) compile before this file so type-type? is
+  ;; safe; scarecrows are TRAINING-level types, matched by type-name symbol instead (no compile-time
+  ;; level dependency).
+  ;; ROUND#21e: button radius 1.5->2.2 m (the 1.5 covered the head but grass clipped around the BASE
+  ;; ring); vents now match the whole `vent` family (training's blue-eco source is an `ecovent`, a
+  ;; vent subtype — plat-eco alone only caught the terrace platform, NOT the owner's ground vent)
+  ;; plus `ecovalve`. Radii are GOAL-units ints (meters * 4096): crate 0.9, scarecrow 0.7,
+  ;; button 2.2, plat-eco/vent/ecovalve 1.2, speaker 0.6.
   (+! *grass-occ-scan-timer* 1)
   (when (and (-> obj recharged-grass?) (>= *grass-occ-scan-timer* 30))
     (set! *grass-occ-scan-timer* 0)
@@ -1702,8 +1706,10 @@
                 (cond
                   ((type-type? (-> pd type) crate) (pc-grass-occ-add! 1 trans 3686))
                   ((or (= tname 'scarecrow-a) (= tname 'scarecrow-b)) (pc-grass-occ-add! 1 trans 2867))
-                  ((type-type? (-> pd type) basebutton) (pc-grass-occ-add! 0 trans 6144))
+                  ((type-type? (-> pd type) basebutton) (pc-grass-occ-add! 0 trans 9011))
                   ((type-type? (-> pd type) plat-eco) (pc-grass-occ-add! 0 trans 4915))
+                  ((type-type? (-> pd type) vent) (pc-grass-occ-add! 0 trans 4915))
+                  ((type-type? (-> pd type) ecovalve) (pc-grass-occ-add! 0 trans 4915))
                   ((type-type? (-> pd type) voicebox) (pc-grass-occ-add! 0 trans 2458)))))))
         (none))
       *null-kernel-context*)
