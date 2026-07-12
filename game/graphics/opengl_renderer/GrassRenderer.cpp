@@ -295,11 +295,64 @@ void add_trample(float x, float y, float z, float r_world) {
   if (g_tramp_building.size() >= 64) return;
   g_tramp_building.push_back({x, y, z, r_world});
 }
-void publish() {
+// OWNER ROUND#21: eased trample RELEASE. Entries are matched frame-to-frame by position (these
+// actors do not move); a captured entry eases its strength IN over ~0.25 s, an entry that stops
+// being captured (crate BROKEN — or frustum-culled, invisible either way) eases OUT over ~0.6 s and
+// is dropped at 0. The shader multiplies each entry's flatten by its strength, so the grass under a
+// broken crate springs back gradually (owner: no instant snap, like Jak's walking recovery).
+struct TrampGhost {
+  std::array<float, 4> e;  // x, y, z, r (GOAL units)
+  float strength;          // eased 0..1
+  bool seen;               // matched a Merc2 capture this frame
+};
+static std::vector<TrampGhost> s_tramp_state;
+std::vector<float> g_tramp_strength;
+
+void publish(float dt) {
   g_published.swap(g_building);
   g_building.clear();
-  g_tramp_published.swap(g_tramp_building);
+  constexpr float MATCH_R = 1.5f * 4096.f;  // same actor if within 1.5 m XZ (they are static)
+  constexpr float EASE_IN_S = 0.25f;
+  constexpr float EASE_OUT_S = 0.6f;        // owner round#21: release over ~0.4-0.8 s
+  for (auto& g : s_tramp_state) {
+    g.seen = false;
+  }
+  for (const auto& e : g_tramp_building) {
+    TrampGhost* hit = nullptr;
+    for (auto& g : s_tramp_state) {
+      float dx = g.e[0] - e[0], dz = g.e[2] - e[2];
+      if (dx * dx + dz * dz < MATCH_R * MATCH_R && std::fabs(g.e[1] - e[1]) < 2.f * 4096.f) {
+        hit = &g;
+        break;
+      }
+    }
+    if (hit) {
+      hit->e = e;
+      hit->seen = true;
+    } else if (s_tramp_state.size() < 64) {
+      s_tramp_state.push_back({e, 0.f, true});
+    }
+  }
   g_tramp_building.clear();
+  float dtc = std::min(std::max(dt, 0.f), 0.1f);  // clamp a hitch so a long frame can't teleport the ease
+  g_tramp_published.clear();
+  g_tramp_strength.clear();
+  for (auto it = s_tramp_state.begin(); it != s_tramp_state.end();) {
+    if (it->seen) {
+      it->strength = std::min(1.f, it->strength + dtc / EASE_IN_S);
+    } else {
+      it->strength -= dtc / EASE_OUT_S;
+    }
+    if (it->strength <= 0.f) {
+      it = s_tramp_state.erase(it);
+      continue;
+    }
+    if (g_tramp_published.size() < 64) {
+      g_tramp_published.push_back(it->e);
+      g_tramp_strength.push_back(it->strength);
+    }
+    ++it;
+  }
 }
 }  // namespace grass_occ
 
@@ -1646,8 +1699,14 @@ void GrassRenderer::update_light(SharedRenderState* rs) {
 void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // OWNER ROUND#18: publish this frame's merc-captured object occluders (crates / warp-gate button)
   // and clear the building list. Runs every frame the grass toggle is ON (before any early return),
-  // so the building list never accumulates across frames/levels.
-  grass_occ::publish();
+  // so the building list never accumulates across frames/levels. ROUND#21: publish takes the frame
+  // dt so the per-object trample strengths ease in/out (broken-crate gradual spring-back).
+  static const auto s_pub_t0 = std::chrono::steady_clock::now();
+  static float s_pub_prev = -1.f;
+  float pub_now =
+      std::chrono::duration<float>(std::chrono::steady_clock::now() - s_pub_t0).count();
+  grass_occ::publish(s_pub_prev < 0.f ? 0.f : pub_now - s_pub_prev);
+  s_pub_prev = pub_now;
   if (!rs->has_pc_data) {
     return;
   }
@@ -1691,6 +1750,31 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   glUniform1f(glGetUniformLocation(id, "u_time"), u_time);
   const auto& jp = Gfx::g_global_settings.recharged_jak_pos;
   glUniform4f(glGetUniformLocation(id, "u_jak_pos"), jp[0], jp[1], jp[2], jp[3]);
+  // OWNER ROUND#21 EASED TRAMPLE RELEASE: keep a short trail of Jak's recent positions (one sample
+  // every ~0.15 s, 4 samples) and upload them with an age-decayed strength (1 -> 0 over ~0.6 s).
+  // The shader max-combines them with the live position, so the flatten under a takeoff spot (jump)
+  // or behind a sprint eases back up over the decay window instead of snapping upright in one frame.
+  {
+    static std::array<std::array<float, 4>, 4> s_trail{};  // xyz + capture time (u_time seconds)
+    static float s_trail_last = -1.f;
+    if (jp[3] > 0.5f && (s_trail_last < 0.f || u_time - s_trail_last >= 0.15f)) {
+      for (int ti = 3; ti > 0; ti--) {
+        s_trail[ti] = s_trail[ti - 1];
+      }
+      s_trail[0] = {jp[0], jp[1], jp[2], u_time};
+      s_trail_last = u_time;
+    }
+    float trail[16];
+    for (int ti = 0; ti < 4; ti++) {
+      float age = u_time - s_trail[ti][3];
+      float str = (jp[3] > 0.5f && s_trail[ti][3] > 0.f) ? std::max(0.f, 1.f - age / 0.6f) : 0.f;
+      trail[ti * 4 + 0] = s_trail[ti][0];
+      trail[ti * 4 + 1] = s_trail[ti][1];
+      trail[ti * 4 + 2] = s_trail[ti][2];
+      trail[ti * 4 + 3] = str;
+    }
+    glUniform4fv(glGetUniformLocation(id, "u_jak_trail"), 4, trail);
+  }
   // POLISH#4: adjustable LOD reach (Recharged Settings sliders), passed in WORLD units to
   // match cam_dist. Clamped to a sane range so a bad settings value can't break the LOD.
   float near_m = std::min(80.0f, std::max(8.0f, Gfx::g_global_settings.recharged_grass_near_dist));
@@ -1728,6 +1812,10 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     int ntr = (int)std::min<size_t>(grass_occ::g_tramp_published.size(), 16);
     if (ntr > 0) {
       glUniform4fv(glGetUniformLocation(id, "u_trample"), ntr, &grass_occ::g_tramp_published[0][0]);
+      // ROUND#21: per-entry eased strength — the shader scales each entry's flatten by this, so a
+      // broken crate's grass springs back over ~0.6 s (uniforms default to 0 -> upload is mandatory).
+      glUniform1fv(glGetUniformLocation(id, "u_trample_str"), ntr,
+                   grass_occ::g_tramp_strength.data());
     }
     glUniform1i(glGetUniformLocation(id, "u_trample_count"), ntr);
   }

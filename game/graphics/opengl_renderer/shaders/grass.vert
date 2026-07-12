@@ -42,6 +42,15 @@ uniform int  u_occ_count;
 // hiding it -> when the object is broken the grass springs back to full height.
 uniform vec4 u_trample[16];
 uniform int  u_trample_count;
+// OWNER ROUND#21: eased trample RELEASE. u_trample_str[i] is the per-entry strength (0..1) the CPU
+// eases in (~0.25 s) when an object is captured and out (~0.6 s) after it disappears (crate broken),
+// so the grass under a broken crate springs back gradually instead of snapping upright in one frame.
+uniform float u_trample_str[16];
+// OWNER ROUND#21: Jak's recent positions (xyz) with an age-decayed strength in w (~0.6 s window,
+// sampled every ~0.15 s on the CPU). The flatten under a takeoff spot (jump) or behind a sprint keeps
+// pressing with the decaying strength and eases back up instead of dropping to 0 the frame the hard
+// altitude gate disengages.
+uniform vec4 u_jak_trail[4];
 
 out vec3 v_color;
 out float v_alpha;
@@ -62,6 +71,10 @@ const float TRAMPLE_R = 2.2 * 4096.0; // grass flattens within this radius of Ja
 // airborne. vgap = Jak-root-Y minus blade-base-Y; outside this band => no trample.
 const float TRAMPLE_Y_LO = -1.5 * 4096.0; // up to 1.5 m below the grass -> still trample
 const float TRAMPLE_Y_HI =  2.0 * 4096.0; // more than 2 m above the grass = airborne -> none
+// OWNER ROUND#21: the altitude gate is now a smooth FADE band (1.2 m -> 2.0 m) instead of a hard
+// cutoff at 2.0 m — crossing it during a jump used to zero the whole trample in one frame (the
+// "instantanément droite" snap). Walking keeps vgap well under the band start -> unchanged.
+const float TRAMPLE_Y_EASE = 1.2 * 4096.0;
 
 // X-cross card corners (two triangles per quad), (u = width -1..1, v = height 0..1)
 const vec2 CARD[6] = vec2[6](
@@ -202,18 +215,37 @@ void main() {
   // --- trample: flatten + push away from Jak within TRAMPLE_R ---
   // OWNER POLISH#3: gate by Jak's ALTITUDE so the grass only bends when he is on/
   // near the ground, not while airborne (jumping) above it.
+  // OWNER ROUND#21: EASED RELEASE. Two changes vs the old single-sample hard gate:
+  //  (a) the altitude cutoff is a smooth fade band (TRAMPLE_Y_EASE -> TRAMPLE_Y_HI), and
+  //  (b) sample 0 is Jak NOW, samples 1..4 are his recent trail with age-decayed strength
+  //      (u_jak_trail, ~0.6 s window) — so when the foot leaves (jump) the flatten at the
+  //      takeoff spot eases back up over ~0.6 s instead of snapping upright in one frame.
+  // MAX over samples (not sum) so overlapping samples cannot over-press. Flag-accumulation
+  // style, no mid-loop return/continue, pure mad/smoothstep math (Adreno-618-safe).
   float heightMul = 1.0;
   vec3 trample = vec3(0.0);
-  float vgap = u_jak_pos.y - base.y;
-  if (u_jak_pos.w > 0.5 && vgap > TRAMPLE_Y_LO && vgap < TRAMPLE_Y_HI) {
-    vec2 d = base.xz - u_jak_pos.xz;
-    float dist = length(d);
-    if (dist < TRAMPLE_R) {
-      float k = 1.0 - dist / TRAMPLE_R;            // 0 at edge -> 1 at Jak
-      vec2 away = dist > 1.0 ? d / dist : vec2(0.0, 1.0);
-      trample = vec3(away.x, 0.0, away.y) * (k * k) * H * 1.3;
-      heightMul = 1.0 - k * 0.8;                   // press the blade down
+  float bestk = 0.0;
+  vec2  bestd = vec2(0.0, 1.0);
+  for (int ji = 0; ji < 5; ++ji) {
+    int ti = (ji > 0) ? (ji - 1) : 0;  // never a negative index expression (Adreno paranoia)
+    vec4 J = (ji == 0) ? u_jak_pos : u_jak_trail[ti];
+    float jstr = min(J.w, 1.0);
+    float jgap = J.y - base.y;
+    if (jstr > 0.004 && jgap > TRAMPLE_Y_LO && jgap < TRAMPLE_Y_HI) {
+      vec2 d = base.xz - J.xz;
+      float dist = length(d);
+      if (dist < TRAMPLE_R) {
+        float afade = 1.0 - smoothstep(TRAMPLE_Y_EASE, TRAMPLE_Y_HI, jgap);
+        float k = (1.0 - dist / TRAMPLE_R) * afade * jstr;  // 0 at edge -> 1 at Jak, eased
+        if (k > bestk) { bestk = k; bestd = d; }
+      }
     }
+  }
+  if (bestk > 0.0) {
+    float bdist = length(bestd);
+    vec2 away = bdist > 1.0 ? bestd / bdist : vec2(0.0, 1.0);
+    trample = vec3(away.x, 0.0, away.y) * (bestk * bestk) * H * 1.3;
+    heightMul = 1.0 - bestk * 0.8;                 // press the blade down
   }
 
   // OWNER POLISH#4: LEDGE-GRAB parting — while Jak hangs on a ledge with his hands
@@ -246,7 +278,9 @@ void main() {
     if (dot(md, md) < mr * mr && myd > -2.5 * 4096.0 && myd < 1.0 * 4096.0) {
       if (u_debug == 4) dbg_tr = 1.0;  // ROUND#19 forensic: mark trample footprint (still flattens)
       float mdist = length(md);
-      float mk = 1.0 - mdist / mr;                       // 1 at object centre -> 0 at footprint edge
+      // ROUND#21: scale by the CPU-eased per-entry strength — a broken crate's entry fades out over
+      // ~0.6 s, so the grass under it springs back gradually instead of snapping upright.
+      float mk = (1.0 - mdist / mr) * u_trample_str[mi]; // 1 at object centre -> 0 at footprint edge
       heightMul = min(heightMul, 1.0 - 0.90 * mk);       // press nearly flat under the object
       vec2 maway = mdist > 1.0 ? md / mdist : vec2(1.0, 0.0);
       trample += vec3(maway.x, 0.0, maway.y) * (mk * mk) * H * 1.0;  // splay outward like a footstep
