@@ -18,6 +18,7 @@
 #include "game/external/discord_jak1.h"
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/GrassOccluders.h"
 #include "game/graphics/sceGraphicsInterface.h"
 #include "game/kernel/common/fileio.h"
 #include "game/kernel/common/kboot.h"
@@ -587,6 +588,26 @@ void pc_set_grass_dists(u32 vec) {
   Gfx::g_global_settings.recharged_grass_density = p[2];  // POLISH#5 density slider
 }
 
+// Grecharged-grass-poc ROUND#21d: ground-actor positions from GOAL (the pc-set-jak-pos! pattern —
+// exact world coords from each actor's root trans; the Merc2 camera-space recovery is dead). The pc
+// glue calls clear!, then add! per actor, then publish! every ~30 frames. kind: 0 = CULL (static
+// unbreakable: warp-gate button, eco vent, speaker), 1 = TRAMPLE (breakable: crates, scarecrows — a
+// broken crate stops being pushed, so the renderer's eased spring-back plays). The radius arrives as
+// a GOAL-units integer (meters * 4096) because GOAL passes args in GPRs (no float ABI).
+void pc_grass_occ_clear() {
+  grass_occ::goal_clear();
+}
+void pc_grass_occ_add(u32 kind, u32 vec, u32 r_units) {
+  if (!vec) {
+    return;
+  }
+  float* p = Ptr<float>(vec).c();
+  grass_occ::goal_add((int)kind, p[0], p[1], p[2], (float)r_units);
+}
+void pc_grass_occ_publish() {
+  grass_occ::goal_publish();
+}
+
 // Grecharged-grass-poc POLISH#4: push Jak's ledge-grab point (a GOAL vector, xyz) while he hangs on
 // a ledge, so the grass on that ledge parts around his hands. GOAL passes a null vector (0) to clear
 // it the moment he lets go, so a stale grab point never keeps parting the grass.
@@ -625,6 +646,10 @@ void InitMachine_PCPort() {
   // POLISH#4: adjustable grass view-distances + ledge-grab trample point
   make_function_symbol_from_c("pc-set-grass-dists!", (void*)pc_set_grass_dists);
   make_function_symbol_from_c("pc-set-jak-ledge!", (void*)pc_set_jak_ledge);
+  // ROUND#21d: exact ground-actor world positions for the grass object-clip/trample
+  make_function_symbol_from_c("pc-grass-occ-clear!", (void*)pc_grass_occ_clear);
+  make_function_symbol_from_c("pc-grass-occ-add!", (void*)pc_grass_occ_add);
+  make_function_symbol_from_c("pc-grass-occ-publish!", (void*)pc_grass_occ_publish);
 
   make_function_symbol_from_c("pc-discord-rpc-update", (void*)update_discord_rpc);
 

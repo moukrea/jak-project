@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -308,7 +309,64 @@ struct TrampGhost {
 static std::vector<TrampGhost> s_tramp_state;
 std::vector<float> g_tramp_strength;
 
+// ROUND#21d GOAL->C++ actor channel (see GrassOccluders.h). The stage vectors are game-thread-only;
+// the snapshot is shared with the render thread under s_goal_mutex. The snapshot PERSISTS between the
+// GOAL scans (every ~30 frames) so publish() below sees the same actors every frame — no flicker, and
+// the TrampGhost ease-out only fires when a scan actually drops an actor (crate broken / level left).
+static std::mutex s_goal_mutex;
+static std::vector<std::array<float, 4>> s_goal_stage_cull;
+static std::vector<std::array<float, 4>> s_goal_stage_tramp;
+static std::vector<std::array<float, 4>> s_goal_cull;
+static std::vector<std::array<float, 4>> s_goal_tramp;
+
+void goal_clear() {
+  s_goal_stage_cull.clear();
+  s_goal_stage_tramp.clear();
+}
+void goal_add(int kind, float x, float y, float z, float r_world) {
+  auto& v = (kind == 1) ? s_goal_stage_tramp : s_goal_stage_cull;
+  if (v.size() < 64) {
+    v.push_back({x, y, z, r_world});
+  }
+}
+void goal_publish() {
+  {
+    std::lock_guard<std::mutex> lk(s_goal_mutex);
+    s_goal_cull = s_goal_stage_cull;
+    s_goal_tramp = s_goal_stage_tramp;
+  }
+  static int s_pub_n = 0;
+  s_pub_n++;
+  if (s_pub_n <= 5 || s_pub_n % 240 == 0) {
+    constexpr float U = 4096.f;
+    std::string ent;
+    for (size_t i = 0; i < s_goal_stage_cull.size() && i < 3; i++) {
+      const auto& e = s_goal_stage_cull[i];
+      ent += fmt::format(" cull[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", i, e[0] / U, e[1] / U,
+                         e[2] / U, e[3] / U);
+    }
+    for (size_t i = 0; i < s_goal_stage_tramp.size() && i < 3; i++) {
+      const auto& e = s_goal_stage_tramp[i];
+      ent += fmt::format(" tr[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", i, e[0] / U, e[1] / U, e[2] / U,
+                         e[3] / U);
+    }
+    lg::info("[recharged-grass] R21OCC goal-publish #{} ncull={} ntr={}{}", s_pub_n,
+             (int)s_goal_stage_cull.size(), (int)s_goal_stage_tramp.size(), ent);
+  }
+}
+
 void publish(float dt) {
+  // ROUND#21d: fold the GOAL actor snapshot into this frame's lists (Merc2 capture is DEAD/disabled;
+  // the game side is the only actor source now). Jak's own trample stays on the u_jak_pos path.
+  {
+    std::lock_guard<std::mutex> lk(s_goal_mutex);
+    for (const auto& e : s_goal_cull) {
+      add(e[0], e[1], e[2], e[3]);
+    }
+    for (const auto& e : s_goal_tramp) {
+      add_trample(e[0], e[1], e[2], e[3]);
+    }
+  }
   g_published.swap(g_building);
   g_building.clear();
   constexpr float MATCH_R = 1.5f * 4096.f;  // same actor if within 1.5 m XZ (they are static)
