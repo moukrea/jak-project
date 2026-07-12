@@ -957,3 +957,30 @@ changes except pure perf optimizations that provably keep identical visual outpu
    before/after, or frame sequence showing gradual recovery.
 Keep: edges LOCKED, day-cycle light, density/sliders, DROPPED=0, OFF==stock. deploy_verify + supervisor
 eyeballs the close-ups BEFORE any push; owner playtest = final gate.
+
+## ROUND#21c (2026-07-12) — merc->world recovery is DEAD (owner: "tu t'es loupé complet")
+The eichar calibration collapsed ALL object captures onto Jak => a flattened circle FOLLOWING him while
+real crates got nothing. Two falsified rounds prove the merc camera-space->world reconstruction can NOT
+be fixed. It is DISABLED (default OFF, prop debug.opengoal.grass.mercocc). Do NOT retry that approach.
+KEPT + owner-validated: edges (LOCKED), jump-ease (u_jak_trail), census logging.
+
+## ROUND#21d — object positions from the GAME side (the jak-pos pattern, EXACT world coords)
+The working channel already exists: goal_src/jak1/pc/hud-classes-pc.gc:1665 calls
+`(pc-set-jak-pos! (-> *target* control trans))` (extern in pc/pckernel-impl.gc:103; C++ receiver
+kmachine.cpp::pc_set_jak_pos ~L565 -> Gfx::g_global_settings.recharged_jak_pos). This is why the Jak
+trample works perfectly. EXTEND the same pattern to ground actors:
+1. GOAL glue (gated by the recharged-grass toggle, same spot/beat as pc-set-jak-pos!): every N frames
+   (30-60 — actors are static) iterate the active process pool; for each process-drawable of the target
+   KINDS — crates (type crate), scarecrows, warp-gate-switch, eco vents (plat-eco/ecovalve), the ground
+   speaker — push `(pc-grass-occ-add! kind (-> proc root trans) radius)` between `(pc-grass-occ-clear!)`
+   and `(pc-grass-occ-publish!)`. Prefer TYPE checks over string compares where types exist. kind =
+   0 CULL (static: button, vents, speaker) / 1 TRAMPLE (breakable: crates, scarecrows). A broken/dead
+   crate stops being pushed -> the EXISTING TrampGhost ease-out plays the spring-back.
+2. C++ receivers in kmachine.cpp (pc_grass_occ_clear/add/publish) -> fill grass_occ::g_building /
+   g_tramp_building directly (world GOAL units, exact). Merc2 capture stays disabled.
+3. goal_src pc glue edits are RECHARGED-GATED divergences (allowed; OFF == stock). Engine files outside
+   pc/ remain untouched. GOAL change => FULL consistent build + regen/sync ALL CGO/DGOs to the APK
+   assets (stale-asset rule; GAME.CGO standalone rebuild is UNSAFE — full build only).
+4. Radii: crate 0.9, scarecrow 0.7, warp-gate-switch 1.5, plat-eco 1.2, speaker 0.6 (m).
+## Proof: R21OCC dump shows actor coords CONSISTENT with jak= (same space, sane deltas); device close-ups
+crate (flattened -> broken -> springs back), button, plat-eco, speaker; supervisor eyeballs; owner final.
