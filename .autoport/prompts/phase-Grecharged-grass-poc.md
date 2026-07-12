@@ -1086,3 +1086,30 @@ couchée, puis finalement revient en place... bizarre ! En tout cas on y est pre
 pattern. Proof: close-ups at a previously-leaking small rock; dummy with a FEET-sized pressed patch;
 dummy break -> ONE smooth spring-back (frame sequence); crates A/B unchanged. Supervisor eyeballs; owner
 = final gate. Device hygiene + temp watch.
+
+## OWNER VERDICT R23 (2026-07-12 ~20:15, verbatim, HONOR) -> ROUND#24
+"C'est bien mieux ! Mais il y a un bug bizarre où parfois j'ai un rond qui bouge autour de moi sans
+herbe, j'ai remarqué après avoir détruit un des training dummies... Et aussi, quand on casse un training
+dummy, l'herbe sous lui ne se redresse pas contrairement au reste. Par contre nickel, plus d'herbe au
+travers des petits rochers, t'as géré ça !"
+=> SMALL ROCKS: CLOSED (owner-validated, LOCKED). Two items:
+
+1. MOVING BALD CIRCLE (appears after breaking a dummy, follows the player): a kind-0 CULL entry is
+   tracking a MOVING actor. Prime suspect: the dummy's dropped PICKUPS (eco/orbs) fly toward Jak when
+   near -> they fall into the scan's kind-0 ELSE-ARM -> a cull disc glides with them. DESIGN FIX
+   (mandatory, ends this bug class): kind-0 must be a STRICT ALLOWLIST of immobile machine types
+   (warp-gate-switch, vent family/ecovalve, speaker, hutlamp-type ground machines) — NEVER an
+   else-arm/catch-all. Collectibles (money/eco/fuel-cell/pickups), the sidekick, projectiles, and
+   anything animate are excluded BY CONSTRUCTION. Census any moving capture to confirm the suspect
+   before/after (log tname when a kind-0 entry's position moves > 0.2 m between publishes = instant
+   detector of the offender).
+2. DUMMY GRASS DOES NOT SPRING BACK after break (crates do): training dummies REGENERATE — their broken
+   process likely persists alive+drawn (different lifecycle than crates.gc's draw-status-hidden `die`).
+   CENSUS the scarecrow's post-break process state (alive? drawn? which state/flag actually marks
+   'broken'?) and gate the publish on it -> grass springs back like the crates, and re-flattens if/when
+   the dummy regenerates.
+## LOCKED (owner-validated): rocks footprint sampling, dummy FEET radius, crates trample+spring-back,
+button/vent statics, edges, jump-ease, R21f literal-macro pattern. Proof: break a dummy on camera ->
+grass springs back <1 s AND no moving bald circle while collecting the drops (frame seq + the position-
+delta detector log clean); crates A/B unchanged. Supervisor eyeballs; push jak-builds on PASS (standing
+owner order); owner = final gate on HONOR.
