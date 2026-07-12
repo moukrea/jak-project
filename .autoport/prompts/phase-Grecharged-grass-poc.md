@@ -1026,3 +1026,34 @@ devrait pas être coûteux, et t'as littéralement le mesh pour savoir où ne pa
    cost limit (bending is cheap) — the bug was scan-order eviction. Keep distance sort.
 3. The one-shot static cull must NOT regress DROPPED=0 elsewhere (only blades inside footprints removed)
    and must handle the level-restart path (re-place -> re-cull on next first-publish).
+
+## OWNER VERDICT plateau build (2026-07-12 ~16:30, verbatim) -> ROUND#22 (GOAL-side, 3 items)
+"L'écrasement de l'herbe a l'air de fonctionner dans la mesure où on ne voit pas d'herbe clip au travers
+du coffre mais on ne voit pas d'herbe couchée sur les bords c'est un peu dommage. Et quand on casse la
+caisse, l'herbe reste écrasée même si la caisse n'est plus là et se redresse uniquement si on marche
+dessus et on s'en va — elle devrait se redresser dès que la caisse est cassée (en fait j'ai l'impression
+que même en marchant par-dessus elle ne se redresse pas). Et pour le eco vent, toujours pareil, de
+l'herbe passe au travers de sa base."
+=> CRATE CLIP-THROUGH: FIXED (owner-confirmed). Remaining 3 items, ALL converging on GOAL-side work:
+
+1. SPRING-BACK ON BREAK (root cause KNOWN): a broken crate does NOT die — crates.gc:641 sets
+   draw-status HIDDEN on `die`, the process PERSISTS. The GOAL scan publishes by TYPE without checking
+   visibility -> keeps pushing the ghost's position -> eternal flatten. FIX in the GOAL glue: publish an
+   actor ONLY if alive AND drawn (check draw-status/hidden + dead states). Then the EXISTING TrampGhost
+   ease-out (0.6 s) plays the spring-back the moment the crate breaks. NO new mechanism.
+2. GENERIC GRASS COLLIDER = REAL MODEL BOUNDS (owner design, MANDATORY): stop hand-guessing radii by
+   name. The GOAL glue publishes each actor's REAL footprint: radius from the process-drawable's draw
+   bounds (bsphere w, scaled ~0.8 for ground footprint, clamped 0.5..2.5 m), position = root trans.
+   This must be GENERIC (any relevant ground process-drawable near grass) so future levels' ENEMIES get
+   grass interaction for free — "ça peut pas être que Jak qui interagit avec l'herbe". Fixes the eco-vent
+   base clipping (real vent footprint instead of the guessed 1.2/1.7 m) and the button margin exactly.
+   Remove the R21g interim C++ radius remaps in goal_add() once bounds arrive.
+3. LYING-DOWN EDGE BLADES (shader-only aesthetic): in the plateau FADE ring, blades should visibly LIE
+   flat OUTWARD ("herbe couchée sur les bords"), not merely shrink: boost the lateral trample push in
+   the fade zone (strong sideways displacement + moderate height cut at the RING; core stays pressed).
+## Constraints: GOAL pc-glue edits gated Recharged (OFF==stock); FULL consistent build + 28/28 arm64 CGO
+regen/sync (attempt-11 pipeline; GAME.CGO standalone = UNSAFE); edge stack + jump-ease + R21f literal-
+macro shader pattern LOCKED (never reintroduce dynamic uniform-array indexing — Adreno class, see
+grass.vert OC_STEP/TR_STEP). Proof: close-ups crate flattened WITH lying edge blades / broken crate ->
+grass back within 1 s / vent base clean / button margin exact; R21OCC dump radii = real bounds values.
+Supervisor eyeballs BEFORE any push; owner = final gate. Device: force-stop after tests, watch temp.
