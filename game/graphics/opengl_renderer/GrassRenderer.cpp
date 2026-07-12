@@ -62,7 +62,7 @@ inline int grass_debug_mode(float u_time) {
   }
   int v = std::atoi(buf);
   // ROUND#19: pin values 1..4 (4 = occ/trample forensic visualizer). The 'c' cycle above stays 1..3.
-  return (v >= 1 && v <= 4) ? v : 0;
+  return (v >= 1 && v <= 7) ? v : 0;  // R21f: 5/6/7 = trample-clause bisect
 }
 
 // ROUND#19 normal-tilt blend amount (default 0 = world-up-only growth, bit-identical to before). Read
@@ -370,6 +370,27 @@ void publish(float dt) {
     }
     for (const auto& e : s_goal_tramp) {
       add_trample(e[0], e[1], e[2], e[3]);
+    }
+    // ROUND#21f BISECT (prop debug.opengoal.grass.trtest=1): synthetic trample entry 2 m north of
+    // Jak, injected through the SAME goal fold-in path. Renders a flat disc -> path OK, content bug;
+    // renders nothing -> the trample path itself broke between 21b (circle-follows proved it drew)
+    // and 21d. Temporary forensic, default OFF.
+    {
+      static int s_trtest = -1;
+      if (s_trtest < 0) {
+#ifdef __ANDROID__
+        char b[92] = {0};
+        s_trtest = (__system_property_get("debug.opengoal.grass.trtest", b) > 0 && b[0] == '1') ? 1 : 0;
+#else
+        s_trtest = 0;
+#endif
+      }
+      if (s_trtest == 1) {
+        const auto& jpp = Gfx::g_global_settings.recharged_jak_pos;
+        if (jpp[3] > 0.5f) {
+          add_trample(jpp[0], jpp[1], jpp[2], 1.5f * 4096.f);  // R21f: AT Jak, unmissable
+        }
+      }
     }
   }
   g_published.swap(g_building);
@@ -1895,7 +1916,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // radius GOAL units); u_occ_count == 0 (no objects captured) makes the shader path byte-identical to
   // no object-clip, so this can never break base grass rendering.
   {
-    int nocc = (int)std::min<size_t>(grass_occ::g_published.size(), 16);
+    int nocc = (int)std::min<size_t>(grass_occ::g_published.size(), 8);  // R21f literal-unroll cap
     if (nocc > 0) {
       glUniform4fv(glGetUniformLocation(id, "u_occ"), nocc, &grass_occ::g_published[0][0]);
     }
@@ -1905,13 +1926,35 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // they do NOT cull it -> when the object is broken the grass springs back. Upload up to 16 as
   // u_trample (xyz = world pos, w = ground-contact radius). u_trample_count == 0 -> no flatten.
   {
-    int ntr = (int)std::min<size_t>(grass_occ::g_tramp_published.size(), 16);
+    int ntr = (int)std::min<size_t>(grass_occ::g_tramp_published.size(), 8);  // R21f literal-unroll cap
     if (ntr > 0) {
       glUniform4fv(glGetUniformLocation(id, "u_trample"), ntr, &grass_occ::g_tramp_published[0][0]);
       // ROUND#21: per-entry eased strength — the shader scales each entry's flatten by this, so a
       // broken crate's grass springs back over ~0.6 s (uniforms default to 0 -> upload is mandatory).
-      glUniform1fv(glGetUniformLocation(id, "u_trample_str"), ntr,
-                   grass_occ::g_tramp_strength.data());
+      // R21f: Adreno driver quirk — glGetUniformLocation on a float ARRAY can return -1 for the
+      // bare name (works for vec4 arrays, fails for float arrays) -> the upload silently no-ops and
+      // u_trample_str stays at its 0.0 default = flatten multiplied by ZERO (the "condition fires,
+      // cyan marks show, nothing flattens" forensic signature). Query "name[0]" as fallback + log.
+      int str_loc = glGetUniformLocation(id, "u_trample_str");
+      if (str_loc < 0) {
+        str_loc = glGetUniformLocation(id, "u_trample_str[0]");
+      }
+      static bool s_str_loc_logged = false;
+      if (!s_str_loc_logged) {
+        s_str_loc_logged = true;
+        lg::info("[recharged-grass] R21F u_trample_str loc={} (bare={}) str[0]={:.2f} ntr={}",
+                 str_loc, glGetUniformLocation(id, "u_trample_str"),
+                 grass_occ::g_tramp_strength.empty() ? -1.f : grass_occ::g_tramp_strength[0], ntr);
+      }
+      glUniform1fv(str_loc, ntr, grass_occ::g_tramp_strength.data());
+      // R21f: repack strengths into a vec4 array (.x) — see grass.vert; float-array dynamic reads
+      // miscompile to 0 on the Adreno 618.
+      float str4[16][4];
+      for (int si = 0; si < ntr && si < 16; si++) {
+        str4[si][0] = grass_occ::g_tramp_strength[si];
+        str4[si][1] = str4[si][2] = str4[si][3] = 0.f;
+      }
+      glUniform4fv(glGetUniformLocation(id, "u_trample2"), ntr, &str4[0][0]);
     }
     glUniform1i(glGetUniformLocation(id, "u_trample_count"), ntr);
   }
