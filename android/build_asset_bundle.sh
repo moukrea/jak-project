@@ -82,7 +82,9 @@ GAME="${1:-jak1}"
 # ROUND#22: 13 -> 14 — the bundle carries GOAL-side CGO changes (grass-occ scan: alive+drawn gate,
 # real-bounds radii, drawless vent publish); a same-version install-over would skip re-extraction on
 # remote devices and run OLD CGOs under the NEW libgk (banned mixed build).
-VERSION="${BUNDLE_VERSION:-14}"
+# ROUND#23: 14 -> 15 — CGO changes again (grass-occ scan: kind-1 collide-root-prim feet radius,
+# joint-exploder/touch-tracker break-debris exclusion); same re-extraction rule.
+VERSION="${BUNDLE_VERSION:-15}"
 
 cd "$(git rev-parse --show-toplevel)"
 

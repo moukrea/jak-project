@@ -1712,13 +1712,34 @@
                 (let ((hid (logtest? (-> dc status) (draw-status hidden)))
                       (trans (-> rt trans))
                       (tname (-> pd type symbol))
-                      (r (the int (fmax (meters 0.5) (fmin (meters 2.5) (* 0.8 (-> dc bounds w)))))))
+                      (r (the int (fmax (meters 0.5) (fmin (meters 2.5) (* 0.8 (-> dc bounds w))))))
+                      ;; ROUND#23 (owner R22b: dummy trample circle should be his FEET, not the
+                      ;; body): the TRAMPLE radius comes from the actor's collide-shape ROOT-PRIM
+                      ;; radius (the physics ground footprint) instead of the full draw bsphere —
+                      ;; a tall thin scarecrow's bsphere*0.8 pressed a 2.4 m circle; generic for
+                      ;; any future breakable/enemy. Fallback bsphere*0.5, clamp 0.3..1.2 m.
+                      ;; Crates: collide 1.70 m and bsphere*0.8 1.28 m both land at the 1.2 m
+                      ;; clamp -> visually identical (owner: crates PERFECT, regression forbidden).
+                      (r1 (the int
+                               (fmax (meters 0.3)
+                                     (fmin (meters 1.2)
+                                           (if (and (type-type? (-> rt type) collide-shape)
+                                                    (nonzero? (the-as int (-> (the-as collide-shape rt) root-prim))))
+                                             (-> (the-as collide-shape rt) root-prim local-sphere w)
+                                             (* 0.5 (-> dc bounds w))))))))
                   (cond
                     ;; breakable -> TRAMPLE, gated alive+DRAWN (a broken crate turns hidden ->
                     ;; drops out of the set -> the C++ TrampGhost ease-out plays the spring-back)
-                    ((type-type? (-> pd type) crate) (if (not hid) (pc-grass-occ-add! 1 trans r)))
+                    ((type-type? (-> pd type) crate) (if (not hid) (pc-grass-occ-add! 1 trans r1)))
                     ((or (= tname 'scarecrow-a) (= tname 'scarecrow-b))
-                     (if (not hid) (pc-grass-occ-add! 1 trans r)))
+                     (if (not hid) (pc-grass-occ-add! 1 trans r1)))
+                    ;; ROUND#23 (owner R22b: break a dummy -> grass disappears, then lying, then
+                    ;; upright): break/debris spawns are transient process-drawables that fell into
+                    ;; the static CULL arm below -> a bald disc stomped the grass for the debris'
+                    ;; lifetime, then the trample ghost replayed. joint-exploder = scarecrow/crate
+                    ;; shard exploder; touch-tracker = dark-eco crate helper. Never publish them.
+                    ((= tname 'joint-exploder) #f)
+                    ((= tname 'touch-tracker) #f)
                     ;; not ground props: the player pair, pickups, projectiles, cutscene manipys
                     ((type-type? (-> pd type) target) #f)
                     ((type-type? (-> pd type) sidekick) #f)

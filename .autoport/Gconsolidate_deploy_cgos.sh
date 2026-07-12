@@ -14,7 +14,10 @@ die(){ echo "[deploy-cgos FAIL] $*" >&2; exit 1; }
 $ADB -s $S get-state >/dev/null 2>&1 || die "device $S not attached"
 [ -d "$SRC" ] || die "consistent CGO set missing: $SRC"
 n=$(ls "$SRC"/*.CGO "$SRC"/*.DGO 2>/dev/null | wc -l); [ "$n" -eq 28 ] || die "expected 28 CGO/DGO in $SRC, got $n"
-$ADB -s $S shell run-as $PKG ls files/iso_data/jak1/.extracted_v1 >/dev/null 2>&1 || die "run-as / .extracted_v1 missing (CE-locked or not extracted?)"
+# bundle v14 (025f68399): the loader's marker is now files/.asset_bundle_stamp (the old
+# per-iso .extracted_v1 is gone). Extraction-done = stamp present + iso_data/jak1 populated.
+$ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 || die "run-as / .asset_bundle_stamp missing (CE-locked or not extracted?)"
+$ADB -s $S shell run-as $PKG ls files/iso_data/jak1/GAME.CGO >/dev/null 2>&1 || die "iso_data/jak1 not populated (extraction incomplete?)"
 
 echo "== push 28 consistent HEAD CGO/DGO -> files/iso_data/jak1 (sha256-verified) =="
 $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true
@@ -29,4 +32,4 @@ for f in "$SRC"/*.CGO "$SRC"/*.DGO; do
 done
 [ "$fail" -eq 0 ] || die "one or more files failed to push/verify"
 echo "[deploy-cgos] pushed + sha256-verified all $cnt/28 consistent HEAD files into files/iso_data/jak1"
-echo "[deploy-cgos] .extracted_v1 kept; device will boot the consolidated build on next launch."
+echo "[deploy-cgos] bundle stamp kept; device will boot the consolidated build on next launch."

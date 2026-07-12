@@ -1069,3 +1069,49 @@ Adreno GPU-wedge (attempts 7-9 fingerprint) ROOT CAUSE + FIX: per-draw costs are
 == ROUND#19b (2026-07-12, owner LIVE obs) — stacked-terraces cantilever hole CLOSED ==
 Owner live observation on the attempt-9 WIP build: grass still overflowed SOME platform edges with FLOORBELOW active. Root cause (supervisor analysis confirmed by instrumentation): FLOORBELOW's 2.5m window kept blades cantilevered past an UPPER platform edge whenever a LOWER terrace lay 1-2m beneath them (floor-below=true), so stacked terraces still overflowed. FIX: per-blade nearest-own-floor GAP test — a blade is kept only if walkable collision floor lies within 0.5m below its base (debug.opengoal.grass_floorgap tunable); deeper nearest-floor = cantilevered over a DIFFERENT lower surface -> culled.
 DEVICE proof (2026-07-12 07:43, pid 15562): ROUND#19b FLOORGAP stacked-terrace cull: gap_thresh=50cm interior gap p50=0cm p90=1cm p99=1cm max=20cm (n=200000) | void_culled=15886 gap_culled=7422 — interior-blade gap p99 (1cm) is 50x below the threshold, so bumpy interior ground has NO false culls; 7422 cantilevered blades over lower terraces are now culled (the exact class the owner saw). errno35=0, no fatal signal (the +35s pidof drop was an external installPackageLI kill by a concurrent APK install, NOT a crash — am_kill log line verified).
+== ROUND#23 (2026-07-12, owner R22b verdict "on y est presque") — small rocks + dummy feet + break sequence ==
+Owner R22b: button + eco vent CLOSED (nickel). Three last items, all fixed and device-proven:
+
+1. SMALL ROCKS leaked grass — ROOT CAUSE: the round#13 per-instance object-hide tests TIE VERTICES in
+the contact band (OCC_RADIUS 0.45m); small low-poly rocks have vertices further apart than 0.45m, so
+blades between two rock vertices never found an occ point and poked through. FIX (generic footprint
+test, no radius crank): decode the TIE strip triangles and add face/edge samples at 0.35m pitch
+(sub-OCC_RADIUS) so every blade under an actual face is covered; foliage draws (shrub/leaf/plant...)
+are EXEMPT (POLISH#8: alpha-canopy never occludes — they keep vertex-only status quo); faces with
+edges > 6m (walls/cliffs) keep vertex-only sampling. DEVICE census (R23 footprint densify, place-time):
+tris=252315 add_pts=10339751 occ_pts_total=10759563; top textures tra-beachrock=178688,
+v2-coral-rockbase=16431, jng-smallrocks01=4608 (the small-rock prototypes are in the set). One-time
+placement cost only (no per-frame cost); 5 device boots clean, warp_ok try#1 each. PROOF FRAMES:
+p23c_rock_10.png (rock outcrop clean of blades, dense grass to its footprint, eco-vent base behind it
+also clean), p23_dummy_seq_36.png (small round rock bottom-right: grass around, none through).
+
+2. DUMMY trample circle = FEET — ROOT CAUSE: kind-1 radius was the full draw bsphere*0.8 (tall thin
+scarecrow -> 2.4m body-circle). FIX (generic, enemies-ready): the TRAMPLE radius now comes from the
+actor's collide-shape ROOT-PRIM radius (the physics ground footprint), fallback bsphere*0.5 when the
+root is not a collide-shape, clamp 0.3..1.2m (kind-1 only; kind-0 statics keep the owner-validated
+R22b generous factor — LOCKED). Scarecrow collide group w=3.0m -> clamped 1.20m (was 2.40m, patch
+halved); crate collide 1.70m -> 1.20m (was 1.28m, -8cm = visually identical, owner's PERFECT crates
+kept). DEVICE R21OCC proof: tr[0]=(-1230.4,15.0,1005.1 r1.20) = scarecrow-a-3 exact entity coords,
+all scarecrows/crates r1.20; crates A/B p23_crate_flat_16.png vs p22_crate_flat (same look, chests
+press flat, zero clip-through). PROOF FRAME: p23c_dummy_08.png (Jak point-blank at a dummy: pressed
+patch tight around the dummy base, tall grass standing right up to ~1m).
+
+3. BREAK SEQUENCE (disappear -> lying -> upright) — ROOT CAUSE: breaking spawns transient
+process-drawables (scarecrow shards = joint-exploder, dark-eco crate helper = touch-tracker) that fell
+into the GOAL scan's kind-0 STATIC-CULL else-arm -> a bald disc stomped the grass for the debris'
+lifetime, then the trample ghost replayed = the triple sequence. FIX: never publish them (tname
+exclusion arms before the else; part-tracker was already excluded by not being a process-drawable).
+DEVICE PROOF: break on camera p23c_dummy_14.png (dummy exploding, shards mid-air) ->
+p23c_dummy_16.png (debris still airborne, grass UNDER it present and upright — the old bug showed a
+bald disc exactly here) -> p23c_dummy_20.png (fully recovered, no hole); objective: ntr 26->25 across
+the break (hidden dummy left the publish set) while ncull stayed 10 (NO kind-0 debris spike).
+
+BUILD/DEPLOY: full consistent build (28/28 arm64 CGO/DGO regen + libgk 36 grass refs + APK);
+deploy_verify PASS (build==APK==device cb63d2448b772f79) + deploy_verify_assets PASS (28/28
+byte-identical); x86 oracle restored and desktop smoke PASS (link finish: logo). Pipeline fix: the
+extraction marker moved to files/.asset_bundle_stamp in bundle v14 — grass_build_deploy.sh +
+Gconsolidate_deploy_cgos.sh now check the stamp (+ populated iso_data) instead of the dead
+.extracted_v1. Bundle v14 -> v15 (CGO changes must re-extract on the owner's install-over).
+KEPT (LOCKED, no regression): edge stack (FLOORBELOW/FLOORGAP/rim taper), day-cycle per-instance
+baked lighting, density/sliders, DROPPED=0, jump-ease, R21f literal-index shader pattern, statics
+factor (button/vent), crates trample look. DEFAULT ON; OFF == byte-identical stock.

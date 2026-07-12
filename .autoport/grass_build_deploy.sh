@@ -48,16 +48,22 @@ $ADB -s $S shell pm trim-caches 999G 2>/dev/null || true
 $ADB -s $S install -r -d -t -i com.android.vending "$APK" 2>&1 | tail -3 || die "apk install failed"
 bash .autoport/lib/deploy_verify.sh "$S" jak1 2>&1 | tail -5 || die "deploy_verify (libgk) failed"
 
-say "5. ensure extraction marker (boot once if needed) then push consistent CGOs"
-if ! $ADB -s $S shell run-as $PKG ls files/iso_data/jak1/.extracted_v1 >/dev/null 2>&1; then
-  echo "  .extracted_v1 missing -> boot once to extract (can take minutes)"
+say "5. ensure extraction done (boot once if needed) then push consistent CGOs"
+# bundle v14 (025f68399) replaced the old .extracted_v1 marker with the loader's version-stamped
+# .asset_bundle_stamp (files/ root). Extraction is done when the stamp exists AND the CGO set is
+# present; the consistent HEAD CGOs are then pushed OVER the extracted set.
+extract_done(){ $ADB -s $S shell run-as $PKG ls files/.asset_bundle_stamp >/dev/null 2>&1 \
+  && [ "$($ADB -s $S shell run-as $PKG ls files/iso_data/jak1/ 2>/dev/null | grep -cE '\.(CGO|DGO)\r?$')" -ge 28 ]; }
+if ! extract_done; then
+  echo "  bundle stamp/CGOs missing -> boot once to extract (can take minutes)"
   $ADB -s $S shell am start -W -n "$PKG/$ACT" >/dev/null 2>&1 || true
   t0=$(date +%s)
-  while [ $(( $(date +%s) - t0 )) -lt 600 ]; do
-    $ADB -s $S shell run-as $PKG ls files/iso_data/jak1/.extracted_v1 >/dev/null 2>&1 && break
+  while [ $(( $(date +%s) - t0 )) -lt 900 ]; do
+    extract_done && break
     sleep 10
   done
-  $ADB -s $S shell run-as $PKG ls files/iso_data/jak1/.extracted_v1 >/dev/null 2>&1 || die "extraction marker never appeared in 600s"
+  extract_done || die "asset bundle stamp/CGO set never appeared in 900s"
+  $ADB -s $S shell am force-stop $PKG >/dev/null 2>&1 || true
 fi
 bash .autoport/Gconsolidate_deploy_cgos.sh 2>&1 | tail -5 || die "CGO push failed"
 bash .autoport/lib/deploy_verify_assets.sh "$S" jak1 2>&1 | tail -5 || die "deploy_verify_assets failed"

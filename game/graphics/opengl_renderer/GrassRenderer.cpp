@@ -228,6 +228,16 @@ inline bool is_grass_ground(const std::string& n) {
 inline bool is_grass_ground_tie(const std::string& n) {
   return n == "tra-grass" || n == "bch-grassfringe" || n == "bch-leafyground-hang-2x1";
 }
+// ROUND#23: foliage TIE draws must NOT become occluders when face-densifying the footprint test
+// (POLISH#8: a shrub's alpha-transparent canopy never blocks grass — today it only stays harmless
+// because its vertices are sparse). These keep the vertex-only status quo.
+inline bool is_foliage(const std::string& n) {
+  return name_has(n, "shrub") || name_has(n, "leaf") || name_has(n, "plant") ||
+         name_has(n, "fern") || name_has(n, "flower") || name_has(n, "weed") ||
+         name_has(n, "vine") || name_has(n, "frond") || name_has(n, "palm") ||
+         name_has(n, "bush");
+}
+
 // A ground-ish texture we did NOT match — logged as a candidate so a missed grass variant
 // surfaces on-device (POLISH#4 "still-missing platforms" diagnostic).
 inline bool looks_groundish(const std::string& n) {
@@ -615,6 +625,13 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   // must NOT occlude their own grass (that self-cull was ~most of the old 14.5%), and tfrag terrain is
   // never an occluder — so open grass with no real object on it is NEVER culled (structural occ ~0).
   std::vector<std::array<float, 3>> occ_pts;
+  // ROUND#23 census: face-densified occluder sampling (small low-poly props leaked blades between
+  // their sparse vertices). Counts + per-texture census logged after the occ cull.
+  size_t r23_dens_tris = 0, r23_dens_pts = 0;
+  std::unordered_map<std::string, u32> r23_dens_by_tex;
+  // ROUND#23 capture aid: world positions (one per ~10m XZ cell) of ROCK-textured densified faces
+  // near grass height — exact level.warp.pos targets for the small-rock leak close-ups.
+  std::unordered_map<s64, std::array<float, 3>> r23_rock_spots;
 
   // POLISH#8 edge instrumentation: grass-textured tris rejected purely by the upness gate.
   int rej_upness = 0;          // grass-textured tris rejected by the upness net (edge lips / walls)
@@ -735,6 +752,66 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
               u32 vi = idx[k];
               if (vi != UINT32_MAX && vi < verts.size()) {
                 occ_pts.push_back({verts[vi].x, verts[vi].y, verts[vi].z});
+              }
+            }
+            // ROUND#23 (owner R22b: "certains petits rochers ont de l'herbe qui passe au travers"):
+            // vertex-only sampling LEAKS on small low-poly props — their vertices sit further apart
+            // than OCC_RADIUS (0.45m), so a blade between two rock vertices never finds an occ point.
+            // Close the gap with a FOOTPRINT test: decode the strip triangles and add face/edge
+            // samples at sub-OCC_RADIUS pitch so every blade under an actual face is covered.
+            // Foliage draws (shrubs & co, is_foliage) are skipped — their alpha-transparent canopy
+            // must NOT occlude (POLISH#8). Huge faces (edge > 6m: walls/cliffs) keep vertex-only
+            // sampling: they are not ground props and densifying them would explode memory.
+            if (!is_foliage(tname)) {
+              const float SAMP = 0.35f * 4096.f;      // pitch < OCC_RADIUS so no blade slips through
+              const float EDGE_MAX = 6.0f * 4096.f;   // not a prop face past this
+              for (u32 k = b + 2; k < b + l; ++k) {
+                u32 i0 = idx[k - 2], i1 = idx[k - 1], i2 = idx[k];
+                if (i0 == UINT32_MAX || i1 == UINT32_MAX || i2 == UINT32_MAX) {
+                  continue;
+                }
+                if (i0 >= verts.size() || i1 >= verts.size() || i2 >= verts.size()) {
+                  continue;
+                }
+                if (i0 == i1 || i1 == i2 || i0 == i2) {
+                  continue;  // strip-stitch degenerate
+                }
+                float ax = verts[i0].x, ay = verts[i0].y, az = verts[i0].z;
+                float e1x = verts[i1].x - ax, e1y = verts[i1].y - ay, e1z = verts[i1].z - az;
+                float e2x = verts[i2].x - ax, e2y = verts[i2].y - ay, e2z = verts[i2].z - az;
+                float d1 = std::sqrt(e1x * e1x + e1y * e1y + e1z * e1z);
+                float d2 = std::sqrt(e2x * e2x + e2y * e2y + e2z * e2z);
+                float e3x = e2x - e1x, e3y = e2y - e1y, e3z = e2z - e1z;
+                float d3 = std::sqrt(e3x * e3x + e3y * e3y + e3z * e3z);
+                float m = std::max(d1, std::max(d2, d3));
+                if (m <= SAMP || m > EDGE_MAX) {
+                  continue;  // already dense enough / not a prop face
+                }
+                int n = (int)std::ceil(m / SAMP);
+                if (n > 24) {
+                  n = 24;
+                }
+                for (int a = 0; a <= n; ++a) {
+                  for (int c = 0; c <= n - a; ++c) {
+                    if ((a == 0 && c == 0) || (a == n && c == 0) || (a == 0 && c == n)) {
+                      continue;  // corners = the existing vertices
+                    }
+                    float fa = (float)a / (float)n, fc = (float)c / (float)n;
+                    occ_pts.push_back(
+                        {ax + fa * e1x + fc * e2x, ay + fa * e1y + fc * e2y, az + fa * e1z + fc * e2z});
+                    r23_dens_pts++;
+                  }
+                }
+                r23_dens_tris++;
+                r23_dens_by_tex[tname]++;
+                if (name_has(tname, "rock") || name_has(tname, "stone")) {
+                  const float cinv = 1.0f / (10.0f * 4096.f);
+                  s64 cx = (s64)std::floor(ax * cinv), cz = (s64)std::floor(az * cinv);
+                  s64 ck = (cx << 32) ^ (cz & 0xffffffffLL);
+                  if (r23_rock_spots.find(ck) == r23_rock_spots.end()) {
+                    r23_rock_spots[ck] = {ax, ay, az};
+                  }
+                }
               }
             }
           }
@@ -1572,6 +1649,33 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
     }
     m_instances.swap(keep);
     m_inst_tri.swap(keept);
+  }
+
+  // ROUND#23 census (the "which prop leaked" diagnosis artifact): which non-grass TIE textures got
+  // face-densified footprint samples, and how many. The leaking small rocks show up here by texture.
+  if (r23_dens_tris > 0) {
+    std::vector<std::pair<std::string, u32>> top(r23_dens_by_tex.begin(), r23_dens_by_tex.end());
+    std::stable_sort(top.begin(), top.end(),
+                     [](const auto& a, const auto& b) { return a.second > b.second; });
+    std::string tex;
+    for (size_t i = 0; i < top.size() && i < 8; ++i) {
+      tex += fmt::format(" {}={}", top[i].first, top[i].second);
+    }
+    lg::info("[recharged-grass] R23 footprint densify: tris={} add_pts={} occ_pts_total={} tex:{}",
+             r23_dens_tris, r23_dens_pts, occ_pts.size(), tex);
+    if (!r23_rock_spots.empty()) {
+      constexpr float U = 4096.f;
+      std::string spots;
+      int shown = 0;
+      for (const auto& [k, p] : r23_rock_spots) {
+        if (shown++ >= 10) {
+          break;
+        }
+        spots += fmt::format(" ({:.1f} {:.1f} {:.1f})", p[0] / U, p[1] / U, p[2] / U);
+      }
+      lg::info("[recharged-grass] R23 rock-face warp spots ({} cells):{}", r23_rock_spots.size(),
+               spots);
+    }
   }
 
   m_instance_count = (int)m_instances.size();
