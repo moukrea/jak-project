@@ -1216,7 +1216,7 @@ phases:
   prompt: prompts/phase-Grecharged-grass-poc.md
   validator: validators/phase-Grecharged-grass-poc.sh
   max_turns: 3000
-  max_retries: 12
+  max_retries: 16
   device: true
   owner_verify: true
 - id: Grecharged-grass-precompute-mode
