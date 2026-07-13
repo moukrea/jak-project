@@ -1756,7 +1756,17 @@
                        (format 0 "[R24DUMMY] ~A hid=~A cw-live=~A st=~A~%"
                                tname hid cw-live
                                (if (-> pd state) (-> pd state name) 'none)))
-                     (if brk-ok (pc-grass-occ-add! 1 trans r1)))
+                     ;; R25 (owner theory CONFIRMED: grass stays flat while the DEBRIS despawn — the
+                     ;; scarecrow process stays ALIVE waiting for its joint-exploder children
+                     ;; `(while (-> self child) (suspend))` before cleanup-for-death, and a gate flag
+                     ;; lies during that wait). Owner directive: IGNORE the debris logic entirely —
+                     ;; publish the dummy trample ONLY while it stands in state `idle`. Broken -> never
+                     ;; idle again -> the grass springs back at the FIRST break frame, debris despawn
+                     ;; untouched; a regenerated dummy re-enters idle -> re-flattens.
+                     (if (and brk-ok
+                              (-> pd state)
+                              (= (-> pd state name) 'idle))
+                       (pc-grass-occ-add! 1 trans r1)))
                     ;; ROUND#23 (owner R22b: break a dummy -> grass disappears, then lying, then
                     ;; upright): break/debris spawns are transient process-drawables that fell into
                     ;; the static CULL arm below -> a bald disc stomped the grass for the debris'
