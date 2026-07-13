@@ -84,7 +84,14 @@ GAME="${1:-jak1}"
 # remote devices and run OLD CGOs under the NEW libgk (banned mixed build).
 # ROUND#23: 14 -> 15 — CGO changes again (grass-occ scan: kind-1 collide-root-prim feet radius,
 # joint-exploder/touch-tracker break-debris exclusion); same re-extraction rule.
-VERSION="${BUNDLE_VERSION:-15}"
+# R29 ROOT-CAUSE FIX (the HONOR divergence saga): VERSION sat hardcoded at 15 while CGO contents
+# changed build after build — LoaderActivity's fast path ("stamp present AND version matches -> skip
+# extraction") meant remote devices NEVER re-extracted: every GOAL-side fix since their first v15
+# install silently never reached them (the Redmi worked only because CGOs are adb-pushed manually).
+# The manual-bump discipline (13->14->15 comments above) failed 4 rounds in a row — humans forget.
+# VERSION is now CONTENT-DERIVED (md5 of all bundled iso+fr3 file contents): any change forces
+# re-extraction on next launch. BUNDLE_VERSION env still overrides for manual control.
+VERSION="${BUNDLE_VERSION:-}"  # computed from content below once ISO_BUILD/FR3_BUILD are known
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -107,6 +114,9 @@ fail(){ echo "[asset-bundle] FATAL: $*" >&2; exit 1; }
 
 [ -d "$ISO_BUILD" ]  || fail "no $ISO_BUILD — run the PC extract/build first"
 [ -d "$FR3_BUILD" ]  || fail "no $FR3_BUILD — run the PC fr3 build first"
+if [ -z "$VERSION" ]; then
+  VERSION="c$( (find "$ISO_BUILD" -maxdepth 1 -type f -print0; find "$FR3_BUILD" -maxdepth 1 -type f -name '*.fr3' -print0) | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
+fi
 [ -d "$ARM64_CODE" ] || fail "no $ARM64_CODE — run .autoport/build_arm64_full_consistent.sh first (need the consistent arm64 CGO/DGO set)"
 # jak1 REQUIRES the android title-prompt overlay banks — matches the HARD-fail
 # style of the arm64 overlay (a missing override = wrong on-device prompt).
