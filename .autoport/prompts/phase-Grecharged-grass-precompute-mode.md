@@ -45,3 +45,11 @@ device, PROOF precomputed keeps day-cycle fidelity (time-of-day still varies), a
 device captures both modes at 2 times-of-day.
 ## Locks: ANDROID_SERIAL=eae4df44 only; engine goal_src untouched; gold READ-ONLY; force-stop after tests.
 ## Max: max_turns 3000, max_retries 6. device: true, owner_verify: true.
+
+## SUPERVISOR FLAG (2026-07-13 13:07, live audit of attempt-2 verify_proof.txt)
+EVERY verify run — including those labelled "R2 LIVE" / "R3 LIVE" — logs `PLACE-TIME mode=precomputed`:
+the A/B toggle never actually switched to LIVE, so the fidelity comparison is precomputed-vs-precomputed
+and PROVES NOTHING. The validator/supervisor will REJECT any pass built on it. Fix the mode switch first
+(whatever mechanism the verify script uses — settings write, prop, rebuild — confirm the LIVE run logs
+`mode=live` before comparing), then redo the A/B (same beat, same time-of-day, live vs precomputed) plus
+the not-frozen cycle check. The place-time numbers (81-117 ms) are fine to keep as the perf evidence.

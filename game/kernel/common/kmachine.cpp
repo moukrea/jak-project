@@ -313,6 +313,27 @@ s32 klength(u64 fs) {
   }
 }
 
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
+// Grecharged-grass-precompute-mode DIAG (temporary, env-gated): trace the GOAL
+// file-stream I/O primitives to localize the arm64 pc-settings parse desync.
+// Enable with OG_KIO_TRACE=1. Remove once the codegen defect is fixed.
+static bool kio_trace_enabled() {
+  static int v = -1;
+  if (v < 0) {
+#ifdef __ANDROID__
+    char buf[16] = {0};
+    v = (__system_property_get("debug.opengoal.kio_trace", buf) > 0 && buf[0] == '1') ? 1 : 0;
+#else
+    const char* e = getenv("OG_KIO_TRACE");
+    v = (e && e[0] == '1') ? 1 : 0;
+#endif
+  }
+  return v == 1;
+}
+
 /*!
  * Seek a file stream.
  */
@@ -324,6 +345,9 @@ s32 kseek(u64 fs, s32 offset, s32 where) {
     if (result < 0) {
       file_stream->flags |= 1;
     }
+  }
+  if (kio_trace_enabled()) {
+    lg::info("[KIO] seek fd={} off={} whence={} -> {}", file_stream->file, offset, where, result);
   }
   return result;
 }
@@ -339,6 +363,15 @@ s32 kread(u64 fs, u64 buffer, s32 size) {
     if (result < 0) {
       file_stream->flags |= 1;
     }
+  }
+  if (kio_trace_enabled()) {
+    char head[25] = {0};
+    int n = result > 0 ? (result < 24 ? result : 24) : 0;
+    for (int i = 0; i < n; i++) {
+      char c = (char)Ptr<u8>(buffer).c()[i];
+      head[i] = (c >= 32 && c < 127) ? c : '.';
+    }
+    lg::info("[KIO] read fd={} size={} -> {} head='{}'", file_stream->file, size, result, head);
   }
   return result;
 }

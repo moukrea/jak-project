@@ -6,6 +6,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
+#include "game/graphics/opengl_renderer/GrassBakeCore.h"
 
 #include "third-party/glad/include/glad/glad.h"
 
@@ -33,17 +34,6 @@ class GrassRenderer {
   void render(SharedRenderState* render_state, ScopedProfilerNode& prof);
 
  private:
-  struct GrassInstance {
-    float px, py, pz, h;        // world base position (GOAL units) + blade height
-    float yaw, tint, curve, phase;
-    // POLISH#4: average RGB of the ground TEXTURE under this blade (0..1), so the blade
-    // colour is sampled/harmonised with the ground it grows from (no clash with the
-    // texture showing through). w spare (kept for 16-byte attribute alignment).
-    float gr, gg, gb, gspare;
-    // ROUND#19: unit face normal of the ground triangle (world, ny forced >= 0); nspare reserved
-    float nx, ny, nz, nspare;
-  };
-
   void ensure_gl();
   void rebuild(SharedRenderState* render_state);
   // POLISH#9: recompute the per-instance GROUND baked-light for the CURRENT time of day and
@@ -57,7 +47,7 @@ class GrassRenderer {
   GLuint m_instance_vbo = 0;
   GLuint m_light_vbo = 0;   // POLISH#9: per-instance dynamic ground baked-light (u8 rgba, loc 3)
 
-  std::vector<GrassInstance> m_instances;
+  std::vector<grass_bake::GrassInstance> m_instances;
   int m_instance_count = 0;
 
   // POLISH#9 dynamic ground baked-light source. Per KEPT triangle we keep its centroid's 8
@@ -65,10 +55,9 @@ class GrassRenderer {
   // live itimes weights to get the EXACT baked colour the ground vertex is drawn with this frame,
   // then multiplies the grass by it (matching the ground's own (palette/255)*2 factor). m_inst_tri
   // maps each surviving instance back to its source triangle (kept through the occlusion cull).
-  struct TriLight {
-    float pal[8][3];
-  };
-  std::vector<TriLight> m_tri_light;
+  // Grecharged-grass-precompute-mode: the per-tri baked-light source (pal[8][3]) now lives in the
+  // shared bake tables (m_bake.tris[t].pal, identical float[8][3] layout).
+  grass_bake::BakeData m_bake;
   std::vector<u32> m_inst_tri;
   std::vector<u8> m_light;                  // 4 bytes/instance (rgba), re-uploaded on TOD change
   s32 m_last_itimes[4][4] = {};             // weights of the last light upload (change-detect throttle)
@@ -91,6 +80,9 @@ class GrassRenderer {
   // POLISH#5: the density-percent used at the last scatter. A density-slider change
   // (recharged_grass_density) differs from this -> re-scatter the whole static field.
   float m_cached_density = -1.f;
+  // Grecharged-grass-precompute-mode cache keys: precomputed-mode toggle + floor-gap threshold.
+  bool m_cached_precomputed = false;
+  float m_cached_floor_gap = -1.f;
 
   // instrumentation state (throttled per-frame culling log)
   u64 m_frame = 0;

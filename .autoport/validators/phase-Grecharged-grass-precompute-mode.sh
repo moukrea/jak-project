@@ -14,4 +14,14 @@ grep -qiE 'fps' "$R" && grep -qiE 'load.?time|load time|chargement' "$R" || fail
 grep -qiE 'mCurrentFocus.*jak1|focus.*jak1' "$R" || fail "device jak1 foreground evidence"
 bash .autoport/lib/deploy_verify.sh eae4df44 jak1 >/dev/null 2>&1 || fail "deploy_verify FAIL"
 git status --porcelain .autoport/gold 2>/dev/null | grep -q . && fail "gold not pristine"
+# R-AB-INTEGRITY (supervisor 2026-07-13): the fidelity A/B is void unless the LIVE control run REALLY
+# ran live — verify_proof must contain a mode=live PLACE-TIME line, and no LIVE-labelled section may
+# log mode=precomputed.
+VP=.autoport/reports/Grecharged-grass-precompute-mode/verify_proof.txt
+[ -f "$VP" ] || { echo "[precompute FAIL] no verify_proof.txt"; exit 1; }
+grep -aq 'mode=live' "$VP" || { echo "[precompute FAIL] no mode=live line — the LIVE control never ran live (A/B void)"; exit 1; }
+if awk '/=== R[0-9]+ LIVE/{inlive=1} /=== R[0-9]+ PRE/{inlive=0} inlive && /mode=precomputed/{found=1} END{exit !found}' "$VP"; then
+  echo "[precompute FAIL] a LIVE-labelled run logged mode=precomputed — A/B toggle broken"; exit 1
+fi
+
 echo "[Gprecompute PASS]"

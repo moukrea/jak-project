@@ -144,6 +144,10 @@ struct GfxGlobalSettings {
   // pc-set-grass-dists! (z component). Scales the whole-level instance budget in the
   // renderer; a change re-scatters the static field. Clamped renderer-side for memory safety.
   float recharged_grass_density = 150.f;
+  // Grecharged-grass-precompute-mode: PRECOMPUTED (baked day-cycle tables from <level>.grassbake,
+  // cheap load) vs LIVE (full at-load scan). Same expand() path -> identical placement; falls back
+  // to LIVE when no valid bake exists or a placement debug prop overrides.
+  bool recharged_grass_precomputed = true;
   // POLISH#4: Jak's ledge-grab point (GOAL units) pushed via pc-set-jak-ledge! while he
   // hangs on a ledge, so the ledge-top grass parts around his hands. w = 1.0 while hanging,
   // 0.0 otherwise (GOAL pushes a null vector to clear it when he lets go).

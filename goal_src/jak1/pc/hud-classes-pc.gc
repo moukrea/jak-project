@@ -1677,7 +1677,17 @@
   (set! (-> *grass-dist-scratch* x) (-> obj recharged-grass-near-dist))
   (set! (-> *grass-dist-scratch* y) (-> obj recharged-grass-card-dist))
   (set! (-> *grass-dist-scratch* z) (-> obj recharged-grass-density)) ;; POLISH#5 density percent
+  ;; Grecharged-grass-precompute-mode: w channel carries the GRASS MODE toggle (1.0 = PRECOMPUTED
+  ;; baked day-cycle tables / 0.0 = LIVE full at-load scan). Read into recharged_grass_precomputed C++-side.
+  (set! (-> *grass-dist-scratch* w) (if (-> obj recharged-grass-precomputed?) 1.0 0.0))
   (pc-set-grass-dists! *grass-dist-scratch*)
+  ;; Grecharged-grass-precompute-mode verification aid: freeze the time-of-day at a fixed hour
+  ;; while debug.opengoal.tod.hour (hour*100) is set — pins hour/minute/second every frame so
+  ;; A/B captures of the two grass modes see the SAME baked-light keyframe mix. Unset (-1) = normal cycle.
+  ;; Guard: *time-of-day-proc* bare-symbol truthiness (the load-boundary.gc time-of-day command idiom).
+  (let ((tod-h (pc-get-tod-hour)))
+    (when (and (>= tod-h 0) *time-of-day-proc*)
+      (set-time-of-day (* 0.01 (the float tod-h)))))
   ;; POLISH#4: while Jak hangs on a ledge, push the ledge grab point so the ledge-top grass parts
   ;; around his hands (else clear it by passing a null vector -> the renderer drops the effect).
   (if (and *target* (= (-> *target* next-state name) 'target-edge-grab))
