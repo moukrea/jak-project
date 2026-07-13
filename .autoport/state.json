@@ -187,7 +187,8 @@
     "Gjak2-polish": 1,
     "Grecharged-grass-poc": 16,
     "Grecharged-grass-precompute-mode": 2,
-    "Gjak1-icache-flush": 1
+    "Gjak1-icache-flush": 1,
+    "Gjak1-intermittent-events": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -731,9 +732,10 @@
     "Gjak2-polish": 1783609200.6848521,
     "Grecharged-grass-poc": 1783657868.6481647,
     "Grecharged-grass-precompute-mode": 1783935396.3894787,
-    "Gjak1-icache-flush": 1783944437.3989332
+    "Gjak1-icache-flush": 1783944437.3989332,
+    "Gjak1-intermittent-events": 1783945325.6558416
   },
-  "last_update": "2026-07-13T12:22:03.301423+00:00",
+  "last_update": "2026-07-13T14:26:48.581742+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
