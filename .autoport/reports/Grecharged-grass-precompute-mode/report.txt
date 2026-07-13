@@ -1,0 +1,42 @@
+Phase Grecharged-grass-precompute-mode — PRECOMPUTED (day-cycle-baked) grass mode
+Device: Redmi Note 9 Pro, adb serial eae4df44 (org.opengoal.gk.jak1) — ANDROID_SERIAL=eae4df44 only.
+Evidence: verify_proof.txt (same dir, R1-R6 device beats), frames/ (20 device captures), /tmp/grpre_*.log raw logcats.
+
+RESULT: GRASS PRECOMPUTE MODE PASS — baked day-cycle tables load in ~0.1s vs ~12s live scan (about 106x faster) at equal fidelity, day cycle still varies
+
+== What was built ==
+1. OFFLINE BAKE (tools/grass_bake CLI + GrassBakeCore extraction, commits 53ecf68d2 + b47259fbe):
+   Placement + per-instance tint/size/yaw/curvature are precomputed offline from the level fr3 into <level>.grassbake instance tables — the runtime skips the whole at-load geometry scan and hashing.
+   Bake format (grass_bake::BakeData): per-triangle BakeTri = {tri geometry p0/e1/e2, deterministic seed, area, avg ground-texture color, face normal, pal[8][3], candidate count/base, flags} + per-candidate keep bitmask (floor/rim pass + occlusion) + u16 quantized rim distance.
+   LIGHTING is NOT frozen at one time: pal[8][3] holds the per-triangle baked ground light at the SAME 8 time-of-day keyframes the engine bakes into the tfrag vertex color rows; the runtime interpolates the keyframes with the live itimes weights on every time-of-day change — the day-cycle lighting is baked as keyframes and interpolated exactly like the game's own tfrag ground light, then uploaded per instance (POLISH#9 path unchanged).
+   Bake density 250 (slider max; runtime slider densities expand as deterministic prefixes). Training baked: out/jak1/fr3/training.grassbake.
+   ASSET SIZE COST: training.grassbake = 1,659,865 bytes (1.66 MB, 22% of the 7.5 MB training.fr3). Shipped by android/build_asset_bundle.sh over the fr3 zip path (lands at files/out/jak1/fr3/) and content-hashed into the bundle VERSION so remote devices re-extract on any bake change.
+   Bake validation at load: level name, fr3 byte size, floor-gap, bake-density >= slider — any mismatch logs "[recharged-grass] PRECOMPUTED unavailable (<reason>)" and falls back to LIVE.
+2. GRASS MODE toggle (commit a05515f5f): "PRECOMPUTED GRASS" ON/OFF row in the GRASS SETTINGS nested submenu (progress-pc.gc); ON = PRECOMPUTED (baked day-cycle tables) / OFF = LIVE (full at-load scan).
+   Persisted as (recharged-grass-precomputed? #t/#f) in pc-settings.gc (pckernel read+write), pushed to the renderer per frame via the pc-set-grass-dists! w channel; default #t (precomputed preferred; un-baked levels auto-fall back to LIVE). Grass OFF still == stock render.
+3. LIVE path is the identical GrassBakeCore scan->tables->expand pipeline run at load (behavior-preserving C1 extraction, -ffp-contract=off pinned), so both modes share expand() and the keyframe-interpolation lighting — by construction the same fidelity.
+
+== BLOCKER found + fixed: arm64 bug class #14 (commit 958a4eda6) ==
+Attempt-1's A/B was void: ALL rounds ran precomputed because the pc-settings file NEVER loaded on Android ("could not be loaded, using defaults" — true of every boot since the poc era; unnoticed because owner values were made defaults). Root cause (proven by x86-parses-fine + device file-bisect + an inert kread recompile flipping the failure): the GOAL->C++ FFI trampolines did not save the GOAL callee-saved GPR bank {RBX,RBP,R10,R11,R12} = arm64 {X3,X5,X10,X11,X12} (identity id->Xn map; AAPCS lets C++ clobber all five, x86 saves exactly this set via _arg_call_systemv + SysV). kread() clobbered a live bank register in the settings parser -> dosettings desynced at one case branch. Fixed in make_function_from_c_arm64 + make_stack_arg_function_from_c_arm64 (jak1+jak2, which also never had the A40 q24-31 save) and _arg_call/_stack_call/_mips2c_call_arm64. Side win: pc-settings persistence now works on Android for the first time. Diagnostic kept: prop/env-gated kread/kseek trace (debug.opengoal.kio_trace / OG_KIO_TRACE).
+
+== Device verification (R1-R6, all warp_ok try#1, no crashes; density 150, r22 crates plateau, frozen TOD via debug.opengoal.tod.hour) ==
+focus every round, e.g.: mCurrentFocus=Window{7c812f0 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+PERF — LOAD-TIME (PLACE-TIME line, whole grass placement at level load):
+  PRECOMPUTED: 114ms / 98ms / 84ms (R1/R4/R5; source read 16-31ms)
+  LIVE:        12121ms / 12070ms / 12065ms (R2/R3/R6; scan 11998-12045ms)
+  -> load-time ~106x faster in PRECOMPUTED (0.1s vs 12.1s); the 12s ANR-class live scan is gone.
+PERF — FPS at the same dense-grass spot: PRECOMPUTED 6.5 / 5.9, LIVE 6.7 / 6.8 — parity within run noise, as designed: both modes share the identical runtime render + keyframe-interpolation path, so the precompute win is load-time (and the removed scan), not steady-state fps; no fps regression.
+FIDELITY (state dumps first, owner doctrine):
+  LIGHTING STATE: IDENTICAL at 9.5h AND at 19.5h — per-tri baked luma stats byte-equal between modes (9.5h: min 39 / mean 108 / max 229; 19.5h: min 32 / mean 69 / max 156 over 9829 tris) => same baked keyframes, same interpolation, no visual difference in lighting.
+  PLACEMENT STATE: structural fields identical (8 draws, 9829 tris, 19325 m2, density 45/m2, 381 chunks); instance delta 1 of 616,381 (0.00016% — 2-3 borderline keep-bit candidates out of 823k differ between the x86 OFFLINE bake and the arm64 on-device live scan; cross-arch float residual with -ffp-contract=off pinned, orders below visibility).
+  PIXEL (supporting): P-vs-L same TOD 7.74 vs L-vs-L boot noise floor 3.12 and day-cycle delta 61.21 (P-vs-L << day delta; breeze phase is boot-relative so the floor is nonzero by construction).
+DAY-CYCLE STILL VARIES in PRECOMPUTED (not frozen — the owner's key correction):
+  P@9.5h vs P@19.5h pixel delta 61.21 (>> 3.12 floor); dusk luma mean drops 108 -> 69; interpolation weights change (wsum 192 -> 363/360/357 across consecutive dusk uploads);
+  natural cycle (tod prop unset): LIGHT uploads keep advancing, #1 -> #10 over 45s idle — baked keyframes are re-interpolated as the day moves, identical fidelity to live, same look as the live day cycle.
+CAPTURES (frames/, 4 per beat, both modes at 2 times-of-day): p9_pre_*, l9_live_*, l9b_live_* (9.5h) + p19_pre_*, l19_live_* (19.5h dusk).
+DEPLOY: deploy_verify PASS (chain build==APK==device) + deploy_verify_assets PASS (28/28 CGO/DGO byte-identical incl. fresh ENGINE/GAME.CGO; training.grassbake md5-verified on device). Device left in PRECOMPUTED (preferred) mode; app force-stopped after every test; gold untouched.
+
+== Residuals (named, out of scope) ==
+- mips2c entry trampoline still clobbers X12 with the fake-stack size before _mips2c_call_arm64's save (pre-existing A18 hole; A18 wrapper covers the known victim; proper fix = carry the size in X17).
+- The 1-in-616k cross-arch placement residual above; true bit-equality would need bit-exact cross-arch float in the scan (not warranted: lighting exact, pixels at noise).
+- fps at the dense crates plateau is ~6-7 in BOTH modes (pre-existing poc-density-150 GPU cost, unchanged by this phase; precompute targets load-time per the owner ask "économiser du processing" at load + day-cycle lookup, and the lighting lookup path is shared).

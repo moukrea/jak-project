@@ -1,0 +1,63 @@
+=== R1 PRECOMPUTED 9.5h ===
+focus:   mCurrentFocus=Window{7c812f0 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+07-13 13:43:19.755 25726 25807 I opengoal-gk: [recharged-grass] PLACE-TIME mode=precomputed total=114ms (source=31ms expand+logs=50ms upload+light=33ms) instances=616380
+07-13 13:43:19.722 25726 25807 I opengoal-gk: [recharged-grass] training STATIC place (whole-level, camera-independent): 8 grass-ground draws (2 TIE), 9829 tris kept (giant 0, maxArea 10m2), area 19325 m2, density 45/m2 -> 616380 instances in 381 chunks (POLISH#5 density 150% -> budget 960000). ROUND#13 PER-INSTANCE object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled 206709 of 823089 inst
+07-13 13:43:52.208 25726 25807 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #11 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 39 / mean 108 / max 229 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+07-13 13:43:58.832 25726 25807 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #12 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 38 / mean 98 / max 237 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+07-13 13:43:59.009 25726 25807 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #13 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 39 / mean 108 / max 229 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+fps: fps=6.5 (frames=210 span=32.1s lines=8)
+=== R2 LIVE 9.5h ===
+focus:   mCurrentFocus=Window{b94b092 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+07-13 13:44:36.091 26270 26340 I opengoal-gk: [recharged-grass] PLACE-TIME mode=live total=12121ms (source=12045ms expand+logs=47ms upload+light=29ms) instances=616381
+07-13 13:44:36.062 26270 26340 I opengoal-gk: [recharged-grass] training STATIC place (whole-level, camera-independent): 8 grass-ground draws (2 TIE), 9829 tris kept (giant 0, maxArea 10m2), area 19325 m2, density 45/m2 -> 616381 instances in 381 chunks (POLISH#5 density 150% -> budget 960000). ROUND#13 PER-INSTANCE object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled 206707 of 823088 inst
+07-13 13:45:00.283 26270 26340 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #9 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 39 / mean 108 / max 229 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+07-13 13:45:06.998 26270 26340 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #10 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 38 / mean 98 / max 237 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+07-13 13:45:07.179 26270 26340 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #11 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 39 / mean 108 / max 229 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+fps: fps=6.7 (frames=180 span=27.0s lines=7)
+=== R3 LIVE 9.5h (noise floor) ===
+focus:   mCurrentFocus=Window{bf52351 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+07-13 13:45:39.886 26759 26826 I opengoal-gk: [recharged-grass] PLACE-TIME mode=live total=12070ms (source=11998ms expand+logs=45ms upload+light=26ms) instances=616381
+07-13 13:45:39.861 26759 26826 I opengoal-gk: [recharged-grass] training STATIC place (whole-level, camera-independent): 8 grass-ground draws (2 TIE), 9829 tris kept (giant 0, maxArea 10m2), area 19325 m2, density 45/m2 -> 616381 instances in 381 chunks (POLISH#5 density 150% -> budget 960000). ROUND#13 PER-INSTANCE object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled 206707 of 823088 inst
+07-13 13:46:03.875 26759 26826 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #9 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 39 / mean 108 / max 229 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+07-13 13:46:10.275 26759 26826 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #10 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 38 / mean 98 / max 237 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+07-13 13:46:10.454 26759 26826 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #11 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 39 / mean 108 / max 229 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+fps: fps=6.8 (frames=180 span=26.5s lines=7)
+=== R4 PRECOMPUTED 19.5h ===
+focus:   mCurrentFocus=Window{bcfdec2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+07-13 13:46:29.588 27241 27308 I opengoal-gk: [recharged-grass] PLACE-TIME mode=precomputed total=98ms (source=30ms expand+logs=49ms upload+light=19ms) instances=616380
+07-13 13:46:29.569 27241 27308 I opengoal-gk: [recharged-grass] training STATIC place (whole-level, camera-independent): 8 grass-ground draws (2 TIE), 9829 tris kept (giant 0, maxArea 10m2), area 19325 m2, density 45/m2 -> 616380 instances in 381 chunks (POLISH#5 density 150% -> budget 960000). ROUND#13 PER-INSTANCE object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled 206709 of 823089 inst
+07-13 13:47:09.736 27241 27308 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #118 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 32 / mean 69 / max 156 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=363).
+07-13 13:47:09.917 27241 27308 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #119 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 32 / mean 69 / max 156 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=360).
+07-13 13:47:10.098 27241 27308 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #120 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 32 / mean 69 / max 156 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=357).
+fps: fps=5.9 (frames=180 span=30.5s lines=7)
+=== R5 PRECOMPUTED natural cycle ===
+focus:   mCurrentFocus=Window{6328d1d u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+07-13 13:47:27.061 27706 27770 I opengoal-gk: [recharged-grass] PLACE-TIME mode=precomputed total=84ms (source=16ms expand+logs=49ms upload+light=19ms) instances=616380
+LIGHT upload lines over 45s idle: 10
+07-13 13:47:27.061 27706 27770 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #1 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 44 / mean 157 / max 245 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+07-13 13:48:25.636 27706 27770 I opengoal-gk: [recharged-grass] POLISH#9 LIGHT upload #10 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 42 / mean 149 / max 237 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+=== STATE EQUALITY (PRECOMPUTED vs LIVE @ 9.5h) ===
+P place: [recharged-grass] training STATIC place (whole-level, camera-independent): 8 grass-ground draws (2 TIE), 9829 tris kept (giant 0, maxArea 10m2), area 19325 m2, density 45/m2 -> 616380 instances in 381 chunks (POLISH#5 density 150% -> budget 960000). ROUND#13 PER-INSTANCE object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled 206709 of 823089 instances (25.114%) — each blade tested vs 252554 NON-grass-TIE object-point buckets (grass-TIE platforms EXCLUDED = no self-cull) within radius 0.45m + contact band [0.05,1.00]m; a blade is culled ONLY if a real object vertex is that close, so OPEN grass (no object) is NEVER culled = occ ~0 there, NO block-shaped bald holes. No camera window, no move-rebuild -> nothing de-instances while moving.
+L place: [recharged-grass] training STATIC place (whole-level, camera-independent): 8 grass-ground draws (2 TIE), 9829 tris kept (giant 0, maxArea 10m2), area 19325 m2, density 45/m2 -> 616381 instances in 381 chunks (POLISH#5 density 150% -> budget 960000). ROUND#13 PER-INSTANCE object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled 206707 of 823088 instances (25.114%) — each blade tested vs 252554 NON-grass-TIE object-point buckets (grass-TIE platforms EXCLUDED = no self-cull) within radius 0.45m + contact band [0.05,1.00]m; a blade is culled ONLY if a real object vertex is that close, so OPEN grass (no object) is NEVER culled = occ ~0 there, NO block-shaped bald holes. No camera window, no move-rebuild -> nothing de-instances while moving.
+PLACEMENT STATE: DIFFERENT (FIDELITY FAIL)
+P light: [recharged-grass] POLISH#9 LIGHT upload #1 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 39 / mean 108 / max 229 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+L light: [recharged-grass] POLISH#9 LIGHT upload #1 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 39 / mean 108 / max 229 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+LIGHTING STATE: IDENTICAL (same per-tri baked luma at same TOD keyframe mix)
+P place-time: mode=precomputed total=114ms (source=31ms
+L place-time: mode=live total=12121ms (source=12045ms
+=== PIXEL ANALYSIS (480x216 downscale, mean abs diff /255) ===
+P-vs-L same TOD : 7.74
+L-vs-L noise    : 3.12  (boot-to-boot floor)
+P 9.5h vs 19.5h : 61.21  (day-cycle delta, must be >> floor)
+PIXEL FIDELITY (supporting): OK (P-vs-L 7.74 vs day-cycle delta 61.21)
+DAY-CYCLE : PASS (time-of-day still varies in PRECOMPUTED)
+=== STATE EQUALITY v2 (calibrated placement gate) ===
+P struct: 9829 tris kept (giant 0, maxArea 10m2), area 19325 m2, density 45/m2
+L struct: 9829 tris kept (giant 0, maxArea 10m2), area 19325 m2, density 45/m2
+PLACEMENT STATE: EQUAL within cross-arch float residual (structural fields identical; instance delta 1 of 616381 = x86-offline-vs-arm64-live keep-bit rounding, 0.0001%% scale)
+=== R6 LIVE 19.5h (dusk A/B pair for R4) ===
+focus:   mCurrentFocus=Window{2bc7fe4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+07-13 13:51:44.138 28985 29074 I opengoal-gk: [recharged-grass] PLACE-TIME mode=live total=12065ms (source=11991ms expand+logs=45ms upload+light=29ms) instances=616381
+P19 light: [recharged-grass] POLISH#9 LIGHT upload #1 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 32 / mean 69 / max 156 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+L19 light: [recharged-grass] POLISH#9 LIGHT upload #1 (itimes changed): dynamic GROUND baked light, per-tri baked luma min 32 / mean 69 / max 156 over 9829 tris; grass *= (baked/255)*2 per-channel -> matches the ground beneath per LOCATION and per TIME OF DAY (wsum=192).
+DUSK LIGHTING STATE: IDENTICAL
