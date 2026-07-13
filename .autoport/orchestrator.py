@@ -954,7 +954,20 @@ def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
     # F1b was marked done with ZERO code. Require a real change since the
     # supervisor anchor in a port/translation dir, unless the phase declares
     # `no_code: true` (pure asset/packaging/investigation phases).
-    if not phase.get("no_code", False):
+    # Re-read the flag from milestones.yaml on DISK: the in-memory phase dict
+    # is loaded once at startup, so a worker that (per this gate's own advice)
+    # sets `no_code: true` mid-run would otherwise be refused until a manual
+    # orchestrator relaunch (Grecharged-grass-object-clip 2026-07-13: attempt 2
+    # declared the flag in-yaml and still burned a retry on the stale dict).
+    no_code = phase.get("no_code", False)
+    try:
+        for p in load_milestones().get("phases", []):
+            if p.get("id") == pid:
+                no_code = p.get("no_code", no_code)
+                break
+    except Exception:  # noqa: BLE001 — fail-safe: keep the in-memory value
+        pass
+    if not no_code:
         anchor = _supervisor_anchor(pid)
         paths = ["game/", "android/", "goalc/", "goal_src/"]
         committed = subprocess.run(
