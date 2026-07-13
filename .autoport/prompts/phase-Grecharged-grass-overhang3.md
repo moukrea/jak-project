@@ -50,3 +50,22 @@ CONTINUOUS with it. Tuning the same design cannot fix this. Do not retry it.
 
 ## Report: .autoport/reports/Grecharged-grass-overhang3/report.txt, RESULT: line, honest residuals.
 AWAITING OWNER PLAY-TEST — his verbatim above is the checklist. Max: max_turns 3000, max_retries 6.
+
+## OWNER CORRECTION (2026-07-13 22:05, verbatim — refines the diagnosis, fold into the design)
+"J'ai remarqué que la texture d'overhang se cache quand on se rapproche en effet, le drappé restant
+c'est en fait le mesh avec la texture d'herbe plate qui transite vers l'overhang que tu n'as pas dû
+considérer. Mais ça change pas grand chose au reste de mes retours"
+
+=> DECISIVE FACT: the round-2 fringe suppression WORKS (he was on v2). What he saw "sprouting from the
+wall" is the TRANSITION BAND: curved lip/skirt tris textured with the FLAT grass texture (tra-grass
+family) that wrap from the walkable top down toward the fringe tris. The PoC placement classifies ANY
+flat-grass-textured tri as walkable floor and plants FULL-HEIGHT UPRIGHT blades on them — on a curved
+sub-floor tri those blades stick out sideways/below the lip = the "too long, out of the wall" drape.
+REQUIRED handling in the design:
+- Classify that band explicitly: flat-grass-textured tris whose normal deviates from up beyond a
+  threshold AND/OR that sit below/adjacent to a rim segment (global rim hash) = TRANSITION tris, not
+  walkable floor.
+- On transition tris: no upright full-height blades. They join the droop system: short blades combed
+  along the surface toward down-slope, same species/scale as platform grass, continuing the gradient
+  from upright (walkable) -> combed (transition band) -> droop (fringe tris).
+- FLOORBELOW/FLOORGAP walkable logic stays untouched for genuinely flat tris (edge stack LOCKED).
