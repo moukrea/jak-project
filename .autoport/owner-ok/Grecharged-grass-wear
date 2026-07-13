@@ -1,0 +1,6 @@
+supervisor gate-close 2026-07-13 21:55: DESIGN SPIKE ONLY, no code (verified: report is a 402-line design
+doc; git shows no engine edits). Reviewed personally: real code refs (BASE_H hash at GrassBakeCore.cpp:1380
+= the "white noise" gap; grass.vert:358 grow_h as the single landing line; GrassInstance LOCKED 64B ->
+sidecar VBO pattern like m_light_vbo), influence-field architecture, MVP + 8 core / 5 optional ordered
+sub-tasks. Implementation NOT started — will be its own phase when the owner green-lights it (his 14
+acceptance criteria are in the doc). Closing to unblock overhang3 (owner priority).
