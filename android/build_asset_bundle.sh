@@ -115,7 +115,7 @@ fail(){ echo "[asset-bundle] FATAL: $*" >&2; exit 1; }
 [ -d "$ISO_BUILD" ]  || fail "no $ISO_BUILD — run the PC extract/build first"
 [ -d "$FR3_BUILD" ]  || fail "no $FR3_BUILD — run the PC fr3 build first"
 if [ -z "$VERSION" ]; then
-  VERSION="c$( (find "$ISO_BUILD" -maxdepth 1 -type f -print0; find "$FR3_BUILD" -maxdepth 1 -type f -name '*.fr3' -print0) | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
+  VERSION="c$( (find "$ISO_BUILD" -maxdepth 1 -type f -print0; find "$FR3_BUILD" -maxdepth 1 -type f \( -name '*.fr3' -o -name '*.grassbake' \) -print0) | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
 fi
 [ -d "$ARM64_CODE" ] || fail "no $ARM64_CODE — run .autoport/build_arm64_full_consistent.sh first (need the consistent arm64 CGO/DGO set)"
 # jak1 REQUIRES the android title-prompt overlay banks — matches the HARD-fail
@@ -153,13 +153,17 @@ else
   N_ISO=$(find "$ISO_BUILD" -maxdepth 1 -type f | wc -l | tr -d ' ')
 fi
 N_FR3=$(find "$FR3_BUILD" -maxdepth 1 -type f -name '*.fr3' | wc -l | tr -d ' ')
+# Grecharged-grass-precompute-mode: optional per-level *.grassbake precompute tables
+# ride the fr3/ zip path but are NOT part of the fixed fr3 completeness set. Count them
+# from disk so the file_count staleness gate stays exact when a bake is added/changed.
+N_GRASSBAKE_EXPECTED=$(find "$FR3_BUILD" -maxdepth 1 -type f -name '*.grassbake' | wc -l | tr -d ' ')
 # Grecharged-hud: the recharged HUD sprite PNGs are bundled for jak1 only. Count
 # them from disk (like N_ISO/N_FR3) so the HARD completeness gate below stays exact.
 N_RHUD_EXPECTED=0
 if [ "$GAME" = "jak1" ]; then
   N_RHUD_EXPECTED=$(find "$ROOT/recharged_assets" -maxdepth 1 -type f -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
 fi
-WANT_FC=$((N_ISO + N_FR3 + N_RHUD_EXPECTED))
+WANT_FC=$((N_ISO + N_FR3 + N_GRASSBAKE_EXPECTED + N_RHUD_EXPECTED))
 
 mkdir -p "$OUT_DIR"
 
@@ -227,6 +231,24 @@ while IFS= read -r f; do
   ln -s "$ROOT/$f" "$STAGE/fr3/$(basename "$f")"
 done < <(find "$FR3_BUILD" -maxdepth 1 -type f -name '*.fr3')
 
+# 3a. Grecharged-grass-precompute-mode: OPTIONAL per-level precomputed grass tables
+#     (<level>.grassbake, built offline by tools/grass_bake). They ride the SAME
+#     fr3/ zip path so LoaderActivity lands them at out/<game>/fr3/<name>.grassbake
+#     next to the matching .fr3 (the runtime validates a bake against its fr3 size).
+#     Bakes are OPTIONAL (present only for levels we baked), so this loop is a no-op
+#     when none exist and is NOT part of the >=26 fr3 completeness gate.
+N_GRASSBAKE=0
+while IFS= read -r f; do
+  ln -s "$ROOT/$f" "$STAGE/fr3/$(basename "$f")"
+  N_GRASSBAKE=$((N_GRASSBAKE + 1))
+done < <(find "$FR3_BUILD" -maxdepth 1 -type f -name '*.grassbake')
+if [ "$N_GRASSBAKE" -gt 0 ]; then
+  echo "[asset-bundle] staged $N_GRASSBAKE .grassbake precompute table(s):"
+  find "$FR3_BUILD" -maxdepth 1 -type f -name '*.grassbake' -printf '    %f (%s bytes)\n'
+else
+  echo "[asset-bundle] no .grassbake tables staged (grass precompute optional)"
+fi
+
 # 3b. Recharged HUD sprites (jak1): land verbatim under filesDir/recharged_assets/
 #     (Grecharged-hud). LoaderActivity maps recharged_assets/* alongside iso_data/fr3.
 N_RHUD=0
@@ -241,7 +263,9 @@ fi
 
 # --- HARD completeness + consistency gates (the false-green guard) ---
 got_iso=$(find -L "$STAGE/iso_data/$GAME" -type f | wc -l | tr -d ' ')
-got_fr3=$(find -L "$STAGE/fr3" -type f | wc -l | tr -d ' ')
+# Count only *.fr3 for the completeness gate — optional *.grassbake tables also live
+# in STAGE/fr3 but are not part of the fixed >=26 fr3 set (Grecharged-grass-precompute-mode).
+got_fr3=$(find -L "$STAGE/fr3" -type f -name '*.fr3' | wc -l | tr -d ' ')
 [ "$got_iso" -eq "$N_ISO" ] || fail "iso incomplete: staged $got_iso != full $N_ISO"
 [ "$got_fr3" -eq "$N_FR3" ] || fail "fr3 incomplete: staged $got_fr3 != full $N_FR3 (slim regression?)"
 [ "$got_fr3" -ge 26 ]       || fail "fr3 looks slim ($got_fr3 < 26) — the bundle MUST ship the full fr3 set"
