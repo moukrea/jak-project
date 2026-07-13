@@ -680,6 +680,14 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/sprite/Sprite3_Distort.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/sprite/Sprite3_Glow.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/sprite/GlowRenderer.cpp"
+    # Gjak1-shadow-cast — jak1 stencil-volume shadow (ShadowRenderer at bucket
+    # SHADOW/47, desktop OpenGLRenderer.cpp init_bucket_renderers_jak1 parity).
+    # Shadow_PS2.cpp is the VU2C-translated mesh builder. The shadow/shadow2
+    # shaders are already in the GLES set (shader dir glob); the surface has
+    # DEPTH24_STENCIL8 + stencil-bit clears. glPolygonMode debug wireframe was
+    # already __ANDROID__-gated in Phase 21.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ShadowRenderer.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/Shadow_PS2.cpp"
     # Gwater — ocean/water renderer family for the title flythrough over
     # village1 (which carries the ocean). OceanMidAndFar (ocean-mid-far bucket,
     # owns OceanTexture render-to-texture + OceanMid mesh) and OceanNear

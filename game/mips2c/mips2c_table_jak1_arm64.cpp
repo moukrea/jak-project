@@ -778,9 +778,23 @@ bool a37_name_is_real(const std::string& name) {
       // shadow-execute-all (shadow-cpu.gc:419); the shared no-op returned 0,
       // collapsing the foreground DMA cursor -> bucket-NEXT=0x1a50 -> the ndi
       // ND/Daxter logo's chain is rejected (black) + low-mem stomp. Route it to
-      // the real trampoline; its arm64 body is a cursor pass-through (returns
-      // a1 unchanged) since the shadow geometry port is incomplete.
-      "shadow-execute",
+      // the real trampoline.
+      //
+      // Gjak1-shadow-cast: the Gnd-era arm64 cursor pass-through inside
+      // shadow-execute is REMOVED (kill-switch: setprop
+      // debug.opengoal.jak1.noshadow 1) — the full geometry chain now runs and
+      // builds the shadow-volume DMA for the SHADOW bucket (jak2 precedent:
+      // Gjak2-visuals enabled the same family on-device). Enable the whole
+      // family together like jak2: shadow-execute reaches the siblings via
+      // direct ::execute(c) calls (shadow.cpp:2456-2560), but their GOAL
+      // symbols must not bind the shared 0-returning noop in case any GOAL
+      // site calls one directly.
+      "shadow-execute", "shadow-xform-verts", "shadow-calc-dual-verts",
+      "shadow-scissor-edges", "shadow-scissor-top", "shadow-init-vars",
+      "shadow-find-facing-single-tris", "shadow-find-single-edges",
+      "shadow-find-facing-double-tris", "shadow-find-double-edges",
+      "shadow-add-verts", "shadow-add-facing-single-tris", "shadow-add-single-edges",
+      "shadow-add-double-tris", "shadow-add-double-edges",
       // Gsprite: the sparticle sprite-DMA builders. The boot SCE "presents"
       // static-screen draws three screen-space sparticle sprites (defpart
       // 2966/2967/2968 -> group-part-screen1); each frame the sparticle system
