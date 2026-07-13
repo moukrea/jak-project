@@ -1209,6 +1209,48 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
         (int)droop_rim_segs.size(), (int)rim_segs.size(), DROOP_RIM_KEEP_M, DROOP_RIM_YWIN_M);
   }
 
+  // ---- Grecharged-grass-overhang3: TRANSITION-BAND classification (owner correction 2026-07-13).
+  // A placed walkable tri is the curl band iff it is tilted (upness < TRANS_UPNESS_HI) AND its
+  // centroid sits within TRANS_TRI_NEAR_M (XZ, Y-windowed) of a droop-rim segment. Genuinely flat
+  // tris and tilted grass far from every droop rim are untouched -> the LOCKED edge stack
+  // (rim segs / rim_q / keep tables / FLOORBELOW / FLOORGAP) is byte-identical; this only sets
+  // flags bit4, which expand() turns into a comb TAG (never a placement change).
+  int trans_tris = 0;
+  float trans_area = 0.f;
+  if (!droop_rim_segs.empty()) {
+    const float near_m = TRANS_TRI_NEAR_M * U;
+    const float near2 = near_m * near_m;
+    const float ywin = TRANS_TRI_YWIN_M * U;
+    for (auto& bt : bake_tris) {
+      if (bt.flags & (2u | 4u | 8u)) continue;  // lip | dup | fringe: not walkable-base tris
+      if (bt.ny >= TRANS_UPNESS_HI) continue;   // genuinely flat: never combed
+      float cx = bt.p0[0] + (bt.e1[0] + bt.e2[0]) * (1.0f / 3.0f);
+      float cy = bt.p0[1] + (bt.e1[1] + bt.e2[1]) * (1.0f / 3.0f);
+      float cz = bt.p0[2] + (bt.e1[2] + bt.e2[2]) * (1.0f / 3.0f);
+      bool near_rim = false;
+      for (const auto& s : droop_rim_segs) {
+        float abx = s.bx - s.ax, abz = s.bz - s.az;
+        float denom = abx * abx + abz * abz;
+        float t = denom > 1e-6f ? ((cx - s.ax) * abx + (cz - s.az) * abz) / denom : 0.f;
+        t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+        float sy = s.ay + t * (s.by - s.ay);
+        if (std::fabs(sy - cy) > ywin) continue;
+        float sx = s.ax + t * abx, sz = s.az + t * abz;
+        float dx = cx - sx, dz = cz - sz;
+        if (dx * dx + dz * dz <= near2) { near_rim = true; break; }
+      }
+      if (!near_rim) continue;
+      bt.flags |= 16u;
+      trans_tris++;
+      trans_area += bt.area_m2;
+    }
+  }
+  lg::info(
+      "[recharged-grass] GOVERHANG3 transition band: {} walkable tris flagged (area {:.0f}m2, "
+      "upness < {:.2f}, within {:.1f}m of a droop rim) — their blades comb in-plane when the "
+      "overhang toggle is ON; placement itself untouched",
+      trans_tris, trans_area, TRANS_UPNESS_HI, TRANS_TRI_NEAR_M);
+
   // ROUND#16 instrumentation (RIMDIST). placed = candidates that passed the floor+rim pass (scatter_keep),
   // matching today's m_instances.size() at the point this log fired (pre-occ).
   int placed_pre_occ = 0;
@@ -1385,6 +1427,16 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
       gi.gr = tri.gr; gi.gg = tri.gg; gi.gb = tri.gb;      // POLISH#4 ground colour
       gi.gspare = rim_decode(d.rim_q[tri.cand_base + (u64)i]);  // = rim_dist (world units)
       gi.nx = tri.nx; gi.ny = tri.ny; gi.nz = tri.nz; gi.nspare = 0.f;
+      // Grecharged-grass-overhang3: transition-band TAG. Position/height/order stay byte-identical;
+      // only nspare goes NEGATIVE, carrying the tilt-derived comb weight -(1+tw). Every existing
+      // marker test (is_tail nsp>1.5 / is_droop / is_trans) stays false, so with the toggle OFF the
+      // shader's stock else-branch runs bit-identical math. tw: 0 at ~32 deg tilt -> 1 at >=63 deg.
+      if (tri.flags & 16u) {
+        float tw = (TRANS_UPNESS_HI - tri.ny) / (TRANS_UPNESS_HI - TRANS_UPNESS_LO);
+        tw = tw < 0.f ? 0.f : (tw > 1.f ? 1.f : tw);
+        gi.nspare = -(1.0f + tw);
+        res.comb_tagged++;
+      }
       res.instances.push_back(gi);
       res.inst_tri.push_back((u32)tj);
     }
@@ -1392,77 +1444,190 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   res.scatter_kept = scatter_kept;
   res.occ_culled = occ_culled;
 
-  // ---- Grecharged-grass-overhang: append the DROOP instances at the tail. ----
-  // Deterministic per-tri enumeration like the walkable pass, but with no keep tables: droop blades
-  // hang over the drop BY DESIGN (no floor test, no occ, gspare = NO_RIM so the shader rim taper and
-  // horizontal clamp never touch them). Distinct hash streams from the walkable candidates so the two
-  // passes never correlate. Placement is TOP-BIASED on the face (the strip is anchored at the rim) and
-  // the blade length scales with the face's vertical span so the droop covers the painted alpha strip.
+  // ---- Grecharged-grass-overhang3: mesh-following droop ROWS (owner round-2 "failure totale").
+  // Round 2 placed barycentric blades shaped by a parametric arc — nothing tied a blade to its host
+  // tri's plane or extent, so the drape ignored the fringe mesh relief and overshot the texture.
+  // Round 3 derives EVERYTHING from the tri's own geometry: blades root on the tri's UP-SLOPE edge
+  // (where the face abuts the walkable rim, that IS the shared rim edge), additional rows tile tall
+  // faces down-slope, each blade grows ALONG the tri plane (in-plane down-slope dsl, carried to the
+  // shader in nx/ny/nz — the old droop branch never read the normal) and its length is capped at the
+  // tri's own in-plane EXIT distance -> a blade can never extend past the texture it covers. Height
+  // sample = the SAME species distribution as the walkable blades (owner: "c'est la même herbe").
   res.droop_start = (int)res.instances.size();
   if (!d.droop.empty()) {
-    int droop_placed = 0;
-    float ddens = DROOP_DENSITY * dens_scale;
-    // Uniform budget clamp (like the walkable pass): a hard per-iteration cap would starve the
-    // LAST-scanned rims at high sliders (order-biased bald edges). Scale the density instead so
-    // every rim keeps the same look at any slider value.
-    float droop_area_sum = 0.f;
+    struct Row {
+      float ax, ay, az, bx, by, bz;  // world row segment (a->b)
+      float len_m;                   // its length in metres
+    };
+    // Per-face row enumeration, deterministic and RNG-free (used twice: budget pre-pass + placement).
+    auto enum_rows = [&](const BakeTri& tri, std::vector<Row>& rows) {
+      rows.clear();
+      float n_x = tri.nx, n_y = tri.ny, n_z = tri.nz;
+      float horiz2 = 1.0f - n_y * n_y;
+      if (horiz2 < 1e-6f) return;  // degenerate flat face: no reliable down-slope
+      float inv = 1.0f / std::sqrt(horiz2);
+      // unit in-plane down-slope: projection of world-down onto the tri plane
+      float ux = n_x * n_y * inv, uy = (n_y * n_y - 1.0f) * inv, uz = n_z * n_y * inv;
+      // unit in-plane cross axis v = n x u
+      float vx = n_y * uz - n_z * uy, vy = n_z * ux - n_x * uz, vz = n_x * uy - n_y * ux;
+      // 2D coords (s = down-slope, w = cross) of the three vertices, relative to p0
+      float Sx[3], Wx[3];
+      float P[3][3] = {{tri.p0[0], tri.p0[1], tri.p0[2]},
+                       {tri.p0[0] + tri.e1[0], tri.p0[1] + tri.e1[1], tri.p0[2] + tri.e1[2]},
+                       {tri.p0[0] + tri.e2[0], tri.p0[1] + tri.e2[1], tri.p0[2] + tri.e2[2]}};
+      for (int vi = 0; vi < 3; ++vi) {
+        float dx = P[vi][0] - P[0][0], dy = P[vi][1] - P[0][1], dz = P[vi][2] - P[0][2];
+        Sx[vi] = dx * ux + dy * uy + dz * uz;
+        Wx[vi] = dx * vx + dy * vy + dz * vz;
+      }
+      // ROOT EDGE = the edge joining the two most up-slope vertices (smallest s): drop the max-s one.
+      int lo = (Sx[0] >= Sx[1] && Sx[0] >= Sx[2]) ? 0 : (Sx[1] >= Sx[2] ? 1 : 2);
+      int ra = (lo + 1) % 3, rb = (lo + 2) % 3;
+      {
+        Row r;
+        // nudge 2% toward the opposite vertex so root blades sit ON the face, not on the seam
+        r.ax = P[ra][0] + (P[lo][0] - P[ra][0]) * 0.02f;
+        r.ay = P[ra][1] + (P[lo][1] - P[ra][1]) * 0.02f;
+        r.az = P[ra][2] + (P[lo][2] - P[ra][2]) * 0.02f;
+        r.bx = P[rb][0] + (P[lo][0] - P[rb][0]) * 0.02f;
+        r.by = P[rb][1] + (P[lo][1] - P[rb][1]) * 0.02f;
+        r.bz = P[rb][2] + (P[lo][2] - P[rb][2]) * 0.02f;
+        float dx = r.bx - r.ax, dy = r.by - r.ay, dz = r.bz - r.az;
+        r.len_m = std::sqrt(dx * dx + dy * dy + dz * dz) / U;
+        if (r.len_m > 0.02f) rows.push_back(r);
+      }
+      // LEVEL-SET rows tile a tall face down-slope: clip the line s = s_k against the 2D triangle.
+      float smin = std::min(Sx[0], std::min(Sx[1], Sx[2]));
+      float smax = std::max(Sx[0], std::max(Sx[1], Sx[2]));
+      float step = ROW_STEP_M * U;
+      int nrows = (int)((smax - smin) / step) - 1;
+      if (nrows > DROOP_MAX_ROWS - 1) nrows = DROOP_MAX_ROWS - 1;
+      for (int k = 1; k <= nrows; ++k) {
+        float sk = smin + (float)k * step;
+        if (sk > smax - 0.3f * step) break;
+        // intersect s = sk with the three 2D edges; collect the (up to 2) crossings
+        float cw[2];
+        int ncross = 0;
+        int eidx[3][2] = {{0, 1}, {1, 2}, {2, 0}};
+        for (int e = 0; e < 3 && ncross < 2; ++e) {
+          int i0 = eidx[e][0], i1 = eidx[e][1];
+          float s0 = Sx[i0], s1 = Sx[i1];
+          if ((s0 <= sk) == (s1 <= sk)) continue;  // no crossing
+          float f = (sk - s0) / (s1 - s0);
+          cw[ncross++] = Wx[i0] + f * (Wx[i1] - Wx[i0]);
+        }
+        if (ncross < 2) continue;
+        float w0 = std::min(cw[0], cw[1]), w1 = std::max(cw[0], cw[1]);
+        // shrink 5% per side off the seams
+        float shrink = (w1 - w0) * 0.05f;
+        w0 += shrink; w1 -= shrink;
+        if (w1 - w0 < 0.02f * U) continue;
+        Row r;
+        r.ax = P[0][0] + ux * sk + vx * w0; r.ay = P[0][1] + uy * sk + vy * w0; r.az = P[0][2] + uz * sk + vz * w0;
+        r.bx = P[0][0] + ux * sk + vx * w1; r.by = P[0][1] + uy * sk + vy * w1; r.bz = P[0][2] + uz * sk + vz * w1;
+        r.len_m = (w1 - w0) / U;
+        rows.push_back(r);
+      }
+    };
+    // 2D exit distance from a point along +s (down-slope): nearest edge crossing of the ray. Inputs
+    // in the SAME 2D frame enum_rows builds; returns world units.
+    auto exit_dist = [&](const BakeTri& tri, float px, float py, float pz) -> float {
+      float n_x = tri.nx, n_y = tri.ny, n_z = tri.nz;
+      float horiz2 = 1.0f - n_y * n_y;
+      if (horiz2 < 1e-6f) return 0.f;
+      float inv = 1.0f / std::sqrt(horiz2);
+      float ux = n_x * n_y * inv, uy = (n_y * n_y - 1.0f) * inv, uz = n_z * n_y * inv;
+      float vx = n_y * uz - n_z * uy, vy = n_z * ux - n_x * uz, vz = n_x * uy - n_y * ux;
+      float Sx[3], Wx[3];
+      float P[3][3] = {{tri.p0[0], tri.p0[1], tri.p0[2]},
+                       {tri.p0[0] + tri.e1[0], tri.p0[1] + tri.e1[1], tri.p0[2] + tri.e1[2]},
+                       {tri.p0[0] + tri.e2[0], tri.p0[1] + tri.e2[1], tri.p0[2] + tri.e2[2]}};
+      for (int vi = 0; vi < 3; ++vi) {
+        float dx = P[vi][0] - P[0][0], dy = P[vi][1] - P[0][1], dz = P[vi][2] - P[0][2];
+        Sx[vi] = dx * ux + dy * uy + dz * uz;
+        Wx[vi] = dx * vx + dy * vy + dz * vz;
+      }
+      float dx = px - P[0][0], dy = py - P[0][1], dz = pz - P[0][2];
+      float ps = dx * ux + dy * uy + dz * uz;
+      float pw = dx * vx + dy * vy + dz * vz;
+      float best = 1e30f;
+      int eidx[3][2] = {{0, 1}, {1, 2}, {2, 0}};
+      for (int e = 0; e < 3; ++e) {
+        int i0 = eidx[e][0], i1 = eidx[e][1];
+        float es = Sx[i1] - Sx[i0], ew = Wx[i1] - Wx[i0];
+        // ray (ps+t, pw) hits edge param f: pw = Wx[i0] + f*ew ; s at f must be > ps
+        if (std::fabs(ew) < 1e-6f) continue;  // edge parallel to the ray in w: handled by the others
+        float f = (pw - Wx[i0]) / ew;
+        if (f < -0.001f || f > 1.001f) continue;
+        float t = (Sx[i0] + f * es) - ps;
+        if (t > 1.0f && t < best) best = t;
+      }
+      return best < 1e29f ? best : 0.f;
+    };
+    // Budget pre-pass (uniform clamp like the walkable pass — no order-biased starvation).
+    std::vector<Row> rows;
+    float total_row_m = 0.f;
     for (const auto& de : d.droop) {
-      if (de.tri < d.tris.size()) droop_area_sum += d.tris[de.tri].area_m2;
+      if (de.tri >= d.tris.size()) continue;
+      enum_rows(d.tris[de.tri], rows);
+      for (const auto& r : rows) total_row_m += r.len_m;
     }
-    if (droop_area_sum > 1.0f && droop_area_sum * ddens > 0.9f * (float)DROOP_MAX) {
-      ddens = 0.9f * (float)DROOP_MAX / droop_area_sum;
+    float edens = DROOP_EDGE_DENS * dens_scale;
+    if (total_row_m > 1.0f && total_row_m * edens > 0.9f * (float)DROOP_MAX) {
+      edens = 0.9f * (float)DROOP_MAX / total_row_m;
     }
+    int droop_placed = 0, droop_rows_n = 0, droop_capped = 0;
+    const float min_len = DROOP_MIN_LEN_M * U;
     for (const auto& de : d.droop) {
       if (droop_placed >= DROOP_MAX) break;
-      if (de.tri >= d.tris.size()) continue;  // belt-and-braces vs a corrupt bake
+      if (de.tri >= d.tris.size()) continue;
       const BakeTri& tri = d.tris[de.tri];
-      float fn = tri.area_m2 * ddens;
-      int n = (int)fn;
-      if (hash_f(tri.seed + 777u) < (fn - (float)n)) {
-        n += 1;
-      }
-      float y0 = tri.p0[1], y1 = y0 + tri.e1[1], y2 = y0 + tri.e2[1];
-      float ymin = std::min(y0, std::min(y1, y2));
-      float ymax = std::max(y0, std::max(y1, y2));
-      float vspan = ymax - ymin;
-      // blade length ~ the face's vertical extent (cover the strip), clamped to a sane band
-      float len_ref = std::min(std::max(vspan * 1.05f, 0.30f * U), 0.95f * U);
-      float base_yaw = std::atan2(de.ox, de.oz);  // shader fwdv = (sin yaw, 0, cos yaw) = outward
-      for (int i = 0; i < n; ++i) {
-        if (droop_placed >= DROOP_MAX) break;
-        u32 sd = (tri.seed ^ 0x0D00Fu) + (u32)i * 2654435761u;
-        float r1 = hash_f(sd + 1u);
-        float r2 = hash_f(sd + 2u);
-        if (r1 + r2 > 1.0f) {
-          r1 = 1.0f - r1;
-          r2 = 1.0f - r2;
+      enum_rows(tri, rows);
+      float n_x = tri.nx, n_y = tri.ny, n_z = tri.nz;
+      float horiz2 = 1.0f - n_y * n_y;
+      if (horiz2 < 1e-6f) continue;
+      float inv = 1.0f / std::sqrt(horiz2);
+      float ux = n_x * n_y * inv, uy = (n_y * n_y - 1.0f) * inv, uz = n_z * n_y * inv;
+      float dsl_yaw = std::atan2(ux, uz);  // shader rightv/fwdv frame still comes from yaw
+      for (size_t rk = 0; rk < rows.size(); ++rk) {
+        const Row& row = rows[rk];
+        float fn = row.len_m * edens;
+        int n = (int)fn;
+        u32 rowseed = (tri.seed ^ 0xD300Fu) + (u32)rk * 1013904223u;
+        if (hash_f(rowseed + 99u) < (fn - (float)n)) n += 1;
+        if (n > 0) droop_rows_n++;
+        for (int i = 0; i < n; ++i) {
+          if (droop_placed >= DROOP_MAX) break;
+          u32 sd = rowseed + (u32)i * 2654435761u;
+          float f = hash_f(sd + 1u);
+          float bx = row.ax + f * (row.bx - row.ax);
+          float by = row.ay + f * (row.by - row.ay);
+          float bz = row.az + f * (row.bz - row.az);
+          float exit = exit_dist(tri, bx, by, bz);
+          // SAME species as the platform grass (owner: it is the same grass bending over the edge),
+          // capped at the tri's own extent so it never overshoots the painted fringe.
+          float species = BASE_H * (0.50f + 1.55f * hash_f(sd + 3u));
+          float len = std::min(species, exit * DROOP_EXIT_SAFETY);
+          if (len < min_len) continue;
+          if (len < species) droop_capped++;
+          GrassInstance gi;
+          gi.px = bx; gi.py = by; gi.pz = bz;
+          gi.h = len;
+          gi.yaw = dsl_yaw + (hash_f(sd + 4u) - 0.5f) * 0.6f;
+          gi.tint = hash_f(sd + 5u);
+          gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);
+          gi.phase = hash_f(sd + 7u);
+          gi.gr = tri.gr; gi.gg = tri.gg; gi.gb = tri.gb;
+          gi.gspare = 1.0e9f;  // NO_RIM: the droop is the intended overhang
+          gi.nx = ux; gi.ny = uy; gi.nz = uz;  // ROUND3: in-plane down-slope, NOT the face normal
+          gi.nspare = 2.0f;                    // droop marker unchanged
+          res.instances.push_back(gi);
+          res.inst_tri.push_back(de.tri);
+          droop_placed++;
         }
-        float bx = tri.p0[0] + r1 * tri.e1[0] + r2 * tri.e2[0];
-        float by = tri.p0[1] + r1 * tri.e1[1] + r2 * tri.e2[1];
-        float bz = tri.p0[2] + r1 * tri.e1[2] + r2 * tri.e2[2];
-        // top bias: keep-probability rises with height on the face (the strip hangs FROM the rim)
-        float relh = vspan > 1.0f ? (by - ymin) / vspan : 1.0f;
-        if (hash_f(sd + 8u) > 0.35f + 0.65f * relh) {
-          continue;
-        }
-        GrassInstance gi;
-        gi.px = bx;
-        gi.py = by;
-        gi.pz = bz;
-        gi.h = len_ref * (0.80f + 0.55f * hash_f(sd + 3u));
-        gi.yaw = base_yaw + (hash_f(sd + 4u) - 0.5f) * 0.7f;  // +-0.35 rad outward jitter
-        gi.tint = hash_f(sd + 5u);
-        gi.curve = hash_f(sd + 6u);
-        gi.phase = hash_f(sd + 7u);
-        gi.gr = tri.gr; gi.gg = tri.gg; gi.gb = tri.gb;
-        gi.gspare = 1.0e9f;  // NO_RIM: droop is the intended overhang, exempt from the rim taper
-        gi.nx = tri.nx; gi.ny = tri.ny; gi.nz = tri.nz;
-        gi.nspare = 2.0f;    // DROOP marker (shader: inst_normal.w > 1.5)
-        res.instances.push_back(gi);
-        res.inst_tri.push_back(de.tri);
-        droop_placed++;
       }
     }
+    (void)droop_rows_n; (void)droop_capped;  // logged by the renderer census via ExpandResult if needed
   }
 
   // ---- Grecharged-grass-overhang2: PROGRESSIVE upright->droop transition twins (owner defect 3:
@@ -1526,7 +1691,8 @@ constexpr u32 GBK_MAGIC = 0x314B4247;   // 'GBK1'
 // bit3). A v1 bake fails the version check below -> the runtime's LIVE-scan fallback handles it.
 // Grecharged-grass-overhang2: v3 appends the droop-RIM segment section (the progressive
 // upright->droop transition needs a rim DIRECTION; rim_q only has a distance). Same fallback rule.
-constexpr u32 GBK_FORMAT_VERSION = 3;
+// Grecharged-grass-overhang3: v4 = SEMANTIC bump (flags bit4 transition tris; droop instances now carry the in-plane down-slope in nx/ny/nz and a tri-capped length in h). Same byte layout as v3.
+constexpr u32 GBK_FORMAT_VERSION = 4;
 
 template <typename T>
 void put(std::vector<u8>& buf, const T& v) {

@@ -148,6 +148,25 @@ constexpr int TRANS_MAX = 60000;         // hard ceiling for the transition twin
 constexpr float DROOP_RIM_KEEP_M = 0.8f; // a rim segment within this (XZ) of a droop face = a droop rim
 constexpr float DROOP_RIM_YWIN_M = 2.5f; // ... with this much Y tolerance (lip faces drop below the rim)
 
+// Grecharged-grass-overhang3 (owner 2026-07-13: round-2 "failure totale"). The visible "wall drape"
+// was the TRANSITION BAND: curved flat-grass-textured tris (upness 0.55..0.95) that the lip
+// classifier (UPNESS_LIP_MAX) never catches, so they stayed WALKABLE and grew full-height uprights
+// whose bases sit on the curl below the visual lip. Round 3: (A) scan flags them (BakeTri flags
+// bit4) by tilt + droop-rim adjacency; expand() tags their blades with a NEGATIVE nspare carrying a
+// tilt-derived comb weight, and the shader lies them along the in-plane down-slope when the toggle
+// is ON (OFF path bit-identical). (B) droop is rebuilt as mesh-following ROWS rooted at each
+// fringe/lip tri's up-slope (rim-shared) edge, per-blade length capped at the tri's own in-plane
+// exit distance -> never longer than the texture it covers; same species as platform grass.
+constexpr float TRANS_UPNESS_HI = 0.85f;   // tilt steeper than ~32 deg starts to comb (tw > 0)
+constexpr float TRANS_UPNESS_LO = 0.45f;   // fully combed (tw = 1) at ~63 deg and steeper
+constexpr float TRANS_TRI_NEAR_M = 1.5f;   // transition tri must sit this close (XZ) to a droop rim
+constexpr float TRANS_TRI_YWIN_M = 2.5f;   // ... with this Y tolerance (the curl drops below the rim)
+constexpr float DROOP_EDGE_DENS = 22.0f;   // droop blades per metre of placement row
+constexpr float ROW_STEP_M = 0.28f;        // down-slope spacing between rows on tall fringe faces
+constexpr int   DROOP_MAX_ROWS = 6;        // row cap per face
+constexpr float DROOP_MIN_LEN_M = 0.07f;   // skip blades shorter than this (invisible slivers)
+constexpr float DROOP_EXIT_SAFETY = 0.95f; // blade length cap = this fraction of the tri exit distance
+
 // Grecharged-grass-overhang2 (owner defect 1: the painted overhang alpha texture stayed visible under
 // the droop — "ça passe au travers"): the two painted hang-strip textures the NEAR droop replaces.
 // The tfrag/TIE renderers fade draws using these textures out near the camera while the overhang
@@ -181,7 +200,7 @@ struct BakeTri {
   float pal[8][3];            // day-cycle baked-light keyframes (time-of-day palette rows, centroid avg)
   u32 cand_count;             // candidates enumerated at bake_density_pct
   u64 cand_base;              // first candidate index in keep[]/rim_q[]
-  u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri)
+  u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri), bit4 is_transition (ROUND3: curl band, blades combed when toggle ON)
 };
 
 // Grecharged-grass-overhang: one droop-placement face (a lip or fringe tri) with its scan-resolved
@@ -260,6 +279,9 @@ struct ExpandResult {
   // Grecharged-grass-overhang2: the progressive upright->droop transition twins sit after the hang
   // blades, still inside the toggle-gated tail. Census only — the draw split is droop_start.
   int trans_start = 0;          // == instances.size() when there are no transition twins
+  // Grecharged-grass-overhang3: how many BASE-range walkable blades carry the negative-nspare comb
+  // tag (census only; their position/height/order are byte-identical to an untagged build).
+  int comb_tagged = 0;
 };
 ExpandResult expand(const BakeData& d, float density_slider_pct);
 
