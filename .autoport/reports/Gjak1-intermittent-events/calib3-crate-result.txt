@@ -1,0 +1,1 @@
+EVTRIAL-RESULT tag=calib3-crate arm=flush cont=beach-start status=OK armcheck=OK focus=yes fired=1/1

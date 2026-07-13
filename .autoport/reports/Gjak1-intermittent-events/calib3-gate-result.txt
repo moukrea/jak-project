@@ -1,0 +1,1 @@
+EVTRIAL-RESULT tag=calib3-gate arm=flush cont=village1-warp status=OK armcheck=OK focus=yes fired=0/1

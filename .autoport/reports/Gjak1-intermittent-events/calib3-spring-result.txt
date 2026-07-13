@@ -1,0 +1,1 @@
+EVTRIAL-RESULT tag=calib3-spring arm=flush cont=jungle-start status=OK armcheck=OK focus=yes fired=0/1

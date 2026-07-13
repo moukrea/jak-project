@@ -9,6 +9,11 @@
 # Usage: evtrial_run.sh <tag> <arm:flush|noflush> <cont> [posm] [watch_s]
 # Env:   EVFILTER (default empty)  CRITERIA (default empty)
 #        OUT_DIR (default .autoport/reports/Gjak1-intermittent-events)
+#        ACT_TOKENS/ACT_DELAY/ACT_HOLD   — owner-mandated unmissable scripted
+#        ACT2_TOKENS/ACT2_DELAY/ACT2_HOLD  debug action(s): cpad_inject token
+#        burst(s) applied ACT*_DELAY seconds into the post-spawn observe window
+#        for ACT*_HOLD seconds (e.g. ACT_TOKENS='circle square' = melee press).
+#        Empty ACT_TOKENS (default) = no action (proximity-only trigger).
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 TAG="${1:-ev1}"
@@ -18,6 +23,12 @@ POSM="${4-}"                 # pass "" for no pos override
 WATCH_S="${5:-50}"
 EVFILTER="${EVFILTER:-}"
 CRITERIA="${CRITERIA:-}"
+ACT_TOKENS="${ACT_TOKENS:-}"
+ACT_DELAY="${ACT_DELAY:-12}"
+ACT_HOLD="${ACT_HOLD:-0.8}"
+ACT2_TOKENS="${ACT2_TOKENS:-}"
+ACT2_DELAY="${ACT2_DELAY:-16}"
+ACT2_HOLD="${ACT2_HOLD:-0.8}"
 OUT_DIR="${OUT_DIR:-.autoport/reports/Gjak1-intermittent-events}"
 mkdir -p "$OUT_DIR"
 PACKAGE=org.opengoal.gk.jak1
@@ -45,8 +56,11 @@ if [ -n "$POSM" ]; then
 else
   A shell "setprop debug.opengoal.level.warp.pos ''" >/dev/null 2>&1
 fi
-# arm the EVTRIAL probe + filter
-A shell setprop debug.opengoal.evtrial 1 >/dev/null 2>&1
+# arm the EVTRIAL probe + filter (mode 2 = 60-frame samples AND per-frame
+# state-TRANSITION logging, so sub-second transitions like crate wait->die
+# are captured even between samples)
+A shell setprop debug.opengoal.evtrial 2 >/dev/null 2>&1
+A shell "setprop debug.opengoal.cpad_inject '\"\"'" >/dev/null 2>&1
 A shell "setprop debug.opengoal.evtrial.filter '$EVFILTER'" >/dev/null 2>&1
 # A/B arm: noflush = restore pre-fix stale-icache behavior; flush = fixed.
 if [ "$ARM" = noflush ]; then
@@ -79,6 +93,7 @@ cleanup(){ stop_logger
   A shell setprop debug.opengoal.evtrial 0 >/dev/null 2>&1 || true
   A shell setprop debug.opengoal.evtrial.filter '""' >/dev/null 2>&1 || true
   A shell setprop debug.opengoal.icache.noflush 0 >/dev/null 2>&1 || true
+  A shell "setprop debug.opengoal.cpad_inject '\"\"'" >/dev/null 2>&1 || true
   A shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 A shell am start -W -n "$PACKAGE/$ACTIVITY" >/dev/null 2>&1
@@ -101,10 +116,25 @@ if crash_seen && [ "$WARP_OK" = 0 ]; then
 elif [ "$WARP_FAIL" = 1 ]; then
   STATUS=WARP-FAIL
 else
-  echo "  observing ${WATCH_S}s post-spawn..."
+  echo "  observing ${WATCH_S}s post-spawn (act='$ACT_TOKENS'@${ACT_DELAY}s act2='$ACT2_TOKENS'@${ACT2_DELAY}s)..."
   POST_CRASH=0
+  ACT_DONE=0; ACT2_DONE=0
   for i in $(seq 1 "$WATCH_S"); do
     crash_seen && { POST_CRASH=1; echo "  >>> CRASH ~${i}s into observe"; break; }
+    if [ -n "$ACT_TOKENS" ] && [ "$ACT_DONE" = 0 ] && [ "$i" -ge "$ACT_DELAY" ]; then
+      echo "  ACTION1: '$ACT_TOKENS' held ${ACT_HOLD}s"
+      A shell "setprop debug.opengoal.cpad_inject '$ACT_TOKENS'" >/dev/null 2>&1
+      sleep "$ACT_HOLD"
+      A shell "setprop debug.opengoal.cpad_inject '\"\"'" >/dev/null 2>&1
+      ACT_DONE=1
+    fi
+    if [ -n "$ACT2_TOKENS" ] && [ "$ACT2_DONE" = 0 ] && [ "$i" -ge "$ACT2_DELAY" ]; then
+      echo "  ACTION2: '$ACT2_TOKENS' held ${ACT2_HOLD}s"
+      A shell "setprop debug.opengoal.cpad_inject '$ACT2_TOKENS'" >/dev/null 2>&1
+      sleep "$ACT2_HOLD"
+      A shell "setprop debug.opengoal.cpad_inject '\"\"'" >/dev/null 2>&1
+      ACT2_DONE=1
+    fi
     sleep 1
   done
   if [ "$POST_CRASH" = 1 ]; then STATUS=POST-SPAWN-CRASH; else STATUS=OK; fi
