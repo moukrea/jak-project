@@ -1,0 +1,101 @@
+Grecharged-grass-overhang3 — ROUND 3 report (owner round-2 verdict "failure totale" + his 22:05 correction = the acceptance list)
+Date: 2026-07-13    Device: Redmi Note 9 Pro eae4df44    Package: org.opengoal.gk.jak1
+Deploy: HEAD fe543d07c, full consistent build (28/28 arm64 CGO/DGO sha256-verified), deploy_verify PASS chain build==APK==device b0c66b94904c4db4, deploy_verify_assets PASS 28/28
+Bake: GBK4, desktop==device sha256 4389505f7e345d46 (1825505 B), device census: PLACE-TIME mode=precomputed total=483ms instances=710478
+Design note committed BEFORE code (16129095a), per mandate.
+
+== Root cause of round 2 (verified in code, matches the owner's 22:05 correction) ==
+The "wall drape" was NOT the droop blades: the lip classifier only considers tris with upness < 0.55,
+so the curved TRANSITION BAND (flat-grass-textured curl tris, upness 0.55..0.95, wrapping from the
+walkable top down over the lip) stayed classified WALKABLE and grew FULL-HEIGHT UPRIGHT blades whose
+bases sit below the visual lip — from the side they read as grass growing out of the wall under the
+floor. Round-2 droop itself was a parametric arc (u_droop_len world-scale, length from the face's
+vertical span) tied to nothing on the host tri -> ignored the fringe mesh relief and overshot the
+painted texture. Tuning could never fix either; round 3 is the mandated structural redesign.
+
+== The mandated design, as implemented ==
+1. PLACEMENT BASIS = the fringe/lip tris THEMSELVES: droop blades are placed ON the droop faces
+   (fringe-textured bch-grassfringe / bch-leafyground-hang-2x1 tris + the excluded lip tris — all
+   grass-textured by the allowlist, never bare wall faces), rooted on each tri's UP-SLOPE edge (where
+   the face abuts the walkable rim from the global rim hash, that IS the shared rim edge) and grown
+   ALONG the tri plane (in-plane down-slope carried per-instance) -> the droop follows the mesh and
+   its relief BY CONSTRUCTION, hanging downward over the drop. Tall faces are tiled with rows
+   (ROW_STEP 0.28m, max 6) so multi-row drape meshes are covered row by row.
+2. LENGTH FROM THE TRI EXTENT, PER BLADE: length = min(species sample, 0.95 * exact in-plane exit
+   distance) -> a blade can NEVER extend past its host tri, i.e. never longer than the fringe texture
+   it covers. No global world-space drop constant (u_droop_len survives only as a live debug
+   multiplier, default 1.0 neutral; prop debug.opengoal.grass.droop_len).
+3. SAME SPECIES: the droop height sample is the walkable formula BASE_H*(0.50+1.55*rand) and the
+   standard width formula — the same grass as the adjacent platform blades, bending over the edge.
+4. TRANSITION BAND (owner correction): scan flags curl tris (upness < 0.85 AND centroid within 1.5m of
+   a droop-rim segment — the global rim hash subset) as bit4; 921 tris / 546 m2 on training. Their
+   base blades keep byte-identical placement but carry a NEGATIVE nspare comb weight; when the toggle
+   is ON the shader lies them along their own face's in-plane down-slope (tilt-weighted), so the curl
+   grass hugs the surface instead of towering out of the wall. NO upright full-height blades remain on
+   the band with the toggle ON. Device census proves the tag live: comb_tagged=2048.
+5. CONTINUOUS GRADIENT: upright (flat top, LOCKED rim taper) -> transition twins (kept, target re-aimed
+   at the comb shape: lean outward toward horizontal, no below-base drop) -> band comb (weight grows
+   with tilt) -> rooted droop rows on the fringe mesh. One species, one continuous downward-over-the-lip
+   arc; side-sweep capture below.
+6. FRINGE TEXTURE: the round-2 near-hide is KEPT verbatim (owner confirmed it works) — u_fringe_fade on
+   the same two hang textures, steepness-gated; near-3D and the far texture crossfade over the same
+   band, no double-up, no seam. Far LOD unchanged: at distance the ORIGINAL painted texture shows and
+   there is no grass card on the lip (droop/twins still collapse in the card pass).
+
+== Census (device, from the warp boots' logcat) ==
+GOVERHANG expand: droop_tris=1897 droop_instances=72248 trans_instances=21850 droop_rims=1386 (tail [616380..710478), toggle=ON comb_tagged=2048
+Walkable base count 616380 UNCHANGED (byte-identical placement stream; bake round-trip IDENTICAL at
+GBK4); the toggle stays draw-count-only + u_overhang/u_fringe_fade uniforms that multiply by exactly
+1.0 when OFF, so OFF == stock including the painted fringe texture (g3_off frames + census toggle=OFF).
+
+== Captures (device eae4df44; every boot warp_ok=1, focus proof per rec line in goverhang3_proof.txt,
+   e.g. "mCurrentFocus=Window{16b231c u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}";
+   all frames luminance-valid YAVG 86-100, none black; force-stop after every window) ==
+(a) frames/g3_wall_*.png + crops/wall_020.png — WIDE side vantage of the terrace lip + the wall under
+    it: the drape is a SHORT band hugging the lip curve; NO blade sprouts from the wall below the
+    floor. Objective: the tight band on the bare wall under the lip reads ON-vs-OFF 0.35% changed,
+    BELOW the 0.78% cross-boot noise — nothing was added on the wall.
+(b) frames/g3_close_*.png + crops/close2_042.png — close-up: the droop combs over the curved rim
+    following the mesh relief (the drape outline tracks the lip silhouette exactly).
+(c) frames/g3_off_026.png vs g3_on_026.png (SAME warp vantage + same pulses, two boots) — OFF shows
+    the stock painted scalloped skirt; ON replaces it with 3D drape of the SAME visual extent (the
+    length cap is the tri the texture is painted on). Full-frame diff localization: ON-vs-OFF changes
+    concentrate in a continuous band ALONG the lip/rim silhouettes (crops/diag_full_on_off.png,
+    2.54% changed) while the ON-vs-ON cross-boot noise (2 independent ON boots, 1.59%) is diffuse
+    interior breeze speckle with NO edge concentration (crops/diag_full_noise.png) — the effect is
+    exactly and only at the rims.
+(d) frames/g3_grad_*.png + crops/grad2_032/048.png — side sweep: continuous upright -> lean -> comb ->
+    droop gradient over the lip, no binary switch, downward over the edge.
+(e) same frames: the drape blades read the SAME scale as the adjacent platform grass in the same frame
+    (same species sample by construction).
+(f) g3_off_* — OFF == stock: painted fringe fully visible, no droop, no comb, no twins.
+
+== Regression guards ==
+Walkable-top rim stack not regressed: the walkable-top grass still stops clean at the exact edge
+(FLOORBELOW/FLOORGAP/global rim hash/rim_q/keep tables untouched — the LOCKED edge stack is
+byte-identical; classification only ADDS flags bit4). Toggle row unchanged in Recharged Settings
+(recharged-grass-overhang?). x86 untouched: goal_src unchanged; changes are C++ renderer + shaders +
+bake tool only; full consistent pipeline re-ran the x86 oracle restore (PASS, build_deploy_full.log).
+GBK3->GBK4 semantic bump: old bakes fall back to live scan; device bake regenerated + bundle
+content-hash re-derived (gradle compressJak1DebugAssets re-ran) + device re-verified sha-identical.
+No crash in any of the 5 capture boots (no Fatal signal / GK-DIAG sig lines in the warp logs).
+
+== Honest residuals ==
+- The full-frame ON-vs-OFF changed fraction (2.54%) is only 1.6x the cross-boot noise floor as a
+  NUMBER; the discriminating evidence is the LOCALIZATION (rim-band vs diffuse) shown in the two
+  overlays, plus the census. Breeze dominates any whole-frame metric at this vantage.
+- comb_tagged=2048 blades over 921 flagged tris: the band is sparsely planted at this vantage's
+  density; if the owner still sees residual uprights on a specific curl, TRANS_UPNESS_HI (0.85) and
+  TRANS_TRI_NEAR_M (1.5m) are the knobs — both bake-side constants, re-bake required.
+- The comb branch uses one inversesqrt() (pure mads otherwise, no normalize(mix()) — the known
+  Adreno-618 wedge class was avoided); 5 boots rendered crash-free, but the Adreno miscompile family
+  has surprised us 4 times before. If a wedge appears it will be in the blade pass at close range.
+- Twins keep the round-2 population (21850); their arc was re-aimed to the comb target. If the owner
+  wants the flat-top lean band wider/narrower, TRANS_BAND_M (0.45m) is the knob.
+
+RESULT: GRASS OVERHANG ROUND 3 — droop placed ON the fringe-textured tris, rooted at the shared rim
+edge, hanging downward along the mesh relief by construction, per-tri length cap == the texture it
+covers, same blade species as the platform grass, continuous upright->lean->comb->droop gradient,
+transition-band uprights eliminated (combed) so nothing sprouts from walls below the floor; near
+crossfade + far = original texture with no grass cards kept from round 2; OFF == stock. VALIDATOR-LEVEL
+PASS — AWAITING OWNER PLAY-TEST (his round-2 verdict + correction are the checklist).
