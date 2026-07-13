@@ -1,0 +1,106 @@
+RESULT: INTERMITTENT EVENTS NOT REPRODUCED POST-FIX — 48/48 in-trigger firings on both arms; prime-suspect bug class #14 (stale-icache) fix landed+deployed; dispatcher instrumentation armed for the owner's next real-world miss
+
+Phase Gjak1-intermittent-events — 2026-07-13. Owner symptom (2026-07-09): INTERMITTENT, game-wide
+event failures on device — contextual mini-cutscenes sometimes not firing, platforms sometimes not
+moving, enemies sometimes immobile. Method follows the owner redirect (2026-07-13 16:10) and
+addendum (16:40) exactly: code-first census, warp ADJACENT to each trigger + ONE unmissable
+scripted debug action, NO free-play navigation, state dumps + counters over screenshots.
+
+## Named root cause / mechanism (prime suspect, prove-or-disprove mandate)
+The named common intermittent mechanism is arm64 bug class #14 stale-icache: jak1_finish's
+CacheFlush(base,0) no-op (klink.cpp:623 class) let the arm64 I-fetch serve stale prior-object
+instructions at reused KMALLOC_TOP addresses — the exact fingerprint of intermittent, device-only,
+random-location trigger failures (a stale instruction stream corrupts whichever :trans/enter-state
+behavior happens to relink there). The fix (real-range __builtin___clear_cache over
+MAIN/TOP_LEVEL/DEBUG code_infos) landed in Gjak1-icache-flush commit eed5bdd45 and IS in the
+deployed build; a runtime revert prop (debug.opengoal.icache.noflush=1, klink.cpp:620-656) restores
+the pre-fix no-op-flush behavior for A/B without mixed builds.
+A/B verdict, honestly: with the pre-fix noflush behavior restored, NO trigger miss reproduced in 24
+trials (see rates below) — so the trials neither reprove nor falsify #14 as the historic cause; what
+they DO prove is that with the fix deployed the owner's three symptom classes fire deterministically
+at these triggers. The single raw-scored miss (mx-jungle-noflush-c-1, noflush arm) was forensically
+a false negative: the raw log shows junglefish-78 idle->patrol->idle via relocation-SPAWN lines
+(GOAL heap compaction re-logs a moved proc as SPAWN; the analyzer dropped post-first SPAWNs);
+analyzer fixed, all 24 logs re-scored (mx-rescore.txt).
+
+## Code-first census (researcher, goal_src/jak1 — mechanisms that trigger the owner's symptoms)
+- nav-enemy wake: nav-enemy-idle :trans proximity+was-drawn -> patrol -> notice (nav-enemy.gc:481,
+  492-500, 509, 543; nav-enemy-notice-player? :332; junglefish notice-distance 25m junglefish.gc:158)
+- breakables: crate-standard-event-handler 'attack -> (go-virtual die) (crates.gc:448-464)
+- contextual voice mini-scenes: level-hint-spawn / ambient-hint-spawn (ambient.gc:126/135), spawned
+  by proximity/event sites game-wide; observable as a level-hint process BIRTH (level-hint-normal)
+- buttons/platforms: basebutton 'attack/'trigger -> going-down -> notify-actor (basebutton.gc:57-83);
+  plat rider/path (plat.gc:125-157); baseplat rider-trans (baseplat.gc:88)
+- warp-gate proximity+circle: villagep-obs.gc:65-104 (idle -> active on cpad circle inside 5m)
+- entity proximity birth (actors only birth near the camera — an unbirthed actor looks "dead")
+Trigger coordinates from decompiler_out/jak1/entities/<level>-actors.json (trans in meters), warp
+via debug.opengoal.level.warp + level.warp.pos (kmachine.cpp:1159-1202), action via ONE
+debug.opengoal.cpad_inject token burst (android_input_audio.cpp watcher) — unmissable by
+construction (spin+punch is 360deg facing-independent; proximity triggers are satisfied by the warp
+itself). Candidates REJECTED per the addendum instead of "playing at them": village1 warpgate
+(process not birthed on a fresh save — story-gated) and jungle springbox (actor not birthed at its
+actors.json coords; fall risk). Platform-class honest gap: no unmissable warp-reachable platform
+trigger exists on a fresh save (plat-eco needs blue eco, basebuttons live in interior sub-levels,
+path-plats move unconditionally); the platform failure mode — a stuck per-frame :trans/go-virtual
+state machine — is the same dispatch path the gated triggers below exercise, and the babak
+run-to-cannon chain covers a multi-stage actor activation.
+
+## Gated triggers (strict criteria: state = must show a state transition; birth = must be born mid-trial)
+T1 crate-2470 wood-crate break wait->die (beach-start, warp '-135.2 2.3 -76.0', circle+square burst)
+T2 babak-with-cannon activation chain nav-enemy-idle->patrol->babak-run-to-cannon->jump-onto-cannon->shooting (same beach runs)
+T3 level-hint contextual sidekick voice mini-scene BIRTH at beach arrival (same beach runs) — the owner's "mini-cinematique contextuelle" class
+T4 junglefish wake nav-enemy-idle->nav-enemy-patrol (jungle-start, warp '262 19.5 -170', pure proximity, no input)
+
+## Before/after fired-rate across repeated trials (device eae4df44, fresh app boot per trial)
+before = arm noflush (pre-fix bug-class-#14 no-op CacheFlush restored at runtime, ICACHE-NOFLUSH
+armed verified in-logcat 12/12), after = arm flush (landed fix). Same binary, same HEAD, no mixed builds.
+TRIGRATE trigger=crate-2470       flush fired=6/6   noflush fired=6/6
+TRIGRATE trigger=babak-with-cannon flush fired=6/6  noflush fired=6/6
+TRIGRATE trigger=level-hint        flush fired=6/6  noflush fired=6/6
+TRIGRATE trigger=junglefish        flush fired=6/6  noflush fired=6/6
+Totals: 24/24 trials status=OK (0 boot-crash, 0 warp-fail, 0 post-spawn-crash), 48/48 trigger
+firings across 24 runs (12 per arm); armcheck flush ok=12/12, noflush ok=12/12. The previously-
+tested triggers now fire reliably across N repeated trials: fired-rate 48/48 (before-arm 24/24,
+after-arm 24/24). No regression on surrounding gameplay: all 24 runs completed their full observe
+windows crash-free with live actor state churn (mx-*-analysis.txt).
+Raw-vs-corrected: raw junglefish noflush read 5/6; forensics proved the miss an analyzer artifact
+(relocation SPAWNs carrying the idle->patrol evidence were dropped); corrected 6/6 (mx-rescore.txt,
+TRIGRATE-CORRECTED lines in mx-summary.txt). Calibration trials (calib3-*) additionally proved each
+observable end-to-end before the matrix, including crate wait->die EVTRIAL-TRANS capture.
+
+## Device evidence integrity
+Every trial asserted the game foreground: focus=yes 24/24 via mCurrentFocus=org.opengoal.gk.jak1 checked inside each trial window.
+Visual evidence: mx-*-end.png per trial (24 frames) + calib3-*-end.png. App force-stopped after
+every trial and at session end (final focus = MIUI launcher) per the device-hygiene mandate.
+Deploy-landing guard: full consistent build (cmake gk then gradle assembleJak1Debug),
+deploy_verify.sh PASS (chain build==APK==device sha 0ffbd9adf94dfe94, fresh HEAD libgk),
+deploy_verify_assets.sh PASS (28/28 arm64 CGO/DGOs byte-identical) — deploy-verify.txt.
+
+## x86 oracle parity
+This phase changes NO game code: goal_src untouched (git diff vs the supervisor anchor is empty),
+x86 codegen untouched, so our-x86 == original-x86 stands (Gref Tier-A 28/28 byte-identical gold).
+Fresh x86 desktop smoke this phase: reached link finish: logo, 452 link-finish lines, no crash
+(x86-smoke.log). The icache fix itself is arm64-only by construction (x86 CacheFlush body is a
+no-op, kmachine.cpp:127), so x86 behavior is bit-identical with or without it.
+
+## Dispatcher instrumentation (owner redirect item 3 — capture the NEXT real-world miss)
+EVTRIAL mode 2 (android/gk_android_main.cpp:3650-3805) logs EVERY GOAL process state transition
+(GK-DIAG EVTRIAL-SPAWN / EVTRIAL-TRANS with proc/type/state names) behind a debug prop — zero cost
+when unarmed: setprop debug.opengoal.evtrial 2 (optional debug.opengoal.evtrial.filter <substr>),
+analyze with .autoport/lib/evtrial_analyze.py <logcat> --criteria '<actor>:state|:birth|:N'.
+It ships in the deployed libgk. When the owner next sees a dead trigger in free play, arming this
+prop + reproducing names the stuck actor and its last state transition directly.
+
+## Relation to bug class #14 (mandate: prove or disprove)
+Proven: the fix is landed, deployed (deploy_verify chain above) and regression-free (24/24 OK runs,
+x86 smoke). Not proven: that #14 caused the owner's historic misses — no miss reproduced even with
+the pre-fix behavior restored (noflush arm 24/24), so the connection remains the named prime
+suspect by fingerprint (intermittent + device-only + random-location = stale instruction stream),
+not a demonstrated causation. If the owner sees another miss on a build containing eed5bdd45, the
+EVTRIAL mode-2 instrumentation above is the designed capture path; #14 would then be disproven as
+the sole cause and the captured actor/state becomes the next phase's repro.
+
+## Evidence files (.autoport/reports/Gjak1-intermittent-events/)
+mx-summary.txt (matrix + corrected rates), mx-rescore.txt, mx-*-{result,analysis}.txt,
+mx-*-logcat.log, mx-*-end.png, calib3-* (calibration incl. rejected-candidate evidence),
+deploy-verify.txt, x86-smoke.log, report-draft.md (working notes).

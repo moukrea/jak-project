@@ -1,0 +1,1 @@
+EVTRIAL-RESULT tag=mx-beach-flush-b-2 arm=flush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3

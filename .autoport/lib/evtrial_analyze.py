@@ -84,6 +84,14 @@ def main():
                 if not e["samples"]:
                     e["spawn_f"] = f
                     e["samples"].append((f, state, None))
+                elif e["samples"][-1][1] != state:
+                    # GOAL relocates processes (heap compaction): the device
+                    # probe re-logs a relocated proc as SPAWN at its new node
+                    # address. A state DIFFERENT from the last record is real
+                    # transition evidence — dropping it caused a false MISS
+                    # (mx-jungle-noflush-c-1: fish idle->patrol seen only via
+                    # relocation SPAWNs).
+                    e["samples"].append((f, state, None))
 
     # A process first seen via a mode-2 SPAWN well after probe start was BORN
     # mid-trial (e.g. a level-hint contextual voice-scene spawning) — direct

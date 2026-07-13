@@ -1,0 +1,65 @@
+=== Gjak1-intermittent-events 24-trial A/B matrix summary ===
+generated: 2026-07-13T15:40:09Z
+
+--- (1) All EVTRIAL-RESULT lines ---
+EVTRIAL-RESULT tag=mx-beach-flush-a-1 arm=flush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-flush-a-2 arm=flush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-flush-b-1 arm=flush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-flush-b-2 arm=flush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-flush-c-1 arm=flush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-flush-c-2 arm=flush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-noflush-a-1 arm=noflush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-noflush-a-2 arm=noflush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-noflush-b-1 arm=noflush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-noflush-b-2 arm=noflush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-noflush-c-1 arm=noflush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-beach-noflush-c-2 arm=noflush cont=beach-start status=OK armcheck=OK focus=yes fired=3/3
+EVTRIAL-RESULT tag=mx-jungle-flush-a-1 arm=flush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+EVTRIAL-RESULT tag=mx-jungle-flush-a-2 arm=flush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+EVTRIAL-RESULT tag=mx-jungle-flush-b-1 arm=flush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+EVTRIAL-RESULT tag=mx-jungle-flush-b-2 arm=flush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+EVTRIAL-RESULT tag=mx-jungle-flush-c-1 arm=flush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+EVTRIAL-RESULT tag=mx-jungle-flush-c-2 arm=flush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+EVTRIAL-RESULT tag=mx-jungle-noflush-a-1 arm=noflush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+EVTRIAL-RESULT tag=mx-jungle-noflush-a-2 arm=noflush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+EVTRIAL-RESULT tag=mx-jungle-noflush-b-1 arm=noflush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+EVTRIAL-RESULT tag=mx-jungle-noflush-b-2 arm=noflush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+EVTRIAL-RESULT tag=mx-jungle-noflush-c-1 arm=noflush cont=jungle-start status=OK armcheck=OK focus=yes fired=0/1
+EVTRIAL-RESULT tag=mx-jungle-noflush-c-2 arm=noflush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
+
+--- (2) Per-trigger per-arm FIRED counts (TRIGRATE) ---
+TRIGRATE trigger=crate-2470 arm=flush fired=6/6
+TRIGRATE trigger=crate-2470 arm=noflush fired=6/6
+TRIGRATE trigger=babak-with-cannon arm=flush fired=6/6
+TRIGRATE trigger=babak-with-cannon arm=noflush fired=6/6
+TRIGRATE trigger=level-hint arm=flush fired=6/6
+TRIGRATE trigger=level-hint arm=noflush fired=6/6
+TRIGRATE trigger=junglefish arm=flush fired=6/6
+TRIGRATE trigger=junglefish arm=noflush fired=5/6
+
+--- (3) ARMCHECK integrity per arm ---
+ARMCHECK flush ok=12/12 bad=0
+ARMCHECK noflush ok=12/12 bad=0
+ICACHE-NOFLUSH-armed-in-logcat noflush-runs=12/12
+
+--- (4) Non-OK statuses (BOOT-CRASH/WARP-FAIL/POST-SPAWN-CRASH) ---
+none — all 24 status=OK
+
+--- (5) Focus=yes count across all 24 results ---
+FOCUS focus=yes 24/24
+
+--- (misses noted) ---
+TRIGGER junglefish mode=state min_disp=0 -> MISS (best proc=junglefish-83 disp=0 states=0 trans=0)
+
+=== CORRECTED per-trigger rates (analyzer relocation-SPAWN fix, see mx-rescore.txt) ===
+A GOAL process relocation (heap compaction) re-logs a proc as EVTRIAL-SPAWN at its new
+address; the analyzer discarded post-first SPAWNs, dropping state evidence -> false MISS
+on mx-jungle-noflush-c-1 (junglefish-78 idle->patrol->idle visible in raw SPAWN lines).
+TRIGRATE-CORRECTED trigger=crate-2470 arm=flush fired=6/6
+TRIGRATE-CORRECTED trigger=babak-with-cannon arm=flush fired=6/6
+TRIGRATE-CORRECTED trigger=level-hint arm=flush fired=6/6
+TRIGRATE-CORRECTED trigger=junglefish arm=flush fired=6/6
+TRIGRATE-CORRECTED trigger=crate-2470 arm=noflush fired=6/6
+TRIGRATE-CORRECTED trigger=babak-with-cannon arm=noflush fired=6/6
+TRIGRATE-CORRECTED trigger=level-hint arm=noflush fired=6/6
+TRIGRATE-CORRECTED trigger=junglefish arm=noflush fired=6/6

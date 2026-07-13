@@ -1,0 +1,1 @@
+EVTRIAL-RATE arm=noflush cont=beach-start runs=2 ok=2 boot_crash=0 warp_fail=0 post_crash=0 fired_all=6/6

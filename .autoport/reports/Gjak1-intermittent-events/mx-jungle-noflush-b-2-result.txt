@@ -1,0 +1,1 @@
+EVTRIAL-RESULT tag=mx-jungle-noflush-b-2 arm=noflush cont=jungle-start status=OK armcheck=OK focus=yes fired=1/1
