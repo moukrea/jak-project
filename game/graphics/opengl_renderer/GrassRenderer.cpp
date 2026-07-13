@@ -329,6 +329,7 @@ static std::vector<std::array<float, 4>> s_goal_stage_tramp;
 static std::vector<std::array<float, 4>> s_goal_cull;
 static std::vector<std::array<float, 4>> s_goal_tramp;
 static double s_goal_snapshot_t = -1.0;  // R26: last goal_publish time (TTL fail-safe)
+static double s_goal_pub_interval = 0.3;  // R27: EMA of the real publish cadence (adaptive TTL)
 
 void goal_clear() {
   s_goal_stage_cull.clear();
@@ -401,9 +402,16 @@ void goal_publish() {
     std::lock_guard<std::mutex> lk(s_goal_mutex);
     s_goal_cull = s_goal_stage_cull;
     s_goal_tramp = s_goal_stage_tramp;
-    s_goal_snapshot_t = std::chrono::duration<double>(
+    const double nowp = std::chrono::duration<double>(
                             std::chrono::steady_clock::now().time_since_epoch())
                             .count();
+    if (s_goal_snapshot_t > 0.0) {
+      const double iv = nowp - s_goal_snapshot_t;
+      if (iv > 0.01 && iv < 10.0) {
+        s_goal_pub_interval = 0.8 * s_goal_pub_interval + 0.2 * iv;  // EMA of the real cadence
+      }
+    }
+    s_goal_snapshot_t = nowp;
   }
   static int s_pub_n = 0;
   s_pub_n++;
@@ -469,7 +477,14 @@ void publish(float dt) {
     const double now_s = std::chrono::duration<double>(
                              std::chrono::steady_clock::now().time_since_epoch())
                              .count();
-    const bool snapshot_fresh = (s_goal_snapshot_t > 0.0) && (now_s - s_goal_snapshot_t) < 0.6;
+    // R27 (owner Redmi obs: trample OSCILLATED rise/flatten in a loop at low fps): the fixed 0.6 s TTL
+    // was SHORTER than the publish interval at capture-load fps (15 game frames = 1.2-2.5 s at 6-12
+    // fps) -> snapshot expired between publishes -> flatten/release loop. TTL is now ADAPTIVE:
+    // stale only past max(2 s, 4x the observed publish interval) — still catches a genuinely frozen
+    // scan (the original purpose) at any framerate, never oscillates.
+    const bool snapshot_fresh =
+        (s_goal_snapshot_t > 0.0) &&
+        (now_s - s_goal_snapshot_t) < std::max(2.0, 4.0 * s_goal_pub_interval);
     if (snapshot_fresh)
     for (const auto& e : s_goal_cull) {
       add(e[0], e[1], e[2], e[3]);
@@ -522,6 +537,40 @@ void publish(float dt) {
   for (auto& g : s_tramp_state) {
     g.seen = false;
   }
+  // R27 RELEASE TOMBSTONES (owner directive, literal: "s'il est cassé, redresser l'herbe
+  // immédiatement et ignorer toute la logique de débris"): when a trample ghost is released (its
+  // actor left the publish set = broken), its SPOT is banned from re-flattening for 8 s — whatever
+  // the debris window re-publishes there cannot press the grass again. A regenerated dummy
+  // (~30 s+) re-flattens normally after the tombstone expires.
+  struct Tombstone {
+    float x, z;
+    double t;
+  };
+  static std::vector<Tombstone> s_tombs;
+  const double tnow = std::chrono::duration<double>(
+                          std::chrono::steady_clock::now().time_since_epoch())
+                          .count();
+  s_tombs.erase(std::remove_if(s_tombs.begin(), s_tombs.end(),
+                               [&](const Tombstone& tb) { return tnow - tb.t > 8.0; }),
+                s_tombs.end());
+  {
+    std::vector<std::array<float, 4>> filt;
+    filt.reserve(g_tramp_building.size());
+    for (const auto& e : g_tramp_building) {
+      bool banned = false;
+      for (const auto& tb : s_tombs) {
+        float dx = e[0] - tb.x, dz = e[2] - tb.z;
+        if (dx * dx + dz * dz < (1.0f * 4096.f) * (1.0f * 4096.f)) {
+          banned = true;
+          break;
+        }
+      }
+      if (!banned) {
+        filt.push_back(e);
+      }
+    }
+    g_tramp_building.swap(filt);
+  }
   for (const auto& e : g_tramp_building) {
     TrampGhost* hit = nullptr;
     for (auto& g : s_tramp_state) {
@@ -549,6 +598,7 @@ void publish(float dt) {
       it->strength -= dtc / EASE_OUT_S;
     }
     if (it->strength <= 0.f) {
+      s_tombs.push_back({it->e[0], it->e[2], tnow});  // R27: spot released -> ban re-flatten 8 s
       it = s_tramp_state.erase(it);
       continue;
     }
