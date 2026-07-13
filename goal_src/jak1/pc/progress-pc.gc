@@ -787,7 +787,8 @@
 ;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
 ;; Settings submenu. Holds ALL grass settings on their own page (owner wanted a sub-submenu so they show
 ;; reliably): the RECHARGED GRASS on-off toggle, the near-blade + card view-distance sliders, and the
-;; density slider, then Back (5 rows, under PROGRESS_PC_PAGE_HEIGHT so all show — no length machinery).
+;; density slider, the GRASS MODE toggle, then Back (6 rows, under PROGRESS_PC_PAGE_HEIGHT (7) so all
+;; show — no length machinery).
 ;; Values/labels are wired at runtime in init-game-options; on-change persists to *pc-settings*.
 (define *grass-options-pc*
   (new 'static
@@ -823,7 +824,14 @@
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 4 Back
+       ;; 4 GRASS MODE: ON = PRECOMPUTED (baked day-cycle tables, instant load) / OFF = LIVE (full scan)
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* recharged-grass-precomputed?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 5 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
@@ -884,6 +892,11 @@
 ;; Grecharged-grass-poc POLISH#5: label for the grass DENSITY slider (English-only, uppercase ASCII).
 (define *recharged-density-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-density-label*) "GRASS DENSITY")
+;; Grecharged-grass-precompute-mode: label for the "PRECOMPUTED GRASS" on-off toggle (ON = PRECOMPUTED
+;; baked day-cycle tables / OFF = LIVE full scan). English-only, uppercase ASCII for the menu font;
+;; shown via name-override, like *recharged-grass-label* (not re-formatted).
+(define *grass-mode-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *grass-mode-label*) "PRECOMPUTED GRASS")
 ;; Grecharged-grass-poc POLISH#6: label for the "GRASS SETTINGS" nested sub-submenu launcher row inside
 ;; the Recharged Settings submenu (English-only, uppercase ASCII for the menu font; shown via
 ;; name-override on the menu row — like *recharged-settings-label*, never re-formatted).
@@ -2948,6 +2961,9 @@
   (set! (-> *grass-options-pc* 2 name-override) *recharged-card-dist-label*)
   (set! (-> *grass-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-grass-density))
   (set! (-> *grass-options-pc* 3 name-override) *recharged-density-label*)
+  ;; Grecharged-grass-precompute-mode: row 4 = GRASS MODE toggle (ON = PRECOMPUTED / OFF = LIVE).
+  (set! (-> *grass-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-grass-precomputed?))
+  (set! (-> *grass-options-pc* 4 name-override) *grass-mode-label*)
   (apply-dynamic-rs-menu-mode!)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))

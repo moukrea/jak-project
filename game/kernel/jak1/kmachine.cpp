@@ -46,6 +46,7 @@
 #include "game/sce/sif_ee.h"
 #include "game/sce/stubs.h"
 
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cmath>
@@ -586,6 +587,43 @@ void pc_set_grass_dists(u32 vec) {
   Gfx::g_global_settings.recharged_grass_near_dist = p[0];
   Gfx::g_global_settings.recharged_grass_card_dist = p[1];
   Gfx::g_global_settings.recharged_grass_density = p[2];  // POLISH#5 density slider
+  // Grecharged-grass-precompute-mode: w channel = GRASS MODE toggle (1.0 = PRECOMPUTED baked
+  // day-cycle tables / 0.0 = LIVE full at-load scan). GOAL now writes w in the scratch vector.
+  Gfx::g_global_settings.recharged_grass_precomputed = p[3] > 0.5f;
+}
+
+// Grecharged-grass-precompute-mode verification aid: fixed time-of-day for A/B captures.
+// Android: prop debug.opengoal.tod.hour ("9.5" = 09:30). Desktop: env GRASS_TOD. Returns
+// hour*100 as int (950), or -1 when unset/invalid. Read at most once per second.
+u64 pc_get_tod_hour() {
+  static s64 s_cached = -1;
+  static std::chrono::steady_clock::time_point s_last{};
+  auto now = std::chrono::steady_clock::now();
+  if (s_last.time_since_epoch().count() != 0 &&
+      std::chrono::duration_cast<std::chrono::milliseconds>(now - s_last).count() < 1000) {
+    return (u64)s_cached;
+  }
+  s_last = now;
+  const char* val = nullptr;
+#if defined(__ANDROID__)
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("debug.opengoal.tod.hour", buf) > 0 && buf[0]) {
+    val = buf;
+  }
+#else
+  val = std::getenv("GRASS_TOD");
+#endif
+  if (val && val[0]) {
+    double h = std::atof(val);
+    if (h >= 0.0 && h < 24.0) {
+      s_cached = (s64)(h * 100.0);
+    } else {
+      s_cached = -1;
+    }
+  } else {
+    s_cached = -1;
+  }
+  return (u64)s_cached;
 }
 
 // Grecharged-grass-poc ROUND#21d: ground-actor positions from GOAL (the pc-set-jak-pos! pattern —
@@ -655,6 +693,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
   // POLISH#4: adjustable grass view-distances + ledge-grab trample point
   make_function_symbol_from_c("pc-set-grass-dists!", (void*)pc_set_grass_dists);
+  make_function_symbol_from_c("pc-get-tod-hour", (void*)pc_get_tod_hour);
   make_function_symbol_from_c("pc-set-jak-ledge!", (void*)pc_set_jak_ledge);
   // ROUND#21d: exact ground-actor world positions for the grass object-clip/trample
   make_function_symbol_from_c("pc-grass-occ-clear!", (void*)pc_grass_occ_clear);
