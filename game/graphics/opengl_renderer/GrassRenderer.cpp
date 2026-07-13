@@ -591,16 +591,11 @@ void publish(float dt) {
       kills.swap(s_break_kills);
     }
     for (const auto& k : kills) {
+      // R30 (owner: the instant snap was TOO dry vs the crates' visible 0.6 s spring): tombstone ONLY.
+      // The banned spot stops feeding the ghost -> it plays the SAME smooth 0.6 s ease-out as a broken
+      // crate instead of vanishing in one frame.
       s_tombs.push_back({k[0], k[2], tnow});
-      for (auto it = s_tramp_state.begin(); it != s_tramp_state.end();) {
-        float dx = it->e[0] - k[0], dz = it->e[2] - k[2];
-        if (dx * dx + dz * dz < (1.2f * 4096.f) * (1.2f * 4096.f)) {
-          it = s_tramp_state.erase(it);
-        } else {
-          ++it;
-        }
-      }
-      lg::info("[recharged-grass] R28 BREAK-KILL at ({:.1f},{:.1f},{:.1f}) — ghost erased, spot tombstoned",
+      lg::info("[recharged-grass] R30 BREAK at ({:.1f},{:.1f},{:.1f}) — spot tombstoned, ghost eases out",
                k[0] / 4096.f, k[1] / 4096.f, k[2] / 4096.f);
     }
   }
