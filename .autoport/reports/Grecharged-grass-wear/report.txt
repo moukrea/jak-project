@@ -1,0 +1,402 @@
+================================================================================
+ Grecharged-grass-wear — Procedural Grass Wear and Height Distribution
+ DESIGN SPIKE (analysis + architecture + backlog). NO IMPLEMENTATION in this
+ phase — design only, per owner mandate; no game/tool code was modified.
+================================================================================
+Date: 2026-07-13   Branch: autoport/android-port   Phase type: analysis/architecture
+
+RESULT: GRASS WEAR DESIGN COMPLETE — influence field model + architecture defined, MVP scoped, ordered backlog of 8 core + 5 optional sub-tasks with dependencies, acceptance criteria, debug tooling; deterministic, Android-compatible, no per-blade runtime pathfinding, no implementation performed (design only).
+
+--------------------------------------------------------------------------------
+ 1. CURRENT SYSTEM ANALYSIS (owner work item 1)
+--------------------------------------------------------------------------------
+Texture detection. Grass surfaces are identified by an exact-match texture-name
+allowlist of 3 names ("tra-grass", "bch-grassfringe", "bch-leafyground-hang-2x1")
+applied per-draw on tfrag geo-0 + TIE geo-0 trees (GrassBakeCore.cpp:39-61,
+:237-238). Currently hard-scoped to the "training" level only
+(GrassRenderer.cpp:605,633,650,678).
+
+Placement. Two-stage SCAN -> EXPAND (GrassBakeCore.cpp:103 scan_level,
+:1331 expand). Per-triangle gates: area <= 300 m2, upness > 0.35 (steeper faces
+divert to the droop/fringe path). Uniform density D_TARGET=150 tufts/m2, budget
+clamp MAX_INSTANCES=640000 x density slider (GrassBakeCore.h:72-77). Barycentric
+scatter per triangle with hash dither. Per-candidate keep tables carry the
+FLOORBELOW/FLOORGAP collision test result (r#19/20, LOCKED), the object-occluder
+test (r#21+), and a quantized rim distance (GrassBakeCore.cpp:942-1050). GBK3
+additionally ships droop-RIM segments and emits transition-twin blades
+(GrassBakeCore.cpp:1477-1516).
+
+Height today — the gap this feature fills. Height is decided ONLY at expand()
+time from a per-triangle seed hash: gi.h = BASE_H * (0.50 + 1.55 * hash_f(sd+3))
+(GrassBakeCore.cpp:1380, BASE_H=1550 GOAL units ~0.38m). This is pure white noise
+per blade: statistically UNIFORM across every zone — exactly the "artificial
+sameness" the owner describes. There is no spatial signal of any kind. Droop
+blades scale by face vertical span (:1429,1452); twins copy the parent. The
+shader applies further multipliers at grass.vert:358:
+  grow_h = t * H * heightMul * rim_h * nearf
+(heightMul = trample press-down, rim_h = rim taper, nearf = lens fade) — this
+single line is where any wear multiplier ultimately lands.
+
+Per-instance layout — a hard constraint. struct GrassInstance is LOCKED at 16
+floats / 64 bytes with a static_assert (GrassBakeCore.h:164-170); every lane is
+occupied (gspare=rim_dist, nspare=class marker 0/2/3+w). VERIFIED: there is NO
+free lane. Precedent for sidecar data: the day-cycle light rides a SEPARATE
+per-instance VBO (m_light_vbo, 4xu8, GrassRenderer.cpp:580-583). A wear scalar
+must use the same sidecar pattern (or be pre-multiplied into h) — never grow the
+struct.
+
+Rendering. Bespoke instanced shader (ShaderId::GRASS): 2 instanced draws/frame
+(near blades TRIANGLE_STRIP x10 verts, mid cards TRIANGLES x12), geometry from
+gl_VertexID (GrassRenderer.cpp:1214-1227). ~693k instances = 44.4 MB static VBO +
+2.7 MB light VBO on training. Adreno 618: 1-in-flight fence pacing
+(GrassRenderer.cpp:1194-1232). Toggle gating: master recharged_grass at
+OpenGLRenderer.cpp:1481 (OFF -> renderer never invoked, OFF==stock); overhang
+sub-toggle is a draw-count-only instance tail (GrassRenderer.cpp:1177-1181) — the
+proven pattern for sub-features.
+
+Determinism today. All variation is hash_u32/hash_f (murmur-style integer mix,
+GrassBakeCore.h:23-33) seeded from triangle topology (index-buffer offset +
+vertex indices, GrassBakeCore.cpp:446); no time/camera input; -ffp-contract=off
+pinned (game/CMakeLists.txt:388) so baker (x86) and device (arm64) expand
+byte-identically. GBK round-trip self-check asserts identical expansion
+(tools/grass_bake/main.cpp:182-200). The wear system MUST preserve this contract.
+
+Pipeline. Offline: tools/grass_bake loads <level>.fr3, scan_level at density 250,
+writes out/jak1/fr3/<level>.grassbake (GBK version 3, zstd). Device: precomputed
+path loads the .grassbake (validated by level name + fr3_size + floor_gap_m +
+density ceiling, GrassRenderer.cpp:650-670) then expand()s live in ~438 ms; LIVE
+scan_level fallback if the bake is invalid. Bundle VERSION is a content md5 over
+fr3+grassbake, so a GBK4 bump automatically forces device re-extraction
+(android/build_asset_bundle.sh:117-118,235-247).
+
+Tunables plumbing (the mechanism wear params will ride). Static-cached,
+frame-throttled Android prop / desktop env reads -> glUniform: e.g.
+debug.opengoal.grass.droop_len / GRASS_DROOP_LEN -> u_droop_len
+(GrassRenderer.cpp:97-121, :1044). Debug modes u_debug 1-7 already color blades
+by class/occluder/trample (grass.vert:512-525) — the wear heatmap extends this.
+
+--------------------------------------------------------------------------------
+ 2. AVAILABLE LEVEL DATA (owner work item 2) — what exists TODAY
+--------------------------------------------------------------------------------
+(a) Actor/entity tables — decompiler_out/jak1/entities/<level>-actors.json, one
+per level, produced deterministically by the decompiler from the level BSP actor
+array (extract_level.cpp:393, extract_actors.cpp:88-147). Per actor: aid, etype,
+trans (meters), bsphere (center + RADIUS, meters), quat, game_task, and a typed
+"lump" dict. VERIFIED on training/beach:
+  - Collectibles: etype "money" = precursor orbs (50 on training, 103 on beach),
+    "eco" (+eco-info [type,count]), "fuel-cell" (power cells, game_task set),
+    "orb-cache-top", "buzzer" (scout flies, level-dependent).
+  - Interactive/destructible: "crate" (31 training; some carry pickup-radius,
+    crate-type), "scarecrow-a"/"scarecrow-b" (destructible), "barrel", "bucket",
+    "grottopole", "ecovent"/"ecoventrock".
+  - Platforms/movement: "launcher" (jump pad, spring-height), "tra-pontoon" (3 on
+    training), "plat-eco" (moving platform WITH a "path" waypoint lump),
+    "springbox".
+  - Anchors/destinations: "warpgate", "warp-gate-switch", "tra-iris-door",
+    "camera-start" (spawn), plus vis-dist/visvol per actor.
+  - Noise to ignore: "*-part" particle emitters, "*-cam" volumes, "water-vol".
+(b) Actor path waypoints — the "path" lump (raw GOAL units) on moving platforms
+and patrol actors: ready-made wear tracks for moving-platform routes.
+(c) Collision mesh with walkability semantics — tfrag3::Level::collision
+(Tfrag3Data.h:503-516,631): full triangle soup incl. walls, each vertex carrying
+normals + the PS2 "pat" surface word. The bake ALREADY loads it and filters
+((pat>>3)&7)==0 = jak1 walkable-ground mode (GrassBakeCore.cpp:794-826, VERIFIED)
+into an XZ bucket grid (FLOOR_BUCKET_M=1.0) for the floor-gap tests. Non-zero pat
+modes = walls/non-walkable — present in the same soup, currently skipped: this IS
+the navigability signal (jak1 has NO nav-mesh; that is jak2+).
+(d) Visual geometry — tfrag+TIE geo-0 trees with per-draw texture names, upness,
+boundary-edge and lip classification already computed per triangle.
+(e) Runtime entity channel — pc-grass-occ (goal_src/jak1/pc/hud-classes-pc.gc:
+1712-1843 -> kmachine.cpp:642-663): live {kind, pos, contact radius} census every
+~0.5 s for occluders/trample. Right channel for DYNAMIC state (broken crates,
+movers); WRONG source for bake-time placement (runtime-only, capped, 1-frame lag).
+
+Directly extractable vs needs new heuristics (owner work item 3):
+  DIRECT (no new extraction code): actor positions/types/radii/tasks
+  (actors.json); platform routes (path lumps); walkable-ground triangles + wall
+  triangles (collision pat); slope (collision normals / upness); grass-zone
+  bounds (existing scan); rim/lip data (GBK3 droop rims); spawn/warp anchors.
+  NEW HEURISTICS REQUIRED: (i) collectible-chain detection + walkable-corridor
+  validation between actors; (ii) organic (curved) path routing around
+  obstacles; (iii) platform approach/jump/landing point inference from geometry
+  (the actor+path-lump subset is direct; geometric jump reachability is not);
+  (iv) "unvisited zone" prior (distance-to-influence transform); (v) coherent
+  deterministic spatial noise (value-noise from the existing integer hash).
+  NOT AVAILABLE (documented gaps): jak1 nav-mesh (does not exist); per-actor
+  collision meshes (bsphere only); actors.json on DEVICE (decompiler_out does
+  not ship in the APK bundle — drives the architecture decision below).
+
+--------------------------------------------------------------------------------
+ 3. PROPOSED ARCHITECTURE (owner work item 4)
+--------------------------------------------------------------------------------
+Principle: ALL intelligence runs at OFFLINE BAKE time inside tools/grass_bake
+(x86 host, has actors.json + collision + fr3); the device only SAMPLES a baked
+field. Zero runtime pathfinding, zero per-frame cost beyond one extra per-blade
+byte and ~3 vertex-shader ALU. Deterministic end to end.
+
+Stage A — WearField generation (new module grass_wear::, used by tools/grass_bake;
+lives beside GrassBakeCore so the algorithm stays shared/testable):
+  A 2D XZ scalar raster W(x,z) in [0,1] (0 = untouched -> long, 1 = worn ->
+  short) over the grass-bearing bounds, default cell 0.5 m (quality/resolution
+  tunable). Training-scale ~ a few hundred k cells: trivial offline. Layers, each
+  its own grid (kept separately for debug):
+  L1 GAMEPLAY SPLATS — for each relevant actor (etype-driven table: weight,
+     radius scale, hard-clamp flag), splat a radial falloff kernel of radius
+     r = bsphere_r * etype_scale, boundary made irregular by deterministic
+     angular noise hash(aid, angle_bucket) so no perfect circles (owner AD rule).
+     Includes warpgate/switch/iris-door/camera-start as high-traffic anchors.
+  L2 CORRIDOR PATHS — collectible-chain inference: graph over gameplay actors,
+     connect pairs within detect range IF a walkable-corridor test passes:
+     sample the segment on the collision floor grid; require pat-0 floor under
+     every sample, step continuity (max height delta between samples < step
+     limit), slope <= traversable, and NO wall-band crossing (non-zero-pat tris
+     intersecting the vertical band along the segment). Kills the
+     "close-but-wall-separated" false corridor. Accepted edges rasterize as
+     capsules with width jitter + centerline perturbation from coherent noise
+     (organic, not straight ruler lines); value ramps along length. v2 upgrades
+     routing to coarse-grid A* over the walkability raster for true curved
+     detour paths (still bake-time, still cheap).
+  L3 PLATFORM/VERTICAL — actor-driven: launcher, tra-pontoon, plat-eco (+path
+     lump -> wear track under the route), springbox. Splat at the ground-
+     projected approach point (nearest walkable cells within jump range of the
+     platform edge), directional bias toward the next platform/waypoint, landing
+     splat where the route returns to grass level. Geometry-derived ledge/jump
+     inference is deliberately v2 (prototype risk). Bare vertical walls
+     contribute NOTHING (owner rule 5) — only platform/collectible/opening
+     actors generate influence.
+  L4 LOW-TRAFFIC PRIOR — distance transform from the union of L1-L3: far cells
+     decay toward W=0 (long grass at plain borders, dead corners, behind
+     obstacles, big empty centers). Wall-adjacent cells WITHOUT nearby gameplay
+     get a small negative bias (slightly longer against dead walls). SECONDARY
+     to gameplay layers by construction (combination order below).
+  Combination: W = clamp01(1 - PROD(1 - w_i)) (probabilistic OR — no stacking
+  blowout, crossing paths blend naturally) -> subtract L4 bias -> 1-2 separable
+  blur passes (transition softness param, wide organic gradients, no binary
+  mask) -> add low-amplitude COHERENT value noise (2-3 octaves built purely on
+  the existing integer hash_u32 keyed by (level-name hash, cell ix, iz, octave)
+  — no trig, no platform-dependent float paths) -> re-clamp with a readability
+  floor: inside the core radius of any collectible/interactive actor, W >=
+  W_gameplay_floor so noise/priors can NEVER make grass tall enough to mask
+  gameplay (owner rule; also enforced as a max-height cap at mapping time).
+
+Stage B — Storage (GBK4): append a WearGrid section {origin, cell size, dims,
+  u8[] cells, param-set hash} to the .grassbake (format version 3 -> 4, follows
+  the exact GBK2->GBK3 precedent at GrassBakeCore.cpp:1598-1615; ~100-400 KB raw,
+  zstd shrinks it further; bundle md5 auto-bumps -> device re-extracts).
+  Optional debug sidecars stay OUT of GBK4 (offline PNG/JSON dumps only).
+
+Stage C — expand()-time sampling (shared code, runs identically on device):
+  each blade bilinearly samples W at (px,pz) + adds a small per-blade jitter
+  from the existing seed stream; result W_b stored as ONE u8 in a NEW sidecar
+  wear VBO (m_wear_vbo, mirrors m_light_vbo; +0.7 MB at 693k instances — the
+  64-byte GrassInstance struct is NOT touched). The existing per-blade height
+  hash NARROWS (e.g. 0.50+1.55*h -> centered +/-25%) so the field carries the
+  spatial signal and per-blade noise stays as local seasoning. If the bake lacks
+  a WearGrid (old GBK3 file, or the on-device LIVE fallback which has no
+  actors.json), W_b defaults to a neutral constant -> exactly today's look:
+  honest, silent-safe degrade.
+
+Stage D — shader mapping (grass.vert, one multiplier into the existing line 358):
+  wearMul = mix(u_wear_tall, u_wear_short, W_b) gated by u_wear_on;
+  grow_h = t * H * wearMul * heightMul * rim_h * nearf. Cards get the same
+  multiplier. Defaults u_wear_tall/short = 1.0 -> bit-identical to today when
+  OFF. Because the MAPPING lives in uniforms, wear on/off and min/max height
+  tuning are LIVE (no re-expand, no rebuild — same draw-count-only philosophy as
+  the overhang toggle); only field-SHAPE params need an offline re-bake.
+
+Toggle/regression contract: recharged_grass OFF -> renderer never runs, OFF ==
+stock (unchanged). Wear rides a code-level enable (u_wear_on + tunables — NOT a
+Recharged Settings menu entry, per owner note); u_wear_on=0 reproduces today's
+uniform look exactly. Edge stack (r#20 FLOORBELOW/FLOORGAP), occluders, droop,
+twins: untouched — wear only modulates height of already-placed blades.
+
+Android/perf budget (Redmi Note 9 Pro class): bake-time cost 0 on device
+(offline); load-time +1 grid sample/blade inside the existing 438 ms expand
+(estimated +5-10 ms); memory +0.7 MB VBO + ~0.2 MB grid; per-frame +1 u8 attrib
+fetch + ~3 ALU in a vertex shader that is strip-generated anyway — negligible
+against the existing 35/55 ms instanced draws. Taller grass slightly increases
+overdraw: u_wear_tall capped (default <= 1.35) and measured with the existing
+grass_gpusync timing prop before acceptance. Compatible with streaming/chunking:
+the grid is per-level like the bake itself; the density slider path is untouched.
+
+Parameters (CODE variables, one table in grass_wear, NOT menu settings):
+wear_cell_m; per-etype {weight, radius_scale, gameplay_floor}; chain detect
+range; corridor width mean/jitter; corridor strength; step limit; slope limit;
+platform influence weight; jump range; wall bias; distance-prior falloff; noise
+octaves/amplitude/frequency; blur passes (transition softness); u_wear_tall /
+u_wear_short (min/max height mult); gameplay max-height cap; seed; grid
+resolution (quality tier knob for other levels/biomes later). Global defaults +
+optional per-level override table — no per-object manual placement anywhere.
+
+--------------------------------------------------------------------------------
+ 4. DETERMINISM
+--------------------------------------------------------------------------------
+Same contract as placement: all randomness is the existing murmur-style integer
+hash (hash_u32/hash_f) keyed on level-name hash + cell/actor/blade indices —
+never time, camera, or platform-varying float transcendentals; value noise is
+built from that hash with lerp only; -ffp-contract=off already pinned for the
+shared TU. Same level + same params -> byte-identical WearGrid (enforced by a
+grid-hash self-check in the baker, mirroring the GBK round-trip check) and
+byte-identical per-blade wear on x86 baker vs arm64 device. Reproducible across
+loads by construction (grid is baked data).
+
+--------------------------------------------------------------------------------
+ 5. MVP DEFINITION, then optional improvements (owner work item 7)
+--------------------------------------------------------------------------------
+MVP ("version minimale", simple robust heuristics, architecture leaves room to
+improve paths/platforms/traffic without rewrite — the layer list is open-ended
+and each layer is independent):
+  W1 field core + determinism harness + PNG dumps
+  W2 actors.json splats (L1) with irregular boundaries + readability floor
+  W3 corridor paths (L2) with STRAIGHT noise-perturbed segments + walkable-
+     corridor validation (wall/step/slope gates); no A* yet
+  W4 platform influence (L3) ACTOR-DRIVEN subset only (launcher/pontoon/
+     plat-eco path lumps/warp anchors); no geometric jump inference yet
+  W5 low-traffic prior + blur + coherent noise (L4 + combination)
+  W6 GBK4 + expand sampling + wear VBO + shader mapping + live tunables
+  W7 debug heatmap + per-source views + explain dumps
+MVP scope: training level (current grass scope), device-verified, owner-tunable.
+OPTIONAL IMPROVEMENTS (post-MVP, each standalone): W9 A* organic routing (curved
+detours around obstacles, upgrades L2 in place); W10 geometric ledge/jump
+approach-point inference (upgrades L3); W11 wear-driven density modulation
+(worn = slightly sparser); W12 ground-texture wear tint under short grass via
+the proven tfrag3 fringe-fade per-draw-gating template (TFragment.cpp:801-847);
+W13 rollout to other grass levels/biomes (beach first: 103 orbs, launchers,
+pontoons already in its actors.json) with per-level param overrides.
+
+--------------------------------------------------------------------------------
+ 6. ORDERED BACKLOG (owner work items 5+8) — independent tasks, dependencies,
+    acceptance criteria, debug tooling per task. Ready to enqueue as phases
+    Gwear-1..N in the project backlog (supervisor: prompts follow this table).
+--------------------------------------------------------------------------------
+W1  wear-field-core           deps: none
+    New grass_wear module: XZ grid, splat kernels, probabilistic-OR combine,
+    separable blur, hash-based coherent value noise, param table, PNG dump,
+    grid-hash determinism self-check. Pure offline; no renderer change.
+    ACCEPT: identical grid hash across 2 runs AND across x86-vs-arm64 (qemu)
+    builds; PNG artifacts produced; unit test on a synthetic 3-actor fixture.
+W2  wear-actors-ingest        deps: W1
+    actors.json reader in tools/grass_bake + etype influence table + L1 splats
+    with angular-noise boundaries + gameplay readability floor.
+    ACCEPT: training PNG shows irregular (non-circular) gradients at the 50
+    orbs/31 crates/14 eco/3 cells/scarecrows; per-etype params in ONE table;
+    excluded etypes (*-part, *-cam, water-vol) provably ignored.
+W3  wear-corridor-paths       deps: W2
+    Chain graph + walkable-corridor validation on the collision pat-0 floor grid
+    (floor continuity, step, slope, wall-band crossing) + capsule rasterization
+    with width/centerline jitter.
+    ACCEPT: an orb row on training yields ONE continuous corridor (not beads);
+    a wall-separated actor pair yields NO corridor (regression fixture); JSON
+    edge dump lists accepted/rejected edges WITH rejection reason.
+W4  wear-platform-influence   deps: W2 (parallel to W3)
+    L3 actor-driven: launcher/pontoon/plat-eco path lumps/springbox/warp
+    anchors; approach + directional + landing splats.
+    ACCEPT: pontoon route shows a wear track; NEGATIVE test: a bare vertical
+    wall with no gameplay actor produces zero influence (owner criterion 5).
+W5  wear-priors-combine       deps: W1 (parallel to W2-W4); final tune needs W2-W4
+    L4 distance-transform prior, wall bias, blur/transition softness, noise
+    amplitude balancing, readability-floor re-clamp.
+    ACCEPT: field histogram is CONTINUOUS (no bimodal spike pair); transition
+    band width >= tunable minimum; far-from-everything cells reach W<0.2.
+W6  wear-gbk4-runtime         deps: W1 (grid format), W5 (a real field to ship)
+    GBK4 WearGrid section + version bump; expand() bilinear sample + per-blade
+    jitter + height-hash narrowing; m_wear_vbo sidecar (u8); grass.vert wearMul
+    + u_wear_on/u_wear_tall/u_wear_short via the droop_len prop/env pattern;
+    GBK3/LIVE-fallback neutral default.
+    ACCEPT: u_wear_on=0 -> device capture pixel-identical to pre-W6 build;
+    ON -> A/B captures show zone-dependent height (short near orb cluster,
+    tall at plain border); old GBK3 file loads with neutral wear (no crash);
+    deploy_verify PASS; bake round-trip check extended to the grid.
+W7  wear-debug-heatmap        deps: W6
+    u_debug wear mode (blade color = W_b green->red); prop-selected per-source
+    layer view (baker embeds selected layer for debug builds / offline PNGs per
+    layer + final with actor markers and corridor polylines overlaid); "why is
+    this cell short" = explain dump (top contributing source per cell); fast
+    param reload = live uniforms (mapping) + one-command re-bake+push script
+    (field shape), following grass_fast_redeploy.sh.
+    ACCEPT: device heatmap matches offline PNG for the same bake (spot cells);
+    every owner debug wish covered: passage heatmap, individual influences,
+    deduced paths, platform points, low-traffic zones, final height value,
+    per-source toggle, fast reload.
+W8  wear-owner-tuning         deps: W6+W7
+    Param sweep at canonical training beats, device captures (walk, not orbit;
+    foreground-focus checks), pick defaults, owner play-test gate.
+    ACCEPT: owner validates against their 14 criteria (mapping in section 8);
+    OFF-look regression re-proof; gpusync frame-time delta within budget.
+Optional (post-MVP, ordered): W9 astar-paths (deps W3) — curved detours; ACCEPT:
+detour-accessible pair produces a curved corridor around the obstacle. W10
+geo-jump-inference (deps W4) — ledge/landing detection from collision geometry;
+PROTOTYPE FIRST (see risks). W11 density-modulation (deps W6). W12 ground-tint
+(deps W6; tfrag3 fringe-fade template, per-draw gated, OFF==stock). W13
+multi-level-rollout (deps W8; beach first; per-level param overrides; lifts the
+"training"-only gates listed in section 1).
+
+--------------------------------------------------------------------------------
+ 7. TECHNICAL RISKS + prototype-first items (owner work item 6)
+--------------------------------------------------------------------------------
+R1 Corridor validation quality (HIGH, prototype in W3 before polishing): the
+   wall-band crossing test on raw collision soup may false-accept (thin walls,
+   pat quirks) or false-reject (door openings). Mitigation: fixture-driven dev
+   on training's known cases (warp-gate button area, iris door, pontoon shore),
+   JSON rejection-reason dump, conservative default (reject -> two independent
+   splats remain — degrades to safe, just less pretty).
+R2 Geometric jump/ledge inference (HIGH, why it is v2/W10 with a mandatory
+   throwaway prototype): reachability from capabilities + geometry is the one
+   genuinely research-y piece; MVP sidesteps it with actor-driven platforms.
+R3 Struct lock: GrassInstance is 64B/static_assert with every lane used —
+   ADDRESSED by design (sidecar VBO, light-VBO precedent); never grow the struct.
+R4 Device has no actors.json: LIVE fallback cannot build the field — ADDRESSED:
+   grid ships inside GBK4; fallback = neutral wear (today's look), logged.
+R5 Cross-platform float determinism of the field (blur is float math):
+   mitigation: integer-hash-only noise, lerp-only filtering, shared TU already
+   under -ffp-contract=off, W1 acceptance includes an x86-vs-arm64 grid-hash
+   equality check. Residual risk low.
+R6 Readability regression (tall grass masking orbs/enemies/edges): hard
+   gameplay floor + max-height cap near actors + W8 owner gate; heatmap makes
+   violations visible; cliff/ledge rims already have the LOCKED rim taper.
+R7 Overdraw from taller grass on Adreno: cap u_wear_tall, measure with
+   grass_gpusync before/after at density 150 in W8; card pass uses the same
+   multiplier so silhouettes stay consistent.
+R8 GBK4 migration mechanics: version bump -> re-bake, bundle md5 change ->
+   full device re-extraction; known pipeline (GBK2->GBK3 went through it);
+   deploy_verify + assets checks gate every runtime task (W6+).
+R9 Param explosion/subjectivity: ~20 tunables could stall tuning; mitigation:
+   ONE param table with documented defaults, heatmap-driven iteration, W8
+   timeboxed to defaults + owner pass rather than open-ended search.
+Special cases audit (owner list, where each is handled): wall-separated
+collectibles -> W3 wall test; different heights -> W3 step/slope gates (v2 W9/
+W10 for real detours/jumps); detour-only access -> conservative no-corridor in
+MVP, W9 solves; platforms above grass but not reachable from it -> L3 approach
+projection requires walkable cells in jump range, else no splat; dangerous
+cliffs -> no influence + existing rim taper (optionally small long-grass bias at
+lips, deferred); crossing paths -> probabilistic-OR blend; multi-cluster plains
+-> L4 distance prior + inter-cluster corridors; decorative inaccessible zones ->
+unreachable = no corridor + far prior = long grass; very small patches ->
+patch-average W below an area threshold (anti-speckle, in W5); mobile/state-
+dependent objects -> static bake uses initial positions, dynamic trample stays
+on the existing pc-grass-occ runtime channel, level-state variants documented
+out of scope; grass masking visual cues -> readability floor + cap (visvol data
+available later if needed); teleporters/doors/spawns -> first-class L1 anchors.
+
+--------------------------------------------------------------------------------
+ 8. OWNER ACCEPTANCE CRITERIA (14) -> where each is satisfied
+--------------------------------------------------------------------------------
+ 1 no uniform height per zone            -> field mapping W6 (+W5 continuity)
+ 2 collectibles readable, shorter ring   -> L1 W2 + readability floor
+ 3 collectible chain => implicit trail   -> L2 W3 (W9 organic upgrade)
+ 4 platform runs influence height        -> L3 W4 (W10 upgrade)
+ 5 gameplay-less walls: NO short grass   -> W4 negative test (walls contribute 0)
+ 6 unvisited zones taller                -> L4 prior W5
+ 7 progressive organic transitions       -> blur/softness W5, histogram gate
+ 8 no binary mask / simple shapes        -> prob-OR + noise + irregular kernels
+ 9 natural variation, rules preserved    -> coherent noise + floor re-clamp W5
+10 deterministic (level+config)          -> section 4, W1 hash gate
+11 CPU/GPU/memory Android-compatible     -> section 3 budget, W8 gpusync gate
+12 no manual per-object placement        -> everything actor-table-driven
+13 params without algorithm changes      -> single param table + live uniforms
+14 debug viz explains heights            -> W7 heatmap + explain dump
+--------------------------------------------------------------------------------
+Scope note: engine goal_src untouched; gold untouched; this phase produced
+analysis and design artifacts only — implementation starts at W1 upon owner
+approval of this design. No implementation was performed in this phase.
+================================================================================
