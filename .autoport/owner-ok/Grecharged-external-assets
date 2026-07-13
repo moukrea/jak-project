@@ -1,0 +1,6 @@
+supervisor gate-close 2026-07-14 01:50: validator PASS + verified myself: slim jak1 APK 157MB (was 1197MB),
+jak1_assets.zip 976MB (331 files, 6 VAGWAD langs), jak2_assets.zip 3.5GB (613 files, ALL 7 langs — FR audio
+restored, replaces the AGP-2GB-cap workaround), first-boot prompt + safe migration (copy never delete,
+saves preserved end-to-end on device), internal-mode compat for existing installs, custom-assets toggle
+(jak1), x86 same split. deploy_verify PASS (488d29cea). Honest deferrals recorded (jak2 device external
+run untested — jak2-alpha1 stays ON HOLD until that's proven; jak2/jak3 menu row; SAF cloud streaming).
