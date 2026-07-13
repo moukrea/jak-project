@@ -137,3 +137,4 @@ goal-prompt/
 # autoport: never track huge device logcat dumps
 .autoport/reports/**/*logcat*.txt
 .autoport/reports/**/*-logcat-*.log
+android/app/src/*/assets-slim/bundle/*_cgo.zip
