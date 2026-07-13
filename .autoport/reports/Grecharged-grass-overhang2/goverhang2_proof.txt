@@ -1,0 +1,64 @@
+  rec g2_rim_on: mp4=13665292B frames=56   mCurrentFocus=Window{92d3479 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+07-13 21:04:01.675 27852 27919 I opengoal-gk: [recharged-grass] GOVERHANG expand: droop_tris=1897 droop_instances=55242 trans_instances=21850 droop_rims=1386 (tail [616380..693472), toggle=ON — near-LOD 3D droop over the lip faces, far LOD stays the stock alpha texture, no cards)
+07-13 21:04:01.723 27852 27919 I opengoal-gk: [recharged-grass] PLACE-TIME mode=precomputed total=438ms (source=13ms expand+logs=400ms upload+light=26ms) instances=693472
+  rec g2_dlen_sweep: mp4=14734164B frames=59   mCurrentFocus=Window{5b1d199 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  rec g2_gradient: mp4=18676612B frames=60   mCurrentFocus=Window{6adebd2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  rec g2_near15: mp4=9629280B frames=40   mCurrentFocus=Window{e3571a3 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  rec g2_rim_off: mp4=14329224B frames=56   mCurrentFocus=Window{195a2 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+07-13 21:08:57.853 28894 28963 I opengoal-gk: [recharged-grass] GOVERHANG expand: droop_tris=1897 droop_instances=55242 trans_instances=21850 droop_rims=1386 (tail [616380..693472), toggle=OFF — near-LOD 3D droop over the lip faces, far LOD stays the stock alpha texture, no cards)
+
+=== frame luminance (mean; <15 = black/invalid) ===
+g2_dlen_006.png YAVG=86.7158
+g2_dlen_010.png YAVG=86.5375
+g2_dlen_022.png YAVG=86.0602
+g2_dlen_026.png YAVG=86.097
+g2_dlen_038.png YAVG=86.0467
+g2_dlen_042.png YAVG=86.0151
+g2_dlen_054.png YAVG=85.2594
+g2_dlen_058.png YAVG=85.1979
+g2_grad_004.png YAVG=98.9422
+g2_grad_008.png YAVG=98.8944
+g2_grad_012.png YAVG=98.9435
+g2_grad_016.png YAVG=98.6221
+g2_grad_020.png YAVG=98.6599
+g2_grad_024.png YAVG=98.5884
+g2_grad_028.png YAVG=98.3443
+g2_grad_032.png YAVG=98.3445
+g2_grad_036.png YAVG=97.9898
+g2_grad_040.png YAVG=98.0929
+g2_grad_044.png YAVG=98.0618
+g2_grad_048.png YAVG=97.7345
+g2_grad_052.png YAVG=97.7513
+g2_grad_056.png YAVG=97.6966
+g2_near15_006.png YAVG=86.6872
+g2_near15_012.png YAVG=86.5005
+g2_near15_018.png YAVG=86.5618
+g2_near15_024.png YAVG=86.2495
+g2_near15_030.png YAVG=86.2736
+g2_near15_036.png YAVG=85.9105
+g2_rim_off_006.png YAVG=87.4694
+g2_rim_off_010.png YAVG=87.3239
+g2_rim_off_014.png YAVG=87.2594
+g2_rim_off_018.png YAVG=87.2808
+g2_rim_off_022.png YAVG=87.0294
+g2_rim_off_026.png YAVG=86.9829
+g2_rim_off_030.png YAVG=87.0693
+g2_rim_off_034.png YAVG=86.6724
+g2_rim_off_038.png YAVG=86.7317
+g2_rim_off_042.png YAVG=86.5817
+g2_rim_off_046.png YAVG=86.4393
+g2_rim_off_050.png YAVG=86.342
+g2_rim_off_054.png YAVG=86.0738
+g2_rim_on_006.png YAVG=86.7351
+g2_rim_on_010.png YAVG=86.5178
+g2_rim_on_014.png YAVG=86.4952
+g2_rim_on_018.png YAVG=86.59
+g2_rim_on_022.png YAVG=86.2062
+g2_rim_on_026.png YAVG=86.2275
+g2_rim_on_030.png YAVG=86.2669
+g2_rim_on_034.png YAVG=85.9196
+g2_rim_on_038.png YAVG=85.9317
+g2_rim_on_042.png YAVG=85.9343
+g2_rim_on_046.png YAVG=85.6071
+g2_rim_on_050.png YAVG=85.6218
+g2_rim_on_054.png YAVG=85.2565

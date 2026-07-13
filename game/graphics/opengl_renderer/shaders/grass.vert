@@ -31,6 +31,10 @@ uniform float u_card_dist; // grass-card fade-out radius (world units)
 uniform vec4  u_jak_ledge; // xyz = ledge-grab point, w = 1 while Jak hangs (ledge-parting trample)
 uniform int   u_debug;     // ROUND#14 discriminator: 0 normal / 1 base-stubs (magenta) / 2 blades (cyan) / 3 cards (yellow) / 4 occ+trample forensic
 uniform float u_tilt;      // ROUND#19: normal-tilt blend (0 = world-up growth, bit-identical; ~0.30 A/B)
+// Grecharged-grass-overhang2 (owner defect 2: droop "descend beaucoup trop bas"): global scale on the
+// droop arc's reach/drop so the hang reads like the original painted fringe's length, not curtains.
+// Tunable live: prop debug.opengoal.grass.droop_len (Android) / env GRASS_DROOP_LEN (desktop).
+uniform float u_droop_len;
 // OWNER ROUND#18: object occluders (crates / warp-gate button) captured per-frame in Merc2 (merc
 // actors, not in the static level data). xyz = world pos (GOAL units), w = ground-contact radius. A
 // blade whose base is within an occluder's XZ radius AND near its ground height is hidden, so no grass
@@ -120,8 +124,16 @@ void main() {
   // alpha overhang texture. Droop renders in the NEAR blade pass only: the card pass collapses it
   // (owner: at distance the ORIGINAL texture shows, no grass cards). Its gspare is NO_RIM, so the
   // rim height-taper and the POLISH#11 horizontal clamp never touch it (it is the intended overhang).
-  bool is_droop = inst_normal.w > 1.5;
-  if (is_droop && u_mode == 1) {
+  // Grecharged-grass-overhang2 (owner defect 3): nspare in [3,4] marks a TRANSITION twin — a
+  // walkable-top blade near a droop rim, yaw pre-pointed outward, whose shape blends upright ->
+  // droop-lite by the baked lean weight w = nspare - 3 (0 at the band's inner edge, 1 at the rim).
+  // Both classes live in the toggle-gated buffer tail and never get a card.
+  float nsp = inst_normal.w;
+  bool is_tail  = nsp > 1.5;              // droop hang OR transition twin
+  bool is_droop = nsp > 1.5 && nsp < 2.5; // hanging droop on the lip faces (skips occ/trample)
+  bool is_trans = nsp > 2.5;              // progressive rim-lean twin (keeps occ/trample)
+  float trans_w = is_trans ? clamp(nsp - 3.0, 0.0, 1.0) : 0.0;
+  if (is_tail && u_mode == 1) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_color = vec3(0.0); v_alpha = 0.0; v_uv = vec2(0.0); v_is_card = 1; v_seed = 0.0;
     return;
@@ -352,14 +364,36 @@ void main() {
       // LENGTH (scaled to the face's vertical span at placement). No trample/occ/rim influence (it
       // is the intended overhang); the Adreno near-fill fade (nearf, in hw) is kept. Gentle pendulum
       // sway instead of the upright gust lean.
+      // ROUND2 (owner defect 2: "descend beaucoup trop bas"): the whole arc scales by u_droop_len so
+      // the hang drapes the lip like the painted fringe instead of hanging low curtains.
+      float dlen = clamp(u_droop_len, 0.1, 1.5);
       float arc = 0.75 + 0.5 * curve;                            // per-blade droop strength
-      float dhoriz = (0.62 - 0.20 * t) * t * H;                  // outward reach, decelerating
-      float dvert = (0.24 * t - (0.90 + 0.35 * arc) * t * t) * H;  // slight rise, then droop below base
-      float dsway = sin(gust * 0.8) * t * t * 0.08 * H;          // lateral pendulum sway
+      float dhoriz = (0.62 - 0.20 * t) * t * H * dlen;           // outward reach, decelerating
+      float dvert = (0.24 * t - (0.90 + 0.35 * arc) * t * t) * H * dlen;  // slight rise, then droop below base
+      float dsway = sin(gust * 0.8) * t * t * 0.08 * H * dlen;   // lateral pendulum sway
       pos = base
           + rightv * ((float(side) * 2.0 - 1.0) * hw + dsway)
-          + fwdv * (dhoriz + sin(gust) * t * t * 0.04 * H)
+          + fwdv * (dhoriz + sin(gust) * t * t * 0.04 * H * dlen)
           + vec3(0.0, dvert * nearf, 0.0);
+    } else if (is_trans) {
+      // ROUND2 (owner defect 3): PROGRESSIVE upright->droop transition twin. Placed on the walkable
+      // top within the rim-taper band of a droop rim, yaw already outward. At w~0 (band's inner
+      // edge) it is a faded-in upright blade; at w=1 (the rim) it is a droop-lite arc — while the
+      // stock upright originals shrink to stubs over the same band (LOCKED rim taper), so together
+      // the field bends gradually over the lip. Keeps trample/occ (it IS walkable-top grass).
+      float dlen = clamp(u_droop_len, 0.1, 1.5);
+      float fade_in = smoothstep(0.02, 0.30, trans_w);  // no pop at the band's inner edge
+      hw *= fade_in;
+      float arc2 = 0.75 + 0.5 * curve;
+      float up_y   = t * H * heightMul * nearf;                          // stock upright growth
+      float fwd_up = (bend + sway * 0.38) * H;                           // stock upright lean/sway
+      float dh = (0.62 - 0.20 * t) * t * H * dlen;                       // droop-lite outward reach
+      float dv = (0.24 * t - (0.90 + 0.35 * arc2) * t * t) * H * dlen;   // droop-lite drop
+      pos = base
+          + rightv * ((float(side) * 2.0 - 1.0) * hw)
+          + fwdv * mix(fwd_up, dh + sin(gust) * t * t * 0.04 * H * dlen, trans_w)
+          + vec3(0.0, mix(up_y, dv * nearf, trans_w), 0.0)
+          + trample * t * (1.0 - 0.5 * trans_w);
     } else {
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)

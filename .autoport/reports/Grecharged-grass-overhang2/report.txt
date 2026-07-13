@@ -1,0 +1,41 @@
+Grecharged-grass-overhang2 — ROUND 2 report (owner HONOR play-test round 1 FAILED; his 3 complaints = the acceptance list)
+Date: 2026-07-13    Device: Redmi Note 9 Pro eae4df44    Package: org.opengoal.gk.jak1
+Deploy: HEAD 5165fadb6 + round-2 worktree changes, chain build==APK==device e5b77f41a85308be (deploy_verify PASS, deploy_verify_assets PASS 28/28)
+Bundle: content-version c1a59056b7fc6, device training.grassbake sha256 == desktop bake (4801c63e...), GBK3 loaded on device: PLACE-TIME mode=precomputed total=438ms instances=693472
+
+== The three owner defects and their fixes ==
+
+DEFECT 1 — "ça recouvre pas la texture d'overhang (ça passe au travers et on a toujours la texture visible)"
+FIX: the painted overhang ALPHA texture (bch-grassfringe / bch-leafyground-hang-2x1) is now FADED OUT NEAR the camera while the overhang toggle is ON, so the 3D droop REPLACES it instead of poking through it — new u_fringe_fade uniform in the shared tfrag3 shader (tfrag AND non-envmap TIE draws), per-draw texture-id flag resolved at level load (training only), steepness-gated by screen-space derivatives so flat walkable ground sharing a texture keeps its stock texels.
+The fade band == the droop blades' own near-LOD fade band (0.55*near..near), so near-3D and the far alpha texture CROSSFADE with no double-up and no seam.
+Far LOD unchanged: at distance the ORIGINAL alpha texture shows, no grass cards on the lip (card pass still stops at droop_start; droop+twins collapse in the card pass).
+EVIDENCE: frames/nearlip_on.png vs frames/nearlip_off.png (same vantage close-up of the RIMCAND10 lip): ON = 3D blades drape the lip, NO painted skirt under them; OFF = the stock painted scalloped skirt, no droop. Same ON frame shows the FAR platform lip (frames/farlip_on.png) still as the stock texture = the crossfade in one frame.
+OBJECTIVE: near-lip band (720x144@920,848, thr24) ON-vs-OFF changed 22.5% vs cross-boot ON-vs-ON noise 5.2% = 4.3x noise (diag_nearlip_on_off.png / diag_nearlip_noise.png overlays).
+
+DEFECT 2 — "ça descend beaucoup trop bas"
+FIX: droop arc (outward reach + drop + sway) scaled by a new u_droop_len uniform, DEFAULT 0.55 (code var DROOP_LEN_DEFAULT in GrassRenderer.cpp), live-tunable without rebuild via Android prop debug.opengoal.grass.droop_len / desktop env GRASS_DROOP_LEN (clamped 0.1..1.5, re-read every ~64 frames).
+The default drape now hangs downward a short fringe-like length that visually matches the original painted texture's extent (compare nearlip_on.png drape vs nearlip_off.png painted skirt depth), not low curtains.
+EVIDENCE: live sweep in one boot (frames/g2_dlen_*): default -> 0.3 -> 1.0. Tight drape band (600x88@1000,912, thr24) same-boot: default-vs-default breeze noise 6.9%; default-vs-0.3 = 9.7%; default-vs-1.0 = 15.7%; 0.3-vs-1.0 = 23.1% = 3.4x noise (diag_dlen_03.png / diag_dlen_10.png). The prop is live on device.
+
+DEFECT 3 — "c'est pas progressif entre l'herbe droite et l'herbe d'overhang"
+FIX: PROGRESSIVE upright->droop transition. The GBK3 bake now stores the 1386 droop-RIM segments (rim segments bordering the droop zone only — bare edges keep the LOCKED stock behavior); expand() emits 21850 TRANSITION TWIN blades for walkable-top blades within 0.45m of a droop rim, yaw pre-pointed outward toward the rim, lean weight w = 1 - rim_dist/band baked into nspare (3+w). The shader blends each twin from upright (w~0, faded in) to a droop-lite arc (w=1 at the rim) while the stock rim height-taper shrinks the upright originals over the SAME band — together the field bends gradually over the lip, downward and outward as a function of rim distance (the u16 rim distance quantization drives it), not a binary switch.
+Twins live in the toggle-gated buffer TAIL: the stock draw range [0, droop_start) is untouched and the toggle stays draw-count-only.
+EVIDENCE: frames/grad_rim.png (terrace rim close-up): upright grass -> progressively leaning blades -> hanging drape, a smooth continuum. Census on device: GOVERHANG expand: droop_instances=55242 trans_instances=21850 droop_rims=1386 (tail [616380..693472)).
+
+== Regression guards ==
+Walkable-top rim stack not regressed: walkable instance count 616380 UNCHANGED from round 1 (twins are tail-appended); the walkable-top grass still stops clean at the rim in the OFF capture, edge not regressed (FLOORBELOW/FLOORGAP/global rim hash untouched, RIM_TAPER untouched).
+OFF == stock: toggle read from Grass Settings (recharged-grass-overhang?, Recharged Settings row); OFF draws only [0, droop_start) AND u_fringe_fade stays 0 (the tfrag3 stock path multiplies alpha by exactly 1.0), so the painted fringe texture is fully visible stock — frames/g2_rim_off_*.png + census line "toggle=OFF" prove the stock byte-path INCLUDING the fringe texture.
+Precomputed mode kept working: GBK2->GBK3 schema bump (droop-rim section), bake regenerated via tools/grass_bake with round-trip self-check IDENTICAL (instances=693472 droop_start=616380), bundle content-hash re-derived (c1a59056b7fc6) -> device re-extracted, device bake sha256-identical, PLACE-TIME mode=precomputed 438ms.
+x86 untouched in behavior: changes are C++ renderer + shaders + bake tool only; goal_src unchanged this round; full consistent pipeline re-ran the x86 oracle restore (PASS).
+
+== Device evidence ==
+All 5 capture boots reached training with warp_ok=1 and focus proof, e.g.:
+  rec g2_rim_on: mCurrentFocus=Window{92d3479 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+All sampled frames luminance-valid (YAVG 85-99, none black). Device restored after captures: overhang #t, near-dist 30.0, droop_len prop cleared, warp/cpad props cleared, app force-stopped after every window.
+
+== Caveats (honest) ==
+- The far-lip cross-boot band diff is parallax-dominated (19% ON-vs-ON noise) and thus inconclusive AS A NUMBER; the far-lip claim rests on the visual crops (farlip_on/n15/off all show the stock texture at that distance — correct far behavior) and the near-lip numbers.
+- 32 of 1283 fringe faces have no droop (no outward direction resolvable); their texture still fades near when ON. None were visible as bald spots in the captured beats; if the owner spots one, the drop guard can be relaxed.
+- Defect 3 has no scalar metric; the gradient evidence is visual (grad_rim.png) + the census. The owner's eye is the gate.
+
+RESULT: GRASS OVERHANG ROUND 2 — droop covers the fringe texture near (crossfade, far = original texture, no grass cards), droop shortened to fringe length (tunable u_droop_len default 0.55), progressive upright->droop transition by rim distance; OFF == stock including the fringe texture; walkable-top clean edge not regressed. VALIDATOR-LEVEL PASS — AWAITING OWNER PLAY-TEST (his three complaints are the acceptance list).

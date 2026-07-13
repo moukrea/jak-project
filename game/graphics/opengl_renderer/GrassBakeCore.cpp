@@ -1155,6 +1155,60 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
       (int)fringe_recs.size() - droop_fringe - fringe_no_rim, droop_area, droop_dir_fallback,
       (int)droop_tbl.size(), DROOP_UPNESS_DIR_MIN, DROOP_RIM_NEAR_M);
 
+  // ---- Grecharged-grass-overhang2: droop-RIM segments (owner ROUND-2 defect 3). ----
+  // Keep the true-rim segments that border the droop zone: a segment is kept when its closest point
+  // to some droop face's centroid lies within that face's own XZ bounding radius + DROOP_RIM_KEEP_M
+  // (Y-windowed — lip/fringe faces drop below their rim). expand() leans walkable-top blades
+  // progressively toward these segments (the upright->droop transition twins); they must ride in the
+  // BAKE because precomputed mode's rim_q stores only a distance, never a direction. Rims far from
+  // every droop face (bare edges with no overhang below) are NOT kept — leaning grass out over those
+  // would re-create the LOCKED-fixed floating-blade overflow.
+  std::vector<DroopRimSeg> droop_rim_segs;
+  {
+    std::vector<char> seg_mark(rim_segs.size(), 0);
+    const float ywin = DROOP_RIM_YWIN_M * U;
+    for (const auto& de : droop_tbl) {
+      const BakeTri& bt = bake_tris[de.tri];
+      float cx = bt.p0[0] + (bt.e1[0] + bt.e2[0]) * (1.0f / 3.0f);
+      float cy = bt.p0[1] + (bt.e1[1] + bt.e2[1]) * (1.0f / 3.0f);
+      float cz = bt.p0[2] + (bt.e1[2] + bt.e2[2]) * (1.0f / 3.0f);
+      // face XZ bounding radius from the centroid (max over the three verts)
+      float r2max = 0.f;
+      for (int vi = 0; vi < 3; ++vi) {
+        float vx = bt.p0[0] + (vi == 1 ? bt.e1[0] : 0.f) + (vi == 2 ? bt.e2[0] : 0.f);
+        float vz = bt.p0[2] + (vi == 1 ? bt.e1[2] : 0.f) + (vi == 2 ? bt.e2[2] : 0.f);
+        float dx = vx - cx, dz = vz - cz;
+        float d2 = dx * dx + dz * dz;
+        if (d2 > r2max) r2max = d2;
+      }
+      float keep = std::sqrt(r2max) + DROOP_RIM_KEEP_M * U;
+      float keep2 = keep * keep;
+      for (size_t si = 0; si < rim_segs.size(); ++si) {
+        if (seg_mark[si]) continue;
+        const auto& s = rim_segs[si];
+        float abx = s.bx - s.ax, abz = s.bz - s.az;
+        float denom = abx * abx + abz * abz;
+        float t = denom > 1e-6f ? ((cx - s.ax) * abx + (cz - s.az) * abz) / denom : 0.f;
+        t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+        float sy = s.ay + t * (s.by - s.ay);
+        if (std::fabs(sy - cy) > ywin) continue;
+        float sx = s.ax + t * abx, sz = s.az + t * abz;
+        float dx = cx - sx, dz = cz - sz;
+        if (dx * dx + dz * dz <= keep2) seg_mark[si] = 1;
+      }
+    }
+    for (size_t si = 0; si < rim_segs.size(); ++si) {
+      if (seg_mark[si]) {
+        const auto& s = rim_segs[si];
+        droop_rim_segs.push_back({s.ax, s.ay, s.az, s.bx, s.by, s.bz});
+      }
+    }
+    lg::info(
+        "[recharged-grass] GOVERHANG2 droop rims: {} of {} true-rim segments border the droop zone "
+        "(keep margin {:.2f}m, ywin {:.1f}m) — transition twins lean toward these only",
+        (int)droop_rim_segs.size(), (int)rim_segs.size(), DROOP_RIM_KEEP_M, DROOP_RIM_YWIN_M);
+  }
+
   // ROUND#16 instrumentation (RIMDIST). placed = candidates that passed the floor+rim pass (scatter_keep),
   // matching today's m_instances.size() at the point this log fired (pre-occ).
   int placed_pre_occ = 0;
@@ -1261,6 +1315,7 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
   out.keep = std::move(keep_tbl);
   out.rim_q = std::move(rimq_tbl);
   out.droop = std::move(droop_tbl);  // Grecharged-grass-overhang
+  out.droop_rims = std::move(droop_rim_segs);  // Grecharged-grass-overhang2 (GBK3)
   out.stats.considered_draws = considered_draws;
   out.stats.tie_draws = tie_draws;
   out.stats.tris_kept = tris_kept;
@@ -1409,6 +1464,56 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
       }
     }
   }
+
+  // ---- Grecharged-grass-overhang2: PROGRESSIVE upright->droop transition twins (owner defect 3:
+  // "c'est pas progressif entre l'herbe droite et l'herbe d'overhang"). For every placed walkable
+  // blade within TRANS_BAND_M of a DROOP rim (d.droop_rims — rims bordering the droop zone only,
+  // never bare edges), emit a twin at the same base whose yaw points OUTWARD (toward the rim's
+  // closest point) and whose nspare encodes the lean weight (3 + w, w = 1 - dist/band). The shader
+  // blends the twin from upright (w~0, faded in) to a droop-lite arc (w=1 at the rim), mirroring the
+  // LOCKED stock rim height-taper that shrinks the upright originals over the same band — together
+  // they read as grass gradually bending over the lip. Twins live in the toggle-gated TAIL: the
+  // stock draw range [0, droop_start) is untouched, so OFF == stock stays a draw-count property.
+  res.trans_start = (int)res.instances.size();
+  if (!d.droop_rims.empty()) {
+    const float band = TRANS_BAND_M * U;
+    const float ywin = 1.5f * U;  // a rim of another storey never leans this blade
+    const int walk_n = res.droop_start;
+    int trans_placed = 0;
+    for (int wi = 0; wi < walk_n && trans_placed < TRANS_MAX; ++wi) {
+      const GrassInstance& src = res.instances[wi];
+      if (src.gspare >= band) continue;  // cheap filter: rim_q says no rim within the band
+      // nearest droop-rim segment (brute over the few hundred kept segments; the gspare filter
+      // leaves only the near-rim minority of blades)
+      float best2 = 1e30f, bx = 0.f, bz = 0.f;
+      for (const auto& s : d.droop_rims) {
+        float abx = s.bx - s.ax, abz = s.bz - s.az;
+        float denom = abx * abx + abz * abz;
+        float t = denom > 1e-6f ? ((src.px - s.ax) * abx + (src.pz - s.az) * abz) / denom : 0.f;
+        t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+        float sy = s.ay + t * (s.by - s.ay);
+        if (std::fabs(sy - src.py) > ywin) continue;
+        float sx = s.ax + t * abx, sz = s.az + t * abz;
+        float dx = src.px - sx, dz = src.pz - sz;
+        float d2 = dx * dx + dz * dz;
+        if (d2 < best2) { best2 = d2; bx = sx; bz = sz; }
+      }
+      if (best2 >= band * band) continue;  // near some rim, but not a droop rim
+      float dist = std::sqrt(best2);
+      float ox = bx - src.px, oz = bz - src.pz;  // outward = from the base TOWARD the rim
+      float ol = std::sqrt(ox * ox + oz * oz);
+      if (ol < 0.02f * U) continue;  // base essentially ON the rim: direction unreliable
+      float w = 1.0f - dist / band;
+      GrassInstance gi = src;
+      u32 sd = hash_u32((u32)wi * 2246822519u + 0x7A115u);
+      gi.yaw = std::atan2(ox / ol, oz / ol) + (hash_f(sd) - 0.5f) * 0.35f;  // outward + small jitter
+      gi.gspare = 1.0e9f;       // NO_RIM: the lean past the rim is the point; no taper/clamp
+      gi.nspare = 3.0f + w;     // TRANSITION marker + lean weight (shader: nspare > 2.5)
+      res.instances.push_back(gi);
+      res.inst_tri.push_back(res.inst_tri[wi]);  // twin shares the parent's tri (day-cycle light)
+      trans_placed++;
+    }
+  }
   return res;
 }
 
@@ -1419,7 +1524,9 @@ namespace {
 constexpr u32 GBK_MAGIC = 0x314B4247;   // 'GBK1'
 // Grecharged-grass-overhang: v2 appends the droop section (fringe tris ride in tris[] with flags
 // bit3). A v1 bake fails the version check below -> the runtime's LIVE-scan fallback handles it.
-constexpr u32 GBK_FORMAT_VERSION = 2;
+// Grecharged-grass-overhang2: v3 appends the droop-RIM segment section (the progressive
+// upright->droop transition needs a rim DIRECTION; rim_q only has a distance). Same fallback rule.
+constexpr u32 GBK_FORMAT_VERSION = 3;
 
 template <typename T>
 void put(std::vector<u8>& buf, const T& v) {
@@ -1494,6 +1601,17 @@ bool save_bake(const BakeData& d, const std::string& path) {
     put<u32>(buf, de.tri);
     put<float>(buf, de.ox);
     put<float>(buf, de.oz);
+  }
+
+  // Grecharged-grass-overhang2 (GBK3): droop-rim segment section.
+  put<u32>(buf, (u32)d.droop_rims.size());
+  for (const auto& s : d.droop_rims) {
+    put<float>(buf, s.ax);
+    put<float>(buf, s.ay);
+    put<float>(buf, s.az);
+    put<float>(buf, s.bx);
+    put<float>(buf, s.by);
+    put<float>(buf, s.bz);
   }
 
   std::vector<u8> comp = compression::compress_zstd(buf.data(), buf.size());
@@ -1607,6 +1725,22 @@ bool load_bake(BakeData& d, const std::string& path) {
     }
     if (de.tri >= ntris) {
       lg::warn("[recharged-grass] load_bake: droop tri index out of range in '{}'", path);
+      return false;
+    }
+  }
+
+  // Grecharged-grass-overhang2 (GBK3): droop-rim segment section.
+  u32 nrims = 0;
+  if (!get(buf, off, nrims)) {
+    lg::warn("[recharged-grass] load_bake: truncated droop-rim count in '{}'", path);
+    return false;
+  }
+  tmp.droop_rims.resize(nrims);
+  for (u32 i = 0; i < nrims; ++i) {
+    DroopRimSeg& s = tmp.droop_rims[i];
+    if (!get(buf, off, s.ax) || !get(buf, off, s.ay) || !get(buf, off, s.az) ||
+        !get(buf, off, s.bx) || !get(buf, off, s.by) || !get(buf, off, s.bz)) {
+      lg::warn("[recharged-grass] load_bake: truncated droop_rims[] in '{}'", path);
       return false;
     }
   }

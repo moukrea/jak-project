@@ -21,6 +21,10 @@ uniform int decal;
 out vec4 fragment_color;
 out vec3 tex_coord;
 out float fogginess;
+// Grecharged-grass-overhang2: camera-relative world pos in METERS (mediump-safe on GLES — GOAL units
+// would overflow half-float range). The frag derives camera distance + face steepness from it for
+// the grass-fringe near-fade. Costless when u_fringe_fade.x == 0 (stock path).
+out vec3 v_fringe_rel;
 
 void main() {
   // old system:
@@ -40,6 +44,7 @@ void main() {
 
   // Step 3, the camera transform
   vec3 vert = position_in - cam_trans.xyz;
+  v_fringe_rel = vert * (1.0 / 4096.0);  // Grecharged-grass-overhang2: meters, for the fringe fade
   vec4 transformed = -pc_camera[3];
   transformed.w = 0.0;
   transformed -= pc_camera[0] * vert.x;

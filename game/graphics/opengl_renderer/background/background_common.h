@@ -69,6 +69,16 @@ struct TfragAlphaUniforms {
 };
 const TfragAlphaUniforms& tfrag_alpha_uniforms(u64 program);
 
+// Grecharged-grass-overhang2: near-fade params for the painted grass-fringe alpha strips (the 3D
+// droop covers them near; far keeps the stock texture). x=enable, distances in METERS to match the
+// tfrag3 shader's meter-scaled varying. Returns on=false unless BOTH recharged grass toggles are ON.
+struct GrassFringeFade {
+  bool on = false;
+  float start_m = 0.f;
+  float end_m = 0.f;
+};
+GrassFringeFade grass_fringe_fade_params();
+
 DoubleDraw setup_tfrag_shader(SharedRenderState* render_state, DrawMode mode, ShaderId shader);
 DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap);
 
