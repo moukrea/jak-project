@@ -1,0 +1,86 @@
+RESULT: GRASS OBJECT-CLIP PASS — grass no longer pokes through ground-resting objects (island warp-gate BUTTON + other decor); the non-TIE actor occluder set + ground-contact footprint cull are live at HEAD and re-proven on device eae4df44 (fresh captures 2026-07-13), no giant bald patch on buried-base objects, open-field density and clean edges NOT regressed.
+
+== PHASE CONTEXT (honest provenance) ==
+This phase was written 2026-07-11 from the owner's report ("le bouton du gate de l'ile, l'herbe passe
+au travers"). The fix itself was then implemented and OWNER-VALIDATED inside Grecharged-grass-poc
+rounds #18-#30 (phase closed 2026-07-13, owner verbatim: "At last, c'est tout bon ! Validé !";
+R22b owner verdict on the button/vent specifically: "nickel" / CLOSED). What THIS phase adds is a
+fresh HEAD re-verification: two later grass phases (precompute-mode, overhang) heavily refactored
+GrassRenderer.cpp (-1496 lines, GrassBakeCore extraction) AFTER the owner validation, so the
+object-clip path needed fresh device proof, captured below. The GOAL-side occluder scan
+(goal_src/jak1/pc/hud-classes-pc.gc) is byte-unchanged since the owner-validated close (diff checked:
+only settings plumbing was added since 10ab62f54), and grass.vert's OC_STEP/TR_STEP occlusion code is
+untouched by both later phases.
+
+== ROOT CAUSE — which occluder set the gate button was missing from ==
+The phase hypothesis is CONFIRMED (it was confirmed during poc round#18): the round#13 per-instance
+object-cull tested only static level TIE geometry points (non-grass-TIE vertex/face samples in the
+contact band). The island warp-gate BUTTON is a game-object / actor (a process-drawable of type
+warp-gate-switch, entity warp-gate-switch-8), NOT a static TIE — it was absent from the TIE occluder
+set, so blades under it were never culled and poked through the plate. Same class: eco vents
+(drawless particle-emitter actors), crates, scarecrows, speakers, hutlamps.
+
+== THE EXTENSION — non-TIE ground-resting objects as occluders ==
+GOAL->C++ channel (poc rounds #18-#30, all still live at HEAD):
+- GOAL scan (hud-classes-pc.gc ~1770-1850, every ~15 frames, toggle-gated): iterates the active pool
+  and publishes ground actors via pc-grass-occ-clear!/add!/publish! -> kmachine.cpp receivers
+  (game/kernel/jak1/kmachine.cpp:642-654) -> GrassOccluders lists -> u_occ/u_trample uniforms ->
+  grass.vert OC_STEP/TR_STEP literal-unrolled tests per blade.
+- Two categories (owner design): STATIC unbreakable machines are CULLED — kind-0 is a STRICT
+  ALLOWLIST (warp-gate-switch, plat-eco, warpgate, tra-iris-door, speaker, hutlamp), entity-backed
+  only (dynamic spawns like Samos's flying drone never publish, by construction), anchored at the
+  ENTITY spawn trans. BREAKABLE actors (crates, scarecrows) are TRAMPLED, not culled — grass flattens
+  and springs back ~0.6s after a break (clear-collide hook + tombstones).
+- DRAWLESS vent family (ecovent/ecovalve — pure particle emitters, no draw-control): published at the
+  entity-anchored base with a fixed 1.8m footprint.
+- Small TIE props (low-poly rocks) got face-densified footprint samples at 0.35m pitch (round#23) so
+  blades between sparse vertices are covered too; foliage/alpha-canopy prototypes stay exempt.
+
+== GROUND-CONTACT FOOTPRINT, NOT THE FULL/BURIED MESH (owner nuance) ==
+The cull keys on where the object CLIPS THE GROUND, never on the full mesh or bounding volume:
+- TIE occluder points are only accepted in the round#13 contact band [0.05 .. 1.00 m ABOVE local
+  ground] — geometry below the ground surface (buried bases) contributes NO occluder points.
+- Actor CULL radii are ground footprints, not mesh extents: draw-bounds bsphere-w * 0.8 with the
+  owner-validated static factor x1.5, clamped 0.9..3.0 m (GrassRenderer.cpp goal_add); TRAMPLE radii
+  come from the collide-shape ROOT-PRIM (the physics ground footprint, "feet not body"), clamped
+  0.3..1.2 m.
+- The shader occlusion test is Y-banded per blade (OC_STEP: -1.2 m .. +1.0 m around the occluder Y),
+  so an occluder can never bald grass on terraces above/below it, and under-ground model volume is
+  irrelevant by construction.
+Proof there is NO giant bald patch on buried-base objects: the ecovent's crater model sits in a cliff
+with substantial geometry below the walkable surface, yet its cull is the tight r2.70 m ring only —
+fresh frame gclip_vent_016/026 shows dense grass right up to the crater rim, plate clean. Same for
+the button: gclip_btn2_024 shows a tight clean ring around the r1.80 plate, tall grass at ~1 m.
+
+== DEVICE RE-VERIFICATION AT HEAD (eae4df44, 2026-07-13, supervisor-eyeballed) ==
+Build: deploy_verify PASS — device provably runs the fresh HEAD (0d8522bb2) libgk.so, chain
+build==APK==device 26e40b7c1177991e (re-run by the validator at close time).
+Harness: .autoport/grass_gclip_capture.sh + grass_gclip_btn2.sh (warp-boot per beat, screenrecord ->
+2fps frames, R21OCC/R19OCC census harvest, force-stop + prop teardown after each run). All beats
+warped try#1. Focus proof at every beat (also in gclip_occ_proof.txt):
+  mCurrentFocus=Window{d1b78c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+- BEAT A/A2 — island warp-gate BUTTON (@ -1309.0 7.2 1060.5): BEFORE = poc frame p19_btn_closeup_16
+  (pre-fix build: blades visibly cross the plate rim). AFTER at HEAD = frames/gclip_btn2_024 (plate
+  fully visible next to the warp ring: zero blades through it, tight bald ring, dense grass around).
+  Census: cull[0]=(-1312.0,6.7,1063.8 r1.80) = warp-gate-switch-8's exact entity-table coords,
+  IDENTICAL to the owner-validated R24 build (no drift through the precompute/overhang refactors).
+- BEAT B — ECOVENT decor object (@ -1304.5 29.8 851.5): frames/gclip_vent_016/026 — erupting vent,
+  base plate clean of blades, grass dense to the rim, no oversized bald disc.
+  Census: occ[0]=(-1308.0,29.5,854.2 r2.70) = ecovent-245 entity coords (1.8 m x1.5 static factor).
+- BEAT C — CRATES + open field (@ -1297.5 7.8 1035.0): frames/gclip_crate_016 — three chests press
+  flat trample rings (r1.20 from collide root-prim), no clip-through, open-field density fully dense,
+  terrace edges clean in the background. Census: ntr=19 breakables at exact entity coords.
+- NOT regressed: open-field density (beat C, DROPPED=0 stack untouched), clean edges
+  (FLOORBELOW/FLOORGAP/rim-taper code untouched by this phase — no code change at all; the overhang
+  gate-close yesterday additionally verified the walkable-top rim stack objectively), OFF==stock
+  unchanged (toggle path untouched).
+Scope honesty: THIS phase changed no engine/game code — it is the verification + provenance record
+that the object-clip shipped, owner-validated, and survived the later grass refactors on device.
+Device left clean: warp props cleared (quoted-empty setprop), cpad neutral, app force-stopped.
+
+== ARTIFACTS ==
+frames/gclip_btn_*.png, gclip_btn2_*.png, gclip_vent_*.png, gclip_crate_*.png (fresh HEAD device),
+gclip_occ_proof.txt (R21OCC/R19OCC census + focus lines), gclip_capture_run.log, gclip_btn2_run.log;
+BEFORE reference: ../Grecharged-grass-poc/frames/p19_btn_closeup_16.png (poke-through) and
+owner-validated AFTERs p22_btn_base_16.png / p22_vent_16.png / p23c_rock_10.png.
+Locks respected: ANDROID_SERIAL=eae4df44 only; engine goal_src untouched; .autoport/gold READ-ONLY.

@@ -1,0 +1,41 @@
+=== A-BUTTON (grass must not poke through the plate; cull ring tight) ===
+--- focus:   mCurrentFocus=Window{d1b78c4 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+--- R21OCC goal-publish (census):
+07-13 19:22:38.863 19271 19363 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-13 19:22:42.612 19271 19363 I opengoal-gk: [recharged-grass] R21OCC goal-publish #20 ncull=0 ntr=0
+07-13 19:22:47.640 19271 19363 I opengoal-gk: [recharged-grass] R21OCC goal-publish #40 ncull=0 ntr=0
+07-13 19:23:28.212 19271 19363 I opengoal-gk: [recharged-grass] R21OCC goal-publish #60 ncull=2 ntr=11 cull[0]=(-1312.0,6.7,1063.8 r1.80) cull[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1213.7,17.0,1001.7 r1.20) tr[1]=(-1164.3,15.0,973.4 r1.20) tr[2]=(-1196.0,19.0,984.0 r1.20)
+--- R19OCC frame dumps (occ[] world coords + radii):
+07-13 19:22:48.750 19271 19347 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=2 ntr=11 jak=(-1309.0,7.1,1060.5) occ[0]=(-1312.0,6.7,1063.8 r1.80) occ[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1295.3,7.4,1032.5 r1.20) tr[1]=(-1285.3,7.1,1030.3 r1.20) tr[2]=(-1294.9,7.3,1024.0 r1.20) tr[3]=(-1244.6,15.0,997.0 r1.20)
+07-13 19:23:12.957 19271 19347 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=2 ntr=11 jak=(-1309.0,6.8,1060.5) occ[0]=(-1312.0,6.7,1063.8 r1.80) occ[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1295.3,7.4,1032.5 r1.20) tr[1]=(-1285.3,7.1,1030.3 r1.20) tr[2]=(-1294.9,7.3,1024.0 r1.20) tr[3]=(-1244.6,15.0,997.0 r1.20)
+07-13 19:23:36.212 19271 19347 I opengoal-gk: [recharged-grass] R19OCC frame=300 nocc=2 ntr=11 jak=(-1309.0,6.8,1060.5) occ[0]=(-1312.0,6.7,1063.8 r1.80) occ[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1295.3,7.4,1032.5 r1.20) tr[1]=(-1285.3,7.1,1030.3 r1.20) tr[2]=(-1294.9,7.3,1024.0 r1.20) tr[3]=(-1244.6,15.0,997.0 r1.20)
+=== B-ECOVENT (base clean, 1.8m footprint only — NO giant bald patch) ===
+--- focus:   mCurrentFocus=Window{8a77428 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+--- R21OCC goal-publish (census):
+07-13 19:23:44.570 19511 19592 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-13 19:23:48.320 19511 19592 I opengoal-gk: [recharged-grass] R21OCC goal-publish #20 ncull=0 ntr=0
+07-13 19:23:53.337 19511 19592 I opengoal-gk: [recharged-grass] R21OCC goal-publish #40 ncull=0 ntr=0
+07-13 19:24:16.036 19511 19592 I opengoal-gk: [recharged-grass] R21OCC goal-publish #60 ncull=3 ntr=10 cull[0]=(-1298.9,52.3,1009.0 r3.00) cull[1]=(-1245.9,30.7,885.3 r3.00) cull[2]=(-1308.0,29.5,854.2 r2.70) tr[0]=(-1231.0,27.0,856.1 r1.20) tr[1]=(-1220.4,27.0,874.0 r1.20) tr[2]=(-1208.4,25.5,852.3 r1.20)
+--- R19OCC frame dumps (occ[] world coords + radii):
+07-13 19:23:54.394 19511 19577 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=3 ntr=10 jak=(-1304.5,29.7,851.5) occ[0]=(-1308.0,29.5,854.2 r2.70) occ[1]=(-1245.9,30.7,885.3 r3.00) occ[2]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1231.0,27.0,856.1 r1.20) tr[1]=(-1220.4,27.0,874.0 r1.20) tr[2]=(-1208.4,25.5,852.3 r1.20) tr[3]=(-1206.3,25.5,852.3 r1.20)
+07-13 19:24:07.009 19511 19577 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=3 ntr=10 jak=(-1304.5,29.6,851.5) occ[0]=(-1308.0,29.5,854.2 r2.70) occ[1]=(-1245.9,30.7,885.3 r3.00) occ[2]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1231.0,27.0,856.1 r1.20) tr[1]=(-1220.4,27.0,874.0 r1.20) tr[2]=(-1208.4,25.5,852.3 r1.20) tr[3]=(-1206.3,25.5,852.3 r1.20)
+07-13 19:24:20.460 19511 19577 I opengoal-gk: [recharged-grass] R19OCC frame=300 nocc=3 ntr=10 jak=(-1304.5,29.6,851.5) occ[0]=(-1308.0,29.5,854.2 r2.70) occ[1]=(-1245.9,30.7,885.3 r3.00) occ[2]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1231.0,27.0,856.1 r1.20) tr[1]=(-1220.4,27.0,874.0 r1.20) tr[2]=(-1208.4,25.5,852.3 r1.20) tr[3]=(-1206.3,25.5,852.3 r1.20)
+07-13 19:24:33.413 19511 19577 I opengoal-gk: [recharged-grass] R19OCC frame=450 nocc=3 ntr=10 jak=(-1304.5,29.6,851.5) occ[0]=(-1308.0,29.5,854.2 r2.70) occ[1]=(-1245.9,30.7,885.3 r3.00) occ[2]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1231.0,27.0,856.1 r1.20) tr[1]=(-1220.4,27.0,874.0 r1.20) tr[2]=(-1208.4,25.5,852.3 r1.20) tr[3]=(-1206.3,25.5,852.3 r1.20)
+=== C-CRATES/FIELD (trample + open-field density, no regression) ===
+--- focus:   mCurrentFocus=Window{69cf300 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+--- R21OCC goal-publish (census):
+07-13 19:24:46.742 19731 19813 I opengoal-gk: [recharged-grass] R21OCC goal-publish #5 ncull=0 ntr=0
+07-13 19:24:50.491 19731 19813 I opengoal-gk: [recharged-grass] R21OCC goal-publish #20 ncull=0 ntr=0
+07-13 19:24:55.510 19731 19813 I opengoal-gk: [recharged-grass] R21OCC goal-publish #40 ncull=0 ntr=0
+07-13 19:25:37.880 19731 19813 I opengoal-gk: [recharged-grass] R21OCC goal-publish #60 ncull=2 ntr=19 cull[0]=(-1312.0,6.7,1063.8 r1.80) cull[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1146.8,15.0,977.3 r1.20) tr[1]=(-1213.7,17.0,1001.7 r1.20) tr[2]=(-1164.3,15.0,973.4 r1.20)
+--- R19OCC frame dumps (occ[] world coords + radii):
+07-13 19:24:56.542 19731 19799 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=2 ntr=19 jak=(-1297.5,7.7,1035.0) occ[0]=(-1298.9,52.3,1009.0 r3.00) occ[1]=(-1312.0,6.7,1063.8 r1.80) tr[0]=(-1295.3,7.4,1032.5 r1.20) tr[1]=(-1294.9,7.3,1024.0 r1.20) tr[2]=(-1285.3,7.1,1030.3 r1.20) tr[3]=(-1244.6,15.0,997.0 r1.20)
+07-13 19:25:21.616 19731 19799 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=2 ntr=19 jak=(-1297.5,7.3,1035.0) occ[0]=(-1298.9,52.3,1009.0 r3.00) occ[1]=(-1312.0,6.7,1063.8 r1.80) tr[0]=(-1295.3,7.4,1032.5 r1.20) tr[1]=(-1294.9,7.3,1024.0 r1.20) tr[2]=(-1285.3,7.1,1030.3 r1.20) tr[3]=(-1244.6,15.0,997.0 r1.20)
+=== A2-BUTTON re-shot (orbit onto the plate) ===
+--- focus:   mCurrentFocus=Window{ab2ee73 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+07-13 19:26:34.297 20091 20172 I opengoal-gk: [recharged-grass] R21OCC goal-publish #20 ncull=0 ntr=0
+07-13 19:26:39.318 20091 20172 I opengoal-gk: [recharged-grass] R21OCC goal-publish #40 ncull=0 ntr=0
+07-13 19:27:17.529 20091 20172 I opengoal-gk: [recharged-grass] R21OCC goal-publish #60 ncull=2 ntr=16 cull[0]=(-1312.0,6.7,1063.8 r1.80) cull[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1146.8,15.0,977.3 r1.20) tr[1]=(-1164.3,15.0,973.4 r1.20) tr[2]=(-1166.8,15.0,985.0 r1.20)
+07-13 19:26:40.367 20091 20159 I opengoal-gk: [recharged-grass] R19OCC frame=0 nocc=2 ntr=11 jak=(-1309.0,7.1,1060.5) occ[0]=(-1312.0,6.7,1063.8 r1.80) occ[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1295.3,7.4,1032.5 r1.20) tr[1]=(-1285.3,7.1,1030.3 r1.20) tr[2]=(-1294.9,7.3,1024.0 r1.20) tr[3]=(-1244.6,15.0,997.0 r1.20)
+07-13 19:27:04.843 20091 20159 I opengoal-gk: [recharged-grass] R19OCC frame=150 nocc=2 ntr=11 jak=(-1309.0,6.8,1060.5) occ[0]=(-1312.0,6.7,1063.8 r1.80) occ[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1295.3,7.4,1032.5 r1.20) tr[1]=(-1285.3,7.1,1030.3 r1.20) tr[2]=(-1294.9,7.3,1024.0 r1.20) tr[3]=(-1244.6,15.0,997.0 r1.20)
+07-13 19:27:23.556 20091 20159 I opengoal-gk: [recharged-grass] R19OCC frame=300 nocc=2 ntr=16 jak=(-1309.0,6.8,1060.5) occ[0]=(-1312.0,6.7,1063.8 r1.80) occ[1]=(-1298.9,52.3,1009.0 r3.00) tr[0]=(-1295.3,7.4,1032.5 r1.20) tr[1]=(-1285.3,7.1,1030.3 r1.20) tr[2]=(-1294.9,7.3,1024.0 r1.20) tr[3]=(-1244.6,15.0,997.0 r1.20)
