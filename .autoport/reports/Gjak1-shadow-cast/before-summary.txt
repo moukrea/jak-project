@@ -1,0 +1,48 @@
+=== Gjak1-shadow-cast BEFORE-fix baseline (real device Redmi eae4df44) ===
+Date: 2026-07-13   PKG=org.opengoal.gk.jak1   Build: CURRENTLY-INSTALLED APK (no rebuild/install; observation only)
+
+WARP REACHED: NO -- ABORTED.
+  The warp name requested was WRONG ('village1'). The correct continue point is 'village1-hut'
+  (found via x86 oracle by the phase manager). The runtime rejected the name:
+    [LEVEL-WARP] armed *listener-function* = #x38d2924 for continue 'village1'
+    [LEVEL-WARP] get-continue-by-name("village1") -> #x14fd24
+    [LEVEL-WARP] continue 'village1' not found; warp aborted
+    LEVEL-WARP-FAIL name=village1 reason=continue-not-found
+  With the warp aborted the game booted the normal path and sat at the TITLE / attract
+  screen, then (via my menu probing) the main menu -> save-select. Jak was NEVER spawned
+  in-game standing. No in-game "no shadow under Jak" frame was captured.
+
+mCurrentFocus (verified org.opengoal.gk.jak1 throughout the standing capture):
+  mCurrentFocus=Window{3a6bb08 u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+
+STANDING FRAMES CONTENT: TITLE SCREEN, not in-game.
+  All before-stand-*.png show the Jak & Daxter title/attract flythrough over village1
+  geometry with the overlay "APPUYEZ SUR START OU TOUCHEZ L'ECRAN". There is NO in-game
+  Jak character in these frames, therefore the "no shadow under Jak" observation cannot be
+  made from them (there is no Jak to have a shadow). Expected-NO-shadow assertion: N/A
+  (no character present). Frames are valid title-screen render evidence (focus confirmed).
+
+FPS BASELINE (no GFPS-VSYNC lines exist in this build):
+  - Display vsync: A42-STRCLK vblank counter = 300 vblanks / 5.00 s on every sample
+    -> 60.00 vblank/s (locked 60Hz display).
+  - Render-thread cost: A35-RENDER render_ms ~= 18.5-19.5 ms at this title beat
+    (buckets_ms ~18.0-19.0, pcrtc_ms ~0.06; tris=196850, buckets_drawn=35, fbo=960x432).
+    => render thread ~= 51-54 rendered-fps at the title flythrough (>16.67ms budget).
+  Method: computed from the monotonic A42-STRCLK vblank field and the per-frame
+  A35-RENDER render_ms field in before-logcat.log. Details in before-fps.txt.
+
+CRASH SIGNALS: NONE.
+  grep -aE 'Fatal signal|GK-DIAG sig=(4|6|11)' -> no matches. App stayed foreground the
+  whole session. (Any signal 9 on background PIDs would not be a crash; none seen anyway.)
+
+FRAME FILES (title-screen, focus-verified org.opengoal.gk.jak1):
+  before-stand-01.png .. before-stand-10.png  (1 fps extract of before-stand.mp4)
+  Supplementary menu-navigation captures (NOT baseline evidence, from warp-abort recovery
+  probing): menu-probe-*.png, menu2-*.png, menu3-*.png
+
+ANOMALY / HONEST NOTE:
+  Because the given warp name was invalid the intended in-game standing baseline could not
+  be captured. Per phase-manager direction the in-game before/after shadow evidence will be
+  produced instead via a kill-switch prop on the NEW build. This report captures what the
+  CURRENT installed build actually did: title-screen render at 60Hz display / ~18.7ms
+  render_ms, crash-free, warp rejected.

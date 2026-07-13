@@ -1,0 +1,44 @@
+=== Gjak1-shadow-cast — x86 ORACLE capture summary ===
+Date: 2026-07-13
+Binary: build/game/gk (x86 desktop, NOT build-x86 which is stale/absent here)
+ISO data: out/jak1/iso  (KERNEL/GAME/ENGINE.CGO + level DGOs present; gk linked+booted OK)
+
+BOOT: OK. gk reached the logo/link phase and ran the LEVEL-WARP hooks.
+
+WARP:
+  Requested OG_LEVEL_WARP=village1 FAILED — "continue 'village1' not found; warp aborted"
+    (village1 loads as a LEVEL but is NOT a continue-point name).
+  Correct village1 continue-point = "village1-hut".
+  Relaunched with OG_LEVEL_WARP=village1-hut -> SUCCESS:
+    [LEVEL-WARP] get-continue-by-name("village1-hut") -> #x1d24d84
+    [LEVEL-WARP] (start 'play village1-hut) -> *target* #x1be2b4
+    LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+  Warp spawn observed ~10s after launch; settled 15s (camera behind Jak).
+
+CAPTURE METHOD (important for reproducibility):
+  Host is a GNOME **Wayland** session (XDG_SESSION_TYPE=wayland).
+  - SDL3 gk defaults to a native Wayland surface -> x11grab / import -window root
+    capture pure black (mean ~0.007); GNOME Shell Screenshot D-Bus is AccessDenied.
+  - FIX: relaunch gk with SDL_VIDEODRIVER=x11 so the window becomes an XWayland
+    client (title "OpenGOAL - Jak 1", class gk, 1920x1080 @ 0,0).
+  - Capture with: import -window <winid>  (direct window backing pixmap read).
+    NOTE: x11grab of the ROOT is still black under XWayland; must target the
+    window id directly. Window id found via python3-Xlib query_tree (no
+    xdotool/wmctrl/xwininfo installed).
+
+SCREENSHOTS (all 1920x1080, non-black, game content confirmed):
+  oracle-stand-1.png  mean brightness 141.93
+  oracle-stand-2.png  mean brightness 138.74
+  oracle-stand-3.png  mean brightness 140.35
+  oracle-stand-4.png  mean brightness 139.60
+  Zoomed shadow-region crops (2.2x, region beneath Jak):
+    _crop_oracle-stand-1.png, _crop_oracle-stand-2.png, _crop_oracle-stand-4.png
+
+SHADOW (visual inspection): YES — Jak stands in village1/Sandover, camera
+  behind him. A dark, diffuse elliptical PROJECTED/BLOB shadow is clearly cast
+  on the grass directly beneath and slightly to Jak's right side, stable across
+  all shots (best seen in the zoomed crops). This is the expected x86 A/B
+  reference: shadow PRESENT on desktop x86.
+
+Resolution note: PC settings requested 2400x1080 (host screen is 1920x1080),
+  gk defaulted to 1920x1080 — harmless, not a codegen issue.
