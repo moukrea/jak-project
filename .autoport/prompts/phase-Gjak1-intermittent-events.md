@@ -92,3 +92,15 @@ load, so "fired 6/6" proves nothing about the bug). REQUIRED method instead:
 3. The failure is INTERMITTENT: a trigger firing once proves nothing. If no miss reproduces after
    genuine in-trigger attempts, instrument the dispatcher paths (send-event/state-enter logging behind
    a debug prop) so the OWNER's next real-world miss is capturable, and report honestly.
+
+## OWNER ADDENDUM (2026-07-13 16:40, verbatim — method constraint on the redirect above)
+"Attention t'es mauvais pour jouer à vue, donc fais pas des trucs débiles, tu peux te téléporter à côté
+de triggers et faire l'action (casser un truc, sauter sur un bouton, etc. De façon à ce que l'action
+automatisée soit pas possible à rater) avec des entrées debug super targeted... Si tu commences à
+naviguer dans le jeu tout seul on va jamais s'en sortir"
+
+=> NO free-form navigation/pathfinding EVER. For each chosen trigger: level.warp.pos to a coordinate
+ADJACENT to the trigger (dump exact coords from <level>-actors.json / entity table, cf. the grass-poc
+warp workflow), then ONE unmissable scripted debug action (single cpad burst: an attack press to break,
+a forward-hop onto a button, walking 2m into a volume). If a trigger can't be made unmissable that way,
+pick a different trigger from the census instead of attempting to play.
