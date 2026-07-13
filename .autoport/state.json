@@ -192,7 +192,7 @@
     "Grecharged-grass-overhang": 1,
     "Grecharged-grass-object-clip": 3,
     "Grecharged-grass-overhang2": 1,
-    "Grecharged-grass-wear": 1
+    "Grecharged-grass-wear": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -382,6 +382,9 @@
     "Grecharged-grass-object-clip": [
       "683237be2d07",
       "683237be2d07"
+    ],
+    "Grecharged-grass-wear": [
+      "e1711288a3e2"
     ]
   },
   "stuck_reasons": {
@@ -755,7 +758,7 @@
     "Grecharged-grass-overhang2": 1783965566.1191852,
     "Grecharged-grass-wear": 1783970780.638983
   },
-  "last_update": "2026-07-13T19:37:22.645240+00:00",
+  "last_update": "2026-07-13T19:39:50.822275+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -814,7 +817,8 @@
     "Gjak1-intermittent-events",
     "Grecharged-grass-overhang",
     "Grecharged-grass-object-clip",
-    "Grecharged-grass-overhang2"
+    "Grecharged-grass-overhang2",
+    "Grecharged-grass-wear"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
