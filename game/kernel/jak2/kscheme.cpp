@@ -783,6 +783,48 @@ inline uint32_t arm64_mov_x_x(unsigned rd, unsigned rm) {
   return 0xAA0003E0u | ((rm & 0x1Fu) << 16) | (rd & 0x1Fu);
 }
 
+inline uint32_t arm64_stp_q_preindex(unsigned rt, unsigned rt2, unsigned rn, int simm7_bytes) {
+  // STP Qt, Qt2, [Xn, #simm7]!  -- pre-indexed, scaled by 16 (128-bit SIMD&FP)
+  // encoding verified against the GNU-assembled asm_funcs_arm64_gnu.s object:
+  // `stp q31, q30, [sp, #-0x20]!` == 0xADBF7BFF
+  uint32_t imm7 = static_cast<uint32_t>(simm7_bytes / 16) & 0x7Fu;
+  return 0xAD800000u | (imm7 << 15) | ((rt2 & 0x1Fu) << 10) | ((rn & 0x1Fu) << 5) |
+         (rt & 0x1Fu);
+}
+
+inline uint32_t arm64_ldp_q_postindex(unsigned rt, unsigned rt2, unsigned rn, int simm7_bytes) {
+  // LDP Qt, Qt2, [Xn], #simm7  -- post-indexed, scaled by 16 (128-bit SIMD&FP)
+  // encoding verified: `ldp q25, q24, [sp], #0x20` == 0xACC163F9
+  uint32_t imm7 = static_cast<uint32_t>(simm7_bytes / 16) & 0x7Fu;
+  return 0xACC00000u | (imm7 << 15) | ((rt2 & 0x1Fu) << 10) | ((rn & 0x1Fu) << 5) |
+         (rt & 0x1Fu);
+}
+
+// Ggrass-precompute (autoport) — bug class #14 (see jak1/kscheme.cpp for the full
+// derivation): the GOAL→C++ FFI must preserve the GOAL callee-saved GPR bank
+// {RBX,RBP,R10,R11,R12} = arm64 {X3,X5,X10,X11,X12} and xmm8-15 = V24-V31; AAPCS
+// callee-saves none of them. x86 gets this via _arg_call_systemv + SysV.
+template <typename EmitFn>
+inline void arm64_emit_goal_saved_bank_save(EmitFn emit) {
+  emit(arm64_stp_q_preindex(31, 30, 31, -32));
+  emit(arm64_stp_q_preindex(29, 28, 31, -32));
+  emit(arm64_stp_q_preindex(27, 26, 31, -32));
+  emit(arm64_stp_q_preindex(25, 24, 31, -32));
+  emit(arm64_stp_x_preindex(3, 5, 31, -16));    // GOAL RBX/RBP
+  emit(arm64_stp_x_preindex(10, 11, 31, -16));  // GOAL R10/R11 (args 6/7 AND saved)
+  emit(arm64_str_x_preindex(12, 31, -16));      // GOAL R12 (+8 pad keeps SP 16-aligned)
+}
+template <typename EmitFn>
+inline void arm64_emit_goal_saved_bank_restore(EmitFn emit) {
+  emit(arm64_ldr_x_postindex(12, 31, 16));
+  emit(arm64_ldp_x_postindex(10, 11, 31, 16));
+  emit(arm64_ldp_x_postindex(3, 5, 31, 16));
+  emit(arm64_ldp_q_postindex(25, 24, 31, 32));
+  emit(arm64_ldp_q_postindex(27, 26, 31, 32));
+  emit(arm64_ldp_q_postindex(29, 28, 31, 32));
+  emit(arm64_ldp_q_postindex(31, 30, 31, 32));
+}
+
 Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
   // 0x80 bytes matches the win32 variant's allocation; the longest emitted
   // sequence is ~24 instructions (96 bytes), so 128 is the budget.
@@ -799,8 +841,9 @@ Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
   // alloc_from_heap SIGSEGV'd dereferencing it during KERNEL.CGO bring-up,
   // before any DGO linked. Use jak2's own u32_in_fixed_sym() (same helper the
   // systemv/win32 siblings above use, x86-proven) so the -1 adjustment applies.
+  // 0x100 bytes: grown by the bug-class-#14 saved-bank save/restore (14 instr).
   auto mem = Ptr<u8>(alloc_heap_object(s7.offset + FIX_SYM_GLOBAL_HEAP,
-                                       u32_in_fixed_sym(FIX_SYM_FUNCTION_TYPE), 0x80, UNKNOWN_PP));
+                                       u32_in_fixed_sym(FIX_SYM_FUNCTION_TYPE), 0x100, UNKNOWN_PP));
   const uint64_t target = reinterpret_cast<uint64_t>(func);
   u8* p = mem.c();
   int off = 0;
@@ -815,6 +858,9 @@ Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
   emit(arm64_stp_x_preindex(13, 14, 31, -16));
   // str x15, [sp, #-16]!        ; save R15 (EE base)
   emit(arm64_str_x_preindex(15, 31, -16));
+  // bug class #14 — save the GOAL callee-saved banks (V24-V31 + X3/X5/X10-X12)
+  // BEFORE the arg shuffle below (which overwrites X3/X5 as AAPCS destinations).
+  arm64_emit_goal_saved_bank_save(emit);
 
   // A6 (autoport) — GOAL→C arg shuffle.
   //
@@ -901,6 +947,8 @@ Ptr<Function> make_function_from_c_arm64(void* func, bool arg3_is_pp) {
   // blr x16
   emit(arm64_blr(16));
 
+  // bug class #14 — restore the GOAL callee-saved banks (mirror LIFO)
+  arm64_emit_goal_saved_bank_restore(emit);
   // ldr x15, [sp], #16
   emit(arm64_ldr_x_postindex(15, 31, 16));
   // ldp x13, x14, [sp], #16
@@ -1011,8 +1059,10 @@ Ptr<Function> make_stack_arg_function_from_c_arm64(void* func) {
   //   2. stp X8,  X9,  [sp, #-16]!    ; args[4,5]
   //   3. stp X2,  X1,  [sp, #-16]!    ; args[2,3]
   //   4. stp X7,  X6,  [sp, #-16]!    ; args[0,1] (lowest)
+  //
+  // 0x100 bytes: grown by the bug-class-#14 saved-bank save/restore (14 instr).
   auto mem = Ptr<u8>(alloc_heap_object(s7.offset + FIX_SYM_GLOBAL_HEAP,
-                                       u32_in_fixed_sym(FIX_SYM_FUNCTION_TYPE), 0x80, UNKNOWN_PP));
+                                       u32_in_fixed_sym(FIX_SYM_FUNCTION_TYPE), 0x100, UNKNOWN_PP));
   const uint64_t target = reinterpret_cast<uint64_t>(func);
   u8* p = mem.c();
   int off = 0;
@@ -1025,6 +1075,9 @@ Ptr<Function> make_stack_arg_function_from_c_arm64(void* func) {
   emit(arm64_stp_x_preindex(29, 30, 31, -16));
   emit(arm64_stp_x_preindex(13, 14, 31, -16));
   emit(arm64_str_x_preindex(15, 31, -16));
+  // bug class #14 — save the GOAL callee-saved banks (V24-V31 + X3/X5/X10-X12)
+  // before the arg-array push (X10/X11 are read below, unaffected by the save).
+  arm64_emit_goal_saved_bank_save(emit);
 
   // Push the 8-element arg array onto the stack (highest pair first).
   emit(arm64_stp_x_preindex(10, 11, 31, -16));   // args[6] = X10, args[7] = X11
@@ -1042,6 +1095,8 @@ Ptr<Function> make_stack_arg_function_from_c_arm64(void* func) {
 
   // Drop the 64-byte arg array: add sp, sp, #64
   emit(0x910103FFu);  // ADD SP, SP, #64
+  // bug class #14 — restore the GOAL callee-saved banks (mirror LIFO)
+  arm64_emit_goal_saved_bank_restore(emit);
   // Restore saved regs.
   emit(arm64_ldr_x_postindex(15, 31, 16));
   emit(arm64_ldp_x_postindex(13, 14, 31, 16));

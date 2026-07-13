@@ -85,7 +85,22 @@ _arg_call_arm64:
   stp x13, x14, [sp, #-16]!
   str x15, [sp, #-16]!
 
+  ;; Ggrass-precompute (autoport) — bug class #14: also save the GOAL callee-saved
+  ;; GPR bank {RBX,RBP,R10,R11,R12} = arm64 {X3,X5,X10,X11,X12} (identity id→Xn
+  ;; map). goalc keeps values live in these across calls (x86-model saved
+  ;; semantics; x86 gets r10/r11 saved by _arg_call_systemv and rbx/rbp/r12 by
+  ;; SysV), but AAPCS lets the C++ callee clobber all five. Named by the
+  ;; pc-settings parser desync at `recharged-grass-precomputed?` (kread clobber).
+  stp x3, x5, [sp, #-16]!
+  stp x10, x11, [sp, #-16]!
+  str x12, [sp, #-16]!
+
   blr x8
+
+  ;; bug class #14 — restore the GOAL saved-GPR bank (mirror LIFO)
+  ldr x12, [sp], #16
+  ldp x10, x11, [sp], #16
+  ldp x3, x5, [sp], #16
 
   ;; restore the GOAL pp/st/off registers before any GOAL code runs again.
   ldr x15, [sp], #16
@@ -140,6 +155,13 @@ _stack_call_arm64:
   stp x13, x14, [sp, #-16]!
   str x15, [sp, #-16]!
 
+  ;; Ggrass-precompute (autoport) — bug class #14: save the GOAL callee-saved
+  ;; GPR bank {X3,X5,X10,X11,X12} — see _arg_call_arm64 above. The arg-array
+  ;; pop below only restores x0-x7; X10-X12 would stay clobbered without this.
+  stp x3, x5, [sp, #-16]!
+  stp x10, x11, [sp, #-16]!
+  str x12, [sp, #-16]!
+
   ; create stack array of arguments
   ; arg 7 (R11 in x86)
   ; arg 6 (R10 in x86)
@@ -163,6 +185,11 @@ _stack_call_arm64:
   ldp x3, x2, [sp], #16
   ldp x5, x4, [sp], #16
   ldp x7, x6, [sp], #16
+
+  ;; bug class #14 — restore the GOAL saved-GPR bank (mirror LIFO)
+  ldr x12, [sp], #16
+  ldp x10, x11, [sp], #16
+  ldp x3, x5, [sp], #16
 
   ;; restore the GOAL pp/st/off registers before any GOAL code runs again.
   ldr x15, [sp], #16
@@ -218,6 +245,15 @@ _mips2c_call_arm64:
   stp x13, x14, [sp, #-16]!
   str x15, [sp, #-16]!
 
+  ;; Ggrass-precompute (autoport) — bug class #14: save the GOAL callee-saved
+  ;; GPR bank {X3,X5,X10,X11,X12} — see _arg_call_arm64. A mips2c C++ body
+  ;; clobbers these AAPCS temporaries; the GOAL caller may hold live values
+  ;; there (x86-model saved semantics). Saved BEFORE the ExecutionContext is
+  ;; built (x10/x11 arg slots + x11/x12 scratch below read/write freely).
+  stp x3, x5, [sp, #-16]!
+  stp x10, x11, [sp, #-16]!
+  str x12, [sp, #-16]!
+
   ;; ExecutionContext (1280 bytes; gpr slot i at 16*i, filled like x86)
   sub sp, sp, 1280
   str x7, [sp, #+64]   ;; gpr a0 (GOAL arg 0, x86 id RDI=7)
@@ -267,6 +303,11 @@ _mips2c_call_arm64:
   ldr x0, [sp, #+32]   ;; GOAL return value = context v0 (gpr 2)
 
   add sp, sp, 1280     ;; drop the ExecutionContext
+
+  ;; bug class #14 — restore the GOAL saved-GPR bank (mirror LIFO)
+  ldr x12, [sp], #16
+  ldp x10, x11, [sp], #16
+  ldp x3, x5, [sp], #16
 
   ldr x15, [sp], #16
   ldp x13, x14, [sp], #16
