@@ -5,7 +5,7 @@
 set -uo pipefail
 APK="$1"; GAME="${2:-jak1}"
 cd "$(git rev-parse --show-toplevel)"
-EXPECT="c$( (find out/${GAME}/iso -maxdepth 1 -type f -print0; find out/${GAME}/fr3 -maxdepth 1 -type f -name '*.fr3' -print0) | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
+EXPECT="c$( (find out/${GAME}/iso -maxdepth 1 -type f -print0; find out/${GAME}/fr3 -maxdepth 1 -type f \( -name '*.fr3' -o -name '*.grassbake' \) -print0) | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
 TMP=$(mktemp -d /home/emeric/tmp_j2audit/relverif.XXXX)
 unzip -o -q "$APK" "assets/bundle/${GAME}.manifest.properties" -d "$TMP" || { echo "[release FAIL] pas de manifest dans l'APK"; exit 1; }
 GOT=$(grep -E '^version=' "$TMP/assets/bundle/${GAME}.manifest.properties" | cut -d= -f2)
