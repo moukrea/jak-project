@@ -1987,6 +1987,17 @@ phases:
   max_retries: 6
   device: true
   owner_verify: true
+- id: Grecharged-grass-overhang4
+  name: 'RECHARGED ROUND 4 (owner 2026-07-14: round3 ''complètement loupé''): comb clips through the transition mesh (surface-constrain
+    the comb: down-slope tangent + normal offset + tip-plane clamp, geometric self-check counters), transition brutal (per-BLADE
+    continuous weight from rim distance + interpolated vertex normals, no per-tri seams), weird diagonal bands on HONOR (investigate
+    placement rows vs mediump precision; force highp; honest if not reproducible on Redmi). Owner verbatim in prompt.'
+  prompt: prompts/phase-Grecharged-grass-overhang4.md
+  validator: validators/phase-Grecharged-grass-overhang4.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
 - id: Grecharged-hd-models
   name: 'RECHARGED (owner 2026-07-07): use jak2 intro-era detailed models of Jak/Daxter/Samos/Keira (jak1 look, pre-timeskip)
     to replace jak1 low-poly models — extract via decompiler, retarget to jak1 skeletons via the custom-model (.glb->merc)
