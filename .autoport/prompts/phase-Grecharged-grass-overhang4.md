@@ -58,3 +58,14 @@ absence. The diagonal bands may well be IN the Redmi frames unseen. Consequences
   and the seam (neighbor-weight delta metric).
 - Never claim a visual defect absent from an eyeball read again — either a metric says it, or it is
   "unmeasured". The owner is the only visual validator.
+
+## OWNER UPDATE (2026-07-14 01:00, verbatim): "Les bandes sont aussi sur redmi, actuellement visibles d'ailleurs"
+=> The bands are NOT device-specific — the HONOR-vs-Redmi discriminator is DEAD; placement-pattern and
+precision suspects both remain open, on equal footing, to be settled by the detector.
+=> REFERENCE CAPTURE EXISTS: the supervisor screenrecorded the Redmi in the owner's failing state at
+that moment: .autoport/reports/Grecharged-grass-overhang4/owner_bands_ref_01..11.png (focus-verified
+org.opengoal.gk.jak1; vantage = beach looking up/side at a ledge overhang). CALIBRATE the objective
+banding detector ON THESE FRAMES FIRST: the metric must fire on them (they are the positive sample the
+owner confirms) and stay at floor on an OFF capture at the same vantage. Do not trust anyone's eye to
+say which stripes "count" — the owner confirmed bands are visible in this state; the detector's job is
+to quantify them and then to go to ZERO-delta after the fix.
