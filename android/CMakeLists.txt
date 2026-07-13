@@ -491,6 +491,13 @@ set_source_files_properties(
     "${JAK_ROOT}/game/mips2c/jak1_functions/sparticle.cpp"
     PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 
+# Grecharged-grass-precompute-mode: keep the x86 bake tool and the arm64 runtime float-identical —
+# no FMA contraction divergence between the machine that writes <level>.grassbake and the one that
+# reads/expands it (bit-identical placement across x86 desktop and arm64 device).
+set_source_files_properties(
+    "${JAK_ROOT}/game/graphics/opengl_renderer/GrassBakeCore.cpp"
+    PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+
 # Pick the right assembler dialect for the aarch64 trampoline.
 #
 # Upstream asm_funcs_arm64.s uses macOS-style `;;` comments because the
@@ -618,6 +625,8 @@ add_library(gk SHARED
     # lists it in game/CMakeLists.txt; the Android build has its own source list,
     # so it must be listed here too or GrassRenderer's symbols are undefined.
     "${JAK_ROOT}/game/graphics/opengl_renderer/GrassRenderer.cpp"
+    # Grecharged-grass-precompute-mode: GL-free SCAN->TABLES->EXPAND core + serializer for GrassRenderer.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/GrassBakeCore.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/TextureUploadHandler.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/EyeRenderer.cpp"
     # Gjak2-visuals: vis/fog bucket — copies the per-level vis strings AND the

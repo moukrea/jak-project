@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -17,25 +18,17 @@
 
 #include "common/custom_data/Tfrag3Data.h"
 #include "common/log/log.h"
+#include "common/util/FileUtil.h"
 
 #include "game/graphics/opengl_renderer/loader/Loader.h"
 
 namespace {
 
-// deterministic integer hash -> float in [0,1). Stable frame-to-frame so the
-// grass field never shimmers, and (crucially) independent of the camera so the
-// same ground always gets the same instances no matter where the player stands.
-inline u32 hash_u32(u32 x) {
-  x ^= x >> 16;
-  x *= 0x7feb352du;
-  x ^= x >> 15;
-  x *= 0x846ca68bu;
-  x ^= x >> 16;
-  return x;
-}
-inline float hash_f(u32 seed) {
-  return static_cast<float>(hash_u32(seed) >> 8) * (1.0f / 16777216.0f);  // 24-bit -> [0,1)
-}
+// Grecharged-grass-precompute-mode: hash_u32/hash_f + all placement constants + the scan-internal
+// texture helpers moved to GrassBakeCore (grass_bake namespace / GrassBakeCore.cpp). This TU keeps
+// only the renderer-side debug knobs (grass_debug_mode, grass_tilt_amount) and instrumentation
+// constants (CHUNK_M, OLD_WINDOW_M).
+using grass_bake::hash_f;
 
 // ROUND#14 DISCRIMINATOR selector (default 0 = normal). Reads a debug knob:
 //   Android: prop debug.opengoal.grass_dbg   Desktop: env GRASS_DISCRIMINATE
@@ -114,170 +107,14 @@ inline float grass_tilt_amount() {
 // All LOD (near blade / mid card / far nothing) is done per-instance in the
 // shader from the live camera — the GPU decides visibility every frame over the
 // complete field. This is the standard robust grass approach.
-constexpr float U = 4096.0f;              // GOAL world units per meter
-constexpr float BASE_H = 1550.0f;         // ~0.38 m nominal blade height (owner asked TWICE for longer grass)
-// OWNER POLISH#3: relaxed 0.7 -> 0.40 so SLOPED / bumpy grass-textured platforms
-// qualify. Placement already samples the ACTUAL per-triangle surface (barycentric
-// on the real tri plane, gi.py below), so this is NOT a flat/min-Y reference; the
-// old 0.7 gate simply REJECTED the non-flat tris of bumpy platforms, leaving grass
-// only on their flattest (often lowest) tris -> looked like grass sunk under the
-// surface / whole platforms skipped.
-// OWNER POLISH#5: 0.40 admitted faces up to ~66° -> steep rock lips still got blades
-// ("brins dans les parties verticales"). Tightened to 0.50 (rejects faces steeper than
-// 60° from horizontal) as the SECONDARY safety net behind the texture filter — bumpy
-// grass platforms (<~45°) still qualify, but steep/vertical rock faces do not. Kept as
-// abs(ny) (winding-agnostic): a vertical wall has abs(ny)/nlen ~= 0, so it is rejected.
-// OWNER POLISH#8: grass/cards "n'arrivent pas au bords des plateformes" — a bald flat-texture
-// margin at platform EDGES. The edge LIP tris of a grass-textured platform are grass-textured
-// (tra-grass, the STRICT primary filter) but slope down steeper than 60°, so upness 0.50 rejected
-// them and left the border bare. Since the texture filter is now strict exact-match (rock is a
-// DIFFERENT texture, tra-beachrock — excluded regardless of slope), the upness net can be relaxed
-// to catch these grass-textured edge lips: 0.50 -> 0.35 (rejects only faces steeper than ~69.5°, so
-// near-vertical walls are still out). Grass now reaches the actual grass-textured platform edges.
-constexpr float GROUND_UPNESS = 0.35f;    // face-normal.y threshold for "walkable ground" (POLISH#8: edges)
-// OWNER POLISH#12 / SUPERVISOR DIAGNOSIS (2026-07-11): the floating overflow the owner STILL saw past
-// platform borders after POLISH#11 is NOT blade geometry crossing the rim (the shader hard-clamps that)
-// — it is blade BASES placed on the steep grass-textured EDGE-LIP triangles POLISH#8 admitted when it
-// relaxed the upness net to 0.35. Those lips face OUTWARD/DOWNWARD over the drop, so a base ON the lip
-// hangs past the visible platform silhouette (= "l'herbe qui dépasse, flottante"), and the shader rim-
-// clamp cannot help because it only limits offset FROM the base. FIX (PHASE 1.5 below): keep the lip
-// tris in the KEPT set for texture/coverage accounting, but do NOT place BASES on a tri that is (a)
-// tilted (upness < UPNESS_LIP_MAX) AND (b) an OVERHANG — its lowest/downhill edge opens into void (used
-// by no OTHER grass triangle). Continuous gentle slopes (downhill edge shared with more grass) still get
-// grass, so the POLISH#3 sloped-platform coverage does NOT regress. Excluding the lip makes the shoulder
-// edge (flat-top<->lip) a TRUE RIM again, so the flat top's near-shoulder blades are spread-clamped to it
-// (POLISH#11) and grass fills to the exact top edge with none hanging past it.
-constexpr float UPNESS_LIP_MAX = 0.55f;   // below this a tilted tri MAY be an overhang rim-lip (PHASE 1.5)
-constexpr float MAX_TRI_AREA = 300.0f;    // m^2; reject implausibly huge (spurious) triangles
-constexpr float D_TARGET = 150.0f;        // tufts/m^2 uniform (dense lawn); auto-reduced to fit budget
-// OWNER POLISH#3: density++ (owner's #1 ask, 3rd time). The uniform field is budget-
-// clamped, so raising the ceiling directly raises density (near blades AND mid cards).
-constexpr int MAX_INSTANCES = 640000;     // total instance ceiling for the whole-level static field
-constexpr float BUDGET_SAFETY = 0.9f;     // keep expected count under the ceiling so NO triangle is
-                                          // ever starved (a mid-list cap hit would re-create the bug)
-// OWNER POLISH#8 (2026-07-11): amplify the PER-LOCATION baked-light deviation around the level mean
-// so a shaded blade reads clearly darker and a lit blade clearly brighter (owner: the light was "le
-// même pickup partout", no spatial variation). 1.0 = exact match to the ground's own multiplier;
-// >1 amplifies the local contrast. Kept moderate so the grass still sits in the scene (not cartoonish).
-constexpr float LIGHT_GAIN = 1.30f;
-
-// culling-instrumentation constants (chunk size only; the LOD reach is now the two
-// ADJUSTABLE distances, read live from the settings in render()).
+//
+// Grecharged-grass-precompute-mode: the placement constants (U, BASE_H, GROUND_UPNESS,
+// UPNESS_LIP_MAX, MAX_TRI_AREA, D_TARGET, MAX_INSTANCES, BUDGET_SAFETY, LIGHT_GAIN, OCC_*,
+// FLOOR_*) moved to grass_bake (GrassBakeCore.h). Only the renderer-side instrumentation
+// constants stay here.
+constexpr float U = grass_bake::U;        // GOAL world units per meter (renderer-side alias of grass_bake::U)
 constexpr float CHUNK_M = 8.0f;           // instrumentation chunk size (m)
 constexpr float OLD_WINDOW_M = 64.0f;     // the REMOVED camera window (for the fix diagnostic)
-
-// OWNER POLISH#4: hide grass under overlapping non-grass 3D objects (crates/props/models).
-// OWNER ROUND#13 (2026-07-11) — SUPERVISOR DIAGNOSIS #2: the block-shaped BALD HOLES the owner saw
-// on his OWN (open) platform were the object-hide's 0.5m XZ OCCUPANCY GRID + its 3x3 dilation
-// (morphological closing): a single stray TIE vertex hovering in the contact band above the grass
-// (e.g. the underside of a nearby/overhead TIE structure) marked a whole 0.5m CELL as occupied, and
-// the closing bridged/kept clusters -> 0.5m block-shaped holes on grass with NO object actually on it.
-// FIX: NO grid cull, NO dilation. A PER-INSTANCE test — a blade is hidden iff a real TIE object vertex
-// lies within OCC_RADIUS of ITS OWN (px,pz) AND in the near-ground contact band [+OCC_LO,+OCC_HI]
-// above ITS OWN ground Y. On an open platform (no object vertex within the radius+band) occ_culled ~0
-// -> no block holes; culls happen ONLY under an actual prop. The XZ grid below is now just a spatial
-// hash to find nearby object points (lookup only), never a cull unit.
-constexpr float OCC_CELL_M = 0.5f;        // spatial-hash bucket for object-point lookup (>= OCC_RADIUS)
-constexpr float OCC_LO_M = 0.05f;         // object vertex must be at least this far above the grass
-// ROUND#13: tightened the contact band 1.5m -> 1.0m so only object geometry that actually comes DOWN
-// near the grass surface hides it; overhead TIE structure (>1m up) no longer culls the grass below it
-// (that was a source of the stray block holes). POLISH#7 kept only the visible above-ground footprint.
-constexpr float OCC_HI_M = 1.0f;          // near-ground contact band top = visible footprint (was 1.5m)
-constexpr float OCC_RADIUS_M = 0.45f;     // ROUND#13: per-instance hide radius (m) — a blade is culled
-                                          // only if an object vertex is this close to ITS OWN base
-                                          // (no 0.5m cell nuking, no neighbour dilation)
-
-// ROUND#19 cantilever cull v2 (owner round#18 verdict: blades still hang in the VOID past platform
-// rims). Point-wise per-blade test: a blade exists only if there is WALKABLE COLLISION FLOOR directly
-// below its base. No 2D silhouette, no edge detection, no rim distance -> the round#17 "50cm straight
-// bald strips" (collision-vs-render silhouette divergence along straight collision edges) CANNOT
-// return: the only culled blades are those with genuinely nothing under them.
-static constexpr float FLOOR_DEPTH_M = 2.5f;   // floor may be up to this far BELOW the blade base
-static constexpr float FLOOR_EPS_UP_M = 0.75f; // ... or this far ABOVE it (render/collision mismatch)
-// ROUND#19b (owner LIVE obs 2026-07-12): FLOORBELOW's 2.5m window has a STACKED-TERRACES hole — a blade
-// cantilevered past an UPPER platform edge still has the LOWER terrace 1-2m beneath it, so "some floor
-// within 2.5m" keeps it and it visually overflows the upper edge. A blade must stand essentially ON ITS
-// OWN floor: nearest walkable floor below the base must be within this small gap, else the base hangs
-// over a DIFFERENT (lower) surface -> cull. Tuned against false culls via the interior-blade gap p99
-// (ROUND#19b FLOORGAP log); device-tunable without rebuild via debug.opengoal.grass_floorgap (metres).
-static constexpr float FLOOR_GAP_M = 0.5f;
-static constexpr float FLOOR_BUCKET_M = 1.0f;  // fine XZ lookup bucket so per-base candidate lists stay
-                                               // small (ROUND#19 perf: 4m buckets ANR-stalled rebuild)
-static constexpr float FLOOR_MAX_TRI_M = 40.0f;// drop degenerate level-spanning collision tris
-
-// Training-level grassy-ground textures. Texture-driven, no hand authoring. Curated
-// exact names PLUS a substring net (grass / leafy / moss) so any grassy-ground texture
-// VARIANT is covered — OWNER POLISH#4: "il reste des plateformes avec des textures d'herbe
-// qui n'ont pas d'herbe" (grass-textured platforms still missing grass). tra-grass is the
-// elevated grassy terrain; tra-beachrock the green mossy ground the player stands on at the
-// Geyser Rock spawn; the *-grassfringe / leafyground fringes blend them.
-inline bool name_has(const std::string& n, const char* sub) {
-  return n.find(sub) != std::string::npos;
-}
-// OWNER POLISH#5 (2026-07-10): "on a encore des brins dans les parties verticales / sans herbe" —
-// rock/vertical faces STILL got grass. Owner clarification: filter by TEXTURE FIRST — "si sur une
-// normale c'est de la roche, pas d'herbe". 'tra-beachrock' is a ROCK-named texture (NOT in the owner's
-// grass reference set: tra-grass + bch-grassfringe + bch-leafyground-hang-2x1). It textured sloped
-// rock that passed the walkable-ground gate -> "des brins sortir de la roche". REMOVED from the grass
-// set entirely (tfrag AND tie): only genuinely grass-named textures get grass now. tfrag and tie share
-// the same strict set. (A substring net previously over-matched a village backdrop 'vil1-medres-grass',
-// 46k m2 of huge tris, collapsing density — so exact names, not substrings.)
-inline bool is_grass_ground(const std::string& n) {
-  return n == "tra-grass" || n == "bch-grassfringe" || n == "bch-leafyground-hang-2x1";
-}
-inline bool is_grass_ground_tie(const std::string& n) {
-  return n == "tra-grass" || n == "bch-grassfringe" || n == "bch-leafyground-hang-2x1";
-}
-// ROUND#23: foliage TIE draws must NOT become occluders when face-densifying the footprint test
-// (POLISH#8: a shrub's alpha-transparent canopy never blocks grass — today it only stays harmless
-// because its vertices are sparse). These keep the vertex-only status quo.
-inline bool is_foliage(const std::string& n) {
-  return name_has(n, "shrub") || name_has(n, "leaf") || name_has(n, "plant") ||
-         name_has(n, "fern") || name_has(n, "flower") || name_has(n, "weed") ||
-         name_has(n, "vine") || name_has(n, "frond") || name_has(n, "palm") ||
-         name_has(n, "bush");
-}
-
-// A ground-ish texture we did NOT match — logged as a candidate so a missed grass variant
-// surfaces on-device (POLISH#4 "still-missing platforms" diagnostic).
-inline bool looks_groundish(const std::string& n) {
-  return name_has(n, "ground") || name_has(n, "grass") || name_has(n, "leafy") ||
-         name_has(n, "moss") || name_has(n, "beach") || name_has(n, "dirt") ||
-         name_has(n, "sand") || name_has(n, "rock") || name_has(n, "mud");
-}
-
-// POLISH#4: average RGB (0..1) of a decoded RGBA8888 texture (0xAABBGGRR little-endian),
-// skipping near-transparent texels. Subsampled for speed on big textures. This is the
-// ground colour the grass is tinted toward so it never clashes with the texture showing
-// through. Falls back to a neutral grass-green if the texture has no pixel data client-side.
-inline void avg_tex_color(const tfrag3::Texture& t, float& r, float& g, float& b) {
-  const size_t px = (size_t)t.w * (size_t)t.h;
-  if (px == 0 || t.data.size() < px) {
-    r = 0.24f; g = 0.34f; b = 0.14f;
-    return;
-  }
-  const u32* d = t.data.data();
-  size_t step = std::max<size_t>(1, px / 4096);  // cap ~4096 samples
-  double sr = 0, sg = 0, sb = 0;
-  u64 n = 0;
-  for (size_t i = 0; i < px; i += step) {
-    u32 c = d[i];
-    if (((c >> 24) & 0xffu) < 16u) {  // skip transparent
-      continue;
-    }
-    sr += (c & 0xffu);
-    sg += (c >> 8) & 0xffu;
-    sb += (c >> 16) & 0xffu;
-    n++;
-  }
-  if (n == 0) {
-    r = 0.24f; g = 0.34f; b = 0.14f;
-    return;
-  }
-  r = (float)(sr / (double)n) / 255.0f;
-  g = (float)(sg / (double)n) / 255.0f;
-  b = (float)(sb / (double)n) / 255.0f;
-}
 
 }  // namespace
 
@@ -659,6 +496,7 @@ void publish(float dt) {
 }  // namespace grass_occ
 
 void GrassRenderer::ensure_gl() {
+  using grass_bake::GrassInstance;  // vertex-layout offsets below reference the POD stride
   if (m_gl_ready) {
     return;
   }
@@ -716,13 +554,14 @@ void GrassRenderer::ensure_gl() {
 }
 
 void GrassRenderer::rebuild(SharedRenderState* rs) {
+  using clk = std::chrono::steady_clock;
   m_instances.clear();
   m_instance_count = 0;
   m_chunks.clear();
   m_cached_level = nullptr;
   m_cached_load_id = UINT64_MAX;
   m_inst_tri.clear();       // POLISH#9: per-instance source-tri map (rebuilt below)
-  m_tri_light.clear();      // POLISH#9: per-tri baked-light source (rebuilt below)
+  m_bake = grass_bake::BakeData{};   // Grecharged-grass-precompute-mode: per-tri baked-light source
   m_light.clear();
   m_light_valid = false;
 
@@ -735,1115 +574,102 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   }
   const tfrag3::Level* lev = ld->level.get();
 
-  int considered_draws = 0;  // grass-ground draws matched (tfrag + tie)
-  int tie_draws = 0;         // of those, how many came from TIE (placed models / platforms)
-  int tris_kept = 0;         // qualifying walkable-ground triangles
-  int giant_tris = 0;        // rejected as implausibly large (spurious reconstruction)
-  float total_area_m2 = 0.0f;
-  float max_area = 0.0f;
-  // POLISH#6: area-weighted sum of per-triangle BAKED LUMA (0..255). Divided by total area after
-  // PHASE 1 to get the level's mean baked brightness; each instance's baked light is then stored
-  // RELATIVE to that mean, so grass darkens only where the ground is baked-darker than average
-  // (no global brightness shift — see the gspare write in PHASE 2).
-  double baked_area_sum = 0.0;
-
-  // POLISH#4: per-texture average colour cache (the ground colour each blade is tinted to).
-  std::unordered_map<s32, std::array<float, 3>> texcol;
-  // POLISH#4 diagnostic: ground-ish textures we did NOT match — a missed grass VARIANT shows
-  // up here on-device, explaining any "platform with a grass texture but no grass".
-  std::unordered_map<std::string, int> unmatched_ground;
-
-  // A qualifying walkable-ground triangle anywhere in the level. Collected in
-  // PHASE 1 (no camera filter), then scattered at a uniform density in PHASE 2.
-  struct TriRec {
-    float p0x, p0y, p0z;   // base vertex A
-    float e1x, e1y, e1z;   // edge to v1 (B = A + e1)
-    float e2x, e2y, e2z;   // edge to v2 (C = A + e2)
-    float area_m2;
-    float gr, gg, gb;      // POLISH#4: average colour of this triangle's ground texture
-    float raw_baked;       // POLISH#6: average baked-light luma (0..255) of this triangle's vertices
-    u32 seed;              // deterministic per-triangle seed (triangle identity, camera-independent)
-    // POLISH#9 edge geometry (world units) for the precise point-in-triangle EDGE clip.
-    float nlen;                    // |cross(e1,e2)| = 2*area (world^2), for perpendicular distances
-    float lenAB, lenBC, lenCA;     // edge lengths: AB=|e1|, BC=|C-B|=|e2-e1|, CA=|e2|
-    bool bAB, bBC, bCA;            // is this edge a BOUNDARY (platform rim) vs an interior seam
-    float upness;                  // POLISH#12: face-normal.y / |n| (1 = flat top, ~0 = wall)
-    float nx, ny, nz;              // ROUND#19: NORMALIZED face normal (world, ny forced >= 0) for u_tilt
-    bool is_lip;                   // POLISH#12: overhang rim-lip -> excluded from BASE placement
-    bool is_tie;                   // ROUND#13: from a TIE placed model (platform) vs tfrag terrain
-    bool is_dup;                   // ROUND#16: coincident duplicate tri (fragment overlap) -> no topology/bases
-    // POLISH#9 dynamic ground baked-light: this triangle's centroid palette rows (8 keyframes x rgb),
-    // averaged over its 3 vertices, so update_light() can re-interpolate at the current time of day.
-    float pal[8][3];
-  };
-  std::vector<TriRec> tris;
-
-  // ROUND#13: occluder points for the per-instance object-hide = vertices of NON-grass TIE draws
-  // ONLY (real objects: rocks / props / tree-trunks / the warp-gate). The grass-textured TIE PLATFORMS
-  // must NOT occlude their own grass (that self-cull was ~most of the old 14.5%), and tfrag terrain is
-  // never an occluder — so open grass with no real object on it is NEVER culled (structural occ ~0).
-  std::vector<std::array<float, 3>> occ_pts;
-  // ROUND#23 census: face-densified occluder sampling (small low-poly props leaked blades between
-  // their sparse vertices). Counts + per-texture census logged after the occ cull.
-  size_t r23_dens_tris = 0, r23_dens_pts = 0;
-  std::unordered_map<std::string, u32> r23_dens_by_tex;
-  // ROUND#23 capture aid: world positions (one per ~10m XZ cell) of ROCK-textured densified faces
-  // near grass height — exact level.warp.pos targets for the small-rock leak close-ups.
-  std::unordered_map<s64, std::array<float, 3>> r23_rock_spots;
-
-  // POLISH#8 edge instrumentation: grass-textured tris rejected purely by the upness gate.
-  int rej_upness = 0;          // grass-textured tris rejected by the upness net (edge lips / walls)
-  float rej_upness_area = 0.f;
-  int rej_up_moderate = 0;     // of those, moderate slope (0.20..GROUND_UPNESS) = edge lips we still miss
-  float min_kept_upness = 1.0f;
-  // POLISH#10: world-space verts (x,y,z x3) of grass-textured tris the upness gate rejected (steep
-  // edge LIPS). Their edges feed the boundary classifier below so a kept FLAT top triangle whose
-  // shoulder edge is shared with a rejected lip is treated as INTERIOR (grass fills to the shoulder),
-  // not a false BOUNDARY that would leave a bald fringe short of the real platform rim.
-  std::vector<std::array<float, 9>> rej_lip_verts;
-
-  // POLISH#8: prepare the CURRENT time-of-day interpolation weights (rs->itimes, copied from the
-  // pc-data this frame in update_render_state_from_pc_settings) so each ground triangle's baked luma
-  // is sampled at the ACTUAL current time — the exact colour the ground vertex is rendered with —
-  // preserving the full lit-vs-shadow contrast. The old 8-palette average washed that contrast out,
-  // so the grass light read as one global value everywhere (owner polish#7/#8).
-  int tod_w[8][4];
-  bool itimes_valid = false;
-  for (int comp = 0; comp < 8; ++comp) {
-    int quad_idx = comp / 2;
-    int word_off = (comp % 2) * 2;
-    for (int ch = 0; ch < 4; ++ch) {
-      int word = word_off + (ch / 2);
-      int hw_off = ch % 2;
-      u32 wv = (u32)rs->itimes[quad_idx][word];
-      u32 hw = hw_off ? (wv >> 16) : wv;
-      tod_w[comp][ch] = (int)(hw & 0xffu);
-    }
-  }
-  {
-    int wsum = 0;
-    for (int comp = 0; comp < 8; ++comp)
-      for (int ch = 0; ch < 3; ++ch) wsum += tod_w[comp][ch];
-    itimes_valid = wsum > 0;  // all-zero itimes (not populated / pitch black) -> fall back to 8-avg
-  }
-
-  // ---- PHASE 1: collect ALL qualifying ground triangles (WHOLE LEVEL). ----
-  // No camera window — the field must be complete so nothing can fail to load or
-  // de-instance while moving. Scans BOTH the highest-detail tfrag geometry (geo 0)
-  // AND the TIE instanced models (geo 0): POLISH#4 — some grass-textured PLATFORMS are
-  // TIE, not tfrag, so the old tfrag-only scan left them bare. Vertices are world-space,
-  // 4096 = 1 m. StripDraw + unpacked{vertices,indices} are the same layout for both.
-  auto scan_draws = [&](const std::vector<tfrag3::StripDraw>& draws,
-                        const std::vector<tfrag3::PreloadedVertex>& verts,
-                        const std::vector<u32>& idx, bool use_strips, bool is_tie,
-                        const tfrag3::PackedTimeOfDay& colors) {
-    if (verts.empty() || idx.empty()) {
-      return;
-    }
-    // POLISH#6: average baked-light luma (0..255) of one vertex, reading the SAME time-of-day
-    // palette (tree.colors, indexed by PreloadedVertex.color_index) the tfrag/TIE renderer uses.
-    // Averaged over the 8 palettes -> a camera/time-independent RELATIVE brightness (the training
-    // level's time of day is fixed). This is how the grass learns "this patch of ground is baked
-    // darker than that one" so it can darken to match instead of floating as a flat bright green.
-    auto vlum = [&](u32 vi) -> float {
-      u16 cidx = verts[vi].color_index;
-      if (colors.color_count == 0 || cidx >= colors.color_count) {
-        return 128.0f;  // neutral (no baked data) -> ends up ~= level mean -> no change
-      }
-      // POLISH#8: sample the ground vertex's CURRENT-TIME interpolated colour (the exact luma the
-      // ground is rendered with THIS frame), replicating interp_time_of_day scalar-side: per channel,
-      // sum(colour_p * weight_p) >> 6, saturate to 255. This preserves the real lit-vs-shadow contrast
-      // per-location (the day-average below collapsed it, so the light read as one global value).
-      if (itimes_valid) {
-        int rgb[3] = {0, 0, 0};
-        for (int ch = 0; ch < 3; ++ch) {
-          int acc = 0;
-          for (int p = 0; p < 8; ++p) acc += (int)colors.read((int)cidx, p, ch) * tod_w[p][ch];
-          acc >>= 6;
-          if (acc > 255) acc = 255;
-          rgb[ch] = acc;
-        }
-        return 0.299f * rgb[0] + 0.587f * rgb[1] + 0.114f * rgb[2];
-      }
-      float s = 0.f;
-      for (int p = 0; p < 8; ++p) {
-        s += 0.299f * colors.read((int)cidx, p, 0) + 0.587f * colors.read((int)cidx, p, 1) +
-             0.114f * colors.read((int)cidx, p, 2);
-      }
-      return s * (1.0f / 8.0f);
-    };
-    // POLISH#9: one raw time-of-day palette entry (0..255) for a vertex, keyframe p, channel ch.
-    // update_light() blends these 8 keyframes with the LIVE itimes so the grass baked light tracks
-    // the day cycle (dynamic) instead of the frozen single value the old build sampled once at load.
-    auto pentry = [&](u32 vi, int p, int ch) -> float {
-      u16 cidx = verts[vi].color_index;
-      if (colors.color_count == 0 || cidx >= colors.color_count) {
-        return 128.0f;  // neutral (no baked data) -> factor ~1.0
-      }
-      return (float)colors.read((int)cidx, p, ch);
-    };
-    for (const auto& draw : draws) {
-      if (draw.tree_tex_id < 0 || (size_t)draw.tree_tex_id >= lev->textures.size()) {
-        continue;
-      }
-      const std::string& tname = lev->textures[draw.tree_tex_id].debug_name;
-      bool matched = is_tie ? is_grass_ground_tie(tname) : is_grass_ground(tname);
-      if (!matched) {
-        if (looks_groundish(tname)) {
-          unmatched_ground[tname]++;
-        }
-        // ROUND#13: a NON-grass TIE draw is a real solid object (rock / prop / tree-trunk / warp-gate)
-        // that can sit ON the grass -> collect its vertices as object-hide occluders. Grass-textured TIE
-        // draws are deliberately NOT collected (a grass platform must not occlude its own grass), and
-        // tfrag terrain is never collected here -> only genuine objects hide grass.
-        if (is_tie) {
-          u32 b = draw.unpacked.idx_of_first_idx_in_full_buffer;
-          u32 l = 0;
-          for (const auto& g : draw.vis_groups) {
-            l += g.num_inds;
-          }
-          if (l > 0 && b < idx.size()) {
-            if (b + l > idx.size()) {
-              l = (u32)(idx.size() - b);
-            }
-            for (u32 k = b; k < b + l; ++k) {
-              u32 vi = idx[k];
-              if (vi != UINT32_MAX && vi < verts.size()) {
-                occ_pts.push_back({verts[vi].x, verts[vi].y, verts[vi].z});
-              }
-            }
-            // ROUND#23 (owner R22b: "certains petits rochers ont de l'herbe qui passe au travers"):
-            // vertex-only sampling LEAKS on small low-poly props — their vertices sit further apart
-            // than OCC_RADIUS (0.45m), so a blade between two rock vertices never finds an occ point.
-            // Close the gap with a FOOTPRINT test: decode the strip triangles and add face/edge
-            // samples at sub-OCC_RADIUS pitch so every blade under an actual face is covered.
-            // Foliage draws (shrubs & co, is_foliage) are skipped — their alpha-transparent canopy
-            // must NOT occlude (POLISH#8). Huge faces (edge > 6m: walls/cliffs) keep vertex-only
-            // sampling: they are not ground props and densifying them would explode memory.
-            if (!is_foliage(tname)) {
-              const float SAMP = 0.35f * 4096.f;      // pitch < OCC_RADIUS so no blade slips through
-              const float EDGE_MAX = 6.0f * 4096.f;   // not a prop face past this
-              for (u32 k = b + 2; k < b + l; ++k) {
-                u32 i0 = idx[k - 2], i1 = idx[k - 1], i2 = idx[k];
-                if (i0 == UINT32_MAX || i1 == UINT32_MAX || i2 == UINT32_MAX) {
-                  continue;
-                }
-                if (i0 >= verts.size() || i1 >= verts.size() || i2 >= verts.size()) {
-                  continue;
-                }
-                if (i0 == i1 || i1 == i2 || i0 == i2) {
-                  continue;  // strip-stitch degenerate
-                }
-                float ax = verts[i0].x, ay = verts[i0].y, az = verts[i0].z;
-                float e1x = verts[i1].x - ax, e1y = verts[i1].y - ay, e1z = verts[i1].z - az;
-                float e2x = verts[i2].x - ax, e2y = verts[i2].y - ay, e2z = verts[i2].z - az;
-                float d1 = std::sqrt(e1x * e1x + e1y * e1y + e1z * e1z);
-                float d2 = std::sqrt(e2x * e2x + e2y * e2y + e2z * e2z);
-                float e3x = e2x - e1x, e3y = e2y - e1y, e3z = e2z - e1z;
-                float d3 = std::sqrt(e3x * e3x + e3y * e3y + e3z * e3z);
-                float m = std::max(d1, std::max(d2, d3));
-                if (m <= SAMP || m > EDGE_MAX) {
-                  continue;  // already dense enough / not a prop face
-                }
-                int n = (int)std::ceil(m / SAMP);
-                if (n > 24) {
-                  n = 24;
-                }
-                for (int a = 0; a <= n; ++a) {
-                  for (int c = 0; c <= n - a; ++c) {
-                    if ((a == 0 && c == 0) || (a == n && c == 0) || (a == 0 && c == n)) {
-                      continue;  // corners = the existing vertices
-                    }
-                    float fa = (float)a / (float)n, fc = (float)c / (float)n;
-                    occ_pts.push_back(
-                        {ax + fa * e1x + fc * e2x, ay + fa * e1y + fc * e2y, az + fa * e1z + fc * e2z});
-                    r23_dens_pts++;
-                  }
-                }
-                r23_dens_tris++;
-                r23_dens_by_tex[tname]++;
-                if (name_has(tname, "rock") || name_has(tname, "stone")) {
-                  const float cinv = 1.0f / (10.0f * 4096.f);
-                  s64 cx = (s64)std::floor(ax * cinv), cz = (s64)std::floor(az * cinv);
-                  s64 ck = (cx << 32) ^ (cz & 0xffffffffLL);
-                  if (r23_rock_spots.find(ck) == r23_rock_spots.end()) {
-                    r23_rock_spots[ck] = {ax, ay, az};
-                  }
-                }
-              }
-            }
-          }
-        }
-        continue;
-      }
-      considered_draws++;
-      if (is_tie) {
-        tie_draws++;
-      }
-
-      // ground colour for this draw's texture (cached; POLISH#4 colour-match).
-      float gcr, gcg, gcb;
-      auto it = texcol.find(draw.tree_tex_id);
-      if (it == texcol.end()) {
-        avg_tex_color(lev->textures[draw.tree_tex_id], gcr, gcg, gcb);
-        texcol[draw.tree_tex_id] = {gcr, gcg, gcb};
-      } else {
-        gcr = it->second[0]; gcg = it->second[1]; gcb = it->second[2];
-      }
-
-      // This draw's slice of the shared index buffer. The AUTHORITATIVE length is
-      // the sum of the draw's vis_groups' num_inds — the EXACT slice the scene
-      // renderer uploads (see make_all_visible_index_list in background_common.cpp).
-      u32 begin = draw.unpacked.idx_of_first_idx_in_full_buffer;
-      u32 len = 0;
-      for (const auto& g : draw.vis_groups) {
-        len += g.num_inds;
-      }
-      if (len == 0 || begin >= idx.size()) {
-        continue;
-      }
-      if (begin + len > idx.size()) {
-        len = (u32)(idx.size() - begin);
-      }
-
-      // record one triangle (vertex indices a,b,ci) if it is walkable ground and
-      // not an implausibly large (spurious) triangle.
-      auto consider_tri = [&](u32 a, u32 b, u32 ci) {
-        if (a == UINT32_MAX || b == UINT32_MAX || ci == UINT32_MAX) return;
-        if (a == b || b == ci || a == ci) return;
-        if (a >= verts.size() || b >= verts.size() || ci >= verts.size()) return;
-        const auto& p0 = verts[a];
-        const auto& p1 = verts[b];
-        const auto& p2 = verts[ci];
-        float e1x = p1.x - p0.x, e1y = p1.y - p0.y, e1z = p1.z - p0.z;
-        float e2x = p2.x - p0.x, e2y = p2.y - p0.y, e2z = p2.z - p0.z;
-        float nx = e1y * e2z - e1z * e2y;
-        float ny = e1z * e2x - e1x * e2z;
-        float nz = e1x * e2y - e1y * e2x;
-        float nlen = std::sqrt(nx * nx + ny * ny + nz * nz);
-        if (nlen <= 1e-3f) return;
-        float area_m2 = (0.5f * nlen) / (U * U);
-        max_area = std::max(max_area, area_m2);
-        if (area_m2 > MAX_TRI_AREA) {  // spurious level-spanning triangle
-          giant_tris++;
-          return;
-        }
-        float upness = std::fabs(ny) / nlen;  // 1.0 = perfectly flat ground
-        if (area_m2 <= 1e-4f) return;
-        if (upness <= GROUND_UPNESS) {  // POLISH#8: track grass-textured tris the upness net drops
-          rej_upness++;
-          rej_upness_area += area_m2;
-          if (upness >= 0.20f) rej_up_moderate++;  // moderate-slope edge lips we still miss (vs walls)
-          // POLISH#10: remember this grass-textured lip's edges so the boundary classifier does not
-          // treat the kept top triangle's shared shoulder edge as a rim (avoids a bald fringe there).
-          rej_lip_verts.push_back(
-              {p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z});
-          return;
-        }
-        min_kept_upness = std::min(min_kept_upness, upness);
-        TriRec r;
-        r.p0x = p0.x; r.p0y = p0.y; r.p0z = p0.z;
-        r.e1x = e1x; r.e1y = e1y; r.e1z = e1z;
-        r.e2x = e2x; r.e2y = e2y; r.e2z = e2z;
-        r.area_m2 = area_m2;
-        r.upness = upness;   // POLISH#12: kept for the PHASE 1.5 overhang-lip classifier
-        // ROUND#19: NORMALIZED face normal, flipped so ny >= 0 (world-up hemisphere), for the shader
-        // normal-tilt blend (u_tilt). nlen > 1e-3 guaranteed above; winding-agnostic like `upness`.
-        {
-          float inv_nlen = 1.0f / nlen;
-          float fnx = nx * inv_nlen, fny = ny * inv_nlen, fnz = nz * inv_nlen;
-          if (fny < 0.f) { fnx = -fnx; fny = -fny; fnz = -fnz; }
-          r.nx = fnx; r.ny = fny; r.nz = fnz;
-        }
-        r.is_lip = false;
-        r.is_tie = is_tie;   // ROUND#13: tfrag-vs-TIE split for the lip/rim instrumentation
-        r.gr = gcr; r.gg = gcg; r.gb = gcb;
-        float bl = (vlum(a) + vlum(b) + vlum(ci)) * (1.0f / 3.0f);  // POLISH#6 triangle baked luma
-        r.raw_baked = bl;
-        r.seed = (begin ^ (a * 2654435761u) ^ (ci * 40503u) ^ (is_tie ? 0x9e3779b9u : 0u));
-        // POLISH#9 edge geometry for the precise point-in-triangle edge clip (world units).
-        r.nlen = nlen;                                   // = 2*area (world^2)
-        r.lenAB = std::sqrt(e1x * e1x + e1y * e1y + e1z * e1z);
-        r.lenCA = std::sqrt(e2x * e2x + e2y * e2y + e2z * e2z);
-        float bcx = e2x - e1x, bcy = e2y - e1y, bcz = e2z - e1z;  // C - B
-        r.lenBC = std::sqrt(bcx * bcx + bcy * bcy + bcz * bcz);
-        r.bAB = r.bBC = r.bCA = false;                   // classified in the boundary pass below
-        // POLISH#9 dynamic light: centroid palette rows (avg of the 3 vertices), 8 keyframes x rgb.
-        for (int p = 0; p < 8; ++p) {
-          for (int ch = 0; ch < 3; ++ch) {
-            r.pal[p][ch] =
-                (pentry(a, p, ch) + pentry(b, p, ch) + pentry(ci, p, ch)) * (1.0f / 3.0f);
-          }
-        }
-        tris.push_back(r);
-        tris_kept++;
-        total_area_m2 += area_m2;
-        baked_area_sum += (double)bl * (double)area_m2;
-      };
-
-      if (use_strips) {
-        // one restart-delimited triangle strip: each new vertex closes a triangle
-        // with the previous two.
-        u32 a = UINT32_MAX, b = UINT32_MAX;
-        for (u32 k = begin; k < begin + len; ++k) {
-          u32 ci = idx[k];
-          if (ci == UINT32_MAX) {  // strip restart
-            a = UINT32_MAX;
-            b = UINT32_MAX;
-            continue;
-          }
-          consider_tri(a, b, ci);
-          a = b;
-          b = ci;
-        }
-      } else {
-        // plain triangle list: discrete triples.
-        for (u32 k = begin; k + 2 < begin + len; k += 3) {
-          consider_tri(idx[k], idx[k + 1], idx[k + 2]);
-        }
-      }
-    }
-  };
-
-  // tfrag ground (geo 0)
-  for (const auto& tree : lev->tfrag_trees[0]) {
-    scan_draws(tree.draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, false,
-               tree.colors);
-  }
-  // TIE instanced models / platforms (geo 0 only, to avoid duplicate LOD placement)
-  if (!lev->tie_trees.empty()) {
-    for (const auto& tree : lev->tie_trees[0]) {
-      scan_draws(tree.static_draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips,
-                 true, tree.colors);
-    }
-  }
-
-  // ---- ROUND#16 (PHASE 1.5): ROBUST true-edge detection -> overhang-lip base exclusion + exact rim. ----
-  // SUPERVISOR CODE READ (2026-07-11): after SEVEN rounds the persistent floating-overflow root is that
-  // the boundary detection was the EDGE-COUNT method keyed on a RAW 1 cm vertex quantize. On TIE / multi-
-  // fragment grass platforms the SAME physical vertex has slightly different float coords across separate
-  // fragments (it does NOT weld at a 1 cm grid, and grid-straddle splits even coincident verts) AND
-  // duplicate/coincident tris appear, so a real OUTER rim edge is counted as used by >=2 tris and is NOT
-  // flagged a boundary. That single miss disabled BOTH (1) the overhang-lip exclusion (drooping edge lips
-  // kept placing bases -> the floating the owner saw) and (2) the exact mesh-edge rim clamp (no taper at
-  // the real rim). ROUND#16 fixes the FOUNDATION: weld vertices to a CANONICAL id robust to fragment
-  // float mismatch (a NEIGHBOR-PROBE spatial hash, not a raw grid quantize) and DEDUP coincident triangles
-  // BEFORE counting, so a shared physical edge is counted once and a real border edge (one triangle in
-  // world space) is correctly flagged on TIE multi-fragment platforms too. This is the single fix that
-  // unblocks BOTH the lip exclusion and the rim clamp, and it REPLACES the round#15 0.1 m coverage RASTER
-  // entirely (owner verbatim: "les grids/rasters c'est nul, on a le mesh du sol, autant utiliser ça") —
-  // the rim distance is now the EXACT point-to-true-rim-edge distance (dmin, PHASE 2), continuous and
-  // hugging the real mesh edge with no stair-step.
-  const float WELD = 0.03f * U;                       // 3 cm canonical weld; neighbor-probe merges up to
-                                                      // ~2x that of cross-fragment float mismatch. Grass
-                                                      // tri edges are >>6 cm, so distinct verts never merge.
-  std::unordered_map<u64, std::vector<int>> wcells;   // quantized cell -> canonical vertex ids inside it
-  std::vector<std::array<float, 3>> wverts;           // canonical vertex world positions (GOAL units)
-  wcells.reserve(tris.size() * 3 + 16);
-  wverts.reserve(tris.size() * 2 + 16);
-  auto wcell = [WELD](float x, float y, float z) -> u64 {
-    s64 qx = (s64)std::floor(x / WELD), qy = (s64)std::floor(y / WELD), qz = (s64)std::floor(z / WELD);
-    return (u64)(qx * 73856093LL) ^ (u64)(qy * 19349663LL) ^ (u64)(qz * 83492791LL);
-  };
-  // canonical vertex id: return an existing vert within WELD (probing the 27 neighbour cells so a weld
-  // never fails on a grid-straddle), else intern a new one. This is what makes the edge count robust.
-  auto weld_vertex = [&](float x, float y, float z) -> int {
-    s64 cx = (s64)std::floor(x / WELD), cy = (s64)std::floor(y / WELD), cz = (s64)std::floor(z / WELD);
-    const float tol2 = WELD * WELD;
-    for (s64 dz = -1; dz <= 1; ++dz)
-      for (s64 dy = -1; dy <= 1; ++dy)
-        for (s64 dx = -1; dx <= 1; ++dx) {
-          u64 k = (u64)((cx + dx) * 73856093LL) ^ (u64)((cy + dy) * 19349663LL) ^
-                  (u64)((cz + dz) * 83492791LL);
-          auto it = wcells.find(k);
-          if (it == wcells.end()) continue;
-          for (int vid : it->second) {
-            float ddx = wverts[vid][0] - x, ddy = wverts[vid][1] - y, ddz = wverts[vid][2] - z;
-            if (ddx * ddx + ddy * ddy + ddz * ddz <= tol2) return vid;
-          }
-        }
-    int id = (int)wverts.size();
-    wverts.push_back({x, y, z});
-    wcells[wcell(x, y, z)].push_back(id);
-    return id;
-  };
-  // edge key from two canonical ids (packed, exact: vert count << 2^21). Triangle key = sorted triple.
-  auto ekey2 = [](int a, int b) -> u64 {
-    u32 lo = (u32)(a < b ? a : b), hi = (u32)(a < b ? b : a);
-    return ((u64)lo << 21) | (u64)hi;
-  };
-  std::vector<std::array<int, 3>> vids(tris.size());  // canonical vertex ids per tri
-  int n_dup = 0;
-  {
-    std::unordered_set<u64> seen_tri;
-    seen_tri.reserve(tris.size() * 2 + 16);
-    for (int i = 0; i < (int)tris.size(); ++i) {
-      auto& r = tris[i];
-      int a = weld_vertex(r.p0x, r.p0y, r.p0z);
-      int b = weld_vertex(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
-      int c = weld_vertex(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
-      vids[i] = {a, b, c};
-      int s0 = a, s1 = b, s2 = c;
-      if (s0 > s1) std::swap(s0, s1);
-      if (s1 > s2) std::swap(s1, s2);
-      if (s0 > s1) std::swap(s0, s1);
-      u64 tkey = ((u64)(u32)s0 << 42) | ((u64)(u32)s1 << 21) | (u64)(u32)s2;
-      r.is_dup = !seen_tri.insert(tkey).second;   // a fragment-overlap duplicate: no topology, no bases
-      if (r.is_dup) n_dup++;
-    }
-  }
-  int boundary_edges = 0;
-  int lip_excluded = 0;         // POLISH#12: overhang rim-lip tris whose BASES are excluded (no floating)
-  int lip_excluded_tie = 0;     // ROUND#13: of those, how many are TIE (distant platform) tris
-  float lip_excluded_area = 0.f;
-  float min_placed_upness = 1.0f;
-  int n_weld_verts = (int)wverts.size();
-  int boundary_raw = 0;         // ROUND#16 instrumentation: OLD raw-1cm boundary count (proves the miss)
-  {
-    // (1)+(2) OVERHANG-LIP classification — ROUND#13 TRANSITIVE closure over ROBUST adjacency. A tilted
-    // tri (upness < UPNESS_LIP_MAX) is an overhang lip iff its LOWEST edge opens into void (used by no
-    // OTHER non-dup grass tri) OR is shared with a tri that is ITSELF a lip. Seeded at the void, propagated
-    // UP the skirt; a FLAT/gentle top (upness >= UPNESS_LIP_MAX) is NEVER a lip and STOPS the propagation,
-    // so continuous walkable slopes keep their grass (POLISH#3 coverage preserved). With the ROBUST weld a
-    // multi-fragment skirt's shared edges now dedup, so the seed/propagation is no longer defeated by float
-    // mismatch — the exact defect that let bases stay on distant-TIE-platform lips.
-    std::unordered_map<u64, std::vector<int>> etris;  // edge -> tri indices sharing it (manifold: <= 2)
-    etris.reserve(tris.size() * 3 + 16);
-    std::vector<u64> low_edge(tris.size(), 0);        // each tri's lowest (downhill) edge key
-    std::vector<char> tilted(tris.size(), 0);         // upness < UPNESS_LIP_MAX -> a lip CANDIDATE
-    for (int i = 0; i < (int)tris.size(); ++i) {
-      auto& r = tris[i];
-      r.is_lip = false;
-      if (r.is_dup) continue;                         // duplicates contribute no topology
-      int a = vids[i][0], b = vids[i][1], c = vids[i][2];
-      u64 eAB = ekey2(a, b), eBC = ekey2(b, c), eCA = ekey2(c, a);
-      etris[eAB].push_back(i);
-      etris[eBC].push_back(i);
-      etris[eCA].push_back(i);
-      float Ay = r.p0y, By = r.p0y + r.e1y, Cy = r.p0y + r.e2y;
-      float mAB = Ay + By, mBC = By + Cy, mCA = Cy + Ay;  // 2x edge-midpoint Y (compare only)
-      low_edge[i] = (mAB <= mBC && mAB <= mCA) ? eAB : (mBC <= mCA ? eBC : eCA);
-      tilted[i] = (r.upness < UPNESS_LIP_MAX) ? 1 : 0;
-    }
-    // reverse index: which tilted tris have edge e as THEIR lowest (downhill) edge — so when a tri on e
-    // becomes a lip, we know which tris drop off toward it and must be re-checked.
-    std::unordered_map<u64, std::vector<int>> low_users;
-    low_users.reserve(tris.size() + 16);
-    std::vector<int> work;
-    for (int i = 0; i < (int)tris.size(); ++i) {
-      if (!tilted[i] || tris[i].is_dup) continue;
-      low_users[low_edge[i]].push_back(i);
-      const auto& sh = etris[low_edge[i]];  // seed: lowest edge opens into the void (no OTHER grass tri)
-      bool boundary = true;
-      for (int t : sh) {
-        if (t != i) { boundary = false; break; }
-      }
-      if (boundary) { tris[i].is_lip = true; work.push_back(i); }
-    }
-    while (!work.empty()) {  // propagate up the skirt: a tilted tri drops toward a lip => it is a lip too
-      int n = work.back();
-      work.pop_back();
-      int a = vids[n][0], b = vids[n][1], c = vids[n][2];
-      u64 es[3] = {ekey2(a, b), ekey2(b, c), ekey2(c, a)};
-      for (u64 e : es) {
-        auto it = low_users.find(e);  // tris whose DOWNHILL edge is e (they drop toward n)
-        if (it == low_users.end()) {
-          continue;
-        }
-        for (int t : it->second) {
-          if (t == n || tris[t].is_lip || tris[t].is_dup) {
-            continue;
-          }
-          tris[t].is_lip = true;
-          work.push_back(t);
-        }
-      }
-    }
-    for (int i = 0; i < (int)tris.size(); ++i) {
-      if (tris[i].is_dup) continue;
-      if (tris[i].is_lip) {
-        lip_excluded++;
-        lip_excluded_area += tris[i].area_m2;
-        if (tris[i].is_tie) {
-          lip_excluded_tie++;
-        }
-      } else {
-        min_placed_upness = std::min(min_placed_upness, tris[i].upness);
-      }
-    }
-    // (3) FINAL edge count over ONLY the tris that will actually be PLACED (dup + lip removed). Now a real
-    // outer rim edge (drop-off / rock-wall / shoulder shared with an excluded lip) is used ONCE = a TRUE
-    // RIM, so PHASE 2 stamps its near-rim blades with an exact rim_dist (dmin) and the shader height-taper
-    // + horizontal clamp hold the grass to the exact top edge (no overflow past it, no bald fringe);
-    // interior seams between two PLACED tris stay shared = full coverage. Robust across TIE fragments now.
-    std::unordered_map<u64, int> edge_count;
-    edge_count.reserve(tris.size() * 3 + 16);
-    for (int i = 0; i < (int)tris.size(); ++i) {
-      const auto& r = tris[i];
-      if (r.is_dup || r.is_lip) continue;
-      edge_count[ekey2(vids[i][0], vids[i][1])]++;  // AB
-      edge_count[ekey2(vids[i][1], vids[i][2])]++;  // BC
-      edge_count[ekey2(vids[i][2], vids[i][0])]++;  // CA
-    }
-    for (int i = 0; i < (int)tris.size(); ++i) {
-      auto& r = tris[i];
-      if (r.is_dup || r.is_lip) {
-        r.bAB = r.bBC = r.bCA = false;
-        continue;
-      }
-      r.bAB = edge_count[ekey2(vids[i][0], vids[i][1])] <= 1;
-      r.bBC = edge_count[ekey2(vids[i][1], vids[i][2])] <= 1;
-      r.bCA = edge_count[ekey2(vids[i][2], vids[i][0])] <= 1;
-      boundary_edges += (int)r.bAB + (int)r.bBC + (int)r.bCA;
-    }
-    // INSTRUMENTATION (supervisor mandate: PROVE the miss before trusting the swap). Recompute the OLD
-    // boundary count the round#15 way — a RAW 1 cm quantize, NO neighbour-probe weld, NO coincident-tri
-    // dedup — over the same non-lip placed set. If boundary_edges (robust) differs from boundary_raw, the
-    // old 1 cm count mis-flagged rims on TIE/multi-fragment platforms = the floating culprit; the robust
-    // count is what the exact rim clamp now runs on.
-    {
-      const float Q1 = 0.01f * U;
-      auto rk = [Q1](float x, float y, float z) -> u64 {
-        s64 qx = (s64)std::llround(x / Q1), qy = (s64)std::llround(y / Q1), qz = (s64)std::llround(z / Q1);
-        return (u64)(qx * 73856093LL) ^ (u64)(qy * 19349663LL) ^ (u64)(qz * 83492791LL);
-      };
-      auto rek = [](u64 va, u64 vb) -> u64 {
-        u64 lo = va < vb ? va : vb, hi = va < vb ? vb : va;
-        return lo * 0x9e3779b97f4a7c15ull + (hi ^ (hi >> 29));
-      };
-      std::unordered_map<u64, int> ec;
-      ec.reserve(tris.size() * 3 + 16);
-      for (const auto& r : tris) {
-        if (r.is_lip) continue;
-        u64 va = rk(r.p0x, r.p0y, r.p0z);
-        u64 vb = rk(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
-        u64 vc = rk(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
-        ec[rek(va, vb)]++;
-        ec[rek(vb, vc)]++;
-        ec[rek(vc, va)]++;
-      }
-      for (const auto& r : tris) {
-        if (r.is_lip) continue;
-        u64 va = rk(r.p0x, r.p0y, r.p0z);
-        u64 vb = rk(r.p0x + r.e1x, r.p0y + r.e1y, r.p0z + r.e1z);
-        u64 vc = rk(r.p0x + r.e2x, r.p0y + r.e2y, r.p0z + r.e2z);
-        boundary_raw += (int)(ec[rek(va, vb)] <= 1) + (int)(ec[rek(vb, vc)] <= 1) +
-                        (int)(ec[rek(vc, va)] <= 1);
-      }
-    }
-  }
-
-  // ---- ROUND#20 (supervisor direct fix): GLOBAL rim distance — segment hash of ALL true-rim edges. ----
-  // The own-tri rim_dist (below) only sees a rim edge belonging to the blade's OWN triangle. A full-
-  // height blade on the INTERIOR triangle right behind a NARROW rim triangle has rim_dist=NO_RIM and
-  // leans its tip past the platform edge — the residual "ça dépasse" no own-tri taper can ever see.
-  // Fix: hash every true-rim edge SEGMENT (world space); each blade takes the min of its own-tri exact
-  // distance and the distance to the nearest rim segment within RIM_QUERY (XZ metric, Y-windowed so a
-  // rim of another storey — terrace above/below — never tapers this one). ~2k segments, O(1) per blade.
-  struct RimSeg {
-    float ax, ay, az, bx, by, bz;
-  };
-  std::vector<RimSeg> rim_segs;
-  std::unordered_map<s64, std::vector<int>> rim_grid;
-  const float RIM_QUERY = 1.2f * U;   // blades further than this from every rim stay full height
-  const float RIM_BUCKET = 1.5f * U;  // bucket >= query so a 3x3 lookup suffices
-  const float RIM_YWIN = 1.5f * U;    // ignore rim edges of a different storey
-  const float rim_inv = 1.0f / RIM_BUCKET;
-  {
-    auto add_seg = [&](float ax, float ay, float az, float bx2, float by2, float bz2) {
-      int si = (int)rim_segs.size();
-      rim_segs.push_back({ax, ay, az, bx2, by2, bz2});
-      s64 gx0 = (s64)std::floor(std::min(ax, bx2) * rim_inv);
-      s64 gx1 = (s64)std::floor(std::max(ax, bx2) * rim_inv);
-      s64 gz0 = (s64)std::floor(std::min(az, bz2) * rim_inv);
-      s64 gz1 = (s64)std::floor(std::max(az, bz2) * rim_inv);
-      for (s64 gz = gz0; gz <= gz1; ++gz)
-        for (s64 gx = gx0; gx <= gx1; ++gx)
-          rim_grid[(gx << 32) ^ (gz & 0xffffffffLL)].push_back(si);
-    };
-    for (const auto& r : tris) {
-      if (r.is_dup || r.is_lip) continue;
-      float Ax = r.p0x, Ay = r.p0y, Az = r.p0z;
-      float Bx = r.p0x + r.e1x, By = r.p0y + r.e1y, Bz = r.p0z + r.e1z;
-      float Cx = r.p0x + r.e2x, Cy = r.p0y + r.e2y, Cz = r.p0z + r.e2z;
-      if (r.bAB) add_seg(Ax, Ay, Az, Bx, By, Bz);
-      if (r.bBC) add_seg(Bx, By, Bz, Cx, Cy, Cz);
-      if (r.bCA) add_seg(Cx, Cy, Cz, Ax, Ay, Az);
-    }
-  }
-  // min XZ distance from (px,py,pz) to any rim segment within RIM_QUERY, Y-windowed. NO_RIM if none.
-  auto rim_dist_global = [&](float px, float py, float pz) -> float {
-    if (rim_segs.empty()) return 1.0e9f;
-    float best = 1.0e9f;
-    s64 gx = (s64)std::floor(px * rim_inv), gz = (s64)std::floor(pz * rim_inv);
-    for (s64 dz = -1; dz <= 1; ++dz) {
-      for (s64 dx = -1; dx <= 1; ++dx) {
-        auto it = rim_grid.find(((gx + dx) << 32) ^ ((gz + dz) & 0xffffffffLL));
-        if (it == rim_grid.end()) continue;
-        for (int si : it->second) {
-          const auto& s = rim_segs[si];
-          float abx = s.bx - s.ax, abz = s.bz - s.az;
-          float denom = abx * abx + abz * abz;
-          float t = denom > 1e-6f ? ((px - s.ax) * abx + (pz - s.az) * abz) / denom : 0.f;
-          t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
-          float cy = s.ay + t * (s.by - s.ay);
-          if (std::fabs(cy - py) > RIM_YWIN) continue;  // rim of another storey
-          float cx = s.ax + t * abx, cz = s.az + t * abz;
-          float ddx = px - cx, ddz = pz - cz;
-          float d = std::sqrt(ddx * ddx + ddz * ddz);
-          if (d < best) best = d;
-        }
-      }
-    }
-    return best <= RIM_QUERY ? best : 1.0e9f;
-  };
-  int rim_segs_n = (int)rim_segs.size();
-
-  // ---- ROUND#19: build the WALKABLE-FLOOR set + XZ hash for the point-wise cantilever cull. ----
-  // Owner round#18 verdict: after the round#17 silhouette fix was reverted (its collision-vs-render
-  // edge divergence produced 50cm bald strips), blades STILL hang in the void past platform rims. This
-  // is a purely POINT-WISE test: a blade survives only if there is walkable collision floor directly
-  // below its base. No edge detection, no 2D silhouette, no rim distance -> the strip artifact cannot
-  // return; the only culled blades are those with genuinely nothing under them. Collision data lives in
-  // the SAME LevelData the renderer already loads (lev->collision.vertices, per-vertex .pat, same world
-  // GOAL-unit space as the render verts). jak1 = collision version 1: walkable ground iff pat surface
-  // mode ((pat >> 3) & 0x7) == 0.
-  // ROUND#19 perf: each FloorTri caches its (padded) XZ bbox for a cheap reject AND the barycentric
-  // denominators precomputed once at build time, so a per-base query only computes d20/d21 (the 2 dot
-  // products that depend on the point). A degenerate tri (|denom| < 1e-6) is dropped at build, so the
-  // runtime denom guard is gone. With the 1m bucket the candidate lists are tiny.
-  struct FloorTri {
-    float p0x, p0y, p0z, e1x, e1y, e1z, e2x, e2y, e2z;  // world (GOAL units), same space as render tris
-    float minx, maxx, minz, maxz;                       // XZ bbox (padded) for the cheap reject
-    float d00, d01, d11, inv_denom;                     // precomputed XZ barycentric denominators
-  };
-  std::vector<FloorTri> floor_tris;
-  std::unordered_map<u64, std::vector<int>> floor_grid;  // XZ bucket -> floor tri indices
-  {
-    const auto& cv = lev->collision.vertices;
-    const size_t ntri = cv.size() / 3;
-    floor_tris.reserve(ntri);
-    const float finv = 1.0f / (FLOOR_BUCKET_M * U);
-    const float pad = 0.05f * U;  // bbox pad = the barycentric seam slack, so the reject never over-culls
-    for (size_t t = 0; t < ntri; ++t) {
-      const auto& a = cv[t * 3 + 0];
-      const auto& b = cv[t * 3 + 1];
-      const auto& c = cv[t * 3 + 2];
-      if (((a.pat >> 3) & 0x7u) != 0) continue;  // jak1 pat-surface mode 0 = walkable ground only
-      float minx = std::min(a.x, std::min(b.x, c.x)), maxx = std::max(a.x, std::max(b.x, c.x));
-      float minz = std::min(a.z, std::min(b.z, c.z)), maxz = std::max(a.z, std::max(b.z, c.z));
-      if ((maxx - minx) > FLOOR_MAX_TRI_M * U || (maxz - minz) > FLOOR_MAX_TRI_M * U) continue;  // bbox guard
-      FloorTri r;
-      r.p0x = a.x; r.p0y = a.y; r.p0z = a.z;
-      r.e1x = b.x - a.x; r.e1y = b.y - a.y; r.e1z = b.z - a.z;
-      r.e2x = c.x - a.x; r.e2y = c.y - a.y; r.e2z = c.z - a.z;
-      r.d00 = r.e1x * r.e1x + r.e1z * r.e1z;
-      r.d01 = r.e1x * r.e2x + r.e1z * r.e2z;
-      r.d11 = r.e2x * r.e2x + r.e2z * r.e2z;
-      float denom = r.d00 * r.d11 - r.d01 * r.d01;
-      if (std::fabs(denom) < 1e-6f) continue;  // degenerate (near-vertical/sliver) -> drop at build
-      r.inv_denom = 1.0f / denom;
-      r.minx = minx - pad; r.maxx = maxx + pad;
-      r.minz = minz - pad; r.maxz = maxz + pad;
-      int fi = (int)floor_tris.size();
-      floor_tris.push_back(r);
-      // insert into every XZ bucket the tri's bbox overlaps, so a point lookup of the own bucket suffices.
-      s64 gx0 = (s64)std::floor(minx * finv), gx1 = (s64)std::floor(maxx * finv);
-      s64 gz0 = (s64)std::floor(minz * finv), gz1 = (s64)std::floor(maxz * finv);
-      for (s64 gz = gz0; gz <= gz1; ++gz)
-        for (s64 gx = gx0; gx <= gx1; ++gx)
-          floor_grid[((u64)(u32)(s32)gx << 32) | (u32)(s32)gz].push_back(fi);
-    }
-  }
-  const float FLOOR_DEPTH = FLOOR_DEPTH_M * U;
-  const float FLOOR_EPS_UP = FLOOR_EPS_UP_M * U;
-  const float floor_inv = 1.0f / (FLOOR_BUCKET_M * U);
-  // ROUND#19b: GAP to the nearest walkable collision floor below this base (world units). Empty floor
-  // set -> 0 (collision absent = no-op keep, never worse than today). No floor in the search window ->
-  // NO_FLOOR sentinel (base over a true void). A floor slightly ABOVE the base (render/collision
-  // mismatch, within FLOOR_EPS_UP) clamps to gap 0. Look up ONLY the base's own bucket (tris were
-  // inserted into every bucket their bbox overlaps, so that is sufficient). Cheap bbox reject first,
-  // then the precomputed-denominator XZ barycentric (only d20/d21 per query).
-  constexpr float NO_FLOOR = 1e18f;
-  auto floor_gap = [&](float bx, float by, float bz) -> float {
-    if (floor_tris.empty()) return 0.f;
-    s64 gx = (s64)std::floor(bx * floor_inv), gz = (s64)std::floor(bz * floor_inv);
-    auto it = floor_grid.find(((u64)(u32)(s32)gx << 32) | (u32)(s32)gz);
-    if (it == floor_grid.end()) return NO_FLOOR;
-    float bestY = -NO_FLOOR;  // highest walkable floor within the window = the blade's OWN floor
-    for (int ti : it->second) {
-      const auto& r = floor_tris[ti];
-      if (bx < r.minx || bx > r.maxx || bz < r.minz || bz > r.maxz) continue;  // cheap bbox reject
-      float px = bx - r.p0x, pz = bz - r.p0z;
-      float d20 = px * r.e1x + pz * r.e1z;
-      float d21 = px * r.e2x + pz * r.e2z;
-      float u = (r.d11 * d20 - r.d01 * d21) * r.inv_denom;
-      float v = (r.d00 * d21 - r.d01 * d20) * r.inv_denom;
-      // slack so a base exactly on a shared collision-tri seam can't fall through the crack.
-      if (u >= -0.02f && v >= -0.02f && u + v <= 1.02f) {
-        float floorY = r.p0y + u * r.e1y + v * r.e2y;
-        if (floorY >= by - FLOOR_DEPTH && floorY <= by + FLOOR_EPS_UP && floorY > bestY) {
-          bestY = floorY;
-        }
-      }
-    }
-    if (bestY <= -NO_FLOOR) return NO_FLOOR;
-    float gap = by - bestY;
-    return gap > 0.f ? gap : 0.f;
-  };
-  int floor_tris_n = (int)floor_tris.size();
-  // ROUND#19b: gap threshold — default FLOOR_GAP_M, device-tunable via debug.opengoal.grass_floorgap
-  // (metres, read once per rebuild) so the terrace tuning needs no rebuild.
-  float floor_gap_thresh = FLOOR_GAP_M * U;
+  // Grecharged-grass-precompute-mode: floor-gap threshold prop read (moved OUT of scan; passed in).
+  float floor_gap_m = grass_bake::FLOOR_GAP_M;
+  bool floor_gap_overridden = false;
 #ifdef __ANDROID__
   {
     char gbuf[16] = {0};
     if (__system_property_get("debug.opengoal.grass_floorgap", gbuf) > 0 && gbuf[0]) {
       float gv = (float)atof(gbuf);
-      if (gv > 0.01f && gv < 2.5f) floor_gap_thresh = gv * U;
+      if (gv > 0.01f && gv < 2.5f) {
+        floor_gap_m = gv;
+        floor_gap_overridden = true;
+      }
     }
   }
 #endif
 
-  // ---- PHASE 2: scatter at a UNIFORM density over the whole level. ----
-  // Density is a single world-space constant (no camera grading), auto-reduced so
-  // the expected instance total stays safely under the ceiling — that way the cap
-  // is NEVER hit mid-list, so no triangle/chunk is ever starved (a mid-list cap
-  // hit is what de-instances distant chunks). Placement is a pure function of
-  // triangle identity, so it is identical every level load and stable forever.
-  // OWNER POLISH#5: the instance budget is now SLIDER-DRIVEN (Recharged Settings "GRASS DENSITY",
-  // a percent where 100 = the baseline MAX_INSTANCES). The effective density has always been
-  // budget-clamped (D_TARGET=150/m2 is never reached), so scaling the budget directly scales the
-  // visible density of near blades AND cards. Clamped to [0.5x, 2.5x] renderer-side for memory
-  // safety (2.5x ~= 1.6M instances). A density change re-scatters (see m_cached_density in render()).
-  float dens_scale = std::min(2.5f, std::max(0.5f,
-                                             Gfx::g_global_settings.recharged_grass_density / 100.0f));
-  int budget = (int)((float)MAX_INSTANCES * dens_scale);
-  m_cached_density = Gfx::g_global_settings.recharged_grass_density;
+  const bool want_pre = Gfx::g_global_settings.recharged_grass_precomputed;
+  const auto tA = clk::now();
 
-  // POLISH#6: the level's area-weighted mean baked luma. Each instance stores its baked light
-  // RELATIVE to this (raw/ref), so an average-lit patch gets 1.0 (grass unchanged) and only
-  // baked-darker patches darken — the grass responds to lighting without a global brightness shift.
-  float baked_ref = 128.0f;
-  if (total_area_m2 > 1e-3f && baked_area_sum > 0.0) {
-    baked_ref = (float)(baked_area_sum / (double)total_area_m2);
-    if (baked_ref < 1.0f) {
-      baked_ref = 1.0f;
-    }
-  }
-  // POLISH#8: the ground's mean own-multiplier (luma/128, neutral 1.0 at 128). Grass light is centred
-  // here and the per-location deviation amplified by LIGHT_GAIN (below), so the OVERALL brightness
-  // matches the ground while shade/light vary per-location.
-  float meanf = baked_ref / 128.0f;
-  // POLISH#8 lighting instrumentation: the spread of the per-triangle baked luma. A WIDE min..max /
-  // large stddev proves the light is now location-aware (real lit-vs-shadow variation), not one
-  // global value — this is what the owner's "même pickup partout" complaint was about.
-  float bl_min = 1e9f, bl_max = -1e9f;
-  double bl_sum = 0.0, bl_sq = 0.0;
-  for (const auto& r : tris) {
-    bl_min = std::min(bl_min, r.raw_baked);
-    bl_max = std::max(bl_max, r.raw_baked);
-    bl_sum += r.raw_baked;
-    bl_sq += (double)r.raw_baked * (double)r.raw_baked;
-  }
-  float bl_mean = tris.empty() ? 0.f : (float)(bl_sum / (double)tris.size());
-  float bl_std =
-      tris.empty()
-          ? 0.f
-          : (float)std::sqrt(std::max(0.0, bl_sq / (double)tris.size() - (double)bl_mean * bl_mean));
-
-  float density = D_TARGET;
-  if (total_area_m2 > 1.0f && total_area_m2 * D_TARGET > BUDGET_SAFETY * (float)budget) {
-    density = BUDGET_SAFETY * (float)budget / total_area_m2;
-  }
-
-  // POLISH#9: retain each kept triangle's baked-light source so update_light() can re-interpolate
-  // it every frame at the current time of day (dynamic light). Indexed the same as `tris`, and each
-  // instance stores its source-tri index (m_inst_tri) so it can look up its ground light.
-  m_tri_light.resize(tris.size());
-  for (size_t tj = 0; tj < tris.size(); ++tj) {
-    std::memcpy(m_tri_light[tj].pal, tris[tj].pal, sizeof(m_tri_light[tj].pal));
-  }
-  // POLISH#11: PER-BLADE edge clip via a GEOMETRIC HARD CLAMP — the root fix for BOTH the floating
-  // overflow AND the bald holes that POLISH#9/#10 kept trading off. Each blade stores rim_dist: the
-  // perpendicular distance from its base to the NEAREST TRUE RIM edge (an edge used by exactly one
-  // KEPT grass triangle = the grass patch's true outer boundary). The vertex shader clamps every
-  // blade's TOTAL horizontal (XZ) offset — width + static bend + breeze sway + trample — to rim_dist,
-  // so no part of any blade can cross its nearest rim, whatever its yaw or its dynamic motion. Because
-  // rim_dist is the MIN over the triangle's rim edges and the base is inside the (convex) triangle, an
-  // offset magnitude <= rim_dist provably stays on the inner side of EVERY rim.
-  //   * Overflow is impossible: the geometry is CLAMPED, not merely leaned. POLISH#10 leaned the bend
-  //     inward only partially (blend = 1 - dmin/reach), so blades in the 0.5..1.0 reach band still
-  //     tipped out; and its rej_lip merge (removed above) had hidden the real shoulders. Both gone.
-  //   * Holes are impossible: nothing is DROPPED near a rim (POLISH#9 dropped a ~10 cm ring = the bald
-  //     fringe). Blades keep FULL HEIGHT to the rim; only their horizontal spread shrinks, so the lawn
-  //     is full to the exact edge. Interior blades (rim_dist = NO_RIM) are completely untouched.
-  // Every candidate blade is judged by its OWN base — no block/chunk is accepted or rejected as a unit.
-  const float DROP_EPS = 0.005f * U;    // drop only a degenerate sliver whose base is < 5 mm from a rim
-  const float NO_RIM = 1.0e9f;          // rim_dist sentinel for a blade with no rim edge in its triangle
-
-  // ---- ROUND#16: the round#15 0.1 m coverage RASTER is REMOVED. ----
-  // Owner verbatim: "les carrés/grids/rasters c'est nul... on a le mesh du sol, autant utiliser ça." The
-  // raster APPROXIMATED the border (stair-stepped at the cell size, "ça suit pas les bordures") and its
-  // solid silhouette was the upness>=0.5 tops — INCLUDING flat tops that overhang, so bases on an overhang
-  // still got a large rim_dist and floated. rim_dist is now the EXACT per-blade point-to-true-rim-edge
-  // distance (dmin) computed inline in PHASE 2 from the ROUND#16 ROBUST boundary flags (bAB/bBC/bCA), which
-  // hug the real mesh edge with no stair-step and — because the weld/dedup now flags the true outer rims on
-  // TIE multi-fragment platforms too — collapse the over-edge blades to invisible stubs. No coverage grid,
-  // no chamfer allocation at load, no shader change.
-
-  m_instances.reserve(std::min<size_t>(budget, (size_t)(total_area_m2 * density) + 64));
-  m_inst_tri.reserve(m_instances.capacity());
-  int edge_dropped = 0;   // degenerate rim slivers dropped individually (per-blade, NOT whole blocks)
-  int edge_clamped = 0;   // near-rim blades whose horizontal reach the shader will clamp to the rim
-  int rim_finite = 0;     // ROUND#16: blades that got a FINITE rim_dist (a true rim in their tri) vs interior
-  int rim_global_hits = 0;  // ROUND#20: blades ONLY the cross-triangle global rim query protects
-  const float RIM_TAPER_W = 0.45f * U;  // matches the shader RIM_TAPER (height fully restored 0.45 m in)
-  int floor_tested = 0, floor_culled = 0;  // ROUND#19 point-wise cantilever cull instrumentation
-  int gap_culled = 0;                      // ROUND#19b: floor exists but too far below (stacked terrace)
-  std::vector<float> interior_gaps;        // ROUND#19b: gap samples for clearly-INTERIOR blades (p99 tune)
-  interior_gaps.reserve(4096);
-  for (size_t tj = 0; tj < tris.size(); ++tj) {
-    const auto& r = tris[tj];
-    if (r.is_lip || r.is_dup) continue;   // POLISH#12/ROUND#16: overhang lip or fragment duplicate -> no bases
-    if ((int)m_instances.size() >= budget) break;
-    float fn = r.area_m2 * density;
-    int n = (int)fn;
-    if (hash_f(r.seed + 99u) < (fn - (float)n)) {
-      n += 1;
-    }
-    for (int i = 0; i < n; ++i) {
-      if ((int)m_instances.size() >= budget) break;
-      u32 sd = r.seed + (u32)i * 3266489917u;
-      float r1 = hash_f(sd + 1u);
-      float r2 = hash_f(sd + 2u);
-      if (r1 + r2 > 1.0f) {
-        r1 = 1.0f - r1;
-        r2 = 1.0f - r2;
-      }
-      // Barycentric weights (A,B,C) = (1-r1-r2, r1, r2). The blade base is a point INSIDE this real
-      // grass triangle — per-blade placement, never a predefined block.
-      float wA = 1.0f - r1 - r2, wB = r1, wC = r2;
-      float bx = r.p0x + r1 * r.e1x + r2 * r.e2x;
-      float by = r.p0y + r1 * r.e1y + r2 * r.e2y;
-      float bz = r.p0z + r1 * r.e1z + r2 * r.e2z;
-
-      // ROUND#19: cantilever cull v2 — no walkable floor directly below = base over the VOID (the
-      // render-mesh cantilever past the platform rim) -> cull this blade individually.
-      // ROUND#19b: floor exists but only FAR below (> gap threshold) = the base is cantilevered past an
-      // UPPER platform edge over a LOWER terrace (the owner's live obs) -> cull it too. A blade only
-      // stands where its OWN floor is essentially right beneath it.
-      floor_tested++;
-      {
-        float fgap = floor_gap(bx, by, bz);
-        if (fgap >= 1e17f) { floor_culled++; continue; }             // no floor at all: true void
-        if (fgap > floor_gap_thresh) { gap_culled++; continue; }     // stacked-terrace cantilever
-        // clearly-interior sample (no boundary edge on this tri) -> tune/verify the gap threshold
-        if (!r.bAB && !r.bBC && !r.bCA && (int)interior_gaps.size() < 200000) {
-          interior_gaps.push_back(fgap);
-        }
-      }
-
-      // ROUND#16: rim_dist = the EXACT perpendicular distance from this base to the nearest TRUE RIM edge
-      // of its own triangle (an edge the ROBUST weld/dedup flagged as a real outer boundary). dmin = weight
-      // opposite that edge * nlen(=2*area) / edge length. NO_RIM (interior) when no edge of this tri is a
-      // rim -> the shader leaves the blade full height. This is continuous and hugs the mesh edge with no
-      // stair-step; the robust boundary flags mean it now fires at the real rim on TIE multi-fragment
-      // platforms too (the round#14/#15 miss). No coverage raster.
-      float dmin = NO_RIM;
-      if (r.bBC) { float d = wA * r.nlen / r.lenBC; if (d < dmin) dmin = d; }  // edge BC opposite A
-      if (r.bCA) { float d = wB * r.nlen / r.lenCA; if (d < dmin) dmin = d; }  // edge CA opposite B
-      if (r.bAB) { float d = wC * r.nlen / r.lenAB; if (d < dmin) dmin = d; }  // edge AB opposite C
-      // ROUND#20 (supervisor): GLOBAL rim distance — a blade on an interior tri right behind a NARROW
-      // rim tri had dmin=NO_RIM and leaned its full-height tip past the edge. Take the min with the
-      // distance to the nearest rim segment of the WHOLE patch (Y-windowed, RIM_QUERY radius).
-      {
-        float dg = rim_dist_global(bx, by, bz);
-        if (dg < dmin) {
-          if (dmin >= NO_RIM) rim_global_hits++;  // blades ONLY the global query protects
-          dmin = dg;
-        }
-      }
-      // The ONLY per-blade rejection is a degenerate sliver whose base sits < 5 mm from a true rim.
-      if (dmin < DROP_EPS) { edge_dropped++; continue; }
-
-      GrassInstance gi;
-      gi.px = bx;
-      gi.py = by;
-      gi.pz = bz;
-      gi.h = BASE_H * (0.50f + 1.55f * hash_f(sd + 3u));   // OWNER POLISH#3: wider SIZE variation
-      gi.tint = hash_f(sd + 5u);
-      gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);          // wider CURVATURE variation
-      gi.phase = hash_f(sd + 7u);
-      gi.yaw = hash_f(sd + 4u) * 6.2831853f;               // fully random yaw; the shader rim taper+clamp
-                                                           // (not a CPU lean) keeps geometry in-bounds
-      gi.gr = r.gr; gi.gg = r.gg; gi.gb = r.gb;            // POLISH#4 ground colour
-      // The (shader-unused) 4th ground-colour slot carries the EXACT mesh rim_dist (world units) for the
-      // shader height-taper + POLISH#11 horizontal clamp. The DYNAMIC per-location baked light rides its
-      // own u8 buffer (loc 3, inst_light), so this float slot is free — no vertex-layout change, lighting
-      // untouched.
-      gi.gspare = dmin;   // = rim_dist (world units); NO_RIM for interior blades -> shader never tapers them
-      // ROUND#19: source triangle's face normal (already normalized + ny>=0) for the shader u_tilt blend.
-      gi.nx = r.nx; gi.ny = r.ny; gi.nz = r.nz; gi.nspare = 0.f;
-      if (dmin < NO_RIM) rim_finite++;                     // blades with a real rim in their triangle
-      if (dmin < RIM_TAPER_W) edge_clamped++;              // blades inside the shader height-taper band
-      m_instances.push_back(gi);
-      m_inst_tri.push_back((u32)tj);   // POLISH#9: remember which triangle this blade grows from
-    }
-  }
-
-  // ROUND#16 instrumentation (supervisor mandate: PROVE the robust-edge fix). RIMDIST reports the EXACT
-  // mesh rim distance now driving the taper, plus the ROBUST-vs-RAW true-edge counts. boundary_edges
-  // (robust weld + coincident-dedup) vs boundary_raw (the OLD raw-1cm count): a difference proves the old
-  // count mis-flagged rims on TIE/multi-fragment platforms = the persistent floating culprit. n_dup =
-  // coincident fragment tris removed; weld_verts = distinct welded vertices. rim_finite = blades with a
-  // true rim in their tri (tapered/clamped); interior blades keep full height.
-  lg::info(
-      "[recharged-grass] RIMDIST exact-mesh (ROUND#16, raster REMOVED): placed={} rim_finite={} "
-      "edge_clamped={} edge_dropped={} | robust true-edge: boundary_edges={} vs raw-1cm boundary_raw={} "
-      "(delta={}), coincident_dups={}, weld_verts={} — robust weld/dedup flags the true rims the raw 1cm "
-      "count missed on TIE multi-fragment platforms (the floating overflow root).",
-      (int)m_instances.size(), rim_finite, edge_clamped, edge_dropped, boundary_edges, boundary_raw,
-      boundary_edges - boundary_raw, n_dup, n_weld_verts);
-  // ROUND#20 instrumentation: rim_global_hits = blades whose own tri had NO rim edge but that sit within
-  // RIM_QUERY of a rim segment elsewhere in the patch — exactly the full-height blades that leaned past
-  // platform edges before (the owner's residual "ça dépasse"). Now they taper/clamp like rim blades.
-  lg::info(
-      "[recharged-grass] ROUND#20 GLOBAL-RIM: rim_segs={} rim_global_hits={} (interior-tri blades near a "
-      "rim now tapered; own-tri-only missed them)",
-      rim_segs_n, rim_global_hits);
-
-  // ROUND#19 point-wise cantilever-cull instrumentation: floor_tris = walkable collision ground tris,
-  // tested = candidate blades checked, culled = blades with NO walkable floor below (over the void).
-  lg::info("[recharged-grass] ROUND#19 FLOORBELOW cantilever-cull: floor_tris={} tested={} culled={} kept={}", floor_tris_n, floor_tested, floor_culled + gap_culled, floor_tested - floor_culled - gap_culled);
-  // ROUND#19b stacked-terraces instrumentation: interior-blade gap percentiles PROVE the threshold sits
-  // above normal render-vs-collision Y offsets (p99 < thresh = no false culls on bumpy interior ground);
-  // gap_culled = cantilevered-over-lower-terrace blades (the owner's live obs), void_culled = true void.
+  bool from_bake = false;
+  // Resolve fr3 size (used both to validate a bake and as scan input).
+  const std::string fr3_path =
+      (file_util::get_jak_project_dir() / "out" / "jak1" / "fr3" / "training.fr3").string();
+  u64 fr3_size = 0;
   {
-    float p50 = 0.f, p90 = 0.f, p99 = 0.f, pmax = 0.f;
-    if (!interior_gaps.empty()) {
-      std::sort(interior_gaps.begin(), interior_gaps.end());
-      auto at = [&](double q) { return interior_gaps[(size_t)(q * (interior_gaps.size() - 1))]; };
-      p50 = at(0.50); p90 = at(0.90); p99 = at(0.99); pmax = interior_gaps.back();
-    }
-    lg::info(
-        "[recharged-grass] ROUND#19b FLOORGAP stacked-terrace cull: gap_thresh={:.0f}cm interior gap "
-        "p50={:.0f}cm p90={:.0f}cm p99={:.0f}cm max={:.0f}cm (n={}) | void_culled={} gap_culled={} — "
-        "p99 below the threshold = no false culls on bumpy interior ground; gap_culled = blades that "
-        "hung past an upper edge over a LOWER terrace",
-        floor_gap_thresh / U * 100.f, p50 / U * 100.f, p90 / U * 100.f, p99 / U * 100.f,
-        pmax / U * 100.f, (int)interior_gaps.size(), floor_culled, gap_culled);
-  }
-
-  // ---- POLISH#4 / ROUND#13: hide grass under overlapping non-grass 3D objects (TIE models). ----
-  // ROUND#13 (SUPERVISOR DIAGNOSIS #2): the old code marked a whole 0.5m XZ CELL occupied when any TIE
-  // vertex hovered above it and then a 3x3 morphological closing bridged/kept those cells — a single
-  // stray vertex (nearby/overhead TIE geometry) nuked a 0.5m BLOCK of grass on an OPEN platform = the
-  // owner's "block-shaped bald holes" where NO object was actually sitting. FIX: NO grid cull, NO
-  // dilation. A PER-INSTANCE test — each blade is hidden iff a real TIE object vertex is within
-  // OCC_RADIUS of ITS OWN (px,pz) AND in the near-ground contact band [+OCC_LO,+OCC_HI] above ITS OWN
-  // ground Y. On open grass (no object vertex within radius+band) occ_culled ~0 -> no block holes; a
-  // blade is culled ONLY where an actual prop's footprint covers it. TIE-only (real objects); tfrag
-  // terrain excluded so cliffs/slopes never falsely cull. Shrubs stay exempt (POLISH#8: their alpha-
-  // transparent mesh is not an occluder) — they are TIE too, but their near-ground body is sparse so
-  // the tight radius already leaves their bald ring filled; the whole-shrub cell nuke is gone anyway.
-  int occ_culled = 0;
-  size_t occ_objpts = 0;
-  if (!m_instances.empty() && !occ_pts.empty()) {
-    const float inv = 1.0f / (OCC_CELL_M * U);  // spatial-hash bucket (lookup only, NOT a cull unit)
-    auto bkey = [inv](float x, float z) -> s64 {
-      s64 gx = (s64)std::floor(x * inv);
-      s64 gz = (s64)std::floor(z * inv);
-      return (gx << 32) ^ (gz & 0xffffffffLL);
-    };
-    // Spatial hash of NON-grass TIE object vertices (world XZ+Y). Bucket >= OCC_RADIUS so a blade only
-    // has to test its own bucket + the 8 neighbours to find every object point within OCC_RADIUS.
-    struct OP {
-      float x, y, z;
-    };
-    std::unordered_map<s64, std::vector<OP>> objpts;
-    objpts.reserve(4096);
-    for (const auto& p : occ_pts) {
-      objpts[bkey(p[0], p[2])].push_back({p[0], p[1], p[2]});
-    }
-    occ_objpts = objpts.size();
-    const float lo = OCC_LO_M * U, hi = OCC_HI_M * U;
-    const float rad2 = (OCC_RADIUS_M * U) * (OCC_RADIUS_M * U);
-    std::vector<GrassInstance> keep;
-    std::vector<u32> keept;  // POLISH#9: keep m_inst_tri aligned with the surviving instances
-    keep.reserve(m_instances.size());
-    keept.reserve(m_instances.size());
-    for (size_t i = 0; i < m_instances.size(); ++i) {
-      const auto& gi = m_instances[i];
-      s64 bx = (s64)std::floor(gi.px * inv);
-      s64 bz = (s64)std::floor(gi.pz * inv);
-      bool hidden = false;
-      for (s64 dz = -1; dz <= 1 && !hidden; ++dz) {
-        for (s64 dx = -1; dx <= 1 && !hidden; ++dx) {
-          s64 k = ((bx + dx) << 32) ^ ((bz + dz) & 0xffffffffLL);
-          auto it = objpts.find(k);
-          if (it == objpts.end()) {
-            continue;
-          }
-          for (const auto& p : it->second) {
-            float dy = p.y - gi.py;             // object must be in the near-ground contact band
-            if (dy <= lo || dy >= hi) {
-              continue;
-            }
-            float ddx = p.x - gi.px, ddz = p.z - gi.pz;  // and within OCC_RADIUS of THIS blade's base
-            if (ddx * ddx + ddz * ddz <= rad2) {
-              hidden = true;
-              break;
-            }
-          }
-        }
-      }
-      if (hidden) {
-        occ_culled++;
-        continue;
-      }
-      keep.push_back(gi);
-      keept.push_back(m_inst_tri[i]);
-    }
-    m_instances.swap(keep);
-    m_inst_tri.swap(keept);
-  }
-
-  // ROUND#23 census (the "which prop leaked" diagnosis artifact): which non-grass TIE textures got
-  // face-densified footprint samples, and how many. The leaking small rocks show up here by texture.
-  if (r23_dens_tris > 0) {
-    std::vector<std::pair<std::string, u32>> top(r23_dens_by_tex.begin(), r23_dens_by_tex.end());
-    std::stable_sort(top.begin(), top.end(),
-                     [](const auto& a, const auto& b) { return a.second > b.second; });
-    std::string tex;
-    for (size_t i = 0; i < top.size() && i < 8; ++i) {
-      tex += fmt::format(" {}={}", top[i].first, top[i].second);
-    }
-    lg::info("[recharged-grass] R23 footprint densify: tris={} add_pts={} occ_pts_total={} tex:{}",
-             r23_dens_tris, r23_dens_pts, occ_pts.size(), tex);
-    if (!r23_rock_spots.empty()) {
-      constexpr float U = 4096.f;
-      std::string spots;
-      int shown = 0;
-      for (const auto& [k, p] : r23_rock_spots) {
-        if (shown++ >= 10) {
-          break;
-        }
-        spots += fmt::format(" ({:.1f} {:.1f} {:.1f})", p[0] / U, p[1] / U, p[2] / U);
-      }
-      lg::info("[recharged-grass] R23 rock-face warp spots ({} cells):{}", r23_rock_spots.size(),
-               spots);
+    std::error_code ec;
+    auto fs = std::filesystem::file_size(fr3_path, ec);
+    if (!ec) {
+      fr3_size = (u64)fs;
     }
   }
 
+  if (want_pre && !floor_gap_overridden) {
+    const std::string bake_path =
+        (file_util::get_jak_project_dir() / "out" / "jak1" / "fr3" / "training.grassbake").string();
+    grass_bake::BakeData loaded;
+    std::string reason;
+    if (!grass_bake::load_bake(loaded, bake_path)) {
+      reason = "load failed";
+    } else if (loaded.level_name != "training") {
+      reason = "level mismatch";
+    } else {
+      u64 cur_fr3 = 0;
+      bool have_fr3 = false;
+      try {
+        cur_fr3 = (u64)std::filesystem::file_size(fr3_path);
+        have_fr3 = true;
+      } catch (...) {
+        have_fr3 = false;
+      }
+      if (!have_fr3 || loaded.fr3_size != cur_fr3) {
+        reason = "fr3 size mismatch";
+      } else if (loaded.floor_gap_m != floor_gap_m) {
+        reason = "floor-gap mismatch";
+      } else if (Gfx::g_global_settings.recharged_grass_density > loaded.bake_density_pct + 0.01f) {
+        reason = "density slider above bake density";
+      } else {
+        from_bake = true;
+        m_bake = std::move(loaded);
+      }
+    }
+    if (!from_bake) {
+      lg::info("[recharged-grass] PRECOMPUTED unavailable ({}) -> LIVE fallback", reason);
+    }
+  }
+
+  if (!from_bake) {
+    m_bake = grass_bake::scan_level(*lev, "training", fr3_size,
+                                    {Gfx::g_global_settings.recharged_grass_density, floor_gap_m});
+  }
+
+  const auto tB = clk::now();
+  auto res = grass_bake::expand(m_bake, Gfx::g_global_settings.recharged_grass_density);
+  m_instances = std::move(res.instances);
+  m_inst_tri = std::move(res.inst_tri);
   m_instance_count = (int)m_instances.size();
 
-  // ROUND#14 CAPTURE AID: dump a spread of RAISED near-rim base world coords (metres) so a device
-  // capture can `level.warp.pos` Jak EXACTLY onto a platform edge (blind cpad nav never reached one
-  // across rounds #11-#13). Candidates = near-rim bases (gspare < 0.15 m) deduped to one per ~6 m
-  // XZ cell, sorted by height (raised platforms first) — those are the platform rims where the owner
-  // sees floating. TIE-platform rims are tagged (owner: distant TIE platforms float).
+  // Recompute `density` exactly as expand() did, for the STATIC place summary log.
+  int budget;
+  float density;
   {
+    float dens_scale = std::min(2.5f, std::max(0.5f,
+                                               Gfx::g_global_settings.recharged_grass_density / 100.0f));
+    budget = (int)((float)grass_bake::MAX_INSTANCES * dens_scale);
+    density = grass_bake::D_TARGET;
+    if (m_bake.total_area_m2 > 1.0f &&
+        m_bake.total_area_m2 * grass_bake::D_TARGET > grass_bake::BUDGET_SAFETY * (float)budget) {
+      density = grass_bake::BUDGET_SAFETY * (float)budget / m_bake.total_area_m2;
+    }
+  }
+
+  m_cached_density = Gfx::g_global_settings.recharged_grass_density;
+
+  // ROUND#14 CAPTURE AID: RIMCAND dump (uses m_instances + gspare + m_bake.tris flags&1 for TIE).
+  {
+    const float U = grass_bake::U;
     struct Cand { float mx, my, mz; bool tie; };
     std::unordered_map<s64, Cand> best;  // one highest candidate per 6 m cell
     const float cinv = 1.0f / (6.0f * U);
@@ -1852,7 +678,9 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       if (gi.gspare > 0.15f * U) continue;  // near a true rim only
       s64 cx = (s64)std::floor(gi.px * cinv), cz = (s64)std::floor(gi.pz * cinv);
       s64 k = (cx << 32) ^ (cz & 0xffffffffLL);
-      bool tie = (i < m_inst_tri.size() && m_inst_tri[i] < tris.size()) ? tris[m_inst_tri[i]].is_tie : false;
+      bool tie = (i < m_inst_tri.size() && m_inst_tri[i] < m_bake.tris.size())
+                     ? (m_bake.tris[m_inst_tri[i]].flags & 1u) != 0
+                     : false;
       auto it = best.find(k);
       if (it == best.end() || gi.py > it->second.my * U) {
         best[k] = Cand{gi.px / U, gi.py / U, gi.pz / U, tie};
@@ -1871,6 +699,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
 
   // Build the chunk grid (culling instrumentation only — proves completeness).
   {
+    const float U = grass_bake::U;
     std::unordered_map<s64, ChunkInfo> grid;
     grid.reserve(4096);
     const float inv = 1.0f / (CHUNK_M * U);
@@ -1891,89 +720,65 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
       m_chunks.push_back(c);
     }
   }
+  const auto tExpandEnd = clk::now();  // expand + summary/RIMCAND/chunk logs done
 
-  // Only commit the cache once the level is actually loaded (grass draws found),
-  // so a transient (level still streaming) placement is not frozen incomplete —
-  // if no draws matched we leave the cache invalid and retry next frame.
-  if (considered_draws > 0) {
+  // The big "training STATIC place" summary (identical format). occ_culled/total come from expand();
+  // scan stats (draws/tris/area/objpt buckets) come from m_bake.stats (identical on live + bake paths).
+  {
+    const int occ_culled = res.occ_culled;
+    lg::info(
+        "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
+        "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
+        "{} instances in {} chunks (POLISH#5 density {:.0f}% -> budget {}). ROUND#13 PER-INSTANCE "
+        "object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled {} of {} instances ({:.3f}%) — each "
+        "blade tested vs {} NON-grass-TIE object-point buckets (grass-TIE platforms EXCLUDED = no self-cull) "
+        "within radius {:.2f}m + contact band [{:.2f},{:.2f}]m; a blade is culled ONLY if a real object "
+        "vertex is that close, so OPEN grass (no object) is NEVER culled = occ ~0 there, NO block-shaped "
+        "bald holes. No camera window, no move-rebuild -> nothing de-instances while moving.",
+        m_bake.stats.considered_draws, m_bake.stats.tie_draws, m_bake.stats.tris_kept,
+        m_bake.stats.giant_tris, m_bake.stats.max_area, m_bake.total_area_m2, density,
+        m_instance_count, (int)m_chunks.size(),
+        Gfx::g_global_settings.recharged_grass_density, budget, occ_culled,
+        m_instance_count + occ_culled,
+        100.0f * (float)occ_culled / (float)std::max(1, m_instance_count + occ_culled),
+        m_bake.stats.occ_objpt_buckets, grass_bake::OCC_RADIUS_M, grass_bake::OCC_LO_M,
+        grass_bake::OCC_HI_M);
+  }
+
+  // Only commit the cache once the level is actually loaded (grass draws found), OR the bake loaded
+  // successfully (bake path has no considered_draws) — a transient placement is not frozen incomplete.
+  if (m_bake.stats.considered_draws > 0 || from_bake) {
     m_cached_level = (const void*)lev;
     m_cached_load_id = ld->load_id;
+    m_cached_precomputed = want_pre;
+    m_cached_floor_gap = floor_gap_m;
   }
 
   ensure_gl();
   glBindVertexArray(m_vao);
   glBindBuffer(GL_ARRAY_BUFFER, m_instance_vbo);
-  glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(m_instance_count * sizeof(GrassInstance)),
+  glBufferData(GL_ARRAY_BUFFER,
+               (GLsizeiptr)(m_instance_count * sizeof(grass_bake::GrassInstance)),
                m_instances.empty() ? nullptr : m_instances.data(), GL_STATIC_DRAW);
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  // POLISH#9: populate the dynamic ground baked-light buffer for the CURRENT time of day right now,
-  // so the first frame after a (re)build already carries correct per-location light.
+  // POLISH#9: populate the dynamic ground baked-light buffer for the CURRENT time of day right now.
   m_light_valid = false;
   update_light(rs);
 
+  const auto tC = clk::now();
+  auto ms = [](clk::time_point a, clk::time_point b) {
+    return std::chrono::duration<float, std::milli>(b - a).count();
+  };
+  // source = tA..tB (load_bake OR scan); expand+logs = tB..tExpandEnd; upload+light = tExpandEnd..tC.
   lg::info(
-      "[recharged-grass] training STATIC place (whole-level, camera-independent): {} grass-ground "
-      "draws ({} TIE), {} tris kept (giant {}, maxArea {:.0f}m2), area {:.0f} m2, density {:.0f}/m2 -> "
-      "{} instances in {} chunks (POLISH#5 density {:.0f}% -> budget {}). ROUND#13 PER-INSTANCE "
-      "object-hide (NO 0.5m cell nuke, NO 3x3 dilation): occ_culled {} of {} instances ({:.3f}%) — each "
-      "blade tested vs {} NON-grass-TIE object-point buckets (grass-TIE platforms EXCLUDED = no self-cull) "
-      "within radius {:.2f}m + contact band [{:.2f},{:.2f}]m; a blade is culled ONLY if a real object "
-      "vertex is that close, so OPEN grass (no object) is NEVER culled = occ ~0 there, NO block-shaped "
-      "bald holes. No camera window, no move-rebuild -> nothing de-instances while moving.",
-      considered_draws, tie_draws, tris_kept, giant_tris, max_area, total_area_m2, density,
-      m_instance_count, (int)m_chunks.size(), Gfx::g_global_settings.recharged_grass_density, budget,
-      occ_culled, m_instance_count + occ_culled,
-      100.0f * (float)occ_culled / (float)std::max(1, m_instance_count + occ_culled), (int)occ_objpts,
-      OCC_RADIUS_M, OCC_LO_M, OCC_HI_M);
-  // POLISH#8 LOCATION-AWARE LIGHTING proof: the per-location baked luma spread. itimesValid=1 means
-  // the CURRENT-time interp is used (contrast preserved). A wide bakedLuma min..max / big std = real
-  // per-location lit-vs-shadow variation (NOT the old one-global-value); gspare = meanf(=ref/128) +
-  // gain*(luma/128 - meanf).
-  lg::info(
-      "[recharged-grass] POLISH#8 LIGHT location-aware: itimesValid={} bakedRef(cur) {:.0f} -> meanf "
-      "{:.2f}; per-tri bakedLuma min {:.0f} / mean {:.0f} / max {:.0f} / std {:.1f}; gain {:.2f} -> "
-      "gspare spans ~[{:.2f}..{:.2f}] (shade darkens, lit brightens per-location).",
-      itimes_valid ? 1 : 0, baked_ref, meanf, bl_min, bl_mean, bl_max, bl_std, LIGHT_GAIN,
-      std::min(1.45f, std::max(0.30f, meanf + LIGHT_GAIN * (bl_min / 128.0f - meanf))),
-      std::min(1.45f, std::max(0.30f, meanf + LIGHT_GAIN * (bl_max / 128.0f - meanf))));
-  // POLISH#8 EDGE proof: how many grass-textured tris the upness gate still drops. rej_moderate =
-  // grass-textured tris at 0.20..0.35 upness (edge lips we would still miss); if large, edges remain
-  // bare and the gate could relax further. minKeptUpness = the shallowest tri that DID get grass.
-  lg::info(
-      "[recharged-grass] POLISH#8 EDGE upness {:.2f}: grass-tex tris dropped by upness {} ({:.0f} m2), "
-      "of which {} moderate-slope (0.20..{:.2f}, edge lips); minKeptUpness {:.2f}.",
-      GROUND_UPNESS, rej_upness, rej_upness_area, rej_up_moderate, GROUND_UPNESS, min_kept_upness);
-  // POLISH#11 PER-BLADE EDGE CLAMP: each blade judged by its OWN base (no block accept/reject).
-  // boundaryEdges = TRUE rim edges (rej_lip merge removed -> real platform shoulders are rims again;
-  // POLISH#10 had collapsed this from ~2107 to 1147, which is what let grass overflow shoulders).
-  // edgeDropped = sub-5 mm degenerate rim slivers; edgeClamped = near-rim blades the shader will
-  // horizontally clamp to the rim (full height, no overflow past the edge, no bald fringe).
-  lg::info(
-      "[recharged-grass] POLISH#11 PER-BLADE edge CLAMP: {} true-rim edges; {} degenerate rim slivers "
-      "dropped (<{:.3f} m); {} near-rim blades horizontally CLAMPED to the rim by the shader (full "
-      "height, no overflow, no bald fringe; interior blades untouched).",
-      boundary_edges, edge_dropped, DROP_EPS / U, edge_clamped);
-  // ROUND#13 OVERHANG-LIP EXCLUSION (TRANSITIVE): BASES are not placed on tilted grass-textured tris
-  // whose downhill CHAIN opens into void — the platform rim skirt that overhangs the drop, the true
-  // cause of the owner's persistent FLOATING grass. The POLISH#12 single-pass missed MULTI-SEGMENT
-  // skirts (distant TIE platforms), so the propagation is now transitive (up the skirt, stopped by a
-  // flat top). lipExcluded split tfrag/TIE proves the SAME exclusion now reaches the distant TIE
-  // platforms (owner #2); minPlacedUpness = the shallowest tri that STILL gets grass.
-  lg::info(
-      "[recharged-grass] ROUND#13 OVERHANG-LIP (transitive): {} lip tris base-excluded ({} TIE / {} "
-      "tfrag, {:.0f} m2, upness < {:.2f} AND downhill chain = void); minPlacedUpness {:.2f}. Bases stay "
-      "on the flat walkable top only -> grass ends exactly at the top rim on tfrag AND distant TIE "
-      "platforms, none floating past the platform silhouette into the void.",
-      lip_excluded, lip_excluded_tie, lip_excluded - lip_excluded_tie, lip_excluded_area, UPNESS_LIP_MAX,
-      min_placed_upness);
-  // POLISH#4 "still-missing platforms" diagnostic: any ground-ish texture we did NOT place on.
-  for (const auto& kv : unmatched_ground) {
-    lg::info("[recharged-grass] UNMATCHED ground-ish texture '{}' ({} draws) — not placed",
-             kv.first, kv.second);
-  }
+      "[recharged-grass] PLACE-TIME mode={} total={:.0f}ms (source={:.0f}ms expand+logs={:.0f}ms "
+      "upload+light={:.0f}ms) instances={}",
+      from_bake ? "precomputed" : "live", ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd),
+      ms(tExpandEnd, tC), m_instance_count);
 }
+
 
 // POLISH#9 (owner #1 priority): DYNAMIC GROUND baked-light. The old build sampled the baked light
 // ONCE inside rebuild() (frozen at level load) and stored a MEAN-CENTRED luma approximation, so the
@@ -1984,7 +789,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
 // ((palette/255)*2), so the grass darkens/brightens EXACTLY like the ground beneath it, per location
 // AND per time of day. Only the small u8 light column is re-uploaded; the big static field never moves.
 void GrassRenderer::update_light(SharedRenderState* rs) {
-  if (m_instance_count <= 0 || m_tri_light.empty() || (int)m_inst_tri.size() < m_instance_count) {
+  if (m_instance_count <= 0 || m_bake.tris.empty() || (int)m_inst_tri.size() < m_instance_count) {
     return;
   }
   // Current time-of-day interpolation weights (per keyframe, per channel) — exactly how
@@ -2026,8 +831,8 @@ void GrassRenderer::update_light(SharedRenderState* rs) {
   // Per-triangle baked colour at the CURRENT time (matches interp_time_of_day: sum(pal*w) >> 6,
   // saturate 255). If itimes is unpopulated (all-zero) fall back to neutral 128 -> factor ~1.0.
   const bool valid = wsum > 0;
-  std::vector<std::array<u8, 3>> tri_rgb(m_tri_light.size());
-  for (size_t j = 0; j < m_tri_light.size(); ++j) {
+  std::vector<std::array<u8, 3>> tri_rgb(m_bake.tris.size());
+  for (size_t j = 0; j < m_bake.tris.size(); ++j) {
     for (int ch = 0; ch < 3; ++ch) {
       if (!valid) {
         tri_rgb[j][ch] = 128;
@@ -2035,7 +840,7 @@ void GrassRenderer::update_light(SharedRenderState* rs) {
       }
       float acc = 0.f;
       for (int p = 0; p < 8; ++p) {
-        acc += m_tri_light[j].pal[p][ch] * (float)w[p][ch];
+        acc += m_bake.tris[j].pal[p][ch] * (float)w[p][ch];
       }
       int v = (int)acc >> 6;
       if (v > 255) v = 255;
@@ -2116,7 +921,8 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // Placement is otherwise camera-independent (whole-level, uniform), so walking NEVER
   // triggers a rebuild — that is the culling fix: no pop-in, no de-instancing while moving.
   if (m_cached_level != (const void*)ld->level.get() || m_cached_load_id != ld->load_id ||
-      m_cached_density != Gfx::g_global_settings.recharged_grass_density) {
+      m_cached_density != Gfx::g_global_settings.recharged_grass_density ||
+      m_cached_precomputed != Gfx::g_global_settings.recharged_grass_precomputed) {
     rebuild(rs);
   }
   if (m_instance_count <= 0) {
