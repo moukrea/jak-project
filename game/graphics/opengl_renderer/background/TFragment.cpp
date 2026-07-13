@@ -322,6 +322,20 @@ std::string TFragData::print() const {
 void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_kinds,
                             const LevelData* loader_data) {
   const auto* lev_data = loader_data->level.get();
+  // Grecharged-grass-overhang2: resolve the fringe alpha textures the near droop replaces. Training
+  // only — the recharged grass system is scoped to that level (GrassRenderer.cpp:572); the same bch-*
+  // textures elsewhere (e.g. Sentinel Beach, no droop) must keep their stock path.
+  m_fringe_tex_a = m_fringe_tex_b = -1;
+  if (lev_data->level_name == "training") {
+    for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
+      const auto& tn = lev_data->textures[ti].debug_name;
+      if (tn == "bch-grassfringe") {
+        m_fringe_tex_a = (s32)ti;
+      } else if (tn == "bch-leafyground-hang-2x1") {
+        m_fringe_tex_b = (s32)ti;
+      }
+    }
+  }
   discard_tree_cache();
   for (int geom = 0; geom < GEOM_MAX; ++geom) {
     m_cached_trees[geom].clear();
@@ -781,6 +795,25 @@ void TFragment::render_tree(int geom,
   BgDrawStateCache draw_state_cache;
   GLuint bound_tex = 0;
 
+  // Grecharged-grass-overhang2: per-draw fringe near-fade uniform. Set only on state CHANGES (draws
+  // are texture-sorted, so this is a couple of glUniform4f per frame) and ALWAYS left at 0 so other
+  // TFRAG3 users are untouched; 0 = stock shader path.
+  const GrassFringeFade fringe_fade = grass_fringe_fade_params();
+  GLint fringe_loc = -2;  // -2 = not queried yet
+  bool fringe_on_state = false;
+  auto set_fringe = [&](bool want) {
+    if (want == fringe_on_state) {
+      return;
+    }
+    if (fringe_loc == -2) {
+      fringe_loc = glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "u_fringe_fade");
+    }
+    if (fringe_loc >= 0) {
+      glUniform4f(fringe_loc, want ? 1.f : 0.f, fringe_fade.start_m, fringe_fade.end_m, 0.f);
+    }
+    fringe_on_state = want;
+  };
+
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merge consecutive draws that share texture+mode into one
     // glDrawElements. The single-draw index list packs draw ranges adjacently
@@ -810,6 +843,8 @@ void TFragment::render_tree(int geom,
       auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3,
                                                    bound_tex, draw_state_cache);
       glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
+      set_fringe(fringe_fade.on && draw.tree_tex_id >= 0 &&
+                 (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
 
       int first = singledraw_indices.first;
       int count = singledraw_indices.second;
@@ -877,6 +912,8 @@ void TFragment::render_tree(int geom,
     auto double_draw = setup_tfrag_shader_cached(render_state, draw.mode, ShaderId::TFRAG3,
                                                  bound_tex, draw_state_cache);
     glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
+    set_fringe(fringe_fade.on && draw.tree_tex_id >= 0 &&
+               (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
     tree.tris_this_frame += draw.num_triangles;
     tree.draws_this_frame++;
 
@@ -922,6 +959,8 @@ void TFragment::render_tree(int geom,
     }
   }
   }
+  // Grecharged-grass-overhang2: leave the fringe fade off for any subsequent TFRAG3 user.
+  set_fringe(false);
 #ifdef __ANDROID__
   // A42 probe tail: GL error state + an FBO readback where the village
   // should be (left third, mid height) right after this tree's draws.

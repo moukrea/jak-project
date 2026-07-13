@@ -65,6 +65,20 @@ void Tie3::init_shaders(ShaderLibrary& shaders) {
 void Tie3::load_from_fr3_data(const LevelData* loader_data) {
   auto ul = scoped_prof("update-load");
   const tfrag3::Level* lev_data = loader_data->level.get();
+  // Grecharged-grass-overhang2: resolve the fringe alpha textures the near droop replaces. Training
+  // only — the recharged grass system is scoped to that level (GrassRenderer.cpp:572); the same bch-*
+  // textures elsewhere (e.g. Sentinel Beach, no droop) must keep their stock path.
+  m_fringe_tex_a = m_fringe_tex_b = -1;
+  if (lev_data->level_name == "training") {
+    for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
+      const auto& tn = lev_data->textures[ti].debug_name;
+      if (tn == "bch-grassfringe") {
+        m_fringe_tex_a = (s32)ti;
+      } else if (tn == "bch-leafyground-hang-2x1") {
+        m_fringe_tex_b = (s32)ti;
+      }
+    }
+  }
   m_wind_vectors.clear();
 
   // We changed level! free opengl resources allocated for the previous
@@ -657,6 +671,26 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   BgDrawStateCache draw_state_cache;
   GLuint bound_tex = 0;
 
+  // Grecharged-grass-overhang2: per-draw fringe near-fade uniform. Non-envmap TFRAG3 only (the
+  // painted fringe strips are not envmapped); the envmap paths use ETIE_BASE and are left untouched.
+  // ALWAYS left at 0 so other TFRAG3 users are unaffected; 0 = stock shader path.
+  const GrassFringeFade fringe_fade = grass_fringe_fade_params();
+  const bool fringe_active = fringe_fade.on && !use_envmap;
+  GLint fringe_loc = -2;  // -2 = not queried yet
+  bool fringe_on_state = false;
+  auto set_fringe = [&](bool want) {
+    if (want == fringe_on_state) {
+      return;
+    }
+    if (fringe_loc == -2) {
+      fringe_loc = glGetUniformLocation(render_state->shaders[shader_id].id(), "u_fringe_fade");
+    }
+    if (fringe_loc >= 0) {
+      glUniform4f(fringe_loc, want ? 1.f : 0.f, fringe_fade.start_m, fringe_fade.end_m, 0.f);
+    }
+    fringe_on_state = want;
+  };
+
   int last_texture = -1;
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merge consecutive draws sharing texture+mode into one
@@ -689,6 +723,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
           setup_tfrag_shader_cached(render_state, draw.mode, shader_id2, bound_tex, draw_state_cache);
       glUniform1i(use_envmap ? m_etie_base_uniforms.decal : m_uniforms.decal,
                   draw.mode.get_decal() ? 1 : 0);
+      set_fringe(fringe_active && draw.tree_tex_id >= 0 &&
+                 (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
 
       int first = singledraw_indices.first;
       int count = singledraw_indices.second;
@@ -750,6 +786,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
 
     glUniform1i(use_envmap ? m_etie_base_uniforms.decal : m_uniforms.decal,
                 draw.mode.get_decal() ? 1 : 0);
+    set_fringe(fringe_active && draw.tree_tex_id >= 0 &&
+               (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
 
     prof.add_draw_call();
 
@@ -794,6 +832,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     }
   }
   }
+  // Grecharged-grass-overhang2: leave the fringe fade off for any subsequent TFRAG3 user.
+  set_fringe(false);
 
   if (!m_hide_wind && category == tfrag3::TieCategory::NORMAL) {
     auto wind_prof = prof.make_scoped_child("wind");

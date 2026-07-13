@@ -2,14 +2,30 @@
 
 #include "background_common.h"
 
+#include <algorithm>
 #include <unordered_map>
 
 #include "common/log/log.h"
 #include "common/util/os.h"
 #include "common/util/simd_util.h"
 
+#include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/pipelines/opengl.h"
+
+GrassFringeFade grass_fringe_fade_params() {
+  GrassFringeFade r;
+  if (!Gfx::g_global_settings.recharged_grass || !Gfx::g_global_settings.recharged_grass_overhang) {
+    return r;
+  }
+  // Mirror GrassRenderer's near-LOD clamp (GrassRenderer.cpp:990): the texture fades IN over the
+  // exact band the droop blades fade OUT in (blade alpha = 1 - smoothstep(0.55*near, near, d)).
+  float near_m = std::min(80.0f, std::max(8.0f, Gfx::g_global_settings.recharged_grass_near_dist));
+  r.on = true;
+  r.start_m = near_m * 0.55f;
+  r.end_m = near_m;
+  return r;
+}
 
 // Pure (zero GL calls) computation of the DoubleDraw settings and the
 // alpha_hack_to_disable_z_write flag from a DrawMode. This is exactly the

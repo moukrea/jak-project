@@ -135,6 +135,28 @@ constexpr float DROOP_RIM_NEAR_M = 2.5f;   // a FRINGE face must sit this close 
 constexpr float DROOP_UPNESS_DIR_MIN = 0.10f;  // below this the ny>=0 normal flip is float-noise, so
                                                // the outward direction falls back to the nearest rim
 
+// Grecharged-grass-overhang2 (owner ROUND-2 verdict 2026-07-13): the round-1 upright->droop switch
+// read BINARY ("pas progressif entre l'herbe droite et l'herbe d'overhang"). Fix: for every walkable
+// blade within TRANS_BAND_M of a rim that borders the droop zone, expand() emits a TWIN blade in the
+// droop TAIL whose yaw points OUTWARD (toward that rim) and whose nspare encodes a lean weight
+// (3 + w, w = 1 - rim_dist/band). The shader blends the twin from upright (w~0, faded in) to a
+// droop-lite arc (w=1 at the rim), complementing the LOCKED stock rim height-taper which shrinks the
+// upright blades over the same band. Tail placement => the overhang toggle stays draw-count-only and
+// OFF == stock.
+constexpr float TRANS_BAND_M = 0.45f;    // == the shader's RIM_TAPER band, so lean-in mirrors taper-out
+constexpr int TRANS_MAX = 60000;         // hard ceiling for the transition twins
+constexpr float DROOP_RIM_KEEP_M = 0.8f; // a rim segment within this (XZ) of a droop face = a droop rim
+constexpr float DROOP_RIM_YWIN_M = 2.5f; // ... with this much Y tolerance (lip faces drop below the rim)
+
+// Grecharged-grass-overhang2 (owner defect 1: the painted overhang alpha texture stayed visible under
+// the droop — "ça passe au travers"): the two painted hang-strip textures the NEAR droop replaces.
+// The tfrag/TIE renderers fade draws using these textures out near the camera while the overhang
+// toggle is ON (crossfaded over the droop blades' own fade band; far keeps the stock strip).
+// tra-grass is deliberately EXCLUDED — it textures walkable tops; fading it would hole the ground.
+inline bool is_fringe_hang_tex(const std::string& n) {
+  return n == "bch-grassfringe" || n == "bch-leafyground-hang-2x1";
+}
+
 // ---------------------------------------------------------------------------
 // Per-instance POD (moved from GrassRenderer.h). Layout MUST stay 16 floats in
 // the same order — the GL attrib offsets depend on it.
@@ -170,6 +192,13 @@ struct DroopTri {
   float ox, oz;    // unit outward XZ direction (world)
 };
 
+// Grecharged-grass-overhang2: a true-rim segment that borders the droop zone (world GOAL units).
+// expand() leans walkable-top blades progressively toward these (the upright->droop transition);
+// stored in the bake (GBK3) because precomputed mode's rim_q has only a DISTANCE, no direction.
+struct DroopRimSeg {
+  float ax, ay, az, bx, by, bz;
+};
+
 struct BakeStats {
   int considered_draws = 0, tie_draws = 0, tris_kept = 0, giant_tris = 0;
   float max_area = 0.f;
@@ -189,6 +218,7 @@ struct BakeData {
   std::vector<u8>  keep;          // per candidate: bit0 scatter_keep (floor+rim pass), bit1 occ_keep
   std::vector<u16> rim_q;         // per candidate: quantized rim_dist; 0xFFFF = NO_RIM/far
   std::vector<DroopTri> droop;    // Grecharged-grass-overhang: droop faces + outward dirs (GBK2)
+  std::vector<DroopRimSeg> droop_rims;  // Grecharged-grass-overhang2: droop-zone rim segments (GBK3)
   BakeStats stats;
 };
 
@@ -227,6 +257,9 @@ struct ExpandResult {
   // draws [0, droop_start) for the card pass always, and [0, droop_start or size) for the blade pass
   // depending on the overhang toggle — so flipping the toggle never needs a rebuild.
   int droop_start = 0;          // == instances.size() when there is no droop data
+  // Grecharged-grass-overhang2: the progressive upright->droop transition twins sit after the hang
+  // blades, still inside the toggle-gated tail. Census only — the draw split is droop_start.
+  int trans_start = 0;          // == instances.size() when there are no transition twins
 };
 ExpandResult expand(const BakeData& d, float density_slider_pct);
 

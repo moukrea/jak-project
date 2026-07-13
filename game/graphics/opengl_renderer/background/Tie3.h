@@ -183,6 +183,12 @@ class Tie3 : public BucketRenderer {
 
   EtieUniforms m_etie_uniforms, m_etie_base_uniforms;
   const std::vector<GLuint>* m_anim_slot_array;
+
+  // Grecharged-grass-overhang2: tree_tex_id values of the painted fringe alpha textures for the
+  // CURRENT level (training only); -1 = none. Draws with these textures get the near fade while
+  // the droop toggle is ON.
+  s32 m_fringe_tex_a = -1;
+  s32 m_fringe_tex_b = -1;
   static_assert(sizeof(WindWork) == 84 * 16);
 };
 
