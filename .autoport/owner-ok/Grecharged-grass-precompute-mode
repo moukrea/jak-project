@@ -3,3 +3,6 @@ A/B REAL: live 12.0-12.1s vs precomputed 84-114ms (~106x), instances 616381 vs 6
 lighting state byte-identical 9.5h+19.5h, day-cycle delta 61.2 >> P-vs-L 7.74. Frames p9_pre_12 == l9b_live_12 eyeballed.
 deploy_verify PASS (HEAD b6d0a3210 on eae4df44). grassbake in bundle (fr3/training.grassbake, version c951b1ef4d682).
 Owner playtest deferred to HONOR download per standing order.
+OWNER VALIDATED 2026-07-13 (verbatim): "Ok visiblement le pre-computed ça change rien à la perf in-game,
+c'est juste plus rapide au chargement... C'est déjà pas mal, rien n'est cassé on valide !"
+Note: in-game fps parity is BY DESIGN (shared runtime path; the bake removes the at-load scan only).
