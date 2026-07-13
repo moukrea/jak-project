@@ -70,3 +70,25 @@ ALWAYS force-stop the game (`adb -s eae4df44 shell am force-stop org.opengoal.gk
 moment a device test window ends. A left-running app overheats the Redmi for hours -> can
 reboot it -> PIN lockout -> pipeline stranded until the owner is physically there. Never leave
 the app foregrounded after a capture/verify.
+
+## OWNER REDIRECT (2026-07-13 16:10, verbatim — MANDATORY, current method is VOID)
+"Bon tu trouves ou tu te touches en chargeant des niveaux de façon random ? Il y a pas de cinématique
+sur le chargement de niveau, donc si tu trouves pas dans le code les trucs qui trigger des cinématiques
+contextuelles et trouve un moyen de les reproduire in game pour voir si elles se déclenchent bien...
+Bah tu travailles dans le vide et ça sert à rien !"
+
+=> STOP the warp-to-level-start A/B loops (33+ runs, 0 information: nothing contextual fires at level
+load, so "fired 6/6" proves nothing about the bug). REQUIRED method instead:
+1. CODE-FIRST census (autoport-researcher): enumerate in goal_src/jak1 the actual trigger mechanisms
+   for contextual mini-cutscenes / platform activations / enemy wake-ups — e.g. (process-entity-status!
+   / task-control closures, nav-enemy notice/aware gates, trigger volumes (bsphere/plane checks),
+   `hint` / `scene-player` spawns, (send-event ... 'trigger), camera-tracker, training-obs-style
+   proximity states. Produce a concrete list: actor type, level, trigger condition, code location.
+2. Pick 3-5 REPRODUCIBLE in-game triggers from that list (reachable in <60s of scripted cpad nav from
+   a warp point — e.g. beach pelican/sculptor beats, jungle lurker ambush, misty bone-bridge zoomer
+   beat, snowfort gate) and drive Jak INTO the trigger condition (cpad_inject nav + level.warp.pos),
+   NOT just boot the level. Verify state transitions via per-actor state dumps (the analysis harness
+   already samples actor states) on BOTH arms if an A/B is still warranted.
+3. The failure is INTERMITTENT: a trigger firing once proves nothing. If no miss reproduces after
+   genuine in-trigger attempts, instrument the dispatcher paths (send-event/state-enter logging behind
+   a debug prop) so the OWNER's next real-world miss is capturable, and report honestly.
