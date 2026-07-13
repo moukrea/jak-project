@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 198,
+  "current_phase_idx": 199,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -192,7 +192,8 @@
     "Grecharged-grass-overhang": 1,
     "Grecharged-grass-object-clip": 3,
     "Grecharged-grass-overhang2": 1,
-    "Grecharged-grass-wear": 2
+    "Grecharged-grass-wear": 2,
+    "Grecharged-grass-overhang3": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -577,7 +578,8 @@
     "Gjak1-intermittent-events",
     "Grecharged-grass-overhang",
     "Grecharged-grass-object-clip",
-    "Grecharged-grass-overhang2"
+    "Grecharged-grass-overhang2",
+    "Grecharged-grass-wear"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -756,9 +758,10 @@
     "Grecharged-grass-overhang": 1783957713.7790453,
     "Grecharged-grass-object-clip": 1783963015.3671527,
     "Grecharged-grass-overhang2": 1783965566.1191852,
-    "Grecharged-grass-wear": 1783970780.638983
+    "Grecharged-grass-wear": 1783970780.638983,
+    "Grecharged-grass-overhang3": 1783971742.5721552
   },
-  "last_update": "2026-07-13T19:39:50.822275+00:00",
+  "last_update": "2026-07-13T19:46:16.689620+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
