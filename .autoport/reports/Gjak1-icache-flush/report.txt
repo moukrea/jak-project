@@ -1,0 +1,39 @@
+RESULT: JAK1 ICACHE FLUSH landed+no-regression
+
+Phase Gjak1-icache-flush — port arm64 bug class #14 (stale-icache CacheFlush no-op) to jak1.
+Owner 2026-07-09: latent-correctness fix, NO boot-flake gate (no 20-boot requirement).
+
+## The fix (game/kernel/jak1/klink.cpp, jak1_finish)
+Root cause identical to jak2 (98ef5f669): link_control::jak1_jak2_begin (common/klink.cpp:1197)
+sets m_code_size = 0 on the opengoal v3 path and never assigns it ("todo, set m_code_size"
+at common/klink.cpp:1228), so jak1_finish's CacheFlush(m_code_start.c(), m_code_size) was
+CacheFlush(base, 0) — a no-op. The v3 TOP_LEVEL segment is re-allocated at the SAME reused
+KMALLOC_TOP address for consecutive objects and executed immediately after being rewritten,
+so the arm64 icache could serve a stale mix of the PREVIOUS object's instructions.
+Fix = exact jak2_finish pattern: real-range CacheFlush over code_infos[MAIN, TOP_LEVEL,
+DEBUG] (offset&&size guarded) for v3 objects, CacheFlush(m_object_data, m_code_size) for
+v2/v4. On arm64 builds CacheFlush is __builtin___clear_cache(mem, mem+size)
+(android/android_runtime_compat.cpp:388, game/linux-arm64 + game/android-arm64 compat TUs);
+the x86 CacheFlush body (kmachine.cpp:127) is a no-op, so the x86 path is unchanged.
+Engine goal_src untouched; assets untouched (C++-only fix, no codegen change).
+
+## x86 smoke (no regression on the OFF/x86 no-op path)
+Rebuilt build/game/gk; standard desktop boot smoke (A20 recipe):
+  timeout 60 build/game/gk --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data out/jak1/iso -- -boot -debug-mem
+Reached "link finish: logo" (x86 smoke PASS); 445 total link-finish lines; boot continued past logo into logo-intro-2 + OVERLORD VAG streaming.
+Log: .autoport/reports/Gjak1-icache-flush/x86-smoke.log
+
+## Device smoke (eae4df44, full consistent build — boot + short gameplay, NO regression)
+- Native rebuild: cmake --build build-android --target gk (klink.cpp.o recompiled, libgk.so relinked), then gradlew assembleJak1Debug, keep-app install.
+- deploy_verify.sh eae4df44 jak1: PASS (chain build==APK==device sha ef21f2e7fc3345f2, fresh HEAD libgk.so).
+- deploy_verify_assets.sh eae4df44 jak1: PASS (28/28 arm64 CGO/DGO byte-identical to out/jak1-arm64-full/iso; assets unchanged by this fix).
+- Device boot reached title ("link finish: logo" in logcat; 526 link-finish lines over the window).
+- Gameplay smoke: warp continue village2-dock -> LEVEL-WARP-SPAWN name=village2-dock target=#x1c7714; F1D target-pos telemetry alive f=15 ... f=3705 (~2 min of live gameplay loop, master-mode=game).
+- Crash grep (Fatal signal|signal (11|6|4)|GK-DIAG sig=(4|6|11)|stack): EMPTY over the whole window.
+- Foreground check during window: mCurrentFocus=org.opengoal.gk.jak1/org.opengoal.gk.MainActivity.
+- Hygiene: app force-stopped at end (focus back on com.miui.home launcher, re-verified by the manager).
+Log: .autoport/reports/Gjak1-icache-flush/device-smoke-logcat.log
+
+## Scope
+- Files changed: game/kernel/jak1/klink.cpp only (jak1_finish flush block). No goal_src, no gold, no assets.
+- x86 CacheFlush remains a no-op -> x86 behavior unchanged (proven by the boot smoke above).
