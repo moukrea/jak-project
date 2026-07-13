@@ -46,6 +46,8 @@
 #include <cstring>
 #include <mutex>  // supervisor-diag: jak2 breadcrumb serialization
 #include <string>
+#include <unordered_map>  // Gjak1-intermittent-events: EVTRIAL mode-2 transition map
+#include <unordered_set>
 
 #include "common/versions/versions.h"
 
@@ -3648,9 +3650,32 @@ extern "C" void a36_tree_scan_per_frame() {
     // the logcat whether a named actor moved / changed state across a trial.
     {
       char ev_pb[PROP_VALUE_MAX] = {0};
-      const bool ev_on = __system_property_get("debug.opengoal.evtrial", ev_pb) > 0 &&
-                         ev_pb[0] == '1' && (f % 60) == 0;
-      if (ev_on) {
+      int ev_mode = 0;
+      if (__system_property_get("debug.opengoal.evtrial", ev_pb) > 0) {
+        if (ev_pb[0] == '1')
+          ev_mode = 1;
+        else if (ev_pb[0] == '2')
+          ev_mode = 2;
+        else
+          ev_mode = 0;
+      }
+      const bool ev_sample = ev_mode >= 1 && (f % 60) == 0;
+      const bool ev_trans = ev_mode == 2;
+      // Function-local transition state (mode 2): last-seen (type<<32 | state)
+      // per node address, the set of nodes seen this frame, and a re-arm latch.
+      static std::unordered_map<uint32_t, uint64_t> s_ev_last;
+      static std::unordered_set<uint32_t> s_ev_live;
+      static bool s_ev_prev_on = false;
+      if (ev_sample || ev_trans) {
+        // Re-arming (mode 2 turned off then on) starts fresh so the first frame
+        // back doesn't spam TRANS for every stale entry.
+        if (!ev_trans && s_ev_prev_on) {
+          s_ev_last.clear();
+        }
+        s_ev_prev_on = ev_trans;
+        s_ev_live.clear();
+        int ev_trans_logged = 0;
+        int ev_trans_dropped = 0;
         char ev_filter[PROP_VALUE_MAX] = {0};
         __system_property_get("debug.opengoal.evtrial.filter", ev_filter);
         const bool have_filter = ev_filter[0] != 0;
@@ -3726,7 +3751,55 @@ extern "C" void a36_tree_scan_per_frame() {
                   }
                 }
               }
-              if (match) {
+              // Mode-2 transition detection: tracking is GLOBAL (every stateful
+              // node updates the map), but SPAWN/TRANS logging honors the same
+              // filter as sampling (only log when `match`).
+              if (ev_trans && has_state) {
+                s_ev_live.insert(node);
+                const uint64_t cur =
+                    ((uint64_t)type_sym << 32) | (uint64_t)st_name;
+                auto it = s_ev_last.find(node);
+                bool do_spawn = false;
+                bool do_trans = false;
+                char old_sname[32] = {0};
+                if (it == s_ev_last.end()) {
+                  do_spawn = true;  // never seen this address
+                } else if (it->second != cur) {
+                  const uint32_t old_type = (uint32_t)(it->second >> 32);
+                  const uint32_t old_st = (uint32_t)(it->second & 0xffffffffu);
+                  if (old_type != type_sym) {
+                    do_spawn = true;  // slot reuse (different type at same addr)
+                  } else {
+                    do_trans = true;  // same type, state name changed
+                    if (old_st) {
+                      gk_a40_sym_name_fwd((uintptr_t)g_ee_main_mem, old_st,
+                                          old_sname, sizeof(old_sname));
+                    }
+                  }
+                }
+                s_ev_last[node] = cur;
+                if ((do_spawn || do_trans) && match) {
+                  if (ev_trans_logged < 64) {
+                    ev_trans_logged++;
+                    if (do_spawn) {
+                      __android_log_print(
+                          ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG EVTRIAL-SPAWN f=%llu proc='%s' type='%s' "
+                          "state='%s'",
+                          (unsigned long long)f, pname, tname, sname);
+                    } else {
+                      __android_log_print(
+                          ANDROID_LOG_FATAL, kGkLogTag,
+                          "GK-DIAG EVTRIAL-TRANS f=%llu proc='%s' type='%s' "
+                          "state '%s'->'%s'",
+                          (unsigned long long)f, pname, tname, old_sname, sname);
+                    }
+                  } else {
+                    ev_trans_dropped++;
+                  }
+                }
+              }
+              if (ev_sample && match) {
                 matched++;
                 // process-drawable.root @ deftype 112; trs.trans @ deftype 16.
                 uint32_t droot = 0;
