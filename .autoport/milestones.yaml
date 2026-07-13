@@ -1950,6 +1950,7 @@ phases:
   max_retries: 4
   device: false
   owner_verify: true
+  no_code: true
 - id: Gjak1-shadow-cast
   name: 'PORT PARITY (owner 2026-07-12, right after the grass backlog items): Jak casts NO shadow on Android while the original
     PC build does — longstanding unnoticed bug. jak1 HAS the shadow system (engine/gfx/shadow/shadow-cpu.gc + shadow-vu1.gc,
