@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 196,
+  "current_phase_idx": 197,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -190,7 +190,8 @@
     "Gjak1-icache-flush": 1,
     "Gjak1-intermittent-events": 3,
     "Grecharged-grass-overhang": 1,
-    "Grecharged-grass-object-clip": 3
+    "Grecharged-grass-object-clip": 3,
+    "Grecharged-grass-overhang2": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -570,7 +571,8 @@
     "Grecharged-grass-precompute-mode",
     "Gjak1-icache-flush",
     "Gjak1-intermittent-events",
-    "Grecharged-grass-overhang"
+    "Grecharged-grass-overhang",
+    "Grecharged-grass-object-clip"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -747,9 +749,10 @@
     "Gjak1-icache-flush": 1783944437.3989332,
     "Gjak1-intermittent-events": 1783945325.6558416,
     "Grecharged-grass-overhang": 1783957713.7790453,
-    "Grecharged-grass-object-clip": 1783963015.3671527
+    "Grecharged-grass-object-clip": 1783963015.3671527,
+    "Grecharged-grass-overhang2": 1783965566.1191852
   },
-  "last_update": "2026-07-13T17:55:30.054385+00:00",
+  "last_update": "2026-07-13T19:22:54.151357+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -807,7 +810,8 @@
     "Grecharged-grass-precompute-mode",
     "Gjak1-intermittent-events",
     "Grecharged-grass-overhang",
-    "Grecharged-grass-object-clip"
+    "Grecharged-grass-object-clip",
+    "Grecharged-grass-overhang2"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
