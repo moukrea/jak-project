@@ -115,6 +115,18 @@ void main() {
   // units). ~1e9 for interior blades -> the edge clamp at the end of main() never triggers for them.
   float rim_dist = inst_gcol.w;
 
+  // Grecharged-grass-overhang: nspare (inst_normal.w) == 2 marks a DROOP instance — 3D grass placed
+  // on the overhang lip/fringe faces, draping DOWN over the platform edge to cover the game's painted
+  // alpha overhang texture. Droop renders in the NEAR blade pass only: the card pass collapses it
+  // (owner: at distance the ORIGINAL texture shows, no grass cards). Its gspare is NO_RIM, so the
+  // rim height-taper and the POLISH#11 horizontal clamp never touch it (it is the intended overhang).
+  bool is_droop = inst_normal.w > 1.5;
+  if (is_droop && u_mode == 1) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_color = vec3(0.0); v_alpha = 0.0; v_uv = vec2(0.0); v_is_card = 1; v_seed = 0.0;
+    return;
+  }
+
   // ROUND#14 DISCRIMINATOR: cull passes per debug mode so each tier can be viewed alone at a rim.
   //   u_debug 0 = normal; 1 = bases-only magenta stubs (blades only); 2 = blades only (cyan);
   //   3 = cards only (yellow). Modes 1 & 2 cull the card pass; mode 3 culls the blade pass.
@@ -200,7 +212,9 @@ void main() {
 #define OC_STEP(i) if (i < u_occ_count) { vec2 od = base.xz - u_occ[i].xz; float yd = base.y - u_occ[i].y; if (dot(od, od) < u_occ[i].w * u_occ[i].w && yd > -1.2 * 4096.0 && yd < 1.0 * 4096.0) { occ_cull = true; } }
   OC_STEP(0) OC_STEP(1) OC_STEP(2) OC_STEP(3) OC_STEP(4) OC_STEP(5) OC_STEP(6) OC_STEP(7)
 #undef OC_STEP
-  if (occ_cull) {
+  // (droop blades hang on the lip faces past the walkable edge — object culls/tramples are a
+  // walkable-top concern and must not collapse or bend them, so droop skips both.)
+  if (occ_cull && !is_droop) {
     if (u_debug == 4) {
       dbg_occ = 1.0;  // forensic: mark, don't collapse
     } else {
@@ -331,12 +345,29 @@ void main() {
     // (pure multiply-adds) renders the same 30%-blend look without the wedge.
     float grow_h = t * H * heightMul * rim_h * nearf;  // ROUND#14 rim taper + trample (+ lens near-fade)
 
+    if (is_droop) {
+      // Grecharged-grass-overhang DROOP blade: emerges from the lip face, reaches OUTWARD over the
+      // drop (fwdv = the scan-resolved outward direction, encoded in yaw) and arcs DOWNWARD below
+      // its base — gravity-biased, covering the painted alpha fringe strip. H here is the droop
+      // LENGTH (scaled to the face's vertical span at placement). No trample/occ/rim influence (it
+      // is the intended overhang); the Adreno near-fill fade (nearf, in hw) is kept. Gentle pendulum
+      // sway instead of the upright gust lean.
+      float arc = 0.75 + 0.5 * curve;                            // per-blade droop strength
+      float dhoriz = (0.62 - 0.20 * t) * t * H;                  // outward reach, decelerating
+      float dvert = (0.24 * t - (0.90 + 0.35 * arc) * t * t) * H;  // slight rise, then droop below base
+      float dsway = sin(gust * 0.8) * t * t * 0.08 * H;          // lateral pendulum sway
+      pos = base
+          + rightv * ((float(side) * 2.0 - 1.0) * hw + dsway)
+          + fwdv * (dhoriz + sin(gust) * t * t * 0.04 * H)
+          + vec3(0.0, dvert * nearf, 0.0);
+    } else {
     pos = base
         + rightv * ((float(side) * 2.0 - 1.0) * hw)
         + vec3(0.0, grow_h, 0.0)                   // world-up growth (u_tilt=0 path, bit-identical)
         + vec3(inst_normal.x, 0.0, inst_normal.z) * (grow_h * u_tilt)  // ROUND#19: lean toward the normal
         + fwdv * fwd_amt
         + trample * t * rim_h;
+    }
     t_col = t;
     v_uv = vec2(0.0);
     v_is_card = 0;

@@ -563,6 +563,13 @@ void pc_set_recharged_grass(u32 on) {
   Gfx::g_global_settings.recharged_grass = (on != 0);
 }
 
+// Grecharged-grass-overhang: push the "grass overhang" on/off toggle from GOAL
+// (-> *pc-settings* recharged-grass-overhang?). 0 = off (walkable-top grass only, stock
+// alpha overhang texture at every distance).
+void pc_set_grass_overhang(u32 on) {
+  Gfx::g_global_settings.recharged_grass_overhang = (on != 0);
+}
+
 // Grecharged-grass-poc: push Jak's world position (a GOAL vector, xyzw) each frame
 // so the grass renderer can flatten blades where the player walks. w := 1.0 marks
 // the value valid (GOAL only calls this while *target* exists).
@@ -690,6 +697,8 @@ void InitMachine_PCPort() {
 
   // Grecharged-grass-poc bridges (jak1 only)
   make_function_symbol_from_c("pc-set-recharged-grass!", (void*)pc_set_recharged_grass);
+  // Grecharged-grass-overhang: 3D drooping edge-grass toggle
+  make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);
   make_function_symbol_from_c("pc-set-jak-pos!", (void*)pc_set_jak_pos);
   // POLISH#4: adjustable grass view-distances + ledge-grab trample point
   make_function_symbol_from_c("pc-set-grass-dists!", (void*)pc_set_grass_dists);

@@ -85,6 +85,7 @@
    (recharged-grass-card-dist float) ;; Grecharged-grass-poc POLISH#4: grass-card view distance (m), slider-adjustable
    (recharged-grass-density   float) ;; Grecharged-grass-poc POLISH#5: grass density percent (100 = base), slider-adjustable
    (recharged-grass-precomputed? symbol) ;; Grecharged-grass-precompute-mode: PRECOMPUTED (baked day-cycle tables) vs LIVE (full at-load scan). Same placement/fidelity; precomputed loads instantly.
+   (recharged-grass-overhang? symbol) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
    (scenes-seen         uint8 PC_SPOOL_LOG_LENGTH) ;; cutscenes that have been seen, by spool-anim (maybe use 8-char name or bits instead?)
    (memcard-play-hints? symbol)
@@ -101,6 +102,8 @@
 ;; per-frame push (the update-to-os override) lives in hud-classes-pc.gc: this file
 ;; compiles BEFORE target-h, so *target* is not yet visible here.
 (define-extern pc-set-recharged-grass! (function int none))
+;; Grecharged-grass-overhang: pushes the 3D drooping edge-grass toggle to the renderer.
+(define-extern pc-set-grass-overhang! (function int none))
 (define-extern pc-set-jak-pos! (function vector none))
 (define-extern pc-grass-tramp-break! (function vector none)) ;; R28: instant grass-trample cancel at a breakable's break frame
 ;; Grecharged-grass-poc POLISH#4: push the two adjustable grass view-distances (a vector: x=near m, y=card m)
@@ -175,6 +178,7 @@
   (set! (-> obj recharged-grass-card-dist) 95.0) ;; POLISH#4 default grass-card view distance (m; pushed further)
   (set! (-> obj recharged-grass-density) 150.0) ;; POLISH#5 default grass density percent (100 = base budget; owner wants denser)
   (set! (-> obj recharged-grass-precomputed?) #t) ;; precomputed preferred; renderer falls back to LIVE when no bake exists
+  (set! (-> obj recharged-grass-overhang?) #t) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
   ;; original settings, minus 25 to be a bit more conservative
   (set! (-> obj memcard-volume-sfx) 50.0)
   (set! (-> obj memcard-volume-music) 40.0)

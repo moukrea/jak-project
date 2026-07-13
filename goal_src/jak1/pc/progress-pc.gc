@@ -787,8 +787,8 @@
 ;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
 ;; Settings submenu. Holds ALL grass settings on their own page (owner wanted a sub-submenu so they show
 ;; reliably): the RECHARGED GRASS on-off toggle, the near-blade + card view-distance sliders, and the
-;; density slider, the GRASS MODE toggle, then Back (6 rows, under PROGRESS_PC_PAGE_HEIGHT (7) so all
-;; show — no length machinery).
+;; density slider, the GRASS MODE toggle, the GRASS OVERHANG toggle, then Back (7 rows, ==
+;; PROGRESS_PC_PAGE_HEIGHT (7) so all show — the scroll machinery only engages when length > 7).
 ;; Values/labels are wired at runtime in init-game-options; on-change persists to *pc-settings*.
 (define *grass-options-pc*
   (new 'static
@@ -831,7 +831,14 @@
               (set! (-> *pc-settings* recharged-grass-precomputed?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 5 Back
+       ;; 5 GRASS OVERHANG: 3D drooping grass over platform edges (near); far keeps the stock alpha texture
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* recharged-grass-overhang?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 6 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t)))
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
@@ -897,6 +904,11 @@
 ;; shown via name-override, like *recharged-grass-label* (not re-formatted).
 (define *grass-mode-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *grass-mode-label*) "PRECOMPUTED GRASS")
+;; Grecharged-grass-overhang: label for the "GRASS OVERHANG" on-off toggle (ON = 3D drooping edge grass
+;; over platform edges, near LOD only / OFF = stock alpha texture). English-only, uppercase ASCII for the
+;; menu font; shown via name-override, like *grass-mode-label* (not re-formatted).
+(define *grass-overhang-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *grass-overhang-label*) "GRASS OVERHANG")
 ;; Grecharged-grass-poc POLISH#6: label for the "GRASS SETTINGS" nested sub-submenu launcher row inside
 ;; the Recharged Settings submenu (English-only, uppercase ASCII for the menu font; shown via
 ;; name-override on the menu row — like *recharged-settings-label*, never re-formatted).
@@ -2964,6 +2976,9 @@
   ;; Grecharged-grass-precompute-mode: row 4 = GRASS MODE toggle (ON = PRECOMPUTED / OFF = LIVE).
   (set! (-> *grass-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-grass-precomputed?))
   (set! (-> *grass-options-pc* 4 name-override) *grass-mode-label*)
+  ;; Grecharged-grass-overhang: row 5 GRASS OVERHANG on-off toggle
+  (set! (-> *grass-options-pc* 5 value-to-modify) (&-> *pc-settings* recharged-grass-overhang?))
+  (set! (-> *grass-options-pc* 5 name-override) *grass-overhang-label*)
   (apply-dynamic-rs-menu-mode!)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))

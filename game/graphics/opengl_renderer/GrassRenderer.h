@@ -49,6 +49,10 @@ class GrassRenderer {
 
   std::vector<grass_bake::GrassInstance> m_instances;
   int m_instance_count = 0;
+  // Grecharged-grass-overhang: droop instances live at the TAIL of m_instances ([m_droop_start,
+  // m_instance_count)). Blade pass draws through them only while the overhang toggle is ON; the
+  // card pass always stops at m_droop_start (far LOD = the stock alpha texture, never cards).
+  int m_droop_start = 0;
 
   // POLISH#9 dynamic ground baked-light source. Per KEPT triangle we keep its centroid's 8
   // time-of-day palette rows (pal[keyframe][channel], 0..255); update_light() blends them with the

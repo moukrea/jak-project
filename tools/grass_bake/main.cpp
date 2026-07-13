@@ -176,6 +176,28 @@ int main(int argc, char** argv) {
              "occ_culled={}\n",
              density, (u64)eBake.instances.size(), eBake.scatter_kept, eBake.occ_culled);
   fmt::print("[grass_bake] wrote '{}' ({} bytes compressed)\n", out_path, out_size);
+
+  // Grecharged-grass-overhang: round-trip self-check — load the written bake back and prove the
+  // expanded field (walkable + droop tail) is byte-identical to the in-memory scan's expansion.
+  {
+    grass_bake::BakeData rt;
+    if (!grass_bake::load_bake(rt, out_path)) {
+      fmt::print("error: round-trip load_bake failed on '{}'\n", out_path);
+      return 1;
+    }
+    auto rtE = grass_bake::expand(rt, 150.0f);
+    bool same = rtE.instances.size() == e150.instances.size() &&
+                rtE.droop_start == e150.droop_start &&
+                (rtE.instances.empty() ||
+                 std::memcmp(rtE.instances.data(), e150.instances.data(),
+                             rtE.instances.size() * sizeof(grass_bake::GrassInstance)) == 0);
+    fmt::print("[grass_bake] round-trip @150: {} (instances={} droop_start={} droop_tris={})\n",
+               same ? "IDENTICAL" : "MISMATCH", (u64)rtE.instances.size(), rtE.droop_start,
+               (u64)rt.droop.size());
+    if (!same) {
+      return 1;
+    }
+  }
   fmt::print("[grass_bake] DONE.\n");
   return 0;
 }
