@@ -101,6 +101,7 @@
 ;; compiles BEFORE target-h, so *target* is not yet visible here.
 (define-extern pc-set-recharged-grass! (function int none))
 (define-extern pc-set-jak-pos! (function vector none))
+(define-extern pc-grass-tramp-break! (function vector none)) ;; R28: instant grass-trample cancel at a breakable's break frame
 ;; Grecharged-grass-poc POLISH#4: push the two adjustable grass view-distances (a vector: x=near m, y=card m)
 ;; and Jak's ledge-grab point for the ledge-parting trample.
 (define-extern pc-set-grass-dists! (function vector none))

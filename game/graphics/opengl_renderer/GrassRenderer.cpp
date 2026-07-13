@@ -358,6 +358,18 @@ void goal_add(int kind, float x, float y, float z, float r_world) {
     v.push_back({x, y, z, r_world});
   }
 }
+// R28 (owner directive, literal: "trouve le moment où il est cassé et cancel le trample"): called
+// from the scarecrow's break path at the EXACT clear-collide frame. Kills any trample ghost within
+// 1.2 m instantly (strength -> 0, entry gone next frame) and tombstones the spot for 8 s so nothing
+// in the debris window can re-flatten it. No-ops when grass is off.
+static std::vector<std::array<float, 3>> s_break_kills;
+void goal_break_at(float x, float y, float z) {
+  std::lock_guard<std::mutex> lk(s_goal_mutex);
+  if (s_break_kills.size() < 16) {
+    s_break_kills.push_back({x, y, z});
+  }
+}
+
 void goal_publish() {
   // R24b ENFORCED static-stability (owner: the moving bald circle must be impossible BY CONSTRUCTION,
   // not just unlikely): a kind-0 CULL entry is a static machine — if an entry's position moved > 0.3 m
@@ -570,6 +582,27 @@ void publish(float dt) {
       }
     }
     g_tramp_building.swap(filt);
+  }
+  // R28: consume break-kill events — erase matching ghosts NOW + tombstone their spots.
+  {
+    std::vector<std::array<float, 3>> kills;
+    {
+      std::lock_guard<std::mutex> lk(s_goal_mutex);
+      kills.swap(s_break_kills);
+    }
+    for (const auto& k : kills) {
+      s_tombs.push_back({k[0], k[2], tnow});
+      for (auto it = s_tramp_state.begin(); it != s_tramp_state.end();) {
+        float dx = it->e[0] - k[0], dz = it->e[2] - k[2];
+        if (dx * dx + dz * dz < (1.2f * 4096.f) * (1.2f * 4096.f)) {
+          it = s_tramp_state.erase(it);
+        } else {
+          ++it;
+        }
+      }
+      lg::info("[recharged-grass] R28 BREAK-KILL at ({:.1f},{:.1f},{:.1f}) — ghost erased, spot tombstoned",
+               k[0] / 4096.f, k[1] / 4096.f, k[2] / 4096.f);
+    }
   }
   for (const auto& e : g_tramp_building) {
     TrampGhost* hit = nullptr;

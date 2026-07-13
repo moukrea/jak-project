@@ -37,5 +37,6 @@ void publish(float dt);  // grass -> swap CULL, ease TRAMPLE strengths (dt = sec
 // the snapshot loses it on the next scan -> the eased spring-back plays). kind: 0 = CULL, 1 = TRAMPLE.
 void goal_clear();                                            // game thread: reset the stage
 void goal_add(int kind, float x, float y, float z, float r_world);  // game thread: stage one actor
-void goal_publish();                                          // game thread: stage -> snapshot (locked)
+void goal_publish();
+void goal_break_at(float x, float y, float z);  // R28: instant trample cancel at a break spot                                          // game thread: stage -> snapshot (locked)
 }  // namespace grass_occ
