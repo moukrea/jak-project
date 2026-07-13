@@ -170,6 +170,11 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
   // shoulder edge is shared with a rejected lip is treated as INTERIOR (grass fills to the shoulder),
   // not a false BOUNDARY that would leave a bald fringe short of the real platform rim.
   std::vector<std::array<float, 9>> rej_lip_verts;
+  // Grecharged-grass-overhang: the steep grass-textured FRINGE faces (upness <= GROUND_UPNESS) are
+  // now RETAINED in their own list — they are the faces carrying the game's painted drooping-grass
+  // alpha texture, i.e. the droop placement zone. Kept OUT of `tris` so the walkable pass (topology,
+  // density, budget, keep tables) is byte-identical to before; appended to the bake at the tail.
+  std::vector<TriRec> fringe_recs;
 
   // Grecharged-grass-precompute-mode: the itimes-based CURRENT-TIME sampling is gone (no
   // SharedRenderState here). We ALWAYS take the itimes_valid=false path (the 8-palette average
@@ -381,6 +386,41 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
           // treat the kept top triangle's shared shoulder edge as a rim (avoids a bald fringe there).
           rej_lip_verts.push_back(
               {p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z});
+          // Grecharged-grass-overhang: retain the FRINGE face for the droop pass (same field fill as
+          // a kept tri, but into fringe_recs — the walkable accumulators/topology are untouched).
+          {
+            TriRec fr;
+            fr.p0x = p0.x; fr.p0y = p0.y; fr.p0z = p0.z;
+            fr.e1x = e1x; fr.e1y = e1y; fr.e1z = e1z;
+            fr.e2x = e2x; fr.e2y = e2y; fr.e2z = e2z;
+            fr.area_m2 = area_m2;
+            fr.upness = upness;
+            {
+              float inv_nlen = 1.0f / nlen;
+              float fnx = nx * inv_nlen, fny = ny * inv_nlen, fnz = nz * inv_nlen;
+              if (fny < 0.f) { fnx = -fnx; fny = -fny; fnz = -fnz; }
+              fr.nx = fnx; fr.ny = fny; fr.nz = fnz;
+            }
+            fr.is_lip = false;
+            fr.is_tie = is_tie;
+            fr.is_dup = false;
+            fr.gr = gcr; fr.gg = gcg; fr.gb = gcb;
+            fr.raw_baked = (vlum(a) + vlum(b) + vlum(ci)) * (1.0f / 3.0f);
+            fr.seed = (begin ^ (a * 2654435761u) ^ (ci * 40503u) ^ (is_tie ? 0x9e3779b9u : 0u));
+            fr.nlen = nlen;
+            fr.lenAB = std::sqrt(e1x * e1x + e1y * e1y + e1z * e1z);
+            fr.lenCA = std::sqrt(e2x * e2x + e2y * e2y + e2z * e2z);
+            float bcx = e2x - e1x, bcy = e2y - e1y, bcz = e2z - e1z;
+            fr.lenBC = std::sqrt(bcx * bcx + bcy * bcy + bcz * bcz);
+            fr.bAB = fr.bBC = fr.bCA = false;
+            for (int p = 0; p < 8; ++p) {
+              for (int ch = 0; ch < 3; ++ch) {
+                fr.pal[p][ch] =
+                    (pentry(a, p, ch) + pentry(b, p, ch) + pentry(ci, p, ch)) * (1.0f / 3.0f);
+              }
+            }
+            fringe_recs.push_back(fr);
+          }
           return;
         }
         min_kept_upness = std::min(min_kept_upness, upness);
@@ -1009,6 +1049,112 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
     bake_tris.push_back(bt);
   }
 
+  // ---- Grecharged-grass-overhang: droop-candidate table (lip tris + appended fringe tris). ----
+  // The droop zone = the faces the walkable pass EXCLUDES: the overhang-lip tris (is_lip) and the
+  // steep grass-textured fringe faces (fringe_recs — the game's painted drooping-grass alpha strip).
+  // Per face we resolve the OUTWARD direction (unit XZ pointing over the drop):
+  //   primary  = the horizontal component of the ny>=0 face normal (the downhill direction — for an
+  //              overhang face that is outward; flip-invariant, so the winding ambiguity is moot);
+  //   fallback = centroid minus the nearest true-rim point (for near-vertical faces, upness < 0.10,
+  //              where the ny>=0 flip is float-noise).
+  // FRINGE faces additionally require a true rim within DROOP_RIM_NEAR_M (XZ, Y-windowed) so a steep
+  // grass-textured wall far from any walkable edge (not an overhang) gets nothing. Lips are adjacent
+  // to the rim by construction (their shoulder edge IS the rim) — no guard needed.
+  std::vector<DroopTri> droop_tbl;
+  int droop_lips = 0, droop_fringe = 0, fringe_no_rim = 0, droop_dir_fallback = 0;
+  float droop_area = 0.f;
+  {
+    const float DROOP_NEAR = DROOP_RIM_NEAR_M * U;
+    const float DROOP_YWIN = 3.0f * U;
+    // nearest rim point to (px,py,pz): XZ metric, Y-windowed. Returns squared XZ distance (or 1e30)
+    // and writes the closest point. Buckets are RIM_BUCKET (1.5 m); DROOP_NEAR (2.5 m) needs +-2.
+    auto nearest_rim = [&](float px, float py, float pz, float& cxo, float& czo) -> float {
+      float best = 1e30f;
+      if (rim_segs.empty()) return best;
+      s64 gx = (s64)std::floor(px * rim_inv), gz = (s64)std::floor(pz * rim_inv);
+      for (s64 dz = -2; dz <= 2; ++dz) {
+        for (s64 dx = -2; dx <= 2; ++dx) {
+          auto it = rim_grid.find(((gx + dx) << 32) ^ ((gz + dz) & 0xffffffffLL));
+          if (it == rim_grid.end()) continue;
+          for (int si : it->second) {
+            const auto& sg = rim_segs[si];
+            float abx = sg.bx - sg.ax, abz = sg.bz - sg.az;
+            float denom = abx * abx + abz * abz;
+            float t = denom > 1e-6f ? ((px - sg.ax) * abx + (pz - sg.az) * abz) / denom : 0.f;
+            t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+            float cy = sg.ay + t * (sg.by - sg.ay);
+            if (std::fabs(cy - py) > DROOP_YWIN) continue;
+            float cx = sg.ax + t * abx, cz = sg.az + t * abz;
+            float ddx = px - cx, ddz = pz - cz;
+            float d2 = ddx * ddx + ddz * ddz;
+            if (d2 < best) { best = d2; cxo = cx; czo = cz; }
+          }
+        }
+      }
+      return best;
+    };
+    // resolve one face; tri_idx = FINAL index in bake_tris. Returns false if no direction/rim.
+    auto add_droop = [&](u32 tri_idx, const TriRec& r, bool need_rim_guard) -> bool {
+      float cx = r.p0x + (r.e1x + r.e2x) * (1.0f / 3.0f);
+      float cy = r.p0y + (r.e1y + r.e2y) * (1.0f / 3.0f);
+      float cz = r.p0z + (r.e1z + r.e2z) * (1.0f / 3.0f);
+      float rx = 0.f, rz = 0.f;
+      float rim_d2 = nearest_rim(cx, cy, cz, rx, rz);
+      if (need_rim_guard && rim_d2 > DROOP_NEAR * DROOP_NEAR) {
+        fringe_no_rim++;
+        return false;
+      }
+      float ox, oz;
+      if (r.upness >= DROOP_UPNESS_DIR_MIN) {
+        ox = r.nx;  // horizontal component of the ny>=0 normal = downhill = outward over the drop
+        oz = r.nz;
+      } else if (rim_d2 < 1e29f) {
+        ox = cx - rx;  // near-vertical face: point away from the nearest walkable rim
+        oz = cz - rz;
+        droop_dir_fallback++;
+      } else {
+        return false;  // vertical face with no rim in reach: no reliable outward direction
+      }
+      float ol = std::sqrt(ox * ox + oz * oz);
+      if (ol < 1e-4f) return false;
+      droop_tbl.push_back({tri_idx, ox / ol, oz / ol});
+      droop_area += r.area_m2;
+      return true;
+    };
+    for (size_t tj = 0; tj < tris.size(); ++tj) {
+      if (tris[tj].is_lip && !tris[tj].is_dup) {
+        if (add_droop((u32)tj, tris[tj], false)) droop_lips++;
+      }
+    }
+    for (const auto& fr : fringe_recs) {
+      BakeTri bt;
+      bt.p0[0] = fr.p0x; bt.p0[1] = fr.p0y; bt.p0[2] = fr.p0z;
+      bt.e1[0] = fr.e1x; bt.e1[1] = fr.e1y; bt.e1[2] = fr.e1z;
+      bt.e2[0] = fr.e2x; bt.e2[1] = fr.e2y; bt.e2[2] = fr.e2z;
+      bt.seed = fr.seed;
+      bt.area_m2 = fr.area_m2;
+      bt.gr = fr.gr; bt.gg = fr.gg; bt.gb = fr.gb;
+      bt.nx = fr.nx; bt.ny = fr.ny; bt.nz = fr.nz;
+      std::memcpy(bt.pal, fr.pal, sizeof(bt.pal));
+      bt.flags = (fr.is_tie ? 1u : 0u) | 8u;  // bit3 = fringe (droop-only tri, no walkable candidates)
+      bt.cand_base = cand_running;
+      bt.cand_count = 0;
+      u32 tri_idx = (u32)bake_tris.size();
+      // only APPEND the fringe tri when it actually droops — a dropped face would be dead weight
+      if (add_droop(tri_idx, fr, true)) {
+        bake_tris.push_back(bt);
+        droop_fringe++;
+      }
+    }
+  }
+  lg::info(
+      "[recharged-grass] GOVERHANG droop zone: lips={} fringe_kept={} (of {} fringe faces; {} no-rim, "
+      "{} no-dir) area={:.0f}m2 dir_fallback={} droop_tris={} (outward = downhill normal, rim fallback "
+      "under upness {:.2f}; fringe guard = rim within {:.1f}m)",
+      droop_lips, droop_fringe, (int)fringe_recs.size(), fringe_no_rim,
+      (int)fringe_recs.size() - droop_fringe - fringe_no_rim, droop_area, droop_dir_fallback,
+      (int)droop_tbl.size(), DROOP_UPNESS_DIR_MIN, DROOP_RIM_NEAR_M);
+
   // ROUND#16 instrumentation (RIMDIST). placed = candidates that passed the floor+rim pass (scatter_keep),
   // matching today's m_instances.size() at the point this log fired (pre-occ).
   int placed_pre_occ = 0;
@@ -1114,6 +1260,7 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
   out.tris = std::move(bake_tris);
   out.keep = std::move(keep_tbl);
   out.rim_q = std::move(rimq_tbl);
+  out.droop = std::move(droop_tbl);  // Grecharged-grass-overhang
   out.stats.considered_draws = considered_draws;
   out.stats.tie_draws = tie_draws;
   out.stats.tris_kept = tris_kept;
@@ -1189,6 +1336,79 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   }
   res.scatter_kept = scatter_kept;
   res.occ_culled = occ_culled;
+
+  // ---- Grecharged-grass-overhang: append the DROOP instances at the tail. ----
+  // Deterministic per-tri enumeration like the walkable pass, but with no keep tables: droop blades
+  // hang over the drop BY DESIGN (no floor test, no occ, gspare = NO_RIM so the shader rim taper and
+  // horizontal clamp never touch them). Distinct hash streams from the walkable candidates so the two
+  // passes never correlate. Placement is TOP-BIASED on the face (the strip is anchored at the rim) and
+  // the blade length scales with the face's vertical span so the droop covers the painted alpha strip.
+  res.droop_start = (int)res.instances.size();
+  if (!d.droop.empty()) {
+    int droop_placed = 0;
+    float ddens = DROOP_DENSITY * dens_scale;
+    // Uniform budget clamp (like the walkable pass): a hard per-iteration cap would starve the
+    // LAST-scanned rims at high sliders (order-biased bald edges). Scale the density instead so
+    // every rim keeps the same look at any slider value.
+    float droop_area_sum = 0.f;
+    for (const auto& de : d.droop) {
+      if (de.tri < d.tris.size()) droop_area_sum += d.tris[de.tri].area_m2;
+    }
+    if (droop_area_sum > 1.0f && droop_area_sum * ddens > 0.9f * (float)DROOP_MAX) {
+      ddens = 0.9f * (float)DROOP_MAX / droop_area_sum;
+    }
+    for (const auto& de : d.droop) {
+      if (droop_placed >= DROOP_MAX) break;
+      if (de.tri >= d.tris.size()) continue;  // belt-and-braces vs a corrupt bake
+      const BakeTri& tri = d.tris[de.tri];
+      float fn = tri.area_m2 * ddens;
+      int n = (int)fn;
+      if (hash_f(tri.seed + 777u) < (fn - (float)n)) {
+        n += 1;
+      }
+      float y0 = tri.p0[1], y1 = y0 + tri.e1[1], y2 = y0 + tri.e2[1];
+      float ymin = std::min(y0, std::min(y1, y2));
+      float ymax = std::max(y0, std::max(y1, y2));
+      float vspan = ymax - ymin;
+      // blade length ~ the face's vertical extent (cover the strip), clamped to a sane band
+      float len_ref = std::min(std::max(vspan * 1.05f, 0.30f * U), 0.95f * U);
+      float base_yaw = std::atan2(de.ox, de.oz);  // shader fwdv = (sin yaw, 0, cos yaw) = outward
+      for (int i = 0; i < n; ++i) {
+        if (droop_placed >= DROOP_MAX) break;
+        u32 sd = (tri.seed ^ 0x0D00Fu) + (u32)i * 2654435761u;
+        float r1 = hash_f(sd + 1u);
+        float r2 = hash_f(sd + 2u);
+        if (r1 + r2 > 1.0f) {
+          r1 = 1.0f - r1;
+          r2 = 1.0f - r2;
+        }
+        float bx = tri.p0[0] + r1 * tri.e1[0] + r2 * tri.e2[0];
+        float by = tri.p0[1] + r1 * tri.e1[1] + r2 * tri.e2[1];
+        float bz = tri.p0[2] + r1 * tri.e1[2] + r2 * tri.e2[2];
+        // top bias: keep-probability rises with height on the face (the strip hangs FROM the rim)
+        float relh = vspan > 1.0f ? (by - ymin) / vspan : 1.0f;
+        if (hash_f(sd + 8u) > 0.35f + 0.65f * relh) {
+          continue;
+        }
+        GrassInstance gi;
+        gi.px = bx;
+        gi.py = by;
+        gi.pz = bz;
+        gi.h = len_ref * (0.80f + 0.55f * hash_f(sd + 3u));
+        gi.yaw = base_yaw + (hash_f(sd + 4u) - 0.5f) * 0.7f;  // +-0.35 rad outward jitter
+        gi.tint = hash_f(sd + 5u);
+        gi.curve = hash_f(sd + 6u);
+        gi.phase = hash_f(sd + 7u);
+        gi.gr = tri.gr; gi.gg = tri.gg; gi.gb = tri.gb;
+        gi.gspare = 1.0e9f;  // NO_RIM: droop is the intended overhang, exempt from the rim taper
+        gi.nx = tri.nx; gi.ny = tri.ny; gi.nz = tri.nz;
+        gi.nspare = 2.0f;    // DROOP marker (shader: inst_normal.w > 1.5)
+        res.instances.push_back(gi);
+        res.inst_tri.push_back(de.tri);
+        droop_placed++;
+      }
+    }
+  }
   return res;
 }
 
@@ -1197,7 +1417,9 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
 // ===========================================================================
 namespace {
 constexpr u32 GBK_MAGIC = 0x314B4247;   // 'GBK1'
-constexpr u32 GBK_FORMAT_VERSION = 1;
+// Grecharged-grass-overhang: v2 appends the droop section (fringe tris ride in tris[] with flags
+// bit3). A v1 bake fails the version check below -> the runtime's LIVE-scan fallback handles it.
+constexpr u32 GBK_FORMAT_VERSION = 2;
 
 template <typename T>
 void put(std::vector<u8>& buf, const T& v) {
@@ -1265,6 +1487,14 @@ bool save_bake(const BakeData& d, const std::string& path) {
   }
   put_bytes(buf, d.keep.data(), d.keep.size() * sizeof(u8));
   put_bytes(buf, d.rim_q.data(), d.rim_q.size() * sizeof(u16));
+
+  // Grecharged-grass-overhang (GBK2): droop section.
+  put<u32>(buf, (u32)d.droop.size());
+  for (const auto& de : d.droop) {
+    put<u32>(buf, de.tri);
+    put<float>(buf, de.ox);
+    put<float>(buf, de.oz);
+  }
 
   std::vector<u8> comp = compression::compress_zstd(buf.data(), buf.size());
   std::ofstream f(path, std::ios::binary | std::ios::trunc);
@@ -1360,6 +1590,25 @@ bool load_bake(BakeData& d, const std::string& path) {
   if (ncand && !get_bytes(buf, off, tmp.rim_q.data(), ncand * sizeof(u16))) {
     lg::warn("[recharged-grass] load_bake: truncated rim_q[] in '{}'", path);
     return false;
+  }
+
+  // Grecharged-grass-overhang (GBK2): droop section.
+  u32 ndroop = 0;
+  if (!get(buf, off, ndroop)) {
+    lg::warn("[recharged-grass] load_bake: truncated droop count in '{}'", path);
+    return false;
+  }
+  tmp.droop.resize(ndroop);
+  for (u32 i = 0; i < ndroop; ++i) {
+    DroopTri& de = tmp.droop[i];
+    if (!get(buf, off, de.tri) || !get(buf, off, de.ox) || !get(buf, off, de.oz)) {
+      lg::warn("[recharged-grass] load_bake: truncated droop[] in '{}'", path);
+      return false;
+    }
+    if (de.tri >= ntris) {
+      lg::warn("[recharged-grass] load_bake: droop tri index out of range in '{}'", path);
+      return false;
+    }
   }
 
   d = std::move(tmp);

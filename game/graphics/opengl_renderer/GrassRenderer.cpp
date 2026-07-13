@@ -557,6 +557,7 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   using clk = std::chrono::steady_clock;
   m_instances.clear();
   m_instance_count = 0;
+  m_droop_start = 0;  // Grecharged-grass-overhang
   m_chunks.clear();
   m_cached_level = nullptr;
   m_cached_load_id = UINT64_MAX;
@@ -650,6 +651,13 @@ void GrassRenderer::rebuild(SharedRenderState* rs) {
   m_instances = std::move(res.instances);
   m_inst_tri = std::move(res.inst_tri);
   m_instance_count = (int)m_instances.size();
+  m_droop_start = res.droop_start;
+  // Grecharged-grass-overhang census: droop instances built (drawn only while the toggle is ON).
+  lg::info(
+      "[recharged-grass] GOVERHANG expand: droop_tris={} droop_instances={} (tail [{}..{}), toggle={}"
+      " — near-LOD 3D droop over the lip faces, far LOD stays the stock alpha texture, no cards)",
+      (int)m_bake.droop.size(), m_instance_count - m_droop_start, m_droop_start, m_instance_count,
+      Gfx::g_global_settings.recharged_grass_overhang ? "ON" : "OFF");
 
   // Recompute `density` exactly as expand() did, for the STATIC place summary log.
   int budget;
@@ -1124,8 +1132,15 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     s_maxinst = me ? atoi(me) : 0;
   }
 #endif
-  const int draw_n =
-      (s_maxinst > 0 && s_maxinst < m_instance_count) ? s_maxinst : m_instance_count;
+  // Grecharged-grass-overhang: the droop instances sit at the buffer TAIL. The blade pass draws
+  // them only while the toggle is ON; the card pass ALWAYS stops before them (owner: at distance
+  // the ORIGINAL alpha overhang texture shows, no grass cards). Flipping the toggle changes only
+  // these counts — no rebuild, and OFF is bit-identical to a build without the droop tail.
+  const int nondroop_n = std::min(m_droop_start, m_instance_count);
+  const int blade_total =
+      Gfx::g_global_settings.recharged_grass_overhang ? m_instance_count : nondroop_n;
+  const int draw_n = (s_maxinst > 0 && s_maxinst < blade_total) ? s_maxinst : blade_total;
+  const int card_n = (s_maxinst > 0 && s_maxinst < nondroop_n) ? s_maxinst : nondroop_n;
 
   // ROUND#19 GPU-WEDGE FIX (the REAL one, forensically pinned): the per-draw costs are healthy
   // (blade ~35 ms, card ~55 ms at density 150 — R19SYNC logs), but WITHOUT any drain the CPU queues
@@ -1165,11 +1180,12 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   prof.add_tri(draw_n * 8);
   sync_ms("blade draw");
 
-  // MID: X-cross cards (12-vert, 4 triangles)
+  // MID: X-cross cards (12-vert, 4 triangles). card_n stops before the droop tail: droop NEVER
+  // has a card tier (far LOD = the game's own alpha overhang texture).
   glUniform1i(mode_loc, 1);
-  glDrawArraysInstanced(GL_TRIANGLES, 0, 12, draw_n);
+  glDrawArraysInstanced(GL_TRIANGLES, 0, 12, card_n);
   prof.add_draw_call();
-  prof.add_tri(draw_n * 4);
+  prof.add_tri(card_n * 4);
   sync_ms("card draw");
 
   // ROUND#19 wedge fix, part 2: fence THIS frame's grass draws; the wait above (next frame) will not

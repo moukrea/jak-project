@@ -121,6 +121,20 @@ constexpr float FLOOR_BUCKET_M = 1.0f;  // fine XZ lookup bucket so per-base can
                                         // small (ROUND#19 perf: 4m buckets ANR-stalled rebuild)
 constexpr float FLOOR_MAX_TRI_M = 40.0f;// drop degenerate level-spanning collision tris
 
+// Grecharged-grass-overhang (owner 2026-07-11): 3D DROOPING grass over platform edges. The placement
+// zone is the faces the WALKABLE pass excludes: the overhang-LIP tris (is_lip, upness 0.35..0.55) plus
+// the steep grass-textured FRINGE faces (upness <= GROUND_UPNESS — the faces carrying the game's
+// painted drooping-grass alpha texture, e.g. bch-grassfringe) which the scan previously dropped
+// entirely. Droop blades hang over the drop BY DESIGN, so they are exempt from the rim height-taper
+// (gspare = NO_RIM) and from the floor/occ keep tables. NEAR LOD only: the card pass never draws them
+// (far = the original alpha texture, no cards).
+constexpr float DROOP_DENSITY = 70.0f;     // droop blades per m^2 of lip/fringe face (pre top-bias)
+constexpr int DROOP_MAX = 90000;           // hard ceiling for the whole droop pass
+constexpr float DROOP_RIM_NEAR_M = 2.5f;   // a FRINGE face must sit this close (XZ) to a true rim —
+                                           // steep grass walls far from any walkable edge get nothing
+constexpr float DROOP_UPNESS_DIR_MIN = 0.10f;  // below this the ny>=0 normal flip is float-noise, so
+                                               // the outward direction falls back to the nearest rim
+
 // ---------------------------------------------------------------------------
 // Per-instance POD (moved from GrassRenderer.h). Layout MUST stay 16 floats in
 // the same order — the GL attrib offsets depend on it.
@@ -145,7 +159,15 @@ struct BakeTri {
   float pal[8][3];            // day-cycle baked-light keyframes (time-of-day palette rows, centroid avg)
   u32 cand_count;             // candidates enumerated at bake_density_pct
   u64 cand_base;              // first candidate index in keep[]/rim_q[]
-  u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup
+  u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri)
+};
+
+// Grecharged-grass-overhang: one droop-placement face (a lip or fringe tri) with its scan-resolved
+// OUTWARD direction (unit XZ, pointing away from the platform over the drop). Kept per-tri, not
+// per-blade — expand() enumerates the blades deterministically from the tri seed.
+struct DroopTri {
+  u32 tri;         // index into BakeData::tris (a lip tri, or an appended fringe tri)
+  float ox, oz;    // unit outward XZ direction (world)
 };
 
 struct BakeStats {
@@ -161,9 +183,12 @@ struct BakeData {
   float bake_density_pct = 0.f;   // density the candidates were enumerated at
   float floor_gap_m = 0.f;        // floor-gap threshold used at scan time (metres)
   float total_area_m2 = 0.f;      // scan's float area sum (expand's density recompute input)
-  std::vector<BakeTri> tris;      // ALL scanned tris incl. lip/dup (cand_count=0 for those)
+  std::vector<BakeTri> tris;      // ALL scanned tris incl. lip/dup (cand_count=0 for those);
+                                  // Grecharged-grass-overhang: fringe tris are APPENDED at the tail
+                                  // (flags bit3) so all pre-existing tri indices are unchanged
   std::vector<u8>  keep;          // per candidate: bit0 scatter_keep (floor+rim pass), bit1 occ_keep
   std::vector<u16> rim_q;         // per candidate: quantized rim_dist; 0xFFFF = NO_RIM/far
+  std::vector<DroopTri> droop;    // Grecharged-grass-overhang: droop faces + outward dirs (GBK2)
   BakeStats stats;
 };
 
@@ -198,6 +223,10 @@ struct ExpandResult {
   std::vector<u32> inst_tri;    // instance -> tris index
   int scatter_kept = 0;         // pre-occ kept count (budget accounting, for the occ log)
   int occ_culled = 0;
+  // Grecharged-grass-overhang: droop instances are appended at the TAIL of instances[]. The renderer
+  // draws [0, droop_start) for the card pass always, and [0, droop_start or size) for the blade pass
+  // depending on the overhang toggle — so flipping the toggle never needs a rebuild.
+  int droop_start = 0;          // == instances.size() when there is no droop data
 };
 ExpandResult expand(const BakeData& d, float density_slider_pct);
 
