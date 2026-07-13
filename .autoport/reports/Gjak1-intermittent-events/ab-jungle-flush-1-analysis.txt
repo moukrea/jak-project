@@ -1,0 +1,19 @@
+ACTOR proc=junglefish-78 type=junglefish samples=20 max_disp=89529 states=nav-enemy-idle->nav-enemy-patrol
+ACTOR proc=hopper-33 type=hopper samples=20 max_disp=51443 states=nav-enemy-idle->nav-enemy-patrol
+ACTOR proc=junglefish-83 type=junglefish samples=20 max_disp=38212 states=nav-enemy-idle->nav-enemy-patrol
+ACTOR proc=junglefish-79 type=junglefish samples=20 max_disp=32908 states=nav-enemy-idle->nav-enemy-patrol
+ACTOR proc=junglefish-80 type=junglefish samples=20 max_disp=32861 states=nav-enemy-idle->nav-enemy-patrol->nav-enemy-idle
+ACTOR proc=lurkerm-piston-5 type=lurkerm-piston samples=20 max_disp=16020 states=lurkerm-piston-idle
+ACTOR proc=lurkerm-piston-4 type=lurkerm-piston samples=20 max_disp=16020 states=lurkerm-piston-idle
+ACTOR proc=lurkerm-piston-6 type=lurkerm-piston samples=20 max_disp=16020 states=lurkerm-piston-idle
+ACTOR proc=lurkerm-tall-sail-4 type=lurkerm-tall-sail samples=20 max_disp=0 states=lurkerm-tall-sail-idle
+ACTOR proc=lurkerm-tall-sail-2 type=lurkerm-tall-sail samples=20 max_disp=0 states=lurkerm-tall-sail-idle
+ACTOR proc=hopper-34 type=hopper samples=20 max_disp=0 states=nav-enemy-idle
+ACTOR proc=junglefish-82 type=junglefish samples=20 max_disp=0 states=nav-enemy-idle
+ACTOR proc=junglefish-81 type=junglefish samples=20 max_disp=0 states=nav-enemy-idle
+ACTOR proc=darkvine-8 type=darkvine samples=20 max_disp=0 states=darkvine-idle
+ACTOR proc=darkvine-6 type=darkvine samples=20 max_disp=0 states=darkvine-idle
+ACTOR proc=darkvine-5 type=darkvine samples=20 max_disp=0 states=darkvine-idle
+TRIGGER junglefish min_disp=30000 -> FIRED (best proc=junglefish-78 disp=89529 states=1)
+TRIGGER hopper min_disp=25000 -> FIRED (best proc=hopper-33 disp=51443 states=1)
+VERDICT fired=2/2

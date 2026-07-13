@@ -1,0 +1,1 @@
+EVTRIAL-RATE arm=noflush cont=sunken-start runs=6 ok=6 boot_crash=0 warp_fail=0 post_crash=0 fired_all=6/6

@@ -1,0 +1,1 @@
+EVTRIAL-RESULT tag=calib-snow arm=flush cont=snow-start status=OK armcheck=OK focus=yes fired=na

@@ -1,0 +1,1 @@
+EVTRIAL-RESULT tag=calib-beach arm=flush cont=beach-start status=OK armcheck=OK focus=yes fired=na

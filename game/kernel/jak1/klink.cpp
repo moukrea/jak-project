@@ -5,6 +5,7 @@
 #include <cstring>
 
 #ifdef __ANDROID__
+#include <android/log.h>
 #include <sys/system_properties.h>
 #endif
 
@@ -616,6 +617,28 @@ uint32_t link_control::jak1_work_v2() {
   return 1;
 }
 
+// Gjak1-intermittent-events A/B diag: `setprop debug.opengoal.icache.noflush 1`
+// restores the pre-fix no-op-flush behavior (arm64 bug class #14) so the
+// stale-icache arm can be measured against the fixed arm on ONE binary
+// (no mixed builds). Default (prop absent/0) = flush ON. Android-only; the
+// x86 CacheFlush body is a no-op either way, so x86 is unaffected.
+static bool gk_icache_noflush_diag() {
+#ifdef __ANDROID__
+  char v[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("debug.opengoal.icache.noflush", v) > 0 && v[0] == '1') {
+    static bool logged = false;
+    if (!logged) {
+      logged = true;
+      __android_log_print(ANDROID_LOG_FATAL, "opengoal-gk",
+                          "GK-DIAG ICACHE-NOFLUSH armed: jak1_finish CacheFlush skipped "
+                          "(bug-class-#14 A/B diag)");
+    }
+    return true;
+  }
+#endif
+  return false;
+}
+
 /*!
  * Complete linking. This will execute the top-level code for v3 object files, if requested.
  */
@@ -630,7 +653,7 @@ void link_control::jak1_finish(bool jump_from_c_to_goal) {
   // back correct, I-fetch is stale). On the arm64 builds CacheFlush is
   // __builtin___clear_cache(mem, mem+size); the x86 CacheFlush body is a
   // no-op, so x86 behavior is unchanged.
-  {
+  if (!gk_icache_noflush_diag()) {
     ObjectFileHeader* fofh = m_link_block_ptr.cast<ObjectFileHeader>().c();
     if (fofh->object_file_version == 3) {
       // v3 objects wrote executable code into freshly kmalloc'd segments (MAIN

@@ -1,0 +1,17 @@
+ACTOR proc=square-platform-button- type=square-platform-button samples=124 max_disp=442128 states=basebutton-up-idle
+ACTOR proc=square-platform-master- type=square-platform-master samples=62 max_disp=438994 states=square-platform-master-idle
+ACTOR proc=plat-61 type=plat samples=31 max_disp=98162 states=plat-path-active
+ACTOR proc=plat-62 type=plat samples=31 max_disp=86702 states=plat-path-active
+ACTOR proc=plat-60 type=plat samples=31 max_disp=55712 states=plat-path-active
+ACTOR proc=plat-59 type=plat samples=31 max_disp=55712 states=plat-path-active
+ACTOR proc=square-platform-9 type=square-platform samples=31 max_disp=0 states=square-platform-lowered
+ACTOR proc=square-platform-8 type=square-platform samples=31 max_disp=0 states=square-platform-lowered
+ACTOR proc=square-platform-7 type=square-platform samples=31 max_disp=0 states=square-platform-lowered
+ACTOR proc=square-platform-6 type=square-platform samples=31 max_disp=0 states=square-platform-lowered
+ACTOR proc=square-platform-5 type=square-platform samples=31 max_disp=0 states=square-platform-lowered
+ACTOR proc=square-platform-4 type=square-platform samples=31 max_disp=0 states=square-platform-lowered
+ACTOR proc=square-platform-3 type=square-platform samples=31 max_disp=0 states=square-platform-lowered
+ACTOR proc=square-platform-2 type=square-platform samples=31 max_disp=0 states=square-platform-lowered
+ACTOR proc=square-platform-1 type=square-platform samples=31 max_disp=0 states=square-platform-lowered
+TRIGGER plat min_disp=40000 -> FIRED (best proc=square-platform-button- disp=442128 states=0)
+VERDICT fired=1/1

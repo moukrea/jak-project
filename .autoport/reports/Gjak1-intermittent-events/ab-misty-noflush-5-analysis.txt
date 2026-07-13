@@ -1,0 +1,12 @@
+ACTOR proc= type=balloonlurker-pilot samples=90 max_disp=1037325 states=balloonlurker-pilot-idle
+ACTOR proc=d?? type=keg samples=265 max_disp=932214 states=keg-conveyor-paddle-idle->keg-on-paddle->keg-conveyor-paddle-idle->keg-paddle-to-path->keg-on-path->keg-conveyor-paddle-idle->keg-on-path->keg-conveyor-paddle-idle->keg-on-path->keg-conveyor-paddle-idle->keg-on-path->keg-conveyor-paddle-idle->keg-on-path->keg-conveyor-paddle-idle->keg-on-path->keg-conveyor-paddle-idle->keg-on-path->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-paddle->keg-on-path->keg-in-chute->keg-conveyor-paddle-idle->keg-on-paddle->keg-on-path->keg-conveyor-paddle-idle->keg-on-paddle->keg-on-path->keg-conveyor-paddle-idle->keg-on-paddle->keg-on-path->keg-conveyor-paddle-idle->keg-on-paddle->keg-on-path->keg-conveyor-paddle-idle->keg-on-paddle->keg-on-path->keg-conveyor-paddle-idle->keg-on-paddle->keg-on-path->keg-conveyor-paddle-idle->keg-on-paddle->keg-on-path->keg-conveyor-paddle-idle->keg-on-paddle->keg-on-path->keg-conveyor-paddle-idle->keg-on-paddle->keg-on-path
+ACTOR proc=balloonlurker-11 type=balloonlurker samples=30 max_disp=862527 states=balloonlurker-patrol
+ACTOR proc=balloonlurker-14 type=balloonlurker samples=30 max_disp=839358 states=balloonlurker-patrol
+ACTOR proc=balloonlurker-10 type=balloonlurker samples=30 max_disp=433930 states=balloonlurker-patrol
+ACTOR proc=sharkey-41 type=sharkey samples=30 max_disp=0 states=nav-enemy-idle
+ACTOR proc=sharkey-34 type=sharkey samples=30 max_disp=0 states=nav-enemy-idle
+ACTOR proc=teetertotter-11 type=teetertotter samples=30 max_disp=0 states=teetertotter-idle
+ACTOR proc=keg-conveyor-8 type=keg-conveyor samples=30 max_disp=0 states=keg-conveyor-idle
+ACTOR proc=teetertotter-6 type=teetertotter samples=30 max_disp=0 states=teetertotter-idle
+TRIGGER balloonlurker min_disp=200000 -> FIRED (best proc= disp=1037325 states=0)
+VERDICT fired=1/1

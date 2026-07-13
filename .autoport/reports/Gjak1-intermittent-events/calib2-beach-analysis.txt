@@ -1,0 +1,10 @@
+ACTOR proc=pelican-1 type=pelican samples=22 max_disp=132795 states=pelican-circle
+ACTOR proc= type=seagull samples=462 max_disp=39788 states=seagull-idle
+ACTOR proc=evilplant-2 type=evilplant samples=2 max_disp=0 states=idle
+ACTOR proc=windmill-sail-4 type=windmill-sail samples=24 max_disp=0 states=windmill-sail-idle
+ACTOR proc=seagullflock-1 type=seagullflock samples=22 max_disp=0 states=seagullflock-idle
+ACTOR proc=lurkercrab-3 type=lurkercrab samples=22 max_disp=0 states=nav-enemy-idle
+ACTOR proc=lurkercrab-2 type=lurkercrab samples=22 max_disp=0 states=nav-enemy-idle
+ACTOR proc=lurkercrab-1 type=lurkercrab samples=22 max_disp=0 states=nav-enemy-idle
+ACTOR proc=windmill-one-2 type=windmill-one samples=22 max_disp=0 states=windmill-one-idle
+ACTOR proc=bladeassm-15 type=bladeassm samples=22 max_disp=0 states=bladeassm-idle

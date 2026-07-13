@@ -3639,6 +3639,137 @@ extern "C" void a36_tree_scan_per_frame() {
                                     : "restored to analog stick");
       }
     }
+    // Phase Gjak1-intermittent-events (autoport): prop-gated actor-state
+    // telemetry probe for the intermittent "enemy immobile / platform not
+    // moving / cutscene not firing" trials. Same tree walk as the Gwarp-dpad
+    // scan above (we ARE the GOAL thread), but instead of testing for one
+    // warp-gate node it samples name/type/state/root-pos of every matched node
+    // once per ~second of logic frames, so evtrial_analyze.py can decide from
+    // the logcat whether a named actor moved / changed state across a trial.
+    {
+      char ev_pb[PROP_VALUE_MAX] = {0};
+      const bool ev_on = __system_property_get("debug.opengoal.evtrial", ev_pb) > 0 &&
+                         ev_pb[0] == '1' && (f % 60) == 0;
+      if (ev_on) {
+        char ev_filter[PROP_VALUE_MAX] = {0};
+        __system_property_get("debug.opengoal.evtrial.filter", ev_filter);
+        const bool have_filter = ev_filter[0] != 0;
+        auto ap = jak1::intern_from_c("*active-pool*");
+        uint32_t root = ap.offset ? ap->value : 0;
+        int visited = 0, matched = 0, logged = 0;
+        if (root && root != (uint32_t)s7.offset) {
+          uint32_t stk[128];
+          int sp = 0;
+          stk[sp++] = root;
+          // Empty tree links are #f (s7), not 0 — see the Gwarp walk above;
+          // both the cell and the ref must be s7-guarded.
+          auto deref_link = [](uint32_t node, uint32_t deftype_off) -> uint32_t {
+            uint32_t cell = 0, ref = 0;
+            if (!rd32(node + deftype_off - 4, &cell)) return 0;
+            if (!cell || cell == (uint32_t)s7.offset) return 0;
+            if (!rd32(cell, &ref) || ref == (uint32_t)s7.offset) return 0;
+            return ref;
+          };
+          while (sp > 0) {
+            uint32_t node = stk[--sp];
+            while (node && node != (uint32_t)s7.offset && visited < 2048) {
+              visited++;
+              const uint32_t child = deref_link(node, 20);
+              if (child && sp < (int)(sizeof(stk) / sizeof(stk[0]))) {
+                stk[sp++] = child;
+              }
+              // type tag @ node-4 -> type basic; first u32 = name symbol.
+              // process.state @ deftype 56; state name @ deftype 4.
+              uint32_t type_ref = 0, type_sym = 0, st = 0, st_name = 0;
+              rd32(node - 4, &type_ref);
+              if (type_ref && type_ref != (uint32_t)s7.offset) {
+                rd32(type_ref, &type_sym);
+              }
+              rd32(node + 56 - 4, &st);
+              const bool has_state = st && st != (uint32_t)s7.offset;
+              if (has_state) {
+                rd32(st + 4 - 4, &st_name);
+              }
+              char tname[32] = {0}, sname[32] = {0}, pname[24] = {0};
+              if (type_sym) {
+                gk_a40_sym_name_fwd((uintptr_t)g_ee_main_mem, type_sym, tname,
+                                    sizeof(tname));
+              }
+              if (st_name) {
+                gk_a40_sym_name_fwd((uintptr_t)g_ee_main_mem, st_name, sname,
+                                    sizeof(sname));
+              }
+              // process-tree.name @ deftype 4: usually a GOAL string (chars at
+              // ref+4); sanitize to printable ASCII.
+              uint32_t nm = 0;
+              rd32(node + 4 - 4, &nm);
+              if (nm && nm != (uint32_t)s7.offset &&
+                  nm < EE_MAIN_MEM_SIZE - (uint32_t)sizeof(pname) - 8) {
+                std::memcpy(pname, g_ee_main_mem + nm + 4, sizeof(pname) - 1);
+                for (char& c : pname) {
+                  if (c && (c < 0x20 || c > 0x7e)) c = '?';
+                }
+              }
+              // Match rule: no filter -> every node that HAS a state; else any
+              // comma-token is a substring of the proc name OR type name.
+              bool match = false;
+              if (!have_filter) {
+                match = has_state;
+              } else {
+                char ftmp[PROP_VALUE_MAX];
+                std::memcpy(ftmp, ev_filter, sizeof(ftmp));
+                for (char* tok = std::strtok(ftmp, ","); tok;
+                     tok = std::strtok(nullptr, ",")) {
+                  if (tok[0] && (strstr(pname, tok) || strstr(tname, tok))) {
+                    match = true;
+                    break;
+                  }
+                }
+              }
+              if (match) {
+                matched++;
+                // process-drawable.root @ deftype 112; trs.trans @ deftype 16.
+                uint32_t droot = 0;
+                rd32(node + (112 - 4), &droot);
+                float px = 0, py = 0, pz = 0;
+                bool have_pos = false;
+                if (droot && droot != (uint32_t)s7.offset &&
+                    droot < EE_MAIN_MEM_SIZE - 64) {
+                  uint32_t w = 0;
+                  rd32(droot + (16 - 4) + 0, &w); std::memcpy(&px, &w, 4);
+                  rd32(droot + (16 - 4) + 4, &w); std::memcpy(&py, &w, 4);
+                  rd32(droot + (16 - 4) + 8, &w); std::memcpy(&pz, &w, 4);
+                  have_pos = std::isfinite(px) && std::isfinite(py) &&
+                             std::isfinite(pz) && std::fabs(px) <= 1e8f &&
+                             std::fabs(py) <= 1e8f && std::fabs(pz) <= 1e8f;
+                }
+                if (logged < 32) {
+                  logged++;
+                  char posbuf[48];
+                  if (have_pos) {
+                    std::snprintf(posbuf, sizeof(posbuf), "(%.1f %.1f %.1f)", px,
+                                  py, pz);
+                  } else {
+                    std::snprintf(posbuf, sizeof(posbuf), "(na)");
+                  }
+                  __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                                      "GK-DIAG EVTRIAL f=%llu proc='%s' type='%s' "
+                                      "state='%s' pos=%s",
+                                      (unsigned long long)f, pname, tname, sname,
+                                      posbuf);
+                }
+              }
+              node = deref_link(node, 16);  // brother
+            }
+          }
+        }
+        __android_log_print(ANDROID_LOG_FATAL, kGkLogTag,
+                            "GK-DIAG EVTRIAL-SUM f=%llu visited=%d matched=%d "
+                            "logged=%d filter='%s'",
+                            (unsigned long long)f, visited, matched, logged,
+                            ev_filter);
+      }
+    }
     if (in_play) {
       static std::atomic<bool> s_play_logged{false};
       bool expected = false;

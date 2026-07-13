@@ -1,0 +1,17 @@
+ACTOR proc= type=snow-ball-roller samples=68 max_disp=955046 states=snow-ball-roller-idle
+ACTOR proc=d?? type=snow-ball-shadow samples=68 max_disp=955046 states=snow-ball-shadow-idle
+ACTOR proc=snow-part-92 type=snow-part samples=25 max_disp=0 states=part-spawner-active
+ACTOR proc=snow-part-91 type=snow-part samples=25 max_disp=0 states=part-spawner-active
+ACTOR proc=snow-bunny-129 type=snow-bunny samples=23 max_disp=0 states=nav-enemy-idle
+ACTOR proc=snow-bumper-69 type=snow-bumper samples=25 max_disp=0 states=snow-bumper-active-close-idle
+ACTOR proc=flutflut-plat-med-7 type=flutflut-plat-med samples=25 max_disp=0 states=flutflut-plat-hidden-idle
+ACTOR proc=flutflut-plat-large-5 type=flutflut-plat-large samples=23 max_disp=0 states=flutflut-plat-hidden-idle
+ACTOR proc=snow-part-57 type=snow-part samples=25 max_disp=0 states=part-spawner-active
+ACTOR proc=snow-part-56 type=snow-part samples=25 max_disp=0 states=part-spawner-active
+ACTOR proc=snow-part-41 type=snow-part samples=25 max_disp=0 states=part-spawner-active
+ACTOR proc=snow-part-39 type=snow-part samples=25 max_disp=0 states=part-spawner-active
+ACTOR proc=snow-part-38 type=snow-part samples=25 max_disp=0 states=part-spawner-active
+ACTOR proc=snow-part-34 type=snow-part samples=25 max_disp=0 states=part-spawner-active
+ACTOR proc=snow-bunny-79 type=snow-bunny samples=25 max_disp=0 states=nav-enemy-idle
+ACTOR proc=ice-cube-12 type=ice-cube samples=25 max_disp=0 states=ice-cube-trying-to-appear
+ACTOR proc=snow-ball-5 type=snow-ball samples=25 max_disp=0 states=snow-ball-idle

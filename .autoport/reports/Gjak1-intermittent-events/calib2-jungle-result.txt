@@ -1,0 +1,1 @@
+EVTRIAL-RESULT tag=calib2-jungle arm=flush cont=jungle-start status=OK armcheck=OK focus=yes fired=na

@@ -1,0 +1,1 @@
+EVTRIAL-RATE arm=flush cont=jungle-start runs=6 ok=6 boot_crash=0 warp_fail=0 post_crash=0 fired_all=12/12
