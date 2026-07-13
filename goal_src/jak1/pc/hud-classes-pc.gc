@@ -1763,10 +1763,13 @@
                      ;; publish the dummy trample ONLY while it stands in state `idle`. Broken -> never
                      ;; idle again -> the grass springs back at the FIRST break frame, debris despawn
                      ;; untouched; a regenerated dummy re-enters idle -> re-flattens.
-                     (if (and brk-ok
-                              (-> pd state)
-                              (= (-> pd state name) 'idle))
-                       (pc-grass-occ-add! 1 trans r1)))
+                     ;; R30 (owner: a mere non-breaking HIT raised the grass — "un peu con"): the R25
+                     ;; idle-only gate unpublished the dummy during its 2-3 s wobble anims. REMOVED —
+                     ;; the R28 break hook (fires only at clear-collide = the REAL break) + the C++
+                     ;; tombstone now own the break case, so: wobble -> stays flattened; break -> the
+                     ;; tombstone bans the spot through the debris window and the ghost eases out
+                     ;; smoothly like a crate.
+                     (if brk-ok (pc-grass-occ-add! 1 trans r1)))
                     ;; ROUND#23 (owner R22b: break a dummy -> grass disappears, then lying, then
                     ;; upright): break/debris spawns are transient process-drawables that fell into
                     ;; the static CULL arm below -> a bald disc stomped the grass for the debris'
