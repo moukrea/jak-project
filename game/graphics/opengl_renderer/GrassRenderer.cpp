@@ -357,6 +357,45 @@ void goal_add(int kind, float x, float y, float z, float r_world) {
   }
 }
 void goal_publish() {
+  // R24b ENFORCED static-stability (owner: the moving bald circle must be impossible BY CONSTRUCTION,
+  // not just unlikely): a kind-0 CULL entry is a static machine — if an entry's position moved > 0.3 m
+  // since the previous publish (matched by nearest-prev within 3 m), it is a MOVER that slipped the
+  // GOAL allowlist: DROP it (and log its coords once/s) instead of painting a gliding bald disc.
+  {
+    static std::vector<std::array<float, 4>> s_prev_cull;
+    constexpr float U = 4096.f;
+    std::vector<std::array<float, 4>> kept;
+    kept.reserve(s_goal_stage_cull.size());
+    for (const auto& e : s_goal_stage_cull) {
+      bool moved = false;
+      for (const auto& pv : s_prev_cull) {
+        float dx = e[0] - pv[0], dz = e[2] - pv[2];
+        float d2 = dx * dx + dz * dz;
+        if (d2 < (3.f * U) * (3.f * U)) {  // same actor neighbourhood
+          if (d2 > (0.3f * U) * (0.3f * U)) {
+            moved = true;
+          }
+          break;
+        }
+      }
+      if (moved) {
+        static double s_mv_log = -100.0;
+        double now = std::chrono::duration<double>(
+                         std::chrono::steady_clock::now().time_since_epoch())
+                         .count();
+        if (now - s_mv_log > 1.0) {
+          s_mv_log = now;
+          lg::info("[recharged-grass] R24B-DROP moving kind-0 entry at ({:.1f},{:.1f},{:.1f}) r{:.2f} — "
+                   "allowlist leak, dropped",
+                   e[0] / U, e[1] / U, e[2] / U, e[3] / U);
+        }
+        continue;
+      }
+      kept.push_back(e);
+    }
+    s_prev_cull = s_goal_stage_cull;
+    s_goal_stage_cull.swap(kept);
+  }
   {
     std::lock_guard<std::mutex> lk(s_goal_mutex);
     s_goal_cull = s_goal_stage_cull;
